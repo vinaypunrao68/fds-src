@@ -349,7 +349,7 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
     /*
      * Setup DM messages
      */
-    fds_uint32_t numNodes = FDS_REPLICATION_FACTOR;  // TODO: Why 8? Use vol/blob repl factor
+    fds_uint32_t numNodes = MAX_DM_NODES;  // TODO: Why 8? Use vol/blob repl factor
     InitDmMsgHdr(msgHdrDm);
     upd_obj_req->blob_name = blobReq->getBlobName();
     upd_obj_req->dm_transaction_id  = 1;  // TODO: Don't hard code
@@ -360,7 +360,7 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
     msgHdrSm->src_node_name = storHvisor->myIp;
     msgHdrDm->src_port       = 0;
     fds_uint64_t nodeIds[numNodes];
-    memset(nodeIds, 0x00, sizeof(fds_int32_t) * numNodes);
+    memset(nodeIds, 0x00, sizeof(fds_int64_t) * numNodes);
     dataPlacementTbl->getDMTNodesForVolume(volId, nodeIds, (int*)&numNodes);
     fds_verify(numNodes > 0);
 
@@ -662,40 +662,6 @@ fds::Error StorHvCtrl::deleteCatResp(const FDSP_MsgHdrTypePtr& rxMsg,
         return err;
     }
 
-#if 0
-    fds::AmQosReq *qosReq  = static_cast<fds::AmQosReq *>(txn->io);
-    fds_verify(qosReq != NULL);
-    fds::FdsBlobReq *blobReq = qosReq->getBlobReqPtr();
-    fds_verify(blobReq != NULL);
-    fds_verify(blobReq->getIoType() == FDS_DELETE_BLOB);
-    LOGNOTIFY << "Responding to deleteBlob trans " << transId
-              <<" for blob " << blobReq->getBlobName()
-              << " with result " << rxMsg->result;
-
-    /*
-     * Mark the IO complete, clean up txn, and callback
-     */
-    qos_ctrl->markIODone(txn->io);
-    if (rxMsg->result == FDSP_ERR_OK) {
-        blobReq->cbWithResult(0);
-    } else {
-        /*
-         * We received an error from SM
-         */
-        blobReq->cbWithResult(-1);
-    }
-
-    txn->reset();
-    vol->journal_tbl->releaseTransId(transId);
-
-    /*
-     * TODO: We're deleting the request structure. This assumes
-     * that the caller got everything they needed when the callback
-     * was invoked.
-     */
-    delete blobReq;
-#endif
-
     return err;
 }
 
@@ -952,8 +918,7 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
     unsigned int node_ip = 0;
     fds_uint32_t node_port = 0;
     unsigned int doid_dlt_key=0;
-    int num_nodes = FDS_REPLICATION_FACTOR, i =0;
-    fds_uint64_t  node_ids[8];
+    int num_nodes = MAX_DM_NODES, i =0;
     int node_state = -1;
     fds::Error err(ERR_OK);
     ObjectID oid;
@@ -1035,7 +1000,6 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
   
     // RPC Call DeleteCatalogObject to DataMgr
     FDS_ProtocolInterface::FDSP_DeleteCatalogTypePtr del_cat_obj_req(new FDSP_DeleteCatalogType);
-    num_nodes = FDS_REPLICATION_FACTOR;
     FDS_ProtocolInterface::FDSP_MsgHdrTypePtr fdsp_msg_hdr_dm(new FDSP_MsgHdrType);
     storHvisor->InitDmMsgHdr(fdsp_msg_hdr_dm);
     fdsp_msg_hdr_dm->msg_code = FDSP_MSG_DELETE_BLOB_REQ;
@@ -1047,6 +1011,9 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
     fdsp_msg_hdr_dm->src_port = 0;
     fdsp_msg_hdr_dm->dst_port = node_port;
     journEntry->dm_msg = fdsp_msg_hdr_dm;
+    num_nodes = MAX_DM_NODES;
+    fds_uint64_t  node_ids[num_nodes];
+    memset(node_ids, 0x00, sizeof(fds_int64_t) * num_nodes);
     storHvisor->dataPlacementTbl->getDMTNodesForVolume(vol_id, node_ids, &num_nodes);
     uint errcount = 0;
     for (i = 0; i < num_nodes; i++) {
@@ -1165,9 +1132,6 @@ fds::Error StorHvCtrl::listBucket(fds::AmQosReq *qosReq) {
     /*
      * Setup msg header
      */
-    fds_int32_t num_nodes = FDS_REPLICATION_FACTOR;  // TODO: Why 8? Look up vol/blob repl factor
-    fds_uint64_t node_ids[num_nodes];  // TODO: Doesn't need to be signed
-    memset(node_ids, 0x00, sizeof(fds_int32_t) * num_nodes);
 
     FDSP_MsgHdrTypePtr msgHdr(new FDSP_MsgHdrType);
     InitDmMsgHdr(msgHdr);
@@ -1193,6 +1157,9 @@ fds::Error StorHvCtrl::listBucket(fds::AmQosReq *qosReq) {
     journEntry->data_obj_id.digest.clear(); 
     journEntry->data_obj_len = 0;
     journEntry->io = qosReq;
+    fds_int32_t num_nodes = MAX_DM_NODES;  // TODO: Why 8? Look up vol/blob repl factor
+    fds_uint64_t node_ids[num_nodes];  // TODO: Doesn't need to be signed
+    memset(node_ids, 0x00, sizeof(fds_int64_t) * num_nodes);
     dataPlacementTbl->getDMTNodesForVolume(volId, node_ids, &num_nodes);
 
     if(num_nodes == 0) {

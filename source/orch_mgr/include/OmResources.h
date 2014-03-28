@@ -101,7 +101,7 @@ class OM_NodeAgent : public NodeAgent
                                  fpi::FDSP_MsgCodeType  cmd,
                                  fds_bool_t check_only = false);
 
-    virtual void om_send_dlt(const DLT *curDlt);
+    virtual bool om_send_dlt(const DLT *curDlt);
     virtual void om_send_dlt_close(fds_uint64_t cur_dlt_version);
     virtual void init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const;
 

@@ -33,7 +33,6 @@ int StorHvisorProcIoRd(void *_io)
   fds_uint32_t node_port = 0;
   unsigned int doid_dlt_key=0;
   int num_nodes = 8;
-  int node_ids[8];
   int node_state = -1;
   fds::Error err(ERR_OK);
   ObjectID oid;
@@ -154,7 +153,6 @@ int StorHvisorProcIoRd(void *_io)
   fds_verify(dltPtr != NULL);
 
   num_nodes = dltPtr->getLength();
-//  storHvisor->dataPlacementTbl->getDLTNodesForDoidKey(doid_dlt_key, node_ids, &num_nodes);
   if(num_nodes == 0) {
     FDS_PLOG(storHvisor->GetLog()) <<" StorHvisorTx:" << "IO-XID:" << trans_id
             << " volID:" << vol_id

@@ -80,8 +80,8 @@ public class OmConfigPath implements FDSP_ConfigPathReq.Iface {
     }
 
     @Override
-    public int GetVolInfo(FDSP_MsgHdrType fdsp_msg, FDSP_GetVolInfoReqType vol_info_req) throws TException {
-        return 0;
+    public FDSP_VolumeDescType GetVolInfo(FDSP_MsgHdrType fdsp_msg, FDSP_GetVolInfoReqType vol_info_req) throws TException {
+        return null;
     }
 
     @Override

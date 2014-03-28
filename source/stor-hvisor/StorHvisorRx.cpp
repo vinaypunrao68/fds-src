@@ -9,172 +9,6 @@ using namespace FDS_ProtocolInterface;
 
 extern StorHvCtrl *storHvisor;
 
-int StorHvCtrl::fds_process_get_obj_resp(const FDSP_MsgHdrTypePtr& rd_msg, const FDSP_GetObjTypePtr& get_obj_rsp )
-{
-    // struct fbd_device *fbd;
-    fbd_request_t *req; 
-    int trans_id;
-    StorHvVolume* vol;
-    //	int   data_size;
-    //	int64_t data_offset;
-    //	char  *data_buf;
-	
-    fds_volid_t vol_id = rd_msg->glob_volume_id;
-    trans_id = rd_msg->req_cookie;
-    vol = vol_table->getVolume(vol_id);
-    StorHvVolumeLock vol_lock(vol);    
-    if (!vol || !vol->isValidLocked()) {  
-        LOGERROR << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID: 0x" << std::hex << vol_id << std::dec
-                 << " - Error: GET_OBJ_RSP for an un-registered volume" ;
-        return (0);
-    }
-
-    StorHvJournalEntry *txn = vol->journal_tbl->get_journal_entry(trans_id);
-    // fbd = (fbd_device *)txn->fbd_ptr;
-    StorHvJournalEntryLock je_lock(txn);
-
-    if (!txn->isActive()) {
-        LOGERROR << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID: 0x" << std::hex << vol_id << std::dec
-                 << " - Error: Journal Entry" << rd_msg->req_cookie
-                 << "  GET_OBJ_RS for an inactive transaction" ;
-        return (0);
-    }
-
-    // TODO: check if incarnation number matches
-
-    if (txn->trans_state != FDS_TRANS_GET_OBJ) {
-        LOGERROR << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID: 0x" << std::hex << vol_id <<std::dec
-                 << " - Error: Journal Entry" << rd_msg->req_cookie <<  "  GET_OBJ_RSP for a transaction not in GetObjResp";
-        return (0);
-    }
-
-    LOGNORMAL << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID: 0x" <<std::hex << vol_id <<std::dec
-              << " - GET_OBJ_RSP Processing read response for trans  " <<  trans_id;
-    req = (fbd_request_t *)txn->write_ctx;
-    /*
-      - how to handle the  length miss-match ( requested  length and  recived legth from SM
-      - we will have to handle sending more data due to length difference
-    */
-
-    //boost::posix_time::ptime ts = boost::posix_time::microsec_clock::universal_time();
-    //long lat = vol->journal_tbl->microsecSinceCtime(ts) - req->sh_queued_usec;
-
-    /*
-      - respond to the block device- data ready 
-    */
-	
-    LOGNORMAL << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID: 0x" << std::hex << vol_id << std::dec
-              << " - GET_OBJ_RSP  responding to  the block :  " << req;
-    if(req) {
-        qos_ctrl->markIODone(txn->io);
-        if (rd_msg->result == FDSP_ERR_OK) { 
-            memcpy(req->buf, get_obj_rsp->data_obj.c_str(), req->len);
-            txn->fbd_complete_req(req, 0);
-        } else {
-            LOGERROR << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID: 0x" <<std::hex << vol_id << std::dec
-                     << " - Error Reading the Data,   responding to  the block :  " << req;
-            txn->fbd_complete_req(req, -1);
-        }
-    }
-    txn->reset();
-    vol->journal_tbl->release_trans_id(trans_id);
-    return 0;
-
-}
-
-
-int StorHvCtrl::fds_process_put_obj_resp(const FDSP_MsgHdrTypePtr& rx_msg, const FDSP_PutObjTypePtr& put_obj_rsp )
-{
-    int trans_id = rx_msg->req_cookie; 
-    fds_volid_t vol_id = rx_msg->glob_volume_id;
-    StorHvVolume *vol =  vol_table->getVolume(vol_id);
-    StorHvVolumeLock vol_lock(vol);
-    if (!vol || !vol->isValidLocked()) {
-        LOGERROR << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID: 0x" << std::hex << vol_id << std::dec
-                 << " - Error: PUT_OBJ_RSP for an un-registered volume";
-        return (0);
-    }
-
-    StorHvJournalEntry *txn = vol->journal_tbl->get_journal_entry(trans_id);   
-    StorHvJournalEntryLock je_lock(txn);
- 
-
-    // Check sanity here, if this transaction is valid and matches with the cookie we got from the message
-
-    if (!(txn->isActive())) {
-        LOGERROR << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID: 0x" << std::hex << vol_id << std::dec
-                 << " - Error: Journal Entry" << rx_msg->req_cookie <<  "  PUT_OBJ_RSP for an inactive transaction";
-        return (0);
-    }
-
-    if (rx_msg->msg_code == FDSP_MSG_PUT_OBJ_RSP) {
-        fbd_request_t *req = (fbd_request_t*)txn->write_ctx;
-        txn->fds_set_smack_status(rx_msg->src_ip_lo_addr,
-                                  rx_msg->src_port);
-        LOGNORMAL << " StorHvisorRx:" << "IO-XID:"
-                  << trans_id << " volID: 0x" << std::hex << vol_id << std::dec
-                  << " - Recvd SM PUT_OBJ_RSP RSP "
-                  << " ip " << rx_msg->src_ip_lo_addr
-                  << " port " << rx_msg->src_port;
-
-        fds_move_wr_req_state_machine(rx_msg);
-    }
-
-    return 0;
-}
-
-int StorHvCtrl::fds_process_update_catalog_resp(const FDSP_MsgHdrTypePtr& rx_msg, 
-                                                const FDSP_UpdateCatalogTypePtr& cat_obj_rsp )
-{
-  
-    int trans_id;
-    fds_volid_t vol_id = rx_msg->glob_volume_id;
-  
-    trans_id = rx_msg->req_cookie; 
-    StorHvVolume *vol = vol_table->getVolume(vol_id);
-    StorHvVolumeLock vol_lock(vol);
-    if (!vol || !vol->isValidLocked()) {
-        LOGERROR << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID: 0x" << std::hex << vol_id << std::dec
-                 << " - Error: UPDATE_CAT_OBJ_RSP for an un-registered volume";
-        return (0);
-    }
-
-    StorHvJournalEntry *txn = vol->journal_tbl->get_journal_entry(trans_id);
-    StorHvJournalEntryLock je_lock(txn);
-  
-    LOGNORMAL << " StorHvisorRx:" << "IO-XID:" << trans_id
-              << " volID: 0x" << std::hex << vol_id << std::dec
-              << " - Recvd DM UPDATE_CAT_OBJ_RSP RSP ";
-    // Check sanity here, if this transaction is valid and matches with the cookie we got from the message
-  
-    if (!(txn->isActive()) || txn->trans_state == FDS_TRANS_EMPTY ) {
-        LOGERROR << " StorHvisorRx:" << "IO-XID:" << trans_id << " volID: 0x" << std::hex << vol_id << std::dec
-                 << " - Error: Journal Entry" << rx_msg->req_cookie <<  "  UPDATE_CAT_OBJ_RSP for an inactive transaction";
-        return (0);
-    }
-  
-    if (cat_obj_rsp->dm_operation == FDS_DMGR_TXN_STATUS_OPEN) {
-        txn->fds_set_dmack_status(rx_msg->src_ip_lo_addr,
-                                  rx_msg->src_port);
-        LOGNORMAL << " StorHvisorRx:" << "IO-XID:" << trans_id
-                  << " volID: 0x" << std::hex << vol_id << std::dec
-                  << " -  Recvd DM TXN_STATUS_OPEN RSP "
-                  << " ip " << rx_msg->src_ip_lo_addr
-                  << " port " << rx_msg->src_port;
-    } else {
-        txn->fds_set_dm_commit_status(rx_msg->src_ip_lo_addr,
-                                      rx_msg->src_port);
-        LOGNORMAL << " StorHvisorRx:" << "IO-XID:" << trans_id
-                  << " volID: 0x" << std::hex << vol_id << std::dec
-                  << " -  Recvd DM TXN_STATUS_COMMITED RSP "
-                  << " ip " << rx_msg->src_ip_lo_addr
-                  << " port " << rx_msg->src_port;
-    }
-  
-    fds_move_wr_req_state_machine(rx_msg);
-    return (0); 
-}
-
 // Warning: Assumes that caller holds the lock to the transaction
 int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) {
 
@@ -327,7 +161,6 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) {
 void FDSP_DataPathRespCbackI::GetObjectResp(FDSP_MsgHdrTypePtr& msghdr,
                                             FDSP_GetObjTypePtr& get_obj) {
     LOGNORMAL << " StorHvisorRx:" << "IO-XID:" << msghdr->req_cookie << " - Received get obj response for txn  " <<  msghdr->req_cookie; 
-    // storHvisor->fds_process_get_obj_resp(msghdr, get_obj);
     fds::Error err = storHvisor->getObjResp(msghdr, get_obj);
     fds_verify(err == ERR_OK);
 }
@@ -336,7 +169,6 @@ void FDSP_DataPathRespCbackI::PutObjectResp(FDSP_MsgHdrTypePtr& msghdr,
                                             FDSP_PutObjTypePtr& put_obj) {
     LOGDEBUG << "Received putObjResp for txn "
              << msghdr->req_cookie; 
-    // storHvisor->fds_process_put_obj_resp(msghdr, put_obj);
     fds::Error err = storHvisor->putObjResp(msghdr, put_obj);
     fds_verify(err == ERR_OK);
 }
@@ -437,8 +269,8 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
     FDSP_MsgHdrTypePtr& fdsp_msg_hdr,
     FDSP_QueryCatalogTypePtr& cat_obj_req) {
     Error err(ERR_OK);
-    int num_nodes=8;
-    fds_uint64_t node_ids[8];
+    int num_nodes=MAX_DM_NODES;
+    fds_uint64_t node_ids[MAX_DM_NODES];
     int node_state = -1;
     uint32_t node_ip = 0;
     fds_uint32_t node_port = 0;

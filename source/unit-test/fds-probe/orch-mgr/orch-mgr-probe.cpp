@@ -502,7 +502,7 @@ UT_OM_DltFsm::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput *o
         std::cout << "DLT Event " << evt->dlt_evt << std::endl;
         switch (evt->dlt_evt) {
         case DLT_EVT_COMPUTE:
-            dlt->dlt_deploy_event(DltCompRebalEvt(NULL, NULL, NULL));
+            dlt->dlt_deploy_event(DltComputeEvt());
             break;
 
         case DLT_EVT_UPDATE_DONE:
@@ -510,7 +510,7 @@ UT_OM_DltFsm::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput *o
             break;
 
         case DLT_EVT_COMMIT_DONE:
-            dlt->dlt_deploy_event(DltCommitOkEvt(0));
+            dlt->dlt_deploy_event(DltCommitOkEvt(0, NodeUuid(0)));
             break;
         default:
             break;
