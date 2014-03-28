@@ -3,8 +3,10 @@
  */
 #include <iostream>
 #include <vector>
+#include <atomic>
 #include <boost/msm/front/state_machine_def.hpp>
 #include <boost/msm/front/functor_row.hpp>
+#include <fds_timer.h>
 #include <OmDeploy.h>
 #include <orch-mgr/om-service.h>
 
@@ -25,19 +27,69 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
     template <class Event, class FSM> void on_exit(Event const &, FSM &);
 
     /**
+     * Timer task to retry re-compute DLT again if computation was locked
+     * and we did not let the request to proceed
+     */
+    class RetryTimerTask : public FdsTimerTask {
+      public:
+        explicit RetryTimerTask(FdsTimer &timer)  // NOLINT 
+        : FdsTimerTask(timer) {}
+        ~RetryTimerTask() {}
+
+        virtual void runTimerTask() override;
+    };
+
+    /**
      * OM DLT Deployment states.
      */
     struct DST_Idle : public msm::front::state<>
     {
+        DST_Idle() : retryTimer(new FdsTimer()),
+                     retryTimerTask(new RetryTimerTask(*retryTimer)) {}
+
+        ~DST_Idle() {
+            retryTimer->destroy();
+        }
+
         template <class Evt, class Fsm, class State>
         void operator()(Evt const &, Fsm &, State &) {}
 
         template <class Event, class FSM> void on_entry(Event const &, FSM &) {}
         template <class Event, class FSM> void on_exit(Event const &, FSM &) {}
+
+        /**
+         * timer to retry re-compute DLT
+         */
+        FdsTimerPtr retryTimer;
+        FdsTimerTaskPtr retryTimerTask;
+    };
+    struct DST_SendDlts : public msm::front::state<>
+    {
+        typedef mpl::vector<DltCommitOkEvt> deferred_events;
+
+        template <class Evt, class Fsm, class State>
+        void operator()(Evt const &, Fsm &, State &) {}
+
+        template <class Event, class FSM> void on_entry(Event const &, FSM &) {}
+        template <class Event, class FSM> void on_exit(Event const &, FSM &) {}
+
+        std::atomic_flag lock = ATOMIC_FLAG_INIT;
+    };
+    struct DST_WaitSync : public msm::front::state<>
+    {
+        typedef mpl::vector<DltComputeEvt> deferred_events;
+
+        template <class Evt, class Fsm, class State>
+        void operator()(Evt const &, Fsm &, State &) {}
+
+        template <class Event, class FSM> void on_entry(Event const &, FSM &) {}
+        template <class Event, class FSM> void on_exit(Event const &, FSM &) {}
+
+        NodeUuidSet sm_to_wait;  // set of sms we are waiting to respond
     };
     struct DST_Rebal : public msm::front::state<>
     {
-        typedef mpl::vector<DltCompRebalEvt> deferred_events;
+        typedef mpl::vector<DltComputeEvt> deferred_events;
 
         template <class Evt, class Fsm, class State>
         void operator()(Evt const &, Fsm &, State &) {}
@@ -47,7 +99,7 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
     };
     struct DST_Commit : public msm::front::state<>
     {
-        typedef mpl::vector<DltCompRebalEvt> deferred_events;
+        typedef mpl::vector<DltComputeEvt> deferred_events;
 
         DST_Commit() : acks_to_wait(0) {}
 
@@ -61,7 +113,7 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
     };
     struct DST_Close : public msm::front::state<>
     {
-        typedef mpl::vector<DltCompRebalEvt> deferred_events;
+        typedef mpl::vector<DltComputeEvt> deferred_events;
 
         DST_Close() : acks_to_wait(0) {}
 
@@ -82,7 +134,17 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
     /**
      * Transition actions.
      */
-    struct DACT_CompRebal
+    struct DACT_Compute
+    {
+        template <class Evt, class Fsm, class SrcST, class TgtST>
+        void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
+    };
+    struct DACT_SendDlts
+    {
+        template <class Evt, class Fsm, class SrcST, class TgtST>
+        void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
+    };
+    struct DACT_Rebalance
     {
         template <class Evt, class Fsm, class SrcST, class TgtST>
         void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
@@ -100,6 +162,16 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
     /**
      * Guard conditions.
      */
+    struct GRD_DltSync
+    {
+        template <class Evt, class Fsm, class SrcST, class TgtST>
+        bool operator()(Evt const &, Fsm &, SrcST &, TgtST &);
+    };
+    struct GRD_DltCompute
+    {
+        template <class Evt, class Fsm, class SrcST, class TgtST>
+        bool operator()(Evt const &, Fsm &, SrcST &, TgtST &);
+    };
     struct GRD_DltRebal
     {
         template <class Evt, class Fsm, class SrcST, class TgtST>
@@ -120,19 +192,22 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
      * Transition table for OM DLT deployment.
      */
     struct transition_table : mpl::vector<
-    // +-----------------+----------------+------------+----------------+---------------+
-    // | Start           | Event          | Next       | Action         | Guard         |
-    // +-----------------+----------------+------------+----------------+---------------+
-    msf::Row< DST_Idle   , DltCompRebalEvt, DST_Rebal  , DACT_CompRebal , msf::none     >,
-    msf::Row< DST_Idle   , DltLoadedDbEvt , DST_Commit , DACT_Commit    , msf::none     >,
-    // +-----------------+----------------+------------+----------------+---------------+
-    msf::Row< DST_Rebal  , DltRebalOkEvt  , DST_Commit , DACT_Commit    , GRD_DltRebal  >,
-    msf::Row< DST_Rebal  , DltNoRebalEvt  , DST_Idle   , msf::none      , msf::none     >,
-    // +-----------------+----------------+------------+----------------+---------------+
-    msf::Row< DST_Commit , DltCommitOkEvt , DST_Close  , DACT_Close     , GRD_DltCommit >,
-    // +-----------------+----------------+------------+----------------+---------------+
-    msf::Row< DST_Close  , DltCloseOkEvt  , DST_Idle   , msf::none      , GRD_DltClose  >
-    // +-----------------+----------------+------------+----------------+---------------+
+    // +------------------+----------------+-------------+---------------+--------------+
+    // | Start            | Event          | Next        | Action        | Guard        |
+    // +------------------+----------------+-------------+---------------+--------------+
+    msf::Row< DST_Idle    , DltComputeEvt  , DST_SendDlts, DACT_Compute , GRD_DltCompute>,
+    msf::Row< DST_Idle    , DltLoadedDbEvt , DST_Commit  , DACT_Commit   , msf::none    >,
+    // +------------------+----------------+-------------+---------------+--------------+
+    msf::Row< DST_SendDlts, msf::none      , DST_WaitSync, DACT_SendDlts , msf::none    >,
+    // +------------------+----------------+-------------+---------------+--------------+
+    msf::Row< DST_WaitSync, DltCommitOkEvt , DST_Rebal   , DACT_Rebalance, GRD_DltSync  >,
+    // +------------------+----------------+-------------+---------------+--------------+
+    msf::Row< DST_Rebal   , DltRebalOkEvt  , DST_Commit  , DACT_Commit   , GRD_DltRebal >,
+    // +------------------+----------------+-------------+---------------+--------------+
+    msf::Row< DST_Commit  , DltCommitOkEvt , DST_Close   , DACT_Close    , GRD_DltCommit>,
+    // +------------------+----------------+-------------+---------------+--------------+
+    msf::Row< DST_Close   , DltCloseOkEvt  , DST_Idle    , msf::none     , GRD_DltClose >
+    // +------------------+----------------+-------------+---------------+--------------+
     >{};  // NOLINT
 
     template <class Event, class FSM> void no_transition(Event const &, FSM &, int);
@@ -187,13 +262,7 @@ OM_DLTMod::dlt_deploy_curr_state()
 // ----------------
 //
 void
-OM_DLTMod::dlt_deploy_event(DltCompRebalEvt const &evt)
-{
-    dlt_dply_fsm->process_event(evt);
-}
-
-void
-OM_DLTMod::dlt_deploy_event(DltNoRebalEvt const &evt)
+OM_DLTMod::dlt_deploy_event(DltComputeEvt const &evt)
 {
     dlt_dply_fsm->process_event(evt);
 }
@@ -249,43 +318,172 @@ DltDplyFSM::no_transition(Evt const &evt, Fsm &fsm, int state)
     FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "DltDplyFSM no trans";
 }
 
-/* DACT_CompRebal
- * ------------
- * DLT computation + rebalance state. Updates cluster map based on
- * pending added/removed SM nodes. If there are changes
- * to cluster map, computes and stores a new DLT
- * based on the current cluster map.
- */
-template <class Evt, class Fsm, class SrcST, class TgtST>
-void
-DltDplyFSM::DACT_CompRebal::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
+void DltDplyFSM::RetryTimerTask::runTimerTask()
 {
-    FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "FSM DACT_CompRebal";
-    DltCompRebalEvt dltEvt = (DltCompRebalEvt)evt;
-    DataPlacement *dp = dltEvt.ode_dp;
-    ClusterMap *cm = dltEvt.ode_cm;
-    OM_SmContainer::pointer smNodes = dltEvt.ode_sm_nodes;
-    fds_verify(dp != NULL);
+    OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
+    LOGNOTIFY << "DltDplyFSM: retry to re-compute DLT";
+    domain->om_update_cluster();
+}
+
+// GRD_DltCompute
+// -------------
+// Prevents more than one DltComputeEvt resulting in dlt computation,
+// we only allow the first one to go in, and subsequent will be rejected
+// until the current DLT computation/rebalance/commit finishes and then
+// new/removed SMs that are pending will be taken into account in the next
+// DLT update. Since we are not locking the state machine, this is a way
+// to prevent races in DLT deployment.
+// Also checks if there are any nodes added/removed and returns true if
+// there are any and we need a DLT update.
+//
+template <class Evt, class Fsm, class SrcST, class TgtST>
+bool
+DltDplyFSM::GRD_DltCompute::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
+{
+    fds_bool_t stop = dst.lock.test_and_set();
+    LOGDEBUG << "GRD_DltCompute: proceed check if DLT meeds update? " << !stop;
+    if (stop) {
+        // since we don't want to lose this event, retry later just in case
+        LOGDEBUG << "GRD_DltCompute: DLT re-compute already in progress, "
+                 << " will try re-compute for next set of SMs later";
+        if (!src.retryTimer->schedule(src.retryTimerTask,
+                                      std::chrono::seconds(60))) {
+            LOGWARN << "GRD_DltCompute: failed to start retry timer!!!"
+                    << " SM additions/deletions may be pending for long time!";
+        }
+        return false;
+    }
+
+    OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
+    OM_NodeContainer* local = OM_NodeDomainMod::om_loc_domain_ctrl();
+    OM_Module *om = OM_Module::om_singleton();
+    DataPlacement *dp = om->om_dataplace_mod();
+    ClusterMap* cm = om->om_clusmap_mod();
+    OM_SmContainer::pointer smNodes = local->om_sm_nodes();
 
     // Get added and removed nodes from pending SM additions
     // and removals. We are updating the cluster map only in this
     // state, so that it couldn't be changed while in the process
     // of updating the DLT
     NodeList addNodes, rmNodes;
-    FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "DACT_CompRebal: Call cluster update map";
+    LOGDEBUG << "DACT_Compute: Call cluster map update";
     smNodes->om_splice_nodes_pend(&addNodes, &rmNodes);
     cm->updateMap(addNodes, rmNodes);
     LOGDEBUG << "Added Nodes size: " << (cm->getAddedNodes()).size()
-             << " rmNodes size: " << (cm->getRemovedNodes()).size();
-    // Recompute the DLT. Once complete, the data placement's
-    // current dlt will be updated to the new dlt version.
-    if (((cm->getAddedNodes()).size() != 0) || ((cm->getRemovedNodes()).size() != 0)) {
-        LOGDEBUG << "DACT_CompRebal: compute DLT and rebalance";
-        dp->computeDlt();
-        // start rebalance
-        Error err = dp->beginRebalance();
-        fds_verify(err == ERR_OK);
+             << " Removed Nodes size: " << (cm->getRemovedNodes()).size();
+
+    // if there are no nodes added or removed, we don't need to re-compute
+    // DLT, so return false to not proceed to compute state
+    if (((cm->getAddedNodes()).size() == 0) && ((cm->getRemovedNodes()).size() == 0)) {
+        // unlock since we are not updating the DLT
+        LOGDEBUG << "GRD_DltCompute: cluster map is up to date";
+        dst.lock.clear();
+        return false;
     }
+
+    return true;
+}
+
+/* DACT_Compute
+ * ------------
+ * If there are any added or removed nodes -- compute target DLT,
+ * For added nodes, send currently commited DLT to them so when we
+ * send migration msg with target DLT, they know which tokens to migrate.
+ */
+template <class Evt, class Fsm, class SrcST, class TgtST>
+void
+DltDplyFSM::DACT_Compute::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
+{
+    FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "FSM DACT_Compute";
+    OM_Module *om = OM_Module::om_singleton();
+    DataPlacement *dp = om->om_dataplace_mod();
+    ClusterMap* cm = om->om_clusmap_mod();
+
+    fds_verify(((cm->getAddedNodes()).size() != 0)
+               || ((cm->getRemovedNodes()).size() != 0));
+
+    LOGDEBUG << "DACT_Compute: compute target DLT";
+    dp->computeDlt();
+}
+
+/* DACT_SendDlts
+ * ------------
+ * For added nodes, send currently commited DLT to them so when we
+ * send migration msg with target DLT, they know which tokens to migrate.
+ */
+template <class Evt, class Fsm, class SrcST, class TgtST>
+void
+DltDplyFSM::DACT_SendDlts::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
+{
+    FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "FSM DACT_SendDlts";
+    OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
+    OM_Module *om = OM_Module::om_singleton();
+    DataPlacement *dp = om->om_dataplace_mod();
+    ClusterMap* cm = om->om_clusmap_mod();
+
+    fds_verify(((cm->getAddedNodes()).size() != 0)
+               || ((cm->getRemovedNodes()).size() != 0));
+
+    // if there are added node, will send them currently commited DLT
+    // so when we send them migration message with target DLT, then know
+    // which tokens to migrate
+    NodeUuidSet addedNodes = cm->getAddedNodes();
+    if (addedNodes.size() > 0) {
+            // send them commited DLT
+        for (NodeUuidSet::const_iterator cit = addedNodes.cbegin();
+             cit != addedNodes.cend();
+             ++cit) {
+            OM_SmAgent::pointer sm_agent = domain->om_sm_agent(*cit);
+            if (sm_agent->om_send_dlt(dp->getCommitedDlt())) {
+                dst.sm_to_wait.insert(*cit);
+                LOGDEBUG << "DACT_SendDlts: sent commited DLT to SM "
+                         << sm_agent->get_node_name() << ":" << std::hex
+                         << (*cit).uuid_get_val() << std::dec;
+            }
+        }
+    }
+
+    // ok to unlock here, because we are not in idle state anymore, and
+    // other requests to start DLT update are queued till we go to idle state again
+    src.lock.clear();
+}
+
+// GRD_DltSync
+// -------------
+// Guards waiting for Dlt update response from SMs that were just added and
+// we sent them currently commited DLT (so that they compare target DLT and this
+// on when they decide which tokens to migrate)
+//
+template <class Evt, class Fsm, class SrcST, class TgtST>
+bool
+DltDplyFSM::GRD_DltSync::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
+{
+    if (src.sm_to_wait.count(evt.sm_uuid) > 0) {
+        src.sm_to_wait.erase(evt.sm_uuid);
+    }
+
+    // for now assuming dlt update is always a success
+    bool bret = (src.sm_to_wait.size() == 0);
+    LOGDEBUG << "GRD_DltSync: acks to wait " << src.sm_to_wait.size()
+             << " returning " << bret;
+
+    return bret;
+}
+
+/* DACT_Rebalance
+ * ------------
+ * Start rebalance to converge to target DLT
+ */
+template <class Evt, class Fsm, class SrcST, class TgtST>
+void
+DltDplyFSM::DACT_Rebalance::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
+{
+    FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "FSM DACT_Rebalance";
+    OM_Module *om = OM_Module::om_singleton();
+    DataPlacement *dp = om->om_dataplace_mod();
+
+    Error err = dp->beginRebalance();
+    fds_verify(err == ERR_OK);
 }
 
 // DACT_Commit
@@ -315,7 +513,7 @@ DltDplyFSM::DACT_Commit::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST 
     fds_uint32_t count = dom_ctrl->om_bcast_dlt(dp->getCommitedDlt());
     if (count < 1) {
         dst.acks_to_wait = 1;
-        fsm.process_event(DltCommitOkEvt(dp->getLatestDltVersion()));
+        fsm.process_event(DltCommitOkEvt(dp->getLatestDltVersion(), NodeUuid(0)));
     } else {
         // lets wait for majority of acks
         dst.acks_to_wait = count/2 + 1;

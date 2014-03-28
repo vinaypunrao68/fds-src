@@ -224,11 +224,11 @@ OM_NodeAgent::om_send_reg_resp(const Error &err)
     // ndCpClient->RegisterNodeResp(m_hdr, r_msg);
 }
 
-void
+bool
 OM_NodeAgent::om_send_dlt(const DLT *curDlt) {
     if (curDlt == NULL) {
         LOGNORMAL << "No current DLT to send to " << get_node_name();
-        return;
+        return false;
     }
 
     fpi::FDSP_MsgHdrTypePtr    m_hdr(new fpi::FDSP_MsgHdrType);
@@ -253,6 +253,8 @@ OM_NodeAgent::om_send_dlt(const DLT *curDlt) {
     LOGNORMAL << "OM: Send dlt info (version " << curDlt->getVersion()
               << ") to " << get_node_name() << " uuid 0x"
               << std::hex << (get_uuid()).uuid_get_val() << std::dec;
+
+    return true;
 }
 
 void
