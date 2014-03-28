@@ -301,7 +301,7 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
                  << ", iops_max " << vol_info.iops_max
                  << ", priority " << vol_info.rel_prio << std::endl;
         } catch(...) {
-            cout << "Got non-network exception, probably volume not found";
+            cout << "Got non-network exception, probably volume not found" << std::endl;
         }
 
     } else if (vm.count("volume-attach") &&
