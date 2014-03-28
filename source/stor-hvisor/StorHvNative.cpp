@@ -360,15 +360,17 @@ void FDS_NativeAPI::PutObject(BucketContext *bucket_ctxt,
 			      PutProperties *put_properties,
 			      void *req_context,
 			      char *buffer,
-                              fds_uint64_t startByte, 
+                              fds_uint64_t startByte,
 			      fds_uint64_t buflen,
+                              fds_bool_t lastBuf,
 			      fdsnPutObjectHandler putObjHandler, 
 			      void *callback_data) {
     Error err(ERR_OK);
     fds_volid_t volid;
     FdsBlobReq *blob_req = NULL;
-    FDS_PLOG(storHvisor->GetLog()) << "FDS_NativeAPI::PutObject bucket " << bucket_ctxt->bucketName
-                                   << " objKey " << ObjKey << "startByte :" << startByte << "buffer-len : " << buflen;
+    LOGNORMAL << "FDS_NativeAPI::PutObject to bucket " << bucket_ctxt->bucketName
+              << " objKey " << ObjKey << "startByte:" << startByte << "buffer-len: " << buflen
+              << " last buffer: " << std::boolalpha << lastBuf;
 
 
     /* check if bucket is attached to this AM, if not, ask OM to attach */
@@ -389,6 +391,7 @@ void FDS_NativeAPI::PutObject(BucketContext *bucket_ctxt,
                               startByte,
                               buflen,
                               buffer,
+                              lastBuf,
                               bucket_ctxt,
                               put_properties,
                               req_context,

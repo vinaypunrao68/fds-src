@@ -120,7 +120,8 @@ Atmos_PutObject::ame_request_handler()
     }
     api = ame->ame_fds_hook();
     api->PutObject(&bucket_ctx, get_object_id(), NULL,
-                   static_cast<void *>(ame_ctx), buf, len, offset,
+                   static_cast<void *>(ame_ctx), buf, offset,
+                   len, false,
                    atmos_putobj_cbfn, static_cast<void *>(this));
 }
 
