@@ -467,13 +467,12 @@ struct FDSP_RemoveNodeType {
 }
 
 struct FDSP_GetVolInfoReqType {
- 1: string vol_name,
- 2: i32 domain_id,
+ 1: string vol_name,    /* name of the volume */
+ 3: i32    domain_id,
 }
 
-struct FDSP_GetVolInfoRespType {
- 1: string vol_name,
- 2: FDSP_VolumeDescType vol_desc,
+exception FDSP_VolumeNotFound {
+  1: string message;
 }
 
 struct FDSP_NotifyVolType {
@@ -946,7 +945,7 @@ service FDSP_ConfigPathReq {
   i32 CreateDomain(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_CreateDomainType crt_dom_req),
   i32 DeleteDomain(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_CreateDomainType del_dom_req),
   i32 SetThrottleLevel(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ThrottleMsgType throttle_msg),
-  i32 GetVolInfo(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetVolInfoReqType vol_info_req),
+  FDSP_VolumeDescType GetVolInfo(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetVolInfoReqType vol_info_req) throws (1:FDSP_VolumeNotFound not_found),
   i32 GetDomainStats(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetDomainStatsType get_stats_msg),
   i32 applyTierPolicy(1: tier_pol_time_unit policy),
   i32 auditTierPolicy(1: tier_pol_audit audit),

@@ -3,6 +3,7 @@
  */
 
 #include <vector>
+#include <string>
 #include <orchMgr.h>
 #include <OmResources.h>
 #undef LOGGERPTR
@@ -365,18 +366,34 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::SetThrottleLevel(
     return err;
 }
 
-int32_t OrchMgr::FDSP_ConfigPathReqHandler::GetVolInfo(
+void OrchMgr::FDSP_ConfigPathReqHandler::GetVolInfo(
+    ::FDS_ProtocolInterface::FDSP_VolumeDescType& _return,
     const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
     const ::FDS_ProtocolInterface::FDSP_GetVolInfoReqType& vol_info_req) {
     // Don't do anything here. This stub is just to keep cpp compiler happy
-    return 0;
 }
 
-int32_t OrchMgr::FDSP_ConfigPathReqHandler::GetVolInfo(
+void OrchMgr::FDSP_ConfigPathReqHandler::GetVolInfo(
+    ::FDS_ProtocolInterface::FDSP_VolumeDescType& _return,
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_GetVolInfoReqTypePtr& vol_info_req) {
+    LOGNOTIFY << "Received Get volume info request for volume: "
+              << vol_info_req->vol_name;
 
-    return 0;
+    OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+    VolumeContainer::pointer vol_list = local->om_vol_mgr();
+    VolumeInfo::pointer vol = vol_list->get_volume(vol_info_req->vol_name);
+    if (vol) {
+        vol->vol_fmt_desc_pkt(&_return);
+        LOGNOTIFY << "Volume " << vol_info_req->vol_name
+                  << " -- min iops " << _return.iops_min << ",max iops "
+                  << _return.iops_max << ", prio " << _return.rel_prio;
+    } else {
+        LOGWARN << "Volume " << vol_info_req->vol_name << " not found";
+        FDS_ProtocolInterface::FDSP_VolumeNotFound except;
+        except.message = std::string("Volume not found");
+        throw except;
+    }
 }
 
 int32_t OrchMgr::FDSP_ConfigPathReqHandler::GetDomainStats(
