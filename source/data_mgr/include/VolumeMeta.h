@@ -481,7 +481,7 @@ class BlobNode {
                     vol_id = strtoull(next_sub_str.c_str(), NULL, 0);
                     break;
                 case 2:
-                    version = strtoul(next_sub_str.c_str(), NULL, 0);
+                    version = strtoull(next_sub_str.c_str(), NULL, 0);
                     break;
                 case 3:
                     blob_size = strtoull(next_sub_str.c_str(), NULL, 0);

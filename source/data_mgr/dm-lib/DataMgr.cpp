@@ -788,7 +788,11 @@ DataMgr::applyBlobUpdate(const BlobObjectList &offsetList, BlobNode *bnode) {
     // Bump the version since we modified the blob node
     // TODO(Andrew): We should actually be checking the
     // volume's versioning before we bump
-    bnode->version++;
+    if (bnode->version == blob_version_deleted) {
+        bnode->version = blob_version_initial;
+    } else {
+        bnode->version++;
+    }
 
     LOGDEBUG << "Applied pdate to blob " << *bnode;
 
