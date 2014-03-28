@@ -437,8 +437,8 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
     FDSP_MsgHdrTypePtr& fdsp_msg_hdr,
     FDSP_QueryCatalogTypePtr& cat_obj_req) {
     Error err(ERR_OK);
-    int num_nodes=8;
-    fds_uint64_t node_ids[8];
+    int num_nodes=MAX_DM_NODES;
+    fds_uint64_t node_ids[MAX_DM_NODES];
     int node_state = -1;
     uint32_t node_ip = 0;
     fds_uint32_t node_port = 0;

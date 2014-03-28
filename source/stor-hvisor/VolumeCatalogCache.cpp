@@ -158,15 +158,15 @@ Error VolumeCatalogCache::queryDm(const std::string& blobName,
   fds_uint32_t node_port;
   int node_state;
   fds_bool_t located_ep = false;
-  for (int i = 0; i < num_nodes; i++) {
-      err = parent_sh->dataPlacementTbl->getNodeInfo(node_ids[i],
+   // send the query request to the Primary DM only. we may have to revisit this logic
+      err = parent_sh->dataPlacementTbl->getNodeInfo(node_ids[0],
               &node_ip,
               &node_port,
               &node_state);
       if (!err.ok()) {
           FDS_PLOG(vcc_log) << "VolumeCatalogCache - "
                   << "Unable to get node info for node "
-                  << node_ids[i];
+                  << node_ids[0];
           return err;
       }
 
@@ -180,14 +180,13 @@ Error VolumeCatalogCache::queryDm(const std::string& blobName,
       FDS_PLOG(vcc_log) << " VolumeCatalogCache - "
               << "Async query request sent to DM "
               << endPoint << " for volume " << std::hex << vol_id << std::dec
-              << " and block id " << blobOffset;
+              << " and block id " << blobOffset << "Node IP: " << node_ip
+              << " Node Port: " << node_port;
       /*
        * Reset the error to PENDING since we set the message.
        * This lets the caller know to wait for a response.
        */
       err = ERR_PENDING_RESP;
-  }
-
 
   return err;
 }

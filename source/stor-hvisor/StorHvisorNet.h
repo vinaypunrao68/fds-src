@@ -45,6 +45,7 @@
 
 
 #define FDS_REPLICATION_FACTOR          1
+#define MAX_DM_NODES                    4
 
 #define  FDS_NODE_OFFLINE               0
 #define  FDS_NODE_ONLINE                1
