@@ -662,40 +662,6 @@ fds::Error StorHvCtrl::deleteCatResp(const FDSP_MsgHdrTypePtr& rxMsg,
         return err;
     }
 
-#if 0
-    fds::AmQosReq *qosReq  = static_cast<fds::AmQosReq *>(txn->io);
-    fds_verify(qosReq != NULL);
-    fds::FdsBlobReq *blobReq = qosReq->getBlobReqPtr();
-    fds_verify(blobReq != NULL);
-    fds_verify(blobReq->getIoType() == FDS_DELETE_BLOB);
-    LOGNOTIFY << "Responding to deleteBlob trans " << transId
-              <<" for blob " << blobReq->getBlobName()
-              << " with result " << rxMsg->result;
-
-    /*
-     * Mark the IO complete, clean up txn, and callback
-     */
-    qos_ctrl->markIODone(txn->io);
-    if (rxMsg->result == FDSP_ERR_OK) {
-        blobReq->cbWithResult(0);
-    } else {
-        /*
-         * We received an error from SM
-         */
-        blobReq->cbWithResult(-1);
-    }
-
-    txn->reset();
-    vol->journal_tbl->releaseTransId(transId);
-
-    /*
-     * TODO: We're deleting the request structure. This assumes
-     * that the caller got everything they needed when the callback
-     * was invoked.
-     */
-    delete blobReq;
-#endif
-
     return err;
 }
 
