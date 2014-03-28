@@ -10,6 +10,7 @@
 #include <unistd.h>
 
 #include <string>
+#include <vector>
 #include <unordered_map>
 #include <iostream>  // NOLINT
 #include <cpplist.h>
@@ -20,6 +21,7 @@
 namespace fds {
 
 class DiskObj;
+class DiskObjIter;
 class DiskInventory;
 class DiskPlatModule;
 
@@ -41,6 +43,7 @@ class DiskCommon
   public:
     explicit DiskCommon(const std::string &blk);
     virtual ~DiskCommon();
+
     inline const std::string &dsk_get_blk_path() { return dsk_blk_path; }
 };
 
@@ -58,7 +61,7 @@ class DiskObj : public Resource
     ChainLink                 dsk_disc_link;      /**< link to discovery list.     */
     ChainLink                 dsk_type_link;      /**< link to hdd/ssd list.       */
     ChainList                 dsk_part_head;      /**< sda -> { sda1, sda2... }    */
-
+                                                  /**< /dev/sda is in rs_name.     */
     const char               *dsk_raw_path;
     int                       dsk_raw_plen;
     int                       dsk_part_idx;
@@ -76,14 +79,16 @@ class DiskObj : public Resource
 
     /**
      * Return HW device path from raw path.
-     * @return: example
-     *    blk : /devices/pci0000:00/0000:00:0d.0/ata3/host2/target2:0:0/2:0:0:0/block/
-     *    dev : /dev/sda
+     * @return: true if the raw path is block SD device; false otherwise.
+     * @param blk : /devices/pci00:00/0000:00:0d.0/ata3/host2/target2:0:0/2:0:0:0/block/
+     * @param dev : /dev/sda
      */
     static bool dsk_blk_dev_path(const char *raw, std::string *blk, std::string *dev);
     static inline DiskObj::pointer dsk_cast_ptr(Resource::pointer ptr) {
         return static_cast<DiskObj *>(get_pointer(ptr));
     }
+    inline char const *const dsk_dev_name() { return rs_name; }
+
     /**
      * Return the slice device matching with the dev_path (e.g. /dev/sda, /dev/sda1...)
      */
@@ -101,12 +106,30 @@ class DiskObj : public Resource
                                    const std::string  &b_path,
                                    const std::string  &d_path);
 
+    /**
+     * Iterate the parent object for all sub devices attached to it.
+     */
+    virtual void dsk_dev_foreach(DiskObjIter *iter, bool parent_only = false);
+
   private:
     void dsk_read_uuid();
     void dsk_fixup_family_links(DiskObj::pointer ref);
 };
 
 typedef std::unordered_map<std::string, DiskObj::pointer> DiskDevMap;
+typedef std::vector<DiskObj::pointer> DiskObjArray;
+
+class DiskObjIter
+{
+  public:
+    DiskObjIter() {}
+    virtual ~DiskObjIter() {}
+
+    /**
+     * Return true to continue the iteration loop; false to quit.
+     */
+    virtual bool dsk_iter_fn(DiskObj::pointer curr) = 0;
+};
 
 class DiskInventory : public RsContainer
 {
@@ -141,6 +164,8 @@ class DiskInventory : public RsContainer
     virtual void dsk_discovery_update(DiskObj::pointer disk);
     virtual void dsk_discovery_remove(DiskObj::pointer disk);
     virtual void dsk_discovery_done();
+
+    virtual void dsk_foreach(DiskObjIter *iter);
 };
 
 /**

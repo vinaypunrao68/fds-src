@@ -16,11 +16,7 @@ DiskObj::~DiskObj()
         udev_device_unref(dsk_my_dev);
         dsk_my_dev = NULL;
     }
-    if (get_pointer(dsk_parent) == this) {
-        fds_verify(dsk_common != NULL);
-        delete dsk_common;
-
-    } else if (dsk_parent != NULL) {
+    if (dsk_parent != NULL) {
         dsk_parent->rs_mutex()->lock();
         dsk_part_link.chain_rm_init();
         fds_verify(dsk_common == dsk_parent->dsk_common);
@@ -29,12 +25,15 @@ DiskObj::~DiskObj()
         dsk_common = NULL;
         dsk_parent = NULL;  // free parent obj when refcnt = 0.
     } else {
-        fds_verify(dsk_common == NULL);
+        fds_verify(dsk_common != NULL);
+        delete dsk_common;
     }
     fds_verify(dsk_part_link.chain_empty());
     fds_verify(dsk_disc_link.chain_empty());
     fds_verify(dsk_type_link.chain_empty());
     fds_verify(dsk_part_head.chain_empty_list());
+
+    std::cout << "free " << rs_name << std::endl;
 }
 
 DiskObj::DiskObj()
@@ -125,6 +124,35 @@ DiskObj::dsk_read_uuid()
     rs_uuid.uuid_set_val(fds_get_uuid64(get_uuid()));
 }
 
+// dsk_dev_foreach
+// ---------------
+//
+void
+DiskObj::dsk_dev_foreach(DiskObjIter *iter, bool parent_only)
+{
+    if ((dsk_parent == NULL) || ((parent_only == true) && (dsk_parent == this))) {
+        return;
+    }
+    int           cnt;
+    ChainIter     i;
+    ChainList    *l;
+    DiskObjArray  disks(dsk_parent->dsk_part_cnt << 1);
+
+    cnt = 0;
+    dsk_parent->rs_mutex()->lock();
+    l = &dsk_parent->dsk_part_head;
+    for (l->chain_iter_init(&i); !l->chain_iter_term(i); l->chain_iter_next(&i)) {
+        disks[cnt++] = l->chain_iter_current<DiskObj>(i);
+    }
+    dsk_parent->rs_mutex()->unlock();
+
+    for (int j = 0; j < cnt; j++) {
+        if (iter->dsk_iter_fn(disks[j]) == false) {
+            break;
+        }
+    }
+}
+
 // dsk_fixup_family_links
 // ----------------------
 //
@@ -166,10 +194,20 @@ DiskObj::dsk_fixup_family_links(DiskObj::pointer ref)
 
     if (dsk_part_link.chain_empty()) {
         parent->rs_mutex()->lock();
+        parent->dsk_part_cnt++;
         parent->dsk_part_head.chain_add_back(&dsk_part_link);
         parent->rs_mutex()->unlock();
     }
 }
+
+class DiskPrintIter : public DiskObjIter
+{
+  public:
+    bool dsk_iter_fn(DiskObj::pointer disk) {
+        std::cout << disk;
+        return true;
+    }
+};
 
 std::ostream &operator<< (std::ostream &os, DiskObj::pointer obj)
 {
@@ -181,16 +219,13 @@ std::ostream &operator<< (std::ostream &os, DiskObj::pointer obj)
            << obj->rs_uuid.uuid_get_val() << std::dec << "]\n";
         os << obj->dsk_common->dsk_get_blk_path() << std::endl;
         os << obj->dsk_raw_path << std::endl;
+
+        DiskPrintIter iter;
+        obj->dsk_dev_foreach(&iter);
     } else {
         os << "  " << obj->rs_name << " [uuid " << std::hex
            << obj->rs_uuid.uuid_get_val() << std::dec << "]\n";
         os << "  " << obj->dsk_raw_path << "\n";
-    }
-    // Not thread safe traversal.
-    l = &obj->dsk_part_head;
-    for (l->chain_iter_init(&i); !l->chain_iter_term(i); l->chain_iter_next(&i)) {
-        DiskObj::pointer disk = l->chain_iter_current<DiskObj>(i);
-        os << disk;
     }
     os << std::endl;
     return os;
@@ -222,9 +257,12 @@ DiskObj::dsk_blk_dev_path(const char *raw, std::string *blk, std::string *dev)
     return true;
 }
 
-DiskInventory::~DiskInventory() {}
-DiskInventory::DiskInventory() : RsContainer()
+DiskInventory::DiskInventory() : RsContainer() {}
+DiskInventory::~DiskInventory()
 {
+    dsk_prev_inv.chain_transfer(&dsk_curr_inv);
+    dsk_prev_inv.chain_transfer(&dsk_discovery);
+    dsk_discovery_done();
 }
 
 // rs_new
@@ -337,13 +375,16 @@ DiskInventory::dsk_discovery_remove(DiskObj::pointer disk)
 {
     fds_verify(disk->dsk_common != NULL);
     rs_mtx.lock();
-    fds_assert(dsk_dev_map[disk->dsk_common->dsk_blk_path] != NULL);
 
     // Unlink the chain and unmap every indices.
     disk->dsk_disc_link.chain_rm_init();
     disk->dsk_type_link.chain_rm_init();
 
-    dsk_dev_map.erase(disk->dsk_common->dsk_blk_path);
+    if (disk->dsk_parent == disk) {
+        fds_assert(dsk_dev_map[disk->dsk_common->dsk_blk_path] != NULL);
+        dsk_dev_map.erase(disk->dsk_common->dsk_blk_path);
+        disk->dsk_parent = NULL;  // dec the refcnt.
+    }
     rs_unregister_mtx(disk);
     rs_mtx.unlock();
 
@@ -357,22 +398,27 @@ DiskInventory::dsk_discovery_remove(DiskObj::pointer disk)
 void
 DiskInventory::dsk_discovery_done()
 {
+    ChainList        rm;
     DiskObj::pointer disk;
 
     rs_mtx.lock();
-    dsk_curr_inv.chain_transfer(&dsk_discovery);
-    fds_assert(dsk_discovery.chain_empty_list());
-
     // Anything left over in the prev inventory list are phantom devices.
+    dsk_curr_inv.chain_transfer(&dsk_discovery);
+    rm.chain_transfer(&dsk_prev_inv);
+
+    fds_assert(dsk_prev_inv.chain_empty_list());
+    fds_assert(dsk_discovery.chain_empty_list());
+    rs_mtx.unlock();
+
     while (1) {
-        disk = dsk_prev_inv.chain_rm_front<DiskObj>();
+        disk = rm.chain_rm_front<DiskObj>();
         if (disk == NULL) {
             break;
         }
         dsk_discovery_remove(disk);
         disk = NULL;  // free the disk obj when refcnt = 0
     }
-    rs_mtx.unlock();
+    fds_assert(rm.chain_empty_list());
 }
 
 // dsk_dump_all
@@ -381,14 +427,33 @@ DiskInventory::dsk_discovery_done()
 void
 DiskInventory::dsk_dump_all()
 {
-    ChainList       *l;
-    ChainIter        i;
-    DiskObj::pointer disk;
+    DiskPrintIter iter;
+    dsk_foreach(&iter);
+}
 
+// dsk_foreach
+// -----------
+//
+void
+DiskInventory::dsk_foreach(DiskObjIter *iter)
+{
+    int           cnt;
+    ChainIter     i;
+    ChainList    *l;
+    DiskObjArray  disks(dsk_dev_map.size() << 1);
+
+    cnt = 0;
     l = &dsk_hdd;
+    rs_mtx.lock();
     for (l->chain_iter_init(&i); !l->chain_iter_term(i); l->chain_iter_next(&i)) {
-        disk = l->chain_iter_current<DiskObj>(i);
-        std::cout << disk;
+        disks[cnt++] = l->chain_iter_current<DiskObj>(i);
+    }
+    rs_mtx.unlock();
+
+    for (int j = 0; j < cnt; j++) {
+        if (iter->dsk_iter_fn(disks[j]) == false) {
+            break;
+        }
     }
 }
 
