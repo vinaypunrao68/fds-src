@@ -161,6 +161,14 @@ public:
     {
         if (mig_status == MigrationStatus::MIGRATION_OP_COMPLETE) {
             migration_complete_ = true;
+        } else if (mig_status == MigrationStatus::TOKEN_COPY_COMPLETE) {
+            MigSvcSyncCloseReqPtr close_req(new MigSvcSyncCloseReq());
+            close_req->sync_close_ts = get_fds_timestamp_ms();
+
+            FdsActorRequestPtr close_far(new FdsActorRequest(
+                    FAR_ID(MigSvcSyncCloseReq), close_far));
+
+            sender_mig_svc_->send_actor_request(close_far);
         }
     }
 
@@ -185,9 +193,6 @@ public:
         copy_req->migsvc_resp_cb = std::bind(
             &MigrationTester::mig_svc_cb, this,
             std::placeholders::_1, std::placeholders::_2);
-        for (auto t : copy_req->tokens) {
-            rcvr_store_->getTokenStateDb()->addToken(t);
-        }
 
         LOGDEBUG << "Tokens count: " << copy_req->tokens.size();
 

@@ -94,8 +94,7 @@ bool SmObjDb::dataPhysicallyExists(const ObjectID& objId) {
     return md.dataPhysicallyExists();
 }
 
-fds::Error SmObjDb::get(const ObjectID& objId, ObjMetaData& md)
-{
+fds::Error SmObjDb::get(const ObjectID& objId, ObjMetaData& md) {
     Error err = ERR_OK;
 
     fds_token_id tokId = getTokenId_(objId);
@@ -191,6 +190,10 @@ fds::Error SmObjDb::putSyncEntry(const ObjectID& objId,
     if (err != ERR_OK && err != ERR_DISK_READ_FAILED) {
         LOGERROR << "Error while applying sync entry.  objId: " << objId;
         return err;
+    }
+    if (err == ERR_DISK_READ_FAILED) {
+        /* Entry doesn't exist.  Set sync mask on empty metada */
+        md.setSyncMask();
     }
     md.applySyncData(data);
     dataExists = md.dataPhysicallyExists();

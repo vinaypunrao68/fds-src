@@ -39,6 +39,9 @@ class MObjStore : public ObjectStorMgr {
         threadpool_.reset(new fds_threadpool(2));
         smObjDb = new SmObjDb(this, prefix, g_fdslog);
         tokenStateDb_.reset(new kvstore::TokenStateDB());
+        for (fds_token_id tok = 0; tok < 256; tok++) {
+            tokenStateDb_->addToken(tok);
+        }
         prefix_ = prefix;
     }
     ~MObjStore() {

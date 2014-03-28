@@ -187,6 +187,8 @@ struct TokenSyncSenderFSM_
     };
     struct Init : public msm::front::state<>
     {
+        typedef mpl::vector<TSIoClosedEvt> deferred_events;
+
         template <class Event, class FSM>
         void on_entry(Event const& , FSM&)
         {
@@ -195,6 +197,8 @@ struct TokenSyncSenderFSM_
     };
     struct Snapshot: public msm::front::state<>
     {
+        typedef mpl::vector<TSIoClosedEvt> deferred_events;
+
         template <class Event, class FSM>
         void on_entry(Event const& , FSM&)
         {
@@ -203,6 +207,8 @@ struct TokenSyncSenderFSM_
     };
     struct BldSyncLog : public msm::front::state<>
     {
+        typedef mpl::vector<TSIoClosedEvt> deferred_events;
+
         template <class Event, class FSM>
         void on_entry(Event const& , FSM&)
         {
@@ -211,6 +217,8 @@ struct TokenSyncSenderFSM_
     };
     struct Sending : public msm::front::state<>
     {
+        typedef mpl::vector<TSIoClosedEvt> deferred_events;
+
         template <class Event, class FSM>
         void on_entry(Event const& , FSM&)
         {

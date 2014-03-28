@@ -363,12 +363,12 @@ void ObjMetaData::apply(const FDSP_MigrateObjectMetadata& data)
      */
     if (obj_map.obj_size == 0) {
         obj_map.obj_size = data.obj_len;
-        memcpy(&obj_map.obj_id.metaDigest, data.object_id.digest.data(),
+        memcpy(obj_map.obj_id.metaDigest, data.object_id.digest.data(),
                 sizeof(obj_map.obj_id.metaDigest));
     } else {
         fds_assert(obj_map.obj_size == static_cast<uint32_t>(data.obj_len));
-        fds_assert(memcmp(&obj_map.obj_id.metaDigest, data.object_id.digest.data(),
-                sizeof(obj_map.obj_id.metaDigest) == 0));
+        fds_assert(memcmp(obj_map.obj_id.metaDigest, data.object_id.digest.data(),
+                sizeof(obj_map.obj_id.metaDigest)) == 0);
     }
     /* Creation time */
     obj_map.obj_create_time = data.born_ts;
@@ -473,12 +473,12 @@ void ObjMetaData::applySyncData(const FDSP_MigrateObjectMetadata& data)
      */
     if (obj_map.obj_size == 0) {
         obj_map.obj_size = data.obj_len;
-        memcpy(&obj_map.obj_id.metaDigest, data.object_id.digest.data(),
+        memcpy(obj_map.obj_id.metaDigest, data.object_id.digest.data(),
                 sizeof(obj_map.obj_id.metaDigest));
     } else {
         fds_assert(obj_map.obj_size == static_cast<uint32_t>(data.obj_len));
-        fds_assert(memcmp(&obj_map.obj_id.metaDigest, data.object_id.digest.data(),
-                sizeof(obj_map.obj_id.metaDigest) == 0));
+        fds_assert(memcmp(obj_map.obj_id.metaDigest, data.object_id.digest.data(),
+                sizeof(obj_map.obj_id.metaDigest)) == 0);
     }
 
     fds_assert(sync_data.mod_ts <= static_cast<uint64_t>(data.modification_ts));
@@ -597,6 +597,11 @@ bool ObjMetaData::dataPhysicallyExists()
     return true;
 }
 
+void ObjMetaData::setSyncMask()
+{
+    mask |= SYNCMETADATA_MASK;
+}
+
 bool ObjMetaData::syncDataExists() const
 {
     return (mask & SYNCMETADATA_MASK) != 0;
@@ -605,8 +610,8 @@ bool ObjMetaData::syncDataExists() const
 bool ObjMetaData::operator==(const ObjMetaData &rhs) const
 {
     if (mask == rhs.mask && assoc_entry.size() == rhs.assoc_entry.size() &&
-        memcmp(assoc_entry.data(), rhs.assoc_entry.data(),
-                sizeof(obj_assoc_entry_t) * assoc_entry.size()) == 0) {
+        (memcmp(assoc_entry.data(), rhs.assoc_entry.data(),
+                sizeof(obj_assoc_entry_t) * assoc_entry.size()) == 0)) {
         if (syncDataExists()) {
             return (sync_data == rhs.sync_data);
         }

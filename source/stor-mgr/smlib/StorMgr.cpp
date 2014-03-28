@@ -342,6 +342,11 @@ void ObjectStorMgr::setup()
 
     /* Token state db */
     tokenStateDb_.reset(new kvstore::TokenStateDB());
+    // TODO(Rao): token state db population should be done based on
+    // om events.  For now hardcoding
+    for (fds_token_id tok = 0; tok < 256; tok++) {
+        tokenStateDb_->addToken(tok);
+    }
 
     /* Set up FDSP RPC endpoints */
     nst_ = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_STOR_MGR));
@@ -598,7 +603,12 @@ void ObjectStorMgr::dltcloseEventHandler()
 
 void ObjectStorMgr::migrationSvcResponseCb(const Error& err,
         const MigrationStatus& status) {
-    omClient->sendMigrationStatusToOM(err);
+    if (status == TOKEN_COPY_COMPLETE) {
+        LOGDEBUG << "Token copy complete";
+        omClient->sendMigrationStatusToOM(err);
+    } else if (status == MIGRATION_OP_COMPLETE) {
+        LOGDEBUG << "Token migration complete";
+    }
 }
 
 void ObjectStorMgr::nodeEventOmHandler(int node_id,

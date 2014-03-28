@@ -182,6 +182,7 @@ void TokenCopyTracker::token_complete_cb(const Error& e,
         copy_completed_cnt_++;
         cur_copy_itr_++;
         if (cur_copy_itr_ != tokens_.end()) {
+            /* issue copy request for next token */
             issue_copy_req();
         } else {
             LOGDEBUG << "All copies complete";

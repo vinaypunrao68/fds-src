@@ -97,6 +97,8 @@ public:
 
     void checkAndDemoteUnsyncedData(const uint64_t& syncTs);
 
+    void setSyncMask();
+
     bool syncDataExists() const;
 
     void applySyncData(const FDSP_MigrateObjectMetadata& data);
