@@ -586,6 +586,7 @@ void ObjectStorMgr::migrationEventOmHandler(bool dlt_type)
         objStorMgr->migrationSvc_->send_actor_request(copy_far);
     } else {
         GLOGDEBUG << "No tokens to copy";
+        objStorMgr->migrationSvcResponseCb(Error(ERR_OK), TOKEN_COPY_COMPLETE);
         objStorMgr->migrationSvcResponseCb(Error(ERR_OK), MIGRATION_OP_COMPLETE);
     }
 
@@ -610,6 +611,7 @@ void ObjectStorMgr::migrationSvcResponseCb(const Error& err,
         LOGDEBUG << "Token copy complete";
         omClient->sendMigrationStatusToOM(err);
     } else if (status == MIGRATION_OP_COMPLETE) {
+        // TODO(Rao): Send migration comple to om
         LOGDEBUG << "Token migration complete";
     }
 }
@@ -1156,9 +1158,6 @@ ObjectStorMgr::writeObjectToTier(const OpCtx &opCtx,
         return err;
     }
     
-    /* Metadata update */
-    // TODO(Rao): Looks like were are writing wrong vio (volume association)
-    // here.
     err = writeObjectMetaData(opCtx, objId, objData.data.length(),
                 disk_req->req_get_phy_loc(), false, diskTier, &vio);
 
@@ -1664,7 +1663,6 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
     diskio::DataTier tierUsed = diskio::maxTier;
     const FDSP_GetObjTypePtr& getObjReq = getReq->getGetObjReq();
     ObjBufPtrType objBufPtr = NULL;
-    ObjMetaData objMap;
 
     /*
      * We need to fix this once diskmanager keeps track of object size
@@ -1688,7 +1686,7 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
             memcpy((void *)objBufPtr->data.c_str(), (void *)objData.data.c_str(), objData.size);
             objCache->object_add(volId, objId, objBufPtr, false); // read data is always clean
             // ACL: If this Volume never put this object, then it should not access the object
-            if (!objMap.isVolumeAssociated(volId)) { 
+            if (!objMetadata.isVolumeAssociated(volId)) {
                err = ERR_UNAUTH_ACCESS;
                LOGDEBUG << "Volume " << volId << " unauth-access of object " << objId
                 // << " and data " << objData.data

@@ -743,9 +743,9 @@ int OMgrClient::recvDLTClose(FDSP_DltCloseTypePtr& dlt_close,
             << dlt_close->DLT_version;
 
     // TODO(rao) if this is SM node, do something
-    if (this->dltclose_evt_hdlr) {
+    /*if (this->dltclose_evt_hdlr) {
         this->dltclose_evt_hdlr();
-    }
+    }*/
 
     // send ack back to OM
     boost::shared_ptr<FDS_ProtocolInterface::FDSP_ControlPathRespClient> resp_client_prx =
