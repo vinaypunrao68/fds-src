@@ -77,8 +77,6 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
     };
     struct DST_WaitSync : public msm::front::state<>
     {
-        typedef mpl::vector<DltComputeEvt> deferred_events;
-
         template <class Evt, class Fsm, class State>
         void operator()(Evt const &, Fsm &, State &) {}
 
@@ -89,8 +87,6 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
     };
     struct DST_Rebal : public msm::front::state<>
     {
-        typedef mpl::vector<DltComputeEvt> deferred_events;
-
         template <class Evt, class Fsm, class State>
         void operator()(Evt const &, Fsm &, State &) {}
 
@@ -99,7 +95,13 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
     };
     struct DST_Commit : public msm::front::state<>
     {
-        typedef mpl::vector<DltComputeEvt> deferred_events;
+        /**
+         * action when leaving this state sends dlt close ops
+         * and close acks may come while we are still inside the
+         * action method, so deferring till we leave this state and
+         * go to next (DST_Close) state where we will process acks.
+         */
+        typedef mpl::vector<DltCloseOkEvt> deferred_events;
 
         DST_Commit() : acks_to_wait(0) {}
 
@@ -159,6 +161,11 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
         template <class Evt, class Fsm, class SrcST, class TgtST>
         void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
     };
+    struct DACT_UpdDone
+    {
+        template <class Evt, class Fsm, class SrcST, class TgtST>
+        void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
+    };
     /**
      * Guard conditions.
      */
@@ -206,7 +213,7 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
     // +------------------+----------------+-------------+---------------+--------------+
     msf::Row< DST_Commit  , DltCommitOkEvt , DST_Close   , DACT_Close    , GRD_DltCommit>,
     // +------------------+----------------+-------------+---------------+--------------+
-    msf::Row< DST_Close   , DltCloseOkEvt  , DST_Idle    , msf::none     , GRD_DltClose >
+    msf::Row< DST_Close   , DltCloseOkEvt  , DST_Idle    , DACT_UpdDone  , GRD_DltClose >
     // +------------------+----------------+-------------+---------------+--------------+
     >{};  // NOLINT
 
@@ -567,6 +574,21 @@ DltDplyFSM::GRD_DltClose::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
              << " returning " << bret;
 
     return bret;
+}
+
+// DACT_UpdDone
+// -----------
+// This DLT update is done. Since we may drop update dlt events while
+// doing the current update, try to start DLT update here in case there are
+// new/removed SMs since the start of the last DLT update.
+//
+template <class Evt, class Fsm, class SrcST, class TgtST>
+void
+DltDplyFSM::DACT_UpdDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
+{
+    LOGDEBUG << "DltFSM DACT_UpdDone";
+    OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+    domain->om_update_cluster();
 }
 
 // GRD_DltRebal
