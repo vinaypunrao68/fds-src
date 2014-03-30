@@ -31,13 +31,25 @@ typedef enum {
 /**
  * OM Volume life cycle events
  */
+class VolCreateEvt
+{
+ public:
+    explicit VolCreateEvt(VolumeInfo* vol)
+            : vol_ptr(vol) {}
+
+    VolumeInfo* vol_ptr;
+};
+
+
 class VolCrtOkEvt
 {
  public:
-    explicit VolCrtOkEvt(fds_uint32_t ack_w = 0)
-            : acks_to_wait(ack_w) {}
+    explicit VolCrtOkEvt(fds_bool_t b_ack)
+            : got_ack(b_ack) {}
 
-    fds_uint32_t acks_to_wait;
+    // if true, actual ack, false is used when want to check if no need
+    // to wait for acks and can get out of the current state
+    fds_bool_t got_ack;
 };
 
 class VolOpEvt
@@ -158,6 +170,12 @@ class VolumeInfo : public Resource
     inline fds_bool_t is_delete_pending() const {
         return delete_pending;
     }
+    inline fds_bool_t is_create_pending() const {
+        return create_pending;
+    }
+    inline void allow_vol_ops() {
+        create_pending = false;
+    }
 
     /**
      * Return the string containing current state of the volume
@@ -167,6 +185,7 @@ class VolumeInfo : public Resource
     /**
      * Apply an event to volume lifecycle state machine
      */
+    void vol_event(VolCreateEvt const &evt);
     void vol_event(VolCrtOkEvt const &evt);
     void vol_event(VolOpEvt const &evt);
     void vol_event(VolOpRespEvt const &evt);
@@ -244,6 +263,7 @@ class VolumeInfo : public Resource
     std::vector<NodeUuid>     vol_am_nodes;
 
     fds_bool_t delete_pending;
+    fds_bool_t create_pending;
 
     FSM_Volume *volume_fsm;
 };
