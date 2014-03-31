@@ -4,12 +4,14 @@ package com.formationds.web.om;
  */
 
 import FDS_ProtocolInterface.FDSP_ConfigPathReq;
+import FDS_ProtocolInterface.FDSP_GetVolInfoReqType;
 import FDS_ProtocolInterface.FDSP_MsgHdrType;
 import FDS_ProtocolInterface.FDSP_VolumeDescType;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
 import com.google.common.base.Joiner;
+import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
 
 import java.util.List;
@@ -23,14 +25,23 @@ public class ListVolumes implements RequestHandler {
 
     @Override
     public Resource handle(Request request) throws Exception {
-        List<FDSP_VolumeDescType> volumes = iface.ListVolumes(new FDSP_MsgHdrType());
+        FDSP_MsgHdrType msg = new FDSP_MsgHdrType();
+        List<FDSP_VolumeDescType> volumes = iface.ListVolumes(msg);
         String[] descriptions = volumes.stream()
-                .map(v -> makeHalfFakeVolume(v))
+                .map(v -> {
+                    try {
+                        FDSP_VolumeDescType volInfo = iface.GetVolInfo(msg, new FDSP_GetVolInfoReqType(v.getVol_name(), v.getGlobDomainId()));
+                        return makeHalfFakeVolume(v, volInfo);
+
+                    } catch (TException e) {
+                        throw new RuntimeException(e);
+                    }
+                })
                 .toArray(i -> new String[i]);
         return new TextResource("[" + Joiner.on(",\n").join(descriptions) + "]");
     }
 
-    private String makeHalfFakeVolume(FDSP_VolumeDescType volume) {
+    private String makeHalfFakeVolume(FDSP_VolumeDescType volume, FDSP_VolumeDescType volInfo) {
         return             "  {\n" +
                 "  \"id\":\"" + volume.getVolUUID() + "\",\n" +
                 "  \"tenant\":\"" + volume.getTennantId() + "\",\n" +
