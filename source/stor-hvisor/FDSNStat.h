@@ -1,8 +1,8 @@
 /*
  * Copyright 2013 Formation Data Systems, Inc.
  */
-#ifndef STOR_HVISOR_FDSN_STAT_H_
-#define STOR_HVISOR_FDSN_STAT_H_
+#ifndef SOURCE_STOR_HVISOR_FDSNSTAT_H_
+#define SOURCE_STOR_HVISOR_FDSNSTAT_H_
 
 #include <util/fds_stat.h>
 
@@ -21,6 +21,6 @@ enum
 
 extern void fdsn_register_stat(void);
 
-} // namespace fds
+}  // namespace fds
 
-#endif /* STOR_HVISOR_FDSN_STAT_H_ */
+#endif /* SOURCE_STOR_HVISOR_FDSNSTAT_H_ */
