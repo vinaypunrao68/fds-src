@@ -181,7 +181,7 @@ public:
     kvstore::TokenStateDBPtr getTokenStateDb();
 
     std::string get_ip();
-    int get_port();
+    TVIRTUAL int get_port();
 
 public:
     /* Migration counters */

@@ -322,6 +322,8 @@ struct TokenSyncReceiverFSM_
              */
             for (; it->Valid() && resolve_list.size() < max_to_resolve; it->Next()) {
                 ObjectID id(it->key().ToString());
+                LOGDEBUG << "range check id: " << id
+                        << " start: " << start_obj_id << " end: " << end_obj_id;
                 /* Range check */
                 if (id < start_obj_id || id > end_obj_id) {
                     continue;
@@ -447,7 +449,7 @@ struct TokenSyncReceiverFSM_
 
     Row< Receiving  , TRMdXferDnEvt  , RecvDone   , mark_sync_dn    , msm_none         >,
     // +------------+----------------+------------+-----------------+------------------+
-    Row< RecvDone   , TRResolveEvt   , Snapshot   , take_snap       , need_resolve     >,
+    Row< RecvDone   , msm_none       , Snapshot   , take_snap       , need_resolve     >,
 
     Row< RecvDone   , msm_none       , Complete   , teardown        , Not_<need_resolve>>, // NOLINT
     // +------------+----------------+------------+-----------------+------------------+
@@ -540,7 +542,9 @@ struct TokenSyncReceiverFSM_
             return;
         }
 
-        /* Cache db snapshot info */
+        /* Cache db snapshot info.  Thread safe here as only one thread
+         * accesses db_itr_
+         */
         db_options_ = options;
         db_ = db;
         db_itr_ = db->NewIterator(options);
@@ -907,10 +911,6 @@ void TokenSyncReceiver::process_event(const TRMdXferDnEvt& evt) {
 }
 
 void TokenSyncReceiver::process_event(const TSnapDnEvt& evt) {
-    fsm_->process_event(evt);
-}
-
-void TokenSyncReceiver::process_event(const TRResolveEvt& evt) {
     fsm_->process_event(evt);
 }
 

@@ -197,7 +197,16 @@ fds::Error SmObjDb::putSyncEntry(const ObjectID& objId,
     }
     md.applySyncData(data);
     dataExists = md.dataPhysicallyExists();
-    return put_(objId, md);
+
+    LOGDEBUG << md.logString();
+
+    err = put_(objId, md);
+    /******************* Test code ***************/
+    DBG(ObjMetaData temp_md);
+    DBG(get(objId, temp_md));
+    fds_assert(md == temp_md);
+    /*********************************************/
+    return err;
 }
 
 /**

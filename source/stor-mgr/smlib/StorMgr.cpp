@@ -554,6 +554,10 @@ void ObjectStorMgr::migrationEventOmHandler(bool dlt_type)
 {
     GLOGDEBUG << "ObjectStorMgr - Migration  event Handler " << dlt_type;
 
+    // TODO(Rao): Remove this once token sync is stable
+    objStorMgr->migrationSvcResponseCb(Error(ERR_OK), TOKEN_COPY_COMPLETE);
+    return;
+
     std::set<fds_token_id> tokens =
             DLT::token_diff(objStorMgr->getUuid(),
                     objStorMgr->omClient->getCurrentDLT(),
@@ -594,6 +598,10 @@ void ObjectStorMgr::migrationEventOmHandler(bool dlt_type)
 
 void ObjectStorMgr::dltcloseEventHandler()
 {
+    // TODO(Rao):  Remove this once token sync is stable
+    return;
+
+
     MigSvcSyncCloseReqPtr close_req(new MigSvcSyncCloseReq());
     close_req->sync_close_ts = get_fds_timestamp_ms();
 
@@ -2015,6 +2023,8 @@ ObjectStorMgr::putTokenObjectsInternal(SmIoReq* ioReq)
 
         /* Apply metadata */
         objMetadata.apply(obj.meta_data);
+
+        LOGDEBUG << objMetadata.logString();
 
         if (objMetadata.dataPhysicallyExists()) {
             /* write metadata */

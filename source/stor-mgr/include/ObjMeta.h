@@ -132,6 +132,8 @@ public:
 
     bool operator==(const ObjMetaData &rhs) const;
 
+    std::string logString() const;
+
 private:
     void mergeAssociationArrays_();
 

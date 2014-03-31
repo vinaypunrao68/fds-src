@@ -74,6 +74,10 @@ public:
             tokenStateDb)
     {
     }
+    TVIRTUAL int get_port()
+    {
+        return conf_helper_.get<int>("port");
+    }
 protected:
     virtual void setup_migpath_server()
     {
@@ -166,7 +170,7 @@ public:
             close_req->sync_close_ts = get_fds_timestamp_ms();
 
             FdsActorRequestPtr close_far(new FdsActorRequest(
-                    FAR_ID(MigSvcSyncCloseReq), close_far));
+                    FAR_ID(MigSvcSyncCloseReq), close_req));
 
             sender_mig_svc_->send_actor_request(close_far);
         }
@@ -237,7 +241,7 @@ int main(int argc, char *argv[]) {
         &fds::gl_objStats,
         NULL
     };
-    MigrationTester t(argc, argv, "", "", "temp.log", smVec);
+    MigrationTester t(argc, argv, "migration_ut.conf", "", "temp.log", smVec);
     t.init();
     t.test1();
     return 0;
