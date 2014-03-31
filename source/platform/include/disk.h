@@ -169,6 +169,7 @@ class PmDiskInventory : public DiskInventory
     virtual void dsk_do_partition();
     virtual void dsk_admit_all();
     virtual void dsk_mount_all();
+    virtual void dsk_foreach(DiskObjIter *iter);
 };
 
 /**
