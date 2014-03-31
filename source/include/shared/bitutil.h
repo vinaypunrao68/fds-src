@@ -1,5 +1,12 @@
-#ifndef INCLUDE_SHARED_BITUTIL_H_
-#define INCLUDE_SHARED_BITUTIL_H_
+/*
+ * Copyright 2014 by Formation Data Systems, Inc.
+ */
+#ifndef SOURCE_INCLUDE_SHARED_BITUTIL_H_
+#define SOURCE_INCLUDE_SHARED_BITUTIL_H_
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /* Code is in public domain from aggregate.org */
 static inline unsigned int
@@ -48,4 +55,7 @@ bit_msb32(register unsigned int x)
     return (x & ~(x >> 1));
 }
 
-#endif /* INCLUDE_SHARED_BITUTIL_H_ */
+#ifdef __cplusplus
+}
+#endif
+#endif /* SOURCE_INCLUDE_SHARED_BITUTIL_H_ // NOLINT */

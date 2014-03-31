@@ -24,11 +24,6 @@ namespace msf = msm::front;
  */
 struct VolumeFSM: public msm::front::state_machine_def<VolumeFSM>
 {
-    fds_uint32_t crt_ack_wait;  /* # of vol create acks we are waiting for */
-
-    VolumeFSM() : crt_ack_wait(0) {
-    }
-
     template <class Event, class FSM> void on_entry(Event const &, FSM &);
     template <class Event, class FSM> void on_exit(Event const &, FSM &);
 
@@ -37,13 +32,37 @@ struct VolumeFSM: public msm::front::state_machine_def<VolumeFSM>
      */
     struct VST_Inactive: public msm::front::state<>
     {
-        typedef mpl::vector<VolOpEvt> deferred_events;
+        /**
+         * Since vol create ok events may start arriving while we are still
+         * sending vol crt msgs (VACT_NotifCrt) and in inactive state, we want
+         * we want to defer processing of vol crt acks untill we are in SrtPend state
+         *
+         * Also note that we will not receive VolOpEvt in this state (so no need to
+         * defer it, because we set VolumeInfo::create_pending flag to true until
+         * we are in CrtPnd state and not allow any operations on volume until
+         * create_pending is false.
+         */
+        typedef mpl::vector<VolCrtOkEvt> deferred_events;
 
         template <class Evt, class Fsm, class State>
         void operator()(Evt const &, Fsm &, State &) {}
 
         template <class Event, class FSM> void on_entry(Event const &, FSM &) {}
         template <class Event, class FSM> void on_exit(Event const &, FSM &) {}
+    };
+    struct VST_CrtPend: public msm::front::state<>
+    {
+        typedef mpl::vector<VolOpEvt> deferred_events;
+
+        VST_CrtPend() : acks_to_wait(0) {}
+
+        template <class Evt, class Fsm, class State>
+        void operator()(Evt const &, Fsm &, State &) {}
+
+        template <class Event, class FSM> void on_entry(Event const &, FSM &) {}
+        template <class Event, class FSM> void on_exit(Event const &, FSM &) {}
+
+        int acks_to_wait;
     };
     struct VST_Active: public msm::front::state<>
     {
@@ -120,6 +139,11 @@ struct VolumeFSM: public msm::front::state_machine_def<VolumeFSM>
     /**
      * Transition actions
      */
+    struct VACT_NotifCrt
+    {
+        template <class Evt, class Fsm, class SrcST, class TgtST>
+        void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
+    };
     struct VACT_CrtDone
     {
         template <class Evt, class Fsm, class SrcST, class TgtST>
@@ -192,8 +216,10 @@ struct VolumeFSM: public msm::front::state_machine_def<VolumeFSM>
         // +-------------------+--------------+------------+---------------+------------+
         // | Start             | Event        | Next       | Action        | Guard      |
         // +-------------------+--------------+------------+---------------+------------+
-        msf::Row< VST_Inactive , VolCrtOkEvt  , VST_Active , VACT_CrtDone  , GRD_VolCrt >,
+        msf::Row< VST_Inactive , VolCreateEvt , VST_CrtPend, VACT_NotifCrt , msf::none  >,
         msf::Row< VST_Inactive , VolDelChkEvt , VST_DelPend, VACT_DelStart , msf::none  >,
+        // +-------------------+--------------+------------+---------------+------------+
+        msf::Row< VST_CrtPend  , VolCrtOkEvt  , VST_Active , VACT_CrtDone  , GRD_VolCrt >,
         // +-------------------+--------------+------------+---------------+------------+
         msf::Row< VST_Active   , VolOpEvt     , VST_Waiting, VACT_VolOp    , GRD_VolOp  >,
         msf::Row< VST_Active   , VolDelChkEvt , VST_DelPend, VACT_DelStart , GRD_VolDel >,
@@ -230,6 +256,28 @@ void VolumeFSM::no_transition(Event const &evt, Fsm &fsm, int state)
 }
 
 /**
+ * VACT_NotifCrt
+ * -------------
+ * Notify services about creation of this volume
+ */
+template <class Evt, class Fsm, class SrcST, class TgtST>
+void
+VolumeFSM::VACT_NotifCrt::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
+{
+    OM_NodeContainer    *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+    VolumeInfo *vol = evt.vol_ptr;
+    fds_verify(vol != NULL);
+    LOGDEBUG << "VolumeFSM VACT_NotifCrt for volume " << vol->vol_get_name();
+
+    fds_uint32_t ncount = local->om_bcast_vol_create(vol);
+    // lets say quorum is majority
+    if (ncount > 2) {
+        ncount = (ncount / 2) + 1;
+    }
+    dst.acks_to_wait = ncount;
+}
+
+/**
  * GRD_VolCrt
  * ------------
  * returns true if we received quorum number of acks for volume create.
@@ -239,20 +287,17 @@ bool VolumeFSM::GRD_VolCrt::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
 {
     fds_bool_t ret = false;
     FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "VolumeFSM GRD_VolCrt";
-    if (evt.acks_to_wait != 0) {
-        fsm.crt_ack_wait = evt.acks_to_wait;
-    }
-    // crt_ack_wait must be initially > 0 (even if there are no
-    // nodes we sent notifications (we set acks to wait = 1 in
-    // that case), plus if we reach 0, we should have returned true
-    // so some assumptions went wrong if crt_ack_wait == 0 here
-    fds_verify(fsm.crt_ack_wait != 0);
-    fsm.crt_ack_wait--;
-    if (fsm.crt_ack_wait == 0) {
-        ret = true;
+    if (evt.got_ack) {
+        // if we are waiting for acks and got actual ack, acks_to_wait
+        // should be positive, otherwise we would have got out of this
+        // state before, this is unexpected!
+        fds_verify(src.acks_to_wait != 0);
+        src.acks_to_wait--;
     }
 
-    LOGDEBUG << "GRD_VolCrt: acks to wait " << fsm.crt_ack_wait << " return " << ret;
+    ret = (src.acks_to_wait == 0);
+
+    LOGDEBUG << "GRD_VolCrt: acks to wait " << src.acks_to_wait << " return " << ret;
     return ret;
 }
 
@@ -512,7 +557,8 @@ void VolumeFSM::VACT_DelDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
 // Volume Info
 // --------------------------------------------------------------------------------------
 VolumeInfo::VolumeInfo(const ResourceUUID &uuid)
-        : Resource(uuid), vol_properties(NULL), delete_pending(false) {
+        : Resource(uuid), vol_properties(NULL), delete_pending(false),
+          create_pending(true)  {
     volume_fsm = new FSM_Volume();
 }
 
@@ -800,6 +846,9 @@ VolumeInfo::vol_current_state()
     return state_names[volume_fsm->current_state()[0]];
 }
 
+void VolumeInfo::vol_event(VolCreateEvt const &evt) {
+    volume_fsm->process_event(evt);
+}
 void VolumeInfo::vol_event(VolCrtOkEvt const &evt) {
     volume_fsm->process_event(evt);
 }
@@ -873,7 +922,6 @@ VolumeContainer::om_create_vol(const FdspMsgHdrPtr &hdr,
         rs_free_resource(vol);
         return err;
     }
-    rs_register(vol);
 
     const VolumeDesc& volumeDesc=*(vol->vol_get_properties());
     // store it in config db..
@@ -882,14 +930,25 @@ VolumeContainer::om_create_vol(const FdspMsgHdrPtr &hdr,
                 << "[" << volumeDesc.name << ":" <<volumeDesc.volUUID << "]";
     }
 
-    fds_uint32_t ncount = local->om_bcast_vol_create(vol);
-    // lets say quorum is majority
-    if (ncount > 2) {
-        ncount = (ncount / 2) + 1;
-    }
-    vol->vol_event(VolCrtOkEvt(ncount + 1));
+    // register before b-casting vol crt, in case we start recevings acks
+    // before vol_event for create vol returns
+    rs_register(vol);
+
+    // this event will broadcast vol create msg to other nodes and wait for acks
+    vol->vol_event(VolCreateEvt(vol.get()));
+
+    // at this point we moved to next state which allows deferring of volume
+    // events till volume create process completes (e.g. we receive acks)
+    // so we reset create_pending flag to allow other operatinos in this volume
+    vol->allow_vol_ops();
+
+    // in case there was no one to notify, check if we can proceed to
+    // active state right away (otherwise guard will stop us)
+    vol->vol_event(VolCrtOkEvt(false));
 
     // If this is create bucket request from AM, attach the volume to the requester.
+    // If we are still waiting for vol create acks, this event will be deferred until
+    // we received quorum of acks
     if (from_omcontrol_path) {
         vol->vol_event(VolOpEvt(vol.get(),
                                 FDS_ProtocolInterface::FDSP_MSG_ATTACH_VOL_CMD,
@@ -982,6 +1041,10 @@ VolumeContainer::om_modify_vol(const FdspModVolPtr &mod_msg)
         LOGWARN << "Received ModifyVol for volume " << vname
                 << " for which delete is pending";
         return Error(ERR_NOT_FOUND);
+    } else if (vol->is_create_pending()) {
+        LOGWARN << "Received ModifyVol for volume " << vname
+                << " for which create is pending";
+        return Error(ERR_NOT_READY);
     }
 
     boost::shared_ptr<VolumeDesc> new_desc(new VolumeDesc(*(vol->vol_get_properties())));
@@ -1040,6 +1103,10 @@ VolumeContainer::om_attach_vol(const FDSP_MsgHdrTypePtr &hdr,
         LOGWARN << "Received AttachVol for volume " << attach->vol_name
                 << " for which delete is pending";
         return Error(ERR_NOT_FOUND);
+    } else if (vol->is_create_pending()) {
+        LOGWARN << "Received attach Vol for volume " << attach->vol_name
+                << " for which create is pending";
+        return Error(ERR_NOT_READY);
     }
 
     NodeUuid node_uuid(hdr->src_service_uuid.uuid);
@@ -1088,6 +1155,10 @@ VolumeContainer::om_detach_vol(const FDSP_MsgHdrTypePtr &hdr,
         LOGWARN << "Received detach Vol for volume " << vname
                 << " in delete pending state";
         return Error(ERR_NOT_FOUND);
+    } else if (vol->is_create_pending()) {
+        LOGWARN << "Received detach Vol for volume " << vname
+                << " for which create is pending";
+        return Error(ERR_NOT_READY);
     }
 
     NodeUuid node_uuid(hdr->src_service_uuid.uuid);
@@ -1135,7 +1206,7 @@ VolumeContainer::om_test_bucket(const FdspMsgHdrPtr     &hdr,
         LOGNOTIFY << "OM does not know about node " << hdr->src_node_name;
     }
     vol = get_volume(req->bucket_name);
-    if (vol == NULL || vol->is_delete_pending()) {
+    if (vol == NULL || vol->is_delete_pending() || vol->is_create_pending()) {
         if (vol) {
             LOGNORMAL << "delete pending on bucket " << vname;
         } else {
@@ -1178,7 +1249,7 @@ VolumeContainer::om_notify_vol_resp(om_vol_notify_t type,
     switch (type) {
         case om_notify_vol_add:
             if (resp_err.ok()) {
-                vol->vol_event(VolCrtOkEvt());
+                vol->vol_event(VolCrtOkEvt(true));
             } else {
                 // TODO(anna) send response to volume create here with error
                 LOGERROR << "Received volume create response with error ("
@@ -1227,14 +1298,22 @@ bool VolumeContainer::addVolume(const VolumeDesc& volumeDesc) {
         rs_free_resource(vol);
         return false;
     }
+
+    // register before b-casting vol crt, in case we start recevings acks
+    // before vol_event for create vol returns
     rs_register(vol);
 
-    fds_uint32_t ncount = local->om_bcast_vol_create(vol);
-    // lets say quorum is majority
-    if (ncount > 2) {
-        ncount = (ncount / 2) + 1;
-    }
-    vol->vol_event(VolCrtOkEvt(ncount + 1));
+    // this event will broadcast vol create msg to other nodes and wait for acks
+    vol->vol_event(VolCreateEvt(vol.get()));
+
+    // at this point we moved to next state which allows deferring of volume
+    // events till volume create process completes (e.g. we receive acks)
+    // so we reset create_pending flag to allow other operatinos in this volume
+    vol->allow_vol_ops();
+
+    // in case there was no one to notify, check if we can proceed to
+    // active state right away (otherwise guard will stop us)
+    vol->vol_event(VolCrtOkEvt(false));
 
     return true;
 }
