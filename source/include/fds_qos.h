@@ -211,8 +211,12 @@ namespace fds {
       io->enqueue_time = boost::posix_time::microsec_clock::universal_time();
 
       qda_lock.read_lock();
-      FDS_VolumeQueue *que = queue_map[queue_id];
-      
+      if (queue_map.count(queue_id) == 0) {
+          qda_lock.read_unlock();
+          return Error(ERR_VOL_NOT_FOUND);
+      }
+
+      FDS_VolumeQueue *que = queue_map[queue_id];      
       que->enqueueIO(io);
       
       ioProcessForEnqueue(queue_id, io);  
