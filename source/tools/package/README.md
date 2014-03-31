@@ -44,7 +44,7 @@ Package Fields
 - `version` : The version number of the package *mandatory*.
    -  alphanumeric lower case, first letter is a digit `regex: '^[0-9][a-z0-9-\.]+$'`
 
-description : Simple description of the what the package contains *mandatory*.
+- `description` : Simple description of the what the package contains *mandatory*.
    -  single line or multiline . Multiline should be specified with yaml pipe (|).
 
 - `maintainer` : The Maintainer of the package. 
@@ -52,8 +52,9 @@ description : Simple description of the what the package contains *mandatory*.
    
 - `depends` : The packages that this package depends on 
    - can be just one string or a list of strings
-   - `depends : just-one (<< 1.2)`
-   - ``` 
+``` 
+   depends : just-one (<< 1.2)
+OR
    depends :
          -  package1 (> 1.5)
          -  package2 (= 1.6)
