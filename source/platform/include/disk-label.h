@@ -12,11 +12,6 @@ const int DL_UUID_BYTE_LEN             = 30;
 const int DL_MAJOR                     = 1;
 const int DL_MINOR                     = 0;
 const int DL_SECTOR_SZ                 = 512;
-=======
-#include <fds_assert.h>
-
-namespace fds {
-const int DL_UUID_BYTE_LEN             = 30;
 
 /**
  * On-disk format.  Keep this structure size at 128-byte.
@@ -176,19 +171,6 @@ class DiskLabelMgr : public DiskObjIter
 
     virtual bool dsk_iter_fn(DiskObj::pointer curr);
     virtual bool dsk_iter_fn(DiskObj::pointer curr, DiskObjIter *arg);
-} disk_uuid_rec_t;
-
-typedef std::vector<disk_uuid_rec_t>   DiskUuidArray;
-
-class DiskLabel
-{
-  public:
-    explicit DiskLabel(DiskObj::pointer disk);
-    virtual ~DiskLabel();
-
-  protected:
-    disk_label_hdr_t         dl_hdr;
-    DiskUuidArray            dl_uuids;
 };
 
 }  // namespace fds
