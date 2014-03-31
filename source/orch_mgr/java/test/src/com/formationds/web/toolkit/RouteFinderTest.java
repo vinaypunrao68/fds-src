@@ -11,6 +11,23 @@ import static org.junit.Assert.assertEquals;
  */
 public class RouteFinderTest {
     @Test
+    public void testWithWildcards() throws Exception {
+        RouteFinder routeFinder = new RouteFinder();
+        routeFinder.route(HttpMethod.GET, "/foo/:bar", () -> new Foo());
+        routeFinder.route(HttpMethod.GET, "/foo/:bar/hello", () -> new Bar());
+        routeFinder.route(HttpMethod.GET, "/foo/:bar/hello/:panda", () -> new Foo());
+
+        Route route = resolve(HttpMethod.GET, routeFinder, "/foo/andy");
+        assertEquals(200, route.getHandler().get().handle(route.getRequest()).getHttpStatus());
+
+        route = resolve(HttpMethod.GET, routeFinder, "/foo/andy/hello");
+        assertEquals(200, route.getHandler().get().handle(route.getRequest()).getHttpStatus());
+
+        route = resolve(HttpMethod.GET, routeFinder, "/foo/andy/hello/somethingelse");
+        assertEquals(200, route.getHandler().get().handle(route.getRequest()).getHttpStatus());
+    }
+
+    @Test
     public void testResolve() throws Exception {
         RouteFinder routeFinder = new RouteFinder();
         routeFinder.route(HttpMethod.GET, "/hello/foo", () -> new Foo());
@@ -35,12 +52,12 @@ public class RouteFinderTest {
     @Test
     public void testExpandArgs() throws Exception {
         RouteFinder routeFinder = new RouteFinder();
-        routeFinder.route(HttpMethod.GET, "/a/:color/b/:metal", () -> new Foo());
+        routeFinder.route(HttpMethod.GET, "/a/:b/c/:d", () -> new Foo());
 
-        Route route = resolve(HttpMethod.GET, routeFinder, "/a/blue/b/iron");
+        Route route = resolve(HttpMethod.GET, routeFinder, "/a/b/c/d");
         assertEquals(200, route.getHandler().get().handle(route.getRequest()).getHttpStatus());
-        assertEquals("blue", route.getRequest().getParameter("color"));
-        assertEquals("iron", route.getRequest().getParameter("metal"));
+        assertEquals("b", route.getRequest().getParameter("b"));
+        assertEquals("d", route.getRequest().getParameter("d"));
     }
 
     private Route resolve(HttpMethod httpMethod, RouteFinder routeFinder, String q) {

@@ -11,6 +11,29 @@ import static org.junit.Assert.*;
 
 public class LexicalTrieTest {
     @Test
+    public void testNestedCaptures() {
+        LexicalTrie<Integer> trie = LexicalTrie.newTrie();
+        trie.put("/a/:b/c/:d", 42);
+        QueryResult<Integer> result = trie.find("/a/b/c/d");
+        assertTrue(result.found());
+        assertEquals(42, (int) result.getValue());
+        assertEquals("b", result.getMatches().get("b"));
+        assertEquals("d", result.getMatches().get("d"));
+    }
+
+    @Test
+    public void testResolveCapture() {
+        LexicalTrie<Integer> trie = LexicalTrie.newTrie();
+        trie.put("/a", 42);
+        trie.put("/a/:b", 43);
+        trie.put("/a/:b/c", 44);
+        System.out.println(trie);
+        assertTrue(trie.find("/a").found());
+        assertTrue(trie.find("/a/b").found());
+        assertTrue(trie.find("/a/b/c").found());
+    }
+
+    @Test
     public void testSimpleMatch() {
         LexicalTrie<Integer> trie = LexicalTrie.newTrie();
         trie.put("a", 42);
@@ -45,22 +68,5 @@ public class LexicalTrieTest {
     @Test(expected = RuntimeException.class)
     public void testIncompletePattern() {
         new Root<Integer>().put(":", 42);
-    }
-
-    @Test(expected = RuntimeException.class)
-    public void testAmbiguousPatterns() {
-        LexicalTrie<Integer> trie = LexicalTrie.<Integer>newTrie()
-                .put("/a/:color/b/:metal", 42)
-                .put("/a/:color", 43);
-        QueryResult<Integer> goldResult = trie.find("/a/blue/b/gold");
-        assertEquals(42, (int)goldResult.getValue());
-        Map<String, String> matches = goldResult.getMatches();
-        assertEquals("blue", matches.get("color"));
-        assertEquals("gold", matches.get("metal"));
-
-        QueryResult<Integer> redResult = trie.find("/a/red");
-        assertEquals(43, (int)redResult.getValue());
-        assertEquals("red", redResult.getMatches().get("color"));
-
     }
 }
