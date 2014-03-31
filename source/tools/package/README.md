@@ -73,19 +73,22 @@ OR
              - `dest` can be explicitly set as directory with `dir: True`
 
     - `dir` : is the destination a directory or plain file `default: False`
+    - `conf` : Boolean to specify if this is a conf file `default: False`
     - `owner` :  who owns the file `default root:root`
              - `owner` should be specified as `user:group`
-
     - `perms` : file permissions
              - `perms` should be specified in `chmod` format
 
 - `services` : list of services to be installed. (just one or a list)
     - `name` : name of the service (same format as package name)
+    - `start-on-install` : Boolean to say if the service should be started after install `default: False`
+    - `start-on-boot` : Boolean to say if the service should be started at reboot [default: False]
     - `control` : the control file which provides `start/stop/status/` functionality. Look into templates directory for a [sample] (templates/sample.simple.service).
 
 - `cronjobs` : list of crons to be setup. (just one or a list)
     - `command` : shell command or script to be run
-    - interval : how often should the command be run [minutely/hourly/daily/yearly ... ] or cron format.
+    - `interval` : how often should the command be run [minutely/hourly/daily/yearly ... ] or cron format.
+    - `user`     : the user as whom the cron should be run `default: root`
 
 
 Uploading Packages to Repo
