@@ -60,7 +60,6 @@ class PmDiskObj : public DiskObj
 
     ChainLink                 dsk_part_link;      /**< link to dsk_partition list. */
     ChainLink                 dsk_disc_link;      /**< link to discovery list.     */
-    ChainLink                 dsk_type_link;      /**< link to hdd/ssd list.       */
     ChainList                 dsk_part_head;      /**< sda -> { sda1, sda2... }    */
                                                   /**< /dev/sda is in rs_name.     */
     const char               *dsk_raw_path;

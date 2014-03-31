@@ -5,7 +5,7 @@
 
 namespace fds {
 
-DiskObj::DiskObj() : Resource(ResourceUUID(0)) {}
+DiskObj::DiskObj() : Resource(ResourceUUID(0)), dsk_type_link(this) {}
 DiskObj::~DiskObj() {}
 
 DiskInventory::DiskInventory() : RsContainer(), dsk_count(0) {}
@@ -43,6 +43,34 @@ DiskInventory::dsk_array_snapshot(ChainList *list, DiskObjArray *arr)
     }
     rs_mtx.unlock();
     return cnt;
+}
+
+// dsk_add_to_inventory_mtx
+// ------------------------
+// Add the disk to the inventory.  The caller must hold the mutex.
+//
+void
+DiskInventory::dsk_add_to_inventory_mtx(DiskObj::pointer disk, ChainList *list)
+{
+    if (list != NULL) {
+        dsk_count++;
+        list->chain_add_back(&disk->dsk_type_link);
+    }
+    rs_register_mtx(disk);
+}
+
+// dsk_remove_out_inventory_mtx
+// ----------------------------
+// Remove the disk out of the inventory.  The caller must hold the mutex.
+//
+void
+DiskInventory::dsk_remove_out_inventory_mtx(DiskObj::pointer disk)
+{
+    if (!disk->dsk_type_link.chain_empty()) {
+        dsk_count--;
+        disk->dsk_type_link.chain_rm_init();
+    }
+    rs_unregister_mtx(disk);
 }
 
 // dsk_foreach

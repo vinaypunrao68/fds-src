@@ -43,7 +43,7 @@ PmDiskObj::~PmDiskObj()
 
 PmDiskObj::PmDiskObj()
     : dsk_part_link(this), dsk_disc_link(this),
-      dsk_type_link(this), dsk_raw_path(NULL), dsk_parent(NULL),
+      dsk_raw_path(NULL), dsk_parent(NULL),
       dsk_my_dev(NULL), dsk_common(NULL)
 {
     dsk_cap_gb   = 0;
@@ -377,12 +377,10 @@ PmDiskInventory::dsk_discovery_add(PmDiskObj::pointer disk, PmDiskObj::pointer r
     }
     dsk_discovery.chain_add_back(&disk->dsk_disc_link);
     if (disk->dsk_parent == disk) {
-        // TODO(Vy): move this code to shared/disk-inventory.cpp
-        dsk_count++;
-        dsk_hdd.chain_add_back(&disk->dsk_type_link);
+        DiskInventory::dsk_add_to_inventory_mtx(disk, &dsk_hdd);
+    } else {
+        DiskInventory::dsk_add_to_inventory_mtx(disk, NULL);
     }
-    // Add to the map indexed by uuid/dev path.
-    rs_register_mtx(disk);
     rs_mtx.unlock();
 }
 
@@ -412,14 +410,11 @@ PmDiskInventory::dsk_discovery_remove(PmDiskObj::pointer disk)
 
     // Unlink the chain and unmap every indices.
     disk->dsk_disc_link.chain_rm_init();
-    disk->dsk_type_link.chain_rm_init();
-
     if (disk->dsk_parent == disk) {
         fds_assert(dsk_dev_map[disk->dsk_common->dsk_blk_path] != NULL);
         dsk_dev_map.erase(disk->dsk_common->dsk_blk_path);
-        disk->dsk_parent = NULL;  // dec the refcnt.
     }
-    rs_unregister_mtx(disk);
+    DiskInventory::dsk_remove_out_inventory_mtx(disk);
     rs_mtx.unlock();
 
     // Break free from the inventory.
@@ -726,8 +721,7 @@ FileDiskInventory::dsk_file_create(const char *type, int count, ChainList *list)
         file = new FileDiskObj(dir);
 
         rs_mtx.lock();
-        list->chain_add_back(&file->dsk_type_link);
-        rs_register_mtx(file);
+        DiskInventory::dsk_add_to_inventory_mtx(file, list);
         rs_mtx.unlock();
     }
 }

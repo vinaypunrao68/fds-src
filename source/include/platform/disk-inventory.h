@@ -9,6 +9,7 @@
 namespace fds {
 
 class DiskObjIter;
+class DiskInventory;
 
 /**
  * Generic disk obj shared by PM and other daemons such as OM.
@@ -20,8 +21,11 @@ class DiskObj : public Resource
     typedef boost::intrusive_ptr<const DiskObj> const_ptr;
 
   protected:
+    friend class DiskInventory;
+
     fds_uint64_t              dsk_cap_gb;
     dev_t                     dsk_my_devno;
+    ChainLink                 dsk_type_link;        /**< link to hdd/ssd list...      */
 
   public:
     DiskObj();
@@ -63,9 +67,11 @@ class DiskInventory : public RsContainer
 
     virtual void dsk_foreach(DiskObjIter *iter, ChainList *list, int count);
     virtual void dsk_foreach(DiskObjIter *iter, DiskObjIter *arg, ChainList *list, int);
-    inline void dsk_foreach(DiskObjIter *iter) {
+    inline  void dsk_foreach(DiskObjIter *iter) {
         dsk_foreach(iter, &dsk_hdd, dsk_count);
     }
+    virtual void dsk_add_to_inventory_mtx(DiskObj::pointer disk, ChainList *list);
+    virtual void dsk_remove_out_inventory_mtx(DiskObj::pointer disk);
 };
 
 }  // namespace fds
