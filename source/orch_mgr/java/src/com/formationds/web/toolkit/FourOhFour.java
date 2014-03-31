@@ -2,7 +2,7 @@ package com.formationds.web.toolkit;
 
 import org.eclipse.jetty.server.Request;
 
-import javax.servlet.http.HttpServletRequest;
+import java.util.Map;
 
 /*
  * Copyright 2014 Formation Data Systems, Inc.
@@ -13,7 +13,7 @@ public class FourOhFour extends TextResource implements RequestHandler  {
     }
 
     @Override
-    public Resource handle(Request request) throws Exception {
+    public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
         return this;
     }
 }

@@ -15,6 +15,7 @@ import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
 
 import java.util.List;
+import java.util.Map;
 
 public class ListVolumes implements RequestHandler {
     private FDSP_ConfigPathReq.Iface iface;
@@ -24,7 +25,7 @@ public class ListVolumes implements RequestHandler {
     }
 
     @Override
-    public Resource handle(Request request) throws Exception {
+    public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
         FDSP_MsgHdrType msg = new FDSP_MsgHdrType();
         List<FDSP_VolumeDescType> volumes = iface.ListVolumes(msg);
         String[] descriptions = volumes.stream()

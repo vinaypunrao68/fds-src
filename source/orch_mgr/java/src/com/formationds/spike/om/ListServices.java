@@ -10,7 +10,7 @@ import com.formationds.web.toolkit.TextResource;
 import com.google.common.base.Joiner;
 import org.eclipse.jetty.server.Request;
 
-import javax.servlet.http.HttpServletRequest;
+import java.util.Map;
 
 public class ListServices implements RequestHandler {
     private ServiceDirectory serviceDirectory;
@@ -20,7 +20,7 @@ public class ListServices implements RequestHandler {
     }
 
     @Override
-    public Resource handle(Request request) throws Exception {
+    public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
         String[] nodeDescriptions = serviceDirectory
                 .allNodes()
                 .map(n -> "    {name: '" + n.getNode_name() + "', uuid:'" + n.getNode_uuid().toString() + "', type:'" + n.getNode_type() + "'}")

@@ -5,7 +5,6 @@ package com.formationds.web.toolkit;
 
 import org.eclipse.jetty.server.Request;
 
-import javax.servlet.http.HttpServletRequest;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -48,7 +47,7 @@ public class StaticFileHandler implements RequestHandler {
 
 
     @Override
-    public Resource handle(Request request) throws FileNotFoundException {
+    public Resource handle(Request request, Map<String, String> routeParameters) throws FileNotFoundException {
         String resource = request.getRequestURI();
         String mimeType = MIME_TYPES.getOrDefault(getExtension(resource), "application/octet-stream");
 

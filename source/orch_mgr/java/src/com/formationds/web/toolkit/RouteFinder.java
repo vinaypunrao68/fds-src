@@ -5,6 +5,7 @@ import com.formationds.web.toolkit.route.QueryResult;
 import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.util.MultiMap;
 
+import java.util.Optional;
 import java.util.function.Supplier;
 
 /*
@@ -24,7 +25,7 @@ public class RouteFinder {
         map.put(name, handler);
     }
 
-    public Route resolve(Request request) {
+    public Optional<Route> resolve(Request request) {
         String path = request.getMethod().toString() + request.getRequestURI()
                 .replaceAll("^" + request.getServletPath() + "/", "")
                 .replaceAll("^/", "")
@@ -34,9 +35,9 @@ public class RouteFinder {
         if (result.found()) {
             result.getMatches().forEach((k, v) -> parameters.add(k, v));
             request.setParameters(parameters);
-            return new Route(request, result.getValue());
+            return Optional.of(new Route(request, result.getMatches(), result.getValue()));
         }
 
-        return new Route(request, () -> new FourOhFour());
+        return Optional.empty();
     }
 }
