@@ -619,17 +619,25 @@ Conn_GetObject::Conn_GetObject(AMEngine *eng, AME_HttpReq *req)
     : AME_Request(eng, req)
 {
     ame_stat_pt = STAT_NGX_GET;
+
+    // TODO(Andrew): Don't hard code
+    get_obj_max_buf_len = 2 * 1024 * 1024;
 }
 
 Conn_GetObject::~Conn_GetObject()
 {
 }
 
+fds_uint32_t
+Conn_GetObject::get_max_buf_len() const {
+    return get_obj_max_buf_len;
+}
+
 // fdsn_getobj_cbfn
 // ----------------
 //
 static FDSN_Status
-fdsn_getobj_cbfn(void *req, fds_uint64_t bufsize,
+fdsn_getobj_cbfn(void *req, fds_uint64_t bufsize, fds_off_t offset,
                  const char *buf, void *cbData,
                  FDSN_Status status, ErrorDetails *errdetails)
 {
@@ -682,15 +690,31 @@ Conn_GetObject::ame_request_resume()
 void
 Conn_GetObject::ame_request_handler()
 {
-    static int buf_req_len = (6 << 20);   // 6MB
+    // static int buf_req_len = (6 << 20);   // 6MB
+    fds_uint32_t buf_req_len = get_max_buf_len();
     int           len;
     char          *adr;
     ame_buf_t     *buf;
     FDS_NativeAPI *api;
     BucketContext bucket_ctx("host", get_bucket_id(), "accessid", "secretkey");
 
+    // Get a buffer fron nginx to read into
     buf = ame_ctx->ame_alloc_buf(buf_req_len, &adr, &len);
+
+    // Store a link to the buffer
+    // Note, this assumes the buffers are linked
+    // in offset order...we will return data to nginx
+    // in this order
+    // ame_ctx->ame_add_alloc_buf(buf);
+
     ame_ctx->ame_push_output_buf(buf);
+
+    // Move the offset forward for the (possible) next read
+    // ame_ctx->ame_mv_off(buf_req_len);
+
+    // Hard coded object name for getting stats
+    // TODO(Andrew): Don't hard code the stats name
+    // here...need consistent REST format
     if (get_bucket_id() == "stat") {
         len = gl_fds_stat.stat_out(STAT_MAX_MODS, adr, len);
         ame_ctx->ame_update_output_buf(len);

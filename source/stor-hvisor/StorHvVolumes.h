@@ -221,7 +221,8 @@ public:
   ~GetBlobReq() { };
 
   void DoCallback(FDSN_Status status, ErrorDetails* errDetails) {
-    (getObjCallback)(req_context, dataLen, dataBuf, callback_data, status, errDetails);
+      (getObjCallback)(req_context, dataLen, blobOffset, dataBuf,
+                       callback_data, status, errDetails);
   }
 
 };

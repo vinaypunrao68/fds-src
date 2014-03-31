@@ -431,8 +431,13 @@ typedef int (*fdsnPutObjectHandler)(void *reqContext, fds_uint64_t bufferSize,
  *         Typically, this will return either S3StatusOK or
  *         S3StatusAbortedByCallback.
  **/
-typedef FDSN_Status (*fdsnGetObjectHandler)(void *reqContext, fds_uint64_t bufferSize, const char *buffer,
-                                           void *callbackData, FDSN_Status status, ErrorDetails *errDetails);
+typedef FDSN_Status (*fdsnGetObjectHandler)(void *reqContext,
+                                            fds_uint64_t bufferSize,
+                                            fds_off_t offset,
+                                            const char *buffer,
+                                            void *callbackData,
+                                            FDSN_Status status,
+                                            ErrorDetails *errDetails);
 typedef void (*fdsnResponseHandler)(FDSN_Status status,
                                           const ErrorDetails *errorDetails,
                                           void *callbackData);
