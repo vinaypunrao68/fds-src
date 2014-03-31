@@ -269,12 +269,13 @@ VolumeFSM::VACT_NotifCrt::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
     fds_verify(vol != NULL);
     LOGDEBUG << "VolumeFSM VACT_NotifCrt for volume " << vol->vol_get_name();
 
-    fds_uint32_t ncount = local->om_bcast_vol_create(vol);
-    // lets say quorum is majority
-    if (ncount > 2) {
-        ncount = (ncount / 2) + 1;
-    }
-    dst.acks_to_wait = ncount;
+    // we will wait for *all* SMs and DMs to return volume create ack
+    // because otherwise we may allow volume and start IO before an SM or DM
+    // sets up QoS queue/etc to handle IO from that volume.
+    // TODO(anna) once we handle node failures, we need to make sure that
+    // volume FSM does not get stuck if node fails in the process of volume
+    // create and don't wait indefinitely for acks to arrive.
+    dst.acks_to_wait = local->om_bcast_vol_create(vol);
 }
 
 /**
