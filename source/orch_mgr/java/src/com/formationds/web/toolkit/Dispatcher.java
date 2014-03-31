@@ -52,7 +52,7 @@ public class Dispatcher extends HttpServlet {
         Request request = (Request) httpServletRequest;
         RequestHandler requestHandler;
 
-        if (isStaticAsset(request)) {
+        if (isStaticAsset(request) && webDir != null) {
             requestHandler = new StaticFileHandler(webDir);
         } else {
             Route route = routeFinder.resolve(request);
