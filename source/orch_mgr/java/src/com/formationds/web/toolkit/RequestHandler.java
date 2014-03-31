@@ -7,6 +7,7 @@ package com.formationds.web.toolkit;
 import org.eclipse.jetty.server.Request;
 
 import java.util.Map;
+import java.util.Optional;
 
 public interface RequestHandler {
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception;
@@ -35,5 +36,10 @@ public interface RequestHandler {
         } catch (Exception e) {
             throw new UsageException("Parameter '%s' should be an integer");
         }
+    }
+
+    public default Optional<String> optionalString(Map<String, String> routeAttributes, String name) {
+        String value = routeAttributes.get(name);
+        return value == null ? Optional.empty() : Optional.of(value);
     }
 }
