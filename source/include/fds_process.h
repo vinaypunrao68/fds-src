@@ -52,6 +52,7 @@ class FdsRootDir
     inline const std::string &dir_fds_var_tools() const { return d_var_tools; }
     inline const std::string &dir_hdd() const { return d_hdd; }
     inline const std::string &dir_ssd() const { return d_ssd; }
+    inline const std::string &dir_dev() const { return d_dev; }
     inline const std::string &dir_user_repo() const { return d_user_repo; }
     inline const std::string &dir_user_repo_objs() const { return d_user_repo_objs; }
     inline const std::string &dir_user_repo_dm() const { return d_user_repo_dm; }
@@ -76,6 +77,7 @@ class FdsRootDir
     std::string              d_var_inventory;
     std::string              d_var_tests;
     std::string              d_var_tools;
+    std::string              d_dev;
     std::string              d_hdd;
     std::string              d_ssd;
     std::string              d_user_repo;

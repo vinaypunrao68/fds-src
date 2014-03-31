@@ -15,6 +15,7 @@
 #include <iostream>  // NOLINT
 #include <cpplist.h>
 #include <fds_module.h>
+#include <shared/fds-constants.h>
 #include <platform/disk-inventory.h>
 
 namespace fds {
@@ -22,6 +23,8 @@ namespace fds {
 class PmDiskObj;
 class PmDiskInventory;
 class DiskPlatModule;
+class DiskPartitionMgr;
+class FileDiskInventory;
 
 /**
  * Common info about a disk shared among the main obj and its partitions (e.g. sda,
@@ -91,6 +94,12 @@ class PmDiskObj : public DiskObj
     inline char const *const dsk_dev_name() { return rs_name; }
 
     /**
+     * Raw sector read/write to support supper block update.  Only done in parent disk.
+     */
+    virtual int dsk_read(void *buf, fds_uint32_t sector, int sect_cnt);
+    virtual int dsk_write(void *buf, fds_uint32_t sector, int sect_cnt);
+
+    /**
      * Return the slice device matching with the dev_path (e.g. /dev/sda, /dev/sda1...)
      */
     virtual PmDiskObj::pointer dsk_get_info(const std::string &dev_path);
@@ -126,8 +135,7 @@ class PmDiskInventory : public DiskInventory
     ChainList                dsk_discovery;
     ChainList                dsk_prev_inv;       /**< previous inventory list.     */
     ChainList                dsk_curr_inv;       /**< disks that were enumerated.  */
-    ChainList                dsk_hdd;
-    ChainList                dsk_ssd;
+    DiskPartitionMgr        *dsk_partition;
 
     Resource *rs_new(const ResourceUUID &uuid);
 
@@ -137,6 +145,11 @@ class PmDiskInventory : public DiskInventory
 
     PmDiskInventory();
     virtual ~PmDiskInventory();
+
+    /**
+     * Return true if the discovered inventory needs disk simulation.
+     */
+    bool dsk_need_simulation();
 
     virtual PmDiskObj::pointer dsk_get_info(const ResourceUUID &uuid) {
         return PmDiskObj::dsk_cast_ptr(rs_get_resource(uuid));
@@ -153,7 +166,9 @@ class PmDiskInventory : public DiskInventory
     virtual void dsk_discovery_remove(PmDiskObj::pointer disk);
     virtual void dsk_discovery_done();
 
-    virtual void dsk_foreach(DiskObjIter *iter);
+    virtual void dsk_do_partition();
+    virtual void dsk_admit_all();
+    virtual void dsk_mount_all();
 };
 
 /**
@@ -163,8 +178,10 @@ class DiskPlatModule : public Module
 {
   protected:
     PmDiskInventory          dsk_devices;
+    PmDiskInventory         *dsk_inuse;
     struct udev             *dsk_ctrl;
     struct udev_enumerate   *dsk_enum;
+    FileDiskInventory       *dsk_sim;
 
   public:
     explicit DiskPlatModule(char const *const name);
@@ -188,6 +205,47 @@ class DiskPlatModule : public Module
 };
 
 extern DiskPlatModule gl_DiskPlatMod;
+
+// -------------------------------------------------------------------------------------
+// Development simulation
+// -------------------------------------------------------------------------------------
+
+/**
+ * Use file to simulate a disk.
+ */
+class FileDiskInventory : public PmDiskInventory
+{
+  protected:
+    ChainList                dsk_files;
+    const char              *dsk_devdir;
+
+  public:
+    explicit FileDiskInventory(const char *dir);
+    ~FileDiskInventory();
+
+    virtual void dsk_do_partition();
+    virtual void dsk_admit_all();
+    virtual void dsk_mount_all();
+
+  private:
+    void dsk_file_create(const char *type, int count, ChainList *list);
+};
+
+class FileDiskObj : public PmDiskObj
+{
+  protected:
+    friend class FileDiskInventory;
+
+    int                      dsk_fd;
+    const char              *dsk_dir;
+
+  public:
+    explicit FileDiskObj(const char *dir);
+    ~FileDiskObj();
+
+    virtual int dsk_read(void *buf, fds_uint32_t sector, int sect_cnt);
+    virtual int dsk_write(void *buf, fds_uint32_t sector, int sect_cnt);
+};
 
 }  // namespace fds
 

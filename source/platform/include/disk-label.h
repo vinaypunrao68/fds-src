@@ -6,10 +6,12 @@
 
 #include <vector>
 #include <disk.h>
-#include <fds_assert.h>
 
 namespace fds {
 const int DL_UUID_BYTE_LEN             = 30;
+const int DL_MAJOR                     = 1;
+const int DL_MINOR                     = 0;
+const int DL_SECTOR_SZ                 = 512;
 
 /**
  * On-disk format.  Keep this structure size at 128-byte.
@@ -18,31 +20,83 @@ typedef struct __attribute__((__packed__))
 {
     fds_uint32_t             dl_chksum;
     fds_uint32_t             dl_magic;
-    fds_uint16_t             dl_sector_size;
-    fds_uint16_t             dl_uuid_cnt;
-    fds_uint16_t             dl_uuid_sector_beg;
-    fds_uint16_t             dl_uuid_sector_end;
+    fds_uint32_t             dl_sector_beg;
+    fds_uint32_t             dl_sector_end;
 
-    /* 16-byte offset */
+    /* 16-byte offset. */
+    fds_uint16_t             dl_major;
+    fds_uint16_t             dl_minor;
+    fds_uint16_t             dl_sect_sz;           /**< sector size in byte.          */
+    fds_uint16_t             dl_total_sect;        /**< total lenght in sector size.  */
+
+    fds_uint16_t             dl_used_sect;         /**< number sectors consumed.      */
+    fds_uint16_t             dl_num_quorum;
+    fds_uint16_t             dl_recovery_mode;     /**< value is dlabel_recovery_e.   */
+    fds_uint16_t             dl_padding;
+
+    /*  32-byte offset. */
+    fds_uint32_t             dl_quorum_seq;
     fds_uint8_t              dl_disk_uuid[DL_UUID_BYTE_LEN];
     fds_uint8_t              dl_node_uuid[DL_UUID_BYTE_LEN];
-    fds_uint8_t              dl_rsvd0[20];
 
     /* 96-byte offset */
     fds_uint8_t              dl_rsvd1[32];
-} disk_label_hdr_t;
+} dlabel_hdr_t;
+
+/**
+ * On-disk enum to specify label types.  DO NOT change the order.  Once a number
+ * is committed, it can't be reused//changed.
+ */
+typedef enum
+{
+    DL_NULL_TYPE           = 0x0,
+    DL_NODE_DISKS          = 0x1,
+    DL_TYPE_MAX
+} dlabel_type_e;
+
+/**
+ * On-disk enum to specify supper block update recovery type.
+ */
+typedef enum
+{
+    DL_RECOVERY_NONE        = 0,
+    DL_RECOVERY_FORWARD     = 1,          /**< apply the record with highest seq num. */
+    DL_RECOVERY_BACKWARD    = 2,          /**< apply the record with lowest seq num.  */
+    DL_RECOVERY_QUORUM      = 3,          /**< valid record must meet quorum.         */
+    DL_RECOVERY_MAX
+} dlabel_recovery_e;
 
 /**
  * On-disk format.  Keep this structure size at 32-byte.
  */
 typedef struct __attribute__((__packed__))
 {
-    fds_uint16_t             dl_disk_idx;
-    char                     dl_disk_uuid[DL_UUID_BYTE_LEN];
-} disk_label_uuid_t;
+    fds_uint16_t             dl_idx;
+    char                     dl_uuid[DL_UUID_BYTE_LEN];
+} dlabel_uuid_t;
 
-cc_assert(DL0, sizeof(disk_label_hdr_t) == 128);
-cc_assert(DL1, sizeof(disk_label_uuid_t) == 32);
+/**
+ * On-disk format.  Keep this structure size at 16-byte.
+ */
+typedef struct __attribute__((__packed__))
+{
+    fds_uint32_t             dl_chksum;
+    fds_uint32_t             dl_magic;
+    fds_uint16_t             dl_rec_type;           /**< value is dlabel_type_e.      */
+    fds_uint16_t             dl_rec_cnt;            /**< number of entries.           */
+    fds_uint16_t             dl_byte_len;           /**< size of this record in byte. */
+    fds_uint16_t             dl_rsvd;
+} dlabel_rec_t;
+
+typedef struct __attribute__((__packed__))
+{
+    dlabel_rec_t             dl_disk_rec;
+    dlabel_uuid_t            dl_disk_uuids[0];
+} dlabel_disk_uuid_t;
+
+cc_assert(DL0, sizeof(dlabel_hdr_t) == 128);
+cc_assert(DL1, sizeof(dlabel_uuid_t) == 32);
+cc_assert(DL2, sizeof(dlabel_rec_t) == 16);
 
 /**
  * In-core format to compact disk label.
@@ -51,19 +105,72 @@ typedef struct
 {
     fds_uint16_t             dl_disk_idx;
     ResourceUUID             dl_disk_uuid;
-} disk_uuid_rec_t;
+} dmem_disk_uuid_t;
 
-typedef std::vector<disk_uuid_rec_t>   DiskUuidArray;
+class DiskLabelMgr;
+typedef std::vector<dmem_disk_uuid_t>   DiskUuidArray;
 
+/**
+ * Base disk label obj to perform read/write label to a disk.
+ */
 class DiskLabel
 {
+  protected:
+    dlabel_hdr_t            *dl_label;
+    dlabel_disk_uuid_t      *dl_disk_uuids;
+    DiskUuidArray            dl_uuids;
+
   public:
-    explicit DiskLabel(DiskObj::pointer disk);
+    explicit DiskLabel();
     virtual ~DiskLabel();
 
+    void dsk_label_init_header(dlabel_hdr_t *hdr);
+    void dsk_label_comp_checksum(dlabel_hdr_t *hdr);
+
+    virtual void dsk_label_generate(int dsk_cnt);
+    virtual void dsk_label_read(DiskLabelMgr *mgr, PmDiskObj::pointer disk);
+    virtual void dsk_label_write(DiskLabelMgr *mgr, PmDiskObj::pointer disk);
+};
+
+typedef enum
+{
+    DISK_LABEL_READ        = 0,
+    DISK_LABEL_WRITE       = 1,
+    DISK_LABEL_MAX
+} dlabel_op_e;
+
+/**
+ * Switch board to route the main iterator function through disk inventory to the
+ * desginated function (e.g. read/write)
+ */
+class DiskLabelOp : public DiskObjIter
+{
   protected:
-    disk_label_hdr_t         dl_hdr;
-    DiskUuidArray            dl_uuids;
+    dlabel_op_e              dsk_op;
+    DiskLabelMgr            *dsk_mgr;
+
+  public:
+    explicit DiskLabelOp(dlabel_op_e op, DiskLabelMgr *mgr);
+    virtual ~DiskLabelOp();
+
+    virtual bool dsk_iter_fn(DiskObj::pointer curr);
+};
+
+/**
+ * Disk label manager to coordinate label quorum.
+ */
+class DiskLabelMgr : public DiskObjIter
+{
+  protected:
+    ChainList                dsk_labels;
+    fds_mutex                dsk_mtx;
+
+  public:
+    DiskLabelMgr();
+    virtual ~DiskLabelMgr();
+
+    virtual bool dsk_iter_fn(DiskObj::pointer curr);
+    virtual bool dsk_iter_fn(DiskObj::pointer curr, DiskObjIter *arg);
 };
 
 }  // namespace fds

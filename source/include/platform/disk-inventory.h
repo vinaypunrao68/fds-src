@@ -35,13 +35,14 @@ class DiskObj : public Resource
 class DiskObjIter
 {
   public:
-    DiskObjIter() {}
-    virtual ~DiskObjIter() {}
+    DiskObjIter();
+    virtual ~DiskObjIter();
 
     /*
      * Return true to continue the iteration loop; false to quit.
      */
     virtual bool dsk_iter_fn(DiskObj::pointer curr) = 0;
+    virtual bool dsk_iter_fn(DiskObj::pointer curr, DiskObjIter *cookie);
 };
 
 typedef std::vector<DiskObj::pointer> DiskObjArray;
@@ -54,12 +55,17 @@ class DiskInventory : public RsContainer
     ChainList                dsk_ssd;
 
     Resource *rs_new(const ResourceUUID &uuid);
+    int dsk_array_snapshot(ChainList *list, DiskObjArray *arr);
 
   public:
     DiskInventory();
     virtual ~DiskInventory();
 
-    virtual void dsk_foreach(DiskObjIter *iter);
+    virtual void dsk_foreach(DiskObjIter *iter, ChainList *list, int count);
+    virtual void dsk_foreach(DiskObjIter *iter, DiskObjIter *arg, ChainList *list, int);
+    inline void dsk_foreach(DiskObjIter *iter) {
+        dsk_foreach(iter, &dsk_hdd, dsk_count);
+    }
 };
 
 }  // namespace fds

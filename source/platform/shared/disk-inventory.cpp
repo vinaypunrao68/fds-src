@@ -11,34 +11,69 @@ DiskObj::~DiskObj() {}
 DiskInventory::DiskInventory() : RsContainer(), dsk_count(0) {}
 DiskInventory::~DiskInventory() {}
 
+DiskObjIter::DiskObjIter() {}
+DiskObjIter::~DiskObjIter() {}
+
+bool
+DiskObjIter::dsk_iter_fn(DiskObj::pointer curr, DiskObjIter *cookie)
+{
+    return dsk_iter_fn(curr);
+}
+
 Resource *
 DiskInventory::rs_new(const ResourceUUID &uuid)
 {
     return new DiskObj();
 }
 
+// dsk_array_snapshot
+// ------------------
+//
+int
+DiskInventory::dsk_array_snapshot(ChainList *list, DiskObjArray *arr)
+{
+    int       cnt;
+    ChainIter iter;
+
+    cnt = 0;
+    rs_mtx.lock();
+    for (list->chain_iter_init(&iter);
+         !list->chain_iter_term(iter); list->chain_iter_next(&iter)) {
+        (*arr)[cnt++] = list->chain_iter_current<DiskObj>(iter);
+    }
+    rs_mtx.unlock();
+    return cnt;
+}
+
 // dsk_foreach
 // -----------
 //
 void
-DiskInventory::dsk_foreach(DiskObjIter *iter)
+DiskInventory::dsk_foreach(DiskObjIter *iter, ChainList *list, int count)
 {
     int           cnt;
-    ChainIter     i;
-    ChainList    *l;
-    DiskObjArray  disks(dsk_count << 1);
+    DiskObjArray  disks(count << 1);
 
-    cnt = 0;
-    l = &dsk_hdd;
-
-    rs_mtx.lock();
-    for (l->chain_iter_init(&i); !l->chain_iter_term(i); l->chain_iter_next(&i)) {
-        disks[cnt++] = l->chain_iter_current<DiskObj>(i);
-    }
-    rs_mtx.unlock();
-
+    cnt = dsk_array_snapshot(list, &disks);
     for (int j = 0; j < cnt; j++) {
         if (iter->dsk_iter_fn(disks[j]) == false) {
+            break;
+        }
+    }
+}
+
+void
+DiskInventory::dsk_foreach(DiskObjIter *iter,
+                           DiskObjIter *arg,
+                           ChainList   *list,
+                           int          count)
+{
+    int           cnt;
+    DiskObjArray  disks(count << 1);
+
+    cnt = dsk_array_snapshot(list, &disks);
+    for (int j = 0; j < cnt; j++) {
+        if (iter->dsk_iter_fn(disks[j], arg) == false) {
             break;
         }
     }
