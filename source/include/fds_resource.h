@@ -59,8 +59,8 @@ class UuidHash {
     }
 };
 
-const int RS_NAME_MAX           = 16;
-const int RS_DEFAULT_ELEM_CNT   = 64;
+const int RS_NAME_MAX           = 64;
+const int RS_DEFAULT_ELEM_CNT   = 1024;
 
 class RsContainer;
 

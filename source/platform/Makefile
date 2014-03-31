@@ -24,6 +24,7 @@ user_non_fds_libs := \
     thrift \
     config++ \
 	udev \
+	parted \
     hiredis
 
 user_cpp         := platform-main.cpp

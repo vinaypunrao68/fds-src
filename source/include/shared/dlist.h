@@ -1,7 +1,8 @@
 /*
+ * Copyright 2014 by Formation Data Systems, Inc.
  */
-#ifndef FDS_INCLUDE_DLIST_H_
-#define FDS_INCLUDE_DLIST_H_
+#ifndef SOURCE_INCLUDE_SHARED_DLIST_H_
+#define SOURCE_INCLUDE_SHARED_DLIST_H_
 
 #include <shared/fds_types.h>
 
@@ -13,7 +14,7 @@ extern  "C" {
 #ifdef __cplusplus
 #define NULL    0
 #else
-#define NULL    ((void *)0)
+#define NULL    ((void *)0)  /* // NOLINT */
 #endif
 #endif /* !NULL */
 
@@ -328,4 +329,4 @@ dlist_obj_from_link(dlist_t *link)
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
-#endif /* _DLIST_H_ */
+#endif /* SOURCE_INCLUDE_SHARED_DLIST_H_  // NOLINT */
