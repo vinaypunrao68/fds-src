@@ -250,14 +250,72 @@ ame_keytab_t sgt_AMEKey[] =
     { { nullptr },               0, AME_HDR_KEY_MAX }
 };
 
-int AME_Request::ame_map_fdsn_status(FDSN_Status status)
-{
+int AME_Request::ame_map_fdsn_status(FDSN_Status status) {
     LOGNORMAL << "fdsn status : " << status;
     switch (status) {
-        case FDSN_StatusOK                       : return NGX_HTTP_OK;
-        case FDSN_StatusCreated                  : return NGX_HTTP_CREATED;
-        case FDSN_StatusErrorBucketAlreadyExists : return NGX_HTTP_CONFLICT;
-        default                                  : return NGX_HTTP_INTERNAL_SERVER_ERROR;
+        case FDSN_StatusOK                                  : return NGX_HTTP_OK;
+        case FDSN_StatusCreated                             : return NGX_HTTP_CREATED;
+
+        case FDSN_StatusInvalidBucketNameTooLong            :
+        case FDSN_StatusInvalidBucketNameFirstCharacter     :
+        case FDSN_StatusInvalidBucketNameCharacter          :
+        case FDSN_StatusInvalidBucketNameCharacterSequence  :
+        case FDSN_StatusInvalidBucketNameTooShort           :
+        case FDSN_StatusInvalidBucketNameDotQuadNotation    :
+        case FDSN_StatusQueryParamsTooLong                  :
+        case FDSN_StatusMetaDataHeadersTooLong              :
+        case FDSN_StatusBadMetaData                         :
+        case FDSN_StatusBadContentType                      :
+        case FDSN_StatusContentTypeTooLong                  :
+        case FDSN_StatusBadMD5                              :
+        case FDSN_StatusMD5TooLong                          :
+        case FDSN_StatusBadCacheControl                     :
+        case FDSN_StatusCacheControlTooLong                 :
+        case FDSN_StatusBadContentDispositionFilename       :
+        case FDSN_StatusContentDispositionFilenameTooLong   :
+        case FDSN_StatusBadContentEncoding                  :
+        case FDSN_StatusContentEncodingTooLong              :
+        case FDSN_StatusBadIfMatchETag                      :
+        case FDSN_StatusIfMatchETagTooLong                  :
+        case FDSN_StatusBadIfNotMatchETag                   :
+        case FDSN_StatusIfNotMatchETagTooLong               :
+        case FDSN_StatusHeadersTooLong                      :
+        case FDSN_StatusKeyTooLong                          :
+        case FDSN_StatusUriTooLong                          :
+        case FDSN_StatusXmlParseFailure                     :
+        case FDSN_StatusEmailAddressTooLong                 :
+        case FDSN_StatusUserIdTooLong                       :
+        case FDSN_StatusUserDisplayNameTooLong              :
+        case FDSN_StatusGroupUriTooLong                     :
+        case FDSN_StatusPermissionTooLong                   :
+        case FDSN_StatusTargetBucketTooLong                 :
+        case FDSN_StatusTargetPrefixTooLong                 :
+        case FDSN_StatusTooManyGrants                       :
+        case FDSN_StatusBadGrantee                          :
+        case FDSN_StatusBadPermission                       :
+        case FDSN_StatusXmlDocumentTooLarge                 :
+        case FDSN_StatusErrorAmbiguousGrantByEmailAddress   :
+        case FDSN_StatusErrorBadDigest                      :
+        case FDSN_StatusErrorEntityTooSmall                 :
+        case FDSN_StatusErrorEntityTooLarge                 : return  NGX_HTTP_BAD_REQUEST; //NOLINT
+
+        case FDSN_StatusErrorAccessDenied                   :
+        case FDSN_StatusErrorAccountProblem                 :
+        case FDSN_StatusErrorCrossLocationLoggingProhibited : return NGX_HTTP_FORBIDDEN;
+
+        case FDSN_StatusErrorBucketAlreadyExists            :
+        case FDSN_StatusErrorBucketAlreadyOwnedByYou        :
+        case FDSN_StatusErrorBucketNotEmpty                 : return NGX_HTTP_CONFLICT;
+
+        case FDSN_StatusNameLookupError                     :
+        case FDSN_StatusFailedToConnect                     :
+        case FDSN_StatusServerFailedVerification            :
+        case FDSN_StatusConnectionFailed                    :
+        case FDSN_StatusAbortedByCallback                   : return NGX_HTTP_INTERNAL_SERVER_ERROR; //NOLINT
+
+        default :
+            LOGWARN << "unknown error [" << status << "]";
+            return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
 }
 
