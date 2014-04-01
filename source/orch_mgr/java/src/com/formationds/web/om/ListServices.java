@@ -47,6 +47,7 @@ public class ListServices implements RequestHandler {
             jsonObject
                     .put("site", "Fremont")
                     .put("domain", "Formation Data Systems")
+                    .put("local_domain", "Formation Data Systems")
                     .put("node_uuid", Long.toString(nodeUuid))
                     .put("service_uuid", Long.toString(serviceUuid));
         }
