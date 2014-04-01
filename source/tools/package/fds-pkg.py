@@ -38,6 +38,10 @@ class Pkg:
         cmd.extend(self.getAsList(pkgs))
         return self.getCmdOutput(cmd)
 
+    def update(self) :
+        cmd = 'apt-get update %s' %(Pkg.APTOPTIONS)
+        os.system(cmd)
+
     def getAsList(self,data):
         if type(data)==types.ListType:
             return data
@@ -61,8 +65,8 @@ def usage():
    cmd :-
        ls    : list packages
        info  : display pkg information
+       update: update info for the fds repo
        help  : display this menu
-       which : show which pkg contains the file
    options :-
        --files  : for ls , list files in the pkg
        [file]   : for ls , if a file is specified, it will print the pkg that owns it
@@ -93,11 +97,11 @@ if __name__ == "__main__":
         cmd='list'
     elif args.cmd=='info':
         cmd='info'
-    
-    #print args;
 
     if args.verbose:
         log.setLevel(logging.DEBUG)
+
+    log.debug('cmd=%s', cmd)
 
     if cmd=='help':
 	parser.print_usage()
@@ -113,16 +117,24 @@ if __name__ == "__main__":
                 else:
                     # check if the arg is a file or pkgname
                     for item in args.other:
-                        print item
+                        log.debug(item)
                         if item.startswith('/'):
                             if os.path.exists(item):
                                 pkg.printLines(pkg.getOwner(item))
                             else:
-                                print 'error:check filepath [%s]' % (item)
+                                log.error('check filepath [%s]', item)
                         else:
                             pkg.printLines(pkg.getPackageList(item))
 
+                    if len(args.other)==0:
+                        pkg.printLines(pkg.getPackageList('fds*'))
+
             elif cmd=='info':
                 pkg.printLines(pkg.getPackageInfo(args.other))
+            elif cmd == 'update':
+                pkg.update()
+            else:
+                log.error('unknown command : %s' , cmd)
+            
         except KeyboardInterrupt:
             pass;
