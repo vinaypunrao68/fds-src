@@ -252,13 +252,12 @@ ame_keytab_t sgt_AMEKey[] =
 
 int AME_Request::ame_map_fdsn_status(FDSN_Status status)
 {
-    if (status == FDSN_StatusOK) {
-        return NGX_HTTP_OK;
-    } else if (status == FDSN_StatusCreated) {
-        return NGX_HTTP_CREATED;
-    } else {
-        // todo: do better mapping.  Log the error
-        return NGX_HTTP_INTERNAL_SERVER_ERROR;
+    LOGNORMAL << "fdsn status : " << status;
+    switch (status) {
+        case FDSN_StatusOK                       : return NGX_HTTP_OK;
+        case FDSN_StatusCreated                  : return NGX_HTTP_CREATED;
+        case FDSN_StatusErrorBucketAlreadyExists : return NGX_HTTP_CONFLICT;
+        default                                  : return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
 }
 
