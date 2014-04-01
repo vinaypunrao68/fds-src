@@ -52,6 +52,7 @@ public class Dispatcher extends HttpServlet {
 
     @Override
     public void service(HttpServletRequest httpServletRequest, HttpServletResponse response) throws IOException, ServletException {
+        long then = System.currentTimeMillis();
         Request request = (Request) httpServletRequest;
         RequestHandler requestHandler;
         Map<String, String> routeAttributes = new HashMap<>();
@@ -76,8 +77,6 @@ public class Dispatcher extends HttpServlet {
         } catch (Throwable t) {
             LOG.error(t.getMessage(), t);
             resource = new ErrorPage(t.getMessage(), t);
-        } finally {
-            LOG.info("Request URI: [" + request.getRequestURI() + "], HTTP status: " + resource.getHttpStatus());
         }
 
         Arrays.stream(resource.cookies()).forEach(c -> response.addCookie(c));
@@ -96,6 +95,9 @@ public class Dispatcher extends HttpServlet {
         resource.render(outputStream);
         outputStream.flush();
         outputStream.doCloseForReal();
+
+        long elapsed = System.currentTimeMillis() - then;
+        LOG.info("Request URI: [" + request.getMethod() + " " + request.getRequestURI() + "], HTTP status: " + resource.getHttpStatus() + ", " + elapsed + "ms");
     }
 
     private boolean isStaticAsset(HttpServletRequest request) {
