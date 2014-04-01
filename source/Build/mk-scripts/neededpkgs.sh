@@ -76,7 +76,7 @@ function postinstall() {
 # ------- MAIN PROGRAM --------
 ###########################################################################
 
-echo "checking ubuntu packages...."
+echo "[devsetup] : checking ubuntu packages...."
 
 for pkg in ${needed_packages[@]} 
 do 
@@ -95,7 +95,7 @@ do
     #echo "${pkginfo} , $pkgname, $pkgversion , $pkg"
     #exit
     if  [[ -z $pkginfo ]] || [[ $pkginfo != $pkg ]] ; then 
-        echo "$pkg is not installed, but needed .. installing."
+        echo "[devsetup] : $pkg is not installed, but needed .. installing."
         preinstall $pkgname
         if [[ -z $pkgversion ]] ; then
             sudo apt-get install ${pkgname}
@@ -106,14 +106,14 @@ do
     fi
 done
 
-echo "checking python packages...."
+echo "[devsetup] : checking python packages...."
 
 for pkg in ${python_packages[@]} 
 do 
     pkgname=${pkg}
     name=$(pip freeze 2>/dev/null | grep ^${pkgname}= | cut -f1 -d=)
     if  [[ -z $name ]] ; then 
-        echo "$pkg is not installed, but needed .. installing."
+        echo "[devsetup] : $pkg is not installed, but needed .. installing."
         preinstall $pkg
         sudo pip install $pkg
         postinstall $pkg
