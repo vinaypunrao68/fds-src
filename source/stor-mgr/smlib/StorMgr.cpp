@@ -564,6 +564,8 @@ void ObjectStorMgr::migrationEventOmHandler(bool dlt_type)
          * TODO(Rao): Adding/removing token from tokenstate db
          * should happen as token ownership changes
          */
+        // TODO(Rao) uncomment when fixing WIN-275
+        /*
         for (auto t : tokens) {
             Error e = objStorMgr->tokenStateDb_->addToken(t);
             if (e != ERR_OK) {
@@ -571,6 +573,7 @@ void ObjectStorMgr::migrationEventOmHandler(bool dlt_type)
                 fds_assert(!"Failed add token to token state db");
             }
         }
+        */
 
         /* Issue bulk copy request */
         MigSvcBulkCopyTokensReqPtr copy_req(new MigSvcBulkCopyTokensReq());
