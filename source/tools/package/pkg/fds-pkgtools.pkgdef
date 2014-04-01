@@ -1,0 +1,11 @@
+
+package: fds-pkgtools
+version: 0.1
+description: Provides tools to create and upload packages
+
+files:
+  - dest: /usr/bin/fds-pkg-dist
+    src : ../fds-pkg-dist.py
+
+  - dest: /usr/bin/fds-pkg-create
+    src : ../fds-pkg-create.py
