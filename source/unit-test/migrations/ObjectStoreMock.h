@@ -260,6 +260,7 @@ class MObjStore : public ObjectStorMgr {
     void
     applySyncMetadataInternal(SmIoReq* ioReq)
     {
+        fds_mutex::scoped_lock l(lock_);
         SmIoApplySyncMetadata *applyMdReq =  static_cast<SmIoApplySyncMetadata*>(ioReq);
 
         LOGDEBUG << prefix_ << " oid: " << applyMdReq->md.object_id.digest;
@@ -277,6 +278,7 @@ class MObjStore : public ObjectStorMgr {
     void
     resolveSyncEntryInternal(SmIoReq* ioReq)
     {
+        fds_mutex::scoped_lock l(lock_);
         SmIoResolveSyncEntry *resolve_entry =  static_cast<SmIoResolveSyncEntry*>(ioReq);
         Error e = smObjDb->resolveEntry(resolve_entry->object_id);
         if (e != ERR_OK) {
@@ -290,6 +292,7 @@ class MObjStore : public ObjectStorMgr {
     void
     applyObjectDataInternal(SmIoReq* ioReq)
     {
+        fds_mutex::scoped_lock l(lock_);
         SmIoApplyObjectdata *applydata_entry =  static_cast<SmIoApplyObjectdata*>(ioReq);
         ObjectID objId = applydata_entry->obj_id;
         ObjMetaData objMetadata;
@@ -335,6 +338,7 @@ class MObjStore : public ObjectStorMgr {
     void
     readObjectDataInternal(SmIoReq* ioReq)
     {
+        fds_mutex::scoped_lock l(lock_);
         SmIoReadObjectdata *read_entry =  static_cast<SmIoReadObjectdata*>(ioReq);
         ObjectBuf        objData;
         ObjMetaData objMetadata;
@@ -355,6 +359,7 @@ class MObjStore : public ObjectStorMgr {
     void
     readObjectMetadataInternal(SmIoReq* ioReq)
     {
+        fds_mutex::scoped_lock l(lock_);
         SmIoReadObjectMetadata *read_entry =  static_cast<SmIoReadObjectMetadata*>(ioReq);
         ObjMetaData objMetadata;
 

@@ -158,6 +158,7 @@ struct TokenPullSenderFSM_
                 auto read_data_msg = new SmIoReadObjectdata();
                 read_data_msg->io_type = FDS_SM_READ_OBJECTDATA;
                 assign(read_data_msg->obj_data.obj_id, fsm.pending_.front());
+                read_data_msg->setObjId(fsm.pending_.front());
                 read_data_msg->smio_readdata_resp_cb = fsm.readdata_resp_cb_;
 
                 fsm.inflight_.insert(fsm.pending_.front());

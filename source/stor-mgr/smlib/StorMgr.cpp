@@ -1975,14 +1975,14 @@ Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
             }
             break;
         case FDS_SM_READ_OBJECTDATA:
-            objectId = static_cast<SmIoReadObjectdata*>(ioReq)->getObjectId();
+            objectId = static_cast<SmIoReadObjectdata*>(ioReq)->getObjId();
             err =  enqTransactionIo(nullptr, objectId, ioReq, trans_id);
             if (err != fds::ERR_OK) {
                 LOGERROR << "Failed to enqueue msg: " << ioReq->log_string();
             }
             break;
         case FDS_SM_READ_OBJECTMETADATA:
-            objectId = static_cast<SmIoReadObjectMetadata*>(ioReq)->getObjectId();
+            objectId = static_cast<SmIoReadObjectMetadata*>(ioReq)->getObjId();
             err =  enqTransactionIo(nullptr, objectId, ioReq, trans_id);
             if (err != fds::ERR_OK) {
                 LOGERROR << "Failed to enqueue msg: " << ioReq->log_string();

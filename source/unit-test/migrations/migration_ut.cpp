@@ -1,3 +1,7 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+
 #include <boost/shared_ptr.hpp>
 #include <unistd.h>
 #include <thread>
@@ -152,6 +156,16 @@ public:
         data[19]++;
     }
 
+    ObjectID get_obj_id(const fds_token_id &tok_id) {
+
+        ObjectID start;
+        ObjectID end;
+        ObjectID::getTokenRange(tok_id, 8, start, end);
+        char *data = (char*) start.GetId();
+        data[start.GetLen()-1] = rand() % 255;
+        return start;
+    }
+
     /**
      * Mock object store for reading and writing token data (ex: simulates ObjectStore)
      * @return
@@ -180,9 +194,12 @@ public:
             migration_complete_ = true;
         } else if (mig_status == MigrationStatus::TOKEN_COPY_COMPLETE) {
             /* Put some sync objects */
-            for (int i = 0; i < 100; i++) {
-                sender_store_->putObject(oid_, "sync obj" + i);
-                incr_obj_id();
+            for (int tok_id = 0; tok_id < 20; tok_id++) {
+                for (int i = 0; i < 30; i++) {
+                    std::ostringstream oss;
+                    oss << "sync obj " << i;
+                    sender_store_->putObject(get_obj_id(tok_id), oss.str());
+                }
             }
 
             /* Send io close event */
@@ -205,9 +222,12 @@ public:
         sleep(5);
 
         /* Put some data in sender object store */
-        for (int i = 0; i < 100; i++) {
-            sender_store_->putObject(oid_, "copy obj" + i);
-            incr_obj_id();
+        for (int tok_id = 0; tok_id < 20; tok_id++) {
+            for (int i = 0; i < 30; i++) {
+                std::ostringstream oss;
+                oss << "copy obj " << i;
+                sender_store_->putObject(get_obj_id(tok_id), oss.str());
+            }
         }
 
         /* Issue a request to receiver migrations service to copy the tokens that we
@@ -259,6 +279,9 @@ public:
 };
 
 int main(int argc, char *argv[]) {
+
+    srand (time(NULL));
+
     fds::Module *smVec[] = {
         &fds::gl_objStats,
         NULL

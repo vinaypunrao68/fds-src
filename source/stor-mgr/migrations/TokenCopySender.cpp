@@ -52,6 +52,7 @@ struct TokenCopySenderFSM_
         rcvr_ip_ = rcvr_ip;
         rcvr_port_ = rcvr_port;
         pending_tokens_ = tokens;
+        token_id_ = *(tokens.begin());
         rcvr_session_ = rcvr_session;
         client_resp_handler_ = client_resp_handler;
 
@@ -168,7 +169,7 @@ struct TokenCopySenderFSM_
         template <class EVT, class FSM, class SourceState, class TargetState>
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
-            LOGDEBUG << "connect";
+            LOGDEBUG << "connect.  token: " << fsm.token_id_;
             // TODO(Rao): This action isn't needed anymore.  Clean it up
         }
     };
@@ -178,7 +179,7 @@ struct TokenCopySenderFSM_
         template <class EVT, class FSM, class SourceState, class TargetState>
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
-            LOGDEBUG << "update_tok";
+            LOGDEBUG << "update_tok.  token: " << fsm.token_id_;
 
             if (fsm.pending_tokens_.size() == 0 &&
                 fsm.objstor_read_req_.itr.isEnd()) {
@@ -194,7 +195,7 @@ struct TokenCopySenderFSM_
                 fsm.objstor_read_req_.max_size = 16 * (2 << 20);
 
             } else if (fsm.objstor_read_req_.itr.isEnd()) {
-                LOGNORMAL << "Token: " << *fsm.pending_tokens_.begin()
+                LOGNORMAL << "token: " << fsm.token_id_
                         << " sent completely";
                 /* We are done reading objects for current token */
                 fsm.completed_tokens_.push_back(*fsm.pending_tokens_.begin());
@@ -207,7 +208,7 @@ struct TokenCopySenderFSM_
 
             } else {
                 /* Still processing the current token.  Nothing to do*/
-                LOGDEBUG << "Still processing token " << *fsm.pending_tokens_.begin();
+                LOGDEBUG << "Still processing token: " << fsm.token_id_;
             }
         }
     };
@@ -219,7 +220,7 @@ struct TokenCopySenderFSM_
         {
             Error err(ERR_OK);
 
-            LOGDEBUG << "read_tok";
+            LOGDEBUG << "read_tok.  token: " << fsm.token_id_;
 
             /* Recyle objstor_read_req_ message */
             fds_assert(fsm.objstor_read_req_.response_cb);
@@ -240,7 +241,7 @@ struct TokenCopySenderFSM_
         template <class EVT, class FSM, class SourceState, class TargetState>
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
-            LOGDEBUG << "send_tok";
+            LOGDEBUG << "send_tok.  token: " << fsm.token_id_;
 
             /* Prepare FDSP_PushTokenObjectsReq */
             fsm.push_tok_req_.header.base_header.err_code = ERR_OK;
@@ -269,7 +270,7 @@ struct TokenCopySenderFSM_
         template <class EVT, class FSM, class SourceState, class TargetState>
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
-            LOGDEBUG << "teardown ";
+            LOGDEBUG << "teardown.  token: " << fsm.token_id_;
             LOGDEBUG << fsm.migrationSvc_->mig_cntrs.toString();
             // TODO(Rao): For now we will not send a shutdown to parent as
             // sync will start
@@ -366,10 +367,17 @@ struct TokenCopySenderFSM_
      */
     boost::shared_ptr<FDSP_MigrationPathRespIf> client_resp_handler_;
 
-    /* Tokens that are pending send */
+    /* Token we are copying */
+    fds_token_id token_id_;
+
+    /* TODO(Rao): this is not needed.  We only copy one token at a time
+     * Tokens that are pending send
+     */
     std::set<fds_token_id> pending_tokens_;
 
-    /* Tokens for which send is complete */
+    /* TODO(Rao): this is not needed.  We only copy one token at a time
+     * Tokens for which send is complete
+     */
     std::list<fds_token_id> completed_tokens_;
 
     /* RPC request.  It's recycled for every push request */

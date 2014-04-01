@@ -75,6 +75,7 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
         data_store_ = data_store;
         sender_ip_ = sender_ip;
         sender_port_= sender_port;
+        token_id_ = token;
         pending_tokens_.insert(token);
         sender_session_ = sender_session;
         client_resp_handler_ = client_resp_handler;
@@ -198,7 +199,7 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
         template <class EVT, class FSM, class SourceState, class TargetState>
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
-            LOGDEBUG << "connect " << fsm.mig_stream_id_;
+            LOGDEBUG << "connect. token: " << fsm.token_id_;
 
             /* Issue copy tokens request */
             FDSP_CopyTokenReq copy_req;
@@ -222,14 +223,14 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
         template <class EVT, class FSM, class SourceState, class TargetState>
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
-            LOGDEBUG << "update_tok " << fsm.mig_stream_id_;
+            LOGDEBUG << "update_tok.  token: " << fsm.token_id_;
 
             fds_assert(fsm.pending_tokens_.size() > 0);
             if (fsm.write_tok_complete_) {
                 fsm.pending_tokens_.erase(fsm.write_token_id_);
                 fsm.completed_tokens_.push_back(fsm.write_token_id_);
 
-                LOGNORMAL << "Token " << fsm.write_token_id_ << " received completely";
+                LOGNORMAL << "token: " << fsm.token_id_ << " received completely";
             }
         }
     };
@@ -239,7 +240,7 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
         template <class EVT, class FSM, class SourceState, class TargetState>
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
-            LOGDEBUG << "ack_tok " << fsm.mig_stream_id_;
+            LOGDEBUG << "ack_tok.  token: " << fsm.token_id_;
 
             fsm.migrationSvc_->mig_cntrs.tok_copy_rcvd.incr(evt.obj_list.size());
 
@@ -259,7 +260,7 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
         {
             Error err(ERR_OK);
 
-            LOGDEBUG << "write_tok " << fsm.mig_stream_id_;
+            LOGDEBUG << "write_tok.  token: " << fsm.token_id_;
 
             /* Book keeping */
             fsm.write_tok_complete_ = evt.complete;
@@ -288,7 +289,7 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
         template <class EVT, class FSM, class SourceState, class TargetState>
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
-            LOGDEBUG << "teardown " << fsm.mig_stream_id_;
+            LOGDEBUG << "teardown.  token: " << fsm.token_id_;
             LOGDEBUG << fsm.migrationSvc_->mig_cntrs.toString();
 
             TRCopyDnEvtPtr destroy_evt(new TRCopyDnEvt(fsm.mig_stream_id_,
@@ -385,6 +386,8 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
      */
     boost::shared_ptr<FDSP_MigrationPathRespIf> client_resp_handler_;
 
+    /* Token we are copying */
+    fds_token_id token_id_;
     /* Tokens that are pending to be received */
     // TODO(Rao):  We don't receive tokens in bulk any more.  Shouldn't be set
     // anymore

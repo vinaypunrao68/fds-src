@@ -328,7 +328,7 @@ struct TokenSyncSenderFSM_
              */
             for (it->SeekToFirst(); it->Valid(); it->Next()) {
                 ObjectID id(it->key().ToString());
-                LOGDEBUG << "range check id: " << id
+                LOGDEBUG << "token: " << fsm.token_id_ << "range check id: " << id
                         << " start: " << start_obj_id << " end: " << end_obj_id;
                 /* Range check */
                 if (id < start_obj_id || id > end_obj_id) {
@@ -490,7 +490,7 @@ struct TokenSyncSenderFSM_
         bool operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
             bool ret =  fsm.sync_log_itr_->Valid();
-            LOGDEBUG << "more_to_send: " << ret;
+            LOGDEBUG << "token: " << fsm.token_id_ << " more_to_send: " << ret;
             return ret;
         }
     };
