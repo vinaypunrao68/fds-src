@@ -351,11 +351,13 @@ mk_debug:
 # Setup FDS Repository
 # -----------------------------------------------------------------------------
 fdsrepofile:=/etc/apt/sources.list.d/fds.list
+reposetupscript:=$(incl_scripts)/../../tools/setupfdsrepo.sh
 
-$(fdsrepofile) : $(topdir)/tools/setupfdsrepo.sh
-	@sudo $(topdir)/tools/setupfdsrepo.sh
+$(fdsrepofile) : $(reposetupscript)
+	@sudo $(reposetupscript)
 
-setupfdsrepo : $(fdsrepofile)
+.PHONY: setupfdsrepo
+setupfdsrepo :  $(fdsrepofile)
 
 # -----------------------------------------------------------------------------
 # Check for installed packages
