@@ -1,6 +1,10 @@
-#ifndef INCLUDE_DISK_MGR_DM_IO_H_
-#define INCLUDE_DISK_MGR_DM_IO_H_
+/*
+ * Copyright 2014 by Formation Data Systems, Inc.
+ */
+#ifndef SOURCE_INCLUDE_PERSISTENT_LAYER_DM_IO_H_
+#define SOURCE_INCLUDE_PERSISTENT_LAYER_DM_IO_H_
 
+#include <string>
 #include <gtest/gtest_prod.h>
 
 #include <cpplist.h>
@@ -21,9 +25,9 @@ class DataIndexModule;
 class DataIndexProxy;
 
 enum DataTier {
-  diskTier  = 0,
-  flashTier = 1,
-  maxTier
+    diskTier  = 0,
+    flashTier = 1,
+    maxTier
 };
 
 // ---------------------------------------------------------------------------
@@ -31,6 +35,13 @@ enum DataTier {
 // ---------------------------------------------------------------------------
 class IndexRequest : public fdsio::Request
 {
+  protected:
+    meta_obj_id_t          idx_oid;
+    meta_vol_io_t          idx_vio;
+    meta_obj_map_t         idx_vmap;
+    obj_phy_loc_t          idx_phy_loc;
+    IndexRequest           *idx_peer;
+
   public:
     IndexRequest(meta_obj_id_t const &oid,
                  bool                block);
@@ -49,17 +60,10 @@ class IndexRequest : public fdsio::Request
     inline meta_vol_io_t const *const req_get_vio() const { return &idx_vio; }
     inline meta_obj_map_t *req_get_vmap() { return &idx_vmap; }
     inline obj_phy_loc_t *req_get_phy_loc() { return &idx_phy_loc; }
-    void set_phy_loc(obj_phy_loc_t *pl) { 
-      memcpy(&idx_phy_loc, pl, sizeof(obj_phy_loc_t));
+    inline void set_phy_loc(obj_phy_loc_t *pl) {
+        memcpy(&idx_phy_loc, pl, sizeof(obj_phy_loc_t));
     }
-
     inline void req_set_peer(IndexRequest *peer) { idx_peer = peer; }
-  protected:
-    meta_obj_id_t          idx_oid;
-    meta_vol_io_t          idx_vio;
-    meta_obj_map_t         idx_vmap;
-    obj_phy_loc_t          idx_phy_loc;
-    IndexRequest           *idx_peer;
 };
 
 // ---------------------------------------------------------------------------
@@ -170,7 +174,7 @@ class DataIOFuncParams
     // \data_io_func
     // -------------
     // Return the IO function for short term next time_delta from now
-    // (e.g. 1 day).  TODO: change time_delta to the right type.
+    // (e.g. 1 day).  TODO(Vy): change time_delta to the right type.
     //
     virtual int
     data_io_func(fds_uint32_t time_delta, int *tier);
@@ -187,7 +191,6 @@ class DataIOFuncParams
 class DataIOFunc
 {
   public:
-
     // \data_iofn_singleton
     // --------------------
     // Return the singleton obj to use with DataIO.
@@ -206,7 +209,7 @@ class DataIOFunc
     // @param oid (i) : content based data routing.
     // @param map (i) : physical location for data.
     // @param time_delta (i): short term function based on the time.
-    //    TODO: change to the right type, unit.
+    // TODO(Vy): change to the right type, unit.
     // @param iofn (o) : short term function (< 1 day) to give rough estimate
     //    about IO characteristic.
     //
@@ -215,6 +218,7 @@ class DataIOFunc
                       meta_obj_map_t   &map,
                       fds_uint64_t     time_delta,
                       DataIOFuncParams *iofn);
+
   private:
     friend class DataIO;
     DataIOFunc();
@@ -277,7 +281,7 @@ class DataIndexProxy
 
   private:
     friend class DataIndexModule;
-    DataIndexProxy(int max_depth);
+    explicit DataIndexProxy(int max_depth);
     ~DataIndexProxy();
 
     fdsio::RequestQueue      idx_queue;
@@ -359,25 +363,62 @@ class DataIO
 
     DataIO();
     ~DataIO();
-    PersisDataIO *disk_route_request(DiskRequest *req);
 };
 
 // ---------------------------------------------------------------------------
-// Persistent Data Module Initialization
-//
+// Persistent Data IO Module
 // ---------------------------------------------------------------------------
+class tokenFileDb;
+typedef std::unordered_map<int, PersisDataIO *>      DataIOMap;
+
 class DataIOModule : public fds::Module
 {
+  protected:
+    DataIOMap                io_ssd;
+    fds_uint32_t             io_ssd_total;
+    fds_uint32_t             io_ssd_curr;
+    fds_uint32_t             io_hdd_total;
+    fds_uint32_t             io_hdd_curr;
+
+    fds_uint16_t            *io_ssd_diskid;
+    fds_uint16_t            *io_hdd_diskid;
+    fds::fds_mutex           io_mtx;
+
+    tokenFileDb             *io_token_db;
+
   public:
-    DataIOModule(char const *const name);
+    explicit DataIOModule(char const *const name);
     ~DataIOModule();
 
     virtual int  mod_init(fds::SysParams const *const param);
     virtual void mod_startup();
     virtual void mod_shutdown();
+
+    virtual void disk_mount_ssd_path(const char *path, fds_uint16_t disk_id);
+    virtual void disk_mount_hdd_path(const char *path, fds_uint16_t disk_id);
+
+    /**
+     * Use this API to get the object handler when we know the disk_id from physical
+     * location.  The disk_id is 16-bit value mapping to 64-bit uuid retrieved from
+     * the supperblock.
+     */
+    virtual PersisDataIO *disk_ssd_disk(fds_uint16_t disk_id);
+
+    virtual PersisDataIO *
+    disk_hdd_disk(DataTier tier, fds_uint16_t disk_id, fds_uint32_t file_id,
+                  meta_obj_id_t const *const token_val);
+
+    /**
+     * Use this API to write the object with token_val to a disk location.  The object
+     * handler will put the disk_id, disk_offset to the physical location which will
+     * be saved to meta-data used with the API above.
+     */
+    virtual PersisDataIO *disk_ssd_io(meta_obj_id_t const *const token_val);
+
+    virtual PersisDataIO *
+    disk_hdd_io(DataTier tier, fds_uint32_t file_id, meta_obj_id_t const *const token);
 };
 
 extern DataIOModule          gl_dataIOMod;
-} // namespace diskio
-
-#endif /* INCLUDE_DISK_MGR_DM_IO_H_ */
+}  // namespace diskio
+#endif  // SOURCE_INCLUDE_PERSISTENT_LAYER_DM_IO_H_

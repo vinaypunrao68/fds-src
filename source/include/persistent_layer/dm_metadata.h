@@ -1,5 +1,8 @@
-#ifndef INCLUDE_DISK_MGR_DM_METADATA_H_
-#define INCLUDE_DISK_MGR_DM_METADATA_H_
+/*
+ * Copyright 2014 by Formation Data Systems, Inc.
+ */
+#ifndef SOURCE_INCLUDE_PERSISTENT_LAYER_DM_METADATA_H_
+#define SOURCE_INCLUDE_PERSISTENT_LAYER_DM_METADATA_H_
 
 #include <fds_assert.h>
 #include <shared/fds_types.h>
@@ -13,7 +16,8 @@
 typedef struct meta_obj_id         meta_obj_id_t;
 struct __attribute__((__packed__)) meta_obj_id
 {
-    uint8_t metaDigest[20];  // looks like  we have Obj Structure scattered  across. sizing the array is a issue??.
+    // looks like  we have Obj Structure scattered  across. sizing the array is a issue??.
+    uint8_t metaDigest[20];
 };
 
 /*
@@ -25,7 +29,6 @@ static inline void
 obj_id_set_inval(meta_obj_id_t *oid)
 {
     memset(oid->metaDigest, 0 , sizeof(oid));
-//    oid->oid_hash_hi = oid->oid_hash_lo = 0;
 }
 
 /*
@@ -36,10 +39,9 @@ obj_id_set_inval(meta_obj_id_t *oid)
 static inline bool
 obj_id_is_valid(meta_obj_id_t const *const oid)
 {
-     uint8_t tmpObjId[20]; 
+    uint8_t tmpObjId[20];
     memset(tmpObjId, 0 , sizeof(tmpObjId));
-//    return (oid->oid_hash_hi != 0) && (oid->oid_hash_lo != 0);
-      return (!(memcmp((const char *)oid->metaDigest, tmpObjId, sizeof(oid)) == 0 ));
+    return (!(memcmp((const char *)oid->metaDigest, tmpObjId, sizeof(oid)) == 0 ));
 }
 
 /*
@@ -126,14 +128,13 @@ struct __attribute__((__packed__)) meta_obj_map_v0
     fds_uint8_t          obj_map_ver;         /* current version.            */
     fds_uint32_t         obj_map_len;
     fds_uint8_t          obj_rsvd;
-    //fds_crc_t            crc_hdr_chksum;
     fds_uint8_t          compress_type;       /* Obj Compression type */
     fds_uint32_t         compress_len;        /* If compressed the obj compress length */
     meta_obj_id_t        obj_id;              /* check sum for data.         */
     fds_uint16_t         obj_blk_len;         /* var blk: 512 to 32M.        */
     fds_uint32_t         obj_size;            /* var, size in bytes */
     fds_int16_t          obj_refcnt;          /* de-dupe refcnt.             */
-    fds_uint16_t         obj_num_assoc_entry; /* Number association entries in the array.             */
+    fds_uint16_t         obj_num_assoc_entry; /* Number association entries in the arr.*/
     fds_uint64_t         obj_create_time;     /* creation time.         */
     fds_uint64_t         obj_del_time;         /* deletion time.         */
     fds_uint64_t         assoc_mod_time;         /* Modification time.         */
@@ -144,8 +145,6 @@ struct __attribute__((__packed__)) obj_assoc_entry_v0 {
     fds::fds_volid_t    vol_uuid;
     fds_int32_t         ref_cnt;
 };
-
-
 
 /*
  * The below is an attempt to make the persistent layer
@@ -175,7 +174,7 @@ obj_map_init_v0(meta_obj_map_v0 *map)
 static inline void
 obj_map_init(meta_obj_map_t *map)
 {
-    obj_map_init_v0((meta_obj_map_v0 *)map);
+    obj_map_init_v0(reinterpret_cast<meta_obj_map_v0 *>(map));
 }
 
 /*
@@ -188,4 +187,4 @@ obj_map_has_init_val(meta_obj_map_t const *const map)
     return obj_id_is_valid(&map->obj_id);
 }
 
-#endif /* INCLUDE_DISK_MGR_DM_METADATA_H_ */
+#endif  // SOURCE_INCLUDE_PERSISTENT_LAYER_DM_METADATA_H_

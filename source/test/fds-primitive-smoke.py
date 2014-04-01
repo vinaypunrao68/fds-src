@@ -489,6 +489,7 @@ def bringupNode(env, bu, cfgFile, verbose, debug, node):
 ## -------------------
 def preCommit(volume_name, data_dir, res_dir):
     # basic PUTs and GETs of fds-src cpp files
+    time.sleep(20)
     smoke_ds0 = FdsDataSet(volume_name, data_dir, res_dir, '*.cpp')
 
     smoke0 = CopyS3Dir(smoke_ds0)

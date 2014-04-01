@@ -242,13 +242,6 @@ ModuleVector::mod_mk_sysparams()
         std::cout << desc << std::endl;
         return;
     }
-    if (vm.count("sim-prefix")) {
-        SimEnvParams *sim  =
-                new SimEnvParams(vm["sim-prefix"].as<std::string>());
-        sys_params.fds_sim = sim;
-        sim->sim_hdd_mb    = hdd_cap;
-        sim->sim_ssd_mb    = ssd_cap;
-    }
     sys_params.sys_hdd_cnt = hdd_cnt;
     sys_params.sys_ssd_cnt = ssd_cnt;
     sys_params.log_severity = log_severity;
