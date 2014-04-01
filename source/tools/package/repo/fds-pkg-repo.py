@@ -23,6 +23,7 @@ class PackageRepo:
     def __init__(self):
         self.conffile = None
         self.nameformat=re.compile("([^_]+)_([a-z0-9-.]+)_?(.*).deb")
+        self.signkey = None
         self.verbose = False
 
     def getCmdOutput(self,cmd,shell=True):
@@ -39,7 +40,13 @@ class PackageRepo:
         self.config = ConfigParser.SafeConfigParser();
         self.config.read(self.conffile)
         return self.verifyConf()
-    
+
+    def configGet(self,section,option,default=None):
+        try :
+            return self.config.get(section,option)
+        except ConfigParser.NoOptionError:
+            return default
+
     def verifyConf(self):
         self.repodir = self.config.get('default','repodir')
 
@@ -64,11 +71,13 @@ class PackageRepo:
             log.error("branches need to be specified")
             return False
 
-        self.origin =  self.config.get('releaseinfo','origin')
-        self.label =  self.config.get('releaseinfo','label')
-        self.suite = self.config.get('releaseinfo','suite')
-        self.codename = self.config.get('releaseinfo','codename')
-        self.description =  self.config.get('releaseinfo','description')
+        self.origin      = self.configGet('releaseinfo','origin')
+        self.label       = self.configGet('releaseinfo','label')
+        self.suite       = self.configGet('releaseinfo','suite')
+        self.codename    = self.configGet('releaseinfo','codename')
+        self.description = self.configGet('releaseinfo','description')
+        self.signkey     = self.configGet('releaseinfo','sign-with-key')
+        
         return True
 
     def setup(self):
@@ -120,12 +129,11 @@ class PackageRepo:
                 ret = os.system ('gzip -c -f -q -9 Packages > Packages.gz')
                 ret = os.system ('bzip2 -k -f -q -9 Packages')
                 
-    def genReleasesFile(self):
+    def genReleaseFile(self):
         os.chdir(self.distdir)
-        os.system('pwd')
         for branch in self.branches:
             log.info( 'generating Release file for %s',branch)
-            f = open('Releases','w')
+            f = open('Release','w')
             f.write("Origin: %s\n" %(self.origin))
             f.write("Label: %s\n" %(self.label))
             f.write("Suite: %s\n" %(self.suite))
@@ -163,9 +171,18 @@ class PackageRepo:
 
         f.close()
 
+        if self.signkey != None:
+            log.info('signing the Release File with [key=%s]', self.signkey)
+            execcmd = 'gpg -bsa -u %s -o Release.gpg  Release' % (self.signkey)
+            if os.path.exists('Release.gpg'):
+                os.remove('Release.gpg')
+            log.debug('running cmd : %s' , execcmd)            
+            if 0 != os.system(execcmd):
+                log.error ('error siging Release file')
+
     def doneUploads(self):
         self.genPackagesFile();
-        self.genReleasesFile();
+        self.genReleaseFile();
 
     def processUploads(self,uploadsdir,branch):
         count = 0
@@ -183,7 +200,7 @@ class PackageRepo:
             count += 1
         log.info ("processing [%d] packages" % (count))
         self.genPackagesFile();
-        self.genReleasesFile();
+        self.genReleaseFile();
 
     def removePackage(self,pkgname,justbranch=None,justarch=None):
         count = 0
@@ -203,7 +220,7 @@ class PackageRepo:
                     self.genPackagesFile(branch,arch)
                     
         if count > 0:
-            self.genReleasesFile()
+            self.genReleaseFile()
         else :
             log.warn("unable to find [%s] in the repo" , pkgname)
         
@@ -296,7 +313,7 @@ if __name__ == "__main__":
 
     parser.add_argument('--setup', action="store_true", default=False,  help = "initialize a repo")
     parser.add_argument('--server', action="store_true", default=False, help = "run http server")
-    parser.add_argument('--genreleases', action="store_true", default=False, help = "regenerate Releases file")
+    parser.add_argument('--genrelease', action="store_true", default=False, help = "regenerate Release file")
     parser.add_argument('--genpackages', action="store_true", default=False, help = "regenerate Packages file")
     parser.add_argument('--remove', default = None , help = "delete a package")
     parser.add_argument('-p','--port', type=int, help = "server port" , default=8000)
@@ -330,9 +347,9 @@ if __name__ == "__main__":
         validaction = True
         repo.genPackagesFile()
 
-    if args.genreleases:
+    if args.genrelease:
         validaction = True
-        repo.genReleasesFile()
+        repo.genReleaseFile()
 
     if args.server:
         validaction = True
