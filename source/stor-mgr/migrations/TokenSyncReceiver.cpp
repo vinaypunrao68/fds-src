@@ -303,8 +303,6 @@ struct TokenSyncReceiverFSM_
         template <class EVT, class FSM, class SourceState, class TargetState>
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
-            LOGDEBUG << "issue_resolve token: " << fsm.token_id_;
-
             static uint32_t max_to_resolve = 10;
             std::list<ObjectID> resolve_list;
 
@@ -365,6 +363,9 @@ struct TokenSyncReceiverFSM_
                     return;
                 }
             }
+
+            LOGDEBUG << "issue_resolve token: " << fsm.token_id_
+                    << " batch size: " << resolve_list.size();
         }
     };
     struct report_error

@@ -2028,7 +2028,7 @@ ObjectStorMgr::putTokenObjectsInternal(SmIoReq* ioReq)
 
         if (objMetadata.dataPhysicallyExists()) {
             /* write metadata */
-            smObjDb->put_(objId, objMetadata);
+            smObjDb->put(OpCtx(OpCtx::COPY), objId, objMetadata);
             /* No need to write the object data.  It already exits */
             continue;
         }
@@ -2164,7 +2164,7 @@ ObjectStorMgr::applyObjectDataInternal(SmIoReq* ioReq)
 
     /* write the metadata */
     objMetadata.updatePhysLocation(&phys_loc);
-    smObjDb->put_(objId, objMetadata);
+    smObjDb->put(OpCtx(OpCtx::SYNC), objId, objMetadata);
 
     applydata_entry->smio_apply_data_resp_cb(err, applydata_entry);
 }

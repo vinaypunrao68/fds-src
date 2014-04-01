@@ -58,6 +58,15 @@ class MObjStore : public ObjectStorMgr {
 
         writeObject(oid, data);
     }
+    /**
+     * This variant doens't do content hashing
+     * @param oid
+     * @param data
+     */
+    void putObject(const ObjectID& oid, const std::string &data)
+    {
+        writeObject(oid, data);
+    }
 
     bool getObject(const ObjectID &oid, std::string &data) {
 
@@ -149,9 +158,11 @@ class MObjStore : public ObjectStorMgr {
             /* Apply metadata */
             objMetadata.apply(obj.meta_data);
 
+            LOGDEBUG << objMetadata.logString();
+
             if (objMetadata.dataPhysicallyExists()) {
                 /* write metadata */
-                smObjDb->put_(objId, objMetadata);
+                smObjDb->put(OpCtx(OpCtx::COPY), objId, objMetadata);
                 /* No need to write the object data.  It already exits */
                 continue;
             }
@@ -260,7 +271,6 @@ class MObjStore : public ObjectStorMgr {
             LOGERROR << "Error in applying sync metadata.  Object Id: "
                     << applyMdReq->md.object_id.digest;
         }
-        // TODO(Rao): return missing objects
         applyMdReq->smio_sync_md_resp_cb(e, applyMdReq);
     }
 
@@ -275,6 +285,88 @@ class MObjStore : public ObjectStorMgr {
                     << resolve_entry->object_id;
         }
         resolve_entry->smio_resolve_resp_cb(e, resolve_entry);
+    }
+
+    void
+    applyObjectDataInternal(SmIoReq* ioReq)
+    {
+        SmIoApplyObjectdata *applydata_entry =  static_cast<SmIoApplyObjectdata*>(ioReq);
+        ObjectID objId = applydata_entry->obj_id;
+        ObjMetaData objMetadata;
+
+        Error err = smObjDb->get(objId, objMetadata);
+        if (err != ERR_OK && err != ERR_DISK_READ_FAILED) {
+            fds_assert(!"ObjMetadata read failed" );
+            LOGERROR << "Failed to write the object: " << objId;
+            applydata_entry->smio_apply_data_resp_cb(err, applydata_entry);
+        }
+
+        err = ERR_OK;
+
+        if (objMetadata.dataPhysicallyExists()) {
+            /* No need to write the object data.  It already exits */
+            LOGDEBUG << "Object already exists. Id: " << objId;
+            applydata_entry->smio_apply_data_resp_cb(err, applydata_entry);
+        }
+
+        /* Moving the data to not incur copy penalty */
+        DBG(std::string temp_data = applydata_entry->obj_data);
+        ObjectBuf objData;
+        objData.data = std::move(applydata_entry->obj_data);
+        objData.size = objData.data.size();
+        fds_assert(temp_data == objData.data);
+        applydata_entry->obj_data.clear();
+
+        /* write data to storage tier */
+        /* Makeup some data */
+        obj_phy_loc_t phys_loc;
+        phys_loc.obj_stor_offset = 10;
+        phys_loc.obj_file_id = 1;
+        phys_loc.obj_tier = diskio::diskTier;
+        writeObjectData(objId, objData.data);
+
+        /* write the metadata */
+        objMetadata.updatePhysLocation(&phys_loc);
+        smObjDb->put(OpCtx(OpCtx::SYNC), objId, objMetadata);
+
+        applydata_entry->smio_apply_data_resp_cb(err, applydata_entry);
+    }
+
+    void
+    readObjectDataInternal(SmIoReq* ioReq)
+    {
+        SmIoReadObjectdata *read_entry =  static_cast<SmIoReadObjectdata*>(ioReq);
+        ObjectBuf        objData;
+        ObjMetaData objMetadata;
+        diskio::DataTier tierUsed;
+
+        Error err = readObject(SmObjDb::NON_SYNC_MERGED, read_entry->getObjId(),
+                objMetadata, objData, tierUsed);
+        if (err != ERR_OK) {
+            fds_assert(!"failed to read");
+            LOGERROR << "Failed to read object id: " << read_entry->getObjId();
+        }
+        // TODO(Rao): use std::move here
+        read_entry->obj_data.data = objData.data;
+        fds_assert(read_entry->obj_data.data.size() > 0);
+
+        read_entry->smio_readdata_resp_cb(err, read_entry);
+    }
+    void
+    readObjectMetadataInternal(SmIoReq* ioReq)
+    {
+        SmIoReadObjectMetadata *read_entry =  static_cast<SmIoReadObjectMetadata*>(ioReq);
+        ObjMetaData objMetadata;
+
+        Error err = smObjDb->get(read_entry->getObjId(), objMetadata);
+        if (err != ERR_OK) {
+            fds_assert(!"failed to read");
+            LOGERROR << "Failed to read object metadata id: " << read_entry->getObjId();
+            read_entry->smio_readmd_resp_cb(err, read_entry);
+        }
+
+        objMetadata.extractSyncData(read_entry->meta_data);
+        read_entry->smio_readmd_resp_cb(err, read_entry);
     }
 
     virtual Error enqueueMsg(fds_volid_t volId, SmIoReq* io)
@@ -299,6 +391,21 @@ class MObjStore : public ObjectStorMgr {
         case FDS_SM_SYNC_RESOLVE_SYNC_ENTRY:
         {
             threadpool_->schedule(&MObjStore::resolveSyncEntryInternal, this, io);
+            break;
+        }
+        case FDS_SM_APPLY_OBJECTDATA:
+        {
+            threadpool_->schedule(&MObjStore::applyObjectDataInternal, this, io);
+            break;
+        }
+        case FDS_SM_READ_OBJECTDATA:
+        {
+            threadpool_->schedule(&MObjStore::readObjectDataInternal, this, io);
+            break;
+        }
+        case FDS_SM_READ_OBJECTMETADATA:
+        {
+            threadpool_->schedule(&MObjStore::readObjectMetadataInternal, this, io);
             break;
         }
         default:

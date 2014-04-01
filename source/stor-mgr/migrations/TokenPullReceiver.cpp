@@ -133,8 +133,8 @@ struct TokenPullReceiverFSM_
 
             LOGDEBUG << "add_for_pull token: " << fsm.token_id_
                     << " cnt: " << evt.pull_ids.size()
-                    << " pending: " << fsm.pending_.size()
-                    << " inflight: " << fsm.inflight_.size();
+                    << " pending_pulls: " << fsm.pending_.size()
+                    << " inflight_pulls: " << fsm.inflight_.size();
         }
     };
     struct issue_pulls
@@ -172,8 +172,8 @@ struct TokenPullReceiverFSM_
 
             LOGDEBUG << "issue_pulls. token: " << fsm.token_id_
                     << " cnt: " << pull_req.obj_ids.size()
-                    << " pending: " << fsm.pending_.size()
-                    << " inflight: " << fsm.inflight_.size();
+                    << " pending_pulls: " << fsm.pending_.size()
+                    << " inflight_pulls: " << fsm.inflight_.size();
 
             if (pull_req.obj_ids.size() > 0) {
                 fsm.sender_session_->getClient()->PullObjects(pull_req);
@@ -194,15 +194,15 @@ struct TokenPullReceiverFSM_
              */
             fsm.sent_apply_data_msgs_ += evt.obj_data_list.size();
 
-            LOGDEBUG << "issue_writes token: " << fsm.token_id_
-                    << ". cnt: " << evt.obj_data_list.size()
-                    << " total_sent: " << fsm.sent_apply_data_msgs_
-                    << " total_acked: " << fsm.ackd_apply_data_msgs_;
 
             for (uint32_t idx = 0; idx < evt.obj_data_list.size(); idx++) {
+                ObjectID obj_id(evt.obj_data_list[idx].obj_id.digest);
+
+                fsm.inflight_.erase(obj_id);
+
                 auto apply_data_msg = new SmIoApplyObjectdata();
                 apply_data_msg->io_type = FDS_SM_APPLY_OBJECTDATA;
-                apply_data_msg->obj_id = ObjectID(evt.obj_data_list[idx].obj_id.digest);
+                apply_data_msg->obj_id = obj_id;
                 // TODO(Rao): Use std:;move here
                 apply_data_msg->obj_data = evt.obj_data_list[idx].data;
                 apply_data_msg->smio_apply_data_resp_cb = fsm.pulldata_written_resp_cb_;
@@ -219,6 +219,13 @@ struct TokenPullReceiverFSM_
                     return;
                 }
             }
+
+            LOGDEBUG << "issue_writes token: " << fsm.token_id_
+                    << ". cnt: " << evt.obj_data_list.size()
+                    << " total_writes_sent: " << fsm.sent_apply_data_msgs_
+                    << " total_writes_acked: " << fsm.ackd_apply_data_msgs_
+                    << " pending_pulls: " << fsm.pending_.size()
+                    << " inflight_pulls: " << fsm.inflight_.size();
         }
     };
     struct mark_last_pull
@@ -251,6 +258,19 @@ struct TokenPullReceiverFSM_
             LOGDEBUG << "teardown  token: " << fsm.token_id_;
             LOGDEBUG << fsm.migrationSvc_->mig_cntrs.toString();
 
+            /* Notify sender pull is complete */
+            FDSP_NotifyTokenPullComplete complete_req;
+            complete_req.header.base_header.err_code = ERR_OK;
+            complete_req.header.base_header.src_node_name = fsm.migrationSvc_->get_ip();
+            complete_req.header.base_header.src_port = fsm.migrationSvc_->get_port();
+            complete_req.header.base_header.session_uuid =
+                    fsm.sender_session_->getSessionId();
+            complete_req.header.mig_id = fsm.parent_->get_mig_id();
+            complete_req.header.mig_stream_id = fsm.mig_stream_id_;
+            fsm.sender_session_->getClient()->NotifyTokenPullComplete(complete_req);
+
+
+            /* Notify parent pull is complete */
             FdsActorRequestPtr far(new FdsActorRequest(
                     FAR_ID(TRPullDnEvt), nullptr));
 
@@ -316,7 +336,7 @@ struct TokenPullReceiverFSM_
                                      , msm_none   , issue_pulls     , Not_<pull_dn>    >,
 
     Row< Pulling    , TRPullDataWrittenEvt
-                                     , Complete   , teardown        , Not_<pull_dn>    >,
+                                     , Complete   , teardown        , pull_dn          >,
     // +------------+----------------+------------+-----------------+------------------+
     Row < AllOk     , ErrorEvt       , ErrorMode  , ActionSequence_
                                                     <mpl::vector<
@@ -349,8 +369,8 @@ struct TokenPullReceiverFSM_
 
         if (ackd_apply_data_msgs_ == sent_apply_data_msgs_) {
             LOGDEBUG << "Applied a batch of object data."
-                    << " total_sent: " << sent_apply_data_msgs_
-                    << " total_acked: " << ackd_apply_data_msgs_;
+                    << " total_writes_sent: " << sent_apply_data_msgs_
+                    << " total_writes_acked: " << ackd_apply_data_msgs_;
 
             TRPullDataWrittenEvtPtr data_applied_evt(new TRPullDataWrittenEvt());
             FdsActorRequestPtr far(new FdsActorRequest(

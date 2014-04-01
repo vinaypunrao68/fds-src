@@ -95,16 +95,22 @@ std::string TokenSyncLog::create_key(const ObjectID& id, const ObjMetaData& entr
 {
     std::ostringstream oss;
     std::string str_id((const char*) id.GetId(), id.GetLen());
+    fds_assert(str_id.size() == id.GetLen());
     oss << entry.getModificationTs()<< "\n" << str_id;
     return oss.str();
 }
 
-void TokenSyncLog::parse_key(const leveldb::Slice& s, uint64_t &ts, ObjectID& id) {
-    // TODO(Rao): Make this more efficient to remove unncessary data copying
-    istringstream iss(s.ToString());
-    std::string id_str;
-    iss >> ts >> id_str;
-    id.SetId(id_str.data(), id_str.length());
+void TokenSyncLog::parse_key(const leveldb::Slice& s, uint64_t &ts, ObjectID& id)
+{
+    char *pos = (char*) memchr(s.data(), '\n', s.size());  // NOLINT
+    uint32_t pos_idx = pos - s.data();
+    fds_verify(pos != nullptr);
+
+    ts = atol(s.data());
+    fds_verify(ts != 0);
+
+    fds_verify((s.size() - (pos_idx+1)) == id.GetLen());
+    id.SetId(pos+1, s.size() - (pos_idx+1));
 }
 
 /* State machine */
@@ -331,7 +337,13 @@ struct TokenSyncSenderFSM_
 
                 ObjMetaData entry;
                 entry.deserializeFrom(it->value());
-                // TODO(rao): Only add if entry is in sync time range
+                auto mod_ts = entry.getModificationTs();
+                fds_assert(mod_ts != 0);
+                if (mod_ts < fsm.cur_sync_range_low_ ||
+                    mod_ts > fsm.cur_sync_range_high_) {
+                    continue;
+                }
+
                 Error e = fsm.sync_log_->add(id, entry);
                 if (e != ERR_OK) {
                     fds_assert(!"Error");

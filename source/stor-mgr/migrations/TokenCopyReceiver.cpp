@@ -542,6 +542,9 @@ Error TokenCopyReceiver::handle_actor_request(FdsActorRequestPtr req)
         /* Starting token sync statemachine */
         migrationSvc_->getTokenStateDb()->setTokenState(token_id_,
                 kvstore::TokenStateInfo::SYNCING);
+
+        LOGDEBUG << "tok id: " << token_id_ << " copy completed.  Starting sync";
+
         // TODO(Rao): Get the sync start time from token db.  We should healthy time
         // stamp here.  As metadata entries are written we need to update the healthy
         // timestamp
@@ -600,6 +603,7 @@ Error TokenCopyReceiver::handle_actor_request(FdsActorRequestPtr req)
     case FAR_ID(TRSyncDnEvt):
     {
         /* Notification sync_fsm that entire sync process is complete */
+        LOGDEBUG << "tok id: " << token_id_ << " sync completed";
 
         /* Set token state to pull remaining */
         migrationSvc_->getTokenStateDb()->setTokenState(token_id_,
@@ -634,6 +638,9 @@ Error TokenCopyReceiver::handle_actor_request(FdsActorRequestPtr req)
     }
     case FAR_ID(TRPullDnEvt):
     {
+        /* Notification from Pull receiver that pull is complete */
+        LOGDEBUG << "tok id: " << token_id_ << " pull completed";
+
         /* Set token state to healthy */
         migrationSvc_->getTokenStateDb()->setTokenState(token_id_,
                 kvstore::TokenStateInfo::HEALTHY);

@@ -5,6 +5,11 @@ namespace fds {
 
 extern ObjectStorMgr *objStorMgr;
 
+OpCtx::OpCtx(const OpCtx::OpType &t)
+: OpCtx(t, 0)
+{
+}
+
 OpCtx::OpCtx(const OpCtx::OpType &t, const uint64_t &timestamp)
 {
     type = t;
@@ -126,14 +131,16 @@ fds::Error SmObjDb::put(const OpCtx &opCtx,
         return put_(objId, md);
     }
 
-    /* Update timestamps */
-    fds_assert(opCtx.type == OpCtx::PUT || opCtx.type == OpCtx::DELETE);
-    if (opCtx.type == OpCtx::PUT) {
+    /* Update timestamps.  Currenly only PUT and DELETE have an effect here */
+    if (opCtx.type == OpCtx::PUT ||
+        opCtx.type == OpCtx::DELETE) {
         if (md.obj_map.obj_create_time == 0) {
             md.obj_map.obj_create_time = opCtx.ts;
         }
     }
     md.obj_map.assoc_mod_time = opCtx.ts;
+
+    LOGDEBUG << "ctx: " << opCtx.type << " " << md.logString();
 
     return put_(objId, md);
 }
@@ -200,7 +207,7 @@ fds::Error SmObjDb::putSyncEntry(const ObjectID& objId,
 
     LOGDEBUG << md.logString();
 
-    err = put_(objId, md);
+    err = put(OpCtx(OpCtx::SYNC), objId, md);
     /******************* Test code ***************/
     DBG(ObjMetaData temp_md);
     DBG(get(objId, temp_md));
@@ -229,7 +236,7 @@ Error SmObjDb::resolveEntry(const ObjectID& objId)
     LOGDEBUG << " Object id: " << objId;
     md.mergeNewAndUnsyncedData();
 
-    return put_(objId, md);
+    return put(OpCtx(OpCtx::SYNC), objId, md);
 }
 
 /**

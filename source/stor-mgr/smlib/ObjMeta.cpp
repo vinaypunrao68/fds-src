@@ -622,7 +622,7 @@ bool ObjMetaData::dataPhysicallyExists()
             phy_loc[diskio::flashTier].obj_tier == diskio::flashTier) {
         return true;
     }
-    return true;
+    return false;
 }
 
 void ObjMetaData::setSyncMask()
@@ -653,7 +653,8 @@ std::string ObjMetaData::logString() const
     std::ostringstream oss;
     ObjectID obj_id(std::string((const char*)(obj_map.obj_id.metaDigest),
             sizeof(obj_map.obj_id.metaDigest)));
-    oss << "id: " << obj_id << " mask: " << mask << " len: " << obj_map.obj_size
+    oss << "id: " << obj_id << " mask: " << (uint32_t)mask
+            << " len: " << obj_map.obj_size
             << " assoc_entry_cnt: " << assoc_entry.size();
     return oss.str();
 
