@@ -1009,28 +1009,27 @@ Error
 DataMgr::updateCatalogInternal(FDSP_UpdateCatalogTypePtr updCatReq, 
 			       fds_volid_t volId,long srcIp,long dstIp,fds_uint32_t srcPort,
 			       fds_uint32_t dstPort, std::string session_uuid, fds_uint32_t reqCookie) {
-  fds::Error err(fds::ERR_OK);
-
+    fds::Error err(fds::ERR_OK);
     
     /*
      * allocate a new update cat log  class and  queue  to per volume queue.
      */
-  dmCatReq *dmUpdReq = new DataMgr::dmCatReq(volId, updCatReq->blob_name,
-					     updCatReq->dm_transaction_id, updCatReq->dm_operation,srcIp,
-					     dstIp,srcPort,dstPort, session_uuid, reqCookie, FDS_CAT_UPD,
-					     updCatReq); 
+    dmCatReq *dmUpdReq = new DataMgr::dmCatReq(volId, updCatReq->blob_name,
+                                               updCatReq->dm_transaction_id, updCatReq->dm_operation,srcIp,
+                                               dstIp,srcPort,dstPort, session_uuid, reqCookie, FDS_CAT_UPD,
+                                               updCatReq); 
+    
+    err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(dmUpdReq));
+    if (err != ERR_OK) {
+        FDS_PLOG(dataMgr->GetLog()) << "Unable to enqueue Update Catalog request "
+                                    << reqCookie << " error " << err.GetErrstr();
+        return err;
+    }
+    else 
+        FDS_PLOG(dataMgr->GetLog()) << "Successfully enqueued   update Catalog  request "
+                                    << reqCookie;
 
-  err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(dmUpdReq));
-  if (err != ERR_OK) {
-    FDS_PLOG(dataMgr->GetLog()) << "Unable to enqueue Update Catalog request "
-				<< reqCookie;
     return err;
-  }
-  else 
-    FDS_PLOG(dataMgr->GetLog()) << "Successfully enqueued   update Catalog  request "
-				<< reqCookie;
-
-  return err;
 }
 
 

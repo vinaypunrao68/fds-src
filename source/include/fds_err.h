@@ -40,6 +40,8 @@ namespace fds {
     "Invalid DLT",
     "Mismatch in persistent state",
     "Operation not permitted: would exceed total min iops",
+    "Unauthorized access",
+    "Volume not found",
     "Dlt mismatch",
     "Invalid blob offset",
     "Duplicate migration request",
@@ -78,7 +80,8 @@ namespace fds {
     ERR_INVALID_DLT          = 22,
     ERR_PERSIST_STATE_MISMATCH = 23,
     ERR_EXCEED_MIN_IOPS      = 24,
-    ERR_UNAUTH_ACCESS      = 25,
+    ERR_UNAUTH_ACCESS        = 25,
+    ERR_VOL_NOT_FOUND        = 26,
 
     /* I/O error range */
     ERR_IO_DLT_MISMATCH      = 100,
@@ -141,7 +144,7 @@ namespace fds {
     }
 
     std::string GetErrstr() const {
-        if (_errno <= ERR_EXCEED_MIN_IOPS) {
+        if (_errno <= ERR_VOL_NOT_FOUND) {
             return fds_errstrs[_errno];
         }
         std::string ret = "Error no: " + std::to_string(_errno);
