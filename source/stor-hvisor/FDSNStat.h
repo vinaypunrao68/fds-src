@@ -23,4 +23,4 @@ extern void fdsn_register_stat(void);
 
 }  // namespace fds
 
-#endif /* SOURCE_STOR_HVISOR_FDSNSTAT_H_ */
+#endif  // SOURCE_STOR_HVISOR_FDSNSTAT_H_
