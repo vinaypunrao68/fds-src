@@ -399,7 +399,7 @@ class PkgCreate:
                 log.error("invalid maintainer [%s] :- name <email>" % (self.metadata[self.META_MAINTAINER]) )
                 return False
         else:
-            log.error("meta : %s : missing .. so adding default"  % (self.META_MAINTAINER))
+            log.warn("meta : %s : missing .. so adding default"  % (self.META_MAINTAINER))
             self.metadata[self.META_MAINTAINER]= "fds <engineering@fds.com>"
 
         if self.META_DEPENDS in self.metadata and len(self.metadata[self.META_DEPENDS])>0:
@@ -566,7 +566,8 @@ class PkgCreate:
             dest = self.pkgdir + item.dest
             if item.dir:
                 log.debug('making dir : %s', dest)
-                os.makedirs(dest)
+                if not os.path.exist(dest):
+                    os.makedirs(dest)
                 os.chown(dest,uid,gid)
                 for f in item.src:
                     log.debug("copy: src: %s, dest: %s " %(f,dest))
@@ -575,7 +576,8 @@ class PkgCreate:
             else :
                 destdir = os.path.dirname(dest)
                 log.debug ('destfile: %s , destdir: %s' % ( dest , destdir))
-                os.makedirs(destdir)
+                if not os.path.exists(destdir):
+                    os.makedirs(destdir)
                 os.chown(destdir,uid,gid)
                 log.debug("copy: src: %s, dest: %s " %(item.src[0],dest))
                 shutil.copy2(item.src[0],dest)
@@ -619,6 +621,11 @@ if __name__ == '__main__':
     pkg.keepTemp = args.keeptemp
     pkg.releasePackage = args.release
 
+    # check for root priveleges
+    if 0 != os.geteuid():
+        log.error("need to be root or use sudo to create packages")
+        sys.exit(1)
+    
     if args.clean:
         pkg.cleanDir()
         sys.exit(0)
