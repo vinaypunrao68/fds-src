@@ -135,6 +135,8 @@ StorHvCtrl::StorHvCtrl(int argc,
 
     sysParams = params;
 
+    useVcc =  config.get_abs<bool>("fds.am.use_vcc", true);
+
     LOGNORMAL << "StorHvisorNet - Constructing the Storage Hvisor";
 
     /* create OMgr client if in normal mode */

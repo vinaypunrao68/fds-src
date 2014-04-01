@@ -25,7 +25,7 @@ Error CatalogCache::Query(fds_uint64_t block_id,
 
     map_rwlock.read_lock();
     try {
-        ObjectID& obj = offset_map.at(block_id);
+        ObjectID& obj = (offset_map.at(block_id)).first;
         *oid = obj;
     } catch(const std::out_of_range& oor) {
         err = ERR_CAT_QUERY_FAILED;
@@ -34,18 +34,27 @@ Error CatalogCache::Query(fds_uint64_t block_id,
     return err;
 }
 
-Error CatalogCache::Update(fds_uint64_t block_id, const ObjectID& oid) {
+Error CatalogCache::Update(fds_uint64_t blobOffset,
+                           fds_uint32_t objectLen,
+                           const ObjectID& oid) {
     Error err(ERR_OK);
 
-    /*
-     * We already have this mapping. Return duplicate err
-     * so that the caller knows not to call DM.
-     */
     map_rwlock.write_lock();
-    if (offset_map[block_id] == oid) {
-        err = ERR_DUPLICATE;
-        map_rwlock.write_unlock();
-        return err;
+    if (offset_map.count(blobOffset) != 0) {
+        // TODO(Andrew): Need a check here if we're
+        // writing 0 size objects
+        fds_verify(blobSize > 0);
+
+        // We already have this mapping. Return duplicate err
+        // so that the caller knows not to call DM.
+        if ((offset_map[blobOffset]).first == oid) {
+            fds_verify((offset_map[blobOffset]).second == objectLen);
+            err = ERR_DUPLICATE;
+            map_rwlock.write_unlock();
+            return err;
+        }
+
+        blobSize -= (offset_map[blobOffset]).second;
     }
 
     /*
@@ -53,15 +62,27 @@ Error CatalogCache::Update(fds_uint64_t block_id, const ObjectID& oid) {
      * entry. We should take a flag or something rather
      * that always overwrite.
      */
-    offset_map[block_id] = oid;
+    offset_map[blobOffset] = ObjectDesc(oid, objectLen);
+    blobSize += objectLen;
+    LOGDEBUG << "Updated cached blob " << blobName
+             << " to size " << blobSize;
     map_rwlock.write_unlock();
 
     return err;
 }
 
+fds_uint64_t CatalogCache::getBlobSize() {
+    fds_uint64_t size;
+    map_rwlock.read_lock();
+    size = blobSize;
+    map_rwlock.read_unlock();
+    return size;
+}
+
 void CatalogCache::Clear() {
     map_rwlock.write_lock();
     offset_map.clear();
+    blobSize = 0;
     map_rwlock.write_unlock();
 }
 
@@ -230,6 +251,7 @@ Error VolumeCatalogCache::Query(const std::string& blobName,
  */
 Error VolumeCatalogCache::Update(const std::string& blobName,
                                  fds_uint64_t blobOffset,
+                                 fds_uint32_t objectLen,
                                  const ObjectID &oid) {
     Error err(ERR_OK);
     CatalogCache *catCache;
@@ -248,7 +270,7 @@ Error VolumeCatalogCache::Update(const std::string& blobName,
         blobRwLock.write_unlock();
     }
 
-    err = catCache->Update(blobOffset, oid);
+    err = catCache->Update(blobOffset, objectLen, oid);
     /*
      * If the exact entry already existed
      * we can return success.
@@ -276,6 +298,22 @@ Error VolumeCatalogCache::Update(const std::string& blobName,
     LOGDEBUG << " VolumeCatalogCache"
              << " update DONE for blob " << blobName
              << " and blob offset " << blobOffset;
+    return err;
+}
+
+Error VolumeCatalogCache::getBlobSize(const std::string& blobName,
+                                      fds_uint64_t *blobSize) {
+    Error err(ERR_OK);
+
+    blobRwLock.write_lock();
+    if (blobMap.count(blobName) > 0) {
+        CatalogCache *blobCache = blobMap[blobName];
+        *blobSize = blobCache->getBlobSize();
+    } else {
+        err = ERR_NOT_FOUND;
+    }
+    blobRwLock.write_unlock();
+
     return err;
 }
 

@@ -186,45 +186,51 @@ class StorHvVolumeTable
 };
 
 class GetBlobReq: public FdsBlobReq {
-public:
-  BucketContext *bucket_ctxt;
-  std::string ObjKey;
-  GetConditions *get_cond;
-  //  fds_uint64_t startByte; //same as blob_offset in base class
-  fds_uint64_t byteCount; /* NOTE: we are ignoring byteCount for now (not implemented) */
-  void *req_context;
-  fdsnGetObjectHandler getObjCallback;
-  void *callback_data;
-  
-  GetBlobReq(fds_volid_t _volid,
-	     const std::string& _blob_name, //same as objKey
-	     fds_uint64_t _blob_offset,
-	     fds_uint64_t _data_len,
-	     char* _data_buf,
-	     fds_uint64_t _byte_count, 
-	     BucketContext* _bucket_ctxt,
-	     GetConditions* _get_conds,
-	     void* _req_context,
-	     fdsnGetObjectHandler _get_obj_handler,
-	     void* _callback_data)
-    : FdsBlobReq(FDS_GET_BLOB, _volid, _blob_name, _blob_offset,
-                 _data_len, _data_buf, FDS_NativeAPI::DoCallback, this, Error(ERR_OK), 0),
-      bucket_ctxt(_bucket_ctxt),
-      ObjKey(_blob_name),
-      get_cond(_get_conds),
-      byteCount(_byte_count),
-    req_context(_req_context),
-      getObjCallback(_get_obj_handler),
-      callback_data(_callback_data) {
+  public:
+    BucketContext *bucket_ctxt;
+    std::string ObjKey;
+    GetConditions *get_cond;
+    fds_uint64_t byteCount;
+    void *req_context;
+    fdsnGetObjectHandler getObjCallback;
+    void *callback_data;
+
+    /// Size of the blob read from
+    fds_uint64_t blobSize;
+
+    GetBlobReq(fds_volid_t _volid,
+               const std::string& _blob_name, //same as objKey
+               fds_uint64_t _blob_offset,
+               fds_uint64_t _data_len,
+               char* _data_buf,
+               fds_uint64_t _byte_count, 
+               BucketContext* _bucket_ctxt,
+               GetConditions* _get_conds,
+               void* _req_context,
+               fdsnGetObjectHandler _get_obj_handler,
+               void* _callback_data)
+            : FdsBlobReq(FDS_GET_BLOB, _volid, _blob_name, _blob_offset,
+                         _data_len, _data_buf, FDS_NativeAPI::DoCallback, this, Error(ERR_OK), 0),
+              bucket_ctxt(_bucket_ctxt),
+              ObjKey(_blob_name),
+              get_cond(_get_conds),
+              byteCount(_byte_count),
+              req_context(_req_context),
+              getObjCallback(_get_obj_handler),
+              callback_data(_callback_data),
+              blobSize(0) {
     }
 
-  ~GetBlobReq() { };
+    ~GetBlobReq() { };
 
-  void DoCallback(FDSN_Status status, ErrorDetails* errDetails) {
-      (getObjCallback)(req_context, dataLen, blobOffset, dataBuf,
-                       callback_data, status, errDetails);
-  }
+    void DoCallback(FDSN_Status status, ErrorDetails* errDetails) {
+        (getObjCallback)(req_context, dataLen, blobOffset, dataBuf, blobSize,
+                         callback_data, status, errDetails);
+    }
 
+    void setBlobSize(fds_uint64_t size) {
+        blobSize = size;
+    }
 };
 
 

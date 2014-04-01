@@ -638,7 +638,7 @@ Conn_GetObject::get_max_buf_len() const {
 //
 static FDSN_Status
 fdsn_getobj_cbfn(void *req, fds_uint64_t bufsize, fds_off_t offset,
-                 const char *buf, void *cbData,
+                 const char *buf, fds_uint64_t blobSize, void *cbData,
                  FDSN_Status status, ErrorDetails *errdetails)
 {
     AME_Ctx        *ctx = static_cast<AME_Ctx *>(req);
@@ -647,6 +647,9 @@ fdsn_getobj_cbfn(void *req, fds_uint64_t bufsize, fds_off_t offset,
     conn_go->ame_clk_fdsn_cb = fds_rdtsc();
     fds_stat_record(STAT_NGX, STAT_NGX_GET_FDSN_CB,
                     conn_go->ame_clk_fdsn, conn_go->ame_clk_fdsn_cb);
+
+    LOGNORMAL << "Received FDSN get callback for blob " << conn_go->get_object_id()
+              << " with total size " << blobSize;
 
     // FDS_PLOG(conn_go->ame_get_log()) << "GetObject bucket: "
     // << conn_go->get_bucket_id() << " , object: "

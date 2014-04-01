@@ -72,6 +72,7 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) {
                 vol->vol_catalog_cache->Update(
                     blobReq->getBlobName(),
                     blobReq->getBlobOffset(),
+                    (fds_uint32_t)blobReq->getDataLen(),
                     ObjectID(txn->data_obj_id.digest));
         
                 /*
@@ -344,7 +345,8 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
          it++) {
         ObjectID offsetObjId(((*it).data_obj_id).digest);
         err = shvol->vol_catalog_cache->Update(blobReq->getBlobName(),
-                                               (*it).offset,
+                                               (fds_uint64_t)(*it).offset,
+                                               (fds_uint32_t)(*it).size,
                                                offsetObjId);
         fds_verify(err == ERR_OK);
     }

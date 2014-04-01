@@ -14,6 +14,7 @@
 #include <string>
 #include <unordered_map>
 #include <stdexcept>
+#include <utility>
 
 #include <fds_err.h>
 #include <fds_types.h>
@@ -34,10 +35,11 @@ namespace fds {
    */
 class CatalogCache {
   private:
-    /*
-     * Maps a blob offset to a object ID.
-     */
-    typedef std::unordered_map<fds_uint32_t, ObjectID> OffsetMap;
+    /// Describes an object's ID and length
+    typedef std::pair<ObjectID, fds_uint32_t> ObjectDesc;
+    /// Maps a blob offset to a object ID.
+    typedef std::unordered_map<fds_uint64_t,
+                               ObjectDesc> OffsetMap;
     OffsetMap offset_map;
 
     /*
@@ -58,8 +60,12 @@ class CatalogCache {
     /*
      * Update interface for a blob that's hosting a block device.
      */
-    Error Update(fds_uint64_t block_id, const ObjectID& oid);
-    Error Query(fds_uint64_t block_id, ObjectID *oid);
+    Error Update(fds_uint64_t blobOffset,
+                 fds_uint32_t objectLen,
+                 const ObjectID& oid);
+    Error Query(fds_uint64_t blobOffset,
+                ObjectID *oid);
+    fds_uint64_t getBlobSize();
     void Clear();
 };
 
@@ -122,7 +128,10 @@ class VolumeCatalogCache {
                 ObjectID *oid);
     Error Update(const std::string& blobName,
                  fds_uint64_t blobOffset,
+                 fds_uint32_t objectLen,
                  const ObjectID &oid);
+    Error getBlobSize(const std::string& blobName,
+                      fds_uint64_t *blobSize);
     Error clearEntry(const std::string &blobName);
     void Clear();
 

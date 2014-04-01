@@ -241,6 +241,9 @@ private:
 
     SysParams *sysParams;
     sh_comm_modes mode;
+
+    /// Toggles the local volume catalog cache
+    fds_bool_t useVcc;
 };
 
 extern StorHvCtrl *storHvisor;

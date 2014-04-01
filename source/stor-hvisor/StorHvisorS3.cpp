@@ -771,9 +771,9 @@ fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq) {
     /*
      * Get the object ID from vcc and add it to journal entry and get msg
      */
-#ifdef VVC_CACHE_DISABLE
-   shVol->vol_catalog_cache->Clear();
-#endif
+    if (useVcc == true) {
+        shVol->vol_catalog_cache->Clear();
+    }
     ObjectID objId;
     err = shVol->vol_catalog_cache->Query(blobReq->getBlobName(),
                                           blobReq->getBlobOffset(),
@@ -860,20 +860,27 @@ fds::Error StorHvCtrl::getObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
      * how to handle the length miss-match (requested  length and  recived legth from SM differ)?
      * We will have to handle sending more data due to length difference
      */
-    //boost::posix_time::ptime ts = boost::posix_time::microsec_clock::universal_time();
-    //long lat = vol->journal_tbl->microsecSinceCtime(ts) - req->sh_queued_usec;
 
     /*
      * Data ready, respond to callback
      */
     fds::AmQosReq   *qosReq  = static_cast<fds::AmQosReq *>(txn->io);
     fds_verify(qosReq != NULL);
-    fds::FdsBlobReq *blobReq = qosReq->getBlobReqPtr();
+    fds::GetBlobReq *blobReq = static_cast<fds::GetBlobReq *>(
+        qosReq->getBlobReqPtr());
     fds_verify(blobReq != NULL);
+
+    fds_uint64_t blobSize = 0;
+    err = vol->vol_catalog_cache->getBlobSize(blobReq->getBlobName(),
+                                              &blobSize);
+    fds_verify(err == ERR_OK);
+    fds_verify(blobSize > 0);
+
     LOGNOTIFY << "Responding to getBlob trans " << transId
               <<" for blob " << blobReq->getBlobName()
               << " and offset " << blobReq->getBlobOffset()
               << " length " << getObjRsp->data_obj_len
+              << " total blob size " << blobSize
               << " with result " << rxMsg->result;
     /*
      * Mark the IO complete, clean up txn, and callback
@@ -891,6 +898,7 @@ fds::Error StorHvCtrl::getObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
         fds_verify((uint)(getObjRsp->data_obj_len) <= (blobReq->getDataLen()));
         blobReq->setDataLen(getObjRsp->data_obj_len);    
         blobReq->setDataBuf(getObjRsp->data_obj.c_str());
+        blobReq->setBlobSize(blobSize);
         blobReq->cbWithResult(0);
     } else {
         /*
