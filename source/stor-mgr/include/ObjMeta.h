@@ -120,7 +120,7 @@ public:
 
     void updateAssocEntry(ObjectID objId, fds_volid_t vol_id);
 
-    void deleteAssocEntry(ObjectID objId, fds_volid_t vol_id);
+    void deleteAssocEntry(ObjectID objId, fds_volid_t vol_id, fds_uint64_t ts);
 
     fds_bool_t isVolumeAssociated(fds_volid_t vol_id);
 
@@ -131,6 +131,8 @@ public:
     void removePhyLocation(diskio::DataTier tier);
 
     bool operator==(const ObjMetaData &rhs) const;
+
+    std::string logString() const;
 
 private:
     void mergeAssociationArrays_();

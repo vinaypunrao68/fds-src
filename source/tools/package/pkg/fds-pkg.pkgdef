@@ -1,0 +1,8 @@
+
+package: fds-pkg
+version: 0.1
+description: Provides simple wrappers around apt-get commands
+
+files:
+  dest: /usr/bin/fds-pkg
+  src : ../fds-pkg.py

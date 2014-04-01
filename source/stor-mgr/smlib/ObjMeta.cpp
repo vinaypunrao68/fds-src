@@ -3,6 +3,7 @@
  * Copyright 2014 Formation Data Systems, Inc.
  */
 #include <algorithm>
+#include <sstream>
 
 #include <fdsp_utils.h>
 #include <ObjMeta.h>
@@ -324,12 +325,15 @@ void ObjMetaData::updateAssocEntry(ObjectID objId, fds_volid_t vol_id) {
  * @param objId
  * @param vol_id
  */
-void ObjMetaData::deleteAssocEntry(ObjectID objId, fds_volid_t vol_id) {
+void ObjMetaData::deleteAssocEntry(ObjectID objId, fds_volid_t vol_id, fds_uint64_t ts) {
     fds_assert(obj_map.obj_num_assoc_entry == assoc_entry.size());
     for(int i = 0; i < obj_map.obj_num_assoc_entry; i++) {
         if (vol_id == assoc_entry[i].vol_uuid) {
             assoc_entry[i].ref_cnt--;
             obj_map.obj_refcnt--;
+            if(obj_map.obj_refcnt == 0) { 
+                obj_map.obj_del_time = ts;
+            }
             return;
         }
     }
@@ -621,7 +625,7 @@ bool ObjMetaData::dataPhysicallyExists()
             phy_loc[diskio::flashTier].obj_tier == diskio::flashTier) {
         return true;
     }
-    return true;
+    return false;
 }
 
 void ObjMetaData::setSyncMask()
@@ -647,46 +651,15 @@ bool ObjMetaData::operator==(const ObjMetaData &rhs) const
     return false;
 }
 
-#if 0
-void newPersistentBuffer(int num_assoc_entries, bool sync_entry,
-        int num_sync_assoc_entries)
+std::string ObjMetaData::logString() const
 {
-    /* Allocate buffer */
-    size = sizeof(uint8_t) + sizeof(meta_obj_map_t);
-    size += sizeof(obj_assoc_entry_t) * num_assoc_entries;
-    if (sync_entry) {
-        size += sizeof(SyncMetaData::header_t);
-        size += sizeof(obj_assoc_entry_t) * num_sync_assoc_entries;
-    }
+    std::ostringstream oss;
+    ObjectID obj_id(std::string((const char*)(obj_map.obj_id.metaDigest),
+            sizeof(obj_map.obj_id.metaDigest)));
+    oss << "id: " << obj_id << " mask: " << (uint32_t)mask
+            << " len: " << obj_map.obj_size
+            << " assoc_entry_cnt: " << assoc_entry.size();
+    return oss.str();
 
-    persistBuffer = new char[size];
-    uint32_t offset = 0;
-
-    /* assign pointers */
-    mask = (uint8_t*) (persistBuffer + offset);
-    offset += sizeof(uint8_t);
-
-    obj_map = (meta_obj_map_t*) (persistBuffer + offset);
-    offset += sizeof(meta_obj_map_t);
-
-    assoc_entry = nullptr;
-    if (num_assoc_entries > 0) {
-        assoc_entry = (obj_assoc_entry_t*) (persistBuffer + offset);
-        offset += (sizeof(obj_assoc_entry_t) * num_assoc_entries);
-    }
-
-    sync_data.header = nullptr;
-    sync_data.assoc_entries = nullptr;
-    if (sync_entry) {
-        sync_data.header = (SyncMetaData::header_t*) (persistBuffer + offset);
-        offset += sizeof(SyncMetaData::header_t);
-        if (num_sync_assoc_entries > 0) {
-            sync_data.assoc_entries = (obj_assoc_entry_t*) (persistBuffer + offset);
-            offset += (sizeof(obj_assoc_entry_t) * num_sync_assoc_entries);
-        }
-    }
-
-    fds_assert(size == offset);
 }
-#endif
 }  // namespace fds

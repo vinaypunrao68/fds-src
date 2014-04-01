@@ -56,7 +56,8 @@ Error FdsRequestQueueActor::send_actor_request(FdsActorRequestPtr req)
      * shutdown has been issued
      */
     if (shutdown_issued_) {
-        LOGNORMAL << "Sending request: " << req->type << " When actor: "
+        fds_assert(!"actor already shutdown");
+        LOGWARN << "Sending request: " << req->type << " When actor: "
                 << id_ << " was already shutdown";
         return ERR_FAR_SHUTDOWN;
     }

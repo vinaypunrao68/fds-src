@@ -60,7 +60,7 @@ include $(incl_scripts)/Makefile.scpt
 # Main make rule.
 #
 .PHONY: all
-all: devsetup $(user_predep) base_predepend $(user_postdep)                            \
+all: setupfdsrepo devsetup $(user_predep) base_predepend $(user_postdep)                            \
      $(user_predepend) base_depend $(user_postdepend)                         \
 	 $(user_preall) base_dirs base_style base_objs base_all $(user_postall)   \
 	 $(user_tool) $(user_scripts) base_postmake                               \
@@ -346,6 +346,18 @@ mk_debug:
 	@echo user_predep= $(user_predep)
 	@echo comm_cc_chks= $(comm_cc_chks)
 	@echo user_hh= $(user_hh)
+
+# -----------------------------------------------------------------------------
+# Setup FDS Repository
+# -----------------------------------------------------------------------------
+fdsrepofile:=/etc/apt/sources.list.d/fds.list
+reposetupscript:=$(incl_scripts)/../../tools/setupfdsrepo.sh
+
+$(fdsrepofile) : $(reposetupscript)
+	@sudo $(reposetupscript)
+
+.PHONY: setupfdsrepo
+setupfdsrepo :  $(fdsrepofile)
 
 # -----------------------------------------------------------------------------
 # Check for installed packages

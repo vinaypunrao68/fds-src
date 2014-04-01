@@ -15,6 +15,12 @@ needed_packages=(
     redis-server
     oracle-java8-installer oracle-java8-set-default maven
     libudev-dev libparted-dev
+
+    python-pip
+
+    fds-pkghelper
+    fds-pkg
+    fds-pkgtools
 )
 
 python_packages=(
@@ -22,7 +28,16 @@ python_packages=(
     redis
     requests
     scp
+    pyyaml
 )
+
+REPOUPDATED=0
+function updateFdsRepo() {
+    if [[ $REPOUPDATED == "0" ]]; then
+        sudo apt-get update -o Dir::Etc::sourcelist="sources.list.d/fds.list" -o Dir::Etc::sourceparts="-" -o APT::Get::List-Cleanup="0"
+        REPOUPDATED=1
+    fi
+}
 
 ###########################################################################
 # Fill in the blanks if you need additional actions before installing 
@@ -39,7 +54,9 @@ function preinstall() {
             ;;
         redis-server)
             sudo add-apt-repository ppa:chris-lea/redis-server
-            
+            ;;
+        fds*)
+            updateFdsRepo
             ;;
     esac
 }
@@ -62,10 +79,11 @@ function postinstall() {
 # ------- MAIN PROGRAM --------
 ###########################################################################
 
-echo "checking ubuntu packages...."
+echo "[devsetup] : checking ubuntu packages...."
 
 for pkg in ${needed_packages[@]} 
 do 
+    echo "[devsetup] : checking $pkg ..."
     pkgname=${pkg%%_*}
     if [[ $pkg == *_* ]]; then 
         pkgversion=${pkg##*_}
@@ -81,7 +99,7 @@ do
     #echo "${pkginfo} , $pkgname, $pkgversion , $pkg"
     #exit
     if  [[ -z $pkginfo ]] || [[ $pkginfo != $pkg ]] ; then 
-        echo "$pkg is not installed, but needed .. installing."
+        echo "[devsetup] : $pkg is not installed, but needed .. installing."
         preinstall $pkgname
         if [[ -z $pkgversion ]] ; then
             sudo apt-get install ${pkgname}
@@ -92,14 +110,14 @@ do
     fi
 done
 
-echo "checking python packages...."
+echo "[devsetup] : checking python packages...."
 
 for pkg in ${python_packages[@]} 
 do 
     pkgname=${pkg}
     name=$(pip freeze 2>/dev/null | grep ^${pkgname}= | cut -f1 -d=)
     if  [[ -z $name ]] ; then 
-        echo "$pkg is not installed, but needed .. installing."
+        echo "[devsetup] : $pkg is not installed, but needed .. installing."
         preinstall $pkg
         sudo pip install $pkg
         postinstall $pkg

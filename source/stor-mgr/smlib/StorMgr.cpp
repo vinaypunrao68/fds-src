@@ -554,6 +554,10 @@ void ObjectStorMgr::migrationEventOmHandler(bool dlt_type)
 {
     GLOGDEBUG << "ObjectStorMgr - Migration  event Handler " << dlt_type;
 
+    // TODO(Rao): Remove this once token sync is stable
+    objStorMgr->migrationSvcResponseCb(Error(ERR_OK), TOKEN_COPY_COMPLETE);
+    return;
+
     std::set<fds_token_id> tokens =
             DLT::token_diff(objStorMgr->getUuid(),
                     objStorMgr->omClient->getCurrentDLT(),
@@ -564,6 +568,8 @@ void ObjectStorMgr::migrationEventOmHandler(bool dlt_type)
          * TODO(Rao): Adding/removing token from tokenstate db
          * should happen as token ownership changes
          */
+        // TODO(Rao) uncomment when fixing WIN-275
+        /*
         for (auto t : tokens) {
             Error e = objStorMgr->tokenStateDb_->addToken(t);
             if (e != ERR_OK) {
@@ -571,6 +577,7 @@ void ObjectStorMgr::migrationEventOmHandler(bool dlt_type)
                 fds_assert(!"Failed add token to token state db");
             }
         }
+        */
 
         /* Issue bulk copy request */
         MigSvcBulkCopyTokensReqPtr copy_req(new MigSvcBulkCopyTokensReq());
@@ -594,6 +601,10 @@ void ObjectStorMgr::migrationEventOmHandler(bool dlt_type)
 
 void ObjectStorMgr::dltcloseEventHandler()
 {
+    // TODO(Rao):  Remove this once token sync is stable
+    return;
+
+
     MigSvcSyncCloseReqPtr close_req(new MigSvcSyncCloseReq());
     close_req->sync_close_ts = get_fds_timestamp_ms();
 
@@ -939,7 +950,8 @@ ObjectStorMgr::deleteObjectMetaData(const OpCtx &opCtx,
     /*
      * Set the ref_cnt to 0, which will be the delete marker for the Garbage collector
      */
-    objMap.deleteAssocEntry(objId, vol_id);
+  
+    objMap.deleteAssocEntry(objId, vol_id, fds::util::getTimeStampMillis());
     err = smObjDb->put(opCtx, objId, objMap);
     if (err == ERR_OK) {
         LOGDEBUG << "Setting the delete marker for object "
@@ -2016,9 +2028,11 @@ ObjectStorMgr::putTokenObjectsInternal(SmIoReq* ioReq)
         /* Apply metadata */
         objMetadata.apply(obj.meta_data);
 
+        LOGDEBUG << objMetadata.logString();
+
         if (objMetadata.dataPhysicallyExists()) {
             /* write metadata */
-            smObjDb->put_(objId, objMetadata);
+            smObjDb->put(OpCtx(OpCtx::COPY), objId, objMetadata);
             /* No need to write the object data.  It already exits */
             continue;
         }
@@ -2154,7 +2168,7 @@ ObjectStorMgr::applyObjectDataInternal(SmIoReq* ioReq)
 
     /* write the metadata */
     objMetadata.updatePhysLocation(&phys_loc);
-    smObjDb->put_(objId, objMetadata);
+    smObjDb->put(OpCtx(OpCtx::SYNC), objId, objMetadata);
 
     applydata_entry->smio_apply_data_resp_cb(err, applydata_entry);
 }

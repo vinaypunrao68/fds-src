@@ -1,7 +1,7 @@
 topdir            := ../..
 user_target       := test
 user_rtime_env    := user
-user_install      := sender.conf receiver.conf
+user_install      := sender.conf receiver.conf migration_ut.conf
 user_install_loc  := test
 
 user_incl_dir     := \

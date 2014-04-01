@@ -39,7 +39,6 @@ typedef boost::shared_ptr<TRMdAppldEvt> TRMdAppldEvtPtr;
 
 struct NeedPullEvt {};
 struct TRPullDnEvt {};
-struct TRResolveEvt {};
 struct TRSnapDnEvt {};
 struct TRResolveDnEvt {};
 struct TRSyncDnEvt {};
@@ -79,7 +78,6 @@ public:
     void process_event(const TRMdAppldEvt& evt);
     void process_event(const TRMdXferDnEvt& evt);
     void process_event(const TSnapDnEvt& evt);
-    void process_event(const TRResolveEvt& evt);
     void process_event(const TRResolveDnEvt& evt);
 
  private:

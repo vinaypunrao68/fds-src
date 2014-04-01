@@ -54,6 +54,7 @@ public:
             boost::shared_ptr<FDSP_MigrationPathRespIf> client_resp_handler);
     void start();
     void process_event(const TSPullReqEvt& event);
+    void process_event(const TSDataReadEvt& event);
     void process_event(const TSPullDnEvt& event);
 
  private:

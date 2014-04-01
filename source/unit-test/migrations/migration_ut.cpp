@@ -74,6 +74,10 @@ public:
             tokenStateDb)
     {
     }
+    TVIRTUAL int get_port()
+    {
+        return conf_helper_.get<int>("port");
+    }
 protected:
     virtual void setup_migpath_server()
     {
@@ -103,7 +107,9 @@ public:
                     const std::string &def_cfg_file,
                     const std::string &base_path,
                     const std::string &def_log_file,  Module **mod_vec) :
-        FdsProcess(argc, argv, def_cfg_file, base_path, def_log_file, mod_vec) {
+        FdsProcess(argc, argv, def_cfg_file, base_path, def_log_file, mod_vec),
+        oid_((uint32_t)0)
+    {
     }
     virtual ~MigrationTester() {
         delete log_;
@@ -137,6 +143,15 @@ public:
         migration_complete_ = false;
     }
 
+    /*
+     * For incrmenting object id
+     * For now only work 256 times
+     */
+    void incr_obj_id() {
+        char* data = (char*) oid_.GetId();
+        data[19]++;
+    }
+
     /**
      * Mock object store for reading and writing token data (ex: simulates ObjectStore)
      * @return
@@ -160,13 +175,22 @@ public:
     void mig_svc_cb(const Error& e, const MigrationStatus& mig_status)
     {
         if (mig_status == MigrationStatus::MIGRATION_OP_COMPLETE) {
+            /* Give 3s for sender to cleanup */
+            sleep(3);
             migration_complete_ = true;
         } else if (mig_status == MigrationStatus::TOKEN_COPY_COMPLETE) {
+            /* Put some sync objects */
+            for (int i = 0; i < 100; i++) {
+                sender_store_->putObject(oid_, "sync obj" + i);
+                incr_obj_id();
+            }
+
+            /* Send io close event */
             MigSvcSyncCloseReqPtr close_req(new MigSvcSyncCloseReq());
             close_req->sync_close_ts = get_fds_timestamp_ms();
 
             FdsActorRequestPtr close_far(new FdsActorRequest(
-                    FAR_ID(MigSvcSyncCloseReq), close_far));
+                    FAR_ID(MigSvcSyncCloseReq), close_req));
 
             sender_mig_svc_->send_actor_request(close_far);
         }
@@ -181,11 +205,12 @@ public:
         sleep(5);
 
         /* Put some data in sender object store */
-        for (int i = 0; i < 1; i++) {
-            sender_store_->putObject("Hello world" + i);
+        for (int i = 0; i < 100; i++) {
+            sender_store_->putObject(oid_, "copy obj" + i);
+            incr_obj_id();
         }
 
-        /* Issue a request to receiver migrations service copy the tokens that we
+        /* Issue a request to receiver migrations service to copy the tokens that we
          * just put into sender store.
          */
         MigSvcBulkCopyTokensReqPtr copy_req(new MigSvcBulkCopyTokensReq());
@@ -230,6 +255,7 @@ public:
     FdsMigrationSvcPtr rcvr_mig_svc_;
     ClusterCommMgrPtr clust_comm_mgr_;
     bool migration_complete_;
+    ObjectID oid_;
 };
 
 int main(int argc, char *argv[]) {
@@ -237,7 +263,7 @@ int main(int argc, char *argv[]) {
         &fds::gl_objStats,
         NULL
     };
-    MigrationTester t(argc, argv, "", "", "temp.log", smVec);
+    MigrationTester t(argc, argv, "migration_ut.conf", "", "temp.log", smVec);
     t.init();
     t.test1();
     return 0;

@@ -266,8 +266,11 @@ struct OpCtx {
         GET,
         PUT,
         DELETE,
-        RELOCATE
+        RELOCATE,
+        COPY,
+        SYNC
     };
+    OpCtx(const OpType &t);
     OpCtx(const OpType &t, const uint64_t &timestamp);
     OpType type;
     uint64_t ts;

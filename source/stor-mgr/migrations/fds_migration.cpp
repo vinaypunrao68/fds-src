@@ -126,7 +126,7 @@ NotifyTokenSyncComplete(boost::shared_ptr<FDSP_NotifyTokenSyncComplete>& sync_co
 void FDSP_MigrationPathRpc::PullObjects(boost::shared_ptr<FDSP_PullObjectsReq>& pull_req) // NOLINT
 {
     FdsActorRequestPtr pull_far(
-            new FdsActorRequest(FAR_ID(FDSP_PullObjectsReq), pull_far));
+            new FdsActorRequest(FAR_ID(FDSP_PullObjectsReq), pull_req));
     if (pull_far == nullptr) {
         LOGERROR << "Failed to allocate memory";
         return;
@@ -136,7 +136,7 @@ void FDSP_MigrationPathRpc::PullObjects(boost::shared_ptr<FDSP_PullObjectsReq>& 
 void FDSP_MigrationPathRpc::PushObjects(boost::shared_ptr<FDSP_PushObjectsReq>& push_req) // NOLINT
 {
     FdsActorRequestPtr push_far(
-            new FdsActorRequest(FAR_ID(FDSP_PushObjectsReq), push_far));
+            new FdsActorRequest(FAR_ID(FDSP_PushObjectsReq), push_req));
     if (push_far == nullptr) {
         LOGERROR << "Failed to allocate memory";
         return;
@@ -148,7 +148,7 @@ void FDSP_MigrationPathRpc::
 NotifyTokenPullComplete(boost::shared_ptr<FDSP_NotifyTokenPullComplete>& pull_complete)  // NOLINT
 {
     FdsActorRequestPtr complete_far(
-            new FdsActorRequest(FAR_ID(FDSP_NotifyTokenPullComplete), complete_far));
+            new FdsActorRequest(FAR_ID(FDSP_NotifyTokenPullComplete), pull_complete));
     if (complete_far == nullptr) {
         LOGERROR << "Failed to allocate memory";
         return;
