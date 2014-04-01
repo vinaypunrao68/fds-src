@@ -15,6 +15,9 @@ needed_packages=(
     redis-server
     oracle-java8-installer oracle-java8-set-default maven
     libudev-dev libparted-dev
+    fds-pkghelper
+    fds-pkg
+    fds-pkgtools
 )
 
 python_packages=(
@@ -24,6 +27,14 @@ python_packages=(
     scp
     pyyaml
 )
+
+REPOUPDATED=0
+function updateFdsRepo() {
+    if [[ $REPOUPDATED == "0" ]]; then
+        sudo apt-get update -o Dir::Etc::sourcelist="sources.list.d/fds.list" -o Dir::Etc::sourceparts="-" -o APT::Get::List-Cleanup="0"
+        REPOUPDATED=1
+    fi
+}
 
 ###########################################################################
 # Fill in the blanks if you need additional actions before installing 
@@ -40,7 +51,9 @@ function preinstall() {
             ;;
         redis-server)
             sudo add-apt-repository ppa:chris-lea/redis-server
-            
+            ;;
+        fds*)
+            updateFdsRepo
             ;;
     esac
 }
