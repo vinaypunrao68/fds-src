@@ -146,12 +146,15 @@ struct TokenPullSenderFSM_
     };
     struct issue_reads
     {
-        /* Issues reads */
+        /* Issues reads.  Max of  MAX_INFLIGHT_READS are allowed to be
+         * inflight
+         */
         template <class EVT, class FSM, class SourceState, class TargetState>
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
             uint32_t cnt = 0;
-            while (fsm.inflight_.size() <= MAX_INFLIGHT_READS) {
+            while (fsm.inflight_.size() <= MAX_INFLIGHT_READS &&
+                   fsm.pending_.size() > 0) {
                 auto read_data_msg = new SmIoReadObjectdata();
                 read_data_msg->io_type = FDS_SM_READ_OBJECTDATA;
                 assign(read_data_msg->obj_data.obj_id, fsm.pending_.front());
@@ -191,6 +194,9 @@ struct TokenPullSenderFSM_
             // TODO(Rao): Enable accumulation. For now send one object per message
             fsm.push_req_.obj_data_list.push_back(evt.obj_data);
             fsm.rcvr_session_->getClient()->PushObjects(fsm.push_req_);
+
+            fsm.migrationSvc_->\
+            mig_cntrs.tok_pull_obj_sent.incr(fsm.push_req_.obj_data_list.size());
 
             fsm.push_req_.obj_data_list.clear();
 
@@ -389,6 +395,11 @@ void TokenPullSender::start()
 }
 
 void TokenPullSender::process_event(const TSPullReqEvt& event)
+{
+    fsm_->process_event(event);
+}
+
+void TokenPullSender::process_event(const TSDataReadEvt& event)
 {
     fsm_->process_event(event);
 }

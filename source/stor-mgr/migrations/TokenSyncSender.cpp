@@ -94,16 +94,23 @@ void TokenSyncLog::parse_iterator(leveldb::Iterator* itr,
 std::string TokenSyncLog::create_key(const ObjectID& id, const ObjMetaData& entry)
 {
     std::ostringstream oss;
-    oss << entry.getModificationTs()<< "\n" << id;
+    std::string str_id((const char*) id.GetId(), id.GetLen());
+    fds_assert(str_id.size() == id.GetLen());
+    oss << entry.getModificationTs()<< "\n" << str_id;
     return oss.str();
 }
 
-void TokenSyncLog::parse_key(const leveldb::Slice& s, uint64_t &ts, ObjectID& id) {
-    // TODO(Rao): Make this more efficient to remove unncessary data copying
-    istringstream iss(s.ToString());
-    std::string id_str;
-    iss >> ts >> id_str;
-    id.SetId(id_str.data(), id_str.length());
+void TokenSyncLog::parse_key(const leveldb::Slice& s, uint64_t &ts, ObjectID& id)
+{
+    char *pos = (char*) memchr(s.data(), '\n', s.size());  // NOLINT
+    uint32_t pos_idx = pos - s.data();
+    fds_verify(pos != nullptr);
+
+    ts = atol(s.data());
+    fds_verify(ts != 0);
+
+    fds_verify((s.size() - (pos_idx+1)) == id.GetLen());
+    id.SetId(pos+1, s.size() - (pos_idx+1));
 }
 
 /* State machine */
@@ -197,8 +204,6 @@ struct TokenSyncSenderFSM_
     };
     struct Snapshot: public msm::front::state<>
     {
-        typedef mpl::vector<TSIoClosedEvt> deferred_events;
-
         template <class Event, class FSM>
         void on_entry(Event const& , FSM&)
         {
@@ -207,8 +212,6 @@ struct TokenSyncSenderFSM_
     };
     struct BldSyncLog : public msm::front::state<>
     {
-        typedef mpl::vector<TSIoClosedEvt> deferred_events;
-
         template <class Event, class FSM>
         void on_entry(Event const& , FSM&)
         {
@@ -217,8 +220,6 @@ struct TokenSyncSenderFSM_
     };
     struct Sending : public msm::front::state<>
     {
-        typedef mpl::vector<TSIoClosedEvt> deferred_events;
-
         template <class Event, class FSM>
         void on_entry(Event const& , FSM&)
         {
@@ -288,12 +289,7 @@ struct TokenSyncSenderFSM_
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
             LOGDEBUG << "take_snap token: " << fsm.token_id_;
-
-            if (fsm.sync_closed_) {
-                fsm.cur_sync_range_high_ = fsm.sync_closed_time_;
-            } else {
-                fsm.cur_sync_range_high_ = get_fds_timestamp_ms();
-            }
+            fds_assert(fsm.cur_sync_range_high_ != 0);
 
             /* Recyle snap_msg_ message */
             fds_assert(fsm.snap_msg_.smio_snap_resp_cb);
@@ -341,7 +337,13 @@ struct TokenSyncSenderFSM_
 
                 ObjMetaData entry;
                 entry.deserializeFrom(it->value());
-                // TODO(rao): Only add if entry is in sync time range
+                auto mod_ts = entry.getModificationTs();
+                fds_assert(mod_ts != 0);
+                if (mod_ts < fsm.cur_sync_range_low_ ||
+                    mod_ts > fsm.cur_sync_range_high_) {
+                    continue;
+                }
+
                 Error e = fsm.sync_log_->add(id, entry);
                 if (e != ERR_OK) {
                     fds_assert(!"Error");
@@ -450,6 +452,7 @@ struct TokenSyncSenderFSM_
             fds_assert(!fsm.sync_closed_);
             fsm.sync_closed_time_ = evt.sync_close_ts;
             fsm.sync_closed_ = true;
+            fsm.cur_sync_range_high_ = fsm.sync_closed_time_;
         }
     };
     struct report_error
@@ -479,94 +482,50 @@ struct TokenSyncSenderFSM_
     };
 
     /* Guards */
-    struct send_sync_log_chk
+    struct more_to_send
     {
-        /* Returns true if we are finished sending the current sync log */
-        template <class EVT, class FSM, class SourceState, class TargetState>
-        bool operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
-        {
-            bool ret = fsm.sync_log_itr_->Valid();
-            LOGDEBUG << "send_sync_log_chk: " << ret;
-            return ret;
-        }
-    };
-    struct wait_for_close_chk
-    {
-        /* Returns true if fsm can wait for close.  FSM waits for close
-         * after transferring metadata from first snapshot.  Before taking
-         * another snaphot it waits for close.
+        /* Returns true if there is more to send in sync log
          */
         template <class EVT, class FSM, class SourceState, class TargetState>
         bool operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
-            bool ret =  (!(fsm.sync_log_itr_->Valid()) &&
-                    !fsm.sync_closed_);
-            LOGDEBUG << "wait_for_close_chk: " << ret;
-            return ret;
-        }
-    };
-    struct next_snap_chk
-    {
-        /* Returns true if fsm can take another snapshot.  We only take the 2nd
-         * snapshot after close is issued
-         */
-        template <class EVT, class FSM, class SourceState, class TargetState>
-        bool operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
-        {
-            bool ret = !fsm.sync_log_itr_->Valid() &&
-                    fsm.sync_closed_ &&
-                    (fsm.cur_sync_range_high_ < fsm.sync_closed_time_);
-            LOGDEBUG << "next_snap_chk?: " << ret;
-            return ret;
-        }
-    };
-    struct finish_chk
-    {
-        /* Returns true if fsm is done
-         */
-        template <class EVT, class FSM, class SourceState, class TargetState>
-        bool operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
-        {
-            bool ret = !fsm.sync_log_itr_->Valid() &&
-                    fsm.sync_closed_ &&
-                    (fsm.cur_sync_range_high_ >= fsm.sync_closed_time_);
-            LOGDEBUG << "finish_chk?: " << ret;
+            bool ret =  fsm.sync_log_itr_->Valid();
+            LOGDEBUG << "more_to_send: " << ret;
             return ret;
         }
     };
 
     /* Statemachine psuedo-code
-     * while (!sync_closed && !sent_evertying_upto_high_sync_point) {
-     *  snapshot_token_db()
-     *  build_sync_entries_to_send();
-     *  send();
+     * wait_until_io_closed()
+     * take_tokendb_snap()
+     * build_sync_log()
+     * while (synclog_itr_valid()) {
+     *  send_batch_of_synclog()
      * }
+     * NOTE: Ideally we shouldn't need to wait for io close event.  As soon as sync
+     * request comes in we can start taking snapshot and sending sync log.  However,
+     * this would mean we may need to take multiple snapshots and transfer multiple
+     * sync logs before io close event arrives.  To keep the statemachine simple
+     * for Alpha-release this implementation is chosen.
      */
     struct transition_table : mpl::vector< // NOLINT
     // +------------+----------------+------------+-----------------+------------------+
     // | Start      | Event          | Next       | Action          | Guard            |
     // +------------+----------------+------------+-----------------+------------------+
-    Row< Init       , SyncReqEvt     , Snapshot   , ActionSequence_
-                                                    <mpl::vector<
-                                                    ack_sync_req,
-                                                    take_snap> >    , msm_none         >,
+    Row< Init       , SyncReqEvt     ,WaitForClose, ack_sync_req    , msm_none         >,  // NOLINT
     // +------------+----------------+------------+-----------------+------------------+
-    Row< Snapshot   , TSnapDnEvt    , BldSyncLog , build_sync_log  , msm_none         >,
-    // +------------+----------------+------------+-----------------+------------------+
-    Row< BldSyncLog , msm_none       , Sending    , send_sync_log   , msm_none         >,
-    // +------------+----------------+------------+-----------------+------------------+
-    Row< Sending    , SendDnEvt      , msm_none   , send_sync_log   , send_sync_log_chk>,
-
-    Row< Sending    , SendDnEvt      ,WaitForClose, msm_none        , wait_for_close_chk>,  // NOLINT
-
-    Row< Sending    , SendDnEvt      , Snapshot   , take_snap       , next_snap_chk    >,
-
-    Row< Sending    , SendDnEvt      , FiniSync   , finish_sync     , finish_chk       >,
-    // +------------+----------------+------------+-----------------+------------------+
-    Row< WaitForClose, TSIoClosedEvt , Snapshot   , ActionSequence_
+    Row<WaitForClose, TSIoClosedEvt  , Snapshot   , ActionSequence_
                                                     <mpl::vector<
                                                     set_io_closed,
                                                     take_snap>>     , msm_none         >,
+    // +------------+----------------+------------+-----------------+------------------+
+    Row< Snapshot   , TSnapDnEvt    , BldSyncLog , build_sync_log   , msm_none         >,
+    // +------------+----------------+------------+-----------------+------------------+
+    Row< BldSyncLog , msm_none       , Sending    , send_sync_log   , msm_none         >,
+    // +------------+----------------+------------+-----------------+------------------+
+    Row< Sending    , SendDnEvt      , msm_none   , send_sync_log   , more_to_send     >,
+
+    Row< Sending    , SendDnEvt      , FiniSync   , finish_sync     , Not_<more_to_send>>,  // NOLINT
     // +------------+----------------+------------+-----------------+------------------+
     Row< FiniSync   , msm_none       , Complete   , teardown        , msm_none         >,
     // +------------+----------------+------------+-----------------+------------------+

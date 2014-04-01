@@ -496,6 +496,13 @@ Error TokenCopySender::handle_actor_request(FdsActorRequestPtr req)
         pull_fsm_->process_event(*payload);
         break;
     }
+    case FAR_ID(TSDataReadEvt):
+    {
+        /* Notification from object store that pull data has been read */
+        auto payload = req->get_payload<TSDataReadEvt>();
+        pull_fsm_->process_event(*payload);
+        break;
+    }
     case FAR_ID(FDSP_NotifyTokenPullComplete):
     {
         /* Notification from receiver that pulling object is done.  Pull fsm
@@ -513,6 +520,7 @@ Error TokenCopySender::handle_actor_request(FdsActorRequestPtr req)
     }
     default:
     {
+        fds_assert(!"Invalid request");
         err = ERR_FAR_INVALID_REQUEST;
         break;
     }
