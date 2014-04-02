@@ -927,7 +927,8 @@ ObjectStorMgr::deleteObjectMetaData(const OpCtx &opCtx,
     /*
      * Set the ref_cnt to 0, which will be the delete marker for the Garbage collector
      */
-    objMap.deleteAssocEntry(objId, vol_id, opCtx.ts);
+  
+    objMap.deleteAssocEntry(objId, vol_id, fds::util::getTimeStampMillis());
     err = smObjDb->put(opCtx, objId, objMap);
     if (err == ERR_OK) {
         LOGDEBUG << "Setting the delete marker for object "
