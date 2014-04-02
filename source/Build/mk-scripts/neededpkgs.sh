@@ -15,6 +15,9 @@ needed_packages=(
     redis-server
     oracle-java8-installer oracle-java8-set-default maven
     libudev-dev libparted-dev
+
+    python-pip
+
     fds-pkghelper
     fds-pkg
     fds-pkgtools
@@ -80,6 +83,7 @@ echo "[devsetup] : checking ubuntu packages...."
 
 for pkg in ${needed_packages[@]} 
 do 
+    echo "[devsetup] : checking $pkg ..."
     pkgname=${pkg%%_*}
     if [[ $pkg == *_* ]]; then 
         pkgversion=${pkg##*_}
