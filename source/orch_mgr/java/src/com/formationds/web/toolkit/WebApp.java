@@ -22,6 +22,11 @@ public class WebApp {
         this.routeFinder = new RouteFinder();
     }
 
+    public WebApp() {
+        this.webDir = null;
+        this.routeFinder = new RouteFinder();
+    }
+
     public void route(HttpMethod method, String route, Supplier<RequestHandler> handler) {
         routeFinder.route(method, route, handler);
     }

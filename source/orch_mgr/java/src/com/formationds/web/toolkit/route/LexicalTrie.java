@@ -35,6 +35,14 @@ public abstract class LexicalTrie<T> {
     public static <T> LexicalTrie<T> newTrie() {
         return new Root<>();
     }
+
+    protected String displayValueMaybe(T t) {
+        if (t != null) {
+            return "#" + t;
+        }
+
+        return "";
+    }
 }
 
 class StringView {
@@ -46,6 +54,11 @@ class StringView {
         offset = 0;
     }
 
+    private StringView(String s, int offset) {
+        this.s = s;
+        this.offset = offset;
+    }
+
     public Character charAt(int i) {
         return s.charAt(i + offset);
     }
@@ -55,8 +68,12 @@ class StringView {
     }
 
     public StringView substring(int i) {
-        offset += i;
-        return this;
+        return new StringView(s, offset + i);
+    }
+
+    @Override
+    public String toString() {
+        return s.substring(offset);
     }
 }
 
@@ -146,7 +163,7 @@ class Capture<T> extends LexicalTrie<T> {
 
     @Override
     public String toString() {
-        return "(capture@" + binding + " " + Joiner.on(", ").join(children.values()) + ")";
+        return "(capture@" + binding + displayValueMaybe(t) + Joiner.on(" , ").join(children.values()) + ")";
     }
 }
 
@@ -189,7 +206,8 @@ class Char<T> extends LexicalTrie<T> {
         } else {
             char next = s.charAt(0);
             if (next == ':') {
-                capture = new Capture<T>().put(s.substring(1), t);
+                capture = capture == null? new Capture<T>().put(s.substring(1), t) : capture;
+                capture.put(s.substring(1), t);
             } else {
                 LexicalTrie<T> child = children.getOrDefault(next, new Char<>(next));
                 children.put(next, child.put(s.substring(1), t));
@@ -201,7 +219,7 @@ class Char<T> extends LexicalTrie<T> {
 
     @Override
     public String toString() {
-        return "(" + c + " " + Joiner.on(", ").join(children.values()) + displayCapture() + ")";
+        return "(" + c + displayValueMaybe(t) + " " + Joiner.on(", ").join(children.values()) + displayCapture() + ")";
     }
 
     private String displayCapture() {

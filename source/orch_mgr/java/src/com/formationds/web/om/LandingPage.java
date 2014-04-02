@@ -7,6 +7,7 @@ import org.eclipse.jetty.server.Request;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.util.Map;
 
 /*
  * Copyright 2014 Formation Data Systems, Inc.
@@ -19,7 +20,7 @@ public class LandingPage implements RequestHandler {
     }
 
     @Override
-    public Resource handle(Request request) throws Exception {
+    public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
         return new StreamResource(new FileInputStream(new File(webDir, "index.html")), "text/html");
     }
 

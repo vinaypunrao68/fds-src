@@ -10,9 +10,11 @@ import org.eclipse.jetty.server.Request;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.util.Map;
+
 public class ListDomains implements RequestHandler {
     @Override
-    public Resource handle(Request request) throws Exception {
+    public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
         JSONArray array = new JSONArray();
         array.put(new JSONObject()
                 .put("site", "Fremont")
