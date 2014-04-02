@@ -212,6 +212,10 @@ class AME_Request : public fdsio::Request
         return ame_ctx;
     }
 
+    inline AMEngine *ame_get_ame() const {
+        return ame;
+    }
+
     // ame_get_reqt_hdr_val
     // --------------------
     // Return the value corresponding with the key in the request header.

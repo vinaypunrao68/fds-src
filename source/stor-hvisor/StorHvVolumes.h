@@ -187,7 +187,7 @@ class StorHvVolumeTable
 
 class GetBlobReq: public FdsBlobReq {
   public:
-    BucketContext *bucket_ctxt;
+    BucketContextPtr bucket_ctxt;
     std::string ObjKey;
     GetConditions *get_cond;
     fds_uint64_t byteCount;
@@ -204,7 +204,7 @@ class GetBlobReq: public FdsBlobReq {
                fds_uint64_t _data_len,
                char* _data_buf,
                fds_uint64_t _byte_count, 
-               BucketContext* _bucket_ctxt,
+               BucketContextPtr _bucket_ctxt,
                GetConditions* _get_conds,
                void* _req_context,
                fdsnGetObjectHandler _get_obj_handler,
@@ -224,7 +224,8 @@ class GetBlobReq: public FdsBlobReq {
     ~GetBlobReq() { };
 
     void DoCallback(FDSN_Status status, ErrorDetails* errDetails) {
-        (getObjCallback)(req_context, dataLen, blobOffset, dataBuf, blobSize,
+        (getObjCallback)(bucket_ctxt,
+                         req_context, dataLen, blobOffset, dataBuf, blobSize,
                          callback_data, status, errDetails);
     }
 

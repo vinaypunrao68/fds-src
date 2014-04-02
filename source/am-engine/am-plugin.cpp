@@ -405,11 +405,11 @@ namespace fds {
 AME_Ctx::AME_Ctx() : ame_req(NULL), ame_next(NULL), ame_temp_buf(NULL)
 {
     // Start the ctx stream at the beginning
-    ame_buf_off       = 0;
-    ame_ack_count     = 0;
-    ame_total_get_len = 0;
-    ame_map_lock      = new fds_mutex("ame ctx lock");
-    ame_header_sent   = false;
+    ame_buf_off          = 0;
+    ame_ack_count        = 0;
+    ame_received_get_len = 0;
+    ame_map_lock         = new fds_mutex("ame ctx lock");
+    ame_header_sent      = false;
     ame_init_ngx_ctx();
 }
 
@@ -657,6 +657,52 @@ AME_Ctx::ame_get_etag() {
 }
 
 /**
+ * Sets the requested get range to the
+ * entire blob. The proper blob size will
+ * be set later.
+ * Note, we don't lock here because expect
+ * it to only be called by a single nginx
+ * request thread.
+ */
+void
+AME_Ctx::ame_set_request_all() {
+    ame_req_get_range = ALL;
+    ame_req_get_len   = 0;
+}
+
+/**
+ * Sets the specific length being requested.
+ * Only has an effect if a specific length wasn't
+ * already set, making it idempotent
+ */
+fds_bool_t
+AME_Ctx::ame_set_specific(fds_uint64_t len) {
+    fds_bool_t allSet = false;
+    ame_map_lock->lock();
+    if (ame_req_get_range == ALL) {
+        allSet            = true;
+        ame_req_get_range = SPECIFIC;
+        ame_req_get_len   = len;
+    }
+    ame_map_lock->unlock();
+    return allSet;
+}
+
+/**
+ * Returns the requested length.
+ * Assumes a specific length has already been set
+ */
+fds_uint64_t
+AME_Ctx::ame_get_requested_len() {
+    fds_uint64_t len;
+    ame_map_lock->lock();
+    fds_verify(ame_req_get_range == SPECIFIC);
+    len = ame_req_get_len;
+    ame_map_lock->unlock();
+    return len;
+}
+
+/**
  * Stores to allocated buffer for an offset
  */
 void
@@ -684,7 +730,7 @@ AME_Ctx::ame_set_get_len(fds_off_t offset,
     fds_verify(ame_get_bufs.count(offset) > 0);
     fds_verify(ame_get_bufs[offset].second == 0);
     ame_get_bufs[offset].second = len;
-    ame_total_get_len += len;
+    ame_received_get_len += len;
     ame_map_lock->unlock();
 }
 
@@ -693,8 +739,8 @@ AME_Ctx::ame_set_get_len(fds_off_t offset,
  * request is being finalized, so don't need to lock.
  */
 fds_uint64_t
-AME_Ctx::ame_get_total_get_len() const {
-    return ame_total_get_len;
+AME_Ctx::ame_get_received_len() const {
+    return ame_received_get_len;
 }
 
 /**
@@ -867,7 +913,7 @@ AME_CtxList::ame_get_ctx(AME_Request *req)
 
         ctx->ame_header_sent = false;
         ctx->ame_get_bufs.clear();
-        ctx->ame_total_get_len = 0;
+        ctx->ame_received_get_len = 0;
 
         return ctx;
     }

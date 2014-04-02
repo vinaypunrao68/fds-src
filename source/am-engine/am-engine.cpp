@@ -637,13 +637,15 @@ Conn_GetObject::get_max_buf_len() const {
 // ----------------
 //
 static FDSN_Status
-fdsn_getobj_cbfn(void *req, fds_uint64_t bufSize, fds_off_t offset,
+fdsn_getobj_cbfn(BucketContextPtr bucket_ctx,
+                 void *req, fds_uint64_t bufSize, fds_off_t offset,
                  const char *buf, fds_uint64_t blobSize, void *cbData,
                  FDSN_Status status, ErrorDetails *errdetails)
 {
     Error          err(ERR_OK);
     AME_Ctx        *ctx = static_cast<AME_Ctx *>(req);
     Conn_GetObject *conn_go = static_cast<Conn_GetObject *>(cbData);
+    FDS_NativeAPI  *api = conn_go->ame_get_ame()->ame_fds_hook();
 
     conn_go->ame_clk_fdsn_cb = fds_rdtsc();
     fds_stat_record(STAT_NGX, STAT_NGX_GET_FDSN_CB,
@@ -653,6 +655,12 @@ fdsn_getobj_cbfn(void *req, fds_uint64_t bufSize, fds_off_t offset,
               << " with data at offset " << offset << " of length " << bufSize
               << " with total blob size " << blobSize << " and result "
               << status;
+
+    // If it's not already set, set how many bytes we need before
+    // calling the request complete. If we just set the specific
+    // size, we need to issue additional requests if we haven't
+    // reached the requested size
+    fds_bool_t allWasSet = ctx->ame_set_specific(blobSize);
 
     // Update the get buffer map with how much we received
     ctx->ame_set_get_len(offset, bufSize);
@@ -664,6 +672,47 @@ fdsn_getobj_cbfn(void *req, fds_uint64_t bufSize, fds_off_t offset,
     }
     err = ctx->ame_upd_ctx_req(offset, ack_status);
     fds_verify(err == ERR_OK);
+
+    if (allWasSet) {
+        // We just received the first, of possibly many gets
+        // Issue the remaining gets
+        while (ctx->ame_get_offset() < ctx->ame_get_requested_len()) {
+            fds_off_t ame_cur_offset = ctx->ame_get_off();
+
+            fds_uint32_t buf_req_len = ctx->ame_get_requested_len() - ame_cur_offset;
+            if (buf_req_len > conn_go->get_max_buf_len()) {
+                buf_req_len = conn_go->get_max_buf_len();
+            }
+
+            int  len;
+            char *adr;
+            // Get an AME buffer from nginx to read into
+            ame_buf_t *getBuf = ctx->ame_alloc_buf(buf_req_len, &adr, &len);
+            fds_verify(getBuf != NULL);
+            fds_verify((fds_uint32_t)len == buf_req_len);
+
+            // Store a link to the buffer
+            // Note, this assumes the buffers are linked
+            // in offset order...we will return data to nginx
+            // in this order
+            ctx->ame_add_get_buf(ame_cur_offset, getBuf);
+
+            // Update the context with the waiting request
+            Error err = ctx->ame_add_ctx_req(ame_cur_offset);
+            fds_verify(err == ERR_OK);
+
+            // Move the offset forward for the (possible) next read
+            ctx->ame_mv_off(buf_req_len);
+
+            // Issue the get() request with the desired read length set to the
+            // current buffer length since we don't know how much data to read
+            api->GetObject(bucket_ctx, conn_go->get_object_id(), NULL,
+                           ame_cur_offset,
+                           buf_req_len, adr, buf_req_len,
+                           static_cast<void *>(ctx), fdsn_getobj_cbfn,
+                           static_cast<void *>(conn_go));
+        }
+    }
 
     // Check the status of the entire get request
     // TODO(Andrew): Need to stream back buffers as
@@ -709,7 +758,7 @@ Conn_GetObject::ame_request_resume()
             // use the blob size because we may not have
             // all of the buffers yet
             ame_set_std_resp(ame_resp_status,
-                             ame_ctx->ame_get_total_get_len());
+                             ame_ctx->ame_get_requested_len());
             ame_send_response_hdr();
             ame_ctx->ame_set_header_sent(true);
         }
@@ -753,7 +802,13 @@ Conn_GetObject::ame_request_handler()
     char          *adr;
     ame_buf_t     *buf;
     FDS_NativeAPI *api;
-    BucketContext bucket_ctx("host", get_bucket_id(), "accessid", "secretkey");
+    BucketContextPtr bucket_ctx(new BucketContext(
+        "host", get_bucket_id(), "accessid", "secretkey"));
+
+    // This connector always reads the whole object, so set
+    // the request end to be all of the blob. We don't know
+    // the blob size until our first callback
+    ame_ctx->ame_set_request_all();
 
     // Get an AME buffer from nginx to read into
     buf = ame_ctx->ame_alloc_buf(buf_req_len, &adr, &len);
@@ -791,7 +846,7 @@ Conn_GetObject::ame_request_handler()
     api = ame->ame_fds_hook();
     // Issue the get() request with the desired read length set to the
     // current buffer length since we don't know how much data to read
-    api->GetObject(&bucket_ctx, get_object_id(), NULL, ame_cur_offset,
+    api->GetObject(bucket_ctx, get_object_id(), NULL, ame_cur_offset,
                    len, adr, len,
                    static_cast<void *>(ame_ctx), fdsn_getobj_cbfn,
                    static_cast<void *>(this));

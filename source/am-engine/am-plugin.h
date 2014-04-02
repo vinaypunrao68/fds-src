@@ -145,6 +145,11 @@ class AME_Ctx
     int                       ame_temp_len;
 
     typedef enum {OK, FAILED, WAITING, SENT} AME_Ctx_Ack;
+    /// Defines how much data was requested by
+    /// the connector. ALL means no specific size,
+    /// just all of the data. SPECIFIC means a
+    /// specific length was requested
+    typedef enum {ALL, SPECIFIC} AME_Ctx_Get_Len;
 
   protected:
     AME_Ctx                  *ame_next;
@@ -155,7 +160,7 @@ class AME_Ctx
     fds_mutex                *ame_map_lock;
     /// Tracks current offset in to a stream
     fds_off_t                 ame_buf_off;
-    typedef std::unordered_map<fds_off_t, AME_Ctx_Ack> AME_Ack_Map;
+    typedef std::map<fds_off_t, AME_Ctx_Ack> AME_Ack_Map;
     /// Track which offsets we've received
     /// acks for
     AME_Ack_Map               ame_req_map;
@@ -183,7 +188,11 @@ class AME_Ctx
     AME_Buf_Map               ame_get_bufs;
     /// Tracks the total bytes received so far
     /// for a get request
-    fds_uint64_t              ame_total_get_len;
+    fds_uint64_t              ame_received_get_len;
+    /// Tracks whether a specific length that was requested
+    AME_Ctx_Get_Len           ame_req_get_range;
+    /// Tracks the specific length in bytes
+    fds_uint64_t              ame_req_get_len;
 
     /// Request etag
     ngx_md5_t                 ame_etag_ctx;
@@ -240,11 +249,14 @@ class AME_Ctx
      * Contextual functions for tracking buffers,
      * offsets, and lengths received for gets
      */
+    void ame_set_request_all();
+    fds_bool_t ame_set_specific(fds_uint64_t len);
+    fds_uint64_t ame_get_requested_len();
     void ame_add_get_buf(fds_off_t offset,
                          ame_buf_t *ame_buf);
     void ame_set_get_len(fds_off_t offset,
                          fds_uint32_t len);
-    fds_uint64_t ame_get_total_get_len() const;
+    fds_uint64_t ame_get_received_len() const;
     void ame_get_get_info(fds_off_t    offset,
                           ame_buf_t    **ame_buf,
                           fds_uint32_t *len);
