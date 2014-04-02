@@ -4,6 +4,7 @@
 
 #include <string>
 
+#include <fds_timestamp.h>
 #include "DataMgr.h"
 
 namespace fds {
@@ -1422,6 +1423,8 @@ DataMgr::initSmMsgHdr(FDSP_MsgHdrTypePtr msgHdr) {
     msgHdr->dst_id = FDSP_STOR_MGR;
     
     msgHdr->src_node_name = *(plf_mgr->plf_get_my_name());
+
+    msgHdr->origin_timestamp = fds::get_fds_timestamp_ms();
 
     msgHdr->err_code = ERR_OK;
     msgHdr->result   = FDSP_ERR_OK;
