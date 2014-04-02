@@ -28,6 +28,9 @@ using namespace msm::front::euml;   // NOLINT
 typedef msm::front::none msm_none;
 
 /* Statemachine events */
+/* For starting receiver state machines */
+struct TRStart {};
+
 /* Triggered once response for copy tokens request is received */
 typedef FDSP_CopyTokenResp CopyTokRespEvt;
 
@@ -353,6 +356,8 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
     /* Callback invoked once data's been read from Object store */
     void data_written_cb(const Error &e, SmIoPutTokObjectsReq *resp)
     {
+        LOGDEBUG << "token: " << token_id_;
+
         DBG(write_in_progress_ = false);
         if (e != ERR_OK) {
             fds_assert(!"Error in reading");
@@ -495,9 +500,9 @@ TokenCopyReceiver::~TokenCopyReceiver() {
  */
 void TokenCopyReceiver::start()
 {
-    copy_fsm_->start();
-    sync_fsm_->start();
-    pull_fsm_->start();
+    FdsActorRequestPtr far(new FdsActorRequest(
+                        FAR_ID(TRStart), nullptr));
+    send_actor_request(far);
 }
 
 /**
@@ -510,6 +515,13 @@ Error TokenCopyReceiver::handle_actor_request(FdsActorRequestPtr req)
     Error err = ERR_OK;
     FDSP_CopyTokenReqPtr copy_tok_req;
     switch (req->type) {
+    case FAR_ID(TRStart):
+    {
+        copy_fsm_->start();
+        sync_fsm_->start();
+        pull_fsm_->start();
+        break;
+    }
     case FAR_ID(MigSvcSyncCloseReq):
     {
         /* Notification from migration service to close sync */
@@ -546,14 +558,14 @@ Error TokenCopyReceiver::handle_actor_request(FdsActorRequestPtr req)
         migrationSvc_->getTokenStateDb()->setTokenState(token_id_,
                 kvstore::TokenStateInfo::SYNCING);
 
-        LOGDEBUG << "tok id: " << token_id_ << " copy completed.  Starting sync";
-
-        // TODO(Rao): Get the sync start time from token db.  We should healthy time
-        // stamp here.  As metadata entries are written we need to update the healthy
-        // timestamp
-        uint64_t sync_ts = get_fds_timestamp_ms();
+        /* Copy complete.  Start sync */
+        uint64_t sync_ts;
+        migrationSvc_->getTokenStateDb()->getTokenHealthyTS(token_id_, sync_ts);
         migrationSvc_->getTokenStateDb()->setTokenSyncStartTS(token_id_, sync_ts);
         sync_fsm_->process_event(TRStartEvt(sync_ts, 0));
+
+        LOGDEBUG << "token: " << token_id_ << " copy completed.  Starting sync"
+                << "start_ts: " << sync_ts;
         break;
     }
     /* Sync related */

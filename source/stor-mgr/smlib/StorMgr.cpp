@@ -1929,6 +1929,8 @@ Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
     ObjectID objectId;
     TransJournalId trans_id;
 
+    ioReq->setVolId(volId);
+
     switch (ioReq->io_type) {
         case FDS_SM_WRITE_TOKEN_OBJECTS:
         case FDS_SM_READ_TOKEN_OBJECTS:
@@ -2013,6 +2015,13 @@ ObjectStorMgr::putTokenObjectsInternal(SmIoReq* ioReq)
 
         /* Apply metadata */
         objMetadata.apply(obj.meta_data);
+
+        /* Update token healthy timestamp
+         * TODO(Rao):  Ideally this code belongs in SmObjDb::put()
+         */
+        getTokenStateDb()->updateHealthyTS(putTokReq->token_id,
+                objMetadata.getModificationTs());
+
 
         LOGDEBUG << objMetadata.logString();
 
@@ -2106,6 +2115,7 @@ ObjectStorMgr::applySyncMetadataInternal(SmIoReq* ioReq)
     /* Mark the request as complete */
     qosCtrl->markIODone(*applyMdReq,
             DataTier::diskTier);
+    omJrnl->release_transaction(applyMdReq->getTransId());
 
     applyMdReq->smio_sync_md_resp_cb(e, applyMdReq);
 }
@@ -2123,6 +2133,7 @@ ObjectStorMgr::resolveSyncEntryInternal(SmIoReq* ioReq)
     /* Mark the request as complete */
     qosCtrl->markIODone(*resolve_entry,
             DataTier::diskTier);
+    omJrnl->release_transaction(resolve_entry->getTransId());
 
     resolve_entry->smio_resolve_resp_cb(e, resolve_entry);
 }
@@ -2139,6 +2150,7 @@ ObjectStorMgr::applyObjectDataInternal(SmIoReq* ioReq)
         LOGERROR << "Failed to write the object: " << objId;
         qosCtrl->markIODone(*applydata_entry,
                 DataTier::diskTier);
+        omJrnl->release_transaction(applydata_entry->getTransId());
         applydata_entry->smio_apply_data_resp_cb(err, applydata_entry);
         return;
     }
@@ -2150,6 +2162,7 @@ ObjectStorMgr::applyObjectDataInternal(SmIoReq* ioReq)
         LOGDEBUG << "Object already exists. Id: " << objId;
         qosCtrl->markIODone(*applydata_entry,
                 DataTier::diskTier);
+        omJrnl->release_transaction(applydata_entry->getTransId());
         applydata_entry->smio_apply_data_resp_cb(err, applydata_entry);
         return;
     }
@@ -2170,6 +2183,7 @@ ObjectStorMgr::applyObjectDataInternal(SmIoReq* ioReq)
         LOGERROR << "Failed to write the object: " << objId;
         qosCtrl->markIODone(*applydata_entry,
                 DataTier::diskTier);
+        omJrnl->release_transaction(applydata_entry->getTransId());
         applydata_entry->smio_apply_data_resp_cb(err, applydata_entry);
         return;
     }
@@ -2180,6 +2194,7 @@ ObjectStorMgr::applyObjectDataInternal(SmIoReq* ioReq)
 
     qosCtrl->markIODone(*applydata_entry,
             DataTier::diskTier);
+    omJrnl->release_transaction(applydata_entry->getTransId());
 
     applydata_entry->smio_apply_data_resp_cb(err, applydata_entry);
 }
@@ -2197,6 +2212,10 @@ ObjectStorMgr::readObjectDataInternal(SmIoReq* ioReq)
     if (err != ERR_OK) {
         fds_assert(!"failed to read");
         LOGERROR << "Failed to read object id: " << read_entry->getObjId();
+        qosCtrl->markIODone(*read_entry,
+                DataTier::diskTier);
+        omJrnl->release_transaction(read_entry->getTransId());
+        read_entry->smio_readdata_resp_cb(err, read_entry);
     }
     // TODO(Rao): use std::move here
     read_entry->obj_data.data = objData.data;
@@ -2204,6 +2223,8 @@ ObjectStorMgr::readObjectDataInternal(SmIoReq* ioReq)
 
     qosCtrl->markIODone(*read_entry,
             DataTier::diskTier);
+    omJrnl->release_transaction(read_entry->getTransId());
+
     read_entry->smio_readdata_resp_cb(err, read_entry);
 }
 
@@ -2217,13 +2238,19 @@ ObjectStorMgr::readObjectMetadataInternal(SmIoReq* ioReq)
     if (err != ERR_OK) {
         fds_assert(!"failed to read");
         LOGERROR << "Failed to read object metadata id: " << read_entry->getObjId();
+        qosCtrl->markIODone(*read_entry,
+                DataTier::diskTier);
+        omJrnl->release_transaction(read_entry->getTransId());
         read_entry->smio_readmd_resp_cb(err, read_entry);
+        return;
     }
 
     objMetadata.extractSyncData(read_entry->meta_data);
 
     qosCtrl->markIODone(*read_entry,
             DataTier::diskTier);
+    omJrnl->release_transaction(read_entry->getTransId());
+
     read_entry->smio_readmd_resp_cb(err, read_entry);
 }
 

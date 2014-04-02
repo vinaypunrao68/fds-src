@@ -34,20 +34,27 @@ void BaseChecker::log_corruption(const std::string& info) {
  */
 struct FDSP_ObjectVolumeAssociationLess {
     bool operator() (const FDSP_ObjectVolumeAssociation &a,
-            const FDSP_ObjectVolumeAssociation& b)
+            const FDSP_ObjectVolumeAssociation& b) const
     {
-        return a.vol_id < b.vol_id;
+        return a.vol_id.uuid < b.vol_id.uuid;
     }
 };
 
-void BaseChecker::compare_against(const FDSP_MigrateObjectMetadata& golden,
+/**
+ * Compares golden against each element in md_list
+ * @param golden
+ * @param md_list
+ */
+void BaseChecker::compare_against(FDSP_MigrateObjectMetadata& golden,  // NOLINT
         std::vector<FDSP_MigrateObjectMetadata> md_list)
 {
-#if 0
     std::sort(golden.associations.begin(), golden.associations.end(),
             FDSP_ObjectVolumeAssociationLess());
 
     for (auto entry : md_list) {
+        /* We compare each entry here.  For new entries just add an
+         * if statement
+         */
         if (golden.token_id != entry.token_id) {
             log_corruption("golden.token_id != entry.token_id");
         }
@@ -73,7 +80,6 @@ void BaseChecker::compare_against(const FDSP_MigrateObjectMetadata& golden,
             log_corruption("golden.associatons != entry.associations");
         }
     }
-#endif
 }
 
 class DatapathRespImpl : public FDS_ProtocolInterface::FDSP_DataPathRespIf {
@@ -371,23 +377,23 @@ void DirBasedChecker::run_checker()
             fds_verify(ret == true);
             fds_verify(ret_obj_data == obj_data);
 
-#if 0
             FDSP_MigrateObjectMetadata ret_obj_md;
             ret = get_object_metadata((*nodes)[i], objId, ret_obj_md);
             fds_verify(ret == true);
             md_list.push_back(ret_obj_md);
-#endif
 
             cntrs_.obj_cnt.incr();
 
             LOGDEBUG << "oid: " << objId<< " check passed against: "
                     << std::hex << ((*nodes)[i]).uuid_get_val();
         }
-#if 0
+        /* Do metadata comparision.  Ideally we compare against expected metadata
+         * Here we assume expected metadata is the first replica (this isn't right)
+         * Below comparison only tells us wheter sync took place properly or not
+         */
         if (md_list.size() > 1) {
             compare_against(md_list[0], md_list);
         }
-#endif
     }
     LOGNORMAL << "Checker run done!" << std::endl;
 }

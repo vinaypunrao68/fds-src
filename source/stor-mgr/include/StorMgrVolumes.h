@@ -298,6 +298,10 @@ namespace fds {
     fds_volid_t getVolId() const {
       return volUuid;
     }
+    void setVolId(const fds_volid_t& id) {
+        volUuid = id;
+        io_vol_id = id;
+    }
 
     TransJournalId&  getTransId() { 
        return transId;
@@ -347,20 +351,25 @@ namespace fds {
 
   /**
    * Token iterator
+   * TODO(Rao): Provide the following implementations
+   * begin(), end(), next() similar to iterators.
    */
   class SMTokenItr {
   public:
-      static ObjectID itr_end;
-      ObjectID  objId;
+      leveldb::Iterator* itr;
+      leveldb::DB* db;
+      leveldb::ReadOptions options;
+      bool done;
 
       SMTokenItr() {
-          objId = NullObjectID;
+          itr = nullptr;
+          db = nullptr;
+          done = false;
       }
       ~SMTokenItr() {
       }
 
-      bool isBegin() {return objId == NullObjectID;}
-      bool isEnd() {return objId == itr_end;}
+      bool isEnd() {return done;}
   };
 
   /**

@@ -127,6 +127,21 @@ Error TokenStateDB::getTokenHealthyTS(const fds_token_id &tokId, uint64_t &ts)
     return ERR_OK;
 }
 
+Error TokenStateDB::updateHealthyTS(const fds_token_id &tokId, const uint64_t &ts)
+{
+    fds_spinlock::scoped_lock l(lock_);
+    auto itr = tokenTbl_.find(tokId);
+    if (itr == tokenTbl_.end()) {
+        fds_assert(!"Token doesn't exist");
+        return ERR_SM_TOKENSTATEDB_KEY_NOT_FOUND;
+    }
+    if (ts > itr->second.healthyTs) {
+        itr->second.healthyTs = ts;
+        LOGDEBUG << "token: " << tokId << " healthy ts: " << ts;
+    }
+    return ERR_OK;
+}
+
 bool TokenStateDB::getTokens(const NodeUuid& uuid, std::vector<fds_token_id>& vecTokens) {
     try {
         Reply reply = r.sendCommand("smembers %ld:tokens", uuid);

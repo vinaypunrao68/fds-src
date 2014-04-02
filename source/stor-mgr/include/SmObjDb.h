@@ -272,6 +272,8 @@ struct OpCtx {
     };
     OpCtx(const OpType &t);
     OpCtx(const OpType &t, const uint64_t &timestamp);
+    bool isClientIO() const;
+
     OpType type;
     uint64_t ts;
 };

@@ -15,6 +15,10 @@ OpCtx::OpCtx(const OpCtx::OpType &t, const uint64_t &timestamp)
     type = t;
     ts = timestamp;
 }
+bool OpCtx::isClientIO() const
+{
+    return (type == GET || type == PUT || type == DELETE);
+}
 
 SmObjDb::SmObjDb(ObjectStorMgr *storMgr,
         std::string stor_prefix_,
@@ -113,10 +117,12 @@ fds::Error SmObjDb::get(const ObjectID& objId, ObjMetaData& md) {
 
     md.deserializeFrom(buf);
 
+    /* We need to treat any existing metadata that is prior to sync start
+     * timestamp as not up-to-data metada.  We'll demote that as sync entry.
+     */
     if (isTokenInSyncMode_(tokId)) {
         uint64_t syncStartTs = 0;
         objStorMgr->getTokenStateDb()->getTokenSyncStartTS(tokId, syncStartTs);
-        fds_assert(syncStartTs != 0);
         md.checkAndDemoteUnsyncedData(syncStartTs);
     }
     return err;
@@ -127,18 +133,13 @@ fds::Error SmObjDb::put(const OpCtx &opCtx,
 {
     Error err = ERR_OK;
 
-    if (opCtx.type == OpCtx::RELOCATE) {
-        return put_(objId, md);
-    }
-
-    /* Update timestamps.  Currenly only PUT and DELETE have an effect here */
-    if (opCtx.type == OpCtx::PUT ||
-        opCtx.type == OpCtx::DELETE) {
+    if(opCtx.isClientIO()) {
+        /* Update timestamps.  Currenly only PUT and DELETE have an effect here */
         if (md.obj_map.obj_create_time == 0) {
             md.obj_map.obj_create_time = opCtx.ts;
         }
+        md.obj_map.assoc_mod_time = opCtx.ts;
     }
-    md.obj_map.assoc_mod_time = opCtx.ts;
 
     LOGDEBUG << "ctx: " << opCtx.type << " " << md.logString();
 
@@ -191,6 +192,8 @@ fds::Error SmObjDb::putSyncEntry(const ObjectID& objId,
         const FDSP_MigrateObjectMetadata& data,
         bool &dataExists)
 {
+    fds_assert(static_cast<int32_t>(getTokenId_(objId)) == data.token_id);
+
     ObjMetaData md;
     Error err = get(objId, md);
 
@@ -201,6 +204,7 @@ fds::Error SmObjDb::putSyncEntry(const ObjectID& objId,
     if (err == ERR_DISK_READ_FAILED) {
         /* Entry doesn't exist.  Set sync mask on empty metada */
         md.setSyncMask();
+        err = ERR_OK;
     }
     md.applySyncData(data);
     dataExists = md.dataPhysicallyExists();
@@ -256,29 +260,20 @@ void SmObjDb::iterRetrieveObjects(const fds_token_id &token,
     fds::Error err = ERR_OK;
     ObjectID objId;
     ObjectLess id_less;
-    ObjectDB *odb = getObjectDB(token);
-
-    if (odb == NULL ) {
-        itr.objId = SMTokenItr::itr_end;
-        return;
-    }
-
     DBG(int obj_itr_cnt = 0);
+
+    if (itr.itr == nullptr) {
+        /* Get snaphot iterator */
+        snapshot(token, itr.db, itr.options);
+        itr.itr = itr.db->NewIterator(itr.options);
+        itr.itr->SeekToFirst();
+    }
 
     ObjMetaData objMeta;
     ObjectID start_obj_id, end_obj_id;
     objStorMgr->getDLT()->getTokenObjectRange(token, start_obj_id, end_obj_id);
-    // If the iterator is non-zero then use that as a sarting point for the scan else make up a start from token
-    if ( itr.objId != NullObjectID) {
-        start_obj_id = itr.objId;
-    }
     DBG(LOGDEBUG << "token: " << token << " begin: "
             << start_obj_id << " end: " << end_obj_id);
-
-    leveldb::Slice startSlice((const char *)&start_obj_id, start_obj_id.GetLen());
-
-    boost::shared_ptr<leveldb::Iterator> dbIter(odb->GetDB()->NewIterator(odb->GetReadOptions()));
-    leveldb::Options options_ = odb->GetOptions();
 
     memcpy(&objId , &start_obj_id, start_obj_id.GetLen());
     // TODO(Rao): This iterator is very inefficient. We're always
@@ -286,11 +281,11 @@ void SmObjDb::iterRetrieveObjects(const fds_token_id &token,
     // are not part of the token we care about.
     // Ideally, we can iterate sorted keys so that we can seek to
     // the object id range we care about.
-    for(dbIter->Seek(startSlice); dbIter->Valid(); dbIter->Next())
+    for (; itr.itr->Valid(); itr.itr->Next())
     {
         ObjectBuf        objData;
         // Read the record
-        memcpy(&objId , dbIter->key().data(), objId.GetLen());
+        memcpy(&objId , itr.itr->key().data(), objId.GetLen());
         DBG(LOGDEBUG << "Checking objectId: " << objId << " for token range: " << token);
 
         if (objId < start_obj_id || objId > end_obj_id) {
@@ -318,7 +313,6 @@ void SmObjDb::iterRetrieveObjects(const fds_token_id &token,
                 objStorMgr->counters_.get_tok_objs.incr();
                 DBG(obj_itr_cnt++);
             } else {
-                itr.objId = objId;
                 DBG(LOGDEBUG << "token: " << token <<  " dbId: " << GetSmObjDbId(token)
                         << " cnt: " << obj_itr_cnt << " token retrieve not completly with "
                         << " max size" << max_size << " and total msg len " << tot_msg_len);
@@ -327,7 +321,14 @@ void SmObjDb::iterRetrieveObjects(const fds_token_id &token,
         }
         fds_verify(err == ERR_OK);
     } // Enf of for loop
-    itr.objId = SMTokenItr::itr_end;
+
+    /* Iteration complete.  Remove the snapshot */
+    fds_verify(!itr.itr->Valid());
+    delete itr.itr;
+    itr.itr = nullptr;
+    itr.db->ReleaseSnapshot(itr.options.snapshot);
+    itr.db = nullptr;
+    itr.done = true;
 
     DBG(LOGDEBUG << "token: " << token <<  " dbId: " << GetSmObjDbId(token)
         << " cnt: " << obj_itr_cnt) << " token retrieve complete";

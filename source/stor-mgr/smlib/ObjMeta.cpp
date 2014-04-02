@@ -496,7 +496,10 @@ void ObjMetaData::checkAndDemoteUnsyncedData(const uint64_t& syncTs)
  */
 void ObjMetaData::applySyncData(const FDSP_MigrateObjectMetadata& data)
 {
-    fds_assert(syncDataExists());
+    if (!syncDataExists()) {
+        mask |= SYNCMETADATA_MASK;
+        LOGWARN << "syncDataExists is false " << logString();
+    }
 
     /* Of sync metadata Object size and object id don't require a merge.
      * They can directly be applied to meta data. NOTE: If obj_map has
