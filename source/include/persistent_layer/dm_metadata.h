@@ -137,6 +137,8 @@ struct __attribute__((__packed__)) meta_obj_map_v0
     fds_uint64_t         obj_create_time;     /* creation time.         */
     fds_uint64_t         obj_del_time;         /* deletion time.         */
     fds_uint64_t         assoc_mod_time;         /* Modification time.         */
+    fds_uint64_t         expire_time;           /* Object Expiration time */
+    fds_uint64_t         transition_time;           /* Object transition time to a archive tier */
     obj_phy_loc_t        loc_map[MAX_PHY_LOC_MAP];
 };
 

@@ -325,12 +325,15 @@ void ObjMetaData::updateAssocEntry(ObjectID objId, fds_volid_t vol_id) {
  * @param objId
  * @param vol_id
  */
-void ObjMetaData::deleteAssocEntry(ObjectID objId, fds_volid_t vol_id) {
+void ObjMetaData::deleteAssocEntry(ObjectID objId, fds_volid_t vol_id, fds_uint64_t ts) {
     fds_assert(obj_map.obj_num_assoc_entry == assoc_entry.size());
     for(int i = 0; i < obj_map.obj_num_assoc_entry; i++) {
         if (vol_id == assoc_entry[i].vol_uuid) {
             assoc_entry[i].ref_cnt--;
             obj_map.obj_refcnt--;
+            if(obj_map.obj_refcnt == 0) { 
+                obj_map.obj_del_time = ts;
+            }
             return;
         }
     }
