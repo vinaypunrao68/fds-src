@@ -354,6 +354,22 @@ class DataIO
     //
     void disk_loc_path_info(fds_uint16_t loc_id, std::string *path);
 
+    /**
+     * Notify about start garbage collection for given token id 'tok_id'
+     * and tier. If many disks contain this token, then token file on each
+     * disk will be compacted. All new writes will be re-routed to the
+     * appropriate (new) token file.
+     */
+    fds::Error notify_start_gc(fds::fds_token_id tok_id,
+                               DataTier tier);
+
+    /**
+     * Notify about end of garbage collection for a given token id
+     * 'tok_id' and tier.
+     */
+    fds::Error notify_end_gc(fds::fds_token_id tok_id,
+                             DataTier tier);
+
   private:
     friend class DataIOModule;
 
