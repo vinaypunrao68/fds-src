@@ -290,6 +290,8 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
     FDSP_MsgHdrTypePtr msgHdrDm(new FDSP_MsgHdrType);
     msgHdrSm->glob_volume_id    = volId;
     msgHdrDm->glob_volume_id    = volId;
+    msgHdrSm->origin_timestamp = fds::util::getTimeStampMillis();
+    msgHdrDm->origin_timestamp = fds::util::getTimeStampMillis();
 
     /*
      * Setup network put object & catalog request
