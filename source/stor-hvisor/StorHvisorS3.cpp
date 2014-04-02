@@ -774,6 +774,8 @@ fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq) {
     if (useVcc == true) {
         shVol->vol_catalog_cache->Clear();
     }
+    // TODO(Andrew): Here we need to check if the offset is aligned or handle
+    // unaligned offsets by returning multiple object ids and a desired length
     ObjectID objId;
     err = shVol->vol_catalog_cache->Query(blobReq->getBlobName(),
                                           blobReq->getBlobOffset(),
