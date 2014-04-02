@@ -7,6 +7,7 @@ import com.formationds.auth.AuthenticationToken;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
+import com.formationds.web.toolkit.UsageException;
 import com.sun.security.auth.UserPrincipal;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
@@ -25,8 +26,8 @@ public class IssueToken implements RequestHandler {
 
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
-        String login = requiredString(routeParameters, "login");
-        String password = requiredString(routeParameters, "password");
+        String login = requiredString(request, "login");
+        String password = requiredString(request, "password");
 
         if ("admin".equals(login) && "admin".equals(password)) {
             AuthenticationToken token = new AuthenticationToken(secretKey, new UserPrincipal("admin"));
@@ -35,13 +36,21 @@ public class IssueToken implements RequestHandler {
                 public Cookie[] cookies() {
                     Cookie cookie = new Cookie(Authorizer.FDS_TOKEN, token.toString());
                     cookie.setPath("/");
-                    return new Cookie[] {cookie};
+                    return new Cookie[]{cookie};
                 }
             };
         } else {
             JSONObject message = new JSONObject().put("message", "Invalid credentials.");
             return new JsonResource(message, HttpServletResponse.SC_UNAUTHORIZED);
         }
+    }
+
+    private String requiredString(Request request, String name) throws UsageException {
+        String value = request.getParameter(name);
+        if (value == null) {
+            throw new UsageException(String.format("Parameter '%s' is missing", name));
+        }
+        return value;
     }
 
 }
