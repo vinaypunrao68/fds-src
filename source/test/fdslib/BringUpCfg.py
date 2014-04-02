@@ -130,8 +130,8 @@ class FdsNodeConfig(FdsConfig):
         var_dir = fds_dir + '/var'
         print("\nCleanup running processes in: %s, %s" % (self.nd_host_name(), bin_dir))
         # TODO (Bao): order to kill: AM, SM/DM, OM
-        self.nd_rmt_agent.ssh_exec('pkill -9 java; pkill -9 Mgr; pkill -9 AMAgent; '
-           'pkill -9 platformd;', wait_compl=True)
+        self.nd_rmt_agent.ssh_exec('pkill -9 Mgr; pkill -9 AMAgent; pkill -9 platformd; '
+           'pkill -9 -f com.formationds.web.om.Main;', wait_compl=True)
 
     ###
     # cleanup any cores, redis, and logs.

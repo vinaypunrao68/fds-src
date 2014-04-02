@@ -6,7 +6,7 @@
 #include "qos_ctrl.h"
 #include <hash/MurmurHash3.h>
 #include <arpa/inet.h>
-#include <util/timeutils.h>
+#include <fds_timestamp.h>
 
 using namespace std;
 using namespace FDS_ProtocolInterface;
@@ -86,7 +86,6 @@ int StorHvisorProcIoRd(void *_io)
   
   FDS_ProtocolInterface::FDSP_MsgHdrTypePtr fdsp_msg_hdr(new FDSP_MsgHdrType);
   FDS_ProtocolInterface::FDSP_GetObjTypePtr get_obj_req(new FDSP_GetObjType);
-  fdsp_msg_hdr->origin_timestamp = fds::util::getTimeStampMillis();
 
   storHvisor->InitSmMsgHdr(fdsp_msg_hdr);
   fdsp_msg_hdr->msg_code = FDSP_MSG_GET_OBJ_REQ;
@@ -268,8 +267,6 @@ int StorHvisorProcIoWr(void *_io)
   FDS_ProtocolInterface::FDSP_MsgHdrTypePtr fdsp_msg_hdr_dm(new FDSP_MsgHdrType);
   FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr upd_obj_req(new FDSP_UpdateCatalogType);
 
-  fdsp_msg_hdr->origin_timestamp = fds::util::getTimeStampMillis();
-  fdsp_msg_hdr_dm->origin_timestamp = fds::util::getTimeStampMillis();
 
   // Obtain MurmurHash on the data object
   MurmurHash3_x64_128(tmpbuf, data_size, 0, &objID );
@@ -437,6 +434,8 @@ void StorHvCtrl::InitSmMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr)
     
     msg_hdr->src_node_name = this->my_node_name;
     
+    msg_hdr->origin_timestamp = fds::get_fds_timestamp_ms();
+
     msg_hdr->err_code = ERR_OK;
     msg_hdr->result = FDSP_ERR_OK;
     

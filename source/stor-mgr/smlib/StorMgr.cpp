@@ -392,7 +392,7 @@ void ObjectStorMgr::setup()
     // Create a special queue for System (background) tasks
     // and registe rwith QosCtrlr
     sysTaskQueue = new SmVolQueue(FdsSysTaskQueueId,
-                                  50,
+                                  256,
                                   getSysTaskIopsMax(),
                                   getSysTaskIopsMin(),
                                   getSysTaskPri());
@@ -554,28 +554,12 @@ void ObjectStorMgr::migrationEventOmHandler(bool dlt_type)
 {
     GLOGDEBUG << "ObjectStorMgr - Migration  event Handler " << dlt_type;
 
-    // TODO(Rao): Remove this once token sync is stable
-    objStorMgr->migrationSvcResponseCb(Error(ERR_OK), TOKEN_COPY_COMPLETE);
-    return;
-
     std::set<fds_token_id> tokens =
             DLT::token_diff(objStorMgr->getUuid(),
                     objStorMgr->omClient->getCurrentDLT(),
                     objStorMgr->omClient->getPreviousDLT());
 
     if (tokens.size() > 0) {
-        /* Add each new token token db
-         * TODO(Rao): Adding/removing token from tokenstate db
-         * should happen as token ownership changes
-         */
-        for (auto t : tokens) {
-            Error e = objStorMgr->tokenStateDb_->addToken(t);
-            if (e != ERR_OK) {
-                GLOGERROR << "Failed to add token: " << t << " tokenstate db";
-                fds_assert(!"Failed add token to token state db");
-            }
-        }
-
         /* Issue bulk copy request */
         MigSvcBulkCopyTokensReqPtr copy_req(new MigSvcBulkCopyTokensReq());
         copy_req->tokens = tokens;
@@ -598,15 +582,11 @@ void ObjectStorMgr::migrationEventOmHandler(bool dlt_type)
 
 void ObjectStorMgr::dltcloseEventHandler()
 {
-    // TODO(Rao):  Remove this once token sync is stable
-    return;
-
-
     MigSvcSyncCloseReqPtr close_req(new MigSvcSyncCloseReq());
     close_req->sync_close_ts = get_fds_timestamp_ms();
 
     FdsActorRequestPtr close_far(new FdsActorRequest(
-            FAR_ID(MigSvcSyncCloseReq), close_far));
+            FAR_ID(MigSvcSyncCloseReq), close_req));
 
     objStorMgr->migrationSvc_->send_actor_request(close_far);
 
@@ -743,7 +723,7 @@ void ObjectStorMgr::writeBackFunc(ObjectStorMgr *parent) {
              * Note I have no idea if this is the
              * correct amount of time or not.
              */
-            GLOGDEBUG << "Nothing dirty in flash, going to sleep...";
+            // GLOGDEBUG << "Nothing dirty in flash, going to sleep...";
             sleep(5);
             continue;
         }
@@ -1508,6 +1488,8 @@ ObjectStorMgr::enqPutObjectReq(FDSP_MsgHdrTypePtr msgHdr,
     TransJournalId trans_id;
     ObjectID obj_id(putObjReq->data_obj_id.digest);
 
+    fds_verify(msgHdr->origin_timestamp != 0);
+
     for(fds_uint32_t obj_num = 0; obj_num < numObjs; obj_num++) {
 
         /*
@@ -1784,6 +1766,8 @@ ObjectStorMgr::enqDeleteObjectReq(FDSP_MsgHdrTypePtr msgHdr,
     TransJournalId trans_id;
     ObjectID obj_id(delObjReq->data_obj_id.digest);
 
+    fds_verify(msgHdr->origin_timestamp != 0);
+
     /*
      * Allocate and enqueue an IO request. The request is freed
      * when the IO completes.
@@ -1953,6 +1937,12 @@ Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
                 LOGERROR << "Failed to enqueue msg: " << ioReq->log_string();
             }
             break;
+        case FDS_SM_SNAPSHOT_TOKEN:
+            err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
+            if (err != fds::ERR_OK) {
+                LOGERROR << "Failed to enqueue msg: " << ioReq->log_string();
+            }
+            break;
         case FDS_SM_SYNC_APPLY_METADATA:
             objectId.SetId(static_cast<SmIoApplySyncMetadata*>(ioReq)->md.object_id.digest);
             err =  enqTransactionIo(nullptr, objectId, ioReq, trans_id);
@@ -2089,10 +2079,15 @@ ObjectStorMgr::snapshotTokenInternal(SmIoReq* ioReq)
     Error err(ERR_OK);
     SmIoSnapshotObjectDB *snapReq = static_cast<SmIoSnapshotObjectDB*>(ioReq);
 
+
     leveldb::DB *db;
     leveldb::ReadOptions options;
 
     smObjDb->snapshot(snapReq->token_id, db, options);
+
+    /* Mark the request as complete */
+    qosCtrl->markIODone(*snapReq,
+                        DataTier::diskTier);
 
     snapReq->smio_snap_resp_cb(err, snapReq, options, db);
 }
@@ -2108,6 +2103,10 @@ ObjectStorMgr::applySyncMetadataInternal(SmIoReq* ioReq)
         LOGERROR << "Error in applying sync metadata.  Object Id: "
                  << applyMdReq->md.object_id.digest;
     }
+    /* Mark the request as complete */
+    qosCtrl->markIODone(*applyMdReq,
+            DataTier::diskTier);
+
     applyMdReq->smio_sync_md_resp_cb(e, applyMdReq);
 }
 
@@ -2121,6 +2120,10 @@ ObjectStorMgr::resolveSyncEntryInternal(SmIoReq* ioReq)
         LOGERROR << "Error in resolving metadata entry.  Object Id: "
                 << resolve_entry->object_id;
     }
+    /* Mark the request as complete */
+    qosCtrl->markIODone(*resolve_entry,
+            DataTier::diskTier);
+
     resolve_entry->smio_resolve_resp_cb(e, resolve_entry);
 }
 
@@ -2134,7 +2137,10 @@ ObjectStorMgr::applyObjectDataInternal(SmIoReq* ioReq)
     if (err != ERR_OK && err != ERR_DISK_READ_FAILED) {
         fds_assert(!"ObjMetadata read failed" );
         LOGERROR << "Failed to write the object: " << objId;
+        qosCtrl->markIODone(*applydata_entry,
+                DataTier::diskTier);
         applydata_entry->smio_apply_data_resp_cb(err, applydata_entry);
+        return;
     }
 
     err = ERR_OK;
@@ -2142,7 +2148,10 @@ ObjectStorMgr::applyObjectDataInternal(SmIoReq* ioReq)
     if (objMetadata.dataPhysicallyExists()) {
         /* No need to write the object data.  It already exits */
         LOGDEBUG << "Object already exists. Id: " << objId;
+        qosCtrl->markIODone(*applydata_entry,
+                DataTier::diskTier);
         applydata_entry->smio_apply_data_resp_cb(err, applydata_entry);
+        return;
     }
 
     /* Moving the data to not incur copy penalty */
@@ -2159,12 +2168,18 @@ ObjectStorMgr::applyObjectDataInternal(SmIoReq* ioReq)
     if (err != ERR_OK) {
         fds_assert(!"Failed to write");
         LOGERROR << "Failed to write the object: " << objId;
+        qosCtrl->markIODone(*applydata_entry,
+                DataTier::diskTier);
         applydata_entry->smio_apply_data_resp_cb(err, applydata_entry);
+        return;
     }
 
     /* write the metadata */
     objMetadata.updatePhysLocation(&phys_loc);
     smObjDb->put(OpCtx(OpCtx::SYNC), objId, objMetadata);
+
+    qosCtrl->markIODone(*applydata_entry,
+            DataTier::diskTier);
 
     applydata_entry->smio_apply_data_resp_cb(err, applydata_entry);
 }
@@ -2187,6 +2202,8 @@ ObjectStorMgr::readObjectDataInternal(SmIoReq* ioReq)
     read_entry->obj_data.data = objData.data;
     fds_assert(read_entry->obj_data.data.size() > 0);
 
+    qosCtrl->markIODone(*read_entry,
+            DataTier::diskTier);
     read_entry->smio_readdata_resp_cb(err, read_entry);
 }
 
@@ -2204,6 +2221,9 @@ ObjectStorMgr::readObjectMetadataInternal(SmIoReq* ioReq)
     }
 
     objMetadata.extractSyncData(read_entry->meta_data);
+
+    qosCtrl->markIODone(*read_entry,
+            DataTier::diskTier);
     read_entry->smio_readmd_resp_cb(err, read_entry);
 }
 

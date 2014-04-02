@@ -34,16 +34,20 @@ partition_tokens_by_node(const std::set<fds_token_id> &tokens)
     return tbl;
 }
 /**
+ * TODO(Rao):  We are getting node info for a token from previous dlt.  The assumption
+ * is when this call invoked we are currently undergoing migration.
  * Returns migration ip and port for node identified by node_id
- * @param node_id
+ * @param token_id
  * @param ip
  * @param port
  * @return
  */
-bool ClusterCommMgr::get_node_mig_ip_port(const NodeUuid &node_id,
+bool ClusterCommMgr::get_node_mig_ip_port(const fds_token_id& token_id,
         uint32_t &ip, uint32_t &port)
 {
     int state;
+    const DLT* dlt = om_client_->getPreviousDLT();
+    NodeUuid node_id = dlt->getPrimary(token_id);
     int result = om_client_->getNodeInfo(node_id.uuid_get_val(), &ip, &port, &state);
     fds_verify(result == 0);
     port = om_client_->getNodeMigPort(node_id);
