@@ -374,7 +374,6 @@ typedef std::unordered_map<int, PersisDataIO *>      DataIOMap;
 class DataIOModule : public fds::Module
 {
   protected:
-    DataIOMap                io_ssd;
     fds_uint32_t             io_ssd_total;
     fds_uint32_t             io_ssd_curr;
     fds_uint32_t             io_hdd_total;
@@ -402,8 +401,6 @@ class DataIOModule : public fds::Module
      * location.  The disk_id is 16-bit value mapping to 64-bit uuid retrieved from
      * the supperblock.
      */
-    virtual PersisDataIO *disk_ssd_disk(fds_uint16_t disk_id);
-
     virtual PersisDataIO *
     disk_hdd_disk(DataTier tier, fds_uint16_t disk_id, fds_uint32_t file_id,
                   meta_obj_id_t const *const token_val);
@@ -413,8 +410,6 @@ class DataIOModule : public fds::Module
      * handler will put the disk_id, disk_offset to the physical location which will
      * be saved to meta-data used with the API above.
      */
-    virtual PersisDataIO *disk_ssd_io(meta_obj_id_t const *const token_val);
-
     virtual PersisDataIO *
     disk_hdd_io(DataTier tier, fds_uint32_t file_id, meta_obj_id_t const *const token);
 };

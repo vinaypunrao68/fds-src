@@ -57,8 +57,7 @@ bool
 DataDiscIter::obj_callback()
 {
     if (cb_tier == flashTier) {
-        std::string path = *cb_root_dir + "/data";
-        cb_io->disk_mount_ssd_path(path.c_str(), cb_disk_id);
+        cb_io->disk_mount_ssd_path(cb_root_dir->c_str(), cb_disk_id);
     } else {
         cb_io->disk_mount_hdd_path(cb_root_dir->c_str(), cb_disk_id);
     }
@@ -73,37 +72,7 @@ void
 DataIOModule::disk_mount_ssd_path(const char *path, fds_uint16_t disk_id)
 {
     io_ssd_diskid[io_ssd_curr++] = disk_id;
-    // io_ssd[disk_id] = new FilePersisDataIO(path, disk_id);
     fds_verify(io_ssd_curr <= io_ssd_total);
-}
-
-// disk_ssd_io
-// -----------
-// TODO(Vy): need to support hotplug here.
-//
-PersisDataIO *
-DataIOModule::disk_ssd_io(meta_obj_id_t const *const oid)
-{
-    fds_uint16_t        disk_id;
-    PersisDataIO       *ioc;
-    const fds_uint64_t *token;
-
-    token   = reinterpret_cast<const fds_uint64_t *>(oid->metaDigest);
-    disk_id = io_ssd_diskid[*token % io_ssd_curr];
-    ioc     = io_ssd[disk_id];
-
-    fds_verify(ioc != NULL);
-    return ioc;
-}
-
-// disk_ssd_disk
-// -------------
-// TODO(Vy): handle the case where disk_id doesn't match anything discovered.
-//
-PersisDataIO *
-DataIOModule::disk_ssd_disk(fds_uint16_t disk_id)
-{
-    return io_ssd[disk_id];
 }
 
 // disk_mount_hdd_path
@@ -132,7 +101,7 @@ DataIOModule::disk_hdd_io(DataTier            tier,
     // path to the underlaying device.
     //
     token   = reinterpret_cast<const fds_uint32_t *>(oid->metaDigest);
-    disk_id = io_hdd_diskid[*token % io_hdd_curr];
+    disk_id = io_hdd_diskid[oid->metaDigest[0] % io_hdd_curr];
     ioc     = io_token_db->openTokenFile(tier, disk_id, *token, file_id);
 
     fds_verify(ioc != NULL);
@@ -261,6 +230,9 @@ DataDiscoveryModule::disk_open_map()
             fds_panic("Unknown path: %s\n", path.c_str());
         }
         pd_uuids[idx] = uuid;
+    }
+    if (pd_hdd_found == 0) {
+        fds_panic("Can't find any HDD\n");
     }
 }
 
@@ -421,7 +393,7 @@ PersisDataIO::disk_write_done(DiskRequest *req)
 // ----------------------------------------------------------------------------
 // \DataIO
 //
-// Switch board to route data IO to the right handler.
+// Switch board interface to route data IO to the right handler.
 // ----------------------------------------------------------------------------
 DataIO::DataIO() {}
 DataIO::~DataIO() {}
@@ -445,13 +417,8 @@ diskio::DataIO::disk_read(DiskRequest *req)
     obj_phy_loc_t  *loc;
 
     loc = req->req_get_phy_loc();
-    if (req->getTier() == flashTier) {
-        iop = gl_dataIOMod.disk_ssd_disk(loc->obj_stor_loc_id);
-    } else {
-        fds_verify(req->getTier() == diskTier);
-        iop = gl_dataIOMod.disk_hdd_disk(req->getTier(), loc->obj_stor_loc_id, 0,
-                                         req->req_get_oid());
-    }
+    iop = gl_dataIOMod.disk_hdd_disk(req->getTier(), loc->obj_stor_loc_id, 0,
+                                     req->req_get_oid());
     return iop->disk_read(req);
 }
 
@@ -463,12 +430,7 @@ diskio::DataIO::disk_write(DiskRequest *req)
 {
     PersisDataIO  *iop;
 
-    if (req->getTier() == flashTier) {
-        iop = gl_dataIOMod.disk_ssd_io(req->req_get_oid());
-    } else {
-        fds_verify(req->getTier() == diskTier);
-        iop = gl_dataIOMod.disk_hdd_io(req->getTier(), 0, req->req_get_oid());
-    }
+    iop = gl_dataIOMod.disk_hdd_io(req->getTier(), 0, req->req_get_oid());
     return iop->disk_write(req);
 }
 

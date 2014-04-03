@@ -13,7 +13,7 @@ namespace diskio {
 FilePersisDataIO::FilePersisDataIO(char const *const file, int loc)
     : fi_path(file), fi_loc(loc), fi_mutex("file mutex")
 {
-    fi_fd = open(file, O_RDWR | O_CREAT);
+    fi_fd = open(file, O_RDWR | O_CREAT, S_IRWXU);
     if (fi_fd < 0) {
         printf("Can't open file %s\n", file);
         perror("Reason: ");
