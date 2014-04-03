@@ -10,26 +10,12 @@
 #include "StorHvisorCPP.h"
 #include <fds_timer.h>
 
-#define  FDS_TRANS_EMPTY                0x00
-#define  FDS_TRANS_OPEN                 0x1
-#define  FDS_TRANS_OPENED               0x2
-#define  FDS_TRANS_COMMITTED            0x3
-#define  FDS_TRANS_SYNCED               0x4
-#define  FDS_TRANS_DONE                 0x5
-#define  FDS_TRANS_VCAT_QUERY_PENDING   0x6
-#define  FDS_TRANS_GET_OBJ	        0x7
-#define  FDS_TRANS_DEL_OBJ	        0x8
-#define  FDS_TRANS_GET_BUCKET           0x9
-#define  FDS_TRANS_BUCKET_STATS         0xA
-#define  FDS_TRANS_PENDING_DLT          0xB
-
 #define  FDS_MIN_ACK                    1
 #define  FDS_CLS_ACK                    0
 #define  FDS_SET_ACK                    1
 
 #define  FDS_COMMIT_MSG_SENT            1
 #define  FDS_COMMIT_MSG_ACKED           2
-
 
 class FDSP_IpNode {
 public:
@@ -49,6 +35,24 @@ using namespace std;
 using namespace fds;
 
 namespace fds {
+
+enum TxnState {
+    FDS_TRANS_EMPTY,
+    FDS_TRANS_OPEN,
+    FDS_TRANS_OPENED,
+    FDS_TRANS_COMMITTED,
+    FDS_TRANS_SYNCED,
+    FDS_TRANS_DONE,
+    FDS_TRANS_VCAT_QUERY_PENDING,
+    FDS_TRANS_GET_OBJ,
+    FDS_TRANS_DEL_OBJ,
+    FDS_TRANS_GET_BUCKET,
+    FDS_TRANS_BUCKET_STATS,
+    FDS_TRANS_PENDING_DLT,
+};
+
+std::ostream& operator<<(ostream& os, const TxnState& state);
+
 
 class StorHvJournal;
 class StorHvJournalEntry;
@@ -100,7 +104,7 @@ public:
   short  sm_ack_cnt;
   short  dm_ack_cnt;
   short  dm_commit_cnt;
-  short  trans_state;
+  TxnState  trans_state;
   unsigned short incarnation_number;
   fds_io_op_t   op;
   FDS_ObjectIdType data_obj_id;

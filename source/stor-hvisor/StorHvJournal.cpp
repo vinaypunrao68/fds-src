@@ -5,9 +5,31 @@
 #include <StorHvisorNet.h>
 //#include "fds_client/include/ubd.h"
 #include "StorHvJournal.h"
+#include <fds_defines.h>
 
 extern StorHvCtrl *storHvisor;
 namespace fds {
+
+std::ostream& operator<<(ostream& os, const TxnState& state) {
+    os << "{" ;
+    switch (state) {
+        ENUMCASEOS(FDS_TRANS_EMPTY             ,os);
+        ENUMCASEOS(FDS_TRANS_OPEN              ,os);
+        ENUMCASEOS(FDS_TRANS_OPENED            ,os);
+        ENUMCASEOS(FDS_TRANS_COMMITTED         ,os);
+        ENUMCASEOS(FDS_TRANS_SYNCED            ,os);
+        ENUMCASEOS(FDS_TRANS_DONE              ,os);
+        ENUMCASEOS(FDS_TRANS_VCAT_QUERY_PENDING,os);
+        ENUMCASEOS(FDS_TRANS_GET_OBJ           ,os);
+        ENUMCASEOS(FDS_TRANS_DEL_OBJ           ,os);
+        ENUMCASEOS(FDS_TRANS_GET_BUCKET        ,os);
+        ENUMCASEOS(FDS_TRANS_BUCKET_STATS      ,os);
+        ENUMCASEOS(FDS_TRANS_PENDING_DLT       ,os);
+        default: os << "unknown txn type - " << (int) state << "-";
+    }
+    os <<"}" ;
+    return os;
+}
 
 StorHvJournalEntry::StorHvJournalEntry()
 {
