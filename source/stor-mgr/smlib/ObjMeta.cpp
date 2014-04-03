@@ -7,8 +7,11 @@
 
 #include <fdsp_utils.h>
 #include <ObjMeta.h>
+#include <StorMgr.h>
 
 namespace fds {
+
+extern ObjectStorMgr *objStorMgr;
 
 SyncMetaData::SyncMetaData()
 {
@@ -541,6 +544,23 @@ void ObjMetaData::mergeNewAndUnsyncedData()
 {
     fds_assert(syncDataExists());
     /* We will resolve one field at a time*/
+
+    if (sync_data.mod_ts >= obj_map.assoc_mod_time) {
+        /* Sync metadata is more recent compared to object metadata.
+         * Clear sync-able fields.  We'll just use them from sync entry
+         * See merge code after this if statement.
+         */
+        obj_map.obj_create_time = 0;
+        obj_map.assoc_mod_time = 0;
+        obj_map.obj_num_assoc_entry = 0;
+        assoc_entry.clear();
+        obj_map.obj_refcnt = 0;
+
+        objStorMgr->getCounters()->resolve_used_sync_cnt.incr();
+        /* Merge happens below */
+    } else {
+        objStorMgr->getCounters()->resolve_mrgd_cnt.incr();
+    }
 
     /* Creation timestamp.  We will honor the one from sync entry */
     obj_map.obj_create_time = sync_data.born_ts;

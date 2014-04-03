@@ -135,23 +135,29 @@ class SmPlReq : public diskio::DiskRequest {
 class SMCounters : public FdsCounters
 {
  public:
-  SMCounters(const std::string &id, FdsCountersMgr *mgr)
-      : FdsCounters(id, mgr),
-        put_reqs("put_reqs", this),
-        get_reqs("get_reqs", this),
-        puts_latency("puts_latency", this),
-        put_tok_objs("put_tok_objs", this),
-        get_tok_objs("get_tok_objs", this)
-  {
-  }
-  /* Exposed for counters */
-  SMCounters() {}
+    SMCounters(const std::string &id, FdsCountersMgr *mgr)
+    : FdsCounters(id, mgr),
+    put_reqs("put_reqs", this),
+    get_reqs("get_reqs", this),
+    puts_latency("puts_latency", this),
+    put_tok_objs("put_tok_objs", this),
+    get_tok_objs("get_tok_objs", this),
+    resolve_mrgd_cnt("resolve_mrgd_cnt", this),
+    resolve_used_sync_cnt("resolve_used_sync_cnt", this)
+    {
+    }
+    /* Exposed for counters */
+    SMCounters() {}
 
-  NumericCounter put_reqs;
-  NumericCounter get_reqs;
-  LatencyCounter puts_latency;
-  NumericCounter put_tok_objs;
-  NumericCounter get_tok_objs;
+    NumericCounter put_reqs;
+    NumericCounter get_reqs;
+    LatencyCounter puts_latency;
+    NumericCounter put_tok_objs;
+    NumericCounter get_tok_objs;
+    /* During resolve number of merges that took place */
+    NumericCounter resolve_mrgd_cnt;
+    /* During resolve # of times we replaced existing entry with sync entry */
+    NumericCounter resolve_used_sync_cnt;
 };
 
 
@@ -506,6 +512,10 @@ class ObjectStorMgr :
                           const NodeUuid &uuid,
                           fds_uint32_t index);
     fds_uint32_t getTotalNumTokens() const;
+
+    SMCounters* getCounters() {
+        return &counters_;
+    }
 
     virtual std::string log_string()
     {
