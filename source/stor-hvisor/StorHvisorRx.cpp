@@ -375,6 +375,8 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
     err = storHvisor->dispatchSmGetMsg(journEntry);
     fds_verify(err == ERR_OK);
 
+    // Schedule a timer here to track the responses and the original request
+    shvol->journal_tbl->schedule(journEntry->ioTimerTask, std::chrono::seconds(FDS_IO_LONG_TIME));
     LOGNORMAL << "Done with a update catalog response processing";
 }
 

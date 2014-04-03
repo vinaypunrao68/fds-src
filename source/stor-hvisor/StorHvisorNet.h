@@ -44,6 +44,7 @@
 
 
 
+#define FDS_IO_LONG_TIME 10 // seconds
 #define FDS_REPLICATION_FACTOR          1
 #define MAX_DM_NODES                    4
 
@@ -228,6 +229,8 @@ public:
     sh_comm_modes GetRunTimeMode() { return mode; }
     boost::shared_ptr<FDSP_DataPathRespCbackI> dPathRespCback;
     boost::shared_ptr<FDSP_MetaDataPathRespCbackI> mPathRespCback;
+    Error dispatchSmPutMsg(StorHvJournalEntry *journEntry);
+    Error dispatchSmGetMsg(StorHvJournalEntry *journEntry);
 
     friend class FDSP_MetaDataPathRespCbackI;
 
@@ -236,8 +239,6 @@ private:
                            StorHvJournalEntry *journEntry);
     void procNewDlt(fds_uint64_t newDltVer);
 
-    Error dispatchSmPutMsg(StorHvJournalEntry *journEntry);
-    Error dispatchSmGetMsg(StorHvJournalEntry *journEntry);
 
     SysParams *sysParams;
     sh_comm_modes mode;

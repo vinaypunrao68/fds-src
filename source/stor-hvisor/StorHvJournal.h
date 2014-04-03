@@ -139,8 +139,7 @@ public:
   FDSP_GetObjTypePtr    getMsg;
   FDSP_DeleteObjTypePtr delMsg;
 
-  int      lt_flag;
-  int      st_flag;
+  int      nodeSeq;
   short    num_dm_nodes;
   FDSP_IpNode    dm_ack[FDS_MAX_DM_NODES_PER_CLST];
   short    num_sm_nodes;
@@ -220,11 +219,6 @@ public:
              return ioTimer->schedule(task, interval);
     	}
 
-#if 0
-        void schedule(const TimerTaskPtr& task,const std::chrono::interval) {
-             ioTimer->schedule(task, interval);
-        }
-#endif
 	long microsecSinceCtime(boost::posix_time::ptime timestamp) {
 	  boost::posix_time::time_duration elapsed = timestamp - ctime;
 	  return elapsed.total_microseconds();
