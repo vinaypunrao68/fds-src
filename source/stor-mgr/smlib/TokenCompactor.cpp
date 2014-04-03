@@ -6,10 +6,11 @@
 
 namespace fds {
 
-TokenCompactor::TokenCompactor()
+TokenCompactor::TokenCompactor(SmIoReqHandler *_data_store)
         : state(TCSTATE_IDLE),
           token_id(0),
-          done_evt_hdlr(NULL)
+          done_evt_hdlr(NULL),
+          data_store(_data_store)
 {
 }
 
@@ -24,6 +25,7 @@ TokenCompactor::~TokenCompactor()
 // work items to actually get list of objects that need copy /delete
 //
 Error TokenCompactor::startCompaction(fds_token_id token_id,
+                                      fds_uint32_t num_bits_for_token,
                                       compaction_done_handler_t done_evt_hdlr)
 {
     Error err(ERR_OK);

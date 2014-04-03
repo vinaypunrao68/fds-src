@@ -60,7 +60,7 @@ namespace fds {
      */
     class TokenCompactor {
   public:
-        TokenCompactor();
+        explicit TokenCompactor(SmIoReqHandler *_data_store);
         ~TokenCompactor();
 
         typedef enum {
@@ -79,9 +79,12 @@ namespace fds {
          * scavenger class. Scavenger will receive a callback when GC is finished
          * for this token id. Scavenger can also check on progress of GC via
          * getProgress() method.
+         *
+         * @param num_bits_for_token get be retreived from DLT::getNumBitsForToken()
          * @return ERR_OK is success; error if current state is not TCSTATE_IDLE
          **/
         Error startCompaction(fds_token_id token_id,
+                              fds_uint32_t num_bits_for_token,
                               compaction_done_handler_t done_evt_hdlr);
 
 
@@ -128,14 +131,20 @@ namespace fds {
          * Token id the compactor currently operates on. If state is TCSTATE_IDLE,
          * then token_id is not used, and undefined
          */
-        fds_token_id token_id;  // token id this compactor currently operates on
+        fds_token_id token_id;
 
         /**
          * callback for compaction done method which is set every time
          * startCompaction() is called. When state is TCSTATE_IDLE, this cb
          * is undefined.
          */
-        compaction_done_handler_t done_evt_hdlr;  // cb for compaction done
+        compaction_done_handler_t done_evt_hdlr;
+
+        /**
+         * pointer to SmIoReqHandler so we can queue work to QoS queues
+         * passed in constructor, does not own
+         */
+        SmIoReqHandler *data_store;
     };
 
     typedef boost::shared_ptr<TokenCompactor> TokenCompactorPtr;
