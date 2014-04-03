@@ -43,20 +43,6 @@ struct TRSnapDnEvt {};
 struct TRResolveDnEvt {};
 struct TRSyncDnEvt {};
 
-/**
- * Token sync start event
- */
-struct TRStartEvt {
-    TRStartEvt(const uint64_t &start, const uint64_t &end) {
-        start_time = start;
-        end_time = end;
-    }
-    /* start time */
-    uint64_t start_time;
-    /* End time.  zero means end time isn't specified */
-    uint64_t end_time;
-};
-
 struct TokenSyncReceiver {
 public:
     TokenSyncReceiver();
@@ -72,7 +58,7 @@ public:
             netMigrationPathClientSession *sender_session,
             boost::shared_ptr<FDSP_MigrationPathRespIf> client_resp_handler);
     void start();
-    void process_event(const TRStartEvt& evt);
+    void process_event(const TRSyncStartEvt& evt);
     void process_event(const SyncAckdEvt& evt);
     void process_event(const TokMdEvt& evt);
     void process_event(const TRMdAppldEvt& evt);

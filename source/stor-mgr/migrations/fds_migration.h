@@ -29,6 +29,7 @@ namespace fds
 
 /* Forward declarations */
 class FDSP_MigrationPathRpc;
+class FdsMigrationSvc;
 
 /**
  * Migration status
@@ -36,8 +37,6 @@ class FDSP_MigrationPathRpc;
 enum MigrationStatus {
     /* Copy is complete */
     TOKEN_COPY_COMPLETE,
-    /* Token sync is complete */
-    TOKEN_SYNC_COMPLETE,
     /* Entire migration operation is complete */
     MIGRATION_OP_COMPLETE
 };
@@ -125,18 +124,25 @@ class TokenCopyTracker {
 
  private:
     void issue_copy_req();
+    void issue_sync_req();
 
     FdsMigrationSvc *migrationSvc_;
     /* Tokens to copy and sync */
     std::set<fds_token_id> tokens_;
+    /* Migration stream ids */
+    std::list<std::string> mig_ids_;
     /* next token to issue a copy request for */
     std::set<fds_token_id>::iterator cur_copy_itr_;
     /* Completed copy count */
     uint32_t copy_completed_cnt_;
+    /* next token to issue a copy request for */
+    std::list<std::string>::iterator cur_sync_itr_;
     /* Completed sync count */
     uint32_t sync_completed_cnt_;
     /* Callback to issue after token copy is done (not token sync) */
     MigSvcCbType copy_cb_;
+
+    friend class FdsMigrationSvc;
 };
 
 /* Service for migrating objects */
@@ -223,6 +229,8 @@ protected:
 
     /* For tracking bulk token copy */
     std::unique_ptr<TokenCopyTracker> copy_tracker_;
+
+    friend class TokenCopyTracker;
 }; 
 typedef boost::shared_ptr<FdsMigrationSvc> FdsMigrationSvcPtr;
 
