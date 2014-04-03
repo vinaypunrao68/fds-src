@@ -203,6 +203,8 @@ typedef enum {
     FDS_OP_INVALID
 } fds_io_op_t;
 
+std::ostream& operator<<(std::ostream& os, const fds_io_op_t& opType);
+
 #define  FDS_SH_IO_MAGIC_IN_USE 0x1B0A2C3D
 #define  FDS_SH_IO_MAGIC_NOT_IN_USE 0xE1D0A2B3
 
