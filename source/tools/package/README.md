@@ -63,6 +63,10 @@ OR
 - `installcontrol` : The script that provides `(pre/post)(install/remove)` functionality.
    - look in the templates directory for a [sample] (templates/sample.installcontrol)
 
+- `symlinks` : create symbolic links to targets (just one or a list)
+    - `link`   : the location of the link
+    - `target` : the target that the link will point to 
+
 - `files` : which files which should be copied where . Can be just one or a list of details.
     - `src` : list of files to be copied. shell globs can be specified `*.sh`.
     -  for `src` if the value starts and ends with back ticks, that will be expanded as a shell command.
@@ -82,7 +86,7 @@ OR
 - `services` : list of services to be installed. (just one or a list)
     - `name` : name of the service (same format as package name)
     - `start-on-install` : Boolean to say if the service should be started after install `default: False`
-    - `start-on-boot` : Boolean to say if the service should be started at reboot [default: False]
+    - `start-on-boot` : Boolean to say if the service should be started at reboot `default: False`
     - `control` : the control file which provides `start/stop/status/` functionality. Look into templates directory for a [sample] (templates/sample.simple.service).
 
 - `cronjobs` : list of crons to be setup. (just one or a list)
