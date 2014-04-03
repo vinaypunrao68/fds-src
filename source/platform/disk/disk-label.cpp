@@ -161,7 +161,7 @@ DiskLabel::dsk_label_generate(ChainList *labels, int dsk_cnt)
     } else {
         fds_verify(dl_disk_uuids == reinterpret_cast<dlabel_disk_uuid_t *>(dl_label + 1));
     }
-    fds_verify(size <= DL_PAGE_SZ);
+    fds_verify(static_cast<int>(size) <= DL_PAGE_SZ);
     memset(dl_label, 0, size);
 
     // Init and fixup the header with new fields.
