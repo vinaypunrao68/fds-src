@@ -85,7 +85,7 @@ void FDS_NativeAPI::CreateBucket(BucketContext *bucket_ctx,
    // check the bucket is already attached. 
   ret_id = storHvisor->vol_table->getVolumeUUID(bucket_ctx->bucketName);
   if (ret_id != invalid_vol_id) {
-       FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::error) << " S3 Bucket Already exsists  BucketID: " << ret_id;
+       LOGERROR << " S3 Bucket Already exsists  BucketID: " << ret_id;
 
      (responseHandler)(FDSN_StatusErrorBucketAlreadyExists,NULL,callback_data);
      return;
@@ -100,7 +100,7 @@ void FDS_NativeAPI::CreateBucket(BucketContext *bucket_ctx,
    om_err = storHvisor->om_client->pushCreateBucketToOM(vol_info);
    if (om_err != 0) {
     (responseHandler)(FDSN_StatusInternalError, NULL, callback_data);
-    FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::warning) << "FDS_NativeAPI::CreateBucket bucket " << bucket_ctx->bucketName
+    LOGWARN << "FDS_NativeAPI::CreateBucket bucket " << bucket_ctx->bucketName
 							      << " -- could't send create bucket request to OM";
     return;
    }
@@ -122,14 +122,14 @@ void FDS_NativeAPI::GetBucket(BucketContext *bucket_ctxt,
   Error err(ERR_OK);
   fds_volid_t volid;
   FdsBlobReq *blob_req = NULL;
-  FDS_PLOG(storHvisor->GetLog()) << "FDS_NativeAPI::GetBucket for bucket " << bucket_ctxt->bucketName;
+  LOGNORMAL << "FDS_NativeAPI::GetBucket for bucket " << bucket_ctxt->bucketName;
 
   /* check if bucket is attached to this AM, if not, ask OM to attach */
   err = checkBucketExists(bucket_ctxt, &volid);
   if ( !err.ok() && (err != Error(ERR_PENDING_RESP)) ) {
     /* bucket not attached and we failed to send query to OM */
     (handler)(0, "", 0, NULL, 0, NULL, callback_data, FDSN_StatusInternalError);
-    FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::warning) << "FDS_NativeAPI::GetBucket for bucket " << bucket_ctxt->bucketName
+    LOGWARN << "FDS_NativeAPI::GetBucket for bucket " << bucket_ctxt->bucketName
 							      << " -- could't find out from OM if bucket exists";
     return;
   }
@@ -147,7 +147,7 @@ void FDS_NativeAPI::GetBucket(BucketContext *bucket_ctxt,
 
   if (!blob_req) {
     (handler)(0, "", 0, NULL, 0, NULL, callback_data, FDSN_StatusInternalError);
-    FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::error) << "FDS_NativeAPI::GetBucket for bucket " 
+    LOGERROR << "FDS_NativeAPI::GetBucket for bucket " 
 							    << bucket_ctxt->bucketName
 							    << " -- failed to allocate ListBucketReq";
     return;
@@ -170,11 +170,11 @@ void FDS_NativeAPI::DeleteBucket(BucketContext* bucketCtxt,
 				 void *callbackData)
 {
     fds_volid_t ret_id; 
-   FDS_PLOG(storHvisor->GetLog()) << "FDS_NativeAPI:DeleteBucket for bucket " << bucketCtxt->bucketName;
+   LOGNORMAL << "FDS_NativeAPI:DeleteBucket for bucket " << bucketCtxt->bucketName;
    // check the bucket is already attached. 
    ret_id = storHvisor->vol_table->getVolumeUUID(bucketCtxt->bucketName);
    if (ret_id == invalid_vol_id) {
-       FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::error) << " S3 Bucket  Does not exsists  BucketID: " << ret_id;
+       LOGERROR << " S3 Bucket  Does not exsists  BucketID: " << ret_id;
 
      (handler)(FDSN_StatusErrorBucketNotExists,NULL,callbackData);
      return;
@@ -212,7 +212,7 @@ void FDS_NativeAPI::ModifyBucket(BucketContext *bucket_ctxt,
       (iops_max < 0) || (iops_max > 100) || 
       (qos_params.relativePrio < 1) || (qos_params.relativePrio > 10)) {
       (handler)(FDSN_StatusInternalError, NULL, callback_data);
-      FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::error) << "FDS_NativeAPI::ModifyBucket bucket " 
+      LOGERROR << "FDS_NativeAPI::ModifyBucket bucket " 
 							      << bucket_ctxt->bucketName
 							      << " sla (iops_min) and limit (iops_max) must be "
 							      << "from 0 to 100, and priority from 1 to 10";
@@ -223,7 +223,7 @@ void FDS_NativeAPI::ModifyBucket(BucketContext *bucket_ctxt,
   iops_min = iops_min * FDSN_QOS_PERF_NORMALIZER;
   iops_max = iops_max * FDSN_QOS_PERF_NORMALIZER;
 
-  FDS_PLOG(storHvisor->GetLog()) << "FDS_NativeAPI::ModifyBucket bucket " << bucket_ctxt->bucketName
+  LOGNORMAL << "FDS_NativeAPI::ModifyBucket bucket " << bucket_ctxt->bucketName
 				 << " -- min_iops " << iops_min << " (sla " << qos_params.iops_min << ")"
 				 << ", max_iops " << iops_max << " (limit " << qos_params.iops_max << ")"
 				 << ", priority " << qos_params.relativePrio;
@@ -242,7 +242,7 @@ void FDS_NativeAPI::ModifyBucket(BucketContext *bucket_ctxt,
 
   if (om_err != 0) {
     (handler)(FDSN_StatusInternalError, NULL, callback_data);
-    FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::error) << "FDS_NativeAPI::ModifyBucket bucket " << bucket_ctxt->bucketName
+    LOGERROR << "FDS_NativeAPI::ModifyBucket bucket " << bucket_ctxt->bucketName
 							    << " -- could't send modify bucket request to OM";
     return;
   }
@@ -261,7 +261,7 @@ void FDS_NativeAPI::GetBucketStats(void *req_ctxt,
 				   void *callback_data)
 {
   FdsBlobReq *blob_req = NULL;
-  FDS_PLOG(storHvisor->GetLog()) << "FDS_NativeAPI::GetBucketStats for all existing buckets";
+  LOGNORMAL << "FDS_NativeAPI::GetBucketStats for all existing buckets";
 
   /* this request will go directly to OM, so not need to check if buckets are attached, etc. */
 
@@ -271,7 +271,7 @@ void FDS_NativeAPI::GetBucketStats(void *req_ctxt,
 
   if (!blob_req) {
     (resp_handler)("", 0, NULL, req_ctxt, callback_data, FDSN_StatusOutOfMemory, NULL);
-    FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::error) << "FDS_NativeAPI::GetBucketStatus for all existing buckets " 
+    LOGERROR << "FDS_NativeAPI::GetBucketStatus for all existing buckets " 
 							    << " -- failed to allocate BucketStatsReq";
     return;
   }
@@ -430,14 +430,14 @@ void FDS_NativeAPI::DeleteObject(BucketContext *bucket_ctxt,
   Error err(ERR_OK);
   fds_volid_t volid;
   FdsBlobReq *blob_req = NULL;
-  FDS_PLOG(storHvisor->GetLog()) << "FDS_NativeAPI::DeleteObject bucket " << bucket_ctxt->bucketName
+  LOGNORMAL << "FDS_NativeAPI::DeleteObject bucket " << bucket_ctxt->bucketName
 				 << " objKey " << ObjKey;
 
   /* check if bucket is attached to this AM, if not, ask OM to attach */
   err = checkBucketExists(bucket_ctxt, &volid);
   if ( !err.ok() && (err != Error(ERR_PENDING_RESP)) ) {
     /* bucket not attached and we failed to send query to OM */
-    FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::warning) << "FDS_NativeAPI::DeleteObject bucket " << bucket_ctxt->bucketName
+    LOGWARN << "FDS_NativeAPI::DeleteObject bucket " << bucket_ctxt->bucketName
 							      << " objKey " << ObjKey 
 							      << " -- could't find out from OM if bucket exists";
     (responseHandler)(FDSN_StatusInternalError, NULL, callback_data);
@@ -454,7 +454,7 @@ void FDS_NativeAPI::DeleteObject(BucketContext *bucket_ctxt,
 
   if (!blob_req) {
     (responseHandler)(FDSN_StatusOutOfMemory, NULL, callback_data);
-    FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::error) << "FDS_NativeAPI::DeleteObject bucket " 
+    LOGERROR << "FDS_NativeAPI::DeleteObject bucket " 
 							    << bucket_ctxt->bucketName
 							    << " objKey " << ObjKey 
 							    << " -- failed to allocate DeleteBlobReq";
@@ -479,9 +479,6 @@ void FDS_NativeAPI::DoCallback(FdsBlobReq  *blob_req,
                                fds_int32_t  result)
 {
   FDSN_Status status(FDSN_StatusOK);
-
-  FDS_PLOG(storHvisor->GetLog()) << "FDS_NativeAPI: callback to complete blob request : "
-				 << error.GetErrstr();
 
   LOGNORMAL << " callback -"
             << " [iotype:" << blob_req->getIoType() << "]"
@@ -538,7 +535,7 @@ Error FDS_NativeAPI::checkBucketExists(BucketContext *bucket_ctxt, fds_volid_t* 
   Error err(ERR_OK);
   int om_err = 0;
   fds_volid_t volid = invalid_vol_id;
-  FDS_PLOG(storHvisor->GetLog()) << "FDS_NativeAPI::testBucketInternal  bucket " << bucket_ctxt->bucketName;
+  LOGNORMAL << "FDS_NativeAPI::testBucketInternal  bucket " << bucket_ctxt->bucketName;
 
   if (storHvisor->vol_table->volumeExists(bucket_ctxt->bucketName)) {
     *ret_volid =  storHvisor->vol_table->getVolumeUUID(bucket_ctxt->bucketName);
