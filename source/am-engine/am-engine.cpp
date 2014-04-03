@@ -425,6 +425,8 @@ AME_Request::ame_reqt_iter_data_next(fds_uint32_t data_len,
             // There's a remainder that needs to be acked
             ack_count++;
         }
+    } else {
+        ack_count++;
     }
     ame_ctx->set_ack_count(ack_count);
     *len = data_len;
@@ -985,6 +987,9 @@ Conn_PutObject::ame_request_handler()
         LOGWARN <<"zero size request received";
         // special case where no data is given
         // Issue async request
+        fds_off_t offset= ame_ctx->ame_get_offset();
+        Error err = ame_ctx->ame_add_ctx_req(offset);
+        fds_verify(err == ERR_OK);
         api = ame->ame_fds_hook();
         api->PutObject(&bucket_ctx, get_object_id(), NULL,
                        static_cast<void *>(ame_ctx), buf, 0,
