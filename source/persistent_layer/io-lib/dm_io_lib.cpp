@@ -16,6 +16,7 @@
 #include <fds_process.h>
 #include <tokFileMgr.h>
 
+using namespace fds;  // NOLINT
 namespace diskio {
 
 // ----------------------------------------------------------------------------
@@ -46,7 +47,7 @@ DataIOModule::DataIOModule(char const *const name)
 }
 
 DataDiscIter::~DataDiscIter() {}
-DataDiscIter::DataDiscIter(DataIOModule *io) : cb_io(NULL), cb_root_dir(NULL) {}
+DataDiscIter::DataDiscIter(DataIOModule *io) : cb_io(io), cb_root_dir(NULL) {}
 
 // obj_callback
 // ------------
@@ -55,12 +56,11 @@ DataDiscIter::DataDiscIter(DataIOModule *io) : cb_io(NULL), cb_root_dir(NULL) {}
 bool
 DataDiscIter::obj_callback()
 {
-    std::string file = *cb_root_dir + "/data";
-
     if (cb_tier == flashTier) {
-        cb_io->disk_mount_ssd_path(file.c_str(), cb_disk_id);
+        std::string path = *cb_root_dir + "/data";
+        cb_io->disk_mount_ssd_path(path.c_str(), cb_disk_id);
     } else {
-        cb_io->disk_mount_hdd_path(file.c_str(), cb_disk_id);
+        cb_io->disk_mount_hdd_path(cb_root_dir->c_str(), cb_disk_id);
     }
     cb_root_dir = NULL;
     return true;
@@ -73,7 +73,7 @@ void
 DataIOModule::disk_mount_ssd_path(const char *path, fds_uint16_t disk_id)
 {
     io_ssd_diskid[io_ssd_curr++] = disk_id;
-    io_ssd[disk_id] = new FilePersisDataIO(path, disk_id);
+    // io_ssd[disk_id] = new FilePersisDataIO(path, disk_id);
     fds_verify(io_ssd_curr <= io_ssd_total);
 }
 
@@ -187,9 +187,10 @@ DataIOModule::mod_init(fds::SysParams const *const param)
 
     // Iterate through the discovery module to create all io handling objects.
     DataDiscIter iter(this);
+    iter.cb_tier = flashTier;
     dataDiscoveryMod.disk_ssd_iter(&iter);
 
-    iter.cb_tier = flashTier;
+    iter.cb_tier = diskTier;
     dataDiscoveryMod.disk_hdd_iter(&iter);
     return 0;
 }

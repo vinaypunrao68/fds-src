@@ -434,6 +434,10 @@ DiskLabelMgr::dsk_reconcile_label(bool creat)
     }
     std::cout << "Write total " << valid << std::endl;
     dl_master = label;
+
+    dl_map->flush();
+    dl_map->close();
+    delete dl_map;
 }
 
 // dsk_rec_label_map

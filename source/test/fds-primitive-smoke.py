@@ -426,7 +426,6 @@ def exit_test(env, shutdown):
 #
 def pre_commit(volume_name, data_dir, res_dir):
     # basic PUTs and GETs of fds-src cpp files
-    time.sleep(20)
     smoke_ds0 = FdsDataSet(volume_name, data_dir, res_dir, '*.cpp')
 
     smoke0 = CopyS3Dir(smoke_ds0)
@@ -610,7 +609,7 @@ if __name__ == "__main__":
     #
     if start_sys == 'true':
         bringup_cluster(env, verbose, debug)
-        time.sleep(2)
+        time.sleep(10)
 
     if args.smoke_test == 'false':
         pre_commit(vol_prefix + '_volume1', env.srcdir, '/tmp/pre_commit')
