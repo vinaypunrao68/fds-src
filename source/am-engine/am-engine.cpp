@@ -319,6 +319,8 @@ int AME_Request::ame_map_fdsn_status(FDSN_Status status) {
         case FDSN_StatusConnectionFailed                    :
         case FDSN_StatusAbortedByCallback                   : return NGX_HTTP_INTERNAL_SERVER_ERROR; //NOLINT
 
+        case FDSN_StatusErrorMissingContentLength           : return NGX_HTTP_LENGTH_REQUIRED; //NOLINT
+
         default :
             LOGWARN << "unknown error [" << status << "]";
             return NGX_HTTP_INTERNAL_SERVER_ERROR;
@@ -404,6 +406,8 @@ char *
 AME_Request::ame_reqt_iter_data_next(fds_uint32_t data_len,
                                      fds_uint32_t *len)
 {
+    LOGDEBUG << "content-length : " << ame_req->headers_in.content_length_n
+             << ":" << ame_req->headers_in.content_length;
     fds_uint32_t content_len = ame_req->headers_in.content_length_n;
 
     if (content_len < data_len) {
@@ -427,7 +431,8 @@ AME_Request::ame_reqt_iter_data_next(fds_uint32_t data_len,
 
     LOGDEBUG << " content-len:" << content_len
              << " data_len:" << data_len
-             << " ack_count:" << ack_count;
+             << " ack_count:" << ack_count
+             << " len:" << *len;
 
     char *data  = ame_ctx->ame_next_buf_ptr(len);
 
@@ -967,8 +972,17 @@ Conn_PutObject::ame_request_handler()
     BucketContext bucket_ctx("host", get_bucket_id(), "accessid", "secretkey");
     fds_bool_t    last_byte;
 
+    if (-1 == ame_req->headers_in.content_length_n) {
+        LOGWARN << "missing content-length header";
+        ame_signal_resume(AME_Request::ame_map_fdsn_status(FDSN_StatusErrorMissingContentLength)); //NOLINT
+        return;
+    }
+
     buf = ame_reqt_iter_data_next(get_max_buf_len(), &len);
+    LOGDEBUG << "request data size :" << len;
+
     if (len == 0) {
+        LOGWARN <<"zero size request received";
         // special case where no data is given
         // Issue async request
         api = ame->ame_fds_hook();
