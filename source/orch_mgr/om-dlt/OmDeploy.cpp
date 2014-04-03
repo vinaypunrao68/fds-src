@@ -523,10 +523,7 @@ DltDplyFSM::DACT_Commit::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST 
         fsm.process_event(DltCommitOkEvt(dp->getLatestDltVersion(), NodeUuid()));
     } else {
         // lets wait for majority of acks
-        dst.acks_to_wait = count/2 + 1;
-        if (dst.acks_to_wait < 1) {
-            dst.acks_to_wait = count;
-        }
+        dst.acks_to_wait = (count > 1) ? (count - 1) : count;
     }
 }
 
@@ -549,9 +546,12 @@ DltDplyFSM::DACT_Close::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
     // if we are here, there must be at least one SM, so we should
     // not get 'close_cnt' == 0
     fds_verify(close_cnt > 0);
-    dst.acks_to_wait = close_cnt / 2 + 1;
-    if (dst.acks_to_wait == 0)
-        dst.acks_to_wait = close_cnt;
+    // wait for all 'dlt close' acks to make sure token sync completes
+    // on all SMs before we start updating DLT again
+    // TODO(anna) implement a timeout so we don't get stuck if one of
+    // those SMs fails or gets removed. In near future, we need to handle
+    // SM removal case in the middle of DLT update.
+    dst.acks_to_wait = close_cnt;
 
     // in case we are in domain bring up state, notify domain that current
     // DLT is up (we got quorum number of acks for DLT commit)
