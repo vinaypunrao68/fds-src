@@ -24,6 +24,7 @@ class ResourceUUID
   public:
     ResourceUUID() : rs_uuid(0) {}
     ResourceUUID(fds_uint64_t uuid);  // NOLINT
+    explicit ResourceUUID(const fds_uint8_t *raw);
 
     inline fds_uint64_t uuid_get_val() const {
         return rs_uuid;
@@ -31,6 +32,15 @@ class ResourceUUID
     inline void uuid_set_val(fds_uint64_t val) {
         rs_uuid = val;
     }
+    inline void uuid_set_from_raw(const fds_uint8_t *raw) {
+        const fds_uint64_t *ptr = reinterpret_cast<const fds_uint64_t *>(raw);
+        rs_uuid = *ptr;
+    }
+    inline void uuid_set_to_raw(fds_uint8_t *raw) const {
+        fds_uint64_t *ptr = reinterpret_cast<fds_uint64_t *>(raw);
+        *ptr = rs_uuid;
+    }
+
     bool operator==(const ResourceUUID& rhs) const {
         return (this->rs_uuid == rhs.rs_uuid);
     }

@@ -51,6 +51,9 @@ enum FdsActorRequestType {
     /* Token copy done event */
     FAR_ENUM(TRCopyDnEvt),
 
+    /* Token receiver sync start event */
+    FAR_ENUM(TRSyncStartEvt),
+
     /* Token sync snapshot is complete notification event */
     FAR_ENUM(TSnapDnEvt),
 
@@ -63,9 +66,6 @@ enum FdsActorRequestType {
     /* Token receiver sync resolve is complete */
     FAR_ENUM(TRResolveDnEvt),
 
-    /* For starting Token sender statemachine */
-    FAR_ENUM(TSStart),
-
     /* Token receiver sync process is complete */
     FAR_ENUM(TRSyncDnEvt),
 
@@ -77,6 +77,9 @@ enum FdsActorRequestType {
 
     /* Token receiver pull is complete */
     FAR_ENUM(TRPullDnEvt),
+
+    /* For starting Token sender statemachine */
+    FAR_ENUM(TSStart),
 
     /* Token sender pull data has been read */
     FAR_ENUM(TSDataReadEvt),

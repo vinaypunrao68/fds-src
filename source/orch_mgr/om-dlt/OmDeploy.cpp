@@ -520,7 +520,7 @@ DltDplyFSM::DACT_Commit::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST 
     fds_uint32_t count = dom_ctrl->om_bcast_dlt(dp->getCommitedDlt());
     if (count < 1) {
         dst.acks_to_wait = 1;
-        fsm.process_event(DltCommitOkEvt(dp->getLatestDltVersion(), NodeUuid(0)));
+        fsm.process_event(DltCommitOkEvt(dp->getLatestDltVersion(), NodeUuid()));
     } else {
         // lets wait for majority of acks
         dst.acks_to_wait = count/2 + 1;

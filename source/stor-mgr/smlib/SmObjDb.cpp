@@ -3,8 +3,6 @@
 
 namespace fds {
 
-extern ObjectStorMgr *objStorMgr;
-
 OpCtx::OpCtx(const OpCtx::OpType &t)
 : OpCtx(t, 0)
 {
@@ -22,7 +20,8 @@ bool OpCtx::isClientIO() const
 
 SmObjDb::SmObjDb(ObjectStorMgr *storMgr,
         std::string stor_prefix_,
-        fds_log* _log) {
+        fds_log* _log)
+{
     SetLog(_log);
     objStorMgr = storMgr;
     stor_prefix = stor_prefix_;

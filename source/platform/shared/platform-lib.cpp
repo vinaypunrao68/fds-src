@@ -108,11 +108,11 @@ PlatformProcess::plf_apply_node_data()
 void
 PlatformProcess::setup()
 {
-    FdsProcess::setup();
     plf_db = new kvstore::PlatformDB();
-
     plf_load_node_data();
     plf_apply_node_data();
+
+    FdsProcess::setup();
 }
 
 // -------------------------------------------------------------------------------------

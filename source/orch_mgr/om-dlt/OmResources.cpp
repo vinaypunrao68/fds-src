@@ -636,7 +636,7 @@ OM_NodeDomainMod::om_rm_sm_configDB(const NodeUuid& uuid)
     }
 
     if (found) {
-        services.sm = NodeUuid(0);
+        services.sm = NodeUuid();
         configDB->setNodeServices(plat_uuid, services);
     } else {
         LOGWARN << "Failed to find platform for SM " << std::hex << uuid.uuid_get_val()
@@ -792,7 +792,7 @@ OM_NodeDomainMod::om_update_cluster() {
     // go to rebalances state, send event to check that
     const DLT* dlt = dp->getCommitedDlt();
     fds_uint64_t dlt_version = (dlt == NULL) ? 0 : dlt->getVersion();
-    dltMod->dlt_deploy_event(DltCommitOkEvt(dlt_version, NodeUuid(0)));
+    dltMod->dlt_deploy_event(DltCommitOkEvt(dlt_version, NodeUuid()));
 }
 
 // Called when OM receives notification that the rebalance is

@@ -8,9 +8,11 @@ namespace fds {
 
 const fds_uint32_t INVALID_INDEX = 0xffffffff;
 
-ResourceUUID::ResourceUUID(fds_uint64_t val)
-    : rs_uuid(val)
+ResourceUUID::ResourceUUID(fds_uint64_t val) : rs_uuid(val) {}
+ResourceUUID::ResourceUUID(const fds_uint8_t *raw)
 {
+    const fds_uint64_t *ptr = reinterpret_cast<const fds_uint64_t *>(raw);
+    rs_uuid = *ptr;
 }
 
 std::ostream& operator<< (std::ostream& os, const fds::ResourceUUID& uuid) {

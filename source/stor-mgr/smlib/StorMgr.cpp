@@ -601,6 +601,8 @@ void ObjectStorMgr::migrationSvcResponseCb(const Error& err,
     } else if (status == MIGRATION_OP_COMPLETE) {
         // TODO(Rao): Send migration comple to om
         LOGDEBUG << "Token migration complete";
+        LOGNORMAL << migrationSvc_->mig_cntrs.toString();
+        LOGNORMAL << counters_.toString();
     }
 }
 

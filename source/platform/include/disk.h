@@ -22,6 +22,8 @@ namespace fds {
 
 class PmDiskObj;
 class PmDiskInventory;
+class DiskLabel;
+class DiskLabelMgr;
 class DiskPlatModule;
 class DiskPartitionMgr;
 class FileDiskInventory;
@@ -72,6 +74,9 @@ class PmDiskObj : public DiskObj
     PmDiskObj::pointer        dsk_parent;
     struct udev_device       *dsk_my_dev;
     DiskCommon               *dsk_common;
+    DiskLabel                *dsk_label;
+
+    void dsk_read_uuid();
 
   public:
     PmDiskObj();
@@ -90,7 +95,9 @@ class PmDiskObj : public DiskObj
     static inline PmDiskObj::pointer dsk_cast_ptr(Resource::pointer ptr) {
         return static_cast<PmDiskObj *>(get_pointer(ptr));
     }
-    inline char const *const dsk_dev_name() { return rs_name; }
+    inline DiskLabel *dsk_xfer_label() {
+        DiskLabel *ret = dsk_label; dsk_label = NULL; return ret;
+    }
 
     /**
      * Raw sector read/write to support supper block update.  Only done in parent disk.
@@ -121,7 +128,6 @@ class PmDiskObj : public DiskObj
     virtual void dsk_dev_foreach(DiskObjIter *iter, bool parent_only = false);
 
   private:
-    void dsk_read_uuid();
     void dsk_fixup_family_links(PmDiskObj::pointer ref);
 };
 
@@ -168,7 +174,7 @@ class PmDiskInventory : public DiskInventory
     virtual void dsk_do_partition();
     virtual void dsk_admit_all();
     virtual void dsk_mount_all();
-    virtual void dsk_foreach(DiskObjIter *iter);
+    virtual void dsk_read_label(DiskLabelMgr *mgr, bool creat);
 };
 
 /**
@@ -182,6 +188,7 @@ class DiskPlatModule : public Module
     struct udev             *dsk_ctrl;
     struct udev_enumerate   *dsk_enum;
     FileDiskInventory       *dsk_sim;
+    DiskLabelMgr            *dsk_label;
 
   public:
     explicit DiskPlatModule(char const *const name);
@@ -196,6 +203,7 @@ class DiskPlatModule : public Module
     }
 
     void dsk_rescan();
+    void dsk_commit_label();
 
     // Module methods.
     ///
@@ -223,9 +231,11 @@ class FileDiskInventory : public PmDiskInventory
     explicit FileDiskInventory(const char *dir);
     ~FileDiskInventory();
 
+    virtual void dsk_dump_all();
     virtual void dsk_do_partition();
     virtual void dsk_admit_all();
     virtual void dsk_mount_all();
+    virtual void dsk_read_label(DiskLabelMgr *mgr, bool creat);
 
   private:
     void dsk_file_create(const char *type, int count, ChainList *list);

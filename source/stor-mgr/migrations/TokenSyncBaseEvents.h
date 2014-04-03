@@ -10,6 +10,24 @@ namespace fds {
 struct ErrorEvt {};
 struct StartEvt {};
 
+/**
+ * Token sync start event
+ */
+struct TRSyncStartEvt {
+    TRSyncStartEvt()
+    : TRSyncStartEvt(0, 0)
+    {}
+    TRSyncStartEvt(const uint64_t &start, const uint64_t &end) {
+        start_time = start;
+        end_time = end;
+    }
+    /* start time */
+    uint64_t start_time;
+    /* End time.  zero means end time isn't specified */
+    uint64_t end_time;
+};
+typedef boost::shared_ptr<TRSyncStartEvt> TRSyncStartEvtPtr;
+
 /* Snapshot is complete notification event */
 struct TSnapDnEvt {
     TSnapDnEvt(const leveldb::ReadOptions& options, leveldb::DB* db)

@@ -5,6 +5,7 @@
 #define SOURCE_PERSISTENT_LAYER_INCLUDE_PERSISTENTDATA_H_
 
 #include <string>
+#include <unordered_map>
 #include <persistent_layer/dm_io.h>
 #include <concurrency/Mutex.h>
 #include <fds_err.h>
@@ -21,7 +22,6 @@ class PMCounters : public FdsCounters
           diskW_Err("diskW_Err", this)
      {
      }
-
      NumericCounter diskR_Err;
      NumericCounter diskW_Err;
 };
@@ -40,34 +40,57 @@ class DataIndexModule : public fds::Module
     virtual void mod_shutdown();
 };
 
+class DataDiscoveryModule;
+class DataDiscIter : public fds::FdsCallback
+{
+  protected:
+    friend class DataIOModule;
+    friend class DataDiscoveryModule;
+
+    DataIOModule            *cb_io;
+    const std::string       *cb_root_dir;
+    DataTier                 cb_tier;
+    fds_uint16_t             cb_disk_id;
+
+  public:
+    explicit DataDiscIter(DataIOModule *io);
+    virtual ~DataDiscIter();
+    bool obj_callback();
+};
+
+typedef std::unordered_map<fds_uint16_t, std::string>   DiskLocMap;
+typedef std::unordered_map<fds_uint16_t, fds_uint64_t>  DiskUuidMap;
+
 class DataDiscoveryModule : public fds::Module
 {
   public:
     explicit DataDiscoveryModule(char const *const name);
     ~DataDiscoveryModule();
 
+    // Module methods.
     virtual int  mod_init(fds::SysParams const *const param);
     virtual void mod_startup();
     virtual void mod_shutdown();
 
-    const char *disk_hdd_path(int route_idx);
-    const char *disk_ssd_path(int route_idx);
+    // Discovery methods.
+    inline int  disk_hdd_discovered() { return pd_hdd_found; }
+    inline int  disk_ssd_discovered() { return pd_ssd_found; }
+    const char *disk_hdd_path(fds_uint16_t disk_id);
+    const char *disk_ssd_path(fds_uint16_t disk_id);
+
+    virtual void disk_hdd_iter(DataDiscIter *iter);
+    virtual void disk_ssd_iter(DataDiscIter *iter);
 
   private:
-    void parse_device_dir(const std::string &path, DataTier tier);
-    bool disk_detect_label(std::string *path, DataTier tier);
-    void disk_make_label(std::string *path, DataTier tier, int diskno);
+    void disk_open_map();
 
-    int                      pd_hdd_count;
-    int                      pd_ssd_count;
     int                      pd_hdd_cap_mb;
     int                      pd_ssd_cap_mb;
     int                      pd_hdd_found;
     int                      pd_ssd_found;
-    std::string              *pd_hdd_raw;
-    std::string              *pd_ssd_raw;
-    std::string              *pd_hdd_labeled;
-    std::string              *pd_ssd_labeled;
+    DiskLocMap               pd_hdd_map;
+    DiskLocMap               pd_ssd_map;
+    DiskUuidMap              pd_uuids;
 };
 
 extern DataIndexModule       dataIndexMod;
@@ -100,7 +123,6 @@ class PersisDataIO
     virtual void disk_read_done(DiskRequest *req);
     virtual void disk_write_done(DiskRequest *req);
 
-
   protected:
     PersisDataIO();
     ~PersisDataIO();
@@ -122,11 +144,10 @@ class FilePersisDataIO : public PersisDataIO
   private:
     friend class DataIOModule;
 
-
     fds::fds_mutex           fi_mutex;
     int                      fi_loc;
     int                      fi_fd;
-    fds_int64_t             fi_cur_off;
+    fds_int64_t              fi_cur_off;
     char const *const        fi_path;
 };
 

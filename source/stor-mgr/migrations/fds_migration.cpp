@@ -7,6 +7,7 @@
 #include <fds_migration.h>
 #include <fds_err.h>
 #include <fds_uuid.h>
+#include <TokenSyncBaseEvents.h>
 
 namespace fds {
 
@@ -177,8 +178,11 @@ void TokenCopyTracker::token_complete_cb(const Error& e,
         const MigrationStatus& mig_status)
 {
     fds_assert(e == ERR_OK);
+    bool del_tracker = false;
 
     if (mig_status == TOKEN_COPY_COMPLETE) {
+        fds_verify(cur_copy_itr_ != tokens_.end());
+        /* Issue copy for the next token */
         copy_completed_cnt_++;
         cur_copy_itr_++;
         if (cur_copy_itr_ != tokens_.end()) {
@@ -187,20 +191,34 @@ void TokenCopyTracker::token_complete_cb(const Error& e,
         } else {
             LOGDEBUG << "All copies complete";
             copy_cb_(ERR_OK, TOKEN_COPY_COMPLETE);
+
+            LOGDEBUG << "Starting syncs";
+            fds_assert(mig_ids_.size() == tokens_.size());
+            cur_sync_itr_ = mig_ids_.begin();
+            issue_sync_req();
         }
-    } else if (mig_status == TOKEN_SYNC_COMPLETE ||
-               mig_status == MIGRATION_OP_COMPLETE) {
+    } else if (mig_status == MIGRATION_OP_COMPLETE) {
+        fds_verify(cur_sync_itr_ != mig_ids_.end());
+        /* Issue sync for next migration stream */
         sync_completed_cnt_++;
-        if (cur_copy_itr_ == tokens_.end() &&
-            copy_completed_cnt_ == sync_completed_cnt_) {
+        cur_sync_itr_++;
+        if (cur_sync_itr_ != mig_ids_.end()) {
+            /* issue sync request for next token */
+            issue_sync_req();
+        } else {
             LOGDEBUG << "All syncs complete";
             copy_cb_(ERR_OK, MIGRATION_OP_COMPLETE);
+            del_tracker = true;
         }
     }
 
     fds_assert(sync_completed_cnt_ <= copy_completed_cnt_);
     LOGDEBUG << "copy completed cnt: " << copy_completed_cnt_
             << " sync completed cnt: " << sync_completed_cnt_;
+    if (del_tracker) {
+        LOGDEBUG << "Deleting copy tracker";
+        migrationSvc_->copy_tracker_.reset(nullptr);
+    }
 }
 
 void TokenCopyTracker::issue_copy_req()
@@ -219,6 +237,22 @@ void TokenCopyTracker::issue_copy_req()
     migrationSvc_->send_actor_request(copy_far);
 }
 
+/**
+ * Issues sync request on an existing stream that finished copy.
+ * NOTE: This call must be invoked by migrationSvc_ actor thread
+ */
+void TokenCopyTracker::issue_sync_req()
+{
+    fds_verify(cur_sync_itr_ != mig_ids_.end());
+
+    TRSyncStartEvtPtr sync_req(new TRSyncStartEvt());
+    FdsActorRequestPtr req(new FdsActorRequest(
+                FAR_ID(TRSyncStartEvt), sync_req));
+    /* NOTE: Directly invoking route_to_mig_actor.  This is fine as long as
+     * issue_sync_req() is invoked from migrationSvc_ actor thread
+     */
+    migrationSvc_->route_to_mig_actor(*cur_sync_itr_, req);
+}
 /**
  * Constructor
  * @param threadpool
@@ -424,6 +458,8 @@ void FdsMigrationSvc::handle_migsvc_copy_token(FdsActorRequestPtr req)
             migpath_handler_, clust_comm_mgr_);
     mig_actors_[mig_id].migrator.reset(copy_rcvr);
     mig_actors_[mig_id].migsvc_resp_cb = copy_payload->migsvc_resp_cb;
+
+    copy_tracker_->mig_ids_.push_back(mig_id);
 
     LOGNORMAL << " New TokenCopyReceiver.  Migration id: " << mig_id;
 

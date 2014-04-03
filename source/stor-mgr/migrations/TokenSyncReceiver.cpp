@@ -445,7 +445,7 @@ struct TokenSyncReceiverFSM_
     // +------------+----------------+------------+-----------------+------------------+
     // | Start      | Event          | Next       | Action          | Guard            |
     // +------------+----------------+------------+-----------------+------------------+
-    Row< Init       , TRStartEvt     , Starting   , send_sync_req   , msm_none         >,
+    Row< Init       , TRSyncStartEvt , Starting   , send_sync_req   , msm_none         >,
     // +------------+----------------+------------+-----------------+------------------+
     Row< Starting   , SyncAckdEvt    , Receiving  , msm_none        , msm_none         >,
     // +------------+----------------+------------+-----------------+------------------+
@@ -894,7 +894,7 @@ void TokenSyncReceiver::start()
     fsm_->start();
 }
 
-void TokenSyncReceiver::process_event(const TRStartEvt& evt) {
+void TokenSyncReceiver::process_event(const TRSyncStartEvt& evt) {
     fsm_->process_event(evt);
 }
 

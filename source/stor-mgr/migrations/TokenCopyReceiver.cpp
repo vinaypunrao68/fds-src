@@ -554,18 +554,35 @@ Error TokenCopyReceiver::handle_actor_request(FdsActorRequestPtr req)
         /* notify parent that copy is done*/
         migrationSvc_->send_actor_request(req);
 
-        /* Starting token sync statemachine */
+        /* As we will start a sync, set the state to syncing.  We do this here b/c
+         * before TRSyncStartEvt it's possible client io can come in
+         */
         migrationSvc_->getTokenStateDb()->setTokenState(token_id_,
                 kvstore::TokenStateInfo::SYNCING);
 
-        /* Copy complete.  Start sync */
-        uint64_t sync_ts;
-        migrationSvc_->getTokenStateDb()->getTokenHealthyTS(token_id_, sync_ts);
-        migrationSvc_->getTokenStateDb()->setTokenSyncStartTS(token_id_, sync_ts);
-        sync_fsm_->process_event(TRStartEvt(sync_ts, 0));
+//        /* Copy complete.  Start sync */
+//        uint64_t sync_ts;
+//        migrationSvc_->getTokenStateDb()->getTokenHealthyTS(token_id_, sync_ts);
+//        migrationSvc_->getTokenStateDb()->setTokenSyncStartTS(token_id_, sync_ts);
+//        sync_fsm_->process_event(TRSyncStartEvt(sync_ts, 0));
+//
+//        LOGDEBUG << "token: " << token_id_ << " copy completed.  Starting sync"
+//                << "start_ts: " << sync_ts;
+        break;
+    }
+    case FAR_ID(TRSyncStartEvt):
+    {
+        auto payload = req->get_payload<TRSyncStartEvt>();
+
+        migrationSvc_->getTokenStateDb()->\
+                getTokenHealthyTS(token_id_, payload->start_time);
+        migrationSvc_->getTokenStateDb()->\
+                setTokenSyncStartTS(token_id_, payload->start_time);
+        payload->end_time = 0;
+        sync_fsm_->process_event(*payload);
 
         LOGDEBUG << "token: " << token_id_ << " copy completed.  Starting sync"
-                << "start_ts: " << sync_ts;
+                << "start_ts: " << payload->start_time;
         break;
     }
     /* Sync related */
