@@ -735,13 +735,14 @@ DataMgr::applyBlobUpdate(fds_volid_t volUuid,
         fds_verify((offset % maxObjSize) == 0);
 
         fds_uint64_t size = offsetList[i].size;
-        // TODO(Andrew): Today no use case for writing 0 size blobs
-        fds_verify(size > 0);
-        fds_verify(size <= maxObjSize);
 
         LOGDEBUG << "Applying update to offset " << offset
                  << " with object id " << offsetList[i].data_obj_id
                  << " and size " << size;
+
+        
+        // fds_verify(size > 0);
+        fds_verify(size <= maxObjSize);        
 
         fds_uint32_t blobOffsetIndex = 0;
 
@@ -932,9 +933,20 @@ DataMgr::updateCatalogProcess(const dmCatReq  *updCatReq, BlobNode **bnode) {
         FDS_ProtocolInterface::FDS_DMGR_TXN_STATUS_OPEN) {
         // Apply the updates to the blob
         BlobObjectList offsetList(updCatReq->fdspUpdCatReqPtr->obj_list);
+        
+        // check for zero size objects and assign default objectid
+        for ( uint i = 0 ; i < offsetList.size() ; i++ ) {
+            if ( 0 == offsetList[i].size ) {
+                LOGWARN << "obj size is zero. setting id to nullobjectid"
+                        << " ["<< i <<"] : " << offsetList[i].data_obj_id;
+                offsetList[i].data_obj_id = NullObjectID;
+            }
+        }
+
         err = applyBlobUpdate(updCatReq->volId,
                               offsetList,
                               (*bnode));
+
         fds_verify(err == ERR_OK);
         LOGDEBUG << "Updated blob " << (*bnode)->blob_name
                  << " to size " << (*bnode)->blob_size;

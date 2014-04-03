@@ -14,7 +14,6 @@
 #include <dlt.h>
 #include <ObjectId.h>
 
-
 extern StorHvCtrl *storHvisor;
 using namespace std;
 using namespace FDS_ProtocolInterface;
@@ -226,11 +225,12 @@ StorHvCtrl::dispatchSmGetMsg(StorHvJournalEntry *journEntry) {
 
 fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
     fds::Error err(ERR_OK);
-
+    
     /*
      * Pull out the blob request
      */
     PutBlobReq *blobReq = static_cast<PutBlobReq *>(qosReq->getBlobReqPtr());
+    bool fZeroSize = (blobReq->getDataLen() == 0);
     fds_verify(blobReq->magicInUse() == true);
 
     fds_volid_t   volId = blobReq->getVolId();
@@ -293,8 +293,14 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
     /*
      * Hash the data to obtain the ID
      */
-    ObjectID objId = ObjIdGen::genObjectId(blobReq->getDataBuf(),
-                                           blobReq->getDataLen());
+    ObjectID objId;
+     if (fZeroSize) {
+        LOGWARN << "zero size object - "
+                << " [objkey:" << blobReq->ObjKey <<"]";
+     } else {
+         objId = ObjIdGen::genObjectId(blobReq->getDataBuf(),
+                                       blobReq->getDataLen());
+     }
 
     blobReq->setObjId(objId);
 
@@ -357,7 +363,26 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
               << msgHdrSm->src_node_name << " in trans"
               << transId;
 
-    err = dispatchSmPutMsg(journEntry);
+    if (!fZeroSize) {
+        err = dispatchSmPutMsg(journEntry);
+    } else {
+        // special case for zero size
+        // trick the state machine to think that it 
+        // has gotten responses from SM's
+        DltTokenGroupPtr dltPtr;
+        dltPtr = dataPlacementTbl->getDLTNodesForDoidKey(objId);
+        fds_verify(dltPtr != NULL);
+
+        fds_uint32_t numNodes = dltPtr->getLength();
+        fds_verify(numNodes > 0);
+        journEntry->sm_ack_cnt = numNodes;
+        LOGWARN << "not sending put request to sm as obj is zero size - ["
+                << " id:" << objId
+                << " objkey:" << blobReq->ObjKey
+                << " name:" << blobReq->getBlobName()
+                << "]";
+    }
+
     fds_verify(err == ERR_OK);
 
     /*
@@ -803,20 +828,37 @@ fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq) {
         return err;
     }
 
+    bool fSizeZero = (objId == NullObjectID);
+
     fds_verify(err == ERR_OK);
     journEntry->data_obj_id.digest = std::string((const char *)objId.GetId(), (size_t)objId.GetLen());
 
     get_obj_req->data_obj_id.digest = std::string((const char *)objId.GetId(), (size_t)objId.GetLen());
     get_obj_req->data_obj_len = blobReq->getDataLen();
+    if (fSizeZero) {
+        LOGWARN << "zero size object - not sending get request to sm -"
+                << " name:" << blobReq->getBlobName()
+                << " txnid:" << transId;
+        
+        storHvisor->qos_ctrl->markIODone(journEntry->io);
+        journEntry->trans_state = FDS_TRANS_DONE;
 
-    LOGNOTIFY << "Getting object " << objId << " for blob "
-              << blobReq->getBlobName() << " and offset "
-              << blobReq->getBlobOffset() << " in trans "
-              << transId;
-    journEntry->nodeSeq = 0; // Primary node
-    err = dispatchSmGetMsg(journEntry);
-    fds_verify(err == ERR_OK);
-  
+        blobReq->setDataLen(0);
+        blobReq->cbWithResult(FDSN_StatusEntityEmpty);
+        journEntry->reset();
+        shVol->journal_tbl->releaseTransId(transId);
+    } else {
+        journEntry->trans_state = FDS_TRANS_GET_OBJ;
+        LOGNORMAL << "Getting object " << objId << " for blob "
+                  << blobReq->getBlobName() << " and offset "
+                  << blobReq->getBlobOffset() << " in trans "
+                  << transId;
+        journEntry->nodeSeq = 0; // Primary node
+        err = dispatchSmGetMsg(journEntry);
+        fds_verify(err == ERR_OK);
+        // Schedule a timer here to track the responses and the original request
+        shVol->journal_tbl->schedule(journEntry->ioTimerTask, std::chrono::seconds(FDS_IO_LONG_TIME));
+    }
     /*
      * Note je_lock destructor will unlock the journal entry automatically
      */

@@ -297,7 +297,10 @@ int AME_Request::ame_map_fdsn_status(FDSN_Status status) {
         case FDSN_StatusErrorAmbiguousGrantByEmailAddress   :
         case FDSN_StatusErrorBadDigest                      :
         case FDSN_StatusErrorEntityTooSmall                 :
-        case FDSN_StatusErrorEntityTooLarge                 : return  NGX_HTTP_BAD_REQUEST; //NOLINT
+        case FDSN_StatusErrorEntityTooLarge                 : return NGX_HTTP_BAD_REQUEST; //NOLINT
+
+        case FDSN_StatusRequestTimedOut                     : return NGX_HTTP_GATEWAY_TIME_OUT; //NOLINT
+        case FDSN_StatusEntityEmpty                         : return NGX_HTTP_NO_CONTENT;
 
         case FDSN_StatusErrorAccessDenied                   :
         case FDSN_StatusErrorAccountProblem                 :
@@ -307,6 +310,9 @@ int AME_Request::ame_map_fdsn_status(FDSN_Status status) {
         case FDSN_StatusErrorBucketAlreadyOwnedByYou        :
         case FDSN_StatusErrorBucketNotEmpty                 : return NGX_HTTP_CONFLICT;
 
+        case FDSN_StatusInternalError                       :
+        case FDSN_StatusOutOfMemory                         :
+        case FDSN_StatusInterrupted                         :
         case FDSN_StatusNameLookupError                     :
         case FDSN_StatusFailedToConnect                     :
         case FDSN_StatusServerFailedVerification            :
@@ -408,15 +414,23 @@ AME_Request::ame_reqt_iter_data_next(fds_uint32_t data_len,
 
     // TODO(Andrew): Don't call this each time to reset the
     // ack count and don't assume the length won't change
-    fds_uint32_t ack_count = content_len / data_len;
-    if ((content_len % data_len) != 0) {
-        // There's a remainder that needs to be acked
-        ack_count++;
+    fds_uint32_t ack_count = 0;
+    if (content_len > 0 && data_len > 0) {
+        ack_count = content_len / data_len;
+        if ((content_len % data_len) != 0) {
+            // There's a remainder that needs to be acked
+            ack_count++;
+        }
     }
     ame_ctx->set_ack_count(ack_count);
-
     *len = data_len;
+
+    LOGDEBUG << " content-len:" << content_len
+             << " data_len:" << data_len
+             << " ack_count:" << ack_count;
+
     char *data  = ame_ctx->ame_next_buf_ptr(len);
+
     fds_verify(*len <= data_len);
 
     if ((data != NULL) && (*len < data_len)) {
@@ -591,7 +605,12 @@ AME_Request::ame_send_resp_data(ame_buf_t *buf, int len, fds_bool_t last)
     out.buf  = buf;
     out.next = NULL;
 
-    rc = ngx_http_output_filter(r, &out);
+    if (len == 0 && last) {
+        rc = NGX_HTTP_NO_CONTENT;
+    } else {
+        rc = ngx_http_output_filter(r, &out);
+    }
+
     if (last) {
         ngx_http_finalize_request(r, rc);
     }
@@ -949,6 +968,16 @@ Conn_PutObject::ame_request_handler()
     fds_bool_t    last_byte;
 
     buf = ame_reqt_iter_data_next(get_max_buf_len(), &len);
+    if (len == 0) {
+        // special case where no data is given
+        // Issue async request
+        api = ame->ame_fds_hook();
+        api->PutObject(&bucket_ctx, get_object_id(), NULL,
+                       static_cast<void *>(ame_ctx), buf, 0,
+                       len, true, fdsn_putobj_cbfn,
+                       static_cast<void *>(this));
+    }
+
     while (len != 0) {
         // Update the context with the outstanding request
         fds_off_t offset= ame_ctx->ame_get_offset();

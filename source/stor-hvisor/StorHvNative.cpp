@@ -483,8 +483,19 @@ void FDS_NativeAPI::DoCallback(FdsBlobReq  *blob_req,
   FDS_PLOG(storHvisor->GetLog()) << "FDS_NativeAPI: callback to complete blob request : "
 				 << error.GetErrstr();
 
+  LOGNORMAL << " callback -"
+            << " [iotype:" << blob_req->getIoType() << "]"
+            << " [error:"  << error << "]"
+            << " [result:" << result << ":" << static_cast<FDSN_Status>(result) << "]";
+
   if ( !error.ok() || (result != 0) ) {
-    status = FDSN_StatusInternalError;
+
+      if (result>0 && result < FDSN_StatusErrorUnknown) {
+          // the result is a fdsn status
+          status = (FDSN_Status)result;
+      } else {
+          status = FDSN_StatusInternalError;
+      }
   }
 
   switch (blob_req->getIoType()) {

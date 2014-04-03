@@ -26,11 +26,14 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) {
   
     FDSP_MsgHdrTypePtr dmMsg = txn->dm_msg;
   
-    LOGNORMAL << "State transition attemp for trans "
-              << transId  << " cur state "  << txn->trans_state
-              << " sm_ack: " << txn->sm_ack_cnt << " dm_ack: "
-              << txn->dm_ack_cnt << " dm_commits: "
-              << txn->dm_commit_cnt;    
+    LOGNORMAL << " txnid:" << transId
+              << " state:"  << txn->trans_state
+              << " sm_ack:" << txn->sm_ack_cnt
+              << " dm_ack:" << txn->dm_ack_cnt
+              << " dm_commits:" << txn->dm_commit_cnt
+              << " num_dm_nodes:" << txn->num_dm_nodes
+              << " num_sm_nodes:" << txn->num_sm_nodes;
+            
     switch(txn->trans_state)  {
         case FDS_TRANS_OPEN:
             if ((txn->sm_ack_cnt < FDS_MIN_ACK) || (txn->dm_ack_cnt < FDS_MIN_ACK)) {
@@ -54,7 +57,7 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) {
             // else fall through to next case.
       
         case FDS_TRANS_COMMITTED:
-            if((txn->sm_ack_cnt == txn->num_sm_nodes) &&
+            if((txn->sm_ack_cnt >= txn->num_sm_nodes) &&
                (txn->dm_commit_cnt == txn->num_dm_nodes)) {
                 LOGNORMAL << "Move trans " << transId
                           << " to FDS_TRANS_SYNCED:"
@@ -209,7 +212,8 @@ int StorHvCtrl::fds_move_del_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) 
             /* we have received min acks, fall through the next state */
             txn->trans_state = FDS_TRANS_COMMITTED;
 
-        case FDS_TRANS_COMMITTED:
+        case FDS_TRANS_COMMITTED: 
+            {
             LOGNORMAL << "Move trans " << transId
                       << " to FDS_TRANS_COMMITTED:"
                       << " received min DM acks";
@@ -245,8 +249,23 @@ int StorHvCtrl::fds_move_del_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) 
              * was invoked.
              */
             delete blobReq;
+        }
+            break;
 
-
+            // unhandled cases
+        case FDS_TRANS_EMPTY:
+        case FDS_TRANS_OPEN:
+        case FDS_TRANS_OPENED:
+        case FDS_TRANS_SYNCED:
+        case FDS_TRANS_DONE:
+        case FDS_TRANS_VCAT_QUERY_PENDING:
+        case FDS_TRANS_GET_OBJ:
+        case FDS_TRANS_GET_BUCKET:
+        case FDS_TRANS_BUCKET_STATS:
+        case FDS_TRANS_PENDING_DLT:
+        default:
+            LOGWARN << "unexpected state " << txn->trans_state ;
+            break;
     }
     return 0;
 }
@@ -353,15 +372,15 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
     
     // Get the object ID from the cache
     ObjectID offsetObjId;
-    err = shvol->
-            vol_catalog_cache->Query(blobReq->getBlobName(),
-                                     blobReq->getBlobOffset(),
-                                     journEntry->trans_id,
-                                     &offsetObjId);
+    err = shvol->vol_catalog_cache->Query(blobReq->getBlobName(),
+                                          blobReq->getBlobOffset(),
+                                          journEntry->trans_id,
+                                          &offsetObjId);
     fds_verify(err == ERR_OK);
     journEntry->data_obj_id.digest = std::string((const char *)offsetObjId.GetId(),
                                                  (size_t)offsetObjId.GetLen());
 
+    bool fSizeZero = (offsetObjId == NullObjectID);
     // Dispatch the SM get request after the
     // DM response is received
     fds_verify(journEntry->getMsg != NULL);
@@ -372,7 +391,25 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
                         (size_t)offsetObjId.GetLen());
     journEntry->getMsg->data_obj_len = blobReq->getDataLen();
     journEntry->trans_state = FDS_TRANS_GET_OBJ;
-    err = storHvisor->dispatchSmGetMsg(journEntry);
+    if (fSizeZero) {
+        LOGWARN << "zero size object "
+                << " name:" << blobReq->getBlobName()
+                << " not sending get request to sm";
+        
+        storHvisor->qos_ctrl->markIODone(journEntry->io);
+        journEntry->trans_state = FDS_TRANS_DONE;
+
+        blobReq->setDataLen(0);
+        blobReq->cbWithResult(FDSN_StatusEntityEmpty);
+        journEntry->reset();
+        shvol->journal_tbl->releaseTransId(trans_id);
+    } else {
+        LOGNORMAL << "sending get request to sm"
+                  << " name:" << blobReq->getBlobName()
+                  << " size:" << blobReq->getDataLen();
+        err = storHvisor->dispatchSmGetMsg(journEntry);
+    }
+    
     fds_verify(err == ERR_OK);
 
     // Schedule a timer here to track the responses and the original request
