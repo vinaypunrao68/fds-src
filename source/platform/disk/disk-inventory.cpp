@@ -72,6 +72,7 @@ PmDiskObj::dsk_update_device(struct udev_device *dev,
         dsk_read_uuid();
     }
     dsk_cap_gb   = strtoul(udev_device_get_sysattr_value(dev, "size"), NULL, 10);
+    dsk_cap_gb   = dsk_cap_gb >> (30 - 9);
     dsk_my_devno = udev_device_get_devnum(dev);
     dsk_raw_path = udev_device_get_devpath(dev);
     dsk_raw_plen = strlen(dsk_raw_path);
@@ -248,7 +249,8 @@ std::ostream &operator<< (std::ostream &os, PmDiskObj::pointer obj)
 
     if (obj->dsk_parent == obj) {
         os << obj->rs_name << " [uuid " << std::hex
-           << obj->rs_uuid.uuid_get_val() << std::dec << "]\n";
+           << obj->rs_uuid.uuid_get_val() << std::dec
+           << " - " << obj->dsk_cap_gb << " GB]\n";
         os << obj->dsk_common->dsk_get_blk_path() << std::endl;
         os << obj->dsk_raw_path << std::endl;
 
@@ -256,7 +258,8 @@ std::ostream &operator<< (std::ostream &os, PmDiskObj::pointer obj)
         obj->dsk_dev_foreach(&iter);
     } else {
         os << "  " << obj->rs_name << " [uuid " << std::hex
-           << obj->rs_uuid.uuid_get_val() << std::dec << "]\n";
+           << obj->rs_uuid.uuid_get_val() << std::dec
+           << " - " << obj->dsk_cap_gb << " GB]\n";
         if (obj->dsk_raw_path != NULL) {
             os << "  " << obj->dsk_raw_path << "\n";
         }
@@ -687,7 +690,7 @@ FileDiskObj::FileDiskObj(const char *dir) : PmDiskObj(), dsk_dir(dir)
     strncpy(rs_name, dir, sizeof(rs_name));
 
     snprintf(path, FDS_MAX_FILE_NAME, "%s/sblock", dir);
-    dsk_fd = open(path, O_CREAT | O_RDWR, S_IRWXU);
+    dsk_fd = open(path, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
 }
 
 FileDiskObj::~FileDiskObj()
@@ -702,8 +705,6 @@ int
 FileDiskObj::dsk_read(void *buf, fds_uint32_t sector, int sect_cnt)
 {
     fds_assert(buf != NULL);
-    fds_assert(dsk_fd > 0);
-
     return pread(dsk_fd, buf, sect_cnt * DL_SECTOR_SZ, 0);
 }
 
