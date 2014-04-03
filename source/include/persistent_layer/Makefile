@@ -5,6 +5,6 @@ user_build_dir :=
 
 user_hh        := $(wildcard *.h)
 user_hpp       := $(wildcard *.hpp)
-user_no_style  := $(user_hh) $(user_hpp)
+user_no_style  := tokFileMgr.h
 
 include $(topdir)/Makefile.incl

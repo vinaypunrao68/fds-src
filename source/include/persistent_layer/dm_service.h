@@ -1,5 +1,8 @@
-#ifndef INCLUDE_DM_DM_SERVICE_H_
-#define INCLUDE_DM_DM_SERVICE_H_
+/*
+ * Copyright 2014 by Formation Data Systems, Inc.
+ */
+#ifndef SOURCE_INCLUDE_PERSISTENT_LAYER_DM_SERVICE_H_
+#define SOURCE_INCLUDE_PERSISTENT_LAYER_DM_SERVICE_H_
 
 #include <shared/fds_types.h>
 #include <fds_resource.h>
@@ -18,7 +21,7 @@ class DmDiskID : public ResourceUUID
 {
 };
 
-/* /////////////////////    DM Disk Query Data Sets    ////////////////////// */
+/////////////////////    DM Disk Query Data Sets    //////////////////////
 
 const fds_uint32_t       dmq_disk_info = 0x00000001;
 
@@ -39,7 +42,7 @@ class DmDiskInfo;
 class DmDiskQueryOut : public QueryOut<DmDiskInfo>
 {
   public:
-    DmDiskQueryOut() : QueryOut<DmDiskInfo>() {};
+    DmDiskQueryOut() : QueryOut<DmDiskInfo>() {}
     ~DmDiskQueryOut() {}
 
     /*
@@ -80,7 +83,7 @@ class DmDiskParams
 {
 };
 
-/* //////////////////    DM System Query Data Sets    /////////////////////// */
+//////////////////    DM System Query Data Sets    ///////////////////////
 
 class DmSysQuery : public QueryIn
 {
@@ -98,7 +101,7 @@ class DmSysParams
 {
 };
 
-/* //////////////////    DM Module Query Data Sets    /////////////////////// */
+//////////////////    DM Module Query Data Sets    ///////////////////////
 
 class DmModQuery : public QueryIn
 {
@@ -116,7 +119,7 @@ class DmModParams
 {
 };
 
-/* //////////////////////    DM Query Manager    //////////////////////////// */
+//////////////////////    DM Query Manager    ////////////////////////////
 
 class DmQuery : protected QueryMgr
 {
@@ -144,6 +147,5 @@ class DmQuery : protected QueryMgr
     bool dm_set_mod_params(const DmModQuery &query, const DmModParams &p);
 };
 
-} // namespace fds
-
-#endif /* INCLUDE_DM_DM_SERVICE_H_ */
+}  // namespace fds
+#endif  // SOURCE_INCLUDE_PERSISTENT_LAYER_DM_SERVICE_H_

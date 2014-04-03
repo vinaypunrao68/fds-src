@@ -233,7 +233,7 @@ dlist_iter_rm_curr(dlist_t **iter)
     dlist_t *curr;
 
     curr  = (*iter);
-    *iter = curr->dl_next;
+    *iter = curr->dl_prev;
     dlist_rm(curr);
 
     return (curr);
@@ -244,7 +244,7 @@ dlist_iter_rm_curr(dlist_t **iter)
  */
 #define foreach_dlist_iter(dlist, iter)                                       \
     for (dlist_iter_init(dlist, &iter);                                       \
-         dlist_iter_term(dlist, iter) == false; dlist_iter_next(&iter))
+         !dlist_iter_term(dlist, iter) == false; dlist_iter_next(&iter))
 
 /*
  * Marco to free the whole dlist.

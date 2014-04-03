@@ -5,6 +5,7 @@
 #define SOURCE_PLATFORM_INCLUDE_DISK_LABEL_H_
 
 #include <vector>
+#include <fstream>
 #include <disk.h>
 
 namespace fds {
@@ -12,6 +13,10 @@ const int DL_UUID_BYTE_LEN             = 30;
 const int DL_MAJOR                     = 1;
 const int DL_MINOR                     = 0;
 const int DL_SECTOR_SZ                 = 512;
+const int DL_SECTOR_BEGIN              = 64;
+const int DL_PAGE_SZ                   = (8 << 10);
+const int DL_PAGE_SECT_SZ              = (DL_PAGE_SZ / DL_SECTOR_SZ);
+const int DL_INVAL_DISK_INDEX          = 0xffff;
 
 /**
  * On-disk format.  Keep this structure size at 128-byte.
@@ -26,13 +31,13 @@ typedef struct __attribute__((__packed__))
     /* 16-byte offset. */
     fds_uint16_t             dl_major;
     fds_uint16_t             dl_minor;
-    fds_uint16_t             dl_sect_sz;           /**< sector size in byte.          */
+    fds_uint16_t             dl_sect_sz;           /**< sector unit size in byte.     */
     fds_uint16_t             dl_total_sect;        /**< total lenght in sector size.  */
 
     fds_uint16_t             dl_used_sect;         /**< number sectors consumed.      */
-    fds_uint16_t             dl_num_quorum;
     fds_uint16_t             dl_recovery_mode;     /**< value is dlabel_recovery_e.   */
-    fds_uint16_t             dl_padding;
+    fds_uint16_t             dl_num_quorum;
+    fds_uint16_t             dl_my_disk_index;
 
     /*  32-byte offset. */
     fds_uint32_t             dl_quorum_seq;
@@ -72,7 +77,7 @@ typedef enum
 typedef struct __attribute__((__packed__))
 {
     fds_uint16_t             dl_idx;
-    char                     dl_uuid[DL_UUID_BYTE_LEN];
+    fds_uint8_t              dl_uuid[DL_UUID_BYTE_LEN];
 } dlabel_uuid_t;
 
 /**
@@ -111,25 +116,43 @@ class DiskLabelMgr;
 typedef std::vector<dmem_disk_uuid_t>   DiskUuidArray;
 
 /**
+ * -------------------------------------------------------------------------------------
  * Base disk label obj to perform read/write label to a disk.
+ * -------------------------------------------------------------------------------------
  */
 class DiskLabel
 {
   protected:
+    friend class DiskLabelMgr;
+
+    ChainLink                dl_link;
     dlabel_hdr_t            *dl_label;
     dlabel_disk_uuid_t      *dl_disk_uuids;
     DiskUuidArray            dl_uuids;
+    PmDiskObj::pointer       dl_owner;
+
+    void dsk_label_fixup_header();
 
   public:
-    explicit DiskLabel();
+    explicit DiskLabel(PmDiskObj::pointer disk);
     virtual ~DiskLabel();
 
+    int  dsk_label_sect_sz();
+    int  dsk_fill_disk_uuids(ChainList *labels);
+    bool dsk_label_valid(DiskLabelMgr *mgr = NULL);
     void dsk_label_init_header(dlabel_hdr_t *hdr);
+    void dsk_label_init_uuids(int dsk_cnt);
     void dsk_label_comp_checksum(dlabel_hdr_t *hdr);
+    void dsk_label_save_my_uuid(const ResourceUUID &uuid);
+    ResourceUUID dsk_label_my_uuid();
 
-    virtual void dsk_label_generate(int dsk_cnt);
-    virtual void dsk_label_read(DiskLabelMgr *mgr, PmDiskObj::pointer disk);
-    virtual void dsk_label_write(DiskLabelMgr *mgr, PmDiskObj::pointer disk);
+    inline const dlabel_hdr_t       *dsk_label_hdr() { return dl_label; }
+    inline const dlabel_disk_uuid_t *dsk_label_uuids() { return dl_disk_uuids; }
+
+    virtual void dsk_label_generate(ChainList *labels, int dsk_cnt);
+    virtual void dsk_label_clone(DiskLabel *master);
+    virtual void dsk_label_read();
+    virtual void dsk_label_write(DiskLabelMgr *mgr);
 };
 
 typedef enum
@@ -146,8 +169,8 @@ typedef enum
 class DiskLabelOp : public DiskObjIter
 {
   protected:
-    dlabel_op_e              dsk_op;
-    DiskLabelMgr            *dsk_mgr;
+    dlabel_op_e              dl_op;
+    DiskLabelMgr            *dl_mgr;
 
   public:
     explicit DiskLabelOp(dlabel_op_e op, DiskLabelMgr *mgr);
@@ -159,18 +182,27 @@ class DiskLabelOp : public DiskObjIter
 /**
  * Disk label manager to coordinate label quorum.
  */
-class DiskLabelMgr : public DiskObjIter
+class DiskLabelMgr
 {
   protected:
-    ChainList                dsk_labels;
-    fds_mutex                dsk_mtx;
+    DiskLabel               *dl_master;
+    ChainList                dl_labels;
+    fds_mutex                dl_mtx;
+
+    /**
+     * Temp construct to build a map file for PL to read the disk mapping.
+     */
+    std::ofstream           *dl_map;
 
   public:
     DiskLabelMgr();
     virtual ~DiskLabelMgr();
 
-    virtual bool dsk_iter_fn(DiskObj::pointer curr);
-    virtual bool dsk_iter_fn(DiskObj::pointer curr, DiskObjIter *arg);
+    DiskLabel *dsk_master_label_mtx();
+    void dsk_read_label(PmDiskObj::pointer disk);
+    void dsk_reconcile_label(bool creat);
+
+    void dsk_rec_label_map(const char *path, int idx, const ResourceUUID &uuid);
 };
 
 }  // namespace fds

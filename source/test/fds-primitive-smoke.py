@@ -609,7 +609,7 @@ if __name__ == "__main__":
     #
     if start_sys == 'true':
         bringup_cluster(env, verbose, debug)
-        time.sleep(2)
+        time.sleep(10)
 
     if args.smoke_test == 'false':
         pre_commit(vol_prefix + '_volume1', env.srcdir, '/tmp/pre_commit')

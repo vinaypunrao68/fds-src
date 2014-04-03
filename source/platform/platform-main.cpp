@@ -91,6 +91,8 @@ NodePlatformProc::plf_fill_disk_capacity_pkt(fpi::FDSP_RegisterNodeTypePtr pkt)
 {
     // for disk_iops_max -- report a little less than it could do
     // to reserve some iops for local background tasks (such as migration, etc)
+    LOGNOTIFY << "Send system capacity to OM";
+
     pkt->disk_info.disk_iops_max    = 3600;
     pkt->disk_info.disk_iops_min    = 1000;
     pkt->disk_info.disk_capacity    = 0x7ffff;
@@ -107,8 +109,11 @@ NodePlatformProc::plf_fill_disk_capacity_pkt(fpi::FDSP_RegisterNodeTypePtr pkt)
 void
 NodePlatformProc::setup()
 {
-    PlatformProcess::setup();
+    // TODO(Vy): must split the module init from startup steps...
     NodePlatform *plat = static_cast<NodePlatform *>(plf_mgr);
+
+    plat->mod_load_from_config();
+    PlatformProcess::setup();
     plat->plf_bind_process(this);
 }
 

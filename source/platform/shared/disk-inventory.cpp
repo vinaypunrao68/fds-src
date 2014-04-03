@@ -5,7 +5,7 @@
 
 namespace fds {
 
-DiskObj::DiskObj() : Resource(ResourceUUID(0)), dsk_type_link(this) {}
+DiskObj::DiskObj() : Resource(ResourceUUID()), dsk_type_link(this) {}
 DiskObj::~DiskObj() {}
 
 DiskInventory::DiskInventory() : RsContainer(), dsk_count(0) {}

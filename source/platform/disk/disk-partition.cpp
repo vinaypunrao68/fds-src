@@ -27,7 +27,7 @@ DiskPartition::dsk_partition_init(DiskPartitionMgr *mgr, PmDiskObj::pointer disk
     dsk_mgr = mgr;
     dsk_obj = disk;
 
-    dsk_pdev = ped_device_get(disk->dsk_dev_name());
+    dsk_pdev = ped_device_get(disk->rs_get_name());
     if (dsk_pdev != NULL) {
         dsk_pe = ped_disk_new(dsk_pdev);
 
