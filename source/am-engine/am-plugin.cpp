@@ -405,9 +405,11 @@ namespace fds {
 AME_Ctx::AME_Ctx() : ame_req(NULL), ame_next(NULL), ame_temp_buf(NULL)
 {
     // Start the ctx stream at the beginning
-    ame_buf_off   = 0;
-    ame_ack_count = 0;
-    ame_map_lock  = new fds_mutex("ame ctx lock");
+    ame_buf_off          = 0;
+    ame_ack_count        = 0;
+    ame_received_get_len = 0;
+    ame_map_lock         = new fds_mutex("ame ctx lock");
+    ame_header_sent      = false;
     ame_init_ngx_ctx();
 }
 
@@ -502,8 +504,9 @@ AME_Ctx::ame_get_offset() {
  * single nginx thread, so doesn't need locking
  */
 void
-AME_Ctx::ame_add_alloc_buf(char *buf) {
-    ame_alloc_bufs.push_back(buf);
+AME_Ctx::ame_add_alloc_buf(char *buf,
+                           fds_uint32_t len) {
+    ame_alloc_bufs.push_back(AME_Buf_Desc(buf, len));
 }
 
 /**
@@ -513,7 +516,7 @@ AME_Ctx::ame_add_alloc_buf(char *buf) {
 void
 AME_Ctx::ame_free_bufs() {
     while (ame_alloc_bufs.empty() != true) {
-        char *buf = ame_alloc_bufs.front();
+        char *buf = ame_alloc_bufs.front().first;
         ame_alloc_bufs.pop_front();
         fds_verify(buf != NULL);
         ngx_pfree(ame_req->ame_req->pool, buf);
@@ -605,6 +608,35 @@ AME_Ctx::ame_check_status() {
 }
 
 /**
+ * Returns the next unset offset in the request
+ */
+Error
+AME_Ctx::ame_get_unsent_offset(fds_off_t  *offset,
+                               fds_bool_t *last) {
+    Error err(ERR_OK);
+    *last = false;
+    ame_map_lock->lock();
+    for (AME_Ack_Map::const_iterator it = ame_req_map.cbegin();
+         it != ame_req_map.cend();
+         it++) {
+        // The first offset we encouted with OK has been
+        // acked, but not sent yet
+        if (it->second == OK) {
+            *offset = it->first;
+            if (std::next(it) == ame_req_map.cend()) {
+                *last = true;
+            }
+            ame_map_lock->unlock();
+            return err;
+        }
+    }
+    ame_map_lock->unlock();
+
+    err = ERR_NOT_FOUND;
+    return err;
+}
+
+/**
  * Moves the context offset by len
  * Note, no lock is acquired because we're assuming
  * the caller will not call from multi-threaded envs
@@ -622,6 +654,124 @@ AME_Ctx::ame_get_off() const {
 ngx_md5_t *
 AME_Ctx::ame_get_etag() {
     return &ame_etag_ctx;
+}
+
+/**
+ * Sets the requested get range to the
+ * entire blob. The proper blob size will
+ * be set later.
+ * Note, we don't lock here because expect
+ * it to only be called by a single nginx
+ * request thread.
+ */
+void
+AME_Ctx::ame_set_request_all() {
+    ame_req_get_range = ALL;
+    ame_req_get_len   = 0;
+}
+
+/**
+ * Sets the specific length being requested.
+ * Only has an effect if a specific length wasn't
+ * already set, making it idempotent
+ */
+fds_bool_t
+AME_Ctx::ame_set_specific(fds_uint64_t len) {
+    fds_bool_t allSet = false;
+    ame_map_lock->lock();
+    if (ame_req_get_range == ALL) {
+        allSet            = true;
+        ame_req_get_range = SPECIFIC;
+        ame_req_get_len   = len;
+    }
+    ame_map_lock->unlock();
+    return allSet;
+}
+
+/**
+ * Returns the requested length.
+ * Assumes a specific length has already been set
+ */
+fds_uint64_t
+AME_Ctx::ame_get_requested_len() {
+    fds_uint64_t len;
+    ame_map_lock->lock();
+    fds_verify(ame_req_get_range == SPECIFIC);
+    len = ame_req_get_len;
+    ame_map_lock->unlock();
+    return len;
+}
+
+/**
+ * Stores to allocated buffer for an offset
+ */
+void
+AME_Ctx::ame_add_get_buf(fds_off_t offset,
+                         ame_buf_t *ame_buf) {
+    ame_map_lock->lock();
+    // Set a 0 len for now and we'll set it
+    // on the callback based on how much data
+    // was read
+    fds_uint32_t len = 0;
+    fds_verify(ame_get_bufs.count(offset) == 0);
+    ame_get_bufs[offset] = AME_Get_Desc(ame_buf, len);
+    ame_map_lock->unlock();
+}
+
+/**
+ * Sets the length actually received from FDSN
+ * for the given offset we read. Also, tracks
+ * total bytes received for the entire request.
+ */
+void
+AME_Ctx::ame_set_get_len(fds_off_t offset,
+                         fds_uint32_t len) {
+    ame_map_lock->lock();
+    fds_verify(ame_get_bufs.count(offset) > 0);
+    fds_verify(ame_get_bufs[offset].second == 0);
+    ame_get_bufs[offset].second = len;
+    ame_received_get_len += len;
+    ame_map_lock->unlock();
+}
+
+/**
+ * Note we expect this to only be called when the
+ * request is being finalized, so don't need to lock.
+ */
+fds_uint64_t
+AME_Ctx::ame_get_received_len() const {
+    return ame_received_get_len;
+}
+
+/**
+ * Returns the buffer and received length in
+ * the buffer for a given offset.
+ */
+void
+AME_Ctx::ame_get_get_info(fds_off_t    offset,
+                          ame_buf_t    **ame_buf,
+                          fds_uint32_t *len) {
+    ame_map_lock->lock();
+    fds_verify(ame_get_bufs.count(offset) > 0);
+    *ame_buf = ame_get_bufs[offset].first;
+    *len     = ame_get_bufs[offset].second;
+    ame_map_lock->unlock();
+}
+
+/**
+ * Returns true of we sent the header already
+ */
+fds_bool_t
+AME_Ctx::ame_get_header_sent() const {
+    return ame_header_sent;
+}
+
+/**
+ * Set whether or not the header was sent
+ */
+void
+AME_Ctx::ame_set_header_sent(fds_bool_t sent) {
+    ame_header_sent = sent;
 }
 
 /*
@@ -760,6 +910,11 @@ AME_CtxList::ame_get_ctx(AME_Request *req)
 
         fds_verify(ctx->ame_alloc_bufs.empty() == true);
         HttpUtils::initEtag(&(ctx->ame_etag_ctx));
+
+        ctx->ame_header_sent = false;
+        ctx->ame_get_bufs.clear();
+        ctx->ame_received_get_len = 0;
+
         return ctx;
     }
     return NULL;

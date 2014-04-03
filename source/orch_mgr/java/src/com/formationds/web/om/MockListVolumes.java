@@ -8,9 +8,11 @@ import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
 import org.eclipse.jetty.server.Request;
 
+import java.util.Map;
+
 public class MockListVolumes implements RequestHandler {
     @Override
-    public Resource handle(Request request) throws Exception {
+    public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
         return new TextResource(CANNED_RESPONSE);
     }
 

@@ -51,7 +51,7 @@ class BaseChecker : public Platform {
 
     virtual void log_corruption(const std::string& info);
     virtual void compare_against(
-            const FDSP_MigrateObjectMetadata& golden,
+            FDSP_MigrateObjectMetadata& golden,
             std::vector<FDSP_MigrateObjectMetadata> md_list);
  protected:
     CheckerCntrs cntrs_;

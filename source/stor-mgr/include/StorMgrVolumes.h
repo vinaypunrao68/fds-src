@@ -180,7 +180,7 @@ namespace fds {
   };
   
   class SmIoReq : public FDS_IOType {
-  private:
+  protected:
     ObjectID     objId;
     // ObjectBuf    objData;
     fds_volid_t  volUuid;
@@ -271,6 +271,9 @@ namespace fds {
       getObjReq = NULL;
       putObjReq = NULL;
     }
+    void setObjId(const ObjectID &id) {
+        objId = id;
+    }
     const ObjectID& getObjId() const {
       return objId;
     }
@@ -294,6 +297,10 @@ namespace fds {
 
     fds_volid_t getVolId() const {
       return volUuid;
+    }
+    void setVolId(const fds_volid_t& id) {
+        volUuid = id;
+        io_vol_id = id;
     }
 
     TransJournalId&  getTransId() { 
@@ -344,20 +351,25 @@ namespace fds {
 
   /**
    * Token iterator
+   * TODO(Rao): Provide the following implementations
+   * begin(), end(), next() similar to iterators.
    */
   class SMTokenItr {
   public:
-      static ObjectID itr_end;
-      ObjectID  objId;
+      leveldb::Iterator* itr;
+      leveldb::DB* db;
+      leveldb::ReadOptions options;
+      bool done;
 
       SMTokenItr() {
-          objId = NullObjectID;
+          itr = nullptr;
+          db = nullptr;
+          done = false;
       }
       ~SMTokenItr() {
       }
 
-      bool isBegin() {return objId == NullObjectID;}
-      bool isEnd() {return objId == itr_end;}
+      bool isEnd() {return done;}
   };
 
   /**
@@ -479,9 +491,6 @@ namespace fds {
   public:
       SmIoReadObjectdata() {
       }
-      ObjectID getObjectId() {
-          return ObjectID(obj_data.obj_id.digest);
-      }
       /* In/out: In is object id, out is object data */
       FDSP_ObjectIdDataPair obj_data;
 
@@ -498,9 +507,6 @@ namespace fds {
               SmIoReadObjectMetadata *read_data)> CbType;
   public:
       SmIoReadObjectMetadata() {
-      }
-      ObjectID getObjectId() {
-          return ObjectID(meta_data.object_id.digest);
       }
       /* In/out: In is object id, out is object meta data */
       FDSP_MigrateObjectMetadata meta_data;

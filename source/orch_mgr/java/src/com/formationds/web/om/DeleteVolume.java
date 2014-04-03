@@ -12,6 +12,8 @@ import com.formationds.web.toolkit.Resource;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
 
+import java.util.Map;
+
 public class DeleteVolume implements RequestHandler {
     private FDSP_ConfigPathReq.Iface iface;
 
@@ -20,8 +22,8 @@ public class DeleteVolume implements RequestHandler {
     }
 
     @Override
-    public Resource handle(Request request) throws Exception {
-        String volumeName = requiredString(request, "name");
+    public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
+        String volumeName = requiredString(routeParameters, "name");
         int result = iface.DeleteVol(new FDSP_MsgHdrType(), new FDSP_DeleteVolType(volumeName, 0));
         return new JsonResource(new JSONObject().put("status", result));
     }

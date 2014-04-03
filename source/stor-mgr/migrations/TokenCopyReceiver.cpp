@@ -28,6 +28,9 @@ using namespace msm::front::euml;   // NOLINT
 typedef msm::front::none msm_none;
 
 /* Statemachine events */
+/* For starting receiver state machines */
+struct TRStart {};
+
 /* Triggered once response for copy tokens request is received */
 typedef FDSP_CopyTokenResp CopyTokRespEvt;
 
@@ -75,6 +78,7 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
         data_store_ = data_store;
         sender_ip_ = sender_ip;
         sender_port_= sender_port;
+        token_id_ = token;
         pending_tokens_.insert(token);
         sender_session_ = sender_session;
         client_resp_handler_ = client_resp_handler;
@@ -198,7 +202,7 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
         template <class EVT, class FSM, class SourceState, class TargetState>
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
-            LOGDEBUG << "connect " << fsm.mig_stream_id_;
+            LOGDEBUG << "connect. token: " << fsm.token_id_;
 
             /* Issue copy tokens request */
             FDSP_CopyTokenReq copy_req;
@@ -222,14 +226,14 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
         template <class EVT, class FSM, class SourceState, class TargetState>
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
-            LOGDEBUG << "update_tok " << fsm.mig_stream_id_;
+            LOGDEBUG << "update_tok.  token: " << fsm.token_id_;
 
             fds_assert(fsm.pending_tokens_.size() > 0);
             if (fsm.write_tok_complete_) {
                 fsm.pending_tokens_.erase(fsm.write_token_id_);
                 fsm.completed_tokens_.push_back(fsm.write_token_id_);
 
-                LOGNORMAL << "Token " << fsm.write_token_id_ << " received completely";
+                LOGNORMAL << "token: " << fsm.token_id_ << " received completely";
             }
         }
     };
@@ -239,7 +243,7 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
         template <class EVT, class FSM, class SourceState, class TargetState>
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
-            LOGDEBUG << "ack_tok " << fsm.mig_stream_id_;
+            LOGDEBUG << "ack_tok.  token: " << fsm.token_id_;
 
             fsm.migrationSvc_->mig_cntrs.tok_copy_rcvd.incr(evt.obj_list.size());
 
@@ -259,7 +263,7 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
         {
             Error err(ERR_OK);
 
-            LOGDEBUG << "write_tok " << fsm.mig_stream_id_;
+            LOGDEBUG << "write_tok.  token: " << fsm.token_id_;
 
             /* Book keeping */
             fsm.write_tok_complete_ = evt.complete;
@@ -288,7 +292,7 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
         template <class EVT, class FSM, class SourceState, class TargetState>
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
-            LOGDEBUG << "teardown " << fsm.mig_stream_id_;
+            LOGDEBUG << "teardown.  token: " << fsm.token_id_;
             LOGDEBUG << fsm.migrationSvc_->mig_cntrs.toString();
 
             TRCopyDnEvtPtr destroy_evt(new TRCopyDnEvt(fsm.mig_stream_id_,
@@ -352,6 +356,8 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
     /* Callback invoked once data's been read from Object store */
     void data_written_cb(const Error &e, SmIoPutTokObjectsReq *resp)
     {
+        LOGDEBUG << "token: " << token_id_;
+
         DBG(write_in_progress_ = false);
         if (e != ERR_OK) {
             fds_assert(!"Error in reading");
@@ -385,6 +391,8 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
      */
     boost::shared_ptr<FDSP_MigrationPathRespIf> client_resp_handler_;
 
+    /* Token we are copying */
+    fds_token_id token_id_;
     /* Tokens that are pending to be received */
     // TODO(Rao):  We don't receive tokens in bulk any more.  Shouldn't be set
     // anymore
@@ -492,9 +500,9 @@ TokenCopyReceiver::~TokenCopyReceiver() {
  */
 void TokenCopyReceiver::start()
 {
-    copy_fsm_->start();
-    sync_fsm_->start();
-    pull_fsm_->start();
+    FdsActorRequestPtr far(new FdsActorRequest(
+                        FAR_ID(TRStart), nullptr));
+    send_actor_request(far);
 }
 
 /**
@@ -507,6 +515,13 @@ Error TokenCopyReceiver::handle_actor_request(FdsActorRequestPtr req)
     Error err = ERR_OK;
     FDSP_CopyTokenReqPtr copy_tok_req;
     switch (req->type) {
+    case FAR_ID(TRStart):
+    {
+        copy_fsm_->start();
+        sync_fsm_->start();
+        pull_fsm_->start();
+        break;
+    }
     case FAR_ID(MigSvcSyncCloseReq):
     {
         /* Notification from migration service to close sync */
@@ -543,14 +558,14 @@ Error TokenCopyReceiver::handle_actor_request(FdsActorRequestPtr req)
         migrationSvc_->getTokenStateDb()->setTokenState(token_id_,
                 kvstore::TokenStateInfo::SYNCING);
 
-        LOGDEBUG << "tok id: " << token_id_ << " copy completed.  Starting sync";
-
-        // TODO(Rao): Get the sync start time from token db.  We should healthy time
-        // stamp here.  As metadata entries are written we need to update the healthy
-        // timestamp
-        uint64_t sync_ts = get_fds_timestamp_ms();
+        /* Copy complete.  Start sync */
+        uint64_t sync_ts;
+        migrationSvc_->getTokenStateDb()->getTokenHealthyTS(token_id_, sync_ts);
         migrationSvc_->getTokenStateDb()->setTokenSyncStartTS(token_id_, sync_ts);
         sync_fsm_->process_event(TRStartEvt(sync_ts, 0));
+
+        LOGDEBUG << "token: " << token_id_ << " copy completed.  Starting sync"
+                << "start_ts: " << sync_ts;
         break;
     }
     /* Sync related */

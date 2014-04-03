@@ -67,7 +67,7 @@ struct TokenSyncReceiverFSM_
         sent_apply_md_msgs_ = 0;
         ackd_apply_md_msgs_ = 0;
 
-        pending_resolve_cnt_ = 0;
+        inflight_resolve_msgs_ = 0;
 
         db_ = nullptr;
         db_itr_ = nullptr;
@@ -306,8 +306,8 @@ struct TokenSyncReceiverFSM_
             static uint32_t max_to_resolve = 10;
             std::list<ObjectID> resolve_list;
 
-            fds_assert(fsm.pending_resolve_cnt_ == 0);
-            fsm.pending_resolve_cnt_ = 0;
+            fds_assert(fsm.inflight_resolve_msgs_ == 0);
+            fsm.inflight_resolve_msgs_ = 0;
 
             /* Iterate the snapshot and resolve few entries at a time */
             leveldb::Iterator* it = fsm.db_itr_;
@@ -320,7 +320,7 @@ struct TokenSyncReceiverFSM_
              */
             for (; it->Valid() && resolve_list.size() < max_to_resolve; it->Next()) {
                 ObjectID id(it->key().ToString());
-                LOGDEBUG << "range check id: " << id
+                LOGDEBUG << "token: " << fsm.token_id_ << " range check id: " << id
                         << " start: " << start_obj_id << " end: " << end_obj_id;
                 /* Range check */
                 if (id < start_obj_id || id > end_obj_id) {
@@ -335,11 +335,28 @@ struct TokenSyncReceiverFSM_
             }
             fds_assert(it->status().ok());  // Check for any errors found during the scan
 
-            /* Setting pending_resolve_cnt_ prior to issuing object store requests
+            /* Setting inflight_resolve_msgs_ prior to issuing object store requests
              * to avoid race between actor threads and sm response callback thread
              */
-            fsm.pending_resolve_cnt_ = resolve_list.size();
-            fds_assert(resolve_list.size() > 0);
+            fsm.inflight_resolve_msgs_ = resolve_list.size();
+
+            if (resolve_list.size() == 0) {
+                /* Nothing to resolve.  Simulate  TRResolveDnEvt to get state
+                 * machine going
+                 */
+                FdsActorRequestPtr far(new FdsActorRequest(
+                        FAR_ID(TRResolveDnEvt), nullptr));
+
+                Error err = fsm.parent_->send_actor_request(far);
+                if (err != ERR_OK) {
+                    fds_assert(!"Failed to send message");
+                    LOGERROR << "Failed to send actor message.  Error: "
+                            << err;
+                }
+                LOGDEBUG << "issue_resolve token: " << fsm.token_id_
+                        << " batch size: " << resolve_list.size();
+                return;
+            }
 
             /* Issue resolves one entry at a time.  If we want to issue bulk, we'll need
              * to lock the token db. Object store currently only supports serializing
@@ -406,18 +423,6 @@ struct TokenSyncReceiverFSM_
     };
 
     /* Guards */
-    struct need_resolve
-    {
-        /* Returns true if there is nothing to resolve */
-        template <class EVT, class FSM, class SourceState, class TargetState>
-        bool operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
-        {
-            bool ret = (fsm.sent_apply_md_msgs_ > 0);
-            LOGDEBUG << "need_resolve?: " << ret;
-            return ret;
-        }
-    };
-
     struct resolve_dn
     {
         /* Returns true if we resolved all the sync entries */
@@ -450,9 +455,7 @@ struct TokenSyncReceiverFSM_
 
     Row< Receiving  , TRMdXferDnEvt  , RecvDone   , mark_sync_dn    , msm_none         >,
     // +------------+----------------+------------+-----------------+------------------+
-    Row< RecvDone   , msm_none       , Snapshot   , take_snap       , need_resolve     >,
-
-    Row< RecvDone   , msm_none       , Complete   , teardown        , Not_<need_resolve>>, // NOLINT
+    Row< RecvDone   , msm_none       , Snapshot   , take_snap       , msm_none         >,
     // +------------+----------------+------------+-----------------+------------------+
     Row< Snapshot   , TSnapDnEvt     , Resolving  , issue_resolve   , msm_none         >,
     // +------------+----------------+------------+-----------------+------------------+
@@ -565,11 +568,11 @@ struct TokenSyncReceiverFSM_
 
         delete resolve_entry;
 
-        fds_assert(pending_resolve_cnt_ > 0);
-        pending_resolve_cnt_--;
+        fds_assert(inflight_resolve_msgs_ > 0);
+        inflight_resolve_msgs_--;
 
-        if (pending_resolve_cnt_ == 0) {
-            LOGDEBUG << "Applied a batch of resolve entries";
+        if (inflight_resolve_msgs_ == 0) {
+            LOGDEBUG << "Applied a batch of resolve entries token: " << token_id_;
             FdsActorRequestPtr far(new FdsActorRequest(
                     FAR_ID(TRResolveDnEvt), nullptr));
 
@@ -617,10 +620,10 @@ struct TokenSyncReceiverFSM_
     /* Token id we are syncing */
     fds_token_id token_id_;
 
-    /* Current count of SmIoApplySyncMetadata messages issued against data_store_ */
+    /* Total count of SmIoApplySyncMetadata messages issued against data_store_ */
     uint32_t sent_apply_md_msgs_;
 
-    /* Acked count of SmIoApplySyncMetadata */
+    /* Total count of SmIoApplySyncMetadata */
     uint32_t ackd_apply_md_msgs_;
 
     /* Apply sync metadata callback */
@@ -630,7 +633,7 @@ struct TokenSyncReceiverFSM_
     bool sync_stream_done_;
 
     /* Current outstanding SmIoResolveSyncEntry messages issued against data_store_ */
-    uint32_t pending_resolve_cnt_;
+    uint32_t inflight_resolve_msgs_;
 
     /* Token db snapshot info.  Used during resolve process */
     leveldb::DB *db_;
@@ -638,6 +641,7 @@ struct TokenSyncReceiverFSM_
     leveldb::ReadOptions db_options_;
 };  /* struct TokenSyncReceiverFSM_ */
 
+#if 0
 /* State machine for Pull sender */
 struct PullReceiverFSM_
         : public msm::front::state_machine_def<PullReceiverFSM_> {
@@ -853,7 +857,7 @@ struct PullReceiverFSM_
     /* Token data store reference */
     SmIoReqHandler *data_store_;
 };  /* struct PullReceiverFSM_ */
-
+#endif
 
 TokenSyncReceiver::TokenSyncReceiver()
 {

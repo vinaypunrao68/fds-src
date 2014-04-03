@@ -12,6 +12,7 @@ import org.json.JSONObject;
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletResponse;
 import java.util.Arrays;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -28,14 +29,14 @@ public class Authorizer implements RequestHandler {
 
 
     @Override
-    public Resource handle(Request request) throws Exception {
+    public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
         Cookie[] cookies = request.getCookies() == null? new Cookie[0] : request.getCookies();
         Optional<Boolean> result = Arrays.stream(cookies)
                 .filter(c -> FDS_TOKEN.equals(c.getName()))
                 .findFirst()
                 .map(c -> authorizer.apply(c.getValue()));
         if (result.isPresent() && result.get()) {
-            return supplier.get().handle(request);
+            return supplier.get().handle(request, routeParameters);
         } else {
             return new JsonResource(new JSONObject().put("message", "Invalid credentials"), HttpServletResponse.SC_UNAUTHORIZED);
         }

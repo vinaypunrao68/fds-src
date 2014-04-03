@@ -17,6 +17,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.util.List;
+import java.util.Map;
 
 public class ListServices implements RequestHandler {
     private FDSP_ConfigPathReq.Iface configPathClient;
@@ -34,7 +35,7 @@ public class ListServices implements RequestHandler {
         };
     }
 
-    public Resource handle(Request request) throws Exception {
+    public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
         List<FDSP_Node_Info_Type> list = configPathClient.ListServices(new FDSP_MsgHdrType());
         ObjectMapper mapper = new ObjectMapper();
         mapper.registerModule(new JsonOrgModule());
@@ -46,6 +47,7 @@ public class ListServices implements RequestHandler {
             jsonObject
                     .put("site", "Fremont")
                     .put("domain", "Formation Data Systems")
+                    .put("local_domain", "Formation Data Systems")
                     .put("node_uuid", Long.toString(nodeUuid))
                     .put("service_uuid", Long.toString(serviceUuid));
         }

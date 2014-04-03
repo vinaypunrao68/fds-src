@@ -39,6 +39,9 @@ enum FdsActorRequestType {
     /* Migration service message to close syncs */
     FAR_ENUM(MigSvcSyncCloseReq),
 
+    /* For starting Token receiver statemachine */
+    FAR_ENUM(TRStart),
+
     /* TokenCopySender message that token data has been read */
     FAR_ENUM(TcsDataReadDone),
 
@@ -59,6 +62,9 @@ enum FdsActorRequestType {
 
     /* Token receiver sync resolve is complete */
     FAR_ENUM(TRResolveDnEvt),
+
+    /* For starting Token sender statemachine */
+    FAR_ENUM(TSStart),
 
     /* Token receiver sync process is complete */
     FAR_ENUM(TRSyncDnEvt),

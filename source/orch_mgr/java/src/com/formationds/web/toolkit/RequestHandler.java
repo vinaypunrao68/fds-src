@@ -6,18 +6,22 @@ package com.formationds.web.toolkit;
 
 import org.eclipse.jetty.server.Request;
 
-public interface RequestHandler {
-    public Resource handle(Request request) throws Exception;
+import java.util.Map;
+import java.util.Optional;
 
-    public default String requiredString(Request request, String name) throws UsageException {
-        if ((request.getParameter(name) == null)) {
+public interface RequestHandler {
+    public Resource handle(Request request, Map<String, String> routeParameters) throws Exception;
+
+    public default String requiredString(Map<String, String> routeAttributes, String name) throws UsageException {
+        String value = routeAttributes.get(name);
+        if ((value == null)) {
             throw new UsageException(String.format("Parameter '%s' is missing", name));
         }
-        return request.getParameter(name);
+        return value;
     }
 
-    public default int requiredInt(Request request, String name) throws UsageException {
-        String s = requiredString(request, name);
+    public default int requiredInt(Map<String, String> routeAttributes, String name) throws UsageException {
+        String s = requiredString(routeAttributes, name);
         try {
             return Integer.parseInt(s);
         } catch (Exception e) {
@@ -25,12 +29,17 @@ public interface RequestHandler {
         }
     }
 
-    public default long requiredLong(Request request, String name) throws UsageException {
-        String s = requiredString(request, name);
+    public default long requiredLong(Map<String, String> routeAttributes, String name) throws UsageException {
+        String s = requiredString(routeAttributes, name);
         try {
             return Long.parseLong(s);
         } catch (Exception e) {
             throw new UsageException("Parameter '%s' should be an integer");
         }
+    }
+
+    public default Optional<String> optionalString(Map<String, String> routeAttributes, String name) {
+        String value = routeAttributes.get(name);
+        return value == null ? Optional.empty() : Optional.of(value);
     }
 }

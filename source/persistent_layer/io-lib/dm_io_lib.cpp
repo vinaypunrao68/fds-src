@@ -460,4 +460,30 @@ DataIO::disk_loc_path_info(fds_uint16_t loc_id, std::string *path)
 {
 }
 
+//
+// Handle notification about start of garbage collection for given token
+// and tier
+//
+fds::Error
+DataIO::notify_start_gc(fds::fds_token_id tok_id,
+                        DataTier tier)
+{
+    fds::Error err(fds::ERR_OK);
+    // TODO(WIN-289) implement this
+    return err;
+}
+
+//
+// Notify about end of garbage collection for a given token and tier
+//
+fds::Error
+DataIO::notify_end_gc(fds::fds_token_id tok_id,
+                      DataTier tier)
+{
+    fds::Error err(fds::ERR_OK);
+    // TODO(WIN-289) implement this
+    return err;
+}
+
+
 }  // namespace diskio

@@ -516,6 +516,8 @@ handle_migsvc_sync_close(FdsActorRequestPtr req)
 {
     fds_assert(req->type == FAR_ID(MigSvcSyncCloseReq));
 
+    LOGDEBUG << "Migrators cnt: " << mig_actors_.size();
+
     for (auto itr = mig_actors_.begin(); itr != mig_actors_.end(); itr++) {
         LOGDEBUG << "Broadcasting close to: " << itr->first;
         itr->second.migrator->send_actor_request(req);

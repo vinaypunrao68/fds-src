@@ -42,7 +42,7 @@
 #define FDSN_QOS_PERF_NORMALIZER 20 
 
 namespace fds { 
-class BucketContext { 
+class BucketContext {
 public:
   std::string    hostName;
   std::string   bucketName;
@@ -61,6 +61,8 @@ public:
     }
   ~BucketContext() {}
 };
+/// Smart pointer for BucketContext
+typedef boost::shared_ptr<BucketContext> BucketContextPtr;
 
 class MetaNameValue { 
 
@@ -423,6 +425,7 @@ typedef int (*fdsnPutObjectHandler)(void *reqContext, fds_uint64_t bufferSize,
  *
  * @param bufferSize gives the number of bytes in buffer
  * @param buffer is the data being passed into the callback
+ * @param blobSize returned size of the blob we read from
  * @param callbackData is the callback data as specified when the request
  *        was issued.
  * @return StatusOK to continue processing the request, anything else to
@@ -431,8 +434,15 @@ typedef int (*fdsnPutObjectHandler)(void *reqContext, fds_uint64_t bufferSize,
  *         Typically, this will return either S3StatusOK or
  *         S3StatusAbortedByCallback.
  **/
-typedef FDSN_Status (*fdsnGetObjectHandler)(void *reqContext, fds_uint64_t bufferSize, const char *buffer,
-                                           void *callbackData, FDSN_Status status, ErrorDetails *errDetails);
+typedef FDSN_Status (*fdsnGetObjectHandler)(BucketContextPtr bucket_ctx,
+                                            void *reqContext,
+                                            fds_uint64_t bufferSize,
+                                            fds_off_t offset,
+                                            const char *buffer,
+                                            fds_uint64_t blobSize,
+                                            void *callbackData,
+                                            FDSN_Status status,
+                                            ErrorDetails *errDetails);
 typedef void (*fdsnResponseHandler)(FDSN_Status status,
                                           const ErrorDetails *errorDetails,
                                           void *callbackData);
@@ -509,7 +519,7 @@ class FDS_NativeAPI {
 		      void *callback_data);
 
   // After this call returns bucketctx, get_cond are no longer valid.
-  void GetObject(BucketContext *bucketctxt, 
+  void GetObject(BucketContextPtr bucketctxt, 
                  std::string ObjKey, 
                  GetConditions *get_cond, 
                  fds_uint64_t startByte, 

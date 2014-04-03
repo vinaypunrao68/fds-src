@@ -26,7 +26,7 @@ class ClusterCommMgr {
 
     TVIRTUAL NodeTokenTbl partition_tokens_by_node(const std::set<fds_token_id> &tokens);
 
-    TVIRTUAL bool get_node_mig_ip_port(const NodeUuid &node_id,
+    TVIRTUAL bool get_node_mig_ip_port(const fds_token_id &token_id,
                                       uint32_t &ip,
                                       uint32_t &port);
     TVIRTUAL const DLT* get_dlt();

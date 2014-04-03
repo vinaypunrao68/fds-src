@@ -27,6 +27,8 @@ using namespace msm::front::euml;   // NOLINT
 typedef msm::front::none msm_none;
 
 /* Statemachine Events */
+/* Event for starting the sender side copy/sync/pull statemachine */
+struct TSStart {};
 /* Triggered after token data has been read from object store */
 struct TokReadEvt{};
 /* Triggered after token data has been sent to receiver */
@@ -51,10 +53,13 @@ struct TokenCopySenderFSM_
         data_store_ = data_store;
         rcvr_ip_ = rcvr_ip;
         rcvr_port_ = rcvr_port;
-        pending_tokens_ = tokens;
+        token_id_ = *(tokens.begin());
         rcvr_session_ = rcvr_session;
         client_resp_handler_ = client_resp_handler;
 
+        objstor_read_req_.token_id = token_id_;
+        // TODO(Rao): Do not hard code
+        objstor_read_req_.max_size = 16 * (2 << 20);
         objstor_read_req_.io_type = FDS_SM_READ_TOKEN_OBJECTS;
         objstor_read_req_.response_cb = std::bind(
             &TokenCopySenderFSM_::data_read_cb, this,
@@ -94,19 +99,6 @@ struct TokenCopySenderFSM_
 //            LOGDEBUG << "Init State";
         }
     };
-    struct Connecting: public msm::front::state<>
-    {
-        template <class Event, class FSM>
-        void on_entry(Event const& , FSM&)
-        {
-            LOGDEBUG << "Connecting State";
-        }
-        template <class Event, class FSM>
-        void on_exit(Event const&, FSM&)
-        {
-//            LOGDEBUG << "Connecting State";
-        }
-    };
     struct Reading : public msm::front::state<>
     {
         template <class Event, class FSM>
@@ -133,19 +125,6 @@ struct TokenCopySenderFSM_
 //            LOGDEBUG << "Sending State";
         }
     };
-    struct UpdatingTok : public msm::front::state<>
-    {
-        template <class Event, class FSM>
-        void on_entry(Event const& , FSM&)
-        {
-            LOGDEBUG << "UpdatingTok";
-        }
-        template <class Event, class FSM>
-        void on_exit(Event const&, FSM&)
-        {
-//            LOGDEBUG << "UpdatingTok";
-        }
-    };
     struct Complete : public msm::front::state<>
     {
         template <class Event, class FSM>
@@ -161,56 +140,6 @@ struct TokenCopySenderFSM_
     };
 
 
-    /* Actions */
-    struct connect
-    {
-        /* Connect to the receiver so we can push tokens */
-        template <class EVT, class FSM, class SourceState, class TargetState>
-        void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
-        {
-            LOGDEBUG << "connect";
-            // TODO(Rao): This action isn't needed anymore.  Clean it up
-        }
-    };
-    struct update_tok
-    {
-        /* Prepare objstor_read_req_ for next read request */
-        template <class EVT, class FSM, class SourceState, class TargetState>
-        void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
-        {
-            LOGDEBUG << "update_tok";
-
-            if (fsm.pending_tokens_.size() == 0 &&
-                fsm.objstor_read_req_.itr.isEnd()) {
-                fds_assert(!"Invalid state action");
-                return;
-            }
-
-            if (fsm.completed_tokens_.size() == 0 &&
-                fsm.objstor_read_req_.itr.isBegin()) {
-                /* First request */
-                fsm.objstor_read_req_.token_id = *fsm.pending_tokens_.begin();
-                // TODO(rao) : Dont hardcode
-                fsm.objstor_read_req_.max_size = 16 * (2 << 20);
-
-            } else if (fsm.objstor_read_req_.itr.isEnd()) {
-                LOGNORMAL << "Token: " << *fsm.pending_tokens_.begin()
-                        << " sent completely";
-                /* We are done reading objects for current token */
-                fsm.completed_tokens_.push_back(*fsm.pending_tokens_.begin());
-                fsm.pending_tokens_.erase(fsm.pending_tokens_.begin());
-
-                if (fsm.pending_tokens_.size() > 0) {
-                    fsm.objstor_read_req_.itr.objId = NullObjectID;
-                    fsm.objstor_read_req_.token_id = *fsm.pending_tokens_.begin();
-                }
-
-            } else {
-                /* Still processing the current token.  Nothing to do*/
-                LOGDEBUG << "Still processing token " << *fsm.pending_tokens_.begin();
-            }
-        }
-    };
     struct read_tok
     {
         /* Issues read request to ObjectStore */
@@ -219,7 +148,7 @@ struct TokenCopySenderFSM_
         {
             Error err(ERR_OK);
 
-            LOGDEBUG << "read_tok";
+            LOGDEBUG << "read_tok.  token: " << fsm.token_id_;
 
             /* Recyle objstor_read_req_ message */
             fds_assert(fsm.objstor_read_req_.response_cb);
@@ -240,8 +169,6 @@ struct TokenCopySenderFSM_
         template <class EVT, class FSM, class SourceState, class TargetState>
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
-            LOGDEBUG << "send_tok";
-
             /* Prepare FDSP_PushTokenObjectsReq */
             fsm.push_tok_req_.header.base_header.err_code = ERR_OK;
             fsm.push_tok_req_.header.base_header.src_node_name =
@@ -259,6 +186,9 @@ struct TokenCopySenderFSM_
             /* Push to receiver */
             fsm.rcvr_session_->getClient()->PushTokenObjects(fsm.push_tok_req_);
 
+            LOGDEBUG << "send_tok.  token: " << fsm.token_id_
+                    << " size: " << fsm.push_tok_req_.obj_list.size();
+
             fsm.migrationSvc_->\
             mig_cntrs.tok_copy_sent.incr(fsm.push_tok_req_.obj_list.size());
         }
@@ -269,7 +199,7 @@ struct TokenCopySenderFSM_
         template <class EVT, class FSM, class SourceState, class TargetState>
         void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
-            LOGDEBUG << "teardown ";
+            LOGDEBUG << "teardown.  token: " << fsm.token_id_;
             LOGDEBUG << fsm.migrationSvc_->mig_cntrs.toString();
             // TODO(Rao): For now we will not send a shutdown to parent as
             // sync will start
@@ -288,13 +218,15 @@ struct TokenCopySenderFSM_
     };
 
     /* Guards */
-    struct more_toks
+    struct more_to_read
     {
         /* Returns true if there are token remaining to be sent */
         template <class EVT, class FSM, class SourceState, class TargetState>
         bool operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
-            return (fsm.pending_tokens_.size() > 0);
+            bool ret = !(fsm.objstor_read_req_.itr.isEnd());
+            LOGDEBUG << "token: " << fsm.token_id_ << " more_to_read?: " << ret;
+            return ret;
         }
     };
 
@@ -306,18 +238,13 @@ struct TokenCopySenderFSM_
     // +------------+----------------+------------+-----------------+------------------+
     // | Start      | Event          | Next       | Action          | Guard            |
     // +------------+----------------+------------+-----------------+------------------+
-    Row< Init       , msm_none       , Connecting , connect         , msm_none         >,
-    // +------------+----------------+------------+-----------------+------------------+
-    Row< Connecting , msm_none       , UpdatingTok, update_tok      , msm_none         >,
-    // +------------+----------------+------------+-----------------+------------------+
-    Row< UpdatingTok, msm_none       , Reading    , read_tok        , more_toks        >,
-    Row< UpdatingTok, msm_none       , Complete   , msm_none        , Not_<more_toks > >,
+    Row< Init       , msm_none       , Reading    , read_tok        , msm_none         >,
     // +------------+----------------+------------+-----------------+------------------+
     Row< Reading    , TokReadEvt     , Sending    , send_tok        , msm_none         >,
     // +------------+----------------+------------+-----------------+------------------+
-    Row< Sending    , TokSentEvt     , UpdatingTok, update_tok      , msm_none         >
+    Row< Sending    , TokSentEvt     , Reading    , read_tok        , more_to_read     >,
     // +------------+----------------+------------+-----------------+------------------+
-
+    Row< Sending    , TokSentEvt     , Complete   , teardown        , Not_<more_to_read>>
     >
     {
     };
@@ -336,6 +263,8 @@ struct TokenCopySenderFSM_
     /* Callback invoked once data's been read from Object store */
     void data_read_cb(const Error &e, SmIoGetTokObjectsReq *resp)
     {
+        LOGDEBUG << "token: " << token_id_;
+
         if (e != ERR_OK) {
             fds_assert(!"Error in reading");
             LOGERROR << "Error: " << e;
@@ -366,11 +295,8 @@ struct TokenCopySenderFSM_
      */
     boost::shared_ptr<FDSP_MigrationPathRespIf> client_resp_handler_;
 
-    /* Tokens that are pending send */
-    std::set<fds_token_id> pending_tokens_;
-
-    /* Tokens for which send is complete */
-    std::list<fds_token_id> completed_tokens_;
+    /* Token we are copying */
+    fds_token_id token_id_;
 
     /* RPC request.  It's recycled for every push request */
     FDSP_PushTokenObjectsReq push_tok_req_;
@@ -438,9 +364,9 @@ TokenCopySender::~TokenCopySender()
 
 void TokenCopySender::start()
 {
-    copy_fsm_->start();
-    sync_fsm_->start();
-    pull_fsm_->start();
+    FdsActorRequestPtr far(new FdsActorRequest(
+                        FAR_ID(TSStart), nullptr));
+    send_actor_request(far);
 }
 
 Error TokenCopySender::handle_actor_request(FdsActorRequestPtr req)
@@ -448,6 +374,13 @@ Error TokenCopySender::handle_actor_request(FdsActorRequestPtr req)
     Error err = ERR_OK;
 
     switch (req->type) {
+    case FAR_ID(TSStart):
+    {
+        copy_fsm_->start();
+        sync_fsm_->start();
+        pull_fsm_->start();
+        break;
+    }
     case FAR_ID(MigSvcSyncCloseReq):
     {
         /* Notification from migration service to close sync */

@@ -62,6 +62,7 @@ class TokenStateInfo {
             Error getTokenSyncStartTS(const fds_token_id &tokId, uint64_t &ts);
             Error setTokenHealthyTS(const fds_token_id &tokId, const uint64_t &ts);
             Error getTokenHealthyTS(const fds_token_id &tokId, uint64_t &ts);
+            Error updateHealthyTS(const fds_token_id &tokId, const uint64_t &ts);
 
             bool getTokens(const NodeUuid& uuid, std::vector<fds_token_id>& vecTokens);
             bool addToken(const NodeUuid& uuid, fds_token_id token);

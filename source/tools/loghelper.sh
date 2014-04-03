@@ -35,7 +35,7 @@ function loginfo()  { log $(yellow "[INFO]  : ") $@ ; }
 
 function init_loghelper() {
     if [ $# -eq 1 ]; then
-        rm $1 2>/dev/null
+        rm -f $1 2>/dev/null
         LOG_FILE=$1
     fi
 }

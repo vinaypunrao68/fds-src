@@ -292,7 +292,7 @@ struct TokenPullReceiverFSM_
         {
             bool ret = (fsm.pending_.size() == 0 &&
                     fsm.inflight_.size() == 0 && fsm.final_pullreq_issued_ == true);
-            LOGDEBUG << "pull_dn?: " << ret;
+            LOGDEBUG << "token: " << fsm.token_id_ << " pull_dn?: " << ret;
             return ret;
         }
     };
@@ -303,7 +303,7 @@ struct TokenPullReceiverFSM_
         bool operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
             bool ret = (fsm.pending_.size() > 0 || fsm.inflight_.size() > 0);
-            LOGDEBUG << "pending_pulls?: " << ret;
+            LOGDEBUG << "token: " << fsm.token_id_ << " pending_pulls?: " << ret;
             return ret;
         }
     };
@@ -368,7 +368,7 @@ struct TokenPullReceiverFSM_
         ackd_apply_data_msgs_++;
 
         if (ackd_apply_data_msgs_ == sent_apply_data_msgs_) {
-            LOGDEBUG << "Applied a batch of object data."
+            LOGDEBUG << "Applied a batch of object data. token: " << token_id_
                     << " total_writes_sent: " << sent_apply_data_msgs_
                     << " total_writes_acked: " << ackd_apply_data_msgs_;
 

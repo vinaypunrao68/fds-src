@@ -11,6 +11,7 @@ import com.formationds.web.toolkit.Resource;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
 
+import java.util.Map;
 import java.util.UUID;
 
 public class CreateVolume implements RequestHandler {
@@ -21,8 +22,8 @@ public class CreateVolume implements RequestHandler {
     }
 
     @Override
-    public Resource handle(Request request) throws Exception {
-        String name = requiredString(request, "name");
+    public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
+        String name = requiredString(routeParameters, "name");
         FDSP_MsgHdrType msg = new FDSP_MsgHdrType();
         String policyName = name + "_policy";
         int policyId = (int) UUID.randomUUID().getLeastSignificantBits();

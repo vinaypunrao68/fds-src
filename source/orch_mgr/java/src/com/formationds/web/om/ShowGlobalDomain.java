@@ -9,9 +9,11 @@ import com.formationds.web.toolkit.Resource;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
 
+import java.util.Map;
+
 public class ShowGlobalDomain implements RequestHandler {
     @Override
-    public Resource handle(Request request) throws Exception {
+    public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
         return new JsonResource(new JSONObject().put("name", "FDS"));
     }
 }

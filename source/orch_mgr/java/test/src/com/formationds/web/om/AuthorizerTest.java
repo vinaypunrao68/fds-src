@@ -11,6 +11,7 @@ import org.junit.Test;
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletResponse;
 import java.util.Arrays;
+import java.util.HashMap;
 
 import static org.junit.Assert.assertEquals;
 import static org.mockito.Matchers.any;
@@ -24,7 +25,7 @@ public class AuthorizerTest {
     public void testNoCookie() throws Exception {
         Request request = mock(Request.class);
         Authorizer authorizer = new Authorizer(() -> mockHandler, credentials -> false);
-        assertEquals(HttpServletResponse.SC_UNAUTHORIZED, authorizer.handle(request).getHttpStatus());
+        assertEquals(HttpServletResponse.SC_UNAUTHORIZED, authorizer.handle(request, new HashMap<>()).getHttpStatus());
     }
 
     @Test
@@ -41,7 +42,7 @@ public class AuthorizerTest {
             assertEquals("foo", cookie.getValue());
             return true;
         });
-        assertEquals(HttpServletResponse.SC_OK, authorizer.handle(request).getHttpStatus());
+        assertEquals(HttpServletResponse.SC_OK, authorizer.handle(request, new HashMap<>()).getHttpStatus());
     }
 
     @Test
@@ -51,13 +52,13 @@ public class AuthorizerTest {
         when(request.getCookies()).thenReturn(cookies);
 
         Authorizer authorizer = new Authorizer(() -> mockHandler, credentials -> false);
-        assertEquals(HttpServletResponse.SC_UNAUTHORIZED, authorizer.handle(request).getHttpStatus());
+        assertEquals(HttpServletResponse.SC_UNAUTHORIZED, authorizer.handle(request, new HashMap<>()).getHttpStatus());
     }
 
     public AuthorizerTest() {
         mockHandler = mock(RequestHandler.class);
         try {
-            when(mockHandler.handle(any(Request.class))).thenReturn(new TextResource("foo"));
+            when(mockHandler.handle(any(Request.class), new HashMap<>())).thenReturn(new TextResource("foo"));
         } catch (Exception e) {
             throw new RuntimeException(e);
         }

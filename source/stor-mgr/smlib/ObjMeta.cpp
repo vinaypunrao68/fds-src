@@ -286,6 +286,15 @@ void ObjMetaData::setRefCnt(fds_uint16_t refcnt) {
 
 /**
  *
+ * @return refcnt
+ */
+fds_uint16_t ObjMetaData::getRefCnt() const{
+    return obj_map.obj_refcnt;
+}
+
+
+/**
+ *
  */
 void ObjMetaData::incRefCnt() {
     obj_map.obj_refcnt++;
@@ -496,7 +505,10 @@ void ObjMetaData::checkAndDemoteUnsyncedData(const uint64_t& syncTs)
  */
 void ObjMetaData::applySyncData(const FDSP_MigrateObjectMetadata& data)
 {
-    fds_assert(syncDataExists());
+    if (!syncDataExists()) {
+        mask |= SYNCMETADATA_MASK;
+        LOGWARN << "syncDataExists is false " << logString();
+    }
 
     /* Of sync metadata Object size and object id don't require a merge.
      * They can directly be applied to meta data. NOTE: If obj_map has
