@@ -1117,6 +1117,7 @@ OM_NodeContainer::om_bcast_dmt_table()
     msg.nd_msg_code  = fpi::FDSP_MSG_DMT_UPDATE;
     msg.u.nd_dmt_tab = &dmt;
     dc_am_nodes->agent_foreach<const om_node_msg_t &>(msg, om_send_node_command);
+    dc_dm_nodes->agent_foreach<const om_node_msg_t &>(msg, om_send_node_command);
 }
 
 

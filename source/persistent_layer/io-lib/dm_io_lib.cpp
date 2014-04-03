@@ -10,46 +10,124 @@
 #include <fcntl.h>
 #include <fds_err.h>
 
+#include <fstream>
 #include <iostream>
 #include <persistent_layer/dm_io.h>
 #include <fds_process.h>
 #include <tokFileMgr.h>
 
+using namespace fds;  // NOLINT
 namespace diskio {
-
-static const int  sgt_ssd_count = 2;
-static const int  sgt_hdd_count = 11;
-static const char *sgt_dt_file = "";
 
 // ----------------------------------------------------------------------------
 DataIOModule            gl_dataIOMod("Disk IO Module");
 DataDiscoveryModule     dataDiscoveryMod("Data Discovery Module");
-tokenFileDb *g_tokenFileMgr;
-
-static DataIO           *sgt_dataIO;
-// static FilePersisDataIO     *sgt_hddIO[sgt_hdd_count];
-static FilePersisDataIO     *sgt_ssdIO[sgt_ssd_count];
+static DataIO          *sgt_dataIO;
 
 // ----------------------------------------------------------------------------
-
 // \DataIOModule
-// -------------
-//
+// ----------------------------------------------------------------------------
+DataIOModule::~DataIOModule() {}
 DataIOModule::DataIOModule(char const *const name)
-    : Module(name)
+    : Module(name), io_mtx("io mtx")
 {
     static fds::Module *dataIOIntern[] = {
         &dataDiscoveryMod,
         &dataIndexMod,
         nullptr
     };
-    mod_intern = dataIOIntern;
+    mod_intern    = dataIOIntern;
+    io_ssd_curr   = 0;
+    io_hdd_curr   = 0;
+    io_ssd_total  = 0;
+    io_hdd_total  = 0;
+    io_ssd_diskid = NULL;
+    io_hdd_diskid = NULL;
+    io_token_db   = new tokenFileDb();
 }
 
-DataIOModule::~DataIOModule() {}
+DataDiscIter::~DataDiscIter() {}
+DataDiscIter::DataDiscIter(DataIOModule *io) : cb_io(io), cb_root_dir(NULL) {}
+
+// obj_callback
+// ------------
+// Single threaded path called during initialization.
+//
+bool
+DataDiscIter::obj_callback()
+{
+    if (cb_tier == flashTier) {
+        cb_io->disk_mount_ssd_path(cb_root_dir->c_str(), cb_disk_id);
+    } else {
+        cb_io->disk_mount_hdd_path(cb_root_dir->c_str(), cb_disk_id);
+    }
+    cb_root_dir = NULL;
+    return true;
+}
+
+// disk_mount_ssd_path
+// -------------------
+//
+void
+DataIOModule::disk_mount_ssd_path(const char *path, fds_uint16_t disk_id)
+{
+    io_ssd_diskid[io_ssd_curr++] = disk_id;
+    fds_verify(io_ssd_curr <= io_ssd_total);
+}
+
+// disk_mount_hdd_path
+// -------------------
+//
+void
+DataIOModule::disk_mount_hdd_path(const char *path, fds_uint16_t disk_id)
+{
+    io_hdd_diskid[io_hdd_curr++] = disk_id;
+    fds_verify(io_hdd_curr <= io_hdd_total);
+}
+
+// disk_hdd_io
+// -----------
+//
+PersisDataIO *
+DataIOModule::disk_hdd_io(DataTier            tier,
+                          fds_uint32_t        file_id,
+                          meta_obj_id_t const *const oid)
+{
+    fds_uint16_t        disk_id;
+    PersisDataIO       *ioc;
+    const fds_uint32_t *token;
+
+    // io_token_db depends on DataDiscoveryModule::disk_hdd_path(disk_id) for the
+    // path to the underlaying device.
+    //
+    token   = reinterpret_cast<const fds_uint32_t *>(oid->metaDigest);
+    disk_id = io_hdd_diskid[oid->metaDigest[0] % io_hdd_curr];
+    ioc     = io_token_db->openTokenFile(tier, disk_id, *token, file_id);
+
+    fds_verify(ioc != NULL);
+    return ioc;
+}
+
+// disk_hdd_disk
+// -------------
+//
+PersisDataIO *
+DataIOModule::disk_hdd_disk(DataTier            tier,
+                            fds_uint16_t        disk_id,
+                            fds_uint32_t        file_id,
+                            meta_obj_id_t const *const oid)
+{
+    // Should also handle the case that disk_id doesn't match anything discovered to
+    // handle disk failures.  Fix tokenFileDB interface too...
+    //
+    const fds_uint32_t *token = reinterpret_cast<const fds_uint32_t *>(oid->metaDigest);
+    return io_token_db->openTokenFile(tier, disk_id, *token, file_id);
+}
 
 // \mod_init
 // ---------
+// Single thread init. path, no lock is needed.
+// Must change this code to support hotplug.
 //
 int
 DataIOModule::mod_init(fds::SysParams const *const param)
@@ -58,13 +136,31 @@ DataIOModule::mod_init(fds::SysParams const *const param)
 
     std::cout << "DataIOModule init..." << std::endl;
     sgt_dataIO = new DataIO;
-    for (int  i = 0; i < sgt_ssd_count; i++) {
-      std::string file = dataDiscoveryMod.disk_ssd_path(i);
-       file = file + "/data-" + std::to_string(i);
-      sgt_ssdIO[i] =
-          new FilePersisDataIO(file.c_str(), i);
+
+    // TODO(Vy): need to support hotplug here, allocate extra spaces.  Also fix this
+    // module to use singleton or member data.
+    //
+    io_ssd_total = dataDiscoveryMod.disk_ssd_discovered() << 1;
+    if (io_ssd_total == 0) {
+        io_ssd_total = 128;
     }
-    g_tokenFileMgr = new tokenFileDb();
+    io_ssd_diskid = new fds_uint16_t [io_ssd_total];
+    memset(io_ssd_diskid, 0xf, io_ssd_total * sizeof(*io_ssd_diskid));
+
+    io_hdd_total = dataDiscoveryMod.disk_hdd_discovered() << 1;
+    if (io_hdd_total == 0) {
+        io_hdd_total = 128;
+    }
+    io_hdd_diskid = new fds_uint16_t [io_hdd_total];
+    memset(io_hdd_diskid, 0xf, io_hdd_total * sizeof(*io_hdd_diskid));
+
+    // Iterate through the discovery module to create all io handling objects.
+    DataDiscIter iter(this);
+    iter.cb_tier = flashTier;
+    dataDiscoveryMod.disk_ssd_iter(&iter);
+
+    iter.cb_tier = diskTier;
+    dataDiscoveryMod.disk_hdd_iter(&iter);
     return 0;
 }
 
@@ -88,138 +184,11 @@ DataIOModule::mod_shutdown()
 }
 
 // ----------------------------------------------------------------------------
-
 // \DataDiscoveryModule
-// --------------------
-//
+// ----------------------------------------------------------------------------
+DataDiscoveryModule::~DataDiscoveryModule() {}
 DataDiscoveryModule::DataDiscoveryModule(char const *const name)
-    : Module(name), pd_hdd_found(0), pd_ssd_found(0)
-{
-    pd_hdd_raw     = new std::string [sgt_hdd_count];
-    pd_ssd_raw     = new std::string [sgt_ssd_count];
-    pd_hdd_labeled = new std::string [sgt_hdd_count];
-    pd_ssd_labeled = new std::string [sgt_ssd_count];
-}
-
-DataDiscoveryModule::~DataDiscoveryModule()
-{
-    delete [] pd_hdd_raw;
-    delete [] pd_ssd_raw;
-    delete [] pd_hdd_labeled;
-    delete [] pd_ssd_labeled;
-}
-
-// \disk_detect_label
-// ------------------
-// If the given path contains valid label, assign the disk to the correct
-// place in the label array.
-//
-bool
-DataDiscoveryModule::disk_detect_label(std::string *path, DataTier tier)
-{
-    int         fd, limit;
-    std::string file, base = *path;
-
-    limit = tier == diskTier ? sgt_hdd_count : sgt_ssd_count;
-    for (int i = 0; i < limit; i++) {
-        file = base + std::to_string(i);
-        if ((fd = open(file.c_str(), O_DIRECT | O_NOATIME)) > 0) {
-            // Found the valid label.
-            if (tier == diskTier) {
-                pd_hdd_labeled[i].assign(file);
-            } else if (tier == flashTier) {
-                pd_ssd_labeled[i].assign(file);
-            } else {
-              fds_panic("Unknown tier label!");
-            }
-            close(fd);
-            path->clear();
-            std::cout << "Found label " << file << std::endl;
-            return true;
-        }
-    }
-    return false;
-}
-
-// \disk_make_label
-// ----------------
-// Assign the label file at the base path so that we'll have the right
-// order of disks at the next time when we come up.
-//
-void
-DataDiscoveryModule::disk_make_label(std::string *base,
-                                     DataTier tier,
-                                     int diskno)
-{
-    fds_int32_t   fd;
-    std::string  *labeled;
-    fds_uint32_t  found;
-
-    if (tier == diskTier) {
-        labeled = pd_hdd_labeled;
-        found   = pd_hdd_found;
-    } else if (tier == flashTier) {
-        labeled = pd_ssd_labeled;
-        found   = pd_ssd_found;
-    } else {
-        fds_panic("Unknown tier label!");
-    }
-
-    fds_verify((uint)diskno < found);
-    labeled[diskno] = *base + std::string(sgt_dt_file) + std::to_string(diskno);
-
-    fd = open(labeled[diskno].c_str(), O_APPEND | O_CREAT, S_IRUSR | S_IWUSR);
-    fds_verify(fd > 0);
-    base->clear();
-    close(fd);
-    std::cout << "Created label " << labeled[diskno] << std::endl;
-}
-
-// \parse_device_dir
-// ---------
-//
-void
-DataDiscoveryModule::parse_device_dir(const std::string& path, DataTier tier)
-{
-    int                ret;
-    DIR               *dfd;
-    struct dirent     *result, dp;
-
-    dfd = opendir(path.c_str());
-    fds_verify(dfd != NULL);
-
-    for (ret = readdir_r(dfd, &dp, &result);
-         result != NULL && ret == 0; ret = readdir_r(dfd, &dp, &result)) {
-        struct stat stbuf;
-        std::string subdir(path + "/" + std::string(dp.d_name));
-
-        if (stat(path.c_str(), &stbuf) < 0) {
-            continue;
-        }
-        if ((stbuf.st_mode & S_IFMT) == S_IFDIR) {
-            if (dp.d_name[0] == '.') {
-                continue;
-            }
-            if (tier == diskTier) {
-                if (pd_hdd_found < pd_hdd_count) {
-                    pd_hdd_raw[pd_hdd_found].assign(subdir);
-                    /* Located a new hdd path */
-                    disk_detect_label(&pd_hdd_raw[pd_hdd_found], diskTier);
-                    pd_hdd_found++;
-                }
-            } else if (tier == flashTier) {
-                if (pd_ssd_found < pd_ssd_count) {
-                    pd_ssd_raw[pd_ssd_found].assign(subdir);
-                    /* Located a new ssd path */
-                    disk_detect_label(&pd_ssd_raw[pd_ssd_found], flashTier);
-                    pd_ssd_found++;
-                }
-            } else {
-                fds_panic("Recieved unknown tier to parse!");
-            }
-        }
-    }
-}
+    : Module(name), pd_hdd_found(0), pd_ssd_found(0) {}
 
 // \mod_init
 // ---------
@@ -227,102 +196,74 @@ DataDiscoveryModule::parse_device_dir(const std::string& path, DataTier tier)
 int
 DataDiscoveryModule::mod_init(fds::SysParams const *const param)
 {
-    int                ret;
-    DIR               *dfd;
-    struct dirent     *result, dp;
-    fds::SimEnvParams *sim;
-
     Module::mod_init(param);
-    sim = param->fds_sim;
-    dfd = opendir(param->fds_root.c_str());
-    if (dfd == nullptr) {
-        std::cout << "Need to setup root storage directory "
-             << param->fds_root << std::endl;
-        return 1;
-    }
-    pd_hdd_count = sgt_hdd_count;
-    pd_ssd_count = sgt_ssd_count;
-    if (sim != nullptr) {
-        pd_hdd_cap_mb = sim->sim_hdd_mb;
-        pd_ssd_cap_mb = sim->sim_ssd_mb;
-    } else {
-        pd_hdd_cap_mb = 0;
-        pd_ssd_cap_mb = 0;
-    }
-    for (ret = readdir_r(dfd, &dp, &result);
-         result != NULL && ret == 0; ret = readdir_r(dfd, &dp, &result)) {
-        struct stat  stbuf;
-        std::string  path(param->fds_root + std::string(dp.d_name));
-
-        if (stat(path.c_str(), &stbuf) < 0) {
-            continue;
-        }
-        if ((stbuf.st_mode & S_IFMT) == S_IFDIR) {
-            if (dp.d_name[0] == '.') {
-                continue;
-            }
-            if (path.compare(param->fds_root.size(),
-                             std::string::npos,
-                             param->hdd_root, 0,
-                             param->hdd_root.size() - 1) == 0) {
-              /*
-               * Parse the hdd directory
-               */
-              parse_device_dir(path, diskTier);
-            } else if (path.compare(param->fds_root.size(),
-                                    std::string::npos,
-                                    param->ssd_root, 0,
-                                    param->ssd_root.size() - 1) == 0) {
-              /*
-               * Parse the ssd directory
-               */
-              parse_device_dir(path, flashTier);
-            }
-        }
-    }
-    closedir(dfd);
-
-    if (sim != nullptr) {
-        std::string base(param->fds_root + param->hdd_root);
-        fds::FdsRootDir::fds_mkdir(base.c_str());
-
-        base += sim->sim_disk_prefix;
-        for (char sd = 'a'; pd_hdd_found < pd_hdd_count; sd++) {
-            std::string hdd = base + sd;
-
-            fds::FdsRootDir::fds_mkdir(hdd.c_str());
-            pd_hdd_raw[pd_hdd_found++] = hdd;
-        }
-        base = param->fds_root + param->ssd_root;
-        fds::FdsRootDir::fds_mkdir(base.c_str());
-
-        base += sim->sim_disk_prefix;
-        for (char sd = 'a'; pd_ssd_found < pd_ssd_count; sd++) {
-            std::string ssd = base + sd;
-
-            fds::FdsRootDir::fds_mkdir(ssd.c_str());
-            pd_ssd_raw[pd_ssd_found++] = ssd;
-        }
-    }
-#if 0
-    for (int i = 0; i < pd_hdd_found; i++) {
-        if (!pd_hdd_raw[i].empty()) {
-            disk_make_label(&pd_hdd_raw[i], diskTier, i);
-            fds_verify(!pd_hdd_labeled[i].empty());
-        } else {
-            fds_verify(!pd_hdd_labeled[i].empty());
-        }
-    }
-    for (int i = 0; i < pd_ssd_found; i++) {
-        if (!pd_ssd_raw[i].empty()) {
-            disk_make_label(&pd_ssd_raw[i], flashTier, i);
-            fds_verify(!pd_ssd_labeled[i].empty());
-        } else {
-            fds_verify(!pd_ssd_labeled[i].empty());
-        }
-    }
-#endif
+    disk_open_map();
     return 0;
+}
+
+// disk_open_map
+// -------------
+//
+void
+DataDiscoveryModule::disk_open_map()
+{
+    int           idx;
+    fds_uint64_t  uuid;
+    std::string   path;
+
+    const fds::FdsRootDir *dir = fds::g_fdsprocess->proc_fdsroot();
+    std::ifstream map(dir->dir_dev() + std::string("/disk-map"), std::ifstream::in);
+
+    fds_verify(map.fail() == false);
+    while (!map.eof()) {
+        map >> path >> idx >> std::hex >> uuid >> std::dec;
+        if (map.fail()) {
+            break;
+        }
+        if (strstr(path.c_str(), "hdd") != NULL) {
+            pd_hdd_found++;
+            pd_hdd_map[idx] = path;
+        } else if (strstr(path.c_str(), "ssd") != NULL) {
+            pd_ssd_found++;
+            pd_ssd_map[idx] = path;
+        } else {
+            fds_panic("Unknown path: %s\n", path.c_str());
+        }
+        pd_uuids[idx] = uuid;
+    }
+    if (pd_hdd_found == 0) {
+        fds_panic("Can't find any HDD\n");
+    }
+}
+
+// dsk_hdd_iter
+// ------------
+//
+void
+DataDiscoveryModule::disk_hdd_iter(DataDiscIter *iter)
+{
+    for (auto it = pd_hdd_map.cbegin(); it != pd_hdd_map.cend(); it++) {
+        iter->cb_root_dir = &it->second;
+        iter->cb_disk_id  = it->first;
+        if (iter->obj_callback() == false) {
+            break;
+        }
+    }
+}
+
+// dsk_ssd_iter
+// ------------
+//
+void
+DataDiscoveryModule::disk_ssd_iter(DataDiscIter *iter)
+{
+    for (auto it = pd_ssd_map.cbegin(); it != pd_ssd_map.cend(); it++) {
+        iter->cb_root_dir = &it->second;
+        iter->cb_disk_id  = it->first;
+        if (iter->obj_callback() == false) {
+            break;
+        }
+    }
 }
 
 // \disk_hdd_path
@@ -330,12 +271,11 @@ DataDiscoveryModule::mod_init(fds::SysParams const *const param)
 // Return the root path to access the disk at given route index.
 //
 const char *
-DataDiscoveryModule::disk_hdd_path(int route_idx)
+DataDiscoveryModule::disk_hdd_path(fds_uint16_t disk_id)
 {
-    fds_verify(route_idx < pd_hdd_found);
-    fds_verify(!pd_hdd_raw[route_idx].empty());
-
-    return pd_hdd_raw[route_idx].c_str();
+    std::string &hdd = pd_hdd_map[disk_id];
+    fds_verify(!hdd.empty());
+    return hdd.c_str();
 }
 
 // \disk_ssd_path
@@ -343,12 +283,11 @@ DataDiscoveryModule::disk_hdd_path(int route_idx)
 // Return the root path to access the disk at given route index.
 //
 const char *
-DataDiscoveryModule::disk_ssd_path(int route_idx)
+DataDiscoveryModule::disk_ssd_path(fds_uint16_t disk_id)
 {
-    fds_verify(route_idx < pd_ssd_found);
-    fds_verify(!pd_ssd_raw[route_idx].empty());
-
-    return pd_ssd_raw[route_idx].c_str();
+    std::string &ssd = pd_ssd_map[disk_id];
+    fds_verify(!ssd.empty());
+    return ssd.c_str();
 }
 
 // \mod_startup
@@ -370,15 +309,10 @@ DataDiscoveryModule::mod_shutdown()
 }
 
 // ----------------------------------------------------------------------------
-
 // \PersisDataIO::PersisDataIO
-// ---------------------------
-//
+// ----------------------------------------------------------------------------
 PersisDataIO::PersisDataIO()
-    : pd_queue(2, 1000),
-    pd_counters_("PM", fds::g_cntrs_mgr.get())
-{
-}
+    : pd_queue(2, 1000), pd_counters_("PM", fds::g_cntrs_mgr.get()) {}
 
 // \sersisDataIO::~PersisDataIO
 // ----------------------------
@@ -405,8 +339,9 @@ diskio::PersisDataIO::disk_read(DiskRequest *req)
         // If the request was created with non-blocking option, this is no-op.
         req->req_wait();
     }
-    if (err != fds::ERR_OK)
-      pd_counters_.diskR_Err.incr();
+    if (err != fds::ERR_OK) {
+        pd_counters_.diskR_Err.incr();
+    }
     return err;
 }
 
@@ -438,9 +373,9 @@ diskio::PersisDataIO::disk_write(DiskRequest *req)
         // If the request was created with non-blocking option, this is no-op.
         req->req_wait();
     }
-    if (err != fds::ERR_OK)
-      pd_counters_.diskR_Err.incr();
-
+    if (err != fds::ERR_OK) {
+        pd_counters_.diskR_Err.incr();
+    }
     return err;
 }
 
@@ -456,17 +391,12 @@ PersisDataIO::disk_write_done(DiskRequest *req)
 }
 
 // ----------------------------------------------------------------------------
-
 // \DataIO
-// -------
 //
-DataIO::DataIO()
-{
-}
-
-DataIO::~DataIO()
-{
-}
+// Switch board interface to route data IO to the right handler.
+// ----------------------------------------------------------------------------
+DataIO::DataIO() {}
+DataIO::~DataIO() {}
 
 // \disk_singleton
 // ---------------
@@ -477,46 +407,18 @@ DataIO::disk_singleton()
     return *sgt_dataIO;
 }
 
-// \DataIO::disk_route_request
-// ---------------------------
-//
-PersisDataIO *
-DataIO::disk_route_request(DiskRequest *req)
-{
-    uint8_t idx = 0;
-    meta_obj_id_t const *const oid = req->req_get_oid();
-
-    fds_uint32_t dev_count = sgt_hdd_count;
-    if (req->getTier() == flashTier) {
-      dev_count = sgt_ssd_count;
-    } else {
-      fds_verify(req->getTier() == diskTier);
-    }
-
-    //  we will have to revisit this  schema  -- SAN
-    if (obj_id_is_valid(oid)) {
-        idx =  oid->metaDigest[0];
-        idx = idx % dev_count;
-    //   idx = (oid->metaoid_hash_hi + oid->oid_hash_lo) % dev_count;
-    }
-
-    if (req->getTier() == flashTier) {
-      return static_cast<PersisDataIO *>(sgt_ssdIO[idx]);
-    }
-
-    fds_verify(req->getTier() == diskTier);
-    return static_cast<PersisDataIO *>
-           (g_tokenFileMgr->openTokenFile(req->getTier(),
-                                          idx, oid->metaDigest[0], 0));
-}
-
 // \DataIO::disk_read
 // ------------------
 //
 fds::Error
 diskio::DataIO::disk_read(DiskRequest *req)
 {
-    FilePersisDataIO *iop = static_cast<FilePersisDataIO *>(disk_route_request(req));
+    PersisDataIO   *iop;
+    obj_phy_loc_t  *loc;
+
+    loc = req->req_get_phy_loc();
+    iop = gl_dataIOMod.disk_hdd_disk(req->getTier(), loc->obj_stor_loc_id, 0,
+                                     req->req_get_oid());
     return iop->disk_read(req);
 }
 
@@ -526,7 +428,9 @@ diskio::DataIO::disk_read(DiskRequest *req)
 fds::Error
 diskio::DataIO::disk_write(DiskRequest *req)
 {
-    FilePersisDataIO *iop = static_cast<FilePersisDataIO *>(disk_route_request(req));
+    PersisDataIO  *iop;
+
+    iop = gl_dataIOMod.disk_hdd_io(req->getTier(), 0, req->req_get_oid());
     return iop->disk_write(req);
 }
 
@@ -555,5 +459,31 @@ void
 DataIO::disk_loc_path_info(fds_uint16_t loc_id, std::string *path)
 {
 }
+
+//
+// Handle notification about start of garbage collection for given token
+// and tier
+//
+fds::Error
+DataIO::notify_start_gc(fds::fds_token_id tok_id,
+                        DataTier tier)
+{
+    fds::Error err(fds::ERR_OK);
+    // TODO(WIN-289) implement this
+    return err;
+}
+
+//
+// Notify about end of garbage collection for a given token and tier
+//
+fds::Error
+DataIO::notify_end_gc(fds::fds_token_id tok_id,
+                      DataTier tier)
+{
+    fds::Error err(fds::ERR_OK);
+    // TODO(WIN-289) implement this
+    return err;
+}
+
 
 }  // namespace diskio

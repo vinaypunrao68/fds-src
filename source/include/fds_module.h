@@ -4,24 +4,20 @@
 #ifndef SOURCE_INCLUDE_FDS_MODULE_H_
 #define SOURCE_INCLUDE_FDS_MODULE_H_
 
-#include <fds_types.h>
-
 #include <string>
-#include <boost/function.hpp>
+#include <fds_types.h>
 
 namespace fds {
 
-class SimEnvParams
+/**
+ * Abstract generic callback obj.
+ */
+class FdsCallback
 {
   public:
-    explicit SimEnvParams(const std::string &prefix) :
-    sim_disk_prefix(prefix) {
-    }
-    ~SimEnvParams() {}
-
-    std::string              sim_disk_prefix;
-    int                      sim_hdd_mb;
-    int                      sim_ssd_mb;
+    FdsCallback() {}
+    virtual ~FdsCallback() {}
+    virtual bool obj_callback() = 0;
 };
 
 /**
@@ -31,7 +27,7 @@ class SimEnvParams
 class SysParams
 {
   public:
-    SysParams() : fds_sim(nullptr) {}
+    SysParams() {}
     ~SysParams() {}
 
     int             sys_num_thr;
@@ -44,7 +40,6 @@ class SysParams
     std::string     fds_root;      /**< Root directory for FDS data */
     std::string     hdd_root;      /**< Root directory for HDD devices */
     std::string     ssd_root;      /**< Root directory for SSD devices */
-    SimEnvParams    *fds_sim;
 
     int             p_argc;
     char            **p_argv;

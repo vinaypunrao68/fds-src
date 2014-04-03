@@ -277,7 +277,10 @@ class DataMgr : public PlatformProcess
 
     void initSmMsgHdr(FDSP_MsgHdrTypePtr msgHdr);
 
-    Error applyBlobUpdate(const BlobObjectList &offsetList, BlobNode *bnode);
+    fds_bool_t amIPrimary(fds_volid_t volUuid);
+    Error applyBlobUpdate(fds_volid_t volUuid,
+                          const BlobObjectList &offsetList,
+                          BlobNode *bnode);
     Error expungeBlob(const BlobNode *bnode);
     Error expungeObject(fds_volid_t volId, const ObjectID &objId);
 

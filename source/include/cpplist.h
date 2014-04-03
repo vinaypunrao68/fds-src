@@ -125,6 +125,12 @@ class ChainList
     dlist_t chain_head;
 };
 
+// Macro to traverse the whole list.
+//
+#define chain_foreach(chain, iter)                                                   \
+    for ((chain)->chain_iter_init(&iter);                                            \
+         !((chain)->chain_iter_term(iter)); (chain)->chain_iter_next(&iter))
+
 }  // namespace fds
 
 #endif  // SOURCE_INCLUDE_CPPLIST_H_

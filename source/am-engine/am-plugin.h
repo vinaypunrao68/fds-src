@@ -144,7 +144,12 @@ class AME_Ctx
     char                     *ame_temp_buf;
     int                       ame_temp_len;
 
-    typedef enum {OK, FAILED, WAITING} AME_Ctx_Ack;
+    typedef enum {OK, FAILED, WAITING, SENT} AME_Ctx_Ack;
+    /// Defines how much data was requested by
+    /// the connector. ALL means no specific size,
+    /// just all of the data. SPECIFIC means a
+    /// specific length was requested
+    typedef enum {ALL, SPECIFIC} AME_Ctx_Get_Len;
 
   protected:
     AME_Ctx                  *ame_next;
@@ -153,17 +158,43 @@ class AME_Ctx
 
     /// Protects the offset and map members
     fds_mutex                *ame_map_lock;
+    /// Tracks current offset in to a stream
+    fds_off_t                 ame_buf_off;
+    typedef std::map<fds_off_t, AME_Ctx_Ack> AME_Ack_Map;
     /// Track which offsets we've received
     /// acks for
-    fds_off_t                 ame_buf_off;
-    typedef std::unordered_map<fds_off_t, AME_Ctx_Ack> AME_Ack_Map;
     AME_Ack_Map               ame_req_map;
+
+    /*
+     * Contextual fields for put()
+     */
+    /// Tracks all puts requests that need to be
+    /// sent/received to fulfill the request
     fds_uint32_t              ame_ack_count;
-    typedef std::list<char *> AME_Alloc_List;
-    /// Tracks buffers AME allocated to free later    
+    typedef std::pair<char *, fds_uint32_t> AME_Buf_Desc;
+    typedef std::list<AME_Buf_Desc> AME_Alloc_List;
+    /// Tracks buffers AME allocated to free later
     AME_Alloc_List            ame_alloc_bufs;
 
-    // Request etag
+    /*
+     * Contextual fields for get()
+     */
+    /// Tracks if the header was sent or not
+    fds_bool_t                ame_header_sent;
+    typedef std::pair<ame_buf_t *, fds_uint32_t> AME_Get_Desc;
+    typedef std::unordered_map<fds_off_t, AME_Get_Desc> AME_Buf_Map;
+    /// Tracks AME buffers used for gets by their offset
+    /// Also protected by the above map_lock
+    AME_Buf_Map               ame_get_bufs;
+    /// Tracks the total bytes received so far
+    /// for a get request
+    fds_uint64_t              ame_received_get_len;
+    /// Tracks whether a specific length that was requested
+    AME_Ctx_Get_Len           ame_req_get_range;
+    /// Tracks the specific length in bytes
+    fds_uint64_t              ame_req_get_len;
+
+    /// Request etag
     ngx_md5_t                 ame_etag_ctx;
 
     // Hookup with nginx event loop.
@@ -183,16 +214,58 @@ class AME_Ctx
     void ame_init_ngx_ctx();
 
   public:
+    /*
+     * Contextual functions for tracking
+     * outstanding request state
+     */
     Error ame_add_ctx_req(fds_off_t offset);
     Error ame_upd_ctx_req(fds_off_t offset,
                           AME_Ctx_Ack ack_status);
     AME_Ctx_Ack ame_check_status();
     void set_ack_count(fds_uint32_t count);
+    Error ame_get_unsent_offset(fds_off_t *offset,
+                                fds_bool_t *last);
+
+    /*
+     * Contextual functions for tracking offsets
+     * into a stream
+     */
     void ame_mv_off(fds_uint32_t len);
     fds_off_t ame_get_off() const;
-    void ame_add_alloc_buf(char *buf);
-    void ame_free_bufs();
+
+    /*
+     * Contextual functions for etag management
+     */
     ngx_md5_t *ame_get_etag();
+
+    /*
+     * Contextual functions to track buffers we
+     * allocated for puts
+     */
+    void ame_add_alloc_buf(char *buf, fds_uint32_t len);
+    void ame_free_bufs();
+
+    /*
+     * Contextual functions for tracking buffers,
+     * offsets, and lengths received for gets
+     */
+    void ame_set_request_all();
+    fds_bool_t ame_set_specific(fds_uint64_t len);
+    fds_uint64_t ame_get_requested_len();
+    void ame_add_get_buf(fds_off_t offset,
+                         ame_buf_t *ame_buf);
+    void ame_set_get_len(fds_off_t offset,
+                         fds_uint32_t len);
+    fds_uint64_t ame_get_received_len() const;
+    void ame_get_get_info(fds_off_t    offset,
+                          ame_buf_t    **ame_buf,
+                          fds_uint32_t *len);
+
+    /*
+     * Contextual functions for header management
+     */
+    fds_bool_t ame_get_header_sent() const;
+    void ame_set_header_sent(fds_bool_t sent);
 };
 
 class AME_CtxList

@@ -16,9 +16,19 @@ user_cpp          :=                   \
     TierEngine.cpp                     \
     TierPutAlgorithms.cpp              \
     ObjMeta.cpp                        \
-    SmObjDb.cpp
+    SmObjDb.cpp                        \
+    TokenCompactor.cpp
 
-user_no_style     := $(user_cpp) $(user_cc)
+user_no_style     := \
+    StorMgr.cpp                        \
+    StorMgrVolumes.cpp                 \
+    ObjRank.cpp                        \
+    ObjStats.cpp                       \
+    TierEngine.cpp                     \
+    TierPutAlgorithms.cpp              \
+    ObjMeta.cpp                        \
+    SmObjDb.cpp                        
+
 user_ar_libs      := fds-smlib
 fds-smlib         := $(user_cpp)
 

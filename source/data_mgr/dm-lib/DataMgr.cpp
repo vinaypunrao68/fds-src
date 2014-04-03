@@ -675,6 +675,28 @@ void DataMgr::ReqHandler::GetVolumeBlobList(FDSP_MsgHdrTypePtr& msg_hdr,
   }  
 }
 
+/**
+ * Checks the current DMT to determine if this DM primary
+ * or not for a given volume.
+ */
+fds_bool_t
+DataMgr::amIPrimary(fds_volid_t volUuid) {
+    int numNodes = 1;
+    fds_uint64_t nodeId;
+    int result = omClient->getDMTNodesForVolume(volUuid,
+                                                &nodeId,
+                                                &numNodes);
+    fds_verify(result == 0);
+    fds_verify(numNodes == 1);
+
+    NodeUuid primaryUuid(nodeId);
+    const NodeUuid *mySvcUuid = plf_mgr->plf_get_my_svc_uuid();
+    if (*mySvcUuid == primaryUuid) {
+        return true;
+    }
+    return false;
+}
+
 // TODO(Andrew): This is a total hack to get a sane blob
 // layout with a maximum object length. Ideally this
 // should come from the volume's metadata, not hard coded
@@ -688,12 +710,15 @@ static const fds_uint64_t maxObjSize = 2 * 1024 * 1024;
  * It also ensures that each object size, with the exception of
  * the last object, is the same.
  *
+ * @param[in]  The volume the blob is in
  * @param[in]  List of modified offsets
  * @param[out] The blob node to modify
  * @return The result of the application
  */
 Error
-DataMgr::applyBlobUpdate(const BlobObjectList &offsetList, BlobNode *bnode) {
+DataMgr::applyBlobUpdate(fds_volid_t volUuid,
+                         const BlobObjectList &offsetList,
+                         BlobNode *bnode) {
     Error err(ERR_OK);
     fds_verify(offsetList.size() != 0);
 
@@ -761,11 +786,15 @@ DataMgr::applyBlobUpdate(const BlobObjectList &offsetList, BlobNode *bnode) {
                 // entries don't actually needed to be expunged
                 // because there wasn't a real corresponding object id.
                 if (runMode != TEST_MODE) {
-                    err = expungeObject(bnode->vol_id, oldBlobObj.data_obj_id);
-                    fds_verify(err == ERR_OK);
+                    // Only need to expunge if this DM is the primary
+                    // for the volume
+                    if (amIPrimary(volUuid) == true) {
+                        err = expungeObject(bnode->vol_id, oldBlobObj.data_obj_id);
+                        fds_verify(err == ERR_OK);
+                    }
                 }
             }
-            
+
             // Overwrite the entry in place
             bnode->obj_list[blobOffsetIndex] = offsetList[i];
 
@@ -792,10 +821,15 @@ DataMgr::applyBlobUpdate(const BlobObjectList &offsetList, BlobNode *bnode) {
                         // entries don't actually needed to be expunged
                         // because there wasn't a real corresponding object id.
                         if (runMode != TEST_MODE) {
-                            err = expungeObject(bnode->vol_id, truncBlobObj.data_obj_id);
-                            fds_verify(err == ERR_OK);
+                            // Only need to expunge if this DM is the primary
+                            // for the volume
+                            if (amIPrimary(volUuid) == true) {
+                                err = expungeObject(bnode->vol_id, truncBlobObj.data_obj_id);
+                                fds_verify(err == ERR_OK);
+                            }
                         }
                     }
+
                     bnode->obj_list.popBack();
                 }
             }
@@ -898,7 +932,9 @@ DataMgr::updateCatalogProcess(const dmCatReq  *updCatReq, BlobNode **bnode) {
         FDS_ProtocolInterface::FDS_DMGR_TXN_STATUS_OPEN) {
         // Apply the updates to the blob
         BlobObjectList offsetList(updCatReq->fdspUpdCatReqPtr->obj_list);
-        err = applyBlobUpdate(offsetList, (*bnode));
+        err = applyBlobUpdate(updCatReq->volId,
+                              offsetList,
+                              (*bnode));
         fds_verify(err == ERR_OK);
         LOGDEBUG << "Updated blob " << (*bnode)->blob_name
                  << " to size " << (*bnode)->blob_size;
@@ -1577,8 +1613,13 @@ DataMgr::deleteBlobProcess(const dmCatReq  *delCatReq, BlobNode **bnode) {
                             delCatReq->transId,
                             deleteMarker);
         fds_verify(err == ERR_OK);
-        err = expungeBlob((*bnode));
-        fds_verify(err == ERR_OK);
+
+        // Only need to expunge if this DM is the primary
+        // for the volume
+        if (amIPrimary(delCatReq->volId) == true) {
+            err = expungeBlob((*bnode));
+            fds_verify(err == ERR_OK);
+        }
 
         // We can delete the bnode we received from our
         // query since we're going to create new blob
@@ -1590,14 +1631,18 @@ DataMgr::deleteBlobProcess(const dmCatReq  *delCatReq, BlobNode **bnode) {
         // We don't use a delete marker and instead
         // just delete this particular version
 
-        // We dereference count the objects in the blob here
-        // prior to freeing the structure.
-        // TODO(Andrew): We should persistently mark the blob
-        // as being deleted so that we know to clean it up
-        // after a crash. We may also need to persist deref
-        // state so we don't double dereference an object.
-        err = expungeBlob((*bnode));
-        fds_verify(err == ERR_OK);
+        // Only need to expunge if this DM is the primary
+        // for the volume
+        if (amIPrimary(delCatReq->volId) == true) {
+            // We dereference count the objects in the blob here
+            // prior to freeing the structure.
+            // TODO(Andrew): We should persistently mark the blob
+            // as being deleted so that we know to clean it up
+            // after a crash. We may also need to persist deref
+            // state so we don't double dereference an object.
+            err = expungeBlob((*bnode));
+            fds_verify(err == ERR_OK);
+        }
 
         // Remove the blob node structure
         err = _process_delete(delCatReq->volId,

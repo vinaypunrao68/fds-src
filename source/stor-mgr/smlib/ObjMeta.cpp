@@ -289,6 +289,15 @@ void ObjMetaData::setRefCnt(fds_uint16_t refcnt) {
 
 /**
  *
+ * @return refcnt
+ */
+fds_uint16_t ObjMetaData::getRefCnt() const{
+    return obj_map.obj_refcnt;
+}
+
+
+/**
+ *
  */
 void ObjMetaData::incRefCnt() {
     obj_map.obj_refcnt++;

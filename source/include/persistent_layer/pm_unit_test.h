@@ -1,8 +1,8 @@
 /*
  * Copyright 2013 Formation Data Systems, Inc.
  */
-#ifndef INCLUDE_PERISTENT_LAYER_PM_UNIT_TEST_H_
-#define INCLUDE_PERISTENT_LAYER_PM_UNIT_TEST_H_
+#ifndef SOURCE_INCLUDE_PERSISTENT_LAYER_PM_UNIT_TEST_H_
+#define SOURCE_INCLUDE_PERSISTENT_LAYER_PM_UNIT_TEST_H_
 
 #include <concurrency/ThreadPool.h>
 #include <persistent_layer/dm_io.h>
@@ -49,6 +49,5 @@ class DiskReqTest : public diskio::DiskRequest
     fds::fds_threadpool *const tst_rd;
 };
 
-} // namespace fds
-
-#endif /* INCLUDE_PERISTENT_LAYER_PM_UNIT_TEST_H_ */
+}  // namespace fds
+#endif  // SOURCE_INCLUDE_PERSISTENT_LAYER_PM_UNIT_TEST_H_

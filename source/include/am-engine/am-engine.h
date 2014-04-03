@@ -212,6 +212,10 @@ class AME_Request : public fdsio::Request
         return ame_ctx;
     }
 
+    inline AMEngine *ame_get_ame() const {
+        return ame;
+    }
+
     // ame_get_reqt_hdr_val
     // --------------------
     // Return the value corresponding with the key in the request header.
@@ -325,6 +329,9 @@ class Conn_GetObject : public AME_Request
     // returns the object id
     virtual std::string get_object_id() = 0;
 
+    /// returns the max buffer length to write
+    virtual fds_uint32_t get_max_buf_len() const;
+
     // Connector methods to handle/resume GetObject request.
     //
     virtual void ame_request_handler();
@@ -332,6 +339,9 @@ class Conn_GetObject : public AME_Request
 
   protected:
     void *cur_get_buffer;
+
+    /// Maximum buf size for stream chunking
+    fds_uint32_t get_obj_max_buf_len;
 };
 
 // ---------------------------------------------------------------------------
