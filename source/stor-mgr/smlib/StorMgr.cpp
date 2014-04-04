@@ -1994,6 +1994,7 @@ Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
                 LOGERROR << "Failed to enqueue msg: " << ioReq->log_string();
             }
             break;
+        case FDS_SM_COMPACT_OBJECTS:
         case FDS_SM_SNAPSHOT_TOKEN:
             err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
             if (err != fds::ERR_OK) {
@@ -2173,6 +2174,21 @@ ObjectStorMgr::applySyncMetadataInternal(SmIoReq* ioReq)
     omJrnl->release_transaction(applyMdReq->getTransId());
 
     applyMdReq->smio_sync_md_resp_cb(e, applyMdReq);
+}
+
+void
+ObjectStorMgr::compactObjectsInternal(SmIoReq* ioReq)
+{
+    SmIoCompactObjects *cobjs_req =  static_cast<SmIoCompactObjects*>(ioReq);
+
+    LOGDEBUG << "Will compact objects in the list";
+
+    /* Mark the request as complete */
+    qosCtrl->markIODone(*cobjs_req, DataTier::diskTier);
+
+    cobjs_req->smio_compactobj_resp_cb(Error(ERR_OK), cobjs_req);
+
+    delete cobjs_req;
 }
 
 void
@@ -2374,6 +2390,12 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
         {
             FDS_PLOG(FDS_QoSControl::qos_log) << "Processing snapshot";
             threadPool->schedule(&ObjectStorMgr::snapshotTokenInternal, objStorMgr, io);
+            break;
+        }
+        case FDS_SM_COMPACT_OBJECTS:
+        {
+            FDS_PLOG(FDS_QoSControl::qos_log) << "Processing sync apply metadata";
+            threadPool->schedule(&ObjectStorMgr::compactObjectsInternal, objStorMgr, io);
             break;
         }
         case FDS_SM_SYNC_APPLY_METADATA:
