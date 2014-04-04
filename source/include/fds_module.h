@@ -31,15 +31,11 @@ class SysParams
     ~SysParams() {}
 
     int             sys_num_thr;
-    int             sys_hdd_cnt;   /**< Number of HDD devices */
-    int             sys_ssd_cnt;   /**< Number of SSD devices */
     int             log_severity;  /**< Severity level for logger */
     fds_uint32_t    service_port;  /**< Port for service to listen */
     fds_uint32_t    control_port;  /**< Port for control to listen */
     fds_uint32_t    config_port;   /**< Port to connect for config */
     std::string     fds_root;      /**< Root directory for FDS data */
-    std::string     hdd_root;      /**< Root directory for HDD devices */
-    std::string     ssd_root;      /**< Root directory for SSD devices */
 
     int             p_argc;
     char            **p_argv;

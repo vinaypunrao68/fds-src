@@ -308,8 +308,6 @@ FdsRootDir::FdsRootDir(const std::string &root)
       d_var_tests(root     + std::string("var/tests/")),
       d_var_tools(root     + std::string("var/tools/")),
       d_dev(root           + std::string("dev/")),
-      d_hdd(root           + std::string("hdd/")),
-      d_ssd(root           + std::string("ssd/")),
       d_user_repo(root     + std::string("user-repo/")),
       d_user_repo_objs(d_user_repo + std::string("objects/")),
       d_user_repo_dm(d_user_repo   + std::string("dm-names/")),
