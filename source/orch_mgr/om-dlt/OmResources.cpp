@@ -741,20 +741,58 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
     return err;
 }
 
-// om_del_node_info
+// om_del_services
 // ----------------
 //
 Error
-OM_NodeDomainMod::om_del_node_info(const NodeUuid& uuid,
-                                   const std::string& node_name)
+OM_NodeDomainMod::om_del_services(const NodeUuid& node_uuid,
+                                  const std::string& node_name,
+                                  fds_bool_t remove_sm,
+                                  fds_bool_t remove_dm,
+                                  fds_bool_t remove_am)
 {
-    Error err = om_locDomain->dc_unregister_node(uuid, node_name);
+    Error err(ERR_OK);
     OM_PmContainer::pointer pmNodes = om_locDomain->om_pm_nodes();
     // make sure that platform agents do not hold references to this node
-    pmNodes->handle_unregister_service(uuid);
-    if (om_local_domain_up()) {
-        om_update_cluster();
+    // and unregister service resources
+    NodeUuid uuid;
+    if (remove_sm) {
+        uuid = pmNodes->handle_unregister_service(node_uuid, node_name, FDSP_STOR_MGR);
+        if (uuid.uuid_get_val() != 0) {
+            // dc_unregister_service requires node name and checks if uuid matches service
+            // name, however handle_unregister_service returns svc uuid only if there is
+            // one service with the same name, so ok if we get name first
+            OM_SmAgent::pointer smAgent = om_sm_agent(uuid);
+            err = om_locDomain->dc_unregister_node(uuid, smAgent->get_node_name());
+            LOGDEBUG << "Unregistered SM service for node " << node_name
+                     << ":" << std::dec << node_uuid.uuid_get_val() << std::hex
+                     << " result: " << err.GetErrstr();
+        }
+        if (om_local_domain_up()) {
+            om_update_cluster();
+        }
     }
+    if (err.ok() && remove_dm) {
+        uuid = pmNodes->handle_unregister_service(node_uuid, node_name, FDSP_DATA_MGR);
+        if (uuid.uuid_get_val() != 0) {
+            OM_DmAgent::pointer dmAgent = om_dm_agent(uuid);
+            err = om_locDomain->dc_unregister_node(uuid, dmAgent->get_node_name());
+            LOGDEBUG << "Unregistered DM service for node " << node_name
+                     << ":" << std::dec << node_uuid.uuid_get_val() << std::hex
+                     << " result: " << err.GetErrstr();
+        }
+    }
+    if (err.ok() && remove_am) {
+        uuid = pmNodes->handle_unregister_service(node_uuid, node_name, FDSP_STOR_HVISOR);
+        if (uuid.uuid_get_val() != 0) {
+            OM_AmAgent::pointer amAgent = om_am_agent(uuid);
+            err = om_locDomain->dc_unregister_node(uuid, amAgent->get_node_name());
+            LOGDEBUG << "Unregistered AM service for node " << node_name
+                     << ":" << std::dec << node_uuid.uuid_get_val() << std::hex
+                     << " result " << err.GetErrstr();
+        }
+    }
+
     return err;
 }
 
