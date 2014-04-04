@@ -486,6 +486,14 @@ void FDS_NativeAPI::DoCallback(FdsBlobReq  *blob_req,
         if (result > 0 && result < FDSN_StatusErrorUnknown) {
             // the result is a fdsn status
             status = (FDSN_Status)result;
+        } else if (result < 0) {
+            // TODO(Prem/Andrew): We're not actually ever setting
+            // the error variable and there are cases where AM returns
+            // just a negative result value with no other info...we need
+            // to either set the error value or remove it and always return
+            // the FDSN error code.
+            // For now, we just throw our hands up and give a 500.
+            status = FDSN_StatusInternalError;
         } else {
             switch (error.GetErrno()) {
                 case ERR_OK                           : break;

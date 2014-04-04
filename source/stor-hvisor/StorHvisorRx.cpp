@@ -348,7 +348,13 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
         journEntry->trans_state = FDS_TRANS_EMPTY;
         journEntry->write_ctx = 0;
 
-        blobReq->cbWithResult(-1);  
+        blobReq->setDataLen(0);
+        fds_int32_t result = -1;
+        if (fdsp_msg_hdr->result == FDS_ProtocolInterface::FDSP_ERR_BLOB_NOT_FOUND) {
+            // Set the error code accordingly if the blob wasn't found
+            result = FDSN_StatusEntityDoesNotExist;
+        }
+        blobReq->cbWithResult(result);
         journEntry->reset();
         delete blobReq;
         shvol->journal_tbl->releaseTransId(trans_id);

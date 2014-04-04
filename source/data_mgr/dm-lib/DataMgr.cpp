@@ -1303,9 +1303,13 @@ DataMgr::queryCatalogBackend(dmCatReq  *qryCatReq) {
       msg_hdr->result  = FDS_ProtocolInterface::FDSP_ERR_OK;
       msg_hdr->err_msg = "Dude, you're good to go!";
   } else {
-    msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_FAILED;
-    msg_hdr->err_msg  = "Something hit the fan...";
-    msg_hdr->err_code = err.GetErrno();
+      if (err == ERR_BLOB_NOT_FOUND) {
+          msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_BLOB_NOT_FOUND;
+      } else {
+          msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_FAILED;
+      }
+      msg_hdr->err_msg  = "Something hit the fan...";
+      msg_hdr->err_code = err.GetErrno();
   }
 
   if (bnode) {

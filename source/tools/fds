@@ -59,8 +59,6 @@ function usage() {
 function setupFdsDirs() {
     loginfo "setting up: ${FDSROOT} "
     if [[ ! -d ${FDSROOT} ]] ; then mkdir -p ${FDSROOT} ; fi
-    if [[ ! -d ${FDSROOT}/hdd ]] ; then mkdir -p ${FDSROOT}/hdd ; fi
-    if [[ ! -d ${FDSROOT}/ssd ]] ; then mkdir -p ${FDSROOT}/ssd ; fi
     
     loginfo "setting up: ${FDSROOT}/etc "
     if [[ $(readlink ${FDSROOT}/etc) != "${CONFIG_ETC}" ]] ; then

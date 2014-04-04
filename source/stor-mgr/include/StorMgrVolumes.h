@@ -516,6 +516,25 @@ namespace fds {
       /* Response callback */
       CbType smio_readmd_resp_cb;
   };
+
+  /**
+   * Request to copy or delete a given list of objects
+   */
+  class SmIoCompactObjects : public SmIoReq {
+  public:
+      typedef std::function<void (const Error&,
+                                  SmIoCompactObjects *req)> cbType;
+  public:
+      SmIoCompactObjects() {}
+
+      /* list of object ids */
+      std::vector<ObjectID> oid_list;
+
+      /* response callback */
+      cbType smio_compactobj_resp_cb;
+
+  };
+
 }  // namespace fds
 
 #endif  // SOURCE_STOR_MGR_STORMGRVOLUMES_H_

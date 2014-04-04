@@ -474,6 +474,7 @@ class ObjectStorMgr :
     void applyObjectDataInternal(SmIoReq* ioReq);
     void readObjectDataInternal(SmIoReq* ioReq);
     void readObjectMetadataInternal(SmIoReq* ioReq);
+    void compactObjectsInternal(SmIoReq* ioReq);
 
     Error relocateObject(const ObjectID &objId,
             diskio::DataTier from_tier,
