@@ -148,6 +148,7 @@ typedef enum
     FDSN_StatusAbortedByCallback                               ,
     FDSN_StatusRequestTimedOut                                 ,
     FDSN_StatusEntityEmpty                                     ,
+    FDSN_StatusEntityDoesNotExist                              ,
     /**
      * Errors from the S3 service
      **/

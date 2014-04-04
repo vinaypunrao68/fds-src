@@ -462,9 +462,12 @@ struct FDSP_AttachVolCmdType {
   3: i32			 domain_id,
 }
 
-struct FDSP_RemoveNodeType {
-  1: string node_name, // Name of the node which should be removed from the system
-  2: FDSP_Uuid   node_uuid,
+struct FDSP_RemoveServicesType {
+  1: string node_name, // Name of the node that contains services
+  2: FDSP_Uuid   node_uuid,  // used if node name is not provided
+  3: bool remove_sm,   // true if sm needs to be removed
+  4: bool remove_dm,   // true to remove dm
+  5: bool remove_am    // true to remove am
 }
 
 struct FDSP_GetVolInfoReqType {
@@ -1044,7 +1047,7 @@ service FDSP_ConfigPathReq {
   i32 GetDomainStats(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetDomainStatsType get_stats_msg),
   i32 applyTierPolicy(1: tier_pol_time_unit policy),
   i32 auditTierPolicy(1: tier_pol_audit audit),
-  i32 RemoveNode(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_RemoveNodeType rm_node_req),
+  i32 RemoveServices(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_RemoveServicesType rm_node_req),
   i32 ActivateAllNodes(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ActivateAllNodesType act_node_req),
   i32 ActivateNode(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ActivateOneNodeType req),
   list<FDSP_Node_Info_Type> ListServices(1:FDSP_MsgHdrType fdsp_msg),

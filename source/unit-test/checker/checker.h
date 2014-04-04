@@ -15,6 +15,7 @@
 namespace fds {
 
 class DatapathRespImpl;
+class MetaDatapathRespImpl;
 
 /**
  * @brief Storage manager counters
@@ -41,13 +42,29 @@ class CheckerCntrs : public FdsCounters
 class BaseChecker : public Platform {
  public:
     BaseChecker(char const *const name)
-     : Platform("Checker-Platform", FDSP_STOR_HVISOR, NULL, NULL, NULL, NULL),
-       cntrs_("Checker", g_cntrs_mgr.get()),
-       panic_on_corruption_(true)
+     : Platform("Checker-Platform", FDSP_STOR_HVISOR,
+                new DomainNodeInv("AM-Platform-NodeInv",
+                                 NULL,
+                                 new SmContainer(FDSP_STOR_HVISOR),
+                                 new DmContainer(FDSP_STOR_HVISOR),
+                                 new AmContainer(FDSP_STOR_HVISOR),
+                                 new PmContainer(FDSP_STOR_HVISOR),
+                                 new OmContainer(FDSP_STOR_HVISOR)),
+                new DomainClusterMap("AM-Platform-ClusMap",
+                                 NULL,
+                                 new SmContainer(FDSP_STOR_HVISOR),
+                                 new DmContainer(FDSP_STOR_HVISOR),
+                                 new AmContainer(FDSP_STOR_HVISOR),
+                                 new PmContainer(FDSP_STOR_HVISOR),
+                                 new OmContainer(FDSP_STOR_HVISOR)),
+                new DomainResources("AM-Resources"),
+                NULL),
+       cntrs_("Checker", g_cntrs_mgr.get())
      {}
     virtual ~BaseChecker() {}
 
     virtual void run_checker() = 0;
+    virtual void mod_load_from_config();
 
     virtual void log_corruption(const std::string& info);
     virtual void compare_against(
@@ -91,6 +108,7 @@ class DirBasedChecker : public BaseChecker {
     bool get_object_metadata(const NodeUuid& node_id,
             const ObjectID &oid, FDSP_MigrateObjectMetadata &md);
     netDataPathClientSession* get_datapath_session(const NodeUuid& node_id);
+    netMetaDataPathClientSession *get_metadatapath_session(const NodeUuid& node_id);
 
     virtual PlatRpcReqt *plat_creat_reqt_disp();
     virtual PlatRpcResp *plat_creat_resp_disp();
@@ -99,6 +117,31 @@ class DirBasedChecker : public BaseChecker {
     ClusterCommMgrPtr clust_comm_mgr_;
     concurrency::TaskStatus get_resp_monitor_;
     boost::shared_ptr<DatapathRespImpl> dp_resp_handler_;
+    boost::shared_ptr<MetaDatapathRespImpl> md_resp_handler_;
+};
+
+class VolBasedChecker : public DirBasedChecker {
+ public:
+    VolBasedChecker();
+    virtual ~VolBasedChecker();
+
+    /* BaseChecker overrides */
+    virtual void run_checker() override;
+
+ protected:
+    void list_bucket(const NodeUuid &node_id,
+                     const fds_volid_t vol_id,
+                     const std::string vol_name);
+
+    void get_blob_id(const NodeUuid &node_id,
+                     const fds_volid_t vol_id,
+                     const std::string vol_name,
+                     const std::string blob_name,
+                     netMetaDataPathClientSession *md_session);
+
+    BlobInfoListType resp_vector;
+    FDSP_BlobDigestType resp_digest;
+    FDSP_BlobObjectList resp_obj_list;
 };
 
 /**

@@ -192,12 +192,12 @@ class OrchMgr: public FdsProcess {
             ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
             ::FDS_ProtocolInterface::FDSP_CreateDomainTypePtr& del_dom_req);
 
-        int32_t RemoveNode(
+        int32_t RemoveServices(
             const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-            const ::FDS_ProtocolInterface::FDSP_RemoveNodeType& rm_node_req);
-        int32_t RemoveNode(
+            const ::FDS_ProtocolInterface::FDSP_RemoveServicesType& rm_svc_req);
+        int32_t RemoveServices(
             ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-            ::FDS_ProtocolInterface::FDSP_RemoveNodeTypePtr& rm_node_req);
+            ::FDS_ProtocolInterface::FDSP_RemoveServicesTypePtr& rm_svc_req);
 
         int32_t SetThrottleLevel(
             const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,

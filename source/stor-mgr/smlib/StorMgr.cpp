@@ -1724,10 +1724,18 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
             objCache->object_add(volId, objId, objBufPtr, false); // read data is always clean
             // ACL: If this Volume never put this object, then it should not access the object
             if (!objMetadata.isVolumeAssociated(volId)) {
+
+            // TODO (bao): Need a way to ignore acl to run checker process
+// #define _IGNORE_ACL_CHECK_FOR_TEST_
+#ifdef _IGNORE_ACL_CHECK_FOR_TEST_
+                err = fds::ERR_OK;
+#else
                err = ERR_UNAUTH_ACCESS;
                LOGDEBUG << "Volume " << volId << " unauth-access of object " << objId
                 // << " and data " << objData.data
                 << " for request ID " << getReq->io_req_id;
+#endif
+
             }
         }
     } else {

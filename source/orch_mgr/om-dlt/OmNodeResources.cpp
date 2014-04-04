@@ -377,7 +377,7 @@ OM_PmAgent::handle_register_service(FDS_ProtocolInterface::FDSP_MgrIdType svc_ty
 // unregister_service
 // ------------------
 //
-void
+NodeUuid
 OM_PmAgent::handle_unregister_service(FDS_ProtocolInterface::FDSP_MgrIdType svc_type)
 {
     // update configDB -- remove the service
@@ -386,17 +386,21 @@ OM_PmAgent::handle_unregister_service(FDS_ProtocolInterface::FDSP_MgrIdType svc_
     fds_bool_t found_services = configDB ?
             configDB->getNodeServices(get_uuid(), services) : false;
 
+    NodeUuid svc_uuid;
     switch (svc_type) {
         case FDS_ProtocolInterface::FDSP_STOR_MGR:
             activeSmAgent = NULL;
+            svc_uuid = services.sm;
             services.sm.uuid_set_val(0);
             break;
         case FDS_ProtocolInterface::FDSP_DATA_MGR:
             activeDmAgent = NULL;
+            svc_uuid = services.dm;
             services.dm.uuid_set_val(0);
             break;
         case FDS_ProtocolInterface::FDSP_STOR_HVISOR:
             activeAmAgent = NULL;
+            svc_uuid = services.am;
             services.am.uuid_set_val(0);
             break;
         default:
@@ -406,6 +410,8 @@ OM_PmAgent::handle_unregister_service(FDS_ProtocolInterface::FDSP_MgrIdType svc_
     if (found_services) {
         configDB->setNodeServices(get_uuid(), services);
     }
+
+    return svc_uuid;
 }
 
 void
@@ -678,18 +684,49 @@ OM_PmContainer::handle_register_service(const NodeUuid &pm_uuid,
     return OM_PmAgent::agt_cast_ptr(pm_agt)->handle_register_service(svc_role, svc_agent);
 }
 
-static void
-handle_unregister_svc(const NodeUuid& svc_uuid, NodeAgent::pointer node) {
-    OM_PmAgent::agt_cast_ptr(node)->handle_unregister_service(svc_uuid);
-}
-
 // handle_unregister_service
 // -------------------------
 //
-void
-OM_PmContainer::handle_unregister_service(const NodeUuid& svc_uuid)
+NodeUuid
+OM_PmContainer::handle_unregister_service(const NodeUuid& node_uuid,
+                                          const std::string& node_name,
+                                          FDS_ProtocolInterface::FDSP_MgrIdType svc_type)
 {
-    agent_foreach<const NodeUuid&>(svc_uuid, handle_unregister_svc);
+    NodeUuid svc_uuid;
+    NodeAgent::pointer agent;
+    if (node_uuid.uuid_get_val() == 0) {
+        NodeUuid nd_uuid;
+        for (fds_uint32_t i = 0; i < rs_available_elm(); ++i) {
+            agent = agent_info(i);
+            if (node_name.compare(agent->get_node_name()) == 0) {
+                // we found node agent!
+                if (nd_uuid.uuid_get_val() != 0) {
+                    LOGWARN << "Found more than one node with the same name "
+                            << " -- ambiguous, will not unregister service";
+                    return svc_uuid;
+                }
+                // first node that we found
+                nd_uuid = agent->get_uuid();
+            }
+        }
+        if (nd_uuid.uuid_get_val() == 0) {
+            LOGWARN << "Could not find platform agent for node " << node_name;
+            return svc_uuid;
+        }
+        agent = agent_info(nd_uuid);
+        svc_uuid = OM_PmAgent::agt_cast_ptr(
+            agent)->handle_unregister_service(svc_type);
+    } else {
+        agent = agent_info(node_uuid);
+        if (agent) {
+            svc_uuid = OM_PmAgent::agt_cast_ptr(
+                agent)->handle_unregister_service(svc_type);
+        } else {
+            LOGWARN << "Could not find platform agent for node uuid "
+                    << std::hex << node_uuid.uuid_get_val() << std::dec;
+        }
+    }
+    return svc_uuid;
 }
 
 // ---------------------------------------------------------------------------------
