@@ -557,8 +557,8 @@ class PkgCreate:
             source /usr/include/pkghelper/install-base.sh
 
             processInstallScript $(basename $0) $@
-         ''' % (self.installscript, ' '.join(allservices), ' '.join(autoservices), ' '.join(startoninstall), ' '.join(symlinks)
-        
+         ''' % (self.installscript, ' '.join(allservices), ' '.join(autoservices), ' '.join(startoninstall), ' '.join(symlinks))
+                
         templatescript = re.sub(r'\n *','\n',templatescript.strip())
         
         # Now write these files...
