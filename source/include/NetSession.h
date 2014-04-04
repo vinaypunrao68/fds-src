@@ -422,7 +422,7 @@ class netServerSessionEx: public netSession {
           server_->serve();
       } catch(const att::TTransportException& e) {
           LOGERROR << "unable to start server : " << e.what();
-          exit(1);
+          fds_panic("Unable to start a server...bailing out");
       }
   }
 

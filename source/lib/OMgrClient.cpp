@@ -225,7 +225,7 @@ void OMgrClient::start_omrpc_handler()
     } catch(const att::TTransportException& e) {
         LOGERROR << "unable to listen at the given port - check the port";
         LOGERROR << "error during network call : " << e.what();
-        exit(1);
+        fds_panic("Unable to listen on server...");
     }
 }
 
