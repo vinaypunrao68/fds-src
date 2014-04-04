@@ -510,6 +510,8 @@ namespace fds {
       }
       /* In/out: In is object id, out is object meta data */
       FDSP_MigrateObjectMetadata meta_data;
+      /* In: Cookie from the caller for caching any context info */
+      boost::shared_ptr<void> cookie;
 
       /* Response callback */
       CbType smio_readmd_resp_cb;

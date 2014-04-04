@@ -582,6 +582,9 @@ class ObjectStorMgrI : virtual public FDSP_DataPathReqIf {
     void GetObjectMetadata(const FDSP_GetObjMetadataReq& metadata_req) {
         // Don't do anything here. This stub is just to keep cpp compiler happy
     }
+
+    /* user defined methods */
+    void GetObjectMetadataCb(const Error &e, SmIoReadObjectMetadata *read_data);
 };
 
 }  // namespace fds

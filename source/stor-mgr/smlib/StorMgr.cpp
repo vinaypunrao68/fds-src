@@ -211,6 +211,46 @@ ObjectStorMgrI::RedirReadObject(FDSP_MsgHdrTypePtr &msg_hdr, FDSP_RedirReadObjTy
 
 void ObjectStorMgrI::GetObjectMetadata(
         boost::shared_ptr<FDSP_GetObjMetadataReq>& metadata_req) {  // NOLINT
+    Error err(ERR_OK);
+    SmIoReadObjectMetadata *sm_req = new SmIoReadObjectMetadata();
+
+    sm_req->io_type = FDS_SM_READ_OBJECTMETADATA;
+    sm_req->setObjId(ObjectID(metadata_req->obj_id.digest));
+    sm_req->meta_data.object_id = metadata_req->obj_id;
+    sm_req->cookie = metadata_req;
+    sm_req->smio_readmd_resp_cb = std::bind(
+        &ObjectStorMgrI::GetObjectMetadataCb, this,
+        std::placeholders::_1, std::placeholders::_2);
+
+    err = objStorMgr->enqueueMsg(FdsSysTaskQueueId, sm_req);
+    if (err != fds::ERR_OK) {
+        fds_assert(!"Hit an error in enqueing");
+        LOGERROR << "Failed to enqueue to SmIoReadObjectMetadata to StorMgr.  Error: "
+                << err;
+        sm_req->smio_readmd_resp_cb(err, sm_req);
+    }
+}
+void ObjectStorMgrI::GetObjectMetadataCb(const Error &err,
+        SmIoReadObjectMetadata *read_data)
+{
+    boost::shared_ptr<FDSP_GetObjMetadataReq> md_req =
+            boost::static_pointer_cast<FDSP_GetObjMetadataReq>(read_data->cookie);
+    FDSP_GetObjMetadataResp resp;
+
+    resp.header = md_req->header;
+    if (err == ERR_OK) {
+        resp.header.result = FDS_ProtocolInterface::FDSP_ERR_OK;
+        resp.header.err_code = err.getFdspErr();
+        resp.meta_data = read_data->meta_data;
+    } else {
+        resp.header.result = FDS_ProtocolInterface::FDSP_ERR_FAILED;
+        resp.header.err_code = err.getFdspErr();
+    }
+
+    delete read_data;
+
+    objStorMgr->fdspDataPathClient(
+            resp.header.session_uuid)->GetObjectMetadataResp(resp);
 }
 /**
  * Storage manager member functions
