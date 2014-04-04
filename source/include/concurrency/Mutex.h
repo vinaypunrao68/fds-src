@@ -11,6 +11,10 @@
 
 #include <string>
 #define FDSGUARD(m) fds::fds_scoped_lock _fsl_(m)
+// synchronized macro is specified as lower case to 
+// be similar to Java synchronized
+#define synchronized(m)    for (sync_helper _sync_(m); _sync_.fSynchronized ; _sync_.fSynchronized=false)
+#define synchronizedptr(m) for (sync_helper _sync_(*m) ; _sync_.fSynchronized ; _sync_.fSynchronized=false)
 namespace fds {
   /*
    * Basic mutex class. It is based on the basic
@@ -81,6 +85,13 @@ namespace fds {
    * a spinlock.  
    */
   typedef fds_mutex fds_spinlock;
+
+  struct sync_helper {
+      fds_scoped_lock fsl;
+      bool fSynchronized = true;
+    sync_helper(fds_mutex& m)  : fsl(m) {}
+  };
+
 }  // namespace fds
 
 #endif  // SOURCE_UTIL_CONCURRENCY_MUTEX_H_
