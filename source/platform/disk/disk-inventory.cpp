@@ -522,7 +522,7 @@ PmDiskInventory::dsk_dump_all()
 bool
 PmDiskInventory::dsk_need_simulation()
 {
-    return false;
+    return true;
 
     if (dsk_count != (DISK_ALPHA_COUNT_HDD + DISK_ALPHA_COUNT_SSD)) {
         return true;

@@ -65,7 +65,7 @@ DmPlatform::mod_init(SysParams const *const param)
     plf_my_node_name = plf_my_ip;
 
     LOGNORMAL << "My ctrl port " << plf_my_ctrl_port
-        << ", data port " << plf_my_data_port;
+        << ", data port " << plf_my_data_port << ", OM ip: " << plf_om_ip_str;
 
     plf_vol_evt  = new DmVolEvent(plf_resources, plf_clus_map, this);
     plf_node_evt = new NodePlatEvent(plf_resources, plf_clus_map, this);
