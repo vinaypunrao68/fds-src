@@ -15,7 +15,6 @@ using namespace fds;
 extern StorHvCtrl *storHvisor;
 
 #define SRC_IP  0x0a010a65
-#define FDS_IO_LONG_TIME  60 // seconds
 
 BEGIN_C_DECLS
 /*----------------------------------------------------------------------------------------

@@ -14,7 +14,6 @@
 #include <dlt.h>
 #include <ObjectId.h>
 
-
 extern StorHvCtrl *storHvisor;
 using namespace std;
 using namespace FDS_ProtocolInterface;
@@ -57,7 +56,6 @@ fds::Error StorHvCtrl::pushBlobReq(fds::FdsBlobReq *blobReq) {
  * TODO: Actually calculate the host's IP
  */
 #define SRC_IP           0x0a010a65
-#define FDS_IO_LONG_TIME 60 // seconds
 
 /**
  * Dispatches async FDSP messages to SMs for a put msg.
@@ -165,6 +163,9 @@ StorHvCtrl::dispatchSmGetMsg(StorHvJournalEntry *journEntry) {
 
     ObjectID objId(getMsg->data_obj_id.digest);
 
+    fds_volid_t   volId =smMsgHdr->glob_volume_id;
+    StorHvVolume *shVol = storHvisor->vol_table->getLockedVolume(volId);
+
     // Look up primary SM from DLT entries
     boost::shared_ptr<DltTokenGroup> dltPtr;
     dltPtr = dataPlacementTbl->getDLTNodesForDoidKey(objId);
@@ -180,13 +181,19 @@ StorHvCtrl::dispatchSmGetMsg(StorHvJournalEntry *journEntry) {
     // Get primary SM's node info
     // TODO: We're just assuming it's the first in the list!
     // We should be verifying this somehow.
-    dataPlacementTbl->getNodeInfo(dltPtr->get(0).uuid_get_val(),
+    dataPlacementTbl->getNodeInfo(dltPtr->get(journEntry->nodeSeq).uuid_get_val(),
                                   &node_ip,
                                   &node_port,
                                   &node_state);
     smMsgHdr->dst_ip_lo_addr = node_ip;
     smMsgHdr->dst_port       = node_port;
 
+    journEntry->sm_ack[journEntry->nodeSeq].ipAddr = node_ip;
+    journEntry->sm_ack[journEntry->nodeSeq].port   = node_port;
+    journEntry->sm_ack[journEntry->nodeSeq].ack_status = FDS_CLS_ACK;
+    journEntry->num_sm_nodes     = numNodes;
+
+    LOGNORMAL << "For transaction: " << journEntry->trans_id << "node_ip:" << node_ip << "node_port" << node_port;
     getMsg->dlt_version = om_client->getDltVersion();
     fds_verify(getMsg->dlt_version != DLT_VER_INVALID);
 
@@ -200,6 +207,10 @@ StorHvCtrl::dispatchSmGetMsg(StorHvJournalEntry *journEntry) {
         boost::shared_ptr<FDSP_DataPathReqClient> client = sessionCtx->getClient();
         smMsgHdr->session_uuid = sessionCtx->getSessionId();
         journEntry->session_uuid = smMsgHdr->session_uuid;
+
+        // Schedule a timer here to track the responses and the original request
+        shVol->journal_tbl->schedule(journEntry->ioTimerTask, std::chrono::seconds(FDS_IO_LONG_TIME));
+
         // RPC getObject to StorMgr
         client->GetObject(smMsgHdr, getMsg);
 
@@ -214,11 +225,12 @@ StorHvCtrl::dispatchSmGetMsg(StorHvJournalEntry *journEntry) {
 
 fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
     fds::Error err(ERR_OK);
-
+    
     /*
      * Pull out the blob request
      */
     PutBlobReq *blobReq = static_cast<PutBlobReq *>(qosReq->getBlobReqPtr());
+    bool fZeroSize = (blobReq->getDataLen() == 0);
     fds_verify(blobReq->magicInUse() == true);
 
     fds_volid_t   volId = blobReq->getVolId();
@@ -281,8 +293,14 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
     /*
      * Hash the data to obtain the ID
      */
-    ObjectID objId = ObjIdGen::genObjectId(blobReq->getDataBuf(),
-                                           blobReq->getDataLen());
+    ObjectID objId;
+     if (fZeroSize) {
+        LOGWARN << "zero size object - "
+                << " [objkey:" << blobReq->ObjKey <<"]";
+     } else {
+         objId = ObjIdGen::genObjectId(blobReq->getDataBuf(),
+                                       blobReq->getDataLen());
+     }
 
     blobReq->setObjId(objId);
 
@@ -345,7 +363,26 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
               << msgHdrSm->src_node_name << " in trans"
               << transId;
 
-    err = dispatchSmPutMsg(journEntry);
+    if (!fZeroSize) {
+        err = dispatchSmPutMsg(journEntry);
+    } else {
+        // special case for zero size
+        // trick the state machine to think that it 
+        // has gotten responses from SM's
+        DltTokenGroupPtr dltPtr;
+        dltPtr = dataPlacementTbl->getDLTNodesForDoidKey(objId);
+        fds_verify(dltPtr != NULL);
+
+        fds_uint32_t numNodes = dltPtr->getLength();
+        fds_verify(numNodes > 0);
+        journEntry->sm_ack_cnt = numNodes;
+        LOGWARN << "not sending put request to sm as obj is zero size - ["
+                << " id:" << objId
+                << " objkey:" << blobReq->ObjKey
+                << " name:" << blobReq->getBlobName()
+                << "]";
+    }
+
     fds_verify(err == ERR_OK);
 
     /*
@@ -791,22 +828,37 @@ fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq) {
         return err;
     }
 
+    bool fSizeZero = (objId == NullObjectID);
+
     fds_verify(err == ERR_OK);
     journEntry->data_obj_id.digest = std::string((const char *)objId.GetId(), (size_t)objId.GetLen());
 
     get_obj_req->data_obj_id.digest = std::string((const char *)objId.GetId(), (size_t)objId.GetLen());
     get_obj_req->data_obj_len = blobReq->getDataLen();
+    if (fSizeZero) {
+        LOGWARN << "zero size object - not sending get request to sm -"
+                << " name:" << blobReq->getBlobName()
+                << " txnid:" << transId;
+        
+        storHvisor->qos_ctrl->markIODone(journEntry->io);
+        journEntry->trans_state = FDS_TRANS_DONE;
 
-    LOGNOTIFY << "Getting object " << objId << " for blob "
-              << blobReq->getBlobName() << " and offset "
-              << blobReq->getBlobOffset() << " in trans "
-              << transId;
-    err = dispatchSmGetMsg(journEntry);
-    fds_verify(err == ERR_OK);
-  
-    // Schedule a timer here to track the responses and the original request
-    shVol->journal_tbl->schedule(journEntry->ioTimerTask, std::chrono::seconds(FDS_IO_LONG_TIME));
-
+        blobReq->setDataLen(0);
+        blobReq->cbWithResult(FDSN_StatusEntityEmpty);
+        journEntry->reset();
+        shVol->journal_tbl->releaseTransId(transId);
+    } else {
+        journEntry->trans_state = FDS_TRANS_GET_OBJ;
+        LOGNORMAL << "Getting object " << objId << " for blob "
+                  << blobReq->getBlobName() << " and offset "
+                  << blobReq->getBlobOffset() << " in trans "
+                  << transId;
+        journEntry->nodeSeq = 0; // Primary node
+        err = dispatchSmGetMsg(journEntry);
+        fds_verify(err == ERR_OK);
+        // Schedule a timer here to track the responses and the original request
+        shVol->journal_tbl->schedule(journEntry->ioTimerTask, std::chrono::seconds(FDS_IO_LONG_TIME));
+    }
     /*
      * Note je_lock destructor will unlock the journal entry automatically
      */
@@ -848,6 +900,7 @@ fds::Error StorHvCtrl::getObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
         // and update the DLT version 
         storHvisor->om_client->updateDlt(true, getObjRsp->dlt_data);
 
+        txn->nodeSeq = 0; // Primary node
         // resend the IO with latest DLT
         storHvisor->dispatchSmGetMsg(txn);
         // Return here since we haven't received successful acks to
@@ -902,15 +955,27 @@ fds::Error StorHvCtrl::getObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
         blobReq->setDataBuf(getObjRsp->data_obj.c_str());
         blobReq->setBlobSize(blobSize);
         blobReq->cbWithResult(0);
+        txn->reset();
+        vol->journal_tbl->releaseTransId(transId);
     } else {
         /*
-         * We received an error from SM
+         * We received an error from SM. check the Error. If the Obj Not found 
+         * send a get object request to secondary SM
          */
+       if (txn->nodeSeq != txn->num_sm_nodes) { 
+           txn->nodeSeq =+ 1; // secondary node 
+           err = dispatchSmGetMsg(txn);
+           fds_verify(err == ERR_OK);
+ 
+       }
+       else {
+        vol->journal_tbl->releaseTransId(transId);
         blobReq->cbWithResult(-1);
+        txn->reset();
+        delete blobReq;
+        blobReq = NULL;
+       }
     }
-
-    txn->reset();
-    vol->journal_tbl->releaseTransId(transId);
 
     /*
      * TODO: We're deleting the request structure. This assumes

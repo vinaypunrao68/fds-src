@@ -100,7 +100,7 @@ public class OmConfigPath implements FDSP_ConfigPathReq.Iface {
     }
 
     @Override
-    public int RemoveNode(FDSP_MsgHdrType fdsp_msg, FDSP_RemoveNodeType rm_node_req) throws TException {
+    public int RemoveServices(FDSP_MsgHdrType fdsp_msg, FDSP_RemoveServicesType rm_node_req) throws TException {
         return 0;
     }
 

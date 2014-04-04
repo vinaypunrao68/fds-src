@@ -14,4 +14,8 @@
 #define KB 1024
 #define MB (KB*1024)
 #define GB (MB*1024)
+
+#define ENUMCASE(x) case x : return #x
+#define ENUMCASEOS(x, os) case x : os << #x ; break;
+
 #endif  // SOURCE_INCLUDE_FDS_DEFINES_H_

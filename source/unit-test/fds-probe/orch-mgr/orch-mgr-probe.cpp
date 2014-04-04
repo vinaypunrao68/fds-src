@@ -153,7 +153,7 @@ UT_OM_NodeInfo::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput 
         if (info->add == true) {
             domain->om_reg_node_info(r_uuid, ptr);
         } else {
-            domain->om_del_node_info(r_uuid, info->nd_node_name);
+            domain->om_del_services(r_uuid, info->nd_node_name, true, true, true);
         }
     }
 

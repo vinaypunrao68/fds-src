@@ -228,11 +228,37 @@ class CronJob:
         else :
             # this is the standard cron format ..
             if len(self.interval.split(' ')) != 5:
-                raise PkgException('please check the cron format [%s] - refer:http://unixhelp.ed.ac.uk/CGI/man-cgi?crontab+5',self.interval)
+                raise PkgException('please check the cron format [%s] - refer:http://unixhelp.ed.ac.uk/CGI/man-cgi?crontab+5' % (self.interval))
 
         if len(self.command) == 0 :
             raise PkgException('please specify a command to be executed');
 
+class SymLink:
+    def __init__(self,tokens=None):
+        self.target = None
+        self.link   = None
+        if tokens != None:
+            self.load(tokens)
+
+    def load(self,tokens):
+        Helper.checkField(tokens.keys(),['link','target'], 'processing symlink')
+        self.target = tokens.get('target',None)
+        self.link = tokens.get('link',None)
+        
+        if not self.target :
+            raise PkgException("[target] needs to be specified for symlink")
+
+        if not self.link:
+            raise PkgException("[link] needs to be specified for symlink")
+
+        self.target = self.target.strip()
+        self.link   = self.link.strip()
+
+        if len(self.target) == 0 or not self.target.startswith('/'):
+            raise PkgException("invalid target specified : [%s]" %(self.target))
+
+        if len(self.link) == 0 or not self.link.startswith('/'):
+            raise PkgException("invalid link specified : [%s]" %(self.link))
         
 class PkgCreate:
     def __init__(self):
@@ -267,6 +293,7 @@ class PkgCreate:
         self.files         = []
         self.services      = [] 
         self.cronjobs      = []
+        self.symlinks      = []
         self.installscript = ''
         self.metadata[self.META_DEPENDS] = []
         self.pkgdir=None
@@ -303,7 +330,7 @@ class PkgCreate:
                 log.info("the temporary dir is: %s", self.pkgdir)
 
     def processDoc(self,doc):
-        supportedKeys = ['package' ,'maintainer','version','description','depends', 'files','services','cronjobs']
+        supportedKeys = ['package' ,'maintainer','version','description','depends', 'files','services','cronjobs','symlinks']
         Helper.checkField(doc.keys(),supportedKeys,'processing doc')
 
         for key in [ 'package', 'maintainer', 'version', 'description']:
@@ -349,6 +376,16 @@ class PkgCreate:
                 log.debug('processing a cronjob item')
                 cronjob = CronJob(item)
                 self.cronjobs.append(cronjob)
+
+        key = 'symlinks'
+        if key in doc:
+            if type(doc[key]) != types.ListType:
+                    doc[key] = [ doc[key] ]
+
+            for item in doc[key]:
+                log.debug('processing a symlink item')
+                symlink = SymLink(item)
+                self.symlinks.append(symlink)
 
 
     def verify(self):
@@ -477,8 +514,10 @@ class PkgCreate:
     def needsInstallScripts(self):
         log.debug('install script : [%s]',self.installscript)
         log.debug('num services : [%d]' , len(self.services))
-        if self.installscript == '' and len(self.services) == 0:
+        log.debug('num symlinks : [%d]' , len(self.symlinks))
+        if self.installscript == '' and len(self.services) == 0 and len(self.symlinks) == 0:
             return False
+
         return True
 
     # write pre/post install/remove files
@@ -499,7 +538,12 @@ class PkgCreate:
                 autoservices.append(service.name)
             if service.installstart:
                 startoninstall.append(service.name)
-        
+
+        symlinks=[]
+        for link in self.symlinks:
+            symlinks.append(link.target)
+            symlinks.append(link.link)
+
         templatescript='''
             #!/bin/bash
             ################################################
@@ -509,11 +553,11 @@ class PkgCreate:
             SERVICES="%s"
             AUTO_SERVICES="%s"
             START_ON_INSTALL="%s"
-
+            SYMLINKS="%s"
             source /usr/include/pkghelper/install-base.sh
 
             processInstallScript $(basename $0) $@
-         ''' % (self.installscript, ' '.join(allservices), ' '.join(autoservices), ' '.join(startoninstall))
+         ''' % (self.installscript, ' '.join(allservices), ' '.join(autoservices), ' '.join(startoninstall), ' '.join(symlinks)
         
         templatescript = re.sub(r'\n *','\n',templatescript.strip())
         
@@ -566,7 +610,7 @@ class PkgCreate:
             dest = self.pkgdir + item.dest
             if item.dir:
                 log.debug('making dir : %s', dest)
-                if not os.path.exist(dest):
+                if not os.path.exists(dest):
                     os.makedirs(dest)
                 os.chown(dest,uid,gid)
                 for f in item.src:

@@ -88,7 +88,7 @@ class Api:
             
     def createBucket(self,bucket):
         try:
-            return requests.post(self.getUrl(bucket),headers=self.headers)
+            return requests.put(self.getUrl(bucket),headers=self.headers)
         except ConnectionError:
             print "unable to connect to [%s:%s]"  % (self.host,self.port)
 
@@ -119,7 +119,9 @@ class Api:
 
     def get(self,bucket,objname):
         try:
-            return requests.get(self.getUrl(bucket,objname),headers=self.headers).text
+            r=requests.get(self.getUrl(bucket,objname),headers=self.headers)
+            print r
+            return r.text
         except ConnectionError:
             print "unable to connect to [%s:%s]"  % (self.host,self.port)
                 

@@ -271,47 +271,51 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::CreateDomain(
     return err;
 }
 
-int32_t OrchMgr::FDSP_ConfigPathReqHandler::RemoveNode(
+int32_t OrchMgr::FDSP_ConfigPathReqHandler::RemoveServices(
     const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-    const ::FDS_ProtocolInterface::FDSP_RemoveNodeType& rm_node_req) {
+    const ::FDS_ProtocolInterface::FDSP_RemoveServicesType& rm_svc_req) {
     // Don't do anything here. This stub is just to keep cpp compiler happy
     return 0;
 }
 
-int32_t OrchMgr::FDSP_ConfigPathReqHandler::RemoveNode(
+int32_t OrchMgr::FDSP_ConfigPathReqHandler::RemoveServices(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-    ::FDS_ProtocolInterface::FDSP_RemoveNodeTypePtr& rm_node_req) {
+    ::FDS_ProtocolInterface::FDSP_RemoveServicesTypePtr& rm_svc_req) {
 
-    int err = 0;
+    Error err(ERR_OK);
     try {
-        LOGNORMAL << "Received remove node " << rm_node_req->node_name;
+        LOGNORMAL << "Received remove services for node" << rm_svc_req->node_name
+                  << " remove am ? " << rm_svc_req->remove_am
+                  << " remove sm ? " << rm_svc_req->remove_sm
+                  << " remove dm ? " << rm_svc_req->remove_dm;
 
         OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
-        NodeUuid rm_node_uuid;
-
-        if (rm_node_req->node_uuid.uuid > 0) {
-            rm_node_uuid = rm_node_req->node_uuid.uuid;
-        } else {
-            rm_node_uuid = fds_get_uuid64(rm_node_req->node_name);
+        NodeUuid node_uuid;
+        if (rm_svc_req->node_uuid.uuid > 0) {
+            node_uuid = rm_svc_req->node_uuid.uuid;
         }
+        // else ok if 0, will search by name
 
-        Error err = domain->om_del_node_info(rm_node_uuid, rm_node_req->node_name);
+        err = domain->om_del_services(rm_svc_req->node_uuid.uuid,
+                                      rm_svc_req->node_name,
+                                      rm_svc_req->remove_sm,
+                                      rm_svc_req->remove_dm,
+                                      rm_svc_req->remove_am);
 
         if (!err.ok()) {
-            LOGERROR << "RemoveNode: remove node info from local domain failed for node "
-                     << rm_node_req->node_name << ", uuid "
-                     << std::hex << rm_node_uuid.uuid_get_val()
+            LOGERROR << "RemoveServices: Failed to remove services for node "
+                     << rm_svc_req->node_name << ", uuid "
+                     << std::hex << rm_svc_req->node_uuid.uuid
                      << std::dec << ", result: " << err.GetErrstr();
-            return -1;
         }
     }
     catch(...) {
         LOGERROR << "Orch Mgr encountered exception while "
                  << "processing rmv node";
-        return -1;
+        err = Error(ERR_NOT_FOUND);
     }
 
-    return err;
+    return err.GetErrno();
 }
 
 int32_t OrchMgr::FDSP_ConfigPathReqHandler::DeleteDomain(

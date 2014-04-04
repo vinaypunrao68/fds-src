@@ -151,6 +151,9 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
             ("activate-services", po::value<std::string>(),
              "Activate nodes: activate-services <domain> -k <domain-id> -w <node-uuid>"
              "[ -e \"am,dm,sm\" ]")
+            ("remove-services", po::value<std::string>(),
+             "Remove services: remove-services <node_name> "
+             "[ -e \"am,dm,sm\" ]")
             ("throttle", "Throttle traffic: throttle -t <throttle_level> ")
             ("policy-show", po::value<std::string>(), "Show policy")
             ("volume-size,s", po::value<double>(), "volume capacity")
@@ -160,11 +163,10 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
             ("volume-id,i", po::value<int>(), "volume id")
             ("domain-id,k", po::value<int>(), "domain id")
             ("throttle-level,t", po::value<float>(), "throttle level")
-            ("remove-node,t", po::value<std::string>(), "remove node")
             ("iops-min,g", po::value<double>(), "minimum IOPS")
             ("iops-max,m", po::value<double>(), "maximum IOPS")
             ("rel-prio,r", po::value<int>(), "relative priority")
-            ("enable-service,e", po::value<std::string>()->default_value("dm,sm,am"),
+            ("enable-service,e", po::value<std::string>()->default_value("sm,dm,am"),
              "service to enable (if dm and sm, speficy \"dm,sm\")")
             ("vol-type,y", po::value<std::string>()->default_value("s3"),
              "volume access type")
@@ -409,13 +411,38 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         domainData.domain_id = vm["domain-id"].as<int>();
 
         NETWORKCHECK(cfgPrx->CreateDomain(msg_hdr, domainData));
-    }  else if (vm.count("remove-node")) {
-        LOGNOTIFY << " Remove Node ";
-        LOGNOTIFY << vm["remove-node"].as<std::string>() << "- node name";
-        FDS_ProtocolInterface::FDSP_RemoveNodeType removeNodeData;
-        removeNodeData.node_name = vm["remove-node"].as<std::string>();
+    }  else if (vm.count("remove-services")) {
+        LOGNOTIFY << " Remove services ";
+        LOGNOTIFY << vm["remove-services"].as<std::string>() << "- node name";
+        FDS_ProtocolInterface::FDSP_RemoveServicesType removeServiceData;
+        removeServiceData.node_name = vm["remove-services"].as<std::string>();
+        removeServiceData.node_uuid.uuid = 0;
+        removeServiceData.remove_sm = false;
+        removeServiceData.remove_dm = false;
+        removeServiceData.remove_am = false;
+        // even though it is called enable-service, we just re-using same
+        // command, and here it means remove service
+        std::string svc_str = vm["enable-service"].as<std::string>();
+        boost::char_separator<char> sep(",");
+        boost::tokenizer<boost::char_separator<char>> tokens(svc_str, sep);
+        for (const auto& t : tokens) {
+            if (t.compare("am") == 0) {
+                removeServiceData.remove_am = true;
+                LOGNORMAL << "   -- remove AM";
+            } else if (t.compare("sm") == 0) {
+                removeServiceData.remove_sm = true;
+                LOGNORMAL << "   -- remove SM";
+            } else if (t.compare("dm") == 0) {
+                removeServiceData.remove_dm = true;
+                LOGNORMAL << "   -- remove DM";
+            } else {
+                cout << "Unknown service " << t << ", will ignore" << std::endl;
+                LOGWARN << "Unknown service " << t << "is specified; "
+                        << "will ignore, but check your fdscli command";
+            }
+        }
 
-        NETWORKCHECK(cfgPrx->RemoveNode(msg_hdr, removeNodeData));
+        NETWORKCHECK(cfgPrx->RemoveServices(msg_hdr, removeServiceData));
     }  else if (vm.count("activate-nodes")) {
         LOGNOTIFY << " Activate Nodes: domain name "
                   << vm["activate-nodes"].as<std::string>()

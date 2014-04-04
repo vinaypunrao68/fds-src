@@ -1317,6 +1317,7 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
     ObjMetaData objMap;
     objStorMutex->lock();
 
+#ifdef OBJCACHE_ENABLE
     objBufPtr = objCache->object_retrieve(volId, objId);
     if (objBufPtr != NULL) {
         fds_verify(!(objCache->is_object_io_in_progress(volId, objId, objBufPtr)));
@@ -1417,6 +1418,49 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
           put_obj_req->data_obj_len);
         */
     }
+#else
+        objBufPtr = objCache->object_alloc(volId, objId, putObjReq->data_obj.size());
+        memcpy((void *)objBufPtr->data.c_str(), (void *)putObjReq->data_obj.c_str(), putObjReq->data_obj.size());
+
+        err = checkDuplicate(objId,
+                *objBufPtr, objMap);
+        if (err == ERR_DUPLICATE) {
+            if (objMap.isInitialized() == false) { 
+                err = readObjMetaData(objId, objMap);
+                /* At this point object metadata must exist */
+                fds_verify(err == ERR_OK);
+            }  
+          // Update  the AssocEntry for dedupe-ing
+          LOGDEBUG << " Object  ID: " << objId << " objMap: " << objMap;
+          objMap.updateAssocEntry(objId, volId);
+          err = smObjDb->put(opCtx, objId, objMap);
+          if (err == ERR_OK) {
+              LOGDEBUG << "Dedupe object Assoc Entry for object "
+                      << objId << " to " << objMap;
+          } else {
+              LOGERROR << "Failed to put ObjMetaData " << objId
+                      << " into odb with error " << err;
+          }  
+          err = ERR_OK;
+        } else {
+
+         err = writeObject(opCtx, objId, *objBufPtr, volId, tierUsed);
+
+          if (err != fds::ERR_OK) {
+              LOGDEBUG << "Successfully put object " << objId;
+              /* if we successfully put to flash -- notify ranking engine */
+              if (tierUsed == diskio::flashTier) {
+                  StorMgrVolume *vol = volTbl->getVolume(volId);
+                  fds_verify(vol);
+                  rankEngine->rankAndInsertObject(objId, *(vol->voldesc));
+              }
+         }
+ 
+       }
+       objCache->object_release(volId, objId, objBufPtr);
+       objCache->object_delete(volId, objId);
+
+#endif
     objStorMutex->unlock();
 
     qosCtrl->markIODone(*putReq,

@@ -146,7 +146,9 @@ typedef enum
     FDSN_StatusServerFailedVerification                        ,
     FDSN_StatusConnectionFailed                                ,
     FDSN_StatusAbortedByCallback                               ,
-
+    FDSN_StatusRequestTimedOut                                 ,
+    FDSN_StatusEntityEmpty                                     ,
+    FDSN_StatusEntityDoesNotExist                              ,
     /**
      * Errors from the S3 service
      **/
@@ -162,7 +164,11 @@ typedef enum
     FDSN_StatusErrorCrossLocationLoggingProhibited             ,
     FDSN_StatusErrorEntityTooSmall                             ,
     FDSN_StatusErrorEntityTooLarge                             ,
-
+    
+    FDSN_StatusErrorMissingContentLength                       ,
+    
+    /* keep this as the last*/
+    FDSN_StatusErrorUnknown
 } FDSN_Status;
 
 

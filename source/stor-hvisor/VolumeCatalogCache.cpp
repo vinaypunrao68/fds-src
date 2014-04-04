@@ -41,9 +41,9 @@ Error CatalogCache::Update(fds_uint64_t blobOffset,
 
     map_rwlock.write_lock();
     if (offset_map.count(blobOffset) != 0) {
-        // TODO(Andrew): Need a check here if we're
-        // writing 0 size objects
-        fds_verify(blobSize > 0);
+        if (oid != NullObjectID) {
+            fds_verify(blobSize > 0);
+        }
 
         // We already have this mapping. Return duplicate err
         // so that the caller knows not to call DM.

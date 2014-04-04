@@ -7,7 +7,7 @@ user_build_dir    :=
 #
 user_incl_dir     := $(topdir) ../include $(topdir)/stor-mgr/migrations $(topdir)/lib
 
-user_cpp_flags    :=
+user_cpp_flags    := -DOBJCACHE_ENABLE
 user_cpp          :=                   \
     StorMgr.cpp                        \
     StorMgrVolumes.cpp                 \

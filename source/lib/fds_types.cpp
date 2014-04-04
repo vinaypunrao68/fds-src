@@ -25,7 +25,7 @@
 #include <boost/function.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <fds_types.h>
-
+#include <fds_defines.h>
 /*
  * Consider encapsulating in the global
  * fds namespace.
@@ -327,5 +327,36 @@ namespace fds {
     void FdsBlobReq::setQueuedUsec(fds_uint64_t _usec) {
       queuedUsec = _usec;
     }
+
+std::ostream& operator<<(std::ostream& os, const fds_io_op_t& opType) {
+    os << "{";
+    switch (opType) {
+        ENUMCASEOS(FDS_IO_READ                   , os);
+        ENUMCASEOS(FDS_IO_WRITE                  , os);
+        ENUMCASEOS(FDS_IO_REDIR_READ             , os);
+        ENUMCASEOS(FDS_IO_OFFSET_WRITE           , os);
+        ENUMCASEOS(FDS_CAT_UPD                   , os);
+        ENUMCASEOS(FDS_CAT_QRY                   , os);
+        ENUMCASEOS(FDS_LIST_BLOB                 , os);
+        ENUMCASEOS(FDS_PUT_BLOB                  , os);
+        ENUMCASEOS(FDS_GET_BLOB                  , os);
+        ENUMCASEOS(FDS_DELETE_BLOB               , os);
+        ENUMCASEOS(FDS_LIST_BUCKET               , os);
+        ENUMCASEOS(FDS_BUCKET_STATS              , os);
+        ENUMCASEOS(FDS_SM_READ_TOKEN_OBJECTS     , os);
+        ENUMCASEOS(FDS_SM_WRITE_TOKEN_OBJECTS    , os);
+        ENUMCASEOS(FDS_SM_SNAPSHOT_TOKEN         , os);
+        ENUMCASEOS(FDS_SM_SYNC_APPLY_METADATA    , os);
+        ENUMCASEOS(FDS_SM_SYNC_RESOLVE_SYNC_ENTRY, os);
+        ENUMCASEOS(FDS_SM_APPLY_OBJECTDATA       , os);
+        ENUMCASEOS(FDS_SM_READ_OBJECTDATA        , os);
+        ENUMCASEOS(FDS_SM_READ_OBJECTMETADATA    , os);
+        ENUMCASEOS(FDS_OP_INVALID                , os);
+        default:
+            os << "unknown op:"<< static_cast<int>(opType);
+    }
+    os <<"}";
+    return os;
+}
 
 }  // namespace fds

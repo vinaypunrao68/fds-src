@@ -5,9 +5,31 @@
 #include <StorHvisorNet.h>
 //#include "fds_client/include/ubd.h"
 #include "StorHvJournal.h"
+#include <fds_defines.h>
 
 extern StorHvCtrl *storHvisor;
 namespace fds {
+
+std::ostream& operator<<(ostream& os, const TxnState& state) {
+    os << "{" ;
+    switch (state) {
+        ENUMCASEOS(FDS_TRANS_EMPTY             ,os);
+        ENUMCASEOS(FDS_TRANS_OPEN              ,os);
+        ENUMCASEOS(FDS_TRANS_OPENED            ,os);
+        ENUMCASEOS(FDS_TRANS_COMMITTED         ,os);
+        ENUMCASEOS(FDS_TRANS_SYNCED            ,os);
+        ENUMCASEOS(FDS_TRANS_DONE              ,os);
+        ENUMCASEOS(FDS_TRANS_VCAT_QUERY_PENDING,os);
+        ENUMCASEOS(FDS_TRANS_GET_OBJ           ,os);
+        ENUMCASEOS(FDS_TRANS_DEL_OBJ           ,os);
+        ENUMCASEOS(FDS_TRANS_GET_BUCKET        ,os);
+        ENUMCASEOS(FDS_TRANS_BUCKET_STATS      ,os);
+        ENUMCASEOS(FDS_TRANS_PENDING_DLT       ,os);
+        default: os << "unknown txn type - " << (int) state << "-";
+    }
+    os <<"}" ;
+    return os;
+}
 
 StorHvJournalEntry::StorHvJournalEntry()
 {
@@ -18,8 +40,7 @@ StorHvJournalEntry::StorHvJournalEntry()
    dm_msg = 0;
    sm_ack_cnt = 0;
    dm_ack_cnt = 0;
-   st_flag = 0;
-   lt_flag = 0;
+   nodeSeq = 0;
    is_in_use = false;
    write_ctx = 0;
    read_ctx = 0;
@@ -57,8 +78,7 @@ void StorHvJournalEntry::reset()
    dm_msg = 0;
    sm_ack_cnt = 0;
    dm_ack_cnt = 0;
-   st_flag = 0;
-   lt_flag = 0;
+   nodeSeq = 0;
    is_in_use = false;
    write_ctx = 0;
    read_ctx = 0;
@@ -414,23 +434,46 @@ void StorHvJournalEntry::fbd_process_req_timeout()
   FdsBlobReq *blobReq = static_cast<fds::AmQosReq*>(io)->getBlobReqPtr();
   fds_verify(blobReq != NULL);
 
+  fds::Error err(ERR_OK);
+
+  fds_volid_t   volId = blobReq->getVolId();
+  FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " - Timing out, responding to  the block"; 
   if (isActive()) {
-    storHvisor->qos_ctrl->markIODone(io);
-    FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " - Timing out, responding to  the block : " 
+      FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " - Timing out, responding to  the block : " 
 				   << blobReq->getBlobName() << " offset" << blobReq->getBlobOffset();
-    write_ctx = 0;
-    blobReq->cbWithResult(-1);
-    delete blobReq;
-    blobReq = NULL;
-    reset();
+
+    // try all the SM nodes and if we are not able to get the data  return error
+      StorHvVolume *vol = storHvisor->vol_table->getVolume(volId);
+      fds_verify(vol != NULL);  // Should not receive resp for non existant vol
+
+      StorHvVolumeLock vol_lock(vol);
+      fds_verify(vol->isValidLocked() == true);
+
+      StorHvJournalEntry *txn = vol->journal_tbl->get_journal_entry(trans_id);
+      fds_verify(txn != NULL);
+
+      fds_verify(txn->isActive() == true);  // Should not receive resp for inactive txn
+    if (txn->nodeSeq != txn->num_sm_nodes) { 
+      txn->nodeSeq =+ 1; // try all the SM nodes 
+      err = storHvisor->dispatchSmGetMsg(txn);
+      fds_verify(err == ERR_OK);
+
+    } else {
+      storHvisor->qos_ctrl->markIODone(io);
+      write_ctx = 0;
+      vol->journal_tbl->releaseTransId(trans_id);
+      blobReq->cbWithResult(-1);
+      delete blobReq;
+      blobReq = NULL;
+      reset();
+   }
   }
 }
+
 
 void StorHvIoTimerTask::runTimerTask() {
   jrnlEntry->lock();
   jrnlEntry->fbd_process_req_timeout();
-  // jrnlTbl->release_trans_id(jrnlEntry->trans_id);
-  jrnlTbl->releaseTransId(jrnlEntry->trans_id);
   jrnlEntry->unlock();
 }
 

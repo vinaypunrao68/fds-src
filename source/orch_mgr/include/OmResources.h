@@ -155,7 +155,11 @@ class OM_PmAgent : public OM_NodeAgent
      */
     Error handle_register_service(FDS_ProtocolInterface::FDSP_MgrIdType svc_type,
                                   NodeAgent::pointer svc_agent);
-    void handle_unregister_service(FDS_ProtocolInterface::FDSP_MgrIdType svc_type);
+
+    /**
+     * @return uuid of service that was unregistered
+     */
+    NodeUuid handle_unregister_service(FDS_ProtocolInterface::FDSP_MgrIdType svc_type);
 
     /**
      * If any service running on this node matches given 'svc_uuid'
@@ -232,8 +236,11 @@ class OM_PmContainer : public OM_AgentContainer
     /**
      * Makes sure Platform agents do not point on unregistered services
      * Will search all Platform agents for a service with uuid 'uuid'
+     * @param returns uuid of service that was unregistered
      */
-    void handle_unregister_service(const NodeUuid& svc_uuid);
+    NodeUuid handle_unregister_service(const NodeUuid& node_uuid,
+                                       const std::string& node_name,
+                                       FDS_ProtocolInterface::FDSP_MgrIdType svc_type);
 
     static inline OM_PmContainer::pointer agt_cast_ptr(RsContainer::pointer ptr) {
         return static_cast<OM_PmContainer *>(get_pointer(ptr));
@@ -577,8 +584,11 @@ class OM_NodeDomainMod : public Module
     /**
      * Unregister the node matching uuid from the domain manager.
      */
-    virtual Error om_del_node_info(const NodeUuid& uuid,
-                                   const std::string& node_name);
+    virtual Error om_del_services(const NodeUuid& node_uuid,
+                                  const std::string& node_name,
+                                  fds_bool_t remove_sm,
+                                  fds_bool_t remove_dm,
+                                  fds_bool_t remove_am);
 
     /**
      * Notification that OM received migration done message from
