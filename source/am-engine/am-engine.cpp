@@ -684,6 +684,7 @@ fdsn_getobj_cbfn(BucketContextPtr bucket_ctx,
               << " with data at offset " << offset << " of length " << bufSize
               << " with total blob size " << blobSize << " and result "
               << status;
+    fds_verify(bufSize <= blobSize);
 
     // If it's not already set, set how many bytes we need before
     // calling the request complete. If we just set the specific
