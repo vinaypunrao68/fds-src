@@ -57,12 +57,15 @@ DmPlatform::mod_init(SysParams const *const param)
     Platform::mod_init(param);
 
     if (conf.get_abs<bool>("fds.dm.test_mode", false) == true) {
-        plf_om_ip_str    = conf.get_abs<std::string>("fds.dm.om_ip");
         plf_my_ctrl_port = conf.get_abs<int>("fds.dm.cp_port");
         plf_my_data_port = conf.get_abs<int>("fds.dm.port");
     }
+    plf_om_ip_str    = conf.get_abs<std::string>("fds.dm.om_ip");
     plf_my_ip        = util::get_local_ip();
     plf_my_node_name = plf_my_ip;
+
+    LOGNORMAL << "My ctrl port " << plf_my_ctrl_port
+        << ", data port " << plf_my_data_port << ", OM ip: " << plf_om_ip_str;
 
     plf_vol_evt  = new DmVolEvent(plf_resources, plf_clus_map, this);
     plf_node_evt = new NodePlatEvent(plf_resources, plf_clus_map, this);

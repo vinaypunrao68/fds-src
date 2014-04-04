@@ -298,9 +298,16 @@ PmDiskObj::dsk_blk_dev_path(const char *raw, std::string *blk, std::string *dev)
 // --------
 //
 int
-PmDiskObj::dsk_read(void *buf, fds_uint32_t sector, int sect_cnt)
+PmDiskObj::dsk_read(void *buf, fds_uint32_t sector, int sec_cnt)
 {
-    return 0;
+    int fd, rt;
+
+    fd = open(rs_name, O_RDWR | O_SYNC);
+    rt = pread(fd, buf,
+               fds_disk_sector_to_byte(sec_cnt),
+               fds_disk_sector_to_byte(sector));
+    close(fd);
+    return rt;
 }
 
 // dsk_write
@@ -309,7 +316,22 @@ PmDiskObj::dsk_read(void *buf, fds_uint32_t sector, int sect_cnt)
 int
 PmDiskObj::dsk_write(void *buf, fds_uint32_t sector, int sec_cnt)
 {
+    int fd, rt;
+
     return 0;
+
+    fds_verify((sector + sec_cnt) <= 16384);  // TODO(Vy): no hardcode
+    fd = open(rs_name, O_RDWR | O_SYNC);
+    rt = pwrite(fd, buf,
+                fds_disk_sector_to_byte(sec_cnt),
+                fds_disk_sector_to_byte(sector));
+    close(fd);
+    if (rt < 0) {
+        perror("Error");
+        LOGNORMAL << "Write supperblock to " << rs_name << ", sector " << sector
+            << ", ret " << rt << ", sect cnt " << sec_cnt;
+    }
+    return rt;
 }
 
 // -------------------------------------------------------------------------------------

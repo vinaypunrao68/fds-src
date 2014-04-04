@@ -201,22 +201,8 @@ ModuleVector::mod_mk_sysparams()
             ("help,h", "Show this help text")
             ("fds-root", po::value<std::string>()->default_value("/fds"),
              "Set the storage root directory")
-            ("hdd-root", po::value<std::string>()->default_value("hdd"),
-             "Set the hdd storage root directory relative to root")
-            ("ssd-root", po::value<std::string>()->default_value("ssd"),
-             "Set the ssd storage root directory relative to root")
             ("threads", po::value<int>(&thr_cnt)->default_value(10),
              "Number of threads in system thread pool")
-            ("sim-prefix", po::value<std::string>()->default_value("sd"),
-             "Prefix names for disk devices simulation")
-            ("hdd-count", po::value<int>(&hdd_cnt)->default_value(12),
-             "Number of HDD disks")
-            ("hdd-capacity", po::value<int>(&hdd_cap)->default_value(100),
-             "HDD capacity in MB")
-            ("ssd-count", po::value<int>(&ssd_cnt)->default_value(2),
-             "Number of SSD disks")
-            ("ssd-capacity", po::value<int>(&ssd_cap)->default_value(10),
-             "SSD capacity in MB")
             ("log-severity", po::value<int>(&log_severity)->default_value(2),
              "Severity logging level")
             ("port",
@@ -232,18 +218,10 @@ ModuleVector::mod_mk_sysparams()
     sys_params.fds_root  = vm["fds-root"].as<std::string>();
     sys_params.fds_root += '/';
 
-    sys_params.hdd_root += vm["hdd-root"].as<std::string>();
-    sys_params.hdd_root += '/';
-
-    sys_params.ssd_root += vm["ssd-root"].as<std::string>();
-    sys_params.ssd_root += '/';
-
     if (vm.count("help")) {
         std::cout << desc << std::endl;
         return;
     }
-    sys_params.sys_hdd_cnt = hdd_cnt;
-    sys_params.sys_ssd_cnt = ssd_cnt;
     sys_params.log_severity = log_severity;
     sys_params.service_port = service_port;
 
