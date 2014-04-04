@@ -318,6 +318,8 @@ PmDiskObj::dsk_write(void *buf, fds_uint32_t sector, int sec_cnt)
 {
     int fd, rt;
 
+    return 0;
+
     fds_verify((sector + sec_cnt) <= 16384);  // TODO(Vy): no hardcode
     fd = open(rs_name, O_RDWR | O_SYNC);
     rt = pwrite(fd, buf,
@@ -520,6 +522,8 @@ PmDiskInventory::dsk_dump_all()
 bool
 PmDiskInventory::dsk_need_simulation()
 {
+    return false;
+
     if (dsk_count != (DISK_ALPHA_COUNT_HDD + DISK_ALPHA_COUNT_SSD)) {
         return true;
     }
