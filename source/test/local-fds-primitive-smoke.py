@@ -47,8 +47,6 @@ class FdsSetupNode:
     def __init__(self, fdsSrc, fds_data_path):
         try:
             os.mkdir(fds_data_path)
-            os.mkdir(fds_data_path + '/hdd')
-            os.mkdir(fds_data_path + '/ssd')
         except:
             pass
         subprocess.call(['cp', '-rf', fdsSrc + '/config/etc', fds_data_path])
