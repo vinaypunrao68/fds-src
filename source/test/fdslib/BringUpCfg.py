@@ -297,9 +297,8 @@ class FdsCliConfig(FdsConfig):
             if n.nd_run_om() == True:
                 self.nd_om_node = n
                 return n
-
-        print "Missing section to specify OM node"
-        sys.exit(1)
+        self.nd_om_node = nodes[0]
+        return nodes[0]
 
     ###
     # Pass arguments to fdscli running on OM node.
