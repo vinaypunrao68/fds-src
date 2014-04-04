@@ -29,6 +29,18 @@ void BaseChecker::log_corruption(const std::string& info) {
     // TODO(Rao:) Log corruption
 }
 
+void
+BaseChecker::mod_load_from_config()
+{
+    FdsConfigAccessor conf(g_fdsprocess->get_conf_helper());
+
+    plf_om_ip_str    = conf.get_abs<std::string>("fds.plat.om_ip");
+    plf_om_ctrl_port = conf.get_abs<int>("fds.plat.om_port");
+    plf_my_ctrl_port = conf.get_abs<int>("fds.checker.control_port");
+    plf_my_ip        = util::get_local_ip();
+    plf_my_node_name = plf_my_ip;
+}
+
 /**
  * Less than operator
  */
@@ -157,18 +169,113 @@ class DatapathRespImpl : public FDS_ProtocolInterface::FDSP_DataPathRespIf {
     friend class DirBasedChecker;
 };
 
+class MetaDatapathRespImpl : public FDS_ProtocolInterface::FDSP_MetaDataPathRespIf {
+ public:
+    explicit MetaDatapathRespImpl() {
+        // XXX: initialize blob list
+        resp_vector = nullptr;
+        resp_digest = nullptr;
+        get_resp_monitor_ = nullptr;
+    }
+    ~MetaDatapathRespImpl() {
+    }
+
+    void UpdateCatalogObjectResp(const FDSP_MsgHdrType& fdsp_msg,
+                                 const FDSP_UpdateCatalogType& cat_obj_req) {
+        fds_assert(0);
+    }
+
+    void UpdateCatalogObjectResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,  // NOLINT
+                                 boost::shared_ptr<FDSP_UpdateCatalogType>& cat_obj_req) {
+        fds_assert(0);
+    }
+
+    void QueryCatalogObjectResp(const FDSP_MsgHdrType& fdsp_msg,
+                                const FDSP_QueryCatalogType& cat_obj_req) {
+        fds_assert(0);
+    }
+
+    void QueryCatalogObjectResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,  // NOLINT
+                                boost::shared_ptr<FDSP_QueryCatalogType>& cat_obj_req) {
+        fds_verify(fdsp_msg->result == FDS_ProtocolInterface::FDSP_ERR_OK ||
+                   !"blob name not exist on DM");
+        fds_assert(resp_digest != nullptr);
+        *resp_digest = cat_obj_req->digest;
+        fds_assert(resp_obj_list);
+
+        FDS_ProtocolInterface::FDSP_BlobObjectInfo& cat_obj_info =
+            cat_obj_req->obj_list[0];
+
+        ObjectID objId;
+        objId.SetId((const char *)cat_obj_info.data_obj_id.digest.c_str(),
+                cat_obj_info.data_obj_id.digest.length());
+
+        std::cout << "digest found : " << objId << std::endl;
+
+        *resp_obj_list = cat_obj_req->obj_list;
+        std::cout << "digest found : " << cat_obj_req->obj_list[0].data_obj_id.digest
+                  << std::endl;
+        fds_assert(get_resp_monitor_);
+        get_resp_monitor_->done();
+    }
+
+    void DeleteCatalogObjectResp(const FDSP_MsgHdrType& fdsp_msg,
+                                 const FDSP_DeleteCatalogType& cat_obj_req) {
+        fds_assert(0);
+    }
+
+    void DeleteCatalogObjectResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,  // NOLINT
+                                 boost::shared_ptr<FDSP_DeleteCatalogType>& cat_obj_req) {
+        fds_assert(0);
+    }
+
+    void GetVolumeBlobListResp(const FDSP_MsgHdrType& fds_msg,
+                               const FDSP_GetVolumeBlobListRespType& blob_list_rsp) {
+        fds_assert(0);
+    }
+
+    void GetVolumeBlobListResp(boost::shared_ptr<FDSP_MsgHdrType>& fds_msg,  // NOLINT
+                       boost::shared_ptr<FDSP_GetVolumeBlobListRespType>& blob_list_rsp) {
+        fds_verify(fds_msg->result == FDS_ProtocolInterface::FDSP_ERR_OK ||
+                   !"volume ID not exist on DM");
+
+        // Need to handle end_of_list and iterator_cookie
+        fds_assert(resp_vector != nullptr);
+        *resp_vector = blob_list_rsp->blob_info_list;
+        BlobInfoListType *vec = &blob_list_rsp->blob_info_list;
+        for (uint i = 0; i < vec->size(); i++) {
+            // std::cout << *it << std::endl;
+            FDSP_BlobInfoType &elm = vec->at(i);
+            std::cout << "found name " << elm.blob_name <<  std::endl;
+            std::cout << "found size " << elm.blob_size <<  std::endl;
+        }
+
+        get_resp_monitor_->done();
+    }
+
+ private:
+    // XXX: list of blobs in volume goes here
+    BlobInfoListType *resp_vector;
+    FDSP_BlobDigestType *resp_digest;
+    FDSP_BlobObjectList *resp_obj_list;
+    concurrency::TaskStatus *get_resp_monitor_;
+    friend class VolBasedChecker;
+};
+
 DirBasedChecker::DirBasedChecker(const FdsConfigAccessor &conf_helper)
     : BaseChecker("DirBasedChecker"),
       conf_helper_(conf_helper),
       get_resp_monitor_(0),
-      dp_resp_handler_(new DatapathRespImpl())
+      dp_resp_handler_(new DatapathRespImpl()),
+      md_resp_handler_(new MetaDatapathRespImpl())
 {
 }
 
 DirBasedChecker::DirBasedChecker()
     : BaseChecker("DirBasedChecker"),
       get_resp_monitor_(0),
-      dp_resp_handler_(new DatapathRespImpl())
+      dp_resp_handler_(new DatapathRespImpl()),
+      md_resp_handler_(new MetaDatapathRespImpl())
 {
 }
 
@@ -190,27 +297,10 @@ void DirBasedChecker::mod_startup()
                               "localhost-checker",
                               GetLog(),
                               nst,
-                              &gl_AmPlatform);
+                              this);
 
     om_client->initialize();
-
-#if 0
-    FDS_ProtocolInterface::FDSP_AnnounceDiskCapabilityPtr dInfo;
-    dInfo.reset(new FDSP_AnnounceDiskCapability());
-    dInfo->disk_iops_max =  10000; /* avarage IOPS */
-    dInfo->disk_iops_min =  100; /* avarage IOPS */
-    dInfo->disk_capacity = 100;  /* size in GB */
-    dInfo->disk_latency_max = 100; /* in milli second */
-    dInfo->disk_latency_min = 10; /* in milli second */
-    dInfo->ssd_iops_max =  100000; /* avarage IOPS */
-    dInfo->ssd_iops_min =  1000; /* avarage IOPS */
-    dInfo->ssd_capacity = 100;  /* size in GB */
-    dInfo->ssd_latency_max = 100; /* in milli second */
-    dInfo->ssd_latency_min = 3; /* in milli second */
-    dInfo->disk_type =  FDS_DISK_SATA;
-#endif
     om_client->startAcceptingControlMessages();
-
     om_client->registerNodeWithOM(this);
 
     /* Set up cluster comm manager */
@@ -251,6 +341,36 @@ DirBasedChecker::get_datapath_session(const NodeUuid& node_id)
 
     fds_verify(dp_session != nullptr);
     return dp_session;
+}
+
+netMetaDataPathClientSession *
+DirBasedChecker::get_metadatapath_session(const NodeUuid& node_id)
+{
+    unsigned int        ip    = 0;
+    fds_uint32_t        port  = 0;
+    int                 state = 0;
+    netMetaDataPathClientSession *mdp_sess = NULL;
+    netSessionTblPtr nst = clust_comm_mgr_->get_nst();
+
+    fds_assert(nst != nullptr);
+
+    clust_comm_mgr_->get_om_client()->getNodeInfo(
+            node_id.uuid_get_val(), &ip, &port, &state);
+
+    if (!nst->clientSessionExists(ip, port)) {
+        mdp_sess = nst->startSession<netMetaDataPathClientSession>(static_cast<int>(ip),
+                                                                   port,
+                                                                   FDSP_DATA_MGR,
+                                                                   1,
+                                                                   md_resp_handler_);
+    } else {
+        mdp_sess = nst->getClientSession<netMetaDataPathClientSession>(
+                            static_cast<int>(ip),
+                            port);
+    }
+
+    fds_verify(mdp_sess != nullptr);
+    return (mdp_sess);
 }
 
 bool DirBasedChecker::read_file(const std::string &filename, std::string &content)
@@ -377,10 +497,14 @@ void DirBasedChecker::run_checker()
             fds_verify(ret == true);
             fds_verify(ret_obj_data == obj_data);
 
+
+            // TODO(bao): need stub filed in
+#if 0
             FDSP_MigrateObjectMetadata ret_obj_md;
             ret = get_object_metadata((*nodes)[i], objId, ret_obj_md);
             fds_verify(ret == true);
             md_list.push_back(ret_obj_md);
+#endif
 
             cntrs_.obj_cnt.incr();
 
@@ -391,11 +515,219 @@ void DirBasedChecker::run_checker()
          * Here we assume expected metadata is the first replica (this isn't right)
          * Below comparison only tells us wheter sync took place properly or not
          */
+            // TODO(bao): stub
+#if 0
         if (md_list.size() > 1) {
             compare_against(md_list[0], md_list);
         }
+#endif
     }
     LOGNORMAL << "Checker run done!" << std::endl;
+}
+
+VolBasedChecker::VolBasedChecker() : DirBasedChecker()
+{
+}
+
+VolBasedChecker::~VolBasedChecker()
+{
+}
+
+void VolBasedChecker::get_blob_id(const NodeUuid &dm_node_id,
+                                  const fds_volid_t vol_id,
+                                  const std::string vol_name,
+                                  const std::string blob_name,
+                                  netMetaDataPathClientSession *md_session)
+{
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr
+      (new FDS_ProtocolInterface::FDSP_MsgHdrType);
+    FDS_ProtocolInterface::FDSP_QueryCatalogTypePtr query_req
+      (new FDS_ProtocolInterface::FDSP_QueryCatalogType);
+
+    msg_hdr->glob_volume_id = vol_id;
+    msg_hdr->msg_code      = FDS_ProtocolInterface::FDSP_MSG_QUERY_CAT_OBJ_REQ;
+    msg_hdr->src_id        = FDS_ProtocolInterface::FDSP_STOR_HVISOR;
+    msg_hdr->src_node_name = "myipaddr";
+    msg_hdr->dst_id        = FDS_ProtocolInterface::FDSP_DATA_MGR;
+    msg_hdr->result        = FDS_ProtocolInterface::FDSP_ERR_OK;
+    msg_hdr->err_code      = ERR_OK;
+    msg_hdr->req_cookie    = 0;
+    msg_hdr->session_uuid  = md_session->getSessionId();
+
+    query_req->blob_name             = blob_name;
+    // We don't currently specify a version
+    query_req->blob_version          = blob_version_invalid;
+    query_req->dm_transaction_id     = 1;
+    query_req->dm_operation          = FDS_ProtocolInterface::FDS_DMGR_TXN_STATUS_OPEN;
+    query_req->obj_list.clear();
+    query_req->meta_list.clear();
+
+
+    /* call to DM for it */
+    boost::shared_ptr<FDSP_MetaDataPathReqClient> client = md_session->getClient();
+    fds_assert(client != NULL);
+
+    /* response buffer */
+    get_resp_monitor_.reset(1);
+    // XXX: md_resp_handler_->blob_list = NULL;
+    md_resp_handler_->get_resp_monitor_ = &get_resp_monitor_;
+    md_resp_handler_->resp_digest = &resp_digest;
+    md_resp_handler_->resp_obj_list = &resp_obj_list;
+
+    client->QueryCatalogObject(msg_hdr, query_req);
+
+    /* wait for blob list response */
+    get_resp_monitor_.await();
+
+    // md_resp_handler_->blob_list = nullptr;
+    md_resp_handler_->get_resp_monitor_ = nullptr;
+    md_resp_handler_->resp_digest = nullptr;
+    md_resp_handler_->resp_obj_list = nullptr;
+
+    std::cout << "recv get blob id response" << std::endl;
+
+    ObjectID objId;
+    objId.SetId(resp_obj_list[0].data_obj_id.digest.c_str(),
+                resp_obj_list[0].data_obj_id.digest.length());
+
+    /* Issue gets from SMs */
+    auto nodes = clust_comm_mgr_->get_dlt()->getNodes(objId);
+    for (uint32_t i = 0; i < nodes->getLength(); i++) {
+        std::string ret_obj_data;
+        bool ret = get_object((*nodes)[i], objId, ret_obj_data);
+        fds_verify(ret == true);
+        // XXX: verify fds_verify(ret_obj_data == obj_data);
+
+        cntrs_.obj_cnt.incr();
+
+        LOGDEBUG << "oid: " << objId<< " check passed against: "
+                << std::hex << ((*nodes)[i]).uuid_get_val();
+    }
+    LOGNORMAL << "Checker run done!" << std::endl;
+}
+
+void VolBasedChecker::list_bucket(const NodeUuid &dm_node_id,
+                                  const fds_volid_t vol_id,
+                                  const std::string vol_name)
+{
+    auto md_session = get_metadatapath_session(dm_node_id);
+
+    /* get blobs for volume with DM */
+    FDSP_MsgHdrTypePtr      msg_hdr(new FDSP_MsgHdrType);
+    msg_hdr->msg_code        = FDSP_MSG_GET_VOL_BLOB_LIST_REQ;
+    msg_hdr->msg_id          = 1;
+    msg_hdr->major_ver       = 0xa5;
+    msg_hdr->minor_ver       = 0x5a;
+    msg_hdr->num_objects     = 1;
+    msg_hdr->frag_len        = 0;
+    msg_hdr->frag_num        = 0;
+    msg_hdr->tennant_id      = 0;
+    msg_hdr->local_domain_id = 0;
+    msg_hdr->local_domain_id = 0;
+    msg_hdr->req_cookie      = 0;
+    msg_hdr->glob_volume_id  = vol_id;
+    // msg_hdr->src_ip_lo_addr  = SRC_IP;
+    msg_hdr->dst_id          = FDSP_DATA_MGR;
+    msg_hdr->err_code        = ERR_OK;
+    msg_hdr->src_port        = 0;
+    // msg_hdr->src_node_name   = storHvisor->myIp;
+    msg_hdr->src_node_name   = "myipaddr";
+    // msg_hdr->bucket_name    = blobReq->getBlobName();
+    msg_hdr->bucket_name     = vol_name;
+    msg_hdr->session_uuid    = md_session->getSessionId();
+
+    /* format request */
+    FDS_ProtocolInterface::FDSP_GetVolumeBlobListReqTypePtr get_bucket_list_req(
+            new FDS_ProtocolInterface::FDSP_GetVolumeBlobListReqType);
+
+    boost::shared_ptr<FDSP_MetaDataPathReqClient> client = md_session->getClient();
+    fds_assert(client != NULL);
+
+    /* response buffer */
+    get_resp_monitor_.reset(1);
+
+    // XXX: md_resp_handler_->blob_list = NULL;
+    md_resp_handler_->get_resp_monitor_ = &get_resp_monitor_;
+    md_resp_handler_->resp_vector = &resp_vector;
+
+    client->GetVolumeBlobList(msg_hdr, get_bucket_list_req);
+
+    /* wait for blob list response */
+    get_resp_monitor_.await();
+
+    for (uint i = 0; i < resp_vector.size(); i++) {
+        // std::cout << *it << std::endl;
+        FDSP_BlobInfoType &elm = resp_vector.at(i);
+        std::cout << "found name " << elm.blob_name <<  std::endl;
+        std::cout << "found size " << elm.blob_size <<  std::endl;
+        // XXX: move md_session to class member
+        get_blob_id(dm_node_id, vol_id, vol_name, elm.blob_name, md_session);
+    }
+
+    // md_resp_handler_->blob_list = nullptr;
+    md_resp_handler_->get_resp_monitor_ = nullptr;
+    md_resp_handler_->resp_vector = nullptr;
+
+    std::cout << "list bucket recv a response" << std::endl;
+
+    // return blob_list;
+    return;
+}
+
+void VolBasedChecker::run_checker()
+{
+    fds_volid_t         vol_id      = 0;
+    int                 n_nodes     = 0;
+    fds_uint64_t        dm_node_ids[2];  // FDS_REPLICATION_FACTOR
+    NodeUuid            node_id;
+    std::string         vol_name    = "volume";
+    OMgrClient         *om_client   = NULL;
+
+    memset(dm_node_ids, 0x00, sizeof(fds_uint64_t) * 2);
+
+    // XXX: for now, create the volume and search for the volume id, hardcode it here.
+    // fds_assert(vol_id || !"How to get volume ID from hash");
+    vol_id = 3482843330729363692LL;
+
+    // get blobs
+    om_client = clust_comm_mgr_->get_om_client();
+    fds_assert(om_client);
+#if 0
+    // XXX: why I did not recv a DMT update? OMgrClient::recvDMTUpdate() was never called.
+    om_client->getDMTNodesForVolume(vol_id, dm_node_ids, &n_nodes);
+    fds_assert(n_nodes > 0);
+    node_id = dm_node_ids[0];
+#else
+    // type 1
+    node_id.uuid_set_val(2116172010113598034ULL);
+
+    /* in DM
+    node type 1 is DM.
+    Domain register uuid
+    svc uuid 155a4b311068ffa3, node type 1
+    */
+#endif
+
+    list_bucket(node_id, vol_id, vol_name);
+
+#if 0
+    // for each of the blob, go to OM to get SM responsible for it
+
+    // then get the object data from sm
+    auto nodes = clust_comm_mgr_->get_dlt()->getNodes(objId);
+    for (uint32_t i = 0; i < nodes->getLength(); i++) {
+        std::string ret_obj_data;
+        bool ret = true;  // XXX: todo
+        fds_verify(ret == true);
+        fds_verify(ret_obj_data == obj_data);
+
+        cntrs_.obj_cnt.incr();
+
+        LOGDEBUG << "oid: " << objId<< " check passed against: "
+                << std::hex << ((*nodes)[i]).uuid_get_val();
+    }
+    LOGNORMAL << "Checker run done!" << std::endl;
+#endif
 }
 
 FdsCheckerProc::FdsCheckerProc(int argc, char *argv[],
@@ -417,6 +749,7 @@ FdsCheckerProc::~FdsCheckerProc()
 
 void FdsCheckerProc::setup()
 {
+    checker_->mod_load_from_config();
     PlatformProcess::setup();
 
     checker_->mod_startup();
@@ -453,14 +786,16 @@ void FdsCheckerProc::plf_load_node_data()
 
     // TODO(Vy): deal with error here.
     //
-    plf_db->set(plf_db_key,
-                std::string((const char *)&plf_node_data, sizeof(plf_node_data)));
 }
 
 }  // namespace fds
 
 int main(int argc, char *argv[]) {
+#if 1
     DirBasedChecker *plt = new DirBasedChecker;
+#else
+    VolBasedChecker *plt = new VolBasedChecker;
+#endif
 
     /* platform cannot be on the stack */
     fds::FdsCheckerProc *checker = new fds::FdsCheckerProc(argc, argv,

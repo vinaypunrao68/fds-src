@@ -32,7 +32,7 @@ StorMgrVolume::StorMgrVolume(const VolumeDesc&  vdb,
    * should calculate this somehow.
    */
   volQueue = new SmVolQueue(voldesc->GetID(),
-                            50,
+                            100,
                             voldesc->getIopsMax(),
                             voldesc->getIopsMin(),
                             voldesc->getPriority());

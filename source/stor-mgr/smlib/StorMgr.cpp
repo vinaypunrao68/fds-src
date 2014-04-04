@@ -263,8 +263,8 @@ void ObjectStorMgrI::GetObjectMetadataCb(const Error &err,
 ObjectStorMgr::ObjectStorMgr(int argc, char *argv[],
                              Platform *platform, Module **mod_vec)
     : PlatformProcess(argc, argv, "fds.sm.", "sm.log", platform, mod_vec),
-    totalRate(2000),
-    qosThrds(10),
+    totalRate(6000),
+    qosThrds(100),
     shuttingDown(false),
     numWBThreads(1),
     maxDirtyObjs(10000),
@@ -1788,10 +1788,18 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
             objCache->object_add(volId, objId, objBufPtr, false); // read data is always clean
             // ACL: If this Volume never put this object, then it should not access the object
             if (!objMetadata.isVolumeAssociated(volId)) {
+
+            // TODO (bao): Need a way to ignore acl to run checker process
+// #define _IGNORE_ACL_CHECK_FOR_TEST_
+#ifdef _IGNORE_ACL_CHECK_FOR_TEST_
+                err = fds::ERR_OK;
+#else
                err = ERR_UNAUTH_ACCESS;
                LOGDEBUG << "Volume " << volId << " unauth-access of object " << objId
                 // << " and data " << objData.data
                 << " for request ID " << getReq->io_req_id;
+#endif
+
             }
         }
     } else {
