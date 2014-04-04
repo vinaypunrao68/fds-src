@@ -487,7 +487,7 @@ StorHvCtrl::procNewDlt(fds_uint64_t newDltVer) {
             StorHvJournalEntry *journEntry =
                     vol->journal_tbl->get_journal_entry(transId);
             fds_verify(journEntry != NULL);
-            fds_verify(journEntry->trans_state = FDS_TRANS_PENDING_DLT);
+            fds_verify(journEntry->trans_state == FDS_TRANS_PENDING_DLT);
 
             // Acquire RAII lock
             StorHvJournalEntryLock je_lock(journEntry);
