@@ -487,7 +487,42 @@ void FDS_NativeAPI::DoCallback(FdsBlobReq  *blob_req,
             // the result is a fdsn status
             status = (FDSN_Status)result;
         } else {
-            status = FDSN_StatusInternalError;
+            switch (error.GetErrno()) {
+                case ERR_OK                           : break;
+
+                case ERR_DUPLICATE                    :
+                case ERR_HASH_COLLISION               :
+                case ERR_DISK_WRITE_FAILED            :
+                case ERR_DISK_READ_FAILED             :
+                case ERR_CAT_QUERY_FAILED             :
+                case ERR_CAT_ENTRY_NOT_FOUND          :
+                case ERR_INVALID_ARG                  :
+                case ERR_PENDING_RESP                 : status = FDSN_StatusInternalError; break; //NOLINT
+
+                case ERR_VOL_ADMISSION_FAILED         :
+                case ERR_GET_DLT_FAILED               :
+                case ERR_GET_DMT_FAILED               :
+                case ERR_NOT_IMPLEMENTED              :
+                case ERR_OUT_OF_MEMEORY               :
+                case ERR_DUPLICATE_UUID               :
+                case ERR_TRANS_JOURNAL_OUT_OF_IDS     :
+                case ERR_TRANS_JOURNAL_REQUEST_QUEUED :
+                case ERR_NODE_NOT_ACTIVE              :
+
+                case ERR_NOT_READY                    :
+                case ERR_INVALID_DLT                  :
+                case ERR_PERSIST_STATE_MISMATCH       :
+                case ERR_EXCEED_MIN_IOPS              : status = FDSN_StatusInternalError; break; //NOLINT
+
+                case ERR_UNAUTH_ACCESS                : status = FDSN_StatusErrorAccessDenied; break; //NOLINT
+
+                case ERR_NOT_FOUND                    :
+                case ERR_BLOB_NOT_FOUND               : status = FDSN_StatusEntityDoesNotExist; break; //NOLINT
+                case ERR_VOL_NOT_FOUND                : status = FDSN_StatusErrorBucketNotExists; break; //NOLINT
+                case ERR_VOL_NOT_EMPTY                : status = FDSN_StatusErrorBucketNotEmpty; break; //NOLINT
+
+                default: status = FDSN_StatusInternalError; break;
+            }
         }
     }
 
@@ -526,8 +561,7 @@ void FDS_NativeAPI::DoCallback(FdsBlobReq  *blob_req,
  *
  * \return ret_volid will contain volume id for the bucket if returned value is ERR_OK
  */
-Error FDS_NativeAPI::checkBucketExists(BucketContext *bucket_ctxt, fds_volid_t* ret_volid)
-{
+Error FDS_NativeAPI::checkBucketExists(BucketContext *bucket_ctxt, fds_volid_t* ret_volid) {
     Error err(ERR_OK);
     int om_err = 0;
     fds_volid_t volid = invalid_vol_id;

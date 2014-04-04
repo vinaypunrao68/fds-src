@@ -310,6 +310,9 @@ int AME_Request::ame_map_fdsn_status(FDSN_Status status) {
         case FDSN_StatusErrorBucketAlreadyOwnedByYou        :
         case FDSN_StatusErrorBucketNotEmpty                 : return NGX_HTTP_CONFLICT;
 
+        case FDSN_StatusEntityDoesNotExist                  :
+        case FDSN_StatusErrorBucketNotExists                : return NGX_HTTP_NOT_FOUND;
+
         case FDSN_StatusInternalError                       :
         case FDSN_StatusOutOfMemory                         :
         case FDSN_StatusInterrupted                         :
@@ -753,7 +756,7 @@ fdsn_getobj_cbfn(BucketContextPtr bucket_ctx,
         conn_go->ame_signal_resume(AME_Request::ame_map_fdsn_status(FDSN_StatusOK));
     } else if (ack_status == AME_Ctx::FAILED) {
         conn_go->ame_signal_resume(
-            AME_Request::ame_map_fdsn_status(FDSN_StatusInternalError));
+            AME_Request::ame_map_fdsn_status(status));
     } else {
         fds_verify(ack_status == AME_Ctx::WAITING);
     }
@@ -923,7 +926,7 @@ fdsn_putobj_cbfn(void *reqContext, fds_uint64_t bufferSize, fds_off_t offset,
         conn_po->ame_signal_resume(AME_Request::ame_map_fdsn_status(FDSN_StatusOK));
     } else if (ack_status == AME_Ctx::FAILED) {
         conn_po->ame_signal_resume(
-            AME_Request::ame_map_fdsn_status(FDSN_StatusInternalError));
+            AME_Request::ame_map_fdsn_status(status));
     } else {
         fds_verify(ack_status == AME_Ctx::WAITING);
     }
