@@ -588,6 +588,7 @@ void ObjMetaData::mergeNewAndUnsyncedData()
         obj_map.obj_refcnt += e.ref_cnt;
     }
     /* Sync data isn't needed anymore */
+    mask = 0;
     sync_data.reset();
 }
 

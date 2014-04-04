@@ -560,6 +560,7 @@ void ObjectStorMgr::migrationEventOmHandler(bool dlt_type)
                     objStorMgr->omClient->getPreviousDLT());
 
     if (tokens.size() > 0) {
+        objStorMgr->tok_migrated_for_dlt_ = true;
         /* Issue bulk copy request */
         MigSvcBulkCopyTokensReqPtr copy_req(new MigSvcBulkCopyTokensReq());
         copy_req->tokens = tokens;
@@ -573,15 +574,20 @@ void ObjectStorMgr::migrationEventOmHandler(bool dlt_type)
             FAR_ID(MigSvcBulkCopyTokensReq), copy_req));
         objStorMgr->migrationSvc_->send_actor_request(copy_far);
     } else {
-        GLOGDEBUG << "No tokens to copy";
+        GLOGDEBUG << "No tokens to copy.  Sending copy complete to OM";
+        objStorMgr->tok_migrated_for_dlt_ = false;
         objStorMgr->migrationSvcResponseCb(Error(ERR_OK), TOKEN_COPY_COMPLETE);
-        objStorMgr->migrationSvcResponseCb(Error(ERR_OK), MIGRATION_OP_COMPLETE);
     }
 
 }
 
-void ObjectStorMgr::dltcloseEventHandler()
+void ObjectStorMgr::dltcloseEventHandler(FDSP_DltCloseTypePtr& dlt_close,
+        const std::string& session_uuid)
 {
+    fds_verify(objStorMgr->cached_dlt_close_.second == nullptr);
+    objStorMgr->cached_dlt_close_.first = session_uuid;
+    objStorMgr->cached_dlt_close_.second = dlt_close;
+
     MigSvcSyncCloseReqPtr close_req(new MigSvcSyncCloseReq());
     close_req->sync_close_ts = get_fds_timestamp_ms();
 
@@ -591,6 +597,13 @@ void ObjectStorMgr::dltcloseEventHandler()
     objStorMgr->migrationSvc_->send_actor_request(close_far);
 
     GLOGNORMAL << "Received ioclose. Time: " << close_req->sync_close_ts;
+
+    /* It's possible no tokens were migrated.  In this we case we simulate
+     * MIGRATION_OP_COMPLETE.
+     */
+    if (objStorMgr->tok_migrated_for_dlt_ == false) {
+        objStorMgr->migrationSvcResponseCb(ERR_OK, MIGRATION_OP_COMPLETE);
+    }
 }
 
 void ObjectStorMgr::migrationSvcResponseCb(const Error& err,
@@ -599,10 +612,21 @@ void ObjectStorMgr::migrationSvcResponseCb(const Error& err,
         LOGDEBUG << "Token copy complete";
         omClient->sendMigrationStatusToOM(err);
     } else if (status == MIGRATION_OP_COMPLETE) {
-        // TODO(Rao): Send migration comple to om
         LOGDEBUG << "Token migration complete";
         LOGNORMAL << migrationSvc_->mig_cntrs.toString();
         LOGNORMAL << counters_.toString();
+
+        /* Notify OM */
+        // TODO(Rao): We are notifying OM that sync is complete by responding
+        // back to sync/io close.  This is bit of a hack.  In future we should
+        //have a proper way to notify OM
+        if (objStorMgr->cached_dlt_close_.second) {
+            omClient->sendDLTCloseAckToOM(objStorMgr->cached_dlt_close_.second,
+                    objStorMgr->cached_dlt_close_.first);
+            objStorMgr->cached_dlt_close_.first.clear();
+            objStorMgr->cached_dlt_close_.second.reset();
+        }
+        objStorMgr->tok_migrated_for_dlt_ = false;
     }
 }
 
@@ -2053,7 +2077,7 @@ ObjectStorMgr::putTokenObjectsInternal(SmIoReq* ioReq)
 
         /* write the metadata */
         objMetadata.updatePhysLocation(&phys_loc);
-        smObjDb->put_(objId, objMetadata);
+        smObjDb->put(OpCtx(OpCtx::COPY), objId, objMetadata);
         counters_.put_tok_objs.incr();
     }
 

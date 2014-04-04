@@ -206,6 +206,15 @@ class ObjectStorMgr :
     /* Counters */
     SMCounters counters_;
 
+    /* For caching dlt close response information */
+    std::pair<std::string, FDSP_DltCloseTypePtr> cached_dlt_close_;
+
+    /* To indicate whether tokens were migrated or not for the dlt. Based on this
+     * flag we simulate sync/io close notification to OM.  We shouldn't need this
+     * flag once we start doing per token copy/syncs
+     */
+    bool tok_migrated_for_dlt_;
+
     /* Helper for accessing datapth response client */
     inline DPRespClientPtr fdspDataPathClient(const std::string& session_uuid) {
         return datapath_session_->getRespClient(session_uuid);
@@ -482,7 +491,8 @@ class ObjectStorMgr :
                                    fds_bool_t check_only,
                                    FDSP_ResultType resut);
     static void migrationEventOmHandler(bool dlt_type);
-    static void dltcloseEventHandler();
+    static void dltcloseEventHandler(FDSP_DltCloseTypePtr& dlt_close,
+            const std::string& session_uuid);
     void migrationSvcResponseCb(const Error& err, const MigrationStatus& status);
 
     virtual Error enqueueMsg(fds_volid_t volId, SmIoReq* ioReq);

@@ -737,15 +737,25 @@ int OMgrClient::recvDLTUpdate(FDSP_DLT_Data_TypePtr& dlt_info,
  * the commited (new) DLT
  */
 int OMgrClient::recvDLTClose(FDSP_DltCloseTypePtr& dlt_close,
-                             const std::string& session_uuid) {
-    FDS_PLOG_SEV(omc_log, fds::fds_log::notification)
-            << "OMClient received DLT close event for DLT version "
+                             const std::string& session_uuid)
+{
+    LOGNORMAL << "OMClient received DLT close event for DLT version "
             << dlt_close->DLT_version;
 
-    // TODO(rao) if this is SM node, do something
     if (this->dltclose_evt_hdlr) {
-        this->dltclose_evt_hdlr();
+        this->dltclose_evt_hdlr(dlt_close, session_uuid);
     }
+    return (0);
+}
+
+/**
+ * Acking back dlt close notification to OM
+ */
+int OMgrClient::sendDLTCloseAckToOM(FDSP_DltCloseTypePtr& dlt_close,
+        const std::string& session_uuid)
+{
+    LOGDEBUG << "Sending dlt close ack to OM";
+    int err = 0;
 
     // send ack back to OM
     boost::shared_ptr<FDS_ProtocolInterface::FDSP_ControlPathRespClient> resp_client_prx =
@@ -760,11 +770,11 @@ int OMgrClient::recvDLTClose(FDSP_DltCloseTypePtr& dlt_close,
         FDS_PLOG_SEV(omc_log, fds_log::notification)
                 << "OMClient sent response for DLT close to OM";
     } catch (...) {
-        FDS_PLOG_SEV(omc_log, fds_log::error) << "OMClient failed to send response to OM";
-        return -1;
+        LOGERROR << "OMClient failed to send response to OM";
+        err = -1;
     }
 
-    return (0);
+    return err;
 }
 
 int OMgrClient::recvDLTStartMigration(FDSP_DLT_Data_TypePtr& dlt_info) {

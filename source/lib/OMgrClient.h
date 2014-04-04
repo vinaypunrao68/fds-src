@@ -48,7 +48,8 @@ namespace fds {
   } fds_vol_notify_t;
   
   typedef void (*migration_event_handler_t)(bool dlt_type);
-  typedef void (*dltclose_event_handler_t)();
+  typedef void (*dltclose_event_handler_t)(FDSP_DltCloseTypePtr& dlt_close,
+          const std::string& session_uuid);
   typedef void (*node_event_handler_t)(int node_id,
                                        unsigned int node_ip_addr,
                                        int node_state,
@@ -202,6 +203,8 @@ namespace fds {
     int updateDlt(bool dlt_type, std::string& dlt_data);
     int recvDLTUpdate(FDSP_DLT_Data_TypePtr& dlt_info, const std::string& session_uuid);
     int recvDLTClose(FDSP_DltCloseTypePtr& close_info, const std::string& session_uuid);
+    int sendDLTCloseAckToOM(FDSP_DltCloseTypePtr& dlt_close,
+            const std::string& session_uuid);
     int recvDLTStartMigration(FDSP_DLT_Data_TypePtr& dlt_info);
     int recvDMTUpdate(int dmt_version, const Node_Table_Type& dmt_table);
 

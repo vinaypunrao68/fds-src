@@ -475,12 +475,6 @@ void FdsMigrationSvc::handle_migsvc_copy_token_rpc(FdsActorRequestPtr req)
 {
     fds_assert(req->type == FAR_ID(FDSP_CopyTokenReq));
 
-    /* First acknowledge/accept the copy request */
-    if (ack_copy_token_req(req) != ERR_OK) {
-        LOGWARN << "Dropping Copy token request";
-        return;
-    }
-
     /* Start off the TokenCopySender state machine */
     auto copy_payload = req->get_payload<FDSP_CopyTokenReq>();
     std::string &mig_id = copy_payload->header.mig_id;
@@ -489,6 +483,13 @@ void FdsMigrationSvc::handle_migsvc_copy_token_rpc(FdsActorRequestPtr req)
     int rcvr_port = copy_payload->header.base_header.src_port;
     std::set<fds_token_id> tokens(
             copy_payload->tokens.begin(), copy_payload->tokens.end());
+    kvstore::TokenStateInfo::State state;
+    Error err = getTokenStateDb()->getTokenState(*tokens.begin(), state);
+    // TODO(Rao): Once we do proper token state managment, this verify
+    // should just have HEALTHY check
+    fds_verify(err == ERR_OK &&
+            (state == kvstore::TokenStateInfo::UNINITIALIZED ||
+                    state == kvstore::TokenStateInfo::HEALTHY));
     fds_assert(mig_id.size() > 0);
     fds_assert(mig_stream_id.size() > 0);
     fds_assert(rcvr_ip.size() > 0);
@@ -506,6 +507,13 @@ void FdsMigrationSvc::handle_migsvc_copy_token_rpc(FdsActorRequestPtr req)
     LOGNORMAL << " New sender.  Migration id: " << mig_id
             << " stream id: " << mig_stream_id
             << " receiver ip : " << rcvr_ip;
+
+    /* acknowledge/accept the copy request */
+    if (ack_copy_token_req(req) != ERR_OK) {
+        // TODO(Rao): Cleanup sender
+        LOGWARN << "Dropping Copy token request";
+        return;
+    }
 
     copy_sender->start();
 }
