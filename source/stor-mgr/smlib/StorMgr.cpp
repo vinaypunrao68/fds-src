@@ -223,8 +223,8 @@ void ObjectStorMgrI::GetObjectMetadata(
 ObjectStorMgr::ObjectStorMgr(int argc, char *argv[],
                              Platform *platform, Module **mod_vec)
     : PlatformProcess(argc, argv, "fds.sm.", "sm.log", platform, mod_vec),
-    totalRate(2000),
-    qosThrds(10),
+    totalRate(6000),
+    qosThrds(100),
     shuttingDown(false),
     numWBThreads(1),
     maxDirtyObjs(10000),
