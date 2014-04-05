@@ -50,6 +50,7 @@ function usage() {
     log "   - $(yellow clogs)     : remove the logs"
     log "   - $(yellow clean)     : remove the data"
     log "   - $(yellow cleanstart): stop+clean+start all"
+    log "   - $(red    gdb)       : gdb attach app"
     log " options :"
     log "   : $(yellow --fds-root/-f) rootdir"
     log " app : om/pm/sm/am/dm/all"
@@ -220,6 +221,23 @@ function waitForApp() {
     fi
 }
 
+function attachgdb() {
+    local app=$1
+    case "${app}" in
+        om|am|dm|sm|pm|redis) ;;
+    *)
+        logerror "can attach gdb to only [om|am|dm|sm|pm|redis]"
+        return
+        ;;
+    esac
+
+    if (waitForApp $app); then
+        sudo gdb -p $(getAppPid $app)
+    else
+        logerror "could not attach to [$(blue $app)]"
+    fi
+}
+
 function cleanBinDirs() {
     for node in bin node2 node3 node4; do
         bin_dir=${SOURCEDIR}/Build/linux-x86_64.debug/${node}
@@ -329,7 +347,7 @@ FDSROOT=${FDSROOT:=/fds}
 #exit 0
 
 case "${CMD}" in
-    start|stop|restart|status|clean|clogs|cleanstart|startclean) ;;
+    start|stop|restart|status|clean|clogs|cleanstart|startclean|gdb) ;;
     *) 
         logerror "unknown cmd [$CMD] "
         usage ;;
@@ -363,6 +381,9 @@ case "${CMD}" in
         startApp "all"
         waitForAll
         statusApp "all"
+        ;;
+    gdb)
+        attachgdb $APP
         ;;
     *) usage ;;
 esac

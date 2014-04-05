@@ -3,11 +3,9 @@
 ################################################
 
 package: fds-pkghelper
-version: 0.1
+version: 0.2
 maintainer: fds <engineering@formationds.com>
 description: Helper scripts for pkg creation
-depends :
-        libc (>= 2.0)
 
 files:
         dest: /usr/include/pkghelper
