@@ -321,20 +321,14 @@ ObjectStorMgr::~ObjectStorMgr() {
     delete omJrnl;
 }
 
-void ObjectStorMgr::setup()
+void ObjectStorMgr::proc_setup()
 {
-    /*
-     * Invoke FdsProcess setup so that it can setup the signal hander and
-     * execute the module vector for us
-     */
-    PlatformProcess::setup();
-
-    /* Rest of the setup */
     // todo: clean up the code below.  It's doing too many things here.
     // Refactor into functions or make it part of module vector
 
     std::string     myIp;
 
+    PlatformProcess::proc_setup();
     proc_root->fds_mkdir(proc_root->dir_user_repo_objs().c_str());
     std::string obj_dir = proc_root->dir_user_repo_objs();
 
@@ -494,9 +488,10 @@ void ObjectStorMgr::setup_migration_svc()
     migrationSvc_->mod_startup();
 }
 
-void ObjectStorMgr::run()
+int ObjectStorMgr::run()
 {
     nst_->listenServer(datapath_session_);
+    return 0;
 }
 
 void ObjectStorMgr::interrupt_cb(int signum)

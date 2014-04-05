@@ -16,10 +16,8 @@ int main(int argc, char *argv[])
         nullptr
     };
     objStorMgr = new ObjectStorMgr(argc, argv, &fds::gl_SmPlatform, smVec);
-    objStorMgr->setup();
-    objStorMgr->run();
-
+    int ret = objStorMgr->main();
     delete objStorMgr;
-    return 0;
+    return ret;
 }
 

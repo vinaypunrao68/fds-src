@@ -47,6 +47,7 @@ PmDiskObj::PmDiskObj()
     : dsk_part_link(this), dsk_disc_link(this), dsk_raw_path(NULL), dsk_parent(NULL),
       dsk_my_dev(NULL), dsk_common(NULL), dsk_label(NULL)
 {
+    rs_name[0]   = '\0';
     dsk_cap_gb   = 0;
     dsk_part_idx = 0;
     dsk_part_cnt = 0;
@@ -69,7 +70,6 @@ PmDiskObj::dsk_update_device(struct udev_device *dev,
         fds_assert(dsk_my_dev == NULL);
         fds_assert(dsk_parent == NULL);
         dsk_my_dev = dev;
-        dsk_read_uuid();
     }
     dsk_cap_gb   = strtoul(udev_device_get_sysattr_value(dev, "size"), NULL, 10);
     dsk_cap_gb   = dsk_cap_gb >> (30 - 9);
@@ -85,6 +85,12 @@ PmDiskObj::dsk_update_device(struct udev_device *dev,
         fds_assert(ref->dsk_common != NULL);
         fds_assert(ref->dsk_common->dsk_blk_path == blk_path);
         dsk_fixup_family_links(ref);
+    }
+    if (dsk_parent == this) {
+        dsk_read_uuid();
+    } else {
+        /*  Generate uuid for this partition slide, don't have to be persistent. */
+        rs_uuid = fds_get_uuid64(get_uuid());
     }
 }
 
@@ -307,6 +313,9 @@ PmDiskObj::dsk_read(void *buf, fds_uint32_t sector, int sec_cnt)
                fds_disk_sector_to_byte(sec_cnt),
                fds_disk_sector_to_byte(sector));
     close(fd);
+    if (rt <= 0) {
+        perror("Error");
+    }
     return rt;
 }
 
@@ -317,8 +326,6 @@ int
 PmDiskObj::dsk_write(void *buf, fds_uint32_t sector, int sec_cnt)
 {
     int fd, rt;
-
-    return 0;
 
     fds_verify((sector + sec_cnt) <= 16384);  // TODO(Vy): no hardcode
     fd = open(rs_name, O_RDWR | O_SYNC);

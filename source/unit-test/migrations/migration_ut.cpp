@@ -119,7 +119,7 @@ public:
         delete log_;
     }
     // From FdsProcess
-    void run() override {}
+    int run() override { return 0; }
 
     void init()
     {

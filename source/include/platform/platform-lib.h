@@ -280,9 +280,9 @@ class Platform : public Module
     /**
      * Module methods.
      */
-    virtual int  mod_init(SysParams const *const param);
-    virtual void mod_startup();
-    virtual void mod_shutdown();
+    virtual int  mod_init(SysParams const *const param) override;
+    virtual void mod_startup() override;
+    virtual void mod_shutdown() override;
 
     /**
      * Pull out common platform data.
@@ -365,7 +365,7 @@ class PlatformProcess : public FdsProcess
     /* Exposed for mock testing */
     PlatformProcess() {}
 
-    virtual void setup();
+    virtual void proc_setup() override;
 
     /**
      * Derrive ports for different node services from a common base.

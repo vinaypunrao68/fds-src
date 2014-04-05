@@ -454,7 +454,7 @@ DataMgr::~DataMgr()
     delete qosCtrl;
 }
 
-void DataMgr::run()
+int DataMgr::run()
 {
     try {
         nstable->listenServer(metadatapath_session);
@@ -462,6 +462,7 @@ void DataMgr::run()
     catch (...) {
         std::cout << "starting server threw an exception" << std::endl;
     }
+    return 0;
 }
 
 void DataMgr::setup_metadatapath_server(const std::string &ip)
@@ -483,21 +484,16 @@ void DataMgr::setup_metadatapath_server(const std::string &ip)
                                metadatapath_handler);
 }
 
-void DataMgr::setup()
+void DataMgr::proc_setup()
 {
     fds::DmDiskInfo     *info;
     fds::DmDiskQuery     in;
     fds::DmDiskQueryOut  out;
     fds_bool_t      useTestMode = false;
 
-    /*
-     * Invoke FdsProcess setup so that it can setup the signal hander and
-     * execute the module vector for us
-     */
-
     runMode = NORMAL_MODE;
 
-    PlatformProcess::setup();
+    PlatformProcess::proc_setup();
 
     // Get config values from that platform lib.
     //

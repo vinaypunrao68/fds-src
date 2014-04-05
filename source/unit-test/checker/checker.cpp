@@ -755,10 +755,11 @@ void FdsCheckerProc::setup()
     checker_->mod_startup();
 }
 
-void FdsCheckerProc::run()
+int FdsCheckerProc::run()
 {
     checker_->run_checker();
     g_cntrs_mgr->export_to_ostream(std::cout);
+    return 0;
 }
 
 void FdsCheckerProc::plf_load_node_data()
