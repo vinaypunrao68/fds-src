@@ -499,12 +499,10 @@ void DirBasedChecker::run_checker()
 
 
             // TODO(bao): need stub filed in
-#if 0
             FDSP_MigrateObjectMetadata ret_obj_md;
             ret = get_object_metadata((*nodes)[i], objId, ret_obj_md);
             fds_verify(ret == true);
             md_list.push_back(ret_obj_md);
-#endif
 
             cntrs_.obj_cnt.incr();
 
@@ -516,11 +514,9 @@ void DirBasedChecker::run_checker()
          * Below comparison only tells us wheter sync took place properly or not
          */
             // TODO(bao): stub
-#if 0
         if (md_list.size() > 1) {
             compare_against(md_list[0], md_list);
         }
-#endif
     }
     LOGNORMAL << "Checker run done!" << std::endl;
 }

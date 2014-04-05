@@ -447,7 +447,7 @@ TokenCopyReceiver::TokenCopyReceiver(FdsMigrationSvc *migrationSvc,
     std::string sender_ip = netSessionTbl::ipAddr2String(int_ip);
 
     // TODO(Rao): Don't need mig_stream_id anymore remove it
-    std::string mig_stream_id = std::to_string(token);
+    std::string mig_stream_id = mig_id + std::to_string(token);
 
     auto sender_session = migrationSvc->get_migration_client(
             sender_ip,

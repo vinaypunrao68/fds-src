@@ -160,6 +160,7 @@ public:
 public:
     FdsMigrationSvc(SmIoReqHandler *data_store,
             const FdsConfigAccessor &conf_helper,
+            const std::string &meta_dir,
             fds_log *log,
             netSessionTblPtr nst,
             ClusterCommMgrPtr clust_comm_mgr,
@@ -189,6 +190,8 @@ public:
     std::string get_ip();
     TVIRTUAL int get_port();
 
+    std::string get_metadir_root();
+
 public:
     /* Migration counters */
     MigrationCounters mig_cntrs;
@@ -212,6 +215,9 @@ protected:
 
     /* Config access helper */
     FdsConfigAccessor conf_helper_;
+
+    /* Meta directory */
+    std::string meta_dir_;
 
     /* Net session table */
     netSessionTblPtr nst_;

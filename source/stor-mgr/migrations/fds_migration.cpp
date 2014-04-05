@@ -182,6 +182,9 @@ void TokenCopyTracker::token_complete_cb(const Error& e,
 
     if (mig_status == TOKEN_COPY_COMPLETE) {
         fds_verify(cur_copy_itr_ != tokens_.end());
+
+        LOGNORMAL << "copy done. token id: " << *cur_copy_itr_;
+
         /* Issue copy for the next token */
         copy_completed_cnt_++;
         cur_copy_itr_++;
@@ -189,7 +192,7 @@ void TokenCopyTracker::token_complete_cb(const Error& e,
             /* issue copy request for next token */
             issue_copy_req();
         } else {
-            LOGDEBUG << "All copies complete";
+            LOGNORMAL << "All copies complete";
             copy_cb_(ERR_OK, TOKEN_COPY_COMPLETE);
 
             LOGDEBUG << "Starting syncs";
@@ -199,6 +202,9 @@ void TokenCopyTracker::token_complete_cb(const Error& e,
         }
     } else if (mig_status == MIGRATION_OP_COMPLETE) {
         fds_verify(cur_sync_itr_ != mig_ids_.end());
+
+        LOGNORMAL << "sync done. token id: " << *cur_sync_itr_;
+
         /* Issue sync for next migration stream */
         sync_completed_cnt_++;
         cur_sync_itr_++;
@@ -206,7 +212,7 @@ void TokenCopyTracker::token_complete_cb(const Error& e,
             /* issue sync request for next token */
             issue_sync_req();
         } else {
-            LOGDEBUG << "All syncs complete";
+            LOGNORMAL << "All syncs complete";
             copy_cb_(ERR_OK, MIGRATION_OP_COMPLETE);
             del_tracker = true;
         }
@@ -223,7 +229,7 @@ void TokenCopyTracker::token_complete_cb(const Error& e,
 
 void TokenCopyTracker::issue_copy_req()
 {
-    LOGDEBUG << "token id: " << *cur_copy_itr_;
+    LOGNORMAL << "token id: " << *cur_copy_itr_;
 
     MigSvcCopyTokensReqPtr copy_req(new MigSvcCopyTokensReq());
     copy_req->token = *cur_copy_itr_;
@@ -245,6 +251,8 @@ void TokenCopyTracker::issue_sync_req()
 {
     fds_verify(cur_sync_itr_ != mig_ids_.end());
 
+    LOGNORMAL << "token id: " << *cur_sync_itr_;
+
     TRSyncStartEvtPtr sync_req(new TRSyncStartEvt());
     FdsActorRequestPtr req(new FdsActorRequest(
                 FAR_ID(TRSyncStartEvt), sync_req));
@@ -262,6 +270,7 @@ void TokenCopyTracker::issue_sync_req()
  */
 FdsMigrationSvc::FdsMigrationSvc(SmIoReqHandler *data_store,
         const FdsConfigAccessor &conf_helper,
+        const std::string &meta_dir,
         fds_log *log, netSessionTblPtr nst,
         ClusterCommMgrPtr clust_comm_mgr,
         kvstore::TokenStateDBPtr tokenStateDb)
@@ -270,6 +279,7 @@ FdsMigrationSvc::FdsMigrationSvc(SmIoReqHandler *data_store,
       mig_cntrs("Migration", g_cntrs_mgr.get()),
       data_store_(data_store),
       conf_helper_(conf_helper),
+      meta_dir_(meta_dir),
       nst_(nst),
       clust_comm_mgr_(clust_comm_mgr),
       tokenStateDb_(tokenStateDb)
@@ -680,5 +690,10 @@ int FdsMigrationSvc::get_port()
     Platform *plf = PlatformProcess::plf_manager();
     return plf->plf_get_my_migration_port();
     // return conf_helper_.get<int>("port");
+}
+
+std::string FdsMigrationSvc::get_metadir_root()
+{
+    return meta_dir_;
 }
 }  // namespace fds

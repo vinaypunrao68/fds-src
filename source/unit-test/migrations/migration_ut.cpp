@@ -72,6 +72,7 @@ public:
             kvstore::TokenStateDBPtr tokenStateDb)
     : FdsMigrationSvc(data_store,
             conf_helper,
+            std::string(""),
             log,
             nst,
             clust_comm_mgr,

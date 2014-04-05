@@ -313,7 +313,8 @@ struct TokenSyncSenderFSM_
         {
             /* Create new sync log */
             std::ostringstream oss;
-            oss << "TokenSyncLog_" << fsm.token_id_
+            oss << fsm.migrationSvc_->get_metadir_root() <<
+                    "/TokenSyncLog_" << fsm.mig_stream_id_ << "_" << fsm.token_id_
                     << "_" << fsm.cur_sync_range_low_ << "_" << fsm.cur_sync_range_high_;
             fsm.sync_log_.reset(new TokenSyncLog(oss.str()));
 

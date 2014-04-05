@@ -391,7 +391,7 @@ class ObjectStorMgr :
 
  protected:
     void setup_datapath_server(const std::string &ip);
-    void setup_migration_svc();
+    void setup_migration_svc(const std::string &obj_dir);
 
  public:
 
