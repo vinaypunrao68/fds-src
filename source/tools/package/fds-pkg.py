@@ -17,11 +17,23 @@ class Pkg:
     def __init__(self):
         self.verbose = False
 
-    def getPackageList(self,pkgs=None):
-        cmd=['dpkg', '--get-selections']
+    def getPackageList(self,pkgs=None,version=False):
+        cmd=['dpkg-query', '-f' ]
+        if version:
+            cmd.append('${Package}_${Version}\n')
+        else:
+            cmd.append('${Package}\n')
+
+        cmd.append('-W')
+
         cmd.extend(self.getAsList(pkgs))
         lines=self.getCmdOutput(cmd)
-        return [line.split('\t')[0] for line in lines if -1==line.find('deinstall')]
+        if version:
+            for n in range(0,len(lines)):
+                line = lines[n]
+                if len(line.split('_')[1])==0:
+                    lines[n] = line.split('_')[0]
+        return lines
 
     def getPackageFiles(self,pkgname):
         cmd= ['dpkg-query', '-L']
@@ -38,9 +50,12 @@ class Pkg:
         cmd.extend(self.getAsList(pkgs))
         return self.getCmdOutput(cmd)
 
-    def update(self) :
-        cmd = 'apt-get update %s' %(Pkg.APTOPTIONS)
+    def runCmd(self, cmd):
+        log.debug('running cmd : %s', cmd)
         os.system(cmd)
+
+    def update(self) :
+         self.runCmd('apt-get update %s' %(Pkg.APTOPTIONS))
 
     def getAsList(self,data):
         if type(data)==types.ListType:
@@ -59,23 +74,51 @@ class Pkg:
             print line
 
 
+    def install(self,pkgs):
+        debs = [p for p in pkgs if p.endswith('.deb')]
+        nondebs = [p for p in pkgs if not p.endswith('.deb')]
+        
+        if len(debs) > 0:
+            self.runCmd( 'dpkg --install %s' % (' '.join(debs)))
+
+        if len(nondebs) > 0:
+            self.runCmd( 'apt-get install %s' % (' '.join(nondebs)))
+
+    def list(self,pkgs,files=False):
+        if len(pkgs)==0:
+            pkgs=['fds*']
+
+        if files :
+            pkglist=self.getPackageList(pkgs)
+            for pkg in pkglist:
+                self.printLines([ '%s:\t%s' % (pkg, f)  for f in self.getPackageFiles(pkg)])
+        else:
+            # check if the arg is a file or pkgname
+            for item in pkgs:
+                log.debug(item)
+                if item.startswith('/'):
+                    if os.path.exists(item):
+                        self.printLines(self.getOwner(item))
+                    else:
+                        log.error('check filepath [%s]', item)
+                else:
+                    self.printLines(self.getPackageList(item,True))
+
 def usage():
     return '''
-%(prog)s cmd [options] [[pkgname]...] [file] [program-options]
+%(prog)s cmd [options] [[pkgname]...] [file]
    cmd :-
-       ls    : list packages
-       info  : display pkg information
-       update: update info for the fds repo
-       help  : display this menu
+       ls      : list packages
+       info    : display pkg information
+       install : install the given deb pkgs
+       update  : update info for the fds repo
+       help    : display this menu
    options :-
        --files  : for ls , list files in the pkg
        [file]   : for ls , if a file is specified, it will print the pkg that owns it
-   program-options:
-             : all these will be sent to the subprocess
 '''
 
 if __name__ == "__main__":
-
     #print sys.argv
     #sys.exit(0)
     parser = argparse.ArgumentParser(description='Manage Pkg info', 
@@ -83,7 +126,7 @@ if __name__ == "__main__":
     #parser.add_argument('cmd',default='help' ,help='ls,info,which,help',nargs='?' )
     parser.add_argument('-f','--files', action="store_true")
     parser.add_argument('-v','--verbose', action="store_true")
-    parser.add_argument('other', nargs=argparse.REMAINDER)
+    parser.add_argument('other', nargs='*')
 
     cmd='help'
     if len(sys.argv) >1 :
@@ -97,6 +140,8 @@ if __name__ == "__main__":
         cmd='list'
     elif args.cmd=='info':
         cmd='info'
+    elif args.cmd in ['-h' , '--help' ]:
+        cmd='help'
 
     if args.verbose:
         log.setLevel(logging.DEBUG)
@@ -110,29 +155,19 @@ if __name__ == "__main__":
             pkg=Pkg()
             pkg.verbose = args.verbose
             if cmd == 'list':
-                if args.files :
-                    pkglist=pkg.getPackageList(args.other)
-                    for p in pkglist:
-                        pkg.printLines([ p + ':\t' + f  for f in pkg.getPackageFiles(p)])
-                else:
-                    # check if the arg is a file or pkgname
-                    for item in args.other:
-                        log.debug(item)
-                        if item.startswith('/'):
-                            if os.path.exists(item):
-                                pkg.printLines(pkg.getOwner(item))
-                            else:
-                                log.error('check filepath [%s]', item)
-                        else:
-                            pkg.printLines(pkg.getPackageList(item))
-
-                    if len(args.other)==0:
-                        pkg.printLines(pkg.getPackageList('fds*'))
-
+                pkg.list(args.other,args.files)
             elif cmd=='info':
-                pkg.printLines(pkg.getPackageInfo(args.other))
+                if len(args.other) == 0:
+                    args.other.append('fds-*')
+                pkgs = pkg.getPackageList(args.other)
+                pkg.printLines(pkg.getPackageInfo(pkgs))
             elif cmd == 'update':
                 pkg.update()
+            elif cmd == 'install':
+                if len(args.other) > 0:
+                    pkg.install(args.other)
+                else:
+                    log.error('please specify packages to install')
             else:
                 log.error('unknown command : %s' , cmd)
             
