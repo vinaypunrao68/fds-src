@@ -285,7 +285,7 @@ class PkgCreate:
         self.keepTemp = False
         self.dryrun = False
         self.releasePackage = False
-
+        self.chown = False
         self.clear()
 
     def clear(self) :
@@ -612,20 +612,20 @@ class PkgCreate:
                 log.debug('making dir : %s', dest)
                 if not os.path.exists(dest):
                     os.makedirs(dest)
-                os.chown(dest,uid,gid)
+                if self.chown: os.chown(dest,uid,gid)
                 for f in item.src:
                     log.debug("copy: src: %s, dest: %s " %(f,dest))
                     shutil.copy2(f,dest)
-                    os.chown(dest+'/'+ os.path.basename(f) ,uid,gid)
+                    if self.chown: os.chown(dest+'/'+ os.path.basename(f) ,uid,gid)
             else :
                 destdir = os.path.dirname(dest)
                 log.debug ('destfile: %s , destdir: %s' % ( dest , destdir))
                 if not os.path.exists(destdir):
                     os.makedirs(destdir)
-                os.chown(destdir,uid,gid)
+                if self.chown: os.chown(destdir,uid,gid)
                 log.debug("copy: src: %s, dest: %s " %(item.src[0],dest))
                 shutil.copy2(item.src[0],dest)
-                os.chown(destdir,uid,gid)
+                if self.chown: os.chown(destdir,uid,gid)
 
         debianDir = self.pkgdir + "/DEBIAN"
         os.mkdir(debianDir)
@@ -653,6 +653,10 @@ if __name__ == '__main__':
     parser.add_argument('-r','--release', action="store_true", default=False, help = "create a release pkg")
     parser.add_argument('-c','--clean', action="store_true", default=False, help = "clean the current dir of temp files and test pkgs")
 
+    parser.add_argument('--chown',dest='chown',action='store_true'   ,help='change to proper owner')
+    parser.add_argument('--nochown',dest='chown',action='store_false',help='dont change owwer')
+    parser.set_defaults(chown=False)
+
     parser.add_argument('pkgfiles', nargs=argparse.REMAINDER , help = "list of pkgdef files")
 
     args = parser.parse_args()
@@ -664,10 +668,15 @@ if __name__ == '__main__':
 
     pkg.keepTemp = args.keeptemp
     pkg.releasePackage = args.release
+    pkg.chown = args.chown
+
+    if pkg.releasePackage and not pkg.chown:
+        log.warn('forcing chown for release packages')
+        pkg.chown = True
 
     # check for root priveleges
-    if 0 != os.geteuid():
-        log.error("need to be root or use sudo to create packages")
+    if 0 != os.geteuid() and pkg.chown:
+        log.error("need root privs to do chown/or create release pkgs")
         sys.exit(1)
     
     if args.clean:
