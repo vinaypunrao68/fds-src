@@ -8,6 +8,10 @@
 #include <native_api.h>
 #include <am-platform.h>
 
+extern "C" {
+extern void CreateStorHvisorS3(int argc, char **argv);
+}
+
 namespace fds {
 
 class AM_Process : public PlatformProcess
@@ -18,17 +22,24 @@ class AM_Process : public PlatformProcess
                Platform *platform, Module **mod_vec)
         : PlatformProcess(argc, argv, "fds.am.", "am.log", platform, mod_vec) {}
 
-    void setup() override
+    void proc_setup() override
     {
+        int    argc;
+        char **argv;
+
+        PlatformProcess::proc_setup();
         FDS_NativeAPI *api = new FDS_NativeAPI(FDS_NativeAPI::FDSN_AWS_S3);
         FDS_NativeAPI *api_atmos = new FDS_NativeAPI(FDS_NativeAPI::FDSN_EMC_ATMOS);
 
-        PlatformProcess::setup();
         gl_AMEngineS3.init_server(api);
         gl_AMEngineAtmos.init_server(api_atmos);
+
+        argv = mod_vectors_->mod_argv(&argc);
+        CreateStorHvisorS3(argc, argv);
     }
-    void run() override {
+    int run() override {
         AMEngine::run_all_servers();
+        return 0;
     }
 };
 
@@ -48,10 +59,5 @@ int main(int argc, char **argv)
         nullptr
     };
     fds::AM_Process am_process(argc, argv, &fds::gl_AmPlatform, am_mod_vec);
-    am_process.setup();
-
-    CreateStorHvisorS3(argc, argv);
-    am_process.run();
-    // not reached!
-    return 0;
+    return am_process.main();
 }

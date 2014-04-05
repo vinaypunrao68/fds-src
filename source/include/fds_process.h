@@ -92,6 +92,7 @@ class FdsRootDir
  * 1. Signal handling.  Can be overridden.
  * 2. Configuration from file and command line
  * 3. Module vector based initialization
+ * 4. Main function to co-ordinate the init, setup and run methods.
  */
 class FdsProcess : public boost::noncopyable, public HasLogger {
  public:
@@ -122,12 +123,31 @@ class FdsProcess : public boost::noncopyable, public HasLogger {
      * When you override make sure to invoke base class setup to ensure
      * module vector is executed.
      */
-    virtual void setup();
+    virtual void setup();  /* DO not use, use main() instead, will clean up old calls. */
+    virtual void proc_setup();
+    virtual void proc_start_run();
 
     /**
-     * Main processing code goes here
+     * Main processing loop goes here
      */
-    virtual void run() = 0;
+    virtual int run() = 0;
+
+    /**
+     * main method to coordinate the init of vector modules in various steps, setup
+     * and run.  Return the value from the run() method.
+     * Sequence in main:
+     *    For each module, call mod_init().
+     *    Call proc)setup()
+     *    For each module, call mod_startup().
+     *    For each module, call mod_lockstep()
+     *    Call proc_start_run()
+     *    For each module, call mod_enable_service()
+     *    Call run()
+     *    For each module, call mod_stop_services()
+     *    For each module, call mod_shutdown_locksteps()
+     *    For each module, call shutdown().
+     */
+    virtual int main();
 
     /**
      * Handler function for Ctrl+c like signals.  Default implementation

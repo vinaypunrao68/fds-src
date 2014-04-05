@@ -30,10 +30,7 @@ int main(int argc, char *argv[])
     };
     fds::orchMgr = new fds::OrchMgr(argc, argv, "orch_mgr.conf", "fds.om.", omVec);
     fds::gl_orch_mgr = fds::orchMgr;
-
-    fds::orchMgr->setup();
-
-    fds::orchMgr->run();
+    int ret = fds::orchMgr->main();
     delete fds::orchMgr;
-    return 0;
+    return ret;
 }

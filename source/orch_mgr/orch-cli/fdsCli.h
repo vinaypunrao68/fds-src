@@ -43,9 +43,7 @@ namespace fds {
                const std::string &base_path,
                const std::string &def_log_file,  Module **mod_vec);
         ~FdsCli();
-        void run() {}
-        int  run(int argc, char *argv[]);
-
+        int run() override;
         int fdsCliParser(int argc, char* argv[]);
 
   private: /* methods */
