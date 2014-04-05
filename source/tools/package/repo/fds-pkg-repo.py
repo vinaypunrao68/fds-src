@@ -119,7 +119,7 @@ class PackageRepo:
                     continue
                 print 'generating pkg file for %s:%s' % (branch,arch)
                 os.chdir(self.repodir)
-                execstring = "dpkg-scanpackages dists/%s/%s/binary-%s /dev/null > %s/%s" % (self.distname,branch,arch,self.distdir,self.getPackagesFile(branch,arch))
+                execstring = "dpkg-scanpackages -m dists/%s/%s/binary-%s /dev/null > %s/%s" % (self.distname,branch,arch,self.distdir,self.getPackagesFile(branch,arch))
                 log.debug(execstring)
                 ret = os.system (execstring)
                 if  ret != 0:
