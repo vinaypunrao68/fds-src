@@ -782,6 +782,7 @@ class netSessionTbl {
     void endClientSession(const int  &ip, const int &port);
 
     void endSession(const std::string& key);
+    bool endSession(const netSession* session);
 
     /* Ends all client and server sessions in this table */
     void endAllSessions();

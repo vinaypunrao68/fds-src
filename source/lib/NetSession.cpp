@@ -143,17 +143,14 @@ bool netSessionTbl::clientSessionExists(const int &ip, const int &port)
 
 netSession* netSessionTbl::getSession(const std::string& key)
 {
-    sessionTblMutex->lock();
-    auto itr = sessionTbl.find(key);
-    if (itr == sessionTbl.end()) {
-        sessionTblMutex->unlock();
-        /* NOTE: Remove if not needed */
-        fds_assert(!"Null session");
-        return nullptr;
+    synchronizedptr(sessionTblMutex) {
+        auto iter = sessionTbl.find(key);
+        if (iter != sessionTbl.end()) {
+            return iter->second;
+        }
     }
-    netSession* session = itr->second;
-    sessionTblMutex->unlock();
-    return session;
+    LOGWARN << "unable to locate session for key:" << key;
+    return nullptr;
 }
 
 void netSessionTbl::endClientSession(const int  &ip, const int &port)
@@ -175,6 +172,23 @@ void netSessionTbl::endSession(const std::string &key) {
         fds_assert(!"netSession disappered");
     }
     sessionTblMutex->unlock();
+}
+
+bool netSessionTbl::endSession(const netSession* session) {
+    synchronizedptr(sessionTblMutex) {
+        for (auto iter = sessionTbl.begin() ; iter != sessionTbl.end() ; ++iter) {
+            if (iter->second == session) {
+                LOGNORMAL << "ending session:" << iter->first;
+                iter->second->endSession();
+                // TODO(prem) - should we delete ?
+                // delete iter->second;
+                sessionTbl.erase(iter);
+                return true;
+            }
+        }
+    }
+    LOGWARN << "unable to locate session in the session tbl";
+    return false;
 }
 
 void netSessionTbl::endAllSessions() {
