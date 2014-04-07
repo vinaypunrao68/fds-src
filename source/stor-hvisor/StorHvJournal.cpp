@@ -427,47 +427,45 @@ StorHvJournalEntry *StorHvJournal::get_journal_entry(fds_uint32_t trans_id) {
 }
 
 
-  // Note: Caller holds the lock to the entry
-  // And takes care of releasing the transaction id to the free pool
-void StorHvJournalEntry::fbd_process_req_timeout()
-{
-  FdsBlobReq *blobReq = static_cast<fds::AmQosReq*>(io)->getBlobReqPtr();
-  fds_verify(blobReq != NULL);
+// Note: Caller holds the lock to the entry
+// And takes care of releasing the transaction id to the free pool
+void
+StorHvJournalEntry::fbd_process_req_timeout() {
+    FdsBlobReq *blobReq = static_cast<fds::AmQosReq*>(io)->getBlobReqPtr();
+    fds_verify(blobReq != NULL);
 
-  fds::Error err(ERR_OK);
+    fds::Error err(ERR_OK);
 
-  fds_volid_t   volId = blobReq->getVolId();
-  FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " - Timing out, responding to  the block"; 
-  if (isActive()) {
-      FDS_PLOG(storHvisor->GetLog()) << " StorHvisorRx:" << "IO-XID:" << trans_id << " - Timing out, responding to  the block : " 
-				   << blobReq->getBlobName() << " offset" << blobReq->getBlobOffset();
+    fds_volid_t   volId = blobReq->getVolId();
+    LOGWARN << __FUNCTION__ << " trans id" << trans_id << " timing out, responding to blob " 
+            << blobReq->getBlobName() << " offset" << blobReq->getBlobOffset();
+    if (isActive()) {
+        // try all the SM nodes and if we are not able to get the data  return error
+        StorHvVolume *vol = storHvisor->vol_table->getVolume(volId);
+        fds_verify(vol != NULL);  // Should not receive resp for non existant vol
 
-    // try all the SM nodes and if we are not able to get the data  return error
-      StorHvVolume *vol = storHvisor->vol_table->getVolume(volId);
-      fds_verify(vol != NULL);  // Should not receive resp for non existant vol
+        StorHvVolumeLock vol_lock(vol);
+        fds_verify(vol->isValidLocked() == true);
 
-      StorHvVolumeLock vol_lock(vol);
-      fds_verify(vol->isValidLocked() == true);
+        StorHvJournalEntry *txn = vol->journal_tbl->get_journal_entry(trans_id);
+        fds_verify(txn != NULL);
 
-      StorHvJournalEntry *txn = vol->journal_tbl->get_journal_entry(trans_id);
-      fds_verify(txn != NULL);
-
-      fds_verify(txn->isActive() == true);  // Should not receive resp for inactive txn
-    if (txn->nodeSeq != txn->num_sm_nodes) { 
-      txn->nodeSeq =+ 1; // try all the SM nodes 
-      err = storHvisor->dispatchSmGetMsg(txn);
-      fds_verify(err == ERR_OK);
-
-    } else {
-      storHvisor->qos_ctrl->markIODone(io);
-      write_ctx = 0;
-      vol->journal_tbl->releaseTransId(trans_id);
-      blobReq->cbWithResult(-1);
-      delete blobReq;
-      blobReq = NULL;
-      reset();
-   }
-  }
+        fds_verify(txn->isActive() == true);  // Should not receive resp for inactive txn
+        if ((txn->nodeSeq != txn->num_sm_nodes)
+            && 0) { // TODO(Andrew): REMOVE ME!!!!
+            txn->nodeSeq =+ 1; // try all the SM nodes 
+            err = storHvisor->dispatchSmGetMsg(txn);
+            fds_verify(err == ERR_OK);
+        } else {
+            storHvisor->qos_ctrl->markIODone(io);
+            write_ctx = 0;
+            vol->journal_tbl->releaseTransId(trans_id);
+            blobReq->cbWithResult(-1);
+            delete blobReq;
+            blobReq = NULL;
+            reset();
+        }
+    }
 }
 
 

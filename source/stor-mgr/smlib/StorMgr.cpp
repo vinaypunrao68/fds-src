@@ -49,6 +49,13 @@ ObjectStorMgrI::PutObject(FDSP_MsgHdrTypePtr& msgHdr,
     return;
 #endif /* FDS_TEST_SM_NOOP */
 
+    // Store the mapping of this service UUID to its session UUID,
+    // except when this is a proxied request
+    if (msgHdr->proxy_count == 0) {
+        NodeUuid svcUuid((fds_uint64_t)msgHdr->src_service_uuid.uuid);
+        objStorMgr->addSvcMap(svcUuid,
+                              msgHdr->session_uuid);
+    }
 
     // check the payload checksum  and return Error, if we run in to issues 
     std::string new_checksum;
@@ -125,6 +132,14 @@ ObjectStorMgrI::GetObject(FDSP_MsgHdrTypePtr& msgHdr,
     return;
 #endif /* FDS_TEST_SM_NOOP */
 
+    // Store the mapping of this service UUID to its session UUID,
+    // except when this is a proxied request
+    if (msgHdr->proxy_count == 0) {
+        NodeUuid svcUuid((fds_uint64_t)msgHdr->src_service_uuid.uuid);
+        objStorMgr->addSvcMap(svcUuid,
+                              msgHdr->session_uuid);
+    }
+
     /*
      * Track the outstanding get request.
      */
@@ -169,6 +184,14 @@ ObjectStorMgrI::DeleteObject(FDSP_MsgHdrTypePtr& msgHdr,
     LOGDEBUG << "FDS_TEST_SM_NOOP defined. Sent async DeleteObj response right after receiving req.";
     return;
 #endif /* FDS_TEST_SM_NOOP */
+
+    // Store the mapping of this service UUID to its session UUID,
+    // except when this is a proxied request
+    if (msgHdr->proxy_count == 0) {
+        NodeUuid svcUuid((fds_uint64_t)msgHdr->src_service_uuid.uuid);
+        objStorMgr->addSvcMap(svcUuid,
+                              msgHdr->session_uuid);
+    }
 
     /*
      * Track the outstanding get request.
@@ -533,6 +556,25 @@ int ObjectStorMgr::run()
 {
     nst_->listenServer(datapath_session_);
     return 0;
+}
+
+void
+ObjectStorMgr::addSvcMap(const NodeUuid    &svcUuid,
+                         const SessionUuid &sessUuid) {
+    svcSessLock.write_lock();
+    svcSessMap[svcUuid] = sessUuid;
+    svcSessLock.write_unlock();
+}
+
+ObjectStorMgr::SessionUuid
+ObjectStorMgr::getSvcSess(const NodeUuid &svcUuid) {
+    SessionUuid sessId;
+    svcSessLock.read_lock();
+    fds_verify(svcSessMap.count(svcUuid) > 0);
+    sessId = svcSessMap[svcUuid];
+    svcSessLock.read_unlock();
+
+    return sessId;
 }
 
 void ObjectStorMgr::interrupt_cb(int signum)
@@ -1849,7 +1891,19 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
 	// send the dlt version of SM to AM 
         getObj->dlt_version = objStorMgr->omClient->getDltVersion();
     }
-    fdspDataPathClient(msgHdr->session_uuid)->GetObjectResp(msgHdr, getObj);
+    DPRespClientPtr client = fdspDataPathClient(msgHdr->session_uuid);
+    if (client == NULL) {
+        // We may not know about this session uuid because it may be
+        // a redirected(proxied) get from anothe SM. Let's try and
+        // locate our session uuid based on the service uuid
+        NodeUuid svcUuid(msgHdr->src_service_uuid.uuid);
+        SessionUuid sessUuid = getSvcSess(svcUuid);
+        client = fdspDataPathClient(sessUuid);
+        fds_verify(client != NULL);
+        LOGWARN << "Doing a get() redirection to AM with service UUID "
+                << svcUuid;
+    }
+    client->GetObjectResp(msgHdr, getObj);
     LOGDEBUG << "Sent async GetObj response after processing";
     omJrnl->release_transaction(getReq->getTransId());
 
@@ -1906,11 +1960,13 @@ ObjectStorMgr::enqDeleteObjectReq(FDSP_MsgHdrTypePtr msgHdr,
     return err;
 }
 
-
-boost::shared_ptr<FDSP_DataPathReqClient> ObjectStorMgr::getProxyClient(ObjectID& oid, const FDSP_MsgHdrTypePtr& msg) {
+NodeAgentDpClientPtr
+ObjectStorMgr::getProxyClient(ObjectID& oid,
+                              const FDSP_MsgHdrTypePtr& msg) {
     const DLT* dlt = getDLT();
     NodeUuid uuid=0;
         
+    // TODO(Andrew): Why is it const if we const_cast it?
     FDSP_MsgHdrTypePtr& fdsp_msg = const_cast<FDSP_MsgHdrTypePtr&> (msg);
     // get the first Node that is not ME!!
     DltTokenGroupPtr nodes = dlt->getNodes(oid);
@@ -1927,22 +1983,15 @@ boost::shared_ptr<FDSP_DataPathReqClient> ObjectStorMgr::getProxyClient(ObjectID
     LOGDEBUG << "proxying request to " << uuid;
     fds_int32_t node_state = -1;
 
-    uint addr;
-    fds_uint32_t port;
-    int state;
-    // Get primary SM's node info
-    omClient->getNodeInfo(uuid.uuid_get_val(),&addr,&port,&state);
-    fdsp_msg->dst_ip_lo_addr = addr;
-    fdsp_msg->dst_port = port;
-    
-    netDataPathClientSession *sessionCtx = nst_->getClientSession<netDataPathClientSession>(fdsp_msg->dst_ip_lo_addr, fdsp_msg->dst_port);
-    fds_verify(sessionCtx != NULL);
-        
-    boost::shared_ptr<FDSP_DataPathReqClient> client = sessionCtx->getClient();
-    LOGDEBUG << "switching session from [" << fdsp_msg->session_uuid << "] to [" <<sessionCtx->getSessionId() <<"]";
-    fdsp_msg->session_uuid = sessionCtx->getSessionId();
+    NodeAgent::pointer node = plf_mgr->plf_node_inventory()->
+            dc_get_sm_nodes()->agent_info(uuid);
+    SmAgent::pointer sm = SmAgent::agt_cast_ptr(node);
+    NodeAgentDpClientPtr smClient = sm->get_sm_client();
+
+    // Increment the proxy count so the receiver knows
+    // this is a proxied request
     fdsp_msg->proxy_count++;
-    return client;
+    return smClient;
 }
 
 /*
@@ -1966,17 +2015,17 @@ ObjectStorMgr::GetObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
              << ", glob_vol_id: " << fdsp_msg->glob_volume_id
              << ", Num Objs: " << fdsp_msg->num_objects;
 
-
-    // TODO (Rao) - Uncomment this code
     // check if we have the object or else we need to proxy it 
-    /**
+    // TODO(Andrew): We should actually be checking if we're in
+    // a sync mode for this token, not just blindly redirecting...
     if (!smObjDb->dataPhysicallyExists(oid)) {
         LOGWARN << "object id " << oid << " is not here , find it else where";
         
-        getProxyClient(oid,fdsp_msg)->GetObject(*fdsp_msg, *get_obj_req);
-        return ;
+        NodeAgentDpClientPtr client = getProxyClient(oid,fdsp_msg);
+        fds_verify(client != NULL);
+        client->GetObject(*fdsp_msg, *get_obj_req);
+        return;
     }
-    */
 
     err = enqGetObjectReq(fdsp_msg, get_obj_req,
                           fdsp_msg->glob_volume_id,

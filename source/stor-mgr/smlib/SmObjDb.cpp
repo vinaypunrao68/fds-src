@@ -95,7 +95,6 @@ void SmObjDb::snapshot(const fds_token_id& tokId,
     return;
 }
 bool SmObjDb::dataPhysicallyExists(const ObjectID& objId) {
-
     ObjMetaData md;
     Error err = get(objId, md);
     if (err != ERR_OK) return false;
