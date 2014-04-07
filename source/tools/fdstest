@@ -177,20 +177,20 @@ class delete(unittest.TestCase):
         self.f=Api()
 
     def testDeleteBucket(self):
-        bucket='bucket_%d' % (random.randint(201,301))
+        bucket='bucket_%d' % (random.randint(200,202))
         r=self.f.createBucket(bucket)
-        self.assertIn(r.status_code,[200,500])
+        self.assertIn(r.status_code,[200,409])
 
         r=self.f.deleteBucket(bucket)
-        self.assertIn(r.status_code,[200])
+        self.assertIn(r.status_code,[204])
 
     def testDeleteObject(self):
         obj = 'This is a test object'
-        bucket='bucket_%d' % (random.randint(201,301))
+        bucket='bucket_%d' % (random.randint(200,202))
         objname='obj_%d' % (random.randint(201,301))
 
         r=self.f.createBucket(bucket)
-        self.assertIn(r.status_code,[200,500])
+        self.assertIn(r.status_code,[200,409])
 
         r=self.f.put(bucket,objname,obj)
         self.assertEqual(r.status_code,200)
@@ -200,24 +200,39 @@ class delete(unittest.TestCase):
         self.assertEqual(obj,text)
 
         r=self.f.delete(bucket,objname)
-        self.assertIn(r.status_code,[200])
+        self.assertIn(r.status_code,[204])
+
+class zero(unittest.TestCase):
+    def setUp(self):
+        self.f=Api()
+        self.bucket='bucket_%d' % (random.randint(200,202))
+        r=self.f.createBucket(self.bucket)
+        self.assertIn(r.status_code,[200,409])
+
+    def testZeroSize(self):
+        obj=''
+        objname='obj_%d' % (random.randint(201,301))
+
+        r=self.f.put(self.bucket,objname,obj)
+        self.assertEqual(r.status_code,200)
+
+        time.sleep(2)
+        text=self.f.get(self.bucket,objname)
+        self.assertEqual(obj,text)
+
+        r=self.f.delete(self.bucket,objname)
+        self.assertIn(r.status_code,[200,204])
 
 class medium(unittest.TestCase):
     def setUp(self):
         self.f=Api()
 
-    # create 100 buckets
-    def testCreateMultipleBuckets(self):
-        for n in range(0,25):
-            bucket='bucket_'+str(n)
-            r=self.f.createBucket(bucket)
-            self.assertIn(r.status_code,[200,500])
-            print 'created bucket : ' , bucket
-
     # put 10 objects from 1KB to 10KB
     def testPutMediumObjects(self):
-        bucket='bucket_%d' % (random.randint(201,301))
+        bucket='bucket_%d' % (random.randint(200,202))
         objname='obj_%d' % (random.randint(201,301))
+        r=self.f.createBucket(bucket)
+        self.assertIn(r.status_code,[200,409])
 
         alphastr = ''.join([chr(n+65) for n in range(0,26)])
 
@@ -228,14 +243,12 @@ class medium(unittest.TestCase):
             onekb += ','
 
         obj=''
+        num = 10
+        print 'uploading [%d] objects ' % (num)
         # test 1-10 kb
-        for n in range(0,10):
+        for n in range(0,num):
             obj += onekb
-
-            bucket='bucket_%d' % (random.randint(201,205))
             objname='obj_%d' % (random.randint(201,301))
-            r=self.f.createBucket(bucket)
-            self.assertIn(r.status_code,[200,500])
 
             print 'uploading [%s] to [bkt:%s] : %d ' %(objname,bucket,len(obj)),
             r=self.f.put(bucket,objname,obj)
