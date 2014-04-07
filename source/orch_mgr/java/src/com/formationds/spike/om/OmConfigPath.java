@@ -109,7 +109,6 @@ public class OmConfigPath implements FDSP_ConfigPathReq.Iface {
         return (int) serviceDirectory
                 .allNodes()
                 .filter(n -> n.getNode_type().equals(FDSP_MgrIdType.FDSP_PLATFORM))
-                .parallel()
                 .filter(n -> {
                     try {
                         FDSP_ActivateNodeType activateMsg = new FDSP_ActivateNodeType(
