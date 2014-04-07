@@ -414,8 +414,8 @@ class ObjectStorMgr :
     ~ObjectStorMgr();
 
     /* From FdsProcess */
-    virtual void setup() override;
-    virtual void run() override;
+    virtual void proc_setup() override;
+    virtual int  run() override;
     virtual void interrupt_cb(int signum) override;
 
     TierEngine     *tierEngine;

@@ -14,8 +14,7 @@ int main(int argc, char *argv[])
         NULL
     };
     fds::dataMgr = new fds::DataMgr(argc, argv, &gl_DmPlatform, dmVec);
-    fds::dataMgr->setup();
-    fds::dataMgr->run();
+    int ret = fds::dataMgr->main();
     delete fds::dataMgr;
-    return 0;
+    return ret;
 }

@@ -13,8 +13,8 @@
 namespace fds {
 
 Module::Module(char const *const name)
-    : mod_lstp_cnt(0), mod_intern_cnt(0), mod_lockstep(nullptr), mod_intern(nullptr),
-      mod_name(name), mod_params(nullptr) {}
+    : mod_lstp_cnt(0), mod_intern_cnt(0), mod_exec_state(MOD_ST_NULL),
+      mod_lockstep(NULL), mod_intern(NULL), mod_name(name), mod_params(NULL) {}
 
 Module::~Module() {}
 
@@ -24,12 +24,16 @@ Module::~Module() {}
 int
 Module::mod_init(SysParams const *const param)
 {
-    int    i;
-    // Module *intern;
+    int i;
 
+    if (mod_exec_state & MOD_ST_INIT) {
+        return 0;
+    }
     mod_params = param;
-    if (mod_intern != nullptr) {
-        for (i = 0; mod_intern[i] != nullptr; i++) {
+    mod_exec_state |= MOD_ST_INIT;
+
+    if (mod_intern != NULL) {
+        for (i = 0; mod_intern[i] != NULL; i++) {
             mod_intern_cnt++;
             mod_intern[i]->mod_init(param);
         }
@@ -43,11 +47,14 @@ Module::mod_init(SysParams const *const param)
 void
 Module::mod_startup()
 {
-    int    i;
-    // Module *intern;
+    int i;
 
-    if (mod_intern != nullptr) {
-        for (i = 0; mod_intern[i] != nullptr; i++) {
+    if (mod_exec_state & MOD_ST_STARTUP) {
+        return;
+    }
+    mod_exec_state |= MOD_ST_STARTUP;
+    if (mod_intern != NULL) {
+        for (i = 0; mod_intern[i] != NULL; i++) {
             mod_intern[i]->mod_startup();
         }
         fds_verify(i == mod_intern_cnt);
@@ -60,11 +67,14 @@ Module::mod_startup()
 void
 Module::mod_lockstep_startup()
 {
-    int    i;
-    // Module *intern;
+    int i;
 
-    if (mod_intern != nullptr) {
-        for (i = 0; mod_intern[i] != nullptr; i++) {
+    if (mod_exec_state & MOD_ST_STARTUP) {
+        return;
+    }
+    mod_exec_state |= MOD_ST_STARTUP;
+    if (mod_intern != NULL) {
+        for (i = 0; mod_intern[i] != NULL; i++) {
             mod_intern[i]->mod_lockstep_startup();
         }
         fds_verify(i == mod_intern_cnt);
@@ -79,11 +89,13 @@ Module::mod_lockstep_startup()
 void
 Module::mod_enable_service()
 {
-    int    i;
-    // Module *intern;
+    int i;
 
-    if (mod_intern != nullptr) {
-        for (i = 0; mod_intern[i] != nullptr; i++) {
+    if (mod_exec_state & MOD_ST_FUNCTIONAL) {
+        mod_exec_state |= MOD_ST_FUNCTIONAL;
+    }
+    if (mod_intern != NULL) {
+        for (i = 0; mod_intern[i] != NULL; i++) {
             mod_intern[i]->mod_enable_service();
         }
         fds_verify(i == mod_intern_cnt);
@@ -97,12 +109,15 @@ void
 Module::mod_disable_service()
 {
     int    i;
-    // Module *intern;
 
-    if (mod_intern != nullptr) {
+    if (mod_exec_state & MOD_ST_SHUTDOWN) {
+        return;
+    }
+    mod_exec_state |= MOD_ST_SHUTDOWN;
+    if (mod_intern != NULL) {
         fds_verify(mod_intern_cnt != 0);
         for (i = mod_intern_cnt - 1; i >= 0; i--) {
-            fds_verify(mod_intern[i] != nullptr);
+            fds_verify(mod_intern[i] != NULL);
             mod_intern[i]->mod_disable_service();
         }
     }
@@ -115,12 +130,11 @@ void
 Module::mod_lockstep_shutdown()
 {
     int    i;
-    // Module *intern;
 
-    if (mod_intern != nullptr) {
+    if (mod_intern != NULL) {
         fds_verify(mod_intern_cnt != 0);
         for (i = mod_intern_cnt - 1; i >= 0; i--) {
-            fds_verify(mod_intern[i] != nullptr);
+            fds_verify(mod_intern[i] != NULL);
             mod_intern[i]->mod_lockstep_shutdown();
         }
     }
@@ -135,12 +149,11 @@ void
 Module::mod_shutdown()
 {
     int    i;
-    // Module *intern;
 
-    if (mod_intern != nullptr) {
+    if (mod_intern != NULL) {
         fds_verify(mod_intern_cnt != 0);
         for (i = mod_intern_cnt - 1; i >= 0; i--) {
-            fds_verify(mod_intern[i] != nullptr);
+            fds_verify(mod_intern[i] != NULL);
             mod_intern[i]->mod_shutdown();
         }
     }
@@ -155,16 +168,14 @@ Module::mod_lockstep_sync()
 }
 
 // ----------------------------------------------------------------------------
-
 // \ModuleVector
-// -------------
-//
+// ----------------------------------------------------------------------------
 ModuleVector::ModuleVector(int argc, char **argv, Module **mods)
-    : sys_mod_cnt(0), sys_argc(argc), sys_argv(argv), sys_mods(nullptr)
+    : sys_mod_cnt(0), sys_argc(argc), sys_argv(argv), sys_mods(NULL)
 {
     sys_mods = mods;
     if (sys_mods != NULL) {
-        for (sys_mod_cnt = 0; mods[sys_mod_cnt] != nullptr; sys_mod_cnt++) {
+        for (sys_mod_cnt = 0; mods[sys_mod_cnt] != NULL; sys_mod_cnt++) {
             /*
              * Do some check for each module?
              */
@@ -190,24 +201,13 @@ void
 ModuleVector::mod_mk_sysparams()
 {
     namespace po = boost::program_options;
-
-    int                     thr_cnt, hdd_cnt, ssd_cnt,
-                            hdd_cap, ssd_cap, log_severity;
-    fds_uint32_t            service_port;
     po::variables_map       vm;
     po::options_description desc("Formation Data Systems Command Line Options");
 
     desc.add_options()
             ("help,h", "Show this help text")
             ("fds-root", po::value<std::string>()->default_value("/fds"),
-             "Set the storage root directory")
-            ("threads", po::value<int>(&thr_cnt)->default_value(10),
-             "Number of threads in system thread pool")
-            ("log-severity", po::value<int>(&log_severity)->default_value(2),
-             "Severity logging level")
-            ("port",
-             po::value<fds_uint32_t>(&service_port)->default_value(6900),
-             "Service recieve port");
+             "Set the storage root directory");
 
     // Save a copy (or clone?) in case individual module needs it.
     sys_params.p_argc = sys_argc;
@@ -222,15 +222,130 @@ ModuleVector::mod_mk_sysparams()
         std::cout << desc << std::endl;
         return;
     }
-    sys_params.log_severity = log_severity;
-    sys_params.service_port = service_port;
-
     // Make the FDS root directory.
     FdsRootDir::fds_mkdir(sys_params.fds_root.c_str());
 }
 
-// \ModuleVector::mod_execute
-// --------------------------
+// mod_init_modules
+// ----------------
+//
+void
+ModuleVector::mod_init_modules()
+{
+    int     i, bailout;
+    Module *mod;
+
+    if (sys_mod_cnt == 0) {
+        return;
+    }
+    fds_verify(sys_mods != NULL);
+
+    bailout = 0;
+    for (i = 0; i < sys_mod_cnt; i++) {
+        mod = sys_mods[i];
+        fds_verify(mod != NULL);
+        bailout += mod->mod_init(&sys_params);
+    }
+    if (bailout != 0) {
+        exit(1);
+    }
+}
+
+// mod_startup_modules
+// -------------------
+//
+void
+ModuleVector::mod_startup_modules()
+{
+    int     i;
+    Module *mod;
+
+    if (sys_mod_cnt == 0) {
+        return;
+    }
+    for (i = 0; i < sys_mod_cnt; i++) {
+        mod = sys_mods[i];
+        mod->mod_startup();
+    }
+}
+
+// mod_run_locksteps
+// -----------------
+//
+void
+ModuleVector::mod_run_locksteps()
+{
+    int     i;
+    Module *mod;
+
+    if (sys_mod_cnt == 0) {
+        return;
+    }
+    for (i = 0; i < sys_mod_cnt; i++) {
+        mod = sys_mods[i];
+        mod->mod_lockstep_startup();
+    }
+}
+
+// mod_start_services
+// ------------------
+//
+void
+ModuleVector::mod_start_services()
+{
+    int     i;
+    Module *mod;
+
+    if (sys_mod_cnt == 0) {
+        return;
+    }
+    for (i = 0; i < sys_mod_cnt; i++) {
+        mod = sys_mods[i];
+        mod->mod_enable_service();
+    }
+}
+
+// mod_stop_services
+// -----------------
+//
+void
+ModuleVector::mod_stop_services()
+{
+    int     i;
+    Module *mod;
+
+    if (sys_mod_cnt == 0) {
+        return;
+    }
+    for (i = sys_mod_cnt - 1; i >= 0; i--) {
+        mod = sys_mods[i];
+        fds_verify(mod != NULL);
+        mod->mod_disable_service();
+    }
+}
+
+// mod_shutdown_locksteps
+// ----------------------
+//
+void
+ModuleVector::mod_shutdown_locksteps()
+{
+    int     i;
+    Module *mod;
+
+    if (sys_mod_cnt == 0) {
+        return;
+    }
+    for (i = sys_mod_cnt - 1; i >= 0; i--) {
+        mod = sys_mods[i];
+        mod->mod_lockstep_shutdown();
+    }
+}
+
+// mod_execute
+// -----------
+// Wrapper to bringup everything in proper order.  Used when the caller doesn't have
+// FdsProcess object.
 //
 void
 ModuleVector::mod_execute()
@@ -241,29 +356,12 @@ ModuleVector::mod_execute()
     if (sys_mod_cnt == 0) {
         return;
     }
-    fds_verify(sys_mods != nullptr);
+    fds_verify(sys_mods != NULL);
 
-    bailout = 0;
-    for (i = 0; i < sys_mod_cnt; i++) {
-        mod = sys_mods[i];
-        fds_verify(mod != nullptr);
-        bailout += mod->mod_init(&sys_params);
-    }
-    if (bailout != 0) {
-        exit(1);
-    }
-    for (i = 0; i < sys_mod_cnt; i++) {
-        mod = sys_mods[i];
-        mod->mod_startup();
-    }
-    for (i = 0; i < sys_mod_cnt; i++) {
-        mod = sys_mods[i];
-        mod->mod_lockstep_startup();
-    }
-    for (i = 0; i < sys_mod_cnt; i++) {
-        mod = sys_mods[i];
-        mod->mod_enable_service();
-    }
+    mod_init_modules();
+    mod_startup_modules();
+    mod_run_locksteps();
+    mod_start_services();
 }
 
 // \ModuleVector::mod_shutdown
@@ -276,15 +374,6 @@ ModuleVector::mod_shutdown()
     Module *mod;
 
     if (sys_mod_cnt > 0) {
-        for (i = sys_mod_cnt - 1; i >= 0; i--) {
-            mod = sys_mods[i];
-            fds_verify(mod != nullptr);
-            mod->mod_disable_service();
-        }
-        for (i = sys_mod_cnt - 1; i >= 0; i--) {
-            mod = sys_mods[i];
-            mod->mod_lockstep_shutdown();
-        }
         for (i = sys_mod_cnt - 1; i >= 0; i--) {
             mod = sys_mods[i];
             mod->mod_shutdown();

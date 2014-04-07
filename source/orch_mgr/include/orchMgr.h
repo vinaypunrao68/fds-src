@@ -84,16 +84,15 @@ class OrchMgr: public FdsProcess {
     void start_cfgpath_server();
 
     /**** From FdsProcess ****/
-    virtual void setup();
+    virtual void proc_setup() override;
     /*
      * Runs the orch manager server.
      * Does not return until the server is no longer running
      */
-
-    bool loadFromConfigDB();
-    virtual void run() override;
+    virtual int  run() override;
     virtual void interrupt_cb(int signum) override;
 
+    bool loadFromConfigDB();
     void defaultS3BucketPolicy();  // default  policy  desc  for s3 bucket
 
     kvstore::ConfigDB* getConfigDB();

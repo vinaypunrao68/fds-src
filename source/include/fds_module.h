@@ -30,18 +30,18 @@ class SysParams
     SysParams() {}
     ~SysParams() {}
 
-    int             sys_num_thr;
-    int             log_severity;  /**< Severity level for logger */
-    fds_uint32_t    service_port;  /**< Port for service to listen */
-    fds_uint32_t    control_port;  /**< Port for control to listen */
-    fds_uint32_t    config_port;   /**< Port to connect for config */
     std::string     fds_root;      /**< Root directory for FDS data */
-
     int             p_argc;
     char            **p_argv;
 };
 
 class ModuleVector;
+const int MOD_ST_NULL       = 0x00000000;
+const int MOD_ST_INIT       = 0x00000001;
+const int MOD_ST_STARTUP    = 0x00000002;
+const int MOD_ST_LOCKSTEP   = 0x04000000;      /**< rsvd most bits for lockstep */
+const int MOD_ST_FUNCTIONAL = 0x40000000;
+const int MOD_ST_SHUTDOWN   = 0x80000000;
 
 class Module
 {
@@ -75,6 +75,7 @@ class Module
 
     int                      mod_lstp_cnt;
     int                      mod_intern_cnt;
+    fds_uint32_t             mod_exec_state;
     Module                   **mod_lockstep;
     Module                   **mod_intern;
     char const *const        mod_name;
@@ -89,10 +90,35 @@ class ModuleVector
 
     virtual void mod_timer_fn();
 
-    void mod_execute();
-    void mod_shutdown();
+    /**
+     * Sequence of steps to bringup modules.  Module depdendencies can be detected
+     * through branches of vectors.  Module vector branches can be look this:
+     * +----------+----------+----------+-----+------+
+     * | Module A | Module B | Module C | ... | NULL |
+     * +----------+----------+----------+-----+------+
+     *     |           |           |
+     *     |           |           +------------------+
+     *     |           +------+                       |
+     *     |                  |                       |
+     *     V                  V                       V
+     *   +----+---+-----+   +----+---+----+-----+   +----+----+-----+
+     *   | A1 | B | ... |   | A1 | A | B1 | ... |   | A1 | B1 | ... |
+     *   +----+---+-----+   +----+---+----+-----+   +----+----+-----+
+     */
+    void mod_init_modules();
+    void mod_startup_modules();
+    void mod_run_locksteps();
+    void mod_start_services();
 
-    static void mod_mkdir(char const *const path);
+    /**
+     * Wrapper to bringup everything in proper order.  Only used when the caller
+     * doesn't have FdsProcess in the main function.
+     */
+    void mod_execute();
+
+    void mod_stop_services();
+    void mod_shutdown_locksteps();
+    void mod_shutdown();
 
     inline SysParams *get_sys_params() {
         return &sys_params;

@@ -58,16 +58,11 @@ OrchMgr::~OrchMgr()
     }
 }
 
-void OrchMgr::setup()
+void OrchMgr::proc_setup()
 {
     int    argc;
     char **argv;
 
-    /*
-     * First invoke FdsProcess setup so that it sets up the signal handler and executes
-     * module vector
-     */
-    FdsProcess::setup();
     argv = mod_vectors_->mod_argv(&argc);
 
     /*
@@ -170,13 +165,14 @@ void OrchMgr::setup()
     local_domain->om_load_state(config_db_up ? configDB : NULL);
 }
 
-void OrchMgr::run()
+int OrchMgr::run()
 {
     // run server to listen for OMControl messages from
     // SM, DM and SH
     if (omc_server_session) {
         omcp_session_tbl->listenServer(omc_server_session);
     }
+    return 0;
 }
 
 void OrchMgr::start_cfgpath_server()

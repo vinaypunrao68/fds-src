@@ -107,17 +107,16 @@ NodePlatformProc::plf_fill_disk_capacity_pkt(fpi::FDSP_RegisterNodeTypePtr pkt)
 }
 
 void
-NodePlatformProc::setup()
+NodePlatformProc::proc_setup()
 {
-    // TODO(Vy): must split the module init from startup steps...
     NodePlatform *plat = static_cast<NodePlatform *>(plf_mgr);
 
     plat->mod_load_from_config();
-    PlatformProcess::setup();
+    PlatformProcess::proc_setup();
     plat->plf_bind_process(this);
 }
 
-void
+int
 NodePlatformProc::run()
 {
     fpi::FDSP_RegisterNodeTypePtr pkt(new FDSP_RegisterNodeType);
@@ -130,6 +129,7 @@ NodePlatformProc::run()
     while (1) {
         sleep(1000);   /* we'll do hotplug uevent thread in here */
     }
+    return 0;
 }
 
 }  // namespace fds
@@ -142,8 +142,6 @@ int main(int argc, char **argv)
         NULL
     };
     fds::NodePlatformProc plat(argc, argv, plat_vec);
-
-    plat.setup();
-    plat.run();
-    return 0;
+    int ret = plat.main();
+    return ret;
 }

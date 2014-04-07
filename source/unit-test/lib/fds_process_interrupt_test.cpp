@@ -30,7 +30,7 @@ class Sm_process : public FdsProcess {
         std::cout << "Ending child " << id << std::endl;
     }
 
-    virtual void run() {
+    virtual int run() {
         for (int i = 0; i < 10; i++) {
             children_.push_back(std::thread(&Sm_process::child_run, this, i));
         }
@@ -38,6 +38,7 @@ class Sm_process : public FdsProcess {
         while (!join_done_) {
             std::this_thread::sleep_for(std::chrono::seconds(1));
         }
+        return 0;
     }
 
     virtual void interrupt_cb(int signum) {

@@ -552,8 +552,13 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
     return 0;
 }
 
-int FdsCli::run(int argc, char* argv[])
+int FdsCli::run()
 {
+    int    argc;
+    char **argv;
+
+    argv = mod_vectors_->mod_argv(&argc);
+
     /*
      * Process the cmdline args.
      */
@@ -601,8 +606,7 @@ int main(int argc, char* argv[])
     };
     fds::fdsCli = new fds::FdsCli(argc, argv,
                                   "orch_mgr.conf", "fds.om.", "cli.log", cliVec);
-    fds::fdsCli->setup();
-    int retcode = fds::fdsCli->run(argc, argv);
+    int retcode = fds::fdsCli->main();
     delete fds::fdsCli;
     return retcode;
 }

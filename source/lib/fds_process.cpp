@@ -129,6 +129,39 @@ void FdsProcess::setup()
     mod_vectors_->mod_execute();
 }
 
+void FdsProcess::proc_setup() {}
+void FdsProcess::proc_start_run() {}
+
+/**
+ * The main method to coordinate everything in proper sequence.
+ */
+int FdsProcess::main()
+{
+    int ret;
+
+    mod_vectors_->mod_init_modules();
+
+    /* The process should have all objects allocated in proper place. */
+    proc_setup();
+
+    /* Do FDS process startup sequence. */
+    mod_vectors_->mod_startup_modules();
+    mod_vectors_->mod_run_locksteps();
+
+    /*  Star to run the main process. */
+    proc_start_run();
+    mod_vectors_->mod_start_services();
+
+    /* Run the main loop. */
+    ret = run();
+
+    /* Do FDS shutdown sequence. */
+    mod_vectors_->mod_stop_services();
+    mod_vectors_->mod_shutdown_locksteps();
+    mod_vectors_->mod_shutdown();
+    return ret;
+}
+
 void FdsProcess::setup_config(int argc, char *argv[],
                        const std::string &default_config_file,
                        const std::string &base_path)
@@ -233,7 +266,6 @@ void FdsProcess::interrupt_cb(int signum)
 }
 
 void FdsProcess::daemonize() {
-#if 1
     // adapted from http://www.enderunix.org/docs/eng/daemon.php
 
     if (getppid() == 1) return; /* already a daemon */
@@ -261,16 +293,6 @@ void FdsProcess::daemonize() {
     signal(SIGTTIN, SIG_IGN);
     signal(SIGHUP , SIG_IGN);
     // signal(SIGTERM,signal_handler);
-#else
-    // TODO(bao): should use daemon() instead of brewing our own.
-    // int res = daemon(0, 1);
-    int res = 0;
-    if (res != 0) {
-        std::cout << "Error while making process as daemon: " << errno << std::endl;
-        fds_assert(0);
-    }
-    std::cout << "Creating child daemon: " << std::endl;
-#endif
 }
 
 fds_log* HasLogger::GetLog() const {

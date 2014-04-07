@@ -81,7 +81,7 @@ PlatformProcess::plf_load_node_data()
     if (plf_db->isConnected() == false) {
         // TODO(Vy): platform daemon should start redis server here...
         //
-        std::cout << "Sorry, you must start redis server manually & try again"
+        LOGNORMAL << "Sorry, you must start redis server manually & try again"
                   << std::endl;
         exit(1);
     }
@@ -106,13 +106,11 @@ PlatformProcess::plf_apply_node_data()
 }
 
 void
-PlatformProcess::setup()
+PlatformProcess::proc_setup()
 {
     plf_db = new kvstore::PlatformDB();
     plf_load_node_data();
     plf_apply_node_data();
-
-    FdsProcess::setup();
 }
 
 // -------------------------------------------------------------------------------------
