@@ -50,6 +50,7 @@ function usage() {
     log "   - $(yellow clogs)     : remove the logs"
     log "   - $(yellow clean)     : remove the data"
     log "   - $(yellow cleanstart): stop+clean+start all"
+    log "   - $(yellow tail)      : tail the application log file"
     log "   - $(red    gdb)       : gdb attach app"
     log " options :"
     log "   : $(yellow --fds-root/-f) rootdir"
@@ -238,6 +239,21 @@ function attachgdb() {
     fi
 }
 
+function taillog() {
+    local app=$1
+    case "${app}" in
+        om|am|dm|sm|pm)
+            tail -F ${FDSROOT}/var/logs/${app}.log*.log
+            ;;
+        redis)
+            tail -F /fds/logs/redis/*.log
+            ;;
+        *) 
+            logerror "can tail logs of only om|am|dm|sm|pm|redis"
+            ;;
+    esac
+}
+
 function cleanBinDirs() {
     for node in bin node2 node3 node4; do
         bin_dir=${SOURCEDIR}/Build/linux-x86_64.debug/${node}
@@ -347,7 +363,7 @@ FDSROOT=${FDSROOT:=/fds}
 #exit 0
 
 case "${CMD}" in
-    start|stop|restart|status|clean|clogs|cleanstart|startclean|gdb) ;;
+    start|stop|restart|status|clean|clogs|cleanstart|startclean|gdb|tail) ;;
     *) 
         logerror "unknown cmd [$CMD] "
         usage ;;
@@ -384,6 +400,9 @@ case "${CMD}" in
         ;;
     gdb)
         attachgdb $APP
+        ;;
+    tail)
+        taillog $APP
         ;;
     *) usage ;;
 esac
