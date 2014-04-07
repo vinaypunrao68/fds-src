@@ -124,6 +124,50 @@ DataIOModule::disk_hdd_disk(DataTier            tier,
     return io_token_db->openTokenFile(tier, disk_id, *token, file_id);
 }
 
+//
+// Handle notification about start of garbage collection for given token
+// and tier
+//
+void
+DataIOModule::notify_start_gc(fds::fds_token_id tok_id,
+                              DataTier tier)
+{
+    fds::Error err(fds::ERR_OK);
+    fds_uint16_t disk_id;
+
+    // No matter how we distribute tokens over disks, we will iterate
+    // over all disks, and notify tokenFileDb for all of them.
+    // tokenFileDB class will return ERR_NOT_FOUND for notifications that
+    // do not apply, which we will ignore
+    for (fds_uint32_t idx = 0; idx < io_hdd_curr; ++idx) {
+        disk_id = io_hdd_diskid[idx];
+        err = io_token_db->notifyStartGC(disk_id, tok_id, tier);
+        fds_verify(err.ok() || (err == fds::Error(fds::ERR_NOT_FOUND)));
+    }
+}
+
+//
+// Notify about end of garbage collection for a given token and tier
+//
+fds::Error
+DataIOModule::notify_end_gc(fds::fds_token_id tok_id,
+                            DataTier tier)
+{
+    fds::Error err(fds::ERR_OK);
+    fds_uint16_t disk_id;
+
+    // No matter how we distribute tokens over disks, we will iterate
+    // over all disks, and notify tokenFileDb for all of them.
+    // tokenFileDB class will return ERR_NOT_FOUND for notifications that
+    // do not apply, which we will ignore
+    for (fds_uint32_t idx = 0; idx < io_hdd_curr; ++idx) {
+        disk_id = io_hdd_diskid[idx];
+        err = io_token_db->notifyEndGC(disk_id, tok_id, tier);
+        fds_verify(err.ok() || (err == fds::Error(fds::ERR_NOT_FOUND)));
+    }
+    return err;
+}
+
 // \mod_init
 // ---------
 // Single thread init. path, no lock is needed.
@@ -417,7 +461,9 @@ diskio::DataIO::disk_read(DiskRequest *req)
     obj_phy_loc_t  *loc;
 
     loc = req->req_get_phy_loc();
-    iop = gl_dataIOMod.disk_hdd_disk(req->getTier(), loc->obj_stor_loc_id, 0,
+    iop = gl_dataIOMod.disk_hdd_disk(req->getTier(),
+                                     loc->obj_stor_loc_id,
+                                     loc->obj_file_id,
                                      req->req_get_oid());
     return iop->disk_read(req);
 }
@@ -430,7 +476,7 @@ diskio::DataIO::disk_write(DiskRequest *req)
 {
     PersisDataIO  *iop;
 
-    iop = gl_dataIOMod.disk_hdd_io(req->getTier(), 0, req->req_get_oid());
+    iop = gl_dataIOMod.disk_hdd_io(req->getTier(), WRITE_FILE_ID, req->req_get_oid());
     return iop->disk_write(req);
 }
 
@@ -464,13 +510,11 @@ DataIO::disk_loc_path_info(fds_uint16_t loc_id, std::string *path)
 // Handle notification about start of garbage collection for given token
 // and tier
 //
-fds::Error
+void
 DataIO::notify_start_gc(fds::fds_token_id tok_id,
                         DataTier tier)
 {
-    fds::Error err(fds::ERR_OK);
-    // TODO(WIN-289) implement this
-    return err;
+    gl_dataIOMod.notify_start_gc(tok_id, tier);
 }
 
 //
@@ -480,9 +524,7 @@ fds::Error
 DataIO::notify_end_gc(fds::fds_token_id tok_id,
                       DataTier tier)
 {
-    fds::Error err(fds::ERR_OK);
-    // TODO(WIN-289) implement this
-    return err;
+    return gl_dataIOMod.notify_end_gc(tok_id, tier);
 }
 
 

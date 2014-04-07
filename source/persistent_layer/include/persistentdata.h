@@ -138,8 +138,14 @@ class FilePersisDataIO : public PersisDataIO
     fds::Error disk_do_write(DiskRequest *req);
 
     inline int disk_loc_id() { return fi_loc; }
-    FilePersisDataIO(char const *const path, int loc);
-    ~FilePersisDataIO();
+    inline fds_uint16_t file_id() { return fi_id; }
+    FilePersisDataIO(char const *const path, fds_uint16_t id, int loc);
+    virtual ~FilePersisDataIO();
+
+    /**
+     * delete file; must be the last call before destroying this object
+     */
+    fds::Error delete_file();
 
   private:
     friend class DataIOModule;
@@ -147,6 +153,7 @@ class FilePersisDataIO : public PersisDataIO
     fds::fds_mutex           fi_mutex;
     int                      fi_loc;
     int                      fi_fd;
+    fds_uint16_t             fi_id;
     fds_int64_t              fi_cur_off;
     char const *const        fi_path;
 };

@@ -28,14 +28,18 @@
  * When garbage collection starts, the start file id of shadow file(s) is
  * calculated by flipping the bit START_TOKFILE_ID_MASK
  *
- * TODO(xxx) we are currently writing to one file per tokem, and not
+ * TODO(xxx) we are currently writing to one file per token, and not
  * creating a new file when we exceed max size, will have to implement
  * this feature.
  */
 #define INVALID_FILE_ID         0
-#define START_TOKFILE_ID_MASK   0x40000000
+// no a real file id, use WRITE_FILE_ID when need to access a file we are
+// currently appending
+#define WRITE_FILE_ID           0x0001
+#define INIT_FILE_ID            0x0002
+#define START_TOKFILE_ID_MASK   0x4000
 /**
- * Ok to change this define to a higher value (up to 0x10000000), increasing this
+ * Ok to change this define to a higher value (up to 0x2000), increasing this
  * number will only increase the runtime of notifyEndGC() function, but not much.
  */
 #define MAX_FILES_PER_TOKEN     64
@@ -52,19 +56,18 @@ class tokenFileDb {
 
     /**
      * For next three functions:
-     * If 'fileId' is INVALID_FILE_ID, the function will use appropriate file
+     * If 'fileId' is WRITE_FILE_ID, the function will use appropriate file
      * id of the active file (if no shadow file) or shadow file.
-     * TODO(WIN-289) If we do a write, we have to pass INVALID_FILE_ID as 'fileId'
      */
     FilePersisDataIO  *openTokenFile(DataTier tier, fds_uint32_t disk_idx,
-                                     fds_token_id tokId, fds_uint32_t fileId);
+                                     fds_token_id tokId, fds_uint16_t fileId);
 
     void closeTokenFile(fds_uint32_t disk_idx,
-                        fds_token_id tokId, DataTier tier, fds_uint32_t fileId);
+                        fds_token_id tokId, DataTier tier, fds_uint16_t fileId);
 
     FilePersisDataIO *getTokenFile(fds_uint32_t disk_idx,
                                    fds_token_id tokId, DataTier tier,
-                                   fds_uint32_t fileId);
+                                   fds_uint16_t fileId);
 
     /**
      * Handle notification that garbage collection will start for a given
@@ -89,7 +92,7 @@ class tokenFileDb {
     std::string getFileName(fds_uint32_t disk_idx,
                             fds_token_id tok_id,
                             DataTier tier,
-                            fds_uint32_t file_id) const;
+                            fds_uint16_t file_id) const;
 
     /**
      * translates <disk_idx, tok_id, tier> tuple to key into
@@ -102,19 +105,30 @@ class tokenFileDb {
                 + "_" + std::to_string(tier);
     }
 
+    /*
+     * Given file id, returns file id of the shadow file (shadow
+     * file may actually not exist, so check that separately).
+     * Only valid for file id of the first file in sequence.
+     */
+    inline fds_uint16_t getShadowFileId(fds_uint16_t file_id) {
+        if (file_id & START_TOKFILE_ID_MASK)
+            return file_id & (~START_TOKFILE_ID_MASK);
+        return file_id | START_TOKFILE_ID_MASK;
+    }
+
     /**
      * Returns file id of file we are writing to for this <disk_idx, tokdId, tier>
      * tuple. If garbage collection is in progress, this will be the index of
      * of a shadow file, otherwise it will be the index of an active file
      */
-    fds_uint32_t getWriteFileId(fds_uint32_t disk_idx,
+    fds_uint16_t getWriteFileId(fds_uint32_t disk_idx,
                                 fds_token_id tokId,
                                 DataTier tier);
 
     void setWriteFileId(fds_uint32_t disk_idx,
                         fds_token_id tokId,
                         DataTier tier,
-                        fds_uint32_t file_id);
+                        fds_uint16_t file_id);
 
  private:
     fds::fds_mutex *tokenFileDbMutex;
@@ -128,7 +142,7 @@ class tokenFileDb {
      * should map to struct that contains start_file_id and offset to the file id
      * we are currently writing to
      */
-    std::unordered_map<std::string, fds_uint32_t> write_fileids;
+    std::unordered_map<std::string, fds_uint16_t> write_fileids;
 };
 }  // namespace diskio
 #endif  // SOURCE_PERSISTENT_LAYER_INCLUDE_TOKFILEMGR_H_

@@ -66,14 +66,7 @@ Error TokenCompactor::startCompaction(fds_token_id tok_id,
     // copy non-garbage objects
     // TODO(anna) initial implemetation compacts disk only file, need to
     // think if we need to do something different about SSD files
-    err = dio_mgr.notify_start_gc(token_id, diskTier);
-    if (!err.ok()) {
-        LOGERROR << "Failed to start GC for token " << token_id
-                 << " at persistent layer, error " << err.GetErrstr();
-        // back to idle state
-        std::atomic_exchange(&state, TCSTATE_IDLE);
-        return err;
-    }
+    dio_mgr.notify_start_gc(token_id, diskTier);
 
     // send request to do object db snapshot that we will work with
     snap_req.token_id = token_id;
@@ -81,7 +74,9 @@ Error TokenCompactor::startCompaction(fds_token_id tok_id,
     if (!err.ok()) {
         LOGERROR << "Failed to enqueue take index db snapshot message"
                  << " error " << err.GetErrstr() << "; try again later";
-        // back to idle state so that scavenger can try later
+        // We already created shadow file so, we are setting state
+        // idle, and scavenger has to try again later
+        // TODO(anna) need proper recovery in this case
         std::atomic_exchange(&state, TCSTATE_IDLE);
         return Error(ERR_NOT_READY);
     }

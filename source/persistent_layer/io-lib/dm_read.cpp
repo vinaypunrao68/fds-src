@@ -24,6 +24,8 @@ diskio::FilePersisDataIO::disk_do_read(DiskRequest *req)
 
     fds_verify(phyloc->obj_stor_loc_id == fi_loc);
     fds_verify(obj_map_has_init_val(map) == false);
+    fds_verify(phyloc->obj_file_id == fi_id);
+    fds_verify(fi_fd >= 0);
 
     off = phyloc->obj_stor_offset << DataIO::disk_io_blk_shift();
     len = pread64(fi_fd, (void *)buf->data.c_str(), buf->size, off);

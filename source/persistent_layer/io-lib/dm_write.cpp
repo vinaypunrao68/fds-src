@@ -10,8 +10,12 @@
 
 namespace diskio {
 
-FilePersisDataIO::FilePersisDataIO(char const *const file, int loc)
-    : fi_path(file), fi_loc(loc), fi_mutex("file mutex")
+FilePersisDataIO::FilePersisDataIO(char const *const file,
+                                   fds_uint16_t id, int loc)
+        : fi_path(file),
+          fi_id(id),
+          fi_loc(loc),
+          fi_mutex("file mutex")
 {
     fi_fd = open(file, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
     if (fi_fd < 0) {
@@ -30,7 +34,28 @@ FilePersisDataIO::FilePersisDataIO(char const *const file, int loc)
 
 FilePersisDataIO::~FilePersisDataIO()
 {
-    close(fi_fd);
+    if (fi_fd > 0) {
+        close(fi_fd);
+    }
+}
+
+fds::Error
+FilePersisDataIO::delete_file()
+{
+    fds::Error err(fds::ERR_OK);
+    int fd = fi_fd;
+    fi_mutex.lock();
+    fi_fd = -1;
+    fi_mutex.unlock();
+
+    close(fd);
+    int ret = unlink(fi_path);
+    if (ret < 0) {
+        printf("Can't unlink file %s\n", fi_path);
+        perror("Reason: ");
+        return fds::Error(fds::ERR_DISK_FILE_UNLINK_FAILED);
+    }
+    return err;
 }
 
 fds::Error
@@ -44,6 +69,7 @@ diskio::FilePersisDataIO::disk_do_write(DiskRequest *req)
     blk = DataIO::disk_io_round_up_blk(buf->size);
 
     fi_mutex.lock();
+    fds_verify(fi_fd >= 0);
     off_blk    = fi_cur_off;
     fi_cur_off = fi_cur_off + blk;
     fi_mutex.unlock();
@@ -55,6 +81,7 @@ diskio::FilePersisDataIO::disk_do_write(DiskRequest *req)
     obj_phy_loc_t *idx_phy_loc = req->req_get_phy_loc();
     idx_phy_loc->obj_stor_offset = off_blk;
     idx_phy_loc->obj_stor_loc_id = disk_loc_id();
+    idx_phy_loc->obj_file_id = file_id();
     idx_phy_loc->obj_tier        = static_cast<fds_uint8_t>(req->getTier());
     map->obj_size        = buf->size;
 
