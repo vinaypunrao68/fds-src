@@ -37,7 +37,7 @@ class StorHvCtrl;
 
 namespace fds {
 
-class StorHvVolume : public FDS_Volume
+    class StorHvVolume : public FDS_Volume , public HasLogger
 {
 public:
   StorHvVolume(const VolumeDesc& vdesc, StorHvCtrl *sh_ctrl, fds_log *parent_log);
@@ -88,7 +88,7 @@ class StorHvVolumeLock
 };
 class AmQosReq;
 
-class StorHvVolumeTable
+class StorHvVolumeTable : public HasLogger
 {
  public:
   /* A logger is created if not passed in */
@@ -181,8 +181,6 @@ class StorHvVolumeTable
   /*
    * Pointer to logger to use 
    */
-  fds_log *vt_log;
-  fds_bool_t created_log;
 };
 
 class GetBlobReq: public FdsBlobReq {

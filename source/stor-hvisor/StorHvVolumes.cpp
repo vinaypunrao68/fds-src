@@ -107,12 +107,7 @@ StorHvVolumeTable::StorHvVolumeTable(StorHvCtrl *sh_ctrl, fds_log *parent_log)
   : parent_sh(sh_ctrl)
 {
   if (parent_log) {
-    vt_log = parent_log;
-    created_log = false;
-  }
-  else {
-    vt_log = new fds_log("voltab", "logs");
-    created_log = true;
+      SetLog(parent_log);
   }
 
   /* register for volume-related control events from OM*/
@@ -130,14 +125,14 @@ StorHvVolumeTable::StorHvVolumeTable(StorHvCtrl *sh_ctrl, fds_log *parent_log)
     admin_vdesc.iops_max = 500; 
     admin_vdesc.relativePrio = 9;
     admin_vdesc.capacity = 0; /* not really a volume, using volume struct to hold admin requests  */
-    StorHvVolume *admin_vol = new StorHvVolume(admin_vdesc, parent_sh, vt_log);
+    StorHvVolume *admin_vol = new StorHvVolume(admin_vdesc, parent_sh, GetLog());
     if (admin_vol) {
       volume_map[admin_vol_id] = admin_vol;
       sh_ctrl->qos_ctrl->registerVolume(admin_vol_id, admin_vol->volQueue);
-      FDS_PLOG_SEV(vt_log, fds::fds_log::notification) << "StorHvVolumeTable -- constructor registered admin volume";
+      LOGNOTIFY << "StorHvVolumeTable -- constructor registered admin volume";
     }
     else {
-      FDS_PLOG_SEV(vt_log, fds::fds_log::error) << "StorHvVolumeTable -- failed to allocate admin volume struct";
+      LOGERROR << "StorHvVolumeTable -- failed to allocate admin volume struct";
     }
   }
 
@@ -148,47 +143,9 @@ StorHvVolumeTable::StorHvVolumeTable(StorHvCtrl *sh_ctrl, fds_log *parent_log)
     vdesc.relativePrio = 8;
     vdesc.capacity = 10*1024;
     StorHvVolume *vol = 
-    volume_map[FDS_DEFAULT_VOL_UUID] = new StorHvVolume(vdesc, parent_sh, vt_log);
+            volume_map[FDS_DEFAULT_VOL_UUID] = new StorHvVolume(vdesc, parent_sh, GetLog());
     sh_ctrl->qos_ctrl->registerVolume(vdesc.volUUID,vol->volQueue);
-    FDS_PLOG(vt_log) << "StorHvVolumeTable - constructor registered volume 1";  
-
-#if 0 // Test  volumes
-    VolumeDesc vdesc2("default_vol2", 2);
-    volume_map[2] = new StorHvVolume(vdesc2, parent_sh, vt_log);
-    FDS_PLOG(vt_log) << "StorHvVolumeTable - constructor registered volume 2";  
-
-    VolumeDesc vdesc3("default_vol3", 3);
-    volume_map[3] = new StorHvVolume(vdesc3, parent_sh, vt_log);
-    FDS_PLOG(vt_log) << "StorHvVolumeTable - constructor registered volume 3";  
-
-    VolumeDesc vdesc4("default_vol4", 4);
-    volume_map[4] = new StorHvVolume(vdesc4, parent_sh, vt_log);
-    FDS_PLOG(vt_log) << "StorHvVolumeTable - constructor registered volume 4";  
-
-    VolumeDesc vdesc5("default_vol5", 5);
-    volume_map[5] = new StorHvVolume(vdesc5, parent_sh, vt_log);
-    FDS_PLOG(vt_log) << "StorHvVolumeTable - constructor registered volume 5";  
-
-    VolumeDesc vdesc6("default_vol6", 6);
-    volume_map[6] = new StorHvVolume(vdesc6, parent_sh, vt_log);
-    FDS_PLOG(vt_log) << "StorHvVolumeTable - constructor registered volume 6";  
-
-    VolumeDesc vdesc7("default_vol7", 7);
-    volume_map[7] = new StorHvVolume(vdesc7, parent_sh, vt_log);
-    FDS_PLOG(vt_log) << "StorHvVolumeTable - constructor registered volume 7";  
-
-    VolumeDesc vdesc8("default_vol8", 8);
-    volume_map[8] = new StorHvVolume(vdesc8, parent_sh, vt_log);
-    FDS_PLOG(vt_log) << "StorHvVolumeTable - constructor registered volume 8";  
-
-    VolumeDesc vdesc9("default_vol9", 9);
-    volume_map[9] = new StorHvVolume(vdesc9, parent_sh, vt_log);
-    FDS_PLOG(vt_log) << "StorHvVolumeTable - constructor registered volume 9";  
-
-    VolumeDesc vdesc10("default_vol10", 10);
-    volume_map[10] = new StorHvVolume(vdesc10, parent_sh, vt_log);
-    FDS_PLOG(vt_log) << "StorHvVolumeTable - constructor registered volume 10";  
-#endif
+    LOGNORMAL << "StorHvVolumeTable - constructor registered volume 1";  
   }
 
 }
@@ -214,14 +171,6 @@ StorHvVolumeTable::~StorHvVolumeTable()
     }
   volume_map.clear();
   map_rwlock.write_unlock();
-
-  /*
-   * Delete log if we created one
-   */
-  if (created_log) {
-    delete vt_log;
-  }
-
 }
 
 
@@ -236,7 +185,7 @@ Error StorHvVolumeTable::registerVolume(const VolumeDesc& vdesc)
 
     map_rwlock.write_lock();
     if (volume_map.count(vol_uuid) == 0) {
-        StorHvVolume *new_vol = new StorHvVolume(vdesc, parent_sh, vt_log);
+        StorHvVolume *new_vol = new StorHvVolume(vdesc, parent_sh, GetLog());
         if (new_vol) {
             // Register this volume queue with the QOS ctrl
             err = parent_sh->qos_ctrl->registerVolume(vdesc.volUUID, new_vol->volQueue);
@@ -253,8 +202,7 @@ Error StorHvVolumeTable::registerVolume(const VolumeDesc& vdesc)
     }
     map_rwlock.write_unlock();
     
-    FDS_PLOG_SEV(vt_log, fds::fds_log::notification)
-            << "StorHvVolumeTable - Register new volume " << vdesc.name << " "
+    LOGNOTIFY << "StorHvVolumeTable - Register new volume " << vdesc.name << " "
             << std::hex << vol_uuid << std::dec << ", policy " << vdesc.volPolicyId
             << " (iops_min=" << vdesc.iops_min << ",iops_max=" << vdesc.iops_max <<",prio=" << vdesc.relativePrio << ")"
             << " result: " << err.GetErrstr();  
@@ -290,7 +238,7 @@ Error StorHvVolumeTable::modifyVolumePolicy(fds_volid_t vol_uuid,
   }
   vol->readUnlock();
 
-  FDS_PLOG_SEV(vt_log, fds::fds_log::notification) << "StorHvVolumeTable - modify policy info for volume " 
+  LOGNOTIFY << "StorHvVolumeTable - modify policy info for volume " 
 						   << vdesc.name
 						   << " (iops_min=" << vdesc.iops_min 
 						   << ",iops_max=" << vdesc.iops_max 
@@ -310,7 +258,7 @@ Error StorHvVolumeTable::removeVolume(fds_volid_t vol_uuid)
 
   map_rwlock.write_lock();
   if (volume_map.count(vol_uuid) == 0) {
-    FDS_PLOG_SEV(vt_log, fds::fds_log::warning) << "StorHvVolumeTable - removeVolume called for non-existing volume "
+    LOGWARN << "StorHvVolumeTable - removeVolume called for non-existing volume "
                      << vol_uuid;
     err = ERR_INVALID_ARG;
     map_rwlock.write_unlock();
@@ -324,7 +272,7 @@ Error StorHvVolumeTable::removeVolume(fds_volid_t vol_uuid)
   vol->destroy();
   delete vol;
   
-  FDS_PLOG_SEV(vt_log, fds::fds_log::notification) << "StorHvVolumeTable - Removed volume "
+  LOGNOTIFY << "StorHvVolumeTable - Removed volume "
                    << vol_uuid;
  
   return err;
@@ -345,7 +293,7 @@ StorHvVolume* StorHvVolumeTable::getVolume(fds_volid_t vol_uuid)
     ret_vol = volume_map[vol_uuid];
   }
   else {
-    FDS_PLOG_SEV(vt_log, fds::fds_log::warning) << "StorHvVolumeTable::getVolume - Volume "
+    LOGWARN << "StorHvVolumeTable::getVolume - Volume "
 						<< std::hex << vol_uuid << std::dec
 						<< " does not exist";    
   }
@@ -368,7 +316,7 @@ StorHvVolume* StorHvVolumeTable::getLockedVolume(fds_volid_t vol_uuid)
     if (!ret_vol->isValidLocked())
     {
       ret_vol->readUnlock();
-      FDS_PLOG_SEV(vt_log, fds::fds_log::error) << "StorHvVolumeTable::getLockedVolume - Volume " << vol_uuid
+      LOGERROR << "StorHvVolumeTable::getLockedVolume - Volume " << vol_uuid
                        << "does not exist anymore, must have been destroyed";
       return NULL;
     }    
@@ -433,7 +381,7 @@ void StorHvVolumeTable::addBlobToWaitQueue(const std::string& bucket_name,
   /* we can check again that this table does not know about this bucket */
   fds_verify(volumeExists(bucket_name) == false);
 
-  FDS_PLOG_SEV(vt_log, fds::fds_log::debug) << "VolumeTable -- adding blob to wait queue, waiting for "
+  LOGDEBUG << "VolumeTable -- adding blob to wait queue, waiting for "
 					    << "bucket " << bucket_name;
 
   /*
@@ -474,7 +422,7 @@ void StorHvVolumeTable::moveWaitBlobsToQosQueue(fds_volid_t vol_uuid,
   wait_rwlock.read_unlock();
 
   if (blobs.size() == 0) {
-    FDS_PLOG_SEV(vt_log, fds::fds_log::debug) << "VolumeTable::moveWaitBlobsToQueue -- "
+    LOGDEBUG << "VolumeTable::moveWaitBlobsToQueue -- "
 					      << "no blobs waiting for bucket " << vol_name;
     return; // no blobs waiting  
   }
@@ -483,14 +431,13 @@ void StorHvVolumeTable::moveWaitBlobsToQosQueue(fds_volid_t vol_uuid,
     {
       fds::StorHvVolume *shvol = getLockedVolume(vol_uuid);
       if (( shvol == NULL) || (shvol->volQueue == NULL)) {
-	FDS_PLOG_SEV(vt_log, fds::fds_log::error) <<  "VolumeTable::moveWaitBlobsToQosQueue -- " 
+	LOGERROR <<  "VolumeTable::moveWaitBlobsToQosQueue -- " 
 						  << "Volume and  Queueus are NOT setup :" << vol_uuid;
 	err = ERR_INVALID_ARG;
       }
       if ( err.ok()) {
 	for (uint i = 0; i < blobs.size(); ++i) {
-	  FDS_PLOG_SEV(vt_log, fds::fds_log::debug)
-                  << "VolumeTable - moving blob to qos queue of vol  " << std::hex
+	  LOGDEBUG << "VolumeTable - moving blob to qos queue of vol  " << std::hex
                   << vol_uuid << std::dec << " vol_name " << vol_name;
           // since we did not know the volume id before, volid for this io is set to 0
           // so set its volume id now to actual volume id
@@ -513,8 +460,7 @@ void StorHvVolumeTable::moveWaitBlobsToQosQueue(fds_volid_t vol_uuid,
       blobs[i] = NULL;
       FdsBlobReq* blobReq = qosReq->getBlobReqPtr();
       FDS_NativeAPI::DoCallback(blobReq, err, 0, 0);  // Hard coding a result!
-      FDS_PLOG_SEV(vt_log, fds::fds_log::debug) 
-	<< "VolumeTable -- completion of blob request before moving it to QoS queue";
+      LOGDEBUG  	<< "VolumeTable -- completion of blob request before moving it to QoS queue";
       delete qosReq;
     } 
     blobs.clear();
@@ -533,8 +479,7 @@ Error StorHvVolumeTable::volumeEventHandler(fds_volid_t vol_uuid,
     Error err(ERR_OK);
     switch (vol_action) {
         case fds_notify_vol_attatch:
-            FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::notification)
-                    << "StorHvVolumeTable - Received volume attach event from OM"
+            GLOGNOTIFY << "StorHvVolumeTable - Received volume attach event from OM"
                     << " for volume " << std::hex << vol_uuid << std::dec;
             
             if (result == FDS_ProtocolInterface::FDSP_ERR_OK) {
@@ -546,29 +491,25 @@ Error StorHvVolumeTable::volumeEventHandler(fds_volid_t vol_uuid,
             else if (result == FDS_ProtocolInterface::FDSP_ERR_VOLUME_DOES_NOT_EXIST) {
                 /* complete all requests that are waiting on bucket to attach with error */
                 if (vdb) {
-                    FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::notification)
-                            << "StorHvVolumeTable - Volume " << vdb->name << "does not exist.";
+                    GLOGNOTIFY << "StorHvVolumeTable - Volume " << vdb->name << "does not exist.";
                     storHvisor->vol_table->moveWaitBlobsToQosQueue(vol_uuid, vdb->name, Error(ERR_NOT_FOUND));
                 }
             }
             break;
         case fds_notify_vol_detach:
-            FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::notification)
-                    << "StorHvVolumeTable - Received volume detach event from OM"
+            GLOGNOTIFY << "StorHvVolumeTable - Received volume detach event from OM"
                     << " for volume " << std::hex << vol_uuid << std::dec;
             err = storHvisor->vol_table->removeVolume(vol_uuid);
             break;
         case fds_notify_vol_mod:
             fds_verify(vdb != NULL);
-            FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::notification)
-                    << "StorHvVolumeTable - Received volume modify  event from OM"
+            GLOGNOTIFY << "StorHvVolumeTable - Received volume modify  event from OM"
                     << " for volume " << vdb->name << ":" << std::hex
                     << vol_uuid << std::dec;
             err = storHvisor->vol_table->modifyVolumePolicy(vol_uuid, *vdb);
             break;
         default:
-            FDS_PLOG_SEV(storHvisor->GetLog(), fds::fds_log::warning)
-                    << "StorHvVolumeTable - Received unexpected volume event from OM"
+            GLOGWARN << "StorHvVolumeTable - Received unexpected volume event from OM"
                     << " for volume " << std::hex << vol_uuid << std::dec;
     } 
     return err;
@@ -582,7 +523,7 @@ void StorHvVolumeTable::dump()
        it != volume_map.end(); 
        ++it)
     {
-      FDS_PLOG(vt_log) << "StorHvVolumeTable - existing volume" 
+      LOGNORMAL << "StorHvVolumeTable - existing volume" 
                        << "UUID " << it->second->voldesc->volUUID
                        << ", name " << it->second->voldesc->name
                        << ", type " << it->second->voldesc->volType;
@@ -626,7 +567,7 @@ int  pushVolQueue(void *req1)
   fbd_request_t *req = (fbd_request_t *)req1;
 
 #ifdef FDS_TEST_SH_NOOP
-  FDS_PLOG(storHvisor->GetLog()) << "pushVolQueue: FDS_TEST_SH_NOOP defined, returning before pushing IO to SH queue";
+  LOGNORMAL << "pushVolQueue: FDS_TEST_SH_NOOP defined, returning before pushing IO to SH queue";
   if ((fds::fds_io_op_t)req->io_type == FDS_IO_READ) {
     memset(req->buf, 0, req->len);
   }
@@ -638,7 +579,7 @@ int  pushVolQueue(void *req1)
   vol_id = req->volUUID;
   shvol = storHvisor->vol_table->getLockedVolume(vol_id);
   if (( shvol == NULL) || (shvol->volQueue == NULL)) {
-	  FDS_PLOG(storHvisor->GetLog()) <<  " Volume and  Queueus are NOT setup :" << vol_id;
+	  LOGNORMAL <<  " Volume and  Queueus are NOT setup :" << vol_id;
 	  return -1;
   }
 
@@ -651,12 +592,12 @@ int  pushVolQueue(void *req1)
   io->io_req_id = atomic_fetch_add(&next_io_req_id, (unsigned int)1);
   io->io_magic = FDS_SH_IO_MAGIC_IN_USE;
 
-  FDS_PLOG(storHvisor->GetLog()) << " Queueing IO " << io->io_req_id << " for  vol_id:  " << vol_id;
+  LOGNORMAL << " Queueing IO " << io->io_req_id << " for  vol_id:  " << vol_id;
 
   storHvisor->qos_ctrl->enqueueIO(vol_id, io);
   shvol->readUnlock();
 
-  FDS_PLOG(storHvisor->GetLog()) << " Queueing the  IO done.  vol_id:  " << vol_id;
+  LOGNORMAL << " Queueing the  IO done.  vol_id:  " << vol_id;
 
  return 0;
 }
