@@ -1571,11 +1571,11 @@ Error
 DataMgr::deleteBlobProcess(const dmCatReq  *delCatReq, BlobNode **bnode) {
     Error err(ERR_OK);
     LOGNORMAL << "Processing delete request with "
-              << "volume id: " << delCatReq->volId
-              << ", blob name: " << delCatReq->blob_name
-              << ", Trans ID " << delCatReq->transId
-              << ", OP ID " << delCatReq->transOp
-              << ", journ TXID " << delCatReq->reqCookie;
+              << "volid:" << delCatReq->volId
+              << ", blob name:" << delCatReq->blob_name
+              << ", txnid:" << delCatReq->transId
+              << ", opid:" << delCatReq->transOp
+              << ", journTXID:" << delCatReq->reqCookie;
 
     // Check if this blob exists already and what its current version is
     // TODO(Andrew): The query should eventually manage multiple volumes
@@ -1586,8 +1586,8 @@ DataMgr::deleteBlobProcess(const dmCatReq  *delCatReq, BlobNode **bnode) {
                          *bnode);
     if (err == ERR_CAT_ENTRY_NOT_FOUND) {
         // If this blob doesn't already exist, allocate a new one
-        LOGDEBUG << "No blob found with name " << delCatReq->blob_name
-                 << ", so nothing to delete";
+        LOGWARN << "No blob found with name " << delCatReq->blob_name
+                << ", so nothing to delete";
         err = ERR_BLOB_NOT_FOUND;
         return err;
     } else {
@@ -1604,7 +1604,12 @@ DataMgr::deleteBlobProcess(const dmCatReq  *delCatReq, BlobNode **bnode) {
         }
     }
     fds_verify(err == ERR_OK);
-
+    
+    bool fSizeZero = ((*bnode)->blob_size == 0);
+    if (fSizeZero) {
+        LOGDEBUG << "zero size blob:" << (*bnode)->blob_name;
+    }
+    
     if (delCatReq->blob_version == blob_version_invalid) {
         // Allocate a delete marker blob node. The
         // marker is just a place holder marking the
@@ -1629,8 +1634,13 @@ DataMgr::deleteBlobProcess(const dmCatReq  *delCatReq, BlobNode **bnode) {
         // Only need to expunge if this DM is the primary
         // for the volume
         if (amIPrimary(delCatReq->volId) == true) {
-            err = expungeBlob((*bnode));
-            fds_verify(err == ERR_OK);
+            if (fSizeZero) {
+                LOGWARN << "zero size blob:" << (*bnode)->blob_name
+                        << " - not expunging from SM";
+            } else {
+                err = expungeBlob((*bnode));
+                fds_verify(err == ERR_OK);
+            }
         }
 
         // We can delete the bnode we received from our
@@ -1652,8 +1662,13 @@ DataMgr::deleteBlobProcess(const dmCatReq  *delCatReq, BlobNode **bnode) {
             // as being deleted so that we know to clean it up
             // after a crash. We may also need to persist deref
             // state so we don't double dereference an object.
-            err = expungeBlob((*bnode));
-            fds_verify(err == ERR_OK);
+            if (fSizeZero) {
+                LOGWARN << "zero size blob:" << (*bnode)->blob_name
+                        << " - not expunging from SM";
+            } else {
+                err = expungeBlob((*bnode));
+                fds_verify(err == ERR_OK);
+            }
         }
 
         // Remove the blob node structure
