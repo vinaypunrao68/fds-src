@@ -171,6 +171,7 @@ typedef enum
     FDSN_StatusErrorUnknown
 } FDSN_Status;
 
+std::ostream& operator<<(std::ostream& os, FDSN_Status status);
 
 class ListBucketContents {
 public:
