@@ -1126,20 +1126,15 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
             fdsp_msg_hdr_dm->session_uuid = sessionCtx->getSessionId();
             journEntry->session_uuid = fdsp_msg_hdr_dm->session_uuid;
             client->DeleteCatalogObject(fdsp_msg_hdr_dm, del_cat_obj_req);
-            LOGNORMAL << " StorHvisorTx:" << "IO-XID:"
-                      << transId << " volID:" << std::hex << vol_id << std::dec
-                      << " - Sent async DELETE_BLOB_REQ request to DM at "
-                      <<  node_ip << " port " << node_port;
+            LOGNORMAL << " txnid:" << transId
+                      << " volID:" << std::hex << vol_id << std::dec
+                      << " - sent DELETE_BLOB_REQ request to DM @ "
+                      <<  node_ip << ":" << node_port;
         } catch (att::TTransportException& e) {
             errcount ++;
             LOGERROR << "error during network call: ["<< errcount << "] : " << e.what() ;
         }
-
     }
-#if 0 
-    // Schedule a timer here to track the responses and the original request
-    shVol->journal_tbl->schedule(journEntry->ioTimerTask, std::chrono::seconds(FDS_IO_LONG_TIME));
-#endif
 
     shVol->readUnlock();
 
