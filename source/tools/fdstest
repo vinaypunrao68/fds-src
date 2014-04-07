@@ -78,12 +78,15 @@ class Api:
             print "request cancelled on interrupt"
         return None
 
-    def getBucketItems(self,bucket):
+    def getBucket(self,bucket,parse=True):
         try:
-            resp=requests.get(self.getUrl(bucket),headers=self.headers)
-            print resp
-            root = ET.fromstring(resp.text)
-            return [item.text for item in root.findall('Contents/Key')]
+            r=requests.get(self.getUrl(bucket),headers=self.headers)
+            print r
+            if parse:
+                root = ET.fromstring(r.text)
+                return [item.text for item in root.findall('Contents/Key')]
+            else:
+                return r.text
         except ConnectionError:
             print "unable to connect to [%s:%s]"  % (self.host,self.port)
         except KeyboardInterrupt:
@@ -92,14 +95,6 @@ class Api:
     def createBucket(self,bucket):
         try:
             return requests.put(self.getUrl(bucket),headers=self.headers)
-        except ConnectionError:
-            print "unable to connect to [%s:%s]"  % (self.host,self.port)
-        except KeyboardInterrupt:
-            print "request cancelled on interrupt"
-
-    def getBucket(self,bucket):
-        try:
-            return requests.get(self.getUrl(bucket),headers=self.headers).text
         except ConnectionError:
             print "unable to connect to [%s:%s]"  % (self.host,self.port)
         except KeyboardInterrupt:
@@ -152,23 +147,22 @@ class basic(unittest.TestCase):
         self.f=Api()
         
     def testCreateBucket(self):
-        bucket='bucket_%d' % (random.randint(201,301))
+        bucket='bucket_%d' % (random.randint(200,202))
         r=self.f.createBucket(bucket)
-        self.assertIn(r.status_code,[200,500])
+        self.assertIn(r.status_code,[200,409])
 
     def testPutObject(self):
         obj = 'This is a test object'
         
-        bucket='bucket_%d' % (random.randint(201,301))
+        bucket='bucket_%d' % (random.randint(200,202))
         objname='obj_%d' % (random.randint(201,301))
 
         r=self.f.createBucket(bucket)
-        self.assertIn(r.status_code,[200,500])
+        self.assertIn(r.status_code,[200,409])
 
         r=self.f.put(bucket,objname,obj)
         self.assertEqual(r.status_code,200)
 
-        time.sleep(2)
         text=self.f.get(bucket,objname)
         self.assertEqual(obj,text)
 
@@ -177,10 +171,11 @@ class delete(unittest.TestCase):
         self.f=Api()
 
     def testDeleteBucket(self):
-        bucket='bucket_%d' % (random.randint(200,202))
+        bucket='bucket_%d' % (random.randint(100,102))
         r=self.f.createBucket(bucket)
         self.assertIn(r.status_code,[200,409])
 
+        time.sleep(1)
         r=self.f.deleteBucket(bucket)
         self.assertIn(r.status_code,[204])
 
@@ -191,11 +186,12 @@ class delete(unittest.TestCase):
 
         r=self.f.createBucket(bucket)
         self.assertIn(r.status_code,[200,409])
+        time.sleep(1)
 
         r=self.f.put(bucket,objname,obj)
         self.assertEqual(r.status_code,200)
         
-        time.sleep(2)
+        time.sleep(1)
         text=self.f.get(bucket,objname)
         self.assertEqual(obj,text)
 
@@ -208,6 +204,7 @@ class zero(unittest.TestCase):
         self.bucket='bucket_%d' % (random.randint(200,202))
         r=self.f.createBucket(self.bucket)
         self.assertIn(r.status_code,[200,409])
+        time.sleep(1)
 
     def testZeroSize(self):
         obj=''
@@ -216,7 +213,7 @@ class zero(unittest.TestCase):
         r=self.f.put(self.bucket,objname,obj)
         self.assertEqual(r.status_code,200)
 
-        time.sleep(2)
+        time.sleep(1)
         text=self.f.get(self.bucket,objname)
         self.assertEqual(obj,text)
 
@@ -255,10 +252,10 @@ class medium(unittest.TestCase):
             self.assertEqual(r.status_code,200)
             print ' : done'
 
-            time.sleep(2)
+            time.sleep(1)
             text=self.f.get(bucket,objname)
             self.assertEqual(obj,text)
     
 if __name__ == "__main__":
-    unittest.main(defaultTest='basic',verbosity=2)
+    unittest.main(defaultTest=None,verbosity=2)
     
