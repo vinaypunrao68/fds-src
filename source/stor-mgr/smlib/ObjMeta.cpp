@@ -554,6 +554,7 @@ void ObjMetaData::mergeNewAndUnsyncedData()
     fds_assert(syncDataExists());
     /* We will resolve one field at a time*/
 
+#if 0
     if (sync_data.mod_ts >= obj_map.assoc_mod_time) {
         /* Sync metadata is more recent compared to object metadata.
          * Clear sync-able fields.  We'll just use them from sync entry
@@ -567,9 +568,8 @@ void ObjMetaData::mergeNewAndUnsyncedData()
 
         objStorMgr->getCounters()->resolve_used_sync_cnt.incr();
         /* Merge happens below */
-    } else {
-        objStorMgr->getCounters()->resolve_mrgd_cnt.incr();
     }
+#endif
 
     /* Creation timestamp.  We will honor the one from sync entry */
     obj_map.obj_create_time = sync_data.born_ts;
@@ -590,6 +590,8 @@ void ObjMetaData::mergeNewAndUnsyncedData()
     /* Sync data isn't needed anymore */
     mask = 0;
     sync_data.reset();
+
+    objStorMgr->getCounters()->resolve_mrgd_cnt.incr();
 }
 
 /**
