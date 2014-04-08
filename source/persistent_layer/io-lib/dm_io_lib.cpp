@@ -253,18 +253,18 @@ DataDiscoveryModule::disk_open_map()
 {
     int           idx;
     fds_uint64_t  uuid;
-    std::string   path;
+    std::string   path, dev;
 
     const fds::FdsRootDir *dir = fds::g_fdsprocess->proc_fdsroot();
     std::ifstream map(dir->dir_dev() + std::string("/disk-map"), std::ifstream::in);
 
     fds_verify(map.fail() == false);
     while (!map.eof()) {
-        map >> path >> idx >> std::hex >> uuid >> std::dec;
+        map >> dev >> idx >> std::hex >> uuid >> std::dec >> path;
         if (map.fail()) {
             break;
         }
-        std::cout << "path " << path << ", uuid " << uuid << std::endl;
+        LOGNORMAL << "dev " << dev << ", path " << path << ", uuid " << uuid;
         if (strstr(path.c_str(), "hdd") != NULL) {
             pd_hdd_found++;
             pd_hdd_map[idx] = path;
