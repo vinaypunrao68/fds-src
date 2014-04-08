@@ -1507,15 +1507,27 @@ DataMgr::expungeObject(fds_volid_t volId, const ObjectID &objId) {
     delReq->data_obj_len = 0;  // What is this...?
 
     // Issue async delete object calls to each SM
+    uint errorCount = 0;
     for (fds_uint32_t i = 0; i < tokenGroup->getLength(); i++) {
-        NodeUuid uuid = tokenGroup->get(i);
-        NodeAgent::pointer node = plf_mgr->plf_node_inventory()->
-                dc_get_sm_nodes()->agent_info(uuid);
-        SmAgent::pointer sm = SmAgent::agt_cast_ptr(node);
-        NodeAgentDpClientPtr smClient = sm->get_sm_client();
+        try {
+            NodeUuid uuid = tokenGroup->get(i);
+            NodeAgent::pointer node = plf_mgr->plf_node_inventory()->
+                    dc_get_sm_nodes()->agent_info(uuid);
+            SmAgent::pointer sm = SmAgent::agt_cast_ptr(node);
+            NodeAgentDpClientPtr smClient = sm->get_sm_client();
 
-        msgHdr->session_uuid = sm->get_sm_sess_id();
-        smClient->DeleteObject(msgHdr, delReq);
+            msgHdr->session_uuid = sm->get_sm_sess_id();
+            smClient->DeleteObject(msgHdr, delReq);
+        } catch(const att::TTransportException& e) {
+            errorCount++;
+            LOGERROR << "[" << errorCount << "]error during network call : " << e.what();
+        }
+    }
+
+    if (errorCount >= int(ceil(tokenGroup->getLength()*0.5))) {
+        LOGCRITICAL << "too many network errors ["
+                    << errorCount << "/" <<tokenGroup->getLength() <<"]";
+        return ERR_NETWORK_TRANSPORT;
     }
 
     return err;
