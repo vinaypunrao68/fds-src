@@ -978,7 +978,7 @@ ObjectStorMgr::writeObjectMetaData(const OpCtx &opCtx,
 
     if(relocate_flag) { 
       objMap.removePhyLocation(fromTier);
-    } else {
+    } else if (opCtx.type != OpCtx::GC_COPY) {
       objMap.updateAssocEntry(objId, (fds_volid_t)vol->vol_uuid);
     }
 
@@ -2349,24 +2349,10 @@ ObjectStorMgr::condCopyObjectInternal(const ObjectID &objId)
         // updating metadata, because object is still in both places
 
         // update metadata
-        // TODO(anna) read/modify/write should happen under one lock (?)
-        // so we should add such func in object db
-        // for now doing here for testing (no concurrent io)
-        err = readObjMetaData(objId, objMetadata);
+        err = writeObjectMetaData(opCtx, objId, objData.data.length(),
+                                  disk_req->req_get_phy_loc(), false, diskTier, &vio);
         if (!err.ok()) {
-            LOGERROR << "failed to read obj metadata second time for obj "
-                     << objId << " error " << err;
-            delete disk_req;
-            return err;
-        }
-        objMetadata.updatePhysLocation(disk_req->req_get_phy_loc());
-        err = smObjDb->put(opCtx, objId, objMetadata);
-        if (!err.ok()) {
-            LOGERROR << "Failed to update object db for obj " << objId
-                     << " result " << err;
-        } else {
-            LOGDEBUG << "Updated object location for object "
-                     << objId << " to " << objMetadata;
+            LOGERROR << "Failed to update metadata for obj " << objId;
         }
 
         delete disk_req;
