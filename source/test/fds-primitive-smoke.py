@@ -41,9 +41,6 @@ class FdsEnv:
         subprocess.call([self.fdsctrl, 'clean', '--fds-root', self.env_root])
         subprocess.call([self.fdsctrl, 'clogs', '--fds-root', self.env_root])
 
-    def getRoot(self):
-        return self.env_root
-
 ###
 # setup test environment, directories, etc
 #
@@ -59,7 +56,9 @@ class FdsSetupNode:
 # dataset and bucket information
 #
 class FdsDataSet:
-    def __init__(self, bucket='abc', data_dir='', dest_dir='/tmp', file_ext='*'):
+    def __init__(self, am_ip='localhost', bucket='abc', data_dir='',
+                 dest_dir='/tmp', file_ext='*'):
+        self.ds_am_ip    = am_ip
         self.ds_bucket   = bucket
         self.ds_data_dir = data_dir
         self.ds_file_ext = file_ext
@@ -72,6 +71,18 @@ class FdsDataSet:
             self.ds_dest_dir = '/tmp'
         ret = subprocess.call(['mkdir', '-p', self.ds_dest_dir])
 
+###
+# test runner parameters
+#
+class FdsTestArgs:
+    def __init__(self, volume_name, data_set_dir, result_dir, loop_cnt, async, am_ip):
+        self.args_volume_name  = volume_name
+        self.args_data_set_dir = data_set_dir
+        self.args_result_dir   = result_dir
+        self.args_loop_cnt     = loop_cnt
+        self.args_async_io     = async
+        self.args_am_ip        = am_ip
+ 
 ###
 # global test stats
 #
@@ -100,7 +111,7 @@ class CopyS3Dir:
         self.gerr_chk   = 0
         self.obj_prefix = str(CopyS3Dir.global_obj_prefix)
         CopyS3Dir.global_obj_prefix += 1
-        self.bucket_url = 'http://localhost:8000/' + self.bucket
+        self.bucket_url = 'http://' + dataset.ds_am_ip + ':8000/' + self.bucket
 
         os.chdir(self.ds.ds_data_dir)
         files = subprocess.Popen(
@@ -111,7 +122,7 @@ class CopyS3Dir:
             rec = rec.rstrip('\n')
             self.files_list.append(rec)
         if len(self.files_list) == 0:
-            print "WARNING: Data directory is empty"
+            print "Warning: data directory is empty"
 
     def reset_test(self):
         self.cur_put    = 0
@@ -265,26 +276,25 @@ class CopyS3Dir_Overwrite(CopyS3Dir):
         os.chdir(self.ds.ds_data_dir)
         cnt = 0
         err = 0
-        if len(self.files_list) > 0:
-            wr_file = self.files_list[0]
-        for put in self.files_list:
-            cnt = cnt + 1
-            obj = self.obj_prefix + put.replace("/", "_")
-            self.print_debug("curl PUT: " + put + " -> " + obj)
-            ret = subprocess.call(['curl', '-X', 'PUT', '--data-binary',
-                    '@' + wr_file, self.bucket_url + '/' + obj])
-            if ret != 0:
-                err = err + 1
-                print "curl error PUT: " + put + ": " + obj
-                if self.exit_on_err == True:
-                    sys.exit(1)
+        for wr_file in self.files_list:
+            for put in self.files_list:
+                cnt = cnt + 1
+                obj = self.obj_prefix + put.replace("/", "_")
+                self.print_debug("curl PUT: " + put + " -> " + obj)
+                ret = subprocess.call(['curl', '-X', 'PUT', '--data-binary',
+                        '@' + wr_file, self.bucket_url + '/' + obj])
+                if ret != 0:
+                    err = err + 1
+                    print "curl error PUT: " + put + ": " + obj
+                    if self.exit_on_err == True:
+                        sys.exit(1)
 
-            if (cnt % 10) == 0:
-                print "Put ", cnt + self.cur_put , " objects... errors: [", err, "]"
+                if (cnt % 10) == 0:
+                    print "Put ", cnt + self.cur_put , " objects... errors: [", err, "]"
 
-        print "Put ", cnt + self.cur_put, " objects... errors: [", err, "]"
-        self.cur_put  += cnt
-        self.perr_cnt += err
+            print "Put ", cnt + self.cur_put, " objects... errors: [", err, "]"
+            self.cur_put  += cnt
+            self.perr_cnt += err
 
     def get_test(self, burst=0):
         global stat
@@ -293,7 +303,7 @@ class CopyS3Dir_Overwrite(CopyS3Dir):
         err = 0
         chk = 0
         if len(self.files_list):
-            rd_file = self.files_list[0]
+            rd_file = self.files_list[-1]
         for get in self.files_list:
             cnt = cnt + 1
             obj = self.obj_prefix + get.replace("/", "_");
@@ -397,7 +407,7 @@ class DelS3Dir(CopyS3Dir):
 def bringup_cluster(env, verbose, debug):
     env.cleanup()
     root1 = env.env_root
-    print "\nSetting up private fds-root in " + root1 + '[1-4]'
+    print "\nSetting up private fds-root in " + root1
     FdsSetupNode(env.srcdir, root1)
     
     os.chdir(env.srcdir + '/Build/linux-x86_64.debug/bin')
@@ -422,14 +432,28 @@ def exit_test(env, shutdown):
 ###
 # pre-commit test
 #
-def pre_commit(volume_name, data_dir, res_dir):
+def testsuite_pre_commit(test_a):
     # basic PUTs and GETs of fds-src cpp files
-    smoke_ds0 = FdsDataSet(volume_name, data_dir, res_dir, '*.cpp')
+    smoke_ds0 = FdsDataSet(test_a.args_am_ip,
+                           test_a.args_volume_name,
+                           test_a.args_data_set_dir,
+                           test_a.args_result_dir,
+                           '*.cpp')
 
     smoke0 = CopyS3Dir(smoke_ds0)
     smoke0.run_test()
     smoke0.reset_test()
     smoke0.exit_on_error()
+
+    # seq write, then seq read
+    smoke_ds1 = FdsDataSet(test_a.args_am_ip,
+                           test_a.args_volume_name,
+                           test_a.args_data_set_dir,
+                           test_a.args_result_dir,
+                           '*.cpp')
+#smoke1 = CopyS3Dir_Overwrite(smoke_ds1)
+#    smoke1.run_test()
+#    smoke1.exit_on_error()
 
     smoke1 = DelS3Dir(smoke_ds0)
     smoke1.run_test()
@@ -440,10 +464,14 @@ def pre_commit(volume_name, data_dir, res_dir):
 ###
 # I/O stress test
 #
-def stress_io(volume_name, data_dir, res_dir):
+def testsuite_stress_io(test_a):
 
     # seq write, then seq read
-    smoke_ds1 = FdsDataSet(volume_name, data_dir, res_dir, '*')
+    smoke_ds1 = FdsDataSet(test_a.args_am_ip,
+                           test_a.args_volume_name,
+                           test_a.args_data_set_dir,
+                           test_a.args_result_dir,
+                           '*')
     smoke1 = DelS3Dir(smoke_ds1)
 
     smoke1.run_test()
@@ -452,25 +480,41 @@ def stress_io(volume_name, data_dir, res_dir):
     smoke1.exit_on_error()
 
     # write from in burst of 10
-    smoke_ds2 = FdsDataSet(volume_name, data_dir, res_dir, '*')
+    smoke_ds2 = FdsDataSet(test_a.args_am_ip,
+                           test_a.args_volume_name,
+                           test_a.args_data_set_dir,
+                           test_a.args_result_dir,
+                           '*')
     smoke2 = DelS3Dir(smoke_ds2)
     smoke2.run_test(10)
     smoke2.exit_on_error()
 
     # write from in burst of 10-5 (W-R)
-    smoke_ds3 = FdsDataSet(volume_name, data_dir, res_dir, '*')
+    smoke_ds3 = FdsDataSet(test_a.args_am_ip,
+                           test_a.args_volume_name,
+                           test_a.args_data_set_dir,
+                           test_a.args_result_dir,
+                           '*')
     smoke3 = CopyS3Dir_Pattern(smoke_ds3)
     smoke3.run_test(10, 5)
     smoke3.exit_on_error()
 
     # write from in burst of 10-3 (W-R)
-    smoke_ds4 = FdsDataSet(volume_name, data_dir, res_dir, '*')
+    smoke_ds4 = FdsDataSet(test_a.args_am_ip,
+                           test_a.args_volume_name,
+                           test_a.args_data_set_dir,
+                           test_a.args_result_dir,
+                           '*')
     smoke4 = CopyS3Dir_Pattern(smoke_ds4)
     smoke4.run_test(10, 3)
     smoke4.exit_on_error()
 
     # write from in burst of 1-1 (W-R)
-    smoke_ds5 = FdsDataSet(volume_name, data_dir, res_dir, '*')
+    smoke_ds5 = FdsDataSet(test_a.args_am_ip,
+                           test_a.args_volume_name,
+                           test_a.args_data_set_dir,
+                           test_a.args_result_dir,
+                           '*')
     smoke5 = CopyS3Dir_Pattern(smoke_ds5)
     smoke5.run_test(1, 1)
     smoke5.exit_on_error()
@@ -478,10 +522,14 @@ def stress_io(volume_name, data_dir, res_dir):
 ###
 # overwrite test
 #
-def blob_overwrite(volume_name, data_dir, res_dir):
+def testsuite_blob_overwrite(test_a):
 
     # seq write, then seq read
-    smoke_ds1 = FdsDataSet(volume_name, data_dir, res_dir, '*')
+    smoke_ds1 = FdsDataSet(test_a.args_am_ip,
+                           test_a.args_volume_name,
+                           test_a.args_data_set_dir,
+                           test_a.args_result_dir,
+                           '*')
     smoke1 = CopyS3Dir_Overwrite(smoke_ds1)
     smoke1.run_test()
     smoke1.exit_on_error()
@@ -489,44 +537,42 @@ def blob_overwrite(volume_name, data_dir, res_dir):
 ###
 # negative test
 #
-def neg_test(volume_name, data_dir, es_dir):
+def testsuite_neg_test(test_a):
     print "Negative test..."
     print "WIN-267, curl PUT object with invalid filename crashed AM, expect non zero"
     print "WIN-235, list bucket on non-existing volume"
 
+
 ###
 # helper function to start I/O
 #
-def start_io_helper(volume_name, data_set_dir, res_dir, loop):
+def start_io_helper(test_a):
     i = 0
+    loop = test_a.args_loop_cnt
     while i < loop or loop == 0:
-        # basic PUTs and GETs of fds-src cpp files
-        pre_commit(volume_name, data_set_dir, res_dir)
-
         # stress I/O
-        stress_io(volume_name, data_set_dir, res_dir)
+        testsuite_stress_io(test_a)
 
         # blob over-write
-        blob_overwrite(volume_name, data_set_dir, res_dir)
+        testsuite_blob_overwrite(test_a)
         i += 1
 
 ###
 #  spawn process for I/O
 #
-def start_io_helper_thrd(volume_name, data_set_dir, res_dir, loop):
+def start_io_helper_thrd(test_a):
     sys.stdout = open('/tmp/smoke_io-' + str(os.getpid()) + ".out", "w")
-    start_io_helper(volume_name, data_set_dir, res_dir, loop)
+    start_io_helper(test_a)
 
 ###
 # main I/O function
 #
-def start_io_main(volume_name, data_set_dir, res_dir, async, loop):
-    if async == True:
-        startIOProcess = Process(target=start_io_helper_thrd,
-                                 args=(volume_name, data_set_dir, res_dir, loop))
+def start_io_main(test_a):
+    if test_a.args_async_io == True:
+        startIOProcess = Process(target=start_io_helper_thrd, args=(test_a,))
         startIOProcess.start()
     else:
-        start_io_helper(volume_name, data_set_dir, res_dir, loop)
+        start_io_helper(test_a)
         startIOProcess = None
     return startIOProcess
 
@@ -557,50 +603,66 @@ if __name__ == "__main__":
     parser.add_argument('--up', default='true',
                         help='Bringup system [true]')
     parser.add_argument('--down', default='true',
-                        help ='Shutdown/cleanup system after passed test run [true]')
+                        help='Shutdown/cleanup system after passed test run [true]')
     parser.add_argument('--smoke_test', default='false',
                         help='Run full smoke test [false]')
+    parser.add_argument('--fds_root', default='/fds/node1',
+                        help='fds-root path [/fds/node1]')
     parser.add_argument('--vol_prefix', default='smoke',
                         help='prefix for bucket name')
     parser.add_argument('--data_set', default='/smoke_test',
                         help='Smoke test dataset [/smoke_test]')
     parser.add_argument('--thread', default=4,
                         help='Number of I/O threads')
+    parser.add_argument('--loop_cnt', default=1,
+                        help='Number of iterations per test suite to run')
     parser.add_argument('--async', default='true',
-                        help ='Run I/O Async [true]')
+                        help='Run I/O Async [true]')
+    parser.add_argument('--am_ip', default='localhost',
+                        help='AM IP address [localhost')
     parser.add_argument('--verbose', default='false',
-                        help ='Print verbose [false]')
+                        help='Print verbose [false]')
     parser.add_argument('--debug', default='false',
                         help ='pdb debug on [false]')
     args = parser.parse_args()
 
     cfgFile      = args.cfg_file
     smokeTest    = args.smoke_test
+    fds_root     = args.fds_root
     vol_prefix   = args.vol_prefix
     data_set_dir = args.data_set
     verbose      = args.verbose
     debug        = args.debug
     start_sys    = args.up
     thread_cnt   = args.thread
+    loop_cnt     = args.loop_cnt
+    am_ip        = args.am_ip
     if args.async == 'true':
         async_io = True
     else:
         async_io = False
-    loop = 1
 
     if args.down == 'true':
         shutdown = True
     else:
         shutdown = False
 
-    #    3) pass in IP address for AM, currently its localhost
-    #    5) pass in the work-load that you want to run, default to all.
+    ###
+    # TODO:
+    #   - testsuite_stress_io should preserve CopyS3Dir test, not replace it with DelS3Dir
+    #   - pass in the work-load that you want to run, default to all.
     #       (CopyS3Dir, DelS3Dir, etc)
+    #   - add class for testing volume create/delete/list
+    #   - improve over-write, 1) overwrite with same content
+    #                         2) with smaller size content
+    #                         3) larger size content
+    #                         4) zero content
+    #
 
     ###
     # load the configuration file and build test environment
     #
-    env = FdsEnv('/fds/node1')
+    env = FdsEnv(fds_root)
 
     ###
     # bring up the cluster
@@ -609,8 +671,18 @@ if __name__ == "__main__":
         bringup_cluster(env, verbose, debug)
         time.sleep(2)
 
+    ###
+    # run make precheckin and exit
+    #
     if args.smoke_test == 'false':
-        pre_commit(vol_prefix + '_volume1', env.srcdir, '/tmp/pre_commit')
+        args = FdsTestArgs(vol_prefix + '_volume0',             # vol name
+                           env.srcdir,                          # data set dir
+                           '/tmp/pre_commit',                   # result dir
+                           1,                                   # loop count
+                           False,                               # async-ip
+                           am_ip)                               # am ip address
+
+        testsuite_pre_commit(args)
         exit_test(env, shutdown)
 
     ###
@@ -620,8 +692,13 @@ if __name__ == "__main__":
     assert(thread_cnt >= 0)
     process_list = []
     while thr < thread_cnt:
-        p1 = start_io_main(vol_prefix + 'volume' + str(thr), data_set_dir,
-                           '/tmp/res' + str(thr), async_io, loop)
+        args = FdsTestArgs(vol_prefix + '_volume' + str(thr),   # vol name
+                           data_set_dir,                        # data set dir
+                           '/tmp/res' + str(thr),               # result dir
+                           loop_cnt,                            # loop count
+                           async_io,                            # async-io
+                           am_ip)                               # am ip address
+        p1 = start_io_main(args)
         process_list.append(p1)
         thr += 1
 
@@ -634,4 +711,8 @@ if __name__ == "__main__":
     #
     for p1 in process_list:
         wait_io_done(p1)
+
+    ###
+    # clean exit
+    #
     exit_test(env, shutdown)

@@ -5,6 +5,7 @@
 import ConfigParser
 import FdsSetup as inst
 import re, sys
+import subprocess
 import pdb, time
 
 ###
@@ -288,6 +289,7 @@ class FdsCliConfig(FdsConfig):
     def __init__(self, name, items, verbose):
         super(FdsCliConfig, self).__init__(items, verbose)
         self.nd_om_node = None
+        self.nd_conf_dict['cli-name'] = name
 
     ###
     # Find the OM node that we'll run this CLI from that node.
@@ -317,19 +319,95 @@ class FdsCliConfig(FdsConfig):
             wait_compl=True)
 
 ###
+# Run a specific test step
+#
+class FdsScenarioConfig(FdsConfig):
+    def __init__(self, name, items, verbose):
+        super(FdsScenarioConfig, self).__init__(items, verbose)
+        self.nd_conf_dict['scenario-name'] = name
+        self.cfg_sect_user    = []
+        self.cfg_sect_nodes   = []
+        self.cfg_sect_ams     = []
+        self.cfg_sect_vol_pol = []
+        self.cfg_sect_volumes = []
+        self.cfg_sect_cli     = []
+
+    def start_scenario(self):
+        assert(len(self.cfg_sect_cli) == 1)
+        cli    = self.cfg_sect_cli[0]
+        script = self.nd_conf_dict['script']
+        if 'delay_wait' in self.nd_conf_dict:
+            delay = int(self.nd_conf_dict['delay_wait'])
+        else:
+            delay = 1
+        if 'wait_completion' in self.nd_conf_dict:
+            wait  = self.nd_conf_dict['wait_completion']
+        else:
+            wait  = 'false' 
+        if re.match('\[node.+\]', script) != None:
+            for s in self.cfg_sect_nodes:
+                if '[' + s.nd_conf_dict['node-name'] + ']' == script:
+                    s.nd_start_om()
+                    s.nd_start_platform() 
+                    break
+        elif re.match('\[sh.+\]', script) != None:
+            for s in self.cfg_sect_ams:
+                if '[' + s.nd_conf_dict['am-name'] + ']' == script:
+                    s.am_start_service()
+                    break
+        elif re.match('\[policy.+\]', script) != None:
+            for s in self.cfg_sect_vol_pol:
+                if '[' + s.nd_conf_dict['pol-name'] + ']' == script:
+                    s.policy_apply_cfg(cli)
+                    break
+        elif re.match('\[volume.+\]', script) != None:
+            for s in self.cfg_sect_volumes:
+                if '[' + s.nd_conf_dict['vol-name'] + ']' == script:
+                    s.vol_apply_cfg(cli)
+                    break
+        elif re.match('\[fdscli.*\]', script) != None:
+            for s in self.cfg_sect_cli:
+                if '[' + s.nd_conf_dict['cli-name'] + ']' == script:
+                    s.run_cli('--activate-nodes abc -k 1 -e sm,dm')
+                    break
+        else:
+            if 'script_args' in self.nd_conf_dict:
+                script_args = self.nd_conf_dict['script_args']
+            else:
+                script_args = ''
+            print "Running external script: ", script, script_args 
+            args = script_args.split()
+            process = subprocess.Popen([script] + args)
+            if wait == 'true':
+                process.wait()
+
+        if delay > 1:
+            print 'Delaying for %d seconds' % delay
+        time.sleep(delay)
+
+    def sce_bind_sections(self, user, nodes, am, vol_pol, volumes, cli):
+        self.cfg_sect_user    = user
+        self.cfg_sect_nodes   = nodes
+        self.cfg_sect_ams     = am
+        self.cfg_sect_vol_pol = vol_pol
+        self.cfg_sect_volumes = volumes
+        self.cfg_sect_cli     = cli
+
+###
 # Handle fds bring up config parsing
 #
 class FdsConfig(object):
     def __init__(self, cfg_file, verbose = False):
-        self.cfg_file    = cfg_file
-        self.cfg_verbose = verbose
-        self.cfg_am      = []
-        self.cfg_user    = []
-        self.cfg_nodes   = []
-        self.cfg_volumes = []
-        self.cfg_vol_pol = []
-        self.cfg_cli     = None
-        self.cfg_parser  = ConfigParser.ConfigParser()
+        self.cfg_file      = cfg_file
+        self.cfg_verbose   = verbose
+        self.cfg_am        = []
+        self.cfg_user      = []
+        self.cfg_nodes     = []
+        self.cfg_volumes   = []
+        self.cfg_vol_pol   = []
+        self.cfg_scenarios = []
+        self.cfg_cli       = None
+        self.cfg_parser    = ConfigParser.ConfigParser()
 
     def config_parse(self):
         verbose = self.cfg_verbose
@@ -354,11 +432,13 @@ class FdsConfig(object):
 
             elif re.match('volume', section) != None:
                 self.cfg_volumes.append(FdsVolConfig(section, items, verbose))
+            elif re.match('scenario', section)!= None:
+                self.cfg_scenarios.append(FdsScenarioConfig(section, items, verbose))
             else:
                 print "Unknown section", section
 
         if self.cfg_cli is None:
-            self.cfg_cli = FdsCliConfig("fds-cli", None, verbose)
+            self.cfg_cli = FdsCliConfig("fdscli", None, verbose)
             self.cfg_cli.bind_to_om(self.cfg_nodes)
 
         for am in self.cfg_am:
@@ -366,6 +446,12 @@ class FdsConfig(object):
 
         for vol in self.cfg_volumes:
             vol.vol_connect_to_am(self.cfg_am)
+
+        for sce in self.cfg_scenarios:
+            sce.sce_bind_sections(self.cfg_user, self.cfg_nodes, self.cfg_am,
+                                  self.cfg_vol_pol, self.cfg_volumes, [self.cfg_cli])
+
+        self.cfg_scenarios.sort()
 
     # TODO(Vy): actually we don't need these C++ style accessor functions.
     # In Python, we can always use decorator to intercept get/set and all member

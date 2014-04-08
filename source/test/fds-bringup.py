@@ -5,6 +5,7 @@
 import fdslib.FdsSetup as inst
 import fdslib.BringUpCfg as fdscfg
 import optparse, sys, time
+import pdb
 
 if __name__ == '__main__':
     parser = optparse.OptionParser("usage: %prog [options]")
@@ -24,6 +25,8 @@ if __name__ == '__main__':
                       help = 'bring down cluster')
     parser.add_option('-c', '--clean', action = 'store_true', dest = 'clus_clean',
                       help = 'cleanup cluster')
+    parser.add_option('-r', '--dryrun', action = 'store_true', dest = 'dryrun',
+                      help = 'dry run, print commands only')
 
     (options, args) = parser.parse_args()
 
@@ -48,17 +51,26 @@ if __name__ == '__main__':
         env.env_user     = usr.get_config_val('user_name')
         env.env_password = usr.get_config_val('password')
 
+    # get all the configuration
     nodes = cfg.config_nodes()
+    ams   = cfg.config_am()
+    pols  = cfg.config_vol_policy()
+    vols  = cfg.config_volumes()
+    scenarios = cfg.cfg_scenarios
+
+    # install package
     for n in nodes:
         n.nd_connect_rmt_agent(env)
         n.nd_rmt_agent.ssh_setup_env('')
         if options.clus_inst:
             n.nd_install_rmt_pkg() 
 
+    # shutdown
     if options.clus_down:
         for n in nodes:
             n.nd_cleanup_daemons()
 
+    # cleanup
     if options.clus_clean:
         for n in nodes:
             n.nd_cleanup_node()
@@ -66,6 +78,13 @@ if __name__ == '__main__':
     if options.clus_up is None:
         sys.exit(0)
 
+    # If we have scenarios, run them
+    if len(scenarios):
+        for sce in scenarios:
+            sce.start_scenario()
+        sys.exit(0)
+
+    # else run all defined sections by default
     time.sleep(2)
     for n in nodes:
         if n.nd_start_om() != 0:
@@ -82,14 +101,12 @@ if __name__ == '__main__':
     cli = cfg.config_cli()
     cli.run_cli('--activate-nodes abc -k 1 -e sm,dm')
 
-    for am in cfg.config_am():
+    for am in ams:
         am.am_start_service()
 
     time.sleep(5)
-    pols = cfg.config_vol_policy()
     for p in pols:
         p.policy_apply_cfg(cli)
 
-    vols = cfg.config_volumes()
     for v in vols:
         v.vol_apply_cfg(cli)
