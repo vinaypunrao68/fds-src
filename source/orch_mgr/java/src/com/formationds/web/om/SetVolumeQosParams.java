@@ -26,6 +26,7 @@ public class SetVolumeQosParams implements RequestHandler {
         volInfo.setIops_min(requiredInt(routeParameters, "min"));
         volInfo.setRel_prio(requiredInt(routeParameters, "priority"));
         volInfo.setIops_max(requiredInt(routeParameters, "max"));
+        volInfo.setVolPolicyId(0);
         client.ModifyVol(new FDSP_MsgHdrType(), new FDSP_ModifyVolType(volumeName, volInfo.getVolUUID(), new FDSP_VolumeDescType()));
         return new TextResource(new HalfFakeVolume(volInfo).toString()) {
             @Override

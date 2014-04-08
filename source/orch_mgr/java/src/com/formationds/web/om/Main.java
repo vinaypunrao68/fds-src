@@ -41,6 +41,7 @@ public class Main {
 
         authorize(HttpMethod.GET, "/api/config/volumes", () -> new ListVolumes(clientFactory.configPathClient(OM_HOST, OM_PORT)));
         authorize(HttpMethod.POST, "/api/config/volumes/:name", () -> new CreateVolume(clientFactory.configPathClient(OM_HOST, OM_PORT)));
+        authorize(HttpMethod.POST, "/api/config/volume", () -> new FancyCreateVolume(clientFactory.configPathClient(OM_HOST, OM_PORT)));
         authorize(HttpMethod.DELETE, "/api/config/volumes/:name", () -> new DeleteVolume(clientFactory.configPathClient(OM_HOST, OM_PORT)));
         authorize(HttpMethod.POST, "/api/config/volumes/:volume/qos/:min/:priority/:max", () -> new SetVolumeQosParams(clientFactory.configPathClient(OM_HOST, OM_PORT)));
 
