@@ -1803,6 +1803,8 @@ ObjectStorMgr::DeleteObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
         fdsp_msg->result = FDSP_ERR_OK;
         fdsp_msg->err_code = err.getFdspErr();
     }
+
+    counters_.del_reqs.incr();
 }
 
 Error

@@ -137,20 +137,21 @@ class SMCounters : public FdsCounters
  public:
     SMCounters(const std::string &id, FdsCountersMgr *mgr)
     : FdsCounters(id, mgr),
-    put_reqs("put_reqs", this),
-    get_reqs("get_reqs", this),
-    puts_latency("puts_latency", this),
-    put_tok_objs("put_tok_objs", this),
-    get_tok_objs("get_tok_objs", this),
-    resolve_mrgd_cnt("resolve_mrgd_cnt", this),
-    resolve_used_sync_cnt("resolve_used_sync_cnt", this)
-    {
+      put_reqs("put_reqs", this),
+      get_reqs("get_reqs", this),
+      del_reqs("del_reqs", this),
+      puts_latency("puts_latency", this),
+      put_tok_objs("put_tok_objs", this),
+      get_tok_objs("get_tok_objs", this),
+      resolve_mrgd_cnt("resolve_mrgd_cnt", this),
+      resolve_used_sync_cnt("resolve_used_sync_cnt", this) {
     }
     /* Exposed for counters */
     SMCounters() {}
 
     NumericCounter put_reqs;
     NumericCounter get_reqs;
+    NumericCounter del_reqs;
     LatencyCounter puts_latency;
     NumericCounter put_tok_objs;
     NumericCounter get_tok_objs;
