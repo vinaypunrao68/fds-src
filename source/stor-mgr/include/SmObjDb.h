@@ -103,6 +103,8 @@ public:
 
     void snapshot(const fds_token_id& tokId,
             leveldb::DB*& db, leveldb::ReadOptions& options);
+    void lock(const ObjectID& objId);
+    void unlock(const ObjectID& objId);
 
 #if 0
     Error readObjectLocations(const View &view, const ObjectID &objId,

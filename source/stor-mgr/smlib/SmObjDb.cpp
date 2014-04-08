@@ -80,6 +80,19 @@ ObjectDB *SmObjDb::getObjectDB(fds_token_id tokId) {
     return objdb;
 }
 
+void SmObjDb::lock(const ObjectID& objId) {
+    fds_token_id tokId = getTokenId_(objId);
+    ObjectDB *objdb = getObjectDB(tokId);
+    objdb->wrLock();
+}
+
+
+void SmObjDb::unlock(const ObjectID& objId) {
+    fds_token_id tokId = getTokenId_(objId);
+    ObjectDB *objdb = getObjectDB(tokId);
+    objdb->wrUnlock();
+}
+
 /**
  * Takes snapshot of db identified tokId
  * @param tokId
