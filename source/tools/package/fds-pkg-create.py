@@ -72,6 +72,7 @@ class FileItem:
         self.dir  = False
         self.owner= 'root:root'
         self.conf = False
+        self.treebase = None
         if tokens != None:
             self.load(tokens)
 
@@ -96,14 +97,15 @@ class FileItem:
         return '[conf=%s;dir=%s;dest=%s;src=%s]' % (self.conf,self.dir,self.dest,self.src)
         
     def load(self,tokens):
-        supportedKeys = [ 'perms' , 'conf' , 'owner' ,'dest', 'src', 'dir' ]
+        supportedKeys = [ 'perms' , 'conf' , 'owner' ,'dest', 'src', 'dest-is-dir' , 'tree-base']
         Helper.checkField(tokens.keys(),supportedKeys,'processing file')
         
-        self.perms = tokens.get('perms', None)
-        self.conf  = tokens.get('conf' , False)
-        self.owner = tokens.get('owner', 'root:root')
-        self.dest  = tokens.get('dest' , None)
-        self.dir   = tokens.get('dir'  , False)
+        self.perms   = tokens.get('perms'      , None)
+        self.conf    = tokens.get('conf'       , False)
+        self.owner   = tokens.get('owner'      , 'root:root')
+        self.dest    = tokens.get('dest'       , None)
+        self.dir     = tokens.get('dest-is-dir', False)
+        self.treebase = tokens.get('tree-base'    , None)
 
         if self.dest == None:
             raise PkgException('no destination specified for file item')
@@ -111,13 +113,22 @@ class FileItem:
         self.dest = self.dest.strip()
 
         if tokens.get('src',None) == None :
-            if tokens.get('dir') != None and not self.dir:
+            if tokens.get('dest-is-dir') != None and not self.dir:
                 raise PkgException("no src specified , but dir is set to false")
             else:
                 # this is a directory 
                 self.dir = True
                 return
 
+        if self.treebase :            
+            if not os.path.exists(self.treebase):
+                raise PkgException ('unable to locate tree-base : %s' % (self.treebase))
+            if not os.path.isdir(self.treebase):
+                raise PkgException ('tree-base should be a directory: %s' % (self.treebase))
+            if tokens.get('dest-is-dir',None) == False:
+                raise PkgException ('dest-is-dir cannot be False when using tree-base')
+            self.dir = True
+            
         self.src=[]
         
         if type(tokens['src']) == types.StringType :
@@ -130,7 +141,7 @@ class FileItem:
             else:
                 self.src.extend(glob.glob(value))
 
-        if len(self.src)>1 and tokens.get('dir',None) == None :
+        if len(self.src)>1 and tokens.get('dest-is-dir',None) == None :
             self.dir = True
 
         if not self.dir and len(self.src)>1 :
@@ -297,6 +308,8 @@ class PkgCreate:
         self.installscript = ''
         self.metadata[self.META_DEPENDS] = []
         self.pkgdir=None
+        self.willWriteInstallScripts = False
+        self.hasSoLibs = False
         
     def process(self,filename):
         log.info("processing : %s", filename)
@@ -437,7 +450,7 @@ class PkgCreate:
                 return False
         else:
             log.warn("meta : %s : missing .. so adding default"  % (self.META_MAINTAINER))
-            self.metadata[self.META_MAINTAINER]= "fds <engineering@fds.com>"
+            self.metadata[self.META_MAINTAINER]= "fds <engineering@formationds.com>"
 
         if self.META_DEPENDS in self.metadata and len(self.metadata[self.META_DEPENDS])>0:
             log.debug('verifying dependencies')
@@ -449,16 +462,31 @@ class PkgCreate:
 
         # check all the files
         log.debug('checking all the files')
+        
         for item in self.files:
+            treebase = os.path.abspath(item.treebase) if item.treebase else None
             if not item.dir:
                 for f in item.src:
                     log.debug('checking file : %s' , f)
                     if not os.path.exists(f):
                         log.error('unable to locate file [%s]',f)
                         return False
+                    if treebase:
+                        if not os.path.abspath(f).startswith(treebase):
+                            log.error("file:[%s] needs to be within treebase[%s]" % ( f,self.treebase))
+                            return False
+        # check for so libs
+        self.hasSoLibs = False
+        sopattern = re.compile(r"/usr(/local)?/lib/.*\.so.*")
+        for fileitem in self.files:
+            for f in fileitem.getDestFileList():
+                if sopattern.match(f):
+                    self.hasSoLibs = True
+                    break
 
         # check for automatic dependencies...
-        if self.needsInstallScripts():
+        self.willWriteInstallScripts = self.needsInstallScripts()
+        if self.willWriteInstallScripts:
             fExists = False
             for depends in self.metadata[self.META_DEPENDS]:
                 if depends.startswith('fds-pkghelper'):
@@ -515,16 +543,18 @@ class PkgCreate:
         log.debug('install script : [%s]',self.installscript)
         log.debug('num services : [%d]' , len(self.services))
         log.debug('num symlinks : [%d]' , len(self.symlinks))
-        if self.installscript == '' and len(self.services) == 0 and len(self.symlinks) == 0:
-            return False
+        if self.installscript != '' : return True
+        if len(self.services) != 0  : return True
+        if len(self.symlinks) != 0  : return True
+        if self.hasSoLibs : return True
 
-        return True
+        return False
 
     # write pre/post install/remove files
     # https://www.debian.org/doc/debian-policy/ch-maintainerscripts.html
     def writeInstallScripts(self,debianDir):
         # check if we need to write any install script
-        if not self.needsInstallScripts():
+        if not self.willWriteInstallScripts:
             log.warn("no install scripts will be written")
             return False
 
@@ -554,10 +584,11 @@ class PkgCreate:
             AUTO_SERVICES="%s"
             START_ON_INSTALL="%s"
             SYMLINKS="%s"
+            PKG_HAS_SOLIBS="%d"
             source /usr/include/pkghelper/install-base.sh
-
-            processInstallScript $(basename $0) $@
-         ''' % (self.installscript, ' '.join(allservices), ' '.join(autoservices), ' '.join(startoninstall), ' '.join(symlinks))
+            BASEFILE=$(basename $0)
+            processInstallScript ${BASEFILE##*.} $@
+         ''' % (self.installscript, ' '.join(allservices), ' '.join(autoservices), ' '.join(startoninstall), ' '.join(symlinks), self.hasSoLibs)
                 
         templatescript = re.sub(r'\n *','\n',templatescript.strip())
         
@@ -603,20 +634,50 @@ class PkgCreate:
     def makePkgDir(self):
         self.pkgdir=tempfile.mkdtemp(dir="./",prefix='tmppkg-')
         log.debug("pkgdir = %s" %( self.pkgdir))
-        
+        sofile = re.compile(r"(.*\.so)(\..*)?$")
+        # process each file item
         for item in self.files:
             uid,gid = item.getOwnerId()
             log.debug("will set perms to [%d:%d]",uid,gid)
             dest = self.pkgdir + item.dest
+            treebase = os.path.abspath(item.treebase) if item.treebase else None
+
+            #special case of where dest is directory
             if item.dir:
-                log.debug('making dir : %s', dest)
-                if not os.path.exists(dest):
-                    os.makedirs(dest)
-                if self.chown: os.chown(dest,uid,gid)
+                curdest = dest
+                if not os.path.exists(curdest):
+                    log.debug('making dir : %s', curdest)
+                    os.makedirs(curdest)
+                if self.chown: os.chown(curdest,uid,gid)
+
                 for f in item.src:
-                    log.debug("copy: src: %s, dest: %s " %(f,dest))
-                    shutil.copy2(f,dest)
-                    if self.chown: os.chown(dest+'/'+ os.path.basename(f) ,uid,gid)
+                    if os.path.isdir(f):
+                        log.warn('skipping directory direct copy [%s]' , f)
+                        continue;
+
+                    if treebase:
+                        basepath = os.path.abspath(os.path.dirname(f))
+                        curdest  = dest + basepath[len(treebase):]
+                        if not os.path.exists(curdest):
+                            log.debug('making dir : %s', curdest)
+                            os.makedirs(curdest)
+                        if self.chown: os.chown(curdest,uid,gid)
+
+                    log.debug("copy: src: %s, curdest: %s " %(f,curdest))
+                    shutil.copy2(f,curdest)
+                    filename=os.path.basename(f)
+                    if self.chown: os.chown(curdest+'/'+ filename ,uid,gid)
+                    solib = sofile.match(filename)
+                    # for solibs
+                    if solib:
+                        curdir=os.getcwd()
+                        try:
+                            log.debug('creating solinks for : %s' % (filename))
+                            os.chdir(curdest)
+                            os.symlink(filename,solib.groups()[0])
+                            os.system('ldconfig -n .')
+                        finally:
+                            os.chdir(curdir)
             else :
                 destdir = os.path.dirname(dest)
                 log.debug ('destfile: %s , destdir: %s' % ( dest , destdir))
@@ -625,7 +686,18 @@ class PkgCreate:
                 if self.chown: os.chown(destdir,uid,gid)
                 log.debug("copy: src: %s, dest: %s " %(item.src[0],dest))
                 shutil.copy2(item.src[0],dest)
+                filename=os.path.basename(item.src[0])
                 if self.chown: os.chown(destdir,uid,gid)
+                solib = sofile.match(filename)
+                if solib:
+                    curdir=os.getcwd()
+                    try :
+                        log.debug('creating solinks for : %s' % (filename))
+                        os.chdir(destdir)
+                        os.symlink(filename,solib.groups()[0])
+                        os.system('ldconfig -n .')
+                    finally:
+                        os.chdir(curdir)
 
         debianDir = self.pkgdir + "/DEBIAN"
         os.mkdir(debianDir)

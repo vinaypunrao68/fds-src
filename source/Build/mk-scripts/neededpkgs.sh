@@ -18,9 +18,9 @@ needed_packages=(
 
     python-pip
 
-    fds-pkghelper
-    fds-pkg
-    fds-pkgtools
+    fds-pkghelper_0.3
+    fds-pkg_0.2.2
+    fds-pkgtools_0.2.2
 )
 
 python_packages=(

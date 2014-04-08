@@ -1,0 +1,8 @@
+package: fds-boost-dev
+version: 1.54
+description: Boost Header Files  version=1.54
+
+files:
+  dest: /usr/include/boost
+  src : "`find /usr/local/include/boost`"
+  tree-base : /usr/local/include/boost

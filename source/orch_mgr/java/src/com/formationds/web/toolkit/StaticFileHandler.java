@@ -12,9 +12,9 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class StaticFileHandler implements RequestHandler {
-
-    public static final Map<String, String> MIME_TYPES;
     private String webDir;
+
+    private static final Map<String, String> MIME_TYPES;
 
     static {
         String[][] EXTENSIONS = new String[][]{
@@ -31,7 +31,8 @@ public class StaticFileHandler implements RequestHandler {
                 {".svg", "text/svg"},
                 {".txt", "text/plain"},
                 {".html", "text/html"},
-                {".gz", "application/gzip"}
+                {".gz", "application/gzip"},
+                {".flv", "video/x-flv"}
         };
 
         MIME_TYPES = new HashMap<>();
@@ -41,15 +42,21 @@ public class StaticFileHandler implements RequestHandler {
     }
 
 
+
     public StaticFileHandler(String webDir) {
         this.webDir = webDir;
+    }
+
+    public static String getMimeType(String objectName) {
+        int offset = objectName.lastIndexOf('.');
+        return MIME_TYPES.getOrDefault(objectName.substring(offset).toLowerCase(), "application/octet-stream");
     }
 
 
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws FileNotFoundException {
         String resource = request.getRequestURI();
-        String mimeType = MIME_TYPES.getOrDefault(getExtension(resource), "application/octet-stream");
+        String mimeType = getMimeType(resource);
 
         File file = new File(webDir, resource);
         if (!file.exists()) {
