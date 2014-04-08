@@ -181,12 +181,9 @@ PmDiskObj::dsk_read_uuid()
         uuid    = fds_get_uuid64(get_uuid());
         rs_uuid = ResourceUUID(uuid);
         dsk_label->dsk_label_save_my_uuid(rs_uuid);
-
-        LOGNORMAL << "Generate uuid " << std::hex << uuid
-            << " for " << rs_name << std::dec;
     } else {
         LOGNORMAL << "Read uuid " << std::hex << rs_uuid.uuid_get_val()
-            << " for " << rs_name << std::dec;
+            << " from " << rs_name << std::dec;
     }
     rs_mutex()->unlock();
 }
@@ -351,8 +348,8 @@ PmDiskObj::dsk_write(bool sim, void *buf, fds_uint32_t sector, int sec_cnt)
     int fd, rt;
 
     /* Don't touch sda device */
-    if ((sim == true) || (strstr(rs_name, "/dev/sda") != NULL)) {
-        LOGNORMAL << "Skiping the boot device or in sim env...";
+    if (sim == true) {
+        LOGNORMAL << "Skiping real disk in sim env..." << rs_name;
         return 0;
     }
     fds_verify((sector + sec_cnt) <= 16384);  // TODO(Vy): no hardcode
@@ -362,9 +359,9 @@ PmDiskObj::dsk_write(bool sim, void *buf, fds_uint32_t sector, int sec_cnt)
     close(fd);
     if (rt < 0) {
         perror("Error");
-        LOGNORMAL << "Write supperblock to " << rs_name << ", sector " << sector
-            << ", ret " << rt << ", sect cnt " << sec_cnt;
     }
+    LOGNORMAL << "Write supperblock to " << rs_name << ", sector " << sector
+            << ", ret " << rt << ", sect cnt " << sec_cnt;
     return rt;
 }
 
@@ -560,8 +557,11 @@ PmDiskInventory::dsk_dump_all()
 bool
 PmDiskInventory::dsk_need_simulation()
 {
-    if ((dsk_count == dsk_qualify_cnt) &&
-        (dsk_count >= (DISK_ALPHA_COUNT_HDD_MIN + DISK_ALPHA_COUNT_SSD))) {
+    int hdd_count;
+
+    /* Remove ssd disks */
+    hdd_count = dsk_count - DISK_ALPHA_COUNT_SSD;
+    if ((hdd_count <= dsk_qualify_cnt) && (hdd_count >= DISK_ALPHA_COUNT_HDD_MIN)) {
         return false;
     }
     LOGNORMAL << "Need to run in simulation";
@@ -661,6 +661,7 @@ DiskPlatModule::mod_startup()
 {
     udev_enumerate_add_match_subsystem(dsk_enum, "block");
     dsk_rescan();
+    dsk_discover_mount_pts();
 
     if ((dsk_devices->dsk_read_label(dsk_label, false) == true) ||
         (dsk_devices->dsk_need_simulation() == false)) {
@@ -681,11 +682,11 @@ DiskPlatModule::mod_startup()
     dsk_inuse->dsk_read_label(dsk_label, true);
 }
 
-// mod_enable_service
-// ------------------
+// dsk_discover_mount_pts
+// ----------------------
 //
 void
-DiskPlatModule::mod_enable_service()
+DiskPlatModule::dsk_discover_mount_pts()
 {
     FILE          *mnt;
     struct mntent *ent;
@@ -709,6 +710,14 @@ DiskPlatModule::mod_enable_service()
         LOGNORMAL << ent->mnt_fsname << " -> " << ent->mnt_dir;
     }
     endmntent(mnt);
+}
+
+// mod_enable_service
+// ------------------
+//
+void
+DiskPlatModule::mod_enable_service()
+{
 }
 
 // mod_shutdown

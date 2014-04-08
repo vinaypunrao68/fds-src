@@ -77,8 +77,6 @@ class PmDiskObj : public DiskObj
     DiskCommon               *dsk_common;
     DiskLabel                *dsk_label;
 
-    void dsk_read_uuid();
-
   public:
     PmDiskObj();
     virtual ~PmDiskObj();
@@ -107,6 +105,11 @@ class PmDiskObj : public DiskObj
      */
     void dsk_set_mount_point(const char *mnt);
     const std::string &dsk_get_mount_point();
+
+    /**
+     * Read in disk label.  Generate uuid for the disk if we don't have valid label.
+     */
+    void dsk_read_uuid();
 
     /**
      * Raw sector read/write to support supper block update.  Only done in parent disk.
@@ -202,6 +205,8 @@ class DiskPlatModule : public Module
     struct udev_enumerate    *dsk_enum;
     FileDiskInventory        *dsk_sim;
     DiskLabelMgr             *dsk_label;
+
+    void dsk_discover_mount_pts();
 
   public:
     explicit DiskPlatModule(char const *const name);
