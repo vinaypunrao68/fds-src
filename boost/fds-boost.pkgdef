@@ -1,0 +1,8 @@
+package: fds-boost
+version: 1.54
+description: Boost SO libraries  version=1.54
+
+files:
+  dest: /usr/lib/
+  src : 
+    - "`find /usr/local/lib | grep libboost.*.so..*.54`"
