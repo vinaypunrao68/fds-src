@@ -235,6 +235,13 @@ class OrchMgr: public FdsProcess {
             ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
             ::FDS_ProtocolInterface::FDSP_ActivateOneNodeTypePtr& act_node_msg);
 
+        int32_t ScavengerStart(
+            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const ::FDS_ProtocolInterface::FDSP_ScavengerStartType& gc_msg);
+        int32_t ScavengerStart(
+            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            ::FDS_ProtocolInterface::FDSP_ScavengerStartTypePtr& gc_msg);
+
         int32_t applyTierPolicy(
             const ::FDS_ProtocolInterface::tier_pol_time_unit& policy);
         int32_t applyTierPolicy(

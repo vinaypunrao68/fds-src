@@ -105,6 +105,10 @@ void OMgrClientRPCI::NotifyStartMigration(FDSP_MsgHdrTypePtr& msg_hdr,
     }
 }
 
+void OMgrClientRPCI::NotifyScavengerStart(FDSP_MsgHdrTypePtr& msg_hdr,
+                                          FDSP_ScavengerStartTypePtr& gc_info) {
+}
+
 void OMgrClientRPCI::NotifyDMTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
 				     FDSP_DMT_TypePtr& dmt_info) {
   om_client->recvDMTUpdate(dmt_info->DMT_version, dmt_info->DMT);

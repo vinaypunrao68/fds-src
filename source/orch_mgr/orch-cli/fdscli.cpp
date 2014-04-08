@@ -155,6 +155,8 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
              "Remove services: remove-services <node_name> "
              "[ -e \"am,dm,sm\" ]")
             ("throttle", "Throttle traffic: throttle -t <throttle_level> ")
+            ("scavenger-start", po::value<int>()->default_value(-1),
+             "scavenger-start <token_id> (if token_id is -1, will GC all tokens")
             ("policy-show", po::value<std::string>(), "Show policy")
             ("volume-size,s", po::value<double>(), "volume capacity")
             ("volume-policy,p", po::value<int>(), "volume policy")
@@ -543,6 +545,25 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         throttle_msg.throttle_level = vm["throttle-level"].as<float>();
 
         NETWORKCHECK(cfgPrx->SetThrottleLevel(msg_hdr, throttle_msg));
+    } else if (vm.count("scavenger-start")) {
+        int tok = vm["scavenger-start"].as<int>();
+        if (tok > 0) {
+            LOGNOTIFY << "Start scavenger for token  " << tok;
+        } else {
+            LOGNOTIFY << "Start scavenger for all tokens";
+        }
+
+        FDS_ProtocolInterface::FDSP_ScavengerStartType gc_msg;
+        gc_msg.token_id = 0;
+        if (tok > 0) {
+            gc_msg.token_id = tok;
+            gc_msg.all = false;
+        } else {
+            gc_msg.token_id = 0;
+            gc_msg.all = true;
+        }
+
+        NETWORKCHECK(cfgPrx->ScavengerStart(msg_hdr, gc_msg));
     } else {
         gl_OMCli.setCliClient(cfgPrx);
         gl_OMCli.mod_run();

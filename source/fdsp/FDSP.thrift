@@ -961,6 +961,11 @@ struct FDSP_GetObjMetadataResp {
  2: FDSP_MigrateObjectMetadata 	meta_data
 }
 
+struct FDSP_ScavengerStartType {
+  1: FDSP_Token   token_id      /* token id to garbage collect */
+  2: bool         all           /* if true then token id is ignored and will GC all tokens */
+}
+
 service FDSP_SessionReq {
     oneway void AssociateRespCallback(1:string src_node_name) // Associate Response callback with DM/SM for this source node.
 }
@@ -1051,6 +1056,7 @@ service FDSP_ConfigPathReq {
   i32 RemoveServices(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_RemoveServicesType rm_node_req),
   i32 ActivateAllNodes(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ActivateAllNodesType act_node_req),
   i32 ActivateNode(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ActivateOneNodeType req),
+  i32 ScavengerStart(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ScavengerStartType gc_req),
   list<FDSP_Node_Info_Type> ListServices(1:FDSP_MsgHdrType fdsp_msg),
   list <FDSP_VolumeDescType> ListVolumes(1:FDSP_MsgHdrType fdsp_msg)
 }
@@ -1108,7 +1114,8 @@ service FDSP_ControlPathReq {
   oneway void TierPolicy(1:FDSP_TierPolicy tier),
   oneway void TierPolicyAudit(1:FDSP_TierPolicyAudit audit),
   oneway void NotifyBucketStats(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_BucketStatsRespType buck_stats_msg),
-  oneway void NotifyStartMigration(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DLT_Data_Type dlt_info)
+  oneway void NotifyStartMigration(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DLT_Data_Type dlt_info),
+  oneway void NotifyScavengerStart(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ScavengerStartType gc_info)
 }
 
 service FDSP_ControlPathResp {
