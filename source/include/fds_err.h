@@ -41,6 +41,7 @@ namespace fds {
     "Mismatch in persistent state",
     "Operation not permitted: would exceed total min iops",
     "Unauthorized access",
+    "Failed to unlink file",
     "Volume not found",
     "Dlt mismatch",
     "Invalid blob offset",
@@ -81,7 +82,8 @@ namespace fds {
     ERR_PERSIST_STATE_MISMATCH = 23,
     ERR_EXCEED_MIN_IOPS      = 24,
     ERR_UNAUTH_ACCESS        = 25,
-    ERR_VOL_NOT_FOUND        = 26,
+    ERR_DISK_FILE_UNLINK_FAILED = 26,
+    ERR_VOL_NOT_FOUND        = 27,
 
     /* I/O error range */
     ERR_IO_DLT_MISMATCH      = 100,

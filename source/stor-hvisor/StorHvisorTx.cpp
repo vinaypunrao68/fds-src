@@ -432,12 +432,15 @@ void StorHvCtrl::InitSmMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr)
     msg_hdr->dst_id = FDSP_STOR_MGR;
     
     msg_hdr->src_node_name = this->my_node_name;
+    msg_hdr->src_service_uuid.uuid =
+            (fds_int64_t)(PlatformProcess::plf_manager()->
+                          plf_get_my_svc_uuid())->uuid_get_val();
     
     msg_hdr->origin_timestamp = fds::get_fds_timestamp_ms();
 
     msg_hdr->err_code = ERR_OK;
     msg_hdr->result = FDSP_ERR_OK;
-    
+    msg_hdr->proxy_count = 0;
 }
 
 void StorHvCtrl::InitDmMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr)
@@ -462,4 +465,5 @@ void StorHvCtrl::InitDmMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr)
 
     msg_hdr->err_code = ERR_OK;
     msg_hdr->result = FDSP_ERR_OK;
+    msg_hdr->proxy_count = 0;
 }

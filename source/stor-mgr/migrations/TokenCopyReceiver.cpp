@@ -113,6 +113,10 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
     /* The list of state machine states */
     struct Init : public msm::front::state<>
     {
+        // TODO(Rao): This shouldn't be needed if ack for copy req is performed by
+        // TokenCopySender.  Now it's done by fds_migration service
+        typedef mpl::vector<TokRecvdEvt> deferred_events;
+
         template <class Event, class FSM>
         void on_entry(Event const& , FSM&)
         {
@@ -126,6 +130,8 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
     };
     struct Connecting: public msm::front::state<>
     {
+        typedef mpl::vector<TokRecvdEvt> deferred_events;
+
         template <class Event, class FSM>
         void on_entry(Event const& , FSM&)
         {

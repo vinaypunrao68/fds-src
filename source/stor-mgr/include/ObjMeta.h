@@ -176,7 +176,8 @@ inline std::ostream& operator<<(std::ostream& out, const ObjMetaData& objMd)
          out << "Object MetaData: "
              << " Tier (" << objMd.phy_loc[i].obj_tier
              << ") loc id (" << objMd.phy_loc[i].obj_stor_loc_id
-             << ") offset (" << objMd.phy_loc[i].obj_stor_offset << "), "
+             << ") offset (" << objMd.phy_loc[i].obj_stor_offset
+             << ") file id (" << objMd.phy_loc[i].obj_file_id << ")"
             << std::endl;
     }
     return out;

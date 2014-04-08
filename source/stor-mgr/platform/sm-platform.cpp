@@ -76,6 +76,23 @@ SmPlatform::mod_shutdown()
 {
 }
 
+// plf_reg_node_info
+// -----------------
+//
+void
+SmPlatform::plf_reg_node_info(const NodeUuid &uuid, const FdspNodeRegPtr msg)
+{
+    NodeAgent::pointer     new_node;
+    DomainNodeInv::pointer local;
+
+    local = plf_node_inventory();
+    Error err = local->dc_register_node(uuid, msg, &new_node);
+    fds_verify(err == ERR_OK);
+
+    AgentContainer::pointer svc = local->dc_container_frm_msg(msg->node_type);
+    svc->agent_handshake(plf_net_sess, plf_dpath_resp, new_node);
+}
+
 PlatRpcReqt *
 SmPlatform::plat_creat_reqt_disp()
 {
@@ -86,6 +103,12 @@ PlatRpcResp *
 SmPlatform::plat_creat_resp_disp()
 {
     return new PlatRpcResp(this);
+}
+
+PlatDataPathResp *
+SmPlatform::plat_creat_dpath_resp()
+{
+    return new PlatDataPathResp(this);
 }
 
 // --------------------------------------------------------------------------------------

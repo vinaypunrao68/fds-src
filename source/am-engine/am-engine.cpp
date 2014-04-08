@@ -615,14 +615,11 @@ AME_Request::ame_send_resp_data(ame_buf_t *buf, int len, fds_bool_t last)
     out.buf  = buf;
     out.next = NULL;
 
-    if (len == 0 && last) {
-        rc = NGX_HTTP_NO_CONTENT;
-    } else {
-        rc = ngx_http_output_filter(r, &out);
-    }
-
+    rc = ngx_http_output_filter(r, &out);
+    LOGDEBUG << "return code:" << rc;
     if (last) {
         ngx_http_finalize_request(r, rc);
+        LOGDEBUG << "last return code:" << rc;
     }
     return NGX_OK;
 }
@@ -1432,6 +1429,7 @@ Conn_DelBucket::~Conn_DelBucket()
 static void
 fdsn_delbucket_cbfn(FDSN_Status status, const ErrorDetails *err, void *arg)
 {
+    LOGDEBUG << "status:" << status << ":" << static_cast<int>(status);
     Conn_DelBucket *conn_pb = static_cast<Conn_DelBucket *>(arg);
     conn_pb->ame_signal_resume(AME_Request::ame_map_fdsn_status(status));
 }

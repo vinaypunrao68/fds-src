@@ -195,13 +195,25 @@ Error VolumeCatalogCache::queryDm(const std::string& blobName,
         return err;
     }
 
-    netMetaDataPathClientSession *sessionCtx =
-            storHvisor->rpcSessionTbl->                                 \
-            getClientSession<netMetaDataPathClientSession>(node_ip, node_port);
-    fds_verify(sessionCtx != NULL);
-    boost::shared_ptr<FDSP_MetaDataPathReqClient> client = sessionCtx->getClient();
-    msg_hdr->session_uuid = sessionCtx->getSessionId();
-    client->QueryCatalogObject(msg_hdr, query_req);
+    netMetaDataPathClientSession *sessionCtx =  nullptr;
+    try {
+        sessionCtx = storHvisor->rpcSessionTbl->getClientSession<netMetaDataPathClientSession>(node_ip, node_port); //NOLINT
+        if (sessionCtx == NULL) {
+            LOGCRITICAL << "unable to get a client session to [" << node_ip << ":" << node_port << "]"; //NOLINT
+            return ERR_NETWORK_TRANSPORT;
+        }
+        boost::shared_ptr<FDSP_MetaDataPathReqClient> client = sessionCtx->getClient();
+        msg_hdr->session_uuid = sessionCtx->getSessionId();
+        client->QueryCatalogObject(msg_hdr, query_req);
+    } catch(const att::TTransportException& e) {
+        LOGERROR << "error during network call : " << e.what();
+        if (sessionCtx) {
+            // TODO(prem) - WIN-301
+            // storHvisor->rpcSessionTbl->endSession(sessionCtx);
+        }
+        return ERR_NETWORK_TRANSPORT;
+    }
+
     LOGDEBUG << " VolumeCatalogCache - "
              << "Async query request sent to DM "
              << endPoint << " for volume " << std::hex << vol_id << std::dec

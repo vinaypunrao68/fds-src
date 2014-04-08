@@ -66,14 +66,7 @@ Error TokenCompactor::startCompaction(fds_token_id tok_id,
     // copy non-garbage objects
     // TODO(anna) initial implemetation compacts disk only file, need to
     // think if we need to do something different about SSD files
-    err = dio_mgr.notify_start_gc(token_id, diskTier);
-    if (!err.ok()) {
-        LOGERROR << "Failed to start GC for token " << token_id
-                 << " at persistent layer, error " << err.GetErrstr();
-        // back to idle state
-        std::atomic_exchange(&state, TCSTATE_IDLE);
-        return err;
-    }
+    dio_mgr.notify_start_gc(token_id, diskTier);
 
     // send request to do object db snapshot that we will work with
     snap_req.token_id = token_id;
@@ -81,7 +74,9 @@ Error TokenCompactor::startCompaction(fds_token_id tok_id,
     if (!err.ok()) {
         LOGERROR << "Failed to enqueue take index db snapshot message"
                  << " error " << err.GetErrstr() << "; try again later";
-        // back to idle state so that scavenger can try later
+        // We already created shadow file so, we are setting state
+        // idle, and scavenger has to try again later
+        // TODO(anna) need proper recovery in this case
         std::atomic_exchange(&state, TCSTATE_IDLE);
         return Error(ERR_NOT_READY);
     }
@@ -99,7 +94,7 @@ Error TokenCompactor::enqCopyWork(std::vector<ObjectID>* obj_list)
     copy_req->io_type = FDS_SM_COMPACT_OBJECTS;
     (copy_req->oid_list).swap(*obj_list);
     copy_req->smio_compactobj_resp_cb = std::bind(
-        &TokenCompactor::compactObjectsCb, this,
+        &TokenCompactor::objsCompactedCb, this,
         std::placeholders::_1, std::placeholders::_2);
 
     // enqueue to qos queue, copy_req will be delete after it's dequeued
@@ -197,11 +192,40 @@ void TokenCompactor::snapDoneCb(const Error& error,
 }
 
 //
-// Do actualy copy for given objects
+// Notification that set of objects were compacted
+// Update progress counters and finish token compaction process
+// if we finished compaction of all objects
 //
-void TokenCompactor::compactObjectsCb(const Error& error,
-                                      SmIoCompactObjects* req)
+void TokenCompactor::objsCompactedCb(const Error& error,
+                                     SmIoCompactObjects* req)
 {
+    fds_verify(req != NULL);
+    fds_uint32_t done_before, total_done;
+    fds_uint32_t work_objs_done = (req->oid_list).size();
+
+    // we must be in IN_PROGRESS state
+    tcStateType cur_state = std::atomic_load(&state);
+    fds_verify(cur_state == TCSTATE_IN_PROGRESS);
+
+    if (!error.ok()) {
+        LOGERROR << "Failed to compact a set of objects, cannot continue"
+                 << " with token GC copy, completing with error " << error;
+        handleCompactionDone(error);
+        return;
+    }
+
+    // account for progress and see if token compaction is done
+    done_before = std::atomic_fetch_add(&objs_done, work_objs_done);
+    total_done = done_before + work_objs_done;
+    fds_verify(total_done <= total_objs);
+
+    LOGNORMAL << "Finished compaction of " << work_objs_done << " objects"
+              << ", done so far " << total_done << " out of " << total_objs;
+
+    if (total_done == total_objs) {
+        // we are done!
+        handleCompactionDone(error);
+    }
 }
 
 Error TokenCompactor::handleCompactionDone(const Error& tc_error)

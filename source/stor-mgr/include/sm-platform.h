@@ -28,6 +28,8 @@ class SmPlatform : public Platform
     SmPlatform();
     virtual ~SmPlatform() {}
 
+    virtual void plf_reg_node_info(const NodeUuid &uuid, const FdspNodeRegPtr msg);
+
     /**
      * Module methods
      */
@@ -38,6 +40,7 @@ class SmPlatform : public Platform
   protected:
     virtual PlatRpcReqt *plat_creat_reqt_disp();
     virtual PlatRpcResp *plat_creat_resp_disp();
+    virtual PlatDataPathResp *plat_creat_dpath_resp();
 };
 
 /**
