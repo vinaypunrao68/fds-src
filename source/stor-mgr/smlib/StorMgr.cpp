@@ -13,6 +13,7 @@
 #include "StorMgr.h"
 #include "fds_obj_cache.h"
 #include <fds_timestamp.h>
+#include <TokenCompactor.h>
 
 namespace fds {
 
@@ -2295,17 +2296,113 @@ ObjectStorMgr::applySyncMetadataInternal(SmIoReq* ioReq)
     applyMdReq->smio_sync_md_resp_cb(e, applyMdReq);
 }
 
+Error
+ObjectStorMgr::condCopyObjectInternal(const ObjectID &objId)
+{
+    Error err(ERR_OK);
+    ObjMetaData objMetadata;
+    ObjectBuf objData;
+    diskio::DataIO& dio_mgr = diskio::DataIO::disk_singleton();
+
+    err = readObjMetaData(objId, objMetadata);
+    if (!err.ok()) {
+        LOGERROR << "failed to read metadata for obj " << objId
+                 << " error " << err;
+        return err;
+    }
+
+    // we don't do compaction for flash yet, so object location
+    // in flash must not happen yet
+    fds_verify(!objMetadata.onFlashTier());
+
+    if (!TokenCompactor::isGarbage(objMetadata)) {
+        OpCtx opCtx(OpCtx::GC_COPY, 0);
+        meta_obj_id_t   oid;
+        meta_vol_io_t   vio;  // passing to disk_req but not used
+        SmPlReq     *disk_req = NULL;
+
+        LOGDEBUG << "Will copy obj " << objId << " to new file";
+
+        // not garbage, read obj data
+        memcpy(oid.metaDigest, objId.GetId(), objId.GetLen());
+        disk_req = new SmPlReq(vio, oid, (ObjectBuf *)&objData, true);
+        disk_req->setTier(diskTier);
+        disk_req->set_phy_loc(objMetadata.getObjPhyLoc(diskTier));
+        objData.size = objMetadata.getObjSize();
+        objData.data.resize(objData.size, 0);
+        err = dio_mgr.disk_read(disk_req);
+        if (!err.ok()) {
+            LOGERROR << " Disk Read Err: " << err; 
+            delete disk_req;
+            return err;
+        }
+
+        // disk write will write it to the new file
+        err = dio_mgr.disk_write(disk_req);
+        if (!err.ok()) {
+            LOGERROR << " Disk Write Err: " << err; 
+            delete disk_req;
+            return err;
+        }
+
+        // ok if concurrent reads happen for this obj before
+        // updating metadata, because object is still in both places
+
+        // update metadata
+        // TODO(anna) read/modify/write should happen under one lock (?)
+        // so we should add such func in object db
+        // for now doing here for testing (no concurrent io)
+        err = readObjMetaData(objId, objMetadata);
+        if (!err.ok()) {
+            LOGERROR << "failed to read obj metadata second time for obj "
+                     << objId << " error " << err;
+            delete disk_req;
+            return err;
+        }
+        objMetadata.updatePhysLocation(disk_req->req_get_phy_loc());
+        err = smObjDb->put(opCtx, objId, objMetadata);
+        if (!err.ok()) {
+            LOGERROR << "Failed to update object db for obj " << objId
+                     << " result " << err;
+        } else {
+            LOGDEBUG << "Updated object location for object "
+                     << objId << " to " << objMetadata;
+        }
+
+        delete disk_req;
+    } else {
+        // TODO(anna) not going to copy obj, remove entry from obj db
+        LOGDEBUG << "Will garbage-collect obj " << objId;
+    }
+
+    return err;
+}
+
 void
 ObjectStorMgr::compactObjectsInternal(SmIoReq* ioReq)
 {
+    Error err(ERR_OK);
     SmIoCompactObjects *cobjs_req =  static_cast<SmIoCompactObjects*>(ioReq);
+    fds_verify(cobjs_req != NULL);
 
-    LOGDEBUG << "Will compact objects in the list";
+    for (fds_uint32_t i = 0; i < (cobjs_req->oid_list).size(); ++i) {
+        const ObjectID& obj_id = (cobjs_req->oid_list)[i];
+
+        LOGDEBUG << "Compaction is working on object " << obj_id;
+
+        // copy this object if not garbage, otherwise rm object db entry
+        err = condCopyObjectInternal(obj_id);
+        if (!err.ok()) {
+            LOGERROR << "Failed to compact object " << obj_id
+                     << ", error " << err;
+            break;
+        }
+    }
 
     /* Mark the request as complete */
     qosCtrl->markIODone(*cobjs_req, DataTier::diskTier);
 
-    cobjs_req->smio_compactobj_resp_cb(Error(ERR_OK), cobjs_req);
+    cobjs_req->smio_compactobj_resp_cb(err, cobjs_req);
 
     delete cobjs_req;
 }

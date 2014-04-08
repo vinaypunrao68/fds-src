@@ -491,6 +491,7 @@ class ObjectStorMgr :
     void readObjectDataInternal(SmIoReq* ioReq);
     void readObjectMetadataInternal(SmIoReq* ioReq);
     void compactObjectsInternal(SmIoReq* ioReq);
+    Error condCopyObjectInternal(const ObjectID &objId);
 
     Error relocateObject(const ObjectID &objId,
             diskio::DataTier from_tier,

@@ -197,6 +197,33 @@ void TokenCompactor::snapDoneCb(const Error& error,
 void TokenCompactor::compactObjectsCb(const Error& error,
                                       SmIoCompactObjects* req)
 {
+    fds_verify(req != NULL);
+    fds_uint32_t done_before, total_done;
+    fds_uint32_t work_objs_done = (req->oid_list).size();
+
+    // we must be in IN_PROGRESS state
+    tcStateType cur_state = std::atomic_load(&state);
+    fds_verify(cur_state == TCSTATE_IN_PROGRESS);
+
+    if (!error.ok()) {
+        LOGERROR << "Failed to compact a set of objects, cannot continue"
+                 << " with token GC copy, completing with error " << error;
+        handleCompactionDone(error);
+        return;
+    }
+
+    // account for progress and see if token compaction is done
+    done_before = std::atomic_fetch_add(&objs_done, work_objs_done);
+    total_done = done_before + work_objs_done;
+    fds_verify(total_done <= total_objs);
+
+    LOGNORMAL << "Finished compaction of " << work_objs_done << " objects"
+              << ", done so far " << total_done << " out of " << total_objs;
+
+    if (total_done == total_objs) {
+        // we are done!
+        handleCompactionDone(error);
+    }
 }
 
 Error TokenCompactor::handleCompactionDone(const Error& tc_error)
