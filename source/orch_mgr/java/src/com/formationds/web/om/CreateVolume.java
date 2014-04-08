@@ -23,7 +23,7 @@ public class CreateVolume implements RequestHandler {
 
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
-        String name = requiredString(routeParameters, "name");
+        String name = requiredString(routeParameters, "volume");
         FDSP_MsgHdrType msg = new FDSP_MsgHdrType();
         String policyName = name + "_policy";
         int policyId = (int) UUID.randomUUID().getLeastSignificantBits();
