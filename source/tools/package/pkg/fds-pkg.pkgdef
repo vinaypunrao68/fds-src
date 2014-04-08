@@ -1,6 +1,6 @@
 
 package: fds-pkg
-version: 0.2
+version: 0.2.2
 description: Provides simple wrappers around apt-get commands
 
 files:
