@@ -1823,7 +1823,6 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
 
     //objStorMutex->lock();
     objBufPtr = objCache->object_retrieve(volId, objId);
-    objBufPtr = NULL; //Disable the object cache lookup 
 
     if (!objBufPtr) {
         ObjectBuf objData;

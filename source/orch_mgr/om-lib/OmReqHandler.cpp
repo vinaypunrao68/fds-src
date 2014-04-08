@@ -521,6 +521,27 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::ActivateNode(
     return err.GetErrno();
 }
 
+int32_t OrchMgr::FDSP_ConfigPathReqHandler::ScavengerStart(
+    const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+    const ::FDS_ProtocolInterface::FDSP_ScavengerStartType& gc_msg) {
+    // Don't do anything here. This stub is just to keep cpp compiler happy
+    return 0;
+}
+
+int32_t OrchMgr::FDSP_ConfigPathReqHandler::ScavengerStart(
+    ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+    ::FDS_ProtocolInterface::FDSP_ScavengerStartTypePtr& gc_msg) {
+    if (gc_msg->all) {
+        LOGNOTIFY << "Received scavenger start for all tokens msg";
+    } else {
+        LOGNOTIFY << "Received scavenger start  msg for token "
+                  << gc_msg->token_id;
+    }
+
+    // TODO(anna) Send scavenger start message to all SMs
+    return 0;
+}
+
 void OrchMgr::FDSP_ConfigPathReqHandler::ListServices(
     std::vector<FDSP_Node_Info_Type> & ret,
     const FDSP_MsgHdrType& fdsp_msg) {
