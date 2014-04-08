@@ -17,6 +17,8 @@
 #include <leveldb/db.h>
 #include <leveldb/env.h>
 #include <util/histogram.h>
+#include <concurrency/Mutex.h>
+#include <concurrency/RwLock.h>
 
 namespace fds {
 namespace osm {
@@ -72,6 +74,22 @@ namespace osm {
        return options;
     }
 
+    void  rdLock()  {
+       rwlock.read_lock();
+    }
+
+    void  rdUnlock()  {
+       rwlock.read_lock();
+    }
+   
+    void wrLock() { 
+       rwlock.write_lock();
+    }
+
+    void wrUnlock() { 
+       rwlock.write_unlock();
+    }
+
  private:
     std::string file;
 
@@ -89,6 +107,8 @@ namespace osm {
     leveldb::Options      options;
     leveldb::WriteOptions write_options;
     leveldb::ReadOptions  read_options;
+
+    fds_rwlock   rwlock;
 
     /*
      * Statistics recording
