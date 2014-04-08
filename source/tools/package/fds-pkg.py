@@ -84,6 +84,19 @@ class Pkg:
         if len(nondebs) > 0:
             self.runCmd( 'apt-get install %s' % (' '.join(nondebs)))
 
+    def uninstall(self,pkgs):
+        debs = [ p.split('_')[0] for p in pkgs ]
+        debs = map(lambda(x): x[:-4] if x.endswith('.deb') else x,debs)
+        
+        if len(debs) > 0:
+            self.runCmd( 'dpkg --remove %s' % (' '.join(debs)))
+
+    def checkPrivileges(self):
+        if os.geteuid() != 0:
+            log.error('this command needs root priviliges')
+            return False
+        return True
+
     def list(self,pkgs,files=False):
         if len(pkgs)==0:
             pkgs=['fds*']
@@ -162,10 +175,19 @@ if __name__ == "__main__":
                 pkgs = pkg.getPackageList(args.other)
                 pkg.printLines(pkg.getPackageInfo(pkgs))
             elif cmd == 'update':
+                if not pkg.checkPrivileges() : sys.exit(1)
                 pkg.update()
             elif cmd == 'install':
+                if not pkg.checkPrivileges() : sys.exit(1)
                 if len(args.other) > 0:
                     pkg.install(args.other)
+                else:
+                    log.error('please specify packages to install')
+
+            elif cmd in ['uninstall' ,'remove' ]:
+                if not pkg.checkPrivileges() : sys.exit(1)
+                if len(args.other) > 0:
+                    pkg.uninstall(args.other)
                 else:
                     log.error('please specify packages to install')
             else:
