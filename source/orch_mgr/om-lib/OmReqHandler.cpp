@@ -538,7 +538,9 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::ScavengerStart(
                   << gc_msg->token_id;
     }
 
-    // TODO(anna) Send scavenger start message to all SMs
+    // send scavenger start message to all SMs
+    OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+    local->om_bcast_scavenger_cmd(gc_msg->all, gc_msg->token_id);
     return 0;
 }
 

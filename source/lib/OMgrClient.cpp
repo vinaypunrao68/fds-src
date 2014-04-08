@@ -107,6 +107,12 @@ void OMgrClientRPCI::NotifyStartMigration(FDSP_MsgHdrTypePtr& msg_hdr,
 
 void OMgrClientRPCI::NotifyScavengerStart(FDSP_MsgHdrTypePtr& msg_hdr,
                                           FDSP_ScavengerStartTypePtr& gc_info) {
+    if (gc_info->all) {
+        LOGNOTIFY << "Received Scavenger Start mesage for all tokens";
+    } else {
+        LOGNOTIFY << "Received Scavenger Start mesage for token "
+                  << gc_info->token_id;
+    }
 }
 
 void OMgrClientRPCI::NotifyDMTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,

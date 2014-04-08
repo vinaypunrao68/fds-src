@@ -257,6 +257,38 @@ OM_NodeAgent::om_send_dlt(const DLT *curDlt) {
     return true;
 }
 
+//
+// Currently sends scavenger start message
+// TODO(xxx) extend to other scavenger commands (pass cmd type)
+//
+Error
+OM_NodeAgent::om_send_scavenger_cmd(fds_bool_t all, fds_uint32_t token_id) {
+    Error err(ERR_OK);
+    fpi::FDSP_MsgHdrTypePtr m_hdr(new fpi::FDSP_MsgHdrType);
+    fpi::FDSP_ScavengerStartTypePtr gc_msg(new fpi::FDSP_ScavengerStartType());
+    this->init_msg_hdr(m_hdr);
+
+    m_hdr->msg_code = fpi::FDSP_MSG_SCAVENGER_START;
+    m_hdr->msg_id = 0;
+    m_hdr->tennant_id = 1;
+    m_hdr->local_domain_id = 1;
+
+    gc_msg->all = all;
+    gc_msg->token_id = token_id;
+
+    try {
+        ndCpClient->NotifyScavengerStart(m_hdr, gc_msg);
+    } catch(const att::TTransportException& e) {
+        LOGERROR << "error during network call : " << e.what();
+        return ERR_NETWORK_TRANSPORT;
+    }
+
+    LOGNORMAL << "OM: send scavenger start for all? " << all
+              << " tokens, token_id = " << token_id;
+
+    return err;
+}
+
 void
 OM_NodeAgent::om_send_dlt_close(fds_uint64_t cur_dlt_version) {
     fpi::FDSP_MsgHdrTypePtr m_hdr(new fpi::FDSP_MsgHdrType);
@@ -1209,6 +1241,25 @@ OM_NodeContainer::om_bcast_dlt_close(fds_uint64_t cur_dlt_version)
     return dc_sm_nodes->rs_available_elm();
 }
 
+// om_send_dlt_close
+// -----------------------
+//
+static void
+om_send_scavenger_cmd(fds_bool_t all, fds_uint32_t token_id, NodeAgent::pointer agent)
+{
+    OM_SmAgent::agt_cast_ptr(agent)->om_send_scavenger_cmd(all, token_id);
+}
+
+//
+// For now sends scavenger start message
+// TODO(xxx) extend to other scavenger commands
+//
+void
+OM_NodeContainer::om_bcast_scavenger_cmd(fds_bool_t all, fds_uint32_t token_id)
+{
+    dc_sm_nodes->agent_foreach<fds_bool_t, fds_uint32_t>(all, token_id,
+                                                         om_send_scavenger_cmd);
+}
 
 // om_round_robin_dmt
 // ------------------
