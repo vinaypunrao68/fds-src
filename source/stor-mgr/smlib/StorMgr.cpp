@@ -948,6 +948,7 @@ ObjectStorMgr::writeObjectMetaData(const OpCtx &opCtx,
 
     LOGDEBUG << "Appending new location for object " << objId;
 
+   smObjDb->lock(objId);
    /*
    * Get existing object locations
    */
@@ -955,6 +956,7 @@ ObjectStorMgr::writeObjectMetaData(const OpCtx &opCtx,
     if (err != ERR_OK && err != ERR_DISK_READ_FAILED) {
         LOGERROR << "Failed to read existing object locations"
                     << " during location write";
+        smObjDb->unlock(objId);
         return err;
      } else if (err == ERR_DISK_READ_FAILED) {
             /*
@@ -966,6 +968,7 @@ ObjectStorMgr::writeObjectMetaData(const OpCtx &opCtx,
                     << ", assuming no prior entry existed";
             err = ERR_OK;
      }
+     // Lock the SM object DB
 
     /*
      * Add new location to existing locations
@@ -986,6 +989,7 @@ ObjectStorMgr::writeObjectMetaData(const OpCtx &opCtx,
         LOGERROR << "Failed to put object " << objId
                 << " into odb with error " << err;
     }
+    smObjDb->unlock(objId);
 
     return err;
 }
@@ -1008,6 +1012,7 @@ ObjectStorMgr::deleteObjectMetaData(const OpCtx &opCtx,
     // NOTE !!!
     ObjMetaData objMap;
 
+    smObjDb->lock(objId);
     /*
      * Get existing object locations
      */
@@ -1015,6 +1020,7 @@ ObjectStorMgr::deleteObjectMetaData(const OpCtx &opCtx,
     if (err != ERR_OK && err != ERR_DISK_READ_FAILED) {
         LOGERROR << "Failed to read existing object locations"
                 << " during location write";
+        smObjDb->unlock(objId);
         return err;
     } else if (err == ERR_DISK_READ_FAILED) {
         /*
@@ -1040,6 +1046,7 @@ ObjectStorMgr::deleteObjectMetaData(const OpCtx &opCtx,
         LOGERROR << "Failed to put object " << objId
                 << " into odb with error " << err;
     }
+    smObjDb->unlock(objId);
 
     return err;
 }
@@ -1392,7 +1399,7 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
     bool new_buff_allocated = false, added_cache = false;
 
     ObjMetaData objMap;
-    objStorMutex->lock();
+    //objStorMutex->lock();
 
 #ifdef OBJCACHE_ENABLE
     objBufPtr = objCache->object_retrieve(volId, objId);
@@ -1437,6 +1444,7 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
             fds_verify(err == ERR_OK);
         }
 
+        smObjDb->lock(objId);
         // Update  the AssocEntry for dedupe-ing
         objMap.updateAssocEntry(objId, volId);
         err = smObjDb->put(opCtx, objId, objMap);
@@ -1447,6 +1455,7 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
             LOGERROR << "Failed to put ObjMetaData " << objId
                     << " into odb with error " << err;
         }
+        smObjDb->unlock(objId);
 
         /*
          * Reset the err to OK to ack the metadata update.
@@ -1509,6 +1518,7 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
             }  
           // Update  the AssocEntry for dedupe-ing
           LOGDEBUG << " Object  ID: " << objId << " objMap: " << objMap;
+          smObjDb->lock(objId);
           objMap.updateAssocEntry(objId, volId);
           err = smObjDb->put(opCtx, objId, objMap);
           if (err == ERR_OK) {
@@ -1518,6 +1528,7 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
               LOGERROR << "Failed to put ObjMetaData " << objId
                       << " into odb with error " << err;
           }  
+          smObjDb->unlock(objId);
           err = ERR_OK;
         } else {
 
@@ -1538,7 +1549,7 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
        objCache->object_delete(volId, objId);
 
 #endif
-    objStorMutex->unlock();
+    //objStorMutex->unlock();
 
     qosCtrl->markIODone(*putReq,
                         tierUsed);
@@ -1688,12 +1699,12 @@ ObjectStorMgr::deleteObjectInternal(SmIoReq* delReq) {
     }
 
 
-    objStorMutex->lock();
+    //objStorMutex->lock();
     /*
      * Delete the object, decrement refcnt of the assoc entry & overall refcnt
      */
     err = deleteObjectMetaData(opCtx, objId, volId);
-    objStorMutex->unlock();
+    //objStorMutex->unlock();
     if (err != fds::ERR_OK) {
         LOGERROR << "Failed to delete object " << err;
     } else {
@@ -1809,7 +1820,7 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
      * memory for that size.
      */
 
-    objStorMutex->lock();
+    //objStorMutex->lock();
     objBufPtr = objCache->object_retrieve(volId, objId);
     objBufPtr = NULL; //Disable the object cache lookup 
 
@@ -1843,7 +1854,7 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
         fds_verify(!(objCache->is_object_io_in_progress(volId, objId, objBufPtr)));
     }
 
-    objStorMutex->unlock();
+    //objStorMutex->unlock();
 
     if (err != fds::ERR_OK) {
         LOGERROR << "Failed to get object " << objId
