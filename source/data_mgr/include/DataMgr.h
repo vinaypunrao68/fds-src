@@ -207,7 +207,6 @@ class DataMgr : public PlatformProcess
     fds_rwlock respMapMtx;
     OMgrClient     *omClient;
 
-    fds_log *dm_log;
     dmQosCtrl   *qosCtrl;
 
     /*
@@ -311,7 +310,6 @@ class DataMgr : public PlatformProcess
     virtual void interrupt_cb(int signum) override;
 
     void swapMgrId(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg);
-    fds_log* GetLog();
 
     std::string getPrefix() const;
     fds_bool_t volExists(fds_volid_t vol_uuid) const;
