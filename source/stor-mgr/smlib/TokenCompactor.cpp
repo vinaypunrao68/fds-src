@@ -94,7 +94,7 @@ Error TokenCompactor::enqCopyWork(std::vector<ObjectID>* obj_list)
     copy_req->io_type = FDS_SM_COMPACT_OBJECTS;
     (copy_req->oid_list).swap(*obj_list);
     copy_req->smio_compactobj_resp_cb = std::bind(
-        &TokenCompactor::compactObjectsCb, this,
+        &TokenCompactor::objsCompactedCb, this,
         std::placeholders::_1, std::placeholders::_2);
 
     // enqueue to qos queue, copy_req will be delete after it's dequeued
@@ -192,10 +192,12 @@ void TokenCompactor::snapDoneCb(const Error& error,
 }
 
 //
-// Do actualy copy for given objects
+// Notification that set of objects were compacted
+// Update progress counters and finish token compaction process
+// if we finished compaction of all objects
 //
-void TokenCompactor::compactObjectsCb(const Error& error,
-                                      SmIoCompactObjects* req)
+void TokenCompactor::objsCompactedCb(const Error& error,
+                                     SmIoCompactObjects* req)
 {
     fds_verify(req != NULL);
     fds_uint32_t done_before, total_done;

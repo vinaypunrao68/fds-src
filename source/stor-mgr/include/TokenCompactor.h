@@ -112,11 +112,11 @@ namespace fds {
                         leveldb::DB *db);
 
         /**
-         * Callback from object store to do compaction work for a list of
-         * objects
+         * Callback from object store that compaction for a set of objects is
+         * finished
          */
-        void compactObjectsCb(const Error& error,
-                              SmIoCompactObjects* req);
+        void objsCompactedCb(const Error& error,
+                             SmIoCompactObjects* req);
 
   private:  // methods
         /**
