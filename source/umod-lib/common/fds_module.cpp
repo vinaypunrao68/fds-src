@@ -257,14 +257,8 @@ ModuleVector::mod_init_modules()
 void
 ModuleVector::mod_startup_modules()
 {
-    int     i;
-    Module *mod;
-
-    if (sys_mod_cnt == 0) {
-        return;
-    }
-    for (i = 0; i < sys_mod_cnt; i++) {
-        mod = sys_mods[i];
+    for (int i = 0; i < sys_mod_cnt; i++) {
+        Module *mod = sys_mods[i];
         mod->mod_startup();
     }
 }
@@ -275,14 +269,8 @@ ModuleVector::mod_startup_modules()
 void
 ModuleVector::mod_run_locksteps()
 {
-    int     i;
-    Module *mod;
-
-    if (sys_mod_cnt == 0) {
-        return;
-    }
-    for (i = 0; i < sys_mod_cnt; i++) {
-        mod = sys_mods[i];
+    for (int i = 0; i < sys_mod_cnt; i++) {
+        Module *mod = sys_mods[i];
         mod->mod_lockstep_startup();
     }
 }
@@ -293,14 +281,8 @@ ModuleVector::mod_run_locksteps()
 void
 ModuleVector::mod_start_services()
 {
-    int     i;
-    Module *mod;
-
-    if (sys_mod_cnt == 0) {
-        return;
-    }
-    for (i = 0; i < sys_mod_cnt; i++) {
-        mod = sys_mods[i];
+    for (int i = 0; i < sys_mod_cnt; i++) {
+        Module *mod = sys_mods[i];
         mod->mod_enable_service();
     }
 }
@@ -311,14 +293,11 @@ ModuleVector::mod_start_services()
 void
 ModuleVector::mod_stop_services()
 {
-    int     i;
-    Module *mod;
-
     if (sys_mod_cnt == 0) {
         return;
     }
-    for (i = sys_mod_cnt - 1; i >= 0; i--) {
-        mod = sys_mods[i];
+    for (int i = sys_mod_cnt - 1; i >= 0; i--) {
+        Module *mod = sys_mods[i];
         fds_verify(mod != NULL);
         mod->mod_disable_service();
     }
@@ -330,14 +309,11 @@ ModuleVector::mod_stop_services()
 void
 ModuleVector::mod_shutdown_locksteps()
 {
-    int     i;
-    Module *mod;
-
     if (sys_mod_cnt == 0) {
         return;
     }
-    for (i = sys_mod_cnt - 1; i >= 0; i--) {
-        mod = sys_mods[i];
+    for (int i = sys_mod_cnt - 1; i >= 0; i--) {
+        Module *mod = sys_mods[i];
         mod->mod_lockstep_shutdown();
     }
 }
@@ -350,9 +326,6 @@ ModuleVector::mod_shutdown_locksteps()
 void
 ModuleVector::mod_execute()
 {
-    int     i, bailout;
-    Module *mod;
-
     if (sys_mod_cnt == 0) {
         return;
     }
@@ -370,12 +343,9 @@ ModuleVector::mod_execute()
 void
 ModuleVector::mod_shutdown()
 {
-    int    i;
-    Module *mod;
-
     if (sys_mod_cnt > 0) {
-        for (i = sys_mod_cnt - 1; i >= 0; i--) {
-            mod = sys_mods[i];
+        for (int i = sys_mod_cnt - 1; i >= 0; i--) {
+            Module *mod = sys_mods[i];
             mod->mod_shutdown();
         }
     }

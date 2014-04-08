@@ -220,6 +220,7 @@ DataDiscoveryModule::disk_open_map()
         if (map.fail()) {
             break;
         }
+        std::cout << "path " << path << ", uuid " << uuid << std::endl;
         if (strstr(path.c_str(), "hdd") != NULL) {
             pd_hdd_found++;
             pd_hdd_map[idx] = path;

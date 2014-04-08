@@ -4,6 +4,9 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <mntent.h>
 #include <string>
 #include <fds_uuid.h>
 #include <fds_process.h>
@@ -53,6 +56,30 @@ PmDiskObj::PmDiskObj()
     dsk_part_cnt = 0;
     dsk_my_devno = 0;
     dsk_raw_plen = 0;
+}
+
+// dsk_set_mount_point
+// -------------------
+//
+void
+PmDiskObj::dsk_set_mount_point(const char *mnt)
+{
+    dsk_mount_pt.assign(mnt);
+}
+
+// dsk_get_mount_point
+// -------------------
+//
+const std::string &
+PmDiskObj::dsk_get_mount_point()
+{
+    if (dsk_mount_pt.empty()) {
+        if (DiskPlatModule::dsk_get_hdd_inv()->dsk_need_simulation() == true) {
+            // In simulation, the mount point is the same as the device.
+            dsk_mount_pt.assign(rs_name);
+        }
+    }
+    return dsk_mount_pt;
 }
 
 // dsk_update_device
@@ -310,12 +337,8 @@ PmDiskObj::dsk_read(void *buf, fds_uint32_t sector, int sec_cnt)
 
     fd = open(rs_name, O_RDWR | O_SYNC);
     rt = pread(fd, buf,
-               fds_disk_sector_to_byte(sec_cnt),
-               fds_disk_sector_to_byte(sector));
+               fds_disk_sector_to_byte(sec_cnt), fds_disk_sector_to_byte(sector));
     close(fd);
-    if (rt <= 0) {
-        perror("Error");
-    }
     return rt;
 }
 
@@ -323,15 +346,19 @@ PmDiskObj::dsk_read(void *buf, fds_uint32_t sector, int sec_cnt)
 // ---------
 //
 int
-PmDiskObj::dsk_write(void *buf, fds_uint32_t sector, int sec_cnt)
+PmDiskObj::dsk_write(bool sim, void *buf, fds_uint32_t sector, int sec_cnt)
 {
     int fd, rt;
 
+    /* Don't touch sda device */
+    if ((sim == true) || (strstr(rs_name, "/dev/sda") != NULL)) {
+        LOGNORMAL << "Skiping the boot device or in sim env...";
+        return 0;
+    }
     fds_verify((sector + sec_cnt) <= 16384);  // TODO(Vy): no hardcode
     fd = open(rs_name, O_RDWR | O_SYNC);
     rt = pwrite(fd, buf,
-                fds_disk_sector_to_byte(sec_cnt),
-                fds_disk_sector_to_byte(sector));
+                fds_disk_sector_to_byte(sec_cnt), fds_disk_sector_to_byte(sector));
     close(fd);
     if (rt < 0) {
         perror("Error");
@@ -344,7 +371,7 @@ PmDiskObj::dsk_write(void *buf, fds_uint32_t sector, int sec_cnt)
 // -------------------------------------------------------------------------------------
 // PM Disk Inventory
 // -------------------------------------------------------------------------------------
-PmDiskInventory::PmDiskInventory() : DiskInventory()
+PmDiskInventory::PmDiskInventory() : DiskInventory(), dsk_qualify_cnt(0)
 {
     dsk_partition = new DiskPartitionMgr();
 }
@@ -419,6 +446,7 @@ PmDiskInventory::dsk_discovery_begin()
         dsk_prev_inv.chain_transfer(&dsk_curr_inv);
         fds_assert(dsk_curr_inv.chain_empty_list());
     }
+    dsk_qualify_cnt = 0;
     rs_mtx.unlock();
 }
 
@@ -440,6 +468,9 @@ PmDiskInventory::dsk_discovery_add(PmDiskObj::pointer disk, PmDiskObj::pointer r
     dsk_discovery.chain_add_back(&disk->dsk_disc_link);
     if (disk->dsk_parent == disk) {
         DiskInventory::dsk_add_to_inventory_mtx(disk, &dsk_hdd);
+        if (disk->dsk_capacity_gb() >= DISK_ALPHA_CAPACITY_GB) {
+            dsk_qualify_cnt++;
+        }
     } else {
         DiskInventory::dsk_add_to_inventory_mtx(disk, NULL);
     }
@@ -529,11 +560,12 @@ PmDiskInventory::dsk_dump_all()
 bool
 PmDiskInventory::dsk_need_simulation()
 {
-    return true;
-    if (dsk_count != (DISK_ALPHA_COUNT_HDD + DISK_ALPHA_COUNT_SSD)) {
-        return true;
+    if ((dsk_count == dsk_qualify_cnt) &&
+        (dsk_count >= (DISK_ALPHA_COUNT_HDD_MIN + DISK_ALPHA_COUNT_SSD))) {
+        return false;
     }
-    return false;
+    LOGNORMAL << "Need to run in simulation";
+    return true;
 }
 
 // disk_do_partition
@@ -567,13 +599,13 @@ PmDiskInventory::dsk_admit_all()
 // dsk_read_label
 // --------------
 //
-void
+bool
 PmDiskInventory::dsk_read_label(DiskLabelMgr *mgr, bool creat)
 {
     DiskLabelOp op(DISK_LABEL_READ, mgr);
 
     dsk_foreach(&op);
-    mgr->dsk_reconcile_label(creat);
+    return mgr->dsk_reconcile_label(this, creat);
 }
 
 // -----------------------------------------------------------------------------------
@@ -583,11 +615,12 @@ DiskPlatModule gl_DiskPlatMod("Disk Module");
 
 DiskPlatModule::DiskPlatModule(char const *const name) : Module(name)
 {
-    dsk_sim   = NULL;
-    dsk_inuse = NULL;
-    dsk_ctrl  = udev_new();
-    dsk_label = new DiskLabelMgr();
-    dsk_enum  = udev_enumerate_new(dsk_ctrl);
+    dsk_devices = new PmDiskInventory();
+    dsk_sim     = NULL;
+    dsk_inuse   = NULL;
+    dsk_ctrl    = udev_new();
+    dsk_label   = new DiskLabelMgr();
+    dsk_enum    = udev_enumerate_new(dsk_ctrl);
     fds_assert((dsk_ctrl != NULL) && (dsk_enum != NULL));
 }
 
@@ -596,6 +629,8 @@ DiskPlatModule::~DiskPlatModule()
     mod_shutdown();
 
     delete dsk_label;
+    dsk_devices = NULL;
+    dsk_inuse   = NULL;
     udev_enumerate_unref(dsk_enum);
     udev_unref(dsk_ctrl);
 }
@@ -627,21 +662,53 @@ DiskPlatModule::mod_startup()
     udev_enumerate_add_match_subsystem(dsk_enum, "block");
     dsk_rescan();
 
-    if (dsk_devices.dsk_need_simulation() == true) {
+    if ((dsk_devices->dsk_read_label(dsk_label, false) == true) ||
+        (dsk_devices->dsk_need_simulation() == false)) {
+        /* Contain valid disk label or real HW inventory */
+        dsk_inuse = dsk_devices;
+    } else {
         const FdsRootDir *dir = g_fdsprocess->proc_fdsroot();
         dsk_sim   = new FileDiskInventory(dir->dir_dev().c_str());
         dsk_inuse = dsk_sim;
-    } else {
-        dsk_inuse = &dsk_devices;
     }
     dsk_inuse->dsk_admit_all();
     dsk_inuse->dsk_mount_all();
 
-    dsk_devices.dsk_dump_all();
+    dsk_devices->dsk_dump_all();
     if (dsk_sim != NULL) {
         dsk_sim->dsk_dump_all();
     }
     dsk_inuse->dsk_read_label(dsk_label, true);
+}
+
+// mod_enable_service
+// ------------------
+//
+void
+DiskPlatModule::mod_enable_service()
+{
+    FILE          *mnt;
+    struct mntent *ent;
+
+    mnt = setmntent("/proc/mounts", "r");
+    if (mnt == NULL) {
+        perror("setmnent");
+        fds_panic("Can't open /proc/mounts");
+    }
+    while ((ent = getmntent(mnt)) != NULL) {
+        if (strstr(ent->mnt_fsname, "/dev/sd") == NULL) {
+            continue;
+        }
+        PmDiskObj::pointer dsk = dsk_devices->dsk_get_info(ent->mnt_fsname);
+        if (dsk == NULL) {
+            LOGNORMAL << "Can't find maching dev " << ent->mnt_fsname;
+        } else {
+            dsk->dsk_set_mount_point(ent->mnt_dir);
+            dsk->dsk_get_parent()->dsk_set_mount_point(ent->mnt_dir);
+        }
+        LOGNORMAL << ent->mnt_fsname << " -> " << ent->mnt_dir;
+    }
+    endmntent(mnt);
 }
 
 // mod_shutdown
@@ -671,7 +738,7 @@ DiskPlatModule::dsk_rescan()
     udev_enumerate_scan_devices(dsk_enum);
     devices = udev_enumerate_get_list_entry(dsk_enum);
 
-    dsk_devices.dsk_discovery_begin();
+    dsk_devices->dsk_discovery_begin();
     udev_list_entry_foreach(ptr, devices) {
         path = udev_list_entry_get_name(ptr);
         if (PmDiskObj::dsk_blk_dev_path(path, &blk_path, &dev_path) == false) {
@@ -679,26 +746,26 @@ DiskPlatModule::dsk_rescan()
             // Only process block/sd devices.
             continue;
         }
-        disk = dsk_devices.dsk_get_info(blk_path);
+        disk = dsk_devices->dsk_get_info(blk_path);
         if (disk == NULL) {
             slice = NULL;
         } else {
-            slice = dsk_devices.dsk_get_info(blk_path, dev_path);
+            slice = dsk_devices->dsk_get_info(blk_path, dev_path);
         }
         if (slice == NULL) {
             struct udev_device *dev;
-            Resource::pointer   rs = dsk_devices.rs_alloc_new(ResourceUUID());
+            Resource::pointer   rs = dsk_devices->rs_alloc_new(ResourceUUID());
 
             slice = PmDiskObj::dsk_cast_ptr(rs);
             dev   = udev_device_new_from_syspath(dsk_ctrl, path);
             slice->dsk_update_device(dev, disk, blk_path, dev_path);
-            dsk_devices.dsk_discovery_add(slice, disk);
+            dsk_devices->dsk_discovery_add(slice, disk);
         } else {
             slice->dsk_update_device(NULL, disk, blk_path, dev_path);
-            dsk_devices.dsk_discovery_update(slice);
+            dsk_devices->dsk_discovery_update(slice);
         }
     }
-    dsk_devices.dsk_discovery_done();
+    dsk_devices->dsk_discovery_done();
 }
 
 // dsk_commit_label
@@ -742,7 +809,7 @@ FileDiskObj::dsk_read(void *buf, fds_uint32_t sector, int sect_cnt)
 // ---------
 //
 int
-FileDiskObj::dsk_write(void *buf, fds_uint32_t sector, int sect_cnt)
+FileDiskObj::dsk_write(bool sim, void *buf, fds_uint32_t sector, int sect_cnt)
 {
     int ret;
 
@@ -811,13 +878,13 @@ FileDiskInventory::dsk_admit_all()
 // dsk_read_label
 // --------------
 //
-void
+bool
 FileDiskInventory::dsk_read_label(DiskLabelMgr *mgr, bool creat)
 {
     DiskLabelOp op(DISK_LABEL_READ, mgr);
 
     dsk_foreach(&op, &dsk_files, dsk_count);
-    mgr->dsk_reconcile_label(creat);
+    return mgr->dsk_reconcile_label(this, creat);
 }
 
 // dsk_do_partition
