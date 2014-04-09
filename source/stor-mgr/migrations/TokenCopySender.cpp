@@ -274,7 +274,7 @@ struct TokenCopySenderFSM_
                 FdsActorRequestPtr(
                         new FdsActorRequest(FAR_ID(TcsDataReadDone), nullptr)));
     }
-    protected:
+
     /* Stream id.  Uniquely identifies the copy stream */
     std::string mig_stream_id_;
 
@@ -443,6 +443,8 @@ Error TokenCopySender::handle_actor_request(FdsActorRequestPtr req)
          */
         auto payload = req->get_payload<FDSP_NotifyTokenPullComplete>();
         pull_fsm_->process_event(*payload);
+
+        copy_fsm_->migrationSvc_->mig_cntrs.tok_sent.incr();
 
         /* Sync and pull is complete.
          * We can safely shut ourselves down now

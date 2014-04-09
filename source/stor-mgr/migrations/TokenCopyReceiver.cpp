@@ -683,6 +683,8 @@ Error TokenCopyReceiver::handle_actor_request(FdsActorRequestPtr req)
         migrationSvc_->getTokenStateDb()->setTokenState(token_id_,
                 kvstore::TokenStateInfo::HEALTHY);
 
+        copy_fsm_->migrationSvc_->mig_cntrs.tok_rcvd.incr();
+
         /* Shutting down */
         req->recycle(FAR_ID(FdsActorShutdown), nullptr);
         this->send_actor_request(req);

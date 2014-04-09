@@ -2037,6 +2037,8 @@ ObjectStorMgr::GetObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
         NodeAgentDpClientPtr client = getProxyClient(oid,fdsp_msg);
         fds_verify(client != NULL);
         client->GetObject(*fdsp_msg, *get_obj_req);
+
+        counters_.proxy_gets.incr();
         return;
     }
 
