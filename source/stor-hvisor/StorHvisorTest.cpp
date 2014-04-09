@@ -306,7 +306,7 @@ int unitTest2(fds_uint32_t time_mins)
   fds_uint32_t result;
   FDS_NativeAPI* api;
   BucketContext* buck_context;
-  PutProperties* put_props;
+  PutPropertiesPtr put_props;
   GetConditions get_conds;
 
   VolumeDesc voldesc("default_vol2", 2);
@@ -329,7 +329,7 @@ int unitTest2(fds_uint32_t time_mins)
   /* do one request for now */
   api = new FDS_NativeAPI(FDS_NativeAPI::FDSN_AWS_S3);
   buck_context = new BucketContext("hostA", "default_vol2", "X", "Y");
-  put_props = new PutProperties();
+  put_props.reset(new PutProperties());
 
   /* first create bucket */
   FDS_PLOG(storHvisor->GetLog()) << "Blob unit test -- will create bucket " << buck_context->bucketName;
@@ -375,7 +375,6 @@ int unitTest2(fds_uint32_t time_mins)
   sleep(10);
 
   delete buck_context;
-  delete put_props;
   delete api;
 
   delete w_buf;

@@ -784,7 +784,6 @@ Conn_GetObject::ame_request_resume()
         if (ame_ctx->ame_get_header_sent_locked() == false) {
             // TODO(Andrew): Need to get etag out of blob rather
             // than compute it here
-            // ame_etag = "\"" + HttpUtils::computeEtag(adr, len) + "\"";
             ame_etag = "No etag :-(";
             // When streaming, the requested length is either
             // the whole blob size, if no size was specified in
@@ -962,7 +961,7 @@ Conn_PutObject::ame_request_resume()
     buf = ame_ctx->ame_curr_input_buf(&len);
 
     // Set etag value from ctx
-    ame_etag = "\"" + HttpUtils::finalEtag(ame_ctx->ame_get_etag()) + "\"";
+    ame_etag = "\"" + ame_etag + "\"";
 
     // Release any buffers we allocated from nginx. Often
     // these buffers were allocated to collect data from
@@ -989,6 +988,7 @@ Conn_PutObject::ame_request_handler()
     FDS_NativeAPI *api;
     BucketContext bucket_ctx("host", get_bucket_id(), "accessid", "secretkey");
     fds_bool_t    last_byte;
+    PutPropertiesPtr putProps;
 
     if (-1 == ame_req->headers_in.content_length_n) {
         LOGWARN << "missing content-length header";
@@ -1007,7 +1007,7 @@ Conn_PutObject::ame_request_handler()
         Error err = ame_ctx->ame_add_ctx_req(offset);
         fds_verify(err == ERR_OK);
         api = ame->ame_fds_hook();
-        api->PutObject(&bucket_ctx, get_object_id(), NULL,
+        api->PutObject(&bucket_ctx, get_object_id(), putProps,
                        static_cast<void *>(ame_ctx), buf, 0,
                        len, true, fdsn_putobj_cbfn,
                        static_cast<void *>(this));
@@ -1034,13 +1034,17 @@ Conn_PutObject::ame_request_handler()
         last_byte = false;
         if ((offset + len) == (fds_off_t)ame_req->headers_in.content_length_n) {
             last_byte = true;
+            ame_etag = HttpUtils::finalEtag(ame_ctx->ame_get_etag());
+            putProps.reset(new PutProperties());
+            putProps->md5 = ame_etag;
             LOGDEBUG << "Setting offset " << offset << " and length " << len
-                     << " as the last update to the blob";
+                     << " as the last update to the blob with etag "
+                     << ame_etag;
         }
 
         // Issue async request
         api = ame->ame_fds_hook();
-        api->PutObject(&bucket_ctx, get_object_id(), NULL,
+        api->PutObject(&bucket_ctx, get_object_id(), putProps,
                        static_cast<void *>(ame_ctx), buf, offset,
                        len, last_byte, fdsn_putobj_cbfn,
                        static_cast<void *>(this));

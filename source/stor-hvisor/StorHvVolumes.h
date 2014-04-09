@@ -237,7 +237,7 @@ class PutBlobReq: public FdsBlobReq {
   public:
     BucketContext *bucket_ctxt;
     std::string ObjKey;
-    PutProperties *putProperties;
+    PutPropertiesPtr putProperties;
     void *req_context;
     fdsnPutObjectHandler putObjCallback;
     void *callback_data;
@@ -250,7 +250,7 @@ class PutBlobReq: public FdsBlobReq {
                char* _data_buf,
                fds_bool_t _last_buf,
                BucketContext* _bucket_ctxt,
-               PutProperties* _put_props,
+               PutPropertiesPtr _put_props,
                void* _req_context,
                fdsnPutObjectHandler _put_obj_handler,
                void* _callback_data)
@@ -268,6 +268,14 @@ class PutBlobReq: public FdsBlobReq {
 
     fds_bool_t isLastBuf() const {
         return lastBuf;
+    }
+
+    std::string getEtag() const {
+        std::string etag = "";
+        if (putProperties != NULL) {
+            etag = putProperties->md5;
+        }
+        return etag;
     }
 
     ~PutBlobReq() { };

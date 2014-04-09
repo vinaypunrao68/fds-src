@@ -336,6 +336,17 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
     upd_obj_req->obj_list.push_back(upd_obj_info);
     upd_obj_req->meta_list.clear();
     upd_obj_req->blob_size = blobReq->getDataLen();  // Size of the whole blob? Or just what I'm putting
+    // If this is the last put in the stream, lets
+    // write the etag/md5 with the blob's metadata
+    if (blobReq->isLastBuf() == true) {
+        std::string etagKey   = "etag";
+        std::string etagValue = blobReq->getEtag();
+        fds_verify(etagValue.size() == 32);
+        FDS_ProtocolInterface::FDSP_MetaDataPair mdPair;
+        mdPair.__set_key(etagKey);
+        mdPair.__set_value(etagValue);
+        upd_obj_req->meta_list.push_back(mdPair);
+    }
 
     /*
      * Initialize the journEntry with a open txn
