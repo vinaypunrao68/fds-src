@@ -37,7 +37,7 @@ struct TRLastPullReqEvt {};
 
 typedef FDSP_PushObjectsReq TRDataPulledEvt;
 
-struct TRPullDataWrittenEvt {};
+typedef SmIoApplyObjectdata TRPullDataWrittenEvt;
 typedef boost::shared_ptr<TRPullDataWrittenEvt> TRPullDataWrittenEvtPtr;
 
 struct TokenPullReceiver {
