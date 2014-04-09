@@ -44,7 +44,7 @@
 
 
 
-#define FDS_IO_LONG_TIME 10 // seconds
+#define FDS_IO_LONG_TIME 60 // seconds
 #define FDS_REPLICATION_FACTOR          1
 #define MAX_DM_NODES                    4
 
