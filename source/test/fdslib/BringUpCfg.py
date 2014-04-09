@@ -107,11 +107,14 @@ class FdsNodeConfig(FdsConfig):
     ###
     # Start platform services in all nodes.
     #
-    def nd_start_platform(self):
+    def nd_start_platform(self, om_ip = None):
         port_arg = '--fds-root=%s' % self.nd_conf_dict['fds_root']
         if 'fds_port' in self.nd_conf_dict:
             port = self.nd_conf_dict['fds_port']
             port_arg = port_arg + (' --fds.plat.control_port=%s' % port)
+
+        if om_ip is not None:
+            port_arg = port_arg + (' --fds.plat.om_ip=%s' % om_ip)
 
         fds_dir = self.nd_conf_dict['fds_root']
         bin_dir = fds_dir + '/bin'
@@ -396,7 +399,7 @@ class FdsScenarioConfig(FdsConfig):
 ###
 # Handle fds bring up config parsing
 #
-class FdsConfig(object):
+class FdsConfigFile(object):
     def __init__(self, cfg_file, verbose = False):
         self.cfg_file      = cfg_file
         self.cfg_verbose   = verbose
@@ -453,24 +456,47 @@ class FdsConfig(object):
 
         self.cfg_scenarios.sort()
 
-    # TODO(Vy): actually we don't need these C++ style accessor functions.
-    # In Python, we can always use decorator to intercept get/set and all member
-    # data are public anyway.
-    #
-    def config_nodes(self):
-        return self.cfg_nodes
+###
+# Parse the config file and setup runtime env for it.
+#
+class FdsConfigRun(object):
+    def __init__(self, env, cfg_file, verbose):
+        self.rt_om_node = None
+        self.rt_env     = env
+        self.rt_obj     = FdsConfigFile(cfg_file, verbose)
+        self.rt_obj.config_parse()
 
-    def config_user(self):
-        return self.cfg_user
+        # Fixup user/passwd in runtime env from config file.
+        users = self.rt_obj.cfg_user
+        if users is not None:
+            usr = users[0]
+            env.env_user     = usr.get_config_val('user_name')
+            env.env_password = usr.get_config_val('password')
 
-    def config_am(self):
-        return self.cfg_am
+        # Setup ssh agent to connect all nodes and find the OM node.
+        nodes = self.rt_obj.cfg_nodes
+        for n in nodes:
+            n.nd_connect_rmt_agent(env)
+            n.nd_rmt_agent.ssh_setup_env('')
+            if n.nd_run_om() == True:
+                self.rt_om_node = n
 
-    def config_volumes(self):
-        return self.cfg_volumes
+    def rt_get_obj(self, obj_name):
+        return getattr(self.rt_obj, obj_name)
 
-    def config_vol_policy(self):
-        return self.cfg_vol_pol
+    def rt_fds_bootstrap(self, run_om = True):
+        if self.rt_om_node == None:
+            print "You must have OM node in your config"
+            sys.exit(1)
 
-    def config_cli(self):
-        return self.cfg_cli
+        om_node = self.rt_om_node
+        if 'ip' not in om_node.nd_conf_dict:
+            print "You need to have IP in the OM node of your config"
+            sys.exit(1)
+
+        om_ip = om_node.nd_conf_dict['ip']
+        if run_om == True:
+            om_node.nd_start_om()
+
+        for n in self.rt_obj.cfg_nodes:
+            n.nd_start_platform(om_ip)
