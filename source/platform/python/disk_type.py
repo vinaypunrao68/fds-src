@@ -47,7 +47,7 @@ class Disk:
 ##
     # Parse the disk information
     #
-    def __init__(self, path, fake):
+    def __init__(self, path, fake, df_output):
         assert path != None
         assert re.match(Disk.dsk_prefix, path)
 
@@ -56,6 +56,15 @@ class Disk:
         self.dsk_typ  = Disk.dsk_typ_inv
         self.dsk_parts = { }
         self.dsk_formatted = 'Unknown'
+        self.dsk_boot_dev  = False
+        self.dsk_mounted   = False
+
+        for rec in df_output:
+            ma = re.match(self.dsk_path, rec)
+            if ma:
+                dbg_print('Root Device Found: ' + ma.group(0))
+                self.dsk_boot_dev = True
+                break
 
         # parse disk information
         self.__parse_with_hdparm(path, fake)
@@ -67,20 +76,17 @@ class Disk:
     # test for dev is root device
     #
     def is_boot_dev(self):
-        root_info = subprocess.Popen(['df', '/'], stdout=subprocess.PIPE).stdout
-        for rec in root_info:
-            ma = re.match(self.dsk_path, rec)
-            if ma:
-                dbg_print('Root Device Found: ' + ma.group(0))
-                return True
+        return self.dsk_boot_dev
 
-        return False
+    def is_mounted(self):
+        return self.dsk_mounted
 
-    def is_mounted(self, df_output):
-        for rec in df_output:
+    def check_for_mounted(self, mount_output):
+        for rec in mount_output:
             ma = re.match(self.dsk_path, rec)
             if ma:
                 dbg_print('Mounted device' + self.dsk_path)
+                self.dsk_mounted = True
                 return True
         return False
 
@@ -127,13 +133,20 @@ class Disk:
     # create partitions for HDD/SSD, write fds magic marker to drive
     #
     def create_parts(self):
-        if self.is_boot_dev():
+        # Wipe out FDS label.
+        call_list = ['dd', 'if=/dev/zero', 'of=%s' % self.dsk_path,
+                     'seek=64', 'bs=512', 'count=1']
+        print "Wipe out the label with", call_list
+        subprocess.call(call_list, stdout = None, stderr = None)
+
+        if self.is_boot_dev() or self.is_mounted():
+            print "The disk %s is mounted and inuse" % self.dsk_path
             return 1
 
         # Blindly remove any outstanding partitions.
         call_list = ['parted', '-s', self.dsk_path,
                      'rm', '1', ' ', 'rm', '2', ' ', 'rm', '3', ' ', 'rm', '4']
-        print call_list
+        print "Remove any old partition", call_list
         res = subprocess.call(call_list, stdout = None, stderr = None)
 
         call_list = ['parted', '-s', self.dsk_path, 'mklabel', 'gpt']
@@ -143,6 +156,7 @@ class Disk:
             return res
 
         if self.dsk_typ == Disk.dsk_typ_hdd:
+            print "Partition using HDD parition for ", self.dsk_path
             call_list = ['parted', '-s', '-a', 'opt', self.dsk_path,
                          '\"', 'mkpart', 'primary', 'xfs', '8MB', '8GB', '\"']
             res = subprocess.call(call_list, stdout = None, stderr = None)
@@ -161,6 +175,7 @@ class Disk:
             if res != 0:
                 return res
         elif self.dsk_typ == Disk.dsk_typ_ssd:
+            print "Partition using SSD parition for ", self.dsk_path
             call_list = "parted -s -a none " + self.dsk_path + \
                         " \"mkpart primary xfs 8MB -1\""
             res = subprocess.call(call_list, shell=True)
@@ -170,6 +185,7 @@ class Disk:
             assert not 'Invalid disk type found'
             return 2
 
+        print "Successfully partition disk ", self.dsk_path
         return res
 
     # delete partitions, wipe out fds magic marker
@@ -201,14 +217,16 @@ class Disk:
             assert not 'Invalid disk type found'
 
         call_list = ['mkfs.xfs', self.dsk_path + str(part_num), '-f', '-q']
+        print call_list
         res['dev_pipe'] = subprocess.Popen(call_list)
         return res
 
-    def mount_fs(self, df_output, dev_no):
+    def mount_fs(self, mount_output, dev_no):
         if self.is_boot_dev():
             return None
 
-        if self.is_mounted(df_output) == True:
+        if self.is_mounted() == True:
+            print "The device %s already mounted" % self.dsk_path
             return None
 
         dsk_type = ''
@@ -223,27 +241,25 @@ class Disk:
 
         dir_name  = '/fds/dev/' + dsk_type
         call_list = ['mkdir', '-p', dir_name]
-        print call_list
         subprocess.call(call_list)
 
         call_list = ['mount', self.dsk_path + str(part_num), dir_name]
-        print call_list
+        print "Mouting ", call_list
         subprocess.call(call_list)
+        return None
 
 ## ----------------------------------------------------------------
 
-    # get all Disk objects in the system, excluding boot device
+    # get all Disk objects in the system, including the boot device
     # 
     @staticmethod
-    def sys_disks(fake):
+    def sys_disks(fake, df_output, mount_output):
         dev_list  = []
         path_list = Disk.__get_sys_disks_path(fake)
         for path in path_list:
-            disk = Disk(path, fake)
-            if not disk.is_boot_dev():
-                dev_list.append(disk)
-            else:
-                print 'Skipping Root Device: ' + path
+            disk = Disk(path, fake, df_output)
+            disk.check_for_mounted(mount_output)
+            dev_list.append(disk)
         return dev_list
 
 ## Private member functions
@@ -466,19 +482,21 @@ if __name__ == "__main__":
                       help = 'Turn on debugging')
 
     (options, args) = parser.parse_args()
-    debug_on = options.debug
+    debug_on     = options.debug
+    df_output    = subprocess.Popen(['df', '/'], stdout=subprocess.PIPE).stdout
+    mount_output = subprocess.Popen(['mount'], stdout=subprocess.PIPE).stdout
+
+    if options.device:
+        disk     = Disk(options.device, options.fake, df_output)
+        dev_list = [ disk ]
+    else:
+        dev_list = Disk.sys_disks(options.fake, df_output, mount_output)
 
     if options.format:
         shells = []
-        if options.device:
-            disk = Disk(options.device, options.fake)
+        for disk in dev_list:
             cb = disk_helper(disk, options.format, False)
             shells.append(cb)
-        else:
-            dev_list = Disk.sys_disks(options.fake)
-            for disk in dev_list:
-                cb = disk_helper(disk, options.format, False)
-                shells.append(cb)
 
         for cb in shells:
             if cb is not None:
@@ -486,13 +504,7 @@ if __name__ == "__main__":
                 cb['dev_pipe'].wait()
 
     if options.mount:
-        df_output = subprocess.Popen(['df', '/'], stdout=subprocess.PIPE).stdout
-        if options.device:
-            disk = Disk(options.device, options.fake)
-            disk.mount_fs(df_output)
-        else:
-            dev_cnt  = 0
-            dev_list = Disk.sys_disks(options.fake)
-            for disk in dev_list:
-                disk.mount_fs(df_output, dev_cnt)
-                dev_cnt = dev_cnt + 1
+        dev_cnt  = 0
+        for disk in dev_list:
+            disk.mount_fs(mount_output, dev_cnt)
+            dev_cnt = dev_cnt + 1
