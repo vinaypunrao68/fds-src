@@ -441,7 +441,8 @@ DltDplyFSM::DACT_SendDlts::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
              cit != addedNodes.cend();
              ++cit) {
             OM_SmAgent::pointer sm_agent = domain->om_sm_agent(*cit);
-            if (sm_agent->om_send_dlt(dp->getCommitedDlt())) {
+            Error ret = sm_agent->om_send_dlt(dp->getCommitedDlt());
+            if (ret.ok()) {
                 dst.sm_to_wait.insert(*cit);
                 LOGDEBUG << "DACT_SendDlts: sent commited DLT to SM "
                          << sm_agent->get_node_name() << ":" << std::hex
@@ -522,8 +523,7 @@ DltDplyFSM::DACT_Commit::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST 
         dst.acks_to_wait = 1;
         fsm.process_event(DltCommitOkEvt(dp->getLatestDltVersion(), NodeUuid()));
     } else {
-        // lets wait for majority of acks
-        dst.acks_to_wait = (count > 1) ? (count - 1) : count;
+        dst.acks_to_wait = count;
     }
 }
 

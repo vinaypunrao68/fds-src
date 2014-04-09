@@ -322,6 +322,25 @@ class AgentContainer : public RsContainer
     }
 
     /**
+     * iterator that returns number of agents that completed function successfully
+     */
+    template <typename T>
+    fds_uint32_t agent_ret_foreach(T arg, Error (*fn)(T arg, NodeAgent::pointer elm)) {
+        fds_uint32_t count = 0;
+        for (fds_uint32_t i = 0; i < rs_cur_idx; i++) {
+            Error err(ERR_OK);
+            NodeAgent::pointer cur = NodeAgent::agt_cast_ptr(rs_array[i]);
+            if (rs_array[i] != NULL) {
+                err = (*fn)(arg, cur);
+                if (err.ok()) {
+                    ++count;
+                }
+            }
+        }
+        return count;
+    }
+
+    /**
      * Return the generic NodeAgent::pointer from index position or its uuid.
      */
     inline NodeAgent::pointer agent_info(fds_uint32_t idx) {

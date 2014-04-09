@@ -121,14 +121,14 @@ void FdsAdminCtrl::updateAdminControlParams(VolumeDesc  *pVolDesc)
              << "desc capacity (MB): " << pVolDesc->capacity
              << "total iops min : " << total_vol_iops_min
              << "total iops max: " << total_vol_iops_max
-             << "total capacity (GB): " << total_vol_disk_cap;
+             << "total capacity (GB): " << total_vol_disk_cap_GB;
     fds_verify(pVolDesc->iops_min <= total_vol_iops_min);
     fds_verify(pVolDesc->iops_max <= total_vol_iops_max);
-    fds_verify(vol_capacity_GB <= total_vol_disk_cap);
+    fds_verify(vol_capacity_GB <= total_vol_disk_cap_GB);
 
     total_vol_iops_min -= pVolDesc->iops_min;
     total_vol_iops_max -= pVolDesc->iops_max;
-    total_vol_disk_cap -= vol_capacity_GB;
+    total_vol_disk_cap_GB -= vol_capacity_GB;
 }
 
 Error FdsAdminCtrl::volAdminControl(VolumeDesc  *pVolDesc)
@@ -160,10 +160,10 @@ Error FdsAdminCtrl::volAdminControl(VolumeDesc  *pVolDesc)
     }
     iopc_subcluster = (avail_disk_iops_max/replication_factor);
 
-    if ((total_vol_disk_cap + vol_capacity_GB) > avail_disk_capacity) {
+    if ((total_vol_disk_cap_GB + vol_capacity_GB) > avail_disk_capacity) {
         LOGERROR << " Cluster is running out of disk capacity \n"
                  << " Volume's capacity (GB) " << vol_capacity_GB
-                 << "total volume disk  capacity (GB):" << total_vol_disk_cap;
+                 << "total volume disk  capacity (GB):" << total_vol_disk_cap_GB;
         return Error(ERR_VOL_ADMISSION_FAILED);
     }
 
@@ -184,7 +184,7 @@ Error FdsAdminCtrl::volAdminControl(VolumeDesc  *pVolDesc)
          iopc_subcluster)) {
         total_vol_iops_min += pVolDesc->iops_min;
         total_vol_iops_max += pVolDesc->iops_max;
-        total_vol_disk_cap += vol_capacity_GB;
+        total_vol_disk_cap_GB += vol_capacity_GB;
 
         LOGNOTIFY << "updated disk params disk-cap:"
                   << avail_disk_capacity << ":: min:"
@@ -206,7 +206,7 @@ Error FdsAdminCtrl::volAdminControl(VolumeDesc  *pVolDesc)
 Error FdsAdminCtrl::checkVolModify(VolumeDesc *cur_desc, VolumeDesc *new_desc)
 {
     Error err(ERR_OK);
-    fds_uint64_t cur_total_vol_disk_cap = total_vol_disk_cap;
+    double cur_total_vol_disk_cap_GB = total_vol_disk_cap_GB;
     fds_uint64_t cur_total_vol_iops_min = total_vol_iops_min;
     fds_uint64_t cur_total_vol_iops_max = total_vol_iops_max;
 
@@ -217,7 +217,7 @@ Error FdsAdminCtrl::checkVolModify(VolumeDesc *cur_desc, VolumeDesc *new_desc)
     err = volAdminControl(new_desc);
     if (!err.ok()) {
         /* cannot admit volume -- revert to original values */
-        total_vol_disk_cap = cur_total_vol_disk_cap;
+        total_vol_disk_cap_GB = cur_total_vol_disk_cap_GB;
         total_vol_iops_min = cur_total_vol_iops_min;
         total_vol_iops_max = cur_total_vol_iops_max;
         return err;
@@ -249,7 +249,7 @@ void FdsAdminCtrl::initDiskCapabilities()
     /*  per volume capacity */
     total_vol_iops_min = 0;
     total_vol_iops_max = 0;
-    total_vol_disk_cap = 0;
+    total_vol_disk_cap_GB = 0;
 }
 
 }  // namespace fds

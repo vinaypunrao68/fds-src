@@ -64,12 +64,18 @@ OM_NodeAgent::om_send_myinfo(NodeAgent::pointer peer)
     m_hdr->tennant_id      = 1;
     m_hdr->local_domain_id = 1;
 
-    if (node_state() == fpi::FDS_Node_Down) {
-        OM_SmAgent::agt_cast_ptr(peer)->ndCpClient->NotifyNodeRmv(m_hdr, n_inf);
-    } else {
-        n_inf->node_state = fpi::FDS_Node_Up;
-        OM_SmAgent::agt_cast_ptr(peer)->ndCpClient->NotifyNodeAdd(m_hdr, n_inf);
+    try {
+        if (node_state() == fpi::FDS_Node_Down) {
+            OM_SmAgent::agt_cast_ptr(peer)->ndCpClient->NotifyNodeRmv(m_hdr, n_inf);
+        } else {
+            n_inf->node_state = fpi::FDS_Node_Up;
+            OM_SmAgent::agt_cast_ptr(peer)->ndCpClient->NotifyNodeAdd(m_hdr, n_inf);
+        }
+    } catch(const att::TTransportException& e) {
+        LOGERROR << "error during network call : " << e.what();
+        return;
     }
+
     LOGNORMAL << "Send node info from " << get_node_name()
               << " to " << peer->get_node_name() << std::endl;
 }
@@ -87,21 +93,27 @@ OM_NodeAgent::om_send_node_cmd(const om_node_msg_t &msg)
     this->init_msg_hdr(m_hdr);
     m_hdr->msg_code = msg.nd_msg_code;
 
-    log = NULL;
-    switch (msg.nd_msg_code) {
-        case fpi::FDSP_MSG_SET_THROTTLE: {
-            log = "Send throttle command to node ";
-            ndCpClient->SetThrottleLevel(m_hdr, *msg.u.nd_throttle);
-            break;
+    try {
+        log = NULL;
+        switch (msg.nd_msg_code) {
+            case fpi::FDSP_MSG_SET_THROTTLE: {
+                log = "Send throttle command to node ";
+                ndCpClient->SetThrottleLevel(m_hdr, *msg.u.nd_throttle);
+                break;
+            }
+            case fpi::FDSP_MSG_DMT_UPDATE: {
+                log = "Send DMT update command to node ";
+                ndCpClient->NotifyDMTUpdate(m_hdr, *msg.u.nd_dmt_tab);
+                break;
+            }
+            default:
+                fds_panic("Unsupported command code");
         }
-        case fpi::FDSP_MSG_DMT_UPDATE: {
-            log = "Send DMT update command to node ";
-            ndCpClient->NotifyDMTUpdate(m_hdr, *msg.u.nd_dmt_tab);
-            break;
-        }
-        default:
-            fds_panic("Unsupported command code");
+    } catch(const att::TTransportException& e) {
+        LOGERROR << "error during network call : " << e.what();
+        return;
     }
+
     fds_assert(log != NULL);
     LOGDEBUG << log << get_node_name() << std::endl;
 }
@@ -134,68 +146,73 @@ OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer    vol,
         desc                  = vol->vol_get_properties();
         m_hdr->glob_volume_id = desc->volUUID;
     }
-    switch (cmd_type) {
-        case fpi::FDSP_MSG_DELETE_VOL:
-        case fpi::FDSP_MSG_MODIFY_VOL:
-        case fpi::FDSP_MSG_CREATE_VOL: {
-            FdspNotVolPtr notif(new fpi::FDSP_NotifyVolType);
 
-            fds_verify(vol != NULL);
-            vol->vol_fmt_desc_pkt(&notif->vol_desc);
-            notif->vol_name = vol->vol_get_name();
-            notif->check_only = check_only;
-            m_hdr->msg_code = cmd_type;
+    try {
+        switch (cmd_type) {
+            case fpi::FDSP_MSG_DELETE_VOL:
+            case fpi::FDSP_MSG_MODIFY_VOL:
+            case fpi::FDSP_MSG_CREATE_VOL: {
+                FdspNotVolPtr notif(new fpi::FDSP_NotifyVolType);
 
-            if (cmd_type == fpi::FDSP_MSG_CREATE_VOL) {
-                log = "Send notify add volume ";
-                notif->type = fpi::FDSP_NOTIFY_ADD_VOL;
-                ndCpClient->NotifyAddVol(m_hdr, notif);
+                fds_verify(vol != NULL);
+                vol->vol_fmt_desc_pkt(&notif->vol_desc);
+                notif->vol_name = vol->vol_get_name();
+                notif->check_only = check_only;
+                m_hdr->msg_code = cmd_type;
 
-            } else if (cmd_type == fpi::FDSP_MSG_MODIFY_VOL) {
-                log = "Send modify volume ";
-                notif->type = fpi::FDSP_NOTIFY_MOD_VOL;
-                ndCpClient->NotifyModVol(m_hdr, notif);
-
-            } else {
-                log = "Send remove volume ";
-                notif->type = fpi::FDSP_NOTIFY_RM_VOL;
-                ndCpClient->NotifyRmVol(m_hdr, notif);
+                if (cmd_type == fpi::FDSP_MSG_CREATE_VOL) {
+                    log = "Send notify add volume ";
+                    notif->type = fpi::FDSP_NOTIFY_ADD_VOL;
+                    ndCpClient->NotifyAddVol(m_hdr, notif);
+                } else if (cmd_type == fpi::FDSP_MSG_MODIFY_VOL) {
+                    log = "Send modify volume ";
+                    notif->type = fpi::FDSP_NOTIFY_MOD_VOL;
+                    ndCpClient->NotifyModVol(m_hdr, notif);
+                } else {
+                    log = "Send remove volume ";
+                    notif->type = fpi::FDSP_NOTIFY_RM_VOL;
+                    ndCpClient->NotifyRmVol(m_hdr, notif);
+                }
+                break;
             }
-            break;
-        }
-        case fpi::FDSP_MSG_ATTACH_VOL_CTRL:
-        case fpi::FDSP_MSG_DETACH_VOL_CTRL: {
-            FdspAttVolPtr attach(new fpi::FDSP_AttachVolType);
+            case fpi::FDSP_MSG_ATTACH_VOL_CTRL:
+            case fpi::FDSP_MSG_DETACH_VOL_CTRL: {
+                FdspAttVolPtr attach(new fpi::FDSP_AttachVolType);
 
-            if (vol != NULL) {
-                vol->vol_fmt_desc_pkt(&attach->vol_desc);
-                attach->vol_name = vol->vol_get_name();
-            } else {
-                m_hdr->result    = FDSP_ERR_VOLUME_DOES_NOT_EXIST;
-                m_hdr->err_msg   = "Bucket does not exist";
-                attach->vol_name = *vname;
-                attach->vol_desc.vol_name  = *vname;
-                attach->vol_desc.volUUID   = 9876;
-                attach->vol_desc.tennantId = 0;
-                attach->vol_desc.localDomainId = 0;
-                attach->vol_desc.capacity = 1000;
-                attach->vol_desc.volType  = FDS_ProtocolInterface::FDSP_VOL_S3_TYPE;
-            }
-            m_hdr->msg_code = cmd_type;
+                if (vol != NULL) {
+                    vol->vol_fmt_desc_pkt(&attach->vol_desc);
+                    attach->vol_name = vol->vol_get_name();
+                } else {
+                    m_hdr->result    = FDSP_ERR_VOLUME_DOES_NOT_EXIST;
+                    m_hdr->err_msg   = "Bucket does not exist";
+                    attach->vol_name = *vname;
+                    attach->vol_desc.vol_name  = *vname;
+                    attach->vol_desc.volUUID   = 9876;
+                    attach->vol_desc.tennantId = 0;
+                    attach->vol_desc.localDomainId = 0;
+                    attach->vol_desc.capacity = 1000;
+                    attach->vol_desc.volType  = FDS_ProtocolInterface::FDSP_VOL_S3_TYPE;
+                }
+                m_hdr->msg_code = cmd_type;
 
-            if (cmd_type == fpi::FDSP_MSG_ATTACH_VOL_CTRL) {
-                log = "Send attach volume ";
-                ndCpClient->AttachVol(m_hdr, attach);
-            } else {
-                log = "Send detach volume ";
-                ndCpClient->DetachVol(m_hdr, attach);
+                if (cmd_type == fpi::FDSP_MSG_ATTACH_VOL_CTRL) {
+                    log = "Send attach volume ";
+                    ndCpClient->AttachVol(m_hdr, attach);
+                } else {
+                    log = "Send detach volume ";
+                    ndCpClient->DetachVol(m_hdr, attach);
+                }
+                break;
             }
-            break;
+            default: {
+                fds_panic("Unknown vol cmd type");
+            }
         }
-        default: {
-            fds_panic("Unknown vol cmd type");
-        }
+    } catch(const att::TTransportException& e) {
+        LOGERROR << "error during network call : " << e.what();
+        return;
     }
+
     if (desc != NULL) {
         LOGNORMAL << log << desc->volUUID << " " << desc->name
                   << " to node " << get_node_name();
@@ -224,11 +241,12 @@ OM_NodeAgent::om_send_reg_resp(const Error &err)
     // ndCpClient->RegisterNodeResp(m_hdr, r_msg);
 }
 
-bool
+Error
 OM_NodeAgent::om_send_dlt(const DLT *curDlt) {
+    Error err(ERR_OK);
     if (curDlt == NULL) {
         LOGNORMAL << "No current DLT to send to " << get_node_name();
-        return false;
+        return Error(ERR_NOT_FOUND);
     }
 
     fpi::FDSP_MsgHdrTypePtr    m_hdr(new fpi::FDSP_MsgHdrType);
@@ -247,14 +265,19 @@ OM_NodeAgent::om_send_dlt(const DLT *curDlt) {
     // since they do not modify the object
     const_cast<DLT*>(curDlt)->getSerialized(d_msg->dlt_data);
 
-    ndCpClient->NotifyDLTUpdate(m_hdr, d_msg);
+    try {
+        ndCpClient->NotifyDLTUpdate(m_hdr, d_msg);
+    } catch(const att::TTransportException& e) {
+        LOGERROR << "error during network call : " << e.what();
+        return Error(ERR_NETWORK_TRANSPORT);
+    }
 
     curDlt->dump();
     LOGNORMAL << "OM: Send dlt info (version " << curDlt->getVersion()
               << ") to " << get_node_name() << " uuid 0x"
               << std::hex << (get_uuid()).uuid_get_val() << std::dec;
 
-    return true;
+    return err;
 }
 
 //
@@ -289,8 +312,9 @@ OM_NodeAgent::om_send_scavenger_cmd(fds_bool_t all, fds_uint32_t token_id) {
     return err;
 }
 
-void
+Error
 OM_NodeAgent::om_send_dlt_close(fds_uint64_t cur_dlt_version) {
+    Error err(ERR_OK);
     fpi::FDSP_MsgHdrTypePtr m_hdr(new fpi::FDSP_MsgHdrType);
     fpi::FDSP_DltCloseTypePtr d_msg(new fpi::FDSP_DltCloseType());
     this->init_msg_hdr(m_hdr);
@@ -302,11 +326,18 @@ OM_NodeAgent::om_send_dlt_close(fds_uint64_t cur_dlt_version) {
 
     d_msg->DLT_version = cur_dlt_version;
 
-    ndCpClient->NotifyDLTClose(m_hdr, d_msg);
+    try {
+        ndCpClient->NotifyDLTClose(m_hdr, d_msg);
+    } catch(const att::TTransportException& e) {
+        LOGERROR << "error during network call : " << e.what();
+        return Error(ERR_NETWORK_TRANSPORT);
+    }
 
     LOGNORMAL << "OM: send dlt close (version " << cur_dlt_version
               << ") to " << get_node_name() << " uuid 0x"
               << std::hex << (get_uuid()).uuid_get_val() << std::dec;
+
+    return err;
 }
 
 void
@@ -539,7 +570,12 @@ OM_PmAgent::send_activate_services(fds_bool_t activate_sm,
     node_msg->has_am_service = activate_am;
     node_msg->has_om_service = false;
 
-    ndCpClient->NotifyNodeActive(m_hdr, node_msg);
+    try {
+        ndCpClient->NotifyNodeActive(m_hdr, node_msg);
+    } catch(const att::TTransportException& e) {
+        LOGERROR << "error during network call : " << e.what();
+        return Error(ERR_NETWORK_TRANSPORT);
+    }
 
     return err;
 }
@@ -1195,10 +1231,10 @@ OM_NodeContainer::om_bcast_dmt_table()
 // om_send_dlt
 // -----------------------
 //
-static void
+static Error
 om_send_dlt(const DLT* curDlt, NodeAgent::pointer agent)
 {
-    OM_SmAgent::agt_cast_ptr(agent)->om_send_dlt(curDlt);
+    return OM_SmAgent::agt_cast_ptr(agent)->om_send_dlt(curDlt);
 }
 
 // om_bcast_dlt
@@ -1207,26 +1243,26 @@ om_send_dlt(const DLT* curDlt, NodeAgent::pointer agent)
 fds_uint32_t
 OM_NodeContainer::om_bcast_dlt(const DLT* curDlt, fds_bool_t sm_only)
 {
-    dc_sm_nodes->agent_foreach<const DLT*>(curDlt, om_send_dlt);
+    fds_uint32_t count = 0;
+    count = dc_sm_nodes->agent_ret_foreach<const DLT*>(curDlt, om_send_dlt);
     if (sm_only) {
-        return dc_sm_nodes->rs_available_elm();
+        return count;
     }
 
-    dc_dm_nodes->agent_foreach<const DLT*>(curDlt, om_send_dlt);
-    dc_am_nodes->agent_foreach<const DLT*>(curDlt, om_send_dlt);
+    count += dc_dm_nodes->agent_ret_foreach<const DLT*>(curDlt, om_send_dlt);
+    count += dc_am_nodes->agent_ret_foreach<const DLT*>(curDlt, om_send_dlt);
 
-    return (dc_sm_nodes->rs_available_elm() +
-            dc_dm_nodes->rs_available_elm() +
-            dc_am_nodes->rs_available_elm());
+    LOGDEBUG << "Sent dlt to " << count << " nodes successfully";
+    return count;
 }
 
 // om_send_dlt_close
 // -----------------------
 //
-static void
+static Error
 om_send_dlt_close(fds_uint64_t cur_dlt_version, NodeAgent::pointer agent)
 {
-    OM_SmAgent::agt_cast_ptr(agent)->om_send_dlt_close(cur_dlt_version);
+    return OM_SmAgent::agt_cast_ptr(agent)->om_send_dlt_close(cur_dlt_version);
 }
 
 // om_bcast_dlt_close
@@ -1237,8 +1273,11 @@ om_send_dlt_close(fds_uint64_t cur_dlt_version, NodeAgent::pointer agent)
 fds_uint32_t
 OM_NodeContainer::om_bcast_dlt_close(fds_uint64_t cur_dlt_version)
 {
-    dc_sm_nodes->agent_foreach<fds_uint64_t>(cur_dlt_version, om_send_dlt_close);
-    return dc_sm_nodes->rs_available_elm();
+    fds_uint32_t count = 0;
+    count = dc_sm_nodes->agent_ret_foreach<fds_uint64_t>(cur_dlt_version,
+                                                         om_send_dlt_close);
+    LOGDEBUG << "Send dlt close to " << count << " nodes successfully";
+    return count;
 }
 
 // om_send_dlt_close
