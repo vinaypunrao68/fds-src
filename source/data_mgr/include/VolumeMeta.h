@@ -24,7 +24,7 @@
 
 namespace fds {
 
-  class MetadataPair {
+class MetadataPair {
   public:
     std::string key;
     std::string value;
@@ -38,8 +38,17 @@ namespace fds {
 
     void initFromString(std::string& str) {
       size_t pos = str.find(delim);
-      key = str.substr(open_seq.size(), pos);
-      value = str.substr(pos+1, str.size()-1-pos-end_seq.size());
+      key = str.substr(open_seq.size(), (pos - open_seq.size()));
+      value = str.substr(pos + 1,
+                         str.size() -1 - pos - end_seq.size());
+      LOGDEBUG << "Built metadata pair " << *this
+               << " from string " << str;
+    }
+
+    MetadataPair(const std::string &_key,
+                 const std::string &_value) {
+        key   = _key;
+        value = _value;
     }
 
     MetadataPair(std::string& str) {
@@ -50,9 +59,10 @@ namespace fds {
       key = mpair.key;
       value = mpair.value;
     }
-  };
+};
+typedef std::vector<MetadataPair> MetaList;
 
-  typedef std::vector<MetadataPair> MetaList;
+std::ostream& operator<<(std::ostream& out, const MetadataPair& mdPair);
 
 class BlobObjectInfo {
   public:
@@ -404,6 +414,26 @@ class BlobNode {
         initFromFDSPPayload(cat_msg, _vol_id);
     }
 
+    void updateMetadata(const std::string &key,
+                        const std::string &value) {
+        for (MetaList::iterator it = meta_list.begin();
+             it != meta_list.end();
+             it++) {
+            if ((*it).key == key) {
+                // We already store the key, overwrite
+                (*it).value = value;
+                LOGNORMAL << "Modified metadata for blob " << blob_name
+                          << " key=" << key << " value=" << value;
+                return;
+            }
+        }
+
+        // We don't already have the key, append it
+        meta_list.push_back(MetadataPair(key, value));
+        LOGNORMAL << "Added metadata for blob " << blob_name
+                  << " key=" << key << " value=" << value;
+    }
+
     std::string metaListToString() const {
         uint i;
         if (meta_list.size() == 0) {
@@ -431,12 +461,12 @@ class BlobNode {
         }
 
         while (!last_pair) {
-            next_pos = str.find(',', last_pos+1);
+            next_pos = str.find(',', last_pos + 1);
             if (next_pos == std::string::npos) {
                 next_pos = str.size()- 1;
                 last_pair = true;
             }
-            next_sub_str = str.substr(last_pos+1, next_pos-last_pos-1);
+            next_sub_str = str.substr(last_pos, next_pos - last_pos);
             if (next_sub_str != "") {
                 MetadataPair mpair(next_sub_str);
                 meta_list.push_back(mpair);

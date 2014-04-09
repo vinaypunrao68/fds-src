@@ -543,6 +543,19 @@ AME_Ctx::ame_add_ctx_req(fds_off_t offset) {
 }
 
 /**
+ * Expects lock to be held by caller
+ */
+Error
+AME_Ctx::ame_upd_ctx_req_locked(fds_off_t offset,
+                                AME_Ctx_Ack ack_status) {
+    if (ame_req_map.count(offset) == 0) {
+        return Error(ERR_NOT_FOUND);
+    }
+    ame_req_map[offset] = ack_status;
+    return Error(ERR_OK);
+}
+
+/**
  * Updates the state of a pending offset
  * request
  */
@@ -550,13 +563,9 @@ Error
 AME_Ctx::ame_upd_ctx_req(fds_off_t offset,
                          AME_Ctx_Ack ack_status) {
     ame_map_lock->lock();
-    if (ame_req_map.count(offset) == 0) {
-        ame_map_lock->unlock();
-        return Error(ERR_NOT_FOUND);
-    }
-    ame_req_map[offset] = ack_status;
+    Error err = ame_upd_ctx_req_locked(offset, ack_status);
     ame_map_lock->unlock();
-    return Error(ERR_OK);
+    return err;
 }
 
 /**
@@ -608,29 +617,72 @@ AME_Ctx::ame_check_status() {
 }
 
 /**
- * Returns the next unset offset in the request
+ * Locks the context
+ */
+void
+AME_Ctx::ame_ctx_lock() {
+    ame_map_lock->lock();
+}
+
+/**
+ * Unlocks the context
+ */
+void
+AME_Ctx::ame_ctx_unlock() {
+    ame_map_lock->unlock();
+}
+
+/**
+ * Returns the next acked but unsent offset in the
+ * request stream. The offset is only returned if all of
+ * the previous offsets have been acked and sent.
+ * If this is not the case, an error is returned as there
+ * is no offset that is ready to be sent next.
  */
 Error
 AME_Ctx::ame_get_unsent_offset(fds_off_t  *offset,
                                fds_bool_t *last) {
-    Error err(ERR_OK);
     *last = false;
     ame_map_lock->lock();
+    Error err = ame_get_unsent_offset_locked(offset, last);
+    ame_map_lock->unlock();
+
+    return err;
+}
+
+/**
+ * Expects lock to be held by caller
+ */
+Error
+AME_Ctx::ame_get_unsent_offset_locked(fds_off_t  *offset,
+                                      fds_bool_t *last) {
+    Error      err(ERR_OK);
+    *last = false;
+
     for (AME_Ack_Map::const_iterator it = ame_req_map.cbegin();
          it != ame_req_map.cend();
          it++) {
-        // The first offset we encouted with OK has been
-        // acked, but not sent yet
-        if (it->second == OK) {
+        // TODO(Andrew): We need to actually handle
+        // stream errors...not sure what to do when
+        // they occur mid-stream
+        fds_verify(it->second != FAILED);
+
+        if (it->second == WAITING) {
+            // The offset's response hasn't been received yet
+            err = ERR_NOT_FOUND;
+            return err;
+        } else if (it->second == OK) {
+            // The offset was ack'd OK, but not sent yet
+            // so it's OK to send this one
             *offset = it->first;
             if (std::next(it) == ame_req_map.cend()) {
                 *last = true;
             }
-            ame_map_lock->unlock();
             return err;
+        } else {
+            fds_verify(it->second == SENT);
         }
     }
-    ame_map_lock->unlock();
 
     err = ERR_NOT_FOUND;
     return err;
@@ -689,6 +741,15 @@ AME_Ctx::ame_set_specific(fds_uint64_t len) {
 }
 
 /**
+ * Expects lock to be held by caller
+ */
+fds_uint64_t
+AME_Ctx::ame_get_requested_len_locked() {
+    fds_verify(ame_req_get_range == SPECIFIC);
+    return ame_req_get_len;
+}
+
+/**
  * Returns the requested length.
  * Assumes a specific length has already been set
  */
@@ -696,8 +757,7 @@ fds_uint64_t
 AME_Ctx::ame_get_requested_len() {
     fds_uint64_t len;
     ame_map_lock->lock();
-    fds_verify(ame_req_get_range == SPECIFIC);
-    len = ame_req_get_len;
+    len = ame_get_requested_len_locked();
     ame_map_lock->unlock();
     return len;
 }
@@ -744,6 +804,18 @@ AME_Ctx::ame_get_received_len() const {
 }
 
 /**
+ * Expects lock to be held by caller
+ */
+void
+AME_Ctx::ame_get_get_info_locked(fds_off_t    offset,
+                                 ame_buf_t    **ame_buf,
+                                 fds_uint32_t *len) {
+    fds_verify(ame_get_bufs.count(offset) > 0);
+    *ame_buf = ame_get_bufs[offset].first;
+    *len     = ame_get_bufs[offset].second;
+}
+
+/**
  * Returns the buffer and received length in
  * the buffer for a given offset.
  */
@@ -752,10 +824,16 @@ AME_Ctx::ame_get_get_info(fds_off_t    offset,
                           ame_buf_t    **ame_buf,
                           fds_uint32_t *len) {
     ame_map_lock->lock();
-    fds_verify(ame_get_bufs.count(offset) > 0);
-    *ame_buf = ame_get_bufs[offset].first;
-    *len     = ame_get_bufs[offset].second;
+    ame_get_get_info_locked(offset, ame_buf, len);
     ame_map_lock->unlock();
+}
+
+/**
+ * Expects lock to be held by caller
+ */
+fds_bool_t
+AME_Ctx::ame_get_header_sent_locked() const {
+    return ame_header_sent;
 }
 
 /**
@@ -763,7 +841,19 @@ AME_Ctx::ame_get_get_info(fds_off_t    offset,
  */
 fds_bool_t
 AME_Ctx::ame_get_header_sent() const {
-    return ame_header_sent;
+    fds_bool_t sent;
+    ame_map_lock->lock();
+    sent = ame_get_header_sent_locked();
+    ame_map_lock->unlock();
+    return sent;
+}
+
+/**
+ * Expects lock to be held by caller
+ */
+void
+AME_Ctx::ame_set_header_sent_locked(fds_bool_t sent) {
+    ame_header_sent = sent;
 }
 
 /**
@@ -771,7 +861,9 @@ AME_Ctx::ame_get_header_sent() const {
  */
 void
 AME_Ctx::ame_set_header_sent(fds_bool_t sent) {
+    ame_map_lock->lock();
     ame_header_sent = sent;
+    ame_map_lock->unlock();
 }
 
 /*

@@ -327,7 +327,8 @@ class AclGrant {
 
 
 class PutProperties {
-     /**
+  public:
+    /**
      * If present, this is the Content-Type that should be associated with the
      * object.  If not provided, S3 defaults to "binary/octet-stream".
      **/
@@ -385,10 +386,8 @@ class PutProperties {
      * prefix (i.e., should be of the form 'foo', NOT 'x-amz-meta-foo').
      **/
     const MetaNameValue *metaData;
-
-
 };
-
+typedef boost::shared_ptr<PutProperties> PutPropertiesPtr;
 
 // If the ifModifiedSince and ifNotModifiedSince are invalid if negative
 //If ifMatchETag or ifNotMatchETag is non-null then they are valid 
@@ -539,7 +538,7 @@ class FDS_NativeAPI {
 
   void PutObject(BucketContext *bucket_ctxt, 
                  std::string ObjKey, 
-                 PutProperties *putproperties,
+                 PutPropertiesPtr putproperties,
                  void *reqContext,
                  char *buffer, 
                  fds_uint64_t startByte, 
