@@ -3,9 +3,13 @@
  */
 
 #include <vector>
+#include <map>
 #include <TokenCompactor.h>
 
 namespace fds {
+
+typedef std::map<fds_uint32_t, ObjectID> offset_oid_map_t;
+typedef std::map<fds_uint32_t, offset_oid_map_t> loc_oid_map_t;
 
 TokenCompactor::TokenCompactor(SmIoReqHandler *_data_store)
         : token_id(0),
@@ -116,6 +120,8 @@ void TokenCompactor::snapDoneCb(const Error& error,
                                 leveldb::DB *db)
 {
     Error err(ERR_OK);
+    ObjMetaData omd;
+    fds_uint32_t offset = 0;
     diskio::DataIO& dio_mgr = diskio::DataIO::disk_singleton();
 
     LOGNORMAL << "Index DB snapshot received with result " << error;
@@ -134,6 +140,7 @@ void TokenCompactor::snapDoneCb(const Error& error,
 
     // iterate over snapshot of index db and create work items to work with
     std::vector<ObjectID> obj_list;
+    loc_oid_map_t loc_oid_map;
     leveldb::Iterator* it = db->NewIterator(options);
     for (it->SeekToFirst(); it->Valid(); it->Next()) {
         ObjectID id(it->key().ToString());
@@ -142,31 +149,50 @@ void TokenCompactor::snapDoneCb(const Error& error,
             continue;
         }
 
-        // we took snapshot just after we started writing new objs to
-        // shadow file, but snapshot may already have few objects that
-        // are already in shadow file and don't need copying
-        // TODO(anna) filter those objects out here.
+        omd.deserializeFrom(it->value());
+        obj_phy_loc_t* loc = omd.getObjPhyLoc(diskTier);
+        fds_verify(loc != NULL);
 
-        // TODO(anna) Per conversation with Vinay, we want to try and group
-        // objects that we will compact together that are closest in their offsets.
-        // Otherwise it would be too much seeking the file when copying those
-        // objects. We should first iterate the snapshot of token index DB
-        // and put all objects in an list by offset order, and then go through
-        // that least and create work items.
+        // TODO(anna) we must filter out objects that are already in shadow
+        // file -- that could happen between times we started writing objs
+        // to shadow file and we took this db snapshot
 
-        obj_list.push_back(id);
-        ++total_objs;
+        // we group objects by their <phy loc, fileid> and order by offset
+        // so that we compact objects that are close in the token file together
+        fds_uint32_t loc_fid = loc->obj_stor_loc_id;
+        loc_fid |= (loc->obj_file_id << 16);
+        LOGDEBUG << "Object " << id << " loc_id " << loc->obj_stor_loc_id
+                 << " fileId " << loc->obj_file_id << "("
+                 << loc_fid << ") offset " << loc->obj_stor_offset;
 
-        // if we collected enough oids, create copy req and put it to qos queue
-        if (obj_list.size() >= GC_COPY_WORKLIST_SIZE) {
-            LOGDEBUG << "Enqueue copy work for " << obj_list.size() << " objects";
-            err = enqCopyWork(&obj_list);
-            if (!err.ok()) {
-                // TODO(anna): most likely queue is full, we need to save the
-                // work and try again later
-                fds_verify(false);  // IMPLEMENT THIS
+        // verify may be broken if we also do ssd tier
+        fds_verify(!(loc_oid_map.count(loc_fid)
+                     && loc_oid_map[loc_fid].count(loc->obj_stor_offset)));
+
+        (loc_oid_map[loc_fid])[loc->obj_stor_offset] = id;
+    }
+
+    // create copy work items
+    for (loc_oid_map_t::const_iterator cit = loc_oid_map.cbegin();
+         cit != loc_oid_map.cend();
+         ++cit) {
+        for (offset_oid_map_t::const_iterator cit2 = (cit->second).cbegin();
+             cit2 != (cit->second).cend();
+             ++cit2) {
+            obj_list.push_back(cit2->second);
+            ++total_objs;
+
+            // if we collected enough oids, create copy req and put it to qos queue
+            if (obj_list.size() >= GC_COPY_WORKLIST_SIZE) {
+                LOGDEBUG << "Enqueue copy work for " << obj_list.size() << " objects";
+                err = enqCopyWork(&obj_list);
+                if (!err.ok()) {
+                    // TODO(anna): most likely queue is full, we need to save the
+                    // work and try again later
+                    fds_verify(false);  // IMPLEMENT THIS
+                }
+                obj_list.clear();
             }
-            obj_list.clear();
         }
     }
 

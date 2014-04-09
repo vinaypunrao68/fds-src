@@ -49,9 +49,9 @@ class FdsAdminCtrl {
     fds_uint64_t  avail_ssd_capacity;
 
     /*  per volume resouce  counter */
-    fds_uint64_t   total_vol_iops_min;
-    fds_uint64_t   total_vol_iops_max;
-    fds_uint64_t   total_vol_disk_cap;
+    fds_uint64_t  total_vol_iops_min;
+    fds_uint64_t  total_vol_iops_max;
+    double        total_vol_disk_cap_GB;
 
     void addDiskCapacity(const node_capability_t &n_info);
     void removeDiskCapacity(const node_capability_t &n_info);

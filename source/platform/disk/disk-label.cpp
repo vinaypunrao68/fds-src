@@ -410,8 +410,10 @@ DiskLabelMgr::dsk_reconcile_label(PmDiskInventory::pointer inv, bool creat)
             upgrade.chain_add_back(&label->dl_link);
         }
     }
-    ret = (dl_valid_labels >= (dl_total_disks >> 1)) ? true : false;
-
+    ret = false;
+    if (dl_valid_labels > 0) {
+        ret = (dl_valid_labels >= (dl_total_disks >> 1)) ? true : false;
+    }
     if (master == NULL) {
         fds_verify(dl_valid_labels == 0);
         fds_verify(upgrade.chain_empty_list() == false);
@@ -474,7 +476,7 @@ DiskLabelMgr::dsk_reconcile_label(PmDiskInventory::pointer inv, bool creat)
 void
 DiskLabelMgr::dsk_rec_label_map(PmDiskObj::pointer disk, int idx)
 {
-    if (dl_map != NULL) {
+    if ((dl_map != NULL) && !disk->dsk_get_mount_point().empty())  {
         *dl_map << disk->rs_get_name() << " " << idx << " "
                 << std::hex << disk->rs_get_uuid().uuid_get_val() << std::dec
                 << " " << disk->dsk_get_mount_point().c_str()  << "\n";
