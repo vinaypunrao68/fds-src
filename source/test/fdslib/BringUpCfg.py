@@ -371,7 +371,8 @@ class FdsScenarioConfig(FdsConfig):
         elif re.match('\[fdscli.*\]', script) != None:
             for s in self.cfg_sect_cli:
                 if '[' + s.nd_conf_dict['cli-name'] + ']' == script:
-                    s.run_cli('--activate-nodes abc -k 1 -e sm,dm')
+                    #s.run_cli('--activate-nodes abc -k 1 -e sm,dm')
+                    s.run_cli(self.nd_conf_dict['script_args'])
                     break
         else:
             if 'script_args' in self.nd_conf_dict:
