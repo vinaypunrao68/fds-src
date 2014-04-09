@@ -29,7 +29,7 @@ public class FancyCreateVolume implements RequestHandler {
         int priority = jsonObject.getInt("priority");
         int maxIops = jsonObject.getInt("limit");
 
-        int response = new CreateVolume(iface).createVolume(name);
+        int response = new CreateVolume(iface).createVolume(name, minIops, maxIops, priority);
         return new JsonResource(new JSONObject().put("status", response));
     }
 }

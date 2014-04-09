@@ -24,17 +24,19 @@ public class CreateVolume implements RequestHandler {
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
         String name = requiredString(routeParameters, "volume");
-        int returnValue = createVolume(name);
+        int returnValue = createVolume(name, 0, 1000, 1);
         return new JsonResource(new JSONObject().put("status", returnValue));
     }
 
-    public int createVolume(String name) throws org.apache.thrift.TException {
+    public int createVolume(String name, int minIops, int maxIops, int priority) throws org.apache.thrift.TException {
         FDSP_MsgHdrType msg = new FDSP_MsgHdrType();
         String policyName = name + "_policy";
         int policyId = (int) UUID.randomUUID().getLeastSignificantBits();
         client.CreatePolicy(msg, new FDSP_CreatePolicyType(policyName, new FDSP_PolicyInfoType(policyName,
                 policyId,
-                0, Double.MAX_VALUE, 0)));
+                minIops,
+                maxIops,
+                priority)));
         FDSP_VolumeInfoType volInfo = new FDSP_VolumeInfoType();
         volInfo.setVol_name(name);
         volInfo.setVolPolicyId(policyId);
