@@ -28,13 +28,19 @@ function startServices() {
 
 function setupSymLinks() {
     if [[ -z ${SYMLINKS} ]]; then return ; fi
-
-    local num=${#SYMLINKS[@]}
-    local i,target, link
+    
+    local symarray=(${SYMLINKS[@]})
+    local num=${#symarray[@]}
+    local i
+    local target
+    local link
 
     for (( i=0; i < num ; i+=2 )) ; do
-        target="${SYMLINKS[$i]}"
-        link="${SYMLINKS[$((i+1))]}"
+        target="${symarray[$i]}"
+        k=$((i+1))
+        link="${symarray[$k]}"
+        #echo "target=$target"
+        #echo "link=$link"
         if [[ -e $target ]] ; then
             loginfo "[fdsinstall] : setting up link [$link] --> [$target]"
             if ! (ln -s $target $link) ; then
@@ -49,27 +55,31 @@ function setupSymLinks() {
 function removeSymLinks() {
     if [[ -z ${SYMLINKS} ]]; then return ; fi
 
-    local num=${#SYMLINKS[@]}
-    local i,target, link
+    local symarray=(${SYMLINKS[@]})
+    local num=${#symarray[@]}
+    local i
+    local target
+    local link
 
     for (( i=0; i < num ; i+=2 )) ; do
-        target="${SYMLINKS[$i]}"
-        link="${SYMLINKS[$((i+1))]}"
+        target="${symarray[$i]}"
+        link="${symarray[$((i+1))]}"
 
-        if [[ -e $link ]] ; then
+        if [[ -h $link ]] ; then
             loginfo "[fdsinstall] : removing symlink link [$link] --> [$target]"
-            if [[ -h $link ]] ; then
-                rm -f $link
-            else
-                logerror "[fdsinstall] : remove symlink failed, [$link] is not a symlink"
-            fi
+            rm -f $link
         else
             logerror "[fdsinstall] : remove symlink failed , [$link] does not exist"
         fi
     done
 }
 
-
+function runldconfig() {
+    if [[ ${PKG_HAS_SOLIBS} == '1' ]] ; then
+        loginfo "[fdsinstall] : running ldconfig to update soname bindings"
+        ldconfig
+    fi
+}
 
 function processInstallScript() {
     local MODE=$1
@@ -86,7 +96,8 @@ function processInstallScript() {
             if [[ -n ${INSTALLSCRIPT} ]] ; then
                 ${INSTALLSCRIPT} postinstall "$@"
             fi
-            setupSymLinks
+            runldconfig
+            setupSymLinks            
             installAutoServices
             startServices
             ;;
@@ -99,11 +110,9 @@ function processInstallScript() {
             ;;
         
         postrm)
-            if [ "$1" = "purge" ] ; then
-                removeAutoServices
-                removeSymLinks
-            fi
-
+            removeAutoServices
+            removeSymLinks
+            runldconfig
             if [[ -n ${INSTALLSCRIPT} ]] ; then
                 ${INSTALLSCRIPT} postremove "$@"
             fi

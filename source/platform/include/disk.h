@@ -64,6 +64,7 @@ class PmDiskObj : public DiskObj
     ChainLink                 dsk_disc_link;      /**< link to discovery list.     */
     ChainList                 dsk_part_head;      /**< sda -> { sda1, sda2... }    */
                                                   /**< /dev/sda is in rs_name.     */
+    std::string               dsk_mount_pt;       /**< PL's mount point.           */
     const char               *dsk_raw_path;
     int                       dsk_raw_plen;
     int                       dsk_part_idx;
@@ -75,8 +76,6 @@ class PmDiskObj : public DiskObj
     struct udev_device       *dsk_my_dev;
     DiskCommon               *dsk_common;
     DiskLabel                *dsk_label;
-
-    void dsk_read_uuid();
 
   public:
     PmDiskObj();
@@ -95,15 +94,28 @@ class PmDiskObj : public DiskObj
     static inline PmDiskObj::pointer dsk_cast_ptr(Resource::pointer ptr) {
         return static_cast<PmDiskObj *>(get_pointer(ptr));
     }
+    inline PmDiskObj::pointer dsk_get_parent() { return dsk_parent; }
     inline DiskLabel *dsk_xfer_label() {
         DiskLabel *ret = dsk_label; dsk_label = NULL; return ret;
     }
+    inline fds_uint64_t dsk_capacity_gb() { return dsk_cap_gb; }
+
+    /**
+     * Setup the mount point where the device is mounted as the result of the discovery.
+     */
+    void dsk_set_mount_point(const char *mnt);
+    const std::string &dsk_get_mount_point();
+
+    /**
+     * Read in disk label.  Generate uuid for the disk if we don't have valid label.
+     */
+    void dsk_read_uuid();
 
     /**
      * Raw sector read/write to support supper block update.  Only done in parent disk.
      */
     virtual int dsk_read(void *buf, fds_uint32_t sector, int sect_cnt);
-    virtual int dsk_write(void *buf, fds_uint32_t sector, int sect_cnt);
+    virtual int dsk_write(bool sim, void *buf, fds_uint32_t sector, int sect_cnt);
 
     /**
      * Return the slice device matching with the dev_path (e.g. /dev/sda, /dev/sda1...)
@@ -137,6 +149,7 @@ class PmDiskInventory : public DiskInventory
 {
   protected:
     DiskDevMap               dsk_dev_map;
+    int                      dsk_qualify_cnt;    /**< disks that can run FDS SW.   */
     ChainList                dsk_discovery;
     ChainList                dsk_prev_inv;       /**< previous inventory list.     */
     ChainList                dsk_curr_inv;       /**< disks that were enumerated.  */
@@ -159,6 +172,9 @@ class PmDiskInventory : public DiskInventory
     virtual PmDiskObj::pointer dsk_get_info(const ResourceUUID &uuid) {
         return PmDiskObj::dsk_cast_ptr(rs_get_resource(uuid));
     }
+    virtual PmDiskObj::pointer dsk_get_info(const char *name) {
+        return PmDiskObj::dsk_cast_ptr(rs_get_resource(name));
+    }
     virtual PmDiskObj::pointer dsk_get_info(dev_t dev_node);
     virtual PmDiskObj::pointer dsk_get_info(dev_t dev_node, int partition);
     virtual PmDiskObj::pointer dsk_get_info(const std::string &b);
@@ -174,7 +190,7 @@ class PmDiskInventory : public DiskInventory
     virtual void dsk_do_partition();
     virtual void dsk_admit_all();
     virtual void dsk_mount_all();
-    virtual void dsk_read_label(DiskLabelMgr *mgr, bool creat);
+    virtual bool dsk_read_label(DiskLabelMgr *mgr, bool creat);
 };
 
 /**
@@ -183,12 +199,14 @@ class PmDiskInventory : public DiskInventory
 class DiskPlatModule : public Module
 {
   protected:
-    PmDiskInventory          dsk_devices;
-    PmDiskInventory         *dsk_inuse;
-    struct udev             *dsk_ctrl;
-    struct udev_enumerate   *dsk_enum;
-    FileDiskInventory       *dsk_sim;
-    DiskLabelMgr            *dsk_label;
+    PmDiskInventory::pointer  dsk_devices;
+    PmDiskInventory::pointer  dsk_inuse;
+    struct udev              *dsk_ctrl;
+    struct udev_enumerate    *dsk_enum;
+    FileDiskInventory        *dsk_sim;
+    DiskLabelMgr             *dsk_label;
+
+    void dsk_discover_mount_pts();
 
   public:
     explicit DiskPlatModule(char const *const name);
@@ -196,10 +214,10 @@ class DiskPlatModule : public Module
 
     static DiskPlatModule *dsk_plat_singleton();
     static inline PmDiskInventory::pointer dsk_get_hdd_inv() {
-        return &dsk_plat_singleton()->dsk_devices;
+        return dsk_plat_singleton()->dsk_devices;
     }
     static inline PmDiskInventory::pointer dsk_get_ssd_inv() {
-        return &dsk_plat_singleton()->dsk_devices;
+        return dsk_plat_singleton()->dsk_devices;
     }
 
     void dsk_rescan();
@@ -208,6 +226,7 @@ class DiskPlatModule : public Module
     // Module methods.
     ///
     virtual int  mod_init(SysParams const *const param);
+    virtual void mod_enable_service();
     virtual void mod_startup();
     virtual void mod_shutdown();
 };
@@ -235,7 +254,7 @@ class FileDiskInventory : public PmDiskInventory
     virtual void dsk_do_partition();
     virtual void dsk_admit_all();
     virtual void dsk_mount_all();
-    virtual void dsk_read_label(DiskLabelMgr *mgr, bool creat);
+    virtual bool dsk_read_label(DiskLabelMgr *mgr, bool creat);
 
   private:
     void dsk_file_create(const char *type, int count, ChainList *list);
@@ -254,7 +273,7 @@ class FileDiskObj : public PmDiskObj
     ~FileDiskObj();
 
     virtual int dsk_read(void *buf, fds_uint32_t sector, int sect_cnt);
-    virtual int dsk_write(void *buf, fds_uint32_t sector, int sect_cnt);
+    virtual int dsk_write(bool sim, void *buf, fds_uint32_t sector, int sect_cnt);
 };
 
 }  // namespace fds

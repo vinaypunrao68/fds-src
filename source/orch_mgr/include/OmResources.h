@@ -103,6 +103,7 @@ class OM_NodeAgent : public NodeAgent
 
     virtual bool om_send_dlt(const DLT *curDlt);
     virtual void om_send_dlt_close(fds_uint64_t cur_dlt_version);
+    virtual Error om_send_scavenger_cmd(fds_bool_t all, fds_uint32_t token_id);
     virtual void init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const;
 
   protected:
@@ -415,6 +416,11 @@ class OM_NodeContainer : public DomainContainer
     virtual fds_uint32_t om_bcast_dlt(const DLT* curDlt,
                                       fds_bool_t sm_only = false);
     virtual fds_uint32_t om_bcast_dlt_close(fds_uint64_t cur_dlt_version);
+    /**
+     * for now sends scavenger start command to SMs
+     * TODO(xxx) extend to other scavenger commands passing cmd type
+     */
+    virtual void om_bcast_scavenger_cmd(fds_bool_t all, fds_uint32_t token_id);
     /**
      * conditional broadcast to platform (nodes) to
      * activate SM and DM services on those nodes, but only

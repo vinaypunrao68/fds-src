@@ -152,7 +152,7 @@ class DiskLabel
     virtual void dsk_label_generate(ChainList *labels, int dsk_cnt);
     virtual void dsk_label_clone(DiskLabel *master);
     virtual void dsk_label_read();
-    virtual void dsk_label_write(DiskLabelMgr *mgr);
+    virtual void dsk_label_write(PmDiskInventory::pointer inv, DiskLabelMgr *mgr);
 };
 
 typedef enum
@@ -187,6 +187,8 @@ class DiskLabelMgr
   protected:
     DiskLabel               *dl_master;
     ChainList                dl_labels;
+    int                      dl_total_disks;
+    int                      dl_valid_labels;
     fds_mutex                dl_mtx;
 
     /**
@@ -200,9 +202,13 @@ class DiskLabelMgr
 
     DiskLabel *dsk_master_label_mtx();
     void dsk_read_label(PmDiskObj::pointer disk);
-    void dsk_reconcile_label(bool creat);
 
-    void dsk_rec_label_map(const char *path, int idx, const ResourceUUID &uuid);
+    /**
+     * @return true if the majority of labels read from the inventory have valid
+     * FDS labels.
+     */
+    bool dsk_reconcile_label(PmDiskInventory::pointer inv, bool creat);
+    void dsk_rec_label_map(PmDiskObj::pointer disk, int idx);
 };
 
 }  // namespace fds

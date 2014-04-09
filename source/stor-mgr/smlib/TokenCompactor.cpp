@@ -94,7 +94,7 @@ Error TokenCompactor::enqCopyWork(std::vector<ObjectID>* obj_list)
     copy_req->io_type = FDS_SM_COMPACT_OBJECTS;
     (copy_req->oid_list).swap(*obj_list);
     copy_req->smio_compactobj_resp_cb = std::bind(
-        &TokenCompactor::compactObjectsCb, this,
+        &TokenCompactor::objsCompactedCb, this,
         std::placeholders::_1, std::placeholders::_2);
 
     // enqueue to qos queue, copy_req will be delete after it's dequeued
@@ -192,11 +192,40 @@ void TokenCompactor::snapDoneCb(const Error& error,
 }
 
 //
-// Do actualy copy for given objects
+// Notification that set of objects were compacted
+// Update progress counters and finish token compaction process
+// if we finished compaction of all objects
 //
-void TokenCompactor::compactObjectsCb(const Error& error,
-                                      SmIoCompactObjects* req)
+void TokenCompactor::objsCompactedCb(const Error& error,
+                                     SmIoCompactObjects* req)
 {
+    fds_verify(req != NULL);
+    fds_uint32_t done_before, total_done;
+    fds_uint32_t work_objs_done = (req->oid_list).size();
+
+    // we must be in IN_PROGRESS state
+    tcStateType cur_state = std::atomic_load(&state);
+    fds_verify(cur_state == TCSTATE_IN_PROGRESS);
+
+    if (!error.ok()) {
+        LOGERROR << "Failed to compact a set of objects, cannot continue"
+                 << " with token GC copy, completing with error " << error;
+        handleCompactionDone(error);
+        return;
+    }
+
+    // account for progress and see if token compaction is done
+    done_before = std::atomic_fetch_add(&objs_done, work_objs_done);
+    total_done = done_before + work_objs_done;
+    fds_verify(total_done <= total_objs);
+
+    LOGNORMAL << "Finished compaction of " << work_objs_done << " objects"
+              << ", done so far " << total_done << " out of " << total_objs;
+
+    if (total_done == total_objs) {
+        // we are done!
+        handleCompactionDone(error);
+    }
 }
 
 Error TokenCompactor::handleCompactionDone(const Error& tc_error)

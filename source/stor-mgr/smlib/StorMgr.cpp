@@ -13,6 +13,7 @@
 #include "StorMgr.h"
 #include "fds_obj_cache.h"
 #include <fds_timestamp.h>
+#include <TokenCompactor.h>
 
 namespace fds {
 
@@ -948,6 +949,7 @@ ObjectStorMgr::writeObjectMetaData(const OpCtx &opCtx,
 
     LOGDEBUG << "Appending new location for object " << objId;
 
+   smObjDb->lock(objId);
    /*
    * Get existing object locations
    */
@@ -955,6 +957,7 @@ ObjectStorMgr::writeObjectMetaData(const OpCtx &opCtx,
     if (err != ERR_OK && err != ERR_DISK_READ_FAILED) {
         LOGERROR << "Failed to read existing object locations"
                     << " during location write";
+        smObjDb->unlock(objId);
         return err;
      } else if (err == ERR_DISK_READ_FAILED) {
             /*
@@ -966,6 +969,7 @@ ObjectStorMgr::writeObjectMetaData(const OpCtx &opCtx,
                     << ", assuming no prior entry existed";
             err = ERR_OK;
      }
+     // Lock the SM object DB
 
     /*
      * Add new location to existing locations
@@ -974,7 +978,7 @@ ObjectStorMgr::writeObjectMetaData(const OpCtx &opCtx,
 
     if(relocate_flag) { 
       objMap.removePhyLocation(fromTier);
-    } else {
+    } else if (opCtx.type != OpCtx::GC_COPY) {
       objMap.updateAssocEntry(objId, (fds_volid_t)vol->vol_uuid);
     }
 
@@ -986,6 +990,7 @@ ObjectStorMgr::writeObjectMetaData(const OpCtx &opCtx,
         LOGERROR << "Failed to put object " << objId
                 << " into odb with error " << err;
     }
+    smObjDb->unlock(objId);
 
     return err;
 }
@@ -1008,6 +1013,7 @@ ObjectStorMgr::deleteObjectMetaData(const OpCtx &opCtx,
     // NOTE !!!
     ObjMetaData objMap;
 
+    smObjDb->lock(objId);
     /*
      * Get existing object locations
      */
@@ -1015,6 +1021,7 @@ ObjectStorMgr::deleteObjectMetaData(const OpCtx &opCtx,
     if (err != ERR_OK && err != ERR_DISK_READ_FAILED) {
         LOGERROR << "Failed to read existing object locations"
                 << " during location write";
+        smObjDb->unlock(objId);
         return err;
     } else if (err == ERR_DISK_READ_FAILED) {
         /*
@@ -1040,6 +1047,7 @@ ObjectStorMgr::deleteObjectMetaData(const OpCtx &opCtx,
         LOGERROR << "Failed to put object " << objId
                 << " into odb with error " << err;
     }
+    smObjDb->unlock(objId);
 
     return err;
 }
@@ -1392,7 +1400,7 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
     bool new_buff_allocated = false, added_cache = false;
 
     ObjMetaData objMap;
-    objStorMutex->lock();
+    //objStorMutex->lock();
 
 #ifdef OBJCACHE_ENABLE
     objBufPtr = objCache->object_retrieve(volId, objId);
@@ -1437,6 +1445,7 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
             fds_verify(err == ERR_OK);
         }
 
+        smObjDb->lock(objId);
         // Update  the AssocEntry for dedupe-ing
         objMap.updateAssocEntry(objId, volId);
         err = smObjDb->put(opCtx, objId, objMap);
@@ -1447,6 +1456,7 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
             LOGERROR << "Failed to put ObjMetaData " << objId
                     << " into odb with error " << err;
         }
+        smObjDb->unlock(objId);
 
         /*
          * Reset the err to OK to ack the metadata update.
@@ -1509,6 +1519,7 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
             }  
           // Update  the AssocEntry for dedupe-ing
           LOGDEBUG << " Object  ID: " << objId << " objMap: " << objMap;
+          smObjDb->lock(objId);
           objMap.updateAssocEntry(objId, volId);
           err = smObjDb->put(opCtx, objId, objMap);
           if (err == ERR_OK) {
@@ -1518,6 +1529,7 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
               LOGERROR << "Failed to put ObjMetaData " << objId
                       << " into odb with error " << err;
           }  
+          smObjDb->unlock(objId);
           err = ERR_OK;
         } else {
 
@@ -1538,7 +1550,7 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
        objCache->object_delete(volId, objId);
 
 #endif
-    objStorMutex->unlock();
+    //objStorMutex->unlock();
 
     qosCtrl->markIODone(*putReq,
                         tierUsed);
@@ -1688,12 +1700,12 @@ ObjectStorMgr::deleteObjectInternal(SmIoReq* delReq) {
     }
 
 
-    objStorMutex->lock();
+    //objStorMutex->lock();
     /*
      * Delete the object, decrement refcnt of the assoc entry & overall refcnt
      */
     err = deleteObjectMetaData(opCtx, objId, volId);
-    objStorMutex->unlock();
+    //objStorMutex->unlock();
     if (err != fds::ERR_OK) {
         LOGERROR << "Failed to delete object " << err;
     } else {
@@ -1809,9 +1821,8 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
      * memory for that size.
      */
 
-    objStorMutex->lock();
+    //objStorMutex->lock();
     objBufPtr = objCache->object_retrieve(volId, objId);
-    objBufPtr = NULL; //Disable the object cache lookup 
 
     if (!objBufPtr) {
         ObjectBuf objData;
@@ -1843,7 +1854,7 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
         fds_verify(!(objCache->is_object_io_in_progress(volId, objId, objBufPtr)));
     }
 
-    objStorMutex->unlock();
+    //objStorMutex->unlock();
 
     if (err != fds::ERR_OK) {
         LOGERROR << "Failed to get object " << objId
@@ -2284,17 +2295,99 @@ ObjectStorMgr::applySyncMetadataInternal(SmIoReq* ioReq)
     applyMdReq->smio_sync_md_resp_cb(e, applyMdReq);
 }
 
+Error
+ObjectStorMgr::condCopyObjectInternal(const ObjectID &objId)
+{
+    Error err(ERR_OK);
+    ObjMetaData objMetadata;
+    ObjectBuf objData;
+    diskio::DataIO& dio_mgr = diskio::DataIO::disk_singleton();
+
+    err = readObjMetaData(objId, objMetadata);
+    if (!err.ok()) {
+        LOGERROR << "failed to read metadata for obj " << objId
+                 << " error " << err;
+        return err;
+    }
+
+    // we don't do compaction for flash yet, so object location
+    // in flash must not happen yet
+    fds_verify(!objMetadata.onFlashTier());
+
+    if (!TokenCompactor::isGarbage(objMetadata)) {
+        OpCtx opCtx(OpCtx::GC_COPY, 0);
+        meta_obj_id_t   oid;
+        meta_vol_io_t   vio;  // passing to disk_req but not used
+        SmPlReq     *disk_req = NULL;
+
+        LOGDEBUG << "Will copy obj " << objId << " to new file";
+
+        // not garbage, read obj data
+        memcpy(oid.metaDigest, objId.GetId(), objId.GetLen());
+        disk_req = new SmPlReq(vio, oid, (ObjectBuf *)&objData, true);
+        disk_req->setTier(diskTier);
+        disk_req->set_phy_loc(objMetadata.getObjPhyLoc(diskTier));
+        objData.size = objMetadata.getObjSize();
+        objData.data.resize(objData.size, 0);
+        err = dio_mgr.disk_read(disk_req);
+        if (!err.ok()) {
+            LOGERROR << " Disk Read Err: " << err; 
+            delete disk_req;
+            return err;
+        }
+
+        // disk write will write it to the new file
+        err = dio_mgr.disk_write(disk_req);
+        if (!err.ok()) {
+            LOGERROR << " Disk Write Err: " << err; 
+            delete disk_req;
+            return err;
+        }
+
+        // ok if concurrent reads happen for this obj before
+        // updating metadata, because object is still in both places
+
+        // update metadata
+        err = writeObjectMetaData(opCtx, objId, objData.data.length(),
+                                  disk_req->req_get_phy_loc(), false, diskTier, &vio);
+        if (!err.ok()) {
+            LOGERROR << "Failed to update metadata for obj " << objId;
+        }
+
+        delete disk_req;
+    } else {
+        // TODO(anna) not going to copy obj, remove entry from obj db
+        LOGDEBUG << "Will garbage-collect obj " << objId;
+    }
+
+    return err;
+}
+
 void
 ObjectStorMgr::compactObjectsInternal(SmIoReq* ioReq)
 {
+    Error err(ERR_OK);
     SmIoCompactObjects *cobjs_req =  static_cast<SmIoCompactObjects*>(ioReq);
+    fds_verify(cobjs_req != NULL);
 
-    LOGDEBUG << "Will compact objects in the list";
+    for (fds_uint32_t i = 0; i < (cobjs_req->oid_list).size(); ++i) {
+        const ObjectID& obj_id = (cobjs_req->oid_list)[i];
+
+        LOGDEBUG << "Compaction is working on object " << obj_id;
+
+        // copy this object if not garbage, otherwise rm object db entry
+        err = condCopyObjectInternal(obj_id);
+        if (!err.ok()) {
+            LOGERROR << "Failed to compact object " << obj_id
+                     << ", error " << err;
+            break;
+        }
+    }
 
     /* Mark the request as complete */
     qosCtrl->markIODone(*cobjs_req, DataTier::diskTier);
 
-    cobjs_req->smio_compactobj_resp_cb(Error(ERR_OK), cobjs_req);
+    cobjs_req->smio_compactobj_resp_cb(err, cobjs_req);
 
     delete cobjs_req;
 }

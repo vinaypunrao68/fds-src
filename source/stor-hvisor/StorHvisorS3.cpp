@@ -285,6 +285,8 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
                     << ", just give up and return error.";
         blobReq->cbWithResult(-2);
         err = ERR_NOT_IMPLEMENTED;
+        journEntry->reset();
+        shVol->journal_tbl->releaseTransId(transId);
         delete qosReq;
         return err;
     }
@@ -383,7 +385,19 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
                 << "]";
     }
 
-    fds_verify(err == ERR_OK);
+    if (err == ERR_NETWORK_TRANSPORT) { 
+        shVol->readUnlock();
+        LOGCRITICAL << "Transaction " << transId << " hits network transport error "
+                    << ", just give up and return error.";
+        blobReq->cbWithResult(-2);
+        err = ERR_NOT_IMPLEMENTED;
+        journEntry->reset();
+        shVol->journal_tbl->releaseTransId(transId);
+        delete qosReq;
+        return err;
+    }
+
+    fds_verify(err == ERR_OK );
 
     /*
      * Setup DM messages

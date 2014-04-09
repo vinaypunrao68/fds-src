@@ -69,3 +69,7 @@ test/bower_components/
 gmock-1.7.0/gmock_test
 nginx/src/main/ngx_modules.c
 /source/am-engine/am-urls.cpp
+
+# Debian Archives and tmp dirs
+*.deb
+tmppkg*/
