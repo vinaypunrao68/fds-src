@@ -410,8 +410,10 @@ DiskLabelMgr::dsk_reconcile_label(PmDiskInventory::pointer inv, bool creat)
             upgrade.chain_add_back(&label->dl_link);
         }
     }
-    ret = (dl_valid_labels >= (dl_total_disks >> 1)) ? true : false;
-
+    ret = false;
+    if (dl_valid_labels > 0) {
+        ret = (dl_valid_labels >= (dl_total_disks >> 1)) ? true : false;
+    }
     if (master == NULL) {
         fds_verify(dl_valid_labels == 0);
         fds_verify(upgrade.chain_empty_list() == false);
