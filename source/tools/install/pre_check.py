@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 ''' 
 pre_check.py -- Script to do pre-install verification of nodes
 
@@ -286,4 +288,4 @@ if __name__ == "__main__":
     arg_parser.add_argument('--net_connect', type=bool, default=DefaultConfig.net_connect)
     
     install_c = InstallConfig.from_cli_args(arg_parser.parse_args())
-    install_c.verify()
+    sys.exit(install_c.verify())
