@@ -34,6 +34,7 @@
 #include <persistent_layer/dm_io.h>
 #include <fds_migration.h>
 #include <TransJournal.h>
+#include <Scavenger.h>
 #include <hash/md5.h>
 
 #include <fds_qos.h>
@@ -425,6 +426,7 @@ class ObjectStorMgr :
         volTbl = nullptr;
         objStorMutex = nullptr;
         omJrnl = nullptr;
+        scavenger = nullptr;
     }
 
     ~ObjectStorMgr();
@@ -435,6 +437,7 @@ class ObjectStorMgr :
     virtual void interrupt_cb(int signum) override;
 
     TierEngine     *tierEngine;
+    ScavControl     *scavenger;
     SmObjDb        *smObjDb; // Object Index DB <ObjId, Meta-data + data_loc>
     checksum_calc   *chksumPtr;
     /*

@@ -5,7 +5,7 @@ user_build_dir    :=
 
 # TODO: avoid include across components, put in include dir instead.
 #
-user_incl_dir     := $(topdir) ../include $(topdir)/stor-mgr/migrations $(topdir)/lib
+user_incl_dir     := $(topdir) ../include $(topdir)/stor-mgr/migrations $(topdir)/lib $(topdir)/persistent_layer/include
 
 user_cpp_flags    := -DOBJCACHE_ENABLE
 user_cpp          :=                   \
@@ -17,6 +17,7 @@ user_cpp          :=                   \
     TierPutAlgorithms.cpp              \
     ObjMeta.cpp                        \
     SmObjDb.cpp                        \
+    Scavenger.cpp                      \
     TokenCompactor.cpp
 
 user_no_style     := \
@@ -27,6 +28,7 @@ user_no_style     := \
     TierEngine.cpp                     \
     TierPutAlgorithms.cpp              \
     ObjMeta.cpp                        \
+    Scavenger.cpp                      \
     SmObjDb.cpp                        
 
 user_ar_libs      := fds-smlib
