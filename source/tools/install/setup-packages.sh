@@ -203,14 +203,32 @@ function installFdsService() {
 # ------- MAIN PROGRAM --------
 ###########################################################################
 
+usage() {
+    echo $(yellow "usage: setup-packages.sh option [option ..]")
+    echo "option :"
+    echo "  basepkg - install base pkgs"
+    echo "  basedeb - install base debs"
+    echo "  python  - install python pkgs"
+    echo "  fds-base - install base fds pkgs"
+    echo "  fds-[om/am/pm/dm/sm] - install respective fds service"
+    exit 0
+}
+
+if [[ $# == 0 ]] ; then
+    usage
+fi
+
 for opt in "$@" ; do
     case $opt in 
-        basepkgs) installBasePkgs ;;
-        basedebs) installBaseDebs ;;
+        basepkg*) installBasePkgs ;;
+        basedeb*) installBaseDebs ;;
         python*) installPythonPkgs ;;
         fds-base*) installFdsBaseDebs ;;
         fds-*) installFdsService $opt ;;
-        *) logerror "unknown option $opt" ;;
+        *) 
+            logerror "unknown option $opt" 
+            usage
+            ;;
     esac
 done
 
