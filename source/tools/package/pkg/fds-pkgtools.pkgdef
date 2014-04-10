@@ -1,6 +1,6 @@
 
 package: fds-pkgtools
-version: 0.2.3
+version: 0.2.4
 description: Provides tools to create and upload packages
 
 files:
