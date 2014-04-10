@@ -1,14 +1,7 @@
 #!/usr/bin/env python
 
 ''' 
-pre_check.py -- Script to do pre-install verification of nodes
-
-Error codes:
- 1 - Not enough system memory
- 2 - Too few disks
- 3 - Drive size too small
- 4 - No internet connectivity
- 6 - OS version mismatch
+system_pre_check.py -- Script to do pre-install verification of nodes
 
 Usage within a script:
 
@@ -32,6 +25,16 @@ import pdb
 sys.path.append('../../platform/python/')
 import disk_type
 
+
+# Error messages
+SysPrecheckErrors = (
+    "", # First must be empty otherwise errors will be off by one
+    "Not enough available memory.",
+    "Not enough available disk drives.",
+    "Drive capacity not large enough.",
+    "System unable to connect to internet.",
+    "Incompatable OS version found."
+)
 
 class DefaultConfig:
     ''' Default configuration options. This should be the only location that
@@ -120,7 +123,7 @@ class InstallConfig:
         if res == 0:
             print "Node PASSED!"
         else:
-            print "Node FAILED! with error code:", res
+            print "Node FAILED!", SysPrecheckErrors[res]
             return res
 
         return 0
