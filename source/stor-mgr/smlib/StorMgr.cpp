@@ -108,7 +108,7 @@ ObjectStorMgrI::PutObject(FDSP_MsgHdrTypePtr& msgHdr,
      * If we failed to enqueue the I/O return the error response
      * now as there is no more processing to do.
      */
-    if (msgHdr->result != FDSP_ERR_OK) {
+    if (msgHdr->err_code != ERR_OK || msgHdr->result != FDSP_ERR_OK) {
         msgHdr->msg_code = FDSP_MSG_PUT_OBJ_RSP;
         objStorMgr->swapMgrId(msgHdr);
         objStorMgr->fdspDataPathClient(msgHdr->session_uuid)->PutObjectResp(msgHdr, putObj);
@@ -151,7 +151,7 @@ ObjectStorMgrI::GetObject(FDSP_MsgHdrTypePtr& msgHdr,
      * If we failed to enqueue the I/O return the error response
      * now as there is no more processing to do.
      */
-    if (msgHdr->result != FDSP_ERR_OK) {
+    if (msgHdr->err_code != ERR_OK || msgHdr->result != FDSP_ERR_OK) {
 
         msgHdr->msg_code = FDSP_MSG_GET_OBJ_RSP;
         if((uint)getObj->dlt_version != objStorMgr->omClient->getDltVersion()) {
@@ -210,7 +210,7 @@ ObjectStorMgrI::DeleteObject(FDSP_MsgHdrTypePtr& msgHdr,
      * If we failed to enqueue the I/O return the error response
      * now as there is no more processing to do.
      */
-    if (msgHdr->result != FDSP_ERR_OK) {
+    if (msgHdr->err_code != ERR_OK || msgHdr->result != FDSP_ERR_OK) {
 
         msgHdr->msg_code = FDSP_MSG_DELETE_OBJ_RSP;
         objStorMgr->swapMgrId(msgHdr);
