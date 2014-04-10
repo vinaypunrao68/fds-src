@@ -167,11 +167,15 @@ class FDS_Node:
         Returns:
           None
         '''
+        
+        print "Getting system memory information..."
 
+        print "Calling cat /proc/meminfo ..."
         # Get the mem size        
         mem_info = subprocess.Popen(['cat', '/proc/meminfo'], 
                                     stdout=subprocess.PIPE).stdout
 
+        print "Parsing output to find memory size..."
         # Find the MemTotal
         for line in mem_info:
             match = re.match('MemTotal:\s*(\d*)\s*(\w{2,3})', line)
@@ -197,10 +201,17 @@ class FDS_Node:
           None
 
         '''
-        df_output    = subprocess.Popen(['df', '/'], stdout=subprocess.PIPE).stdout
-        mount_output = subprocess.Popen(['mount'], stdout=subprocess.PIPE).stdout
+        
+        print "Getting system disk information..."
 
+        print "Calling df on / ..."
+        df_output    = subprocess.Popen(['df', '/'], stdout=subprocess.PIPE).stdout
+        print "Calling mount ..."
+        mount_output = subprocess.Popen(['mount'], stdout=subprocess.PIPE).stdout
+        
+        print "Processing output to gather disk information..."
         self.disks = disk_type.Disk.sys_disks(False, df_output, mount_output)
+        
         self.num_disks = len(self.disks)
 
 
@@ -212,8 +223,14 @@ class FDS_Node:
         Returns:
           None
         '''
+
+        print "Getting OS version information..."
+        print "Calling lsb_release -a..."
+
         os_info = subprocess.Popen(['lsb_release', '-a'],
                                    stdout=subprocess.PIPE).stdout
+        print "lsb_release -a returned, finding OS version..."
+
         for line in os_info:
             match = re.match('Description:\s*(.*)', line)
             if match is not None:
@@ -230,8 +247,11 @@ class FDS_Node:
         Returns:
           None
         '''
-        
+
+        print "Checking internet connection..."
         FNULL = open(os.devnull, 'w')
+        
+        print "Sending ping request to www.google.com..."
         net_info = subprocess.call(['ping', '-c 1', 'www.google.com'], stdout=FNULL)
                                    
         if net_info == 0:
