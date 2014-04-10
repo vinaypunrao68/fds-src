@@ -1,0 +1,18 @@
+package: fds-orchmgr
+version: 0.1
+description: installs the core binaries
+
+depends: 
+  - fds-systemdir
+  - fds-systemconf
+
+files:
+  - dest: /fds/bin
+    src:
+      - ../../../Build/linux-x86_64.debug/bin/liborchmgr.so
+      - ../../../Build/linux-x86_64.debug/bin/orchMgr
+
+#services:
+#  name: fds-orchmgr
+#  start-on-boot: True
+#  control: orchmgr.service
