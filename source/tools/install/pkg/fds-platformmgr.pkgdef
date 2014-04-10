@@ -1,6 +1,6 @@
-package: fds-orchmgr
+package: fds-platformmgr
 version: 0.1
-description: installs the core binaries
+description: fds platform mgr
 
 depends: 
   - fds-systemdir
@@ -8,9 +8,8 @@ depends:
 
 files:
   - dest: /fds/bin
-    src:
-      - ../../../Build/linux-x86_64.debug/bin/liborchmgr.so
-      - ../../../Build/linux-x86_64.debug/bin/orchMgr
+    dest-is-dir: True
+    src: ../../../Build/linux-x86_64.debug/bin/platformd
 
 #services:
 #  name: fds-orchmgr

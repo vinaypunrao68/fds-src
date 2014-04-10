@@ -1,0 +1,11 @@
+package: fds-configdbtool
+version: 0.1
+description: fds command line tool for configdb
+
+depends: 
+  - fds-systemdir
+  - fds-systemconf
+
+files:
+  - dest: /fds/bin/configdbtool
+    src: ../../../Build/linux-x86_64.debug/bin/configdbtool

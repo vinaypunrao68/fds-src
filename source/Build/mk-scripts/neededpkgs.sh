@@ -20,7 +20,7 @@ needed_packages=(
 
     fds-pkghelper_0.3
     fds-pkg_0.2.3
-    fds-pkgtools_0.2.3
+    fds-pkgtools_0.2.4
 )
 
 python_packages=(

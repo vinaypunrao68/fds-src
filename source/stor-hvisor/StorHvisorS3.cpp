@@ -999,7 +999,7 @@ fds::Error StorHvCtrl::getObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
          * send a get object request to secondary SM
          */
        if (txn->nodeSeq != txn->num_sm_nodes) { 
-           txn->nodeSeq =+ 1; // secondary node 
+           txn->nodeSeq += 1; // secondary node 
            err = dispatchSmGetMsg(txn);
            fds_verify(err == ERR_OK);
  

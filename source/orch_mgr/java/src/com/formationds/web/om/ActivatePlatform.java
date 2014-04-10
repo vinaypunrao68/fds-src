@@ -3,10 +3,7 @@ package com.formationds.web.om;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import FDS_ProtocolInterface.FDSP_ActivateOneNodeType;
-import FDS_ProtocolInterface.FDSP_ConfigPathReq;
-import FDS_ProtocolInterface.FDSP_MsgHdrType;
-import FDS_ProtocolInterface.FDSP_Uuid;
+import FDS_ProtocolInterface.*;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
@@ -28,7 +25,14 @@ public class ActivatePlatform implements RequestHandler {
         long nodeUuid = requiredLong(routeParameters, "node_uuid");
         int domainId = requiredInt(routeParameters, "domain_id");
 
-        int status = client.ActivateNode(new FDSP_MsgHdrType(), new FDSP_ActivateOneNodeType(domainId, new FDSP_Uuid(nodeUuid), true, true, true));
+        long dms = client.ListServices(new FDSP_MsgHdrType())
+                .stream()
+                .filter(n -> n.getNode_type() == FDSP_MgrIdType.FDSP_DATA_MGR)
+                .count();
+
+        boolean activateDm = dms == 0;
+
+        int status = client.ActivateNode(new FDSP_MsgHdrType(), new FDSP_ActivateOneNodeType(domainId, new FDSP_Uuid(nodeUuid), true, activateDm, true));
         int httpCode = status == 0 ? HttpServletResponse.SC_OK : HttpServletResponse.SC_BAD_REQUEST;
         return new JsonResource(new JSONObject().put("status", status), httpCode);
     }

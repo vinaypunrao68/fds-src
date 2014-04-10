@@ -104,7 +104,7 @@ Error ObjectRankEngine::initialize()
 
   /* start timer for getting hot objects from the stats tracker.
    * for now setting small intervals so we can have short demo */
-  if (!rankTimer->scheduleRepeated(rankTimerTask, std::chrono::seconds(30))) {
+  if (!rankTimer->scheduleRepeated(rankTimerTask, std::chrono::seconds(100))) {
       FDS_PLOG(ranklog) << "ObjectRankEngine: ERROR: failed to schedule timer to analyze stats from stat tracker";
       err = ERR_MAX;
   }
