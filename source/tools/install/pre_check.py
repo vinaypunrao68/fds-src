@@ -5,11 +5,13 @@ Error codes:
  1 - Not enough system memory
  2 - Too few disks
  3 - Drive size too small
+ 4 - No internet connectivity
+ 6 - OS version mismatch
 
 Usage within a script:
 
 # Create a new InstallConfig instance
-# Parameters: username, password, [ip addresses], port, min_mem_in_GB, min_#_disks, min_disk_size_in_GB, wipe?
+# Parameters: min_mem_in_GB, min_#_disks, min_disk_size_in_GB, wipe?
 config = InstallConfig('MyUser', 'MyPassword, '10.10.10.1', 22, 2, 6, 1000, False)
 
 # Verify all nodes
@@ -33,16 +35,20 @@ class DefaultConfig:
     ''' Default configuration options. This should be the only location that
     these values need to be changed.
     '''
-    min_mem = 2 # Mem size in GB
+    min_mem = 32 # Mem size in GB
     num_disks = 6 # 6 disks
     disk_size = 1000 #2TB in GB
+    net_connect = True
+    os_version = "Ubuntu 13.10"
     wipe = False
 
 class InstallConfig:
     def __init__(self, min_mem=DefaultConfig.min_mem,
                  num_disks=DefaultConfig.num_disks,
                  disk_size=DefaultConfig.disk_size,
-                 wipe=DefaultConfig.wipe):
+                 wipe=DefaultConfig.wipe, 
+                 os_version=DefaultConfig.os_version,
+                 net_connect=DefaultConfig.net_connect):
         
         ''' 
         Constructor for creating InstallConfigs in scripts by passing
@@ -56,6 +62,10 @@ class InstallConfig:
         self._num_disks = num_disks
         # Min disk size 
         self._disk_size = disk_size
+        # OS version
+        self._os_version = os_version
+        # Net connect
+        self._net_connect = net_connect
 
     @classmethod
     def from_cli_args(self, args):
@@ -65,7 +75,8 @@ class InstallConfig:
         assert args.__class__ == argparse.Namespace, "Called from_cli_args with incorrect parameter type."
 
         return InstallConfig(args.min_mem, args.num_disks,
-                             args.disk_size, args.wipe)
+                             args.disk_size, args.wipe, 
+                             args.os_version, args.net_connect)
     @property
     def wipe(self):
         return self._wipe
@@ -81,6 +92,14 @@ class InstallConfig:
     @property
     def disk_size(self):
         return self._disk_size
+
+    @property
+    def os_version(self):
+        return self._os_version
+
+    @property
+    def net_connect(self):
+        return self._net_connect
 
     def __str__(self):
         return ("\nMIN_MEM = " +  str(self.min_mem) + 
@@ -111,9 +130,11 @@ class FDS_Node:
         
         self.mem_size = None
         self.num_disks = None
-        # Each disk will keep its own size information
+        # Each disk in the list will be a disk_type.Disk and will keep
+        # its own size information
         self.disks = [] 
-        
+        self.net_connect = False
+        self.os_version = None
         # Populate node information
         self.populate_node_info()
 
@@ -131,7 +152,8 @@ class FDS_Node:
         # Get memory information
         self.__get_mem_info()
         self.__get_disk_info()
-        
+        self.__get_os_version()
+        self.__get_net_connect()
 
     def __get_mem_info(self):
         '''
@@ -170,12 +192,53 @@ class FDS_Node:
           None
 
         '''
+        df_output    = subprocess.Popen(['df', '/'], stdout=subprocess.PIPE).stdout
+        mount_output = subprocess.Popen(['mount'], stdout=subprocess.PIPE).stdout
 
-        self.disks = disk_type.Disk.sys_disks(False)
+        self.disks = disk_type.Disk.sys_disks(False, df_output, mount_output)
         self.num_disks = len(self.disks)
 
 
+    def __get_os_version(self):
+        '''
+        Calls lsb_release -a and parses the output to find OS version.
+        Sets self.os_version with the result.
+
+        Returns:
+          None
+        '''
+        os_info = subprocess.Popen(['lsb_release', '-a'],
+                                   stdout=subprocess.PIPE).stdout
+        for line in os_info:
+            match = re.match('Description:\s*(.*)', line)
+            if match is not None:
+                self.os_version = match.group(1)
+
+                return
+
+    def __get_net_connect(self):
+        '''
+        Pings an external website to determine if the node has outside
+        connectivity. Sets self.net_connect to True if node has internet 
+        access, False otherwise.
+        
+        Returns:
+          None
+        '''
+        
+        FNULL = open(os.devnull, 'w')
+        net_info = subprocess.call(['ping', '-c 1', 'www.google.com'], stdout=FNULL)
+                                   
+        if net_info == 0:
+            self.net_connect = True
+        else:
+            self.net_connect = False
+
+        
+        
+
     def verify(self, config):
+
         ''' 
         Verify that this node meets the criteria specified in config.
         Params:
@@ -200,6 +263,12 @@ class FDS_Node:
             if disk.get_capacity() < config.disk_size:
                 return 3
                 
+        if not self.net_connect:
+            return 4
+
+        if self.os_version != config.os_version:
+            return 5
+
         # If we've passed everything return 0
         return 0
 
@@ -213,7 +282,8 @@ if __name__ == "__main__":
     arg_parser.add_argument('--num_disks', type=int, default=DefaultConfig.num_disks)
     arg_parser.add_argument('--disk_size', type=int, default=DefaultConfig.disk_size)
     arg_parser.add_argument('--wipe', action='store_const', const=True, default=DefaultConfig.wipe)
-
+    arg_parser.add_argument('--os_version', default=DefaultConfig.os_version)
+    arg_parser.add_argument('--net_connect', type=bool, default=DefaultConfig.net_connect)
+    
     install_c = InstallConfig.from_cli_args(arg_parser.parse_args())
-    print install_c
     install_c.verify()
