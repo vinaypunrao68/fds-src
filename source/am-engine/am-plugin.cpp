@@ -866,6 +866,36 @@ AME_Ctx::ame_set_header_sent(fds_bool_t sent) {
     ame_map_lock->unlock();
 }
 
+/**
+ * Sets the complete etag string
+ */
+void
+AME_Ctx::ame_set_etag_result(const std::string &etag) {
+    ame_map_lock->lock();
+    ame_etag_result = etag;
+    ame_map_lock->unlock();
+}
+
+/**
+ * Expects lock to be held by caller
+ */
+std::string
+AME_Ctx::ame_get_etag_result_locked() {
+    return ame_etag_result;
+}
+
+/**
+ * Gets the final etag string
+ */
+std::string
+AME_Ctx::ame_get_etag_result() {
+    std::string etag;
+    ame_map_lock->lock();
+    etag  = ame_get_etag_result_locked();
+    ame_map_lock->unlock();
+    return etag;
+}
+
 /*
  * ame_notify_handler
  * ------------------

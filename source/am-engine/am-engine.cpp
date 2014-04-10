@@ -665,7 +665,8 @@ Conn_GetObject::get_max_buf_len() const {
 static FDSN_Status
 fdsn_getobj_cbfn(BucketContextPtr bucket_ctx,
                  void *req, fds_uint64_t bufSize, fds_off_t offset,
-                 const char *buf, fds_uint64_t blobSize, void *cbData,
+                 const char *buf, fds_uint64_t blobSize,
+                 const std::string &blobEtag, void *cbData,
                  FDSN_Status status, ErrorDetails *errdetails)
 {
     Error          err(ERR_OK);
@@ -687,6 +688,9 @@ fdsn_getobj_cbfn(BucketContextPtr bucket_ctx,
     // already and may have stream info to still clean up...
     if (status == FDSN_StatusOK) {
         fds_verify(bufSize <= blobSize);
+
+        // Update the ctx with whatever etag we received for the blob
+        ctx->ame_set_etag_result(blobEtag);
 
         // If it's not already set, set how many bytes we need before
         // calling the request complete. If we just set the specific
@@ -784,7 +788,7 @@ Conn_GetObject::ame_request_resume()
         if (ame_ctx->ame_get_header_sent_locked() == false) {
             // TODO(Andrew): Need to get etag out of blob rather
             // than compute it here
-            ame_etag = "No etag :-(";
+            ame_etag = ame_ctx->ame_get_etag_result_locked();
             // When streaming, the requested length is either
             // the whole blob size, if no size was specified in
             // the request or a smaller size specified during the

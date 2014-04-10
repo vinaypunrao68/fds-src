@@ -196,6 +196,7 @@ class AME_Ctx
 
     /// Request etag
     ngx_md5_t                 ame_etag_ctx;
+    std::string               ame_etag_result;
 
     // Hookup with nginx event loop.
     //
@@ -282,6 +283,9 @@ class AME_Ctx
     fds_bool_t ame_get_header_sent_locked() const;
     void ame_set_header_sent(fds_bool_t sent);
     void ame_set_header_sent_locked(fds_bool_t sent);
+    void ame_set_etag_result(const std::string &etag);
+    std::string ame_get_etag_result_locked();
+    std::string ame_get_etag_result();
 };
 
 class AME_CtxList

@@ -64,23 +64,29 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) {
                           << " received all DM/SM acks and commits.";
                 txn->trans_state = FDS_TRANS_SYNCED;
         
-                /*
-                 * Add the vvc entry
-                 * If we are thinking of adding the cache , we may have to keep a copy on the cache 
-                 */        
+                // Add the vvc entry
+                // If we are thinking of adding the cache , we may have to keep a copy on the cache 
                 fds::AmQosReq   *qosReq  = static_cast<fds::AmQosReq *>(txn->io);
                 fds_verify(qosReq != NULL);
-                fds::FdsBlobReq *blobReq = qosReq->getBlobReqPtr();
+                fds::PutBlobReq *blobReq = static_cast<fds::PutBlobReq *>(qosReq->getBlobReqPtr());
                 fds_verify(blobReq != NULL);
-                vol->vol_catalog_cache->Update(
+                Error err = vol->vol_catalog_cache->Update(
                     blobReq->getBlobName(),
                     blobReq->getBlobOffset(),
                     (fds_uint32_t)blobReq->getDataLen(),
                     ObjectID(txn->data_obj_id.digest));
-        
-                /*
-                 * Mark the IO complete, clean up txn, and callback
-                 */
+                fds_verify(err == ERR_OK);
+
+                // Add the blob's etag into the cache if it's set
+                std::string etag = blobReq->getEtag();
+                if (etag.empty() == false) {
+                    fds_verify(etag.size() == 32);
+                    err = vol->vol_catalog_cache->setBlobEtag(blobReq->getBlobName(),
+                                                              etag);
+                    fds_verify(err == ERR_OK);
+                }
+
+                // Mark the IO complete, clean up txn, and callback
                 qos_ctrl->markIODone(qosReq);
                 txn->trans_state = FDS_TRANS_EMPTY;
                 txn->write_ctx   = 0;
@@ -326,7 +332,7 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
     // Get the blob request from the journal
     fds::AmQosReq   *qosReq  = (AmQosReq *)journEntry->io;
     fds_verify(qosReq != NULL);
-    fds::FdsBlobReq *blobReq = qosReq->getBlobReqPtr();
+    fds::GetBlobReq *blobReq = static_cast<fds::GetBlobReq *>(qosReq->getBlobReqPtr());
     fds_verify(blobReq != NULL);
     fds_verify(blobReq->getBlobName() == cat_obj_req->blob_name);
 
@@ -374,6 +380,20 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
                                                (fds_uint32_t)(*it).size,
                                                offsetObjId);
         fds_verify(err == ERR_OK);
+    }
+
+    // Insert the blob's etag into the cache
+    FDS_ProtocolInterface::FDSP_MetaDataList blobMetaList = cat_obj_req->meta_list;
+    fds_verify(blobMetaList.empty() == false);
+    for (FDS_ProtocolInterface::FDSP_MetaDataList::const_iterator it =
+                 blobMetaList.cbegin();
+         it != blobMetaList.cend();
+         it++) {
+        if ((*it).key == "etag") {
+            err = shvol->vol_catalog_cache->setBlobEtag(blobReq->getBlobName(),
+                                                        (*it).value);
+            break;
+        }
     }
     
     // Get the object ID from the cache

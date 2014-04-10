@@ -79,6 +79,23 @@ fds_uint64_t CatalogCache::getBlobSize() {
     return size;
 }
 
+std::string CatalogCache::getBlobEtag() {
+    std::string etag;
+    map_rwlock.read_lock();
+    etag = blobEtag;
+    map_rwlock.read_unlock();
+    return etag;
+}
+
+void CatalogCache::setBlobEtag(const std::string &etag) {
+    map_rwlock.read_lock();
+    blobEtag = etag;
+    map_rwlock.read_unlock();
+    // It it's being set, it should be to
+    // a valid value
+    fds_verify(blobEtag.size() == 32);
+}
+
 void CatalogCache::Clear() {
     map_rwlock.write_lock();
     offset_map.clear();
@@ -323,6 +340,38 @@ Error VolumeCatalogCache::getBlobSize(const std::string& blobName,
         *blobSize = blobCache->getBlobSize();
     } else {
         err = ERR_NOT_FOUND;
+    }
+    blobRwLock.write_unlock();
+
+    return err;
+}
+
+Error VolumeCatalogCache::getBlobEtag(const std::string& blobName,
+                                      std::string *blobEtag) {
+    Error err(ERR_OK);
+
+    blobRwLock.write_lock();
+    if (blobMap.count(blobName) > 0) {
+        CatalogCache *blobCache = blobMap[blobName];
+        *blobEtag = blobCache->getBlobEtag();
+    } else {
+        err = ERR_NOT_FOUND;
+    }
+    blobRwLock.write_unlock();
+
+    return err;
+}
+
+Error VolumeCatalogCache::setBlobEtag(const std::string& blobName,
+                                      const std::string &blobEtag) {
+    Error err(ERR_OK);
+
+    blobRwLock.write_lock();
+    if (blobMap.count(blobName) == 0) {
+        err = ERR_NOT_FOUND;
+    } else {
+        CatalogCache *blobCache = blobMap[blobName];
+        blobCache->setBlobEtag(blobEtag);
     }
     blobRwLock.write_unlock();
 

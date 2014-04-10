@@ -956,11 +956,21 @@ fds::Error StorHvCtrl::getObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
     fds_verify(err == ERR_OK);
     fds_verify(blobSize > 0);
 
+    std::string blobEtag;
+    err = vol->vol_catalog_cache->getBlobEtag(blobReq->getBlobName(),
+                                              &blobEtag);
+    fds_verify(err == ERR_OK);
+    // Either the etag is empty or its set to
+    // the proper length
+    fds_verify((blobEtag.size() == 0) ||
+               (blobEtag.size() == 32));
+
     LOGNOTIFY << "Responding to getBlob trans " << transId
               <<" for blob " << blobReq->getBlobName()
               << " and offset " << blobReq->getBlobOffset()
               << " length " << getObjRsp->data_obj_len
               << " total blob size " << blobSize
+              << " etag " << blobEtag
               << " with result " << rxMsg->result;
     /*
      * Mark the IO complete, clean up txn, and callback
@@ -979,6 +989,7 @@ fds::Error StorHvCtrl::getObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
         blobReq->setDataLen(getObjRsp->data_obj_len);    
         blobReq->setDataBuf(getObjRsp->data_obj.c_str());
         blobReq->setBlobSize(blobSize);
+        blobReq->setBlobEtag(blobEtag);
         blobReq->cbWithResult(0);
         txn->reset();
         vol->journal_tbl->releaseTransId(transId);
