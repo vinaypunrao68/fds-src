@@ -203,12 +203,13 @@ class FdsRmtEnv(FdsEnv):
         else:
             cmd_exec = cmd
 
-        if self.env_verbose['verbose']:
-            print "Running remote command:", cmd_exec
+        if self.env_verbose:
+            if self.env_verbose['verbose']:
+                print "Running remote command:", cmd_exec
 
-        if self.env_verbose['dryrun'] == True:
-            print "...not execute in dryrun mode"
-            return 0
+            if self.env_verbose['dryrun'] == True:
+                print "...not execute in dryrun mode"
+                return 0
 
         stdin, stdout, stderr = self.env_ssh_clnt.exec_command(cmd_exec)
         if wait_compl:

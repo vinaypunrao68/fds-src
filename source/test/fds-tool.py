@@ -21,8 +21,6 @@ if __name__ == '__main__':
                       help = 'cleanup cluster')
     parser.add_option('-r', '--dryrun', action = 'store_true', dest = 'dryrun',
                       help = 'dry run, print commands only')
-    parser.add_option('-l', '--local', action = 'store_true', dest = 'local',
-                      help = "local run, don't ssh to remote node")
     parser.add_option('-R', '--fds-root', dest = 'fds_root', default = '/fds',
                       help = 'Specify fds-root directory')
 
@@ -37,7 +35,6 @@ if __name__ == '__main__':
     # Get all the configuration
     nodes = cfg.rt_get_obj('cfg_nodes')
     ams   = cfg.rt_get_obj('cfg_am')
-    steps = cfg.rt_get_obj('cfg_scenarios')
 
     # Shutdown
     if options.clus_down:
@@ -53,3 +50,10 @@ if __name__ == '__main__':
         sys.exit(0)
 
     cfg.rt_fds_bootstrap()
+
+    time.sleep(5)
+    cli = cfg.rt_get_obj('cfg_cli')
+    cli.run_cli('--activate-nodes abc -k 1 -e sm,dm')
+
+    for am in ams:
+        am.am_start_service()
