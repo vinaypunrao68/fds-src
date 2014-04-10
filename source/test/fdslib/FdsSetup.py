@@ -136,7 +136,7 @@ class FdsEnv(object):
 # Execute command on a remote node.
 #
 class FdsRmtEnv(FdsEnv):
-    def __init__(self, root, verbose = False):
+    def __init__(self, root, verbose = None):
         super(FdsRmtEnv, self).__init__(root)
         self.env_ssh_clnt  = None
         self.env_scp_clnt  = None
@@ -203,11 +203,14 @@ class FdsRmtEnv(FdsEnv):
         else:
             cmd_exec = cmd
 
-        if self.env_verbose:
+        if self.env_verbose['verbose']:
             print "Running remote command:", cmd_exec
 
-        stdin, stdout, stderr = self.env_ssh_clnt.exec_command(cmd_exec)
+        if self.env_verbose['dryrun'] == True:
+            print "...not execute in dryrun mode"
+            return 0
 
+        stdin, stdout, stderr = self.env_ssh_clnt.exec_command(cmd_exec)
         if wait_compl:
             channel = stdout.channel
             status  = channel.recv_exit_status()
@@ -217,7 +220,6 @@ class FdsRmtEnv(FdsEnv):
         stdin.close()
         stdout.close()
         stderr.close()
-
         return status
 
     ###

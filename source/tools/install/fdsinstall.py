@@ -139,6 +139,12 @@ class Installer:
                     log.warn('unable to verify ip %s', ip)
                     
             self.data['om-ip'] = ip
+            ret = os.system("/fds/sbin/disk_type.py -f")
+            if 0 != ret:
+                success=False
+                log.error("install disk partition/format did not complete successfully")
+                if not self.confirm("do you want to continue further"):
+                    break;
             self.markStepSuccess(menuitem)
         except:
             log.error('exception during step %s', menuitem[2])

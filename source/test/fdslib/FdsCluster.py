@@ -17,7 +17,7 @@ class FdsCluster:
         """
         Takes FdsConfig object
         """
-        self.config = fdscfg.FdsConfig(config_file, verbose=True)
+        self.config = fdscfg.FdsConfigFile(config_file, verbose=True)
         self.config.config_parse()
         self.env = inst.FdsEnv('.')
 
@@ -137,3 +137,4 @@ class FdsCluster:
                 self.__om_node_id = n.nd_conf_dict['node-name']
                 return 
         raise NodeNotFoundException("OM node not found")
+
