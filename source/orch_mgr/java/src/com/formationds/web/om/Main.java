@@ -1,6 +1,7 @@
 package com.formationds.web.om;
 
 import com.formationds.auth.AuthenticationToken;
+import com.formationds.demo.Demo;
 import com.formationds.fdsp.ClientFactory;
 import com.formationds.om.NativeApi;
 import com.formationds.web.toolkit.HttpMethod;
@@ -43,7 +44,7 @@ public class Main {
         authorize(HttpMethod.POST, "/api/config/volumes/:name", () -> new CreateVolume(clientFactory.configPathClient(OM_HOST, OM_PORT)));
         authorize(HttpMethod.POST, "/api/config/volume", () -> new FancyCreateVolume(clientFactory.configPathClient(OM_HOST, OM_PORT)));
         authorize(HttpMethod.DELETE, "/api/config/volumes/:name", () -> new DeleteVolume(clientFactory.configPathClient(OM_HOST, OM_PORT)));
-        authorize(HttpMethod.PATCH, "/api/config/volume/:uuid", () -> new SetVolumeQosParams(clientFactory.configPathClient(OM_HOST, OM_PORT)));
+        authorize(HttpMethod.PUT, "/api/config/volume/:uuid", () -> new SetVolumeQosParams(clientFactory.configPathClient(OM_HOST, OM_PORT)));
 
         authorize(HttpMethod.GET, "/api/config/globaldomain", ShowGlobalDomain::new);
         authorize(HttpMethod.GET, "/api/config/domains", ListDomains::new);
@@ -51,6 +52,7 @@ public class Main {
     }
 
     public void start() throws Exception {
+        new Thread(() -> new Demo().start(8888)).start();
         webApp.start(7777);
     }
 
