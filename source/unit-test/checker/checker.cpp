@@ -456,13 +456,11 @@ bool DirBasedChecker::get_object_metadata(const NodeUuid& node_id,
 
 PlatRpcReqt *DirBasedChecker::plat_creat_reqt_disp()
 {
-    fds_assert(0);
     return nullptr;
 }
 
 PlatRpcResp *DirBasedChecker::plat_creat_resp_disp()
 {
-    fds_assert(0);
     return nullptr;
 }
 
@@ -519,6 +517,7 @@ void DirBasedChecker::run_checker()
         }
     }
     LOGNORMAL << "Checker run done!" << std::endl;
+    LOGNORMAL << cntrs_.toString();
 }
 
 VolBasedChecker::VolBasedChecker() : DirBasedChecker()
@@ -743,18 +742,20 @@ FdsCheckerProc::~FdsCheckerProc()
     checker_->mod_shutdown();
 }
 
-void FdsCheckerProc::setup()
+void FdsCheckerProc::proc_setup()
 {
     checker_->mod_load_from_config();
-    PlatformProcess::setup();
+    PlatformProcess::proc_setup();
 
-    checker_->mod_startup();
+    // checker_->mod_startup();
 }
 
 int FdsCheckerProc::run()
 {
     checker_->run_checker();
     g_cntrs_mgr->export_to_ostream(std::cout);
+    std::cout << "Checker completed\n";
+    checker_.reset();
     return 0;
 }
 
@@ -793,12 +794,15 @@ int main(int argc, char *argv[]) {
 #else
     VolBasedChecker *plt = new VolBasedChecker;
 #endif
+    fds::Module *checker_mod_vec[] = {
+            plt,
+            nullptr
+    };
 
     /* platform cannot be on the stack */
     fds::FdsCheckerProc *checker = new fds::FdsCheckerProc(argc, argv,
-            "fds.checker.", "checker.log", plt, nullptr);
-    checker->setup();
-    checker->run();
+            "fds.checker.", "checker.log", plt, checker_mod_vec);
+    checker->main();
 
     delete checker;
 

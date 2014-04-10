@@ -155,7 +155,7 @@ class FdsCheckerProc : public PlatformProcess {
                    Platform *platform,
                    Module **mod_vec);
     virtual ~FdsCheckerProc();
-    virtual void setup(void) override;
+    virtual void proc_setup(void) override;
     int run() override;
     void plf_load_node_data();
  private:
