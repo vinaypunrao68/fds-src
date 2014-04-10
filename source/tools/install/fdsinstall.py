@@ -45,9 +45,9 @@ class Installer:
         
         self.menu.append([0,"Run All Steps"              , 'stepRunAll'         ])
         self.menu.append([1,"Run System Check"           , 'stepSystemCheck'    ])
-        self.menu.append([2,"Configure Node"             , 'stepConfigureNode'  ])        
+        self.menu.append([2,"Setup Node"                 , 'stepConfigureNode'  ])        
         self.menu.append([3,"Install dependency packages", 'stepDependencyCheck'])
-        self.menu.append([4,"Install FDS Packages"       , 'stepInstallPackages'])
+        self.menu.append([4,"Install FDS Packages"       , 'stepInstallFdsPackages'])
         
         # set the correct callback functions
         for item in self.menu:
@@ -123,37 +123,29 @@ class Installer:
 
     def stepConfigureNode(self,menuitem):
         try :
-            log.debug('running %s', menuitem[2])
-            ip = ''
-            if self.data.get('om-ip',None) != None:
-                log.info('previously configured om-ip : %s', self.data.get('om-ip'))
-            while True:
-                ip = self.getUserInput('enter om ip')
-                if not self.IP.match(ip):
-                    log.error('not a valid IP')
-                    continue
+            if self.isStepDone(menuitem):
+                log.info("NOTE: This step has been completed previously")
 
-                if self.checkIp(ip):
-                    break;
-                else:
-                    log.warn('unable to verify ip %s', ip)
-                    
-            self.data['om-ip'] = ip
-            ret = os.system("/fds/sbin/disk_type.py -f")
+            log.debug('running %s', menuitem[2])
+            ret = os.system("python ./disk_type.py -f")
             if 0 != ret:
-                success=False
                 log.error("install disk partition/format did not complete successfully")
-                if not self.confirm("do you want to continue further"):
-                    break;
-            self.markStepSuccess(menuitem)
+            else:
+                self.markStepSuccess(menuitem)
         except:
             log.error('exception during step %s', menuitem[2])
         
     def stepSystemCheck(self,menuitem):
         try :
             self.dependsOnSteps('stepConfigureNode')
+            if self.isStepDone(menuitem):
+                log.info("NOTE: This step has been completed previously")
             log.debug('running %s', menuitem[2])
-            self.markStepSuccess(menuitem)
+            ret = os.system("python ./system_pre_check.py")
+            if 0 != ret:
+                log.error("system precheck did not complete successfully")
+            else:
+                self.markStepSuccess(menuitem)
         except:
             log.error('exception during step %s', menuitem[2])
 
@@ -173,12 +165,17 @@ class Installer:
         except:
             log.error('exception during step %s', menuitem[2])
 
-    def stepInstallPackages(self,menuitem):
+    def stepInstallFdsPackages(self,menuitem):
         try :
             self.dependsOnSteps('stepDependencyCheck')
+            if self.isStepDone(menuitem):
+                log.info("NOTE: This step has been completed previously")
             log.debug('running %s', menuitem[2])
             success=True
-            for option in ['fdsdebs'] :
+            for option in ['fds-base','fds-om','fds-pm','fds-am','fds-sm'] :
+                if option != 'fds-base' :
+                    if not self.confirm('do you want to install [%s]' % (option)):
+                        continue
                 ret = os.system("./setup-packages.sh %s" % (option))
                 if 0 != ret :
                     success=False

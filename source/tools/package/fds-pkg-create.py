@@ -655,7 +655,7 @@ class PkgCreate:
 
                 for f in item.src:
                     if os.path.isdir(f):
-                        log.warn('skipping directory direct copy [%s]' , f)
+                        log.debug('skipping directory direct copy [%s]' , f)
                         continue;
 
                     if treebase:
@@ -677,8 +677,11 @@ class PkgCreate:
                         try:
                             log.debug('creating solinks for : %s' % (filename))
                             os.chdir(curdest)
-                            os.symlink(filename,solib.groups()[0])
-                            os.system('ldconfig -n .')
+                            if os.path.exists(solib.groups()[0]):
+                                log.warn('symlink already exists %s' ,solib.groups()[0])
+                            else:
+                                os.symlink(filename,solib.groups()[0])
+                                os.system('ldconfig -n .')
                         finally:
                             os.chdir(curdir)
             else :
@@ -697,8 +700,11 @@ class PkgCreate:
                     try :
                         log.debug('creating solinks for : %s' % (filename))
                         os.chdir(destdir)
-                        os.symlink(filename,solib.groups()[0])
-                        os.system('ldconfig -n .')
+                        if os.path.exists(solib.groups()[0]):
+                            log.warn('symlink already exists %s' ,solib.groups()[0])
+                        else:
+                            os.symlink(filename,solib.groups()[0])
+                            os.system('ldconfig -n .')
                     finally:
                         os.chdir(curdir)
 
