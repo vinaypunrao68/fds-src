@@ -8,6 +8,7 @@
 #include <list>
 #include <vector>
 #include <fds_types.h>
+#include <fds_timer.h>
 #include <ObjMeta.h>
 #include <StorMgrVolumes.h>
 
@@ -124,7 +125,6 @@ namespace fds {
         void objsCompactedCb(const Error& error,
                              SmIoCompactObjects* req);
 
-  private:  // methods
         /**
          * Tells tokenFileDB that GC for the token is finished, sets the compactor
          * state to idle and calls callback function provided in startCompaction()
@@ -132,6 +132,7 @@ namespace fds {
          */
         Error handleCompactionDone(const Error& tc_error);
 
+  private:  // methods
         /**
          * Enqueue objects copy request to QoS queue
          * @param obj_list list of object ids to work on, when method
@@ -181,9 +182,30 @@ namespace fds {
          */
         fds_uint32_t total_objs;  // total number of objs we will either copy or del
         std::atomic<fds_uint32_t> objs_done;  // current number of objs we processed
+
+        /**
+         * Timer to actually garbage collect a token file. We do it on timer,
+         * so that we can drain concurrent IOs that may still access the old file
+         * (gets only), since we are not locking index db on reads
+         */
+        FdsTimerPtr compl_timer;
+        FdsTimerTaskPtr compl_timer_task;
     };
 
     typedef boost::shared_ptr<TokenCompactor> TokenCompactorPtr;
+
+    class CompletionTimerTask: public FdsTimerTask {
+  public:
+        TokenCompactor* tok_compactor;
+
+        CompletionTimerTask(FdsTimer &timer, TokenCompactor* tc)  //NOLINT
+                : FdsTimerTask(timer) {
+            tok_compactor = tc;
+        }
+        ~CompletionTimerTask() {}
+
+        void runTimerTask();
+    };
 
 }  // namespace fds
 

@@ -14,7 +14,9 @@ typedef std::map<fds_uint32_t, offset_oid_map_t> loc_oid_map_t;
 TokenCompactor::TokenCompactor(SmIoReqHandler *_data_store)
         : token_id(0),
           done_evt_handler(NULL),
-          data_store(_data_store)
+          data_store(_data_store),
+          compl_timer(new FdsTimer()),
+          compl_timer_task(new CompletionTimerTask(*compl_timer, this))
 {
     state = ATOMIC_VAR_INIT(TCSTATE_IDLE);
     objs_done = ATOMIC_VAR_INIT(0);
@@ -29,6 +31,7 @@ TokenCompactor::TokenCompactor(SmIoReqHandler *_data_store)
 
 TokenCompactor::~TokenCompactor()
 {
+    compl_timer->destroy();
 }
 
 //
@@ -250,7 +253,12 @@ void TokenCompactor::objsCompactedCb(const Error& error,
 
     if (total_done == total_objs) {
         // we are done!
-        handleCompactionDone(error);
+        // NOTE: we are currently doing completion on timer only! when no error
+        // otherwise need to make sure to remember the error
+        if (!compl_timer->schedule(compl_timer_task, std::chrono::seconds(5))) {
+            LOGNOTIFY << "Failed to schedule completion timer, completing now..";
+            handleCompactionDone(error);
+        }
     }
 }
 
@@ -327,4 +335,11 @@ fds_bool_t TokenCompactor::isGarbage(const ObjMetaData& md)
 
     return do_gc;
 }
+
+void CompletionTimerTask::runTimerTask()
+{
+    fds_verify(tok_compactor);
+    tok_compactor->handleCompactionDone(ERR_OK);
+}
+
 }  // namespace fds

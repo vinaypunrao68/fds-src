@@ -175,9 +175,7 @@ namespace diskio {
 	// until notifyEndGC() is called.
 
 	// check we are in the consistent state
-        std::string cur_filename = getFileName(disk_idx, tok_id, tier, cur_file_id);
         std::string new_filename = getFileName(disk_idx, tok_id, tier, new_file_id);
-        fds_verify(tokenFileTbl.count(cur_filename) > 0);
         // if asserts here, most likely didn't finish last GC properly
         fds_verify(tokenFileTbl.count(new_filename) == 0);
 
