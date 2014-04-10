@@ -714,7 +714,7 @@ void ObjectStorMgr::migrationSvcResponseCb(const Error& err,
 void ObjectStorMgr::scavengerEventHandler()
 {
     GLOGDEBUG << "Scavenger event Handler: start scavenger";
-    // objStorMgr->scavenger->startScavengeProcess();
+    objStorMgr->scavenger->startScavengeProcess();
 }
 
 void ObjectStorMgr::nodeEventOmHandler(int node_id,
@@ -1135,6 +1135,8 @@ ObjectStorMgr::readObject(const SmObjDb::View& view,
         disk_req->setTier(tierToUse);
         disk_req->set_phy_loc(objMetadata.getObjPhyLoc(tierToUse));
         tierUsed = tierToUse;
+        obj_phy_loc_t *phy_loc = objMetadata.getObjPhyLoc(tierToUse);
+        scavenger->addTokenCompactor(getTokenId(objId), phy_loc->obj_stor_loc_id);
 
         LOGDEBUG << "Reading object " << objId << " from "
                 << ((disk_req->getTier() == diskio::diskTier) ? "disk" : "flash")
@@ -1277,7 +1279,7 @@ ObjectStorMgr::writeObjectToTier(const OpCtx &opCtx,
     
     err = writeObjectMetaData(opCtx, objId, objData.data.length(),
                 disk_req->req_get_phy_loc(), false, diskTier, &vio);
-
+    obj_phy_loc_t *phy_loc = disk_req->req_get_phy_loc();
 
     if ((err == ERR_OK) &&
         (tier == diskio::flashTier)) {
@@ -1288,6 +1290,7 @@ ObjectStorMgr::writeObjectToTier(const OpCtx &opCtx,
         fds_verify(pushOk == true);
     }
 
+    scavenger->addTokenCompactor(getTokenId(objId), phy_loc->obj_stor_loc_id);
     delete disk_req;
     return err;
 }
@@ -1343,6 +1346,7 @@ ObjectStorMgr::writeObjectDataToTier(const ObjectID  &objId,
         fds_verify(pushOk == true);
     }
     phys_loc = *disk_req->req_get_phy_loc();
+    scavenger->addTokenCompactor(getTokenId(objId), phys_loc.obj_stor_loc_id);
     delete disk_req;
 
     return err;

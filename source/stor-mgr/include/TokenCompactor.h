@@ -41,7 +41,8 @@ namespace fds {
     /**
      * Callback type to notify that compaction process is finished for this token
      */
-    typedef void (*compaction_done_handler_t)(fds_token_id token, const Error& error);
+    typedef std::function<void (fds_token_id token,
+                                const Error& error)> compaction_done_handler_t;
 
     /**
      * TokenCompactor is responsible for compacting storage for one token.
@@ -95,6 +96,11 @@ namespace fds {
          * objects got copied
          */
         fds_uint32_t getProgress() const;
+
+        /**
+         * @return true if compactor is idle = can start new compaction job
+         */
+        fds_bool_t isIdle() const;
 
         /**
          * Given object metadata, check if this object should be garbage

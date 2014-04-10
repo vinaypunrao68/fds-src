@@ -305,6 +305,12 @@ fds_uint32_t TokenCompactor::getProgress() const
     return done / total_objs;
 }
 
+fds_bool_t TokenCompactor::isIdle() const
+{
+    tcStateType cur_state = std::atomic_load(&state);
+    return (cur_state == TCSTATE_IDLE);
+}
+
 //
 // given object metadata, check if we need to garbage collect it
 //

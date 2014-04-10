@@ -212,16 +212,15 @@ namespace diskio {
 	if (tokenFileTbl.count(old_filename)) {
 	  // get the file to delete and remove token file entry
 	  del_fdesc = tokenFileTbl[old_filename];
+          if (del_fdesc) {
+              err = del_fdesc->delete_file();
+              delete del_fdesc;
+              del_fdesc = NULL;
+          }
 	  tokenFileTbl[old_filename] = NULL;
 	  tokenFileTbl.erase(old_filename);
 	}
         tokenFileDbMutex->unlock();
-
-	// actually remove that file and cleanup
-	if (del_fdesc) {
-            err = del_fdesc->delete_file();
-            delete del_fdesc;
-	}
 
         return err;
     }
