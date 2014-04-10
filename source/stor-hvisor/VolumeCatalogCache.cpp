@@ -42,7 +42,7 @@ Error CatalogCache::Update(fds_uint64_t blobOffset,
     map_rwlock.write_lock();
     if (offset_map.count(blobOffset) != 0) {
         if (oid != NullObjectID) {
-            fds_verify(blobSize > 0);
+            fds_verify(blobSize >= 0);
         }
 
         // We already have this mapping. Return duplicate err

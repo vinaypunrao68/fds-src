@@ -52,8 +52,7 @@ struct TokenPullReceiverFSM_
         client_resp_handler_ = client_resp_handler;
 
         final_pullreq_issued_ = false;
-        sent_apply_data_msgs_ = 0;
-        ackd_apply_data_msgs_ = 0;
+        inflight_writes_ = 0;
 
         pulldata_written_resp_cb_ = std::bind(
             &TokenPullReceiverFSM_::pulldata_written_resp_cb, this,
@@ -109,6 +108,14 @@ struct TokenPullReceiverFSM_
         void on_entry(Event const& , FSM&)
         {
             LOGDEBUG << "Pullling State";
+        }
+    };
+    struct DataWritten : public msm::front::state<>
+    {
+        template <class Event, class FSM>
+        void on_entry(Event const& , FSM&)
+        {
+            LOGDEBUG << "DataWritten State";
         }
     };
     struct Complete : public msm::front::state<>
@@ -192,8 +199,7 @@ struct TokenPullReceiverFSM_
             /* Increment upfront to avoid race between issuing message to ObjStore
              * and response coming back from ObjStore on a different thread.
              */
-            fsm.sent_apply_data_msgs_ += evt.obj_data_list.size();
-
+            fsm.inflight_writes_ += evt.obj_data_list.size();
 
             for (uint32_t idx = 0; idx < evt.obj_data_list.size(); idx++) {
                 ObjectID obj_id(evt.obj_data_list[idx].obj_id.digest);
@@ -214,7 +220,7 @@ struct TokenPullReceiverFSM_
                     LOGERROR << "Failed to enqueue to snap_msg_ to StorMgr.  Error: "
                             << err;
                     delete apply_data_msg;
-                    fsm.sent_apply_data_msgs_ -= (evt.obj_data_list.size() - idx);
+                    fsm.inflight_writes_ -= (evt.obj_data_list.size() - idx);
                     fsm.process_event(ErrorEvt());
                     return;
                 }
@@ -222,10 +228,19 @@ struct TokenPullReceiverFSM_
 
             LOGDEBUG << "issue_writes token: " << fsm.token_id_
                     << ". cnt: " << evt.obj_data_list.size()
-                    << " total_writes_sent: " << fsm.sent_apply_data_msgs_
-                    << " total_writes_acked: " << fsm.ackd_apply_data_msgs_
+                    << " inflight writes: " << fsm.inflight_writes_
                     << " pending_pulls: " << fsm.pending_.size()
                     << " inflight_pulls: " << fsm.inflight_.size();
+        }
+    };
+    struct mark_data_written
+    {
+        /* Mark that we don't have pending writes into Object store */
+        template <class EVT, class FSM, class SourceState, class TargetState>
+        void operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
+        {
+            fds_assert(fsm.inflight_writes_ > 0);
+            fsm.inflight_writes_--;
         }
     };
     struct mark_last_pull
@@ -291,7 +306,9 @@ struct TokenPullReceiverFSM_
         bool operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
             bool ret = (fsm.pending_.size() == 0 &&
-                    fsm.inflight_.size() == 0 && fsm.final_pullreq_issued_ == true);
+                    fsm.inflight_.size() == 0 &&
+                    fsm.inflight_writes_ == 0 &&
+                    fsm.final_pullreq_issued_ == true);
             LOGDEBUG << "token: " << fsm.token_id_ << " pull_dn?: " << ret;
             return ret;
         }
@@ -302,7 +319,9 @@ struct TokenPullReceiverFSM_
         template <class EVT, class FSM, class SourceState, class TargetState>
         bool operator()(const EVT& evt, FSM& fsm, SourceState&, TargetState&)
         {
-            bool ret = (fsm.pending_.size() > 0 || fsm.inflight_.size() > 0);
+            bool ret = (fsm.pending_.size() > 0 ||
+                        fsm.inflight_.size() > 0 ||
+                        fsm.inflight_writes_ > 0);
             LOGDEBUG << "token: " << fsm.token_id_ << " pending_pulls?: " << ret;
             return ret;
         }
@@ -326,17 +345,18 @@ struct TokenPullReceiverFSM_
                                                     add_for_pull,
                                                     issue_pulls>>   , msm_none         >,
 
-    Row< Pulling    , TRLastPullReqEvt, msm_none   , mark_last_pull , pending_pulls    >,
+    Row< Pulling    ,TRLastPullReqEvt, msm_none   , mark_last_pull  , pending_pulls    >,    // NOLINT
 
-    Row< Pulling    , TRLastPullReqEvt, Complete   , teardown       , Not_<pending_pulls>>,  // NOLINT
+    Row< Pulling    ,TRLastPullReqEvt, Complete   , teardown        , Not_<pending_pulls>>,  // NOLINT
 
     Row< Pulling    , TRDataPulledEvt, msm_none   , issue_writes    , msm_none         >,
 
     Row< Pulling    , TRPullDataWrittenEvt
-                                     , msm_none   , issue_pulls     , Not_<pull_dn>    >,
+                                     , DataWritten, mark_data_written, msm_none        >,
 
-    Row< Pulling    , TRPullDataWrittenEvt
-                                     , Complete   , teardown        , pull_dn          >,
+    Row< DataWritten, msm_none       , Pulling    , issue_pulls     , Not_<pull_dn>    >,
+
+    Row< DataWritten, msm_none       , Complete   , teardown        , pull_dn          >,
     // +------------+----------------+------------+-----------------+------------------+
     Row < AllOk     , ErrorEvt       , ErrorMode  , ActionSequence_
                                                     <mpl::vector<
@@ -360,28 +380,19 @@ struct TokenPullReceiverFSM_
     void pulldata_written_resp_cb(const Error& e,
             SmIoApplyObjectdata *sync_md)
     {
-        delete sync_md;
+        /* TODO(Rao):  We should send notification that write completed in batches.
+         * So that subsequent write reqs are also issued in batches.  This is being
+         * to avoid race conditions
+         */
+        TRPullDataWrittenEvtPtr data_applied_evt(sync_md);
+        FdsActorRequestPtr far(new FdsActorRequest(
+                FAR_ID(TRPullDataWrittenEvt), data_applied_evt));
 
-        fds_assert(sent_apply_data_msgs_ > 0 &&
-                   ackd_apply_data_msgs_ < sent_apply_data_msgs_);
-
-        ackd_apply_data_msgs_++;
-
-        if (ackd_apply_data_msgs_ == sent_apply_data_msgs_) {
-            LOGDEBUG << "Applied a batch of object data. token: " << token_id_
-                    << " total_writes_sent: " << sent_apply_data_msgs_
-                    << " total_writes_acked: " << ackd_apply_data_msgs_;
-
-            TRPullDataWrittenEvtPtr data_applied_evt(new TRPullDataWrittenEvt());
-            FdsActorRequestPtr far(new FdsActorRequest(
-                    FAR_ID(TRPullDataWrittenEvt), data_applied_evt));
-
-            Error err = parent_->send_actor_request(far);
-            if (err != ERR_OK) {
-                fds_assert(!"Failed to send message");
-                LOGERROR << "Failed to send actor message.  Error: "
-                        << err;
-            }
+        Error err = parent_->send_actor_request(far);
+        if (err != ERR_OK) {
+            fds_assert(!"Failed to send message");
+            LOGERROR << "Failed to send actor message.  Error: "
+                    << err;
         }
     }
 
@@ -435,11 +446,8 @@ struct TokenPullReceiverFSM_
      */
     bool final_pullreq_issued_;
 
-    /* Current count of SmIoApplyObjectdata messages issued against data_store_ */
-    uint32_t sent_apply_data_msgs_;
-
-    /* Acked count of SmIoApplyObjectdata */
-    uint32_t ackd_apply_data_msgs_;
+    /* Current inflight writes */
+    uint32_t inflight_writes_;
 
     /* Apply object data callback */
     SmIoApplyObjectdata::CbType pulldata_written_resp_cb_;

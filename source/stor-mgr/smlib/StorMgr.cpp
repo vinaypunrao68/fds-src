@@ -1804,6 +1804,8 @@ ObjectStorMgr::DeleteObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
         fdsp_msg->result = FDSP_ERR_OK;
         fdsp_msg->err_code = err.getFdspErr();
     }
+
+    counters_.del_reqs.incr();
 }
 
 Error
@@ -2036,6 +2038,8 @@ ObjectStorMgr::GetObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
         NodeAgentDpClientPtr client = getProxyClient(oid,fdsp_msg);
         fds_verify(client != NULL);
         client->GetObject(*fdsp_msg, *get_obj_req);
+
+        counters_.proxy_gets.incr();
         return;
     }
 

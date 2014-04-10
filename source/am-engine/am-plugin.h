@@ -215,16 +215,26 @@ class AME_Ctx
 
   public:
     /*
+     * Contextual locking for external objects
+     */
+    void ame_ctx_lock();
+    void ame_ctx_unlock();
+
+    /*
      * Contextual functions for tracking
      * outstanding request state
      */
     Error ame_add_ctx_req(fds_off_t offset);
     Error ame_upd_ctx_req(fds_off_t offset,
                           AME_Ctx_Ack ack_status);
+    Error ame_upd_ctx_req_locked(fds_off_t offset,
+                                 AME_Ctx_Ack ack_status);
     AME_Ctx_Ack ame_check_status();
     void set_ack_count(fds_uint32_t count);
     Error ame_get_unsent_offset(fds_off_t *offset,
                                 fds_bool_t *last);
+    Error ame_get_unsent_offset_locked(fds_off_t *offset,
+                                       fds_bool_t *last);
 
     /*
      * Contextual functions for tracking offsets
@@ -252,6 +262,7 @@ class AME_Ctx
     void ame_set_request_all();
     fds_bool_t ame_set_specific(fds_uint64_t len);
     fds_uint64_t ame_get_requested_len();
+    fds_uint64_t ame_get_requested_len_locked();
     void ame_add_get_buf(fds_off_t offset,
                          ame_buf_t *ame_buf);
     void ame_set_get_len(fds_off_t offset,
@@ -260,12 +271,17 @@ class AME_Ctx
     void ame_get_get_info(fds_off_t    offset,
                           ame_buf_t    **ame_buf,
                           fds_uint32_t *len);
+    void ame_get_get_info_locked(fds_off_t    offset,
+                                 ame_buf_t    **ame_buf,
+                                 fds_uint32_t *len);
 
     /*
      * Contextual functions for header management
      */
     fds_bool_t ame_get_header_sent() const;
+    fds_bool_t ame_get_header_sent_locked() const;
     void ame_set_header_sent(fds_bool_t sent);
+    void ame_set_header_sent_locked(fds_bool_t sent);
 };
 
 class AME_CtxList

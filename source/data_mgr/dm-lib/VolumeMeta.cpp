@@ -207,6 +207,13 @@ void VolumeMeta::dmCopyVolumeDesc(VolumeDesc *v_desc, VolumeDesc *pVol) {
 }
 
 std::ostream&
+operator<<(std::ostream& out, const MetadataPair& mdPair) {
+    out << "Blob metadata key=" << mdPair.key << " value="
+        << mdPair.value;
+    return out;
+}
+
+std::ostream&
 operator<<(std::ostream& out, const BlobNode& bnode) {
     out << "Blob " << bnode.blob_name << ", version " << bnode.version
         << ", size " << bnode.blob_size << ", volume " << bnode.vol_id

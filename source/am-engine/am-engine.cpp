@@ -682,14 +682,6 @@ fdsn_getobj_cbfn(BucketContextPtr bucket_ctx,
               << " with total blob size " << blobSize << " and result "
               << status;
 
-    // Update the ack map with the result
-    AME_Ctx::AME_Ctx_Ack ack_status = AME_Ctx::OK;
-    if (status != FDSN_StatusOK) {
-        ack_status = AME_Ctx::FAILED;
-    }
-    err = ctx->ame_upd_ctx_req(offset, ack_status);
-    fds_verify(err == ERR_OK);
-
     // TODO(Andrew): If one of the streaming gets() failed, we
     // will abort the stream, but may have sent the header back
     // already and may have stream info to still clean up...
@@ -747,22 +739,24 @@ fdsn_getobj_cbfn(BucketContextPtr bucket_ctx,
         }  // Ends if (wasAllSet)
     }  // Ends if (status == FDSN_Status_OK)
 
-    // Check the status of the entire get request
-    // TODO(Andrew): Need to stream back buffers as
-    // they are ready. However, that depends on us
-    // storing the etag with the blob instead of computing
-    // it here...
+    // Update the ack map with the result
+    AME_Ctx::AME_Ctx_Ack ack_status = AME_Ctx::OK;
+    if (status != FDSN_StatusOK) {
+        ack_status = AME_Ctx::FAILED;
+    }
+    err = ctx->ame_upd_ctx_req(offset, ack_status);
+    fds_verify(err == ERR_OK);
+
+    // Signal nginx that it can stream back whatever buffers
+    // are ready
     // TODO(Andrew): Need to figure out how to return
     // error when a later get() fails since we may have
     // already returned the header...
-    ack_status = ctx->ame_check_status();
-    if (ack_status == AME_Ctx::OK) {
+    if (status == FDSN_StatusOK) {
         conn_go->ame_signal_resume(AME_Request::ame_map_fdsn_status(FDSN_StatusOK));
-    } else if (ack_status == AME_Ctx::FAILED) {
+    } else {
         conn_go->ame_signal_resume(
             AME_Request::ame_map_fdsn_status(status));
-    } else {
-        fds_verify(ack_status == AME_Ctx::WAITING);
     }
 
     return FDSN_StatusOK;
@@ -776,24 +770,29 @@ Conn_GetObject::ame_request_resume()
 {
     fds_uint32_t len;
     ame_buf_t    *buf;
+    int result = NGX_AGAIN;
 
     fds_stat_record(STAT_NGX,
                     STAT_NGX_GET_RESUME, ame_clk_fdsn_cb, fds_rdtsc());
 
+    // Lock the context during the resume since we want
+    // all send/state updates to be atomic
+    ame_ctx->ame_ctx_lock();
+
     if (ame_resp_status == NGX_HTTP_OK) {
         // Check if the header has been sent already or not
-        if (ame_ctx->ame_get_header_sent() == false) {
+        if (ame_ctx->ame_get_header_sent_locked() == false) {
             // TODO(Andrew): Need to get etag out of blob rather
             // than compute it here
-            // ame_etag = "\"" + HttpUtils::computeEtag(adr, len) + "\"";
             ame_etag = "No etag :-(";
-            // TODO(Andrew): When streaming, change this to
-            // use the blob size because we may not have
-            // all of the buffers yet
+            // When streaming, the requested length is either
+            // the whole blob size, if no size was specified in
+            // the request or a smaller size specified during the
+            // initial request
             ame_set_std_resp(ame_resp_status,
-                             ame_ctx->ame_get_requested_len());
+                             ame_ctx->ame_get_requested_len_locked());
             ame_send_response_hdr();
-            ame_ctx->ame_set_header_sent(true);
+            ame_ctx->ame_set_header_sent_locked(true);
         }
 
         // Send back any ready in order buffers
@@ -801,27 +800,36 @@ Conn_GetObject::ame_request_resume()
         // send all of the buffers back at once
         fds_bool_t last;
         fds_off_t  offset;
-        Error err = ame_ctx->ame_get_unsent_offset(&offset, &last);
+        Error err = ame_ctx->ame_get_unsent_offset_locked(&offset, &last);
         while (err != ERR_NOT_FOUND) {
             // Get the ame buf from the get map
-            ame_ctx->ame_get_get_info(offset, &buf, &len);
+            ame_ctx->ame_get_get_info_locked(offset, &buf, &len);
 
             // Note that we expect nginx to free the buffer
             // so we don't have to free it...simply clear the map
             ame_send_resp_data(buf, len, last);
-            // fds_verify(buf == NULL); // Should we check?
+            // TODO(Andrew): Should we check if the buffer was released?
 
             // Mark the offset as sent
-            err = ame_ctx->ame_upd_ctx_req(offset, AME_Ctx::SENT);
+            err = ame_ctx->ame_upd_ctx_req_locked(offset, AME_Ctx::SENT);
 
             // Get the next unsent offset
-            err = ame_ctx->ame_get_unsent_offset(&offset, &last);
+            err = ame_ctx->ame_get_unsent_offset_locked(&offset, &last);
+        }
+        if (last == true) {
+            // If we just sent the last offset
+            // then we're done
+            result = NGX_DONE;
         }
     } else {
         // Just send back the err response
         ame_finalize_response(ame_resp_status);
+        result = NGX_DONE;
     }
-    return NGX_DONE;
+
+    // Unlock the context
+    ame_ctx->ame_ctx_unlock();
+    return result;
 }
 
 // ame_request_handler
@@ -953,7 +961,7 @@ Conn_PutObject::ame_request_resume()
     buf = ame_ctx->ame_curr_input_buf(&len);
 
     // Set etag value from ctx
-    ame_etag = "\"" + HttpUtils::finalEtag(ame_ctx->ame_get_etag()) + "\"";
+    ame_etag = "\"" + ame_etag + "\"";
 
     // Release any buffers we allocated from nginx. Often
     // these buffers were allocated to collect data from
@@ -980,6 +988,7 @@ Conn_PutObject::ame_request_handler()
     FDS_NativeAPI *api;
     BucketContext bucket_ctx("host", get_bucket_id(), "accessid", "secretkey");
     fds_bool_t    last_byte;
+    PutPropertiesPtr putProps;
 
     if (-1 == ame_req->headers_in.content_length_n) {
         LOGWARN << "missing content-length header";
@@ -998,7 +1007,7 @@ Conn_PutObject::ame_request_handler()
         Error err = ame_ctx->ame_add_ctx_req(offset);
         fds_verify(err == ERR_OK);
         api = ame->ame_fds_hook();
-        api->PutObject(&bucket_ctx, get_object_id(), NULL,
+        api->PutObject(&bucket_ctx, get_object_id(), putProps,
                        static_cast<void *>(ame_ctx), buf, 0,
                        len, true, fdsn_putobj_cbfn,
                        static_cast<void *>(this));
@@ -1025,13 +1034,17 @@ Conn_PutObject::ame_request_handler()
         last_byte = false;
         if ((offset + len) == (fds_off_t)ame_req->headers_in.content_length_n) {
             last_byte = true;
+            ame_etag = HttpUtils::finalEtag(ame_ctx->ame_get_etag());
+            putProps.reset(new PutProperties());
+            putProps->md5 = ame_etag;
             LOGDEBUG << "Setting offset " << offset << " and length " << len
-                     << " as the last update to the blob";
+                     << " as the last update to the blob with etag "
+                     << ame_etag;
         }
 
         // Issue async request
         api = ame->ame_fds_hook();
-        api->PutObject(&bucket_ctx, get_object_id(), NULL,
+        api->PutObject(&bucket_ctx, get_object_id(), putProps,
                        static_cast<void *>(ame_ctx), buf, offset,
                        len, last_byte, fdsn_putobj_cbfn,
                        static_cast<void *>(this));

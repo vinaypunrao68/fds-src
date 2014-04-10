@@ -2,9 +2,12 @@
 import sys
 import os
 import pdb
-import argparse
+import optparse
 import subprocess
 import re
+
+# Turn on debugging
+debug_on = False
 
 # Disk information parse from system
 #
@@ -44,7 +47,7 @@ class Disk:
 ##
     # Parse the disk information
     #
-    def __init__(self, path, fake):
+    def __init__(self, path, fake, df_output):
         assert path != None
         assert re.match(Disk.dsk_prefix, path)
 
@@ -53,6 +56,15 @@ class Disk:
         self.dsk_typ  = Disk.dsk_typ_inv
         self.dsk_parts = { }
         self.dsk_formatted = 'Unknown'
+        self.dsk_boot_dev  = False
+        self.dsk_mounted   = False
+
+        for rec in df_output:
+            ma = re.match(self.dsk_path, rec)
+            if ma:
+                dbg_print('Root Device Found: ' + ma.group(0))
+                self.dsk_boot_dev = True
+                break
 
         # parse disk information
         self.__parse_with_hdparm(path, fake)
@@ -64,13 +76,18 @@ class Disk:
     # test for dev is root device
     #
     def is_boot_dev(self):
-        root_info = subprocess.Popen(['df', '/'], stdout=subprocess.PIPE).stdout
-        for rec in root_info:
+        return self.dsk_boot_dev
+
+    def is_mounted(self):
+        return self.dsk_mounted
+
+    def check_for_mounted(self, mount_output):
+        for rec in mount_output:
             ma = re.match(self.dsk_path, rec)
             if ma:
-                dbg_print('Root Device Found: ' + ma.group(0))
+                dbg_print('Mounted device' + self.dsk_path)
+                self.dsk_mounted = True
                 return True
-
         return False
 
     # drive type: HDD|SSD
@@ -108,6 +125,7 @@ class Disk:
         for k, v in parts.iteritems():
             print 'part     :\t' + k + ':' + v
         print 'formatted:\t' + str(self.is_formatted())
+
 ## ----------------------------------------------------------------
 ## destructive operations, handle with care
 ## make sure to check for is_boot_dev()
@@ -115,41 +133,51 @@ class Disk:
     # create partitions for HDD/SSD, write fds magic marker to drive
     #
     def create_parts(self):
-        if self.is_boot_dev():
+        # Wipe out FDS label.
+        call_list = ['dd', 'if=/dev/zero', 'of=%s' % self.dsk_path,
+                     'seek=64', 'bs=512', 'count=1']
+        print "Wipe out the label with", call_list
+        subprocess.call(call_list, stdout = None, stderr = None)
+
+        if self.is_boot_dev() or self.is_mounted():
+            print "The disk %s is mounted and inuse" % self.dsk_path
             return 1
 
+        # Blindly remove any outstanding partitions.
+        call_list = ['parted', '-s', self.dsk_path,
+                     'rm', '1', ' ', 'rm', '2', ' ', 'rm', '3', ' ', 'rm', '4']
+        print "Remove any old partition", call_list
+        res = subprocess.call(call_list, stdout = None, stderr = None)
+
         call_list = ['parted', '-s', self.dsk_path, 'mklabel', 'gpt']
-        print call_list
-        res = subprocess.call(call_list)
+        res = subprocess.call(call_list, stdout = None, stderr = None)
         if res != 0:
+            print call_list
             return res
 
         if self.dsk_typ == Disk.dsk_typ_hdd:
-
-            call_list = ['parted', '-s', '-a', 'none', self.dsk_path,
-                         '\"', 'mkpart', 'primary', 'xfs', '0', '100MB', '\"']
-            print call_list
-            res = subprocess.call(call_list)
+            print "Partition using HDD parition for ", self.dsk_path
+            call_list = ['parted', '-s', '-a', 'opt', self.dsk_path,
+                         '\"', 'mkpart', 'primary', 'xfs', '8MB', '8GB', '\"']
+            res = subprocess.call(call_list, stdout = None, stderr = None)
             if res != 0:
                 return res
 
             call_list = ['parted', '-s', '-a', 'none', self.dsk_path,
-                         '\"', 'mkpart', 'primary', 'xfs', '100MB', '32GB', '\"']
-            print call_list
-            res = subprocess.call(call_list)
+                         '\"', 'mkpart', 'primary', 'xfs', '8GB', '48GB', '\"']
+            res = subprocess.call(call_list, stdout = None, stderr = None)
             if res != 0:
                 return res
             # use shell=True for -1 argument
             call_list = "parted -s -a none " + self.dsk_path + \
-                        " \"mkpart primary xfs 32GB -1\""
-            print call_list
+                        " \"mkpart primary xfs 48GB -1\""
             res = subprocess.call(call_list, shell=True)
             if res != 0:
                 return res
         elif self.dsk_typ == Disk.dsk_typ_ssd:
+            print "Partition using SSD parition for ", self.dsk_path
             call_list = "parted -s -a none " + self.dsk_path + \
-                        " \"mkpart primary xfs 0 -1\""
-            print call_list
+                        " \"mkpart primary xfs 8MB -1\""
             res = subprocess.call(call_list, shell=True)
             if res != 0:
                 return res
@@ -157,6 +185,7 @@ class Disk:
             assert not 'Invalid disk type found'
             return 2
 
+        print "Successfully partition disk ", self.dsk_path
         return res
 
     # delete partitions, wipe out fds magic marker
@@ -176,9 +205,10 @@ class Disk:
     #
     def format(self):
         if self.is_boot_dev():
-            return 1
+            return None
 
-        res = 0
+        res = {}
+        res['dev_name'] = self.dsk_path
         if self.dsk_typ == Disk.dsk_typ_hdd:
             part_num = Disk.dsk_part_hdd_data
         elif self.dsk_typ == Disk.dsk_typ_ssd:
@@ -188,24 +218,48 @@ class Disk:
 
         call_list = ['mkfs.xfs', self.dsk_path + str(part_num), '-f', '-q']
         print call_list
-        res = subprocess.call(call_list)
-        if res == 0:
-            self.__write_fds_hdr()
+        res['dev_pipe'] = subprocess.Popen(call_list)
         return res
+
+    def mount_fs(self, mount_output, dev_no):
+        if self.is_boot_dev():
+            return None
+
+        if self.is_mounted() == True:
+            print "The device %s already mounted" % self.dsk_path
+            return None
+
+        dsk_type = ''
+        if self.dsk_typ == Disk.dsk_typ_hdd:
+            dsk_type = 'hdd-%d' % dev_no
+            part_num = Disk.dsk_part_hdd_data
+        elif self.dsk_typ == Disk.dsk_typ_ssd:
+            dsk_type = 'ssd-%d' % dev_no
+            part_num = Disk.dsk_part_ssd_data
+        else:
+            assert not 'Invalid disk type found'
+
+        dir_name  = '/fds/dev/' + dsk_type
+        call_list = ['mkdir', '-p', dir_name]
+        subprocess.call(call_list)
+
+        call_list = ['mount', self.dsk_path + str(part_num), dir_name]
+        print "Mouting ", call_list
+        subprocess.call(call_list)
+        return None
+
 ## ----------------------------------------------------------------
 
-    # get all Disk objects in the system, excluding boot device
+    # get all Disk objects in the system, including the boot device
     # 
     @staticmethod
-    def sys_disks(fake):
+    def sys_disks(fake, df_output, mount_output):
         dev_list  = []
         path_list = Disk.__get_sys_disks_path(fake)
         for path in path_list:
-            disk = Disk(path, fake)
-            if not disk.is_boot_dev():
-                dev_list.append(disk)
-            else:
-                print 'Skipping Root Device: ' + path
+            disk = Disk(path, fake, df_output)
+            disk.check_for_mounted(mount_output)
+            dev_list.append(disk)
         return dev_list
 
 ## Private member functions
@@ -361,14 +415,16 @@ class Disk:
     def __write_fds_hdr(self, clear=False):
         fp = open(self.dsk_path, 'w')
 
-        print 'Writing FDS Hdr to disk:' + self.dsk_path
+        if debug_on:
+            print 'Writing FDS Hdr to disk:' + self.dsk_path
         if clear == False:
             hdr_val = Disk.dsk_hdr_magic
         else:
             hdr_val = Disk.dsk_hdr_clrmg
 
         hdr_s = ':'.join(x.encode('hex') for x in hdr_val)
-        print hdr_s
+        if debug_on:
+            print hdr_s
         fp.write(hdr_val)
 
         fp.close()
@@ -398,71 +454,57 @@ class Disk:
 
 ## -------------------------------------------------------------------------------
 
-# Turn on debugging
-debug_on = False
-
 def dbg_print(msg):
     if debug_on:
         print 'Debug: ' + msg
 
 def disk_helper(disk, fmt, clear_fmt):
     assert not (fmt == True and clear_fmt == True)
-    disk.print_disk()
-    res = 0
+    if debug_on:
+        disk.print_disk()
 
     if fmt == True:
-        if not disk.is_formatted():
-            res = disk.create_parts()
-            if res == 0:
-                res = disk.format()
-        else:
-            print 'Disk is already formatted: ' + disk.get_path()
-    elif clear_fmt == True:
-        res = disk.del_parts()
-
-    return res
+        if disk.create_parts() == 0:
+            return disk.format()
+    return None
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Disk Infor and Format.')
-    parser.add_argument('--dev', help='dev path to get info')
-    parser.add_argument('--format', help='create partition and format')
-    parser.add_argument('--clear_fmt', help='clear formatted partition')
-    parser.add_argument('--debug', help='turn on debugging')
-    parser.add_argument('--fake', help='Fake dev for testing')
+    parser = optparse.OptionParser("usage: %prog [options]")
+    parser.add_option('-d', '--dev', dest = 'device',
+                      help = 'Path to get dev info (e.g. /dev/sdb)')
+    parser.add_option('-f', '--format', dest = 'format', action = 'store_true',
+                      help = 'Parition and format the device')
+    parser.add_option('-m', '--mount', dest = 'mount', action = 'store_true',
+                      help = 'Mount filesystem to the partition data')
+    parser.add_option('-F', '--fake', dest = 'fake', action = 'store_true',
+                      help = 'Create fake device for testing')
+    parser.add_option('-D', '--debug', dest = 'debug', action = 'store_true',
+                      help = 'Turn on debugging')
 
+    (options, args) = parser.parse_args()
+    debug_on     = options.debug
+    df_output    = subprocess.Popen(['df', '/'], stdout=subprocess.PIPE).stdout
+    mount_output = subprocess.Popen(['mount'], stdout=subprocess.PIPE).stdout
 
-    args = parser.parse_args()
-    if args.dev:
-        dev_path = args.dev
+    if options.device:
+        disk     = Disk(options.device, options.fake, df_output)
+        dev_list = [ disk ]
     else:
-        dev_path = None
-    if args.debug:
-        debug_on = True
+        dev_list = Disk.sys_disks(options.fake, df_output, mount_output)
 
-    if args.format == 'true':
-        fmt = True
-    else:
-        fmt = False
+    if options.format:
+        shells = []
+        for disk in dev_list:
+            cb = disk_helper(disk, options.format, False)
+            shells.append(cb)
 
-    if args.clear_fmt == 'true':
-        clear_fmt = True
-    else:
-        clear_fmt = False
+        for cb in shells:
+            if cb is not None:
+                print "Waiting to format device ", cb['dev_name']
+                cb['dev_pipe'].wait()
 
-    if args.fake == 'true':
-        fake = True
-    else:
-        fake = False
-
-    if fmt and clear_fmt:
-        print 'Cannot use format and clear_fmt at the same time'
-        sys.exit(1)
-
-    if dev_path != None:
-        disk = Disk(dev_path, fake)
-        disk_helper(disk, fmt, clear_fmt)
-        sys.exit(0)
-
-    dev_list = Disk.sys_disks(fake)
-    for disk in dev_list:
-        disk_helper(disk, fmt, clear_fmt)
+    if options.mount:
+        dev_cnt  = 0
+        for disk in dev_list:
+            disk.mount_fs(mount_output, dev_cnt)
+            dev_cnt = dev_cnt + 1

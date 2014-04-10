@@ -358,7 +358,7 @@ FDS_NativeAPI::GetObject(BucketContextPtr bucket_ctxt,
 
 void FDS_NativeAPI::PutObject(BucketContext *bucket_ctxt,
                               std::string ObjKey,
-                              PutProperties *put_properties,
+                              PutPropertiesPtr put_properties,
                               void *req_context,
                               char *buffer,
                               fds_uint64_t startByte,

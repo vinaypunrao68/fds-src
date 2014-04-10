@@ -448,8 +448,7 @@ StorHvJournalEntry::fbd_process_req_timeout() {
         fds_verify(txn != NULL);
 
         fds_verify(txn->isActive() == true);  // Should not receive resp for inactive txn
-        if ((txn->nodeSeq != txn->num_sm_nodes)
-            && 0) { // TODO(Andrew): REMOVE ME!!!!
+        if (txn->nodeSeq != txn->num_sm_nodes) {
             txn->nodeSeq =+ 1; // try all the SM nodes 
             err = storHvisor->dispatchSmGetMsg(txn);
             fds_verify(err == ERR_OK);

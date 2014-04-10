@@ -942,6 +942,19 @@ DataMgr::updateCatalogProcess(const dmCatReq  *updCatReq, BlobNode **bnode) {
         LOGDEBUG << "Updated blob " << (*bnode)->blob_name
                  << " to size " << (*bnode)->blob_size;
 
+        // Apply any associated blob metadata updates
+        for (fds_uint32_t i = 0;
+             i < updCatReq->fdspUpdCatReqPtr->meta_list.size();
+             i++) {
+            LOGNORMAL << "Received and applying metadata update pair key="
+                      << updCatReq->fdspUpdCatReqPtr->meta_list[i].key
+                      << " value="
+                      << updCatReq->fdspUpdCatReqPtr->meta_list[i].value;
+
+            (*bnode)->updateMetadata(updCatReq->fdspUpdCatReqPtr->meta_list[i].key,
+                                     updCatReq->fdspUpdCatReqPtr->meta_list[i].value);
+        }
+
         // Currently, this processes the entire blob at once.
         // Any modifications to it need to be made before hand.
         err = dataMgr->_process_open((fds_volid_t)updCatReq->volId,
