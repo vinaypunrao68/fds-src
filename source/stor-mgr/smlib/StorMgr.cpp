@@ -96,9 +96,8 @@ ObjectStorMgrI::PutObject(FDSP_MsgHdrTypePtr& msgHdr,
          */
         objStorMgr->PutObject(msgHdr, putObj);
     } else {
-	msgHdr->err_code = FDSP_ERR_DLT_CONFLICT; 			
-	msgHdr->result = FDSP_ERR_DLT_MISMATCH; 			
-	// send the dlt version of SM to AM 
+        msgHdr->err_code = ERR_IO_DLT_MISMATCH;
+        // send the dlt version of SM to AM
         putObj->dlt_version = objStorMgr->omClient->getDltVersion();
         // update the resp  with new DLT
         objStorMgr->omClient->getLatestDlt(putObj->dlt_data);
@@ -156,8 +155,7 @@ ObjectStorMgrI::GetObject(FDSP_MsgHdrTypePtr& msgHdr,
 
         msgHdr->msg_code = FDSP_MSG_GET_OBJ_RSP;
         if((uint)getObj->dlt_version != objStorMgr->omClient->getDltVersion()) {
-            msgHdr->result = FDSP_ERR_DLT_MISMATCH;
-            msgHdr->err_code = FDSP_ERR_DLT_CONFLICT;
+            msgHdr->err_code = ERR_IO_DLT_MISMATCH;
             // send the dlt version of SM to AM
             getObj->dlt_version = objStorMgr->omClient->getDltVersion();
             // update the resp  with new DLT
@@ -201,9 +199,8 @@ ObjectStorMgrI::DeleteObject(FDSP_MsgHdrTypePtr& msgHdr,
 
         objStorMgr->DeleteObject(msgHdr, delObj);
     } else {
-	msgHdr->err_code = FDSP_ERR_DLT_CONFLICT; 			
-	msgHdr->result = FDSP_ERR_DLT_MISMATCH; 			
-	// send the dlt version of SM to AM 
+        msgHdr->err_code = ERR_IO_DLT_MISMATCH;
+        // send the dlt version of SM to AM
         delObj->dlt_version = objStorMgr->omClient->getDltVersion();
         // update the resp  with new DLT
         objStorMgr->omClient->getLatestDlt(delObj->dlt_data);
@@ -469,6 +466,7 @@ void ObjectStorMgr::proc_setup()
     omClient->registerEventHandlerForVolEvents((volume_event_handler_t)volEventOmHandler);
     omClient->registerEventHandlerForMigrateEvents((migration_event_handler_t)migrationEventOmHandler);
     omClient->registerEventHandlerForDltCloseEvents((dltclose_event_handler_t) dltcloseEventHandler);
+    omClient->registerScavengerEventHandler((scavenger_event_handler_t) scavengerEventHandler);
     omClient->omc_srv_pol = &sg_SMVolPolicyServ;
     omClient->startAcceptingControlMessages();
     omClient->registerNodeWithOM(plf_mgr);
@@ -627,7 +625,8 @@ kvstore::TokenStateDBPtr ObjectStorMgr::getTokenStateDb()
 bool ObjectStorMgr::isTokenInSyncMode(const fds_token_id &tokId) {
     kvstore::TokenStateInfo::State state;
     tokenStateDb_->getTokenState(tokId, state);
-    return state == kvstore::TokenStateInfo::SYNCING;
+    return (state == kvstore::TokenStateInfo::SYNCING ||
+            state == kvstore::TokenStateInfo::PULL_REMAINING);
 }
 
 void ObjectStorMgr::migrationEventOmHandler(bool dlt_type)
@@ -707,6 +706,15 @@ void ObjectStorMgr::migrationSvcResponseCb(const Error& err,
         }
         objStorMgr->tok_migrated_for_dlt_ = false;
     }
+}
+
+//
+// TODO(xxx) currently assumes scavenger start command, extend to other cmds
+//
+void ObjectStorMgr::scavengerEventHandler()
+{
+    GLOGDEBUG << "Scavenger event Handler: start scavenger";
+    // objStorMgr->scavenger->startScavengeProcess();
 }
 
 void ObjectStorMgr::nodeEventOmHandler(int node_id,
@@ -1003,7 +1011,15 @@ Error
 ObjectStorMgr::readObjMetaData(const ObjectID &objId,
         ObjMetaData& objMap) 
 {
-    return smObjDb->get(objId, objMap);
+    Error err = smObjDb->get(objId, objMap);
+    if (err == ERR_OK) {
+        /* While sync is going on we can have metadata but object could be missing */
+        if (!objMap.dataPhysicallyExists()) {
+            fds_verify(isTokenInSyncMode(getDLT()->getToken(objId)));
+            err = ERR_DISK_READ_FAILED;
+        }
+    }
+    return err;
 }
 
 Error
@@ -1900,8 +1916,8 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
     msgHdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_GET_OBJ_RSP;
     swapMgrId(msgHdr);
     if ((uint)getObjReq->dlt_version != objStorMgr->omClient->getDltVersion()) {
-	msgHdr->err_code = FDSP_ERR_DLT_CONFLICT; 			
-	// msgHdr->result = FDSP_ERR_DLT_MISMATCH; 			
+	msgHdr->err_code = ERR_IO_DLT_MISMATCH;
+	// msgHdr->result = ERR_IO_DLT_MISMATCH;
 	// send the dlt version of SM to AM 
         getObj->dlt_version = objStorMgr->omClient->getDltVersion();
     }

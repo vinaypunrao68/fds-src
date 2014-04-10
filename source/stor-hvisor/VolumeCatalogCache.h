@@ -47,6 +47,7 @@ class CatalogCache {
      */
     std::string blobName;
     fds_uint64_t blobSize;
+    std::string blobEtag;
 
     /*
      * Protects the offset_map.
@@ -66,6 +67,8 @@ class CatalogCache {
     Error Query(fds_uint64_t blobOffset,
                 ObjectID *oid);
     fds_uint64_t getBlobSize();
+    std::string getBlobEtag();
+    void setBlobEtag(const std::string &etag);
     void Clear();
 };
 
@@ -132,6 +135,10 @@ class VolumeCatalogCache {
                  const ObjectID &oid);
     Error getBlobSize(const std::string& blobName,
                       fds_uint64_t *blobSize);
+    Error getBlobEtag(const std::string& blobName,
+                      std::string *blobEtag);
+    Error setBlobEtag(const std::string &blobName,
+                      const std::string &blobEtag);
     Error clearEntry(const std::string &blobName);
     void Clear();
 

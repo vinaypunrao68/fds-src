@@ -514,6 +514,7 @@ class ObjectStorMgr :
                                    int vol_action,
                                    fds_bool_t check_only,
                                    FDSP_ResultType resut);
+    static void scavengerEventHandler();
     static void migrationEventOmHandler(bool dlt_type);
     static void dltcloseEventHandler(FDSP_DltCloseTypePtr& dlt_close,
             const std::string& session_uuid);

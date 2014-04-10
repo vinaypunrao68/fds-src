@@ -305,7 +305,7 @@ FDS_NativeAPI::GetObject(BucketContextPtr bucket_ctxt,
 
     if ((!err.ok()) && (err != Error(ERR_PENDING_RESP))) {
         /* bucket not attached and we failed to send query to OM */
-        (getObjCallback)(bucket_ctxt, req_context, 0, startByte, NULL, 0,
+        (getObjCallback)(bucket_ctxt, req_context, 0, startByte, NULL, 0, "",
                          callback_data, FDSN_StatusInternalError, NULL);
         LOGERROR << "FDS_NativeAPI::GetObject bucket " << bucket_ctxt->bucketName
                  << " objKey " << ObjKey
@@ -328,7 +328,7 @@ FDS_NativeAPI::GetObject(BucketContextPtr bucket_ctxt,
                               callback_data);
 
     if (!blob_req) {
-        (getObjCallback)(bucket_ctxt, req_context, 0, startByte, NULL, 0,
+        (getObjCallback)(bucket_ctxt, req_context, 0, startByte, NULL, 0, "",
                          callback_data, FDSN_StatusOutOfMemory, NULL);
         LOGERROR << "FDS_NativeAPI::GetObject bucket "
                  << bucket_ctxt->bucketName

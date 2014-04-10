@@ -65,6 +65,7 @@ namespace fds {
   typedef void (*tier_audit_cmd_handler_t)(const FDSP_TierPolicyAuditPtr &tier);
   typedef void (*bucket_stats_cmd_handler_t)(const FDSP_MsgHdrTypePtr& rx_msg,
 					     const FDSP_BucketStatsRespTypePtr& buck_stats);
+  typedef void (*scavenger_event_handler_t)();
 
   class OMgrClient {
 
@@ -98,6 +99,7 @@ namespace fds {
     tier_cmd_handler_t       tier_cmd_hdlr;
     tier_audit_cmd_handler_t tier_audit_cmd_hdlr;
     bucket_stats_cmd_handler_t bucket_stats_cmd_hdlr;
+    scavenger_event_handler_t scavenger_evt_hdlr;
 
     /**
      * Session table for OM client
@@ -147,6 +149,7 @@ namespace fds {
     int registerEventHandlerForDltCloseEvents(dltclose_event_handler_t dltclose_event_hdlr);
     int registerThrottleCmdHandler(throttle_cmd_handler_t throttle_cmd_hdlr);
     int registerBucketStatsCmdHandler(bucket_stats_cmd_handler_t cmd_hdlr);
+    void registerScavengerEventHandler(scavenger_event_handler_t scav_event_hdlr);
 
     // This logging is public for external plugins.  Avoid making this object
     // too big and all methods uses its data as global variables with big lock.
@@ -220,7 +223,7 @@ namespace fds {
     int recvTierPolicyAudit(const FDSP_TierPolicyAuditPtr &audit);
     int recvBucketStats(const FDSP_MsgHdrTypePtr& msg_hdr, 
 			const FDSP_BucketStatsRespTypePtr& buck_stats_msg);
-
+    int recvScavengerEvt();
   };
 
   class OMgrClientRPCI : public FDS_ProtocolInterface::FDSP_ControlPathReqIf {

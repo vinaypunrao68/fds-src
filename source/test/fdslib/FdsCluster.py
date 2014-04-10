@@ -4,8 +4,11 @@
 #
 import FdsSetup as inst
 import BringUpCfg as fdscfg
-import FdsNode
-
+from FdsNode import FdsNode
+from FdsService import SMService
+from FdsService import DMService
+from FdsService import AMService
+from FdsService import OMService
 
 class NodeNotFoundException(Exception):
     pass
@@ -32,10 +35,10 @@ class FdsCluster:
         Stars AMs.
         TODO(Rao): This isn't needed.  Running AM should be specified in the config
         """
-        for am in self.config.config_am():
+        for am in self.config.cfg_am:
             am.am_start_service()
     
-    def add_node(self, node_id, activate_services = None):
+    def add_node(self, node_id, activate_services = []):
         """
         Adds node.
         node_id: Id from the config
@@ -95,7 +98,7 @@ class FdsCluster:
             raise Exception("Uknown service: {}".format(service_id))
 
         # Activate service
-        cli = self.config.config_cli()
+        cli = self.config.cfg_cli
         cli.run_cli('--activate-nodes abc -k 1 -e {}'.format(service_id))
 
     def run_checker(self):
@@ -119,7 +122,7 @@ class FdsCluster:
         """
         returns node config identified by node_id
         """
-        for n in self.config.config_nodes():
+        for n in self.config.cfg_nodes:
             if n.nd_conf_dict['node-name'] == node_id:
                 return n
         raise NodeNotFoundException(str(node_id))
@@ -128,7 +131,7 @@ class FdsCluster:
         """
         Parses the node cofig and finds the node with OM and runs OM
         """
-        for n in self.config.config_nodes():
+        for n in self.config.cfg_nodes:
             if n.nd_run_om():
                 n.nd_connect_rmt_agent(self.env)
                 n.nd_rmt_agent.ssh_setup_env('')

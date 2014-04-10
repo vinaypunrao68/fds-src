@@ -398,7 +398,7 @@ class OM_NodeContainer : public DomainContainer
     }
 
     virtual void om_set_throttle_lvl(float level);
-    virtual void om_send_bucket_stats(fds_uint32_t, std::string, fds_uint32_t);
+    virtual void om_send_bucket_stats(fds_uint32_t, const NodeUuid&, fds_uint32_t);
     virtual void om_handle_perfstats_from_am(const FDSP_VolPerfHistListType &list,
                                              const std::string start_timestamp);
 

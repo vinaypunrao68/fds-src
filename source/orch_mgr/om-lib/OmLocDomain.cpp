@@ -65,16 +65,16 @@ om_vol_get_stat(FDSP_BucketStatsRespTypePtr  resp,
  */
 void
 OM_NodeContainer::om_send_bucket_stats(fds_uint32_t perf_time_interval,
-                                       std::string  dest_node_name,
+                                       const NodeUuid& node_uuid,
                                        fds_uint32_t req_cookie)
 {
     OM_NodeContainer    *local = OM_NodeDomainMod::om_loc_domain_ctrl();
-    NodeUuid             node_uuid(fds_get_uuid64(dest_node_name));
     OM_AmAgent::pointer  am_node = local->om_am_agent(node_uuid);
 
     if (am_node == NULL) {
         FDS_PLOG_SEV(g_fdslog, fds_log::notification)
-            << "Could not get AM node for " << dest_node_name << std::endl;
+                << "Could not get AM node for " << std::hex
+                << node_uuid.uuid_get_val() << std::dec;
         return;
     }
     FdspMsgHdrPtr               msg_hdr(new fpi::FDSP_MsgHdrType);
@@ -124,7 +124,7 @@ OM_NodeContainer::om_send_bucket_stats(fds_uint32_t perf_time_interval,
 
     FDS_PLOG_SEV(g_fdslog, fds_log::normal)
             << "Sending GetBucketStats response to node "
-            << dest_node_name << std::endl;
+            << std::hex << node_uuid.uuid_get_val() << std::dec;
 
     am_node->getCpClient(&msg_hdr->session_uuid)->
         NotifyBucketStats(msg_hdr, buck_stats_rsp);

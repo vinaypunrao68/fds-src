@@ -85,16 +85,14 @@ enum FDSP_ResultType {
   FDSP_ERR_FAILED,
   FDSP_ERR_VOLUME_DOES_NOT_EXIST,
   FDSP_ERR_VOLUME_EXISTS,
-  FDSP_ERR_DLT_MISMATCH,
-  FDSP_ERR_CKSUM_MISMATCH,
   FDSP_ERR_BLOB_NOT_FOUND
+  /* DEPRECATED: Don't add anthing here.  We will use Error from fds_err.h */
 }
 
 enum FDSP_ErrType {
   FDSP_ERR_OKOK,            /* not to conflict with result type, and protect when using fds_errno_t in msg_hdr.err_code */
   FDSP_ERR_SM_NO_SPACE,
-  FDSP_ERR_DLT_CONFLICT,
-  FDSP_ERR_RPC_CKSUM
+  /* DEPRECATED: Don't add anthing here.  We will use Error from fds_err.h */
 }
 
 enum FDSP_VolType {

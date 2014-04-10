@@ -419,7 +419,8 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::GetDomainStats(
         LOGNORMAL << "Received GetDomainStats Req for domain " << domain_id;
 
         /* Use default domain for now... */
-        local->om_send_bucket_stats(5, fdsp_msg->src_node_name, fdsp_msg->req_cookie);
+        NodeUuid svc_uuid(fds_get_uuid64(fdsp_msg->src_node_name));
+        local->om_send_bucket_stats(5, svc_uuid, fdsp_msg->req_cookie);
     }
     catch(...) {
         LOGERROR << "Orch Mgr encountered exception while "
@@ -443,11 +444,14 @@ void OrchMgr::FDSP_OMControlPathReqHandler::GetDomainStats(
     try {
         int domain_id = get_stats_msg->domain_id;
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+        NodeUuid svc_uuid((fdsp_msg->src_service_uuid).uuid);
 
-        LOGNORMAL << "Received GetDomainStats Req for domain " << domain_id;
+        LOGNORMAL << "Received GetDomainStats Req for domain " << domain_id
+                  << " from node " << fdsp_msg->src_node_name << ":"
+                  << std::hex << svc_uuid.uuid_get_val() << std::dec;
 
         /* Use default domain for now... */
-        local->om_send_bucket_stats(5, fdsp_msg->src_node_name, fdsp_msg->req_cookie);
+        local->om_send_bucket_stats(5, svc_uuid, fdsp_msg->req_cookie);
     }
     catch(...) {
         LOGERROR << "Orch Mgr encountered exception while "

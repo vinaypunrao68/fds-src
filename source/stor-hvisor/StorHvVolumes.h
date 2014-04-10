@@ -37,7 +37,7 @@ class StorHvCtrl;
 
 namespace fds {
 
-    class StorHvVolume : public FDS_Volume , public HasLogger
+class StorHvVolume : public FDS_Volume , public HasLogger
 {
 public:
   StorHvVolume(const VolumeDesc& vdesc, StorHvCtrl *sh_ctrl, fds_log *parent_log);
@@ -196,6 +196,9 @@ class GetBlobReq: public FdsBlobReq {
     /// Size of the blob read from
     fds_uint64_t blobSize;
 
+    /// Etag of the blob read from
+    std::string blobEtag;
+
     GetBlobReq(fds_volid_t _volid,
                const std::string& _blob_name, //same as objKey
                fds_uint64_t _blob_offset,
@@ -223,12 +226,21 @@ class GetBlobReq: public FdsBlobReq {
 
     void DoCallback(FDSN_Status status, ErrorDetails* errDetails) {
         (getObjCallback)(bucket_ctxt,
-                         req_context, dataLen, blobOffset, dataBuf, blobSize,
+                         req_context, dataLen, blobOffset, dataBuf,
+                         blobSize, blobEtag,
                          callback_data, status, errDetails);
     }
 
     void setBlobSize(fds_uint64_t size) {
         blobSize = size;
+    }
+
+    void setBlobEtag(const std::string &etag) {
+        blobEtag = etag;
+    }
+
+    std::string getBlobEtag() {
+        return blobEtag;
     }
 };
 
@@ -242,7 +254,7 @@ class PutBlobReq: public FdsBlobReq {
     fdsnPutObjectHandler putObjCallback;
     void *callback_data;
     fds_bool_t lastBuf;
-  
+
     PutBlobReq(fds_volid_t _volid,
                const std::string& _blob_name, //same as objKey
                fds_uint64_t _blob_offset,
