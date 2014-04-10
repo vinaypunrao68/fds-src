@@ -34,6 +34,7 @@
 #include <persistent_layer/dm_io.h>
 #include <fds_migration.h>
 #include <TransJournal.h>
+#include <Scavenger.h>
 #include <hash/md5.h>
 
 #include <fds_qos.h>
@@ -144,7 +145,8 @@ class SMCounters : public FdsCounters
       put_tok_objs("put_tok_objs", this),
       get_tok_objs("get_tok_objs", this),
       resolve_mrgd_cnt("resolve_mrgd_cnt", this),
-      resolve_used_sync_cnt("resolve_used_sync_cnt", this) {
+      resolve_used_sync_cnt("resolve_used_sync_cnt", this),
+      proxy_gets("proxy_gets", this) {
     }
     /* Exposed for counters */
     SMCounters() {}
@@ -159,6 +161,7 @@ class SMCounters : public FdsCounters
     NumericCounter resolve_mrgd_cnt;
     /* During resolve # of times we replaced existing entry with sync entry */
     NumericCounter resolve_used_sync_cnt;
+    NumericCounter proxy_gets;
 };
 
 
@@ -426,6 +429,7 @@ class ObjectStorMgr :
         volTbl = nullptr;
         objStorMutex = nullptr;
         omJrnl = nullptr;
+        scavenger = nullptr;
     }
 
     ~ObjectStorMgr();
@@ -436,6 +440,7 @@ class ObjectStorMgr :
     virtual void interrupt_cb(int signum) override;
 
     TierEngine     *tierEngine;
+    ScavControl     *scavenger;
     SmObjDb        *smObjDb; // Object Index DB <ObjId, Meta-data + data_loc>
     checksum_calc   *chksumPtr;
     /*

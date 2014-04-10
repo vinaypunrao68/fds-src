@@ -5,7 +5,8 @@ user_build_dir    := smlib policy include migrations platform
 
 # TODO: avoid include across components, put in include dir instead.
 #
-user_incl_dir     := $(topdir) include $(topdir)/stor-mgr/migrations $(topdir)/lib
+user_incl_dir     := $(topdir) include $(topdir)/stor-mgr/migrations $(topdir)/lib \
+                     $(topdir)/persistent_layer/include
 
 user_cpp_flags    :=
 user_fds_so_libs  :=
@@ -15,11 +16,12 @@ user_fds_ar_libs  :=                   \
     fds-StorHvisor \
     fds-odb \
     fds-dsk-mgnt \
-	fds-sm-plat \
-	fds-plat-lib \
+    fds-sm-plat \
+    fds-plat-lib \
     fds-lib \
     fds-umod \
     fds-dsk-io \
+    fds-dsk-mgnt \
     fds-thread \
     fds-util \
     fds-odb \

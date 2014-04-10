@@ -7,10 +7,6 @@ import re
 import readline
 import types
 
-logging.basicConfig(level=logging.INFO,format="%(levelname)s : %(message)s")
-log = logging.getLogger('pkg')
-log.setLevel(logging.DEBUG)
-
 class Color:
     END = '\033[0m'
     
@@ -32,6 +28,10 @@ class Color:
     BOLDCYAN    = '\033[1;36m'
     BOLDWHITE   = '\033[1;37m'
 
+logging.basicConfig(level=logging.INFO,format="%(levelname)s : %(message)s")
+log = logging.getLogger('installer')
+log.setLevel(logging.DEBUG)
+
 
 class Installer:
     def __init__(self):
@@ -42,15 +42,29 @@ class Installer:
 
     def initMenu(self):
         self.menu = []
-        self.menu.append([0,"Run All Steps"             ,'stepRunAll'         ])
-        self.menu.append([1,"Configure Node"            ,'stepConfigureNode'  ])
-        self.menu.append([2,"Run System Check"          ,'stepSystemCheck'    ])
-        self.menu.append([3,"Check package dependencies",'stepDependencyCheck'])
-        self.menu.append([4,"Install FDS Packages"      ,'stepInstallPackages'])
+        
+        self.menu.append([0,"Run All Steps"              , 'stepRunAll'         ])
+        self.menu.append([1,"Run System Check"           , 'stepSystemCheck'    ])
+        self.menu.append([2,"Configure Node"             , 'stepConfigureNode'  ])        
+        self.menu.append([3,"Install dependency packages", 'stepDependencyCheck'])
+        self.menu.append([4,"Install FDS Packages"       , 'stepInstallPackages'])
         
         # set the correct callback functions
         for item in self.menu:
             item.append(getattr(self,item[2]))
+
+    def getMenuByName(self,name):
+        if not name.startswith('step'):
+            name = 'step'+ name
+
+        for item in self.menu:
+            if item[2] == name:
+                return item
+
+        return None
+
+    def checkIp(self,ip):
+        return 0 == os.system('ping -c 1 %s -W 2 >/dev/null 2>&1' % (ip))
 
     def save(self):
         self.data.sync()
@@ -94,6 +108,19 @@ class Installer:
             else:
                 break;
 
+    def dependsOnSteps(self,steps) :
+        if type(steps) == types.StringType:
+            steps=[steps]
+
+        success=True
+        for step in steps:
+            if not self.isStepDone(step):
+                menuitem = self.getMenuByName(step)
+                log.warn("please finish step [%d - %s] before continuing", menuitem[0], menuitem[1])
+                success=False
+        if not success:
+            raise Exception('prior steps not completed')
+
     def stepConfigureNode(self,menuitem):
         try :
             log.debug('running %s', menuitem[2])
@@ -103,18 +130,28 @@ class Installer:
             while True:
                 ip = self.getUserInput('enter om ip')
                 if not self.IP.match(ip):
-                    log.warn('not a valid IP')
+                    log.error('not a valid IP')
+                    continue
+
+                if self.checkIp(ip):
+                    break;
                 else:
-                    break
-                
+                    log.warn('unable to verify ip %s', ip)
+                    
             self.data['om-ip'] = ip
+            ret = os.system("/fds/sbin/disk_type.py -f")
+            if 0 != ret:
+                success=False
+                log.error("install disk partition/format did not complete successfully")
+                if not self.confirm("do you want to continue further"):
+                    break;
             self.markStepSuccess(menuitem)
         except:
             log.error('exception during step %s', menuitem[2])
-
         
     def stepSystemCheck(self,menuitem):
         try :
+            self.dependsOnSteps('stepConfigureNode')
             log.debug('running %s', menuitem[2])
             self.markStepSuccess(menuitem)
         except:
@@ -123,19 +160,37 @@ class Installer:
     def stepDependencyCheck(self,menuitem):
         try :
             log.debug('running %s', menuitem[2])
-            self.markStepSuccess(menuitem)
+            success=True
+            for option in ['basepkgs','basedebs','pythonpkgs'] :
+                ret = os.system("./setup-packages.sh %s" % (option))
+                if 0 != ret :
+                    success=False
+                    log.error("install [%s] did not complete successfully", option)
+                    if not self.confirm("do you want to continue further"):
+                        break;
+            if success:
+                self.markStepSuccess(menuitem)
         except:
             log.error('exception during step %s', menuitem[2])
 
     def stepInstallPackages(self,menuitem):
         try :
+            self.dependsOnSteps('stepDependencyCheck')
             log.debug('running %s', menuitem[2])
-            self.markStepSuccess(menuitem)
+            success=True
+            for option in ['fdsdebs'] :
+                ret = os.system("./setup-packages.sh %s" % (option))
+                if 0 != ret :
+                    success=False
+                    log.error("install [%s] did not complete successfully", option)
+                    if not self.confirm("do you want to continue further"):
+                        break;
+            if success:
+                self.markStepSuccess(menuitem)
         except:
             log.error('exception during step %s', menuitem[2])
 
     def run(self):
-
         print'%s****************************************************************%s' % ( Color.YELLOW, Color.END)
         print'%s  FDS System installation %s                                      ' % ( Color.BOLDWHITE, Color.END)
         print'%s  Ctrl-D to exit , Ctrl-C to cancel current command %s            ' % ( Color.WHITE, Color.END)

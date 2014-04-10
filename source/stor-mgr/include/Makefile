@@ -19,6 +19,7 @@ user_no_style  := \
        stor_mgr.h       \
        StorMgr.h        \
        StorMgrVolumes.h \
+       Scavenger.h \
        TierEngine.h     \
        TierPutAlgorithms.h 
 

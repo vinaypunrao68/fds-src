@@ -1,0 +1,18 @@
+package: fds-systembin
+version: 0.1
+description: installs the core binaries
+
+depends: 
+  - fds-systemdir
+  - fds-systemconf
+
+files:
+  - dest: /fds/bin
+    src:
+      - ../../../Build/linux-x86_64.debug/bin/AMAgent
+      - ../../../Build/linux-x86_64.debug/bin/DataMgr
+      - ../../../Build/linux-x86_64.debug/bin/fdscli
+      - ../../../Build/linux-x86_64.debug/bin/liborchmgr.so
+      - ../../../Build/linux-x86_64.debug/bin/orchMgr
+      - ../../../Build/linux-x86_64.debug/bin/platformd
+      - ../../../Build/linux-x86_64.debug/bin/StorMgr

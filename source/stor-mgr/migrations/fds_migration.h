@@ -87,6 +87,8 @@ class MigrationCounters : public FdsCounters
  public:
     MigrationCounters(const std::string &id, FdsCountersMgr *mgr)
      : FdsCounters(id, mgr),
+       tok_sent("tok_sent", this),
+       tok_rcvd("tok_rcvd", this),
        tok_copy_sent("tok_copy_sent", this),
        tok_copy_rcvd("tok_copy_rcvd", this),
        tok_sync_md_sent("tok_sync_md_sent", this),
@@ -96,9 +98,13 @@ class MigrationCounters : public FdsCounters
     {
     }
 
-    /* Number of token sent */
+    /* Number of tokens sent */
+    NumericCounter tok_sent;
+    /* Number of tokens received */
+    NumericCounter tok_rcvd;
+    /* Number of token objects sent */
     NumericCounter tok_copy_sent;
-    /* Number of token received */
+    /* Number of token objects received */
     NumericCounter tok_copy_rcvd;
     /* Number of metadata entries sent */
     NumericCounter tok_sync_md_sent;

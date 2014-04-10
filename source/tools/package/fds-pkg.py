@@ -17,23 +17,32 @@ class Pkg:
     def __init__(self):
         self.verbose = False
 
-    def getPackageList(self,pkgs=None,version=False):
-        cmd=['dpkg-query', '-f' ]
-        if version:
-            cmd.append('${Package}_${Version}\n')
-        else:
-            cmd.append('${Package}\n')
-
-        cmd.append('-W')
-
+    def getActivePackages(self,pkgs=None):
+        cmd=['dpkg', '--get-selections']
         cmd.extend(self.getAsList(pkgs))
+        return [line.split()[0] for line in self.getCmdOutput(cmd) if line.split()[1] == 'install']
+
+    def getPackageList(self,pkgs=None,version=False):
+        pkgs=self.getActivePackages(pkgs)
+
+        if not version:
+            return pkgs
+
+        cmd=['dpkg-query', '-f' ]
+        cmd.append('${Package}=${Version}=${db:Status-Abbrev}\n')
+        cmd.append('-W')
+        cmd.extend(pkgs)
         lines=self.getCmdOutput(cmd)
-        if version:
-            for n in range(0,len(lines)):
-                line = lines[n]
-                if len(line.split('_')[1])==0:
-                    lines[n] = line.split('_')[0]
-        return lines
+        pkgs=[]
+        for line in lines:
+            
+            pkg,ver,status = line.split('=')
+            if status.strip() == 'ii':
+                if len(ver)>0:
+                    pkgs.append('%s=%s' % (pkg,ver))
+                else:
+                    pkgs.append(pkg)
+        return pkgs
 
     def getPackageFiles(self,pkgname):
         cmd= ['dpkg-query', '-L']

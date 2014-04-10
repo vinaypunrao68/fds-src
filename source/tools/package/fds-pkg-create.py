@@ -477,7 +477,7 @@ class PkgCreate:
                             return False
         # check for so libs
         self.hasSoLibs = False
-        sopattern = re.compile(r"/usr(/local)?/lib/.*\.so.*")
+        sopattern = re.compile(r"/usr(/local)?/lib/.*\.so\..*")
         for fileitem in self.files:
             for f in fileitem.getDestFileList():
                 if sopattern.match(f):
@@ -634,7 +634,7 @@ class PkgCreate:
     def makePkgDir(self):
         self.pkgdir=tempfile.mkdtemp(dir="./",prefix='tmppkg-')
         log.debug("pkgdir = %s" %( self.pkgdir))
-        sofile = re.compile(r"(.*\.so)(\..*)?$")
+        sofile = re.compile(r"(.*\.so)\.(.*)?$")
         # process each file item
         for item in self.files:
             uid,gid = item.getOwnerId()
@@ -649,6 +649,9 @@ class PkgCreate:
                     log.debug('making dir : %s', curdest)
                     os.makedirs(curdest)
                 if self.chown: os.chown(curdest,uid,gid)
+
+                if item.src ==None:
+                    continue;
 
                 for f in item.src:
                     if os.path.isdir(f):
