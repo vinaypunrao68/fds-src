@@ -17,12 +17,14 @@ if __name__ == '__main__':
                       help = 'bring up cluster')
     parser.add_option('-d', '--down', action = 'store_true', dest = 'clus_down',
                       help = 'bring down cluster')
+    parser.add_option('-s', '--status', action = 'store_true', dest = 'clus_status',
+                      help = 'get cluster status')
     parser.add_option('-c', '--clean', action = 'store_true', dest = 'clus_clean',
                       help = 'cleanup cluster')
     parser.add_option('-r', '--dryrun', action = 'store_true', dest = 'dryrun',
                       help = 'dry run, print commands only')
     parser.add_option('-R', '--fds-root', dest = 'fds_root', default = '/fds',
-                      help = 'Specify fds-root directory')
+                      help = 'specify fds-root directory')
 
     (options, args) = parser.parse_args()
 
@@ -45,6 +47,13 @@ if __name__ == '__main__':
     if options.clus_clean:
         for n in nodes:
             n.nd_cleanup_node()
+       
+    # Status
+    if options.clus_status:
+        for n in nodes:
+            n.nd_rmt_agent.ssh_exec('ps -ef | grep -v grep | grep plat', output = True)
+            n.nd_rmt_agent.ssh_exec('ps -ef | grep -v grep | grep Mgr', output = True)
+        sys.exit(0)
 
     if options.clus_up is None:
         sys.exit(0)
