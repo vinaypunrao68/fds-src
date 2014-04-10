@@ -38,6 +38,7 @@ class Installer:
         self.datafile = '/tmp/fdsinstall.data'
         self.data = shelve.open(self.datafile,writeback=True)
         self.IP=re.compile('([0-9]{1,3}\.){3}[0-9]{1,3}')
+        self.ignoreStepDependency = False
         self.initMenu()
 
     def initMenu(self):
@@ -48,6 +49,7 @@ class Installer:
         self.menu.append([2,"Setup Node"                 , 'stepConfigureNode'  ])        
         self.menu.append([3,"Install dependency packages", 'stepDependencyCheck'])
         self.menu.append([4,"Install FDS Packages"       , 'stepInstallFdsPackages'])
+        self.menu.append([5,"Toggle Step Dependency check", 'stepToggleStepDependency'])
         
         # set the correct callback functions
         for item in self.menu:
@@ -84,14 +86,14 @@ class Installer:
             ans=raw_input('> %s : ' % (message))
         return ans.strip()
 
-    def markStepSuccess(self,menuitem):
+    def markStepSuccess(self,menuitem,success=True):
         if 'steps' not in self.data:
             self.data['steps'] = {}
 
         if type(menuitem) == types.StringType:
-            self.data['steps'][menuitem] = True
+            self.data['steps'][menuitem] = success
         else:
-            self.data['steps'][menuitem[2]] = True
+            self.data['steps'][menuitem[2]] = success
 
     def isStepDone(self,menuitem):
         if 'steps' in self.data:
@@ -118,39 +120,57 @@ class Installer:
                 menuitem = self.getMenuByName(step)
                 log.warn("please finish step [%d - %s] before continuing", menuitem[0], menuitem[1])
                 success=False
-        if not success:
+
+        if not success and not self.ignoreStepDependency:
             raise Exception('prior steps not completed')
+
+    def stepToggleStepDependency(self,menuitem):
+        if not self.ignoreStepDependency:
+            if not self.confirm("are you sure you want to ignore step dependencies"):
+                return
+        else:
+            log.info("now .. thats a good decision!!!")
+
+        self.ignoreStepDependency = not self.ignoreStepDependency
+        log.warn('ignore step dependency is now [%s]' ,self.ignoreStepDependency)
 
     def stepConfigureNode(self,menuitem):
         try :
+            self.dependsOnSteps('stepSystemCheck')
             if self.isStepDone(menuitem):
                 log.info("NOTE: This step has been completed previously")
 
             log.debug('running %s', menuitem[2])
             ret = os.system("python ./disk_type.py -f")
+            success=True
             if 0 != ret:
+                success=False
                 log.error("install disk partition/format did not complete successfully")
-            else:
-                self.markStepSuccess(menuitem)
+            
+            self.markStepSuccess(menuitem,success)
         except:
+            self.markStepSuccess(menuitem,False)
             log.error('exception during step %s', menuitem[2])
         
     def stepSystemCheck(self,menuitem):
         try :
-            self.dependsOnSteps('stepConfigureNode')
             if self.isStepDone(menuitem):
                 log.info("NOTE: This step has been completed previously")
             log.debug('running %s', menuitem[2])
+            success=True
             ret = os.system("python ./system_pre_check.py")
             if 0 != ret:
+                success=False
                 log.error("system precheck did not complete successfully")
-            else:
-                self.markStepSuccess(menuitem)
+
+            self.markStepSuccess(menuitem,success)
         except:
+            self.markStepSuccess(menuitem,False)
             log.error('exception during step %s', menuitem[2])
 
     def stepDependencyCheck(self,menuitem):
         try :
+            self.dependsOnSteps('stepConfigureNode')
             log.debug('running %s', menuitem[2])
             success=True
             for option in ['basepkgs','basedebs','pythonpkgs'] :
@@ -160,9 +180,9 @@ class Installer:
                     log.error("install [%s] did not complete successfully", option)
                     if not self.confirm("do you want to continue further"):
                         break;
-            if success:
-                self.markStepSuccess(menuitem)
+            self.markStepSuccess(menuitem,success)
         except:
+            self.markStepSuccess(menuitem,False)
             log.error('exception during step %s', menuitem[2])
 
     def stepInstallFdsPackages(self,menuitem):
@@ -182,9 +202,9 @@ class Installer:
                     log.error("install [%s] did not complete successfully", option)
                     if not self.confirm("do you want to continue further"):
                         break;
-            if success:
-                self.markStepSuccess(menuitem)
+            self.markStepSuccess(menuitem,success)
         except:
+            self.markStepSuccess(menuitem,False)
             log.error('exception during step %s', menuitem[2])
 
     def run(self):
