@@ -158,8 +158,6 @@ namespace fds {
         switch (_errno) {
             case ERR_OK:
                 return FDS_ProtocolInterface::FDSP_ERR_OKOK;
-            case ERR_IO_DLT_MISMATCH:
-                return FDS_ProtocolInterface::FDSP_ERR_DLT_CONFLICT;
             default:
                 if (!OK()) {
 		  return FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
