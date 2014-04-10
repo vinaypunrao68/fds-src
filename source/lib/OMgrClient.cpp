@@ -113,6 +113,7 @@ void OMgrClientRPCI::NotifyScavengerStart(FDSP_MsgHdrTypePtr& msg_hdr,
         LOGNOTIFY << "Received Scavenger Start mesage for token "
                   << gc_info->token_id;
     }
+    om_client->recvScavengerEvt();
 }
 
 void OMgrClientRPCI::NotifyDMTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
@@ -222,6 +223,10 @@ int OMgrClient::registerThrottleCmdHandler(throttle_cmd_handler_t throttle_cmd_h
 int OMgrClient::registerBucketStatsCmdHandler(bucket_stats_cmd_handler_t cmd_hdlr) {
   bucket_stats_cmd_hdlr = cmd_hdlr;
   return 0;
+}
+
+void OMgrClient::registerScavengerEventHandler(scavenger_event_handler_t scav_evt_hdlr) {
+  scavenger_evt_hdlr = scav_evt_hdlr;
 }
 
 /**
@@ -519,6 +524,15 @@ int OMgrClient::recvMigrationEvent(bool dlt_type)
   }
   return (0);
 
+}
+
+// TODO(xxx) currently does scavenger start event, extend to other scavenger events
+int OMgrClient::recvScavengerEvt() 
+{
+  if (this->scavenger_evt_hdlr) {
+    this->scavenger_evt_hdlr();
+  }
+  return (0);
 }
 
 int OMgrClient::sendMigrationStatusToOM(const Error& err) {

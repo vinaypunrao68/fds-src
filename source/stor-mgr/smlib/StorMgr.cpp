@@ -469,6 +469,7 @@ void ObjectStorMgr::proc_setup()
     omClient->registerEventHandlerForVolEvents((volume_event_handler_t)volEventOmHandler);
     omClient->registerEventHandlerForMigrateEvents((migration_event_handler_t)migrationEventOmHandler);
     omClient->registerEventHandlerForDltCloseEvents((dltclose_event_handler_t) dltcloseEventHandler);
+    omClient->registerScavengerEventHandler((scavenger_event_handler_t) scavengerEventHandler);
     omClient->omc_srv_pol = &sg_SMVolPolicyServ;
     omClient->startAcceptingControlMessages();
     omClient->registerNodeWithOM(plf_mgr);
@@ -707,6 +708,15 @@ void ObjectStorMgr::migrationSvcResponseCb(const Error& err,
         }
         objStorMgr->tok_migrated_for_dlt_ = false;
     }
+}
+
+//
+// TODO(xxx) currently assumes scavenger start command, extend to other cmds
+//
+void ObjectStorMgr::scavengerEventHandler()
+{
+    GLOGDEBUG << "Scavenger event Handler: start scavenger";
+    // objStorMgr->scavenger->startScavengeProcess();
 }
 
 void ObjectStorMgr::nodeEventOmHandler(int node_id,
