@@ -30,7 +30,7 @@ class FdsCluster:
     Takes FdsConfig object
     """
     def __init__(self, config_file):
-        self.config = fdscfg.FdsConfig(options.config_file, verbose=True)
+        self.config = fdscfg.FdsConfigFile(options.config_file, verbose=True)
         self.config.config_parse()
         self.env = inst.FdsEnv('.')
         

@@ -21,17 +21,18 @@ if __name__ == '__main__':
                       help = 'cleanup cluster')
     parser.add_option('-r', '--dryrun', action = 'store_true', dest = 'dryrun',
                       help = 'dry run, print commands only')
+    parser.add_option('-l', '--local', action = 'store_true', dest = 'local',
+                      help = "local run, don't ssh to remote node")
     parser.add_option('-R', '--fds-root', dest = 'fds_root', default = '/fds',
                       help = 'Specify fds-root directory')
 
     (options, args) = parser.parse_args()
 
-    env = inst.FdsEnv(options.fds_root)
     if options.config_file is None:
         print "You need to pass config file"
         sys.exit(1)
 
-    cfg = fdscfg.FdsConfigRun(env, options.config_file, options.verbose)
+    cfg = fdscfg.FdsConfigRun(None, options)
 
     # Get all the configuration
     nodes = cfg.rt_get_obj('cfg_nodes')
@@ -48,8 +49,7 @@ if __name__ == '__main__':
         for n in nodes:
             n.nd_cleanup_node()
 
-    cfg.rt_fds_bootstrap()
-
     if options.clus_up is None:
         sys.exit(0)
 
+    cfg.rt_fds_bootstrap()

@@ -22,8 +22,10 @@ class FdsConfig(object):
     def get_config_val(self, key):
         return self.nd_conf_dict[key]
 
-    def debug_print(self):
-        print self.nd_conf_dict
+    def debug_print(self, mesg):
+        if self.nd_verbose['verbose'] or self.nd_verbose['dryrun']:
+            print mesg
+        return self.nd_verbose['dryrun']
 
 ###
 # Handle node config section
@@ -314,8 +316,7 @@ class FdsCliConfig(FdsConfig):
             sys.exit(1)
 
         om = self.nd_om_node
-        if (self.nd_verbose):
-            print "Run %s on OM %s" % (command, om.nd_host_name())
+        self.debug_print("Run %s on OM %s" % (command, om.nd_host_name()))
 
         om.nd_rmt_agent.ssh_exec_fds(
             ('fdscli --fds-root %s ') % om.nd_rmt_agent.get_fds_root() + command,
@@ -401,9 +402,10 @@ class FdsScenarioConfig(FdsConfig):
 # Handle fds bring up config parsing
 #
 class FdsConfigFile(object):
-    def __init__(self, cfg_file, verbose = False):
+    def __init__(self, cfg_file, verbose = False, dryrun = False):
         self.cfg_file      = cfg_file
         self.cfg_verbose   = verbose
+        self.cfg_dryrun    = dryrun
         self.cfg_am        = []
         self.cfg_user      = []
         self.cfg_nodes     = []
@@ -414,7 +416,10 @@ class FdsConfigFile(object):
         self.cfg_parser    = ConfigParser.ConfigParser()
 
     def config_parse(self):
-        verbose = self.cfg_verbose
+        verbose = {
+            'verbose': self.cfg_verbose,
+            'dryrun' : self.cfg_dryrun
+        }
         self.cfg_parser.read(self.cfg_file)
         for section in self.cfg_parser.sections():
             items = self.cfg_parser.items(section)
@@ -461,23 +466,31 @@ class FdsConfigFile(object):
 # Parse the config file and setup runtime env for it.
 #
 class FdsConfigRun(object):
-    def __init__(self, env, cfg_file, verbose):
+    def __init__(self, env, opt):
         self.rt_om_node = None
-        self.rt_env     = env
-        self.rt_obj     = FdsConfigFile(cfg_file, verbose)
+        self.rt_my_node = None
+        if opt.config_file is None:
+            print "You need to pass config file [-f config]"
+            sys.exit(1)
+
+        self.rt_env = env
+        if self.rt_env is None:
+            self.rt_env = inst.FdsEnv(opt.fds_root)
+
+        self.rt_obj = FdsConfigFile(opt.config_file, opt.verbose, opt.dryrun)
         self.rt_obj.config_parse()
 
         # Fixup user/passwd in runtime env from config file.
         users = self.rt_obj.cfg_user
         if users is not None:
             usr = users[0]
-            env.env_user     = usr.get_config_val('user_name')
-            env.env_password = usr.get_config_val('password')
+            self.rt_env.env_user     = usr.get_config_val('user_name')
+            self.rt_env.env_password = usr.get_config_val('password')
 
         # Setup ssh agent to connect all nodes and find the OM node.
         nodes = self.rt_obj.cfg_nodes
         for n in nodes:
-            n.nd_connect_rmt_agent(env)
+            n.nd_connect_rmt_agent(self.rt_env)
             n.nd_rmt_agent.ssh_setup_env('')
             if n.nd_run_om() == True:
                 self.rt_om_node = n

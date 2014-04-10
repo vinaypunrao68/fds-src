@@ -39,13 +39,8 @@ if __name__ == '__main__':
         if options.config_file is None:
             sys.exit(0)
 
-    if options.config_file is None:
-        print "You need to pass config file"
-        sys.exit(1)
-
-    cfg = fdscfg.FdsConfigRun(env, options.config_file, options.verbose)
-
     # Get all the objects
+    cfg   = fdscfg.FdsConfigRun(env, options)
     nodes = cfg.rt_get_obj('cfg_nodes')
     ams   = cfg.rt_get_obj('cfg_am')
     pols  = cfg.rt_get_obj('cfg_vol_pol')
