@@ -16,7 +16,7 @@ SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 echo $SCRIPTDIR
 
 # For now we'll set it here, since AB is not in the same tree as fds-src
-AB_DIR=/home/bao_pham/proj/tools5/AB
+AB_DIR=/home/povzner/tools/AB
 
 runtime=100000       # number of IOs generator will produce ( positive number means length of experiment in seconds) 
 blocksize=1048576    # in bytes
@@ -38,5 +38,5 @@ pushd .; cd $AB_DIR
 #./Pharos -k $blocksize -o $outstand_count -d w -t $tracename $DEVICE $access $runtime $PREFIX
 echo ab -E -n $runtime -c $outstand_count -p 5MB_rand.0 -b $blocksize -R ab_blobs.txt http://localhost:8000/$VOLUME/
 #ab -E -n $runtime -c $outstand_count -p 5MB_rand.0 -b $blocksize -R ab_blobs.txt http://localhost:8000/$VOLUME/ > $tracename
-ab -E -n $runtime -c $outstand_count -p 5MB_rand.0 -b $blocksize -R ab_blobs.txt http://localhost:8000/$VOLUME/
+./runme.sh -E -n $runtime -c $outstand_count -p 5MB_rand.0 -b $blocksize -R ab_blobs.txt http://localhost:8000/$VOLUME/
 popd
