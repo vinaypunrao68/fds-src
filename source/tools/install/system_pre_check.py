@@ -187,7 +187,7 @@ class FDS_Node:
             
                 # Make mem_size in GB
                 if mem_size > 0 and mem_size_suffix == "kB":
-                    self.mem_size = mem_size / 1024 / 1024
+                    self.mem_size = mem_size / 1000 / 1000
                     
                 return
 
@@ -250,10 +250,10 @@ class FDS_Node:
 
         print "Checking internet connection..."
         FNULL = open(os.devnull, 'w')
-        
         print "Sending ping request to www.google.com..."
         net_info = subprocess.call(['ping', '-c 1', 'www.google.com'], stdout=FNULL)
-                                   
+        FNULL.close()
+          
         if net_info == 0:
             self.net_connect = True
         else:
@@ -284,8 +284,9 @@ class FDS_Node:
 
         # Verify disk size
         for disk in self.disks:
-            # Verify that each meets the minimum size
-            if disk.get_capacity() < config.disk_size:
+            # Verify that hard drive (non-SSD) meets the minimum size
+            if (disk.get_type() == disk_type.Disk.dsk_typ_hdd and 
+                disk.get_capacity() < config.disk_size):
                 return 3
                 
         if not self.net_connect:
