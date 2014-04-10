@@ -31,7 +31,7 @@ public class TransientState {
                 searchExpression = Optional.empty();
                 urls = Optional.empty();
             }
-        }, 0, 5, TimeUnit.MINUTES);
+        }, 0, 5, TimeUnit.SECONDS);
         scavenger.shutdown();
     }
 
