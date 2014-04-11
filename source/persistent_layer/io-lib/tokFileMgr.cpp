@@ -137,14 +137,18 @@ namespace diskio {
         return file_id;
     }
 
-    // either write new or re-set existing
-    void tokenFileDb::setWriteFileId(fds_uint32_t disk_idx,
-                                     fds_token_id tokId,
-                                     DataTier tier,
-                                     fds_uint16_t file_id)
-    {
-        std::string key = getKeyString(disk_idx, tokId & PL_TOKEN_MASK, tier);
-        write_fileids[key] = file_id;
+    fds_bool_t tokenFileDb::isShadowFileId(fds_uint16_t file_id,
+                                           fds_uint32_t disk_idx,
+                                           fds_token_id tok_id,
+                                           DataTier tier) {
+        fds_uint16_t cur_file_id = INVALID_FILE_ID;
+        std::string key = getKeyString(disk_idx, tok_id & PL_TOKEN_MASK, tier);
+        tokenFileDbMutex->lock();
+        if (write_fileids.count(key) > 0) {
+            cur_file_id = write_fileids[key];
+        }
+        tokenFileDbMutex->unlock();
+        return (cur_file_id == file_id);
     }
 
     fds::Error tokenFileDb::notifyStartGC(fds_uint32_t disk_idx,
