@@ -374,6 +374,13 @@ class DataIO
     fds::Error notify_end_gc(fds::fds_token_id tok_id,
                              DataTier tier);
 
+
+    /**
+     * Returns true if a given location is a shadow file
+     */
+    fds_bool_t is_shadow_location(obj_phy_loc_t* loc,
+                                  fds::fds_token_id tok_id);
+
   private:
     friend class DataIOModule;
 
@@ -444,6 +451,12 @@ class DataIOModule : public fds::Module
      */
     fds::Error notify_end_gc(fds::fds_token_id tok_id,
                              DataTier tier);
+
+    /**
+     * Returns true if a given location is a shadow file
+     */
+    fds_bool_t is_shadow_location(obj_phy_loc_t* loc,
+                                  fds::fds_token_id tok_id);
 };
 
 extern DataIOModule          gl_dataIOMod;

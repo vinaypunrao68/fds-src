@@ -168,6 +168,15 @@ DataIOModule::notify_end_gc(fds::fds_token_id tok_id,
     return err;
 }
 
+fds_bool_t
+DataIOModule::is_shadow_location(obj_phy_loc_t* loc,
+                                 fds::fds_token_id tok_id) {
+    return io_token_db->isShadowFileId(loc->obj_file_id,
+                                       loc->obj_stor_loc_id,
+                                       tok_id,
+                                       static_cast<diskio::DataTier>(loc->obj_tier));
+}
+
 // \mod_init
 // ---------
 // Single thread init. path, no lock is needed.
@@ -526,6 +535,13 @@ DataIO::notify_end_gc(fds::fds_token_id tok_id,
                       DataTier tier)
 {
     return gl_dataIOMod.notify_end_gc(tok_id, tier);
+}
+
+
+fds_bool_t
+DataIO::is_shadow_location(obj_phy_loc_t* loc,
+                           fds::fds_token_id tok_id) {
+    return gl_dataIOMod.is_shadow_location(loc, tok_id);
 }
 
 
