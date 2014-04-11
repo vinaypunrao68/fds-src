@@ -168,6 +168,14 @@ NodeUuid DLT::getNode(const ObjectID& objId, uint index) const {
     return getNodes(objId)->get(index);
 }
 
+int DLT::getIndex(const fds_token_id& token, const NodeUuid& nodeUuid) const {
+    return getNodes(token)->find(nodeUuid);
+}
+
+int DLT::getIndex(const ObjectID& objId, const NodeUuid& nodeUuid) const {
+    return getNodes(objId)->find(nodeUuid);
+}
+
 void DLT::setNode(fds_token_id token, uint index, NodeUuid nodeuuid) {
     fds_verify(index < depth);
     fds_verify(token < numTokens);

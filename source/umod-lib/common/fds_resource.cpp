@@ -20,6 +20,8 @@ std::ostream& operator<< (std::ostream& os, const fds::ResourceUUID& uuid) {
     return os;
 }
 
+ResourceUUID INVALID_RESOURCE_UUID;
+
 RsContainer::RsContainer()
     : rs_array(RS_DEFAULT_ELEM_CNT), rs_cur_idx(0),
       rs_mtx("rs-container"), rs_refcnt(0) {}

@@ -62,6 +62,8 @@ class ResourceUUID
     fds_uint64_t             rs_uuid;
 };
 
+extern ResourceUUID INVALID_RESOURCE_UUID;
+
 class UuidHash {
   public:
     fds_uint64_t operator()(const ResourceUUID& rs) const {

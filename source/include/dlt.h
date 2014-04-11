@@ -56,6 +56,15 @@ namespace fds {
             return p[index];
         }
 
+        int find(const NodeUuid &uid) const {
+            for (int i = 0; i < length; i++) {
+                if (p[i] == uid) {
+                    return i;
+                }
+            }
+            return -1;
+        }
+
         fds_uint32_t getLength() const {
             return length;
         }
@@ -119,6 +128,9 @@ namespace fds {
         /** get the node in the specified index*/
         NodeUuid getNode(fds_token_id token, uint index) const;
         NodeUuid getNode(const ObjectID& objId, uint index) const;
+
+        int getIndex(const fds_token_id& token, const NodeUuid& nodeUuid) const;
+        int getIndex(const ObjectID& objId, const NodeUuid& nodeUuid) const;
 
         /** get the Tokens for a given Node */
         const TokenList& getTokens(const NodeUuid &uid) const;
