@@ -27,10 +27,11 @@ basedebs=(
 
 fdsbasedebs=(
     fds-pkghelper_*.deb
+    fds-pkg_*.deb
     fds-systemdir_*.deb
     fds-systemconf_*.deb
     fds-pythonlibs_*.deb
-    fds-configdbtool_*.deb
+    fds-tools_*.deb
     fds-boost*.deb
     fds-leveldb*.deb
 )
