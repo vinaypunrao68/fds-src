@@ -353,7 +353,9 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
     if (blobReq->isLastBuf() == true) {
         std::string etagKey   = "etag";
         std::string etagValue = blobReq->getEtag();
-        fds_verify(etagValue.size() == 32);
+        if (blobReq->getDataLen() > 0) {
+            fds_verify(etagValue.size() == 32);
+        }
         FDS_ProtocolInterface::FDSP_MetaDataPair mdPair;
         mdPair.__set_key(etagKey);
         mdPair.__set_value(etagValue);
@@ -1016,7 +1018,7 @@ fds::Error StorHvCtrl::getObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
          * send a get object request to secondary SM
          */
        if (txn->nodeSeq != txn->num_sm_nodes) { 
-           txn->nodeSeq =+ 1; // secondary node 
+           txn->nodeSeq += 1; // secondary node 
            err = dispatchSmGetMsg(txn);
            fds_verify(err == ERR_OK);
  

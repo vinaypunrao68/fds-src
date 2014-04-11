@@ -449,9 +449,14 @@ StorHvJournalEntry::fbd_process_req_timeout() {
 
         fds_verify(txn->isActive() == true);  // Should not receive resp for inactive txn
         if (txn->nodeSeq != txn->num_sm_nodes) {
-            txn->nodeSeq =+ 1; // try all the SM nodes 
-            err = storHvisor->dispatchSmGetMsg(txn);
-            fds_verify(err == ERR_OK);
+            txn->nodeSeq += 1; // try all the SM nodes 
+            if ( txn->op == FDS_IO_READ ) {
+                err = storHvisor->dispatchSmGetMsg(txn);
+                fds_verify(err == ERR_OK);
+            } else if ( txn->op == FDS_IO_WRITE) {
+                err = storHvisor->dispatchSmPutMsg(txn);
+                fds_verify(err == ERR_OK);
+            }
         } else {
             storHvisor->qos_ctrl->markIODone(io);
             write_ctx = 0;

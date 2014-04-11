@@ -4,6 +4,9 @@ description: sets up the fds system dir
 
 files:
   - dest: /fds
+  - dest: /fds/bin
+  - dest: /fds/sbin
+  - dest: /fds/lib
   - dest: /fds/var/redis
   - dest: /fds/var/logs
   - dest: /fds/var/logs/redis

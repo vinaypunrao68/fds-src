@@ -17,14 +17,14 @@ if __name__ == '__main__':
                       help = 'bring up cluster')
     parser.add_option('-d', '--down', action = 'store_true', dest = 'clus_down',
                       help = 'bring down cluster')
+    parser.add_option('-s', '--status', action = 'store_true', dest = 'clus_status',
+                      help = 'get cluster status')
     parser.add_option('-c', '--clean', action = 'store_true', dest = 'clus_clean',
                       help = 'cleanup cluster')
     parser.add_option('-r', '--dryrun', action = 'store_true', dest = 'dryrun',
                       help = 'dry run, print commands only')
-    parser.add_option('-l', '--local', action = 'store_true', dest = 'local',
-                      help = "local run, don't ssh to remote node")
     parser.add_option('-R', '--fds-root', dest = 'fds_root', default = '/fds',
-                      help = 'Specify fds-root directory')
+                      help = 'specify fds-root directory')
 
     (options, args) = parser.parse_args()
 
@@ -37,7 +37,6 @@ if __name__ == '__main__':
     # Get all the configuration
     nodes = cfg.rt_get_obj('cfg_nodes')
     ams   = cfg.rt_get_obj('cfg_am')
-    steps = cfg.rt_get_obj('cfg_scenarios')
 
     # Shutdown
     if options.clus_down:
@@ -48,8 +47,28 @@ if __name__ == '__main__':
     if options.clus_clean:
         for n in nodes:
             n.nd_cleanup_node()
+            n.nd_rmt_agent.ssh_exec('/fds/sbin/redis.sh clean')
+       
+    # Status
+    if options.clus_status:
+        for n in nodes:
+            n.nd_rmt_agent.ssh_exec('ps -ef | grep -v grep | grep plat', output = True)
+            n.nd_rmt_agent.ssh_exec('ps -ef | grep -v grep | grep Mgr', output = True)
+            n.nd_rmt_agent.ssh_exec('ps -ef | grep -v grep | grep AMA', output = True)
+        sys.exit(0)
 
     if options.clus_up is None:
         sys.exit(0)
 
+    for n in nodes:
+        n.nd_rmt_agent.ssh_exec('python -m disk_type -m')
+        n.nd_rmt_agent.ssh_exec('/fds/sbin/redis.sh start')
+
     cfg.rt_fds_bootstrap()
+
+    time.sleep(5)
+    cli = cfg.rt_get_obj('cfg_cli')
+    cli.run_cli('--activate-nodes abc -k 1 -e sm,dm')
+
+    for am in ams:
+        am.am_start_service()

@@ -14,9 +14,10 @@ source ./loghelper.sh
 
 basepkgs=(
     oracle-java8-installer oracle-java8-set-default maven
-
+    xfsprogs
     python-pip
     libpcre3
+    ngrep
 )
 
 basedebs=(
@@ -27,9 +28,11 @@ basedebs=(
 
 fdsbasedebs=(
     fds-pkghelper_*.deb
+    fds-pkg_*.deb
     fds-systemdir_*.deb
     fds-systemconf_*.deb
     fds-pythonlibs_*.deb
+    fds-tools_*.deb
     fds-boost*.deb
     fds-leveldb*.deb
 )
@@ -59,7 +62,8 @@ function preinstall() {
     local pkgname=$1
 
     case $pkgname in
-        oracle-java8.*) 
+        oracle-java8*)
+            loginfo "setting up apt repo"
             sudo add-apt-repository ppa:webupd8team/java
             sudo apt-get update
             ;;
@@ -79,7 +83,7 @@ function postinstall() {
     local pkgname=$1
 
     case $pkgname in
-        oracle-java8.*) 
+        oracle-java8*) 
             ;;
         redis-server*)
             sudo service redis-server stop
@@ -127,7 +131,7 @@ function installBaseDebs() {
     for pkg in ${basedebs[@]}
     do
         loginfo "[fdssetup] : installing $pkg"
-        if [[ -e $pkg ]] ; then
+        if [ -e $pkg ] ; then
             sudo dpkg -i $pkg
             postinstall $pkg
             echo ""
@@ -163,7 +167,7 @@ function installFdsBaseDebs() {
     for pkg in ${fdsbasedebs[@]}
     do
         loginfo "[fdssetup] : installing $pkg"
-        if [[ -e $pkg ]] ; then
+        if [ -e $pkg ] ; then
             sudo dpkg -i $pkg
             echo ""
         else
@@ -182,6 +186,7 @@ function installFdsService() {
         "fds-sm" ) pkg="fds-stormgr*.deb" ;;
         "fds-dm" ) pkg="fds-datamgr*.deb" ;;
         "fds-pm" ) pkg="fds-platformmgr*.deb" ;;
+        "fds-cli" ) pkg="fds-cli*.deb" ;;
         *)
             logerror "[fdssetup] : unknown fds service [$service]"
             return 1
@@ -189,7 +194,7 @@ function installFdsService() {
     esac
     
     loginfo "[fdssetup] : installing $pkg"
-    if [[ -e $pkg ]] ; then
+    if [ -e $pkg ] ; then
         sudo dpkg -i $pkg
         echo ""
     else
