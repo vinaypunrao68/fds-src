@@ -17,6 +17,7 @@ basepkgs=(
     xfsprogs
     python-pip
     libpcre3
+    ngrep
 )
 
 basedebs=(

@@ -53,6 +53,7 @@ if __name__ == '__main__':
         for n in nodes:
             n.nd_rmt_agent.ssh_exec('ps -ef | grep -v grep | grep plat', output = True)
             n.nd_rmt_agent.ssh_exec('ps -ef | grep -v grep | grep Mgr', output = True)
+            n.nd_rmt_agent.ssh_exec('ps -ef | grep -v grep | grep AMA', output = True)
         sys.exit(0)
 
     if options.clus_up is None:
