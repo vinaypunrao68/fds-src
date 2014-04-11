@@ -1,0 +1,8 @@
+package: fds-coredump
+version: 0.1
+description: sets up configs & limits for coredumps
+
+depends: 
+  - fds-systemdir
+
+install-control: fds-coredump.control
