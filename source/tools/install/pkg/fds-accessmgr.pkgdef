@@ -1,0 +1,17 @@
+package: fds-accessmgr
+version: 0.1
+description: fds access manager - AM
+
+depends: 
+  - fds-systemdir
+  - fds-systemconf
+
+files:
+  - dest: /fds/bin
+    dest-is-dir: True
+    src: ../../../Build/linux-x86_64.debug/bin/AMAgent
+
+#services:
+#  name: fds-accessmgr
+#  start-on-boot: True
+#  control: accessmgr.service

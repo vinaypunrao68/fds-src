@@ -127,7 +127,8 @@ void TokenCompactor::snapDoneCb(const Error& error,
     fds_uint32_t offset = 0;
     diskio::DataIO& dio_mgr = diskio::DataIO::disk_singleton();
 
-    LOGNORMAL << "Index DB snapshot received with result " << error;
+    LOGNORMAL << "Index DB snapshot for token " << token_id
+              << " received with result " << error;
     fds_verify(total_objs == 0);  // smth went wrong, we set work only once
 
     // we must be in IN_PROGRESS state
@@ -156,9 +157,15 @@ void TokenCompactor::snapDoneCb(const Error& error,
         obj_phy_loc_t* loc = omd.getObjPhyLoc(diskTier);
         fds_verify(loc != NULL);
 
-        // TODO(anna) we must filter out objects that are already in shadow
-        // file -- that could happen between times we started writing objs
+        // filter out objects that are already in shadow file --
+        // this could happen between times we started writing objs
         // to shadow file and we took this db snapshot
+        if (dio_mgr.is_shadow_location(loc, token_id)) {
+            LOGDEBUG << id << " already in shadow file (disk_id "
+                     << loc->obj_stor_loc_id << " file_id "
+                     << loc->obj_file_id << " tok " << token_id << ")";
+            continue;
+        }
 
         // we group objects by their <phy loc, fileid> and order by offset
         // so that we compact objects that are close in the token file together
@@ -255,7 +262,7 @@ void TokenCompactor::objsCompactedCb(const Error& error,
         // we are done!
         // NOTE: we are currently doing completion on timer only! when no error
         // otherwise need to make sure to remember the error
-        if (!compl_timer->schedule(compl_timer_task, std::chrono::seconds(5))) {
+        if (!compl_timer->schedule(compl_timer_task, std::chrono::seconds(2))) {
             LOGNOTIFY << "Failed to schedule completion timer, completing now..";
             handleCompactionDone(error);
         }

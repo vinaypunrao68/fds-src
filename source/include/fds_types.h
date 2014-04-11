@@ -306,6 +306,7 @@ class FdsBlobReq {
     fds_uint64_t getDataLen() const;
     void setDataLen(fds_uint64_t len);
     void setDataBuf(const char* _buf);
+    ObjectID getObjId() const;
     void setObjId(const ObjectID& _oid);
     void setQueuedUsec(fds_uint64_t _usec);
 };

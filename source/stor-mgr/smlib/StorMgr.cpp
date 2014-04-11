@@ -2571,6 +2571,10 @@ inline void ObjectStorMgr::swapMgrId(const FDSP_MsgHdrTypePtr& fdsp_msg) {
     tmp_port = fdsp_msg->dst_port;
     fdsp_msg->dst_port = fdsp_msg->src_port;
     fdsp_msg->src_port = tmp_port;
+
+    fdsp_msg->src_service_uuid.uuid =
+            (fds_int64_t)(PlatformProcess::plf_manager()->
+                          plf_get_my_svc_uuid())->uuid_get_val();
 }
 
 void getObjectExt(SmIoReq* getReq) {

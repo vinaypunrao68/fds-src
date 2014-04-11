@@ -1,0 +1,18 @@
+package: fds-stormgr
+version: 0.1
+description: fds storage manager
+
+depends: 
+  - fds-systemdir
+  - fds-systemconf
+
+files:
+  - dest: /fds/bin
+    dest-is-dir: True
+    src:
+      - ../../../Build/linux-x86_64.debug/bin/StorMgr
+
+#services:
+#  name: fds-stormgr
+#  start-on-boot: True
+#  control: stormgr.service

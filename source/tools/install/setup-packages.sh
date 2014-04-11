@@ -17,6 +17,7 @@ basepkgs=(
     xfsprogs
     python-pip
     libpcre3
+    ngrep
 )
 
 basedebs=(
@@ -27,9 +28,11 @@ basedebs=(
 
 fdsbasedebs=(
     fds-pkghelper_*.deb
+    fds-pkg_*.deb
     fds-systemdir_*.deb
     fds-systemconf_*.deb
     fds-pythonlibs_*.deb
+    fds-tools_*.deb
     fds-boost*.deb
     fds-leveldb*.deb
 )
@@ -183,6 +186,7 @@ function installFdsService() {
         "fds-sm" ) pkg="fds-stormgr*.deb" ;;
         "fds-dm" ) pkg="fds-datamgr*.deb" ;;
         "fds-pm" ) pkg="fds-platformmgr*.deb" ;;
+        "fds-cli" ) pkg="fds-cli*.deb" ;;
         *)
             logerror "[fdssetup] : unknown fds service [$service]"
             return 1
