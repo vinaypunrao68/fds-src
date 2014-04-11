@@ -57,9 +57,9 @@ namespace fds {
         }
 
         int find(const NodeUuid &uid) const {
-            for (int i = 0; i < length; i++) {
+            for (uint32_t i = 0; i < length; i++) {
                 if (p[i] == uid) {
-                    return i;
+                    return static_cast<int>(i);
                 }
             }
             return -1;

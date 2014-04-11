@@ -320,6 +320,11 @@ namespace fds {
       memcpy(dataBuf, _buf, dataLen);
     }
 
+    ObjectID FdsBlobReq::getObjId() const
+    {
+        return objId;
+    }
+
     void FdsBlobReq::setObjId(const ObjectID& _oid) {
       objId = _oid;
     }

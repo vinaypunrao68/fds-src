@@ -454,7 +454,9 @@ StorHvJournalEntry::fbd_process_req_timeout() {
                 err = storHvisor->dispatchSmGetMsg(txn);
                 fds_verify(err == ERR_OK);
             } else if ( txn->op == FDS_IO_WRITE) {
-                err = storHvisor->dispatchSmPutMsg(txn);
+                err = storHvisor->dispatchSmPutMsg(txn,
+                        storHvisor->om_client->\
+                        getCurrentDLT()->getNode(blobReq->getObjId(), txn->nodeSeq));
                 fds_verify(err == ERR_OK);
             }
         } else {
