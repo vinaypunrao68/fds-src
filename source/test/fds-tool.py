@@ -52,10 +52,11 @@ if __name__ == '__main__':
     # Status
     if options.clus_status:
         for n in nodes:
-            n.nd_rmt_agent.ssh_exec('ps -ef | grep -v grep | grep -v base | grep java .*com.formationds.web.om.Main', output = True)
+            n.nd_rmt_agent.ssh_exec('ps -ef | grep -v grep | grep -v base | grep .*com.formationds.web.om.Main', output = True)
             n.nd_rmt_agent.ssh_exec('ps -ef | grep -v grep | grep -v bash | grep plat', output = True)
             n.nd_rmt_agent.ssh_exec('ps -ef | grep -v grep | grep -v bash | grep Mgr', output = True)
             n.nd_rmt_agent.ssh_exec('ps -ef | grep -v grep | grep -v bash | grep AMA', output = True)
+            print '\n'
         sys.exit(0)
 
     if options.clus_up is None:
