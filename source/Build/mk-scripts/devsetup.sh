@@ -18,9 +18,9 @@ needed_packages=(
 
     python-pip
 
-    fds-pkghelper_0.3
-    fds-pkg_0.2.3
-    fds-pkgtools_0.2.4
+    fds-pkghelper_latest
+    fds-pkg_latest
+    fds-pkgtools_latest
 )
 
 python_packages=(
@@ -99,9 +99,13 @@ do
     #echo "${pkginfo} , $pkgname, $pkgversion , $pkg"
     #exit
     if  [[ -z $pkginfo ]] || [[ $pkginfo != $pkg ]] ; then 
-        echo "[devsetup] : $pkg is not installed, but needed .. installing."
+        if [[ $pkgversion == "latest" ]] ; then
+            echo "[devsetup] : trying to install the latest version of $pkgname ..."
+        else
+            echo "[devsetup] : $pkg is not installed, but needed .. installing."
+        fi
         preinstall $pkgname
-        if [[ -z $pkgversion ]] ; then
+        if [[ -z $pkgversion ]] || [[ $pkgversion == "latest" ]] ; then
             sudo apt-get install ${pkgname}
         else
             sudo apt-get install ${pkgname}=${pkgversion}
