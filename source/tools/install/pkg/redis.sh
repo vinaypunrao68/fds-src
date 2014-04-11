@@ -1,26 +1,11 @@
 #!/bin/bash
 ########################################################################
-# setup correct dirs
-SOURCE="${BASH_SOURCE[0]}"
-# resolve $SOURCE until the file is no longer a symlink
-while [ -h "$SOURCE" ]; do
-  DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
-  SOURCE="$(readlink "$SOURCE")"
-  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
-done
-
-# If run from source dir
-TOOLSDIR="$(cd -P "$( dirname "${SOURCE}" )" && pwd )"
-SOURCEDIR="$( cd ${TOOLSDIR}/.. && pwd)"
-CONFIG_ETC=${SOURCEDIR}/config/etc
-BINDIR="${SOURCEDIR}/Build/linux-x86_64.debug/bin"
 FDSROOT=/fds
+CONFIG_ETC=/fds/etc
+BINDIR=/fds/bin
 
-# else run from install dir
-run_from_install_dir=0
+source /usr/include/pkghelper/loghelper.sh
 
-source ${TOOLSDIR}/loghelper.sh
-init_loghelper /tmp/redis_tool.log
 ########################################################################
 
 PORTS=()
@@ -48,13 +33,13 @@ function makeRedisDirs() {
         mkdir -p /fds/var/redis/run
     fi
     
-    if [[ ! -f /fds/logs/redis ]] ; then
-        mkdir -p /fds/logs/redis
+    if [[ ! -f /fds/var/logs/redis ]] ; then
+        mkdir -p /fds/var/logs/redis
     fi
 }
 
 # load ports from configs
-function init() {
+function redisInit() {
     for instance in 1 2 3 4 ; do
         PORTS[$instance]=$(getRedisPort ${instance})
     done
@@ -188,17 +173,9 @@ do
     esac
 done
 
-# else run from install dir
-if [ $run_from_install_dir -eq 1 ]; then
-    SOURCEDIR="$( cd ${TOOLSDIR}/../.. && pwd)"
-    CONFIG_ETC=${SOURCEDIR}/etc
-    BINDIR=${SOURCEDIR}/bin
-    FDSROOT=${SOURCEDIR}
-fi
-
 # check the values
 CMD=${CMD:="status"}
-APP=${APP:="all"}
+APP=${APP:="1"}
 
 case "${CMD}" in
     start) ;;
@@ -222,7 +199,7 @@ if [[ $APP == "all" ]]; then
     APP="1 2 3 4"
 fi
 
-init
+redisInit
 
 case "${CMD}" in
     start) startRedis "$APP" ;;
