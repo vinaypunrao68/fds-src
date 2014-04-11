@@ -47,6 +47,7 @@ if __name__ == '__main__':
     if options.clus_clean:
         for n in nodes:
             n.nd_cleanup_node()
+            n.nd_rmt_agent.ssh_exec('/fds/sbin/redis.sh clean')
        
     # Status
     if options.clus_status:
@@ -60,6 +61,7 @@ if __name__ == '__main__':
 
     for n in nodes:
         n.nd_rmt_agent.ssh_exec('python -m disk_type -m')
+        n.nd_rmt_agent.ssh_exec('/fds/sbin/redis.sh start')
 
     cfg.rt_fds_bootstrap()
 
