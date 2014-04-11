@@ -4,5 +4,6 @@ description: sets up configs & limits for coredumps
 
 depends: 
   - fds-systemdir
+  - fds-pkghelper (>= 0.4)
 
 install-control: fds-coredump.control
