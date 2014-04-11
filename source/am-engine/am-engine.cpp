@@ -104,12 +104,12 @@ AMEngine::mod_init(SysParams const *const p)
     po::options_description desc("Access Manager Options");
 
     desc.add_options()
-        ("help", "Show this help text")
-        ("signal", po::value<std::string>(&eng_signal),
-         "Send signal to access manager: stop, quit, reopen, reload");
+            ("help", "Show this help text")
+            ("signal", po::value<std::string>(&eng_signal),
+             "Send signal to access manager: stop, quit, reopen, reload");
 
     po::store(po::command_line_parser(p->p_argc, p->p_argv).
-            options(desc).allow_unregistered().run(), vm);
+              options(desc).allow_unregistered().run(), vm);
     po::notify(vm);
     if (vm.count("help")) {
         std::cout << desc << std::endl;
@@ -331,8 +331,8 @@ int AME_Request::ame_map_fdsn_status(FDSN_Status status) {
 }
 
 AME_Request::AME_Request(AMEngine *eng, AME_HttpReq *req)
-    : fdsio::Request(true), ame(eng), ame_req(req),
-      ame_http(req), ame_finalize(false)
+        : fdsio::Request(true), ame(eng), ame_req(req),
+          ame_http(req), ame_finalize(false)
 {
     ame_clk_all     = fds_rdtsc();
     ame_stat_pt     = STAT_NGX_DEFAULT;
@@ -572,8 +572,8 @@ AME_Request::ame_send_response_hdr()
 
     if (ame_etag.size() > 0) {
         ame_set_resp_keyval(sgt_AMEKey[REST_ETAG].u.kv_key_name,
-              sgt_AMEKey[REST_ETAG].kv_keylen,
-              const_cast<char *>(ame_etag.c_str()), ame_etag.size());
+                            sgt_AMEKey[REST_ETAG].kv_keylen,
+                            const_cast<char *>(ame_etag.c_str()), ame_etag.size());
     }
     // Do actual sending.
     r  = ame_req;
@@ -609,8 +609,8 @@ AME_Request::ame_send_resp_data(ame_buf_t *buf, int len, fds_bool_t last)
     buf->last = buf->pos + len;
 
     if (last == true) {
-      buf->last_buf      = 1;
-      buf->last_in_chain = 1;
+        buf->last_buf      = 1;
+        buf->last_in_chain = 1;
     }
     out.buf  = buf;
     out.next = NULL;
@@ -642,7 +642,7 @@ AME_Request::ame_finalize_request(int status)
 // GetObject Connector Adapter
 // ---------------------------------------------------------------------------
 Conn_GetObject::Conn_GetObject(AMEngine *eng, AME_HttpReq *req)
-    : AME_Request(eng, req)
+        : AME_Request(eng, req)
 {
     ame_stat_pt = STAT_NGX_GET;
 
@@ -904,7 +904,7 @@ Conn_GetObject::ame_request_handler()
 // PutObject Connector Adapter
 // ---------------------------------------------------------------------------
 Conn_PutObject::Conn_PutObject(AMEngine *eng, AME_HttpReq *req)
-    : AME_Request(eng, req)
+        : AME_Request(eng, req)
 {
     ame_finalize = true;
     ame_stat_pt  = STAT_NGX_PUT;
@@ -1064,7 +1064,7 @@ Conn_PutObject::ame_request_handler()
 // DelObject Connector Adapter
 // ---------------------------------------------------------------------------
 Conn_DelObject::Conn_DelObject(AMEngine *eng, AME_HttpReq *req)
-    : AME_Request(eng, req)
+        : AME_Request(eng, req)
 {
     ame_stat_pt = STAT_NGX_DEL;
 }
@@ -1111,7 +1111,7 @@ Conn_DelObject::ame_request_handler()
 // PutBucket Connector Adapter
 // ---------------------------------------------------------------------------
 Conn_PutBucket::Conn_PutBucket(AMEngine *eng, AME_HttpReq *req)
-    : AME_Request(eng, req)
+        : AME_Request(eng, req)
 {
     ame_finalize = true;
     ame_stat_pt  = STAT_NGX_PUT_BK;
@@ -1159,7 +1159,7 @@ Conn_PutBucket::ame_request_handler()
 // GetBucket Connector Adapter
 // ---------------------------------------------------------------------------
 Conn_GetBucket::Conn_GetBucket(AMEngine *eng, AME_HttpReq *req)
-    : AME_Request(eng, req)
+        : AME_Request(eng, req)
 {
     ame_stat_pt = STAT_NGX_GET_BK;
 }
@@ -1174,8 +1174,8 @@ Conn_GetBucket::~Conn_GetBucket()
 //
 static void
 fdsn_getbucket_cbfn(int isTruncated, const char *nextMarker, int contentCount,
-        const ListBucketContents *contents, int commPrefixCnt,
-        const char **commPrefixes, void *cbarg, FDSN_Status status)
+                    const ListBucketContents *contents, int commPrefixCnt,
+                    const char **commPrefixes, void *cbarg, FDSN_Status status)
 {
     Conn_GetBucket *gbucket = static_cast<Conn_GetBucket *>(cbarg);
 
@@ -1184,7 +1184,7 @@ fdsn_getbucket_cbfn(int isTruncated, const char *nextMarker, int contentCount,
         return;
     }
     gbucket->ame_fmt_resp_data(isTruncated, nextMarker, contentCount,
-            contents, commPrefixCnt, commPrefixes);
+                               contents, commPrefixCnt, commPrefixes);
 
     gbucket->ame_signal_resume(NGX_HTTP_OK);
 }
@@ -1195,43 +1195,54 @@ fdsn_getbucket_cbfn(int isTruncated, const char *nextMarker, int contentCount,
 //
 void
 Conn_GetBucket::ame_fmt_resp_data(int is_truncated, const char *next_marker,
-        int content_cnt, const ListBucketContents *contents,
-        int comm_prefix_cnt, const char **comm_prefix)
+                                  int content_cnt, const ListBucketContents *contents,
+                                  int comm_prefix_cnt, const char **comm_prefix)
 {
     int        i, got, used, sent;
     char      *cur;
     ame_buf_t *buf;
 
-    buf = ame_ctx->ame_alloc_buf(NGX_RESP_CHUNK_SIZE*64, &cur, &got);
+    // assuming 200 + (2*keysize) is 400
+    // for 2600 objects, the buffer size is 1MB
+
+    // this is for about 2600 keys
+    int bufsize = NGX_RESP_CHUNK_SIZE*64;
+
+    // we need to support max-keys for this or else we will blow out soon !!!
+    if (content_cnt/2600 > 0) {
+        bufsize  += (bufsize * (content_cnt/2600));
+    }
+
+    buf = ame_ctx->ame_alloc_buf(bufsize, &cur, &got);
     ame_ctx->ame_push_output_buf(buf);
 
     // Format the header to send out.
     sent = 0;
     used = snprintf(cur, got,
-            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
-            "<%s>\n"
-            "  <%s></%s>\n"
-            "  <%s>%s</%s>\n"
-            "  <%s>%s</%s>\n"
-            "  <%s>%d</%s>\n"
-            "  <%s>%s</%s>\n",
-            sgt_AMEKey[REST_LIST_BUCKET].u.kv_key,
-            sgt_AMEKey[REST_NAME].u.kv_key, sgt_AMEKey[REST_NAME].u.kv_key,
+                    "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+                    "<%s>\n"
+                    "  <%s></%s>\n"
+                    "  <%s>%s</%s>\n"
+                    "  <%s>%s</%s>\n"
+                    "  <%s>%d</%s>\n"
+                    "  <%s>%s</%s>\n",
+                    sgt_AMEKey[REST_LIST_BUCKET].u.kv_key,
+                    sgt_AMEKey[REST_NAME].u.kv_key, sgt_AMEKey[REST_NAME].u.kv_key,
 
-            sgt_AMEKey[REST_PREFIX].u.kv_key,
-            comm_prefix == nullptr ? "" : comm_prefix[0],
-            sgt_AMEKey[REST_PREFIX].u.kv_key,
+                    sgt_AMEKey[REST_PREFIX].u.kv_key,
+                    comm_prefix == nullptr ? "" : comm_prefix[0],
+                    sgt_AMEKey[REST_PREFIX].u.kv_key,
 
-            sgt_AMEKey[REST_MARKER].u.kv_key,
-            next_marker == nullptr ? "" : next_marker,
-            sgt_AMEKey[REST_MARKER].u.kv_key,
+                    sgt_AMEKey[REST_MARKER].u.kv_key,
+                    next_marker == nullptr ? "" : next_marker,
+                    sgt_AMEKey[REST_MARKER].u.kv_key,
 
-            sgt_AMEKey[REST_MAX_KEYS].u.kv_key, content_cnt,
-            sgt_AMEKey[REST_MAX_KEYS].u.kv_key,
+                    sgt_AMEKey[REST_MAX_KEYS].u.kv_key, content_cnt,
+                    sgt_AMEKey[REST_MAX_KEYS].u.kv_key,
 
-            sgt_AMEKey[REST_IS_TRUNCATED].u.kv_key,
-            is_truncated ? "true" : "false",
-            sgt_AMEKey[REST_IS_TRUNCATED].u.kv_key);
+                    sgt_AMEKey[REST_IS_TRUNCATED].u.kv_key,
+                    is_truncated ? "true" : "false",
+                    sgt_AMEKey[REST_IS_TRUNCATED].u.kv_key);
 
     // We shouldn't run out of room here.
     fds_verify(used < got);
@@ -1241,47 +1252,47 @@ Conn_GetBucket::ame_fmt_resp_data(int is_truncated, const char *next_marker,
 
     for (i = 0; i < content_cnt; i++) {
         used = snprintf(cur, got,
-                "  <%s>\n"
-                "    <%s>%s</%s>\n"
-                "    <%s>%s</%s>\n"
-                "    <%s>%llu</%s>\n"
-                "    <%s>%s</%s>\n"
-                "    <%s>\n"
-                "      <%s>%s</%s>\n"
-                "      <%s>%s</%s>\n"
-                "    </%s>\n"
-                "  </%s>\n",
-                sgt_AMEKey[REST_CONTENTS].u.kv_key,
+                        "  <%s>\n"
+                        "    <%s>%s</%s>\n"
+                        "    <%s>%s</%s>\n"
+                        "    <%s>%llu</%s>\n"
+                        "    <%s>%s</%s>\n"
+                        "    <%s>\n"
+                        "      <%s>%s</%s>\n"
+                        "      <%s>%s</%s>\n"
+                        "    </%s>\n"
+                        "  </%s>\n",
+                        sgt_AMEKey[REST_CONTENTS].u.kv_key,
 
-                sgt_AMEKey[REST_KEY].u.kv_key,
-                contents[i].objKey.c_str(),
-                sgt_AMEKey[REST_KEY].u.kv_key,
+                        sgt_AMEKey[REST_KEY].u.kv_key,
+                        contents[i].objKey.c_str(),
+                        sgt_AMEKey[REST_KEY].u.kv_key,
 
-                sgt_AMEKey[REST_ETAG].u.kv_key,
-                contents[i].eTag.c_str(),
-                sgt_AMEKey[REST_ETAG].u.kv_key,
+                        sgt_AMEKey[REST_ETAG].u.kv_key,
+                        contents[i].eTag.c_str(),
+                        sgt_AMEKey[REST_ETAG].u.kv_key,
 
-                sgt_AMEKey[REST_SIZE].u.kv_key,
-                contents[i].size,
-                sgt_AMEKey[REST_SIZE].u.kv_key,
+                        sgt_AMEKey[REST_SIZE].u.kv_key,
+                        contents[i].size,
+                        sgt_AMEKey[REST_SIZE].u.kv_key,
 
-                sgt_AMEKey[REST_STORAGE_CLASS].u.kv_key,
-                "STANDARD",
-                sgt_AMEKey[REST_STORAGE_CLASS].u.kv_key,
+                        sgt_AMEKey[REST_STORAGE_CLASS].u.kv_key,
+                        "STANDARD",
+                        sgt_AMEKey[REST_STORAGE_CLASS].u.kv_key,
 
-                sgt_AMEKey[REST_OWNER].u.kv_key,
+                        sgt_AMEKey[REST_OWNER].u.kv_key,
 
-                sgt_AMEKey[REST_ID].u.kv_key,
-                contents[i].ownerId.c_str(),
-                sgt_AMEKey[REST_ID].u.kv_key,
+                        sgt_AMEKey[REST_ID].u.kv_key,
+                        contents[i].ownerId.c_str(),
+                        sgt_AMEKey[REST_ID].u.kv_key,
 
-                sgt_AMEKey[REST_DISPLAY_NAME].u.kv_key,
-                contents[i].ownerDisplayName.c_str(),
-                sgt_AMEKey[REST_DISPLAY_NAME].u.kv_key,
+                        sgt_AMEKey[REST_DISPLAY_NAME].u.kv_key,
+                        contents[i].ownerDisplayName.c_str(),
+                        sgt_AMEKey[REST_DISPLAY_NAME].u.kv_key,
 
-                sgt_AMEKey[REST_OWNER].u.kv_key,
+                        sgt_AMEKey[REST_OWNER].u.kv_key,
 
-                sgt_AMEKey[REST_CONTENTS].u.kv_key);
+                        sgt_AMEKey[REST_CONTENTS].u.kv_key);
 
         if (used == got) {
             // XXX: not yet handle!
@@ -1338,7 +1349,7 @@ Conn_GetBucket::ame_request_handler()
 // PutBucketParams Connector Adapter
 // ---------------------------------------------------------------------------
 Conn_PutBucketParams::Conn_PutBucketParams(AMEngine *eng, AME_HttpReq *req)
-    : AME_Request(eng, req), validParams(true)
+        : AME_Request(eng, req), validParams(true)
 {
     ame_finalize = true;
 }
@@ -1386,7 +1397,7 @@ Conn_PutBucketParams::ame_request_handler()
 
     buf = ame_reqt_iter_data(&len);
     if (buf == NULL || len == 0) {
-      validParams = false;
+        validParams = false;
     }
 
     Json::Value  root;
@@ -1394,20 +1405,20 @@ Conn_PutBucketParams::ame_request_handler()
     std::string  strBuf(buf, len);
     fds_bool_t   parseOk = reader.parse(strBuf, root);
     if (parseOk == false) {
-      validParams = false;
+        validParams = false;
     } else {
-      relative_prio = root.get("priority", 0).asUInt();
-      if (relative_prio == 0) {
-        validParams = false;
-      }
-      iops_min = root.get("sla", -1).asDouble();
-      if (iops_min == -1) {
-        validParams = false;
-      }
-      iops_max = root.get("limit", -1).asDouble();
-      if (iops_max == -1) {
-        validParams = false;
-      }
+        relative_prio = root.get("priority", 0).asUInt();
+        if (relative_prio == 0) {
+            validParams = false;
+        }
+        iops_min = root.get("sla", -1).asDouble();
+        if (iops_min == -1) {
+            validParams = false;
+        }
+        iops_max = root.get("limit", -1).asDouble();
+        if (iops_max == -1) {
+            validParams = false;
+        }
     }
 
     if (validParams == false) {
@@ -1431,7 +1442,7 @@ Conn_PutBucketParams::ame_format_response_hdr()
 // DeleteBucket Connector Adapter
 // ---------------------------------------------------------------------------
 Conn_DelBucket::Conn_DelBucket(AMEngine *eng, AME_HttpReq *req)
-    : AME_Request(eng, req)
+        : AME_Request(eng, req)
 {
     ame_stat_pt = STAT_NGX_DEL_BK;
 }
@@ -1479,7 +1490,7 @@ Conn_DelBucket::ame_request_handler()
 // GetBucketStats Connector Adapter
 // ---------------------------------------------------------------------------
 Conn_GetBucketStats::Conn_GetBucketStats(AMEngine *eng, AME_HttpReq *req)
-    : AME_Request(eng, req)
+        : AME_Request(eng, req)
 {
 }
 
@@ -1517,7 +1528,8 @@ fdsn_getbucket_stat_cb(const std::string& timestamp,
 //
 void
 Conn_GetBucketStats::ame_fmt_resp_data(const std::string &timestamp,
-        int content_count, const BucketStatsContent *contents)
+                                       int content_count,
+                                       const BucketStatsContent *contents)
 {
     int         i, got, used, sent;
     char       *cur;
@@ -1530,13 +1542,13 @@ Conn_GetBucketStats::ame_fmt_resp_data(const std::string &timestamp,
     // Format the header to send out.
     sent = 0;
     used = snprintf(cur, got,
-            "{\n"
-            "\"%s\": \"%s\",\n"
-            "\"%s\":\n"
-            "  [\n",
-            sgt_AMEKey[RESP_STATS_TIME].u.kv_key,
-            timestamp.c_str(),
-            sgt_AMEKey[RESP_STATS_VOLS].u.kv_key);
+                    "{\n"
+                    "\"%s\": \"%s\", \n"
+                    "\"%s\":\n"
+                    "  [\n",
+                    sgt_AMEKey[RESP_STATS_TIME].u.kv_key,
+                    timestamp.c_str(),
+                    sgt_AMEKey[RESP_STATS_VOLS].u.kv_key);
 
     // We shouldn't run out of room here.
     fds_verify(used < got);
@@ -1546,22 +1558,22 @@ Conn_GetBucketStats::ame_fmt_resp_data(const std::string &timestamp,
 
     for (i = 0; i < content_count; i++) {
         used = snprintf(cur, got,
-                "    {\"%s\": \"%s\", \"%s\": %d, \"%s\": %d, \"%s\": %d, "
-                "\"%s\": %d}",
-                sgt_AMEKey[RESP_STATS_ID].u.kv_key,
-                (contents[i].bucket_name).c_str(),
+                        "    {\"%s\": \"%s\", \"%s\": %d, \"%s\": %d, \"%s\": %d, "
+                        "\"%s\": %d}",
+                        sgt_AMEKey[RESP_STATS_ID].u.kv_key,
+                        (contents[i].bucket_name).c_str(),
 
-                sgt_AMEKey[RESP_QOS_PRIORITY].u.kv_key,
-                contents[i].priority,
+                        sgt_AMEKey[RESP_QOS_PRIORITY].u.kv_key,
+                        contents[i].priority,
 
-                sgt_AMEKey[RESP_QOS_PERFORMANCE].u.kv_key,
-                static_cast<int>(contents[i].performance),
+                        sgt_AMEKey[RESP_QOS_PERFORMANCE].u.kv_key,
+                        static_cast<int>(contents[i].performance),
 
-                sgt_AMEKey[RESP_QOS_SLA].u.kv_key,
-                static_cast<int>(contents[i].sla),
+                        sgt_AMEKey[RESP_QOS_SLA].u.kv_key,
+                        static_cast<int>(contents[i].sla),
 
-                sgt_AMEKey[RESP_QOS_LIMIT].u.kv_key,
-                static_cast<int>(contents[i].limit));
+                        sgt_AMEKey[RESP_QOS_LIMIT].u.kv_key,
+                        static_cast<int>(contents[i].limit));
 
         if (used == got) {
             // XXX: not yet handle!
@@ -1572,7 +1584,7 @@ Conn_GetBucketStats::ame_fmt_resp_data(const std::string &timestamp,
         got  -= used;
 
         if (i < (content_count-1)) {
-            used = snprintf(cur, got, ",\n");
+            used = snprintf(cur, got, ", \n");
         } else {
             used = snprintf(cur, got, "\n");
         }
