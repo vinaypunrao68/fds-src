@@ -192,7 +192,7 @@ class Installer:
                 log.info("NOTE: This step has been completed previously")
             log.debug('running %s', menuitem[2])
             success=True
-            for option in ['fds-base','fds-om','fds-pm','fds-am','fds-sm','fds-cli'] :
+            for option in ['fds-base','fds-om','fds-pm','fds-am','fds-sm','fds-cli','fds-dm'] :
                 if option != 'fds-base' :
                     if not self.confirm('do you want to install [%s]' % (option)):
                         continue
