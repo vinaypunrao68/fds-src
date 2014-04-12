@@ -231,6 +231,7 @@ class AME_Ctx
     Error ame_upd_ctx_req_locked(fds_off_t offset,
                                  AME_Ctx_Ack ack_status);
     AME_Ctx_Ack ame_check_status();
+    AME_Ctx_Ack ame_check_status_locked();
     void set_ack_count(fds_uint32_t count);
     Error ame_get_unsent_offset(fds_off_t *offset,
                                 fds_bool_t *last);

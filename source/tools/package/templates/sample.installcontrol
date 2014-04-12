@@ -1,15 +1,9 @@
 #!/bin/bash
 #==================================================================================================
 # Install Control script
-# - will be called during install & remove
-# the script will be called as :
-# scriptname [(pre/post)(install/remove) [otherargs]
-# for other args: lookup
+# NOTE: This script will be embedded into another script , so just write code only inside the fns
 # https://www.debian.org/doc/debian-policy/ch-maintainerscripts.html#s-mscriptsinstact
-# NOTE: This script removes the first argument before calling the respective functions
 #==================================================================================================
-
-
 
 #----------------------------------------------------------------
 # Executes BEFORE installation
@@ -35,39 +29,6 @@ function preRemove() {
 #----------------------------------------------------------------
 # Executes AFTER remove/uninstall
 #----------------------------------------------------------------
-function preRemove() {
+function postRemove() {
     :;# empty statement
 }
-
-#----------------------------------------------------------------
-# Main Program
-#----------------------------------------------------------------
-case "$1" in 
-    preinstall)
-        shift
-        preInstall $@
-        ;;
-
-    postinstall)
-        shift
-        postInstall $@
-        ;;
-
-    preremove)
-        shift
-        preRemove $@
-        ;;
-
-
-    postremove)
-        shift
-        postRemove $@
-        ;;
-
-    *)
-        echo "unknown mode ... $1" 
-        exit 1
-esac
-
-
-        

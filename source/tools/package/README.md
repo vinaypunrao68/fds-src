@@ -1,6 +1,6 @@
 Creating Software Packages at FDS
 ==================================
-- To create a package , use the `fds-pkg-create` tool on package definition `.pkgdef` file.
+- To create a package , use the `fdspkgcreate` tool on package definition `.pkgdef` file.
 - As of now , the pkg repository is setup on [coke](http://coke.formationds.com:8000)
 
 Package Definition File Format
@@ -24,8 +24,8 @@ depends :
         - libc (>= 2.0)
         - libboost
 files:
-          dest: /fds/bin/platformd
-          src : '../source/Build/linux-x86_64.debug/bin/platformd'
+        dest: /fds/bin/platformd
+        src : '../source/Build/linux-x86_64.debug/bin/platformd'
 
 services:
         name: fds.platform
@@ -60,7 +60,7 @@ OR
          -  package2 (= 1.6)
 ```
 
-- `installcontrol` : The script that provides `(pre/post)(install/remove)` functionality.
+- `install-control` : The script that provides `(pre/post)(install/remove)` functionality.
    - look in the templates directory for a [sample] (templates/sample.installcontrol)
 
 - `symlinks` : create symbolic links to targets (just one or a list)
@@ -69,19 +69,38 @@ OR
 
 - `files` : which files which should be copied where . Can be just one or a list of details.
     - `src` : list of files to be copied. shell globs can be specified `*.sh`.
+             - If src is empty , then the `dest` will be treated as a dir
     -  for `src` if the value starts and ends with back ticks, that will be expanded as a shell command.
     - `dest` :  the destiation location of the files.
              - `dest` by default will be the full filename
              - `dest` is absolute path
-             - `dest` should be a directory if multiple files are in `src`
+             - `dest` will be a directory if multiple files are in `src`
              - `dest` can be explicitly set as directory with `dir: True`
 
-    - `dir` : is the destination a directory or plain file `default: False`
+    - `dest-is-dir` : is the destination a directory or plain file `default: False`
     - `conf` : Boolean to specify if this is a conf file `default: False`
     - `owner` :  who owns the file `default root:root`
              - `owner` should be specified as `user:group`
     - `perms` : file permissions
              - `perms` should be specified in `chmod` format
+    - `tree-base` : if specified, the dir structure wrt to tree-base will be retained.
+
+```
+#to put 2 files in src
+src:
+      - ../../../Build/linux-x86_64.debug/bin/liborchmgr.so
+      - ../../../Build/linux-x86_64.debug/bin/orchMgr
+
+# to put all .h in one dir
+src: "`find . -name *.h`"
+OR
+src: "*.sh"
+
+# maintain dir structure
+src: "`find ../../../Build/linux-x86_64.debug/lib/admin-webapp`"
+tree-base: ../../../Build/linux-x86_64.debug/lib/admin-webapp
+
+```
 
 - `services` : list of services to be installed. (just one or a list)
     - `name` : name of the service (same format as package name)
@@ -97,4 +116,4 @@ OR
 
 Uploading Packages to Repo
 =========================
-Use the `fds-pkg-dist` tool to upload the created package to the repository
+Use the `fdspkgdist` tool to upload the created package to the repository

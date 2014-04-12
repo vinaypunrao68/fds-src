@@ -87,14 +87,14 @@ function processInstallScript() {
 
     case ${MODE} in
         preinst)
-            if [[ -n ${INSTALLSCRIPT} ]] ; then
-                ${INSTALLSCRIPT} preinstall "$@"
+            if [[ -n $(declare -f preInstall) ]] ; then
+                preInstall "$@"
             fi
             ;;
 
         postinst)
-            if [[ -n ${INSTALLSCRIPT} ]] ; then
-                ${INSTALLSCRIPT} postinstall "$@"
+            if [[ -n $(declare -f postInstall) ]] ; then
+                postInstall "$@"
             fi
             runldconfig
             setupSymLinks            
@@ -104,8 +104,8 @@ function processInstallScript() {
 
         prerm)
             stopServices
-            if [[ -n ${INSTALLSCRIPT} ]] ; then
-                ${INSTALLSCRIPT} preremove "$@"
+            if [[ -n $(declare -f preRemove) ]] ; then
+                preRemove "$@"
             fi
             ;;
         
@@ -113,10 +113,9 @@ function processInstallScript() {
             removeAutoServices
             removeSymLinks
             runldconfig
-            if [[ -n ${INSTALLSCRIPT} ]] ; then
-                ${INSTALLSCRIPT} postremove "$@"
-            fi
-            
+            if [[ -n $(declare -f postRemove) ]] ; then
+                postRemove "$@"
+            fi   
             ;;
 
         *) 

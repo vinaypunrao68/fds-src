@@ -36,7 +36,8 @@ Error CatalogCache::Query(fds_uint64_t block_id,
 
 Error CatalogCache::Update(fds_uint64_t blobOffset,
                            fds_uint32_t objectLen,
-                           const ObjectID& oid) {
+                           const ObjectID& oid,
+                           fds_bool_t lastBuf) {
     Error err(ERR_OK);
 
     map_rwlock.write_lock();
@@ -64,8 +65,24 @@ Error CatalogCache::Update(fds_uint64_t blobOffset,
      */
     offset_map[blobOffset] = ObjectDesc(oid, objectLen);
     blobSize += objectLen;
+
+    // If this is the lastBuf, remove any other old offsets
+    // that are beyond this offset
+    if (lastBuf == true) {
+        OffsetMap::iterator it = offset_map.begin();
+        while (it != offset_map.end()) {
+            if ((*it).first > blobOffset) {
+                blobSize -= (*it).second.second;
+                it = offset_map.erase(it);
+            } else {
+                it++;
+            }
+        }
+    }
+
     LOGDEBUG << "Updated cached blob " << blobName
-             << " to size " << blobSize;
+             << " to size " << blobSize << " by updating "
+             << blobOffset << " with size " << objectLen;
     map_rwlock.write_unlock();
 
     return err;
@@ -281,7 +298,8 @@ Error VolumeCatalogCache::Query(const std::string& blobName,
 Error VolumeCatalogCache::Update(const std::string& blobName,
                                  fds_uint64_t blobOffset,
                                  fds_uint32_t objectLen,
-                                 const ObjectID &oid) {
+                                 const ObjectID &oid,
+                                 fds_bool_t lastBuf) {
     Error err(ERR_OK);
     CatalogCache *catCache;
 
@@ -299,7 +317,7 @@ Error VolumeCatalogCache::Update(const std::string& blobName,
         blobRwLock.write_unlock();
     }
 
-    err = catCache->Update(blobOffset, objectLen, oid);
+    err = catCache->Update(blobOffset, objectLen, oid, lastBuf);
     /*
      * If the exact entry already existed
      * we can return success.
