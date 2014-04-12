@@ -132,13 +132,24 @@ class StorHvVolumeTable : public HasLogger
   /** returns true if volume exists, otherwise retuns false */
   fds_bool_t volumeExists(const std::string& vol_name);
 
-  /** add blob request to wait queue -- those are blobs that
+  /**
+   * Add blob request to wait queue -- those are blobs that
    * are waiting for OM to attach buckets to AM; once 
    * vol table receives vol attach event, it will move 
    * all requests waiting in the queue for that bucket to
-   * appropriate qos queue */
+   * appropriate qos queue
+   */
   void addBlobToWaitQueue(const std::string& bucket_name,
 			  FdsBlobReq* blob_req);
+
+  /**
+   * Complete blob requests that are waiting in wait queue
+   * with error (because e.g. volume not found, etc).
+   */
+  void completeWaitBlobsWithError(const std::string& bucket_name,
+                                  Error err) {
+      moveWaitBlobsToQosQueue(invalid_vol_id, bucket_name, err);
+  }
 
  private: /* methods */ 
 

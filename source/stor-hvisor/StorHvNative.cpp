@@ -116,19 +116,19 @@ void FDS_NativeAPI::GetBucket(BucketContext *bucket_ctxt,
                               void *callback_data)
 {
     Error err(ERR_OK);
-    fds_volid_t volid;
+    fds_volid_t volid = invalid_vol_id;
     FdsBlobReq *blob_req = NULL;
     LOGNORMAL << "FDS_NativeAPI::GetBucket for bucket " << bucket_ctxt->bucketName;
 
-    /* check if bucket is attached to this AM, if not, ask OM to attach */
-    err = checkBucketExists(bucket_ctxt, &volid);
-    if ( !err.ok() && (err != Error(ERR_PENDING_RESP)) ) {
-        /* bucket not attached and we failed to send query to OM */
-        (handler)(0, "", 0, NULL, 0, NULL, callback_data, FDSN_StatusInternalError);
-        LOGWARN << "FDS_NativeAPI::GetBucket for bucket " << bucket_ctxt->bucketName
-                << " -- could't find out from OM if bucket exists";
-        return;
+    /* check if bucket is attached to this AM */
+    if (storHvisor->vol_table->volumeExists(bucket_ctxt->bucketName)) {
+        volid =  storHvisor->vol_table->getVolumeUUID(bucket_ctxt->bucketName);
+        fds_verify(volid != invalid_vol_id);
     }
+
+    // if bucket is not attached to this AM, before sending attach request to OM
+    // create List request and put it to wait queue, to make sure that attach arrives
+    // after we put a request to the wait queue and not before!
 
     /* create request */
     blob_req = new ListBucketReq(volid,
@@ -149,14 +149,26 @@ void FDS_NativeAPI::GetBucket(BucketContext *bucket_ctxt,
         return;
     }
 
-    if ( err.ok() ) {
+    if (volid != invalid_vol_id) {
         /* bucket is already attached to this AM, enqueue IO */
         storHvisor->pushBlobReq(blob_req);
-    } else if (err == Error(ERR_PENDING_RESP)) {
+        return;
+    } else {
         /* we are waiting for OM to tell us if bucket exists */
         storHvisor->vol_table->addBlobToWaitQueue(bucket_ctxt->bucketName, blob_req);
     }
-    // else we already handled above
+
+    // if we are here, bucket is not attached to this AM, send test bucket msg to OM
+    err = sendTestBucketToOM(bucket_ctxt->bucketName,
+                             bucket_ctxt->accessKeyId,
+                             bucket_ctxt->secretAccessKey);
+    if (!err.ok()) {
+        // we failed to send query to OM
+        LOGWARN << "FDS_NativeAPI::GetBucket for bucket " << bucket_ctxt->bucketName
+                << " -- could't find out from OM if bucket exists";
+        // remove blob from wait queue (this will also call the callback)
+        storHvisor->vol_table->completeWaitBlobsWithError(bucket_ctxt->bucketName, err);
+    }
 }
 
 void FDS_NativeAPI::DeleteBucket(BucketContext* bucketCtxt,
@@ -288,30 +300,24 @@ FDS_NativeAPI::GetObject(BucketContextPtr bucket_ctxt,
                          fdsnGetObjectHandler getObjCallback,
                          void *callback_data) {
     Error err(ERR_OK);
-    fds_volid_t volid;
+    fds_volid_t volid = invalid_vol_id;
     fds_uint64_t start, end;
     FdsBlobReq *blob_req = NULL;
     LOGNORMAL << "FDS_NativeAPI::GetObject bucket " << bucket_ctxt->bucketName
               << " objKey " << ObjKey;
 
-    /* check if bucket is attached to this AM, if not, ask OM to attach */
+    /* check if bucket is attached to this AM */
     start = fds_rdtsc();
-    // TODO(Andrew): This is dangerous! We shouldn't pull out the raw
-    // ptr, but are doing it just because the interface expects raw and
-    // is used in many places.
-    err = checkBucketExists(bucket_ctxt.get(), &volid);
+    if (storHvisor->vol_table->volumeExists(bucket_ctxt->bucketName)) {
+        volid = storHvisor->vol_table->getVolumeUUID(bucket_ctxt->bucketName);
+        fds_verify(volid != invalid_vol_id);
+    }
     end = fds_rdtsc();
     fds_stat_record(STAT_FDSN, FDSN_GO_CHK_BKET_EXIST, start, end);
 
-    if ((!err.ok()) && (err != Error(ERR_PENDING_RESP))) {
-        /* bucket not attached and we failed to send query to OM */
-        (getObjCallback)(bucket_ctxt, req_context, 0, startByte, NULL, 0, "",
-                         callback_data, FDSN_StatusInternalError, NULL);
-        LOGERROR << "FDS_NativeAPI::GetObject bucket " << bucket_ctxt->bucketName
-                 << " objKey " << ObjKey
-                 << " -- could't find out from OM if bucket exists";
-        return;
-    }
+    // if bucket is not attached to this AM, before sending attach request to OM
+    // create GetBlob request and put it to wait queue, to make sure that attach
+    // arrives after we put a request to the wait queue and not before!
 
     /* create request */
     start = end;
@@ -339,20 +345,31 @@ FDS_NativeAPI::GetObject(BucketContextPtr bucket_ctxt,
     end = fds_rdtsc();
     fds_stat_record(STAT_FDSN, FDSN_GO_ALLOC_BLOB_REQ, start, end);
 
-    if (err.ok()) {
+    if (volid != invalid_vol_id) {
         /* bucket is already attached to this AM, enqueue IO */
         start = end;
         storHvisor->pushBlobReq(blob_req);
         end = fds_rdtsc();
         fds_stat_record(STAT_FDSN, FDSN_GO_ENQUEUE_IO, start, end);
-    } else if (err == Error(ERR_PENDING_RESP)) {
+        return;
+    } else {
         /* we are waiting for OM to tell us if bucket exists */
         start = end;
         storHvisor->vol_table->addBlobToWaitQueue(bucket_ctxt->bucketName, blob_req);
         fds_stat_record(STAT_FDSN, FDSN_GO_ADD_WAIT_QUEUE, start, end);
-    } else {
-        // else we should have already handled above
-        fds_panic("Unknown/unhandled error %s", err.GetErrstr().c_str());
+    }
+
+    // if we are here, bucket is not attached to this AM, send test bucket msg to OM
+    err = sendTestBucketToOM(bucket_ctxt->bucketName,
+                             bucket_ctxt->accessKeyId,
+                             bucket_ctxt->secretAccessKey);
+    if (!err.ok()) {
+        /* we failed to send query to OM */
+        LOGERROR << "FDS_NativeAPI::GetObject bucket " << bucket_ctxt->bucketName
+                 << " objKey " << ObjKey
+                 << " -- could't find out from OM if bucket exists";
+        // remove blob from wait queue (this will also call the callback)
+        storHvisor->vol_table->completeWaitBlobsWithError(bucket_ctxt->bucketName, err);
     }
 }
 
@@ -367,7 +384,7 @@ void FDS_NativeAPI::PutObject(BucketContext *bucket_ctxt,
                               fdsnPutObjectHandler putObjHandler,
                               void *callback_data) {
     Error err(ERR_OK);
-    fds_volid_t volid;
+    fds_volid_t volid = invalid_vol_id;
     FdsBlobReq *blob_req = NULL;
     LOGNORMAL << "bucket: " << bucket_ctxt->bucketName
               << " objKey: " << ObjKey
@@ -375,18 +392,15 @@ void FDS_NativeAPI::PutObject(BucketContext *bucket_ctxt,
               << " buffer-len: " << buflen
               << " last buffer: " << std::boolalpha << lastBuf;
 
-
-    /* check if bucket is attached to this AM, if not, ask OM to attach */
-    err = checkBucketExists(bucket_ctxt, &volid);
-    if ( !err.ok() && (err != Error(ERR_PENDING_RESP)) ) {
-        /* bucket not attached and we failed to send query to OM */
-        LOGERROR << "FDS_NativeAPI::PutObject bucket "
-                 << bucket_ctxt->bucketName
-                 << " objKey " << ObjKey
-                 << " -- could't find out from OM if bucket exists";
-        (putObjHandler)(req_context, 0, 0, NULL, callback_data, FDSN_StatusInternalError, NULL); //NOLINT
-        return;
+    // check if bucket is attached to this AM
+    if (storHvisor->vol_table->volumeExists(bucket_ctxt->bucketName)) {
+        volid = storHvisor->vol_table->getVolumeUUID(bucket_ctxt->bucketName);
+        fds_verify(volid != invalid_vol_id);
     }
+
+    // if bucket is not attached to this AM, before sending attach request to OM
+    // create Put request and put it to wait queue, to make sure that attach arrives
+    // after we put a request to the wait queue and not before!
 
     /* create request */
     blob_req = new PutBlobReq(volid,
@@ -410,12 +424,27 @@ void FDS_NativeAPI::PutObject(BucketContext *bucket_ctxt,
         return;
     }
 
-    if (err.ok()) {
+    if (volid != invalid_vol_id) {
         /* bucket is already attached to this AM, enqueue IO */
         storHvisor->pushBlobReq(blob_req);
-    } else if (err == Error(ERR_PENDING_RESP)) {
+        return;  // we are done
+    } else {
         /* we are waiting for OM to tell us if bucket exists */
         storHvisor->vol_table->addBlobToWaitQueue(bucket_ctxt->bucketName, blob_req);
+    }
+
+    // if we are here, bucket is not attached to this AM, send test bucket msg to OM
+    err = sendTestBucketToOM(bucket_ctxt->bucketName,
+                             bucket_ctxt->accessKeyId,
+                             bucket_ctxt->secretAccessKey);
+    if ( !err.ok() ) {
+        /* we failed to send query to OM */
+        LOGERROR << "FDS_NativeAPI::PutObject bucket "
+                 << bucket_ctxt->bucketName
+                 << " objKey " << ObjKey
+                 << " -- could't find out from OM if bucket exists";
+        // remove blob from wait queue (this will also call the callback)
+        storHvisor->vol_table->completeWaitBlobsWithError(bucket_ctxt->bucketName, err);
     }
 }
 
@@ -426,21 +455,20 @@ void FDS_NativeAPI::DeleteObject(BucketContext *bucket_ctxt,
                                  void *callback_data)
 {
     Error err(ERR_OK);
-    fds_volid_t volid;
+    fds_volid_t volid = invalid_vol_id;
     FdsBlobReq *blob_req = NULL;
     LOGNORMAL << "FDS_NativeAPI::DeleteObject bucket " << bucket_ctxt->bucketName
               << " objKey " << ObjKey;
 
-    /* check if bucket is attached to this AM, if not, ask OM to attach */
-    err = checkBucketExists(bucket_ctxt, &volid);
-    if ( !err.ok() && (err != Error(ERR_PENDING_RESP)) ) {
-        /* bucket not attached and we failed to send query to OM */
-        LOGWARN << "FDS_NativeAPI::DeleteObject bucket " << bucket_ctxt->bucketName
-                << " objKey " << ObjKey
-                << " -- could't find out from OM if bucket exists";
-        (responseHandler)(FDSN_StatusInternalError, NULL, callback_data);
-        return;
+    // check if bucket is attached to this AM
+    if (storHvisor->vol_table->volumeExists(bucket_ctxt->bucketName)) {
+        volid = storHvisor->vol_table->getVolumeUUID(bucket_ctxt->bucketName);
+        fds_verify(volid != invalid_vol_id);
     }
+
+    // if bucket is not attached to this AM, before sending attach request to OM
+    // create Delete request and put it to wait queue, to make sure that attach arrives
+    // after we put a request to the wait queue and not before!
 
     /* create request */
     blob_req = new DeleteBlobReq(volid,
@@ -460,14 +488,27 @@ void FDS_NativeAPI::DeleteObject(BucketContext *bucket_ctxt,
     }
 
 
-    if ( err.ok() ) {
+    if (volid != invalid_vol_id) {
         /* bucket is already attached to this AM, enqueue IO */
         storHvisor->pushBlobReq(blob_req);
-    } else if (err == Error(ERR_PENDING_RESP)) {
+        return;
+    } else {
         /* we are waiting for OM to tell us if bucket exists */
         storHvisor->vol_table->addBlobToWaitQueue(bucket_ctxt->bucketName, blob_req);
     }
-    // else we already handled above
+
+    // if we are here, bucket is not attached to this AM, send test bucket msg to OM
+    err = sendTestBucketToOM(bucket_ctxt->bucketName,
+                             bucket_ctxt->accessKeyId,
+                             bucket_ctxt->secretAccessKey);
+    if ( !err.ok() ) {
+        /* we failed to send query to OM */
+        LOGWARN << "FDS_NativeAPI::DeleteObject bucket " << bucket_ctxt->bucketName
+                << " objKey " << ObjKey
+                << " -- could't find out from OM if bucket exists";
+        // remove blob from wait queue (this will also call the callback)
+        storHvisor->vol_table->completeWaitBlobsWithError(bucket_ctxt->bucketName, err);
+    }
 }
 
 void FDS_NativeAPI::DoCallback(FdsBlobReq  *blob_req,
@@ -560,40 +601,30 @@ void FDS_NativeAPI::DoCallback(FdsBlobReq  *blob_req,
 }
 
 /*
- * Checks if bucket is attached to AM, if not, sends test bucket message to OM.
- * returns error:
- *    ERR_OK if bucket is already attached to AM
- *    ERR_PENDING_RESP is test bucket message was sent to AM and now we are waiting
- *    for response from OM
- *    other error code if some error happened
- *
- * \return ret_volid will contain volume id for the bucket if returned value is ERR_OK
+ * Sends 'test bucket' message to OM. If bucket exists (OM knows about it),
+ * OM will attach bucket to this AM. Otherwise, will return error.
+ *    ERR_OK if test bucket message was sent to OM and now we are waiting for response
+ *    other error code if some error happened before we sent msg to OM
  */
-Error FDS_NativeAPI::checkBucketExists(BucketContext *bucket_ctxt, fds_volid_t* ret_volid) {
+Error FDS_NativeAPI::sendTestBucketToOM(const std::string& bucket_name,
+                                        const std::string& access_key_id,
+                                        const std::string& secret_access_key) {
     Error err(ERR_OK);
     int om_err = 0;
-    fds_volid_t volid = invalid_vol_id;
-    LOGNORMAL << "FDS_NativeAPI::testBucketInternal  bucket " << bucket_ctxt->bucketName;
+    LOGNORMAL << "FDS_NativeAPI::testBucketInternal bucket " << bucket_name;
 
-    if (storHvisor->vol_table->volumeExists(bucket_ctxt->bucketName)) {
-        *ret_volid =  storHvisor->vol_table->getVolumeUUID(bucket_ctxt->bucketName);
-        fds_verify(*ret_volid != invalid_vol_id);
-        return err;
-    }
-
-    /* else -- the volume not attached but it could have been already created,
-     * so we will send test bucket msg to OM */
+    // send test bucket message to OM
     FDSP_VolumeInfoTypePtr vol_info(new FDSP_VolumeInfoType());
-    initVolInfo(vol_info, bucket_ctxt->bucketName);
-
-    om_err = storHvisor->om_client->testBucket(bucket_ctxt->bucketName,
+    initVolInfo(vol_info, bucket_name);
+    om_err = storHvisor->om_client->testBucket(bucket_name,
                                                vol_info,
                                                true,
-                                               bucket_ctxt->accessKeyId,
-                                               bucket_ctxt->secretAccessKey);
+                                               access_key_id,
+                                               secret_access_key);
 
-    err = (om_err == 0) ? Error(ERR_PENDING_RESP) : Error(ERR_INVALID_ARG);
-    *ret_volid = volid;
+    if (om_err != 0) {
+        err = Error(ERR_INVALID_ARG);
+    }
     return err;
 }
 
