@@ -63,7 +63,8 @@ class CatalogCache {
      */
     Error Update(fds_uint64_t blobOffset,
                  fds_uint32_t objectLen,
-                 const ObjectID& oid);
+                 const ObjectID& oid,
+                 fds_bool_t lastBuf);
     Error Query(fds_uint64_t blobOffset,
                 ObjectID *oid);
     fds_uint64_t getBlobSize();
@@ -132,7 +133,8 @@ class VolumeCatalogCache {
     Error Update(const std::string& blobName,
                  fds_uint64_t blobOffset,
                  fds_uint32_t objectLen,
-                 const ObjectID &oid);
+                 const ObjectID &oid,
+                 fds_bool_t lastBuf = false);
     Error getBlobSize(const std::string& blobName,
                       fds_uint64_t *blobSize);
     Error getBlobEtag(const std::string& blobName,

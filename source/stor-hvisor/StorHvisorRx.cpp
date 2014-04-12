@@ -74,7 +74,8 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) {
                     blobReq->getBlobName(),
                     blobReq->getBlobOffset(),
                     (fds_uint32_t)blobReq->getDataLen(),
-                    ObjectID(txn->data_obj_id.digest));
+                    ObjectID(txn->data_obj_id.digest),
+                    blobReq->isLastBuf());
                 fds_verify(err == ERR_OK);
 
                 // Add the blob's etag into the cache if it's set
@@ -375,6 +376,8 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
          it != blobOffList.cend();
          it++) {
         ObjectID offsetObjId(((*it).data_obj_id).digest);
+        // TODO(Andrew): Need to pass in if this is the last
+        // offset in the blob or not...
         err = shvol->vol_catalog_cache->Update(blobReq->getBlobName(),
                                                (fds_uint64_t)(*it).offset,
                                                (fds_uint32_t)(*it).size,
