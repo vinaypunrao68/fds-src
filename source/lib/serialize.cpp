@@ -147,21 +147,49 @@ uint32_t Serializable::getEstimatedSize() const {
     return 1*KB;
 }
 
-bool Serializable::getSerialized(std::string& serializedData) const {
-    serialize::Serializer *s = serialize::getMemSerializer(getEstimatedSize());
-    uint32_t bytesWritten = write(s);
-    LOGDEBUG << "byteswritten : " << bytesWritten;
-    serializedData.append(s->getBufferAsString());
-    delete s;
-    return bytesWritten > 0;
+Error Serializable::getSerialized(std::string& serializedData) const {
+    Error err(ERR_OK);
+    uint32_t bytesWritten = 0;
+
+    try {
+        serialize::Serializer *s = serialize::getMemSerializer(getEstimatedSize());
+        bytesWritten = write(s);
+        LOGDEBUG << "byteswritten : " << bytesWritten;
+        serializedData.append(s->getBufferAsString());
+        delete s;
+    } catch(const TProtocolException& e) {
+        LOGERROR << e.what();
+        err = ERR_SERIALIZE_FAILED;
+    } catch(...) {
+        LOGERROR << "caught unexpected exception";
+        err = ERR_SERIALIZE_FAILED;
+    }
+    if (bytesWritten == 0) {
+        err = ERR_NO_BYTES_WRITTEN;
+    }
+    return err;
 }
 
-bool Serializable::loadSerialized(const std::string& serializedData) {
-    serialize::Deserializer *d = serialize::getMemDeserializer(serializedData);
-    uint32_t bytesRead = read(d);
-    LOGNORMAL << "bytesread : " <<bytesRead;
-    delete d;
-    return bytesRead > 0;
+Error Serializable::loadSerialized(const std::string& serializedData) {
+    Error err(ERR_OK);
+    uint32_t bytesRead = 0;
+
+    try {
+        serialize::Deserializer *d = serialize::getMemDeserializer(serializedData);
+        bytesRead = read(d);
+        LOGNORMAL << "bytesread : " <<bytesRead;
+        delete d;
+    } catch(const TProtocolException& e) {
+        LOGERROR << e.what();
+        err = ERR_SERIALIZE_FAILED;
+    } catch(...) {
+        LOGERROR << "caught unexpected exception";
+        err = ERR_SERIALIZE_FAILED;
+    }
+    if (bytesRead == 0) {
+        err = ERR_NO_BYTES_READ;
+    }
+    return err;
 }
 
 Serializer* getMemSerializer(uint sz) {

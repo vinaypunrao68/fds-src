@@ -212,8 +212,8 @@ uint32_t ObjMetaData::getEstimatedSize() const
  */
 uint32_t ObjMetaData::serializeTo(ObjectBuf& buf) const
 {
-    bool ret = getSerialized(buf.data);
-    fds_assert(ret == true);
+    Error ret = getSerialized(buf.data);
+    fds_assert(ret.ok());
     buf.size = buf.data.size();
     return buf.size;
 }
@@ -225,9 +225,9 @@ uint32_t ObjMetaData::serializeTo(ObjectBuf& buf) const
  */
 bool ObjMetaData::deserializeFrom(const ObjectBuf& buf)
 {
-    bool ret = loadSerialized(buf.data);
-    fds_assert(ret == true);
-    return ret;
+    Error ret = loadSerialized(buf.data);
+    fds_assert(ret.ok());
+    return ret.ok();
 }
 
 /**
@@ -239,9 +239,9 @@ bool ObjMetaData::deserializeFrom(const leveldb::Slice& s)
 {
     // TODO(Rao): Avoid the extra copy from s.ToString().  Have
     // leveldb expose underneath string
-    bool ret = loadSerialized(s.ToString());
-    fds_assert(ret == true);
-    return ret;
+    Error ret = loadSerialized(s.ToString());
+    fds_assert(ret.ok());
+    return ret.ok();
 }
 
 /**

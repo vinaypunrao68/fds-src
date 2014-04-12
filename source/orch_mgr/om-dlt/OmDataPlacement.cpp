@@ -159,7 +159,12 @@ DataPlacement::beginRebalance() {
 
     // pupulate dlt message -- same for all the nodes that need to migrate toks
     dltMsg->dlt_type= true;
-    newDlt->getSerialized(dltMsg->dlt_data);
+    err = newDlt->getSerialized(dltMsg->dlt_data);
+    if (!err.ok()) {
+        LOGERROR << "Failed to fill in dlt_data, not sending migration msgs";
+        placementMutex->unlock();
+        return err;
+    }
 
     // send start migration message to all nodes that have new tokens
     for (NodeUuidSet::const_iterator nit = rebalanceNodes.cbegin();

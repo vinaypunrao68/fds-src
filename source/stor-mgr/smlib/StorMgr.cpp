@@ -1924,6 +1924,8 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
 	// msgHdr->result = ERR_IO_DLT_MISMATCH;
 	// send the dlt version of SM to AM 
         getObj->dlt_version = objStorMgr->omClient->getDltVersion();
+        // update the resp  with new DLT
+        objStorMgr->omClient->getLatestDlt(getObj->dlt_data);
     }
     DPRespClientPtr client = fdspDataPathClient(msgHdr->session_uuid);
     if (client == NULL) {

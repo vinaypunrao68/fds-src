@@ -97,9 +97,16 @@ void OMgrClientRPCI::NotifyDLTClose(FDSP_MsgHdrTypePtr& fdsp_msg,
 void OMgrClientRPCI::NotifyStartMigration(FDSP_MsgHdrTypePtr& msg_hdr,
                                           FDSP_DLT_Data_TypePtr& dlt_info) {
     // Only SM needs to process these migrations
+    Error err(ERR_OK);
     if (om_client->getNodeType() == FDS_ProtocolInterface::FDSP_STOR_MGR) {
-        om_client->recvDLTStartMigration(dlt_info);
-        om_client->recvMigrationEvent(dlt_info->dlt_type); 
+        err = om_client->recvDLTStartMigration(dlt_info);
+        if (err.ok()) {
+            om_client->recvMigrationEvent(dlt_info->dlt_type); 
+        } else {
+            LOGERROR << "We failed to de-serialize dlt, so not going "
+                     << " to do migration, returning error " << err;
+            om_client->sendMigrationStatusToOM(err);
+        }
     } else {
         om_client->sendMigrationStatusToOM(ERR_OK);
     }
@@ -713,27 +720,36 @@ int OMgrClient::recvVolAttachState(VolumeDesc *vdb,
     return 0;
 }
 
-int OMgrClient::updateDlt(bool dlt_type, std::string& dlt_data) {
+Error OMgrClient::updateDlt(bool dlt_type, std::string& dlt_data) {
+    Error err(ERR_OK);
+    FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMClient received new DLT version  " << dlt_type;
 
-  FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMClient received new DLT version  " << dlt_type;
+    omc_lock.write_lock();
+    err = dltMgr.addSerializedDLT(dlt_data,dlt_type);
+    if (err.ok()) {
+        dltMgr.dump();
+    } else {
+        LOGERROR << "Failed to update DLT! check dlt_data was set";
+    }
+    omc_lock.write_unlock();
 
-  omc_lock.write_lock();
-  dltMgr.addSerializedDLT(dlt_data,dlt_type);
-  dltMgr.dump();
-  omc_lock.write_unlock();
-
-  return (0);
+    return err;
 }
 
 int OMgrClient::recvDLTUpdate(FDSP_DLT_Data_TypePtr& dlt_info,
                               const std::string& session_uuid) {
+    Error err(ERR_OK);
     FDS_PLOG_SEV(omc_log, fds::fds_log::notification)
             << "OMClient received new DLT commit version  "
             << dlt_info->dlt_type;
 
     omc_lock.write_lock();
-    dltMgr.addSerializedDLT(dlt_info->dlt_data, dlt_info->dlt_type);
-    dltMgr.dump();
+    err = dltMgr.addSerializedDLT(dlt_info->dlt_data, dlt_info->dlt_type);
+    if (err.ok()) {
+        dltMgr.dump();
+    } else {
+        LOGERROR << "Failed to update DLT! check dlt_data was set";
+    }
     omc_lock.write_unlock();
 
     // send ack back to OM
@@ -743,6 +759,10 @@ int OMgrClient::recvDLTUpdate(FDSP_DLT_Data_TypePtr& dlt_info,
     try {
         FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
         initOMMsgHdr(msg_hdr);
+        msg_hdr->err_code = err.GetErrno();
+        if (!err.ok()) {
+            msg_hdr->result = FDSP_ERR_FAILED;
+        }
         FDSP_DLT_Resp_TypePtr dlt_resp(new FDSP_DLT_Resp_Type);
         dlt_resp->DLT_version = getDltVersion();
         resp_client_prx->NotifyDLTUpdateResp(msg_hdr, dlt_resp);
@@ -801,16 +821,19 @@ int OMgrClient::sendDLTCloseAckToOM(FDSP_DltCloseTypePtr& dlt_close,
     return err;
 }
 
-int OMgrClient::recvDLTStartMigration(FDSP_DLT_Data_TypePtr& dlt_info) {
-  FDS_PLOG_SEV(omc_log, fds::fds_log::notification)
-          << "OMClient received new Migration DLT version  " << dlt_info->dlt_type;
+Error OMgrClient::recvDLTStartMigration(FDSP_DLT_Data_TypePtr& dlt_info) {
+    Error err(ERR_OK);
+    FDS_PLOG_SEV(omc_log, fds::fds_log::notification)
+            << "OMClient received new Migration DLT version  " << dlt_info->dlt_type;
 
-  omc_lock.write_lock();
-  dltMgr.addSerializedDLT(dlt_info->dlt_data, dlt_info->dlt_type);
-  dltMgr.dump();  
-  omc_lock.write_unlock();
+    omc_lock.write_lock();
+    err = dltMgr.addSerializedDLT(dlt_info->dlt_data, dlt_info->dlt_type);
+    if (err.ok()) {
+        dltMgr.dump(); 
+    } 
+    omc_lock.write_unlock();
 
-  return (0);
+    return err;
 }
 
 int OMgrClient::recvDMTUpdate(int dmt_vrsn, const Node_Table_Type& dmt_table) {
@@ -876,7 +899,8 @@ fds_uint32_t
 OMgrClient::getLatestDlt(std::string& dlt_data) {
     // TODO: Set to a macro'd invalid version
     omc_lock.read_lock();
-    const_cast <DLT* > (dltMgr.getDLT())->getSerialized(dlt_data);
+    Error err = const_cast <DLT* > (dltMgr.getDLT())->getSerialized(dlt_data);
+    fds_verify(err.ok());
     omc_lock.read_unlock();
 
     return 0;
