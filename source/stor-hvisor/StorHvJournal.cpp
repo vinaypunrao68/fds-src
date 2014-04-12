@@ -451,10 +451,13 @@ StorHvJournalEntry::fbd_process_req_timeout() {
                 err = storHvisor->dispatchSmGetMsg(txn);
                 fds_verify(err == ERR_OK);
             } else if ( txn->op == FDS_IO_WRITE) {
+                fds_verify(!"Put request timed out");
+                /* TODO(Rao) win-340: Until we have a consistent implementation for
+                 * timeouts, on first timeout error, we will crash.
+                 */
                 err = storHvisor->dispatchSmPutMsg(txn,
                         storHvisor->om_client->\
                         getCurrentDLT()->getNode(blobReq->getObjId(), txn->nodeSeq));
-                fds_verify(err == ERR_OK);
             }
         } else {
             storHvisor->qos_ctrl->markIODone(io);
