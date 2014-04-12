@@ -76,6 +76,10 @@ if __name__ == '__main__':
     cli = cfg.rt_get_obj('cfg_cli')
     for n in nodes:
         n.nd_start_platform(om_ip)
+        if n.nd_conf_dict['node-name'] == 'node1':
+            cli.run_cli('--activate-nodes abc -k 1 -e sm,dm')
+        else:
+            cli.run_cli('--activate-nodes abc -k 1 -e sm')
     	cli.run_cli('--activate-nodes abc -k 1 -e sm,dm')
         print "Waiting for node %s to come up" % n.nd_rmt_host
     	time.sleep(3)
