@@ -15,6 +15,7 @@
 #include <fds_process.h>
 
 #define OM_WAIT_NODES_UP_SECONDS   5*60
+#define OM_WAIT_START_SECONDS      60
 
 namespace fds {
 
@@ -62,6 +63,27 @@ struct NodeDomainFSM: public msm::front::state_machine_def<NodeDomainFSM>
 
         template <class Event, class FSM> void on_entry(Event const &, FSM &) {}
         template <class Event, class FSM> void on_exit(Event const &, FSM &) {}
+    };
+    struct DST_Wait : public msm::front::state<>
+    {
+        DST_Wait() : waitTimer(new FdsTimer()),
+                     waitTimerTask(new WaitTimerTask(*waitTimer)) {}
+
+        ~DST_Wait() {
+            waitTimer->destroy();
+        }
+
+        template <class Evt, class Fsm, class State>
+        void operator()(Evt const &, Fsm &, State &) {}
+
+        template <class Event, class FSM> void on_entry(Event const &, FSM &) {}
+        template <class Event, class FSM> void on_exit(Event const &, FSM &) {}
+
+        /**
+         * timer to come out of this state
+         */
+        FdsTimerPtr waitTimer;
+        FdsTimerTaskPtr waitTimerTask;
     };
     struct DST_WaitNds : public msm::front::state<>
     {
@@ -114,6 +136,16 @@ struct NodeDomainFSM: public msm::front::state_machine_def<NodeDomainFSM>
     /**
      * Transition actions.
      */
+    struct DACT_Wait
+    {
+        template <class Evt, class Fsm, class SrcST, class TgtST>
+        void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
+    };
+    struct DACT_WaitDone
+    {
+        template <class Evt, class Fsm, class SrcST, class TgtST>
+        void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
+    };
     struct DACT_WaitNds
     {
         template <class Evt, class Fsm, class SrcST, class TgtST>
@@ -162,8 +194,10 @@ struct NodeDomainFSM: public msm::front::state_machine_def<NodeDomainFSM>
         // | Start           | Event       | Next        | Action       | Guard       |
         // +-----------------+-------------+-------------+--------------+-------------+
         msf::Row< DST_Start  , WaitNdsEvt  , DST_WaitNds , DACT_WaitNds , msf::none   >,
-        msf::Row< DST_Start  , NoPersistEvt, DST_DomainUp, msf::none    , msf::none   >,
-        // +-----------------+-------------+------------+---------------+--------------+
+        msf::Row< DST_Start  , NoPersistEvt, DST_Wait    , DACT_Wait    , msf::none   >,
+        // +-----------------+-------------+-------------+--------------+--------------+
+        msf::Row< DST_Wait   , TimeoutEvt  , DST_DomainUp, DACT_WaitDone, msf::none   >,
+        // +-----------------+-------------+-------------+--------------+--------------+
         msf::Row< DST_WaitNds, RegNodeEvt  , DST_WaitDlt , DACT_NodesUp , GRD_NdsUp   >,
         msf::Row< DST_WaitNds, TimeoutEvt  , DST_WaitDlt , DACT_UpdDlt , GRD_EnoughNds>,
         // +-----------------+-------------+------------+---------------+--------------+
@@ -177,7 +211,7 @@ struct NodeDomainFSM: public msm::front::state_machine_def<NodeDomainFSM>
 void NodeDomainFSM::WaitTimerTask::runTimerTask()
 {
     OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
-    LOGNOTIFY << "Timeout waiting for SM(s) to come up";
+    LOGNOTIFY << "Timeout";
     domain->local_domain_event(TimeoutEvt());
 }
 
@@ -314,6 +348,51 @@ NodeDomainFSM::DACT_WaitNds::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tg
                 << "services to come up";
         fsm.process_event(TimeoutEvt());
     }
+}
+
+/**
+ * DACT_Wait
+ * ----------
+ * Action when there is no persistent state to bring up, but we will still
+ * wait several min before we say domain is up, so that when several SMs
+ * come up together in the beginning, DLT computation will happen for all of
+ * them at once without any migration and syncing
+ */
+template <class Evt, class Fsm, class SrcST, class TgtST>
+void
+NodeDomainFSM::DACT_Wait::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
+{
+    LOGDEBUG << "NodeDomainFSM DACT_Wait: initial wait for " << OM_WAIT_START_SECONDS
+             << " seconds before start DLT compute for new SMs";
+
+    // start timer to timeout in case services do not come up
+    if (!dst.waitTimer->schedule(dst.waitTimerTask,
+                                 std::chrono::seconds(OM_WAIT_START_SECONDS))) {
+        // couldn't start timer, so don't wait for services to come up
+        LOGWARN << "DACT_WaitNds: failed to start timer -- will not wait before "
+                << " before admitting new SMs into DLT";
+        fsm.process_event(TimeoutEvt());
+    }
+}
+
+/**
+ * DACT_WaitDone
+ * --------------
+ * When there is no persistent state to bring up, but we still
+ * wait several min before we say domain is up. This action handles timeout
+ * that we are done waiting and try to update cluster (compute DLT if any
+ * SMs joines so far).
+ */
+template <class Evt, class Fsm, class SrcST, class TgtST>
+void
+NodeDomainFSM::DACT_WaitDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
+{
+    LOGDEBUG << "NodeDomainFSM DACT_WaitDone: will try to compute DLT if any SMs joined";
+
+    // start cluster update process that will recompute DLT /rebalance /etc
+    // so that we move to DLT that reflects actual nodes that came up
+    OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+    domain->om_update_cluster();
 }
 
 /**
