@@ -1919,12 +1919,7 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
     }
     msgHdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_GET_OBJ_RSP;
     swapMgrId(msgHdr);
-    if ((uint)getObjReq->dlt_version != objStorMgr->omClient->getDltVersion()) {
-	msgHdr->err_code = ERR_IO_DLT_MISMATCH;
-	// msgHdr->result = ERR_IO_DLT_MISMATCH;
-	// send the dlt version of SM to AM 
-        getObj->dlt_version = objStorMgr->omClient->getDltVersion();
-    }
+
     DPRespClientPtr client = fdspDataPathClient(msgHdr->session_uuid);
     if (client == NULL) {
         // We may not know about this session uuid because it may be
