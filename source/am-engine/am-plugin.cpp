@@ -581,16 +581,13 @@ AME_Ctx::set_ack_count(fds_uint32_t count) {
 }
 
 /**
- * Returns the status of all of the
- * currently received acks.
+ * Expects lock to be held by caller
  */
 AME_Ctx::AME_Ctx_Ack
-AME_Ctx::ame_check_status() {
-    ame_map_lock->lock();
+AME_Ctx::ame_check_status_locked() {
     if (ame_req_map.size() < ame_ack_count) {
         // We haven't sent all of the requests
         // that we're going to send.
-        ame_map_lock->unlock();
         return WAITING;
     }
 
@@ -602,18 +599,28 @@ AME_Ctx::ame_check_status() {
          it != ame_req_map.cend();
          it++) {
         if (it->second == WAITING) {
-            ame_map_lock->unlock();
             return WAITING;
         } else if (it->second == FAILED) {
             failed = true;
         }
     }
-    ame_map_lock->unlock();
 
     if (failed == true) {
         return FAILED;
     }
     return OK;
+}
+
+/**
+ * Returns the status of all of the
+ * currently received acks.
+ */
+AME_Ctx::AME_Ctx_Ack
+AME_Ctx::ame_check_status() {
+    ame_map_lock->lock();
+    AME_Ctx::AME_Ctx_Ack ack = ame_check_status_locked();
+    ame_map_lock->unlock();
+    return ack;
 }
 
 /**
@@ -981,6 +988,7 @@ AME_Ctx::ame_register_ctx()
 void
 AME_Ctx::ame_unregister_ctx()
 {
+    LOGDEBUG << "Unregistering ngx ctx";
     ngx_close_connection(ame_connect);
 
     if (ame_epoll_fd != 0) {

@@ -817,7 +817,11 @@ Conn_GetObject::ame_request_resume()
             // Mark the offset as sent
             err = ame_ctx->ame_upd_ctx_req_locked(offset, AME_Ctx::SENT);
 
-            // Get the next unsent offset
+            // Get the next unsent offset unless we already sent
+            // the last buffer
+            if (last == true) {
+                break;
+            }
             err = ame_ctx->ame_get_unsent_offset_locked(&offset, &last);
         }
         if (last == true) {
@@ -827,8 +831,22 @@ Conn_GetObject::ame_request_resume()
         }
     } else {
         // Just send back the err response
-        ame_finalize_response(ame_resp_status);
-        result = NGX_DONE;
+        AME_Ctx::AME_Ctx_Ack ack_status =
+                ame_ctx->ame_check_status_locked();
+        if ((ack_status == AME_Ctx::OK) ||
+            (ack_status == AME_Ctx::FAILED)) {
+            // If there aren't any more waiting requests
+            // then just return with this error code.
+            // Any waiting requests will just send o back
+            // whatever data we have.
+            // TODO(Andrew): We can actually just truncate
+            // the request here and clean up the waiting requests
+            ame_finalize_response(ame_resp_status);
+            result = NGX_DONE;
+            // TODO(Andrew): Since we didn't call send_resp_data()
+            // for the failed bufs, they're still allocated. We
+            // should iterate any failed offset in the ctx and free em.
+        }
     }
 
     // Unlock the context
@@ -927,6 +945,10 @@ fdsn_putobj_cbfn(void *reqContext, fds_uint64_t bufferSize, fds_off_t offset,
 {
     AME_Ctx        *ctx = static_cast<AME_Ctx *>(reqContext);
     Conn_PutObject *conn_po = static_cast<Conn_PutObject *>(callbackData);
+
+    LOGNORMAL << "Received FDSN put() callback for blob " << conn_po->get_object_id()
+              << " with data at offset " << offset << " of length " << bufferSize
+              << " and result " << status;
 
     // Update the status of this single request
     AME_Ctx::AME_Ctx_Ack ack_status = AME_Ctx::OK;
