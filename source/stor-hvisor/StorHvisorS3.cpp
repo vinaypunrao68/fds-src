@@ -297,8 +297,6 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
                     << ", just give up and return error.";
         blobReq->cbWithResult(-2);
         err = ERR_NOT_IMPLEMENTED;
-        journEntry->reset();
-        shVol->journal_tbl->releaseTransId(transId);
         delete qosReq;
         return err;
     }
