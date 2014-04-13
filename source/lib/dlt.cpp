@@ -596,13 +596,17 @@ bool DLTManager::add(const DLT& _newDlt) {
     return true;
 }
 
-bool DLTManager::addSerializedDLT(std::string& serializedData, bool fFull) { //NOLINT
+Error DLTManager::addSerializedDLT(std::string& serializedData, bool fFull) { //NOLINT
+    Error err(ERR_OK);
     DLT dlt(0, 0, 0, false);
     // Deserialize the DLT
-    dlt.loadSerialized(serializedData);
-    // Recompute the node token map cache
-    dlt.generateNodeTokenMap();
-    return add(dlt);
+    err = dlt.loadSerialized(serializedData);
+    if (err.ok()) {
+        // Recompute the node token map cache
+        dlt.generateNodeTokenMap();
+        add(dlt);
+    }
+    return err;
 }
 
 bool DLTManager::add(const DLTDiff& dltDiff) {

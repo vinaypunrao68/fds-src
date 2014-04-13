@@ -4,6 +4,7 @@
 #include <netinet/in.h>
 #include <boost/shared_ptr.hpp>
 #include <fds_types.h>
+#include <fds_err.h>
 #include <thrift/protocol/TProtocol.h>
 #include <thrift/transport/TBufferTransports.h>
 #include <util/timeutils.h>
@@ -75,9 +76,9 @@ namespace fds {
         struct Serializable {            
             uint32_t virtual write(Serializer*  serializer  ) const = 0;
             uint32_t virtual read(Deserializer* deserializer) = 0;
-            uint32_t virtual getEstimatedSize() const; 
-            bool virtual getSerialized(std::string& serializedData) const; //NOLINT
-            bool virtual loadSerialized(const std::string& serializedData);
+            uint32_t virtual getEstimatedSize() const;
+            Error virtual getSerialized(std::string& serializedData) const; //NOLINT
+            Error virtual loadSerialized(const std::string& serializedData);
         };
         
         /**

@@ -263,7 +263,11 @@ OM_NodeAgent::om_send_dlt(const DLT *curDlt) {
     // TODO(Andrew): It's not safe to unconst this object.
     // The serialization functions should all be const
     // since they do not modify the object
-    const_cast<DLT*>(curDlt)->getSerialized(d_msg->dlt_data);
+    err = const_cast<DLT*>(curDlt)->getSerialized(d_msg->dlt_data);
+    if (!err.ok()) {
+        LOGERROR << "Failed to fill in dlt_data, not sending DLT";
+        return err;
+    }
 
     try {
         ndCpClient->NotifyDLTUpdate(m_hdr, d_msg);

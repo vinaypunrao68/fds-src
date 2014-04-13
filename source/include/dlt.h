@@ -249,7 +249,7 @@ namespace fds {
 
         bool add(const DLT& dlt);
         bool add(const DLTDiff& dltDiff);
-        bool addSerializedDLT(std::string& serializedData, bool fFull = true);  // NOLINT
+        Error addSerializedDLT(std::string& serializedData, bool fFull = true);  // NOLINT
 
         // By default the get the current one(0) or the specific version
         const DLT* getDLT(fds_uint64_t version = 0) const;
