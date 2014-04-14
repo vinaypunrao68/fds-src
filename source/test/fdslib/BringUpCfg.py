@@ -147,12 +147,14 @@ class FdsNodeConfig(FdsConfig):
         bin_dir = fds_dir + '/bin'
         sbin_dir = fds_dir + '/sbin'
         tools_dir = sbin_dir + '/tools'
+        dev_dir = fds_dir + '/dev'
         var_dir = fds_dir + '/var'
         print("\nCleanup cores/logs/redis in: %s, %s" % (self.nd_host_name(), bin_dir))
         self.nd_rmt_agent.ssh_exec('(cd %s && rm core *.core); ' % bin_dir +
             '(cd %s && rm -r logs stats); ' % var_dir +
             '(cd /corefiles && rm *.core); '  +
-            '(cd %s && ./fds clean -i)' % tools_dir, wait_compl=True)
+            '(cd %s && ./fds clean -i); ' % tools_dir +
+            '(cd %s && rm -f hdd-*/*)' % dev_dir, wait_compl=True)
 
 ###
 # Handle AM config section
