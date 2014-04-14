@@ -47,13 +47,16 @@ if __name__ == '__main__':
     if options.clus_clean:
         for n in nodes:
             n.nd_cleanup_node()
+            n.nd_rmt_agent.ssh_exec('/fds/sbin/redis.sh clean')
        
     # Status
     if options.clus_status:
         for n in nodes:
-            n.nd_rmt_agent.ssh_exec('ps -ef | grep -v grep | grep plat', output = True)
-            n.nd_rmt_agent.ssh_exec('ps -ef | grep -v grep | grep Mgr', output = True)
-            n.nd_rmt_agent.ssh_exec('ps -ef | grep -v grep | grep AMA', output = True)
+            n.nd_rmt_agent.ssh_exec('ps -ef | grep -v grep | grep -v base | grep .*com.formationds.web.om.Main', output = True)
+            n.nd_rmt_agent.ssh_exec('ps -ef | grep -v grep | grep -v bash | grep plat', output = True)
+            n.nd_rmt_agent.ssh_exec('ps -ef | grep -v grep | grep -v bash | grep Mgr', output = True)
+            n.nd_rmt_agent.ssh_exec('ps -ef | grep -v grep | grep -v bash | grep AMA', output = True)
+            print '\n'
         sys.exit(0)
 
     if options.clus_up is None:
@@ -61,12 +64,26 @@ if __name__ == '__main__':
 
     for n in nodes:
         n.nd_rmt_agent.ssh_exec('python -m disk_type -m')
+        n.nd_rmt_agent.ssh_exec('/fds/sbin/redis.sh start')
 
-    cfg.rt_fds_bootstrap()
+    om = cfg.rt_om_node
+    om_ip = om.nd_conf_dict['ip']
+    print "Start OM on IP", om_ip
 
-    time.sleep(5)
+    om.nd_start_om()
+    time.sleep(2)
+
     cli = cfg.rt_get_obj('cfg_cli')
-    cli.run_cli('--activate-nodes abc -k 1 -e sm,dm')
+    for n in nodes:
+        n.nd_start_platform(om_ip)
+        if n.nd_conf_dict['node-name'] == 'node1':
+            cli.run_cli('--activate-nodes abc -k 1 -e sm,dm')
+        else:
+            cli.run_cli('--activate-nodes abc -k 1 -e sm')
+    	cli.run_cli('--activate-nodes abc -k 1 -e sm,dm')
+        print "Waiting for node %s to come up" % n.nd_rmt_host
+    	time.sleep(3)
 
+    time.sleep(4)
     for am in ams:
         am.am_start_service()

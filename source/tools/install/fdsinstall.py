@@ -46,8 +46,8 @@ class Installer:
         
         self.menu.append([0,"Run All Steps"              , 'stepRunAll'         ])
         self.menu.append([1,"Run System Check"           , 'stepSystemCheck'    ])
-        self.menu.append([2,"Setup Node"                 , 'stepConfigureNode'  ])        
-        self.menu.append([3,"Install dependency packages", 'stepDependencyCheck'])
+        self.menu.append([2,"Install dependency packages", 'stepDependencyCheck'])
+        self.menu.append([3,"Setup Node"                 , 'stepConfigureNode'  ])        
         self.menu.append([4,"Install FDS Packages"       , 'stepInstallFdsPackages'])
         self.menu.append([5,"Toggle Step Dependency check", 'stepToggleStepDependency'])
         
@@ -136,7 +136,7 @@ class Installer:
 
     def stepConfigureNode(self,menuitem):
         try :
-            self.dependsOnSteps('stepSystemCheck')
+            self.dependsOnSteps('stepDependencyCheck')
             if self.isStepDone(menuitem):
                 log.info("NOTE: This step has been completed previously")
 
@@ -170,7 +170,7 @@ class Installer:
 
     def stepDependencyCheck(self,menuitem):
         try :
-            self.dependsOnSteps('stepConfigureNode')
+            self.dependsOnSteps('stepSystemCheck')
             log.debug('running %s', menuitem[2])
             success=True
             for option in ['basepkgs','basedebs','pythonpkgs'] :
@@ -187,7 +187,7 @@ class Installer:
 
     def stepInstallFdsPackages(self,menuitem):
         try :
-            self.dependsOnSteps('stepDependencyCheck')
+            self.dependsOnSteps('stepConfigureNode')
             if self.isStepDone(menuitem):
                 log.info("NOTE: This step has been completed previously")
             log.debug('running %s', menuitem[2])

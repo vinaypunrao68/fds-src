@@ -61,9 +61,11 @@ fds::Error StorHvCtrl::pushBlobReq(fds::FdsBlobReq *blobReq) {
  * Dispatches async FDSP messages to SMs for a put msg.
  * Note, assumes the journal entry lock is held already
  * and that the messages are ready to be dispatched.
+ * If send_uuid is specified, put is targeted only to send_uuid.
  */
 fds::Error
-StorHvCtrl::dispatchSmPutMsg(StorHvJournalEntry *journEntry) {
+StorHvCtrl::dispatchSmPutMsg(StorHvJournalEntry *journEntry,
+        const NodeUuid &send_uuid) {
     fds::Error err(ERR_OK);
 
     fds_verify(journEntry != NULL);
@@ -102,12 +104,17 @@ StorHvCtrl::dispatchSmPutMsg(StorHvJournalEntry *journEntry) {
         fds_uint32_t node_ip   = 0;
         fds_uint32_t node_port = 0;
         fds_int32_t node_state = -1;
+        NodeUuid target_uuid = dltPtr->get(i);
 
         // Get specific SM's info
-        dataPlacementTbl->getNodeInfo(dltPtr->get(i).uuid_get_val(),
+        dataPlacementTbl->getNodeInfo(target_uuid.uuid_get_val(),
                                       &node_ip,
                                       &node_port,
                                       &node_state);
+        if (send_uuid != INVALID_RESOURCE_UUID && send_uuid != target_uuid) {
+            continue;
+        }
+
         journEntry->sm_ack[i].ipAddr = node_ip;
         journEntry->sm_ack[i].port   = node_port;
         smMsgHdr->dst_ip_lo_addr     = node_ip;
@@ -134,6 +141,11 @@ StorHvCtrl::dispatchSmPutMsg(StorHvJournalEntry *journEntry) {
         } catch (att::TTransportException& e) {
             LOGERROR << "error during network call : " << e.what() ;
             errcount++;
+        }
+
+        if (send_uuid != INVALID_RESOURCE_UUID) {
+            LOGDEBUG << " Peformed a targeted send to: " << send_uuid;
+            break;
         }
     }
 
@@ -285,8 +297,6 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
                     << ", just give up and return error.";
         blobReq->cbWithResult(-2);
         err = ERR_NOT_IMPLEMENTED;
-        journEntry->reset();
-        shVol->journal_tbl->releaseTransId(transId);
         delete qosReq;
         return err;
     }
@@ -379,7 +389,7 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
               << transId;
 
     if (!fZeroSize) {
-        err = dispatchSmPutMsg(journEntry);
+        err = dispatchSmPutMsg(journEntry, INVALID_RESOURCE_UUID);
     } else {
         // special case for zero size
         // trick the state machine to think that it 
@@ -521,7 +531,7 @@ StorHvCtrl::procNewDlt(fds_uint64_t newDltVer) {
 
             // Re-dispatch the SM requests.
             if (journEntry->op == FDS_PUT_BLOB) {
-                dispatchSmPutMsg(journEntry);
+                dispatchSmPutMsg(journEntry, INVALID_RESOURCE_UUID);
             } else if (journEntry->op == FDS_GET_BLOB) {
                 dispatchSmGetMsg(journEntry);
             } else {
@@ -580,6 +590,7 @@ fds::Error StorHvCtrl::putObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
     // Check response code
     Error msgRespErr(rxMsg->err_code);
     if (msgRespErr == ERR_IO_DLT_MISMATCH) {
+        ObjectID objId(putObjRsp->data_obj_id.digest);
         // Note: We're expecting the server to specify the version
         // expected in the response field.
         LOGERROR << "For transaction " << transId
@@ -587,14 +598,18 @@ fds::Error StorHvCtrl::putObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
                  << om_client->getDltVersion()
                  << ", but SM service expected "
                  << putObjRsp->dlt_version;
-        // handleDltMismatch(vol, txn);
-       
+        // find the replica index
+        int idx = storHvisor->om_client->\
+                getCurrentDLT()->getIndex(objId, NodeUuid(rxMsg->src_service_uuid.uuid));
+        fds_verify(idx != -1);
+
         // response message  has the  latest  DLT , update the local copy 
         // and update the DLT version 
         storHvisor->om_client->updateDlt(true, putObjRsp->dlt_data);
 
-        // resend the IO with latest DLT
-        storHvisor->dispatchSmPutMsg(txn);
+        // resend to the same replica index in the new dlt
+        storHvisor->dispatchSmPutMsg(txn,
+                storHvisor->om_client->getCurrentDLT()->getNode(objId, idx));
         // Return here since we haven't received successful acks to
         // move the state machine forward.
         return err;
@@ -1000,7 +1015,7 @@ fds::Error StorHvCtrl::getObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
          * We received an error from SM. check the Error. If the Obj Not found 
          * send a get object request to secondary SM
          */
-       if (txn->nodeSeq != txn->num_sm_nodes) { 
+        if (txn->nodeSeq < (txn->num_sm_nodes-1)) { 
            txn->nodeSeq += 1; // secondary node 
            err = dispatchSmGetMsg(txn);
            fds_verify(err == ERR_OK);

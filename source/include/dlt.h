@@ -56,6 +56,15 @@ namespace fds {
             return p[index];
         }
 
+        int find(const NodeUuid &uid) const {
+            for (uint32_t i = 0; i < length; i++) {
+                if (p[i] == uid) {
+                    return static_cast<int>(i);
+                }
+            }
+            return -1;
+        }
+
         fds_uint32_t getLength() const {
             return length;
         }
@@ -119,6 +128,9 @@ namespace fds {
         /** get the node in the specified index*/
         NodeUuid getNode(fds_token_id token, uint index) const;
         NodeUuid getNode(const ObjectID& objId, uint index) const;
+
+        int getIndex(const fds_token_id& token, const NodeUuid& nodeUuid) const;
+        int getIndex(const ObjectID& objId, const NodeUuid& nodeUuid) const;
 
         /** get the Tokens for a given Node */
         const TokenList& getTokens(const NodeUuid &uid) const;
@@ -237,7 +249,7 @@ namespace fds {
 
         bool add(const DLT& dlt);
         bool add(const DLTDiff& dltDiff);
-        bool addSerializedDLT(std::string& serializedData, bool fFull = true);  // NOLINT
+        Error addSerializedDLT(std::string& serializedData, bool fFull = true);  // NOLINT
 
         // By default the get the current one(0) or the specific version
         const DLT* getDLT(fds_uint64_t version = 0) const;

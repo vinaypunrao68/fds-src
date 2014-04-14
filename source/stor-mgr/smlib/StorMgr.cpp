@@ -1924,6 +1924,8 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
 	// msgHdr->result = ERR_IO_DLT_MISMATCH;
 	// send the dlt version of SM to AM 
         getObj->dlt_version = objStorMgr->omClient->getDltVersion();
+        // update the resp  with new DLT
+        objStorMgr->omClient->getLatestDlt(getObj->dlt_data);
     }
     DPRespClientPtr client = fdspDataPathClient(msgHdr->session_uuid);
     if (client == NULL) {
@@ -2571,6 +2573,10 @@ inline void ObjectStorMgr::swapMgrId(const FDSP_MsgHdrTypePtr& fdsp_msg) {
     tmp_port = fdsp_msg->dst_port;
     fdsp_msg->dst_port = fdsp_msg->src_port;
     fdsp_msg->src_port = tmp_port;
+
+    fdsp_msg->src_service_uuid.uuid =
+            (fds_int64_t)(PlatformProcess::plf_manager()->
+                          plf_get_my_svc_uuid())->uuid_get_val();
 }
 
 void getObjectExt(SmIoReq* getReq) {

@@ -14,7 +14,7 @@ public class Demo {
         // POST query string (URL string, q=foo)
         // return 200 OK, body unspecified
         webApp.route(HttpMethod.POST, "/demo/search", () -> new SetCurrentSearch(state));
-        webApp.route(HttpMethod.GET, "/demo/setCurrentSearch", () -> new SetCurrentSearch(state));
+        // webApp.route(HttpMethod.GET, "/demo/setCurrentSearch", () -> new SetCurrentSearch(state));
 
         // return 200 OK, {q: "pandas eating bamboo" } or 404 if app not started
         webApp.route(HttpMethod.GET, "/demo/search", () -> new GetCurrentSearch(state));

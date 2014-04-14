@@ -168,6 +168,14 @@ NodeUuid DLT::getNode(const ObjectID& objId, uint index) const {
     return getNodes(objId)->get(index);
 }
 
+int DLT::getIndex(const fds_token_id& token, const NodeUuid& nodeUuid) const {
+    return getNodes(token)->find(nodeUuid);
+}
+
+int DLT::getIndex(const ObjectID& objId, const NodeUuid& nodeUuid) const {
+    return getNodes(objId)->find(nodeUuid);
+}
+
 void DLT::setNode(fds_token_id token, uint index, NodeUuid nodeuuid) {
     fds_verify(index < depth);
     fds_verify(token < numTokens);
@@ -588,13 +596,17 @@ bool DLTManager::add(const DLT& _newDlt) {
     return true;
 }
 
-bool DLTManager::addSerializedDLT(std::string& serializedData, bool fFull) { //NOLINT
+Error DLTManager::addSerializedDLT(std::string& serializedData, bool fFull) { //NOLINT
+    Error err(ERR_OK);
     DLT dlt(0, 0, 0, false);
     // Deserialize the DLT
-    dlt.loadSerialized(serializedData);
-    // Recompute the node token map cache
-    dlt.generateNodeTokenMap();
-    return add(dlt);
+    err = dlt.loadSerialized(serializedData);
+    if (err.ok()) {
+        // Recompute the node token map cache
+        dlt.generateNodeTokenMap();
+        add(dlt);
+    }
+    return err;
 }
 
 bool DLTManager::add(const DLTDiff& dltDiff) {

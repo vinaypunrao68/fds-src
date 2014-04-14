@@ -3,7 +3,7 @@
 ################################################
 
 package: fds-pkghelper
-version: 0.3
+version: 0.4
 maintainer: fds <engineering@formationds.com>
 description: Helper scripts for pkg creation
 

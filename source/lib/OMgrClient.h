@@ -203,12 +203,12 @@ namespace fds {
                       int node_state,
                       const FDSP_Node_Info_TypePtr& node_info);
     int recvMigrationEvent(bool dlt_type);
-    int updateDlt(bool dlt_type, std::string& dlt_data);
+    Error updateDlt(bool dlt_type, std::string& dlt_data);
     int recvDLTUpdate(FDSP_DLT_Data_TypePtr& dlt_info, const std::string& session_uuid);
     int recvDLTClose(FDSP_DltCloseTypePtr& close_info, const std::string& session_uuid);
     int sendDLTCloseAckToOM(FDSP_DltCloseTypePtr& dlt_close,
             const std::string& session_uuid);
-    int recvDLTStartMigration(FDSP_DLT_Data_TypePtr& dlt_info);
+    Error recvDLTStartMigration(FDSP_DLT_Data_TypePtr& dlt_info);
     int recvDMTUpdate(int dmt_version, const Node_Table_Type& dmt_table);
 
     int recvNotifyVol(VolumeDesc *vdb,

@@ -561,18 +561,17 @@ class FDS_NativeAPI {
 
  private: /* methods */
 
-  /* Checks if bucket is attached to AM, if not, sends test bucket
-   * message to OM
+  /**
+   * Sends 'test bucket' message to OM. If bucket exists (OM knows about it),
+   * OM will attach the bucket to this AM. Otherwise, will return error.
    * return error:
-   *    ERR_OK if bucket is already attached to AM
-   *    ERR_PENDING_RESP if test bucket message was sent to AM and now
-   *    we are waiting for response from OM (either we get attach volume 
-   *    message or volume does not exist).
+   *    ERR_OK if test bucket message was sent to OM and now we are waiting
+   *    for attach bucket from AM
    *    Other error codes if error happened.
-   * \return ret_volid will contain volume uuid for the bucket if returned 
-   * value is ERR_OK
    */
-  Error checkBucketExists(BucketContext *bucket_ctxt, fds_volid_t* ret_volid);
+  Error sendTestBucketToOM(const std::string& bucket_name,
+                           const std::string& access_key_id,
+                           const std::string& secret_access_key);
 
   /* helper function to initialize volume info to some default values, used by several native api methods */
   void initVolInfo(FDS_ProtocolInterface::FDSP_VolumeInfoTypePtr vol_info, 

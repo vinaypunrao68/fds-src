@@ -86,6 +86,15 @@ class tokenFileDb {
                            fds_token_id tok_id,
                            DataTier tier);
 
+    /**
+     * Returns true if a given file id is an id of a shadow file
+     * or if no shadow file, currently active file we are writing to
+     */
+    fds_bool_t isShadowFileId(fds_uint16_t file_id,
+                              fds_uint32_t disk_idx,
+                              fds_token_id tok_id,
+                              DataTier tier);
+
  private:  // methods
     fds_token_id GetTokenFileDb(const fds_token_id &tokId);
 
@@ -124,11 +133,6 @@ class tokenFileDb {
     fds_uint16_t getWriteFileId(fds_uint32_t disk_idx,
                                 fds_token_id tokId,
                                 DataTier tier);
-
-    void setWriteFileId(fds_uint32_t disk_idx,
-                        fds_token_id tokId,
-                        DataTier tier,
-                        fds_uint16_t file_id);
 
  private:
     fds::fds_mutex *tokenFileDbMutex;

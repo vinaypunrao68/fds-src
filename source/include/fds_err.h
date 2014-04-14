@@ -42,6 +42,9 @@ namespace fds {
     "Operation not permitted: would exceed total min iops",
     "Unauthorized access",
     "Failed to unlink file",
+    "Failed to serialize data",
+    "No bytes were written",
+    "No bytes were read",
     "Volume not found",
     "Dlt mismatch",
     "Invalid blob offset",
@@ -83,7 +86,10 @@ namespace fds {
     ERR_EXCEED_MIN_IOPS      = 24,
     ERR_UNAUTH_ACCESS        = 25,
     ERR_DISK_FILE_UNLINK_FAILED = 26,
-    ERR_VOL_NOT_FOUND        = 27,
+    ERR_SERIALIZE_FAILED     = 27,
+    ERR_NO_BYTES_WRITTEN     = 28,
+    ERR_NO_BYTES_READ        = 29,
+    ERR_VOL_NOT_FOUND        = 30,
 
     /* I/O error range */
     ERR_IO_DLT_MISMATCH      = 100,

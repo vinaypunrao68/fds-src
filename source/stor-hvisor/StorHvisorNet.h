@@ -229,7 +229,7 @@ public:
     sh_comm_modes GetRunTimeMode() { return mode; }
     boost::shared_ptr<FDSP_DataPathRespCbackI> dPathRespCback;
     boost::shared_ptr<FDSP_MetaDataPathRespCbackI> mPathRespCback;
-    Error dispatchSmPutMsg(StorHvJournalEntry *journEntry);
+    Error dispatchSmPutMsg(StorHvJournalEntry *journEntry, const NodeUuid &send_uuid);
     Error dispatchSmGetMsg(StorHvJournalEntry *journEntry);
 
     friend class FDSP_MetaDataPathRespCbackI;
