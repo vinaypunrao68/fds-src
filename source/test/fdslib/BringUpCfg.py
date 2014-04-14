@@ -154,7 +154,7 @@ class FdsNodeConfig(FdsConfig):
             '(cd %s && rm -r logs stats); ' % var_dir +
             '(cd /corefiles && rm *.core); '  +
             '(cd %s && ./fds clean -i); ' % tools_dir +
-            '(cd %s && rm -f hdd-*/*)' % dev_dir, wait_compl=True)
+            '(cd %s && rm -f hdd-*/* && rm -f ssd-*/*)' % dev_dir, wait_compl=True)
 
 ###
 # Handle AM config section
