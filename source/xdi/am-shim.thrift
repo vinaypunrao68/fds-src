@@ -36,6 +36,9 @@ service AmShim {
         binary getBlob(1:string domainName, 2:string volumeName, 3:string blobName, 4:i32 length, 5:i64 offset)
              throws (1: FdsException e),
 
-        void putBlob(1:string domainName, 2:string volumeName, 3:binary bytes, 4:i32 length, 5:i64 offset, 6:bool last)
+        void updateMetadata(1:string domainName, 2:string volumeName, 3:string blobName, 4:map<string, string> metadata)
+             throws (1: FdsException e),
+
+        void updateBlob(1:string domainName, 2:string volumeName, 3:string blobName, 4:binary bytes, 5:i32 length, 6:i64 offset)
              throws (1: FdsException e)
 }

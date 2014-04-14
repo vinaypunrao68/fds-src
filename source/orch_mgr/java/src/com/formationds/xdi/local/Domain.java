@@ -16,8 +16,7 @@ public class Domain implements Persistent {
     public Domain() {
     }
 
-    public Domain(long id, String name) {
-        this.id = id;
+    public Domain(String name) {
         this.name = name;
     }
 

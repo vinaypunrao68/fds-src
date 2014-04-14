@@ -14,7 +14,8 @@ public class Persister {
 
     public Persister(String memoryDbName) {
         AnnotationConfiguration config = new AnnotationConfiguration()
-                .addAnnotatedClass(Domain.class);
+                .addAnnotatedClass(Domain.class)
+                .addAnnotatedClass(Volume.class);
 
         config.setProperty("hibernate.connection.driver_class", "org.h2.Driver");
         config.setProperty("hibernate.connection.url", "jdbc:h2:mem:" + memoryDbName);
