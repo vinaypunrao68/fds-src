@@ -10,15 +10,17 @@ user_clean        := target gen-java $(comm_dir_lib)/java $(comm_dir_lib)/admin-
 
 include $(topdir)/Makefile.incl
 
+local_thrift_flags := -r --gen java
+
 compile:
 	mkdir -p $(comm_dir_lib)/java/
+	$(tool_thrift) $(local_thrift_flags) $(topdir)/xdi/am-shim.thrift
 	mvn -DskipTests clean assembly:directory -Dbuild.dir=$(comm_dir_lib)/java
 	cp -rv admin-webapp $(comm_dir_lib)
 
 #cp -rv target/classes $(comm_dir_lib)/java/
 #	cp -rv target/om-1.0-bin/om-1.0/* $(comm_dir_lib)/java/
 
-local_thrift_flags := -r --gen java
 
 gen-java/FDS_ProtocolInterface/FDSP_MsgHdrType.java: $(topdir)/fdsp/FDSP.thrift
 ifdef VERBOSE
