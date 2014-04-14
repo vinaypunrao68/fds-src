@@ -342,16 +342,13 @@ fds_uint32_t StorHvJournal::get_trans_id_for_blob(const std::string& blobName,
     try{
         trans_id = blob_to_jrnl_idx.at(blobName + ":" + std::to_string(blobOffset));
         trans_in_progress = true;
+        LOGDEBUG << "Comparing "
+                 << rwlog_tbl[trans_id].blobOffset
+                 << " and " << blobOffset
+                 << " and "
+                 << rwlog_tbl[trans_id].blobName
+                 << " and " << blobName;
         unlock();
-        //    StorHvJournalEntryLock je_lock(&rwlog_tbl[trans_id]);
-        LOGNOTIFY << "Comparing "
-                  << rwlog_tbl[trans_id].blobOffset
-                  << " and " << blobOffset
-                  << " and "
-                  << rwlog_tbl[trans_id].blobName
-                  << " and " << blobName;
-        /*fds_verify((rwlog_tbl[trans_id].blobOffset == blobOffset) &&
-          (rwlog_tbl[trans_id].blobName == blobName));*/
     } catch (const std::out_of_range& err) {
         /*
          * Catching this exception is our indicaction that the
@@ -360,10 +357,10 @@ fds_uint32_t StorHvJournal::get_trans_id_for_blob(const std::string& blobName,
         trans_id = get_free_trans_id();
         blob_to_jrnl_idx[blobName + ":" + std::to_string(blobOffset)] = trans_id;
         StorHvJournalEntryLock je_lock(&rwlog_tbl[trans_id]);
-        unlock();
         fds_verify(rwlog_tbl[trans_id].isActive() == false);
         rwlog_tbl[trans_id].blobName = blobName;
         rwlog_tbl[trans_id].blobOffset = blobOffset;
+        unlock();
     }
     LOGNORMAL << "Assigned trans id "
               << trans_id << " for blob "
