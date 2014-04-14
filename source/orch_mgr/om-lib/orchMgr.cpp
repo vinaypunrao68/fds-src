@@ -58,7 +58,7 @@ OrchMgr::~OrchMgr()
     }
 }
 
-void OrchMgr::proc_setup()
+void OrchMgr::proc_pre_startup()
 {
     int    argc;
     char **argv;

@@ -484,7 +484,7 @@ void DataMgr::setup_metadatapath_server(const std::string &ip)
                 metadatapath_handler);
 }
 
-void DataMgr::proc_setup()
+void DataMgr::proc_pre_startup()
 {
     fds::DmDiskInfo     *info;
     fds::DmDiskQuery     in;
@@ -493,7 +493,7 @@ void DataMgr::proc_setup()
 
     runMode = NORMAL_MODE;
 
-    PlatformProcess::proc_setup();
+    PlatformProcess::proc_pre_startup();
 
     // Get config values from that platform lib.
     //

@@ -22,12 +22,12 @@ class AM_Process : public PlatformProcess
                Platform *platform, Module **mod_vec)
         : PlatformProcess(argc, argv, "fds.am.", "am.log", platform, mod_vec) {}
 
-    void proc_setup() override
+    void proc_pre_startup() override
     {
         int    argc;
         char **argv;
 
-        PlatformProcess::proc_setup();
+        PlatformProcess::proc_pre_startup();
         FDS_NativeAPI *api = new FDS_NativeAPI(FDS_NativeAPI::FDSN_AWS_S3);
         FDS_NativeAPI *api_atmos = new FDS_NativeAPI(FDS_NativeAPI::FDSN_EMC_ATMOS);
 

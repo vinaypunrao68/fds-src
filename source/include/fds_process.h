@@ -123,9 +123,8 @@ class FdsProcess : public boost::noncopyable, public HasLogger {
      * When you override make sure to invoke base class setup to ensure
      * module vector is executed.
      */
-    virtual void setup();  /* DO not use, use main() instead, will clean up old calls. */
-    virtual void proc_setup();
-    virtual void proc_start_run();
+    virtual void proc_pre_startup();
+    virtual void proc_pre_service();
 
     /**
      * Main processing loop goes here
@@ -137,10 +136,10 @@ class FdsProcess : public boost::noncopyable, public HasLogger {
      * and run.  Return the value from the run() method.
      * Sequence in main:
      *    For each module, call mod_init().
-     *    Call proc)setup()
+     *    Call proc_pre_startup()
      *    For each module, call mod_startup().
      *    For each module, call mod_lockstep()
-     *    Call proc_start_run()
+     *    Call proc_pre_service()
      *    For each module, call mod_enable_service()
      *    Call run()
      *    For each module, call mod_stop_services()

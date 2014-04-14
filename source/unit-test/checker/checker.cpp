@@ -742,10 +742,10 @@ FdsCheckerProc::~FdsCheckerProc()
     checker_->mod_shutdown();
 }
 
-void FdsCheckerProc::proc_setup()
+void FdsCheckerProc::proc_pre_startup()
 {
     checker_->mod_load_from_config();
-    PlatformProcess::proc_setup();
+    PlatformProcess::proc_pre_startup();
 
     // checker_->mod_startup();
 }

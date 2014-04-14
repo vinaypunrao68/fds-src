@@ -18,11 +18,39 @@ static void run_dm_server(DataMgr *inst)
 {
     inst->run();  //  not return
 }
+
+class DM_Probe : public DataMgr
+{
+  public:
+    virtual ~DM_Probe() {}
+    DM_Probe(int argc, char **argv, Platform *platform, Module **mod_vec)
+        : DataMgr(argc, argv, platform, mod_vec) {}
+
+    void proc_pre_startup() override
+    {
+        // Add your probe adapter(s) to S3 connector.
+        gl_probeS3Eng.probe_add_adapter(&gl_Dm_ProbeMod);
+        for (int i = 0; i < 0; i++) {
+            gl_probeS3Eng.probe_add_adapter(gl_Dm_ProbeMod.pr_new_instance());
+        }
+    }
+    void proc_pre_service() override
+    {
+        // Now run the S3 engine.
+        fds_threadpool *pool = fds::gl_probeS3Eng.probe_get_thrpool();
+        pool->schedule(run_dm_server, this);
+    }
+    int run() override
+    {
+        FDS_NativeAPI *api = new FDS_NativeAPI(FDS_NativeAPI::FDSN_AWS_S3);
+        gl_probeS3Eng.run_server(api);
+        return 0;
+    }
+};
 }  // namespace fds
 
 int main(int argc, char **argv)
 {
-    fds::FDS_NativeAPI *api = new fds::FDS_NativeAPI(fds::FDS_NativeAPI::FDSN_AWS_S3);
     fds::Module *probe_vec[] = {
         &fds::gl_fds_stat,
         &fds::gl_probeS3Eng,
@@ -30,23 +58,8 @@ int main(int argc, char **argv)
         &fds::gl_Dm_ProbeMod,
         NULL
     };
-
-    fds::dataMgr = new DataMgr(argc, argv, &fds::gl_DmPlatform, probe_vec);
-    fds::dataMgr->setup();
-    fds::fds_threadpool *pool = fds::gl_probeS3Eng.probe_get_thrpool();
-
-    // Add your probe adapter(s) to S3 connector.
-    fds::gl_probeS3Eng.probe_add_adapter(&fds::gl_Dm_ProbeMod);
-    for (int i = 0; i < 0; i++) {
-        fds::gl_probeS3Eng.probe_add_adapter(
-            fds::gl_Dm_ProbeMod.pr_new_instance());
-    }
-    // TODO(Vy): fixme. Currently needed to setup json decoders
-    fds::gl_Dm_ProbeMod.mod_startup();
-
-    // Now run the S3 engine.
-    pool->schedule(fds::run_dm_server, fds::dataMgr);
-    fds::gl_probeS3Eng.run_server(api);
-
-    return 0;
+    fds::dataMgr = new fds::DM_Probe(argc, argv, &fds::gl_DmPlatform, probe_vec);
+    int ret = fds::dataMgr->main();
+    delete dataMgr;
+    return ret;
 }

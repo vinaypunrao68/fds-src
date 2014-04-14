@@ -84,7 +84,7 @@ class OrchMgr: public FdsProcess {
     void start_cfgpath_server();
 
     /**** From FdsProcess ****/
-    virtual void proc_setup() override;
+    virtual void proc_pre_startup() override;
     /*
      * Runs the orch manager server.
      * Does not return until the server is no longer running

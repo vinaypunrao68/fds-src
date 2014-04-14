@@ -30,11 +30,37 @@ OM_Module::om_singleton()
     return &gl_OMModule;
 }
 
+class OM_Probe : public OrchMgr
+{
+  public:
+    virtual ~OM_Probe() {}
+    OM_Probe(int argc, char **argv, Module **mod_vec)
+        : OrchMgr(argc, argv, "orch_mgr.conf", "fds.om", mod_vec) {}
+
+    void proc_pre_startup() override
+    {
+        /* Add your probe adapter(s) to S3 connector. */
+        gl_probeS3Eng.probe_add_adapter(&fds::gl_OM_ProbeMod);
+        for (int i = 0; i < 0; i++) {
+            gl_probeS3Eng.probe_add_adapter(gl_OM_ProbeMod.pr_new_instance());
+        }
+    }
+    void proc_pre_service() override
+    {
+        fds_threadpool *pool = gl_probeS3Eng.probe_get_thrpool();
+        pool->schedule(fds::run_om_server, fds::orchMgr);
+    }
+    int run() override
+    {
+        FDS_NativeAPI *api = new FDS_NativeAPI(fds::FDS_NativeAPI::FDSN_AWS_S3);
+        gl_probeS3Eng.run_server(api);
+        return 0;
+    }
+};
 }  // namespace fds
 
 int main(int argc, char **argv)
 {
-    fds::FDS_NativeAPI *api = new fds::FDS_NativeAPI(fds::FDS_NativeAPI::FDSN_AWS_S3);
     fds::Module *probe_vec[] = {
         &fds::gl_fds_stat,
         &fds::gl_probeS3Eng,
@@ -44,23 +70,10 @@ int main(int argc, char **argv)
         &fds::gl_OmDiscoveryMod,
         nullptr
     };
-    fds::orchMgr = new fds::OrchMgr(argc, argv, "orch_mgr.conf", "fds.om.", probe_vec);
+    fds::orchMgr = new fds::OM_Probe(argc, argv, probe_vec);
     fds::gl_orch_mgr = fds::orchMgr;
 
-    fds::orchMgr->setup();
-    fds::fds_threadpool *pool = fds::gl_probeS3Eng.probe_get_thrpool();
-
-    /* Add your probe adapter(s) to S3 connector. */
-    fds::gl_probeS3Eng.probe_add_adapter(&fds::gl_OM_ProbeMod);
-    for (int i = 0; i < 0; i++) {
-        fds::gl_probeS3Eng.probe_add_adapter(
-            fds::gl_OM_ProbeMod.pr_new_instance());
-    }
-    /* TODO: fixme, we shouldn't need to do this again */
-    fds::gl_OM_ProbeMod.mod_startup();
-
-    /* Now run the S3 engine. */
-    pool->schedule(fds::run_om_server, fds::orchMgr);
-    fds::gl_probeS3Eng.run_server(api);
-    return 0;
+    int ret = fds::orchMgr->main();
+    delete fds::orchMgr;
+    return ret;
 }
