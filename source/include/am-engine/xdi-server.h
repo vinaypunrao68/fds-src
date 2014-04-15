@@ -30,7 +30,7 @@ namespace xdi_att = apache::thrift::transport;
 namespace xdi_atp = apache::thrift::protocol;
 namespace xdi_ats = apache::thrift::server;
 
-class XdiIf : public xdi::AmShimIf {
+class FdsnIf : public xdi::AmShimIf {
     void createVolume(const std::string& domainName,
                       const std::string& volumeName,
                       const xdi::VolumePolicy& volumePolicy) {
@@ -157,10 +157,10 @@ class XdiIf : public xdi::AmShimIf {
 };
 
 /**
- * RPC-based server for XDI. Exposes XDI interface via
+ * RPC-based server for FDSN. Exposes FDSN interface via
  * RPC-endpoints.
  */
-class XdiServer : public Module {
+class FdsnServer : public Module {
   private:
     FDS_NativeAPI            *eng_api;
     fds_uint32_t             port;
@@ -178,8 +178,8 @@ class XdiServer : public Module {
     boost::shared_ptr<boost::thread> listen_thread;
 
   public:
-    explicit XdiServer(const std::string &name);
-    virtual ~XdiServer() {
+    explicit FdsnServer(const std::string &name);
+    virtual ~FdsnServer() {
     }
 
     int  mod_init(SysParams const *const param);
@@ -190,7 +190,7 @@ class XdiServer : public Module {
     virtual void deinit_server();
 };
 
-extern XdiServer gl_XdiServer;
+extern FdsnServer gl_FdsnServer;
 
 }  // namespace fds
 
