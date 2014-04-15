@@ -9,6 +9,9 @@
 #include <OmResources.h>
 #include <orchMgr.h>
 #include <om-discovery.h>
+#include <OmDmtDeploy.h>
+#include <orch-mgr/om-service.h>
+
 
 namespace fds {
 
@@ -1238,6 +1241,8 @@ VolumeContainer::om_notify_vol_resp(om_vol_notify_t type,
                                     const ResourceUUID& vol_uuid)
 {
     VolumeInfo::pointer vol = VolumeInfo::vol_cast_ptr(rs_get_resource(vol_uuid));
+    OM_Module *om = OM_Module::om_singleton();
+    OM_DMTMod *dmtMod = om->om_dmt_mod();
     if (vol == NULL) {
         // we probably deleted a volume, just print a warning
         LOGWARN << "Received volume notify response for volume "
@@ -1251,6 +1256,7 @@ VolumeContainer::om_notify_vol_resp(om_vol_notify_t type,
         case om_notify_vol_add:
             if (resp_err.ok()) {
                 vol->vol_event(VolCrtOkEvt(true));
+                dmtMod->dmt_deploy_event(DmtVolAckEvt());
             } else {
                 // TODO(anna) send response to volume create here with error
                 LOGERROR << "Received volume create response with error ("

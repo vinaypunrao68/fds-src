@@ -1042,18 +1042,24 @@ OM_NodeContainer::om_activate_node_services(const NodeUuid& node_uuid,
 // ----------------
 //
 static void
-om_send_vol_info(NodeAgent::pointer me, VolumeInfo::pointer vol)
+om_send_vol_info(NodeAgent::pointer me, fds_uint32_t *cnt, VolumeInfo::pointer vol)
 {
+    (*cnt)++;
+    LOGDEBUG << "Dmt Send Volume to Node :" << vol->vol_get_name();
     OM_SmAgent::agt_cast_ptr(me)->om_send_vol_cmd(vol, fpi::FDSP_MSG_CREATE_VOL);
 }
 
 // om_bcast_vol_list
 // -----------------
 //
-void
+fds_uint32_t
 OM_NodeContainer::om_bcast_vol_list(NodeAgent::pointer node)
 {
-    om_volumes->vol_foreach<NodeAgent::pointer>(node, om_send_vol_info);
+    fds_uint32_t cnt = 0;
+    om_volumes->vol_foreach<NodeAgent::pointer, fds_uint32_t *>
+                              (node, &cnt, om_send_vol_info);
+    LOGDEBUG << "Dmt bcast Volume list :" << cnt;
+    return cnt;
 }
 
 // om_send_vol_command
@@ -1136,8 +1142,9 @@ OM_NodeContainer::om_bcast_vol_delete(VolumeInfo::pointer vol, fds_bool_t check_
 // Plugin to send a generic node command to all nodes.  Plugin to node iterator.
 //
 static void
-om_send_node_command(const om_node_msg_t &msg, NodeAgent::pointer node)
+om_send_node_command(const om_node_msg_t &msg, fds_uint32_t *cnt, NodeAgent::pointer node)
 {
+    (*cnt)++;
     OM_SmAgent::agt_cast_ptr(node)->om_send_node_cmd(msg);
 }
 
@@ -1176,6 +1183,7 @@ void
 OM_NodeContainer::om_bcast_throttle_lvl(float throttle_level)
 {
     om_node_msg_t msg;
+    fds_uint32_t count = 0;
     fpi::FDSP_ThrottleMsgTypePtr throttle(new fpi::FDSP_ThrottleMsgType);
 
     throttle->domain_id      = DEFAULT_LOC_DOMAIN_ID;
@@ -1184,7 +1192,8 @@ OM_NodeContainer::om_bcast_throttle_lvl(float throttle_level)
     msg.nd_msg_code   = fpi::FDSP_MSG_SET_THROTTLE;
     msg.u.nd_throttle = &throttle;
 
-    dc_am_nodes->agent_foreach<const om_node_msg_t &>(msg, om_send_node_command);
+    dc_am_nodes->agent_foreach<const om_node_msg_t &, \
+            fds_uint32_t *>(msg, &count, om_send_node_command);
 }
 
 // om_set_throttle_lvl
@@ -1219,18 +1228,24 @@ OM_NodeContainer::om_bcast_tier_audit(fpi::FDSP_TierPolicyAuditPtr audit)
 // om_bcast_dmt_table
 // ------------------
 //
-void
+fds_uint32_t
 OM_NodeContainer::om_bcast_dmt_table()
 {
+    fds_uint32_t count = 0;
     om_node_msg_t         msg;
     fpi::FDSP_DMT_TypePtr dmt = om_curDmt->toFdsp();
 
     msg.nd_msg_code  = fpi::FDSP_MSG_DMT_UPDATE;
     msg.u.nd_dmt_tab = &dmt;
-    dc_am_nodes->agent_foreach<const om_node_msg_t &>(msg, om_send_node_command);
-    dc_dm_nodes->agent_foreach<const om_node_msg_t &>(msg, om_send_node_command);
-}
+    dc_am_nodes->agent_foreach<const om_node_msg_t &, \
+          fds_uint32_t *>(msg, &count, om_send_node_command);
+    LOGDEBUG << "Sent dmt to " << count << "AM nodes successfully";
 
+    dc_dm_nodes->agent_foreach<const om_node_msg_t &, \
+          fds_uint32_t *>(msg, &count, om_send_node_command);
+    LOGDEBUG << "Sent dmt to " << count << " DM nodes successfully";
+    return count;
+}
 
 // om_send_dlt
 // -----------------------

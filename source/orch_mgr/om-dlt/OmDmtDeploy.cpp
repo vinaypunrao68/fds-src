@@ -277,7 +277,9 @@ void
 DmtDplyFSM::DACT_SendDmts::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
     FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "FSM DACT_SendDmts";
-    OM_NodeContainer* loc_domain = OM_NodeDomainMod::om_loc_domain_ctrl();
+    OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+    OM_NodeContainer* loc_domain = domain->om_loc_domain_ctrl();
+
     loc_domain->om_round_robin_dmt();
     fds_uint32_t count  = loc_domain->om_bcast_dmt_table();
     count = 0;

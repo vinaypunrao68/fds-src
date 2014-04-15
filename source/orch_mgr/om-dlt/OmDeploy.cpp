@@ -329,7 +329,7 @@ void DltDplyFSM::RetryTimerTask::runTimerTask()
 {
     OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
     LOGNOTIFY << "DltDplyFSM: retry to re-compute DLT";
-    domain->om_update_cluster();
+    domain->om_dlt_update_cluster();
 }
 
 // GRD_DltCompute
@@ -588,7 +588,7 @@ DltDplyFSM::DACT_UpdDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
 {
     LOGDEBUG << "DltFSM DACT_UpdDone";
     OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
-    domain->om_update_cluster();
+    domain->om_dlt_update_cluster();
 }
 
 // GRD_DltRebal

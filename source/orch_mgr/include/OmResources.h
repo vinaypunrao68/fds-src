@@ -404,7 +404,7 @@ class OM_NodeContainer : public DomainContainer
 
     virtual void om_bcast_tier_policy(fpi::FDSP_TierPolicyPtr policy);
     virtual void om_bcast_tier_audit(fpi::FDSP_TierPolicyAuditPtr audit);
-    virtual void om_bcast_vol_list(NodeAgent::pointer node);
+    virtual fds_uint32_t  om_bcast_vol_list(NodeAgent::pointer node);
     virtual fds_uint32_t om_bcast_vol_create(VolumeInfo::pointer vol);
     virtual void om_bcast_vol_modify(VolumeInfo::pointer vol);
     virtual fds_uint32_t om_bcast_vol_delete(VolumeInfo::pointer vol,
@@ -433,6 +433,8 @@ class OM_NodeContainer : public DomainContainer
                                             fds_bool_t activate_sm,
                                             fds_bool_t activate_md,
                                             fds_bool_t activate_am);
+    virtual fds_uint32_t  om_bcast_dmt_table();
+    virtual void om_round_robin_dmt();
 
   private:
     friend class OM_NodeDomainMod;
@@ -455,8 +457,6 @@ class OM_NodeContainer : public DomainContainer
     fds_mutex                 om_dmt_mtx;
 
     void om_init_domain();
-    virtual void om_bcast_dmt_table();
-    virtual void om_round_robin_dmt();
 
     /**
      * Recent history of perf stats OM receives from AM nodes.
@@ -621,7 +621,8 @@ class OM_NodeDomainMod : public Module
     /**
      * Updates cluster map membership and does DLT
      */
-    virtual void om_update_cluster();
+    virtual void om_dmt_update_cluster(fds_uint32_t numVols);
+    virtual void om_dlt_update_cluster();
     virtual void om_persist_node_info(fds_uint32_t node_idx);
 
     /**
