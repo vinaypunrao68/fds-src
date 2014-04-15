@@ -6,6 +6,7 @@ topdir         := .
 #
 user_build_dir :=                       \
     fdsp                                \
+    xdi                                 \
     include                             \
     osdep                               \
     net-proxies                         \
