@@ -35,7 +35,7 @@ class AM_Process : public PlatformProcess
 
         gl_AMEngineS3.init_server(api);
         gl_AMEngineAtmos.init_server(api_atmos);
-        gl_XdiServer.init_server(api_xdi);
+        gl_FdsnServer.init_server(api_xdi);
 
         argv = mod_vectors_->mod_argv(&argc);
         CreateStorHvisorS3(argc, argv);
@@ -59,7 +59,7 @@ int main(int argc, char **argv)
         &fds::gl_AmPlatform,
         &fds::gl_AMEngineS3,
         &fds::gl_AMEngineAtmos,
-        &fds::gl_XdiServer,
+        &fds::gl_FdsnServer,
         nullptr
     };
     fds::AM_Process am_process(argc, argv, &fds::gl_AmPlatform, am_mod_vec);
