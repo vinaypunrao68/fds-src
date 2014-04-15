@@ -3,7 +3,7 @@
  */
 #include <string>
 
-#include <am-engine/xdi-server.h>
+#include <am-engine/fdsn-server.h>
 
 namespace fds {
 
@@ -59,12 +59,12 @@ FdsnServer::init_server(FDS_NativeAPI *api) {
     eng_api = api;
 
     try {
-        LOGNORMAL << "Starting the xdi server...";
+        LOGNORMAL << "Starting the FDSN server...";
         listen_thread.reset(new boost::thread(&xdi_ats::TThreadedServer::serve,
                                               server.get()));
       } catch(const xdi_att::TTransportException& e) {
-          LOGERROR << "unable to start server : " << e.what();
-          fds_panic("Unable to start a server...bailing out");
+          LOGERROR << "unable to start FDSN server : " << e.what();
+          fds_panic("Unable to start FDSN server...bailing out");
       }
 }
 

@@ -1,8 +1,8 @@
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
-#ifndef SOURCE_INCLUDE_AM_ENGINE_XDI_SERVER_H_
-#define SOURCE_INCLUDE_AM_ENGINE_XDI_SERVER_H_
+#ifndef SOURCE_INCLUDE_AM_ENGINE_FDSN_SERVER_H_
+#define SOURCE_INCLUDE_AM_ENGINE_FDSN_SERVER_H_
 
 #include <string>
 #include <vector>
@@ -194,4 +194,4 @@ extern FdsnServer gl_FdsnServer;
 
 }  // namespace fds
 
-#endif  // SOURCE_INCLUDE_AM_ENGINE_XDI_SERVER_H_
+#endif  // SOURCE_INCLUDE_AM_ENGINE_FDSN_SERVER_H_

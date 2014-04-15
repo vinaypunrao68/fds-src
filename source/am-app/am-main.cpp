@@ -4,7 +4,7 @@
 #include <string>
 #include <am-engine/s3connector.h>
 #include <am-engine/atmos-connector.h>
-#include <am-engine/xdi-server.h>
+#include <am-engine/fdsn-server.h>
 #include <util/fds_stat.h>
 #include <native_api.h>
 #include <am-platform.h>
