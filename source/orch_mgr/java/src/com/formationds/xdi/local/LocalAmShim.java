@@ -83,7 +83,14 @@ public class LocalAmShim implements AmShim.Iface {
 
     @Override
     public ByteBuffer getBlob(String domainName, String volumeName, String blobName, int length, long offset) throws FdsException, TException {
-        return null;
+        Blob blob = getBlob(domainName, volumeName, blobName);
+        int objectSize = blob.getVolume().getObjectSize();
+        List<Block> blocks = blob.getBlocks();
+
+        byte[] read = new BlockReader().read(i -> {
+            return i >= blocks.size()  ? new byte[objectSize] : blob.getBlocks().get(i).getBytes();
+        }, objectSize, offset, length);
+        return ByteBuffer.wrap(read);
     }
 
     @Override
@@ -95,8 +102,8 @@ public class LocalAmShim implements AmShim.Iface {
     public void updateBlob(String domainName, String volumeName, String blobName, ByteBuffer bytes, int length, long offset) throws FdsException, TException {
         Blob blob = getOrCreate(domainName, volumeName, blobName);
         List<Block> blocks = blob.getBlocks();
-        BlockWriter updater = new BlockWriter(i -> i >= blocks.size() ? null : blocks.get(i), () -> new Block(blob, makeBlock(blob)), blob.getVolume().getObjectSize());
-        Iterator<Block> updated = updater.update(bytes.array(), offset, length);
+        BlockWriter writer = new BlockWriter(i -> getOrMakeBlock(blob, blocks, i), blob.getVolume().getObjectSize());
+        Iterator<Block> updated = writer.update(bytes.array(), length, offset);
         while (updated.hasNext()) {
             Block next = updated.next();
             if (next.getId() == -1) {
@@ -107,27 +114,34 @@ public class LocalAmShim implements AmShim.Iface {
         }
     }
 
-    private byte[] makeBlock(Blob blob) {
-        return new byte[blob.getVolume().getObjectSize()];
+    private Block getOrMakeBlock(Blob blob, List<Block> blocks, Integer i) {
+        return i >= blocks.size() ? new Block(blob, new byte[blob.getVolume().getObjectSize()]) : blocks.get(i);
     }
 
+
     private Blob getOrCreate(String domainName, String volumeName, String blobName) {
-        Volume volume = getVolume(domainName, volumeName);
         Blob blob = getBlob(domainName, volumeName, blobName);
         if (blob == null) {
-            blob = persister.create(new Blob(volume, blobName));
+            blob = persister.create(new Blob(getVolume(domainName, volumeName), blobName));
         }
         return blob;
     }
 
-    private Blob getBlob(String domainName, String volumeName, String blobName) {
-        return (Blob) persister.execute(session -> session
+    public Blob getBlob(String domainName, String volumeName, String blobName) {
+        return persister.execute(session -> {
+            Blob blob = (Blob) session
                     .createCriteria(Blob.class)
                     .add(Restrictions.eq("name", blobName))
                     .createCriteria("volume")
                     .add(Restrictions.eq("name", volumeName))
                     .createCriteria("domain")
                     .add(Restrictions.eq("name", domainName))
-                    .uniqueResult());
+                    .uniqueResult();
+
+            if (blob != null) {
+                blob.initialize();
+            }
+            return blob;
+        });
     }
 }

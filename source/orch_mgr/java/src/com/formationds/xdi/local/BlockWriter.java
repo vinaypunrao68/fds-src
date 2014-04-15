@@ -6,20 +6,17 @@ package com.formationds.xdi.local;
 import java.io.ByteArrayInputStream;
 import java.util.Iterator;
 import java.util.function.Function;
-import java.util.function.Supplier;
 
 public class BlockWriter {
     private Function<Integer, Block> blockFinder;
     private int blockSize;
-    private Supplier<Block> blockSupplier;
 
-    public BlockWriter(Function<Integer, Block> blockFinder, Supplier<Block> newBlock, int blockSize) {
+    public BlockWriter(Function<Integer, Block> blockFinder, int blockSize) {
         this.blockFinder = blockFinder;
         this.blockSize = blockSize;
-        this.blockSupplier = newBlock;
     }
 
-    public Iterator<Block> update(byte[] bytes, final long offset, int length) {
+    public Iterator<Block> update(byte[] bytes, int length, final long offset) {
         ByteArrayInputStream in = new ByteArrayInputStream(bytes, 0, length);
         byte[] buf = new byte[blockSize];
 
@@ -28,7 +25,7 @@ public class BlockWriter {
             byte[] b = bytes;
             int l = length;
 
-            private int totalBlocks = (int) ((o + length) / blockSize);
+            private int totalBlocks = (int) Math.ceil((o + length) / (double) blockSize);
             private int currentBlock = 0;
 
             @Override
@@ -39,9 +36,6 @@ public class BlockWriter {
             @Override
             public Block next() {
                 Block b = blockFinder.apply(currentBlock);
-                if (b == null) {
-                    b = blockSupplier.get();
-                }
 
                 if (o < blockSize) {
                     int read = in.read(buf, 0, (int) (blockSize - o));

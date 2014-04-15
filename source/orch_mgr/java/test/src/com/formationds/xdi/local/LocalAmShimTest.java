@@ -16,16 +16,24 @@ public class LocalAmShimTest {
     @Test
     public void testVolumes() throws Exception {
         LocalAmShim shim = new LocalAmShim();
-        shim.createDomain("foo");
-        shim.createVolume("foo", "v1", new VolumeDescriptor(8));
-        shim.createVolume("foo", "v2", new VolumeDescriptor(32));
-        assertEquals(2, shim.listVolumes("foo").size());
-        shim.deleteVolume("foo", "v2");
-        assertEquals(1, shim.listVolumes("foo").size());
-        assertEquals(8, shim.statVolume("foo", "v1").getObjectSizeInBytes());
+        String domainName = "foo";
+        String volumeName = "v1";
+        String blobName = "blob";
 
-        shim.updateBlob("foo", "v1", "blob", ByteBuffer.wrap(new byte[] {1, 2, 3, 4, 5}), 4, 5);
-        assertArrayEquals(new byte[] {0, 0, 0, 0, 0, 1, 2, 3}, shim.getBlob("foo", "v1", "blob", 8, 0).array());
-        assertArrayEquals(new byte[] {4, 0, 0, 0, 0, 0, 0, 0}, shim.getBlob("foo", "v1", "blob", 8, 8).array());
+        shim.createDomain(domainName);
+        shim.createVolume(domainName, volumeName, new VolumeDescriptor(8));
+        shim.createVolume(domainName, "v2", new VolumeDescriptor(32));
+        assertEquals(2, shim.listVolumes(domainName).size());
+        shim.deleteVolume(domainName, "v2");
+        assertEquals(1, shim.listVolumes(domainName).size());
+        assertEquals(8, shim.statVolume(domainName, volumeName).getObjectSizeInBytes());
+
+        ByteBuffer buffer = ByteBuffer.wrap(new byte[]{1, 2, 3, 4, 5});
+        shim.updateBlob(domainName, volumeName, blobName, buffer, 4, 5);
+        Blob blob = shim.getBlob(domainName, volumeName, blobName);
+        assertEquals(2, blob.getBlocks().size());
+
+        assertArrayEquals(new byte[]{0, 0, 0, 0, 0, 1, 2, 3}, shim.getBlob(domainName, volumeName, blobName, 8, 0).array());
+        assertArrayEquals(new byte[] {4, 0, 0, 0, 0, 0, 0, 0}, shim.getBlob(domainName, volumeName, blobName, 8, 8).array());
     }
 }
