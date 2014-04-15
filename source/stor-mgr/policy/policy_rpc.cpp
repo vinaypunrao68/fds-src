@@ -78,13 +78,13 @@ SM_VolPolicyServ::serv_recvTierPolicyReq(const fdp::FDSP_TierPolicyPtr &tier)
         //
         objStorMgr->tierEngine->migrator->startRankTierMigration();
         if (tier->tier_media == fdp::TIER_MEDIA_SSD) {
-            desc->volType = fdp::FDSP_VOL_BLKDEV_SSD_TYPE;
+            desc->mediaPolicy = fdp::FDSP_MEDIA_POLICY_SSD;
         } else if (tier->tier_media == fdp::TIER_MEDIA_HDD) {
-            desc->volType = fdp::FDSP_VOL_BLKDEV_DISK_TYPE;
+            desc->mediaPolicy = fdp::FDSP_MEDIA_POLICY_HDD;
         } else if (tier->tier_media == fdp::TIER_MEDIA_HYBRID) {
-            desc->volType = fdp::FDSP_VOL_BLKDEV_HYBRID_TYPE;
+            desc->mediaPolicy = fdp::FDSP_MEDIA_POLICY_HYBRID;
         } else {
-            desc->volType = fdp::FDSP_VOL_BLKDEV_HYBRID_PREFCAP_TYPE;
+            desc->mediaPolicy = fdp::FDSP_MEDIA_POLICY_HYBRID_PREFCAP;
         }
         desc->tier_duration_sec = tier->tier_interval_sec;
         desc->tier_start_time =
@@ -93,7 +93,7 @@ SM_VolPolicyServ::serv_recvTierPolicyReq(const fdp::FDSP_TierPolicyPtr &tier)
         // Stop the migration
         objStorMgr->tierEngine->migrator->stopRankTierMigration();
         desc->tier_duration_sec = 0;
-        desc->volType = fdp::FDSP_VOL_BLKDEV_DISK_TYPE;
+        desc->mediaPolicy = fdp::FDSP_MEDIA_POLICY_HDD;
     }
     using namespace std;
     cout << "Recv tier Policy Request" << endl;

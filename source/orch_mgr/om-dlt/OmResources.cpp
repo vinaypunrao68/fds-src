@@ -967,6 +967,33 @@ OM_NodeDomainMod::om_recv_migration_done(const NodeUuid& uuid,
 }
 
 //
+// Called when OM receives response for DMT commit from a node
+//
+Error
+OM_NodeDomainMod::om_recv_dmt_commit_resp(FdspNodeType node_type,
+                                          const NodeUuid& uuid,
+                                          fds_uint32_t dmt_version) {
+    Error err(ERR_OK);
+    OM_Module *om = OM_Module::om_singleton();
+    OM_DMTMod *dmtMod = om->om_dmt_mod();
+    OM_NodeContainer *local = om_loc_domain_ctrl();
+    AgentContainer::pointer agent_container = local->dc_container_frm_msg(node_type);
+    NodeAgent::pointer agent = agent_container->agent_info(uuid);
+    if (agent == NULL) {
+        FDS_PLOG_SEV(g_fdslog, fds_log::error)
+                << "OM: Received DMT commit ack from unknown node: uuid "
+                << std::hex << uuid.uuid_get_val() << std::dec;
+        err = Error(ERR_NOT_FOUND);
+        return err;
+    }
+
+    LOGDEBUG << "Invoking the DmtCloseOkEvt";
+    dmtMod->dmt_deploy_event(DmtCloseOkEvt());
+
+    return err;
+}
+
+//
 // Called when OM receives response for DLT commit from a node
 //
 Error
@@ -1267,14 +1294,25 @@ OM_ControlRespHandler::NotifyDLTCloseResp(
 void
 OM_ControlRespHandler::NotifyDMTUpdateResp(
     const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-    const FDS_ProtocolInterface::FDSP_DMT_Type& dmt_info_resp) {
+    const FDS_ProtocolInterface::FDSP_DMT_Resp_Type& dmt_info_resp) {
     // Don't do anything here. This stub is just to keep cpp compiler happy
 }
 
 void
 OM_ControlRespHandler::NotifyDMTUpdateResp(
     FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-    FDS_ProtocolInterface::FDSP_DMT_TypePtr& dmt_info_resp) {
+    FDS_ProtocolInterface::FDSP_DMT_Resp_TypePtr& dmt_resp) {
+
+    FDS_PLOG_SEV(g_fdslog, fds_log::notification)
+            << "OM received response for NotifyDmtUpdate from node "
+            << fdsp_msg->src_node_name << ":"
+            << std::hex << fdsp_msg->src_service_uuid.uuid << std::dec
+            << " for DLT version " << dmt_resp->DMT_version;
+
+    // notify DLT state machine
+    OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
+    NodeUuid node_uuid((fdsp_msg->src_service_uuid).uuid);
+    domain->om_recv_dmt_commit_resp(fdsp_msg->src_id, node_uuid, dmt_resp->DMT_version);
 }
 
 }  // namespace fds

@@ -629,6 +629,7 @@ VolumeInfo::vol_fmt_desc_pkt(FDSP_VolumeDescType *pkt) const
 
     pkt->defConsisProtocol = fpi::FDSP_ConsisProtoType(pVol->consisProtocol);
     pkt->appWorkload       = pVol->appWorkload;
+    pkt->mediaPolicy   = pVol->mediaPolicy;
 }
 
 // vol_fmt_message
@@ -1055,7 +1056,8 @@ VolumeContainer::om_modify_vol(const FdspModVolPtr &mod_msg)
 
     // We will not modify capacity for now; just policy id or min/max and priority.
     //
-    if (mod_msg->vol_desc.volPolicyId != 0) {
+    if ((mod_msg->vol_desc.volPolicyId != 0) &&
+        (mod_msg->vol_desc.volPolicyId != mod_msg->vol_desc.volPolicyId)) {
         // Change policy id and its description from the catalog.
         //
         new_desc->volPolicyId = mod_msg->vol_desc.volPolicyId;
@@ -1072,6 +1074,9 @@ VolumeContainer::om_modify_vol(const FdspModVolPtr &mod_msg)
                      << vol->vol_get_properties()->volPolicyId;
             return err;
         }
+    } else if (mod_msg->vol_desc.volPolicyId != 0) {
+        LOGNOTIFY << "Modify volume " << vname
+                  << " policy id unchanged, not changing QoS Policy";
     } else {
         // Don't modify policy id, just min/max ips and priority.
         //
@@ -1084,6 +1089,12 @@ VolumeContainer::om_modify_vol(const FdspModVolPtr &mod_msg)
                   << " max iops " << new_desc->iops_max
                   << " priority " << new_desc->relativePrio;
     }
+    if (mod_msg->vol_desc.mediaPolicy != fpi::FDSP_MEDIA_POLICY_UNSET) {
+        new_desc->mediaPolicy = mod_msg->vol_desc.mediaPolicy;
+        LOGNOTIFY << "Modify volume " << vname
+                  << " also set media policy to " << new_desc->mediaPolicy;
+    }
+
     vol->vol_event(VolOpEvt(vol.get(),
                             FDS_ProtocolInterface::FDSP_MSG_MODIFY_VOL,
                             new_desc));

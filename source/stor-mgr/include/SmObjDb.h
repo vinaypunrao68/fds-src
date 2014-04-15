@@ -133,6 +133,7 @@ public:
 
     Error get(const ObjectID& objId, ObjMetaData& md);
     Error put(const OpCtx &opCtx, const ObjectID& objId, ObjMetaData& md);
+    Error remove(const ObjectID& objId);
 
 
     static Error get_from_snapshot(leveldb::Iterator* itr, ObjMetaData& md);

@@ -26,25 +26,25 @@ diskio::DataTier RankTierPutAlgo::selectTier(const ObjectID& oid,
 					       fds_volid_t volid)
 {
   diskio::DataTier ret_tier = diskio::diskTier;
-  FDSP_VolType vol_type;
+  FDSP_MediaPolicy media_policy;
   fds_uint32_t rank;
   StorMgrVolume* vol = sm_volTbl->getVolume(volid);
   fds_verify(vol != NULL);
   fds_verify(vol->voldesc != NULL);
 
-  vol_type = vol->voldesc->volType;
+  media_policy = vol->voldesc->mediaPolicy;
 
-  if (vol_type == FDSP_VOL_BLKDEV_SSD_TYPE) {
+  if (media_policy == FDSP_MEDIA_POLICY_SSD) {
     /* if 'all ssd', put to ssd */
     ret_tier = diskio::flashTier;
   }
-  else if ((vol_type == FDSP_VOL_BLKDEV_DISK_TYPE) ||
-	   (vol_type == FDSP_VOL_BLKDEV_HYBRID_PREFCAP_TYPE)) {
+  else if ((media_policy == FDSP_MEDIA_POLICY_HDD) ||
+	   (media_policy == FDSP_MEDIA_POLICY_HYBRID_PREFCAP)) {
     /* if 'all disk', put to disk 
      * or if hybrid but first preference to capacity tier, put to disk  */
     ret_tier = diskio::diskTier;
   }
-  else if (vol_type == FDSP_VOL_BLKDEV_HYBRID_TYPE) {
+  else if (media_policy == FDSP_MEDIA_POLICY_HYBRID) {
     /* hybrid tier policy */
     fds_uint32_t rank = rank_eng->getRank(oid, *vol->voldesc);
     if (rank < rank_eng->getTblTailRank()) {
@@ -54,7 +54,8 @@ diskio::DataTier RankTierPutAlgo::selectTier(const ObjectID& oid,
     // else ret_tier already set to disk 
   }
   else {
-    FDS_PLOG(tpa_log) << "RankTierPutAlgo: selectTier received unexpected volume type: " << vol_type;
+    FDS_PLOG(tpa_log)
+            << "RankTierPutAlgo: selectTier received unexpected media policy: " << media_policy;
   }
 
   return ret_tier;

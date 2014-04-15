@@ -63,6 +63,7 @@ namespace fds {
         // Other policies
         int                    volPolicyId;
         int                    archivePolicyId;
+        FDSP_MediaPolicy       mediaPolicy;   // can change media policy
         int                    placementPolicy;  // Can change placement policy
         FDSP_AppWorkload       appWorkload;
         int                    backupVolume;  // UUID of backup volume

@@ -495,12 +495,15 @@ void ObjectStorMgr::proc_pre_startup()
                                      10000,       /* high max iops so that unit tests does not take forever to finish */
                                      testVolId);
             fds_assert(testVdb != NULL);
-            if ( (testVolId % 3) == 0)
-                testVdb->volType = FDSP_VOL_BLKDEV_DISK_TYPE;
+            testVdb->volType = FDSP_VOL_BLKDEV_TYPE;
+            if ( (testVolId % 4) == 0)
+                testVdb->mediaPolicy = FDSP_MEDIA_POLICY_HDD;
             else if ( (testVolId % 3) == 1)
-                testVdb->volType = FDSP_VOL_BLKDEV_SSD_TYPE;
+                testVdb->mediaPolicy = FDSP_MEDIA_POLICY_SSD;
+            else if ( (testVolId % 3) == 2)
+                testVdb->mediaPolicy = FDSP_MEDIA_POLICY_HYBRID;
             else
-                testVdb->volType = FDSP_VOL_BLKDEV_HYBRID_TYPE;
+                testVdb->mediaPolicy = FDSP_MEDIA_POLICY_HYBRID_PREFCAP;
 
             volEventOmHandler(testVolId,
                               testVdb,
@@ -796,6 +799,11 @@ ObjectStorMgr::volEventOmHandler(fds_volid_t  volumeId,
             
             vol = objStorMgr->volTbl->getVolume(volumeId);
             fds_assert(vol != NULL);
+            if (vol->voldesc->mediaPolicy != vdb->mediaPolicy) {
+                GLOGWARN << "Modify volume requested to modify media policy "
+                         << "- Not supported yet! Not modifying media policy";
+            }
+
             vol->voldesc->modifyPolicyInfo(vdb->iops_min, vdb->iops_max, vdb->relativePrio);
             err = objStorMgr->qosCtrl->modifyVolumeQosParams(vol->getVolId(),
                                                              vdb->iops_min, vdb->iops_max, vdb->relativePrio);
@@ -2383,8 +2391,11 @@ ObjectStorMgr::condCopyObjectInternal(const ObjectID &objId)
 
         delete disk_req;
     } else {
-        // TODO(anna) not going to copy obj, remove entry from obj db
+        // not going to copy obj, remove entry from obj db
         LOGDEBUG << "Will garbage-collect obj " << objId;
+        smObjDb->lock(objId);
+        err = smObjDb->remove(objId);
+        smObjDb->unlock(objId);
     }
 
     return err;
