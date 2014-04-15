@@ -155,7 +155,7 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
              "Remove services: remove-services <node_name> "
              "[ -e \"am,dm,sm\" ]")
             ("throttle", "Throttle traffic: throttle -t <throttle_level> ")
-            ("scavenger-start", po::value<int>()->default_value(-1),
+            ("scavenger-start", po::value<int>(),
              "scavenger-start <token_id> (if token_id is -1, will GC all tokens")
             ("policy-show", po::value<std::string>(), "Show policy")
             ("volume-size,s", po::value<double>(), "volume capacity")

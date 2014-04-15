@@ -52,7 +52,7 @@ if __name__ == '__main__':
     # Status
     if options.clus_status:
         for n in nodes:
-            n.nd_rmt_agent.ssh_exec('ps -ef | grep -v grep | grep -v base | grep .*com.formationds.web.om.Main', output = True)
+            n.nd_rmt_agent.ssh_exec('ps -ef | grep -v grep | grep -v base | grep com.formationds.web.om.Main', output = True)
             n.nd_rmt_agent.ssh_exec('ps -ef | grep -v grep | grep -v bash | grep plat', output = True)
             n.nd_rmt_agent.ssh_exec('ps -ef | grep -v grep | grep -v bash | grep Mgr', output = True)
             n.nd_rmt_agent.ssh_exec('ps -ef | grep -v grep | grep -v bash | grep AMA', output = True)
@@ -80,7 +80,6 @@ if __name__ == '__main__':
             cli.run_cli('--activate-nodes abc -k 1 -e sm,dm')
         else:
             cli.run_cli('--activate-nodes abc -k 1 -e sm')
-    	cli.run_cli('--activate-nodes abc -k 1 -e sm,dm')
         print "Waiting for node %s to come up" % n.nd_rmt_host
     	time.sleep(3)
 
