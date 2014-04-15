@@ -12,7 +12,7 @@ user_cpp         :=               \
     atmos-connector.cpp \
     http_utils.cpp \
     am-urls.cpp \
-    xdi-server.cpp
+    fdsn-server.cpp
 
 user_no_style    := am-urls.cpp
 user_ar_libs     := fds-am-engine
