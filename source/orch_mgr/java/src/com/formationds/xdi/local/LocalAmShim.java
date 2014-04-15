@@ -3,11 +3,9 @@ package com.formationds.xdi.local;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.xdi.AmShim;
-import com.formationds.xdi.BlobDescriptor;
-import com.formationds.xdi.FdsException;
-import com.formationds.xdi.VolumeDescriptor;
+import com.formationds.xdi.*;
 import org.apache.thrift.TException;
+import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;
 import org.json.JSONObject;
 
@@ -31,11 +29,11 @@ public class LocalAmShim implements AmShim.Iface {
     }
 
     @Override
-    public void createVolume(String domainName, String volumeName, int objectSizeInBytes) throws FdsException, TException {
+    public void createVolume(String domainName, String volumeName, VolumePolicy volumePolicy) throws FdsException, TException {
         Domain domain = (Domain) persister.execute(session -> session.createCriteria(Domain.class)
                 .add(Restrictions.eq("name", domainName))
                 .uniqueResult());
-        persister.create(new Volume(domain, volumeName, objectSizeInBytes));
+        persister.create(new Volume(domain, volumeName, volumePolicy.getObjectSizeInBytes()));
     }
 
     @Override
@@ -57,11 +55,12 @@ public class LocalAmShim implements AmShim.Iface {
     @Override
     public VolumeDescriptor statVolume(String domainName, String volumeName) throws FdsException, TException {
         Volume volume = getVolume(domainName, volumeName);
-        return new VolumeDescriptor(volumeName, volume.getUuid(), volume.getTimestamp(), volume.getObjectSize());
+        Uuid uuid = new Uuid(volume.getUuidLow(), volume.getUuidHigh());
+        return new VolumeDescriptor(volumeName, uuid, volume.getTimestamp(), new VolumePolicy(volume.getObjectSize()));
     }
 
     @Override
-    public List<String> listVolumes(String domainName) throws FdsException, TException {
+    public List<VolumeDescriptor> listVolumes(String domainName) throws FdsException, TException {
         List<Volume> volumes = persister.execute(session ->
                 session.createCriteria(Volume.class)
                         .createCriteria("domain")
@@ -69,12 +68,12 @@ public class LocalAmShim implements AmShim.Iface {
                         .list());
 
         return volumes.stream()
-                .map(v -> v.getName())
+                .map(v -> new VolumeDescriptor(v.getName(), new Uuid(v.getUuidLow(), v.getUuidHigh()), v.getTimestamp(), new VolumePolicy(v.getObjectSize())))
                 .collect(Collectors.toList());
     }
 
     @Override
-    public List<String> volumeContents(String domainName, String volumeName) throws FdsException, TException {
+    public List<String> volumeContents(String domainName, String volumeName, int count, long offset) throws FdsException, TException {
         List<Blob> blobs = persister.execute(session ->
                 session.createCriteria(Blob.class)
                         .createCriteria("volume")
@@ -84,6 +83,8 @@ public class LocalAmShim implements AmShim.Iface {
                         .list());
 
         return blobs.stream()
+                .skip(offset)
+                .limit(count)
                 .map(b -> b.getName())
                 .collect(Collectors.toList());
     }
@@ -102,6 +103,29 @@ public class LocalAmShim implements AmShim.Iface {
     }
 
     @Override
+    public Uuid startBlobTx(String domainName, String volumeName, String blobName) throws FdsException, TException {
+        return new Uuid(0, 0);
+    }
+
+    @Override
+    public void commit(Uuid txId) throws FdsException, TException {
+
+    }
+
+    @Override
+    public VolumeStatus volumeStatus(String domainName, String volumeName) throws FdsException, TException {
+        long count = (int) persister.execute(session ->
+                session.createCriteria(Blob.class)
+                        .createCriteria("volume")
+                        .add(Restrictions.eq("name", volumeName))
+                        .createCriteria("domain")
+                        .add(Restrictions.eq("name", domainName))
+                        .setProjection(Projections.rowCount()))
+                        .uniqueResult();
+        return new VolumeStatus(count);
+    }
+
+    @Override
     public ByteBuffer getBlob(String domainName, String volumeName, String blobName, int length, long offset) throws FdsException, TException {
         Blob blob = getBlob(domainName, volumeName, blobName);
         int objectSize = blob.getVolume().getObjectSize();
@@ -114,14 +138,15 @@ public class LocalAmShim implements AmShim.Iface {
     }
 
     @Override
-    public void updateMetadata(String domainName, String volumeName, String blobName, Map<String, String> metadata) throws FdsException, TException {
+    public void updateMetadata(String domainName, String volumeName, String blobName, Uuid txUuid, Map<String, String> metadata) throws FdsException, TException {
         Blob blob = getOrCreate(domainName, volumeName, blobName);
         blob.setMetadataJson(new JSONObject(metadata).toString(2));
         persister.update(blob);
     }
 
+
     @Override
-    public void updateBlob(String domainName, String volumeName, String blobName, ByteBuffer bytes, int length, long offset) throws FdsException, TException {
+    public void updateBlob(String domainName, String volumeName, String blobName, Uuid txUuid, ByteBuffer bytes, int length, long offset) throws FdsException, TException {
         Blob blob = getOrCreate(domainName, volumeName, blobName);
         long byteCount = Math.max(blob.getByteCount(), offset + length);
         List<Block> blocks = blob.getBlocks();
@@ -140,6 +165,15 @@ public class LocalAmShim implements AmShim.Iface {
             blob.setByteCount(byteCount);
             persister.update(blob);
         }
+    }
+
+    @Override
+    public void deleteBlob(String domainName, String volumeName, String blobName) throws FdsException, TException {
+        Blob blob = getBlob(domainName, volumeName, blobName);
+        for (Block block : blob.getBlocks()) {
+            persister.delete(block);
+        }
+        persister.delete(blob);
     }
 
     private Block getOrMakeBlock(Blob blob, List<Block> blocks, Integer i) {

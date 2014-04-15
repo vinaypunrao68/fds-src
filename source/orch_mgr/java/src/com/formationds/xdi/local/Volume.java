@@ -17,12 +17,17 @@ public class Volume implements Persistent {
     private String name;
     private int objectSize;
     private long timestamp = DateTime.now().getMillis();
-    private String uuid = UUID.randomUUID().toString();
+    private long uuidLow;
+    private long uuidHigh;
 
     public Volume() {
+        UUID uuid = UUID.randomUUID();
+        uuidLow = uuid.getLeastSignificantBits();
+        uuidHigh = uuid.getLeastSignificantBits();
     }
 
     public Volume(Domain domain, String name, int objectSize) {
+        this();
         this.domain = domain;
         this.name = name;
         this.objectSize = objectSize;
@@ -57,18 +62,20 @@ public class Volume implements Persistent {
         return timestamp;
     }
 
-    @Column(name="uuid", nullable = false)
-    public String getUuid() {
-        return uuid;
+    @Column(name="uuid_low", nullable = false)
+    public long getUuidLow() {
+        return uuidLow;
+    }
+
+    @Column(name="uuid_high", nullable = false)
+    public long getUuidHigh() {
+        return uuidHigh;
     }
 
     public void setTimestamp(long timestamp) {
         this.timestamp = timestamp;
     }
 
-    public void setUuid(String uuid) {
-        this.uuid = uuid;
-    }
 
     public void setDomain(Domain domain) {
         this.domain = domain;
@@ -84,6 +91,14 @@ public class Volume implements Persistent {
 
     public void setObjectSize(int objectSize) {
         this.objectSize = objectSize;
+    }
+
+    public void setUuidLow(long uuidLow) {
+        this.uuidLow = uuidLow;
+    }
+
+    public void setUuidHigh(long uuidHigh) {
+        this.uuidHigh = uuidHigh;
     }
 
     @Override

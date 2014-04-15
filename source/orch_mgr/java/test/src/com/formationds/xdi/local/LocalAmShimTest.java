@@ -4,7 +4,8 @@ package com.formationds.xdi.local;
  */
 
 import com.formationds.xdi.BlobDescriptor;
-import com.formationds.xdi.VolumeDescriptor;
+import com.formationds.xdi.Uuid;
+import com.formationds.xdi.VolumePolicy;
 import com.google.common.base.Joiner;
 import org.junit.Test;
 
@@ -25,15 +26,15 @@ public class LocalAmShimTest {
         String blobName = "blob";
 
         shim.createDomain(domainName);
-        shim.createVolume(domainName, volumeName, 8);
-        shim.createVolume(domainName, "v2", 32);
+        shim.createVolume(domainName, volumeName, new VolumePolicy(8));
+        shim.createVolume(domainName, "v2", new VolumePolicy(32));
         assertEquals(2, shim.listVolumes(domainName).size());
         shim.deleteVolume(domainName, "v2");
         assertEquals(1, shim.listVolumes(domainName).size());
-        assertEquals(8, shim.statVolume(domainName, volumeName).getObjectSizeInBytes());
+        assertEquals(8, shim.statVolume(domainName, volumeName).getPolicy().getObjectSizeInBytes());
 
         ByteBuffer buffer = ByteBuffer.wrap(new byte[]{1, 2, 3, 4, 5});
-        shim.updateBlob(domainName, volumeName, blobName, buffer, 4, 5);
+        shim.updateBlob(domainName, volumeName, blobName, new Uuid(), buffer, 4, 5);
         Blob blob = shim.getBlob(domainName, volumeName, blobName);
         assertEquals(2, blob.getBlocks().size());
 
@@ -43,7 +44,7 @@ public class LocalAmShimTest {
         Map<String, String> metadata = new HashMap<>();
         metadata.put("hello", "world");
         metadata.put("goodnight", "moon");
-        shim.updateMetadata(domainName, volumeName, blobName, metadata);
+        shim.updateMetadata(domainName, volumeName, blobName, new Uuid(), metadata);
         BlobDescriptor descriptor = shim.statBlob(domainName, volumeName, blobName);
         Map<String, String> m = descriptor.getMetadata();
         assertEquals(2, m.keySet().size());
@@ -51,7 +52,10 @@ public class LocalAmShimTest {
         assertEquals("moon", m.get("goodnight"));
         assertEquals(9, descriptor.getByteCount());
 
-        shim.updateBlob(domainName, volumeName, "otherBlob", buffer, 4, 5);
-        assertEquals("blob, otherBlob", Joiner.on(", ").join(shim.volumeContents(domainName, volumeName)));
+        shim.updateBlob(domainName, volumeName, "otherBlob", new Uuid(), buffer, 4, 5);
+        assertEquals("blob, otherBlob", Joiner.on(", ").join(shim.volumeContents(domainName, volumeName, Integer.MAX_VALUE, 0)));
+
+        shim.deleteBlob(domainName, volumeName, "otherBlob");
+        assertEquals("blob", Joiner.on(", ").join(shim.volumeContents(domainName, volumeName, Integer.MAX_VALUE, 0)));
     }
 }
