@@ -11,6 +11,7 @@ import org.apache.thrift.TException;
 import org.hibernate.criterion.Restrictions;
 
 import java.nio.ByteBuffer;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -92,6 +93,41 @@ public class LocalAmShim implements AmShim.Iface {
 
     @Override
     public void updateBlob(String domainName, String volumeName, String blobName, ByteBuffer bytes, int length, long offset) throws FdsException, TException {
+        Blob blob = getOrCreate(domainName, volumeName, blobName);
+        List<Block> blocks = blob.getBlocks();
+        BlockWriter updater = new BlockWriter(i -> i >= blocks.size() ? null : blocks.get(i), () -> new Block(blob, makeBlock(blob)), blob.getVolume().getObjectSize());
+        Iterator<Block> updated = updater.update(bytes.array(), offset, length);
+        while (updated.hasNext()) {
+            Block next = updated.next();
+            if (next.getId() == -1) {
+                persister.create(next);
+            } else {
+                persister.update(next);
+            }
+        }
+    }
 
+    private byte[] makeBlock(Blob blob) {
+        return new byte[blob.getVolume().getObjectSize()];
+    }
+
+    private Blob getOrCreate(String domainName, String volumeName, String blobName) {
+        Volume volume = getVolume(domainName, volumeName);
+        Blob blob = getBlob(domainName, volumeName, blobName);
+        if (blob == null) {
+            blob = persister.create(new Blob(volume, blobName));
+        }
+        return blob;
+    }
+
+    private Blob getBlob(String domainName, String volumeName, String blobName) {
+        return (Blob) persister.execute(session -> session
+                    .createCriteria(Blob.class)
+                    .add(Restrictions.eq("name", blobName))
+                    .createCriteria("volume")
+                    .add(Restrictions.eq("name", volumeName))
+                    .createCriteria("domain")
+                    .add(Restrictions.eq("name", domainName))
+                    .uniqueResult());
     }
 }

@@ -8,12 +8,12 @@ import java.util.Iterator;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-public class BlockUpdater {
-    private Function<Long, Block> blockFinder;
+public class BlockWriter {
+    private Function<Integer, Block> blockFinder;
     private int blockSize;
     private Supplier<Block> blockSupplier;
 
-    public BlockUpdater(Function<Long, Block> blockFinder, Supplier<Block> newBlock, int blockSize) {
+    public BlockWriter(Function<Integer, Block> blockFinder, Supplier<Block> newBlock, int blockSize) {
         this.blockFinder = blockFinder;
         this.blockSize = blockSize;
         this.blockSupplier = newBlock;
@@ -28,8 +28,8 @@ public class BlockUpdater {
             byte[] b = bytes;
             int l = length;
 
-            private long totalBlocks = (o + length) / blockSize;
-            private long currentBlock = 0;
+            private int totalBlocks = (int) ((o + length) / blockSize);
+            private int currentBlock = 0;
 
             @Override
             public boolean hasNext() {

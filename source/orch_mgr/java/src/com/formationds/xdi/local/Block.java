@@ -12,7 +12,7 @@ import javax.persistence.*;
 @Table(name="block")
 public class Block implements Persistent {
     private Blob blob;
-    private long id;
+    private long id = -1;
     private byte[] bytes;
 
     public Block(Blob blob, byte[] bytes) {

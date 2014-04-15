@@ -10,10 +10,10 @@ import java.util.Iterator;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertFalse;
 
-public class BlockUpdaterTest {
+public class BlockWriterTest {
     @Test
     public void testWrite() throws Exception {
-        BlockUpdater outputStream = new BlockUpdater(i -> null, () -> new Block(null, new byte[8]), 8);
+        BlockWriter outputStream = new BlockWriter(i -> null, () -> new Block(null, new byte[8]), 8);
         Iterator<Block> updated = outputStream.update(new byte[] {1, 2, 3, 4, 5}, 5, 4);
         assertArrayEquals(new byte[]{0, 0, 0, 0, 0, 1, 2, 3}, updated.next().getBytes());
         assertArrayEquals(new byte[]{4, 0, 0, 0, 0, 0, 0, 0}, updated.next().getBytes());
