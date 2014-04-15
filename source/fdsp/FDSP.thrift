@@ -799,9 +799,6 @@ struct FDSP_CopyTokenReq
 /* Payload for CopyToken reponse path */
 typedef FDSP_MigMsgHdrType FDSP_CopyTokenResp
 
-/* Payload for CopyToken reponse path */
-typedef FDSP_MigMsgHdrType FDSP_CopyTokenResp
-
 /* Payload for SyncToken RPC */
 struct FDSP_SyncTokenReq
 {
