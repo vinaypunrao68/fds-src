@@ -5,6 +5,7 @@ package com.formationds.xdi.local;
 
 import com.formationds.xdi.*;
 import com.formationds.xdi.shim.*;
+import com.formationds.xdi.shim.VolumeDescriptor;
 import org.apache.thrift.TException;
 import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;

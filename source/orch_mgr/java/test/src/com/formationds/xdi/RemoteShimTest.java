@@ -17,8 +17,9 @@ import java.util.List;
 public class RemoteShimTest {
     @Test
     public void testConnect() throws Exception {
-        AmShim.Client client = new AmShim.Client(new TBinaryProtocol(new TSocket("10.1.14.39", 9988)));
-
+        TSocket socket = new TSocket("10.1.14.39", 9988);
+        socket.open();
+        AmShim.Client client = new AmShim.Client(new TBinaryProtocol(socket));
         String domainName = "myDomain";
         String volumeName = "myVolume";
         String blobName = "myBlob";
