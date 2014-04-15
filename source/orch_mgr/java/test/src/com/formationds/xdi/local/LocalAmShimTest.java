@@ -5,6 +5,7 @@ package com.formationds.xdi.local;
 
 import com.formationds.xdi.BlobDescriptor;
 import com.formationds.xdi.VolumeDescriptor;
+import com.google.common.base.Joiner;
 import org.junit.Test;
 
 import java.nio.ByteBuffer;
@@ -49,5 +50,8 @@ public class LocalAmShimTest {
         assertEquals("world", m.get("hello"));
         assertEquals("moon", m.get("goodnight"));
         assertEquals(9, descriptor.getByteCount());
+
+        shim.updateBlob(domainName, volumeName, "otherBlob", buffer, 4, 5);
+        assertEquals("blob, otherBlob", Joiner.on(", ").join(shim.volumeContents(domainName, volumeName)));
     }
 }

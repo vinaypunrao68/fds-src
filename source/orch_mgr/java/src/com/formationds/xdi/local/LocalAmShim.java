@@ -75,7 +75,17 @@ public class LocalAmShim implements AmShim.Iface {
 
     @Override
     public List<String> volumeContents(String domainName, String volumeName) throws FdsException, TException {
-        return null;
+        List<Blob> blobs = persister.execute(session ->
+                session.createCriteria(Blob.class)
+                        .createCriteria("volume")
+                        .add(Restrictions.eq("name", volumeName))
+                        .createCriteria("domain")
+                        .add(Restrictions.eq("name", domainName))
+                        .list());
+
+        return blobs.stream()
+                .map(b -> b.getName())
+                .collect(Collectors.toList());
     }
 
     @Override

@@ -30,7 +30,7 @@ service AmShim {
         list<string> volumeContents(1:string domainName, 2:string volumeName)
              throws (1: FdsException e),
 
-        BlobDescriptor statBlob(1: string domainName, 2:string volumeName)
+        BlobDescriptor statBlob(1: string domainName, 2:string volumeName, 3:string blobName)
              throws (1: FdsException e),
 
         binary getBlob(1:string domainName, 2:string volumeName, 3:string blobName, 4:i32 length, 5:i64 offset)
