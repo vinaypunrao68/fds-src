@@ -2383,8 +2383,11 @@ ObjectStorMgr::condCopyObjectInternal(const ObjectID &objId)
 
         delete disk_req;
     } else {
-        // TODO(anna) not going to copy obj, remove entry from obj db
+        // not going to copy obj, remove entry from obj db
         LOGDEBUG << "Will garbage-collect obj " << objId;
+        smObjDb->lock(objId);
+        err = smObjDb->remove(objId);
+        smObjDb->unlock(objId);
     }
 
     return err;
