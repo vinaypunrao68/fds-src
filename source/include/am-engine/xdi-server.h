@@ -33,11 +33,11 @@ namespace xdi_ats = apache::thrift::server;
 class XdiIf : public xdi::AmShimIf {
     void createVolume(const std::string& domainName,
                       const std::string& volumeName,
-                      const xdi::VolumeDescriptor& volumeDescriptor) {
+                      const xdi::VolumePolicy& volumePolicy) {
     }
     void createVolume(boost::shared_ptr<std::string>& domainName,  // NOLINT
                       boost::shared_ptr<std::string>& volumeName,
-                      boost::shared_ptr<xdi::VolumeDescriptor>& volumeDescriptor) {
+                      boost::shared_ptr<xdi::VolumePolicy>& volumePolicy) {
     }
     void deleteVolume(const std::string& domainName,
                       const std::string& volumeName) {
@@ -53,27 +53,41 @@ class XdiIf : public xdi::AmShimIf {
                     boost::shared_ptr<std::string>& domainName,
                     boost::shared_ptr<std::string>& volumeName) {
     }
-    void listVolumes(std::vector<std::string> & _return,
+    void listVolumes(std::vector<xdi::VolumeDescriptor> & _return,
                      const std::string& domainName) {
     }
-    void listVolumes(std::vector<std::string> & _return,
+    void listVolumes(std::vector<xdi::VolumeDescriptor> & _return,
                      boost::shared_ptr<std::string>& domainName) {
+    }
+    void volumeStatus(xdi::VolumeStatus& _return,  // NOLINT
+                      const std::string& domainName,
+                      const std::string& volumeName) {
+    }
+    void volumeStatus(xdi::VolumeStatus& _return,  // NOLINT
+                      boost::shared_ptr<std::string>& domainName,
+                      boost::shared_ptr<std::string>& volumeName) {
     }
     void volumeContents(std::vector<std::string> & _return,
                         const std::string& domainName,
-                        const std::string& volumeName) {
+                        const std::string& volumeName,
+                        const int32_t count,
+                        const int64_t offset) {
     }
     void volumeContents(std::vector<std::string> & _return,
                         boost::shared_ptr<std::string>& domainName,
-                        boost::shared_ptr<std::string>& volumeName) {
+                        boost::shared_ptr<std::string>& volumeName,
+                        boost::shared_ptr<int32_t>& count,
+                        boost::shared_ptr<int64_t>& offset) {
     }
     void statBlob(xdi::BlobDescriptor& _return,  // NOLINT
                   const std::string& domainName,
-                  const std::string& volumeName) {
+                  const std::string& volumeName,
+                  const std::string& blobName) {
     }
     void statBlob(xdi::BlobDescriptor& _return,  // NOLINT
                   boost::shared_ptr<std::string>& domainName,
-                  boost::shared_ptr<std::string>& volumeName) {
+                  boost::shared_ptr<std::string>& volumeName,
+                  boost::shared_ptr<std::string>& blobName) {
     }
     void getBlob(std::string& _return,  // NOLINT
                  const std::string& domainName,
@@ -89,20 +103,33 @@ class XdiIf : public xdi::AmShimIf {
                  boost::shared_ptr<int32_t>& length,
                  boost::shared_ptr<int64_t>& offset) {
     }
+    void startBlobTx(xdi::Uuid& _return,  // NOLINT
+                     const std::string& domainName,
+                     const std::string& volumeName,
+                     const std::string& blobName) {
+    }
+    void startBlobTx(xdi::Uuid& _return,  // NOLINT
+                     boost::shared_ptr<std::string>& domainName,
+                     boost::shared_ptr<std::string>& volumeName,
+                     boost::shared_ptr<std::string>& blobName) {
+    }
     void updateMetadata(const std::string& domainName,
                         const std::string& volumeName,
                         const std::string& blobName,
+                        const xdi::Uuid& txUuid,
                         const std::map<std::string, std::string> & metadata) {
     }
     void updateMetadata(boost::shared_ptr<std::string>& domainName,  // NOLINT
                         boost::shared_ptr<std::string>& volumeName,
                         boost::shared_ptr<std::string>& blobName,
+                        boost::shared_ptr<xdi::Uuid>& txUuid,
                         boost::shared_ptr<
                             std::map<std::string, std::string> >& metadata) {
     }
     void updateBlob(const std::string& domainName,
                     const std::string& volumeName,
                     const std::string& blobName,
+                    const xdi::Uuid& txUuid,
                     const std::string& bytes,
                     const int32_t length,
                     const int64_t offset) {
@@ -110,9 +137,22 @@ class XdiIf : public xdi::AmShimIf {
     void updateBlob(boost::shared_ptr<std::string>& domainName,  // NOLINT
                     boost::shared_ptr<std::string>& volumeName,
                     boost::shared_ptr<std::string>& blobName,
+                    boost::shared_ptr<xdi::Uuid>& txUuid,
                     boost::shared_ptr<std::string>& bytes,
                     boost::shared_ptr<int32_t>& length,
                     boost::shared_ptr<int64_t>& offset) {
+    }
+    void commit(const xdi::Uuid& txId) {
+    }
+    void commit(boost::shared_ptr<xdi::Uuid>& txId) {  // NOLINT
+    }
+    void deleteBlob(const std::string& domainName,
+                    const std::string& volumeName,
+                    const std::string& blobName) {
+    }
+    void deleteBlob(boost::shared_ptr<std::string>& domainName,  // NOLINT
+                    boost::shared_ptr<std::string>& volumeName,
+                    boost::shared_ptr<std::string>& blobName) {
     }
 };
 
