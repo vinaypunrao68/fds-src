@@ -3,10 +3,13 @@ package com.formationds.xdi.local;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+import com.formationds.xdi.BlobDescriptor;
 import com.formationds.xdi.VolumeDescriptor;
 import org.junit.Test;
 
 import java.nio.ByteBuffer;
+import java.util.HashMap;
+import java.util.Map;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
@@ -35,5 +38,16 @@ public class LocalAmShimTest {
 
         assertArrayEquals(new byte[]{0, 0, 0, 0, 0, 1, 2, 3}, shim.getBlob(domainName, volumeName, blobName, 8, 0).array());
         assertArrayEquals(new byte[] {4, 0, 0, 0, 0, 0, 0, 0}, shim.getBlob(domainName, volumeName, blobName, 8, 8).array());
+
+        Map<String, String> metadata = new HashMap<>();
+        metadata.put("hello", "world");
+        metadata.put("goodnight", "moon");
+        shim.updateMetadata(domainName, volumeName, blobName, metadata);
+        BlobDescriptor descriptor = shim.statBlob(domainName, volumeName, blobName);
+        Map<String, String> m = descriptor.getMetadata();
+        assertEquals(2, m.keySet().size());
+        assertEquals("world", m.get("hello"));
+        assertEquals("moon", m.get("goodnight"));
+        assertEquals(9, descriptor.getByteCount());
     }
 }

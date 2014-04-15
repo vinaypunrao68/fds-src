@@ -9,8 +9,10 @@ import com.formationds.xdi.FdsException;
 import com.formationds.xdi.VolumeDescriptor;
 import org.apache.thrift.TException;
 import org.hibernate.criterion.Restrictions;
+import org.json.JSONObject;
 
 import java.nio.ByteBuffer;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -77,8 +79,16 @@ public class LocalAmShim implements AmShim.Iface {
     }
 
     @Override
-    public BlobDescriptor statBlob(String domainName, String volumeName) throws FdsException, TException {
-        return null;
+    public BlobDescriptor statBlob(String domainName, String volumeName, String blobName) throws FdsException, TException {
+        Blob blob = getBlob(domainName, volumeName, blobName);
+        Map<String, String> metadata = new HashMap<>();
+        JSONObject o = new JSONObject(blob.getMetadataJson());
+        Iterator<String> keys = o.keys();
+        while (keys.hasNext()) {
+            String k = keys.next();
+            metadata.put(k, o.getString(k));
+        }
+        return new BlobDescriptor(blob.getByteCount(), metadata);
     }
 
     @Override
@@ -95,12 +105,15 @@ public class LocalAmShim implements AmShim.Iface {
 
     @Override
     public void updateMetadata(String domainName, String volumeName, String blobName, Map<String, String> metadata) throws FdsException, TException {
-
+        Blob blob = getOrCreate(domainName, volumeName, blobName);
+        blob.setMetadataJson(new JSONObject(metadata).toString(2));
+        persister.update(blob);
     }
 
     @Override
     public void updateBlob(String domainName, String volumeName, String blobName, ByteBuffer bytes, int length, long offset) throws FdsException, TException {
         Blob blob = getOrCreate(domainName, volumeName, blobName);
+        long byteCount = Math.max(blob.getByteCount(), offset + length);
         List<Block> blocks = blob.getBlocks();
         BlockWriter writer = new BlockWriter(i -> getOrMakeBlock(blob, blocks, i), blob.getVolume().getObjectSize());
         Iterator<Block> updated = writer.update(bytes.array(), length, offset);
@@ -111,6 +124,11 @@ public class LocalAmShim implements AmShim.Iface {
             } else {
                 persister.update(next);
             }
+        }
+
+        if (byteCount > blob.getByteCount()) {
+            blob.setByteCount(byteCount);
+            persister.update(blob);
         }
     }
 

@@ -13,6 +13,7 @@ import java.util.List;
 @Table(name="blob")
 public class Blob implements Persistent {
     private long id;
+    private long byteCount;
     private Volume volume;
     private String name;
     private String metadataJson;
@@ -43,7 +44,6 @@ public class Blob implements Persistent {
         return blocks;
     }
 
-
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "volume_id", nullable = false)
     public Volume getVolume() {
@@ -60,6 +60,14 @@ public class Blob implements Persistent {
         return metadataJson;
     }
 
+    @Column(name="byte_count")
+    public long getByteCount() {
+        return byteCount;
+    }
+
+    public void setByteCount(long byteCount) {
+        this.byteCount = byteCount;
+    }
 
     void setBlocks(List<Block> blocks) {
         this.blocks = blocks;
