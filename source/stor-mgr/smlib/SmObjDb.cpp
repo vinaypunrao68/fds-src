@@ -173,6 +173,17 @@ fds::Error SmObjDb::put_(const ObjectID& objId, const ObjMetaData& md)
     return err;
 }
 
+fds::Error SmObjDb::remove(const ObjectID& objId) {
+    Error err(ERR_OK);
+    fds_token_id tokId = getTokenId_(objId);
+    ObjectDB *odb = getObjectDB_(tokId);
+
+    // delete object's metadata from DB
+    err = odb->Delete(objId);
+
+    return err;
+}
+
 inline fds_token_id SmObjDb::getTokenId_(const ObjectID& objId)
 {
     return objStorMgr->getTokenId(objId);
