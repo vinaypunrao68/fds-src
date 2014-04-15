@@ -4,6 +4,7 @@
 #include <orch-mgr/om-service.h>
 #include <kvstore/configdbmodule.h>
 #include <OmDeploy.h>
+#include <OmDmtDeploy.h>
 #include <OmDataPlacement.h>
 #include <om-discovery.h>
 
@@ -22,11 +23,13 @@ OM_Module::OM_Module(char const *const name)
         &gl_OMClusMapMod,
         om_data_place,
         &gl_OMDltMod,
+        &gl_OMDmtMod,
         &gl_OmDiscoveryMod,
         NULL
     };
     mod_intern     = om_mods;
     om_dlt         = &gl_OMDltMod;
+    om_dmt         = &gl_OMDmtMod;
     om_clus_map    = &gl_OMClusMapMod;
     om_node_domain = &gl_OMNodeDomainMod;
 }

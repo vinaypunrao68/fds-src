@@ -8,6 +8,7 @@ user_cpp          := \
     OmResources.cpp \
     OmNodeResources.cpp \
     OmDeploy.cpp \
+    OmDmtDeploy.cpp \
     OmClusMap.cpp \
     OmDataPlacement.cpp \
     OmPlacementAlgorithms.cpp \
