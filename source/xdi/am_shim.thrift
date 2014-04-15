@@ -1,5 +1,5 @@
 namespace cpp fds.xdi
-namespace java com.formationds.xdi
+namespace java com.formationds.xdi.shim
 
 struct Uuid {
        1:i64 low,

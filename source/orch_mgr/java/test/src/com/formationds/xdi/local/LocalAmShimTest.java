@@ -3,9 +3,9 @@ package com.formationds.xdi.local;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.xdi.BlobDescriptor;
-import com.formationds.xdi.Uuid;
-import com.formationds.xdi.VolumePolicy;
+import com.formationds.xdi.shim.BlobDescriptor;
+import com.formationds.xdi.shim.Uuid;
+import com.formationds.xdi.shim.VolumePolicy;
 import com.google.common.base.Joiner;
 import org.junit.Test;
 
