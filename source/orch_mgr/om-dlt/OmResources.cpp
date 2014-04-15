@@ -10,6 +10,7 @@
 #include <fds_timer.h>
 #include <orch-mgr/om-service.h>
 #include <OmDeploy.h>
+#include <OmDmtDeploy.h>
 #include <OmResources.h>
 #include <OmDataPlacement.h>
 #include <fds_process.h>
@@ -320,7 +321,7 @@ NodeDomainFSM::DACT_LoadVols::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
     // (we did not add them to the DLT) -- they are in pending nodes in SM
     // container.
     // Start update cluster process to see if we have such deferred SMs
-    domain->om_update_cluster();
+    domain->om_dlt_update_cluster();
 }
 
 
@@ -392,7 +393,7 @@ NodeDomainFSM::DACT_WaitDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
     // start cluster update process that will recompute DLT /rebalance /etc
     // so that we move to DLT that reflects actual nodes that came up
     OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
-    domain->om_update_cluster();
+    domain->om_dlt_update_cluster();
 }
 
 /**
@@ -508,7 +509,7 @@ NodeDomainFSM::DACT_UpdDlt::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
 
     // start cluster update process that will recompute DLT /rebalance /etc
     // so that we move to DLT that reflects actual nodes that came up
-    domain->om_update_cluster();
+    domain->om_dlt_update_cluster();
 }
 
 
@@ -735,6 +736,7 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
 {
     NodeAgent::pointer      newNode;
     OM_PmContainer::pointer pmNodes;
+    fds_uint32_t  numVols = 0;
 
     pmNodes = om_locDomain->om_pm_nodes();
     fds_assert(pmNodes != NULL);
@@ -794,7 +796,7 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
             }
         }
         om_locDomain->om_update_node_list(newNode, msg);
-        om_locDomain->om_bcast_vol_list(newNode);
+        numVols = om_locDomain->om_bcast_vol_list(newNode);
 
         // Let this new node know about existing dlt if this is not SM node
         // DLT deploy state machine will take care of SMs
@@ -806,12 +808,14 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
         }
 
         // Send the DMT to DMs.
-        om_locDomain->om_round_robin_dmt();
-        om_locDomain->om_bcast_dmt_table();
+        // om_locDomain->om_round_robin_dmt();
+        // om_locDomain->om_bcast_dmt_table();
+           LOGDEBUG << "Invoking the DMT state transition: " << numVols;
+           om_dmt_update_cluster(numVols);
 
         if (om_local_domain_up()) {
             if (msg->node_type == fpi::FDSP_STOR_MGR) {
-                om_update_cluster();
+                om_dlt_update_cluster();
             }
         } else {
             local_domain_event(RegNodeEvt(uuid, msg->node_type));
@@ -848,7 +852,7 @@ OM_NodeDomainMod::om_del_services(const NodeUuid& node_uuid,
                      << " result: " << err.GetErrstr();
         }
         if (om_local_domain_up()) {
-            om_update_cluster();
+            om_dlt_update_cluster();
         }
     }
     if (err.ok() && remove_dm) {
@@ -893,11 +897,22 @@ OM_NodeDomainMod::om_delete_domain(const FdspCrtDomPtr &crt_domain)
     return 0;
 }
 
+void
+OM_NodeDomainMod::om_dmt_update_cluster(fds_uint32_t vols) {
+    OM_Module *om = OM_Module::om_singleton();
+    OM_DMTMod *dmtMod = om->om_dmt_mod();
+
+    dmtMod->dmt_deploy_event(DmtComputeEvt(vols));
+    if (!vols)
+       dmtMod->dmt_deploy_event(DmtVolAckEvt());
+}
+
+
 /**
  * Drives the DLT deployment state machine.
  */
 void
-OM_NodeDomainMod::om_update_cluster() {
+OM_NodeDomainMod::om_dlt_update_cluster() {
     OM_Module *om = OM_Module::om_singleton();
     OM_DLTMod *dltMod = om->om_dlt_mod();
     DataPlacement *dp = om->om_dataplace_mod();
