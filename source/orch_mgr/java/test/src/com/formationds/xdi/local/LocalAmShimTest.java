@@ -28,6 +28,7 @@ public class LocalAmShimTest {
         shim.createDomain(domainName);
         shim.createVolume(domainName, volumeName, new VolumePolicy(8));
         shim.createVolume(domainName, "v2", new VolumePolicy(32));
+
         assertEquals(2, shim.listVolumes(domainName).size());
         shim.deleteVolume(domainName, "v2");
         assertEquals(1, shim.listVolumes(domainName).size());
@@ -54,6 +55,8 @@ public class LocalAmShimTest {
 
         shim.updateBlob(domainName, volumeName, "otherBlob", new Uuid(), buffer, 4, 5);
         assertEquals("blob, otherBlob", Joiner.on(", ").join(shim.volumeContents(domainName, volumeName, Integer.MAX_VALUE, 0)));
+
+        assertEquals("otherBlob", Joiner.on(", ").join(shim.volumeContents(domainName, volumeName, Integer.MAX_VALUE, 1)));
 
         shim.deleteBlob(domainName, volumeName, "otherBlob");
         assertEquals("blob", Joiner.on(", ").join(shim.volumeContents(domainName, volumeName, Integer.MAX_VALUE, 0)));

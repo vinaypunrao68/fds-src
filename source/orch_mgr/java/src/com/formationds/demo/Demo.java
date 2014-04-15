@@ -38,38 +38,30 @@ public class Demo {
         webApp.route(HttpMethod.GET, "/demo/throttle/writes", () -> new GetThrottle(state, Throttle.write));
 
 
-        webApp.route(HttpMethod.GET, "/demo/stats", () -> new PerfStats(state));
+        webApp.route(HttpMethod.GET, "/demo/pollStats", () -> new PerfStats(state));
     /*
        Returns a jason frame like so:
 
        [
           {
              operation: "Read performance",
-             series:
-             [
-                {
-                   name: "Volume 1",
-                   values: [2, 5, 745, 8]
-                },
-                {
-                   name: "Volume 2",
-                   values: [1, 2, 4, 5]
-                }
-             ]
+             unit: "IOPs/second"
+             values:
+             {
+                "Volume1": 43,
+                "Volume2": 5,
+                "Volume3": 12,
+             }
           },
           {
              operation: "Write performance",
-             series:
-             [
-                {
-                   name: "Volume 1",
-                   values: [2, 5, 745, 8]
-                },
-                {
-                   name: "Volume 2",
-                   values: [1, 2, 4, 5]
-                }
-             ]
+             unit: "IOPs/second"
+             values:
+             {
+                "Volume1": 43,
+                "Volume2": 5,
+                "Volume3": 12,
+             }
           }
        ]
 */
