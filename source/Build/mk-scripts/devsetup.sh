@@ -18,9 +18,21 @@ needed_packages=(
 
     python-pip
 
+    libpcre3-dev
+    libpcre3
+
     fds-pkghelper_latest
     fds-pkg_latest
     fds-pkgtools_latest
+
+    fds-boost
+    fds-boost-dev
+
+    fds-leveldb
+    fds-leveldb-dev
+
+    fds-systemdir
+    fds-coredump
 )
 
 python_packages=(
