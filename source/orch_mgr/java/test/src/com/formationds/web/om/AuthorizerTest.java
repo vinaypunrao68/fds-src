@@ -58,7 +58,7 @@ public class AuthorizerTest {
     public AuthorizerTest() {
         mockHandler = mock(RequestHandler.class);
         try {
-            when(mockHandler.handle(any(Request.class), new HashMap<>())).thenReturn(new TextResource("foo"));
+            when(mockHandler.handle(any(Request.class), any(HashMap.class))).thenReturn(new TextResource("foo"));
         } catch (Exception e) {
             throw new RuntimeException(e);
         }

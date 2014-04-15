@@ -4,8 +4,10 @@ package com.formationds.xdi.local;
  */
 
 import org.hibernate.Hibernate;
+import org.joda.time.DateTime;
 
 import javax.persistence.*;
+import java.util.UUID;
 
 @Entity
 @Table(name="volume")
@@ -14,7 +16,8 @@ public class Volume implements Persistent {
     private long id;
     private String name;
     private int objectSize;
-
+    private long timestamp = DateTime.now().getMillis();
+    private String uuid = UUID.randomUUID().toString();
 
     public Volume() {
     }
@@ -47,6 +50,24 @@ public class Volume implements Persistent {
     @Column(name="object_size", nullable = false)
     public int getObjectSize() {
         return objectSize;
+    }
+
+    @Column(name="tstamp", nullable = false)
+    public long getTimestamp() {
+        return timestamp;
+    }
+
+    @Column(name="uuid", nullable = false)
+    public String getUuid() {
+        return uuid;
+    }
+
+    public void setTimestamp(long timestamp) {
+        this.timestamp = timestamp;
+    }
+
+    public void setUuid(String uuid) {
+        this.uuid = uuid;
     }
 
     public void setDomain(Domain domain) {

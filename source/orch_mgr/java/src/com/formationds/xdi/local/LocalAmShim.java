@@ -31,11 +31,11 @@ public class LocalAmShim implements AmShim.Iface {
     }
 
     @Override
-    public void createVolume(String domainName, String volumeName, VolumeDescriptor volumeDescriptor) throws FdsException, TException {
+    public void createVolume(String domainName, String volumeName, int objectSizeInBytes) throws FdsException, TException {
         Domain domain = (Domain) persister.execute(session -> session.createCriteria(Domain.class)
                 .add(Restrictions.eq("name", domainName))
                 .uniqueResult());
-        persister.create(new Volume(domain, volumeName, volumeDescriptor.getObjectSizeInBytes()));
+        persister.create(new Volume(domain, volumeName, objectSizeInBytes));
     }
 
     @Override
@@ -57,7 +57,7 @@ public class LocalAmShim implements AmShim.Iface {
     @Override
     public VolumeDescriptor statVolume(String domainName, String volumeName) throws FdsException, TException {
         Volume volume = getVolume(domainName, volumeName);
-        return new VolumeDescriptor(volume.getObjectSize());
+        return new VolumeDescriptor(volumeName, volume.getUuid(), volume.getTimestamp(), volume.getObjectSize());
     }
 
     @Override

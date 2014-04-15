@@ -25,8 +25,8 @@ public class LocalAmShimTest {
         String blobName = "blob";
 
         shim.createDomain(domainName);
-        shim.createVolume(domainName, volumeName, new VolumeDescriptor(8));
-        shim.createVolume(domainName, "v2", new VolumeDescriptor(32));
+        shim.createVolume(domainName, volumeName, 8);
+        shim.createVolume(domainName, "v2", 32);
         assertEquals(2, shim.listVolumes(domainName).size());
         shim.deleteVolume(domainName, "v2");
         assertEquals(1, shim.listVolumes(domainName).size());
