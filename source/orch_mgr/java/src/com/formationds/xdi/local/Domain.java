@@ -32,7 +32,7 @@ public class Domain implements Persistent {
         Hibernate.initialize(this);
     }
 
-    @Column(name="name", nullable = false)
+    @Column(name="name", nullable = false, unique = true)
     public String getName() {
         return name;
     }
