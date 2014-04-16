@@ -6,11 +6,11 @@ package com.formationds.xdi.local;
 import com.formationds.xdi.shim.BlobDescriptor;
 import com.formationds.xdi.shim.Uuid;
 import com.formationds.xdi.shim.VolumePolicy;
-import com.google.common.base.Joiner;
 import org.junit.Test;
 
 import java.nio.ByteBuffer;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.Assert.assertArrayEquals;
@@ -54,11 +54,16 @@ public class LocalAmShimTest {
         assertEquals(9, descriptor.getByteCount());
 
         shim.updateBlob(domainName, volumeName, "otherBlob", new Uuid(), buffer, 4, 5);
-        assertEquals("blob, otherBlob", Joiner.on(", ").join(shim.volumeContents(domainName, volumeName, Integer.MAX_VALUE, 0)));
+        List<BlobDescriptor> parts = shim.volumeContents(domainName, volumeName, Integer.MAX_VALUE, 0);
+        assertEquals(2, parts.size());
 
-        assertEquals("otherBlob", Joiner.on(", ").join(shim.volumeContents(domainName, volumeName, Integer.MAX_VALUE, 1)));
+        parts = shim.volumeContents(domainName, volumeName, Integer.MAX_VALUE, 1);
+        assertEquals(1, parts.size());
+        assertEquals("otherBlob", parts.get(0).getName());
 
         shim.deleteBlob(domainName, volumeName, "otherBlob");
-        assertEquals("blob", Joiner.on(", ").join(shim.volumeContents(domainName, volumeName, Integer.MAX_VALUE, 0)));
+        parts = shim.volumeContents(domainName, volumeName, Integer.MAX_VALUE, 0);
+        assertEquals(1, parts.size());
+        assertEquals("blob", parts.get(0).getName());
     }
 }

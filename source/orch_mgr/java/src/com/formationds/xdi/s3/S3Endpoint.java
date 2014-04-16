@@ -18,5 +18,8 @@ public class S3Endpoint {
         am.createDomain(FDS_S3);
         Xdi xdi = new Xdi(am);
         webApp.route(HttpMethod.GET, "/", () -> new ListBuckets(xdi));
+        webApp.route(HttpMethod.PUT, "/:bucket", () -> new CreateBucket(xdi));
+        webApp.route(HttpMethod.DELETE, "/:bucket", () -> new DeleteBucket(xdi));
+        webApp.route(HttpMethod.GET, "/:bucket", () -> new ListObjects(xdi));
     }
 }

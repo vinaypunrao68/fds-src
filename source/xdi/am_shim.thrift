@@ -2,23 +2,23 @@ namespace cpp fds.xdi
 namespace java com.formationds.xdi.shim
 
 struct Uuid {
-       1:i64 low,
-       2:i64 high
+       1: required i64 low,
+       2: required i64 high
 }
 
 struct VolumePolicy {
-       1: i32 objectSizeInBytes
+       1: required i32 objectSizeInBytes
 }
 
 struct VolumeDescriptor {
-       1: string name,
-       2: Uuid uuid,
-       3: i64 dateCreated,
-       4: VolumePolicy policy
+       1: required string name,
+       2: required Uuid uuid,
+       3: required i64 dateCreated,
+       4: required VolumePolicy policy
 }
 
 struct VolumeStatus {
-       1: i64 blobCount
+       1: required i64 blobCount
 }
 
 exception FdsException {
@@ -26,8 +26,9 @@ exception FdsException {
 }
 
 struct BlobDescriptor {
-       1: required i64 byteCount,
-       2: required map<string, string> metadata
+       1: required string name,
+       2: required i64 byteCount,
+       3: required map<string, string> metadata
 }
 
 service AmShim {
@@ -46,7 +47,7 @@ service AmShim {
         VolumeStatus volumeStatus(1:string domainName, 2:string volumeName)
              throws (1: FdsException e),
 
-        list<string> volumeContents(1:string domainName, 2:string volumeName, 3:i32 count, 4:i64 offset)
+        list<BlobDescriptor> volumeContents(1:string domainName, 2:string volumeName, 3:i32 count, 4:i64 offset)
              throws (1: FdsException e),
 
         BlobDescriptor statBlob(1: string domainName, 2:string volumeName, 3:string blobName)

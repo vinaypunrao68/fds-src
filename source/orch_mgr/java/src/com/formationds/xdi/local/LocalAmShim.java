@@ -3,16 +3,13 @@ package com.formationds.xdi.local;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.xdi.*;
 import com.formationds.xdi.shim.*;
-import com.formationds.xdi.shim.VolumeDescriptor;
 import org.apache.thrift.TException;
 import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;
 import org.json.JSONObject;
 
 import java.nio.ByteBuffer;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -74,8 +71,9 @@ public class LocalAmShim implements AmShim.Iface {
                 .collect(Collectors.toList());
     }
 
+
     @Override
-    public List<String> volumeContents(String domainName, String volumeName, int count, long offset) throws FdsException, TException {
+    public List<BlobDescriptor> volumeContents(String domainName, String volumeName, int count, long offset) throws FdsException, TException {
         List<Blob> blobs = persister.execute(session ->
                 session.createCriteria(Blob.class)
                         .createCriteria("volume")
@@ -87,21 +85,14 @@ public class LocalAmShim implements AmShim.Iface {
         return blobs.stream()
                 .skip(offset)
                 .limit(count)
-                .map(b -> b.getName())
+                .map(b -> new BlobDescriptor(b.getName(), b.getByteCount(), b.getMetadata()))
                 .collect(Collectors.toList());
     }
 
     @Override
     public BlobDescriptor statBlob(String domainName, String volumeName, String blobName) throws FdsException, TException {
         Blob blob = getBlob(domainName, volumeName, blobName);
-        Map<String, String> metadata = new HashMap<>();
-        JSONObject o = new JSONObject(blob.getMetadataJson());
-        Iterator<String> keys = o.keys();
-        while (keys.hasNext()) {
-            String k = keys.next();
-            metadata.put(k, o.getString(k));
-        }
-        return new BlobDescriptor(blob.getByteCount(), metadata);
+        return new BlobDescriptor(blobName, blob.getByteCount(), blob.getMetadata());
     }
 
     @Override

@@ -33,7 +33,7 @@ public class Xdi implements AmShim.Iface {
         return am.listVolumes(domainName);
     }
 
-    public List<String> volumeContents(String domainName, String volumeName, int count, long offset) throws FdsException, TException {
+    public List<BlobDescriptor> volumeContents(String domainName, String volumeName, int count, long offset) throws FdsException, TException {
         return am.volumeContents(domainName, volumeName, count, offset);
     }
 
