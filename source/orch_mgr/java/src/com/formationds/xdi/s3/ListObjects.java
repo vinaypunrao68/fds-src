@@ -8,6 +8,7 @@ import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.XmlResource;
 import com.formationds.xdi.Xdi;
 import com.formationds.xdi.shim.BlobDescriptor;
+import com.formationds.xdi.shim.VolumeDescriptor;
 import org.eclipse.jetty.server.Request;
 
 import java.util.List;
@@ -24,12 +25,13 @@ public class ListObjects implements RequestHandler {
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
         String bucket = requiredString(routeParameters, "bucket");
+        VolumeDescriptor volumeDescriptor = xdi.statVolume(S3Endpoint.FDS_S3, bucket);
         List<BlobDescriptor> contents = xdi.volumeContents(S3Endpoint.FDS_S3, bucket, Integer.MAX_VALUE, 0);
         List<String> objects = contents.stream()
                 .map(c -> String.format(OBJECT_FORMAT, c.getName(), c.getByteCount()))
                 .collect(Collectors.toList());
 
-        String response = String.format(RESPONSE_FORMAT, bucket, String.join("\n", objects));
+        String response = String.format(RESPONSE_FORMAT, bucket, String.join("", objects));
         return new XmlResource(response);
     }
 
@@ -44,7 +46,7 @@ public class ListObjects implements RequestHandler {
                     "            <ID>75aa57f09aa0c8caeab4f8c24e99d10f8e7faeebf76c078efc7c6caea54ba06a</ID>\n" +
                     "            <DisplayName>mtd@amazon.com</DisplayName>\n" +
                     "        </Owner -->\n" +
-                    "    </Contents>";
+                    "    </Contents>\n";
 
     private static final String RESPONSE_FORMAT =
                     "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
@@ -55,7 +57,7 @@ public class ListObjects implements RequestHandler {
                     "    <!-- MaxKeys>1000</MaxKeys -->\n" +
                     "    <IsTruncated>false</IsTruncated>\n" +
                     "    <Contents>\n" +
-                    "%s    \n" +
+                    "%s" +
                     "    </Contents>\n" +
                     "</ListBucketResult>    \n";
     /*

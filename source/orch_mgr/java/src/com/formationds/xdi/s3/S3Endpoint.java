@@ -25,6 +25,7 @@ public class S3Endpoint {
         webApp.route(HttpMethod.PUT, "/:bucket", () -> new CreateBucket(xdi));
         webApp.route(HttpMethod.DELETE, "/:bucket", () -> new DeleteBucket(xdi));
         webApp.route(HttpMethod.GET, "/:bucket", () -> new ListObjects(xdi));
+        webApp.route(HttpMethod.HEAD, "/:bucket", () -> new HeadBucket(xdi));
 
 
         webApp.start(port);
