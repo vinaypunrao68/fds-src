@@ -3,15 +3,15 @@
 # Copyright 2014 by Formation Data Systems, Inc.
 #
 import subprocess
+import logging
 
-
-class ProcessTracker:
-    def __init__(self):
-        pass
-    def kill(self):
-        pass
-    def is_complete(self):
-        pass
+def setup_logger(file=None, level=logging.INFO):
+    log = logging.getLogger()
+    log.setLevel(level)
+    handler = logging.StreamHandler(file)
+    handler.setLevel(level)
+    log.addHandler(handler)
+    return log
 
 def run(prog_path, args = '', wait_time_sec = 0):
     """

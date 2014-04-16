@@ -10,7 +10,12 @@ import optparse, sys, time
 
 
 if __name__ == '__main__':
-    logging.getLogger().setLevel(logging.INFO)
+    # console = logging.StreamHandler()
+    # console.setLevel(logging.INFO)
+    # log = logging.getLogger()
+    # log.addHandler(console)
+    log = ProcessUtils.setup_logger()
+    log.info("HELLLOOOOOOOOOOOOOOOOOOO")
 
     parser = optparse.OptionParser("usage: %prog [options]")
     parser.add_option('-f', '--file', dest = 'config_file',
@@ -36,7 +41,7 @@ if __name__ == '__main__':
     time.sleep(5)
 
     # run some io
-    p = subprocess.Popen(['/home/nbayyana/bin/uploads3.sh'])
+    io_proc = subprocess.Popen(['/home/nbayyana/bin/uploads3.sh'])
     
     time.sleep(2)
 
@@ -45,6 +50,7 @@ if __name__ == '__main__':
 
     cluster.get_service('node2', 'sm').wait_for_healthy_state()
 
+    io_proc.wait()
+
     # run checker
-    # cluster.run_dirbased_checker('/home/nbayyana/temp/skinet2')
-    p.wait()
+    cluster.run_dirbased_checker('/home/nbayyana/temp/skinet2')
