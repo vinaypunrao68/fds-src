@@ -67,13 +67,13 @@ class FdsnIf : public xdi::AmShimIf {
                       boost::shared_ptr<std::string>& domainName,
                       boost::shared_ptr<std::string>& volumeName) {
     }
-    void volumeContents(std::vector<std::string> & _return,
+    void volumeContents(std::vector<xdi::BlobDescriptor> & _return,
                         const std::string& domainName,
                         const std::string& volumeName,
                         const int32_t count,
                         const int64_t offset) {
     }
-    void volumeContents(std::vector<std::string> & _return,
+    void volumeContents(std::vector<xdi::BlobDescriptor> & _return,
                         boost::shared_ptr<std::string>& domainName,
                         boost::shared_ptr<std::string>& volumeName,
                         boost::shared_ptr<int32_t>& count,
