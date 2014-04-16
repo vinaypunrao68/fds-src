@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 
+
 public class TextResource implements Resource {
     private int httpStatus;
     private String text;

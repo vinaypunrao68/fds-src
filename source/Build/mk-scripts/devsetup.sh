@@ -2,13 +2,13 @@
 
 ###########################################################################
 # NOTE:: space/newline separated list of needed pkgs
-# the pkgs will be checked / installed in the order as they are 
+# the pkgs will be checked / installed in the order as they are
 # mentioned here!!!
-# NOTE!!!:  no space between =(  , 
+# NOTE!!!:  no space between =(  ,
 # () means array
-# if you wanto specify a specific version , the output of the following 
+# if you wanto specify a specific version , the output of the following
 # command should be specified:
-#  ---> dpkg-query -f '${Package}_${Version}' -W $pkgname 
+#  ---> dpkg-query -f '${Package}_${Version}' -W $pkgname
 ###########################################################################
 
 needed_packages=(
@@ -56,15 +56,15 @@ function updateFdsRepo() {
 }
 
 ###########################################################################
-# Fill in the blanks if you need additional actions before installing 
-# a specific pkg 
+# Fill in the blanks if you need additional actions before installing
+# a specific pkg
 # eg : add a specific ppa.
 ###########################################################################
 function preinstall() {
     local pkgname=$1
 
     case $pkgname in
-        oracle-java8.*) 
+        oracle-java8.*)
             sudo add-apt-repository ppa:webupd8team/java
             sudo apt-get update
             ;;
@@ -84,7 +84,7 @@ function postinstall() {
     local pkgname=$1
 
     case $pkgname in
-        oracle-java8.*) 
+        oracle-java8.*)
             ;;
         redis-server)
             ;;
@@ -97,11 +97,11 @@ function postinstall() {
 
 echo "[devsetup] : checking ubuntu packages...."
 
-for pkg in ${needed_packages[@]} 
-do 
+for pkg in ${needed_packages[@]}
+do
     echo "[devsetup] : checking $pkg ..."
     pkgname=${pkg%%_*}
-    if [[ $pkg == *_* ]]; then 
+    if [[ $pkg == *_* ]]; then
         pkgversion=${pkg##*_}
     else
         pkgversion=""
@@ -114,7 +114,7 @@ do
     fi
     #echo "${pkginfo} , $pkgname, $pkgversion , $pkg"
     #exit
-    if  [[ -z $pkginfo ]] || [[ $pkginfo != $pkg ]] ; then 
+    if  [[ -z $pkginfo ]] || [[ $pkginfo != $pkg ]] ; then
         if [[ $pkgversion == "latest" ]] ; then
             echo "[devsetup] : trying to install the latest version of $pkgname ..."
         else
@@ -132,11 +132,11 @@ done
 
 echo "[devsetup] : checking python packages...."
 
-for pkg in ${python_packages[@]} 
-do 
+for pkg in ${python_packages[@]}
+do
     pkgname=${pkg}
     name=$(pip freeze 2>/dev/null | grep ^${pkgname}= | cut -f1 -d=)
-    if  [[ -z $name ]] ; then 
+    if  [[ -z $name ]] ; then
         echo "[devsetup] : $pkg is not installed, but needed .. installing."
         preinstall $pkg
         sudo pip install $pkg

@@ -6,14 +6,17 @@ package com.formationds.xdi.s3;
 import com.formationds.web.toolkit.HttpMethod;
 import com.formationds.web.toolkit.WebApp;
 import com.formationds.xdi.Xdi;
+import com.formationds.xdi.local.LocalAmShim;
 
-public class Main {
+public class S3Endpoint {
 
     public static final String FDS_S3 = "FDS_S3";
 
-    public static void main(String[] args) throws Exception {
+    public void start(int port) throws Exception {
         WebApp webApp = new WebApp();
-        Xdi xdi = new Xdi(FDS_S3);
+        LocalAmShim am = new LocalAmShim();
+        am.createDomain(FDS_S3);
+        Xdi xdi = new Xdi(am);
         webApp.route(HttpMethod.GET, "/", () -> new ListBuckets(xdi));
     }
 }
