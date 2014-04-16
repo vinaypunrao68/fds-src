@@ -87,6 +87,37 @@ FDS_ProtocolInterface::FDSP_VolType FdsCli::stringToVolType(
     return FDS_ProtocolInterface::FDSP_VOL_S3_TYPE;
 }
 
+/* returns hdd type if un-recognized string */
+FDS_ProtocolInterface::FDSP_MediaPolicy FdsCli::stringToMediaPolicy(
+    const std::string& media_policy)
+{
+    if (media_policy == "hdd") {
+        return FDS_ProtocolInterface::FDSP_MEDIA_POLICY_HDD;
+    } else if (media_policy == "ssd") {
+        return FDS_ProtocolInterface::FDSP_MEDIA_POLICY_SSD;
+    } else if (media_policy == "hybrid") {
+        return FDS_ProtocolInterface::FDSP_MEDIA_POLICY_HYBRID;
+    } else if (media_policy == "hybrid-prefcap") {
+        return FDS_ProtocolInterface::FDSP_MEDIA_POLICY_HYBRID_PREFCAP;
+    }
+    return FDS_ProtocolInterface::FDSP_MEDIA_POLICY_HDD;
+}
+
+std::string FdsCli::mediaPolicyToString(
+    const FDS_ProtocolInterface::FDSP_MediaPolicy media_policy)
+{
+    if (media_policy == FDS_ProtocolInterface::FDSP_MEDIA_POLICY_HDD) {
+        return "hdd";
+    } else if (media_policy == FDS_ProtocolInterface::FDSP_MEDIA_POLICY_SSD) {
+        return "ssd";
+    } else if (media_policy == FDS_ProtocolInterface::FDSP_MEDIA_POLICY_HYBRID) {
+        return "hybrid";
+    } else if (media_policy == FDS_ProtocolInterface::FDSP_MEDIA_POLICY_HYBRID_PREFCAP) {
+        return "hybrid-prefcap";
+    }
+    return "unknown";
+}
+
 FDSP_ConfigPathReqClientPtr FdsCli::startClientSession() {
     netConfigPathClientSession *client_session =
             net_session_tbl->
@@ -172,6 +203,8 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
              "service to enable (if dm and sm, speficy \"dm,sm\")")
             ("vol-type,y", po::value<std::string>()->default_value("s3"),
              "volume access type")
+            ("media-policy,M", po::value<std::string>()->default_value("hdd"),
+             "media policy (hdd, ssd, hybrid, hybrid-prefcap")
             ("om_ip", po::value<std::string>(),
              "OM IP addr") /* Consumed already */
             ("om_port", po::value<fds_uint32_t>(),
@@ -222,6 +255,9 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         volData.vol_info.archivePolicyId = 0;
         volData.vol_info.placementPolicy = 0;
         volData.vol_info.appWorkload = FDS_ProtocolInterface::FDSP_APP_WKLD_TRANSACTION;
+        volData.vol_info.mediaPolicy =
+                stringToMediaPolicy(vm.count("media-policy") ?
+                                vm["media-policy"].as<std::string>() : "");
 
         NETWORKCHECK(return_code = cfgPrx->CreateVol(msg_hdr, volData));
         if (return_code !=0) {
@@ -251,6 +287,9 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
             LOGNOTIFY << vm["iops-max"].as<double>() << " -maximum iops";
             LOGNOTIFY << vm["rel-prio"].as<int>() << " -relative priority";
         }
+        if (vm.count("media-policy")) {
+            LOGNOTIFY << vm["media-policy"].as<std::string>() << " -media policy";
+        }
 
         FDS_ProtocolInterface::FDSP_ModifyVolType volData;
         volData.vol_name = vm["volume-modify"].as<std::string>();
@@ -266,6 +305,9 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         volData.vol_desc.archivePolicyId = 0;
         volData.vol_desc.placementPolicy = 0;
         volData.vol_desc.appWorkload = FDS_ProtocolInterface::FDSP_APP_WKLD_TRANSACTION;
+        volData.vol_desc.mediaPolicy = vm.count("media_policy") ?
+                stringToMediaPolicy(vm["media-policy"].as<std::string>()) :
+                FDS_ProtocolInterface::FDSP_MEDIA_POLICY_UNSET;  // use current policy
 
         if (vm.count("volume-policy")) {
             volData.vol_desc.volPolicyId = vm["volume-policy"].as<int>();
@@ -303,7 +345,9 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
                  << "     capacity " << vol_info.capacity << " MB"
                  << ", iops_min " << vol_info.iops_min
                  << ", iops_max " << vol_info.iops_max
-                 << ", priority " << vol_info.rel_prio << std::endl;
+                 << ", priority " << vol_info.rel_prio
+                 << ", media policy " << mediaPolicyToString(vol_info.mediaPolicy)
+                 << std::endl;
         } catch(...) {
             cout << "Got non-network exception, probably volume not found" << std::endl;
         }
@@ -349,7 +393,9 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
                  << "     capacity " << vec[i].capacity << " MB"
                  << ", iops_min " << vec[i].iops_min
                  << ", iops_max " << vec[i].iops_max
-                 << ", priority " << vec[i].rel_prio << std::endl;
+                 << ", priority " << vec[i].rel_prio
+                 << ", media policy " << mediaPolicyToString(vec[i].mediaPolicy)
+                 << std::endl;
         }
     } else if ( vm.count("policy-create") && vm.count("volume-policy") && \
                 vm.count("iops-max") && vm.count("iops-max") && vm.count("rel-prio")) {

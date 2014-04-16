@@ -468,6 +468,7 @@ int OMgrClient::pushCreateBucketToOM(const FDS_ProtocolInterface::FDSP_VolumeInf
          volData->vol_info.archivePolicyId = volInfo->archivePolicyId;
          volData->vol_info.placementPolicy = volInfo->placementPolicy;
          volData->vol_info.appWorkload = volInfo->appWorkload;
+         volData->vol_info.mediaPolicy = volInfo->mediaPolicy;
 
     	 om_client_prx->CreateBucket(msg_hdr, volData);
   } catch (...) {

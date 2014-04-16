@@ -27,6 +27,7 @@ VolumeDesc::VolumeDesc(const fpi::FDSP_VolumeInfoType& volinfo,
     placementPolicy = volinfo.placementPolicy;
     appWorkload = volinfo.appWorkload;
     backupVolume = volinfo.backupVolume;
+    mediaPolicy = volinfo.mediaPolicy;
     /// FDSP_VolumeInfoTypePtr does not contain policy details
     // but it is so far only called in orchMgr where policy
     // details are explicitly set after the construction, so
@@ -55,6 +56,7 @@ VolumeDesc::VolumeDesc(const VolumeDesc& vdesc) {
     placementPolicy = vdesc.placementPolicy;
     appWorkload = vdesc.appWorkload;
     backupVolume = vdesc.backupVolume;
+    mediaPolicy = vdesc.mediaPolicy;
     iops_min = vdesc.iops_min;
     iops_max = vdesc.iops_max;
     relativePrio = vdesc.relativePrio;
@@ -79,6 +81,7 @@ VolumeDesc::VolumeDesc(const fpi::FDSP_VolumeDescType& voldesc) {
     placementPolicy = voldesc.placementPolicy;
     appWorkload = voldesc.appWorkload;
     backupVolume = voldesc.backupVolume;
+    mediaPolicy = voldesc.mediaPolicy;
     iops_min = voldesc.iops_min;
     iops_max = voldesc.iops_max;
     relativePrio = voldesc.rel_prio;
@@ -107,6 +110,7 @@ VolumeDesc::VolumeDesc(const std::string& _name, fds_volid_t _uuid)
     archivePolicyId = 0;
     placementPolicy = 0;
     appWorkload = fpi::FDSP_APP_WKLD_TRANSACTION;
+    mediaPolicy = fpi::FDSP_MEDIA_POLICY_HDD;
     backupVolume = 0;
     iops_min = 0;
     iops_max = 0;
@@ -140,6 +144,7 @@ VolumeDesc::VolumeDesc(const std::string& _name,
     archivePolicyId = 0;
     placementPolicy = 0;
     appWorkload = fpi::FDSP_APP_WKLD_TRANSACTION;
+    mediaPolicy = fpi::FDSP_MEDIA_POLICY_HDD;
     backupVolume = 0;
 }
 
@@ -206,6 +211,7 @@ VolumeDesc& VolumeDesc::operator=(const VolumeDesc& volinfo) {
     this->archivePolicyId = volinfo.archivePolicyId;
     this->placementPolicy = volinfo.placementPolicy;
     this->appWorkload = volinfo.appWorkload;
+    this->mediaPolicy = volinfo.mediaPolicy;
     this->backupVolume = volinfo.backupVolume;
     return *this;
 }
@@ -226,6 +232,7 @@ std::ostream& operator<<(std::ostream& os, const VolumeDesc& vol) {
               << " consis.proto:" << vol.consisProtocol
               << " vol.policy.id:" << vol.volPolicyId
               << " archive.policy.id:" << vol.archivePolicyId
+              << " media.policy:" << vol.mediaPolicy
               << " placement.policy:" << vol.placementPolicy
               << " app.workload:" << vol.appWorkload
               << " backup.vol:" << vol.backupVolume

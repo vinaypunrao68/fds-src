@@ -169,7 +169,10 @@ function getAppPid() {
     local pid
     
     if [[ $name == "om" ]]; then
-        pid=$(ps aux | grep "java .*com.formationds.web.om.Main" | grep -v grep | awk '{print $2}')
+        pid=$(pgrep orchMgr)
+        if [[ -n $pid ]] ; then 
+            pid=$(pgrep -P $pid 2>/dev/null)
+        fi
     else
         pid=$(pgrep ${apps[$name]})
     fi
