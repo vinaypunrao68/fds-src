@@ -15,7 +15,7 @@
 #include <fds_process.h>
 
 #define OM_WAIT_NODES_UP_SECONDS   5*60
-#define OM_WAIT_START_SECONDS      60
+#define OM_WAIT_START_SECONDS      1
 
 namespace fds {
 
@@ -314,13 +314,6 @@ NodeDomainFSM::DACT_LoadVols::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
     LOGDEBUG << "NodeDomainFSM DACT_LoadVols";
     OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
     domain->om_load_volumes();
-
-    // if we are here, there was a time interval when OM was deferring
-    // new SMs (that were not persisted) from being added to the cluster
-    // (we did not add them to the DLT) -- they are in pending nodes in SM
-    // container.
-    // Start update cluster process to see if we have such deferred SMs
-    domain->om_update_cluster();
 }
 
 
@@ -515,7 +508,9 @@ NodeDomainFSM::DACT_UpdDlt::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
 //--------------------------------------------------------------------
 // OM Node Domain
 //--------------------------------------------------------------------
-OM_NodeDomainMod::OM_NodeDomainMod(char const *const name) : Module(name)
+OM_NodeDomainMod::OM_NodeDomainMod(char const *const name)
+        : Module(name),
+          fsm_lock("OM_NodeDomainMod fsm lock")
 {
     om_locDomain = new OM_NodeContainer();
     domain_fsm = new FSM_NodeDomain();
@@ -574,18 +569,23 @@ OM_NodeDomainMod::om_local_domain_up()
 // ------------
 //
 void OM_NodeDomainMod::local_domain_event(WaitNdsEvt const &evt) {
+    fds_mutex::scoped_lock l(fsm_lock);
     domain_fsm->process_event(evt);
 }
 void OM_NodeDomainMod::local_domain_event(DltUpEvt const &evt) {
+    fds_mutex::scoped_lock l(fsm_lock);
     domain_fsm->process_event(evt);
 }
 void OM_NodeDomainMod::local_domain_event(RegNodeEvt const &evt) {
+    fds_mutex::scoped_lock l(fsm_lock);
     domain_fsm->process_event(evt);
 }
 void OM_NodeDomainMod::local_domain_event(TimeoutEvt const &evt) {
+    fds_mutex::scoped_lock l(fsm_lock);
     domain_fsm->process_event(evt);
 }
 void OM_NodeDomainMod::local_domain_event(NoPersistEvt const &evt) {
+    fds_mutex::scoped_lock l(fsm_lock);
     domain_fsm->process_event(evt);
 }
 

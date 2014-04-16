@@ -652,6 +652,8 @@ class OM_NodeDomainMod : public Module
     kvstore::ConfigDB               *configDB;
 
     FSM_NodeDomain                  *domain_fsm;
+    // to protect access to msm process_event
+    fds_mutex                       fsm_lock;
 };
 
 /**

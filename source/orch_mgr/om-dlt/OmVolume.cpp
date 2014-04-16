@@ -559,7 +559,7 @@ void VolumeFSM::VACT_DelDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
 // --------------------------------------------------------------------------------------
 VolumeInfo::VolumeInfo(const ResourceUUID &uuid)
         : Resource(uuid), vol_properties(NULL), delete_pending(false),
-          create_pending(true)  {
+          create_pending(true), fsm_lock("VolumeInfo fsm lock")  {
     volume_fsm = new FSM_Volume();
 }
 
@@ -848,24 +848,31 @@ VolumeInfo::vol_current_state()
 }
 
 void VolumeInfo::vol_event(VolCreateEvt const &evt) {
+    fds_mutex::scoped_lock l(fsm_lock);
     volume_fsm->process_event(evt);
 }
 void VolumeInfo::vol_event(VolCrtOkEvt const &evt) {
+    fds_mutex::scoped_lock l(fsm_lock);
     volume_fsm->process_event(evt);
 }
 void VolumeInfo::vol_event(VolOpEvt const &evt) {
+    fds_mutex::scoped_lock l(fsm_lock);
     volume_fsm->process_event(evt);
 }
 void VolumeInfo::vol_event(VolOpRespEvt const &evt) {
+    fds_mutex::scoped_lock l(fsm_lock);
     volume_fsm->process_event(evt);
 }
 void VolumeInfo::vol_event(VolDelChkEvt const &evt) {
+    fds_mutex::scoped_lock l(fsm_lock);
     volume_fsm->process_event(evt);
 }
 void VolumeInfo::vol_event(DetachAllEvt const &evt) {
+    fds_mutex::scoped_lock l(fsm_lock);
     volume_fsm->process_event(evt);
 }
 void VolumeInfo::vol_event(DelNotifEvt const &evt) {
+    fds_mutex::scoped_lock l(fsm_lock);
     volume_fsm->process_event(evt);
 }
 
