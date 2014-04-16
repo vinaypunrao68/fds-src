@@ -341,6 +341,10 @@ struct FDSP_DLT_Resp_Type {
   1: i64 DLT_version
 }
 
+struct FDSP_DMT_Resp_Type {
+  1: i32 DMT_version
+}
+
 struct FDSP_VolumeInfoType {
 
   1: string 		 vol_name,  /* Name of the volume or bucket*/
@@ -1128,7 +1132,7 @@ service FDSP_ControlPathResp {
   oneway void NotifyNodeActiveResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_Node_Info_Type node_info_resp),
   oneway void NotifyDLTUpdateResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DLT_Resp_Type dlt_resp),
   oneway void NotifyDLTCloseResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DLT_Resp_Type dlt_resp),
-  oneway void NotifyDMTUpdateResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DMT_Type dmt_info_resp)
+  oneway void NotifyDMTUpdateResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DMT_Resp_Type dmt_info_resp)
 }
 
 service FDSP_MigrationPathReq {
