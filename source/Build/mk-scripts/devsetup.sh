@@ -20,13 +20,16 @@ needed_packages=(
 
     libpcre3-dev
     libpcre3
-
+    libssl-dev
+    libfuse-dev
     fds-pkghelper_latest
     fds-pkg_latest
     fds-pkgtools_latest
 
-    fds-boost
-    fds-boost-dev
+    libboost-log1.54-dev
+    libboost-program-options1.54-dev
+    libboost-timer1.54-dev
+    libboost-thread1.54-dev
 
     fds-leveldb
     fds-leveldb-dev
