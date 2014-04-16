@@ -610,6 +610,13 @@ class OM_NodeDomainMod : public Module
     virtual Error om_recv_dlt_commit_resp(FdspNodeType node_type,
                                           const NodeUuid& uuid,
                                           fds_uint64_t dlt_version);
+    /**
+     * Notification that OM received DMT update response from
+     * node with uuid 'uuid' for dmt version 'dmt_version'
+     */
+    virtual Error om_recv_dmt_commit_resp(FdspNodeType node_type,
+                                          const NodeUuid& uuid,
+                                          fds_uint32_t dmt_version);
 
     /**
      * Notification that OM received DLT close response from
@@ -734,10 +741,10 @@ class OM_ControlRespHandler : public fpi:: FDSP_ControlPathRespIf {
 
     void NotifyDMTUpdateResp(
         const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-        const FDS_ProtocolInterface::FDSP_DMT_Type& dmt_info_resp);
+        const FDS_ProtocolInterface::FDSP_DMT_Resp_Type& dmt_info_resp);
     void NotifyDMTUpdateResp(
         FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-        FDS_ProtocolInterface::FDSP_DMT_TypePtr& dmt_info_resp);
+        FDS_ProtocolInterface::FDSP_DMT_Resp_TypePtr& dmt_info_resp);
 
   private:
         // TODO(Andrew): Add ptr back to resource manager.

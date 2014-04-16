@@ -209,7 +209,7 @@ namespace fds {
     int sendDLTCloseAckToOM(FDSP_DltCloseTypePtr& dlt_close,
             const std::string& session_uuid);
     Error recvDLTStartMigration(FDSP_DLT_Data_TypePtr& dlt_info);
-    int recvDMTUpdate(int dmt_version, const Node_Table_Type& dmt_table);
+    int recvDMTUpdate(FDSP_DMT_TypePtr& dmt_info, const std::string& session_uuid);
 
     int recvNotifyVol(VolumeDesc *vdb,
                       fds_vol_notify_t vol_action,
