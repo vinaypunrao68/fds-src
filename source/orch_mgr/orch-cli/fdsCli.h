@@ -51,6 +51,11 @@ namespace fds {
             FDS_ProtocolInterface::FDSP_MsgHdrType* msg_hdr);
         FDS_ProtocolInterface::FDSP_VolType stringToVolType(
             const std::string& vol_type);
+        FDS_ProtocolInterface::FDSP_MediaPolicy stringToMediaPolicy(
+            const std::string& media_policy);
+        std::string mediaPolicyToString(
+            const FDS_ProtocolInterface::FDSP_MediaPolicy media_policy);
+
         FDSP_ConfigPathReqClientPtr startClientSession();
         void endClientSession();
     };

@@ -97,11 +97,15 @@ enum FDSP_ErrType {
 
 enum FDSP_VolType {
   FDSP_VOL_S3_TYPE,
-  FDSP_VOL_BLKDEV_TYPE,
-  FDSP_VOL_BLKDEV_SSD_TYPE,
-  FDSP_VOL_BLKDEV_DISK_TYPE,
-  FDSP_VOL_BLKDEV_HYBRID_TYPE,
-  FDSP_VOL_BLKDEV_HYBRID_PREFCAP_TYPE
+  FDSP_VOL_BLKDEV_TYPE
+}
+
+enum FDSP_MediaPolicy {
+  FDSP_MEDIA_POLICY_UNSET,                /* only used by cli or other client on modify to not change existing policy */
+  FDSP_MEDIA_POLICY_HDD,                  /* always on hdd */
+  FDSP_MEDIA_POLICY_SSD,                  /* always on ssd */
+  FDSP_MEDIA_POLICY_HYBRID,               /* either hdd or ssd, but prefer ssd */
+  FDSP_MEDIA_POLICY_HYBRID_PREFCAP        /* either on hdd or ssd, but prefer hdd */
 }
 
 enum FDSP_VolNotifyType {
@@ -351,7 +355,7 @@ struct FDSP_VolumeInfoType {
 
 // Basic operational properties
 
-  5: FDSP_VolType		 volType,
+  5: FDSP_VolType        volType,
   6: double        	 capacity,
   7: double        	 maxQuota,  // Quota % of capacity tho should alert
 
@@ -368,8 +372,9 @@ struct FDSP_VolumeInfoType {
   13: i32         		 archivePolicyId,
   14: i32        		 placementPolicy,  // Can change placement policy
   15: FDSP_AppWorkload     	 appWorkload,
+  16: FDSP_MediaPolicy           mediaPolicy,      // can change media policy
 
-  16: i32         		 backupVolume,  // UUID of backup volume
+  17: i32         		 backupVolume,  // UUID of backup volume
 
 }
 
@@ -407,6 +412,7 @@ struct FDSP_VolumeDescType {
   18: double                 iops_min, /* minimum (guaranteed) iops */
   19: double                 iops_max, /* maximum iops */
   20: i32                    rel_prio, /* relative priority */
+  21: FDSP_MediaPolicy       mediaPolicy   /* media policy */
 }
 
 struct FDSP_CreateDomainType {
