@@ -10,12 +10,7 @@ import optparse, sys, time
 
 
 if __name__ == '__main__':
-    # console = logging.StreamHandler()
-    # console.setLevel(logging.INFO)
-    # log = logging.getLogger()
-    # log.addHandler(console)
-    log = ProcessUtils.setup_logger()
-    log.info("HELLLOOOOOOOOOOOOOOOOOOO")
+    ProcessUtils.setup_logger()
 
     parser = optparse.OptionParser("usage: %prog [options]")
     parser.add_option('-f', '--file', dest = 'config_file',
