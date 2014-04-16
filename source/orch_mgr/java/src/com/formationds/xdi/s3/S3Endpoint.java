@@ -12,6 +12,10 @@ public class S3Endpoint {
 
     public static final String FDS_S3 = "FDS_S3";
 
+    public static void main(String[] args) throws Exception {
+        new S3Endpoint().start(9977);
+    }
+
     public void start(int port) throws Exception {
         WebApp webApp = new WebApp();
         LocalAmShim am = new LocalAmShim();
@@ -21,5 +25,8 @@ public class S3Endpoint {
         webApp.route(HttpMethod.PUT, "/:bucket", () -> new CreateBucket(xdi));
         webApp.route(HttpMethod.DELETE, "/:bucket", () -> new DeleteBucket(xdi));
         webApp.route(HttpMethod.GET, "/:bucket", () -> new ListObjects(xdi));
+
+
+        webApp.start(port);
     }
 }

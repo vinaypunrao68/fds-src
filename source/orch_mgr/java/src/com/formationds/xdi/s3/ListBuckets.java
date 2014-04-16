@@ -25,7 +25,7 @@ public class ListBuckets implements RequestHandler {
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
         List<VolumeDescriptor> volumeDescriptors = xdi.listVolumes(S3Endpoint.FDS_S3);
-        String buckets = String.join("\n", volumeDescriptors.stream()
+        String buckets = String.join("", volumeDescriptors.stream()
                 .map(v -> displayBucket(v))
                 .collect(Collectors.toList()));
 
@@ -41,7 +41,7 @@ public class ListBuckets implements RequestHandler {
             "    <Bucket>\n" +
                     "      <Name>%s</Name>\n" +
                     "      <CreationDate>%s</CreationDate>\n" +
-                    "    </Bucket>";
+                    "    </Bucket>\n";
 
     private static final String RESULT_FORMAT =
             "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
@@ -51,7 +51,7 @@ public class ListBuckets implements RequestHandler {
                     "    <DisplayName>%s</DisplayName>\n" +
                     "  </Owner>\n" +
                     "  <Buckets>\n" +
-                    "%s\n" +
+                    "%s" +
                     "  </Buckets>\n" +
                     "</ListAllMyBucketsResult>\n";
 }

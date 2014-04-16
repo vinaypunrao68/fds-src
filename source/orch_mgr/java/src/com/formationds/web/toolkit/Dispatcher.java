@@ -83,7 +83,7 @@ public class Dispatcher extends HttpServlet {
         response.addHeader("Access-Control-Allow-Origin", "*");
         response.setContentType(resource.getContentType());
         response.setStatus(resource.getHttpStatus());
-        response.setHeader("Server", "FDS http endpoint");
+        response.setHeader("Server", "Formation Data Systems");
         Multimap<String, String> extraHeaders = resource.extraHeaders();
         for (String headerName : extraHeaders.keySet()) {
             for (String value : extraHeaders.get(headerName)) {
