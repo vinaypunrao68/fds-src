@@ -81,6 +81,15 @@ class exampleDataPathReqIf : virtual public FDSP_DataPathReqIf {
     }
     void GetObjectMetadata(boost::shared_ptr<FDSP_GetObjMetadataReq>& metadata_req) {  // NOLINT
     }
+    void GetTokenMigrationStats(FDSP_TokenMigrationStats& _return,
+            const FDSP_MsgHdrType& fdsp_msg) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+    void GetTokenMigrationStats(FDSP_TokenMigrationStats& _return,
+            boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg)  // NOLINT
+    {
+    }
+
 };
 }  // namespace FDS_ProtocolInterface
 

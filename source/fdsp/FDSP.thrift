@@ -962,6 +962,16 @@ struct FDSP_ScavengerStartType {
   2: bool         all           /* if true then token id is ignored and will GC all tokens */
 }
 
+/* Current state of tokens in an SM */
+struct FDSP_TokenMigrationStats {
+	/* Number of tokens for which migration is complete */
+	1: i32			completed
+	/* Number of token for which migration is in progress */
+	2: i32          inflight
+	/* Number of tokens for which migration is pending */
+	3: i32          pending
+}
+
 service FDSP_SessionReq {
     oneway void AssociateRespCallback(1:string src_node_name) // Associate Response callback with DM/SM for this source node.
 }
@@ -988,7 +998,9 @@ service FDSP_DataPathReq {
     oneway void RedirReadObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_RedirReadObjType redir_write_obj_req),
     
     /* Exposed for testing */
-	oneway void GetObjectMetadata(1:FDSP_GetObjMetadataReq metadata_req)
+	oneway void GetObjectMetadata(1:FDSP_GetObjMetadataReq metadata_req),
+	
+	FDSP_TokenMigrationStats GetTokenMigrationStats(1:FDSP_MsgHdrType fdsp_msg)
 }
 
 service FDSP_DataPathResp {

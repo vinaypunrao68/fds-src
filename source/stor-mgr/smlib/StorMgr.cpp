@@ -273,6 +273,19 @@ void ObjectStorMgrI::GetObjectMetadataCb(const Error &err,
     objStorMgr->fdspDataPathClient(
             resp.header.session_uuid)->GetObjectMetadataResp(resp);
 }
+
+void ObjectStorMgrI::GetTokenMigrationStats(FDSP_TokenMigrationStats& _return,
+            boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg)
+{
+    std::unordered_map<int, int> stats;
+    objStorMgr->getTokenStateDb()->getTokenStats(stats);
+    _return.completed = stats[static_cast<int>(kvstore::TokenStateInfo::HEALTHY)];
+    _return.inflight = stats[static_cast<int>(kvstore::TokenStateInfo::COPYING)] +
+            stats[static_cast<int>(kvstore::TokenStateInfo::SYNCING)] +
+            stats[static_cast<int>(kvstore::TokenStateInfo::PULL_REMAINING)];
+    _return.pending = stats[static_cast<int>(kvstore::TokenStateInfo::UNINITIALIZED)];
+}
+
 /**
  * Storage manager member functions
  * 
@@ -631,14 +644,19 @@ bool ObjectStorMgr::isTokenInSyncMode(const fds_token_id &tokId) {
 
 void ObjectStorMgr::migrationEventOmHandler(bool dlt_type)
 {
+    auto curDlt = objStorMgr->omClient->getCurrentDLT();
+    auto prevDlt = objStorMgr->omClient->getPreviousDLT();
     std::set<fds_token_id> tokens =
-            DLT::token_diff(objStorMgr->getUuid(),
-                    objStorMgr->omClient->getCurrentDLT(),
-                    objStorMgr->omClient->getPreviousDLT());
+            DLT::token_diff(objStorMgr->getUuid(), curDlt, prevDlt);
 
     GLOGNORMAL << " tokens to copy size: " << tokens.size();
 
     if (tokens.size() > 0) {
+        for (auto t : tokens) {
+            /* This says we own the token, but don't have any data for it */
+            objStorMgr->getTokenStateDb()->\
+                    setTokenState(t, kvstore::TokenStateInfo::UNINITIALIZED);
+        }
         objStorMgr->tok_migrated_for_dlt_ = true;
         /* Issue bulk copy request */
         MigSvcBulkCopyTokensReqPtr copy_req(new MigSvcBulkCopyTokensReq());
@@ -653,6 +671,20 @@ void ObjectStorMgr::migrationEventOmHandler(bool dlt_type)
             FAR_ID(MigSvcBulkCopyTokensReq), copy_req));
         objStorMgr->migrationSvc_->send_actor_request(copy_far);
     } else {
+        /* Nothing to migrate case */
+        if (curDlt == prevDlt) {
+            /* This is the first node.  Set all tokens owned by this node to
+             * healthy.
+             * TODO(Rao): This is hacky.  We need a better way to test first
+             * node case.
+             */
+            auto tokens = curDlt->getTokens(objStorMgr->getUuid());
+            for (auto t : tokens) {
+                /* This says we own the token, but don't have any data for it */
+                objStorMgr->getTokenStateDb()->\
+                        setTokenState(t, kvstore::TokenStateInfo::HEALTHY);
+            }
+        }
         objStorMgr->tok_migrated_for_dlt_ = false;
         objStorMgr->migrationSvcResponseCb(Error(ERR_OK), TOKEN_COPY_COMPLETE);
     }

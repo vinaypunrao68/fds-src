@@ -5,9 +5,13 @@
 import sys
 sys.path.append('/home/nbayyana/fds-src/source/test/fdslib/pyfdsp')
 import socket
+import time
+import logging
+
 from FDS_ProtocolInterface.ttypes import *
 import struct
 
+from FdsException import *
 import FdsSetup as inst
 import BringUpCfg as fdscfg
 from FdsNode import FdsNode
@@ -16,14 +20,7 @@ from FdsService import DMService
 from FdsService import AMService
 from FdsService import OMService
 
-
-class NodeNotFoundException(Exception):
-    pass
-
-
-class CheckerFailedException(Exception):
-    pass
-
+log = logging.getLogger(__name__)
 
 class FdsCluster:
 
@@ -49,12 +46,15 @@ class FdsCluster:
         """
         for am in self.config.cfg_am:
             am.am_start_service()
+            time.sleep(5)
     
     def add_node(self, node_id, activate_services = []):
         """
         Adds node.
         node_id: Id from the config
         """
+        log.info('adding node {}'.format(node_id))
+
         # Find node config
         node_cfg = self.__get_node_config(node_id)
 
@@ -93,19 +93,25 @@ class FdsCluster:
     def add_service(self, node_id, service_id, node_cfg):
         """
         Adds service identified by service_id
+        Waits for services to become active.
+        TODO(Rao):  Now waits 5s and assumes service is active.  We need a ping()
+        thrift endpoint
         """
         if self.nodes.has_key(node_id) is False:
             raise Exception("Node {} isn't added yet".format(node_id))
 
+        log.info('adding node: {} service: {}'.format(node_id, service_id))
+
         # Activate service
         cli = self.config.cfg_cli
         cli.run_cli('--activate-nodes abc -k 1 -e {}'.format(service_id))
+        time.sleep(5)
 
         # Query OM to get list of services.  From this list we will pick out
         # service we are interested in
         svc_info = self.__get_service_info(service_id, node_cfg)
 
-        # TODO(Rao): This part should should move into FdsNode class
+        # TODO(Rao): This part should should probably move into FdsNode class
         if service_id == 'sm':
             self.nodes[node_id].add_service(service_id, SMService(svc_info))
         elif service_id == 'dm':
