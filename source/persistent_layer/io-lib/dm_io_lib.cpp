@@ -101,7 +101,13 @@ DataIOModule::disk_hdd_io(DataTier            tier,
     // path to the underlaying device.
     //
     token   = reinterpret_cast<const fds_uint32_t *>(oid->metaDigest);
-    disk_id = io_hdd_diskid[oid->metaDigest[0] % io_hdd_curr];
+    if (tier == diskTier) {
+        disk_id = io_hdd_diskid[oid->metaDigest[0] % io_hdd_curr];
+    } else if (tier == flashTier) {
+        disk_id = io_ssd_diskid[oid->metaDigest[0] % io_ssd_curr];
+    } else {
+        fds_verify(false);  // did we add another tier type?
+    }
     ioc     = io_token_db->openTokenFile(tier, disk_id, *token, file_id);
 
     fds_verify(ioc != NULL);
@@ -273,7 +279,8 @@ DataDiscoveryModule::disk_open_map()
         if (map.fail()) {
             break;
         }
-        LOGNORMAL << "dev " << dev << ", path " << path << ", uuid " << uuid;
+        LOGNORMAL << "dev " << dev << ", path " << path << ", uuid " << uuid
+                  << ", idx " << idx;
         if (strstr(path.c_str(), "hdd") != NULL) {
             pd_hdd_found++;
             pd_hdd_map[idx] = path;

@@ -427,6 +427,8 @@ class OmUnitTest {
         vol_info->appWorkload =
                 FDS_ProtocolInterface::FDSP_APP_WKLD_TRANSACTION;
         vol_info->volPolicyId = 0;
+        vol_info->mediaPolicy =
+                FDS_ProtocolInterface::FDSP_MEDIA_POLICY_HDD;
         
         vol_info->defReplicaCnt = 0;
         vol_info->defWriteQuorum = 0;
@@ -452,7 +454,9 @@ class OmUnitTest {
         vol_desc->appWorkload =
                 FDS_ProtocolInterface::FDSP_APP_WKLD_TRANSACTION;
         vol_desc->volPolicyId = 0;
-        
+        vol_desc->mediaPolicy =
+                FDS_ProtocolInterface::FDSP_MEDIA_POLICY_HDD;
+
         vol_desc->defReplicaCnt = 0;
         vol_desc->defWriteQuorum = 0;
         vol_desc->defReadQuorum = 0;
@@ -735,7 +739,9 @@ class OmUnitTest {
             (crt_vol->vol_info).appWorkload =
                     FDS_ProtocolInterface::FDSP_APP_WKLD_TRANSACTION;
             (crt_vol->vol_info).volPolicyId = 0;
-            
+            (crt_vol->vol_info).mediaPolicy =
+                    FDS_ProtocolInterface::FDSP_MEDIA_POLICY_HDD;
+
             FDS_PLOG(test_log) << "OM unit test client creating volume "
                                << (crt_vol->vol_info).vol_name
                                << " and capacity " << (crt_vol->vol_info).capacity;
@@ -855,6 +861,8 @@ class OmUnitTest {
             (crt_vol->vol_info).appWorkload =
                     FDS_ProtocolInterface::FDSP_APP_WKLD_TRANSACTION;
             (crt_vol->vol_info).volPolicyId = pol_tab[i].volPolicyId;
+            (crt_vol->vol_info).mediaPolicy =
+                    FDS_ProtocolInterface::FDSP_MEDIA_POLICY_HDD;;
 
             FDS_PLOG(test_log) << "OM unit test client creating volume "
                                << (crt_vol->vol_info).vol_name
