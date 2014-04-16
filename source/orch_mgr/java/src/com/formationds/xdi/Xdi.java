@@ -6,7 +6,9 @@ package com.formationds.xdi;
 import com.formationds.xdi.shim.*;
 import org.apache.thrift.TException;
 
+import java.io.InputStream;
 import java.nio.ByteBuffer;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -39,6 +41,17 @@ public class Xdi implements AmShim.Iface {
 
     public BlobDescriptor statBlob(String domainName, String volumeName, String blobName) throws FdsException, TException {
         return am.statBlob(domainName, volumeName, blobName);
+    }
+
+    public InputStream readStream(String domainName, String volumeName, String blobName) throws Exception {
+        Iterator<byte[]> iterator = new BlockIterator(this).read(domainName, volumeName, blobName);
+        return new BlockStreamer(iterator);
+    }
+
+    public void writeStream(String domainName, String volumeName, String blobName, InputStream in, Map<String, String> metadata) throws Exception {
+        VolumeDescriptor volume = statVolume(domainName, volumeName);
+        int bufSize = volume.getPolicy().getObjectSizeInBytes();
+        new StreamWriter(bufSize, this).write(domainName, volumeName, blobName, in, metadata);
     }
 
     public Uuid startBlobTx(String domainName, String volumeName, String blobName) throws FdsException, TException {
