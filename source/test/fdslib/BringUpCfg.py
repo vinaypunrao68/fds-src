@@ -171,7 +171,7 @@ class FdsAMConfig(FdsConfig):
     #
     def am_connect_node(self, nodes):
         if 'fds_node' not in self.nd_conf_dict:
-            print('sh section must have "fds-node" keyword')
+            print('sh section must have "fds_node" keyword')
             sys.exit(1)
 
         name = self.nd_conf_dict['fds_node']
@@ -354,7 +354,7 @@ class FdsScenarioConfig(FdsConfig):
             for s in self.cfg_sect_nodes:
                 if '[' + s.nd_conf_dict['node-name'] + ']' == script:
                     s.nd_start_om()
-                    s.nd_start_platform() 
+                    s.nd_start_platform(self.cfg_om)
                     break
         elif re.match('\[sh.+\]', script) != None:
             for s in self.cfg_sect_ams:
@@ -392,13 +392,14 @@ class FdsScenarioConfig(FdsConfig):
             print 'Delaying for %d seconds' % delay
         time.sleep(delay)
 
-    def sce_bind_sections(self, user, nodes, am, vol_pol, volumes, cli):
+    def sce_bind_sections(self, user, nodes, am, vol_pol, volumes, cli, om):
         self.cfg_sect_user    = user
         self.cfg_sect_nodes   = nodes
         self.cfg_sect_ams     = am
         self.cfg_sect_vol_pol = vol_pol
         self.cfg_sect_volumes = volumes
         self.cfg_sect_cli     = cli
+        self.cfg_om           = om
 
 ###
 # Handle fds bring up config parsing
@@ -415,6 +416,7 @@ class FdsConfigFile(object):
         self.cfg_vol_pol   = []
         self.cfg_scenarios = []
         self.cfg_cli       = None
+        self.cfg_om        = None
         self.cfg_parser    = ConfigParser.ConfigParser()
 
     def config_parse(self):
@@ -429,10 +431,18 @@ class FdsConfigFile(object):
                 self.cfg_user.append(FdsUserConfig('user', items, verbose))
 
             elif re.match('node', section) != None:
-                if 'enable' in items:
-                    if items['enable'] == 'true':
+                # Why are we doing the same thing either way? Is this
+                # because an OM doesn't have an enabled = true?
+                items_d = dict(items)
+                if 'enable' in items_d:
+                    if items_d['enable'] == 'true':
                         self.cfg_nodes.append(FdsNodeConfig(section, items, verbose))
                 else:
+                    # Store OM ip address to pass to PMs during scenarios
+                    if 'om' in items_d:
+                        if items_d['om'] == 'true':
+                            self.cfg_om = items_d['ip']
+
                     self.cfg_nodes.append(FdsNodeConfig(section, items, verbose))
 
             elif re.match('sh', section) != None:
@@ -459,8 +469,10 @@ class FdsConfigFile(object):
             vol.vol_connect_to_am(self.cfg_am)
 
         for sce in self.cfg_scenarios:
-            sce.sce_bind_sections(self.cfg_user, self.cfg_nodes, self.cfg_am,
-                                  self.cfg_vol_pol, self.cfg_volumes, [self.cfg_cli])
+            sce.sce_bind_sections(self.cfg_user, self.cfg_nodes,
+                                  self.cfg_am, self.cfg_vol_pol,
+                                  self.cfg_volumes, [self.cfg_cli],
+                                  self.cfg_om)
 
         self.cfg_scenarios.sort()
 
@@ -494,6 +506,7 @@ class FdsConfigRun(object):
         for n in nodes:
             n.nd_connect_rmt_agent(self.rt_env)
             n.nd_rmt_agent.ssh_setup_env('')
+
             if n.nd_run_om() == True:
                 self.rt_om_node = n
 
