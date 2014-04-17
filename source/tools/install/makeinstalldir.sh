@@ -91,7 +91,7 @@ function getInstallSources() {
     loginfo "copying install sources"
     ( 
         cd ${SOURCEDIR}
-        for file in *.py *.sh ; do
+        for file in *.py *.sh ../../platform/python/disk_type.py; do
             if [[ ${file} != ${THISFILE} ]]; then
                 loginfo "copying [$file] to ${INSTALLDIR}"
                 cp $file ${INSTALLDIR}
