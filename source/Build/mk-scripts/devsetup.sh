@@ -117,6 +117,16 @@ do
     else
         pkginfo=$( dpkg-query -f '${Package}_${Version}' -W $pkgname 2>/dev/null)
     fi
+
+    # check the pkg state
+    if [[ -n $pkginfo ]] ; then
+        pkgstate=$(dpkg-query -f '${db:Status-Abbrev}' -W $pkgname 2>/dev/null)
+        if [[ $pkgstate != "ii " ]]; then 
+            echo "[devsetup] : $pkgname is in unknown state [$pkgstate] - forcing install"
+            pkginfo=
+        fi
+    fi
+
     #echo "${pkginfo} , $pkgname, $pkgversion , $pkg"
     #exit
     if  [[ -z $pkginfo ]] || [[ $pkginfo != $pkg ]] ; then 
