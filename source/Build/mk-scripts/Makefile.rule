@@ -372,3 +372,11 @@ $(devsetup_chkfile): $(devsetup_script)
 
 .PHONY : devsetup 
 devsetup: $(devsetup_chkfile)
+
+# -----------------------------------------------------------------------------
+# List Targets
+# http://stackoverflow.com/a/9524878
+# -----------------------------------------------------------------------------
+.PHONY: list
+list:
+	@$(MAKE) -qp | awk -F':' '/^[a-zA-Z0-9][^$$#\/\t=]*:([^=]|$$)/ {split($$1,A,/ /);for(i in A)print A[i]}' | sort

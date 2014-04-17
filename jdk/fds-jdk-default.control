@@ -1,0 +1,36 @@
+#!/bin/bash
+#==================================================================================================
+# Install Control script
+# NOTE: This script will be embedded into another script , so just write code only inside the fns
+# https://www.debian.org/doc/debian-policy/ch-maintainerscripts.html#s-mscriptsinstact
+#==================================================================================================
+
+#----------------------------------------------------------------
+# Executes BEFORE installation
+#----------------------------------------------------------------
+function preInstall() {
+    :;# empty statement
+}
+
+#----------------------------------------------------------------
+# Executes AFTER installation
+#----------------------------------------------------------------
+function postInstall() {
+    ldconfig
+    logwarn "please run the following cmd"
+    logwarn "$(red source /etc/profile.d/jdk.sh)"
+}
+
+#----------------------------------------------------------------
+# Executes BEFORE remove/uninstall
+#----------------------------------------------------------------
+function preRemove() {
+    :;
+}
+
+#----------------------------------------------------------------
+# Executes AFTER remove/uninstall
+#----------------------------------------------------------------
+function postRemove() {
+    ldconfig
+}

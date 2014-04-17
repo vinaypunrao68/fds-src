@@ -57,8 +57,12 @@ class Pkg:
     def getPackageInfo(self,pkgs):
         cmd= ['dpkg', '-p']
         cmd.extend(self.getAsList(pkgs))
-        return self.getCmdOutput(cmd)
-
+        result = self.getCmdOutput(cmd)
+        cmd= ['apt-cache','showpkg']
+        cmd.extend(self.getAsList(pkgs))
+        result.extend(self.getCmdOutput(cmd))
+        return result
+        
     def runCmd(self, cmd):
         log.debug('running cmd : %s', cmd)
         os.system(cmd)

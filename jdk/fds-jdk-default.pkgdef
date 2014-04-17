@@ -1,0 +1,18 @@
+package: fds-jdk-default
+version: 8.5
+description: oracle jdk packaged by fds
+
+depends:
+  - java-common
+  - oracle-java8-jdk
+
+replaces: oracle-java8-set-default
+install-control: fds-jdk-default.control
+files:
+  - dest: /etc/profile.d
+    dest-is-dir: True
+    src: jdk.sh
+
+  - dest: /etc/ld.so.conf.d
+    dest-is-dir: True
+    src: fds-jdk.ld.conf
