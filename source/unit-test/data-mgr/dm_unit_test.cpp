@@ -468,6 +468,7 @@ class DmUnitTest {
     vol_msg->vol_desc.volType = FDS_ProtocolInterface::FDSP_VOL_BLKDEV_TYPE;
     vol_msg->vol_desc.defConsisProtocol = FDS_ProtocolInterface::FDSP_CONS_PROTO_STRONG;
     vol_msg->vol_desc.appWorkload = FDS_ProtocolInterface::FDSP_APP_WKLD_FILESYS;
+    vol_msg->vol_desc.mediaPolicy = FDS_ProtocolInterface::FDSP_MEDIA_POLICY_HDD;
 
     for (fds_uint32_t i = 0; i < num_vols; i++) {
 

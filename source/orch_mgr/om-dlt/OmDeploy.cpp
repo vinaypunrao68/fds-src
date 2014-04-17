@@ -117,7 +117,13 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
     {
         typedef mpl::vector<DltComputeEvt> deferred_events;
 
-        DST_Close() : acks_to_wait(0) {}
+        DST_Close() : acks_to_wait(0),
+                      tryAgainTimer(new FdsTimer()),
+                      tryAgainTimerTask(new RetryTimerTask(*tryAgainTimer)) {}
+
+        ~DST_Close() {
+            tryAgainTimer->destroy();
+        }
 
         template <class Evt, class Fsm, class State>
         void operator()(Evt const &, Fsm &, State &) {}
@@ -126,6 +132,13 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
         template <class Event, class FSM> void on_exit(Event const &, FSM &) {}
 
         fds_uint32_t acks_to_wait;
+
+        /**
+         * timer to try to compute DLT (in case new SMs joined while we were
+         * deploying the current DLT)
+         */
+        FdsTimerPtr tryAgainTimer;
+        FdsTimerTaskPtr tryAgainTimerTask;
     };
 
     /**
@@ -224,7 +237,8 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
 // DLT Module Vector
 // ------------------------------------------------------------------------------------
 OM_DLTMod::OM_DLTMod(char const *const name)
-    : Module(name)
+        : Module(name),
+          fsm_lock("DLTMod lock")
 {
     dlt_dply_fsm = new FSM_DplyDLT();
 }
@@ -271,30 +285,35 @@ OM_DLTMod::dlt_deploy_curr_state()
 void
 OM_DLTMod::dlt_deploy_event(DltComputeEvt const &evt)
 {
+    fds_mutex::scoped_lock l(fsm_lock);
     dlt_dply_fsm->process_event(evt);
 }
 
 void
 OM_DLTMod::dlt_deploy_event(DltRebalOkEvt const &evt)
 {
+    fds_mutex::scoped_lock l(fsm_lock);
     dlt_dply_fsm->process_event(evt);
 }
 
 void
 OM_DLTMod::dlt_deploy_event(DltCommitOkEvt const &evt)
 {
+    fds_mutex::scoped_lock l(fsm_lock);
     dlt_dply_fsm->process_event(evt);
 }
 
 void
 OM_DLTMod::dlt_deploy_event(DltCloseOkEvt const &evt)
 {
+    fds_mutex::scoped_lock l(fsm_lock);
     dlt_dply_fsm->process_event(evt);
 }
 
 void
 OM_DLTMod::dlt_deploy_event(DltLoadedDbEvt const &evt)
 {
+    fds_mutex::scoped_lock l(fsm_lock);
     dlt_dply_fsm->process_event(evt);
 }
 
@@ -329,7 +348,7 @@ void DltDplyFSM::RetryTimerTask::runTimerTask()
 {
     OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
     LOGNOTIFY << "DltDplyFSM: retry to re-compute DLT";
-    domain->om_update_cluster();
+    domain->om_dlt_update_cluster();
 }
 
 // GRD_DltCompute
@@ -587,8 +606,16 @@ void
 DltDplyFSM::DACT_UpdDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
     LOGDEBUG << "DltFSM DACT_UpdDone";
-    OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
-    domain->om_update_cluster();
+    OM_Module *om = OM_Module::om_singleton();
+    ClusterMap* cm = om->om_clusmap_mod();
+    fds_verify(cm != NULL);
+    LOGNOTIFY << "OM deployed DLT with " << cm->getNumMembers() << " nodes";
+
+    if (!src.tryAgainTimer->schedule(src.tryAgainTimerTask,
+                                     std::chrono::seconds(1))) {
+        LOGWARN << "DACT_UpdDone: failed to start try againtimer!!!"
+                << " SM additions/deletions may be pending for long time!";
+    }
 }
 
 // GRD_DltRebal

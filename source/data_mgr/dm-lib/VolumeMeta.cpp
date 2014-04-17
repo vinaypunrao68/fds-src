@@ -199,6 +199,7 @@ void VolumeMeta::dmCopyVolumeDesc(VolumeDesc *v_desc, VolumeDesc *pVol) {
   v_desc->consisProtocol = FDS_ProtocolInterface::
       FDSP_ConsisProtoType(pVol->consisProtocol);
   v_desc->appWorkload = pVol->appWorkload;
+  v_desc->mediaPolicy = pVol->mediaPolicy;
 
   v_desc->volPolicyId = pVol->volPolicyId;
   v_desc->iops_max = pVol->iops_max;

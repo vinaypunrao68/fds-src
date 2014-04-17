@@ -9,6 +9,9 @@
 #include <OmResources.h>
 #include <orchMgr.h>
 #include <om-discovery.h>
+#include <OmDmtDeploy.h>
+#include <orch-mgr/om-service.h>
+
 
 namespace fds {
 
@@ -559,7 +562,7 @@ void VolumeFSM::VACT_DelDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
 // --------------------------------------------------------------------------------------
 VolumeInfo::VolumeInfo(const ResourceUUID &uuid)
         : Resource(uuid), vol_properties(NULL), delete_pending(false),
-          create_pending(true)  {
+          create_pending(true), fsm_lock("VolumeInfo fsm lock")  {
     volume_fsm = new FSM_Volume();
 }
 
@@ -626,6 +629,7 @@ VolumeInfo::vol_fmt_desc_pkt(FDSP_VolumeDescType *pkt) const
 
     pkt->defConsisProtocol = fpi::FDSP_ConsisProtoType(pVol->consisProtocol);
     pkt->appWorkload       = pVol->appWorkload;
+    pkt->mediaPolicy   = pVol->mediaPolicy;
 }
 
 // vol_fmt_message
@@ -848,24 +852,31 @@ VolumeInfo::vol_current_state()
 }
 
 void VolumeInfo::vol_event(VolCreateEvt const &evt) {
+    fds_mutex::scoped_lock l(fsm_lock);
     volume_fsm->process_event(evt);
 }
 void VolumeInfo::vol_event(VolCrtOkEvt const &evt) {
+    fds_mutex::scoped_lock l(fsm_lock);
     volume_fsm->process_event(evt);
 }
 void VolumeInfo::vol_event(VolOpEvt const &evt) {
+    fds_mutex::scoped_lock l(fsm_lock);
     volume_fsm->process_event(evt);
 }
 void VolumeInfo::vol_event(VolOpRespEvt const &evt) {
+    fds_mutex::scoped_lock l(fsm_lock);
     volume_fsm->process_event(evt);
 }
 void VolumeInfo::vol_event(VolDelChkEvt const &evt) {
+    fds_mutex::scoped_lock l(fsm_lock);
     volume_fsm->process_event(evt);
 }
 void VolumeInfo::vol_event(DetachAllEvt const &evt) {
+    fds_mutex::scoped_lock l(fsm_lock);
     volume_fsm->process_event(evt);
 }
 void VolumeInfo::vol_event(DelNotifEvt const &evt) {
+    fds_mutex::scoped_lock l(fsm_lock);
     volume_fsm->process_event(evt);
 }
 
@@ -1052,7 +1063,8 @@ VolumeContainer::om_modify_vol(const FdspModVolPtr &mod_msg)
 
     // We will not modify capacity for now; just policy id or min/max and priority.
     //
-    if (mod_msg->vol_desc.volPolicyId != 0) {
+    if ((mod_msg->vol_desc.volPolicyId != 0) &&
+        (mod_msg->vol_desc.volPolicyId != mod_msg->vol_desc.volPolicyId)) {
         // Change policy id and its description from the catalog.
         //
         new_desc->volPolicyId = mod_msg->vol_desc.volPolicyId;
@@ -1069,6 +1081,9 @@ VolumeContainer::om_modify_vol(const FdspModVolPtr &mod_msg)
                      << vol->vol_get_properties()->volPolicyId;
             return err;
         }
+    } else if (mod_msg->vol_desc.volPolicyId != 0) {
+        LOGNOTIFY << "Modify volume " << vname
+                  << " policy id unchanged, not changing QoS Policy";
     } else {
         // Don't modify policy id, just min/max ips and priority.
         //
@@ -1081,6 +1096,12 @@ VolumeContainer::om_modify_vol(const FdspModVolPtr &mod_msg)
                   << " max iops " << new_desc->iops_max
                   << " priority " << new_desc->relativePrio;
     }
+    if (mod_msg->vol_desc.mediaPolicy != fpi::FDSP_MEDIA_POLICY_UNSET) {
+        new_desc->mediaPolicy = mod_msg->vol_desc.mediaPolicy;
+        LOGNOTIFY << "Modify volume " << vname
+                  << " also set media policy to " << new_desc->mediaPolicy;
+    }
+
     vol->vol_event(VolOpEvt(vol.get(),
                             FDS_ProtocolInterface::FDSP_MSG_MODIFY_VOL,
                             new_desc));
@@ -1238,6 +1259,8 @@ VolumeContainer::om_notify_vol_resp(om_vol_notify_t type,
                                     const ResourceUUID& vol_uuid)
 {
     VolumeInfo::pointer vol = VolumeInfo::vol_cast_ptr(rs_get_resource(vol_uuid));
+    OM_Module *om = OM_Module::om_singleton();
+    OM_DMTMod *dmtMod = om->om_dmt_mod();
     if (vol == NULL) {
         // we probably deleted a volume, just print a warning
         LOGWARN << "Received volume notify response for volume "
@@ -1251,6 +1274,7 @@ VolumeContainer::om_notify_vol_resp(om_vol_notify_t type,
         case om_notify_vol_add:
             if (resp_err.ok()) {
                 vol->vol_event(VolCrtOkEvt(true));
+                dmtMod->dmt_deploy_event(DmtVolAckEvt());
             } else {
                 // TODO(anna) send response to volume create here with error
                 LOGERROR << "Received volume create response with error ("

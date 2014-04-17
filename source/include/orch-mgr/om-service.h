@@ -9,6 +9,7 @@
 namespace fds {
 class ClusterMap;
 class OM_DLTMod;
+class OM_DMTMod;
 class OM_NodeDomainMod;
 class DataPlacement;
 
@@ -38,6 +39,9 @@ class OM_Module : public Module
     inline OM_DLTMod *om_dlt_mod() {
         return om_dlt;
     }
+    inline OM_DMTMod *om_dmt_mod() {
+        return om_dmt;
+    }
     /**
      * Module methods.
      */
@@ -49,6 +53,7 @@ class OM_Module : public Module
     OM_NodeDomainMod        *om_node_domain;
     ClusterMap              *om_clus_map;
     OM_DLTMod               *om_dlt;
+    OM_DMTMod               *om_dmt;
     DataPlacement           *om_data_place;
 };
 

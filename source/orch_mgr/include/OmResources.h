@@ -404,7 +404,7 @@ class OM_NodeContainer : public DomainContainer
 
     virtual void om_bcast_tier_policy(fpi::FDSP_TierPolicyPtr policy);
     virtual void om_bcast_tier_audit(fpi::FDSP_TierPolicyAuditPtr audit);
-    virtual void om_bcast_vol_list(NodeAgent::pointer node);
+    virtual fds_uint32_t  om_bcast_vol_list(NodeAgent::pointer node);
     virtual fds_uint32_t om_bcast_vol_create(VolumeInfo::pointer vol);
     virtual void om_bcast_vol_modify(VolumeInfo::pointer vol);
     virtual fds_uint32_t om_bcast_vol_delete(VolumeInfo::pointer vol,
@@ -433,6 +433,8 @@ class OM_NodeContainer : public DomainContainer
                                             fds_bool_t activate_sm,
                                             fds_bool_t activate_md,
                                             fds_bool_t activate_am);
+    virtual fds_uint32_t  om_bcast_dmt_table();
+    virtual void om_round_robin_dmt();
 
   private:
     friend class OM_NodeDomainMod;
@@ -455,8 +457,6 @@ class OM_NodeContainer : public DomainContainer
     fds_mutex                 om_dmt_mtx;
 
     void om_init_domain();
-    virtual void om_bcast_dmt_table();
-    virtual void om_round_robin_dmt();
 
     /**
      * Recent history of perf stats OM receives from AM nodes.
@@ -610,6 +610,13 @@ class OM_NodeDomainMod : public Module
     virtual Error om_recv_dlt_commit_resp(FdspNodeType node_type,
                                           const NodeUuid& uuid,
                                           fds_uint64_t dlt_version);
+    /**
+     * Notification that OM received DMT update response from
+     * node with uuid 'uuid' for dmt version 'dmt_version'
+     */
+    virtual Error om_recv_dmt_commit_resp(FdspNodeType node_type,
+                                          const NodeUuid& uuid,
+                                          fds_uint32_t dmt_version);
 
     /**
      * Notification that OM received DLT close response from
@@ -621,7 +628,8 @@ class OM_NodeDomainMod : public Module
     /**
      * Updates cluster map membership and does DLT
      */
-    virtual void om_update_cluster();
+    virtual void om_dmt_update_cluster(fds_uint32_t numVols);
+    virtual void om_dlt_update_cluster();
     virtual void om_persist_node_info(fds_uint32_t node_idx);
 
     /**
@@ -652,6 +660,8 @@ class OM_NodeDomainMod : public Module
     kvstore::ConfigDB               *configDB;
 
     FSM_NodeDomain                  *domain_fsm;
+    // to protect access to msm process_event
+    fds_mutex                       fsm_lock;
 };
 
 /**
@@ -733,10 +743,10 @@ class OM_ControlRespHandler : public fpi:: FDSP_ControlPathRespIf {
 
     void NotifyDMTUpdateResp(
         const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-        const FDS_ProtocolInterface::FDSP_DMT_Type& dmt_info_resp);
+        const FDS_ProtocolInterface::FDSP_DMT_Resp_Type& dmt_info_resp);
     void NotifyDMTUpdateResp(
         FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-        FDS_ProtocolInterface::FDSP_DMT_TypePtr& dmt_info_resp);
+        FDS_ProtocolInterface::FDSP_DMT_Resp_TypePtr& dmt_info_resp);
 
   private:
         // TODO(Andrew): Add ptr back to resource manager.

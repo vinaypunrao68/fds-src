@@ -168,7 +168,7 @@ UT_OM_NodeInfo::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput 
     eval_helper->setOldDlt(oldDlt);
 
     // Drive cluster map update via state machine
-    domain->om_update_cluster();
+    domain->om_dlt_update_cluster();
 
     // Get new/old dlt states
     const DLT *dlt = dp->getCommitedDlt();

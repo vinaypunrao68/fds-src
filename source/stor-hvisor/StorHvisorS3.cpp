@@ -297,8 +297,6 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
                     << ", just give up and return error.";
         blobReq->cbWithResult(-2);
         err = ERR_NOT_IMPLEMENTED;
-        journEntry->reset();
-        shVol->journal_tbl->releaseTransId(transId);
         delete qosReq;
         return err;
     }
@@ -1017,7 +1015,7 @@ fds::Error StorHvCtrl::getObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
          * We received an error from SM. check the Error. If the Obj Not found 
          * send a get object request to secondary SM
          */
-       if (txn->nodeSeq != txn->num_sm_nodes) { 
+        if (txn->nodeSeq < (txn->num_sm_nodes-1)) { 
            txn->nodeSeq += 1; // secondary node 
            err = dispatchSmGetMsg(txn);
            fds_verify(err == ERR_OK);

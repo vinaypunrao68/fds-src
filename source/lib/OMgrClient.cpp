@@ -125,7 +125,8 @@ void OMgrClientRPCI::NotifyScavengerStart(FDSP_MsgHdrTypePtr& msg_hdr,
 
 void OMgrClientRPCI::NotifyDMTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
 				     FDSP_DMT_TypePtr& dmt_info) {
-  om_client->recvDMTUpdate(dmt_info->DMT_version, dmt_info->DMT);
+  // om_client->recvDMTUpdate(dmt_info->DMT_version, dmt_info->DMT);
+  om_client->recvDMTUpdate(dmt_info, msg_hdr->session_uuid);
 }
 
 void OMgrClientRPCI::SetThrottleLevel(FDSP_MsgHdrTypePtr& msg_hdr, 
@@ -464,6 +465,7 @@ int OMgrClient::pushCreateBucketToOM(const FDS_ProtocolInterface::FDSP_VolumeInf
          volData->vol_info.archivePolicyId = volInfo->archivePolicyId;
          volData->vol_info.placementPolicy = volInfo->placementPolicy;
          volData->vol_info.appWorkload = volInfo->appWorkload;
+         volData->vol_info.mediaPolicy = volInfo->mediaPolicy;
 
     	 om_client_prx->CreateBucket(msg_hdr, volData);
   } catch (...) {
@@ -825,13 +827,15 @@ Error OMgrClient::recvDLTStartMigration(FDSP_DLT_Data_TypePtr& dlt_info) {
     return err;
 }
 
-int OMgrClient::recvDMTUpdate(int dmt_vrsn, const Node_Table_Type& dmt_table) {
+int OMgrClient::recvDMTUpdate(FDSP_DMT_TypePtr& dmt_info,
+                              const std::string& session_uuid) {
 
-  LOGNOTIFY << "OMClient received new DMT version  " << dmt_vrsn;
+  Error err(ERR_OK);
+  LOGNOTIFY(omc_log, fds::fds_log::notification) << "OMClient received new DMT version  " << dmt_info->DMT_version;
 
   omc_lock.write_lock();
-
-  this->dmt_version = dmt_vrsn;
+  const Node_Table_Type& dmt_table = dmt_info->DMT;
+  this->dmt_version = dmt_info->DMT_version;
   this->dmt = dmt_table;
 
   omc_lock.write_unlock();
@@ -842,6 +846,26 @@ int OMgrClient::recvDMTUpdate(int dmt_vrsn, const Node_Table_Type& dmt_table) {
         LOGNOTIFY << "[Col " << row << std::hex << "] " << *jt << std::dec;
     }
     row++;
+  }
+
+  // send ack back to OM
+  boost::shared_ptr<FDS_ProtocolInterface::FDSP_ControlPathRespClient> resp_client_prx =
+          omrpc_handler_session_->getRespClient(session_uuid);
+
+  try {
+      FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
+      initOMMsgHdr(msg_hdr);
+      msg_hdr->err_code = err.GetErrno();
+      if (!err.ok()) {
+          msg_hdr->result = FDSP_ERR_FAILED;
+      }
+      FDSP_DMT_Resp_TypePtr dmt_resp(new FDSP_DMT_Resp_Type);
+      dmt_resp->DMT_version = dmt_info->DMT_version;
+      resp_client_prx->NotifyDMTUpdateResp(msg_hdr, dmt_resp);
+      LOGNOTIFY << "OMClient sent response for DMT update to OM";
+   } catch (...) {
+      LOGERROR << "OMClient failed to send DMT response to OM";
+      return -1;
   }
   return (0);
 }

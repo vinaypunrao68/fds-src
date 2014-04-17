@@ -460,8 +460,8 @@ AME_Request::ame_reqt_iter_data_next(fds_uint32_t data_len,
             // if it's in another nginx buffer
             data = ame_ctx->ame_next_buf_ptr(len);
             fds_verify(*len <= data_len);
-            LOGDEBUG << "Copied " << copy_len
-                     << " bytes from nginx buf into ame buf";
+            // LOGTRACE << "Copied " << copy_len
+            //         << " bytes from nginx buf into ame buf";
         }
         fds_verify(copy_len <= data_len);
 

@@ -266,6 +266,8 @@ class VolumeInfo : public Resource
     fds_bool_t create_pending;
 
     FSM_Volume *volume_fsm;
+    // to protect access to msm process_event
+    fds_mutex  fsm_lock;
 };
 
 class VolumeContainer : public RsContainer

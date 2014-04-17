@@ -45,6 +45,7 @@ void FDS_NativeAPI::initVolInfo(FDSP_VolumeInfoTypePtr vol_info,
     vol_info->archivePolicyId = 0;
     vol_info->placementPolicy = 0;
     vol_info->appWorkload = FDSP_APP_WKLD_TRANSACTION;
+    vol_info->mediaPolicy = FDSP_MEDIA_POLICY_HDD;
 }
 
 void FDS_NativeAPI::initVolDesc(FDSP_VolumeDescTypePtr vol_desc,
@@ -68,6 +69,7 @@ void FDS_NativeAPI::initVolDesc(FDSP_VolumeDescTypePtr vol_desc,
     vol_desc->archivePolicyId = 0;
     vol_desc->placementPolicy = 0;
     vol_desc->appWorkload = FDSP_APP_WKLD_TRANSACTION;
+    vol_desc->mediaPolicy = FDSP_MEDIA_POLICY_HDD;
 }
 
 /* Create a bucket */

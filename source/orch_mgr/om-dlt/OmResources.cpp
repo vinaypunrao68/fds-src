@@ -10,12 +10,13 @@
 #include <fds_timer.h>
 #include <orch-mgr/om-service.h>
 #include <OmDeploy.h>
+#include <OmDmtDeploy.h>
 #include <OmResources.h>
 #include <OmDataPlacement.h>
 #include <fds_process.h>
 
-#define OM_WAIT_NODES_UP_SECONDS   5*60
-#define OM_WAIT_START_SECONDS      60
+#define OM_WAIT_NODES_UP_SECONDS   (5*60)
+#define OM_WAIT_START_SECONDS      1
 
 namespace fds {
 
@@ -314,13 +315,6 @@ NodeDomainFSM::DACT_LoadVols::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
     LOGDEBUG << "NodeDomainFSM DACT_LoadVols";
     OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
     domain->om_load_volumes();
-
-    // if we are here, there was a time interval when OM was deferring
-    // new SMs (that were not persisted) from being added to the cluster
-    // (we did not add them to the DLT) -- they are in pending nodes in SM
-    // container.
-    // Start update cluster process to see if we have such deferred SMs
-    domain->om_update_cluster();
 }
 
 
@@ -392,7 +386,7 @@ NodeDomainFSM::DACT_WaitDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
     // start cluster update process that will recompute DLT /rebalance /etc
     // so that we move to DLT that reflects actual nodes that came up
     OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
-    domain->om_update_cluster();
+    domain->om_dlt_update_cluster();
 }
 
 /**
@@ -508,14 +502,16 @@ NodeDomainFSM::DACT_UpdDlt::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
 
     // start cluster update process that will recompute DLT /rebalance /etc
     // so that we move to DLT that reflects actual nodes that came up
-    domain->om_update_cluster();
+    domain->om_dlt_update_cluster();
 }
 
 
 //--------------------------------------------------------------------
 // OM Node Domain
 //--------------------------------------------------------------------
-OM_NodeDomainMod::OM_NodeDomainMod(char const *const name) : Module(name)
+OM_NodeDomainMod::OM_NodeDomainMod(char const *const name)
+        : Module(name),
+          fsm_lock("OM_NodeDomainMod fsm lock")
 {
     om_locDomain = new OM_NodeContainer();
     domain_fsm = new FSM_NodeDomain();
@@ -574,18 +570,23 @@ OM_NodeDomainMod::om_local_domain_up()
 // ------------
 //
 void OM_NodeDomainMod::local_domain_event(WaitNdsEvt const &evt) {
+    fds_mutex::scoped_lock l(fsm_lock);
     domain_fsm->process_event(evt);
 }
 void OM_NodeDomainMod::local_domain_event(DltUpEvt const &evt) {
+    fds_mutex::scoped_lock l(fsm_lock);
     domain_fsm->process_event(evt);
 }
 void OM_NodeDomainMod::local_domain_event(RegNodeEvt const &evt) {
+    fds_mutex::scoped_lock l(fsm_lock);
     domain_fsm->process_event(evt);
 }
 void OM_NodeDomainMod::local_domain_event(TimeoutEvt const &evt) {
+    fds_mutex::scoped_lock l(fsm_lock);
     domain_fsm->process_event(evt);
 }
 void OM_NodeDomainMod::local_domain_event(NoPersistEvt const &evt) {
+    fds_mutex::scoped_lock l(fsm_lock);
     domain_fsm->process_event(evt);
 }
 
@@ -735,6 +736,7 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
 {
     NodeAgent::pointer      newNode;
     OM_PmContainer::pointer pmNodes;
+    fds_uint32_t  numVols = 0;
 
     pmNodes = om_locDomain->om_pm_nodes();
     fds_assert(pmNodes != NULL);
@@ -794,7 +796,7 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
             }
         }
         om_locDomain->om_update_node_list(newNode, msg);
-        om_locDomain->om_bcast_vol_list(newNode);
+        numVols = om_locDomain->om_bcast_vol_list(newNode);
 
         // Let this new node know about existing dlt if this is not SM node
         // DLT deploy state machine will take care of SMs
@@ -806,12 +808,14 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
         }
 
         // Send the DMT to DMs.
-        om_locDomain->om_round_robin_dmt();
-        om_locDomain->om_bcast_dmt_table();
+        // om_locDomain->om_round_robin_dmt();
+        // om_locDomain->om_bcast_dmt_table();
+           LOGDEBUG << "Invoking the DMT state transition: " << numVols;
+           om_dmt_update_cluster(numVols);
 
         if (om_local_domain_up()) {
             if (msg->node_type == fpi::FDSP_STOR_MGR) {
-                om_update_cluster();
+                om_dlt_update_cluster();
             }
         } else {
             local_domain_event(RegNodeEvt(uuid, msg->node_type));
@@ -848,7 +852,7 @@ OM_NodeDomainMod::om_del_services(const NodeUuid& node_uuid,
                      << " result: " << err.GetErrstr();
         }
         if (om_local_domain_up()) {
-            om_update_cluster();
+            om_dlt_update_cluster();
         }
     }
     if (err.ok() && remove_dm) {
@@ -893,11 +897,22 @@ OM_NodeDomainMod::om_delete_domain(const FdspCrtDomPtr &crt_domain)
     return 0;
 }
 
+void
+OM_NodeDomainMod::om_dmt_update_cluster(fds_uint32_t vols) {
+    OM_Module *om = OM_Module::om_singleton();
+    OM_DMTMod *dmtMod = om->om_dmt_mod();
+
+    dmtMod->dmt_deploy_event(DmtComputeEvt(vols));
+    if (!vols)
+       dmtMod->dmt_deploy_event(DmtVolAckEvt());
+}
+
+
 /**
  * Drives the DLT deployment state machine.
  */
 void
-OM_NodeDomainMod::om_update_cluster() {
+OM_NodeDomainMod::om_dlt_update_cluster() {
     OM_Module *om = OM_Module::om_singleton();
     OM_DLTMod *dltMod = om->om_dlt_mod();
     DataPlacement *dp = om->om_dataplace_mod();
@@ -947,6 +962,33 @@ OM_NodeDomainMod::om_recv_migration_done(const NodeUuid& uuid,
     // to other nodes.
     ClusterMap* cm = om->om_clusmap_mod();
     dltMod->dlt_deploy_event(DltRebalOkEvt(cm, dp));
+
+    return err;
+}
+
+//
+// Called when OM receives response for DMT commit from a node
+//
+Error
+OM_NodeDomainMod::om_recv_dmt_commit_resp(FdspNodeType node_type,
+                                          const NodeUuid& uuid,
+                                          fds_uint32_t dmt_version) {
+    Error err(ERR_OK);
+    OM_Module *om = OM_Module::om_singleton();
+    OM_DMTMod *dmtMod = om->om_dmt_mod();
+    OM_NodeContainer *local = om_loc_domain_ctrl();
+    AgentContainer::pointer agent_container = local->dc_container_frm_msg(node_type);
+    NodeAgent::pointer agent = agent_container->agent_info(uuid);
+    if (agent == NULL) {
+        FDS_PLOG_SEV(g_fdslog, fds_log::error)
+                << "OM: Received DMT commit ack from unknown node: uuid "
+                << std::hex << uuid.uuid_get_val() << std::dec;
+        err = Error(ERR_NOT_FOUND);
+        return err;
+    }
+
+    LOGDEBUG << "Invoking the DmtCloseOkEvt";
+    dmtMod->dmt_deploy_event(DmtCloseOkEvt());
 
     return err;
 }
@@ -1252,14 +1294,25 @@ OM_ControlRespHandler::NotifyDLTCloseResp(
 void
 OM_ControlRespHandler::NotifyDMTUpdateResp(
     const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-    const FDS_ProtocolInterface::FDSP_DMT_Type& dmt_info_resp) {
+    const FDS_ProtocolInterface::FDSP_DMT_Resp_Type& dmt_info_resp) {
     // Don't do anything here. This stub is just to keep cpp compiler happy
 }
 
 void
 OM_ControlRespHandler::NotifyDMTUpdateResp(
     FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-    FDS_ProtocolInterface::FDSP_DMT_TypePtr& dmt_info_resp) {
+    FDS_ProtocolInterface::FDSP_DMT_Resp_TypePtr& dmt_resp) {
+
+    FDS_PLOG_SEV(g_fdslog, fds_log::notification)
+            << "OM received response for NotifyDmtUpdate from node "
+            << fdsp_msg->src_node_name << ":"
+            << std::hex << fdsp_msg->src_service_uuid.uuid << std::dec
+            << " for DLT version " << dmt_resp->DMT_version;
+
+    // notify DLT state machine
+    OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
+    NodeUuid node_uuid((fdsp_msg->src_service_uuid).uuid);
+    domain->om_recv_dmt_commit_resp(fdsp_msg->src_id, node_uuid, dmt_resp->DMT_version);
 }
 
 }  // namespace fds

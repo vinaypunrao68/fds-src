@@ -28,7 +28,20 @@ diskio::FilePersisDataIO::disk_do_read(DiskRequest *req)
     fds_verify(fi_fd >= 0);
 
     off = phyloc->obj_stor_offset << DataIO::disk_io_blk_shift();
-    len = pread64(fi_fd, (void *)buf->data.c_str(), buf->size, off);
+    fds_uint32_t retry_cnt=0;
+    size_t read_len = buf->size; 
+    char *buffer = (char *)buf->data.c_str();
+    while (retry_cnt++ < 3 && read_len > 0) { 
+      len = pread64(fi_fd, (void *)buffer, read_len, off);
+      if (len == buf->size) {
+         break;
+      } 
+      if (len > 0 && len < buf->size ) { 
+          read_len -= len;
+          buffer += len;
+          off += len;
+      }
+    }
     disk_read_done(req);
     if ( len < 0 ) {
 	perror("read Error");
