@@ -74,6 +74,9 @@ OM_NodeAgent::om_send_myinfo(NodeAgent::pointer peer)
     } catch(const att::TTransportException& e) {
         LOGERROR << "error during network call : " << e.what();
         return;
+    } catch(...) {
+        LOGCRITICAL << "caught unexpected exception!!!";
+        throw;
     }
 
     LOGNORMAL << "Send node info from " << get_node_name()

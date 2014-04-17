@@ -98,7 +98,7 @@ PmDiskObj::dsk_update_device(struct udev_device *dev,
         fds_assert(dsk_parent == NULL);
         dsk_my_dev = dev;
     }
-    dsk_cap_gb   = strtoul(udev_device_get_sysattr_value(dev, "size"), NULL, 10);
+    dsk_cap_gb   = strtoull(udev_device_get_sysattr_value(dev, "size"), NULL, 10);
     dsk_cap_gb   = dsk_cap_gb >> (30 - 9);
     dsk_my_devno = udev_device_get_devnum(dev);
     dsk_raw_path = udev_device_get_devpath(dev);

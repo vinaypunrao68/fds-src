@@ -2506,7 +2506,7 @@ void t_cpp_generator::generate_service_client(t_service* tservice, string style)
       // Serialize the request
       out <<
         indent() << "int32_t cseqid = 0;" << endl <<
-        indent() << "lock_.lock();" << endl <<
+        indent() << "::apache::thrift::concurrency::Guard g(lock_);" << endl <<
         indent() << _this << "oprot_->writeMessageBegin(\"" <<
         (*f_iter)->get_name() <<
         "\", ::apache::thrift::protocol::T_CALL, cseqid);" << endl <<
@@ -2523,8 +2523,7 @@ void t_cpp_generator::generate_service_client(t_service* tservice, string style)
         endl <<
         indent() << _this << "oprot_->writeMessageEnd();" << endl <<
         indent() << _this << "oprot_->getTransport()->writeEnd();" << endl <<
-        indent() << _this << "oprot_->getTransport()->flush();" << endl <<
-        indent() << _this << "lock_.unlock();" << endl;
+        indent() << _this << "oprot_->getTransport()->flush();";
 
       scope_down(out);
       out << endl;
