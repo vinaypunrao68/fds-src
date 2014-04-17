@@ -1,0 +1,11 @@
+#!/bin/bash
+
+
+for i in ../lib/java/om-1.0-bin/om-1.0/* ; do {
+    CLASSPATH=$CLASSPATH:$i ;
+} done
+
+CLASSPATH=$CLASSPATH:../lib/java/classes
+
+java -classpath $CLASSPATH \
+     com.formationds.xdi.SmokeTest $*

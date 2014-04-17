@@ -4,7 +4,7 @@ user_rtime_env    := user
 user_build_dir    :=
 user_predep       := gen-java/FDS_ProtocolInterface/FDSP_MsgHdrType.java
 user_postdep      := compile
-user_install      := orchMgr
+user_install      := orchMgr xdiSmokeTest
 user_install_loc  := exe
 user_clean        := target gen-java $(comm_dir_lib)/java $(comm_dir_lib)/admin-webapp
 

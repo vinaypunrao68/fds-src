@@ -13,14 +13,28 @@ import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 public class LocalAmShim implements AmShim.Iface {
 
     private Persister persister;
+    private final Map<UUID, TxState> blobTxs;
+
+    private class TxState {
+        long blobId;
+        long currentByteCount;
+
+        private TxState(long blobId, long currentByteCount) {
+            this.blobId = blobId;
+            this.currentByteCount = currentByteCount;
+        }
+    }
 
     public LocalAmShim() {
         persister = new Persister("local");
+        blobTxs = new ConcurrentHashMap<>();
     }
 
     public void createDomain(String domainName) {
@@ -97,12 +111,24 @@ public class LocalAmShim implements AmShim.Iface {
 
     @Override
     public Uuid startBlobTx(String domainName, String volumeName, String blobName) throws FdsException, TException {
-        return new Uuid(0, 0);
+        UUID uuid = UUID.randomUUID();
+        Blob blob = getOrCreate(domainName, volumeName, blobName);
+        long blobId = blob.getId();
+        long byteCount = blob.getByteCount();
+        blobTxs.put(uuid, new TxState(blobId, byteCount));
+        return new Uuid(uuid.getLeastSignificantBits(), uuid.getMostSignificantBits());
     }
 
     @Override
     public void commit(Uuid txId) throws FdsException, TException {
-
+        UUID uuid = new UUID(txId.getHigh(), txId.getLow());
+        blobTxs.computeIfPresent(uuid, (k, v) -> {
+            Blob blob = persister.load(Blob.class, v.blobId);
+            blob.setByteCount(v.currentByteCount);
+            persister.update(blob);
+            return v;
+        });
+        blobTxs.remove(uuid);
     }
 
     @Override
@@ -141,7 +167,9 @@ public class LocalAmShim implements AmShim.Iface {
     @Override
     public void updateBlob(String domainName, String volumeName, String blobName, Uuid txUuid, ByteBuffer bytes, int length, long offset) throws FdsException, TException {
         Blob blob = getOrCreate(domainName, volumeName, blobName);
-        long byteCount = Math.max(blob.getByteCount(), offset + length);
+        UUID uuid = new UUID(txUuid.getHigh(), txUuid.getLow());
+        TxState state = blobTxs.get(uuid);
+        state.currentByteCount = Math.max(state.currentByteCount, offset + length);
         List<Block> blocks = blob.getBlocks();
         BlockWriter writer = new BlockWriter(i -> getOrMakeBlock(blob, blocks, i), blob.getVolume().getObjectSize());
         Iterator<Block> updated = writer.update(bytes.array(), length, offset);
@@ -152,11 +180,6 @@ public class LocalAmShim implements AmShim.Iface {
             } else {
                 persister.update(next);
             }
-        }
-
-        if (byteCount > blob.getByteCount()) {
-            blob.setByteCount(byteCount);
-            persister.update(blob);
         }
     }
 
