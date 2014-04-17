@@ -1,5 +1,5 @@
 package: fds-tools
-version: 0.1
+version: 0.2
 description: set of tools for fds to run
 
 depends: 
