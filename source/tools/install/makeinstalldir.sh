@@ -60,9 +60,9 @@ function getExternalPkgs() {
 function getFdsCorePkgs() {
     loginfo "copying core fds pkgs"
     (
-        cd ${pkgdir}
+        cd ${PKGDIR}
         for pkg in ${fdscorepkgs[@]} ; do
-            debfile=$(ls -lt ${pkg}*.deb | head -n1)
+            debfile=$(ls -1t ${pkg}*.deb | head -n1)
             if [[ -n $debfile ]]; then
                 loginfo "copying ${debfile}"
                 cp ${debfile} ${INSTALLDIR}
@@ -117,3 +117,4 @@ function setupInstallDir() {
 #############################################################################
 
 setupInstallDir
+#getFdsCorePkgs
