@@ -21,6 +21,7 @@ basedebs=(
     redis-server
     java-common
     oracle-java8-jdk
+    python-setuptools
 )
 
 fdsbasedebs=(
