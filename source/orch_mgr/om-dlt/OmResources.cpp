@@ -14,7 +14,7 @@
 #include <OmDataPlacement.h>
 #include <fds_process.h>
 
-#define OM_WAIT_NODES_UP_SECONDS   5*60
+#define OM_WAIT_NODES_UP_SECONDS   (5*60)
 #define OM_WAIT_START_SECONDS      1
 
 namespace fds {
