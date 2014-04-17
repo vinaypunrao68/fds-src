@@ -18,6 +18,7 @@
 namespace fds {
 
 fds_bool_t  stor_mgr_stopping = false;
+fds_bool_t  fds_data_verify = true;
 
 #define FDS_XPORT_PROTO_TCP 1
 #define FDS_XPORT_PROTO_UDP 2
@@ -1151,12 +1152,25 @@ ObjectStorMgr::readObject(const SmObjDb::View& view,
                 << " tier";
         objData.size = objMetadata.getObjSize();
         objData.data.resize(objData.size, 0);
+        // Now Read the object buffer from the disk
         err = dio_mgr.disk_read(disk_req);
         if ( err != ERR_OK) {
             LOGDEBUG << " Disk Read Err: " << err; 
             delete disk_req;
             return err;
-        }
+        } 
+        if (fds_data_verify) { 
+           ObjectID onDiskObjId;
+           // Recompute ObjecId for the on-disk object buffer
+           onDiskObjId = ObjIdGen::genObjectId(objData.data.c_str(),
+                                       objData.data.size());
+           LOGDEBUG << " Disk Read ObjectId: " << onDiskObjId.ToHex().c_str() << " err  " << err; 
+           if (onDiskObjId != objId) { 
+                err = ERR_ONDISK_DATA_CORRUPT;
+                fds_panic("Encountered a on-disk data corruption checking requsted object %s \n != %s. Bailing out now!",
+                            objId.ToHex().c_str(), onDiskObjId.ToHex().c_str());
+           }
+       }
     }
     delete disk_req;
     return err;
@@ -1203,9 +1217,19 @@ ObjectStorMgr::checkDuplicate(const ObjectID&  objId,
             /*
              * Handle hash-collision - insert the next collision-id+obj-id
              */
-            err = ERR_HASH_COLLISION;
-            fds_panic("Encountered a hash collision checking object %s. Bailing out now!",
-                      objId.ToHex().c_str());
+            if (fds_data_verify) {
+              ObjectID putBufObjId;
+              putBufObjId = ObjIdGen::genObjectId(objCompData.data.c_str(),
+                                       objCompData.data.size());
+              LOGDEBUG << " Network-RPC ObjectId: " << putBufObjId.ToHex().c_str() << " err  " << err; 
+              if (putBufObjId != objId) { 
+                  err = ERR_NETWORK_CORRUPT;
+              }
+            } else { 
+                err = ERR_HASH_COLLISION;
+                fds_panic("Encountered a hash collision checking object %s. Bailing out now!",
+                            objId.ToHex().c_str());
+            }
         }
     } else if (err == ERR_DISK_READ_FAILED) {
         /*

@@ -38,6 +38,7 @@ user_non_fds_libs := \
     boost_program_options \
     leveldb \
     ssl \
+    cryptopp \
     crypto \
     leveldb \
     fuse \
