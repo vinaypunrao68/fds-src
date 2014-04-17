@@ -278,6 +278,8 @@ class PkgCreate:
         self.META_VERSION     = 'version'
         self.META_DESCRIPTION = 'description'
         self.META_DEPENDS     = 'depends'
+        self.META_REPLACES    = 'replaces'
+        self.META_CONFLICTS   = 'conflicts'
 
         self.META_INSTALL     = 'install-control'
 
@@ -306,7 +308,9 @@ class PkgCreate:
         self.cronjobs      = []
         self.symlinks      = []
         self.installscript = ''
-        self.metadata[self.META_DEPENDS] = []
+        self.metadata[self.META_DEPENDS]   = []
+        self.metadata[self.META_REPLACES]  = []
+        self.metadata[self.META_CONFLICTS] = []
         self.pkgdir=None
         self.willWriteInstallScripts = False
         self.hasSoLibs = False
@@ -343,18 +347,18 @@ class PkgCreate:
                 log.info("the temporary dir is: %s", self.pkgdir)
 
     def processDoc(self,doc):
-        supportedKeys = ['package' ,'maintainer','version','description','depends', 'files','services','cronjobs','symlinks','install-control']
+        supportedKeys = ['package' ,'maintainer','version','description','depends', 'files','services','cronjobs','symlinks','install-control','replaces','conflicts']
         Helper.checkField(doc.keys(),supportedKeys,'processing doc')
 
         for key in [ 'package', 'maintainer', 'version', 'description']:
             if key in doc:
                 self.metadata[key] = str(doc[key])
 
-        key = 'depends'
-        if key in doc:
-            if type(doc[key]) == types.StringType:
-                doc[key] = [ doc[key] ]
-            self.metadata[key].extend(doc[key])
+        for key in [ 'depends' , 'replaces','conflicts' ]:
+            if key in doc:
+                if type(doc[key]) == types.StringType:
+                    doc[key] = [ doc[key] ]
+                self.metadata[key].extend(doc[key])
 
         key = 'files'
         if key in doc:
@@ -461,6 +465,22 @@ class PkgCreate:
                     log.error("invalid depends [%s] : ^[a-z0-9][a-z0-9-\.]+ ([<>=]*)$ " % (depends))
                     return False
 
+        if self.META_REPLACES in self.metadata and len(self.metadata[self.META_REPLACES])>0:
+            log.debug('verifying replaces')
+            p = re.compile('^[a-z0-9][a-z0-9-\.]+ *(\([<>=]* *[a-z0-9-\.]+\))?$')
+            for replaces in self.metadata[self.META_REPLACES]:
+                if None == p.match(replaces):
+                    log.error("invalid replaces [%s] : ^[a-z0-9][a-z0-9-\.]+ ([<>=]*)$ " % (replaces))
+                    return False
+
+        if self.META_CONFLICTS in self.metadata and len(self.metadata[self.META_CONFLICTS])>0:
+            log.debug('verifying conflicts')
+            p = re.compile('^[a-z0-9][a-z0-9-\.]+ *(\([<>=]* *[a-z0-9-\.]+\))?$')
+            for conflicts in self.metadata[self.META_CONFLICTS]:
+                if None == p.match(conflicts):
+                    log.error("invalid conflicts [%s] : ^[a-z0-9][a-z0-9-\.]+ ([<>=]*)$ " % (conflicts))
+                    return False
+
         # check all the files
         log.debug('checking all the files')
         
@@ -529,8 +549,25 @@ class PkgCreate:
                 for n in range(0,maxlen):
                     depends = self.metadata[self.META_DEPENDS][n]
                     f.write(depends)
-                    if n < (maxlen-1):
-                        f.write(', ')
+                    if n < (maxlen-1): f.write(', ')
+                f.write('\n')
+
+            if len(self.metadata[self.META_REPLACES]) > 0 :
+                f.write('Replaces: ')
+                maxlen=len(self.metadata[self.META_REPLACES])
+                for n in range(0,maxlen):
+                    replaces = self.metadata[self.META_REPLACES][n]
+                    f.write(replaces)
+                    if n < (maxlen-1): f.write(', ')
+                f.write('\n')
+
+            if len(self.metadata[self.META_CONFLICTS]) > 0 :
+                f.write('Conflicts: ')
+                maxlen=len(self.metadata[self.META_CONFLICTS])
+                for n in range(0,maxlen):
+                    conflicts = self.metadata[self.META_CONFLICTS][n]
+                    f.write(conflicts)
+                    if n < (maxlen-1): f.write(', ')
                 f.write('\n')
 
         fConfNeeded = False
