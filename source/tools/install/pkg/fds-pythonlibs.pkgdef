@@ -11,6 +11,10 @@ files:
     tree-base: ../../../test
 
   - dest: /fds/sbin
-    src : 
-        - ../../../test/fds-tool.py
-        - ../../../test/intel.cfg
+    src : ../../../test/fds-tool.py
+    dest-is-dir: True
+      
+  - dest: /fds/sbin
+    src: ../../../test/intel.cfg
+    dest-is-dir: True
+    conf: True
