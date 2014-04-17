@@ -22,8 +22,8 @@
 #include "stor_mgr_err.h"
 #include <fds_volume.h>
 #include <fds_types.h>
-#include "ObjLoc.h"
 #include <odb.h>
+#include <ObjectId.h>
 #include <unistd.h>
 #include <assert.h>
 #include <iostream>

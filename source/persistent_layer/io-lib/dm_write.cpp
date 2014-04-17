@@ -85,11 +85,22 @@ diskio::FilePersisDataIO::disk_do_write(DiskRequest *req)
     idx_phy_loc->obj_tier        = static_cast<fds_uint8_t>(req->getTier());
     map->obj_size        = buf->size;
 
-    len = pwrite64(fi_fd, static_cast<const void *>(buf->data.c_str()),
-                   buf->size, off_blk << shft);
-    if (len < 0) {
-        perror("Error: ");
-        return fds::ERR_DISK_WRITE_FAILED;
+    fds_uint32_t retry_cnt =0;
+    off_blk <<= shft;
+    while (retry_cnt++ < 3 && len != buf->size) {
+       len = pwrite64(fi_fd, static_cast<const void *>(buf->data.c_str()),
+                      buf->size, off_blk);
+       if (len < 0) {
+           perror("Error: ");
+           return fds::ERR_DISK_WRITE_FAILED;
+       }
+       if (len == buf->size) {
+          break;
+       }
+    }
+    if (len != buf->size) {
+       perror("Error: ");
+       return fds::ERR_DISK_WRITE_FAILED;
     }
     disk_write_done(req);
     return fds::ERR_OK;
