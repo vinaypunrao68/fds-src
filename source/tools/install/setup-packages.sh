@@ -34,11 +34,11 @@ fdsbasedebs=(
     fds-boost
     fds-leveldb
     fds-jdk-default
+    fds-python-scp
+    fds-python-paramiko
 )
 
 python_packages=(
-    paramiko
-    scp
 )
 
 REPOUPDATED=0

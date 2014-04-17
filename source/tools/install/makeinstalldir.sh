@@ -15,14 +15,9 @@ externalpkgs=(
     java-common_0.51_all.deb
     oracle-java8-jdk_8u5_amd64.deb
 
-    python-setuptools_3.3.deb
-
     libjemalloc1_3.6.0.deb
     redis-server_2.8.8.deb
     redis-tools_2.8.8.deb
-
-    paramiko-1.10.1.tar.gz
-    scp-0.7.1.tar.gz
 )
 
 fdscorepkgs=(
@@ -44,6 +39,8 @@ fdsrepopkgs=(
     fds-boost
     fds-leveldb
     fds-jdk-default
+    fds-python-scp
+    fds-python-paramiko
 )
 
 function getExternalPkgs() {
@@ -77,6 +74,7 @@ function getFdsCorePkgs() {
 
 function getFdsRepoPkgs() {
     loginfo "fetching fds pkgs from repo"
+    sudo fdspkg update
     (
         cd ${INSTALLDIR}
         for pkg in ${fdsrepopkgs[@]} ; do
