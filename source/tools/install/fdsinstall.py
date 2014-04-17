@@ -173,7 +173,7 @@ class Installer:
             self.dependsOnSteps('stepSystemCheck')
             log.debug('running %s', menuitem[2])
             success=True
-            for option in ['basepkgs','basedebs','pythonpkgs'] :
+            for option in ['basedebs','pythonpkgs'] :
                 ret = os.system("./setup-packages.sh %s" % (option))
                 if 0 != ret :
                     success=False
@@ -193,9 +193,6 @@ class Installer:
             log.debug('running %s', menuitem[2])
             success=True
             for option in ['fds-base','fds-om','fds-pm','fds-am','fds-sm','fds-cli','fds-dm'] :
-                if option != 'fds-base' :
-                    if not self.confirm('do you want to install [%s]' % (option)):
-                        continue
                 ret = os.system("./setup-packages.sh %s" % (option))
                 if 0 != ret :
                     success=False
