@@ -22,7 +22,7 @@ public class CreateBucket implements RequestHandler {
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
         String bucketName = requiredString(routeParameters, "bucket");
-        xdi.createVolume(S3Endpoint.FDS_S3, bucketName, new VolumePolicy(1024 * 1024 * 4));
+        xdi.createVolume(S3Endpoint.FDS_S3, bucketName, new VolumePolicy(1024 * 4));
         return new TextResource("");
     }
 }

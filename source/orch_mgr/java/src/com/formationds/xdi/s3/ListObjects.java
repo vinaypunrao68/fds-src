@@ -8,7 +8,6 @@ import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.XmlResource;
 import com.formationds.xdi.Xdi;
 import com.formationds.xdi.shim.BlobDescriptor;
-import com.formationds.xdi.shim.VolumeDescriptor;
 import org.eclipse.jetty.server.Request;
 
 import java.util.List;
@@ -25,7 +24,6 @@ public class ListObjects implements RequestHandler {
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
         String bucket = requiredString(routeParameters, "bucket");
-        VolumeDescriptor volumeDescriptor = xdi.statVolume(S3Endpoint.FDS_S3, bucket);
         List<BlobDescriptor> contents = xdi.volumeContents(S3Endpoint.FDS_S3, bucket, Integer.MAX_VALUE, 0);
         List<String> objects = contents.stream()
                 .map(c -> String.format(OBJECT_FORMAT, c.getName(), c.getByteCount()))

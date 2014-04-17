@@ -10,15 +10,15 @@ public class BlockReader {
     public byte[] read(Function<Integer, byte[]> blocks, int blocksize, long offset, int length) {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         int start = (int) (offset % blocksize);
-        int blockSpan = (length / blocksize) + 1;
-        for (int i = (int) (offset / blocksize); i < blockSpan; i++) {
-            byte[] block = blocks.apply(i);
+        int blockSpan = (int) Math.ceil((start + length) / (double) blocksize);
+        int startingBlock = (int) Math.floor(offset / (double) blocksize);
+        for (int i = 0; i < blockSpan; i++) {
+            byte[] block = blocks.apply(i + startingBlock);
             int written = Math.min(blocksize - start, length);
             out.write(block, start, written);
             length -= written;
             start = 0;
         }
         return out.toByteArray();
-}
-
+    }
 }
