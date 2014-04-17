@@ -2,108 +2,130 @@
  * Copyright 2014 Formation Data Systems, Inc.                                                                                              
  */
 
+#include <set>
 #include <vector>
+#include <util/Log.h>
+#include <fds_assert.h>
 #include <StorMgr.h>
 #include <TokenCompactor.h>
-#include <Scavenger.h>
 #include <persistentdata.h>
+#include <persistent_layer/dm_service.h>
+#include <persistent_layer/dm_io.h>
+#include <Scavenger.h>
 
 namespace fds {
 #define SCAV_BITS_PER_TOKEN 8
 extern ObjectStorMgr *objStorMgr;
 extern DataDiscoveryModule  dataDiscoveryMod;
 
-ScavControl::ScavControl(fds_log *log, fds_uint32_t num_thrds)
+ScavControl::ScavControl(fds_uint32_t num_thrds)
+        : scav_lock("Scav Lock")
 {
-  scav_log = log;
-  max_disks_compacting = num_thrds;
-  num_disks = diskio::dataDiscoveryMod.disk_hdd_discovered();
-  scav_mutex = new fds_mutex("Scav Mutex");
-  for (fds_uint32_t i=0; i < num_disks; i++) { 
-     DiskScavenger *diskScav = new DiskScavenger(log, i, 1);
-     diskScavTbl[i] = diskScav;
-  }
+    max_disks_compacting = num_thrds;
+    num_hdd = diskio::dataDiscoveryMod.disk_hdd_discovered();
+    for (fds_uint32_t i = 0; i < num_hdd; i++) {
+        DiskScavenger *diskScav = new DiskScavenger(i, diskio::diskTier, 1);
+        diskScavTbl[i] = diskScav;
+    }
 }
 
 ScavControl::~ScavControl() {
-  for (fds_uint32_t i=0; i < num_disks; i++) { 
-     DiskScavenger *diskScav = diskScavTbl[i];
-     if (diskScav != NULL) { 
-        delete diskScav;
-     }
-  }
+    for (DiskScavTblType::iterator it = diskScavTbl.begin();
+         it != diskScavTbl.end();
+         ++it) {
+        DiskScavenger *diskScav = it->second;
+        if (diskScav != NULL) {
+            delete diskScav;
+        }
+    }
 }
 
 void ScavControl::startScavengeProcess()
 {
     LOGNORMAL << "Starting Scavenger cycle... ";
-    scav_mutex->lock();
-    for (fds_uint32_t i=0; i < num_disks; i++) { 
-       DiskScavenger *diskScav = diskScavTbl[i];
-       if (diskScav != NULL) { 
-           diskScav->startScavenge();
-       }
+    fds_mutex::scoped_lock l(scav_lock);
+    // TODO(xxx) for now starting process on all devices
+    // but could probably distinguish between ssd and hdd
+    for (DiskScavTblType::const_iterator cit = diskScavTbl.cbegin();
+         cit != diskScavTbl.cend();
+         ++cit) {
+        DiskScavenger *diskScav = cit->second;
+        if (diskScav != NULL) {
+            diskScav->startScavenge();
+        }
     }
-    scav_mutex->unlock();
 }
-
 
 void ScavControl::stopScavengeProcess()
 {
     LOGNORMAL << "Stop Scavenger cycle... ";
-    scav_mutex->lock();
-    for (fds_uint32_t i=0; i < 1/*num_disks*/; i++) { 
-       DiskScavenger *diskScav = diskScavTbl[i];
-       if (diskScav != NULL) { 
-           diskScav->stopScavenge();
-       }
+    fds_mutex::scoped_lock l(scav_lock);
+    // TODO(xxx) if we change which disks (e.g. ssd vs. hdd)
+    // we start scavenger process for, need to change here too
+    for (DiskScavTblType::const_iterator cit = diskScavTbl.cbegin();
+         cit != diskScavTbl.cend();
+         ++cit) {
+        DiskScavenger *diskScav = cit->second;
+        if (diskScav != NULL) {
+            diskScav->stopScavenge();
+        }
     }
-    scav_mutex->unlock();
 }
 
 fds::Error ScavControl::addTokenCompactor(fds_token_id tok_id, fds_uint32_t disk_idx) {
     Error err(ERR_OK);
-    scav_mutex->lock();
-    DiskScavenger *diskScav = diskScavTbl[disk_idx];
-    scav_mutex->unlock();
+    DiskScavenger* diskScav = NULL;
 
-    if (diskScav != NULL) { 
-        diskScav->disk_scav_mutex->lock();
+    {  // lock
+        fds_mutex::scoped_lock l(scav_lock);
+        if (diskScavTbl.count(disk_idx) > 0) {
+            diskScav = diskScavTbl[disk_idx];
+        }
+    }  // unlock
+
+    if (diskScav != NULL) {
+        fds_mutex::scoped_lock l(diskScav->disk_scav_lock);
         (diskScav->tokenDb).insert(tok_id);
-        diskScav->disk_scav_mutex->unlock();
-    }
+     }
     return err;
 }
 
 fds::Error ScavControl::deleteTokenCompactor(fds_token_id tok_id, fds_uint32_t disk_idx) {
     Error err(ERR_OK);
-    scav_mutex->lock();
-    DiskScavenger *diskScav = diskScavTbl[disk_idx];
-    scav_mutex->unlock();
+    DiskScavenger* diskScav = NULL;
+
+    {  // lock
+        fds_mutex::scoped_lock l(scav_lock);
+        if (diskScavTbl.count(disk_idx) > 0) {
+            diskScav = diskScavTbl[disk_idx];
+        }
+    }  // unlock
 
     if (diskScav) {
-        diskScav->disk_scav_mutex->lock();
+        fds_mutex::scoped_lock l(diskScav->disk_scav_lock);
         (diskScav->tokenDb).erase(tok_id);
-        diskScav->disk_scav_mutex->unlock();
     }
+
     return err;
 }
 
-DiskScavenger::DiskScavenger(fds_log *log, fds_uint32_t disk_id, fds_uint32_t proc_max_tokens)
-{ 
-   scav_log = log;
-   max_tokens_in_proc = proc_max_tokens;
-   next_token =0;
-   disk_idx = disk_id;
-   disk_scav_mutex = new fds_mutex("Disk-Scav Mutex");
+DiskScavenger::DiskScavenger(fds_uint32_t disk_id,
+                             diskio::DataTier _tier,
+                             fds_uint32_t proc_max_tokens)
+        : disk_scav_lock("Disk-Scav Lock"),
+          tier(_tier)
+{
+    max_tokens_in_proc = proc_max_tokens;
+    next_token = 0;
+    disk_idx = disk_id;
 
-   in_progress = ATOMIC_VAR_INIT(false);
-   for (fds_uint32_t i = 0; i < proc_max_tokens; ++i) {
-       tok_compactor_vec.push_back(TokenCompactorPtr(new TokenCompactor(objStorMgr)));
-   }
+    in_progress = ATOMIC_VAR_INIT(false);
+    for (fds_uint32_t i = 0; i < proc_max_tokens; ++i) {
+        tok_compactor_vec.push_back(TokenCompactorPtr(new TokenCompactor(objStorMgr)));
+    }
 }
 
-DiskScavenger::~DiskScavenger() { 
+DiskScavenger::~DiskScavenger() {
 }
 
 fds_bool_t DiskScavenger::getNextCompactToken(fds_token_id* tok_id) {
@@ -111,9 +133,7 @@ fds_bool_t DiskScavenger::getNextCompactToken(fds_token_id* tok_id) {
     fds_bool_t found = false;
     *tok_id = 0;
 
-    disk_scav_mutex->lock();
-    LOGDEBUG << "Disk " << disk_idx << " has " << tokenDb.size()
-             << " tokens";
+    fds_mutex::scoped_lock l(disk_scav_lock);
     if (tokenDb.count(next_token) == 0) {
         // if we don't have this tok id, find the closes id > tok_id
         // since elements in the set are sorted, find first elm with id > tok_id
@@ -137,7 +157,6 @@ fds_bool_t DiskScavenger::getNextCompactToken(fds_token_id* tok_id) {
              << " next_token " << next_token
              << " tok_id " << *tok_id;
 
-    disk_scav_mutex->unlock();
     return found;
 }
 
@@ -146,7 +165,7 @@ void DiskScavenger::startScavenge() {
     fds_token_id tok_id;
     fds_bool_t expect = false;
     if (!std::atomic_compare_exchange_strong(&in_progress, &expect, true)) {
-        LOGNOTIFY << "Scavenger cycle is already running, ignoring start scavenge request";
+        LOGNOTIFY << "Scavenger cycle is already running, ignoring start scavenge req";
         return;
     }
     next_token = 0;
@@ -173,7 +192,7 @@ void DiskScavenger::stopScavenge() {
     }
 }
 
-void DiskScavenger::compactionDoneCb(fds_token_id token_id, const Error& error) { 
+void DiskScavenger::compactionDoneCb(fds_token_id token_id, const Error& error) {
     fds_token_id tok_id;
     fds_bool_t in_prog = std::atomic_load(&in_progress);
 
@@ -193,9 +212,10 @@ void DiskScavenger::compactionDoneCb(fds_token_id token_id, const Error& error) 
                     in_prog = false;
                     break;
                 }
-                tok_compactor_vec[i]->startCompaction(tok_id, SCAV_BITS_PER_TOKEN, std::bind(
-                    &DiskScavenger::compactionDoneCb, this,
-                    std::placeholders::_1, std::placeholders::_2));
+                tok_compactor_vec[i]->startCompaction(
+                    tok_id, SCAV_BITS_PER_TOKEN, std::bind(
+                        &DiskScavenger::compactionDoneCb, this,
+                        std::placeholders::_1, std::placeholders::_2));
             }
         }
     } else {

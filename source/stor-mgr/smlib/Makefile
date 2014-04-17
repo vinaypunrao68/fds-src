@@ -28,7 +28,6 @@ user_no_style     := \
     TierEngine.cpp                     \
     TierPutAlgorithms.cpp              \
     ObjMeta.cpp                        \
-    Scavenger.cpp                      \
     SmObjDb.cpp                        
 
 user_ar_libs      := fds-smlib

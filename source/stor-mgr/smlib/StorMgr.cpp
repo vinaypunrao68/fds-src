@@ -441,7 +441,7 @@ void ObjectStorMgr::proc_setup()
                                   slab_allocator_type_default,
                                   eviction_policy_type_default,
                                   objStorMgr->GetLog());
-    scavenger = new ScavControl(objStorMgr->GetLog(), 2);
+    scavenger = new ScavControl(2);
 
     // TODO: join this thread
     std::thread *stats_thread = new std::thread(log_ocache_stats);
