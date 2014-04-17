@@ -367,8 +367,12 @@ devsetup_chkfile:=$(topdir)/.devsetup.chk
 devsetup_script:=$(incl_scripts)/devsetup.sh
 
 $(devsetup_chkfile): $(devsetup_script)
-	$(devsetup_script)
-	touch $(devsetup_chkfile)
+	@$(devsetup_script)
+	@touch $(devsetup_chkfile)
+
+devsetup-force: $(devsetup_script)
+	@$(devsetup_script)
+	@touch $(devsetup_chkfile)
 
 .PHONY : devsetup 
 devsetup: $(devsetup_chkfile)
