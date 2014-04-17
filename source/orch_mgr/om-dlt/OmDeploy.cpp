@@ -606,6 +606,11 @@ void
 DltDplyFSM::DACT_UpdDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
     LOGDEBUG << "DltFSM DACT_UpdDone";
+    OM_Module *om = OM_Module::om_singleton();
+    ClusterMap* cm = om->om_clusmap_mod();
+    fds_verify(cm != NULL);
+    LOGNOTIFY << "OM deployed DLT with " << cm->getNumMembers() << " nodes";
+
     if (!src.tryAgainTimer->schedule(src.tryAgainTimerTask,
                                      std::chrono::seconds(1))) {
         LOGWARN << "DACT_UpdDone: failed to start try againtimer!!!"
