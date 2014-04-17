@@ -69,7 +69,7 @@ function preinstall() {
     local pkgname=$1
 
     case $pkgname in
-        oracle-java8.*) 
+        oracle-java8*) 
             sudo add-apt-repository ppa:webupd8team/java
             sudo apt-get update
             ;;
