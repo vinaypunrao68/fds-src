@@ -15,18 +15,27 @@ needed_packages=(
     redis-server
     oracle-java8-installer oracle-java8-set-default maven
     libudev-dev libparted-dev
-
+    python2.7
+    python-dev
     python-pip
 
     libpcre3-dev
     libpcre3
+    libssl-dev
+    libfuse-dev
+
+    bison
+    flex
+    ragel
+
+    libboost-log1.54-dev
+    libboost-program-options1.54-dev
+    libboost-timer1.54-dev
+    libboost-thread1.54-dev
 
     fds-pkghelper_latest
     fds-pkg_latest
     fds-pkgtools_latest
-
-    fds-boost
-    fds-boost-dev
 
     fds-leveldb
     fds-leveldb-dev
