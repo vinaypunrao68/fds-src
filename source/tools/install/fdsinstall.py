@@ -35,7 +35,7 @@ log.setLevel(logging.DEBUG)
 
 class Installer:
     def __init__(self):
-        self.datafile = '/tmp/fdsinstall.data'
+        self.datafile = '/tmp/.fdsinstall.data'
         self.data = shelve.open(self.datafile,writeback=True)
         self.IP=re.compile('([0-9]{1,3}\.){3}[0-9]{1,3}')
         self.ignoreStepDependency = False
