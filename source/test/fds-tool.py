@@ -86,3 +86,4 @@ if __name__ == '__main__':
     time.sleep(4)
     for am in ams:
         am.am_start_service()
+    time.sleep(30) # Do not remove this sleep
