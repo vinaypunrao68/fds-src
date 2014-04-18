@@ -20,6 +20,7 @@
 #include <iomanip>
 #include <ios>
 #include <functional>
+#include <atomic>
 #include <shared/fds_types.h>
 
 #include <fds_assert.h>
@@ -67,6 +68,8 @@ typedef fds_uint32_t fds_token_id;
  * version instance of a blob.
  */
 typedef fds_uint64_t blob_version_t;
+
+typedef std::atomic<fds_uint64_t> fds_atomic_ullong;
 
 /**
  * Blob versions cannot be 0. That value will represent

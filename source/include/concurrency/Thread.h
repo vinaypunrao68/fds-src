@@ -7,5 +7,8 @@
 
 #include <boost/thread/thread.hpp>
 #include <boost/thread/xtime.hpp>
+#include <boost/thread/condition.hpp>
+
+typedef boost::condition   fds_condition;
 
 #endif  // SOURCE_UTIL_CONCURRENCY_THREAD_H_

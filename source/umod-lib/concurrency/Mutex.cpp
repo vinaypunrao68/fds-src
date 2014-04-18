@@ -8,6 +8,11 @@
 
 namespace fds {
 
+fds_mutex::fds_mutex()
+        : _name("Default mutex name") {
+    _m = new boost::mutex();
+}
+
 fds_mutex::fds_mutex(const std::string& name)
     : _name(name) {
     _m = new boost::mutex();

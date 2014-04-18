@@ -6,6 +6,7 @@ topdir         := .
 #
 user_build_dir :=                       \
     fdsp                                \
+    xdi                                 \
     include                             \
     osdep                               \
     net-proxies                         \
@@ -23,6 +24,7 @@ user_build_dir :=                       \
     fds_client                          \
     am-app                              \
     tools                               \
+    java                                \
     unit-test
 
 include $(topdir)/Makefile.incl
