@@ -3,14 +3,12 @@ package com.formationds.xdi.local;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.google.common.collect.Lists;
 import org.hibernate.Hibernate;
 import org.json.JSONObject;
 
 import javax.persistence.*;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 
 @Entity
@@ -21,17 +19,13 @@ public class Blob implements Persistent {
     private Volume volume;
     private String name;
     private String metadataJson = "{}";
-    private List<Block> blocks;
 
+    public Blob() {
+    }
 
     public Blob(Volume volume, String name) {
         this.volume = volume;
         this.name = name;
-        blocks = Lists.newArrayList();
-    }
-
-    public Blob() {
-        blocks = Lists.newArrayList();
     }
 
     @Id
@@ -40,12 +34,6 @@ public class Blob implements Persistent {
     @Override
     public long getId() {
         return id;
-    }
-
-    @OneToMany
-    @JoinColumn(name="blob_id")
-    public List<Block> getBlocks() {
-        return blocks;
     }
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -85,10 +73,6 @@ public class Blob implements Persistent {
         this.byteCount = byteCount;
     }
 
-    void setBlocks(List<Block> blocks) {
-        this.blocks = blocks;
-    }
-
     public void setVolume(Volume volume) {
         this.volume = volume;
     }
@@ -108,8 +92,5 @@ public class Blob implements Persistent {
     @Override
     public void initialize() {
         Hibernate.initialize(this);
-        for (Block block : blocks) {
-            block.initialize();
-        }
     }
 }

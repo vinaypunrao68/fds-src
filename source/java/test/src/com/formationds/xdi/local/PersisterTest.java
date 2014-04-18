@@ -6,6 +6,8 @@ package com.formationds.xdi.local;
 import org.hibernate.criterion.Restrictions;
 import org.junit.Test;
 
+import java.util.List;
+
 import static org.junit.Assert.assertEquals;
 
 public class PersisterTest {
@@ -22,10 +24,13 @@ public class PersisterTest {
         });
 
         Blob blob = persister.create(new Blob(v, "blob"));
-        persister.create(new Block(blob, new byte[]{1, 2}));
-        persister.create(new Block(blob, new byte[]{3, 4}));
+        persister.create(new Block(blob.getId(), 0, new byte[]{1, 2}));
+        persister.create(new Block(blob.getId(), 1, new byte[]{3, 4}));
 
         Blob loaded = persister.load(Blob.class, blob.getId());
-        assertEquals(2, loaded.getBlocks().size());
+        List<Block> blocks = persister.execute(session -> session.createCriteria(Block.class)
+                .add(Restrictions.eq("blobId", loaded.getId()))
+                .list());
+        assertEquals(2, blocks.size());
     }
 }

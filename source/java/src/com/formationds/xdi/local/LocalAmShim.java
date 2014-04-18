@@ -25,10 +25,12 @@ public class LocalAmShim implements AmShim.Iface {
     private class TxState {
         long blobId;
         long currentByteCount;
+        int blockSize;
 
-        private TxState(long blobId, long currentByteCount) {
+        private TxState(long blobId, long currentByteCount, int blockSize) {
             this.blobId = blobId;
             this.currentByteCount = currentByteCount;
+            this.blockSize = blockSize;
         }
     }
 
@@ -58,11 +60,11 @@ public class LocalAmShim implements AmShim.Iface {
 
     private Volume getVolume(String domainName, String volumeName) {
         return (Volume) persister.execute(session ->
-                    session.createCriteria(Volume.class)
-                            .add(Restrictions.eq("name", volumeName))
-                            .createCriteria("domain")
-                            .add(Restrictions.eq("name", domainName))
-                            .uniqueResult());
+                session.createCriteria(Volume.class)
+                        .add(Restrictions.eq("name", volumeName))
+                        .createCriteria("domain")
+                        .add(Restrictions.eq("name", domainName))
+                        .uniqueResult());
     }
 
     @Override
@@ -115,7 +117,7 @@ public class LocalAmShim implements AmShim.Iface {
         Blob blob = getOrCreate(domainName, volumeName, blobName);
         long blobId = blob.getId();
         long byteCount = blob.getByteCount();
-        blobTxs.put(uuid, new TxState(blobId, byteCount));
+        blobTxs.put(uuid, new TxState(blobId, byteCount, blob.getVolume().getObjectSize()));
         return new Uuid(uuid.getLeastSignificantBits(), uuid.getMostSignificantBits());
     }
 
@@ -140,7 +142,7 @@ public class LocalAmShim implements AmShim.Iface {
                         .createCriteria("domain")
                         .add(Restrictions.eq("name", domainName))
                         .setProjection(Projections.rowCount()))
-                        .uniqueResult();
+                .uniqueResult();
         return new VolumeStatus(count);
     }
 
@@ -148,10 +150,9 @@ public class LocalAmShim implements AmShim.Iface {
     public ByteBuffer getBlob(String domainName, String volumeName, String blobName, int length, long offset) throws FdsException, TException {
         Blob blob = getBlob(domainName, volumeName, blobName);
         int objectSize = blob.getVolume().getObjectSize();
-        List<Block> blocks = blob.getBlocks();
 
         byte[] read = new BlockReader().read(i -> {
-            return i >= blocks.size()  ? new byte[objectSize] : blob.getBlocks().get(i).getBytes();
+            return getOrMakeBlock(i, blob.getId(), objectSize).getBytes();
         }, objectSize, offset, length);
         return ByteBuffer.wrap(read);
     }
@@ -166,34 +167,49 @@ public class LocalAmShim implements AmShim.Iface {
 
     @Override
     public void updateBlob(String domainName, String volumeName, String blobName, Uuid txUuid, ByteBuffer bytes, int length, long offset) throws FdsException, TException {
-        Blob blob = getOrCreate(domainName, volumeName, blobName);
         UUID uuid = new UUID(txUuid.getHigh(), txUuid.getLow());
-        TxState state = blobTxs.get(uuid);
-        state.currentByteCount = Math.max(state.currentByteCount, offset + length);
-        List<Block> blocks = blob.getBlocks();
-        BlockWriter writer = new BlockWriter(i -> getOrMakeBlock(blob, blocks, i), blob.getVolume().getObjectSize());
-        Iterator<Block> updated = writer.update(bytes.array(), length, offset);
-        while (updated.hasNext()) {
-            Block next = updated.next();
-            if (next.getId() == -1) {
-                persister.create(next);
-            } else {
-                persister.update(next);
+        blobTxs.computeIfPresent(uuid, (k, state) -> {
+            state.currentByteCount = Math.max(state.currentByteCount, offset + length);
+            BlockWriter writer = new BlockWriter(i -> getOrMakeBlock(i, state.blobId, state.blockSize), state.blockSize);
+            Iterator<Block> updated = writer.update(bytes.array(), length, offset);
+            while (updated.hasNext()) {
+                Block next = updated.next();
+                if (next.getId() == -1) {
+                    persister.create(next);
+                } else {
+                    persister.update(next);
+                }
             }
-        }
+            return state;
+        });
     }
 
     @Override
     public void deleteBlob(String domainName, String volumeName, String blobName) throws FdsException, TException {
         Blob blob = getBlob(domainName, volumeName, blobName);
-        for (Block block : blob.getBlocks()) {
+        List<Block> blocks = persister.execute(session -> {
+            return session.createCriteria(Block.class)
+                    .add(Restrictions.eq("blobId", blob.getId()))
+                    .list();
+        });
+        for (Block block : blocks) {
             persister.delete(block);
         }
         persister.delete(blob);
     }
 
-    private Block getOrMakeBlock(Blob blob, List<Block> blocks, Integer i) {
-        return i >= blocks.size() ? new Block(blob, new byte[blob.getVolume().getObjectSize()]) : blocks.get(i);
+    private Block getOrMakeBlock(long position, long blobId, int blockSize) {
+        Block block = (Block) persister.execute(session ->
+                session.createCriteria(Block.class)
+                        .add(Restrictions.eq("blobId", blobId))
+                        .add(Restrictions.eq("position", position))
+                        .uniqueResult());
+
+        if (block == null) {
+            return new Block(blobId, position, new byte[blockSize]);
+        } else {
+            return block;
+        }
     }
 
 

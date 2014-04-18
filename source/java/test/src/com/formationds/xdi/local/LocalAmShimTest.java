@@ -40,7 +40,6 @@ public class LocalAmShimTest {
         shim.commit(tx);
 
         Blob blob = shim.getBlob(domainName, volumeName, blobName);
-        assertEquals(2, blob.getBlocks().size());
         assertEquals(9, blob.getByteCount());
 
         assertArrayEquals(new byte[]{0, 0, 0, 0, 0, 1, 2, 3}, shim.getBlob(domainName, volumeName, blobName, 8, 0).array());
