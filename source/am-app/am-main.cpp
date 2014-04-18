@@ -31,7 +31,7 @@ class AM_Process : public PlatformProcess
         PlatformProcess::proc_setup();
         FDS_NativeAPI *api = new FDS_NativeAPI(FDS_NativeAPI::FDSN_AWS_S3);
         FDS_NativeAPI *api_atmos = new FDS_NativeAPI(FDS_NativeAPI::FDSN_EMC_ATMOS);
-        FDS_NativeAPI *api_xdi = new FDS_NativeAPI(FDS_NativeAPI::FDSN_AWS_S3);
+        FDS_NativeAPI::ptr api_xdi(new FDS_NativeAPI(FDS_NativeAPI::FDSN_AWS_S3));
 
         gl_AMEngineS3.init_server(api);
         gl_AMEngineAtmos.init_server(api_atmos);

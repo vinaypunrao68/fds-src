@@ -43,23 +43,23 @@
 
 namespace fds { 
 class BucketContext {
-public:
-  std::string    hostName;
-  std::string   bucketName;
-  std::string   accessKeyId; // Identifies the tennantID or accountName
-  std::string   secretAccessKey;
+  public:
+    std::string    hostName;
+    std::string   bucketName;
+    std::string   accessKeyId; // Identifies the tennantID or accountName
+    std::string   secretAccessKey;
 
-  BucketContext(const std::string& _hostName,
-		const std::string& _bucketName,
-		const std::string& _accessKeyId,
+    BucketContext(const std::string& _hostName,
+                  const std::string& _bucketName,
+                  const std::string& _accessKeyId,
 		const std::string& _secretAccessKey) 
-    : hostName(_hostName),
-    bucketName(_bucketName),
-    accessKeyId(_accessKeyId),
-    secretAccessKey(_secretAccessKey)
+            : hostName(_hostName),
+              bucketName(_bucketName),
+              accessKeyId(_accessKeyId),
+              secretAccessKey(_secretAccessKey)
     {
     }
-  ~BucketContext() {}
+    ~BucketContext() {}
 };
 /// Smart pointer for BucketContext
 typedef boost::shared_ptr<BucketContext> BucketContextPtr;
@@ -477,109 +477,109 @@ typedef void (*fdsnBucketStatsHandler)(const std::string& timestamp,
 // fds::Module class.
 //
 class FDS_NativeAPI { 
-  public :
+  public:
 
-  enum FDSN_ClientType {
-    FDSN_AWS_S3, 
-    FDSN_MSFT_AZURE,
-    FDSN_OPEN_STACK_SWIFT,
-    FDSN_NATIVE_OBJ_API,
-    FDSN_BLOCK_DEVICE,
-    FDSN_EMC_ATMOS,
-    FDSN_CLIENT_TYPE_MAX
-  };
-  FDSN_ClientType clientType;
+    enum FDSN_ClientType {
+        FDSN_AWS_S3, 
+        FDSN_MSFT_AZURE,
+        FDSN_OPEN_STACK_SWIFT,
+        FDSN_NATIVE_OBJ_API,
+        FDSN_BLOCK_DEVICE,
+        FDSN_EMC_ATMOS,
+        FDSN_CLIENT_TYPE_MAX
+    };
+    FDSN_ClientType clientType;
 
-  // TODO: [Vy]: I think this API layer doesn't need to aware of any client's
-  // semantics.  Specific semantic is handled by the connector layer.
-  //
-  FDS_NativeAPI(FDSN_ClientType type);
-  ~FDS_NativeAPI(); 
+    // TODO: [Vy]: I think this API layer doesn't need to aware of any client's
+    // semantics.  Specific semantic is handled by the connector layer.
+    //
+    FDS_NativeAPI(FDSN_ClientType type);
+    ~FDS_NativeAPI(); 
+    typedef boost::shared_ptr<FDS_NativeAPI> ptr;
 
-  // Create a bucket
-  void CreateBucket(BucketContext *bucket_ctx, CannedAcl  canned_acl, 
-                    void *req_ctxt, fdsnResponseHandler responseHandler, void *callback_data);
+    // Create a bucket
+    void CreateBucket(BucketContext *bucket_ctx, CannedAcl  canned_acl, 
+                      void *req_ctxt, fdsnResponseHandler responseHandler, void *callback_data);
 
-  // Get the bucket contents  or objets belonging to this bucket
-  void GetBucket(BucketContext *bucket_ctxt,
-                    std::string prefix, std::string marker,
-                    std::string delimiter, fds_uint32_t maxkeys,
-                    void *requestContext,
-                    fdsnListBucketHandler handler, void *callbackData);
+    // Get the bucket contents  or objets belonging to this bucket
+    void GetBucket(BucketContext *bucket_ctxt,
+                   std::string prefix, std::string marker,
+                   std::string delimiter, fds_uint32_t maxkeys,
+                   void *requestContext,
+                   fdsnListBucketHandler handler, void *callbackData);
 
-  void DeleteBucket(BucketContext *bucketCtxt,
-                    void *requestContext,
-                    fdsnResponseHandler handler, void *callbackData);
+    void DeleteBucket(BucketContext *bucketCtxt,
+                      void *requestContext,
+                      fdsnResponseHandler handler, void *callbackData);
 
-  /* Modify bucket policy */
-  void ModifyBucket(BucketContext *bucket_ctxt,
-		    const QosParams& qos_params,
-		    void* req_ctxt,
-		    fdsnResponseHandler handler,
-		    void *callback_data);
+    /* Modify bucket policy */
+    void ModifyBucket(BucketContext *bucket_ctxt,
+                      const QosParams& qos_params,
+                      void* req_ctxt,
+                      fdsnResponseHandler handler,
+                      void *callback_data);
 
-  /* Retreive stats of all existing buckets
-   * Buckets do not need to be attached to this AM, retrieves stats directly from OM 
-   * Note: in the future, we can also have API to get stats for a particular bucket */
-  void GetBucketStats(void *req_ctxt,
-		      fdsnBucketStatsHandler resp_handler,
-		      void *callback_data);
+    /* Retreive stats of all existing buckets
+     * Buckets do not need to be attached to this AM, retrieves stats directly from OM 
+     * Note: in the future, we can also have API to get stats for a particular bucket */
+    void GetBucketStats(void *req_ctxt,
+                        fdsnBucketStatsHandler resp_handler,
+                        void *callback_data);
 
-  // After this call returns bucketctx, get_cond are no longer valid.
-  void GetObject(BucketContextPtr bucketctxt, 
-                 std::string ObjKey, 
-                 GetConditions *get_cond, 
-                 fds_uint64_t startByte, 
-                 fds_uint64_t byteCount,
-                 char *buffer, 
-                 fds_uint64_t buflen,
-                 void *reqcontext,
-                 fdsnGetObjectHandler getObjCallback,
-                 void *callbackdata);
+    // After this call returns bucketctx, get_cond are no longer valid.
+    void GetObject(BucketContextPtr bucketctxt, 
+                   std::string ObjKey, 
+                   GetConditions *get_cond, 
+                   fds_uint64_t startByte, 
+                   fds_uint64_t byteCount,
+                   char *buffer, 
+                   fds_uint64_t buflen,
+                   void *reqcontext,
+                   fdsnGetObjectHandler getObjCallback,
+                   void *callbackdata);
 
-  void PutObject(BucketContext *bucket_ctxt, 
-                 std::string ObjKey, 
-                 PutPropertiesPtr putproperties,
-                 void *reqContext,
-                 char *buffer, 
-                 fds_uint64_t startByte, 
-                 fds_uint64_t buflen,
-                 fds_bool_t lastBuf,
-                 fdsnPutObjectHandler putObjHandler, 
-                 void *callbackData);
+    void PutObject(BucketContext *bucket_ctxt, 
+                   std::string ObjKey, 
+                   PutPropertiesPtr putproperties,
+                   void *reqContext,
+                   char *buffer, 
+                   fds_uint64_t startByte, 
+                   fds_uint64_t buflen,
+                   fds_bool_t lastBuf,
+                   fdsnPutObjectHandler putObjHandler, 
+                   void *callbackData);
 
-  void DeleteObject(BucketContext *bucket_ctxt, 
-                    std::string ObjKey,
-                    void *reqcontext, 
-                    fdsnResponseHandler responseHandler,
-                    void *callbackData);
+    void DeleteObject(BucketContext *bucket_ctxt, 
+                      std::string ObjKey,
+                      void *reqcontext, 
+                      fdsnResponseHandler responseHandler,
+                      void *callbackData);
 
-  static void DoCallback(FdsBlobReq* blob_req,
-                         Error error,
-                         fds_uint32_t ignore,
-                         fds_int32_t  result);
+    static void DoCallback(FdsBlobReq* blob_req,
+                           Error error,
+                           fds_uint32_t ignore,
+                           fds_int32_t  result);
 
- private: /* methods */
+ private:
+    /**
+     * Sends 'test bucket' message to OM. If bucket exists (OM knows about it),
+     * OM will attach the bucket to this AM. Otherwise, will return error.
+     * return error:
+     *    ERR_OK if test bucket message was sent to OM and now we are waiting
+     *    for attach bucket from AM
+     *    Other error codes if error happened.
+     */
+    Error sendTestBucketToOM(const std::string& bucket_name,
+                             const std::string& access_key_id,
+                             const std::string& secret_access_key);
 
-  /**
-   * Sends 'test bucket' message to OM. If bucket exists (OM knows about it),
-   * OM will attach the bucket to this AM. Otherwise, will return error.
-   * return error:
-   *    ERR_OK if test bucket message was sent to OM and now we are waiting
-   *    for attach bucket from AM
-   *    Other error codes if error happened.
-   */
-  Error sendTestBucketToOM(const std::string& bucket_name,
-                           const std::string& access_key_id,
-                           const std::string& secret_access_key);
+    /* helper function to initialize volume info to some default values, used by several native api methods */
+    void initVolInfo(FDS_ProtocolInterface::FDSP_VolumeInfoTypePtr vol_info, 
+                     const std::string& bucket_name);
 
-  /* helper function to initialize volume info to some default values, used by several native api methods */
-  void initVolInfo(FDS_ProtocolInterface::FDSP_VolumeInfoTypePtr vol_info, 
-		   const std::string& bucket_name);
-
-  void initVolDesc(FDS_ProtocolInterface::FDSP_VolumeDescTypePtr vol_desc, 
-		   const std::string& bucket_name);
+    void initVolDesc(FDS_ProtocolInterface::FDSP_VolumeDescTypePtr vol_desc, 
+                     const std::string& bucket_name);
 
 };
-}
+}  // namespace fds
 #endif 
