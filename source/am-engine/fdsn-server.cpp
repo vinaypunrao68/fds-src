@@ -21,7 +21,17 @@ fdsnsrv_putbucket_cbfn(FDSN_Status status, const ErrorDetails *err, void *arg)
 {
     LOGCRITICAL << "Got a callback!";
 
-    if (status == FDSN_StatusOK) {
+    if (status != FDSN_StatusOK) {
+        xdi::FdsException fdsE;
+        throw fdsE;
+    }
+}
+
+static void
+fdsnsrv_delbucket_cbfn(FDSN_Status status, const ErrorDetails *err, void *arg)
+{
+    LOGDEBUG << "status:" << status << ":" << static_cast<int>(status);
+    if (status != FDSN_StatusOK) {
         xdi::FdsException fdsE;
         throw fdsE;
     }
@@ -83,6 +93,8 @@ class FdsnIf : public xdi::AmShimIf {
     }
     void deleteVolume(boost::shared_ptr<std::string>& domainName,  // NOLINT
                       boost::shared_ptr<std::string>& volumeName) {
+        BucketContext bucket_ctx("host", *volumeName, "accessid", "secretkey");
+        am_api->DeleteBucket(&bucket_ctx, NULL, fdsnsrv_delbucket_cbfn, this);
     }
     void statVolume(xdi::VolumeDescriptor& _return,  // NOLINT
                     const std::string& domainName,
