@@ -31,9 +31,9 @@ fdsbasedebs=(
     fds-tools
     fds-boost
     fds-leveldb
-    fds-jdk-default
     fds-python-scp
     fds-python-paramiko
+    fds-jdk-default
 )
 
 python_packages=(
@@ -77,6 +77,11 @@ function postinstall() {
         redis-server*)
             sudo service redis-server stop
             ;;
+        fds-jdk-default)
+            loginfo "$(red ================================================================)"
+            loginfo "$(boldgreen NOTE:: to export the proper java settings into you env...)"
+            loginfo "$(boldblue run) : $(boldwhite source /etc/profile.d/jdk.sh)"
+            loginfo "$(red ================================================================)"
     esac
 }
 
