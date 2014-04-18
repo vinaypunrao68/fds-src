@@ -5,6 +5,7 @@
 #include <string>
 #include <stdio.h>
 #include <dirent.h>
+#include <set>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <fcntl.h>
@@ -349,6 +350,40 @@ DataDiscoveryModule::disk_ssd_path(fds_uint16_t disk_id)
     std::string &ssd = pd_ssd_map[disk_id];
     fds_verify(!ssd.empty());
     return ssd.c_str();
+}
+
+// \get_hdd_ids
+// --------------
+// Return a set of disk ids of discovered hdd devices
+//
+void
+DataDiscoveryModule::get_hdd_ids(std::set<fds_uint16_t>* ret_disk_ids)
+{
+    std::set<fds_uint16_t> ids;
+    for (DiskLocMap::const_iterator cit = pd_hdd_map.cbegin();
+         cit != pd_hdd_map.cend();
+         ++cit) {
+        ids.insert(cit->first);
+    }
+    fds_verify(ret_disk_ids);
+    (*ret_disk_ids).swap(ids);
+}
+
+// \get_ssd_ids
+// --------------
+// Return a set of disk ids of discovered ssd devices
+//
+void
+DataDiscoveryModule::get_ssd_ids(std::set<fds_uint16_t>* ret_disk_ids)
+{
+    std::set<fds_uint16_t> ids;
+    for (DiskLocMap::const_iterator cit = pd_ssd_map.cbegin();
+         cit != pd_ssd_map.cend();
+         ++cit) {
+        ids.insert(cit->first);
+    }
+    fds_verify(ret_disk_ids);
+    (*ret_disk_ids).swap(ids);
 }
 
 // \mod_startup

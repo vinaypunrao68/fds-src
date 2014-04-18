@@ -6,6 +6,7 @@
 
 #include <string>
 #include <unordered_map>
+#include <set>
 #include <persistent_layer/dm_io.h>
 #include <concurrency/Mutex.h>
 #include <fds_err.h>
@@ -75,6 +76,8 @@ class DataDiscoveryModule : public fds::Module
     // Discovery methods.
     inline int  disk_hdd_discovered() { return pd_hdd_found; }
     inline int  disk_ssd_discovered() { return pd_ssd_found; }
+    void get_hdd_ids(std::set<fds_uint16_t>* ret_disk_ids);
+    void get_ssd_ids(std::set<fds_uint16_t>* ret_disk_ids);
     const char *disk_hdd_path(fds_uint16_t disk_id);
     const char *disk_ssd_path(fds_uint16_t disk_id);
 

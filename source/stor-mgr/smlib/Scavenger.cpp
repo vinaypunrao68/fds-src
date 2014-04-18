@@ -19,13 +19,32 @@ extern ObjectStorMgr *objStorMgr;
 extern DataDiscoveryModule  dataDiscoveryMod;
 
 ScavControl::ScavControl(fds_uint32_t num_thrds)
-        : scav_lock("Scav Lock")
+        : scav_lock("Scav Lock"),
+          max_disks_compacting(num_thrds)
 {
-    max_disks_compacting = num_thrds;
-    num_hdd = diskio::dataDiscoveryMod.disk_hdd_discovered();
-    for (fds_uint32_t i = 0; i < num_hdd; i++) {
-        DiskScavenger *diskScav = new DiskScavenger(i, diskio::diskTier, 1);
-        diskScavTbl[i] = diskScav;
+    num_hdd = 0;
+    num_ssd = 0;
+    std::set<fds_uint16_t> hdd_ids;
+    std::set<fds_uint16_t> ssd_ids;
+    diskio::dataDiscoveryMod.get_hdd_ids(&hdd_ids);
+    diskio::dataDiscoveryMod.get_ssd_ids(&ssd_ids);
+    // create scavengers for HDDs
+    for (std::set<fds_uint16_t>::const_iterator cit = hdd_ids.cbegin();
+         cit != hdd_ids.cend();
+         ++cit) {
+        DiskScavenger *diskScav = new DiskScavenger(*cit, diskio::diskTier, 1);
+        diskScavTbl[*cit] = diskScav;
+        ++num_hdd;
+        LOGNORMAL << "Added scavenger for HDD " << *cit << " (" << num_hdd << ")";
+    }
+    // create scavengers got SSDs
+    for (std::set<fds_uint16_t>::const_iterator cit = ssd_ids.cbegin();
+         cit != ssd_ids.cend();
+         ++cit) {
+        DiskScavenger *diskScav = new DiskScavenger(*cit, diskio::flashTier, 1);
+        diskScavTbl[*cit] = diskScav;
+        ++num_ssd;
+        LOGNORMAL << "Added scavenger for SSD " << *cit << " (" << num_ssd << ")";
     }
 }
 
@@ -44,13 +63,13 @@ void ScavControl::startScavengeProcess()
 {
     LOGNORMAL << "Starting Scavenger cycle... ";
     fds_mutex::scoped_lock l(scav_lock);
-    // TODO(xxx) for now starting process on all devices
-    // but could probably distinguish between ssd and hdd
+    // TODO(xxx) for now starting process for HDDs only
     for (DiskScavTblType::const_iterator cit = diskScavTbl.cbegin();
          cit != diskScavTbl.cend();
          ++cit) {
         DiskScavenger *diskScav = cit->second;
-        if (diskScav != NULL) {
+        if ((diskScav != NULL) &&
+            (diskScav->isTier(diskio::diskTier))) {
             diskScav->startScavenge();
         }
     }
@@ -60,8 +79,7 @@ void ScavControl::stopScavengeProcess()
 {
     LOGNORMAL << "Stop Scavenger cycle... ";
     fds_mutex::scoped_lock l(scav_lock);
-    // TODO(xxx) if we change which disks (e.g. ssd vs. hdd)
-    // we start scavenger process for, need to change here too
+    // TODO(xxx) stop everything for now
     for (DiskScavTblType::const_iterator cit = diskScavTbl.cbegin();
          cit != diskScavTbl.cend();
          ++cit) {
@@ -72,32 +90,32 @@ void ScavControl::stopScavengeProcess()
     }
 }
 
-fds::Error ScavControl::addTokenCompactor(fds_token_id tok_id, fds_uint32_t disk_idx) {
+fds::Error ScavControl::addTokenCompactor(fds_token_id tok_id, fds_uint16_t disk_id) {
     Error err(ERR_OK);
     DiskScavenger* diskScav = NULL;
 
     {  // lock
         fds_mutex::scoped_lock l(scav_lock);
-        if (diskScavTbl.count(disk_idx) > 0) {
-            diskScav = diskScavTbl[disk_idx];
+        if (diskScavTbl.count(disk_id) > 0) {
+            diskScav = diskScavTbl[disk_id];
         }
     }  // unlock
 
     if (diskScav != NULL) {
         fds_mutex::scoped_lock l(diskScav->disk_scav_lock);
         (diskScav->tokenDb).insert(tok_id);
-     }
+    }
     return err;
 }
 
-fds::Error ScavControl::deleteTokenCompactor(fds_token_id tok_id, fds_uint32_t disk_idx) {
+fds::Error ScavControl::deleteTokenCompactor(fds_token_id tok_id, fds_uint16_t disk_id) {
     Error err(ERR_OK);
     DiskScavenger* diskScav = NULL;
 
     {  // lock
         fds_mutex::scoped_lock l(scav_lock);
-        if (diskScavTbl.count(disk_idx) > 0) {
-            diskScav = diskScavTbl[disk_idx];
+        if (diskScavTbl.count(disk_id) > 0) {
+            diskScav = diskScavTbl[disk_id];
         }
     }  // unlock
 
@@ -109,15 +127,15 @@ fds::Error ScavControl::deleteTokenCompactor(fds_token_id tok_id, fds_uint32_t d
     return err;
 }
 
-DiskScavenger::DiskScavenger(fds_uint32_t disk_id,
+DiskScavenger::DiskScavenger(fds_uint16_t _disk_id,
                              diskio::DataTier _tier,
                              fds_uint32_t proc_max_tokens)
-        : disk_scav_lock("Disk-Scav Lock"),
+        : disk_id(_disk_id),
+          disk_scav_lock("Disk-Scav Lock"),
           tier(_tier)
 {
     max_tokens_in_proc = proc_max_tokens;
     next_token = 0;
-    disk_idx = disk_id;
 
     in_progress = ATOMIC_VAR_INIT(false);
     for (fds_uint32_t i = 0; i < proc_max_tokens; ++i) {
@@ -152,7 +170,7 @@ fds_bool_t DiskScavenger::getNextCompactToken(fds_token_id* tok_id) {
         ++next_token;
         found = true;
     }
-    LOGDEBUG << "Disk " << disk_idx << " has " << tokenDb.size()
+    LOGDEBUG << "Disk " << disk_id << " has " << tokenDb.size()
              << " tokens " << " found next tok? " << found
              << " next_token " << next_token
              << " tok_id " << *tok_id;
@@ -168,12 +186,13 @@ void DiskScavenger::startScavenge() {
         LOGNOTIFY << "Scavenger cycle is already running, ignoring start scavenge req";
         return;
     }
+    LOGNORMAL << "Starting scavenger for disk " << disk_id << " tier " << tier;
     next_token = 0;
 
     for (i = 0; i < max_tokens_in_proc; ++i) {
         fds_bool_t found = getNextCompactToken(&tok_id);
         if (!found) {
-            LOGNORMAL << "Scavenger process finished for disk_idx " << disk_idx;
+            LOGNORMAL << "Scavenger process finished for disk_id " << disk_id;
             std::atomic_exchange(&in_progress, false);
             break;
         }
@@ -197,7 +216,7 @@ void DiskScavenger::compactionDoneCb(fds_token_id token_id, const Error& error) 
     fds_bool_t in_prog = std::atomic_load(&in_progress);
 
     LOGNORMAL << "Compaction done notif for token " << token_id
-              << " disk_id " << disk_idx << " result " << error;
+              << " disk_id " << disk_id << " result " << error;
     if (!in_prog) {
         // either stop scavenger was called, or we found no more tokens to compact
         return;
@@ -226,7 +245,7 @@ void DiskScavenger::compactionDoneCb(fds_token_id token_id, const Error& error) 
     if (!in_prog) {
         fds_bool_t expect = true;
         if (std::atomic_compare_exchange_strong(&in_progress, &expect, false)) {
-            LOGNORMAL << "Scavenger process finished for disk_idx " << disk_idx;
+            LOGNORMAL << "Scavenger process finished for disk_id " << disk_id;
         }
     }
 }

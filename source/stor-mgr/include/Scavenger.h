@@ -15,12 +15,12 @@
 namespace fds { 
   class DiskScavenger {
    public :
-      DiskScavenger(fds_uint32_t disk_id,
+      DiskScavenger(fds_uint16_t _disk_id,
                     diskio::DataTier _tier,
                     fds_uint32_t proc_max_tokens);
       ~DiskScavenger();
 
-      fds_uint32_t    disk_idx;
+      fds_uint16_t    disk_id;
       std::string     fs_mount_path;
       fds_uint64_t    dsk_avail_size;
       fds_uint64_t    dsk_tot_size;
@@ -31,6 +31,13 @@ namespace fds {
 
       void startScavenge();
       void stopScavenge();
+
+      /**
+       * @return true if this disk scavenger is for given tier
+       */
+      inline fds_bool_t isTier(diskio::DataTier _tier) const {
+          return _tier == tier;
+      }
 
       /**
        * Callback from token compactor that compaction for a token is done
@@ -57,7 +64,10 @@ namespace fds {
     SCAV_POLICY_TIMER_BASED
   } ScavPolicyType;
 
-  typedef std::unordered_map<fds_uint32_t, DiskScavenger *> DiskScavTblType;
+  /**
+   * disk id to DiscScavenger object map
+   */
+  typedef std::unordered_map<fds_uint16_t, DiskScavenger *> DiskScavTblType;
   
   class ScavControl { 
    public:
@@ -66,10 +76,10 @@ namespace fds {
     
      void startScavengeProcess();
      void stopScavengeProcess();
-     fds::Error addTokenCompactor(fds_token_id tok_id, fds_uint32_t disk_idx);
-     fds::Error deleteTokenCompactor(fds_token_id tok_id, fds_uint32_t disk_idx);
-     void startScavenger(fds_uint32_t disk_idx);
-     void stopScavenger(fds_uint32_t disk_idx);
+     fds::Error addTokenCompactor(fds_token_id tok_id, fds_uint16_t disk_id);
+     fds::Error deleteTokenCompactor(fds_token_id tok_id, fds_uint16_t disk_id);
+     void startScavenger(fds_uint16_t disk_id);
+     void stopScavenger(fds_uint16_t disk_id);
 
     private:
      ScavPolicyType  scavPolicy;
