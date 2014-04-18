@@ -12,6 +12,7 @@ public class BlockReader {
         int start = (int) (offset % blocksize);
         int blockSpan = (int) Math.ceil((start + length) / (double) blocksize);
         int startingBlock = (int) Math.floor(offset / (double) blocksize);
+
         for (int i = 0; i < blockSpan; i++) {
             byte[] block = blocks.apply(i + startingBlock);
             int written = Math.min(blocksize - start, length);

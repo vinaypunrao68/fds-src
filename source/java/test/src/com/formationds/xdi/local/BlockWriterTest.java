@@ -21,4 +21,13 @@ public class BlockWriterTest {
         assertArrayEquals(new byte[]{0, 0, 0, 0, 0, 1, 2, 3}, blocks.get(0).getBytes());
         assertArrayEquals(new byte[]{4, 0, 0, 0, 0, 0, 0, 0}, blocks.get(1).getBytes());
     }
+
+    @Test
+    public void testWriteNthBlock() throws Exception {
+        int blockSize = 8;
+        BlockWriter outputStream = new BlockWriter(i -> new Block(null, new byte[blockSize]), blockSize);
+        List<Block> blocks = Lists.newArrayList(outputStream.update(new byte[]{1, 2, 3, 4, 5}, 4, 8));
+        assertEquals(1, blocks.size());
+        assertArrayEquals(new byte[]{1, 2, 3, 4, 0, 0, 0, 0}, blocks.get(0).getBytes());
+    }
 }

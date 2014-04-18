@@ -21,12 +21,13 @@ public class BlockWriter {
         byte[] buf = new byte[blockSize];
 
         return new Iterator<Block>() {
-            long o = offset;
+
+            private int totalBlocks = (int) Math.ceil((offset + length) / (double) blockSize);
+            private int currentBlock = (int) Math.floor(offset / (double) blockSize);
+
+            long o = offset - (currentBlock * blockSize);
             byte[] b = bytes;
             int l = length;
-
-            private int totalBlocks = (int) Math.ceil((o + length) / (double) blockSize);
-            private int currentBlock = 0;
 
             @Override
             public boolean hasNext() {
