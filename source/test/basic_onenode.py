@@ -12,19 +12,8 @@ import optparse, sys, time
 if __name__ == '__main__':
     ProcessUtils.setup_logger()
 
-    parser = optparse.OptionParser("usage: %prog [options]")
-    parser.add_option('-f', '--file', dest = 'config_file',
-                      help = 'configuration file (e.g. sample.cfg)', metavar = 'FILE')
-    parser.add_option('-v', '--verbose', action = 'store_true', dest = 'verbose',
-                      help = 'enable verbosity')
+    (options, args) = ProcessUtils.parse_fdscluster_args()
 
-    (options, args) = parser.parse_args()
-
-
-    if options.config_file is None:
-        print "You need to pass config file"
-        sys.exit(1)
-    
     cluster = FdsCluster(options.config_file)
     time.sleep(5)
 

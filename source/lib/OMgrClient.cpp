@@ -831,7 +831,7 @@ int OMgrClient::recvDMTUpdate(FDSP_DMT_TypePtr& dmt_info,
                               const std::string& session_uuid) {
 
   Error err(ERR_OK);
-  LOGNOTIFY(omc_log, fds::fds_log::notification) << "OMClient received new DMT version  " << dmt_info->DMT_version;
+  LOGNOTIFY << "OMClient received new DMT version  " << dmt_info->DMT_version;
 
   omc_lock.write_lock();
   const Node_Table_Type& dmt_table = dmt_info->DMT;

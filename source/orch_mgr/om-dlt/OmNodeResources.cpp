@@ -673,21 +673,21 @@ OM_PmContainer::agent_register(const NodeUuid       &uuid,
     } else {
         // we are ignoring name that platform sends us
         known = false;
-        if (!msg->node_name.empty()) {
-            LOGNOTIFY << "We are ignoring name that platform told us "
-                      << msg->node_name << " and we are autonaming it";
-        }
-        uint cfgNameCounter = configDB->getNodeNameCounter();
-        if (cfgNameCounter > 0) {
-            nodeNameCounter = cfgNameCounter;
+        if (msg->node_name.empty()) {
+            uint cfgNameCounter = configDB->getNodeNameCounter();
+            if (cfgNameCounter > 0) {
+                nodeNameCounter = cfgNameCounter;
+            } else {
+                nodeNameCounter++;
+            }
+            msg->node_name.clear();
+            char buf[20];
+            snprintf(buf, sizeof(buf), "Node-%d", nodeNameCounter);
+            msg->node_name.append(buf);
+            LOGNORMAL << "autonamed node : " << msg->node_name;
         } else {
-            nodeNameCounter++;
+            LOGNOTIFY << "Using user provided name: " << msg->node_name;
         }
-        msg->node_name.clear();
-        char buf[20];
-        snprintf(buf, sizeof(buf), "Node-%d", nodeNameCounter);
-        msg->node_name.append(buf);
-        LOGNORMAL << "autonamed node : " << msg->node_name;
     }
     Error err = OM_AgentContainer::agent_register(uuid, msg, out, activate);
     if ((err == ERR_OK) && (known == true)) {
