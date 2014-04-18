@@ -10,7 +10,7 @@ THISFILE=$(basename $0)
 
 externalpkgs=(
     libpcre3_8.31-2ubuntu2_amd64.deb
-    ngrep_1.45.ds2-12_amd64.deb
+
     xfsprogs_3.1.9ubuntu2_amd64.deb
     java-common_0.51_all.deb
     oracle-java8-jdk_8u5_amd64.deb

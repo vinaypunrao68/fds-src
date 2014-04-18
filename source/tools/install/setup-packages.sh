@@ -14,14 +14,12 @@ source ./loghelper.sh
 
 basedebs=(
     libpcre3
-    ngrep
     xfsprogs
     libjemalloc1
     redis-tools
     redis-server
     java-common
     oracle-java8-jdk
-    python-setuptools
 )
 
 fdsbasedebs=(
