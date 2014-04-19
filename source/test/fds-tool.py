@@ -85,6 +85,7 @@ if __name__ == '__main__':
         sys.exit(0)
 
     for n in nodes:
+        print 'Running remote command for ' + n.nd_conf_dict['node-name']
         n.nd_rmt_agent.ssh_exec('python -m disk_type -m')
         n.nd_rmt_agent.ssh_exec('/fds/sbin/redis.sh start')
 
@@ -103,9 +104,10 @@ if __name__ == '__main__':
         else:
             cli.run_cli('--activate-nodes abc -k 1 -e sm')
         print "Waiting for node %s to come up" % n.nd_rmt_host
-    	time.sleep(3)
+    	time.sleep(30)
 
     time.sleep(4)
     for am in ams:
         am.am_start_service()
+    print "Waiting for all commands to complete before existing"
     time.sleep(30) # Do not remove this sleep

@@ -364,7 +364,7 @@ class Disk:
                     units = 0
                     print "Error: disk size unit not implemented"
                     assert False
-                self.dsk_cap = (int(rec['size']) * units) / Disk.dsk_ksize
+                self.dsk_cap = (int(rec['size']) * units) / Disk.dsk_gsize
                 break
         assert self.dsk_cap != 0
 
@@ -408,7 +408,7 @@ class Disk:
 
             units = node_size.get('units')
             if units == 'bytes':
-                self.dsk_cap = int(node_size.text) / Disk.dsk_ksize
+                self.dsk_cap = int(node_size.text) / Disk.dsk_gsize
                 break
             else:
                 self.dsk_cap = 0

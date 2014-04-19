@@ -205,7 +205,7 @@ class FdsRmtEnv(FdsEnv):
 
         if self.env_verbose:
             if self.env_verbose['verbose']:
-                print "Running remote command:", cmd_exec
+                print "Running remote command on %s:" % self.env_rmt_host, cmd_exec
 
             if self.env_verbose['dryrun'] == True:
                 print "...not execute in dryrun mode"
