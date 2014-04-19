@@ -370,12 +370,21 @@ fds_bool_t ObjMetaData::isVolumeAssociated(fds_volid_t vol_id)
  *
  * @return
  */
-fds_bool_t ObjMetaData::onFlashTier() {
+fds_bool_t ObjMetaData::onFlashTier() const {
     if (phy_loc[diskio::flashTier].obj_tier == diskio::flashTier) {
         return true;
     }
     return false;
 }
+
+/**
+ *
+ * @return true if data is on given tier
+ */
+fds_bool_t ObjMetaData::onTier(diskio::DataTier tier) const {
+    return (phy_loc[tier].obj_tier == tier);
+}
+
 
 /**
  *

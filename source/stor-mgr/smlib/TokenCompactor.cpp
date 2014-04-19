@@ -41,6 +41,8 @@ TokenCompactor::~TokenCompactor()
 // work items to actually get list of objects that need copy /delete
 //
 Error TokenCompactor::startCompaction(fds_token_id tok_id,
+                                      fds_uint16_t disk_id,
+                                      diskio::DataTier tier,
                                       fds_uint32_t bits_for_token,
                                       compaction_done_handler_t done_evt_hdlr)
 {
@@ -54,11 +56,14 @@ Error TokenCompactor::startCompaction(fds_token_id tok_id,
 
     // TODO(anna) do not do compaction if sync is in progress, return 'not ready'
 
-    LOGNORMAL << "Start Compaction of token " << tok_id;
+    LOGNORMAL << "Start Compaction of token " << tok_id
+              << " disk_id " << disk_id << " tier " << tier;
 
     // remember the token we are goint to work on and object id range for this
     // token -- to safeguard later that we are copying right objects
     token_id = tok_id;
+    cur_disk_id = disk_id;
+    cur_tier = tier;
     ObjectID::getTokenRange(token_id, bits_for_token, tok_start_oid, tok_end_oid);
     LOGDEBUG << "token range: " << tok_start_oid << " ... " << tok_end_oid;
     done_evt_handler = done_evt_hdlr;  // set cb to notify about completion
@@ -71,9 +76,7 @@ Error TokenCompactor::startCompaction(fds_token_id tok_id,
     // start garbage collection for this token -- tell persistent layer
     // to start routing requests to shadow (new) file to which we will
     // copy non-garbage objects
-    // TODO(anna) initial implemetation compacts disk only file, need to
-    // think if we need to do something different about SSD files
-    dio_mgr.notify_start_gc(token_id, diskTier);
+    dio_mgr.notify_start_gc(token_id, cur_disk_id, cur_tier);
 
     // send request to do object db snapshot that we will work with
     snap_req.token_id = token_id;
@@ -100,6 +103,7 @@ Error TokenCompactor::enqCopyWork(std::vector<ObjectID>* obj_list)
     SmIoCompactObjects* copy_req = new SmIoCompactObjects();
     copy_req->io_type = FDS_SM_COMPACT_OBJECTS;
     (copy_req->oid_list).swap(*obj_list);
+    copy_req->tier = cur_tier;
     copy_req->smio_compactobj_resp_cb = std::bind(
         &TokenCompactor::objsCompactedCb, this,
         std::placeholders::_1, std::placeholders::_2);
@@ -154,8 +158,12 @@ void TokenCompactor::snapDoneCb(const Error& error,
         }
 
         omd.deserializeFrom(it->value());
-        obj_phy_loc_t* loc = omd.getObjPhyLoc(diskTier);
+        obj_phy_loc_t* loc = omd.getObjPhyLoc(cur_tier);
+        // we only care about the tier this compactor is working on
         fds_verify(loc != NULL);
+        if (loc->obj_tier != cur_tier) {
+            continue;
+        }
 
         // filter out objects that are already in shadow file --
         // this could happen between times we started writing objs
@@ -163,7 +171,8 @@ void TokenCompactor::snapDoneCb(const Error& error,
         if (dio_mgr.is_shadow_location(loc, token_id)) {
             LOGDEBUG << id << " already in shadow file (disk_id "
                      << loc->obj_stor_loc_id << " file_id "
-                     << loc->obj_file_id << " tok " << token_id << ")";
+                     << loc->obj_file_id << " tok " << token_id
+                     << " tier " << (fds_int16_t)loc->obj_tier << ")";
             continue;
         }
 
@@ -173,9 +182,10 @@ void TokenCompactor::snapDoneCb(const Error& error,
         loc_fid |= (loc->obj_file_id << 16);
         LOGDEBUG << "Object " << id << " loc_id " << loc->obj_stor_loc_id
                  << " fileId " << loc->obj_file_id << "("
-                 << loc_fid << ") offset " << loc->obj_stor_offset;
+                 << loc_fid << ") offset " << loc->obj_stor_offset
+                 << " tier " << (fds_int16_t)loc->obj_tier
+                 << " tok " << token_id;
 
-        // verify may be broken if we also do ssd tier
         fds_verify(!(loc_oid_map.count(loc_fid)
                      && loc_oid_map[loc_fid].count(loc->obj_stor_offset)));
 
@@ -256,7 +266,9 @@ void TokenCompactor::objsCompactedCb(const Error& error,
     fds_verify(total_done <= total_objs);
 
     LOGNORMAL << "Finished compaction of " << work_objs_done << " objects"
-              << ", done so far " << total_done << " out of " << total_objs;
+              << ", done so far " << total_done << " out of " << total_objs
+              << " (tok " << token_id << " tier " << (fds_uint16_t)cur_tier
+              << " disk_id " << cur_disk_id;
 
     if (total_done == total_objs) {
         // we are done!
@@ -282,6 +294,7 @@ Error TokenCompactor::handleCompactionDone(const Error& tc_error)
     }
 
     LOGNORMAL << "Compaction finished for token " << token_id
+              << " disk_id " << cur_disk_id << " tier " << cur_tier
               << ", result " << tc_error;
 
     // check error happened in the middle of compaction
@@ -292,7 +305,7 @@ Error TokenCompactor::handleCompactionDone(const Error& tc_error)
     }
 
     // tell persistent layer we are done copying -- remove the old file
-    dio_mgr.notify_end_gc(token_id, diskTier);
+    dio_mgr.notify_end_gc(token_id, cur_disk_id, cur_tier);
 
     // set token compactor state to idle -- scavenger can use this TokenCompactor
     // for a new compactino job
@@ -327,17 +340,36 @@ fds_bool_t TokenCompactor::isIdle() const
 }
 
 //
-// given object metadata, check if we need to garbage collect it
+// given object metadata, check if we can remove entry from index db
 //
 fds_bool_t TokenCompactor::isGarbage(const ObjMetaData& md)
 {
-    fds_bool_t do_gc = false;
-
     // TODO(anna or Vinay) add other policies for checking GC
     // The first version of this method just decides based on
     // refcount -- if < 1 then garbage collect
     if (md.getRefCnt() < 1) {
-        do_gc = true;
+        return true;
+    }
+
+    return false;
+}
+
+//
+// given object metadata, check if we need to garbage collect it
+//
+fds_bool_t TokenCompactor::isDataGarbage(const ObjMetaData& md,
+                                         diskio::DataTier _tier)
+{
+    fds_bool_t do_gc = false;
+
+    // obj is garbage if we don't need to keep it in system anymore
+    if (isGarbage(md)) {
+        return true;
+    }
+
+    // obj is garbage if it does not exist on given tier
+    if (!md.onTier(_tier)) {
+        return true;
     }
 
     return do_gc;

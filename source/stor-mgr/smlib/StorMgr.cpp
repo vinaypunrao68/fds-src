@@ -715,10 +715,15 @@ void ObjectStorMgr::migrationSvcResponseCb(const Error& err,
 //
 // TODO(xxx) currently assumes scavenger start command, extend to other cmds
 //
-void ObjectStorMgr::scavengerEventHandler()
+void ObjectStorMgr::scavengerEventHandler(FDS_ProtocolInterface::FDSP_ScavengerTarget tgt)
 {
-    GLOGDEBUG << "Scavenger event Handler: start scavenger";
-    objStorMgr->scavenger->startScavengeProcess();
+    bool all = (tgt == FDS_ProtocolInterface::FDSP_SCAVENGE_ALL);
+    diskio::DataTier tgt_tier = diskio::diskTier;
+    if (tgt == FDS_ProtocolInterface::FDSP_SCAVENGE_SSD_ONLY) {
+        tgt_tier = diskio::flashTier;
+    }
+    GLOGDEBUG << "Scavenger event Handler: start scavenger for " << tgt;
+    objStorMgr->scavenger->startScavengeProcess(all, tgt_tier);
 }
 
 void ObjectStorMgr::nodeEventOmHandler(int node_id,
@@ -2348,7 +2353,8 @@ ObjectStorMgr::applySyncMetadataInternal(SmIoReq* ioReq)
 }
 
 Error
-ObjectStorMgr::condCopyObjectInternal(const ObjectID &objId)
+ObjectStorMgr::condCopyObjectInternal(const ObjectID &objId,
+                                      diskio::DataTier tier)
 {
     Error err(ERR_OK);
     ObjMetaData objMetadata;
@@ -2362,23 +2368,19 @@ ObjectStorMgr::condCopyObjectInternal(const ObjectID &objId)
         return err;
     }
 
-    // we don't do compaction for flash yet, so object location
-    // in flash must not happen yet
-    fds_verify(!objMetadata.onFlashTier());
-
-    if (!TokenCompactor::isGarbage(objMetadata)) {
+    if (!TokenCompactor::isDataGarbage(objMetadata, tier)) {
         OpCtx opCtx(OpCtx::GC_COPY, 0);
         meta_obj_id_t   oid;
         meta_vol_io_t   vio;  // passing to disk_req but not used
         SmPlReq     *disk_req = NULL;
 
-        LOGDEBUG << "Will copy obj " << objId << " to new file";
+        LOGDEBUG << "Will copy " << objId << " to new file on tier " << tier;
 
         // not garbage, read obj data
         memcpy(oid.metaDigest, objId.GetId(), objId.GetLen());
         disk_req = new SmPlReq(vio, oid, (ObjectBuf *)&objData, true);
-        disk_req->setTier(diskTier);
-        disk_req->set_phy_loc(objMetadata.getObjPhyLoc(diskTier));
+        disk_req->setTier(tier);
+        disk_req->set_phy_loc(objMetadata.getObjPhyLoc(tier));
         objData.size = objMetadata.getObjSize();
         objData.data.resize(objData.size, 0);
         err = dio_mgr.disk_read(disk_req);
@@ -2401,18 +2403,22 @@ ObjectStorMgr::condCopyObjectInternal(const ObjectID &objId)
 
         // update metadata
         err = writeObjectMetaData(opCtx, objId, objData.data.length(),
-                                  disk_req->req_get_phy_loc(), false, diskTier, &vio);
+                                  disk_req->req_get_phy_loc(), false, tier, &vio);
         if (!err.ok()) {
             LOGERROR << "Failed to update metadata for obj " << objId;
         }
 
         delete disk_req;
     } else {
-        // not going to copy obj, remove entry from obj db
-        LOGDEBUG << "Will garbage-collect obj " << objId;
-        smObjDb->lock(objId);
-        err = smObjDb->remove(objId);
-        smObjDb->unlock(objId);
+        // not going to copy obj
+        LOGNORMAL << "Will garbage-collect " << objId << " on tier " << tier;
+        // remove entry from index db if data + meta is garbage
+        if (TokenCompactor::isGarbage(objMetadata)) {
+            LOGNORMAL << "Removing metadata for " << objId;
+            smObjDb->lock(objId);
+            err = smObjDb->remove(objId);
+            smObjDb->unlock(objId);
+        }
     }
 
     return err;
@@ -2428,10 +2434,11 @@ ObjectStorMgr::compactObjectsInternal(SmIoReq* ioReq)
     for (fds_uint32_t i = 0; i < (cobjs_req->oid_list).size(); ++i) {
         const ObjectID& obj_id = (cobjs_req->oid_list)[i];
 
-        LOGDEBUG << "Compaction is working on object " << obj_id;
+        LOGDEBUG << "Compaction is working on object " << obj_id
+                 << " on tier " << cobjs_req->tier;
 
         // copy this object if not garbage, otherwise rm object db entry
-        err = condCopyObjectInternal(obj_id);
+        err = condCopyObjectInternal(obj_id, cobjs_req->tier);
         if (!err.ok()) {
             LOGERROR << "Failed to compact object " << obj_id
                      << ", error " << err;

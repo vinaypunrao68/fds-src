@@ -970,9 +970,14 @@ struct FDSP_GetObjMetadataResp {
  2: FDSP_MigrateObjectMetadata 	meta_data
 }
 
+enum FDSP_ScavengerTarget {
+  FDSP_SCAVENGE_HDD_ONLY,
+  FDSP_SCAVENGE_SSD_ONLY,
+  FDSP_SCAVENGE_ALL
+}
+
 struct FDSP_ScavengerStartType {
-  1: FDSP_Token   token_id      /* token id to garbage collect */
-  2: bool         all           /* if true then token id is ignored and will GC all tokens */
+  1: FDSP_ScavengerTarget target
 }
 
 service FDSP_SessionReq {

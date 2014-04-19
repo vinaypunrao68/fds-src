@@ -74,7 +74,11 @@ namespace fds {
      ScavControl(fds_uint32_t num_thrds);
      ~ScavControl();
     
-     void startScavengeProcess();
+     /**
+      * @param b_all == true, then will scavenge both ssd and hdd
+      * @apram if b_all == false, then will scavenge tgt_tier tier
+      */
+     void startScavengeProcess(fds_bool_t b_all, diskio::DataTier tgt_tier);
      void stopScavengeProcess();
      fds::Error addTokenCompactor(fds_token_id tok_id, fds_uint16_t disk_id);
      fds::Error deleteTokenCompactor(fds_token_id tok_id, fds_uint16_t disk_id);

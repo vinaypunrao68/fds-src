@@ -59,17 +59,18 @@ ScavControl::~ScavControl() {
     }
 }
 
-void ScavControl::startScavengeProcess()
+void ScavControl::startScavengeProcess(fds_bool_t b_all, diskio::DataTier tgt_tier)
 {
-    LOGNORMAL << "Starting Scavenger cycle... ";
+    LOGNORMAL << "Starting Scavenger cycle for all? " << b_all
+              << " or tier " << tgt_tier;
+
     fds_mutex::scoped_lock l(scav_lock);
-    // TODO(xxx) for now starting process for HDDs only
     for (DiskScavTblType::const_iterator cit = diskScavTbl.cbegin();
          cit != diskScavTbl.cend();
          ++cit) {
         DiskScavenger *diskScav = cit->second;
         if ((diskScav != NULL) &&
-            (diskScav->isTier(diskio::diskTier))) {
+            (b_all || diskScav->isTier(tgt_tier))) {
             diskScav->startScavenge();
         }
     }
@@ -196,9 +197,10 @@ void DiskScavenger::startScavenge() {
             std::atomic_exchange(&in_progress, false);
             break;
         }
-        tok_compactor_vec[i]->startCompaction(tok_id, SCAV_BITS_PER_TOKEN, std::bind(
-            &DiskScavenger::compactionDoneCb, this,
-            std::placeholders::_1, std::placeholders::_2));
+        tok_compactor_vec[i]->startCompaction(
+            tok_id, disk_id, tier, SCAV_BITS_PER_TOKEN, std::bind(
+                &DiskScavenger::compactionDoneCb, this,
+                std::placeholders::_1, std::placeholders::_2));
     }
 }
 
@@ -232,7 +234,7 @@ void DiskScavenger::compactionDoneCb(fds_token_id token_id, const Error& error) 
                     break;
                 }
                 tok_compactor_vec[i]->startCompaction(
-                    tok_id, SCAV_BITS_PER_TOKEN, std::bind(
+                    tok_id, disk_id, tier, SCAV_BITS_PER_TOKEN, std::bind(
                         &DiskScavenger::compactionDoneCb, this,
                         std::placeholders::_1, std::placeholders::_2));
             }

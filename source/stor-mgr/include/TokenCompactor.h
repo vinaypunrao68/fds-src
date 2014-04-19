@@ -88,6 +88,8 @@ namespace fds {
          * @return ERR_OK is success; error if current state is not TCSTATE_IDLE
          **/
         Error startCompaction(fds_token_id tok_id,
+                              fds_uint16_t disk_id,
+                              diskio::DataTier tier,
                               fds_uint32_t num_bits_for_token,
                               compaction_done_handler_t done_evt_hdlr);
 
@@ -105,8 +107,18 @@ namespace fds {
 
         /**
          * Given object metadata, check if this object should be garbage
-         * collected.
+         * collected from storage media.
          * @return true if object should be garbage collected, otherwise false
+         */
+        static fds_bool_t isDataGarbage(const ObjMetaData& md,
+                                        diskio::DataTier _tier);
+
+
+        /**
+         * Given object metadata, check if this object should be garbage
+         * collected from both storage media and index db
+         * @return true if object should be garbage collected from index db and
+         * storage media, otherwise false
          */
         static fds_bool_t isGarbage(const ObjMetaData& md);
 
@@ -151,6 +163,8 @@ namespace fds {
          * then token_id is not used, and undefined
          */
         fds_token_id token_id;
+        fds_uint16_t cur_disk_id;   // disk id the compactor currently operates on
+        diskio::DataTier cur_tier;  // tier we are compacting
 
         /**
          * callback for compaction done method which is set every time

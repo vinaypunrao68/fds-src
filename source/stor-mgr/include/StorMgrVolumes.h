@@ -530,6 +530,9 @@ namespace fds {
       /* list of object ids */
       std::vector<ObjectID> oid_list;
 
+      /* tier that we are compacting */
+      diskio::DataTier tier;
+
       /* response callback */
       cbType smio_compactobj_resp_cb;
 

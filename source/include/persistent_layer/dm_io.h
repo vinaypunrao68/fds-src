@@ -365,6 +365,7 @@ class DataIO
      * appropriate (new) token file.
      */
     void notify_start_gc(fds::fds_token_id tok_id,
+                         fds_uint16_t loc_id,
                          DataTier tier);
 
     /**
@@ -372,6 +373,7 @@ class DataIO
      * 'tok_id' and tier.
      */
     fds::Error notify_end_gc(fds::fds_token_id tok_id,
+                             fds_uint16_t loc_id,
                              DataTier tier);
 
 
@@ -443,6 +445,7 @@ class DataIOModule : public fds::Module
      * appropriate (new) token file.
      */
     void notify_start_gc(fds::fds_token_id tok_id,
+                         fds_uint16_t loc_id,
                          DataTier tier);
 
     /**
@@ -450,6 +453,7 @@ class DataIOModule : public fds::Module
      * 'tok_id' and tier.
      */
     fds::Error notify_end_gc(fds::fds_token_id tok_id,
+                             fds_uint16_t loc_id,
                              DataTier tier);
 
     /**

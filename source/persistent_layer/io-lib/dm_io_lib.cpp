@@ -137,20 +137,11 @@ DataIOModule::disk_hdd_disk(DataTier            tier,
 //
 void
 DataIOModule::notify_start_gc(fds::fds_token_id tok_id,
+                              fds_uint16_t loc_id,
                               DataTier tier)
 {
-    fds::Error err(fds::ERR_OK);
-    fds_uint16_t disk_id;
-
-    // No matter how we distribute tokens over disks, we will iterate
-    // over all disks, and notify tokenFileDb for all of them.
-    // tokenFileDB class will return ERR_NOT_FOUND for notifications that
-    // do not apply, which we will ignore
-    for (fds_uint32_t idx = 0; idx < io_hdd_curr; ++idx) {
-        disk_id = io_hdd_diskid[idx];
-        err = io_token_db->notifyStartGC(disk_id, tok_id, tier);
-        fds_verify(err.ok() || (err == fds::Error(fds::ERR_NOT_FOUND)));
-    }
+    fds::Error err = io_token_db->notifyStartGC(loc_id, tok_id, tier);
+    fds_verify(err.ok());
 }
 
 //
@@ -158,20 +149,11 @@ DataIOModule::notify_start_gc(fds::fds_token_id tok_id,
 //
 fds::Error
 DataIOModule::notify_end_gc(fds::fds_token_id tok_id,
+                            fds_uint16_t loc_id,
                             DataTier tier)
 {
-    fds::Error err(fds::ERR_OK);
-    fds_uint16_t disk_id;
-
-    // No matter how we distribute tokens over disks, we will iterate
-    // over all disks, and notify tokenFileDb for all of them.
-    // tokenFileDB class will return ERR_NOT_FOUND for notifications that
-    // do not apply, which we will ignore
-    for (fds_uint32_t idx = 0; idx < io_hdd_curr; ++idx) {
-        disk_id = io_hdd_diskid[idx];
-        err = io_token_db->notifyEndGC(disk_id, tok_id, tier);
-        fds_verify(err.ok() || (err == fds::Error(fds::ERR_NOT_FOUND)));
-    }
+    fds::Error err = io_token_db->notifyEndGC(loc_id, tok_id, tier);
+    fds_verify(err.ok());  // until we know how to handle those errors
     return err;
 }
 
@@ -564,9 +546,10 @@ DataIO::disk_loc_path_info(fds_uint16_t loc_id, std::string *path)
 //
 void
 DataIO::notify_start_gc(fds::fds_token_id tok_id,
+                        fds_uint16_t loc_id,
                         DataTier tier)
 {
-    gl_dataIOMod.notify_start_gc(tok_id, tier);
+    gl_dataIOMod.notify_start_gc(tok_id, loc_id, tier);
 }
 
 //
@@ -574,9 +557,10 @@ DataIO::notify_start_gc(fds::fds_token_id tok_id,
 //
 fds::Error
 DataIO::notify_end_gc(fds::fds_token_id tok_id,
+                      fds_uint16_t loc_id,
                       DataTier tier)
 {
-    return gl_dataIOMod.notify_end_gc(tok_id, tier);
+    return gl_dataIOMod.notify_end_gc(tok_id, loc_id, tier);
 }
 
 

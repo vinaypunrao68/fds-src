@@ -127,7 +127,8 @@ public:
     fds_bool_t isVolumeAssociated(fds_volid_t vol_id);
 
     // Tiering/Physical Location update routines
-    fds_bool_t onFlashTier();
+    fds_bool_t onFlashTier() const;
+    fds_bool_t onTier(diskio::DataTier tier) const;
 
     void updatePhysLocation(obj_phy_loc_t *in_phy_loc);
     void removePhyLocation(diskio::DataTier tier);
@@ -163,21 +164,22 @@ private:
 
 inline std::ostream& operator<<(std::ostream& out, const ObjMetaData& objMd)
 {
-     out << "Object MetaData: Version" << objMd.obj_map.obj_map_ver
-             << "  objId : " << objMd.obj_map.obj_id.metaDigest
-             << "  obj_size " << objMd.obj_map.obj_size
-             << "  obj_ref_cnt " << objMd.obj_map.obj_refcnt
-             << "  num_assoc_entry " << objMd.obj_map.obj_num_assoc_entry
-             << "  create_time " << objMd.obj_map.obj_create_time
-             << "  del_time " << objMd.obj_map.obj_del_time
-             << "  mod_time " << objMd.obj_map.assoc_mod_time
-             << std::endl;
-     for (fds_uint32_t i = 0; i < MAX_PHY_LOC_MAP; i++) {
-         out << "Object MetaData: "
-             << " Tier (" << objMd.phy_loc[i].obj_tier
-             << ") loc id (" << objMd.phy_loc[i].obj_stor_loc_id
-             << ") offset (" << objMd.phy_loc[i].obj_stor_offset
-             << ") file id (" << objMd.phy_loc[i].obj_file_id << ")"
+    ObjectID oid((uint8_t*)objMd.obj_map.obj_id.metaDigest);
+    out << "Object MetaData: Version " << (fds_uint16_t)objMd.obj_map.obj_map_ver
+        << " " << oid
+        << "  obj_size " << objMd.obj_map.obj_size
+        << "  obj_ref_cnt " << objMd.obj_map.obj_refcnt
+        << "  num_assoc_entry " << objMd.obj_map.obj_num_assoc_entry
+        << "  create_time " << objMd.obj_map.obj_create_time
+        << "  del_time " << objMd.obj_map.obj_del_time
+        << "  mod_time " << objMd.obj_map.assoc_mod_time
+        << std::endl;
+    for (fds_uint32_t i = 0; i < MAX_PHY_LOC_MAP; i++) {
+        out << "Object MetaData: "
+            << " Tier (" << (fds_int16_t)objMd.phy_loc[i].obj_tier
+            << ") loc id (" << objMd.phy_loc[i].obj_stor_loc_id
+            << ") offset (" << objMd.phy_loc[i].obj_stor_offset
+            << ") file id (" << objMd.phy_loc[i].obj_file_id << ")"
             << std::endl;
     }
     return out;
