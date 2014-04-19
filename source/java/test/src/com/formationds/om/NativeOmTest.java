@@ -5,7 +5,7 @@ package com.formationds.om;
 
 import org.junit.Test;
 
-public class NativeApiTest {
+public class NativeOmTest {
     @Test
     public void JunitIsSilly() {
 

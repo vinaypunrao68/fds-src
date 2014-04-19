@@ -3,7 +3,7 @@ package com.formationds.web.om;
 import com.formationds.auth.AuthenticationToken;
 import com.formationds.demo.Demo;
 import com.formationds.fdsp.ClientFactory;
-import com.formationds.om.NativeApi;
+import com.formationds.om.NativeOm;
 import com.formationds.web.toolkit.HttpMethod;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.WebApp;
@@ -28,7 +28,7 @@ public class Main {
     public Main(String[] args) throws Exception {
         configuration = new Configuration(args);
         ClientFactory clientFactory = new ClientFactory();
-        NativeApi.startOm(args);
+        NativeOm.startOm(args);
 
         webApp = new WebApp(WEB_DIR);
 

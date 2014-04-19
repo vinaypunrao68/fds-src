@@ -5,7 +5,7 @@ package com.formationds.om;
 
 import java.io.File;
 
-public class NativeApi {
+public class NativeOm {
     public static native void init(String[] args);
 
     public static void startOm(String[] args) {
