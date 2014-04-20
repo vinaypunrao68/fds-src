@@ -1,7 +1,7 @@
 topdir           := ..
 user_target      := lib
 user_rtime_env   := user
-user_build_dir   :=
+user_build_dir   := handlers
 user_incl_dir    :=
 user_ragel       := am-urls.rl
 user_clean       := am-urls.cpp
