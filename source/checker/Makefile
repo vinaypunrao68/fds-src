@@ -1,8 +1,6 @@
-topdir            := ../..
-user_target       := test
+topdir            := ..
+user_target       := exe 
 user_rtime_env    := user
-user_install      := checker.conf 
-user_install_loc  := test
 
 user_incl_dir     := \
 	. \
