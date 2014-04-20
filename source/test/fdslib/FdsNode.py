@@ -21,4 +21,6 @@ class FdsNode:
         return self.services[service_id]
 
     def remove_service(self, service_id):
-        pass
+        if self.services.has_key(service_id) is False:
+            raise Exception("Service {} doesn't exists".format(service_id))
+        del self.services[service_id]

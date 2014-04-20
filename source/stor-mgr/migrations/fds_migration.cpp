@@ -495,11 +495,8 @@ void FdsMigrationSvc::handle_migsvc_copy_token_rpc(FdsActorRequestPtr req)
             copy_payload->tokens.begin(), copy_payload->tokens.end());
     kvstore::TokenStateInfo::State state;
     Error err = getTokenStateDb()->getTokenState(*tokens.begin(), state);
-    // TODO(Rao): Once we do proper token state managment, this verify
-    // should just have HEALTHY check
     fds_verify(err == ERR_OK &&
-            (state == kvstore::TokenStateInfo::UNINITIALIZED ||
-                    state == kvstore::TokenStateInfo::HEALTHY));
+            state == kvstore::TokenStateInfo::HEALTHY);
     fds_assert(mig_id.size() > 0);
     fds_assert(mig_stream_id.size() > 0);
     fds_assert(rcvr_ip.size() > 0);

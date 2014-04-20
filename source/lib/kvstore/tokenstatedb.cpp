@@ -61,6 +61,7 @@ Error TokenStateDB::setTokenState(const fds_token_id &tokId,
         return ERR_SM_TOKENSTATEDB_KEY_NOT_FOUND;
     }
     itr->second.state = state;
+    LOGDEBUG << " state: " << state;
     return ERR_OK;
 }
 

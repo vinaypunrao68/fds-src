@@ -682,6 +682,8 @@ void ObjectStorMgr::migrationEventOmHandler(bool dlt_type)
              * TODO(Rao): This is hacky.  We need a better way to test first
              * node case.
              */
+            GLOGDEBUG << "No dlt change.  Nothing to migrate.  Setting all tokens in"
+                    " current dlt to healthy";
             auto tokens = curDlt->getTokens(objStorMgr->getUuid());
             for (auto t : tokens) {
                 /* This says we own the token, but don't have any data for it */

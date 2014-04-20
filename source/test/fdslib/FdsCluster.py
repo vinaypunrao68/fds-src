@@ -79,9 +79,26 @@ class FdsCluster:
 
         # TODO(Rao): If AM is specified activate at the end
             
-    def remove_node(self, node_id):
-        cli = self.config.config_cli()
-        cli.run_cli('--activate-nodes abc -k 1 -e {}'.format(service_id))
+    def remove_node(self, node_id, clean_up = True):
+        """
+        Removes the node.  Deactivates and kill services running
+        on the node
+        If clean_up is set, logs and state is cleared as well
+        """
+        node_cfg = self.__get_node_config(node_id)
+        cli = self.config.cfg_cli
+        svc_list = self.nodes[node_id].services.keys()
+
+        log.info("Removing services {}".format(str(svc_list)))
+
+        # deactive the services
+        cli.run_cli('--remove-services node_name -e "{}"'.format(",".join(svc_list)))
+        # Kill the services
+        # TODO(Rao): Only kill running services
+        node_cfg.nd_cleanup_daemons()
+        # Clean up logs, state, etc.
+        if clean_up is True:
+            node_cfg.nd_cleanup_node()
 
 
     def get_service(self, node_id, service_id):

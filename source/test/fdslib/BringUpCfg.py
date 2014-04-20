@@ -110,7 +110,8 @@ class FdsNodeConfig(FdsConfig):
     # Start platform services in all nodes.
     #
     def nd_start_platform(self, om_ip = None):
-        port_arg = '--fds-root=%s' % self.nd_conf_dict['fds_root']
+        port_arg = '--fds-root=%s --fds.plat.id=%s' % \
+                   (self.nd_conf_dict['fds_root'], self.nd_conf_dict['node-name'])
         if 'fds_port' in self.nd_conf_dict:
             port = self.nd_conf_dict['fds_port']
             port_arg = port_arg + (' --fds.plat.control_port=%s' % port)
