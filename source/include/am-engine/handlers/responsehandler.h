@@ -20,6 +20,10 @@ namespace fds {
     };
 
     struct SimpleResponseHandler : ResponseHandler {
+        std::string name;
+        SimpleResponseHandler();
+        SimpleResponseHandler(const std::string& name);
+
         FDSN_Status status = FDSN_StatusErrorUnknown;
         const ErrorDetails *errorDetails = NULL;
 
