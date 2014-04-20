@@ -15,6 +15,7 @@ namespace fds {
         virtual void wait();
         virtual bool waitFor(ulong timeout);
 
+        virtual ~ResponseHandler();
       protected:
         concurrency::TaskStatus task;
     };
@@ -28,6 +29,7 @@ namespace fds {
         const ErrorDetails *errorDetails = NULL;
 
         virtual void process();
+        virtual ~SimpleResponseHandler();
     };
 
     struct PutObjectResponseHandler : SimpleResponseHandler {
@@ -37,6 +39,7 @@ namespace fds {
         char *buffer;
 
         virtual void process();
+        virtual ~PutObjectResponseHandler();
     };
 
     struct GetObjectResponseHandler : SimpleResponseHandler {
@@ -49,6 +52,7 @@ namespace fds {
         const std::string* blobEtag = NULL;
 
         virtual void process();
+        virtual ~GetObjectResponseHandler();
     };
 
     struct ListBucketResponseHandler : SimpleResponseHandler {
@@ -60,6 +64,7 @@ namespace fds {
         const char **commonPrefixes = NULL;
 
         virtual void process();
+        virtual ~ListBucketResponseHandler();
     };
 
     struct BucketStatsResponseHandler : SimpleResponseHandler {
@@ -69,6 +74,7 @@ namespace fds {
         void *req_context = NULL;
 
         virtual void process();
+        virtual ~BucketStatsResponseHandler();
     };
 }  // namespace fds
 #endif  // SOURCE_INCLUDE_AM_ENGINE_HANDLERS_RESPONSEHANDLER_H_

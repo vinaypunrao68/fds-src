@@ -2,10 +2,11 @@
  * Copyright 2014 Formation Data Systems, Inc.
  */
 #include <am-engine/handlers/responsehandler.h>
+#include <xdi/am_shim_types.h>
 #include <util/Log.h>
+#include <string>
 
 namespace fds {
-
 void ResponseHandler::ready() {
     task.done();
 }
@@ -18,6 +19,11 @@ bool ResponseHandler::waitFor(ulong timeout) {
     return task.await(timeout);
 }
 
+ResponseHandler::~ResponseHandler() {
+}
+
+//================================================================================
+
 SimpleResponseHandler::SimpleResponseHandler() {
 }
 
@@ -28,21 +34,41 @@ void SimpleResponseHandler::process() {
     LOGDEBUG << "processing callback for : " << name;
     if (status != FDSN_StatusOK) {
         LOGWARN << " handler:" << name
-                << " status:" << status ;
+                << " status:" << status;
         throw xdi::XdiException();
     }
 }
 
+SimpleResponseHandler::~SimpleResponseHandler() {
+}
+
+//================================================================================
+
 void PutObjectResponseHandler::process() {
 }
+
+PutObjectResponseHandler::~PutObjectResponseHandler(){
+}
+//================================================================================
 
 void GetObjectResponseHandler::process() {
 }
 
+GetObjectResponseHandler::~GetObjectResponseHandler(){
+}
+//================================================================================
+
 void ListBucketResponseHandler::process() {
 }
+
+ListBucketResponseHandler::~ListBucketResponseHandler() {
+}
+
+//================================================================================
 
 void BucketStatsResponseHandler::process() {
 }
 
+BucketStatsResponseHandler::~BucketStatsResponseHandler() {
+}
 }  // namespace fds
