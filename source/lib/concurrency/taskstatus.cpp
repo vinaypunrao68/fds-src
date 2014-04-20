@@ -4,14 +4,13 @@
  */
 #include <fds_assert.h>
 #include <concurrency/taskstatus.h>
+#include <thrift/concurrency/Util.h>
 
 namespace atc = apache::thrift::concurrency;
 
 namespace fds { namespace concurrency {
 
-TaskStatus::TaskStatus(uint numTasks)
-    : monitor(&mutex)
-{
+TaskStatus::TaskStatus(uint numTasks) : monitor(&mutex) {
     numTasks = 0;
     reset(numTasks);
 }
@@ -32,7 +31,9 @@ void TaskStatus::await() {
     if ( 0 == numTasks ) {
         return;
     }
-    monitor.wait();
+    while ( numTasks > 0 ) {
+        monitor.wait();
+    }
 }
 
 bool TaskStatus::await(ulong timeout) {
@@ -40,7 +41,17 @@ bool TaskStatus::await(ulong timeout) {
     if ( 0 == numTasks ) {
         return true;
     }
-    monitor.wait(timeout);
+    try {
+        struct timespec abstime;
+        atc::Util::toTimespec(abstime, atc::Util::currentTime() + timeout);
+
+        while ( numTasks > 0 ) {
+            monitor.waitForTime(&abstime);
+        }
+    } catch(const atc::TimedOutException& e) {
+        return false;
+    }
+
     return 0 == numTasks;
 }
 
