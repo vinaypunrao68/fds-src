@@ -2,6 +2,7 @@
  * Copyright 2014 Formation Data Systems, Inc.
  */
 #include <am-engine/handlers/responsehandler.h>
+#include <util/Log.h>
 
 namespace fds {
 
@@ -17,7 +18,19 @@ bool ResponseHandler::waitFor(ulong timeout) {
     return task.await(timeout);
 }
 
+SimpleResponseHandler::SimpleResponseHandler() {
+}
+
+SimpleResponseHandler::SimpleResponseHandler(const std::string& name) : name(name) {
+}
+
 void SimpleResponseHandler::process() {
+    LOGDEBUG << "processing callback for : " << name;
+    if (status != FDSN_StatusOK) {
+        LOGWARN << " handler:" << name
+                << " status:" << status ;
+        throw xdi::XdiException();
+    }
 }
 
 void PutObjectResponseHandler::process() {
