@@ -673,7 +673,7 @@ OM_PmContainer::agent_register(const NodeUuid       &uuid,
     } else {
         // we are ignoring name that platform sends us
         known = false;
-        if (msg->node_name.empty()) {
+        if (msg->node_name.empty() || msg->node_name == "auto") {
             uint cfgNameCounter = configDB->getNodeNameCounter();
             if (cfgNameCounter > 0) {
                 nodeNameCounter = cfgNameCounter;
