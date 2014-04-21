@@ -8,6 +8,7 @@ sys.path.append('/home/nbayyana/fds-src/source/test/fdslib/pyfdsp')
 import socket
 import struct
 import time
+import logging
 
 from FDS_ProtocolInterface.ttypes import *
 from FDS_ProtocolInterface.constants import *
@@ -21,6 +22,8 @@ from thrift.transport import TTransport
 from thrift.protocol import TBinaryProtocol
 
 from FdsException import *
+
+log = logging.getLogger(__name__)
 
 class FdsService(object):
     def __init__(self, fdsp_svc_info):
@@ -67,7 +70,7 @@ class SMService(FdsService):
                                                            fdsp_svc_info.data_port,
                                                            FDSP_DataPathReq)
 
-    def wait_for_healthy_state(self, wait_time_sec=None):
+    def wait_for_healthy_state(self, timeout_s=None):
         """
         Waits until sm service is fully healthy.
         For now we will monitor the log file.  Ideally we will thrift endpoint
@@ -78,11 +81,12 @@ class SMService(FdsService):
         while True:
             stats = self.rpc_endpoint.GetTokenMigrationStats(FDSP_MsgHdrType())
             if stats.completed != 0 and stats.inflight == 0 and stats.pending == 0:
+                log.info('SM is healthy.  completed tokens:{}'.format(stats.completed))
                 break
             time.sleep(sleep_time)
-            if wait_time_sec:
-                wait_time_sec -= sleep_time
-                if wait_time_sec <= 0:
+            if timeout_s:
+                timeout_s -= sleep_time
+                if timeout_s <= 0:
                     raise TimeoutException()
 
 

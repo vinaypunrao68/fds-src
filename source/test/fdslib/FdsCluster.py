@@ -44,6 +44,7 @@ class FdsCluster:
         Stars AMs.
         TODO(Rao): This isn't needed.  Running AM should be specified in the config
         """
+        log.info('Starting AMs')
         for am in self.config.cfg_am:
             am.am_start_service()
             time.sleep(5)
@@ -84,6 +85,9 @@ class FdsCluster:
         Removes the node.  Deactivates and kill services running
         on the node
         If clean_up is set, logs and state is cleared as well
+        TODO(Rao):  Here we should just have OM expose a thrift
+        endpoint for removing the node and doing the cleanup of
+        the node as well
         """
         node_cfg = self.__get_node_config(node_id)
         cli = self.config.cfg_cli
@@ -92,10 +96,10 @@ class FdsCluster:
         log.info("Removing services {}".format(str(svc_list)))
 
         # deactive the services
-        cli.run_cli('--remove-services node_name -e "{}"'.format(",".join(svc_list)))
+        cli.run_cli('--remove-services {} -e "{}"'.format(node_id, ",".join(svc_list)))
         # Kill the services
-        # TODO(Rao): Only kill running services
-        node_cfg.nd_cleanup_daemons()
+        # TODO(Rao): Only kill running services owned by this node
+        node_cfg.nd_cleanup_daemons_with_fdsroot(self.nodes[node_id].get_fds_root())
         # Clean up logs, state, etc.
         if clean_up is True:
             node_cfg.nd_cleanup_node()
@@ -158,6 +162,7 @@ class FdsCluster:
         """
         Runs directory based checker on the cluster
         """
+        log.info("Running checker using dir: {}".format(dir))
         fds_root = self.get_om_node().get_fds_root()
         cmd = 'checker --fds-root={}'.format(fds_root)
         if dir:
