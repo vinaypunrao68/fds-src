@@ -45,10 +45,10 @@ class DltCommitOkEvt
   public:
     DltCommitOkEvt(fds_uint64_t dlt_ver,
                    const NodeUuid& uuid)
-            : cur_dlt_version(dlt_ver),
+            : dlt_version(dlt_ver),
             sm_uuid(uuid) {}
 
-    fds_uint64_t    cur_dlt_version;
+    fds_uint64_t    dlt_version;
     NodeUuid        sm_uuid;
 };
 

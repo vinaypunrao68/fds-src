@@ -540,7 +540,7 @@ DltDplyFSM::DACT_Commit::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST 
     fds_uint32_t count = dom_ctrl->om_bcast_dlt(dp->getCommitedDlt());
     if (count < 1) {
         dst.acks_to_wait = 1;
-        fsm.process_event(DltCommitOkEvt(dp->getLatestDltVersion(), NodeUuid()));
+        fsm.process_event(DltCommitOkEvt(dp->getCommitedDltVersion(), NodeUuid()));
     } else {
         dst.acks_to_wait = count;
     }
@@ -556,12 +556,15 @@ void
 DltDplyFSM::DACT_Close::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
     FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "FSM DACT_Close";
-    DltCommitOkEvt commitOkEvt = (DltCommitOkEvt)evt;
     OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
     OM_NodeContainer* dom_ctrl = domain->om_loc_domain_ctrl();
+    OM_Module *om = OM_Module::om_singleton();
+    DataPlacement *dp = om->om_dataplace_mod();
+    fds_verify(dp != NULL);
+    fds_uint64_t commited_dlt_ver = dp->getCommitedDltVersion();
 
     // Send DLT close message to SM nodes
-    fds_uint32_t close_cnt = dom_ctrl->om_bcast_dlt_close(commitOkEvt.cur_dlt_version);
+    fds_uint32_t close_cnt = dom_ctrl->om_bcast_dlt_close(commited_dlt_ver);
     // if we are here, there must be at least one SM, so we should
     // not get 'close_cnt' == 0
     fds_verify(close_cnt > 0);
@@ -662,6 +665,20 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 bool
 DltDplyFSM::GRD_DltCommit::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
+    DltCommitOkEvt commitOkEvt = (DltCommitOkEvt)evt;
+    OM_Module *om = OM_Module::om_singleton();
+    DataPlacement *dp = om->om_dataplace_mod();
+    fds_verify(dp != NULL);
+    fds_uint64_t commited_dlt_ver = dp->getCommitedDltVersion();
+
+    // we only care about acks for the commited dlt version
+    fds_verify(commitOkEvt.dlt_version <= commited_dlt_ver);
+    if (commitOkEvt.dlt_version != commited_dlt_ver) {
+        LOGDEBUG << "GRD_DltCommit: received dlt commit for old DLT "
+                 << " version " << commitOkEvt.dlt_version << ", ignoring";
+        return false;
+    }
+
     fds_verify(src.acks_to_wait > 0);
     src.acks_to_wait--;
     fds_bool_t b_ret = (src.acks_to_wait == 0);

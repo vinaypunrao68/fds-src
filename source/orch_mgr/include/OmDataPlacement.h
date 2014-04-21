@@ -484,6 +484,7 @@ namespace fds {
          * or commited DLT
          */
         fds_uint64_t getLatestDltVersion() const;
+        fds_uint64_t getCommitedDltVersion() const;
 
         /**
          * Returns the current version of the cluster map.
