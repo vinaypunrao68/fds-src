@@ -244,6 +244,14 @@ DataPlacement::getLatestDltVersion() const {
     return DLT_VER_INVALID;
 }
 
+fds_uint64_t
+DataPlacement::getCommitedDltVersion() const {
+    if (commitedDlt) {
+        return commitedDlt->getVersion();
+    }
+    return DLT_VER_INVALID;
+}
+
 const ClusterMap*
 DataPlacement::getCurClustMap() const {
     return curClusterMap;
