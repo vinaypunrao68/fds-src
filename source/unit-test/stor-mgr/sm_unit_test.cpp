@@ -1061,7 +1061,6 @@ int main(int argc, char* argv[]) {
     };
     fds::TestClient sm_client(argc, argv, "sm_ut.conf", "fds.sm_ut.", sm_testVec);
 
-    sm_client.setup();
-    sm_client.run();
+    sm_client.main();
     return sm_client.get_result();
 }

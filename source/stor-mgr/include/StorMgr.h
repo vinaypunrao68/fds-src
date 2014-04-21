@@ -435,7 +435,7 @@ class ObjectStorMgr :
     ~ObjectStorMgr();
 
     /* From FdsProcess */
-    virtual void proc_setup() override;
+    virtual void proc_pre_startup() override;
     virtual int  run() override;
     virtual void interrupt_cb(int signum) override;
 

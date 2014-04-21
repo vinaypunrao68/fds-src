@@ -365,7 +365,7 @@ class PlatformProcess : public FdsProcess
     /* Exposed for mock testing */
     PlatformProcess() {}
 
-    virtual void proc_setup() override;
+    virtual void proc_pre_startup() override;
 
     /**
      * Derrive ports for different node services from a common base.

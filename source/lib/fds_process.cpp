@@ -123,14 +123,8 @@ FdsProcess::~FdsProcess()
     delete mod_vectors_;
 }
 
-void FdsProcess::setup()
-{
-    /* Execute module vector */
-    mod_vectors_->mod_execute();
-}
-
-void FdsProcess::proc_setup() {}
-void FdsProcess::proc_start_run() {}
+void FdsProcess::proc_pre_startup() {}
+void FdsProcess::proc_pre_service() {}
 
 /**
  * The main method to coordinate everything in proper sequence.
@@ -142,14 +136,14 @@ int FdsProcess::main()
     mod_vectors_->mod_init_modules();
 
     /* The process should have all objects allocated in proper place. */
-    proc_setup();
+    proc_pre_startup();
 
     /* Do FDS process startup sequence. */
     mod_vectors_->mod_startup_modules();
     mod_vectors_->mod_run_locksteps();
 
     /*  Star to run the main process. */
-    proc_start_run();
+    proc_pre_service();
     mod_vectors_->mod_start_services();
 
     /* Run the main loop. */

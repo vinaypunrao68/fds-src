@@ -44,6 +44,12 @@ typedef fds_uint8_t          fds_byte_t;                    /* NOLINT */
 
 #define FDS_ARRAY_ELEM(array)         (sizeof(array)/sizeof(array[0]))
 
+/* Alignment macros. */
+#define fds_align(n, a)               (((n) + ((a) - 1)) & ~((a) - 1))
+#define fds_align_ptr(p, a)                                                   \
+    (void *)(((fds_uint64_t)(p) + /* NOLINT */                                \
+              ((fds_uint64_t)(a) - 1)) & ~((fds_uint64_t)(a) - 1))
+
 /*
  * Do not change enum assignment in these types because they may be persistant
  * accross software releases.

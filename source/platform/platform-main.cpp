@@ -107,12 +107,12 @@ NodePlatformProc::plf_fill_disk_capacity_pkt(fpi::FDSP_RegisterNodeTypePtr pkt)
 }
 
 void
-NodePlatformProc::proc_setup()
+NodePlatformProc::proc_pre_startup()
 {
     NodePlatform *plat = static_cast<NodePlatform *>(plf_mgr);
 
     plat->mod_load_from_config();
-    PlatformProcess::proc_setup();
+    PlatformProcess::proc_pre_startup();
     plat->plf_bind_process(this);
 }
 

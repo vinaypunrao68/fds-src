@@ -75,7 +75,7 @@ class NodePlatformProc : public PlatformProcess
   public:
     NodePlatformProc(int argc, char **argv, Module **vec);
 
-    void proc_setup() override;
+    void proc_pre_startup() override;
     int  run() override;
 
     void plf_fill_disk_capacity_pkt(fpi::FDSP_RegisterNodeTypePtr pkt);

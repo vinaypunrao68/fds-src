@@ -106,7 +106,7 @@ PlatformProcess::plf_apply_node_data()
 }
 
 void
-PlatformProcess::proc_setup()
+PlatformProcess::proc_pre_startup()
 {
     plf_db = new kvstore::PlatformDB();
     plf_load_node_data();

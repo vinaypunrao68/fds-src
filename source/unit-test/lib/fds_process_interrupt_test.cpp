@@ -60,8 +60,7 @@ class Sm_process : public FdsProcess {
 
 int main(int argc, char *argv[]) {
     Sm_process p(argc, argv, "fds.conf", "fds.sm.", NULL);
-    p.setup();
-    p.run();
+    p.main();
     std::cout << "Main finished" << std::endl;
     return 0;
 }

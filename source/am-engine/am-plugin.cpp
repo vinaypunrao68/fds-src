@@ -988,7 +988,7 @@ AME_Ctx::ame_register_ctx()
 void
 AME_Ctx::ame_unregister_ctx()
 {
-    LOGDEBUG << "Unregistering ngx ctx";
+    // LOGDEBUG << "Unregistering ngx ctx";
     ngx_close_connection(ame_connect);
 
     if (ame_epoll_fd != 0) {

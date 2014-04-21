@@ -383,14 +383,14 @@ ObjectStorMgr::~ObjectStorMgr() {
     delete omJrnl;
 }
 
-void ObjectStorMgr::proc_setup()
+void ObjectStorMgr::proc_pre_startup()
 {
     // todo: clean up the code below.  It's doing too many things here.
     // Refactor into functions or make it part of module vector
 
     std::string     myIp;
 
-    PlatformProcess::proc_setup();
+    PlatformProcess::proc_pre_startup();
     proc_root->fds_mkdir(proc_root->dir_user_repo_objs().c_str());
     std::string obj_dir = proc_root->dir_user_repo_objs();
 
