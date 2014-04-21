@@ -24,3 +24,6 @@ class FdsNode:
         if self.services.has_key(service_id) is False:
             raise Exception("Service {} doesn't exists".format(service_id))
         del self.services[service_id]
+
+    def get_fds_root(self):
+        return self.node_cfg.nd_conf_dict['fds_root']

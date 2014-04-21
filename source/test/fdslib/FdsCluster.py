@@ -100,6 +100,11 @@ class FdsCluster:
         if clean_up is True:
             node_cfg.nd_cleanup_node()
 
+    def get_om_node(self):
+        """
+        returns om node
+        """
+        return self.nodes[self.__om_node_id]
 
     def get_service(self, node_id, service_id):
         """
@@ -153,13 +158,15 @@ class FdsCluster:
         """
         Runs directory based checker on the cluster
         """
-        cmd = 'checker'
+        fds_root = self.get_om_node().get_fds_root()
+        cmd = 'checker --fds-root={}'.format(fds_root)
         if dir:
-            cmd = 'checker --fds.checker.path={}'.format(dir)
+            cmd = 'checker --fds-root={} --fds.checker.path={}'.format(fds_root, dir)
         status = self.__get_node_config(self.__om_node_id).nd_rmt_agent.ssh_exec_fds(
             cmd, wait_compl=True)
         if status is not 0:
             raise CheckerFailedException()
+        log.info("Checker succeeded")
 
     def __get_service_info(self, service_id, node_cfg):
         """

@@ -227,7 +227,7 @@ class FdsRmtEnv(FdsEnv):
     # Execute command from $fds_root/bin directory.  Prefix with needed stuffs.
     #
     def ssh_exec_fds(self, cmd, wait_compl = False):
-        self.ssh_exec(cmd, wait_compl, True)
+        return self.ssh_exec(cmd, wait_compl, True)
 
     def ssh_close(self):
         env_ssh_clnt.close()
