@@ -3,6 +3,7 @@ package com.formationds.xdi.s3;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+import com.formationds.am.Main;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.XmlResource;
@@ -24,7 +25,7 @@ public class ListObjects implements RequestHandler {
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
         String bucket = requiredString(routeParameters, "bucket");
-        List<BlobDescriptor> contents = xdi.volumeContents(S3Endpoint.FDS_S3, bucket, Integer.MAX_VALUE, 0);
+        List<BlobDescriptor> contents = xdi.volumeContents(Main.FDS_S3, bucket, Integer.MAX_VALUE, 0);
         List<String> objects = contents.stream()
                 .map(c -> String.format(OBJECT_FORMAT, c.getName(), c.getByteCount()))
                 .collect(Collectors.toList());

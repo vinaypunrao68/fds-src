@@ -3,6 +3,7 @@ package com.formationds.xdi.s3;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+import com.formationds.am.Main;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
@@ -21,7 +22,7 @@ public class DeleteBucket implements RequestHandler {
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
         String bucketName = requiredString(routeParameters, "bucket");
-        xdi.deleteVolume(S3Endpoint.FDS_S3, bucketName);
+        xdi.deleteVolume(Main.FDS_S3, bucketName);
         return new TextResource("");
     }
 }

@@ -43,9 +43,9 @@ apps["pm"]="platformd"
 function usage() {
     log "$(yellow usage: $(basename $0) [cmd] [app] [options])"
     log " cmd : "
-    log "   - $(yellow start)     : start the app " 
-    log "   - $(yellow stop)      : stop  the app " 
-    log "   - $(yellow restart)   : stop & start  the app " 
+    log "   - $(yellow start)     : start the app "
+    log "   - $(yellow stop)      : stop  the app "
+    log "   - $(yellow restart)   : stop & start  the app "
     log "   - $(yellow status)    : print status of the apps"
     log "   - $(yellow clogs)     : remove the logs"
     log "   - $(yellow clean)     : remove the data"
@@ -61,7 +61,7 @@ function usage() {
 function setupFdsDirs() {
     loginfo "setting up: ${FDSROOT} "
     if [[ ! -d ${FDSROOT} ]] ; then mkdir -p ${FDSROOT} ; fi
-    
+
     loginfo "setting up: ${FDSROOT}/etc "
     if [[ $(readlink ${FDSROOT}/etc) != "${CONFIG_ETC}" ]] ; then
         cp -rf ${CONFIG_ETC} ${FDSROOT}
@@ -82,14 +82,14 @@ function startApp() {
     local justapps="${applist}"
 
     setupFdsDirs
-    
+
     if [[ $appname == "all" ]]; then
         justapps="om pm"
     fi
 
     # start redis if needed
     case "$appname" in
-        om|pm|all|redis) 
+        om|pm|all|redis)
             ${TOOLSDIR}/redis.sh start 1 $REDIS_ARG
             ;;
     esac
@@ -113,7 +113,7 @@ function startApp() {
     done
 
     case "$appname" in
-        om|pm|all)             
+        om|pm|all)
             activate
             ;;
     esac
@@ -121,7 +121,7 @@ function startApp() {
 
 function stopApp() {
     local appname=$1
-    
+
     if [[ $appname == "redis" ]] ; then
         ${TOOLSDIR}/redis.sh stop 1 $REDIS_ARG
     fi
@@ -137,13 +137,13 @@ function stopApp() {
             fi
         fi
     done
-    
+
     # Not stopping redis for now
 }
 
 function statusApp() {
     # the header
-    echo "$(yellow app: $(ps u --pid 1000000 | awk '{for(i=1;i<12;i++) printf("\t%s",$i) }'))" 
+    echo "$(yellow app: $(ps u --pid 1000000 | awk '{for(i=1;i<12;i++) printf("\t%s",$i) }'))"
 
     local appname=$1
 
@@ -157,7 +157,7 @@ function statusApp() {
             fi
         fi
     done
-    
+
     # redis status
     if [[ $appname == "all" ]] || [[ $appname == "redis" ]] ; then
         ${TOOLSDIR}/redis.sh status 1 $REDIS_ARG
@@ -167,10 +167,15 @@ function statusApp() {
 function getAppPid() {
     local name=$1
     local pid
-    
+
     if [[ $name == "om" ]]; then
         pid=$(pgrep orchMgr)
-        if [[ -n $pid ]] ; then 
+        if [[ -n $pid ]] ; then
+            pid=$(pgrep -P $pid 2>/dev/null)
+        fi
+    elif [[ $name == "am" ]]; then
+        pid=$(pgrep AMAgent)
+        if [[ -n $pid ]] ; then
             pid=$(pgrep -P $pid 2>/dev/null)
         fi
     else
@@ -189,7 +194,7 @@ function waitForAll() {
         while [[ -z $lpid ]] && [[ $count -lt $maxcount ]] ; do
             echo -n "."
             lpid=$(getAppPid $name)
-            if [[ -z $lpid ]]; then 
+            if [[ -z $lpid ]]; then
                 (( count++ ))
                 sleep 1s ;
             fi
@@ -251,7 +256,7 @@ function taillog() {
         redis)
             tail -F /fds/logs/redis/*.log
             ;;
-        *) 
+        *)
             logerror "can tail logs of only om|am|dm|sm|pm|redis"
             ;;
     esac
@@ -264,7 +269,7 @@ function cleanBinDirs() {
             (
                 cd ${bin_dir}
                 loginfo "cleaning up: $(pwd)"
-                
+
                 rm -rf *.ldb 2>  /dev/null
                 rm -rf logs stats 2> /dev/null
                 rm -rf *SNode* 2> /dev/null
@@ -273,7 +278,7 @@ function cleanBinDirs() {
                 rm am.*.log 2> /dev/null
                 rm sm.*.log 2> /dev/null
                 rm -f ocache_stats.dat
-                rm -f *.out 
+                rm -f *.out
                 rm -f core*
             )
         fi
@@ -322,7 +327,7 @@ do
     case $opt in
         -f|--fds-root)
             (( n++ ))
-            if [[ $n -ge $# ]]; then 
+            if [[ $n -ge $# ]]; then
                 logerror "value expected for fdsroot"
                 usage
             fi
@@ -367,20 +372,20 @@ FDSROOT=${FDSROOT:=/fds}
 
 case "${CMD}" in
     start|stop|restart|status|clean|clogs|cleanstart|startclean|gdb|tail) ;;
-    *) 
+    *)
         logerror "unknown cmd [$CMD] "
         usage ;;
 esac
 
 case "${APP}" in
     om|am|dm|sm|pm|all|redis) ;;
-    *) 
+    *)
         logerror "unknown app [$APP]"
         usage ;;
 esac
 
 case "${CMD}" in
-    start) startApp $APP 
+    start) startApp $APP
         waitForAll
         statusApp $APP
         ;;
@@ -388,13 +393,13 @@ case "${CMD}" in
     status) statusApp $APP;;
     clean) clean ;;
     clogs) cleanlogs ;;
-    restart) 
+    restart)
             stopApp $APP
             startApp $APP
             waitForAll
             statusApp $APP
             ;;
-    cleanstart|startclean)        
+    cleanstart|startclean)
         stopApp "all"
         clean
         startApp "all"

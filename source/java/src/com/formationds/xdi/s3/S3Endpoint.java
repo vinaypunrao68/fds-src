@@ -3,24 +3,32 @@ package com.formationds.xdi.s3;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+import com.formationds.am.Main;
+import com.formationds.am.NativeAm;
+import com.formationds.util.Configuration;
 import com.formationds.web.toolkit.HttpMethod;
 import com.formationds.web.toolkit.WebApp;
 import com.formationds.xdi.Xdi;
 import com.formationds.xdi.local.LocalAmShim;
 
 public class S3Endpoint {
-
-    public static final String FDS_S3 = "FDS_S3";
+    private Xdi xdi;
 
     public static void main(String[] args) throws Exception {
-        new S3Endpoint().start(9977);
+        Configuration configuration = new Configuration(args);
+
+        LocalAmShim am = new LocalAmShim();
+        am.createDomain(Main.FDS_S3);
+        Xdi xdi = new Xdi(am);
+        new S3Endpoint(xdi).start(9977);
+    }
+
+    public S3Endpoint(Xdi xdi) {
+        this.xdi = xdi;
     }
 
     public void start(int port) throws Exception {
         WebApp webApp = new WebApp();
-        LocalAmShim am = new LocalAmShim();
-        am.createDomain(FDS_S3);
-        Xdi xdi = new Xdi(am);
         webApp.route(HttpMethod.GET, "/", () -> new ListBuckets(xdi));
         webApp.route(HttpMethod.PUT, "/:bucket", () -> new CreateBucket(xdi));
         webApp.route(HttpMethod.DELETE, "/:bucket", () -> new DeleteBucket(xdi));

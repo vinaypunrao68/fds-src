@@ -3,6 +3,7 @@ package com.formationds.xdi.s3;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+import com.formationds.am.Main;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.StaticFileHandler;
@@ -27,12 +28,12 @@ public class PutObject implements RequestHandler {
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
         String bucketName = requiredString(routeParameters, "bucket");
         String objectName = requiredString(routeParameters, "object");
-        int blockSize = xdi.statVolume(S3Endpoint.FDS_S3, bucketName).getPolicy().getObjectSizeInBytes();
+        int blockSize = xdi.statVolume(Main.FDS_S3, bucketName).getPolicy().getObjectSizeInBytes();
         InputStream stream = new BufferedInputStream(request.getInputStream(), blockSize * 2);
         String contentType = StaticFileHandler.getMimeType(objectName);
         HashMap<String, String> map = Maps.newHashMap();
         map.put("Content-Type", contentType);
-        xdi.writeStream(S3Endpoint.FDS_S3, bucketName, objectName, stream, map);
+        xdi.writeStream(Main.FDS_S3, bucketName, objectName, stream, map);
         return new TextResource("");
     }
 }
