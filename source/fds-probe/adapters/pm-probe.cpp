@@ -74,12 +74,10 @@ PM_ProbeMod::pr_put(ProbeRequest *probe)
     meta_vol_io_t  vio;
     meta_obj_id_t  oid;
     fds::ObjectBuf *buf;
-    ProbeIORequest *io = reinterpret_cast<ProbeIORequest *>(&probe);
+    ProbeIORequest *io = reinterpret_cast<ProbeIORequest *>(probe);
     diskio::DataIO &pio = diskio::DataIO::disk_singleton();
 
     vio.vol_rsvd    = 0;
-//    oid.oid_hash_hi = hash_hi++;
-//    oid.oid_hash_lo = hash_lo++;
     buf = new ObjectBuf;
     buf->size = io->pr_wr_size << diskio::DataIO::disk_io_blk_shift();
     buf->data.assign(io->pr_wr_buf, io->pr_wr_size);
