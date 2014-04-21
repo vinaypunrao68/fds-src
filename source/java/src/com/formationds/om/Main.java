@@ -1,9 +1,9 @@
-package com.formationds.web.om;
+package com.formationds.om;
 
 import com.formationds.auth.AuthenticationToken;
 import com.formationds.demo.Demo;
 import com.formationds.fdsp.ClientFactory;
-import com.formationds.om.NativeOm;
+import com.formationds.util.Configuration;
 import com.formationds.web.toolkit.HttpMethod;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.WebApp;

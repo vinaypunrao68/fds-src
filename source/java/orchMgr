@@ -8,4 +8,4 @@ for i in ../lib/java/fds-1.0-bin/fds-1.0/* ; do {
 CLASSPATH=$CLASSPATH:../lib/java/classes
 
 java -classpath $CLASSPATH \
-     com.formationds.web.om.Main $*
+     com.formationds.om.Main $*

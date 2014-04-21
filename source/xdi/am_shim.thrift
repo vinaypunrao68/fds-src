@@ -21,8 +21,15 @@ struct VolumeStatus {
        1: required i64 blobCount
 }
 
+enum ErrorCode {
+     MISSING_RESOURCE = 0,
+     BAD_REQUEST = 1,
+     INTERNAL_SERVER_ERROR = 2
+}
+
 exception FdsException {
        1: string message;
+       2: ErrorCode errorCode;
 }
 
 struct BlobDescriptor {

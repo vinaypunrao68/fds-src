@@ -1,8 +1,9 @@
-package com.formationds.web.om;
+package com.formationds.om;
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+import com.formationds.util.Configuration;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;

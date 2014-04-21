@@ -1,4 +1,4 @@
-package com.formationds.web.om;
+package com.formationds.util;
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
@@ -12,7 +12,7 @@ import java.io.FileInputStream;
 import java.io.InputStream;
 import java.util.Properties;
 
-class Configuration {
+public class Configuration {
     Properties properties = new Properties();
     private File fdsRoot;
 

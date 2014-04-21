@@ -45,11 +45,16 @@ user_non_fds_libs :=  \
 user_cc           :=  \
     ngx_modules.c
 
-user_cpp          :=  \
-    am-main.cpp
+user_incl_dir     := $(topdir) include \
+	$(JAVA_HOME)/include \
+	$(JAVA_HOME)/include/linux
 
-user_no_style     := $(user_cc)
-user_bin_exe      := AMAgent
-AMAgent           := $(user_cpp) $(user_cc)
+user_cpp      := $(wildcard *.cpp)
+
+user_ld_flags := -shared
+
+user_no_style     := $(user_cc) $(wildcard com_*.h)
+user_bin_exe      := libaccessmgr.so
+libaccessmgr.so  := $(user_cpp) $(user_cc)
 
 include $(topdir)/Makefile.incl

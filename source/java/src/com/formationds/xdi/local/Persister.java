@@ -23,7 +23,7 @@ public class Persister {
         config.setProperty("hibernate.connection.url", "jdbc:h2:mem:" + memoryDbName);
         config.setProperty("hibernate.dialect", "org.hibernate.dialect.H2Dialect");
         config.setProperty("hibernate.connection.pool_size", "1");
-        config.setProperty("hibernate.show_sql", "true");
+        config.setProperty("hibernate.show_sql", "false");
         config.setProperty("hibernate.hbm2ddl.auto", "create");
         sessionFactory = config.buildSessionFactory();
     }

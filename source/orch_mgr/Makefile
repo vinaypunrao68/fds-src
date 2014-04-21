@@ -8,7 +8,7 @@ user_build_dir    := \
 	om-dlt \
 	om-common \
 	om-lib \
-	om-discovery 
+	om-discovery
 
 user_fds_ar_libs  := \
     fds-om-common \

@@ -1,4 +1,4 @@
-package com.formationds.web.om;
+package com.formationds.om;
 
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
