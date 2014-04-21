@@ -118,6 +118,18 @@ std::string FdsCli::mediaPolicyToString(
     return "unknown";
 }
 
+FDS_ProtocolInterface::FDSP_ScavengerTarget FdsCli::stringToScavengerTarget(
+    const std::string& what)
+{
+    if (what == "hdd") {
+        return FDS_ProtocolInterface::FDSP_SCAVENGE_HDD_ONLY;
+    } else if (what == "ssd") {
+        return FDS_ProtocolInterface::FDSP_SCAVENGE_SSD_ONLY;
+    }
+    return FDS_ProtocolInterface::FDSP_SCAVENGE_ALL;
+}
+
+
 FDSP_ConfigPathReqClientPtr FdsCli::startClientSession() {
     netConfigPathClientSession *client_session =
             net_session_tbl->
@@ -186,8 +198,8 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
              "Remove services: remove-services <node_name> "
              "[ -e \"am,dm,sm\" ]")
             ("throttle", "Throttle traffic: throttle -t <throttle_level> ")
-            ("scavenger-start", po::value<int>(),
-             "scavenger-start <token_id> (if token_id is -1, will GC all tokens")
+            ("scavenger-start", po::value<std::string>(),
+             "scavenger-start ssd|hdd|all")
             ("policy-show", po::value<std::string>(), "Show policy")
             ("volume-size,s", po::value<double>(), "volume capacity")
             ("volume-policy,p", po::value<int>(), "volume policy")
@@ -592,23 +604,12 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
 
         NETWORKCHECK(cfgPrx->SetThrottleLevel(msg_hdr, throttle_msg));
     } else if (vm.count("scavenger-start")) {
-        int tok = vm["scavenger-start"].as<int>();
-        if (tok > 0) {
-            LOGNOTIFY << "Start scavenger for token  " << tok;
-        } else {
-            LOGNOTIFY << "Start scavenger for all tokens";
-        }
+        std::string what = vm["scavenger-start"].as<string>();
+        LOGNOTIFY << "Start scavenger for " << what
+                  << " (if unrecognized string, will scavenger all";
 
         FDS_ProtocolInterface::FDSP_ScavengerStartType gc_msg;
-        gc_msg.token_id = 0;
-        if (tok > 0) {
-            gc_msg.token_id = tok;
-            gc_msg.all = false;
-        } else {
-            gc_msg.token_id = 0;
-            gc_msg.all = true;
-        }
-
+        gc_msg.target = stringToScavengerTarget(what);
         NETWORKCHECK(cfgPrx->ScavengerStart(msg_hdr, gc_msg));
     } else {
         gl_OMCli.setCliClient(cfgPrx);

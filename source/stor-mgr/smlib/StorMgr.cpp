@@ -18,6 +18,7 @@
 namespace fds {
 
 fds_bool_t  stor_mgr_stopping = false;
+fds_bool_t  fds_data_verify = true;
 
 #define FDS_XPORT_PROTO_TCP 1
 #define FDS_XPORT_PROTO_UDP 2
@@ -440,7 +441,7 @@ void ObjectStorMgr::proc_pre_startup()
                                   slab_allocator_type_default,
                                   eviction_policy_type_default,
                                   objStorMgr->GetLog());
-    scavenger = new ScavControl(objStorMgr->GetLog(), 2);
+    scavenger = new ScavControl(2);
 
     // TODO: join this thread
     std::thread *stats_thread = new std::thread(log_ocache_stats);
@@ -714,10 +715,15 @@ void ObjectStorMgr::migrationSvcResponseCb(const Error& err,
 //
 // TODO(xxx) currently assumes scavenger start command, extend to other cmds
 //
-void ObjectStorMgr::scavengerEventHandler()
+void ObjectStorMgr::scavengerEventHandler(FDS_ProtocolInterface::FDSP_ScavengerTarget tgt)
 {
-    GLOGDEBUG << "Scavenger event Handler: start scavenger";
-    objStorMgr->scavenger->startScavengeProcess();
+    bool all = (tgt == FDS_ProtocolInterface::FDSP_SCAVENGE_ALL);
+    diskio::DataTier tgt_tier = diskio::diskTier;
+    if (tgt == FDS_ProtocolInterface::FDSP_SCAVENGE_SSD_ONLY) {
+        tgt_tier = diskio::flashTier;
+    }
+    GLOGDEBUG << "Scavenger event Handler: start scavenger for " << tgt;
+    objStorMgr->scavenger->startScavengeProcess(all, tgt_tier);
 }
 
 void ObjectStorMgr::nodeEventOmHandler(int node_id,
@@ -1151,12 +1157,25 @@ ObjectStorMgr::readObject(const SmObjDb::View& view,
                 << " tier";
         objData.size = objMetadata.getObjSize();
         objData.data.resize(objData.size, 0);
+        // Now Read the object buffer from the disk
         err = dio_mgr.disk_read(disk_req);
         if ( err != ERR_OK) {
             LOGDEBUG << " Disk Read Err: " << err; 
             delete disk_req;
             return err;
-        }
+        } 
+        if (fds_data_verify) { 
+           ObjectID onDiskObjId;
+           // Recompute ObjecId for the on-disk object buffer
+           onDiskObjId = ObjIdGen::genObjectId(objData.data.c_str(),
+                                       objData.data.size());
+           LOGDEBUG << " Disk Read ObjectId: " << onDiskObjId.ToHex().c_str() << " err  " << err; 
+           if (onDiskObjId != objId) { 
+                err = ERR_ONDISK_DATA_CORRUPT;
+                fds_panic("Encountered a on-disk data corruption checking requsted object %s \n != %s. Bailing out now!",
+                            objId.ToHex().c_str(), onDiskObjId.ToHex().c_str());
+           }
+       }
     }
     delete disk_req;
     return err;
@@ -1203,9 +1222,19 @@ ObjectStorMgr::checkDuplicate(const ObjectID&  objId,
             /*
              * Handle hash-collision - insert the next collision-id+obj-id
              */
-            err = ERR_HASH_COLLISION;
-            fds_panic("Encountered a hash collision checking object %s. Bailing out now!",
-                      objId.ToHex().c_str());
+            if (fds_data_verify) {
+              ObjectID putBufObjId;
+              putBufObjId = ObjIdGen::genObjectId(objCompData.data.c_str(),
+                                       objCompData.data.size());
+              LOGDEBUG << " Network-RPC ObjectId: " << putBufObjId.ToHex().c_str() << " err  " << err; 
+              if (putBufObjId != objId) { 
+                  err = ERR_NETWORK_CORRUPT;
+              }
+            } else { 
+                err = ERR_HASH_COLLISION;
+                fds_panic("Encountered a hash collision checking object %s. Bailing out now!",
+                            objId.ToHex().c_str());
+            }
         }
     } else if (err == ERR_DISK_READ_FAILED) {
         /*
@@ -1927,14 +1956,7 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
     }
     msgHdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_GET_OBJ_RSP;
     swapMgrId(msgHdr);
-    if ((uint)getObjReq->dlt_version != objStorMgr->omClient->getDltVersion()) {
-	msgHdr->err_code = ERR_IO_DLT_MISMATCH;
-	// msgHdr->result = ERR_IO_DLT_MISMATCH;
-	// send the dlt version of SM to AM 
-        getObj->dlt_version = objStorMgr->omClient->getDltVersion();
-        // update the resp  with new DLT
-        objStorMgr->omClient->getLatestDlt(getObj->dlt_data);
-    }
+
     DPRespClientPtr client = fdspDataPathClient(msgHdr->session_uuid);
     if (client == NULL) {
         // We may not know about this session uuid because it may be
@@ -2331,7 +2353,8 @@ ObjectStorMgr::applySyncMetadataInternal(SmIoReq* ioReq)
 }
 
 Error
-ObjectStorMgr::condCopyObjectInternal(const ObjectID &objId)
+ObjectStorMgr::condCopyObjectInternal(const ObjectID &objId,
+                                      diskio::DataTier tier)
 {
     Error err(ERR_OK);
     ObjMetaData objMetadata;
@@ -2345,23 +2368,19 @@ ObjectStorMgr::condCopyObjectInternal(const ObjectID &objId)
         return err;
     }
 
-    // we don't do compaction for flash yet, so object location
-    // in flash must not happen yet
-    fds_verify(!objMetadata.onFlashTier());
-
-    if (!TokenCompactor::isGarbage(objMetadata)) {
+    if (!TokenCompactor::isDataGarbage(objMetadata, tier)) {
         OpCtx opCtx(OpCtx::GC_COPY, 0);
         meta_obj_id_t   oid;
         meta_vol_io_t   vio;  // passing to disk_req but not used
         SmPlReq     *disk_req = NULL;
 
-        LOGDEBUG << "Will copy obj " << objId << " to new file";
+        LOGDEBUG << "Will copy " << objId << " to new file on tier " << tier;
 
         // not garbage, read obj data
         memcpy(oid.metaDigest, objId.GetId(), objId.GetLen());
         disk_req = new SmPlReq(vio, oid, (ObjectBuf *)&objData, true);
-        disk_req->setTier(diskTier);
-        disk_req->set_phy_loc(objMetadata.getObjPhyLoc(diskTier));
+        disk_req->setTier(tier);
+        disk_req->set_phy_loc(objMetadata.getObjPhyLoc(tier));
         objData.size = objMetadata.getObjSize();
         objData.data.resize(objData.size, 0);
         err = dio_mgr.disk_read(disk_req);
@@ -2384,18 +2403,22 @@ ObjectStorMgr::condCopyObjectInternal(const ObjectID &objId)
 
         // update metadata
         err = writeObjectMetaData(opCtx, objId, objData.data.length(),
-                                  disk_req->req_get_phy_loc(), false, diskTier, &vio);
+                                  disk_req->req_get_phy_loc(), false, tier, &vio);
         if (!err.ok()) {
             LOGERROR << "Failed to update metadata for obj " << objId;
         }
 
         delete disk_req;
     } else {
-        // not going to copy obj, remove entry from obj db
-        LOGDEBUG << "Will garbage-collect obj " << objId;
-        smObjDb->lock(objId);
-        err = smObjDb->remove(objId);
-        smObjDb->unlock(objId);
+        // not going to copy obj
+        LOGNORMAL << "Will garbage-collect " << objId << " on tier " << tier;
+        // remove entry from index db if data + meta is garbage
+        if (TokenCompactor::isGarbage(objMetadata)) {
+            LOGNORMAL << "Removing metadata for " << objId;
+            smObjDb->lock(objId);
+            err = smObjDb->remove(objId);
+            smObjDb->unlock(objId);
+        }
     }
 
     return err;
@@ -2411,10 +2434,11 @@ ObjectStorMgr::compactObjectsInternal(SmIoReq* ioReq)
     for (fds_uint32_t i = 0; i < (cobjs_req->oid_list).size(); ++i) {
         const ObjectID& obj_id = (cobjs_req->oid_list)[i];
 
-        LOGDEBUG << "Compaction is working on object " << obj_id;
+        LOGDEBUG << "Compaction is working on object " << obj_id
+                 << " on tier " << cobjs_req->tier;
 
         // copy this object if not garbage, otherwise rm object db entry
-        err = condCopyObjectInternal(obj_id);
+        err = condCopyObjectInternal(obj_id, cobjs_req->tier);
         if (!err.ok()) {
             LOGERROR << "Failed to compact object " << obj_id
                      << ", error " << err;

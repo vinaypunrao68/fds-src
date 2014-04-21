@@ -90,6 +90,8 @@ class OM_DLTMod : public Module
 
   private:
     FSM_DplyDLT             *dlt_dply_fsm;
+    // to protect access to msm process_event
+    fds_mutex               fsm_lock;
 };
 
 extern OM_DLTMod             gl_OMDltMod;

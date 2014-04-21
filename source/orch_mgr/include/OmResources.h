@@ -103,7 +103,8 @@ class OM_NodeAgent : public NodeAgent
 
     virtual Error om_send_dlt(const DLT *curDlt);
     virtual Error om_send_dlt_close(fds_uint64_t cur_dlt_version);
-    virtual Error om_send_scavenger_cmd(fds_bool_t all, fds_uint32_t token_id);
+    virtual Error om_send_scavenger_cmd(
+        FDS_ProtocolInterface::FDSP_ScavengerTarget target);
     virtual void init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const;
 
   protected:
@@ -420,7 +421,7 @@ class OM_NodeContainer : public DomainContainer
      * for now sends scavenger start command to SMs
      * TODO(xxx) extend to other scavenger commands passing cmd type
      */
-    virtual void om_bcast_scavenger_cmd(fds_bool_t all, fds_uint32_t token_id);
+    virtual void om_bcast_scavenger_cmd(FDSP_ScavengerTarget target);
     /**
      * conditional broadcast to platform (nodes) to
      * activate SM and DM services on those nodes, but only
@@ -660,6 +661,8 @@ class OM_NodeDomainMod : public Module
     kvstore::ConfigDB               *configDB;
 
     FSM_NodeDomain                  *domain_fsm;
+    // to protect access to msm process_event
+    fds_mutex                       fsm_lock;
 };
 
 /**

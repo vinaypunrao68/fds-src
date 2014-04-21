@@ -43,7 +43,7 @@ class DefaultConfig:
     min_mem = 32 # Mem size in GB
     num_disks = 6 # 6 disks
     disk_size = 1000 #2TB in GB
-    net_connect = True
+    net_connect = False
     os_version = "Ubuntu 13.10"
     wipe = False
 
@@ -289,7 +289,8 @@ class FDS_Node:
                 disk.get_capacity() < config.disk_size):
                 return 3
                 
-        if not self.net_connect:
+        # Only return an error on no net when specified otherwise via cli
+        if config.net_connect and self.net_connect :
             return 4
 
         if self.os_version != config.os_version:

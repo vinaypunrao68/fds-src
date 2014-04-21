@@ -22,8 +22,8 @@
 #include "stor_mgr_err.h"
 #include <fds_volume.h>
 #include <fds_types.h>
-#include "ObjLoc.h"
 #include <odb.h>
+#include <ObjectId.h>
 #include <unistd.h>
 #include <assert.h>
 #include <iostream>
@@ -497,7 +497,8 @@ class ObjectStorMgr :
     void readObjectDataInternal(SmIoReq* ioReq);
     void readObjectMetadataInternal(SmIoReq* ioReq);
     void compactObjectsInternal(SmIoReq* ioReq);
-    Error condCopyObjectInternal(const ObjectID &objId);
+    Error condCopyObjectInternal(const ObjectID &objId,
+                                 diskio::DataTier tier);
 
     Error relocateObject(const ObjectID &objId,
             diskio::DataTier from_tier,
@@ -514,7 +515,7 @@ class ObjectStorMgr :
                                    int vol_action,
                                    fds_bool_t check_only,
                                    FDSP_ResultType resut);
-    static void scavengerEventHandler();
+    static void scavengerEventHandler(FDS_ProtocolInterface::FDSP_ScavengerTarget tgt);
     static void migrationEventOmHandler(bool dlt_type);
     static void dltcloseEventHandler(FDSP_DltCloseTypePtr& dlt_close,
             const std::string& session_uuid);

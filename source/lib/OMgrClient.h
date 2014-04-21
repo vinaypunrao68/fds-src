@@ -65,7 +65,7 @@ namespace fds {
   typedef void (*tier_audit_cmd_handler_t)(const FDSP_TierPolicyAuditPtr &tier);
   typedef void (*bucket_stats_cmd_handler_t)(const FDSP_MsgHdrTypePtr& rx_msg,
 					     const FDSP_BucketStatsRespTypePtr& buck_stats);
-  typedef void (*scavenger_event_handler_t)();
+  typedef void (*scavenger_event_handler_t)(FDSP_ScavengerTarget tgt);
 
   class OMgrClient {
 
@@ -223,7 +223,7 @@ namespace fds {
     int recvTierPolicyAudit(const FDSP_TierPolicyAuditPtr &audit);
     int recvBucketStats(const FDSP_MsgHdrTypePtr& msg_hdr, 
 			const FDSP_BucketStatsRespTypePtr& buck_stats_msg);
-    int recvScavengerEvt();
+    int recvScavengerEvt(FDS_ProtocolInterface::FDSP_ScavengerTarget tgt);
   };
 
   class OMgrClientRPCI : public FDS_ProtocolInterface::FDSP_ControlPathReqIf {

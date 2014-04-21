@@ -114,6 +114,16 @@ std::string netSession::getLocalIp()
     return myIp;
 }
 
+FdsTProcessorEventHandler::FdsTProcessorEventHandler()
+{
+}
+
+void FdsTProcessorEventHandler::handlerError(void* ctx, const char* fn_name)
+{
+    LOGCRITICAL << "TProcessor error at: " << fn_name;
+    fds_assert(!"TProcessor error");
+}
+
 std::string
 netSessionTbl::getServerSessionKey(const std::string &ip, const int &port)
 {

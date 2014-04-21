@@ -59,30 +59,30 @@ class tokenFileDb {
      * If 'fileId' is WRITE_FILE_ID, the function will use appropriate file
      * id of the active file (if no shadow file) or shadow file.
      */
-    FilePersisDataIO  *openTokenFile(DataTier tier, fds_uint32_t disk_idx,
+    FilePersisDataIO  *openTokenFile(DataTier tier, fds_uint32_t disk_id,
                                      fds_token_id tokId, fds_uint16_t fileId);
 
-    void closeTokenFile(fds_uint32_t disk_idx,
+    void closeTokenFile(fds_uint32_t disk_id,
                         fds_token_id tokId, DataTier tier, fds_uint16_t fileId);
 
-    FilePersisDataIO *getTokenFile(fds_uint32_t disk_idx,
+    FilePersisDataIO *getTokenFile(fds_uint32_t disk_id,
                                    fds_token_id tokId, DataTier tier,
                                    fds_uint16_t fileId);
 
     /**
      * Handle notification that garbage collection will start for a given
-     * <disk_idx, tokId, tier> tuple. This will set a new file id as current.
+     * <disk_id, tokId, tier> tuple. This will set a new file id as current.
      */
-    fds::Error notifyStartGC(fds_uint32_t disk_idx,
+    fds::Error notifyStartGC(fds_uint32_t disk_id,
                              fds_token_id tok_id,
                              DataTier tier);
 
     /**
-     * Handle notification that objects for this <disk_idx, tok_id, tier>
+     * Handle notification that objects for this <disk_id, tok_id, tier>
      * tuple were copied to new files and set old files can be deleted.
      * Deletes set of old files.
      */
-    fds::Error notifyEndGC(fds_uint32_t disk_idx,
+    fds::Error notifyEndGC(fds_uint32_t disk_id,
                            fds_token_id tok_id,
                            DataTier tier);
 
@@ -91,26 +91,26 @@ class tokenFileDb {
      * or if no shadow file, currently active file we are writing to
      */
     fds_bool_t isShadowFileId(fds_uint16_t file_id,
-                              fds_uint32_t disk_idx,
+                              fds_uint32_t disk_id,
                               fds_token_id tok_id,
                               DataTier tier);
 
  private:  // methods
     fds_token_id GetTokenFileDb(const fds_token_id &tokId);
 
-    std::string getFileName(fds_uint32_t disk_idx,
+    std::string getFileName(fds_uint32_t disk_id,
                             fds_token_id tok_id,
                             DataTier tier,
                             fds_uint16_t file_id) const;
 
     /**
-     * translates <disk_idx, tok_id, tier> tuple to key into
+     * translates <disk_id, tok_id, tier> tuple to key into
      * 'write_fileids' map.
      */
-    inline std::string getKeyString(fds_uint32_t disk_idx,
+    inline std::string getKeyString(fds_uint32_t disk_id,
                                     fds_token_id tok_id,
                                     DataTier tier) const {
-        return std::to_string(disk_idx) + "_" + std::to_string(tok_id)
+        return std::to_string(disk_id) + "_" + std::to_string(tok_id)
                 + "_" + std::to_string(tier);
     }
 
@@ -130,7 +130,7 @@ class tokenFileDb {
      * tuple. If garbage collection is in progress, this will be the index of
      * of a shadow file, otherwise it will be the index of an active file
      */
-    fds_uint16_t getWriteFileId(fds_uint32_t disk_idx,
+    fds_uint16_t getWriteFileId(fds_uint32_t disk_id,
                                 fds_token_id tokId,
                                 DataTier tier);
 
@@ -139,7 +139,7 @@ class tokenFileDb {
     std::unordered_map<std::string, FilePersisDataIO *> tokenFileTbl;
 
     /**
-     * map of strings representing <disk_idx, tok_id, tier> tuple to a current
+     * map of strings representing <disk_id, tok_id, tier> tuple to a current
      * file id we are writing to. Note that we can infer the old file id from new
      * by flipping the 'start fileid' bit.
      * TODO(xxx) when we move to multiple files per token (if we overflow), we

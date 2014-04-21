@@ -46,6 +46,8 @@ namespace fds {
     "No bytes were written",
     "No bytes were read",
     "Volume not found",
+    "Object Buffer corrupted network",
+    "OnDisk Object Buffer corrupt",
     "Dlt mismatch",
     "Invalid blob offset",
     "Duplicate migration request",
@@ -90,6 +92,8 @@ namespace fds {
     ERR_NO_BYTES_WRITTEN     = 28,
     ERR_NO_BYTES_READ        = 29,
     ERR_VOL_NOT_FOUND        = 30,
+    ERR_NETWORK_CORRUPT      = 31,
+    ERR_ONDISK_DATA_CORRUPT  = 32,
 
     /* I/O error range */
     ERR_IO_DLT_MISMATCH      = 100,

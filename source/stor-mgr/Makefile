@@ -41,6 +41,7 @@ user_non_fds_libs :=                                                          \
     boost_timer \
     leveldb \
     ssl \
+    cryptopp \
     crypto \
     leveldb \
     config++ \

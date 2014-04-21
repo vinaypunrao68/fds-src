@@ -535,16 +535,21 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::ScavengerStart(
 int32_t OrchMgr::FDSP_ConfigPathReqHandler::ScavengerStart(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_ScavengerStartTypePtr& gc_msg) {
-    if (gc_msg->all) {
-        LOGNOTIFY << "Received scavenger start for all tokens msg";
-    } else {
-        LOGNOTIFY << "Received scavenger start  msg for token "
-                  << gc_msg->token_id;
-    }
+    switch (gc_msg->target) {
+        case FDS_ProtocolInterface::FDSP_SCAVENGE_HDD_ONLY:
+            LOGNOTIFY << "Received scavenger start for HDD";
+            break;
+        case FDS_ProtocolInterface::FDSP_SCAVENGE_SSD_ONLY:
+            LOGNOTIFY << "Received scavenger start for SSD";
+            break;
+        case FDS_ProtocolInterface::FDSP_SCAVENGE_ALL:
+            LOGNOTIFY << "Received scavenger start for all";
+            break;
+    };
 
     // send scavenger start message to all SMs
     OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
-    local->om_bcast_scavenger_cmd(gc_msg->all, gc_msg->token_id);
+    local->om_bcast_scavenger_cmd(gc_msg->target);
     return 0;
 }
 

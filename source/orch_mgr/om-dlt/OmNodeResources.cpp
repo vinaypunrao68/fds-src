@@ -74,6 +74,9 @@ OM_NodeAgent::om_send_myinfo(NodeAgent::pointer peer)
     } catch(const att::TTransportException& e) {
         LOGERROR << "error during network call : " << e.what();
         return;
+    } catch(...) {
+        LOGCRITICAL << "caught unexpected exception!!!";
+        throw;
     }
 
     LOGNORMAL << "Send node info from " << get_node_name()
@@ -289,7 +292,7 @@ OM_NodeAgent::om_send_dlt(const DLT *curDlt) {
 // TODO(xxx) extend to other scavenger commands (pass cmd type)
 //
 Error
-OM_NodeAgent::om_send_scavenger_cmd(fds_bool_t all, fds_uint32_t token_id) {
+OM_NodeAgent::om_send_scavenger_cmd(fpi::FDSP_ScavengerTarget target) {
     Error err(ERR_OK);
     fpi::FDSP_MsgHdrTypePtr m_hdr(new fpi::FDSP_MsgHdrType);
     fpi::FDSP_ScavengerStartTypePtr gc_msg(new fpi::FDSP_ScavengerStartType());
@@ -300,8 +303,7 @@ OM_NodeAgent::om_send_scavenger_cmd(fds_bool_t all, fds_uint32_t token_id) {
     m_hdr->tennant_id = 1;
     m_hdr->local_domain_id = 1;
 
-    gc_msg->all = all;
-    gc_msg->token_id = token_id;
+    gc_msg->target = target;
 
     try {
         ndCpClient->NotifyScavengerStart(m_hdr, gc_msg);
@@ -310,9 +312,7 @@ OM_NodeAgent::om_send_scavenger_cmd(fds_bool_t all, fds_uint32_t token_id) {
         return ERR_NETWORK_TRANSPORT;
     }
 
-    LOGNORMAL << "OM: send scavenger start for all? " << all
-              << " tokens, token_id = " << token_id;
-
+    LOGNORMAL << "OM: send scavenger start message for " << target;
     return err;
 }
 
@@ -1303,9 +1303,9 @@ OM_NodeContainer::om_bcast_dlt_close(fds_uint64_t cur_dlt_version)
 // -----------------------
 //
 static void
-om_send_scavenger_cmd(fds_bool_t all, fds_uint32_t token_id, NodeAgent::pointer agent)
-{
-    OM_SmAgent::agt_cast_ptr(agent)->om_send_scavenger_cmd(all, token_id);
+om_send_scavenger_cmd(FDS_ProtocolInterface::FDSP_ScavengerTarget tgt,
+                      NodeAgent::pointer agent) {
+    OM_SmAgent::agt_cast_ptr(agent)->om_send_scavenger_cmd(tgt);
 }
 
 //
@@ -1313,10 +1313,10 @@ om_send_scavenger_cmd(fds_bool_t all, fds_uint32_t token_id, NodeAgent::pointer 
 // TODO(xxx) extend to other scavenger commands
 //
 void
-OM_NodeContainer::om_bcast_scavenger_cmd(fds_bool_t all, fds_uint32_t token_id)
+OM_NodeContainer::om_bcast_scavenger_cmd(FDS_ProtocolInterface::FDSP_ScavengerTarget tgt)
 {
-    dc_sm_nodes->agent_foreach<fds_bool_t, fds_uint32_t>(all, token_id,
-                                                         om_send_scavenger_cmd);
+    dc_sm_nodes->agent_foreach<FDS_ProtocolInterface::FDSP_ScavengerTarget>(
+        tgt, om_send_scavenger_cmd);
 }
 
 // om_round_robin_dmt

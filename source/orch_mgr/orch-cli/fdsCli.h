@@ -55,7 +55,8 @@ namespace fds {
             const std::string& media_policy);
         std::string mediaPolicyToString(
             const FDS_ProtocolInterface::FDSP_MediaPolicy media_policy);
-
+        FDS_ProtocolInterface::FDSP_ScavengerTarget stringToScavengerTarget(
+            const std::string& what);
         FDSP_ConfigPathReqClientPtr startClientSession();
         void endClientSession();
     };

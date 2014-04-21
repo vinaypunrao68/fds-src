@@ -59,6 +59,19 @@ typedef boost::shared_ptr<TTransport> TTransportPtr;
 
 class netServerSession;
 
+
+/**
+ * TProcessor event handler.  Override this class if you want to peform
+ * actions around functions executed by TProcessor.  This class just
+ * overrides handlerError() to catch any exceptions thrown by functions
+ * executed by TProcessor
+ */
+class FdsTProcessorEventHandler : public TProcessorEventHandler {
+public:
+    FdsTProcessorEventHandler();
+    virtual void handlerError(void* ctx, const char* fn_name) override;
+};
+
 class netSession {
  public:
   netSession();
@@ -190,6 +203,9 @@ class netClientSessionEx : public netSession , public net::SocketEventHandler {
               LOGDEBUG << "starting the recv thread" ;
               /* Create the interface for receiving responses */
               resp_processor_.reset(new RespProcessorT(resp_handler_));
+              resp_processor_->setEventHandler(
+                      boost::shared_ptr<FdsTProcessorEventHandler>(
+                              new FdsTProcessorEventHandler()));
               recv_thread_.reset(new boost::thread(
                       &netClientSessionEx<ReqClientT,
                       RespProcessorT, RespHandlerT>::run, this));
@@ -351,6 +367,8 @@ class netServerSessionEx: public netSession {
         protocolFactory.reset( new TBinaryProtocolFactory());
 
         processor.reset(new ReqProcessorT(handler_));
+        processor->setEventHandler(
+                boost::shared_ptr<FdsTProcessorEventHandler>(new FdsTProcessorEventHandler()));
 
         event_handler_.reset(new ServerEventHandler(*this));
 
