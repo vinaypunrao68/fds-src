@@ -94,6 +94,10 @@ class FdsnIf : public xdi::AmShimIf {
     void deleteVolume(boost::shared_ptr<std::string>& domainName,  // NOLINT
                       boost::shared_ptr<std::string>& volumeName) {
         BucketContext bucket_ctx("host", *volumeName, "accessid", "secretkey");
+
+        // The DeleteBucket is synchronous...though still uses
+        // the callback mechanism. The callback will throw
+        // an exception if we get an error
         am_api->DeleteBucket(&bucket_ctx, NULL, fdsnsrv_delbucket_cbfn, this);
     }
     void statVolume(xdi::VolumeDescriptor& _return,  // NOLINT
@@ -163,6 +167,8 @@ class FdsnIf : public xdi::AmShimIf {
                      boost::shared_ptr<std::string>& domainName,
                      boost::shared_ptr<std::string>& volumeName,
                      boost::shared_ptr<std::string>& blobName) {
+        _return.high = fds_get_uuid64(*volumeName);
+        _return.low  = fds_get_uuid64(*blobName);
     }
     void updateMetadata(const std::string& domainName,
                         const std::string& volumeName,
