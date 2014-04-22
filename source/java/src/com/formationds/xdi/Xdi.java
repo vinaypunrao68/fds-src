@@ -19,27 +19,27 @@ public class Xdi implements AmShim.Iface {
         this.am = am;
     }
 
-    public void createVolume(String domainName, String volumeName, VolumePolicy volumePolicy) throws FdsException, TException {
+    public void createVolume(String domainName, String volumeName, VolumePolicy volumePolicy) throws XdiException, TException {
         am.createVolume(domainName, volumeName, volumePolicy);
     }
 
-    public void deleteVolume(String domainName, String volumeName) throws FdsException, TException {
+    public void deleteVolume(String domainName, String volumeName) throws XdiException, TException {
         am.deleteVolume(domainName, volumeName);
     }
 
-    public VolumeDescriptor statVolume(String domainName, String volumeName) throws FdsException, TException {
+    public VolumeDescriptor statVolume(String domainName, String volumeName) throws XdiException, TException {
         return am.statVolume(domainName, volumeName);
     }
 
-    public List<VolumeDescriptor> listVolumes(String domainName) throws FdsException, TException {
+    public List<VolumeDescriptor> listVolumes(String domainName) throws XdiException, TException {
         return am.listVolumes(domainName);
     }
 
-    public List<BlobDescriptor> volumeContents(String domainName, String volumeName, int count, long offset) throws FdsException, TException {
+    public List<BlobDescriptor> volumeContents(String domainName, String volumeName, int count, long offset) throws XdiException, TException {
         return am.volumeContents(domainName, volumeName, count, offset);
     }
 
-    public BlobDescriptor statBlob(String domainName, String volumeName, String blobName) throws FdsException, TException {
+    public BlobDescriptor statBlob(String domainName, String volumeName, String blobName) throws XdiException, TException {
         return am.statBlob(domainName, volumeName, blobName);
     }
 
@@ -54,31 +54,31 @@ public class Xdi implements AmShim.Iface {
         new StreamWriter(bufSize, this).write(domainName, volumeName, blobName, in, metadata);
     }
 
-    public Uuid startBlobTx(String domainName, String volumeName, String blobName) throws FdsException, TException {
+    public Uuid startBlobTx(String domainName, String volumeName, String blobName) throws XdiException, TException {
         return am.startBlobTx(domainName, volumeName, blobName);
     }
 
-    public void commit(Uuid txId) throws FdsException, TException {
+    public void commit(Uuid txId) throws XdiException, TException {
         am.commit(txId);
     }
 
-    public VolumeStatus volumeStatus(String domainName, String volumeName) throws FdsException, TException {
+    public VolumeStatus volumeStatus(String domainName, String volumeName) throws XdiException, TException {
         return am.volumeStatus(domainName, volumeName);
     }
 
-    public ByteBuffer getBlob(String domainName, String volumeName, String blobName, int length, long offset) throws FdsException, TException {
+    public ByteBuffer getBlob(String domainName, String volumeName, String blobName, int length, long offset) throws XdiException, TException {
         return am.getBlob(domainName, volumeName, blobName, length, offset);
     }
 
-    public void updateMetadata(String domainName, String volumeName, String blobName, Uuid txUuid, Map<String, String> metadata) throws FdsException, TException {
+    public void updateMetadata(String domainName, String volumeName, String blobName, Uuid txUuid, Map<String, String> metadata) throws XdiException, TException {
         am.updateMetadata(domainName, volumeName, blobName, txUuid, metadata);
     }
 
-    public void updateBlob(String domainName, String volumeName, String blobName, Uuid txUuid, ByteBuffer bytes, int length, long offset) throws FdsException, TException {
+    public void updateBlob(String domainName, String volumeName, String blobName, Uuid txUuid, ByteBuffer bytes, int length, long offset) throws XdiException, TException {
         am.updateBlob(domainName, volumeName, blobName, txUuid, bytes, length, offset);
     }
 
-    public void deleteBlob(String domainName, String volumeName, String blobName) throws FdsException, TException {
+    public void deleteBlob(String domainName, String volumeName, String blobName) throws XdiException, TException {
         am.deleteBlob(domainName, volumeName, blobName);
     }
 }

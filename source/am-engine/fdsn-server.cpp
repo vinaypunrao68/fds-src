@@ -26,7 +26,7 @@ fdsn_updblob_cbfn(void *reqContext, fds_uint64_t bufferSize, fds_off_t offset,
     gl_FdsnServer.notifyCallback(0);
 
     if (status != FDSN_StatusOK) {
-        xdi::FdsException fdsE;
+        xdi::XdiException fdsE;
         throw fdsE;
     }
 
@@ -48,7 +48,7 @@ fdsn_crtvol_cbfn(FDSN_Status status, const ErrorDetails *err, void *arg) {
     LOGCRITICAL << "Got a create volumes callback!";
 
     if (status != FDSN_StatusOK) {
-        xdi::FdsException fdsE;
+        xdi::XdiException fdsE;
         throw fdsE;
     }
 }
@@ -57,7 +57,7 @@ static void
 fdsn_delvol_cbfn(FDSN_Status status, const ErrorDetails *err, void *arg) {
     LOGDEBUG << "status:" << status << ":" << static_cast<int>(status);
     if (status != FDSN_StatusOK) {
-        xdi::FdsException fdsE;
+        xdi::XdiException fdsE;
         throw fdsE;
     }
 }
@@ -71,7 +71,7 @@ class FdsnTransCtx {
     typedef boost::shared_ptr<FdsnTransCtx> Ptr;
 
   private:
-    
+
 };
 */
 
