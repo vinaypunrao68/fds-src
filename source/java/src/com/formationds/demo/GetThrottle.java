@@ -22,9 +22,15 @@ public class GetThrottle implements RequestHandler {
 
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
-//        return new JsonResource(new JSONObject()
-//                .put("value", state.getThrottleValue(throttle))
-//                .put("unit", "IO operations/s"));
-        return null;
+
+        if (throttle == Throttle.write) {
+            return new JsonResource(new JSONObject()
+                    .put("value", state.getWriteThrottle())
+                    .put("unit", "Concurrent Writes"));
+        } else {
+            return new JsonResource(new JSONObject()
+                    .put("value", state.getReadThrottle())
+                    .put("unit", "Concurrent Reads"));
+        }
     }
 }
