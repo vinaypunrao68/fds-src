@@ -1,7 +1,6 @@
 package com.formationds.om;
 
 import com.formationds.auth.AuthenticationToken;
-import com.formationds.demo.Demo;
 import com.formationds.fdsp.ClientFactory;
 import com.formationds.util.Configuration;
 import com.formationds.web.toolkit.HttpMethod;
@@ -52,7 +51,7 @@ public class Main {
     }
 
     public void start() throws Exception {
-        new Thread(() -> new Demo().start(8888)).start();
+        new Thread(() -> new com.formationds.demo.Main().start(8888)).start();
         webApp.start(7777);
     }
 

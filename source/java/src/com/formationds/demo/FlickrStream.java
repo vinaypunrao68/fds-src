@@ -11,24 +11,7 @@ import java.net.URL;
 import java.net.URLEncoder;
 import java.util.Iterator;
 
-public class FlickrStream implements Iterator<FlickrStream.FlickrResource> {
-    public static class FlickrResource {
-        private String id;
-        private String url;
-
-        public FlickrResource(String id, String url) {
-            this.id = id;
-            this.url = url;
-        }
-
-        public String getId() {
-            return id;
-        }
-
-        public String getUrl() {
-            return url;
-        }
-    }
+public class FlickrStream implements Iterator<ImageResource> {
 
     private static String IMAGE_URL_TEMPLATE = "http://farm%d.staticflickr.com/%s/%s_%s_z.jpg";
     private static String SEARCH_URL_TEMPLATE =
@@ -60,7 +43,7 @@ public class FlickrStream implements Iterator<FlickrStream.FlickrResource> {
     }
 
     @Override
-    public FlickrResource next() {
+    public ImageResource next() {
         refreshIfNeeded();
         JSONObject jsonObject = currentPage.getJSONObject("photos").getJSONArray("photo").getJSONObject(currentOffset);
         String id = jsonObject.getString("id");
@@ -73,7 +56,7 @@ public class FlickrStream implements Iterator<FlickrStream.FlickrResource> {
         isDirty = true;
 
 
-        return new FlickrResource(id, url);
+        return new ImageResource(id, url);
     }
 
 

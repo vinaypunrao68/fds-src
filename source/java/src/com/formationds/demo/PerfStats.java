@@ -25,34 +25,27 @@ public class PerfStats implements RequestHandler {
     }
 
     private static String canned =
-            "       [\n" +
-            "          {\n" +
-            "             operation: \"Read performance\",\n" +
-            "             series:\n" +
-            "             [\n" +
-            "                {\n" +
-            "                   name: \"Volume 1\",\n" +
-            "                   values: [2, 5, 745, 8]\n" +
-            "                },\n" +
-            "                {\n" +
-            "                   name: \"Volume 2\",\n" +
-            "                   values: [1, 2, 4, 5]\n" +
-            "                }\n" +
-            "             ]\n" +
-            "          },\n" +
-            "          {\n" +
-            "             operation: \"Write performance\",\n" +
-            "             series:\n" +
-            "             [\n" +
-            "                {\n" +
-            "                   name: \"Volume 1\",\n" +
-            "                   values: [2, 5, 745, 8]\n" +
-            "                },\n" +
-            "                {\n" +
-            "                   name: \"Volume 2\",\n" +
-            "                   values: [1, 2, 4, 5]\n" +
-            "                }\n" +
-            "             ]\n" +
-            "          }\n" +
-            "       ]\n";
+            "\n" +
+                    "       [\n" +
+                    "          {\n" +
+                    "             operation: \"Read performance\",\n" +
+                    "             unit: \"IOPs/second\"\n" +
+                    "             values:\n" +
+                    "             {\n" +
+                    "                \"Volume1\": 43,\n" +
+                    "                \"Volume2\": 5,\n" +
+                    "                \"Volume3\": 12,\n" +
+                    "             }\n" +
+                    "          },\n" +
+                    "          {\n" +
+                    "             operation: \"Write performance\",\n" +
+                    "             unit: \"IOPs/second\"\n" +
+                    "             values:\n" +
+                    "             {\n" +
+                    "                \"Volume1\": 43,\n" +
+                    "                \"Volume2\": 5,\n" +
+                    "                \"Volume3\": 12,\n" +
+                    "             }\n" +
+                    "          }\n" +
+                    "       ]";
 }

@@ -7,7 +7,7 @@ import com.formationds.web.toolkit.HttpMethod;
 import com.formationds.web.toolkit.WebApp;
 import org.joda.time.Duration;
 
-public class Demo {
+public class Main {
     public void start(int port) {
         WebApp webApp = new WebApp();
         TransientState state = new TransientState(Duration.standardMinutes(5));
