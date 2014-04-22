@@ -683,8 +683,14 @@ void OrchMgr::FDSP_OMControlPathReqHandler::CreateBucket(
               << std::hex << fdsp_msg->src_service_uuid.uuid << std::dec;
 
     try {
+        OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
-        local->om_create_vol(fdsp_msg, crt_buck_req, true);
+        if (domain->om_local_domain_up()) {
+            local->om_create_vol(fdsp_msg, crt_buck_req, true);
+        } else {
+            LOGWARN << "OM Local Domain is not up yet, rejecting bucket "
+                    << " create; try later";
+        }
     }
     catch(...) {
         LOGERROR << "Orch Mgr encountered exception while "
