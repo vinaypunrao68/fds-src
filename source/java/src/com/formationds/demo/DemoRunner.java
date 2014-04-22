@@ -12,20 +12,20 @@ public class DemoRunner {
     private String searchExpression;
     private ImageReader reader;
     private ImageWriter writer;
-    private int readThreads;
-    private int writeThreads;
+    private int readParallelism;
+    private int writeParallelism;
     private final ExecutorService executor;
     private Iterator<ImageResource> imageIterator;
     private final LinkedBlockingDeque<ImageResource> writeQueue;
     private Single<ImageResource> lastRead;
     private Single<ImageResource> lastWritten;
 
-    public DemoRunner(String searchExpression, ImageReader reader, ImageWriter writer, int readThreads, int writeThreads) {
+    public DemoRunner(String searchExpression, ImageReader reader, ImageWriter writer, int readParallelism, int writeParallelism) {
         this.searchExpression = searchExpression;
         this.reader = reader;
         this.writer = writer;
-        this.readThreads = readThreads;
-        this.writeThreads = writeThreads;
+        this.readParallelism = readParallelism;
+        this.writeParallelism = writeParallelism;
         executor = Executors.newCachedThreadPool();
         writeQueue = new LinkedBlockingDeque<>(1000);
         lastRead = new Single<>();
@@ -44,7 +44,7 @@ public class DemoRunner {
             }
         });
 
-        for (int i = 0; i < writeThreads; i++) {
+        for (int i = 0; i < writeParallelism; i++) {
             executor.submit(() -> {
                 while (true) {
                     try {
@@ -60,7 +60,7 @@ public class DemoRunner {
             });
         }
 
-        for (int i = 0; i < readThreads; i++) {
+        for (int i = 0; i < readParallelism; i++) {
             executor.submit(() -> {
                 while (true) {
                     try {
@@ -83,11 +83,11 @@ public class DemoRunner {
         return lastRead.get();
     }
 
-    public Counts readCounts() {
+    public Counts consumeReadCounts() {
         return reader.consumeCounts();
     }
 
-    public Counts writeCounts() {
+    public Counts consumeWriteCounts() {
         return writer.consumeCounts();
     }
 
@@ -95,4 +95,15 @@ public class DemoRunner {
         executor.shutdownNow();
     }
 
+    public String getQuery() {
+        return searchExpression;
+    }
+
+    public int getReadParallelism() {
+        return readParallelism;
+    }
+
+    public int getWriteParallelism() {
+        return writeParallelism;
+    }
 }

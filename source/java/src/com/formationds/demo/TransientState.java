@@ -3,11 +3,10 @@ package com.formationds.demo;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+import com.formationds.xdi.Xdi;
 import org.joda.time.DateTime;
 import org.joda.time.Duration;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -15,21 +14,23 @@ import java.util.concurrent.TimeUnit;
 
 public class TransientState {
     private DateTime lastAccessed;
-    private Optional<String> searchExpression;
-    private Optional<String[]> urls;
-    private Map<Throttle, Integer> throttleValues;
+    private DemoRunner demoRunner;
+    private final ImageReader reader;
+    private final ImageWriter writer;
 
-    public TransientState(Duration timeToLive) {
+    public TransientState(Duration timeToLive, Xdi xdi) {
+        reader = new FdsImageReader(xdi);
+        writer = new FdsImageWriter(xdi);
+
         lastAccessed = DateTime.now();
-        searchExpression = Optional.empty();
-        urls = Optional.empty();
-        throttleValues = new HashMap<>();
 
         ScheduledExecutorService scavenger = Executors.newSingleThreadScheduledExecutor();
         scavenger.scheduleAtFixedRate(() -> {
             if (new Duration(lastAccessed, DateTime.now()).isLongerThan(timeToLive)) {
-                searchExpression = Optional.empty();
-                urls = Optional.empty();
+                if (demoRunner != null) {
+                    demoRunner.tearDown();
+                    demoRunner = null;
+                }
             }
         }, 0, 5, TimeUnit.SECONDS);
         scavenger.shutdown();
@@ -37,30 +38,70 @@ public class TransientState {
 
     public void setSearchExpression(String searchExpression) {
         lastAccessed = DateTime.now();
-        this.searchExpression = Optional.of(searchExpression);
-        this.urls = Optional.of(new String[]{
-                "http://i.imgur.com/PMieu.jpg",
-                "http://data2.whicdn.com/images/23788217/large.gif",
-                "http://img.pandawhale.com/57140-FUCK-CATS-meme--dog-imgur-germ-lKyR.jpeg",
-                "http://i.imgur.com/9aKhPSm.jpg",
-                "http://rack.0.mshcdn.com/media/ZgkyMDE0LzAxLzAyLzMxL0NhdGJhdGhpbWd1LjY3YjczLmpwZwpwCXRodW1iCTEyMDB4NjI3IwplCWpwZw/dfe26140/ee4/Cat-bath-imgur.jpg"
-        });
+        if (demoRunner != null) {
+            demoRunner.tearDown();
+            DemoRunner newRunner = new DemoRunner(searchExpression, reader, writer, demoRunner.getReadParallelism(), demoRunner.getWriteParallelism());
+            demoRunner = newRunner;
+            demoRunner.start();
+        } else {
+            demoRunner = new DemoRunner(searchExpression, reader, writer, 1, 1);
+            demoRunner.start();
+        }
     }
 
     public Optional<String> getCurrentSearchExpression() {
         lastAccessed = DateTime.now();
-        return searchExpression;
+        return demoRunner == null? Optional.<String>empty() : Optional.of(demoRunner.getQuery());
     }
 
-    public Optional<String[]> getUrls() {
-        return urls;
+    public Optional<ImageResource> peekReadQueue() {
+        lastAccessed = DateTime.now();
+        return demoRunner == null? Optional.empty() : Optional.of(demoRunner.peekReadQueue());
     }
 
-    public int getThrottleValue(Throttle throttle) {
-        return throttleValues.compute(throttle, (k, v) -> v == null ? 0 : v);
+    public Optional<ImageResource> peekWriteQueue() {
+        lastAccessed = DateTime.now();
+        return demoRunner == null ? Optional.empty() : Optional.of(demoRunner.peekReadQueue());
     }
 
-    public void setThrottle(Throttle throttle, int value) {
-        throttleValues.compute(throttle, (k, v) -> value);
+    public int getReadThrottle() {
+        lastAccessed = DateTime.now();
+        return demoRunner == null? 0 : demoRunner.getReadParallelism();
+    }
+
+    public void setReadThrottle(int value) {
+        lastAccessed = DateTime.now();
+        if (demoRunner != null) {
+            demoRunner.tearDown();
+            DemoRunner newRunner = new DemoRunner(demoRunner.getQuery(), reader, writer, value, demoRunner.getWriteParallelism());
+            demoRunner = newRunner;
+            demoRunner.start();
+        }
+    }
+
+    public int getWriteThrottle() {
+        lastAccessed = DateTime.now();
+        return demoRunner == null? 0 : demoRunner.getWriteParallelism();
+    }
+
+    public void setWriteThrottle(int value) {
+        lastAccessed = DateTime.now();
+        if (demoRunner != null) {
+            demoRunner.tearDown();
+            DemoRunner newRunner = new DemoRunner(demoRunner.getQuery(), reader, writer, demoRunner.getReadParallelism(), value);
+            demoRunner = newRunner;
+            demoRunner.start();
+        }
+    }
+
+    public Counts consumeReadCounts() {
+        lastAccessed = DateTime.now();
+        return demoRunner == null? new Counts(): demoRunner.consumeReadCounts();
+    }
+
+    public Counts consumeWriteCounts() {
+        lastAccessed = DateTime.now();
+        return demoRunner == null? new Counts(): demoRunner.consumeWriteCounts();
+
     }
 }

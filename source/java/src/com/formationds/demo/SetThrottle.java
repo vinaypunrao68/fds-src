@@ -22,7 +22,7 @@ public class SetThrottle implements RequestHandler {
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
         int value = requiredInt(routeParameters, "value");
-        state.setThrottle(throttle, value);
+        //state.setThrottle(throttle, value);
         return new TextResource(Integer.toString(value));
     }
 }

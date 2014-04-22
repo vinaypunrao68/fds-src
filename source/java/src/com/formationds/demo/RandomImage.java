@@ -24,11 +24,12 @@ public class RandomImage implements RequestHandler {
 
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
-        return state.getUrls()
-                .map(a -> {
-                    List<String> urls = Lists.newArrayList(a);
-                    Collections.shuffle(urls);
-                    return (Resource) new JsonResource(new JSONObject().put("url", urls.get(0)));
-                }).orElse(new FourOhFour());
+//        return state.getUrls()
+//                .map(a -> {
+//                    List<String> urls = Lists.newArrayList(a);
+//                    Collections.shuffle(urls);
+//                    return (Resource) new JsonResource(new JSONObject().put("url", urls.get(0)));
+//                }).orElse(new FourOhFour());
+        return null;
     }
 }

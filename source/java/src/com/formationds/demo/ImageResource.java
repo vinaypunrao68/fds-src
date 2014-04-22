@@ -6,10 +6,16 @@ package com.formationds.demo;
 public class ImageResource {
     private String id;
     private String url;
+    private int sizeInBytes;
 
     public ImageResource(String id, String url) {
+        this(id, url, 0);
+    }
+
+    public ImageResource(String id, String url, int sizeInBytes) {
         this.id = id;
         this.url = url;
+        this.sizeInBytes = sizeInBytes;
     }
 
     public String getId() {
