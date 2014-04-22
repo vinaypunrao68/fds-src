@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 
+#include <FdsCrypto.h>
 #include <fds_uuid.h>
 #include <concurrency/Mutex.h>
 #include <am-engine/fdsn-server.h>
@@ -16,10 +17,35 @@ namespace fds {
 /// Global singleton server object
 FdsnServer gl_FdsnServer("Global FDSN Server");
 
+static int
+fdsn_updblob_cbfn(void *reqContext, fds_uint64_t bufferSize, fds_off_t offset,
+                  char *buffer, void *callbackData, FDSN_Status status,
+                  ErrorDetails* errDetails) {
+    LOGCRITICAL << "Got a update blob callback!";
+
+    gl_FdsnServer.notifyCallback(0);
+
+    if (status != FDSN_StatusOK) {
+        xdi::FdsException fdsE;
+        throw fdsE;
+    }
+
+    return 0;
+}
+
+/*
+static FDSN_Status
+fdsn_getblob_cbfn(BucketContextPtr bucket_ctx,
+                 void *req, fds_uint64_t bufSize, fds_off_t offset,
+                 const char *buf, fds_uint64_t blobSize,
+                 const std::string &blobEtag, void *cbData,
+                 FDSN_Status status, ErrorDetails *errdetails) {
+}
+*/
+
 static void
-fdsnsrv_putbucket_cbfn(FDSN_Status status, const ErrorDetails *err, void *arg)
-{
-    LOGCRITICAL << "Got a callback!";
+fdsn_crtvol_cbfn(FDSN_Status status, const ErrorDetails *err, void *arg) {
+    LOGCRITICAL << "Got a create volumes callback!";
 
     if (status != FDSN_StatusOK) {
         xdi::FdsException fdsE;
@@ -28,14 +54,73 @@ fdsnsrv_putbucket_cbfn(FDSN_Status status, const ErrorDetails *err, void *arg)
 }
 
 static void
-fdsnsrv_delbucket_cbfn(FDSN_Status status, const ErrorDetails *err, void *arg)
-{
+fdsn_delvol_cbfn(FDSN_Status status, const ErrorDetails *err, void *arg) {
     LOGDEBUG << "status:" << status << ":" << static_cast<int>(status);
     if (status != FDSN_StatusOK) {
         xdi::FdsException fdsE;
         throw fdsE;
     }
 }
+
+/**
+ * Tracks the progress of a FDSN transaction
+ */
+/*
+class FdsnTransCtx {
+  public:
+    typedef boost::shared_ptr<FdsnTransCtx> Ptr;
+
+  private:
+    
+};
+*/
+
+/**
+ * Tracks the progress of a single FDSN request
+ */
+class FdsnReqCtx {
+  public:
+    typedef hash::Md5 EtagGenerator;
+    typedef boost::shared_ptr<FdsnReqCtx> Ptr;
+
+  private:
+    fds_uint64_t    fdsnReqId;
+    FdsConditionPtr fdsnCv;
+    fds_uint32_t    fdsnAckCount;
+    FDSN_Status     fdsnStatus;
+    EtagGenerator   fdsnEtag;
+
+  public:
+    explicit FdsnReqCtx(fds_uint64_t id)
+            : fdsnReqId(id),
+              fdsnCv(new fds_condition()),
+              fdsnAckCount(0),
+              fdsnStatus(FDSN_StatusOK) {
+    }
+
+    void updateEtag(const char *input, size_t length) {
+        fdsnEtag.update(reinterpret_cast<const byte *>(input),
+                        length);
+    }
+    void finishEtag(byte *digest) {
+        fdsnEtag.final(digest);
+    }
+    fds_bool_t isDone() const {
+        if (fdsnAckCount == 0) {
+            return false;
+        }
+        // TODO(Andrew): For now, just expect a
+        // single response...
+        fds_verify(fdsnAckCount == 1);
+        return true;
+    }
+    void receivedAck() {
+        fdsnAckCount++;
+    }
+    FdsConditionPtr getCv() {
+        return fdsnCv;
+    }
+};
 
 /**
  * FDSN interface server class. Provides handlers for each
@@ -48,14 +133,11 @@ class FdsnIf : public xdi::AmShimIf {
     /// Mutex that manages shared access
     /// to the server
     fds_mutex          fdsnMtx;
-    /// Generates new requests - atomic for now...
+    /// Generates new request ids - atomic for now...
     fds_atomic_ullong  fdsnReqCount;
-    typedef boost::shared_ptr<fds_condition> fds_condition_ptr;
-    typedef std::pair<fds_condition_ptr,
-                      fds_uint32_t> FdsnReqPair;
     typedef std::unordered_map<fds_uint64_t,
-                               FdsnReqPair> FdsnReqMap;
-    /// Synchronizes outstanding req/resp pairs
+                               FdsnReqCtx::Ptr> FdsnReqMap;
+    /// Synchronizes outstanding req/resp contexts
     FdsnReqMap         fdsnReqMap;
 
   public:
@@ -65,12 +147,16 @@ class FdsnIf : public xdi::AmShimIf {
     }
     typedef boost::shared_ptr<FdsnIf> ptr;
 
+    /**
+     * Notifies a waiting thread that a callback
+     * has been received for a specific request ID
+     */
     void notifyCallback(fds_uint64_t reqId) {
         fds_scoped_lock slock(fdsnMtx);
         fds_verify(fdsnReqMap.count(reqId) > 0);
-        fdsnReqMap[reqId].second++;
-
-        fdsnReqMap[reqId].first->notify_one();
+        FdsnReqCtx::Ptr fdsnCtx = fdsnReqMap[reqId];
+        fdsnCtx->receivedAck();
+        fdsnCtx->getCv()->notify_one();
     }
 
     void createVolume(const std::string& domainName,
@@ -86,7 +172,7 @@ class FdsnIf : public xdi::AmShimIf {
         // the callback mechanism. The callback will throw
         // an exception if we get an error
         am_api->CreateBucket(&bucket_ctx, CannedAclPrivate,
-                             NULL, fdsnsrv_putbucket_cbfn, this);
+                             NULL, fdsn_crtvol_cbfn, this);
     }
     void deleteVolume(const std::string& domainName,
                       const std::string& volumeName) {
@@ -98,7 +184,7 @@ class FdsnIf : public xdi::AmShimIf {
         // The DeleteBucket is synchronous...though still uses
         // the callback mechanism. The callback will throw
         // an exception if we get an error
-        am_api->DeleteBucket(&bucket_ctx, NULL, fdsnsrv_delbucket_cbfn, this);
+        am_api->DeleteBucket(&bucket_ctx, NULL, fdsn_delvol_cbfn, this);
     }
     void statVolume(xdi::VolumeDescriptor& _return,  // NOLINT
                     const std::string& domainName,
@@ -198,29 +284,61 @@ class FdsnIf : public xdi::AmShimIf {
                     boost::shared_ptr<std::string>& bytes,
                     boost::shared_ptr<int32_t>& length,
                     boost::shared_ptr<int64_t>& offset) {
-        // Commented out for now...will use soon
-        /*
         BucketContext bucket_ctx("host", *volumeName, "accessid", "secretkey");
 
-        LOGCRITICAL << "Creating vol and getting lock";
+        fds_verify(*length >= 0);
+        fds_verify(*offset >= 0);
+
         fds_scoped_lock slock(fdsnMtx);
-        LOGCRITICAL << "Creating vol and got lock";
+
+        // Set async request/response handler
         fds_uint64_t reqId = fdsnReqCount.fetch_add(1);
         fds_verify(fdsnReqMap.count(reqId) == 0);
-        fds_condition_ptr cv(new fds_condition());
-        fdsnReqMap[reqId] = FdsnReqPair(cv, 0);
-        am_api->CreateBucket(&bucket_ctx, CannedAclPrivate,
-                             NULL, fdsnsrv_putbucket_cbfn, this);
+        FdsnReqCtx::Ptr fdsnCtx = FdsnReqCtx::Ptr(new FdsnReqCtx(reqId));
+        fdsnReqMap[reqId] = fdsnCtx;
 
-        while (fdsnReqMap[reqId].second == 0) {
-            LOGCRITICAL << "Creating vol and waiting with lock";
-            cv->wait(slock.boost());
+        // Setup put properties
+        // TODO(Andrew): Since we don't currently handle the
+        // transactions, always set a put properties and etag.
+        // TODO(Andrew): Actually do the etag
+        PutPropertiesPtr putProps;
+        putProps.reset(new PutProperties());
+
+        // Calculate the etag
+        byte etagDigest[FdsnReqCtx::EtagGenerator::numDigestBytes];
+        fdsnCtx->updateEtag(bytes->c_str(),
+                           *length);
+        fdsnCtx->finishEtag(etagDigest);
+        // Get a hex string for the etag
+        putProps->md5 = ObjectID::ToHex(etagDigest,
+                                        FdsnReqCtx::EtagGenerator::
+                                        numDigestBytes);
+
+        // Do async putobject
+        // TODO(Andrew): The error path callback maybe called
+        // in THIS thread's context...need to fix or handle that.
+        // TODO(Andrew): Do we need to request context anymore?
+        fds_bool_t lastBuf = true;
+        am_api->PutObject(&bucket_ctx,
+                          *volumeName,
+                          putProps,
+                          NULL,  // Not passing any context for the callback
+                          const_cast<char *>(bytes->c_str()),
+                          *offset,
+                          *length,
+                          lastBuf,
+                          fdsn_updblob_cbfn,
+                          static_cast<void *>(this));
+
+        // Wait for a signal from the callback thread
+        while (fdsnCtx->isDone() == false) {
+            LOGDEBUG << "Update blob " << *blobName
+                     << " and waiting with lock";
+            fdsnCtx->getCv()->wait(slock.boost());
+            LOGDEBUG << "Update blob " << *blobName << " and awake!";
         }
-        LOGCRITICAL << "Creating vol and awake!";
+        LOGDEBUG << "Update blob " << *blobName << " and done!";
         fdsnReqMap.erase(reqId);
-
-        LOGCRITICAL << "Returning RPC";
-        */
     }
     void commit(const xdi::Uuid& txId) {
     }

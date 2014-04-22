@@ -29,10 +29,12 @@ public class SmokeTest {
         AmShim.Iface client = new AmShim.Client(new TBinaryProtocol(socket));
         System.out.println("Creating volume 'Volume1', policy: 4kb blocksize");
         client.createVolume(DOMAIN_NAME, VOLUME_NAME, new VolumePolicy(4 * 1024));
+        Thread.sleep(4000);
+
         System.out.println("Creating object 'someBytes.bin', size: 8192 bytes");
         Uuid uuid = client.startBlobTx(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME);
         System.out.println("TxId: " + new UUID(uuid.getHigh(), uuid.getLow()).toString());
-        // client.updateBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME, uuid, ByteBuffer.wrap(new byte[8192]), 8192, 0l);
+        client.updateBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME, uuid, ByteBuffer.wrap(new byte[8192]), 8192, 0l);
         client.commit(uuid);
         // System.out.println("Deleting object 'someBytes.bin'");
         // client.deleteBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME);
