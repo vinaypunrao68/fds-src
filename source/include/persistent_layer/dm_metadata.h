@@ -113,10 +113,10 @@ cc_assert(vio1, fds_offset_of(meta_vol_adr_t, vol_uuid) ==
 #define MAX_PHY_LOC_MAP 3
 #define MAX_ASSOC_ENTRY 64
 struct __attribute__((__packed__)) obj_phy_loc_v0 {
-    fds_int8_t          obj_tier;            /* tier location               */
+    fds_int8_t           obj_tier;            /* tier location               */
     fds_uint16_t         obj_stor_loc_id;     /* physical location in tier   */
     fds_uint16_t         obj_file_id;         /* FileId of the tokenFile */
-    fds_uint32_t         obj_stor_offset;     /* offset to the physical loc. */
+    fds_blk_t            obj_stor_offset;     /* offset to the physical loc. */
 };
 typedef struct meta_obj_map_v0     meta_obj_map_t;
 typedef struct obj_phy_loc_v0     obj_phy_loc_t;
