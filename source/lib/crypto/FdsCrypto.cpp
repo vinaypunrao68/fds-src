@@ -4,10 +4,52 @@
 #include <string>
 
 #include <FdsCrypto.h>
-#include <sha.h>
 
 namespace fds {
 namespace hash {
+
+// MD5 implementations
+Md5::Md5() {
+}
+
+Md5::~Md5() {
+}
+
+std::string
+Md5::getAlgorithmName() const {
+    return "MD5";
+}
+
+void
+Md5::calculateDigest(byte *digest,
+                     const byte *input,
+                     size_t length) {
+    calcDigestStatic(digest, input, length);
+}
+
+void
+Md5::calcDigestStatic(byte *digest,
+                      const byte *input,
+                      size_t length) {
+    CryptoPP::Weak::MD5().CalculateDigest(digest,
+                                    input,
+                                    length);
+}
+
+void
+Md5::update(const byte *input, size_t length) {
+    myHash.Update(input, length);
+}
+
+void
+Md5::final(byte *digest) {
+    myHash.Final(digest);
+}
+
+void
+Md5::restart() {
+    myHash.Restart();
+}
 
 // SHA1 implementations
 Sha1::Sha1() {

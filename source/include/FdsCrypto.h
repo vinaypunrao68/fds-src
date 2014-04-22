@@ -4,6 +4,8 @@
 #ifndef SOURCE_INCLUDE_FDSCRYPTO_H_
 #define SOURCE_INCLUDE_FDSCRYPTO_H_
 
+#define CRYPTOPP_ENABLE_NAMESPACE_WEAK 1
+
 /**
  * This is a collection of crypto, checksum, hashing algorithms
  * that follow a common FDS interface and style.
@@ -13,6 +15,7 @@
 #include <sha.h>
 #include <crc.h>
 #include <hash/MurmurHash3.h>
+#include <md5.h>
 
 #include <fds_types.h>
 
@@ -60,6 +63,29 @@ class FdsHashFunc {
 };
 
 namespace hash {
+
+class Md5 : FdsHashFunc {
+  private:
+    CryptoPP::Weak::MD5 myHash;
+  public:
+    Md5();
+    ~Md5();
+
+    static const fds_uint32_t numDigestBytes = CryptoPP::Weak::MD5::DIGESTSIZE;
+    static const fds_uint32_t numDigestBits  = numDigestBytes * 8;
+
+    std::string getAlgorithmName() const;
+    void calculateDigest(byte *digest,
+                         const byte *input,
+                         size_t length);
+    static void calcDigestStatic(byte *digest,
+                                 const byte *input,
+                                 size_t length);
+
+    void update(const byte *input, size_t length);
+    void final(byte *digest);
+    void restart();
+};
 
 class Sha1 : FdsHashFunc {
   private:
