@@ -10,5 +10,6 @@
 #include <boost/thread/condition.hpp>
 
 typedef boost::condition   fds_condition;
+typedef boost::shared_ptr<fds_condition> FdsConditionPtr;
 
 #endif  // SOURCE_UTIL_CONCURRENCY_THREAD_H_
