@@ -8,6 +8,8 @@ import com.formationds.web.toolkit.WebApp;
 import org.joda.time.Duration;
 
 public class Main {
+    public static final String DEMO_DOMAIN = "demo";
+
     public void start(int port) {
         WebApp webApp = new WebApp();
         TransientState state = new TransientState(Duration.standardMinutes(5));

@@ -15,7 +15,7 @@ public class FlickrStream implements Iterator<ImageResource> {
 
     private static String IMAGE_URL_TEMPLATE = "http://farm%d.staticflickr.com/%s/%s_%s_z.jpg";
     private static String SEARCH_URL_TEMPLATE =
-            "https://api.flickr.com/services/rest/?method=flickr.photos.search&api_key=d2b1269787876896911080f38e494810&text=%s&per_page=%d&page=%d&format=json&nojsoncallback=1";
+            "https://api.flickr.com/services/rest/?method=flickr.photos.search&api_key=649db4003b39b609a9794618581854dc&text=%s&per_page=%d&page=%d&format=json&nojsoncallback=1";
 
     private final String query;
     private int pageSize;
@@ -66,7 +66,7 @@ public class FlickrStream implements Iterator<ImageResource> {
                 refreshPage();
             }
 
-            if (currentOffset == currentPage.getJSONObject("photos").getJSONArray("photo").length()) {
+             if (currentOffset == currentPage.getJSONObject("photos").getJSONArray("photo").length()) {
                 refreshPage();
                 currentOffset = 0;
             }
