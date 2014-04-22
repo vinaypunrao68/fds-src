@@ -11,6 +11,7 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/string.hpp>
 #include <iostream>
+#include <concurrency/Mutex.h>
 
 #include <libconfig.h++>
 
@@ -36,12 +37,14 @@ private:
 class FdsConfig {
 public:
 
-    FdsConfig() 
+    FdsConfig()
+    : lock_("FdsConfig")
     {
     }
 
     FdsConfig(const std::string &default_config_file, 
               int argc, char *argv[])
+    : lock_("FdsConfig")
     {
         init(default_config_file, argc, argv);
     }
@@ -117,6 +120,7 @@ public:
      */
     bool exists(const std::string &key)
     {
+        fds_spinlock::scoped_lock l(lock_);
         return config_.exists(key);
     }
 
@@ -131,6 +135,7 @@ public:
 
 private:
     /* Config object */
+    fds_spinlock lock_;
     libconfig::Config config_;
 };
 typedef boost::shared_ptr<FdsConfig> FdsConfigPtr;
@@ -262,6 +267,7 @@ template<class T>
 T FdsConfig::get(const std::string &key)
 {
     T val;
+    fds_spinlock::scoped_lock l(lock_);
     if (!config_.lookupValue(key, val)) {
         throw FdsException("Failed to lookup " + key);
     }
@@ -279,6 +285,7 @@ template<class T>
 T FdsConfig::get(const std::string &key, const T &default_value)
 {
     T val;
+    fds_spinlock::scoped_lock l(lock_);
     if (!config_.lookupValue(key, val)) {
         return default_value;
     }
@@ -294,6 +301,7 @@ T FdsConfig::get(const std::string &key, const T &default_value)
 template<class T>
 void FdsConfig::set(const std::string &key, const T &value)
 {
+    fds_spinlock::scoped_lock l(lock_);
     libconfig::Setting &s = config_.lookup(key);
     s = value;
 }

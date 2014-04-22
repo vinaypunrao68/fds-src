@@ -996,6 +996,18 @@ service FDSP_Service {
 	FDSP_SessionReqResp EstablishSession(1:FDSP_MsgHdrType fdsp_msg)
 }
 
+enum FDSP_RpcServiceStatus {
+	SERVICE_ACTIVE,
+	SERVICE_INACTIVE,
+	SERVICE_IN_ERR
+}
+
+service FDSP_RpcService {
+	FDSP_RpcServiceStatus GetStatus(1: i32 nullarg),
+	map<string, i64> GetStats(1: string id),
+	void SetConfigVal(1:string id, 2:i64 value )
+}
+
 service FDSP_DataPathReq {
     oneway void GetObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetObjType get_obj_req),
 
@@ -1028,7 +1040,7 @@ service FDSP_DataPathResp {
 	oneway void GetObjectMetadataResp(1:FDSP_GetObjMetadataResp metadata_resp)
 }
 
-service FDSP_MetaDataPathReq {
+service FDSP_MetaDataPathReq extends FDSP_RpcService {
 
     oneway void UpdateCatalogObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_UpdateCatalogType cat_obj_req),
 
