@@ -96,20 +96,19 @@ DataIOModule::disk_hdd_io(DataTier            tier,
 {
     fds_uint16_t        disk_id;
     PersisDataIO       *ioc;
-    const fds_uint32_t *token;
 
     // io_token_db depends on DataDiscoveryModule::disk_hdd_path(disk_id) for the
     // path to the underlaying device.
     //
-    token   = reinterpret_cast<const fds_uint32_t *>(oid->metaDigest);
     if (tier == diskTier) {
-        disk_id = io_hdd_diskid[oid->metaDigest[0] % io_hdd_curr];
+      disk_id = io_hdd_diskid[oid->metaDigest[0] % io_hdd_curr];
     } else if (tier == flashTier) {
         disk_id = io_ssd_diskid[oid->metaDigest[0] % io_ssd_curr];
     } else {
         fds_verify(false);  // did we add another tier type?
     }
-    ioc     = io_token_db->openTokenFile(tier, disk_id, *token, file_id);
+    ioc = io_token_db->openTokenFile(tier, disk_id,
+                                     tokenFileDb::getTokenId(oid), file_id);
 
     fds_verify(ioc != NULL);
     return ioc;
@@ -127,8 +126,24 @@ DataIOModule::disk_hdd_disk(DataTier            tier,
     // Should also handle the case that disk_id doesn't match anything discovered to
     // handle disk failures.  Fix tokenFileDB interface too...
     //
-    const fds_uint32_t *token = reinterpret_cast<const fds_uint32_t *>(oid->metaDigest);
-    return io_token_db->openTokenFile(tier, disk_id, *token, file_id);
+    return io_token_db->openTokenFile(tier, disk_id,
+                                      tokenFileDb::getTokenId(oid), file_id);
+}
+
+void
+DataIOModule::get_token_ids(DataTier tier, fds_uint16_t disk_id,
+                            std::set<fds_token_id>* ret_tok_ids)
+{
+    std::set<fds_token_id> tok_ids;
+    fds_token_id start_tok, end_tok;
+    io_token_db->getTokenRange(&start_tok, &end_tok);
+    for (fds_token_id tok = start_tok; tok <= end_tok; ++tok) {
+        if (io_token_db->fileExists(tier, disk_id, tok)) {
+            tok_ids.insert(tok);
+        }
+    }
+    fds_verify(ret_tok_ids);
+    (*ret_tok_ids).swap(tok_ids);
 }
 
 //

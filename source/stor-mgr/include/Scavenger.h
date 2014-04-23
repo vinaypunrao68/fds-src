@@ -26,9 +26,6 @@ namespace fds {
       fds_uint64_t    dsk_tot_size;
       fds_uint32_t    dsk_reclaim_size;  // Size of reclaimable space of the garbage objects
 
-      fds_mutex  disk_scav_lock;
-      std::set<fds_token_id> tokenDb;  // tokens held by this disk
-
       void startScavenge();
       void stopScavenge();
 
@@ -51,12 +48,24 @@ namespace fds {
        */
       fds_bool_t getNextCompactToken(fds_token_id* tok_id);
 
+      /**
+       * Resets tokenDB with the current set of tokens assigned to this disk_id
+       * The tokens are retrived from persistence layer
+       */
+      void updateTokenDb();
+
     private:
       std::atomic<fds_bool_t> in_progress;  // protects from starting multiple scavenge cycles
       fds_token_id next_token;
       fds_uint32_t max_tokens_in_proc;      // Number of Disks/Tokens in compaction at a time
       std::vector<TokenCompactorPtr> tok_compactor_vec;
       diskio::DataTier tier;
+
+      /**
+       * protects mainly next_token, and tokenDb when we get a next token
+       */
+      fds_mutex disk_scav_lock;
+      std::set<fds_token_id> tokenDb;  // tokens held by this disk
   };
 
   typedef enum { 
@@ -80,8 +89,7 @@ namespace fds {
       */
      void startScavengeProcess(fds_bool_t b_all, diskio::DataTier tgt_tier);
      void stopScavengeProcess();
-     fds::Error addTokenCompactor(fds_token_id tok_id, fds_uint16_t disk_id);
-     fds::Error deleteTokenCompactor(fds_token_id tok_id, fds_uint16_t disk_id);
+
      void startScavenger(fds_uint16_t disk_id);
      void stopScavenger(fds_uint16_t disk_id);
 

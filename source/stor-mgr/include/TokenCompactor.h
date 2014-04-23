@@ -15,10 +15,13 @@
 /**
  * Current token compaction process:
  *
- * 1) startCompaction() method starts the compaction process. 
- * The compaction process sends an FDS_SM_SNAPSHOT_TOKEN request to QoS
- * queue. When this request is processed we take a snapshot of index db
- * and do step 2
+ * 1) startCompaction() method starts the compaction process. It tells
+ * the persistence layer to start writing new data to new file, but still
+ * keep the old file (for reads while we are compacting data). It starts
+ * timer to go to next step.
+ *
+ * 2) Send an FDS_SM_SNAPSHOT_TOKEN request to QoS queue. When this request
+ * is processed we take a snapshot of index db and do step 3.
  *
  * 2) We iterate through the snapshot of index db and create a work item
  * (an SM IO request of type FDS_SM_COMPACT_OBJECTS) per each
@@ -66,10 +69,11 @@ namespace fds {
         ~TokenCompactor();
 
         typedef enum {
-            TCSTATE_IDLE = 0,     // state where we can start token compaction
-            TCSTATE_IN_PROGRESS,  // compaction is in progress
-            TCSTATE_DONE,         // we are done but cleaning up temp state
-            TCSTATE_ERROR         // error happened, in recovery (hopefully)
+            TCSTATE_IDLE = 0,      // state where we can start token compaction
+            TCSTATE_PREPARE_WORK,  // preparing compaction work
+            TCSTATE_IN_PROGRESS,   // compaction is in progress
+            TCSTATE_DONE,          // we are done but cleaning up temp state
+            TCSTATE_ERROR          // error happened, in recovery (hopefully)
         } tcStateType;
 
         /**
@@ -90,7 +94,6 @@ namespace fds {
         Error startCompaction(fds_token_id tok_id,
                               fds_uint16_t disk_id,
                               diskio::DataTier tier,
-                              fds_uint32_t num_bits_for_token,
                               compaction_done_handler_t done_evt_hdlr);
 
 
@@ -137,20 +140,26 @@ namespace fds {
         void objsCompactedCb(const Error& error,
                              SmIoCompactObjects* req);
 
-        /**
-         * Tells tokenFileDB that GC for the token is finished, sets the compactor
-         * state to idle and calls callback function provided in startCompaction()
-         * to notify that GC for this tone is finished.
-         */
-        Error handleCompactionDone(const Error& tc_error);
+
+        void handleTimerEvent();
 
   private:  // methods
+        /**
+         * Enqueue command to take indexDB snapshot
+         */
+        void enqSnapDbWork();
         /**
          * Enqueue objects copy request to QoS queue
          * @param obj_list list of object ids to work on, when method
          * returns this list will be empty
          */
         Error enqCopyWork(std::vector<ObjectID>* obj_list);
+        /**
+         * Tells tokenFileDB that GC for the token is finished, sets the compactor
+         * state to idle and calls callback function provided in startCompaction()
+         * to notify that GC for this tone is finished.
+         */
+        Error handleCompactionDone(const Error& tc_error);
 
   private:  // members
         /**
@@ -186,37 +195,36 @@ namespace fds {
         SmIoSnapshotObjectDB snap_req;
 
         /**
-         * Range of token object ids
-         */
-        ObjectID tok_start_oid;  // start of token object id range
-        ObjectID tok_end_oid;    // last object id in token object id range
-
-        /**
          * For tracking compaction progress
          */
         fds_uint32_t total_objs;  // total number of objs we will either copy or del
         std::atomic<fds_uint32_t> objs_done;  // current number of objs we processed
 
         /**
-         * Timer to actually garbage collect a token file. We do it on timer,
+         * We use this timer in two stages of compaction:
+         * 1) Timer to enqueue snap DB work after we start writing to new token file
+         * so that all IOs that are currently in flight (writing to old file before
+         * updating index db) finish and so that we do not miss objects that are in
+         * old file but not in index db yet.
+         * 2) Timer to actually garbage collect a token file. We do it on timer,
          * so that we can drain concurrent IOs that may still access the old file
          * (gets only), since we are not locking index db on reads
          */
-        FdsTimerPtr compl_timer;
-        FdsTimerTaskPtr compl_timer_task;
+        FdsTimerPtr tc_timer;
+        FdsTimerTaskPtr tc_timer_task;
     };
 
     typedef boost::shared_ptr<TokenCompactor> TokenCompactorPtr;
 
-    class CompletionTimerTask: public FdsTimerTask {
+    class CompactorTimerTask: public FdsTimerTask {
   public:
         TokenCompactor* tok_compactor;
 
-        CompletionTimerTask(FdsTimer &timer, TokenCompactor* tc)  //NOLINT
+        CompactorTimerTask(FdsTimer &timer, TokenCompactor* tc)  //NOLINT
                 : FdsTimerTask(timer) {
             tok_compactor = tc;
         }
-        ~CompletionTimerTask() {}
+        ~CompactorTimerTask() {}
 
         void runTimerTask();
     };

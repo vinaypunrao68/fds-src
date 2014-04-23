@@ -1149,8 +1149,6 @@ ObjectStorMgr::readObject(const SmObjDb::View& view,
         disk_req->setTier(tierToUse);
         disk_req->set_phy_loc(objMetadata.getObjPhyLoc(tierToUse));
         tierUsed = tierToUse;
-        obj_phy_loc_t *phy_loc = objMetadata.getObjPhyLoc(tierToUse);
-        scavenger->addTokenCompactor(getTokenId(objId), phy_loc->obj_stor_loc_id);
 
         LOGDEBUG << "Reading object " << objId << " from "
                 << ((disk_req->getTier() == diskio::diskTier) ? "disk" : "flash")
@@ -1316,7 +1314,6 @@ ObjectStorMgr::writeObjectToTier(const OpCtx &opCtx,
     
     err = writeObjectMetaData(opCtx, objId, objData.data.length(),
                 disk_req->req_get_phy_loc(), false, diskTier, &vio);
-    obj_phy_loc_t *phy_loc = disk_req->req_get_phy_loc();
 
     if ((err == ERR_OK) &&
         (tier == diskio::flashTier)) {
@@ -1327,7 +1324,6 @@ ObjectStorMgr::writeObjectToTier(const OpCtx &opCtx,
         fds_verify(pushOk == true);
     }
 
-    scavenger->addTokenCompactor(getTokenId(objId), phy_loc->obj_stor_loc_id);
     delete disk_req;
     return err;
 }
@@ -1383,7 +1379,6 @@ ObjectStorMgr::writeObjectDataToTier(const ObjectID  &objId,
         fds_verify(pushOk == true);
     }
     phys_loc = *disk_req->req_get_phy_loc();
-    scavenger->addTokenCompactor(getTokenId(objId), phys_loc.obj_stor_loc_id);
     delete disk_req;
 
     return err;
@@ -1497,22 +1492,22 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
         }
         LOGDEBUG << "Put dup:  " << err
                 << ", returning success";
-        if (objMap.isInitialized() == false) { 
-            err = readObjMetaData(objId, objMap);
-            /* At this point object metadata must exist */
-            fds_verify(err == ERR_OK);
-        }
 
         smObjDb->lock(objId);
         // Update  the AssocEntry for dedupe-ing
-        objMap.updateAssocEntry(objId, volId);
-        err = smObjDb->put(opCtx, objId, objMap);
-        if (err == ERR_OK) {
-            LOGDEBUG << "Dedupe object Assoc Entry for object "
-                    << objId << " to " << objMap;
+        err = readObjMetaData(objId, objMap);
+        if (err.ok()) {
+            objMap.updateAssocEntry(objId, volId);
+            err = smObjDb->put(opCtx, objId, objMap);
+            if (err == ERR_OK) {
+                LOGDEBUG << "Dedupe object Assoc Entry for object "
+                         << objId << " to " << objMap;
+            } else {
+                LOGERROR << "Failed to put ObjMetaData " << objId
+                         << " into odb with error " << err;
+            }
         } else {
-            LOGERROR << "Failed to put ObjMetaData " << objId
-                    << " into odb with error " << err;
+            LOGERROR << "Failed to read ObjMetaData from db" << err;
         }
         smObjDb->unlock(objId);
 
@@ -1570,16 +1565,16 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
         err = checkDuplicate(objId,
                 *objBufPtr, objMap);
         if (err == ERR_DUPLICATE) {
-            if (objMap.isInitialized() == false) { 
-                err = readObjMetaData(objId, objMap);
-                /* At this point object metadata must exist */
-                fds_verify(err == ERR_OK);
-            }  
           // Update  the AssocEntry for dedupe-ing
           LOGDEBUG << " Object  ID: " << objId << " objMap: " << objMap;
           smObjDb->lock(objId);
+          err = readObjMetaData(objId, objMap);
+          /* At this point object metadata must exist */
+          fds_verify(err == ERR_OK);
+
           objMap.updateAssocEntry(objId, volId);
           err = smObjDb->put(opCtx, objId, objMap);
+          smObjDb->unlock(objId);
           if (err == ERR_OK) {
               LOGDEBUG << "Dedupe object Assoc Entry for object "
                       << objId << " to " << objMap;
@@ -1587,7 +1582,7 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
               LOGERROR << "Failed to put ObjMetaData " << objId
                       << " into odb with error " << err;
           }  
-          smObjDb->unlock(objId);
+
           err = ERR_OK;
         } else {
 
