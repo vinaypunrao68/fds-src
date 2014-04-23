@@ -3,28 +3,24 @@ package com.formationds.demo;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+import com.formationds.util.Configuration;
 import com.formationds.web.toolkit.HttpMethod;
 import com.formationds.web.toolkit.WebApp;
 import com.formationds.xdi.Xdi;
 import com.formationds.xdi.local.LocalAmShim;
-import com.formationds.xdi.shim.VolumePolicy;
-import org.apache.thrift.TException;
 import org.joda.time.Duration;
 
 public class Main {
     public static final String DEMO_DOMAIN = "demo";
 
+    public static void main(String[] args) throws Exception {
+        Configuration config = new Configuration(args);
+        new Main().start(8888);
+    }
+
     public void start(int port)  {
         LocalAmShim shim = new LocalAmShim();
         shim.createDomain(DEMO_DOMAIN);
-        try {
-            shim.createVolume(DEMO_DOMAIN, "Volume1", new VolumePolicy(1024 * 4));
-            shim.createVolume(DEMO_DOMAIN, "Volume2", new VolumePolicy(1024 * 4));
-            shim.createVolume(DEMO_DOMAIN, "Volume3", new VolumePolicy(1024 * 4));
-            shim.createVolume(DEMO_DOMAIN, "Volume4", new VolumePolicy(1024 * 4));
-        } catch (TException e) {
-            throw new RuntimeException(e);
-        }
 
         Xdi xdi = new Xdi(shim);
         WebApp webApp = new WebApp();
