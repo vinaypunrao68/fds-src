@@ -38,6 +38,7 @@ public class FdsImageWriter implements ImageWriter {
     @Override
     public void write(ImageResource resource) {
         try {
+            Thread.sleep(500);
             String volume = randomVolume();
             URL url = new URL(resource.getUrl());
             InputStream inputStream = new BufferedInputStream(url.openConnection().getInputStream(), 1024 * 10);

@@ -56,12 +56,12 @@ public class TransientState {
 
     public Optional<ImageResource> peekReadQueue() {
         lastAccessed = DateTime.now();
-        return demoRunner == null? Optional.empty() : Optional.of(demoRunner.peekReadQueue());
+        return demoRunner == null || demoRunner.peekReadQueue() == null? Optional.empty() : Optional.of(demoRunner.peekReadQueue());
     }
 
     public Optional<ImageResource> peekWriteQueue() {
         lastAccessed = DateTime.now();
-        return demoRunner == null ? Optional.empty() : Optional.of(demoRunner.peekReadQueue());
+        return demoRunner == null || demoRunner.peekWriteQueue() == null? Optional.empty() : Optional.of(demoRunner.peekWriteQueue());
     }
 
     public int getReadThrottle() {

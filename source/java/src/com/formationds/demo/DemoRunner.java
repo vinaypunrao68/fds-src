@@ -3,12 +3,16 @@ package com.formationds.demo;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+import org.apache.log4j.Logger;
+
 import java.util.Iterator;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingDeque;
 
 public class DemoRunner {
+    private static final Logger LOG = Logger.getLogger(DemoRunner.class);
+
     private String searchExpression;
     private ImageReader reader;
     private ImageWriter writer;
@@ -17,10 +21,11 @@ public class DemoRunner {
     private final ExecutorService executor;
     private Iterator<ImageResource> imageIterator;
     private final LinkedBlockingDeque<ImageResource> writeQueue;
-    private Single<ImageResource> lastRead;
-    private Single<ImageResource> lastWritten;
+    private ImageResource lastRead;
+    private ImageResource lastWritten;
 
     public DemoRunner(String searchExpression, ImageReader reader, ImageWriter writer, int readParallelism, int writeParallelism) {
+        LOG.info("New DemoRunner, q=" + searchExpression);
         this.searchExpression = searchExpression;
         this.reader = reader;
         this.writer = writer;
@@ -28,8 +33,8 @@ public class DemoRunner {
         this.writeParallelism = writeParallelism;
         executor = Executors.newCachedThreadPool();
         writeQueue = new LinkedBlockingDeque<>(1000);
-        lastRead = new Single<>();
-        lastWritten = new Single<>();
+        lastRead = null;
+        lastWritten = null;
     }
 
     public void start() {
@@ -49,7 +54,7 @@ public class DemoRunner {
                 while (true) {
                     try {
                         ImageResource resource = writeQueue.take();
-                        lastWritten.set(resource);
+                        lastWritten = resource;
                         writer.write(resource);
                     } catch (InterruptedException e) {
                         break;
@@ -61,26 +66,26 @@ public class DemoRunner {
         }
 
         for (int i = 0; i < readParallelism; i++) {
-            executor.submit(() -> {
+            executor.submit((Runnable)() -> {
                 while (true) {
                     try {
-                        lastRead.set(reader.readOne());
+                        ImageResource r = reader.readOne();
+                        lastRead = r;
                     } catch (Exception e) {
-                        break;
+                        //break;
                     }
                 }
-                return true;
             });
         }
         executor.shutdown();
     }
 
     public ImageResource peekWriteQueue() {
-        return lastWritten.get();
+        return lastWritten;
     }
 
     public ImageResource peekReadQueue() {
-        return lastRead.get();
+        return lastRead;
     }
 
     public Counts consumeReadCounts() {

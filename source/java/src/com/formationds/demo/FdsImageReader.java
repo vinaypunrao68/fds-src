@@ -30,6 +30,7 @@ public class FdsImageReader implements ImageReader {
     @Override
     public ImageResource readOne() {
         try {
+            Thread.sleep(500);
             List<VolumeDescriptor> volumes = xdi.listVolumes(Main.DEMO_DOMAIN);
             Collections.shuffle(volumes);
             String volumeName = volumes.get(0).getName();
