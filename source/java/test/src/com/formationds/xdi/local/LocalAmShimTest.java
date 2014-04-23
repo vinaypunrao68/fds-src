@@ -20,7 +20,7 @@ public class LocalAmShimTest {
 
     @Test
     public void testVolumes() throws Exception {
-        LocalAmShim shim = new LocalAmShim();
+        LocalAmShim shim = new LocalAmShim("local");
         String domainName = "foo";
         String volumeName = "v1";
         String blobName = "blob";

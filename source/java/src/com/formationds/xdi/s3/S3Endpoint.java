@@ -4,7 +4,6 @@ package com.formationds.xdi.s3;
  */
 
 import com.formationds.am.Main;
-import com.formationds.am.NativeAm;
 import com.formationds.util.Configuration;
 import com.formationds.web.toolkit.HttpMethod;
 import com.formationds.web.toolkit.WebApp;
@@ -17,7 +16,7 @@ public class S3Endpoint {
     public static void main(String[] args) throws Exception {
         Configuration configuration = new Configuration(args);
 
-        LocalAmShim am = new LocalAmShim();
+        LocalAmShim am = new LocalAmShim("local");
         am.createDomain(Main.FDS_S3);
         Xdi xdi = new Xdi(am);
         new S3Endpoint(xdi).start(9977);

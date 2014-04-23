@@ -9,6 +9,7 @@ import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;
 import org.json.JSONObject;
 
+import java.io.File;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.List;
@@ -34,8 +35,13 @@ public class LocalAmShim implements AmShim.Iface {
         }
     }
 
-    public LocalAmShim() {
-        persister = new Persister("local");
+    public LocalAmShim(String memoryDbName) {
+        persister = new Persister(memoryDbName);
+        blobTxs = new ConcurrentHashMap<>();
+    }
+
+    public LocalAmShim(File dbPath) {
+        persister = new Persister(dbPath);
         blobTxs = new ConcurrentHashMap<>();
     }
 
@@ -54,6 +60,14 @@ public class LocalAmShim implements AmShim.Iface {
     @Override
     public void deleteVolume(String domainName, String volumeName) throws XdiException, TException {
         Volume volume = getVolume(domainName, volumeName);
+        List<Blob> blobs = getAllVolumeBlobs(domainName, volumeName);
+        for (Blob blob : blobs) {
+            List<Block> blocks = persister.execute(session ->
+                    session.createCriteria(Block.class)
+                            .add(Restrictions.eq("blobId", blob.getId())))
+                            .list();
+            blocks.forEach(b -> persister.delete(b));
+        }
 
         persister.delete(volume);
     }
@@ -90,19 +104,23 @@ public class LocalAmShim implements AmShim.Iface {
 
     @Override
     public List<BlobDescriptor> volumeContents(String domainName, String volumeName, int count, long offset) throws XdiException, TException {
-        List<Blob> blobs = persister.execute(session ->
-                session.createCriteria(Blob.class)
-                        .createCriteria("volume")
-                        .add(Restrictions.eq("name", volumeName))
-                        .createCriteria("domain")
-                        .add(Restrictions.eq("name", domainName))
-                        .list());
+        List<Blob> blobs = getAllVolumeBlobs(domainName, volumeName);
 
         return blobs.stream()
                 .skip(offset)
                 .limit(count)
                 .map(b -> new BlobDescriptor(b.getName(), b.getByteCount(), b.getMetadata()))
                 .collect(Collectors.toList());
+    }
+
+    private List<Blob> getAllVolumeBlobs(String domainName, String volumeName) {
+        return persister.execute(session ->
+                    session.createCriteria(Blob.class)
+                            .createCriteria("volume")
+                            .add(Restrictions.eq("name", volumeName))
+                            .createCriteria("domain")
+                            .add(Restrictions.eq("name", domainName))
+                            .list());
     }
 
     @Override
