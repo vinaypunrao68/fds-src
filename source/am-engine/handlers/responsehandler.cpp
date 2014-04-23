@@ -12,7 +12,7 @@
         xdi::XdiException xe;            \
         std::ostringstream oss;          \
         oss << status;                   \
-        xe.errorCode = status;           \
+        xe.errorCode = xdi::ErrorCode::INTERNAL_SERVER_ERROR;   \
         xe.message = oss.str();          \
         throw xe;                        \
     }
