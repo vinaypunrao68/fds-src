@@ -73,6 +73,10 @@ struct BucketStatsResponseHandler : SimpleResponseHandler {
     BucketStatsResponseHandler(xdi::VolumeDescriptor& volumeDescriptor);
 
     xdi::VolumeDescriptor& volumeDescriptor;
+    const std::string* timestamp = NULL;
+    int content_count = 0;
+    const BucketStatsContent* contents = NULL;
+    void *req_context = NULL;
 
     virtual void process();
     virtual ~BucketStatsResponseHandler();
