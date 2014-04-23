@@ -4,13 +4,14 @@ package com.formationds.xdi;
  */
 
 import com.formationds.xdi.shim.AmShim;
-import com.formationds.xdi.shim.Uuid;
 import com.formationds.xdi.shim.VolumePolicy;
+import org.apache.commons.io.IOUtils;
 import org.apache.thrift.protocol.TBinaryProtocol;
 import org.apache.thrift.transport.TSocket;
 
+import java.io.InputStream;
 import java.nio.ByteBuffer;
-import java.util.UUID;
+import java.util.HashMap;
 
 public class SmokeTest {
 
@@ -36,6 +37,11 @@ public class SmokeTest {
         System.out.println("Creating object 'someBytes.bin', size: 8192 bytes");
         client.updateBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME, ByteBuffer.wrap(new byte[maxObjSize]), maxObjSize, 0l, false);
         client.updateBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME, ByteBuffer.wrap(new byte[maxObjSize]), maxObjSize, maxObjSize, true);
+
+        System.out.println("Writing arbitrary length stream, size: a few bytes");
+        InputStream inputStream = IOUtils.toInputStream("hello, world!");
+        new StreamWriter(16, client).write(DOMAIN_NAME, VOLUME_NAME, "stream.bin", inputStream, new HashMap<>());
+
         // System.out.println("Deleting object 'someBytes.bin'");
         // client.deleteBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME);
         // System.out.println("Deleting volume 'Volume1'");
