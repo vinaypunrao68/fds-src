@@ -159,7 +159,7 @@ class FdsCheckerProc : public PlatformProcess {
     int run() override;
     void plf_load_node_data();
  private:
-    BaseCheckerPtr checker_;
+    BaseChecker *checker_;
 };
 
 }  // namespace fds

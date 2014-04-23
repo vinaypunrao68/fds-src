@@ -732,14 +732,13 @@ FdsCheckerProc::FdsCheckerProc(int argc, char *argv[],
     : PlatformProcess(argc, argv, config_file, base_path, platform, mod_vec)
 {
     reinterpret_cast<DirBasedChecker *>(platform)->set_cfg_accessor(conf_helper_);
-    checker_.reset(reinterpret_cast<DirBasedChecker *>(platform));
+    checker_ = reinterpret_cast<DirBasedChecker *>(platform);
     g_fdslog->setSeverityFilter(
             (fds_log::severity_level) conf_helper_.get<int>("log_severity"));
 }
 
 FdsCheckerProc::~FdsCheckerProc()
 {
-    checker_->mod_shutdown();
 }
 
 void FdsCheckerProc::proc_pre_startup()
@@ -755,7 +754,6 @@ int FdsCheckerProc::run()
     checker_->run_checker();
     g_cntrs_mgr->export_to_ostream(std::cout);
     std::cout << "Checker completed\n";
-    checker_.reset();
     return 0;
 }
 

@@ -169,6 +169,15 @@ FdsConfigAccessor FdsProcess::get_conf_helper() const {
     return conf_helper_;
 }
 
+boost::shared_ptr<FdsConfig> FdsProcess::get_fds_config() const
+{
+    return conf_helper_.get_fds_config();
+}
+
+boost::shared_ptr<FdsCountersMgr> FdsProcess::get_cntrs_mgr() const {
+    return cntrs_mgrPtr_;
+}
+
 void*
 FdsProcess::sig_handler(void* param)
 {

@@ -2,16 +2,36 @@
 
 # Copyright 2014 by Formation Data Systems, Inc.
 #
+import sys
 import subprocess
+import logging
+import optparse
 
+def setup_logger(file=None, level=logging.INFO):
+    """
+    Sets up logger
+    """
+    log = logging.getLogger()
+    log.setLevel(level)
+    handler = logging.StreamHandler(file)
+    handler.setLevel(level)
+    log.addHandler(handler)
+    return log
 
-class ProcessTracker:
-    def __init__(self):
-        pass
-    def kill(self):
-        pass
-    def is_complete(self):
-        pass
+def parse_fdscluster_args():
+    """
+    Parses normal fds cluster arguments
+    """
+    parser = optparse.OptionParser("usage: %prog [options]")
+    parser.add_option('-f', '--file', dest = 'config_file',
+                      help = 'configuration file (e.g. sample.cfg)', metavar = 'FILE')
+    parser.add_option('-v', '--verbose', action = 'store_true', dest = 'verbose',
+                      help = 'enable verbosity')
+    (options, args) = parser.parse_args()
+    if options.config_file is None:
+        print "You need to pass config file"
+        sys.exit(1)
+    return options, args
 
 def run(prog_path, args = '', wait_time_sec = 0):
     """

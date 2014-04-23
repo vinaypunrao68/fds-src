@@ -25,6 +25,7 @@ user_build_dir :=                       \
     am-app                              \
     tools                               \
     java                                \
+    checker                             \
     unit-test
 
 include $(topdir)/Makefile.incl

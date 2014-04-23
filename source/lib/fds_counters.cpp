@@ -6,15 +6,6 @@
 #include <ctime>
 namespace fds {
 
-std::string FdsCounters::toString()
-{
-    std::ostringstream oss;
-    for (auto c : exp_counters_) {
-        oss << id_ << "." << "." << c->id() << " = " << c->value() << "; ";
-    }
-    return oss.str();
-}
-
 FdsCountersMgr::FdsCountersMgr(const std::string &id)
     : id_(id),
       lock_("Counters mutex")
@@ -43,6 +34,27 @@ void FdsCountersMgr::remove_from_export(FdsCounters *counters)
 }
 
 /**
+ * Returns counters identified by id
+ *
+ * @param id
+ * @return
+ */
+FdsCounters* FdsCountersMgr::get_counters(const std::string &id)
+{
+    fds_mutex::scoped_lock lock(lock_);
+    /* Iterate till we find the counters we care about.
+     * NOTE: When we have a lot of exported counters this is
+     * inefficient.  For now this should be fine.
+     */
+    for (auto c : exp_counters_) {
+        if (c->id() == id) {
+            return c;
+        }
+    }
+    return nullptr;
+}
+
+/**
  * @brief Constructs graphite string out of the counters objects registered for
  * export
  *
@@ -66,6 +78,10 @@ std::string FdsCountersMgr::export_as_graphite()
     return oss.str();
 }
 
+/**
+ * Exports to output stream
+ * @param stream
+ */
 void FdsCountersMgr::export_to_ostream(std::ostream &stream)  // NOLINT
 {
     fds_mutex::scoped_lock lock(lock_);
@@ -77,6 +93,191 @@ void FdsCountersMgr::export_to_ostream(std::ostream &stream)  // NOLINT
                     << std::endl;
         }
     }
+}
+
+/**
+ * Constructor
+ * @param id
+ * @param mgr
+ */
+FdsCounters::FdsCounters(const std::string &id, FdsCountersMgr *mgr)
+: id_(id)
+{
+    if (mgr) {
+        mgr->add_for_export(this);
+    }
+}
+
+/**
+ * Exposed for mock testing
+ */
+FdsCounters::FdsCounters() {}
+
+/**
+ * Destructor
+ */
+FdsCounters::~FdsCounters() {}
+
+/**
+ * Returns id
+ * @return
+ */
+std::string FdsCounters::id() const
+{
+    return id_;
+}
+
+/**
+ * Converts to string
+ * @return
+ */
+std::string FdsCounters::toString()
+{
+    std::ostringstream oss;
+    for (auto c : exp_counters_) {
+        oss << id_ << "." << "." << c->id() << " = " << c->value() << "; ";
+    }
+    return oss.str();
+}
+
+/**
+ * Converts to map
+ * @param m
+ */
+void FdsCounters::toMap(std::map<std::string, int64_t>& m) const  // NOLINT
+{
+    for (auto c : exp_counters_) {
+        m[c->id()] = static_cast<int64_t>(c->value());
+    }
+}
+
+/**
+ * @brief Marks the counter for export.  Only export counters
+ * that are members of the derived class.  This method is invoked
+ * by FdsBaseCounter constructor to mark the counter as exported.
+ *
+ * @param cp Counter to export
+ */
+void FdsCounters::add_for_export(FdsBaseCounter* cp)
+{
+    fds_assert(cp);
+    exp_counters_.push_back(cp);
+}
+
+void FdsCounters::remove_from_export(FdsBaseCounter* cp)
+{
+    fds_verify(!"Not implemented yet");
+}
+
+/**
+ * @brief  Base counter constructor.  Enables a counter to
+ * be exported with an identifier.  If export_parent is NULL
+ * counter will not be exported.
+ *
+ * @param id - id to use when exporting the counter
+ * @param export_parent - Pointer to the parent.  If null counter
+ * is not exported.
+ */
+FdsBaseCounter::FdsBaseCounter(const std::string &id, FdsCounters *export_parent)
+: id_(id)
+{
+    if (export_parent) {
+        export_parent->add_for_export(this);
+    }
+}
+/**
+ * Exposed for mock testing
+ */
+FdsBaseCounter::FdsBaseCounter() {}
+
+/**
+ * Destructor
+ */
+FdsBaseCounter::~FdsBaseCounter()
+{
+}
+
+/**
+ * Returns id
+ * @return
+ */
+std::string FdsBaseCounter::id() const
+{
+    return id_;
+}
+
+/**
+ * Constructor
+ * @param id
+ * @param export_parent
+ */
+NumericCounter::NumericCounter(const std::string &id, FdsCounters *export_parent)
+: FdsBaseCounter(id, export_parent)
+{
+    val_ = 0;
+}
+/**
+ *  Exposed for testing
+ */
+NumericCounter::NumericCounter() {}
+/**
+ *
+ * @return
+ */
+uint64_t NumericCounter::value() const
+{
+    return val_.load();
+}
+/**
+ *
+ */
+void NumericCounter::incr() {
+    val_++;
+}
+
+/**
+ *
+ * @param v
+ */
+void NumericCounter::incr(const uint64_t v) {
+    val_ += v;
+}
+/**
+ *
+ * @param id
+ * @param export_parent
+ */
+LatencyCounter::LatencyCounter(const std::string &id, FdsCounters *export_parent)
+: FdsBaseCounter(id, export_parent)
+{
+    total_latency_ = 0;
+    cnt_ = 0;
+}
+/**
+ * Exposed for testing
+ */
+LatencyCounter::LatencyCounter() {}
+
+/**
+ *
+ * @return
+ */
+uint64_t LatencyCounter::value() const
+{
+    uint64_t cnt = cnt_.load();
+    uint64_t lat = total_latency_.load();
+    if (cnt == 0) {
+        return 0;
+    }
+    return lat / cnt;
+}
+/**
+ *
+ * @param latency
+ */
+inline void LatencyCounter::update(const uint64_t &latency) {
+    total_latency_.fetch_add(latency);
+    cnt_++;
 }
 
 }  // namespace fds

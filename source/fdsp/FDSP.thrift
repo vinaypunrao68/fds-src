@@ -809,9 +809,6 @@ struct FDSP_CopyTokenReq
 /* Payload for CopyToken reponse path */
 typedef FDSP_MigMsgHdrType FDSP_CopyTokenResp
 
-/* Payload for CopyToken reponse path */
-typedef FDSP_MigMsgHdrType FDSP_CopyTokenResp
-
 /* Payload for SyncToken RPC */
 struct FDSP_SyncTokenReq
 {
@@ -980,6 +977,16 @@ struct FDSP_ScavengerStartType {
   1: FDSP_ScavengerTarget target
 }
 
+/* Current state of tokens in an SM */
+struct FDSP_TokenMigrationStats {
+	/* Number of tokens for which migration is complete */
+	1: i32			completed
+	/* Number of token for which migration is in progress */
+	2: i32          inflight
+	/* Number of tokens for which migration is pending */
+	3: i32          pending
+}
+
 service FDSP_SessionReq {
     oneway void AssociateRespCallback(1:string src_node_name) // Associate Response callback with DM/SM for this source node.
 }
@@ -994,7 +1001,20 @@ service FDSP_Service {
 	FDSP_SessionReqResp EstablishSession(1:FDSP_MsgHdrType fdsp_msg)
 }
 
-service FDSP_DataPathReq {
+enum FDSP_RpcServiceStatus {
+	SVC_STATUS_INVALID,
+	SVC_STATUS_ACTIVE,
+	SVC_STATUS_INACTIVE,
+	SVC_STATUS_IN_ERR
+}
+
+service FDSP_RpcService {
+	FDSP_RpcServiceStatus GetStatus(1: i32 nullarg),
+	map<string, i64> GetStats(1: string id),
+	void SetConfigVal(1:string id, 2:i64 value )
+}
+
+service FDSP_DataPathReq extends FDSP_RpcService {
     oneway void GetObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetObjType get_obj_req),
 
     oneway void PutObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_PutObjType put_obj_req),
@@ -1006,7 +1026,9 @@ service FDSP_DataPathReq {
     oneway void RedirReadObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_RedirReadObjType redir_write_obj_req),
     
     /* Exposed for testing */
-	oneway void GetObjectMetadata(1:FDSP_GetObjMetadataReq metadata_req)
+	oneway void GetObjectMetadata(1:FDSP_GetObjMetadataReq metadata_req),
+	
+	FDSP_TokenMigrationStats GetTokenMigrationStats(1:FDSP_MsgHdrType fdsp_msg)
 }
 
 service FDSP_DataPathResp {
