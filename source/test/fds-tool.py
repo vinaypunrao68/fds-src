@@ -25,6 +25,8 @@ if __name__ == '__main__':
                       help = 'dry run, print commands only')
     parser.add_option('-R', '--fds-root', dest = 'fds_root', default = '/fds',
                       help = 'specify fds-root directory')
+    parser.add_option('-t', '--target', dest = 'target', default = None,
+                      help = 'target node to apply -u, -d, -c, and -s against')
 
     (options, args) = parser.parse_args()
 
@@ -37,11 +39,31 @@ if __name__ == '__main__':
     # Get all the configuration
     nodes = cfg.rt_get_obj('cfg_nodes')
     ams   = cfg.rt_get_obj('cfg_am')
+    cli = cfg.rt_get_obj('cfg_cli')
+    start_om = True
+
+    # filter nodes and ams based on the target
+    if options.target:
+        print "Target specified.  Applying commands against target: {}".format(options.target)
+        # filter nodes
+        nodes = [n for n in nodes if n.nd_conf_dict['node-name'] == options.target]
+        if len(nodes) is 0:
+            print "No matching nodes for the target"
+            sys.exit(1)
+        # filter ams
+        ams = [a for a in ams if a.nd_conf_dict['fds_node'] == options.target]
+        # Check if OM needs to be started
+        if cfg.rt_om_node.nd_conf_dict['node-name'] != options.target:
+            start_om = False
+
 
     # Shutdown
     if options.clus_down:
         for n in nodes:
             n.nd_cleanup_daemons()
+            # todo(Rao): Unregister the services here.  Once we implement name based
+            # services this should be easy
+            print("NOTE: Run fdscli --remove-services to remove services")
 
     # Cleanup
     if options.clus_clean:
@@ -63,17 +85,18 @@ if __name__ == '__main__':
         sys.exit(0)
 
     for n in nodes:
-        n.nd_rmt_agent.ssh_exec('python -m disk_type -m')
-        n.nd_rmt_agent.ssh_exec('/fds/sbin/redis.sh start')
+        print 'Running remote command for ' + n.nd_conf_dict['node-name']
+        n.nd_rmt_agent.ssh_exec('python -m disk_type -m', wait_compl=True)
+        n.nd_rmt_agent.ssh_exec('/fds/sbin/redis.sh start', wait_compl=True, output=True)
 
     om = cfg.rt_om_node
     om_ip = om.nd_conf_dict['ip']
-    print "Start OM on IP", om_ip
 
-    om.nd_start_om()
-    time.sleep(2)
+    if start_om:
+        print "Start OM on IP", om_ip
+        om.nd_start_om()
+        time.sleep(2)
 
-    cli = cfg.rt_get_obj('cfg_cli')
     for n in nodes:
         n.nd_start_platform(om_ip)
         if n.nd_conf_dict['node-name'] == 'node1':
@@ -86,4 +109,5 @@ if __name__ == '__main__':
     time.sleep(4)
     for am in ams:
         am.am_start_service()
+    print "Waiting for all commands to complete before existing"
     time.sleep(30) # Do not remove this sleep
