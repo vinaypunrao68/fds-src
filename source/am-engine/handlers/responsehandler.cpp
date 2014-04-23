@@ -3,6 +3,7 @@
  */
 #include <am-engine/handlers/responsehandler.h>
 #include <util/Log.h>
+#include <util/timeutils.h>
 #include <string>
 #include <sstream>
 
@@ -79,8 +80,15 @@ BucketStatsResponseHandler::BucketStatsResponseHandler(
 
 void BucketStatsResponseHandler::process() {
     XCHECKSTATUS(status);
+    volumeDescriptor.name = contents->bucket_name;
+    // volumeDescriptor.uuid = 10;
+    volumeDescriptor.dateCreated = util::getTimeStampMillis();
+    volumeDescriptor.policy.maxObjectSizeInBytes = 2097152;  // 2MB
 }
 
 BucketStatsResponseHandler::~BucketStatsResponseHandler() {
+    if (contents) {
+        delete contents;
+    }
 }
 }  // namespace fds
