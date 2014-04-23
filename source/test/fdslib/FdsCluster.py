@@ -2,12 +2,9 @@
 
 # Copyright 2014 by Formation Data Systems, Inc.
 #
-import sys
-sys.path.append('/home/nbayyana/fds-src/source/test/fdslib/pyfdsp')
 import socket
 import time
 import logging
-
 from FDS_ProtocolInterface.ttypes import *
 import struct
 

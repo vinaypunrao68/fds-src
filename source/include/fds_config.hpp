@@ -180,7 +180,7 @@ public:
      *
      * @return FdsConfig object
      */
-    boost::shared_ptr<FdsConfig> get_fds_config()
+    boost::shared_ptr<FdsConfig> get_fds_config() const
     {
         return fds_config_;
     }

@@ -8,6 +8,9 @@ import logging
 import optparse
 
 def setup_logger(file=None, level=logging.INFO):
+    """
+    Sets up logger
+    """
     log = logging.getLogger()
     log.setLevel(level)
     handler = logging.StreamHandler(file)

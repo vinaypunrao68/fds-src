@@ -162,6 +162,17 @@ class FdsProcess : public boost::noncopyable, public HasLogger {
     FdsConfigAccessor get_conf_helper() const;
 
     /**
+     * Returns config object
+     * @return
+     */
+    boost::shared_ptr<FdsConfig> get_fds_config() const;
+
+    /**
+     * Return global counter manager
+     * @return
+     */
+    boost::shared_ptr<FdsCountersMgr> get_cntrs_mgr() const;
+    /**
      * Return the fds root directory obj.
      */
     inline const FdsRootDir *proc_fdsroot() const { return proc_root; }

@@ -231,7 +231,7 @@ uint64_t NumericCounter::value() const
 /**
  *
  */
-inline void NumericCounter::incr() {
+void NumericCounter::incr() {
     val_++;
 }
 
@@ -239,7 +239,7 @@ inline void NumericCounter::incr() {
  *
  * @param v
  */
-inline void NumericCounter::incr(const uint64_t v) {
+void NumericCounter::incr(const uint64_t v) {
     val_ += v;
 }
 /**

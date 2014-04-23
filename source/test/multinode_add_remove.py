@@ -2,6 +2,9 @@
 
 # Copyright 2014 by Formation Data Systems, Inc.
 #
+import sys
+import os
+sys.path.append(os.getcwd()+'/fdslib/pyfdsp')
 import subprocess
 import logging
 from fdslib.FdsCluster import FdsCluster

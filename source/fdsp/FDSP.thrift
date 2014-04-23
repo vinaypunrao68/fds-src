@@ -997,9 +997,10 @@ service FDSP_Service {
 }
 
 enum FDSP_RpcServiceStatus {
-	SERVICE_ACTIVE,
-	SERVICE_INACTIVE,
-	SERVICE_IN_ERR
+	SVC_STATUS_INVALID,
+	SVC_STATUS_ACTIVE,
+	SVC_STATUS_INACTIVE,
+	SVC_STATUS_IN_ERR
 }
 
 service FDSP_RpcService {
@@ -1008,7 +1009,7 @@ service FDSP_RpcService {
 	void SetConfigVal(1:string id, 2:i64 value )
 }
 
-service FDSP_DataPathReq {
+service FDSP_DataPathReq extends FDSP_RpcService {
     oneway void GetObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetObjType get_obj_req),
 
     oneway void PutObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_PutObjType put_obj_req),
@@ -1040,7 +1041,7 @@ service FDSP_DataPathResp {
 	oneway void GetObjectMetadataResp(1:FDSP_GetObjMetadataResp metadata_resp)
 }
 
-service FDSP_MetaDataPathReq extends FDSP_RpcService {
+service FDSP_MetaDataPathReq {
 
     oneway void UpdateCatalogObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_UpdateCatalogType cat_obj_req),
 

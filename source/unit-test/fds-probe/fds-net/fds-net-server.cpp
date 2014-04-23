@@ -14,12 +14,15 @@
 #include <string>
 #include <fds_process.h>
 #include <NetSession.h>
+#include <FDSP_RpcServiceBaseImpl.h>
 
 netSession *exampleSession;  // Single global session for now
 boost::shared_ptr<FDSP_DataPathRespClient> respClient;
 
 namespace FDS_ProtocolInterface {
-class exampleDataPathReqIf : virtual public FDSP_DataPathReqIf {
+class exampleDataPathReqIf :
+        virtual public FDSP_DataPathReqIf,
+        virtual public FDSP_RpcServiceBaseImpl {
   public:
     exampleDataPathReqIf() {
     }

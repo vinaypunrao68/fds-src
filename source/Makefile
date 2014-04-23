@@ -23,6 +23,7 @@ user_build_dir :=                       \
     fds_client                          \
     am-app                              \
     tools                               \
+    checker                             \
     unit-test
 
 include $(topdir)/Makefile.incl

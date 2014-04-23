@@ -106,8 +106,8 @@ public:
 
     virtual uint64_t value() const override;
 
-    inline void incr();
-    inline void incr(const uint64_t v);
+    void incr();
+    void incr(const uint64_t v);
 
 private:
     std::atomic<uint64_t> val_;

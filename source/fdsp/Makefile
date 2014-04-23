@@ -11,7 +11,8 @@ local_thft_target := $(patsubst %.thrift,$(local_thft_hdrdir)/%_types.h, \
 
 # Customize Makefile rules only unique to this directory.
 #
-user_predep      := $(local_thft_target) fdsp_py
+local_fdsp_py    := $(local_pythft_hdrdir)/FDS_ProtocolInterface/ttypes.py
+user_predep      := $(local_thft_target) $(local_fdsp_py)
 user_clean       := \
     $(wildcard $(local_thft_hdrdir)/*.h) \
     $(wildcard $(local_thft_hdrdir)/*.cpp) \
@@ -38,7 +39,7 @@ else
 endif
 endef
 
-fdsp_py: FDSP.thrift
+$(local_fdsp_py): FDSP.thrift
 	$(tool_thrift) $(local_pythft_flags) 
 
 $(foreach thft,$(local_thft_src),$(eval $(call local_mk_thft_cpp,$(thft))))
