@@ -10,8 +10,6 @@ import com.formationds.xdi.Xdi;
 import com.formationds.xdi.local.LocalAmShim;
 import org.joda.time.Duration;
 
-import java.io.File;
-
 public class Main {
     public static final String DEMO_DOMAIN = "demo";
 
@@ -21,7 +19,7 @@ public class Main {
     }
 
     public void start(int port)  {
-        LocalAmShim shim = new LocalAmShim(new File("demodb"));
+        LocalAmShim shim = new LocalAmShim(DEMO_DOMAIN);
         shim.createDomain(DEMO_DOMAIN);
 
         Xdi xdi = new Xdi(shim);
