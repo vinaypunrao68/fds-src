@@ -31,10 +31,15 @@ public class SmokeTest {
         client.createVolume(DOMAIN_NAME, VOLUME_NAME, new VolumePolicy(4 * 1024));
         Thread.sleep(4000);
 
+        int maxObjSize = 2 * 1024 * 1024;
+
         System.out.println("Creating object 'someBytes.bin', size: 8192 bytes");
         Uuid uuid = client.startBlobTx(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME);
         System.out.println("TxId: " + new UUID(uuid.getHigh(), uuid.getLow()).toString());
-        client.updateBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME, uuid, ByteBuffer.wrap(new byte[8192]), 8192, 0l);
+        client.updateBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME, uuid,
+                          ByteBuffer.wrap(new byte[maxObjSize]), maxObjSize, 0l);
+        client.updateBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME, uuid,
+                          ByteBuffer.wrap(new byte[maxObjSize]), maxObjSize, maxObjSize);
         client.commit(uuid);
         // System.out.println("Deleting object 'someBytes.bin'");
         // client.deleteBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME);

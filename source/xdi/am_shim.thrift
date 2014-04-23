@@ -1,20 +1,14 @@
 namespace cpp fds.xdi
 namespace java com.formationds.xdi.shim
 
-struct Uuid {
-       1: required i64 low,
-       2: required i64 high
-}
-
 struct VolumePolicy {
        1: required i32 objectSizeInBytes
 }
 
 struct VolumeDescriptor {
        1: required string name,
-       2: required Uuid uuid,
-       3: required i64 dateCreated,
-       4: required VolumePolicy policy
+       2: required i64 dateCreated,
+       3: required VolumePolicy policy
 }
 
 struct VolumeStatus {
@@ -63,16 +57,10 @@ service AmShim {
         binary getBlob(1:string domainName, 2:string volumeName, 3:string blobName, 4:i32 length, 5:i64 offset)
              throws (1: XdiException e),
 
-        Uuid startBlobTx(1:string domainName, 2:string volumeName, 3:string blobName)
+        void updateMetadata(1:string domainName, 2:string volumeName, 3:string blobName, 4:map<string, string> metadata)
              throws (1: XdiException e),
 
-        void updateMetadata(1:string domainName, 2:string volumeName, 3:string blobName, 5:Uuid txUuid, 6:map<string, string> metadata)
-             throws (1: XdiException e),
-
-        void updateBlob(1:string domainName, 2:string volumeName, 3:string blobName, 4:Uuid txUuid, 5:binary bytes, 6:i32 length, 7:i64 offset)
-             throws (1: XdiException e),
-
-        void commit(1:Uuid txId)
+        void updateBlob(1:string domainName, 2:string volumeName, 3:string blobName, 4:binary bytes, 5:i32 length, 6:i64 offset, 7:bool isLast)
              throws (1: XdiException e),
 
         void deleteBlob(1:string domainName, 2:string volumeName, 3:string blobName)
