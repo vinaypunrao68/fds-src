@@ -29,10 +29,8 @@ public class RemoteShimTest {
         String volumeName = "myVolume";
         String blobName = "myBlob";
         client.createVolume(domainName, volumeName, new VolumePolicy(8));
-        Uuid uuid = client.startBlobTx(domainName, volumeName, blobName);
         byte[] contents = new byte[]{1, 2, 3, 4};
-        client.updateBlob(domainName, volumeName, blobName, uuid, ByteBuffer.wrap(contents), 4, 0);
-        client.commit(uuid);
+        client.updateBlob(domainName, volumeName, blobName, ByteBuffer.wrap(contents), 4, 0, true);
         List<BlobDescriptor> descriptors = client.volumeContents(domainName, volumeName, Integer.MAX_VALUE, 0);
         for (BlobDescriptor desc : descriptors) {
             System.out.println(desc.getByteCount());
