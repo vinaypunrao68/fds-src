@@ -7,6 +7,8 @@
 #include <concurrency/taskstatus.h>
 #include <native_api.h>
 #include <string>
+#include <xdi/am_shim_types.h>
+
 namespace fds {
 
     struct ResponseHandler {
@@ -68,6 +70,9 @@ namespace fds {
     };
 
     struct BucketStatsResponseHandler : SimpleResponseHandler {
+        BucketStatsResponseHandler(xdi::VolumeDescriptor& volumeDescriptor);
+
+        xdi::VolumeDescriptor& volumeDescriptor;
         const std::string* timestamp = NULL;
         int content_count = 0;
         const BucketStatsContent* contents = NULL;
