@@ -1046,7 +1046,7 @@ service FDSP_DataPathResp {
 	oneway void GetObjectMetadataResp(1:FDSP_GetObjMetadataResp metadata_resp)
 }
 
-service FDSP_MetaDataPathReq extends FDSP_RpcService {
+service FDSP_MetaDataPathReq {
 
     oneway void UpdateCatalogObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_UpdateCatalogType cat_obj_req),
 
