@@ -34,7 +34,7 @@ namespace fds {
         MetaNameValue();
         ~MetaNameValue();
     };
-    
+
     class QosParams {
   public:
         double iops_min;
@@ -50,8 +50,8 @@ namespace fds {
     class ListBucketContents {
   public:
         std::string objKey;
-        fds_int64_t  lastModified; // Seconds since last modified
-        std::string  eTag; // This is similar to MD5
+        fds_int64_t  lastModified;
+        std::string  eTag;
         fds_uint64_t size;
         std::string  ownerId;
         std::string  ownerDisplayName;
@@ -231,7 +231,7 @@ namespace fds {
     typedef boost::shared_ptr<PutProperties> PutPropertiesPtr;
 
     // If the ifModifiedSince and ifNotModifiedSince are invalid if negative
-    //If ifMatchETag or ifNotMatchETag is non-null then they are valid
+    // If ifMatchETag or ifNotMatchETag is non-null then they are valid
     class GetConditions {
         fds_int64_t   ifModifiedSince;
         fds_int64_t   ifNotModifiedSince;
@@ -260,7 +260,8 @@ namespace fds {
      **/
     typedef int (*fdsnPutObjectHandler)(void *reqContext, fds_uint64_t bufferSize,
                                         fds_off_t offset, char *buffer,
-                                        void *callbackData, FDSN_Status status, ErrorDetails* errDetails);
+                                        void *callbackData, FDSN_Status status,
+                                        ErrorDetails* errDetails);
 
 
     /**
@@ -323,8 +324,12 @@ namespace fds {
     namespace native {
 
         /**
-         * NOTE: these are interfaces ....
-         * look at am-engine/handlers for implementation
+         * NOTE:
+         *   - the member variables should all be return values to be
+         *     processed by another consumer.
+         *   - all member variables will be owned & destroyed by cb
+         *   - these are interfaces :
+         *     look at am-engine/handlers for implementation
          */
 
         struct Callback {
@@ -337,14 +342,17 @@ namespace fds {
         };
         typedef boost::shared_ptr<Callback> CallbackPtr;
 
+        struct ScopedCallBack {
+            Callback* cb;
+            explicit ScopedCallBack(Callback* _cb) {cb = _cb;}
+            ~ScopedCallBack() {if (cb) cb->call();}
+        };
+
+
         struct StatBlobCallback : virtual Callback {
             fds_uint64_t blobSize = -1;
         };
         typedef boost::shared_ptr<StatBlobCallback> StatBlobCallbackPtr;
-
-    }  // namespace native
-
-
-
+    };  // namespace native
 }  // namespace fds
 #endif  // SOURCE_INCLUDE_NATIVE_TYPES_H_
