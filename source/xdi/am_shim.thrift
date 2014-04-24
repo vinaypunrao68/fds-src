@@ -15,6 +15,10 @@ struct VolumeStatus {
        1: required i64 blobCount
 }
 
+struct ObjectOffset {
+       1: required i64 value
+}
+
 enum ErrorCode {
      MISSING_RESOURCE = 0,
      BAD_REQUEST = 1,
@@ -54,13 +58,13 @@ service AmShim {
         BlobDescriptor statBlob(1: string domainName, 2:string volumeName, 3:string blobName)
              throws (1: XdiException e),
 
-        binary getBlob(1:string domainName, 2:string volumeName, 3:string blobName, 4:i32 length, 5:i64 offset)
+        binary getBlob(1:string domainName, 2:string volumeName, 3:string blobName, 4:i32 length, 5:ObjectOffset offset)
              throws (1: XdiException e),
 
         void updateMetadata(1:string domainName, 2:string volumeName, 3:string blobName, 4:map<string, string> metadata)
              throws (1: XdiException e),
 
-        void updateBlob(1:string domainName, 2:string volumeName, 3:string blobName, 4:binary bytes, 5:i32 length, 6:i64 offset, 7:bool isLast)
+        void updateBlob(1:string domainName, 2:string volumeName, 3:string blobName, 4:binary bytes, 5:i32 length, 6:ObjectOffset objectOffset, 7:bool isLast)
              throws (1: XdiException e),
 
         void deleteBlob(1:string domainName, 2:string volumeName, 3:string blobName)
