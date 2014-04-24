@@ -11,6 +11,7 @@ import subprocess
 import os
 import sys
 import getpass
+import paramiko
 import re
 from string import Template
 
@@ -165,7 +166,7 @@ class DebugBundle(object):
         cont_expect_re = re.compile(r'.* continue connecting (yes/no)?')
         # call pexpect to fire off the rsync process        
         proc = pexpect.spawn(rsync_cmd)
-        res = proc.expect([cont_expect_re, pass_expect_re])
+        res = proc.expect([cont_expect_re, pass_expect_re, pexpect.EOF])
 
         if password is None:
             password = getpass.getpass()
@@ -176,7 +177,7 @@ class DebugBundle(object):
             proc.sendline(password)
         elif res == 1:
             proc.sendline(password)
-
+            
         # Busy wait for a few minutes -- we need to be sure
         # everything is finished before we go tarring everything
         # up
@@ -201,7 +202,7 @@ class DebugBundle(object):
         # Collect all of the files locally
         self.__collect()
         # Remove files from the remote node
-        self.__do_delete(local=False)
+        self.clean(local=False)
         
         print "Packaging files..."
 
@@ -222,8 +223,6 @@ class DebugBundle(object):
 
         # Store the location/name of the output file
         self._f_out = out
-
-        self.__do_delete()
 
         return out
 
@@ -257,7 +256,7 @@ class DebugBundle(object):
 
         print "Push complete..."
 
-    def __do_delete(self, local=True):
+    def clean(self, local=True, del_tarball=False):
         '''
         Will delete .core files, logs, etc from remote machine after they have
         been collected, and tar'd on the local machine.
@@ -269,14 +268,46 @@ class DebugBundle(object):
             print "Cleaning temporary storage directories..."
 
             for node in self._config.nodes.keys():
-                rm_cmd = ['rm', '-rf', os.path.join(self._store_dir, node)]
+                if del_tarball:
+                    rm_cmd = ['rm', '-rf', os.path.join(self._store_dir, node),
+                              os.path.join(self._store_dir, self._f_out)]
+                else:
+                    rm_cmd = ['rm', '-rf', os.path.join(self._store_dir, node)]
+                    
                 subprocess.call(rm_cmd)
 
         else:
             # Do remote delete
-            # TODO: connect to remote machine and selectively delete .core files and logs
-            print "Cleaning remote nodes... (currently non-functional)q"
-    
+            print "Cleaning remote nodes..."
+        
+            # SSH connection to remote node
+            client = paramiko.SSHClient()
+            client.load_system_host_keys()
+            client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+            for node in self._config.nodes.keys():
+                # KLUDGE: Paramkio is failing on node names for some reason,
+                # so this will resolve name -> ip before hand to ensure
+                # that paramiko can connect
+                ip = self._config.nodes[node]['ip']
+                host_cmd = ['host ' + self._config.nodes[node]['ip']]
+                ip_out = subprocess.check_output(host_cmd, shell=True)
+                res = re.match('.* has address (\d{1,3}.\d{1,3}.\d{1,3}.\d{1,3})', ip_out)
+                # Assume that if the regex doesn't match that it is already an ip
+                if res is not None:
+                    ip = res.group(1)
+                                              
+                # Connect to the node and do the deletes
+                fds_root = self._config.nodes[node]['fds_root']
+                client.connect(hostname=ip, port=22, username=self._config.user,
+                               password=self._config.password)
+                
+                # Remove cores in fds_root, /corefiles, and logs from fds_root/var/logs
+                rm_cmd = ('rm -f ' + fds_root + '/*.core /corefiles/*.core ' +
+                          fds_root + '/var/logs/*.log')
+
+                stdin, stdout, stderr = client.exec_command(rm_cmd)
+                print node, 'cleaned!'
 
     def __str__(self):
         ''' 
@@ -327,10 +358,13 @@ if __name__ == "__main__":
         # Send package somewhere?
         if args.push is not False:
             db.push(args.push)
+            # We've pushed so also clean the tarball
+            db.clean(True, True)
+        else:
+            # No remote push, do not clean tarball
+            db.clean(True, False)
             
+
     elif args.subp == 'debug':
         # Run the gdb command and log the bt
-        print "Function currently unimplemented"
         pass
-
-    print "It has been a pleasure serving you!"
