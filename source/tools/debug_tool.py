@@ -290,12 +290,12 @@ class DebugBundle(object):
                 # so this will resolve name -> ip before hand to ensure
                 # that paramiko can connect
                 ip = self._config.nodes[node]['ip']
-                host_cmd = ['host ' + self._config.nodes[node]['ip']]
-                ip_out = subprocess.check_output(host_cmd, shell=True)
-                res = re.match(r'.* has address (\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})', ip_out)
+                #host_cmd = ['host ' + self._config.nodes[node]['ip']]
+                #ip_out = subprocess.check_output(host_cmd, shell=True)
+                #res = re.match(r'.* has address (\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})', ip_out)
                 # Assume that if the regex doesn't match that it is already an ip
-                if res is not None:
-                    ip = res.group(1)
+                #if res is not None:
+                #    ip = res.group(1)
                                               
                 # Connect to the node and do the deletes
                 fds_root = self._config.nodes[node]['fds_root']
@@ -315,6 +315,16 @@ class DebugBundle(object):
         '''
         return self._store_dir
 
+class DebugHelper(object):
+
+    def __init__(self, hostname, username, password, ):
+        pass
+
+
+    def run_gdb_cmd(cmd='bt'):
+        pass
+
+        
 if __name__ == "__main__":
 
     
@@ -343,8 +353,13 @@ if __name__ == "__main__":
     debug_parser = subparsers.add_parser('debug',
                                          help='Sub-command to perform debugging actions on core files.')
     debug_parser.add_argument('--gdb',
-                              help='Run GDB on cores in specified directory, and output basic information to text file.',
-                              metavar='command')
+                              help='Run GDB on cores in specified directory, and output basic backtrace information to text file.',
+                              metavar='command', default='bt')
+
+    debug_parser.add_argument('cores',
+                              help='Core files to run GDB command on.',
+                              nargs='+')
+    
 
     args = parser.parse_args()
 
@@ -367,4 +382,9 @@ if __name__ == "__main__":
 
     elif args.subp == 'debug':
         # Run the gdb command and log the bt
-        pass
+        gdb_cmd = Template('gdb --core=$corefile --eval-command=$cmd --eval-command=quit > $corefile.txt')
+        gdb_cmd = gdb_cmd.substitute(corefile=args.cores[0], cmd=args.gdb)
+        subprocess.call(gdb_cmd, shell=True)
+
+        print "Core backtrace output to " + args.cores[0] + '.txt'
+
