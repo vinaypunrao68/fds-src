@@ -77,6 +77,8 @@ namespace fds {
         virtual ~ListBucketResponseHandler();
     };
 
+    virtual ~ListBucketResponseHandler();
+
     struct BucketStatsResponseHandler : ResponseHandler {
         BucketStatsResponseHandler(xdi::VolumeDescriptor& volumeDescriptor);
 
