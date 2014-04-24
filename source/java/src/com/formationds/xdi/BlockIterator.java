@@ -4,7 +4,9 @@ package com.formationds.xdi;
  */
 
 import com.formationds.xdi.shim.AmShim;
+import com.formationds.xdi.shim.ObjectOffset;
 import com.formationds.xdi.shim.VolumeDescriptor;
+import org.apache.thrift.TException;
 
 import java.util.Iterator;
 
@@ -19,39 +21,42 @@ public class BlockIterator {
         VolumeDescriptor volumeDescriptor = am.statVolume(domainName, volumeName);
         int blockSize = volumeDescriptor.getPolicy().getMaxObjectSizeInBytes();
         long byteCount = am.statBlob(domainName, volumeName, blobName).getByteCount();
+        long totalObjects = (long) Math.ceil(byteCount / (double) blockSize);
 
         return new Iterator<byte[]>() {
-            byte[] current = null;
-            long currentOffset = 0;
+            long currentObjectOffset = 0;
+            byte[] currentChunk = null;
             boolean isDirty = true;
 
             private void refreshIfNeeded() {
                 if (isDirty) {
-                    if (currentOffset < byteCount) {
-                        long chunkSize = Math.min(blockSize, byteCount - currentOffset);
-                        try {
-                            current = am.getBlob(domainName, volumeName, blobName, (int) chunkSize, currentOffset).array();
-                            currentOffset += chunkSize;
-                        } catch (Exception e) {
-                            throw new RuntimeException(e);
-                        }
-                        isDirty = false;
-                    } else {
-                        current = null;
+                    if (currentObjectOffset == totalObjects) {
+                        currentChunk = null;
+                        return;
                     }
+
+                    long length = Math.min(byteCount - (currentObjectOffset * blockSize), blockSize);
+                    try {
+                        currentChunk = am.getBlob(domainName, volumeName, blobName, (int) length, new ObjectOffset(currentObjectOffset)).array();
+                    } catch (TException e) {
+                        throw new RuntimeException(e);
+                    }
+                    currentObjectOffset++;
+                    isDirty = false;
                 }
             }
+
             @Override
             public boolean hasNext() {
                 refreshIfNeeded();
-                return current != null;
+                return currentChunk != null;
             }
 
             @Override
             public byte[] next() {
                 refreshIfNeeded();
                 isDirty = true;
-                return current;
+                return currentChunk;
             }
         };
     }

@@ -4,14 +4,12 @@ package com.formationds.xdi;
  */
 
 import com.formationds.xdi.shim.AmShim;
+import com.formationds.xdi.shim.ObjectOffset;
 import com.formationds.xdi.shim.VolumePolicy;
-import org.apache.commons.io.IOUtils;
 import org.apache.thrift.protocol.TBinaryProtocol;
 import org.apache.thrift.transport.TSocket;
 
-import java.io.InputStream;
 import java.nio.ByteBuffer;
-import java.util.HashMap;
 
 public class SmokeTest {
 
@@ -28,25 +26,24 @@ public class SmokeTest {
         TSocket socket = new TSocket(args[0], Integer.parseInt(args[1]));
         socket.open();
         AmShim.Iface client = new AmShim.Client(new TBinaryProtocol(socket));
-        System.out.println("Creating volume 'Volume1', policy: 4kb blocksize");
-        client.createVolume(DOMAIN_NAME, VOLUME_NAME, new VolumePolicy(4 * 1024));
+
+        System.out.println("Creating volume 'Volume1', policy: 2MB blocksize");
+        VolumePolicy volumePolicy = new VolumePolicy(2 * 1024 * 1024);
+        client.createVolume(DOMAIN_NAME, VOLUME_NAME, volumePolicy);
         Thread.sleep(4000);
 
-        int maxObjSize = 2 * 1024 * 1024;
-
         System.out.println("Creating object 'someBytes.bin', size: 8192 bytes");
-        int offCount = 0;
-        for (offCount = 0; offCount < 10; offCount++) {
+        int length = volumePolicy.getMaxObjectSizeInBytes();
+        byte[] buf = new byte[length];
+        for (int i = 0; i < 10; i++) {
             client.updateBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME,
-                              ByteBuffer.wrap(new byte[maxObjSize]), maxObjSize,
-                              offCount * maxObjSize, false);
+                              ByteBuffer.wrap(buf), length,
+                              new ObjectOffset(i), false);
         }
-        client.updateBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME,
-                          ByteBuffer.wrap(new byte[maxObjSize], 0, 0), 0, 0, true);
 
-        // System.out.println("Writing arbitrary length stream, size: a few bytes");
-        // InputStream inputStream = IOUtils.toInputStream("hello, world!");
-        // new StreamWriter(maxObjSize, client).write(DOMAIN_NAME, VOLUME_NAME, "stream.bin", inputStream, new HashMap<>());
+        client.updateBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME,
+                ByteBuffer.wrap(buf), length,
+                new ObjectOffset(10), true);
 
         // System.out.println("Deleting object 'someBytes.bin'");
         // client.deleteBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME);

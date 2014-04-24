@@ -4,6 +4,7 @@ package com.formationds.xdi;
  */
 
 import com.formationds.xdi.shim.AmShim;
+import com.formationds.xdi.shim.ObjectOffset;
 import org.junit.Test;
 
 import java.io.ByteArrayInputStream;
@@ -12,14 +13,11 @@ import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
 
-import static org.junit.Assert.assertEquals;
 import static org.mockito.Mockito.*;
 
 public class StreamWriterTest {
     @Test
     public void testWriteStream() throws Exception {
-        assertEquals(ByteBuffer.wrap(new byte[]{1, 2}), ByteBuffer.wrap(new byte[]{1, 2, 3}, 0, 2));
-
         InputStream in = new ByteArrayInputStream(new byte[]{0, 1, 2, 3, 4, 5, 6, 7});
         AmShim.Iface mockAm = mock(AmShim.Iface.class);
         String domainName = "domain";
@@ -36,7 +34,7 @@ public class StreamWriterTest {
                 eq(blobName),
                 any(ByteBuffer.class),
                 eq(4),
-                eq(0l),
+                eq(new ObjectOffset(0)),
                 eq(false));
 
         verify(mockAm, times(1)).updateBlob(
@@ -45,7 +43,7 @@ public class StreamWriterTest {
                 eq(blobName),
                 any(ByteBuffer.class),
                 eq(4),
-                eq(4l),
+                eq(new ObjectOffset(1)),
                 eq(false));
 
         verify(mockAm, times(1)).updateBlob(
@@ -53,8 +51,8 @@ public class StreamWriterTest {
                 eq(volumeName),
                 eq(blobName),
                 any(ByteBuffer.class),
-                eq(0),
-                eq(8l),
+                eq(4),
+                eq(new ObjectOffset(1)),
                 eq(true));
 
         verify(mockAm, times(1)).updateMetadata(

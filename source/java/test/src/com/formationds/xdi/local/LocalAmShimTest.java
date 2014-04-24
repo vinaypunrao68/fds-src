@@ -4,6 +4,7 @@ package com.formationds.xdi.local;
  */
 
 import com.formationds.xdi.shim.BlobDescriptor;
+import com.formationds.xdi.shim.ObjectOffset;
 import com.formationds.xdi.shim.VolumePolicy;
 import org.junit.Test;
 
@@ -34,13 +35,14 @@ public class LocalAmShimTest {
         assertEquals(8, shim.statVolume(domainName, volumeName).getPolicy().getMaxObjectSizeInBytes());
 
         ByteBuffer buffer = ByteBuffer.wrap(new byte[]{1, 2, 3, 4, 5});
-        shim.updateBlob(domainName, volumeName, blobName, buffer, 4, 5, true);
+        shim.updateBlob(domainName, volumeName, blobName, buffer, 4, new ObjectOffset(0), false);
+        shim.updateBlob(domainName, volumeName, blobName, buffer, 5, new ObjectOffset(1), true);
 
         Blob blob = shim.getBlob(domainName, volumeName, blobName);
-        assertEquals(9, blob.getByteCount());
+        assertEquals(13, blob.getByteCount());
 
-        assertArrayEquals(new byte[]{0, 0, 0, 0, 0, 1, 2, 3}, shim.getBlob(domainName, volumeName, blobName, 8, 0).array());
-        assertArrayEquals(new byte[] {4, 0, 0, 0, 0, 0, 0, 0}, shim.getBlob(domainName, volumeName, blobName, 8, 8).array());
+        assertArrayEquals(new byte[]{1, 2, 3, 4, 0, 0, 0, 0}, shim.getBlob(domainName, volumeName, blobName, 8, new ObjectOffset(0)).array());
+        assertArrayEquals(new byte[] {1, 2, 3, 4, 5, 0, 0, 0}, shim.getBlob(domainName, volumeName, blobName, 8, new ObjectOffset(1)).array());
 
         Map<String, String> metadata = new HashMap<>();
         metadata.put("hello", "world");
@@ -51,18 +53,18 @@ public class LocalAmShimTest {
         assertEquals(2, m.keySet().size());
         assertEquals("world", m.get("hello"));
         assertEquals("moon", m.get("goodnight"));
-        assertEquals(9, descriptor.getByteCount());
+        assertEquals(13, descriptor.getByteCount());
 
-        shim.updateBlob(domainName, volumeName, "otherBlob", buffer, 4, 5, true);
-
+        String otherBlob = "otherBlob";
+        shim.updateBlob(domainName, volumeName, otherBlob, buffer, 4, new ObjectOffset(0), true);
         List<BlobDescriptor> parts = shim.volumeContents(domainName, volumeName, Integer.MAX_VALUE, 0);
         assertEquals(2, parts.size());
 
         parts = shim.volumeContents(domainName, volumeName, Integer.MAX_VALUE, 1);
         assertEquals(1, parts.size());
-        assertEquals("otherBlob", parts.get(0).getName());
+        assertEquals(otherBlob, parts.get(0).getName());
 
-        shim.deleteBlob(domainName, volumeName, "otherBlob");
+        shim.deleteBlob(domainName, volumeName, otherBlob);
         parts = shim.volumeContents(domainName, volumeName, Integer.MAX_VALUE, 0);
         assertEquals(1, parts.size());
         assertEquals("blob", parts.get(0).getName());
