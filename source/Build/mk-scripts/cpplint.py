@@ -1465,7 +1465,7 @@ class _NamespaceInfo(_BlockInfo):
     # expected namespace.  Example: http://go/ldkdc, http://cl/23548205
     if self.name:
       # Named namespace
-      if not Match((r'};*\s*(//|/\*).*\bnamespace\s+' + re.escape(self.name) +
+      if not Match((r'\s*};*\s*(//|/\*).*\bnamespace\s+' + re.escape(self.name) +
                     r'[\*/\.\\\s]*$'),
                    line):
         error(filename, linenum, 'readability/namespace', 5,
@@ -1473,7 +1473,7 @@ class _NamespaceInfo(_BlockInfo):
               self.name)
     else:
       # Anonymous namespace
-      if not Match(r'};*\s*(//|/\*).*\bnamespace[\*/\.\\\s]*$', line):
+      if not Match(r'\s*};*\s*(//|/\*).*\bnamespace[\*/\.\\\s]*$', line):
         error(filename, linenum, 'readability/namespace', 5,
               'Namespace should be terminated with "// namespace"')
 
