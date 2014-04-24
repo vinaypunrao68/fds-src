@@ -38,12 +38,12 @@ public class SmokeTest {
         for (int i = 0; i < 10; i++) {
             client.updateBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME,
                               ByteBuffer.wrap(buf), length,
-                              new ObjectOffset(i), false);
+                              new ObjectOffset(i), ByteBuffer.wrap(new byte[0]), false);
         }
 
         client.updateBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME,
                 ByteBuffer.wrap(buf), length,
-                new ObjectOffset(10), true);
+                new ObjectOffset(10), ByteBuffer.wrap(new byte[0]), true);
 
         // System.out.println("Deleting object 'someBytes.bin'");
         // client.deleteBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME);

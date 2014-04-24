@@ -31,7 +31,7 @@ public class BlockIteratorTest {
         };
 
         VolumeDescriptor volumeDescriptor = new VolumeDescriptor("foo", 0, new VolumePolicy(blockSize));
-        BlobDescriptor blobDescriptor = new BlobDescriptor(blobName, 7, Maps.newHashMap());
+        BlobDescriptor blobDescriptor = new BlobDescriptor(blobName, 7, ByteBuffer.wrap(new byte[0]), Maps.newHashMap());
 
         when(am.statVolume(domainName, volumeName)).thenReturn(volumeDescriptor);
         when(am.statBlob(domainName, volumeName, blobName)).thenReturn(blobDescriptor);
