@@ -102,6 +102,7 @@ namespace fds {
         bool operator!=(const fds_errno_t& rhs) const;
         ~Error();
     };
+
     std::ostream& operator<<(std::ostream& out, const Error& err);
 
     typedef enum {
