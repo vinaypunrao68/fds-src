@@ -4,7 +4,6 @@ package com.formationds.xdi.local;
  */
 
 import com.formationds.xdi.shim.BlobDescriptor;
-import com.formationds.xdi.shim.Uuid;
 import com.formationds.xdi.shim.VolumePolicy;
 import org.junit.Test;
 
@@ -32,7 +31,7 @@ public class LocalAmShimTest {
         assertEquals(2, shim.listVolumes(domainName).size());
         shim.deleteVolume(domainName, "v2");
         assertEquals(1, shim.listVolumes(domainName).size());
-        assertEquals(8, shim.statVolume(domainName, volumeName).getPolicy().getObjectSizeInBytes());
+        assertEquals(8, shim.statVolume(domainName, volumeName).getPolicy().getMaxObjectSizeInBytes());
 
         ByteBuffer buffer = ByteBuffer.wrap(new byte[]{1, 2, 3, 4, 5});
         shim.updateBlob(domainName, volumeName, blobName, buffer, 4, 5, true);

@@ -4,7 +4,6 @@ package com.formationds.xdi;
  */
 
 import com.formationds.xdi.shim.AmShim;
-import com.formationds.xdi.shim.Uuid;
 import org.junit.Test;
 
 import java.io.ByteArrayInputStream;
@@ -26,7 +25,6 @@ public class StreamWriterTest {
         String domainName = "domain";
         String volumeName = "volume";
         String blobName = "blob";
-        Uuid txId = new Uuid(17, 42);
         Map<String, String> metadata = new HashMap<>();
         metadata.put("hello", "world");
 

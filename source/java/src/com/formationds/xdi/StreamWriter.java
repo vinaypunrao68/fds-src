@@ -4,7 +4,6 @@ package com.formationds.xdi;
  */
 
 import com.formationds.xdi.shim.AmShim;
-import com.formationds.xdi.shim.Uuid;
 
 import java.io.InputStream;
 import java.nio.ByteBuffer;
