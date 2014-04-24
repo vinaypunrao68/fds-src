@@ -339,7 +339,7 @@ class FdsnIf : public xdi::AmShimIf {
                     boost::shared_ptr<std::string>& blobName) {
         BucketContext bucket_ctx("host", *volumeName, "accessid", "secretkey");
         SimpleResponseHandler handler(__func__);
-        am_api->DeleteObject(&bucket_ctx, blobName,NULL, fn_ResponseHandler, &handler);
+        am_api->DeleteObject(&bucket_ctx, *blobName, NULL, fn_ResponseHandler, &handler);
         handler.wait();
         handler.process();
     }
