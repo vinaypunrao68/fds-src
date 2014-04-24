@@ -8,7 +8,7 @@
 #include <pthread.h>
 #include <sched.h>
 
-#include "fds_err.h"
+#include "fds_error.h"
 #include "fds_types.h"
 #include "fds_qos.h"
 #include "test_stat.h"

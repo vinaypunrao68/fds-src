@@ -13,7 +13,7 @@
 #include <string>
 #include <list>
 
-#include "fds_err.h"
+#include "fds_error.h"
 #include <fds_volume.h>
 #include <util/Log.h>
 #include <concurrency/Thread.h>

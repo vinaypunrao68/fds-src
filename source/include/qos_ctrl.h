@@ -7,10 +7,10 @@
 #include <util/Log.h>
 #include <lib/PerfStats.h>
 #include <concurrency/ThreadPool.h>
-#include "fds_err.h"
+#include "fds_error.h"
 #include <fdsp/FDSP_types.h>
 #include <fds_types.h>
-#include <fds_err.h>
+#include <fds_error.h>
 #include <fds_volume.h>
 #include <lib/OMgrClient.h>
 

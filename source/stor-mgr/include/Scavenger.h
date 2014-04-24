@@ -8,7 +8,7 @@
 #include <unordered_map>
 #include <string>
 
-#include <fds_err.h>
+#include <fds_error.h>
 #include <fds_types.h>
 #include <TokenCompactor.h>
 

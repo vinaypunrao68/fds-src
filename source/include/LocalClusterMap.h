@@ -10,7 +10,7 @@
 
 #include <fdsp/FDSP_types.h>
 #include <fds_typedefs.h>
-#include <fds_err.h>
+#include <fds_error.h>
 #include <fds_module.h>
 #include <NetSession.h>
 #include <concurrency/RwLock.h>

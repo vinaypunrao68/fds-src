@@ -5,7 +5,7 @@
 #include <set>
 #include <utility>
 #include <fds_migration.h>
-#include <fds_err.h>
+#include <fds_error.h>
 #include <fds_uuid.h>
 #include <TokenSyncBaseEvents.h>
 

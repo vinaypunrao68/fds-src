@@ -2,7 +2,7 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 #include <stdexcept>
-#include <fds_err.h>
+#include <fds_error.h>
 #include <fds_types.h>
 #include <fds_assert.h>
 #include <TransJournal.h>

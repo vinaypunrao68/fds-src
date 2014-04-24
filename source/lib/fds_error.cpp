@@ -2,7 +2,7 @@
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-#include <fds_err.h>
+#include <fds_error.h>
 #include <string>
 #include <fds_defines.h>
 namespace fds {

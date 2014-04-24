@@ -11,7 +11,7 @@
 #include <unordered_map>
 #include <boost/msm/back/state_machine.hpp>
 #include <fds_typedefs.h>
-#include <fds_err.h>
+#include <fds_error.h>
 #include <OmVolume.h>
 #include <NetSession.h>
 #include <fds_placement_table.h>

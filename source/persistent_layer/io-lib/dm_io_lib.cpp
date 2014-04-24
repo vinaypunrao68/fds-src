@@ -9,7 +9,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <fcntl.h>
-#include <fds_err.h>
+#include <fds_error.h>
 
 #include <fstream>
 #include <iostream>

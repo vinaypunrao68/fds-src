@@ -2,7 +2,7 @@
 #define SOURCE_FDS_NATIVE_API_H_
 
 #include <fds_types.h>
-#include <fds_err.h>
+#include <fds_error.h>
 #include <list>
 
 /* Put Bucket Policy and Get Stats use normalized values (between 0 and 100) for 

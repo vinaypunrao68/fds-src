@@ -10,7 +10,7 @@
 
 #include <list>
 #include "StorHvDataPlace.h"
-#include <fds_err.h>
+#include <fds_error.h>
 #include <fds_types.h>
 
 /* TODO: Use API header in include directory. */

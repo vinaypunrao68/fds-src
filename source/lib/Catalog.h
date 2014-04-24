@@ -9,7 +9,7 @@
 #include <stdio.h>
 
 #include <fds_types.h>
-#include <fds_err.h>
+#include <fds_error.h>
 #include <leveldb/db.h>
 #include <leveldb/env.h>
 

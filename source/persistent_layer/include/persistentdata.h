@@ -9,7 +9,7 @@
 #include <set>
 #include <persistent_layer/dm_io.h>
 #include <concurrency/Mutex.h>
-#include <fds_err.h>
+#include <fds_error.h>
 #include <fds_counters.h>
 
 namespace fds {

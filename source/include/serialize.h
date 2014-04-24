@@ -4,7 +4,7 @@
 #include <netinet/in.h>
 #include <boost/shared_ptr.hpp>
 #include <fds_types.h>
-#include <fds_err.h>
+#include <fds_error.h>
 #include <thrift/protocol/TProtocol.h>
 #include <thrift/transport/TBufferTransports.h>
 #include <util/timeutils.h>

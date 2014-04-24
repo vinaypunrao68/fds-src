@@ -10,7 +10,7 @@
 #include <vector>
 
 #include <fds_types.h>
-#include <fds_err.h>
+#include <fds_error.h>
 #include <fds_config.hpp>
 #include <fds_process.h>
 #include <fds_placement_table.h>

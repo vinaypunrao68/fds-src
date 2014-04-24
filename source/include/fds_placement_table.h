@@ -15,7 +15,7 @@
 #include <vector>
 
 #include <fds_types.h>
-#include <fds_err.h>
+#include <fds_error.h>
 #include <fdsp/FDSP_types.h>
 
 namespace fds {

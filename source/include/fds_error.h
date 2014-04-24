@@ -2,8 +2,8 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 
-#ifndef SOURCE_INCLUDE_FDS_ERR_H_
-#define SOURCE_INCLUDE_FDS_ERR_H_
+#ifndef SOURCE_INCLUDE_FDS_ERROR_H_
+#define SOURCE_INCLUDE_FDS_ERROR_H_
 
 #include <sstream>
 #include <string>
@@ -81,8 +81,8 @@ namespace fds {
         fds_errno_t _errno;
   public:
         Error();
-        Error(fds_errno_t errno_arg);
-        Error(fds_uint32_t errno_fdsp);
+        Error(fds_errno_t errno_arg);  //NOLINT
+        Error(fds_uint32_t errno_fdsp); //NOLINT
         Error(const Error& err);
 
         bool OK() const;
@@ -190,4 +190,4 @@ namespace fds {
 
 };  // namespace fds
 
-#endif  // SOURCE_INCLUDE_FDS_ERR_H_
+#endif  // SOURCE_INCLUDE_FDS_ERROR_H_

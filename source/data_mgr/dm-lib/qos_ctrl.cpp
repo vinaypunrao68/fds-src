@@ -4,7 +4,7 @@
 
 #include "qos_ctrl.h"
 #include "fds_qos.h"
-#include "fds_err.h"
+#include "fds_error.h"
 //#include "qos_htb.h"
 
 namespace fds {

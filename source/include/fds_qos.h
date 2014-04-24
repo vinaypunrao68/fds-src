@@ -1,7 +1,7 @@
 #ifndef __FDS_FDS_QOS_H__
 #define __FDS_FDS_QOS_H__
 #include <fds_types.h>
-#include <fds_err.h>
+#include <fds_error.h>
 #include <util/Log.h>
 #include <concurrency/RwLock.h>
 #include <concurrency/Mutex.h>
