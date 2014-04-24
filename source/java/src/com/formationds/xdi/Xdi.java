@@ -50,7 +50,7 @@ public class Xdi implements AmShim.Iface {
 
     public void writeStream(String domainName, String volumeName, String blobName, InputStream in, Map<String, String> metadata) throws Exception {
         VolumeDescriptor volume = statVolume(domainName, volumeName);
-        int bufSize = volume.getPolicy().getObjectSizeInBytes();
+        int bufSize = volume.getPolicy().getMaxObjectSizeInBytes();
         new StreamWriter(bufSize, this).write(domainName, volumeName, blobName, in, metadata);
     }
 

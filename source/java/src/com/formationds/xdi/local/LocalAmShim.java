@@ -39,7 +39,7 @@ public class LocalAmShim implements AmShim.Iface {
         Domain domain = (Domain) persister.execute(session -> session.createCriteria(Domain.class)
                 .add(Restrictions.eq("name", domainName))
                 .uniqueResult());
-        persister.create(new Volume(domain, volumeName, volumePolicy.getObjectSizeInBytes()));
+        persister.create(new Volume(domain, volumeName, volumePolicy.getMaxObjectSizeInBytes()));
     }
 
     @Override

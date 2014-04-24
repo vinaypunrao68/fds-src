@@ -6,7 +6,6 @@ package com.formationds.xdi;
 
 import com.formationds.xdi.shim.AmShim;
 import com.formationds.xdi.shim.BlobDescriptor;
-import com.formationds.xdi.shim.Uuid;
 import com.formationds.xdi.shim.VolumePolicy;
 import org.apache.thrift.protocol.TBinaryProtocol;
 import org.apache.thrift.transport.TSocket;

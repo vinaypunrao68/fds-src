@@ -97,6 +97,10 @@ class FdsnIf : public xdi::AmShimIf {
   private:
     /// Pointer to AM's data API
     FDS_NativeAPI::ptr am_api;
+
+    // TODO(Andrew): Make the context passed to
+    // the callback so that this map and global
+    // local are not needed.
     /// Mutex that manages shared access
     /// to the server
     fds_mutex          fdsnMtx;
@@ -239,6 +243,37 @@ class FdsnIf : public xdi::AmShimIf {
                  boost::shared_ptr<std::string>& blobName,
                  boost::shared_ptr<int32_t>& length,
                  boost::shared_ptr<int64_t>& offset) {
+        /*
+        BucketContext bucket_ctx("host", *volumeName, "accessid", "secretkey");
+
+        fds_verify(*length >= 0);
+        fds_verify(*offset >= 0);
+
+        fds_scoped_lock slock(fdsnMtx);
+
+        // Set async request/response handler
+        fds_uint64_t reqId = fdsnReqCount.fetch_add(1);
+        fds_verify(fdsnReqMap.count(reqId) == 0);
+        FdsnReqCtx::Ptr fdsnCtx = FdsnReqCtx::Ptr(new FdsnReqCtx(reqId));
+        fdsnReqMap[reqId] = fdsnCtx;
+
+        // Do async getobject
+        // TODO(Andrew): The error path callback maybe called
+        // in THIS thread's context...need to fix or handle that.
+        // TODO(Andrew): Pass in the request context
+        am_api->GetObject(&bucket_ctx,
+                          *volumeName,
+                          NULL,  // No get conditions
+                          *offset,
+                          *length,
+                          NULL,  // Not passing any context for the callback
+                          const_cast<char *>(bytes->c_str()),
+                          *offset,
+                          *length,
+                          *isLast,
+                          fdsn_updblob_cbfn,
+                          static_cast<void *>(&reqId));
+        */
     }
 
     void updateMetadata(const std::string& domainName,
@@ -290,6 +325,8 @@ class FdsnIf : public xdi::AmShimIf {
         PutPropertiesPtr putProps;
         putProps.reset(new PutProperties());
 
+        // TODO(Andrew): Have the higher level set the etag as metadata
+        // and don't calculate it here
         // Calculate the etag
         byte etagDigest[FdsnReqCtx::EtagGenerator::numDigestBytes];
         fdsnCtx->updateEtag(bytes->c_str(),
@@ -303,16 +340,15 @@ class FdsnIf : public xdi::AmShimIf {
         // Do async putobject
         // TODO(Andrew): The error path callback maybe called
         // in THIS thread's context...need to fix or handle that.
-        // TODO(Andrew): Do we need to request context anymore?
-        fds_bool_t lastBuf = true;
+        // TODO(Andrew): Pass in the reque
         am_api->PutObject(&bucket_ctx,
-                          *volumeName,
+                          *blobName,
                           putProps,
                           NULL,  // Not passing any context for the callback
                           const_cast<char *>(bytes->c_str()),
                           *offset,
                           *length,
-                          lastBuf,
+                          *isLast,
                           fdsn_updblob_cbfn,
                           static_cast<void *>(&reqId));
 
