@@ -92,7 +92,7 @@ public class LocalAmShim implements AmShim.Iface {
         return blobs.stream()
                 .skip(offset)
                 .limit(count)
-                .map(b -> new BlobDescriptor(b.getName(), b.getByteCount(), b.getMetadata()))
+                .map(b -> new BlobDescriptor(b.getName(), b.getByteCount(), ByteBuffer.wrap(new byte[0]), b.getMetadata()))
                 .collect(Collectors.toList());
     }
 
@@ -109,7 +109,7 @@ public class LocalAmShim implements AmShim.Iface {
     @Override
     public BlobDescriptor statBlob(String domainName, String volumeName, String blobName) throws XdiException, TException {
         Blob blob = getBlob(domainName, volumeName, blobName);
-        return new BlobDescriptor(blobName, blob.getByteCount(), blob.getMetadata());
+        return new BlobDescriptor(blobName, blob.getByteCount(), ByteBuffer.wrap(blob.getDigest()), blob.getMetadata());
     }
 
     @Override
@@ -146,12 +146,13 @@ public class LocalAmShim implements AmShim.Iface {
     }
 
     @Override
-    public void updateBlob(String domainName, String volumeName, String blobName, ByteBuffer bytes, int length, ObjectOffset objectOffset, boolean isLast) throws XdiException, TException {
+    public void updateBlob(String domainName, String volumeName, String blobName, ByteBuffer bytes, int length, ObjectOffset objectOffset, ByteBuffer digest, boolean isLast) throws XdiException, TException {
         Blob blob = getOrCreate(domainName, volumeName, blobName);
         int objectSize = blob.getVolume().getObjectSize();
         long newByteCount = Math.max(blob.getByteCount(), objectSize * objectOffset.getValue() + length);
         int blockSize = blob.getVolume().getObjectSize();
         blob.setByteCount(newByteCount);
+        blob.setDigest(digest.array());
         BlockWriter writer = new BlockWriter(i -> getOrMakeBlock(i, blob.getId(), blockSize), blockSize);
         Iterator<Block> updated = writer.update(bytes.array(), length, objectOffset.getValue() * objectSize);
         while (updated.hasNext()) {
@@ -197,7 +198,7 @@ public class LocalAmShim implements AmShim.Iface {
     private Blob getOrCreate(String domainName, String volumeName, String blobName) {
         Blob blob = getBlob(domainName, volumeName, blobName);
         if (blob == null) {
-            blob = persister.create(new Blob(getVolume(domainName, volumeName), blobName));
+            blob = persister.create(new Blob(getVolume(domainName, volumeName), blobName, new byte[0]));
         }
         return blob;
     }

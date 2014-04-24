@@ -23,7 +23,7 @@ public class PersisterTest {
                     .uniqueResult();
         });
 
-        Blob blob = persister.create(new Blob(v, "blob"));
+        Blob blob = persister.create(new Blob(v, "blob", new byte[0]));
         persister.create(new Block(blob.getId(), 0, new byte[]{1, 2}));
         persister.create(new Block(blob.getId(), 1, new byte[]{3, 4}));
 

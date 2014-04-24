@@ -8,6 +8,7 @@ import com.formationds.xdi.shim.ObjectOffset;
 
 import java.io.InputStream;
 import java.nio.ByteBuffer;
+import java.security.MessageDigest;
 import java.util.Map;
 
 public class StreamWriter {
@@ -24,15 +25,18 @@ public class StreamWriter {
         long objectOffset = 0;
         int lastBufSize = 0;
 
+        MessageDigest md = MessageDigest.getInstance("SHA-256");
+
         for (int read = in.read(buf); read != -1; read = in.read(buf)) {
-            am.updateBlob(domainName, volumeName, blobName, ByteBuffer.wrap(buf, 0, read), read, new ObjectOffset(objectOffset), false);
+            md.update(buf, 0, read);
+            am.updateBlob(domainName, volumeName, blobName, ByteBuffer.wrap(buf, 0, read), read, new ObjectOffset(objectOffset), ByteBuffer.wrap(md.digest()), false);
             lastBufSize = read;
             objectOffset++;
         }
 
         // do this until we have proper transactions
         if (lastBufSize != 0) {
-            am.updateBlob(domainName, volumeName, blobName, ByteBuffer.wrap(buf), lastBufSize, new ObjectOffset(objectOffset - 1), true);
+            am.updateBlob(domainName, volumeName, blobName, ByteBuffer.wrap(buf), lastBufSize, new ObjectOffset(objectOffset - 1), ByteBuffer.wrap(new byte[0]), true);
         }
 
         am.updateMetadata(domainName, volumeName, blobName, metadata);

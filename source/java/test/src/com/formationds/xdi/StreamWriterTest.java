@@ -35,6 +35,7 @@ public class StreamWriterTest {
                 any(ByteBuffer.class),
                 eq(4),
                 eq(new ObjectOffset(0)),
+                any(ByteBuffer.class),
                 eq(false));
 
         verify(mockAm, times(1)).updateBlob(
@@ -44,6 +45,7 @@ public class StreamWriterTest {
                 any(ByteBuffer.class),
                 eq(4),
                 eq(new ObjectOffset(1)),
+                any(ByteBuffer.class),
                 eq(false));
 
         verify(mockAm, times(1)).updateBlob(
@@ -53,6 +55,7 @@ public class StreamWriterTest {
                 any(ByteBuffer.class),
                 eq(4),
                 eq(new ObjectOffset(1)),
+                any(ByteBuffer.class),
                 eq(true));
 
         verify(mockAm, times(1)).updateMetadata(
