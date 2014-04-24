@@ -272,7 +272,7 @@ void FDS_NativeAPI::GetBucketStats(void *req_ctxt,
     FdsBlobReq *blob_req = NULL;
     LOGNORMAL << "FDS_NativeAPI::GetBucketStats for all existing buckets";
 
-    /* this request will go directly to OM, 
+    /* this request will go directly to OM,
        so not need to check if buckets are attached, etc. */
 
     blob_req = new BucketStatsReq(req_ctxt,
@@ -628,6 +628,34 @@ Error FDS_NativeAPI::sendTestBucketToOM(const std::string& bucket_name,
         err = Error(ERR_INVALID_ARG);
     }
     return err;
+}
+
+void FDS_NativeAPI::StatBlob(BucketContext *bucket_ctxt, const std::string& blobName,
+                             native::StatBlobCallbackPtr cb) {
+    fds_volid_t volId = invalid_vol_id;
+    LOGNORMAL << bucket_ctxt->bucketName
+              << " blobName " << blobName;
+
+    native::ScopedCallBack(cb.get());
+    // check if bucket is attached to this AM
+    if (storHvisor->vol_table->volumeExists(bucket_ctxt->bucketName)) {
+        volId = storHvisor->vol_table->getVolumeUUID(bucket_ctxt->bucketName);
+        fds_verify(volId != invalid_vol_id);
+    } else {
+        LOGERROR << "bucket should be here.. but missing : " << bucket_ctxt->bucketName;
+        cb->status = FDSN_StatusErrorBucketNotExists;
+        return;
+    }
+
+    StorHvVolume* vol = storHvisor->vol_table->getVolume(volId);
+    fds_verify(vol != NULL);
+    fds_uint64_t blobSize;
+    Error err = vol->vol_catalog_cache->getBlobSize(blobName, &blobSize);
+
+    if (err == ERR_OK) {
+        cb->status = FDSN_StatusOK;
+        cb->blobSize = blobSize;
+    }
 }
 
 }  // namespace fds
