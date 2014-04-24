@@ -33,7 +33,8 @@ exception XdiException {
 struct BlobDescriptor {
        1: required string name,
        2: required i64 byteCount,
-       3: required map<string, string> metadata
+       3: required binary digest,
+       4: required map<string, string> metadata
 }
 
 service AmShim {
@@ -64,7 +65,7 @@ service AmShim {
         void updateMetadata(1:string domainName, 2:string volumeName, 3:string blobName, 4:map<string, string> metadata)
              throws (1: XdiException e),
 
-        void updateBlob(1:string domainName, 2:string volumeName, 3:string blobName, 4:binary bytes, 5:i32 length, 6:ObjectOffset objectOffset, 7:bool isLast)
+        void updateBlob(1:string domainName, 2:string volumeName, 3:string blobName, 4:binary bytes, 5:i32 length, 6:ObjectOffset objectOffset, 7:binary digest, 8:bool isLast)
              throws (1: XdiException e),
 
         void deleteBlob(1:string domainName, 2:string volumeName, 3:string blobName)
