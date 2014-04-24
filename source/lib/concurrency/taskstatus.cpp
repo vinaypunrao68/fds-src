@@ -10,9 +10,7 @@ namespace atc = apache::thrift::concurrency;
 
 namespace fds { namespace concurrency {
 
-TaskStatus::TaskStatus(uint numTasks) : monitor(&mutex) {
-    numTasks = 0;
-    reset(numTasks);
+TaskStatus::TaskStatus(uint numTasks) : monitor(&mutex), numTasks(numTasks) {
 }
 
 void TaskStatus::reset(uint numTasks) {
