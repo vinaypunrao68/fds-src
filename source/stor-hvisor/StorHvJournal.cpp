@@ -460,6 +460,15 @@ StorHvJournalEntry::fbd_process_req_timeout() {
                         getCurrentDLT()->getNode(blobReq->getObjId(), txn->nodeSeq));
             }
         } else {
+            // We searched all SMs, should not happen -- either blob does not exist
+            // and we should find out about this earlier from vol catalog or
+            // SMs rejecting IO (eg. because queues are full, etc).
+            // To debug WIN-366, assert here. It still could be a case we can get out
+            // like setting more throttling on AM, etc.
+            LOGCRITICAL << "Timed out accessing all SMs for blob " << blobReq->getBlobName()
+                        << " offset " << blobReq->getBlobOffset() << " trans_id " << trans_id;
+            fds_verify(false);
+            
             storHvisor->qos_ctrl->markIODone(io);
             write_ctx = 0;
             vol->journal_tbl->releaseTransId(trans_id);

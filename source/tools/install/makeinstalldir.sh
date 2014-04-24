@@ -10,7 +10,7 @@ THISFILE=$(basename $0)
 
 externalpkgs=(
     libpcre3_8.31-2ubuntu2_amd64.deb
-    ngrep_1.45.ds2-12_amd64.deb
+
     xfsprogs_3.1.9ubuntu2_amd64.deb
     java-common_0.51_all.deb
     oracle-java8-jdk_8u5_amd64.deb
@@ -42,6 +42,8 @@ fdsrepopkgs=(
     fds-boost
     fds-leveldb
     fds-jdk-default
+    fds-python-scp
+    fds-python-paramiko
 )
 
 function getExternalPkgs() {
@@ -60,9 +62,9 @@ function getExternalPkgs() {
 function getFdsCorePkgs() {
     loginfo "copying core fds pkgs"
     (
-        cd ${pkgdir}
+        cd ${PKGDIR}
         for pkg in ${fdscorepkgs[@]} ; do
-            debfile=$(ls -lt ${pkg}*.deb | head -n1)
+            debfile=$(ls -1t ${pkg}*.deb | head -n1)
             if [[ -n $debfile ]]; then
                 loginfo "copying ${debfile}"
                 cp ${debfile} ${INSTALLDIR}
@@ -75,6 +77,7 @@ function getFdsCorePkgs() {
 
 function getFdsRepoPkgs() {
     loginfo "fetching fds pkgs from repo"
+    sudo fdspkg update
     (
         cd ${INSTALLDIR}
         for pkg in ${fdsrepopkgs[@]} ; do
@@ -91,7 +94,7 @@ function getInstallSources() {
     loginfo "copying install sources"
     ( 
         cd ${SOURCEDIR}
-        for file in *.py *.sh ; do
+        for file in *.py *.sh ../../platform/python/disk_type.py; do
             if [[ ${file} != ${THISFILE} ]]; then
                 loginfo "copying [$file] to ${INSTALLDIR}"
                 cp $file ${INSTALLDIR}
@@ -117,3 +120,4 @@ function setupInstallDir() {
 #############################################################################
 
 setupInstallDir
+#getFdsCorePkgs

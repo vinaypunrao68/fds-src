@@ -5,9 +5,28 @@ import pdb
 import optparse
 import subprocess
 import re
+import json
+import xml.etree.ElementTree as ET
 
 # Turn on debugging
 debug_on = False
+
+
+# Decode list of JSON objects string "{...} {...}"
+#
+FLAGS = re.VERBOSE | re.MULTILINE | re.DOTALL
+WHITESPACE = re.compile(r'[ \t\n\r]*', FLAGS)
+class ConcatJSONDecoder(json.JSONDecoder):
+    def decode(self, s, _w=WHITESPACE.match):
+        s_len = len(s)
+
+        objs = []
+        end = 0
+        while end != s_len:
+            obj, end = self.raw_decode(s, idx=_w(s, end).end())
+            end = _w(s, end).end()
+            objs.append(obj)
+        return objs
 
 # Disk information parse from system
 #
@@ -32,6 +51,7 @@ class Disk:
     # device size with M = 1000*1000:     2000398 MBytes (2000 GB)
     p_size  = re.compile('(\s*device size with M = 1000\*1000:\s*)([0-9+].*)(MBytes)')
     dsk_ksize = 1000
+    dsk_gsize = 1000 * 1000 * 1000
 
     p_part = re.compile('([0-9]):(.+):(.+):(.+):([a-z]*):(.+):(.+)')
     fds_part_type = 'xfs'
@@ -41,6 +61,10 @@ class Disk:
                     '\xfe\xca\xbe\xba\xfe\xca\xbe\xba\xfe\xca\xbe\xba\xfe\xca\xbe\xba'
     dsk_hdr_clrmg = '\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00' \
                     '\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+    # Save lshw result once
+    dsk_json_objs = None
+    dsk_lshw_xml  = None
 
 ## Public member functions
 ## -----------------------
@@ -67,7 +91,8 @@ class Disk:
                 break
 
         # parse disk information
-        self.__parse_with_hdparm(path, fake)
+        # self.__parse_with_hdparm(path, fake)
+        self.__parse_with_lshw(path, fake)
         self.__parse_with_parted(path, fake)
 
         # check if disk is formatted
@@ -301,6 +326,107 @@ class Disk:
                       Disk.dsk_typ_hdd)
             self.dsk_typ = Disk.dsk_typ_hdd
 
+    def __parse_with_lshw_json(self, path, fake):
+        # Parse for Disk type, capacity
+        if fake == True:
+            print "Fake not supported"
+            return
+        else:
+            if Disk.dsk_json_objs == None:
+                output = subprocess.Popen(['lshw', '-json', '-class', 'disk'],
+                                             stdout=subprocess.PIPE).stdout
+
+                # comma separated, on bare metal
+                string = '['
+                for rec in output:
+                    string = string + rec.strip()
+                string = string + ']'
+                Disk.dsk_json_objs = json.loads(string)
+
+                # non-comma separated, on VM
+                #string = ''
+                #for rec in output:
+                #   string = string + rec.strip()
+                #Disk.dsk_json_objs = json.loads(string, cls=ConcatJSONDecoder)
+
+        assert Disk.dsk_json_objs != None
+        disk_info = Disk.dsk_json_objs
+        found = 0
+        total_rec = 2
+        for rec in disk_info:
+
+            # match size
+            if rec['logicalname'] == path:
+                dbg_print('lshw found: ' + rec['logicalname'])
+                if rec['units'] == 'bytes':
+                    units = 1
+                else:
+                    units = 0
+                    print "Error: disk size unit not implemented"
+                    assert False
+                self.dsk_cap = (int(rec['size']) * units) / Disk.dsk_gsize
+                break
+        assert self.dsk_cap != 0
+
+        # match type
+        dev = re.split('/', path)
+        assert len(dev) == 3
+        fp = open('/sys/block/' + dev[2] + '/queue/rotational', 'r')
+        rotation = fp.read().strip()
+        fp.close()
+        if rotation == '0':
+            self.dsk_typ = Disk.dsk_typ_ssd
+        else:
+            self.dsk_typ = Disk.dsk_typ_hdd
+
+    ###
+    # parse using lshw and xml
+    def __parse_with_lshw(self, path, fake):
+        # Parse for Disk type, capacity
+        if fake == True:
+            print "Fake not supported"
+            return
+        else:
+            if Disk.dsk_lshw_xml == None:
+                dev_stdout = subprocess.Popen(['lshw', '-xml', '-class', 'disk'],
+                                                     stdout=subprocess.PIPE).stdout
+                Disk.dsk_lshw_xml = ET.parse(dev_stdout)
+
+        tree = Disk.dsk_lshw_xml
+        root = tree.getroot()
+        for node in root.findall('node'):
+            if node.get('id') == 'cdrom':
+                continue
+            node_logicalname = node.find('logicalname')
+            assert node_logicalname != None
+
+            if node_logicalname.text != path:
+                continue
+
+            node_size = node.find('size')
+            assert node_size != None
+
+            units = node_size.get('units')
+            if units == 'bytes':
+                self.dsk_cap = int(node_size.text) / Disk.dsk_gsize
+                break
+            else:
+                self.dsk_cap = 0
+                print 'ERROR: lshw units size not implemented'
+                assert False
+        assert self.dsk_cap != 0
+
+        # match type
+        dev = re.split('/', path)
+        assert len(dev) == 3
+        fp = open('/sys/block/' + dev[2] + '/queue/rotational', 'r')
+        rotation = fp.read().strip()
+        fp.close()
+        if rotation == '0':
+            self.dsk_typ = Disk.dsk_typ_ssd
+        else:
+            self.dsk_typ = Disk.dsk_typ_hdd
+
     def __parse_with_parted(self, path, fake):
         # Parse Disk parition type
         part_info = self.__get_disk_partition_type(path, fake)
@@ -414,17 +540,14 @@ class Disk:
     # write fds header
     def __write_fds_hdr(self, clear=False):
         fp = open(self.dsk_path, 'w')
-
-        if debug_on:
-            print 'Writing FDS Hdr to disk:' + self.dsk_path
+        dbg_print('Writing FDS Hdr to disk:' + self.dsk_path)
         if clear == False:
             hdr_val = Disk.dsk_hdr_magic
         else:
             hdr_val = Disk.dsk_hdr_clrmg
 
         hdr_s = ':'.join(x.encode('hex') for x in hdr_val)
-        if debug_on:
-            print hdr_s
+        dbg_print(hdr_s)
         fp.write(hdr_val)
 
         fp.close()
@@ -478,6 +601,8 @@ if __name__ == "__main__":
                       help = 'Mount filesystem to the partition data')
     parser.add_option('-F', '--fake', dest = 'fake', action = 'store_true',
                       help = 'Create fake device for testing')
+    parser.add_option('-p', '--print', dest = 'print_disk', action = 'store_true',
+                      help = 'Print disk information')
     parser.add_option('-D', '--debug', dest = 'debug', action = 'store_true',
                       help = 'Turn on debugging')
 
@@ -485,12 +610,17 @@ if __name__ == "__main__":
     debug_on     = options.debug
     df_output    = subprocess.Popen(['df', '/'], stdout=subprocess.PIPE).stdout
     mount_output = subprocess.Popen(['mount'], stdout=subprocess.PIPE).stdout
+    print_disk   = options.print_disk
 
     if options.device:
         disk     = Disk(options.device, options.fake, df_output)
         dev_list = [ disk ]
     else:
         dev_list = Disk.sys_disks(options.fake, df_output, mount_output)
+
+    if print_disk:
+        for disk in dev_list:
+            disk.print_disk()
 
     if options.format:
         shells = []

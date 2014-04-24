@@ -4,6 +4,8 @@ package com.formationds.demo;
  */
 
 import com.formationds.xdi.Xdi;
+import com.formationds.xdi.shim.VolumePolicy;
+import org.apache.thrift.TException;
 import org.joda.time.DateTime;
 import org.joda.time.Duration;
 
@@ -19,6 +21,24 @@ public class TransientState {
     private final ImageWriter writer;
 
     public TransientState(Duration timeToLive, Xdi xdi) {
+        try {
+            xdi.deleteVolume(Main.DEMO_DOMAIN, "Volume1");
+            xdi.deleteVolume(Main.DEMO_DOMAIN, "Volume2");
+            xdi.deleteVolume(Main.DEMO_DOMAIN, "Volume3");
+            xdi.deleteVolume(Main.DEMO_DOMAIN, "Volume4");
+        } catch (Exception e) {
+
+        }
+
+        try {
+            xdi.createVolume(Main.DEMO_DOMAIN, "Volume1", new VolumePolicy(1024 * 4));
+            xdi.createVolume(Main.DEMO_DOMAIN, "Volume2", new VolumePolicy(1024 * 4));
+            xdi.createVolume(Main.DEMO_DOMAIN, "Volume3", new VolumePolicy(1024 * 4));
+            xdi.createVolume(Main.DEMO_DOMAIN, "Volume4", new VolumePolicy(1024 * 4));
+        } catch (TException e) {
+            throw new RuntimeException(e);
+        }
+
         reader = new FdsImageReader(xdi);
         writer = new FdsImageWriter(xdi);
 

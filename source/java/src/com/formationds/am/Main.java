@@ -15,7 +15,7 @@ public class Main {
         Configuration configuration = new Configuration(args);
         NativeAm.startAm(args);
 
-        LocalAmShim am = new LocalAmShim();
+        LocalAmShim am = new LocalAmShim("local");
         am.createDomain(FDS_S3);
         Xdi xdi = new Xdi(am);
 

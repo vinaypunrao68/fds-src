@@ -2,9 +2,20 @@
  * Copyright 2014 Formation Data Systems, Inc.
  */
 #include <am-engine/handlers/responsehandler.h>
-#include <xdi/am_shim_types.h>
 #include <util/Log.h>
 #include <string>
+#include <sstream>
+
+#define XCHECKSTATUS(status)             \
+    if (status != FDSN_StatusOK) {       \
+        LOGWARN << " status:" << status; \
+        xdi::XdiException xe;            \
+        std::ostringstream oss;          \
+        oss << status;                   \
+        xe.errorCode = xdi::ErrorCode::INTERNAL_SERVER_ERROR;   \
+        xe.message = oss.str();          \
+        throw xe;                        \
+    }
 
 namespace fds {
 void ResponseHandler::ready() {
@@ -32,11 +43,7 @@ SimpleResponseHandler::SimpleResponseHandler(const std::string& name) : name(nam
 
 void SimpleResponseHandler::process() {
     LOGDEBUG << "processing callback for : " << name;
-    if (status != FDSN_StatusOK) {
-        LOGWARN << " handler:" << name
-                << " status:" << status;
-        throw xdi::XdiException();
-    }
+    XCHECKSTATUS(status);
 }
 
 SimpleResponseHandler::~SimpleResponseHandler() {
@@ -47,14 +54,14 @@ SimpleResponseHandler::~SimpleResponseHandler() {
 void PutObjectResponseHandler::process() {
 }
 
-PutObjectResponseHandler::~PutObjectResponseHandler(){
+PutObjectResponseHandler::~PutObjectResponseHandler() {
 }
 //================================================================================
 
 void GetObjectResponseHandler::process() {
 }
 
-GetObjectResponseHandler::~GetObjectResponseHandler(){
+GetObjectResponseHandler::~GetObjectResponseHandler() {
 }
 //================================================================================
 
@@ -66,7 +73,12 @@ ListBucketResponseHandler::~ListBucketResponseHandler() {
 
 //================================================================================
 
+BucketStatsResponseHandler::BucketStatsResponseHandler(
+    xdi::VolumeDescriptor& volumeDescriptor) : volumeDescriptor(volumeDescriptor) {
+}
+
 void BucketStatsResponseHandler::process() {
+    XCHECKSTATUS(status);
 }
 
 BucketStatsResponseHandler::~BucketStatsResponseHandler() {
