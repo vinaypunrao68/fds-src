@@ -20,7 +20,6 @@ user_no_style  := \
 	data_mgr.h            \
 	fds_commons_rm.h      \
 	fds_config.hpp        \
-	fds_err.h             \
 	fds_obj_cache.h       \
 	fds_placement_table.h \
 	fds_qos.h             \
