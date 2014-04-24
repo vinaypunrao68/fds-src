@@ -48,8 +48,8 @@ function makeRedisDirs() {
         mkdir -p /fds/var/redis/run
     fi
     
-    if [[ ! -f /fds/logs/redis ]] ; then
-        mkdir -p /fds/logs/redis
+    if [[ ! -f /fds/var/logs/redis ]] ; then
+        mkdir -p /fds/var/logs/redis
     fi
 }
 
