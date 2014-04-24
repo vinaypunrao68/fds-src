@@ -19,6 +19,19 @@
     }
 
 namespace fds {
+
+void ResponseHandler::call() {
+    switch (type) {
+        case HandlerType::WAITEDFOR:
+            ready(); break;
+        case HandlerType::IMMEDIATE:
+            process() ; break;
+        case HandlerType::QUEUED:
+            fds_panic("QUEUED - not implemented yet");
+            break;
+    }
+}
+
 void ResponseHandler::ready() {
     task.done();
 }
@@ -83,7 +96,7 @@ void BucketStatsResponseHandler::process() {
     volumeDescriptor.name = contents->bucket_name;
     // volumeDescriptor.uuid = 10;
     volumeDescriptor.dateCreated = util::getTimeStampMillis();
-    volumeDescriptor.policy.maxObjectSizeInBytes = 2097152;  // 2MB
+    volumeDescriptor.policy.objectSizeInBytes = 2097152;  // 2MB
 }
 
 BucketStatsResponseHandler::~BucketStatsResponseHandler() {
