@@ -36,8 +36,8 @@ public class BlockIteratorTest {
         when(am.statVolume(domainName, volumeName)).thenReturn(volumeDescriptor);
         when(am.statBlob(domainName, volumeName, blobName)).thenReturn(blobDescriptor);
 
-        when(am.getBlob(domainName, volumeName, blobName, 4, 0)).thenReturn(blocks[0]);
-        when(am.getBlob(domainName, volumeName, blobName, 3, 4)).thenReturn(blocks[1]);
+        when(am.getBlob(domainName, volumeName, blobName, 4, new ObjectOffset(0))).thenReturn(blocks[0]);
+        when(am.getBlob(domainName, volumeName, blobName, 3, new ObjectOffset(1))).thenReturn(blocks[1]);
 
         Iterator<byte[]> result = new BlockIterator(am).read(domainName, volumeName, blobName);
         List<byte[]> list = Lists.newArrayList(result);

@@ -7,12 +7,11 @@ import com.formationds.xdi.shim.*;
 import org.apache.thrift.TException;
 
 import java.io.InputStream;
-import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-public class Xdi implements AmShim.Iface {
+public class Xdi {
     private final AmShim.Iface am;
 
     public Xdi(AmShim.Iface am) {
@@ -44,30 +43,14 @@ public class Xdi implements AmShim.Iface {
     }
 
     public InputStream readStream(String domainName, String volumeName, String blobName) throws Exception {
-        Iterator<byte[]> iterator = new BlockIterator(this).read(domainName, volumeName, blobName);
+        Iterator<byte[]> iterator = new BlockIterator(am).read(domainName, volumeName, blobName);
         return new BlockStreamer(iterator);
     }
 
     public void writeStream(String domainName, String volumeName, String blobName, InputStream in, Map<String, String> metadata) throws Exception {
         VolumeDescriptor volume = statVolume(domainName, volumeName);
         int bufSize = volume.getPolicy().getMaxObjectSizeInBytes();
-        new StreamWriter(bufSize, this).write(domainName, volumeName, blobName, in, metadata);
-    }
-
-    public VolumeStatus volumeStatus(String domainName, String volumeName) throws XdiException, TException {
-        return am.volumeStatus(domainName, volumeName);
-    }
-
-    public ByteBuffer getBlob(String domainName, String volumeName, String blobName, int length, long offset) throws XdiException, TException {
-        return am.getBlob(domainName, volumeName, blobName, length, offset);
-    }
-
-    public void updateMetadata(String domainName, String volumeName, String blobName, Map<String, String> metadata) throws XdiException, TException {
-        am.updateMetadata(domainName, volumeName, blobName, metadata);
-    }
-
-    public void updateBlob(String domainName, String volumeName, String blobName, ByteBuffer bytes, int length, long offset, boolean isLast) throws XdiException, TException {
-        am.updateBlob(domainName, volumeName, blobName, bytes, length, offset, isLast);
+        new StreamWriter(bufSize, am).write(domainName, volumeName, blobName, in, metadata);
     }
 
     public void deleteBlob(String domainName, String volumeName, String blobName) throws XdiException, TException {
