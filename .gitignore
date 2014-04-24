@@ -40,6 +40,9 @@ linux-*
 /source/orch_mgr/java/gen-java/*
 /source/orch_mgr/java/target/*
 /thrift-0.9.0/compiler/cpp/src/thrift*
+/source/java/gen-java
+/source/include/xdi/*.h
+/source/include/xdi/*.cpp
 
 # All Pharos stuffs
 /source/tools/pharos/libposix-aio-0.8.1/*
