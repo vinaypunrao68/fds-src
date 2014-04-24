@@ -18,6 +18,7 @@ public class Configuration {
 
     public Configuration(String[] commandLineArgs) throws Exception {
         OptionParser parser = new OptionParser();
+        parser.allowsUnrecognizedOptions();
         parser.accepts("fds-root").withRequiredArg();
         OptionSet options = parser.parse(commandLineArgs);
         if (options.has("fds-root")) {
