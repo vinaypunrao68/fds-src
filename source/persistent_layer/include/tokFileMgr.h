@@ -78,7 +78,7 @@ class tokenFileDb {
      */
     fds_bool_t fileExists(DataTier tier,
                           fds_uint16_t disk_id,
-                          fds_token_id tokId) const;
+                          fds_token_id tokId);
 
     /**
      * Handle notification that garbage collection will start for a given
@@ -144,7 +144,7 @@ class tokenFileDb {
                                 DataTier tier);
 
  private:
-    fds::fds_mutex *tokenFileDbMutex;
+    fds::fds_mutex tokenFileDbMutex;
     std::unordered_map<std::string, FilePersisDataIO *> tokenFileTbl;
 
     /**
