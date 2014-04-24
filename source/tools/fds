@@ -170,7 +170,12 @@ function getAppPid() {
 
     if [[ $name == "om" ]]; then
         pid=$(pgrep orchMgr)
-        if [[ -n $pid ]] ; then 
+        if [[ -n $pid ]] ; then
+            pid=$(pgrep -P $pid 2>/dev/null)
+        fi
+    elif [[ $name == "am" ]]; then
+        pid=$(pgrep AMAgent)
+        if [[ -n $pid ]] ; then
             pid=$(pgrep -P $pid 2>/dev/null)
         fi
     else

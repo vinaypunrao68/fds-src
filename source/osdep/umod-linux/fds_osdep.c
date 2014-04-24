@@ -94,8 +94,9 @@ fds_spawn(char *const argv[], int daemonize)
     dup(fd); // will be 1
     dup(fd); // will be 2
 
+
     if (daemonize) {
-        res = daemon(0, 1);
+        res = daemon(1, 1);
         if (res != 0) {
             printf("Fatal error, can't daemonize %s\n", argv[0]);
             abort();
