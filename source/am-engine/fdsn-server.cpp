@@ -337,6 +337,11 @@ class FdsnIf : public xdi::AmShimIf {
     void deleteBlob(boost::shared_ptr<std::string>& domainName,
                     boost::shared_ptr<std::string>& volumeName,
                     boost::shared_ptr<std::string>& blobName) {
+        BucketContext bucket_ctx("host", *volumeName, "accessid", "secretkey");
+        SimpleResponseHandler handler(__func__);
+        am_api->DeleteObject(&bucket_ctx, blobName,NULL, fn_ResponseHandler, &handler);
+        handler.wait();
+        handler.process();
     }
 };
 
