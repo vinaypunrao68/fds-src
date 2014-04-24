@@ -2,7 +2,7 @@ namespace cpp fds.xdi
 namespace java com.formationds.xdi.shim
 
 struct VolumePolicy {
-       1: required i32 objectSizeInBytes
+       1: required i32 maxObjectSizeInBytes
 }
 
 struct VolumeDescriptor {
