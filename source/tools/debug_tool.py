@@ -292,7 +292,7 @@ class DebugBundle(object):
                 ip = self._config.nodes[node]['ip']
                 host_cmd = ['host ' + self._config.nodes[node]['ip']]
                 ip_out = subprocess.check_output(host_cmd, shell=True)
-                res = re.match('.* has address (\d{1,3}.\d{1,3}.\d{1,3}.\d{1,3})', ip_out)
+                res = re.match(r'.* has address (\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})', ip_out)
                 # Assume that if the regex doesn't match that it is already an ip
                 if res is not None:
                     ip = res.group(1)
