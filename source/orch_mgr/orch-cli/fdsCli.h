@@ -19,7 +19,7 @@
 #include <fds_types.h>
 #include <fdsp/FDSP_types.h>
 #include <fds_config.hpp>
-#include <fds_err.h>
+#include <fds_error.h>
 #include <util/Log.h>
 #include <fds_process.h>
 #include <NetSession.h>

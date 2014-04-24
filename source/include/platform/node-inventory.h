@@ -6,7 +6,7 @@
 
 #include <string>
 #include <boost/shared_ptr.hpp>
-#include <fds_err.h>
+#include <fds_error.h>
 #include <fds_resource.h>
 #include <fds_module.h>
 #include <platform/platform-rpc.h>

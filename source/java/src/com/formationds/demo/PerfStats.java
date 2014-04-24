@@ -25,8 +25,8 @@ public class PerfStats implements RequestHandler {
         Counts writeCounts = state.consumeWriteCounts();
 
         JSONArray array = new JSONArray()
-                .put(makeSummary(readCounts, "Read performance", "Reads/second"))
-                .put(makeSummary(writeCounts, "Write performance", "Writes/second"));
+                .put(makeSummary(readCounts, "Read performance", "Images read"))
+                .put(makeSummary(writeCounts, "Write performance", "Images written"));
 
         return new JsonResource(array);
     }

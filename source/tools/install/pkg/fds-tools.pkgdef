@@ -1,16 +1,13 @@
 package: fds-tools
-version: 0.1
+version: 0.2
 description: set of tools for fds to run
 
 depends: 
   - fds-systemdir
   - fds-systemconf
-  - ngrep
 
 files:
   - dest: /fds/sbin
     src:
       - ../../../Build/linux-x86_64.debug/bin/configdbtool
-      - ../../../tools/fdstrace
-      - ../../../tools/fdstest
       - redis.sh

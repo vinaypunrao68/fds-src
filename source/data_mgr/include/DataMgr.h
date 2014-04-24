@@ -9,7 +9,7 @@
 #ifndef SOURCE_DATA_MGR_DATAMGR_H_
 #define SOURCE_DATA_MGR_DATAMGR_H_
 
-#include <fds_err.h>
+#include <fds_error.h>
 #include <fds_types.h>
 #include <fds_volume.h>
 #include <dm-platform.h>

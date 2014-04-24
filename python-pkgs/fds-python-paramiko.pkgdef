@@ -1,0 +1,8 @@
+package: fds-python-paramiko
+version: 1.10.1
+description: python paramiko package
+
+files:
+  - dest: /usr/lib/python2.7/dist-packages/paramiko
+    src: "`find /usr/lib/python2.7/dist-packages/paramiko`"
+    tree-base: /usr/lib/python2.7/dist-packages/paramiko

@@ -8,11 +8,21 @@ import org.hibernate.SessionFactory;
 import org.hibernate.cfg.AnnotationConfiguration;
 import org.hibernate.criterion.Restrictions;
 
+import java.io.File;
+
 public class Persister {
 
     private final SessionFactory sessionFactory;
 
     public Persister(String memoryDbName) {
+        this("jdbc:h2:mem:" + memoryDbName, false);
+    }
+
+    public Persister(File diskLocation) {
+        this("jdbc:h2:" + diskLocation.getAbsolutePath(), false);
+    }
+
+    private Persister(String jdbcUrl, boolean unused) {
         AnnotationConfiguration config = new AnnotationConfiguration()
                 .addAnnotatedClass(Domain.class)
                 .addAnnotatedClass(Volume.class)
@@ -20,12 +30,13 @@ public class Persister {
                 .addAnnotatedClass(Block.class);
 
         config.setProperty("hibernate.connection.driver_class", "org.h2.Driver");
-        config.setProperty("hibernate.connection.url", "jdbc:h2:mem:" + memoryDbName);
+        config.setProperty("hibernate.connection.url", jdbcUrl);
         config.setProperty("hibernate.dialect", "org.hibernate.dialect.H2Dialect");
         config.setProperty("hibernate.connection.pool_size", "1");
         config.setProperty("hibernate.show_sql", "false");
         config.setProperty("hibernate.hbm2ddl.auto", "create");
         sessionFactory = config.buildSessionFactory();
+
     }
 
     public <T> T execute(Transaction<T> transaction) {

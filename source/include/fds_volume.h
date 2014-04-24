@@ -14,7 +14,7 @@
 #include <string>
 
 #include <fds_types.h>
-#include <fds_err.h>
+#include <fds_error.h>
 #include <fds_assert.h>
 #include <fdsp/FDSP_types.h>
 #include <boost/thread/thread.hpp>

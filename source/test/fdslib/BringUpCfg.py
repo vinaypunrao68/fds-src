@@ -163,6 +163,7 @@ class FdsNodeConfig(FdsConfig):
         self.nd_rmt_agent.ssh_exec('(cd %s && rm core *.core); ' % bin_dir +
             '(cd %s && rm -r logs stats); ' % var_dir +
             '(cd /corefiles && rm *.core); '  +
+            '(cd %s/core && rm *.core); ' % var_dir +
             '(cd %s && ./fds clean -i); ' % tools_dir +
             '(cd %s && rm -f hdd-*/* && rm -f ssd-*/*)' % dev_dir, wait_compl=True)
 

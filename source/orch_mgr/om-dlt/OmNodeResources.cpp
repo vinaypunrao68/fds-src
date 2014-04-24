@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <vector>
 #include <string>
-#include <fds_err.h>
+#include <fds_error.h>
 #include <OmVolume.h>
 #include <OmResources.h>
 #include <OmConstants.h>

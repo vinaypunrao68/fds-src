@@ -1,35 +1,8 @@
 #ifndef SOURCE_FDS_NATIVE_API_H_
 #define SOURCE_FDS_NATIVE_API_H_
 
-/* Only include what we need to avoid un-needed dependencies. */
-/*
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <strings.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <ifaddrs.h>
-#include <arpa/inet.h>
-#include <pthread.h>
-#include <fdsp/FDSP.h>
-#include <fds_volume.h>
-*/
 #include <fds_types.h>
-#include <fds_err.h>
-/*
-#include <unistd.h>
-#include <assert.h>
-#include <iostream>
-#include <Ice/Ice.h>
-#include <util/Log.h>
-#include <concurrency/Mutex.h>
-#include <concurrency/RwLock.h>
-
-#include <utility>
-#include <atomic>
-*/
+#include <fds_error.h>
 #include <list>
 
 /* Put Bucket Policy and Get Stats use normalized values (between 0 and 100) for 
@@ -88,90 +61,6 @@ class QosParams {
     }
   ~QosParams() {}
 };
-
-typedef enum
-{
-    FDSN_StatusOK                                              ,
-    FDSN_StatusCreated                                         ,
-
-    /**
-     * Errors that prevent the S3 request from being issued or response from
-     * being read
-     **/
-    FDSN_StatusInternalError                                   ,
-    FDSN_StatusOutOfMemory                                     ,
-    FDSN_StatusInterrupted                                     ,
-    FDSN_StatusInvalidBucketNameTooLong                        ,
-    FDSN_StatusInvalidBucketNameFirstCharacter                 ,
-    FDSN_StatusInvalidBucketNameCharacter                      ,
-    FDSN_StatusInvalidBucketNameCharacterSequence              ,
-    FDSN_StatusInvalidBucketNameTooShort                       ,
-    FDSN_StatusInvalidBucketNameDotQuadNotation                ,
-    FDSN_StatusQueryParamsTooLong                              ,
-    FDSN_StatusFailedToInitializeRequest                       ,
-    FDSN_StatusMetaDataHeadersTooLong                          ,
-    FDSN_StatusBadMetaData                                     ,
-    FDSN_StatusBadContentType                                  ,
-
-    FDSN_StatusContentTypeTooLong                              ,
-    FDSN_StatusBadMD5                                          ,
-    FDSN_StatusMD5TooLong                                      ,
-    FDSN_StatusBadCacheControl                                 ,
-    FDSN_StatusCacheControlTooLong                             ,
-    FDSN_StatusBadContentDispositionFilename                   ,
-    FDSN_StatusContentDispositionFilenameTooLong               ,
-    FDSN_StatusBadContentEncoding                              ,
-    FDSN_StatusContentEncodingTooLong                          ,
-    FDSN_StatusBadIfMatchETag                                  ,
-    FDSN_StatusIfMatchETagTooLong                              ,
-    FDSN_StatusBadIfNotMatchETag                               ,
-    FDSN_StatusIfNotMatchETagTooLong                           ,
-    FDSN_StatusHeadersTooLong                                  ,
-    FDSN_StatusKeyTooLong                                      ,
-    FDSN_StatusUriTooLong                                      ,
-    FDSN_StatusXmlParseFailure                                 ,
-    FDSN_StatusEmailAddressTooLong                             ,
-    FDSN_StatusUserIdTooLong                                   ,
-    FDSN_StatusUserDisplayNameTooLong                          ,
-    FDSN_StatusGroupUriTooLong                                 ,
-    FDSN_StatusPermissionTooLong                               ,
-    FDSN_StatusTargetBucketTooLong                             ,
-    FDSN_StatusTargetPrefixTooLong                             ,
-    FDSN_StatusTooManyGrants                                   ,
-    FDSN_StatusBadGrantee                                      ,
-    FDSN_StatusBadPermission                                   ,
-    FDSN_StatusXmlDocumentTooLarge                             ,
-    FDSN_StatusNameLookupError                                 ,
-    FDSN_StatusFailedToConnect                                 ,
-    FDSN_StatusServerFailedVerification                        ,
-    FDSN_StatusConnectionFailed                                ,
-    FDSN_StatusAbortedByCallback                               ,
-    FDSN_StatusRequestTimedOut                                 ,
-    FDSN_StatusEntityEmpty                                     ,
-    FDSN_StatusEntityDoesNotExist                              ,
-    /**
-     * Errors from the S3 service
-     **/
-    FDSN_StatusErrorAccessDenied                               ,
-    FDSN_StatusErrorAccountProblem                             ,
-    FDSN_StatusErrorAmbiguousGrantByEmailAddress               ,
-    FDSN_StatusErrorBadDigest                                  ,
-    FDSN_StatusErrorBucketAlreadyExists                        ,
-    FDSN_StatusErrorBucketNotExists                            ,
-    FDSN_StatusErrorBucketAlreadyOwnedByYou                    ,
-    FDSN_StatusErrorBucketNotEmpty                             ,
-    FDSN_StatusErrorCredentialsNotSupported                    ,
-    FDSN_StatusErrorCrossLocationLoggingProhibited             ,
-    FDSN_StatusErrorEntityTooSmall                             ,
-    FDSN_StatusErrorEntityTooLarge                             ,
-    
-    FDSN_StatusErrorMissingContentLength                       ,
-    
-    /* keep this as the last*/
-    FDSN_StatusErrorUnknown
-} FDSN_Status;
-
-std::ostream& operator<<(std::ostream& os, FDSN_Status status);
 
 class ListBucketContents {
 public:

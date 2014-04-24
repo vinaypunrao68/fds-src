@@ -6,7 +6,7 @@
 #include <sys/types.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include <fds_err.h>
+#include <fds_error.h>
 
 namespace diskio {
 

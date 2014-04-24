@@ -19,22 +19,6 @@ namespace fds {
 /// Global singleton server object
 FdsnServer gl_FdsnServer("Global FDSN Server");
 
-static int
-fdsn_updblob_cbfn(void *reqContext, fds_uint64_t bufferSize, fds_off_t offset,
-                  char *buffer, void *callbackData, FDSN_Status status,
-                  ErrorDetails* errDetails) {
-    LOGCRITICAL << "Got a update blob callback!";
-
-    gl_FdsnServer.notifyCallback(0);
-
-    if (status != FDSN_StatusOK) {
-        xdi::XdiException fdsE;
-        throw fdsE;
-    }
-
-    return 0;
-}
-
 /**
  * Tracks the progress of a single FDSN request
  */
@@ -79,10 +63,31 @@ class FdsnReqCtx {
     void receivedAck() {
         fdsnAckCount++;
     }
+    FDSN_Status getStatus() const {
+        return fdsnStatus;
+    }
+    void setStatus(FDSN_Status status) {
+        fdsnStatus = status;
+    }
     FdsConditionPtr getCv() {
         return fdsnCv;
     }
 };
+
+static int
+fdsn_updblob_cbfn(void *reqContext, fds_uint64_t bufferSize, fds_off_t offset,
+                  char *buffer, void *callbackData, FDSN_Status status,
+                  ErrorDetails* errDetails) {
+    fds_uint64_t reqId = *(static_cast<fds_uint64_t *>(callbackData));
+    LOGDEBUG << "Received FDSN put() callback for req ID " << reqId
+             << " with data at offset " << offset << " of length " << bufferSize
+             << " and result " << status;
+
+    // Signal the waiting request that the callback
+    // has been received
+    gl_FdsnServer.notifyCallback(reqId, status);
+    return 0;
+}
 
 /**
  * FDSN interface server class. Provides handlers for each
@@ -114,11 +119,13 @@ class FdsnIf : public xdi::AmShimIf {
      * Notifies a waiting thread that a callback
      * has been received for a specific request ID
      */
-    void notifyCallback(fds_uint64_t reqId) {
+    void notifyCallback(fds_uint64_t reqId,
+                        FDSN_Status  status) {
         fds_scoped_lock slock(fdsnMtx);
         fds_verify(fdsnReqMap.count(reqId) > 0);
         FdsnReqCtx::Ptr fdsnCtx = fdsnReqMap[reqId];
         fdsnCtx->receivedAck();
+        fdsnCtx->setStatus(status);
         fdsnCtx->getCv()->notify_one();
     }
 
@@ -127,7 +134,7 @@ class FdsnIf : public xdi::AmShimIf {
                       const xdi::VolumePolicy& volumePolicy) {
     }
 
-    void createVolume(boost::shared_ptr<std::string>& domainName,  // NOLINT
+    void createVolume(boost::shared_ptr<std::string>& domainName,
                       boost::shared_ptr<std::string>& volumeName,
                       boost::shared_ptr<xdi::VolumePolicy>& volumePolicy) {
         BucketContext bucket_ctx("host", *volumeName, "accessid", "secretkey");
@@ -146,7 +153,7 @@ class FdsnIf : public xdi::AmShimIf {
                       const std::string& volumeName) {
     }
 
-    void deleteVolume(boost::shared_ptr<std::string>& domainName,  // NOLINT
+    void deleteVolume(boost::shared_ptr<std::string>& domainName,
                       boost::shared_ptr<std::string>& volumeName) {
         BucketContext bucket_ctx("host", *volumeName, "accessid", "secretkey");
 
@@ -159,14 +166,19 @@ class FdsnIf : public xdi::AmShimIf {
         handler.process();
     }
 
-    void statVolume(xdi::VolumeDescriptor& _return,  // NOLINT
+    void statVolume(xdi::VolumeDescriptor& _return,
                     const std::string& domainName,
                     const std::string& volumeName) {
     }
 
-    void statVolume(xdi::VolumeDescriptor& _return,  // NOLINT
+    void statVolume(xdi::VolumeDescriptor& _return,
                     boost::shared_ptr<std::string>& domainName,
                     boost::shared_ptr<std::string>& volumeName) {
+        BucketContext bucket_ctx("host", *volumeName, "accessid", "secretkey");
+        BucketStatsResponseHandler handler(_return);
+        am_api->GetBucketStats(&bucket_ctx, fn_BucketStatsHandler, &handler);
+        handler.wait();
+        handler.process();
     }
 
     void listVolumes(std::vector<xdi::VolumeDescriptor> & _return,
@@ -177,12 +189,12 @@ class FdsnIf : public xdi::AmShimIf {
                      boost::shared_ptr<std::string>& domainName) {
     }
 
-    void volumeStatus(xdi::VolumeStatus& _return,  // NOLINT
+    void volumeStatus(xdi::VolumeStatus& _return,
                       const std::string& domainName,
                       const std::string& volumeName) {
     }
 
-    void volumeStatus(xdi::VolumeStatus& _return,  // NOLINT
+    void volumeStatus(xdi::VolumeStatus& _return,
                       boost::shared_ptr<std::string>& domainName,
                       boost::shared_ptr<std::string>& volumeName) {
     }
@@ -201,19 +213,19 @@ class FdsnIf : public xdi::AmShimIf {
                         boost::shared_ptr<int64_t>& offset) {
     }
 
-    void statBlob(xdi::BlobDescriptor& _return,  // NOLINT
+    void statBlob(xdi::BlobDescriptor& _return,
                   const std::string& domainName,
                   const std::string& volumeName,
                   const std::string& blobName) {
     }
 
-    void statBlob(xdi::BlobDescriptor& _return,  // NOLINT
+    void statBlob(xdi::BlobDescriptor& _return,
                   boost::shared_ptr<std::string>& domainName,
                   boost::shared_ptr<std::string>& volumeName,
                   boost::shared_ptr<std::string>& blobName) {
     }
 
-    void getBlob(std::string& _return,  // NOLINT
+    void getBlob(std::string& _return,
                  const std::string& domainName,
                  const std::string& volumeName,
                  const std::string& blobName,
@@ -221,7 +233,7 @@ class FdsnIf : public xdi::AmShimIf {
                  const int64_t offset) {
     }
 
-    void getBlob(std::string& _return,  // NOLINT
+    void getBlob(std::string& _return,
                  boost::shared_ptr<std::string>& domainName,
                  boost::shared_ptr<std::string>& volumeName,
                  boost::shared_ptr<std::string>& blobName,
@@ -229,31 +241,15 @@ class FdsnIf : public xdi::AmShimIf {
                  boost::shared_ptr<int64_t>& offset) {
     }
 
-    void startBlobTx(xdi::Uuid& _return,  // NOLINT
-                     const std::string& domainName,
-                     const std::string& volumeName,
-                     const std::string& blobName) {
-    }
-
-    void startBlobTx(xdi::Uuid& _return,  // NOLINT
-                     boost::shared_ptr<std::string>& domainName,
-                     boost::shared_ptr<std::string>& volumeName,
-                     boost::shared_ptr<std::string>& blobName) {
-        _return.high = fds_get_uuid64(*volumeName);
-        _return.low  = fds_get_uuid64(*blobName);
-    }
-
     void updateMetadata(const std::string& domainName,
                         const std::string& volumeName,
                         const std::string& blobName,
-                        const xdi::Uuid& txUuid,
                         const std::map<std::string, std::string> & metadata) {
     }
 
-    void updateMetadata(boost::shared_ptr<std::string>& domainName,  // NOLINT
+    void updateMetadata(boost::shared_ptr<std::string>& domainName,
                         boost::shared_ptr<std::string>& volumeName,
                         boost::shared_ptr<std::string>& blobName,
-                        boost::shared_ptr<xdi::Uuid>& txUuid,
                         boost::shared_ptr<
                             std::map<std::string, std::string> >& metadata) {
     }
@@ -261,19 +257,19 @@ class FdsnIf : public xdi::AmShimIf {
     void updateBlob(const std::string& domainName,
                     const std::string& volumeName,
                     const std::string& blobName,
-                    const xdi::Uuid& txUuid,
                     const std::string& bytes,
                     const int32_t length,
-                    const int64_t offset) {
+                    const int64_t offset,
+                    const bool isLast) {
     }
 
-    void updateBlob(boost::shared_ptr<std::string>& domainName,  // NOLINT
+    void updateBlob(boost::shared_ptr<std::string>& domainName,
                     boost::shared_ptr<std::string>& volumeName,
                     boost::shared_ptr<std::string>& blobName,
-                    boost::shared_ptr<xdi::Uuid>& txUuid,
                     boost::shared_ptr<std::string>& bytes,
                     boost::shared_ptr<int32_t>& length,
-                    boost::shared_ptr<int64_t>& offset) {
+                    boost::shared_ptr<int64_t>& offset,
+                    boost::shared_ptr<bool>& isLast) {
         BucketContext bucket_ctx("host", *volumeName, "accessid", "secretkey");
 
         fds_verify(*length >= 0);
@@ -297,7 +293,7 @@ class FdsnIf : public xdi::AmShimIf {
         // Calculate the etag
         byte etagDigest[FdsnReqCtx::EtagGenerator::numDigestBytes];
         fdsnCtx->updateEtag(bytes->c_str(),
-                           *length);
+                            *length);
         fdsnCtx->finishEtag(etagDigest);
         // Get a hex string for the etag
         putProps->md5 = ObjectID::ToHex(etagDigest,
@@ -318,23 +314,19 @@ class FdsnIf : public xdi::AmShimIf {
                           *length,
                           lastBuf,
                           fdsn_updblob_cbfn,
-                          static_cast<void *>(this));
+                          static_cast<void *>(&reqId));
 
         // Wait for a signal from the callback thread
         while (fdsnCtx->isDone() == false) {
-            LOGDEBUG << "Update blob " << *blobName
-                     << " and waiting with lock";
             fdsnCtx->getCv()->wait(slock.boost());
-            LOGDEBUG << "Update blob " << *blobName << " and awake!";
         }
-        LOGDEBUG << "Update blob " << *blobName << " and done!";
         fdsnReqMap.erase(reqId);
-    }
 
-    void commit(const xdi::Uuid& txId) {
-    }
-
-    void commit(boost::shared_ptr<xdi::Uuid>& txId) {  // NOLINT
+        // Throw an exception if we didn't get an OK response
+        if (fdsnCtx->getStatus() != FDSN_StatusOK) {
+            xdi::XdiException fdsE;
+            throw fdsE;
+        }
     }
 
     void deleteBlob(const std::string& domainName,
@@ -342,9 +334,14 @@ class FdsnIf : public xdi::AmShimIf {
                     const std::string& blobName) {
     }
 
-    void deleteBlob(boost::shared_ptr<std::string>& domainName,  // NOLINT
+    void deleteBlob(boost::shared_ptr<std::string>& domainName,
                     boost::shared_ptr<std::string>& volumeName,
                     boost::shared_ptr<std::string>& blobName) {
+        BucketContext bucket_ctx("host", *volumeName, "accessid", "secretkey");
+        SimpleResponseHandler handler(__func__);
+        am_api->DeleteObject(&bucket_ctx, *blobName, NULL, fn_ResponseHandler, &handler);
+        handler.wait();
+        handler.process();
     }
 };
 
@@ -405,10 +402,10 @@ FdsnServer::init_server(FDS_NativeAPI::ptr api) {
         LOGNORMAL << "Starting the FDSN server...";
         listen_thread.reset(new boost::thread(&xdi_ats::TThreadedServer::serve,
                                               server.get()));
-      } catch(const xdi_att::TTransportException& e) {
-          LOGERROR << "unable to start FDSN server : " << e.what();
-          fds_panic("Unable to start FDSN server...bailing out");
-      }
+    } catch(const xdi_att::TTransportException& e) {
+        LOGERROR << "unable to start FDSN server : " << e.what();
+        fds_panic("Unable to start FDSN server...bailing out");
+    }
 }
 
 void
@@ -418,7 +415,8 @@ FdsnServer::deinit_server() {
 }
 
 void
-FdsnServer::notifyCallback(fds_uint64_t reqId) {
-    fdsnInterface->notifyCallback(reqId);
+FdsnServer::notifyCallback(fds_uint64_t reqId,
+                           FDSN_Status  status) {
+    fdsnInterface->notifyCallback(reqId, status);
 }
 }  // namespace fds
