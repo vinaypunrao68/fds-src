@@ -35,12 +35,18 @@ public class SmokeTest {
         int maxObjSize = 2 * 1024 * 1024;
 
         System.out.println("Creating object 'someBytes.bin', size: 8192 bytes");
-        client.updateBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME, ByteBuffer.wrap(new byte[maxObjSize]), maxObjSize, 0l, false);
-        client.updateBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME, ByteBuffer.wrap(new byte[maxObjSize]), maxObjSize, maxObjSize, true);
+        int offCount = 0;
+        for (offCount = 0; offCount < 10; offCount++) {
+            client.updateBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME,
+                              ByteBuffer.wrap(new byte[maxObjSize]), maxObjSize,
+                              offCount * maxObjSize, false);
+        }
+        client.updateBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME,
+                          ByteBuffer.wrap(new byte[maxObjSize], 0, 0), 0, 0, true);
 
-        System.out.println("Writing arbitrary length stream, size: a few bytes");
-        InputStream inputStream = IOUtils.toInputStream("hello, world!");
-        new StreamWriter(16, client).write(DOMAIN_NAME, VOLUME_NAME, "stream.bin", inputStream, new HashMap<>());
+        // System.out.println("Writing arbitrary length stream, size: a few bytes");
+        // InputStream inputStream = IOUtils.toInputStream("hello, world!");
+        // new StreamWriter(maxObjSize, client).write(DOMAIN_NAME, VOLUME_NAME, "stream.bin", inputStream, new HashMap<>());
 
         // System.out.println("Deleting object 'someBytes.bin'");
         // client.deleteBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME);
