@@ -198,9 +198,7 @@ class FdsAMConfig(FdsConfig):
     # Required am_connect_node()
     #
     def am_start_service(self):
-        cmd = (' --fds-root=%s --node-name=%s' %
-               (self.nd_am_node.nd_conf_dict['fds_root'],
-                self.nd_conf_dict['am-name']))
+        cmd = ' --fds-root=%s' % self.nd_am_node.nd_conf_dict['fds_root']
 
         self.nd_am_node.nd_rmt_agent.ssh_exec_fds('AMAgent' + cmd)
 

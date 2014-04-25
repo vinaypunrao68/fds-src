@@ -6,11 +6,10 @@ if [[ $EUID != 0 ]] ; then
     exit 
 fi
 
-
 # check if the user can resolve the name
 if [[ -z $(dig +short coke.formationds.com) ]]; then
-    echo "[reposetup] : unable to resolve coke.fds .. Are you inside the fds network ??"
-    exit
+    echo "[reposetup] : unable to resolve coke.formationds.com .. Are you inside the fds network ??"
+    exit 100
 fi
 
 REPOFILE=/etc/apt/sources.list.d/fds.list

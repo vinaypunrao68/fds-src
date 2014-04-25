@@ -187,6 +187,6 @@ class PlatDataPathResp : public FDSP_DataPathRespIf
     Platform     *plf_mgr;
 };
 
-};  // namespace fds
+}  // namespace fds
 
 #endif  // SOURCE_INCLUDE_PLATFORM_PLATFORM_LIB_H_

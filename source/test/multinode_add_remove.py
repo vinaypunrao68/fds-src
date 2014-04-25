@@ -30,6 +30,16 @@ if __name__ == '__main__':
     # run some io
     # (TODO: Rao) Change to some constant io
     io_proc = subprocess.Popen(['/home/nbayyana/bin/uploads3.sh'])
+        # (TODO: Rao) Change to some constant io
+    # io_proc = subprocess.Popen(['python', 'fds-primitive-smoke.py', '--up', 'false',
+    #                             '--down', 'false',
+    #                             '--smoke_test', 'true',
+    #                             '--put_only', 'true',
+    #                             '--thread', '1',
+    #                             '--am_ip', '127.0.0.1',
+    #                             '--data_set', '/home/nbayyana/temp/skinet2'])
+    # if io_proc.wait() is not 0:
+    #     raise Exception('fds-primitive-smoke failed')
     
     time.sleep(2)
 

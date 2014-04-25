@@ -227,6 +227,15 @@ class FdsnIf : public xdi::AmShimIf {
                   boost::shared_ptr<std::string>& domainName,
                   boost::shared_ptr<std::string>& volumeName,
                   boost::shared_ptr<std::string>& blobName) {
+        StatBlobResponseHandler* handler = new StatBlobResponseHandler();
+        handler->blobDescriptor = &_return;
+
+        native::StatBlobCallbackPtr cb(handler);
+        am_api->StatBlob(*volumeName, *blobName, cb);
+        LOGDEBUG << "waiting for statblob";
+        handler->wait();
+        LOGDEBUG << "processing statblob";
+        handler->process();
     }
 
     void getBlob(std::string& _return,

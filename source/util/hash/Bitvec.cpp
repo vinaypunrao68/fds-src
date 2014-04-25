@@ -226,9 +226,9 @@ void lshift8 ( void * blob, int nbytes, int c )
   for(int i = nbytes-1; i >= 0; i--)
   {
     uint8_t a = k[i];
-    uint8_t b = (i == 0) ? 0 : k[i-1];
+    uint8_t nb = (i == 0) ? 0 : k[i-1];
 
-    k[i] = (a << c) | (b >> (8-c));
+    k[i] = (a << c) | (nb >> (8-c));
   }
 }
 
@@ -263,9 +263,9 @@ void lshift32 ( void * blob, int len, int c )
   for(int i = ndwords-1; i >= 0; i--)
   {
     uint32_t a = k[i];
-    uint32_t b = (i == 0) ? 0 : k[i-1];
+    uint32_t nb = (i == 0) ? 0 : k[i-1];
 
-    k[i] = (a << c) | (b >> (32-c));
+    k[i] = (a << c) | (nb >> (32-c));
   }
 }
 
@@ -305,9 +305,9 @@ void rshift8 ( void * blob, int nbytes, int c )
   for(int i = 0; i < nbytes; i++)
   {
     uint8_t a = (i == nbytes-1) ? 0 : k[i+1];
-    uint8_t b = k[i];
+    uint8_t nb = k[i];
 
-    k[i] = (a << (8-c) ) | (b >> c);
+    k[i] = (a << (8-c) ) | (nb >> c);
   }
 }
 
@@ -342,9 +342,9 @@ void rshift32 ( void * blob, int len, int c )
   for(int i = 0; i < ndwords; i++)
   {
     uint32_t a = (i == ndwords-1) ? 0 : k[i+1];
-    uint32_t b = k[i];
+    uint32_t nb = k[i];
 
-    k[i] = (a << (32-c) ) | (b >> c);
+    k[i] = (a << (32-c) ) | (nb >> c);
   }
 }
 
@@ -396,9 +396,9 @@ void lrot8 ( void * blob, int len, int c )
   for(int i = nbytes-1; i >= 0; i--)
   {
     uint8_t a = k[i];
-    uint8_t b = (i == 0) ? t : k[i-1];
+    uint8_t nb = (i == 0) ? t : k[i-1];
 
-    k[i] = (a << c) | (b >> (8-c));
+    k[i] = (a << c) | (nb >> (8-c));
   }
 }
 
@@ -437,9 +437,9 @@ void lrot32 ( void * blob, int len, int c )
   for(int i = ndwords-1; i >= 0; i--)
   {
     uint32_t a = k[i];
-    uint32_t b = (i == 0) ? t : k[i-1];
+    uint32_t nb = (i == 0) ? t : k[i-1];
 
-    k[i] = (a << c) | (b >> (32-c));
+    k[i] = (a << c) | (nb >> (32-c));
   }
 }
 
@@ -493,9 +493,9 @@ void rrot8 ( void * blob, int len, int c )
   for(int i = 0; i < nbytes; i++)
   {
     uint8_t a = (i == nbytes-1) ? t : k[i+1];
-    uint8_t b = k[i];
+    uint8_t nb = k[i];
 
-    k[i] = (a << (8-c)) | (b >> c);
+    k[i] = (a << (8-c)) | (nb >> c);
   }
 }
 
@@ -536,9 +536,9 @@ void rrot32 ( void * blob, int len, int c )
   for(int i = 0; i < ndwords; i++)
   {
     uint32_t a = (i == ndwords-1) ? t : k[i+1];
-    uint32_t b = k[i];
+    uint32_t nb = k[i];
 
-    k[i] = (a << (32-c)) | (b >> c);
+    k[i] = (a << (32-c)) | (nb >> c);
   }
 }
 

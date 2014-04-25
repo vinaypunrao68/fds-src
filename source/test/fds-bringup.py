@@ -55,7 +55,7 @@ if __name__ == '__main__':
     # shutdown
     if options.clus_down:
         for n in nodes:
-            n.nd_cleanup_daemons()
+            n.nd_cleanup_daemons_with_fdsroot(fds_root='')
 
     # cleanup
     if options.clus_clean:

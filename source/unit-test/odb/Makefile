@@ -7,12 +7,19 @@ user_install_loc  := test
 user_incl_dir     := .. $(topdir)/lib
 user_cpp_flags    :=
 user_fds_so_libs  :=
-user_fds_ar_libs  := fds-odb fds-thread fds-fdsp fds-hash fds-lib
+user_fds_ar_libs  := \
+	fds-odb \
+	fds-thread \
+	fds-fdsp \
+	fds-hash \
+	fds-lib \
+	fds-osdep
+
 user_non_fds_libs := boost_thread \
-                     boost_date_time \
- 		     boost_program_options \
-                     leveldb \
-                     boost_system
+	boost_date_time \
+	boost_program_options \
+	leveldb \
+	boost_system
 
 user_cpp          := odb_unit_test.cpp
 user_no_style     := $(user_cpp) $(user_cc)

@@ -45,7 +45,13 @@ class FdsCluster:
         for am in self.config.cfg_am:
             am.am_start_service()
             time.sleep(5)
-    
+
+    def get_node(self, node_id):
+        """
+        Returns FdsNode object associated with node_id
+        """
+        return self.nodes[node_id]
+
     def add_node(self, node_id, activate_services = []):
         """
         Adds node.
@@ -68,7 +74,7 @@ class FdsCluster:
             node_cfg.nd_rmt_agent.ssh_setup_env('')
             
         # Run platform daemon
-        node_cfg.nd_start_platform()
+        node_cfg.nd_start_platform(om_ip=self.get_node(self.__om_node_id).get_ip())
 
         # activate services
         for service_id in activate_services:

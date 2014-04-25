@@ -26,7 +26,7 @@ namespace fds {
         void wait();
         bool waitFor(ulong timeout);
 
-        virtual void process() = 0;
+        virtual void process() {};
 
         virtual ~ResponseHandler();
   protected:
@@ -94,7 +94,8 @@ namespace fds {
     /** Newer callback schemes **/
 
     struct StatBlobResponseHandler : virtual ResponseHandler, virtual native::StatBlobCallback {
-        
+        xdi::BlobDescriptor* blobDescriptor;
+        virtual void process();
     };
 
 }  // namespace fds

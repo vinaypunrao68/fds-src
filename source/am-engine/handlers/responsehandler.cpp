@@ -104,4 +104,11 @@ BucketStatsResponseHandler::~BucketStatsResponseHandler() {
         delete[] contents;
     }
 }
+
+void StatBlobResponseHandler::process() {
+    XCHECKSTATUS(status);
+    LOGDEBUG << "setting bytecount: " << blobSize;
+    blobDescriptor->byteCount = blobSize;
+}
+
 }  // namespace fds

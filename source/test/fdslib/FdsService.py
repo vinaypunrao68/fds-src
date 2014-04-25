@@ -73,6 +73,7 @@ class SMService(FdsService):
         For now we will monitor the log file.  Ideally we will thrift endpoint
         to do the monitoring.
         """
+        log.info("Waiting for SM healthy state...")
         sleep_time = 10
         # polling loop
         while True:

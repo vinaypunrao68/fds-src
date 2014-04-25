@@ -294,13 +294,13 @@ void BicTest3 ( pfHash hash, const int reps, bool verbose = true )
       for(int keybit = 0; keybit < keybits; keybit++)
       {
         int * page = &bins[keybit*pagesize];
-        int * bins = &page[(out1*hashbits+out2)*4];
+        int * nbins = &page[(out1*hashbits+out2)*4];
 
         double bias = 0;
 
         for(int b = 0; b < 4; b++)
         {
-          double b2 = double(bins[b]) / double(reps / 2);
+          double b2 = double(nbins[b]) / double(reps / 2);
           b2 = fabs(b2 * 2 - 1);
 
           if(b2 > bias) bias = b2;

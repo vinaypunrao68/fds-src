@@ -188,6 +188,6 @@ namespace fds {
 
     std::ostream& operator<<(std::ostream& os, FDSN_Status status);
 
-};  // namespace fds
+}  // namespace fds
 
 #endif  // SOURCE_INCLUDE_FDS_ERROR_H_
