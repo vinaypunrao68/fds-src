@@ -12,19 +12,17 @@ FdsActorRequest::FdsActorRequest()
 {
 }
 
-FdsActorRequest::FdsActorRequest(const FdsActorRequestType &type,
-        boost::shared_ptr<void> payload)
+FdsActorRequest::FdsActorRequest(const FdsActorRequestType &t, boost::shared_ptr<void> p)
 {
-    recycle(type, payload);
+    recycle(t, p);
 }
 
-void FdsActorRequest::recycle(const FdsActorRequestType &type,
-        boost::shared_ptr<void> payload)
+void FdsActorRequest::recycle(const FdsActorRequestType &t, boost::shared_ptr<void> p)
 {
-    this->type = type;
+    this->type = t;
     owner_ = nullptr;
     prev_owner_ = nullptr;
-    this->payload = payload;
+    this->payload = p;
 }
 FdsActorShutdownComplete::FdsActorShutdownComplete(const std::string &id)
     : far_id(id)

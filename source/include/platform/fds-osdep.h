@@ -11,7 +11,8 @@ extern "C" {
 #endif
 
 extern pid_t fds_spawn(char *const argv[], int daemonize);
-extern pid_t fds_spawn_service(const char *prog, const char *fds_root, int daemonize);
+extern pid_t fds_spawn_service(const char *prog, const char* om_ip_arg,
+                               const char *fds_root, int daemonize);
 
 #ifdef __cplusplus
 }

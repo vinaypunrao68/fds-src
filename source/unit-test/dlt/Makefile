@@ -9,10 +9,15 @@ user_fds_ar_libs  := \
 	fds-util \
 	fds-fdsp \
 	fds-umod \
-	fds-thread
+	fds-thread \
+	fds-osdep
 
-user_non_fds_libs :=                                                          \
-    boost_log boost_system boost_thread boost_date_time boost_program_options \
+user_non_fds_libs := \
+    boost_log \
+	boost_system \
+	boost_thread \
+	boost_date_time \
+	boost_program_options \
     leveldb thrift rt config++
 
 user_cpp          :=                   \

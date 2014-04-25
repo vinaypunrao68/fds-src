@@ -103,20 +103,18 @@ main_incl_dir   := $(topdir)/include
 main_rpcgen_dir := $(topdir)/rpcgen
 main_incl_flags := -I. -I$(main_incl_dir)
 
-local_cc_common := -g -fPIC $(main_incl_flags)
+local_cc_common := $(main_incl_flags)
 main_cc_defs    := -D_REENTRANT -D_FILE_OFFSET_BITS=64
 
-# TODO: need to enable these flags.
-# main_cc_flags   := -Wstrict-prototypes -Wall -Werror
-main_cc_flags   :=
+main_cc_flags   := -fPIC -fpic
 main_cc_flags   += $(local_cc_common) $(main_cc_defs)
 
-main_cpp_flags  := -g2 -std=c++11
+main_cpp_flags  := -std=c++11 -fPIC -fpic
 main_cpp_flags  += $(local_cc_common) $(main_cc_defs)
 
 main_so_flags   := -shared
-main_ar_flags   := -r
-main_ld_flags   :=
+main_ar_flags   := -rcs
+main_ld_flags   := -Bstatic
 main_lint_flags :=
 
 # Tool chain variables
@@ -142,9 +140,11 @@ ifeq ($(user_ext_build), true)
     main_tool_dep_libs :=
     main_test_dep_libs :=
 else
-    main_cpp_flags     += -Wall -Werror -Wno-reorder -Wno-unused-function -Wno-unused-value -Wno-unused-but-set-variable -Wno-unused-variable -Wno-write-strings
-    main_cpp_flags     += $(local_cc_common) $(main_cc_defs)
-    main_exec_dep_libs := fds-osdep pthread
+    main_cpp_flags     += -Wall -Werror -Wno-reorder -Wno-unused-function
+    main_cpp_flags     += -Wno-unused-value -Wno-unused-but-set-variable
+    main_cpp_flags     += -Wno-unused-variable -Wno-write-strings
+    main_cpp_flags     += -Winit-self -shared
+    main_exec_dep_libs := pthread
 endif
 
 # ARCH and OSDep settings.

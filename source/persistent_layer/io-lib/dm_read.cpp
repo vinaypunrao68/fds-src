@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <fds_assert.h>
-#include <fds_err.h>
+#include <fds_error.h>
 
 namespace diskio {
 

@@ -17,7 +17,7 @@ public class BlockIterator {
 
     public Iterator<byte[]> read(String domainName, String volumeName, String blobName) throws Exception {
         VolumeDescriptor volumeDescriptor = am.statVolume(domainName, volumeName);
-        int blockSize = volumeDescriptor.getPolicy().getObjectSizeInBytes();
+        int blockSize = volumeDescriptor.getPolicy().getMaxObjectSizeInBytes();
         long byteCount = am.statBlob(domainName, volumeName, blobName).getByteCount();
 
         return new Iterator<byte[]>() {

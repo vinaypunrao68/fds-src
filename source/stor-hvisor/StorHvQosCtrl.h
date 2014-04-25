@@ -5,9 +5,9 @@
 #include "../lib/qos_htb.h"
 #include <util/Log.h>
 #include <concurrency/ThreadPool.h>
-#include "fds_err.h"
+#include "fds_error.h"
 #include <fds_types.h>
-#include <fds_err.h>
+#include <fds_error.h>
 #include <fds_volume.h>
 
 namespace fds {

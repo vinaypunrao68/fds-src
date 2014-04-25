@@ -4,7 +4,7 @@ user_rtime_env    := user
 user_build_dir    :=
 user_predep       := gen-java/FDS_ProtocolInterface/FDSP_MsgHdrType.java
 user_postdep      := compile
-user_install      := orchMgr xdiSmokeTest
+user_install      := orchMgr xdiSmokeTest AMAgent
 user_install_loc  := exe
 user_clean        := target gen-java $(comm_dir_lib)/java $(comm_dir_lib)/admin-webapp
 
@@ -13,6 +13,7 @@ include $(topdir)/Makefile.incl
 local_thrift_flags := -r --gen java
 
 compile:
+	rm -f $(comm_dir_bin)/AMAgent
 	mkdir -p $(comm_dir_lib)/java/
 	$(tool_thrift) $(local_thrift_flags) $(topdir)/xdi/am_shim.thrift
 	mvn -DskipTests clean assembly:directory -Dbuild.dir=$(comm_dir_lib)/java

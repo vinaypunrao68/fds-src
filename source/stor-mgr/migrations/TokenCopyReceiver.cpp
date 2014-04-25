@@ -526,6 +526,9 @@ Error TokenCopyReceiver::handle_actor_request(FdsActorRequestPtr req)
         copy_fsm_->start();
         sync_fsm_->start();
         pull_fsm_->start();
+
+        migrationSvc_->getTokenStateDb()->setTokenState(token_id_,
+                kvstore::TokenStateInfo::COPYING);
         break;
     }
     case FAR_ID(MigSvcSyncCloseReq):

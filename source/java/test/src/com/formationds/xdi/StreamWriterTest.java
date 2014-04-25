@@ -4,7 +4,6 @@ package com.formationds.xdi;
  */
 
 import com.formationds.xdi.shim.AmShim;
-import com.formationds.xdi.shim.Uuid;
 import org.junit.Test;
 
 import java.io.ByteArrayInputStream;
@@ -26,42 +25,43 @@ public class StreamWriterTest {
         String domainName = "domain";
         String volumeName = "volume";
         String blobName = "blob";
-        Uuid txId = new Uuid(17, 42);
         Map<String, String> metadata = new HashMap<>();
         metadata.put("hello", "world");
 
-        when(mockAm.startBlobTx(domainName, volumeName, blobName)).thenReturn(txId);
-
         new StreamWriter(4, mockAm).write(domainName, volumeName, blobName, in, metadata);
 
-        verify(mockAm, times(1)).startBlobTx(domainName, volumeName, blobName);
+        verify(mockAm, times(1)).updateBlob(
+                eq(domainName),
+                eq(volumeName),
+                eq(blobName),
+                any(ByteBuffer.class),
+                eq(4),
+                eq(0l),
+                eq(false));
 
         verify(mockAm, times(1)).updateBlob(
                 eq(domainName),
                 eq(volumeName),
                 eq(blobName),
-                eq(txId),
                 any(ByteBuffer.class),
                 eq(4),
-                eq(0l));
+                eq(4l),
+                eq(false));
 
         verify(mockAm, times(1)).updateBlob(
                 eq(domainName),
                 eq(volumeName),
                 eq(blobName),
-                eq(txId),
                 any(ByteBuffer.class),
-                eq(4),
-                eq(4l));
+                eq(0),
+                eq(8l),
+                eq(true));
 
         verify(mockAm, times(1)).updateMetadata(
                 eq(domainName),
                 eq(volumeName),
                 eq(blobName),
-                eq(txId),
                 eq(metadata)
         );
-
-        verify(mockAm, times(1)).commit(txId);
     }
 }

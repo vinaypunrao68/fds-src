@@ -2,7 +2,7 @@
 #define  __STOR_HV_DATA_PLACEMENT_H__
 
 #include <fds_types.h>
-#include <fds_err.h>
+#include <fds_error.h>
 
 /* TODO: use API interface header file in include directory */
 #include <lib/OMgrClient.h>

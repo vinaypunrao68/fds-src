@@ -40,6 +40,12 @@ linux-*
 /source/orch_mgr/java/gen-java/*
 /source/orch_mgr/java/target/*
 /thrift-0.9.0/compiler/cpp/src/thrift*
+/thrift-0.9.0/lib/py/thrift.egg-info/
+/thrift-0.9.0/contrib/debian/debian
+/thrift-0.9.0/tutorial/erl/client.sh
+/source/java/gen-java
+/source/include/xdi/*.h
+/source/include/xdi/*.cpp
 
 # All Pharos stuffs
 /source/tools/pharos/libposix-aio-0.8.1/*
@@ -73,3 +79,11 @@ nginx/src/main/ngx_modules.c
 # Debian Archives and tmp dirs
 *.deb
 tmppkg*/
+
+# eclipse related
+.cproject
+.project
+.pydevproject
+.settings
+
+*.iml

@@ -4,7 +4,6 @@ package com.formationds.xdi.local;
  */
 
 import com.formationds.xdi.shim.BlobDescriptor;
-import com.formationds.xdi.shim.Uuid;
 import com.formationds.xdi.shim.VolumePolicy;
 import org.junit.Test;
 
@@ -32,12 +31,10 @@ public class LocalAmShimTest {
         assertEquals(2, shim.listVolumes(domainName).size());
         shim.deleteVolume(domainName, "v2");
         assertEquals(1, shim.listVolumes(domainName).size());
-        assertEquals(8, shim.statVolume(domainName, volumeName).getPolicy().getObjectSizeInBytes());
+        assertEquals(8, shim.statVolume(domainName, volumeName).getPolicy().getMaxObjectSizeInBytes());
 
         ByteBuffer buffer = ByteBuffer.wrap(new byte[]{1, 2, 3, 4, 5});
-        Uuid tx = shim.startBlobTx(domainName, volumeName, blobName);
-        shim.updateBlob(domainName, volumeName, blobName, tx, buffer, 4, 5);
-        shim.commit(tx);
+        shim.updateBlob(domainName, volumeName, blobName, buffer, 4, 5, true);
 
         Blob blob = shim.getBlob(domainName, volumeName, blobName);
         assertEquals(9, blob.getByteCount());
@@ -48,7 +45,7 @@ public class LocalAmShimTest {
         Map<String, String> metadata = new HashMap<>();
         metadata.put("hello", "world");
         metadata.put("goodnight", "moon");
-        shim.updateMetadata(domainName, volumeName, blobName, new Uuid(), metadata);
+        shim.updateMetadata(domainName, volumeName, blobName, metadata);
         BlobDescriptor descriptor = shim.statBlob(domainName, volumeName, blobName);
         Map<String, String> m = descriptor.getMetadata();
         assertEquals(2, m.keySet().size());
@@ -56,9 +53,7 @@ public class LocalAmShimTest {
         assertEquals("moon", m.get("goodnight"));
         assertEquals(9, descriptor.getByteCount());
 
-        tx = shim.startBlobTx(domainName, volumeName, "otherBlob");
-        shim.updateBlob(domainName, volumeName, "otherBlob", tx, buffer, 4, 5);
-        shim.commit(tx);
+        shim.updateBlob(domainName, volumeName, "otherBlob", buffer, 4, 5, true);
 
         List<BlobDescriptor> parts = shim.volumeContents(domainName, volumeName, Integer.MAX_VALUE, 0);
         assertEquals(2, parts.size());

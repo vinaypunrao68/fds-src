@@ -179,7 +179,7 @@ namespace fds {
   class ReadGuard {
     fds_rwlock& lock;
   public :
-    ReadGuard (fds_rwlock& lock) : lock(lock) {
+    ReadGuard (fds_rwlock& l) : lock(l) {
       lock.read_lock();
     }
     ~ReadGuard() {
@@ -190,7 +190,7 @@ namespace fds {
   class WriteGuard {
     fds_rwlock& lock;
   public :
-    WriteGuard (fds_rwlock& lock) : lock(lock) {
+    WriteGuard (fds_rwlock& l) : lock(l) {
       lock.write_lock();
     }
     ~WriteGuard() {

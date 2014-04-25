@@ -14,9 +14,9 @@
 #include <Scavenger.h>
 
 namespace fds {
-#define SCAV_BITS_PER_TOKEN 8
 extern ObjectStorMgr *objStorMgr;
 extern DataDiscoveryModule  dataDiscoveryMod;
+extern DataIOModule gl_dataIOMod;
 
 ScavControl::ScavControl(fds_uint32_t num_thrds)
         : scav_lock("Scav Lock"),
@@ -91,43 +91,6 @@ void ScavControl::stopScavengeProcess()
     }
 }
 
-fds::Error ScavControl::addTokenCompactor(fds_token_id tok_id, fds_uint16_t disk_id) {
-    Error err(ERR_OK);
-    DiskScavenger* diskScav = NULL;
-
-    {  // lock
-        fds_mutex::scoped_lock l(scav_lock);
-        if (diskScavTbl.count(disk_id) > 0) {
-            diskScav = diskScavTbl[disk_id];
-        }
-    }  // unlock
-
-    if (diskScav != NULL) {
-        fds_mutex::scoped_lock l(diskScav->disk_scav_lock);
-        (diskScav->tokenDb).insert(tok_id);
-    }
-    return err;
-}
-
-fds::Error ScavControl::deleteTokenCompactor(fds_token_id tok_id, fds_uint16_t disk_id) {
-    Error err(ERR_OK);
-    DiskScavenger* diskScav = NULL;
-
-    {  // lock
-        fds_mutex::scoped_lock l(scav_lock);
-        if (diskScavTbl.count(disk_id) > 0) {
-            diskScav = diskScavTbl[disk_id];
-        }
-    }  // unlock
-
-    if (diskScav) {
-        fds_mutex::scoped_lock l(diskScav->disk_scav_lock);
-        (diskScav->tokenDb).erase(tok_id);
-    }
-
-    return err;
-}
-
 DiskScavenger::DiskScavenger(fds_uint16_t _disk_id,
                              diskio::DataTier _tier,
                              fds_uint32_t proc_max_tokens)
@@ -173,10 +136,19 @@ fds_bool_t DiskScavenger::getNextCompactToken(fds_token_id* tok_id) {
     }
     LOGDEBUG << "Disk " << disk_id << " has " << tokenDb.size()
              << " tokens " << " found next tok? " << found
-             << " next_token " << next_token
              << " tok_id " << *tok_id;
 
     return found;
+}
+
+void DiskScavenger::updateTokenDb() {
+    // note that we are not using lock here, because updateTokenDb()
+    // and getNextCompactToken are serialized
+
+    // reset tokenDb
+    tokenDb.clear();
+    // get the newest version of tokens for this disk_id from persist. layer.
+    diskio::gl_dataIOMod.get_token_ids(tier, disk_id, &tokenDb);
 }
 
 void DiskScavenger::startScavenge() {
@@ -187,7 +159,11 @@ void DiskScavenger::startScavenge() {
         LOGNOTIFY << "Scavenger cycle is already running, ignoring start scavenge req";
         return;
     }
-    LOGNORMAL << "Starting scavenger for disk " << disk_id << " tier " << tier;
+    // get list of tokens for this tier/disk from persistent layer
+    updateTokenDb();
+
+    LOGNORMAL << "Starting scavenger for disk " << disk_id << " tier " << tier
+              << " number of tokens " << tokenDb.size();
     next_token = 0;
 
     for (i = 0; i < max_tokens_in_proc; ++i) {
@@ -197,10 +173,9 @@ void DiskScavenger::startScavenge() {
             std::atomic_exchange(&in_progress, false);
             break;
         }
-        tok_compactor_vec[i]->startCompaction(
-            tok_id, disk_id, tier, SCAV_BITS_PER_TOKEN, std::bind(
-                &DiskScavenger::compactionDoneCb, this,
-                std::placeholders::_1, std::placeholders::_2));
+        tok_compactor_vec[i]->startCompaction(tok_id, disk_id, tier, std::bind(
+            &DiskScavenger::compactionDoneCb, this,
+            std::placeholders::_1, std::placeholders::_2));
     }
 }
 
@@ -233,10 +208,9 @@ void DiskScavenger::compactionDoneCb(fds_token_id token_id, const Error& error) 
                     in_prog = false;
                     break;
                 }
-                tok_compactor_vec[i]->startCompaction(
-                    tok_id, disk_id, tier, SCAV_BITS_PER_TOKEN, std::bind(
-                        &DiskScavenger::compactionDoneCb, this,
-                        std::placeholders::_1, std::placeholders::_2));
+                tok_compactor_vec[i]->startCompaction(tok_id, disk_id, tier, std::bind(
+                    &DiskScavenger::compactionDoneCb, this,
+                    std::placeholders::_1, std::placeholders::_2));
             }
         }
     } else {

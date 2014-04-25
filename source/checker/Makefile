@@ -1,8 +1,6 @@
-topdir            := ../..
-user_target       := test
+topdir            := ..
+user_target       := exe 
 user_rtime_env    := user
-user_install      := checker.conf 
-user_install_loc  := test
 
 user_incl_dir     := \
 	. \
@@ -33,6 +31,7 @@ user_fds_ar_libs  := \
     fds-probe-adapters \
     fds-probe-blk \
     fds-probe \
+    fds-osdep
 
 user_non_fds_libs := \
     boost_log \

@@ -70,6 +70,7 @@
 
 #include <NetSession.h>
 #include <kvstore/tokenstatedb.h>
+#include <FDSP_RpcServiceBaseImpl.h>
 
 #undef FDS_TEST_SM_NOOP      /* if defined, IO completes as soon as it arrives to SM */
 
@@ -569,7 +570,7 @@ class ObjectStorMgr :
     friend class SmObjDb;
 };
 
-class ObjectStorMgrI : virtual public FDSP_DataPathReqIf {
+class ObjectStorMgrI : virtual public FDSP_DataPathReqIf, virtual public FDSP_RpcServiceBaseImpl {
  public:
     ObjectStorMgrI();
     ~ObjectStorMgrI();
@@ -611,6 +612,14 @@ class ObjectStorMgrI : virtual public FDSP_DataPathReqIf {
 
     /* user defined methods */
     void GetObjectMetadataCb(const Error &e, SmIoReadObjectMetadata *read_data);
+
+    void GetTokenMigrationStats(FDSP_TokenMigrationStats& _return,
+            const FDSP_MsgHdrType& fdsp_msg) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+
+    void GetTokenMigrationStats(FDSP_TokenMigrationStats& _return,
+            boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg);
 };
 
 }  // namespace fds

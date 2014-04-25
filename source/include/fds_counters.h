@@ -25,21 +25,23 @@ class FdsCountersMgr;
  * -Graphite
  */
 class FdsCountersMgr : public boost::noncopyable {
- public:
-  FdsCountersMgr(const std::string &id);
-  void add_for_export(FdsCounters *counters);
-  void remove_from_export(FdsCounters *counters);
+public:
+    FdsCountersMgr(const std::string &id);
+    void add_for_export(FdsCounters *counters);
+    void remove_from_export(FdsCounters *counters);
 
-  std::string export_as_graphite();
+    FdsCounters* get_counters(const std::string &id);
 
-  void export_to_ostream(std::ostream &stream);
+    std::string export_as_graphite();
 
- protected:
-  std::string id_;
-  /* Counter objects that are exported out */
-  std::vector<FdsCounters*> exp_counters_;
-  /* Lock for this object */
-  fds_mutex lock_;
+    void export_to_ostream(std::ostream &stream);
+
+protected:
+    std::string id_;
+    /* Counter objects that are exported out */
+    std::vector<FdsCounters*> exp_counters_;
+    /* Lock for this object */
+    fds_mutex lock_;
 };
 
 /**
@@ -47,85 +49,48 @@ class FdsCountersMgr : public boost::noncopyable {
  * should derive from this class
  */
 class FdsCounters : public boost::noncopyable { 
- public:
-  FdsCounters(const std::string &id, FdsCountersMgr *mgr)
-      : id_(id)
-  {
-      if (mgr) {
-          mgr->add_for_export(this);
-      }
-  }
-  /* Exposed for mock testing */
-  FdsCounters() {}
-  
-  std::string id() const
-  {
-      return id_;
-  }
+public:
+    FdsCounters(const std::string &id, FdsCountersMgr *mgr);
+    /* Exposed for mock testing */
+    FdsCounters();
+    virtual ~FdsCounters();
 
-  std::string toString();
+    std::string id() const;
 
- protected:
-  /**
-   * @brief Marks the counter for export.  Only export counters
-   * that are members of the derived class.  This method is invoked
-   * by FdsBaseCounter constructor to mark the counter as exported.
-   *
-   * @param cp Counter to export
-   */
-  void add_for_export(FdsBaseCounter* cp)
-  {
-      fds_assert(cp);
-      exp_counters_.push_back(cp);
-  }
+    std::string toString();
 
-  void remove_from_export(FdsBaseCounter* cp)
-  {
-      fds_verify(!"Not implemented yet");
-  }
+    void toMap(std::map<std::string, int64_t>& m) const;
 
- protected:
-  /* Exported counters */
-  std::vector<FdsBaseCounter*> exp_counters_;
-  /* Id of this counter set */
-  std::string id_;
-  
-  friend class FdsBaseCounter;
-  friend class FdsCountersMgr;
+protected:
+    void add_for_export(FdsBaseCounter* cp);
+
+    void remove_from_export(FdsBaseCounter* cp);
+
+protected:
+    /* Exported counters */
+    std::vector<FdsBaseCounter*> exp_counters_;
+    /* Id of this counter set */
+    std::string id_;
+
+    friend class FdsBaseCounter;
+    friend class FdsCountersMgr;
 };
 
 /**
  * @brief Base class for counters that are to be exported.
  */
 class FdsBaseCounter : public boost::noncopyable {
- public:
-  /**
-   * @brief  Base counter constructor.  Enables a counter to
-   * be exported with an identifier.  If export_parent is NULL
-   * counter will not be exported.
-   *
-   * @param id - id to use when exporting the counter
-   * @param export_parent - Pointer to the parent.  If null counter
-   * is not exported.
-   */
-  FdsBaseCounter(const std::string &id, FdsCounters *export_parent)
-      : id_(id)
-  {
-      if (export_parent) {
-          export_parent->add_for_export(this);
-      }
-  }
-  /* Exposed for testing */
-  FdsBaseCounter() {}
+public:
+    FdsBaseCounter(const std::string &id, FdsCounters *export_parent);
+    /* Exposed for testing */
+    FdsBaseCounter();
+    virtual ~FdsBaseCounter();
 
-  virtual uint64_t value() const = 0;
-  virtual std::string id() const
-  {
-      return id_;
-  }
+    virtual uint64_t value() const = 0;
+    virtual std::string id() const;
 
- private:
-  std::string id_;
+private:
+    std::string id_;
 };
 
 
@@ -134,62 +99,38 @@ class FdsBaseCounter : public boost::noncopyable {
  */
 class NumericCounter : public FdsBaseCounter
 {
- public:
-  NumericCounter(const std::string &id, FdsCounters *export_parent)
-      : FdsBaseCounter(id, export_parent)
-  {
-      val_ = 0;
-  }
-  /* Exposed for testing */
-  NumericCounter() {}
+public:
+    NumericCounter(const std::string &id, FdsCounters *export_parent);
+    /* Exposed for testing */
+    NumericCounter();
 
-  virtual uint64_t value() const override
-  {
-      return val_.load();
-  }
+    virtual uint64_t value() const override;
 
-  inline void incr() {
-      val_++;
-  } 
+    void incr();
+    void incr(const uint64_t v);
 
-  inline void incr(const uint64_t v) {
-      val_ += v;
-  }
-
- private:
-  std::atomic<uint64_t> val_;
+private:
+    std::atomic<uint64_t> val_;
 };
 
+/**
+ * @brief Latency Counter
+ */
 class LatencyCounter : public FdsBaseCounter
 {
- public:
-  LatencyCounter(const std::string &id, FdsCounters *export_parent)
-      : FdsBaseCounter(id, export_parent)
-  {
-      total_latency_ = 0;
-      cnt_ = 0;
-  }
-  /* Exposed for testing */
-  LatencyCounter() {}
+public:
+    LatencyCounter(const std::string &id, FdsCounters *export_parent);
 
-  virtual uint64_t value() const override
-  {
-      uint64_t cnt = cnt_.load();
-      uint64_t lat = total_latency_.load();
-      if (cnt == 0) {
-          return 0;
-      }
-      return lat / cnt;
-  }
+    /* Exposed for testing */
+    LatencyCounter();
 
-  inline void update(const uint64_t &latency) {
-    total_latency_.fetch_add(latency);
-    cnt_++;
-  } 
+    virtual uint64_t value() const override;
 
- private:
-  std::atomic<uint64_t> total_latency_;
-  std::atomic<uint64_t> cnt_;
+    inline void update(const uint64_t &latency);
+
+private:
+    std::atomic<uint64_t> total_latency_;
+    std::atomic<uint64_t> cnt_;
 };
 
 }  // namespace fds

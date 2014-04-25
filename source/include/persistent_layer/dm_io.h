@@ -5,10 +5,11 @@
 #define SOURCE_INCLUDE_PERSISTENT_LAYER_DM_IO_H_
 
 #include <string>
+#include <set>
 #include <gtest/gtest_prod.h>
 
 #include <cpplist.h>
-#include <fds_err.h>
+#include <fds_error.h>
 #include <fds_types.h>
 #include <fds_module.h>
 #include <fds_request.h>
@@ -437,6 +438,12 @@ class DataIOModule : public fds::Module
      */
     virtual PersisDataIO *
     disk_hdd_io(DataTier tier, fds_uint32_t file_id, meta_obj_id_t const *const token);
+
+    /**
+     * Get the list of token ids for which token files exist on given tier and disk
+     */
+    virtual void get_token_ids(DataTier tier, fds_uint16_t disk_id,
+                               std::set<fds::fds_token_id>* ret_tok_ids);
 
     /**
      * Notify about start garbage collection for given token id 'tok_id'

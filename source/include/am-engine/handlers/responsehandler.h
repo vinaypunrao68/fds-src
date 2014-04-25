@@ -5,20 +5,31 @@
 #define SOURCE_INCLUDE_AM_ENGINE_HANDLERS_RESPONSEHANDLER_H_
 
 #include <concurrency/taskstatus.h>
-#include <native_api.h>
+#include <native/types.h>
 #include <string>
 #include <xdi/am_shim_types.h>
 
 namespace fds {
+    /**
+     * HandlerType:
+     *    - defines how the cb is executed when call() is called!!
+     *    WAITEDFOR : Someone else will wait for this call to complete & then process
+     *    IMMEDIATE : will be processed at the time of call
+     *    QUEUED    : this data will be queued for later processing
+     */
+    enum class HandlerType { WAITEDFOR, IMMEDIATE, QUEUED };
 
-    struct ResponseHandler {
+    struct ResponseHandler : virtual native::Callback {
+        HandlerType type = HandlerType::WAITEDFOR;
+        void call();
+        void ready();
+        void wait();
+        bool waitFor(ulong timeout);
+
         virtual void process() = 0;
-        virtual void ready();
-        virtual void wait();
-        virtual bool waitFor(ulong timeout);
 
         virtual ~ResponseHandler();
-      protected:
+  protected:
         concurrency::TaskStatus task;
     };
 
@@ -27,14 +38,11 @@ namespace fds {
         SimpleResponseHandler();
         SimpleResponseHandler(const std::string& name);
 
-        FDSN_Status status = FDSN_StatusErrorUnknown;
-        const ErrorDetails *errorDetails = NULL;
-
         virtual void process();
         virtual ~SimpleResponseHandler();
     };
 
-    struct PutObjectResponseHandler : SimpleResponseHandler {
+    struct PutObjectResponseHandler : ResponseHandler {
         void *reqContext = NULL;
         fds_uint64_t bufferSize = 0;
         fds_off_t offset = 0;
@@ -44,7 +52,7 @@ namespace fds {
         virtual ~PutObjectResponseHandler();
     };
 
-    struct GetObjectResponseHandler : SimpleResponseHandler {
+    struct GetObjectResponseHandler : ResponseHandler {
         BucketContextPtr bucket_ctx;
         void *reqContext = NULL;
         fds_uint64_t bufferSize = 0;
@@ -57,7 +65,7 @@ namespace fds {
         virtual ~GetObjectResponseHandler();
     };
 
-    struct ListBucketResponseHandler : SimpleResponseHandler {
+    struct ListBucketResponseHandler : ResponseHandler {
         int isTruncated = 0;
         const char *nextMarker = NULL;
         int contentsCount = 0;
@@ -69,7 +77,7 @@ namespace fds {
         virtual ~ListBucketResponseHandler();
     };
 
-    struct BucketStatsResponseHandler : SimpleResponseHandler {
+    struct BucketStatsResponseHandler : ResponseHandler {
         BucketStatsResponseHandler(xdi::VolumeDescriptor& volumeDescriptor);
 
         xdi::VolumeDescriptor& volumeDescriptor;
@@ -81,5 +89,12 @@ namespace fds {
         virtual void process();
         virtual ~BucketStatsResponseHandler();
     };
+
+    /** Newer callback schemes **/
+
+    struct StatBlobResponseHandler : virtual ResponseHandler, virtual native::StatBlobCallback {
+        
+    };
+
 }  // namespace fds
 #endif  // SOURCE_INCLUDE_AM_ENGINE_HANDLERS_RESPONSEHANDLER_H_

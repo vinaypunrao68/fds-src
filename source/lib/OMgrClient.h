@@ -1,6 +1,6 @@
 #ifndef _OMGRCLIENT_H
 #define _OMGRCLIENT_H
-#include <fds_err.h>
+#include <fds_error.h>
 #include <fds_volume.h>
 
 #if 0

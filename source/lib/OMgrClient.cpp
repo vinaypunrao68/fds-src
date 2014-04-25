@@ -132,7 +132,7 @@ void OMgrClientRPCI::SetThrottleLevel(FDSP_MsgHdrTypePtr& msg_hdr,
 void
 OMgrClientRPCI::TierPolicy(FDSP_TierPolicyPtr &tier)
 {
-  FDS_PLOG_SEV(om_client->omc_log, fds::fds_log::notification)
+  LOGNOTIFY
     << "OMClient received tier policy for vol "
     << tier->tier_vol_uuid;
 
@@ -143,7 +143,7 @@ OMgrClientRPCI::TierPolicy(FDSP_TierPolicyPtr &tier)
 void
 OMgrClientRPCI::TierPolicyAudit(FDSP_TierPolicyAuditPtr &audit)
 {
-  FDS_PLOG_SEV(om_client->omc_log, fds::fds_log::notification)
+  LOGNOTIFY
     << "OMClient received tier audit policy for vol "
     << audit->tier_vol_uuid;
 
@@ -265,7 +265,8 @@ int OMgrClient::startAcceptingControlMessages() {
 
   omrpc_handler_thread_.reset(new boost::thread(&OMgrClient::start_omrpc_handler, this));
 
-  FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMClient accepting control requests at port " << plf_mgr->plf_get_my_ctrl_port();
+  LOGNOTIFY << "OMClient accepting control requests at port "
+          << plf_mgr->plf_get_my_ctrl_port();
 
   return (0);
 }
@@ -309,8 +310,7 @@ int OMgrClient::registerNodeWithOM(Platform *plat)
         // an error and let the caller decide what to do.
         // fds_verify(omclient_prx_session_ != nullptr);
         if (omclient_prx_session_ == NULL) {
-            FDS_PLOG_SEV(omc_log, fds::fds_log::critical)
-                << "OMClient unable to register node with OrchMgr. "
+            LOGCRITICAL << "OMClient unable to register node with OrchMgr. "
                    "Please check if OrchMgr is up and restart.";
             return 0;
         }
@@ -335,8 +335,7 @@ int OMgrClient::registerNodeWithOM(Platform *plat)
         reg_node_msg->service_uuid.uuid = plat->plf_get_my_svc_uuid()->uuid_get_val();
         myUuid.uuid_set_val(plat->plf_get_my_svc_uuid()->uuid_get_val());
 
-        FDS_PLOG_SEV(omc_log, fds::fds_log::notification)
-            << "OMClient registering local node "
+        LOGNOTIFY << "OMClient registering local node "
             << fds::ipv4_addr_to_str(reg_node_msg->ip_lo_addr)
             << " control port:" << reg_node_msg->control_port
             << " data port:" << reg_node_msg->data_port
@@ -344,12 +343,10 @@ int OMgrClient::registerNodeWithOM(Platform *plat)
             << omIpStr << ":" << omConfigPort;
 
         om_client_prx->RegisterNode(msg_hdr, reg_node_msg);
-        FDS_PLOG_SEV(omc_log, fds::fds_log::debug)
-            << "OMClient completed node registration with OM";
+        LOGDEBUG << "OMClient completed node registration with OM";
     }
     catch(...) {
-        FDS_PLOG_SEV(omc_log, fds::fds_log::critical)
-            << "OMClient unable to register node with OrchMgr. "
+        LOGCRITICAL << "OMClient unable to register node with OrchMgr. "
                "Please check if OrchMgr is up and restart.";
     }
     return (0);
@@ -369,14 +366,14 @@ int OMgrClient::pushPerfstatsToOM(const std::string& start_ts,
     perf_stats_msg->slot_len_sec = stat_slot_len;
     perf_stats_msg->vol_hist_list = hist_list;  
 
-    FDS_PLOG_SEV(omc_log, fds::fds_log::normal) << "OMClient pushing perfstats to OM at "
-                                                << omIpStr << ":" << omConfigPort
-						<< " start ts " << start_ts;
+    LOGNORMAL << "OMClient pushing perfstats to OM at "
+            << omIpStr << ":" << omConfigPort
+            << " start ts " << start_ts;
 
     om_client_prx->NotifyPerfstats(msg_hdr, perf_stats_msg);
 
   } catch (...) {
-    FDS_PLOG_SEV(omc_log, fds::fds_log::error) << "OMClient unable to push perf stats to OM. Check if OM is up and restart.";
+    LOGERROR << "OMClient unable to push perf stats to OM. Check if OM is up and restart.";
   }
 
   return 0;
@@ -399,13 +396,13 @@ int OMgrClient::testBucket(const std::string& bucket_name,
     test_buck_msg->accessKeyId = accessKeyId;
     test_buck_msg->secretAccessKey;
 
-    FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMClient sending test bucket request to OM at "
-                                                      << omIpStr << ":" << omConfigPort;
+    LOGNOTIFY << "OMClient sending test bucket request to OM at "
+            << omIpStr << ":" << omConfigPort;
 
     om_client_prx->TestBucket(msg_hdr, test_buck_msg);
   }
   catch (...) {
-    FDS_PLOG_SEV(omc_log, fds::fds_log::error) << "OMClient unable to send testBucket request to OM. Check if OM is up and restart.";
+    LOGERROR << "OMClient unable to send testBucket request to OM. Check if OM is up and restart.";
     return -1;
   }
 
@@ -422,14 +419,14 @@ int OMgrClient::pushGetBucketStatsToOM(fds_uint32_t req_cookie)
     FDSP_GetDomainStatsTypePtr get_stats_msg(new FDSP_GetDomainStatsType());
     get_stats_msg->domain_id = 1; /* this is ignored in OM */
 
-    FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMClient sending get bucket stats request to OM at "
+    LOGNOTIFY << "OMClient sending get bucket stats request to OM at "
                                                       << omIpStr << ":" << omConfigPort;
 
 
     om_client_prx->GetDomainStats(msg_hdr, get_stats_msg);
   }
   catch (...) {
-    FDS_PLOG_SEV(omc_log, fds::fds_log::error) << "OMClient unable to send GetBucketStats request to OM. Check if OM is up and restart.";
+    LOGERROR << "OMClient unable to send GetBucketStats request to OM. Check if OM is up and restart.";
     return -1;
   }
 
@@ -467,7 +464,7 @@ int OMgrClient::pushCreateBucketToOM(const FDS_ProtocolInterface::FDSP_VolumeInf
 
     	 om_client_prx->CreateBucket(msg_hdr, volData);
   } catch (...) {
-    FDS_PLOG_SEV(omc_log, fds::fds_log::error) << "OMClient unable to push  the create bucket request to OM. Check if OM is up and restart.";
+    LOGERROR << "OMClient unable to push  the create bucket request to OM. Check if OM is up and restart.";
     return -1;
   }
 
@@ -486,13 +483,13 @@ int OMgrClient::pushModifyBucketToOM(const std::string& bucket_name,
     mod_vol_msg->vol_uuid = 0; /* make sure that uuid is not checked, because we don't know it here */
     mod_vol_msg->vol_desc = *vol_desc;
 
-    FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMClient sending modify bucket request to OM at "
+    LOGNOTIFY << "OMClient sending modify bucket request to OM at "
                                                       << omIpStr << ":" << omConfigPort;
 
     om_client_prx->ModifyBucket(msg_hdr, mod_vol_msg);
   }
   catch (...) {
-    FDS_PLOG_SEV(omc_log, fds::fds_log::error) << "OMClient unable to send ModifyBucket request to OM. Check if OM is up and restart.";
+    LOGERROR << "OMClient unable to send ModifyBucket request to OM. Check if OM is up and restart.";
     return -1;
   }
 
@@ -511,7 +508,7 @@ int OMgrClient::pushDeleteBucketToOM(const FDS_ProtocolInterface::FDSP_DeleteVol
     	om_client_prx->DeleteBucket(msg_hdr, volData);
 
   } catch (...) {
-    FDS_PLOG_SEV(omc_log, fds::fds_log::error) << "OMClient unable to push perf stats to OM. Check if OM is up and restart.";
+    LOGERROR << "OMClient unable to push perf stats to OM. Check if OM is up and restart.";
   }
 
   return 0;
@@ -521,7 +518,7 @@ int OMgrClient::pushDeleteBucketToOM(const FDS_ProtocolInterface::FDSP_DeleteVol
 int OMgrClient::recvMigrationEvent(bool dlt_type) 
 {
 
-  FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMClient received Migration event for node " << dlt_type; 
+  LOGNOTIFY << "OMClient received Migration event for node " << dlt_type;
 
   if (this->migrate_evt_hdlr) {
     this->migrate_evt_hdlr(dlt_type);
@@ -548,13 +545,11 @@ int OMgrClient::sendMigrationStatusToOM(const Error& err) {
         migr_status_msg->context = 0;
         om_client_prx->NotifyMigrationDone(msg_hdr, migr_status_msg);
 
-        FDS_PLOG_SEV(omc_log, fds::fds_log::notification)
-                << "OMClient sending migration done event to OM for DLT version "
+        LOGNOTIFY << "OMClient sending migration done event to OM for DLT version "
                 << migr_status_msg->DLT_version;
     }
     catch (...) {
-        FDS_PLOG_SEV(omc_log, fds_log::error)
-                << "OMClient unable to send migration status to OM."
+        LOGERROR << "OMClient unable to send migration status to OM."
                 << " Check if OM is up and restart";
         return -1;
     }
@@ -593,11 +588,11 @@ int OMgrClient::recvNodeEvent(int node_id,
 
   omc_lock.write_unlock();
 
-  FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMClient received node event for node "
-                                                    << node.node_id 
-						    << ", type - " << node_info->node_type 
-						    << " with ip address " << node_ip 
-						    << " and state - " << node_state;
+  LOGNOTIFY << "OMClient received node event for node "
+          << node.node_id
+          << ", type - " << node_info->node_type
+          << " with ip address " << node_ip
+          << " and state - " << node_state;
 
   if (this->node_evt_hdlr) {
     this->node_evt_hdlr(node.node_id,
@@ -617,8 +612,8 @@ int OMgrClient::recvNotifyVol(VolumeDesc *vdb,
                               const std::string& session_uuid) {
     Error err(ERR_OK);
     fds_volid_t vol_id = vdb->volUUID;
-    FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMClient received volume event for volume 0x"
-                                                      << std::hex << vol_id <<std::dec << " action - " << vol_action;
+    LOGNOTIFY << "OMClient received volume event for volume 0x"
+            << std::hex << vol_id <<std::dec << " action - " << vol_action;
     
     if (this->vol_evt_hdlr) {
         err = this->vol_evt_hdlr(vol_id, vdb, vol_action, check_only, result);
@@ -656,11 +651,10 @@ int OMgrClient::recvNotifyVol(VolumeDesc *vdb,
             default:
                 fds_panic("Unknown (corrupt?) volume event");
         }
-        FDS_PLOG_SEV(omc_log, fds_log::notification)
-                << "OMClient sent response to OM for Volume Notify of type " << vol_action
-		<< "; volume " << vdb->getName();
+        LOGNOTIFY << "OMClient sent response to OM for Volume Notify of type "
+                << vol_action << "; volume " << vdb->getName();
     } catch (...) {
-        FDS_PLOG_SEV(omc_log, fds_log::error) << "OMClient failed to send response to OM";
+        LOGERROR << "OMClient failed to send response to OM";
         return -1;
     }
     return 0;
@@ -674,8 +668,7 @@ int OMgrClient::recvVolAttachState(VolumeDesc *vdb,
     Error err(ERR_OK);
     fds_volid_t vol_id = vdb->volUUID;
 
-    FDS_PLOG_SEV(omc_log, fds::fds_log::notification)
-            << "OMClient received volume attach/detach request for volume 0x"
+    LOGNOTIFY << "OMClient received volume attach/detach request for volume 0x"
             << std::hex << vol_id << std::dec << " action - " << vol_action;
     
     if (this->vol_evt_hdlr) {
@@ -706,11 +699,10 @@ int OMgrClient::recvVolAttachState(VolumeDesc *vdb,
             default:
                 fds_panic("Unknown (corrupt?) volume event");
         }
-        FDS_PLOG_SEV(omc_log, fds_log::notification)
-                << "OMClient sent response to OM for Volume Attach/detach (type " << vol_action
-		<< "); volume " << vdb->getName();
+        LOGNOTIFY << "OMClient sent response to OM for Volume Attach/detach (type "
+                << vol_action << "); volume " << vdb->getName();
     } catch (...) {
-        FDS_PLOG_SEV(omc_log, fds_log::error) << "OMClient failed to send response to OM";
+        LOGERROR << "OMClient failed to send response to OM";
         return -1;
     }
 
@@ -719,7 +711,7 @@ int OMgrClient::recvVolAttachState(VolumeDesc *vdb,
 
 Error OMgrClient::updateDlt(bool dlt_type, std::string& dlt_data) {
     Error err(ERR_OK);
-    FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMClient received new DLT version  " << dlt_type;
+    LOGNOTIFY << "OMClient received new DLT version  " << dlt_type;
 
     omc_lock.write_lock();
     err = dltMgr.addSerializedDLT(dlt_data,dlt_type);
@@ -736,8 +728,7 @@ Error OMgrClient::updateDlt(bool dlt_type, std::string& dlt_data) {
 int OMgrClient::recvDLTUpdate(FDSP_DLT_Data_TypePtr& dlt_info,
                               const std::string& session_uuid) {
     Error err(ERR_OK);
-    FDS_PLOG_SEV(omc_log, fds::fds_log::notification)
-            << "OMClient received new DLT commit version  "
+    LOGNOTIFY << "OMClient received new DLT commit version  "
             << dlt_info->dlt_type;
 
     omc_lock.write_lock();
@@ -763,10 +754,9 @@ int OMgrClient::recvDLTUpdate(FDSP_DLT_Data_TypePtr& dlt_info,
         FDSP_DLT_Resp_TypePtr dlt_resp(new FDSP_DLT_Resp_Type);
         dlt_resp->DLT_version = getDltVersion();
         resp_client_prx->NotifyDLTUpdateResp(msg_hdr, dlt_resp);
-        FDS_PLOG_SEV(omc_log, fds_log::notification)
-                << "OMClient sent response for DLT update to OM";
+        LOGNOTIFY << "OMClient sent response for DLT update to OM";
     } catch (...) {
-        FDS_PLOG_SEV(omc_log, fds_log::error) << "OMClient failed to send response to OM";
+        LOGNOTIFY << "OMClient failed to send response to OM";
         return -1;
     }
 
@@ -808,8 +798,7 @@ int OMgrClient::sendDLTCloseAckToOM(FDSP_DltCloseTypePtr& dlt_close,
         FDSP_DLT_Resp_TypePtr dlt_resp(new FDSP_DLT_Resp_Type);
         dlt_resp->DLT_version = dlt_close->DLT_version;
         resp_client_prx->NotifyDLTCloseResp(msg_hdr, dlt_resp);
-        FDS_PLOG_SEV(omc_log, fds_log::notification)
-                << "OMClient sent response for DLT close to OM";
+        LOGNOTIFY << "OMClient sent response for DLT close to OM";
     } catch (...) {
         LOGERROR << "OMClient failed to send response to OM";
         err = -1;
@@ -820,8 +809,8 @@ int OMgrClient::sendDLTCloseAckToOM(FDSP_DltCloseTypePtr& dlt_close,
 
 Error OMgrClient::recvDLTStartMigration(FDSP_DLT_Data_TypePtr& dlt_info) {
     Error err(ERR_OK);
-    FDS_PLOG_SEV(omc_log, fds::fds_log::notification)
-            << "OMClient received new Migration DLT version  " << dlt_info->dlt_type;
+    LOGNOTIFY << "OMClient received new Migration DLT version  "
+            << dlt_info->dlt_type;
 
     omc_lock.write_lock();
     err = dltMgr.addSerializedDLT(dlt_info->dlt_data, dlt_info->dlt_type);
@@ -837,7 +826,7 @@ int OMgrClient::recvDMTUpdate(FDSP_DMT_TypePtr& dmt_info,
                               const std::string& session_uuid) {
 
   Error err(ERR_OK);
-  FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMClient received new DMT version  " << dmt_info->DMT_version;
+  LOGNOTIFY << "OMClient received new DMT version  " << dmt_info->DMT_version;
 
   omc_lock.write_lock();
   const Node_Table_Type& dmt_table = dmt_info->DMT;
@@ -849,8 +838,7 @@ int OMgrClient::recvDMTUpdate(FDSP_DMT_TypePtr& dmt_info,
   int row = 0;
   for (auto it = dmt_table.cbegin(); it != dmt_table.cend(); it++) {
     for (auto jt = (*it).cbegin(); jt != (*it).cend(); jt++) {
-        FDS_PLOG_SEV(omc_log, fds::fds_log::notification)
-                << "[Col " << row << std::hex << "] " << *jt << std::dec;
+        LOGNOTIFY << "[Col " << row << std::hex << "] " << *jt << std::dec;
     }
     row++;
   }
@@ -869,10 +857,9 @@ int OMgrClient::recvDMTUpdate(FDSP_DMT_TypePtr& dmt_info,
       FDSP_DMT_Resp_TypePtr dmt_resp(new FDSP_DMT_Resp_Type);
       dmt_resp->DMT_version = dmt_info->DMT_version;
       resp_client_prx->NotifyDMTUpdateResp(msg_hdr, dmt_resp);
-      FDS_PLOG_SEV(omc_log, fds_log::notification)
-              << "OMClient sent response for DMT update to OM";
+      LOGNOTIFY << "OMClient sent response for DMT update to OM";
    } catch (...) {
-      FDS_PLOG_SEV(omc_log, fds_log::error) << "OMClient failed to send DMT response to OM";
+      LOGERROR << "OMClient failed to send DMT response to OM";
       return -1;
   }
   return (0);
@@ -880,7 +867,7 @@ int OMgrClient::recvDMTUpdate(FDSP_DMT_TypePtr& dmt_info,
 
 int OMgrClient::recvSetThrottleLevel(const float throttle_level) {
 
-  FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMClient received new throttle level  " << throttle_level;
+  LOGNOTIFY << "OMClient received new throttle level  " << throttle_level;
 
   this->current_throttle_level = throttle_level;
 
@@ -894,8 +881,8 @@ int OMgrClient::recvSetThrottleLevel(const float throttle_level) {
 int OMgrClient::recvBucketStats(const FDSP_MsgHdrTypePtr& msg_hdr, 
 				const FDSP_BucketStatsRespTypePtr& stats_msg)
 {
-  FDS_PLOG_SEV(omc_log, fds::fds_log::notification) << "OMClient received buckets' stats with timestamp  " 
-						    << stats_msg->timestamp;
+  LOGNOTIFY << "OMClient received buckets' stats with timestamp  "
+          << stats_msg->timestamp;
 
   if (bucket_stats_cmd_hdlr) {
     bucket_stats_cmd_hdlr(msg_hdr, stats_msg);

@@ -13,7 +13,7 @@
 #include <string>
 
 #include <fds_types.h>
-#include <fds_err.h>
+#include <fds_error.h>
 #include <util/Log.h>
 
 /* TODO: avoid cross compont include, move to include directory. */

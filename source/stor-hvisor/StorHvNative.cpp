@@ -272,7 +272,7 @@ void FDS_NativeAPI::GetBucketStats(void *req_ctxt,
     FdsBlobReq *blob_req = NULL;
     LOGNORMAL << "FDS_NativeAPI::GetBucketStats for all existing buckets";
 
-    /* this request will go directly to OM, 
+    /* this request will go directly to OM,
        so not need to check if buckets are attached, etc. */
 
     blob_req = new BucketStatsReq(req_ctxt,
@@ -630,76 +630,32 @@ Error FDS_NativeAPI::sendTestBucketToOM(const std::string& bucket_name,
     return err;
 }
 
-std::ostream& operator<<(std::ostream& os, FDSN_Status status) {
-    switch(status) {
-        ENUMCASEOS(FDSN_StatusOK                                 , os);
-        ENUMCASEOS(FDSN_StatusCreated                            , os);
-        ENUMCASEOS(FDSN_StatusInternalError                      , os);
-        ENUMCASEOS(FDSN_StatusOutOfMemory                        , os);
-        ENUMCASEOS(FDSN_StatusInterrupted                        , os);
-        ENUMCASEOS(FDSN_StatusInvalidBucketNameTooLong           , os);
-        ENUMCASEOS(FDSN_StatusInvalidBucketNameFirstCharacter    , os);
-        ENUMCASEOS(FDSN_StatusInvalidBucketNameCharacter         , os);
-        ENUMCASEOS(FDSN_StatusInvalidBucketNameCharacterSequence , os);
-        ENUMCASEOS(FDSN_StatusInvalidBucketNameTooShort          , os);
-        ENUMCASEOS(FDSN_StatusInvalidBucketNameDotQuadNotation   , os);
-        ENUMCASEOS(FDSN_StatusQueryParamsTooLong                 , os);
-        ENUMCASEOS(FDSN_StatusFailedToInitializeRequest          , os);
-        ENUMCASEOS(FDSN_StatusMetaDataHeadersTooLong             , os);
-        ENUMCASEOS(FDSN_StatusBadMetaData                        , os);
-        ENUMCASEOS(FDSN_StatusBadContentType                     , os);
-        ENUMCASEOS(FDSN_StatusContentTypeTooLong                 , os);
-        ENUMCASEOS(FDSN_StatusBadMD5                             , os);
-        ENUMCASEOS(FDSN_StatusMD5TooLong                         , os);
-        ENUMCASEOS(FDSN_StatusBadCacheControl                    , os);
-        ENUMCASEOS(FDSN_StatusCacheControlTooLong                , os);
-        ENUMCASEOS(FDSN_StatusBadContentDispositionFilename      , os);
-        ENUMCASEOS(FDSN_StatusContentDispositionFilenameTooLong  , os);
-        ENUMCASEOS(FDSN_StatusBadContentEncoding                 , os);
-        ENUMCASEOS(FDSN_StatusContentEncodingTooLong             , os);
-        ENUMCASEOS(FDSN_StatusBadIfMatchETag                     , os);
-        ENUMCASEOS(FDSN_StatusIfMatchETagTooLong                 , os);
-        ENUMCASEOS(FDSN_StatusBadIfNotMatchETag                  , os);
-        ENUMCASEOS(FDSN_StatusIfNotMatchETagTooLong              , os);
-        ENUMCASEOS(FDSN_StatusHeadersTooLong                     , os);
-        ENUMCASEOS(FDSN_StatusKeyTooLong                         , os);
-        ENUMCASEOS(FDSN_StatusUriTooLong                         , os);
-        ENUMCASEOS(FDSN_StatusXmlParseFailure                    , os);
-        ENUMCASEOS(FDSN_StatusEmailAddressTooLong                , os);
-        ENUMCASEOS(FDSN_StatusUserIdTooLong                      , os);
-        ENUMCASEOS(FDSN_StatusUserDisplayNameTooLong             , os);
-        ENUMCASEOS(FDSN_StatusGroupUriTooLong                    , os);
-        ENUMCASEOS(FDSN_StatusPermissionTooLong                  , os);
-        ENUMCASEOS(FDSN_StatusTargetBucketTooLong                , os);
-        ENUMCASEOS(FDSN_StatusTargetPrefixTooLong                , os);
-        ENUMCASEOS(FDSN_StatusTooManyGrants                      , os);
-        ENUMCASEOS(FDSN_StatusBadGrantee                         , os);
-        ENUMCASEOS(FDSN_StatusBadPermission                      , os);
-        ENUMCASEOS(FDSN_StatusXmlDocumentTooLarge                , os);
-        ENUMCASEOS(FDSN_StatusNameLookupError                    , os);
-        ENUMCASEOS(FDSN_StatusFailedToConnect                    , os);
-        ENUMCASEOS(FDSN_StatusServerFailedVerification           , os);
-        ENUMCASEOS(FDSN_StatusConnectionFailed                   , os);
-        ENUMCASEOS(FDSN_StatusAbortedByCallback                  , os);
-        ENUMCASEOS(FDSN_StatusRequestTimedOut                    , os);
-        ENUMCASEOS(FDSN_StatusEntityEmpty                        , os);
-        ENUMCASEOS(FDSN_StatusEntityDoesNotExist                 , os);
-        ENUMCASEOS(FDSN_StatusErrorAccessDenied                  , os);
-        ENUMCASEOS(FDSN_StatusErrorAccountProblem                , os);
-        ENUMCASEOS(FDSN_StatusErrorAmbiguousGrantByEmailAddress  , os);
-        ENUMCASEOS(FDSN_StatusErrorBadDigest                     , os);
-        ENUMCASEOS(FDSN_StatusErrorBucketAlreadyExists           , os);
-        ENUMCASEOS(FDSN_StatusErrorBucketNotExists               , os);
-        ENUMCASEOS(FDSN_StatusErrorBucketAlreadyOwnedByYou       , os);
-        ENUMCASEOS(FDSN_StatusErrorBucketNotEmpty                , os);
-        ENUMCASEOS(FDSN_StatusErrorCredentialsNotSupported       , os);
-        ENUMCASEOS(FDSN_StatusErrorCrossLocationLoggingProhibited, os);
-        ENUMCASEOS(FDSN_StatusErrorEntityTooSmall                , os);
-        ENUMCASEOS(FDSN_StatusErrorEntityTooLarge                , os);
-        ENUMCASEOS(FDSN_StatusErrorMissingContentLength          , os);
-        ENUMCASEOS(FDSN_StatusErrorUnknown                       , os);
-        default : os << "unknown status code (" << (int) status <<")";
+void FDS_NativeAPI::StatBlob(BucketContext *bucket_ctxt, const std::string& blobName,
+                             native::StatBlobCallbackPtr cb) {
+    fds_volid_t volId = invalid_vol_id;
+    LOGNORMAL << bucket_ctxt->bucketName
+              << " blobName " << blobName;
+
+    native::ScopedCallBack(cb.get());
+    // check if bucket is attached to this AM
+    if (storHvisor->vol_table->volumeExists(bucket_ctxt->bucketName)) {
+        volId = storHvisor->vol_table->getVolumeUUID(bucket_ctxt->bucketName);
+        fds_verify(volId != invalid_vol_id);
+    } else {
+        LOGERROR << "bucket should be here.. but missing : " << bucket_ctxt->bucketName;
+        cb->status = FDSN_StatusErrorBucketNotExists;
+        return;
     }
-    return os;
+
+    StorHvVolume* vol = storHvisor->vol_table->getVolume(volId);
+    fds_verify(vol != NULL);
+    fds_uint64_t blobSize;
+    Error err = vol->vol_catalog_cache->getBlobSize(blobName, &blobSize);
+
+    if (err == ERR_OK) {
+        cb->status = FDSN_StatusOK;
+        cb->blobSize = blobSize;
+    }
 }
+
 }  // namespace fds

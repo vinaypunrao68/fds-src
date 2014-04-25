@@ -14,7 +14,7 @@ using redis::RedisException;
 
 TokenStateInfo::TokenStateInfo()
 {
-    state = UNINITIALIZED;
+    state = INVALID;
     syncStartTs = 0;
     healthyTs = 0;
 }
@@ -61,6 +61,7 @@ Error TokenStateDB::setTokenState(const fds_token_id &tokId,
         return ERR_SM_TOKENSTATEDB_KEY_NOT_FOUND;
     }
     itr->second.state = state;
+    LOGDEBUG << " state: " << state;
     return ERR_OK;
 }
 
@@ -140,6 +141,20 @@ Error TokenStateDB::updateHealthyTS(const fds_token_id &tokId, const uint64_t &t
         LOGDEBUG << "token: " << tokId << " healthy ts: " << ts;
     }
     return ERR_OK;
+}
+
+void TokenStateDB::
+getTokenStats(std::unordered_map<int, int> &stats)  // NOLINT
+{
+    fds_spinlock::scoped_lock l(lock_);
+    for (auto tInfo : tokenTbl_) {
+        auto itr = stats.find(static_cast<int>(tInfo.second.state));
+        if (itr == stats.end()) {
+            stats[static_cast<int>(tInfo.second.state)] = 1;
+        } else {
+            itr->second++;
+        }
+    }
 }
 
 bool TokenStateDB::getTokens(const NodeUuid& uuid, std::vector<fds_token_id>& vecTokens) {

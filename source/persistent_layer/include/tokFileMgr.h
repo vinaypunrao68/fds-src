@@ -54,26 +54,37 @@ class tokenFileDb {
     tokenFileDb();
     ~tokenFileDb();
 
+    static fds_token_id getTokenId(meta_obj_id_t const *const oid);
+    static void getTokenRange(fds_token_id* start_tok, fds_token_id* end_tok);
+
     /**
      * For next three functions:
      * If 'fileId' is WRITE_FILE_ID, the function will use appropriate file
      * id of the active file (if no shadow file) or shadow file.
      */
-    FilePersisDataIO  *openTokenFile(DataTier tier, fds_uint32_t disk_id,
+    FilePersisDataIO  *openTokenFile(DataTier tier, fds_uint16_t disk_id,
                                      fds_token_id tokId, fds_uint16_t fileId);
 
-    void closeTokenFile(fds_uint32_t disk_id,
+    void closeTokenFile(fds_uint16_t disk_id,
                         fds_token_id tokId, DataTier tier, fds_uint16_t fileId);
 
-    FilePersisDataIO *getTokenFile(fds_uint32_t disk_id,
+    FilePersisDataIO *getTokenFile(fds_uint16_t disk_id,
                                    fds_token_id tokId, DataTier tier,
                                    fds_uint16_t fileId);
+
+    /**
+     * For now returning true if file is open
+     * TODO(xxx) should also return true if file close but exists on tier/disk
+     */
+    fds_bool_t fileExists(DataTier tier,
+                          fds_uint16_t disk_id,
+                          fds_token_id tokId);
 
     /**
      * Handle notification that garbage collection will start for a given
      * <disk_id, tokId, tier> tuple. This will set a new file id as current.
      */
-    fds::Error notifyStartGC(fds_uint32_t disk_id,
+    fds::Error notifyStartGC(fds_uint16_t disk_id,
                              fds_token_id tok_id,
                              DataTier tier);
 
@@ -82,7 +93,7 @@ class tokenFileDb {
      * tuple were copied to new files and set old files can be deleted.
      * Deletes set of old files.
      */
-    fds::Error notifyEndGC(fds_uint32_t disk_id,
+    fds::Error notifyEndGC(fds_uint16_t disk_id,
                            fds_token_id tok_id,
                            DataTier tier);
 
@@ -91,14 +102,12 @@ class tokenFileDb {
      * or if no shadow file, currently active file we are writing to
      */
     fds_bool_t isShadowFileId(fds_uint16_t file_id,
-                              fds_uint32_t disk_id,
+                              fds_uint16_t disk_id,
                               fds_token_id tok_id,
                               DataTier tier);
 
  private:  // methods
-    fds_token_id GetTokenFileDb(const fds_token_id &tokId);
-
-    std::string getFileName(fds_uint32_t disk_id,
+    std::string getFileName(fds_uint16_t disk_id,
                             fds_token_id tok_id,
                             DataTier tier,
                             fds_uint16_t file_id) const;
@@ -107,7 +116,7 @@ class tokenFileDb {
      * translates <disk_id, tok_id, tier> tuple to key into
      * 'write_fileids' map.
      */
-    inline std::string getKeyString(fds_uint32_t disk_id,
+    inline std::string getKeyString(fds_uint16_t disk_id,
                                     fds_token_id tok_id,
                                     DataTier tier) const {
         return std::to_string(disk_id) + "_" + std::to_string(tok_id)
@@ -119,7 +128,7 @@ class tokenFileDb {
      * file may actually not exist, so check that separately).
      * Only valid for file id of the first file in sequence.
      */
-    inline fds_uint16_t getShadowFileId(fds_uint16_t file_id) {
+    inline fds_uint16_t getShadowFileId(fds_uint16_t file_id) const {
         if (file_id & START_TOKFILE_ID_MASK)
             return file_id & (~START_TOKFILE_ID_MASK);
         return file_id | START_TOKFILE_ID_MASK;
@@ -130,12 +139,12 @@ class tokenFileDb {
      * tuple. If garbage collection is in progress, this will be the index of
      * of a shadow file, otherwise it will be the index of an active file
      */
-    fds_uint16_t getWriteFileId(fds_uint32_t disk_id,
+    fds_uint16_t getWriteFileId(fds_uint16_t disk_id,
                                 fds_token_id tokId,
                                 DataTier tier);
 
  private:
-    fds::fds_mutex *tokenFileDbMutex;
+    fds::fds_mutex tokenFileDbMutex;
     std::unordered_map<std::string, FilePersisDataIO *> tokenFileTbl;
 
     /**

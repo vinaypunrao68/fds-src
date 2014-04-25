@@ -3,6 +3,7 @@
  */
 #include <am-engine/handlers/responsehandler.h>
 #include <util/Log.h>
+#include <util/timeutils.h>
 #include <string>
 #include <sstream>
 
@@ -18,6 +19,19 @@
     }
 
 namespace fds {
+
+void ResponseHandler::call() {
+    switch (type) {
+        case HandlerType::WAITEDFOR:
+            ready(); break;
+        case HandlerType::IMMEDIATE:
+            process() ; break;
+        case HandlerType::QUEUED:
+            fds_panic("QUEUED - not implemented yet");
+            break;
+    }
+}
+
 void ResponseHandler::ready() {
     task.done();
 }
@@ -79,8 +93,15 @@ BucketStatsResponseHandler::BucketStatsResponseHandler(
 
 void BucketStatsResponseHandler::process() {
     XCHECKSTATUS(status);
+    volumeDescriptor.name = contents->bucket_name;
+    // volumeDescriptor.uuid = 10;
+    volumeDescriptor.dateCreated = util::getTimeStampMillis();
+    volumeDescriptor.policy.maxObjectSizeInBytes = 2097152;  // 2MB
 }
 
 BucketStatsResponseHandler::~BucketStatsResponseHandler() {
+    if (contents) {
+        delete contents;
+    }
 }
 }  // namespace fds

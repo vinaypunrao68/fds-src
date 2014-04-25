@@ -29,7 +29,8 @@ user_fds_ar_libs  :=                   \
     fds-netproxy \
     fds-fdsp \
     fds-hash \
-    fds-migrations
+    fds-migrations \
+    fds-osdep
 
 user_non_fds_libs :=                                                          \
     boost_log \

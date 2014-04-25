@@ -831,28 +831,34 @@ DataMgr::applyBlobUpdate(fds_volid_t volUuid,
                      << " from " << bnode->blob_size << " to offset "
                      << offset;
 
-            // Create 'sparse' blob info entries if the offset
-            // does not directly append
-            // If the blob size is not aligned, start adding
-            // sparse entries at the next aligned offset
-            fds_uint32_t round = (bnode->blob_size % maxObjSize);
-            if (round != 0) {
-                round = (maxObjSize - round);
-            }
-            for (fds_uint64_t j = (bnode->blob_size + round);
-                 j < offset;
-                 j += maxObjSize) {
-                // Append a 'sparse' info entry to the end of the blob
-                bnode->obj_list.pushBack(BlobObjectInfo(j, maxObjSize));
-                // Increase the size as the sparse entry still counts
-                // towards the blob's size
-                bnode->blob_size += maxObjSize;
-            }
+            // Don't need to push if the object size is 0
+            // TODO(Andrew): This check is only really needed
+            // if we're going to write to offsets with length 0.
+            // Remove it when we handle alignment.
+            if (size > 0) {
+                // Create 'sparse' blob info entries if the offset
+                // does not directly append
+                // If the blob size is not aligned, start adding
+                // sparse entries at the next aligned offset
+                fds_uint32_t round = (bnode->blob_size % maxObjSize);
+                if (round != 0) {
+                    round = (maxObjSize - round);
+                }
+                for (fds_uint64_t j = (bnode->blob_size + round);
+                     j < offset;
+                     j += maxObjSize) {
+                    // Append a 'sparse' info entry to the end of the blob
+                    bnode->obj_list.pushBack(BlobObjectInfo(j, maxObjSize));
+                    // Increase the size as the sparse entry still counts
+                    // towards the blob's size
+                    bnode->blob_size += maxObjSize;
+                }
 
-            // Add the entry into its correct range
-            // and update the size
-            bnode->obj_list.pushBack(offsetList[i]);
-            bnode->blob_size += size;
+                // Add the entry into its correct range
+                // and update the size.
+                bnode->obj_list.pushBack(offsetList[i]);
+                bnode->blob_size += size;
+            }
         }
     }
     // Bump the version since we modified the blob node

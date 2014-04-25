@@ -4,7 +4,6 @@ package com.formationds.xdi;
  */
 
 import com.formationds.xdi.shim.AmShim;
-import com.formationds.xdi.shim.Uuid;
 
 import java.io.InputStream;
 import java.nio.ByteBuffer;
@@ -21,13 +20,17 @@ public class StreamWriter {
     }
 
     public void write(String domainName, String volumeName, String blobName, InputStream in, Map<String, String> metadata) throws Exception {
-        Uuid txId = am.startBlobTx(domainName, volumeName, blobName);
         long offset = 0;
         for (int read = in.read(buf); read != -1; read = in.read(buf)) {
-            am.updateBlob(domainName, volumeName, blobName, txId, ByteBuffer.wrap(buf, 0, read), read, offset);
+            am.updateBlob(domainName, volumeName, blobName, ByteBuffer.wrap(buf, 0, read), read, offset, false);
             offset += read;
         }
-        am.updateMetadata(domainName, volumeName, blobName, txId, metadata);
-        am.commit(txId);
+
+        // do this until we have proper transactions
+        if (offset != 0) {
+            am.updateBlob(domainName, volumeName, blobName, ByteBuffer.wrap(buf, 0, 0), 0, offset, true);
+        }
+
+        am.updateMetadata(domainName, volumeName, blobName, metadata);
     }
 }

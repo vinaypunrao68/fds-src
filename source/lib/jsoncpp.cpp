@@ -1874,12 +1874,12 @@ Value::Value( double value )
 
 Value::Value( const char *value )
    : type_( stringValue )
-   , allocated_( true )
-   , comments_( 0 )
 # ifdef JSON_VALUE_USE_INTERNAL_MAP
    , itemIsUsed_( 0 )
 #endif
 {
+   comments_ = NULL;
+   allocated_ = true;
    value_.string_ = duplicateStringValue( value );
 }
 
@@ -1887,12 +1887,12 @@ Value::Value( const char *value )
 Value::Value( const char *beginValue, 
               const char *endValue )
    : type_( stringValue )
-   , allocated_( true )
-   , comments_( 0 )
 # ifdef JSON_VALUE_USE_INTERNAL_MAP
    , itemIsUsed_( 0 )
 #endif
 {
+   comments_ = NULL;
+   allocated_ = true;
    value_.string_ = duplicateStringValue( beginValue, 
                                           (unsigned int)(endValue - beginValue) );
 }
@@ -1900,12 +1900,12 @@ Value::Value( const char *beginValue,
 
 Value::Value( const std::string &value )
    : type_( stringValue )
-   , allocated_( true )
-   , comments_( 0 )
 # ifdef JSON_VALUE_USE_INTERNAL_MAP
    , itemIsUsed_( 0 )
 #endif
 {
+   comments_ = NULL;
+   allocated_ = true;
    value_.string_ = duplicateStringValue( value.c_str(), 
                                           (unsigned int)value.length() );
 

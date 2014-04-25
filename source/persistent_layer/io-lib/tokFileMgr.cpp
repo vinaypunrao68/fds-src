@@ -15,39 +15,54 @@
 
 namespace diskio {
 
-    tokenFileDb::tokenFileDb() {
-        tokenFileDbMutex = new fds::fds_mutex("tokenFileDb Mutex");
+    tokenFileDb::tokenFileDb()
+            : tokenFileDbMutex("tokenFileDb Mutex") {
     }
     tokenFileDb::~tokenFileDb() {
-        delete tokenFileDbMutex;
+        std::unordered_map<std::string, FilePersisDataIO *>::iterator it;
+        FilePersisDataIO *del_fdesc = NULL;
+
+        for (it = tokenFileTbl.begin(); it != tokenFileTbl.end(); ++it) {
+            del_fdesc = it->second;
+            if (del_fdesc) {
+                delete del_fdesc;
+            }
+        }
+        tokenFileTbl.clear();
     }
 
-    fds_token_id tokenFileDb::GetTokenFileDb(const fds_token_id &tokId) 
+    fds_token_id tokenFileDb::getTokenId(meta_obj_id_t const *const oid)
     {
+        fds_token_id tokId = oid->metaDigest[0];
         return tokId & PL_TOKEN_MASK;
     }
 
-    std::string tokenFileDb::getFileName(fds_uint32_t disk_id,
+    void tokenFileDb::getTokenRange(fds_token_id* start_tok, fds_token_id* end_tok)
+    {
+        *start_tok = 0;
+        *end_tok = PL_TOKEN_MASK;
+    }
+
+    std::string tokenFileDb::getFileName(fds_uint16_t disk_id,
                                          fds_token_id tok_id,
                                          DataTier tier,
                                          fds_uint16_t file_id) const
     {
-        fds_token_id dbId = tok_id & PL_TOKEN_MASK;
         std::string  filename;
         if (tier == diskTier)  {
             filename = dataDiscoveryMod.disk_hdd_path(disk_id);
-            filename = filename + "/tokenFile_" + std::to_string(dbId)
+            filename = filename + "/tokenFile_" + std::to_string(tok_id)
                     + "_" + std::to_string(file_id);
         } else {
             filename = dataDiscoveryMod.disk_ssd_path(disk_id);
-            filename = filename + "/tokenFile_" + std::to_string(dbId)
+            filename = filename + "/tokenFile_" + std::to_string(tok_id)
                     + "_" + std::to_string(file_id);
         }
         return filename;
     }
 
     FilePersisDataIO  *tokenFileDb::openTokenFile(DataTier tier,
-                                                 fds_uint32_t disk_id,
+                                                 fds_uint16_t disk_id,
                                                  fds_token_id tokId,
                                                  fds_uint16_t fileId)
     {
@@ -57,7 +72,7 @@ namespace diskio {
 
         fds_verify(file_id != INVALID_FILE_ID);
 
-        tokenFileDbMutex->lock();
+        fds::fds_mutex::scoped_lock l(tokenFileDbMutex);
         if (file_id == WRITE_FILE_ID) {
             file_id = getWriteFileId(disk_id, tokId, tier);
         }
@@ -67,17 +82,15 @@ namespace diskio {
             fdesc  = new FilePersisDataIO(filename.c_str(), file_id, disk_id);
             tokenFileTbl[filename] = fdesc;
         }
-        tokenFileDbMutex->unlock();
-
         return fdesc;
     }
 
-    void tokenFileDb::closeTokenFile(fds_uint32_t disk_id,
+    void tokenFileDb::closeTokenFile(fds_uint16_t disk_id,
                                      fds_token_id tokId,
                                      DataTier tier,
                                      fds_uint16_t fileId)
     {
-        FilePersisDataIO *fdesc = NULL;
+        FilePersisDataIO *del_fdesc = NULL;
         std::string  filename = NULL;
 
         // TODO(xxx) should we allow close the current file we
@@ -88,18 +101,20 @@ namespace diskio {
 
         filename = getFileName(disk_id, tokId, tier, fileId);
 
-        tokenFileDbMutex->lock();
-        if ((fdesc = tokenFileTbl[filename]) == NULL ) {
-            tokenFileDbMutex->unlock();
-            return;
+        fds::fds_mutex::scoped_lock l(tokenFileDbMutex);
+        if (tokenFileTbl.count(filename) > 0) {
+            del_fdesc = tokenFileTbl[filename];
+            if (del_fdesc) {
+                delete del_fdesc;
+                del_fdesc = NULL;
+            }
+            tokenFileTbl[filename] = NULL;
+            tokenFileTbl.erase(filename);
         }
-        tokenFileTbl[filename] = NULL;
-        tokenFileDbMutex->unlock();
-        //delete fdesc;
     }
 
 
-    FilePersisDataIO *tokenFileDb::getTokenFile(fds_uint32_t disk_id,
+    FilePersisDataIO *tokenFileDb::getTokenFile(fds_uint16_t disk_id,
                                                 fds_token_id tokId,
                                                  DataTier tier,
                                                 fds_uint16_t fileId)
@@ -110,22 +125,40 @@ namespace diskio {
 
         fds_verify(file_id != INVALID_FILE_ID);
 
-        tokenFileDbMutex->lock();
+        fds::fds_mutex::scoped_lock l(tokenFileDbMutex);
         if (file_id == WRITE_FILE_ID) {
             file_id = getWriteFileId(disk_id, tokId, tier);
         }
         filename = getFileName(disk_id, tokId, tier, file_id);
 
         fdesc = tokenFileTbl[filename];
-        tokenFileDbMutex->unlock();
         return fdesc;
     }
 
-    fds_uint16_t tokenFileDb::getWriteFileId(fds_uint32_t disk_id,
+    fds_bool_t tokenFileDb::fileExists(DataTier tier,
+                                       fds_uint16_t disk_id,
+                                       fds_token_id tokId)
+    {
+        fds_bool_t ret = false;
+        // for now we have two possible filenames
+        // TODO(xxx) this must change if we start using a sequence of files
+        std::string fn1 = getFileName(disk_id, tokId, tier, INIT_FILE_ID);
+        std::string fn2 = getFileName(disk_id, tokId, tier,
+                                      getShadowFileId(INIT_FILE_ID));
+
+        fds::fds_mutex::scoped_lock l(tokenFileDbMutex);
+        if ((tokenFileTbl.count(fn1) > 0) || 
+            (tokenFileTbl.count(fn2) > 0)) {
+            ret = true;
+        }
+        return ret;
+    }
+
+    fds_uint16_t tokenFileDb::getWriteFileId(fds_uint16_t disk_id,
                                              fds_token_id tokId,
                                              DataTier tier)
     {
-        std::string key = getKeyString(disk_id, tokId & PL_TOKEN_MASK, tier);
+        std::string key = getKeyString(disk_id, tokId, tier);
         fds_uint16_t file_id = INVALID_FILE_ID;
         if (write_fileids.count(key) > 0) {
             file_id = write_fileids[key];
@@ -138,32 +171,31 @@ namespace diskio {
     }
 
     fds_bool_t tokenFileDb::isShadowFileId(fds_uint16_t file_id,
-                                           fds_uint32_t disk_id,
+                                           fds_uint16_t disk_id,
                                            fds_token_id tok_id,
                                            DataTier tier) {
         fds_uint16_t cur_file_id = INVALID_FILE_ID;
-        std::string key = getKeyString(disk_id, tok_id & PL_TOKEN_MASK, tier);
-        tokenFileDbMutex->lock();
+        std::string key = getKeyString(disk_id, tok_id, tier);
+
+        fds::fds_mutex::scoped_lock l(tokenFileDbMutex);
         if (write_fileids.count(key) > 0) {
             cur_file_id = write_fileids[key];
         }
-        tokenFileDbMutex->unlock();
         return (cur_file_id == file_id);
     }
 
-    fds::Error tokenFileDb::notifyStartGC(fds_uint32_t disk_id,
+    fds::Error tokenFileDb::notifyStartGC(fds_uint16_t disk_id,
                                           fds_token_id tok_id,
                                           DataTier tier) {
         fds::Error err(fds::ERR_OK);
-        std::string key = getKeyString(disk_id, tok_id & PL_TOKEN_MASK, tier);
+        std::string key = getKeyString(disk_id, tok_id, tier);
         fds_uint16_t cur_file_id = INVALID_FILE_ID;
         fds_uint16_t new_file_id = INVALID_FILE_ID;
 
-        tokenFileDbMutex->lock();
+        fds::fds_mutex::scoped_lock l(tokenFileDbMutex);
         if (write_fileids.count(key) > 0) {
             cur_file_id = write_fileids[key];
         } else {
-            tokenFileDbMutex->unlock();
             return fds::Error(fds::ERR_NOT_FOUND);
         }
 
@@ -171,8 +203,6 @@ namespace diskio {
 	// and to which non-garbage data will be copied)
 	new_file_id = getShadowFileId(cur_file_id);
 	write_fileids[key] = new_file_id;
-
-        tokenFileDbMutex->unlock();
 
         // we are not creating a new token file here, it will be created
         // on the next write to this disk,tok,tier. We are keeping old file
@@ -186,20 +216,19 @@ namespace diskio {
         return err;
     }
 
-    fds::Error tokenFileDb::notifyEndGC(fds_uint32_t disk_id,
+    fds::Error tokenFileDb::notifyEndGC(fds_uint16_t disk_id,
                                         fds_token_id tok_id,
                                         DataTier tier) {
         fds::Error err(fds::ERR_OK);
-        std::string key = getKeyString(disk_id, tok_id & PL_TOKEN_MASK, tier);
+        std::string key = getKeyString(disk_id, tok_id, tier);
         fds_uint16_t shadow_file_id = INVALID_FILE_ID;
         fds_uint16_t old_file_id = INVALID_FILE_ID;
 	FilePersisDataIO *del_fdesc = NULL;
 
-        tokenFileDbMutex->lock();
+        fds::fds_mutex::scoped_lock l(tokenFileDbMutex);
         if (write_fileids.count(key) > 0) {
             shadow_file_id = write_fileids[key];
         } else {
-            tokenFileDbMutex->unlock();
             return fds::Error(fds::ERR_NOT_FOUND);
         }
 
@@ -222,7 +251,6 @@ namespace diskio {
 	  tokenFileTbl[old_filename] = NULL;
 	  tokenFileTbl.erase(old_filename);
 	}
-        tokenFileDbMutex->unlock();
 
         return err;
     }

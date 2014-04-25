@@ -15,8 +15,8 @@ TokenCompactor::TokenCompactor(SmIoReqHandler *_data_store)
         : token_id(0),
           done_evt_handler(NULL),
           data_store(_data_store),
-          compl_timer(new FdsTimer()),
-          compl_timer_task(new CompletionTimerTask(*compl_timer, this))
+          tc_timer(new FdsTimer()),
+          tc_timer_task(new CompactorTimerTask(*tc_timer, this))
 {
     state = ATOMIC_VAR_INIT(TCSTATE_IDLE);
     objs_done = ATOMIC_VAR_INIT(0);
@@ -31,7 +31,7 @@ TokenCompactor::TokenCompactor(SmIoReqHandler *_data_store)
 
 TokenCompactor::~TokenCompactor()
 {
-    compl_timer->destroy();
+    tc_timer->destroy();
 }
 
 //
@@ -43,13 +43,12 @@ TokenCompactor::~TokenCompactor()
 Error TokenCompactor::startCompaction(fds_token_id tok_id,
                                       fds_uint16_t disk_id,
                                       diskio::DataTier tier,
-                                      fds_uint32_t bits_for_token,
                                       compaction_done_handler_t done_evt_hdlr)
 {
     Error err(ERR_OK);
     diskio::DataIO& dio_mgr = diskio::DataIO::disk_singleton();
     tcStateType expect = TCSTATE_IDLE;
-    if (!std::atomic_compare_exchange_strong(&state, &expect, TCSTATE_IN_PROGRESS)) {
+    if (!std::atomic_compare_exchange_strong(&state, &expect, TCSTATE_PREPARE_WORK)) {
         LOGNOTIFY << "startCompaction called in non-idle state, ignoring";
         return Error(ERR_NOT_READY);
     }
@@ -64,8 +63,6 @@ Error TokenCompactor::startCompaction(fds_token_id tok_id,
     token_id = tok_id;
     cur_disk_id = disk_id;
     cur_tier = tier;
-    ObjectID::getTokenRange(token_id, bits_for_token, tok_start_oid, tok_end_oid);
-    LOGDEBUG << "token range: " << tok_start_oid << " ... " << tok_end_oid;
     done_evt_handler = done_evt_hdlr;  // set cb to notify about completion
 
     // reset counters and other members that keep track of progress
@@ -78,12 +75,15 @@ Error TokenCompactor::startCompaction(fds_token_id tok_id,
     // copy non-garbage objects
     dio_mgr.notify_start_gc(token_id, cur_disk_id, cur_tier);
 
-    // send request to do object db snapshot that we will work with
-    snap_req.token_id = token_id;
-    err = data_store->enqueueMsg(FdsSysTaskQueueId, &snap_req);
-    if (!err.ok()) {
-        LOGERROR << "Failed to enqueue take index db snapshot message"
-                 << " error " << err.GetErrstr() << "; try again later";
+    // we may have writes currently in flight that are writing to old file.
+    // If we take db snapshot before these in flight write finish and
+    // metadata is updated, then we will miss data that needs to be copied
+    // to new file (and lose it). We will wait on timer a few seconds so that
+    // all IO currently outstanding are finished so that indexdb snapshot
+    // will contain all object from the old file; we are ok to miss objects
+    // in the new file, since we don't need to copy them
+    if (!tc_timer->schedule(tc_timer_task, std::chrono::seconds(2))) {
+        LOGNOTIFY << "Failed to schedule timer for db snapshot, completing now..";
         // We already created shadow file so, we are setting state
         // idle, and scavenger has to try again later
         // TODO(anna) need proper recovery in this case
@@ -92,6 +92,36 @@ Error TokenCompactor::startCompaction(fds_token_id tok_id,
     }
 
     return err;
+}
+
+void TokenCompactor::handleTimerEvent()
+{
+    tcStateType cur_state = std::atomic_load(&state);
+    if (cur_state == TCSTATE_PREPARE_WORK) {
+        enqSnapDbWork();
+    } else {
+        handleCompactionDone(ERR_OK);
+    }
+}
+
+void TokenCompactor::enqSnapDbWork()
+{
+    Error err(ERR_OK);
+    tcStateType expect = TCSTATE_PREPARE_WORK;
+    if (!std::atomic_compare_exchange_strong(&state, &expect, TCSTATE_IN_PROGRESS)) {
+        LOGERROR << "enqSnapDbWork is called in wrong state!";
+        fds_verify(false);
+    }
+
+    // send request to do object db snapshot that we will work with
+    snap_req.token_id = token_id;
+    err = data_store->enqueueMsg(FdsSysTaskQueueId, &snap_req);
+    if (!err.ok()) {
+        LOGERROR << "Failed to enqueue take index db snapshot message ;" << err;
+        // We already created shadow file
+        // TODO(anna) should we just retry here? reschedule timer?
+        handleCompactionDone(err);
+    }
 }
 
 /**
@@ -152,10 +182,6 @@ void TokenCompactor::snapDoneCb(const Error& error,
     leveldb::Iterator* it = db->NewIterator(options);
     for (it->SeekToFirst(); it->Valid(); it->Next()) {
         ObjectID id(it->key().ToString());
-        // this should not happen, but just in case
-        if (id < tok_start_oid || id > tok_end_oid) {
-            continue;
-        }
 
         omd.deserializeFrom(it->value());
         obj_phy_loc_t* loc = omd.getObjPhyLoc(cur_tier);
@@ -274,7 +300,7 @@ void TokenCompactor::objsCompactedCb(const Error& error,
         // we are done!
         // NOTE: we are currently doing completion on timer only! when no error
         // otherwise need to make sure to remember the error
-        if (!compl_timer->schedule(compl_timer_task, std::chrono::seconds(2))) {
+        if (!tc_timer->schedule(tc_timer_task, std::chrono::seconds(2))) {
             LOGNOTIFY << "Failed to schedule completion timer, completing now..";
             handleCompactionDone(error);
         }
@@ -375,10 +401,10 @@ fds_bool_t TokenCompactor::isDataGarbage(const ObjMetaData& md,
     return do_gc;
 }
 
-void CompletionTimerTask::runTimerTask()
+void CompactorTimerTask::runTimerTask()
 {
     fds_verify(tok_compactor);
-    tok_compactor->handleCompactionDone(ERR_OK);
+    tok_compactor->handleTimerEvent();
 }
 
 }  // namespace fds

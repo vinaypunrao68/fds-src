@@ -2,7 +2,7 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 #include <unistd.h>
-#include <fds_err.h>
+#include <fds_error.h>
 #include <concurrency/fds_actor.h>
 #include <concurrency/fds_actor_request.h>
 #include <fds_assert.h>

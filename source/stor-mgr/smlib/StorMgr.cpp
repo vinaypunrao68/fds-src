@@ -274,6 +274,19 @@ void ObjectStorMgrI::GetObjectMetadataCb(const Error &err,
     objStorMgr->fdspDataPathClient(
             resp.header.session_uuid)->GetObjectMetadataResp(resp);
 }
+
+void ObjectStorMgrI::GetTokenMigrationStats(FDSP_TokenMigrationStats& _return,
+            boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg)
+{
+    std::unordered_map<int, int> stats;
+    objStorMgr->getTokenStateDb()->getTokenStats(stats);
+    _return.completed = stats[static_cast<int>(kvstore::TokenStateInfo::HEALTHY)];
+    _return.inflight = stats[static_cast<int>(kvstore::TokenStateInfo::COPYING)] +
+            stats[static_cast<int>(kvstore::TokenStateInfo::SYNCING)] +
+            stats[static_cast<int>(kvstore::TokenStateInfo::PULL_REMAINING)];
+    _return.pending = stats[static_cast<int>(kvstore::TokenStateInfo::UNINITIALIZED)];
+}
+
 /**
  * Storage manager member functions
  * 
@@ -635,14 +648,19 @@ bool ObjectStorMgr::isTokenInSyncMode(const fds_token_id &tokId) {
 
 void ObjectStorMgr::migrationEventOmHandler(bool dlt_type)
 {
+    auto curDlt = objStorMgr->omClient->getCurrentDLT();
+    auto prevDlt = objStorMgr->omClient->getPreviousDLT();
     std::set<fds_token_id> tokens =
-            DLT::token_diff(objStorMgr->getUuid(),
-                    objStorMgr->omClient->getCurrentDLT(),
-                    objStorMgr->omClient->getPreviousDLT());
+            DLT::token_diff(objStorMgr->getUuid(), curDlt, prevDlt);
 
     GLOGNORMAL << " tokens to copy size: " << tokens.size();
 
     if (tokens.size() > 0) {
+        for (auto t : tokens) {
+            /* This says we own the token, but don't have any data for it */
+            objStorMgr->getTokenStateDb()->\
+                    setTokenState(t, kvstore::TokenStateInfo::UNINITIALIZED);
+        }
         objStorMgr->tok_migrated_for_dlt_ = true;
         /* Issue bulk copy request */
         MigSvcBulkCopyTokensReqPtr copy_req(new MigSvcBulkCopyTokensReq());
@@ -657,6 +675,22 @@ void ObjectStorMgr::migrationEventOmHandler(bool dlt_type)
             FAR_ID(MigSvcBulkCopyTokensReq), copy_req));
         objStorMgr->migrationSvc_->send_actor_request(copy_far);
     } else {
+        /* Nothing to migrate case */
+        if (curDlt == prevDlt) {
+            /* This is the first node.  Set all tokens owned by this node to
+             * healthy.
+             * TODO(Rao): This is hacky.  We need a better way to test first
+             * node case.
+             */
+            GLOGDEBUG << "No dlt change.  Nothing to migrate.  Setting all tokens in"
+                    " current dlt to healthy";
+            auto tokens = curDlt->getTokens(objStorMgr->getUuid());
+            for (auto t : tokens) {
+                /* This says we own the token, but don't have any data for it */
+                objStorMgr->getTokenStateDb()->\
+                        setTokenState(t, kvstore::TokenStateInfo::HEALTHY);
+            }
+        }
         objStorMgr->tok_migrated_for_dlt_ = false;
         objStorMgr->migrationSvcResponseCb(Error(ERR_OK), TOKEN_COPY_COMPLETE);
     }
@@ -1149,8 +1183,6 @@ ObjectStorMgr::readObject(const SmObjDb::View& view,
         disk_req->setTier(tierToUse);
         disk_req->set_phy_loc(objMetadata.getObjPhyLoc(tierToUse));
         tierUsed = tierToUse;
-        obj_phy_loc_t *phy_loc = objMetadata.getObjPhyLoc(tierToUse);
-        scavenger->addTokenCompactor(getTokenId(objId), phy_loc->obj_stor_loc_id);
 
         LOGDEBUG << "Reading object " << objId << " from "
                 << ((disk_req->getTier() == diskio::diskTier) ? "disk" : "flash")
@@ -1316,18 +1348,19 @@ ObjectStorMgr::writeObjectToTier(const OpCtx &opCtx,
     
     err = writeObjectMetaData(opCtx, objId, objData.data.length(),
                 disk_req->req_get_phy_loc(), false, diskTier, &vio);
-    obj_phy_loc_t *phy_loc = disk_req->req_get_phy_loc();
 
+    StorMgrVolume *vol = volTbl->getVolume(volId);
     if ((err == ERR_OK) &&
         (tier == diskio::flashTier)) {
-        /*
-         * If written to flash, add to dirty flash list
-         */
-        pushOk = dirtyFlashObjs->push(new ObjectID(objId));
-        fds_verify(pushOk == true);
+        if (vol->voldesc->mediaPolicy != FDSP_MEDIA_POLICY_SSD) {  
+           /*
+            * If written to flash, add to dirty flash list
+            */
+           pushOk = dirtyFlashObjs->push(new ObjectID(objId));
+           fds_verify(pushOk == true);
+        }
     }
 
-    scavenger->addTokenCompactor(getTokenId(objId), phy_loc->obj_stor_loc_id);
     delete disk_req;
     return err;
 }
@@ -1383,7 +1416,6 @@ ObjectStorMgr::writeObjectDataToTier(const ObjectID  &objId,
         fds_verify(pushOk == true);
     }
     phys_loc = *disk_req->req_get_phy_loc();
-    scavenger->addTokenCompactor(getTokenId(objId), phys_loc.obj_stor_loc_id);
     delete disk_req;
 
     return err;
@@ -1497,22 +1529,22 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
         }
         LOGDEBUG << "Put dup:  " << err
                 << ", returning success";
-        if (objMap.isInitialized() == false) { 
-            err = readObjMetaData(objId, objMap);
-            /* At this point object metadata must exist */
-            fds_verify(err == ERR_OK);
-        }
 
         smObjDb->lock(objId);
         // Update  the AssocEntry for dedupe-ing
-        objMap.updateAssocEntry(objId, volId);
-        err = smObjDb->put(opCtx, objId, objMap);
-        if (err == ERR_OK) {
-            LOGDEBUG << "Dedupe object Assoc Entry for object "
-                    << objId << " to " << objMap;
+        err = readObjMetaData(objId, objMap);
+        if (err.ok()) {
+            objMap.updateAssocEntry(objId, volId);
+            err = smObjDb->put(opCtx, objId, objMap);
+            if (err == ERR_OK) {
+                LOGDEBUG << "Dedupe object Assoc Entry for object "
+                         << objId << " to " << objMap;
+            } else {
+                LOGERROR << "Failed to put ObjMetaData " << objId
+                         << " into odb with error " << err;
+            }
         } else {
-            LOGERROR << "Failed to put ObjMetaData " << objId
-                    << " into odb with error " << err;
+            LOGERROR << "Failed to read ObjMetaData from db" << err;
         }
         smObjDb->unlock(objId);
 
@@ -1570,16 +1602,16 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
         err = checkDuplicate(objId,
                 *objBufPtr, objMap);
         if (err == ERR_DUPLICATE) {
-            if (objMap.isInitialized() == false) { 
-                err = readObjMetaData(objId, objMap);
-                /* At this point object metadata must exist */
-                fds_verify(err == ERR_OK);
-            }  
           // Update  the AssocEntry for dedupe-ing
           LOGDEBUG << " Object  ID: " << objId << " objMap: " << objMap;
           smObjDb->lock(objId);
+          err = readObjMetaData(objId, objMap);
+          /* At this point object metadata must exist */
+          fds_verify(err == ERR_OK);
+
           objMap.updateAssocEntry(objId, volId);
           err = smObjDb->put(opCtx, objId, objMap);
+          smObjDb->unlock(objId);
           if (err == ERR_OK) {
               LOGDEBUG << "Dedupe object Assoc Entry for object "
                       << objId << " to " << objMap;
@@ -1587,7 +1619,7 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
               LOGERROR << "Failed to put ObjMetaData " << objId
                       << " into odb with error " << err;
           }  
-          smObjDb->unlock(objId);
+
           err = ERR_OK;
         } else {
 

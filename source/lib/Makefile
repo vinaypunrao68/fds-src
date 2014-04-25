@@ -1,7 +1,7 @@
 topdir           := ..
 user_target      := lib
 user_rtime_env   := user
-user_build_dir   := net concurrency kvstore crypto
+user_build_dir   := net concurrency kvstore crypto native
 user_cpp         :=      \
     dlt.cpp \
     NetSession.cpp       \
@@ -25,7 +25,9 @@ user_cpp         :=      \
     ClusterCommMgr.cpp   \
     fds_volume.cpp       \
     TransJournal.cpp     \
-    fdsp_utils.cpp
+    fdsp_utils.cpp       \
+    FDSP_RpcServiceBaseImpl.cpp \
+    fds_error.cpp
 
 user_incl_dir    := $(topdir)
 user_no_style    := \

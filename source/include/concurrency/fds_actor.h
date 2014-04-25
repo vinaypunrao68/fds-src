@@ -9,7 +9,7 @@
 #include <boost/shared_ptr.hpp>
 #include <atomic>
 #include <memory>
-#include <fds_err.h>
+#include <fds_error.h>
 #include <concurrency/fds_actor_request.h>
 #include <concurrency/ThreadPool.h>
 #include <concurrency/Mutex.h>
