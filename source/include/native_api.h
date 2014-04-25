@@ -107,7 +107,7 @@ namespace fds {
 
         /** Callbacks on the newer scheme **/
 
-        void StatBlob(BucketContext *bucket_ctxt, const std::string& blobName, native::StatBlobCallbackPtr cb);
+        void StatBlob(const std::string& volumeName, const std::string& blobName, native::StatBlobCallbackPtr cb);
 
 
   private:

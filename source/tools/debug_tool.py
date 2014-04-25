@@ -177,7 +177,7 @@ class DebugBundle(object):
             proc.sendline(password)
         elif res == 1:
             proc.sendline(password)
-            
+
         # Busy wait for a few minutes -- we need to be sure
         # everything is finished before we go tarring everything
         # up
@@ -201,7 +201,6 @@ class DebugBundle(object):
         
         # Collect all of the files locally
         self.__collect()
-        # Remove files from the remote node
         self.clean(local=False)
         
         print "Packaging files..."
@@ -360,6 +359,7 @@ if __name__ == "__main__":
                               help='Core files to run GDB command on.',
                               nargs='+')
     
+>>>>>>> e35eeb220068cef031aa3c13e42aec0de0fa1a95
 
     args = parser.parse_args()
 

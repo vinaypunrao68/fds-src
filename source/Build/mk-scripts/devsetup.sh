@@ -14,7 +14,7 @@
 needed_packages=(
     redis-server
     oracle-java8-installer oracle-java8-set-default maven
-    libudev-dev libparted-dev
+    libudev-dev libparted0-dev
     python2.7
     python-dev
     python-pip
@@ -33,9 +33,9 @@ needed_packages=(
     libboost-timer1.54-dev
     libboost-thread1.54-dev
 
-    fds-pkghelper_latest
-    fds-pkg_latest
-    fds-pkgtools_latest
+    fds-pkghelper
+    fds-pkg
+    fds-pkgtools
 
     fds-leveldb
     fds-leveldb-dev
@@ -49,7 +49,7 @@ python_packages=(
     redis
     requests
     scp
-    pyyaml
+    PyYAML
 )
 
 REPOUPDATED=0
