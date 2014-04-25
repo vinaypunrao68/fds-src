@@ -6,7 +6,7 @@
 namespace fds {
 
 FdsShmem::FdsShmem(const char *name)
-    : sh_n(name), sh_addr(NULL), sh_id(0), sh_size(0) {}
+    : sh_name(name), sh_addr(NULL), sh_size(0) {}
 
 
 FdsShmem::~FdsShmem() {}
@@ -14,18 +14,16 @@ FdsShmem::~FdsShmem() {}
 int
 FdsShmem::shm_alloc(size_t size)
 {
-    int fd = shm_open(sh_n, O_RDWR | O_CREAT, S_IRWXU);
+    int fd = shm_open(sh_name, O_RDWR | O_CREAT, S_IRWXU);
     sh_size = size;
-    
+
     // fd should be 0
     if (fd == -1) {
-        printf("Error opening shared memory!\n");
         return -1;
     }
 
     // Truncate the region
     if (ftruncate(fd, sh_size) == -1) {
-        printf("Failed to truncate fd to size: %d", sh_size);
         return -1;
     }
 
@@ -37,7 +35,7 @@ FdsShmem::shm_alloc(size_t size)
 
     // Close the file descriptor, we should no longer need it
     close(fd);
-    
+
     return 0;
 }
 
@@ -46,15 +44,15 @@ FdsShmem::shm_get()
 {
     // Verify that the shm_alloc has already been called
     if (sh_addr == NULL) {
-        return -1;
+        return NULL;
     }
-    
+
     // Return a pointer to the shared region
     return sh_addr;
 }
 
 int
-FdsShmem::shm_remove()
+FdsShmem::shm_unmap()
 {
     // Verify that the shm is mapped first
     if (sh_addr == NULL) {
@@ -63,6 +61,5 @@ FdsShmem::shm_remove()
 
     // Unmap the shared region
     return munmap(sh_addr, sh_size);
-    
 }
 }  // namespace fds
