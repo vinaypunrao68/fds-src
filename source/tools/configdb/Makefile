@@ -11,7 +11,7 @@ user_fds_ar_libs  := \
 	fds-fdsp \
 	fds-umod \
 	fds-thread \
-
+    fds-osdep
 
 user_non_fds_libs := boost_log boost_system boost_thread boost_date_time boost_program_options \
     leveldb thrift rt config++ cmdconsole hiredis

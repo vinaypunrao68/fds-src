@@ -259,7 +259,7 @@ namespace fds {
     fds_uint32_t str_to_ipv4_addr(std::string ip_str) {
       unsigned int n1, n2, n3, n4;
       fds_uint32_t ip;
-      sscanf(ip_str.c_str(), "%d.%d.%d.%d", &n1, &n2, &n3, &n4); //  NOLINT
+      sscanf(ip_str.c_str(), "%u.%u.%u.%u", &n1, &n2, &n3, &n4); //  NOLINT
       ip = n1 << 24 | n2 << 16 | n3 << 8 | n4;
       return (ip);
     }

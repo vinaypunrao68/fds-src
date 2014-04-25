@@ -18,8 +18,8 @@ namespace redis {
             reason = std::string(cstr);
         }
 
-        explicit RedisException(const std::string& reason) {
-            this->reason = reason;
+        explicit RedisException(const std::string& reas) {
+            this->reason = reas;
         }
 
         virtual ~RedisException() throw() {}

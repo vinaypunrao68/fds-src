@@ -9,8 +9,6 @@ user_build_dir :=      \
     util               \
     data-mgr           \
     dlt                \
-    migrations         \
-#    stor_mgr           \
-#    stor_hvisor_ice    \
+    migrations
 
 include $(topdir)/Makefile.incl
