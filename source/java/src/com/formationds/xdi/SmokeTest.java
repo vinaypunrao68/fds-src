@@ -5,12 +5,14 @@ package com.formationds.xdi;
 
 import com.formationds.xdi.shim.AmShim;
 import com.formationds.xdi.shim.ObjectOffset;
+import com.formationds.xdi.shim.VolumeDescriptor;
 import com.formationds.xdi.shim.VolumePolicy;
 import org.apache.thrift.protocol.TBinaryProtocol;
 import org.apache.thrift.transport.TSocket;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.List;
 
 public class SmokeTest {
 
@@ -33,6 +35,8 @@ public class SmokeTest {
         client.createVolume(DOMAIN_NAME, VOLUME_NAME, volumePolicy);
         Thread.sleep(4000);
 
+        List<VolumeDescriptor> volumeDescriptors = client.listVolumes(DOMAIN_NAME);
+        System.out.println("Found " + volumeDescriptors.size() + " volumes");
         System.out.println("Creating object 'someBytes.bin', size: 8192 bytes");
         int length = volumePolicy.getMaxObjectSizeInBytes();
         byte[] putData = new byte[length];
