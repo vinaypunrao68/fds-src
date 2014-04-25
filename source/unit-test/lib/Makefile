@@ -13,7 +13,8 @@ user_fds_ar_libs  := \
     fds-fdsp \
     fds-thread \
     fds-odb \
-    fds-umod
+    fds-umod \
+    fds-osdep
 	
 user_non_fds_libs :=                                                          \
     boost_log \

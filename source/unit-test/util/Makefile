@@ -5,12 +5,25 @@ user_rtime_env    := user
 user_incl_dir     := include
 
 user_fds_so_libs  :=
-user_fds_ar_libs  := fds-lib fds-util fds-fdsp fds-hash
+user_fds_ar_libs  := \
+	fds-lib \
+	fds-util \
+	fds-fdsp \
+	fds-hash
+
 user_non_fds_libs := \
-    boost_log boost_system boost_filesystem boost_thread boost_date_time \
+	boost_log \
+	boost_system \
+	boost_filesystem \
+	boost_thread \
+	boost_date_time \
     ssl crypto cryptopp
 
-user_incl_dir     := $(util_dir) $(util_dir)/hash $(topdir)/include/hash
+user_incl_dir     := \
+	$(util_dir) \
+	$(util_dir)/hash \
+	$(topdir)/include/hash
+
 user_cpp          :=  \
     hash_test.cpp     \
     log_unit_test.cpp

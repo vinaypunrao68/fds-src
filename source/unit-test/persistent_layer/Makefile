@@ -13,7 +13,8 @@ user_fds_ar_libs  := \
     fds-thread  \
     fds-util \
     fds-hash \
-    fds-fdsp
+    fds-fdsp \
+    fds-osdep
 
 user_non_fds_libs :=  \
     boost_log \

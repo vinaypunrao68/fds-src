@@ -48,10 +48,10 @@ void fds_log::init(const std::string& logfile,
                    bool timestamp,
                    bool severity,
                    severity_level level,
-                   bool pname,
-                   bool pid,
-                   bool tid,
-                   bool record) {
+                   bool Pname,
+                   bool Pid,
+                   bool Tid,
+                   bool Record) {
 
   /*
    * Create the with file name and rotation.
