@@ -59,7 +59,8 @@ struct OpCtx {
         RELOCATE,
         COPY,
         SYNC,
-        GC_COPY
+        GC_COPY,
+        WRITE_BACK
     };
     OpCtx(const OpType &t);
     OpCtx(const OpType &t, const uint64_t &timestamp);
