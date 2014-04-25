@@ -38,17 +38,20 @@ public class SmokeTest {
         byte[] putData = new byte[length];
         byte pattern = (byte)255;
         Arrays.fill(putData, pattern);
+
+        int offCount = 0;
         for (offCount = 0; offCount < 10; offCount++) {
             client.updateBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME,
                               ByteBuffer.wrap(putData), length,
-                              new ObjectOffset(i), ByteBuffer.wrap(new byte[0]), false);
+                              new ObjectOffset(offCount), ByteBuffer.wrap(new byte[0]), false);
         }
+        offCount--;
 
-        i--;
         client.updateBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME,
-                          ByteBuffer.wrap(putData), 0, new ObjectOffset(i), ByteBuffer.wrap(new byte[0]), true);
+                          ByteBuffer.wrap(putData), 0, new ObjectOffset(offCount), ByteBuffer.wrap(new byte[0]), true);
 
-        ByteBuffer data = client.getBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME, length, 0);
+        ByteBuffer data = client.getBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME,
+                                         length, new ObjectOffset(0));
 
         // StringBuilder sb = new StringBuilder();
         // for (byte b : data.array()) {
@@ -60,9 +63,16 @@ public class SmokeTest {
         // InputStream inputStream = IOUtils.toInputStream("hello, world!");
         // new StreamWriter(maxObjSize, client).write(DOMAIN_NAME, VOLUME_NAME, "stream.bin", inputStream, new HashMap<>());
 
-        // System.out.println("Deleting object 'someBytes.bin'");
-        // client.deleteBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME);
-        // System.out.println("Deleting volume 'Volume1'");
+        System.out.println("stating blob");
+        System.out.println(client.statBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME));
+        
+        System.out.println("stating volume");
+        System.out.println(client.statVolume(DOMAIN_NAME, VOLUME_NAME));
+
+        System.out.println("deleting blob");
+        client.deleteBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME);
+
+        System.out.println("deleting volume");
         client.deleteVolume(DOMAIN_NAME, VOLUME_NAME);
         System.out.println("All done.");
     }
