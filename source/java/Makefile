@@ -16,7 +16,7 @@ compile:
 	rm -f $(comm_dir_bin)/AMAgent
 	mkdir -p $(comm_dir_lib)/java/
 	$(tool_thrift) $(local_thrift_flags) $(topdir)/xdi/am_shim.thrift
-	mvn -DskipTests clean assembly:directory -Dbuild.dir=$(comm_dir_lib)/java
+	mvn -DskipTests assembly:directory -Dbuild.dir=$(comm_dir_lib)/java
 	cp -rv admin-webapp $(comm_dir_lib)
 
 gen-java/FDS_ProtocolInterface/FDSP_MsgHdrType.java: $(topdir)/fdsp/FDSP.thrift
