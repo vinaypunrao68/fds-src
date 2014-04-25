@@ -243,8 +243,8 @@ class FdsnIf : public xdi::AmShimIf {
                  boost::shared_ptr<std::string>& blobName,
                  boost::shared_ptr<int32_t>& length,
                  boost::shared_ptr<int64_t>& offset) {
-        /*
-        BucketContext bucket_ctx("host", *volumeName, "accessid", "secretkey");
+        BucketContextPtr bucket_ctx(
+            new BucketContext("host", *volumeName, "accessid", "secretkey"));
 
         fds_verify(*length >= 0);
         fds_verify(*offset >= 0);
@@ -257,23 +257,40 @@ class FdsnIf : public xdi::AmShimIf {
         FdsnReqCtx::Ptr fdsnCtx = FdsnReqCtx::Ptr(new FdsnReqCtx(reqId));
         fdsnReqMap[reqId] = fdsnCtx;
 
+        // Get a buffer of the requested size
+        // TODO(Andrew): This should be a shared pointer
+        // as we pass it around a lot
+        char *buf = new char[*length];
+        fds_verify(buf != NULL);
+
+        GetObjectResponseHandler getHandler;
+        getHandler.reqId = reqId;
+
         // Do async getobject
         // TODO(Andrew): The error path callback maybe called
         // in THIS thread's context...need to fix or handle that.
         // TODO(Andrew): Pass in the request context
-        am_api->GetObject(&bucket_ctx,
-                          *volumeName,
+        am_api->GetObject(bucket_ctx,
+                          *blobName,
                           NULL,  // No get conditions
                           *offset,
                           *length,
-                          NULL,  // Not passing any context for the callback
-                          const_cast<char *>(bytes->c_str()),
-                          *offset,
-                          *length,
-                          *isLast,
-                          fdsn_updblob_cbfn,
-                          static_cast<void *>(&reqId));
-        */
+                          buf,
+                          *length,  // We always allocate buf of the requested size
+                          NULL,  // Not passing a context right now
+                          fn_GetObjectHandler,
+                          static_cast<void *>(&getHandler));
+
+        // Wait on something
+        getHandler.wait();
+
+        if (getHandler.status != FDSN_StatusOK) {
+            xdi::XdiException fdsE;
+            throw fdsE;
+        }
+        _return.assign(buf, *length);
+
+        delete[] buf;
     }
 
     void updateMetadata(const std::string& domainName,
