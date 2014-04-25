@@ -5,6 +5,7 @@
 #define SOURCE_INCLUDE_AM_ENGINE_HANDLERS_RESPONSEHANDLER_H_
 
 #include <concurrency/taskstatus.h>
+#include <native/types.h>
 #include <string>
 #include <xdi/am_shim_types.h>
 

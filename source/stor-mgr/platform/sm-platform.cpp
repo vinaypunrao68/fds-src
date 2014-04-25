@@ -58,7 +58,7 @@ SmPlatform::mod_init(SysParams const *const param)
 
     plf_om_ip_str    = conf.get_abs<std::string>("fds.sm.om_ip");
     plf_my_ip        = util::get_local_ip();
-    plf_my_node_name = "my-sm-node"; // plf_my_ip;
+    plf_my_node_name = "my-sm-node";  // plf_my_ip;
 
     plf_vol_evt  = new SmVolEvent(plf_resources, plf_clus_map, this);
     plf_node_evt = new NodePlatEvent(plf_resources, plf_clus_map, this);

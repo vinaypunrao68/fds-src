@@ -96,7 +96,7 @@ void BucketStatsResponseHandler::process() {
     volumeDescriptor.name = contents[0].bucket_name;
     // volumeDescriptor.uuid = 10;
     volumeDescriptor.dateCreated = util::getTimeStampMillis();
-    volumeDescriptor.policy.objectSizeInBytes = 2097152;  // 2MB
+    volumeDescriptor.policy.maxObjectSizeInBytes = 2097152;  // 2MB
 }
 
 BucketStatsResponseHandler::~BucketStatsResponseHandler() {
