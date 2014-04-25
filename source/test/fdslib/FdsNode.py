@@ -27,3 +27,6 @@ class FdsNode:
 
     def get_fds_root(self):
         return self.node_cfg.nd_conf_dict['fds_root']
+
+    def get_ip(self):
+        return self.node_cfg.nd_conf_dict['ip']
