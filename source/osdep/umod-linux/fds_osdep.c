@@ -111,14 +111,17 @@ fds_spawn(char *const argv[], int daemonize)
 /*
  * fds_spawn_service
  * -----------------
+ * TODO(Rao):  We are passing om_ip here.  This is a hack for now. We'll have a cleaner
+ * implementation where service can ask platform for the om_ip
  */
 pid_t
-fds_spawn_service(const char *prog, const char *fds_root, int daemonize)
+fds_spawn_service(const char *prog, const char *om_ip_arg,
+                  const char *fds_root, int daemonize)
 {
     size_t len, ret;
     char   exec[1024];
     char   root[1024];
-    char  *argv[] = { exec, root, NULL };
+    char  *argv[] = { exec, root, (char*)om_ip_arg, NULL };
 
     if (getcwd(exec, sizeof (exec)) == NULL) {
         perror("Fatal from getcwd()");

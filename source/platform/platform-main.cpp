@@ -62,19 +62,28 @@ NodePlatformProc::plf_start_node_services(const fpi::FDSP_ActivateNodeTypePtr &m
 
     if (auto_start == true) {
         if (msg->has_sm_service) {
-            pid = fds_spawn_service("StorMgr", proc_root->dir_fdsroot().c_str(), true);
+            pid = fds_spawn_service("StorMgr",
+                    (std::string("--fds.sm.om_ip=") +
+                            conf.get<std::string>("om_ip")).c_str(),
+                    proc_root->dir_fdsroot().c_str(), true);
             LOGNOTIFY << "Spawn SM as daemon";
 
             // TODO(Vy): must fix the transport stuff!
             sleep(1);
         }
         if (msg->has_dm_service) {
-            pid = fds_spawn_service("DataMgr", proc_root->dir_fdsroot().c_str(), true);
+            pid = fds_spawn_service("DataMgr",
+                    (std::string("--fds.dm.om_ip=") +
+                            conf.get<std::string>("om_ip")).c_str(),
+                    proc_root->dir_fdsroot().c_str(), true);
             LOGNOTIFY << "Spawn DM as daemon";
         }
         if (msg->has_am_service) {
             sleep(5);
-            pid = fds_spawn_service("AMAgent", proc_root->dir_fdsroot().c_str(), true);
+            pid = fds_spawn_service("AMAgent",
+                    (std::string("--fds.am.om_ip=") +
+                            conf.get<std::string>("om_ip")).c_str(),
+                    proc_root->dir_fdsroot().c_str(), true);
             LOGNOTIFY << "Spawn AM as daemon";
         }
     } else {
