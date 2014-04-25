@@ -9,15 +9,19 @@ import com.formationds.web.toolkit.HttpMethod;
 import com.formationds.web.toolkit.WebApp;
 import com.formationds.xdi.Xdi;
 import com.formationds.xdi.local.LocalAmShim;
+import com.formationds.xdi.shim.AmShim;
+import org.apache.thrift.protocol.TBinaryProtocol;
+import org.apache.thrift.transport.TSocket;
 
 public class S3Endpoint {
     private Xdi xdi;
 
     public static void main(String[] args) throws Exception {
         Configuration configuration = new Configuration(args);
-
-        LocalAmShim am = new LocalAmShim("local");
-        am.createDomain(Main.FDS_S3);
+        TSocket transport = new TSocket("localhost", 9988);
+        transport.open();
+        AmShim.Client am = new AmShim.Client(new TBinaryProtocol(transport));
+        // am.createDomain(Main.FDS_S3);
         Xdi xdi = new Xdi(am);
         new S3Endpoint(xdi).start(9977);
     }
