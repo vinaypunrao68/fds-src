@@ -5,6 +5,12 @@
 #define SOURCE_INCLUDE_PLATFORM_FDS_SHMEM_H_
 
 #include <stdlib.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <assert.h>
 
 namespace fds {
 
@@ -15,13 +21,12 @@ class FdsShmem
     virtual ~FdsShmem();
 
     int   shm_alloc(size_t size);
-    void *shm_attach();
-    void  shm_detach();
+    void  *shm_get();
+    int   shm_unmap();
 
   protected:
     const char               *sh_name;
     void                     *sh_addr;
-    int                       sh_id;
     size_t                    sh_size;
 };
 
