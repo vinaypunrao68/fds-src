@@ -165,6 +165,9 @@ OMgrClient::OMgrClient(FDSP_MgrIdType node_type,
                        fds_log *parent_log,
                        boost::shared_ptr<netSessionTbl> nst,
                        Platform *plf) {
+
+  fds_verify(_omPort != 0);
+
   my_node_type = node_type;
   omIpStr      = _omIpStr;
   omConfigPort = _omPort;
