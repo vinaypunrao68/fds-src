@@ -33,6 +33,7 @@ int main() {
     //*(int *)second = 2;
     
     // Unmap and remap
+    a.shm_detach();
     b.shm_detach();
      
     assert(a.shm_remove() == 0);
