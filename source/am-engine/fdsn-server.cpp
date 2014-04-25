@@ -234,7 +234,7 @@ class FdsnIf : public xdi::AmShimIf {
                  const std::string& volumeName,
                  const std::string& blobName,
                  const int32_t length,
-                 const int64_t offset) {
+                 const xdi::ObjectOffset& offset) {
     }
 
     void getBlob(std::string& _return,
@@ -242,12 +242,16 @@ class FdsnIf : public xdi::AmShimIf {
                  boost::shared_ptr<std::string>& volumeName,
                  boost::shared_ptr<std::string>& blobName,
                  boost::shared_ptr<int32_t>& length,
-                 boost::shared_ptr<int64_t>& offset) {
+                 boost::shared_ptr<xdi::ObjectOffset>& objectOffset) {
         BucketContextPtr bucket_ctx(
             new BucketContext("host", *volumeName, "accessid", "secretkey"));
 
+        // TODO(Andrew): Remove this hackey maxObjSize
+        fds_uint64_t maxObjSize = 2 * 1024 * 1024;
+        fds_uint64_t offset = objectOffset->value * maxObjSize;
+
         fds_verify(*length >= 0);
-        fds_verify(*offset >= 0);
+        fds_verify(offset >= 0);
 
         fds_scoped_lock slock(fdsnMtx);
 
@@ -273,7 +277,7 @@ class FdsnIf : public xdi::AmShimIf {
         am_api->GetObject(bucket_ctx,
                           *blobName,
                           NULL,  // No get conditions
-                          *offset,
+                          offset,
                           *length,
                           buf,
                           *length,  // We always allocate buf of the requested size
@@ -311,7 +315,8 @@ class FdsnIf : public xdi::AmShimIf {
                     const std::string& blobName,
                     const std::string& bytes,
                     const int32_t length,
-                    const int64_t offset,
+                    const xdi::ObjectOffset& objectOffset,
+                    const std::string& digest,
                     const bool isLast) {
     }
 
@@ -320,12 +325,17 @@ class FdsnIf : public xdi::AmShimIf {
                     boost::shared_ptr<std::string>& blobName,
                     boost::shared_ptr<std::string>& bytes,
                     boost::shared_ptr<int32_t>& length,
-                    boost::shared_ptr<int64_t>& offset,
+                    boost::shared_ptr<xdi::ObjectOffset>& objectOffset,
+                    boost::shared_ptr<std::string>& digest,
                     boost::shared_ptr<bool>& isLast) {
         BucketContext bucket_ctx("host", *volumeName, "accessid", "secretkey");
 
+        // TODO(Andrew): Remove this hackey maxObjSize
+        fds_uint64_t maxObjSize = 2 * 1024 * 1024;
+        fds_uint64_t offset = objectOffset->value * maxObjSize;
+
         fds_verify(*length >= 0);
-        fds_verify(*offset >= 0);
+        fds_verify(offset >= 0);
 
         fds_scoped_lock slock(fdsnMtx);
 
@@ -363,7 +373,7 @@ class FdsnIf : public xdi::AmShimIf {
                           putProps,
                           NULL,  // Not passing any context for the callback
                           const_cast<char *>(bytes->c_str()),
-                          *offset,
+                          offset,
                           *length,
                           *isLast,
                           fdsn_updblob_cbfn,

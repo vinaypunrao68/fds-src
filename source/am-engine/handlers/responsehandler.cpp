@@ -93,7 +93,7 @@ BucketStatsResponseHandler::BucketStatsResponseHandler(
 
 void BucketStatsResponseHandler::process() {
     XCHECKSTATUS(status);
-    volumeDescriptor.name = contents->bucket_name;
+    volumeDescriptor.name = contents[0].bucket_name;
     // volumeDescriptor.uuid = 10;
     volumeDescriptor.dateCreated = util::getTimeStampMillis();
     volumeDescriptor.policy.objectSizeInBytes = 2097152;  // 2MB
@@ -101,7 +101,7 @@ void BucketStatsResponseHandler::process() {
 
 BucketStatsResponseHandler::~BucketStatsResponseHandler() {
     if (contents) {
-        delete contents;
+        delete[] contents;
     }
 }
 }  // namespace fds
