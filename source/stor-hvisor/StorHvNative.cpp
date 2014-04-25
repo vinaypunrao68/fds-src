@@ -630,19 +630,19 @@ Error FDS_NativeAPI::sendTestBucketToOM(const std::string& bucket_name,
     return err;
 }
 
-void FDS_NativeAPI::StatBlob(BucketContext *bucket_ctxt, const std::string& blobName,
+void FDS_NativeAPI::StatBlob(const std::string& volumeName, const std::string& blobName,
                              native::StatBlobCallbackPtr cb) {
     fds_volid_t volId = invalid_vol_id;
-    LOGNORMAL << bucket_ctxt->bucketName
+    LOGNORMAL << " volume: " << volumeName
               << " blobName " << blobName;
 
     native::ScopedCallBack(cb.get());
     // check if bucket is attached to this AM
-    if (storHvisor->vol_table->volumeExists(bucket_ctxt->bucketName)) {
-        volId = storHvisor->vol_table->getVolumeUUID(bucket_ctxt->bucketName);
+    if (storHvisor->vol_table->volumeExists(volumeName)) {
+        volId = storHvisor->vol_table->getVolumeUUID(volumeName);
         fds_verify(volId != invalid_vol_id);
     } else {
-        LOGERROR << "bucket should be here.. but missing : " << bucket_ctxt->bucketName;
+        LOGERROR << "bucket should be here.. but missing : " << volumeName;
         cb->status = FDSN_StatusErrorBucketNotExists;
         return;
     }
@@ -655,6 +655,8 @@ void FDS_NativeAPI::StatBlob(BucketContext *bucket_ctxt, const std::string& blob
     if (err == ERR_OK) {
         cb->status = FDSN_StatusOK;
         cb->blobSize = blobSize;
+        LOGDEBUG << " blobsize: " << blobSize
+                 << " blobname: " << blobName;
     }
 }
 
