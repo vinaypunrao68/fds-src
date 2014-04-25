@@ -18,12 +18,13 @@ namespace fds {
 class FdsShmem
 {
   public:
-    FdsShmem(const char *name);
+    FdsShmem(const char *name, size_t size);
     virtual ~FdsShmem();
 
-    int   shm_alloc(size_t size);
-    void  *shm_get();
-    int   shm_unmap();
+    void  *shm_alloc();
+    void  *shm_attach();
+    int   shm_detach();
+    int   shm_remove();
 
   protected:
     const char               *sh_name;
