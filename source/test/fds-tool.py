@@ -85,9 +85,8 @@ if __name__ == '__main__':
         sys.exit(0)
 
     for n in nodes:
-        print 'Running remote command for ' + n.nd_conf_dict['node-name']
-        n.nd_rmt_agent.ssh_exec('python -m disk_type -m', wait_compl=True)
-        n.nd_rmt_agent.ssh_exec('/fds/sbin/redis.sh start', wait_compl=True, output=True)
+        n.nd_rmt_agent.ssh_exec('python -m disk_type -m')
+        n.nd_rmt_agent.ssh_exec('/fds/sbin/redis.sh start')
 
     om = cfg.rt_om_node
     om_ip = om.nd_conf_dict['ip']
