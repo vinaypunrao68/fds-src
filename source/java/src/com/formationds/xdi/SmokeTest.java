@@ -10,6 +10,7 @@ import org.apache.thrift.protocol.TBinaryProtocol;
 import org.apache.thrift.transport.TSocket;
 
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 
 public class SmokeTest {
 
@@ -41,9 +42,10 @@ public class SmokeTest {
                               new ObjectOffset(i), ByteBuffer.wrap(new byte[0]), false);
         }
 
+        i--;
         client.updateBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME,
                 ByteBuffer.wrap(buf), length,
-                new ObjectOffset(10), ByteBuffer.wrap(new byte[0]), true);
+                new ObjectOffset(i), ByteBuffer.wrap(new byte[0]), true);
 
         // System.out.println("Deleting object 'someBytes.bin'");
         // client.deleteBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME);

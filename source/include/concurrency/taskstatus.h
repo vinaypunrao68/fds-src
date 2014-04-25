@@ -21,7 +21,7 @@ namespace fds {
     namespace concurrency {
         struct TaskStatus {
             // for more than 1 task pass it in ctor
-            TaskStatus(uint numTasks=1);
+            TaskStatus(uint _numTasks=1);
             void reset(uint numTasks);
             virtual ~TaskStatus();
 

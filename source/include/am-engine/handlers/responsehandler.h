@@ -5,7 +5,6 @@
 #define SOURCE_INCLUDE_AM_ENGINE_HANDLERS_RESPONSEHANDLER_H_
 
 #include <concurrency/taskstatus.h>
-#include <native/types.h>
 #include <string>
 #include <xdi/am_shim_types.h>
 
@@ -60,6 +59,7 @@ namespace fds {
         const char *buffer = NULL;
         fds_uint64_t blobSize = 0;
         const std::string* blobEtag = NULL;
+        fds_uint64_t reqId = 0;
 
         virtual void process();
         virtual ~GetObjectResponseHandler();
