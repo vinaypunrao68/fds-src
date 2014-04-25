@@ -142,6 +142,12 @@ class FdsnIf : public xdi::AmShimIf {
                       boost::shared_ptr<std::string>& volumeName,
                       boost::shared_ptr<xdi::VolumePolicy>& volumePolicy) {
         BucketContext bucket_ctx("host", *volumeName, "accessid", "secretkey");
+        fds_uint32_t fakeMaxObjSize = 2 * 1024 * 1024;
+
+        if ((volumePolicy->maxObjectSizeInBytes % fakeMaxObjSize) != 0) {
+            xdi::XdiException fdsE;
+            throw fdsE;
+        }
 
         // The CreateBucket is synchronous...though still uses
         // the callback mechanism. The callback will throw

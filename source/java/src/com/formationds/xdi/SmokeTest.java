@@ -51,7 +51,7 @@ public class SmokeTest {
         List<VolumeDescriptor> volumeDescriptors = client.listVolumes(DOMAIN_NAME);
         System.out.println("Found " + volumeDescriptors.size() + " volumes");
         System.out.println("Creating object 'someBytes.bin', size: 8192 bytes");
-        int length = volumePolicy.getMaxObjectSizeInBytes();
+        int length = 2 * 1024 * 1024; // volumePolicy.getMaxObjectSizeInBytes();
         byte[] putData = new byte[length];
         byte pattern = (byte)255;
         Arrays.fill(putData, pattern);
@@ -62,8 +62,6 @@ public class SmokeTest {
                               ByteBuffer.wrap(putData), length,
                               new ObjectOffset(offCount), ByteBuffer.wrap(new byte[0]), false);
         }
-        offCount--;
-
         client.updateBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME,
                           ByteBuffer.wrap(putData), 0, new ObjectOffset(offCount), ByteBuffer.wrap(new byte[0]), true);
 
@@ -79,10 +77,6 @@ public class SmokeTest {
         // System.out.println("Writing arbitrary length stream, size: a few bytes");
         // InputStream inputStream = IOUtils.toInputStream("hello, world!");
         // new StreamWriter(maxObjSize, client).write(DOMAIN_NAME, VOLUME_NAME, "stream.bin", inputStream, new HashMap<>());
-
-        // System.out.println("Deleting object 'someBytes.bin'");
-        // client.deleteBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME);
-        // System.out.println("Deleting volume 'Volume1'");
         
         System.out.println("stating blob");
         System.out.println(client.statBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME));
