@@ -1349,13 +1349,16 @@ ObjectStorMgr::writeObjectToTier(const OpCtx &opCtx,
     err = writeObjectMetaData(opCtx, objId, objData.data.length(),
                 disk_req->req_get_phy_loc(), false, diskTier, &vio);
 
+    StorMgrVolume *vol = volTbl->getVolume(volId);
     if ((err == ERR_OK) &&
         (tier == diskio::flashTier)) {
-        /*
-         * If written to flash, add to dirty flash list
-         */
-        pushOk = dirtyFlashObjs->push(new ObjectID(objId));
-        fds_verify(pushOk == true);
+        if (vol->voldesc->mediaPolicy != FDSP_MEDIA_POLICY_SSD) {  
+           /*
+            * If written to flash, add to dirty flash list
+            */
+           pushOk = dirtyFlashObjs->push(new ObjectID(objId));
+           fds_verify(pushOk == true);
+        }
     }
 
     delete disk_req;
