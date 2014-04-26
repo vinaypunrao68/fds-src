@@ -146,6 +146,7 @@ class FdsnIf : public xdi::AmShimIf {
 
         if ((volumePolicy->maxObjectSizeInBytes % fakeMaxObjSize) != 0) {
             xdi::XdiException fdsE;
+            fdsE.errorCode = xdi::BAD_REQUEST;
             throw fdsE;
         }
 
@@ -305,6 +306,11 @@ class FdsnIf : public xdi::AmShimIf {
 
         if (getHandler.status != FDSN_StatusOK) {
             xdi::XdiException fdsE;
+            if (getHandler.status == FDSN_StatusEntityDoesNotExist) {
+                fdsE.errorCode = xdi::MISSING_RESOURCE;
+            } else {
+                fdsE.errorCode = xdi::BAD_REQUEST;
+            }
             throw fdsE;
         }
         _return.assign(buf, *length);
