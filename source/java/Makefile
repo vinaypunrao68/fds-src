@@ -15,7 +15,9 @@ local_thrift_flags := -r --gen java
 compile:
 	rm -f $(comm_dir_bin)/AMAgent
 	mkdir -p $(comm_dir_lib)/java/
-	$(tool_thrift) $(local_thrift_flags) $(topdir)/xdi/am_shim.thrift
+	rm -rf $(comm_dir_lib)/java/classes
+	rm -rf gen-java/com
+	$(tool_thrift) $(local_thrift_flags) $(topdir)/apis/apis.thrift
 	mvn -DskipTests assembly:directory -Dbuild.dir=$(comm_dir_lib)/java
 	cp -rv admin-webapp $(comm_dir_lib)
 

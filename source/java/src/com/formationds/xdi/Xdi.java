@@ -3,7 +3,7 @@ package com.formationds.xdi;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.xdi.shim.*;
+import com.formationds.apis.*;
 import org.apache.thrift.TException;
 
 import java.io.InputStream;
@@ -12,26 +12,28 @@ import java.util.List;
 import java.util.Map;
 
 public class Xdi {
-    private final AmShim.Iface am;
+    private final AmService.Iface am;
+    private ConfigurationService.Iface config;
 
-    public Xdi(AmShim.Iface am) {
+    public Xdi(AmService.Iface am, ConfigurationService.Iface config) {
         this.am = am;
+        this.config = config;
     }
 
     public void createVolume(String domainName, String volumeName, VolumePolicy volumePolicy) throws XdiException, TException {
-        am.createVolume(domainName, volumeName, volumePolicy);
+        config.createVolume(domainName, volumeName, volumePolicy);
     }
 
     public void deleteVolume(String domainName, String volumeName) throws XdiException, TException {
-        am.deleteVolume(domainName, volumeName);
+        config.deleteVolume(domainName, volumeName);
     }
 
     public VolumeDescriptor statVolume(String domainName, String volumeName) throws XdiException, TException {
-        return am.statVolume(domainName, volumeName);
+        return config.statVolume(domainName, volumeName);
     }
 
     public List<VolumeDescriptor> listVolumes(String domainName) throws XdiException, TException {
-        return am.listVolumes(domainName);
+        return config.listVolumes(domainName);
     }
 
     public List<BlobDescriptor> volumeContents(String domainName, String volumeName, int count, long offset) throws XdiException, TException {
@@ -43,7 +45,7 @@ public class Xdi {
     }
 
     public InputStream readStream(String domainName, String volumeName, String blobName) throws Exception {
-        Iterator<byte[]> iterator = new BlockIterator(am).read(domainName, volumeName, blobName);
+        Iterator<byte[]> iterator = new BlockIterator(am, config).read(domainName, volumeName, blobName);
         return new BlockStreamer(iterator);
     }
 

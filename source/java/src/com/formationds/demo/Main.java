@@ -7,7 +7,7 @@ import com.formationds.util.Configuration;
 import com.formationds.web.toolkit.HttpMethod;
 import com.formationds.web.toolkit.WebApp;
 import com.formationds.xdi.Xdi;
-import com.formationds.xdi.local.LocalAmShim;
+import com.formationds.xdi.local.ToyServices;
 
 public class Main {
     public static final String DEMO_DOMAIN = "demo";
@@ -18,10 +18,10 @@ public class Main {
     }
 
     public void start(int port)  {
-        LocalAmShim shim = new LocalAmShim(DEMO_DOMAIN);
-        shim.createDomain(DEMO_DOMAIN);
+        ToyServices services = new ToyServices(DEMO_DOMAIN);
+        services.createDomain(DEMO_DOMAIN);
 
-        Xdi xdi = new Xdi(shim);
+        Xdi xdi = new Xdi(services, services);
         WebApp webApp = new WebApp();
         //DemoState state = new RealDemoState(Duration.standardMinutes(5), xdi);
         DemoState state = new MockDemoState();

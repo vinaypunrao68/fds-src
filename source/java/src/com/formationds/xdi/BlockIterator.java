@@ -3,22 +3,25 @@ package com.formationds.xdi;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.xdi.shim.AmShim;
-import com.formationds.xdi.shim.ObjectOffset;
-import com.formationds.xdi.shim.VolumeDescriptor;
+import com.formationds.apis.AmService;
+import com.formationds.apis.ConfigurationService;
+import com.formationds.apis.ObjectOffset;
+import com.formationds.apis.VolumeDescriptor;
 import org.apache.thrift.TException;
 
 import java.util.Iterator;
 
 public class BlockIterator {
-    private AmShim.Iface am;
+    private AmService.Iface am;
+    private ConfigurationService.Iface config;
 
-    public BlockIterator(AmShim.Iface am) {
+    public BlockIterator(AmService.Iface am, ConfigurationService.Iface config) {
         this.am = am;
+        this.config = config;
     }
 
     public Iterator<byte[]> read(String domainName, String volumeName, String blobName) throws Exception {
-        VolumeDescriptor volumeDescriptor = am.statVolume(domainName, volumeName);
+        VolumeDescriptor volumeDescriptor = config.statVolume(domainName, volumeName);
         int blockSize = volumeDescriptor.getPolicy().getMaxObjectSizeInBytes();
         long byteCount = am.statBlob(domainName, volumeName, blobName).getByteCount();
         long totalObjects = (long) Math.ceil(byteCount / (double) blockSize);

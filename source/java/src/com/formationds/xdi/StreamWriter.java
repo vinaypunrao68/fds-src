@@ -3,8 +3,8 @@ package com.formationds.xdi;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.xdi.shim.AmShim;
-import com.formationds.xdi.shim.ObjectOffset;
+import com.formationds.apis.AmService;
+import com.formationds.apis.ObjectOffset;
 
 import java.io.InputStream;
 import java.nio.ByteBuffer;
@@ -14,9 +14,9 @@ import java.util.Map;
 public class StreamWriter {
 
     private final byte[] buf;
-    private AmShim.Iface am;
+    private AmService.Iface am;
 
-    public StreamWriter(int objectSize, AmShim.Iface am) {
+    public StreamWriter(int objectSize, AmService.Iface am) {
         this.am = am;
         buf = new byte[objectSize];
     }

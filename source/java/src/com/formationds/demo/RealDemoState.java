@@ -3,8 +3,8 @@ package com.formationds.demo;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+import com.formationds.apis.VolumePolicy;
 import com.formationds.xdi.Xdi;
-import com.formationds.xdi.shim.VolumePolicy;
 import org.apache.thrift.TException;
 import org.joda.time.DateTime;
 import org.joda.time.Duration;

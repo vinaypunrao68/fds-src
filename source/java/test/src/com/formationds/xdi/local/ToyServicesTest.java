@@ -3,9 +3,9 @@ package com.formationds.xdi.local;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.xdi.shim.BlobDescriptor;
-import com.formationds.xdi.shim.ObjectOffset;
-import com.formationds.xdi.shim.VolumePolicy;
+import com.formationds.apis.BlobDescriptor;
+import com.formationds.apis.ObjectOffset;
+import com.formationds.apis.VolumePolicy;
 import org.junit.Test;
 
 import java.nio.ByteBuffer;
@@ -16,11 +16,11 @@ import java.util.Map;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 
-public class LocalAmShimTest {
+public class ToyServicesTest {
 
     @Test
     public void testVolumes() throws Exception {
-        LocalAmShim shim = new LocalAmShim("local");
+        ToyServices shim = new ToyServices("local");
         String domainName = "foo";
         String volumeName = "v1";
         String blobName = "blob";

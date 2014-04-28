@@ -3,7 +3,7 @@ package com.formationds.xdi.local;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.xdi.shim.*;
+import com.formationds.apis.*;
 import org.apache.thrift.TException;
 import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;
@@ -17,15 +17,15 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-public class LocalAmShim implements AmShim.Iface {
+public class ToyServices implements AmService.Iface, ConfigurationService.Iface {
 
     private Persister persister;
 
-    public LocalAmShim(String memoryDbName) {
+    public ToyServices(String memoryDbName) {
         persister = new Persister(memoryDbName);
     }
 
-    public LocalAmShim(File dbPath) {
+    public ToyServices(File dbPath) {
         persister = new Persister(dbPath);
     }
 

@@ -2,8 +2,8 @@ topdir           := ..
 user_target      := lib
 user_rtime_env   := user
 
-local_thft_src    := am_shim.thrift
-local_thft_hdrdir := $(topdir)/include/xdi
+local_thft_src    := apis.thrift
+local_thft_hdrdir := $(topdir)/include/apis
 local_thft_target := $(patsubst %.thrift,$(local_thft_hdrdir)/%_types.h, \
     $(local_thft_src))
 

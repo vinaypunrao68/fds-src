@@ -3,14 +3,10 @@ package com.formationds.xdi;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.xdi.shim.AmShim;
-import com.formationds.xdi.shim.ObjectOffset;
-import com.formationds.xdi.shim.VolumeDescriptor;
-import com.formationds.xdi.shim.VolumePolicy;
+import com.formationds.apis.*;
 import org.apache.thrift.protocol.TBinaryProtocol;
 import org.apache.thrift.transport.TSocket;
-import com.formationds.xdi.shim.*;
-import java.io.InputStream;
+
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
@@ -34,10 +30,12 @@ public class SmokeTest {
 
         TSocket socket = new TSocket(host, port);
         socket.open();
-        AmShim.Iface client = new AmShim.Client(new TBinaryProtocol(socket));
+        AmService.Iface am = new AmService.Client(new TBinaryProtocol(socket));
+        ConfigurationService.Iface config = null;
+
         System.out.println("Creating volume 'Volume1', policy: 4kb blocksize");
         try {
-            client.createVolume(DOMAIN_NAME, VOLUME_NAME, new VolumePolicy(4 * 1024));
+            config.createVolume(DOMAIN_NAME, VOLUME_NAME, new VolumePolicy(4 * 1024));
         } catch(XdiException e) {
             e.printStackTrace();
         }
@@ -45,10 +43,10 @@ public class SmokeTest {
 
         System.out.println("Creating volume 'Volume1', policy: 2MB blocksize");
         VolumePolicy volumePolicy = new VolumePolicy(2 * 1024 * 1024);
-        client.createVolume(DOMAIN_NAME, VOLUME_NAME, volumePolicy);
+        config.createVolume(DOMAIN_NAME, VOLUME_NAME, volumePolicy);
         Thread.sleep(4000);
 
-        List<VolumeDescriptor> volumeDescriptors = client.listVolumes(DOMAIN_NAME);
+        List<VolumeDescriptor> volumeDescriptors = config.listVolumes(DOMAIN_NAME);
         System.out.println("Found " + volumeDescriptors.size() + " volumes");
         System.out.println("Creating object 'someBytes.bin', size: 8192 bytes");
         int length = 2 * 1024 * 1024; // volumePolicy.getMaxObjectSizeInBytes();
@@ -58,14 +56,14 @@ public class SmokeTest {
 
         int offCount = 0;
         for (offCount = 0; offCount < 10; offCount++) {
-            client.updateBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME,
+            am.updateBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME,
                               ByteBuffer.wrap(putData), length,
                               new ObjectOffset(offCount), ByteBuffer.wrap(new byte[0]), false);
         }
-        client.updateBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME,
+        am.updateBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME,
                           ByteBuffer.wrap(putData), 0, new ObjectOffset(offCount), ByteBuffer.wrap(new byte[0]), true);
 
-        ByteBuffer data = client.getBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME,
+        ByteBuffer data = am.getBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME,
                                          length, new ObjectOffset(0));
 
         // StringBuilder sb = new StringBuilder();
@@ -79,16 +77,16 @@ public class SmokeTest {
         // new StreamWriter(maxObjSize, client).write(DOMAIN_NAME, VOLUME_NAME, "stream.bin", inputStream, new HashMap<>());
         
         System.out.println("stating blob");
-        System.out.println(client.statBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME));
+        System.out.println(am.statBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME));
         
         System.out.println("stating volume");
-        System.out.println(client.statVolume(DOMAIN_NAME, VOLUME_NAME));
+        System.out.println(config.statVolume(DOMAIN_NAME, VOLUME_NAME));
 
         System.out.println("deleting blob");
-        client.deleteBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME);
+        am.deleteBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME);
 
         System.out.println("deleting volume");
-        client.deleteVolume(DOMAIN_NAME, VOLUME_NAME);
+        config.deleteVolume(DOMAIN_NAME, VOLUME_NAME);
         System.out.println("All done.");
     }
 }

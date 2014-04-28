@@ -3,8 +3,8 @@ package com.formationds.xdi;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.xdi.shim.AmShim;
-import com.formationds.xdi.shim.ObjectOffset;
+import com.formationds.apis.AmService;
+import com.formationds.apis.ObjectOffset;
 import org.junit.Test;
 
 import java.io.ByteArrayInputStream;
@@ -19,7 +19,7 @@ public class StreamWriterTest {
     @Test
     public void testWriteStream() throws Exception {
         InputStream in = new ByteArrayInputStream(new byte[]{0, 1, 2, 3, 4, 5, 6, 7});
-        AmShim.Iface mockAm = mock(AmShim.Iface.class);
+        AmService.Iface mockAm = mock(AmService.Iface.class);
         String domainName = "domain";
         String volumeName = "volume";
         String blobName = "blob";
