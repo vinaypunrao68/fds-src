@@ -5,7 +5,7 @@
 #define SOURCE_INCLUDE_PERSISTENT_LAYER_DM_IO_H_
 
 #include <string>
-#include <set>
+#include <vector>
 #include <gtest/gtest_prod.h>
 
 #include <cpplist.h>
@@ -21,6 +21,7 @@ namespace diskio {
 class DataIO;
 class DataIOFunc;
 class PersisDataIO;
+class FilePersisDataIO;
 class DataIOModule;
 class DataIndexModule;
 class DataIndexProxy;
@@ -29,6 +30,18 @@ enum DataTier {
     diskTier  = 0,
     flashTier = 1,
     maxTier
+};
+
+struct DiskStat {
+    fds_uint64_t dsk_tot_size;      // total size in bytes
+    fds_uint64_t dsk_avail_size;    // in bytes
+    fds_uint64_t dsk_reclaim_size;  // in bytes
+};
+
+struct TokenStat {
+    fds::fds_token_id tkn_id;
+    fds_uint64_t      tkn_tot_size;      // total size of disk files in bytes
+    fds_uint64_t      tkn_reclaim_size;  // total reclaimable space in bytes
 };
 
 // ---------------------------------------------------------------------------
@@ -360,6 +373,12 @@ class DataIO
     void disk_loc_path_info(fds_uint16_t loc_id, std::string *path);
 
     /**
+     * Notify that object was deleted to update stats for garbage collection
+     */
+    void disk_delete_obj(meta_obj_id_t const *const oid, fds_uint32_t obj_size,
+                         obj_phy_loc_t* loc);
+
+    /**
      * Notify about start garbage collection for given token id 'tok_id'
      * and tier. If many disks contain this token, then token file on each
      * disk will be compacted. All new writes will be re-routed to the
@@ -440,10 +459,16 @@ class DataIOModule : public fds::Module
     disk_hdd_io(DataTier tier, fds_uint32_t file_id, meta_obj_id_t const *const token);
 
     /**
-     * Get the list of token ids for which token files exist on given tier and disk
+     * @return 'ret_stat' aggregated statistics for a given disk 'disk_id' on 'tier'
      */
-    virtual void get_token_ids(DataTier tier, fds_uint16_t disk_id,
-                               std::set<fds::fds_token_id>* ret_tok_ids);
+    virtual fds::Error
+    get_disk_stats(DataTier tier, fds_uint16_t disk_id, DiskStat* ret_stat);
+
+    /**
+     * @return an array of per disk/token stats in 'ret_tok_stats'
+     */
+    virtual void get_disk_token_stats(DataTier tier, fds_uint16_t disk_id,
+                                      std::vector<TokenStat>* ret_tok_stats);
 
     /**
      * Notify about start garbage collection for given token id 'tok_id'

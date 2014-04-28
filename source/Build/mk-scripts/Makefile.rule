@@ -353,9 +353,11 @@ mk_debug:
 fdsrepofile:=/etc/apt/sources.list.d/fds.list
 reposetupscript:=$(incl_scripts)/../../tools/setupfdsrepo.sh
 
+.IGNORE: $(fdsrepofile)
 $(fdsrepofile) : $(reposetupscript)
 	@sudo $(reposetupscript)
 
+.IGNORE: setupfdsrepo
 .PHONY: setupfdsrepo
 setupfdsrepo :  $(fdsrepofile)
 

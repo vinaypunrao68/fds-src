@@ -227,6 +227,15 @@ class FdsnIf : public xdi::AmShimIf {
                   boost::shared_ptr<std::string>& domainName,
                   boost::shared_ptr<std::string>& volumeName,
                   boost::shared_ptr<std::string>& blobName) {
+        StatBlobResponseHandler* handler = new StatBlobResponseHandler();
+        handler->blobDescriptor = &_return;
+
+        native::StatBlobCallbackPtr cb(handler);
+        am_api->StatBlob(*volumeName, *blobName, cb);
+        LOGDEBUG << "waiting for statblob";
+        handler->wait();
+        LOGDEBUG << "processing statblob";
+        handler->process();
     }
 
     void getBlob(std::string& _return,
@@ -244,35 +253,35 @@ class FdsnIf : public xdi::AmShimIf {
                  boost::shared_ptr<int32_t>& length,
                  boost::shared_ptr<int64_t>& offset) {
         /*
-        BucketContext bucket_ctx("host", *volumeName, "accessid", "secretkey");
+          BucketContext bucket_ctx("host", *volumeName, "accessid", "secretkey");
 
-        fds_verify(*length >= 0);
-        fds_verify(*offset >= 0);
+          fds_verify(*length >= 0);
+          fds_verify(*offset >= 0);
 
-        fds_scoped_lock slock(fdsnMtx);
+          fds_scoped_lock slock(fdsnMtx);
 
-        // Set async request/response handler
-        fds_uint64_t reqId = fdsnReqCount.fetch_add(1);
-        fds_verify(fdsnReqMap.count(reqId) == 0);
-        FdsnReqCtx::Ptr fdsnCtx = FdsnReqCtx::Ptr(new FdsnReqCtx(reqId));
-        fdsnReqMap[reqId] = fdsnCtx;
+          // Set async request/response handler
+          fds_uint64_t reqId = fdsnReqCount.fetch_add(1);
+          fds_verify(fdsnReqMap.count(reqId) == 0);
+          FdsnReqCtx::Ptr fdsnCtx = FdsnReqCtx::Ptr(new FdsnReqCtx(reqId));
+          fdsnReqMap[reqId] = fdsnCtx;
 
-        // Do async getobject
-        // TODO(Andrew): The error path callback maybe called
-        // in THIS thread's context...need to fix or handle that.
-        // TODO(Andrew): Pass in the request context
-        am_api->GetObject(&bucket_ctx,
-                          *volumeName,
-                          NULL,  // No get conditions
-                          *offset,
-                          *length,
-                          NULL,  // Not passing any context for the callback
-                          const_cast<char *>(bytes->c_str()),
-                          *offset,
-                          *length,
-                          *isLast,
-                          fdsn_updblob_cbfn,
-                          static_cast<void *>(&reqId));
+          // Do async getobject
+          // TODO(Andrew): The error path callback maybe called
+          // in THIS thread's context...need to fix or handle that.
+          // TODO(Andrew): Pass in the request context
+          am_api->GetObject(&bucket_ctx,
+          *volumeName,
+          NULL,  // No get conditions
+          *offset,
+          *length,
+          NULL,  // Not passing any context for the callback
+          const_cast<char *>(bytes->c_str()),
+          *offset,
+          *length,
+          *isLast,
+          fdsn_updblob_cbfn,
+          static_cast<void *>(&reqId));
         */
     }
 

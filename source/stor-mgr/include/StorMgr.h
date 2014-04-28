@@ -368,8 +368,12 @@ class ObjectStorMgr :
             meta_vol_io_t  *vio);
     Error readObjMetaData(const ObjectID &objId, 
             ObjMetaData &objMaps);
+    /**
+     * @return objMap object metadata that we marked as deleted
+     */
     Error deleteObjectMetaData(const OpCtx &opCtx,
-            const ObjectID &objId, fds_volid_t vol_id);
+                               const ObjectID &objId, fds_volid_t vol_id,
+                               ObjMetaData &objMap);
     Error writeObject(const OpCtx &opCtx,
             const ObjectID   &objId,
             const ObjectBuf  &objCompData,

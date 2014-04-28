@@ -15,7 +15,9 @@ FilePersisDataIO::FilePersisDataIO(char const *const file,
         : fi_path(file),
           fi_id(id),
           fi_loc(loc),
-          fi_mutex("file mutex")
+          fi_mutex("file mutex"),
+          fi_del_objs(0),
+          fi_del_blks(0)
 {
     fi_fd = open(file, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
     if (fi_fd < 0) {
@@ -104,6 +106,30 @@ diskio::FilePersisDataIO::disk_do_write(DiskRequest *req)
     }
     disk_write_done(req);
     return fds::ERR_OK;
+}
+
+void
+FilePersisDataIO::disk_do_delete(fds_uint32_t obj_size)
+{
+    fds_blk_t blk = DataIO::disk_io_round_up_blk(obj_size);
+    fi_del_blks += blk;
+    ++fi_del_objs;
+}
+
+fds_uint64_t
+FilePersisDataIO::get_total_bytes() const
+{
+    fds_blk_t shft = DataIO::disk_io_blk_shift();
+    fds_uint64_t bytes = fi_cur_off << shft;
+    return bytes;
+}
+
+fds_uint64_t
+FilePersisDataIO::get_deleted_bytes() const
+{
+    fds_blk_t shft = DataIO::disk_io_blk_shift();
+    fds_uint64_t bytes = fi_del_blks << shft;
+    return bytes;
 }
 
 }  // namespace diskio

@@ -906,7 +906,7 @@ void ObjectStorMgr::writeBackFunc(ObjectStorMgr *parent) {
 Error ObjectStorMgr::writeBackObj(const ObjectID &objId)
 {
     Error err(ERR_OK);
-    OpCtx opCtx(OpCtx::RELOCATE, 0);
+    OpCtx opCtx(OpCtx::WRITE_BACK, 0);
     fds_volid_t  vol = 0;
 
     LOGDEBUG << "Writing back object " << objId
@@ -1033,10 +1033,18 @@ ObjectStorMgr::writeObjectMetaData(const OpCtx &opCtx,
      */
     objMap.updatePhysLocation(obj_phy_loc);
 
-    if(relocate_flag) { 
-      objMap.removePhyLocation(fromTier);
-    } else if (opCtx.type != OpCtx::GC_COPY) {
-      objMap.updateAssocEntry(objId, (fds_volid_t)vol->vol_uuid);
+    switch(opCtx.type) { 
+      case OpCtx::RELOCATE : 
+           objMap.removePhyLocation(fromTier);
+           break;
+     
+      case OpCtx::WRITE_BACK:
+      case OpCtx::GC_COPY :
+           break;
+
+      default : 
+           objMap.updateAssocEntry(objId, (fds_volid_t)vol->vol_uuid);
+           break;
     }
 
     err = smObjDb->put(opCtx, objId, objMap);
@@ -1072,11 +1080,11 @@ ObjectStorMgr::readObjMetaData(const ObjectID &objId,
 
 Error
 ObjectStorMgr::deleteObjectMetaData(const OpCtx &opCtx,
-        const ObjectID& objId, fds_volid_t vol_id) {
+                                    const ObjectID& objId, fds_volid_t vol_id,
+                                    ObjMetaData& objMap) {
 
     Error err(ERR_OK);
-    // NOTE !!!
-    ObjMetaData objMap;
+
 
     smObjDb->lock(objId);
     /*
@@ -1782,6 +1790,9 @@ ObjectStorMgr::deleteObjectInternal(SmIoReq* delReq) {
     ObjectIdJrnlEntry* jrnlEntry =  omJrnl->get_transaction(delReq->getTransId());
     FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr = jrnlEntry->getMsgHdr();
     OpCtx opCtx(OpCtx::DELETE, msgHdr->origin_timestamp);
+    diskio::DataIO& dio_mgr = diskio::DataIO::disk_singleton();
+    ObjMetaData objMetadata;
+    meta_obj_id_t   oid;
 
     objBufPtr = objCache->object_retrieve(volId, objId);
     if (objBufPtr != NULL) {
@@ -1789,17 +1800,23 @@ ObjectStorMgr::deleteObjectInternal(SmIoReq* delReq) {
         objCache->object_delete(volId, objId);
     }
 
-
-    //objStorMutex->lock();
     /*
      * Delete the object, decrement refcnt of the assoc entry & overall refcnt
      */
-    err = deleteObjectMetaData(opCtx, objId, volId);
-    //objStorMutex->unlock();
-    if (err != fds::ERR_OK) {
-        LOGERROR << "Failed to delete object " << err;
-    } else {
+    err = deleteObjectMetaData(opCtx, objId, volId, objMetadata);
+    if (err.ok()) {
         LOGDEBUG << "Successfully delete object " << objId;
+
+        // tell persistent layer we deleted the object so that garbage collection
+        // knows how much disk space we need to clean
+        memcpy(oid.metaDigest, objId.GetId(), objId.GetLen());
+        if (objMetadata.onTier(diskio::diskTier)) {
+            dio_mgr.disk_delete_obj(&oid, objMetadata.getObjSize(), objMetadata.getObjPhyLoc(diskTier));
+        } else if (objMetadata.onTier(diskio::flashTier)) {
+            dio_mgr.disk_delete_obj(&oid, objMetadata.getObjSize(), objMetadata.getObjPhyLoc(flashTier));
+        }
+    } else {
+        LOGERROR << "Failed to delete object " << objId << ", " << err;
     }
 
     qosCtrl->markIODone(*delReq,
