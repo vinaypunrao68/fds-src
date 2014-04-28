@@ -14,9 +14,9 @@ import java.util.Map;
 import java.util.Optional;
 
 public class PeekReadQueue implements RequestHandler {
-    private TransientState state;
+    private DemoState state;
 
-    public PeekReadQueue(TransientState state) {
+    public PeekReadQueue(DemoState state) {
         this.state = state;
     }
 

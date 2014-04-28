@@ -35,7 +35,7 @@ public class StreamWriterTest {
                 any(ByteBuffer.class),
                 eq(4),
                 eq(new ObjectOffset(0)),
-                any(ByteBuffer.class),
+                eq(ByteBuffer.wrap(new byte[0])),
                 eq(false));
 
         verify(mockAm, times(1)).updateBlob(
@@ -45,8 +45,10 @@ public class StreamWriterTest {
                 any(ByteBuffer.class),
                 eq(4),
                 eq(new ObjectOffset(1)),
-                any(ByteBuffer.class),
+                eq(ByteBuffer.wrap(new byte[0])),
                 eq(false));
+
+        byte[] expectedDigest = new byte[] {54,119,80,-105,81,-52,-10,21,57,23,77,43,-106,53,-89,-65};
 
         verify(mockAm, times(1)).updateBlob(
                 eq(domainName),
@@ -55,7 +57,7 @@ public class StreamWriterTest {
                 any(ByteBuffer.class),
                 eq(4),
                 eq(new ObjectOffset(1)),
-                any(ByteBuffer.class),
+                eq(ByteBuffer.wrap(expectedDigest)),
                 eq(true));
 
         verify(mockAm, times(1)).updateMetadata(

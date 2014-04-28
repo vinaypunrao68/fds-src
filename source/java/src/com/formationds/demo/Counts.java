@@ -19,11 +19,15 @@ public class Counts {
     }
 
     public synchronized void increment(String s) {
+        increment(s, 1);
+    }
+
+    public synchronized void increment(String s, int howMany) {
         map.compute(s, (k, v) -> {
             if (v == null) {
-                return 1;
+                return howMany;
             } else {
-                return v + 1;
+                return v + howMany;
             }
         });
     }

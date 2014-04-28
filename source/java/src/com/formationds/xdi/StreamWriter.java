@@ -24,19 +24,19 @@ public class StreamWriter {
     public void write(String domainName, String volumeName, String blobName, InputStream in, Map<String, String> metadata) throws Exception {
         long objectOffset = 0;
         int lastBufSize = 0;
-
-        MessageDigest md = MessageDigest.getInstance("SHA-256");
+        MessageDigest md = MessageDigest.getInstance("MD5");
 
         for (int read = in.read(buf); read != -1; read = in.read(buf)) {
             md.update(buf, 0, read);
-            am.updateBlob(domainName, volumeName, blobName, ByteBuffer.wrap(buf, 0, read), read, new ObjectOffset(objectOffset), ByteBuffer.wrap(md.digest()), false);
+            am.updateBlob(domainName, volumeName, blobName, ByteBuffer.wrap(buf, 0, read), read, new ObjectOffset(objectOffset), ByteBuffer.wrap(new byte[0]), false);
             lastBufSize = read;
             objectOffset++;
         }
 
         // do this until we have proper transactions
         if (lastBufSize != 0) {
-            am.updateBlob(domainName, volumeName, blobName, ByteBuffer.wrap(buf), lastBufSize, new ObjectOffset(objectOffset - 1), ByteBuffer.wrap(new byte[0]), true);
+            ByteBuffer digest = ByteBuffer.wrap(md.digest());
+            am.updateBlob(domainName, volumeName, blobName, ByteBuffer.wrap(buf), lastBufSize, new ObjectOffset(objectOffset - 1), digest, true);
         }
 
         am.updateMetadata(domainName, volumeName, blobName, metadata);
