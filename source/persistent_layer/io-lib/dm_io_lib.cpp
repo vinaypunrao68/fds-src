@@ -6,8 +6,10 @@
 #include <stdio.h>
 #include <dirent.h>
 #include <set>
+#include <vector>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/statvfs.h>
 #include <fcntl.h>
 #include <fds_error.h>
 
@@ -130,20 +132,57 @@ DataIOModule::disk_hdd_disk(DataTier            tier,
                                       tokenFileDb::getTokenId(oid), file_id);
 }
 
-void
-DataIOModule::get_token_ids(DataTier tier, fds_uint16_t disk_id,
-                            std::set<fds_token_id>* ret_tok_ids)
+fds::Error
+DataIOModule::get_disk_stats(DataTier      tier,
+                             fds_uint16_t  disk_id,
+                             DiskStat*     ret_stat)
 {
-    std::set<fds_token_id> tok_ids;
+    fds::Error err(fds::ERR_OK);
+    struct statvfs statbuf;
+    std::vector<TokenStat> tok_stats;
+    fds_uint64_t tot_deleted_bytes;
+    if (tier == DataTier::diskTier) {
+        if (statvfs(dataDiscoveryMod.disk_hdd_path(disk_id), &statbuf) < 0) {
+            return fds::Error(fds::ERR_DISK_READ_FAILED);
+        }
+    } else {
+        fds_verify(tier == DataTier::flashTier);
+        if (statvfs(dataDiscoveryMod.disk_ssd_path(disk_id), &statbuf) < 0) {
+            return fds::Error(fds::ERR_DISK_READ_FAILED);
+        }
+    }
+    // aggregate token stats for total deleted bytes
+    get_disk_token_stats(tier, disk_id, &tok_stats);
+    tot_deleted_bytes = 0;
+    for (std::vector<TokenStat>::const_iterator cit = tok_stats.cbegin();
+         cit != tok_stats.cend();
+         ++cit) {
+        tot_deleted_bytes += (*cit).tkn_reclaim_size;
+    }
+
+    fds_verify(ret_stat);
+    (*ret_stat).dsk_tot_size = statbuf.f_blocks * statbuf.f_bsize;
+    (*ret_stat).dsk_avail_size = statbuf.f_bfree * statbuf.f_bsize;
+    (*ret_stat).dsk_reclaim_size = tot_deleted_bytes;
+
+    return err;
+}
+
+void
+DataIOModule::get_disk_token_stats(DataTier tier, fds_uint16_t disk_id,
+                                   std::vector<TokenStat>* ret_tok_stats)
+{
+    std::vector<TokenStat> tok_stats;
+    TokenStat stat;
     fds_token_id start_tok, end_tok;
     io_token_db->getTokenRange(&start_tok, &end_tok);
     for (fds_token_id tok = start_tok; tok <= end_tok; ++tok) {
-        if (io_token_db->fileExists(tier, disk_id, tok)) {
-            tok_ids.insert(tok);
+        if (io_token_db->getTokenStats(tier, disk_id, tok, &stat)) {
+            tok_stats.push_back(stat);
         }
     }
-    fds_verify(ret_tok_ids);
-    (*ret_tok_ids).swap(tok_ids);
+    fds_verify(ret_tok_stats);
+    (*ret_tok_stats).swap(tok_stats);
 }
 
 //
@@ -438,6 +477,14 @@ diskio::PersisDataIO::disk_read(DiskRequest *req)
     return err;
 }
 
+void
+diskio::PersisDataIO::disk_delete(fds_uint32_t obj_size)
+{
+    // we are not really deleting, we are just updating
+    // stats, so do direct blocking call to disk_do_delete
+    disk_do_delete(obj_size);
+}
+
 // \PersisDataIO::disk_read_done
 // -----------------------------
 //
@@ -553,6 +600,19 @@ DataIO::disk_destroy_vol(meta_vol_adr_t *vol)
 void
 DataIO::disk_loc_path_info(fds_uint16_t loc_id, std::string *path)
 {
+}
+
+void
+diskio::DataIO::disk_delete_obj(meta_obj_id_t const *const oid,
+                                fds_uint32_t obj_size,
+                                obj_phy_loc_t* loc)
+{
+    PersisDataIO   *iop;
+    iop = gl_dataIOMod.disk_hdd_disk((DataTier)loc->obj_tier,
+                                     loc->obj_stor_loc_id,
+                                     loc->obj_file_id,
+                                     oid);
+    iop->disk_delete(obj_size);
 }
 
 //
