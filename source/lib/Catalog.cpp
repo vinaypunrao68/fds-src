@@ -29,6 +29,7 @@ Catalog::Catalog(const std::string& _file)
 
     leveldb::Status status = leveldb::DB::Open(options, backing_file, &db);
     /* Open has to succeed */
+    env = leveldb::Env::Default();
     assert(status.ok());
 }
 
@@ -108,6 +109,75 @@ Catalog::catalog_iterator_t *db_it = NewIterator();
     }
     return false;
 }
+
+Error
+Catalog::DbSnap(const std::string& _file) {
+    Error err(ERR_OK);
+    leveldb::Status status = env->CreateDir(_file);
+    if (!status.ok()) {
+        err = Error(ERR_DISK_WRITE_FAILED);
+    }
+
+    return err;
+}
+
+
+Error
+Catalog::QueryNew(const std::string& _file, const Record& key, std::string* value) {
+    Error err(ERR_OK);
+    leveldb::Status status;
+    options.create_if_missing = 1;
+    options.filter_policy     =
+            leveldb::NewBloomFilterPolicy(FILTER_BITS_PER_KEY);
+    options.write_buffer_size = WRITE_BUFFER_SIZE;
+
+    write_options.sync = true;
+
+    delete db;
+    status = leveldb::DB::Open(options, _file, &db);
+    assert(status.ok());
+
+    status = db->Get(read_options, key, value);
+    if (status.IsNotFound()) {
+        err = fds::Error(fds::ERR_CAT_ENTRY_NOT_FOUND);
+        return err;
+    } else if (!status.ok()) {
+        err = fds::Error(fds::ERR_DISK_READ_FAILED);
+        return err;
+    }
+
+    return err;
+}
+
+
+Error
+Catalog::QuerySnap(const std::string& _file, const Record& key, std::string* value) {
+    Error err(ERR_OK);
+
+    leveldb::DB* dbSnap;
+    leveldb::Status status;
+    options.create_if_missing = 1;
+    options.filter_policy     =
+            leveldb::NewBloomFilterPolicy(FILTER_BITS_PER_KEY);
+    options.write_buffer_size = WRITE_BUFFER_SIZE;
+
+    write_options.sync = true;
+
+    status = leveldb::DB::Open(options, _file, &dbSnap);
+    assert(status.ok());
+
+    status = dbSnap->Get(read_options, key, value);
+    if (status.IsNotFound()) {
+        err = fds::Error(fds::ERR_CAT_ENTRY_NOT_FOUND);
+        return err;
+    } else if (!status.ok()) {
+        err = fds::Error(fds::ERR_DISK_READ_FAILED);
+        return err;
+    }
+
+    return err;
+}
+
 /** Gets backing file name
  * @return Copy of backing file name
  */
