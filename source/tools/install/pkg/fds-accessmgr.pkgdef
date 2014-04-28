@@ -9,7 +9,9 @@ depends:
 files:
   - dest: /fds/bin
     dest-is-dir: True
-    src: ../../../Build/linux-x86_64.debug/bin/AMAgent
+    src:
+      - ../../../Build/linux-x86_64.debug/bin/libaccessmgr.so
+      - ../../../Build/linux-x86_64.debug/bin/AMAgent
 
 #services:
 #  name: fds-accessmgr

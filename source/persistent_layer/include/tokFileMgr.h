@@ -73,12 +73,13 @@ class tokenFileDb {
                                    fds_uint16_t fileId);
 
     /**
-     * For now returning true if file is open
-     * TODO(xxx) should also return true if file close but exists on tier/disk
+     * @return true if file is open and we could get stats
+     * TODO(xxx) should also return true with stats if file is closed (persistence)
      */
-    fds_bool_t fileExists(DataTier tier,
-                          fds_uint16_t disk_id,
-                          fds_token_id tokId);
+    fds_bool_t getTokenStats(DataTier tier,
+                             fds_uint16_t disk_id,
+                             fds_token_id tokId,
+                             TokenStat* ret_stat);
 
     /**
      * Handle notification that garbage collection will start for a given

@@ -119,9 +119,11 @@ class PersisDataIO
 
     virtual fds::Error  disk_read(DiskRequest *req);
     virtual fds::Error  disk_write(DiskRequest *req);
+    virtual void        disk_delete(fds_uint32_t obj_size);
 
     virtual fds::Error  disk_do_read(DiskRequest *req) = 0;
     virtual fds::Error  disk_do_write(DiskRequest *req) = 0;
+    virtual void        disk_do_delete(fds_uint32_t obj_size) = 0;
 
     virtual void disk_read_done(DiskRequest *req);
     virtual void disk_write_done(DiskRequest *req);
@@ -140,6 +142,12 @@ class FilePersisDataIO : public PersisDataIO
     fds::Error disk_do_read(DiskRequest *req);
     fds::Error disk_do_write(DiskRequest *req);
 
+    /**
+     * Does not do actual delete of the object from disk,
+     * but records stats for late garbage collection
+     */
+    void disk_do_delete(fds_uint32_t obj_size);
+
     inline int disk_loc_id() { return fi_loc; }
     inline fds_uint16_t file_id() { return fi_id; }
     FilePersisDataIO(char const *const path, fds_uint16_t id, int loc);
@@ -150,6 +158,14 @@ class FilePersisDataIO : public PersisDataIO
      */
     fds::Error delete_file();
 
+    /**
+     * getters for statistics
+     */
+    fds_uint64_t get_total_bytes() const;
+    fds_uint64_t get_deleted_bytes() const;
+    inline fds_uint64_t get_deleted_objects() const {
+        return fi_del_objs; }
+
   private:
     friend class DataIOModule;
 
@@ -159,6 +175,12 @@ class FilePersisDataIO : public PersisDataIO
     fds_uint16_t             fi_id;
     fds_int64_t              fi_cur_off;
     char const *const        fi_path;
+
+    /**
+     * statistics useful for automated garbage collection, etc.
+     */
+    fds_uint64_t fi_del_objs;
+    fds_uint64_t fi_del_blks;
 };
 
 }  // namespace diskio

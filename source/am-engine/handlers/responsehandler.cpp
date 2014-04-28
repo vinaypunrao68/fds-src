@@ -11,10 +11,8 @@
     if (status != FDSN_StatusOK) {       \
         LOGWARN << " status:" << status; \
         xdi::XdiException xe;            \
-        std::ostringstream oss;          \
-        oss << status;                   \
         xe.errorCode = xdi::ErrorCode::INTERNAL_SERVER_ERROR;   \
-        xe.message = oss.str();          \
+        xe.message = toString(status);   \
         throw xe;                        \
     }
 
@@ -93,6 +91,13 @@ BucketStatsResponseHandler::BucketStatsResponseHandler(
 
 void BucketStatsResponseHandler::process() {
     XCHECKSTATUS(status);
+
+    if (content_count == 0 || !contents) {
+        LOGWARN << "response has no bucket data";
+        status = FDSN_StatusErrorBucketNotExists;
+        XCHECKSTATUS(status);
+    }
+
     volumeDescriptor.name = contents[0].bucket_name;
     // volumeDescriptor.uuid = 10;
     volumeDescriptor.dateCreated = util::getTimeStampMillis();
