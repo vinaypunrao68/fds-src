@@ -906,7 +906,7 @@ void ObjectStorMgr::writeBackFunc(ObjectStorMgr *parent) {
 Error ObjectStorMgr::writeBackObj(const ObjectID &objId)
 {
     Error err(ERR_OK);
-    OpCtx opCtx(OpCtx::RELOCATE, 0);
+    OpCtx opCtx(OpCtx::WRITE_BACK, 0);
     fds_volid_t  vol = 0;
 
     LOGDEBUG << "Writing back object " << objId
@@ -1033,10 +1033,18 @@ ObjectStorMgr::writeObjectMetaData(const OpCtx &opCtx,
      */
     objMap.updatePhysLocation(obj_phy_loc);
 
-    if(relocate_flag) { 
-      objMap.removePhyLocation(fromTier);
-    } else if (opCtx.type != OpCtx::GC_COPY) {
-      objMap.updateAssocEntry(objId, (fds_volid_t)vol->vol_uuid);
+    switch(opCtx.type) { 
+      case OpCtx::RELOCATE : 
+           objMap.removePhyLocation(fromTier);
+           break;
+     
+      case OpCtx::WRITE_BACK:
+      case OpCtx::GC_COPY :
+           break;
+
+      default : 
+           objMap.updateAssocEntry(objId, (fds_volid_t)vol->vol_uuid);
+           break;
     }
 
     err = smObjDb->put(opCtx, objId, objMap);
