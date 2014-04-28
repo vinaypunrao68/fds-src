@@ -135,11 +135,12 @@ namespace diskio {
         return fdesc;
     }
 
-    fds_bool_t tokenFileDb::fileExists(DataTier tier,
-                                       fds_uint16_t disk_id,
-                                       fds_token_id tokId)
+    fds_bool_t tokenFileDb::getTokenStats(DataTier tier,
+                                          fds_uint16_t disk_id,
+                                          fds_token_id tokId,
+                                          TokenStat* ret_stat)
     {
-        fds_bool_t ret = false;
+        FilePersisDataIO *fdesc = NULL;
         // for now we have two possible filenames
         // TODO(xxx) this must change if we start using a sequence of files
         std::string fn1 = getFileName(disk_id, tokId, tier, INIT_FILE_ID);
@@ -147,11 +148,20 @@ namespace diskio {
                                       getShadowFileId(INIT_FILE_ID));
 
         fds::fds_mutex::scoped_lock l(tokenFileDbMutex);
-        if ((tokenFileTbl.count(fn1) > 0) || 
-            (tokenFileTbl.count(fn2) > 0)) {
-            ret = true;
+        if (tokenFileTbl.count(fn1) > 0) {
+            fdesc = tokenFileTbl[fn1];
+        } else if (tokenFileTbl.count(fn2) > 0) {
+            fdesc = tokenFileTbl[fn2];
+        } else {
+            return false;  // not token file
         }
-        return ret;
+        fds_verify(fdesc != NULL);
+
+        // fill in token stat that we return
+        (*ret_stat).tkn_id = tokId;
+        (*ret_stat).tkn_tot_size = fdesc->get_total_bytes();
+        (*ret_stat).tkn_reclaim_size = fdesc->get_deleted_bytes();
+        return true;
     }
 
     fds_uint16_t tokenFileDb::getWriteFileId(fds_uint16_t disk_id,

@@ -41,6 +41,12 @@ namespace fds {
        */
       void compactionDoneCb(fds_uint32_t token_id, const Error& error);
 
+      /**
+       * Query and update disk stats (available size ,etc)
+       * If GC is in progress, this method is noop
+       */
+      void updateDiskStats();
+
     private:
       /**
        * Return token that needs to be compacted next
@@ -49,10 +55,11 @@ namespace fds {
       fds_bool_t getNextCompactToken(fds_token_id* tok_id);
 
       /**
-       * Resets tokenDB with the current set of tokens assigned to this disk_id
-       * The tokens are retrived from persistence layer
+       * Re-builds tokenDb with a set of tokens we need to compact
+       * TODO(xxx) add param to tell policy to filter tokens (or include
+       * all tokens on the tier/disk)
        */
-      void updateTokenDb();
+      void findTokensToCompact();
 
     private:
       std::atomic<fds_bool_t> in_progress;  // protects from starting multiple scavenge cycles
@@ -65,7 +72,13 @@ namespace fds {
        * protects mainly next_token, and tokenDb when we get a next token
        */
       fds_mutex disk_scav_lock;
-      std::set<fds_token_id> tokenDb;  // tokens held by this disk
+      /**
+       * A set of token ids that scavenger is currently compacting
+       * Undefined, if compacting is not in progress
+       * If need to know list of tokens that are held by this disk,
+       * get it from the persistent layer
+       */
+      std::set<fds_token_id> tokenDb;
   };
 
   typedef enum { 
@@ -93,6 +106,11 @@ namespace fds {
      void startScavenger(fds_uint16_t disk_id);
      void stopScavenger(fds_uint16_t disk_id);
 
+     /**
+      * Called on timer to query & update disk/token file state
+      */
+     void updateDiskStats();
+
     private:
      ScavPolicyType  scavPolicy;
 
@@ -106,7 +124,26 @@ namespace fds {
      // lock protecting diskScavTbl
      fds_mutex  scav_lock;
 
-     fds_uint32_t  max_disks_compacting;  
+     fds_uint32_t  max_disks_compacting;
+
+     /**
+      *  Timer to query & update disk/token file stats
+      */
+     FdsTimerPtr scav_timer;
+     FdsTimerTaskPtr scav_timer_task;
+  };
+
+  class ScavTimerTask: public FdsTimerTask {
+    public:
+      ScavControl* scavenger;
+
+      ScavTimerTask(FdsTimer& timer, ScavControl* sc)  //NOLINT
+              : FdsTimerTask(timer) {
+          scavenger = sc;
+      }
+      ~ScavTimerTask() {}
+
+      void runTimerTask();
   };
 
 }
