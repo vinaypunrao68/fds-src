@@ -275,6 +275,7 @@ std::string toString(FDSN_Status status) {
         ENUMCASE(FDSN_StatusErrorMissingContentLength);
         ENUMCASE(FDSN_StatusErrorUnknown);
     }
+    return "FDSN_StatusErrorUnknown";
 }
 
 FDSN_Status getStatusFromError(const Error& error) {
