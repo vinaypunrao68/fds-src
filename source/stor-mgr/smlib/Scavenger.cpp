@@ -20,7 +20,9 @@ extern DataIOModule gl_dataIOMod;
 
 ScavControl::ScavControl(fds_uint32_t num_thrds)
         : scav_lock("Scav Lock"),
-          max_disks_compacting(num_thrds)
+          max_disks_compacting(num_thrds),
+          scav_timer(new FdsTimer()),
+          scav_timer_task(new ScavTimerTask(*scav_timer, this))
 {
     num_hdd = 0;
     num_ssd = 0;
@@ -46,15 +48,36 @@ ScavControl::ScavControl(fds_uint32_t num_thrds)
         ++num_ssd;
         LOGNORMAL << "Added scavenger for SSD " << *cit << " (" << num_ssd << ")";
     }
+
+    // start timer to update disk stats
+    if (!scav_timer->schedule(scav_timer_task, std::chrono::seconds(300))) {
+        LOGWARN << "Failed to schedule timer for updating disks stats! "
+                << " will not run automatic GC, only manual";
+    }
 }
 
 ScavControl::~ScavControl() {
+    scav_timer->destroy();
     for (DiskScavTblType::iterator it = diskScavTbl.begin();
          it != diskScavTbl.end();
          ++it) {
         DiskScavenger *diskScav = it->second;
         if (diskScav != NULL) {
             delete diskScav;
+        }
+    }
+}
+
+void ScavControl::updateDiskStats()
+{
+    LOGNORMAL << "Updating disk stats";
+    fds_mutex::scoped_lock l(scav_lock);
+    for (DiskScavTblType::const_iterator cit = diskScavTbl.cbegin();
+         cit != diskScavTbl.cend();
+         ++cit) {
+        DiskScavenger *diskScav = cit->second;
+        if (diskScav != NULL) {
+            diskScav->updateDiskStats();
         }
     }
 }
@@ -110,6 +133,22 @@ DiskScavenger::DiskScavenger(fds_uint16_t _disk_id,
 DiskScavenger::~DiskScavenger() {
 }
 
+void DiskScavenger::updateDiskStats() {
+    DiskStat disk_stat;
+    diskio::gl_dataIOMod.get_disk_stats(tier, disk_id, &disk_stat);
+    LOGDEBUG << "Tier " << tier << " disk " << disk_id
+             << " total size " << disk_stat.dsk_tot_size
+             << ", avail size " << disk_stat.dsk_avail_size
+             << ", reclaim size " << disk_stat.dsk_reclaim_size;
+
+    // TODO(xxx) decide if we want to GC this disk
+
+    // TODO(xxx) if disk stats show that we may want to start compaction
+    // do not check which tokens to compact here. Call start compaction
+    // with correct policy (we need to add param to startScavenge()
+    // method that specifies policy how to decide to compact a token).
+}
+
 fds_bool_t DiskScavenger::getNextCompactToken(fds_token_id* tok_id) {
     fds_verify(tok_id);
     fds_bool_t found = false;
@@ -141,14 +180,35 @@ fds_bool_t DiskScavenger::getNextCompactToken(fds_token_id* tok_id) {
     return found;
 }
 
-void DiskScavenger::updateTokenDb() {
+// Re-builds tokenDb with tokens that need to be scavenged
+// TODO(xxx) pass in policy which tokens need to be scavenged
+// for now all tokens we get from persistent layer
+void DiskScavenger::findTokensToCompact() {
+    std::vector<TokenStat> token_stats;
     // note that we are not using lock here, because updateTokenDb()
     // and getNextCompactToken are serialized
 
     // reset tokenDb
     tokenDb.clear();
-    // get the newest version of tokens for this disk_id from persist. layer.
-    diskio::gl_dataIOMod.get_token_ids(tier, disk_id, &tokenDb);
+
+    // get all tokens with their stats from persistent layer
+    diskio::gl_dataIOMod.get_disk_token_stats(tier, disk_id, &token_stats);
+
+    // for now just do all tokens that have any reclaimable bytes
+    // TODO(xxx) only add tokens to tokenDb that we need to compact
+    for (std::vector<TokenStat>::const_iterator cit = token_stats.cbegin();
+         cit != token_stats.cend();
+         ++cit) {
+        LOGDEBUG << "Disk " << disk_id << " token " << (*cit).tkn_id
+                 << " total bytes " << (*cit).tkn_tot_size
+                 << ", deleted bytes " << (*cit).tkn_reclaim_size;
+
+        // TODO(xxx) add threashold here, for now compact tokens whose
+        // reclaim size > 0
+        if ((*cit).tkn_reclaim_size > 0) {
+            tokenDb.insert((*cit).tkn_id);
+        }
+    }
 }
 
 void DiskScavenger::startScavenge() {
@@ -160,7 +220,7 @@ void DiskScavenger::startScavenge() {
         return;
     }
     // get list of tokens for this tier/disk from persistent layer
-    updateTokenDb();
+    findTokensToCompact();
 
     LOGNORMAL << "Starting scavenger for disk " << disk_id << " tier " << tier
               << " number of tokens " << tokenDb.size();
@@ -226,5 +286,10 @@ void DiskScavenger::compactionDoneCb(fds_token_id token_id, const Error& error) 
     }
 }
 
+void ScavTimerTask::runTimerTask()
+{
+    fds_verify(scavenger);
+    scavenger->updateDiskStats();
+}
 
 }  // namespace fds
