@@ -14,6 +14,9 @@
 #include <Scavenger.h>
 
 namespace fds {
+
+#define SCAV_TIMER_SECONDS (2*3600)  // 2 hours
+
 extern ObjectStorMgr *objStorMgr;
 extern DataDiscoveryModule  dataDiscoveryMod;
 extern DataIOModule gl_dataIOMod;
@@ -24,6 +27,7 @@ ScavControl::ScavControl(fds_uint32_t num_thrds)
           scav_timer(new FdsTimer()),
           scav_timer_task(new ScavTimerTask(*scav_timer, this))
 {
+    enabled = ATOMIC_VAR_INIT(true);
     num_hdd = 0;
     num_ssd = 0;
     std::set<fds_uint16_t> hdd_ids;
@@ -50,7 +54,8 @@ ScavControl::ScavControl(fds_uint32_t num_thrds)
     }
 
     // start timer to update disk stats
-    if (!scav_timer->scheduleRepeated(scav_timer_task, std::chrono::seconds(3600))) {
+    if (!scav_timer->scheduleRepeated(scav_timer_task,
+                                      std::chrono::seconds(SCAV_TIMER_SECONDS))) {
         LOGWARN << "Failed to schedule timer for updating disks stats! "
                 << " will not run automatic GC, only manual";
     }
@@ -82,18 +87,61 @@ void ScavControl::updateDiskStats()
     }
 }
 
-void ScavControl::startScavengeProcess(fds_bool_t b_all, diskio::DataTier tgt_tier)
+void ScavControl::enableScavenger()
 {
-    LOGNORMAL << "Starting Scavenger cycle for all? " << b_all
-              << " or tier " << tgt_tier;
+    fds_bool_t expect = false;
+    if (!std::atomic_compare_exchange_strong(&enabled, &expect, true)) {
+        LOGNOTIFY << "Scavenger cycle is already enabled, nothing else to do";
+        return;
+    }
+    LOGNOTIFY << "Enabling Scavenger";
 
+    // start the periodic timer that checks disk stats, etc. and starts
+    // scavenging if needed
+    if (!scav_timer->scheduleRepeated(scav_timer_task,
+                                      std::chrono::seconds(SCAV_TIMER_SECONDS))) {
+        LOGWARN << "Failed to schedule timer for updating disks stats! "
+                << " will not run automatic GC, only manual";
+    }
+}
+
+void ScavControl::disableScavenger()
+{
+    fds_bool_t expect = true;
+
+    // stop the periodic timer that does automatic scavenging
+    // we are doing it before reseting 'enabled' because calling it
+    // 2 times is ok, and if there if enable is called at the same time
+    // (before we reset enabled) it will be a noop
+    scav_timer->cancel(scav_timer_task);
+
+    // tell disk scavengers to stop scavenging if it is currently in progress
+    stopScavengeProcess();
+
+    if (std::atomic_compare_exchange_strong(&enabled, &expect, false)) {
+        LOGNOTIFY << "Disabled Scavenger; will not be able to start scavenger"
+                  << " process manually as well until scavenger is enabled";
+    } else {
+        LOGNOTIFY << "Scavenger was already disabled";
+    }
+}
+
+void ScavControl::startScavengeProcess()
+{
+    fds_bool_t _enabled = std::atomic_load(&enabled);
+    if (!_enabled) {
+        LOGNOTIFY << "Cannot start Scavenger process because scavenger"
+                  << " is disabled";
+        return;
+    }
+
+    LOGNORMAL << "Starting Scavenger cycle";
     fds_mutex::scoped_lock l(scav_lock);
     for (DiskScavTblType::const_iterator cit = diskScavTbl.cbegin();
          cit != diskScavTbl.cend();
          ++cit) {
         DiskScavenger *diskScav = cit->second;
-        if ((diskScav != NULL) &&
-            (b_all || diskScav->isTier(tgt_tier))) {
+        if (diskScav != NULL) {
             diskScav->startScavenge();
         }
     }
@@ -101,6 +149,12 @@ void ScavControl::startScavengeProcess(fds_bool_t b_all, diskio::DataTier tgt_ti
 
 void ScavControl::stopScavengeProcess()
 {
+    fds_bool_t _enabled = std::atomic_load(&enabled);
+    if (!_enabled) {
+        LOGNORMAL << "Scavenger is disabled, so nothing to stop";
+        return;
+    }
+
     LOGNORMAL << "Stop Scavenger cycle... ";
     fds_mutex::scoped_lock l(scav_lock);
     // TODO(xxx) stop everything for now
@@ -275,7 +329,7 @@ void DiskScavenger::stopScavenge() {
     if (std::atomic_compare_exchange_strong(&in_progress, &expect, false)) {
         LOGNOTIFY << "Stopping scavenger cycle...";
     } else {
-        LOGNOTIFY << "Scavenger was not running, so nothing to stop";
+        LOGNOTIFY << "Scavenger was not running for disk_id " << disk_id;
     }
 }
 
