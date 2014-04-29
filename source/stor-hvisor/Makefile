@@ -11,7 +11,7 @@ user_incl_dir     := \
     $(topdir)/lib \
     $(topdir)/am-app/include
 
-user_cpp_flags    :=
+user_cpp_flags    := -DVVC_CACHE_DISABLE
 
 StorHvisor_cpp    :=                   \
     StorHvisorNet.cpp                  \
