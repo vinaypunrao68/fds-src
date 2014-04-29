@@ -21,6 +21,5 @@ compile:
 	rm -f $(comm_dir_bin)/AMAgent
 	mkdir -p $(comm_dir_lib)/java/
 	rm -rf $(comm_dir_lib)/java/classes
-	rm -rf gen-java/com
 	mvn -DskipTests assembly:directory -Dbuild.dir=$(comm_dir_lib)/java
 	cp -rv admin-webapp $(comm_dir_lib)
