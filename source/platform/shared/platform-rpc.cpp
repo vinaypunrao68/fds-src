@@ -50,6 +50,17 @@ PlatRpcReqt::NotifyModVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
 }
 
 void
+PlatRpcReqt::NotifySnapVol(const FDSP_MsgHdrType    &fdsp_msg,
+                          const FDSP_NotifyVolType &not_snap_vol_req) {}
+
+void
+PlatRpcReqt::NotifySnapVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
+                          fpi::FDSP_NotifyVolTypePtr &msg)
+{
+    fds_verify(0);
+}
+
+void
 PlatRpcReqt::AttachVol(const FDSP_MsgHdrType    &fdsp_msg,
                        const FDSP_AttachVolType &atc_vol_req) {}
 

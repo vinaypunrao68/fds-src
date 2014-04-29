@@ -154,6 +154,7 @@ OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer    vol,
         switch (cmd_type) {
             case fpi::FDSP_MSG_DELETE_VOL:
             case fpi::FDSP_MSG_MODIFY_VOL:
+            case fpi::FDSP_MSG_SNAP_VOL:
             case fpi::FDSP_MSG_CREATE_VOL: {
                 FdspNotVolPtr notif(new fpi::FDSP_NotifyVolType);
 
@@ -171,6 +172,10 @@ OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer    vol,
                     log = "Send modify volume ";
                     notif->type = fpi::FDSP_NOTIFY_MOD_VOL;
                     ndCpClient->NotifyModVol(m_hdr, notif);
+                } else if (cmd_type == fpi::FDSP_MSG_SNAP_VOL) {
+                    log = "Send snap volume ";
+                    notif->type = fpi::FDSP_NOTIFY_SNAP_VOL;
+                    ndCpClient->NotifySnapVol(m_hdr, notif);
                 } else {
                     log = "Send remove volume ";
                     notif->type = fpi::FDSP_NOTIFY_RM_VOL;
@@ -1104,6 +1109,17 @@ OM_NodeContainer::om_bcast_vol_modify(VolumeInfo::pointer vol)
 
     vol->vol_foreach_am<fpi::FDSP_MsgCodeType, fds_bool_t>
             (fpi::FDSP_MSG_MODIFY_VOL, false, om_send_vol_command);
+}
+
+// om_bcast_vol_snap
+// -------------------
+//
+fds_uint32_t
+OM_NodeContainer::om_bcast_vol_snap(VolumeInfo::pointer vol)
+{
+    dc_dm_nodes->agent_foreach<fpi::FDSP_MsgCodeType, fds_bool_t, VolumeInfo::pointer>
+            (fpi::FDSP_MSG_SNAP_VOL, false, vol, om_send_vol_command);
+    return  dc_dm_nodes->rs_available_elm();
 }
 
 // om_bcast_vol_detach

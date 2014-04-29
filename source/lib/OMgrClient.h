@@ -44,6 +44,7 @@ namespace fds {
     fds_notify_vol_mod     = 3,
     fds_notify_vol_attatch = 4,
     fds_notify_vol_detach  = 5, 
+    fds_notify_vol_snap    = 6, 
     MAX
   } fds_vol_notify_t;
   
@@ -259,6 +260,15 @@ namespace fds {
 
     void NotifyModVol(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
                       FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& vol_msg);
+
+    void NotifySnapVol(const FDSP_MsgHdrType& fdsp_msg,
+                      const FDSP_NotifyVolType& not_snap_vol_req) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+
+    void NotifySnapVol(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
+                      FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& vol_msg);
+
       
     void AttachVol(const FDSP_MsgHdrType& fdsp_msg, const FDSP_AttachVolType& atc_vol_req) {
         // Don't do anything here. This stub is just to keep cpp compiler happy

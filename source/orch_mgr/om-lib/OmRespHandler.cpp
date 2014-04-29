@@ -48,6 +48,19 @@ void OrchMgr::FDSP_ControlPathRespHandler::NotifyModVolResp(
             << "OrchMgr: received response for NotifyModVol";
 }
 
+void OrchMgr::FDSP_ControlPathRespHandler::NotifySnapVolResp(
+    const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+    const ::FDS_ProtocolInterface::FDSP_NotifyVolType& not_snap_vol_resp) {
+    // Don't do anything here. This stub is just to keep cpp compiler happy
+}
+
+void OrchMgr::FDSP_ControlPathRespHandler::NotifySnapVolResp(
+    ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+    ::FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& not_snap_vol_resp) {
+    FDS_PLOG_SEV(orchMgr->GetLog(), fds_log::notification)
+            << "OrchMgr: received response for NotifySnapVol";
+}
+
 void OrchMgr::FDSP_ControlPathRespHandler::AttachVolResp(
     const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
     const ::FDS_ProtocolInterface::FDSP_AttachVolType& atc_vol_resp) {

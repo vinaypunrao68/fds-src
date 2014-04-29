@@ -970,6 +970,32 @@ VolumeContainer::om_create_vol(const FdspMsgHdrPtr &hdr,
     return err;
 }
 
+// om_snap_vol
+// -------------
+//
+Error
+VolumeContainer::om_snap_vol(const FdspMsgHdrPtr &hdr,
+                               const FdspCrtVolPtr &snap_msg)
+{
+    Error err(ERR_OK);
+    OM_NodeContainer    *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+    FdsAdminCtrl        *admin = local->om_get_admin_ctrl();
+    std::string         &vname = snap_msg->vol_name;
+    ResourceUUID         uuid(fds_get_uuid64(vname));
+    VolumeInfo::pointer  vol;
+
+    vol = VolumeInfo::vol_cast_ptr(rs_get_resource(uuid));
+    if (vol == NULL) {
+        LOGWARN << "Received SnapVol for non-existing volume " << vname;
+        return Error(ERR_NOT_FOUND);
+    }
+
+    fds_uint32_t count = local->om_bcast_vol_snap(vol);
+
+    return err;
+}
+
+
 // om_delete_vol
 // -------------
 //

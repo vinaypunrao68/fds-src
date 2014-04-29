@@ -30,6 +30,10 @@ class PlatRpcReqt : public fpi::FDSP_ControlPathReqIf
     void NotifyModVol(const FDSP_MsgHdrType &, const FDSP_NotifyVolType &);
     virtual void NotifyModVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
                               fpi::FDSP_NotifyVolTypePtr &vol_msg);
+    
+    void NotifySnapVol(const FDSP_MsgHdrType &, const FDSP_NotifyVolType &);
+    virtual void NotifySnapVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
+                              fpi::FDSP_NotifyVolTypePtr &vol_msg);
 
     void AttachVol(const FDSP_MsgHdrType &, const FDSP_AttachVolType &);
     virtual void AttachVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,

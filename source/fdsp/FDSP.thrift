@@ -66,7 +66,8 @@ enum FDSP_MsgCodeType {
    FDSP_MSG_NOTIFY_MIGRATION,
    FDSP_MSG_SCAVENGER_START,
 
-   FDSP_MSG_SET_THROTTLE
+   FDSP_MSG_SET_THROTTLE,
+   FDSP_MSG_SNAP_VOL
 }
 
 enum FDSP_MgrIdType {
@@ -112,7 +113,8 @@ enum FDSP_VolNotifyType {
   FDSP_NOTIFY_DEFAULT,
   FDSP_NOTIFY_ADD_VOL,
   FDSP_NOTIFY_RM_VOL,
-  FDSP_NOTIFY_MOD_VOL
+  FDSP_NOTIFY_MOD_VOL,
+  FDSP_NOTIFY_SNAP_VOL
 }
 
 enum FDSP_ConsisProtoType {
@@ -1076,6 +1078,7 @@ service FDSP_ConfigPathReq {
   i32 CreateVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_CreateVolType crt_vol_req),
   i32 DeleteVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DeleteVolType del_vol_req),
   i32 ModifyVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ModifyVolType mod_vol_req),
+  i32 SnapVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_CreateVolType snap_vol_req),
   i32 CreatePolicy(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_CreatePolicyType crt_pol_req),
   i32 DeletePolicy(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DeletePolicyType del_pol_req),
   i32 ModifyPolicy(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ModifyPolicyType mod_pol_req),
@@ -1138,6 +1141,7 @@ service FDSP_ControlPathReq {
   oneway void NotifyAddVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_NotifyVolType not_add_vol_req),
   oneway void NotifyRmVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_NotifyVolType not_rm_vol_req),
   oneway void NotifyModVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_NotifyVolType not_mod_vol_req),
+  oneway void NotifySnapVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_NotifyVolType not_snap_vol_req),
   oneway void AttachVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_AttachVolType atc_vol_req),
   oneway void DetachVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_AttachVolType dtc_vol_req),
   oneway void NotifyNodeAdd(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_Node_Info_Type node_info),
@@ -1158,6 +1162,7 @@ service FDSP_ControlPathResp {
   oneway void NotifyAddVolResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_NotifyVolType not_add_vol_resp),
   oneway void NotifyRmVolResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_NotifyVolType not_rm_vol_resp),
   oneway void NotifyModVolResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_NotifyVolType not_mod_vol_resp),
+  oneway void NotifySnapVolResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_NotifyVolType not_snap_vol_resp),
   oneway void AttachVolResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_AttachVolType atc_vol_resp),
   oneway void DetachVolResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_AttachVolType dtc_vol_resp),
   oneway void NotifyNodeAddResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_Node_Info_Type node_info_resp),

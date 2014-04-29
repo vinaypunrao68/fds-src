@@ -374,6 +374,10 @@ class OM_NodeContainer : public DomainContainer
                                fds_bool_t from_omcontrol_path) {
         return om_volumes->om_create_vol(hdr, creat_msg, from_omcontrol_path);
     }
+    inline Error om_snap_vol(const FDSP_MsgHdrTypePtr &hdr,
+                               const FdspCrtVolPtr      &snap_msg) {
+        return om_volumes->om_snap_vol(hdr, snap_msg);
+    }
     inline Error om_delete_vol(const FDSP_MsgHdrTypePtr &hdr,
                                const FdspDelVolPtr &del_msg) {
         return om_volumes->om_delete_vol(hdr, del_msg);
@@ -407,6 +411,7 @@ class OM_NodeContainer : public DomainContainer
     virtual void om_bcast_tier_audit(fpi::FDSP_TierPolicyAuditPtr audit);
     virtual fds_uint32_t  om_bcast_vol_list(NodeAgent::pointer node);
     virtual fds_uint32_t om_bcast_vol_create(VolumeInfo::pointer vol);
+    virtual fds_uint32_t om_bcast_vol_snap(VolumeInfo::pointer vol);
     virtual void om_bcast_vol_modify(VolumeInfo::pointer vol);
     virtual fds_uint32_t om_bcast_vol_delete(VolumeInfo::pointer vol,
                                              fds_bool_t check_only);
@@ -692,6 +697,13 @@ class OM_ControlRespHandler : public fpi:: FDSP_ControlPathRespIf {
     void NotifyModVolResp(
         FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
         FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& not_mod_vol_resp);
+
+    void NotifySnapVolResp(
+        const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+        const FDS_ProtocolInterface::FDSP_NotifyVolType& not_snap_vol_resp);
+    void NotifySnapVolResp(
+        FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+        FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& not_snap_vol_resp);
 
     void AttachVolResp(
         const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,

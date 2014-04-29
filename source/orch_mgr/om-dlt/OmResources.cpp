@@ -1100,6 +1100,35 @@ OM_ControlRespHandler::NotifyAddVolResp(
 }
 
 void
+OM_ControlRespHandler::NotifySnapVolResp(
+    const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+    const FDS_ProtocolInterface::FDSP_NotifyVolType& not_snap_vol_resp) {
+    // Don't do anything here. This stub is just to keep cpp compiler happy
+}
+
+void
+OM_ControlRespHandler::NotifySnapVolResp(
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+    FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& not_snap_vol_resp) {
+#if 0
+    LOGNOTIFY << "OM received response for NotifySnapVol from node "
+              << fdsp_msg->src_node_name << " for volume "
+              << "[" << not_add_vol_resp->vol_name << ":"
+              << std::hex << not_add_vol_resp->vol_desc.volUUID << std::dec
+              << "] Result: " << fdsp_msg->err_code;
+
+    OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+    VolumeContainer::pointer volumes = local->om_vol_mgr();
+    volumes->om_notify_vol_resp(om_notify_vol_add,
+                                fdsp_msg,
+                                not_add_vol_resp->vol_name,
+                                not_add_vol_resp->vol_desc.volUUID);
+#endif
+}
+
+
+
+void
 OM_ControlRespHandler::NotifyRmVolResp(
     const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
     const FDS_ProtocolInterface::FDSP_NotifyVolType& not_rm_vol_resp) {

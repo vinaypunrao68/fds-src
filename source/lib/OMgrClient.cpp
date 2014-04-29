@@ -42,7 +42,15 @@ void OMgrClientRPCI::NotifyRmVol(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_
     fds::VolumeDesc *vdb = new fds::VolumeDesc(vol_msg->vol_desc);
     om_client->recvNotifyVol(vdb, type, vol_msg->check_only, msg_hdr->result, msg_hdr->session_uuid);
 }
-      
+
+void OMgrClientRPCI::NotifySnapVol(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
+                                  FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& vol_msg) {
+    assert(vol_msg->type == FDS_ProtocolInterface::FDSP_NOTIFY_SNAP_VOL);
+    fds_vol_notify_t type = fds_notify_vol_snap;
+    fds::VolumeDesc *vdb = new fds::VolumeDesc(vol_msg->vol_desc);
+    om_client->recvNotifyVol(vdb, type, vol_msg->check_only, msg_hdr->result, msg_hdr->session_uuid);
+}
+
 void OMgrClientRPCI::AttachVol(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
 			       FDS_ProtocolInterface::FDSP_AttachVolTypePtr& vol_msg) {
     fds::VolumeDesc *vdb = new fds::VolumeDesc(vol_msg->vol_desc);
@@ -647,6 +655,11 @@ int OMgrClient::recvNotifyVol(VolumeDesc *vdb,
             case fds_notify_vol_mod:
                 vol_resp->type = FDSP_NOTIFY_MOD_VOL;
                 resp_client_prx->NotifyModVolResp(msg_hdr, vol_resp);
+                break;
+            case fds_notify_vol_snap:
+                vol_resp->type = FDSP_NOTIFY_SNAP_VOL;
+                //  SAN
+                // resp_client_prx->NotifyModVolResp(msg_hdr, vol_resp);
                 break;
             default:
                 fds_panic("Unknown (corrupt?) volume event");

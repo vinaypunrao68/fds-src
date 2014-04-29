@@ -139,6 +139,13 @@ class OrchMgr: public FdsProcess {
             ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
             ::FDS_ProtocolInterface::FDSP_ModifyVolTypePtr& mod_vol_req);
 
+        int32_t SnapVol(
+            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const ::FDS_ProtocolInterface::FDSP_CreateVolType& snap_vol_req);
+        int32_t SnapVol(
+            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            ::FDS_ProtocolInterface::FDSP_CreateVolTypePtr& snap_vol_req);
+
         int32_t CreatePolicy(
             const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
             const ::FDS_ProtocolInterface::FDSP_CreatePolicyType& crt_pol_req);
@@ -372,6 +379,13 @@ class OrchMgr: public FdsProcess {
         void NotifyModVolResp(
             ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
             ::FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& not_mod_vol_resp);
+
+        void NotifySnapVolResp(
+            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const ::FDS_ProtocolInterface::FDSP_NotifyVolType& not_snap_vol_resp);
+        void NotifySnapVolResp(
+            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            ::FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& not_snap_vol_resp);
 
         void AttachVolResp(
             const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
