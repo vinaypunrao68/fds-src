@@ -6,6 +6,7 @@ package com.formationds.am;
 import com.formationds.apis.AmService;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.util.Configuration;
+import com.formationds.xdi.LegacyConfigurationService;
 import com.formationds.xdi.Xdi;
 import com.formationds.xdi.s3.S3Endpoint;
 import org.apache.thrift.protocol.TBinaryProtocol;
@@ -20,8 +21,8 @@ public class Main {
 
         TSocket transport = new TSocket("localhost", 9988);
         transport.open();
-        AmService.Client am = new AmService.Client(new TBinaryProtocol(transport));
-        ConfigurationService.Client config = null;
+        AmService.Iface am = new AmService.Client(new TBinaryProtocol(transport));
+        ConfigurationService.Iface config = new LegacyConfigurationService("localhost", 8903);
 
         Xdi xdi = new Xdi(am, config);
 

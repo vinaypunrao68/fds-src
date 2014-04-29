@@ -55,6 +55,9 @@ service AmService {
 
         void deleteBlob(1:string domainName, 2:string volumeName, 3:string blobName)
              throws (1: XdiException e)
+
+        VolumeStatus volumeStatus(1:string domainName, 2:string volumeName)
+             throws (1: XdiException e),
 }
 
 
@@ -69,8 +72,5 @@ service ConfigurationService {
              throws (1: XdiException e),
 
         list<VolumeDescriptor> listVolumes(1:string domainName)
-             throws (1: XdiException e),
-
-        VolumeStatus volumeStatus(1:string domainName, 2:string volumeName)
              throws (1: XdiException e),
 }
