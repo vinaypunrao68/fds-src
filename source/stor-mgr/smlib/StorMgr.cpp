@@ -1805,15 +1805,18 @@ ObjectStorMgr::deleteObjectInternal(SmIoReq* delReq) {
      */
     err = deleteObjectMetaData(opCtx, objId, volId, objMetadata);
     if (err.ok()) {
-        LOGDEBUG << "Successfully delete object " << objId;
+        LOGDEBUG << "Successfully delete object " << objId
+                 << " refcnt = " << objMetadata.getRefCnt();
 
-        // tell persistent layer we deleted the object so that garbage collection
-        // knows how much disk space we need to clean
-        memcpy(oid.metaDigest, objId.GetId(), objId.GetLen());
-        if (objMetadata.onTier(diskio::diskTier)) {
-            dio_mgr.disk_delete_obj(&oid, objMetadata.getObjSize(), objMetadata.getObjPhyLoc(diskTier));
-        } else if (objMetadata.onTier(diskio::flashTier)) {
-            dio_mgr.disk_delete_obj(&oid, objMetadata.getObjSize(), objMetadata.getObjPhyLoc(flashTier));
+        if (objMetadata.getRefCnt() < 1) {
+            // tell persistent layer we deleted the object so that garbage collection
+            // knows how much disk space we need to clean
+            memcpy(oid.metaDigest, objId.GetId(), objId.GetLen());
+            if (objMetadata.onTier(diskio::diskTier)) {
+                dio_mgr.disk_delete_obj(&oid, objMetadata.getObjSize(), objMetadata.getObjPhyLoc(diskTier));
+            } else if (objMetadata.onTier(diskio::flashTier)) {
+                dio_mgr.disk_delete_obj(&oid, objMetadata.getObjSize(), objMetadata.getObjPhyLoc(flashTier));
+            }
         }
     } else {
         LOGERROR << "Failed to delete object " << objId << ", " << err;
