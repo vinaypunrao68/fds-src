@@ -3,7 +3,7 @@ user_target       := lib
 user_rtime_env    := user
 user_build_dir    :=
 
-user_thrift       := $(topdir)/fdsp/FDSP.thrift $(topdir)/xdi/am_shim.thrift
+user_thrift       := $(topdir)/fdsp/FDSP.thrift $(topdir)/apis/apis.thrift
 user_thrift_flag  := -r --gen java
 
 user_postdep      := compile
@@ -20,5 +20,7 @@ include $(topdir)/Makefile.incl
 compile:
 	rm -f $(comm_dir_bin)/AMAgent
 	mkdir -p $(comm_dir_lib)/java/
+	rm -rf $(comm_dir_lib)/java/classes
+	rm -rf gen-java/com
 	mvn -DskipTests assembly:directory -Dbuild.dir=$(comm_dir_lib)/java
 	cp -rv admin-webapp $(comm_dir_lib)

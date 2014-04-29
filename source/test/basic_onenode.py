@@ -37,4 +37,5 @@ if __name__ == '__main__':
     io_proc.wait()
 
     # run checker
-    cluster.run_dirbased_checker('/home/nbayyana/temp/skinet2')
+    # cluster.run_dirbased_checker('/home/nbayyana/temp/skinet2')
+    p.wait()

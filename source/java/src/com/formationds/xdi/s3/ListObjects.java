@@ -4,11 +4,11 @@ package com.formationds.xdi.s3;
  */
 
 import com.formationds.am.Main;
+import com.formationds.apis.BlobDescriptor;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.XmlResource;
 import com.formationds.xdi.Xdi;
-import com.formationds.xdi.shim.BlobDescriptor;
 import org.eclipse.jetty.server.Request;
 
 import java.util.List;

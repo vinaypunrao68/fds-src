@@ -4,11 +4,11 @@ package com.formationds.xdi.s3;
  */
 
 import com.formationds.am.Main;
+import com.formationds.apis.VolumeDescriptor;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
 import com.formationds.xdi.Xdi;
-import com.formationds.xdi.shim.VolumeDescriptor;
 import org.eclipse.jetty.server.Request;
 
 import java.util.Map;

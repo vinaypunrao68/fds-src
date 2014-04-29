@@ -657,6 +657,9 @@ void FDS_NativeAPI::StatBlob(const std::string& volumeName, const std::string& b
         cb->blobSize = blobSize;
         LOGDEBUG << " blobsize: " << blobSize
                  << " blobname: " << blobName;
+    } else if (err == ERR_NOT_FOUND) {
+        cb->status = FDSN_StatusEntityDoesNotExist;
+        cb->blobSize = blobSize;
     }
 }
 

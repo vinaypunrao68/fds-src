@@ -3,8 +3,9 @@ package com.formationds.xdi.local;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.xdi.shim.BlobDescriptor;
-import com.formationds.xdi.shim.VolumePolicy;
+import com.formationds.apis.BlobDescriptor;
+import com.formationds.apis.ObjectOffset;
+import com.formationds.apis.VolumePolicy;
 import org.junit.Test;
 
 import java.nio.ByteBuffer;
@@ -15,11 +16,11 @@ import java.util.Map;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 
-public class LocalAmShimTest {
+public class ToyServicesTest {
 
     @Test
     public void testVolumes() throws Exception {
-        LocalAmShim shim = new LocalAmShim("local");
+        ToyServices shim = new ToyServices("local");
         String domainName = "foo";
         String volumeName = "v1";
         String blobName = "blob";
@@ -34,13 +35,15 @@ public class LocalAmShimTest {
         assertEquals(8, shim.statVolume(domainName, volumeName).getPolicy().getMaxObjectSizeInBytes());
 
         ByteBuffer buffer = ByteBuffer.wrap(new byte[]{1, 2, 3, 4, 5});
-        shim.updateBlob(domainName, volumeName, blobName, buffer, 4, 5, true);
+        shim.updateBlob(domainName, volumeName, blobName, buffer, 4, new ObjectOffset(0), ByteBuffer.wrap(new byte[0]), false);
+        shim.updateBlob(domainName, volumeName, blobName, buffer, 5, new ObjectOffset(1), ByteBuffer.wrap(new byte[] {42, 43}), true);
 
-        Blob blob = shim.getBlob(domainName, volumeName, blobName);
-        assertEquals(9, blob.getByteCount());
+        BlobDescriptor blob = shim.statBlob(domainName, volumeName, blobName);
+        assertEquals(13, blob.getByteCount());
+        assertArrayEquals(new byte[] {42, 43}, blob.getDigest());
 
-        assertArrayEquals(new byte[]{0, 0, 0, 0, 0, 1, 2, 3}, shim.getBlob(domainName, volumeName, blobName, 8, 0).array());
-        assertArrayEquals(new byte[] {4, 0, 0, 0, 0, 0, 0, 0}, shim.getBlob(domainName, volumeName, blobName, 8, 8).array());
+        assertArrayEquals(new byte[]{1, 2, 3, 4, 0, 0, 0, 0}, shim.getBlob(domainName, volumeName, blobName, 8, new ObjectOffset(0)).array());
+        assertArrayEquals(new byte[] {1, 2, 3, 4, 5, 0, 0, 0}, shim.getBlob(domainName, volumeName, blobName, 8, new ObjectOffset(1)).array());
 
         Map<String, String> metadata = new HashMap<>();
         metadata.put("hello", "world");
@@ -51,18 +54,18 @@ public class LocalAmShimTest {
         assertEquals(2, m.keySet().size());
         assertEquals("world", m.get("hello"));
         assertEquals("moon", m.get("goodnight"));
-        assertEquals(9, descriptor.getByteCount());
+        assertEquals(13, descriptor.getByteCount());
 
-        shim.updateBlob(domainName, volumeName, "otherBlob", buffer, 4, 5, true);
-
+        String otherBlob = "otherBlob";
+        shim.updateBlob(domainName, volumeName, otherBlob, buffer, 4, new ObjectOffset(0), ByteBuffer.wrap(new byte[0]), true);
         List<BlobDescriptor> parts = shim.volumeContents(domainName, volumeName, Integer.MAX_VALUE, 0);
         assertEquals(2, parts.size());
 
         parts = shim.volumeContents(domainName, volumeName, Integer.MAX_VALUE, 1);
         assertEquals(1, parts.size());
-        assertEquals("otherBlob", parts.get(0).getName());
+        assertEquals(otherBlob, parts.get(0).getName());
 
-        shim.deleteBlob(domainName, volumeName, "otherBlob");
+        shim.deleteBlob(domainName, volumeName, otherBlob);
         parts = shim.volumeContents(domainName, volumeName, Integer.MAX_VALUE, 0);
         assertEquals(1, parts.size());
         assertEquals("blob", parts.get(0).getName());

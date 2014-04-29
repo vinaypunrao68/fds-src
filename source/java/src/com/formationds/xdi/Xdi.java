@@ -3,36 +3,37 @@ package com.formationds.xdi;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.xdi.shim.*;
+import com.formationds.apis.*;
 import org.apache.thrift.TException;
 
 import java.io.InputStream;
-import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-public class Xdi implements AmShim.Iface {
-    private final AmShim.Iface am;
+public class Xdi {
+    private final AmService.Iface am;
+    private ConfigurationService.Iface config;
 
-    public Xdi(AmShim.Iface am) {
+    public Xdi(AmService.Iface am, ConfigurationService.Iface config) {
         this.am = am;
+        this.config = config;
     }
 
     public void createVolume(String domainName, String volumeName, VolumePolicy volumePolicy) throws XdiException, TException {
-        am.createVolume(domainName, volumeName, volumePolicy);
+        config.createVolume(domainName, volumeName, volumePolicy);
     }
 
     public void deleteVolume(String domainName, String volumeName) throws XdiException, TException {
-        am.deleteVolume(domainName, volumeName);
+        config.deleteVolume(domainName, volumeName);
     }
 
     public VolumeDescriptor statVolume(String domainName, String volumeName) throws XdiException, TException {
-        return am.statVolume(domainName, volumeName);
+        return config.statVolume(domainName, volumeName);
     }
 
     public List<VolumeDescriptor> listVolumes(String domainName) throws XdiException, TException {
-        return am.listVolumes(domainName);
+        return config.listVolumes(domainName);
     }
 
     public List<BlobDescriptor> volumeContents(String domainName, String volumeName, int count, long offset) throws XdiException, TException {
@@ -44,30 +45,14 @@ public class Xdi implements AmShim.Iface {
     }
 
     public InputStream readStream(String domainName, String volumeName, String blobName) throws Exception {
-        Iterator<byte[]> iterator = new BlockIterator(this).read(domainName, volumeName, blobName);
+        Iterator<byte[]> iterator = new BlockIterator(am, config).read(domainName, volumeName, blobName);
         return new BlockStreamer(iterator);
     }
 
     public void writeStream(String domainName, String volumeName, String blobName, InputStream in, Map<String, String> metadata) throws Exception {
         VolumeDescriptor volume = statVolume(domainName, volumeName);
         int bufSize = volume.getPolicy().getMaxObjectSizeInBytes();
-        new StreamWriter(bufSize, this).write(domainName, volumeName, blobName, in, metadata);
-    }
-
-    public VolumeStatus volumeStatus(String domainName, String volumeName) throws XdiException, TException {
-        return am.volumeStatus(domainName, volumeName);
-    }
-
-    public ByteBuffer getBlob(String domainName, String volumeName, String blobName, int length, long offset) throws XdiException, TException {
-        return am.getBlob(domainName, volumeName, blobName, length, offset);
-    }
-
-    public void updateMetadata(String domainName, String volumeName, String blobName, Map<String, String> metadata) throws XdiException, TException {
-        am.updateMetadata(domainName, volumeName, blobName, metadata);
-    }
-
-    public void updateBlob(String domainName, String volumeName, String blobName, ByteBuffer bytes, int length, long offset, boolean isLast) throws XdiException, TException {
-        am.updateBlob(domainName, volumeName, blobName, bytes, length, offset, isLast);
+        new StreamWriter(bufSize, am).write(domainName, volumeName, blobName, in, metadata);
     }
 
     public void deleteBlob(String domainName, String volumeName, String blobName) throws XdiException, TException {

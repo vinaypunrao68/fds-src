@@ -11,10 +11,10 @@ import org.eclipse.jetty.server.Request;
 import java.util.Map;
 
 public class SetThrottle implements RequestHandler {
-    private TransientState state;
+    private DemoState state;
     private Throttle throttle;
 
-    public SetThrottle(TransientState state, Throttle throttle) {
+    public SetThrottle(DemoState state, Throttle throttle) {
         this.state = state;
         this.throttle = throttle;
     }

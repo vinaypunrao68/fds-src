@@ -13,9 +13,9 @@ import org.json.JSONObject;
 import java.util.Map;
 
 public class PerfStats implements RequestHandler {
-    private TransientState state;
+    private DemoState state;
 
-    public PerfStats(TransientState state) {
+    public PerfStats(DemoState state) {
         this.state = state;
     }
 
@@ -23,6 +23,7 @@ public class PerfStats implements RequestHandler {
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
         Counts readCounts = state.consumeReadCounts();
         Counts writeCounts = state.consumeWriteCounts();
+
 
         JSONArray array = new JSONArray()
                 .put(makeSummary(readCounts, "Read performance", "Images read"))
