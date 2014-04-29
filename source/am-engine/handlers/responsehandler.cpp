@@ -10,8 +10,8 @@
 #define XCHECKSTATUS(status)             \
     if (status != FDSN_StatusOK) {       \
         LOGWARN << " status:" << status; \
-        xdi::XdiException xe;            \
-        xe.errorCode = xdi::ErrorCode::INTERNAL_SERVER_ERROR;   \
+        apis::XdiException xe;            \
+        xe.errorCode = apis::ErrorCode::INTERNAL_SERVER_ERROR;   \
         xe.message = toString(status);   \
         throw xe;                        \
     }
@@ -86,7 +86,7 @@ ListBucketResponseHandler::~ListBucketResponseHandler() {
 //================================================================================
 
 BucketStatsResponseHandler::BucketStatsResponseHandler(
-    xdi::VolumeDescriptor& volumeDescriptor) : volumeDescriptor(volumeDescriptor) {
+    apis::VolumeDescriptor& volumeDescriptor) : volumeDescriptor(volumeDescriptor) {
 }
 
 void BucketStatsResponseHandler::process() {

@@ -23,7 +23,7 @@ FdsnServer gl_FdsnServer("Global FDSN Server");
  * FDSN interface server class. Provides handlers for each
  * interface function.
  */
-class FdsnIf : public xdi::AmShimIf {
+class FdsnIf : public apis::AmServiceIf {
   private:
     /// Pointer to AM's data API
     FDS_NativeAPI::ptr am_api;
@@ -37,18 +37,18 @@ class FdsnIf : public xdi::AmShimIf {
 
     void createVolume(const std::string& domainName,
                       const std::string& volumeName,
-                      const xdi::VolumePolicy& volumePolicy) {
+                      const apis::VolumePolicy& volumePolicy) {
     }
 
     void createVolume(boost::shared_ptr<std::string>& domainName,
                       boost::shared_ptr<std::string>& volumeName,
-                      boost::shared_ptr<xdi::VolumePolicy>& volumePolicy) {
+                      boost::shared_ptr<apis::VolumePolicy>& volumePolicy) {
         BucketContext bucket_ctx("host", *volumeName, "accessid", "secretkey");
         fds_uint32_t fakeMaxObjSize = 2 * 1024 * 1024;
 
         if ((volumePolicy->maxObjectSizeInBytes % fakeMaxObjSize) != 0) {
-            xdi::XdiException fdsE;
-            fdsE.errorCode = xdi::BAD_REQUEST;
+            apis::XdiException fdsE;
+            fdsE.errorCode = apis::BAD_REQUEST;
             throw fdsE;
         }
 
@@ -79,12 +79,12 @@ class FdsnIf : public xdi::AmShimIf {
         handler.process();
     }
 
-    void statVolume(xdi::VolumeDescriptor& _return,
+    void statVolume(apis::VolumeDescriptor& _return,
                     const std::string& domainName,
                     const std::string& volumeName) {
     }
 
-    void statVolume(xdi::VolumeDescriptor& _return,
+    void statVolume(apis::VolumeDescriptor& _return,
                     boost::shared_ptr<std::string>& domainName,
                     boost::shared_ptr<std::string>& volumeName) {
         BucketContext bucket_ctx("host", *volumeName, "accessid", "secretkey");
@@ -94,45 +94,45 @@ class FdsnIf : public xdi::AmShimIf {
         handler.process();
     }
 
-    void listVolumes(std::vector<xdi::VolumeDescriptor> & _return,
+    void listVolumes(std::vector<apis::VolumeDescriptor> & _return,
                      const std::string& domainName) {
     }
 
-    void listVolumes(std::vector<xdi::VolumeDescriptor> & _return,
+    void listVolumes(std::vector<apis::VolumeDescriptor> & _return,
                      boost::shared_ptr<std::string>& domainName) {
     }
 
-    void volumeStatus(xdi::VolumeStatus& _return,
+    void volumeStatus(apis::VolumeStatus& _return,
                       const std::string& domainName,
                       const std::string& volumeName) {
     }
 
-    void volumeStatus(xdi::VolumeStatus& _return,
+    void volumeStatus(apis::VolumeStatus& _return,
                       boost::shared_ptr<std::string>& domainName,
                       boost::shared_ptr<std::string>& volumeName) {
     }
 
-    void volumeContents(std::vector<xdi::BlobDescriptor> & _return,
+    void volumeContents(std::vector<apis::BlobDescriptor> & _return,
                         const std::string& domainName,
                         const std::string& volumeName,
                         const int32_t count,
                         const int64_t offset) {
     }
 
-    void volumeContents(std::vector<xdi::BlobDescriptor> & _return,
+    void volumeContents(std::vector<apis::BlobDescriptor> & _return,
                         boost::shared_ptr<std::string>& domainName,
                         boost::shared_ptr<std::string>& volumeName,
                         boost::shared_ptr<int32_t>& count,
                         boost::shared_ptr<int64_t>& offset) {
     }
 
-    void statBlob(xdi::BlobDescriptor& _return,
+    void statBlob(apis::BlobDescriptor& _return,
                   const std::string& domainName,
                   const std::string& volumeName,
                   const std::string& blobName) {
     }
 
-    void statBlob(xdi::BlobDescriptor& _return,
+    void statBlob(apis::BlobDescriptor& _return,
                   boost::shared_ptr<std::string>& domainName,
                   boost::shared_ptr<std::string>& volumeName,
                   boost::shared_ptr<std::string>& blobName) {
@@ -152,7 +152,7 @@ class FdsnIf : public xdi::AmShimIf {
                  const std::string& volumeName,
                  const std::string& blobName,
                  const int32_t length,
-                 const xdi::ObjectOffset& offset) {
+                 const apis::ObjectOffset& offset) {
     }
 
     void getBlob(std::string& _return,
@@ -160,7 +160,7 @@ class FdsnIf : public xdi::AmShimIf {
                  boost::shared_ptr<std::string>& volumeName,
                  boost::shared_ptr<std::string>& blobName,
                  boost::shared_ptr<int32_t>& length,
-                 boost::shared_ptr<xdi::ObjectOffset>& objectOffset) {
+                 boost::shared_ptr<apis::ObjectOffset>& objectOffset) {
         BucketContextPtr bucket_ctx(
             new BucketContext("host", *volumeName, "accessid", "secretkey"));
 
@@ -199,11 +199,11 @@ class FdsnIf : public xdi::AmShimIf {
         getHandler.wait();
 
         if (getHandler.status != FDSN_StatusOK) {
-            xdi::XdiException fdsE;
+            apis::XdiException fdsE;
             if (getHandler.status == FDSN_StatusEntityDoesNotExist) {
-                fdsE.errorCode = xdi::MISSING_RESOURCE;
+                fdsE.errorCode = apis::MISSING_RESOURCE;
             } else {
-                fdsE.errorCode = xdi::BAD_REQUEST;
+                fdsE.errorCode = apis::BAD_REQUEST;
             }
             throw fdsE;
         }
@@ -230,7 +230,7 @@ class FdsnIf : public xdi::AmShimIf {
                     const std::string& blobName,
                     const std::string& bytes,
                     const int32_t length,
-                    const xdi::ObjectOffset& objectOffset,
+                    const apis::ObjectOffset& objectOffset,
                     const std::string& digest,
                     const bool isLast) {
     }
@@ -240,7 +240,7 @@ class FdsnIf : public xdi::AmShimIf {
                     boost::shared_ptr<std::string>& blobName,
                     boost::shared_ptr<std::string>& bytes,
                     boost::shared_ptr<int32_t>& length,
-                    boost::shared_ptr<xdi::ObjectOffset>& objectOffset,
+                    boost::shared_ptr<apis::ObjectOffset>& objectOffset,
                     boost::shared_ptr<std::string>& digest,
                     boost::shared_ptr<bool>& isLast) {
         BucketContext bucket_ctx("host", *volumeName, "accessid", "secretkey");
@@ -283,7 +283,7 @@ class FdsnIf : public xdi::AmShimIf {
 
         // Throw an exception if we didn't get an OK response
         if (putHandler.status != FDSN_StatusOK) {
-            xdi::XdiException fdsE;
+            apis::XdiException fdsE;
             throw fdsE;
         }
     }
@@ -348,7 +348,7 @@ FdsnServer::init_server(FDS_NativeAPI::ptr api) {
     // We init here becuse we need the apiobject to
     // init the processor and server
     fdsnInterface.reset(new FdsnIf(am_api));
-    processor.reset(new xdi::AmShimProcessor(
+    processor.reset(new apis::AmServiceProcessor(
         fdsnInterface));
     // event_handler_.reset(new ServerEventHandler(*this));
     server.reset(new xdi_ats::TThreadedServer(processor,

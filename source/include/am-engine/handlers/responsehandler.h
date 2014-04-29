@@ -7,7 +7,7 @@
 #include <concurrency/taskstatus.h>
 #include <native/types.h>
 #include <string>
-#include <xdi/am_shim_types.h>
+#include <apis/apis_types.h>
 
 namespace fds {
     /**
@@ -78,9 +78,9 @@ namespace fds {
     };
 
     struct BucketStatsResponseHandler : ResponseHandler {
-        BucketStatsResponseHandler(xdi::VolumeDescriptor& volumeDescriptor);
+        BucketStatsResponseHandler(apis::VolumeDescriptor& volumeDescriptor);
 
-        xdi::VolumeDescriptor& volumeDescriptor;
+        apis::VolumeDescriptor& volumeDescriptor;
         const std::string* timestamp = NULL;
         int content_count = 0;
         const BucketStatsContent* contents = NULL;
@@ -93,7 +93,7 @@ namespace fds {
     /** Newer callback schemes **/
 
     struct StatBlobResponseHandler : virtual ResponseHandler, virtual native::StatBlobCallback {
-        xdi::BlobDescriptor* blobDescriptor;
+        apis::BlobDescriptor* blobDescriptor;
         virtual void process();
     };
 

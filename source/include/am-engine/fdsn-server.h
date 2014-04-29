@@ -8,7 +8,7 @@
 #include <util/Log.h>
 #include <fds_module.h>
 #include <native_api.h>
-#include <xdi/AmShim.h>
+#include <apis/AmService.h>
 #include <concurrency/Thread.h>
 
 #include <arpa/inet.h>
@@ -47,7 +47,7 @@ class FdsnServer : public Module {
     boost::shared_ptr<xdi_att::TServerTransport>  serverTransport;
     boost::shared_ptr<xdi_att::TTransportFactory> transportFactory;
     boost::shared_ptr<xdi_atp::TProtocolFactory>  protocolFactory;
-    boost::shared_ptr<xdi::AmShimProcessor>       processor;
+    boost::shared_ptr<apis::AmServiceProcessor>    processor;
     boost::shared_ptr<xdi_ats::TThreadedServer>   server;
     // boost::shared_ptr<xdi::AmShimIf>  handler;
 
