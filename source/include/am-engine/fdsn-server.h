@@ -65,8 +65,6 @@ class FdsnServer : public Module {
 
     virtual void init_server(FDS_NativeAPI::ptr api);
     virtual void deinit_server();
-
-    void notifyCallback(fds_uint64_t reqId, FDSN_Status status);
 };
 
 extern FdsnServer gl_FdsnServer;

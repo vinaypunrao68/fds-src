@@ -20,76 +20,6 @@ namespace fds {
 FdsnServer gl_FdsnServer("Global FDSN Server");
 
 /**
- * Tracks the progress of a single FDSN request
- */
-class FdsnReqCtx {
-  public:
-    typedef hash::Md5 EtagGenerator;
-    typedef boost::shared_ptr<FdsnReqCtx> Ptr;
-
-  private:
-    fds_uint64_t    fdsnReqId;
-    FdsConditionPtr fdsnCv;
-    fds_uint32_t    fdsnAckCount;
-    FDSN_Status     fdsnStatus;
-    EtagGenerator   fdsnEtag;
-
-  public:
-    explicit FdsnReqCtx(fds_uint64_t id)
-            : fdsnReqId(id),
-              fdsnCv(new fds_condition()),
-              fdsnAckCount(0),
-              fdsnStatus(FDSN_StatusOK) {
-    }
-
-    void updateEtag(const char *input, size_t length) {
-        fdsnEtag.update(reinterpret_cast<const byte *>(input),
-                        length);
-    }
-
-    void finishEtag(byte *digest) {
-        fdsnEtag.final(digest);
-    }
-    fds_bool_t isDone() const {
-        if (fdsnAckCount == 0) {
-            return false;
-        }
-        // TODO(Andrew): For now, just expect a
-        // single response...
-        fds_verify(fdsnAckCount == 1);
-        return true;
-    }
-
-    void receivedAck() {
-        fdsnAckCount++;
-    }
-    FDSN_Status getStatus() const {
-        return fdsnStatus;
-    }
-    void setStatus(FDSN_Status status) {
-        fdsnStatus = status;
-    }
-    FdsConditionPtr getCv() {
-        return fdsnCv;
-    }
-};
-
-static int
-fdsn_updblob_cbfn(void *reqContext, fds_uint64_t bufferSize, fds_off_t offset,
-                  char *buffer, void *callbackData, FDSN_Status status,
-                  ErrorDetails* errDetails) {
-    fds_uint64_t reqId = *(static_cast<fds_uint64_t *>(callbackData));
-    LOGDEBUG << "Received FDSN put() callback for req ID " << reqId
-             << " with data at offset " << offset << " of length " << bufferSize
-             << " and result " << status;
-
-    // Signal the waiting request that the callback
-    // has been received
-    gl_FdsnServer.notifyCallback(reqId, status);
-    return 0;
-}
-
-/**
  * FDSN interface server class. Provides handlers for each
  * interface function.
  */
@@ -98,40 +28,12 @@ class FdsnIf : public xdi::AmShimIf {
     /// Pointer to AM's data API
     FDS_NativeAPI::ptr am_api;
 
-    // TODO(Andrew): Make the context passed to
-    // the callback so that this map and global
-    // local are not needed.
-    /// Mutex that manages shared access
-    /// to the server
-    fds_mutex          fdsnMtx;
-    /// Generates new request ids - atomic for now...
-    fds_atomic_ullong  fdsnReqCount;
-    typedef std::unordered_map<fds_uint64_t,
-                               FdsnReqCtx::Ptr> FdsnReqMap;
-    /// Synchronizes outstanding req/resp contexts
-    FdsnReqMap         fdsnReqMap;
-
   public:
     explicit FdsnIf(FDS_NativeAPI::ptr api)
-            : am_api(api),
-              fdsnReqCount(0) {
+            : am_api(api) {
     }
 
     typedef boost::shared_ptr<FdsnIf> ptr;
-
-    /**
-     * Notifies a waiting thread that a callback
-     * has been received for a specific request ID
-     */
-    void notifyCallback(fds_uint64_t reqId,
-                        FDSN_Status  status) {
-        fds_scoped_lock slock(fdsnMtx);
-        fds_verify(fdsnReqMap.count(reqId) > 0);
-        FdsnReqCtx::Ptr fdsnCtx = fdsnReqMap[reqId];
-        fdsnCtx->receivedAck();
-        fdsnCtx->setStatus(status);
-        fdsnCtx->getCv()->notify_one();
-    }
 
     void createVolume(const std::string& domainName,
                       const std::string& volumeName,
@@ -269,22 +171,14 @@ class FdsnIf : public xdi::AmShimIf {
         fds_verify(*length >= 0);
         fds_verify(offset >= 0);
 
-        fds_scoped_lock slock(fdsnMtx);
-
-        // Set async request/response handler
-        fds_uint64_t reqId = fdsnReqCount.fetch_add(1);
-        fds_verify(fdsnReqMap.count(reqId) == 0);
-        FdsnReqCtx::Ptr fdsnCtx = FdsnReqCtx::Ptr(new FdsnReqCtx(reqId));
-        fdsnReqMap[reqId] = fdsnCtx;
-
         // Get a buffer of the requested size
         // TODO(Andrew): This should be a shared pointer
         // as we pass it around a lot
         char *buf = new char[*length];
         fds_verify(buf != NULL);
 
+        // Create request context
         GetObjectResponseHandler getHandler;
-        getHandler.reqId = reqId;
 
         // Do async getobject
         // TODO(Andrew): The error path callback maybe called
@@ -301,7 +195,7 @@ class FdsnIf : public xdi::AmShimIf {
                           fn_GetObjectHandler,
                           static_cast<void *>(&getHandler));
 
-        // Wait on something
+        // Wait for a signal from the callback thread
         getHandler.wait();
 
         if (getHandler.status != FDSN_StatusOK) {
@@ -351,44 +245,28 @@ class FdsnIf : public xdi::AmShimIf {
                     boost::shared_ptr<bool>& isLast) {
         BucketContext bucket_ctx("host", *volumeName, "accessid", "secretkey");
 
-        // TODO(Andrew): Remove this hackey maxObjSize
+        // TODO(Andrew): Remove this hackey maxObjSize to force alignment
         fds_uint64_t maxObjSize = 2 * 1024 * 1024;
         fds_uint64_t offset = objectOffset->value * maxObjSize;
 
         fds_verify(*length >= 0);
         fds_verify(offset >= 0);
 
-        fds_scoped_lock slock(fdsnMtx);
-
-        // Set async request/response handler
-        fds_uint64_t reqId = fdsnReqCount.fetch_add(1);
-        fds_verify(fdsnReqMap.count(reqId) == 0);
-        FdsnReqCtx::Ptr fdsnCtx = FdsnReqCtx::Ptr(new FdsnReqCtx(reqId));
-        fdsnReqMap[reqId] = fdsnCtx;
+        // Create context handler
+        PutObjectResponseHandler putHandler;
 
         // Setup put properties
         // TODO(Andrew): Since we don't currently handle the
         // transactions, always set a put properties and etag.
-        // TODO(Andrew): Actually do the etag
         PutPropertiesPtr putProps;
         putProps.reset(new PutProperties());
-
-        // TODO(Andrew): Have the higher level set the etag as metadata
-        // and don't calculate it here
-        // Calculate the etag
-        byte etagDigest[FdsnReqCtx::EtagGenerator::numDigestBytes];
-        fdsnCtx->updateEtag(bytes->c_str(),
-                            *length);
-        fdsnCtx->finishEtag(etagDigest);
-        // Get a hex string for the etag
-        putProps->md5 = ObjectID::ToHex(etagDigest,
-                                        FdsnReqCtx::EtagGenerator::
-                                        numDigestBytes);
+        putProps->md5 = ObjectID::ToHex(reinterpret_cast<const uint8_t *>(
+            digest->c_str()),
+                                        digest->size());
 
         // Do async putobject
         // TODO(Andrew): The error path callback maybe called
         // in THIS thread's context...need to fix or handle that.
-        // TODO(Andrew): Pass in the reque
         am_api->PutObject(&bucket_ctx,
                           *blobName,
                           putProps,
@@ -397,17 +275,14 @@ class FdsnIf : public xdi::AmShimIf {
                           offset,
                           *length,
                           *isLast,
-                          fdsn_updblob_cbfn,
-                          static_cast<void *>(&reqId));
+                          fn_PutObjectHandler,
+                          static_cast<void *>(&putHandler));
 
         // Wait for a signal from the callback thread
-        while (fdsnCtx->isDone() == false) {
-            fdsnCtx->getCv()->wait(slock.boost());
-        }
-        fdsnReqMap.erase(reqId);
+        putHandler.wait();
 
         // Throw an exception if we didn't get an OK response
-        if (fdsnCtx->getStatus() != FDSN_StatusOK) {
+        if (putHandler.status != FDSN_StatusOK) {
             xdi::XdiException fdsE;
             throw fdsE;
         }
@@ -435,7 +310,6 @@ FdsnServer::FdsnServer(const std::string &name)
     serverTransport.reset(new xdi_att::TServerSocket(port));
     transportFactory.reset(new xdi_att::TBufferedTransportFactory());
     protocolFactory.reset(new xdi_atp::TBinaryProtocolFactory());
-
 
     // server_->setServerEventHandler(event_handler_);
 }
@@ -496,11 +370,5 @@ void
 FdsnServer::deinit_server() {
     fds_verify(listen_thread != NULL);
     listen_thread->join();
-}
-
-void
-FdsnServer::notifyCallback(fds_uint64_t reqId,
-                           FDSN_Status  status) {
-    fdsnInterface->notifyCallback(reqId, status);
 }
 }  // namespace fds

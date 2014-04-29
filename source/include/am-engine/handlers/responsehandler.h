@@ -59,8 +59,7 @@ namespace fds {
         fds_off_t offset = 0;
         const char *buffer = NULL;
         fds_uint64_t blobSize = 0;
-        const std::string* blobEtag = NULL;
-        fds_uint64_t reqId = 0;
+        std::string blobEtag;
 
         virtual void process();
         virtual ~GetObjectResponseHandler();
