@@ -525,31 +525,34 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::ActivateNode(
     return err.GetErrno();
 }
 
-int32_t OrchMgr::FDSP_ConfigPathReqHandler::ScavengerStart(
+int32_t OrchMgr::FDSP_ConfigPathReqHandler::ScavengerCommand(
     const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
-    const ::FDS_ProtocolInterface::FDSP_ScavengerStartType& gc_msg) {
+    const ::FDS_ProtocolInterface::FDSP_ScavengerType& gc_msg) {
     // Don't do anything here. This stub is just to keep cpp compiler happy
     return 0;
 }
 
-int32_t OrchMgr::FDSP_ConfigPathReqHandler::ScavengerStart(
+int32_t OrchMgr::FDSP_ConfigPathReqHandler::ScavengerCommand(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-    ::FDS_ProtocolInterface::FDSP_ScavengerStartTypePtr& gc_msg) {
-    switch (gc_msg->target) {
-        case FDS_ProtocolInterface::FDSP_SCAVENGE_HDD_ONLY:
-            LOGNOTIFY << "Received scavenger start for HDD";
+    ::FDS_ProtocolInterface::FDSP_ScavengerTypePtr& gc_msg) {
+    switch (gc_msg->cmd) {
+        case FDS_ProtocolInterface::FDSP_SCAVENGER_ENABLE:
+            LOGNOTIFY << "Received scavenger enable command";
             break;
-        case FDS_ProtocolInterface::FDSP_SCAVENGE_SSD_ONLY:
-            LOGNOTIFY << "Received scavenger start for SSD";
+        case FDS_ProtocolInterface::FDSP_SCAVENGER_DISABLE:
+            LOGNOTIFY << "Received scavenger disable command";
             break;
-        case FDS_ProtocolInterface::FDSP_SCAVENGE_ALL:
-            LOGNOTIFY << "Received scavenger start for all";
+        case FDS_ProtocolInterface::FDSP_SCAVENGER_START:
+            LOGNOTIFY << "Received scavenger start command";
+            break;
+        case FDS_ProtocolInterface::FDSP_SCAVENGER_STOP:
+            LOGNOTIFY << "Received scavenger stop command";
             break;
     };
 
     // send scavenger start message to all SMs
     OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
-    local->om_bcast_scavenger_cmd(gc_msg->target);
+    local->om_bcast_scavenger_cmd(gc_msg->cmd);
     return 0;
 }
 

@@ -65,7 +65,7 @@ namespace fds {
   typedef void (*tier_audit_cmd_handler_t)(const FDSP_TierPolicyAuditPtr &tier);
   typedef void (*bucket_stats_cmd_handler_t)(const FDSP_MsgHdrTypePtr& rx_msg,
 					     const FDSP_BucketStatsRespTypePtr& buck_stats);
-  typedef void (*scavenger_event_handler_t)(FDSP_ScavengerTarget tgt);
+  typedef void (*scavenger_event_handler_t)(FDSP_ScavengerCmd cmd);
 
   class OMgrClient {
 
@@ -223,7 +223,7 @@ namespace fds {
     int recvTierPolicyAudit(const FDSP_TierPolicyAuditPtr &audit);
     int recvBucketStats(const FDSP_MsgHdrTypePtr& msg_hdr, 
 			const FDSP_BucketStatsRespTypePtr& buck_stats_msg);
-    int recvScavengerEvt(FDS_ProtocolInterface::FDSP_ScavengerTarget tgt);
+    int recvScavengerEvt(FDS_ProtocolInterface::FDSP_ScavengerCmd cmd);
   };
 
   class OMgrClientRPCI : public FDS_ProtocolInterface::FDSP_ControlPathReqIf {
@@ -362,13 +362,13 @@ namespace fds {
     void NotifyStartMigration(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
 			 FDS_ProtocolInterface::FDSP_DLT_Data_TypePtr& dlt_info);
 
-    void NotifyScavengerStart(const FDS_ProtocolInterface::FDSP_MsgHdrType& msg_hdr,
-                              const FDS_ProtocolInterface::FDSP_ScavengerStartType& gc_info) {
+    void NotifyScavengerCmd(const FDS_ProtocolInterface::FDSP_MsgHdrType& msg_hdr,
+                            const FDS_ProtocolInterface::FDSP_ScavengerType& gc_info) {
         // Don't do anything here. This stub is just to keep cpp compiler happy
     }
     
-    void NotifyScavengerStart(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
-                              FDS_ProtocolInterface::FDSP_ScavengerStartTypePtr& gc_info);
+    void NotifyScavengerCmd(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
+                            FDS_ProtocolInterface::FDSP_ScavengerTypePtr& gc_info);
 
   };
 

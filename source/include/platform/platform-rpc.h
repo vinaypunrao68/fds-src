@@ -83,10 +83,10 @@ class PlatRpcReqt : public fpi::FDSP_ControlPathReqIf
     void NotifyStartMigration(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
                               fpi::FDSP_DLT_Data_TypePtr &dlt_info);
 
-    void NotifyScavengerStart(const fpi::FDSP_MsgHdrType    &msg_hdr,
-                              const fpi::FDSP_ScavengerStartType &gc_info);
-    void NotifyScavengerStart(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
-                              fpi::FDSP_ScavengerStartTypePtr &gc_info);
+    void NotifyScavengerCmd(const fpi::FDSP_MsgHdrType    &msg_hdr,
+                            const fpi::FDSP_ScavengerType &gc_info);
+    void NotifyScavengerCmd(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
+                            fpi::FDSP_ScavengerTypePtr &gc_info);
 
   protected:
     const Platform   *plf_mgr;
