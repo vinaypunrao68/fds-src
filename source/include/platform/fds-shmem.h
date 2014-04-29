@@ -5,14 +5,25 @@
 #define SOURCE_INCLUDE_PLATFORM_FDS_SHMEM_H_
 
 #include <stdlib.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <assert.h>
 
 namespace fds {
 
 class FdsShmem
 {
   public:
-    FdsShmem();
+    FdsShmem(const char *name);
     virtual ~FdsShmem();
+
+    int   shm_alloc(size_t size);
+    void  *shm_get();
+    int   shm_unmap();
 
   protected:
     const char               *sh_name;

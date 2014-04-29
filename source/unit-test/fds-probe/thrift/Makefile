@@ -13,6 +13,7 @@ user_fds_ar_libs  :=       \
 user_non_fds_libs :=
 
 user_thrift       := mesg.thrift
+user_thrift_flag  := --gen cpp:pure_enums --gen java --allow-64bit-consts
 user_hh           := \
     s3-thrift-probe.h
 
