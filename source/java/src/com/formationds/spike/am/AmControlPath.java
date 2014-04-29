@@ -33,6 +33,11 @@ public class AmControlPath implements FDSP_ControlPathReq.Iface {
     }
 
     @Override
+    public void NotifySnapVol(FDSP_MsgHdrType fdsp_msg, FDSP_NotifyVolType not_snap_vol_req) throws TException {
+        LOG.debug(not_snap_vol_req);
+    }
+
+    @Override
     public void AttachVol(FDSP_MsgHdrType fdsp_msg, FDSP_AttachVolType atc_vol_req) throws TException {
         LOG.debug(atc_vol_req);
     }

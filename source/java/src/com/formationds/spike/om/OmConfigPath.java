@@ -33,6 +33,11 @@ public class OmConfigPath implements FDSP_ConfigPathReq.Iface {
     public int ModifyVol(FDSP_MsgHdrType fdsp_msg, FDSP_ModifyVolType mod_vol_req) throws TException {
         return 0;
     }
+ 
+    @Override
+    public int SnapVol(FDSP_MsgHdrType fdsp_msg, FDSP_CreateVolType snap_vol_req) throws TException {
+        return 0;
+    }
 
     @Override
     public int CreatePolicy(FDSP_MsgHdrType fdsp_msg, FDSP_CreatePolicyType crt_pol_req) throws TException {
