@@ -218,6 +218,14 @@ void TokenCompactor::snapDoneCb(const Error& error,
         (loc_oid_map[loc_fid])[loc->obj_stor_offset] = id;
     }
 
+    // calculate total_objs before enqueueing copy work into QoS queue,
+    // to make sure that total_objs is correct when we get copy done cb
+    for (loc_oid_map_t::const_iterator cit = loc_oid_map.cbegin();
+         cit != loc_oid_map.cend();
+         ++cit) {
+        total_objs += (cit->second).size();
+    }
+
     // create copy work items
     for (loc_oid_map_t::const_iterator cit = loc_oid_map.cbegin();
          cit != loc_oid_map.cend();
@@ -226,7 +234,6 @@ void TokenCompactor::snapDoneCb(const Error& error,
              cit2 != (cit->second).cend();
              ++cit2) {
             obj_list.push_back(cit2->second);
-            ++total_objs;
 
             // if we collected enough oids, create copy req and put it to qos queue
             if (obj_list.size() >= GC_COPY_WORKLIST_SIZE) {

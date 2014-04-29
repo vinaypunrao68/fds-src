@@ -292,10 +292,10 @@ OM_NodeAgent::om_send_dlt(const DLT *curDlt) {
 // TODO(xxx) extend to other scavenger commands (pass cmd type)
 //
 Error
-OM_NodeAgent::om_send_scavenger_cmd(fpi::FDSP_ScavengerTarget target) {
+OM_NodeAgent::om_send_scavenger_cmd(fpi::FDSP_ScavengerCmd cmd) {
     Error err(ERR_OK);
     fpi::FDSP_MsgHdrTypePtr m_hdr(new fpi::FDSP_MsgHdrType);
-    fpi::FDSP_ScavengerStartTypePtr gc_msg(new fpi::FDSP_ScavengerStartType());
+    fpi::FDSP_ScavengerTypePtr gc_msg(new fpi::FDSP_ScavengerType());
     this->init_msg_hdr(m_hdr);
 
     m_hdr->msg_code = fpi::FDSP_MSG_SCAVENGER_START;
@@ -303,16 +303,16 @@ OM_NodeAgent::om_send_scavenger_cmd(fpi::FDSP_ScavengerTarget target) {
     m_hdr->tennant_id = 1;
     m_hdr->local_domain_id = 1;
 
-    gc_msg->target = target;
+    gc_msg->cmd = cmd;
 
     try {
-        ndCpClient->NotifyScavengerStart(m_hdr, gc_msg);
+        ndCpClient->NotifyScavengerCmd(m_hdr, gc_msg);
     } catch(const att::TTransportException& e) {
         LOGERROR << "error during network call : " << e.what();
         return ERR_NETWORK_TRANSPORT;
     }
 
-    LOGNORMAL << "OM: send scavenger start message for " << target;
+    LOGNORMAL << "OM: send scavenger command: " << cmd;
     return err;
 }
 
@@ -1303,9 +1303,9 @@ OM_NodeContainer::om_bcast_dlt_close(fds_uint64_t cur_dlt_version)
 // -----------------------
 //
 static void
-om_send_scavenger_cmd(FDS_ProtocolInterface::FDSP_ScavengerTarget tgt,
+om_send_scavenger_cmd(FDS_ProtocolInterface::FDSP_ScavengerCmd cmd,
                       NodeAgent::pointer agent) {
-    OM_SmAgent::agt_cast_ptr(agent)->om_send_scavenger_cmd(tgt);
+    OM_SmAgent::agt_cast_ptr(agent)->om_send_scavenger_cmd(cmd);
 }
 
 //
@@ -1313,10 +1313,10 @@ om_send_scavenger_cmd(FDS_ProtocolInterface::FDSP_ScavengerTarget tgt,
 // TODO(xxx) extend to other scavenger commands
 //
 void
-OM_NodeContainer::om_bcast_scavenger_cmd(FDS_ProtocolInterface::FDSP_ScavengerTarget tgt)
+OM_NodeContainer::om_bcast_scavenger_cmd(FDS_ProtocolInterface::FDSP_ScavengerCmd cmd)
 {
-    dc_sm_nodes->agent_foreach<FDS_ProtocolInterface::FDSP_ScavengerTarget>(
-        tgt, om_send_scavenger_cmd);
+    dc_sm_nodes->agent_foreach<FDS_ProtocolInterface::FDSP_ScavengerCmd>(
+        cmd, om_send_scavenger_cmd);
 }
 
 // om_round_robin_dmt
