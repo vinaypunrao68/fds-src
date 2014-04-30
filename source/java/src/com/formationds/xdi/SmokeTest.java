@@ -35,9 +35,9 @@ public class SmokeTest {
         omTransport.open();
         ConfigurationService.Iface config = new ConfigurationService.Client(new TBinaryProtocol(omTransport));
 
-        System.out.println("Creating volume 'Volume1', policy: 4kb blocksize");
+        System.out.println("Creating volume 'Volume2', policy: 4kb blocksize");
         try {
-            config.createVolume(DOMAIN_NAME, VOLUME_NAME, new VolumePolicy(4 * 1024));
+            config.createVolume(DOMAIN_NAME, "Volume2", new VolumePolicy(4 * 1024));
             config.createVolume(DOMAIN_NAME, "Volume2", new VolumePolicy(4 * 1024));
         } catch(ApiException e) {
             e.printStackTrace();
