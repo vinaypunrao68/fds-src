@@ -8,6 +8,7 @@ import com.formationds.apis.ConfigurationService;
 import com.formationds.util.Configuration;
 import com.formationds.xdi.Xdi;
 import com.formationds.xdi.s3.S3Endpoint;
+import com.formationds.xdi.swift.SwiftEndpoint;
 import org.apache.thrift.protocol.TBinaryProtocol;
 import org.apache.thrift.transport.TSocket;
 
@@ -29,6 +30,6 @@ public class Main {
         Xdi xdi = new Xdi(am, config);
 
         new S3Endpoint(xdi).start(9977);
-        //new SwiftEndpoint(xdi).start(9999);
+        new SwiftEndpoint(xdi).start(9999);
     }
 }
