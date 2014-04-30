@@ -1,0 +1,27 @@
+/*
+ * Copyright 2014 Formation Data Systems, Inc.
+ */
+#ifndef SOURCE_ORCH_MGR_INCLUDE_CONVERT_H_
+#define SOURCE_ORCH_MGR_INCLUDE_CONVERT_H_
+#include <apis/ConfigurationService.h>
+#include <fdsp/FDSP_types.h>
+#include <string>
+
+namespace fds {
+    namespace fpi = FDS_ProtocolInterface;
+    namespace convert {
+        void getFDSPCreateVolRequest(fpi::FDSP_MsgHdrTypePtr& header,
+                                     fpi::FDSP_CreateVolTypePtr& request,
+                                     const std::string& domain,
+                                     const std::string& volume,
+                                     const apis::VolumePolicy volPolicy);
+
+        void getFDSPDeleteVolRequest(fpi::FDSP_MsgHdrTypePtr& header,
+                                     fpi::FDSP_DeleteVolTypePtr& request,
+                                     const std::string& domain,
+                                     const std::string& volume);
+
+    }  // namespace convert
+}  // namespace fds
+
+#endif  // SOURCE_ORCH_MGR_INCLUDE_CONVERT_H_
