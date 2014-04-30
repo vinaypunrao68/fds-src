@@ -99,7 +99,7 @@ public class AmControlPath implements FDSP_ControlPathReq.Iface {
     }
 
     @Override
-    public void NotifyScavengerStart(FDSP_MsgHdrType fdsp_msg, FDSP_ScavengerStartType gc_info) throws TException {
+    public void NotifyScavengerCmd(FDSP_MsgHdrType fdsp_msg, FDSP_ScavengerType gc_info) throws TException {
         LOG.debug(gc_info);
     }
 }
