@@ -38,8 +38,8 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
     void createVolume(boost::shared_ptr<std::string>& domainName, boost::shared_ptr<std::string>& volumeName, boost::shared_ptr<VolumePolicy>& volumePolicy) {
 
-        LOGNOTIFY << " domain: " << domainName
-                  << " volume: " << volumeName;
+        LOGNOTIFY << " domain: " << *domainName
+                  << " volume: " << *volumeName;
 
         Error err;
         OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
@@ -91,17 +91,19 @@ namespace fds {
 
 std::thread* runConfigService(OrchMgr* om) {
     int port = 9090;
+    LOGNORMAL << "about to start config service @ " << port;
     boost::shared_ptr<ConfigurationServiceHandler> handler(new ConfigurationServiceHandler(om));
     boost::shared_ptr<TProcessor> processor(new ConfigurationServiceProcessor(handler));
     boost::shared_ptr<TServerTransport> serverTransport(new TServerSocket(port));
     boost::shared_ptr<TTransportFactory> transportFactory(new TBufferedTransportFactory());
     boost::shared_ptr<TProtocolFactory> protocolFactory(new TBinaryProtocolFactory());
 
-    TSimpleServer* server=new TSimpleServer(processor, serverTransport, transportFactory, protocolFactory);
-    std::thread* t = new std::thread ([=](){
+    TThreadedServer* server=new TThreadedServer(processor, serverTransport, transportFactory, protocolFactory);
+    return new std::thread ( [server] {
+            LOGNOTIFY << "starting config service";
             server->serve();
+            LOGCRITICAL << "stopping ... config service";
         });
-    return t;
 }
 
 }  // namespace fds
