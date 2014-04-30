@@ -104,7 +104,7 @@ class OM_NodeAgent : public NodeAgent
     virtual Error om_send_dlt(const DLT *curDlt);
     virtual Error om_send_dlt_close(fds_uint64_t cur_dlt_version);
     virtual Error om_send_scavenger_cmd(
-        FDS_ProtocolInterface::FDSP_ScavengerTarget target);
+        FDS_ProtocolInterface::FDSP_ScavengerCmd cmd);
     virtual void init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const;
 
   protected:
@@ -418,10 +418,9 @@ class OM_NodeContainer : public DomainContainer
                                       fds_bool_t sm_only = false);
     virtual fds_uint32_t om_bcast_dlt_close(fds_uint64_t cur_dlt_version);
     /**
-     * for now sends scavenger start command to SMs
-     * TODO(xxx) extend to other scavenger commands passing cmd type
+     * Sends scavenger command (e.g. enable, disable, start, stop) to SMs
      */
-    virtual void om_bcast_scavenger_cmd(FDSP_ScavengerTarget target);
+    virtual void om_bcast_scavenger_cmd(FDSP_ScavengerCmd cmd);
     /**
      * conditional broadcast to platform (nodes) to
      * activate SM and DM services on those nodes, but only

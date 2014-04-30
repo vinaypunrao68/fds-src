@@ -749,15 +749,24 @@ void ObjectStorMgr::migrationSvcResponseCb(const Error& err,
 //
 // TODO(xxx) currently assumes scavenger start command, extend to other cmds
 //
-void ObjectStorMgr::scavengerEventHandler(FDS_ProtocolInterface::FDSP_ScavengerTarget tgt)
+void ObjectStorMgr::scavengerEventHandler(FDS_ProtocolInterface::FDSP_ScavengerCmd cmd)
 {
-    bool all = (tgt == FDS_ProtocolInterface::FDSP_SCAVENGE_ALL);
-    diskio::DataTier tgt_tier = diskio::diskTier;
-    if (tgt == FDS_ProtocolInterface::FDSP_SCAVENGE_SSD_ONLY) {
-        tgt_tier = diskio::flashTier;
-    }
-    GLOGDEBUG << "Scavenger event Handler: start scavenger for " << tgt;
-    objStorMgr->scavenger->startScavengeProcess(all, tgt_tier);
+    switch(cmd) {
+        case FDS_ProtocolInterface::FDSP_SCAVENGER_ENABLE:
+            objStorMgr->scavenger->enableScavenger();
+            break;
+        case FDS_ProtocolInterface::FDSP_SCAVENGER_DISABLE:
+            objStorMgr->scavenger->disableScavenger();
+            break;
+        case FDS_ProtocolInterface::FDSP_SCAVENGER_START:
+            objStorMgr->scavenger->startScavengeProcess();
+            break;
+        case FDS_ProtocolInterface::FDSP_SCAVENGER_STOP:
+            objStorMgr->scavenger->stopScavengeProcess();
+            break;
+        default:
+            fds_verify(false);  // unknown scavenger command
+    };
 }
 
 void ObjectStorMgr::nodeEventOmHandler(int node_id,
@@ -1805,15 +1814,18 @@ ObjectStorMgr::deleteObjectInternal(SmIoReq* delReq) {
      */
     err = deleteObjectMetaData(opCtx, objId, volId, objMetadata);
     if (err.ok()) {
-        LOGDEBUG << "Successfully delete object " << objId;
+        LOGDEBUG << "Successfully delete object " << objId
+                 << " refcnt = " << objMetadata.getRefCnt();
 
-        // tell persistent layer we deleted the object so that garbage collection
-        // knows how much disk space we need to clean
-        memcpy(oid.metaDigest, objId.GetId(), objId.GetLen());
-        if (objMetadata.onTier(diskio::diskTier)) {
-            dio_mgr.disk_delete_obj(&oid, objMetadata.getObjSize(), objMetadata.getObjPhyLoc(diskTier));
-        } else if (objMetadata.onTier(diskio::flashTier)) {
-            dio_mgr.disk_delete_obj(&oid, objMetadata.getObjSize(), objMetadata.getObjPhyLoc(flashTier));
+        if (objMetadata.getRefCnt() < 1) {
+            // tell persistent layer we deleted the object so that garbage collection
+            // knows how much disk space we need to clean
+            memcpy(oid.metaDigest, objId.GetId(), objId.GetLen());
+            if (objMetadata.onTier(diskio::diskTier)) {
+                dio_mgr.disk_delete_obj(&oid, objMetadata.getObjSize(), objMetadata.getObjPhyLoc(diskTier));
+            } else if (objMetadata.onTier(diskio::flashTier)) {
+                dio_mgr.disk_delete_obj(&oid, objMetadata.getObjSize(), objMetadata.getObjPhyLoc(flashTier));
+            }
         }
     } else {
         LOGERROR << "Failed to delete object " << objId << ", " << err;

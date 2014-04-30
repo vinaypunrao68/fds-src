@@ -112,10 +112,9 @@ void OMgrClientRPCI::NotifyStartMigration(FDSP_MsgHdrTypePtr& msg_hdr,
     }
 }
 
-void OMgrClientRPCI::NotifyScavengerStart(FDSP_MsgHdrTypePtr& msg_hdr,
-                                          FDSP_ScavengerStartTypePtr& gc_info) {
-    LOGNOTIFY << "Received Scavenger Start message for " << gc_info->target;
-    om_client->recvScavengerEvt(gc_info->target);
+void OMgrClientRPCI::NotifyScavengerCmd(FDSP_MsgHdrTypePtr& msg_hdr,
+                                        FDSP_ScavengerTypePtr& gc_info) {
+    om_client->recvScavengerEvt(gc_info->cmd);
 }
 
 void OMgrClientRPCI::NotifyDMTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
@@ -528,10 +527,10 @@ int OMgrClient::recvMigrationEvent(bool dlt_type)
 }
 
 // TODO(xxx) currently does scavenger start event, extend to other scavenger events
-int OMgrClient::recvScavengerEvt(FDS_ProtocolInterface::FDSP_ScavengerTarget target) 
+int OMgrClient::recvScavengerEvt(FDS_ProtocolInterface::FDSP_ScavengerCmd cmd) 
 {
   if (this->scavenger_evt_hdlr) {
-    this->scavenger_evt_hdlr(target);
+    this->scavenger_evt_hdlr(cmd);
   }
   return (0);
 }

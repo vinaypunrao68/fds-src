@@ -137,7 +137,7 @@ public class OmConfigPath implements FDSP_ConfigPathReq.Iface {
     }
 
     @Override
-    public int ScavengerStart(FDSP_MsgHdrType fdsp_msg, FDSP_ScavengerStartType req) throws TException {
+    public int ScavengerCommand(FDSP_MsgHdrType fdsp_msg, FDSP_ScavengerType req) throws TException {
         return 0;
     }
 
