@@ -359,8 +359,6 @@ if __name__ == "__main__":
                               help='Core files to run GDB command on.',
                               nargs='+')
     
->>>>>>> e35eeb220068cef031aa3c13e42aec0de0fa1a95
-
     args = parser.parse_args()
 
     if args.subp == 'package':

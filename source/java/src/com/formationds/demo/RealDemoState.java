@@ -3,8 +3,8 @@ package com.formationds.demo;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+import com.formationds.apis.VolumePolicy;
 import com.formationds.xdi.Xdi;
-import com.formationds.xdi.shim.VolumePolicy;
 import org.apache.thrift.TException;
 import org.joda.time.DateTime;
 import org.joda.time.Duration;
@@ -14,13 +14,13 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-public class TransientState {
+public class RealDemoState implements DemoState {
     private DateTime lastAccessed;
     private DemoRunner demoRunner;
     private final ImageReader reader;
     private final ImageWriter writer;
 
-    public TransientState(Duration timeToLive, Xdi xdi) {
+    public RealDemoState(Duration timeToLive, Xdi xdi) {
         try {
             xdi.deleteVolume(Main.DEMO_DOMAIN, "Volume1");
             xdi.deleteVolume(Main.DEMO_DOMAIN, "Volume2");
@@ -56,6 +56,7 @@ public class TransientState {
         scavenger.shutdown();
     }
 
+    @Override
     public void setSearchExpression(String searchExpression) {
         lastAccessed = DateTime.now();
         if (demoRunner != null) {
@@ -69,26 +70,31 @@ public class TransientState {
         }
     }
 
+    @Override
     public Optional<String> getCurrentSearchExpression() {
         lastAccessed = DateTime.now();
         return demoRunner == null? Optional.<String>empty() : Optional.of(demoRunner.getQuery());
     }
 
+    @Override
     public Optional<ImageResource> peekReadQueue() {
         lastAccessed = DateTime.now();
         return demoRunner == null || demoRunner.peekReadQueue() == null? Optional.empty() : Optional.of(demoRunner.peekReadQueue());
     }
 
+    @Override
     public Optional<ImageResource> peekWriteQueue() {
         lastAccessed = DateTime.now();
         return demoRunner == null || demoRunner.peekWriteQueue() == null? Optional.empty() : Optional.of(demoRunner.peekWriteQueue());
     }
 
+    @Override
     public int getReadThrottle() {
         lastAccessed = DateTime.now();
         return demoRunner == null? 0 : demoRunner.getReadParallelism();
     }
 
+    @Override
     public void setReadThrottle(int value) {
         lastAccessed = DateTime.now();
         if (demoRunner != null) {
@@ -99,11 +105,13 @@ public class TransientState {
         }
     }
 
+    @Override
     public int getWriteThrottle() {
         lastAccessed = DateTime.now();
         return demoRunner == null? 0 : demoRunner.getWriteParallelism();
     }
 
+    @Override
     public void setWriteThrottle(int value) {
         lastAccessed = DateTime.now();
         if (demoRunner != null) {
@@ -114,11 +122,13 @@ public class TransientState {
         }
     }
 
+    @Override
     public Counts consumeReadCounts() {
         lastAccessed = DateTime.now();
         return demoRunner == null? new Counts(): demoRunner.consumeReadCounts();
     }
 
+    @Override
     public Counts consumeWriteCounts() {
         lastAccessed = DateTime.now();
         return demoRunner == null? new Counts(): demoRunner.consumeWriteCounts();

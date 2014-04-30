@@ -4,11 +4,11 @@ package com.formationds.xdi.s3;
  */
 
 import com.formationds.am.Main;
+import com.formationds.apis.VolumePolicy;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
 import com.formationds.xdi.Xdi;
-import com.formationds.xdi.shim.VolumePolicy;
 import org.eclipse.jetty.server.Request;
 
 import java.util.Map;
@@ -23,7 +23,7 @@ public class CreateBucket implements RequestHandler {
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
         String bucketName = requiredString(routeParameters, "bucket");
-        xdi.createVolume(Main.FDS_S3, bucketName, new VolumePolicy(1024 * 4));
+        xdi.createVolume(Main.FDS_S3, bucketName, new VolumePolicy(1024 * 1024 * 2));
         return new TextResource("");
     }
 }

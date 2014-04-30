@@ -3,7 +3,7 @@ user_target    := lib
 user_rtime_env := user
 user_build_dir := \
     fdsp \
-    xdi \
+    apis \
     am-engine \
     concurrency \
     kvstore \

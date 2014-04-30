@@ -3,9 +3,9 @@ package com.formationds.demo;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+import com.formationds.apis.BlobDescriptor;
+import com.formationds.apis.VolumeDescriptor;
 import com.formationds.xdi.Xdi;
-import com.formationds.xdi.shim.BlobDescriptor;
-import com.formationds.xdi.shim.VolumeDescriptor;
 import org.apache.commons.io.IOUtils;
 
 import java.io.InputStream;

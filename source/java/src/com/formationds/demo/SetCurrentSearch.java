@@ -12,9 +12,9 @@ import org.json.JSONObject;
 import java.util.Map;
 
 public class SetCurrentSearch implements RequestHandler {
-    private TransientState state;
+    private DemoState state;
 
-    public SetCurrentSearch(TransientState state) {
+    public SetCurrentSearch(DemoState state) {
         this.state = state;
     }
 
