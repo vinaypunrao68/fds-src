@@ -52,15 +52,21 @@ public class Xdi {
     }
 
     public InputStream readStream(String domainName, String volumeName, String blobName) throws Exception {
-        Iterator<byte[]> iterator = new BlockIterator(am, config).read(domainName, volumeName, blobName);
-        return new BlockStreamer(iterator);
+        Iterator<byte[]> iterator = new FdsObjectIterator(am, config).read(domainName, volumeName, blobName);
+        return new FdsObjectStreamer(iterator);
     }
 
-    public void writeStream(String domainName, String volumeName, String blobName, InputStream in, Map<String, String> metadata) throws Exception {
+    public InputStream readStream(String domainName, String volumeName, String blobName, long requestOffset, long requestLength) throws Exception {
+        Iterator<byte[]> iterator = new FdsObjectIterator(am, config).read(domainName, volumeName, blobName, requestOffset, requestLength);
+        return new FdsObjectStreamer(iterator);
+    }
+
+
+    public byte[] writeStream(String domainName, String volumeName, String blobName, InputStream in, Map<String, String> metadata) throws Exception {
         VolumeDescriptor volume = config.statVolume(domainName, volumeName);
         int bufSize = volume.getPolicy().getMaxObjectSizeInBytes();
         metadata.putIfAbsent(LAST_MODIFIED, Long.toString(DateTime.now().getMillis()));
-        new StreamWriter(bufSize, am).write(domainName, volumeName, blobName, in, metadata);
+        return new StreamWriter(bufSize, am).write(domainName, volumeName, blobName, in, metadata);
     }
 
     public void deleteBlob(String domainName, String volumeName, String blobName) throws ApiException, TException {

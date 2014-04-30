@@ -11,14 +11,14 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Iterator;
 
-public class BlockStreamerTest extends TestCase {
+public class FdsObjectStreamerTest extends TestCase {
     public void testDechunk() throws IOException {
         Iterator<byte[]> sources = Lists.newArrayList("when ", "in ", "the ", "course")
                 .stream()
                 .map(s -> s.getBytes())
                 .iterator();
 
-        InputStream in = new BlockStreamer(sources);
+        InputStream in = new FdsObjectStreamer(sources);
         assertEquals("when in the course", IOUtils.toString(in));
     }
 }
