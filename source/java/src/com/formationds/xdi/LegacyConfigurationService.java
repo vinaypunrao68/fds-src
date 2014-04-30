@@ -21,17 +21,17 @@ public class LegacyConfigurationService implements ConfigurationService.Iface {
     }
 
     @Override
-    public void createVolume(String domainName, String volumeName, VolumePolicy volumePolicy) throws XdiException, TException {
+    public void createVolume(String domainName, String volumeName, VolumePolicy volumePolicy) throws ApiException, TException {
         new CreateVolume(client).createVolume(volumeName, 0, Integer.MAX_VALUE, 1);
     }
 
     @Override
-    public void deleteVolume(String domainName, String volumeName) throws XdiException, TException {
+    public void deleteVolume(String domainName, String volumeName) throws ApiException, TException {
         client.DeleteVol(new FDSP_MsgHdrType(), new FDSP_DeleteVolType(volumeName, 0));
     }
 
     @Override
-    public VolumeDescriptor statVolume(String domainName, String volumeName) throws XdiException, TException {
+    public VolumeDescriptor statVolume(String domainName, String volumeName) throws ApiException, TException {
         FDSP_VolumeDescType volumeDescriptor = client.GetVolInfo(new FDSP_MsgHdrType(), new FDSP_GetVolInfoReqType(volumeName, 0));
         return toVolumeDescriptor(volumeDescriptor);
     }
@@ -41,7 +41,7 @@ public class LegacyConfigurationService implements ConfigurationService.Iface {
     }
 
     @Override
-    public List<VolumeDescriptor> listVolumes(String domainName) throws XdiException, TException {
+    public List<VolumeDescriptor> listVolumes(String domainName) throws ApiException, TException {
         return client.ListVolumes(new FDSP_MsgHdrType())
                 .stream()
                 .map(this::toVolumeDescriptor)

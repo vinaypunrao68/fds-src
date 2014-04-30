@@ -12,6 +12,19 @@ import java.util.Optional;
 public interface RequestHandler {
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception;
 
+    public default int optionalInt(Request request, String name, int defaultValue) throws UsageException {
+        return 0;
+    }
+
+    public default String optionalString(Request request, String name, String defaultValue) throws UsageException {
+        String value = request.getParameter(name);
+        if (value == null) {
+            throw new UsageException(String.format("Parameter '%s' is missing", name));
+        }
+
+        return value;
+    }
+
     public default String requiredString(Map<String, String> routeAttributes, String name) throws UsageException {
         String value = routeAttributes.get(name);
         if ((value == null)) {

@@ -36,7 +36,7 @@ public class SmokeTest {
         System.out.println("Creating volume 'Volume1', policy: 4kb blocksize");
         try {
             config.createVolume(DOMAIN_NAME, VOLUME_NAME, new VolumePolicy(4 * 1024));
-        } catch(XdiException e) {
+        } catch(ApiException e) {
             e.printStackTrace();
         }
         Thread.sleep(4000);

@@ -34,7 +34,7 @@ public class ToyServices implements AmService.Iface, ConfigurationService.Iface 
     }
 
     @Override
-    public void createVolume(String domainName, String volumeName, VolumePolicy volumePolicy) throws XdiException, TException {
+    public void createVolume(String domainName, String volumeName, VolumePolicy volumePolicy) throws ApiException, TException {
         Domain domain = (Domain) persister.execute(session -> session.createCriteria(Domain.class)
                 .add(Restrictions.eq("name", domainName))
                 .uniqueResult());
@@ -42,7 +42,7 @@ public class ToyServices implements AmService.Iface, ConfigurationService.Iface 
     }
 
     @Override
-    public void deleteVolume(String domainName, String volumeName) throws XdiException, TException {
+    public void deleteVolume(String domainName, String volumeName) throws ApiException, TException {
         Volume volume = getVolume(domainName, volumeName);
         List<Blob> blobs = getAllVolumeBlobs(domainName, volumeName);
         for (Blob blob : blobs) {
@@ -66,13 +66,13 @@ public class ToyServices implements AmService.Iface, ConfigurationService.Iface 
     }
 
     @Override
-    public VolumeDescriptor statVolume(String domainName, String volumeName) throws XdiException, TException {
+    public VolumeDescriptor statVolume(String domainName, String volumeName) throws ApiException, TException {
         Volume volume = getVolume(domainName, volumeName);
         return new VolumeDescriptor(volumeName, volume.getTimestamp(), new VolumePolicy(volume.getObjectSize()));
     }
 
     @Override
-    public List<VolumeDescriptor> listVolumes(String domainName) throws XdiException, TException {
+    public List<VolumeDescriptor> listVolumes(String domainName) throws ApiException, TException {
         List<Volume> volumes = persister.execute(session ->
                 session.createCriteria(Volume.class)
                         .createCriteria("domain")
@@ -86,7 +86,7 @@ public class ToyServices implements AmService.Iface, ConfigurationService.Iface 
 
 
     @Override
-    public List<BlobDescriptor> volumeContents(String domainName, String volumeName, int count, long offset) throws XdiException, TException {
+    public List<BlobDescriptor> volumeContents(String domainName, String volumeName, int count, long offset) throws ApiException, TException {
         List<Blob> blobs = getAllVolumeBlobs(domainName, volumeName);
 
         return blobs.stream()
@@ -107,13 +107,13 @@ public class ToyServices implements AmService.Iface, ConfigurationService.Iface 
     }
 
     @Override
-    public BlobDescriptor statBlob(String domainName, String volumeName, String blobName) throws XdiException, TException {
+    public BlobDescriptor statBlob(String domainName, String volumeName, String blobName) throws ApiException, TException {
         Blob blob = getBlob(domainName, volumeName, blobName);
         return new BlobDescriptor(blobName, blob.getByteCount(), ByteBuffer.wrap(blob.getDigest()), blob.getMetadata());
     }
 
     @Override
-    public VolumeStatus volumeStatus(String domainName, String volumeName) throws XdiException, TException {
+    public VolumeStatus volumeStatus(String domainName, String volumeName) throws ApiException, TException {
         long count = (int) persister.execute(session ->
                 session.createCriteria(Blob.class)
                         .createCriteria("volume")
@@ -126,7 +126,7 @@ public class ToyServices implements AmService.Iface, ConfigurationService.Iface 
     }
 
     @Override
-    public ByteBuffer getBlob(String domainName, String volumeName, String blobName, int length, ObjectOffset offset) throws XdiException, TException {
+    public ByteBuffer getBlob(String domainName, String volumeName, String blobName, int length, ObjectOffset offset) throws ApiException, TException {
         Blob blob = getBlob(domainName, volumeName, blobName);
         int objectSize = blob.getVolume().getObjectSize();
 
@@ -139,14 +139,14 @@ public class ToyServices implements AmService.Iface, ConfigurationService.Iface 
     }
 
     @Override
-    public void updateMetadata(String domainName, String volumeName, String blobName, Map<String, String> metadata) throws XdiException, TException {
+    public void updateMetadata(String domainName, String volumeName, String blobName, Map<String, String> metadata) throws ApiException, TException {
         Blob blob = getOrCreate(domainName, volumeName, blobName);
         blob.setMetadataJson(new JSONObject(metadata).toString(2));
         persister.update(blob);
     }
 
     @Override
-    public void updateBlob(String domainName, String volumeName, String blobName, ByteBuffer bytes, int length, ObjectOffset objectOffset, ByteBuffer digest, boolean isLast) throws XdiException, TException {
+    public void updateBlob(String domainName, String volumeName, String blobName, ByteBuffer bytes, int length, ObjectOffset objectOffset, ByteBuffer digest, boolean isLast) throws ApiException, TException {
         Blob blob = getOrCreate(domainName, volumeName, blobName);
         int objectSize = blob.getVolume().getObjectSize();
         long newByteCount = Math.max(blob.getByteCount(), objectSize * objectOffset.getValue() + length);
@@ -167,7 +167,7 @@ public class ToyServices implements AmService.Iface, ConfigurationService.Iface 
     }
 
     @Override
-    public void deleteBlob(String domainName, String volumeName, String blobName) throws XdiException, TException {
+    public void deleteBlob(String domainName, String volumeName, String blobName) throws ApiException, TException {
         Blob blob = getBlob(domainName, volumeName, blobName);
         List<Block> blocks = persister.execute(session -> {
             return session.createCriteria(Block.class)
