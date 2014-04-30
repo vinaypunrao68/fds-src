@@ -41,6 +41,7 @@ user_no_style  := \
 	graphite_client.h   \
 	debughelpers.h      \
 	net/socket.h        \
+        fds_dmt.h           \
 	serialize.h
 
 include $(topdir)/Makefile.incl
