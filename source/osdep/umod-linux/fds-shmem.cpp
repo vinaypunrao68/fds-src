@@ -17,7 +17,7 @@ FdsShmem::FdsShmem(char *name)
 FdsShmem::~FdsShmem() {}
 
 void
-FdsShmem::create_empty(size_t size)
+FdsShmem::shm_create_empty(size_t size)
 {
     // Close existing shm if there is one
     boost::interprocess::shared_memory_object::remove(sh_name);
@@ -25,6 +25,8 @@ FdsShmem::create_empty(size_t size)
     // Create the segment
     sh_segment = new boost::interprocess::managed_shared_memory
             (boost::interprocess::create_only, sh_name, size+1024);
+
+    return sh_segment;
 }
 
 void *

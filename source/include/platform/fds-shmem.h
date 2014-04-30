@@ -18,7 +18,7 @@ class FdsShmem
     FdsShmem(char *name);
     virtual ~FdsShmem();
 
-    void create_empty(size_t size);
+    mg_shm *shm_create_empty(size_t size);
     void  *shm_alloc(size_t size);
     void  *shm_attach();
     int   shm_remove();
