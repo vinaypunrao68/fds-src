@@ -47,7 +47,7 @@ class FdsnIf : public apis::AmServiceIf {
         fds_uint32_t fakeMaxObjSize = 2 * 1024 * 1024;
 
         if ((volumePolicy->maxObjectSizeInBytes % fakeMaxObjSize) != 0) {
-            apis::XdiException fdsE;
+            apis::ApiException fdsE;
             fdsE.errorCode = apis::BAD_REQUEST;
             throw fdsE;
         }
@@ -199,7 +199,7 @@ class FdsnIf : public apis::AmServiceIf {
         getHandler.wait();
 
         if (getHandler.status != FDSN_StatusOK) {
-            apis::XdiException fdsE;
+            apis::ApiException fdsE;
             if (getHandler.status == FDSN_StatusEntityDoesNotExist) {
                 fdsE.errorCode = apis::MISSING_RESOURCE;
             } else {
@@ -283,7 +283,7 @@ class FdsnIf : public apis::AmServiceIf {
 
         // Throw an exception if we didn't get an OK response
         if (putHandler.status != FDSN_StatusOK) {
-            apis::XdiException fdsE;
+            apis::ApiException fdsE;
             throw fdsE;
         }
     }

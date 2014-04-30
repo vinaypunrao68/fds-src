@@ -10,10 +10,10 @@
 #define XCHECKSTATUS(status)             \
     if (status != FDSN_StatusOK) {       \
         LOGWARN << " status:" << status; \
-        apis::XdiException xe;            \
-        xe.errorCode = apis::ErrorCode::INTERNAL_SERVER_ERROR;   \
-        xe.message = toString(status);   \
-        throw xe;                        \
+        apis::ApiException e;            \
+        e.errorCode = apis::ErrorCode::INTERNAL_SERVER_ERROR;   \
+        e.message = toString(status);   \
+        throw e;                        \
     }
 
 namespace fds {
