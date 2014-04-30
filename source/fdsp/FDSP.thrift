@@ -969,14 +969,15 @@ struct FDSP_GetObjMetadataResp {
  2: FDSP_MigrateObjectMetadata 	meta_data
 }
 
-enum FDSP_ScavengerTarget {
-  FDSP_SCAVENGE_HDD_ONLY,
-  FDSP_SCAVENGE_SSD_ONLY,
-  FDSP_SCAVENGE_ALL
+enum FDSP_ScavengerCmd {
+  FDSP_SCAVENGER_ENABLE,     // enable automatic GC process
+  FDSP_SCAVENGER_DISABLE,    // disable GC
+  FDSP_SCAVENGER_START,      // start GC
+  FDSP_SCAVENGER_STOP        // stop GC if it's running
 }
 
-struct FDSP_ScavengerStartType {
-  1: FDSP_ScavengerTarget target
+struct FDSP_ScavengerType {
+  1: FDSP_ScavengerCmd  cmd
 }
 
 /* Current state of tokens in an SM */
@@ -1095,7 +1096,7 @@ service FDSP_ConfigPathReq {
   i32 RemoveServices(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_RemoveServicesType rm_node_req),
   i32 ActivateAllNodes(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ActivateAllNodesType act_node_req),
   i32 ActivateNode(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ActivateOneNodeType req),
-  i32 ScavengerStart(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ScavengerStartType gc_req),
+  i32 ScavengerCommand(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ScavengerType gc_req),
   list<FDSP_Node_Info_Type> ListServices(1:FDSP_MsgHdrType fdsp_msg),
   list <FDSP_VolumeDescType> ListVolumes(1:FDSP_MsgHdrType fdsp_msg)
 }
@@ -1155,7 +1156,7 @@ service FDSP_ControlPathReq {
   oneway void TierPolicyAudit(1:FDSP_TierPolicyAudit audit),
   oneway void NotifyBucketStats(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_BucketStatsRespType buck_stats_msg),
   oneway void NotifyStartMigration(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DLT_Data_Type dlt_info),
-  oneway void NotifyScavengerStart(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ScavengerStartType gc_info)
+  oneway void NotifyScavengerCmd(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ScavengerType gc_info)
 }
 
 service FDSP_ControlPathResp {

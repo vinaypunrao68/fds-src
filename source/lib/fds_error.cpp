@@ -205,4 +205,116 @@ std::ostream& operator<<(std::ostream& os, FDSN_Status status) {
     }
     return os;
 }
+
+std::string toString(FDSN_Status status) {
+    switch (status) {
+        ENUMCASE(FDSN_StatusOK);
+        ENUMCASE(FDSN_StatusCreated);
+        ENUMCASE(FDSN_StatusInternalError);
+        ENUMCASE(FDSN_StatusOutOfMemory);
+        ENUMCASE(FDSN_StatusInterrupted);
+        ENUMCASE(FDSN_StatusInvalidBucketNameTooLong);
+        ENUMCASE(FDSN_StatusInvalidBucketNameFirstCharacter);
+        ENUMCASE(FDSN_StatusInvalidBucketNameCharacter);
+        ENUMCASE(FDSN_StatusInvalidBucketNameCharacterSequence);
+        ENUMCASE(FDSN_StatusInvalidBucketNameTooShort);
+        ENUMCASE(FDSN_StatusInvalidBucketNameDotQuadNotation);
+        ENUMCASE(FDSN_StatusQueryParamsTooLong);
+        ENUMCASE(FDSN_StatusFailedToInitializeRequest);
+        ENUMCASE(FDSN_StatusMetaDataHeadersTooLong);
+        ENUMCASE(FDSN_StatusBadMetaData);
+        ENUMCASE(FDSN_StatusBadContentType);
+        ENUMCASE(FDSN_StatusContentTypeTooLong);
+        ENUMCASE(FDSN_StatusBadMD5);
+        ENUMCASE(FDSN_StatusMD5TooLong);
+        ENUMCASE(FDSN_StatusBadCacheControl);
+        ENUMCASE(FDSN_StatusCacheControlTooLong);
+        ENUMCASE(FDSN_StatusBadContentDispositionFilename);
+        ENUMCASE(FDSN_StatusContentDispositionFilenameTooLong);
+        ENUMCASE(FDSN_StatusBadContentEncoding);
+        ENUMCASE(FDSN_StatusContentEncodingTooLong);
+        ENUMCASE(FDSN_StatusBadIfMatchETag);
+        ENUMCASE(FDSN_StatusIfMatchETagTooLong);
+        ENUMCASE(FDSN_StatusBadIfNotMatchETag);
+        ENUMCASE(FDSN_StatusIfNotMatchETagTooLong);
+        ENUMCASE(FDSN_StatusHeadersTooLong);
+        ENUMCASE(FDSN_StatusKeyTooLong);
+        ENUMCASE(FDSN_StatusUriTooLong);
+        ENUMCASE(FDSN_StatusXmlParseFailure);
+        ENUMCASE(FDSN_StatusEmailAddressTooLong);
+        ENUMCASE(FDSN_StatusUserIdTooLong);
+        ENUMCASE(FDSN_StatusUserDisplayNameTooLong);
+        ENUMCASE(FDSN_StatusGroupUriTooLong);
+        ENUMCASE(FDSN_StatusPermissionTooLong);
+        ENUMCASE(FDSN_StatusTargetBucketTooLong);
+        ENUMCASE(FDSN_StatusTargetPrefixTooLong);
+        ENUMCASE(FDSN_StatusTooManyGrants);
+        ENUMCASE(FDSN_StatusBadGrantee);
+        ENUMCASE(FDSN_StatusBadPermission);
+        ENUMCASE(FDSN_StatusXmlDocumentTooLarge);
+        ENUMCASE(FDSN_StatusNameLookupError);
+        ENUMCASE(FDSN_StatusFailedToConnect);
+        ENUMCASE(FDSN_StatusServerFailedVerification);
+        ENUMCASE(FDSN_StatusConnectionFailed);
+        ENUMCASE(FDSN_StatusAbortedByCallback);
+        ENUMCASE(FDSN_StatusRequestTimedOut);
+        ENUMCASE(FDSN_StatusEntityEmpty);
+        ENUMCASE(FDSN_StatusEntityDoesNotExist);
+        ENUMCASE(FDSN_StatusErrorAccessDenied);
+        ENUMCASE(FDSN_StatusErrorAccountProblem);
+        ENUMCASE(FDSN_StatusErrorAmbiguousGrantByEmailAddress);
+        ENUMCASE(FDSN_StatusErrorBadDigest);
+        ENUMCASE(FDSN_StatusErrorBucketAlreadyExists);
+        ENUMCASE(FDSN_StatusErrorBucketNotExists);
+        ENUMCASE(FDSN_StatusErrorBucketAlreadyOwnedByYou);
+        ENUMCASE(FDSN_StatusErrorBucketNotEmpty);
+        ENUMCASE(FDSN_StatusErrorCredentialsNotSupported);
+        ENUMCASE(FDSN_StatusErrorCrossLocationLoggingProhibited);
+        ENUMCASE(FDSN_StatusErrorEntityTooSmall);
+        ENUMCASE(FDSN_StatusErrorEntityTooLarge);
+        ENUMCASE(FDSN_StatusErrorMissingContentLength);
+        ENUMCASE(FDSN_StatusErrorUnknown);
+    }
+    return "FDSN_StatusErrorUnknown";
+}
+
+FDSN_Status getStatusFromError(const Error& error) {
+    switch (error.GetErrno()) {
+        case ERR_OK                           : return FDSN_StatusOK;
+
+        case ERR_DUPLICATE                    :
+        case ERR_HASH_COLLISION               :
+        case ERR_DISK_WRITE_FAILED            :
+        case ERR_DISK_READ_FAILED             :
+        case ERR_CAT_QUERY_FAILED             :
+        case ERR_CAT_ENTRY_NOT_FOUND          :
+        case ERR_INVALID_ARG                  :
+        case ERR_PENDING_RESP                 : return FDSN_StatusInternalError; //NOLINT
+
+        case ERR_VOL_ADMISSION_FAILED         :
+        case ERR_GET_DLT_FAILED               :
+        case ERR_GET_DMT_FAILED               :
+        case ERR_NOT_IMPLEMENTED              :
+        case ERR_OUT_OF_MEMEORY               :
+        case ERR_DUPLICATE_UUID               :
+        case ERR_TRANS_JOURNAL_OUT_OF_IDS     :
+        case ERR_TRANS_JOURNAL_REQUEST_QUEUED :
+        case ERR_NODE_NOT_ACTIVE              :
+
+        case ERR_NOT_READY                    :
+        case ERR_INVALID_DLT                  :
+        case ERR_PERSIST_STATE_MISMATCH       :
+        case ERR_EXCEED_MIN_IOPS              : return FDSN_StatusInternalError; //NOLINT
+
+        case ERR_UNAUTH_ACCESS                : return FDSN_StatusErrorAccessDenied; //NOLINT
+
+        case ERR_NOT_FOUND                    :
+        case ERR_BLOB_NOT_FOUND               : return FDSN_StatusEntityDoesNotExist; //NOLINT
+        case ERR_VOL_NOT_FOUND                : return FDSN_StatusErrorBucketNotExists; //NOLINT
+        case ERR_VOL_NOT_EMPTY                : return FDSN_StatusErrorBucketNotEmpty; //NOLINT
+
+        default: return FDSN_StatusInternalError;
+    }
+}
+
 }  // namespace fds

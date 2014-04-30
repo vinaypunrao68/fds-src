@@ -261,13 +261,13 @@ class ControlPathReq : public FDS_ProtocolInterface::FDSP_ControlPathReqIf {
 			 FDS_ProtocolInterface::FDSP_DLT_Data_TypePtr& dlt_info) {
     }
 
-    void NotifyScavengerStart(const FDS_ProtocolInterface::FDSP_MsgHdrType& msg_hdr,
-                              const FDS_ProtocolInterface::FDSP_ScavengerStartType& gc_info) {
+    void NotifyScavengerCmd(const FDS_ProtocolInterface::FDSP_MsgHdrType& msg_hdr,
+                            const FDS_ProtocolInterface::FDSP_ScavengerType& gc_info) {
         // Don't do anything here. This stub is just to keep cpp compiler happy
     }
 
-    void NotifyScavengerStart(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
-                              FDS_ProtocolInterface::FDSP_ScavengerStartTypePtr& gc_info) {
+    void NotifyScavengerCmd(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
+                            FDS_ProtocolInterface::FDSP_ScavengerTypePtr& gc_info) {
     }
 
 private:

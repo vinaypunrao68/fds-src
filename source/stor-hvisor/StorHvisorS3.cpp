@@ -598,14 +598,14 @@ fds::Error StorHvCtrl::putObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
                  << om_client->getDltVersion()
                  << ", but SM service expected "
                  << putObjRsp->dlt_version;
+        // response message  has the  latest  DLT , update the local copy 
+        // and update the DLT version 
+
+        storHvisor->om_client->updateDlt(true, putObjRsp->dlt_data);
         // find the replica index
         int idx = storHvisor->om_client->\
                 getCurrentDLT()->getIndex(objId, NodeUuid(rxMsg->src_service_uuid.uuid));
         fds_verify(idx != -1);
-
-        // response message  has the  latest  DLT , update the local copy 
-        // and update the DLT version 
-        storHvisor->om_client->updateDlt(true, putObjRsp->dlt_data);
 
         // resend to the same replica index in the new dlt
         storHvisor->dispatchSmPutMsg(txn,

@@ -200,12 +200,12 @@ PlatRpcReqt::NotifyStartMigration(fpi::FDSP_MsgHdrTypePtr    &hdr,
 }
 
 void
-PlatRpcReqt::NotifyScavengerStart(const fpi::FDSP_MsgHdrType    &msg_hdr,
-                                  const fpi::FDSP_ScavengerStartType &gc_info) {}
+PlatRpcReqt::NotifyScavengerCmd(const fpi::FDSP_MsgHdrType    &msg_hdr,
+                                const fpi::FDSP_ScavengerType &gc_info) {}
 
 void
-PlatRpcReqt::NotifyScavengerStart(fpi::FDSP_MsgHdrTypePtr    &hdr,
-                                  fpi::FDSP_ScavengerStartTypePtr &gc_info)
+PlatRpcReqt::NotifyScavengerCmd(fpi::FDSP_MsgHdrTypePtr    &hdr,
+                                fpi::FDSP_ScavengerTypePtr &gc_info)
 {
     fds_verify(0);
 }
