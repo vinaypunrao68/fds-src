@@ -2,38 +2,43 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 #include <platform/fds-shmem.h>
-
+#include <stdio.h>
+#include <utility>
+#include <sys/types.h>
+#include <sys/stat.h>
 namespace fds {
 
-FdsShmem::FdsShmem(const char *name, size_t size)
-    : sh_name(name), sh_addr(NULL), sh_size(size) {}
+FdsShmem::FdsShmem(char *name)
+        : sh_segment(nullptr),
+          sh_name(name),
+          sh_addr(nullptr) {}
 
 
 FdsShmem::~FdsShmem() {}
 
-void *
-FdsShmem::shm_alloc()
+void
+FdsShmem::create_empty(size_t size)
 {
-    int fd = shm_open(sh_name, O_RDWR|O_CREAT| O_EXCL, S_IRWXU);
+    // Close existing shm if there is one
+    boost::interprocess::shared_memory_object::remove(sh_name);
 
-    // fd should be 0
-    if (fd == -1) {
-        return NULL;
-    }
+    // Create the segment
+    sh_segment = new boost::interprocess::managed_shared_memory
+            (boost::interprocess::create_only, sh_name, size+1024);
+}
 
-    // Truncate the region
-    if (ftruncate(fd, sh_size) == -1) {
-        return NULL;
-    }
+void *
+FdsShmem::shm_alloc(size_t size)
+{
+    // Close existing shm if there is one
+    boost::interprocess::shared_memory_object::remove(sh_name);
 
-    // Map the region
-    sh_addr = mmap(NULL, sh_size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
-    if (sh_addr == NULL) {
-        return NULL;
-    }
+    // Create the segment
+    sh_segment = new boost::interprocess::managed_shared_memory
+            (boost::interprocess::create_only, sh_name, size+1024);
 
-    // Close the file descriptor, we should no longer need it
-    close(fd);
+    // Create a new byte array for usable space
+    sh_addr = sh_segment->construct<unsigned char>("shm_obj")[size](0);
 
     return sh_addr;
 }
@@ -41,38 +46,32 @@ FdsShmem::shm_alloc()
 void *
 FdsShmem::shm_attach()
 {
-    int fd;
-    // If sh_addr is NULL then we need to try to open the shm segment
-    if (sh_addr == NULL) {
-        fd = shm_open(sh_name, O_RDWR, S_IRUSR);
-        if (fd == -1) {
-            return NULL;
-        } else {
-            sh_addr = mmap(NULL, sh_size, PROT_READ, MAP_SHARED, fd, 0);
-        }
+    if (sh_segment == nullptr) {
+        // Connect to shmem
+        sh_segment = new boost::interprocess::managed_shared_memory
+                (boost::interprocess::open_read_only, sh_name);
     }
-    // We should no longer need the file descriptor
-    close(fd);
+    std::pair<unsigned char*, std::size_t> res =
+            sh_segment->find<unsigned char>("shm_obj");
 
-    // Return a pointer to the shared region
+    if (res.first == nullptr) {
+        return nullptr;
+    }
+
+    sh_addr = res.first;
+
     return sh_addr;
 }
 
-int
-FdsShmem::shm_detach()
-{
-    // Verify that the shm is mapped first
-    if (sh_addr == NULL) {
-        return -1;
-    }
-
-    return munmap(sh_addr, sh_size);
-}
-
-int
+bool
 FdsShmem::shm_remove()
 {
-    return shm_unlink(sh_name);
+    if (sh_addr != nullptr) {
+        sh_segment->destroy_ptr(sh_addr);
+        sh_addr = nullptr;
+    }
+    return boost::interprocess::
+            shared_memory_object::remove(sh_name);
 }
 
 }  // namespace fds
