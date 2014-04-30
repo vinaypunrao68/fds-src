@@ -4,11 +4,10 @@
 #ifndef SOURCE_ORCH_MGR_INCLUDE_CONVERT_H_
 #define SOURCE_ORCH_MGR_INCLUDE_CONVERT_H_
 #include <apis/ConfigurationService.h>
-#include <fdsp/FDSP_types.h>
+#include <fds_typedefs.h>
 #include <string>
 
 namespace fds {
-    namespace fpi = FDS_ProtocolInterface;
     namespace convert {
         void getFDSPCreateVolRequest(fpi::FDSP_MsgHdrTypePtr& header,
                                      fpi::FDSP_CreateVolTypePtr& request,
