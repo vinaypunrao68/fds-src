@@ -27,7 +27,8 @@ user_fds_ar_libs  := \
     fds-odb \
     fds-vpolicy \
     fds-fdsp \
-    fds-hash
+    fds-hash \
+    fds-osdep
 
 user_non_fds_libs := \
     boost_log \

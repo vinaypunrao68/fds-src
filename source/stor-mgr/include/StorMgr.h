@@ -368,8 +368,12 @@ class ObjectStorMgr :
             meta_vol_io_t  *vio);
     Error readObjMetaData(const ObjectID &objId, 
             ObjMetaData &objMaps);
+    /**
+     * @return objMap object metadata that we marked as deleted
+     */
     Error deleteObjectMetaData(const OpCtx &opCtx,
-            const ObjectID &objId, fds_volid_t vol_id);
+                               const ObjectID &objId, fds_volid_t vol_id,
+                               ObjMetaData &objMap);
     Error writeObject(const OpCtx &opCtx,
             const ObjectID   &objId,
             const ObjectBuf  &objCompData,
@@ -516,7 +520,7 @@ class ObjectStorMgr :
                                    int vol_action,
                                    fds_bool_t check_only,
                                    FDSP_ResultType resut);
-    static void scavengerEventHandler(FDS_ProtocolInterface::FDSP_ScavengerTarget tgt);
+    static void scavengerEventHandler(FDS_ProtocolInterface::FDSP_ScavengerCmd cmd);
     static void migrationEventOmHandler(bool dlt_type);
     static void dltcloseEventHandler(FDSP_DltCloseTypePtr& dlt_close,
             const std::string& session_uuid);

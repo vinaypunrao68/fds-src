@@ -138,7 +138,8 @@ class FdsNodeConfig(FdsConfig):
         print("\nCleanup running processes in: %s, %s" % (self.nd_host_name(), bin_dir))
         # TODO (Bao): order to kill: AM, SM/DM, OM
         self.nd_rmt_agent.ssh_exec('pkill -9 Mgr; pkill -9 AMAgent; pkill -9 platformd; '
-           'pkill -9 -f com.formationds.web.om.Main;', wait_compl=True)
+           'pkill -9 -f com.formationds.om.Main;'
+           'pkill -9 -f com.formationds.am.Main;', wait_compl=True)
 
     def nd_cleanup_daemons_with_fdsroot(self, fds_root):
         bin_dir = fds_root + '/bin'

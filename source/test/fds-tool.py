@@ -74,10 +74,10 @@ if __name__ == '__main__':
     # Status
     if options.clus_status:
         for n in nodes:
-            n.nd_rmt_agent.ssh_exec('ps -ef | grep -v grep | grep -v base | grep com.formationds.web.om.Main', output = True)
+            n.nd_rmt_agent.ssh_exec('ps -ef | grep -v grep | grep -v bash | grep com.formationds.om.Main', output = True)
+            n.nd_rmt_agent.ssh_exec('ps -ef | grep -v grep | grep -v bash | grep com.formationds.am.Main', output = True)
             n.nd_rmt_agent.ssh_exec('ps -ef | grep -v grep | grep -v bash | grep plat', output = True)
             n.nd_rmt_agent.ssh_exec('ps -ef | grep -v grep | grep -v bash | grep Mgr', output = True)
-            n.nd_rmt_agent.ssh_exec('ps -ef | grep -v grep | grep -v bash | grep AMA', output = True)
             print '\n'
         sys.exit(0)
 
@@ -85,7 +85,6 @@ if __name__ == '__main__':
         sys.exit(0)
 
     for n in nodes:
-        print 'Running remote command for ' + n.nd_conf_dict['node-name']
         n.nd_rmt_agent.ssh_exec('python -m disk_type -m', wait_compl=True)
         n.nd_rmt_agent.ssh_exec('/fds/sbin/redis.sh start', wait_compl=True, output=True)
 

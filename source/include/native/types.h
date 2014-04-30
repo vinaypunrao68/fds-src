@@ -353,6 +353,6 @@ namespace fds {
             fds_uint64_t blobSize = -1;
         };
         typedef boost::shared_ptr<StatBlobCallback> StatBlobCallbackPtr;
-    };  // namespace native
+    }  // namespace native
 }  // namespace fds
 #endif  // SOURCE_INCLUDE_NATIVE_TYPES_H_

@@ -34,8 +34,8 @@ Socket::Socket(std::string host, int port) : att::TSocket(host, port),
     setLinger(false, 0);
 }
 
-void Socket::setEventHandler(SocketEventHandler* eventHandler) {
-    this->eventHandler = eventHandler;
+void Socket::setEventHandler(SocketEventHandler* evtHandler) {
+    this->eventHandler = evtHandler;
 }
 
 void Socket::close() {

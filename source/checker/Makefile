@@ -31,6 +31,7 @@ user_fds_ar_libs  := \
     fds-probe-adapters \
     fds-probe-blk \
     fds-probe \
+    fds-osdep
 
 user_non_fds_libs := \
     boost_log \
