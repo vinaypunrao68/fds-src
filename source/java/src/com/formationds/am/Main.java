@@ -29,7 +29,7 @@ public class Main {
 
         Xdi xdi = new Xdi(am, config);
 
-        new S3Endpoint(xdi).start(9977);
+        new Thread(() -> new S3Endpoint(xdi).start(9977)).start();
         new SwiftEndpoint(xdi).start(9999);
     }
 }

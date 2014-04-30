@@ -14,7 +14,7 @@ public class S3Endpoint {
         this.xdi = xdi;
     }
 
-    public void start(int port) throws Exception {
+    public void start(int port) {
         WebApp webApp = new WebApp();
         webApp.route(HttpMethod.GET, "/", () -> new ListBuckets(xdi));
         webApp.route(HttpMethod.PUT, "/:bucket", () -> new CreateBucket(xdi));

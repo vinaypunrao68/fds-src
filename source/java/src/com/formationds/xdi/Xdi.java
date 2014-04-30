@@ -31,7 +31,11 @@ public class Xdi {
         config.deleteVolume(domainName, volumeName);
     }
 
-    public VolumeDescriptor statVolume(String domainName, String volumeName) throws ApiException, TException {
+    public VolumeStatus statVolume(String domainName, String volumeName) throws ApiException, TException {
+        return am.volumeStatus(domainName, volumeName);
+    }
+
+    public VolumeDescriptor volumeConfiguration(String domainName, String volumeName) throws ApiException, TException {
         return config.statVolume(domainName, volumeName);
     }
 
@@ -53,7 +57,7 @@ public class Xdi {
     }
 
     public void writeStream(String domainName, String volumeName, String blobName, InputStream in, Map<String, String> metadata) throws Exception {
-        VolumeDescriptor volume = statVolume(domainName, volumeName);
+        VolumeDescriptor volume = config.statVolume(domainName, volumeName);
         int bufSize = volume.getPolicy().getMaxObjectSizeInBytes();
         metadata.putIfAbsent(LAST_MODIFIED, Long.toString(DateTime.now().getMillis()));
         new StreamWriter(bufSize, am).write(domainName, volumeName, blobName, in, metadata);

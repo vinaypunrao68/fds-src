@@ -6,7 +6,9 @@ package com.formationds.xdi.swift;
 import com.formationds.apis.BlobDescriptor;
 import com.formationds.util.JsonArrayCollector;
 import com.formationds.web.Dom4jResource;
-import com.formationds.web.toolkit.*;
+import com.formationds.web.toolkit.JsonResource;
+import com.formationds.web.toolkit.Resource;
+import com.formationds.web.toolkit.TextResource;
 import com.formationds.xdi.Xdi;
 import com.google.common.base.Joiner;
 import org.apache.commons.codec.binary.Hex;
@@ -22,18 +24,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-public class GetContainer implements RequestHandler {
+public class GetContainer  implements SwiftRequestHandler {
     private Xdi xdi;
 
     public GetContainer(Xdi xdi) {
         this.xdi = xdi;
-    }
-
-    enum OutputFormat {
-        plain,
-        json,
-        xml
-
     }
 
 
@@ -43,7 +38,7 @@ public class GetContainer implements RequestHandler {
         String containerName = requiredString(routeParameters, "container");
 
         int limit = optionalInt(request, "limit", Integer.MAX_VALUE);
-        OutputFormat format = obtainFormat(request);
+        ResponseFormat format = obtainFormat(request);
         List<BlobDescriptor> descriptors = xdi.volumeContents(accountName, containerName, limit, 0);
 
         switch (format) {
@@ -106,14 +101,6 @@ public class GetContainer implements RequestHandler {
                     object.addElement("last_modified").addText(lastModified(d));
                 });
 
-        return new Dom4jResource(root);
-    }
-
-    private OutputFormat obtainFormat(Request request) throws UsageException {
-        try {
-            return OutputFormat.valueOf(optionalString(request, "format", OutputFormat.plain.toString()));
-        } catch (Exception e) {
-            return OutputFormat.plain;
-        }
+        return new Dom4jResource(document);
     }
 }
