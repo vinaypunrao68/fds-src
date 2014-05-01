@@ -22,6 +22,7 @@ public class SwiftEndpoint {
 
         webApp.route(HttpMethod.PUT, "/v1/:account/:container/:object", () -> new CreateObject(xdi));
         webApp.route(HttpMethod.GET, "/v1/:account/:container/:object", () -> new GetObject(xdi));
+        webApp.route(HttpMethod.DELETE, "/v1/:account/:container/:object", () -> new DeleteObject(xdi) );
 
         webApp.start(httpPort);
     }
