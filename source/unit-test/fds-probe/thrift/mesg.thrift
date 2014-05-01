@@ -1,6 +1,6 @@
 include "fds_service.thrift"
 
-namespace cpp fpi
+namespace cpp FDS_ProtocolInterface
 
 struct ProbePutMsg {
     1: string msg_data,

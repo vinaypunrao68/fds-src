@@ -16,6 +16,7 @@
 #include <stdexcept>
 #include <sstream>
 #include <iostream>
+#include <fds_typedefs.h>
 
 using namespace ::fpi;                            // NOLINT
 using namespace ::apache::thrift;                 // NOLINT

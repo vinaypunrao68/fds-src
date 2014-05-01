@@ -1,7 +1,7 @@
 /*
  * Copyright 2014 by Formation Data Systems, Inc.
  */
-namespace cpp fpi
+namespace cpp FDS_ProtocolInterface
 
 struct SvcUuid {
     1: required i64           svc_uuid,

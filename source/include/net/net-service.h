@@ -77,8 +77,8 @@ class EndPoint : public EpSvc
     typedef boost::intrusive_ptr<const EndPoint<EndPointIf>> const_ptr;
 
     virtual ~EndPoint();
-    EndPoint(const svc::SvcID              &mine,
-             const svc::SvcID              &peer,
+    EndPoint(const fpi::SvcID              &mine,
+             const fpi::SvcID              &peer,
              boost::shared_ptr<EndPointIf>  snd_if,
              boost::shared_ptr<EndPointIf>  rcv_if,
              EpOps::pointer                 ops,
@@ -90,13 +90,13 @@ class EndPoint : public EpSvc
 
     // Service registration & lookup.
     //
-    virtual void           ep_bind_service(const svc::SvcID &id, EpSvc::pointer svc);
+    virtual void           ep_bind_service(const fpi::SvcID &id, EpSvc::pointer svc);
     virtual EpSvc::pointer ep_unbind_service(const ResourceUUID &svc);
     virtual EpSvc::pointer ep_lookup_service(const ResourceUUID &svc_uuid);
     virtual EpSvc::pointer ep_lookup_service(const char *name);
 
     // Synchronous send.
-    boost::shared_ptr<EndPointIf> ep_sync_handler();
+    boost::shared_ptr<EndPointIf> ep_sync_rpc();
 
     // Async message passing.
     //

@@ -15,7 +15,7 @@
 #include <thrift/transport/TSocket.h>
 #include <thrift/transport/TTransportUtils.h>
 #include <ProbeService.h>
-
+#include <fds_typedefs.h>
 #include <fds-probe/fds_probe.h>
 
 namespace fds {
