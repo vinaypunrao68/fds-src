@@ -1,11 +1,15 @@
 package com.formationds.xdi.s3;
 
+import com.formationds.am.Main;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.StaticFileHandler;
 import com.formationds.web.toolkit.TextResource;
 import com.formationds.xdi.Xdi;
+import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Multimap;
+import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.io.IOUtils;
 import org.eclipse.jetty.server.Request;
 
@@ -45,8 +49,16 @@ public class HtmlPostUpload implements RequestHandler {
             metadata.put("Content-Type", StaticFileHandler.getMimeType(fileName));
         }
 
-        //xdi.writeStream(Main.FDS_S3, bucketName, fileName, filePart.getInputStream(), metadata);
-        return new TextResource("");
+        byte[] digest = xdi.writeStream(Main.FDS_S3, bucketName, fileName, filePart.getInputStream(), metadata);
+
+        return new TextResource("") {
+            @Override
+            public Multimap<String, String> extraHeaders() {
+                LinkedListMultimap<String, String> map = LinkedListMultimap.create();
+                map.put("ETag", Hex.encodeHexString(digest));
+                return map;
+            }
+        };
     }
 
     private String getFileName(Part part) {

@@ -26,11 +26,11 @@ public class Main {
         TSocket omTransport = new TSocket("localhost", 9090);
         omTransport.open();
         ConfigurationService.Iface config = new ConfigurationService.Client(new TBinaryProtocol(omTransport));
-
+        Xdi xdi = new Xdi(am, config);
+//
 //        ToyServices foo = new ToyServices("foo");
 //        foo.createDomain(FDS_S3);
 //        Xdi xdi = new Xdi(foo, foo);
-        Xdi xdi = new Xdi(am, config);
 
         new Thread(() -> new S3Endpoint(xdi).start(9977)).start();
         new SwiftEndpoint(xdi).start(9999);
