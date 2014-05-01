@@ -91,7 +91,6 @@ void ListBucketResponseHandler::process() {
 }
 
 ListBucketResponseHandler::~ListBucketResponseHandler() {
-    if (nextMarker) delete nextMarker;
     if (contents) delete[] contents;
     if (commonPrefixes) {
         // delete *commonPrefixes;
