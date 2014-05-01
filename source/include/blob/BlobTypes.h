@@ -15,6 +15,7 @@ namespace fds {
  * The key and value types are both meant to be strings.
  */
 typedef std::unordered_map<std::string, std::string> BlobKeyValue;
+typedef BlobKeyValue::const_iterator const_kv_iterator;
 
 /**
  * Descriptor for a blob. This structure is meant to
@@ -36,14 +37,30 @@ class BlobDescriptor {
     typedef boost::shared_ptr<BlobDescriptor> ptr;
 
     /**
+     * Returns const iterator to key value metadata
+     */
+    const_kv_iterator kvMetaBegin() const;
+    /**
+     * Returns const iterator to key value metadata
+     */
+    const_kv_iterator kvMetaEnd() const;
+
+    /**
      * Returns the size of the blob in bytes
      */
     fds_uint64_t getBlobSize() const;
+    /**
+     * Returns the blob name
+     */
+    const std::string &getBlobName() const;
 
     // TODO(Andrew): May want to remove for a single
     // func to set everything from FDSP?
     void setBlobName(const std::string &name);
     void setBlobSize(fds_uint64_t size);
+    /// Adds key-value metadata, overwrite any old key
+    void addKvMeta(const std::string &key,
+                   const std::string &value);
 };
 }  // namespace fds
 

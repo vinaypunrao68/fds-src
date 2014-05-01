@@ -635,8 +635,6 @@ StorHvCtrl::statBlobResp(const FDSP_MsgHdrTypePtr rxMsg,
                          BlobDescriptorPtr blobDesc) {
     Error err(ERR_OK);
 
-    LOGCRITICAL << "Got a stat blob response!";
-
     // TODO(Andrew): We don't really need this...
     fds_verify(rxMsg->msg_code == FDSP_STAT_BLOB);
 
@@ -676,6 +674,12 @@ StorHvCtrl::statBlobResp(const FDSP_MsgHdrTypePtr rxMsg,
 
     blobReq->blobDesc.setBlobName(blobDesc->name);
     blobReq->blobDesc.setBlobSize(blobDesc->byteCount);
+    for (std::map<std::string, std::string>::const_iterator it =
+                 blobDesc->metadata.cbegin();
+         it != blobDesc->metadata.cend();
+         it++) {
+        blobReq->blobDesc.addKvMeta(it->first, it->second);
+    }
     blobReq->cbWithResult(0);
     txn->reset();
     vol->journal_tbl->releaseTransId(transId);
@@ -1102,9 +1106,6 @@ StorHvCtrl::StatBlob(fds::AmQosReq *qosReq) {
     StatBlobReq *blobReq = static_cast<StatBlobReq *>(qosReq->getBlobReqPtr());
     fds_verify(blobReq != NULL);
     fds_verify(blobReq->magicInUse() == true);
-
-    // TODO(Andrew): Remove this comment...
-    LOGCRITICAL << "Got a StatBlob!";
 
     fds_volid_t   volId = blobReq->getVolId();
     StorHvVolume *shVol = storHvisor->vol_table->getLockedVolume(volId);

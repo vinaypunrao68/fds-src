@@ -118,9 +118,14 @@ void
 StatBlobResponseHandler::process() {
     XCHECKSTATUS(status);
 
-    // TODO(Andrew): Only set the byte count for now...set other stuff later
-    LOGDEBUG << "setting bytecount: " << blobDesc.getBlobSize();
+    retBlobDesc.name      = blobDesc.getBlobName();
     retBlobDesc.byteCount = blobDesc.getBlobSize();
+
+    for (const_kv_iterator it = blobDesc.kvMetaBegin();
+         it != blobDesc.kvMetaEnd();
+         it++) {
+        retBlobDesc.metadata[it->first] = it->second;
+    }
 }
 
 StatBlobResponseHandler::~StatBlobResponseHandler() {
