@@ -83,11 +83,11 @@ public class GetObject implements RequestHandler {
     }
 
     private ArrayList<Range> parseRanges(String rangeDefinition) {
-        rangeDefinition = rangeDefinition.replaceFirst("bytes=", "").trim();
-
         ArrayList<Range> ranges = new ArrayList<Range>();
         if(rangeDefinition == null)
             return ranges;
+
+        rangeDefinition = rangeDefinition.replaceFirst("bytes=", "").trim();
 
         String[] rangeSpecs = rangeDefinition.split(",");
         for(String rangeSpec : rangeSpecs){
