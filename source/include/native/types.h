@@ -6,6 +6,7 @@
 #include <string>
 #include <boost/shared_ptr.hpp>
 #include <fds_types.h>
+#include <blob/BlobTypes.h>
 #include <fds_error.h>
 #define FDSN_QOS_PERF_NORMALIZER 20
 
@@ -292,6 +293,11 @@ namespace fds {
                                                 FDSN_Status status,
                                                 ErrorDetails *errDetails);
 
+    typedef void (*fdsnStatBlobHandler)(FDSN_Status status,
+                                        const ErrorDetails *errorDetails,
+                                        BlobDescriptor blobDesc,
+                                        void *callbackData);
+
     typedef void (*fdsnResponseHandler)(FDSN_Status status,
                                         const ErrorDetails *errorDetails,
                                         void *callbackData);
@@ -347,7 +353,6 @@ namespace fds {
             explicit ScopedCallBack(Callback* _cb) {cb = _cb;}
             ~ScopedCallBack() {if (cb) cb->call();}
         };
-
 
         struct StatBlobCallback : virtual Callback {
             fds_uint64_t blobSize = -1;

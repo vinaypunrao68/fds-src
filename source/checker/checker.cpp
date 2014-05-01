@@ -219,6 +219,16 @@ class MetaDatapathRespImpl : public FDS_ProtocolInterface::FDSP_MetaDataPathResp
         get_resp_monitor_->done();
     }
 
+    void StatBlobResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,  // NOLINT
+                      boost::shared_ptr<BlobDescriptor>& blobDesc) {
+        fds_assert(0);
+    }
+
+    void StatBlobResp(const FDSP_MsgHdrType& fdsp_msg,
+                      const BlobDescriptor& blobDesc) {
+        fds_assert(0);
+    }
+
     void DeleteCatalogObjectResp(const FDSP_MsgHdrType& fdsp_msg,
                                  const FDSP_DeleteCatalogType& cat_obj_req) {
         fds_assert(0);

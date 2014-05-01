@@ -131,6 +131,13 @@ public:
     virtual void GetVolumeBlobListResp(const FDSP_MsgHdrType& fds_msg, const FDSP_GetVolumeBlobListRespType& blob_list_rsp) {
     }
     virtual void GetVolumeBlobListResp(boost::shared_ptr<FDSP_MsgHdrType>& fds_msg, boost::shared_ptr<FDSP_GetVolumeBlobListRespType>& blob_list_rsp);
+
+    virtual void StatBlobResp(const FDSP_MsgHdrType &msgHdr,
+                              const FDS_ProtocolInterface::BlobDescriptor &blobDesc) {
+    }
+    virtual void StatBlobResp(boost::shared_ptr<FDSP_MsgHdrType> &msgHdr,
+                              boost::shared_ptr<FDS_ProtocolInterface::
+                              BlobDescriptor> &blobDesc);
 };
 
 
@@ -197,12 +204,16 @@ public:
     fds::Error putBlob(AmQosReq *qosReq);
     fds::Error getBlob(AmQosReq *qosReq);
     fds::Error deleteBlob(AmQosReq *qosReq);
+    Error StatBlob(AmQosReq *qosReq);
     fds::Error listBucket(AmQosReq *qosReq);
     fds::Error getBucketStats(AmQosReq *qosReq);
     fds::Error putObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
                           const FDSP_PutObjTypePtr& putObjRsp);
     fds::Error upCatResp(const FDSP_MsgHdrTypePtr& rxMsg, 
                          const FDSP_UpdateCatalogTypePtr& catObjRsp);
+    void statBlobResp(const FDSP_MsgHdrTypePtr rxMsg, 
+                      const FDS_ProtocolInterface::
+                      BlobDescriptorPtr blobDesc);
     fds::Error deleteCatResp(const FDSP_MsgHdrTypePtr& rxMsg,
                              const FDSP_DeleteCatalogTypePtr& delCatRsp);
     fds::Error getObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
@@ -258,12 +269,12 @@ static void processBlobReq(AmQosReq *qosReq) {
 
     fds::Error err(ERR_OK);
     switch (qosReq->io_type) { 
-        case fds::FDS_IO_READ :
-        case fds::FDS_GET_BLOB :
+        case fds::FDS_IO_READ:
+        case fds::FDS_GET_BLOB:
             err = storHvisor->getBlob(qosReq);
             break;
 
-        case fds::FDS_IO_WRITE :
+        case fds::FDS_IO_WRITE:
         case fds::FDS_PUT_BLOB:
             err = storHvisor->putBlob(qosReq);
             break;
@@ -272,6 +283,10 @@ static void processBlobReq(AmQosReq *qosReq) {
             err = storHvisor->deleteBlob(qosReq);
             break;
 
+        case fds::FDS_STAT_BLOB:
+            err = storHvisor->StatBlob(qosReq);
+            break;
+            
         case fds::FDS_LIST_BUCKET:
             err = storHvisor->listBucket(qosReq);
             break;

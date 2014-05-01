@@ -4,6 +4,7 @@ user_rtime_env := user
 user_build_dir := \
     fdsp \
     apis \
+    blob \
     am-engine \
     concurrency \
     kvstore \

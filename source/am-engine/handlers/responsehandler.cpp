@@ -110,10 +110,20 @@ BucketStatsResponseHandler::~BucketStatsResponseHandler() {
     }
 }
 
-void StatBlobResponseHandler::process() {
+StatBlobResponseHandler::StatBlobResponseHandler(
+    apis::BlobDescriptor& retVal) : retBlobDesc(retVal) {
+}
+
+void
+StatBlobResponseHandler::process() {
     XCHECKSTATUS(status);
-    LOGDEBUG << "setting bytecount: " << blobSize;
-    blobDescriptor->byteCount = blobSize;
+
+    // TODO(Andrew): Only set the byte count for now...set other stuff later
+    LOGDEBUG << "setting bytecount: " << blobDesc.getBlobSize();
+    retBlobDesc.byteCount = blobDesc.getBlobSize();
+}
+
+StatBlobResponseHandler::~StatBlobResponseHandler() {
 }
 
 }  // namespace fds

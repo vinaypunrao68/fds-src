@@ -136,15 +136,16 @@ class FdsnIf : public apis::AmServiceIf {
                   boost::shared_ptr<std::string>& domainName,
                   boost::shared_ptr<std::string>& volumeName,
                   boost::shared_ptr<std::string>& blobName) {
-        StatBlobResponseHandler* handler = new StatBlobResponseHandler();
-        handler->blobDescriptor = &_return;
+        StatBlobResponseHandler statBlobHandler(_return);
 
-        native::StatBlobCallbackPtr cb(handler);
-        am_api->StatBlob(*volumeName, *blobName, cb);
-        LOGDEBUG << "waiting for statblob";
-        handler->wait();
-        LOGDEBUG << "processing statblob";
-        handler->process();
+        am_api->StatBlob(*volumeName,
+                         *blobName,
+                         fn_StatBlobHandler,
+                         static_cast<void *>(&statBlobHandler));
+
+        statBlobHandler.wait();
+
+        statBlobHandler.process();
     }
 
     void getBlob(std::string& _return,

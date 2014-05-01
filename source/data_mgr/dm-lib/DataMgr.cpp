@@ -1117,6 +1117,24 @@ DataMgr::updateCatalogInternal(FDSP_UpdateCatalogTypePtr updCatReq,
     return err;
 }
 
+void
+DataMgr::ReqHandler::StatBlob(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msgHdr,
+                              boost::shared_ptr<std::string> &volumeName,
+                              boost::shared_ptr<std::string> &blobName) {
+    Error err(ERR_OK);
+
+    GLOGDEBUG << "Received stat blob requested for volume "
+              << *volumeName << " and blob " << *blobName;
+
+    err = dataMgr->statBlobInternal(*volumeName, *blobName,
+                                    msgHdr->glob_volume_id,
+                                    msgHdr->src_ip_lo_addr, msgHdr->dst_ip_lo_addr,  // IP stuff
+                                    msgHdr->src_port, msgHdr->dst_port,  // Port stuff
+                                    msgHdr->session_uuid, msgHdr->req_cookie);  // Req/state stuff
+
+    // Verify we were able to enqueue the request
+    fds_verify(err == ERR_OK);
+}
 
 void DataMgr::ReqHandler::UpdateCatalogObject(FDS_ProtocolInterface::
                                               FDSP_MsgHdrTypePtr &msg_hdr,
@@ -1197,7 +1215,64 @@ void DataMgr::ReqHandler::UpdateCatalogObject(FDS_ProtocolInterface::
     }
 }
 
+void
+DataMgr::statBlobBackend(const dmCatReq *statBlobReq) {
+    Error err(ERR_OK);
+    BlobNode *bnode = NULL;
 
+    err = queryCatalogProcess(statBlobReq, &bnode);
+    if (err == ERR_OK) {
+        fds_verify(bnode != NULL);
+        fds_verify(bnode->version != blob_version_invalid);
+    }
+
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr(new FDSP_MsgHdrType());
+    FDS_ProtocolInterface::BlobDescriptorPtr blobDesc(
+        new FDS_ProtocolInterface::BlobDescriptor());
+
+    if (err == ERR_OK) {
+        // Copy the metadata into the blob descriptor to return
+        blobDesc->name = bnode->blob_name;
+        blobDesc->byteCount = bnode->blob_size;
+        for (MetaList::const_iterator it = bnode->meta_list.begin();
+             it != bnode->meta_list.end();
+             it++) {
+            blobDesc->metadata[it->key] = it->value;
+        }
+
+        msgHdr->result  = FDS_ProtocolInterface::FDSP_ERR_OK;
+        msgHdr->err_msg = "Dude, you're good to go!";
+    } else {
+        fds_verify(err == ERR_BLOB_NOT_FOUND);
+
+        msgHdr->result  = FDS_ProtocolInterface::FDSP_ERR_OK;
+        msgHdr->err_msg = "Could not find the blob!";
+    }
+
+    if (bnode != NULL) {
+        delete bnode;
+    }
+
+    InitMsgHdr(msgHdr);
+    msgHdr->msg_code       = FDS_ProtocolInterface::FDSP_STAT_BLOB;
+    msgHdr->src_ip_lo_addr = statBlobReq->dstIp;
+    msgHdr->dst_ip_lo_addr = statBlobReq->srcIp;
+    msgHdr->src_port       = statBlobReq->dstPort;
+    msgHdr->dst_port       = statBlobReq->srcPort;
+    msgHdr->glob_volume_id = statBlobReq->volId;
+    msgHdr->req_cookie     = statBlobReq->reqCookie;
+    msgHdr->err_code       = err.GetErrno();
+
+    respMapMtx.read_lock();
+    respHandleCli(statBlobReq->session_uuid)->StatBlobResp(msgHdr, blobDesc);
+    respMapMtx.read_unlock();
+    LOGNORMAL << "Sending stat blob response with "
+              << "volume id: " << msgHdr->glob_volume_id
+              << " and blob " << blobDesc->name;
+
+    qosCtrl->markIODone(*statBlobReq);
+    delete statBlobReq;
+}
 
 void
 DataMgr::blobListBackend(dmCatReq *listBlobReq) {
@@ -1265,7 +1340,7 @@ DataMgr::blobListBackend(dmCatReq *listBlobReq) {
  * @return The result of the query.
  */
 Error
-DataMgr::queryCatalogProcess(dmCatReq  *qryCatReq, BlobNode **bnode) {
+DataMgr::queryCatalogProcess(const dmCatReq  *qryCatReq, BlobNode **bnode) {
     Error err(ERR_OK);
 
     // Lock to prevent reading a blob while it's being
@@ -1419,6 +1494,24 @@ DataMgr::blobListInternal(const FDSP_GetVolumeBlobListReqTypePtr& blob_list_req,
         delete dmListReq;
         return err;
     }
+
+    return err;
+}
+
+Error
+DataMgr::statBlobInternal(const std::string volumeName, const std::string &blobName,
+                          fds_volid_t volId, long srcIp, long dstIp, fds_uint32_t srcPort,
+                          fds_uint32_t dstPort, std::string session_uuid, fds_uint32_t reqCookie) {
+    Error err(ERR_OK);
+
+    dmCatReq *dmStatReq = new DataMgr::dmCatReq(volId, blobName,
+                                                srcIp, dstIp,
+                                                srcPort, dstPort,
+                                                session_uuid, reqCookie,
+                                                FDS_STAT_BLOB);
+    // Set the desired version to invalid for now (so we get the newest)
+    dmStatReq->setBlobVersion(blob_version_invalid);
+    err = qosCtrl->enqueueIO(dmStatReq->getVolId(), static_cast<FDS_IOType*>(dmStatReq));
 
     return err;
 }
@@ -1887,6 +1980,13 @@ int scheduleQueryCatalog(void * _io) {
     fds::DataMgr::dmCatReq *io = (fds::DataMgr::dmCatReq*)_io;
 
     dataMgr->queryCatalogBackend(io);
+    return 0;
+}
+
+int scheduleStatBlob(void * _io) {
+    fds::DataMgr::dmCatReq *io = (fds::DataMgr::dmCatReq*)_io;
+
+    dataMgr->statBlobBackend(io);
     return 0;
 }
 

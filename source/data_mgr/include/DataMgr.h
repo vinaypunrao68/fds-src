@@ -38,6 +38,7 @@ namespace fds {
 #define DM_TP_THREADS 20
 int scheduleUpdateCatalog(void * _io);
 int scheduleQueryCatalog(void * _io);
+int scheduleStatBlob(void * _io);
 int scheduleDeleteCatObj(void * _io);
 int scheduleBlobList(void * _io);
 
@@ -79,6 +80,23 @@ class DataMgr : public PlatformProcess
 	     fds_uint32_t _reqCookie,
 	     fds_io_op_t  _ioType)
         : volId(_volId), srcIp(_srcIp), dstIp(_dstIp),
+        srcPort(_srcPort), dstPort(_dstPort), session_uuid(_session_uuid),
+        reqCookie(_reqCookie), fdspUpdCatReqPtr(NULL) {
+      io_type = _ioType;
+      io_vol_id = _volId;
+      blob_version = blob_version_invalid;
+    }
+
+    dmCatReq(fds_volid_t  _volId,
+             const std::string &blobName,
+             long 	  _srcIp,
+	     long 	  _dstIp,
+	     fds_uint32_t _srcPort,
+	     fds_uint32_t _dstPort,
+	     std::string  _session_uuid,
+	     fds_uint32_t _reqCookie,
+	     fds_io_op_t  _ioType)
+            : volId(_volId), blob_name(blobName), srcIp(_srcIp), dstIp(_dstIp),
         srcPort(_srcPort), dstPort(_dstPort), session_uuid(_session_uuid),
         reqCookie(_reqCookie), fdspUpdCatReqPtr(NULL) {
       io_type = _ioType;
@@ -167,6 +185,10 @@ class DataMgr : public PlatformProcess
 	  case FDS_CAT_QRY:
              FDS_PLOG(FDS_QoSControl::qos_log) << "Processing  the Catalog Query  request";
 	     threadPool->schedule(scheduleQueryCatalog, io);
+	     break;
+            case FDS_STAT_BLOB:
+             GLOGDEBUG << "Scheduling a stat blob request";
+	     threadPool->schedule(scheduleStatBlob, io);
 	     break;
 	  case FDS_DELETE_BLOB:
              FDS_PLOG(FDS_QoSControl::qos_log) << "Processing  the Delete Blob request";
@@ -321,10 +343,11 @@ class DataMgr : public PlatformProcess
     void updateCatalogBackend(dmCatReq  *updCatReq);
     Error updateCatalogProcess(const dmCatReq  *updCatReq, BlobNode **bnode);
     void queryCatalogBackend(dmCatReq  *qryCatReq);
-    Error queryCatalogProcess(dmCatReq  *qryCatReq, BlobNode **bnode);
+    Error queryCatalogProcess(const dmCatReq  *qryCatReq, BlobNode **bnode);
     void deleteCatObjBackend(dmCatReq  *delCatReq);
     Error deleteBlobProcess(const dmCatReq  *delCatReq, BlobNode **bnode);
     void blobListBackend(dmCatReq *listBlobReq);
+    void statBlobBackend(const dmCatReq *statBlobReq);
 
     /* 
      * FDS protocol processing proto types 
@@ -340,6 +363,9 @@ class DataMgr : public PlatformProcess
                                fds_uint32_t dstPort, std::string session_uuid, fds_uint32_t reqCookie);
     Error blobListInternal(const FDSP_GetVolumeBlobListReqTypePtr& blob_list_req,
                            fds_volid_t volId,long srcIp,long dstIp,fds_uint32_t srcPort,
+                           fds_uint32_t dstPort, std::string session_uuid, fds_uint32_t reqCookie);
+    Error statBlobInternal(const std::string volumeName, const std::string &blobName,
+                           fds_volid_t volId, long srcIp, long dstIp, fds_uint32_t srcPort,
                            fds_uint32_t dstPort, std::string session_uuid, fds_uint32_t reqCookie);
 
 
@@ -373,6 +399,12 @@ class DataMgr : public PlatformProcess
 	// Don't do anything here. This stub is just to keep cpp compiler happy
       }
 
+      void StatBlob(const FDSP_MsgHdrType& msg_hdr,
+                    const std::string &volumeName,
+                    const std::string &blobName) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+      }
+
       void UpdateCatalogObject(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr
                                &msg_hdr,
                                FDS_ProtocolInterface::
@@ -392,6 +424,10 @@ class DataMgr : public PlatformProcess
 
       void GetVolumeBlobList(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr, 
 			     FDS_ProtocolInterface::FDSP_GetVolumeBlobListReqTypePtr& blobListReq);
+
+      void StatBlob(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
+                    boost::shared_ptr<std::string> &volumeName,
+                    boost::shared_ptr<std::string> &blobName);
 
     };
 
