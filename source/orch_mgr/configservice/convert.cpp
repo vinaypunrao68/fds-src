@@ -3,7 +3,7 @@
  */
 
 #include <convert.h>
-
+#include <string>
 namespace fds {
 namespace convert {
 
@@ -12,7 +12,6 @@ void getFDSPCreateVolRequest(fpi::FDSP_MsgHdrTypePtr& header,
                              const std::string& domain,
                              const std::string& volume,
                              const apis::VolumePolicy volPolicy) {
-
     header.reset(new fpi::FDSP_MsgHdrType());
     request.reset(new fpi::FDSP_CreateVolType());
 
