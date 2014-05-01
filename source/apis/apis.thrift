@@ -20,9 +20,12 @@ struct ObjectOffset {
 }
 
 enum ErrorCode {
-     MISSING_RESOURCE = 0,
-     BAD_REQUEST = 1,
-     INTERNAL_SERVER_ERROR = 2
+     INTERNAL_SERVER_ERROR = 0,
+     MISSING_RESOURCE,
+     BAD_REQUEST,
+     RESOURCE_ALREADY_EXISTS,
+     RESOURCE_NOT_EMPTY,
+     SERVICE_NOT_READY     
 }
 
 exception ApiException {
@@ -50,11 +53,11 @@ service AmService {
         void updateMetadata(1:string domainName, 2:string volumeName, 3:string blobName, 4:map<string, string> metadata)
              throws (1: ApiException e),
 
-        void updateBlob(1:string domainName, 2:string volumeName, 3:string blobName, 4:binary bytes, 5:i32 length, 6:ObjectOffset objectOffset, 7:binary digest, 8:bool isLast)
-             throws (1: ApiException e),
-
-        void deleteBlob(1:string domainName, 2:string volumeName, 3:string blobName)
-             throws (1: ApiException e)
+        void updateBlob(1:string domainName, 
+          2:string volumeName, 3:string blobName, 4:binary bytes, 5:i32 length, 6:ObjectOffset objectOffset, 7:binary digest, 8:bool isLast) throws (1: ApiException e),
+          
+          void deleteBlob(1:string domainName, 2:string volumeName, 3:string blobName)
+            throws (1: ApiException e)
 
         VolumeStatus volumeStatus(1:string domainName, 2:string volumeName)
              throws (1: ApiException e),

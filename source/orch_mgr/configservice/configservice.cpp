@@ -16,17 +16,15 @@ using namespace ::apache::thrift::protocol;
 using namespace ::apache::thrift::transport;
 using namespace ::apache::thrift::server;
 
-using namespace  ::fds::apis;
+using namespace  ::apis;
 
 namespace fds {
 class OrchMgr;
-}
-
 
 class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
-    fds::OrchMgr* om;
+    OrchMgr* om;
   public:
-    ConfigurationServiceHandler(fds::OrchMgr* om) : om(om) {
+    ConfigurationServiceHandler(OrchMgr* om) : om(om) {
     }
 
     void apiException(std::string message, ErrorCode code=INTERNAL_SERVER_ERROR) {
@@ -40,15 +38,15 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     void checkDomainStatus() {
         OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
         if (!domain->om_local_domain_up()) {
-            apiException("local domain not up");
+            apiException("local domain not up", SERVICE_NOT_READY);
         }
     }
 
     // Don't do anything here. This stub is just to keep cpp compiler happy
-    void createVolume(const std::string& domainName, const std::string& volumeName, const VolumePolicy& volumePolicy) {}
-    void deleteVolume(const std::string& domainName, const std::string& volumeName) {}
-    void statVolume(VolumeDescriptor& _return, const std::string& domainName, const std::string& volumeName) {}
-    void listVolumes(std::vector<VolumeDescriptor> & _return, const std::string& domainName) {}
+    void createVolume(const std::string& domainName, const std::string& volumeName, const VolumePolicy& volumePolicy) {}  //NOLINT
+    void deleteVolume(const std::string& domainName, const std::string& volumeName) {}  //NOLINT
+    void statVolume(VolumeDescriptor& _return, const std::string& domainName, const std::string& volumeName) {}  //NOLINT
+    void listVolumes(std::vector<VolumeDescriptor> & _return, const std::string& domainName) {}  //NOLINT
 
     void createVolume(boost::shared_ptr<std::string>& domainName,
                       boost::shared_ptr<std::string>& volumeName,
@@ -61,8 +59,8 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
         VolumeContainer::pointer volContainer =local->om_vol_mgr();
-        fds::Error err = volContainer->getVolumeStatus(*volumeName);
-        if (err == ERR_OK) apiException("volume already exists");
+        Error err = volContainer->getVolumeStatus(*volumeName);
+        if (err == ERR_OK) apiException("volume already exists", RESOURCE_ALREADY_EXISTS);
 
         fpi::FDSP_MsgHdrTypePtr header;
         fpi::FDSP_CreateVolTypePtr request;
@@ -73,14 +71,13 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
     void deleteVolume(boost::shared_ptr<std::string>& domainName,
                       boost::shared_ptr<std::string>& volumeName) {
-
         checkDomainStatus();
 
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
         VolumeContainer::pointer volContainer =local->om_vol_mgr();
-        fds::Error err = volContainer->getVolumeStatus(*volumeName);
+        Error err = volContainer->getVolumeStatus(*volumeName);
 
-        if (err != ERR_OK) apiException("volume does NOT exist");
+        if (err != ERR_OK) apiException("volume does NOT exist", MISSING_RESOURCE);
 
         fpi::FDSP_MsgHdrTypePtr header;
         fpi::FDSP_DeleteVolTypePtr request;
@@ -91,12 +88,11 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     void statVolume(VolumeDescriptor& volDescriptor,
                     boost::shared_ptr<std::string>& domainName,
                     boost::shared_ptr<std::string>& volumeName) {
-
         checkDomainStatus();
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
         VolumeContainer::pointer volContainer = local->om_vol_mgr();
-        fds::Error err = volContainer->getVolumeStatus(*volumeName);
-        if (err != ERR_OK) apiException("volume NOT found");
+        Error err = volContainer->getVolumeStatus(*volumeName);
+        if (err != ERR_OK) apiException("volume NOT found", MISSING_RESOURCE);
 
         VolumeInfo::pointer  vol = volContainer->get_volume(*volumeName);
 
@@ -104,14 +100,14 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         volDescriptor.policy.maxObjectSizeInBytes=2*1024*1024;
     }
 
-    void listVolumes(std::vector<VolumeDescriptor> & _return, boost::shared_ptr<std::string>& domainName) {
-
+    void listVolumes(std::vector<VolumeDescriptor> & _return,
+                     boost::shared_ptr<std::string>& domainName) {
         checkDomainStatus();
 
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
         VolumeContainer::pointer volContainer = local->om_vol_mgr();
 
-        volContainer->vol_up_foreach<std::vector<VolumeDescriptor> &>(_return, [] (std::vector<VolumeDescriptor> &vec , fds::VolumeInfo::pointer vol) {
+        volContainer->vol_up_foreach<std::vector<VolumeDescriptor> &>(_return, [] (std::vector<VolumeDescriptor> &vec , VolumeInfo::pointer vol) {
                 VolumeDescriptor volDescriptor;
                 volDescriptor.name = vol->vol_get_name();
                 vec.push_back(volDescriptor);
@@ -119,8 +115,6 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
             );
     }
 };
-
-namespace fds {
 
 std::thread* runConfigService(OrchMgr* om) {
     int port = 9090;
