@@ -5,14 +5,18 @@
 import sys
 import os
 sys.path.append(os.getcwd()+'/fdslib/pyfdsp')
-import subprocess
-import logging
+
+
+import sys
+import time
+from multiprocessing import Process
+
 from fdslib.FdsCluster import FdsCluster
 from fdslib import ProcessUtils
-import optparse, sys, time
-
+from fdslib import IOGen
 
 if __name__ == '__main__':
+
     ProcessUtils.setup_logger()
 
     (options, args) = ProcessUtils.parse_fdscluster_args()
@@ -28,8 +32,22 @@ if __name__ == '__main__':
     time.sleep(5)
 
     # run some io
+    IOGen.PutGenerator(endpoint = '{}:8000'.format(cluster.get_node('node1').get_ip()),
+                 bucket = 'b1',
+                 dir = '/home/nbayyana/temp/skinet2',
+                 repeat_cnt=1).run()
+
+    get_gen = IOGen.GetGenerator(endpoint = '{}:8000'.format(cluster.get_node('node1').get_ip()),
+                                 bucket = 'b1',
+                                 dir = '/home/nbayyana/temp/skinet2',
+                                 repeat_cnt=20,
+                                 sleep=1)
+    get_proc = Process(target=get_gen.run)
+    get_proc.start()
+
+    # run some io
     # (TODO: Rao) Change to some constant io
-    io_proc = subprocess.Popen(['/home/nbayyana/bin/uploads3.sh'])
+    # io_proc = subprocess.Popen(['/home/nbayyana/bin/uploads3.sh'])
         # (TODO: Rao) Change to some constant io
     # io_proc = subprocess.Popen(['python', 'fds-primitive-smoke.py', '--up', 'false',
     #                             '--down', 'false',
@@ -68,7 +86,7 @@ if __name__ == '__main__':
     cluster.run_dirbased_checker('/home/nbayyana/temp/skinet2')
 
     # kill the process
-    io_proc.kill()
+    get_proc.terminate()
 
     # todo(Rao): Make sure all services are alive
 
