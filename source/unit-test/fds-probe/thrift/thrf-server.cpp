@@ -17,17 +17,28 @@
 #include <sstream>
 #include <iostream>
 
+using namespace ::fpi;                            // NOLINT
 using namespace ::apache::thrift;                 // NOLINT
 using namespace ::apache::thrift::protocol;       // NOLINT
 using namespace ::apache::thrift::transport;      // NOLINT
 using namespace ::apache::thrift::server;         // NOLINT
 using namespace ::apache::thrift::concurrency;    // NOLINT
 
+namespace fds {
+
 class ProbeServiceHandler : virtual public ProbeServiceIf {
   public:
     ProbeServiceHandler() {
         // Your initialization goes here
     }
+    void foo(const ProbeFoo &f) {}
+    void foo(boost::shared_ptr<ProbeFoo> &f) {}
+    void bar(const ProbeBar &b) {}
+    void bar(boost::shared_ptr<ProbeBar> &b) {}
+    void msg_async_resp(const AsyncHdr &orig,
+                        const AsyncRspHdr &resp) {}
+    void msg_async_resp(boost::shared_ptr<AsyncHdr> &orig,
+                        boost::shared_ptr<AsyncRspHdr> &resp) {}
 
     // Don't do anything here. This stub is just to keep cpp compiler happy
     void probe_put(const ProbePutMsg& reqt) {}            // NOLINT
@@ -65,20 +76,19 @@ ProbeServer::ProbeServer()
 {
     pr_handler.reset(new ProbeServiceHandler());
     boost::shared_ptr<TProtocolFactory> proto_fac(new TBinaryProtocolFactory());
-    boost::shared_ptr<TProcessor>
-        processor(new ProbeServiceProcessor(pr_handler));
+    boost::shared_ptr<TProcessor>processor(new ::fpi::ProbeServiceProcessor(pr_handler));
     boost::shared_ptr<TServerTransport> trans(new TServerSocket(9000));
-    boost::shared_ptr<TTransportFactory>
-        trans_fac(new TFramedTransportFactory());
-    pr_server.reset(new TThreadedServer(processor,
-                trans, trans_fac, proto_fac));
+    boost::shared_ptr<TTransportFactory> trans_fac(new TFramedTransportFactory());
+    pr_server.reset(new TThreadedServer(processor, trans, trans_fac, proto_fac));
 }
+
+}  // namespace fds
 
 int main(int argc, char **argv)
 {
     PosixThreadFactory tfac(PosixThreadFactory::ROUND_ROBIN,
             PosixThreadFactory::NORMAL, 1, false);
-    boost::shared_ptr<ProbeServer> pr_server(new ProbeServer());
+    boost::shared_ptr<fds::ProbeServer> pr_server(new fds::ProbeServer());
     boost::shared_ptr<Thread>      mgr = tfac.newThread(pr_server);
 
     mgr->start();

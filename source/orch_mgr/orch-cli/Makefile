@@ -9,7 +9,6 @@ user_fds_ar_libs  :=  \
     fds-lib \
     fds-umod  \
     fds-util \
-    fds-netproxy \
     fds-fdsp \
     fds-thread \
     fds-osdep

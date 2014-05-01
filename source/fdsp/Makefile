@@ -3,7 +3,7 @@ user_target      := lib
 user_rtime_env   := user
 
 user_thrift_loc  := $(topdir)/include/fdsp
-user_thrift      := FDSP.thrift orch_proto.thrift
+user_thrift      := FDSP.thrift fds_service.thrift
 user_thrift_flag := --gen cpp:pure_enums --allow-64bit-consts
 
 user_clean       := \

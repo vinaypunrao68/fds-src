@@ -7,6 +7,8 @@
 #include <iostream>
 #include <fds_assert.h>
 
+using namespace ::fpi;                 // NOLINT
+
 namespace fds {
 
 static probe_mod_param_t thrift_probe_param =

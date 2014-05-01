@@ -9,7 +9,7 @@ user_build_dir :=                       \
     apis                                \
     include                             \
     osdep                               \
-    net-proxies                         \
+    net-service                         \
     umod-lib                            \
     util                                \
     lib                                 \

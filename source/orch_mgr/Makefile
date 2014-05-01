@@ -18,7 +18,6 @@ user_fds_ar_libs  := \
     fds-plat-lib \
     fds-lib \
     fds-util \
-    fds-netproxy \
     fds-fdsp \
     fds-umod \
     fds-thread

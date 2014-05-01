@@ -48,7 +48,7 @@ class Thrift_ProbeMod : public ProbeMod
     boost::shared_ptr<TTransport>  rpc_sock;
     boost::shared_ptr<TTransport>  rpc_trans;
     boost::shared_ptr<TProtocol>   rpc_proto;
-    ProbeServiceClient            *rpc_client;
+    fpi::ProbeServiceClient       *rpc_client;
 };
 
 // S3Thrift Probe Adapter.
