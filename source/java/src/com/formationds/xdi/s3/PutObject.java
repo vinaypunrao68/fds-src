@@ -35,21 +35,19 @@ public class PutObject implements RequestHandler {
         String objectName = requiredString(routeParameters, "object");
 
         int blockSize = xdi.volumeConfiguration(Main.FDS_S3, bucketName).getPolicy().getMaxObjectSizeInBytes();
-        MessageDigest md = MessageDigest.getInstance("MD5");
-
         InputStream stream = new BufferedInputStream(request.getInputStream(), blockSize * 2);
-        DigestInputStream dis = new DigestInputStream(stream, md);
-
         String contentType = StaticFileHandler.getMimeType(objectName);
 
         HashMap<String, String> map = Maps.newHashMap();
         map.put("Content-Type", contentType);
-        xdi.writeStream(Main.FDS_S3, bucketName, objectName, stream, map);
+
+        byte[] digest = xdi.writeStream(Main.FDS_S3, bucketName, objectName, stream, map);
+
         return new TextResource("") {
             @Override
             public Multimap<String, String> extraHeaders() {
                 LinkedListMultimap<String, String> headers = LinkedListMultimap.create();
-                headers.put("ETag", Hex.encodeHexString(dis.getMessageDigest().digest()));
+                headers.put("ETag", Hex.encodeHexString(digest));
                 return headers;
             }
         };
