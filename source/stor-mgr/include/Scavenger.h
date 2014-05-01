@@ -152,14 +152,23 @@ namespace fds {
      ~ScavControl();
     
      /**
-      * @param b_all == true, then will scavenge both ssd and hdd
-      * @apram if b_all == false, then will scavenge tgt_tier tier
+      * Enable means that we start running automatic scavenging
       */
-     void startScavengeProcess(fds_bool_t b_all, diskio::DataTier tgt_tier);
-     void stopScavengeProcess();
+     void enableScavenger();
+     /**
+      * Stop running automatic scavenging and do not allow to
+      * start scavenger process until enableScavenger() is called
+      */
+     void disableScavenger();
 
-     void startScavenger(fds_uint16_t disk_id);
-     void stopScavenger(fds_uint16_t disk_id);
+     /**
+      * Start scavenging
+      */
+     void startScavengeProcess();
+     /**
+      * Stop scavenging if it is in progress
+      */
+     void stopScavengeProcess();
 
      /**
       * Called on timer to query & update disk/token file state
@@ -167,6 +176,8 @@ namespace fds {
      void updateDiskStats();
 
     private:
+     std::atomic<fds_bool_t> enabled;
+
      ScavPolicyType  scavPolicy;
 
      fds_uint32_t num_hdd;  // number of hdd devices

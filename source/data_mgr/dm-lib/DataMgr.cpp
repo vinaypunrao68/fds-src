@@ -657,8 +657,12 @@ void DataMgr::ReqHandler::GetVolumeBlobList(FDSP_MsgHdrTypePtr& msg_hdr,
         blobListResp->num_blobs_in_resp = 0;
         blobListResp->end_of_list = true;
         dataMgr->respMapMtx.read_lock();
-        dataMgr->respHandleCli(msg_hdr->session_uuid)->GetVolumeBlobListResp(*msg_hdr,
+        try { 
+            dataMgr->respHandleCli(msg_hdr->session_uuid)->GetVolumeBlobListResp(*msg_hdr,
                                                                              *blobListResp);
+        } catch (att::TTransportException& e) {
+            GLOGERROR << "error during network call : " << e.what() ;
+        }
         dataMgr->respMapMtx.read_unlock();
 
         GLOGERROR << "Sending async blob list error response with "
@@ -1051,7 +1055,11 @@ DataMgr::updateCatalogBackend(dmCatReq  *updCatReq) {
     msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_UPDATE_CAT_OBJ_RSP;
 
     dataMgr->respMapMtx.read_lock();
-    dataMgr->respHandleCli(updCatReq->session_uuid)->UpdateCatalogObjectResp(*msg_hdr, *update_catalog);
+    try {
+        dataMgr->respHandleCli(updCatReq->session_uuid)->UpdateCatalogObjectResp(*msg_hdr, *update_catalog);
+    } catch (att::TTransportException& e) {
+        GLOGERROR << "error during network call : " << e.what() ;
+    }
     dataMgr->respMapMtx.read_unlock();
 
     LOGDEBUG << "Sending async update catalog response with "
@@ -1122,9 +1130,14 @@ void DataMgr::ReqHandler::UpdateCatalogObject(FDS_ProtocolInterface::
     msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
     dataMgr->swapMgrId(msg_hdr);
     dataMgr->respMapMtx.read_lock();
-    dataMgr->respHandleCli(msg_hdr->session_uuid)->UpdateCatalogObjectResp(
-        *msg_hdr,
-        *update_catalog);
+    try { 
+        dataMgr->respHandleCli(msg_hdr->session_uuid)->UpdateCatalogObjectResp(
+            *msg_hdr,
+            *update_catalog);
+    } catch (att::TTransportException& e) {
+            GLOGERROR << "error during network call : " << e.what() ;
+     }
+
     dataMgr->respMapMtx.read_unlock();
     LOGNORMAL << "FDS_TEST_DM_NOOP defined. Set update catalog response right after receiving req.";
 
@@ -1157,8 +1170,13 @@ void DataMgr::ReqHandler::UpdateCatalogObject(FDS_ProtocolInterface::
         msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_UPDATE_CAT_OBJ_RSP;
         dataMgr->swapMgrId(msg_hdr);
         dataMgr->respMapMtx.read_lock();
-        dataMgr->respHandleCli(msg_hdr->session_uuid)->UpdateCatalogObjectResp(*msg_hdr,
+        try { 
+            dataMgr->respHandleCli(msg_hdr->session_uuid)->UpdateCatalogObjectResp(*msg_hdr,
                                                                                *update_catalog);
+        } catch (att::TTransportException& e) {
+            GLOGERROR << "error during network call : " << e.what() ;
+        }
+
         dataMgr->respMapMtx.read_unlock();
 
         GLOGNORMAL << "Sending async update catalog response with "
@@ -1222,7 +1240,12 @@ DataMgr::blobListBackend(dmCatReq *listBlobReq) {
         blobListResp->blob_info_list.push_back(bInfo);
     }
     respMapMtx.read_lock();
-    respHandleCli(listBlobReq->session_uuid)->GetVolumeBlobListResp(*msg_hdr, *blobListResp);
+    try { 
+        respHandleCli(listBlobReq->session_uuid)->GetVolumeBlobListResp(*msg_hdr, *blobListResp);
+    } catch (att::TTransportException& e) {
+            GLOGERROR << "error during network call : " << e.what() ;
+    }
+
     respMapMtx.read_unlock();
     LOGNORMAL << "Sending async blob list response with "
               << "volume id: " << msg_hdr->glob_volume_id
@@ -1356,7 +1379,12 @@ DataMgr::queryCatalogBackend(dmCatReq  *qryCatReq) {
     query_catalog->dm_operation = qryCatReq->transOp;
 
     dataMgr->respMapMtx.read_lock();
-    dataMgr->respHandleCli(qryCatReq->session_uuid)->QueryCatalogObjectResp(*msg_hdr, *query_catalog);
+    try { 
+        dataMgr->respHandleCli(qryCatReq->session_uuid)->QueryCatalogObjectResp(*msg_hdr, *query_catalog);
+    } catch (att::TTransportException& e) {
+            GLOGERROR << "error during network call : " << e.what() ;
+    }
+
     dataMgr->respMapMtx.read_unlock();
     LOGNORMAL << "Sending async query catalog response with "
               << "volume id: " << msg_hdr->glob_volume_id
@@ -1460,8 +1488,13 @@ void DataMgr::ReqHandler::QueryCatalogObject(FDS_ProtocolInterface::
         msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_QUERY_CAT_OBJ_RSP;
         dataMgr->swapMgrId(msg_hdr);
         dataMgr->respMapMtx.read_lock();
-        dataMgr->respHandleCli(msg_hdr->session_uuid)->QueryCatalogObjectResp(*msg_hdr,
+        try {
+            dataMgr->respHandleCli(msg_hdr->session_uuid)->QueryCatalogObjectResp(*msg_hdr,
                                                                               *query_catalog);
+        } catch (att::TTransportException& e) {
+            GLOGERROR << "error during network call : " << e.what() ;
+        }
+
         dataMgr->respMapMtx.read_unlock();
         GLOGNORMAL << "Sending async query catalog response with "
                    << "volume id: " << msg_hdr->glob_volume_id
@@ -1549,7 +1582,7 @@ DataMgr::expungeObject(fds_volid_t volId, const ObjectID &objId) {
             smClient->DeleteObject(msgHdr, delReq);
         } catch(const att::TTransportException& e) {
             errorCount++;
-            LOGERROR << "[" << errorCount << "]error during network call : " << e.what();
+            GLOGERROR << "[" << errorCount << "]error during network call : " << e.what();
         }
     }
 
@@ -1758,7 +1791,12 @@ DataMgr::deleteCatObjBackend(dmCatReq  *delCatReq) {
     delete_catalog->blob_name = delCatReq->blob_name;
 
     dataMgr->respMapMtx.read_lock();
-    dataMgr->respHandleCli(delCatReq->session_uuid)->DeleteCatalogObjectResp(*msg_hdr, *delete_catalog);
+    try { 
+        dataMgr->respHandleCli(delCatReq->session_uuid)->DeleteCatalogObjectResp(*msg_hdr, *delete_catalog);
+    } catch (att::TTransportException& e) {
+        GLOGERROR << "error during network call : " << e.what() ;
+    }
+
     dataMgr->respMapMtx.read_unlock();
     LOGNORMAL << "Sending async delete catalog obj response with "
               << "volume id: " << msg_hdr->glob_volume_id
@@ -1822,8 +1860,13 @@ void DataMgr::ReqHandler::DeleteCatalogObject(FDS_ProtocolInterface::
         msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_DELETE_BLOB_RSP;
         dataMgr->swapMgrId(msg_hdr);
         dataMgr->respMapMtx.read_lock();
-        dataMgr->respHandleCli(msg_hdr->session_uuid)->DeleteCatalogObjectResp(*msg_hdr,
+        try { 
+            dataMgr->respHandleCli(msg_hdr->session_uuid)->DeleteCatalogObjectResp(*msg_hdr,
                                                                                *delete_catalog);
+        } catch (att::TTransportException& e) {
+            GLOGERROR << "error during network call : " << e.what() ;
+        }
+
         dataMgr->respMapMtx.read_unlock();
         GLOGNORMAL << "Sending async delete catalog response with "
                    << "volume id: " << msg_hdr->glob_volume_id
