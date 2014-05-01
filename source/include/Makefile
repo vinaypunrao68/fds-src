@@ -5,6 +5,7 @@ user_build_dir := \
     fdsp \
     apis \
     net \
+    blob \
     am-engine \
     concurrency \
     kvstore \

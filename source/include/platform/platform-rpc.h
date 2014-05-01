@@ -11,7 +11,6 @@
 namespace fds {
 
 class Platform;
-namespace fpi = FDS_ProtocolInterface;
 
 class PlatRpcReqt : public fpi::FDSP_ControlPathReqIf
 {

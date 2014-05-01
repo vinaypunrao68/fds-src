@@ -42,6 +42,16 @@ namespace fds {
         virtual ~SimpleResponseHandler();
     };
 
+    struct StatBlobResponseHandler : ResponseHandler {
+        StatBlobResponseHandler(apis::BlobDescriptor &retVal);
+
+        apis::BlobDescriptor &retBlobDesc;
+        BlobDescriptor blobDesc;
+
+        virtual void process();
+        virtual ~StatBlobResponseHandler();
+    };
+
     struct PutObjectResponseHandler : ResponseHandler {
         void *reqContext = NULL;
         fds_uint64_t bufferSize = 0;
@@ -92,10 +102,10 @@ namespace fds {
 
     /** Newer callback schemes **/
 
-    struct StatBlobResponseHandler : virtual ResponseHandler, virtual native::StatBlobCallback {
-        apis::BlobDescriptor* blobDescriptor;
-        virtual void process();
-    };
+// struct StatBlobResponseHandler : virtual ResponseHandler, virtual native::StatBlobCallback {
+//     apis::BlobDescriptor* blobDescriptor;
+//      virtual void process();
+//  };
 
 }  // namespace fds
 #endif  // SOURCE_INCLUDE_AM_ENGINE_HANDLERS_RESPONSEHANDLER_H_

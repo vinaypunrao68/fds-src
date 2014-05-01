@@ -31,16 +31,19 @@ public class SmokeTest {
         TSocket socket = new TSocket(host, port);
         socket.open();
         AmService.Iface am = new AmService.Client(new TBinaryProtocol(socket));
-        ConfigurationService.Iface config = null;
+        TSocket omTransport = new TSocket("localhost", 9090);
+        omTransport.open();
+        ConfigurationService.Iface config = new ConfigurationService.Client(new TBinaryProtocol(omTransport));
 
-        System.out.println("Creating volume 'Volume1', policy: 4kb blocksize");
+        System.out.println("Creating volume 'Volume2', policy: 4kb blocksize");
         try {
-            config.createVolume(DOMAIN_NAME, VOLUME_NAME, new VolumePolicy(4 * 1024));
-        } catch(XdiException e) {
+            config.createVolume(DOMAIN_NAME, "Volume2", new VolumePolicy(4 * 1024));
+            config.createVolume(DOMAIN_NAME, "Volume2", new VolumePolicy(4 * 1024));
+        } catch(ApiException e) {
             e.printStackTrace();
         }
         Thread.sleep(4000);
-
+              
         System.out.println("Creating volume 'Volume1', policy: 2MB blocksize");
         VolumePolicy volumePolicy = new VolumePolicy(2 * 1024 * 1024);
         config.createVolume(DOMAIN_NAME, VOLUME_NAME, volumePolicy);
@@ -48,12 +51,13 @@ public class SmokeTest {
 
         List<VolumeDescriptor> volumeDescriptors = config.listVolumes(DOMAIN_NAME);
         System.out.println("Found " + volumeDescriptors.size() + " volumes");
-        System.out.println("Creating object 'someBytes.bin', size: 8192 bytes");
+
         int length = 2 * 1024 * 1024; // volumePolicy.getMaxObjectSizeInBytes();
         byte[] putData = new byte[length];
         byte pattern = (byte)255;
         Arrays.fill(putData, pattern);
 
+        System.out.println("Creating object '"+BLOB_NAME+"', size: " + length + " bytes");
         int offCount = 0;
         for (offCount = 0; offCount < 10; offCount++) {
             am.updateBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME,
@@ -84,6 +88,9 @@ public class SmokeTest {
 
         System.out.println("deleting blob");
         am.deleteBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME);
+
+        System.out.println("volume list");
+        System.out.println(config.listVolumes(DOMAIN_NAME));
 
         System.out.println("deleting volume");
         config.deleteVolume(DOMAIN_NAME, VOLUME_NAME);

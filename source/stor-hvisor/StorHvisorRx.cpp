@@ -192,6 +192,15 @@ void FDSP_MetaDataPathRespCbackI::UpdateCatalogObjectResp(FDSP_MsgHdrTypePtr& fd
     fds_verify(err == ERR_OK);
 }
 
+void
+FDSP_MetaDataPathRespCbackI::StatBlobResp(boost::shared_ptr<FDSP_MsgHdrType> &msgHdr,
+                                          boost::shared_ptr<FDS_ProtocolInterface::
+                                          BlobDescriptor> &blobDesc) {
+    LOGDEBUG << "Received StatBlob response for txn "
+             << msgHdr->req_cookie;
+    storHvisor->statBlobResp(msgHdr, blobDesc);
+}
+
 int StorHvCtrl::fds_move_del_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) {
     fds_int32_t  result  = 0;
     fds_uint32_t transId = rxMsg->req_cookie; 

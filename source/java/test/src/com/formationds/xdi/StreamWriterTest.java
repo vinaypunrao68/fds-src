@@ -13,6 +13,7 @@ import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.mockito.Mockito.*;
 
 public class StreamWriterTest {
@@ -26,7 +27,7 @@ public class StreamWriterTest {
         Map<String, String> metadata = new HashMap<>();
         metadata.put("hello", "world");
 
-        new StreamWriter(4, mockAm).write(domainName, volumeName, blobName, in, metadata);
+        byte[] result = new StreamWriter(4, mockAm).write(domainName, volumeName, blobName, in, metadata);
 
         verify(mockAm, times(1)).updateBlob(
                 eq(domainName),
@@ -66,5 +67,7 @@ public class StreamWriterTest {
                 eq(blobName),
                 eq(metadata)
         );
+
+        assertArrayEquals(expectedDigest, result);
     }
 }

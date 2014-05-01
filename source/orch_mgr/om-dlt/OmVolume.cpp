@@ -1033,6 +1033,17 @@ VolumeContainer::get_volume(const std::string& vol_name)
     return VolumeInfo::vol_cast_ptr(rs_get_resource(uuid));
 }
 
+Error VolumeContainer::getVolumeStatus(const std::string& volumeName) {
+    VolumeInfo::pointer  vol = get_volume(volumeName);
+    if (vol == NULL) {
+        return ERR_NOT_FOUND;
+    } else if (vol->is_delete_pending()) {
+        return ERR_NOT_FOUND;
+    } else if (vol->is_create_pending()) {
+        return ERR_NOT_READY;
+    }
+    return ERR_OK;
+}
 // om_modify_vol
 // -------------
 //

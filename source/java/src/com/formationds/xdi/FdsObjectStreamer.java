@@ -10,12 +10,12 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Iterator;
 
-public class BlockStreamer extends InputStream {
+public class FdsObjectStreamer extends InputStream {
     private Iterator<byte[]> sources;
     private byte[] current;
     private int offset;
 
-    public BlockStreamer(Iterator<byte[]> blocks) {
+    public FdsObjectStreamer(Iterator<byte[]> blocks) {
         this.sources = blocks;
     }
 

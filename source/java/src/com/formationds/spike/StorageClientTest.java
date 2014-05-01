@@ -54,6 +54,14 @@ class MetadataResponseHandler implements FDSP_MetaDataPathReq.Iface {
         System.out.println(fds_msg);
         System.out.println(blob_list_req);
     }
+
+    @Override
+    public void StatBlob(FDSP_MsgHdrType fds_msg,
+                         String volumeName,
+                         String blobName) throws TException {
+        System.out.println(fds_msg);
+        // System.out.println(blob_list_req);
+    }
 }
 
 class DataResponseHandler implements FDSP_DataPathResp.Iface {

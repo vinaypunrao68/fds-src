@@ -17,6 +17,18 @@ void fn_ResponseHandler(FDSN_Status status,
     handler->ready();
 }
 
+void fn_StatBlobHandler(FDSN_Status status,
+                        const ErrorDetails *errorDetails,
+                        BlobDescriptor blobDesc,
+                        void *callbackData) {
+    StatBlobResponseHandler* handler= reinterpret_cast<StatBlobResponseHandler*>(callbackData); //NOLINT
+    handler->status = status;
+    handler->errorDetails = errorDetails;
+    handler->blobDesc = blobDesc;
+
+    handler->ready();
+}
+
 FDSN_Status fn_GetObjectHandler(BucketContextPtr bucket_ctx,
                                 void *reqContext,
                                 fds_uint64_t bufferSize,

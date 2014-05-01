@@ -21,10 +21,11 @@ public class StreamWriter {
         buf = new byte[objectSize];
     }
 
-    public void write(String domainName, String volumeName, String blobName, InputStream in, Map<String, String> metadata) throws Exception {
+    public byte[] write(String domainName, String volumeName, String blobName, InputStream in, Map<String, String> metadata) throws Exception {
         long objectOffset = 0;
         int lastBufSize = 0;
         MessageDigest md = MessageDigest.getInstance("MD5");
+        byte[] digest = new byte[0];
 
         for (int read = in.read(buf); read != -1; read = in.read(buf)) {
             md.update(buf, 0, read);
@@ -35,10 +36,12 @@ public class StreamWriter {
 
         // do this until we have proper transactions
         if (lastBufSize != 0) {
-            ByteBuffer digest = ByteBuffer.wrap(md.digest());
-            am.updateBlob(domainName, volumeName, blobName, ByteBuffer.wrap(buf), lastBufSize, new ObjectOffset(objectOffset - 1), digest, true);
+            digest = md.digest();
+            ByteBuffer byteBuffer = ByteBuffer.wrap(digest);
+            am.updateBlob(domainName, volumeName, blobName, ByteBuffer.wrap(buf), lastBufSize, new ObjectOffset(objectOffset - 1), byteBuffer, true);
         }
 
         am.updateMetadata(domainName, volumeName, blobName, metadata);
+        return digest;
     }
 }

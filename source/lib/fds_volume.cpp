@@ -4,7 +4,7 @@
 #include <fds_volume.h>
 #include <string>
 #include <queue>
-namespace fpi = FDS_ProtocolInterface;
+#include <fds_typedefs.h>
 
 namespace fds {
 

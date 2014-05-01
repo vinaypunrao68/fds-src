@@ -23,7 +23,7 @@ public class HeadBucket implements RequestHandler {
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
         String bucketName = requiredString(routeParameters, "bucket");
-        VolumeDescriptor descriptor = xdi.statVolume(Main.FDS_S3, bucketName);
+        VolumeDescriptor descriptor = xdi.volumeConfiguration(Main.FDS_S3, bucketName);
         return new TextResource("");
     }
 }

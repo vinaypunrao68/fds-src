@@ -17,6 +17,7 @@
 #include <fds_types.h>
 #include <fds_volume.h>
 #include <qos_ctrl.h>
+#include <blob/BlobTypes.h>
 #include <fds_qos.h>
 #include <util/Log.h>
 #include <concurrency/RwLock.h>
@@ -192,6 +193,48 @@ class StorHvVolumeTable : public HasLogger
   /*
    * Pointer to logger to use 
    */
+};
+
+class StatBlobReq : public FdsBlobReq {
+  public:
+    std::string volumeName;
+
+    /// The blob descriptor to fill in
+    BlobDescriptor      blobDesc;
+
+    /// Callback info
+    fdsnStatBlobHandler statBlobCallback;
+    void                *cbData;
+
+    /**
+     * Request constructor. Some of the fields
+     * are not actually needed...the base blob
+     * request class just expects them.
+     */
+    StatBlobReq(fds_volid_t          _volid,
+                const std::string   &_vol_name,
+                const std::string   &_blob_name,
+                fds_uint64_t         _blob_offset,
+                fds_uint64_t         _data_len,
+                char                *_data_buf,
+                fdsnStatBlobHandler  _handler,
+                void                *_callback_data) :
+            FdsBlobReq(FDS_STAT_BLOB, _volid, _blob_name, _blob_offset,
+                       _data_len, _data_buf, FDS_NativeAPI::DoCallback, this, Error(ERR_OK), 0),
+        volumeName(_vol_name),
+        statBlobCallback(_handler),
+        cbData(_callback_data) {
+    }
+    ~StatBlobReq() {
+    }
+
+    const std::string& getVolumeName() const {
+        return volumeName;
+    }
+
+    void DoCallback(FDSN_Status status, ErrorDetails* errDetails) {
+        (statBlobCallback)(status, errDetails, blobDesc, cbData);
+    }
 };
 
 class GetBlobReq: public FdsBlobReq {

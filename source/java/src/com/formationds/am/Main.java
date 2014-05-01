@@ -8,6 +8,7 @@ import com.formationds.apis.ConfigurationService;
 import com.formationds.util.Configuration;
 import com.formationds.xdi.Xdi;
 import com.formationds.xdi.s3.S3Endpoint;
+import com.formationds.xdi.swift.SwiftEndpoint;
 import org.apache.thrift.protocol.TBinaryProtocol;
 import org.apache.thrift.transport.TSocket;
 
@@ -18,13 +19,20 @@ public class Main {
         Configuration configuration = new Configuration(args);
         NativeAm.startAm(args);
 
-        TSocket transport = new TSocket("localhost", 9988);
-        transport.open();
-        AmService.Client am = new AmService.Client(new TBinaryProtocol(transport));
-        ConfigurationService.Client config = null;
+        TSocket amTransport = new TSocket("localhost", 9988);
+        amTransport.open();
+        AmService.Iface am = new AmService.Client(new TBinaryProtocol(amTransport));
 
+        TSocket omTransport = new TSocket("localhost", 9090);
+        omTransport.open();
+        ConfigurationService.Iface config = new ConfigurationService.Client(new TBinaryProtocol(omTransport));
         Xdi xdi = new Xdi(am, config);
+//
+//        ToyServices foo = new ToyServices("foo");
+//        foo.createDomain(FDS_S3);
+//        Xdi xdi = new Xdi(foo, foo);
 
-        new S3Endpoint(xdi).start(9977);
+        new Thread(() -> new S3Endpoint(xdi).start(9977)).start();
+        new SwiftEndpoint(xdi).start(9999);
     }
 }

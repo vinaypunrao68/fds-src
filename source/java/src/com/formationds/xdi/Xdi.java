@@ -5,6 +5,7 @@ package com.formationds.xdi;
 
 import com.formationds.apis.*;
 import org.apache.thrift.TException;
+import org.joda.time.DateTime;
 
 import java.io.InputStream;
 import java.util.Iterator;
@@ -15,47 +16,60 @@ public class Xdi {
     private final AmService.Iface am;
     private ConfigurationService.Iface config;
 
+    public static final String LAST_MODIFIED = "Last-Modified";
+
     public Xdi(AmService.Iface am, ConfigurationService.Iface config) {
         this.am = am;
         this.config = config;
     }
 
-    public void createVolume(String domainName, String volumeName, VolumePolicy volumePolicy) throws XdiException, TException {
+    public void createVolume(String domainName, String volumeName, VolumePolicy volumePolicy) throws ApiException, TException {
         config.createVolume(domainName, volumeName, volumePolicy);
     }
 
-    public void deleteVolume(String domainName, String volumeName) throws XdiException, TException {
+    public void deleteVolume(String domainName, String volumeName) throws ApiException, TException {
         config.deleteVolume(domainName, volumeName);
     }
 
-    public VolumeDescriptor statVolume(String domainName, String volumeName) throws XdiException, TException {
+    public VolumeStatus statVolume(String domainName, String volumeName) throws ApiException, TException {
+        return am.volumeStatus(domainName, volumeName);
+    }
+
+    public VolumeDescriptor volumeConfiguration(String domainName, String volumeName) throws ApiException, TException {
         return config.statVolume(domainName, volumeName);
     }
 
-    public List<VolumeDescriptor> listVolumes(String domainName) throws XdiException, TException {
+    public List<VolumeDescriptor> listVolumes(String domainName) throws ApiException, TException {
         return config.listVolumes(domainName);
     }
 
-    public List<BlobDescriptor> volumeContents(String domainName, String volumeName, int count, long offset) throws XdiException, TException {
+    public List<BlobDescriptor> volumeContents(String domainName, String volumeName, int count, long offset) throws ApiException, TException {
         return am.volumeContents(domainName, volumeName, count, offset);
     }
 
-    public BlobDescriptor statBlob(String domainName, String volumeName, String blobName) throws XdiException, TException {
+    public BlobDescriptor statBlob(String domainName, String volumeName, String blobName) throws ApiException, TException {
         return am.statBlob(domainName, volumeName, blobName);
     }
 
     public InputStream readStream(String domainName, String volumeName, String blobName) throws Exception {
-        Iterator<byte[]> iterator = new BlockIterator(am, config).read(domainName, volumeName, blobName);
-        return new BlockStreamer(iterator);
+        Iterator<byte[]> iterator = new FdsObjectIterator(am, config).read(domainName, volumeName, blobName);
+        return new FdsObjectStreamer(iterator);
     }
 
-    public void writeStream(String domainName, String volumeName, String blobName, InputStream in, Map<String, String> metadata) throws Exception {
-        VolumeDescriptor volume = statVolume(domainName, volumeName);
+    public InputStream readStream(String domainName, String volumeName, String blobName, long requestOffset, long requestLength) throws Exception {
+        Iterator<byte[]> iterator = new FdsObjectIterator(am, config).read(domainName, volumeName, blobName, requestOffset, requestLength);
+        return new FdsObjectStreamer(iterator);
+    }
+
+
+    public byte[] writeStream(String domainName, String volumeName, String blobName, InputStream in, Map<String, String> metadata) throws Exception {
+        VolumeDescriptor volume = config.statVolume(domainName, volumeName);
         int bufSize = volume.getPolicy().getMaxObjectSizeInBytes();
-        new StreamWriter(bufSize, am).write(domainName, volumeName, blobName, in, metadata);
+        metadata.putIfAbsent(LAST_MODIFIED, Long.toString(DateTime.now().getMillis()));
+        return new StreamWriter(bufSize, am).write(domainName, volumeName, blobName, in, metadata);
     }
 
-    public void deleteBlob(String domainName, String volumeName, String blobName) throws XdiException, TException {
+    public void deleteBlob(String domainName, String volumeName, String blobName) throws ApiException, TException {
         am.deleteBlob(domainName, volumeName, blobName);
     }
 }

@@ -47,7 +47,7 @@ class FdsnIf : public apis::AmServiceIf {
         fds_uint32_t fakeMaxObjSize = 2 * 1024 * 1024;
 
         if ((volumePolicy->maxObjectSizeInBytes % fakeMaxObjSize) != 0) {
-            apis::XdiException fdsE;
+            apis::ApiException fdsE;
             fdsE.errorCode = apis::BAD_REQUEST;
             throw fdsE;
         }
@@ -136,15 +136,16 @@ class FdsnIf : public apis::AmServiceIf {
                   boost::shared_ptr<std::string>& domainName,
                   boost::shared_ptr<std::string>& volumeName,
                   boost::shared_ptr<std::string>& blobName) {
-        StatBlobResponseHandler* handler = new StatBlobResponseHandler();
-        handler->blobDescriptor = &_return;
+        StatBlobResponseHandler statBlobHandler(_return);
 
-        native::StatBlobCallbackPtr cb(handler);
-        am_api->StatBlob(*volumeName, *blobName, cb);
-        LOGDEBUG << "waiting for statblob";
-        handler->wait();
-        LOGDEBUG << "processing statblob";
-        handler->process();
+        am_api->StatBlob(*volumeName,
+                         *blobName,
+                         fn_StatBlobHandler,
+                         static_cast<void *>(&statBlobHandler));
+
+        statBlobHandler.wait();
+
+        statBlobHandler.process();
     }
 
     void getBlob(std::string& _return,
@@ -199,7 +200,7 @@ class FdsnIf : public apis::AmServiceIf {
         getHandler.wait();
 
         if (getHandler.status != FDSN_StatusOK) {
-            apis::XdiException fdsE;
+            apis::ApiException fdsE;
             if (getHandler.status == FDSN_StatusEntityDoesNotExist) {
                 fdsE.errorCode = apis::MISSING_RESOURCE;
             } else {
@@ -283,7 +284,7 @@ class FdsnIf : public apis::AmServiceIf {
 
         // Throw an exception if we didn't get an OK response
         if (putHandler.status != FDSN_StatusOK) {
-            apis::XdiException fdsE;
+            apis::ApiException fdsE;
             throw fdsE;
         }
     }

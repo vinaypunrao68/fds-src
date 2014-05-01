@@ -4,20 +4,17 @@ package com.formationds.xdi;
  */
 
 import com.formationds.apis.*;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import org.junit.Test;
 
 import java.nio.ByteBuffer;
 import java.util.Iterator;
-import java.util.List;
 
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-public class BlockIteratorTest {
+public class FdsObjectIteratorTest {
     @Test
     public void testIterator() throws Exception {
         AmService.Iface am = mock(AmService.Iface.class);
@@ -39,11 +36,29 @@ public class BlockIteratorTest {
 
         when(am.getBlob(domainName, volumeName, blobName, 4, new ObjectOffset(0))).thenReturn(blocks[0]);
         when(am.getBlob(domainName, volumeName, blobName, 3, new ObjectOffset(1))).thenReturn(blocks[1]);
+        when(am.getBlob(domainName, volumeName, blobName, 2, new ObjectOffset(1))).thenReturn(ByteBuffer.wrap(new byte[] {4, 5}));
 
-        Iterator<byte[]> result = new BlockIterator(am, config).read(domainName, volumeName, blobName);
-        List<byte[]> list = Lists.newArrayList(result);
-        assertEquals(2, list.size());
-        assertArrayEquals(blocks[0].array(), list.get(0));
-        assertArrayEquals(blocks[1].array(), list.get(1));
+        FdsObjectIterator iterator = new FdsObjectIterator(am, config);
+
+        Iterator<byte[]> result = iterator.read(domainName, volumeName, blobName);
+        assertTrue(result.hasNext());
+        byte[] next = result.next();
+        assertArrayEquals(blocks[0].array(), next);
+
+        assertTrue(result.hasNext());
+        next = result.next();
+        assertArrayEquals(blocks[1].array(), next);
+        assertFalse(result.hasNext());
+
+
+        result = iterator.read(domainName, volumeName, blobName, 2, 4);
+        assertTrue(result.hasNext());
+        next = result.next();
+        assertArrayEquals(new byte[] {2, 3}, next);
+
+        assertTrue(result.hasNext());
+        next = result.next();
+        assertArrayEquals(new byte[] {4, 5}, next);
+        assertFalse(result.hasNext());
     }
 }

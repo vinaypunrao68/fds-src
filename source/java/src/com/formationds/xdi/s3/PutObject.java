@@ -28,7 +28,7 @@ public class PutObject implements RequestHandler {
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
         String bucketName = requiredString(routeParameters, "bucket");
         String objectName = requiredString(routeParameters, "object");
-        int blockSize = xdi.statVolume(Main.FDS_S3, bucketName).getPolicy().getMaxObjectSizeInBytes();
+        int blockSize = xdi.volumeConfiguration(Main.FDS_S3, bucketName).getPolicy().getMaxObjectSizeInBytes();
         InputStream stream = new BufferedInputStream(request.getInputStream(), blockSize * 2);
         String contentType = StaticFileHandler.getMimeType(objectName);
         HashMap<String, String> map = Maps.newHashMap();
