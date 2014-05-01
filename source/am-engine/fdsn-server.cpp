@@ -124,6 +124,18 @@ class FdsnIf : public apis::AmServiceIf {
                         boost::shared_ptr<std::string>& volumeName,
                         boost::shared_ptr<int32_t>& count,
                         boost::shared_ptr<int64_t>& offset) {
+        BucketContext *bucket_ctxt = new BucketContext("host",
+                                                       *volumeName,
+                                                       "accessid",
+                                                       "secretkey");
+        ListBucketResponseHandler handler(_return);
+
+        am_api->GetBucket(bucket_ctxt,
+                          "", "", "", *count,
+                          NULL,
+                          fn_ListBucketHandler, &handler);
+        handler.wait();
+        handler.process();
     }
 
     void statBlob(apis::BlobDescriptor& _return,
@@ -136,16 +148,15 @@ class FdsnIf : public apis::AmServiceIf {
                   boost::shared_ptr<std::string>& domainName,
                   boost::shared_ptr<std::string>& volumeName,
                   boost::shared_ptr<std::string>& blobName) {
-        StatBlobResponseHandler statBlobHandler(_return);
+        StatBlobResponseHandler handler(_return);
 
         am_api->StatBlob(*volumeName,
                          *blobName,
                          fn_StatBlobHandler,
-                         static_cast<void *>(&statBlobHandler));
+                         static_cast<void *>(&handler));
 
-        statBlobHandler.wait();
-
-        statBlobHandler.process();
+        handler.wait();
+        handler.process();
     }
 
     void getBlob(std::string& _return,
@@ -223,7 +234,7 @@ class FdsnIf : public apis::AmServiceIf {
                         boost::shared_ptr<std::string>& volumeName,
                         boost::shared_ptr<std::string>& blobName,
                         boost::shared_ptr<
-                            std::map<std::string, std::string> >& metadata) {
+                        std::map<std::string, std::string> >& metadata) {
     }
 
     void updateBlob(const std::string& domainName,

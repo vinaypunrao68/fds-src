@@ -76,6 +76,9 @@ namespace fds {
     };
 
     struct ListBucketResponseHandler : ResponseHandler {
+        ListBucketResponseHandler(std::vector<apis::BlobDescriptor> & vecBlobs);
+
+        std::vector<apis::BlobDescriptor> & vecBlobs;
         int isTruncated = 0;
         const char *nextMarker = NULL;
         int contentsCount = 0;

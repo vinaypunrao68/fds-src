@@ -6,7 +6,7 @@
 #include <util/timeutils.h>
 #include <string>
 #include <sstream>
-
+#include <vector>
 #define XCHECKSTATUS(status)             \
     if (status != FDSN_StatusOK) {       \
         LOGWARN << " status:" << status; \
@@ -38,7 +38,7 @@ void ResponseHandler::wait() {
     task.await();
 }
 
-bool ResponseHandler::waitFor(ulong timeout) {
+    bool ResponseHandler::waitFor(ulong timeout) {
     return task.await(timeout);
 }
 
@@ -75,12 +75,28 @@ void GetObjectResponseHandler::process() {
 
 GetObjectResponseHandler::~GetObjectResponseHandler() {
 }
-//================================================================================
+    //================================================================================
+
+ListBucketResponseHandler::ListBucketResponseHandler(std::vector<apis::BlobDescriptor> & vecBlobs) : vecBlobs(vecBlobs) { //NOLINT
+}
 
 void ListBucketResponseHandler::process() {
+    XCHECKSTATUS(status);
+    for (int i = 0; i < contentsCount; i++) {
+        apis::BlobDescriptor blob;
+        blob.name = contents[i].objKey;
+        blob.byteCount = contents[i].size;
+        vecBlobs.push_back(blob);
+    }
 }
 
 ListBucketResponseHandler::~ListBucketResponseHandler() {
+    if (nextMarker) delete nextMarker;
+    if (contents) delete[] contents;
+    if (commonPrefixes) {
+        // delete *commonPrefixes;
+        // delete commonPrefixes;
+    }
 }
 
 //================================================================================
