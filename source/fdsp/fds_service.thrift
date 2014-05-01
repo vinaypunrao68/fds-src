@@ -17,6 +17,11 @@ struct SvcVer {
     2: required i16           ver_minor,
 }
 
+struct DomainID {
+    1: required SvcUuid       domain_id,
+    2: required string        domain_name;
+}
+
 /*
  * This message header is owned, controlled and set by the net service layer.
  * Application code treats it as opaque type.
