@@ -9,11 +9,16 @@ import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.StaticFileHandler;
 import com.formationds.web.toolkit.TextResource;
 import com.formationds.xdi.Xdi;
+import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Multimap;
+import org.apache.commons.codec.binary.Hex;
 import org.eclipse.jetty.server.Request;
 
 import java.io.BufferedInputStream;
 import java.io.InputStream;
+import java.security.DigestInputStream;
+import java.security.MessageDigest;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -28,12 +33,25 @@ public class PutObject implements RequestHandler {
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
         String bucketName = requiredString(routeParameters, "bucket");
         String objectName = requiredString(routeParameters, "object");
+
         int blockSize = xdi.volumeConfiguration(Main.FDS_S3, bucketName).getPolicy().getMaxObjectSizeInBytes();
+        MessageDigest md = MessageDigest.getInstance("MD5");
+
         InputStream stream = new BufferedInputStream(request.getInputStream(), blockSize * 2);
+        DigestInputStream dis = new DigestInputStream(stream, md);
+
         String contentType = StaticFileHandler.getMimeType(objectName);
+
         HashMap<String, String> map = Maps.newHashMap();
         map.put("Content-Type", contentType);
         xdi.writeStream(Main.FDS_S3, bucketName, objectName, stream, map);
-        return new TextResource("");
+        return new TextResource("") {
+            @Override
+            public Multimap<String, String> extraHeaders() {
+                LinkedListMultimap<String, String> headers = LinkedListMultimap.create();
+                headers.put("ETag", Hex.encodeHexString(dis.getMessageDigest().digest()));
+                return headers;
+            }
+        };
     }
 }
