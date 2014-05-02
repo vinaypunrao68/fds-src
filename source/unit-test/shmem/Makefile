@@ -11,7 +11,6 @@ user_fds_ar_libs  := \
 
 user_non_fds_libs := \
 		boost_thread \
-		boost_program_options \
 		leveldb thrift rt config++
 
 user_bin_exe      := shm

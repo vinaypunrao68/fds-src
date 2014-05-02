@@ -21,7 +21,7 @@ class FdsShmem
     mg_shm *shm_create_empty(size_t size);
     void  *shm_alloc(size_t size);
     void  *shm_attach();
-    int   shm_remove();
+    bool   shm_remove();
 
   protected:
     char *sh_name;

@@ -16,7 +16,7 @@ FdsShmem::FdsShmem(char *name)
 
 FdsShmem::~FdsShmem() {}
 
-void
+boost::interprocess::managed_shared_memory *
 FdsShmem::shm_create_empty(size_t size)
 {
     // Close existing shm if there is one
