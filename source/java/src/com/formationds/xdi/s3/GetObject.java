@@ -46,16 +46,12 @@ public class GetObject implements RequestHandler {
         }
 
         String contentType = blobDescriptor.getMetadata().getOrDefault("Content-Type", "application/octet-stream");
-        String etag = blobDescriptor.getMetadata().getOrDefault("etag", "Yo");
         InputStream stream = xdi.readStream(Main.FDS_S3, bucketName, objectName);
         return new StreamResource(stream, contentType) {
             @Override
             public Multimap<String, String> extraHeaders() {
                 LinkedListMultimap<String, String> map = LinkedListMultimap.create();
-                // TODO(Andrew): I'm pulling the etag from the k/v metadata where
-                // it's stored as a hex string already...can probably remove digest
-                // map.put("Etag", Hex.encodeHexString(blobDescriptor.getDigest()));
-                map.put("Etag", "\"" + etag + "\"");
+                map.put("Etag", "\"" + Hex.encodeHexString(blobDescriptor.getDigest()) + "\"");
                 return map;
             }
         };

@@ -3,6 +3,7 @@ package com.formationds.demo;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+import com.formationds.om.LandingPage;
 import com.formationds.util.Configuration;
 import com.formationds.web.toolkit.HttpMethod;
 import com.formationds.web.toolkit.WebApp;
@@ -22,9 +23,12 @@ public class Main {
         services.createDomain(DEMO_DOMAIN);
 
         Xdi xdi = new Xdi(services, services);
-        WebApp webApp = new WebApp();
+        String webDir = "/home/fabrice/demo/dist";
+        WebApp webApp = new WebApp(webDir);
         //DemoState state = new RealDemoState(Duration.standardMinutes(5), xdi);
         DemoState state = new MockDemoState();
+
+        webApp.route(HttpMethod.GET, "/", () -> new LandingPage(webDir));
 
         // POST query string (URL string, q=foo)
         // return 200 OK, body unspecified

@@ -17,8 +17,6 @@ import org.eclipse.jetty.server.Request;
 
 import java.io.BufferedInputStream;
 import java.io.InputStream;
-import java.security.DigestInputStream;
-import java.security.MessageDigest;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -47,7 +45,7 @@ public class PutObject implements RequestHandler {
             @Override
             public Multimap<String, String> extraHeaders() {
                 LinkedListMultimap<String, String> headers = LinkedListMultimap.create();
-                headers.put("ETag", Hex.encodeHexString(digest));
+                headers.put("ETag", "\"" + Hex.encodeHexString(digest) + "\"");
                 return headers;
             }
         };
