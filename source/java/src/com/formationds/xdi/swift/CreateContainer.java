@@ -6,6 +6,7 @@ package com.formationds.xdi.swift;
 import com.formationds.apis.VolumePolicy;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
+import com.formationds.web.toolkit.ResourceWrapper;
 import com.formationds.web.toolkit.TextResource;
 import com.formationds.xdi.Xdi;
 import org.eclipse.jetty.server.Request;
@@ -24,7 +25,11 @@ public class CreateContainer implements RequestHandler {
         String accountName = requiredString(routeParameters, "account");
         String containerName = requiredString(routeParameters, "container");
 
-        xdi.createVolume(accountName, containerName, new VolumePolicy(1024 * 1024 * 2));
-        return new TextResource("");
+        try {
+            xdi.createVolume(accountName, containerName, new VolumePolicy(1024 * 1024 * 2));
+            return SwiftUtility.swiftResource(new TextResource(201, ""));
+        } catch(Exception e) {
+            return SwiftUtility.swiftResource(new TextResource(500, e.getMessage()));
+        }
     }
 }
