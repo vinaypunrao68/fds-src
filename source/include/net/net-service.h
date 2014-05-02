@@ -4,6 +4,7 @@
 #ifndef SOURCE_INCLUDE_NET_NET_SERVICE_H_
 #define SOURCE_INCLUDE_NET_NET_SERVICE_H_
 
+#include <netinet/in.h>
 #include <fds_module.h>
 #include <fds_typedefs.h>
 #include <shared/fds-constants.h>
@@ -13,7 +14,7 @@
 namespace fds {
 
 class EpEvtPlugin;
-class NetMgr;
+class EndPointMgr;
 
 /**
  * -------------------
@@ -27,51 +28,40 @@ class NetMgr;
  *   Service provides message passing semantic to enable eligible module to communicate
  *   with the provider in the domain where the service registered.
  */
-struct EpAttr
-{
-};
-
-#define EP_CAST_PTR(T, ptr)  static_cast<T::pointer>(get_pointer(ptr))
-
-/*
- * This event plugin object sparates error handling path from the main data flow path.
- * It provides hooks to enable an endpoint/service to participate in the error handling
- * path in the proper order defined by the model.
- */
-class EpEvtPlugin
+class EpAttr
 {
   public:
-    typedef boost::intrusive_ptr<EpEvtPlugin> pointer;
-    typedef boost::intrusive_ptr<const EpEvtPlugin> const_ptr;
+    typedef boost::intrusive_ptr<EpAttr> pointer;
+    typedef boost::intrusive_ptr<const EpAttr> const_ptr;
 
-    EpEvtPlugin();
-    virtual ~EpEvtPlugin();
-
-    // End-point events.
+    // Physcial attributes of an endpoint.
     //
-    virtual void ep_connected() = 0;
-    virtual void ep_cleanup_start() = 0;
-    virtual void ep_cleanup_finish() = 0;
+    struct sockaddr_in       ep_addr;
 
-    // Service events.
+    // Server attributes.
     //
-    virtual void svc_down() = 0;
-    virtual void svc_cleanup_start() = 0;
-    virtual void svc_cleanup_finish() = 0;
+
+    // Methods.
+    EpAttr();
+    virtual ~EpAttr() {}
+
+    EpAttr(fds_uint32_t ip, int port);  /**< ip = 0, default IP of the node */
 
   private:
     mutable boost::atomic<int>       ep_refcnt;
 
-    friend void intrusive_ptr_add_ref(const EpEvtPlugin *x) {
+    friend void intrusive_ptr_add_ref(const EpAttr *x) {
         x->ep_refcnt.fetch_add(1, boost::memory_order_relaxed);
     }
-    friend void intrusive_ptr_release(const EpEvtPlugin *x) {
+    friend void intrusive_ptr_release(const EpAttr *x) {
         if (x->ep_refcnt.fetch_sub(1, boost::memory_order_release) == 1) {
             boost::atomic_thread_fence(boost::memory_order_acquire);
             delete x;
         }
     }
 };
+
+#define EP_CAST_PTR(T, ptr)  static_cast<T::pointer>(get_pointer(ptr))
 
 /*
  * Service handling object.  A service is identified by its UUID in the domain where
@@ -93,7 +83,7 @@ class EpSvc
           fds_uint32_t        major,
           fds_uint32_t        minor);
 
-    virtual ~EpSvc();
+    virtual ~EpSvc() {}
 
     // When a message sent to this service handler arrives, the network layer will
     // call this function passing the message header.  It's up to the handler object
@@ -121,69 +111,143 @@ class EpSvc
 };
 
 /*
+ * This event plugin object sparates error handling path from the main data flow path.
+ * It provides hooks to enable an endpoint/service to participate in the error handling
+ * path in the proper order defined by the model.
+ */
+class EpEvtPlugin
+{
+  public:
+    typedef boost::intrusive_ptr<EpEvtPlugin> pointer;
+    typedef boost::intrusive_ptr<const EpEvtPlugin> const_ptr;
+
+    EpEvtPlugin();
+    virtual ~EpEvtPlugin() {}
+
+    // End-point and service events.
+    //
+    virtual void ep_connected() = 0;
+    virtual void ep_down() = 0;
+    virtual void svc_down() = 0;
+
+    // Feedback to the error recovery flow.
+    //
+    void ep_cleanup_start();
+    void ep_cleanup_finish();
+
+    void svc_cleanup_start();
+    void svc_cleanup_finish();
+
+  protected:
+    EpSvc::pointer                   ep_owner;
+
+  private:
+    friend class EpSvc;
+    mutable boost::atomic<int>       ep_refcnt;
+
+    friend void intrusive_ptr_add_ref(const EpEvtPlugin *x) {
+        x->ep_refcnt.fetch_add(1, boost::memory_order_relaxed);
+    }
+    friend void intrusive_ptr_release(const EpEvtPlugin *x) {
+        if (x->ep_refcnt.fetch_sub(1, boost::memory_order_release) == 1) {
+            boost::atomic_thread_fence(boost::memory_order_acquire);
+            delete x;
+        }
+    }
+    void assign_ep_owner(EpSvc::pointer owner) { ep_owner = owner; }
+};
+
+/*
  * Endpoint is the logical representation of a physical connection.  It provides RPC
  * semantic.
  */
-template <class EndPointIf>
+template <class SendIf, class RecvIf>
 class EndPoint : public EpSvc
 {
   public:
-    typedef boost::intrusive_ptr<EndPoint<EndPointIf>> pointer;
-    typedef boost::intrusive_ptr<const EndPoint<EndPointIf>> const_ptr;
+    typedef boost::intrusive_ptr<EndPoint<SendIf, RecvIf>> pointer;
+    typedef boost::intrusive_ptr<const EndPoint<SendIf, RecvIf>> const_ptr;
 
     virtual ~EndPoint();
-    EndPoint(const fpi::SvcID              &mine,
-             const fpi::SvcID              &peer,
-             boost::shared_ptr<EndPointIf>  snd_if,
-             boost::shared_ptr<EndPointIf>  rcv_if,
-             EpEvtPlugin::pointer           ops,
-             const EpAttr                  &attr);
+    EndPoint(const fpi::SvcID          &mine,
+             const fpi::SvcID          &peer,
+             boost::shared_ptr<SendIf>  snd_if,
+             boost::shared_ptr<RecvIf>  rcv_if,
+             EpEvtPlugin::pointer       ops,
+             const EpAttr              *attr)
+        : ep_rpc_send(snd_if), ep_rpc_recv(rcv_if), ep_evt(ops) {
+            ep_init_obj(NodeUuid(mine.svc_uuid), NodeUuid(peer.svc_uuid), attr);
+        }
 
-    static inline EndPoint<EndPointIf>::pointer ep_cast_ptr(EpSvc::pointer ptr) {
-        return static_cast<EndPoint<EndPointIf> *>(get_pointer(ptr));
+    EndPoint(int                        port,
+             const NodeUuid            &mine,
+             const NodeUuid            &peer,
+             boost::shared_ptr<SendIf>  snd_if,
+             boost::shared_ptr<RecvIf>  rcv_if,
+             EpEvtPlugin::pointer       ops)
+        : ep_rpc_send(snd_if), ep_rpc_recv(rcv_if), ep_evt(ops) {
+            EpAttr attr(0, port);
+            ep_init_obj(mine, peer, &attr);
+        }
+
+    static inline EndPoint<SendIf, RecvIf>::pointer ep_cast_ptr(EpSvc::pointer ptr) {
+        return static_cast<EndPoint<SendIf, RecvIf> *>(get_pointer(ptr));
     }
 
     // Service registration & lookup.
     //
     virtual void           ep_bind_service(const fpi::SvcID &id, EpSvc::pointer svc);
-    virtual EpSvc::pointer ep_unbind_service(const fpi::SvcUuid &svc);
-    virtual EpSvc::pointer ep_lookup_service(const fpi::SvcUuid &svc);
+    virtual EpSvc::pointer ep_unbind_service(const fpi::SvcID &id);
+    virtual EpSvc::pointer ep_lookup_service(const ResourceUUID &uuid);
     virtual EpSvc::pointer ep_lookup_service(const char *name);
 
-    // Synchronous send.
-    boost::shared_ptr<EndPointIf> ep_sync_rpc();
+    // Synchronous send/receive handlers.
+    //
+    boost::shared_ptr<SendIf> ep_sync_rpc() { return ep_rpc_send; }
+    boost::shared_ptr<RecvIf> ep_rpc_handler() { return ep_rpc_recv; }
 
     // Async message passing.
     //
 
-    // Endpoint attributes.
-    virtual void ep_get_attr(EpAttr *attr) const;
-    virtual void ep_set_attr(const EpAttr *attr);
+    // Control endpoint attributes.
+    //
+    void            ep_apply_attr();
+    EpAttr::pointer ep_get_attr() { return &ep_attr; }
 
   protected:
     friend class NetMgr;
 
-    boost::shared_ptr<EndPointIf>  ep_rpc_send;
-    boost::shared_ptr<EndPointIf>  ep_rpc_recv;
+    boost::shared_ptr<SendIf>      ep_rpc_send;
+    boost::shared_ptr<RecvIf>      ep_rpc_recv;
     EpEvtPlugin::pointer           ep_evt;
     EpAttr                         ep_attr;
-    NetMgr                        *ep_mgr;
+    EndPointMgr                   *ep_mgr;
+
+    void svc_receive_msg(const fpi::AsyncHdr &msg);
+    void ep_init_obj(const NodeUuid &mine, const NodeUuid &peer, const EpAttr *attr);
 };
+
+/**
+ * Module vector hookup
+ */
+extern EndPointMgr  gl_EndPointMgr;
 
 /**
  * Singleton module manages all endpoints.
  */
-class NetMgr : public Module
+class EndPointMgr : public Module
 {
   public:
-    explicit NetMgr(const char *name);
-    virtual ~NetMgr();
+    explicit EndPointMgr(const char *name);
+    virtual ~EndPointMgr() {}
 
     // Module methods.
     //
     virtual int  mod_init(SysParams const *const p);
     virtual void mod_startup();
     virtual void mod_shutdown();
+
+    static EndPointMgr *ep_mgr_singleton() { return &gl_EndPointMgr; }
 
     // Endpoint registration and lookup.
     //
@@ -195,7 +259,7 @@ class NetMgr : public Module
 
     // Local domain service lookup.
     //
-    virtual EpSvc::pointer ep_svc_lookup(const fpi::SvcUuid &svc);
+    virtual EpSvc::pointer ep_svc_lookup(const ResourceUUID &uuid);
 
     // Hook up with domain membership to know which node belongs to which domain.
     //

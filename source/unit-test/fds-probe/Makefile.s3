@@ -16,6 +16,7 @@ user_fds_ar_libs  +=  \
     fds-StorHvisor \
     fds-ubd \
     fds-am-plat \
+    fds-net-svc \
     fds-plat-lib \
     fds-dsk-io \
     fds-dsk-mgnt \
