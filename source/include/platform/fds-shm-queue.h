@@ -41,7 +41,11 @@ FdsShmQueue<T>::FdsShmQueue(char *name, size_t capacity)
 }
 
 template <class T>
-FdsShmQueue<T>::~FdsShmQueue() {}
+FdsShmQueue<T>::~FdsShmQueue()
+{
+    // Make sure we clean up the shared memory segment
+    shm_mgd_segment.shm_remove();
+}
 
 template <class T>
 bool FdsShmQueue<T>::shmq_enqueue(T item)
