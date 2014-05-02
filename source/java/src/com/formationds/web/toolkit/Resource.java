@@ -29,9 +29,5 @@ public interface Resource {
         return HttpServletResponse.SC_OK;
     }
 
-    public default Multimap<String, String> header(String key, String value) {
-        LinkedListMultimap<String, String> map = LinkedListMultimap.create();
-        map.put(key, value);
-        return map;
-    }
+    public default ResourceWrapper withHeader(String key, String value) { return new ResourceWrapper(this).withHeader(key, value);  }
 }
