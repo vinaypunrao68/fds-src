@@ -32,6 +32,56 @@ EpSvc::EpSvc(const ResourceUUID &domain,
 {
 }
 
+EpSvc::EpSvc(const NodeUuid       &mine,
+             const NodeUuid       &peer,
+             const EpAttr         &attr,
+             EpEvtPlugin::pointer  ops)
+{
+}
+
+// ep_bind_service
+// ---------------
+//
+void
+EpSvc::ep_bind_service(EpSvc::pointer svc)
+{
+}
+
+// ep_unbind_service
+// -----------------
+//
+EpSvc::pointer
+EpSvc::ep_unbind_service(const fpi::SvcID &id)
+{
+    return NULL;
+}
+
+// ep_lookup_service
+// -----------------
+//
+EpSvc::pointer
+EpSvc::ep_lookup_service(const ResourceUUID &uuid)
+{
+    return NULL;
+}
+
+// ep_lookup_service
+// -----------------
+//
+EpSvc::pointer
+EpSvc::ep_lookup_service(const char *name)
+{
+    return NULL;
+}
+
+// ep_apply_attr
+// -------------
+//
+void
+EpSvc::ep_apply_attr()
+{
+}
+
 /*
  * -----------------------------------------------------------------------------------
  * Base EP Event Plugin
@@ -73,79 +123,6 @@ EpEvtPlugin::svc_cleanup_finish()
 
 /*
  * -----------------------------------------------------------------------------------
- * Base EP
- * -----------------------------------------------------------------------------------
- */
-// ep_init_obj
-// -----------
-//
-template <class A, class B>
-void
-EndPoint<A, B>::ep_init_obj(const NodeUuid &mine,
-                            const NodeUuid &peer,
-                            const EpAttr   *attr)
-{
-}
-
-// ep_bind_service
-// ---------------
-//
-template <class A, class B>
-void
-EndPoint<A, B>::ep_bind_service(const fpi::SvcID &id, EpSvc::pointer svc)
-{
-}
-
-// ep_unbind_service
-// -----------------
-//
-template <class A, class B>
-EpSvc::pointer
-EndPoint<A, B>::ep_unbind_service(const fpi::SvcID &id)
-{
-    return NULL;
-}
-
-// ep_lookup_service
-// -----------------
-//
-template <class A, class B>
-EpSvc::pointer
-EndPoint<A, B>::ep_lookup_service(const ResourceUUID &uuid)
-{
-    return NULL;
-}
-
-// ep_lookup_service
-// -----------------
-//
-template <class A, class B>
-EpSvc::pointer
-EndPoint<A, B>::ep_lookup_service(const char *name)
-{
-    return NULL;
-}
-
-// ep_apply_attr
-// -------------
-//
-template <class A, class B>
-void
-EndPoint<A, B>::ep_apply_attr()
-{
-}
-
-// svc_receive_msg
-// ---------------
-//
-template <class A, class B>
-void
-EndPoint<A, B>::svc_receive_msg(const fpi::AsyncHdr &msg)
-{
-}
-
-/*
- * -----------------------------------------------------------------------------------
  * EndPoint Manager
  * -----------------------------------------------------------------------------------
  */
@@ -176,17 +153,6 @@ void
 EndPointMgr::mod_shutdown()
 {
 }
-
-#if 0
-// ep_mgr_singleton
-// ----------------
-//
-EndPointMgr *
-EndPointMgr::ep_mgr_singleton()
-{
-    return &gl_EndPointMgr;
-}
-#endif
 
 // ep_register
 // -----------

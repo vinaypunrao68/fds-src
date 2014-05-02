@@ -21,7 +21,7 @@ class ProbeEpPlugin : public EpEvtPlugin
 
     void ep_connected();
     void ep_down();
-    void ep_svc_down();
+    void svc_down();
 
   protected:
     /* Customize data here to do error handling. */
@@ -33,11 +33,10 @@ class ProbeEpPlugin : public EpEvtPlugin
 class ProbeHelloSvc : public EpSvc
 {
   public:
-    /* Register service uuid 0xabcd, major ver 1, minor ver 1 */
-    ProbeHelloSvc() : EpSvc(ResourceUUID(0xabcd), 1, 1) {}
     virtual ~ProbeHelloSvc() {}
+    ProbeHelloSvc(const ResourceUUID &m, fds_uint32_t maj, fds_uint32_t min)
+        : EpSvc(m, maj, min) {}
 
-    /* Whoever sends to uuid = 0xabcd, right message format will invoke this handler */
     void svc_receive_msg(const fpi::AsyncHdr &msg);
 
   private:
@@ -47,9 +46,9 @@ class ProbeHelloSvc : public EpSvc
 class ProbeByeSvc : public EpSvc
 {
   public:
-    /* Register service uuid 0x1234, major ver 2, minor ver 1 */
-    ProbeByeSvc() : EpSvc(ResourceUUID(0x1234), 2, 1) {}
     virtual ~ProbeByeSvc() {}
+    ProbeByeSvc(const ResourceUUID &m, fds_uint32_t maj, fds_uint32_t min)
+        : EpSvc(m, maj, min) {}
 
     void svc_receive_msg(const fpi::AsyncHdr &msg);
 };
@@ -57,28 +56,51 @@ class ProbeByeSvc : public EpSvc
 class ProbePokeSvc : public EpSvc
 {
   public:
-    /* Register service uuid 0xcafe, major ver 2, minor ver 5 */
-    ProbePokeSvc() : EpSvc(ResourceUUID(0xcafe), 2, 5) {}
     virtual ~ProbePokeSvc() {}
+    ProbePokeSvc(const ResourceUUID &m, fds_uint32_t maj, fds_uint32_t min)
+        : EpSvc(m, maj, min) {}
 
     void svc_receive_msg(const fpi::AsyncHdr &msg);
 };
 
+class ProbeTestSM_RPC;
+class ProbeTestAM_RPC;
+
 /**
- * Endpoint test module.
+ * The same probe EP but make it behaves like endpoint of an AM.
  */
-class ProbeEpTest : public Module
+class ProbeEpTestAM : public Module
 {
   public:
-    explicit ProbeEpTest(const char *name);
-    ~ProbeEpTest() {}
+    virtual ~ProbeEpTestAM() {}
+    explicit ProbeEpTestAM(const char *name) : Module(name) {}
 
     // Module methods.
-    //
-    virtual int  mod_init(SysParams const *const p);
-    virtual void mod_startup();
-    virtual void mod_shutdown();
+    int  mod_init(SysParams const *const p);
+    void mod_startup();
+    void mod_shutdown();
 
+    // One endpoint bound to a physical port of the local node.  Full duplex with
+    // its peer.
+    //
+    EndPoint<fpi::ProbeServiceClient, ProbeTestAM_RPC>::pointer probe_ep;
+};
+
+/**
+ * Same probe EP, make it behaves like endpoint of an SM.
+ */
+class ProbeEpTestSM : public Module
+{
+  public:
+    virtual ~ProbeEpTestSM() {}
+    explicit ProbeEpTestSM(const char *name) : Module(name) {}
+
+    // Module methods.
+    int  mod_init(SysParams const *const p);
+    void mod_startup();
+    void mod_shutdown();
+
+  protected:
     // Many services built on top of the endpoint.
     //
     ProbeHelloSvc            *svc_hello;
@@ -88,10 +110,11 @@ class ProbeEpTest : public Module
     // One endpoint bound to a physical port of the local node.  Full duplex with
     // its peer.
     //
-    EndPoint<fpi::ProbeServiceClient, fpi::ProbeServiceIf>::pointer probe_ep;
+    EndPoint<fpi::ProbeServiceClient, ProbeTestSM_RPC>::pointer probe_ep;
 };
 
-extern ProbeEpTest            gl_ProbeTest;
+extern ProbeEpTestSM         gl_ProbeTestSM;
+extern ProbeEpTestAM         gl_ProbeTestAM;
 
 }  // namespace fds
 #endif  // SOURCE_UNIT_TEST_FDS_PROBE_THRIFT_ENDPOINT_TEST_H_
