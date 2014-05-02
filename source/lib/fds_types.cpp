@@ -272,67 +272,6 @@ namespace fds {
       return (std::string(tmp_ip, strlen(tmp_ip)));
     }
 
-    fds_bool_t FdsBlobReq::magicInUse() const {
-      return (magic == FDS_SH_IO_MAGIC_IN_USE);
-    }
-
-    fds_volid_t FdsBlobReq::getVolId() const {
-      return volId;
-    }
-
-    fds_io_op_t  FdsBlobReq::getIoType() const {
-      return ioType;
-    }
-
-    void FdsBlobReq::setVolId(fds_volid_t vol_id) {
-      volId = vol_id;
-    }
-
-    void FdsBlobReq::cbWithResult(int result) {
-      return callback(result);
-    }
-
-    const std::string& FdsBlobReq::getBlobName() const {
-      return blobName;
-    }
-
-    fds_uint64_t FdsBlobReq::getBlobOffset() const {
-      return blobOffset;
-    }
-
-    const char* FdsBlobReq::getDataBuf() const {
-      return dataBuf;
-    }
-
-    fds_uint64_t FdsBlobReq::getDataLen() const {
-      return dataLen;
-    }
-
-    void FdsBlobReq::setDataLen(fds_uint64_t len) {
-      dataLen = len;
-    }
-
-    void FdsBlobReq::setDataBuf(const char* _buf) {
-      /*
-       * TODO: For now we're assuming the buffer is preallocated
-       * by the owner and the length has been set already.
-       */
-      memcpy(dataBuf, _buf, dataLen);
-    }
-
-    ObjectID FdsBlobReq::getObjId() const
-    {
-        return objId;
-    }
-
-    void FdsBlobReq::setObjId(const ObjectID& _oid) {
-      objId = _oid;
-    }
-
-    void FdsBlobReq::setQueuedUsec(fds_uint64_t _usec) {
-      queuedUsec = _usec;
-    }
-
 std::ostream& operator<<(std::ostream& os, const fds_io_op_t& opType) {
     os << "{";
     switch (opType) {
