@@ -18,4 +18,6 @@
 #define ENUMCASE(x) case x : return #x
 #define ENUMCASEOS(x, os) case x : os << #x ; break;
 
+#define SHARED_DYN_CAST(T, ptr) boost::dynamic_pointer_cast<T>(ptr)
+
 #endif  // SOURCE_INCLUDE_FDS_DEFINES_H_
