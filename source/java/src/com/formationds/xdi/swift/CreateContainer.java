@@ -25,11 +25,7 @@ public class CreateContainer implements RequestHandler {
         String accountName = requiredString(routeParameters, "account");
         String containerName = requiredString(routeParameters, "container");
 
-        try {
-            xdi.createVolume(accountName, containerName, new VolumePolicy(1024 * 1024 * 2));
-            return SwiftUtility.swiftResource(new TextResource(201, ""));
-        } catch(Exception e) {
-            return SwiftUtility.swiftResource(new TextResource(500, e.getMessage()));
-        }
+        xdi.createVolume(accountName, containerName, new VolumePolicy(1024 * 1024 * 2));
+        return SwiftUtility.swiftResource(new TextResource(201, ""));
     }
 }
