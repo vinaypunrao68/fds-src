@@ -4,6 +4,7 @@ package com.formationds.web.toolkit;
  */
 
 import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.Multimap;
 
 import javax.servlet.http.Cookie;
@@ -28,4 +29,9 @@ public interface Resource {
         return HttpServletResponse.SC_OK;
     }
 
+    public default Multimap<String, String> header(String key, String value) {
+        LinkedListMultimap<String, String> map = LinkedListMultimap.create();
+        map.put(key, value);
+        return map;
+    }
 }
