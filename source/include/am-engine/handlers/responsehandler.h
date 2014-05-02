@@ -19,7 +19,7 @@ namespace fds {
      */
     enum class HandlerType { WAITEDFOR, IMMEDIATE, QUEUED };
 
-    struct ResponseHandler : virtual native::Callback {
+    struct ResponseHandler : virtual Callback {
         HandlerType type = HandlerType::WAITEDFOR;
         void call();
         void ready();
@@ -42,11 +42,10 @@ namespace fds {
         virtual ~SimpleResponseHandler();
     };
 
-    struct StatBlobResponseHandler : ResponseHandler {
+    struct StatBlobResponseHandler : ResponseHandler , StatBlobCallback {
         StatBlobResponseHandler(apis::BlobDescriptor &retVal);
 
         apis::BlobDescriptor &retBlobDesc;
-        BlobDescriptor blobDesc;
 
         virtual void process();
         virtual ~StatBlobResponseHandler();
@@ -102,13 +101,6 @@ namespace fds {
         virtual void process();
         virtual ~BucketStatsResponseHandler();
     };
-
-    /** Newer callback schemes **/
-
-// struct StatBlobResponseHandler : virtual ResponseHandler, virtual native::StatBlobCallback {
-//     apis::BlobDescriptor* blobDescriptor;
-//      virtual void process();
-//  };
 
 }  // namespace fds
 #endif  // SOURCE_INCLUDE_AM_ENGINE_HANDLERS_RESPONSEHANDLER_H_

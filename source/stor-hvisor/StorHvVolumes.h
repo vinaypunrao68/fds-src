@@ -199,13 +199,6 @@ class StatBlobReq : public FdsBlobReq {
   public:
     std::string volumeName;
 
-    /// The blob descriptor to fill in
-    BlobDescriptor      blobDesc;
-
-    /// Callback info
-    fdsnStatBlobHandler statBlobCallback;
-    void                *cbData;
-
     /**
      * Request constructor. Some of the fields
      * are not actually needed...the base blob
@@ -217,23 +210,16 @@ class StatBlobReq : public FdsBlobReq {
                 fds_uint64_t         _blob_offset,
                 fds_uint64_t         _data_len,
                 char                *_data_buf,
-                fdsnStatBlobHandler  _handler,
-                void                *_callback_data) :
+                CallbackPtr cb) :
             FdsBlobReq(FDS_STAT_BLOB, _volid, _blob_name, _blob_offset,
-                       _data_len, _data_buf, FDS_NativeAPI::DoCallback, this, Error(ERR_OK), 0),
-        volumeName(_vol_name),
-        statBlobCallback(_handler),
-        cbData(_callback_data) {
+                       _data_len, _data_buf, cb),
+                    volumeName(_vol_name) {
     }
     ~StatBlobReq() {
     }
 
     const std::string& getVolumeName() const {
         return volumeName;
-    }
-
-    void DoCallback(FDSN_Status status, ErrorDetails* errDetails) {
-        (statBlobCallback)(status, errDetails, blobDesc, cbData);
     }
 };
 

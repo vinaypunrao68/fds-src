@@ -666,21 +666,23 @@ StorHvCtrl::statBlobResp(const FDSP_MsgHdrTypePtr rxMsg,
     // Return if err
     if (rxMsg->result != FDSP_ERR_OK) {
         vol->journal_tbl->releaseTransId(transId);
-        blobReq->cbWithResult(-1);
+        blobReq->cb->call(FDSN_StatusErrorUnknown);
         txn->reset();
         delete blobReq;
         return;
     }
 
-    blobReq->blobDesc.setBlobName(blobDesc->name);
-    blobReq->blobDesc.setBlobSize(blobDesc->byteCount);
+    StatBlobCallbackPtr cb = SHARED_DYN_CAST(StatBlobCallback,blobReq->cb);
+
+    cb->blobDesc.setBlobName(blobDesc->name);
+    cb->blobDesc.setBlobSize(blobDesc->byteCount);
     for (std::map<std::string, std::string>::const_iterator it =
                  blobDesc->metadata.cbegin();
          it != blobDesc->metadata.cend();
          it++) {
-        blobReq->blobDesc.addKvMeta(it->first, it->second);
+        cb->blobDesc.addKvMeta(it->first, it->second);
     }
-    blobReq->cbWithResult(0);
+    cb->call(FDSN_StatusOK);
     txn->reset();
     vol->journal_tbl->releaseTransId(transId);
 
@@ -1126,11 +1128,11 @@ StorHvCtrl::StatBlob(fds::AmQosReq *qosReq) {
         shVol->readUnlock();
 
         LOGWARN << "Transaction " << transId << " is already in ACTIVE state, giving up...";
-        // There is an ongoing transaciton for this offset.
+        // There is an ongoing transaction for this offset.
         // We should queue this up for later processing once that completes.
     
         // For now, return an error.
-        blobReq->cbWithResult(-2);
+        blobReq->cb->call();
         err = ERR_NOT_IMPLEMENTED;
         delete blobReq;
         delete qosReq;

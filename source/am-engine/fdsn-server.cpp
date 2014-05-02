@@ -148,15 +148,15 @@ class FdsnIf : public apis::AmServiceIf {
                   boost::shared_ptr<std::string>& domainName,
                   boost::shared_ptr<std::string>& volumeName,
                   boost::shared_ptr<std::string>& blobName) {
-        StatBlobResponseHandler handler(_return);
+        boost::shared_ptr<StatBlobResponseHandler> handler(
+            new StatBlobResponseHandler(_return));
 
         am_api->StatBlob(*volumeName,
                          *blobName,
-                         fn_StatBlobHandler,
-                         static_cast<void *>(&handler));
+                         SHARED_DYN_CAST(Callback, handler));
 
-        handler.wait();
-        handler.process();
+        handler->wait();
+        handler->process();
     }
 
     void getBlob(std::string& _return,
@@ -234,7 +234,7 @@ class FdsnIf : public apis::AmServiceIf {
                         boost::shared_ptr<std::string>& volumeName,
                         boost::shared_ptr<std::string>& blobName,
                         boost::shared_ptr<
-                        std::map<std::string, std::string> >& metadata) {
+                            std::map<std::string, std::string> >& metadata) {
     }
 
     void updateBlob(const std::string& domainName,

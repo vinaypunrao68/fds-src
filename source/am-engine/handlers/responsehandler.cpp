@@ -129,8 +129,8 @@ StatBlobResponseHandler::StatBlobResponseHandler(
     apis::BlobDescriptor& retVal) : retBlobDesc(retVal) {
 }
 
-void
-StatBlobResponseHandler::process() {
+
+void StatBlobResponseHandler::process() {
     XCHECKSTATUS(status);
 
     retBlobDesc.name      = blobDesc.getBlobName();
