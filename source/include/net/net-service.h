@@ -229,13 +229,13 @@ class EndPoint : public EpSvc
 
     /// Service binding and lookup.
     //
-    virtual void ep_bind_service(EpSvc::pointer svc) {
+    inline void ep_bind_service(EpSvc::pointer svc) {
         EpSvc::ep_bind_service(svc);
     }
-    virtual EpSvc::pointer ep_unbind_service(const fpi::SvcID &id) {
+    inline EpSvc::pointer ep_unbind_service(const fpi::SvcID &id) {
         return EpSvc::ep_unbind_service(id);
     }
-    virtual EpSvc::pointer ep_lookup_service(const ResourceUUID &uuid) {
+    inline EpSvc::pointer ep_lookup_service(const ResourceUUID &uuid) {
         return EpSvc::ep_lookup_service(uuid);
     }
     virtual EpSvc::pointer ep_lookup_service(const char *name) {
