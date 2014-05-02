@@ -112,7 +112,7 @@ class EpEvtPlugin
 };
 
 /*
- * Service handling object.  A service is identified by its UUID in the domain where
+ * Service object provider.  A service is identified by its UUID in the domain where
  * it registered.  Any software module in the domain can send messages that this
  * service understands (matching supported version) by looking at its UUID.
  */
@@ -186,6 +186,87 @@ class EpSvc
     }
 };
 
+/**
+ * Service object handle (e.g. client side).  A service provider can service many
+ * concurrent clients in the domain.  This service handle object governs the life
+ * cycle of the handler at the client side.
+ */
+class EpSvcHandle
+{
+  public:
+    typedef boost::intrusive_ptr<EpSvcHandle> pointer;
+    typedef boost::intrusive_ptr<const EpSvcHandle> const_ptr;
+
+  protected:
+    friend class NetMgr;
+    friend class EpSvc;
+
+    EpSvcHandle() {}
+    virtual ~EpSvcHandle() {}
+
+  private:
+    mutable boost::atomic<int>       ep_refcnt;
+
+    friend void intrusive_ptr_add_ref(const EpSvcHandle *x) {
+        x->ep_refcnt.fetch_add(1, boost::memory_order_relaxed);
+    }
+    friend void intrusive_ptr_release(const EpSvcHandle *x) {
+        if (x->ep_refcnt.fetch_sub(1, boost::memory_order_release) == 1) {
+            boost::atomic_thread_fence(boost::memory_order_acquire);
+            delete x;
+        }
+    }
+};
+
+/**
+ * Module vector hookup
+ */
+extern EndPointMgr  gl_EndPointMgr;
+
+/**
+ * Singleton module manages all endpoints.
+ */
+class EndPointMgr : public Module
+{
+  public:
+    explicit EndPointMgr(const char *name);
+    virtual ~EndPointMgr() {}
+
+    // Module methods.
+    //
+    virtual int  mod_init(SysParams const *const p);
+    virtual void mod_startup();
+    virtual void mod_shutdown();
+
+    static EndPointMgr *ep_mgr_singleton() { return &gl_EndPointMgr; }
+
+    /**
+     * Endpoint registration and lookup.
+     */
+    virtual void  ep_register(EpSvc::pointer ep);
+    virtual void  ep_unregister(const fpi::SvcUuid &uuid);
+
+    /**
+     * Look up a service handler based on its uuid/name and major/minor version.
+     * Services are only available in the local domain.
+     *
+     * @param uuid (i) - uuid of the service.
+     * @param maj (i)  - the service's major version number.
+     * @param min (i)  - the service's minor version number.
+     */
+    virtual EpSvcHandle::pointer
+    svc_lookup(const ResourceUUID &uuid, fds_uint32_t maj, fds_uint32_t min);
+
+    virtual EpSvcHandle::pointer
+    svc_lookup(const char *name, fds_uint32_t maj, fds_uint32_t min);
+
+    // Hook up with domain membership to know which node belongs to which domain.
+    //
+
+    // Hook with with node/domain state machine events.
+    //
+};
+
 /*
  * Endpoint is the logical representation of a physical connection.  It provides RPC
  * semantic.
@@ -218,6 +299,7 @@ class EndPoint : public EpSvc
     static inline EndPoint<SendIf, RecvIf>::pointer ep_cast_ptr(EpSvc::pointer ptr) {
         return static_cast<EndPoint<SendIf, RecvIf> *>(get_pointer(ptr));
     }
+
     // Synchronous send/receive handlers.
     //
     boost::shared_ptr<SendIf> ep_sync_rpc() { return ep_rpc_send; }
@@ -247,47 +329,6 @@ class EndPoint : public EpSvc
     boost::shared_ptr<RecvIf>      ep_rpc_recv;
 
     void svc_receive_msg(const fpi::AsyncHdr &msg) {}
-};
-
-/**
- * Module vector hookup
- */
-extern EndPointMgr  gl_EndPointMgr;
-
-/**
- * Singleton module manages all endpoints.
- */
-class EndPointMgr : public Module
-{
-  public:
-    explicit EndPointMgr(const char *name);
-    virtual ~EndPointMgr() {}
-
-    // Module methods.
-    //
-    virtual int  mod_init(SysParams const *const p);
-    virtual void mod_startup();
-    virtual void mod_shutdown();
-
-    static EndPointMgr *ep_mgr_singleton() { return &gl_EndPointMgr; }
-
-    // Endpoint registration and lookup.
-    //
-    virtual void           ep_register(EpSvc::pointer ep);
-    virtual void           ep_register(const fpi::DomainID &domain, EpSvc::pointer ep);
-    virtual void           ep_unregister(const fpi::SvcUuid &uuid);
-    virtual EpSvc::pointer ep_lookup(const fpi::SvcUuid &peer);
-    virtual EpSvc::pointer ep_lookup(const char *peer_name);
-
-    // Local domain service lookup.
-    //
-    virtual EpSvc::pointer ep_svc_lookup(const ResourceUUID &uuid);
-
-    // Hook up with domain membership to know which node belongs to which domain.
-    //
-
-    // Hook with with node/domain state machine events.
-    //
 };
 
 }  // namespace fds

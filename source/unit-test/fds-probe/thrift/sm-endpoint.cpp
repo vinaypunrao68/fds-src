@@ -2,7 +2,6 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 #include <endpoint-test.h>
-#include <ProbeService.h>
 
 namespace fds {
 
@@ -14,14 +13,14 @@ class ProbeTestSM_RPC : virtual public fpi::ProbeServiceIf
     ProbeTestSM_RPC() {}
     virtual ~ProbeTestSM_RPC() {}
 
+    void msg_async_resp(const fpi::AsyncHdr &org, const fpi::AsyncRspHdr &resp) {}
+    void msg_async_resp(boost::shared_ptr<fpi::AsyncHdr>    &org,
+                        boost::shared_ptr<fpi::AsyncRspHdr> &resp) {}
+
     void foo(const fpi::ProbeFoo &f) {}
     void foo(boost::shared_ptr<fpi::ProbeFoo> &f) {}
     void bar(const fpi::ProbeBar &b) {}
     void bar(boost::shared_ptr<fpi::ProbeBar> &b) {}
-
-    void msg_async_resp(const fpi::AsyncHdr &org, const fpi::AsyncRspHdr &resp) {}
-    void msg_async_resp(boost::shared_ptr<fpi::AsyncHdr>    &org,
-                        boost::shared_ptr<fpi::AsyncRspHdr> &resp) {}
 
     void probe_put(const fpi::ProbePutMsg &reqt) {}
     void probe_get(fpi::ProbeGetMsgResp &ret, const fpi::ProbeGetMsgReqt &reqt) {}
@@ -45,7 +44,7 @@ ProbeEpTestSM::mod_init(SysParams const *const p)
 
     // Allocate the endpoint, bound to a physical port.
     //
-    probe_ep = new EndPoint<fpi::ProbeServiceClient, ProbeTestSM_RPC>(
+    probe_ep = new EndPoint<fpi::ProbeServiceAMClient, ProbeTestSM_RPC>(
             6000,                          /* port number          */
             NodeUuid(0xabcdef),            /* my uuid              */
             NodeUuid(0xfedcba),            /* peer uuid            */
@@ -61,7 +60,7 @@ ProbeEpTestSM::mod_init(SysParams const *const p)
     svc_bye   = new ProbeByeSvc(ResourceUUID(0xcafe), 3, 4);   /* ver 3.4 */
     svc_poke  = new ProbePokeSvc(ResourceUUID(0xbeef), 5, 1);  /* ver 5.1 */
 
-    // Register the endpoint with the local domain.
+    // Register the endpoint in the local domain.
     mgr = EndPointMgr::ep_mgr_singleton();
     mgr->ep_register(probe_ep);
 

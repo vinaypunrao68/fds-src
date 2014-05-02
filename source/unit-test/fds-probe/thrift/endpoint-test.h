@@ -5,8 +5,9 @@
 #define SOURCE_UNIT_TEST_FDS_PROBE_THRIFT_ENDPOINT_TEST_H_
 
 #include <net/net-service.h>
-#include <ProbeService.h>
 #include <fds_typedefs.h>
+#include <ProbeService.h>
+#include <ProbeServiceAM.h>
 
 namespace fds {
 
@@ -80,6 +81,7 @@ class ProbeEpTestAM : public Module
     void mod_startup();
     void mod_shutdown();
 
+  protected:
     // One endpoint bound to a physical port of the local node.  Full duplex with
     // its peer.
     //
@@ -87,7 +89,29 @@ class ProbeEpTestAM : public Module
 };
 
 /**
- * Same probe EP, make it behaves like endpoint of an SM.
+ * AM using services identified by uuids.
+ */
+class ProbeEpSvcTestAM : public Module
+{
+  public:
+    virtual ~ProbeEpSvcTestAM() {}
+    explicit ProbeEpSvcTestAM(const char *name) : Module(name) {}
+
+    // Module methods.
+    int  mod_init(SysParams const *const p);
+    void mod_startup();
+    void mod_shutdown();
+
+  protected:
+    // Handle to a service used to pass message to it.
+    //
+    EpSvcHandle::pointer     am_hello;
+    EpSvcHandle::pointer     am_bye;
+    EpSvcHandle::pointer     am_poke;
+};
+
+/**
+ * Probe Unit test EP, make it behaves like endpoint of an SM.
  */
 class ProbeEpTestSM : public Module
 {
@@ -110,7 +134,7 @@ class ProbeEpTestSM : public Module
     // One endpoint bound to a physical port of the local node.  Full duplex with
     // its peer.
     //
-    EndPoint<fpi::ProbeServiceClient, ProbeTestSM_RPC>::pointer probe_ep;
+    EndPoint<fpi::ProbeServiceAMClient, ProbeTestSM_RPC>::pointer probe_ep;
 };
 
 extern ProbeEpTestSM         gl_ProbeTestSM;

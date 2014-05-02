@@ -163,15 +163,6 @@ EndPointMgr::ep_register(EpSvc::pointer ep)
 {
 }
 
-// ep_register
-// -----------
-// Register the endpoint to a specific domain, not local.
-//
-void
-EndPointMgr::ep_register(const fpi::DomainID &domain, EpSvc::pointer ep)
-{
-}
-
 // ep_unregister
 // -------------
 // Unregister the endpoint.  This is lazy unregister.  Stale endpoint will be notified
@@ -182,31 +173,22 @@ EndPointMgr::ep_unregister(const fpi::SvcUuid &uuid)
 {
 }
 
-// ep_lookup
-// ---------
-// Lookup the endpoint by its uuid.
+// svc_lookup
+// ----------
+// Lookup a service handle based on uuid and correct version.
 //
-EpSvc::pointer
-EndPointMgr::ep_lookup(const fpi::SvcUuid &peer)
+EpSvcHandle::pointer
+EndPointMgr::svc_lookup(const ResourceUUID &peer, fds_uint32_t maj, fds_uint32_t min)
 {
     return NULL;
 }
 
-// ep_lookup
-// ---------
-// Lookup the endpoint by name.
+// svc_lookup
+// ----------
+// Lookup a service handle based on its well-known name and correct version.
 //
-EpSvc::pointer
-EndPointMgr::ep_lookup(const char *peer_name)
-{
-    return NULL;
-}
-
-// ep_svc_lookup
-// -------------
-//
-EpSvc::pointer
-EndPointMgr::ep_svc_lookup(const ResourceUUID &uuid)
+EpSvcHandle::pointer
+EndPointMgr::svc_lookup(const char *peer_name, fds_uint32_t maj, fds_uint32_t min)
 {
     return NULL;
 }
