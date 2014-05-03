@@ -726,6 +726,20 @@ class TestResp : public FDS_ProtocolInterface::FDSP_MetaDataPathRespIf {
                                  del_cat_obj) {
     }
 
+    void StatBlobResp(const
+                      FDS_ProtocolInterface::FDSP_MsgHdrType&
+                      fdsp_msg,
+                      const
+                      FDS_ProtocolInterface::BlobDescriptor&
+                      blobDesc) {
+    }
+
+    void StatBlobResp(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr&
+                      fdsp_msg,
+                      FDS_ProtocolInterface::BlobDescriptorPtr&
+                      blobDesc) {
+    }
+
     void GetVolumeBlobListResp(const FDS_ProtocolInterface::FDSP_MsgHdrType& 
                                fds_msg, 
                                const FDS_ProtocolInterface::FDSP_GetVolumeBlobListRespType& 

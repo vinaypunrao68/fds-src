@@ -143,7 +143,8 @@ else
     main_cpp_flags     += -Wall -Werror -Wno-reorder -Wno-unused-function
     main_cpp_flags     += -Wno-unused-value -Wno-unused-but-set-variable
     main_cpp_flags     += -Wno-unused-variable -Wno-write-strings
-    main_cpp_flags     += -Winit-self -shared
+    main_cpp_flags     += -Winit-self
+    main_cpp_flags     += -feliminate-unused-debug-symbols
     main_exec_dep_libs := pthread
 endif
 

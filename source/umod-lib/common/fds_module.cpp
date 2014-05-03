@@ -351,4 +351,59 @@ ModuleVector::mod_shutdown()
     }
 }
 
+// --------------------------------------------------------------------------------------
+// FDS root directory layout
+// --------------------------------------------------------------------------------------
+FdsRootDir::FdsRootDir(const std::string &root)
+    : d_fdsroot(root),
+      d_root_etc(root      + std::string("etc/")),
+      d_var_logs(root      + std::string("var/logs/")),
+      d_var_cores(root     + std::string("var/cores/")),
+      d_var_stats(root     + std::string("var/stats/")),
+      d_var_inventory(root + std::string("var/inventory/")),
+      d_var_tests(root     + std::string("var/tests/")),
+      d_var_tools(root     + std::string("var/tools/")),
+      d_dev(root           + std::string("dev/")),
+      d_user_repo(root     + std::string("user-repo/")),
+      d_user_repo_objs(d_user_repo + std::string("objects/")),
+      d_user_repo_dm(d_user_repo   + std::string("dm-names/")),
+
+      d_sys_repo(root      + std::string("sys-repo/")),
+      d_sys_repo_etc(d_sys_repo       + std::string("etc/")),
+      d_sys_repo_domain(d_sys_repo    + std::string("domain/")),
+      d_sys_repo_volume(d_sys_repo    + std::string("volume/")),
+      d_sys_repo_inventory(d_sys_repo + std::string("inventory/")),
+      d_fds_repo(root      + std::string("fds-repo/")) {}
+
+/*
+  * C++ API to create a directory recursively.  Bail out w/out cleaning up when having
+ * errors other than EEXIST.
+ */
+void
+FdsRootDir::fds_mkdir(char const *const path)
+{
+    size_t len;
+    char   tmp[d_max_length], *p;
+
+    len = snprintf(tmp, sizeof(tmp), "%s", path);
+    if (tmp[len - 1] == '/') {
+        tmp[len - 1] = '\0';
+    }
+    umask(0);
+    for (p = tmp + 1; *p; p++) {
+        if (*p == '/') {
+            *p = '\0';
+            if (mkdir(tmp, S_IRWXU) != 0) {
+                if (errno == EACCES) {
+                    std::cout << "Don't have permission to create " << path << std::endl;
+                    exit(1);
+                }
+                fds_verify(errno == EEXIST);
+            }
+            *p = '/';
+        }
+    }
+    mkdir(tmp, S_IRWXU);
+}
+
 }  // namespace fds

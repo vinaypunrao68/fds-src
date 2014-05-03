@@ -10,10 +10,10 @@
 #define XCHECKSTATUS(status)             \
     if (status != FDSN_StatusOK) {       \
         LOGWARN << " status:" << status; \
-        xdi::XdiException xe;            \
-        xe.errorCode = xdi::ErrorCode::INTERNAL_SERVER_ERROR;   \
-        xe.message = toString(status);   \
-        throw xe;                        \
+        apis::ApiException e;            \
+        e.errorCode = apis::ErrorCode::INTERNAL_SERVER_ERROR;   \
+        e.message = toString(status);   \
+        throw e;                        \
     }
 
 namespace fds {
@@ -86,7 +86,7 @@ ListBucketResponseHandler::~ListBucketResponseHandler() {
 //================================================================================
 
 BucketStatsResponseHandler::BucketStatsResponseHandler(
-    xdi::VolumeDescriptor& volumeDescriptor) : volumeDescriptor(volumeDescriptor) {
+    apis::VolumeDescriptor& volumeDescriptor) : volumeDescriptor(volumeDescriptor) {
 }
 
 void BucketStatsResponseHandler::process() {
@@ -110,10 +110,20 @@ BucketStatsResponseHandler::~BucketStatsResponseHandler() {
     }
 }
 
-void StatBlobResponseHandler::process() {
+StatBlobResponseHandler::StatBlobResponseHandler(
+    apis::BlobDescriptor& retVal) : retBlobDesc(retVal) {
+}
+
+void
+StatBlobResponseHandler::process() {
     XCHECKSTATUS(status);
-    LOGDEBUG << "setting bytecount: " << blobSize;
-    blobDescriptor->byteCount = blobSize;
+
+    // TODO(Andrew): Only set the byte count for now...set other stuff later
+    LOGDEBUG << "setting bytecount: " << blobDesc.getBlobSize();
+    retBlobDesc.byteCount = blobDesc.getBlobSize();
+}
+
+StatBlobResponseHandler::~StatBlobResponseHandler() {
 }
 
 }  // namespace fds

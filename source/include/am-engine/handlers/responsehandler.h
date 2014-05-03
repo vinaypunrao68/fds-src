@@ -7,7 +7,7 @@
 #include <concurrency/taskstatus.h>
 #include <native/types.h>
 #include <string>
-#include <xdi/am_shim_types.h>
+#include <apis/apis_types.h>
 
 namespace fds {
     /**
@@ -42,6 +42,16 @@ namespace fds {
         virtual ~SimpleResponseHandler();
     };
 
+    struct StatBlobResponseHandler : ResponseHandler {
+        StatBlobResponseHandler(apis::BlobDescriptor &retVal);
+
+        apis::BlobDescriptor &retBlobDesc;
+        BlobDescriptor blobDesc;
+
+        virtual void process();
+        virtual ~StatBlobResponseHandler();
+    };
+
     struct PutObjectResponseHandler : ResponseHandler {
         void *reqContext = NULL;
         fds_uint64_t bufferSize = 0;
@@ -59,7 +69,7 @@ namespace fds {
         fds_off_t offset = 0;
         const char *buffer = NULL;
         fds_uint64_t blobSize = 0;
-        const std::string* blobEtag = NULL;
+        std::string blobEtag;
 
         virtual void process();
         virtual ~GetObjectResponseHandler();
@@ -78,9 +88,9 @@ namespace fds {
     };
 
     struct BucketStatsResponseHandler : ResponseHandler {
-        BucketStatsResponseHandler(xdi::VolumeDescriptor& volumeDescriptor);
+        BucketStatsResponseHandler(apis::VolumeDescriptor& volumeDescriptor);
 
-        xdi::VolumeDescriptor& volumeDescriptor;
+        apis::VolumeDescriptor& volumeDescriptor;
         const std::string* timestamp = NULL;
         int content_count = 0;
         const BucketStatsContent* contents = NULL;
@@ -92,10 +102,10 @@ namespace fds {
 
     /** Newer callback schemes **/
 
-    struct StatBlobResponseHandler : virtual ResponseHandler, virtual native::StatBlobCallback {
-        xdi::BlobDescriptor* blobDescriptor;
-        virtual void process();
-    };
+// struct StatBlobResponseHandler : virtual ResponseHandler, virtual native::StatBlobCallback {
+//     apis::BlobDescriptor* blobDescriptor;
+//      virtual void process();
+//  };
 
 }  // namespace fds
 #endif  // SOURCE_INCLUDE_AM_ENGINE_HANDLERS_RESPONSEHANDLER_H_

@@ -4,6 +4,8 @@
 #include <am-engine/handlers/handlermappings.h>
 #include <am-engine/handlers/responsehandler.h>
 #include <string>
+#include <util/Log.h>
+
 namespace fds {
 
 void fn_ResponseHandler(FDSN_Status status,
@@ -12,6 +14,18 @@ void fn_ResponseHandler(FDSN_Status status,
     SimpleResponseHandler* handler= reinterpret_cast<SimpleResponseHandler*>(callbackData); //NOLINT
     handler->status = status;
     handler->errorDetails = errorDetails;
+    handler->ready();
+}
+
+void fn_StatBlobHandler(FDSN_Status status,
+                        const ErrorDetails *errorDetails,
+                        BlobDescriptor blobDesc,
+                        void *callbackData) {
+    StatBlobResponseHandler* handler= reinterpret_cast<StatBlobResponseHandler*>(callbackData); //NOLINT
+    handler->status = status;
+    handler->errorDetails = errorDetails;
+    handler->blobDesc = blobDesc;
+
     handler->ready();
 }
 
@@ -35,7 +49,7 @@ FDSN_Status fn_GetObjectHandler(BucketContextPtr bucket_ctx,
     handler->offset = offset;
     handler->buffer = buffer;
     handler->blobSize = blobSize;
-    handler->blobEtag = &blobEtag;
+    handler->blobEtag = blobEtag;
 
     handler->ready();
     return FDSN_StatusOK;

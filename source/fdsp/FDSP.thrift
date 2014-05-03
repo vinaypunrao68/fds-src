@@ -29,6 +29,7 @@ enum FDSP_MsgCodeType {
    FDSP_MSG_GET_VOL_BLOB_LIST_REQ,
    FDSP_MSG_OFFSET_WRITE_OBJ_REQ,
    FDSP_MSG_REDIR_READ_OBJ_REQ,
+   FDSP_STAT_BLOB,
 
    FDSP_MSG_PUT_OBJ_RSP,
    FDSP_MSG_GET_OBJ_RSP,
@@ -217,6 +218,13 @@ struct FDSP_UpdateCatalogType {
   7: FDSP_MetaDataList meta_list, /* sequence of arbitrary key/value pairs */
   8: i32 dm_transaction_id,   /* Transaction id */
   9: i32 dm_operation,        /* Transaction type = OPEN, COMMIT, CANCEL */
+}
+
+/* Can be consolidated when apis and fdsp merge or whatever */
+struct BlobDescriptor {
+     1: required string name,
+     2: required i64 byteCount,
+     3: required map<string, string> metadata
 }
 
 struct FDSP_QueryCatalogType {
@@ -1055,7 +1063,10 @@ service FDSP_MetaDataPathReq {
 
     oneway void DeleteCatalogObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DeleteCatalogType cat_obj_req),
 
-    oneway void GetVolumeBlobList(1:FDSP_MsgHdrType fds_msg, 2:FDSP_GetVolumeBlobListReqType blob_list_req)
+    oneway void GetVolumeBlobList(1:FDSP_MsgHdrType fds_msg, 2:FDSP_GetVolumeBlobListReqType blob_list_req),
+
+    /* Using cleaner API convention. Just pass msg hdr for legacy compatability */
+    oneway void StatBlob(1:FDSP_MsgHdrType fds_msg, 2:string volumeName, 3:string blobName)
 }
 
 service FDSP_MetaDataPathResp {
@@ -1066,7 +1077,10 @@ service FDSP_MetaDataPathResp {
 
     oneway void DeleteCatalogObjectResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DeleteCatalogType cat_obj_req),
 
-    oneway void GetVolumeBlobListResp(1:FDSP_MsgHdrType fds_msg, 2:FDSP_GetVolumeBlobListRespType blob_list_rsp)
+    oneway void GetVolumeBlobListResp(1:FDSP_MsgHdrType fds_msg, 2:FDSP_GetVolumeBlobListRespType blob_list_rsp),
+
+    /* Using cleaner API convention. Just pass msg hdr for legacy compatability */
+    oneway void StatBlobResp(1:FDSP_MsgHdrType fds_msg, 2:BlobDescriptor blobDesc)
 }
 
 

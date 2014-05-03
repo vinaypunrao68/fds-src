@@ -169,6 +169,7 @@ int OrchMgr::run()
 {
     // run server to listen for OMControl messages from
     // SM, DM and SH
+    runConfigService(this);
     if (omc_server_session) {
         omcp_session_tbl->listenServer(omc_server_session);
     }

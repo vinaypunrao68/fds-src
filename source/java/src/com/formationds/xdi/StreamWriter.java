@@ -3,34 +3,45 @@ package com.formationds.xdi;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.xdi.shim.AmShim;
+import com.formationds.apis.AmService;
+import com.formationds.apis.ObjectOffset;
 
 import java.io.InputStream;
 import java.nio.ByteBuffer;
+import java.security.MessageDigest;
 import java.util.Map;
 
 public class StreamWriter {
 
     private final byte[] buf;
-    private AmShim.Iface am;
+    private AmService.Iface am;
 
-    public StreamWriter(int bufSize, AmShim.Iface am) {
+    public StreamWriter(int objectSize, AmService.Iface am) {
         this.am = am;
-        buf = new byte[bufSize];
+        buf = new byte[objectSize];
     }
 
-    public void write(String domainName, String volumeName, String blobName, InputStream in, Map<String, String> metadata) throws Exception {
-        long offset = 0;
+    public byte[] write(String domainName, String volumeName, String blobName, InputStream in, Map<String, String> metadata) throws Exception {
+        long objectOffset = 0;
+        int lastBufSize = 0;
+        MessageDigest md = MessageDigest.getInstance("MD5");
+        byte[] digest = new byte[0];
+
         for (int read = in.read(buf); read != -1; read = in.read(buf)) {
-            am.updateBlob(domainName, volumeName, blobName, ByteBuffer.wrap(buf, 0, read), read, offset, false);
-            offset += read;
+            md.update(buf, 0, read);
+            am.updateBlob(domainName, volumeName, blobName, ByteBuffer.wrap(buf, 0, read), read, new ObjectOffset(objectOffset), ByteBuffer.wrap(new byte[0]), false);
+            lastBufSize = read;
+            objectOffset++;
         }
 
         // do this until we have proper transactions
-        if (offset != 0) {
-            am.updateBlob(domainName, volumeName, blobName, ByteBuffer.wrap(buf, 0, 0), 0, offset, true);
+        if (lastBufSize != 0) {
+            digest = md.digest();
+            ByteBuffer byteBuffer = ByteBuffer.wrap(digest);
+            am.updateBlob(domainName, volumeName, blobName, ByteBuffer.wrap(buf), lastBufSize, new ObjectOffset(objectOffset - 1), byteBuffer, true);
         }
 
         am.updateMetadata(domainName, volumeName, blobName, metadata);
+        return digest;
     }
 }

@@ -1,6 +1,7 @@
 topdir          := ../../../..
 user_target     := lib
 user_rtime_env  := user
+user_incl_dir   := $(topdir)/include/fdsp
 
 local_nocpp     := $(wildcard *.skeleton.*)
 user_cpp        := $(filter-out $(local_nocpp),$(wildcard *.cpp))

@@ -8,7 +8,8 @@ user_build_dir    := \
 	om-dlt \
 	om-common \
 	om-lib \
-	om-discovery
+	om-discovery \
+	configservice
 
 user_fds_ar_libs  := \
     fds-om-common \
@@ -18,7 +19,7 @@ user_fds_ar_libs  := \
     fds-plat-lib \
     fds-lib \
     fds-util \
-    fds-netproxy \
+    fds-xdi \
     fds-fdsp \
     fds-umod \
     fds-thread

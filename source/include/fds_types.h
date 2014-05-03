@@ -194,6 +194,7 @@ typedef enum {
     FDS_LIST_BLOB,
     FDS_PUT_BLOB,
     FDS_GET_BLOB,
+    FDS_STAT_BLOB,
     FDS_DELETE_BLOB,
     FDS_LIST_BUCKET,
     FDS_BUCKET_STATS,

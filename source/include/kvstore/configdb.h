@@ -10,7 +10,6 @@
 #include <dlt.h>
 
 namespace fds {
-    namespace fpi = FDS_ProtocolInterface;
     namespace kvstore {        
         using PolicyInfo = fpi::FDSP_PolicyInfoType;
         

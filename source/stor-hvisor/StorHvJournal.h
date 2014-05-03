@@ -165,72 +165,69 @@ typedef std::queue<fds_uint32_t> PendingDltQueue;
 typedef std::set<fds_uint32_t> PendingDltSet;
 
 class StorHvJournal {
+  private:
+    fds_mutex *jrnl_tbl_mutex;
+    StorHvJournalEntry  *rwlog_tbl;
+    std::unordered_map<fds_uint64_t, fds_uint32_t> block_to_jrnl_idx;
+    /*
+     * New jrnl index for blobs
+     */
+    std::unordered_map<std::string, fds_uint32_t> blob_to_jrnl_idx;
+    std::queue<unsigned int> free_trans_ids;
+    unsigned int max_journal_entries;
 
-private:
+    unsigned int get_free_trans_id();
+    void return_free_trans_id(unsigned int trans_id);
+    FdsTimer  *ioTimer;
 
-  fds_mutex *jrnl_tbl_mutex;
-  StorHvJournalEntry  *rwlog_tbl;
-  std::unordered_map<fds_uint64_t, fds_uint32_t> block_to_jrnl_idx;
-  /*
-   * New jrnl index for blobs
-   */
-  std::unordered_map<std::string, fds_uint32_t> blob_to_jrnl_idx;
-  std::queue<unsigned int> free_trans_ids;
-  unsigned int max_journal_entries;
+    boost::posix_time::ptime ctime; /* time the journal was created */
 
-  unsigned int get_free_trans_id();
-  void return_free_trans_id(unsigned int trans_id);
-  FdsTimer  *ioTimer;
+    /**
+     * Queue of transactions that are currently waiting for
+     * a new DLT version to be recieved before continuing
+     * processing.
+     * These requests had prior requests rejected because
+     * the local DLT version was not update to date.
+     */
+    PendingDltQueue transPendingDlt;
+    /**
+     * Set of unique transactions that are waiting
+     * for a new DLT. Helps ensure the queue does not
+     * contain duplicates.
+     */
+    PendingDltSet transDltSet;
 
-  boost::posix_time::ptime ctime; /* time the journal was created */
+  public:
+    StorHvJournal();
+    StorHvJournal(unsigned int max_jrnl_entries);
+    ~StorHvJournal();
 
-  /**
-   * Queue of transactions that are currently waiting for
-   * a new DLT version to be recieved before continuing
-   * processing.
-   * These requests had prior requests rejected because
-   * the local DLT version was not update to date.
-   */
-  PendingDltQueue transPendingDlt;
-  /**
-   * Set of unique transactions that are waiting
-   * for a new DLT. Helps ensure the queue does not
-   * contain duplicates.
-   */
-  PendingDltSet transDltSet;
+    void lock();
+    void unlock();
 
-public:
- 	StorHvJournal();
-	StorHvJournal(unsigned int max_jrnl_entries);
- 	~StorHvJournal();
+    void pushPendingDltTrans(fds_uint32_t transId);
+    PendingDltQueue popAllDltTrans();
 
-	void lock();
-	void unlock();
+    StorHvJournalEntry *get_journal_entry(fds_uint32_t trans_id);
+    fds_uint32_t get_trans_id_for_block(fds_uint64_t block_offset);  // Legacy block
+    // TODO(Andrew): Don't pass a non-const ref, make a shared ptr
+    // TODO(Andrew): Don't require blob offset...using the whole blob
+    fds_uint32_t get_trans_id_for_blob(const std::string& blobName,
+                                       fds_uint64_t blobOffset,
+                                       bool& trans_in_progress);
+    void release_trans_id(unsigned int trans_id);  // Legacy block
+    void releaseTransId(fds_uint32_t transId);
+    template<typename Rep, typename Period>
+    bool schedule(FdsTimerTaskPtr& task,
+                  const std::chrono::duration<Rep, Period>& interval) {	
+        return ioTimer->schedule(task, interval);
+    }
 
-        void pushPendingDltTrans(fds_uint32_t transId);
-        PendingDltQueue popAllDltTrans();
-
-	StorHvJournalEntry *get_journal_entry(fds_uint32_t trans_id);
-	fds_uint32_t get_trans_id_for_block(fds_uint64_t block_offset);  // Legacy block
-        fds_uint32_t get_trans_id_for_blob(const std::string& blobName,
-					   fds_uint64_t blobOffset,
-					   bool& trans_in_progress);
-	void release_trans_id(unsigned int trans_id);  // Legacy block
-        void releaseTransId(fds_uint32_t transId);
-        template<typename Rep, typename Period>
-        bool schedule(FdsTimerTaskPtr& task,
-            const std::chrono::duration<Rep, Period>& interval) {	
-             return ioTimer->schedule(task, interval);
-    	}
-
-	long microsecSinceCtime(boost::posix_time::ptime timestamp) {
-	  boost::posix_time::time_duration elapsed = timestamp - ctime;
-	  return elapsed.total_microseconds();
-	}
-
+    long microsecSinceCtime(boost::posix_time::ptime timestamp) {
+        boost::posix_time::time_duration elapsed = timestamp - ctime;
+        return elapsed.total_microseconds();
+    }
 };
-
-
 } // namespace fds
 
 #endif // __STOR_HV_JRNL_H_
