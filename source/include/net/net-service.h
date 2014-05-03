@@ -5,15 +5,23 @@
 #define SOURCE_INCLUDE_NET_NET_SERVICE_H_
 
 #include <netinet/in.h>
+#include <string>
 #include <fds_module.h>
 #include <fds_typedefs.h>
 #include <shared/fds-constants.h>
 #include <fdsp/fds_service_types.h>
 #include <boost/intrusive_ptr.hpp>
 
+#include <unistd.h>
+#include <arpa/inet.h>
+#include <thrift/protocol/TBinaryProtocol.h>
+#include <thrift/transport/TSocket.h>
+#include <thrift/transport/TTransportUtils.h>
+
 namespace fds {
 
 class EpSvc;
+class EpSvcHandle;
 class EpEvtPlugin;
 class EndPointMgr;
 
@@ -82,10 +90,24 @@ class EpEvtPlugin
     //
     virtual void ep_connected() = 0;
     virtual void ep_down() = 0;
-    virtual void svc_down() = 0;
 
-    // Feedback to the error recovery flow.
-    //
+    /**
+     * For list of service handles bound to this endpoint, notify them when the service
+     * is down.
+     *
+     * @param svc (i) - same as EpSvc::pointer type, pointer to the local representation
+     *            of the service's provider (e.g. server object).
+     * @param handle (i) - same as EpSvcHandle::pointer type, pointer to the handle
+     *            of a client of the service (e.g. client object).
+     */
+    virtual void svc_down(boost::intrusive_ptr<EpSvc>       svc,
+                          boost::intrusive_ptr<EpSvcHandle> handle) = 0;
+
+    /**
+     * Feedback to the error recovery flow.  When the plugin code is ready to handle
+     * errors comming back from async messages, notify the net service layer with these
+     * calls to start the cleanup process.
+     */
     void ep_cleanup_start();
     void ep_cleanup_finish();
 
@@ -139,7 +161,7 @@ class EpSvc
     //
     virtual void svc_receive_msg(const fpi::AsyncHdr &msg) = 0;
 
-    // Control endpoint attributes.
+    // Control endpoint/service attributes.
     //
     void            ep_apply_attr();
     EpAttr::pointer ep_get_attr() { return ep_attr; }
@@ -267,10 +289,15 @@ class EndPointMgr : public Module
     //
 };
 
-/*
- * Endpoint is the logical representation of a physical connection.  It provides RPC
- * semantic.
+/**
+ * Endpoint is the logical RPC representation of a physical connection.
+ * Thrift template implementation.
  */
+using namespace std;                         // NOLINT
+using namespace apache::thrift;              // NOLINT
+using namespace apache::thrift::protocol;    // NOLINT
+using namespace apache::thrift::transport;   // NOLINT
+
 template <class SendIf, class RecvIf>
 class EndPoint : public EpSvc
 {
@@ -282,19 +309,16 @@ class EndPoint : public EpSvc
     EndPoint(const fpi::SvcID          &mine,
              const fpi::SvcID          &peer,
              const EpAttr              &attr,
-             boost::shared_ptr<SendIf>  snd_if,
              boost::shared_ptr<RecvIf>  rcv_if,
              EpEvtPlugin::pointer       ops)
-        : EpSvc(mine, peer, attr, ops), ep_rpc_send(snd_if), ep_rpc_recv(rcv_if) {}
+        : EpSvc(mine, peer, attr, ops), ep_rpc_recv(rcv_if) { ep_init_obj(); }
 
     EndPoint(int                        port,
              const NodeUuid            &mine,
              const NodeUuid            &peer,
-             boost::shared_ptr<SendIf>  snd_if,
              boost::shared_ptr<RecvIf>  rcv_if,
              EpEvtPlugin::pointer       ops)
-        : EpSvc(mine, peer, EpAttr(0, port), ops),
-          ep_rpc_send(snd_if), ep_rpc_recv(rcv_if) {}
+        : EpSvc(mine, peer, EpAttr(0, port), ops), ep_rpc_recv(rcv_if) { ep_init_obj(); }
 
     static inline EndPoint<SendIf, RecvIf>::pointer ep_cast_ptr(EpSvc::pointer ptr) {
         return static_cast<EndPoint<SendIf, RecvIf> *>(get_pointer(ptr));
@@ -327,8 +351,12 @@ class EndPoint : public EpSvc
   protected:
     boost::shared_ptr<SendIf>      ep_rpc_send;
     boost::shared_ptr<RecvIf>      ep_rpc_recv;
+    boost::shared_ptr<TTransport>  ep_sock;
+    boost::shared_ptr<TTransport>  ep_trans;
+    boost::shared_ptr<TProtocol>   ep_proto;
 
     void svc_receive_msg(const fpi::AsyncHdr &msg) {}
+    void ep_init_obj() {}
 };
 
 }  // namespace fds

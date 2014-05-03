@@ -46,8 +46,6 @@ ProbeEpTestAM::mod_init(SysParams const *const p)
             6000,                           /* port number         */
             NodeUuid(0xfedcba),             /* my uuid             */
             NodeUuid(0xabcdef),             /* peer uuid           */
-            NULL,
-            // new fpi::ProbeServiceClient(),
             boost::shared_ptr<ProbeTestAM_RPC>(new ProbeTestAM_RPC()),
             new ProbeEpPlugin());
 

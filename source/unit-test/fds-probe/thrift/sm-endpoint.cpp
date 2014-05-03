@@ -48,8 +48,6 @@ ProbeEpTestSM::mod_init(SysParams const *const p)
             6000,                          /* port number          */
             NodeUuid(0xabcdef),            /* my uuid              */
             NodeUuid(0xfedcba),            /* peer uuid            */
-            NULL,
-            // new fpi::ProbeServiceClient(), /* Thrift's RPC client  */
             boost::shared_ptr<ProbeTestSM_RPC>(new ProbeTestSM_RPC()),
             new ProbeEpPlugin());
 
