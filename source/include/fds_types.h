@@ -71,6 +71,8 @@ typedef fds_uint64_t blob_version_t;
 
 typedef std::atomic<fds_uint64_t> fds_atomic_ullong;
 
+typedef boost::shared_ptr<void> VoidPtr;
+
 /**
  * Blob versions cannot be 0. That value will represent
  * either a null or uninitialized version.
