@@ -13,6 +13,7 @@
 
 namespace fds {
 
+class EpSvc;
 class EpEvtPlugin;
 class EndPointMgr;
 
@@ -64,53 +65,6 @@ class EpAttr
 #define EP_CAST_PTR(T, ptr)  static_cast<T::pointer>(get_pointer(ptr))
 
 /*
- * Service handling object.  A service is identified by its UUID in the domain where
- * it registered.  Any software module in the domain can send messages that this
- * service understands (matching supported version) by looking at its UUID.
- */
-class EpSvc
-{
-  public:
-    typedef boost::intrusive_ptr<EpSvc> pointer;
-    typedef boost::intrusive_ptr<const EpSvc> const_ptr;
-
-    // Service bound to the local domain.
-    EpSvc(const ResourceUUID &uuid, fds_uint32_t major, fds_uint32_t minor);
-
-    // Service bound to a remote domain.
-    EpSvc(const ResourceUUID &domain,
-          const ResourceUUID &uuid,
-          fds_uint32_t        major,
-          fds_uint32_t        minor);
-
-    virtual ~EpSvc() {}
-
-    // When a message sent to this service handler arrives, the network layer will
-    // call this function passing the message header.  It's up to the handler object
-    // to intepret the remaining payload.
-    //
-    virtual void svc_receive_msg(const fpi::AsyncHdr &msg) = 0;
-
-  protected:
-    fpi::SvcID                       svc_id;
-    fpi::SvcVer                      svc_ver;
-    fpi::DomainID                   *svc_domain;
-
-  private:
-    mutable boost::atomic<int>       ep_refcnt;
-
-    friend void intrusive_ptr_add_ref(const EpSvc *x) {
-        x->ep_refcnt.fetch_add(1, boost::memory_order_relaxed);
-    }
-    friend void intrusive_ptr_release(const EpSvc *x) {
-        if (x->ep_refcnt.fetch_sub(1, boost::memory_order_release) == 1) {
-            boost::atomic_thread_fence(boost::memory_order_acquire);
-            delete x;
-        }
-    }
-};
-
-/*
  * This event plugin object sparates error handling path from the main data flow path.
  * It provides hooks to enable an endpoint/service to participate in the error handling
  * path in the proper order defined by the model.
@@ -139,7 +93,7 @@ class EpEvtPlugin
     void svc_cleanup_finish();
 
   protected:
-    EpSvc::pointer                   ep_owner;
+    boost::intrusive_ptr<EpSvc>      ep_owner;
 
   private:
     friend class EpSvc;
@@ -154,7 +108,82 @@ class EpEvtPlugin
             delete x;
         }
     }
-    void assign_ep_owner(EpSvc::pointer owner) { ep_owner = owner; }
+    void assign_ep_owner(boost::intrusive_ptr<EpSvc> owner) { ep_owner = owner; }
+};
+
+/*
+ * Service handling object.  A service is identified by its UUID in the domain where
+ * it registered.  Any software module in the domain can send messages that this
+ * service understands (matching supported version) by looking at its UUID.
+ */
+class EpSvc
+{
+  public:
+    typedef boost::intrusive_ptr<EpSvc> pointer;
+    typedef boost::intrusive_ptr<const EpSvc> const_ptr;
+
+    // Service bound to the local domain.
+    EpSvc(const ResourceUUID &uuid, fds_uint32_t major, fds_uint32_t minor);
+
+    // Service bound to a remote domain.
+    EpSvc(const ResourceUUID &domain,
+          const ResourceUUID &uuid,
+          fds_uint32_t        major,
+          fds_uint32_t        minor);
+
+    virtual ~EpSvc() {}
+
+    // When a message sent to this service handler arrives, the network layer will
+    // call this function passing the message header.  It's up to the handler object
+    // to intepret the remaining payload.
+    //
+    virtual void svc_receive_msg(const fpi::AsyncHdr &msg) = 0;
+
+    // Control endpoint attributes.
+    //
+    void            ep_apply_attr();
+    EpAttr::pointer ep_get_attr() { return ep_attr; }
+
+  protected:
+    friend class NetMgr;
+
+    fpi::SvcID                       svc_id;
+    fpi::SvcVer                      svc_ver;
+    EpEvtPlugin::pointer             ep_evt;
+    EpAttr::pointer                  ep_attr;
+
+    fpi::DomainID                   *svc_domain;
+    EndPointMgr                     *ep_mgr;
+
+    // Service registration & lookup.
+    //
+    EpSvc(const NodeUuid       &mine,
+          const NodeUuid       &peer,
+          const EpAttr         &attr,
+          EpEvtPlugin::pointer  ops);
+
+    EpSvc(const fpi::SvcID     &mine,
+          const fpi::SvcID     &peer,
+          const EpAttr         &attr,
+          EpEvtPlugin::pointer  ops);
+
+    virtual void           ep_bind_service(EpSvc::pointer svc);
+    virtual EpSvc::pointer ep_unbind_service(const fpi::SvcID &id);
+    virtual EpSvc::pointer ep_lookup_service(const ResourceUUID &uuid);
+    virtual EpSvc::pointer ep_lookup_service(const char *name);
+
+  private:
+    mutable boost::atomic<int>       ep_refcnt;
+
+    friend void intrusive_ptr_add_ref(const EpSvc *x) {
+        x->ep_refcnt.fetch_add(1, boost::memory_order_relaxed);
+    }
+    friend void intrusive_ptr_release(const EpSvc *x) {
+        if (x->ep_refcnt.fetch_sub(1, boost::memory_order_release) == 1) {
+            boost::atomic_thread_fence(boost::memory_order_acquire);
+            delete x;
+        }
+    }
 };
 
 /*
@@ -168,16 +197,14 @@ class EndPoint : public EpSvc
     typedef boost::intrusive_ptr<EndPoint<SendIf, RecvIf>> pointer;
     typedef boost::intrusive_ptr<const EndPoint<SendIf, RecvIf>> const_ptr;
 
-    virtual ~EndPoint();
+    virtual ~EndPoint() {}
     EndPoint(const fpi::SvcID          &mine,
              const fpi::SvcID          &peer,
+             const EpAttr              &attr,
              boost::shared_ptr<SendIf>  snd_if,
              boost::shared_ptr<RecvIf>  rcv_if,
-             EpEvtPlugin::pointer       ops,
-             const EpAttr              *attr)
-        : ep_rpc_send(snd_if), ep_rpc_recv(rcv_if), ep_evt(ops) {
-            ep_init_obj(NodeUuid(mine.svc_uuid), NodeUuid(peer.svc_uuid), attr);
-        }
+             EpEvtPlugin::pointer       ops)
+        : EpSvc(mine, peer, attr, ops), ep_rpc_send(snd_if), ep_rpc_recv(rcv_if) {}
 
     EndPoint(int                        port,
              const NodeUuid            &mine,
@@ -185,22 +212,12 @@ class EndPoint : public EpSvc
              boost::shared_ptr<SendIf>  snd_if,
              boost::shared_ptr<RecvIf>  rcv_if,
              EpEvtPlugin::pointer       ops)
-        : ep_rpc_send(snd_if), ep_rpc_recv(rcv_if), ep_evt(ops) {
-            EpAttr attr(0, port);
-            ep_init_obj(mine, peer, &attr);
-        }
+        : EpSvc(mine, peer, EpAttr(0, port), ops),
+          ep_rpc_send(snd_if), ep_rpc_recv(rcv_if) {}
 
     static inline EndPoint<SendIf, RecvIf>::pointer ep_cast_ptr(EpSvc::pointer ptr) {
         return static_cast<EndPoint<SendIf, RecvIf> *>(get_pointer(ptr));
     }
-
-    // Service registration & lookup.
-    //
-    virtual void           ep_bind_service(const fpi::SvcID &id, EpSvc::pointer svc);
-    virtual EpSvc::pointer ep_unbind_service(const fpi::SvcID &id);
-    virtual EpSvc::pointer ep_lookup_service(const ResourceUUID &uuid);
-    virtual EpSvc::pointer ep_lookup_service(const char *name);
-
     // Synchronous send/receive handlers.
     //
     boost::shared_ptr<SendIf> ep_sync_rpc() { return ep_rpc_send; }
@@ -208,23 +225,28 @@ class EndPoint : public EpSvc
 
     // Async message passing.
     //
-
-    // Control endpoint attributes.
     //
-    void            ep_apply_attr();
-    EpAttr::pointer ep_get_attr() { return &ep_attr; }
+
+    /// Service binding and lookup.
+    //
+    inline void ep_bind_service(EpSvc::pointer svc) {
+        EpSvc::ep_bind_service(svc);
+    }
+    inline EpSvc::pointer ep_unbind_service(const fpi::SvcID &id) {
+        return EpSvc::ep_unbind_service(id);
+    }
+    inline EpSvc::pointer ep_lookup_service(const ResourceUUID &uuid) {
+        return EpSvc::ep_lookup_service(uuid);
+    }
+    virtual EpSvc::pointer ep_lookup_service(const char *name) {
+        return EpSvc::ep_lookup_service(name);
+    }
 
   protected:
-    friend class NetMgr;
-
     boost::shared_ptr<SendIf>      ep_rpc_send;
     boost::shared_ptr<RecvIf>      ep_rpc_recv;
-    EpEvtPlugin::pointer           ep_evt;
-    EpAttr                         ep_attr;
-    EndPointMgr                   *ep_mgr;
 
-    void svc_receive_msg(const fpi::AsyncHdr &msg);
-    void ep_init_obj(const NodeUuid &mine, const NodeUuid &peer, const EpAttr *attr);
+    void svc_receive_msg(const fpi::AsyncHdr &msg) {}
 };
 
 /**

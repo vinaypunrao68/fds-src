@@ -23,16 +23,19 @@ user_cc           := \
 
 local_probe_clnt  := \
     endpoint-test.cpp \
+    am-endpoint.cpp \
     s3-thrift-probe.cpp \
     s3-thrift.cpp \
     $(user_cc)
 
 local_server      := \
     endpoint-test.cpp \
+    sm-endpoint.cpp \
     thrf-server.cpp
 
 user_cpp          := \
     endpoint-test.cpp \
+    sm-endpoint.cpp \
     $(local_server) \
     $(local_probe_clnt)
 
