@@ -16,17 +16,13 @@ typedef boost::shared_ptr<AsyncRpcRequestTracker> AsyncRpcRequestTrackerPtr;
 /* Async rpc request identifier */
 typedef uint64_t AsyncRpcRequestId;
 
-class RpcEndpoint {};
-typedef boost::shared_ptr<RpcEndpoint> RpcEndpointPtr;
-
 /**
  * Base class for rpc request
  */
 class RpcRequestIf {
 public:
     virtual ~RpcRequestIf() {}
-    virtual void invoke() = 0;
-    virtual void handleError(Error&e, RpcRequestIf&, VoidPtr resp) = 0;
+    virtual void handleError(const Error&e, VoidPtr resp) = 0;
 };
 
 /**
@@ -37,7 +33,7 @@ public:
     virtual ~AsyncRpcRequestIf() {}
     AsyncRpcRequestId getRequestId();
     void setRequestId(const AsyncRpcRequestId &id);
-    virtual void handleResponse(AsyncRpcRequestIf&, VoidPtr resp) = 0;
+    virtual void handleResponse(VoidPtr resp) = 0;
 
 protected:
     /* Request Id */
@@ -50,43 +46,65 @@ protected:
 class EPRpcRequest : public RpcRequestIf {
 public:
     EPRpcRequest();
-    EPRpcRequest(RpcEndpointPtr ep);
+    EPRpcRequest(const fpi::SvcUuid &uuid);
     virtual ~EPRpcRequest();
 
-    void setEndpoint(RpcEndpointPtr ep);
-    RpcEndpointPtr getEndpoint();
+    void setEndpointId(const fpi::SvcUuid &uuid);
+    fpi::SvcUuid getEndpointId() const;
 
-    virtual void invoke() override;
-    virtual void handleError(Error&e, RpcRequestIf&, VoidPtr resp) override;
+    virtual void handleError(const Error&e, VoidPtr resp) override;
+    Error getError() const;
 
-    template<typename F, typename... ArgTypes>
-    Error invoke(F &&f, ArgTypes... args) {
-        Error e;
+    /**
+     * Wrapper for invoking the member function on an endpoint
+     * Specialization for void return type
+     * @param mf - member function
+     * @param args - arguments to member function
+     */
+    template <typename T, typename ...Args>
+    void invoke(void (T::*mf)(Args...), Args &&... args)
+    {
+        T *client;
+        // TODO (Rao): Get client from ep id
         try {
-            // TODO(Rao)
-            // 1. Check endpoint is valid, if so invoke the function.  If not valid return the error
-            // that is stored in endpoint
-            auto mem_fn = std::bind(f, _1, args...);
-            mem_fn(ep_.get());
-        } catch (...) {
-            // TODO(Rao): do proper error handling
-            e = ERR_INVALID;
+            (client.*mf)(std::forward<Args>(args)...);
+        } catch(...) {
+            handleError(e, VoidPtr(nullptr));
         }
-        if (e != ERR_OK) {
-            handleError(e, static_cast<RpcRequestIf&>(*this), VoidPtr(nullptr));
+        return ret;
+
+    }
+
+    /**
+     * Wrapper for invoking the member function on an endpoint
+     * @param mf - member function
+     * @param args - arguments to member function
+     */
+    template <typename T, typename R, typename ...Args>
+    R invoke(R (T::*mf)(Args...), Args &&... args)
+    {
+        T *client;
+        R ret;
+        // TODO (Rao): Get client from ep id
+        try {
+            ret = (client.*mf)(std::forward<Args>(args)...);
+        } catch(...) {
+            handleError(e, VoidPtr(nullptr));
         }
-        return e;
+        return ret;
     }
 
 protected:
-    /* Endpoint reference */
-    RpcEndpointPtr ep_;
+    /* Endpoint id */
+    fpi::SvcUuid epId_;
+    /* Error if any was set */
+    Error error_;
 };
 typedef boost::shared_ptr<EPRpcRequest> EPRpcRequestPtr;
 
 /* Async rpc request callback type */
-typedef std::function<void()> AsyncRpcRequestCb;
-
+typedef std::function<void(VoidPtr)> RpcRequestSuccessCb;
+typedef std::function<void(const Error &, VoidPtr)> RpcRequestErrorCb;
 
 /**
  * Wrapper around asynchronous rpc request
@@ -95,24 +113,19 @@ class EPAsyncRpcRequest : public EPRpcRequest, public AsyncRpcRequestIf {
 public:
     EPAsyncRpcRequest();
     EPAsyncRpcRequest(const AsyncRpcRequestId &id,
-            RpcEndpointPtr ep, AsyncRpcRequestTrackerPtr tracker);
+            const fpi::SvcUuid &uuid);
 
-    void setRequestTracker(AsyncRpcRequestTrackerPtr tracker);
-    AsyncRpcRequestTrackerPtr getRequestTracker();
+    void onSuccessResponse(RpcRequestSuccessCb &cb);
+    void onFailedResponse(RpcRequestErrorCb &cb);
 
-    void onSuccessResponse(AsyncRpcRequestCb &cb);
-    void onFailedResponse(AsyncRpcRequestCb &cb);
+    virtual void handleResponse(VoidPtr resp) override;
 
-    virtual void handleResponse(AsyncRpcRequestIf&, VoidPtr resp) override;
 protected:
-
-    /* Back pointer to tracker */
-    AsyncRpcRequestTrackerPtr tracker_;
-
     /* Response callbacks.  If set they are invoked in handleResponse() */
-    AsyncRpcRequestCb successCb_;
-    AsyncRpcRequestCb errorCb_;
+    RpcRequestSuccessCb successCb_;
+    RpcRequestErrorCb errorCb_;
 };
+typedef boost::shared_ptr<EPAsyncRpcRequest> EPAsyncRpcRequestPtr;
 
 #if 0
 class RequestTracker {

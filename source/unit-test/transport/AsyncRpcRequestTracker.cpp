@@ -1,40 +1,38 @@
 /* Copyright 2014 Formation Data Systems, Inc.
  */
 #include <AsyncRpcRequestTracker.h>
+#include <net/net-service.h>
+
 namespace fds {
 
 /**
  * Constructor
  */
-AsyncRpcRequestTracker::AsyncRpcRequestTracker()
+RpcRequestFactory::RpcRequestFactory()
 {
+    gl_rpcReqTracker = new AsyncRpcRequestTracker();
 }
 
 /**
- * Destructor
+ * Constructs EPRpcRequest object
+ * @param uuid
+ * @return
  */
-AsyncRpcRequestTracker::~AsyncRpcRequestTracker()
+EPRpcRequestPtr RpcRequestFactory::EPRpcRequest(const fpi::SvcUuid &uuid)
 {
+    return new EPRpcRequest(ep);
 }
 
 /**
- * Add the request for tracking
- * @param req
+ * Constructs EPAsyncRpcRequest object
+ * @param uuid
+ * @return
  */
-void AsyncRpcRequestTracker::addForTracking(AsyncRpcRequestPtr req)
+EPAsyncRpcRequestPtr RpcRequestFactory::EPAsyncRpcRequest(const fpi::SvcUuid &uuid)
 {
-    fds_scoped_lock l(lock_);
-    requestMap_[req->getRequestId()] = req;
-}
-
-/**
- * Add the request for tracking
- * @param req
- */
-void AsyncRpcRequestTracker::removeFromTracking(AsyncRpcRequestPtr req)
-{
-    fds_scoped_lock l(lock_);
-    requestMap_.erase(req->getRequestId());
+    EPAsyncRpcRequestPtr req = new EPAsyncRpcRequest(ep);
+    gl_rpcReqTracker->addForTracking(req);
+    return req;
 }
 
 }  // namespace fds

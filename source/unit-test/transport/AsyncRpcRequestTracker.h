@@ -3,17 +3,10 @@
 #ifndef SOURCE_INCLUDE_ASYNC_RPC_REQUEST_TRACKER_H_
 #define SOURCE_INCLUDE_ASYNC_RPC_REQUEST_TRACKER_H_
 
-#include <boost/shared_ptr.hpp>
-#include <concurrency/Mutex.h>
-#include <unordered_map>
-
+#include <fdsp/fds_service_types.h>
+#include <RpcRequest.h>
 
 namespace fds {
-
-/* Forward declarations */
-class AsyncRpcRequest;
-typedef boost::shared_ptr<AsyncRpcRequest> AsyncRpcRequestPtr;
-typedef uint64_t AsyncRpcRequestId;
 
 /**
  * For tracking requests
@@ -30,6 +23,20 @@ public:
 protected:
     fds_spinlock lock_;
     std::unorderd_map<AsyncRpcRequestId, AsyncRpcRequestPtr> requestMap_;
+};
+
+extern AsyncRpcRequestTracker *gl_rpcReqTracker;
+
+/**
+ * Rpc request factory. Use this class for constructing various RPC request objects
+ */
+class RpcRequestFactory {
+public:
+    RpcRequestFactory();
+    ~RpcRequestFactory();
+
+    EPRpcRequestPtr EPRpcRequest(const fpi::SvcUuid &uuid);
+    EPAsyncRpcRequestPtr EPAsyncRpcRequest(const fpi::SvcUuid &uuid);
 };
 
 }  // namespace fds

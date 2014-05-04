@@ -25,7 +25,7 @@ AsyncRpcRequestId AsyncRpcRequestIf::getRequestId()
  *
  */
 EPRpcRequest::EPRpcRequest()
-    : EPRpcRequest(RpcEndpointPtr(nullptr))
+    : EPRpcRequest(0)
 {
 }
 
@@ -33,9 +33,9 @@ EPRpcRequest::EPRpcRequest()
  *
  * @param ep
  */
-EPRpcRequest::EPRpcRequest(RpcEndpointPtr ep)
+EPRpcRequest::EPRpcRequest(const fpi::SvcUuid &uuid)
 {
-    ep_ = ep;
+    epId_ = uuid;
 }
 
 /**
@@ -49,18 +49,27 @@ EPRpcRequest::~EPRpcRequest()
  *
  * @param ep
  */
-void EPRpcRequest::setEndpoint(RpcEndpointPtr ep)
+void EPRpcRequest::setEndpointId(const fpi::SvcUuid &uuid)
 {
-    ep_ = ep;
+    epId_ = uuid;
 }
 
 /**
  *
  * @return
  */
-RpcEndpointPtr EPRpcRequest::getEndpoint()
+fpi::SvcUuid EPRpcRequest::getEndpointId() const
 {
-    return ep_;
+    return epId_;
+}
+
+/**
+ *
+ * @return
+ */
+Error EPRpcRequest::getError() const
+{
+    return error_;
 }
 
 /**
@@ -69,7 +78,7 @@ RpcEndpointPtr EPRpcRequest::getEndpoint()
  * @param
  * @param resp
  */
-void EPRpcRequest::handleError(Error&e, RpcRequestIf&, VoidPtr resp)
+void EPRpcRequest::handleError(const Error&e, VoidPtr resp)
 {
     if (e != ERR_OK) {
         GLOGERROR << "Encountered an error: " << e;
@@ -79,15 +88,8 @@ void EPRpcRequest::handleError(Error&e, RpcRequestIf&, VoidPtr resp)
 /**
  *
  */
-void EPRpcRequest::invoke()
-{
-}
-
-/**
- *
- */
 EPAsyncRpcRequest::EPAsyncRpcRequest()
-    : EPAsyncRpcRequest(0, RpcEndpointPtr(nullptr), AsyncRpcRequestTrackerPtr(nullptr))
+    : EPAsyncRpcRequest(0, 0)
 {
 }
 
@@ -97,35 +99,17 @@ EPAsyncRpcRequest::EPAsyncRpcRequest()
  * @param tracker
  */
 EPAsyncRpcRequest::EPAsyncRpcRequest(const AsyncRpcRequestId &id,
-        RpcEndpointPtr ep, AsyncRpcRequestTrackerPtr tracker)
-    : EPRpcRequest(ep)
+        const fpi::SvcUuid &uuid)
+    : EPRpcRequest(uuid)
 {
     id_ = id;
-    tracker_ = tracker;
-}
-
-/**
- *
- * @param tracker
- */
-void EPAsyncRpcRequest::setRequestTracker(AsyncRpcRequestTrackerPtr tracker)
-{
-    tracker_ = tracker;
-}
-/**
- *
- * @return
- */
-AsyncRpcRequestTrackerPtr EPAsyncRpcRequest::getRequestTracker()
-{
-    return tracker_;
 }
 
 /**
  *
  * @param cb
  */
-void EPAsyncRpcRequest::onSuccessResponse(AsyncRpcRequestCb &cb)
+void EPAsyncRpcRequest::onSuccessResponse(RpcRequestSuccessCb &cb)
 {
     successCb_ = cb;
 }
@@ -134,7 +118,7 @@ void EPAsyncRpcRequest::onSuccessResponse(AsyncRpcRequestCb &cb)
  *
  * @param cb
  */
-void EPAsyncRpcRequest::onFailedResponse(AsyncRpcRequestCb &cb)
+void EPAsyncRpcRequest::onFailedResponse(RpcRequestErrorCb &cb)
 {
     errorCb_ = cb;
 }
@@ -144,8 +128,22 @@ void EPAsyncRpcRequest::onFailedResponse(AsyncRpcRequestCb &cb)
  * @param
  * @param resp
  */
-void EPAsyncRpcRequest::handleResponse(AsyncRpcRequestIf&, VoidPtr resp)
+void EPAsyncRpcRequest::handleResponse(VoidPtr resp)
 {
+    Error e;
+    // TODO(Rao): Parse out the error
+    if (e != ERR_OK) {
+        if (errorCb_) {
+            errorCb_(e, resp);
+        } else {
+            handleError(e, resp);
+        }
+        return;
+    }
+
+    if (successCb_) {
+        successCb_(resp);
+    }
 }
 
 }  // namespace fds
