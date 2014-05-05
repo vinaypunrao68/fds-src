@@ -42,22 +42,14 @@ public class GetObject implements RequestHandler {
         if (headerValue != null) {
             ByteBuffer candidateValue = ByteBuffer.wrap(Hex.decodeHex(headerValue.toCharArray()));
             if (candidateValue.compareTo(blobDescriptor.bufferForDigest()) == 0) {
-                return new TextResource(HttpServletResponse.SC_NOT_MODIFIED, "") {
-                    @Override
-                    public Multimap<String, String> extraHeaders() {
-                        return header("ETag", etag);
-                    }
-                };
+                return new TextResource(HttpServletResponse.SC_NOT_MODIFIED, "")
+                    .withHeader("ETag", etag);
             }
         }
 
         String contentType = blobDescriptor.getMetadata().getOrDefault("Content-Type", "application/octet-stream");
         InputStream stream = xdi.readStream(Main.FDS_S3, bucketName, objectName);
-        return new StreamResource(stream, contentType) {
-            @Override
-            public Multimap<String, String> extraHeaders() {
-                return header("ETag", etag);
-            }
-        };
+        return new StreamResource(stream, contentType)
+            .withHeader("ETag", etag);
     }
 }
