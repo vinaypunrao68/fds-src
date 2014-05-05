@@ -32,7 +32,7 @@ struct ProbeBar {
     7: optional i32      p5,
 }
 
-service ProbeService {
+service ProbeServiceSM {
     /* Required for async message passing semantic */
     oneway void msg_async_resp(1: fds_service.AsyncHdr    orig,
                                2: fds_service.AsyncRspHdr resp),

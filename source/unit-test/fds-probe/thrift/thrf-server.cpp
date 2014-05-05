@@ -3,7 +3,7 @@
  */
 #include <unistd.h>
 #include <arpa/inet.h>
-#include <ProbeService.h>
+#include <ProbeServiceSM.h>
 #include <thrift/concurrency/ThreadManager.h>
 #include <thrift/concurrency/PosixThreadFactory.h>
 #include <thrift/protocol/TBinaryProtocol.h>
@@ -27,7 +27,7 @@ using namespace ::apache::thrift::concurrency;    // NOLINT
 
 namespace fds {
 
-class ProbeServiceHandler : virtual public ProbeServiceIf {
+class ProbeServiceHandler : virtual public ProbeServiceSMIf {
   public:
     ProbeServiceHandler() {
         // Your initialization goes here
@@ -77,7 +77,7 @@ ProbeServer::ProbeServer()
 {
     pr_handler.reset(new ProbeServiceHandler());
     boost::shared_ptr<TProtocolFactory> proto_fac(new TBinaryProtocolFactory());
-    boost::shared_ptr<TProcessor>processor(new ::fpi::ProbeServiceProcessor(pr_handler));
+    boost::shared_ptr<TProcessor>processor(new fpi::ProbeServiceSMProcessor(pr_handler));
     boost::shared_ptr<TServerTransport> trans(new TServerSocket(9000));
     boost::shared_ptr<TTransportFactory> trans_fac(new TFramedTransportFactory());
     pr_server.reset(new TThreadedServer(processor, trans, trans_fac, proto_fac));

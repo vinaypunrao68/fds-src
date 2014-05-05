@@ -118,7 +118,7 @@ Thrift_ProbeMod::mod_startup()
     rpc_sock.reset(new TSocket("localhost", 9000));
     rpc_trans.reset(new TFramedTransport(rpc_sock));
     rpc_proto.reset(new TBinaryProtocol(rpc_trans));
-    rpc_client = new ProbeServiceClient(rpc_proto);
+    rpc_client = new ProbeServiceSMClient(rpc_proto);
     try {
         rpc_trans->open();
     } catch(TException &tx) {  // NOLINT

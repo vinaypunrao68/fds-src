@@ -6,7 +6,7 @@
 
 #include <net/net-service.h>
 #include <fds_typedefs.h>
-#include <ProbeService.h>
+#include <ProbeServiceSM.h>
 #include <ProbeServiceAM.h>
 
 namespace fds {
@@ -86,7 +86,7 @@ class ProbeEpTestAM : public Module
     // One endpoint bound to a physical port of the local node.  Full duplex with
     // its peer.
     //
-    EndPoint<fpi::ProbeServiceClient, ProbeTestAM_RPC>::pointer probe_ep;
+    EndPoint<fpi::ProbeServiceSMClient, ProbeTestAM_RPC>::pointer probe_ep;
 };
 
 /**
