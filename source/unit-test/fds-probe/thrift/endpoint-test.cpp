@@ -21,6 +21,11 @@ ProbeEpPlugin::ep_down()
 }
 
 void
+ProbeEpPlugin::svc_up(EpSvcHandle::pointer handle)
+{
+}
+
+void
 ProbeEpPlugin::svc_down(EpSvc::pointer svc, EpSvcHandle::pointer handle)
 {
     svc_cleanup_start();

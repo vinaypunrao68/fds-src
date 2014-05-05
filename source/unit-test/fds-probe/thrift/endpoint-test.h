@@ -22,6 +22,7 @@ class ProbeEpPlugin : public EpEvtPlugin
 
     void ep_connected();
     void ep_down();
+    void svc_up(EpSvcHandle::pointer handle);
     void svc_down(EpSvc::pointer svc, EpSvcHandle::pointer handle);
 
   protected:
