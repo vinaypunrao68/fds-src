@@ -45,12 +45,15 @@ public class GetContainer  implements SwiftRequestHandler {
         switch (format) {
             case xml:
                 result = xmlView(containerName, descriptors);
+                break;
 
             case json:
                 result = jsonView(descriptors);
+                break;
 
             default:
                 result = plainView(descriptors);
+                break;
         }
 
         return SwiftUtility.swiftResource(result);

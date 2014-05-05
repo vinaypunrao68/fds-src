@@ -44,12 +44,15 @@ public class ListContainers implements SwiftRequestHandler {
         switch (format) {
             case xml:
                 result = xmlView(volumes, accountName);
+                break;
 
             case json:
                 result = jsonView(volumes, accountName);
+                break;
 
             default:
                 result = plainView(volumes);
+                break;
         }
 
         // TODO: Implement X-Account-Object-Count, X-Account-Bytes-Used, X-Account-Meta-*
