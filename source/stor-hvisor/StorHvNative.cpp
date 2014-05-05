@@ -579,6 +579,9 @@ void FDS_NativeAPI::DoCallback(FdsBlobReq  *blob_req,
     }
 
     switch (blob_req->getIoType()) {
+        case FDS_START_BLOB_TX:
+            static_cast<StartBlobTxReq*>(blob_req)->DoCallback(status, NULL);
+            break;
         case FDS_PUT_BLOB:
             static_cast<PutBlobReq*>(blob_req)->DoCallback(status, NULL);
             break;
@@ -634,12 +637,56 @@ Error FDS_NativeAPI::sendTestBucketToOM(const std::string& bucket_name,
     return err;
 }
 
+void
+FDS_NativeAPI::StartBlobTx(const std::string& volumeName,
+                           const std::string& blobName,
+                           fdsnStartBlobTxHandler cb,
+                           void *cbData) {
+    fds_volid_t volId = invalid_vol_id;
+    LOGDEBUG << " Start blob tx for volume: " << volumeName
+             << ", blobName " << blobName;
+
+    // check if bucket is attached to this AM
+    if (storHvisor->vol_table->volumeExists(volumeName)) {
+        volId = storHvisor->vol_table->getVolumeUUID(volumeName);
+        fds_verify(volId != invalid_vol_id);
+    }
+
+    FdsBlobReq *blobReq = NULL;
+    blobReq = new StartBlobTxReq(volId,
+                                 volumeName,
+                                 blobName,
+                                 0,  // No blob offset
+                                 0,  // No data length
+                                 NULL,  // No buffer
+                                 cb,
+                                 cbData);
+    fds_verify(blobReq != NULL);
+
+    // Push the request if we have the vol already
+    if (volId != invalid_vol_id) {
+        storHvisor->pushBlobReq(blobReq);
+        return;
+    } else {
+        // If we don't have the volume, queue up the request
+        // until we get it
+        // TODO(Andrew): Will this time out? What if it fails?
+        storHvisor->vol_table->addBlobToWaitQueue(volumeName, blobReq);
+    }
+
+    // if we are here, bucket is not attached to this AM, send test bucket msg to OM
+    Error err = sendTestBucketToOM(volumeName,
+                                   "",  // The access key isn't used
+                                   ""); // The secret key isn't used
+    fds_verify(err == ERR_OK);
+}
+
 void FDS_NativeAPI::StatBlob(const std::string& volumeName,
                              const std::string& blobName,
                              CallbackPtr cb) {
     fds_volid_t volId = invalid_vol_id;
-    LOGNORMAL << " volume: " << volumeName
-              << " blobName " << blobName;
+    LOGDEBUG << "AM service stating volume: " << volumeName
+              << ", blob: " << blobName;
 
     // check if bucket is attached to this AM
     if (storHvisor->vol_table->volumeExists(volumeName)) {

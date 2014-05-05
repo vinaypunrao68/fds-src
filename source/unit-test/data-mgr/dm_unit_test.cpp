@@ -726,6 +726,15 @@ class TestResp : public FDS_ProtocolInterface::FDSP_MetaDataPathRespIf {
                                  del_cat_obj) {
     }
 
+    void StartBlobTxResp(const
+                         FDS_ProtocolInterface::FDSP_MsgHdrType&
+                         fdsp_msg) {
+    }
+
+    void StartBlobTxResp(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr&
+                         fdsp_msg) {
+    }
+
     void StatBlobResp(const
                       FDS_ProtocolInterface::FDSP_MsgHdrType&
                       fdsp_msg,

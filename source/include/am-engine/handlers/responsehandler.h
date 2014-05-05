@@ -51,6 +51,16 @@ namespace fds {
         virtual ~StatBlobResponseHandler();
     };
 
+    struct StartBlobTxResponseHandler : ResponseHandler {
+        StartBlobTxResponseHandler(apis::TxDescriptor &retVal);
+
+        apis::TxDescriptor &retTxDesc;
+        BlobTxId            blobTxId;
+
+        virtual void process();
+        virtual ~StartBlobTxResponseHandler();
+    };
+
     struct PutObjectResponseHandler : ResponseHandler {
         void *reqContext = NULL;
         fds_uint64_t bufferSize = 0;

@@ -110,6 +110,11 @@ namespace fds {
                       const std::string& blobName,
                       CallbackPtr cb);
 
+        void StartBlobTx(const std::string& volumeName,
+                         const std::string& blobName,
+                         fdsnStartBlobTxHandler cb,
+                         void *cbData);
+
   private:
         /**
          * Sends 'test bucket' message to OM. If bucket exists (OM knows about it),

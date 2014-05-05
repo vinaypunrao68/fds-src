@@ -1118,6 +1118,28 @@ DataMgr::updateCatalogInternal(FDSP_UpdateCatalogTypePtr updCatReq,
 }
 
 void
+DataMgr::ReqHandler::StartBlobTx(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msgHdr,
+                                 boost::shared_ptr<std::string> &volumeName,
+                                 boost::shared_ptr<std::string> &blobName,
+                                 FDS_ProtocolInterface::TxDescriptorPtr &txDesc) {
+    /*
+    Error err(ERR_OK);
+
+    GLOGDEBUG << "Received stat blob requested for volume "
+              << *volumeName << " and blob " << *blobName;
+
+    err = dataMgr->statBlobInternal(*volumeName, *blobName,
+                                    msgHdr->glob_volume_id,
+                                    msgHdr->src_ip_lo_addr, msgHdr->dst_ip_lo_addr,  // IP stuff
+                                    msgHdr->src_port, msgHdr->dst_port,  // Port stuff
+                                    msgHdr->session_uuid, msgHdr->req_cookie);  // Req/state stuff
+
+    // Verify we were able to enqueue the request
+    fds_verify(err == ERR_OK);
+    */
+}
+
+void
 DataMgr::ReqHandler::StatBlob(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msgHdr,
                               boost::shared_ptr<std::string> &volumeName,
                               boost::shared_ptr<std::string> &blobName) {

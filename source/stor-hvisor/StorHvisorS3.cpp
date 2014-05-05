@@ -1101,6 +1101,133 @@ fds::Error StorHvCtrl::getObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
 }
 
 Error
+StorHvCtrl::startBlobTx(AmQosReq *qosReq) {
+    fds_verify(qosReq != NULL);
+
+    Error err(ERR_OK);
+    StartBlobTxReq *blobReq = static_cast<StartBlobTxReq *>(qosReq->getBlobReqPtr());
+    fds_verify(blobReq != NULL);
+    fds_verify(blobReq->magicInUse() == true);
+    fds_verify(blobReq->getIoType() == FDS_START_BLOB_TX);
+
+    fds_volid_t   volId = blobReq->getVolId();
+    StorHvVolume *shVol = storHvisor->vol_table->getLockedVolume(volId);
+    fds_verify(shVol != NULL);
+    fds_verify(shVol->isValidLocked() == true);
+
+    // Get a journal entry
+    bool txInProgress;
+    fds_uint32_t transId = shVol->journal_tbl->get_trans_id_for_blob(blobReq->getBlobName(),
+                                                                     blobReq->getBlobOffset(),
+                                                                     txInProgress);
+    StorHvJournalEntry *journEntry = shVol->journal_tbl->get_journal_entry(transId);  
+    StorHvJournalEntryLock je_lock(journEntry);
+
+    // Just bail out if there's an outstanding request
+    if ((txInProgress == true) ||
+        (journEntry->isActive())) {
+        shVol->readUnlock();
+
+        LOGWARN << "Transaction " << transId << " is already in ACTIVE state, giving up...";
+        // There is an ongoing transaciton for this offset.
+        // We should queue this up for later processing once that completes.
+    
+        // For now, return an error.
+        blobReq->cbWithResult(-2);
+        err = ERR_NOT_IMPLEMENTED;
+        delete blobReq;
+        return err;
+    }
+
+    // Activate the journal entry
+    journEntry->setActive();
+
+    // Setup journal state
+    journEntry->sm_msg      = NULL; 
+    journEntry->dm_msg      = NULL;
+    journEntry->sm_ack_cnt  = 0;
+    journEntry->dm_ack_cnt  = 0;
+    journEntry->op          = FDS_START_BLOB_TX;
+    journEntry->io          = qosReq;
+    // journEntry->delMsg      = del_obj_req;
+    // journEntry->trans_state = FDS_TRANS_DEL_OBJ;
+
+    // Generate a random transaction ID to use
+    // Note: construction, generates a random ID
+    BlobTxId txId;
+    LOGDEBUG << "Starting blob transaction " << txId << " for blob "
+             << blobReq->getBlobName() << " in journal trans "
+              << transId << " and vol 0x" << std::hex << volId << std::dec;
+
+    // Setup RPC request to DM
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr(new FDSP_MsgHdrType);
+    storHvisor->InitDmMsgHdr(msgHdr);
+    // Set vol and trans IDs
+    msgHdr->glob_volume_id = volId;
+    msgHdr->req_cookie = transId;
+    // TODO(Andrew): These fields really aren't useful...
+    msgHdr->msg_code       = FDSP_START_BLOB_TX;
+    msgHdr->src_ip_lo_addr = 0;
+    msgHdr->src_node_name  = "";
+    msgHdr->src_port       = 0;
+    msgHdr->dst_port       = 0;
+
+    // Set up the FDSP trans request
+    FDS_ProtocolInterface::TxDescriptorPtr fdspTxId(new TxDescriptor);
+    fdspTxId->txId = txId.getValue();
+    boost::shared_ptr<std::string> volNamePtr(
+        new std::string(blobReq->getVolumeName()));
+    boost::shared_ptr<std::string> blobNamePtr(
+        new std::string(blobReq->getBlobName()));
+
+    // Get the DM nodes info to query
+    fds_int32_t numNodes = 4; // TODO(Andrew): Why 4? Why not...
+    fds_uint64_t nodeIds[numNodes];
+    storHvisor->dataPlacementTbl->getDMTNodesForVolume(volId,
+                                                       nodeIds,
+                                                       &numNodes);
+    fds_verify(numNodes > 0);
+    journEntry->num_dm_nodes = numNodes;
+
+    for (fds_int32_t i = 0; i < numNodes; i++) {
+        fds_uint32_t node_ip;
+        fds_uint32_t node_port;
+        fds_int32_t  node_state;
+        storHvisor->dataPlacementTbl->getNodeInfo(nodeIds[i],
+                                                  &node_ip,
+                                                  &node_port,
+                                                  &node_state);
+        // Get the DM endpoint to query
+        netMetaDataPathClientSession *sessionCtx =
+                storHvisor->rpcSessionTbl->                             \
+                getClientSession<netMetaDataPathClientSession>(node_ip, node_port);
+        fds_verify(sessionCtx != NULL);
+        boost::shared_ptr<FDSP_MetaDataPathReqClient> client =
+                sessionCtx->getClient();
+        msgHdr->session_uuid = sessionCtx->getSessionId();
+
+        // TODO(Andrew): Do I need to do this?...
+        journEntry->dm_ack[i].ack_status    = FDS_CLS_ACK;
+        journEntry->dm_ack[i].commit_status = FDS_CLS_ACK;
+
+        // Send async RPC request
+        try {
+            client->StartBlobTx(msgHdr,
+                                volNamePtr,
+                                blobNamePtr,
+                                fdspTxId);
+        } catch (att::TTransportException &e) {
+            LOGERROR << "error during network call: " << e.what();
+        }
+    }
+
+    shVol->readUnlock();
+    // je_lock destructor will unlock the journal entry
+
+    return err;
+}
+
+Error
 StorHvCtrl::StatBlob(fds::AmQosReq *qosReq) {
     fds_verify(qosReq != NULL);
 

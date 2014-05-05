@@ -379,6 +379,13 @@ class DataMgr : public PlatformProcess
       explicit ReqHandler();
       ~ReqHandler();
 
+      void StartBlobTx(const FDSP_MsgHdrType& msg_hdr,
+                       const std::string &volumeName,
+                       const std::string &blobName,
+                       const TxDescriptor &txDesc) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+      }
+
       void UpdateCatalogObject(const FDSP_MsgHdrType& fdsp_msg, 
 			       const FDSP_UpdateCatalogType& cat_obj_req) {
 	// Don't do anything here. This stub is just to keep cpp compiler happy
@@ -404,6 +411,11 @@ class DataMgr : public PlatformProcess
                     const std::string &blobName) {
         // Don't do anything here. This stub is just to keep cpp compiler happy
       }
+
+      void StartBlobTx(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
+                       boost::shared_ptr<std::string> &volumeName,
+                       boost::shared_ptr<std::string> &blobName,
+                       FDS_ProtocolInterface::TxDescriptorPtr& txDesc);
 
       void UpdateCatalogObject(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr
                                &msg_hdr,

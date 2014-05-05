@@ -219,6 +219,14 @@ class MetaDatapathRespImpl : public FDS_ProtocolInterface::FDSP_MetaDataPathResp
         get_resp_monitor_->done();
     }
 
+    void StartBlobTxResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg) {  // NOLINT
+        fds_assert(0);
+    }
+
+    void StartBlobTxResp(const FDSP_MsgHdrType& fdsp_msg) {
+        fds_assert(0);
+    }
+
     void StatBlobResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,  // NOLINT
                       boost::shared_ptr<BlobDescriptor>& blobDesc) {
         fds_assert(0);

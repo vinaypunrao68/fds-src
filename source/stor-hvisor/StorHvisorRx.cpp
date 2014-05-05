@@ -184,6 +184,13 @@ void FDSP_DataPathRespCbackI::PutObjectResp(FDSP_MsgHdrTypePtr& msghdr,
     fds_verify(err == ERR_OK);
 }
 
+void
+FDSP_MetaDataPathRespCbackI::StartBlobTxResp(boost::shared_ptr<FDSP_MsgHdrType> &msgHdr) {
+    LOGDEBUG << "Received StartBlobTx response for journal txn "
+             << msgHdr->req_cookie;
+    // storHvisor->statBlobResp(msgHdr, blobDesc);
+}
+
 void FDSP_MetaDataPathRespCbackI::UpdateCatalogObjectResp(FDSP_MsgHdrTypePtr& fdsp_msg,
                                                           FDSP_UpdateCatalogTypePtr& update_cat) {
     LOGDEBUG << "Received updCatObjResp for txn "

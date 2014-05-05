@@ -159,6 +159,27 @@ class FdsnIf : public apis::AmServiceIf {
         handler->process();
     }
 
+    void startBlobTx(apis::TxDescriptor& _return,
+                  const std::string& domainName,
+                  const std::string& volumeName,
+                  const std::string& blobName) {
+    }
+
+    void startBlobTx(apis::TxDescriptor& _return,
+                     boost::shared_ptr<std::string>& domainName,
+                     boost::shared_ptr<std::string>& volumeName,
+                     boost::shared_ptr<std::string>& blobName) {
+        StartBlobTxResponseHandler handler(_return);
+
+        am_api->StartBlobTx(*volumeName,
+                            *blobName,
+                            fn_StartBlobTxHandler,
+                            static_cast<void *>(&handler));
+
+        handler.wait();
+        handler.process();
+    }
+
     void getBlob(std::string& _return,
                  const std::string& domainName,
                  const std::string& volumeName,

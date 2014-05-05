@@ -17,6 +17,12 @@ void fn_StatBlobHandler(FDSN_Status status,
                         BlobDescriptor blobDesc,
                         void *callbackData);
 
+void
+fn_StartBlobTxHandler(FDSN_Status status,
+                      const ErrorDetails *errorDetails,
+                      BlobTxId blobTxId,
+                      void *callbackData);
+
 FDSN_Status fn_GetObjectHandler(BucketContextPtr bucket_ctx,
                                 void *reqContext,
                                 fds_uint64_t bufferSize,

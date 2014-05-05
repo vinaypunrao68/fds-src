@@ -40,12 +40,19 @@ struct BlobDescriptor {
        4: required map<string, string> metadata
 }
 
+struct TxDescriptor {
+       1: required i64 txId
+}
+
 service AmService {
         list<BlobDescriptor> volumeContents(1:string domainName, 2:string volumeName, 3:i32 count, 4:i64 offset)
              throws (1: ApiException e),
 
         BlobDescriptor statBlob(1: string domainName, 2:string volumeName, 3:string blobName)
              throws (1: ApiException e),
+
+        TxDescriptor startBlobTx(1:string domainName, 2:string volumeName, 3:string blobName)
+	    throws (1: ApiException e),
 
         binary getBlob(1:string domainName, 2:string volumeName, 3:string blobName, 4:i32 length, 5:ObjectOffset offset)
              throws (1: ApiException e),

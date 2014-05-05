@@ -295,6 +295,11 @@ namespace fds {
                                         BlobDescriptor blobDesc,
                                         void *callbackData);
 
+    typedef void (*fdsnStartBlobTxHandler)(FDSN_Status status,
+                                           const ErrorDetails *errorDetails,
+                                           BlobTxId txId,
+                                           void *callbackData);
+
     typedef void (*fdsnResponseHandler)(FDSN_Status status,
                                         const ErrorDetails *errorDetails,
                                         void *callbackData);

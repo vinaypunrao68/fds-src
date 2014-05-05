@@ -30,6 +30,7 @@ enum FDSP_MsgCodeType {
    FDSP_MSG_OFFSET_WRITE_OBJ_REQ,
    FDSP_MSG_REDIR_READ_OBJ_REQ,
    FDSP_STAT_BLOB,
+   FDSP_START_BLOB_TX,
 
    FDSP_MSG_PUT_OBJ_RSP,
    FDSP_MSG_GET_OBJ_RSP,
@@ -218,6 +219,12 @@ struct FDSP_UpdateCatalogType {
   7: FDSP_MetaDataList meta_list, /* sequence of arbitrary key/value pairs */
   8: i32 dm_transaction_id,   /* Transaction id */
   9: i32 dm_operation,        /* Transaction type = OPEN, COMMIT, CANCEL */
+}
+
+/* Can be consolidated when apis and fdsp merge or whatever */
+struct TxDescriptor {
+       1: required i64 txId
+       /* TODO(Andrew): Maybe add an op type (update/query)? */
 }
 
 /* Can be consolidated when apis and fdsp merge or whatever */
@@ -1056,6 +1063,8 @@ service FDSP_DataPathResp {
 }
 
 service FDSP_MetaDataPathReq {
+    /* Using cleaner API convention. Just pass msg hdr for legacy compatability */
+    oneway void StartBlobTx(1:FDSP_MsgHdrType fds_msg, 2:string volumeName, 3:string blobName, 4:TxDescriptor txId),
 
     oneway void UpdateCatalogObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_UpdateCatalogType cat_obj_req),
 
@@ -1070,6 +1079,8 @@ service FDSP_MetaDataPathReq {
 }
 
 service FDSP_MetaDataPathResp {
+    /* Using cleaner API convention. Only success or error is returned. Done in msg hdr for legacy */
+    oneway void StartBlobTxResp(1:FDSP_MsgHdrType fds_msg),
 
     oneway void UpdateCatalogObjectResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_UpdateCatalogType cat_obj_req),
 

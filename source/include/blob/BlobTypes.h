@@ -62,6 +62,25 @@ class BlobDescriptor {
     void addKvMeta(const std::string &key,
                    const std::string &value);
 };
+
+/**
+ * Describes a specific blob transaction
+ */
+class BlobTxId {
+  private:
+    fds_uint64_t txId;
+
+  public:
+    /// Creates a new blob transaction ID with random value
+    BlobTxId();
+    ~BlobTxId();
+    typedef boost::shared_ptr<BlobTxId> ptr;
+    friend std::ostream& operator<<(std::ostream& out, const BlobTxId& txId);
+
+    fds_uint64_t getValue() const;
+};
+
+std::ostream& operator<<(std::ostream& out, const BlobTxId& txId);
 }  // namespace fds
 
 #endif  // SOURCE_INCLUDE_BLOB_BLOBTYPES_H_

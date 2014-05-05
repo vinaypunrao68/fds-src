@@ -195,6 +195,46 @@ class StorHvVolumeTable : public HasLogger
    */
 };
 
+class StartBlobTxReq : public FdsBlobReq {
+  public:
+    std::string volumeName;
+
+    /// Callback info
+    BlobTxId               txId;
+    fdsnStartBlobTxHandler startTxCallback;
+    void                  *cbData;
+
+    /**
+     * Request constructor. Some of the fields
+     * are not actually needed...the base blob
+     * request class just expects them.
+     */
+    StartBlobTxReq(fds_volid_t            _volid,
+                  const std::string     &_vol_name,
+                  const std::string     &_blob_name,
+                  fds_uint64_t           _blob_offset,
+                  fds_uint64_t           _data_len,
+                  char                  *_data_buf,
+                  fdsnStartBlobTxHandler _handler,
+                  void                  *_callback_data) :
+            FdsBlobReq(FDS_START_BLOB_TX, _volid, _blob_name, _blob_offset,
+                       _data_len, _data_buf, FDS_NativeAPI::DoCallback, this, Error(ERR_OK), 0),
+        volumeName(_vol_name),
+        startTxCallback(_handler),
+        cbData(_callback_data) {
+    }
+    ~StartBlobTxReq() {
+    }
+
+    const std::string& getVolumeName() const {
+        return volumeName;
+    }
+
+    void DoCallback(FDSN_Status status, ErrorDetails* errDetails) {
+        (startTxCallback)(status, errDetails, txId, cbData);
+    }
+};
+
 class StatBlobReq : public FdsBlobReq {
   public:
     std::string volumeName;

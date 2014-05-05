@@ -146,4 +146,16 @@ void StatBlobResponseHandler::process() {
 StatBlobResponseHandler::~StatBlobResponseHandler() {
 }
 
+StartBlobTxResponseHandler::StartBlobTxResponseHandler(
+    apis::TxDescriptor& retVal) : retTxDesc(retVal) {
+}
+
+void
+StartBlobTxResponseHandler::process() {
+    XCHECKSTATUS(status);
+}
+
+StartBlobTxResponseHandler::~StartBlobTxResponseHandler() {
+}
+
 }  // namespace fds

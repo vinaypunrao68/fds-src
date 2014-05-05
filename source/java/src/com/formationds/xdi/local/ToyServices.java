@@ -113,6 +113,11 @@ public class ToyServices implements AmService.Iface, ConfigurationService.Iface 
     }
 
     @Override
+    public TxDescriptor startBlobTx(String domainName, String volumeName, String blobName) throws ApiException, TException {        
+        return new TxDescriptor(0);
+    }
+
+    @Override
     public VolumeStatus volumeStatus(String domainName, String volumeName) throws ApiException, TException {
         long count = (int) persister.execute(session ->
                 session.createCriteria(Blob.class)

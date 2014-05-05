@@ -3,6 +3,7 @@
  */
 #include <blob/BlobTypes.h>
 #include <string>
+#include <fds_uuid.h>
 
 namespace fds {
 
@@ -46,6 +47,23 @@ void
 BlobDescriptor::addKvMeta(const std::string &key,
                           const std::string &value) {
     blobKvMeta[key] = value;
+}
+
+BlobTxId::BlobTxId() {
+    txId = fds_get_uuid64(get_uuid());
+}
+
+BlobTxId::~BlobTxId() {
+}
+
+fds_uint64_t
+BlobTxId::getValue() const {
+    return txId;
+}
+
+std::ostream&
+operator<<(std::ostream& out, const BlobTxId& txId) {
+    return out << txId.txId;
 }
 
 }  // namespace fds
