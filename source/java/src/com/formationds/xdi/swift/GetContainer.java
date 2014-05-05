@@ -41,16 +41,19 @@ public class GetContainer  implements SwiftRequestHandler {
         ResponseFormat format = obtainFormat(request);
         List<BlobDescriptor> descriptors = xdi.volumeContents(accountName, containerName, limit, 0);
 
+        Resource result;
         switch (format) {
             case xml:
-                return xmlView(containerName, descriptors);
+                result = xmlView(containerName, descriptors);
 
             case json:
-                return jsonView(descriptors);
+                result = jsonView(descriptors);
 
             default:
-                return plainView(descriptors);
+                result = plainView(descriptors);
         }
+
+        return SwiftUtility.swiftResource(result);
     }
 
     private Resource plainView(List<BlobDescriptor> descriptors) {

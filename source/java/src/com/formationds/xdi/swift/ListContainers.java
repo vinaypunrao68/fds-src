@@ -36,19 +36,25 @@ public class ListContainers implements SwiftRequestHandler {
         String accountName = requiredString(routeParameters, "account");
 
         ResponseFormat format = obtainFormat(request);
+        // TODO: get xdi call for a subset of this info
+        // TODO: implement limit, marker, end_marker, format, prefix, delimiter query string variables
         List<VolumeDescriptor> volumes = xdi.listVolumes(accountName);
 
+        Resource result;
         switch (format) {
             case xml:
-                return xmlView(volumes, accountName);
+                result = xmlView(volumes, accountName);
 
             case json:
-                return jsonView(volumes, accountName);
+                result = jsonView(volumes, accountName);
 
             default:
-                return plainView(volumes);
+                result = plainView(volumes);
         }
 
+        // TODO: Implement X-Account-Object-Count, X-Account-Bytes-Used, X-Account-Meta-*
+        //
+        return SwiftUtility.swiftResource(result);
     }
 
     private Resource plainView(List<VolumeDescriptor> volumes) {

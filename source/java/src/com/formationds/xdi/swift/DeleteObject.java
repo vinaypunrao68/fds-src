@@ -22,20 +22,13 @@ public class DeleteObject implements RequestHandler {
 
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
-        String domain = routeParameters.get("account");
-        String volume = routeParameters.get("container");
-        String object = routeParameters.get("object");
+        String domain = requiredString(routeParameters, "account");
+        String volume = requiredString(routeParameters, "container");
+        String object = requiredString(routeParameters, "object");
 
         // TODO: multipart-manifest delete behavior
         xdi.deleteBlob(domain, volume, object);
 
-        return new TextResource(200, "") {
-            @Override
-            public Multimap<String, String> extraHeaders() {
-                LinkedListMultimap<String, String> headers = LinkedListMultimap.create();
-                headers.put("Date", DateTime.now().toString());
-                return headers;
-            }
-        };
+        return SwiftUtility.swiftResource(new TextResource(200, ""));
     }
 }
