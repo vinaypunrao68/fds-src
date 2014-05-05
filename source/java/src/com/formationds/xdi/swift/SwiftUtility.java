@@ -16,9 +16,13 @@ public class SwiftUtility {
     }
 
     public static Resource swiftResource(Resource res, UUID transactionId) {
+        return res.withHeader("X-Trans-Id", transactionId.toString())
+                .withHeader("Date", formatRfc1123Date(DateTime.now()));
+    }
+
+    public static String formatRfc1123Date(DateTime date) {
         // TODO: put this formatter somewhere generally accessible
         DateTimeFormatter rfc1123DateFormat = DateTimeFormat.forPattern("EEE, dd MMM yyyy HH:mm:ss 'GMT'").withZoneUTC();
-        return res.withHeader("X-Trans-Id", transactionId.toString())
-                .withHeader("Date", rfc1123DateFormat.print(DateTime.now()));
+        return rfc1123DateFormat.print(date);
     }
 }
