@@ -343,6 +343,10 @@ struct FDSP_DltCloseType {
   1: i64 DLT_version
 }
 
+struct FDSP_DmtCloseType {
+  1: i64 DMT_version
+}
+
 struct FDSP_DLT_Resp_Type {
   1: i64 DLT_version
 }
@@ -775,6 +779,26 @@ struct tier_pol_audit
     13: i64                    tier_pct_ssd_capacity;
 }
 
+typedef list<i64> vol_List_Type
+/* meta data  structure list of Volumes and  destination nodes */
+struct FDSP_metaData
+{
+    /* Object Metadata */
+    1: vol_List_Type  volList;
+    2: FDSP_Uuid  node_uuid,
+}
+
+typedef list<FDSP_metaData> FDSP_metaDataList
+/* DM meta data migration request */
+struct FDSP_PushMeta
+{
+     /* Header */
+     1: FDSP_MsgHdrType            msgHdr;
+
+     /* mete data */
+     2: FDSP_metaDataList          metaVol;
+}
+
 /* Token type */
 typedef i32 FDSP_Token
 
@@ -1151,6 +1175,8 @@ service FDSP_ControlPathReq {
   oneway void NotifyDLTUpdate(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DLT_Data_Type dlt_info),
   oneway void NotifyDLTClose(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DltCloseType dlt_close),
   oneway void NotifyDMTUpdate(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DMT_Type dmt_info),
+  oneway void NotifyDMTClose(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DmtCloseType dmt_close),
+  oneway void PushMetaDMTReq(1:FDSP_PushMeta push_meta_req),
   oneway void SetThrottleLevel(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ThrottleMsgType throttle_msg),
   oneway void TierPolicy(1:FDSP_TierPolicy tier),
   oneway void TierPolicyAudit(1:FDSP_TierPolicyAudit audit),
@@ -1171,7 +1197,9 @@ service FDSP_ControlPathResp {
   oneway void NotifyNodeActiveResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_Node_Info_Type node_info_resp),
   oneway void NotifyDLTUpdateResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DLT_Resp_Type dlt_resp),
   oneway void NotifyDLTCloseResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DLT_Resp_Type dlt_resp),
-  oneway void NotifyDMTUpdateResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DMT_Resp_Type dmt_info_resp)
+  oneway void NotifyDMTUpdateResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DMT_Resp_Type dmt_info_resp),
+  oneway void NotifyDMTCloseResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DMT_Resp_Type dmt_resp),
+  oneway void PushMetaDMTResp(1:FDSP_PushMeta push_meta_resp)
 }
 
 service FDSP_MigrationPathReq {
@@ -1192,6 +1220,15 @@ service FDSP_MigrationPathResp {
 
     oneway void PushTokenObjectsResp(1:FDSP_PushTokenObjectsResp pushtok_resp)
     oneway void PushTokenMetadataResp(1:FDSP_PushTokenMetadataResp push_md_resp)
+}
+
+service FDSP_MetaPathReq {
+    oneway void PushMetaReq(1:FDSP_UpdateCatalogType push_meta_req)
+
+}
+
+service FDSP_MetaPathResp {
+    oneway void PushMetaResp(1:FDSP_UpdateCatalogType push_meta_resp)
 }
 
 #endif

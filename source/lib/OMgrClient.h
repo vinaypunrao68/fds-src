@@ -326,6 +326,17 @@ namespace fds {
     void NotifyDLTClose(FDSP_MsgHdrTypePtr& fdsp_msg,
                         FDSP_DltCloseTypePtr& dlt_close);
 
+    void PushMetaDMTReq(const FDSP_PushMeta& push_meta_resp) {}
+    void PushMetaDMTReq(FDSP_PushMetaPtr& push_meta_resp);
+
+    void NotifyDMTClose(const FDSP_MsgHdrType& fdsp_msg,
+                        const FDSP_DmtCloseType& dmt_close) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+
+    void NotifyDMTClose(FDSP_MsgHdrTypePtr& fdsp_msg,
+                        FDSP_DmtCloseTypePtr& dmt_close);
+
     void NotifyDMTUpdate(const FDSP_MsgHdrType& msg_hdr,
 			 const FDSP_DMT_Type& dmt_info) {
         // Don't do anything here. This stub is just to keep cpp compiler happy
@@ -333,7 +344,6 @@ namespace fds {
 
     void NotifyDMTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
 			 FDSP_DMT_TypePtr& dmt_info);
-
 
     void SetThrottleLevel(const FDSP_MsgHdrType& msg_hdr,
                           const FDSP_ThrottleMsgType& throttle_msg) {

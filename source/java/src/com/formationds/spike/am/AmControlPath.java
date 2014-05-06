@@ -89,6 +89,16 @@ public class AmControlPath implements FDSP_ControlPathReq.Iface {
     }
 
     @Override
+    public void PushMetaDMTReq(FDSP_PushMeta  metaData) throws TException {
+        LOG.debug(metaData);
+    }
+
+    @Override
+    public void NotifyDMTClose(FDSP_MsgHdrType fdsp_msg, FDSP_DmtCloseType dmt_close) throws TException {
+        LOG.debug(dmt_close);
+    }
+
+    @Override
     public void TierPolicyAudit(FDSP_TierPolicyAudit audit) throws TException {
         LOG.debug(audit);
     }

@@ -192,6 +192,17 @@ class ControlPathReq : public FDS_ProtocolInterface::FDSP_ControlPathReqIf {
 #endif
     }
 
+    void PushMetaDMTReq(const FDSP_PushMeta& push_meta_resp) {}
+    void PushMetaDMTReq(FDSP_PushMetaPtr& push_meta_resp) {}
+
+    void NotifyDMTClose(const FDSP_MsgHdrType& fdsp_msg,
+                        const FDSP_DmtCloseType& dmt_close) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+    void NotifyDMTClose(FDSP_MsgHdrTypePtr& fdsp_msg,
+                        FDSP_DmtCloseTypePtr& dmt_close) {
+    }
+
     void NotifyDLTClose(const FDSP_MsgHdrType& fdsp_msg,
                         const FDSP_DltCloseType& dlt_info) {
         // Don't do anything here. This stub is just to keep cpp compiler happy

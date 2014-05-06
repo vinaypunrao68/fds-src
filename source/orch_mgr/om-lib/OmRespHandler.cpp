@@ -165,4 +165,26 @@ void OrchMgr::FDSP_ControlPathRespHandler::NotifyDMTUpdateResp(
             << "OrchMgr: received response for NotifyDMTUpdate";
 }
 
+void OrchMgr::FDSP_ControlPathRespHandler::NotifyDMTCloseResp(
+    const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+    const FDS_ProtocolInterface::FDSP_DMT_Resp_Type& dmt_resp) {
+    // Don't do anything here. This stub is just to keep cpp compiler happy
+}
+
+void
+OrchMgr::FDSP_ControlPathRespHandler::NotifyDMTCloseResp(
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+    FDS_ProtocolInterface::FDSP_DMT_Resp_TypePtr& dmt_resp) {
+}
+
+void
+OrchMgr::FDSP_ControlPathRespHandler::PushMetaDMTResp(
+          const FDS_ProtocolInterface::FDSP_PushMeta& push_meta_resp) {
+    // Don't do anything here. This stub is just to keep cpp compiler happy
+}
+void
+OrchMgr::FDSP_ControlPathRespHandler::PushMetaDMTResp(
+           FDS_ProtocolInterface::FDSP_PushMetaPtr& push_meta_resp) {
+}
+
 }  // namespace fds

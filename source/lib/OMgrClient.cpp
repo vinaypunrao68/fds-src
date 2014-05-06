@@ -97,11 +97,6 @@ void OMgrClientRPCI::NotifyDLTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
     om_client->recvDLTUpdate(dlt_info, msg_hdr->session_uuid);
 }
 
-void OMgrClientRPCI::NotifyDLTClose(FDSP_MsgHdrTypePtr& fdsp_msg,
-                                    FDSP_DltCloseTypePtr& dlt_close) {
-    om_client->recvDLTClose(dlt_close, fdsp_msg->session_uuid);
-}
-
 void OMgrClientRPCI::NotifyStartMigration(FDSP_MsgHdrTypePtr& msg_hdr,
                                           FDSP_DLT_Data_TypePtr& dlt_info) {
     // Only SM needs to process these migrations
@@ -129,6 +124,19 @@ void OMgrClientRPCI::NotifyDMTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
 				     FDSP_DMT_TypePtr& dmt_info) {
   // om_client->recvDMTUpdate(dmt_info->DMT_version, dmt_info->DMT);
   om_client->recvDMTUpdate(dmt_info, msg_hdr->session_uuid);
+}
+
+void OMgrClientRPCI::NotifyDLTClose(FDSP_MsgHdrTypePtr& fdsp_msg,
+                                    FDSP_DltCloseTypePtr& dlt_close) {
+    om_client->recvDLTClose(dlt_close, fdsp_msg->session_uuid);
+}
+
+void OMgrClientRPCI::NotifyDMTClose(FDSP_MsgHdrTypePtr& fdsp_msg,
+                        FDSP_DmtCloseTypePtr& dmt_close) {
+}
+
+void OMgrClientRPCI::PushMetaDMTReq(FDSP_PushMetaPtr& push_meta_resp) {
+
 }
 
 void OMgrClientRPCI::SetThrottleLevel(FDSP_MsgHdrTypePtr& msg_hdr, 

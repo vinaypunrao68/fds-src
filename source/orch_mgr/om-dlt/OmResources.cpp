@@ -1298,6 +1298,29 @@ OM_ControlRespHandler::NotifyDLTUpdateResp(
 }
 
 void
+OM_ControlRespHandler::NotifyDMTCloseResp(
+    const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+    const FDS_ProtocolInterface::FDSP_DMT_Resp_Type& dmt_resp) {
+    // Don't do anything here. This stub is just to keep cpp compiler happy
+}
+
+void
+OM_ControlRespHandler::NotifyDMTCloseResp(
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+    FDS_ProtocolInterface::FDSP_DMT_Resp_TypePtr& dmt_resp) {
+}
+
+void
+OM_ControlRespHandler::PushMetaDMTResp(
+          const FDS_ProtocolInterface::FDSP_PushMeta& push_meta_resp) {
+    // Don't do anything here. This stub is just to keep cpp compiler happy
+}
+void
+OM_ControlRespHandler::PushMetaDMTResp(
+           FDS_ProtocolInterface::FDSP_PushMetaPtr& push_meta_resp) {
+}
+
+void
 OM_ControlRespHandler::NotifyDLTCloseResp(
     const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
     const FDS_ProtocolInterface::FDSP_DLT_Resp_Type& dlt_resp) {
