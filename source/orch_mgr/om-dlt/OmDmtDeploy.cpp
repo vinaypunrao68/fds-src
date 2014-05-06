@@ -282,7 +282,6 @@ DmtDplyFSM::DACT_SendDmts::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
 
     loc_domain->om_round_robin_dmt();
     fds_uint32_t count  = loc_domain->om_bcast_dmt_table();
-//    count = 0;
     if (count < 1) {
         dst.acks_to_wait = 1;
         fsm.process_event(DmtCloseOkEvt());

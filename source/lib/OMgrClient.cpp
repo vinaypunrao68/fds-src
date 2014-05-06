@@ -127,7 +127,6 @@ void OMgrClientRPCI::NotifyScavengerCmd(FDSP_MsgHdrTypePtr& msg_hdr,
 
 void OMgrClientRPCI::NotifyDMTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
 				     FDSP_DMT_TypePtr& dmt_info) {
-  // om_client->recvDMTUpdate(dmt_info->DMT_version, dmt_info->DMT);
   om_client->recvDMTUpdate(dmt_info, msg_hdr->session_uuid);
 }
 
@@ -171,7 +170,8 @@ OMgrClient::OMgrClient(FDSP_MgrIdType node_type,
                        const std::string& node_name,
                        fds_log *parent_log,
                        boost::shared_ptr<netSessionTbl> nst,
-                       Platform *plf) {
+                       Platform *plf)
+        : dmtMgr(new DMTManager()) {
   my_node_type = node_type;
   omIpStr      = _omIpStr;
   omConfigPort = _omPort;
@@ -838,21 +838,13 @@ int OMgrClient::recvDMTUpdate(FDSP_DMT_TypePtr& dmt_info,
                               const std::string& session_uuid) {
 
   Error err(ERR_OK);
-  LOGNOTIFY << "OMClient received new DMT version  " << dmt_info->DMT_version;
+  LOGNOTIFY << "OMClient received new DMT version " << dmt_info->dmt_version;
 
-  omc_lock.write_lock();
-  const Node_Table_Type& dmt_table = dmt_info->DMT;
-  this->dmt_version = dmt_info->DMT_version;
-  this->dmt = dmt_table;
-
-  omc_lock.write_unlock();
-
-  int row = 0;
-  for (auto it = dmt_table.cbegin(); it != dmt_table.cend(); it++) {
-    for (auto jt = (*it).cbegin(); jt != (*it).cend(); jt++) {
-        LOGNOTIFY << "[Col " << row << std::hex << "] " << *jt << std::dec;
-    }
-    row++;
+  // before we implement DM sync, any DMT we receive from OM is committed DMT
+  // dmtMgr is thread-safe, uses it's internal lock
+  err = dmtMgr->addSerialized(dmt_info->dmt_data, DMT_COMMITTED);
+  if (!err.ok()) {
+      LOGERROR << "Failed to add DMT to DMTManager " << err;
   }
 
   // send ack back to OM
@@ -867,7 +859,7 @@ int OMgrClient::recvDMTUpdate(FDSP_DMT_TypePtr& dmt_info,
           msg_hdr->result = FDSP_ERR_FAILED;
       }
       FDSP_DMT_Resp_TypePtr dmt_resp(new FDSP_DMT_Resp_Type);
-      dmt_resp->DMT_version = dmt_info->DMT_version;
+      dmt_resp->DMT_version = dmt_info->dmt_version;
       resp_client_prx->NotifyDMTUpdateResp(msg_hdr, dmt_resp);
       LOGNOTIFY << "OMClient sent response for DMT update to OM";
    } catch (...) {
@@ -984,21 +976,6 @@ DltTokenGroupPtr OMgrClient::getDLTNodesForDoidKey(const ObjectID &objId) {
 
 }
 
-int OMgrClient::getDMTNodesForVolume(fds_volid_t vol_id, fds_uint64_t *node_ids, int *n_nodes) {
-
-  omc_lock.read_lock();
-
-  int total_shards = this->dmt.size();
-  int lookup_key = ((fds_uint64_t)vol_id) % total_shards;
-  int total_nodes = this->dmt[lookup_key].size();
-  *n_nodes = (total_nodes < *n_nodes)? total_nodes:*n_nodes;
-  int i;
-  
-  for (i = 0; i < *n_nodes; i++) {
-    node_ids[i] = this->dmt[lookup_key][i];
-  } 
-
-  omc_lock.read_unlock();
-
-  return 0;
+DmtColumnPtr OMgrClient::getDMTNodesForVolume(fds_volid_t vol_id) {
+    return dmtMgr->getCommittedNodeGroup(vol_id);  // thread-safe, do not hold lock
 }

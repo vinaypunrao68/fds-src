@@ -13,7 +13,6 @@
 #include <fds_error.h>
 #include <fds_config.hpp>
 #include <fds_process.h>
-#include <fds_placement_table.h>
 #include <fdsp/FDSP_ConfigPathReq.h>
 #include <fdsp/FDSP_OMControlPathReq.h>
 #include <fdsp/FDSP_ControlPathResp.h>
@@ -52,13 +51,10 @@ class OrchMgr: public FdsProcess {
 
 
     int current_dlt_version;
-    int current_dmt_version;
     FDS_ProtocolInterface::Node_Table_Type current_dlt_table;
-    FDS_ProtocolInterface::Node_Table_Type current_dmt_table;
     fds_mutex *om_mutex;
     std::string node_id_to_name[MAX_OM_NODES];
     const int table_type_dlt = 0;
-    const int table_type_dmt = 1;
 
     /*
      * Cmdline configurables

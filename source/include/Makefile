@@ -21,7 +21,6 @@ user_no_style  := \
 	fds_commons_rm.h      \
 	fds_config.hpp        \
 	fds_obj_cache.h       \
-	fds_placement_table.h \
 	fds_qos.h             \
 	fds_volume.h          \
 	native_api.h          \
@@ -36,12 +35,11 @@ user_no_style  := \
 	NetSessRespSvr.h      \
 	NetSessRespClient.h  \
 	NetSession.h        \
-    fds_counters.h	    \
+        fds_counters.h	    \
 	fds_stopwatch.h     \
 	graphite_client.h   \
 	debughelpers.h      \
 	net/socket.h        \
-        fds_dmt.h           \
 	serialize.h
 
 include $(topdir)/Makefile.incl
