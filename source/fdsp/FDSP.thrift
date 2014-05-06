@@ -788,6 +788,11 @@ struct FDSP_metaData
     2: FDSP_Uuid  node_uuid,
 }
 
+struct FDSP_VolMetaState
+{
+    1: vol_List_Type  volList;
+}
+
 typedef list<FDSP_metaData> FDSP_metaDataList
 /* DM meta data migration request */
 struct FDSP_PushMeta
@@ -1081,7 +1086,7 @@ service FDSP_MetaDataPathReq {
 
     oneway void DeleteCatalogObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DeleteCatalogType cat_obj_req),
 
-    oneway void GetVolumeBlobList(1:FDSP_MsgHdrType fds_msg, 2:FDSP_GetVolumeBlobListReqType blob_list_req)
+    oneway void GetVolumeBlobList(1:FDSP_MsgHdrType fds_msg, 2:FDSP_GetVolumeBlobListReqType blob_list_req),
 }
 
 service FDSP_MetaDataPathResp {
@@ -1092,7 +1097,8 @@ service FDSP_MetaDataPathResp {
 
     oneway void DeleteCatalogObjectResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DeleteCatalogType cat_obj_req),
 
-    oneway void GetVolumeBlobListResp(1:FDSP_MsgHdrType fds_msg, 2:FDSP_GetVolumeBlobListRespType blob_list_rsp)
+    oneway void GetVolumeBlobListResp(1:FDSP_MsgHdrType fds_msg, 2:FDSP_GetVolumeBlobListRespType blob_list_rsp),
+
 }
 
 
@@ -1223,12 +1229,14 @@ service FDSP_MigrationPathResp {
 }
 
 service FDSP_MetaPathReq {
-    oneway void PushMetaReq(1:FDSP_UpdateCatalogType push_meta_req)
+    oneway void PushMetaReq(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_UpdateCatalogType push_meta_req)
+    oneway void syncDone(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_VolMetaState vol_meta)
 
 }
 
 service FDSP_MetaPathResp {
-    oneway void PushMetaResp(1:FDSP_UpdateCatalogType push_meta_resp)
+    oneway void PushMetaResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_UpdateCatalogType push_meta_resp)
+    oneway void syncDoneResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_VolMetaState vol_meta)
 }
 
 #endif
