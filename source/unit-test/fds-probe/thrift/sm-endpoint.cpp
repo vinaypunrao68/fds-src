@@ -39,6 +39,7 @@ int
 ProbeEpTestSM::mod_init(SysParams const *const p)
 {
     EndPointMgr *mgr;
+    int *foo;
 
     Module::mod_init(p);
 
@@ -56,6 +57,7 @@ ProbeEpTestSM::mod_init(SysParams const *const p)
     // Allocate service handling objects for message passing.
     // Services are identified by uuid, major version, minor version.
     //
+    foo = new int(10);
     svc_hello = new ProbeHelloSvc(ResourceUUID(0x1234), 1, 1); /* ver 1.1 */
     svc_bye   = new ProbeByeSvc(ResourceUUID(0xcafe), 3, 4);   /* ver 3.4 */
     svc_poke  = new ProbePokeSvc(ResourceUUID(0xbeef), 5, 1);  /* ver 5.1 */

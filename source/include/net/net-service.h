@@ -62,7 +62,7 @@ class EpAttr
     //
 
     // Methods.
-    EpAttr() {}
+    EpAttr() : ep_refcnt(0) {}
     virtual ~EpAttr() {}
 
     EpAttr(fds_uint32_t ip, int port);        /**< ip = 0, default IP of the node */
@@ -223,7 +223,7 @@ class EpSvcHandle
     friend class NetMgr;
     friend class EpSvc;
 
-    EpSvcHandle() {}
+    EpSvcHandle() : ep_refcnt(0) {}
     virtual ~EpSvcHandle() {}
 
     virtual int  ep_get_status() { return 0; }
