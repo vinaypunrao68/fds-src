@@ -14,6 +14,8 @@ EndPointMgr  gl_EndPointMgr("EndPoint Mgr");
  */
 EpAttr::EpAttr(fds_uint32_t ip, int port)
 {
+    ep_addr.sa_family = AF_INET;
+    ((struct sockaddr_in *)&ep_addr)->sin_port = port;
 }
 
 EpAttr &

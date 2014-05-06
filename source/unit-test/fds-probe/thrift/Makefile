@@ -3,7 +3,10 @@ loc_thrift_gen    := $(probe_topdir)/../../include/fdsp
 loc_thrift_incl   := $(probe_topdir)/../../fdsp
 user_thrift_loc   := thrift-gen
 user_build_dir    := $(user_thrift_loc)
-user_incl_dir     := $(user_thrift_loc) $(loc_thrift_gen)
+user_incl_dir     := \
+	$(user_thrift_loc) \
+	$(loc_thrift_gen) \
+	$(probe_topdir)/../../am-app/include
 
 user_cpp_flags    :=
 user_fds_so_libs  :=
@@ -31,7 +34,8 @@ local_probe_clnt  := \
 local_server      := \
     endpoint-test.cpp \
     sm-endpoint.cpp \
-    thrf-server.cpp
+    thrf-server.cpp \
+    $(user_cc)
 
 user_cpp          := \
     endpoint-test.cpp \

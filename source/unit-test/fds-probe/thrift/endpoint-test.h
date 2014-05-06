@@ -140,6 +140,7 @@ class ProbeEpTestSM : public Module
 
 extern ProbeEpTestSM         gl_ProbeTestSM;
 extern ProbeEpTestAM         gl_ProbeTestAM;
+extern ProbeEpSvcTestAM      gl_ProbeSvcTestAM;
 
 }  // namespace fds
 #endif  // SOURCE_UNIT_TEST_FDS_PROBE_THRIFT_ENDPOINT_TEST_H_

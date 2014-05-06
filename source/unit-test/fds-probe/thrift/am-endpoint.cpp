@@ -27,6 +27,7 @@ class ProbeTestAM_RPC : virtual public fpi::ProbeServiceAMIf
 };
 
 ProbeEpTestAM                 gl_ProbeTestAM("Probe AM EP");
+ProbeEpSvcTestAM              gl_ProbeSvcTestAM("Probe Svc AM");
 
 /*
  * -----------------------------------------------------------------------------------
@@ -60,6 +61,7 @@ ProbeEpTestAM::mod_init(SysParams const *const p)
 void
 ProbeEpTestAM::mod_startup()
 {
+    probe_ep->ep_activate();
 }
 
 void

@@ -80,6 +80,7 @@ ProbeEpTestSM::mod_init(SysParams const *const p)
 void
 ProbeEpTestSM::mod_startup()
 {
+    probe_ep->ep_activate();
 }
 
 // mod_shutdown

@@ -1,0 +1,35 @@
+{
+    "AM": {
+        "hello": {
+            "ProbeFoo": {
+               "p1": 12,
+               "p2": 32,
+               "p3": "This is a test"
+            }
+        },
+        "bye": {
+            "ProbeGetMsgReqt": {
+                "msg_len": 123
+            }
+        },
+        "poke": {
+            "ProbeBar": {
+                "p1": 43332,
+                "p2": 453423,
+                "p3": 3422,
+                "p4": 4655,
+                "p5": 56565
+            }
+        },
+        "probe_put": {
+            "ProbePutMsg": {
+                "msg_data": "This is data from a put request through probe interface"
+            }
+        },
+        "probe_get": {
+            "ProbeGetMsgReqt": {
+                "msg_len": 123
+            }
+        }
+    }
+}

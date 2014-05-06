@@ -23,6 +23,13 @@
 
 namespace fds {
 
+namespace at = apache::thrift;
+namespace tc = apache::thrift::concurrency;
+namespace tp = apache::thrift::protocol;
+namespace ts = apache::thrift::server;
+namespace tt = apache::thrift::transport;
+namespace bo = boost;
+
 class EpSvc;
 class EpSvcImpl;
 class EpSvcHandle;
@@ -169,6 +176,10 @@ class EpSvc
     //
     virtual void svc_receive_msg(const fpi::AsyncHdr &msg) = 0;
 
+    // Just return int for now
+    //
+    virtual int  ep_get_status() { return 0; }
+
     // Control endpoint/service attributes.
     //
     void            ep_apply_attr();
@@ -214,6 +225,11 @@ class EpSvcHandle
 
     EpSvcHandle() {}
     virtual ~EpSvcHandle() {}
+
+    virtual int  ep_get_status() { return 0; }
+
+    template <class SendIf>
+    boost::shared_ptr<SendIf> svc_rpc() { return NULL; }
 
   private:
     mutable boost::atomic<int>       ep_refcnt;
@@ -318,13 +334,6 @@ class EpSvcImpl : public EpSvc
  * Endpoint is the logical RPC representation of a physical connection.
  * Thrift template implementation.
  */
-namespace at = apache::thrift;
-namespace tc = apache::thrift::concurrency;
-namespace tp = apache::thrift::protocol;
-namespace ts = apache::thrift::server;
-namespace tt = apache::thrift::transport;
-namespace bo = boost;
-
 template <class SendIf, class RecvIf>
 class EndPoint : public EpSvcImpl
 {
@@ -353,7 +362,10 @@ class EndPoint : public EpSvcImpl
     static inline EndPoint<SendIf, RecvIf>::pointer ep_cast_ptr(EpSvc::pointer ptr) {
         return static_cast<EndPoint<SendIf, RecvIf> *>(get_pointer(ptr));
     }
-
+    void ep_activate() {
+        ep_setup_server();
+        ep_client_connect();
+    }
     // Synchronous send/receive handlers.
     //
     boost::shared_ptr<SendIf> ep_sync_rpc() { return ep_rpc_send; }
@@ -381,9 +393,15 @@ class EndPoint : public EpSvcImpl
     //
     void ep_client_connect()
     {
-        int         port = 6000;
+        int         port;
         const char *host = "localhost";
 
+        port = ep_attr->attr_get_port();
+        if (port == 6000) {
+            port = 7000;
+        } else {
+            port = 6000;
+        }
         ep_sock  = bo::shared_ptr<tt::TTransport>(new tt::TSocket(host, port));
         ep_trans = bo::shared_ptr<tt::TTransport>(new tt::TFramedTransport(ep_sock));
         ep_proto = bo::shared_ptr<tp::TProtocol>(new tp::TBinaryProtocol(ep_trans));
@@ -394,8 +412,9 @@ class EndPoint : public EpSvcImpl
     //
     void ep_setup_server()
     {
-        int     port = 7000;
+        int     port;
 
+        port = ep_attr->attr_get_port();
         bo::shared_ptr<tp::TProtocolFactory>  proto(new tp::TBinaryProtocolFactory());
         bo::shared_ptr<tt::TServerTransport>  trans(new tt::TServerSocket(port));
         bo::shared_ptr<tt::TTransportFactory> tfact(new tt::TFramedTransportFactory());
@@ -430,9 +449,6 @@ class EndPoint : public EpSvcImpl
         ep_trans    = NULL;
         ep_proto    = NULL;
         ep_server   = NULL;
-
-        ep_setup_server();
-        ep_client_connect();
     }
 };
 
