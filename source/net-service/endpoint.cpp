@@ -16,62 +16,44 @@ EpAttr::EpAttr(fds_uint32_t ip, int port)
 {
 }
 
+EpAttr &
+EpAttr::operator = (const EpAttr &rhs)
+{
+    ep_addr = rhs.ep_addr;
+    return *this;
+}
+
+int
+EpAttr::attr_get_port()
+{
+    if (ep_addr.sa_family == AF_INET) {
+        return (((struct sockaddr_in *)&ep_addr)->sin_port);
+    }
+    return (((struct sockaddr_in6 *)&ep_addr)->sin6_port);
+}
+
 /*
  * -----------------------------------------------------------------------------------
  * Base EndPoint Service Handler
  * -----------------------------------------------------------------------------------
  */
 EpSvc::EpSvc(const ResourceUUID &uuid, fds_uint32_t major, fds_uint32_t minor)
+    : ep_evt(NULL), ep_attr(NULL), svc_domain(NULL)
 {
+    svc_ver.ver_major = major;
+    svc_ver.ver_minor = minor;
+    uuid.uuid_assign(&svc_id.svc_uuid);
+
+    ep_mgr = EndPointMgr::ep_mgr_singleton();
 }
 
 EpSvc::EpSvc(const ResourceUUID &domain,
              const ResourceUUID &uuid,
              fds_uint32_t        major,
-             fds_uint32_t        minor)
+             fds_uint32_t        minor) : EpSvc(uuid, major, minor)
 {
-}
-
-EpSvc::EpSvc(const NodeUuid       &mine,
-             const NodeUuid       &peer,
-             const EpAttr         &attr,
-             EpEvtPlugin::pointer  ops)
-{
-}
-
-// ep_bind_service
-// ---------------
-//
-void
-EpSvc::ep_bind_service(EpSvc::pointer svc)
-{
-}
-
-// ep_unbind_service
-// -----------------
-//
-EpSvc::pointer
-EpSvc::ep_unbind_service(const fpi::SvcID &id)
-{
-    return NULL;
-}
-
-// ep_lookup_service
-// -----------------
-//
-EpSvc::pointer
-EpSvc::ep_lookup_service(const ResourceUUID &uuid)
-{
-    return NULL;
-}
-
-// ep_lookup_service
-// -----------------
-//
-EpSvc::pointer
-EpSvc::ep_lookup_service(const char *name)
-{
-    return NULL;
+    svc_domain = new fpi::DomainID();
+    domain.uuid_assign(&svc_domain->domain_id);
 }
 
 // ep_apply_attr
@@ -80,6 +62,71 @@ EpSvc::ep_lookup_service(const char *name)
 void
 EpSvc::ep_apply_attr()
 {
+}
+
+/*
+ * -----------------------------------------------------------------------------------
+ * Base EndPoint Implementation
+ * -----------------------------------------------------------------------------------
+ */
+EpSvcImpl::~EpSvcImpl() {}
+
+EpSvcImpl::EpSvcImpl(const NodeUuid       &mine,
+                     const NodeUuid       &peer,
+                     const EpAttr         &attr,
+                     EpEvtPlugin::pointer  ops) : EpSvc(mine, 0, 0)
+{
+    peer.uuid_assign(&ep_peer_id.svc_uuid);
+    ep_evt   = ops;
+    ep_attr  = new EpAttr();
+    *ep_attr = attr;
+    if (ep_evt != NULL) {
+        ep_evt->assign_ep_owner(this);
+    }
+}
+
+EpSvcImpl::EpSvcImpl(const fpi::SvcID     &mine,
+                     const fpi::SvcID     &peer,
+                     const EpAttr         &attr,
+                     EpEvtPlugin::pointer  ops)
+    : EpSvcImpl(ResourceUUID(mine.svc_uuid), ResourceUUID(peer.svc_uuid), attr, ops)
+{
+    ep_peer_id = peer;
+}
+
+// ep_bind_service
+// ---------------
+//
+void
+EpSvcImpl::ep_bind_service(EpSvc::pointer svc)
+{
+}
+
+// ep_unbind_service
+// -----------------
+//
+EpSvc::pointer
+EpSvcImpl::ep_unbind_service(const fpi::SvcID &id)
+{
+    return NULL;
+}
+
+// ep_lookup_service
+// -----------------
+//
+EpSvc::pointer
+EpSvcImpl::ep_lookup_service(const ResourceUUID &uuid)
+{
+    return NULL;
+}
+
+// ep_lookup_service
+// -----------------
+//
+EpSvc::pointer
+EpSvcImpl::ep_lookup_service(const char *name)
+{
+    return NULL;
 }
 
 /*
@@ -163,15 +210,6 @@ EndPointMgr::ep_register(EpSvc::pointer ep)
 {
 }
 
-// ep_register
-// -----------
-// Register the endpoint to a specific domain, not local.
-//
-void
-EndPointMgr::ep_register(const fpi::DomainID &domain, EpSvc::pointer ep)
-{
-}
-
 // ep_unregister
 // -------------
 // Unregister the endpoint.  This is lazy unregister.  Stale endpoint will be notified
@@ -182,31 +220,22 @@ EndPointMgr::ep_unregister(const fpi::SvcUuid &uuid)
 {
 }
 
-// ep_lookup
-// ---------
-// Lookup the endpoint by its uuid.
+// svc_lookup
+// ----------
+// Lookup a service handle based on uuid and correct version.
 //
-EpSvc::pointer
-EndPointMgr::ep_lookup(const fpi::SvcUuid &peer)
+EpSvcHandle::pointer
+EndPointMgr::svc_lookup(const ResourceUUID &peer, fds_uint32_t maj, fds_uint32_t min)
 {
     return NULL;
 }
 
-// ep_lookup
-// ---------
-// Lookup the endpoint by name.
+// svc_lookup
+// ----------
+// Lookup a service handle based on its well-known name and correct version.
 //
-EpSvc::pointer
-EndPointMgr::ep_lookup(const char *peer_name)
-{
-    return NULL;
-}
-
-// ep_svc_lookup
-// -------------
-//
-EpSvc::pointer
-EndPointMgr::ep_svc_lookup(const ResourceUUID &uuid)
+EpSvcHandle::pointer
+EndPointMgr::svc_lookup(const char *peer_name, fds_uint32_t maj, fds_uint32_t min)
 {
     return NULL;
 }

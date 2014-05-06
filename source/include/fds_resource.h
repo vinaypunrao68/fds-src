@@ -7,13 +7,17 @@
 #include <list>
 #include <string>
 #include <vector>
+#include <ostream>
 #include <unordered_map>
 #include <boost/atomic.hpp>
 #include <boost/intrusive_ptr.hpp>
+
 #include <cpplist.h>
 #include <shared/fds_types.h>
 #include <concurrency/Mutex.h>
-#include <ostream>
+#include <fdsp/fds_service_types.h>
+
+namespace fpi = FDS_ProtocolInterface;
 namespace fds {
 
 // ----------------------------------------------------------------------------
@@ -25,6 +29,7 @@ class ResourceUUID
     ResourceUUID() : rs_uuid(0) {}
     ResourceUUID(fds_uint64_t uuid);  // NOLINT
     explicit ResourceUUID(const fds_uint8_t *raw);
+    explicit ResourceUUID(const fpi::SvcUuid &uuid) : rs_uuid(uuid.svc_uuid) {}
 
     inline fds_uint64_t uuid_get_val() const {
         return rs_uuid;
@@ -39,6 +44,12 @@ class ResourceUUID
     inline void uuid_set_to_raw(fds_uint8_t *raw) const {
         fds_uint64_t *ptr = reinterpret_cast<fds_uint64_t *>(raw);
         *ptr = rs_uuid;
+    }
+    inline void uuid_assign(fpi::SvcUuid *svc) const {
+        svc->svc_uuid = rs_uuid;
+    }
+    inline void uuid_copy(fpi::SvcUuid &svc) {
+        rs_uuid = svc.svc_uuid;
     }
 
     bool operator==(const ResourceUUID& rhs) const {
