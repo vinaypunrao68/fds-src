@@ -44,6 +44,7 @@ namespace fds {
 
     struct StatBlobResponseHandler : ResponseHandler , StatBlobCallback {
         StatBlobResponseHandler(apis::BlobDescriptor &retVal);
+        typedef boost::shared_ptr<StatBlobResponseHandler> ptr;
 
         apis::BlobDescriptor &retBlobDesc;
 
@@ -51,8 +52,9 @@ namespace fds {
         virtual ~StatBlobResponseHandler();
     };
 
-    struct StartBlobTxResponseHandler : ResponseHandler {
+    struct StartBlobTxResponseHandler : ResponseHandler, StartBlobTxCallback {
         StartBlobTxResponseHandler(apis::TxDescriptor &retVal);
+        typedef boost::shared_ptr<StartBlobTxResponseHandler> ptr;
 
         apis::TxDescriptor &retTxDesc;
         BlobTxId            blobTxId;

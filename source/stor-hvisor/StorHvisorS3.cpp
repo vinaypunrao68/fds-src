@@ -665,7 +665,7 @@ StorHvCtrl::startBlobTxResp(const FDSP_MsgHdrTypePtr rxMsg) {
     // Return if err
     if (rxMsg->result != FDSP_ERR_OK) {
         vol->journal_tbl->releaseTransId(transId);
-        blobReq->cbWithResult(-1);
+        blobReq->cb->call(FDSN_StatusErrorUnknown);
         txn->reset();
         delete blobReq;
         return;
@@ -687,7 +687,9 @@ StorHvCtrl::startBlobTxResp(const FDSP_MsgHdrTypePtr rxMsg) {
     result = fds_move_wr_req_state_machine(rxMsg);
 
     if (result == 1) {
-        blobReq->cbWithResult(0);
+        StartBlobTxCallback::ptr cb = SHARED_DYN_CAST(StartBlobTxCallback,
+                                                      blobReq->cb);
+        cb->call(FDSN_StatusOK);
         txn->reset();
         vol->journal_tbl->releaseTransId(transId);
         delete blobReq;
@@ -739,7 +741,7 @@ StorHvCtrl::statBlobResp(const FDSP_MsgHdrTypePtr rxMsg,
         return;
     }
 
-    StatBlobCallbackPtr cb = SHARED_DYN_CAST(StatBlobCallback,blobReq->cb);
+    StatBlobCallback::ptr cb = SHARED_DYN_CAST(StatBlobCallback,blobReq->cb);
 
     cb->blobDesc.setBlobName(blobDesc->name);
     cb->blobDesc.setBlobSize(blobDesc->byteCount);
@@ -1225,7 +1227,11 @@ StorHvCtrl::startBlobTx(AmQosReq *qosReq) {
     LOGDEBUG << "Starting blob transaction " << txId << " for blob "
              << blobReq->getBlobName() << " in journal trans "
              << transId << " and vol 0x" << std::hex << volId << std::dec;
-    blobReq->txId = txId;
+
+    // Stash the newly created ID in the callback for later
+    StartBlobTxCallback::ptr cb = SHARED_DYN_CAST(StartBlobTxCallback,
+                                                  blobReq->cb);
+    cb->txId = txId;
 
     // Setup RPC request to DM
     FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr(new FDSP_MsgHdrType);

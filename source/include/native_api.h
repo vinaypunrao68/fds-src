@@ -112,8 +112,7 @@ namespace fds {
 
         void StartBlobTx(const std::string& volumeName,
                          const std::string& blobName,
-                         fdsnStartBlobTxHandler cb,
-                         void *cbData);
+                         CallbackPtr cb);
 
   private:
         /**

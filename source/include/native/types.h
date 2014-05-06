@@ -468,10 +468,15 @@ namespace fds {
     };
     
     struct StatBlobCallback : virtual Callback {
+        typedef boost::shared_ptr<StatBlobCallback> ptr;
         /// The blob descriptor to fill in
         BlobDescriptor      blobDesc;
     };
 
-    typedef boost::shared_ptr<StatBlobCallback> StatBlobCallbackPtr;
+    struct StartBlobTxCallback : virtual Callback {
+        typedef boost::shared_ptr<StartBlobTxCallback> ptr;
+        /// The blob trans ID to fill in
+        BlobTxId      txId;
+    };
 }  // namespace fds
 #endif  // SOURCE_INCLUDE_NATIVE_TYPES_H_

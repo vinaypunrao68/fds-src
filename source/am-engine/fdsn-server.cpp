@@ -81,7 +81,7 @@ class FdsnIf : public apis::AmServiceIf {
                   boost::shared_ptr<std::string>& domainName,
                   boost::shared_ptr<std::string>& volumeName,
                   boost::shared_ptr<std::string>& blobName) {
-        boost::shared_ptr<StatBlobResponseHandler> handler(
+        StatBlobResponseHandler::ptr handler(
             new StatBlobResponseHandler(_return));
 
         am_api->StatBlob(*volumeName,
@@ -102,15 +102,15 @@ class FdsnIf : public apis::AmServiceIf {
                      boost::shared_ptr<std::string>& domainName,
                      boost::shared_ptr<std::string>& volumeName,
                      boost::shared_ptr<std::string>& blobName) {
-        StartBlobTxResponseHandler handler(_return);
+        StartBlobTxResponseHandler::ptr handler(
+            new StartBlobTxResponseHandler(_return));
 
         am_api->StartBlobTx(*volumeName,
                             *blobName,
-                            fn_StartBlobTxHandler,
-                            static_cast<void *>(&handler));
+                            SHARED_DYN_CAST(Callback, handler));
 
-        handler.wait();
-        handler.process();
+        handler->wait();
+        handler->process();
     }
 
     void commitBlobTx(const apis::TxDescriptor& txDesc) {

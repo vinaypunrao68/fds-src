@@ -380,6 +380,12 @@ class DataMgr : public PlatformProcess {
                              BlobTxId::const_ptr blobTxId,
                              fds_volid_t volId, long srcIp, long dstIp, fds_uint32_t srcPort,
                              fds_uint32_t dstPort, std::string session_uuid, fds_uint32_t reqCookie);
+    void commitBlobTxInternal(BlobTxId::const_ptr blobTxId,
+                             fds_volid_t volId, long srcIp, long dstIp, fds_uint32_t srcPort,
+                             fds_uint32_t dstPort, std::string session_uuid, fds_uint32_t reqCookie);
+    void abortBlobTxInternal(BlobTxId::const_ptr blobTxId,
+                             fds_volid_t volId, long srcIp, long dstIp, fds_uint32_t srcPort,
+                             fds_uint32_t dstPort, std::string session_uuid, fds_uint32_t reqCookie);
 
     /*
      * Nested class that manages the server interface.

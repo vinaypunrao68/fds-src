@@ -579,18 +579,12 @@ void FDS_NativeAPI::DoCallback(FdsBlobReq  *blob_req,
     }
 
     switch (blob_req->getIoType()) {
-        case FDS_START_BLOB_TX:
-            static_cast<StartBlobTxReq*>(blob_req)->DoCallback(status, NULL);
-            break;
         case FDS_PUT_BLOB:
             static_cast<PutBlobReq*>(blob_req)->DoCallback(status, NULL);
             break;
         case FDS_GET_BLOB:
             static_cast<GetBlobReq*>(blob_req)->DoCallback(status, NULL);
             break;
-            //case FDS_STAT_BLOB:
-            //static_cast<StatBlobReq*>(blob_req)->DoCallback(status, NULL);
-            //break;
         case FDS_DELETE_BLOB:
             static_cast<DeleteBlobReq*>(blob_req)->DoCallback(status, NULL);
             break;
@@ -640,8 +634,7 @@ Error FDS_NativeAPI::sendTestBucketToOM(const std::string& bucket_name,
 void
 FDS_NativeAPI::StartBlobTx(const std::string& volumeName,
                            const std::string& blobName,
-                           fdsnStartBlobTxHandler cb,
-                           void *cbData) {
+                           CallbackPtr cb) {
     fds_volid_t volId = invalid_vol_id;
     LOGDEBUG << " Start blob tx for volume: " << volumeName
              << ", blobName " << blobName;
@@ -659,8 +652,7 @@ FDS_NativeAPI::StartBlobTx(const std::string& volumeName,
                                  0,  // No blob offset
                                  0,  // No data length
                                  NULL,  // No buffer
-                                 cb,
-                                 cbData);
+                                 cb);
     fds_verify(blobReq != NULL);
 
     // Push the request if we have the vol already

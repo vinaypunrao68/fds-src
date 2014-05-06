@@ -1547,6 +1547,52 @@ DataMgr::blobListInternal(const FDSP_GetVolumeBlobListReqTypePtr& blob_list_req,
 }
 
 void
+DataMgr::commitBlobTxInternal(BlobTxId::const_ptr blobTxId,
+                             fds_volid_t volId, long srcIp, long dstIp, fds_uint32_t srcPort,
+                             fds_uint32_t dstPort, std::string session_uuid, fds_uint32_t reqCookie) {
+    Error err(ERR_OK);
+
+    // The volume and blob will be derived from the transaction id
+    dmCatReq *dmCommitTxReq = new DataMgr::dmCatReq(0, "",
+                                                    srcIp, dstIp,
+                                                    srcPort, dstPort,
+                                                    session_uuid, reqCookie,
+                                                    FDS_COMMIT_BLOB_TX);
+    fds_verify(dmCommitTxReq != NULL);
+
+    // Set the desired version to invalid for now (so we get the newest)
+    dmCommitTxReq->setBlobVersion(blob_version_invalid);
+    dmCommitTxReq->setBlobTxId(blobTxId);
+    err = qosCtrl->enqueueIO(dmCommitTxReq->getVolId(),
+                             static_cast<FDS_IOType*>(dmCommitTxReq));
+    // Make sure we could enqueue the request
+    fds_verify(err == ERR_OK);
+}
+
+void
+DataMgr::abortBlobTxInternal(BlobTxId::const_ptr blobTxId,
+                             fds_volid_t volId, long srcIp, long dstIp, fds_uint32_t srcPort,
+                             fds_uint32_t dstPort, std::string session_uuid, fds_uint32_t reqCookie) {
+    Error err(ERR_OK);
+
+    // The volume and blob will be derived from the transaction id
+    dmCatReq *dmAbortTxReq = new DataMgr::dmCatReq(0, "",
+                                                   srcIp, dstIp,
+                                                   srcPort, dstPort,
+                                                   session_uuid, reqCookie,
+                                                   FDS_ABORT_BLOB_TX);
+    fds_verify(dmAbortTxReq != NULL);
+
+    // Set the desired version to invalid for now (so we get the newest)
+    dmAbortTxReq->setBlobVersion(blob_version_invalid);
+    dmAbortTxReq->setBlobTxId(blobTxId);
+    err = qosCtrl->enqueueIO(dmAbortTxReq->getVolId(),
+                             static_cast<FDS_IOType*>(dmAbortTxReq));
+    // Make sure we could enqueue the request
+    fds_verify(err == ERR_OK);
+}
+
+void
 DataMgr::startBlobTxInternal(const std::string volumeName, const std::string &blobName,
                              BlobTxId::const_ptr blobTxId,
                              fds_volid_t volId, long srcIp, long dstIp, fds_uint32_t srcPort,
