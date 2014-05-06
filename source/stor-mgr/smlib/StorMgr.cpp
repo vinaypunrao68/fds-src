@@ -1133,6 +1133,7 @@ ObjectStorMgr::deleteObjectMetaData(const OpCtx &opCtx,
         LOGDEBUG << "Not able to read existing object locations"
                 << ", assuming no prior entry existed";
         err = ERR_OK;
+        smObjDb->unlock(objId);
         return err;
     }
 
@@ -1704,9 +1705,12 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
         fdspDataPathClient(msgHdr->session_uuid)->PutObjectResp(msgHdr, putObj);
     } catch(att::TTransportException& e) {
         LOGERROR << "error during network call : " << e.what() ;
+    } catch(...) {
+        LOGERROR << "Unexpected exception during network call";
+        throw;
     }
     omJrnl->release_transaction(putReq->getTransId());
-    LOGDEBUG << "Sent async PutObj response after processing";
+    LOGDEBUG << "Sent async PutObj response after processing " << objId;
 
     /*
      * Free the IO request structure that
