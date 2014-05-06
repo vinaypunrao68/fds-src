@@ -34,10 +34,10 @@ public class StreamWriterTest {
                 eq(domainName),
                 eq(volumeName),
                 eq(blobName),
+                any(TxDescriptor.class),
                 any(ByteBuffer.class),
                 eq(4),
                 eq(new ObjectOffset(0)),
-                any(TxDescriptor.class),
                 eq(ByteBuffer.wrap(new byte[0])),
                 eq(false));
 
@@ -45,10 +45,10 @@ public class StreamWriterTest {
                 eq(domainName),
                 eq(volumeName),
                 eq(blobName),
+                any(TxDescriptor.class),
                 any(ByteBuffer.class),
                 eq(4),
                 eq(new ObjectOffset(1)),
-                any(TxDescriptor.class),
                 eq(ByteBuffer.wrap(new byte[0])),
                 eq(false));
 
@@ -58,10 +58,10 @@ public class StreamWriterTest {
                 eq(domainName),
                 eq(volumeName),
                 eq(blobName),
+                any(TxDescriptor.class),
                 any(ByteBuffer.class),
                 eq(4),
                 eq(new ObjectOffset(1)),
-                any(TxDescriptor.class),
                 eq(ByteBuffer.wrap(expectedDigest)),
                 eq(true));
 
@@ -69,6 +69,7 @@ public class StreamWriterTest {
                 eq(domainName),
                 eq(volumeName),
                 eq(blobName),
+                any(TxDescriptor.class),
                 eq(metadata)
         );
 
