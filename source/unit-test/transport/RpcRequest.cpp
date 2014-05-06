@@ -1,6 +1,9 @@
 /* Copyright 2014 Formation Data Systems, Inc.
  */
+
+#include <util/Log.h>
 #include <RpcRequest.h>
+
 namespace fds {
 
 /**
@@ -25,7 +28,7 @@ AsyncRpcRequestId AsyncRpcRequestIf::getRequestId()
  *
  */
 EPRpcRequest::EPRpcRequest()
-    : EPRpcRequest(0)
+    : EPRpcRequest(fpi::SvcUuid())
 {
 }
 
@@ -89,7 +92,7 @@ void EPRpcRequest::handleError(const Error&e, VoidPtr resp)
  *
  */
 EPAsyncRpcRequest::EPAsyncRpcRequest()
-    : EPAsyncRpcRequest(0, 0)
+    : EPAsyncRpcRequest(0, fpi::SvcUuid())
 {
 }
 

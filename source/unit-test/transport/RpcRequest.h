@@ -5,9 +5,40 @@
 
 #include <functional>
 #include <boost/shared_ptr.hpp>
+
+#include <fdsp/fds_service_types.h>
 #include <fds_error.h>
 
+/**
+ * Helper macro for invoking an rpc
+ * req - RpcRequest context object
+ * SvcType - class type of the service
+ * method - method to invoke
+ * ... - arguements to the method
+ */
+#define INVOKE_RPC(req, SvcType, method, ...)                               \
+    do {                                                                    \
+        SvcType *client = nullptr;                                          \
+        /*
+        auto ep = gl_epMgr->getEndpoint((req).getEndpointId());             \
+        Error status = ep.getStatus();                                      \
+        if (status != ERROR_OK) {                                           \
+            (req).setError(status);                                         \
+            break;                                                          \
+        } else {                                                            \
+            client = ep->getClient<SvcType>();                              \
+        }                                                                   \
+        */ \
+        try {                                                               \
+            client->method(__VA_ARGS__);                                    \
+        } catch(...) {                                                      \
+            (req).handleError(ERR_INVALID, VoidPtr(nullptr));               \
+        }                                                                   \
+    } while(false)
+
 namespace fds {
+
+namespace fpi = FDS_ProtocolInterface;
 
 /* Forward declarations */
 class AsyncRpcRequestTracker;
@@ -64,17 +95,18 @@ public:
     template <typename T, typename ...Args>
     void invoke(void (T::*mf)(Args...), Args &&... args)
     {
-        T *client;
+        T *client = nullptr;
+        Error e;
         // TODO (Rao): Get client from ep id
         try {
-            (client.*mf)(std::forward<Args>(args)...);
+            (client->*mf)(std::forward<Args>(args)...);
         } catch(...) {
             handleError(e, VoidPtr(nullptr));
         }
-        return ret;
-
     }
 
+
+#if 0
     /**
      * Wrapper for invoking the member function on an endpoint
      * @param mf - member function
@@ -83,16 +115,18 @@ public:
     template <typename T, typename R, typename ...Args>
     R invoke(R (T::*mf)(Args...), Args &&... args)
     {
-        T *client;
+        T *client = nullptr;
+        Error e;
         R ret;
         // TODO (Rao): Get client from ep id
         try {
-            ret = (client.*mf)(std::forward<Args>(args)...);
+            ret = (client->*mf)(std::forward<Args>(args)...);
         } catch(...) {
             handleError(e, VoidPtr(nullptr));
         }
         return ret;
     }
+#endif
 
 protected:
     /* Endpoint id */

@@ -49,13 +49,14 @@ user_non_fds_libs := \
 
 user_cpp          := \
 	RpcRequest.cpp \
-	RpcRequest_ut.cpp
+	RpcRequest_ut.cpp \
+	RpcRequestPool.cpp 
 
-user_no_style     := 
+user_no_style     := RpcRequest_ut.cpp
 
 user_bin_exe      := \
 	RpcRequest_ut 
 
-RpcRequest_ut := RpcRequest.cpp RpcRequest_ut.cpp
+RpcRequest_ut := RpcRequest.cpp RpcRequestPool.cpp RpcRequest_ut.cpp
 
 include $(topdir)/Makefile.incl
