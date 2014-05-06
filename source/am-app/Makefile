@@ -17,7 +17,8 @@ user_fds_ar_libs  :=  \
     fds-fdsp \
     fds-xdi \
     fds-hash \
-    fds-thread
+    fds-thread \
+    fds-osdep
 
 user_nginx_libs   :=  \
     ngx-http-module \
