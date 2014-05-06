@@ -35,73 +35,6 @@ class FdsnIf : public apis::AmServiceIf {
 
     typedef boost::shared_ptr<FdsnIf> ptr;
 
-    void createVolume(const std::string& domainName,
-                      const std::string& volumeName,
-                      const apis::VolumePolicy& volumePolicy) {
-    }
-
-    void createVolume(boost::shared_ptr<std::string>& domainName,
-                      boost::shared_ptr<std::string>& volumeName,
-                      boost::shared_ptr<apis::VolumePolicy>& volumePolicy) {
-        BucketContext bucket_ctx("host", *volumeName, "accessid", "secretkey");
-        fds_uint32_t fakeMaxObjSize = 2 * 1024 * 1024;
-
-        if ((volumePolicy->maxObjectSizeInBytes % fakeMaxObjSize) != 0) {
-            apis::ApiException fdsE;
-            fdsE.errorCode = apis::BAD_REQUEST;
-            throw fdsE;
-        }
-
-        // The CreateBucket is synchronous...though still uses
-        // the callback mechanism. The callback will throw
-        // an exception if we get an error
-        SimpleResponseHandler handler(__func__);
-        am_api->CreateBucket(&bucket_ctx, CannedAclPrivate,
-                             NULL, fn_ResponseHandler, &handler);
-        handler.wait();
-        handler.process();
-    }
-
-    void deleteVolume(const std::string& domainName,
-                      const std::string& volumeName) {
-    }
-
-    void deleteVolume(boost::shared_ptr<std::string>& domainName,
-                      boost::shared_ptr<std::string>& volumeName) {
-        BucketContext bucket_ctx("host", *volumeName, "accessid", "secretkey");
-
-        // The DeleteBucket is synchronous...though still uses
-        // the callback mechanism. The callback will throw
-        // an exception if we get an error
-        SimpleResponseHandler handler(__func__);
-        am_api->DeleteBucket(&bucket_ctx, NULL, fn_ResponseHandler, &handler);
-        handler.wait();
-        handler.process();
-    }
-
-    void statVolume(apis::VolumeDescriptor& _return,
-                    const std::string& domainName,
-                    const std::string& volumeName) {
-    }
-
-    void statVolume(apis::VolumeDescriptor& _return,
-                    boost::shared_ptr<std::string>& domainName,
-                    boost::shared_ptr<std::string>& volumeName) {
-        BucketContext bucket_ctx("host", *volumeName, "accessid", "secretkey");
-        BucketStatsResponseHandler handler(_return);
-        am_api->GetBucketStats(&bucket_ctx, fn_BucketStatsHandler, &handler);
-        handler.wait();
-        handler.process();
-    }
-
-    void listVolumes(std::vector<apis::VolumeDescriptor> & _return,
-                     const std::string& domainName) {
-    }
-
-    void listVolumes(std::vector<apis::VolumeDescriptor> & _return,
-                     boost::shared_ptr<std::string>& domainName) {
-    }
-
     void volumeStatus(apis::VolumeStatus& _return,
                       const std::string& domainName,
                       const std::string& volumeName) {
@@ -180,6 +113,18 @@ class FdsnIf : public apis::AmServiceIf {
         handler.process();
     }
 
+    void commitBlobTx(const apis::TxDescriptor& txDesc) {
+    }
+
+    void commitBlobTx(boost::shared_ptr<apis::TxDescriptor>& txDesc) {
+    }
+
+    void abortBlobTx(const apis::TxDescriptor& txDesc) {
+    }
+
+    void abortBlobTx(boost::shared_ptr<apis::TxDescriptor>& txDesc) {
+    }
+
     void getBlob(std::string& _return,
                  const std::string& domainName,
                  const std::string& volumeName,
@@ -248,12 +193,14 @@ class FdsnIf : public apis::AmServiceIf {
     void updateMetadata(const std::string& domainName,
                         const std::string& volumeName,
                         const std::string& blobName,
+                        const apis::TxDescriptor& txDesc,
                         const std::map<std::string, std::string> & metadata) {
     }
 
     void updateMetadata(boost::shared_ptr<std::string>& domainName,
                         boost::shared_ptr<std::string>& volumeName,
                         boost::shared_ptr<std::string>& blobName,
+                        boost::shared_ptr<apis::TxDescriptor>& txDesc,
                         boost::shared_ptr<
                             std::map<std::string, std::string> >& metadata) {
     }
@@ -261,10 +208,10 @@ class FdsnIf : public apis::AmServiceIf {
     void updateBlob(const std::string& domainName,
                     const std::string& volumeName,
                     const std::string& blobName,
+                    const apis::TxDescriptor& txDesc,
                     const std::string& bytes,
                     const int32_t length,
                     const apis::ObjectOffset& objectOffset,
-                    const apis::TxDescriptor& txDesc,
                     const std::string& digest,
                     const bool isLast) {
     }
@@ -272,10 +219,10 @@ class FdsnIf : public apis::AmServiceIf {
     void updateBlob(boost::shared_ptr<std::string>& domainName,
                     boost::shared_ptr<std::string>& volumeName,
                     boost::shared_ptr<std::string>& blobName,
+                    boost::shared_ptr<apis::TxDescriptor>& txDesc,
                     boost::shared_ptr<std::string>& bytes,
                     boost::shared_ptr<int32_t>& length,
                     boost::shared_ptr<apis::ObjectOffset>& objectOffset,
-                    boost::shared_ptr<apis::TxDescriptor>& txDesc,
                     boost::shared_ptr<std::string>& digest,
                     boost::shared_ptr<bool>& isLast) {
         BucketContext bucket_ctx("host", *volumeName, "accessid", "secretkey");

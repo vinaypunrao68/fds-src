@@ -54,14 +54,20 @@ service AmService {
         TxDescriptor startBlobTx(1:string domainName, 2:string volumeName, 3:string blobName)
 	    throws (1: ApiException e),
 
+	void commitBlobTx(1:TxDescriptor txDesc)
+	    throws (1: ApiException e),
+
+	void abortBlobTx(1:TxDescriptor txDesc)
+	    throws (1: ApiException e),
+
         binary getBlob(1:string domainName, 2:string volumeName, 3:string blobName, 4:i32 length, 5:ObjectOffset offset)
              throws (1: ApiException e),
 
-        void updateMetadata(1:string domainName, 2:string volumeName, 3:string blobName, 4:map<string, string> metadata)
+        void updateMetadata(1:string domainName, 2:string volumeName, 3:string blobName, 4:TxDescriptor txDesc, 5:map<string, string> metadata)
              throws (1: ApiException e),
 
         void updateBlob(1:string domainName, 
-          2:string volumeName, 3:string blobName, 4:binary bytes, 5:i32 length, 6:ObjectOffset objectOffset, 7:TxDescriptor txDesc, 8:binary digest, 9:bool isLast) throws (1: ApiException e),
+          2:string volumeName, 3:string blobName, 4:TxDescriptor txDesc, 5:binary bytes, 6:i32 length, 7:ObjectOffset objectOffset, 8:binary digest, 9:bool isLast) throws (1: ApiException e),
           
           void deleteBlob(1:string domainName, 2:string volumeName, 3:string blobName)
             throws (1: ApiException e)

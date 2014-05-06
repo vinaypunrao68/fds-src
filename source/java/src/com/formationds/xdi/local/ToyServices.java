@@ -118,6 +118,14 @@ public class ToyServices implements AmService.Iface, ConfigurationService.Iface 
     }
 
     @Override
+    public void commitBlobTx(TxDescriptor txDesc) throws ApiException, TException {
+    }
+
+    @Override
+    public void abortBlobTx(TxDescriptor txDesc) throws ApiException, TException {
+    }
+
+    @Override
     public VolumeStatus volumeStatus(String domainName, String volumeName) throws ApiException, TException {
         long count = (int) persister.execute(session ->
                 session.createCriteria(Blob.class)
@@ -144,14 +152,14 @@ public class ToyServices implements AmService.Iface, ConfigurationService.Iface 
     }
 
     @Override
-    public void updateMetadata(String domainName, String volumeName, String blobName, Map<String, String> metadata) throws ApiException, TException {
+    public void updateMetadata(String domainName, String volumeName, String blobName, TxDescriptor txDesc, Map<String, String> metadata) throws ApiException, TException {
         Blob blob = getOrCreate(domainName, volumeName, blobName);
         blob.setMetadataJson(new JSONObject(metadata).toString(2));
         persister.update(blob);
     }
 
     @Override
-    public void updateBlob(String domainName, String volumeName, String blobName, ByteBuffer bytes, int length, ObjectOffset objectOffset, TxDescriptor txDesc, ByteBuffer digest, boolean isLast) throws ApiException, TException {
+    public void updateBlob(String domainName, String volumeName, String blobName, TxDescriptor txDesc, ByteBuffer bytes, int length, ObjectOffset objectOffset, ByteBuffer digest, boolean isLast) throws ApiException, TException {
         Blob blob = getOrCreate(domainName, volumeName, blobName);
         int objectSize = blob.getVolume().getObjectSize();
         long newByteCount = Math.max(blob.getByteCount(), objectSize * objectOffset.getValue() + length);
