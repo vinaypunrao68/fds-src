@@ -151,7 +151,7 @@ public class ToyServices implements AmService.Iface, ConfigurationService.Iface 
     }
 
     @Override
-    public void updateBlob(String domainName, String volumeName, String blobName, ByteBuffer bytes, int length, ObjectOffset objectOffset, ByteBuffer digest, boolean isLast) throws ApiException, TException {
+    public void updateBlob(String domainName, String volumeName, String blobName, ByteBuffer bytes, int length, ObjectOffset objectOffset, TxDescriptor txDesc, ByteBuffer digest, boolean isLast) throws ApiException, TException {
         Blob blob = getOrCreate(domainName, volumeName, blobName);
         int objectSize = blob.getVolume().getObjectSize();
         long newByteCount = Math.max(blob.getByteCount(), objectSize * objectOffset.getValue() + length);

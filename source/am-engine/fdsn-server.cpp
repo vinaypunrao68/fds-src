@@ -264,6 +264,7 @@ class FdsnIf : public apis::AmServiceIf {
                     const std::string& bytes,
                     const int32_t length,
                     const apis::ObjectOffset& objectOffset,
+                    const apis::TxDescriptor& txDesc,
                     const std::string& digest,
                     const bool isLast) {
     }
@@ -274,6 +275,7 @@ class FdsnIf : public apis::AmServiceIf {
                     boost::shared_ptr<std::string>& bytes,
                     boost::shared_ptr<int32_t>& length,
                     boost::shared_ptr<apis::ObjectOffset>& objectOffset,
+                    boost::shared_ptr<apis::TxDescriptor>& txDesc,
                     boost::shared_ptr<std::string>& digest,
                     boost::shared_ptr<bool>& isLast) {
         BucketContext bucket_ctx("host", *volumeName, "accessid", "secretkey");

@@ -5,6 +5,7 @@ package com.formationds.xdi;
 
 import com.formationds.apis.AmService;
 import com.formationds.apis.ObjectOffset;
+import com.formationds.apis.TxDescriptor;
 
 import java.io.InputStream;
 import java.nio.ByteBuffer;
@@ -29,7 +30,10 @@ public class StreamWriter {
 
         for (int read = in.read(buf); read != -1; read = in.read(buf)) {
             md.update(buf, 0, read);
-            am.updateBlob(domainName, volumeName, blobName, ByteBuffer.wrap(buf, 0, read), read, new ObjectOffset(objectOffset), ByteBuffer.wrap(new byte[0]), false);
+            // Just create a fake tx id for now to make the compiler happy...
+            am.updateBlob(domainName, volumeName, blobName, ByteBuffer.wrap(buf, 0, read), read,
+                          new ObjectOffset(objectOffset), new TxDescriptor(1),
+                          ByteBuffer.wrap(new byte[0]), false);
             lastBufSize = read;
             objectOffset++;
         }
@@ -38,7 +42,9 @@ public class StreamWriter {
         if (lastBufSize != 0) {
             digest = md.digest();
             ByteBuffer byteBuffer = ByteBuffer.wrap(digest);
-            am.updateBlob(domainName, volumeName, blobName, ByteBuffer.wrap(buf), lastBufSize, new ObjectOffset(objectOffset - 1), byteBuffer, true);
+            am.updateBlob(domainName, volumeName, blobName, ByteBuffer.wrap(buf), lastBufSize,
+                          new ObjectOffset(objectOffset - 1), new TxDescriptor(1),
+                          byteBuffer, true);
         }
 
         am.updateMetadata(domainName, volumeName, blobName, metadata);

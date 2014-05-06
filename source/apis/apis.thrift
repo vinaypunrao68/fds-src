@@ -61,7 +61,7 @@ service AmService {
              throws (1: ApiException e),
 
         void updateBlob(1:string domainName, 
-          2:string volumeName, 3:string blobName, 4:binary bytes, 5:i32 length, 6:ObjectOffset objectOffset, 7:binary digest, 8:bool isLast) throws (1: ApiException e),
+          2:string volumeName, 3:string blobName, 4:binary bytes, 5:i32 length, 6:ObjectOffset objectOffset, 7:TxDescriptor txDesc, 8:binary digest, 9:bool isLast) throws (1: ApiException e),
           
           void deleteBlob(1:string domainName, 2:string volumeName, 3:string blobName)
             throws (1: ApiException e)
