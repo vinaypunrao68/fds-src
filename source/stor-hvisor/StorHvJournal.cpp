@@ -16,6 +16,7 @@ namespace fds {
 std::ostream& operator<<(ostream& os, const TxnState& state) {
     switch (state) {
         ENUMCASEOS(FDS_TRANS_EMPTY             , os);
+        ENUMCASEOS(FDS_TRANS_BLOB_START        , os);
         ENUMCASEOS(FDS_TRANS_OPEN              , os);
         ENUMCASEOS(FDS_TRANS_OPENED            , os);
         ENUMCASEOS(FDS_TRANS_COMMITTED         , os);

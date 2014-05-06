@@ -153,6 +153,8 @@ StartBlobTxResponseHandler::StartBlobTxResponseHandler(
 void
 StartBlobTxResponseHandler::process() {
     XCHECKSTATUS(status);
+
+    retTxDesc.txId = blobTxId.getValue();
 }
 
 StartBlobTxResponseHandler::~StartBlobTxResponseHandler() {

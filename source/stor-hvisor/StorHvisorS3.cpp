@@ -630,6 +630,73 @@ fds::Error StorHvCtrl::putObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
 }
 
 void
+StorHvCtrl::startBlobTxResp(const FDSP_MsgHdrTypePtr rxMsg) {
+    Error err(ERR_OK);
+
+    // TODO(Andrew): We don't really need this...
+    fds_verify(rxMsg->msg_code == FDSP_START_BLOB_TX);
+
+    fds_uint32_t transId = rxMsg->req_cookie;
+    fds_volid_t  volId   = rxMsg->glob_volume_id;
+
+    StorHvVolume* vol = vol_table->getVolume(volId);
+    fds_verify(vol != NULL);  // Should not receive resp for non existant vol
+
+    StorHvVolumeLock vol_lock(vol);
+    fds_verify(vol->isValidLocked() == true);
+
+    StorHvJournalEntry *txn = vol->journal_tbl->get_journal_entry(transId);
+    fds_verify(txn != NULL);
+
+    StorHvJournalEntryLock je_lock(txn);
+    fds_verify(txn->isActive() == true);
+    fds_verify(txn->trans_state == FDS_TRANS_BLOB_START);
+
+    // Get request from transaction
+    fds::AmQosReq   *qosReq  = static_cast<fds::AmQosReq *>(txn->io);
+    fds_verify(qosReq != NULL);
+    fds::StartBlobTxReq *blobReq = static_cast<fds::StartBlobTxReq *>(
+        qosReq->getBlobReqPtr());
+    fds_verify(blobReq != NULL);
+    fds_verify(blobReq->getIoType() == FDS_START_BLOB_TX);
+
+    qos_ctrl->markIODone(txn->io);
+
+    // Return if err
+    if (rxMsg->result != FDSP_ERR_OK) {
+        vol->journal_tbl->releaseTransId(transId);
+        blobReq->cbWithResult(-1);
+        txn->reset();
+        delete blobReq;
+        return;
+    }
+
+    // Increment the ack status
+    fds_int32_t result = txn->fds_set_dmack_status(rxMsg->src_ip_lo_addr,
+                                                   rxMsg->src_port);
+    fds_verify(result == 0);
+    LOGDEBUG << "For AM transaction " << transId
+             << " recvd start blob tx response from DM ip "
+             << rxMsg->src_ip_lo_addr
+             << " port " << rxMsg->src_port;
+
+    // Move the state machine, which will call the callback
+    // if we received enough messages
+    // TODO(Andrew): It should just manage the state, not
+    // actually do the work...
+    result = fds_move_wr_req_state_machine(rxMsg);
+
+    if (result == 1) {
+        blobReq->cbWithResult(0);
+        txn->reset();
+        vol->journal_tbl->releaseTransId(transId);
+        delete blobReq;
+    } else {
+        fds_verify(result == 0);
+    }
+}
+
+void
 StorHvCtrl::statBlobResp(const FDSP_MsgHdrTypePtr rxMsg, 
                          const FDS_ProtocolInterface::
                          BlobDescriptorPtr blobDesc) {
@@ -1143,21 +1210,22 @@ StorHvCtrl::startBlobTx(AmQosReq *qosReq) {
     journEntry->setActive();
 
     // Setup journal state
-    journEntry->sm_msg      = NULL; 
-    journEntry->dm_msg      = NULL;
-    journEntry->sm_ack_cnt  = 0;
-    journEntry->dm_ack_cnt  = 0;
-    journEntry->op          = FDS_START_BLOB_TX;
-    journEntry->io          = qosReq;
+    journEntry->sm_msg     = NULL; 
+    journEntry->dm_msg     = NULL;
+    journEntry->sm_ack_cnt = 0;
+    journEntry->dm_ack_cnt = 0;
+    journEntry->op         = FDS_START_BLOB_TX;
+    journEntry->io         = qosReq;
     // journEntry->delMsg      = del_obj_req;
-    // journEntry->trans_state = FDS_TRANS_DEL_OBJ;
+    journEntry->trans_state = FDS_TRANS_BLOB_START;
 
     // Generate a random transaction ID to use
     // Note: construction, generates a random ID
     BlobTxId txId;
     LOGDEBUG << "Starting blob transaction " << txId << " for blob "
              << blobReq->getBlobName() << " in journal trans "
-              << transId << " and vol 0x" << std::hex << volId << std::dec;
+             << transId << " and vol 0x" << std::hex << volId << std::dec;
+    blobReq->txId = txId;
 
     // Setup RPC request to DM
     FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr(new FDSP_MsgHdrType);
@@ -1207,8 +1275,14 @@ StorHvCtrl::startBlobTx(AmQosReq *qosReq) {
         msgHdr->session_uuid = sessionCtx->getSessionId();
 
         // TODO(Andrew): Do I need to do this?...
+        journEntry->dm_ack[i].ipAddr        = node_ip;
+        journEntry->dm_ack[i].port          = node_port;
         journEntry->dm_ack[i].ack_status    = FDS_CLS_ACK;
         journEntry->dm_ack[i].commit_status = FDS_CLS_ACK;
+
+        // TODO(Andrew): We can remove this when we get a new session layer
+        msgHdr->dst_ip_lo_addr = node_ip;
+        msgHdr->dst_port       = node_port;
 
         // Send async RPC request
         try {

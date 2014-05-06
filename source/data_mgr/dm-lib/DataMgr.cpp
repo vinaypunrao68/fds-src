@@ -1122,21 +1122,17 @@ DataMgr::ReqHandler::StartBlobTx(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msgH
                                  boost::shared_ptr<std::string> &volumeName,
                                  boost::shared_ptr<std::string> &blobName,
                                  FDS_ProtocolInterface::TxDescriptorPtr &txDesc) {
-    /*
-    Error err(ERR_OK);
-
-    GLOGDEBUG << "Received stat blob requested for volume "
+    GLOGDEBUG << "Received start blob transction request for volume "
               << *volumeName << " and blob " << *blobName;
 
-    err = dataMgr->statBlobInternal(*volumeName, *blobName,
-                                    msgHdr->glob_volume_id,
-                                    msgHdr->src_ip_lo_addr, msgHdr->dst_ip_lo_addr,  // IP stuff
-                                    msgHdr->src_port, msgHdr->dst_port,  // Port stuff
-                                    msgHdr->session_uuid, msgHdr->req_cookie);  // Req/state stuff
+    BlobTxId::const_ptr blobTxDesc = BlobTxId::ptr(new BlobTxId(
+        txDesc->txId));
 
-    // Verify we were able to enqueue the request
-    fds_verify(err == ERR_OK);
-    */
+    dataMgr->startBlobTxInternal(*volumeName, *blobName, blobTxDesc,
+                                 msgHdr->glob_volume_id,
+                                 msgHdr->src_ip_lo_addr, msgHdr->dst_ip_lo_addr,  // IP stuff
+                                 msgHdr->src_port, msgHdr->dst_port,  // Port stuff
+                                 msgHdr->session_uuid, msgHdr->req_cookie);  // Req/state stuff
 }
 
 void
@@ -1235,6 +1231,36 @@ void DataMgr::ReqHandler::UpdateCatalogObject(FDS_ProtocolInterface::
             GLOGNORMAL << "Sent update response for trans commit request";
         }
     }
+}
+
+void
+DataMgr::startBlobTxBackend(const dmCatReq *startBlobTxReq) {
+    LOGDEBUG << "Got blob tx backend for volume "
+             << startBlobTxReq->getVolId() << " and blob "
+             << startBlobTxReq->blob_name;
+
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr(new FDSP_MsgHdrType());
+    InitMsgHdr(msgHdr);
+    msgHdr->result         = FDS_ProtocolInterface::FDSP_ERR_OK;
+    msgHdr->err_msg        = "Dude, you're good to go!";
+    msgHdr->msg_code       = FDS_ProtocolInterface::FDSP_START_BLOB_TX;
+    msgHdr->src_ip_lo_addr = startBlobTxReq->dstIp;
+    msgHdr->dst_ip_lo_addr = startBlobTxReq->srcIp;
+    msgHdr->src_port       = startBlobTxReq->dstPort;
+    msgHdr->dst_port       = startBlobTxReq->srcPort;
+    msgHdr->glob_volume_id = startBlobTxReq->volId;
+    msgHdr->req_cookie     = startBlobTxReq->reqCookie;
+    msgHdr->err_code       = ERR_OK;
+
+    respMapMtx.read_lock();
+    respHandleCli(startBlobTxReq->session_uuid)->StartBlobTxResp(msgHdr);
+    respMapMtx.read_unlock();
+    LOGDEBUG << "Sending stat blob response with "
+             << "volume " << startBlobTxReq->volId
+             << " and blob " << startBlobTxReq->blob_name;
+
+    qosCtrl->markIODone(*startBlobTxReq);
+    delete startBlobTxReq;
 }
 
 void
@@ -1520,6 +1546,29 @@ DataMgr::blobListInternal(const FDSP_GetVolumeBlobListReqTypePtr& blob_list_req,
     return err;
 }
 
+void
+DataMgr::startBlobTxInternal(const std::string volumeName, const std::string &blobName,
+                             BlobTxId::const_ptr blobTxId,
+                             fds_volid_t volId, long srcIp, long dstIp, fds_uint32_t srcPort,
+                             fds_uint32_t dstPort, std::string session_uuid, fds_uint32_t reqCookie) {
+    Error err(ERR_OK);
+
+    dmCatReq *dmStartTxReq = new DataMgr::dmCatReq(volId, blobName,
+                                                   srcIp, dstIp,
+                                                   srcPort, dstPort,
+                                                   session_uuid, reqCookie,
+                                                   FDS_START_BLOB_TX);
+    fds_verify(dmStartTxReq != NULL);
+
+    // Set the desired version to invalid for now (so we get the newest)
+    dmStartTxReq->setBlobVersion(blob_version_invalid);
+    dmStartTxReq->setBlobTxId(blobTxId);
+    err = qosCtrl->enqueueIO(dmStartTxReq->getVolId(),
+                             static_cast<FDS_IOType*>(dmStartTxReq));
+    // Make sure we could enqueue the request
+    fds_verify(err == ERR_OK);
+}
+
 Error
 DataMgr::statBlobInternal(const std::string volumeName, const std::string &blobName,
                           fds_volid_t volId, long srcIp, long dstIp, fds_uint32_t srcPort,
@@ -1531,6 +1580,8 @@ DataMgr::statBlobInternal(const std::string volumeName, const std::string &blobN
                                                 srcPort, dstPort,
                                                 session_uuid, reqCookie,
                                                 FDS_STAT_BLOB);
+    fds_verify(dmStatReq != NULL);
+
     // Set the desired version to invalid for now (so we get the newest)
     dmStatReq->setBlobVersion(blob_version_invalid);
     err = qosCtrl->enqueueIO(dmStatReq->getVolId(), static_cast<FDS_IOType*>(dmStatReq));
@@ -1998,10 +2049,18 @@ int scheduleUpdateCatalog(void * _io) {
     dataMgr->updateCatalogBackend(io);
     return 0;
 }
+
 int scheduleQueryCatalog(void * _io) {
     fds::DataMgr::dmCatReq *io = (fds::DataMgr::dmCatReq*)_io;
 
     dataMgr->queryCatalogBackend(io);
+    return 0;
+}
+
+int scheduleStartBlobTx(void * _io) {
+    fds::DataMgr::dmCatReq *io = (fds::DataMgr::dmCatReq*)_io;
+
+    dataMgr->startBlobTxBackend(io);
     return 0;
 }
 

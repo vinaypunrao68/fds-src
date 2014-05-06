@@ -10,6 +10,7 @@ using namespace FDS_ProtocolInterface;
 extern StorHvCtrl *storHvisor;
 
 // Warning: Assumes that caller holds the lock to the transaction
+// TODO(Andrew): Why don't we just pass the journal entry...?
 int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) {
 
     fds_int32_t  result  = 0;
@@ -33,6 +34,19 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) {
               << " dm_commits:" << txn->dm_commit_cnt
               << " num_dm_nodes:" << txn->num_dm_nodes
               << " num_sm_nodes:" << txn->num_sm_nodes;
+
+    // TODO(Andrew): Handle start blob trans separate from
+    // the normal put/get transactions
+    if (txn->trans_state == FDS_TRANS_BLOB_START) {
+        if (txn->dm_ack_cnt == txn->num_dm_nodes) {
+            // We return 1 to indicate all of the acks
+            // have been received. This allows the caller
+            // to handle what needs to be done instead
+            // of this generic helper function.
+            return 1;
+        }
+        return 0;
+    }
             
     switch(txn->trans_state)  {
         case FDS_TRANS_OPEN:
@@ -188,7 +202,7 @@ void
 FDSP_MetaDataPathRespCbackI::StartBlobTxResp(boost::shared_ptr<FDSP_MsgHdrType> &msgHdr) {
     LOGDEBUG << "Received StartBlobTx response for journal txn "
              << msgHdr->req_cookie;
-    // storHvisor->statBlobResp(msgHdr, blobDesc);
+    storHvisor->startBlobTxResp(msgHdr);
 }
 
 void FDSP_MetaDataPathRespCbackI::UpdateCatalogObjectResp(FDSP_MsgHdrTypePtr& fdsp_msg,

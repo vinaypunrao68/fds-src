@@ -216,6 +216,7 @@ public:
     void statBlobResp(const FDSP_MsgHdrTypePtr rxMsg, 
                       const FDS_ProtocolInterface::
                       BlobDescriptorPtr blobDesc);
+    void startBlobTxResp(const FDSP_MsgHdrTypePtr rxMsg);
     fds::Error deleteCatResp(const FDSP_MsgHdrTypePtr& rxMsg,
                              const FDSP_DeleteCatalogTypePtr& delCatRsp);
     fds::Error getObjResp(const FDSP_MsgHdrTypePtr& rxMsg,

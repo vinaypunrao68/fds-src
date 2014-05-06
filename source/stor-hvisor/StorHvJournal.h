@@ -38,6 +38,7 @@ namespace fds {
 
 enum TxnState {
     FDS_TRANS_EMPTY,
+    FDS_TRANS_BLOB_START,
     FDS_TRANS_OPEN,
     FDS_TRANS_OPENED,
     FDS_TRANS_COMMITTED,

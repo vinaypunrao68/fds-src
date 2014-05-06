@@ -73,8 +73,12 @@ class BlobTxId {
   public:
     /// Creates a new blob transaction ID with random value
     BlobTxId();
+    /// Creates a new blob transaction with a specific value
+    explicit BlobTxId(fds_uint64_t givenId);
     ~BlobTxId();
     typedef boost::shared_ptr<BlobTxId> ptr;
+    typedef boost::shared_ptr<const BlobTxId> const_ptr;
+    BlobTxId& operator=(const BlobTxId& rhs);
     friend std::ostream& operator<<(std::ostream& out, const BlobTxId& txId);
 
     fds_uint64_t getValue() const;

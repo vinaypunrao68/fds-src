@@ -53,12 +53,21 @@ BlobTxId::BlobTxId() {
     txId = fds_get_uuid64(get_uuid());
 }
 
+BlobTxId::BlobTxId(fds_uint64_t givenId)
+        : txId(givenId) {
+}
+
 BlobTxId::~BlobTxId() {
 }
 
 fds_uint64_t
 BlobTxId::getValue() const {
     return txId;
+}
+
+BlobTxId& BlobTxId::operator=(const BlobTxId& rhs) {
+    txId = rhs.txId;
+    return *this;
 }
 
 std::ostream&

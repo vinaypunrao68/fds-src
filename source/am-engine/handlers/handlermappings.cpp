@@ -37,6 +37,7 @@ void fn_StartBlobTxHandler(FDSN_Status status,
             reinterpret_cast<StartBlobTxResponseHandler*>(callbackData); //NOLINT
     handler->status = status;
     handler->errorDetails = errorDetails;
+    handler->blobTxId = blobTxId;
 
     handler->ready();
 }
