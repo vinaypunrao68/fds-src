@@ -14,9 +14,12 @@
 
 #include <unistd.h>
 #include <arpa/inet.h>
-#include <thrift/protocol/TBinaryProtocol.h>
 #include <thrift/transport/TSocket.h>
-#include <thrift/transport/TTransportUtils.h>
+#include <thrift/transport/TBufferTransports.h>
+#include <thrift/protocol/TBinaryProtocol.h>
+#include <thrift/server/TNonblockingServer.h>
+#include <thrift/server/TThreadedServer.h>
+#include <thrift/concurrency/ThreadManager.h>
 
 namespace fds {
 
@@ -46,7 +49,7 @@ class EpAttr
 
     // Physcial attributes of an endpoint.
     //
-    struct sockaddr_in       ep_addr;
+    struct sockaddr                  ep_addr;
 
     // Server attributes.
     //
@@ -57,6 +60,8 @@ class EpAttr
 
     EpAttr(fds_uint32_t ip, int port);        /**< ip = 0, default IP of the node */
     EpAttr &operator = (const EpAttr &rhs);
+
+    int attr_get_port();
 
   private:
     mutable boost::atomic<int>       ep_refcnt;
@@ -313,10 +318,12 @@ class EpSvcImpl : public EpSvc
  * Endpoint is the logical RPC representation of a physical connection.
  * Thrift template implementation.
  */
-using namespace std;                         // NOLINT
-using namespace apache::thrift;              // NOLINT
-using namespace apache::thrift::protocol;    // NOLINT
-using namespace apache::thrift::transport;   // NOLINT
+namespace at = apache::thrift;
+namespace tc = apache::thrift::concurrency;
+namespace tp = apache::thrift::protocol;
+namespace ts = apache::thrift::server;
+namespace tt = apache::thrift::transport;
+namespace bo = boost;
 
 template <class SendIf, class RecvIf>
 class EndPoint : public EpSvcImpl
@@ -334,7 +341,6 @@ class EndPoint : public EpSvcImpl
         : EpSvcImpl(mine, peer, attr, ops), ep_rpc_recv(rcv_if) {
             ep_init_obj();
         }
-
     EndPoint(int                        port,
              const NodeUuid            &mine,
              const NodeUuid            &peer,
@@ -358,19 +364,75 @@ class EndPoint : public EpSvcImpl
     //
 
   protected:
-    boost::shared_ptr<SendIf>      ep_rpc_send;
-    boost::shared_ptr<RecvIf>      ep_rpc_recv;
-    boost::shared_ptr<TTransport>  ep_sock;
-    boost::shared_ptr<TTransport>  ep_trans;
-    boost::shared_ptr<TProtocol>   ep_proto;
+    bo::shared_ptr<SendIf>                 ep_rpc_send;
+    bo::shared_ptr<tt::TTransport>         ep_sock;
+    bo::shared_ptr<tt::TTransport>         ep_trans;
+    bo::shared_ptr<tp::TProtocol>          ep_proto;
+
+    bo::shared_ptr<RecvIf>                 ep_rpc_recv;
+    bo::shared_ptr<ts::TThreadedServer>    ep_server;
+    bo::shared_ptr<ts::TNonblockingServer> ep_nb_srv;
 
     void svc_receive_msg(const fpi::AsyncHdr &msg) {}
+
+  private:
+    // ep_client_connect
+    // -----------------
+    //
+    void ep_client_connect()
+    {
+        int         port = 6000;
+        const char *host = "localhost";
+
+        ep_sock  = bo::shared_ptr<tt::TTransport>(new tt::TSocket(host, port));
+        ep_trans = bo::shared_ptr<tt::TTransport>(new tt::TFramedTransport(ep_sock));
+        ep_proto = bo::shared_ptr<tp::TProtocol>(new tp::TBinaryProtocol(ep_trans));
+        ep_rpc_send = bo::shared_ptr<SendIf>(new SendIf(ep_proto));
+    }
+    // ep_server_listen
+    // ----------------
+    //
+    void ep_setup_server()
+    {
+        int     port = 7000;
+
+        bo::shared_ptr<tp::TProtocolFactory>  proto(new tp::TBinaryProtocolFactory());
+        bo::shared_ptr<tt::TServerTransport>  trans(new tt::TServerSocket(port));
+        bo::shared_ptr<tt::TTransportFactory> tfact(new tt::TFramedTransportFactory());
+
+        ep_server = bo::shared_ptr<ts::TThreadedServer>(
+                new ts::TThreadedServer(ep_rpc_recv, trans, tfact, proto));
+    }
+#if 0
+    void ep_setup_server_nb()
+    {
+        boost::shared_ptr<tp::TProtocolFactory> proto(new tp::TBinaryProtocolFactory());
+        boost::shared_ptr<tc::ThreadManager>
+            thr_mgr(tc::ThreadManager::newSimpleThreadManager(15));
+
+        boost::shared_ptr<tc::PosixThreadFactory> thr_fact(new tc::PosixThreadFactory());
+        thr_mgr->threadFactory(thr_fact);
+
+        ep_nb_srv = boost::shared_ptr<ts::TNonblockingServer>(
+                new ts::TNonblockingServer(ep_rpc_recv, proto, 8888, thr_mgr));
+
+        thr_mgr->start();
+        ep_nb_srv->serve();
+    }
+#endif
+    // ep_init_obj
+    // -----------
+    //
     void ep_init_obj()
     {
-        ep_sock  = boost::shared_ptr<TTransport>(new TSocket("localhost", 6000));
-        ep_trans = boost::shared_ptr<TTransport>(new TFramedTransport(ep_sock));
-        ep_proto = boost::shared_ptr<TProtocol>(new TBinaryProtocol(ep_trans));
-        ep_rpc_send = boost::shared_ptr<SendIf>(new SendIf(ep_proto));
+        ep_rpc_send = NULL;
+        ep_sock     = NULL;
+        ep_trans    = NULL;
+        ep_proto    = NULL;
+        ep_server   = NULL;
+
+        ep_setup_server();
+        ep_client_connect();
     }
 };
 

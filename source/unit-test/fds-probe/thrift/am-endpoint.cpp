@@ -42,11 +42,13 @@ ProbeEpTestAM::mod_init(SysParams const *const p)
 
     // Allocate the endpoint, bound to a physical port.
     //
-    probe_ep = new EndPoint<fpi::ProbeServiceSMClient, ProbeTestAM_RPC>(
+    boost::shared_ptr<ProbeTestAM_RPC>hdler(new ProbeTestAM_RPC());
+    probe_ep = new EndPoint<fpi::ProbeServiceSMClient, fpi::ProbeServiceAMProcessor>(
             7000,                           /* port number         */
             NodeUuid(0xfedcba),             /* my uuid             */
             NodeUuid(0xabcdef),             /* peer uuid           */
-            boost::shared_ptr<ProbeTestAM_RPC>(new ProbeTestAM_RPC()),
+            boost::shared_ptr<fpi::ProbeServiceAMProcessor>(
+                new fpi::ProbeServiceAMProcessor(hdler)),
             new ProbeEpPlugin());
 
     // Register the endpoint in the local domain.

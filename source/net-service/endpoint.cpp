@@ -23,6 +23,15 @@ EpAttr::operator = (const EpAttr &rhs)
     return *this;
 }
 
+int
+EpAttr::attr_get_port()
+{
+    if (ep_addr.sa_family == AF_INET) {
+        return (((struct sockaddr_in *)&ep_addr)->sin_port);
+    }
+    return (((struct sockaddr_in6 *)&ep_addr)->sin6_port);
+}
+
 /*
  * -----------------------------------------------------------------------------------
  * Base EndPoint Service Handler

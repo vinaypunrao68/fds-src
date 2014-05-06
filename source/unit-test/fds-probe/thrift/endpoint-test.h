@@ -86,7 +86,7 @@ class ProbeEpTestAM : public Module
     // One endpoint bound to a physical port of the local node.  Full duplex with
     // its peer.
     //
-    EndPoint<fpi::ProbeServiceSMClient, ProbeTestAM_RPC>::pointer probe_ep;
+    EndPoint<fpi::ProbeServiceSMClient, fpi::ProbeServiceAMProcessor>::pointer probe_ep;
 };
 
 /**
@@ -135,7 +135,7 @@ class ProbeEpTestSM : public Module
     // One endpoint bound to a physical port of the local node.  Full duplex with
     // its peer.
     //
-    EndPoint<fpi::ProbeServiceAMClient, ProbeTestSM_RPC>::pointer probe_ep;
+    EndPoint<fpi::ProbeServiceAMClient, fpi::ProbeServiceSMProcessor>::pointer probe_ep;
 };
 
 extern ProbeEpTestSM         gl_ProbeTestSM;
