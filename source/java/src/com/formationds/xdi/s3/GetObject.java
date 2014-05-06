@@ -10,7 +10,6 @@ import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.StreamResource;
 import com.formationds.web.toolkit.TextResource;
 import com.formationds.xdi.Xdi;
-import com.google.common.collect.Multimap;
 import org.apache.commons.codec.binary.Hex;
 import org.eclipse.jetty.server.Request;
 
@@ -40,10 +39,11 @@ public class GetObject implements RequestHandler {
 
         String headerValue = request.getHeader("If-None-Match");
         if (headerValue != null) {
+            headerValue = headerValue.replaceAll("\"", "");
             ByteBuffer candidateValue = ByteBuffer.wrap(Hex.decodeHex(headerValue.toCharArray()));
             if (candidateValue.compareTo(blobDescriptor.bufferForDigest()) == 0) {
                 return new TextResource(HttpServletResponse.SC_NOT_MODIFIED, "")
-                    .withHeader("ETag", etag);
+                        .withHeader("ETag", etag);
             }
         }
 

@@ -28,6 +28,7 @@ public class GetObjectTest {
         byte[] digest = new byte[]{1, 2, 3};
         BlobDescriptor descriptor = new BlobDescriptor("poop", 0, ByteBuffer.wrap(digest), Maps.newHashMap());
         when(xdi.statBlob(anyString(), anyString(), anyString())).thenReturn(descriptor);
+        
         GetObject handler = new GetObject(xdi);
         Request request = mock(Request.class);
         when(request.getHeader(IF_NONE_MATCH)).thenReturn(null);
@@ -39,7 +40,7 @@ public class GetObjectTest {
         resource = handler.handle(request, "poop", "panda");
         assertEquals(200, resource.getHttpStatus());
 
-        when(request.getHeader(IF_NONE_MATCH)).thenReturn(Hex.encodeHexString(digest));
+        when(request.getHeader(IF_NONE_MATCH)).thenReturn("\"" + Hex.encodeHexString(digest) + "\"");
         resource = handler.handle(request, "poop", "panda");
         assertEquals(304, resource.getHttpStatus());
     }

@@ -5,6 +5,7 @@ package com.formationds.xdi.local;
 
 import com.formationds.apis.BlobDescriptor;
 import com.formationds.apis.ObjectOffset;
+import com.formationds.apis.TxDescriptor;
 import com.formationds.apis.VolumePolicy;
 import org.junit.Test;
 
@@ -35,8 +36,8 @@ public class ToyServicesTest {
         assertEquals(8, shim.statVolume(domainName, volumeName).getPolicy().getMaxObjectSizeInBytes());
 
         ByteBuffer buffer = ByteBuffer.wrap(new byte[]{1, 2, 3, 4, 5});
-        shim.updateBlob(domainName, volumeName, blobName, buffer, 4, new ObjectOffset(0), ByteBuffer.wrap(new byte[0]), false);
-        shim.updateBlob(domainName, volumeName, blobName, buffer, 5, new ObjectOffset(1), ByteBuffer.wrap(new byte[] {42, 43}), true);
+        shim.updateBlob(domainName, volumeName, blobName, buffer, 4, new ObjectOffset(0), new TxDescriptor(), ByteBuffer.wrap(new byte[0]), false);
+        shim.updateBlob(domainName, volumeName, blobName, buffer, 5, new ObjectOffset(1), new TxDescriptor(), ByteBuffer.wrap(new byte[] {42, 43}), true);
 
         BlobDescriptor blob = shim.statBlob(domainName, volumeName, blobName);
         assertEquals(13, blob.getByteCount());
@@ -57,7 +58,7 @@ public class ToyServicesTest {
         assertEquals(13, descriptor.getByteCount());
 
         String otherBlob = "otherBlob";
-        shim.updateBlob(domainName, volumeName, otherBlob, buffer, 4, new ObjectOffset(0), ByteBuffer.wrap(new byte[0]), true);
+        shim.updateBlob(domainName, volumeName, otherBlob, buffer, 4, new ObjectOffset(0), new TxDescriptor(), ByteBuffer.wrap(new byte[0]), true);
         List<BlobDescriptor> parts = shim.volumeContents(domainName, volumeName, Integer.MAX_VALUE, 0);
         assertEquals(2, parts.size());
 

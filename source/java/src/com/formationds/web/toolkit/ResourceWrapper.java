@@ -52,7 +52,12 @@ public class ResourceWrapper implements Resource {
     }
 
     @Override
-    public ResourceWrapper withHeader(String key, String value) {
+    public int getHttpStatus() {
+        return resource.getHttpStatus();
+    }
+
+    @Override
+    public Resource withHeader(String key, String value) {
         headers.put(key, value);
         return this;
     }

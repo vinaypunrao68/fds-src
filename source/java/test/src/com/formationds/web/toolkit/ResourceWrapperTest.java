@@ -12,9 +12,10 @@ import static org.junit.Assert.assertEquals;
 public class ResourceWrapperTest {
     @Test
     public void testBasic() {
-        ResourceWrapper resource = new TextResource("poop")
+        Resource resource = new TextResource(42, "poop")
                 .withHeader("foo", "bar");
         Multimap<String, String> headers = resource.extraHeaders();
         assertEquals("Content-Length, foo", Joiner.on(", ").join(headers.keySet()));
+        assertEquals(42, resource.getHttpStatus());
     }
 }

@@ -4,7 +4,6 @@ package com.formationds.web.toolkit;
  */
 
 import com.google.common.collect.ArrayListMultimap;
-import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.Multimap;
 
 import javax.servlet.http.Cookie;
@@ -29,5 +28,5 @@ public interface Resource {
         return HttpServletResponse.SC_OK;
     }
 
-    public default ResourceWrapper withHeader(String key, String value) { return new ResourceWrapper(this).withHeader(key, value);  }
+    public default Resource withHeader(String key, String value) { return new ResourceWrapper(this).withHeader(key, value);  }
 }

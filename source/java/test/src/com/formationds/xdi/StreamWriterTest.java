@@ -5,6 +5,7 @@ package com.formationds.xdi;
 
 import com.formationds.apis.AmService;
 import com.formationds.apis.ObjectOffset;
+import com.formationds.apis.TxDescriptor;
 import org.junit.Test;
 
 import java.io.ByteArrayInputStream;
@@ -36,6 +37,7 @@ public class StreamWriterTest {
                 any(ByteBuffer.class),
                 eq(4),
                 eq(new ObjectOffset(0)),
+                any(TxDescriptor.class),
                 eq(ByteBuffer.wrap(new byte[0])),
                 eq(false));
 
@@ -46,6 +48,7 @@ public class StreamWriterTest {
                 any(ByteBuffer.class),
                 eq(4),
                 eq(new ObjectOffset(1)),
+                any(TxDescriptor.class),
                 eq(ByteBuffer.wrap(new byte[0])),
                 eq(false));
 
@@ -58,6 +61,7 @@ public class StreamWriterTest {
                 any(ByteBuffer.class),
                 eq(4),
                 eq(new ObjectOffset(1)),
+                any(TxDescriptor.class),
                 eq(ByteBuffer.wrap(expectedDigest)),
                 eq(true));
 
