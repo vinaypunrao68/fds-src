@@ -23,6 +23,7 @@
 #include <net-proxies/vol_policy.h>
 #include <NetSession.h>
 #include <dlt.h>
+#include <fds_dmt.h>
 #include <LocalClusterMap.h>
 #include <platform/platform-lib.h>
 
@@ -80,8 +81,7 @@ namespace fds {
     fds_uint32_t omConfigPort;
     const DLT *dlt;
     DLTManager dltMgr;
-    int dmt_version;
-    Node_Table_Type dmt;
+    DMTManagerPtr dmtMgr;
     float current_throttle_level;
 
     /**
@@ -188,7 +188,7 @@ namespace fds {
                               fds_int32_t *node_ids,
                               fds_int32_t *n_nodes);
 #endif
-    int getDMTNodesForVolume(fds_volid_t vol_id, fds_uint64_t *node_ids, int *n_nodes);
+    DmtColumnPtr getDMTNodesForVolume(fds_volid_t vol_id);
     int pushPerfstatsToOM(const std::string& start_ts,
 			  int stat_slot_len, 
 			  const FDS_ProtocolInterface::FDSP_VolPerfHistListType& hist_list);

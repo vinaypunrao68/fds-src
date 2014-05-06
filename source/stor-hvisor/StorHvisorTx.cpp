@@ -199,16 +199,14 @@ int StorHvisorProcIoWr(void *_io)
   blkdev_complete_req_cb_t comp_req = io->comp_req; 
  void *arg1 = ((fbd_request *)io->fbd_req)->vbd; 
  void *arg2 = ((fbd_request *)io->fbd_req)->vReq;
-  int   trans_id, i=0;
+  int   trans_id;
   // int   data_size    = req->secs * HVISOR_SECTOR_SIZE;
   int   data_size    = req->len;
   double data_offset  = req->sec * (uint64_t)HVISOR_SECTOR_SIZE;
   char *tmpbuf = (char*)req->buf;
   ObjectID  objID;
   unsigned char doid_dlt_key;
-  int num_nodes=8;
   netSession *endPoint = NULL;
-  fds_uint64_t node_ids[8];
   fds_uint32_t node_ip = 0;
   fds_uint32_t node_port = 0;
   int node_state = -1;
@@ -319,19 +317,16 @@ int StorHvisorProcIoWr(void *_io)
   
   
   // DLT lookup from the dataplacement object
-//  num_nodes = 8;
   boost::shared_ptr<DltTokenGroup> dltPtr;
   dltPtr = storHvisor->dataPlacementTbl->getDLTNodesForDoidKey(objID);
   fds_verify(dltPtr != NULL);
 
-  fds_int32_t numNodes = dltPtr->getLength();
-//  storHvisor->dataPlacementTbl->getDLTNodesForDoidKey(doid_dlt_key, node_ids, &num_nodes);
-  for (i = 0; i < numNodes; i++) {
+  fds_uint32_t numNodes = dltPtr->getLength();
+  for (fds_uint32_t i = 0; i < numNodes; i++) {
     node_ip = 0;
     node_port = 0;
     node_state = -1;
-    // storHvisor->dataPlacementTbl->omClient->getNodeInfo(node_ids[i], &node_ip, &node_state);
-    storHvisor->dataPlacementTbl->getNodeInfo(node_ids[i],
+    storHvisor->dataPlacementTbl->getNodeInfo((dltPtr->get(i)).uuid_get_val(),
                                               &node_ip,
                                               &node_port,
                                               &node_state);
@@ -358,7 +353,6 @@ int StorHvisorProcIoWr(void *_io)
   }
   
   // DMT lookup from the data placement object
-  num_nodes = 8;
   storHvisor->InitDmMsgHdr(fdsp_msg_hdr_dm);
   upd_obj_req->blob_name = std::to_string(data_offset);
   upd_obj_req->dm_transaction_id = 1;
@@ -369,13 +363,13 @@ int StorHvisorProcIoWr(void *_io)
   fdsp_msg_hdr_dm->src_port = 0;
   fdsp_msg_hdr_dm->dst_port = node_port;
   
-  storHvisor->dataPlacementTbl->getDMTNodesForVolume(vol_id, node_ids, &num_nodes);
+  DmtColumnPtr nodeIds = storHvisor->dataPlacementTbl->getDMTNodesForVolume(vol_id);
   
-  for (i = 0; i < num_nodes; i++) {
+  for (fds_uint32_t i = 0; i < nodeIds->getLength(); i++) {
     node_ip = 0;
     node_port = 0;
     node_state = -1;
-    storHvisor->dataPlacementTbl->getNodeInfo(node_ids[i],
+    storHvisor->dataPlacementTbl->getNodeInfo((nodeIds->get(i)).uuid_get_val(),
                                               &node_ip,
                                               &node_port,
                                               &node_state);
@@ -386,7 +380,7 @@ int StorHvisorProcIoWr(void *_io)
     fdsp_msg_hdr_dm->dst_port = node_port;
     journEntry->dm_ack[i].ack_status = FDS_CLS_ACK;
     journEntry->dm_ack[i].commit_status = FDS_CLS_ACK;
-    journEntry->num_dm_nodes = num_nodes;
+    journEntry->num_dm_nodes = nodeIds->getLength();
     
     // Call Update Catalog RPC call to DM
     netMetaDataPathClientSession *sessionCtx =

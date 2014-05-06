@@ -325,8 +325,8 @@ struct FDSP_DLT_Type {
 }
 
 struct FDSP_DMT_Type {
-      1: i32 DMT_version,
-      2: Node_Table_Type DMT,
+      1: i64 dmt_version,       /* DMT version */
+      2: binary dmt_data        /* DMT table + meta in binary format */
 }
 
 struct FDSP_DLT_Data_Type {

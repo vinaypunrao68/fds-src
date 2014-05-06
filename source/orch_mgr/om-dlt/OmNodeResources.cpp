@@ -908,11 +908,15 @@ OM_NodeContainer::OM_NodeContainer()
     om_dmt_mtx("DMT-Mtx")
 {
     om_volumes    = new VolumeContainer();
+    om_curDmt = NULL;
 }
 
 OM_NodeContainer::~OM_NodeContainer()
 {
     delete om_admin_ctrl;
+    if (om_curDmt) {
+        delete om_curDmt;
+    }
 }
 
 // om_init_domain
@@ -925,7 +929,7 @@ OM_NodeContainer::om_init_domain()
     om_dmt_ver    = 0;
     om_dmt_width  = 3;  // can address 2^3  DMs.
     om_dmt_depth  = 4;  // max 4 total DM replicas.
-    om_curDmt     = new FdsDmt(om_dmt_width, om_dmt_depth);
+    om_curDmt     = NULL;
 
     am_stats = new PerfStats(OrchMgr::om_stor_prefix() + "OM_from_AM",
                              5 * FDS_STAT_DEFAULT_HIST_SLOTS);
@@ -1247,9 +1251,23 @@ OM_NodeContainer::om_bcast_tier_audit(fpi::FDSP_TierPolicyAuditPtr audit)
 fds_uint32_t
 OM_NodeContainer::om_bcast_dmt_table()
 {
+    Error err(ERR_OK);
     fds_uint32_t count = 0;
+
+    if (!om_curDmt) {
+        LOGWARN << "DMT is empty, will not broadcast";
+        return 0;  // send to 0 nodes
+    }
+    fds_verify(om_curDmt->getVersion() != DMT_VER_INVALID);
+
     om_node_msg_t         msg;
-    fpi::FDSP_DMT_TypePtr dmt = om_curDmt->toFdsp();
+    fpi::FDSP_DMT_TypePtr dmt(new fpi::FDSP_DMT_Type());
+    dmt->dmt_version = om_curDmt->getVersion();
+    err = om_curDmt->getSerialized(dmt->dmt_data);
+    if (!err.ok()) {
+        LOGERROR << "Failed to fill in dmt_data, not sending DMT";
+        return 0;  // send to 0 nodes
+    }
 
     msg.nd_msg_code  = fpi::FDSP_MSG_DMT_UPDATE;
     msg.u.nd_dmt_tab = &dmt;
@@ -1341,47 +1359,62 @@ OM_NodeContainer::om_bcast_scavenger_cmd(FDS_ProtocolInterface::FDSP_ScavengerCm
 void
 OM_NodeContainer::om_round_robin_dmt()
 {
-    int                        dm_it, node_it, total_num_nodes, bucket_depth;
-    RsArray                    dmMap;
-    fds_placement_table       *table;
-    std::vector<fds_nodeid_t>  node_list;
+    fds_uint32_t dm_idx, start_idx;
+    RsArray      dmMap;
+    fds_uint32_t ncols = pow(2, om_dmt_width);
+    fds_uint32_t depth = om_dmt_depth;
+    fds_uint32_t total_num_nodes = dc_dm_nodes->rs_container_snapshot(&dmMap);
 
-    table           = static_cast<fds_placement_table *>(om_curDmt);
-    bucket_depth    = table->getMaxDepth();
-    total_num_nodes = dc_dm_nodes->rs_container_snapshot(&dmMap);
-
-    if (bucket_depth > total_num_nodes) {
-        bucket_depth = total_num_nodes;
-    }
-    dm_it = 0;
-    om_dmt_mtx.lock();
-    for (fds_uint32_t i = 0; i < table->getNumBuckets(); i++) {
-        node_it = dm_it;
-        node_list.clear();
-
-        if (node_it == total_num_nodes) {
-            break;
+    if (total_num_nodes == 0) {
+        LOGWARN << "No DMT nodes, DMT will be empty";
+        om_dmt_mtx.lock();
+        if (om_curDmt) {
+            delete om_curDmt;
+            om_curDmt = NULL;
         }
-        for (fds_int32_t j = 0; j < bucket_depth; j++) {
-            node_list.push_back(dmMap[node_it]->rs_get_uuid().uuid_get_val());
+        om_dmt_mtx.unlock();
+        return;
+    }
 
-            node_it++;
-            if (node_it == total_num_nodes) {
-                node_it = 0;
+    if (depth > total_num_nodes) {
+        depth = total_num_nodes;
+    }
+
+    LOGNORMAL << "Creating DMT for " << total_num_nodes << " nodes";
+
+    // TODO(Anna) this will change, but for now quickest way we start using
+    // new DMT class.
+    om_dmt_ver++;
+    DMT* new_dmt = new DMT(om_dmt_width, depth, om_dmt_ver);
+
+    dm_idx = 0;
+    start_idx = 0;
+    sleep(5);
+
+    for (fds_uint32_t i = 0; i < ncols; i++) {
+        DmtColumn col(depth);
+        dm_idx = start_idx;
+
+        for (fds_uint32_t j = 0; j < depth; j++) {
+            if (dmMap[dm_idx] == NULL) {
+                // TODO(Anna) this is temp fix, fix properly
+                // by fixing rs_container_snapshot()
+                dm_idx = (dm_idx + 1) % total_num_nodes;
             }
+            NodeUuid uuid = dmMap[dm_idx]->rs_get_uuid();
+            col.set(j, uuid);
+            dm_idx = (dm_idx + 1) % total_num_nodes;
         }
-        Error err = table->insert(i, node_list);
-        fds_assert(err == ERR_OK);
-
-        /*
-         * Move the starting point for the list and reset it to the beginning if we've
-         * looped around.
-         */
-        dm_it++;
-        if (dm_it == total_num_nodes) {
-            dm_it = 0;
-        }
+        new_dmt->setNodeGroup(i, col);
+        start_idx = (start_idx + 1) % total_num_nodes;
     }
+    new_dmt->dump();
+
+    om_dmt_mtx.lock();
+    if (om_curDmt) {
+        delete om_curDmt;
+    }
+    om_curDmt = new_dmt;
     om_dmt_mtx.unlock();
 }
 

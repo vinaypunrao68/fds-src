@@ -810,8 +810,12 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
         // Send the DMT to DMs.
         // om_locDomain->om_round_robin_dmt();
         // om_locDomain->om_bcast_dmt_table();
-           LOGDEBUG << "Invoking the DMT state transition: " << numVols;
-           om_dmt_update_cluster(numVols);
+        if (msg->node_type == fpi::FDSP_DATA_MGR) {
+            LOGDEBUG << "Invoking the DMT state transition: " << numVols;
+            om_dmt_update_cluster(numVols);
+        } else {
+            om_locDomain->om_bcast_dmt_table();
+        }
 
         if (om_local_domain_up()) {
             if (msg->node_type == fpi::FDSP_STOR_MGR) {

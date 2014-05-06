@@ -672,20 +672,11 @@ void DataMgr::ReqHandler::GetVolumeBlobList(FDSP_MsgHdrTypePtr& msg_hdr,
  */
 fds_bool_t
 DataMgr::amIPrimary(fds_volid_t volUuid) {
-    int numNodes = 1;
-    fds_uint64_t nodeId;
-    int result = omClient->getDMTNodesForVolume(volUuid,
-                                                &nodeId,
-                                                &numNodes);
-    fds_verify(result == 0);
-    fds_verify(numNodes == 1);
+    DmtColumnPtr nodes = omClient->getDMTNodesForVolume(volUuid);
+    fds_verify(nodes->getLength() > 0);
 
-    NodeUuid primaryUuid(nodeId);
     const NodeUuid *mySvcUuid = plf_mgr->plf_get_my_svc_uuid();
-    if (*mySvcUuid == primaryUuid) {
-        return true;
-    }
-    return false;
+    return (*mySvcUuid == nodes->get(0));
 }
 
 // TODO(Andrew): This is a total hack to get a sane blob

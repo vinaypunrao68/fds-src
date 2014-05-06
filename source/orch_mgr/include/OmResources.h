@@ -14,9 +14,9 @@
 #include <fds_error.h>
 #include <OmVolume.h>
 #include <NetSession.h>
-#include <fds_placement_table.h>
 #include <platform/node-inventory.h>
 #include <dlt.h>
+#include <fds_dmt.h>
 #include <kvstore/configdb.h>
 
 namespace fds {
@@ -453,12 +453,12 @@ class OM_NodeContainer : public DomainContainer
     float                     om_cur_throttle_level;
 
     /**
-     * TODO(Vy): move this to DMT class.
+     * TODO(Anna) use DMTManager here, which will incapsulate all these fields
      */
     fds_uint64_t              om_dmt_ver;
     fds_uint32_t              om_dmt_width;
     fds_uint32_t              om_dmt_depth;
-    FdsDmt                   *om_curDmt;
+    DMT*                      om_curDmt;
     fds_mutex                 om_dmt_mtx;
 
     void om_init_domain();

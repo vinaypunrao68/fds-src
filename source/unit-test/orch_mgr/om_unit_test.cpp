@@ -221,12 +221,14 @@ class ControlPathReq : public FDS_ProtocolInterface::FDSP_ControlPathReqIf {
     void NotifyDMTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
 			 FDSP_DMT_TypePtr& dmt_info) {
         FDS_PLOG(test_log) << "Received a DMT update" << std::endl;
+        /*
         for (fds_uint32_t i = 0; i < dmt_info->DMT.size(); i++) {
             for (fds_uint32_t j = 0; j < dmt_info->DMT[i].size(); j++) {
                 FDS_PLOG(test_log) << "Bucket " << i << " entry " << j
                                    << " value " << dmt_info->DMT[i][j] << std::endl;
             }
         }
+        */
     }
     
     void SetThrottleLevel(const FDSP_MsgHdrType& msg_hdr,
