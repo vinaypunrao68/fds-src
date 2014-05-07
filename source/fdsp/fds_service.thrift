@@ -31,6 +31,7 @@ struct AsyncHdr {
     2: required i32           msg_src_id,
     3: required SvcUuid       msg_src_uuid,
     4: required SvcUuid       msg_dst_uuid,
+    5: required i32           msg_code,
 }
 
 struct AsyncRspHdr {

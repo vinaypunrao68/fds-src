@@ -248,7 +248,9 @@ class EpSvcHandle
 /**
  * Module vector hookup
  */
-extern EndPointMgr  gl_EndPointMgr;
+extern EndPointMgr  gl_netService;
+
+class EpPlatLibMod;
 
 /**
  * Singleton module manages all endpoints.
@@ -265,7 +267,7 @@ class EndPointMgr : public Module
     virtual void mod_startup();
     virtual void mod_shutdown();
 
-    static EndPointMgr *ep_mgr_singleton() { return &gl_EndPointMgr; }
+    static EndPointMgr *ep_mgr_singleton() { return &gl_netService; }
 
     /**
      * Endpoint registration and lookup.
@@ -292,6 +294,8 @@ class EndPointMgr : public Module
 
     // Hook with with node/domain state machine events.
     //
+  protected:
+    EpPlatLibMod            *ep_map;
 };
 
 /*

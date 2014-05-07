@@ -47,6 +47,7 @@ fds_disk_block_to_byte(fds_blk_t blk)
 /* Some max constants. */
 #define FDS_MAX_FILE_NAME              (256)
 #define MAX_SVC_NAME_LEN               (12)
+#define MAX_DOMAIN_EP_SVC              (10000)
 
 c_decls_end
 

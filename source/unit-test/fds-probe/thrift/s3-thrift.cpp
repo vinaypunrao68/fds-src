@@ -40,6 +40,7 @@ int main(int argc, char **argv)
         &fds::gl_fds_stat,
         &fds::gl_probeS3Eng,
         &fds::gl_thriftProbeMod,
+        &fds::gl_netService,
         &fds::gl_ProbeTestAM,
         &fds::gl_ProbeSvcTestAM,
         NULL

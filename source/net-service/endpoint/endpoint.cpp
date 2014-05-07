@@ -5,8 +5,6 @@
 
 namespace fds {
 
-EndPointMgr  gl_EndPointMgr("EndPoint Mgr");
-
 /*
  * -----------------------------------------------------------------------------------
  * EndPoint Attributes
@@ -170,6 +168,7 @@ EpEvtPlugin::svc_cleanup_finish()
 {
 }
 
+#if 0
 /*
  * -----------------------------------------------------------------------------------
  * EndPoint Manager
@@ -242,4 +241,5 @@ EndPointMgr::svc_lookup(const char *peer_name, fds_uint32_t maj, fds_uint32_t mi
     return NULL;
 }
 
+#endif
 }  // namespace fds
