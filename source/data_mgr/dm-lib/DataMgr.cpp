@@ -1087,10 +1087,10 @@ DataMgr::updateCatalogInternal(FDSP_UpdateCatalogTypePtr updCatReq,
     /*
      * allocate a new update cat log  class and  queue  to per volume queue.
      */
-    dmCatReq *dmUpdReq = new DataMgr::dmCatReq(volId, updCatReq->blob_name,
-                                               updCatReq->dm_transaction_id, updCatReq->dm_operation, srcIp,
-                                               dstIp, srcPort, dstPort, session_uuid, reqCookie, FDS_CAT_UPD,
-                                               updCatReq);
+    dmCatReq *dmUpdReq = new dmCatReq(volId, updCatReq->blob_name,
+                                      updCatReq->dm_transaction_id, updCatReq->dm_operation, srcIp,
+                                      dstIp, srcPort, dstPort, session_uuid, reqCookie, FDS_CAT_UPD,
+                                      updCatReq);
 
     err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(dmUpdReq));
     if (err != ERR_OK) {
@@ -1378,8 +1378,8 @@ DataMgr::blobListInternal(const FDSP_GetVolumeBlobListReqTypePtr& blob_list_req,
     /*
      * allocate a new query cat log  class and  queue  to per volume queue.
      */
-    dmCatReq *dmListReq = new DataMgr::dmCatReq(volId, srcIp, dstIp, srcPort, dstPort,
-                                                session_uuid, reqCookie, FDS_LIST_BLOB);
+    dmCatReq *dmListReq = new dmCatReq(volId, srcIp, dstIp, srcPort, dstPort,
+                                       session_uuid, reqCookie, FDS_LIST_BLOB);
     err = qosCtrl->enqueueIO(dmListReq->getVolId(), static_cast<FDS_IOType*>(dmListReq));
     if (err != ERR_OK) {
         LOGNORMAL << "Unable to enqueue blob list request "
@@ -1402,11 +1402,11 @@ DataMgr::queryCatalogInternal(FDSP_QueryCatalogTypePtr qryCatReq,
     /*
      * allocate a new query cat log  class and  queue  to per volume queue.
      */
-    dmCatReq *dmQryReq = new DataMgr::dmCatReq(volId, qryCatReq->blob_name,
-                                               qryCatReq->dm_transaction_id,
-                                               qryCatReq->dm_operation, srcIp,
-                                               dstIp, srcPort, dstPort, session_uuid,
-                                               reqCookie, FDS_CAT_QRY, NULL);
+    dmCatReq *dmQryReq = new dmCatReq(volId, qryCatReq->blob_name,
+                                      qryCatReq->dm_transaction_id,
+                                      qryCatReq->dm_operation, srcIp,
+                                      dstIp, srcPort, dstPort, session_uuid,
+                                      reqCookie, FDS_CAT_QRY, NULL);
     // Set the version
     // TODO(Andrew): Have a better constructor so that I can
     // set it that way.
@@ -1774,9 +1774,9 @@ DataMgr::deleteCatObjInternal(FDSP_DeleteCatalogTypePtr delCatReq,
     /*
      * allocate a new query cat log  class and  queue  to per volume queue.
      */
-    dmCatReq *dmDelReq = new DataMgr::dmCatReq(volId, delCatReq->blob_name, srcIp, 0, 0,
-                                               dstIp, srcPort, dstPort, session_uuid,
-                                               reqCookie, FDS_DELETE_BLOB, NULL);
+    dmCatReq *dmDelReq = new dmCatReq(volId, delCatReq->blob_name, srcIp, 0, 0,
+                                      dstIp, srcPort, dstPort, session_uuid,
+                                      reqCookie, FDS_DELETE_BLOB, NULL);
     dmDelReq->blob_version = delCatReq->blob_version;
 
     err = qosCtrl->enqueueIO(dmDelReq->getVolId(), static_cast<FDS_IOType*>(dmDelReq));
@@ -1831,27 +1831,27 @@ void DataMgr::ReqHandler::DeleteCatalogObject(FDS_ProtocolInterface::
 }
 
 int scheduleUpdateCatalog(void * _io) {
-    fds::DataMgr::dmCatReq *io = (fds::DataMgr::dmCatReq*)_io;
+    fds::dmCatReq *io = (fds::dmCatReq*)_io;
 
     dataMgr->updateCatalogBackend(io);
     return 0;
 }
 int scheduleQueryCatalog(void * _io) {
-    fds::DataMgr::dmCatReq *io = (fds::DataMgr::dmCatReq*)_io;
+    fds::dmCatReq *io = (fds::dmCatReq*)_io;
 
     dataMgr->queryCatalogBackend(io);
     return 0;
 }
 
 int scheduleDeleteCatObj(void * _io) {
-    fds::DataMgr::dmCatReq *io = (fds::DataMgr::dmCatReq*)_io;
+    fds::dmCatReq *io = (fds::dmCatReq*)_io;
 
     dataMgr->deleteCatObjBackend(io);
     return 0;
 }
 
 int scheduleBlobList(void * _io) {
-    fds::DataMgr::dmCatReq *io = (fds::DataMgr::dmCatReq*)_io;
+    fds::dmCatReq *io = (fds::dmCatReq*)_io;
 
     dataMgr->blobListBackend(io);
     return 0;

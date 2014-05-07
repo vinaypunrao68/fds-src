@@ -115,7 +115,7 @@ Dm_ProbeMod::sendUpdate(const OpParams &updateParams)
     upCatReq->meta_list.clear();
 
     // Allocate a dm request using the fdsp message
-    DataMgr::dmCatReq *dmUpdReq = new DataMgr::dmCatReq(
+    dmCatReq *dmUpdReq = new dmCatReq(
         updateParams.volId,
         upCatReq->blob_name,
         upCatReq->dm_transaction_id,
@@ -152,7 +152,7 @@ Dm_ProbeMod::sendQuery(const OpParams &queryParams)
     std::cout << "Doing a query" << std::endl;
 
     // Allocate a dm request using the fdsp message
-    DataMgr::dmCatReq *dmQueryReq = new DataMgr::dmCatReq(
+    dmCatReq *dmQueryReq = new dmCatReq(
         queryParams.volId,
         queryParams.blobName,
         0,  // Dm trans id is 0
@@ -201,7 +201,7 @@ Dm_ProbeMod::sendDelete(const OpParams &deleteParams)
     std::cout << "Doing a delete" << std::endl;
 
     // Allocate a dm request using the fdsp message
-    DataMgr::dmCatReq *dmDelReq = new DataMgr::dmCatReq(
+    dmCatReq *dmDelReq = new dmCatReq(
         deleteParams.volId,
         deleteParams.blobName,
         0,  // Dm trans id is 0
