@@ -366,6 +366,9 @@ class EndPoint : public EpSvcImpl
         ep_setup_server();
         ep_client_connect();
     }
+    void ep_run_server() {
+        ep_server->serve();
+    }
     // Synchronous send/receive handlers.
     //
     boost::shared_ptr<SendIf> ep_sync_rpc() { return ep_rpc_send; }

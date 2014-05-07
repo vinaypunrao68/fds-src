@@ -82,6 +82,8 @@ class ProbeEpTestAM : public Module
     void mod_startup();
     void mod_shutdown();
 
+    void ep_serve() { probe_ep->ep_run_server(); }
+
   protected:
     // One endpoint bound to a physical port of the local node.  Full duplex with
     // its peer.
@@ -125,6 +127,8 @@ class ProbeEpTestSM : public Module
     void mod_startup();
     void mod_shutdown();
 
+    void ep_serve() { probe_ep->ep_run_server(); }
+
   protected:
     // Many services built on top of the endpoint.
     //
@@ -135,7 +139,7 @@ class ProbeEpTestSM : public Module
     // One endpoint bound to a physical port of the local node.  Full duplex with
     // its peer.
     //
-    EndPoint<fpi::ProbeServiceAMClient, fpi::ProbeServiceSMProcessor> *probe_ep;
+    EndPoint<fpi::ProbeServiceAMClient, fpi::ProbeServiceSMProcessor>::pointer probe_ep;
 };
 
 extern ProbeEpTestSM         gl_ProbeTestSM;

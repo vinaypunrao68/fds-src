@@ -104,9 +104,7 @@ class ProbeSM_RPC : public FdsProcess
     void proc_pre_startup() override {}
     void proc_pre_service() override {}
     int run() override {
-        while (1) {
-            sleep(10);
-        }
+        gl_ProbeTestSM.ep_serve();
         return 0;
     }
 };

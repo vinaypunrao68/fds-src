@@ -1,35 +1,30 @@
 {
     "AM": {
-        "hello": {
-            "ProbeFoo": {
-               "p1": 12,
-               "p2": 32,
-               "p3": "This is a test"
-            }
+         "ProbeFoo": {
+            "p1": 12,
+            "p2": 32,
+            "p3": "This is a test",
+            "func": "hello"
         },
-        "bye": {
-            "ProbeGetMsgReqt": {
-                "msg_len": 123
-            }
+        "ProbeGetMsgReqt": {
+            "msg_len": 123,
+            "func": "bye"
         },
-        "poke": {
-            "ProbeBar": {
-                "p1": 43332,
-                "p2": 453423,
-                "p3": 3422,
-                "p4": 4655,
-                "p5": 56565
-            }
+        "ProbeBar": {
+            "p1": 43332,
+            "p2": 453423,
+            "p3": 3422,
+            "p4": 4655,
+            "p5": 56565,
+            "func": "poke"
         },
-        "probe_put": {
-            "ProbePutMsg": {
-                "msg_data": "This is data from a put request through probe interface"
-            }
+        "ProbePutMsg": {
+            "func": "probe_put",
+            "msg_data": "This is data from a put request through probe interface"
         },
-        "probe_get": {
-            "ProbeGetMsgReqt": {
-                "msg_len": 123
-            }
+        "ProbeGetMsgReqt": {
+            "func": "probe_get",
+            "msg_len": 123
         }
     }
 }
