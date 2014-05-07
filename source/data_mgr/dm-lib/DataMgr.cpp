@@ -400,7 +400,8 @@ DataMgr::DataMgr(int argc, char *argv[], Platform *platform, Module **vec)
           numTestVols(10),
           runMode(NORMAL_MODE),
           scheduleRate(4000),
-          num_threads(DM_TP_THREADS)
+          num_threads(DM_TP_THREADS),
+          catSyncMgr(new CatalogSyncMgr(1, NULL)) 
 {
     // If we're in test mode, don't daemonize.
     // TODO(Andrew): We probably want another config field and
@@ -549,6 +550,9 @@ void DataMgr::proc_pre_startup()
         omClient->registerNodeWithOM(plf_mgr);
     }
 
+    // TODO(xxx) should we start catalog sync manager when no OM?
+    catSyncMgr->mod_startup();
+
     if (runMode == TEST_MODE) {
         /*
          * Create test volumes.
@@ -623,6 +627,7 @@ fds_bool_t DataMgr::volExists(fds_volid_t vol_uuid) const {
 void DataMgr::interrupt_cb(int signum) {
     LOGNORMAL << " Received signal "
               << signum << ". Shutting down communicator";
+    catSyncMgr->mod_shutdown();
     exit(0);
 }
 

@@ -29,23 +29,40 @@ void CatalogSync::snapDoneCb(const Error& error) {
 
 /***** CatalogSyncManager implementation ******/
 
-CatalogSyncMgr(fds_uint32_t max_jobs,
-               DmIoReqHandler* dm_req_hdlr,
-               OMgrClient* omc)
-        : max_sync_inprogress(max_jobs),
+CatalogSyncMgr::CatalogSyncMgr(fds_uint32_t max_jobs,
+                               DmIoReqHandler* dm_req_hdlr)
+        : Module("CatalogSyncMgr"),
+          max_sync_inprogress(max_jobs),
           dm_req_handler(dm_req_hdlr),
-          parent_omc(omc),
           cat_sync_lock("Catalog Sync lock") {
+    LOGNORMAL << "Constructing CatalogSyncMgr";
 }
 
 CatalogSyncMgr::~CatalogSyncMgr() {
 }
 
 /**
+ * Module start up code
+ */
+void CatalogSyncMgr::mod_startup()
+{
+    LOGNORMAL << "Will setup server for metadata path";
+}
+
+/**
+ * Module shutdown code
+ */
+void CatalogSyncMgr::mod_shutdown()
+{
+    LOGNORMAL << "Ending metadata path sessions";
+}
+
+/**
  * Called when DM receives push meta message from OM to start catalog sync process for list
  * of vols and to which nodes to sync.
  */
-Error CatalogSyncMgr::startCatalogSync(const FDSP_metaDataList& metaVol) {
+Error
+CatalogSyncMgr::startCatalogSync(const FDS_ProtocolInterface::FDSP_metaDataList& metaVol) {
     Error err(ERR_OK);
 
     return err;

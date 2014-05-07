@@ -10,6 +10,8 @@
 
 #include <fds_error.h>
 #include <fds_types.h>
+#include <fds_module.h>
+#include <concurrency/Mutex.h>
 #include <fdsp/FDSP_types.h>
 
 namespace fds {
@@ -19,7 +21,10 @@ namespace fds {
      * a given volume
      */
     typedef std::function<void (fds_volid_t vol_id,
-                                const error& error)> catsync_done_handler_t;
+                                const Error& error)> catsync_done_handler_t;
+
+    // temp typedef to compile, will define a real struct
+    typedef void DmIoReqHandler;
 
     /**
      * Manages per-volume catalog sync job
@@ -65,12 +70,15 @@ namespace fds {
     /**
      * Manages Catalog sync process
      */
-    class CatalogSyncMgr {
+    class CatalogSyncMgr: public Module {
   public:
         CatalogSyncMgr(fds_uint32_t max_jobs,
-                       DmIoReqHandler* dm_req_hdlr,
-                       OMgrClient* omc);
-        ~CatalogSyncMgr();
+                       DmIoReqHandler* dm_req_hdlr);
+        virtual ~CatalogSyncMgr();
+
+        /* Overrides from Module */
+        virtual void mod_startup() override;
+        virtual void mod_shutdown() override;
 
         /**
          * Called when DM received push meta message from OM
@@ -79,7 +87,7 @@ namespace fds {
          * For now we will not allow to start catalog sync if the previous
          * cat sync is still in progress, later we may revisit this...
          */
-        Error startCatalogSync(const FDSP_metaDataList& metaVol);
+        Error startCatalogSync(const FDS_ProtocolInterface::FDSP_metaDataList& metaVol);
 
   private:
         /**
@@ -93,11 +101,6 @@ namespace fds {
          * QoS queues; passed in constructor, does not own.
          */
         DmIoReqHandler *dm_req_handler;
-        /**
-         * OMgrClient pointer passed down from DataMgr, so we can
-         * resolve node uuid to 
-         */
-        OMgrClient *parent_omc;
 
         /**
          * Volume id to Catalog Sync object which are already doing
