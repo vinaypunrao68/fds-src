@@ -3,13 +3,16 @@ package com.formationds.util;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+import com.formationds.util.libconfig.ParserFacade;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import org.apache.log4j.PropertyConfigurator;
 
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.InputStream;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Properties;
 
 public class Configuration {
@@ -26,19 +29,45 @@ public class Configuration {
         } else {
             fdsRoot = new File("/fds");
         }
+        initLog4J();
+    }
 
-        if (fdsRoot.exists()) {
-            InputStream stream = new FileInputStream(new File(fdsRoot, "etc/app.properties"));
-            properties.load(stream);
-            PropertyConfigurator.configure(properties);
-        }
+    private void initLog4J() {
+        properties.put("log4j.rootCategory", "DEBUG, console");
+        properties.put("log4j.appender.console", "org.apache.log4j.ConsoleAppender");
+        properties.put("log4j.appender.console.layout", "org.apache.log4j.PatternLayout");
+        properties.put("log4j.appender.console.layout.ConversionPattern", "%-4r [%t] %-5p %c %x - %m%n");
+        properties.put("log4j.logger.org.hibernate", "WARN");
+        properties.put("log4j.logger.com.mchange", "WARN");
+        properties.put("log4j.logger.com.formationds", "DEBUG");
+        properties.put("log4j.logger.org.jetty", "INFO");
+        properties.put("log4j.logger.org.apache.thrift", "DEBUG");
+        PropertyConfigurator.configure(properties);
     }
 
     public boolean enforceRestAuth() {
-        return Boolean.parseBoolean(properties.getProperty("com.formationds.authorization.rest", "false"));
+        return getOmConfig().lookup("fds.om.enforce_rest_auth").booleanValue();
     }
 
     public String getFdsRoot() {
         return fdsRoot.getAbsolutePath();
+    }
+
+    public ParserFacade getPlatformConfig() {
+        Path path = Paths.get(getFdsRoot(), "etc", "am.conf");
+        return getParserFacade(path);
+    }
+
+    public ParserFacade getOmConfig() {
+        Path path = Paths.get(getFdsRoot(), "etc", "orch_mgr.conf");
+        return getParserFacade(path);
+    }
+
+    private ParserFacade getParserFacade(Path path) {
+        try {
+            return new ParserFacade(Files.newInputStream(path));
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

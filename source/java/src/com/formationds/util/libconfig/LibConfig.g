@@ -34,6 +34,7 @@ FLOAT
 
 COMMENT
     :   '/*' ( options {greedy=false;} : . )* '*/' {$channel=HIDDEN;}
+    |  '#' ~('\n'|'\r')* '\r'? '\n' {$channel=HIDDEN;}
     ;
 
 WS  :   ( ' '

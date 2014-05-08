@@ -1,9 +1,12 @@
-// $ANTLR 3.5.1 /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g 2014-05-08 11:14:06
+// $ANTLR 3.5.1 /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g 2014-05-08 14:08:09
 
     package com.formationds.util.libconfig;
 
 
 import org.antlr.runtime.*;
+import java.util.Stack;
+import java.util.List;
+import java.util.ArrayList;
 
 @SuppressWarnings("all")
 public class LibConfigLexer extends Lexer {
@@ -481,48 +484,120 @@ public class LibConfigLexer extends Lexer {
 		try {
 			int _type = COMMENT;
 			int _channel = DEFAULT_TOKEN_CHANNEL;
-			// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:36:5: ( '/*' ( options {greedy=false; } : . )* '*/' )
-			// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:36:9: '/*' ( options {greedy=false; } : . )* '*/'
-			{
-			match("/*"); 
+			// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:36:5: ( '/*' ( options {greedy=false; } : . )* '*/' | '#' (~ ( '\\n' | '\\r' ) )* ( '\\r' )? '\\n' )
+			int alt14=2;
+			int LA14_0 = input.LA(1);
+			if ( (LA14_0=='/') ) {
+				alt14=1;
+			}
+			else if ( (LA14_0=='#') ) {
+				alt14=2;
+			}
 
-			// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:36:14: ( options {greedy=false; } : . )*
-			loop11:
-			while (true) {
-				int alt11=2;
-				int LA11_0 = input.LA(1);
-				if ( (LA11_0=='*') ) {
-					int LA11_1 = input.LA(2);
-					if ( (LA11_1=='/') ) {
-						alt11=2;
-					}
-					else if ( ((LA11_1 >= '\u0000' && LA11_1 <= '.')||(LA11_1 >= '0' && LA11_1 <= '\uFFFF')) ) {
-						alt11=1;
-					}
+			else {
+				NoViableAltException nvae =
+					new NoViableAltException("", 14, 0, input);
+				throw nvae;
+			}
 
-				}
-				else if ( ((LA11_0 >= '\u0000' && LA11_0 <= ')')||(LA11_0 >= '+' && LA11_0 <= '\uFFFF')) ) {
-					alt11=1;
-				}
-
-				switch (alt11) {
+			switch (alt14) {
 				case 1 :
-					// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:36:42: .
+					// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:36:9: '/*' ( options {greedy=false; } : . )* '*/'
 					{
-					matchAny(); 
+					match("/*"); 
+
+					// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:36:14: ( options {greedy=false; } : . )*
+					loop11:
+					while (true) {
+						int alt11=2;
+						int LA11_0 = input.LA(1);
+						if ( (LA11_0=='*') ) {
+							int LA11_1 = input.LA(2);
+							if ( (LA11_1=='/') ) {
+								alt11=2;
+							}
+							else if ( ((LA11_1 >= '\u0000' && LA11_1 <= '.')||(LA11_1 >= '0' && LA11_1 <= '\uFFFF')) ) {
+								alt11=1;
+							}
+
+						}
+						else if ( ((LA11_0 >= '\u0000' && LA11_0 <= ')')||(LA11_0 >= '+' && LA11_0 <= '\uFFFF')) ) {
+							alt11=1;
+						}
+
+						switch (alt11) {
+						case 1 :
+							// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:36:42: .
+							{
+							matchAny(); 
+							}
+							break;
+
+						default :
+							break loop11;
+						}
+					}
+
+					match("*/"); 
+
+					_channel=HIDDEN;
+					}
+					break;
+				case 2 :
+					// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:37:8: '#' (~ ( '\\n' | '\\r' ) )* ( '\\r' )? '\\n'
+					{
+					match('#'); 
+					// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:37:12: (~ ( '\\n' | '\\r' ) )*
+					loop12:
+					while (true) {
+						int alt12=2;
+						int LA12_0 = input.LA(1);
+						if ( ((LA12_0 >= '\u0000' && LA12_0 <= '\t')||(LA12_0 >= '\u000B' && LA12_0 <= '\f')||(LA12_0 >= '\u000E' && LA12_0 <= '\uFFFF')) ) {
+							alt12=1;
+						}
+
+						switch (alt12) {
+						case 1 :
+							// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:
+							{
+							if ( (input.LA(1) >= '\u0000' && input.LA(1) <= '\t')||(input.LA(1) >= '\u000B' && input.LA(1) <= '\f')||(input.LA(1) >= '\u000E' && input.LA(1) <= '\uFFFF') ) {
+								input.consume();
+							}
+							else {
+								MismatchedSetException mse = new MismatchedSetException(null,input);
+								recover(mse);
+								throw mse;
+							}
+							}
+							break;
+
+						default :
+							break loop12;
+						}
+					}
+
+					// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:37:26: ( '\\r' )?
+					int alt13=2;
+					int LA13_0 = input.LA(1);
+					if ( (LA13_0=='\r') ) {
+						alt13=1;
+					}
+					switch (alt13) {
+						case 1 :
+							// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:37:26: '\\r'
+							{
+							match('\r'); 
+							}
+							break;
+
+					}
+
+					match('\n'); 
+					_channel=HIDDEN;
 					}
 					break;
 
-				default :
-					break loop11;
-				}
 			}
-
-			match("*/"); 
-
-			_channel=HIDDEN;
-			}
-
 			state.type = _type;
 			state.channel = _channel;
 		}
@@ -537,8 +612,8 @@ public class LibConfigLexer extends Lexer {
 		try {
 			int _type = WS;
 			int _channel = DEFAULT_TOKEN_CHANNEL;
-			// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:39:5: ( ( ' ' | '\\t' | '\\r' | '\\n' ) )
-			// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:39:9: ( ' ' | '\\t' | '\\r' | '\\n' )
+			// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:40:5: ( ( ' ' | '\\t' | '\\r' | '\\n' ) )
+			// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:40:9: ( ' ' | '\\t' | '\\r' | '\\n' )
 			{
 			if ( (input.LA(1) >= '\t' && input.LA(1) <= '\n')||input.LA(1)=='\r'||input.LA(1)==' ' ) {
 				input.consume();
@@ -565,32 +640,32 @@ public class LibConfigLexer extends Lexer {
 		try {
 			int _type = STRING;
 			int _channel = DEFAULT_TOKEN_CHANNEL;
-			// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:47:5: ( '\"' ( ESC_SEQ |~ ( '\\\\' | '\"' ) )* '\"' )
-			// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:47:8: '\"' ( ESC_SEQ |~ ( '\\\\' | '\"' ) )* '\"'
+			// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:48:5: ( '\"' ( ESC_SEQ |~ ( '\\\\' | '\"' ) )* '\"' )
+			// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:48:8: '\"' ( ESC_SEQ |~ ( '\\\\' | '\"' ) )* '\"'
 			{
 			match('\"'); 
-			// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:47:12: ( ESC_SEQ |~ ( '\\\\' | '\"' ) )*
-			loop12:
+			// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:48:12: ( ESC_SEQ |~ ( '\\\\' | '\"' ) )*
+			loop15:
 			while (true) {
-				int alt12=3;
-				int LA12_0 = input.LA(1);
-				if ( (LA12_0=='\\') ) {
-					alt12=1;
+				int alt15=3;
+				int LA15_0 = input.LA(1);
+				if ( (LA15_0=='\\') ) {
+					alt15=1;
 				}
-				else if ( ((LA12_0 >= '\u0000' && LA12_0 <= '!')||(LA12_0 >= '#' && LA12_0 <= '[')||(LA12_0 >= ']' && LA12_0 <= '\uFFFF')) ) {
-					alt12=2;
+				else if ( ((LA15_0 >= '\u0000' && LA15_0 <= '!')||(LA15_0 >= '#' && LA15_0 <= '[')||(LA15_0 >= ']' && LA15_0 <= '\uFFFF')) ) {
+					alt15=2;
 				}
 
-				switch (alt12) {
+				switch (alt15) {
 				case 1 :
-					// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:47:14: ESC_SEQ
+					// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:48:14: ESC_SEQ
 					{
 					mESC_SEQ(); 
 
 					}
 					break;
 				case 2 :
-					// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:47:24: ~ ( '\\\\' | '\"' )
+					// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:48:24: ~ ( '\\\\' | '\"' )
 					{
 					if ( (input.LA(1) >= '\u0000' && input.LA(1) <= '!')||(input.LA(1) >= '#' && input.LA(1) <= '[')||(input.LA(1) >= ']' && input.LA(1) <= '\uFFFF') ) {
 						input.consume();
@@ -604,7 +679,7 @@ public class LibConfigLexer extends Lexer {
 					break;
 
 				default :
-					break loop12;
+					break loop15;
 				}
 			}
 
@@ -623,8 +698,8 @@ public class LibConfigLexer extends Lexer {
 	// $ANTLR start "EXPONENT"
 	public final void mEXPONENT() throws RecognitionException {
 		try {
-			// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:52:10: ( ( 'e' | 'E' ) ( '+' | '-' )? ( '0' .. '9' )+ )
-			// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:52:12: ( 'e' | 'E' ) ( '+' | '-' )? ( '0' .. '9' )+
+			// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:53:10: ( ( 'e' | 'E' ) ( '+' | '-' )? ( '0' .. '9' )+ )
+			// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:53:12: ( 'e' | 'E' ) ( '+' | '-' )? ( '0' .. '9' )+
 			{
 			if ( input.LA(1)=='E'||input.LA(1)=='e' ) {
 				input.consume();
@@ -634,13 +709,13 @@ public class LibConfigLexer extends Lexer {
 				recover(mse);
 				throw mse;
 			}
-			// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:52:22: ( '+' | '-' )?
-			int alt13=2;
-			int LA13_0 = input.LA(1);
-			if ( (LA13_0=='+'||LA13_0=='-') ) {
-				alt13=1;
+			// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:53:22: ( '+' | '-' )?
+			int alt16=2;
+			int LA16_0 = input.LA(1);
+			if ( (LA16_0=='+'||LA16_0=='-') ) {
+				alt16=1;
 			}
-			switch (alt13) {
+			switch (alt16) {
 				case 1 :
 					// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:
 					{
@@ -657,17 +732,17 @@ public class LibConfigLexer extends Lexer {
 
 			}
 
-			// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:52:33: ( '0' .. '9' )+
-			int cnt14=0;
-			loop14:
+			// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:53:33: ( '0' .. '9' )+
+			int cnt17=0;
+			loop17:
 			while (true) {
-				int alt14=2;
-				int LA14_0 = input.LA(1);
-				if ( ((LA14_0 >= '0' && LA14_0 <= '9')) ) {
-					alt14=1;
+				int alt17=2;
+				int LA17_0 = input.LA(1);
+				if ( ((LA17_0 >= '0' && LA17_0 <= '9')) ) {
+					alt17=1;
 				}
 
-				switch (alt14) {
+				switch (alt17) {
 				case 1 :
 					// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:
 					{
@@ -683,11 +758,11 @@ public class LibConfigLexer extends Lexer {
 					break;
 
 				default :
-					if ( cnt14 >= 1 ) break loop14;
-					EarlyExitException eee = new EarlyExitException(14, input);
+					if ( cnt17 >= 1 ) break loop17;
+					EarlyExitException eee = new EarlyExitException(17, input);
 					throw eee;
 				}
-				cnt14++;
+				cnt17++;
 			}
 
 			}
@@ -702,7 +777,7 @@ public class LibConfigLexer extends Lexer {
 	// $ANTLR start "HEX_DIGIT"
 	public final void mHEX_DIGIT() throws RecognitionException {
 		try {
-			// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:55:11: ( ( '0' .. '9' | 'a' .. 'f' | 'A' .. 'F' ) )
+			// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:56:11: ( ( '0' .. '9' | 'a' .. 'f' | 'A' .. 'F' ) )
 			// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:
 			{
 			if ( (input.LA(1) >= '0' && input.LA(1) <= '9')||(input.LA(1) >= 'A' && input.LA(1) <= 'F')||(input.LA(1) >= 'a' && input.LA(1) <= 'f') ) {
@@ -725,10 +800,10 @@ public class LibConfigLexer extends Lexer {
 	// $ANTLR start "ESC_SEQ"
 	public final void mESC_SEQ() throws RecognitionException {
 		try {
-			// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:59:5: ( '\\\\' ( 'b' | 't' | 'n' | 'f' | 'r' | '\\\"' | '\\'' | '\\\\' ) | UNICODE_ESC | OCTAL_ESC )
-			int alt15=3;
-			int LA15_0 = input.LA(1);
-			if ( (LA15_0=='\\') ) {
+			// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:60:5: ( '\\\\' ( 'b' | 't' | 'n' | 'f' | 'r' | '\\\"' | '\\'' | '\\\\' ) | UNICODE_ESC | OCTAL_ESC )
+			int alt18=3;
+			int LA18_0 = input.LA(1);
+			if ( (LA18_0=='\\') ) {
 				switch ( input.LA(2) ) {
 				case '\"':
 				case '\'':
@@ -739,12 +814,12 @@ public class LibConfigLexer extends Lexer {
 				case 'r':
 				case 't':
 					{
-					alt15=1;
+					alt18=1;
 					}
 					break;
 				case 'u':
 					{
-					alt15=2;
+					alt18=2;
 					}
 					break;
 				case '0':
@@ -756,7 +831,7 @@ public class LibConfigLexer extends Lexer {
 				case '6':
 				case '7':
 					{
-					alt15=3;
+					alt18=3;
 					}
 					break;
 				default:
@@ -764,7 +839,7 @@ public class LibConfigLexer extends Lexer {
 					try {
 						input.consume();
 						NoViableAltException nvae =
-							new NoViableAltException("", 15, 1, input);
+							new NoViableAltException("", 18, 1, input);
 						throw nvae;
 					} finally {
 						input.rewind(nvaeMark);
@@ -774,13 +849,13 @@ public class LibConfigLexer extends Lexer {
 
 			else {
 				NoViableAltException nvae =
-					new NoViableAltException("", 15, 0, input);
+					new NoViableAltException("", 18, 0, input);
 				throw nvae;
 			}
 
-			switch (alt15) {
+			switch (alt18) {
 				case 1 :
-					// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:59:9: '\\\\' ( 'b' | 't' | 'n' | 'f' | 'r' | '\\\"' | '\\'' | '\\\\' )
+					// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:60:9: '\\\\' ( 'b' | 't' | 'n' | 'f' | 'r' | '\\\"' | '\\'' | '\\\\' )
 					{
 					match('\\'); 
 					if ( input.LA(1)=='\"'||input.LA(1)=='\''||input.LA(1)=='\\'||input.LA(1)=='b'||input.LA(1)=='f'||input.LA(1)=='n'||input.LA(1)=='r'||input.LA(1)=='t' ) {
@@ -794,14 +869,14 @@ public class LibConfigLexer extends Lexer {
 					}
 					break;
 				case 2 :
-					// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:60:9: UNICODE_ESC
+					// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:61:9: UNICODE_ESC
 					{
 					mUNICODE_ESC(); 
 
 					}
 					break;
 				case 3 :
-					// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:61:9: OCTAL_ESC
+					// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:62:9: OCTAL_ESC
 					{
 					mOCTAL_ESC(); 
 
@@ -819,38 +894,38 @@ public class LibConfigLexer extends Lexer {
 	// $ANTLR start "OCTAL_ESC"
 	public final void mOCTAL_ESC() throws RecognitionException {
 		try {
-			// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:66:5: ( '\\\\' ( '0' .. '3' ) ( '0' .. '7' ) ( '0' .. '7' ) | '\\\\' ( '0' .. '7' ) ( '0' .. '7' ) | '\\\\' ( '0' .. '7' ) )
-			int alt16=3;
-			int LA16_0 = input.LA(1);
-			if ( (LA16_0=='\\') ) {
-				int LA16_1 = input.LA(2);
-				if ( ((LA16_1 >= '0' && LA16_1 <= '3')) ) {
-					int LA16_2 = input.LA(3);
-					if ( ((LA16_2 >= '0' && LA16_2 <= '7')) ) {
-						int LA16_4 = input.LA(4);
-						if ( ((LA16_4 >= '0' && LA16_4 <= '7')) ) {
-							alt16=1;
+			// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:67:5: ( '\\\\' ( '0' .. '3' ) ( '0' .. '7' ) ( '0' .. '7' ) | '\\\\' ( '0' .. '7' ) ( '0' .. '7' ) | '\\\\' ( '0' .. '7' ) )
+			int alt19=3;
+			int LA19_0 = input.LA(1);
+			if ( (LA19_0=='\\') ) {
+				int LA19_1 = input.LA(2);
+				if ( ((LA19_1 >= '0' && LA19_1 <= '3')) ) {
+					int LA19_2 = input.LA(3);
+					if ( ((LA19_2 >= '0' && LA19_2 <= '7')) ) {
+						int LA19_4 = input.LA(4);
+						if ( ((LA19_4 >= '0' && LA19_4 <= '7')) ) {
+							alt19=1;
 						}
 
 						else {
-							alt16=2;
+							alt19=2;
 						}
 
 					}
 
 					else {
-						alt16=3;
+						alt19=3;
 					}
 
 				}
-				else if ( ((LA16_1 >= '4' && LA16_1 <= '7')) ) {
-					int LA16_3 = input.LA(3);
-					if ( ((LA16_3 >= '0' && LA16_3 <= '7')) ) {
-						alt16=2;
+				else if ( ((LA19_1 >= '4' && LA19_1 <= '7')) ) {
+					int LA19_3 = input.LA(3);
+					if ( ((LA19_3 >= '0' && LA19_3 <= '7')) ) {
+						alt19=2;
 					}
 
 					else {
-						alt16=3;
+						alt19=3;
 					}
 
 				}
@@ -860,7 +935,7 @@ public class LibConfigLexer extends Lexer {
 					try {
 						input.consume();
 						NoViableAltException nvae =
-							new NoViableAltException("", 16, 1, input);
+							new NoViableAltException("", 19, 1, input);
 						throw nvae;
 					} finally {
 						input.rewind(nvaeMark);
@@ -871,13 +946,13 @@ public class LibConfigLexer extends Lexer {
 
 			else {
 				NoViableAltException nvae =
-					new NoViableAltException("", 16, 0, input);
+					new NoViableAltException("", 19, 0, input);
 				throw nvae;
 			}
 
-			switch (alt16) {
+			switch (alt19) {
 				case 1 :
-					// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:66:9: '\\\\' ( '0' .. '3' ) ( '0' .. '7' ) ( '0' .. '7' )
+					// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:67:9: '\\\\' ( '0' .. '3' ) ( '0' .. '7' ) ( '0' .. '7' )
 					{
 					match('\\'); 
 					if ( (input.LA(1) >= '0' && input.LA(1) <= '3') ) {
@@ -907,7 +982,7 @@ public class LibConfigLexer extends Lexer {
 					}
 					break;
 				case 2 :
-					// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:67:9: '\\\\' ( '0' .. '7' ) ( '0' .. '7' )
+					// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:68:9: '\\\\' ( '0' .. '7' ) ( '0' .. '7' )
 					{
 					match('\\'); 
 					if ( (input.LA(1) >= '0' && input.LA(1) <= '7') ) {
@@ -929,7 +1004,7 @@ public class LibConfigLexer extends Lexer {
 					}
 					break;
 				case 3 :
-					// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:68:9: '\\\\' ( '0' .. '7' )
+					// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:69:9: '\\\\' ( '0' .. '7' )
 					{
 					match('\\'); 
 					if ( (input.LA(1) >= '0' && input.LA(1) <= '7') ) {
@@ -954,8 +1029,8 @@ public class LibConfigLexer extends Lexer {
 	// $ANTLR start "UNICODE_ESC"
 	public final void mUNICODE_ESC() throws RecognitionException {
 		try {
-			// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:73:5: ( '\\\\' 'u' HEX_DIGIT HEX_DIGIT HEX_DIGIT HEX_DIGIT )
-			// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:73:9: '\\\\' 'u' HEX_DIGIT HEX_DIGIT HEX_DIGIT HEX_DIGIT
+			// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:74:5: ( '\\\\' 'u' HEX_DIGIT HEX_DIGIT HEX_DIGIT HEX_DIGIT )
+			// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:74:9: '\\\\' 'u' HEX_DIGIT HEX_DIGIT HEX_DIGIT HEX_DIGIT
 			{
 			match('\\'); 
 			match('u'); 
@@ -979,9 +1054,9 @@ public class LibConfigLexer extends Lexer {
 	@Override
 	public void mTokens() throws RecognitionException {
 		// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:1:8: ( T__17 | T__18 | T__19 | EQUALS | BOOLEAN | ID | INT | FLOAT | COMMENT | WS | STRING )
-		int alt17=11;
-		alt17 = dfa17.predict(input);
-		switch (alt17) {
+		int alt20=11;
+		alt20 = dfa20.predict(input);
+		switch (alt20) {
 			case 1 :
 				// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:1:10: T__17
 				{
@@ -1065,7 +1140,7 @@ public class LibConfigLexer extends Lexer {
 
 
 	protected DFA10 dfa10 = new DFA10(this);
-	protected DFA17 dfa17 = new DFA17(this);
+	protected DFA20 dfa20 = new DFA20(this);
 	static final String DFA10_eotS =
 		"\5\uffff";
 	static final String DFA10_eofS =
@@ -1121,25 +1196,25 @@ public class LibConfigLexer extends Lexer {
 		}
 	}
 
-	static final String DFA17_eotS =
+	static final String DFA20_eotS =
 		"\5\uffff\2\7\1\uffff\1\17\4\uffff\2\7\1\uffff\2\7\1\24\1\7\1\uffff\1\24";
-	static final String DFA17_eofS =
+	static final String DFA20_eofS =
 		"\26\uffff";
-	static final String DFA17_minS =
+	static final String DFA20_minS =
 		"\1\11\4\uffff\1\162\1\141\1\uffff\1\56\4\uffff\1\165\1\154\1\uffff\1\145"+
 		"\1\163\1\60\1\145\1\uffff\1\60";
-	static final String DFA17_maxS =
+	static final String DFA20_maxS =
 		"\1\175\4\uffff\1\162\1\141\1\uffff\1\145\4\uffff\1\165\1\154\1\uffff\1"+
 		"\145\1\163\1\172\1\145\1\uffff\1\172";
-	static final String DFA17_acceptS =
+	static final String DFA20_acceptS =
 		"\1\uffff\1\1\1\2\1\3\1\4\2\uffff\1\6\1\uffff\1\10\1\11\1\12\1\13\2\uffff"+
 		"\1\7\4\uffff\1\5\1\uffff";
-	static final String DFA17_specialS =
+	static final String DFA20_specialS =
 		"\26\uffff}>";
-	static final String[] DFA17_transitionS = {
-			"\2\13\2\uffff\1\13\22\uffff\1\13\1\uffff\1\14\13\uffff\1\11\1\12\12\10"+
-			"\1\1\2\uffff\1\4\3\uffff\32\7\4\uffff\1\7\1\uffff\5\7\1\6\15\7\1\5\6"+
-			"\7\1\2\1\uffff\1\3",
+	static final String[] DFA20_transitionS = {
+			"\2\13\2\uffff\1\13\22\uffff\1\13\1\uffff\1\14\1\12\12\uffff\1\11\1\12"+
+			"\12\10\1\1\2\uffff\1\4\3\uffff\32\7\4\uffff\1\7\1\uffff\5\7\1\6\15\7"+
+			"\1\5\6\7\1\2\1\uffff\1\3",
 			"",
 			"",
 			"",
@@ -1163,34 +1238,34 @@ public class LibConfigLexer extends Lexer {
 			"\12\7\7\uffff\32\7\4\uffff\1\7\1\uffff\32\7"
 	};
 
-	static final short[] DFA17_eot = DFA.unpackEncodedString(DFA17_eotS);
-	static final short[] DFA17_eof = DFA.unpackEncodedString(DFA17_eofS);
-	static final char[] DFA17_min = DFA.unpackEncodedStringToUnsignedChars(DFA17_minS);
-	static final char[] DFA17_max = DFA.unpackEncodedStringToUnsignedChars(DFA17_maxS);
-	static final short[] DFA17_accept = DFA.unpackEncodedString(DFA17_acceptS);
-	static final short[] DFA17_special = DFA.unpackEncodedString(DFA17_specialS);
-	static final short[][] DFA17_transition;
+	static final short[] DFA20_eot = DFA.unpackEncodedString(DFA20_eotS);
+	static final short[] DFA20_eof = DFA.unpackEncodedString(DFA20_eofS);
+	static final char[] DFA20_min = DFA.unpackEncodedStringToUnsignedChars(DFA20_minS);
+	static final char[] DFA20_max = DFA.unpackEncodedStringToUnsignedChars(DFA20_maxS);
+	static final short[] DFA20_accept = DFA.unpackEncodedString(DFA20_acceptS);
+	static final short[] DFA20_special = DFA.unpackEncodedString(DFA20_specialS);
+	static final short[][] DFA20_transition;
 
 	static {
-		int numStates = DFA17_transitionS.length;
-		DFA17_transition = new short[numStates][];
+		int numStates = DFA20_transitionS.length;
+		DFA20_transition = new short[numStates][];
 		for (int i=0; i<numStates; i++) {
-			DFA17_transition[i] = DFA.unpackEncodedString(DFA17_transitionS[i]);
+			DFA20_transition[i] = DFA.unpackEncodedString(DFA20_transitionS[i]);
 		}
 	}
 
-	protected class DFA17 extends DFA {
+	protected class DFA20 extends DFA {
 
-		public DFA17(BaseRecognizer recognizer) {
+		public DFA20(BaseRecognizer recognizer) {
 			this.recognizer = recognizer;
-			this.decisionNumber = 17;
-			this.eot = DFA17_eot;
-			this.eof = DFA17_eof;
-			this.min = DFA17_min;
-			this.max = DFA17_max;
-			this.accept = DFA17_accept;
-			this.special = DFA17_special;
-			this.transition = DFA17_transition;
+			this.decisionNumber = 20;
+			this.eot = DFA20_eot;
+			this.eof = DFA20_eof;
+			this.min = DFA20_min;
+			this.max = DFA20_max;
+			this.accept = DFA20_accept;
+			this.special = DFA20_special;
+			this.transition = DFA20_transition;
 		}
 		@Override
 		public String getDescription() {

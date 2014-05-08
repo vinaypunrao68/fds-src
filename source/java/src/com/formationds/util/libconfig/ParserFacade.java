@@ -3,11 +3,11 @@ package com.formationds.util.libconfig;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import org.antlr.runtime.ANTLRStringStream;
-import org.antlr.runtime.CommonTokenStream;
-import org.antlr.runtime.RecognitionException;
+import org.antlr.runtime.*;
 import org.antlr.runtime.tree.CommonTree;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -15,7 +15,15 @@ public class ParserFacade {
     private Map<String, Node> map;
 
     public ParserFacade(String input) {
-        LibConfigParser parser = new LibConfigParser(new CommonTokenStream(new LibConfigLexer(new ANTLRStringStream(input))));
+        this(new ANTLRStringStream(input));
+    }
+
+    public ParserFacade(InputStream inputStream) throws IOException {
+        this(new ANTLRInputStream(inputStream));
+    }
+
+    public ParserFacade(CharStream charStream) {
+        LibConfigParser parser = new LibConfigParser(new CommonTokenStream(new LibConfigLexer(charStream)));
         LibConfigParser.namespace_return v = null;
         try {
             v = parser.namespace();
@@ -25,8 +33,8 @@ public class ParserFacade {
         map = new HashMap<>();
         Node node = doParse((CommonTree) v.getTree());
         map.put(node.getName(), node);
-    }
 
+    }
     private Node doParse(CommonTree commonTree) {
         if (commonTree.getType() == LibConfigParser.ID) {
             Namespace namespace = new Namespace(commonTree.getText());
@@ -72,24 +80,24 @@ public class ParserFacade {
         for (int i = 0; i < parts.length; i++) {
             String part = parts[i];
             if (!current.containsKey(part)) {
-                throw new RuntimeException("key not found");
+                throw new RuntimeException("key not found: '" + path + "'");
             }
 
             Node node = current.get(part);
 
             if (i == parts.length - 1) {
                 if (!(node instanceof Assignment)) {
-                    throw new RuntimeException("key not found");
+                    throw new RuntimeException("key not found: '" + path + "'");
                 }
                 return (Assignment) node;
             } else {
                 if (!(node instanceof Namespace)) {
-                    throw new RuntimeException("key not found");
+                    throw new RuntimeException("key not found: '" + path + "'");
                 }
                 current = ((Namespace) node).children();
             }
         }
 
-        throw new RuntimeException("key not found");
+        throw new RuntimeException("key not found: '" + path + "'");
     }
 }
