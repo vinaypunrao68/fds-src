@@ -268,7 +268,7 @@ std::string get_local_ip()
      */
     getifaddrs(&ifAddrStruct);
     for (ifa = ifAddrStruct; ifa != NULL; ifa = ifa->ifa_next) {
-        if (ifa->ifa_addr->sa_family == AF_INET) {  // IPv4
+        if (ifa->ifa_addr != NULL && ifa->ifa_addr->sa_family == AF_INET) {  // IPv4
             if (strncmp(ifa->ifa_name, "lo", 2) != 0) {
                 tmpAddrPtr = &((struct sockaddr_in *)ifa->ifa_addr)->sin_addr;  // NOLINT
                 char addrBuf[INET_ADDRSTRLEN];
