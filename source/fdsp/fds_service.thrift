@@ -40,3 +40,33 @@ struct AsyncRspHdr {
     4: optional string        msg_data
 }
 
+struct GetObjReq {
+    1: required AsyncHdr      header;
+    2: required string        id;
+}
+struct PutObjReq {
+    1: required AsyncHdr      header;
+    2: required string        id;
+    3: required string        data;
+}
+
+struct GetObjRsp {
+	1: required i32       len;
+	2: required string    data;
+}
+
+struct PutObjRsp {
+	1: required i32       status;
+}
+
+service AsyncRspSvc {
+	oneway void asyncResponse(1: AsyncHdr header, 2: string payload)
+}
+
+service SMSvc extends AsyncRspSvc {
+	oneway void getObject(1: GetObjReq req)
+	oneway void putObject(1: PutObjReq req)
+}
+
+service AMSvc extends AsyncRspSvc {
+}

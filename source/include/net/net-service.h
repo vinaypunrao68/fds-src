@@ -219,17 +219,16 @@ class EpSvcHandle
     typedef boost::intrusive_ptr<EpSvcHandle> pointer;
     typedef boost::intrusive_ptr<const EpSvcHandle> const_ptr;
 
+    virtual int  ep_get_status() { return 0; }
+    template <class SendIf>
+    boost::shared_ptr<SendIf> svc_rpc() { return NULL; }
+
   protected:
     friend class NetMgr;
     friend class EpSvc;
 
     EpSvcHandle() {}
     virtual ~EpSvcHandle() {}
-
-    virtual int  ep_get_status() { return 0; }
-
-    template <class SendIf>
-    boost::shared_ptr<SendIf> svc_rpc() { return NULL; }
 
   private:
     mutable boost::atomic<int>       ep_refcnt;
@@ -281,6 +280,10 @@ class EndPointMgr : public Module
      * @param maj (i)  - the service's major version number.
      * @param min (i)  - the service's minor version number.
      */
+    virtual EpSvcHandle::pointer
+    svc_lookup(const fpi::SvcUuid &uuid, fds_uint32_t maj, fds_uint32_t min);
+
+    // TODO(Rao): remove
     virtual EpSvcHandle::pointer
     svc_lookup(const ResourceUUID &uuid, fds_uint32_t maj, fds_uint32_t min);
 

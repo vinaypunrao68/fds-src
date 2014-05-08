@@ -1,10 +1,27 @@
 /* Copyright 2014 Formation Data Systems, Inc.
  */
 
+#include <string>
 #include <util/Log.h>
 #include <RpcRequest.h>
 
 namespace fds {
+/**
+ *
+ * @param e
+ */
+void RpcRequestIf::setError(const Error &e)
+{
+    error_ = e;
+}
+/**
+ *
+ * @return
+ */
+Error RpcRequestIf::getError() const
+{
+    return error_;
+}
 
 /**
  *
@@ -112,7 +129,7 @@ EPAsyncRpcRequest::EPAsyncRpcRequest(const AsyncRpcRequestId &id,
  *
  * @param cb
  */
-void EPAsyncRpcRequest::onSuccessResponse(RpcRequestSuccessCb &cb)
+void EPAsyncRpcRequest::onSuccessCb(RpcRequestSuccessCb &cb)
 {
     successCb_ = cb;
 }
@@ -121,9 +138,17 @@ void EPAsyncRpcRequest::onSuccessResponse(RpcRequestSuccessCb &cb)
  *
  * @param cb
  */
-void EPAsyncRpcRequest::onFailedResponse(RpcRequestErrorCb &cb)
+void EPAsyncRpcRequest::onErrorCb(RpcRequestErrorCb &cb)
 {
     errorCb_ = cb;
+}
+
+/**
+ *
+ */
+void EPAsyncRpcRequest::complete(const Error &status)
+{
+    // TODO(Rao): Remove from tracking
 }
 
 /**
@@ -131,21 +156,23 @@ void EPAsyncRpcRequest::onFailedResponse(RpcRequestErrorCb &cb)
  * @param
  * @param resp
  */
-void EPAsyncRpcRequest::handleResponse(VoidPtr resp)
+void EPAsyncRpcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
+        boost::shared_ptr<std::string>& payload)
 {
     Error e;
     // TODO(Rao): Parse out the error
+    // parse out the payload
     if (e != ERR_OK) {
         if (errorCb_) {
-            errorCb_(e, resp);
+            errorCb_(e, payload);
         } else {
-            handleError(e, resp);
+            handleError(e, payload);
         }
         return;
     }
 
     if (successCb_) {
-        successCb_(resp);
+        successCb_(payload);
     }
 }
 

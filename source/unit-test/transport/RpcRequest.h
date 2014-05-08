@@ -6,6 +6,7 @@
 #include <functional>
 #include <boost/shared_ptr.hpp>
 
+#include <fds_typedefs.h>
 #include <fdsp/fds_service_types.h>
 #include <fds_error.h>
 
@@ -14,21 +15,20 @@
  * req - RpcRequest context object
  * SvcType - class type of the service
  * method - method to invoke
- * ... - arguements to the method
+ * ... - arguments to the method
  */
 #define INVOKE_RPC(req, SvcType, method, ...)                               \
     do {                                                                    \
-        SvcType *client = nullptr;                                          \
-        /*
-        auto ep = gl_epMgr->getEndpoint((req).getEndpointId());             \
-        Error status = ep.getStatus();                                      \
-        if (status != ERROR_OK) {                                           \
+        boost::shared_ptr<SvcType> client;                                  \
+        auto ep = EndPointMgr::ep_mgr_singleton()->\
+            svc_lookup((req).getEndpointId(),0 , 0);                        \
+        Error status = ep->ep_get_status();                                 \
+        if (status != ERR_OK) {                                             \
             (req).setError(status);                                         \
             break;                                                          \
         } else {                                                            \
-            client = ep->getClient<SvcType>();                              \
+            client = ep->svc_rpc<SvcType>();                                \
         }                                                                   \
-        */ \
         try {                                                               \
             client->method(__VA_ARGS__);                                    \
         } catch(...) {                                                      \
@@ -37,8 +37,6 @@
     } while(false)
 
 namespace fds {
-
-namespace fpi = FDS_ProtocolInterface;
 
 /* Forward declarations */
 class AsyncRpcRequestTracker;
@@ -53,7 +51,15 @@ typedef uint64_t AsyncRpcRequestId;
 class RpcRequestIf {
 public:
     virtual ~RpcRequestIf() {}
+
     virtual void handleError(const Error&e, VoidPtr resp) = 0;
+
+    void setError(const Error &e);
+    Error getError() const;
+
+protected:
+    /* RPC Request error if any */
+    Error error_;
 };
 
 /**
@@ -62,14 +68,22 @@ public:
 class AsyncRpcRequestIf {
 public:
     virtual ~AsyncRpcRequestIf() {}
+
+    virtual void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
+            boost::shared_ptr<std::string>& payload) = 0;
+    virtual void complete(const Error &status) = 0;
+
+    void setTimeoutMs(const uint32_t &timeout_ms);
+    uint32_t getTimeout();
+
     AsyncRpcRequestId getRequestId();
     void setRequestId(const AsyncRpcRequestId &id);
-    virtual void handleResponse(VoidPtr resp) = 0;
 
 protected:
     /* Request Id */
     AsyncRpcRequestId id_;
 };
+typedef boost::shared_ptr<AsyncRpcRequestIf> AsyncRpcRequestIfPtr;
 
 /**
  * RPC request for single endpoint
@@ -149,10 +163,12 @@ public:
     EPAsyncRpcRequest(const AsyncRpcRequestId &id,
             const fpi::SvcUuid &uuid);
 
-    void onSuccessResponse(RpcRequestSuccessCb &cb);
-    void onFailedResponse(RpcRequestErrorCb &cb);
+    void onSuccessCb(RpcRequestSuccessCb &cb);
+    void onErrorCb(RpcRequestErrorCb &cb);
 
-    virtual void handleResponse(VoidPtr resp) override;
+    virtual void complete(const Error &status) override;
+    virtual void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
+            boost::shared_ptr<std::string>& payload) override;
 
 protected:
     /* Response callbacks.  If set they are invoked in handleResponse() */
@@ -161,7 +177,29 @@ protected:
 };
 typedef boost::shared_ptr<EPAsyncRpcRequest> EPAsyncRpcRequestPtr;
 
+class MultiEndpointRpcRequest : public AsyncRpcRequestIf {
+public:
+
+};
+
+class FailoverRpcRequest : public MultiEndpointRpcRequest {
+public:
+    FailoverRpcRequest();
+
+    void addEndpoint(const fpi::SvcUuid &uuid);
+    void onFailoverCb(RpcRequestErrorCb &cb);
+    void onSuccessCb(RpcRequestSuccessCb &cb);
+    void onErrorCb(RpcRequestErrorCb &cb);
+
+    virtual void complete(const Error &status) override;
+    virtual void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
+            boost::shared_ptr<std::string>& payload) override;
+};
+
 #if 0
+class BroadcastRpcRequest : public MultiEndpointRpcRequest {
+public:
+};
 class RequestTracker {
 public:
     void addForTracking(AsyncRpcRequestPtr req);
@@ -169,18 +207,6 @@ public:
 };
 boost::shared_ptr<RequestTracker> RequestTrackerPtr;
 
-class MultiEndpointRpcRequest : public AsyncRpcRequest {
-public:
-
-};
-
-class BroadcastRpcRequest : public MultiEndpointRpcRequest {
-public:
-};
-
-class FailoverRpcRequest : public MultiEndpointRpcRequest {
-public:
-};
 #endif
 
 }  // namespace fds

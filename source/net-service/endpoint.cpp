@@ -227,9 +227,15 @@ EndPointMgr::ep_unregister(const fpi::SvcUuid &uuid)
 // Lookup a service handle based on uuid and correct version.
 //
 EpSvcHandle::pointer
-EndPointMgr::svc_lookup(const ResourceUUID &peer, fds_uint32_t maj, fds_uint32_t min)
+EndPointMgr::svc_lookup(const fpi::SvcUuid &peer, fds_uint32_t maj, fds_uint32_t min)
 {
     return NULL;
+}
+// TODO(Rao): Remove
+EpSvcHandle::pointer
+EndPointMgr::svc_lookup(const ResourceUUID &uuid, fds_uint32_t maj, fds_uint32_t min)
+{
+    return nullptr;
 }
 
 // svc_lookup
