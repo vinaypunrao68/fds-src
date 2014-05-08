@@ -134,6 +134,7 @@ namespace fds {
         // volume is part of base class: use getVolId()
         /* response callback */
         CbType dmio_snap_vcat_cb;
+        NodeUuid node_uuid;
     };
 
 }  // namespace fds

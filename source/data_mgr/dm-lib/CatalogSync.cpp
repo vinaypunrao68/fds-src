@@ -12,8 +12,10 @@ namespace fds {
 /****** CatalogSync implementation ******/
 
 CatalogSync::CatalogSync(fds_volid_t vol_id,
+                         const NodeUuid& uuid,
                          DmIoReqHandler* dm_req_hdlr)
         : volume_id(vol_id),
+          node_uuid(uuid),
           dm_req_handler(dm_req_hdlr) {
 }
 
@@ -30,6 +32,7 @@ Error CatalogSync::startSync(catsync_done_handler_t done_evt_hdlr) {
     // queue qos request to do db snapshot and do rsync
     DmIoSnapVolCat* snap_req = new DmIoSnapVolCat();
     snap_req->io_type = FDS_DM_SNAP_VOLCAT;
+    snap_req->node_uuid = node_uuid;
     snap_req->volId = volume_id;
     snap_req->dmio_snap_vcat_cb = std::bind(
         &CatalogSync::snapDoneCb, this, std::placeholders::_1);
@@ -67,7 +70,23 @@ CatalogSyncMgr::~CatalogSyncMgr() {
  */
 void CatalogSyncMgr::mod_startup()
 {
-    LOGNORMAL << "Will setup server for metadata path";
+
+     meta_handler.reset(new FDSP_MetaSyncRpc(*this, GetLog()));
+
+    std::string ip = netSession::getLocalIp();
+    int port = PlatformProcess::plf_manager()->plf_get_my_metasync_port();
+    int myIpInt = netSession::ipString2Addr(ip);
+    std::string node_name = "localhost-meta";
+    meta_session = netSessionTbl->createServerSession<netMetaSyncServerSession>(
+        myIpInt,
+        port,
+        node_name,
+        FDSP_METASYNC_MGR,
+        meta_handler);
+
+    LOGNORMAL << "Meta sync path server setup ip: "
+              << ip << " port: " << port;
+
 }
 
 /**
@@ -100,7 +119,7 @@ CatalogSyncMgr::startCatalogSync(const FDS_ProtocolInterface::FDSP_metaDataList&
 	LOGDEBUG << "Will sync vol " << std::hex << vol
 		 << " to node " << uuid.uuid_get_val() << std::dec;
 	fds_verify(cat_sync_map.count(vol) == 0);
-	CatalogSyncPtr catsync(new CatalogSync(vol, dm_req_handler)); 
+	CatalogSyncPtr catsync(new CatalogSync(vol, uuid, dm_req_handler)); 
 	cat_sync_map[vol] = catsync;
 
         // TODO(xxx) only start max_syn_inprogress syncs, but for now

@@ -293,6 +293,7 @@ class Platform : public Module
     inline fds_uint32_t   plf_get_my_conf_port() const { return plf_my_conf_port; }
     inline fds_uint32_t   plf_get_my_data_port() const { return plf_my_data_port; }
     inline fds_uint32_t   plf_get_my_migration_port() const { return plf_my_migr_port; }
+    inline fds_uint32_t   plf_get_my_metasync_port() const { return plf_my_metasync_port; }
 
     inline std::string const *const plf_get_my_name() const { return &plf_my_node_name; }
     inline std::string const *const plf_get_my_ip() const { return &plf_my_ip; }
@@ -316,6 +317,7 @@ class Platform : public Module
     fds_uint32_t               plf_my_conf_port;
     fds_uint32_t               plf_my_data_port;
     fds_uint32_t               plf_my_migr_port;
+    fds_uint32_t               plf_my_metasync_port;
 
     OmAgent::pointer           plf_master;
     DomainNodeInv::pointer     plf_node_inv;

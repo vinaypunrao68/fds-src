@@ -78,6 +78,7 @@ enum FDSP_MgrIdType {
     FDSP_CLI_MGR,
     FDSP_OMCLIENT_MGR,
     FDSP_MIGRATION_MGR,
+    FDSP_METASYNC_MGR,
     FDSP_PLATFORM
 }
 
@@ -1228,15 +1229,15 @@ service FDSP_MigrationPathResp {
     oneway void PushTokenMetadataResp(1:FDSP_PushTokenMetadataResp push_md_resp)
 }
 
-service FDSP_MetaPathReq {
-    oneway void PushMetaReq(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_UpdateCatalogType push_meta_req)
-    oneway void syncDone(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_VolMetaState vol_meta)
+service FDSP_MetaSyncReq {
+    oneway void PushMetaSyncReq(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_UpdateCatalogType push_meta_req)
+    oneway void MetaSyncDone(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_VolMetaState vol_meta)
 
 }
 
-service FDSP_MetaPathResp {
-    oneway void PushMetaResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_UpdateCatalogType push_meta_resp)
-    oneway void syncDoneResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_VolMetaState vol_meta)
+service FDSP_MetaSyncResp {
+    oneway void PushMetaSyncResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_UpdateCatalogType push_meta_resp)
+    oneway void MetaSyncDoneResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_VolMetaState vol_meta)
 }
 
 #endif
