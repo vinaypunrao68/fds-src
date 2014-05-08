@@ -2,6 +2,7 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 #include <net/net-service.h>
+#include <net/net-service-tmpl.hpp>
 
 namespace fds {
 
