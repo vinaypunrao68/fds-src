@@ -59,6 +59,7 @@ DmPlatform::mod_init(SysParams const *const param)
     if (conf.get_abs<bool>("fds.dm.test_mode", false) == true) {
         plf_my_ctrl_port = conf.get_abs<int>("fds.dm.cp_port");
         plf_my_data_port = conf.get_abs<int>("fds.dm.port");
+        plf_my_metasync_port = conf.get_abs<int>("fds.dm.sync_port");
     }
     plf_om_ip_str    = conf.get_abs<std::string>("fds.dm.om_ip");
     plf_my_ip        = util::get_local_ip();

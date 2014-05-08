@@ -8,13 +8,28 @@
 #include <unordered_map>
 #include <string>
 
+#include <dm-platform.h>
 #include <fds_error.h>
 #include <fds_types.h>
 #include <fds_module.h>
+#include <util/Log.h>
+#include <fds_config.hpp>
+#include <fds_counters.h>
+#include <fds_process.h>
+#include <fdsp/FDSP_MetaSyncReq.h>
+#include <fdsp/FDSP_MetaSyncResp.h>
 #include <concurrency/Mutex.h>
 #include <fdsp/FDSP_types.h>
+#include <NetSession.h>
+
+using  namespace  ::FDS_ProtocolInterface;  // NOLINT
 
 namespace fds {
+
+     class FDSP_MetaSyncRpc;  // forward declaration
+     class CatalogSyncMgr;
+
+
 
     /**
      * Callback type to notify that catalog sync process is finished for
@@ -88,6 +103,7 @@ namespace fds {
          * cat sync is still in progress, later we may revisit this...
          */
         Error startCatalogSync(const FDS_ProtocolInterface::FDSP_metaDataList& metaVol);
+        // boost::shared_ptr<FDSP_MetaRespClient>
 
   private:
         /**
@@ -108,10 +124,59 @@ namespace fds {
          */
         CatSyncMap cat_sync_map;
         fds_mutex cat_sync_lock;  // protects catSyncMap
+
+        /* Net session  handlers */
+        netSessionTblPtr netSessionTbl;
+        boost::shared_ptr<FDSP_MetaSyncRpc> meta_handler;
+        netMetaSyncServerSession *meta_session;
     };
 
     typedef boost::shared_ptr<CatalogSyncMgr> CatalogSyncMgrPtr;
 
+
+    class FDSP_MetaSyncRpc : virtual public FDSP_MetaSyncReqIf,
+        virtual public FDSP_MetaSyncRespIf, public HasLogger
+    {
+   public:
+        // FDSP_MetaSyncRpc(CatalogSyncMgr &syncMgr,  fds_log *log);
+        ~FDSP_MetaSyncRpc() {}
+
+          FDSP_MetaSyncRpc(CatalogSyncMgr &meta_sync_, fds_log *log)
+            : metaSyncMgr(meta_sync_) {
+            SetLog(log);
+          }
+
+        std::string log_string() {
+            return "FDSP_MigrationPathRpc";
+        }
+       void PushMetaSyncReq(const FDSP_MsgHdrType& fdsp_msg,
+               const FDSP_UpdateCatalogType& push_meta_req) {}
+
+       void PushMetaSyncReq(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,
+               boost::shared_ptr<FDSP_UpdateCatalogType>& push_meta_req) {
+          // Don't do anything here. This stub is just to keep cpp compiler happy
+       }
+       void MetaSyncDone(const FDSP_MsgHdrType& fdsp_msg,
+                       const FDSP_VolMetaState& vol_meta) {}
+       void MetaSyncDone(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,
+                        boost::shared_ptr<FDSP_VolMetaState>& vol_meta) {
+          // Don't do anything here. This stub is just to keep cpp compiler happy
+       }
+       void PushMetaSyncResp(const FDSP_MsgHdrType& fdsp_msg,
+                       const FDSP_UpdateCatalogType& push_meta_resp)  {}
+       void PushMetaSyncResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,
+                        boost::shared_ptr<FDSP_UpdateCatalogType>& push_meta_resp) {
+          // Don't do anything here. This stub is just to keep cpp compiler happy
+       }
+       void MetaSyncDoneResp(const FDSP_MsgHdrType& fdsp_msg,
+                       const FDSP_VolMetaState& vol_meta) {}
+       virtual void MetaSyncDoneResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,
+                       boost::shared_ptr<FDSP_VolMetaState>& vol_meta) {
+          // Don't do anything here. This stub is just to keep cpp compiler happy
+       }
+    protected:
+       CatalogSyncMgr  &metaSyncMgr;
+    };
 }  // namespace fds
 
 #endif  // SOURCE_DATA_MGR_INCLUDE_CATALOGSYNC_H_

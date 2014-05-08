@@ -46,7 +46,23 @@ CatalogSyncMgr::~CatalogSyncMgr() {
  */
 void CatalogSyncMgr::mod_startup()
 {
-    LOGNORMAL << "Will setup server for metadata path";
+
+     meta_handler.reset(new FDSP_MetaSyncRpc(*this, GetLog()));
+
+    std::string ip = netSession::getLocalIp();
+    int port = PlatformProcess::plf_manager()->plf_get_my_metasync_port();
+    int myIpInt = netSession::ipString2Addr(ip);
+    std::string node_name = "localhost-meta";
+    meta_session = netSessionTbl->createServerSession<netMetaSyncServerSession>(
+        myIpInt,
+        port,
+        node_name,
+        FDSP_METASYNC_MGR,
+        meta_handler);
+
+    LOGNORMAL << "Meta sync path server setup ip: "
+              << ip << " port: " << port;
+
 }
 
 /**

@@ -24,6 +24,8 @@
 #include <fdsp/FDSP_ConfigPathResp.h>
 #include <fdsp/FDSP_MigrationPathReq.h>
 #include <fdsp/FDSP_MigrationPathResp.h>
+#include <fdsp/FDSP_MetaSyncReq.h>
+#include <fdsp/FDSP_MetaSyncResp.h>
 #include <fdsp/FDSP_Service.h>
 
 #include <fds_globals.h>
@@ -326,6 +328,8 @@ typedef netClientSessionEx<FDSP_ConfigPathReqClient,
         FDSP_ConfigPathRespProcessor, FDSP_ConfigPathRespIf> netConfigPathClientSession;
 typedef netClientSessionEx<FDSP_MigrationPathReqClient,
         FDSP_MigrationPathRespProcessor, FDSP_MigrationPathRespIf> netMigrationPathClientSession;
+typedef netClientSessionEx<FDSP_MetaSyncReqClient,
+        FDSP_MetaSyncRespProcessor, FDSP_MetaSyncRespIf> netMetaSyncClientSession;
 
 /**
  * @brief Encapsulates functionality for fds server sessions.  Responsibilities
@@ -659,6 +663,8 @@ typedef netServerSessionEx<FDSP_ConfigPathReqProcessor,
         FDSP_ConfigPathReqIf, FDSP_ConfigPathRespClient> netConfigPathServerSession;
 typedef netServerSessionEx<FDSP_MigrationPathReqProcessor,
         FDSP_MigrationPathReqIf, FDSP_MigrationPathRespClient> netMigrationPathServerSession;
+typedef netServerSessionEx<FDSP_MetaSyncReqProcessor,
+        FDSP_MetaSyncReqIf, FDSP_MetaSyncRespClient> netMetaSyncServerSession;
 
 
 inline std::ostream& operator<<(std::ostream& out, const netSession& ep) {
