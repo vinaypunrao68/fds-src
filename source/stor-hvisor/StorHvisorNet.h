@@ -137,9 +137,16 @@ public:
     virtual void StatBlobResp(const FDSP_MsgHdrType &msgHdr,
                               const FDS_ProtocolInterface::BlobDescriptor &blobDesc) {
     }
+
     virtual void StatBlobResp(boost::shared_ptr<FDSP_MsgHdrType> &msgHdr,
                               boost::shared_ptr<FDS_ProtocolInterface::
                               BlobDescriptor> &blobDesc);
+
+    virtual void SetBlobMetaDataResp(const FDSP_MsgHdrType& header, const std::string& blobName) {}
+    virtual void GetBlobMetaDataResp(const FDSP_MsgHdrType& header, const std::string& blobName, const FDSP_MetaDataList& metaDataList) {}
+
+    virtual void SetBlobMetaDataResp(boost::shared_ptr<FDSP_MsgHdrType>& header, boost::shared_ptr<std::string>& blobName);
+    virtual void GetBlobMetaDataResp(boost::shared_ptr<FDSP_MsgHdrType>& header, boost::shared_ptr<std::string>& blobName, boost::shared_ptr<FDSP_MetaDataList>& metaDataList);
 };
 
 

@@ -44,15 +44,36 @@ int scheduleStatBlob(void * _io);
 int scheduleStartBlobTx(void * _io);
 int scheduleDeleteCatObj(void * _io);
 int scheduleBlobList(void * _io);
+int scheduleGetBlobMetaData(void* io);
+int scheduleSetBlobMetaData(void* io);
 
 class DataMgr : public PlatformProcess {
-  public:
+public:
     void InitMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr);
 
     class ReqHandler;
-  
     typedef boost::shared_ptr<ReqHandler> ReqHandlerPtr;
-    typedef boost::shared_ptr<FDS_ProtocolInterface::FDSP_MetaDataPathRespClient> RespHandlerPrx;
+    typedef boost::shared_ptr<FDS_ProtocolInterface::FDSP_MetaDataPathRespClient> RespHandlerPrx; //NOLINT
+
+    struct RequestHeader {
+        fds_volid_t volId;
+        long srcIp;  //NOLINT
+        long dstIp;  //NOLINT
+        fds_uint32_t srcPort;
+        fds_uint32_t dstPort;
+        std::string session_uuid;
+        fds_uint32_t reqCookie;
+
+        explicit RequestHeader(const FDSP_MsgHdrTypePtr &hdr) {
+            volId = hdr->glob_volume_id;
+            srcIp = hdr->src_ip_lo_addr;
+            dstIp = hdr->dst_ip_lo_addr;
+            srcPort = hdr->src_port;
+            dstPort = hdr->dst_port;
+            session_uuid = hdr->session_uuid;
+            reqCookie = hdr->req_cookie;
+        }
+    };
 
     /*
      * TODO: Make more generic name than catalog request
@@ -71,7 +92,8 @@ class DataMgr : public PlatformProcess {
         std::string session_uuid;
         fds_uint32_t reqCookie;
         BlobTxId::const_ptr blobTxId;
-        FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr fdspUpdCatReqPtr;
+        fpi::FDSP_UpdateCatalogTypePtr fdspUpdCatReqPtr;
+        boost::shared_ptr<fpi::FDSP_MetaDataList> metadataList;
 
         dmCatReq(fds_volid_t  _volId,
                  long 	  _srcIp,
@@ -98,12 +120,21 @@ class DataMgr : public PlatformProcess {
                  std::string  _session_uuid,
                  fds_uint32_t _reqCookie,
                  fds_io_op_t  _ioType)
-                : volId(_volId), blob_name(blobName), srcIp(_srcIp), dstIp(_dstIp),
+                : volId(_volId), srcIp(_srcIp), dstIp(_dstIp),
                   srcPort(_srcPort), dstPort(_dstPort), session_uuid(_session_uuid),
             reqCookie(_reqCookie), fdspUpdCatReqPtr(NULL) {
             io_type = _ioType;
             io_vol_id = _volId;
             blob_version = blob_version_invalid;
+        }
+
+        dmCatReq(const DataMgr::RequestHeader& hdr,
+                 fds_io_op_t  ioType) 
+                : volId(hdr.volId), srcIp(hdr.srcIp), dstIp(hdr.dstIp),
+                srcPort(hdr.srcPort), dstPort(hdr.dstPort), session_uuid(hdr.session_uuid),
+                 blob_version(blob_version_invalid) {
+                     io_type = io_type;
+                     io_vol_id = hdr.volId;
         }
 
         dmCatReq(fds_volid_t        _volId,
@@ -137,6 +168,15 @@ class DataMgr : public PlatformProcess {
             }
         }
 
+        void fillResponseHeader(fpi::FDSP_MsgHdrTypePtr& msg_hdr) const{
+            msg_hdr->src_ip_lo_addr =  dstIp;
+            msg_hdr->dst_ip_lo_addr =  srcIp;
+            msg_hdr->src_port =  dstPort;
+            msg_hdr->dst_port =  srcPort;
+            msg_hdr->glob_volume_id =  volId;
+            msg_hdr->req_cookie =  reqCookie;
+        }
+
         fds_volid_t getVolId() const {
             return volId;
         }
@@ -146,7 +186,7 @@ class DataMgr : public PlatformProcess {
         }
 
         void setBlobVersion(blob_version_t version) {
-            blob_version = version;          
+            blob_version = version;
         }
         void setBlobTxId(BlobTxId::const_ptr id) {
             blobTxId = id;
@@ -159,7 +199,6 @@ class DataMgr : public PlatformProcess {
       TEST_MODE   = 1,
       MAX
     } dmRunModes;
- 
     dmRunModes    runMode;
     fds_uint32_t numTestVols;  /* Number of vols to use in test mode */
 
@@ -181,30 +220,31 @@ class DataMgr : public PlatformProcess {
       Error processIO(FDS_IOType* _io) {
         Error err(ERR_OK);
         dmCatReq *io = static_cast<dmCatReq*>(_io);
-	switch(io->io_type) {
+        GLOGDEBUG << "processing : " << io->io_type;
+	switch (io->io_type){
             case FDS_CAT_UPD:
-                FDS_PLOG(FDS_QoSControl::qos_log) << "Processing  the Catalog update  request";
                 threadPool->schedule(scheduleUpdateCatalog, io);
                 break;
             case FDS_CAT_QRY:
-                FDS_PLOG(FDS_QoSControl::qos_log) << "Processing  the Catalog Query  request";
                 threadPool->schedule(scheduleQueryCatalog, io);
                 break;
             case FDS_STAT_BLOB:
-                GLOGDEBUG << "Scheduling a stat blob request";
                 threadPool->schedule(scheduleStatBlob, io);
                 break;
             case FDS_START_BLOB_TX:
-                GLOGDEBUG << "Scheduling a start blob transaction request";
                 threadPool->schedule(scheduleStartBlobTx, io);
                 break;
             case FDS_DELETE_BLOB:
-                FDS_PLOG(FDS_QoSControl::qos_log) << "Processing  the Delete Blob request";
                 threadPool->schedule(scheduleDeleteCatObj, io);
                 break;
             case FDS_LIST_BLOB:
-                FDS_PLOG(FDS_QoSControl::qos_log) << "Processing the blob list request";
                 threadPool->schedule(scheduleBlobList, io);
+                break;
+            case FDS_GET_BLOB_METADATA:
+                threadPool->schedule(scheduleGetBlobMetaData, io);
+                break;
+            case FDS_SET_BLOB_METADATA:
+                threadPool->schedule(scheduleSetBlobMetaData, io);
                 break;
             default:
                 FDS_PLOG(FDS_QoSControl::qos_log) << "Unknown IO Type received";
@@ -340,6 +380,7 @@ class DataMgr : public PlatformProcess {
     virtual void interrupt_cb(int signum) override;
 
     void swapMgrId(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg);
+    void setResponseError(fpi::FDSP_MsgHdrTypePtr& msg_hdr, const Error& err);
 
     std::string getPrefix() const;
     fds_bool_t volExists(fds_volid_t vol_uuid) const;
@@ -357,6 +398,8 @@ class DataMgr : public PlatformProcess {
     void blobListBackend(dmCatReq *listBlobReq);
     void statBlobBackend(const dmCatReq *statBlobReq);
     void startBlobTxBackend(const dmCatReq *startBlobTxReq);
+    void getBlobMetaDataBackend(const dmCatReq *request);
+    void setBlobMetaDataBackend(const dmCatReq *request);
 
     /* 
      * FDS protocol processing proto types 
@@ -430,6 +473,21 @@ class DataMgr : public PlatformProcess {
         // Don't do anything here. This stub is just to keep cpp compiler happy
       }
 
+      void SetBlobMetaData(const FDSP_MsgHdrType& header, 
+                           const std::string& volumeName, 
+                           const std::string& blobName, const 
+                           FDSP_MetaDataList& metaDataList) {
+      }
+      
+      void GetBlobMetaData(const FDSP_MsgHdrType& header, 
+                           const std::string& volumeName, 
+                           const std::string& blobName) {
+      }
+
+      // ================================================================================================
+      // The actual stuff
+      // ================================================================================================
+
       void StartBlobTx(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
                        boost::shared_ptr<std::string> &volumeName,
                        boost::shared_ptr<std::string> &blobName,
@@ -459,9 +517,19 @@ class DataMgr : public PlatformProcess {
                     boost::shared_ptr<std::string> &volumeName,
                     boost::shared_ptr<std::string> &blobName);
 
+      void SetBlobMetaData(boost::shared_ptr<FDSP_MsgHdrType>& header, 
+                           boost::shared_ptr<std::string>& volumeName, 
+                           boost::shared_ptr<std::string>& blobName, 
+                           boost::shared_ptr<FDSP_MetaDataList>& metaDataList);
+
+      void GetBlobMetaData(boost::shared_ptr<FDSP_MsgHdrType>& header,
+                           boost::shared_ptr<std::string>& volumeName,
+                           boost::shared_ptr<std::string>& blobName);
+
+
     };
 
-   };
+};
 
 }  // namespace fds
 

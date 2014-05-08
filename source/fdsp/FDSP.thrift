@@ -1076,6 +1076,9 @@ service FDSP_MetaDataPathReq {
 
     /* Using cleaner API convention. Just pass msg hdr for legacy compatability */
     oneway void StatBlob(1:FDSP_MsgHdrType fds_msg, 2:string volumeName, 3:string blobName)
+
+    oneway void SetBlobMetaData(1:FDSP_MsgHdrType header, 2:string volumeName, 3:string blobName, 4:FDSP_MetaDataList metaDataList)
+    oneway void GetBlobMetaData(1:FDSP_MsgHdrType header, 2:string volumeName, 3:string blobName)
 }
 
 service FDSP_MetaDataPathResp {
@@ -1092,6 +1095,9 @@ service FDSP_MetaDataPathResp {
 
     /* Using cleaner API convention. Just pass msg hdr for legacy compatability */
     oneway void StatBlobResp(1:FDSP_MsgHdrType fds_msg, 2:BlobDescriptor blobDesc)
+
+    oneway void SetBlobMetaDataResp(1:FDSP_MsgHdrType header, 2:string blobName)
+    oneway void GetBlobMetaDataResp(1:FDSP_MsgHdrType header, 2:string blobName, 3:FDSP_MetaDataList metaDataList)
 }
 
 

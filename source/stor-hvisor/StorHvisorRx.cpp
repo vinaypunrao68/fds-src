@@ -222,6 +222,15 @@ FDSP_MetaDataPathRespCbackI::StatBlobResp(boost::shared_ptr<FDSP_MsgHdrType> &ms
     storHvisor->statBlobResp(msgHdr, blobDesc);
 }
 
+void FDSP_MetaDataPathRespCbackI::SetBlobMetaDataResp(boost::shared_ptr<FDSP_MsgHdrType>& header,
+                                                      boost::shared_ptr<std::string>& blobName) {
+}
+
+void FDSP_MetaDataPathRespCbackI::GetBlobMetaDataResp(boost::shared_ptr<FDSP_MsgHdrType>& header,
+                                                      boost::shared_ptr<std::string>& blobName,
+                                                      boost::shared_ptr<FDSP_MetaDataList>& metaDataList) {
+}
+
 int StorHvCtrl::fds_move_del_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) {
     fds_int32_t  result  = 0;
     fds_uint32_t transId = rxMsg->req_cookie; 
