@@ -97,6 +97,11 @@
             <artifactId>hibernate-core</artifactId>
             <version>4.3.4.Final</version>
         </dependency>
+        <dependency>
+            <groupId>org.antlr</groupId>
+            <artifactId>antlr-runtime</artifactId>
+            <version>3.5.2</version>
+        </dependency>
     </dependencies>
 
     <!--mvn -f distrib.xml -DskipTests clean assembly:directory-->
