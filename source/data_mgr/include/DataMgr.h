@@ -42,8 +42,9 @@ int scheduleUpdateCatalog(void * _io);
 int scheduleQueryCatalog(void * _io);
 int scheduleDeleteCatObj(void * _io);
 int scheduleBlobList(void * _io);
+int scheduleSnapVolCat(void* _io);
 
-class DataMgr : public PlatformProcess
+class DataMgr : public PlatformProcess, public DmIoReqHandler
 {
   public:
     void InitMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr);
@@ -79,31 +80,35 @@ class DataMgr : public PlatformProcess
 
 
       Error processIO(FDS_IOType* _io) {
-        Error err(ERR_OK);
-        dmCatReq *io = static_cast<dmCatReq*>(_io);
-	switch(io->io_type)
-	{
-	  case FDS_CAT_UPD:
-             FDS_PLOG(FDS_QoSControl::qos_log) << "Processing  the Catalog update  request";
-	     threadPool->schedule(scheduleUpdateCatalog, io);
-	     break;
-	  case FDS_CAT_QRY:
-             FDS_PLOG(FDS_QoSControl::qos_log) << "Processing  the Catalog Query  request";
-	     threadPool->schedule(scheduleQueryCatalog, io);
-	     break;
-	  case FDS_DELETE_BLOB:
-             FDS_PLOG(FDS_QoSControl::qos_log) << "Processing  the Delete Blob request";
-	     threadPool->schedule(scheduleDeleteCatObj, io);
-	     break;
-	  case FDS_LIST_BLOB:
-             FDS_PLOG(FDS_QoSControl::qos_log) << "Processing the blob list request";
-	     threadPool->schedule(scheduleBlobList, io);
-	     break;
-	  default:
-             FDS_PLOG(FDS_QoSControl::qos_log) << "Unknown IO Type received";
-             assert(0);
-	     break;
-	}
+          Error err(ERR_OK);
+          dmCatReq *io = static_cast<dmCatReq*>(_io);
+          switch(io->io_type)
+          {
+              case FDS_CAT_UPD:
+                  FDS_PLOG(FDS_QoSControl::qos_log) << "Processing  the Catalog update  request";
+                  threadPool->schedule(scheduleUpdateCatalog, io);
+                  break;
+              case FDS_CAT_QRY:
+                  FDS_PLOG(FDS_QoSControl::qos_log) << "Processing  the Catalog Query  request";
+                  threadPool->schedule(scheduleQueryCatalog, io);
+                  break;
+              case FDS_DELETE_BLOB:
+                  FDS_PLOG(FDS_QoSControl::qos_log) << "Processing  the Delete Blob request";
+                  threadPool->schedule(scheduleDeleteCatObj, io);
+                  break;
+              case FDS_LIST_BLOB:
+                  FDS_PLOG(FDS_QoSControl::qos_log) << "Processing the blob list request";
+                  threadPool->schedule(scheduleBlobList, io);
+                  break;
+              case FDS_DM_SNAP_VOLCAT:
+                  FDS_PLOG(FDS_QoSControl::qos_log) << "Processing snapshot catalog request ";
+                  threadPool->schedule(scheduleSnapVolCat, io);
+                  break;
+              default:
+                  FDS_PLOG(FDS_QoSControl::qos_log) << "Unknown IO Type received";
+                  assert(0);
+                  break;
+          }
 
         return err;
       }
@@ -213,6 +218,11 @@ class DataMgr : public PlatformProcess
 
     fds_bool_t volExistsLocked(fds_volid_t vol_uuid) const;
 
+    /**
+     * DmIoReqHandler method implementation
+     */
+    virtual Error enqueueMsg(fds_volid_t volId, dmCatReq* ioReq);
+
     static Error vol_handler(fds_volid_t vol_uuid,
                              VolumeDesc* desc,
                              fds_vol_notify_t vol_action,
@@ -253,6 +263,7 @@ class DataMgr : public PlatformProcess
     void deleteCatObjBackend(dmCatReq  *delCatReq);
     Error deleteBlobProcess(const dmCatReq  *delCatReq, BlobNode **bnode);
     void blobListBackend(dmCatReq *listBlobReq);
+    void snapVolCat(DmIoSnapVolCat* snapReq);
 
     /* 
      * FDS protocol processing proto types 

@@ -13,6 +13,7 @@
 #include <fds_module.h>
 #include <concurrency/Mutex.h>
 #include <fdsp/FDSP_types.h>
+#include <DmIoReq.h>
 
 namespace fds {
 
@@ -22,9 +23,6 @@ namespace fds {
      */
     typedef std::function<void (fds_volid_t vol_id,
                                 const Error& error)> catsync_done_handler_t;
-
-    // temp typedef to compile, will define a real struct
-    typedef void DmIoReqHandler;
 
     /**
      * Manages per-volume catalog sync job
@@ -58,6 +56,12 @@ namespace fds {
         // TODO(xxx) where to sync: node uuid or ip?
 
         /**
+         * Pointer to DmIoReqHandler so we can queue work/IO to
+         * QoS queues; passed in constructor, does not own.
+         */
+        DmIoReqHandler *dm_req_handler;
+
+        /**
          * This callback is passed via startSync(). Will call
          * when catalog sync job is finished
          */
@@ -88,6 +92,11 @@ namespace fds {
          * cat sync is still in progress, later we may revisit this...
          */
         Error startCatalogSync(const FDS_ProtocolInterface::FDSP_metaDataList& metaVol);
+
+        /**
+         * Callback from CatalogSync that sync is finished for given volume
+         */
+        void syncDoneCb(fds_volid_t volid, const Error& error);
 
   private:
         /**

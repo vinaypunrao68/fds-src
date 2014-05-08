@@ -45,6 +45,25 @@ void DataMgr::node_handler(fds_int32_t  node_id,
                            FDS_ProtocolInterface::FDSP_MgrIdType node_type) {
 }
 
+Error DataMgr::enqueueMsg(fds_volid_t volId,
+                          dmCatReq* ioReq) {
+    Error err(ERR_OK);
+
+    switch (ioReq->io_type) {
+        case FDS_DM_SNAP_VOLCAT:
+            err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
+            break;
+        default:
+            fds_assert(!"Unknown message");
+    };
+
+    if (!err.ok()) {
+        LOGERROR << "Failed to enqueue message " << ioReq->log_string()
+                 << " " << err;
+    }
+    return err;
+}
+
 /*
  * Adds the volume if it doesn't exist already.
  * Note this does NOT return error if the volume exists.
@@ -401,7 +420,7 @@ DataMgr::DataMgr(int argc, char *argv[], Platform *platform, Module **vec)
           runMode(NORMAL_MODE),
           scheduleRate(4000),
           num_threads(DM_TP_THREADS),
-          catSyncMgr(new CatalogSyncMgr(1, NULL)) 
+          catSyncMgr(new CatalogSyncMgr(1, this)) 
 {
     // If we're in test mode, don't daemonize.
     // TODO(Andrew): We probably want another config field and
@@ -1473,6 +1492,27 @@ void DataMgr::ReqHandler::QueryCatalogObject(FDS_ProtocolInterface::
 }
 
 /**
+ * Make snapshot of volume catalog for sync and notify
+ * CatalogSync.
+ */
+void
+DataMgr::snapVolCat(DmIoSnapVolCat* snapReq) {
+    Error err(ERR_OK);
+    fds_verify(snapReq != NULL);
+
+    // TODO(xxx) snapshot volume catalog here or could do in
+    // CatalogSync::snapDoneCb() which we call below
+
+    // TODO(xxx) call CatalogSync callback which will do RSync
+    // TODO(xxx) add and pass other required params to do rsync
+    snapReq->dmio_snap_vcat_cb(err);
+
+    // mark this request as complete
+    qosCtrl->markIODone(*snapReq);
+    delete snapReq;
+}
+
+/**
  * Populates an fdsp message header with stock fields.
  *
  * @param[in] Ptr to msg header to modify
@@ -1854,6 +1894,13 @@ int scheduleBlobList(void * _io) {
     fds::dmCatReq *io = (fds::dmCatReq*)_io;
 
     dataMgr->blobListBackend(io);
+    return 0;
+}
+
+int scheduleSnapVolCat(void * _io) {
+    fds::DmIoSnapVolCat *io = (fds::DmIoSnapVolCat*)_io;
+
+    dataMgr->snapVolCat(io);
     return 0;
 }
 

@@ -14,12 +14,6 @@
 #include <fds_volume.h>
 #include <fdsp/FDSP_types.h>
 
-#include <include/fds_qos.h>
-#include <include/qos_ctrl.h>
-#include <unordered_map>
-#include <string>
-
-
 namespace fds {
 
     /*
@@ -87,17 +81,59 @@ namespace fds {
             }
         }
 
+        dmCatReq() {
+        }
+
         fds_volid_t getVolId() const {
             return volId;
         }
 
-        ~dmCatReq() {
+        virtual ~dmCatReq() {
             fdspUpdCatReqPtr = NULL;
         }
 
         void setBlobVersion(blob_version_t version) {
             blob_version = version;          
         }
+
+        virtual std::string log_string() const {
+            std::stringstream ret;
+            ret << "dmCatReq for vol " << std::hex << volId
+                << std::dec << " io_type " << io_type;
+            return ret.str();
+        }
+    };
+
+    /**
+     * Handler that process dmCatReq
+     */
+    class DmIoReqHandler {
+  public:
+        virtual Error enqueueMsg(fds_volid_t volId, dmCatReq* ioReq) = 0;
+    };
+
+    /**
+     * Request to make a snapshot of a volume db
+     */
+    class DmIoSnapVolCat: public dmCatReq {
+  public:
+        // TODO(xxx) what other params do we need?
+        typedef std::function<void (const Error& error)> CbType; 
+
+  public:
+        DmIoSnapVolCat() {
+        }
+
+        virtual std::string log_string() const override {
+            std::stringstream ret;
+            ret << "dmIoSnapVolCat for vol "
+                << std::hex << volId << std::dec;
+            return ret.str();
+        }
+
+        // volume is part of base class: use getVolId()
+        /* response callback */
+        CbType dmio_snap_vcat_cb;
     };
 
 }  // namespace fds
