@@ -1,8 +1,15 @@
 namespace cpp fds.apis
 namespace java com.formationds.apis
 
+enum VolumeConnector {
+     S3 = 0,
+     SWIFT,
+     CINDER
+}
+
 struct VolumePolicy {
-       1: required i32 maxObjectSizeInBytes
+       1: required i32 maxObjectSizeInBytes,
+       2: required VolumeConnector connector;
 }
 
 struct VolumeDescriptor {
@@ -45,6 +52,9 @@ struct TxDescriptor {
 }
 
 service AmService {
+	void attachVolume(1: string domainName, 2:string volumeName)
+             throws (1: ApiException e),
+
         list<BlobDescriptor> volumeContents(1:string domainName, 2:string volumeName, 3:i32 count, 4:i64 offset)
              throws (1: ApiException e),
 

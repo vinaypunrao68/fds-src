@@ -35,6 +35,22 @@ class FdsnIf : public apis::AmServiceIf {
 
     typedef boost::shared_ptr<FdsnIf> ptr;
 
+    void attachVolume(const std::string& domainName,
+                      const std::string& volumeName) {
+    }
+
+    void attachVolume(boost::shared_ptr<std::string>& domainName,
+                      boost::shared_ptr<std::string>& volumeName) {
+        AttachVolumeResponseHandler::ptr handler(
+            new AttachVolumeResponseHandler());
+
+        am_api->attachVolume(*volumeName,
+                             SHARED_DYN_CAST(Callback, handler));
+
+        handler->wait();
+        handler->process();
+    }
+
     void volumeStatus(apis::VolumeStatus& _return,
                       const std::string& domainName,
                       const std::string& volumeName) {

@@ -196,7 +196,7 @@ tap_ctl_allocate_device(int *minor, char **devname)
 	fd = open("/dev/blktap-control", O_RDONLY);
 	if (fd == -1) {
 	  cppout("Failed to open control device %s: %d\n", BLKTAP2_CONTROL_DEVICE, errno);
-		return errno;
+          return errno;
 	}
 
 	err = ioctl(fd, BLKTAP2_IOCTL_ALLOC_TAP, &handle);

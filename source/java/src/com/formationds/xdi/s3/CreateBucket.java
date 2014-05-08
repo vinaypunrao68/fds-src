@@ -5,6 +5,7 @@ package com.formationds.xdi.s3;
 
 import com.formationds.am.Main;
 import com.formationds.apis.VolumePolicy;
+import com.formationds.apis.VolumeConnector;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
@@ -23,7 +24,8 @@ public class CreateBucket implements RequestHandler {
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
         String bucketName = requiredString(routeParameters, "bucket");
-        xdi.createVolume(Main.FDS_S3, bucketName, new VolumePolicy(1024 * 1024 * 2));
+        xdi.createVolume(Main.FDS_S3, bucketName, new VolumePolicy(1024 * 1024 * 2,
+                                                                   VolumeConnector.S3));
         return new TextResource("");
     }
 }

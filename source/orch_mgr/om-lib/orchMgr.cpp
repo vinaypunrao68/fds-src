@@ -376,7 +376,7 @@ void OrchMgr::defaultS3BucketPolicy()
     Error err(ERR_OK);
 
     FDS_ProtocolInterface::FDSP_PolicyInfoType policy_info;
-    policy_info.policy_name = std::string("S3-Bucket_policy");
+    policy_info.policy_name = std::string("FDS Default/Stock Policy");
     policy_info.policy_id = 50;
     policy_info.iops_min = 100;
     policy_info.iops_max = 400;

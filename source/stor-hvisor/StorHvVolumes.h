@@ -251,6 +251,41 @@ class StatBlobReq : public FdsBlobReq {
     }
 };
 
+/**
+ * AM request to locally attach a volume.
+ * This request is not specific to a blob,
+ * but needs to be in the blob wait queue
+ * to call the callback and notify that the
+ * attach is complete.
+ */
+class AttachVolBlobReq : public FdsBlobReq {
+  public:
+    std::string volumeName;
+
+    /**
+     * Request constructor. Some of the fields
+     * are not actually needed...the base blob
+     * request class just expects them.
+     */
+    AttachVolBlobReq(fds_volid_t          _volid,
+                     const std::string   &_vol_name,
+                     const std::string   &_blob_name,
+                     fds_uint64_t         _blob_offset,
+                     fds_uint64_t         _data_len,
+                     char                *_data_buf,
+                     CallbackPtr cb) :
+            FdsBlobReq(FDS_ATTACH_VOL, _volid, _blob_name, _blob_offset,
+                       _data_len, _data_buf, cb),
+                    volumeName(_vol_name) {
+    }
+    ~AttachVolBlobReq() {
+    }
+
+    const std::string& getVolumeName() const {
+        return volumeName;
+    }
+};
+
 class GetBlobReq: public FdsBlobReq {
   public:
     BucketContextPtr bucket_ctxt;

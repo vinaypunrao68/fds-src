@@ -35,17 +35,29 @@ public class SmokeTest {
         omTransport.open();
         ConfigurationService.Iface config = new ConfigurationService.Client(new TBinaryProtocol(omTransport));
 
-        System.out.println("Creating volume 'Volume2', policy: 4kb blocksize");
+        System.out.println("Creating volume 'S3Vol', policy: 4kb blocksize");
         try {
-            config.createVolume(DOMAIN_NAME, "Volume2", new VolumePolicy(4 * 1024));
-            config.createVolume(DOMAIN_NAME, "Volume2", new VolumePolicy(4 * 1024));
+            config.createVolume(DOMAIN_NAME, "S3Vol",
+                                new VolumePolicy(4 * 1024, VolumeConnector.S3));
         } catch(ApiException e) {
             e.printStackTrace();
         }
         Thread.sleep(4000);
-              
+
+        String cinderVolumeName = "CinderVol";
+        System.out.println("Creating cinder volume " + cinderVolumeName +
+                           ", policy: 2MB blocksize");
+        VolumePolicy cinderPolicy = new VolumePolicy(2 * 1024 * 1024,
+                                                     VolumeConnector.CINDER);
+        config.createVolume(DOMAIN_NAME, cinderVolumeName, cinderPolicy);
+
+        System.out.println("Attaching volume " + cinderVolumeName +
+                           ", policy: 2MB blocksize");
+        am.attachVolume(DOMAIN_NAME, cinderVolumeName);
+
         System.out.println("Creating volume 'Volume1', policy: 2MB blocksize");
-        VolumePolicy volumePolicy = new VolumePolicy(2 * 1024 * 1024);
+        VolumePolicy volumePolicy = new VolumePolicy(2 * 1024 * 1024,
+                                                     VolumeConnector.S3);
         config.createVolume(DOMAIN_NAME, VOLUME_NAME, volumePolicy);
         Thread.sleep(4000);
 
@@ -75,16 +87,6 @@ public class SmokeTest {
         ByteBuffer data = am.getBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME,
                                          length, new ObjectOffset(0));
 
-        // StringBuilder sb = new StringBuilder();
-        // for (byte b : data.array()) {
-        // sb.append(String.format("%02x", b));
-        // }
-        // System.out.println("Done getting object " + sb.toString());
-
-        // System.out.println("Writing arbitrary length stream, size: a few bytes");
-        // InputStream inputStream = IOUtils.toInputStream("hello, world!");
-        // new StreamWriter(maxObjSize, client).write(DOMAIN_NAME, VOLUME_NAME, "stream.bin", inputStream, new HashMap<>());
-        
         System.out.println("stating blob");
         System.out.println(am.statBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME));
         

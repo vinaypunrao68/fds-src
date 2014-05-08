@@ -68,7 +68,9 @@ public class ToyServices implements AmService.Iface, ConfigurationService.Iface 
     @Override
     public VolumeDescriptor statVolume(String domainName, String volumeName) throws ApiException, TException {
         Volume volume = getVolume(domainName, volumeName);
-        return new VolumeDescriptor(volumeName, volume.getTimestamp(), new VolumePolicy(volume.getObjectSize()));
+        return new VolumeDescriptor(volumeName, volume.getTimestamp(),
+                                    new VolumePolicy(volume.getObjectSize(),
+                                                     VolumeConnector.S3));
     }
 
     @Override
@@ -80,7 +82,9 @@ public class ToyServices implements AmService.Iface, ConfigurationService.Iface 
                         .list());
 
         return volumes.stream()
-                .map(v -> new VolumeDescriptor(v.getName(), v.getTimestamp(), new VolumePolicy(v.getObjectSize())))
+                .map(v -> new VolumeDescriptor(v.getName(), v.getTimestamp(),
+                                               new VolumePolicy(v.getObjectSize(),
+                                                                VolumeConnector.S3)))
                 .collect(Collectors.toList());
     }
 
@@ -123,6 +127,10 @@ public class ToyServices implements AmService.Iface, ConfigurationService.Iface 
 
     @Override
     public void abortBlobTx(TxDescriptor txDesc) throws ApiException, TException {
+    }
+
+    @Override
+    public void attachVolume(String domainName, String volumeName) throws ApiException, TException {
     }
 
     @Override

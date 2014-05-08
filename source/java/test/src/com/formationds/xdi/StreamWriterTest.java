@@ -30,11 +30,15 @@ public class StreamWriterTest {
 
         byte[] result = new StreamWriter(4, mockAm).write(domainName, volumeName, blobName, in, metadata);
 
+        TxDescriptor txDesc =
+                verify(mockAm, times(1)).startBlobTx(eq(domainName),
+                                                     eq(volumeName),
+                                                     eq(blobName));
         verify(mockAm, times(1)).updateBlob(
                 eq(domainName),
                 eq(volumeName),
                 eq(blobName),
-                any(TxDescriptor.class),
+                eq(txDesc),
                 any(ByteBuffer.class),
                 eq(4),
                 eq(new ObjectOffset(0)),
@@ -45,7 +49,7 @@ public class StreamWriterTest {
                 eq(domainName),
                 eq(volumeName),
                 eq(blobName),
-                any(TxDescriptor.class),
+                eq(txDesc),
                 any(ByteBuffer.class),
                 eq(4),
                 eq(new ObjectOffset(1)),
@@ -58,7 +62,7 @@ public class StreamWriterTest {
                 eq(domainName),
                 eq(volumeName),
                 eq(blobName),
-                any(TxDescriptor.class),
+                eq(txDesc),
                 any(ByteBuffer.class),
                 eq(4),
                 eq(new ObjectOffset(1)),
@@ -69,7 +73,7 @@ public class StreamWriterTest {
                 eq(domainName),
                 eq(volumeName),
                 eq(blobName),
-                any(TxDescriptor.class),
+                eq(txDesc),
                 eq(metadata)
         );
 

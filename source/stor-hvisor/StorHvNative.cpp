@@ -376,6 +376,45 @@ FDS_NativeAPI::GetObject(BucketContextPtr bucket_ctxt,
     }
 }
 
+void
+FDS_NativeAPI::attachVolume(const std::string& volumeName,
+                            CallbackPtr cb) {
+    LOGDEBUG << "Attach request for volume " << volumeName;
+
+    // check if bucket is attached to this AM
+    fds_volid_t volId = invalid_vol_id;
+    if (storHvisor->vol_table->volumeExists(volumeName)) {
+        volId = storHvisor->vol_table->getVolumeUUID(volumeName);
+        fds_verify(volId != invalid_vol_id);
+        LOGDEBUG << "Volume " << volumeName
+                 << " with UUID " << volId
+                 << " already attached";
+        cb->call(FDSN_StatusOK);
+    }
+    // Make sure the volume isn't attached already
+    fds_verify(volId == invalid_vol_id);
+
+    AttachVolBlobReq *blobReq =
+            new AttachVolBlobReq(volId,
+                                 volumeName,
+                                 "",  // No blob name
+                                 0,  // No blob offset
+                                 0,  // No data length
+                                 NULL,  // No buffer
+                                 cb);
+    fds_verify(blobReq != NULL);
+
+    // Enqueue this request to process the callback
+    // when the attach is complete
+    storHvisor->vol_table->addBlobToWaitQueue(volumeName, blobReq);
+
+    Error err = sendTestBucketToOM(volumeName,
+                                   "",  // The access key isn't used
+                                   ""); // The secret key isn't used
+    // Make sure we were able to send async OM message
+    fds_verify(err == ERR_OK);
+}
+
 void FDS_NativeAPI::PutObject(BucketContext *bucket_ctxt,
                               std::string ObjKey,
                               PutPropertiesPtr put_properties,
@@ -636,7 +675,7 @@ FDS_NativeAPI::StartBlobTx(const std::string& volumeName,
                            const std::string& blobName,
                            CallbackPtr cb) {
     fds_volid_t volId = invalid_vol_id;
-    LOGDEBUG << " Start blob tx for volume: " << volumeName
+    LOGDEBUG << "Start blob tx for volume " << volumeName
              << ", blobName " << blobName;
 
     // check if bucket is attached to this AM

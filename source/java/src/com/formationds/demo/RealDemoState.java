@@ -4,6 +4,7 @@ package com.formationds.demo;
  */
 
 import com.formationds.apis.VolumePolicy;
+import com.formationds.apis.VolumeConnector;
 import com.formationds.xdi.Xdi;
 import org.apache.thrift.TException;
 import org.joda.time.DateTime;
@@ -31,10 +32,14 @@ public class RealDemoState implements DemoState {
         }
 
         try {
-            xdi.createVolume(Main.DEMO_DOMAIN, "Volume1", new VolumePolicy(1024 * 4));
-            xdi.createVolume(Main.DEMO_DOMAIN, "Volume2", new VolumePolicy(1024 * 4));
-            xdi.createVolume(Main.DEMO_DOMAIN, "Volume3", new VolumePolicy(1024 * 4));
-            xdi.createVolume(Main.DEMO_DOMAIN, "Volume4", new VolumePolicy(1024 * 4));
+            xdi.createVolume(Main.DEMO_DOMAIN, "Volume1",
+                             new VolumePolicy(1024 * 4, VolumeConnector.S3));
+            xdi.createVolume(Main.DEMO_DOMAIN, "Volume2",
+                             new VolumePolicy(1024 * 4, VolumeConnector.S3));
+            xdi.createVolume(Main.DEMO_DOMAIN, "Volume3",
+                             new VolumePolicy(1024 * 4, VolumeConnector.S3));
+            xdi.createVolume(Main.DEMO_DOMAIN, "Volume4",
+                             new VolumePolicy(1024 * 4, VolumeConnector.S3));
         } catch (TException e) {
             throw new RuntimeException(e);
         }

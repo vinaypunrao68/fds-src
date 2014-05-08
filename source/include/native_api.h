@@ -114,6 +114,9 @@ namespace fds {
                          const std::string& blobName,
                          CallbackPtr cb);
 
+        void attachVolume(const std::string& volumeName,
+                         CallbackPtr cb);
+
   private:
         /**
          * Sends 'test bucket' message to OM. If bucket exists (OM knows about it),

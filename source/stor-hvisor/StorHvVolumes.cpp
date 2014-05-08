@@ -451,8 +451,13 @@ void StorHvVolumeTable::moveWaitBlobsToQosQueue(fds_volid_t vol_uuid,
             AmQosReq* qosReq = blobs[i];
             blobs[i] = NULL;
             FdsBlobReq* blobReq = qosReq->getBlobReqPtr();
-            FDS_NativeAPI::DoCallback(blobReq, err, 0, 0);  // Hard coding a result!
-            LOGDEBUG          << "VolumeTable -- completion of blob request before moving it to QoS queue";
+            // Hard coding a result!
+            // TODO(Andrew): This is calling the old callback mechanism
+            // Not sure what happens to those using new mechanism
+            FDS_NativeAPI::DoCallback(blobReq, err, 0, 0);
+            LOGWARN << "Calling back with error since request is waiting"
+                    << " for volume " << blobReq->getVolId()
+                    << " that doesn't exist";
             delete qosReq;
         }
         blobs.clear();
@@ -483,8 +488,12 @@ Error StorHvVolumeTable::volumeEventHandler(fds_volid_t vol_uuid,
             else if (result == FDS_ProtocolInterface::FDSP_ERR_VOLUME_DOES_NOT_EXIST) {
                 /* complete all requests that are waiting on bucket to attach with error */
                 if (vdb) {
-                    GLOGNOTIFY << "StorHvVolumeTable - Volume " << vdb->name << "does not exist.";
-                    storHvisor->vol_table->moveWaitBlobsToQosQueue(vol_uuid, vdb->name, Error(ERR_NOT_FOUND));
+                    GLOGNOTIFY << "Requested volume "
+                               << vdb->name << " does not exist";
+                    storHvisor->vol_table->
+                            moveWaitBlobsToQosQueue(vol_uuid,
+                                                    vdb->name,
+                                                    ERR_NOT_FOUND);
                 }
             }
             break;

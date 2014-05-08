@@ -202,6 +202,7 @@ public:
     std::string                 myIp;
     std::string                 my_node_name;
     Error startBlobTx(AmQosReq *qosReq);
+    void attachVolume(AmQosReq *qosReq);
     fds::Error pushBlobReq(FdsBlobReq *blobReq);
     fds::Error putBlob(AmQosReq *qosReq);
     fds::Error getBlob(AmQosReq *qosReq);
@@ -274,6 +275,10 @@ static void processBlobReq(AmQosReq *qosReq) {
     switch (qosReq->io_type) {
         case fds::FDS_START_BLOB_TX:
             err = storHvisor->startBlobTx(qosReq);
+            break;
+
+        case fds::FDS_ATTACH_VOL:
+            storHvisor->attachVolume(qosReq);
             break;
 
         case fds::FDS_IO_READ:

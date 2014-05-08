@@ -18,6 +18,7 @@ TOOLSDIR="$(cd -P "$( dirname "${SOURCE}" )" && pwd )"
 SOURCEDIR="$( cd ${TOOLSDIR}/.. && pwd)"
 CONFIG_ETC=${SOURCEDIR}/config/etc
 BINDIR="${SOURCEDIR}/Build/linux-x86_64.debug/bin"
+KODIR="${SOURCEDIR}/fds_client/blk_dev"
 FDSROOT=/fds
 
 # else run from install dir
@@ -68,6 +69,15 @@ function setupFdsDirs() {
     fi
 }
 
+function setupFbd() {
+    logwarn "inserting block kernel module..."
+    sudo insmod ${KODIR}/fbd.ko
+}
+
+function teardownFbd() {
+    logwarn "removing block kernel module..."
+    sudo rmmod fbd
+}
 
 function activate() {
     # Bao: wait for platformd before activate
@@ -82,6 +92,7 @@ function startApp() {
     local justapps="${applist}"
 
     setupFdsDirs
+    setupFbd
 
     if [[ $appname == "all" ]]; then
         justapps="om pm"
@@ -137,6 +148,8 @@ function stopApp() {
             fi
         fi
     done
+
+    teardownFbd
 
     # Not stopping redis for now
 }

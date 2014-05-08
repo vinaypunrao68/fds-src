@@ -1418,6 +1418,26 @@ StorHvCtrl::StatBlob(fds::AmQosReq *qosReq) {
     return err;
 }
 
+/**
+ * Function called when volume waiting queue is drained.
+ * When it's called a volume has just been attached and
+ * we can call the callback to tell any waiters that the
+ * volume is now ready.
+ */
+void
+StorHvCtrl::attachVolume(AmQosReq *qosReq) {
+    // Get request from qos object
+    fds_verify(qosReq != NULL);
+    AttachVolBlobReq *blobReq = static_cast<AttachVolBlobReq *>(
+        qosReq->getBlobReqPtr());
+    fds_verify(blobReq != NULL);
+    fds_verify(blobReq->getIoType() == FDS_ATTACH_VOL);
+
+    LOGDEBUG << "Attach for volume " << blobReq->getVolumeName()
+             << " complete. Notifying waiters";
+    blobReq->cb->call(FDSN_StatusOK);
+}
+
 /*****************************************************************************
 
  *****************************************************************************/

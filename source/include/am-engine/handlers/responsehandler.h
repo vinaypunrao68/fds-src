@@ -52,6 +52,14 @@ namespace fds {
         virtual ~StatBlobResponseHandler();
     };
 
+    struct AttachVolumeResponseHandler : ResponseHandler {
+        AttachVolumeResponseHandler();
+        typedef boost::shared_ptr<AttachVolumeResponseHandler> ptr;
+
+        virtual void process();
+        virtual ~AttachVolumeResponseHandler();
+    };
+
     struct StartBlobTxResponseHandler : ResponseHandler, StartBlobTxCallback {
         StartBlobTxResponseHandler(apis::TxDescriptor &retVal);
         typedef boost::shared_ptr<StartBlobTxResponseHandler> ptr;

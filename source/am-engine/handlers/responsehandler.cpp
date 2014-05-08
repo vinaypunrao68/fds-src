@@ -160,4 +160,15 @@ StartBlobTxResponseHandler::process() {
 StartBlobTxResponseHandler::~StartBlobTxResponseHandler() {
 }
 
+AttachVolumeResponseHandler::AttachVolumeResponseHandler() {
+}
+
+void
+AttachVolumeResponseHandler::process() {
+    XCHECKSTATUS(status);
+}
+
+AttachVolumeResponseHandler::~AttachVolumeResponseHandler() {
+}
+
 }  // namespace fds
