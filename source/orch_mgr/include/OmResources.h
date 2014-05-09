@@ -103,8 +103,8 @@ class OM_NodeAgent : public NodeAgent
 
     virtual Error om_send_dlt(const DLT *curDlt);
     virtual Error om_send_dlt_close(fds_uint64_t cur_dlt_version);
-    virtual Error om_send_scavenger_cmd(
-        FDS_ProtocolInterface::FDSP_ScavengerCmd cmd);
+    virtual Error om_send_scavenger_cmd(fpi::FDSP_ScavengerCmd cmd);
+    virtual Error om_send_pushmeta(fpi::FDSP_PushMetaPtr& meta_msg);
     virtual void init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const;
 
   protected:
@@ -768,8 +768,10 @@ class OM_ControlRespHandler : public fpi:: FDSP_ControlPathRespIf {
         FDS_ProtocolInterface::FDSP_DMT_Resp_TypePtr& dmt_info_resp);
 
     void PushMetaDMTResp(
+        const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
         const ::FDS_ProtocolInterface::FDSP_PushMeta& push_meta_resp);
     void PushMetaDMTResp(
+        FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
         FDS_ProtocolInterface::FDSP_PushMetaPtr& push_meta_resp);
 
   private:

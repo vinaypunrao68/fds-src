@@ -134,8 +134,18 @@ void OMgrClientRPCI::NotifyDMTClose(FDSP_MsgHdrTypePtr& fdsp_msg,
                         FDSP_DmtCloseTypePtr& dmt_close) {
 }
 
-void OMgrClientRPCI::PushMetaDMTReq(FDSP_PushMetaPtr& push_meta_resp) {
-
+void OMgrClientRPCI::PushMetaDMTReq(FDSP_MsgHdrTypePtr& fdsp_msg,
+                                    FDSP_PushMetaPtr& push_meta_resp) {
+    Error err(ERR_OK);
+    if (om_client->getNodeType() == FDS_ProtocolInterface::FDSP_DATA_MGR) {
+        err = om_client->recvDMTPushMeta(push_meta_resp, fdsp_msg->session_uuid);
+        if (!err.ok()) {
+            LOGERROR << "We could not start push meta process, " << err;
+            om_client->sendPushMetaRespToOM(err, fdsp_msg->session_uuid);
+        }
+    } else {
+        fds_verify(false);  // should not send push meta to non-DM nodes!
+    }
 }
 
 void OMgrClientRPCI::SetThrottleLevel(FDSP_MsgHdrTypePtr& msg_hdr, 
@@ -189,6 +199,8 @@ OMgrClient::OMgrClient(FDSP_MgrIdType node_type,
   throttle_cmd_hdlr = NULL;
   bucket_stats_cmd_hdlr = NULL;
   dltclose_evt_hdlr = NULL;
+  catalog_evt_hdlr = NULL;
+  scavenger_evt_hdlr = NULL;
   if (parent_log) {
     omc_log = parent_log;
   } else {
@@ -244,7 +256,11 @@ int OMgrClient::registerBucketStatsCmdHandler(bucket_stats_cmd_handler_t cmd_hdl
 }
 
 void OMgrClient::registerScavengerEventHandler(scavenger_event_handler_t scav_evt_hdlr) {
-  scavenger_evt_hdlr = scav_evt_hdlr;
+    scavenger_evt_hdlr = scav_evt_hdlr;
+}
+
+void OMgrClient::registerCatalogEventHandler(catalog_event_handler_t evt_hdlr) {
+    catalog_evt_hdlr = evt_hdlr;
 }
 
 /**
@@ -572,6 +588,32 @@ int OMgrClient::sendMigrationStatusToOM(const Error& err) {
     return 0;
 }
 
+void OMgrClient::sendPushMetaRespToOM(const Error& err,
+				      const std::string& session_uuid) {
+    // send ack back to OM
+    boost::shared_ptr<FDS_ProtocolInterface::FDSP_ControlPathRespClient> resp_client_prx =
+            omrpc_handler_session_->getRespClient(session_uuid);
+
+    try {
+        FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
+        initOMMsgHdr(msg_hdr);
+        FDSP_PushMetaPtr meta_resp(new FDSP_PushMeta());
+        // TODO(xxx) should we send the whole PushMeta msg?
+        // for now sending empty
+        msg_hdr->err_code = err.GetErrno();
+        if (!err.ok()) {
+            msg_hdr->result = FDSP_ERR_FAILED;
+        }
+
+        resp_client_prx->PushMetaDMTResp(msg_hdr, meta_resp);
+        LOGNOTIFY << "OMClient sending PushMeta resp to OM " << err;
+    }
+    catch (...) {
+        LOGERROR << "OMClient unable to send PushMeta response to OM."
+                << " Check if OM is up and restart";
+    }
+}
+
 int OMgrClient::recvNodeEvent(int node_id, 
 			      FDSP_MgrIdType node_type, 
 			      unsigned int node_ip, 
@@ -839,6 +881,15 @@ Error OMgrClient::recvDLTStartMigration(FDSP_DLT_Data_TypePtr& dlt_info) {
     } 
     omc_lock.write_unlock();
 
+    return err;
+}
+
+Error OMgrClient::recvDMTPushMeta(FDSP_PushMetaPtr& push_meta,
+				  const std::string& session_uuid) {
+    Error err(ERR_OK);
+    if (this->catalog_evt_hdlr) {
+      err = this->catalog_evt_hdlr(push_meta, session_uuid);
+    }
     return err;
 }
 

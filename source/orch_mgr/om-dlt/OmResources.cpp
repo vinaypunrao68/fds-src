@@ -754,6 +754,40 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
         }
     }
 
+    // TEMP -- so we can test push meta to DM, will put it to the right
+    // place soon
+    fpi::FDSP_PushMetaPtr meta_msg(new FDSP_PushMeta());
+    NodeAgent::pointer oldDmNode;
+    if (msg->node_type == fpi::FDSP_DATA_MGR) {
+        OM_DmContainer::pointer dmNodes;
+        dmNodes = om_locDomain->om_dm_nodes();
+        fds_verify(dmNodes != NULL);
+        for (fds_uint32_t i = 0; i < dmNodes->rs_available_elm(); ++i) {
+            NodeAgent::pointer agt = dmNodes->agent_info(i);
+            if (agt != NULL) {
+                // we just find first DM and send it push meta
+                oldDmNode = agt;
+                break;
+            }
+        }
+        if (oldDmNode) {
+            FDSP_metaData md;
+            md.node_uuid.uuid = uuid.uuid_get_val();
+            VolumeContainer::pointer volumes = om_locDomain->om_vol_mgr();
+            RsArray ary;
+            fds_uint32_t count = volumes->rs_container_snapshot(&ary);
+            // will send message to push all volumes
+            for (fds_uint32_t i = 0; i < count; ++i) {
+                if (ary[i] != NULL) {
+                    md.volList.push_back((ary[i]->rs_get_uuid()).uuid_get_val());
+                }
+            }
+            if (md.volList.size() > 0) {
+                (meta_msg->metaVol).push_back(md);
+            }
+        }
+    }
+
     Error err = om_locDomain->dc_register_node(uuid, msg, &newNode);
     if (err.ok() && (msg->node_type != fpi::FDSP_PLATFORM)) {
         fds_verify(newNode != NULL);
@@ -811,6 +845,7 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
         // om_locDomain->om_round_robin_dmt();
         // om_locDomain->om_bcast_dmt_table();
         if (msg->node_type == fpi::FDSP_DATA_MGR) {
+            OM_DmAgent::agt_cast_ptr(oldDmNode)->om_send_pushmeta(meta_msg);
             LOGDEBUG << "Invoking the DMT state transition: " << numVols;
             om_dmt_update_cluster(numVols);
         } else {
@@ -1316,12 +1351,18 @@ OM_ControlRespHandler::NotifyDMTCloseResp(
 
 void
 OM_ControlRespHandler::PushMetaDMTResp(
-          const FDS_ProtocolInterface::FDSP_PushMeta& push_meta_resp) {
+    const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+    const FDS_ProtocolInterface::FDSP_PushMeta& push_meta_resp) {
     // Don't do anything here. This stub is just to keep cpp compiler happy
 }
+
 void
 OM_ControlRespHandler::PushMetaDMTResp(
-           FDS_ProtocolInterface::FDSP_PushMetaPtr& push_meta_resp) {
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+    FDS_ProtocolInterface::FDSP_PushMetaPtr& push_meta_resp) {
+    LOGNOTIFY << "Received PushMeta response from node "
+            << fdsp_msg->src_node_name << ":"
+            << std::hex << fdsp_msg->src_service_uuid.uuid << std::dec;
 }
 
 void

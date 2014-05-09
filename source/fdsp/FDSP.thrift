@@ -65,6 +65,7 @@ enum FDSP_MsgCodeType {
    FDSP_MSG_NODE_UPDATE,
    FDSP_MSG_NOTIFY_MIGRATION,
    FDSP_MSG_SCAVENGER_START,
+   FDSP_MSG_PUSH_META,
 
    FDSP_MSG_SET_THROTTLE,
    FDSP_MSG_SNAP_VOL
@@ -798,10 +799,7 @@ typedef list<FDSP_metaData> FDSP_metaDataList
 /* DM meta data migration request */
 struct FDSP_PushMeta
 {
-     /* Header */
-     1: FDSP_MsgHdrType            msgHdr;
-
-     /* mete data */
+     /* meta data */
      2: FDSP_metaDataList          metaVol;
 }
 
@@ -1183,7 +1181,7 @@ service FDSP_ControlPathReq {
   oneway void NotifyDLTClose(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DltCloseType dlt_close),
   oneway void NotifyDMTUpdate(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DMT_Type dmt_info),
   oneway void NotifyDMTClose(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DmtCloseType dmt_close),
-  oneway void PushMetaDMTReq(1:FDSP_PushMeta push_meta_req),
+  oneway void PushMetaDMTReq(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_PushMeta push_meta_req),
   oneway void SetThrottleLevel(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ThrottleMsgType throttle_msg),
   oneway void TierPolicy(1:FDSP_TierPolicy tier),
   oneway void TierPolicyAudit(1:FDSP_TierPolicyAudit audit),
@@ -1206,7 +1204,7 @@ service FDSP_ControlPathResp {
   oneway void NotifyDLTCloseResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DLT_Resp_Type dlt_resp),
   oneway void NotifyDMTUpdateResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DMT_Resp_Type dmt_info_resp),
   oneway void NotifyDMTCloseResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DMT_Resp_Type dmt_resp),
-  oneway void PushMetaDMTResp(1:FDSP_PushMeta push_meta_resp)
+  oneway void PushMetaDMTResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_PushMeta push_meta_resp)
 }
 
 service FDSP_MigrationPathReq {

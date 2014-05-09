@@ -159,9 +159,11 @@ PlatRpcReqt::NotifyDMTClose(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
 }
 
 void
-PlatRpcReqt::PushMetaDMTReq(const FDSP_PushMeta &push_meta_resp) {}
+PlatRpcReqt::PushMetaDMTReq(const FDSP_MsgHdrType &msg_hdr,
+                            const FDSP_PushMeta &push_meta_resp) {}
 void
-PlatRpcReqt::PushMetaDMTReq(FDSP_PushMetaPtr &push_meta_resp)
+PlatRpcReqt::PushMetaDMTReq(fpi::FDSP_MsgHdrTypePtr &msg_hdr,
+                            fpi::FDSP_PushMetaPtr &push_meta_resp)
 {
     fds_verify(0);
 }

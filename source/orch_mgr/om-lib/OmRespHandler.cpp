@@ -179,12 +179,14 @@ OrchMgr::FDSP_ControlPathRespHandler::NotifyDMTCloseResp(
 
 void
 OrchMgr::FDSP_ControlPathRespHandler::PushMetaDMTResp(
-          const FDS_ProtocolInterface::FDSP_PushMeta& push_meta_resp) {
+    const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+    const FDS_ProtocolInterface::FDSP_PushMeta& push_meta_resp) {
     // Don't do anything here. This stub is just to keep cpp compiler happy
 }
 void
 OrchMgr::FDSP_ControlPathRespHandler::PushMetaDMTResp(
-           FDS_ProtocolInterface::FDSP_PushMetaPtr& push_meta_resp) {
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+    FDS_ProtocolInterface::FDSP_PushMetaPtr& push_meta_resp) {
 }
 
 }  // namespace fds

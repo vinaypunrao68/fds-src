@@ -45,6 +45,12 @@ void DataMgr::node_handler(fds_int32_t  node_id,
                            FDS_ProtocolInterface::FDSP_MgrIdType node_type) {
 }
 
+Error
+DataMgr::volcat_evt_handler(FDS_ProtocolInterface::FDSP_PushMetaPtr& push_meta) {
+    GLOGNORMAL << "Received Push Meta request";
+    return dataMgr->catSyncMgr->startCatalogSync(push_meta->metaVol);
+}
+
 Error DataMgr::enqueueMsg(fds_volid_t volId,
                           dmCatReq* ioReq) {
     Error err(ERR_OK);

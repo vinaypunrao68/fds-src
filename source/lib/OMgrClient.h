@@ -68,6 +68,8 @@ namespace fds {
   typedef void (*bucket_stats_cmd_handler_t)(const FDSP_MsgHdrTypePtr& rx_msg,
 					     const FDSP_BucketStatsRespTypePtr& buck_stats);
   typedef void (*scavenger_event_handler_t)(FDSP_ScavengerCmd cmd);
+  typedef Error (*catalog_event_handler_t)(FDSP_PushMetaPtr& push_meta,
+					   const std::string& session_uuid);
 
   class OMgrClient {
 
@@ -101,6 +103,7 @@ namespace fds {
     tier_audit_cmd_handler_t tier_audit_cmd_hdlr;
     bucket_stats_cmd_handler_t bucket_stats_cmd_hdlr;
     scavenger_event_handler_t scavenger_evt_hdlr;
+    catalog_event_handler_t catalog_evt_hdlr;
 
     /**
      * Session table for OM client
@@ -151,6 +154,7 @@ namespace fds {
     int registerThrottleCmdHandler(throttle_cmd_handler_t throttle_cmd_hdlr);
     int registerBucketStatsCmdHandler(bucket_stats_cmd_handler_t cmd_hdlr);
     void registerScavengerEventHandler(scavenger_event_handler_t scav_event_hdlr);
+    void registerCatalogEventHandler(catalog_event_handler_t evt_hdlr);
 
     // This logging is public for external plugins.  Avoid making this object
     // too big and all methods uses its data as global variables with big lock.
@@ -169,6 +173,7 @@ namespace fds {
 			     const FDS_ProtocolInterface::FDSP_VolumeDescTypePtr& vol_desc);
     int pushGetBucketStatsToOM(fds_uint32_t req_cookie);
     int sendMigrationStatusToOM(const Error& err);
+    void sendPushMetaRespToOM(const Error& err, const std::string& session_uuid);
 
     int getNodeInfo(fds_uint64_t node_id,
                     unsigned int *node_ip_addr,
@@ -211,6 +216,7 @@ namespace fds {
             const std::string& session_uuid);
     Error recvDLTStartMigration(FDSP_DLT_Data_TypePtr& dlt_info);
     int recvDMTUpdate(FDSP_DMT_TypePtr& dmt_info, const std::string& session_uuid);
+    Error recvDMTPushMeta(FDSP_PushMetaPtr& push_meta, const std::string& session_uuid);
 
     int recvNotifyVol(VolumeDesc *vdb,
                       fds_vol_notify_t vol_action,
@@ -326,8 +332,12 @@ namespace fds {
     void NotifyDLTClose(FDSP_MsgHdrTypePtr& fdsp_msg,
                         FDSP_DltCloseTypePtr& dlt_close);
 
-    void PushMetaDMTReq(const FDSP_PushMeta& push_meta_resp) {}
-    void PushMetaDMTReq(FDSP_PushMetaPtr& push_meta_resp);
+    void PushMetaDMTReq(const FDSP_MsgHdrType& fdsp_msg,
+                        const FDSP_PushMeta& push_meta_req) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+    void PushMetaDMTReq(FDSP_MsgHdrTypePtr& fdsp_msg,
+                        FDSP_PushMetaPtr& push_meta_req);
 
     void NotifyDMTClose(const FDSP_MsgHdrType& fdsp_msg,
                         const FDSP_DmtCloseType& dmt_close) {

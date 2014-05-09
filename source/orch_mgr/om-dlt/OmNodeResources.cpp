@@ -349,6 +349,31 @@ OM_NodeAgent::om_send_dlt_close(fds_uint64_t cur_dlt_version) {
     return err;
 }
 
+Error
+OM_NodeAgent::om_send_pushmeta(fpi::FDSP_PushMetaPtr& meta_msg)
+{
+    Error err(ERR_OK);
+    fpi::FDSP_MsgHdrTypePtr m_hdr(new fpi::FDSP_MsgHdrType);
+    this->init_msg_hdr(m_hdr);
+
+    m_hdr->msg_code = fpi::FDSP_MSG_PUSH_META;
+    m_hdr->msg_id = 0;
+    m_hdr->tennant_id = 1;
+    m_hdr->local_domain_id = 1;
+
+    try {
+        ndCpClient->PushMetaDMTReq(m_hdr, meta_msg);
+    } catch(const att::TTransportException& e) {
+        LOGERROR << "error during network call : " << e.what();
+        return Error(ERR_NETWORK_TRANSPORT);
+    }
+
+    LOGNORMAL << "OM: send Push_Meta to " << get_node_name() << " uuid 0x"
+              << std::hex << (get_uuid()).uuid_get_val() << std::dec;
+
+    return err;
+}
+
 void
 OM_NodeAgent::init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const
 {
