@@ -28,6 +28,7 @@ using  namespace  ::FDS_ProtocolInterface;  // NOLINT
 
 namespace fds {
 
+
      class FDSP_MetaSyncRpc;  // forward declaration
      class CatalogSyncMgr;
 
@@ -90,7 +91,8 @@ namespace fds {
     class CatalogSyncMgr: public Module {
   public:
         CatalogSyncMgr(fds_uint32_t max_jobs,
-                       DmIoReqHandler* dm_req_hdlr);
+                       DmIoReqHandler* dm_req_hdlr,
+                       netSessionTblPtr netSession);
         virtual ~CatalogSyncMgr();
 
         /* Overrides from Module */
@@ -145,13 +147,11 @@ namespace fds {
         virtual public FDSP_MetaSyncRespIf, public HasLogger
     {
    public:
-        // FDSP_MetaSyncRpc(CatalogSyncMgr &syncMgr,  fds_log *log);
-        ~FDSP_MetaSyncRpc() {}
-
-          FDSP_MetaSyncRpc(CatalogSyncMgr &meta_sync_, fds_log *log)
+        FDSP_MetaSyncRpc(CatalogSyncMgr &meta_sync_, fds_log *log)
             : metaSyncMgr(meta_sync_) {
             SetLog(log);
-          }
+        }
+        ~FDSP_MetaSyncRpc() {}
 
         std::string log_string() {
             return "FDSP_MigrationPathRpc";
