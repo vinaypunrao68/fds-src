@@ -3,7 +3,7 @@
 
 #include <string>
 #include <util/Log.h>
-#include <RpcRequest.h>
+#include <net/RpcRequest.h>
 
 namespace fds {
 /**

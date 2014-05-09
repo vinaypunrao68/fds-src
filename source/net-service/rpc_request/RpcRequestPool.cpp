@@ -1,29 +1,11 @@
 /* Copyright 2014 Formation Data Systems, Inc.
  */
-#include <RpcRequestPool.h>
+#include <net/RpcRequestPool.h>
 #include <net/net-service.h>
+#include <AsyncRpcRequestTracker.h>
 
 namespace fds {
 
-void AsyncRpcRequestTracker::addForTracking(const AsyncRpcRequestId& id,
-        AsyncRpcRequestIfPtr req)
-{
-    fds_scoped_lock l(asyncReqMaplock_);
-    asyncReqMap_[id] = req;
-}
-
-void AsyncRpcRequestTracker::removeFromTracking(const AsyncRpcRequestId& id)
-{
-    fds_scoped_lock l(asyncReqMaplock_);
-    asyncReqMap_.erase(id);
-}
-
-AsyncRpcRequestIfPtr
-AsyncRpcRequestTracker::getAsyncRpcRequest(const AsyncRpcRequestId& id)
-{
-    fds_scoped_lock l(asyncReqMaplock_);
-    return asyncReqMap_[id];
-}
 /**
  * Constructor
  */
@@ -58,7 +40,7 @@ EPAsyncRpcRequestPtr RpcRequestPool::newEPAsyncRpcRequest(const fpi::SvcUuid &uu
 {
     fds_scoped_lock l(lock_);
     EPAsyncRpcRequestPtr req(new EPAsyncRpcRequest(nextAsyncReqId_, uuid));
-    tracker_.addForTracking(nextAsyncReqId_, req);
+    gAsyncRpcTracker->addForTracking(nextAsyncReqId_, req);
 
     nextAsyncReqId_++;
 

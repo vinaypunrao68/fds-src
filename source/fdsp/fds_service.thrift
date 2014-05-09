@@ -129,8 +129,8 @@ service PlatNetSvc extends BaseAsyncSvc {
 }
 
 service SMSvc extends BaseAsyncSvc {
-	oneway void getObject(1: GetObjReq req),
-	oneway void putObject(1: PutObjReq req)
+    oneway void getObject(1: GetObjReq req),
+    oneway void putObject(1: PutObjReq req)
 }
 
 service AMSvc extends BaseAsyncSvc {
