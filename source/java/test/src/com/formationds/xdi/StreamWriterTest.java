@@ -28,17 +28,18 @@ public class StreamWriterTest {
         Map<String, String> metadata = new HashMap<>();
         metadata.put("hello", "world");
 
+        TxDescriptor tx = new TxDescriptor(42);
+        when(mockAm.startBlobTx(domainName, volumeName, blobName)).thenReturn(tx);
+
         byte[] result = new StreamWriter(4, mockAm).write(domainName, volumeName, blobName, in, metadata);
 
-        TxDescriptor txDesc =
-                verify(mockAm, times(1)).startBlobTx(eq(domainName),
-                                                     eq(volumeName),
-                                                     eq(blobName));
+
+        verify(mockAm, times(1)).startBlobTx(eq(domainName), eq(volumeName), eq(blobName));
         verify(mockAm, times(1)).updateBlob(
                 eq(domainName),
                 eq(volumeName),
                 eq(blobName),
-                eq(txDesc),
+                eq(tx),
                 any(ByteBuffer.class),
                 eq(4),
                 eq(new ObjectOffset(0)),
@@ -49,7 +50,7 @@ public class StreamWriterTest {
                 eq(domainName),
                 eq(volumeName),
                 eq(blobName),
-                eq(txDesc),
+                eq(tx),
                 any(ByteBuffer.class),
                 eq(4),
                 eq(new ObjectOffset(1)),
@@ -62,7 +63,7 @@ public class StreamWriterTest {
                 eq(domainName),
                 eq(volumeName),
                 eq(blobName),
-                eq(txDesc),
+                eq(tx),
                 any(ByteBuffer.class),
                 eq(4),
                 eq(new ObjectOffset(1)),
@@ -73,10 +74,11 @@ public class StreamWriterTest {
                 eq(domainName),
                 eq(volumeName),
                 eq(blobName),
-                eq(txDesc),
+                eq(tx),
                 eq(metadata)
         );
 
+        verify(mockAm, times(1)).commitBlobTx(eq(tx));
         assertArrayEquals(expectedDigest, result);
     }
 }

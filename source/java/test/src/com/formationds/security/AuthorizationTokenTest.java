@@ -19,8 +19,8 @@ public class AuthorizationTokenTest {
         SecretKey secretKey = new SecretKeySpec(new byte[]{35, -37, -53, -105, 107, -37, -14, -64, 28, -74, -98, 124, -8, -7, 68, 54}, "AES");
         Principal principal = new UserPrincipal("admin");
         AuthorizationToken token = new AuthorizationToken(secretKey, principal);
-        assertNotEquals(token.toString(), token.toString());
-        String encrypted = token.toString();
+        assertNotEquals(token.getKey().toBase64(), token.getKey().toBase64());
+        String encrypted = token.getKey().toBase64();
         AuthorizationToken thawed = new AuthorizationToken(secretKey, encrypted);
         assertTrue(thawed.isValid());
         assertEquals("admin", thawed.getName());

@@ -3,6 +3,7 @@ package com.formationds.security;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+import com.formationds.xdi.AuthenticationKey;
 import org.apache.commons.codec.binary.Base64;
 
 import javax.crypto.Cipher;
@@ -46,15 +47,14 @@ public class AuthorizationToken {
         return isValid;
     }
 
-    @Override
-    public String toString() {
+    public AuthenticationKey getKey() {
         try {
             String value = MessageFormat.format(TOKEN_FORMAT, UUID.randomUUID().toString(), name);
             byte[] clearText = value.getBytes();
             Cipher cipher = Cipher.getInstance("AES");
             cipher.init(Cipher.ENCRYPT_MODE, secretKey);
             byte[] encrypted = cipher.doFinal(clearText);
-            return Base64.encodeBase64String(encrypted);
+            return new AuthenticationKey(encrypted);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }

@@ -7,7 +7,6 @@ import com.formationds.om.LandingPage;
 import com.formationds.util.Configuration;
 import com.formationds.web.toolkit.HttpMethod;
 import com.formationds.web.toolkit.WebApp;
-import com.formationds.xdi.Xdi;
 import com.formationds.xdi.local.ToyServices;
 
 public class Main {
@@ -22,7 +21,6 @@ public class Main {
         ToyServices services = new ToyServices(DEMO_DOMAIN);
         services.createDomain(DEMO_DOMAIN);
 
-        Xdi xdi = new Xdi(services, services);
         String webDir = "/home/fabrice/demo/dist";
         WebApp webApp = new WebApp(webDir);
         //DemoState state = new RealDemoState(Duration.standardMinutes(5), xdi);

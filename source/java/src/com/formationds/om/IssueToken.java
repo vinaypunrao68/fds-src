@@ -31,7 +31,7 @@ public class IssueToken implements RequestHandler {
 
         if ("admin".equals(login) && "admin".equals(password)) {
             AuthorizationToken token = new AuthorizationToken(secretKey, new UserPrincipal("admin"));
-            return new JsonResource(new JSONObject().put("token", token.toString())) {
+            return new JsonResource(new JSONObject().put("token", token.getKey().toBase64())) {
                 @Override
                 public Cookie[] cookies() {
                     Cookie cookie = new Cookie(Authorizer.FDS_TOKEN, token.toString());

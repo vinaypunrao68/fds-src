@@ -34,7 +34,7 @@ public class S3AuthorizerTest {
     public void testAuthorizationSucceeds() throws Exception {
         Request request = mock(Request.class);
         String principalName = "joe";
-        String signature = new AuthorizationToken(Authenticator.KEY, new UserPrincipal(principalName)).toString();
+        String signature = new AuthorizationToken(Authenticator.KEY, new UserPrincipal(principalName)).getKey().toBase64();
         String headerValue = "AWS " + principalName + ":" + signature;
         when(request.getHeader("Authorization")).thenReturn(headerValue);
         Resource result = new S3Authorizer(() -> new Handler()).get().handle(request, new HashMap<>());

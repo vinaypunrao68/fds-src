@@ -5,6 +5,8 @@ package com.formationds.am;
 
 import com.formationds.apis.AmService;
 import com.formationds.apis.ConfigurationService;
+import com.formationds.security.Authenticator;
+import com.formationds.security.JaasAuthenticator;
 import com.formationds.util.Configuration;
 import com.formationds.util.libconfig.ParserFacade;
 import com.formationds.xdi.Xdi;
@@ -14,7 +16,6 @@ import org.apache.thrift.protocol.TBinaryProtocol;
 import org.apache.thrift.transport.TSocket;
 
 public class Main {
-    public static final String FDS_S3 = "FDS_S3";
 
     public static void main(String[] args) throws Exception {
         Configuration configuration = new Configuration(args);
@@ -29,7 +30,8 @@ public class Main {
         TSocket omTransport = new TSocket(omHost, 9090);
         omTransport.open();
         ConfigurationService.Iface config = new ConfigurationService.Client(new TBinaryProtocol(omTransport));
-        Xdi xdi = new Xdi(am, config);
+        Authenticator authenticator = new JaasAuthenticator();
+        Xdi xdi = new Xdi(am, config, authenticator);
 //
 //        ToyServices foo = new ToyServices("foo");
 //        foo.createDomain(FDS_S3);

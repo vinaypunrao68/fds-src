@@ -10,5 +10,5 @@ import javax.security.auth.login.LoginException;
 public interface Authenticator {
     SecretKey KEY = new SecretKeySpec(new byte[]{35, -37, -53, -105, 107, -37, -14, -64, 28, -74, -98, 124, -8, -7, 68, 54}, "AES");
 
-    boolean login(String login, String password) throws LoginException;
+    void login(String login, String password) throws LoginException;
 }

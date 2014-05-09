@@ -10,7 +10,7 @@ import java.io.IOException;
 
 public class JaasAuthenticator implements Authenticator {
     @Override
-    public boolean login(String login, String password) throws LoginException {
+    public void login(String login, String password) throws LoginException {
         LoginContext loginContext = new LoginContext("FDS", new CallbackHandler() {
             @Override
             public void handle(Callback[] callbacks) throws IOException, UnsupportedCallbackException {
@@ -26,11 +26,6 @@ public class JaasAuthenticator implements Authenticator {
             }
         });
 
-        try {
-            loginContext.login();
-            return true;
-        } catch (LoginException e) {
-            return false;
-        }
+        loginContext.login();
     }
 }

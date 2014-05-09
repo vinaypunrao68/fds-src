@@ -10,7 +10,9 @@ import javax.persistence.*;
 import java.util.UUID;
 
 @Entity
-@Table(name="volume")
+@Table(name="volume", indexes = {
+        @Index(name = "unique_volume", columnList = "domain_id,name", unique = true)
+})
 public class Volume implements Persistent {
     private Domain domain;
     private long id;

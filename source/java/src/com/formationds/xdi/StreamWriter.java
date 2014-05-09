@@ -28,10 +28,12 @@ public class StreamWriter {
         MessageDigest md = MessageDigest.getInstance("MD5");
         byte[] digest = new byte[0];
 
+        TxDescriptor tx = am.startBlobTx(domainName, volumeName, blobName);
+
         for (int read = in.read(buf); read != -1; read = in.read(buf)) {
             md.update(buf, 0, read);
             // Just create a fake tx id for now to make the compiler happy...
-            am.updateBlob(domainName, volumeName, blobName, new TxDescriptor(1),
+            am.updateBlob(domainName, volumeName, blobName, tx,
                           ByteBuffer.wrap(buf, 0, read), read,
                           new ObjectOffset(objectOffset),
                           ByteBuffer.wrap(new byte[0]), false);
@@ -43,13 +45,14 @@ public class StreamWriter {
         if (lastBufSize != 0) {
             digest = md.digest();
             ByteBuffer byteBuffer = ByteBuffer.wrap(digest);
-            am.updateBlob(domainName, volumeName, blobName, new TxDescriptor(1),
+            am.updateBlob(domainName, volumeName, blobName, tx,
                           ByteBuffer.wrap(buf), lastBufSize,
                           new ObjectOffset(objectOffset - 1),
                           byteBuffer, true);
         }
 
-        am.updateMetadata(domainName, volumeName, blobName, new TxDescriptor(1), metadata);
+        am.updateMetadata(domainName, volumeName, blobName, tx, metadata);
+        am.commitBlobTx(tx);
         return digest;
     }
 }

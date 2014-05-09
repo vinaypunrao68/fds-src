@@ -3,7 +3,6 @@ package com.formationds.xdi.s3;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.am.Main;
 import com.formationds.apis.BlobDescriptor;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
@@ -33,7 +32,7 @@ public class GetObject implements RequestHandler {
     }
 
     public Resource handle(Request request, String bucketName, String objectName) throws Exception {
-        BlobDescriptor blobDescriptor = xdi.statBlob(Main.FDS_S3, bucketName, objectName);
+        BlobDescriptor blobDescriptor = xdi.statBlob(S3Endpoint.FDS_S3, bucketName, objectName);
 
         String etag = "\"" + Hex.encodeHexString(blobDescriptor.getDigest()) + "\"";
 
@@ -48,7 +47,7 @@ public class GetObject implements RequestHandler {
         }
 
         String contentType = blobDescriptor.getMetadata().getOrDefault("Content-Type", "application/octet-stream");
-        InputStream stream = xdi.readStream(Main.FDS_S3, bucketName, objectName);
+        InputStream stream = xdi.readStream(S3Endpoint.FDS_S3, bucketName, objectName);
         return new StreamResource(stream, contentType)
             .withHeader("ETag", etag);
     }
