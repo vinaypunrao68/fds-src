@@ -845,7 +845,9 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
         // om_locDomain->om_round_robin_dmt();
         // om_locDomain->om_bcast_dmt_table();
         if (msg->node_type == fpi::FDSP_DATA_MGR) {
-            OM_DmAgent::agt_cast_ptr(oldDmNode)->om_send_pushmeta(meta_msg);
+            if (oldDmNode) {
+                OM_DmAgent::agt_cast_ptr(oldDmNode)->om_send_pushmeta(meta_msg);
+            }
             LOGDEBUG << "Invoking the DMT state transition: " << numVols;
             om_dmt_update_cluster(numVols);
         } else {
