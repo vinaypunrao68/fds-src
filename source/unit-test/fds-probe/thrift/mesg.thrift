@@ -34,8 +34,8 @@ struct ProbeBar {
 
 service ProbeServiceSM {
     /* Required for async message passing semantic */
-    oneway void msg_async_resp(1: fds_service.AsyncHdr    orig,
-                               2: fds_service.AsyncRspHdr resp),
+    oneway void msg_async_resp(1: fds_service.AsyncHdr orig,
+                               2: fds_service.AsyncHdr resp),
 
     /* Regular RPC semantic */
     oneway void foo(1: ProbeFoo f),
@@ -59,8 +59,8 @@ struct ProbeAmCreatVolResp {
 
 service ProbeServiceAM {
     /* Required for async message passing semantic */
-    oneway void msg_async_resp(1: fds_service.AsyncHdr    orig,
-                               2: fds_service.AsyncRspHdr resp),
+    oneway void msg_async_resp(1: fds_service.AsyncHdr orig,
+                               2: fds_service.AsyncHdr resp),
 
     /* Regular RPC semantic */
     ProbeAmCreatVolResp am_creat_vol(1: ProbeAmCreatVol cmd),

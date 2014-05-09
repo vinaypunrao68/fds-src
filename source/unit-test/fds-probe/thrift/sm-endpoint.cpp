@@ -13,9 +13,9 @@ class ProbeTestSM_RPC : virtual public fpi::ProbeServiceSMIf
     ProbeTestSM_RPC() {}
     virtual ~ProbeTestSM_RPC() {}
 
-    void msg_async_resp(const fpi::AsyncHdr &org, const fpi::AsyncRspHdr &resp) {}
-    void msg_async_resp(boost::shared_ptr<fpi::AsyncHdr>    &org,
-                        boost::shared_ptr<fpi::AsyncRspHdr> &resp) {}
+    void msg_async_resp(const fpi::AsyncHdr &org, const fpi::AsyncHdr &resp) {}
+    void msg_async_resp(boost::shared_ptr<fpi::AsyncHdr> &org,
+                        boost::shared_ptr<fpi::AsyncHdr> &resp) {}
 
     void foo(const fpi::ProbeFoo &f) {}
     void foo(boost::shared_ptr<fpi::ProbeFoo> &f) {}
