@@ -1496,6 +1496,7 @@ void DataMgr::ReqHandler::QueryCatalogObject(FDS_ProtocolInterface::
     }
 }
 
+
 /**
  * Make snapshot of volume catalog for sync and notify
  * CatalogSync.
@@ -1505,8 +1506,12 @@ DataMgr::snapVolCat(DmIoSnapVolCat* snapReq) {
     Error err(ERR_OK);
     fds_verify(snapReq != NULL);
 
+    VolumeMeta *vm = vol_meta_map[snapReq->volId];
+    err = vm->syncVolCat(snapReq->volId, snapReq->node_uuid);
+
     // TODO(xxx) snapshot volume catalog here or could do in
     // CatalogSync::snapDoneCb() which we call below
+
 
     // TODO(xxx) call CatalogSync callback which will do RSync
     // TODO(xxx) add and pass other required params to do rsync

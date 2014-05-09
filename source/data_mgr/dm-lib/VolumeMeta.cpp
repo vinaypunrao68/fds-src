@@ -6,9 +6,11 @@
 
 #include <VolumeMeta.h>
 #include <fds_process.h>
+#include "DataMgr.h"
 
 namespace fds {
 
+  extern DataMgr *dataMgr;
 /*
  * Currently the dm_log is NEEDED but set to NULL
  * when not passed in to the constructor. We should
@@ -180,6 +182,47 @@ Error VolumeMeta::DeleteVcat(const std::string blob_name) {
     return err;
   } 
 
+  return err;
+}
+
+
+Error
+VolumeMeta::syncVolCat(fds_volid_t volId, NodeUuid node_uuid)
+{
+
+  Error err(ERR_OK);
+  const std::string vol_name =  dataMgr->getPrefix() +
+                              std::to_string(volId);
+  fds_uint32_t node_ip   = 0;
+  fds_uint32_t node_port = 0;
+  fds_int32_t node_state = -1;
+
+  const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
+  const std::string src = root->dir_user_repo_dm() + vol_name + "_vcat.ldb";
+  const std::string dst = root->dir_user_repo_dm() + "-snap" + vol_name + "_vcat.ldb";
+
+  dataMgr->omClient->getNodeInfo(node_uuid.uuid_get_val(), &node_ip, &node_port, &node_state);
+  std::string dest_ip = netSessionTbl::ipAddr2String(node_ip);
+
+
+  vol_mtx->lock();
+  err = vcat->DbSnap(root->dir_user_repo_dm() + "snap" + vol_name + "_vcat.ldb");
+  std::system((const char *)("cp "+src+"/*  "+dst+" ").c_str());
+  vol_mtx->unlock();
+
+  if (! err.ok()) {
+    FDS_PLOG(dm_log) << "Failed to create vol snap " << " with err " << err;
+    return err;
+  }
+
+   std::system((const char *)("export RSYNC_PASSWORD=passwd"));
+  // rsync the meta data to the new DM nodes 
+   std::system((const char *)("rsync -r "+dst+" root@"+dest_ip+":"+src+"").c_str());
+
+  //  activate the snap, testing  only
+  // activeSnap = true;
+
+  // FDS_PLOG(dm_log) << "Setting the Snap Active Flag:  " << vm->activeSnap;
   return err;
 }
 

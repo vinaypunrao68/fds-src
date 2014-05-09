@@ -53,6 +53,7 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler
   
   typedef boost::shared_ptr<ReqHandler> ReqHandlerPtr;
   typedef boost::shared_ptr<FDS_ProtocolInterface::FDSP_MetaDataPathRespClient> RespHandlerPrx;
+  OMgrClient     *omClient;
 
  private:
     typedef enum {
@@ -65,7 +66,7 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler
     fds_uint32_t numTestVols;  /* Number of vols to use in test mode */
 
     class dmQosCtrl : public FDS_QoSControl {
-   public:
+ public:
       DataMgr *parentDm;
 
       dmQosCtrl(DataMgr *_parent,
@@ -131,9 +132,8 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler
     boost::shared_ptr<netSessionTbl> nstable;
     netMetaDataPathServerSession *metadatapath_session;
     // std::unordered_map<std::string, RespHandlerPrx> respHandleCli;
-   
+    
     fds_rwlock respMapMtx;
-    OMgrClient     *omClient;
 
     dmQosCtrl   *qosCtrl;
 

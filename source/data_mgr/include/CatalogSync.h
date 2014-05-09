@@ -157,26 +157,30 @@ namespace fds {
             return "FDSP_MigrationPathRpc";
         }
        void PushMetaSyncReq(const FDSP_MsgHdrType& fdsp_msg,
-               const FDSP_UpdateCatalogType& push_meta_req) {}
+               const FDSP_UpdateCatalogType& push_meta_req) {
+       }
 
        void PushMetaSyncReq(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,
                boost::shared_ptr<FDSP_UpdateCatalogType>& push_meta_req) {
           // Don't do anything here. This stub is just to keep cpp compiler happy
        }
        void MetaSyncDone(const FDSP_MsgHdrType& fdsp_msg,
-                       const FDSP_VolMetaState& vol_meta) {}
+                       const FDSP_VolMetaState& vol_meta) {
+       }
        void MetaSyncDone(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,
                         boost::shared_ptr<FDSP_VolMetaState>& vol_meta) {
           // Don't do anything here. This stub is just to keep cpp compiler happy
        }
        void PushMetaSyncResp(const FDSP_MsgHdrType& fdsp_msg,
-                       const FDSP_UpdateCatalogType& push_meta_resp)  {}
+                       const FDSP_UpdateCatalogType& push_meta_resp) {
+       }
        void PushMetaSyncResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,
                         boost::shared_ptr<FDSP_UpdateCatalogType>& push_meta_resp) {
           // Don't do anything here. This stub is just to keep cpp compiler happy
        }
        void MetaSyncDoneResp(const FDSP_MsgHdrType& fdsp_msg,
-                       const FDSP_VolMetaState& vol_meta) {}
+                       const FDSP_VolMetaState& vol_meta) {
+       }
        virtual void MetaSyncDoneResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,
                        boost::shared_ptr<FDSP_VolMetaState>& vol_meta) {
           // Don't do anything here. This stub is just to keep cpp compiler happy
