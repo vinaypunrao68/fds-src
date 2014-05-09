@@ -425,8 +425,7 @@ DataMgr::DataMgr(int argc, char *argv[], Platform *platform, Module **vec)
           numTestVols(10),
           runMode(NORMAL_MODE),
           scheduleRate(4000),
-          num_threads(DM_TP_THREADS),
-          catSyncMgr(new CatalogSyncMgr(1, this)) 
+          num_threads(DM_TP_THREADS)
 {
     // If we're in test mode, don't daemonize.
     // TODO(Andrew): We probably want another config field and
@@ -575,9 +574,6 @@ void DataMgr::proc_pre_startup()
         omClient->registerNodeWithOM(plf_mgr);
     }
 
-    // TODO(xxx) should we start catalog sync manager when no OM?
-    catSyncMgr->mod_startup();
-
     if (runMode == TEST_MODE) {
         /*
          * Create test volumes.
@@ -602,7 +598,16 @@ void DataMgr::proc_pre_startup()
         }
     }
 
+   setup_metasync_service();
 }
+
+void DataMgr::setup_metasync_service()
+{
+    catSyncMgr.reset(new CatalogSyncMgr(1, this, nstable)); 
+    // TODO(xxx) should we start catalog sync manager when no OM?
+    catSyncMgr->mod_startup();
+}
+
 
 void DataMgr::swapMgrId(const FDS_ProtocolInterface::
                         FDSP_MsgHdrTypePtr& fdsp_msg) {

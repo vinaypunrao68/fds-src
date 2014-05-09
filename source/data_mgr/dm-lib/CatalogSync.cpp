@@ -54,10 +54,12 @@ void CatalogSync::snapDoneCb(const Error& error) {
 /***** CatalogSyncManager implementation ******/
 
 CatalogSyncMgr::CatalogSyncMgr(fds_uint32_t max_jobs,
-                               DmIoReqHandler* dm_req_hdlr)
+                               DmIoReqHandler* dm_req_hdlr,
+                               netSessionTblPtr netSession)
         : Module("CatalogSyncMgr"),
           max_sync_inprogress(max_jobs),
           dm_req_handler(dm_req_hdlr),
+          netSessionTbl(netSession),          
           cat_sync_lock("Catalog Sync lock") {
     LOGNORMAL << "Constructing CatalogSyncMgr";
 }
@@ -87,6 +89,7 @@ void CatalogSyncMgr::mod_startup()
     LOGNORMAL << "Meta sync path server setup ip: "
               << ip << " port: " << port;
 
+   meta_session->listenServerNb(); 
 }
 
 /**
@@ -95,6 +98,7 @@ void CatalogSyncMgr::mod_startup()
 void CatalogSyncMgr::mod_shutdown()
 {
     LOGNORMAL << "Ending metadata path sessions";
+    netSessionTbl->endSession(meta_session->getSessionTblKey());
 }
 
 /**

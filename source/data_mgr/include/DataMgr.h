@@ -239,6 +239,7 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler
 
   protected:
     void setup_metadatapath_server(const std::string &ip);
+    void setup_metasync_service();
 
   public:
     DataMgr(int argc, char *argv[], Platform *platform, Module **mod_vec);
