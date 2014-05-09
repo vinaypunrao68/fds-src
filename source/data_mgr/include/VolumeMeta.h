@@ -14,6 +14,7 @@
 
 #include <fds_types.h>
 #include <fds_error.h>
+#include <dm-platform.h>
 #include <util/Log.h>
 
 /* TODO: avoid cross compont include, move to include directory. */
@@ -649,6 +650,7 @@ class VolumeMeta {
     Error DeleteVcat(const std::string blob_name);
     fds_bool_t isEmpty() const;
     Error listBlobs(std::list<BlobNode>& bNodeList);
+    Error syncVolCat(fds_volid_t volId, NodeUuid node_uuid);
 };
 
 }  // namespace fds
