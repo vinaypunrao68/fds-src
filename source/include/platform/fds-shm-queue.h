@@ -32,9 +32,12 @@ FdsShmQueue<T>::FdsShmQueue(char *name, size_t capacity)
         : shm_mgd_segment(name), shm_queue(nullptr)
 
 {
+    // TODO(brian): Figure out how we want to handle capacity
+    // should it be in terms of <T> or in raw bytes?
+
     // Create empty shared memory segment
     boost::interprocess::managed_shared_memory *mgr =
-            shm_mgd_segment.shm_create_empty(1024);
+            shm_mgd_segment.shm_create_empty(capacity + 1024);
     // Put a queue in it
     shm_queue = mgr->construct<boost::lockfree::queue
             <T, boost::lockfree::fixed_sized<true>>>("shm_queue")(capacity);

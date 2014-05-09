@@ -31,6 +31,7 @@ int main() {
     assert(a.shm_remove() == true);
     
     fds::FdsShmQueue<int> queue ("shm_queue", 4096);
+
     assert(queue.empty());
     queue.shmq_enqueue(12);
     assert(!queue.empty());
@@ -51,4 +52,5 @@ int main() {
         queue.shmq_dequeue();
     }
     assert(queue.empty());
+
 }

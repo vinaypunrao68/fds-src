@@ -1,0 +1,10 @@
+{
+	"Queue-Setup": {
+		"Queue-Info": [
+			{
+				"queue-name": "test-queue",
+				"queue-size": 1024
+			}
+		]
+	}
+}
