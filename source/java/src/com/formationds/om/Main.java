@@ -1,6 +1,7 @@
 package com.formationds.om;
 
-import com.formationds.auth.AuthenticationToken;
+import com.formationds.security.Authenticator;
+import com.formationds.security.AuthorizationToken;
 import com.formationds.fdsp.ClientFactory;
 import com.formationds.util.Configuration;
 import com.formationds.util.libconfig.ParserFacade;
@@ -8,8 +9,6 @@ import com.formationds.web.toolkit.HttpMethod;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.WebApp;
 
-import javax.crypto.SecretKey;
-import javax.crypto.spec.SecretKeySpec;
 import java.util.function.Supplier;
 
 /*
@@ -17,7 +16,6 @@ import java.util.function.Supplier;
  */
 
 public class Main {
-    private static final SecretKey KEY = new SecretKeySpec(new byte[]{35, -37, -53, -105, 107, -37, -14, -64, 28, -74, -98, 124, -8, -7, 68, 54}, "AES");
 
     private WebApp webApp;
     private Configuration configuration;
@@ -43,8 +41,8 @@ public class Main {
 
         webApp.route(HttpMethod.GET, "", () -> new LandingPage(webDir));
 
-        webApp.route(HttpMethod.POST, "/api/auth/token", () -> new IssueToken(KEY));
-        webApp.route(HttpMethod.GET, "/api/auth/token", () -> new IssueToken(KEY));
+        webApp.route(HttpMethod.POST, "/api/auth/token", () -> new IssueToken(Authenticator.KEY));
+        webApp.route(HttpMethod.GET, "/api/auth/token", () -> new IssueToken(Authenticator.KEY));
 
         authorize(HttpMethod.GET, "/api/config/services", () -> new ListServices(clientFactory.configPathClient(omHost, omPort)));
         authorize(HttpMethod.POST, "/api/config/services/:node_uuid/:domain_id", () -> new ActivatePlatform(clientFactory.configPathClient(omHost, omPort)));
@@ -68,7 +66,7 @@ public class Main {
 
     private void authorize(HttpMethod method, String route, Supplier<RequestHandler> factory) {
         if (configuration.enforceRestAuth()) {
-            RequestHandler handler = new Authorizer(factory, s -> new AuthenticationToken(KEY, s).isValid());
+            RequestHandler handler = new Authorizer(factory, s -> new AuthorizationToken(Authenticator.KEY, s).isValid());
             webApp.route(method, route, () -> handler);
         } else {
             webApp.route(method, route, factory);

@@ -35,8 +35,9 @@ public class Main {
 //        foo.createDomain(FDS_S3);
 //        Xdi xdi = new Xdi(foo, foo);
 
+        boolean enforceAuthorization = amConfig.lookup("fds.am.enforce_authorization").booleanValue();
         int s3Port = amConfig.lookup("fds.am.s3_port").intValue();
-        new Thread(() -> new S3Endpoint(xdi).start(s3Port)).start();
+        new Thread(() -> new S3Endpoint(xdi, enforceAuthorization).start(s3Port)).start();
 
         int swiftPort = amConfig.lookup("fds.am.swift_port").intValue();
         new SwiftEndpoint(xdi).start(swiftPort);

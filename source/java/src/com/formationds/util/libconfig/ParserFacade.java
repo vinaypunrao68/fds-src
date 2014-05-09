@@ -36,22 +36,25 @@ public class ParserFacade {
 
     }
     private Node doParse(CommonTree commonTree) {
-        if (commonTree.getType() == LibConfigParser.ID) {
-            Namespace namespace = new Namespace(commonTree.getText());
-            commonTree.getChildren().stream()
-                    .map(t -> (CommonTree) t)
-                    .forEach(c -> namespace.addChild(doParse(c)));
-            return namespace;
-        } else if (commonTree.getType() == LibConfigParser.EQUALS) {
-            CommonTree[] children = commonTree.getChildren().stream()
-                    .map(t -> (CommonTree) t)
-                    .toArray(i -> new CommonTree[i]);
-            String name = children[0].getText();
-            Object value = parseValue(children[1]);
-            return new Assignment(name, value);
-        }
+        switch (commonTree.getType()) {
+            case LibConfigParser.ID:
+                Namespace namespace = new Namespace(commonTree.getText());
+                commonTree.getChildren().stream()
+                        .map(t -> (CommonTree) t)
+                        .forEach(c -> namespace.addChild(doParse(c)));
+                return namespace;
 
-        throw new RuntimeException("Unrecognized token type, " + commonTree.getType());
+            case LibConfigParser.EQUALS:
+                CommonTree[] children = commonTree.getChildren().stream()
+                        .map(t -> (CommonTree) t)
+                        .toArray(i -> new CommonTree[i]);
+                String name = children[0].getText();
+                Object value = parseValue(children[1]);
+                return new Assignment(name, value);
+
+            default:
+                throw new RuntimeException("Unrecognized token type, " + commonTree.getType());
+        }
     }
 
     private Object parseValue(CommonTree child) {

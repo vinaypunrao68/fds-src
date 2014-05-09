@@ -1,4 +1,4 @@
-package com.formationds.auth;
+package com.formationds.security;
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
@@ -11,22 +11,24 @@ import java.security.Principal;
 import java.text.MessageFormat;
 import java.util.UUID;
 
-public class AuthenticationToken {
+public class AuthorizationToken {
     private static final String TOKEN_FORMAT = "UUID: {0}, name: {1}";
     private String name;
     private boolean isValid;
     private SecretKey secretKey;
 
-    public AuthenticationToken(SecretKey secretKey, Principal principal) {
+    public AuthorizationToken(SecretKey secretKey, Principal principal) {
         this.secretKey = secretKey;
         name = principal.getName();
         isValid = true;
     }
 
-    public AuthenticationToken(SecretKey secretKey, String encrypted) {
+    public AuthorizationToken(SecretKey secretKey, String encrypted) {
         this.secretKey = secretKey;
         try {
-            name = decrypt(encrypted);
+            String decrypted = decrypt(encrypted);
+            Object[] parsed = new MessageFormat(TOKEN_FORMAT).parse(decrypted);
+            name = (String) parsed[1];
             isValid = true;
         } catch (Exception e) {
             isValid = false;
@@ -56,5 +58,9 @@ public class AuthenticationToken {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public String getName() {
+        return name;
     }
 }

@@ -10,6 +10,7 @@ import org.apache.log4j.PropertyConfigurator;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -30,6 +31,13 @@ public class Configuration {
             fdsRoot = new File("/fds");
         }
         initLog4J();
+        initJaas(fdsRoot);
+    }
+
+    private void initJaas(File fdsRoot) throws Exception {
+        Path jaasConfig = Paths.get(fdsRoot.getCanonicalPath(), "etc", "auth.conf");
+        URL configUrl = jaasConfig.toFile().toURL();
+        System.setProperty("java.security.auth.login.config", configUrl.toExternalForm());
     }
 
     private void initLog4J() {
