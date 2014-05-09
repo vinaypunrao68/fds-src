@@ -1,37 +1,10 @@
 /*
  * Copyright 2014 by Formation Data Systems, Inc.
  */
-#include <net/net-service.h>
 #include <net/net-service-tmpl.hpp>
+#include <ep-map.h>
 
 namespace fds {
-
-/*
- * -----------------------------------------------------------------------------------
- * EndPoint Attributes
- * -----------------------------------------------------------------------------------
- */
-EpAttr::EpAttr(fds_uint32_t ip, int port) : ep_refcnt(0)
-{
-    ep_addr.sa_family = AF_INET;
-    ((struct sockaddr_in *)&ep_addr)->sin_port = port;
-}
-
-EpAttr &
-EpAttr::operator = (const EpAttr &rhs)
-{
-    ep_addr = rhs.ep_addr;
-    return *this;
-}
-
-int
-EpAttr::attr_get_port()
-{
-    if (ep_addr.sa_family == AF_INET) {
-        return (((struct sockaddr_in *)&ep_addr)->sin_port);
-    }
-    return (((struct sockaddr_in6 *)&ep_addr)->sin6_port);
-}
 
 /*
  * -----------------------------------------------------------------------------------
@@ -45,7 +18,7 @@ EpSvc::EpSvc(const ResourceUUID &uuid, fds_uint32_t major, fds_uint32_t minor)
     svc_ver.ver_minor = minor;
     uuid.uuid_assign(&svc_id.svc_uuid);
 
-    ep_mgr = EndPointMgr::ep_mgr_singleton();
+    ep_mgr = NetMgr::ep_mgr_singleton();
 }
 
 EpSvc::EpSvc(const ResourceUUID &domain,
@@ -130,6 +103,14 @@ EpSvcImpl::ep_lookup_service(const char *name)
     return NULL;
 }
 
+// ep_fillin_binding
+// -----------------
+//
+void
+EpSvcImpl::ep_fillin_binding(ep_map_rec_t *rec)
+{
+}
+
 /*
  * -----------------------------------------------------------------------------------
  * Base EP Event Plugin
@@ -169,84 +150,4 @@ EpEvtPlugin::svc_cleanup_finish()
 {
 }
 
-#if 0
-/*
- * -----------------------------------------------------------------------------------
- * EndPoint Manager
- * -----------------------------------------------------------------------------------
- */
-EndPointMgr::EndPointMgr(const char *name) : Module(name) {}
-
-// mod_init
-// --------
-//
-int
-EndPointMgr::mod_init(SysParams const *const p)
-{
-    Module::mod_init(p);
-    return 0;
-}
-
-// mod_startup
-// -----------
-//
-void
-EndPointMgr::mod_startup()
-{
-}
-
-// mod_shutdown
-// ------------
-//
-void
-EndPointMgr::mod_shutdown()
-{
-}
-
-// ep_register
-// -----------
-// Register the endpoint to the local domain.
-//
-void
-EndPointMgr::ep_register(EpSvc::pointer ep)
-{
-}
-
-// ep_unregister
-// -------------
-// Unregister the endpoint.  This is lazy unregister.  Stale endpoint will be notified
-// when the sender sends to the down endpoint.
-//
-void
-EndPointMgr::ep_unregister(const fpi::SvcUuid &uuid)
-{
-}
-
-// svc_lookup
-// ----------
-// Lookup a service handle based on uuid and correct version.
-//
-EpSvcHandle::pointer
-EndPointMgr::svc_lookup(const fpi::SvcUuid &peer, fds_uint32_t maj, fds_uint32_t min)
-{
-    return NULL;
-}
-// TODO(Rao): Remove
-EpSvcHandle::pointer
-EndPointMgr::svc_lookup(const ResourceUUID &uuid, fds_uint32_t maj, fds_uint32_t min)
-{
-    return nullptr;
-}
-
-// svc_lookup
-// ----------
-// Lookup a service handle based on its well-known name and correct version.
-//
-EpSvcHandle::pointer
-EndPointMgr::svc_lookup(const char *peer_name, fds_uint32_t maj, fds_uint32_t min)
-{
-    return NULL;
-}
-
-#endif
 }  // namespace fds

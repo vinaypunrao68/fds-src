@@ -38,7 +38,7 @@ ProbeEpTestSM                 gl_ProbeTestSM("Probe SM EP");
 int
 ProbeEpTestSM::mod_init(SysParams const *const p)
 {
-    EndPointMgr *mgr;
+    NetMgr *mgr;
 
     Module::mod_init(p);
 
@@ -61,7 +61,7 @@ ProbeEpTestSM::mod_init(SysParams const *const p)
     svc_poke  = new ProbePokeSvc(ResourceUUID(0xbeef), 5, 1);  /* ver 5.1 */
 
     // Register the endpoint in the local domain.
-    mgr = EndPointMgr::ep_mgr_singleton();
+    mgr = NetMgr::ep_mgr_singleton();
     mgr->ep_register(probe_ep);
 
     // Register services to the endpoint.  These uuids are now availble at the

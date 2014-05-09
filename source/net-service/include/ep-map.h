@@ -51,6 +51,8 @@ class EpPlatLibMod : public Module
     virtual int  ep_lookup_rec(fds_uint64_t uuid, ep_map_rec_t *out);
     virtual int  ep_lookup_rec(const char *name, ep_map_rec_t *out);
 
+    const ep_map_rec_t *ep_get_rec(int idx);
+
   protected:
     ep_map_t                *ep_shm_map;
 };

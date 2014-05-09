@@ -146,6 +146,7 @@ else
     main_cpp_flags     += -Winit-self
     main_cpp_flags     += -feliminate-unused-debug-symbols
     main_exec_dep_libs := pthread
+	main_ld_flags      := -fdata-sections -ffunction-sections -Wl,--gc-sections
 endif
 
 # ARCH and OSDep settings.

@@ -162,44 +162,6 @@ class RsContainer
     /**
      * Iterator plugins.
      */
-    template <typename T>
-    void rs_foreach(T arg, void (*fn)(T, Resource::pointer elm)) {
-        for (fds_uint32_t i = 0; i < rs_cur_idx; i++) {
-            Resource::pointer rs = rs_array[i];
-            if (rs_array[i] != NULL) {
-                (*fn)(arg, rs);
-            }
-        }
-    }
-    template <typename T1, typename T2>
-    void rs_foreach(T1 a1, T2 a2, void (*fn)(T1, T2, Resource::pointer elm)) {
-        for (fds_uint32_t i = 0; i < rs_cur_idx; i++) {
-            Resource::pointer rs = rs_array[i];
-            if (rs_array[i] != NULL) {
-                (*fn)(a1, a2, rs);
-            }
-        }
-    }
-    template <typename T1, typename T2, typename T3>
-    void rs_foreach(T1 a1, T2 a2, T3 a3,
-                    void (*fn)(T1, T2, T3, Resource::pointer elm)) {
-        for (fds_uint32_t i = 0; i < rs_cur_idx; i++) {
-            Resource::pointer rs = rs_array[i];
-            if (rs_array[i] != NULL) {
-                (*fn)(a1, a2, a3, rs);
-            }
-        }
-    }
-    template <typename T1, typename T2, typename T3, typename T4>
-    void rs_foreach(T1 a1, T2 a2, T3 a3, T4 a4,
-                    void (*fn)(T1, T2, T3, T4, Resource::pointer elm)) {
-        for (fds_uint32_t i = 0; i < rs_cur_idx; i++) {
-            Resource::pointer rs = rs_array[i];
-            if (rs_array[i] != NULL) {
-                (*fn)(a1, a2, a3, a4, rs);
-            }
-        }
-    }
 
     /**
      * Methods to allocate and reference the node.

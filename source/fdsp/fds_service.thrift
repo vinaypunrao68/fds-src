@@ -19,7 +19,7 @@ struct SvcVer {
 
 struct DomainID {
     1: required SvcUuid       domain_id,
-    2: required string        domain_name;
+    2: required string        domain_name
 }
 
 /*
@@ -34,21 +34,14 @@ struct AsyncHdr {
     5: required i32           msg_code,
 }
 
-struct AsyncRspHdr {
-    1: required AsyncHdr      msg_resp,
-    2: required i32           msg_status,
-    3: optional string        msg_text,
-    4: optional string        msg_data
-}
-
 struct GetObjReq {
-    1: required AsyncHdr      header;
-    2: required string        id;
+    1: required AsyncHdr      header,
+    2: required string        id
 }
 struct PutObjReq {
-    1: required AsyncHdr      header;
-    2: required string        id;
-    3: required string        data;
+    1: required AsyncHdr      header,
+    2: required string        id,
+    3: required string        data,
 }
 
 struct GetObjRsp {
@@ -60,14 +53,26 @@ struct PutObjRsp {
 	1: required i32       status;
 }
 
-service AsyncRspSvc {
-	oneway void asyncResponse(1: AsyncHdr header, 2: string payload)
+/*
+ * Uuid to physical location binding registration.
+ */
+struct UuidBindMsg {
+    1: required AsyncHdr     header,
+    2: required SvcID        svc_id,
+    3: required string       svc_addr,
+    4: required i32          scv_port
 }
 
-service SMSvc extends AsyncRspSvc {
-	oneway void getObject(1: GetObjReq req)
+service BaseAsyncSvc {
+	oneway void asyncReqt(1: AsyncHdr header),
+	oneway void asyncResp(1: AsyncHdr header, 2: string payload),
+    oneway void uuidBind(1: UuidBindMsg msg)
+}
+
+service SMSvc extends BaseAsyncSvc {
+	oneway void getObject(1: GetObjReq req),
 	oneway void putObject(1: PutObjReq req)
 }
 
-service AMSvc extends AsyncRspSvc {
+service AMSvc extends BaseAsyncSvc {
 }

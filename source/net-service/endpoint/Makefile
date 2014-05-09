@@ -6,6 +6,7 @@ user_incl_dir    := ../include
 user_cpp         := \
     endpoint.cpp \
     ep-map.cpp \
+    ep-attr.cpp \
     net-service.cpp
 
 user_ar_libs     := fds-net-svc

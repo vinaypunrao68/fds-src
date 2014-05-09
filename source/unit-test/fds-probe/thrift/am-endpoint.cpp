@@ -37,7 +37,7 @@ ProbeEpSvcTestAM              gl_ProbeSvcTestAM("Probe Svc AM");
 int
 ProbeEpTestAM::mod_init(SysParams const *const p)
 {
-    EndPointMgr *mgr;
+    NetMgr *mgr;
 
     Module::mod_init(p);
 
@@ -53,7 +53,7 @@ ProbeEpTestAM::mod_init(SysParams const *const p)
             new ProbeEpPlugin());
 
     // Register the endpoint in the local domain.
-    mgr = EndPointMgr::ep_mgr_singleton();
+    mgr = NetMgr::ep_mgr_singleton();
     mgr->ep_register(probe_ep);
     return 0;
 }
@@ -77,13 +77,13 @@ ProbeEpTestAM::mod_shutdown()
 int
 ProbeEpSvcTestAM::mod_init(SysParams const *const p)
 {
-    EndPointMgr *mgr;
+    NetMgr *mgr;
 
     Module::mod_init(p);
 
     // Locate service handle based on uuid; don't care where they are located.
     //
-    mgr      = EndPointMgr::ep_mgr_singleton();
+    mgr      = NetMgr::ep_mgr_singleton();
     am_hello = mgr->svc_lookup(ResourceUUID(0x1234), 1, 1);
     am_bye   = mgr->svc_lookup(ResourceUUID(0xcafe), 3, 4);
     am_poke  = mgr->svc_lookup(ResourceUUID(0xbeef), 5, 1);

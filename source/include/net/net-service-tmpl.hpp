@@ -16,6 +16,8 @@
 
 namespace fds {
 
+struct ep_map_rec;
+
 namespace at = apache::thrift;
 namespace tc = apache::thrift::concurrency;
 namespace tp = apache::thrift::protocol;
@@ -35,6 +37,9 @@ namespace bo = boost;
 class EpSvcImpl : public EpSvc
 {
   public:
+    typedef boost::intrusive_ptr<EpSvcImpl> pointer;
+    typedef boost::intrusive_ptr<const EpSvcImpl> const_ptr;
+
     EpSvcImpl(const NodeUuid       &mine,
               const NodeUuid       &peer,
               const EpAttr         &attr,
@@ -57,6 +62,11 @@ class EpSvcImpl : public EpSvc
   protected:
     fpi::SvcID                       ep_peer_id;
     fpi::SvcVer                      ep_peer_ver;
+
+  private:
+    friend class NetMgr;
+
+    void ep_fillin_binding(struct ep_map_rec *map);
 };
 
 /**
@@ -108,6 +118,7 @@ class EndPoint : public EpSvcImpl
     //
 
   protected:
+    friend class NetMgr;
     bo::shared_ptr<SendIf>                 ep_rpc_send;
     bo::shared_ptr<tt::TTransport>         ep_sock;
     bo::shared_ptr<tt::TTransport>         ep_trans;
@@ -118,6 +129,7 @@ class EndPoint : public EpSvcImpl
     bo::shared_ptr<ts::TNonblockingServer> ep_nb_srv;
 
     void svc_receive_msg(const fpi::AsyncHdr &msg) {}
+    void *ep_get_rcv_handler() { return static_cast<void *>(ep_rpc_recv.get()); }
 
   private:
     // ep_client_connect

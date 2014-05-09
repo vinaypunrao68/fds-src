@@ -18,7 +18,8 @@ class EpSvc;
 class EpSvcImpl;
 class EpSvcHandle;
 class EpEvtPlugin;
-class EndPointMgr;
+class NetMgr;
+class EpPlatLibMod;
 
 /**
  * -------------------
@@ -53,6 +54,7 @@ class EpAttr
     EpAttr &operator = (const EpAttr &rhs);
 
     int attr_get_port();
+    static int netaddr_get_port(const struct sockaddr *adr);
 
   private:
     mutable boost::atomic<int>       ep_refcnt;
@@ -68,7 +70,7 @@ class EpAttr
     }
 };
 
-#define EP_CAST_PTR(T, ptr)  static_cast<T::pointer>(get_pointer(ptr))
+#define EP_CAST_PTR(T, ptr)  static_cast<T *>(get_pointer(ptr))
 
 /*
  * This event plugin object sparates error handling path from the main data flow path.
@@ -143,17 +145,6 @@ class EpSvc
     typedef boost::intrusive_ptr<EpSvc> pointer;
     typedef boost::intrusive_ptr<const EpSvc> const_ptr;
 
-    // Service bound to the local domain.
-    EpSvc(const ResourceUUID &uuid, fds_uint32_t major, fds_uint32_t minor);
-
-    // Service bound to a remote domain.
-    EpSvc(const ResourceUUID &domain,
-          const ResourceUUID &uuid,
-          fds_uint32_t        major,
-          fds_uint32_t        minor);
-
-    virtual ~EpSvc() {}
-
     // When a message sent to this service handler arrives, the network layer will
     // call this function passing the message header.  It's up to the handler object
     // to intepret the remaining payload.
@@ -176,9 +167,21 @@ class EpSvc
     EpAttr::pointer                  ep_attr;
 
     fpi::DomainID                   *svc_domain;
-    EndPointMgr                     *ep_mgr;
+    NetMgr                          *ep_mgr;
+
+    // Service bound to the local domain.
+    EpSvc(const ResourceUUID &uuid, fds_uint32_t major, fds_uint32_t minor);
+
+    // Service bound to a remote domain.
+    EpSvc(const ResourceUUID &domain,
+          const ResourceUUID &uuid,
+          fds_uint32_t        major,
+          fds_uint32_t        minor);
+
+    virtual ~EpSvc() {}
 
   private:
+    friend class NetMgr;
     mutable boost::atomic<int>       ep_refcnt;
 
     friend void intrusive_ptr_add_ref(const EpSvc *x) {
@@ -190,6 +193,8 @@ class EpSvc
             delete x;
         }
     }
+    fds_uint64_t  ep_my_uuid() { return svc_id.svc_uuid.svc_uuid; }
+    virtual void *ep_get_rcv_handler() { return NULL; }
 };
 
 /**
@@ -231,18 +236,20 @@ class EpSvcHandle
 /**
  * Module vector hookup
  */
-extern EndPointMgr  gl_netService;
+extern NetMgr                gl_netService;
 
-class EpPlatLibMod;
+typedef std::unordered_map<fds_uint64_t, int>             UuidShmMap;
+typedef std::unordered_map<fds_uint64_t, EpSvc::pointer>  UuidSvcMap;
+typedef std::unordered_map<int, EpSvc::pointer>           PortSvcMap;
 
 /**
  * Singleton module manages all endpoints.
  */
-class EndPointMgr : public Module
+class NetMgr : public Module
 {
   public:
-    explicit EndPointMgr(const char *name);
-    virtual ~EndPointMgr() {}
+    explicit NetMgr(const char *name);
+    virtual ~NetMgr() {}
 
     // Module methods.
     //
@@ -250,7 +257,7 @@ class EndPointMgr : public Module
     virtual void mod_startup();
     virtual void mod_shutdown();
 
-    static EndPointMgr *ep_mgr_singleton() { return &gl_netService; }
+    static NetMgr *ep_mgr_singleton() { return &gl_netService; }
 
     /**
      * Endpoint registration and lookup.
@@ -282,7 +289,13 @@ class EndPointMgr : public Module
     // Hook with with node/domain state machine events.
     //
   protected:
-    EpPlatLibMod            *ep_map;
+    EpPlatLibMod            *ep_shm;
+    UuidSvcMap               ep_svc_map;
+    UuidShmMap               ep_uuid_map;
+    PortSvcMap               ep_port_map;
+    fds_mutex                ep_mtx;
+
+    virtual EpSvc::pointer ep_lookup_port(int port);
 };
 
 }  // namespace fds
