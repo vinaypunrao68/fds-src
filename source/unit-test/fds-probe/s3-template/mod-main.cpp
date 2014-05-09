@@ -9,31 +9,45 @@
 #include <template_probe.h>
 #include <util/fds_stat.h>
 #include <fds-probe/s3-probe.h>
+#include <fds_process.h>
+
+namespace fds {
+
+class ProbeProcess : public FdsProcess
+{
+  public:
+    virtual ~ProbeProcess() {}
+    ProbeProcess(int argc, char **argv, Module **vec)
+        : FdsProcess(argc, argv, "platform.conf", "fds.plat.", "probe-s3.log", vec) {}
+
+    void proc_pre_startup() override
+    {
+        gl_probeS3Eng.probe_add_adapter(&gl_XX_ProbeMod);
+        for (int i = 0; i < 0; i ++) {
+            gl_probeS3Eng.probe_add_adapter(gl_XX_ProbeMod.pr_new_instance());
+        }
+    }
+    void proc_pre_service() override {}
+    int run()
+    {
+        FDS_NativeAPI *api = new FDS_NativeAPI(FDS_NativeAPI::FDSN_AWS_S3);
+        gl_probeS3Eng.run_server(api);
+        return 0;
+    }
+};
+
+}  // namespace fds
 
 int main(int argc, char **argv)
 {
-    fds::FDS_NativeAPI *api = new
-                fds::FDS_NativeAPI(fds::FDS_NativeAPI::FDSN_AWS_S3);
     fds::Module *probe_vec[] = {
         &fds::gl_fds_stat,
         &fds::gl_probeS3Eng,
 
         /* Add your vector and its dependencies here. */
         &fds::gl_XX_ProbeMod,
-        nullptr
+        NULL
     };
-    fds::ModuleVector my_probe(argc, argv, probe_vec);
-    my_probe.mod_execute();
-
-    /* Add your probe adapter(s) to S3 connector. */
-    fds::gl_probeS3Eng.probe_add_adapter(&fds::gl_XX_ProbeMod);
-    for (int i = 0; i < 100; i++) {
-        fds::gl_probeS3Eng.probe_add_adapter(
-            fds::gl_XX_ProbeMod.pr_new_instance());
-    }
-    fds::gl_XX_ProbeMod.mod_startup();
-
-    /* Now run the S3 engine. */
-    fds::gl_probeS3Eng.run_server(api);
-    return 0;
+    fds::ProbeProcess probe(argc, argv, probe_vec);
+    return probe.main();
 }

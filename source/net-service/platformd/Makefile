@@ -1,0 +1,13 @@
+topdir           := ../..
+user_target      := lib
+user_rtime_env   := user
+user_build_dir   :=
+user_incl_dir    := ../include
+user_cpp         := \
+    ep-map.cpp \
+    net-service.cpp
+
+user_ar_libs     := fds-net-platd
+fds-net-platd    := $(user_cpp) $(user_cc)
+
+include $(topdir)/Makefile.incl

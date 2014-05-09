@@ -5,7 +5,7 @@
 #define SOURCE_UNIT_TEST_FDS_PROBE_THRIFT_ENDPOINT_TEST_H_
 
 #include <net/net-service.h>
-#include <fds_typedefs.h>
+#include <net/net-service-tmpl.hpp>
 #include <ProbeServiceSM.h>
 #include <ProbeServiceAM.h>
 
@@ -82,6 +82,8 @@ class ProbeEpTestAM : public Module
     void mod_startup();
     void mod_shutdown();
 
+    void ep_serve() { probe_ep->ep_run_server(); }
+
   protected:
     // One endpoint bound to a physical port of the local node.  Full duplex with
     // its peer.
@@ -124,6 +126,8 @@ class ProbeEpTestSM : public Module
     int  mod_init(SysParams const *const p);
     void mod_startup();
     void mod_shutdown();
+
+    void ep_serve() { probe_ep->ep_run_server(); }
 
   protected:
     // Many services built on top of the endpoint.

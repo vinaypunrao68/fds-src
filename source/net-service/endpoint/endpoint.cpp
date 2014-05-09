@@ -2,17 +2,16 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 #include <net/net-service.h>
+#include <net/net-service-tmpl.hpp>
 
 namespace fds {
-
-EndPointMgr  gl_EndPointMgr("EndPoint Mgr");
 
 /*
  * -----------------------------------------------------------------------------------
  * EndPoint Attributes
  * -----------------------------------------------------------------------------------
  */
-EpAttr::EpAttr(fds_uint32_t ip, int port)
+EpAttr::EpAttr(fds_uint32_t ip, int port) : ep_refcnt(0)
 {
     ep_addr.sa_family = AF_INET;
     ((struct sockaddr_in *)&ep_addr)->sin_port = port;
@@ -40,7 +39,7 @@ EpAttr::attr_get_port()
  * -----------------------------------------------------------------------------------
  */
 EpSvc::EpSvc(const ResourceUUID &uuid, fds_uint32_t major, fds_uint32_t minor)
-    : ep_evt(NULL), ep_attr(NULL), svc_domain(NULL)
+    : ep_evt(NULL), ep_attr(NULL), svc_domain(NULL), ep_refcnt(0)
 {
     svc_ver.ver_major = major;
     svc_ver.ver_minor = minor;
@@ -136,7 +135,7 @@ EpSvcImpl::ep_lookup_service(const char *name)
  * Base EP Event Plugin
  * -----------------------------------------------------------------------------------
  */
-EpEvtPlugin::EpEvtPlugin() {}
+EpEvtPlugin::EpEvtPlugin() : ep_refcnt(0) {}
 
 // ep_cleanup_start
 // ----------------
@@ -170,6 +169,7 @@ EpEvtPlugin::svc_cleanup_finish()
 {
 }
 
+#if 0
 /*
  * -----------------------------------------------------------------------------------
  * EndPoint Manager
@@ -248,4 +248,5 @@ EndPointMgr::svc_lookup(const char *peer_name, fds_uint32_t maj, fds_uint32_t mi
     return NULL;
 }
 
+#endif
 }  // namespace fds

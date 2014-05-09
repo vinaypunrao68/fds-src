@@ -6,6 +6,7 @@
 #include <string>
 #include <iostream>
 #include <fds_assert.h>
+#include <fds_typedefs.h>
 
 using namespace ::fpi;                 // NOLINT
 
@@ -50,12 +51,9 @@ Thrift_ProbeMod::pr_intercept_request(ProbeRequest *req)
 void
 Thrift_ProbeMod::pr_put(ProbeRequest *req)
 {
-    ProbePutMsg     msg;
     ProbeIORequest *io;
 
     io = static_cast<ProbeIORequest *>(req);
-    msg.msg_data.assign(io->pr_wr_buf, io->pr_wr_size);
-    rpc_client->probe_put(msg);
 }
 
 // pr_get
@@ -65,14 +63,8 @@ void
 Thrift_ProbeMod::pr_get(ProbeRequest *req)
 {
     ProbeIORequest  *io;
-    ProbeGetMsgReqt  reqt;
-    ProbeGetMsgResp  resp;
 
     io = static_cast<ProbeIORequest *>(req);
-    reqt.msg_len = io->pr_wr_size;
-    rpc_client->probe_get(resp, reqt);
-
-    fds_verify((uint)resp.msg_len == io->pr_wr_size);
 }
 
 // pr_delete
@@ -115,14 +107,11 @@ Thrift_ProbeMod::mod_init(SysParams const *const param)
 void
 Thrift_ProbeMod::mod_startup()
 {
-    rpc_sock.reset(new TSocket("localhost", 9000));
-    rpc_trans.reset(new TFramedTransport(rpc_sock));
-    rpc_proto.reset(new TBinaryProtocol(rpc_trans));
-    rpc_client = new ProbeServiceSMClient(rpc_proto);
-    try {
-        rpc_trans->open();
-    } catch(TException &tx) {  // NOLINT
-        std::cout << "Error: " << tx.what() << std::endl;
+    JsObjManager  *mgr;
+
+    if (pr_parent != NULL) {
+        mgr = pr_parent->pr_get_obj_mgr();
+        mgr->js_register_template(new ProbeAmApiTempl(mgr));
     }
 }
 
@@ -132,10 +121,47 @@ Thrift_ProbeMod::mod_startup()
 void
 Thrift_ProbeMod::mod_shutdown()
 {
-    if (rpc_client != NULL) {
-        rpc_trans->close();
-        delete rpc_client;
-    }
+}
+
+/*
+ * ------------------------------------------------------------------------------------
+ * Probe Control Path
+ * ------------------------------------------------------------------------------------
+ */
+JsObject *
+ProbeAmFoo::js_exec_obj(JsObject *parent, JsObjTemplate *tmpl, JsObjOutput *out)
+{
+    am_foo_arg_t *p = am_probe_foo();
+
+    std::cout << "In foo func " << p->am_func << std::endl;
+    return this;
+}
+
+JsObject *
+ProbeAmGetReqt::js_exec_obj(JsObject *parent, JsObjTemplate *tmpl, JsObjOutput *out)
+{
+    am_getmsg_reqt_t*p = am_getmsg_reqt();
+
+    std::cout << "In GetReqt func " << p->am_func << std::endl;
+    return this;
+}
+
+JsObject *
+ProbeAmBar::js_exec_obj(JsObject *parent, JsObjTemplate *tmpl, JsObjOutput *out)
+{
+    am_bar_arg_t *p = am_probe_bar();
+
+    std::cout << "In Bar func " << p->am_func << std::endl;
+    return this;
+}
+
+JsObject *
+ProbeAmPutMsg::js_exec_obj(JsObject *parent, JsObjTemplate *tmpl, JsObjOutput *out)
+{
+    am_putmsg_arg_t *p = am_probe_putmsg();
+
+    std::cout << "In PutMsg func " << p->am_func << std::endl;
+    return this;
 }
 
 }  // namespace fds
