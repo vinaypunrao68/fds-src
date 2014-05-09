@@ -6,12 +6,11 @@ KERNEL_SOURCE := /lib/modules/$(shell uname -r)/build
 SRC := fbd_init.c ring.c  control.c request.c dev_ctrl.c
 
 fbd-objs = $(SRC:.c=.o)
-# fbd-objs += ../sys/lib/libfdsk.o
 
 obj-m += fbd.o
 
 all:
-	${MAKE} -C ${KERNEL_SOURCE} M=${PWD} modules
+	${MAKE} -C ${KERNEL_SOURCE} M=${PWD}/blk_dev modules
 
 clean:
 	${MAKE} -C ${KERNEL_SOURCE} M=${PWD} clean
