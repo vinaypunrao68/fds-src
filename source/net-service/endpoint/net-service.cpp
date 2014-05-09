@@ -99,6 +99,13 @@ NetMgr::svc_lookup(const ResourceUUID &peer, fds_uint32_t maj, fds_uint32_t min)
     return NULL;
 }
 
+EpSvcHandle::pointer
+NetMgr::svc_lookup(const fpi::SvcUuid &peer, fds_uint32_t maj, fds_uint32_t min)
+{
+    return NULL;
+}
+
+
 // svc_lookup
 // ----------
 // Lookup a service handle based on its well-known name and correct version.
