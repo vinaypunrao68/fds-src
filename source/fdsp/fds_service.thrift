@@ -45,12 +45,12 @@ struct PutObjReq {
 }
 
 struct GetObjRsp {
-	1: required i32       len;
-	2: required string    data;
+    1: required i32       len;
+    2: required string    data;
 }
 
 struct PutObjRsp {
-	1: required i32       status;
+    1: required i32       status;
 }
 
 /*
@@ -64,14 +64,14 @@ struct UuidBindMsg {
 }
 
 service BaseAsyncSvc {
-	oneway void asyncReqt(1: AsyncHdr header),
-	oneway void asyncResp(1: AsyncHdr header, 2: string payload),
+    oneway void asyncReqt(1: AsyncHdr header),
+    oneway void asyncResp(1: AsyncHdr header, 2: string payload),
     oneway void uuidBind(1: UuidBindMsg msg)
 }
 
 service SMSvc extends BaseAsyncSvc {
-	oneway void getObject(1: GetObjReq req),
-	oneway void putObject(1: PutObjReq req)
+    oneway void getObject(1: GetObjReq req),
+    oneway void putObject(1: PutObjReq req)
 }
 
 service AMSvc extends BaseAsyncSvc {

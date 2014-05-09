@@ -38,10 +38,6 @@
 
 namespace fds {
 
-/* Forward declarations */
-class AsyncRpcRequestTracker;
-typedef boost::shared_ptr<AsyncRpcRequestTracker> AsyncRpcRequestTrackerPtr;
-
 /* Async rpc request identifier */
 typedef uint64_t AsyncRpcRequestId;
 
@@ -195,6 +191,7 @@ public:
     virtual void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
             boost::shared_ptr<std::string>& payload) override;
 };
+
 
 #if 0
 class BroadcastRpcRequest : public MultiEndpointRpcRequest {
