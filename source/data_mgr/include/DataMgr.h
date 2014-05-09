@@ -235,7 +235,8 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler
                              fds_uint32_t node_port,
                              FDS_ProtocolInterface::FDSP_MgrIdType node_type);
 
-    static Error volcat_evt_handler(FDS_ProtocolInterface::FDSP_PushMetaPtr& push_meta);
+    static Error volcat_evt_handler(FDS_ProtocolInterface::FDSP_PushMetaPtr& push_meta,
+                                    const std::string& session_uuid);
 
   protected:
     void setup_metadatapath_server(const std::string &ip);

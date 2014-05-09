@@ -46,7 +46,8 @@ void DataMgr::node_handler(fds_int32_t  node_id,
 }
 
 Error
-DataMgr::volcat_evt_handler(FDS_ProtocolInterface::FDSP_PushMetaPtr& push_meta) {
+DataMgr::volcat_evt_handler(FDS_ProtocolInterface::FDSP_PushMetaPtr& push_meta,
+                            const std::string& session_uuid) {
     GLOGNORMAL << "Received Push Meta request";
     return dataMgr->catSyncMgr->startCatalogSync(push_meta->metaVol);
 }
@@ -560,6 +561,7 @@ void DataMgr::proc_pre_startup()
         omClient->initialize();
         omClient->registerEventHandlerForNodeEvents(node_handler);
         omClient->registerEventHandlerForVolEvents(vol_handler);
+        omClient->registerCatalogEventHandler(volcat_evt_handler);
         /*
          * Brings up the control path interface.
          * This does not require OM to be running and can

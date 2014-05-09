@@ -137,6 +137,7 @@ void OMgrClientRPCI::NotifyDMTClose(FDSP_MsgHdrTypePtr& fdsp_msg,
 void OMgrClientRPCI::PushMetaDMTReq(FDSP_MsgHdrTypePtr& fdsp_msg,
                                     FDSP_PushMetaPtr& push_meta_resp) {
     Error err(ERR_OK);
+    LOGNORMAL << "Received Push Meta request";
     if (om_client->getNodeType() == FDS_ProtocolInterface::FDSP_DATA_MGR) {
         err = om_client->recvDMTPushMeta(push_meta_resp, fdsp_msg->session_uuid);
         if (!err.ok()) {

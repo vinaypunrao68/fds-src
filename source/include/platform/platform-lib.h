@@ -251,6 +251,7 @@ class Platform : public Module
     static inline fds_uint32_t plf_conf_port(fds_uint32_t base) { return base + 1; }
     static inline fds_uint32_t plf_data_port(fds_uint32_t base) { return base + 2; }
     static inline fds_uint32_t plf_migration_port(fds_uint32_t base) { return base + 3; }
+    static inline fds_uint32_t plf_metasync_port(fds_uint32_t base) { return base + 4; }
 
     /**
      * Return service uuid from node uuid and service type.
