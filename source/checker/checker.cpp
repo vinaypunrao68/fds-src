@@ -271,6 +271,28 @@ class MetaDatapathRespImpl : public FDS_ProtocolInterface::FDSP_MetaDataPathResp
         get_resp_monitor_->done();
     }
 
+    void SetBlobMetaDataResp(const FDSP_MsgHdrType& header, const std::string& blobName) {
+        fds_assert(0);
+    }
+
+
+    void SetBlobMetaDataResp(boost::shared_ptr<FDSP_MsgHdrType>& header,
+                             boost::shared_ptr<std::string>& blobName) {
+        fds_assert(0);
+    }
+
+    void GetBlobMetaDataResp(const FDSP_MsgHdrType& header, const std::string& blobName,
+                             const FDSP_MetaDataList& metaDataList) {
+        fds_assert(0);
+    }
+
+
+    void GetBlobMetaDataResp(boost::shared_ptr<FDSP_MsgHdrType>& header,
+                             boost::shared_ptr<std::string>& blobName,
+                             boost::shared_ptr<FDSP_MetaDataList>& metaDataList) {
+        fds_assert(0);
+    }
+
  private:
     // XXX: list of blobs in volume goes here
     BlobInfoListType *resp_vector;
