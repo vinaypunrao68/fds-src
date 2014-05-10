@@ -93,29 +93,11 @@ NetMgr::ep_unregister(const fpi::SvcUuid &uuid)
 // ----------
 // Lookup a service handle based on uuid and correct version.
 //
-
 EpSvcHandle::pointer
-EndPointMgr::svc_lookup(const fpi::SvcUuid &uuid, fds_uint32_t maj, fds_uint32_t min)
+NetMgr::svc_lookup(const fpi::SvcUuid &uuid, fds_uint32_t maj, fds_uint32_t min)
 {
     return NULL;
 }
-
-// svc_lookup
-// ----------
-// Lookup a service handle based on uuid and correct version.
-//
-EpSvcHandle::pointer
-NetMgr::svc_lookup(const ResourceUUID &peer, fds_uint32_t maj, fds_uint32_t min)
-{
-    return NULL;
-}
-
-EpSvcHandle::pointer
-NetMgr::svc_lookup(const fpi::SvcUuid &peer, fds_uint32_t maj, fds_uint32_t min)
-{
-    return NULL;
-}
-
 
 // svc_lookup
 // ----------

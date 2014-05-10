@@ -20,6 +20,7 @@ class EpSvcHandle;
 class EpEvtPlugin;
 class NetMgr;
 class EpPlatLibMod;
+class NetPlatform;
 
 /**
  * -------------------
@@ -54,7 +55,18 @@ class EpAttr
     EpAttr &operator = (const EpAttr &rhs);
 
     int attr_get_port();
-    static int netaddr_get_port(const struct sockaddr *adr);
+    static int  netaddr_get_port(const struct sockaddr *adr);
+
+    /**
+     * Get my IP from the network interface (e.g. eth0).  Pass NULL if want to get the
+     * IP used to reach the default gateway.
+     * @param adr, mask, flags (o): info about the IP.
+     * @param iface (i): network interface (e.g. eth0, lo...).
+     */
+    static void netaddr_my_ip(struct sockaddr *adr,
+                              struct sockaddr *mask,
+                              unsigned int    *flags,
+                              const char      *iface);
 
   private:
     mutable boost::atomic<int>       ep_refcnt;
@@ -237,6 +249,7 @@ class EpSvcHandle
  * Module vector hookup
  */
 extern NetMgr                gl_netService;
+extern NetPlatform           gl_netPlatform;
 
 typedef std::unordered_map<fds_uint64_t, int>             UuidShmMap;
 typedef std::unordered_map<fds_uint64_t, EpSvc::pointer>  UuidSvcMap;
@@ -276,10 +289,6 @@ class NetMgr : public Module
     virtual EpSvcHandle::pointer
     svc_lookup(const fpi::SvcUuid &uuid, fds_uint32_t maj, fds_uint32_t min);
 
-    // TODO(Rao): remove
-    virtual EpSvcHandle::pointer
-    svc_lookup(const ResourceUUID &uuid, fds_uint32_t maj, fds_uint32_t min);
-
     virtual EpSvcHandle::pointer
     svc_lookup(const char *name, fds_uint32_t maj, fds_uint32_t min);
 
@@ -296,6 +305,24 @@ class NetMgr : public Module
     fds_mutex                ep_mtx;
 
     virtual EpSvc::pointer ep_lookup_port(int port);
+};
+
+/**
+ * Singleton module linked with platform daemon.
+ */
+class NetPlatform : public Module
+{
+  public:
+    explicit NetPlatform(const char *name);
+    virtual ~NetPlatform() {}
+
+    // Module methods.
+    //
+    virtual int  mod_init(SysParams const *const p);
+    virtual void mod_startup();
+    virtual void mod_shutdown();
+
+    static NetPlatform *netplat_singleton() { return &gl_netPlatform; }
 };
 
 }  // namespace fds
