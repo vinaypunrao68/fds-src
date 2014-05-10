@@ -131,6 +131,24 @@ Platform::plf_run_server(bool spawn_thr)
     }
 }
 
+// plf_is_om_node
+// --------------
+// Return true if this is the node running the primary OM node.
+//
+bool
+Platform::plf_is_om_node()
+{
+    // Do simple IP compare my IP with OM ip.
+    // Until we can get rid of the old endpoint using plf_my_ctrl_port, use data
+    // port for net service update protocols.
+    //
+    if (/* (*plf_get_my_ip() == *plf_get_om_ip()) && */
+        (plf_get_om_svc_port() == plf_get_my_data_port())) {
+        return true;
+    }
+    return false;
+}
+
 // plf_rpc_server_thread
 // ---------------------
 //

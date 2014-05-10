@@ -76,8 +76,8 @@ class EpPlatformMod : public EpPlatLibMod
     virtual int  ep_lookup_rec(const char *name, ep_map_rec_t *out);
 };
 
-extern EpPlatLibMod          gl_EpPlatLibMod;
-extern EpPlatformMod         gl_EpPlatformMod;
+extern EpPlatLibMod          gl_EpPlatLib;
+extern EpPlatformMod         gl_EpPlatform;
 
 }  // namespace fds
 #endif  // SOURCE_NET_SERVICE_INCLUDE_EP_MAP_H_

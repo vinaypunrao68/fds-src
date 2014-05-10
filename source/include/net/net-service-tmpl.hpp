@@ -101,6 +101,34 @@ class EndPoint : public EpSvcImpl
     static inline EndPoint<SendIf, RecvIf>::pointer ep_cast_ptr(EpSvc::pointer ptr) {
         return static_cast<EndPoint<SendIf, RecvIf> *>(get_pointer(ptr));
     }
+    // ep_server_listen
+    // ----------------
+    //
+    void ep_setup_server()
+    {
+        int port = ep_attr->attr_get_port();
+        bo::shared_ptr<tp::TProtocolFactory>  proto(new tp::TBinaryProtocolFactory());
+        bo::shared_ptr<tt::TServerTransport>  trans(new tt::TServerSocket(port));
+        bo::shared_ptr<tt::TTransportFactory> tfact(new tt::TFramedTransportFactory());
+
+        ep_server = bo::shared_ptr<ts::TThreadedServer>(
+                new ts::TThreadedServer(ep_rpc_recv, trans, tfact, proto));
+    }
+    // ep_connect_server
+    // -----------------
+    // Connect a server using known IP and port.
+    //
+    void ep_connect_server(int port, const std::string &ip) {
+        ep_sock  = bo::shared_ptr<tt::TTransport>(new tt::TSocket(ip, port));
+        ep_trans = bo::shared_ptr<tt::TTransport>(new tt::TFramedTransport(ep_sock));
+        ep_proto = bo::shared_ptr<tp::TProtocol>(new tp::TBinaryProtocol(ep_trans));
+        ep_rpc_send = bo::shared_ptr<SendIf>(new SendIf(ep_proto));
+        try {
+            ep_trans->open();
+        } catch(at::TException &tx) {  // NOLINT
+            std::cout << "Error: " << tx.what() << std::endl;
+        }
+    }
     void ep_activate() {
         ep_setup_server();
         ep_client_connect();
@@ -150,21 +178,6 @@ class EndPoint : public EpSvcImpl
         ep_trans = bo::shared_ptr<tt::TTransport>(new tt::TFramedTransport(ep_sock));
         ep_proto = bo::shared_ptr<tp::TProtocol>(new tp::TBinaryProtocol(ep_trans));
         ep_rpc_send = bo::shared_ptr<SendIf>(new SendIf(ep_proto));
-    }
-    // ep_server_listen
-    // ----------------
-    //
-    void ep_setup_server()
-    {
-        int     port;
-
-        port = ep_attr->attr_get_port();
-        bo::shared_ptr<tp::TProtocolFactory>  proto(new tp::TBinaryProtocolFactory());
-        bo::shared_ptr<tt::TServerTransport>  trans(new tt::TServerSocket(port));
-        bo::shared_ptr<tt::TTransportFactory> tfact(new tt::TFramedTransportFactory());
-
-        ep_server = bo::shared_ptr<ts::TThreadedServer>(
-                new ts::TThreadedServer(ep_rpc_recv, trans, tfact, proto));
     }
 #if 0
     void ep_setup_server_nb()

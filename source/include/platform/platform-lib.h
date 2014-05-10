@@ -260,6 +260,7 @@ class Platform : public Module
     /**
      * Platform methods.
      */
+    bool plf_is_om_node();
     void plf_run_server(bool spawn_thr = false);
     void plf_rpc_om_handshake(fpi::FDSP_RegisterNodeTypePtr pkt);
     void plf_change_info(const plat_node_data_t *ndata);
@@ -289,6 +290,7 @@ class Platform : public Module
      */
     inline FDSP_MgrIdType plf_get_node_type() const { return plf_node_type; }
     inline fds_uint32_t   plf_get_om_ctrl_port() const { return plf_om_ctrl_port; }
+    inline fds_uint32_t   plf_get_om_svc_port() const { return plf_om_svc_port; }
     inline fds_uint32_t   plf_get_my_ctrl_port() const { return plf_my_ctrl_port; }
     inline fds_uint32_t   plf_get_my_conf_port() const { return plf_my_conf_port; }
     inline fds_uint32_t   plf_get_my_data_port() const { return plf_my_data_port; }
@@ -312,6 +314,7 @@ class Platform : public Module
     std::string                plf_my_ip;
     std::string                plf_om_ip_str;
     fds_uint32_t               plf_om_ctrl_port;
+    fds_uint32_t               plf_om_svc_port;
     fds_uint32_t               plf_my_ctrl_port;
     fds_uint32_t               plf_my_conf_port;
     fds_uint32_t               plf_my_data_port;

@@ -1,5 +1,6 @@
 topdir            := $(probe_topdir)/../..
 user_target       := test
+user_std_libs     := true
 user_rtime_env    := user
 
 user_incl_dir     += \
@@ -16,17 +17,9 @@ user_fds_ar_libs  +=  \
     fds-StorHvisor \
     fds-ubd \
     fds-am-plat \
-    fds-net-svc \
-    fds-plat-lib \
     fds-dsk-io \
     fds-dsk-mgnt \
-    fds-lib \
-    fds-umod \
-    fds-util \
-    fds-hash \
-    fds-fdsp \
-    fds-thread \
-    fds-osdep
+    fds-hash
 
 local_nginx_libs   :=  \
     ngx-http-module \
@@ -39,17 +32,8 @@ local_nginx_libs   :=  \
     pthread crypt pcre crypto z
 
 user_non_fds_libs +=  \
-    boost_log \
-    boost_system \
-    boost_thread \
-    boost_date_time \
-    boost_program_options \
-    boost_filesystem \
-    thrift \
     jansson \
-    config++ \
     rt \
-    hiredis \
     cryptopp \
     $(local_nginx_libs)
 

@@ -48,11 +48,13 @@ OM_Module::mod_init(SysParams const *const param)
 void
 OM_Module::mod_startup()
 {
+    Module::mod_startup();
 }
 
 void
 OM_Module::mod_shutdown()
 {
+    Module::mod_shutdown();
 }
 
 }  // namespace fds

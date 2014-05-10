@@ -1,5 +1,6 @@
 topdir            := ..
 user_target       := exe
+user_std_libs     := true
 user_rtime_env    := user
 user_install_loc  := exe
 user_build_dir    := \
@@ -16,25 +17,10 @@ user_fds_ar_libs  := \
     fds-om-dlt \
     fds-om-lib \
     fds-om-discovery \
-    fds-plat-lib \
-    fds-lib \
-    fds-util \
-    fds-xdi \
-    fds-fdsp \
-    fds-umod \
-    fds-thread
+    fds-xdi
 
 user_non_fds_libs := \
-    boost_log \
-    boost_system \
-    boost_filesystem \
-    boost_thread \
-    boost_date_time \
-    boost_program_options \
-    leveldb \
-    config++ \
-    hiredis \
-    thrift
+    leveldb
 
 # TODO: need to move Catalog.h to include, avoid cross module include ref.
 #
@@ -43,8 +29,7 @@ user_incl_dir     := $(topdir) include \
 	$(JAVA_HOME)/include/linux
 
 orch_mgr_cpp      := $(wildcard *.cpp)
-
-user_ld_flags := -shared
+user_ld_flags     := -shared
 
 user_hh           := $(wildcard *.h)
 user_no_style     := $(wildcard com_*.h)
