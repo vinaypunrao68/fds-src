@@ -5,7 +5,9 @@ user_build_dir   :=
 user_incl_dir    := ../include
 user_cpp         := \
     ep-map.cpp \
-    net-service.cpp
+    net-service.cpp \
+    net-platform.cpp \
+    net-registration.cpp
 
 user_ar_libs     := fds-net-platd
 fds-net-platd    := $(user_cpp) $(user_cc)

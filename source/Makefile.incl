@@ -1,2 +1,26 @@
+ifdef user_std_libs
+	user_fds_ar_libs += \
+		fds-plat-lib \
+		fds-lib \
+		fds-umod \
+		fds-util \
+		fds-net-svc \
+		fds-net-platd \
+		fds-fdsp \
+		fds-thread \
+		fds-osdep
+
+	user_non_fds_libs += \
+		boost_log \
+		boost_system \
+		boost_thread \
+		boost_date_time \
+		boost_program_options \
+		boost_filesystem \
+		thrift \
+		config++ \
+		hiredis
+endif
+
 incl_scripts := $(topdir)/Build/mk-scripts
 include $(incl_scripts)/Makefile.start

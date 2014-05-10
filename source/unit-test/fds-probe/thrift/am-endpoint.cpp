@@ -77,16 +77,22 @@ ProbeEpTestAM::mod_shutdown()
 int
 ProbeEpSvcTestAM::mod_init(SysParams const *const p)
 {
-    NetMgr *mgr;
+    NetMgr       *mgr;
+    fpi::SvcUuid  svc;
 
     Module::mod_init(p);
 
     // Locate service handle based on uuid; don't care where they are located.
     //
-    mgr      = NetMgr::ep_mgr_singleton();
-    am_hello = mgr->svc_lookup(ResourceUUID(0x1234), 1, 1);
-    am_bye   = mgr->svc_lookup(ResourceUUID(0xcafe), 3, 4);
-    am_poke  = mgr->svc_lookup(ResourceUUID(0xbeef), 5, 1);
+    mgr          = NetMgr::ep_mgr_singleton();
+    svc.svc_uuid = 0x1234;
+    am_hello     = mgr->svc_lookup(svc, 1, 1);
+
+    svc.svc_uuid = 0xcafe;
+    am_bye       = mgr->svc_lookup(svc, 3, 4);
+
+    svc.svc_uuid = 0xbeef;
+    am_poke      = mgr->svc_lookup(svc, 5, 1);
     return 0;
 }
 

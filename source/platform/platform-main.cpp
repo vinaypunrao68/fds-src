@@ -7,6 +7,7 @@
 #include <disk.h>
 #include <platform.h>
 #include <platform/fds-osdep.h>
+#include <net/net-service.h>
 
 namespace fds {
 
@@ -148,9 +149,9 @@ int main(int argc, char **argv)
     fds::Module *plat_vec[] = {
         &fds::gl_NodePlatform,
         &fds::gl_DiskPlatMod,
+        &fds::gl_netPlatform,
         NULL
     };
     fds::NodePlatformProc plat(argc, argv, plat_vec);
-    int ret = plat.main();
-    return ret;
+    return plat.main();
 }
