@@ -1,6 +1,6 @@
-#include "StorHvisorNet.h"
-#include "list.h"
-#include "StorHvisorCPP.h"
+#include "./StorHvisorNet.h"
+#include "./list.h"
+#include "./StorHvisorCPP.h"
 #include <arpa/inet.h>
 
 using namespace std;
@@ -224,6 +224,8 @@ FDSP_MetaDataPathRespCbackI::StatBlobResp(boost::shared_ptr<FDSP_MsgHdrType> &ms
 
 void FDSP_MetaDataPathRespCbackI::SetBlobMetaDataResp(boost::shared_ptr<FDSP_MsgHdrType>& header,
                                                       boost::shared_ptr<std::string>& blobName) {
+    LOGDEBUG << "received response for txn: "<< header->req_cookie;
+    storHvisor->setBlobMetaDataResp(header);
 }
 
 void FDSP_MetaDataPathRespCbackI::GetBlobMetaDataResp(boost::shared_ptr<FDSP_MsgHdrType>& header,

@@ -215,6 +215,8 @@ public:
     fds::Error getBlob(AmQosReq *qosReq);
     fds::Error deleteBlob(AmQosReq *qosReq);
     Error StatBlob(AmQosReq *qosReq);
+    Error SetBlobMetaData(AmQosReq *qosReq);
+
     fds::Error listBucket(AmQosReq *qosReq);
     fds::Error getBucketStats(AmQosReq *qosReq);
     fds::Error putObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
@@ -239,9 +241,10 @@ public:
     void getBucketStatsResp(const FDSP_MsgHdrTypePtr& rx_msg,
                             const FDSP_BucketStatsRespTypePtr& buck_stats);
 
+    void setBlobMetaDataResp(const FDSP_MsgHdrTypePtr rxMsg);
+
     void InitDmMsgHdr(const FDSP_MsgHdrTypePtr &msg_hdr);
     void InitSmMsgHdr(const FDSP_MsgHdrTypePtr &msg_hdr);
-  
     void fbd_process_req_timeout(unsigned long arg);
 
     int fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rx_msg);  
@@ -254,6 +257,7 @@ public:
     Error dispatchSmPutMsg(StorHvJournalEntry *journEntry, const NodeUuid &send_uuid);
     Error dispatchSmGetMsg(StorHvJournalEntry *journEntry);
 
+    
     friend class FDSP_MetaDataPathRespCbackI;
 
 private:
@@ -298,21 +302,16 @@ static void processBlobReq(AmQosReq *qosReq) {
             err = storHvisor->putBlob(qosReq);
             break;
 
-        case fds::FDS_DELETE_BLOB: 
+        case fds::FDS_DELETE_BLOB:
             err = storHvisor->deleteBlob(qosReq);
             break;
 
         case fds::FDS_STAT_BLOB:
             err = storHvisor->StatBlob(qosReq);
             break;
-            
-        case fds::FDS_LIST_BUCKET:
-            err = storHvisor->listBucket(qosReq);
-            break;
 
-        case fds::FDS_BUCKET_STATS:
-            err = storHvisor->getBucketStats(qosReq);
-            break;
+        case fds::FDS_SET_BLOB_METADATA:
+            err = storHvisor->SetBlobMetaData(qosReq);
 
         default :
             break;
@@ -321,4 +320,4 @@ static void processBlobReq(AmQosReq *qosReq) {
     fds_verify((err == ERR_OK) || (err == ERR_NOT_IMPLEMENTED));
 }
 
-#endif
+#endif  // SOURCE_STOR_HVISOR_STORHVISORNET_H_

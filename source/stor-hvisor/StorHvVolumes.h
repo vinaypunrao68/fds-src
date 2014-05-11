@@ -251,6 +251,18 @@ class StatBlobReq : public FdsBlobReq {
     }
 };
 
+struct SetBlobMetaDataReq : FdsBlobReq {
+    std::string volumeName;
+    boost::shared_ptr<FDSP_MetaDataList> metaDataList;
+    SetBlobMetaDataReq(fds_volid_t _volid,
+                       const std::string   &_vol_name,
+                       const std::string   &_blob_name,
+                       boost::shared_ptr<FDSP_MetaDataList> metaDataList,
+                       CallbackPtr cb) :
+            FdsBlobReq(FDS_STAT_BLOB, _volid, _blob_name, 0, 0, NULL, cb), volumeName(_vol_name),metaDataList(metaDataList) {
+                }
+};
+
 /**
  * AM request to locally attach a volume.
  * This request is not specific to a blob,
@@ -444,7 +456,7 @@ class BucketStatsReq: public FdsBlobReq {
   /* for "get all bucket stats", blob name in base class is set to 
    * "all", it's ok if some other bucket will have this name, because 
    * we can identify response to a request by trans id (once request is dispatched */
-
+    
   BucketStatsReq(void *_req_context,
 		 fdsnBucketStatsHandler _handler,
 		 void *_callback_data)

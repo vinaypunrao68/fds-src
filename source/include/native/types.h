@@ -328,10 +328,9 @@ namespace fds {
      *   - all member variables will be owned & destroyed by cb
      *   - these are interfaces :
      *     look at am-engine/handlers for implementation
-     */
-    
+     */    
     /** New Callback Scheme **/
-    
+
     /**
      * After filling the callback object , the call() method should be called.
      * Whether the call() method executes immediately / later / in a separate thread
@@ -342,12 +341,12 @@ namespace fds {
         FDSN_Status status = FDSN_StatusErrorUnknown;
         const ErrorDetails *errorDetails = NULL;
         Error error = ERR_MAX;
-            
+
         void operator()(FDSN_Status status = FDSN_StatusErrorUnknown);
         void call(FDSN_Status status);
         bool isStatusSet();
-        bool isErrorSet();            
-            
+        bool isErrorSet();
+
         virtual void call() = 0;
         virtual ~Callback();
     };
@@ -417,7 +416,6 @@ namespace fds {
                    char              *_dataBuf,
                    CallbackPtr cb
                    );
-        
         template<typename F, typename A, typename B, typename C>
         FdsBlobReq(fds_io_op_t      _op,
                    fds_volid_t        _volId,
@@ -466,7 +464,7 @@ namespace fds {
         explicit ScopedCallBack(CallbackPtr cb);
         ~ScopedCallBack();
     };
-    
+
     struct StatBlobCallback : virtual Callback {
         typedef boost::shared_ptr<StatBlobCallback> ptr;
         /// The blob descriptor to fill in

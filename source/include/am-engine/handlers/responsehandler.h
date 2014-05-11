@@ -34,6 +34,7 @@ namespace fds {
     };
 
     struct SimpleResponseHandler : ResponseHandler {
+        typedef boost::shared_ptr<SimpleResponseHandler> ptr;
         std::string name;
         SimpleResponseHandler();
         SimpleResponseHandler(const std::string& name);

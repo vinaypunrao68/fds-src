@@ -121,9 +121,7 @@ class FdsnIf : public apis::AmServiceIf {
         StartBlobTxResponseHandler::ptr handler(
             new StartBlobTxResponseHandler(_return));
 
-        am_api->StartBlobTx(*volumeName,
-                            *blobName,
-                            SHARED_DYN_CAST(Callback, handler));
+        am_api->StartBlobTx(*volumeName, *blobName, SHARED_DYN_CAST(Callback, handler));
 
         handler->wait();
         handler->process();
@@ -217,8 +215,21 @@ class FdsnIf : public apis::AmServiceIf {
                         boost::shared_ptr<std::string>& volumeName,
                         boost::shared_ptr<std::string>& blobName,
                         boost::shared_ptr<apis::TxDescriptor>& txDesc,
-                        boost::shared_ptr<
-                            std::map<std::string, std::string> >& metadata) {
+                        boost::shared_ptr< std::map<std::string, std::string> >& metadata) {
+        SimpleResponseHandler::ptr handler(new SimpleResponseHandler(__func__));
+        boost::shared_ptr<fpi::FDSP_MetaDataList> metaDataList(new fpi::FDSP_MetaDataList());
+
+        fpi::FDSP_MetaDataPair metaPair;
+        for (auto const & meta : *metadata) {
+            metaPair.key = meta.first;
+            metaPair.value = meta.second;
+            metaDataList->push_back(metaPair);
+        }
+
+        am_api->setBlobMetaData(*volumeName, *blobName, metaDataList,
+                                SHARED_DYN_CAST(Callback, handler));
+        handler->wait();
+        handler->process();
     }
 
     void updateBlob(const std::string& domainName,
