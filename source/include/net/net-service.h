@@ -7,6 +7,7 @@
 #include <netinet/in.h>
 #include <string>
 #include <fds_module.h>
+#include <fds_process.h>
 #include <fds_typedefs.h>
 #include <shared/fds-constants.h>
 #include <fdsp/fds_service_types.h>
@@ -199,6 +200,13 @@ class EpSvc
 
     virtual ~EpSvc() {}
 
+    // Return the raw receive handler for this service endpoint.
+    //
+    template <class RecvIf>
+    boost::shared_ptr<RecvIf> ep_rpc_recv() {
+        return boost::static_pointer_cast<RecvIf>(ep_get_rcv_handler());
+    }
+
   private:
     friend class NetMgr;
     mutable boost::atomic<int>       ep_refcnt;
@@ -212,8 +220,9 @@ class EpSvc
             delete x;
         }
     }
-    fds_uint64_t  ep_my_uuid() { return svc_id.svc_uuid.svc_uuid; }
-    virtual void *ep_get_rcv_handler() { return NULL; }
+    virtual fds_uint64_t ep_my_uuid() { return svc_id.svc_uuid.svc_uuid; }
+    virtual fds_uint64_t ep_peer_uuid() { return INVALID_RESOURCE_UUID.uuid_get_val(); }
+    virtual void        *ep_get_rcv_handler() { return NULL; }
 };
 
 /**
@@ -271,6 +280,8 @@ typedef std::unordered_map<fds_uint64_t, int>             UuidShmMap;
 typedef std::unordered_map<fds_uint64_t, EpSvc::pointer>  UuidSvcMap;
 typedef std::unordered_map<int, EpSvc::pointer>           PortSvcMap;
 
+struct ep_map_rec;
+
 /**
  * Singleton module manages all endpoints.
  */
@@ -287,12 +298,19 @@ class NetMgr : public Module
     virtual void mod_shutdown();
 
     static NetMgr *ep_mgr_singleton() { return &gl_netService; }
+    static fds_threadpool *ep_mgr_thrpool() { return g_fdsprocess->proc_thrpool(); }
+
+    /**
+     * Return all uuid binding records.  The RO array may have hole(s) where uuids
+     * are 0 for invalid record.  Return the number of elements in the output map.
+     */
+    virtual int  ep_uuid_bindings(const struct ep_map_rec **map);
 
     /**
      * Endpoint registration and lookup.
      */
-    virtual void  ep_register(EpSvc::pointer ep);
-    virtual void  ep_unregister(const fpi::SvcUuid &uuid);
+    virtual void ep_register(EpSvc::pointer ep, bool update_domain = true);
+    virtual void ep_unregister(const fpi::SvcUuid &uuid);
 
     /**
      * Look up a service handler based on its uuid/name and major/minor version.

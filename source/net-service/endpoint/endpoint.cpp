@@ -94,6 +94,14 @@ EpSvcImpl::ep_lookup_service(const ResourceUUID &uuid)
     return NULL;
 }
 
+// ep_input_event
+// --------------
+//
+void
+EpSvcImpl::ep_input_event(fds_uint32_t evt)
+{
+}
+
 // ep_lookup_service
 // -----------------
 //

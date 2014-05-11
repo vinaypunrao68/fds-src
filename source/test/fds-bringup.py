@@ -19,6 +19,8 @@ if __name__ == '__main__':
                       help = 'install fds package to remote machines')
     parser.add_option('-m', '--manual', action = 'store_true', dest = 'manual',
                       help = 'Only run OM and platform, admit nodes manually')
+    parser.add_option('-U', '--UP', action = 'store_true', dest = 'platf_up',
+                      help = 'bring up platform only')
     parser.add_option('-u', '--up', action = 'store_true', dest = 'clus_up',
                       help = 'bring up cluster')
     parser.add_option('-d', '--down', action = 'store_true', dest = 'clus_down',
@@ -63,6 +65,11 @@ if __name__ == '__main__':
             n.nd_cleanup_node()
 
     if options.clus_up is None:
+        sys.exit(0)
+
+    if options.platf_up:
+        for n in nodes:
+            n.nd_start_platform('localhost')
         sys.exit(0)
 
     # If we have scenarios to run steps, run them
