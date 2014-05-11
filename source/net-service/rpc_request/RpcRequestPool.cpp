@@ -27,11 +27,12 @@ RpcRequestPool::~RpcRequestPool()
  * @param uuid
  * @return
  */
+#if 0
 EPRpcRequestPtr RpcRequestPool::newEPRpcRequest(const fpi::SvcUuid &uuid)
 {
     return EPRpcRequestPtr(new EPRpcRequest(uuid));
 }
-
+#endif
 /**
  * Constructs EPAsyncRpcRequest object
  * @param uuid

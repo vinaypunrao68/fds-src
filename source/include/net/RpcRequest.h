@@ -11,7 +11,198 @@
 #include <fds_typedefs.h>
 #include <fdsp/fds_service_types.h>
 #include <fds_error.h>
+#include <net/RpcFunc.h>
 
+namespace fds {
+
+/* Async rpc request identifier */
+typedef uint64_t AsyncRpcRequestId;
+
+/* Async rpc request callback types */
+typedef std::function<void(VoidPtr)> RpcRequestSuccessCb;
+typedef std::function<void(const Error&, VoidPtr)> RpcRequestErrorCb;
+typedef std::function<void(const Error&, VoidPtr, bool&)> RpcFailoverCb;
+
+/* Async rpc request states */
+enum AsyncRpcState {
+    PRIOR_INVOCATION,
+    INVOCATION_PROGRESS,
+    RPC_COMPLETE
+};
+
+/**
+ * Based class for async rpc requests
+ */
+class AsyncRpcRequestIf {
+ public:
+    AsyncRpcRequestIf()
+    : AsyncRpcRequestIf(0)
+    {
+    }
+
+    explicit AsyncRpcRequestIf(const AsyncRpcRequestId &id)
+    : id_(id)
+    {
+    }
+
+    virtual ~AsyncRpcRequestIf() {}
+
+    virtual void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
+            boost::shared_ptr<std::string>& payload) = 0;
+
+    virtual void complete(const Error& error) {
+        state_ = RPC_COMPLETE;
+        error_ = error;
+    }
+
+    /**
+     *
+     * @return
+     */
+    virtual bool isComplete()
+    {
+        return state_ == RPC_COMPLETE;
+    }
+
+
+    void setRpcFunc(RpcFuncPtr rpc) {
+        rpc_ = rpc;
+    }
+
+    void setTimeoutMs(const uint32_t &timeout_ms) {
+        timeoutMs_ = timeout_ms;
+    }
+    uint32_t getTimeout() {
+        return timeoutMs_;
+    }
+    AsyncRpcRequestId getRequestId() {
+        return id_;
+    }
+    void setRequestId(const AsyncRpcRequestId &id) {
+        id_ = id;
+    }
+
+ protected:
+    RpcFuncPtr rpc_;
+    /* Request Id */
+    AsyncRpcRequestId id_;
+    /* Async rpc state */
+    AsyncRpcState state_;
+    /* Error if any */
+    Error error_;
+    /* Timeout */
+    uint32_t timeoutMs_;
+};
+typedef boost::shared_ptr<AsyncRpcRequestIf> AsyncRpcRequestIfPtr;
+
+/**
+ * Wrapper around asynchronous rpc request
+ */
+class EPAsyncRpcRequest : public AsyncRpcRequestIf {
+ public:
+    EPAsyncRpcRequest()
+     : EPAsyncRpcRequest(0, fpi::SvcUuid())
+    {
+    }
+
+    EPAsyncRpcRequest(const AsyncRpcRequestId &id,
+            const fpi::SvcUuid &uuid)
+    : AsyncRpcRequestIf(id)
+    {
+        svcId_ = uuid;
+    }
+
+    void onSuccessCb(RpcRequestSuccessCb &cb) {
+        successCb_ = cb;
+    }
+
+    void onErrorCb(RpcRequestErrorCb &cb) {
+        errorCb_ = cb;
+    }
+
+    virtual void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
+            boost::shared_ptr<std::string>& payload) override {
+        Error e;
+        // TODO(Rao): Parse out the error
+        // parse out the payload
+        if (e != ERR_OK) {
+            if (errorCb_) {
+                errorCb_(e, payload);
+            } else {
+                // TODO(Rao): Handle the error
+            }
+            return;
+        }
+
+        if (successCb_) {
+            successCb_(payload);
+        }
+    }
+
+ protected:
+    /* Response callbacks.  If set they are invoked in handleResponse() */
+    fpi::SvcUuid svcId_;
+    RpcRequestSuccessCb successCb_;
+    RpcRequestErrorCb errorCb_;
+};
+typedef boost::shared_ptr<EPAsyncRpcRequest> EPAsyncRpcRequestPtr;
+
+struct AsyncRpcEpInfo {
+    explicit AsyncRpcEpInfo(const fpi::SvcUuid &id)
+    : epId(id), status(ERR_OK)
+    {
+    }
+
+    fpi::SvcUuid epId;
+    Error status;
+};
+
+/**
+ *
+ */
+class FailoverRpcRequest : public AsyncRpcRequestIf {
+ public:
+    FailoverRpcRequest();
+
+    FailoverRpcRequest(const AsyncRpcRequestId& id,
+            const std::vector<fpi::SvcUuid>& uuid);
+
+    void addEndpoint(const fpi::SvcUuid& uuid);
+
+    void onFailoverCb(RpcFailoverCb& cb);
+
+    void onSuccessCb(RpcRequestSuccessCb& cb);
+
+    void onErrorCb(RpcRequestErrorCb& cb);
+
+    void invoke();
+
+    void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
+            boost::shared_ptr<std::string>& payload);
+
+ protected:
+    void moveToNextHealthyEndpoint_();
+    void invokeInternal_();
+
+    /* Lock for synchronizing response handling */
+    fds_mutex respLock_;
+
+    /* Next endpoint to invoke the request on */
+    uint8_t curEpIdx_;
+
+    /* Endpoint collection */
+    std::vector<AsyncRpcEpInfo> eps_;
+
+    /* Callback to invoke before failing over to the next endpoint */
+    RpcFailoverCb failoverCb_;
+    /* Callback to invoke when response is succesfully received */
+    RpcRequestSuccessCb successCb_;
+    /* Callback to invoke when all the endpoints have failed */
+    RpcRequestErrorCb errorCb_;
+};
+typedef boost::shared_ptr<FailoverRpcRequest> FailoverRpcRequestPtr;
+
+#if 0
 /**
  * Helper macro for invoking an rpc
  * req - RpcRequest context object
@@ -39,65 +230,74 @@
         }                                                                   \
     } while (false)
 
-namespace fds {
 
-/* Async rpc request identifier */
-typedef uint64_t AsyncRpcRequestId;
 
 /**
  * Base class for rpc request
  */
+template <class ServiceT, class ArgT>
 class RpcRequestIf {
  public:
     virtual ~RpcRequestIf() {}
 
-    virtual void handleError(const Error&e, VoidPtr resp) = 0;
+    void setRpc(std::function<void(ArgT)> rpc, ArgT& arg) {
+        rpc_ = rpc;
+        rpcArg_ = arg;
+    }
 
-    void setError(const Error &e);
-    Error getError() const;
+    virtual void handleError(const Error&e, VoidPtr resp) = 0;
+    virtual void invoke() = 0;
+
+    void setError(const Error &e) {
+        error_ = e;
+    }
+
+    Error getError() const {
+        return error_;
+    }
 
  protected:
     /* RPC Request error if any */
     Error error_;
+    /* Rpc to invoke */
+    std::function<void(ArgT)> rpc_;
+    /* Argument to rpc call */
+    ArgT rpcArg_;
 };
 
-/**
- * Based class for async rpc requests
- */
-class AsyncRpcRequestIf {
- public:
-    virtual ~AsyncRpcRequestIf() {}
-
-    virtual void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
-            boost::shared_ptr<std::string>& payload) = 0;
-    virtual void complete(const Error &status) = 0;
-
-    void setTimeoutMs(const uint32_t &timeout_ms);
-    uint32_t getTimeout();
-
-    AsyncRpcRequestId getRequestId();
-    void setRequestId(const AsyncRpcRequestId &id);
-
- protected:
-    /* Request Id */
-    AsyncRpcRequestId id_;
-};
-typedef boost::shared_ptr<AsyncRpcRequestIf> AsyncRpcRequestIfPtr;
 
 /**
  * RPC request for single endpoint
  */
-class EPRpcRequest : public RpcRequestIf {
+template <class ServiceT, class ArgT>
+class EPRpcRequest : public RpcRequestIf<ServiceT, ArgT> {
  public:
-    EPRpcRequest();
-    explicit EPRpcRequest(const fpi::SvcUuid &uuid);
-    virtual ~EPRpcRequest();
+    EPRpcRequest()
+     : EPRpcRequest(fpi::SvcUuid()) {
+    }
 
-    void setEndpointId(const fpi::SvcUuid &uuid);
-    fpi::SvcUuid getEndpointId() const;
+    explicit EPRpcRequest(const fpi::SvcUuid &uuid) {
+        epId_ = uuid;
+    }
 
-    virtual void handleError(const Error&e, VoidPtr resp) override;
-    Error getError() const;
+    virtual ~EPRpcRequest() {
+    }
+
+    void setEndpointId(const fpi::SvcUuid &uuid) {
+        epId_ = uuid;
+    }
+
+    fpi::SvcUuid getEndpointId() const {
+        return epId_;
+    }
+
+    virtual void handleError(const Error&e, VoidPtr resp) override {
+        // TODO(Rao): Handle error
+    }
+
+    virtual void invoke() {
+        // TODO(Rao): Implement
+    }
 
     /**
      * Wrapper for invoking the member function on an endpoint
@@ -119,7 +319,7 @@ class EPRpcRequest : public RpcRequestIf {
     }
 
 
-#if 0
+
     /**
      * Wrapper for invoking the member function on an endpoint
      * @param mf - member function
@@ -139,7 +339,6 @@ class EPRpcRequest : public RpcRequestIf {
         }
         return ret;
     }
-#endif
 
  protected:
     /* Endpoint id */
@@ -147,71 +346,10 @@ class EPRpcRequest : public RpcRequestIf {
     /* Error if any was set */
     Error error_;
 };
-typedef boost::shared_ptr<EPRpcRequest> EPRpcRequestPtr;
+// typedef boost::shared_ptr<EPRpcRequest> EPRpcRequestPtr;
+#endif
 
-/* Async rpc request callback type */
-typedef std::function<void(VoidPtr)> RpcRequestSuccessCb;
-typedef std::function<void(const Error &, VoidPtr)> RpcRequestErrorCb;
 
-/**
- * Wrapper around asynchronous rpc request
- */
-class EPAsyncRpcRequest : public EPRpcRequest, public AsyncRpcRequestIf {
- public:
-    EPAsyncRpcRequest();
-    EPAsyncRpcRequest(const AsyncRpcRequestId &id,
-            const fpi::SvcUuid &uuid);
-
-    void onSuccessCb(RpcRequestSuccessCb &cb);
-    void onErrorCb(RpcRequestErrorCb &cb);
-
-    virtual void complete(const Error &status) override;
-    virtual void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
-            boost::shared_ptr<std::string>& payload) override;
-
- protected:
-    /* Response callbacks.  If set they are invoked in handleResponse() */
-    RpcRequestSuccessCb successCb_;
-    RpcRequestErrorCb errorCb_;
-};
-typedef boost::shared_ptr<EPAsyncRpcRequest> EPAsyncRpcRequestPtr;
-
-/**
- *
- */
-class FailoverRpcRequest : public AsyncRpcRequestIf {
- public:
-    FailoverRpcRequest();
-    FailoverRpcRequest(const AsyncRpcRequestId &id,
-            const std::vector<fpi::SvcUuid> &uuid);
-
-    void addEndpoint(const fpi::SvcUuid &uuid);
-    void onFailoverCb(RpcRequestErrorCb &cb);
-    void onSuccessCb(RpcRequestSuccessCb &cb);
-    void onErrorCb(RpcRequestErrorCb &cb);
-
-    virtual void complete(const Error &status) override;
-    virtual void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
-            boost::shared_ptr<std::string>& payload) override;
-
- protected:
-    /* Lock for this request */
-    fds_spinlock lock_;
-
-    /* Next endpoint to invoke the request on */
-    uint8_t nextEp_;
-
-    /* Endpoint collection */
-    std::vector<fpi::SvcUuid> eps_;
-
-    /* Callback to invoke before failing over to the next endpoint */
-    RpcRequestErrorCb failoverCb_;
-    /* Callback to invoke when response is succesfully received */
-    RpcRequestErrorCb successCb_;
-    /* Callback to invoke when all the endpoints have failed */
-    RpcRequestErrorCb errorCb_;
-};
-typedef boost::shared_ptr<FailoverRpcRequest> FailoverRpcRequestPtr;
 
 }  // namespace fds
 
