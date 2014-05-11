@@ -320,6 +320,7 @@ class Platform : public Module
     fds_uint32_t               plf_my_data_port;
     fds_uint32_t               plf_my_migr_port;
 
+    PmAgent::pointer           plf_domain;
     OmAgent::pointer           plf_master;
     DomainNodeInv::pointer     plf_node_inv;
     DomainClusterMap::pointer  plf_clus_map;

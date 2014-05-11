@@ -5,13 +5,15 @@
 #define SOURCE_INCLUDE_PLATFORM_NODE_INVENTORY_H_
 
 #include <string>
+#include <ostream>
 #include <boost/shared_ptr.hpp>
 #include <fds_error.h>
 #include <fds_resource.h>
 #include <fds_module.h>
-#include <platform/platform-rpc.h>
-#include <ostream>
 #include <serialize.h>
+#include <net/net-service.h>
+#include <platform/platform-rpc.h>
+
 namespace fds {
 
 typedef fpi::FDSP_RegisterNodeType     FdspNodeReg;
@@ -143,6 +145,8 @@ class NodeInventory : public Resource
     void node_set_inventory(NodeInvData const *const inv);
 };
 
+class EpSvcHandle;
+
 /**
  * --------------------------------------------------------------------------------------
  * Agent interface to communicate with the remote node.  This is the communication
@@ -162,6 +166,8 @@ class NodeAgent : public NodeInventory
     static inline NodeAgent::pointer agt_cast_ptr(Resource::pointer ptr) {
         return static_cast<NodeAgent *>(get_pointer(ptr));
     }
+    virtual void agt_register_domain(const fpi::DomainID &id);
+
     /**
      * Return the storage weight -- currently capacity in GB / 10
      */
@@ -169,8 +175,10 @@ class NodeAgent : public NodeInventory
     virtual void         node_set_weight(fds_uint64_t weight);
 
   protected:
+    boost::intrusive_ptr<EpSvcHandle>   agt_rpc;
+
     virtual ~NodeAgent() {}
-    explicit NodeAgent(const NodeUuid &uuid) : NodeInventory(uuid) {}
+    explicit NodeAgent(const NodeUuid &uuid) : NodeInventory(uuid), agt_rpc(NULL) {}
 };
 
 class PmAgent : public NodeAgent
@@ -259,6 +267,9 @@ class OmAgent : public NodeAgent
     void init_node_reg_pkt(fpi::FDSP_RegisterNodeTypePtr pkt) const;
     void om_register_node(fpi::FDSP_RegisterNodeTypePtr);
 
+    /**
+     * TODO(Vy): remove this API and use the net service one.
+     */
     virtual void
     om_handshake(boost::shared_ptr<netSessionTbl> net,
                  OmRespDispatchPtr                om_disp,

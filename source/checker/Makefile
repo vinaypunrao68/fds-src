@@ -1,5 +1,6 @@
 topdir            := ..
 user_target       := exe 
+user_std_libs     := true
 user_rtime_env    := user
 
 user_incl_dir     := \
@@ -17,38 +18,17 @@ user_fds_ar_libs  := \
     fds-migrations\
     fds-StorHvisor \
     fds-am-plat \
-    fds-plat-lib \
-    fds-lib \
     fds-dsk-mgnt \
-    fds-umod \
     fds-dsk-io \
-    fds-thread \
-    fds-util \
     fds-odb \
-    fds-vpolicy \
-    fds-fdsp \
-    fds-hash \
-    fds-probe-adapters \
-    fds-probe-blk \
-    fds-probe \
-    fds-osdep
+    fds-vpolicy
 
 user_non_fds_libs := \
-    boost_log \
-    boost_system \
-    boost_filesystem \
-    boost_thread \
-    boost_date_time \
-    boost_program_options \
     boost_timer \
     leveldb \
     ssl \
     cryptopp \
-    leveldb \
-    fuse \
-    config++ \
-    thrift \
-    hiredis \
+    leveldb
 
 user_cpp          := checker.cpp 
 

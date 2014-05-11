@@ -69,6 +69,8 @@ class EpSvcImpl : public EpSvc
     void ep_fillin_binding(struct ep_map_rec *map);
 };
 
+class NetPlatSvc;
+
 /**
  * Endpoint is the logical RPC representation of a physical connection.
  * Thrift template implementation.
@@ -116,18 +118,42 @@ class EndPoint : public EpSvcImpl
     }
     // ep_connect_server
     // -----------------
-    // Connect a server using known IP and port.
+    // Connect to a server by its known IP and port.  Thrift's connection handles are
+    // saved by the caller.
     //
-    void ep_connect_server(int port, const std::string &ip) {
-        ep_sock  = bo::shared_ptr<tt::TTransport>(new tt::TSocket(ip, port));
-        ep_trans = bo::shared_ptr<tt::TTransport>(new tt::TFramedTransport(ep_sock));
-        ep_proto = bo::shared_ptr<tp::TProtocol>(new tp::TBinaryProtocol(ep_trans));
-        ep_rpc_send = bo::shared_ptr<SendIf>(new SendIf(ep_proto));
+    void ep_connect_server(int port, const std::string &ip,
+                           bo::shared_ptr<SendIf>         *out,
+                           bo::shared_ptr<tt::TTransport> *trans)
+    {
+        if ((*trans) != NULL) {
+            // Reset the old connection.
+            (*trans)->close();
+        } else {
+            bo::shared_ptr<tt::TTransport> sock(new tt::TSocket(ip, port));
+            *trans = bo::shared_ptr<tt::TTransport>(new tt::TFramedTransport(sock));
+
+            bo::shared_ptr<tp::TProtocol>  proto(new tp::TBinaryProtocol(*trans));
+            *out = bo::shared_ptr<SendIf>(new SendIf(proto));
+        }
         try {
-            ep_trans->open();
+            (*trans)->open();
         } catch(at::TException &tx) {  // NOLINT
             std::cout << "Error: " << tx.what() << std::endl;
         }
+    }
+    // Connect to the server, return the net-service handle to represent the client
+    // side of the connection.
+    //
+    EpSvcHandle::pointer ep_server_handle(int port, const std::string &ip)
+    {
+        EpSvcHandle::pointer clnt = new EpSvcHandle();
+        ep_connect_server(port, ip, &clnt->ep_rpc, &clnt->ep_trans);
+        return clnt;
+    }
+    // Connect to the server.  Save connection handles to this endpoint.
+    //
+    void ep_connect_server(int port, const std::string &ip) {
+        ep_connect_server(port, ip, &ep_rpc_send, &ep_trans);
     }
     void ep_activate() {
         ep_setup_server();
@@ -146,13 +172,10 @@ class EndPoint : public EpSvcImpl
     //
 
   protected:
-    friend class NetMgr;
+    friend class NetPlatSvc;
     bo::shared_ptr<SendIf>                 ep_rpc_send;
-    bo::shared_ptr<tt::TTransport>         ep_sock;
-    bo::shared_ptr<tt::TTransport>         ep_trans;
-    bo::shared_ptr<tp::TProtocol>          ep_proto;
-
     bo::shared_ptr<RecvIf>                 ep_rpc_recv;
+    bo::shared_ptr<tt::TTransport>         ep_trans;
     bo::shared_ptr<ts::TThreadedServer>    ep_server;
     bo::shared_ptr<ts::TNonblockingServer> ep_nb_srv;
 
@@ -165,6 +188,7 @@ class EndPoint : public EpSvcImpl
     //
     void ep_client_connect()
     {
+#if 0
         int         port;
         const char *host = "localhost";
 
@@ -178,6 +202,7 @@ class EndPoint : public EpSvcImpl
         ep_trans = bo::shared_ptr<tt::TTransport>(new tt::TFramedTransport(ep_sock));
         ep_proto = bo::shared_ptr<tp::TProtocol>(new tp::TBinaryProtocol(ep_trans));
         ep_rpc_send = bo::shared_ptr<SendIf>(new SendIf(ep_proto));
+#endif
     }
 #if 0
     void ep_setup_server_nb()
@@ -199,13 +224,10 @@ class EndPoint : public EpSvcImpl
     // ep_init_obj
     // -----------
     //
-    void ep_init_obj()
-    {
-        ep_rpc_send = NULL;
-        ep_sock     = NULL;
+    void ep_init_obj() {
         ep_trans    = NULL;
-        ep_proto    = NULL;
         ep_server   = NULL;
+        ep_rpc_send = NULL;
     }
 };
 

@@ -4,6 +4,7 @@
 #include <string>
 #include <stdlib.h>
 #include <dlt.h>
+#include <net-platform.h>
 #include <platform/platform-lib.h>
 
 namespace fds {
@@ -230,6 +231,21 @@ void
 NodeAgent::node_set_weight(fds_uint64_t weight)
 {
     const_cast<NodeInvData *>(node_inv)->nd_gbyte_cap = weight;
+}
+
+// agt_register_domain
+// -------------------
+// Register the node agent to the known domain controller.
+//
+void
+NodeAgent::agt_register_domain(const fpi::DomainID &id)
+{
+    NetPlatform *net;
+
+    if (agt_rpc == NULL) {
+        net = NetPlatform::nplat_singleton();
+        agt_rpc = net->nplat_domain_rpc(id);
+    }
 }
 
 AgentContainer::AgentContainer(FdspNodeType id) : RsContainer()

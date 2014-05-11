@@ -49,9 +49,11 @@ class NetPlatSvc : public Module
     virtual void mod_shutdown();
 
   protected:
+    friend class NetPlatform;
     PlatEpPtr                            plat_ep;
     PlatNetPlugin::pointer               plat_ep_plugin;
     bo::shared_ptr<NetPlatHandler>       plat_ep_hdler;
+    EpSvcHandle::pointer                 plat_rpc;
     Platform                            *plat_lib;
 };
 

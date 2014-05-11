@@ -21,7 +21,6 @@ NetPlatform::NetPlatform(const char *name) : Module(name)
 {
     static Module *net_plat_deps[] = {
         gl_PlatformSvc,
-        &gl_EpPlatform,
         &lo_netSvc,
         NULL
     };
@@ -47,6 +46,16 @@ NetPlatform::mod_shutdown()
     Module::mod_shutdown();
 }
 
+// nplat_domain_rpc
+// ----------------
+// Get the RPC handles needed to contact the master platform services.
+//
+EpSvcHandle::pointer
+NetPlatform::nplat_domain_rpc(const fpi::DomainID &id)
+{
+    return lo_netSvc.plat_rpc;
+}
+
 /*
  * -----------------------------------------------------------------------------------
  * Internal module
@@ -58,13 +67,18 @@ net_platform_server(PlatEpPtr ep)
     ep->ep_run_server();
 }
 
-NetPlatSvc::NetPlatSvc(const char *name) : Module(name) {}
+NetPlatSvc::NetPlatSvc(const char *name) : Module(name)
+{
+    plat_ep        = NULL;
+    plat_ep_plugin = NULL;
+    plat_ep_hdler  = NULL;
+    plat_rpc       = NULL;
+    plat_lib       = NULL;
+}
 
 int
 NetPlatSvc::mod_init(SysParams const *const p)
 {
-    FdsConfigAccessor conf(g_fdsprocess->get_conf_helper());
-
     Module::mod_init(p);
     plat_lib       = Platform::platf_singleton();
     plat_ep_hdler  = bo::shared_ptr<NetPlatHandler>(new NetPlatHandler(this));
@@ -98,12 +112,17 @@ NetPlatSvc::mod_enable_service()
         std::cout << "This is OM node" << std::endl;
         return;
     }
+    if (plat_rpc != NULL) {
+        return;
+    }
     port = plat_lib->plf_get_om_svc_port();
     std::cout << "Trying to contact platform on OM "
         << *plat_lib->plf_get_om_ip() << ", port " << port << std::endl;
     std::cout << "My ip " << *plat_lib->plf_get_my_ip() << std::endl;
 
     plat_ep->ep_connect_server(port, *plat_lib->plf_get_om_ip());
+    plat_rpc = new EpSvcHandle(boost::static_pointer_cast<void>(plat_ep->ep_rpc_send),
+                               plat_ep->ep_trans);
     std::cout << "connected..." << std::endl;
 }
 

@@ -1,7 +1,7 @@
 topdir           := ../..
 user_target      := lib
 user_rtime_env   := user
-# user_cpp_flags   := -Wall -Werror
+user_incl_dir    := $(topdir)/net-service/include
 user_cc          :=
 user_cpp         := \
     platform-lib.cpp \

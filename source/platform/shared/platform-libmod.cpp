@@ -23,7 +23,7 @@ Platform::Platform(char const *const         name,
                    DomainClusterMap::pointer cluster,
                    DomainResources::pointer  resources,
                    OmAgent::pointer          master)
-    : Module(name), plf_node_type(node_type), plf_master(master),
+    : Module(name), plf_node_type(node_type), plf_domain(NULL), plf_master(master),
       plf_node_inv(node_inv), plf_clus_map(cluster), plf_resources(resources)
 {
     plf_node_evt         = NULL;
@@ -105,6 +105,7 @@ void
 Platform::plf_rpc_om_handshake(fpi::FDSP_RegisterNodeTypePtr reg)
 {
     if (plf_master == NULL) {
+        fds_verify(plf_domain == NULL);
         fds_verify(plf_om_resp == NULL);
 
         plf_master  = new OmAgent(0);
