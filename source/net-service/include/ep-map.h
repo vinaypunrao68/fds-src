@@ -5,8 +5,10 @@
 #define SOURCE_NET_SERVICE_INCLUDE_EP_MAP_H_
 
 #include <netinet/in.h>
+#include <string>
 #include <fds_module.h>
 #include <shared/fds-constants.h>
+#include <concurrency/Mutex.h>
 
 namespace fds {
 
@@ -47,14 +49,16 @@ class EpPlatLibMod : public Module
     virtual void mod_shutdown();
 
     virtual int  ep_map_record(const ep_map_rec_t *rec);
-    virtual int  ep_unmap_record(fds_uint64_t uuid);
+    virtual int  ep_unmap_record(fds_uint64_t uuid, int idx);
     virtual int  ep_lookup_rec(fds_uint64_t uuid, ep_map_rec_t *out);
+    virtual int  ep_lookup_rec(int idx, fds_uint64_t uuid, ep_map_rec_t *out);
     virtual int  ep_lookup_rec(const char *name, ep_map_rec_t *out);
 
     const ep_map_rec_t *ep_get_rec(int idx);
 
   protected:
     ep_map_t                *ep_shm_map;
+    fds_mutex                ep_mtx;
 };
 
 class EpPlatformMod : public EpPlatLibMod
@@ -71,7 +75,7 @@ class EpPlatformMod : public EpPlatLibMod
     virtual void mod_shutdown();
 
     virtual int  ep_map_record(const ep_map_rec_t *rec);
-    virtual int  ep_unmap_record(fds_uint64_t uuid);
+    virtual int  ep_unmap_record(fds_uint64_t uuid, int idx);
     virtual int  ep_lookup_rec(fds_uint64_t uuid, ep_map_rec_t *out);
     virtual int  ep_lookup_rec(const char *name, ep_map_rec_t *out);
 };

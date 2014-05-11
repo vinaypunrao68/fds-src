@@ -284,6 +284,7 @@ class Platform : public Module
     virtual int  mod_init(SysParams const *const param) override;
     virtual void mod_startup() override;
     virtual void mod_shutdown() override;
+    virtual void mod_enable_service() override;
 
     /**
      * Pull out common platform data.
@@ -300,6 +301,8 @@ class Platform : public Module
     inline std::string const *const plf_get_my_ip() const { return &plf_my_ip; }
     inline std::string const *const plf_get_om_ip() const { return &plf_om_ip_str; }
 
+    inline OmAgent::pointer      plf_om_master() const { return plf_master; }
+    inline PmAgent::pointer      plf_domain_ctrl() const { return plf_domain; }
     inline NodeUuid const *const plf_get_my_uuid() const { return &plf_my_uuid; }
     inline NodeUuid const *const plf_get_my_svc_uuid() const { return &plf_my_svc_uuid; }
 

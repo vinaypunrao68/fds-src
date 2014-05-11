@@ -71,6 +71,7 @@ AmPlatform::mod_init(SysParams const *const param)
 void
 AmPlatform::mod_startup()
 {
+    Platform::mod_startup();
 }
 
 void

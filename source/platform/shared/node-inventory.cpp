@@ -252,17 +252,12 @@ AgentContainer::agent_handshake(boost::shared_ptr<netSessionTbl> net,
 // PM Agent
 // --------------------------------------------------------------------------------------
 
-// pma_register_domain
-// -------------------
-// Register the node agent to the known domain controller.
-//
 void
-PmAgent::pma_register_domain(const fpi::DomainID &id)
+PmAgent::pma_connect_domain(const fpi::DomainID &id)
 {
-    if (agt_domain_rpc == NULL) {
-        NetPlatform *net = NetPlatform::nplat_singleton();
-        agt_domain_ep  = net->nplat_domain_rpc(id);
-        agt_domain_rpc = agt_domain_ep->svc_rpc<fpi::PlatNetSvcClient>();
+    if (agt_domain_ep == NULL) {
+        NetMgr *net = NetMgr::ep_mgr_singleton();
+        agt_domain_ep = net->svc_domain_master(id, &agt_domain_rpc);
     }
 }
 

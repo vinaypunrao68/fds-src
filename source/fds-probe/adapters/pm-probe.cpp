@@ -141,6 +141,7 @@ PM_ProbeMod::mod_init(SysParams const *const param)
 void
 PM_ProbeMod::mod_startup()
 {
+    Module::mod_startup();
 }
 
 // mod_shutdown

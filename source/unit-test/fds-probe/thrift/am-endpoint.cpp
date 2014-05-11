@@ -86,13 +86,13 @@ ProbeEpSvcTestAM::mod_init(SysParams const *const p)
     //
     mgr          = NetMgr::ep_mgr_singleton();
     svc.svc_uuid = 0x1234;
-    am_hello     = mgr->svc_lookup(svc, 1, 1);
+    // am_hello     = mgr->svc_lookup(svc, 1, 1);
 
     svc.svc_uuid = 0xcafe;
-    am_bye       = mgr->svc_lookup(svc, 3, 4);
+    // am_bye       = mgr->svc_lookup(svc, 3, 4);
 
     svc.svc_uuid = 0xbeef;
-    am_poke      = mgr->svc_lookup(svc, 5, 1);
+    // am_poke      = mgr->svc_lookup(svc, 5, 1);
     return 0;
 }
 

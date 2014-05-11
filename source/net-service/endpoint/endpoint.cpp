@@ -1,6 +1,7 @@
 /*
  * Copyright 2014 by Formation Data Systems, Inc.
  */
+#include <string>
 #include <net/net-service-tmpl.hpp>
 #include <ep-map.h>
 
@@ -36,6 +37,13 @@ EpSvc::EpSvc(const ResourceUUID &domain,
 void
 EpSvc::ep_apply_attr()
 {
+}
+
+EpSvcHandle::~EpSvcHandle()
+{
+    if (ep_trans != NULL) {
+        ep_trans->close();
+    }
 }
 
 /*
@@ -117,6 +125,9 @@ EpSvcImpl::ep_lookup_service(const char *name)
 void
 EpSvcImpl::ep_fillin_binding(ep_map_rec_t *rec)
 {
+    rec->rmp_uuid = svc_id.svc_uuid.svc_uuid;
+    memcpy(&rec->rmp_addr, &ep_attr->ep_addr, sizeof(rec->rmp_addr));
+    strncpy(rec->rmp_name, svc_id.svc_name.c_str(), MAX_SVC_NAME_LEN - 1);
 }
 
 /*

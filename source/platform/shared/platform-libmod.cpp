@@ -105,11 +105,11 @@ void
 Platform::plf_rpc_om_handshake(fpi::FDSP_RegisterNodeTypePtr reg)
 {
     if (plf_master == NULL) {
-        fds_verify(plf_domain == NULL);
         fds_verify(plf_om_resp == NULL);
 
         plf_master  = new OmAgent(0);
         plf_om_resp = boost::shared_ptr<PlatRpcResp>(plat_creat_resp_disp());
+
         plf_master->om_handshake(plf_net_sess, plf_om_resp,
                                  plf_om_ip_str, plf_om_ctrl_port);
     }
@@ -269,6 +269,15 @@ Platform::mod_startup()
 void
 Platform::mod_shutdown()
 {
+}
+
+void
+Platform::mod_enable_service()
+{
+    fds_verify(plf_domain == NULL);
+
+    plf_domain = new PmAgent(plf_my_node_uuid());
+    plf_domain->pma_connect_domain(fpi::DomainID());
 }
 
 namespace util {

@@ -650,6 +650,7 @@ DiskPlatModule::dsk_plat_singleton()
 int
 DiskPlatModule::mod_init(SysParams const *const param)
 {
+    Module::mod_init(param);
     return 0;
 }
 
@@ -659,6 +660,7 @@ DiskPlatModule::mod_init(SysParams const *const param)
 void
 DiskPlatModule::mod_startup()
 {
+    Module::mod_startup();
     udev_enumerate_add_match_subsystem(dsk_enum, "block");
     dsk_rescan();
     dsk_discover_mount_pts();
@@ -718,6 +720,7 @@ DiskPlatModule::dsk_discover_mount_pts()
 void
 DiskPlatModule::mod_enable_service()
 {
+    Module::mod_enable_service();
 }
 
 // mod_shutdown

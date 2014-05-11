@@ -93,6 +93,7 @@ SM_ProbeMod::mod_init(SysParams const *const param)
 void
 SM_ProbeMod::mod_startup()
 {
+    Module::mod_startup();
 }
 
 // mod_shutdown

@@ -35,7 +35,10 @@ Module::mod_init(SysParams const *const param)
     if (mod_intern != NULL) {
         for (i = 0; mod_intern[i] != NULL; i++) {
             mod_intern_cnt++;
-            mod_intern[i]->mod_init(param);
+            if ((mod_intern[i]->mod_exec_state & MOD_ST_INIT) == 0) {
+                mod_intern[i]->mod_init(param);
+                mod_intern[i]->mod_exec_state |= MOD_ST_INIT;
+            }
         }
     }
     return 0;
@@ -55,7 +58,10 @@ Module::mod_startup()
     mod_exec_state |= MOD_ST_STARTUP;
     if (mod_intern != NULL) {
         for (i = 0; mod_intern[i] != NULL; i++) {
-            mod_intern[i]->mod_startup();
+            if ((mod_intern[i]->mod_exec_state & MOD_ST_STARTUP) == 0) {
+                mod_intern[i]->mod_startup();
+                mod_intern[i]->mod_exec_state |= MOD_ST_STARTUP;
+            }
         }
         fds_verify(i == mod_intern_cnt);
     }
@@ -92,11 +98,15 @@ Module::mod_enable_service()
     int i;
 
     if (mod_exec_state & MOD_ST_FUNCTIONAL) {
-        mod_exec_state |= MOD_ST_FUNCTIONAL;
+        return;
     }
+    mod_exec_state |= MOD_ST_FUNCTIONAL;
     if (mod_intern != NULL) {
         for (i = 0; mod_intern[i] != NULL; i++) {
-            mod_intern[i]->mod_enable_service();
+            if ((mod_intern[i]->mod_exec_state & MOD_ST_FUNCTIONAL) == 0) {
+                mod_intern[i]->mod_enable_service();
+                mod_intern[i]->mod_exec_state |= MOD_ST_FUNCTIONAL;
+            }
         }
         fds_verify(i == mod_intern_cnt);
     }
@@ -244,7 +254,10 @@ ModuleVector::mod_init_modules()
     for (i = 0; i < sys_mod_cnt; i++) {
         mod = sys_mods[i];
         fds_verify(mod != NULL);
-        bailout += mod->mod_init(&sys_params);
+        if ((mod->mod_exec_state & MOD_ST_INIT) == 0) {
+            bailout += mod->mod_init(&sys_params);
+            mod->mod_exec_state |= MOD_ST_INIT;
+        }
     }
     if (bailout != 0) {
         exit(1);
@@ -259,7 +272,10 @@ ModuleVector::mod_startup_modules()
 {
     for (int i = 0; i < sys_mod_cnt; i++) {
         Module *mod = sys_mods[i];
-        mod->mod_startup();
+        if ((mod->mod_exec_state & MOD_ST_STARTUP) == 0) {
+            mod->mod_startup();
+            mod->mod_exec_state |= MOD_ST_STARTUP;
+        }
     }
 }
 
@@ -283,7 +299,10 @@ ModuleVector::mod_start_services()
 {
     for (int i = 0; i < sys_mod_cnt; i++) {
         Module *mod = sys_mods[i];
-        mod->mod_enable_service();
+        if ((mod->mod_exec_state & MOD_ST_FUNCTIONAL) == 0) {
+            mod->mod_enable_service();
+            mod->mod_exec_state |= MOD_ST_FUNCTIONAL;
+        }
     }
 }
 

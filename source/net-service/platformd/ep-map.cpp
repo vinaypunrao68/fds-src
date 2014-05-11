@@ -42,6 +42,7 @@ EpPlatformMod::mod_shutdown()
 int
 EpPlatformMod::ep_map_record(const ep_map_rec_t *rec)
 {
+    return EpPlatLibMod::ep_map_record(rec);
     return 0;
 }
 
@@ -49,8 +50,9 @@ EpPlatformMod::ep_map_record(const ep_map_rec_t *rec)
 // ---------------
 //
 int
-EpPlatformMod::ep_unmap_record(fds_uint64_t uuid)
+EpPlatformMod::ep_unmap_record(fds_uint64_t uuid, int idx)
 {
+    return EpPlatLibMod::ep_unmap_record(uuid, idx);
     return 0;
 }
 
@@ -60,12 +62,14 @@ EpPlatformMod::ep_unmap_record(fds_uint64_t uuid)
 int
 EpPlatformMod::ep_lookup_rec(fds_uint64_t uuid, ep_map_rec_t *out)
 {
+    return EpPlatLibMod::ep_lookup_rec(uuid, out);
     return 0;
 }
 
 int
 EpPlatformMod::ep_lookup_rec(const char *name, ep_map_rec_t *out)
 {
+    return EpPlatLibMod::ep_lookup_rec(name, out);
     return 0;
 }
 

@@ -47,6 +47,25 @@ EpAttr::netaddr_get_port(const struct sockaddr *adr)
 }
 
 void
+EpAttr::netaddr_to_str(const struct sockaddr *adr, char *ip, int ip_len)
+{
+    int   len;
+    void *buf;
+
+    if (adr->sa_family == AF_INET) {
+        struct sockaddr_in *ip4 = (struct sockaddr_in *)adr;
+        len = INET6_ADDRSTRLEN;
+        buf = &ip4->sin_addr;
+    } else {
+        struct sockaddr_in6 *ip6 = (struct sockaddr_in6 *)adr;
+        len = INET_ADDRSTRLEN;
+        buf = &ip6->sin6_addr;
+    }
+    fds_verify(len <= ip_len);
+    inet_ntop(AF_INET, buf, ip, len);
+}
+
+void
 EpAttr::netaddr_my_ip(struct sockaddr *adr,
                       struct sockaddr *mask,
                       unsigned int    *flags,
