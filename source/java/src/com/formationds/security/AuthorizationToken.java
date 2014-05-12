@@ -10,10 +10,9 @@ import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
 import java.security.Principal;
 import java.text.MessageFormat;
-import java.util.UUID;
 
 public class AuthorizationToken {
-    private static final String TOKEN_FORMAT = "UUID: {0}, name: {1}";
+    private static final String TOKEN_FORMAT = "name: {0}";
     private String name;
     private boolean isValid;
     private SecretKey secretKey;
@@ -29,7 +28,7 @@ public class AuthorizationToken {
         try {
             String decrypted = decrypt(encrypted);
             Object[] parsed = new MessageFormat(TOKEN_FORMAT).parse(decrypted);
-            name = (String) parsed[1];
+            name = (String) parsed[0];
             isValid = true;
         } catch (Exception e) {
             isValid = false;
@@ -49,7 +48,7 @@ public class AuthorizationToken {
 
     public AuthenticationKey getKey() {
         try {
-            String value = MessageFormat.format(TOKEN_FORMAT, UUID.randomUUID().toString(), name);
+            String value = MessageFormat.format(TOKEN_FORMAT, name);
             byte[] clearText = value.getBytes();
             Cipher cipher = Cipher.getInstance("AES");
             cipher.init(Cipher.ENCRYPT_MODE, secretKey);
