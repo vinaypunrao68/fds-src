@@ -286,8 +286,8 @@ NodeDomainFSM::DACT_NodesUp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tg
 
     // cluster map must not have pending nodes, but remember that
     // sm nodes in container may have pending nodes that are already in DLT
-    fds_verify((cm->getAddedNodes()).size() == 0);
-    fds_verify((cm->getRemovedNodes()).size() == 0);
+    fds_verify((cm->getAddedServices(fpi::FDSP_STOR_MGR)).size() == 0);
+    fds_verify((cm->getRemovedServices(fpi::FDSP_STOR_MGR)).size() == 0);
     dltMod->dlt_deploy_event(DltLoadedDbEvt());
 
     // move nodes that are already in DLT from pending list
@@ -297,10 +297,10 @@ NodeDomainFSM::DACT_NodesUp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tg
     OM_SmContainer::pointer smNodes = local->om_sm_nodes();
     NodeList addNodes, rmNodes;
     smNodes->om_splice_nodes_pend(&addNodes, &rmNodes, src.sm_up);
-    cm->updateMap(addNodes, rmNodes);
+    cm->updateMap(fpi::FDSP_STOR_MGR, addNodes, rmNodes);
     // since updateMap keeps those nodes as pending, we tell cluster map that
     // they are not pending, since these nodes are already in the DLT
-    cm->resetPendNodes();
+    cm->resetPendServices(fpi::FDSP_STOR_MGR);
 }
 
 /**
@@ -471,18 +471,18 @@ NodeDomainFSM::DACT_UpdDlt::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
     dom_ctrl->om_bcast_dlt(dp->getCommitedDlt(), true);
 
     // at this point there should be no pending add/rm nodes in cluster map
-    fds_verify((cm->getAddedNodes()).size() == 0);
-    fds_verify((cm->getRemovedNodes()).size() == 0);
+    fds_verify((cm->getAddedServices(fpi::FDSP_STOR_MGR)).size() == 0);
+    fds_verify((cm->getRemovedServices(fpi::FDSP_STOR_MGR)).size() == 0);
 
     // move nodes that came up (which are already in DLT) from pending nodes in
     // SM container to cluster map
     OM_SmContainer::pointer smNodes = dom_ctrl->om_sm_nodes();
     NodeList addNodes, rmNodes;
     smNodes->om_splice_nodes_pend(&addNodes, &rmNodes, src.sm_up);
-    cm->updateMap(addNodes, rmNodes);
+    cm->updateMap(fpi::FDSP_STOR_MGR, addNodes, rmNodes);
     // since updateMap keeps those nodes as pending, we tell cluster map that
     // they are not pending, since these nodes are already in the DLT
-    cm->resetPendNodes();
+    cm->resetPendServices(fpi::FDSP_STOR_MGR);
 
     // set SMs that did not come up as 'delete pending' in cluster map
     // -- this will tell DP to remove those nodes from DLT
@@ -492,13 +492,13 @@ NodeDomainFSM::DACT_UpdDlt::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
         if (src.sm_up.count(*cit) == 0) {
             LOGDEBUG << "DACT_UpdDlt: will remove node " << std::hex
                      << (*cit).uuid_get_val() << std::dec << " from DLT";
-            cm->addPendingRmNode(*cit);
+            cm->addPendingRmService(fpi::FDSP_STOR_MGR, *cit);
 
             // also remove that node from configDB
             domain->om_rm_sm_configDB(*cit);
         }
     }
-    fds_verify((cm->getRemovedNodes()).size() > 0);
+    fds_verify((cm->getRemovedServices(fpi::FDSP_STOR_MGR)).size() > 0);
 
     // start cluster update process that will recompute DLT /rebalance /etc
     // so that we move to DLT that reflects actual nodes that came up

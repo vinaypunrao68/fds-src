@@ -394,13 +394,15 @@ DltDplyFSM::GRD_DltCompute::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
     NodeList addNodes, rmNodes;
     LOGDEBUG << "DACT_Compute: Call cluster map update";
     smNodes->om_splice_nodes_pend(&addNodes, &rmNodes);
-    cm->updateMap(addNodes, rmNodes);
-    LOGDEBUG << "Added Nodes size: " << (cm->getAddedNodes()).size()
-             << " Removed Nodes size: " << (cm->getRemovedNodes()).size();
+    cm->updateMap(fpi::FDSP_STOR_MGR, addNodes, rmNodes);
+    LOGDEBUG << "Added Nodes size: " << (cm->getAddedServices(fpi::FDSP_STOR_MGR)).size()
+             << " Removed Nodes size: "
+             << (cm->getRemovedServices(fpi::FDSP_STOR_MGR)).size();
 
     // if there are no nodes added or removed, we don't need to re-compute
     // DLT, so return false to not proceed to compute state
-    if (((cm->getAddedNodes()).size() == 0) && ((cm->getRemovedNodes()).size() == 0)) {
+    if (((cm->getAddedServices(fpi::FDSP_STOR_MGR)).size() == 0)
+        && ((cm->getRemovedServices(fpi::FDSP_STOR_MGR)).size() == 0)) {
         // unlock since we are not updating the DLT
         LOGDEBUG << "GRD_DltCompute: cluster map is up to date";
         dst.lock.clear();
@@ -425,8 +427,8 @@ DltDplyFSM::DACT_Compute::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
     DataPlacement *dp = om->om_dataplace_mod();
     ClusterMap* cm = om->om_clusmap_mod();
 
-    fds_verify(((cm->getAddedNodes()).size() != 0)
-               || ((cm->getRemovedNodes()).size() != 0));
+    fds_verify(((cm->getAddedServices(fpi::FDSP_STOR_MGR)).size() != 0)
+               || ((cm->getRemovedServices(fpi::FDSP_STOR_MGR)).size() != 0));
 
     LOGDEBUG << "DACT_Compute: compute target DLT";
     dp->computeDlt();
@@ -447,13 +449,13 @@ DltDplyFSM::DACT_SendDlts::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
     DataPlacement *dp = om->om_dataplace_mod();
     ClusterMap* cm = om->om_clusmap_mod();
 
-    fds_verify(((cm->getAddedNodes()).size() != 0)
-               || ((cm->getRemovedNodes()).size() != 0));
+    fds_verify(((cm->getAddedServices(fpi::FDSP_STOR_MGR)).size() != 0)
+               || ((cm->getRemovedServices(fpi::FDSP_STOR_MGR)).size() != 0));
 
     // if there are added node, will send them currently commited DLT
     // so when we send them migration message with target DLT, then know
     // which tokens to migrate
-    NodeUuidSet addedNodes = cm->getAddedNodes();
+    NodeUuidSet addedNodes = cm->getAddedServices(fpi::FDSP_STOR_MGR);
     if (addedNodes.size() > 0) {
             // send them commited DLT
         for (NodeUuidSet::const_iterator cit = addedNodes.cbegin();
@@ -533,7 +535,7 @@ DltDplyFSM::DACT_Commit::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST 
 
     // reset pending nodes in cluster map, since they are already
     // present in the DLT
-    cm->resetPendNodes();
+    cm->resetPendServices(fpi::FDSP_STOR_MGR);
 
     // Send new DLT to each node in the cluster map
     // the new DLT now is committed DLT
@@ -612,7 +614,8 @@ DltDplyFSM::DACT_UpdDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
     OM_Module *om = OM_Module::om_singleton();
     ClusterMap* cm = om->om_clusmap_mod();
     fds_verify(cm != NULL);
-    LOGNOTIFY << "OM deployed DLT with " << cm->getNumMembers() << " nodes";
+    LOGNOTIFY << "OM deployed DLT with "
+              << cm->getNumMembers(fpi::FDSP_STOR_MGR) << " nodes";
 
     if (!src.tryAgainTimer->schedule(src.tryAgainTimerTask,
                                      std::chrono::seconds(1))) {
