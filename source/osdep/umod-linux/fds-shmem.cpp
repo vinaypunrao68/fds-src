@@ -29,6 +29,12 @@ FdsShmem::shm_create_empty(size_t size)
     return sh_segment;
 }
 
+boost::interprocess::managed_shared_memory::segment_manager *
+FdsShmem::shm_get_mgr()
+{
+    return sh_segment->get_segment_manager();
+}
+
 void *
 FdsShmem::shm_alloc(size_t size)
 {
@@ -51,7 +57,7 @@ FdsShmem::shm_attach()
     if (sh_segment == nullptr) {
         // Connect to shmem
         sh_segment = new boost::interprocess::managed_shared_memory
-                (boost::interprocess::open_read_only, sh_name);
+                (boost::interprocess::open_only, sh_name);
     }
     std::pair<unsigned char*, std::size_t> res =
             sh_segment->find<unsigned char>("shm_obj");

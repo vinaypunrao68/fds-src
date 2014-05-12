@@ -137,12 +137,27 @@ QueueInfo::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput *out)
     std::cout << "Queue stuff called!" << std::endl;
     queue_info_t *params = queue_info();
 
-    fds::FdsShmQueue<int> q(params->name, params->size);
-    if (q.empty()) {
-        std::cout << "Queue is created and empty!" << std::endl;
-    }
+    // q = new fds::FdsShmQueue<int>(params->name, params->size);
+
+    // if (q.empty()) {
+    //     std::cout << "Queue is created and empty!" << std::endl;
+    // }
     return this;
 }
 
+JsObject *
+QueuePush::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput *out)
+{
+    std::cout << "QueueAction called" << std::endl;
+    queue_payload_t *payload = queue_payload();
+
+    return this;
+}
+
+JsObject *
+QueuePop::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput *out)
+{
+    return this;
+}
 
 }  // namespace fds

@@ -9,6 +9,7 @@
  */
 
 #include <fds-probe/fds_probe.h>
+#include <platform/fds-shm-queue.h>
 #include <string>
 
 
@@ -19,7 +20,11 @@ class shm_queue_ProbeMod : public ProbeMod
   public:
     shm_queue_ProbeMod(char const *const name, probe_mod_param_t *param, Module *owner)
         : ProbeMod(name, param, owner) {}
-    virtual ~shm_queue_ProbeMod() {}
+    virtual ~shm_queue_ProbeMod() {
+        if (q != nullptr) {
+            delete q;
+        }
+    }
 
     ProbeMod *pr_new_instance();
     void pr_intercept_request(ProbeRequest *req);
@@ -33,7 +38,8 @@ class shm_queue_ProbeMod : public ProbeMod
     void mod_startup();
     void mod_shutdown();
 
-  private:
+  protected:
+    fds::FdsShmQueue<int> *q;
 };
 
 // XX Probe Adapter.
@@ -67,7 +73,8 @@ class QueueInfoTempl : public JsObjTemplate
 {
   public:
     virtual ~QueueInfoTempl() {}
-    explicit QueueInfoTempl(JsObjManager *mgr) : JsObjTemplate("Queue-Info", mgr) {}
+    explicit QueueInfoTempl(JsObjManager *mgr)
+            : JsObjTemplate("Queue-Info", mgr) {}
 
     virtual JsObject *js_new(json_t *in)
     {
@@ -89,6 +96,7 @@ class QueueInfoTempl : public JsObjTemplate
 class QueueSetupTempl : public JsObjTemplate
 {
   public:
+    virtual ~QueueSetupTempl() {}
     explicit QueueSetupTempl(JsObjManager *mgr)
             : JsObjTemplate("Queue-Setup", mgr)
     {
@@ -99,6 +107,85 @@ class QueueSetupTempl : public JsObjTemplate
     }
 };
 
-}  // namespace fds
+//---------------------------------------------------------------------------------------
+/**
+ * Queue payload information
+ */
+struct queue_payload_t {
+    int value;
+};
 
+/**
+ * QueuePush object
+ */
+class QueuePush : public JsObject
+{
+  public:
+    virtual JsObject *js_exec_obj(JsObject *p, JsObjTemplate *templ, JsObjOutput *out);
+    inline queue_payload_t *queue_payload() {
+        return static_cast<queue_payload_t *>(js_pod_object());
+    }
+};
+
+/**
+ * QueuePop object
+ */
+class QueuePop : public JsObject
+{
+  public:
+    virtual JsObject *js_exec_obj(JsObject *p, JsObjTemplate *templ, JsObjOutput *out);
+};
+
+/**
+ * Decoder for Queue-Push
+ */
+class QueuePopTempl : public JsObjTemplate
+{
+  public:
+    explicit QueuePopTempl(JsObjManager *mgr)
+            : JsObjTemplate("Queue-Pop", mgr) {}
+
+    virtual JsObject *js_new(json_t *in)
+    {
+        return js_parse(new QueuePush(), in, NULL);
+    }
+};
+
+
+/**
+ * Decoder for Queue-Push
+ */
+class QueuePushTempl : public JsObjTemplate
+{
+  public:
+    explicit QueuePushTempl(JsObjManager *mgr)
+            : JsObjTemplate("Queue-Push", mgr) {}
+
+    virtual JsObject *js_new(json_t *in)
+    {
+        queue_payload_t *payload = new queue_payload_t;
+        if (json_unpack(in, "{s:s s:i}",
+                        "value", &payload->value)) {
+            delete payload;
+            return NULL;
+        }
+        return js_parse(new QueuePush(), in, payload);
+    }
+};
+
+/**
+ * Decoder for Queue-Workload
+ */
+class QueueWorkloadTempl : public JsObjTemplate
+{
+  public:
+    explicit QueueWorkloadTempl(JsObjManager *mgr)
+            : JsObjTemplate("Queue-Workload", mgr)
+    {
+        js_decode["Queue-Push"] = new QueuePushTempl(mgr);
+        js_decode["Queue-Pop"] = new QueuePopTempl(mgr);
+    }
+};
+
+}  // namespace fds
 #endif  // SOURCE_UNIT_TEST_FDS_PROBE_PLATFORM_FDS_PROBE_QUEUE_H_

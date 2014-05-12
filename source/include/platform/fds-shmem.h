@@ -19,6 +19,7 @@ class FdsShmem
     virtual ~FdsShmem();
 
     mg_shm *shm_create_empty(size_t size);
+    mg_shm::segment_manager *shm_get_mgr();
     void  *shm_alloc(size_t size);
     void  *shm_attach();
     bool   shm_remove();

@@ -30,7 +30,8 @@ int main() {
 
     assert(a.shm_remove() == true);
     
-    fds::FdsShmQueue<int> queue ("shm_queue", 4096);
+    fds::FdsShmQueue<int> queue ("shm_1");
+    queue.shmq_alloc(1024);
 
     assert(queue.empty());
     queue.shmq_enqueue(12);
@@ -39,11 +40,19 @@ int main() {
     queue.shmq_enqueue(32);
     queue.shmq_enqueue(42);
 
+    fds::FdsShmQueue<int> queue_alt ("shm_1");
+    queue_alt.shmq_connect();
+    assert(!queue_alt.empty());
+    
     for (int i = 0; i < 4; ++i) {
-        int ret = queue.shmq_dequeue();
+        int ret = 0;
+        if (i % 2 == 0) {
+            ret = queue.shmq_dequeue();
+        } else {
+            ret = queue_alt.shmq_dequeue();
+        }
         assert(ret == (i * 10) + 12);
     }
-    return 0;
 
     for (int i = 0; i < 100; ++i) {
         queue.shmq_enqueue(i);
@@ -52,5 +61,7 @@ int main() {
         queue.shmq_dequeue();
     }
     assert(queue.empty());
+
+    printf("shm test: PASSED!\n");
 
 }
