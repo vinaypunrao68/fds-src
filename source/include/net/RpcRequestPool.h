@@ -17,7 +17,9 @@ class RpcRequestPool {
     RpcRequestPool();
     ~RpcRequestPool();
 
+#if 0
     EPRpcRequestPtr newEPRpcRequest(const fpi::SvcUuid &uuid);
+#endif
     EPAsyncRpcRequestPtr newEPAsyncRpcRequest(const fpi::SvcUuid &uuid);
     FailoverRpcRequestPtr newFailoverRpcRequest(
             const std::vector<fpi::SvcUuid>& uuid_list);

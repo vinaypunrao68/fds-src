@@ -74,6 +74,10 @@ namespace fds {
         /* Network errors */
         ERR_NETWORK_TRANSPORT = 3000,
 
+        /* RPC Request realted */
+        ERR_RPC_FAILED = 4000,
+        ERR_RPC_USER_INTERRUPTED,
+
         /* Generic catch all error.  DON'T USE IT, unless you don't have an option */
         ERR_INVALID,
 
