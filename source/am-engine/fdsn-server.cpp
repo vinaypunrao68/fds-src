@@ -218,9 +218,10 @@ class FdsnIf : public apis::AmServiceIf {
                         boost::shared_ptr< std::map<std::string, std::string> >& metadata) {
         SimpleResponseHandler::ptr handler(new SimpleResponseHandler(__func__));
         boost::shared_ptr<fpi::FDSP_MetaDataList> metaDataList(new fpi::FDSP_MetaDataList());
-
+        LOGDEBUG << "received updateMetadata cmd";
         fpi::FDSP_MetaDataPair metaPair;
         for (auto const & meta : *metadata) {
+            LOGDEBUG << meta.first << ":" << meta.second;
             metaPair.key = meta.first;
             metaPair.value = meta.second;
             metaDataList->push_back(metaPair);
@@ -229,6 +230,7 @@ class FdsnIf : public apis::AmServiceIf {
         am_api->setBlobMetaData(*volumeName, *blobName, metaDataList,
                                 SHARED_DYN_CAST(Callback, handler));
         handler->wait();
+        LOGDEBUG << "set meta data returned";
         handler->process();
     }
 

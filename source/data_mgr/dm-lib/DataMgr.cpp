@@ -2103,11 +2103,13 @@ void DataMgr::setBlobMetaDataBackend(const dmCatReq *request) {
         BlobNode* bNode;
         synchronized(big_fat_lock) {
             // get the current metadata
+            LOGDEBUG << "updating the meta for blob: " << request->blob_name;
             err = _process_query(request->volId, request->blob_name, bNode);
             if (err == ERR_OK) {
                 // add the new metadata
-                for( auto& meta : *(request->metadataList)) {
-                    bNode->updateMetadata(meta.key,meta.value);
+                for (auto& meta : *(request->metadataList)) {
+                    bNode->updateMetadata(meta.key, meta.value);
+                    LOGDEBUG << "meta update [" << meta.key <<":" << meta.value << "]";
                 }
                 // write back the metadata
                 _process_open(request->volId,
@@ -2127,6 +2129,7 @@ void DataMgr::setBlobMetaDataBackend(const dmCatReq *request) {
     setResponseError(msgHeader,err);
     read_synchronized(dataMgr->respMapMtx) {
         try {
+            LOGDEBUG << "sending reponse to SetBlobMetaDataResp";
             respHandleCli(request->session_uuid)->SetBlobMetaDataResp(*msgHeader, request->blob_name);
         } catch (att::TTransportException& e) {
             GLOGERROR << "error during network call : " << e.what() ;
@@ -2214,7 +2217,19 @@ void DataMgr::ReqHandler::SetBlobMetaData(boost::shared_ptr<FDSP_MsgHdrType>& ms
               << " blob:" << *blobName;
     
     RequestHeader reqHeader(msgHeader);
+    GLOGDEBUG << "header: "
+              << " vol: " << reqHeader.volId
+              << " cookie: " << reqHeader.reqCookie
+              << " session: " << reqHeader.session_uuid;
+
     dmCatReq* request = new DataMgr::dmCatReq(reqHeader, FDS_SET_BLOB_METADATA);
+    
+    for (auto& meta : *metadataList) {
+        bNode->updateMetadata(meta.key, meta.value);
+        LOGDEBUG << "received meta  [" << meta.key <<":" << meta.value << "]";
+    }
+    LOGDEBUG << "received some meta to be updated..";
+
     request->metadataList = metaDataList;
     request->blob_name = *blobName;
     err = dataMgr->qosCtrl->enqueueIO(request->volId,request);

@@ -1454,7 +1454,7 @@ StorHvCtrl::StatBlob(fds::AmQosReq *qosReq) {
 
 Error StorHvCtrl::SetBlobMetaData(fds::AmQosReq *qosReq) {
     fds_verify(qosReq != NULL);
-
+    LOGDEBUG << "processing SetBlobMetaData for vol:" << qosReq->io_vol_id;
     Error err(ERR_OK);
     SetBlobMetaDataReq *blobReq = static_cast<SetBlobMetaDataReq *>(qosReq->getBlobReqPtr());
     fds_verify(blobReq != NULL);

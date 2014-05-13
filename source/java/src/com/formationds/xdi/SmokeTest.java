@@ -10,6 +10,7 @@ import org.apache.thrift.transport.TSocket;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
+import java.util.HashMap;
 
 public class SmokeTest {
 
@@ -33,6 +34,7 @@ public class SmokeTest {
         AmService.Iface am = new AmService.Client(new TBinaryProtocol(socket));
         TSocket omTransport = new TSocket("localhost", 9090);
         omTransport.open();
+        
         ConfigurationService.Iface config = new ConfigurationService.Client(new TBinaryProtocol(omTransport));
 
         String cinderVolumeName = "CinderVol";
@@ -77,6 +79,13 @@ public class SmokeTest {
         ByteBuffer data = am.getBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME,
                                          length, new ObjectOffset(0));
 
+        System.out.println("setting blob meta");
+        HashMap<String,String> meta = new HashMap<String,String>();
+
+        meta.put("company","fds");
+        am.updateMetadata(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME, txDesc, meta);
+        System.out.println("done setting metadata");
+        
         System.out.println("stating blob");
         System.out.println(am.statBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME));
         

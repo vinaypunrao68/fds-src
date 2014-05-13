@@ -131,10 +131,11 @@ public:
         dmCatReq(const DataMgr::RequestHeader& hdr,
                  fds_io_op_t  ioType) 
                 : volId(hdr.volId), srcIp(hdr.srcIp), dstIp(hdr.dstIp),
-                srcPort(hdr.srcPort), dstPort(hdr.dstPort), session_uuid(hdr.session_uuid),
-                 blob_version(blob_version_invalid) {
-                     io_type = io_type;
-                     io_vol_id = hdr.volId;
+                  srcPort(hdr.srcPort), dstPort(hdr.dstPort), session_uuid(hdr.session_uuid),
+                  reqCookie(hdr.reqCookie),
+                  blob_version(blob_version_invalid) {
+            io_type = ioType;
+            io_vol_id = hdr.volId;
         }
 
         dmCatReq(fds_volid_t        _volId,

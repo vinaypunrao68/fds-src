@@ -767,6 +767,11 @@ void FDS_NativeAPI::setBlobMetaData(const std::string& volumeName,
         fds_verify(volId != invalid_vol_id);
     }
 
+    for (auto& meta : *metaDataList) {
+        LOGDEBUG << "will send meta  [" << meta.key <<":" << meta.value << "]";
+    }
+    LOGDEBUG << "ready to send some meta to be updated..";
+
     FdsBlobReq *blobReq = NULL;
     blobReq = new SetBlobMetaDataReq(volId,
                                      volumeName,

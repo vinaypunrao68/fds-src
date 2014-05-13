@@ -312,6 +312,7 @@ static void processBlobReq(AmQosReq *qosReq) {
 
         case fds::FDS_SET_BLOB_METADATA:
             err = storHvisor->SetBlobMetaData(qosReq);
+            break;
 
         default :
             break;
