@@ -82,6 +82,31 @@ struct PutObjectResponseHandler : ResponseHandler {
     virtual ~PutObjectResponseHandler();
 };
 
+/**
+ * Response handler for native putObject() calls done
+ * for block-specific requests.
+ * A specific handler is needed because an additional
+ * callback to UBD is needed to notify the kernel that
+ * a request has been processed.
+ */
+struct PutObjectBlkResponseHandler : PutObjectResponseHandler {
+    typedef boost::function<void(fds_int32_t)> blkCallback;
+    blkCallback ubdCallback;
+
+    template<typename F, typename A, typename B, typename C>
+    PutObjectBlkResponseHandler(F f,
+                                A a,
+                                B b,
+                                C c)
+            : ubdCallback(boost::bind(f, a, b, c, _1)) {
+        type = HandlerType::IMMEDIATE;
+    }
+    virtual void process();
+    virtual ~PutObjectBlkResponseHandler();
+
+    typedef boost::shared_ptr<PutObjectBlkResponseHandler> ptr;
+};
+
 struct GetObjectResponseHandler : ResponseHandler {
     BucketContextPtr bucket_ctx;
     void *reqContext = NULL;

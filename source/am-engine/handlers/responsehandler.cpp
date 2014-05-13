@@ -70,12 +70,26 @@ PutObjectResponseHandler::~PutObjectResponseHandler() {
 }
 //================================================================================
 
+void PutObjectBlkResponseHandler::process() {
+    if (status == FDSN_StatusOK) {
+        ubdCallback(0);
+    } else {
+        // TODO(Andrew): For now, just pass -1 when something
+        // we wrong
+        ubdCallback(-1);
+    }
+}
+
+PutObjectBlkResponseHandler::~PutObjectBlkResponseHandler() {
+}
+//================================================================================
+
 void GetObjectResponseHandler::process() {
 }
 
 GetObjectResponseHandler::~GetObjectResponseHandler() {
 }
-    //================================================================================
+//================================================================================
 
 ListBucketResponseHandler::ListBucketResponseHandler(std::vector<apis::BlobDescriptor> & vecBlobs) : vecBlobs(vecBlobs) { //NOLINT
 }

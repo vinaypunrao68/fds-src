@@ -315,6 +315,9 @@ public:
      */
     fds_mutex *big_fat_lock;
 
+    Error getVolObjSize(fds_volid_t volId,
+                        fds_uint32_t *maxObjSize);
+
     Error _add_if_no_vol(const std::string& vol_name,
                          fds_volid_t vol_uuid,VolumeDesc* desc);
     Error _add_vol_locked(const std::string& vol_name,

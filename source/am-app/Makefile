@@ -2,7 +2,7 @@ topdir            := ..
 user_target       := exe
 user_rtime_env    := user
 user_build_dir    := include platform
-user_incl_dir     := include
+user_incl_dir     := $(topdir)/fds_client/include include
 user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  :=  \
@@ -46,7 +46,7 @@ user_non_fds_libs :=  \
 user_cc           :=  \
     ngx_modules.c
 
-user_incl_dir     := $(topdir) include \
+user_incl_dir     += $(topdir) \
 	$(JAVA_HOME)/include \
 	$(JAVA_HOME)/include/linux
 

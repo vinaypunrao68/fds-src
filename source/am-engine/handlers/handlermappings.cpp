@@ -122,4 +122,22 @@ int fn_PutObjectHandler(void *reqContext,
     return 0;
 }
 
+int fn_PutObjectBlkHandler(void *reqContext,
+                           fds_uint64_t bufferSize,
+                           fds_off_t offset,
+                           char *buffer,
+                           void *callbackData,
+                           FDSN_Status status,
+                           ErrorDetails* errorDetails) {
+    PutObjectBlkResponseHandler* handler =
+            reinterpret_cast<PutObjectBlkResponseHandler*>(callbackData); //NOLINT
+    handler->status = status;
+    handler->errorDetails = errorDetails;
+
+    handler->call();
+
+    delete handler;
+    return 0;
+}
+
 }  // namespace fds

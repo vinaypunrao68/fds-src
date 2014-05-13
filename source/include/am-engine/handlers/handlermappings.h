@@ -58,5 +58,13 @@ int fn_PutObjectHandler(void *reqContext,
                         void *callbackData,
                         FDSN_Status status,
                         ErrorDetails* errDetails);
+
+int fn_PutObjectBlkHandler(void *reqContext,
+                           fds_uint64_t bufferSize,
+                           fds_off_t offset,
+                           char *buffer,
+                           void *callbackData,
+                           FDSN_Status status,
+                           ErrorDetails* errDetails);
 }  // namespace fds
 #endif  // SOURCE_INCLUDE_AM_ENGINE_HANDLERS_HANDLERMAPPINGS_H_

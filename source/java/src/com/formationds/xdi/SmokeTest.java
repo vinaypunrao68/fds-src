@@ -14,7 +14,7 @@ import java.util.List;
 public class SmokeTest {
 
     public static final String DOMAIN_NAME = "FDS";
-    public static final String VOLUME_NAME = "Volume1";
+    public static final String VOLUME_NAME = "S3Vol";
     public static final String BLOB_NAME   = "someBytes.bin";
 
     public static void main(String[] args) throws Exception {
@@ -35,27 +35,17 @@ public class SmokeTest {
         omTransport.open();
         ConfigurationService.Iface config = new ConfigurationService.Client(new TBinaryProtocol(omTransport));
 
-        System.out.println("Creating volume 'S3Vol', policy: 4kb blocksize");
-        try {
-            config.createVolume(DOMAIN_NAME, "S3Vol",
-                                new VolumePolicy(4 * 1024, VolumeConnector.S3));
-        } catch(ApiException e) {
-            e.printStackTrace();
-        }
-        Thread.sleep(4000);
-
         String cinderVolumeName = "CinderVol";
-        System.out.println("Creating cinder volume " + cinderVolumeName +
-                           ", policy: 2MB blocksize");
-        VolumePolicy cinderPolicy = new VolumePolicy(2 * 1024 * 1024,
+        System.out.println("Creating volume " + cinderVolumeName +
+                           ", policy: 4KB blocksize");
+        VolumePolicy cinderPolicy = new VolumePolicy(4 * 1024,
                                                      VolumeConnector.CINDER);
         config.createVolume(DOMAIN_NAME, cinderVolumeName, cinderPolicy);
 
-        System.out.println("Attaching volume " + cinderVolumeName +
-                           ", policy: 2MB blocksize");
+        System.out.println("Attaching volume " + cinderVolumeName);
         am.attachVolume(DOMAIN_NAME, cinderVolumeName);
 
-        System.out.println("Creating volume 'Volume1', policy: 2MB blocksize");
+        System.out.println("Creating volume " + VOLUME_NAME + ", policy: 2MB blocksize");
         VolumePolicy volumePolicy = new VolumePolicy(2 * 1024 * 1024,
                                                      VolumeConnector.S3);
         config.createVolume(DOMAIN_NAME, VOLUME_NAME, volumePolicy);

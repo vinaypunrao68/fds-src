@@ -130,6 +130,12 @@ class StorHvVolumeTable : public HasLogger
    */
   fds_volid_t getVolumeUUID(const std::string& vol_name);
 
+    /**
+     * Returns volume name if found in volume map.
+     * if volume does not exist, returns empty string
+     */
+    std::string getVolumeName(fds_volid_t volId);
+
   /** returns true if volume exists, otherwise retuns false */
   fds_bool_t volumeExists(const std::string& vol_name);
 

@@ -1,5 +1,6 @@
-#include "StorHvQosCtrl.h" 
-#include "StorHvisorCPP.h"
+#include "StorHvQosCtrl.h"
+#include <StorHvVolumes.h>
+#include <StorHvisorNet.h>
 
 namespace fds {
 

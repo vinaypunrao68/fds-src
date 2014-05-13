@@ -59,6 +59,14 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         LOGNOTIFY << " domain: " << *domainName
                   << " volume: " << *volumeName;
 
+        // TODO(Andrew): Temp hack to ensure volumes are aligned to specific size.
+        // Can remove when we support varible object sizes
+        if ((volumePolicy->maxObjectSizeInBytes % (2 * 1024 * 1024) != 0) &&
+            (volumePolicy->maxObjectSizeInBytes % (4 * 1024) != 0)) {
+            apis::ApiException fdsE;
+            throw fdsE;
+        }
+
         checkDomainStatus();
 
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();

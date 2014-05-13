@@ -384,8 +384,8 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
     LOGNOTIFY << "Putting object " << objId << " for blob "
               << blobReq->getBlobName() << " at offset "
               << blobReq->getBlobOffset() << " with length "
-              << blobReq->getDataLen() << " src node ip"
-              << msgHdrSm->src_node_name << " in trans"
+              << blobReq->getDataLen() << " src node ip "
+              << msgHdrSm->src_node_name << " in trans "
               << transId;
 
     if (!fZeroSize) {

@@ -197,6 +197,34 @@ Error DataMgr::_process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only) {
     return err;
 }
 
+/**
+ * Returns the maxObjSize in the volume.
+ * TODO(Andrew): This should be refactored into a
+ * common library since everyone needs it, not just DM
+ * TODO(Andrew): Also this shouldn't be hard coded obviously...
+ */
+Error DataMgr::getVolObjSize(fds_volid_t volId,
+                             fds_uint32_t *maxObjSize) {
+    Error err(ERR_OK);
+
+    /*
+     * Get a local reference to the vol meta.
+     */
+    vol_map_mtx->lock();
+    VolumeMeta *vol_meta = vol_meta_map[volId];
+    vol_map_mtx->unlock();
+
+    fds_verify(vol_meta != NULL);
+    if (vol_meta->vol_desc->volType ==
+        FDS_ProtocolInterface::FDSP_VOL_BLKDEV_TYPE) {
+        *maxObjSize = (4 * 1024);
+        return err;
+    }
+
+    *maxObjSize = (2 * 1024 * 1024);
+    return err;
+}
+
 Error DataMgr::_process_open(fds_volid_t vol_uuid,
                              std::string blob_name,
                              fds_uint32_t trans_id,
@@ -692,12 +720,6 @@ DataMgr::amIPrimary(fds_volid_t volUuid) {
     return false;
 }
 
-// TODO(Andrew): This is a total hack to get a sane blob
-// layout with a maximum object length. Ideally this
-// should come from the volume's metadata, not hard coded
-// based on what AM is using.
-static const fds_uint64_t maxObjSize = 2 * 1024 * 1024;
-
 /**
  * Applies a list of offset/objectId changes to an existing blob.
  * This checks that the change either modifies existing offsets
@@ -718,6 +740,12 @@ DataMgr::applyBlobUpdate(fds_volid_t volUuid,
     fds_verify(offsetList.size() != 0);
 
     LOGDEBUG << "Applying update to blob " << *bnode;
+
+    fds_uint32_t maxObjSize;
+    err = getVolObjSize(volUuid, &maxObjSize);
+    fds_verify(err == ERR_OK);
+    fds_verify((maxObjSize == (4 * 1024)) ||
+               (maxObjSize == (2 *1024 * 1024)));
 
     // Iterate over each offset.
     // For now, we're requiring that the list
