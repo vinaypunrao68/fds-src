@@ -23,7 +23,7 @@ Platform::Platform(char const *const         name,
                    DomainClusterMap::pointer cluster,
                    DomainResources::pointer  resources,
                    OmAgent::pointer          master)
-    : Module(name), plf_node_type(node_type), plf_master(master),
+    : Module(name), plf_node_type(node_type), plf_domain(NULL), plf_master(master),
       plf_node_inv(node_inv), plf_clus_map(cluster), plf_resources(resources)
 {
     plf_node_evt         = NULL;
@@ -105,6 +105,7 @@ void
 Platform::plf_rpc_om_handshake(fpi::FDSP_RegisterNodeTypePtr reg)
 {
     if (plf_master == NULL) {
+        fds_verify(plf_domain == NULL);
         fds_verify(plf_om_resp == NULL);
 
         plf_master  = new OmAgent(0);
@@ -129,6 +130,24 @@ Platform::plf_run_server(bool spawn_thr)
         plf_rpc_thrd = NULL;
         plf_rpc_server_thread();
     }
+}
+
+// plf_is_om_node
+// --------------
+// Return true if this is the node running the primary OM node.
+//
+bool
+Platform::plf_is_om_node()
+{
+    // Do simple IP compare my IP with OM ip.
+    // Until we can get rid of the old endpoint using plf_my_ctrl_port, use data
+    // port for net service update protocols.
+    //
+    if (/* (*plf_get_my_ip() == *plf_get_om_ip()) && */
+        (plf_get_om_svc_port() == plf_get_my_data_port())) {
+        return true;
+    }
+    return false;
 }
 
 // plf_rpc_server_thread

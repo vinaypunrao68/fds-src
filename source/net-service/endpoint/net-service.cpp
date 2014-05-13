@@ -17,10 +17,10 @@ NetMgr::NetMgr(const char *name)
     : Module(name), ep_shm(NULL), ep_mtx("Ep mtx")
 {
     static Module *ep_mgr_mods[] = {
-        &gl_EpPlatLibMod,
+        &gl_EpPlatLib,
         NULL
     };
-    ep_shm     = &gl_EpPlatLibMod;
+    ep_shm     = &gl_EpPlatLib;
     mod_intern = ep_mgr_mods;
 }
 

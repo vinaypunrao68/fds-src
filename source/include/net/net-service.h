@@ -12,7 +12,13 @@
 #include <fdsp/fds_service_types.h>
 #include <boost/intrusive_ptr.hpp>
 
+// Forward declarations
+namespace apache { namespace thrift { namespace transport {
+class TTransport;
+}}}  // namespace apache::thrift::transport
+
 namespace fds {
+namespace tt = apache::thrift::transport;
 
 class EpSvc;
 class EpSvcImpl;
@@ -20,6 +26,7 @@ class EpSvcHandle;
 class EpEvtPlugin;
 class NetMgr;
 class EpPlatLibMod;
+class NetPlatSvc;
 class NetPlatform;
 
 /**
@@ -220,19 +227,28 @@ class EpSvcHandle
     typedef boost::intrusive_ptr<EpSvcHandle> pointer;
     typedef boost::intrusive_ptr<const EpSvcHandle> const_ptr;
 
+    virtual int  ep_reconnect() { return 0; }
     virtual int  ep_get_status() { return 0; }
+
     template <class SendIf>
-    boost::shared_ptr<SendIf> svc_rpc() { return NULL; }
+    boost::shared_ptr<SendIf> svc_rpc() {
+        return boost::static_pointer_cast<SendIf>(ep_rpc);
+    }
 
   protected:
-    friend class NetMgr;
     friend class EpSvc;
+    friend class NetPlatSvc;
 
-    EpSvcHandle() : ep_refcnt(0) {}
+    boost::shared_ptr<void>           ep_rpc;
+    boost::shared_ptr<tt::TTransport> ep_trans;
+
     virtual ~EpSvcHandle() {}
+    EpSvcHandle() : ep_refcnt(0), ep_rpc(NULL), ep_trans(NULL) {}
+    EpSvcHandle(boost::shared_ptr<void> rpc, boost::shared_ptr<tt::TTransport> trans)
+        : ep_rpc(rpc), ep_trans(trans) {}
 
   private:
-    mutable boost::atomic<int>       ep_refcnt;
+    mutable boost::atomic<int>        ep_refcnt;
 
     friend void intrusive_ptr_add_ref(const EpSvcHandle *x) {
         x->ep_refcnt.fetch_add(1, boost::memory_order_relaxed);
@@ -322,7 +338,8 @@ class NetPlatform : public Module
     virtual void mod_startup();
     virtual void mod_shutdown();
 
-    static NetPlatform *netplat_singleton() { return &gl_netPlatform; }
+    static NetPlatform *nplat_singleton() { return &gl_netPlatform; }
+    EpSvcHandle::pointer nplat_domain_rpc(const fpi::DomainID &id);
 };
 
 }  // namespace fds

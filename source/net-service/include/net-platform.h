@@ -11,6 +11,29 @@
 
 namespace fds {
 class Platform;
+class NetPlatSvc;
+class NetPlatHandler;
+
+typedef EndPoint<fpi::PlatNetSvcClient, fpi::PlatNetSvcProcessor>::pointer PlatEpPtr;
+
+class PlatNetPlugin : public EpEvtPlugin
+{
+  public:
+    typedef boost::intrusive_ptr<PlatNetPlugin> pointer;
+    typedef boost::intrusive_ptr<const PlatNetPlugin> const_ptr;
+
+    explicit PlatNetPlugin(NetPlatSvc *svc);
+    virtual ~PlatNetPlugin() {}
+
+    virtual void ep_connected();
+    virtual void ep_down();
+
+    virtual void svc_up(EpSvcHandle::pointer handle);
+    virtual void svc_down(EpSvc::pointer svc, EpSvcHandle::pointer handle);
+
+  protected:
+    NetPlatSvc              *plat_svc;
+};
 
 class NetPlatSvc : public Module
 {
@@ -26,10 +49,12 @@ class NetPlatSvc : public Module
     virtual void mod_shutdown();
 
   protected:
-    std::string              plat_my_ip;
-    const Platform          *plat_lib;
-
-    EndPoint<fpi::PlatNetSvcClient, fpi::PlatNetSvcProcessor>::pointer  plat_ep;
+    friend class NetPlatform;
+    PlatEpPtr                            plat_ep;
+    PlatNetPlugin::pointer               plat_ep_plugin;
+    bo::shared_ptr<NetPlatHandler>       plat_ep_hdler;
+    EpSvcHandle::pointer                 plat_rpc;
+    Platform                            *plat_lib;
 };
 
 class NetPlatHandler : virtual public fpi::PlatNetSvcIf
@@ -67,7 +92,6 @@ class NetPlatHandler : virtual public fpi::PlatNetSvcIf
   protected:
     NetPlatSvc              *net_plat;
 };
-
 
 }  // namespace fds
 #endif  // SOURCE_NET_SERVICE_INCLUDE_NET_PLATFORM_H_

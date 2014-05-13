@@ -5,7 +5,7 @@
 
 namespace fds {
 
-EpPlatformMod                 gl_EpPlatformMod("EP Platformd");
+EpPlatformMod                 gl_EpPlatform("EP Platformd");
 
 EpPlatformMod::EpPlatformMod(const char *name) : EpPlatLibMod(name) {}
 

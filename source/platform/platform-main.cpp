@@ -121,7 +121,6 @@ NodePlatformProc::proc_pre_startup()
 {
     NodePlatform *plat = static_cast<NodePlatform *>(plf_mgr);
 
-    plat->mod_load_from_config();
     PlatformProcess::proc_pre_startup();
     plat->plf_bind_process(this);
 }

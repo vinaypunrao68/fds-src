@@ -1,6 +1,7 @@
 topdir            := ../..
 user_target       := test
 user_rtime_env    := user
+user_std_libs     := true
 user_install      := sender.conf receiver.conf migration_ut.conf
 user_install_loc  := test
 
@@ -17,35 +18,16 @@ user_fds_ar_libs  := \
     fds-smlib\
     fds-StorHvisor \
     fds-sm-plat \
-    fds-plat-lib \
-    fds-lib \
     fds-dsk-mgnt \
-    fds-umod \
     fds-dsk-io \
-    fds-thread \
-    fds-util \
     fds-odb \
-    fds-vpolicy \
-    fds-fdsp \
-    fds-hash \
-    fds-osdep
+    fds-vpolicy
 
 user_non_fds_libs := \
-    boost_log \
-    boost_system \
-    boost_filesystem \
-    boost_thread \
-    boost_date_time \
-    boost_program_options \
     leveldb \
     ssl \
     cryptopp \
     crypto \
-    leveldb \
-    fuse \
-    config++ \
-    thrift \
-    hiredis \
     gmock
 
 user_cpp          := \

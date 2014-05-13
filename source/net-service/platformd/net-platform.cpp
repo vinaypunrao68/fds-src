@@ -3,6 +3,7 @@
  */
 #include <string>
 #include <vector>
+#include <ep-map.h>
 #include <net-platform.h>
 #include <platform/platform-lib.h>
 
@@ -36,11 +37,23 @@ NetPlatform::mod_init(SysParams const *const p)
 void
 NetPlatform::mod_startup()
 {
+    Module::mod_startup();
 }
 
 void
 NetPlatform::mod_shutdown()
 {
+    Module::mod_shutdown();
+}
+
+// nplat_domain_rpc
+// ----------------
+// Get the RPC handles needed to contact the master platform services.
+//
+EpSvcHandle::pointer
+NetPlatform::nplat_domain_rpc(const fpi::DomainID &id)
+{
+    return lo_netSvc.plat_rpc;
 }
 
 /*
@@ -48,29 +61,100 @@ NetPlatform::mod_shutdown()
  * Internal module
  * -----------------------------------------------------------------------------------
  */
-NetPlatSvc::NetPlatSvc(const char *name) : Module(name) {}
+static void
+net_platform_server(PlatEpPtr ep)
+{
+    ep->ep_run_server();
+}
+
+NetPlatSvc::NetPlatSvc(const char *name) : Module(name)
+{
+    plat_ep        = NULL;
+    plat_ep_plugin = NULL;
+    plat_ep_hdler  = NULL;
+    plat_rpc       = NULL;
+    plat_lib       = NULL;
+}
 
 int
 NetPlatSvc::mod_init(SysParams const *const p)
 {
     Module::mod_init(p);
+    plat_lib       = Platform::platf_singleton();
+    plat_ep_hdler  = bo::shared_ptr<NetPlatHandler>(new NetPlatHandler(this));
+    plat_ep_plugin = new PlatNetPlugin(this);
+    plat_ep        = new EndPoint<fpi::PlatNetSvcClient, fpi::PlatNetSvcProcessor>(
+            plat_lib->plf_get_my_data_port(), /* hack, need to consolidate ports */
+            plat_lib->plf_my_node_uuid(),     /* bind to my uuid  */
+            NodeUuid(0ULL),                   /* pure server mode */
+            bo::shared_ptr<fpi::PlatNetSvcProcessor>(
+                new fpi::PlatNetSvcProcessor(plat_ep_hdler)),
+            plat_ep_plugin);
 
-    plat_lib = Platform::platf_singleton();
+    plat_ep->ep_setup_server();
     return 0;
 }
 
 void
 NetPlatSvc::mod_startup()
 {
+    fds_threadpool *pool = g_fdsprocess->proc_thrpool();
+
+    pool->schedule(net_platform_server, plat_ep);
 }
 
 void
 NetPlatSvc::mod_enable_service()
 {
+    int port;
+
+    if (plat_lib->plf_is_om_node()) {
+        std::cout << "This is OM node" << std::endl;
+        return;
+    }
+    if (plat_rpc != NULL) {
+        return;
+    }
+    port = plat_lib->plf_get_om_svc_port();
+    std::cout << "Trying to contact platform on OM "
+        << *plat_lib->plf_get_om_ip() << ", port " << port << std::endl;
+    std::cout << "My ip " << *plat_lib->plf_get_my_ip() << std::endl;
+
+    plat_ep->ep_connect_server(port, *plat_lib->plf_get_om_ip());
+    plat_rpc = new EpSvcHandle(boost::static_pointer_cast<void>(plat_ep->ep_rpc_send),
+                               plat_ep->ep_trans);
+    std::cout << "connected..." << std::endl;
 }
 
 void
 NetPlatSvc::mod_shutdown()
+{
+}
+
+/*
+ * -----------------------------------------------------------------------------------
+ * Endpoint Plugin
+ * -----------------------------------------------------------------------------------
+ */
+PlatNetPlugin::PlatNetPlugin(NetPlatSvc *svc) : plat_svc(svc) {}
+
+void
+PlatNetPlugin::ep_connected()
+{
+}
+
+void
+PlatNetPlugin::ep_down()
+{
+}
+
+void
+PlatNetPlugin::svc_up(EpSvcHandle::pointer handle)
+{
+}
+
+void
+PlatNetPlugin::svc_down(EpSvc::pointer svc, EpSvcHandle::pointer handle)
 {
 }
 
