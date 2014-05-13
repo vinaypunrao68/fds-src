@@ -7,7 +7,6 @@ import com.formationds.security.AuthorizationToken;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
-import com.formationds.web.toolkit.UsageException;
 import com.sun.security.auth.UserPrincipal;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
@@ -44,13 +43,4 @@ public class IssueToken implements RequestHandler {
             return new JsonResource(message, HttpServletResponse.SC_UNAUTHORIZED);
         }
     }
-
-    private String requiredString(Request request, String name) throws UsageException {
-        String value = request.getParameter(name);
-        if (value == null) {
-            throw new UsageException(String.format("Parameter '%s' is missing", name));
-        }
-        return value;
-    }
-
 }

@@ -27,10 +27,9 @@ public class S3Endpoint {
         new S3Endpoint(xdi, false).start(9999);
     }
 
-
     public S3Endpoint(Xdi xdi, boolean enforceAuth) {
         this.xdi = xdi;
-        this.enforceAuth = true;
+        this.enforceAuth = enforceAuth;
         webApp = new WebApp();
     }
 
@@ -50,10 +49,10 @@ public class S3Endpoint {
     }
 
     private void authorize(HttpMethod method, String route, Supplier<RequestHandler> supplier) {
-        if (enforceAuth) {
-            webApp.route(method, route, new S3Authorizer(supplier));
-        } else {
+//        if (enforceAuth) {
+//            webApp.route(method, route, new S3Authorizer(supplier));
+//        } else {
             webApp.route(method, route, supplier);
-        }
+//        }
     }
 }

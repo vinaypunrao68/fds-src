@@ -42,6 +42,6 @@ public class Main {
         new Thread(() -> new S3Endpoint(xdi, enforceAuthorization).start(s3Port)).start();
 
         int swiftPort = amConfig.lookup("fds.am.swift_port").intValue();
-        new SwiftEndpoint(xdi).start(swiftPort);
+        new SwiftEndpoint(xdi, enforceAuthorization).start(swiftPort);
     }
 }
