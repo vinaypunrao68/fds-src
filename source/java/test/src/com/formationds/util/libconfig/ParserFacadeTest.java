@@ -26,7 +26,7 @@ public class ParserFacadeTest {
             "fds: {\n" +
             "    foo=\"bar\"\n" +
             "    hello=42\n" +
-            "    panda=true\n" +
+            "    panda=true;\n" +
             "    /* This is a comment */\n" +
             "    om: {\n" +
             "       more=\"yes\"\n" +

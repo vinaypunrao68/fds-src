@@ -62,7 +62,7 @@ public class Configuration {
     }
 
     public ParserFacade getPlatformConfig() {
-        Path path = Paths.get(getFdsRoot(), "etc", "am.conf");
+        Path path = Paths.get(getFdsRoot(), "etc", "platform.conf");
         return getParserFacade(path);
     }
 

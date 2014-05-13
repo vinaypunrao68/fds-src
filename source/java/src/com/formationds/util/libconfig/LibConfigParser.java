@@ -1,14 +1,11 @@
-// $ANTLR 3.5.1 /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g 2014-05-08 14:08:09
+// $ANTLR 3.5.1 /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g 2014-05-13 11:48:36
 
     package com.formationds.util.libconfig;
 
 
 import org.antlr.runtime.*;
-import java.util.Stack;
-import java.util.List;
-import java.util.ArrayList;
-
-import org.antlr.runtime.tree.*;
+import org.antlr.runtime.tree.CommonTreeAdaptor;
+import org.antlr.runtime.tree.TreeAdaptor;
 
 
 @SuppressWarnings("all")
@@ -16,12 +13,13 @@ public class LibConfigParser extends Parser {
 	public static final String[] tokenNames = new String[] {
 		"<invalid>", "<EOR>", "<DOWN>", "<UP>", "BOOLEAN", "COMMENT", "EQUALS", 
 		"ESC_SEQ", "EXPONENT", "FLOAT", "HEX_DIGIT", "ID", "INT", "OCTAL_ESC", 
-		"STRING", "UNICODE_ESC", "WS", "':'", "'{'", "'}'"
+		"STRING", "UNICODE_ESC", "WS", "':'", "';'", "'{'", "'}'"
 	};
 	public static final int EOF=-1;
 	public static final int T__17=17;
 	public static final int T__18=18;
 	public static final int T__19=19;
+	public static final int T__20=20;
 	public static final int BOOLEAN=4;
 	public static final int COMMENT=5;
 	public static final int EQUALS=6;
@@ -102,7 +100,7 @@ public class LibConfigParser extends Parser {
 			root_0 = (Object)adaptor.becomeRoot(ID1_tree, root_0);
 
 			char_literal2=(Token)match(input,17,FOLLOW_17_in_namespace42); 
-			char_literal3=(Token)match(input,18,FOLLOW_18_in_namespace45); 
+			char_literal3=(Token)match(input,19,FOLLOW_19_in_namespace45); 
 			// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:15:28: ( namespace | assignment )*
 			loop1:
 			while (true) {
@@ -148,7 +146,7 @@ public class LibConfigParser extends Parser {
 				}
 			}
 
-			char_literal6=(Token)match(input,19,FOLLOW_19_in_namespace59); 
+			char_literal6=(Token)match(input,20,FOLLOW_20_in_namespace59); 
 			}
 
 			retval.stop = input.LT(-1);
@@ -178,7 +176,7 @@ public class LibConfigParser extends Parser {
 
 
 	// $ANTLR start "assignment"
-	// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:17:1: assignment : ID EQUALS ^ ( INT | FLOAT | STRING | BOOLEAN ) ;
+	// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:17:1: assignment : ID EQUALS ^ ( INT | FLOAT | STRING | BOOLEAN ) ( ';' )? ;
 	public final LibConfigParser.assignment_return assignment() throws RecognitionException {
 		LibConfigParser.assignment_return retval = new LibConfigParser.assignment_return();
 		retval.start = input.LT(1);
@@ -188,14 +186,16 @@ public class LibConfigParser extends Parser {
 		Token ID7=null;
 		Token EQUALS8=null;
 		Token set9=null;
+		Token char_literal10=null;
 
 		Object ID7_tree=null;
 		Object EQUALS8_tree=null;
 		Object set9_tree=null;
+		Object char_literal10_tree=null;
 
 		try {
-			// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:17:11: ( ID EQUALS ^ ( INT | FLOAT | STRING | BOOLEAN ) )
-			// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:17:14: ID EQUALS ^ ( INT | FLOAT | STRING | BOOLEAN )
+			// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:17:11: ( ID EQUALS ^ ( INT | FLOAT | STRING | BOOLEAN ) ( ';' )? )
+			// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:17:14: ID EQUALS ^ ( INT | FLOAT | STRING | BOOLEAN ) ( ';' )?
 			{
 			root_0 = (Object)adaptor.nil();
 
@@ -218,6 +218,25 @@ public class LibConfigParser extends Parser {
 				MismatchedSetException mse = new MismatchedSetException(null,input);
 				throw mse;
 			}
+			// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:17:58: ( ';' )?
+			int alt2=2;
+			int LA2_0 = input.LA(1);
+			if ( (LA2_0==18) ) {
+				alt2=1;
+			}
+			switch (alt2) {
+				case 1 :
+					// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:17:59: ';'
+					{
+					char_literal10=(Token)match(input,18,FOLLOW_18_in_assignment93); 
+					char_literal10_tree = (Object)adaptor.create(char_literal10);
+					adaptor.addChild(root_0, char_literal10_tree);
+
+					}
+					break;
+
+			}
+
 			}
 
 			retval.stop = input.LT(-1);
@@ -243,12 +262,13 @@ public class LibConfigParser extends Parser {
 
 
 	public static final BitSet FOLLOW_ID_in_namespace39 = new BitSet(new long[]{0x0000000000020000L});
-	public static final BitSet FOLLOW_17_in_namespace42 = new BitSet(new long[]{0x0000000000040000L});
-	public static final BitSet FOLLOW_18_in_namespace45 = new BitSet(new long[]{0x0000000000080800L});
-	public static final BitSet FOLLOW_namespace_in_namespace50 = new BitSet(new long[]{0x0000000000080800L});
-	public static final BitSet FOLLOW_assignment_in_namespace54 = new BitSet(new long[]{0x0000000000080800L});
-	public static final BitSet FOLLOW_19_in_namespace59 = new BitSet(new long[]{0x0000000000000002L});
+	public static final BitSet FOLLOW_17_in_namespace42 = new BitSet(new long[]{0x0000000000080000L});
+	public static final BitSet FOLLOW_19_in_namespace45 = new BitSet(new long[]{0x0000000000100800L});
+	public static final BitSet FOLLOW_namespace_in_namespace50 = new BitSet(new long[]{0x0000000000100800L});
+	public static final BitSet FOLLOW_assignment_in_namespace54 = new BitSet(new long[]{0x0000000000100800L});
+	public static final BitSet FOLLOW_20_in_namespace59 = new BitSet(new long[]{0x0000000000000002L});
 	public static final BitSet FOLLOW_ID_in_assignment71 = new BitSet(new long[]{0x0000000000000040L});
 	public static final BitSet FOLLOW_EQUALS_in_assignment73 = new BitSet(new long[]{0x0000000000005210L});
-	public static final BitSet FOLLOW_set_in_assignment76 = new BitSet(new long[]{0x0000000000000002L});
+	public static final BitSet FOLLOW_set_in_assignment76 = new BitSet(new long[]{0x0000000000040002L});
+	public static final BitSet FOLLOW_18_in_assignment93 = new BitSet(new long[]{0x0000000000000002L});
 }

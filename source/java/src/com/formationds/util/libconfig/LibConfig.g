@@ -14,7 +14,7 @@ options {
 
 namespace : ID^ ':'! '{'!  (namespace | assignment)*  '}'!;
    
-assignment:	 ID EQUALS^ (INT | FLOAT | STRING | BOOLEAN);
+assignment:	 ID EQUALS^ (INT | FLOAT | STRING | BOOLEAN) (';')?;
 
 EQUALS 	:	'=';
 

@@ -1,12 +1,9 @@
-// $ANTLR 3.5.1 /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g 2014-05-08 14:08:09
+// $ANTLR 3.5.1 /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g 2014-05-13 11:48:37
 
     package com.formationds.util.libconfig;
 
 
 import org.antlr.runtime.*;
-import java.util.Stack;
-import java.util.List;
-import java.util.ArrayList;
 
 @SuppressWarnings("all")
 public class LibConfigLexer extends Lexer {
@@ -14,6 +11,7 @@ public class LibConfigLexer extends Lexer {
 	public static final int T__17=17;
 	public static final int T__18=18;
 	public static final int T__19=19;
+	public static final int T__20=20;
 	public static final int BOOLEAN=4;
 	public static final int COMMENT=5;
 	public static final int EQUALS=6;
@@ -68,10 +66,10 @@ public class LibConfigLexer extends Lexer {
 		try {
 			int _type = T__18;
 			int _channel = DEFAULT_TOKEN_CHANNEL;
-			// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:7:7: ( '{' )
-			// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:7:9: '{'
+			// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:7:7: ( ';' )
+			// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:7:9: ';'
 			{
-			match('{'); 
+			match(';'); 
 			}
 
 			state.type = _type;
@@ -88,8 +86,28 @@ public class LibConfigLexer extends Lexer {
 		try {
 			int _type = T__19;
 			int _channel = DEFAULT_TOKEN_CHANNEL;
-			// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:8:7: ( '}' )
-			// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:8:9: '}'
+			// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:8:7: ( '{' )
+			// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:8:9: '{'
+			{
+			match('{'); 
+			}
+
+			state.type = _type;
+			state.channel = _channel;
+		}
+		finally {
+			// do for sure before leaving
+		}
+	}
+	// $ANTLR end "T__19"
+
+	// $ANTLR start "T__20"
+	public final void mT__20() throws RecognitionException {
+		try {
+			int _type = T__20;
+			int _channel = DEFAULT_TOKEN_CHANNEL;
+			// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:9:7: ( '}' )
+			// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:9:9: '}'
 			{
 			match('}'); 
 			}
@@ -101,7 +119,7 @@ public class LibConfigLexer extends Lexer {
 			// do for sure before leaving
 		}
 	}
-	// $ANTLR end "T__19"
+	// $ANTLR end "T__20"
 
 	// $ANTLR start "EQUALS"
 	public final void mEQUALS() throws RecognitionException {
@@ -1053,8 +1071,8 @@ public class LibConfigLexer extends Lexer {
 
 	@Override
 	public void mTokens() throws RecognitionException {
-		// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:1:8: ( T__17 | T__18 | T__19 | EQUALS | BOOLEAN | ID | INT | FLOAT | COMMENT | WS | STRING )
-		int alt20=11;
+		// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:1:8: ( T__17 | T__18 | T__19 | T__20 | EQUALS | BOOLEAN | ID | INT | FLOAT | COMMENT | WS | STRING )
+		int alt20=12;
 		alt20 = dfa20.predict(input);
 		switch (alt20) {
 			case 1 :
@@ -1079,56 +1097,63 @@ public class LibConfigLexer extends Lexer {
 				}
 				break;
 			case 4 :
-				// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:1:28: EQUALS
+				// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:1:28: T__20
+				{
+				mT__20(); 
+
+				}
+				break;
+			case 5 :
+				// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:1:34: EQUALS
 				{
 				mEQUALS(); 
 
 				}
 				break;
-			case 5 :
-				// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:1:35: BOOLEAN
+			case 6 :
+				// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:1:41: BOOLEAN
 				{
 				mBOOLEAN(); 
 
 				}
 				break;
-			case 6 :
-				// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:1:43: ID
+			case 7 :
+				// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:1:49: ID
 				{
 				mID(); 
 
 				}
 				break;
-			case 7 :
-				// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:1:46: INT
+			case 8 :
+				// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:1:52: INT
 				{
 				mINT(); 
 
 				}
 				break;
-			case 8 :
-				// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:1:50: FLOAT
+			case 9 :
+				// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:1:56: FLOAT
 				{
 				mFLOAT(); 
 
 				}
 				break;
-			case 9 :
-				// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:1:56: COMMENT
+			case 10 :
+				// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:1:62: COMMENT
 				{
 				mCOMMENT(); 
 
 				}
 				break;
-			case 10 :
-				// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:1:64: WS
+			case 11 :
+				// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:1:70: WS
 				{
 				mWS(); 
 
 				}
 				break;
-			case 11 :
-				// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:1:67: STRING
+			case 12 :
+				// /home/fabrice/fds-src/source/java/src/com/formationds/util/libconfig/LibConfig.g:1:73: STRING
 				{
 				mSTRING(); 
 
@@ -1197,45 +1222,47 @@ public class LibConfigLexer extends Lexer {
 	}
 
 	static final String DFA20_eotS =
-		"\5\uffff\2\7\1\uffff\1\17\4\uffff\2\7\1\uffff\2\7\1\24\1\7\1\uffff\1\24";
+		"\6\uffff\2\10\1\uffff\1\20\4\uffff\2\10\1\uffff\2\10\1\25\1\10\1\uffff"+
+		"\1\25";
 	static final String DFA20_eofS =
-		"\26\uffff";
+		"\27\uffff";
 	static final String DFA20_minS =
-		"\1\11\4\uffff\1\162\1\141\1\uffff\1\56\4\uffff\1\165\1\154\1\uffff\1\145"+
+		"\1\11\5\uffff\1\162\1\141\1\uffff\1\56\4\uffff\1\165\1\154\1\uffff\1\145"+
 		"\1\163\1\60\1\145\1\uffff\1\60";
 	static final String DFA20_maxS =
-		"\1\175\4\uffff\1\162\1\141\1\uffff\1\145\4\uffff\1\165\1\154\1\uffff\1"+
+		"\1\175\5\uffff\1\162\1\141\1\uffff\1\145\4\uffff\1\165\1\154\1\uffff\1"+
 		"\145\1\163\1\172\1\145\1\uffff\1\172";
 	static final String DFA20_acceptS =
-		"\1\uffff\1\1\1\2\1\3\1\4\2\uffff\1\6\1\uffff\1\10\1\11\1\12\1\13\2\uffff"+
-		"\1\7\4\uffff\1\5\1\uffff";
+		"\1\uffff\1\1\1\2\1\3\1\4\1\5\2\uffff\1\7\1\uffff\1\11\1\12\1\13\1\14\2"+
+		"\uffff\1\10\4\uffff\1\6\1\uffff";
 	static final String DFA20_specialS =
-		"\26\uffff}>";
+		"\27\uffff}>";
 	static final String[] DFA20_transitionS = {
-			"\2\13\2\uffff\1\13\22\uffff\1\13\1\uffff\1\14\1\12\12\uffff\1\11\1\12"+
-			"\12\10\1\1\2\uffff\1\4\3\uffff\32\7\4\uffff\1\7\1\uffff\5\7\1\6\15\7"+
-			"\1\5\6\7\1\2\1\uffff\1\3",
+			"\2\14\2\uffff\1\14\22\uffff\1\14\1\uffff\1\15\1\13\12\uffff\1\12\1\13"+
+			"\12\11\1\1\1\2\1\uffff\1\5\3\uffff\32\10\4\uffff\1\10\1\uffff\5\10\1"+
+			"\7\15\10\1\6\6\10\1\3\1\uffff\1\4",
 			"",
 			"",
 			"",
 			"",
-			"\1\15",
+			"",
 			"\1\16",
+			"\1\17",
 			"",
-			"\1\11\1\uffff\12\10\13\uffff\1\11\37\uffff\1\11",
+			"\1\12\1\uffff\12\11\13\uffff\1\12\37\uffff\1\12",
 			"",
 			"",
 			"",
 			"",
-			"\1\20",
 			"\1\21",
-			"",
 			"\1\22",
-			"\1\23",
-			"\12\7\7\uffff\32\7\4\uffff\1\7\1\uffff\32\7",
-			"\1\25",
 			"",
-			"\12\7\7\uffff\32\7\4\uffff\1\7\1\uffff\32\7"
+			"\1\23",
+			"\1\24",
+			"\12\10\7\uffff\32\10\4\uffff\1\10\1\uffff\32\10",
+			"\1\26",
+			"",
+			"\12\10\7\uffff\32\10\4\uffff\1\10\1\uffff\32\10"
 	};
 
 	static final short[] DFA20_eot = DFA.unpackEncodedString(DFA20_eotS);
@@ -1269,7 +1296,7 @@ public class LibConfigLexer extends Lexer {
 		}
 		@Override
 		public String getDescription() {
-			return "1:1: Tokens : ( T__17 | T__18 | T__19 | EQUALS | BOOLEAN | ID | INT | FLOAT | COMMENT | WS | STRING );";
+			return "1:1: Tokens : ( T__17 | T__18 | T__19 | T__20 | EQUALS | BOOLEAN | ID | INT | FLOAT | COMMENT | WS | STRING );";
 		}
 	}
 
