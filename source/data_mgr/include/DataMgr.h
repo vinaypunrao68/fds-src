@@ -120,7 +120,7 @@ public:
                  std::string  _session_uuid,
                  fds_uint32_t _reqCookie,
                  fds_io_op_t  _ioType)
-                : volId(_volId), srcIp(_srcIp), dstIp(_dstIp),
+                : volId(_volId), blob_name(blobName), srcIp(_srcIp), dstIp(_dstIp),
                   srcPort(_srcPort), dstPort(_dstPort), session_uuid(_session_uuid),
             reqCookie(_reqCookie), fdspUpdCatReqPtr(NULL) {
             io_type = _ioType;
