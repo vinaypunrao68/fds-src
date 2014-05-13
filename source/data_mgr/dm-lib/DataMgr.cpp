@@ -2224,11 +2224,10 @@ void DataMgr::ReqHandler::SetBlobMetaData(boost::shared_ptr<FDSP_MsgHdrType>& ms
 
     dmCatReq* request = new DataMgr::dmCatReq(reqHeader, FDS_SET_BLOB_METADATA);
     
-    for (auto& meta : *metadataList) {
-        bNode->updateMetadata(meta.key, meta.value);
-        LOGDEBUG << "received meta  [" << meta.key <<":" << meta.value << "]";
+    for (auto& meta : *metaDataList) {
+        GLOGDEBUG << "received meta  [" << meta.key <<":" << meta.value << "]";
     }
-    LOGDEBUG << "received some meta to be updated..";
+    GLOGDEBUG << "received some meta to be updated..";
 
     request->metadataList = metaDataList;
     request->blob_name = *blobName;
