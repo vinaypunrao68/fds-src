@@ -103,6 +103,7 @@ class OM_NodeAgent : public NodeAgent
 
     virtual Error om_send_dlt(const DLT *curDlt);
     virtual Error om_send_dlt_close(fds_uint64_t cur_dlt_version);
+    virtual Error om_send_dmt(const DMTPtr& curDmt);
     virtual Error om_send_scavenger_cmd(fpi::FDSP_ScavengerCmd cmd);
     virtual Error om_send_pushmeta(fpi::FDSP_PushMetaPtr& meta_msg);
     virtual void init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const;
@@ -120,7 +121,7 @@ class OM_NodeAgent : public NodeAgent
 typedef OM_NodeAgent                    OM_SmAgent;
 typedef OM_NodeAgent                    OM_DmAgent;
 typedef OM_NodeAgent                    OM_AmAgent;
-typedef std::list<OM_SmAgent::pointer>  NodeList;
+typedef std::list<OM_NodeAgent::pointer>  NodeList;
 
 /**
  * Agent interface to communicate with the platform service on the remote node.
@@ -199,9 +200,25 @@ class OM_AgentContainer : public AgentContainer
                                  bool                  activate = true);
     virtual Error agent_unregister(const NodeUuid &uuid, const std::string &name);
 
+    virtual void agent_activate(NodeAgent::pointer agent);
+    virtual void agent_deactivate(NodeAgent::pointer agent);
+
+    /**
+     * Move all pending nodes to addNodes and rmNodes
+     * The second function only moves nodes that are in 'filter_nodes'
+     * set and leaves other pending nodes pending
+     */
+    void om_splice_nodes_pend(NodeList *addNodes, NodeList *rmNodes);
+    void om_splice_nodes_pend(NodeList *addNodes,
+                              NodeList *rmNodes,
+                              const NodeUuidSet& filter_nodes);
+
   protected:
     FdspNodeType                             ac_node_type;
     boost::shared_ptr<OM_ControlRespHandler> ctrlRspHndlr;
+
+    NodeList                                 node_up_pend;
+    NodeList                                 node_down_pend;
 
     explicit OM_AgentContainer(FdspNodeType id);
     virtual ~OM_AgentContainer() {}
@@ -264,27 +281,11 @@ class OM_SmContainer : public OM_AgentContainer
     OM_SmContainer();
     virtual ~OM_SmContainer() {}
 
-    /**
-     * Move all pending nodes to addNodes and rmNodes
-     * The second function only moves nodes that are in 'filter_nodes'
-     * set and leaves other pending nodes pending
-     */
-    void om_splice_nodes_pend(NodeList *addNodes, NodeList *rmNodes);
-    void om_splice_nodes_pend(NodeList *addNodes,
-                              NodeList *rmNodes,
-                              const NodeUuidSet& filter_nodes);
-
-    virtual void agent_activate(NodeAgent::pointer agent);
-    virtual void agent_deactivate(NodeAgent::pointer agent);
-
     static inline OM_SmContainer::pointer agt_cast_ptr(RsContainer::pointer ptr) {
         return static_cast<OM_SmContainer *>(get_pointer(ptr));
     }
 
   protected:
-    NodeList                                 node_up_pend;
-    NodeList                                 node_down_pend;
-
     virtual Resource *rs_new(const ResourceUUID &uuid) {
         return new OM_SmAgent(uuid);
     }
@@ -293,6 +294,8 @@ class OM_SmContainer : public OM_AgentContainer
 class OM_DmContainer : public OM_AgentContainer
 {
   public:
+    typedef boost::intrusive_ptr<OM_DmContainer> pointer;
+
     OM_DmContainer();
     virtual ~OM_DmContainer() {}
 
@@ -438,8 +441,7 @@ class OM_NodeContainer : public DomainContainer
                                             fds_bool_t activate_sm,
                                             fds_bool_t activate_md,
                                             fds_bool_t activate_am);
-    virtual fds_uint32_t  om_bcast_dmt_table();
-    virtual void om_round_robin_dmt();
+    virtual fds_uint32_t  om_bcast_dmt(const DMTPtr& curDmt);
 
   private:
     friend class OM_NodeDomainMod;
@@ -451,15 +453,6 @@ class OM_NodeContainer : public DomainContainer
     FdsAdminCtrl             *om_admin_ctrl;
     VolumeContainer::pointer  om_volumes;
     float                     om_cur_throttle_level;
-
-    /**
-     * TODO(Anna) use DMTManager here, which will incapsulate all these fields
-     */
-    fds_uint64_t              om_dmt_ver;
-    fds_uint32_t              om_dmt_width;
-    fds_uint32_t              om_dmt_depth;
-    DMT*                      om_curDmt;
-    fds_mutex                 om_dmt_mtx;
 
     void om_init_domain();
 

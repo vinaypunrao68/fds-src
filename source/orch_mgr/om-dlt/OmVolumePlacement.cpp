@@ -2,6 +2,7 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 #include <string>
+#include <new>
 #include <OmClusterMap.h>
 #include <OmVolumePlacement.h>
 
@@ -70,19 +71,53 @@ VolumePlacement::setAlgorithm(VolPlacementAlgorithm::AlgorithmTypes type)
     }
     switch (type) {
         case VolPlacementAlgorithm::AlgorithmTypes::RoundRobin:
-            placeAlgo = new RRAlgorithm();
+            placeAlgo = new(std::nothrow) RRAlgorithm();
             break;
         case VolPlacementAlgorithm::AlgorithmTypes::RoundRobinDynamic:
-            placeAlgo = new DynamicRRAlgorithm();
+            placeAlgo = new(std::nothrow) DynamicRRAlgorithm();
             break;
         default:
             fds_panic("Unknown volume placement algorithm type %u", type);
     }
+    fds_verify(placeAlgo != NULL);
 }
 
 void
 VolumePlacement::computeDMT(const ClusterMap* cmap)
 {
+    Error err(ERR_OK);
+    fds_uint64_t next_version = DMT_VER_INVALID + 1;
+    fds_uint32_t depth = curDmtDepth;
+    DMT *newDmt = NULL;
+
+    // if we alreay have commited DMT, next version is inc 1
+    if (dmtMgr->hasCommittedDMT()) {
+        next_version = dmtMgr->getCommittedVersion() + 1;
+    }
+    if (cmap->getNumMembers(fpi::FDSP_DATA_MGR) < curDmtDepth) {
+        depth = cmap->getNumMembers(fpi::FDSP_DATA_MGR);
+    }
+    fds_verify(depth > 0);
+
+    // allocate and compute new DMT
+    newDmt = new(std::nothrow) DMT(curDmtWidth, depth, next_version, true);
+    fds_verify(newDmt != NULL);
+    {  // compute DMT
+        fds_mutex::scoped_lock l(placementMutex);
+        if (dmtMgr->hasCommittedDMT()) {
+            placeAlgo->updateDMT(cmap, dmtMgr->getDMT(DMT_COMMITTED), newDmt);
+        } else {
+            placeAlgo->computeDMT(cmap, newDmt);
+        }
+    }
+
+    // add this DMT as target, we should not have another non-committed
+    // target already
+    fds_verify(!dmtMgr->hasTargetDMT());
+    err = dmtMgr->add(newDmt, DMT_TARGET);
+    fds_verify(err.ok());
+
+    LOGDEBUG << "Computed new DMT: " << *newDmt;
 }
 
 Error
@@ -95,6 +130,8 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap)
 
 void
 VolumePlacement::commitDMT() {
+    dmtMgr->commitDMT();
+    LOGDEBUG << *dmtMgr;
 }
 
 

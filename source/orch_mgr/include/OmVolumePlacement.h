@@ -33,7 +33,18 @@ namespace fds {
             RoundRobin  = 0,
             RoundRobinDynamic = 1,
         };
-        virtual Error updateDMT(const DMTPtr& curDmt,
+        /**
+         * Compute DMT from scratch
+         */
+        virtual Error computeDMT(const ClusterMap* curMap,
+                                 DMT* newDMT) = 0;
+        /**
+         * Compute DMT taking into account changes in cluster
+         * map when we already have a DMT for previous version of
+         * cluster map.
+         */
+        virtual Error updateDMT(const ClusterMap* curMap,
+                                const DMTPtr& curDmt,
                                 DMT* newDMT) = 0;
         virtual ~VolPlacementAlgorithm() {}
     };
@@ -45,7 +56,18 @@ namespace fds {
      */
     class RRAlgorithm: public VolPlacementAlgorithm {
   public:
-        virtual Error updateDMT(const DMTPtr& curDmt,
+        /**
+         * Compute DMT from scratch
+         */
+        virtual Error computeDMT(const ClusterMap* curMap,
+                                 DMT* newDMT);
+        /**
+         * Compute DMT taking into account changes in cluster
+         * map when we already have a DMT for previous version of
+         * cluster map.
+         */
+        virtual Error updateDMT(const ClusterMap* curMap,
+                                const DMTPtr& curDmt,
                                 DMT* newDMT);
     };
 
@@ -59,7 +81,18 @@ namespace fds {
      */
     class DynamicRRAlgorithm: public VolPlacementAlgorithm {
   public:
-        virtual Error updateDMT(const DMTPtr& curDmt,
+        /**
+         * Compute DMT from scratch
+         */
+        virtual Error computeDMT(const ClusterMap* curMap,
+                                 DMT* newDMT);
+        /**
+         * Compute DMT taking into account changes in cluster
+         * map when we already have a DMT for previous version of
+         * cluster map.
+         */
+        virtual Error updateDMT(const ClusterMap* curMap,
+                                const DMTPtr& curDmt,
                                 DMT* newDMT);
     };
 
@@ -100,6 +133,13 @@ namespace fds {
          * TODO(xxx) The commit stores the DMT to the permanent DMT history
          */
         void commitDMT();
+
+        inline DMTPtr getCommittedDMT() {
+            return dmtMgr->getDMT(DMT_COMMITTED);
+        }
+        inline fds_bool_t hasCommittedDMT() const {
+            return dmtMgr->hasCommittedDMT();
+        }
 
   private:
         /**

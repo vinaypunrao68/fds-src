@@ -13,6 +13,7 @@
 #include <OmDmtDeploy.h>
 #include <OmResources.h>
 #include <OmDataPlacement.h>
+#include <OmVolumePlacement.h>
 #include <fds_process.h>
 
 #define OM_WAIT_NODES_UP_SECONDS   (5*60)
@@ -842,8 +843,6 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
         }
 
         // Send the DMT to DMs.
-        // om_locDomain->om_round_robin_dmt();
-        // om_locDomain->om_bcast_dmt_table();
         if (msg->node_type == fpi::FDSP_DATA_MGR) {
             if (oldDmNode) {
                 OM_DmAgent::agt_cast_ptr(oldDmNode)->om_send_pushmeta(meta_msg);
@@ -851,7 +850,14 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
             LOGDEBUG << "Invoking the DMT state transition: " << numVols;
             om_dmt_update_cluster(numVols);
         } else {
-            om_locDomain->om_bcast_dmt_table();
+            OM_Module *om = OM_Module::om_singleton();
+            VolumePlacement* vp = om->om_volplace_mod();
+            if (vp->hasCommittedDMT()) {
+                om_locDomain->om_bcast_dmt(vp->getCommittedDMT());
+            } else {
+                LOGNORMAL << "Not broadcasting DMT yet, because no "
+                          << " committed DMT yet";
+            }
         }
 
         if (om_local_domain_up()) {
