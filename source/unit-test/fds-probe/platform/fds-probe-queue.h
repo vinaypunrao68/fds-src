@@ -108,23 +108,9 @@ class QueueSetupTempl : public JsObjTemplate
 };
 
 //---------------------------------------------------------------------------------------
-/**
- * Queue payload information
- */
-struct queue_payload_t {
-    int value;
-};
 
-/**
- * QueuePush object
- */
-class QueuePush : public JsObject
-{
-  public:
-    virtual JsObject *js_exec_obj(JsObject *p, JsObjTemplate *templ, JsObjOutput *out);
-    inline queue_payload_t *queue_payload() {
-        return static_cast<queue_payload_t *>(js_pod_object());
-    }
+struct queue_pop_payload_t {
+    char *name;
 };
 
 /**
@@ -134,6 +120,9 @@ class QueuePop : public JsObject
 {
   public:
     virtual JsObject *js_exec_obj(JsObject *p, JsObjTemplate *templ, JsObjOutput *out);
+    inline queue_pop_payload_t *queue_pop_payload() {
+        return static_cast<queue_pop_payload_t *>(js_pod_object());
+    }
 };
 
 /**
@@ -147,10 +136,35 @@ class QueuePopTempl : public JsObjTemplate
 
     virtual JsObject *js_new(json_t *in)
     {
-        return js_parse(new QueuePush(), in, NULL);
+        queue_pop_payload_t *payload = new queue_pop_payload_t;
+        if (json_unpack(in, "{s:s}",
+                        "queue-name", &payload->name)) {
+            delete payload;
+            return NULL;
+        }
+        return js_parse(new QueuePop(), in, payload);
     }
 };
 
+/**
+ * Queue push payload information
+ */
+struct queue_push_payload_t {
+    char *name;
+    int value;
+};
+
+/**
+ * QueuePush object
+ */
+class QueuePush : public JsObject
+{
+  public:
+    virtual JsObject *js_exec_obj(JsObject *p, JsObjTemplate *templ, JsObjOutput *out);
+    inline queue_push_payload_t *queue_push_payload() {
+        return static_cast<queue_push_payload_t *>(js_pod_object());
+    }
+};
 
 /**
  * Decoder for Queue-Push
@@ -163,8 +177,9 @@ class QueuePushTempl : public JsObjTemplate
 
     virtual JsObject *js_new(json_t *in)
     {
-        queue_payload_t *payload = new queue_payload_t;
+        queue_push_payload_t *payload = new queue_push_payload_t;
         if (json_unpack(in, "{s:s s:i}",
+                        "queue-name", &payload->name,
                         "value", &payload->value)) {
             delete payload;
             return NULL;
@@ -184,6 +199,9 @@ class QueueWorkloadTempl : public JsObjTemplate
     {
         js_decode["Queue-Push"] = new QueuePushTempl(mgr);
         js_decode["Queue-Pop"] = new QueuePopTempl(mgr);
+    }
+    virtual JsObject *js_new(json_t *in) {
+        return js_parse(new JsObject(), in, NULL);
     }
 };
 

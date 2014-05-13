@@ -116,6 +116,7 @@ shm_queue_ProbeMod::mod_startup()
         std::cout << "Setting template." << std::endl;
         mgr = pr_parent->pr_get_obj_mgr();
         mgr->js_register_template(new QueueSetupTempl(mgr));
+        mgr->js_register_template(new QueueWorkloadTempl(mgr));
     }
 }
 
@@ -134,22 +135,30 @@ shm_queue_ProbeMod::mod_shutdown()
 JsObject *
 QueueInfo::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput *out)
 {
-    std::cout << "Queue stuff called!" << std::endl;
+    std::cout << "QueueSetup called!" << std::endl;
     queue_info_t *params = queue_info();
 
-    // q = new fds::FdsShmQueue<int>(params->name, params->size);
+    fds::FdsShmQueue<int> q(params->name);
+    q.shmq_alloc(params->size);
 
-    // if (q.empty()) {
-    //     std::cout << "Queue is created and empty!" << std::endl;
-    // }
+    if (q.empty()) {
+        std::cout << "Queue is created and empty!" << std::endl;
+    }
     return this;
 }
 
 JsObject *
 QueuePush::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput *out)
 {
-    std::cout << "QueueAction called" << std::endl;
-    queue_payload_t *payload = queue_payload();
+    queue_push_payload_t *payload = queue_push_payload();
+
+    // Attach to queue
+    fds::FdsShmQueue<int> q(payload->name);
+    q.shmq_connect();
+    // Push our value
+
+    std::cout << "Pushing " << payload->value << " to " << payload->name << std::endl;
+    q.shmq_enqueue(payload->value);
 
     return this;
 }
@@ -157,6 +166,15 @@ QueuePush::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput *out)
 JsObject *
 QueuePop::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput *out)
 {
+    std::cout << "Pop called" << std::endl;
+    queue_pop_payload_t *payload = queue_pop_payload();
+
+    fds::FdsShmQueue<int> q(payload->name);
+    q.shmq_connect();
+    int val = q.shmq_dequeue();
+
+    std::cout << "Popped value = " << val << " from " << payload->name << std::endl;
+
     return this;
 }
 
