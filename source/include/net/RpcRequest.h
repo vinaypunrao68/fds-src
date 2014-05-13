@@ -11,43 +11,9 @@
 #include <fds_typedefs.h>
 #include <fdsp/fds_service_types.h>
 #include <fds_error.h>
+#include <net/RpcFunc.h>
 
 namespace fds {
-
-class RpcFuncIf {
- public:
-    virtual void invoke() = 0;
-    virtual void setHeader(const fpi::AsyncHdr &hdr) = 0;
-
- protected:
-};
-typedef boost::shared_ptr<RpcFuncIf> RpcFuncPtr;
-
-template <class ServiceT, class ArgT>
-class RpcFunc1 : public RpcFuncIf {
- public:
-    RpcFunc1(std::function<void (boost::shared_ptr<ArgT> arg)> rpc,
-            boost::shared_ptr<ArgT> arg)
-    : rpc_(rpc), rpcArg_(arg)
-    {
-    }
-    virtual void invoke() override {
-        // TODO(Rao): Lookup the endpoint and issue the call
-        fds_assert(false);
-    }
-    virtual void setHeader(const fpi::AsyncHdr &hdr) {
-        rpcArg_->header = hdr;
-    }
-
- protected:
-    std::function<void (boost::shared_ptr<ArgT> arg)> rpc_;
-    boost::shared_ptr<ArgT> rpcArg_;
-};
-
-template <class ReturnT, class ServiceT, class ArgT>
-class RpcRetFunc1 : public  RpcFunc1<ServiceT, ArgT> {
-
-};
 
 /* Async rpc request identifier */
 typedef uint64_t AsyncRpcRequestId;
@@ -74,7 +40,7 @@ class AsyncRpcRequestIf {
     {
     }
 
-    AsyncRpcRequestIf(const AsyncRpcRequestId &id)
+    explicit AsyncRpcRequestIf(const AsyncRpcRequestId &id)
     : id_(id)
     {
     }
@@ -182,7 +148,7 @@ class EPAsyncRpcRequest : public AsyncRpcRequestIf {
 typedef boost::shared_ptr<EPAsyncRpcRequest> EPAsyncRpcRequestPtr;
 
 struct AsyncRpcEpInfo {
-    AsyncRpcEpInfo(const fpi::SvcUuid &id)
+    explicit AsyncRpcEpInfo(const fpi::SvcUuid &id)
     : epId(id), status(ERR_OK)
     {
     }
@@ -196,153 +162,33 @@ struct AsyncRpcEpInfo {
  */
 class FailoverRpcRequest : public AsyncRpcRequestIf {
  public:
-    /**
-     *
-     */
-    FailoverRpcRequest()
-     : FailoverRpcRequest(0, std::vector<fpi::SvcUuid>())
-    {
-    }
+    FailoverRpcRequest();
 
-    /**
-     *
-     * @param id
-     * @param uuid
-     */
     FailoverRpcRequest(const AsyncRpcRequestId& id,
-            const std::vector<fpi::SvcUuid>& uuid)
-    : AsyncRpcRequestIf(0)
-    {
-    }
+            const std::vector<fpi::SvcUuid>& uuid);
 
-    /**
-     * For adding endpoint.
-     * NOTE: Only invoke during initialization.  Donot invoke once
-     * the request is in progress
-     * @param uuid
-     */
-    void addEndpoint(const fpi::SvcUuid& uuid) {
-        eps_.push_back(AsyncRpcEpInfo(uuid));
-    }
+    void addEndpoint(const fpi::SvcUuid& uuid);
 
-    /**
-     * NOTE: Only invoke during initialization.  Donot invoke once
-     * the request is in progress
-     * @param cb
-     */
-    void onFailoverCb(RpcFailoverCb& cb) {
-        failoverCb_ = cb;
-    }
+    void onFailoverCb(RpcFailoverCb& cb);
 
-    /**
-     * NOTE: Only invoke during initialization.  Donot invoke once
-     * the request is in progress
-     *
-     * @param cb
-     */
-    void onSuccessCb(RpcRequestSuccessCb& cb) {
-        successCb_ = cb;
-    }
+    void onSuccessCb(RpcRequestSuccessCb& cb);
 
-    /**
-     * NOTE: Only invoke during initialization.  Donot invoke once
-     * the request is in progress
-     *
-     * @param cb
-     */
-    void onErrorCb(RpcRequestErrorCb& cb) {
-        errorCb_ = cb;
-    }
+    void onErrorCb(RpcRequestErrorCb& cb);
 
-    /**
-     * Not thread safe.  Client should invoke this function only once.
-     */
-    void invoke()
-    {
-        state_ = INVOCATION_PROGRESS;
-        AsyncHdr hdr;
-        // TODO(Rao): populate the header.  Need a factory function to populate the header.
-        rpc_->setHeader(hdr);
-        try {
-            rpc_->invoke();
-        } catch (...) {
-            // TODO(Rao): Invoke endpoint error handling
-            // Post an error to threadpool
-        }
-    }
-    /**
-     * @brief
-     *
-     * @param header
-     * @param payload
-     */
-    // TODO(Rao): logging, invoking cb, error for each endpoint
+    void invoke();
+
     void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
-            boost::shared_ptr<std::string>& payload)
-    {
-        bool invokeRpc = false;
-        fpi::SvcUuid errdEpId;
-
-        {
-            fds_scoped_lock l(respLock_);
-            if (isComplete()) {
-                /* Request is already complete.  At this point we don't do anything on
-                 * the responses than just draining them out
-                 */
-                return;
-            }
-
-            if (header->msg_code == ERR_OK) {
-                complete(ERR_OK);
-                if (successCb_) {
-                    successCb_(payload);
-                }
-                gAsyncRpcTracker->removeFromTracking(this->getRequestId());
-            } else {
-                if (header->msg_src_id != eps_[curEpIdx_].epId) {
-                    /* Response isn't from the last endpoint we issued the request against.
-                     * Don't do anything here
-                     */
-                    return;
-                }
-                errdEpId = header->msg_src_id;
-                curEpIdx_++;
-                if (curEpIdx_ == eps_.size()) {
-                    complete(ERR_RPC_FAILED);
-                    if (errorCb_) {
-                        errorCb_(header->msg_code, payload);
-                    }
-                    gAsyncRpcTracker->removeFromTracking(this->getRequestId());
-                } else {
-                    if (failoverCb_) {
-                        bool complete = false;
-                        failoverCb_(header->msg_code, complete);
-                        if (complete) {
-                            // TODO(Rao): We could invoke failure callback here
-                            complete(ERR_RPC_USER_INTERRUPTED);
-                            return;
-                        }
-                    }
-                    invokeRpc = true;
-                }
-            }
-        }
-
-        if (invokeRpc) {
-            invoke();
-        }
-        if (errdEpId.svc_uuid != 0) {
-            // TODO(Rao): Notify an error
-        }
-    }
+            boost::shared_ptr<std::string>& payload);
 
  protected:
+    void moveToNextHealthyEndpoint_();
+    void invokeInternal_();
 
     /* Lock for synchronizing response handling */
     fds_mutex respLock_;
 
     /* Next endpoint to invoke the request on */
-    uint8_t nextEp_;
+    uint8_t curEpIdx_;
 
     /* Endpoint collection */
     std::vector<AsyncRpcEpInfo> eps_;

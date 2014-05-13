@@ -7,6 +7,7 @@ user_cpp         := \
 	AsyncRpcRequestTracker.cpp \
 	RpcRequestPool.cpp \
 	BaseAsyncSvcHandler.cpp \
+	FailoverRpcRequest.cpp
 
 
 user_ar_libs     := fds-rpc-request
