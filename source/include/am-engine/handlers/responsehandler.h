@@ -120,6 +120,31 @@ struct GetObjectResponseHandler : ResponseHandler {
     virtual ~GetObjectResponseHandler();
 };
 
+/**
+ * Response handler for native getObject() calls done
+ * for block-specific requests.
+ * A specific handler is needed because an additional
+ * callback to UBD is needed to notify the kernel that
+ * a request has been processed.
+ */
+struct GetObjectBlkResponseHandler : GetObjectResponseHandler {
+    typedef boost::function<void(fds_int32_t)> blkCallback;
+    blkCallback ubdCallback;
+
+    template<typename F, typename A, typename B, typename C>
+    GetObjectBlkResponseHandler(F f,
+                                A a,
+                                B b,
+                                C c)
+            : ubdCallback(boost::bind(f, a, b, c, _1)) {
+        type = HandlerType::IMMEDIATE;
+    }
+    virtual void process();
+    virtual ~GetObjectBlkResponseHandler();
+
+    typedef boost::shared_ptr<GetObjectBlkResponseHandler> ptr;
+};
+
 struct ListBucketResponseHandler : ResponseHandler {
     ListBucketResponseHandler(std::vector<apis::BlobDescriptor> & vecBlobs);
 

@@ -31,6 +31,7 @@ class AmUbdConnect : public Module {
     void init_server(FDS_NativeAPI::ptr api);
 
     Error amUbdPutBlob(fbd_request_t *blkReq);
+    Error amUbdGetBlob(fbd_request_t *blkReq);
 };
 
 extern AmUbdConnect gl_AmUbdConnect;

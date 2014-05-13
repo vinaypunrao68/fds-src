@@ -590,8 +590,7 @@ void hvisor_queue_read(td_vbd_t *vbd,
            vbd, vbd->uuid, vreq, p_new_req);
 
     /* queue the  request  to the per volume queue */
-    // Push the request into AM
-    rc = pushFbdReq(p_new_req);
+    rc = amUbdGetBlob(p_new_req);
     if (rc) {
         hvisor_complete_td_request((void *)vbd, (void *)vreq, p_new_req, rc);
     }

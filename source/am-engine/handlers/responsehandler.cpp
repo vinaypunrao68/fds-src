@@ -75,7 +75,7 @@ void PutObjectBlkResponseHandler::process() {
         ubdCallback(0);
     } else {
         // TODO(Andrew): For now, just pass -1 when something
-        // we wrong
+        // went wrong
         ubdCallback(-1);
     }
 }
@@ -88,6 +88,20 @@ void GetObjectResponseHandler::process() {
 }
 
 GetObjectResponseHandler::~GetObjectResponseHandler() {
+}
+//================================================================================
+
+void GetObjectBlkResponseHandler::process() {
+    if (status == FDSN_StatusOK) {
+        ubdCallback(0);
+    } else {
+        // TODO(Andrew): For now, just pass -1 when something
+        // went wrong
+        ubdCallback(-1);
+    }
+}
+
+GetObjectBlkResponseHandler::~GetObjectBlkResponseHandler() {
 }
 //================================================================================
 

@@ -68,6 +68,36 @@ FDSN_Status fn_GetObjectHandler(BucketContextPtr bucket_ctx,
     return FDSN_StatusOK;
 }
 
+FDSN_Status
+fn_GetObjectBlkHandler(BucketContextPtr bucket_ctx,
+                       void *reqContext,
+                       fds_uint64_t bufferSize,
+                       fds_off_t offset,
+                       const char *buffer,
+                       fds_uint64_t blobSize,
+                       const std::string &blobEtag,
+                       void *callbackData,
+                       FDSN_Status status,
+                       ErrorDetails *errorDetails) {
+    GetObjectBlkResponseHandler* handler =
+            reinterpret_cast<GetObjectBlkResponseHandler*>(callbackData); //NOLINT
+    handler->status = status;
+    handler->errorDetails = errorDetails;
+
+    handler->bucket_ctx = bucket_ctx;
+    handler->reqContext = reqContext;
+    handler->bufferSize = bufferSize;
+    handler->offset = offset;
+    handler->buffer = buffer;
+    handler->blobSize = blobSize;
+    handler->blobEtag = blobEtag;
+
+    handler->call();
+
+    delete handler;
+    return status;
+}
+
 void fn_ListBucketHandler(int isTruncated,
                           const char *nextMarker,
                           int contentsCount,
