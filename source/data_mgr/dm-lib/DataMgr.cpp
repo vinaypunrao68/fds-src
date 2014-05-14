@@ -519,6 +519,12 @@ void DataMgr::proc_pre_startup()
 
     runMode = NORMAL_MODE;
 
+   /*
+    LOGNORMAL << "before running system command rsync ";
+    std::system((const char *)("sshpass -p passwd rsync -r /tmp/logs  root@10.1.10.216:/tmp"));
+    LOGNORMAL << "After running system command rsync ";
+   */
+
     PlatformProcess::proc_pre_startup();
 
     // Get config values from that platform lib.
@@ -1594,6 +1600,7 @@ DataMgr::expungeObject(fds_volid_t volId, const ObjectID &objId) {
     for (fds_uint32_t i = 0; i < tokenGroup->getLength(); i++) {
         try {
             NodeUuid uuid = tokenGroup->get(i);
+	   // NodeAgent::pointer node = Platform::plf_dm_nodes()->agent_info(uuid);
             NodeAgent::pointer node = plf_mgr->plf_node_inventory()->
                     dc_get_sm_nodes()->agent_info(uuid);
             SmAgent::pointer sm = SmAgent::agt_cast_ptr(node);

@@ -299,6 +299,7 @@ class Platform : public Module
     inline std::string const *const plf_get_my_name() const { return &plf_my_node_name; }
     inline std::string const *const plf_get_my_ip() const { return &plf_my_ip; }
     inline std::string const *const plf_get_om_ip() const { return &plf_om_ip_str; }
+    inline std::string const *const plf_node_fdsroot() const { return &pIf_node_fdsroot; }
 
     inline NodeUuid const *const plf_get_my_uuid() const { return &plf_my_uuid; }
     inline NodeUuid const *const plf_get_my_svc_uuid() const { return &plf_my_svc_uuid; }
@@ -313,6 +314,7 @@ class Platform : public Module
     std::string                plf_my_node_name;
     std::string                plf_my_ip;
     std::string                plf_om_ip_str;
+    std::string                pIf_node_fdsroot;
     fds_uint32_t               plf_om_ctrl_port;
     fds_uint32_t               plf_my_ctrl_port;
     fds_uint32_t               plf_my_conf_port;

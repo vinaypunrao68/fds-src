@@ -45,7 +45,7 @@ FdsProcess::FdsProcess(int argc, char *argv[],
     /* Initialize process wide globals */
     g_fdsprocess = this;
     /* Set up the signal handler.  We should do this before creating any threads */
-    setup_sig_handler();
+    // setup_sig_handler();
 
     /* Setup module vectors and config */
     mod_vectors_ = new ModuleVector(argc, argv, mod_vec);
@@ -336,6 +336,7 @@ FdsRootDir::FdsRootDir(const std::string &root)
       d_user_repo(root     + std::string("user-repo/")),
       d_user_repo_objs(d_user_repo + std::string("objects/")),
       d_user_repo_dm(d_user_repo   + std::string("dm-names/")),
+      d_user_repo_snap(d_user_repo   + std::string("snap/")),
 
       d_sys_repo(root      + std::string("sys-repo/")),
       d_sys_repo_etc(d_sys_repo       + std::string("etc/")),
