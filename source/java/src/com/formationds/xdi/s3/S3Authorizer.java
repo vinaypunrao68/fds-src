@@ -6,7 +6,6 @@ package com.formationds.xdi.s3;
 import com.amazonaws.AmazonWebServiceRequest;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.http.HttpMethodName;
-import com.amazonaws.services.s3.internal.S3Signer;
 import com.amazonaws.util.AWSRequestMetrics;
 import com.formationds.security.Authenticator;
 import com.formationds.security.AuthorizationToken;
@@ -50,7 +49,7 @@ public class S3Authorizer implements Supplier<RequestHandler> {
     }
 
     private String hashRequest(Request request, BasicAWSCredentials candidateCredentials) {
-        S3Signer signer = new S3Signer(request.getMethod(), request.getRequestURI());
+        CustomS3Signer signer = new CustomS3Signer(request.getMethod(), request.getRequestURI());
         com.amazonaws.Request amazonRequest = makeAmazonRequest(request);
         signer.sign(amazonRequest, candidateCredentials);
         return amazonRequest.getHeaders().get("Authorization").toString();
@@ -71,7 +70,6 @@ public class S3Authorizer implements Supplier<RequestHandler> {
 
             @Override
             public void addHeader(String key, String value) {
-                System.out.println("Adding header " + key + "=" + value);
                 headers.put(key, value);
             }
 

@@ -41,7 +41,7 @@ public class Configuration {
     }
 
     private void initLog4J() {
-        properties.put("log4j.rootCategory", "DEBUG, console");
+        properties.put("log4j.rootCategory", "INFO, console");
         properties.put("log4j.appender.console", "org.apache.log4j.ConsoleAppender");
         properties.put("log4j.appender.console.layout", "org.apache.log4j.PatternLayout");
         properties.put("log4j.appender.console.layout.ConversionPattern", "%-4r [%t] %-5p %c %x - %m%n");

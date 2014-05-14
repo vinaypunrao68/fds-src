@@ -20,7 +20,6 @@ public class SwiftEndpoint {
     private boolean enforceAuth;
     private WebApp webApp;
 
-
     public static void main(String[] args) throws Exception {
         Configuration configuration = new Configuration(args);
         ToyServices foo = new ToyServices("foo");
