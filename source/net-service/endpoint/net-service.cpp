@@ -55,7 +55,7 @@ NetMgr::mod_shutdown()
 // Register the endpoint to the local domain.
 //
 void
-NetMgr::ep_register(EpSvc::pointer ep)
+NetMgr::ep_register(EpSvc::pointer ep, bool update_domain)
 {
     int                 idx, port;
     ep_map_rec_t        map;
@@ -73,10 +73,14 @@ NetMgr::ep_register(EpSvc::pointer ep)
     idx = ep_shm->ep_map_record(&map);
 
     // Add to the local mapping.
-    ep_mtx.lock();
-    ep_port_map[port] = ep;
-    ep_uuid_map[ep->ep_my_uuid()] = idx;
-    ep_mtx.unlock();
+    if (idx != -1) {
+        ep_mtx.lock();
+        if (port != 0) {
+            ep_port_map[port] = ep;
+        }
+        ep_uuid_map[ep->ep_my_uuid()] = idx;
+        ep_mtx.unlock();
+    }
 }
 
 // ep_unregister
@@ -109,10 +113,22 @@ NetMgr::svc_lookup(const char *peer_name, fds_uint32_t maj, fds_uint32_t min)
     return NULL;
 }
 
+// ep_lookup_port
+// --------------
+//
 EpSvc::pointer
 NetMgr::ep_lookup_port(int port)
 {
     return NULL;
+}
+
+// ep_uuid_bindings
+// ----------------
+//
+int
+NetMgr::ep_uuid_bindings(const struct ep_map_rec **map)
+{
+    return 0;
 }
 
 }  // namespace fds

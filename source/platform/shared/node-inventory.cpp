@@ -233,21 +233,6 @@ NodeAgent::node_set_weight(fds_uint64_t weight)
     const_cast<NodeInvData *>(node_inv)->nd_gbyte_cap = weight;
 }
 
-// agt_register_domain
-// -------------------
-// Register the node agent to the known domain controller.
-//
-void
-NodeAgent::agt_register_domain(const fpi::DomainID &id)
-{
-    NetPlatform *net;
-
-    if (agt_rpc == NULL) {
-        net = NetPlatform::nplat_singleton();
-        agt_rpc = net->nplat_domain_rpc(id);
-    }
-}
-
 AgentContainer::AgentContainer(FdspNodeType id) : RsContainer()
 {
     ac_cpSessTbl = boost::shared_ptr<netSessionTbl>(new netSessionTbl(id));
@@ -261,6 +246,24 @@ AgentContainer::agent_handshake(boost::shared_ptr<netSessionTbl> net,
                                 NodeAgentDpRespPtr               resp,
                                 NodeAgent::pointer               agent)
 {
+}
+
+// --------------------------------------------------------------------------------------
+// PM Agent
+// --------------------------------------------------------------------------------------
+
+// pma_register_domain
+// -------------------
+// Register the node agent to the known domain controller.
+//
+void
+PmAgent::pma_register_domain(const fpi::DomainID &id)
+{
+    if (agt_domain_rpc == NULL) {
+        NetPlatform *net = NetPlatform::nplat_singleton();
+        agt_domain_ep  = net->nplat_domain_rpc(id);
+        agt_domain_rpc = agt_domain_ep->svc_rpc<fpi::PlatNetSvcClient>();
+    }
 }
 
 // --------------------------------------------------------------------------------------

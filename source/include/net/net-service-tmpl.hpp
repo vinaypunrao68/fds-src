@@ -59,6 +59,10 @@ class EpSvcImpl : public EpSvc
     virtual EpSvc::pointer ep_lookup_service(const ResourceUUID &uuid);
     virtual EpSvc::pointer ep_lookup_service(const char *name);
 
+    // Endpoint event input.
+    //
+    virtual void ep_input_event(fds_uint32_t evt);
+
   protected:
     fpi::SvcID                       ep_peer_id;
     fpi::SvcVer                      ep_peer_ver;
@@ -67,6 +71,7 @@ class EpSvcImpl : public EpSvc
     friend class NetMgr;
 
     void ep_fillin_binding(struct ep_map_rec *map);
+    virtual fds_uint64_t ep_peer_uuid() { return ep_peer_id.svc_uuid.svc_uuid; }
 };
 
 class NetPlatSvc;

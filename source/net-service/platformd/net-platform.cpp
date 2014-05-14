@@ -123,7 +123,9 @@ NetPlatSvc::mod_enable_service()
     plat_ep->ep_connect_server(port, *plat_lib->plf_get_om_ip());
     plat_rpc = new EpSvcHandle(boost::static_pointer_cast<void>(plat_ep->ep_rpc_send),
                                plat_ep->ep_trans);
-    std::cout << "connected..." << std::endl;
+
+    // Regiser my node endpoint.
+    NetMgr::ep_mgr_singleton()->ep_register(plat_ep, false);
 }
 
 void

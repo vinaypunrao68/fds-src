@@ -14,6 +14,10 @@
 #include <net/net-service.h>
 #include <platform/platform-rpc.h>
 
+namespace FDS_ProtocolInterface {
+class PlatNetSvcClient;
+}  // namespace FDS_ProtocolInterface
+
 namespace fds {
 
 typedef fpi::FDSP_RegisterNodeType     FdspNodeReg;
@@ -145,8 +149,6 @@ class NodeInventory : public Resource
     void node_set_inventory(NodeInvData const *const inv);
 };
 
-class EpSvcHandle;
-
 /**
  * --------------------------------------------------------------------------------------
  * Agent interface to communicate with the remote node.  This is the communication
@@ -166,7 +168,6 @@ class NodeAgent : public NodeInventory
     static inline NodeAgent::pointer agt_cast_ptr(Resource::pointer ptr) {
         return static_cast<NodeAgent *>(get_pointer(ptr));
     }
-    virtual void agt_register_domain(const fpi::DomainID &id);
 
     /**
      * Return the storage weight -- currently capacity in GB / 10
@@ -175,11 +176,11 @@ class NodeAgent : public NodeInventory
     virtual void         node_set_weight(fds_uint64_t weight);
 
   protected:
-    boost::intrusive_ptr<EpSvcHandle>   agt_rpc;
-
     virtual ~NodeAgent() {}
-    explicit NodeAgent(const NodeUuid &uuid) : NodeInventory(uuid), agt_rpc(NULL) {}
+    explicit NodeAgent(const NodeUuid &uuid) : NodeInventory(uuid) {}
 };
+
+class EpSvcHandle;
 
 class PmAgent : public NodeAgent
 {
@@ -187,12 +188,18 @@ class PmAgent : public NodeAgent
     typedef boost::intrusive_ptr<PmAgent> pointer;
     typedef boost::intrusive_ptr<const PmAgent> const_ptr;
 
-    PmAgent(const NodeUuid &uuid) : NodeAgent(uuid) {}
     virtual ~PmAgent() {}
+    PmAgent(const NodeUuid &uuid)
+        : NodeAgent(uuid), agt_domain_ep(NULL), agt_domain_rpc(NULL) {}
 
     static inline PmAgent::pointer agt_cast_ptr(NodeAgent::pointer ptr) {
         return static_cast<PmAgent *>(get_pointer(ptr));
     }
+    virtual void pma_register_domain(const fpi::DomainID &id);
+
+  protected:
+    boost::intrusive_ptr<EpSvcHandle>        agt_domain_ep;
+    boost::shared_ptr<fpi::PlatNetSvcClient> agt_domain_rpc;
 };
 
 class SmAgent : public NodeAgent
