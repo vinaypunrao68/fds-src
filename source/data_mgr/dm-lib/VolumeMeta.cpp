@@ -207,7 +207,7 @@ VolumeMeta::syncVolCat(fds_volid_t volId, NodeUuid node_uuid)
   NodeAgent::pointer node = Platform::plf_dm_nodes()->agent_info(node_uuid);
   DmAgent::pointer dm = DmAgent::agt_cast_ptr(node);
   const std::string dst_node = dm->get_node_root() + "user-repo/dm-names/" + vol_name + "_vcat.ldb";
-  const std::string dst_dir =  dm->dir_user_repo_dm()";
+  const std::string dst_dir =  root->dir_user_repo_snap();
 
   dataMgr->omClient->getNodeInfo(node_uuid.uuid_get_val(), &node_ip, &node_port, &node_state);
   std::string dest_ip = netSessionTbl::ipAddr2String(node_ip);
