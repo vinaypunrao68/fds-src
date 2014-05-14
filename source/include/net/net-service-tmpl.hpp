@@ -70,6 +70,7 @@ class EpSvcImpl : public EpSvc
     friend class NetMgr;
 
     void ep_fillin_binding(struct ep_map_rec *map);
+    virtual void ep_peer_uuid(fpi::SvcUuid &uuid) { uuid = ep_peer_id.svc_uuid; }
     virtual fds_uint64_t ep_peer_uuid() { return ep_peer_id.svc_uuid.svc_uuid; }
 };
 
@@ -82,21 +83,21 @@ class NetPlatSvc;
 //
 template <class SendIf>
 void endpoint_connect_server(int port, const std::string &ip,
-                             bo::shared_ptr<SendIf>         *out,
-                             bo::shared_ptr<tt::TTransport> *trans)
+                             bo::shared_ptr<SendIf>         &out,
+                             bo::shared_ptr<tt::TTransport> &trans)
 {
-    if ((*trans) != NULL) {
+    if (trans != NULL) {
         // Reset the old connection.
-        (*trans)->close();
+        trans->close();
     } else {
         bo::shared_ptr<tt::TTransport> sock(new tt::TSocket(ip, port));
-        *trans = bo::shared_ptr<tt::TTransport>(new tt::TFramedTransport(sock));
+        trans.reset(new tt::TFramedTransport(sock));
 
-        bo::shared_ptr<tp::TProtocol>  proto(new tp::TBinaryProtocol(*trans));
-        *out = bo::shared_ptr<SendIf>(new SendIf(proto));
+        bo::shared_ptr<tp::TProtocol>  proto(new tp::TBinaryProtocol(trans));
+        out.reset(new SendIf(proto));
     }
     try {
-        (*trans)->open();
+        trans->open();
     } catch(at::TException &tx) {  // NOLINT
         std::cout << "Error: " << tx.what() << std::endl;
     }
@@ -152,8 +153,11 @@ class EndPoint : public EpSvcImpl
     //
     EpSvcHandle::pointer ep_new_handle(int port, const std::string &ip)
     {
+        bo::shared_ptr<SendIf> rpc;
         EpSvcHandle::pointer clnt = new EpSvcHandle(this, NULL, NULL);
-        endpoint_connect_server<SendIf>(port, ip, &clnt->ep_rpc, &clnt->ep_trans);
+
+        endpoint_connect_server<SendIf>(port, ip, rpc, clnt->ep_trans);
+        clnt->ep_rpc = rpc;
         return clnt;
     }
     EpSvcHandle::pointer ep_server_handle() {
@@ -166,8 +170,8 @@ class EndPoint : public EpSvcImpl
         if (ep_clnt_ptr == NULL) {
             ep_clnt_ptr = new EpSvcHandle(this, NULL, NULL);
             endpoint_connect_server<SendIf>(port, ip,
-                                            &ep_clnt_ptr->ep_rpc,
-                                            &ep_clnt_ptr->ep_trans);
+                                            ep_clnt_ptr->ep_rpc,
+                                            ep_clnt_ptr->ep_trans);
         }
     }
     void ep_activate() {

@@ -190,13 +190,13 @@ class EpSvc
     void            ep_apply_attr();
     EpAttr::pointer ep_get_attr() { return ep_attr; }
 
-    // Cast to the correct EndPoint type.
+    // Cast to the correct EndPoint type.  Return NULL if this is pure service object.
     //
     template <class SendIf, class RecvIf>
     boost::intrusive_ptr<EndPoint<SendIf, RecvIf>> ep_cast()
     {
         if (ep_is_connection()) {
-            return boost::static_pointer_cast<EndPoint<SendIf, RecvIf>>(this);
+            return static_cast<EndPoint<SendIf, RecvIf> *>(this);
         }
         return NULL;
     }
@@ -224,6 +224,7 @@ class EpSvc
 
   private:
     friend class NetMgr;
+    friend class EpSvcHandle;
     mutable boost::atomic<int>       ep_refcnt;
 
     friend void intrusive_ptr_add_ref(const EpSvc *x) {
@@ -235,6 +236,9 @@ class EpSvc
             delete x;
         }
     }
+    virtual void ep_my_uuid(fpi::SvcUuid &uuid) { uuid = svc_id.svc_uuid; }
+    virtual void ep_peer_uuid(fpi::SvcUuid &uuid) { uuid.svc_uuid = 0; }
+
     virtual fds_uint64_t ep_my_uuid() { return svc_id.svc_uuid.svc_uuid; }
     virtual fds_uint64_t ep_peer_uuid() { return INVALID_RESOURCE_UUID.uuid_get_val(); }
 };
@@ -257,6 +261,8 @@ class EpSvcHandle
     boost::shared_ptr<SendIf> svc_rpc() {
         return boost::static_pointer_cast<SendIf>(ep_rpc);
     }
+    void ep_my_uuid(fpi::SvcUuid &uuid) { ep_owner->ep_my_uuid(uuid); }
+    void ep_peer_uuid(fpi::SvcUuid &uuid) { ep_owner->ep_peer_uuid(uuid); }
 
   protected:
     friend class NetMgr;
@@ -325,6 +331,7 @@ class NetMgr : public Module
      * The caller doesn't have to free the RO array.
      */
     virtual int  ep_uuid_bindings(const struct ep_map_rec **map);
+    virtual int  ep_uuid_binding(const fpi::SvcUuid &uuid, std::string *ip);
 
     /**
      * Endpoint registration and lookup.
@@ -347,6 +354,31 @@ class NetMgr : public Module
     svc_lookup(const char *name, fds_uint32_t maj, fds_uint32_t min);
 
     /**
+     * Allocate a handle to communicate with the peer endpoint.  The 'mine' uuid can be
+     * taken from the platform library to get the default uuid.
+     */
+    template <class SendIf>
+    EpSvcHandle::pointer
+    svc_new_handle(const fpi::SvcUuid &mine, const fpi::SvcUuid &peer)
+    {
+        int             port;
+        std::string     ip;
+        EpSvc::pointer  ep;
+        boost::intrusive_ptr<EndPoint<SendIf, void>> myep;
+
+        ep = endpoint_lookup(mine);
+        if (ep != NULL) {
+            myep = ep->ep_cast<SendIf, void>();
+            if (myep != NULL) {
+                port = ep_uuid_binding(peer, &ip);
+                if (port != -1) {
+                    return myep->ep_new_handle(port, ip);
+                }
+            }
+        }
+        return NULL;
+    }
+    /**
      * Lookup an endpoint.  The caller must call EpSvc::ep_cast<SendIf, RecvIf> to
      * cast it to the correct type.
      */
@@ -359,7 +391,7 @@ class NetMgr : public Module
      */
     virtual EpSvcHandle::pointer
     svc_domain_master(const fpi::DomainID &id,
-                      boost::shared_ptr<fpi::PlatNetSvcClient> *rpc);
+                      boost::shared_ptr<fpi::PlatNetSvcClient> &rpc);
 
     // Hook up with domain membership to know which node belongs to which domain.
     //

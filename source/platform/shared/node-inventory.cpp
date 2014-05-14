@@ -257,7 +257,7 @@ PmAgent::pma_connect_domain(const fpi::DomainID &id)
 {
     if (agt_domain_ep == NULL) {
         NetMgr *net = NetMgr::ep_mgr_singleton();
-        agt_domain_ep = net->svc_domain_master(id, &agt_domain_rpc);
+        agt_domain_ep = net->svc_domain_master(id, agt_domain_rpc);
     }
 }
 

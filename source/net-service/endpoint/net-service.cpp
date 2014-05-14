@@ -150,16 +150,20 @@ NetMgr::svc_lookup(const char *peer_name, fds_uint32_t maj, fds_uint32_t min)
 //
 EpSvcHandle::pointer
 NetMgr::svc_domain_master(const fpi::DomainID &id,
-                          boost::shared_ptr<fpi::PlatNetSvcClient> *rpc)
+                          boost::shared_ptr<fpi::PlatNetSvcClient> &rpc)
 {
+    int                            port;
+    bo::shared_ptr<void>           ep_rpc;
+    bo::shared_ptr<tt::TTransport> trans;
+
     if (ep_domain_clnt == NULL) {
-        bo::shared_ptr<tt::TTransport> trans;
-        int port = plat_lib->plf_get_om_svc_port();
         const std::string *ip = plat_lib->plf_get_om_ip();
 
-        endpoint_connect_server<fpi::PlatNetSvcClient>(port, *ip, rpc, &trans);
-        ep_domain_clnt =
-            new EpSvcHandle(NULL, boost::static_pointer_cast<void>(*rpc), trans);
+        port = plat_lib->plf_get_om_svc_port();
+        endpoint_connect_server<fpi::PlatNetSvcClient>(port, *ip, rpc, trans);
+
+        ep_rpc = rpc;
+        ep_domain_clnt = new EpSvcHandle(NULL, ep_rpc, trans);
     }
     return ep_domain_clnt;
 }
@@ -190,6 +194,15 @@ NetMgr::ep_lookup_port(int port)
 //
 int
 NetMgr::ep_uuid_bindings(const struct ep_map_rec **map)
+{
+    return 0;
+}
+
+// ep_uuid_binding
+// ---------------
+//
+int
+NetMgr::ep_uuid_binding(const fpi::SvcUuid &uuid, std::string *ip)
 {
     return 0;
 }

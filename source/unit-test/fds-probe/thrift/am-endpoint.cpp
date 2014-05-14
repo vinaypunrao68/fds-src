@@ -78,21 +78,22 @@ int
 ProbeEpSvcTestAM::mod_init(SysParams const *const p)
 {
     NetMgr       *mgr;
-    fpi::SvcUuid  svc;
+    fpi::SvcUuid  svc, mine;
 
     Module::mod_init(p);
+    mine.svc_uuid = 0;
 
     // Locate service handle based on uuid; don't care where they are located.
     //
     mgr          = NetMgr::ep_mgr_singleton();
     svc.svc_uuid = 0x1234;
-    // am_hello     = mgr->svc_lookup(svc, 1, 1);
+    am_hello     = mgr->svc_new_handle<fpi::ProbeServiceSMClient>(mine, svc);
 
     svc.svc_uuid = 0xcafe;
-    // am_bye       = mgr->svc_lookup(svc, 3, 4);
+    am_bye       = mgr->svc_new_handle<fpi::ProbeServiceSMClient>(mine, svc);
 
     svc.svc_uuid = 0xbeef;
-    // am_poke      = mgr->svc_lookup(svc, 5, 1);
+    am_poke      = mgr->svc_new_handle<fpi::ProbeServiceSMClient>(mine, svc);
     return 0;
 }
 
