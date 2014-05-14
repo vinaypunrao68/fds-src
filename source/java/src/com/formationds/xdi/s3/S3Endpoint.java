@@ -29,7 +29,7 @@ public class S3Endpoint {
 
     public S3Endpoint(Xdi xdi, boolean enforceAuth) {
         this.xdi = xdi;
-        this.enforceAuth = enforceAuth;
+        this.enforceAuth = false;
         webApp = new WebApp();
     }
 
