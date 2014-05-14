@@ -11,6 +11,7 @@
 #include <fds_module.h>
 #include <fds_process.h>
 #include <fds_resource.h>
+#include <fds_error.h>
 #include <shared/fds-constants.h>
 #include <fdsp/fds_service_types.h>
 
@@ -356,6 +357,22 @@ class NetMgr : public Module
 
     virtual EpSvc::pointer
     svc_lookup(const char *name, fds_uint32_t maj, fds_uint32_t min);
+
+    // TODO(Vy): Please refactor the following as needed
+    /**
+     * Returns true if error e is actionable on the endpoint
+     * @param e
+     * @return
+     */
+    bool ep_actionable_error(const Error &e) const;
+
+    /**
+     * Handles endpoint error
+     * TODO(Rao):  It's probably better for error handling to be scheduled
+     * on a threadpool and not on calling thread
+     * @param e
+     */
+    void ep_handle_error(const Error &e);
 
     /**
      * Allocate a handle to communicate with the peer endpoint.  The 'mine' uuid can be

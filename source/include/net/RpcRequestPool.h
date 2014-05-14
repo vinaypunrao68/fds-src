@@ -19,6 +19,8 @@ class RpcRequestPool {
     RpcRequestPool();
     ~RpcRequestPool();
 
+    void asyncRpcCommonHandling(AsyncRpcRequestIfPtr req);
+
 #if 0
     EPRpcRequestPtr newEPRpcRequest(const fpi::SvcUuid &uuid);
 #endif
@@ -33,8 +35,8 @@ class RpcRequestPool {
         FailoverRpcRequestPtr req(new FailoverRpcRequest(reqId, uuid_list));
         boost::shared_ptr<RpcFuncIf> rpc(new RpcFunc1<ServiceT, MemFuncT, Arg1T>(f, a1));
 
+        asyncRpcCommonHandling(req);
         req->setRpcFunc(rpc);
-        gAsyncRpcTracker->addForTracking(reqId, req);
 
         return req;
     }
@@ -44,6 +46,8 @@ class RpcRequestPool {
 
  protected:
     std::atomic<uint64_t> nextAsyncReqId_;
+    /* Common completion callback for rpc requests */
+    RpcRequestCompletionCb finishTrackingCb_;
 };
 
 extern RpcRequestPool *gRpcRequestPool;
