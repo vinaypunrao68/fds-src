@@ -13,7 +13,7 @@ int main() {
 
     // Create a new shared mem segment
     fds::FdsShmem a{n};
-    void *first = a.shm_alloc(1024);
+    void *first = a.shm_alloc(65535);
     assert(first != nullptr);
 
     // Write to it
@@ -31,18 +31,14 @@ int main() {
     assert(a.shm_remove() == true);
     
     fds::FdsShmQueue<int> queue ("shm_1");
-    queue.shmq_alloc(1024);
+    queue.shmq_alloc(65535);
 
     assert(queue.empty());
     queue.shmq_enqueue(12);
-    printf("Passed first enqueue\n");
     assert(!queue.empty());
     queue.shmq_enqueue(22);
-    printf("Passed second enqueue\n");
     queue.shmq_enqueue(32);
-    printf("Passed third enqueue\n");
     queue.shmq_enqueue(42);
-    printf("Passed fourth enqueue\n");
 
     fds::FdsShmQueue<int> queue_alt ("shm_1");
     queue_alt.shmq_connect();
@@ -59,8 +55,6 @@ int main() {
     }
 
     assert(queue.empty());
-
-    printf("Passed first dequeues\n");
     
     for (int i = 0; i < 50; ++i) {
         queue.shmq_enqueue(i);

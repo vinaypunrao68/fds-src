@@ -19,16 +19,16 @@ class FdsShmQueue
             BShmAlloc;
     
     typedef boost::lockfree::queue<T,
-            boost::lockfree::capacity<32>,
+            boost::lockfree::capacity<1024>, // TODO(brian): Figure out better limit
             //boost::lockfree::fixed_sized<true>>,
             boost::lockfree::allocator<BShmAlloc>> BShmQueue;
   public:
     FdsShmQueue(char *name);
     virtual ~FdsShmQueue();
     
-    void shmq_connect();
     void shmq_alloc(size_t capacity);
     void shmq_dealloc();
+    void shmq_connect();
     void shmq_disconnect();
     bool shmq_enqueue(T item);
     bool shmq_dequeue(T &item);
@@ -37,7 +37,6 @@ class FdsShmQueue
   protected:
     FdsShmem shm_mgd_segment;
     BShmQueue *shm_queue;
-    BShmAlloc *shm_alloc;
 };
 
 template <class T>
@@ -51,16 +50,10 @@ FdsShmQueue<T>::~FdsShmQueue()
 template <class T>
 void FdsShmQueue<T>::shmq_alloc(size_t capacity)
 {
-    // TODO(brian): Figure out how we want to handle capacity
-    // should it be in units of T or in raw bytes?
-
     // Create empty shared memory segment
     boost::interprocess::managed_shared_memory *mgr =
-            shm_mgd_segment.shm_create_empty(capacity + 1024);
+            shm_mgd_segment.shm_create_empty(capacity);
 
-    // Create an allocator for the Queue
-    shm_alloc = new BShmAlloc(mgr->get_segment_manager());
-    
     // Put a queue in it
     shm_queue = mgr->construct<BShmQueue>("shm_queue")(mgr->get_segment_manager());
 }
