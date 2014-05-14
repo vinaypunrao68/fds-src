@@ -142,6 +142,7 @@ namespace fds {
          * from commited DMT. Asserts if there is no commited DMT
          */
         DmtColumnPtr getCommittedNodeGroup(fds_volid_t volume_id);
+        DmtColumnPtr getTargetNodeGroup(fds_volid_t volume_id);
 
         /**
          * Returns DMT of given type, type must be either commited

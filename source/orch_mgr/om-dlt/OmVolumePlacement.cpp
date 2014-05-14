@@ -3,6 +3,7 @@
  */
 #include <string>
 #include <new>
+#include <map>
 #include <OmClusterMap.h>
 #include <OmVolumePlacement.h>
 
@@ -120,10 +121,127 @@ VolumePlacement::computeDMT(const ClusterMap* cmap)
     LOGDEBUG << "Computed new DMT: " << *newDmt;
 }
 
+/**
+ * Finds which nodes to send PushMeta message and which volumes
+ * to push. Returns a set of uuids of DMs to which PushMeta was sent
+ */
 Error
-VolumePlacement::beginRebalance(const ClusterMap* cmap)
+VolumePlacement::beginRebalance(const ClusterMap* cmap,
+                                NodeUuidSet* dm_set)
 {
     Error err(ERR_OK);
+    fds_verify(dm_set != NULL);
+
+    // node to send the push meta msg -> push_meta message
+    typedef std::map<fds_uint64_t, fpi::FDSP_PushMetaPtr> pm_msgs_t;
+    pm_msgs_t push_meta_msgs;
+    RsArray vol_ary;
+
+    // If we do not have any committed DMT, means that this is
+    // the first DM(s) added to the domain, so no need to rebalance
+    if (!dmtMgr->hasCommittedDMT()) {
+        LOGNOTIFY << "Not going to rebalance volume meta, because "
+                  << " this is the first DMT we computed";
+        return err;
+    }
+    fds_verify(dmtMgr->hasTargetDMT());
+
+    LOGDEBUG << "Will get a list of nodes and volumes to rebalance";
+
+    // get snapshot of current volumes
+    OM_NodeContainer* loc_domain = OM_NodeDomainMod::om_loc_domain_ctrl();
+    VolumeContainer::pointer volumes = loc_domain->om_vol_mgr();
+    fds_uint32_t vol_count = volumes->rs_container_snapshot(&vol_ary);
+    NodeUuidSet rmNodes = cmap->getRemovedServices(fpi::FDSP_DATA_MGR);
+
+    // for each volume, we will get column from committed and
+    // target DMT (getting column is cheap operation, so ok to
+    // re-do if several volumes fall into the same column
+    for (RsContainer::const_iterator it = vol_ary.cbegin();
+         it != vol_ary.cend();
+         ++it) {
+        fds_uint64_t volid = ((*it)->rs_get_uuid()).uuid_get_val();
+        DmtColumnPtr cmt_col = dmtMgr->getCommittedNodeGroup(volid);
+        DmtColumnPtr target_col = dmtMgr->getTargetNodeGroup(volid);
+
+        LOGDEBUG << "Check if we need to push_meta for vol"
+                 << std::hex << volid << std::dec;
+
+        // for each DM in target column, find all DMs that
+        // that got added to that column
+        NodeUuidSet new_dms;
+        for (fds_uint32_t j = 0; j < target_col->getLength(); ++j) {
+            NodeUuid uuid = target_col->get(j);
+            if (cmt_col->find(uuid) < 0) {
+                new_dms.insert(uuid);
+            }
+        }
+
+        LOGDEBUG << "Found " << new_dms.size() << " DMs that need to get"
+                 << " meta for vol " << std::hex << volid << std::dec;
+
+        // if no new DMs, then this volume does not need to be
+        // rebalanced, start working on next volume
+        if (new_dms.size() == 0) continue;
+
+        // use the first node in the committed column which is not
+        // deleted (primary, or if primary was deleted secondary, etc).
+        // TODO(xxx) we may improve performance if we sync from
+        // multiple sources (i.e. find > 1 node)
+        fds_uint64_t src_dm;
+        for (fds_uint32_t j = 0; j < cmt_col->getLength(); ++j) {
+            if (rmNodes.count(cmt_col->get(j)) == 0) {
+                src_dm = (cmt_col->get(j)).uuid_get_val();
+                break;
+            }
+        }
+        LOGDEBUG << "We will rsync from " << std::hex << src_dm << std::dec;
+        // we must have at least one node that we can push meta from!
+        fds_verify(src_dm != 0);
+
+        if (push_meta_msgs.count(src_dm) == 0) {
+            fpi::FDSP_PushMetaPtr meta_msg(new FDSP_PushMeta());
+            push_meta_msgs[src_dm] = meta_msg;
+        }
+        for (NodeUuidSet::const_iterator cit = new_dms.cbegin();
+             cit != new_dms.cend();
+             ++cit) {
+            // search meta list if we already have item with same
+            // destination uuid
+            fds_bool_t found = false;
+            LOGDEBUG << "Have src_dm? " << push_meta_msgs.count(src_dm);
+            for (fds_uint32_t idx = 0;
+                 idx < ((push_meta_msgs[src_dm])->metaVol).size();
+                 ++idx) {
+                fds_uint64_t uuid_val;
+                uuid_val = ((push_meta_msgs[src_dm])->metaVol)[idx].node_uuid.uuid;
+                if (uuid_val == (*cit).uuid_get_val()) {
+                    ((push_meta_msgs[src_dm])->metaVol)[idx].volList.push_back(volid);
+                    found = true;
+                    break;
+                }
+            }
+            LOGDEBUG << "Found destination node for vol ? " << found;
+            if (!found) {
+                FDSP_metaData meta;
+                meta.node_uuid.uuid = (*cit).uuid_get_val();
+                meta.volList.push_back(volid);
+                ((push_meta_msgs[src_dm])->metaVol).push_back(meta);
+            }
+        }
+    }
+
+    // send msgs
+    for (pm_msgs_t::iterator it = push_meta_msgs.begin();
+         it != push_meta_msgs.end();
+         ++it) {
+        OM_DmAgent::pointer agent = loc_domain->om_dm_agent(NodeUuid(it->first));
+        fds_verify(agent != NULL);
+        err = agent->om_send_pushmeta(it->second);
+        if (err.ok()) {
+            (*dm_set).insert(it->first);
+        }
+    }
 
     return err;
 }

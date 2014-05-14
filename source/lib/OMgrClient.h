@@ -217,6 +217,7 @@ namespace fds {
     Error recvDLTStartMigration(FDSP_DLT_Data_TypePtr& dlt_info);
     int recvDMTUpdate(FDSP_DMT_TypePtr& dmt_info, const std::string& session_uuid);
     Error recvDMTPushMeta(FDSP_PushMetaPtr& push_meta, const std::string& session_uuid);
+    int recvDMTClose(fds_uint64_t dmt_version, const std::string& session_uuid);
 
     int recvNotifyVol(VolumeDesc *vdb,
                       fds_vol_notify_t vol_action,

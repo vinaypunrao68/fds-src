@@ -62,6 +62,7 @@ enum FDSP_MsgCodeType {
    FDSP_MSG_DLT_UPDATE,
    FDSP_MSG_DLT_CLOSE,
    FDSP_MSG_DMT_UPDATE,
+   FDSP_MSG_DMT_CLOSE,
    FDSP_MSG_NODE_UPDATE,
    FDSP_MSG_NOTIFY_MIGRATION,
    FDSP_MSG_SCAVENGER_START,
@@ -355,7 +356,7 @@ struct FDSP_DLT_Resp_Type {
 }
 
 struct FDSP_DMT_Resp_Type {
-  1: i32 DMT_version
+  1: i64 DMT_version
 }
 
 struct FDSP_VolumeInfoType {

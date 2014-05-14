@@ -133,6 +133,7 @@ void OMgrClientRPCI::NotifyDLTClose(FDSP_MsgHdrTypePtr& fdsp_msg,
 
 void OMgrClientRPCI::NotifyDMTClose(FDSP_MsgHdrTypePtr& fdsp_msg,
                         FDSP_DmtCloseTypePtr& dmt_close) {
+    om_client->recvDMTClose(dmt_close->DMT_version, fdsp_msg->session_uuid);
 }
 
 void OMgrClientRPCI::PushMetaDMTReq(FDSP_MsgHdrTypePtr& fdsp_msg,
@@ -872,6 +873,39 @@ int OMgrClient::sendDLTCloseAckToOM(FDSP_DltCloseTypePtr& dlt_close,
     return err;
 }
 
+/**
+ * DMT close event notifies that nodes in the cluster received
+ * the commited (new) DMT
+ */
+int OMgrClient::recvDMTClose(fds_uint64_t dmt_version,
+                             const std::string& session_uuid)
+{
+    LOGNORMAL << "OMClient received DMT close event for DMT version "
+              << dmt_version;
+
+    // TODO(xxx) notify volume sync that we can stop forwarding
+    // updates to other DM
+
+    // sending response right away for now...
+    boost::shared_ptr<FDS_ProtocolInterface::FDSP_ControlPathRespClient> resp_client_prx =
+            omrpc_handler_session_->getRespClient(session_uuid);
+
+    try {
+        FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
+        initOMMsgHdr(msg_hdr);
+        FDSP_DMT_Resp_TypePtr dmt_resp(new FDSP_DMT_Resp_Type);
+        dmt_resp->DMT_version = dmt_version;
+        resp_client_prx->NotifyDMTCloseResp(msg_hdr, dmt_resp);
+        LOGNOTIFY << "OMClient sent response for DMT close to OM";
+    } catch (...) {
+        LOGERROR << "OMClient failed to send DMT close response to OM";
+        return -1;
+    }
+
+    return (0);
+}
+
+
 Error OMgrClient::recvDLTStartMigration(FDSP_DLT_Data_TypePtr& dlt_info) {
     Error err(ERR_OK);
     LOGNOTIFY << "OMClient received new Migration DLT version  "
@@ -893,6 +927,11 @@ Error OMgrClient::recvDMTPushMeta(FDSP_PushMetaPtr& push_meta,
     if (this->catalog_evt_hdlr) {
       err = this->catalog_evt_hdlr(push_meta, session_uuid);
     }
+
+    // TODO(xxx) remove this when implement actual callback
+    // when push meta is done
+    sendPushMetaRespToOM(err, session_uuid);
+
     return err;
 }
 

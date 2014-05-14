@@ -18,10 +18,10 @@ typedef boost::msm::back::state_machine<DmtDplyFSM> FSM_DplyDMT;
 /**
  * OM DMT deployment events.
  */
-class DmtComputeEvt
+class DmtDeployEvt
 {
   public:
-    explicit DmtComputeEvt(fds_uint32_t volNum)
+    explicit DmtDeployEvt(fds_uint32_t volNum)
             : numVols(volNum) {}
 
     fds_uint32_t    numVols;
@@ -33,10 +33,31 @@ class DmtLoadedDbEvt
     DmtLoadedDbEvt() {}
 };
 
+class DmtPushMetaAckEvt
+{
+  public:
+    explicit DmtPushMetaAckEvt(const NodeUuid& uuid)
+      : dm_uuid(uuid) {}
+
+    NodeUuid dm_uuid;
+};
+
+class DmtCommitAckEvt
+{
+  public:
+    explicit DmtCommitAckEvt(fds_uint64_t dmt_ver)
+            : dmt_version(dmt_ver) {}
+
+    fds_uint64_t dmt_version;
+};
+
 class DmtCloseOkEvt
 {
   public:
-    DmtCloseOkEvt() {}
+    explicit DmtCloseOkEvt(fds_uint64_t dmt_ver)
+            : dmt_version(dmt_ver) {}
+
+    fds_uint64_t dmt_version;
 };
 
 class DmtVolAckEvt
@@ -61,7 +82,9 @@ class OM_DMTMod : public Module
     /**
      * Apply an event to DMT deploy state machine.
      */
-    void dmt_deploy_event(DmtComputeEvt const &evt);
+    void dmt_deploy_event(DmtDeployEvt const &evt);
+    void dmt_deploy_event(DmtPushMetaAckEvt const &evt);
+    void dmt_deploy_event(DmtCommitAckEvt const &evt);
     void dmt_deploy_event(DmtCloseOkEvt const &evt);
     void dmt_deploy_event(DmtVolAckEvt const &evt);
     void dmt_deploy_event(DmtLoadedDbEvt const &evt);
@@ -74,7 +97,9 @@ class OM_DMTMod : public Module
     virtual void mod_shutdown();
 
   private:
-    FSM_DplyDMT             *dmt_dply_fsm;
+    FSM_DplyDMT     *dmt_dply_fsm;
+    // to protect access to msm process_event
+    fds_mutex       fsm_lock;
 };
 
 extern OM_DMTMod             gl_OMDmtMod;

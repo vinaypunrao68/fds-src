@@ -844,18 +844,20 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
 
         // Send the DMT to DMs.
         if (msg->node_type == fpi::FDSP_DATA_MGR) {
+            /*
             if (oldDmNode) {
                 OM_DmAgent::agt_cast_ptr(oldDmNode)->om_send_pushmeta(meta_msg);
             }
+            */
             LOGDEBUG << "Invoking the DMT state transition: " << numVols;
             om_dmt_update_cluster(numVols);
         } else {
             OM_Module *om = OM_Module::om_singleton();
             VolumePlacement* vp = om->om_volplace_mod();
             if (vp->hasCommittedDMT()) {
-                om_locDomain->om_bcast_dmt(vp->getCommittedDMT());
+                OM_NodeAgent::agt_cast_ptr(newNode)->om_send_dmt(vp->getCommittedDMT());
             } else {
-                LOGNORMAL << "Not broadcasting DMT yet, because no "
+                LOGNORMAL << "Not sending DMT to new node, because no "
                           << " committed DMT yet";
             }
         }
@@ -949,7 +951,7 @@ OM_NodeDomainMod::om_dmt_update_cluster(fds_uint32_t vols) {
     OM_Module *om = OM_Module::om_singleton();
     OM_DMTMod *dmtMod = om->om_dmt_mod();
 
-    dmtMod->dmt_deploy_event(DmtComputeEvt(vols));
+    dmtMod->dmt_deploy_event(DmtDeployEvt(vols));
     if (!vols)
        dmtMod->dmt_deploy_event(DmtVolAckEvt());
 }
@@ -1013,6 +1015,19 @@ OM_NodeDomainMod::om_recv_migration_done(const NodeUuid& uuid,
     return err;
 }
 
+
+//
+// Called when OM received push meta response from DM service
+//
+Error
+OM_NodeDomainMod::om_recv_push_meta_resp(const NodeUuid& uuid) {
+    Error err(ERR_OK);
+    OM_Module *om = OM_Module::om_singleton();
+    OM_DMTMod *dmtMod = om->om_dmt_mod();
+    dmtMod->dmt_deploy_event(DmtPushMetaAckEvt(uuid));
+    return err;
+}
+
 //
 // Called when OM receives response for DMT commit from a node
 //
@@ -1034,11 +1049,27 @@ OM_NodeDomainMod::om_recv_dmt_commit_resp(FdspNodeType node_type,
         return err;
     }
 
-    LOGDEBUG << "Invoking the DmtCloseOkEvt";
-    dmtMod->dmt_deploy_event(DmtCloseOkEvt());
+    dmtMod->dmt_deploy_event(DmtCommitAckEvt(dmt_version));
 
     return err;
 }
+
+//
+// Called when OM receives response for DMT close from DM
+//
+Error
+OM_NodeDomainMod::om_recv_dmt_close_resp(const NodeUuid& uuid,
+                                         fds_uint64_t dmt_version) {
+    Error err(ERR_OK);
+    OM_Module *om = OM_Module::om_singleton();
+    OM_DMTMod *dmtMod = om->om_dmt_mod();
+
+    // tell state machine that we received ack for close
+    dmtMod->dmt_deploy_event(DmtCloseOkEvt(dmt_version));
+
+    return err;
+}
+
 
 //
 // Called when OM receives response for DLT commit from a node
@@ -1355,6 +1386,18 @@ void
 OM_ControlRespHandler::NotifyDMTCloseResp(
     FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     FDS_ProtocolInterface::FDSP_DMT_Resp_TypePtr& dmt_resp) {
+
+    LOGNOTIFY << "OM received response for NotifyDMTClose from node "
+            << fdsp_msg->src_node_name << ":"
+            << std::hex << fdsp_msg->src_service_uuid.uuid << std::dec
+            << " for DMT version " << dmt_resp->DMT_version;
+
+    fds_verify(fdsp_msg->src_id == fpi::FDSP_DATA_MGR);
+
+    // notify DMT state machine
+    OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
+    NodeUuid node_uuid((fdsp_msg->src_service_uuid).uuid);
+    domain->om_recv_dmt_close_resp(node_uuid, dmt_resp->DMT_version);
 }
 
 void
@@ -1371,6 +1414,13 @@ OM_ControlRespHandler::PushMetaDMTResp(
     LOGNOTIFY << "Received PushMeta response from node "
             << fdsp_msg->src_node_name << ":"
             << std::hex << fdsp_msg->src_service_uuid.uuid << std::dec;
+
+    fds_verify(fdsp_msg->src_id == fpi::FDSP_DATA_MGR);
+
+    // notify DMT state machine
+    OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
+    NodeUuid node_uuid((fdsp_msg->src_service_uuid).uuid);
+    domain->om_recv_push_meta_resp(node_uuid);
 }
 
 void

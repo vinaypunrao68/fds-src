@@ -125,8 +125,10 @@ namespace fds {
 
         /**
          * Start rebalance volume meta among DM nodes
+         * @return a set of DMs to which we sent PushMeta msg
          */
-        Error beginRebalance(const ClusterMap* cmap);
+        Error beginRebalance(const ClusterMap* cmap,
+                             NodeUuidSet* dm_set);
 
         /**
          * Commits the current DMT as an 'official' copy
@@ -139,6 +141,9 @@ namespace fds {
         }
         inline fds_bool_t hasCommittedDMT() const {
             return dmtMgr->hasCommittedDMT();
+        }
+        inline fds_uint64_t getCommittedDMTVersion() const {
+            return dmtMgr->getCommittedVersion();
         }
 
   private:
