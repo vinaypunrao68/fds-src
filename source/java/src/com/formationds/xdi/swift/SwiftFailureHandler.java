@@ -1,4 +1,4 @@
-package com.formationds.xdi;
+package com.formationds.xdi.swift;
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
@@ -12,10 +12,10 @@ import com.formationds.web.toolkit.TextResource;
 import javax.servlet.http.HttpServletResponse;
 import java.util.function.Supplier;
 
-public class ApiFailureHandler implements Supplier<RequestHandler> {
+public class SwiftFailureHandler implements Supplier<RequestHandler> {
     private Supplier<RequestHandler> supplier;
 
-    public ApiFailureHandler(Supplier<RequestHandler> supplier) {
+    public SwiftFailureHandler(Supplier<RequestHandler> supplier) {
         this.supplier = supplier;
     }
 

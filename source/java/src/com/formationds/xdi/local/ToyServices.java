@@ -113,6 +113,9 @@ public class ToyServices implements AmService.Iface, ConfigurationService.Iface 
     @Override
     public BlobDescriptor statBlob(String domainName, String volumeName, String blobName) throws ApiException, TException {
         Blob blob = getBlob(domainName, volumeName, blobName);
+        if (blob == null) {
+            throw new ApiException("No such resource", ErrorCode.MISSING_RESOURCE);
+        }
         return new BlobDescriptor(blobName, blob.getByteCount(), ByteBuffer.wrap(blob.getDigest()), blob.getMetadata());
     }
 

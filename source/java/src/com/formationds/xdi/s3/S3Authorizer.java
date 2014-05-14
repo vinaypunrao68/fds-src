@@ -10,12 +10,10 @@ import com.amazonaws.util.AWSRequestMetrics;
 import com.formationds.security.Authenticator;
 import com.formationds.security.AuthorizationToken;
 import com.formationds.web.toolkit.RequestHandler;
-import com.formationds.web.toolkit.TextResource;
 import com.google.common.collect.Maps;
 import com.sun.security.auth.UserPrincipal;
 import org.eclipse.jetty.server.Request;
 
-import javax.servlet.http.HttpServletResponse;
 import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -43,7 +41,7 @@ public class S3Authorizer implements Supplier<RequestHandler> {
             if (candidateHeader.equals(requestHash)) {
                 return supplier.get().handle(request, routeParameters);
             } else {
-                return new TextResource(HttpServletResponse.SC_UNAUTHORIZED, "");
+                return new S3Failure(S3Failure.ErrorCode.AccessDenied, "Access denied", request.getRequestURI());
             }
         };
     }
