@@ -90,6 +90,7 @@ ClusterMap::resetPendServices(fpi::FDSP_MgrIdType svc_type) {
         case fpi::FDSP_DATA_MGR:
             addedDMs.clear();
             removedDMs.clear();
+            break;
         default:
             fds_panic("Unknown MgrIdType %u", svc_type);
     }

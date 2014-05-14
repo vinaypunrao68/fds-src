@@ -104,6 +104,7 @@ class OM_NodeAgent : public NodeAgent
     virtual Error om_send_dlt(const DLT *curDlt);
     virtual Error om_send_dlt_close(fds_uint64_t cur_dlt_version);
     virtual Error om_send_dmt(const DMTPtr& curDmt);
+    virtual Error om_send_dmt_close(fds_uint64_t dmt_version);
     virtual Error om_send_scavenger_cmd(fpi::FDSP_ScavengerCmd cmd);
     virtual Error om_send_pushmeta(fpi::FDSP_PushMetaPtr& meta_msg);
     virtual void init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const;
@@ -441,7 +442,8 @@ class OM_NodeContainer : public DomainContainer
                                             fds_bool_t activate_sm,
                                             fds_bool_t activate_md,
                                             fds_bool_t activate_am);
-    virtual fds_uint32_t  om_bcast_dmt(const DMTPtr& curDmt);
+    virtual fds_uint32_t om_bcast_dmt(const DMTPtr& curDmt);
+    virtual fds_uint32_t om_bcast_dmt_close(fds_uint64_t dmt_version);
 
   private:
     friend class OM_NodeDomainMod;
@@ -617,11 +619,24 @@ class OM_NodeDomainMod : public Module
                                           fds_uint32_t dmt_version);
 
     /**
+     * Notification that OM received push meta response from
+     * node with uuid 'uuid'
+     */
+    virtual Error om_recv_push_meta_resp(const NodeUuid& uuid);
+
+    /**
      * Notification that OM received DLT close response from
      * node with uuid 'uuid' for dlt version 'dlt_version'
      */
     virtual Error om_recv_dlt_close_resp(const NodeUuid& uuid,
                                          fds_uint64_t dlt_version);
+
+    /**
+     * Notification that OM received DMT close response from
+     * node with uuid 'uuid' for dmt version 'dmt_version'
+     */
+    virtual Error om_recv_dmt_close_resp(const NodeUuid& uuid,
+                                         fds_uint64_t dmt_version);
 
     /**
      * Updates cluster map membership and does DLT

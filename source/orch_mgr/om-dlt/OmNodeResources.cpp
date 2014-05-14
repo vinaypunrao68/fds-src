@@ -405,8 +405,47 @@ OM_NodeAgent::om_send_pushmeta(fpi::FDSP_PushMetaPtr& meta_msg)
     LOGNORMAL << "OM: send Push_Meta to " << get_node_name() << " uuid 0x"
               << std::hex << (get_uuid()).uuid_get_val() << std::dec;
 
+    for (auto metavol : meta_msg->metaVol) {
+        std::string volid_str;
+        for (auto vol : metavol.volList) {
+            volid_str.append(std::to_string(vol));
+            volid_str.append(",");
+        }
+        LOGDEBUG << "Destination node " << std::hex << metavol.node_uuid.uuid
+                 << std::dec << " volumes " << volid_str;
+    }
+
     return err;
 }
+
+Error
+OM_NodeAgent::om_send_dmt_close(fds_uint64_t dmt_version) {
+    Error err(ERR_OK);
+    fpi::FDSP_MsgHdrTypePtr m_hdr(new fpi::FDSP_MsgHdrType);
+    fpi::FDSP_DmtCloseTypePtr d_msg(new fpi::FDSP_DmtCloseType());
+    this->init_msg_hdr(m_hdr);
+
+    m_hdr->msg_code = fpi::FDSP_MSG_DMT_CLOSE;
+    m_hdr->msg_id = 0;
+    m_hdr->tennant_id = 1;
+    m_hdr->local_domain_id = 1;
+
+    d_msg->DMT_version = dmt_version;
+
+    try {
+        ndCpClient->NotifyDMTClose(m_hdr, d_msg);
+    } catch(const att::TTransportException& e) {
+        LOGERROR << "error during network call : " << e.what();
+        return Error(ERR_NETWORK_TRANSPORT);
+    }
+
+    LOGNORMAL << "OM: send DMT close (version " << dmt_version
+              << ") to " << get_node_name() << " uuid 0x"
+              << std::hex << (get_uuid()).uuid_get_val() << std::dec;
+
+    return err;
+}
+
 
 void
 OM_NodeAgent::init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const
@@ -1316,6 +1355,31 @@ OM_NodeContainer::om_bcast_dmt(const DMTPtr& curDmt)
     LOGDEBUG << "Sent DMT to " << count << " nodes successfully";
     return count;
 }
+
+// om_send_dmt_close
+// -----------------------
+//
+static Error
+om_send_dmt_close(fds_uint64_t dmt_version, NodeAgent::pointer agent)
+{
+    return OM_DmAgent::agt_cast_ptr(agent)->om_send_dmt_close(dmt_version);
+}
+
+// om_bcast_dmt_close
+// ------------------
+// @return number of nodes we sent the message to (and
+// we are waiting for that many responses)
+//
+fds_uint32_t
+OM_NodeContainer::om_bcast_dmt_close(fds_uint64_t dmt_version)
+{
+    fds_uint32_t count = 0;
+    count = dc_dm_nodes->agent_ret_foreach<fds_uint64_t>(dmt_version,
+                                                         om_send_dmt_close);
+    LOGDEBUG << "Send DMT close to " << count << " DMs successfully";
+    return count;
+}
+
 
 // om_send_dlt
 // -----------------------
