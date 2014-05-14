@@ -326,6 +326,22 @@ class NetMgr : public Module
     virtual EpSvcHandle::pointer
     svc_lookup(const char *name, fds_uint32_t maj, fds_uint32_t min);
 
+    // TODO(Vy): Please refactor the following as needed
+    /**
+     * Returns true if error e is actionable on the endpoint
+     * @param e
+     * @return
+     */
+    bool ep_actionable_error(const Error &e) const;
+
+    /**
+     * Handles endpoint error
+     * TODO(Rao):  It's probably better for error handling to be scheduled
+     * on a threadpool and not on calling thread
+     * @param e
+     */
+    void ep_handle_error(const Error &e);
+
     // Hook up with domain membership to know which node belongs to which domain.
     //
 

@@ -21,7 +21,8 @@ typedef uint64_t AsyncRpcRequestId;
 /* Async rpc request callback types */
 typedef std::function<void(VoidPtr)> RpcRequestSuccessCb;
 typedef std::function<void(const Error&, VoidPtr)> RpcRequestErrorCb;
-typedef std::function<void(const Error&, VoidPtr, bool&)> RpcFailoverCb;
+typedef std::function<void(const Error&, VoidPtr, bool&)> RpcRequestFailoverCb;
+typedef std::function<void(const AsyncRpcRequestId&)> RpcRequestCompletionCb;
 
 /* Async rpc request states */
 enum AsyncRpcState {
@@ -41,6 +42,8 @@ class AsyncRpcRequestIf {
 
     virtual ~AsyncRpcRequestIf();
 
+    virtual void invoke() = 0;
+
     virtual void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
             boost::shared_ptr<std::string>& payload) = 0;
 
@@ -58,7 +61,14 @@ class AsyncRpcRequestIf {
 
     void setRequestId(const AsyncRpcRequestId &id);
 
+    void setCompletionCb(RpcRequestCompletionCb &completionCb);
+
  protected:
+    void invokeCommon_(const fpi::SvcUuid &epId);
+
+    /* Lock for synchronizing response handling */
+    fds_mutex respLock_;
+    /* Wrapper around rpc function call */
     RpcFuncPtr rpc_;
     /* Request Id */
     AsyncRpcRequestId id_;
@@ -68,6 +78,8 @@ class AsyncRpcRequestIf {
     Error error_;
     /* Timeout */
     uint32_t timeoutMs_;
+    /* Completion cb */
+    RpcRequestCompletionCb completionCb_;
 };
 typedef boost::shared_ptr<AsyncRpcRequestIf> AsyncRpcRequestIfPtr;
 
@@ -85,11 +97,13 @@ class EPAsyncRpcRequest : public AsyncRpcRequestIf {
 
     void onErrorCb(RpcRequestErrorCb &cb);
 
+    virtual void invoke() override;
+
     virtual void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
             boost::shared_ptr<std::string>& payload) override;
  protected:
+    fpi::SvcUuid epId_;
     /* Response callbacks.  If set they are invoked in handleResponse() */
-    fpi::SvcUuid svcId_;
     RpcRequestSuccessCb successCb_;
     RpcRequestErrorCb errorCb_;
 };
@@ -117,23 +131,21 @@ class FailoverRpcRequest : public AsyncRpcRequestIf {
 
     void addEndpoint(const fpi::SvcUuid& uuid);
 
-    void onFailoverCb(RpcFailoverCb& cb);
+    void onFailoverCb(RpcRequestFailoverCb& cb);
 
     void onSuccessCb(RpcRequestSuccessCb& cb);
 
     void onErrorCb(RpcRequestErrorCb& cb);
 
-    void invoke();
+    virtual void invoke() override;
 
-    void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
-            boost::shared_ptr<std::string>& payload);
+    virtual void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
+            boost::shared_ptr<std::string>& payload) override;
 
  protected:
     bool moveToNextHealthyEndpoint_();
     void invokeInternal_();
 
-    /* Lock for synchronizing response handling */
-    fds_mutex respLock_;
 
     /* Next endpoint to invoke the request on */
     uint8_t curEpIdx_;
@@ -142,7 +154,7 @@ class FailoverRpcRequest : public AsyncRpcRequestIf {
     std::vector<AsyncRpcEpInfo> eps_;
 
     /* Callback to invoke before failing over to the next endpoint */
-    RpcFailoverCb failoverCb_;
+    RpcRequestFailoverCb failoverCb_;
     /* Callback to invoke when response is succesfully received */
     RpcRequestSuccessCb successCb_;
     /* Callback to invoke when all the endpoints have failed */

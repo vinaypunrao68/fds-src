@@ -1,6 +1,7 @@
 /* Copyright 2014 Formation Data Systems, Inc.
  */
 #include <vector>
+#include <functional>
 #include <net/RpcRequestPool.h>
 #include <net/net-service.h>
 #include <net/AsyncRpcRequestTracker.h>
@@ -13,6 +14,8 @@ namespace fds {
 RpcRequestPool::RpcRequestPool()
 {
     nextAsyncReqId_ = 0;
+    finishTrackingCb_ = std::bind(&AsyncRpcRequestTracker::removeFromTracking,
+            gAsyncRpcTracker, std::placeholders::_1);
 }
 
 /**
@@ -22,6 +25,17 @@ RpcRequestPool::~RpcRequestPool()
 {
     nextAsyncReqId_ = 0;
 }
+
+/**
+ * Common handling as part of any async request creation
+ * @param req
+ */
+void RpcRequestPool::asyncRpcCommonHandling(AsyncRpcRequestIfPtr req)
+{
+    gAsyncRpcTracker->addForTracking(req->getRequestId(), req);
+    req->setCompletionCb(finishTrackingCb_);
+}
+
 /**
  * Constructs EPRpcRequest object
  * @param uuid
@@ -43,8 +57,7 @@ RpcRequestPool::newEPAsyncRpcRequest(const fpi::SvcUuid &uuid)
 {
     auto reqId = nextAsyncReqId_++;
     EPAsyncRpcRequestPtr req(new EPAsyncRpcRequest(reqId, uuid));
-    gAsyncRpcTracker->addForTracking(reqId, req);
-
+    asyncRpcCommonHandling(req);
 
     return req;
 }

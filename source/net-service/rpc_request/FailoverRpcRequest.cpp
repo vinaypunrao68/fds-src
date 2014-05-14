@@ -3,7 +3,6 @@
 #include <string>
 #include <vector>
 #include <net/RpcRequest.h>
-#include <net/AsyncRpcRequestTracker.h>
 #include <net/RpcRequestPool.h>
 #include <util/Log.h>
 #include <fdsp_utils.h>
@@ -45,7 +44,7 @@ void FailoverRpcRequest::addEndpoint(const fpi::SvcUuid& uuid) {
  * the request is in progress
  * @param cb
  */
-void FailoverRpcRequest::onFailoverCb(RpcFailoverCb& cb) {
+void FailoverRpcRequest::onFailoverCb(RpcRequestFailoverCb& cb) {
     failoverCb_ = cb;
 }
 
@@ -80,57 +79,12 @@ void FailoverRpcRequest::invoke()
     state_ = INVOCATION_PROGRESS;
 
     if (healthyEpExists) {
-        invokeInternal_();
+        invokeCommon_(eps_[curEpIdx_].epId);
     } else {
         // TODO(Rao): post error to threadpool
     }
 }
 
-/**
- * Moves to the next healyth endpoint in the sequence start from curEpIdx_
- * @return True if healthy endpoint is found in the sequence.  False otherwise
- */
-bool FailoverRpcRequest::moveToNextHealthyEndpoint_()
-{
-    if (state_ == PRIOR_INVOCATION) {
-        curEpIdx_ = 0;
-    } else {
-        curEpIdx_++;
-    }
-
-    uint32_t skipped_cnt = 0;
-    for (; curEpIdx_ < eps_.size(); curEpIdx_++) {
-        // TODO(Rao): Pass the right rpc version id
-        auto ep = NetMgr::ep_mgr_singleton()->\
-                    svc_lookup(eps_[curEpIdx_].epId, 0 , 0);
-        eps_[curEpIdx_].status = ep->ep_get_status();
-        if (eps_[curEpIdx_].status == ERR_OK) {
-            return true;
-        }
-        skipped_cnt++;
-    }
-
-    GLOGDEBUG << "Req: " << id_ << " skipped cnt: " << skipped_cnt;
-    return false;
-}
-
-/**
- *
- */
-void FailoverRpcRequest::invokeInternal_()
-{
-    auto header = RpcRequestPool::newAsyncHeader(id_, eps_[curEpIdx_].epId);
-    rpc_->setHeader(header);
-
-    GLOGDEBUG << header;
-
-    try {
-        rpc_->invoke();
-    } catch(...) {
-        // TODO(Rao): Invoke endpoint error handling
-        // Post an error to threadpool
-    }
-}
 /**
  * @brief
  *
@@ -189,11 +143,41 @@ void FailoverRpcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header
     }
 
     if (invokeRpc) {
-        invokeInternal_();
+        invokeCommon_(eps_[curEpIdx_].epId);
     }
-    if (errdEpId.svc_uuid != 0) {
-        // TODO(Rao): Notify an error
+
+    if (errdEpId.svc_uuid != 0 &&
+        NetMgr::ep_mgr_singleton()->ep_actionable_error(header->msg_code)) {
+        NetMgr::ep_mgr_singleton()->ep_handle_error(header->msg_code);
     }
+}
+
+/**
+ * Moves to the next healyth endpoint in the sequence start from curEpIdx_
+ * @return True if healthy endpoint is found in the sequence.  False otherwise
+ */
+bool FailoverRpcRequest::moveToNextHealthyEndpoint_()
+{
+    if (state_ == PRIOR_INVOCATION) {
+        curEpIdx_ = 0;
+    } else {
+        curEpIdx_++;
+    }
+
+    uint32_t skipped_cnt = 0;
+    for (; curEpIdx_ < eps_.size(); curEpIdx_++) {
+        // TODO(Rao): Pass the right rpc version id
+        auto ep = NetMgr::ep_mgr_singleton()->\
+                    svc_lookup(eps_[curEpIdx_].epId, 0 , 0);
+        eps_[curEpIdx_].status = ep->ep_get_status();
+        if (eps_[curEpIdx_].status == ERR_OK) {
+            return true;
+        }
+        skipped_cnt++;
+    }
+
+    GLOGDEBUG << "Req: " << id_ << " skipped cnt: " << skipped_cnt;
+    return false;
 }
 
 } /* namespace fds */
