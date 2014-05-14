@@ -20,6 +20,7 @@ import static org.junit.Assert.assertEquals;
 import static org.mockito.Mockito.*;
 
 public class S3AuthorizerTest {
+
     //@Test
     public void testMissingHeader() throws Exception {
         RequestHandler success = mock(RequestHandler.class);

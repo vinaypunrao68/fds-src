@@ -24,7 +24,7 @@ public class S3Endpoint {
         ToyServices foo = new ToyServices("foo");
         foo.createDomain(FDS_S3);
         Xdi xdi = new Xdi(foo, foo, new BypassAuthenticator());
-        new S3Endpoint(xdi, false).start(9999);
+        new S3Endpoint(xdi, true).start(9999);
     }
 
     public S3Endpoint(Xdi xdi, boolean enforceAuth) {
@@ -49,10 +49,10 @@ public class S3Endpoint {
     }
 
     private void authorize(HttpMethod method, String route, Supplier<RequestHandler> supplier) {
-//        if (enforceAuth) {
-//            webApp.route(method, route, new S3Authorizer(supplier));
-//        } else {
+        if (enforceAuth) {
+            webApp.route(method, route, new S3Authorizer(supplier));
+        } else {
             webApp.route(method, route, supplier);
-//        }
+        }
     }
 }

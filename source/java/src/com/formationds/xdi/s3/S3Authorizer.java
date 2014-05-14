@@ -16,6 +16,7 @@ import com.google.common.collect.Maps;
 import com.sun.security.auth.UserPrincipal;
 import org.eclipse.jetty.server.Request;
 
+import javax.servlet.http.HttpServletResponse;
 import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -36,42 +37,52 @@ public class S3Authorizer implements Supplier<RequestHandler> {
     @Override
     public RequestHandler get() {
         return (request, routeParameters) -> {
-            String authorizationHeader = request.getHeader("Authorization");
-            System.out.println(authorizationHeader);
-            S3Signer signer = new S3Signer(request.getMethod(), "/");
-            signer.sign(makeAmazonRequest(request), tryParse(authorizationHeader));
-            return new TextResource("hello");
+            String candidateHeader = request.getHeader("Authorization");
+            BasicAWSCredentials candidateCredentials = tryParse(candidateHeader);
+            String requestHash = hashRequest(request, candidateCredentials);
+
+            if (candidateHeader.equals(requestHash)) {
+                return supplier.get().handle(request, routeParameters);
+            } else {
+                return new TextResource(HttpServletResponse.SC_UNAUTHORIZED, "");
+            }
         };
     }
 
+    private String hashRequest(Request request, BasicAWSCredentials candidateCredentials) {
+        S3Signer signer = new S3Signer(request.getMethod(), request.getRequestURI());
+        com.amazonaws.Request amazonRequest = makeAmazonRequest(request);
+        signer.sign(amazonRequest, candidateCredentials);
+        return amazonRequest.getHeaders().get("Authorization").toString();
+    }
+
     private com.amazonaws.Request makeAmazonRequest(Request request) {
+        Map<String, String> headers = Maps.newHashMap();
+        Enumeration en = request.getHeaderNames();
+        while (en.hasMoreElements()) {
+            String headerName = (String) en.nextElement();
+            String value = request.getHeader(headerName);
+            if (!headerName.equals("Authorization")) {
+                headers.put(headerName, value);
+            }
+        }
+
         return new com.amazonaws.Request() {
-            private String serviceName;
 
             @Override
-            public void addHeader(String s, String s2) {
-                System.out.println("Add header " + s + "=" + s2);
+            public void addHeader(String key, String value) {
+                System.out.println("Adding header " + key + "=" + value);
+                headers.put(key, value);
             }
 
             @Override
             public Map<String, String> getHeaders() {
-                Map<String, String> result = Maps.newHashMap();
-                Enumeration en = request.getHeaderNames();
-                while (en.hasMoreElements()) {
-                    String headerName = (String) en.nextElement();
-                    String value = request.getHeader(headerName);
-                    if (! "Authorization".equals(headerName)) {
-                        result.put(headerName, value);
-                    }
-                }
-                return result;
+                return headers;
             }
 
             @Override
             public void setHeaders(Map map) {
-                for (Object key : map.keySet()) {
-                    System.out.println("Set header " + key + "=" + map.get(key));
-                }
+                headers.putAll(map);
             }
 
             @Override
@@ -115,7 +126,7 @@ public class S3Authorizer implements Supplier<RequestHandler> {
             @Override
             public URI getEndpoint() {
                 try {
-                    return new URI(request.getRequestURL().toString());
+                    return new URI("http://localhost/");
                 } catch (URISyntaxException e) {
                     throw new RuntimeException(e);
                 }
