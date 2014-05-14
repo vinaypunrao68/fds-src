@@ -5,18 +5,23 @@
 #define SOURCE_INCLUDE_NET_NET_SERVICE_H_
 
 #include <netinet/in.h>
+#include <list>
 #include <string>
+#include <boost/intrusive_ptr.hpp>
 #include <fds_module.h>
 #include <fds_process.h>
 #include <fds_typedefs.h>
 #include <shared/fds-constants.h>
 #include <fdsp/fds_service_types.h>
-#include <boost/intrusive_ptr.hpp>
 
 // Forward declarations
 namespace apache { namespace thrift { namespace transport {
-class TTransport;
+    class TTransport;
 }}}  // namespace apache::thrift::transport
+
+namespace FDS_ProtocolInterface {
+    class PlatNetSvcClient;
+}  // namespace FDS_ProtocolInterface
 
 namespace fds {
 namespace tt = apache::thrift::transport;
@@ -29,6 +34,9 @@ class NetMgr;
 class EpPlatLibMod;
 class NetPlatSvc;
 class NetPlatform;
+struct ep_map_rec;
+
+template <class SendIf, class RecvIf> class EndPoint;
 
 /**
  * -------------------
@@ -63,7 +71,6 @@ class EpAttr
     EpAttr &operator = (const EpAttr &rhs);
 
     int attr_get_port();
-    static int  netaddr_get_port(const struct sockaddr *adr);
 
     /**
      * Get my IP from the network interface (e.g. eth0).  Pass NULL if want to get the
@@ -75,6 +82,9 @@ class EpAttr
                               struct sockaddr *mask,
                               unsigned int    *flags,
                               const char      *iface);
+
+    static int  netaddr_get_port(const struct sockaddr *adr);
+    static void netaddr_to_str(const struct sockaddr *adr, char *ip, int ip_len);
 
   private:
     mutable boost::atomic<int>       ep_refcnt;
@@ -180,6 +190,17 @@ class EpSvc
     void            ep_apply_attr();
     EpAttr::pointer ep_get_attr() { return ep_attr; }
 
+    // Cast to the correct EndPoint type.  Return NULL if this is pure service object.
+    //
+    template <class SendIf, class RecvIf>
+    boost::intrusive_ptr<EndPoint<SendIf, RecvIf>> ep_cast()
+    {
+        if (ep_is_connection()) {
+            return static_cast<EndPoint<SendIf, RecvIf> *>(this);
+        }
+        return NULL;
+    }
+
   protected:
     fpi::SvcID                       svc_id;
     fpi::SvcVer                      svc_ver;
@@ -199,16 +220,11 @@ class EpSvc
           fds_uint32_t        minor);
 
     virtual ~EpSvc() {}
-
-    // Return the raw receive handler for this service endpoint.
-    //
-    template <class RecvIf>
-    boost::shared_ptr<RecvIf> ep_rpc_recv() {
-        return boost::static_pointer_cast<RecvIf>(ep_get_rcv_handler());
-    }
+    virtual bool ep_is_connection() { return false; }
 
   private:
     friend class NetMgr;
+    friend class EpSvcHandle;
     mutable boost::atomic<int>       ep_refcnt;
 
     friend void intrusive_ptr_add_ref(const EpSvc *x) {
@@ -220,9 +236,11 @@ class EpSvc
             delete x;
         }
     }
+    virtual void ep_my_uuid(fpi::SvcUuid &uuid) { uuid = svc_id.svc_uuid; }
+    virtual void ep_peer_uuid(fpi::SvcUuid &uuid) { uuid.svc_uuid = 0; }
+
     virtual fds_uint64_t ep_my_uuid() { return svc_id.svc_uuid.svc_uuid; }
     virtual fds_uint64_t ep_peer_uuid() { return INVALID_RESOURCE_UUID.uuid_get_val(); }
-    virtual void        *ep_get_rcv_handler() { return NULL; }
 };
 
 /**
@@ -243,22 +261,27 @@ class EpSvcHandle
     boost::shared_ptr<SendIf> svc_rpc() {
         return boost::static_pointer_cast<SendIf>(ep_rpc);
     }
+    void ep_my_uuid(fpi::SvcUuid &uuid) { ep_owner->ep_my_uuid(uuid); }
+    void ep_peer_uuid(fpi::SvcUuid &uuid) { ep_owner->ep_peer_uuid(uuid); }
 
   protected:
-    friend class EpSvc;
+    friend class NetMgr;
     friend class NetPlatSvc;
+    template <class SendIf, class RecvIf>friend class EndPoint;
 
+    EpSvc::pointer                    ep_owner;
     boost::shared_ptr<void>           ep_rpc;
     boost::shared_ptr<tt::TTransport> ep_trans;
 
-    virtual ~EpSvcHandle() {}
-    EpSvcHandle() : ep_refcnt(0), ep_rpc(NULL), ep_trans(NULL) {}
-    EpSvcHandle(boost::shared_ptr<void> rpc, boost::shared_ptr<tt::TTransport> trans)
-        : ep_rpc(rpc), ep_trans(trans) {}
+    virtual ~EpSvcHandle();
+    EpSvcHandle() : ep_refcnt(0), ep_owner(NULL), ep_rpc(NULL), ep_trans(NULL) {}
+    EpSvcHandle(EpSvc::pointer                    svc,
+                boost::shared_ptr<void>           rpc,
+                boost::shared_ptr<tt::TTransport> trans)
+        : ep_refcnt(0), ep_owner(svc), ep_rpc(rpc), ep_trans(trans) {}
 
   private:
     mutable boost::atomic<int>        ep_refcnt;
-
     friend void intrusive_ptr_add_ref(const EpSvcHandle *x) {
         x->ep_refcnt.fetch_add(1, boost::memory_order_relaxed);
     }
@@ -276,11 +299,13 @@ class EpSvcHandle
 extern NetMgr                gl_netService;
 extern NetPlatform           gl_netPlatform;
 
+typedef std::list<EpSvc::pointer>                         EpSvcList;
 typedef std::unordered_map<fds_uint64_t, int>             UuidShmMap;
 typedef std::unordered_map<fds_uint64_t, EpSvc::pointer>  UuidSvcMap;
-typedef std::unordered_map<int, EpSvc::pointer>           PortSvcMap;
+typedef std::unordered_map<int, EpSvcList>                PortSvcMap;
 
-struct ep_map_rec;
+class PmAgent;
+class Platform;
 
 /**
  * Singleton module manages all endpoints.
@@ -289,7 +314,7 @@ class NetMgr : public Module
 {
   public:
     explicit NetMgr(const char *name);
-    virtual ~NetMgr() {}
+    virtual ~NetMgr();
 
     // Module methods.
     //
@@ -303,8 +328,10 @@ class NetMgr : public Module
     /**
      * Return all uuid binding records.  The RO array may have hole(s) where uuids
      * are 0 for invalid record.  Return the number of elements in the output map.
+     * The caller doesn't have to free the RO array.
      */
     virtual int  ep_uuid_bindings(const struct ep_map_rec **map);
+    virtual int  ep_uuid_binding(const fpi::SvcUuid &uuid, std::string *ip);
 
     /**
      * Endpoint registration and lookup.
@@ -313,19 +340,20 @@ class NetMgr : public Module
     virtual void ep_unregister(const fpi::SvcUuid &uuid);
 
     /**
-     * Look up a service handler based on its uuid/name and major/minor version.
+     * Lookup a service handler based on its uuid/name and major/minor version.
      * Services are only available in the local domain.
      *
      * @param uuid (i) - uuid of the service.
      * @param maj (i)  - the service's major version number.
      * @param min (i)  - the service's minor version number.
      */
-    virtual EpSvcHandle::pointer
+    virtual EpSvc::pointer
     svc_lookup(const fpi::SvcUuid &uuid, fds_uint32_t maj, fds_uint32_t min);
 
-    virtual EpSvcHandle::pointer
+    virtual EpSvc::pointer
     svc_lookup(const char *name, fds_uint32_t maj, fds_uint32_t min);
 
+<<<<<<< HEAD
     // TODO(Vy): Please refactor the following as needed
     /**
      * Returns true if error e is actionable on the endpoint
@@ -341,6 +369,45 @@ class NetMgr : public Module
      * @param e
      */
     void ep_handle_error(const Error &e);
+    /**
+     * Allocate a handle to communicate with the peer endpoint.  The 'mine' uuid can be
+     * taken from the platform library to get the default uuid.
+     */
+    template <class SendIf>
+    EpSvcHandle::pointer
+    svc_new_handle(const fpi::SvcUuid &mine, const fpi::SvcUuid &peer)
+    {
+        int             port;
+        std::string     ip;
+        EpSvc::pointer  ep;
+        boost::intrusive_ptr<EndPoint<SendIf, void>> myep;
+
+        ep = endpoint_lookup(mine);
+        if (ep != NULL) {
+            myep = ep->ep_cast<SendIf, void>();
+            if (myep != NULL) {
+                port = ep_uuid_binding(peer, &ip);
+                if (port != -1) {
+                    return myep->ep_new_handle(port, ip);
+                }
+            }
+        }
+        return NULL;
+    }
+    /**
+     * Lookup an endpoint.  The caller must call EpSvc::ep_cast<SendIf, RecvIf> to
+     * cast it to the correct type.
+     */
+    virtual EpSvc::pointer endpoint_lookup(const fpi::SvcUuid &uuid);
+    virtual EpSvc::pointer endpoint_lookup(const char *name);
+
+    /**
+     * Return the handle to the domain master.  From the handle, the caller can make
+     * RPC calls, send async messages to it.
+     */
+    virtual EpSvcHandle::pointer
+    svc_domain_master(const fpi::DomainID &id,
+                      boost::shared_ptr<fpi::PlatNetSvcClient> &rpc);
 
     // Hook up with domain membership to know which node belongs to which domain.
     //
@@ -348,11 +415,18 @@ class NetMgr : public Module
     // Hook with with node/domain state machine events.
     //
   protected:
-    EpPlatLibMod            *ep_shm;
-    UuidSvcMap               ep_svc_map;
-    UuidShmMap               ep_uuid_map;
-    PortSvcMap               ep_port_map;
-    fds_mutex                ep_mtx;
+    // Dependent modules.
+    //
+    Platform                      *plat_lib;
+    EpPlatLibMod                  *ep_shm;
+
+    UuidSvcMap                     ep_svc_map;
+    UuidShmMap                     ep_uuid_map;
+    PortSvcMap                     ep_port_map;
+
+    EpSvcHandle::pointer           ep_domain_clnt;
+    boost::intrusive_ptr<PmAgent>  ep_domain_agent;
+    fds_mutex                      ep_mtx;
 
     virtual EpSvc::pointer ep_lookup_port(int port);
 };

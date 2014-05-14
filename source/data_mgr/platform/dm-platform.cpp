@@ -76,6 +76,7 @@ DmPlatform::mod_init(SysParams const *const param)
 void
 DmPlatform::mod_startup()
 {
+    Platform::mod_startup();
 }
 
 void

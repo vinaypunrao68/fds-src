@@ -15,7 +15,7 @@
 #include <platform/platform-rpc.h>
 
 namespace FDS_ProtocolInterface {
-class PlatNetSvcClient;
+    class PlatNetSvcClient;
 }  // namespace FDS_ProtocolInterface
 
 namespace fds {
@@ -195,7 +195,7 @@ class PmAgent : public NodeAgent
     static inline PmAgent::pointer agt_cast_ptr(NodeAgent::pointer ptr) {
         return static_cast<PmAgent *>(get_pointer(ptr));
     }
-    virtual void pma_register_domain(const fpi::DomainID &id);
+    virtual void pma_connect_domain(const fpi::DomainID &id);
 
   protected:
     boost::intrusive_ptr<EpSvcHandle>        agt_domain_ep;

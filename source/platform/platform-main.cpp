@@ -148,6 +148,7 @@ int main(int argc, char **argv)
     fds::Module *plat_vec[] = {
         &fds::gl_NodePlatform,
         &fds::gl_DiskPlatMod,
+        &fds::gl_netService,
         &fds::gl_netPlatform,
         NULL
     };
