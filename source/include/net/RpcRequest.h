@@ -35,52 +35,28 @@ enum AsyncRpcState {
  */
 class AsyncRpcRequestIf {
  public:
-    AsyncRpcRequestIf()
-    : AsyncRpcRequestIf(0)
-    {
-    }
+    AsyncRpcRequestIf();
 
-    explicit AsyncRpcRequestIf(const AsyncRpcRequestId &id)
-    : id_(id)
-    {
-    }
+    explicit AsyncRpcRequestIf(const AsyncRpcRequestId &id);
 
-    virtual ~AsyncRpcRequestIf() {}
+    virtual ~AsyncRpcRequestIf();
 
     virtual void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
             boost::shared_ptr<std::string>& payload) = 0;
 
-    virtual void complete(const Error& error) {
-        state_ = RPC_COMPLETE;
-        error_ = error;
-    }
+    virtual void complete(const Error& error);
 
-    /**
-     *
-     * @return
-     */
-    virtual bool isComplete()
-    {
-        return state_ == RPC_COMPLETE;
-    }
+    virtual bool isComplete();
 
+    void setRpcFunc(RpcFuncPtr rpc);
 
-    void setRpcFunc(RpcFuncPtr rpc) {
-        rpc_ = rpc;
-    }
+    void setTimeoutMs(const uint32_t &timeout_ms);
 
-    void setTimeoutMs(const uint32_t &timeout_ms) {
-        timeoutMs_ = timeout_ms;
-    }
-    uint32_t getTimeout() {
-        return timeoutMs_;
-    }
-    AsyncRpcRequestId getRequestId() {
-        return id_;
-    }
-    void setRequestId(const AsyncRpcRequestId &id) {
-        id_ = id;
-    }
+    uint32_t getTimeout();
+
+    AsyncRpcRequestId getRequestId();
+
+    void setRequestId(const AsyncRpcRequestId &id);
 
  protected:
     RpcFuncPtr rpc_;
@@ -100,45 +76,17 @@ typedef boost::shared_ptr<AsyncRpcRequestIf> AsyncRpcRequestIfPtr;
  */
 class EPAsyncRpcRequest : public AsyncRpcRequestIf {
  public:
-    EPAsyncRpcRequest()
-     : EPAsyncRpcRequest(0, fpi::SvcUuid())
-    {
-    }
+    EPAsyncRpcRequest();
 
     EPAsyncRpcRequest(const AsyncRpcRequestId &id,
-            const fpi::SvcUuid &uuid)
-    : AsyncRpcRequestIf(id)
-    {
-        svcId_ = uuid;
-    }
+            const fpi::SvcUuid &uuid);
 
-    void onSuccessCb(RpcRequestSuccessCb &cb) {
-        successCb_ = cb;
-    }
+    void onSuccessCb(RpcRequestSuccessCb &cb);
 
-    void onErrorCb(RpcRequestErrorCb &cb) {
-        errorCb_ = cb;
-    }
+    void onErrorCb(RpcRequestErrorCb &cb);
 
     virtual void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
-            boost::shared_ptr<std::string>& payload) override {
-        Error e;
-        // TODO(Rao): Parse out the error
-        // parse out the payload
-        if (e != ERR_OK) {
-            if (errorCb_) {
-                errorCb_(e, payload);
-            } else {
-                // TODO(Rao): Handle the error
-            }
-            return;
-        }
-
-        if (successCb_) {
-            successCb_(payload);
-        }
-    }
-
+            boost::shared_ptr<std::string>& payload) override;
  protected:
     /* Response callbacks.  If set they are invoked in handleResponse() */
     fpi::SvcUuid svcId_;
@@ -181,7 +129,7 @@ class FailoverRpcRequest : public AsyncRpcRequestIf {
             boost::shared_ptr<std::string>& payload);
 
  protected:
-    void moveToNextHealthyEndpoint_();
+    bool moveToNextHealthyEndpoint_();
     void invokeInternal_();
 
     /* Lock for synchronizing response handling */

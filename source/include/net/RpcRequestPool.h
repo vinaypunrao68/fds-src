@@ -7,8 +7,10 @@
 
 #include <concurrency/Mutex.h>
 #include <net/RpcRequest.h>
+#include <net/AsyncRpcRequestTracker.h>
 
 namespace fds {
+
 /**
  * Rpc request factory. Use this class for constructing various RPC request objects
  */
@@ -21,16 +23,30 @@ class RpcRequestPool {
     EPRpcRequestPtr newEPRpcRequest(const fpi::SvcUuid &uuid);
 #endif
     EPAsyncRpcRequestPtr newEPAsyncRpcRequest(const fpi::SvcUuid &uuid);
+
+    template <typename ServiceT, typename MemFuncT, typename Arg1T>
     FailoverRpcRequestPtr newFailoverRpcRequest(
-            const std::vector<fpi::SvcUuid>& uuid_list);
+            const std::vector<fpi::SvcUuid>& uuid_list, MemFuncT f, Arg1T a1)
+    {
+        auto reqId = nextAsyncReqId_++;
+
+        FailoverRpcRequestPtr req(new FailoverRpcRequest(reqId, uuid_list));
+        boost::shared_ptr<RpcFuncIf> rpc(new RpcFunc1<ServiceT, MemFuncT, Arg1T>(f, a1));
+
+        req->setRpcFunc(rpc);
+        gAsyncRpcTracker->addForTracking(reqId, req);
+
+        return req;
+    }
+
+    static fpi::AsyncHdr newAsyncHeader(const AsyncRpcRequestId& reqId,
+            const fpi::SvcUuid &dstUuid);
 
  protected:
-    // TODO(Rao): This lock may not be necessary
-    fds_spinlock lock_;
-    // TODO(Rao): Use atomic here
-    uint64_t nextAsyncReqId_;
+    std::atomic<uint64_t> nextAsyncReqId_;
 };
 
+extern RpcRequestPool *gRpcRequestPool;
 }  // namespace fds
 
 #endif  // SOURCE_INCLUDE_NET_RPCREQUESTPOOL_H_
