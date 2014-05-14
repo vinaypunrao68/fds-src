@@ -62,7 +62,7 @@ FdsShmem::shm_attach()
     std::pair<unsigned char*, std::size_t> res =
             sh_segment->find<unsigned char>("shm_obj");
 
-    if (res.first == nullptr) {
+    if (res.first == 0) {
         return nullptr;
     }
 

@@ -13,8 +13,9 @@ user_non_fds_libs := \
 		boost_thread \
 		leveldb thrift rt config++
 
-user_bin_exe      := shm
+user_bin_exe      := shm pusher popper
 shm      := shm_unit_test.cpp
-
+pusher   := queue_pusher.cpp
+popper   := queue_popper.cpp
 
 include $(topdir)/Makefile.incl

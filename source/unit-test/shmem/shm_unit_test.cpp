@@ -35,30 +35,39 @@ int main() {
 
     assert(queue.empty());
     queue.shmq_enqueue(12);
+    printf("Passed first enqueue\n");
     assert(!queue.empty());
     queue.shmq_enqueue(22);
+    printf("Passed second enqueue\n");
     queue.shmq_enqueue(32);
+    printf("Passed third enqueue\n");
     queue.shmq_enqueue(42);
+    printf("Passed fourth enqueue\n");
 
     fds::FdsShmQueue<int> queue_alt ("shm_1");
     queue_alt.shmq_connect();
     assert(!queue_alt.empty());
     
     for (int i = 0; i < 4; ++i) {
-        int ret = 0;
+        int ret (0);
         if (i % 2 == 0) {
-            ret = queue.shmq_dequeue();
+            queue.shmq_dequeue(ret);
         } else {
-            ret = queue_alt.shmq_dequeue();
+            queue_alt.shmq_dequeue(ret);
         }
         assert(ret == (i * 10) + 12);
     }
 
-    for (int i = 0; i < 100; ++i) {
+    assert(queue.empty());
+
+    printf("Passed first dequeues\n");
+    
+    for (int i = 0; i < 50; ++i) {
         queue.shmq_enqueue(i);
     }
-    for (int i = 0; i < 100; ++i) {
-        queue.shmq_dequeue();
+    for (int i = 0; i < 50; ++i) {
+        int ret;
+        queue.shmq_dequeue(ret);
     }
     assert(queue.empty());
 

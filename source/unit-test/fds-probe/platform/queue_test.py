@@ -2,8 +2,9 @@
 
 import random
 import pycurl
+import time
 import re
-import StringIO
+import tempfile
 import subprocess
 from string import Template
 
@@ -72,28 +73,52 @@ def make_pycurl(url='http://localhost:8000/abc',
     
     return c
 
-def do_queue_test():
+def do_queue_single_test():
     # First start the probe process
+    fh = tempfile.TemporaryFile()
     probe = subprocess.Popen(['/home/brian/Documents/fds-src/source/Build/linux-x86_64.debug/tests/fds-probe-queue'],
-                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                             stdout=fh)
+
+    # Wait a few seconds for everything to come up
+    time.sleep(3)
+
     # Do pycurl creation
     pc = make_pycurl("http://localhost:8000/abc/")
 
     pc.setopt(pycurl.POSTFIELDS, CreateTemplate().gen())
     pc.perform()
-    
+
     opts = [PushTemplate(), PopTemplate()]
     
-    for i in range(10000):
+    for i in range(1000):
         x = random.sample(opts, 1)
         x = x[0]
         pc.setopt(pycurl.POSTFIELDS, x.gen())
         pc.perform()
 
-    stdout, stderr = probe.communicate()
-    fh = StringIO.StringIO(stdout)
+    fh.seek(0)
     validate(fh)
+    fh.close()
+    kill = subprocess.Popen(['pkill', 'fds-probe-queue'])
 
+def do_push_pop_test(self):
+    '''
+    Assumes that fds-probe-queue is already running and has received the queue_create payload.
+    '''
+    # Do pycurl creation
+    pc = make_pycurl("http://localhost:8000/abc/")
+
+    opts = [PushTemplate(), PopTemplate()]
+    
+    for i in range(1000):
+        x = random.sample(opts, 1)
+        x = x[0]
+        pc.setopt(pycurl.POSTFIELDS, x.gen())
+        pc.perform()
+
+    fh.seek(0)
+    validate(fh)
+    
 
 def validate(fh):
     
@@ -119,14 +144,18 @@ def validate(fh):
         if res is not None:
             print "Popping", res.group(1)
             # Remove it from active queue
-            val = active_queue.pop(0)
-            # Validate that it is the correct value
-            assert val == hist_queue[act_idx], "Popped value not correct!"
-            act_idx += 1
+            if act_idx >= len(hist_queue):
+                assert res.group(1) == '0'
+            else:
+                val = active_queue.pop(0)
+                assert val == hist_queue[act_idx], "Popped value not correct!"
+                act_idx += 1
+
+            # Validate that it is the correct value                
             continue            
 
 
 if __name__ == "__main__":
 
-    do_queue_test()
+    do_queue_single_test()
     print "Queue test: PASSED!"
