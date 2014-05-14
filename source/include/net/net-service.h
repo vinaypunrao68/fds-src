@@ -10,7 +10,7 @@
 #include <boost/intrusive_ptr.hpp>
 #include <fds_module.h>
 #include <fds_process.h>
-#include <fds_typedefs.h>
+#include <fds_resource.h>
 #include <shared/fds-constants.h>
 #include <fdsp/fds_service_types.h>
 
@@ -24,7 +24,8 @@ namespace FDS_ProtocolInterface {
 }  // namespace FDS_ProtocolInterface
 
 namespace fds {
-namespace tt = apache::thrift::transport;
+namespace tt  = apache::thrift::transport;
+namespace fpi = FDS_ProtocolInterface;
 
 class EpSvc;
 class EpSvcImpl;
@@ -35,8 +36,11 @@ class EpPlatLibMod;
 class NetPlatSvc;
 class NetPlatform;
 struct ep_map_rec;
-
 template <class SendIf, class RecvIf> class EndPoint;
+
+// Global constants used by net-service layer.
+//
+extern const fpi::SvcUuid NullSvcUuid;
 
 /**
  * -------------------
@@ -359,14 +363,23 @@ class NetMgr : public Module
      */
     template <class SendIf>
     EpSvcHandle::pointer
-    svc_new_handle(const fpi::SvcUuid &mine, const fpi::SvcUuid &peer)
+    svc_new_handle(const fpi::SvcUuid &mine,
+                   const fpi::SvcUuid &peer,
+                   fds_uint32_t        maj = 0,
+                   fds_uint32_t        min = 0)
     {
         int             port;
         std::string     ip;
+        fpi::SvcUuid    def;
         EpSvc::pointer  ep;
         boost::intrusive_ptr<EndPoint<SendIf, void>> myep;
 
-        ep = endpoint_lookup(mine);
+        if (mine == NullSvcUuid) {
+            def.svc_uuid = ep_my_platform_uuid()->uuid_get_val();
+            ep = endpoint_lookup(def);
+        } else {
+            ep = endpoint_lookup(mine);
+        }
         if (ep != NULL) {
             myep = ep->ep_cast<SendIf, void>();
             if (myep != NULL) {
@@ -378,6 +391,37 @@ class NetMgr : public Module
         }
         return NULL;
     }
+    /**
+     * Get a handle from existing endpoint to the peer.
+     */
+    template <class SendIf>
+    EpSvcHandle::pointer
+    svc_get_handle(const fpi::SvcUuid &peer, fds_uint32_t maj, fds_uint32_t min)
+    {
+        int                   port;
+        std::string           ip;
+        EpSvc::pointer        ep;
+        EpSvcHandle::pointer  ret;
+        boost::intrusive_ptr<EndPoint<SendIf, void>> myep;
+
+        ep = endpoint_lookup(peer);
+        if (ep != NULL) {
+            myep = ep->ep_cast<SendIf, void>();
+            if (myep != NULL) {
+                ret = myep->ep_server_handle();
+                if (ret == NULL) {
+                    port = ep_uuid_binding(peer, &ip);
+                    if (port != -1) {
+                        myep->ep_connect_server(port, ip);
+                        ret = myep->ep_server_handle();
+                    }
+                    return ret;
+                }
+            }
+        }
+        return NULL;
+    }
+
     /**
      * Lookup an endpoint.  The caller must call EpSvc::ep_cast<SendIf, RecvIf> to
      * cast it to the correct type.
@@ -412,7 +456,9 @@ class NetMgr : public Module
     boost::intrusive_ptr<PmAgent>  ep_domain_agent;
     fds_mutex                      ep_mtx;
 
+    ResourceUUID const *const ep_my_platform_uuid();
     virtual EpSvc::pointer ep_lookup_port(int port);
+    virtual void ep_register_binding(const struct ep_map_rec *rec);
 };
 
 /**
