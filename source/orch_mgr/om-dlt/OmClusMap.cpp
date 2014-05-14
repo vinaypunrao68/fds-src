@@ -13,28 +13,37 @@ ClusterMap gl_OMClusMapMod;
 
 ClusterMap::ClusterMap()
         : Module("OM Cluster Map"),
-          version(0) {
-    mapMutex = new fds_mutex("cluster map mutex");
+          version(0),
+          mapMutex("cluster map mutex") {
 }
 
 ClusterMap::~ClusterMap() {
-    delete mapMutex;
 }
 
-ClusterMap::const_iterator
-ClusterMap::cbegin() const {
-    return currClustMap.cbegin();
+ClusterMap::const_sm_iterator
+ClusterMap::cbegin_sm() const {
+    return curSmMap.cbegin();
 }
 
-ClusterMap::const_iterator
-ClusterMap::cend() const {
-    return currClustMap.cend();
+ClusterMap::const_sm_iterator
+ClusterMap::cend_sm() const {
+    return curSmMap.cend();
+}
+
+ClusterMap::const_dm_iterator
+ClusterMap::cbegin_dm() const {
+    return curDmMap.cbegin();
+}
+
+ClusterMap::const_dm_iterator
+ClusterMap::cend_dm() const {
+    return curDmMap.cend();
 }
 
 int
 ClusterMap::mod_init(SysParams const *const param) {
     Module::mod_init(param);
-    FDS_PLOG_SEV(g_fdslog, fds_log::notification) << "ClusterMap init is called ";
+    LOGNOTIFY << "ClusterMap init is called ";
     return 0;
 }
 
@@ -47,15 +56,23 @@ ClusterMap::mod_shutdown() {
 }
 
 fds_uint32_t
-ClusterMap::getNumMembers() const {
-    return currClustMap.size();
+ClusterMap::getNumMembers(fpi::FDSP_MgrIdType svc_type) const {
+    switch (svc_type) {
+        case fpi::FDSP_STOR_MGR:
+            return curSmMap.size();
+        case fpi::FDSP_DATA_MGR:
+            return curDmMap.size();
+        default:
+            fds_panic("Unknown MgrIdType %u", svc_type);
+    }
+    return 0;
 }
 
 fds_uint64_t
 ClusterMap::getTotalStorWeight() const {
     fds_uint64_t total_weight = 0;
-    for (const_iterator it = cbegin();
-         it != cend();
+    for (const_sm_iterator it = cbegin_sm();
+         it != cend_sm();
          ++it) {
         total_weight += ((*it).second)->node_stor_weight();
     }
@@ -63,32 +80,52 @@ ClusterMap::getTotalStorWeight() const {
 }
 
 void
-ClusterMap::resetPendNodes() {
-    mapMutex->lock();
-    addedNodes.clear();
-    removedNodes.clear();
-    mapMutex->unlock();
+ClusterMap::resetPendServices(fpi::FDSP_MgrIdType svc_type) {
+    fds_mutex::scoped_lock l(mapMutex);
+    switch (svc_type) {
+        case fpi::FDSP_STOR_MGR:
+            addedSMs.clear();
+            removedSMs.clear();
+            break;
+        case fpi::FDSP_DATA_MGR:
+            addedDMs.clear();
+            removedDMs.clear();
+        default:
+            fds_panic("Unknown MgrIdType %u", svc_type);
+    }
 }
 
 Error
-ClusterMap::updateMap(const NodeList &addNodes,
+ClusterMap::updateMap(fpi::FDSP_MgrIdType svc_type,
+                      const NodeList &addNodes,
                       const NodeList &rmNodes) {
     Error    err(ERR_OK);
     NodeUuid uuid;
     fds_uint32_t removed;
 
-    mapMutex->lock();
+    fds_verify((svc_type == fpi::FDSP_STOR_MGR) ||
+               (svc_type == fpi::FDSP_DATA_MGR));
+
+    fds_mutex::scoped_lock l(mapMutex);
 
     // Remove nodes from the map
     for (NodeList::const_iterator it = rmNodes.cbegin();
          it != rmNodes.cend();
          it++) {
         uuid = (*it)->get_uuid();
-        removed = currClustMap.erase(uuid);
-        // For now, assume it's incorrect to try and remove
-        // a node that doesn't exist
-        fds_verify(removed == 1);
-        removedNodes.insert(uuid);
+        if (svc_type == fpi::FDSP_STOR_MGR) {
+            removed = curSmMap.erase(uuid);
+            // For now, assume it's incorrect to try and remove
+            // a node that doesn't exist
+            fds_verify(removed == 1);
+            removedSMs.insert(uuid);
+        } else {
+            removed = curDmMap.erase(uuid);
+            // For now, assume it's incorrect to try and remove
+            // a node that doesn't exist
+            fds_verify(removed == 1);
+            removedDMs.insert(uuid);
+        }
     }
 
     // Add nodes to the map
@@ -96,17 +133,22 @@ ClusterMap::updateMap(const NodeList &addNodes,
          it != addNodes.cend();
          it++) {
         uuid = (*it)->get_uuid();
-        // For now, assume it's incorrect to add a node
-        // that already exists
-        fds_verify(currClustMap.count(uuid) == 0);
-
-        currClustMap[uuid] = (*it);
-        addedNodes.insert(uuid);
+        if (svc_type == fpi::FDSP_STOR_MGR) {
+            // For now, assume it's incorrect to add a node
+            // that already exists
+            fds_verify(curSmMap.count(uuid) == 0);
+            curSmMap[uuid] = (*it);
+            addedSMs.insert(uuid);
+        } else {
+            // For now, assume it's incorrect to add a node
+            // that already exists
+            fds_verify(curDmMap.count(uuid) == 0);
+            curDmMap[uuid] = (*it);
+            addedDMs.insert(uuid);
+        }
     }
-
     // Increase the version following the update
     version++;
-    mapMutex->unlock();
     return err;
 }
 
@@ -117,33 +159,60 @@ ClusterMap::updateMap(const NodeList &addNodes,
 // we want to remove those nodes from persisted DLT
 //
 void
-ClusterMap::addPendingRmNode(const NodeUuid& rm_uuid)
+ClusterMap::addPendingRmService(fpi::FDSP_MgrIdType svc_type,
+                                const NodeUuid& rm_uuid)
 {
-    mapMutex->lock();
-    fds_verify(currClustMap.count(rm_uuid) == 0);
-    removedNodes.insert(rm_uuid);
-    mapMutex->unlock();
+    fds_mutex::scoped_lock l(mapMutex);
+    switch (svc_type) {
+        case fpi::FDSP_STOR_MGR:
+            fds_verify(curSmMap.count(rm_uuid) == 0);
+            removedSMs.insert(rm_uuid);
+            break;
+        case fpi::FDSP_DATA_MGR:
+            fds_verify(curDmMap.count(rm_uuid) == 0);
+            removedDMs.insert(rm_uuid);
+            break;
+        default:
+            fds_panic("Unknown MgrIdType %u", svc_type);
+    }
 }
 
 std::unordered_set<NodeUuid, UuidHash>
-ClusterMap::getAddedNodes() const {
+ClusterMap::getAddedServices(fpi::FDSP_MgrIdType svc_type) const {
     /*
      * TODO: We should ensure that we're not
      * in the process of updating the cluster map
      * as this list may be in the process of being
      * modifed.
      */
-    return addedNodes;
+    switch (svc_type) {
+        case fpi::FDSP_STOR_MGR:
+            return addedSMs;
+        case fpi::FDSP_DATA_MGR:
+            return addedDMs;
+        default:
+            fds_panic("Unknown MgrIdType %u", svc_type);
+    }
+    return std::unordered_set<NodeUuid, UuidHash>();
 }
 
 std::unordered_set<NodeUuid, UuidHash>
-ClusterMap::getRemovedNodes() const {
+ClusterMap::getRemovedServices(fpi::FDSP_MgrIdType svc_type) const {
     /*
      * TODO: We should ensure that we're not
      * in the process of updating the cluster map
      * as this list may be in the process of being
      * modifed.
      */
-    return removedNodes;
+    switch (svc_type) {
+        case fpi::FDSP_STOR_MGR:
+            return removedSMs;
+        case fpi::FDSP_DATA_MGR:
+            return removedDMs;
+        default:
+            fds_panic("Unknown MgrIdType %u", svc_type);
+    }
+    return std::unordered_set<NodeUuid, UuidHash>();
 }
+
 }  // namespace fds

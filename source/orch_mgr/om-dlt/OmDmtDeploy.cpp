@@ -7,6 +7,8 @@
 #include <boost/msm/front/state_machine_def.hpp>
 #include <boost/msm/front/functor_row.hpp>
 #include <OmDmtDeploy.h>
+#include <OmVolumePlacement.h>
+#include <OmResources.h>
 #include <orch-mgr/om-service.h>
 
 namespace fds {
@@ -279,9 +281,26 @@ DmtDplyFSM::DACT_SendDmts::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
     FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "FSM DACT_SendDmts";
     OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
     OM_NodeContainer* loc_domain = domain->om_loc_domain_ctrl();
+    OM_Module* om = OM_Module::om_singleton();
+    VolumePlacement* vp = om->om_volplace_mod();
+    ClusterMap* cm = om->om_clusmap_mod();
+    OM_DmContainer::pointer dmNodes = loc_domain->om_dm_nodes();
 
-    loc_domain->om_round_robin_dmt();
-    fds_uint32_t count  = loc_domain->om_bcast_dmt_table();
+    NodeList addNodes, rmNodes;
+    dmNodes->om_splice_nodes_pend(&addNodes, &rmNodes);
+    cm->updateMap(fpi::FDSP_DATA_MGR, addNodes, rmNodes);
+    fds_uint32_t added_nodes = (cm->getAddedServices(fpi::FDSP_DATA_MGR)).size();
+    fds_uint32_t rm_nodes = (cm->getRemovedServices(fpi::FDSP_DATA_MGR)).size();
+
+    LOGDEBUG << "Added DMs size: " << added_nodes
+             << " Removed DMs size: " << rm_nodes;
+    fds_verify((added_nodes > 0) || (rm_nodes > 0));
+
+    //    loc_domain->om_round_robin_dmt();
+    vp->computeDMT(cm);
+    // TODO(Anna) push meta and then commit and bcast in another state
+    vp->commitDMT();
+    fds_uint32_t count  = loc_domain->om_bcast_dmt(vp->getCommittedDMT());
     if (count < 1) {
         dst.acks_to_wait = 1;
         fsm.process_event(DmtCloseOkEvt());

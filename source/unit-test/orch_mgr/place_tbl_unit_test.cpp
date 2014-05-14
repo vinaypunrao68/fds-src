@@ -73,7 +73,7 @@ int main(int argc, char *argv[]) {
     std::cout << *dmt_mgr << std::endl;
 
     // set target DMT as commited
-    dmt_mgr->commitDMT(version);
+    dmt_mgr->commitDMT();
     std::cout << *dmt_mgr << std::endl;
 
     // add another dmt
@@ -93,7 +93,7 @@ int main(int argc, char *argv[]) {
 
     std::cout << *dmt_mgr << std::endl;
 
-    dmt_mgr->commitDMT(version+1);
+    dmt_mgr->commitDMT();
 
     // add one more
     fds::DMT* dmt3 = new fds::DMT(width, depth, version+2);

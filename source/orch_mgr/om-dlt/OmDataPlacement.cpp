@@ -61,7 +61,7 @@ Error
 DataPlacement::updateMembers(const NodeList &addNodes,
                              const NodeList &rmNodes) {
     placementMutex->lock();
-    Error err = curClusterMap->updateMap(addNodes, rmNodes);
+    Error err = curClusterMap->updateMap(fpi::FDSP_STOR_MGR, addNodes, rmNodes);
     // TODO(Andrew): We should be recomputing the DLT here.
     placementMutex->unlock();
 
@@ -83,8 +83,8 @@ DataPlacement::computeDlt() {
     // If we have fewer members than total replicas
     // use the number of members as the replica count
     fds_uint32_t depth = curDltDepth;
-    if (curClusterMap->getNumMembers() < curDltDepth) {
-        depth = curClusterMap->getNumMembers();
+    if (curClusterMap->getNumMembers(fpi::FDSP_STOR_MGR) < curDltDepth) {
+        depth = curClusterMap->getNumMembers(fpi::FDSP_STOR_MGR);
     }
 
     // Allocate and compute new DLT
@@ -130,8 +130,8 @@ DataPlacement::beginRebalance() {
     placementMutex->lock();
     // find all nodes which need to do migration (=have new tokens)
     rebalanceNodes.clear();
-    for (ClusterMap::const_iterator cit = curClusterMap->cbegin();
-         cit != curClusterMap->cend();
+    for (ClusterMap::const_sm_iterator cit = curClusterMap->cbegin_sm();
+         cit != curClusterMap->cend_sm();
          ++cit) {
         TokenList new_toks, old_toks;
         newDlt->getTokens(&new_toks, cit->first, 0);

@@ -292,6 +292,40 @@ OM_NodeAgent::om_send_dlt(const DLT *curDlt) {
     return err;
 }
 
+Error
+OM_NodeAgent::om_send_dmt(const DMTPtr& curDmt) {
+    Error err(ERR_OK);
+    fds_verify(curDmt->getVersion() != DMT_VER_INVALID);
+
+    fpi::FDSP_MsgHdrTypePtr    m_hdr(new fpi::FDSP_MsgHdrType);
+    this->init_msg_hdr(m_hdr);
+    m_hdr->msg_code        = fpi::FDSP_MSG_DMT_UPDATE;
+    m_hdr->msg_id          = 0;
+    m_hdr->tennant_id      = 1;
+    m_hdr->local_domain_id = 1;
+
+    fpi::FDSP_DMT_TypePtr dmt_msg(new fpi::FDSP_DMT_Type());
+    dmt_msg->dmt_version = curDmt->getVersion();
+    err = curDmt->getSerialized(dmt_msg->dmt_data);
+    if (!err.ok()) {
+        LOGERROR << "Failed to fill in dmt_data, not sending DMT";
+        return err;
+    }
+
+    try {
+        ndCpClient->NotifyDMTUpdate(m_hdr, dmt_msg);
+    } catch(const att::TTransportException& e) {
+        LOGERROR << "error during network call : " << e.what();
+        return Error(ERR_NETWORK_TRANSPORT);
+    }
+
+    LOGNORMAL << "OM: Send dmt info (version " << curDmt->getVersion()
+              << ") to " << get_node_name() << " uuid 0x"
+              << std::hex << (get_uuid()).uuid_get_val() << std::dec;
+
+    return err;
+}
+
 //
 // Currently sends scavenger start message
 // TODO(xxx) extend to other scavenger commands (pass cmd type)
@@ -842,14 +876,14 @@ OM_SmContainer::OM_SmContainer() : OM_AgentContainer(FDSP_STOR_MGR) {}
 // --------------
 //
 void
-OM_SmContainer::agent_activate(NodeAgent::pointer agent)
+OM_AgentContainer::agent_activate(NodeAgent::pointer agent)
 {
     LOGNORMAL << "Activate node uuid " << std::hex
               << "0x" << agent->get_uuid().uuid_get_val() << std::dec;
 
     rs_mtx.lock();
     rs_register_mtx(agent);
-    node_up_pend.push_back(OM_SmAgent::agt_cast_ptr(agent));
+    node_up_pend.push_back(OM_NodeAgent::agt_cast_ptr(agent));
     rs_mtx.unlock();
 }
 
@@ -857,14 +891,14 @@ OM_SmContainer::agent_activate(NodeAgent::pointer agent)
 // ----------------
 //
 void
-OM_SmContainer::agent_deactivate(NodeAgent::pointer agent)
+OM_AgentContainer::agent_deactivate(NodeAgent::pointer agent)
 {
     LOGNORMAL << "Deactivate node uuid " << std::hex
               << "0x" << agent->get_uuid().uuid_get_val() << std::dec;
 
     rs_mtx.lock();
     rs_unregister_mtx(agent);
-    node_down_pend.push_back(OM_SmAgent::agt_cast_ptr(agent));
+    node_down_pend.push_back(OM_NodeAgent::agt_cast_ptr(agent));
     rs_mtx.unlock();
 }
 
@@ -872,7 +906,7 @@ OM_SmContainer::agent_deactivate(NodeAgent::pointer agent)
 // --------------------
 //
 void
-OM_SmContainer::om_splice_nodes_pend(NodeList *addNodes, NodeList *rmNodes)
+OM_AgentContainer::om_splice_nodes_pend(NodeList *addNodes, NodeList *rmNodes)
 {
     rs_mtx.lock();
     addNodes->splice(addNodes->begin(), node_up_pend);
@@ -881,9 +915,9 @@ OM_SmContainer::om_splice_nodes_pend(NodeList *addNodes, NodeList *rmNodes)
 }
 
 void
-OM_SmContainer::om_splice_nodes_pend(NodeList *addNodes,
-                                     NodeList *rmNodes,
-                                     const NodeUuidSet& filter_nodes)
+OM_AgentContainer::om_splice_nodes_pend(NodeList *addNodes,
+                                        NodeList *rmNodes,
+                                        const NodeUuidSet& filter_nodes)
 {
     rs_mtx.lock();
     for (NodeUuidSet::const_iterator cit = filter_nodes.cbegin();
@@ -929,19 +963,14 @@ OM_NodeContainer::OM_NodeContainer()
                       new OM_DmContainer(),
                       new OM_AmContainer(),
                       new OM_PmContainer(),
-                      new OmContainer(FDSP_ORCH_MGR)),
-    om_dmt_mtx("DMT-Mtx")
+                      new OmContainer(FDSP_ORCH_MGR))
 {
     om_volumes    = new VolumeContainer();
-    om_curDmt = NULL;
 }
 
 OM_NodeContainer::~OM_NodeContainer()
 {
     delete om_admin_ctrl;
-    if (om_curDmt) {
-        delete om_curDmt;
-    }
 }
 
 // om_init_domain
@@ -951,10 +980,6 @@ void
 OM_NodeContainer::om_init_domain()
 {
     om_admin_ctrl = new FdsAdminCtrl(OrchMgr::om_stor_prefix(), g_fdslog);
-    om_dmt_ver    = 0;
-    om_dmt_width  = 3;  // can address 2^3  DMs.
-    om_dmt_depth  = 4;  // max 4 total DM replicas.
-    om_curDmt     = NULL;
 
     am_stats = new PerfStats(OrchMgr::om_stor_prefix() + "OM_from_AM",
                              5 * FDS_STAT_DEFAULT_HIST_SLOTS);
@@ -1270,39 +1295,25 @@ OM_NodeContainer::om_bcast_tier_audit(fpi::FDSP_TierPolicyAuditPtr audit)
 {
 }
 
-// om_bcast_dmt_table
-// ------------------
+// om_send_dlt
+// -----------------------
+//
+static Error
+om_send_dmt(const DMTPtr& curDmt, NodeAgent::pointer agent)
+{
+    return OM_NodeAgent::agt_cast_ptr(agent)->om_send_dmt(curDmt);
+}
+
+// om_bcast_dmt
+// -------------
 //
 fds_uint32_t
-OM_NodeContainer::om_bcast_dmt_table()
+OM_NodeContainer::om_bcast_dmt(const DMTPtr& curDmt)
 {
-    Error err(ERR_OK);
     fds_uint32_t count = 0;
-
-    if (!om_curDmt) {
-        LOGWARN << "DMT is empty, will not broadcast";
-        return 0;  // send to 0 nodes
-    }
-    fds_verify(om_curDmt->getVersion() != DMT_VER_INVALID);
-
-    om_node_msg_t         msg;
-    fpi::FDSP_DMT_TypePtr dmt(new fpi::FDSP_DMT_Type());
-    dmt->dmt_version = om_curDmt->getVersion();
-    err = om_curDmt->getSerialized(dmt->dmt_data);
-    if (!err.ok()) {
-        LOGERROR << "Failed to fill in dmt_data, not sending DMT";
-        return 0;  // send to 0 nodes
-    }
-
-    msg.nd_msg_code  = fpi::FDSP_MSG_DMT_UPDATE;
-    msg.u.nd_dmt_tab = &dmt;
-    dc_am_nodes->agent_foreach<const om_node_msg_t &, \
-          fds_uint32_t *>(msg, &count, om_send_node_command);
-    LOGDEBUG << "Sent dmt to " << count << "AM nodes successfully";
-
-    dc_dm_nodes->agent_foreach<const om_node_msg_t &, \
-          fds_uint32_t *>(msg, &count, om_send_node_command);
-    LOGDEBUG << "Sent dmt to " << count << " DM nodes successfully";
+    count += dc_dm_nodes->agent_ret_foreach<const DMTPtr&>(curDmt, om_send_dmt);
+    count += dc_am_nodes->agent_ret_foreach<const DMTPtr&>(curDmt, om_send_dmt);
+    LOGDEBUG << "Sent DMT to " << count << " nodes successfully";
     return count;
 }
 
@@ -1377,70 +1388,4 @@ OM_NodeContainer::om_bcast_scavenger_cmd(FDS_ProtocolInterface::FDSP_ScavengerCm
     dc_sm_nodes->agent_foreach<FDS_ProtocolInterface::FDSP_ScavengerCmd>(
         cmd, om_send_scavenger_cmd);
 }
-
-// om_round_robin_dmt
-// ------------------
-//
-void
-OM_NodeContainer::om_round_robin_dmt()
-{
-    fds_uint32_t dm_idx, start_idx;
-    RsArray      dmMap;
-    fds_uint32_t ncols = pow(2, om_dmt_width);
-    fds_uint32_t depth = om_dmt_depth;
-    fds_uint32_t total_num_nodes = dc_dm_nodes->rs_container_snapshot(&dmMap);
-
-    if (total_num_nodes == 0) {
-        LOGWARN << "No DMT nodes, DMT will be empty";
-        om_dmt_mtx.lock();
-        if (om_curDmt) {
-            delete om_curDmt;
-            om_curDmt = NULL;
-        }
-        om_dmt_mtx.unlock();
-        return;
-    }
-
-    if (depth > total_num_nodes) {
-        depth = total_num_nodes;
-    }
-
-    LOGNORMAL << "Creating DMT for " << total_num_nodes << " nodes";
-
-    // TODO(Anna) this will change, but for now quickest way we start using
-    // new DMT class.
-    om_dmt_ver++;
-    DMT* new_dmt = new DMT(om_dmt_width, depth, om_dmt_ver);
-
-    dm_idx = 0;
-    start_idx = 0;
-    sleep(5);
-
-    for (fds_uint32_t i = 0; i < ncols; i++) {
-        DmtColumn col(depth);
-        dm_idx = start_idx;
-
-        for (fds_uint32_t j = 0; j < depth; j++) {
-            if (dmMap[dm_idx] == NULL) {
-                // TODO(Anna) this is temp fix, fix properly
-                // by fixing rs_container_snapshot()
-                dm_idx = (dm_idx + 1) % total_num_nodes;
-            }
-            NodeUuid uuid = dmMap[dm_idx]->rs_get_uuid();
-            col.set(j, uuid);
-            dm_idx = (dm_idx + 1) % total_num_nodes;
-        }
-        new_dmt->setNodeGroup(i, col);
-        start_idx = (start_idx + 1) % total_num_nodes;
-    }
-    new_dmt->dump();
-
-    om_dmt_mtx.lock();
-    if (om_curDmt) {
-        delete om_curDmt;
-    }
-    om_curDmt = new_dmt;
-    om_dmt_mtx.unlock();
-}
-
 }  // namespace fds

@@ -282,17 +282,14 @@ Error DMTManager::addSerialized(std::string& data, DMTType dmt_type) {
 }
 
 /**
- * This method assumes that 'version' is a target version or commited version;
- * otherwise asserts. If 'version' is already committed version, method is noop
+ * Commit target DMT version. Asserts if target version does not exist
  */
-void DMTManager::commitDMT(fds_uint64_t version) {
+void DMTManager::commitDMT() {
     dmt_lock.write_lock();
-    fds_verify((version == target_version) || (version == committed_version));
-    fds_verify(dmt_map.count(version) > 0);
-    committed_version = version;
-    if (target_version == version) {
-        target_version = DMT_VER_INVALID;
-    }
+    fds_verify(target_version != DMT_VER_INVALID);
+    fds_verify(dmt_map.count(target_version) > 0);
+    committed_version = target_version;
+    target_version = DMT_VER_INVALID;
     dmt_lock.write_unlock();
 }
 

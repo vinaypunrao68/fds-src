@@ -123,9 +123,12 @@ namespace fds {
         /**
          * Sets given version of DMT as commited
          */
-        void commitDMT(fds_uint64_t version);
+        void commitDMT();
         inline fds_uint64_t getCommittedVersion() const {
             return committed_version;
+        }
+        inline fds_uint64_t getTargetVersion() const {
+            return target_version;
         }
         inline fds_bool_t hasCommittedDMT() const {
             return (committed_version != DMT_VER_INVALID);

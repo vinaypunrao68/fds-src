@@ -345,8 +345,8 @@ UT_DLT_EvalHelper::print_dlt(const fds_uint64_t* tbl,
     // primary tokens optimal vs. actual
     PlacementMetricsPtr metricsPtr(new PlacementMetrics(cm, toks, depth));
     NodeUuidSet nodes;
-    for (ClusterMap::const_iterator cit = cm->cbegin();
-         cit != cm->cend();
+    for (ClusterMap::const_sm_iterator cit = cm->cbegin_sm();
+         cit != cm->cend_sm();
          ++cit) {
         nodes.insert(cit->first);
     }
