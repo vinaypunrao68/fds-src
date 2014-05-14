@@ -94,6 +94,13 @@ GetObjectResponseHandler::~GetObjectResponseHandler() {
 void GetObjectBlkResponseHandler::process() {
     if (status == FDSN_StatusOK) {
         ubdCallback(0);
+    } else if (status == FDSN_StatusEntityDoesNotExist) {
+        // For unwritten block offsets, return success and
+        // zeros
+        LOGDEBUG << "Returning zeros for unwritten block device offset "
+                 << offset;
+        std::memset(const_cast<char *>(buffer), 0x00, bufferSize);
+        ubdCallback(0);
     } else {
         // TODO(Andrew): For now, just pass -1 when something
         // went wrong

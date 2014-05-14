@@ -52,8 +52,10 @@ AmUbdConnect::amUbdPutBlob(fbd_request_t *blkReq) {
                                             blkReq->vReq,  // Callback arg2
                                             blkReq);  // Callback arg3
 
-    // Create NULL putProps for now
+    // Create putProps with fake hash for now
     PutPropertiesPtr putProps;
+    putProps.reset(new PutProperties());
+    putProps->md5 = "beefbeefbeefbeefbeefbeefbeefbeef";
 
     // Do async putobject
     // TODO(Andrew): The error path callback maybe called
@@ -65,7 +67,7 @@ AmUbdConnect::amUbdPutBlob(fbd_request_t *blkReq) {
                       blkReq->buf,  // Data buf
                       blkReq->sec * 512,  // Offset; Don't hardcode sector size
                       blkReq->len,  // TODO(Andrew): Verify length?
-                      false,  // Always make is last
+                      false,  // Never make it last
                       fn_PutObjectBlkHandler,
                       static_cast<void *>(putHandler));
 

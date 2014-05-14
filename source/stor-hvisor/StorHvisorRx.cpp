@@ -409,6 +409,8 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
         return;
     }
 
+    fds_bool_t offsetFound = false;
+
     // Insert the returned entries into the cache
     FDS_ProtocolInterface::FDSP_BlobObjectList blobOffList = cat_obj_req->obj_list;
     fds_verify(blobOffList.empty() == false);
@@ -424,11 +426,36 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
                                                (fds_uint32_t)(*it).size,
                                                offsetObjId);
         fds_verify(err == ERR_OK);
+
+        // Check if we received the offset we queried about
+        // TODO(Andrew): Today DM just gives us the entire
+        // blob, so it doesn't tell us if the offset we queried
+        // about was in the list or not
+        if ((fds_uint64_t)(*it).offset == blobReq->getBlobOffset()) {
+            offsetFound = true;
+        }
+    }
+
+    if (offsetFound == false) {
+        // We queried for a specific blob offset and didn't get it
+        // in the response
+        LOGWARN << "Blob " << blobReq->getBlobName()
+                << " query catalog did NOT return requested offset "
+                << blobReq->getBlobOffset();
+        
+        storHvisor->qos_ctrl->markIODone(journEntry->io);
+        journEntry->trans_state = FDS_TRANS_DONE;
+
+        blobReq->setDataLen(0);
+        blobReq->cbWithResult(FDSN_StatusEntityDoesNotExist);
+        journEntry->reset();
+        shvol->journal_tbl->releaseTransId(trans_id);
+        return;
     }
 
     // Insert the blob's etag into the cache
     FDS_ProtocolInterface::FDSP_MetaDataList blobMetaList = cat_obj_req->meta_list;
-    fds_verify(blobMetaList.empty() == false);
+    // fds_verify(blobMetaList.empty() == false);
     for (FDS_ProtocolInterface::FDSP_MetaDataList::const_iterator it =
                  blobMetaList.cbegin();
          it != blobMetaList.cend();
