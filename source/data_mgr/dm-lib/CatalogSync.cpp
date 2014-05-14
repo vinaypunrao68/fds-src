@@ -17,6 +17,11 @@ CatalogSync::CatalogSync(fds_volid_t vol_id,
         : volume_id(vol_id),
           node_uuid(uuid),
           dm_req_handler(dm_req_hdlr) {
+      // create snap directory.
+  const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
+  const std::string snap_dir = root->dir_user_repo_snap();
+
+   std::system((const char *)("mkdir "+snap_dir+" ").c_str());
 }
 
 CatalogSync::~CatalogSync() {

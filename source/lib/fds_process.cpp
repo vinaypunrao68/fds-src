@@ -45,7 +45,7 @@ FdsProcess::FdsProcess(int argc, char *argv[],
     /* Initialize process wide globals */
     g_fdsprocess = this;
     /* Set up the signal handler.  We should do this before creating any threads */
-    // setup_sig_handler();
+    setup_sig_handler();
 
     /* Setup module vectors and config */
     mod_vectors_ = new ModuleVector(argc, argv, mod_vec);

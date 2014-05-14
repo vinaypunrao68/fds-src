@@ -215,7 +215,6 @@ VolumeMeta::syncVolCat(fds_volid_t volId, NodeUuid node_uuid)
 
   const std::string test = "sshpass -p passwd rsync -r "+dst+"/ root@"+dest_ip+":"+dst_node+"";
   const std::string test_dir = "cp -r "+src_dir+"*  "+dst_dir+"";
-  // const std::string test = "rsync -r --rsh='sshpass -p passwd ssh -l root'  "+dst+"/ root@"+dest_ip+":"+dst_node+"";
   FDS_PLOG(dm_log) << " destination IP: " << dest_ip <<  "src: " << src << "dst: " << dst;
   FDS_PLOG(dm_log) << " rsync: " << test <<  "  dest_node : " << dst_node << "dist dir:" << test_dir;
 
@@ -232,19 +231,13 @@ VolumeMeta::syncVolCat(fds_volid_t volId, NodeUuid node_uuid)
     return err;
   }
 
-   //returnCode =  std::system((const char *)("sshpass -p passwd rsync -r /tmp/fdsinstall  root@10.1.10.216:/tmp"));
-  // std::system((const char *)("export RSYNC_PASSWORD=passwd"));
   // rsync the meta data to the new DM nodes 
-   //returnCode = std::system((const char *)("sshpass -p passwd rsync -r "+dst+"/  root@"+dest_ip+":"+dst_node+"").c_str());
-   returnCode = std::system((const char *)("sshpass -p passwd rsync -r "+dst+"  root@"+dest_ip+":/tmp").c_str());
-    std::system("env");
+   // returnCode = std::system((const char *)("sshpass -p passwd rsync -r "+dst_dir+"  root@"+dest_ip+":/tmp").c_str());
+   returnCode = std::system((const char *)("sshpass -p passwd rsync -r "+dst_dir+"  root@"+dest_ip+":"+dst_dir+"").c_str());
   // returnCode = std::system((const char *)("rsync -r --rsh='sshpass -p passwd ssh -l root' "+dst+"/  root@"+dest_ip+":"+dst_node+"").c_str());
    FDS_PLOG(dm_log) << "system Command  rsync return Code : " << returnCode;
 
-  //  activate the snap, testing  only
-  // activeSnap = true;
 
-  // FDS_PLOG(dm_log) << "Setting the Snap Active Flag:  " << vm->activeSnap;
   return err;
 }
 
