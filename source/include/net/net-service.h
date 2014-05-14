@@ -11,6 +11,7 @@
 #include <fds_module.h>
 #include <fds_process.h>
 #include <fds_typedefs.h>
+#include <fds_error.h>
 #include <shared/fds-constants.h>
 #include <fdsp/fds_service_types.h>
 
@@ -353,7 +354,6 @@ class NetMgr : public Module
     virtual EpSvc::pointer
     svc_lookup(const char *name, fds_uint32_t maj, fds_uint32_t min);
 
-<<<<<<< HEAD
     // TODO(Vy): Please refactor the following as needed
     /**
      * Returns true if error e is actionable on the endpoint
@@ -369,6 +369,7 @@ class NetMgr : public Module
      * @param e
      */
     void ep_handle_error(const Error &e);
+
     /**
      * Allocate a handle to communicate with the peer endpoint.  The 'mine' uuid can be
      * taken from the platform library to get the default uuid.

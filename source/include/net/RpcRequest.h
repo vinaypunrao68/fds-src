@@ -14,14 +14,18 @@
 #include <net/RpcFunc.h>
 
 namespace fds {
+/* Forward declarations */
+class FailoverRpcRequest;
 
 /* Async rpc request identifier */
 typedef uint64_t AsyncRpcRequestId;
 
 /* Async rpc request callback types */
-typedef std::function<void(VoidPtr)> RpcRequestSuccessCb;
-typedef std::function<void(const Error&, VoidPtr)> RpcRequestErrorCb;
-typedef std::function<void(const Error&, VoidPtr, bool&)> RpcRequestFailoverCb;
+typedef std::function<void(boost::shared_ptr<std::string>)> RpcRequestSuccessCb;
+typedef std::function<void(const Error&,
+        boost::shared_ptr<std::string>)> RpcRequestErrorCb;
+typedef std::function<void(const Error&,
+        boost::shared_ptr<std::string>, bool&)> RpcRequestFailoverCb;
 typedef std::function<void(const AsyncRpcRequestId&)> RpcRequestCompletionCb;
 
 /* Async rpc request states */
@@ -32,7 +36,7 @@ enum AsyncRpcState {
 };
 
 /**
- * Based class for async rpc requests
+ * Base class for async rpc requests
  */
 class AsyncRpcRequestIf {
  public:
@@ -101,23 +105,16 @@ class EPAsyncRpcRequest : public AsyncRpcRequestIf {
 
     virtual void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
             boost::shared_ptr<std::string>& payload) override;
+
  protected:
     fpi::SvcUuid epId_;
     /* Response callbacks.  If set they are invoked in handleResponse() */
     RpcRequestSuccessCb successCb_;
     RpcRequestErrorCb errorCb_;
+
+    friend class FailoverRpcRequest;
 };
 typedef boost::shared_ptr<EPAsyncRpcRequest> EPAsyncRpcRequestPtr;
-
-struct AsyncRpcEpInfo {
-    explicit AsyncRpcEpInfo(const fpi::SvcUuid &id)
-    : epId(id), status(ERR_OK)
-    {
-    }
-
-    fpi::SvcUuid epId;
-    Error status;
-};
 
 /**
  *
@@ -143,15 +140,20 @@ class FailoverRpcRequest : public AsyncRpcRequestIf {
             boost::shared_ptr<std::string>& payload) override;
 
  protected:
+    void epReqSuccessCb_(boost::shared_ptr<std::string> payload);
+
+    void epReqErrorCb_(const Error& e, boost::shared_ptr<std::string> payload);
+
     bool moveToNextHealthyEndpoint_();
+
     void invokeInternal_();
 
 
     /* Next endpoint to invoke the request on */
     uint8_t curEpIdx_;
 
-    /* Endpoint collection */
-    std::vector<AsyncRpcEpInfo> eps_;
+    /* Endpoint request collection */
+    std::vector<EPAsyncRpcRequestPtr> epReqs_;
 
     /* Callback to invoke before failing over to the next endpoint */
     RpcRequestFailoverCb failoverCb_;

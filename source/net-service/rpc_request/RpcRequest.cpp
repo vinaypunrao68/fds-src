@@ -10,12 +10,14 @@
 namespace fds {
 
 AsyncRpcRequestIf::AsyncRpcRequestIf()
-: AsyncRpcRequestIf(0)
+    : AsyncRpcRequestIf(0)
 {
 }
 
 AsyncRpcRequestIf::AsyncRpcRequestIf(const AsyncRpcRequestId &id)
-: id_(id)
+    : id_(id),
+      state_(PRIOR_INVOCATION),
+      timeoutMs_(0)
 {
 }
 
@@ -112,6 +114,8 @@ void EPAsyncRpcRequest::onErrorCb(RpcRequestErrorCb &cb) {
  */
 void EPAsyncRpcRequest::invoke()
 {
+    fds_verify(error_ == ERR_OK);
+
     state_ = INVOCATION_PROGRESS;
     bool epHealthy = true;
     // TODO(Rao): Determine endpoint is healthy or not
