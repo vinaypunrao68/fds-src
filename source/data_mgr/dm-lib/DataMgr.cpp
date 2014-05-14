@@ -1029,6 +1029,8 @@ DataMgr::updateCatalogBackend(dmCatReq  *updCatReq) {
     DataMgr::InitMsgHdr(msg_hdr);
     update_catalog->obj_list.clear();
     update_catalog->meta_list.clear();
+    // TODO(Andrew): Actually set this...
+    update_catalog->txDesc.txId = 0;
 
     if (err.ok()) {
         msg_hdr->result  = FDS_ProtocolInterface::FDSP_ERR_OK;

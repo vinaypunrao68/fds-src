@@ -146,6 +146,8 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) {
         upd_obj_req->obj_list.clear();
         upd_obj_req->obj_list.push_back(upd_obj_info);
         upd_obj_req->meta_list.clear();
+        // TODO(Andrew): Actually set this...
+        upd_obj_req->txDesc.txId = 0;
 
         /*
          * Set the blob name from the blob request

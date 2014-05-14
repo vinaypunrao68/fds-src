@@ -415,26 +415,27 @@ FDS_NativeAPI::attachVolume(const std::string& volumeName,
     fds_verify(err == ERR_OK);
 }
 
-void FDS_NativeAPI::PutObject(BucketContext *bucket_ctxt,
-                              std::string ObjKey,
-                              PutPropertiesPtr put_properties,
-                              void *req_context,
-                              char *buffer,
-                              fds_uint64_t startByte,
-                              fds_uint64_t buflen,
-                              fds_bool_t lastBuf,
-                              fdsnPutObjectHandler putObjHandler,
-                              void *callback_data) {
+void
+FDS_NativeAPI::PutBlob(BucketContext *bucket_ctxt,
+                       std::string ObjKey,
+                       PutPropertiesPtr put_properties,
+                       void *req_context,
+                       char *buffer,
+                       fds_uint64_t startByte,
+                       fds_uint64_t buflen,
+                       BlobTxId::ptr txDesc,
+                       fds_bool_t lastBuf,
+                       fdsnPutObjectHandler putObjHandler,
+                       void *callback_data) {
     Error err(ERR_OK);
-    fds_volid_t volid = invalid_vol_id;
-    FdsBlobReq *blob_req = NULL;
-    LOGNORMAL << "bucket: " << bucket_ctxt->bucketName
-              << " objKey: " << ObjKey
-              << " startByte:" << startByte
-              << " buffer-len: " << buflen
-              << " last buffer: " << std::boolalpha << lastBuf;
+    LOGDEBUG << "Start putBlob for volume " << bucket_ctxt->bucketName
+             << " blob " << ObjKey
+             << " offset " << startByte
+             << " length " << buflen
+             << " tx " << *txDesc;
 
     // check if bucket is attached to this AM
+    fds_volid_t volid = invalid_vol_id;
     if (storHvisor->vol_table->volumeExists(bucket_ctxt->bucketName)) {
         volid = storHvisor->vol_table->getVolumeUUID(bucket_ctxt->bucketName);
         fds_verify(volid != invalid_vol_id);
@@ -445,26 +446,18 @@ void FDS_NativeAPI::PutObject(BucketContext *bucket_ctxt,
     // after we put a request to the wait queue and not before!
 
     /* create request */
-    blob_req = new PutBlobReq(volid,
-                              ObjKey,
-                              startByte,
-                              buflen,
-                              buffer,
-                              lastBuf,
-                              bucket_ctxt,
-                              put_properties,
-                              req_context,
-                              putObjHandler,
-                              callback_data);
-
-    if (!blob_req) {
-        (putObjHandler)(req_context, 0, 0, NULL, callback_data, FDSN_StatusOutOfMemory, NULL); //NOLINT
-        LOGERROR << "FDS_NativeAPI::PutObject bucket "
-                 << bucket_ctxt->bucketName
-                 << " objKey " << ObjKey
-                 << " -- failed to allocate PutBlobReq";
-        return;
-    }
+    FdsBlobReq *blob_req = new PutBlobReq(volid,
+                                          ObjKey,
+                                          startByte,
+                                          buflen,
+                                          buffer,
+                                          txDesc,
+                                          lastBuf,
+                                          bucket_ctxt,
+                                          put_properties,
+                                          req_context,
+                                          putObjHandler,
+                                          callback_data);
 
     if (volid != invalid_vol_id) {
         /* bucket is already attached to this AM, enqueue IO */

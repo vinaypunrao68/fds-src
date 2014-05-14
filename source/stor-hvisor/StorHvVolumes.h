@@ -368,19 +368,25 @@ class GetBlobReq: public FdsBlobReq {
 
 class PutBlobReq: public FdsBlobReq {
   public:
+    // TODO(Andrew): Fields that could use some cleanup.
+    // We can mostly remove these with the new callback mechanism
     BucketContext *bucket_ctxt;
     std::string ObjKey;
     PutPropertiesPtr putProperties;
     void *req_context;
-    fdsnPutObjectHandler putObjCallback;
     void *callback_data;
     fds_bool_t lastBuf;
+    fdsnPutObjectHandler putObjCallback;
+
+    // Needed fields
+    BlobTxId::ptr txDesc;
 
     PutBlobReq(fds_volid_t _volid,
                const std::string& _blob_name, //same as objKey
                fds_uint64_t _blob_offset,
                fds_uint64_t _data_len,
                char* _data_buf,
+               BlobTxId::ptr _txDesc,
                fds_bool_t _last_buf,
                BucketContext* _bucket_ctxt,
                PutPropertiesPtr _put_props,
@@ -390,13 +396,14 @@ class PutBlobReq: public FdsBlobReq {
             : FdsBlobReq(FDS_PUT_BLOB, _volid, _blob_name, _blob_offset,
                          _data_len, _data_buf, FDS_NativeAPI::DoCallback,
                          this, Error(ERR_OK), 0),
-              lastBuf(_last_buf),
-              bucket_ctxt(_bucket_ctxt),
-              ObjKey(_blob_name),
-              putProperties(_put_props),
-              req_context(_req_context),
-              putObjCallback(_put_obj_handler),
-              callback_data(_callback_data) {
+        lastBuf(_last_buf),
+        bucket_ctxt(_bucket_ctxt),
+        ObjKey(_blob_name),
+        putProperties(_put_props),
+        req_context(_req_context),
+        putObjCallback(_put_obj_handler),
+        callback_data(_callback_data),
+        txDesc(_txDesc) {
     }
 
     fds_bool_t isLastBuf() const {
@@ -409,6 +416,10 @@ class PutBlobReq: public FdsBlobReq {
             etag = putProperties->md5;
         }
         return etag;
+    }
+
+    BlobTxId::const_ptr getTxId() const {
+        return txDesc;
     }
 
     ~PutBlobReq() { };

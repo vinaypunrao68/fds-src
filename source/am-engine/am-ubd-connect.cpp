@@ -52,6 +52,9 @@ AmUbdConnect::amUbdPutBlob(fbd_request_t *blkReq) {
                                             blkReq->vReq,  // Callback arg2
                                             blkReq);  // Callback arg3
 
+    // Create a fake transaction for now
+    BlobTxId::ptr txDesc(new BlobTxId());
+
     // Create putProps with fake hash for now
     PutPropertiesPtr putProps;
     putProps.reset(new PutProperties());
@@ -60,16 +63,17 @@ AmUbdConnect::amUbdPutBlob(fbd_request_t *blkReq) {
     // Do async putobject
     // TODO(Andrew): The error path callback maybe called
     // in THIS thread's context...need to fix or handle that.
-    am_api->PutObject(&bucket_ctx,
-                      "blkdev0",  // TODO(Andrew): Don't hardcode
-                      putProps,
-                      NULL,  // Not passing any context for the callback
-                      blkReq->buf,  // Data buf
-                      blkReq->sec * 512,  // Offset; Don't hardcode sector size
-                      blkReq->len,  // TODO(Andrew): Verify length?
-                      false,  // Never make it last
-                      fn_PutObjectBlkHandler,
-                      static_cast<void *>(putHandler));
+    am_api->PutBlob(&bucket_ctx,
+                    "blkdev0",  // TODO(Andrew): Don't hardcode
+                    putProps,
+                    NULL,  // Not passing any context for the callback
+                    blkReq->buf,  // Data buf
+                    blkReq->sec * 512,  // Offset; Don't hardcode sector size
+                    blkReq->len,  // TODO(Andrew): Verify length?
+                    txDesc,
+                    false,  // Never make it last
+                    fn_PutObjectBlkHandler,
+                    static_cast<void *>(putHandler));
 
     return ERR_OK;
 }

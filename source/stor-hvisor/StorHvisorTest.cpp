@@ -341,17 +341,20 @@ int unitTest2(fds_uint32_t time_mins)
   api->ModifyBucket(buck_context, qos_params, NULL, sh_test_modify_bucket_callback, NULL);
   sleep(5);
 
+  // Create a fake transaction for now
+  BlobTxId::ptr txDesc(new BlobTxId());
+
   /* test put requests to bucket */
   FDS_PLOG(storHvisor->GetLog()) << "Blob unit test -- will put object to " << buck_context->bucketName;
   memset(w_buf, 0xfeed, req_size);
-  api->PutObject(buck_context, "ut_key", put_props, NULL, w_buf, 0, req_size,
-                 false, sh_test_put_callback, NULL); 
+  api->PutBlob(buck_context, "ut_key", put_props, NULL, w_buf, 0, req_size,
+               txDesc, false, sh_test_put_callback, NULL); 
 
   sleep(1);
   FDS_PLOG(storHvisor->GetLog()) << "Blob unit test -- will put object to " << buck_context->bucketName;
   memset(w_buf, 0xfe0d, req_size);
-  api->PutObject(buck_context, "another_test_key", put_props, NULL, w_buf, 0, req_size,
-                 false, sh_test_put_callback, NULL);
+  api->PutBlob(buck_context, "another_test_key", put_props, NULL, w_buf, 0, req_size,
+               txDesc, false, sh_test_put_callback, NULL);
 
   sleep(2);
   FDS_PLOG(storHvisor->GetLog()) << "Blob write unit test -- waited 2 sec after putObject()";

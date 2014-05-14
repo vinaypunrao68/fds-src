@@ -82,16 +82,17 @@ namespace fds {
                        fdsnGetObjectHandler getObjCallback,
                        void *callbackdata);
 
-        void PutObject(BucketContext *bucket_ctxt,
-                       std::string ObjKey,
-                       PutPropertiesPtr putproperties,
-                       void *reqContext,
-                       char *buffer,
-                       fds_uint64_t startByte,
-                       fds_uint64_t buflen,
-                       fds_bool_t lastBuf,
-                       fdsnPutObjectHandler putObjHandler,
-                       void *callbackData);
+        void PutBlob(BucketContext *bucket_ctxt,
+                     std::string ObjKey,
+                     PutPropertiesPtr putproperties,
+                     void *reqContext,
+                     char *buffer,
+                     fds_uint64_t startByte,
+                     fds_uint64_t buflen,
+                     BlobTxId::ptr txDesc,
+                     fds_bool_t lastBuf,
+                     fdsnPutObjectHandler putObjHandler,
+                     void *callbackData);
 
         void DeleteObject(BucketContext *bucket_ctxt,
                           std::string ObjKey,

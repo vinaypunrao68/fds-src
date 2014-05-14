@@ -333,6 +333,7 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
 
     FDSP_UpdateCatalogTypePtr upd_obj_req(new FDSP_UpdateCatalogType);
     upd_obj_req->obj_list.clear();
+    upd_obj_req->txDesc.txId = blobReq->getTxId()->getValue();
 
     FDS_ProtocolInterface::FDSP_BlobObjectInfo upd_obj_info;
     upd_obj_info.offset   = blobReq->getBlobOffset();  // May need to change to 0 for now?

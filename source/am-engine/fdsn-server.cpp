@@ -275,19 +275,24 @@ class FdsnIf : public apis::AmServiceIf {
             digest->c_str()),
                                         digest->size());
 
+        // Setup the transcation descriptor
+        BlobTxId::ptr blobTxDesc(new BlobTxId(
+            txDesc->txId));
+
         // Do async putobject
         // TODO(Andrew): The error path callback maybe called
         // in THIS thread's context...need to fix or handle that.
-        am_api->PutObject(&bucket_ctx,
-                          *blobName,
-                          putProps,
-                          NULL,  // Not passing any context for the callback
-                          const_cast<char *>(bytes->c_str()),
-                          offset,
-                          *length,
-                          *isLast,
-                          fn_PutObjectHandler,
-                          static_cast<void *>(&putHandler));
+        am_api->PutBlob(&bucket_ctx,
+                        *blobName,
+                        putProps,
+                        NULL,  // Not passing any context for the callback
+                        const_cast<char *>(bytes->c_str()),
+                        offset,
+                        *length,
+                        blobTxDesc,
+                        *isLast,
+                        fn_PutObjectHandler,
+                        static_cast<void *>(&putHandler));
 
         // Wait for a signal from the callback thread
         putHandler.wait();
