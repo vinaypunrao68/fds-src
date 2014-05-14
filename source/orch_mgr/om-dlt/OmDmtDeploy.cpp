@@ -61,7 +61,7 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
         template <class Event, class FSM> void on_entry(Event const &, FSM &) {}
         template <class Event, class FSM> void on_exit(Event const &, FSM &) {}
 
-        fds_uint32_t vol_acks_to_wait;
+        NodeUuidSet dms_to_ack;
     };
     struct DST_Commit : public msm::front::state<>
     {
@@ -323,7 +323,7 @@ void DmtDplyFSM::RetryTimerTask::runTimerTask()
 {
     OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
     LOGNOTIFY << "Retry to re-compute DMT";
-    domain->om_dmt_update_cluster(0);
+    domain->om_dmt_update_cluster();
 }
 
 /** 
@@ -366,8 +366,25 @@ void
 DmtDplyFSM::DACT_Start::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
     DmtDeployEvt dplyEvt = (DmtDeployEvt)evt;
-    dst.vol_acks_to_wait = dplyEvt.numVols;
-    LOGDEBUG << "FSM DACT_Start" << dst.vol_acks_to_wait;
+
+    // if we have any volumes, send volumes to DMs that are added to cluster map
+    OM_NodeContainer* loc_domain = OM_NodeDomainMod::om_loc_domain_ctrl();
+    OM_Module* om = OM_Module::om_singleton();
+    ClusterMap* cm = om->om_clusmap_mod();
+    NodeUuidSet addDms = cm->getAddedServices(fpi::FDSP_DATA_MGR);
+
+    dst.dms_to_ack.clear();
+    for (NodeUuidSet::const_iterator cit = addDms.cbegin();
+         cit != addDms.cend();
+         ++cit) {
+        OM_DmAgent::pointer dm_agent = loc_domain->om_dm_agent(*cit);
+        fds_uint32_t count = loc_domain->om_bcast_vol_list(dm_agent);
+        if (count > 0) {
+            dst.dms_to_ack.insert(*cit);
+        }
+    }
+    LOGDEBUG << "Will wait for " << dst.dms_to_ack.size()
+             << " DMs to acks volume notify";
 }
 
 /** 
@@ -378,14 +395,18 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 bool
 DmtDplyFSM::GRD_DmtCompute::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    // fds_verify(src.vol_acks_to_wait > 0);
-    LOGDEBUG << "GRD_DmtCompute: Vol acks to wait " << src.vol_acks_to_wait;
-    if (src.vol_acks_to_wait )
-       src.vol_acks_to_wait--;
+    DmtVolAckEvt volAckEvt = (DmtVolAckEvt)evt;
+    if (volAckEvt.dm_uuid.uuid_get_val() > 0) {
+        // ok if we receive vol ack for DM not in our wait list, because it
+        // could be some other DM, etc
+        if (src.dms_to_ack.count(volAckEvt.dm_uuid) > 0) {
+            src.dms_to_ack.erase(evt.dm_uuid);
+        }
+    }
 
-    bool bret = (src.vol_acks_to_wait == 0);
-    LOGDEBUG << "GRD_DmtCompute: Vol acks to wait " << src.vol_acks_to_wait
-             << " returning " << bret;
+    bool bret = (src.dms_to_ack.size() == 0);
+    LOGDEBUG << "DMs to wait " << src.dms_to_ack.size()
+             << " for vol acks; returning " << bret;
 
     return bret;
 }

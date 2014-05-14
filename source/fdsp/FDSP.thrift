@@ -499,11 +499,17 @@ exception FDSP_VolumeNotFound {
   1: string message;
 }
 
+enum FDSP_NotifyVolFlag {
+  FDSP_NOTIFY_VOL_NO_FLAG,
+  FDSP_NOTIFY_VOL_CHECK_ONLY,  // for delete vol -- only check if objects in volume
+  FDSP_NOTIFY_VOL_WILL_SYNC    // for create vol -- volume meta already exists on other node, will be synced
+}
+
 struct FDSP_NotifyVolType {
   1: FDSP_VolNotifyType 	 type,       /* Type of notify */
   2: string             	 vol_name,   /* Name of the volume */
   3: FDSP_VolumeDescType	 vol_desc,   /* Volume properties and attributes */
-  4: bool                        check_only  /* for delete vol -- only check if objects in volume */
+  4: FDSP_NotifyVolFlag          flag        /* see FDSP_NotifyVolFlag */
 }
 
 struct FDSP_AttachVolType {

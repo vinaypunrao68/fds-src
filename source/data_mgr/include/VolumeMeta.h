@@ -631,10 +631,14 @@ class VolumeMeta {
      */
     VolumeMeta();
     VolumeMeta(const std::string& _name,
-               fds_volid_t _uuid,VolumeDesc *v_desc);
+               fds_volid_t _uuid,
+               VolumeDesc *v_desc,
+               fds_bool_t crt_catalogs);
     VolumeMeta(const std::string& _name,
                fds_volid_t _uuid,
-               fds_log* _dm_log,VolumeDesc *v_desc);
+               fds_log* _dm_log,
+               VolumeDesc *v_desc,
+               fds_bool_t crt_catalogs);
     ~VolumeMeta();
     void dmCopyVolumeDesc(VolumeDesc *v_desc, VolumeDesc *pVol);
   /*

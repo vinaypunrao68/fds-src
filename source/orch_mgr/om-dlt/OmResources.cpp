@@ -831,7 +831,11 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
             }
         }
         om_locDomain->om_update_node_list(newNode, msg);
-        numVols = om_locDomain->om_bcast_vol_list(newNode);
+
+        if (msg->node_type != fpi::FDSP_DATA_MGR) {
+            om_locDomain->om_bcast_vol_list(newNode);
+            // for new DMs, we send volume list as part of DMT deploy state machine
+        }
 
         // Let this new node know about existing dlt if this is not SM node
         // DLT deploy state machine will take care of SMs
@@ -844,13 +848,7 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
 
         // Send the DMT to DMs.
         if (msg->node_type == fpi::FDSP_DATA_MGR) {
-            /*
-            if (oldDmNode) {
-                OM_DmAgent::agt_cast_ptr(oldDmNode)->om_send_pushmeta(meta_msg);
-            }
-            */
-            LOGDEBUG << "Invoking the DMT state transition: " << numVols;
-            om_dmt_update_cluster(numVols);
+            om_dmt_update_cluster();
         } else {
             OM_Module *om = OM_Module::om_singleton();
             VolumePlacement* vp = om->om_volplace_mod();
@@ -947,13 +945,14 @@ OM_NodeDomainMod::om_delete_domain(const FdspCrtDomPtr &crt_domain)
 }
 
 void
-OM_NodeDomainMod::om_dmt_update_cluster(fds_uint32_t vols) {
+OM_NodeDomainMod::om_dmt_update_cluster() {
     OM_Module *om = OM_Module::om_singleton();
     OM_DMTMod *dmtMod = om->om_dmt_mod();
 
-    dmtMod->dmt_deploy_event(DmtDeployEvt(vols));
-    if (!vols)
-       dmtMod->dmt_deploy_event(DmtVolAckEvt());
+    dmtMod->dmt_deploy_event(DmtDeployEvt());
+
+    // in case there are no vol acks to wait
+    dmtMod->dmt_deploy_event(DmtVolAckEvt(NodeUuid()));
 }
 
 
@@ -1217,8 +1216,9 @@ void
 OM_ControlRespHandler::NotifyRmVolResp(
     FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& not_rm_vol_resp) {
+    fds_bool_t check_only = (not_rm_vol_resp->flag == fpi::FDSP_NOTIFY_VOL_CHECK_ONLY);
     LOGNOTIFY << "OM received response for NotifyRmVol (check only "
-              << not_rm_vol_resp->check_only << ") from node "
+              << check_only << ") from node "
               << fdsp_msg->src_node_name << " for volume "
               << "[" << not_rm_vol_resp->vol_name << ":"
               << std::hex << not_rm_vol_resp->vol_desc.volUUID << std::dec
@@ -1226,9 +1226,7 @@ OM_ControlRespHandler::NotifyRmVolResp(
 
     OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
     VolumeContainer::pointer volumes = local->om_vol_mgr();
-    om_vol_notify_t type = om_notify_vol_rm;
-    if (not_rm_vol_resp->check_only)
-        type = om_notify_vol_rm_chk;
+    om_vol_notify_t type = check_only ? om_notify_vol_rm_chk : om_notify_vol_rm;
     volumes->om_notify_vol_resp(type,
                                 fdsp_msg,
                                 not_rm_vol_resp->vol_name,

@@ -33,6 +33,8 @@
 #include <DmIoReq.h>
 #include <CatalogSync.h>
 
+namespace fpi = FDS_ProtocolInterface;
+
 #undef FDS_TEST_DM_NOOP     /* if defined, puts complete as soon as they arrive to DM (not for gets right now) */
 
 namespace fds {
@@ -181,9 +183,11 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler
     Error _add_if_no_vol(const std::string& vol_name,
                          fds_volid_t vol_uuid,VolumeDesc* desc);
     Error _add_vol_locked(const std::string& vol_name,
-                          fds_volid_t vol_uuid,VolumeDesc* desc);
+                          fds_volid_t vol_uuid, VolumeDesc* desc,
+                          fds_bool_t crt_catalogs);
     Error _process_add_vol(const std::string& vol_name,
-                           fds_volid_t vol_uuid,VolumeDesc* desc);
+                           fds_volid_t vol_uuid,VolumeDesc* desc,
+                           fds_bool_t crt_catalogs);
     Error _process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only);
     Error _process_mod_vol(fds_volid_t vol_uuid,
 			   const VolumeDesc& voldesc);
@@ -226,8 +230,8 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler
     static Error vol_handler(fds_volid_t vol_uuid,
                              VolumeDesc* desc,
                              fds_vol_notify_t vol_action,
-                             fds_bool_t check_only,
-                             FDS_ProtocolInterface::FDSP_ResultType result);
+                             fpi::FDSP_NotifyVolFlag vol_flag,
+                             fpi::FDSP_ResultType result);
 
     static void node_handler(fds_int32_t  node_id,
                              fds_uint32_t node_ip,

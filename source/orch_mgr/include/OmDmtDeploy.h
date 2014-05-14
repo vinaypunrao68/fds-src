@@ -21,10 +21,7 @@ typedef boost::msm::back::state_machine<DmtDplyFSM> FSM_DplyDMT;
 class DmtDeployEvt
 {
   public:
-    explicit DmtDeployEvt(fds_uint32_t volNum)
-            : numVols(volNum) {}
-
-    fds_uint32_t    numVols;
+    DmtDeployEvt() {}
 };
 
 class DmtLoadedDbEvt
@@ -63,7 +60,10 @@ class DmtCloseOkEvt
 class DmtVolAckEvt
 {
   public:
-    DmtVolAckEvt() {}
+    explicit DmtVolAckEvt(const NodeUuid& uuid)
+            : dm_uuid(uuid) {}
+
+    NodeUuid dm_uuid;
 };
 /**
  * Main vector to initialize the DMT module.
