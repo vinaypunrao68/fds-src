@@ -202,6 +202,7 @@ class EndPoint : public EpSvcImpl
     EpSvcHandle::pointer                   ep_clnt_ptr;
 
     void svc_receive_msg(const fpi::AsyncHdr &msg) {}
+    bool ep_is_connection() { return true; }
 
   private:
     // ep_client_connect

@@ -193,8 +193,12 @@ class EpSvc
     // Cast to the correct EndPoint type.
     //
     template <class SendIf, class RecvIf>
-    static boost::intrusive_ptr<EndPoint<SendIf, RecvIf>> ep_cast(EpSvc::pointer svc) {
-        return boost::static_pointer_cast<EndPoint<SendIf, RecvIf>>(svc);
+    boost::intrusive_ptr<EndPoint<SendIf, RecvIf>> ep_cast()
+    {
+        if (ep_is_connection()) {
+            return boost::static_pointer_cast<EndPoint<SendIf, RecvIf>>(this);
+        }
+        return NULL;
     }
 
   protected:
@@ -216,6 +220,7 @@ class EpSvc
           fds_uint32_t        minor);
 
     virtual ~EpSvc() {}
+    virtual bool ep_is_connection() { return false; }
 
   private:
     friend class NetMgr;
