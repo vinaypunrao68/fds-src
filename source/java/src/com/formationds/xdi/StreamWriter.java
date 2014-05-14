@@ -6,7 +6,10 @@ package com.formationds.xdi;
 import com.formationds.apis.AmService;
 import com.formationds.apis.ObjectOffset;
 import com.formationds.apis.TxDescriptor;
+import org.apache.commons.io.IOUtils;
 
+import java.io.BufferedInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.security.MessageDigest;
@@ -14,12 +17,12 @@ import java.util.Map;
 
 public class StreamWriter {
 
-    private final byte[] buf;
+    private int objectSize;
     private AmService.Iface am;
 
     public StreamWriter(int objectSize, AmService.Iface am) {
+        this.objectSize = objectSize;
         this.am = am;
-        buf = new byte[objectSize];
     }
 
     public byte[] write(String domainName, String volumeName, String blobName, InputStream in, Map<String, String> metadata) throws Exception {
@@ -29,8 +32,9 @@ public class StreamWriter {
         byte[] digest = new byte[0];
 
         TxDescriptor tx = am.startBlobTx(domainName, volumeName, blobName);
+        byte[] buf = new byte[objectSize];
 
-        for (int read = in.read(buf); read != -1; read = in.read(buf)) {
+        for (int read = IOUtils.read(in, buf); read != -1; read = in.read(buf)) {
             md.update(buf, 0, read);
             // Just create a fake tx id for now to make the compiler happy...
             am.updateBlob(domainName, volumeName, blobName, tx,

@@ -6,21 +6,29 @@ package com.formationds.xdi;
 import com.formationds.apis.AmService;
 import com.formationds.apis.ObjectOffset;
 import com.formationds.apis.TxDescriptor;
+import com.formationds.util.ChunkingInputStream;
 import org.junit.Test;
+import org.mockito.AdditionalMatchers;
 
+import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
 
 import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
 import static org.mockito.Mockito.*;
 
 public class StreamWriterTest {
+
     @Test
     public void testWriteStream() throws Exception {
-        InputStream in = new ByteArrayInputStream(new byte[]{0, 1, 2, 3, 4, 5, 6, 7});
+        ByteArrayInputStream bytes = new ByteArrayInputStream(new byte[]{0, 1, 2, 3, 4, 5, 6, 7});
+        InputStream in = new ChunkingInputStream(bytes, 2);
+
         AmService.Iface mockAm = mock(AmService.Iface.class);
         String domainName = "domain";
         String volumeName = "volume";
@@ -33,14 +41,13 @@ public class StreamWriterTest {
 
         byte[] result = new StreamWriter(4, mockAm).write(domainName, volumeName, blobName, in, metadata);
 
-
         verify(mockAm, times(1)).startBlobTx(eq(domainName), eq(volumeName), eq(blobName));
         verify(mockAm, times(1)).updateBlob(
                 eq(domainName),
                 eq(volumeName),
                 eq(blobName),
                 eq(tx),
-                any(ByteBuffer.class),
+                AdditionalMatchers.cmpEq(ByteBuffer.wrap(new byte[]{0, 1, 2, 3})),
                 eq(4),
                 eq(new ObjectOffset(0)),
                 eq(ByteBuffer.wrap(new byte[0])),
@@ -51,7 +58,7 @@ public class StreamWriterTest {
                 eq(volumeName),
                 eq(blobName),
                 eq(tx),
-                any(ByteBuffer.class),
+                eq(ByteBuffer.wrap(new byte[]{4, 5, 6, 7})),
                 eq(4),
                 eq(new ObjectOffset(1)),
                 eq(ByteBuffer.wrap(new byte[0])),
@@ -64,7 +71,7 @@ public class StreamWriterTest {
                 eq(volumeName),
                 eq(blobName),
                 eq(tx),
-                any(ByteBuffer.class),
+                eq(ByteBuffer.wrap(new byte[]{4, 5, 6, 7})),
                 eq(4),
                 eq(new ObjectOffset(1)),
                 eq(ByteBuffer.wrap(expectedDigest)),
