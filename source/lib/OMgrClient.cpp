@@ -77,6 +77,7 @@ void OMgrClientRPCI::NotifyNodeAdd(FDSP_MsgHdrTypePtr& msg_hdr,
     reg->control_port   = node_info->control_port;
     reg->data_port      = node_info->data_port;
     reg->migration_port = node_info->migration_port;
+    reg->node_root      = node_info->node_root;
     reg->node_uuid.uuid    = node_info->node_uuid;
     reg->service_uuid.uuid = node_info->service_uuid;
 
@@ -359,6 +360,7 @@ int OMgrClient::registerNodeWithOM(Platform *plat)
         reg_node_msg->ip_lo_addr   = fds::str_to_ipv4_addr(*plat->plf_get_my_ip());
         reg_node_msg->control_port = plat->plf_get_my_ctrl_port();
         reg_node_msg->data_port    = plat->plf_get_my_data_port();
+        reg_node_msg->node_root    = g_fdsprocess->proc_fdsroot()->dir_fdsroot();
 
         // TODO(Andrew): Move to SM specific
         reg_node_msg->migration_port = plat->plf_get_my_migration_port();

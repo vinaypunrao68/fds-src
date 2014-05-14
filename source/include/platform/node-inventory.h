@@ -66,6 +66,7 @@ class NodeInvData
     node_capability_t        nd_capability;
 
     std::string              nd_node_name;
+    std::string              nd_node_root;
     FdspNodeType             nd_node_type;
     FdspNodeState            nd_node_state;
     fds_uint64_t             nd_dlt_version;
@@ -101,8 +102,13 @@ class NodeInventory : public Resource
     inline std::string get_node_name() const {
         return node_inv->nd_node_name;
     }
+
     inline std::string get_ip_str() const {
         return node_inv->nd_ip_str;
+    }
+
+    inline std::string get_node_root() const {
+        return node_inv->nd_node_root;
     }
     inline fds_uint32_t get_ctrl_port() const {
         return node_inv->nd_ctrl_port;

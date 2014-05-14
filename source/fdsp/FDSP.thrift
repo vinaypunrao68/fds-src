@@ -315,6 +315,7 @@ struct FDSP_Node_Info_Type {
   9: i32                 migration_port, /* Migration service port */
   10: i64                node_uuid,      /* UUID of the node */
   11: i64                service_uuid,      /* UUID of the service */
+  12: string 	         node_root,      /* node root - string */
 }
 
 typedef list<FDSP_Node_Info_Type> Node_Info_List_Type
@@ -552,6 +553,7 @@ struct FDSP_RegisterNodeType {
   9: FDSP_Uuid   node_uuid;
   10: FDSP_Uuid  service_uuid;
   11: FDSP_AnnounceDiskCapability  disk_info, /* Add node capacity and other relevant fields here */
+  12: string 	 node_root,      /* node root - string */
 }
 
 struct FDSP_ThrottleMsgType {

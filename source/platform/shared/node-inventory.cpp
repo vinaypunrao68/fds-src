@@ -27,6 +27,7 @@ NodeInventory::node_fill_inventory(const FdspNodeRegPtr msg)
     NodeInvData       *data;
     node_capability_t *ncap;
 
+
     data = new NodeInvData();
     ncap = &data->nd_capability;
 
@@ -41,6 +42,7 @@ NodeInventory::node_fill_inventory(const FdspNodeRegPtr msg)
     data->nd_node_type      = msg->node_type;
     data->nd_node_state     = FDS_ProtocolInterface::FDS_Node_Discovered;
     data->nd_disk_type      = msg->disk_info.disk_type;
+    data->nd_node_root      = msg->node_root;
     data->nd_dlt_version    = DLT_VER_INVALID;
 
     ncap->disk_capacity     = msg->disk_info.disk_capacity;
@@ -117,6 +119,7 @@ NodeInventory::init_node_info_pkt(fpi::FDSP_Node_Info_TypePtr pkt) const
     pkt->control_port   = node_inv->nd_ctrl_port;
     pkt->data_port      = node_inv->nd_data_port;
     pkt->migration_port = node_inv->nd_migration_port;
+    pkt->node_root      = node_inv->nd_node_root;
 }
 
 // init_node_reg_pkt
@@ -155,6 +158,7 @@ std::ostream& operator<< (std::ostream &os, const NodeInvData& node) {
        << " uuid:" << node.nd_uuid
        << " capacity:" << node.nd_gbyte_cap
        << " ipnum:" << node.nd_ip_addr
+       << " node root:" << node.nd_node_root
        << " ip:" << node.nd_ip_str.c_str()
        << " data.port:" << node.nd_data_port
        << " ctrl.port:" << node.nd_ctrl_port
@@ -397,6 +401,7 @@ AgentContainer::agent_register(const NodeUuid       &uuid,
     if (agent == NULL) {
         add   = activate;
         agent = NodeAgent::agt_cast_ptr(rs_alloc_new(uuid));
+        FDS_PLOG(g_fdslog) << " Node root " << msg->node_root;
         agent->node_fill_inventory(msg);
 
         // TODO(vy): share the inventory here with shared mem.
