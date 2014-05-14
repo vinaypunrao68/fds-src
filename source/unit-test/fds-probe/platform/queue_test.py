@@ -59,7 +59,7 @@ class CreateTemplate:
 }
 ''')
     def gen(self):
-        return self.json_templ.substitute(t_size = 1024)
+        return self.json_templ.substitute(t_size = 65535)
 
 def make_pycurl(url='http://localhost:8000/abc',
                 verbose=0):

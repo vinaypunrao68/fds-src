@@ -171,7 +171,8 @@ QueuePop::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput *out)
 
     fds::FdsShmQueue<int> q(payload->name);
     q.shmq_connect();
-    int val = q.shmq_dequeue();
+    int val(0);
+    while (!q.shmq_dequeue(val)) {}
 
     std::cout << "Popped value = " << val << " from " << payload->name << std::endl;
 
