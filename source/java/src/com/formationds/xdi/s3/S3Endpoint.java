@@ -8,6 +8,7 @@ import com.formationds.util.Configuration;
 import com.formationds.web.toolkit.HttpMethod;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.WebApp;
+import com.formationds.xdi.ApiFailureHandler;
 import com.formationds.xdi.Xdi;
 import com.formationds.xdi.local.ToyServices;
 
@@ -48,7 +49,8 @@ public class S3Endpoint {
         webApp.start(port);
     }
 
-    private void authorize(HttpMethod method, String route, Supplier<RequestHandler> supplier) {
+    private void authorize(HttpMethod method, String route, Supplier<RequestHandler> s) {
+        Supplier<RequestHandler> supplier = new ApiFailureHandler(s);
         if (enforceAuth) {
             webApp.route(method, route, new S3Authorizer(supplier));
         } else {

@@ -8,6 +8,7 @@ import com.formationds.util.Configuration;
 import com.formationds.web.toolkit.HttpMethod;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.WebApp;
+import com.formationds.xdi.ApiFailureHandler;
 import com.formationds.xdi.Xdi;
 import com.formationds.xdi.local.ToyServices;
 import com.formationds.xdi.s3.S3Endpoint;
@@ -35,7 +36,7 @@ public class SwiftEndpoint {
     }
 
     public void start(int httpPort) {
-        webApp.route(HttpMethod.GET, "/v1/auth", () -> new Authenticate(xdi));
+        webApp.route(HttpMethod.GET, "/v1/auth", new ApiFailureHandler(() -> new Authenticate(xdi)));
 
         authorize(HttpMethod.GET, "/v1/:account/:container", () -> new GetContainer(xdi));
         authorize(HttpMethod.PUT, "/v1/:account/:container", () -> new CreateContainer(xdi));
@@ -47,7 +48,8 @@ public class SwiftEndpoint {
         webApp.start(httpPort);
     }
 
-    private void authorize(HttpMethod method, String route, Supplier<RequestHandler> supplier) {
+    private void authorize(HttpMethod method, String route, Supplier<RequestHandler> s) {
+        Supplier<RequestHandler> supplier = new ApiFailureHandler(s);
         if (enforceAuth) {
             webApp.route(method, route, () -> new SwiftAuthorizer(supplier));
         } else {
