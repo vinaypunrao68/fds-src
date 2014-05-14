@@ -3,7 +3,7 @@
 #include <vector>
 #include <net/RpcRequestPool.h>
 #include <net/net-service.h>
-#include <AsyncRpcRequestTracker.h>
+#include <net/AsyncRpcRequestTracker.h>
 
 namespace fds {
 
@@ -41,29 +41,29 @@ EPRpcRequestPtr RpcRequestPool::newEPRpcRequest(const fpi::SvcUuid &uuid)
 EPAsyncRpcRequestPtr
 RpcRequestPool::newEPAsyncRpcRequest(const fpi::SvcUuid &uuid)
 {
-    fds_scoped_lock l(lock_);
-    EPAsyncRpcRequestPtr req(new EPAsyncRpcRequest(nextAsyncReqId_, uuid));
-    gAsyncRpcTracker->addForTracking(nextAsyncReqId_, req);
+    auto reqId = nextAsyncReqId_++;
+    EPAsyncRpcRequestPtr req(new EPAsyncRpcRequest(reqId, uuid));
+    gAsyncRpcTracker->addForTracking(reqId, req);
 
-    nextAsyncReqId_++;
 
     return req;
 }
-
 /**
  *
- * @param uuid
  * @return
  */
-FailoverRpcRequestPtr
-RpcRequestPool::newFailoverRpcRequest(const std::vector<fpi::SvcUuid>& uuid_list)
+fpi::AsyncHdr
+RpcRequestPool::newAsyncHeader(const AsyncRpcRequestId& reqId,
+                               const fpi::SvcUuid &dstUuid)
 {
-    fds_scoped_lock l(lock_);
-    FailoverRpcRequestPtr req(new FailoverRpcRequest(nextAsyncReqId_, uuid_list));
-    gAsyncRpcTracker->addForTracking(nextAsyncReqId_, req);
+    fpi::AsyncHdr header;
 
-    nextAsyncReqId_++;
-
-    return req;
+    header.msg_src_id = reqId;
+    // TODO(Rao): Fill the src uuid
+    // header.msg_src_uuid = ;
+    header.msg_dst_uuid = dstUuid;
+    header.msg_code = 0;
+    return header;
 }
+
 }  // namespace fds

@@ -7,6 +7,7 @@ user_cpp         := \
 	AsyncRpcRequestTracker.cpp \
 	RpcRequestPool.cpp \
 	BaseAsyncSvcHandler.cpp \
+	RpcRequest.cpp \
 	FailoverRpcRequest.cpp
 
 

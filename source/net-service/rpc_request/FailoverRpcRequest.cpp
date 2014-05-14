@@ -3,7 +3,10 @@
 #include <string>
 #include <vector>
 #include <net/RpcRequest.h>
-#include <AsyncRpcRequestTracker.h>
+#include <net/AsyncRpcRequestTracker.h>
+#include <net/RpcRequestPool.h>
+#include <util/Log.h>
+#include <fdsp_utils.h>
 
 namespace fds {
 
@@ -52,7 +55,8 @@ void FailoverRpcRequest::onFailoverCb(RpcFailoverCb& cb) {
  *
  * @param cb
  */
-void FailoverRpcRequest::onSuccessCb(RpcRequestSuccessCb& cb) {
+void FailoverRpcRequest::onSuccessCb(RpcRequestSuccessCb& cb)
+{
     successCb_ = cb;
 }
 
@@ -62,7 +66,8 @@ void FailoverRpcRequest::onSuccessCb(RpcRequestSuccessCb& cb) {
  *
  * @param cb
  */
-void FailoverRpcRequest::onErrorCb(RpcRequestErrorCb& cb) {
+void FailoverRpcRequest::onErrorCb(RpcRequestErrorCb& cb)
+{
     errorCb_ = cb;
 }
 
@@ -71,16 +76,42 @@ void FailoverRpcRequest::onErrorCb(RpcRequestErrorCb& cb) {
  */
 void FailoverRpcRequest::invoke()
 {
+    bool healthyEpExists = moveToNextHealthyEndpoint_();
     state_ = INVOCATION_PROGRESS;
-    moveToNextHealthyEndpoint_();
-    invokeInternal_();
+
+    if (healthyEpExists) {
+        invokeInternal_();
+    } else {
+        // TODO(Rao): post error to threadpool
+    }
 }
 
 /**
- *
+ * Moves to the next healyth endpoint in the sequence start from curEpIdx_
+ * @return True if healthy endpoint is found in the sequence.  False otherwise
  */
-void FailoverRpcRequest::moveToNextHealthyEndpoint_() {
-    // TODO(Rao): Impl
+bool FailoverRpcRequest::moveToNextHealthyEndpoint_()
+{
+    if (state_ == PRIOR_INVOCATION) {
+        curEpIdx_ = 0;
+    } else {
+        curEpIdx_++;
+    }
+
+    uint32_t skipped_cnt = 0;
+    for (; curEpIdx_ < eps_.size(); curEpIdx_++) {
+        // TODO(Rao): Pass the right rpc version id
+        auto ep = NetMgr::ep_mgr_singleton()->\
+                    svc_lookup(eps_[curEpIdx_].epId, 0 , 0);
+        eps_[curEpIdx_].status = ep->ep_get_status();
+        if (eps_[curEpIdx_].status == ERR_OK) {
+            return true;
+        }
+        skipped_cnt++;
+    }
+
+    GLOGDEBUG << "Req: " << id_ << " skipped cnt: " << skipped_cnt;
+    return false;
 }
 
 /**
@@ -88,9 +119,11 @@ void FailoverRpcRequest::moveToNextHealthyEndpoint_() {
  */
 void FailoverRpcRequest::invokeInternal_()
 {
-    fpi::AsyncHdr hdr;
-    // TODO(Rao): populate the header.  Need a factory function to populate the header.
-    rpc_->setHeader(hdr);
+    auto header = RpcRequestPool::newAsyncHeader(id_, eps_[curEpIdx_].epId);
+    rpc_->setHeader(header);
+
+    GLOGDEBUG << header;
+
     try {
         rpc_->invoke();
     } catch(...) {
@@ -121,12 +154,12 @@ void FailoverRpcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header
         }
 
         if (header->msg_code == ERR_OK) {
-            complete(ERR_OK);
             if (successCb_) {
                 successCb_(payload);
             }
-            gAsyncRpcTracker->removeFromTracking(this->getRequestId());
+            complete(ERR_OK);
         } else {
+            GLOGWARN << logString(*header);
             if (header->msg_src_uuid != eps_[curEpIdx_].epId) {
                 /* Response isn't from the last endpoint we issued the request against.
                  * Don't do anything here
@@ -134,20 +167,18 @@ void FailoverRpcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header
                 return;
             }
             errdEpId = header->msg_src_uuid;
-            // TODO(Rao): Find the next healthy replica
-            curEpIdx_++;
-            if (curEpIdx_ == eps_.size()) {
-                complete(ERR_RPC_FAILED);
+            bool healthyEpExists = moveToNextHealthyEndpoint_();
+            if (!healthyEpExists) {
                 if (errorCb_) {
                     errorCb_(header->msg_code, payload);
                 }
-                gAsyncRpcTracker->removeFromTracking(this->getRequestId());
+                complete(ERR_RPC_FAILED);
             } else {
                 if (failoverCb_) {
                     bool reqComplete = false;
                     failoverCb_(header->msg_code, payload, reqComplete);
                     if (reqComplete) {
-                        // TODO(Rao): We could invoke failure callback here
+                        // NOTE(Rao): We could invoke failure callback here
                         complete(ERR_RPC_USER_INTERRUPTED);
                         return;
                     }
@@ -158,7 +189,7 @@ void FailoverRpcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header
     }
 
     if (invokeRpc) {
-        invoke();
+        invokeInternal_();
     }
     if (errdEpId.svc_uuid != 0) {
         // TODO(Rao): Notify an error
