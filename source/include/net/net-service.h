@@ -13,6 +13,7 @@
 #include <fds_error.h>
 #include <shared/fds-constants.h>
 #include <fdsp/fds_service_types.h>
+#include <fds_typedefs.h>
 
 // Forward declarations
 namespace apache { namespace thrift { namespace transport {
@@ -376,7 +377,7 @@ class NetMgr : public Module
      * @param e
      * @return
      */
-    virtual bool ep_actionable_error(const fpi::SvcUuid &uuid, const Error &e) const;
+    virtual bool ep_actionable_error(/*const fpi::SvcUuid &uuid,*/ const Error &e) const;
 
     /**
      * Handles endpoint error on a thread from threadpool.

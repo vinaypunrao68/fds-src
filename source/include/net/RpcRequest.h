@@ -95,7 +95,7 @@ class EPAsyncRpcRequest : public AsyncRpcRequestIf {
     EPAsyncRpcRequest();
 
     EPAsyncRpcRequest(const AsyncRpcRequestId &id,
-            const fpi::SvcUuid &uuid);
+            const fpi::SvcUuid &svcUuids);
 
     void onSuccessCb(RpcRequestSuccessCb &cb);
 

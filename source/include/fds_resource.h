@@ -16,8 +16,8 @@
 #include <shared/fds_types.h>
 #include <concurrency/Mutex.h>
 #include <fdsp/fds_service_types.h>
+#include <fds_typedefs.h>
 
-namespace fpi = FDS_ProtocolInterface;
 namespace fds {
 
 // ----------------------------------------------------------------------------

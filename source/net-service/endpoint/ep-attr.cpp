@@ -88,6 +88,9 @@ EpAttr::netaddr_my_ip(struct sockaddr *adr,
 
     getifaddrs(&ifa);
     for (cur = ifa; cur != NULL; cur = cur->ifa_next) {
+        if (cur->ifa_addr->sa_family != AF_INET) {
+            continue;
+        }
         if (iface == NULL) {
             struct sockaddr_in *ip;
             char ipv4[INET_ADDRSTRLEN];

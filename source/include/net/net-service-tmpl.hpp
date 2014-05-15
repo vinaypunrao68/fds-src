@@ -13,9 +13,10 @@
 #include <thrift/server/TThreadedServer.h>
 #include <thrift/concurrency/ThreadManager.h>
 
-#include <fds_typedefs.h>
+#include <fds_resource.h>
 #include <net/net-service.h>
 #include <concurrency/ThreadPool.h>
+#include <fds_typedefs.h>
 
 namespace fds {
 
@@ -48,6 +49,7 @@ class EpSvcImpl : public EpSvc
 
     // Service registration & lookup.
     //
+    virtual void           ep_activate() {}
     virtual void           ep_reconnect();
     virtual void           ep_input_event(fds_uint32_t evt);
     virtual void           ep_bind_service(EpSvc::pointer svc);
@@ -178,7 +180,7 @@ class EndPoint : public EpSvcImpl
             std::string  ip;
             fpi::SvcUuid peer;
 
-            ep_peer_uuid(peer);
+            ep_my_uuid(peer);
             if (peer.svc_uuid != 0) {
                 port = NetMgr::ep_mgr_singleton()->ep_uuid_binding(peer, &ip);
                 if (port != -1) {
@@ -199,6 +201,7 @@ class EndPoint : public EpSvcImpl
     }
     void ep_activate() {
         ep_setup_server();
+        ep_server->serve();
     }
     void ep_run_server() {
         ep_server->serve();

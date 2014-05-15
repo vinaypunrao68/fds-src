@@ -1,7 +1,7 @@
 /*
  * Copyright 2014 by Formation Data Systems, Inc.
  */
-
+#include <fds_resource.h>
 #include <LocalClusterMap.h>
 
 namespace fds {

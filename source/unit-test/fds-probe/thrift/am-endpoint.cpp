@@ -22,8 +22,12 @@ class ProbeTestAM_RPC : virtual public fpi::ProbeServiceAMIf
     void am_creat_vol(fpi::ProbeAmCreatVolResp &ret,
                       boost::shared_ptr<fpi::ProbeAmCreatVol> &cmd) {}
 
-    void am_probe_put_resp(const fpi::ProbeGetMsgResp &resp) {}
-    void am_probe_put_resp(boost::shared_ptr<fpi::ProbeGetMsgResp> &resp) {}
+    void am_probe_put_resp(const fpi::ProbeGetMsgResp &resp) {
+        std::cout << __FUNCTION__ << __LINE__;
+    }
+    void am_probe_put_resp(boost::shared_ptr<fpi::ProbeGetMsgResp> &resp) {
+        std::cout << __FUNCTION__ << __LINE__;
+    }
 };
 
 ProbeEpTestAM                 gl_ProbeTestAM("Probe AM EP");
@@ -44,8 +48,9 @@ ProbeEpTestAM::mod_init(SysParams const *const p)
     // Allocate the endpoint, bound to a physical port.
     //
     boost::shared_ptr<ProbeTestAM_RPC>hdler(new ProbeTestAM_RPC());
-    probe_ep = new EndPoint<fpi::ProbeServiceSMClient, fpi::ProbeServiceAMProcessor>(
-            7000,                           /* port number         */
+    // probe_ep = new EndPoint<fpi::ProbeServiceSMClient, fpi::ProbeServiceAMProcessor>(
+    probe_ep = new EndPoint<fpi::ProbeServiceAMClient, fpi::ProbeServiceAMProcessor>(
+            9000,                           /* port number         */
             NodeUuid(0xfedcba),             /* my uuid             */
             NodeUuid(0xabcdef),             /* peer uuid           */
             boost::shared_ptr<fpi::ProbeServiceAMProcessor>(
@@ -61,7 +66,7 @@ ProbeEpTestAM::mod_init(SysParams const *const p)
 void
 ProbeEpTestAM::mod_startup()
 {
-    probe_ep->ep_activate();
+    // probe_ep->ep_activate();
 }
 
 void

@@ -8,6 +8,7 @@
 #include <thrift/transport/TServerSocket.h>
 #include <thrift/transport/TBufferTransports.h>
 
+#include <fds_typedefs.h>
 #include <util/Log.h>
 #include <OmResources.h>
 #include <convert.h>

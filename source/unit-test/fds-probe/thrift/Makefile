@@ -11,6 +11,8 @@ user_incl_dir     := \
 user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  :=       \
+    fds-rpc-request \
+    fds-net-svc \
     fds-StorHvisor         \
     fds-probe-thrift-utest \
     fds-ubd

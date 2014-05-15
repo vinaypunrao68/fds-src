@@ -114,6 +114,8 @@ NetMgr::ep_register(EpSvc::pointer ep, bool update_domain)
     }
     if (update_domain == true) {
     }
+    fds_threadpool *pool = ep_mgr_thrpool();
+    pool->schedule(&EpSvcImpl::ep_activate, myep);
     // TODO(Vy): error handling.
 }
 
@@ -346,7 +348,7 @@ NetMgr::ep_my_platform_uuid()
 // -------------------
 //
 bool
-NetMgr::ep_actionable_error(const fpi::SvcUuid &uuid, const Error &e) const
+NetMgr::ep_actionable_error(/*const fpi::SvcUuid &uuid, */const Error &e) const
 {
     return false;
 }
