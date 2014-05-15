@@ -1167,7 +1167,13 @@ fds::Error StorHvCtrl::getObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
          * For now, just verify the existing buffer is big enough to hold
          * the data.
          */
-        fds_verify((uint)(getObjRsp->data_obj_len) <= (blobReq->getDataLen()));
+        if (blobReq->getDataLen() >= (4 * 1024)) {
+            // Check that we didn't get too much data
+            // Since 4K is our min, it's OK to get more
+            // when less than 4K is requested
+            // TODO(Andrew): Revisit for unaligned IO
+            fds_verify((uint)(getObjRsp->data_obj_len) <= (blobReq->getDataLen()));
+        }
         blobReq->setDataLen(getObjRsp->data_obj_len);    
         blobReq->setDataBuf(getObjRsp->data_obj.c_str());
         blobReq->setBlobSize(blobSize);
