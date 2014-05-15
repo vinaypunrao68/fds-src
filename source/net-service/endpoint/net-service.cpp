@@ -2,6 +2,7 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 #include <string>
+#include <fds_process.h>
 #include <net/net-service-tmpl.hpp>
 #include <platform/platform-lib.h>
 #include <fdsp/PlatNetSvc.h>
@@ -27,6 +28,15 @@ NetMgr::NetMgr(const char *name)
     };
     ep_shm     = &gl_EpPlatLib;
     mod_intern = ep_mgr_mods;
+}
+
+// ep_mgr_thrpool
+// --------------
+//
+fds_threadpool *
+NetMgr::ep_mgr_thrpool()
+{
+    return g_fdsprocess->proc_thrpool();
 }
 
 // mod_init
@@ -68,7 +78,7 @@ NetMgr::ep_register(EpSvc::pointer ep, bool update_domain)
     ep_map_rec_t        map;
     EpSvcImpl::pointer  myep;
 
-    myep = EP_CAST_PTR(EpSvcImpl, ep);
+    myep = ep_cast_ptr<EpSvcImpl>(ep);
     myep->ep_fillin_binding(&map);
 
     port = EpAttr::netaddr_get_port(&map.rmp_addr);
@@ -115,6 +125,33 @@ NetMgr::ep_register(EpSvc::pointer ep, bool update_domain)
 void
 NetMgr::ep_unregister(const fpi::SvcUuid &uuid)
 {
+    int            idx;
+    EpSvc::pointer ep;
+
+    ep_mtx.lock();
+    try {
+        idx = ep_uuid_map.at(uuid.svc_uuid);
+        ep_uuid_map.erase(uuid.svc_uuid);
+    } catch(...) {
+        idx = -1;
+    }
+
+    try {
+        ep = ep_svc_map.at(uuid.svc_uuid);
+        ep_svc_map.erase(uuid.svc_uuid);
+    } catch(...) {}
+
+    try {
+        EpSvcList &list = ep_map.at(uuid.svc_uuid);
+        list.clear();
+        ep_map.erase(uuid.svc_uuid);
+    } catch(...) {}
+    ep_mtx.unlock();
+
+    if (idx != -1) {
+        ep_shm->ep_unmap_record(uuid.svc_uuid, idx);
+        // Need to ask domain controller to unmap
+    }
 }
 
 // svc_lookup
@@ -129,7 +166,7 @@ NetMgr::svc_lookup(const fpi::SvcUuid &svc_uuid, fds_uint32_t maj, fds_uint32_t 
     ep_mtx.lock();
     try {
         ep = ep_svc_map.at(svc_uuid.svc_uuid);
-    } catch(const std::out_of_range &oor) {
+    } catch(...) {
         ep = NULL;
     }
     ep_mtx.unlock();
@@ -162,10 +199,10 @@ NetMgr::svc_domain_master(const fpi::DomainID &id,
         const std::string *ip = plat_lib->plf_get_om_ip();
 
         port = plat_lib->plf_get_om_svc_port();
-        endpoint_connect_server<fpi::PlatNetSvcClient>(port, *ip, rpc, trans);
+        ep_domain_clnt = new EpSvcHandle(NULL);
+        EpSvcImpl::ep_connect_server<fpi::PlatNetSvcClient>(port, *ip, ep_domain_clnt);
 
         ep_rpc = rpc;
-        ep_domain_clnt = new EpSvcHandle(NULL, ep_rpc, trans);
     }
     return ep_domain_clnt;
 }
@@ -187,7 +224,7 @@ NetMgr::endpoint_lookup(const fpi::SvcUuid &uuid)
             ep = list.front();
             fds_verify(ep != NULL);
         }
-    } catch(const std::out_of_range &oor) {
+    } catch(...) {
         ep = NULL;
     }
     ep_mtx.unlock();
@@ -239,7 +276,7 @@ NetMgr::ep_uuid_binding(const fpi::SvcUuid &uuid, std::string *ip)
     ep_mtx.lock();
     try {
         idx = ep_uuid_map.at(uuid.svc_uuid);
-    } catch(const std::out_of_range &oor) {
+    } catch(...) {
         idx = -1;
     }
     ep_mtx.unlock();
@@ -279,8 +316,8 @@ NetMgr::ep_register_binding(const ep_map_rec_t *rec)
         ep_uuid_map[rec->rmp_uuid] = idx;
         try {
             ep  = ep_svc_map.at(rec->rmp_uuid);
-            ept = EP_CAST_PTR(EpSvcImpl, ep);
-        } catch(const std::out_of_range &oor) {
+            ept = ep_cast_ptr<EpSvcImpl>(ep);
+        } catch(...) {
             ept = NULL;
         }
         ep_mtx.unlock();

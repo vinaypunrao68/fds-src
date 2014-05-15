@@ -46,6 +46,24 @@ EpSvcHandle::~EpSvcHandle()
     }
 }
 
+// endpoint_etry_connect
+// ---------------------
+//
+void
+endpoint_retry_connect(EpSvcHandle::pointer ptr)
+{
+    ptr->ep_reconnect();
+}
+
+// ep_reconnect
+// ------------
+//
+int
+EpSvcHandle::ep_reconnect()
+{
+    return 0;
+}
+
 /*
  * -----------------------------------------------------------------------------------
  * Base EndPoint Implementation

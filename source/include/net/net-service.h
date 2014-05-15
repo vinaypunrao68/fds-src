@@ -9,7 +9,6 @@
 #include <string>
 #include <boost/intrusive_ptr.hpp>
 #include <fds_module.h>
-#include <fds_process.h>
 #include <fds_resource.h>
 #include <fds_error.h>
 #include <shared/fds-constants.h>
@@ -32,10 +31,14 @@ class EpSvc;
 class EpSvcImpl;
 class EpSvcHandle;
 class EpEvtPlugin;
-class NetMgr;
 class EpPlatLibMod;
+class NetMgr;
 class NetPlatSvc;
 class NetPlatform;
+class fds_threadpool;
+class PmAgent;
+class Platform;
+
 struct ep_map_rec;
 template <class SendIf, class RecvIf> class EndPoint;
 
@@ -72,7 +75,8 @@ class EpAttr
     EpAttr() : ep_refcnt(0) {}
     virtual ~EpAttr() {}
 
-    EpAttr(fds_uint32_t ip, int port);        /**< ip = 0, default IP of the node */
+    EpAttr(fds_uint32_t ip, int port);        /**< ipv4 net format. */
+    EpAttr(const char *iface, int port);      /**< get local ip from the iface. */
     EpAttr &operator = (const EpAttr &rhs);
 
     int attr_get_port();
@@ -104,8 +108,6 @@ class EpAttr
         }
     }
 };
-
-#define EP_CAST_PTR(T, ptr)  static_cast<T *>(get_pointer(ptr))
 
 /*
  * This event plugin object sparates error handling path from the main data flow path.
@@ -270,19 +272,19 @@ class EpSvcHandle
     typedef boost::intrusive_ptr<EpSvcHandle> pointer;
     typedef boost::intrusive_ptr<const EpSvcHandle> const_ptr;
 
-    virtual int  ep_reconnect() { return 0; }
+    virtual int  ep_reconnect();
     virtual int  ep_get_status() { return 0; }
 
     template <class SendIf>
     boost::shared_ptr<SendIf> svc_rpc() {
         return boost::static_pointer_cast<SendIf>(ep_rpc);
     }
-    void ep_my_uuid(fpi::SvcUuid &uuid) { ep_owner->ep_my_uuid(uuid); }
-    void ep_peer_uuid(fpi::SvcUuid &uuid) { ep_owner->ep_peer_uuid(uuid); }
+    void ep_my_uuid(fpi::SvcUuid &uuid)    { ep_owner->ep_my_uuid(uuid); }
+    void ep_peer_uuid(fpi::SvcUuid &uuid)  { ep_owner->ep_peer_uuid(uuid); }
 
   protected:
     friend class NetMgr;
-    friend class NetPlatSvc;
+    friend class EpSvcImpl;
     template <class SendIf, class RecvIf>friend class EndPoint;
 
     EpSvc::pointer                    ep_owner;
@@ -293,10 +295,8 @@ class EpSvcHandle
     EpSvcHandle()
         : ep_refcnt(0), ep_owner(NULL), ep_rpc(NULL), ep_trans(NULL) {}
 
-    EpSvcHandle(EpSvc::pointer                    svc,
-                boost::shared_ptr<void>           rpc,
-                boost::shared_ptr<tt::TTransport> trans)
-        : ep_refcnt(0), ep_owner(svc), ep_rpc(rpc), ep_trans(trans) {}
+    explicit EpSvcHandle(EpSvc::pointer svc)
+        : ep_refcnt(0), ep_owner(svc), ep_rpc(NULL), ep_trans(NULL) {}
 
   private:
     mutable boost::atomic<int>        ep_refcnt;
@@ -323,9 +323,6 @@ typedef std::unordered_map<fds_uint64_t, EpSvcList>       UuidEpMap;
 typedef std::unordered_map<fds_uint64_t, EpSvc::pointer>  UuidSvcMap;
 typedef std::unordered_map<int, EpSvcList>                PortSvcMap;
 
-class PmAgent;
-class Platform;
-
 /**
  * Singleton module manages all endpoints.
  */
@@ -342,7 +339,7 @@ class NetMgr : public Module
     virtual void mod_shutdown();
 
     static NetMgr *ep_mgr_singleton() { return &gl_netService; }
-    static fds_threadpool *ep_mgr_thrpool() { return g_fdsprocess->proc_thrpool(); }
+    static fds_threadpool *ep_mgr_thrpool();
 
     /**
      * Return all uuid binding records.  The RO array may have hole(s) where uuids
@@ -508,6 +505,12 @@ class NetPlatform : public Module
     static NetPlatform *nplat_singleton() { return &gl_netPlatform; }
     EpSvcHandle::pointer nplat_domain_rpc(const fpi::DomainID &id);
 };
+
+/**
+ * Down cast an endpoint intrusive pointer.
+ */
+template <class T>
+T *ep_cast_ptr(EpSvc::pointer ep) { return static_cast<T *>(get_pointer(ep)); }
 
 }  // namespace fds
 #endif  // SOURCE_INCLUDE_NET_NET_SERVICE_H_
