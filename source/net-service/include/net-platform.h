@@ -6,15 +6,16 @@
 
 #include <string>
 #include <vector>
-#include <net/net-service-tmpl.hpp>
+#include <net/net-service.h>
 #include <fdsp/PlatNetSvc.h>
 
 namespace fds {
 class Platform;
 class NetPlatSvc;
 class NetPlatHandler;
-
-typedef EndPoint<fpi::PlatNetSvcClient, fpi::PlatNetSvcProcessor>::pointer PlatEpPtr;
+template <class SendIf, class RecvIf>class EndPoint;
+typedef bo::intrusive_ptr<EndPoint<fpi::PlatNetSvcClient,
+                                   fpi::PlatNetSvcProcessor>> PlatEpPtr;
 
 class PlatNetPlugin : public EpEvtPlugin
 {
@@ -39,7 +40,7 @@ class NetPlatSvc : public Module
 {
   public:
     explicit NetPlatSvc(const char *name);
-    virtual ~NetPlatSvc() {}
+    virtual ~NetPlatSvc();
 
     // Module methods.
     //
