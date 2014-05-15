@@ -38,6 +38,7 @@ NodeInventory::node_fill_inventory(const FdspNodeRegPtr msg)
     data->nd_data_port      = msg->data_port;
     data->nd_ctrl_port      = msg->control_port;
     data->nd_migration_port = msg->migration_port;
+    data->nd_metasync_port  = msg->metasync_port;
     data->nd_node_name      = msg->node_name;
     data->nd_node_type      = msg->node_type;
     data->nd_node_state     = FDS_ProtocolInterface::FDS_Node_Discovered;
@@ -119,6 +120,7 @@ NodeInventory::init_node_info_pkt(fpi::FDSP_Node_Info_TypePtr pkt) const
     pkt->control_port   = node_inv->nd_ctrl_port;
     pkt->data_port      = node_inv->nd_data_port;
     pkt->migration_port = node_inv->nd_migration_port;
+    pkt->metasync_port  = node_inv->nd_metasync_port;
     pkt->node_root      = node_inv->nd_node_root;
 }
 
@@ -163,6 +165,7 @@ std::ostream& operator<< (std::ostream &os, const NodeInvData& node) {
        << " data.port:" << node.nd_data_port
        << " ctrl.port:" << node.nd_ctrl_port
        << " migration.port:" << node.nd_migration_port
+       << " meta sync port:" << node.nd_metasync_port
        << " disk.type:" << node.nd_disk_type
        << " name:" << node.nd_node_name
        << " type:" << node.nd_node_type
@@ -342,6 +345,7 @@ OmAgent::init_node_reg_pkt(fpi::FDSP_RegisterNodeTypePtr pkt) const
     pkt->control_port      = plat->plf_get_my_ctrl_port();
     pkt->data_port         = plat->plf_get_my_data_port();
     pkt->migration_port    = plat->plf_get_my_migration_port();
+    pkt->metasync_port     = plat->plf_get_my_metasync_port();
 }
 
 // om_register_node

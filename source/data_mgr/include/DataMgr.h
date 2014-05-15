@@ -54,6 +54,10 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler
   typedef boost::shared_ptr<ReqHandler> ReqHandlerPtr;
   typedef boost::shared_ptr<FDS_ProtocolInterface::FDSP_MetaDataPathRespClient> RespHandlerPrx;
   OMgrClient     *omClient;
+  /**
+   * Catalog sync manager
+   */
+    CatalogSyncMgrPtr catSyncMgr;
 
  private:
     typedef enum {
@@ -137,10 +141,6 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler
 
     dmQosCtrl   *qosCtrl;
 
-    /**
-     * Catalog sync manager
-     */
-    CatalogSyncMgrPtr catSyncMgr;
 
     /*
      * Cmdline configurables

@@ -6,9 +6,11 @@
 #include <fds_assert.h>
 #include <fds_typedefs.h>
 #include <CatalogSync.h>
+#include "DataMgr.h"
 
 namespace fds {
 
+  extern DataMgr *dataMgr;
 /****** CatalogSync implementation ******/
 
 CatalogSync::CatalogSync(fds_volid_t vol_id,
@@ -94,8 +96,30 @@ void CatalogSyncMgr::mod_startup()
     LOGNORMAL << "Meta sync path server setup ip: "
               << ip << " port: " << port;
 
+   meta_client  = NULL;
    meta_session->listenServerNb(); 
 }
+
+
+ // create client  session
+netMetaSyncClientSession*
+CatalogSyncMgr::get_metaSync_client(const std::string &ip, const int &port)
+{
+    /* Create a client rpc session from src to dst */
+    netMetaSyncClientSession* meta_client_session =
+            netSessionTbl->startSession<netMetaSyncClientSession>(
+                    ip,
+                    port,
+                    FDSP_METASYNC_MGR,
+                    1, /* number of channels */
+                    meta_handler);
+
+    LOGNORMAL << "Meta sync path Client setup ip: "
+              << ip << " port: " << port <<
+              "client_session:" << meta_client_session;
+    return meta_client_session;
+}
+
 
 /**
  * Module shutdown code
@@ -113,6 +137,11 @@ void CatalogSyncMgr::mod_shutdown()
 Error
 CatalogSyncMgr::startCatalogSync(const FDS_ProtocolInterface::FDSP_metaDataList& metaVolList) {
     Error err(ERR_OK);
+    fds_uint32_t node_ip   = 0;
+    fds_uint32_t node_port = 0;
+    fds_int32_t node_state = -1;
+    fds_uint32_t sync_port = 0;
+    
 
     fds_mutex::scoped_lock l(cat_sync_lock);
     // For now we are not allowing to start new sync when current sync
@@ -124,6 +153,16 @@ CatalogSyncMgr::startCatalogSync(const FDS_ProtocolInterface::FDSP_metaDataList&
 
     for (auto metavol : metaVolList) {
       NodeUuid uuid(metavol.node_uuid.uuid);
+      // for each destination node setup the client  and init the session
+      // get the IP and port of destination 
+      dataMgr->omClient->getNodeInfo(uuid.uuid_get_val(), &node_ip, &node_port, &node_state);
+      std::string dest_ip = netSessionTbl::ipAddr2String(node_ip);
+      sync_port = dataMgr->omClient->getNodeMetaSyncPort(uuid);
+
+       LOGDEBUG << " Push Meta dest IP:" << dest_ip  << " port : " << sync_port;
+      // get the client session
+       meta_client  = get_metaSync_client(dest_ip, sync_port);
+
       for (auto vol : metavol.volList) {
 	LOGDEBUG << "Will sync vol " << std::hex << vol
 		 << " to node " << uuid.uuid_get_val() << std::dec;
@@ -146,5 +185,30 @@ void CatalogSyncMgr::syncDoneCb(fds_volid_t volid, const Error& error) {
     LOGNORMAL << "Sync is finished for volume " << std::hex << volid
               << std::dec << " " << error;
 }
+
+  // meta sync done message to  new Node 
+
+void CatalogSyncMgr::SendMetaSyncDone(fds_volid_t volid, NodeUuid dst_node_uuid) {
+ 
+
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
+    FDS_ProtocolInterface::FDSP_VolMetaStatePtr vol_meta(new FDSP_VolMetaState);
+
+    
+    dataMgr->InitMsgHdr(msg_hdr);  // init the  message  header
+    msg_hdr->dst_id = FDSP_DATA_MGR;
+
+
+    LOGNORMAL << "Sending  MetaSyncDone Rpc message : " << meta_client;
+    meta_client->getClient()->MetaSyncDone(msg_hdr, vol_meta);
+}
+
+void
+FDSP_MetaSyncRpc::MetaSyncDone(FDSP_MsgHdrTypePtr& fdsp_msg,
+                               FDSP_VolMetaStatePtr& vol_meta) {
+
+    LOGNORMAL << "Received MetaSyncDone Rpc message ";
+}
+
 
 }  // namespace fds

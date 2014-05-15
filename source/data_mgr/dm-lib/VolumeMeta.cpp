@@ -201,22 +201,20 @@ VolumeMeta::syncVolCat(fds_volid_t volId, NodeUuid node_uuid)
   FDS_PLOG(dm_log) << " syncVolCat: " << volId;
 
   const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
-  const std::string src = root->dir_user_repo_dm() + vol_name + "_vcat.ldb";
-  const std::string dst = root->dir_user_repo_dm() + "snap" + vol_name + "_vcat.ldb";
-  const std::string src_dir = root->dir_user_repo_dm();
   NodeAgent::pointer node = Platform::plf_dm_nodes()->agent_info(node_uuid);
   DmAgent::pointer dm = DmAgent::agt_cast_ptr(node);
-  const std::string dst_node = dm->get_node_root() + "user-repo/dm-names/" + vol_name + "_vcat.ldb";
+  const std::string dst_node = dm->get_node_root() + "user-repo/dm-names/";
+  const std::string src_dir = root->dir_user_repo_dm();
   const std::string dst_dir =  root->dir_user_repo_snap();
 
   dataMgr->omClient->getNodeInfo(node_uuid.uuid_get_val(), &node_ip, &node_port, &node_state);
   std::string dest_ip = netSessionTbl::ipAddr2String(node_ip);
 
 
-  const std::string test = "sshpass -p passwd rsync -r "+dst+"/ root@"+dest_ip+":"+dst_node+"";
-  const std::string test_dir = "cp -r "+src_dir+"*  "+dst_dir+"";
-  FDS_PLOG(dm_log) << " destination IP: " << dest_ip <<  "src: " << src << "dst: " << dst;
-  FDS_PLOG(dm_log) << " rsync: " << test <<  "  dest_node : " << dst_node << "dist dir:" << test_dir;
+  const std::string test_cp = "cp -r "+src_dir+"*  "+dst_dir+" ";
+  const std::string test_rsync = "sshpass -p passwd rsync -r "+dst_dir+"  root@"+dest_ip+":"+dst_node+"";
+  FDS_PLOG(dm_log) << " rsync: local copy  " << test_cp;
+  FDS_PLOG(dm_log) << " rsync:  " << test_rsync;
 
 
   vol_mtx->lock();
@@ -233,10 +231,11 @@ VolumeMeta::syncVolCat(fds_volid_t volId, NodeUuid node_uuid)
 
   // rsync the meta data to the new DM nodes 
    // returnCode = std::system((const char *)("sshpass -p passwd rsync -r "+dst_dir+"  root@"+dest_ip+":/tmp").c_str());
-   returnCode = std::system((const char *)("sshpass -p passwd rsync -r "+dst_dir+"  root@"+dest_ip+":"+dst_dir+"").c_str());
+   returnCode = std::system((const char *)("sshpass -p passwd rsync -r "+dst_dir+"  root@"+dest_ip+":"+dst_node+"").c_str());
   // returnCode = std::system((const char *)("rsync -r --rsh='sshpass -p passwd ssh -l root' "+dst+"/  root@"+dest_ip+":"+dst_node+"").c_str());
    FDS_PLOG(dm_log) << "system Command  rsync return Code : " << returnCode;
 
+  dataMgr->catSyncMgr->SendMetaSyncDone(volId, node_uuid);
 
   return err;
 }

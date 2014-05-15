@@ -85,6 +85,8 @@ namespace fds {
     typedef boost::shared_ptr<CatalogSync> CatalogSyncPtr;
     typedef std::unordered_map<fds_volid_t, CatalogSyncPtr> CatSyncMap;
 
+    // typedef std::unordered_map<NodeUuid, netMetaSyncClientSession> NetMetaSyncMap;
+
     /**
      * Manages Catalog sync process
      */
@@ -113,6 +115,9 @@ namespace fds {
          * Callback from CatalogSync that sync is finished for given volume
          */
         void syncDoneCb(fds_volid_t volid, const Error& error);
+        netMetaSyncClientSession*
+        get_metaSync_client(const std::string &ip, const int &port);
+        void SendMetaSyncDone(fds_volid_t volid, NodeUuid dst_node_uuid);
 
   private:
         /**
@@ -138,6 +143,8 @@ namespace fds {
         netSessionTblPtr netSessionTbl;
         boost::shared_ptr<FDSP_MetaSyncRpc> meta_handler;
         netMetaSyncServerSession *meta_session;
+        netMetaSyncClientSession *meta_client;
+        // NetMetaSyncMap  meta_client;
     };
 
     typedef boost::shared_ptr<CatalogSyncMgr> CatalogSyncMgrPtr;
@@ -158,32 +165,32 @@ namespace fds {
         }
        void PushMetaSyncReq(const FDSP_MsgHdrType& fdsp_msg,
                const FDSP_UpdateCatalogType& push_meta_req) {
+          // Don't do anything here. This stub is just to keep cpp compiler happy
        }
 
        void PushMetaSyncReq(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,
                boost::shared_ptr<FDSP_UpdateCatalogType>& push_meta_req) {
-          // Don't do anything here. This stub is just to keep cpp compiler happy
        }
        void MetaSyncDone(const FDSP_MsgHdrType& fdsp_msg,
                        const FDSP_VolMetaState& vol_meta) {
-       }
-       void MetaSyncDone(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,
-                        boost::shared_ptr<FDSP_VolMetaState>& vol_meta) {
           // Don't do anything here. This stub is just to keep cpp compiler happy
        }
+       void MetaSyncDone(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,
+                        boost::shared_ptr<FDSP_VolMetaState>& vol_meta);
+
        void PushMetaSyncResp(const FDSP_MsgHdrType& fdsp_msg,
                        const FDSP_UpdateCatalogType& push_meta_resp) {
+          // Don't do anything here. This stub is just to keep cpp compiler happy
        }
        void PushMetaSyncResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,
                         boost::shared_ptr<FDSP_UpdateCatalogType>& push_meta_resp) {
-          // Don't do anything here. This stub is just to keep cpp compiler happy
        }
        void MetaSyncDoneResp(const FDSP_MsgHdrType& fdsp_msg,
                        const FDSP_VolMetaState& vol_meta) {
+          // Don't do anything here. This stub is just to keep cpp compiler happy
        }
        virtual void MetaSyncDoneResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,
                        boost::shared_ptr<FDSP_VolMetaState>& vol_meta) {
-          // Don't do anything here. This stub is just to keep cpp compiler happy
        }
     protected:
        CatalogSyncMgr  &metaSyncMgr;

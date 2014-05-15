@@ -62,6 +62,7 @@ class NodeInvData
     fds_uint32_t             nd_data_port;
     fds_uint32_t             nd_ctrl_port;
     fds_uint32_t             nd_migration_port;
+    fds_uint32_t             nd_metasync_port;
     fds_uint32_t             nd_disk_type;
     node_capability_t        nd_capability;
 

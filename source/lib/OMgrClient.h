@@ -188,6 +188,7 @@ namespace fds {
     const DLT* getPreviousDLT();
     const TokenList& getTokensForNode(const NodeUuid &uuid) const;
     fds_uint32_t getNodeMigPort(NodeUuid uuid);
+    fds_uint32_t getNodeMetaSyncPort(NodeUuid uuid);
 #if 0
     int  getDLTNodesForDoidKey(unsigned char doid_key,
                               fds_int32_t *node_ids,

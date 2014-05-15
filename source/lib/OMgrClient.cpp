@@ -77,6 +77,7 @@ void OMgrClientRPCI::NotifyNodeAdd(FDSP_MsgHdrTypePtr& msg_hdr,
     reg->control_port   = node_info->control_port;
     reg->data_port      = node_info->data_port;
     reg->migration_port = node_info->migration_port;
+    reg->metasync_port = node_info->metasync_port;
     reg->node_root      = node_info->node_root;
     reg->node_uuid.uuid    = node_info->node_uuid;
     reg->service_uuid.uuid = node_info->service_uuid;
@@ -364,6 +365,7 @@ int OMgrClient::registerNodeWithOM(Platform *plat)
 
         // TODO(Andrew): Move to SM specific
         reg_node_msg->migration_port = plat->plf_get_my_migration_port();
+        reg_node_msg->metasync_port  = plat->plf_get_my_metasync_port();
 
         // TODO(Vy): simple service uuid from node uuid.
         reg_node_msg->node_uuid.uuid    = plat->plf_get_my_uuid()->uuid_get_val();
@@ -633,6 +635,7 @@ int OMgrClient::recvNodeEvent(int node_id,
   node.port = node_info->data_port;
   node.node_state = (FDSP_NodeState) node_state;
   node.mig_port = node_info->migration_port;
+  node.meta_sync_port = node_info->metasync_port;
 
   // Update local cluster map
   clustMap->addNode(&node, my_node_type, node_type);
@@ -1066,6 +1069,12 @@ fds_uint32_t
 OMgrClient::getNodeMigPort(NodeUuid uuid) {
     return clustMap->getNodeMigPort(uuid);
 }
+
+fds_uint32_t
+OMgrClient::getNodeMetaSyncPort(NodeUuid uuid) {
+    return clustMap->getNodeMetaSyncPort(uuid);
+}
+
 
 NodeMigReqClientPtr
 OMgrClient::getMigClient(fds_uint64_t node_id) {
