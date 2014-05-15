@@ -11,6 +11,7 @@
 
 #include <boost/shared_ptr.hpp>
 
+#include <fds_resource.h>
 #include <fds_typedefs.h>
 #include <fds_defines.h>
 #include <fds_module.h>

@@ -13,6 +13,7 @@
 #include <fds_error.h>
 #include <shared/fds-constants.h>
 #include <fdsp/fds_service_types.h>
+#include <fds_typedefs.h>
 
 // Forward declarations
 namespace apache { namespace thrift { namespace transport {
@@ -26,7 +27,6 @@ namespace FDS_ProtocolInterface {
 namespace fds {
 namespace bo  = boost;
 namespace tt  = apache::thrift::transport;
-namespace fpi = FDS_ProtocolInterface;
 
 class EpSvc;
 class EpSvcImpl;

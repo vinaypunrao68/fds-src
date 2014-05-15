@@ -3,16 +3,19 @@ include "fds_service.thrift"
 namespace cpp FDS_ProtocolInterface
 
 struct ProbePutMsg {
-    1: string msg_data,
+    1: required fds_service.AsyncHdr hdr,
+    2: string msg_data,
 }
 
 struct ProbeGetMsgReqt {
-    1: i32    msg_len,
+    1: required fds_service.AsyncHdr hdr,
+    2: i32    msg_len,
 }
 
 struct ProbeGetMsgResp {
-    1: i32    msg_len,
-    2: string msg_data,
+    1: required fds_service.AsyncHdr hdr,
+    2: i32    msg_len,
+    3: string msg_data,
 }
 
 struct ProbeFoo {

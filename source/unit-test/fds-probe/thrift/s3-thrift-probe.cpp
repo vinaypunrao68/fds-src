@@ -2,11 +2,15 @@
  * Copyright 2013 Formation Data Systems, Inc.
  *
  */
+#include <vector>
 #include <s3-thrift-probe.h>
 #include <string>
 #include <iostream>
 #include <fds_assert.h>
 #include <fds_typedefs.h>
+#include <endpoint-test.h>
+#include <net/RpcRequestPool.h>
+#include <ProbeServiceSM.h>
 
 using namespace ::fpi;                 // NOLINT
 
@@ -132,6 +136,21 @@ JsObject *
 ProbeAmFoo::js_exec_obj(JsObject *parent, JsObjTemplate *tmpl, JsObjOutput *out)
 {
     am_foo_arg_t *p = am_probe_foo();
+
+    RpcRequestPool pool;
+    std::vector<fpi::SvcUuid> uuid_list;
+    fpi::SvcUuid id1;
+    id1.svc_uuid = 0xfedcba;
+
+    uuid_list.push_back(id1);
+
+    boost::shared_ptr<fpi::ProbeGetMsgResp> arg1(new fpi::ProbeGetMsgResp());
+
+    auto failoverReq = pool.newFailoverRpcRequest<fpi::ProbeServiceAMClient>(uuid_list,
+            static_cast<void(ProbeServiceAMClient::*)(boost::shared_ptr<fpi::ProbeGetMsgResp>&)>(&fpi::ProbeServiceAMClient::am_probe_put_resp), // NOLINT
+            arg1);
+
+    failoverReq->invoke();
 
     std::cout << "In foo func " << p->am_func << std::endl;
     return this;

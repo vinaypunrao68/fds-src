@@ -13,15 +13,20 @@
 #include <vector>
 #include <unordered_set>
 #include <fds_types.h>
-#include <fds_resource.h>
+// #include <fds_resource.h>
 #include <fdsp/FDSP_types.h>
 
 namespace fpi = FDS_ProtocolInterface;
 
 namespace fds {
 
+class ResourceUUID;
+class UuidHash;
+
 typedef std::string NodeStrName;
+
 typedef ResourceUUID NodeUuid;
+
 typedef fds_uint64_t VersionNumber;
 typedef std::unordered_set<NodeUuid, UuidHash> NodeUuidSet;
 

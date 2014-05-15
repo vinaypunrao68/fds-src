@@ -73,6 +73,8 @@ namespace fds {
 
         /* Network errors */
         ERR_NETWORK_TRANSPORT = 3000,
+        /* Endpoint doesn't exist */
+        ERR_EP_NON_EXISTANT,
 
         /* RPC Request realted */
         ERR_RPC_FAILED = 4000,
