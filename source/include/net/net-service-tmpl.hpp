@@ -12,6 +12,8 @@
 #include <thrift/server/TNonblockingServer.h>
 #include <thrift/server/TThreadedServer.h>
 #include <thrift/concurrency/ThreadManager.h>
+
+#include <fds_typedefs.h>
 #include <net/net-service.h>
 
 namespace fds {

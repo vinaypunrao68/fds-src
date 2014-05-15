@@ -4,12 +4,13 @@
 #include <string>
 #include <net/net-service-tmpl.hpp>
 #include <platform/platform-lib.h>
-#include <ep-map.h>
 #include <fdsp/PlatNetSvc.h>
+#include <ep-map.h>
 
 namespace fds {
 
-NetMgr  gl_netService("EndPoint Mgr");
+NetMgr              gl_netService("EndPoint Mgr");
+const fpi::SvcUuid  NullSvcUuid;
 
 /*
  * -----------------------------------------------------------------------------------
@@ -113,20 +114,11 @@ NetMgr::ep_unregister(const fpi::SvcUuid &uuid)
 EpSvc::pointer
 NetMgr::svc_lookup(const fpi::SvcUuid &svc_uuid, fds_uint32_t maj, fds_uint32_t min)
 {
-    int               idx;
-    fds_uint64_t      uuid;
-    ep_map_rec_t      map;
     EpSvc::pointer    ep;
 
-    uuid = svc_uuid.svc_uuid;
     ep_mtx.lock();
     try {
-        idx = ep_uuid_map.at(uuid);
-    } catch(const std::out_of_range &oor) {
-        idx = -1;
-    }
-    try {
-        ep = ep_svc_map.at(uuid);
+        ep = ep_svc_map.at(svc_uuid.svc_uuid);
     } catch(const std::out_of_range &oor) {
         ep = NULL;
     }
@@ -150,7 +142,7 @@ NetMgr::svc_lookup(const char *peer_name, fds_uint32_t maj, fds_uint32_t min)
 //
 EpSvcHandle::pointer
 NetMgr::svc_domain_master(const fpi::DomainID &id,
-                          boost::shared_ptr<fpi::PlatNetSvcClient> &rpc)
+                          bo::shared_ptr<fpi::PlatNetSvcClient> &rpc)
 {
     int                            port;
     bo::shared_ptr<void>           ep_rpc;
@@ -168,15 +160,34 @@ NetMgr::svc_domain_master(const fpi::DomainID &id,
     return ep_domain_clnt;
 }
 
+// endpoint_lookup
+// ---------------
+//
 EpSvc::pointer
 NetMgr::endpoint_lookup(const fpi::SvcUuid &uuid)
 {
+    EpSvc::pointer ep;
+
+    ep = svc_lookup(uuid, 0, 0);
+    if (ep != NULL) {
+        if (ep->ep_is_connection()) {
+            return ep;
+        }
+    }
     return NULL;
 }
 
 EpSvc::pointer
 NetMgr::endpoint_lookup(const char *name)
 {
+    EpSvc::pointer ep;
+
+    ep = svc_lookup(name, 0, 0);
+    if (ep != NULL) {
+        if (ep->ep_is_connection()) {
+            return ep;
+        }
+    }
     return NULL;
 }
 
@@ -204,7 +215,45 @@ NetMgr::ep_uuid_bindings(const struct ep_map_rec **map)
 int
 NetMgr::ep_uuid_binding(const fpi::SvcUuid &uuid, std::string *ip)
 {
+    int          idx;
+    ep_map_rec_t map;
+
+    ep_mtx.lock();
+    try {
+        idx = ep_uuid_map.at(uuid.svc_uuid);
+    } catch(const std::out_of_range &oor) {
+        idx = -1;
+    }
+    ep_mtx.unlock();
+
+    if (idx < 0) {
+        ip->clear();
+        return 0;
+    }
+    if (ep_shm->ep_lookup_rec(idx, uuid.svc_uuid, &map) >= 0) {
+        ip->reserve(INET6_ADDRSTRLEN + 1);
+        EpAttr::netaddr_to_str(&map.rmp_addr,
+                               const_cast<char *>(ip->c_str()), INET6_ADDRSTRLEN);
+        return EpAttr::netaddr_get_port(&map.rmp_addr);
+    }
     return 0;
+}
+
+// ep_register_binding
+// -------------------
+//
+void
+NetMgr::ep_register_binding(const ep_map_rec_t *rec)
+{
+}
+
+// ep_my_platform_uuid
+// -------------------
+//
+ResourceUUID const *const
+NetMgr::ep_my_platform_uuid()
+{
+    return plat_lib->plf_get_my_uuid();
 }
 
 }  // namespace fds
