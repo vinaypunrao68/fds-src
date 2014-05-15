@@ -36,10 +36,11 @@ class RpcFunc1 : public RpcFuncIf {
         a1_ = a1;
     }
     virtual void invoke() override {
-        EpSvcHandle::pointer ep = NetMgr::ep_mgr_singleton()->\
-            svc_lookup(a1_->header.msg_dst_uuid, 0 , 0);
+        // TODO(Rao): Use the right interface from vy
+        /* EpSvc::pointer ep = NetMgr::ep_mgr_singleton()->\
+                svc_lookup(a1_->header.msg_dst_uuid, 0 , 0);
         auto client = ep->svc_rpc<ServiceT>();
-        (client.get()->*f_)(a1_);
+        (client.get()->*f_)(a1_); */
     }
     virtual void setHeader(const fpi::AsyncHdr &hdr) {
     }

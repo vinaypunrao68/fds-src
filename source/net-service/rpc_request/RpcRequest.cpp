@@ -84,7 +84,7 @@ void AsyncRpcRequestIf::invokeCommon_(const fpi::SvcUuid &epId)
     try {
         rpc_->invoke();
     } catch(...) {
-        // TODO(Rao): Invoke endpoint error handling
+        // TODO(Rao):
         // Post an error to threadpool
     }
 }
@@ -166,7 +166,7 @@ void EPAsyncRpcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
     }
 
     if (errdEpId.svc_uuid != 0 &&
-        NetMgr::ep_mgr_singleton()->ep_actionable_error(header->msg_code)) {
+        NetMgr::ep_mgr_singleton()->ep_is_actionable_error(header->msg_code)) {
         NetMgr::ep_mgr_singleton()->ep_handle_error(header->msg_code);
     }
 }

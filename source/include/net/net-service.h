@@ -360,7 +360,7 @@ class NetMgr : public Module
      * @param e
      * @return
      */
-    bool ep_actionable_error(const Error &e) const;
+    bool ep_is_actionable_error(const Error &e) const;
 
     /**
      * Handles endpoint error
