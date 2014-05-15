@@ -110,8 +110,8 @@ class FDSBlockVolumeDriver(driver.VolumeDriver):
 
     def _get_services(self):
         am_connection_info = (self.configuration.fds_am_host, self.configuration.fds_am_port)
-        cm_connection_info = (self.configuration.fds_cm_host, self.configuration.fds_cm_port)
-        fds = FDSServices(am_connection_info, cm_connection_info)
+        cs_connection_info = (self.configuration.fds_cs_host, self.configuration.fds_cs_port)
+        fds = FDSServices(am_connection_info, cs_connection_info)
         return fds
 
     @property
@@ -147,7 +147,7 @@ class FDSBlockVolumeDriver(driver.VolumeDriver):
 
     def create_volume(self, volume):
         with self._get_services() as fds:
-            fds.cs.createVolume(self.fds_domain, volume['name'], VolumePolicy(4096))
+            fds.cs.createVolume(self.fds_domain, volume['name'], VolumePolicy(4096, VolumeConnector.CINDER))
 
 
     def delete_volume(self, volume):
@@ -171,8 +171,8 @@ class FDSBlockVolumeDriver(driver.VolumeDriver):
         # FIXME: real stats
         return {
             'driver_version': self.VERSION,
-            'free_capacity_gb': 'unknown',
-            'total_capacity_gb': 'unknown',
+            'free_capacity_gb': 10,
+            'total_capacity_gb': 10,
             'reserved_percentage': self.configuration.reserved_percentage,
             'storage_protocol': 'local',
             'vendor_name': 'Formation Data Systems, Inc.',
@@ -181,3 +181,15 @@ class FDSBlockVolumeDriver(driver.VolumeDriver):
 
     def local_path(self, volume):
         return self.attached_devices.get(volume['name'], None)
+
+    # we probably don't need to worry about exports (ceph/rbd doesn't)
+    def remove_export(self, context, volume):
+        pass
+
+    def create_export(self, context, volume):
+        pass
+
+    def ensure_export(self, context, volume):
+        pass
+
+
