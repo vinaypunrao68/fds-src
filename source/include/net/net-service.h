@@ -24,6 +24,7 @@ namespace FDS_ProtocolInterface {
 }  // namespace FDS_ProtocolInterface
 
 namespace fds {
+namespace bo  = boost;
 namespace tt  = apache::thrift::transport;
 namespace fpi = FDS_ProtocolInterface;
 
@@ -438,25 +439,14 @@ class NetMgr : public Module
     EpSvcHandle::pointer
     svc_get_handle(const fpi::SvcUuid &peer, fds_uint32_t maj, fds_uint32_t min)
     {
-        int                   port;
-        std::string           ip;
         EpSvc::pointer        ep;
-        EpSvcHandle::pointer  ret;
         boost::intrusive_ptr<EndPoint<SendIf, void>> myep;
 
         ep = endpoint_lookup(peer);
         if (ep != NULL) {
             myep = ep->ep_cast<SendIf, void>();
             if (myep != NULL) {
-                ret = myep->ep_server_handle();
-                if (ret == NULL) {
-                    port = ep_uuid_binding(peer, &ip);
-                    if (port != -1) {
-                        myep->ep_connect_server(port, ip);
-                        ret = myep->ep_server_handle();
-                    }
-                    return ret;
-                }
+                return myep->ep_server_handle();
             }
         }
         return NULL;

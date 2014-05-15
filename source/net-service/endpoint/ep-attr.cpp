@@ -23,7 +23,10 @@ EpAttr::EpAttr(fds_uint32_t ip, int port) : ep_refcnt(0)
 
 EpAttr::EpAttr(const char *iface, int port) : ep_refcnt(0)
 {
-    ep_addr.sa_family = AF_INET;
+    unsigned int    flags;
+    struct sockaddr mask;
+
+    netaddr_my_ip(&ep_addr, &mask, &flags, iface);
     ((struct sockaddr_in *)&ep_addr)->sin_port = port;
 }
 
@@ -106,8 +109,12 @@ EpAttr::netaddr_my_ip(struct sockaddr *adr,
         if (strcmp(cur->ifa_name, iface) == 0) {
  found:
             *adr   = *cur->ifa_addr;
-            *mask  = *cur->ifa_netmask;
             *flags = cur->ifa_flags;
+            if (cur->ifa_netmask != NULL) {
+                *mask  = *cur->ifa_netmask;
+            } else {
+                memset(mask, 0, sizeof(*mask));
+            }
             break;
         }
     }

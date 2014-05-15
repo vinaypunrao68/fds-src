@@ -5,6 +5,7 @@
 #include <vector>
 #include <ep-map.h>
 #include <net-platform.h>
+#include <net/net-service-tmpl.hpp>
 #include <platform/platform-lib.h>
 
 namespace fds {
@@ -67,6 +68,7 @@ net_platform_server(PlatEpPtr ep)
     ep->ep_run_server();
 }
 
+NetPlatSvc::~NetPlatSvc() {}
 NetPlatSvc::NetPlatSvc(const char *name) : Module(name)
 {
     plat_ep        = NULL;

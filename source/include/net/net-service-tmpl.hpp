@@ -24,7 +24,6 @@ namespace tc = apache::thrift::concurrency;
 namespace tp = apache::thrift::protocol;
 namespace ts = apache::thrift::server;
 namespace tt = apache::thrift::transport;
-namespace bo = boost;
 
 // Forward declaration.
 struct ep_map_rec;
@@ -139,8 +138,9 @@ class EndPoint : public EpSvcImpl
              const NodeUuid            &mine,
              const NodeUuid            &peer,
              boost::shared_ptr<RecvIf>  rcv_if,
-             EpEvtPlugin::pointer       ops)
-        : EpSvcImpl(mine, peer, EpAttr("eth0", port), ops), ep_rpc_recv(rcv_if) {
+             EpEvtPlugin::pointer       ops,
+             const char                *iface = "lo")
+        : EpSvcImpl(mine, peer, EpAttr(iface, port), ops), ep_rpc_recv(rcv_if) {
             ep_init_obj();
         }
 
@@ -173,6 +173,19 @@ class EndPoint : public EpSvcImpl
         return clnt;
     }
     EpSvcHandle::pointer ep_server_handle() {
+        if (ep_clnt_ptr == NULL) {
+            int          port;
+            std::string  ip;
+            fpi::SvcUuid peer;
+
+            ep_peer_uuid(peer);
+            if (peer.svc_uuid != 0) {
+                port = NetMgr::ep_mgr_singleton()->ep_uuid_binding(peer, &ip);
+                if (port != -1) {
+                    ep_connect_server(port, ip);
+                }
+            }
+        }
         return ep_clnt_ptr;
     }
     // Connect to the server.  Save connection handles to this endpoint.
