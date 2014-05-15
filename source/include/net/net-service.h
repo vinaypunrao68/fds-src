@@ -180,25 +180,39 @@ class EpSvc
     typedef boost::intrusive_ptr<EpSvc> pointer;
     typedef boost::intrusive_ptr<const EpSvc> const_ptr;
 
-    // When a message sent to this service handler arrives, the network layer will
-    // call this function passing the message header.  It's up to the handler object
-    // to intepret the remaining payload.
-    //
+    /*
+     * When a message sent to this service handler arrives, the network layer will
+     * call this function passing the message header.  It's up to the handler object
+     * to intepret the remaining payload.
+     */
     virtual void svc_receive_msg(const fpi::AsyncHdr &msg) = 0;
 
-    // Just return int for now
-    //
+    /**
+     * Apply new attributes to this endpoint/service.
+     */
+    virtual void ep_apply_attr();
+
+    /**
+     * Force the reconnection of this end-point.
+     */
     virtual int  ep_get_status() { return 0; }
+    virtual void ep_input_event(fds_uint32_t evt) {}
+    virtual void ep_reconnect() {}
 
-    // Control endpoint/service attributes.
-    //
-    void            ep_apply_attr();
-    EpAttr::pointer ep_get_attr() { return ep_attr; }
+    /**
+     * Acessor functions.
+     */
+    inline EpAttr::pointer      ep_get_attr() { return ep_attr; }
+    inline EpEvtPlugin::pointer ep_evt_plugin() { return ep_evt; }
 
-    // Cast to the correct EndPoint type.  Return NULL if this is pure service object.
-    //
+    inline void ep_my_uuid(fpi::SvcUuid &uuid) { uuid = svc_id.svc_uuid; }
+    inline fds_uint64_t ep_my_uuid() { return svc_id.svc_uuid.svc_uuid; }
+
+    /**
+     * Cast to the correct EndPoint type.  Return NULL if this is pure service object.
+     */
     template <class SendIf, class RecvIf>
-    boost::intrusive_ptr<EndPoint<SendIf, RecvIf>> ep_cast()
+    inline boost::intrusive_ptr<EndPoint<SendIf, RecvIf>> ep_cast()
     {
         if (ep_is_connection()) {
             return static_cast<EndPoint<SendIf, RecvIf> *>(this);
@@ -226,6 +240,8 @@ class EpSvc
 
     virtual ~EpSvc() {}
     virtual bool ep_is_connection() { return false; }
+    virtual void ep_peer_uuid(fpi::SvcUuid &uuid) { uuid.svc_uuid = 0; }
+    virtual fds_uint64_t ep_peer_uuid() { return INVALID_RESOURCE_UUID.uuid_get_val(); }
 
   private:
     friend class NetMgr;
@@ -241,11 +257,6 @@ class EpSvc
             delete x;
         }
     }
-    virtual void ep_my_uuid(fpi::SvcUuid &uuid) { uuid = svc_id.svc_uuid; }
-    virtual void ep_peer_uuid(fpi::SvcUuid &uuid) { uuid.svc_uuid = 0; }
-
-    virtual fds_uint64_t ep_my_uuid() { return svc_id.svc_uuid.svc_uuid; }
-    virtual fds_uint64_t ep_peer_uuid() { return INVALID_RESOURCE_UUID.uuid_get_val(); }
 };
 
 /**
@@ -279,7 +290,9 @@ class EpSvcHandle
     boost::shared_ptr<tt::TTransport> ep_trans;
 
     virtual ~EpSvcHandle();
-    EpSvcHandle() : ep_refcnt(0), ep_owner(NULL), ep_rpc(NULL), ep_trans(NULL) {}
+    EpSvcHandle()
+        : ep_refcnt(0), ep_owner(NULL), ep_rpc(NULL), ep_trans(NULL) {}
+
     EpSvcHandle(EpSvc::pointer                    svc,
                 boost::shared_ptr<void>           rpc,
                 boost::shared_ptr<tt::TTransport> trans)
@@ -358,21 +371,18 @@ class NetMgr : public Module
     virtual EpSvc::pointer
     svc_lookup(const char *name, fds_uint32_t maj, fds_uint32_t min);
 
-    // TODO(Vy): Please refactor the following as needed
     /**
      * Returns true if error e is actionable on the endpoint
      * @param e
      * @return
      */
-    bool ep_actionable_error(const Error &e) const;
+    virtual bool ep_actionable_error(const fpi::SvcUuid &uuid, const Error &e) const;
 
     /**
-     * Handles endpoint error
-     * TODO(Rao):  It's probably better for error handling to be scheduled
-     * on a threadpool and not on calling thread
+     * Handles endpoint error on a thread from threadpool.
      * @param e
      */
-    void ep_handle_error(const Error &e);
+    virtual void ep_handle_error(const fpi::SvcUuid &uuid, const Error &e);
 
     /**
      * Allocate a handle to communicate with the peer endpoint.  The 'mine' uuid can be

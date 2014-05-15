@@ -245,6 +245,27 @@ NetMgr::ep_uuid_binding(const fpi::SvcUuid &uuid, std::string *ip)
 void
 NetMgr::ep_register_binding(const ep_map_rec_t *rec)
 {
+    int                idx;
+    EpSvc::pointer     ep;
+    EpSvcImpl::pointer ept;
+
+    if (rec->rmp_uuid == 0) {
+        return;
+    }
+    idx = ep_shm->ep_map_record(rec);
+    if (idx != -1) {
+        ep_mtx.lock();
+        ep_uuid_map[rec->rmp_uuid] = idx;
+        try {
+            ep  = ep_svc_map.at(rec->rmp_uuid);
+            ept = EP_CAST_PTR(EpSvcImpl, ep);
+        } catch(const std::out_of_range &oor) {
+            ept = NULL;
+        }
+        ep_mtx.unlock();
+        if (ept != NULL) {
+        }
+    }
 }
 
 // ep_my_platform_uuid
@@ -254,6 +275,23 @@ ResourceUUID const *const
 NetMgr::ep_my_platform_uuid()
 {
     return plat_lib->plf_get_my_uuid();
+}
+
+// ep_actionable_error
+// -------------------
+//
+bool
+NetMgr::ep_actionable_error(const fpi::SvcUuid &uuid, const Error &e) const
+{
+    return false;
+}
+
+// ep_handle_error
+// ---------------
+//
+void
+NetMgr::ep_handle_error(const fpi::SvcUuid &uuid, const Error &e)
+{
 }
 
 }  // namespace fds

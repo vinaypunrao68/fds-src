@@ -18,8 +18,6 @@
 
 namespace fds {
 
-struct ep_map_rec;
-
 namespace at = apache::thrift;
 namespace tc = apache::thrift::concurrency;
 namespace tp = apache::thrift::protocol;
@@ -27,11 +25,16 @@ namespace ts = apache::thrift::server;
 namespace tt = apache::thrift::transport;
 namespace bo = boost;
 
+// Forward declaration.
+struct ep_map_rec;
+template <class SendIf, class RecvIf> class EndPoint;
+
 /*
  * -------------------------------------------------------------------------------------
  * Internal tempalate implementation:
  * -------------------------------------------------------------------------------------
  */
+
 /**
  * Endpoint implementation class.
  */
@@ -40,6 +43,21 @@ class EpSvcImpl : public EpSvc
   public:
     typedef boost::intrusive_ptr<EpSvcImpl> pointer;
     typedef boost::intrusive_ptr<const EpSvcImpl> const_ptr;
+    virtual ~EpSvcImpl();
+
+    // Service registration & lookup.
+    //
+    virtual void           ep_reconnect();
+    virtual void           ep_input_event(fds_uint32_t evt);
+    virtual void           ep_bind_service(EpSvc::pointer svc);
+    virtual EpSvc::pointer ep_unbind_service(const fpi::SvcID &id);
+    virtual EpSvc::pointer ep_lookup_service(const ResourceUUID &uuid);
+    virtual EpSvc::pointer ep_lookup_service(const char *name);
+
+  protected:
+    friend class NetMgr;
+    fpi::SvcID                       ep_peer_id;
+    fpi::SvcVer                      ep_peer_ver;
 
     EpSvcImpl(const NodeUuid       &mine,
               const NodeUuid       &peer,
@@ -51,29 +69,9 @@ class EpSvcImpl : public EpSvc
               const EpAttr         &attr,
               EpEvtPlugin::pointer  ops);
 
-    virtual ~EpSvcImpl();
-
-    // Service registration & lookup.
-    //
-    virtual void           ep_bind_service(EpSvc::pointer svc);
-    virtual EpSvc::pointer ep_unbind_service(const fpi::SvcID &id);
-    virtual EpSvc::pointer ep_lookup_service(const ResourceUUID &uuid);
-    virtual EpSvc::pointer ep_lookup_service(const char *name);
-
-    // Endpoint event input.
-    //
-    virtual void ep_input_event(fds_uint32_t evt);
-
-  protected:
-    fpi::SvcID                       ep_peer_id;
-    fpi::SvcVer                      ep_peer_ver;
-
-  private:
-    friend class NetMgr;
-
     void ep_fillin_binding(struct ep_map_rec *map);
-    virtual void ep_peer_uuid(fpi::SvcUuid &uuid) { uuid = ep_peer_id.svc_uuid; }
-    virtual fds_uint64_t ep_peer_uuid() { return ep_peer_id.svc_uuid.svc_uuid; }
+    void ep_peer_uuid(fpi::SvcUuid &uuid) { uuid = ep_peer_id.svc_uuid; }
+    fds_uint64_t ep_peer_uuid() { return ep_peer_id.svc_uuid.svc_uuid; }
 };
 
 class NetPlatSvc;
@@ -116,6 +114,9 @@ class EndPoint : public EpSvcImpl
     typedef boost::intrusive_ptr<EndPoint<SendIf, RecvIf>> pointer;
     typedef boost::intrusive_ptr<const EndPoint<SendIf, RecvIf>> const_ptr;
 
+    static inline EndPoint<SendIf, RecvIf>::pointer ep_cast_ptr(EpSvc::pointer ptr) {
+        return static_cast<EndPoint<SendIf, RecvIf> *>(get_pointer(ptr));
+    }
     virtual ~EndPoint() {}
     EndPoint(const fpi::SvcID          &mine,
              const fpi::SvcID          &peer,
@@ -134,8 +135,11 @@ class EndPoint : public EpSvcImpl
             ep_init_obj();
         }
 
-    static inline EndPoint<SendIf, RecvIf>::pointer ep_cast_ptr(EpSvc::pointer ptr) {
-        return static_cast<EndPoint<SendIf, RecvIf> *>(get_pointer(ptr));
+    // ep_reconnect
+    // ------------
+    //
+    void ep_reconnect()
+    {
     }
     // ep_server_listen
     // ----------------
@@ -178,7 +182,6 @@ class EndPoint : public EpSvcImpl
     }
     void ep_activate() {
         ep_setup_server();
-        ep_client_connect();
     }
     void ep_run_server() {
         ep_server->serve();
@@ -207,31 +210,11 @@ class EndPoint : public EpSvcImpl
     bo::shared_ptr<ts::TNonblockingServer> ep_nb_srv;
     EpSvcHandle::pointer                   ep_clnt_ptr;
 
-    void svc_receive_msg(const fpi::AsyncHdr &msg) {}
+    int  ep_get_status() { return 0; }
     bool ep_is_connection() { return true; }
+    void svc_receive_msg(const fpi::AsyncHdr &msg) {}
 
   private:
-    // ep_client_connect
-    // -----------------
-    //
-    void ep_client_connect()
-    {
-#if 0
-        int         port;
-        const char *host = "localhost";
-
-        port = ep_attr->attr_get_port();
-        if (port == 6000) {
-            port = 7000;
-        } else {
-            port = 6000;
-        }
-        ep_sock  = bo::shared_ptr<tt::TTransport>(new tt::TSocket(host, port));
-        ep_trans = bo::shared_ptr<tt::TTransport>(new tt::TFramedTransport(ep_sock));
-        ep_proto = bo::shared_ptr<tp::TProtocol>(new tp::TBinaryProtocol(ep_trans));
-        ep_rpc_send = bo::shared_ptr<SendIf>(new SendIf(ep_proto));
-#endif
-    }
 #if 0
     void ep_setup_server_nb()
     {

@@ -110,6 +110,14 @@ EpSvcImpl::ep_input_event(fds_uint32_t evt)
 {
 }
 
+// ep_reconnect
+// ------------
+//
+void
+EpSvcImpl::ep_reconnect()
+{
+}
+
 // ep_lookup_service
 // -----------------
 //
