@@ -7,8 +7,11 @@
 #include <netinet/in.h>
 #include <string>
 #include <fds_module.h>
+#include <net/net-service.h>
 #include <shared/fds-constants.h>
+#include <platform/node-inventory.h>
 #include <concurrency/Mutex.h>
+#include <fdsp/PlatNetSvc.h>
 
 namespace fds {
 
@@ -59,6 +62,28 @@ class EpPlatLibMod : public Module
   protected:
     ep_map_t                *ep_shm_map;
     fds_mutex                ep_mtx;
+};
+
+/**
+ * Node domain master agent.  This is the main interface to the master domain
+ * service.
+ */
+class DomainAgent : public PmAgent
+{
+  public:
+    typedef boost::intrusive_ptr<DomainAgent> pointer;
+    typedef boost::intrusive_ptr<const DomainAgent> const_ptr;
+
+    virtual ~DomainAgent() {}
+    explicit DomainAgent(const NodeUuid &uuid) : PmAgent(uuid) {}
+
+    inline EpSvcHandle::pointer pda_rpc()  { return agt_domain_ep; }
+    virtual void pda_connect_domain(const fpi::DomainID &id);
+    virtual void pda_update_binding(const ep_map_rec_t *rec, int cnt);
+
+  protected:
+    EpSvcHandle::pointer                  agt_domain_ep;
+    bo::shared_ptr<fpi::PlatNetSvcClient> agt_domain_rpc;
 };
 
 class EpPlatformMod : public EpPlatLibMod

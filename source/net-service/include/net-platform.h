@@ -8,14 +8,16 @@
 #include <vector>
 #include <net/net-service.h>
 #include <fdsp/PlatNetSvc.h>
+#include <ep-map.h>
 
 namespace fds {
 class Platform;
 class NetPlatSvc;
 class NetPlatHandler;
 template <class SendIf, class RecvIf>class EndPoint;
-typedef bo::intrusive_ptr<EndPoint<fpi::PlatNetSvcClient,
-                                   fpi::PlatNetSvcProcessor>> PlatEpPtr;
+
+typedef EndPoint<fpi::PlatNetSvcClient, fpi::PlatNetSvcProcessor> PlatNetEp;
+typedef bo::intrusive_ptr<PlatNetEp>                              PlatNetEpPtr;
 
 class PlatNetPlugin : public EpEvtPlugin
 {
@@ -51,10 +53,10 @@ class NetPlatSvc : public Module
 
   protected:
     friend class NetPlatform;
-    PlatEpPtr                            plat_ep;
+    PlatNetEpPtr                         plat_ep;
     PlatNetPlugin::pointer               plat_ep_plugin;
     bo::shared_ptr<NetPlatHandler>       plat_ep_hdler;
-    EpSvcHandle::pointer                 plat_rpc;
+    DomainAgent::pointer                 plat_agent;
     Platform                            *plat_lib;
 };
 

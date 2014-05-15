@@ -23,10 +23,11 @@ namespace FDS_ProtocolInterface {
     class PlatNetSvcClient;
 }  // namespace FDS_ProtocolInterface
 
+namespace fpi = FDS_ProtocolInterface;
+
 namespace fds {
 namespace bo  = boost;
 namespace tt  = apache::thrift::transport;
-namespace fpi = FDS_ProtocolInterface;
 
 class EpSvc;
 class EpSvcImpl;
@@ -500,7 +501,9 @@ class NetPlatform : public Module
  * Down cast an endpoint intrusive pointer.
  */
 template <class T>
-T *ep_cast_ptr(EpSvc::pointer ep) { return static_cast<T *>(get_pointer(ep)); }
+boost::intrusive_ptr<T> ep_cast_ptr(EpSvc::pointer ep) {
+    return static_cast<T *>(get_pointer(ep));
+}
 
 }  // namespace fds
 #endif  // SOURCE_INCLUDE_NET_NET_SERVICE_H_

@@ -54,7 +54,10 @@ NetPlatform::mod_shutdown()
 EpSvcHandle::pointer
 NetPlatform::nplat_domain_rpc(const fpi::DomainID &id)
 {
-    return lo_netSvc.plat_rpc;
+    if (lo_netSvc.plat_agent) {
+        return lo_netSvc.plat_agent->pda_rpc();
+    }
+    return NULL;
 }
 
 /*
@@ -62,19 +65,20 @@ NetPlatform::nplat_domain_rpc(const fpi::DomainID &id)
  * Internal module
  * -----------------------------------------------------------------------------------
  */
+#if 0
 static void
 net_platform_server(PlatEpPtr ep)
 {
     ep->ep_run_server();
 }
-
+#endif
 NetPlatSvc::~NetPlatSvc() {}
 NetPlatSvc::NetPlatSvc(const char *name) : Module(name)
 {
     plat_ep        = NULL;
     plat_ep_plugin = NULL;
     plat_ep_hdler  = NULL;
-    plat_rpc       = NULL;
+    plat_agent     = NULL;
     plat_lib       = NULL;
 }
 
@@ -85,7 +89,7 @@ NetPlatSvc::mod_init(SysParams const *const p)
     plat_lib       = Platform::platf_singleton();
     plat_ep_hdler  = bo::shared_ptr<NetPlatHandler>(new NetPlatHandler(this));
     plat_ep_plugin = new PlatNetPlugin(this);
-    plat_ep        = new EndPoint<fpi::PlatNetSvcClient, fpi::PlatNetSvcProcessor>(
+    plat_ep        = new PlatNetEp(
             plat_lib->plf_get_my_data_port(), /* hack, need to consolidate ports */
             plat_lib->plf_my_node_uuid(),     /* bind to my uuid  */
             NodeUuid(0ULL),                   /* pure server mode */
@@ -102,7 +106,7 @@ NetPlatSvc::mod_startup()
 {
     fds_threadpool *pool = g_fdsprocess->proc_thrpool();
 
-    pool->schedule(net_platform_server, plat_ep);
+    pool->schedule(&PlatNetEp::ep_run_server, plat_ep);
 }
 
 void
@@ -112,9 +116,6 @@ NetPlatSvc::mod_enable_service()
 
     if (plat_lib->plf_is_om_node()) {
         std::cout << "This is OM node" << std::endl;
-        return;
-    }
-    if (plat_rpc != NULL) {
         return;
     }
     // Regiser my node endpoint.

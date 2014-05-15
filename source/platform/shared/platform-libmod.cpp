@@ -275,9 +275,6 @@ void
 Platform::mod_enable_service()
 {
     fds_verify(plf_domain == NULL);
-
-    plf_domain = new PmAgent(plf_my_node_uuid());
-    plf_domain->pma_connect_domain(fpi::DomainID());
 }
 
 namespace util {
