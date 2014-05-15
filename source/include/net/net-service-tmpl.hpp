@@ -15,10 +15,9 @@
 
 #include <fds_typedefs.h>
 #include <net/net-service.h>
+#include <concurrency/ThreadPool.h>
 
 namespace fds {
-
-struct ep_map_rec;
 
 namespace at = apache::thrift;
 namespace tc = apache::thrift::concurrency;
@@ -27,11 +26,17 @@ namespace ts = apache::thrift::server;
 namespace tt = apache::thrift::transport;
 namespace bo = boost;
 
+// Forward declaration.
+struct ep_map_rec;
+template <class SendIf, class RecvIf> class EndPoint;
+
 /*
  * -------------------------------------------------------------------------------------
  * Internal tempalate implementation:
  * -------------------------------------------------------------------------------------
  */
+extern void endpoint_retry_connect(EpSvcHandle::pointer ptr);
+
 /**
  * Endpoint implementation class.
  */
@@ -40,6 +45,21 @@ class EpSvcImpl : public EpSvc
   public:
     typedef boost::intrusive_ptr<EpSvcImpl> pointer;
     typedef boost::intrusive_ptr<const EpSvcImpl> const_ptr;
+    virtual ~EpSvcImpl();
+
+    // Service registration & lookup.
+    //
+    virtual void           ep_reconnect();
+    virtual void           ep_input_event(fds_uint32_t evt);
+    virtual void           ep_bind_service(EpSvc::pointer svc);
+    virtual EpSvc::pointer ep_unbind_service(const fpi::SvcID &id);
+    virtual EpSvc::pointer ep_lookup_service(const ResourceUUID &uuid);
+    virtual EpSvc::pointer ep_lookup_service(const char *name);
+
+  protected:
+    friend class NetMgr;
+    fpi::SvcID                       ep_peer_id;
+    fpi::SvcVer                      ep_peer_ver;
 
     EpSvcImpl(const NodeUuid       &mine,
               const NodeUuid       &peer,
@@ -51,59 +71,46 @@ class EpSvcImpl : public EpSvc
               const EpAttr         &attr,
               EpEvtPlugin::pointer  ops);
 
-    virtual ~EpSvcImpl();
+    void         ep_fillin_binding(struct ep_map_rec *map);
+    void         ep_peer_uuid(fpi::SvcUuid &uuid)  { uuid = ep_peer_id.svc_uuid; }
+    fds_uint64_t ep_peer_uuid()  { return ep_peer_id.svc_uuid.svc_uuid; }
 
-    // Service registration & lookup.
+    virtual void ep_connect_server(int port, const std::string &ip) = 0;
+
+  public:
+    // ep_connect_server
+    // -----------------
+    // Connect to a server by its known IP and port.  Thrift's connection handles are
+    // saved by the caller.
     //
-    virtual void           ep_bind_service(EpSvc::pointer svc);
-    virtual EpSvc::pointer ep_unbind_service(const fpi::SvcID &id);
-    virtual EpSvc::pointer ep_lookup_service(const ResourceUUID &uuid);
-    virtual EpSvc::pointer ep_lookup_service(const char *name);
+    template <class SendIf> static void
+    ep_connect_server(int port, const std::string &ip, EpSvcHandle::pointer ptr)
+    {
+        if (ptr->ep_trans != NULL) {
+            // Reset the old connection.
+            ptr->ep_trans->close();
+        } else {
+            bo::shared_ptr<tt::TTransport> sock(new tt::TSocket(ip, port));
+            ptr->ep_trans.reset(new tt::TFramedTransport(sock));
 
-    // Endpoint event input.
-    //
-    virtual void ep_input_event(fds_uint32_t evt);
-
-  protected:
-    fpi::SvcID                       ep_peer_id;
-    fpi::SvcVer                      ep_peer_ver;
-
-  private:
-    friend class NetMgr;
-
-    void ep_fillin_binding(struct ep_map_rec *map);
-    virtual void ep_peer_uuid(fpi::SvcUuid &uuid) { uuid = ep_peer_id.svc_uuid; }
-    virtual fds_uint64_t ep_peer_uuid() { return ep_peer_id.svc_uuid.svc_uuid; }
+            bo::shared_ptr<tp::TProtocol> proto(new tp::TBinaryProtocol(ptr->ep_trans));
+            bo::shared_ptr<SendIf> rpc(new SendIf(proto));
+            ptr->ep_rpc = rpc;
+        }
+        try {
+            ptr->ep_trans->open();
+        } catch(at::TException &tx) {
+            std::cout << "Error: " << tx.what() << std::endl;
+            fds_threadpool *pool = NetMgr::ep_mgr_singleton()->ep_mgr_thrpool();
+            pool->schedule(endpoint_retry_connect, ptr);
+        } catch(...) {
+            fds_threadpool *pool = NetMgr::ep_mgr_singleton()->ep_mgr_thrpool();
+            pool->schedule(endpoint_retry_connect, ptr);
+        }
+    }
 };
 
 class NetPlatSvc;
-
-// ep_connect_server
-// -----------------
-// Connect to a server by its known IP and port.  Thrift's connection handles are
-// saved by the caller.
-//
-template <class SendIf>
-void endpoint_connect_server(int port, const std::string &ip,
-                             bo::shared_ptr<SendIf>         &out,
-                             bo::shared_ptr<tt::TTransport> &trans)
-{
-    if (trans != NULL) {
-        // Reset the old connection.
-        trans->close();
-    } else {
-        bo::shared_ptr<tt::TTransport> sock(new tt::TSocket(ip, port));
-        trans.reset(new tt::TFramedTransport(sock));
-
-        bo::shared_ptr<tp::TProtocol>  proto(new tp::TBinaryProtocol(trans));
-        out.reset(new SendIf(proto));
-    }
-    try {
-        trans->open();
-    } catch(at::TException &tx) {  // NOLINT
-        std::cout << "Error: " << tx.what() << std::endl;
-    }
-}
 
 /**
  * Endpoint is the logical RPC representation of a physical connection.
@@ -116,6 +123,9 @@ class EndPoint : public EpSvcImpl
     typedef boost::intrusive_ptr<EndPoint<SendIf, RecvIf>> pointer;
     typedef boost::intrusive_ptr<const EndPoint<SendIf, RecvIf>> const_ptr;
 
+    static inline EndPoint<SendIf, RecvIf>::pointer ep_cast_ptr(EpSvc::pointer ptr) {
+        return static_cast<EndPoint<SendIf, RecvIf> *>(get_pointer(ptr));
+    }
     virtual ~EndPoint() {}
     EndPoint(const fpi::SvcID          &mine,
              const fpi::SvcID          &peer,
@@ -130,12 +140,15 @@ class EndPoint : public EpSvcImpl
              const NodeUuid            &peer,
              boost::shared_ptr<RecvIf>  rcv_if,
              EpEvtPlugin::pointer       ops)
-        : EpSvcImpl(mine, peer, EpAttr(0, port), ops), ep_rpc_recv(rcv_if) {
+        : EpSvcImpl(mine, peer, EpAttr("eth0", port), ops), ep_rpc_recv(rcv_if) {
             ep_init_obj();
         }
 
-    static inline EndPoint<SendIf, RecvIf>::pointer ep_cast_ptr(EpSvc::pointer ptr) {
-        return static_cast<EndPoint<SendIf, RecvIf> *>(get_pointer(ptr));
+    // ep_reconnect
+    // ------------
+    //
+    void ep_reconnect()
+    {
     }
     // ep_server_listen
     // ----------------
@@ -155,11 +168,8 @@ class EndPoint : public EpSvcImpl
     //
     EpSvcHandle::pointer ep_new_handle(int port, const std::string &ip)
     {
-        bo::shared_ptr<SendIf> rpc;
-        EpSvcHandle::pointer clnt = new EpSvcHandle(this, NULL, NULL);
-
-        endpoint_connect_server<SendIf>(port, ip, rpc, clnt->ep_trans);
-        clnt->ep_rpc = rpc;
+        EpSvcHandle::pointer clnt = new EpSvcHandle(this);
+        EpSvcImpl::ep_connect_server<SendIf>(port, ip, clnt);
         return clnt;
     }
     EpSvcHandle::pointer ep_server_handle() {
@@ -170,15 +180,12 @@ class EndPoint : public EpSvcImpl
     void ep_connect_server(int port, const std::string &ip)
     {
         if (ep_clnt_ptr == NULL) {
-            ep_clnt_ptr = new EpSvcHandle(this, NULL, NULL);
-            endpoint_connect_server<SendIf>(port, ip,
-                                            ep_clnt_ptr->ep_rpc,
-                                            ep_clnt_ptr->ep_trans);
+            ep_clnt_ptr = new EpSvcHandle(this);
+            EpSvcImpl::ep_connect_server<SendIf>(port, ip, ep_clnt_ptr);
         }
     }
     void ep_activate() {
         ep_setup_server();
-        ep_client_connect();
     }
     void ep_run_server() {
         ep_server->serve();
@@ -207,31 +214,11 @@ class EndPoint : public EpSvcImpl
     bo::shared_ptr<ts::TNonblockingServer> ep_nb_srv;
     EpSvcHandle::pointer                   ep_clnt_ptr;
 
+    int  ep_get_status()     { return 0; }
+    bool ep_is_connection()  { return true; }
     void svc_receive_msg(const fpi::AsyncHdr &msg) {}
-    bool ep_is_connection() { return true; }
 
   private:
-    // ep_client_connect
-    // -----------------
-    //
-    void ep_client_connect()
-    {
-#if 0
-        int         port;
-        const char *host = "localhost";
-
-        port = ep_attr->attr_get_port();
-        if (port == 6000) {
-            port = 7000;
-        } else {
-            port = 6000;
-        }
-        ep_sock  = bo::shared_ptr<tt::TTransport>(new tt::TSocket(host, port));
-        ep_trans = bo::shared_ptr<tt::TTransport>(new tt::TFramedTransport(ep_sock));
-        ep_proto = bo::shared_ptr<tp::TProtocol>(new tp::TBinaryProtocol(ep_trans));
-        ep_rpc_send = bo::shared_ptr<SendIf>(new SendIf(ep_proto));
-#endif
-    }
 #if 0
     void ep_setup_server_nb()
     {

@@ -2,6 +2,7 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 #include <string>
+#include <fds_process.h>
 #include <net/net-service-tmpl.hpp>
 #include <platform/platform-lib.h>
 #include <fdsp/PlatNetSvc.h>
@@ -27,6 +28,15 @@ NetMgr::NetMgr(const char *name)
     };
     ep_shm     = &gl_EpPlatLib;
     mod_intern = ep_mgr_mods;
+}
+
+// ep_mgr_thrpool
+// --------------
+//
+fds_threadpool *
+NetMgr::ep_mgr_thrpool()
+{
+    return g_fdsprocess->proc_thrpool();
 }
 
 // mod_init
@@ -66,45 +76,82 @@ NetMgr::ep_register(EpSvc::pointer ep, bool update_domain)
     int                 idx, port;
     fds_uint64_t        uuid, peer;
     ep_map_rec_t        map;
-    EpSvcImpl::pointer  myep, exist;
+    EpSvcImpl::pointer  myep;
 
-    myep = EP_CAST_PTR(EpSvcImpl, ep);
+    myep = ep_cast_ptr<EpSvcImpl>(ep);
     myep->ep_fillin_binding(&map);
 
-    // Check if we have any ep operated on the same port.
-    port  = EpAttr::netaddr_get_port(&map.rmp_addr);
-    exist = EP_CAST_PTR(EpSvcImpl, ep_lookup_port(port));
-    if (exist != NULL) {
-        // fds_verify(exist->ep_get_rcv_handler() == myep->ep_get_rcv_handler());
-    }
+    port = EpAttr::netaddr_get_port(&map.rmp_addr);
+    fds_verify(port != 0);
+    fds_verify(map.rmp_uuid != 0);
+    fds_assert(map.rmp_uuid == myep->ep_my_uuid());
+
+    // TODO(Vy): Check if we have any ep operated on the same port.
+    //
     idx = ep_shm->ep_map_record(&map);
 
     // Add to the local mapping.
     if (idx != -1) {
-        ep_mtx.lock();
-        if (port != 0) {
-            ep_port_map[port].push_back(ep);
-        }
         uuid = myep->ep_my_uuid();
-        ep_uuid_map[uuid] = idx;
-        ep_svc_map[uuid]  = ep;
-
         peer = myep->ep_peer_uuid();
-        if ((peer != 0) && (peer != uuid)) {
-            ep_svc_map[peer] = ep;
+
+        ep_mtx.lock();
+        ep_uuid_map[uuid] = idx;
+        if (myep->ep_is_connection() == true) {
+            // This is the physical endpoint, record it in ep map.
+            ep_map[uuid].push_front(ep);
+            if ((peer != 0) && (peer != uuid)) {
+                ep_map[peer].push_front(ep);
+            }
+        } else {
+            // This is the logical service, record it in svc map.
+            ep_svc_map[uuid] = ep;
+            if ((peer != 0) && (peer != uuid)) {
+                ep_svc_map[peer] = ep;
+            }
         }
         ep_mtx.unlock();
     }
+    if (update_domain == true) {
+    }
+    // TODO(Vy): error handling.
 }
 
 // ep_unregister
 // -------------
 // Unregister the endpoint.  This is lazy unregister.  Stale endpoint will be notified
-// when the sender sends to the down endpoint.
+// when the sender sends to it.
 //
 void
 NetMgr::ep_unregister(const fpi::SvcUuid &uuid)
 {
+    int            idx;
+    EpSvc::pointer ep;
+
+    ep_mtx.lock();
+    try {
+        idx = ep_uuid_map.at(uuid.svc_uuid);
+        ep_uuid_map.erase(uuid.svc_uuid);
+    } catch(...) {
+        idx = -1;
+    }
+
+    try {
+        ep = ep_svc_map.at(uuid.svc_uuid);
+        ep_svc_map.erase(uuid.svc_uuid);
+    } catch(...) {}
+
+    try {
+        EpSvcList &list = ep_map.at(uuid.svc_uuid);
+        list.clear();
+        ep_map.erase(uuid.svc_uuid);
+    } catch(...) {}
+    ep_mtx.unlock();
+
+    if (idx != -1) {
+        ep_shm->ep_unmap_record(uuid.svc_uuid, idx);
+        // Need to ask domain controller to unmap
+    }
 }
 
 // svc_lookup
@@ -119,7 +166,7 @@ NetMgr::svc_lookup(const fpi::SvcUuid &svc_uuid, fds_uint32_t maj, fds_uint32_t 
     ep_mtx.lock();
     try {
         ep = ep_svc_map.at(svc_uuid.svc_uuid);
-    } catch(const std::out_of_range &oor) {
+    } catch(...) {
         ep = NULL;
     }
     ep_mtx.unlock();
@@ -152,10 +199,10 @@ NetMgr::svc_domain_master(const fpi::DomainID &id,
         const std::string *ip = plat_lib->plf_get_om_ip();
 
         port = plat_lib->plf_get_om_svc_port();
-        endpoint_connect_server<fpi::PlatNetSvcClient>(port, *ip, rpc, trans);
+        ep_domain_clnt = new EpSvcHandle(NULL);
+        EpSvcImpl::ep_connect_server<fpi::PlatNetSvcClient>(port, *ip, ep_domain_clnt);
 
         ep_rpc = rpc;
-        ep_domain_clnt = new EpSvcHandle(NULL, ep_rpc, trans);
     }
     return ep_domain_clnt;
 }
@@ -168,13 +215,20 @@ NetMgr::endpoint_lookup(const fpi::SvcUuid &uuid)
 {
     EpSvc::pointer ep;
 
-    ep = svc_lookup(uuid, 0, 0);
-    if (ep != NULL) {
-        if (ep->ep_is_connection()) {
-            return ep;
+    ep_mtx.lock();
+    try {
+        EpSvcList &list = ep_map.at(uuid.svc_uuid);
+        if (list.empty()) {
+            ep_map.erase(uuid.svc_uuid);
+        } else {
+            ep = list.front();
+            fds_verify(ep != NULL);
         }
+    } catch(...) {
+        ep = NULL;
     }
-    return NULL;
+    ep_mtx.unlock();
+    return ep;
 }
 
 EpSvc::pointer
@@ -211,6 +265,7 @@ NetMgr::ep_uuid_bindings(const struct ep_map_rec **map)
 
 // ep_uuid_binding
 // ---------------
+// Return the <ip, port> binding to the given uuid.
 //
 int
 NetMgr::ep_uuid_binding(const fpi::SvcUuid &uuid, std::string *ip)
@@ -221,7 +276,7 @@ NetMgr::ep_uuid_binding(const fpi::SvcUuid &uuid, std::string *ip)
     ep_mtx.lock();
     try {
         idx = ep_uuid_map.at(uuid.svc_uuid);
-    } catch(const std::out_of_range &oor) {
+    } catch(...) {
         idx = -1;
     }
     ep_mtx.unlock();
@@ -245,6 +300,37 @@ NetMgr::ep_uuid_binding(const fpi::SvcUuid &uuid, std::string *ip)
 void
 NetMgr::ep_register_binding(const ep_map_rec_t *rec)
 {
+    int                idx, port;
+    std::string        ip;
+    EpSvc::pointer     ep;
+    EpSvcImpl::pointer ept;
+
+    port = EpAttr::netaddr_get_port(&rec->rmp_addr);
+    if ((rec->rmp_uuid == 0) || (port == 0)) {
+        // TODO(Vy): log the error.
+        return;
+    }
+    idx = ep_shm->ep_map_record(rec);
+    if (idx != -1) {
+        ep_mtx.lock();
+        ep_uuid_map[rec->rmp_uuid] = idx;
+        try {
+            ep  = ep_svc_map.at(rec->rmp_uuid);
+            ept = ep_cast_ptr<EpSvcImpl>(ep);
+        } catch(...) {
+            ept = NULL;
+        }
+        ep_mtx.unlock();
+        if (ept != NULL) {
+            fds_verify(ept->ep_is_connection() == true);
+            ip.reserve(INET6_ADDRSTRLEN + 1);
+            EpAttr::netaddr_to_str(&rec->rmp_addr,
+                                   const_cast<char *>(ip.c_str()), INET6_ADDRSTRLEN);
+
+            // Connect to the peer if we haven't connected.
+            ept->ep_connect_server(port, ip);
+        }
+    }
 }
 
 // ep_my_platform_uuid
@@ -254,6 +340,23 @@ ResourceUUID const *const
 NetMgr::ep_my_platform_uuid()
 {
     return plat_lib->plf_get_my_uuid();
+}
+
+// ep_actionable_error
+// -------------------
+//
+bool
+NetMgr::ep_actionable_error(const fpi::SvcUuid &uuid, const Error &e) const
+{
+    return false;
+}
+
+// ep_handle_error
+// ---------------
+//
+void
+NetMgr::ep_handle_error(const fpi::SvcUuid &uuid, const Error &e)
+{
 }
 
 }  // namespace fds

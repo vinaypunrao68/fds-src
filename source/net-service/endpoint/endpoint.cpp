@@ -46,6 +46,24 @@ EpSvcHandle::~EpSvcHandle()
     }
 }
 
+// endpoint_etry_connect
+// ---------------------
+//
+void
+endpoint_retry_connect(EpSvcHandle::pointer ptr)
+{
+    ptr->ep_reconnect();
+}
+
+// ep_reconnect
+// ------------
+//
+int
+EpSvcHandle::ep_reconnect()
+{
+    return 0;
+}
+
 /*
  * -----------------------------------------------------------------------------------
  * Base EndPoint Implementation
@@ -107,6 +125,14 @@ EpSvcImpl::ep_lookup_service(const ResourceUUID &uuid)
 //
 void
 EpSvcImpl::ep_input_event(fds_uint32_t evt)
+{
+}
+
+// ep_reconnect
+// ------------
+//
+void
+EpSvcImpl::ep_reconnect()
 {
 }
 

@@ -21,6 +21,12 @@ EpAttr::EpAttr(fds_uint32_t ip, int port) : ep_refcnt(0)
     ((struct sockaddr_in *)&ep_addr)->sin_port = port;
 }
 
+EpAttr::EpAttr(const char *iface, int port) : ep_refcnt(0)
+{
+    ep_addr.sa_family = AF_INET;
+    ((struct sockaddr_in *)&ep_addr)->sin_port = port;
+}
+
 EpAttr &
 EpAttr::operator = (const EpAttr &rhs)
 {
