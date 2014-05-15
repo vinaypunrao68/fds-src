@@ -47,10 +47,19 @@ void DataMgr::node_handler(fds_int32_t  node_id,
 }
 
 Error
-DataMgr::volcat_evt_handler(FDS_ProtocolInterface::FDSP_PushMetaPtr& push_meta,
+DataMgr::volcat_evt_handler(fds_catalog_action_t catalog_action,
+                            const FDS_ProtocolInterface::FDSP_PushMetaPtr& push_meta,
                             const std::string& session_uuid) {
-    GLOGNORMAL << "Received Push Meta request";
-    return dataMgr->catSyncMgr->startCatalogSync(push_meta->metaVol);
+    Error err(ERR_OK);
+    GLOGNORMAL << "Received Volume Catalog request";
+    if (catalog_action == fds_catalog_push_meta) {
+        err = dataMgr->catSyncMgr->startCatalogSync(push_meta->metaVol, session_uuid);
+    } else if (catalog_action == fds_catalog_dmt_close) {
+        dataMgr->catSyncMgr->notifyCatalogSyncFinish();
+    } else {
+        fds_assert(!"Unknown catalog command");
+    }
+    return err;
 }
 
 Error DataMgr::enqueueMsg(fds_volid_t volId,
@@ -1540,7 +1549,7 @@ DataMgr::snapVolCat(DmIoSnapVolCat* snapReq) {
 
     // TODO(xxx) call CatalogSync callback which will do RSync
     // TODO(xxx) add and pass other required params to do rsync
-    snapReq->dmio_snap_vcat_cb(err);
+    snapReq->dmio_snap_vcat_cb(err, omClient);
 
     // mark this request as complete
     qosCtrl->markIODone(*snapReq);

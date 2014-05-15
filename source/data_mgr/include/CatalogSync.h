@@ -21,23 +21,25 @@
 #include <concurrency/Mutex.h>
 #include <fdsp/FDSP_types.h>
 #include <DmIoReq.h>
-
 #include <NetSession.h>
 
+namespace fpi = FDS_ProtocolInterface;
 using  namespace  ::FDS_ProtocolInterface;  // NOLINT
 
 namespace fds {
 
 
      class FDSP_MetaSyncRpc;  // forward declaration
+     class OMgrClient;
      class CatalogSyncMgr;
 
     /**
      * Callback type to notify that catalog sync process is finished for
      * a given volume
      */
-    typedef std::function<void (fds_volid_t vol_id,
-                                const Error& error)> catsync_done_handler_t;
+     typedef std::function<void (fds_volid_t vol_id,
+                                 OMgrClient* omclient,
+                                 const Error& error)> catsync_done_handler_t;
 
     /**
      * Manages per-volume catalog sync job
@@ -49,6 +51,12 @@ namespace fds {
                     DmIoReqHandler* dm_req_hdlr);
         ~CatalogSync();
 
+        typedef enum {
+            CSSTATE_READY = 0,     // we can call startSync
+            CSSTATE_IN_PROGRESS,   // sync in progress
+            CSSTATE_DONE           // done syncing
+        } csStateType;
+
         /**
          * Actually start catalog sync process. Will queue
          * work item to make a level db snapshot
@@ -58,16 +66,26 @@ namespace fds {
         Error startSync(catsync_done_handler_t done_evt_hdlr);
 
         /**
+         * @return true if catalog sync is finished
+         */
+        inline fds_bool_t isDone() const {
+            return (state == CSSTATE_DONE);
+        }
+
+        /**
          * Callback from data mgr that volume cat snapshot
          * is complete; can do rsync here
          */
-        void snapDoneCb(const Error& error
+        void snapDoneCb(const Error& error,
+                        OMgrClient* omclient
                         /*vol_snap_req*/
                         /* open file desc ?*/);
 
   private:
         fds_volid_t volume_id;  // volume to sync
         NodeUuid node_uuid;  // destination node
+
+        csStateType state;  // current state
 
         /**
          * Pointer to DmIoReqHandler so we can queue work/IO to
@@ -106,15 +124,24 @@ namespace fds {
          * For now we will not allow to start catalog sync if the previous
          * cat sync is still in progress, later we may revisit this...
          */
-        Error startCatalogSync(const FDS_ProtocolInterface::FDSP_metaDataList& metaVol);
-        // boost::shared_ptr<FDSP_MetaRespClient>
+        Error startCatalogSync(const fpi::FDSP_metaDataList& metaVol,
+                               const std::string& context);
+
+        /**
+         * Called when OM sends DMT close message to DM to notify that we are done
+         * catalog sync and forwarding, etc, so we can cleanup state of this sync
+         */
+        void notifyCatalogSyncFinish();
 
         /**
          * Callback from CatalogSync that sync is finished for given volume
          */
-        void syncDoneCb(fds_volid_t volid, const Error& error);
+        void syncDoneCb(fds_volid_t volid,
+                        OMgrClient* omclient,
+                        const Error& error);
 
   private:
+        fds_bool_t sync_in_progress;
         /**
          * max number of volume sync jobs we can have in progress
          * at the same time.
@@ -131,8 +158,9 @@ namespace fds {
          * Volume id to Catalog Sync object which are already doing
          * sync job or are scheduled to perform sync job
          */
+        std::string cat_sync_context;  // to return when sync is done
         CatSyncMap cat_sync_map;
-        fds_mutex cat_sync_lock;  // protects catSyncMap
+        fds_mutex cat_sync_lock;  // protects catSyncMap and sync_in_progress
 
         /* Net session  handlers */
         netSessionTblPtr netSessionTbl;

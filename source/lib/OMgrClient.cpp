@@ -144,7 +144,7 @@ void OMgrClientRPCI::PushMetaDMTReq(FDSP_MsgHdrTypePtr& fdsp_msg,
         err = om_client->recvDMTPushMeta(push_meta_resp, fdsp_msg->session_uuid);
         if (!err.ok()) {
             LOGERROR << "We could not start push meta process, " << err;
-            om_client->sendPushMetaRespToOM(err, fdsp_msg->session_uuid);
+            om_client->sendDMTPushMetaAck(err, fdsp_msg->session_uuid);
         }
     } else {
         fds_verify(false);  // should not send push meta to non-DM nodes!
@@ -592,8 +592,10 @@ int OMgrClient::sendMigrationStatusToOM(const Error& err) {
     return 0;
 }
 
-void OMgrClient::sendPushMetaRespToOM(const Error& err,
-				      const std::string& session_uuid) {
+Error OMgrClient::sendDMTPushMetaAck(const Error& op_err,
+                                     const std::string& session_uuid) {
+    Error err(ERR_OK);
+
     // send ack back to OM
     boost::shared_ptr<FDS_ProtocolInterface::FDSP_ControlPathRespClient> resp_client_prx =
             omrpc_handler_session_->getRespClient(session_uuid);
@@ -604,8 +606,8 @@ void OMgrClient::sendPushMetaRespToOM(const Error& err,
         FDSP_PushMetaPtr meta_resp(new FDSP_PushMeta());
         // TODO(xxx) should we send the whole PushMeta msg?
         // for now sending empty
-        msg_hdr->err_code = err.GetErrno();
-        if (!err.ok()) {
+        msg_hdr->err_code = op_err.GetErrno();
+        if (!op_err.ok()) {
             msg_hdr->result = FDSP_ERR_FAILED;
         }
 
@@ -615,7 +617,10 @@ void OMgrClient::sendPushMetaRespToOM(const Error& err,
     catch (...) {
         LOGERROR << "OMClient unable to send PushMeta response to OM."
                 << " Check if OM is up and restart";
+        err = Error(ERR_NETWORK_TRANSPORT);
     }
+
+    return err;
 }
 
 int OMgrClient::recvNodeEvent(int node_id, 
@@ -880,11 +885,19 @@ int OMgrClient::sendDLTCloseAckToOM(FDSP_DltCloseTypePtr& dlt_close,
 int OMgrClient::recvDMTClose(fds_uint64_t dmt_version,
                              const std::string& session_uuid)
 {
+    Error err(ERR_OK);
     LOGNORMAL << "OMClient received DMT close event for DMT version "
               << dmt_version;
 
     // TODO(xxx) notify volume sync that we can stop forwarding
     // updates to other DM
+    err = this->catalog_evt_hdlr(fds_catalog_dmt_close,
+                                 FDSP_PushMetaPtr(),
+                                 session_uuid);
+
+    // TODO(xxx) when we extend to handling forwarding DM requests to
+    // new DM, we may have this event handler async and also async response
+    // we are returning response here for now...
 
     // sending response right away for now...
     boost::shared_ptr<FDS_ProtocolInterface::FDSP_ControlPathRespClient> resp_client_prx =
@@ -893,6 +906,10 @@ int OMgrClient::recvDMTClose(fds_uint64_t dmt_version,
     try {
         FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
         initOMMsgHdr(msg_hdr);
+        msg_hdr->err_code = err.GetErrno();
+        if (!err.ok()) {
+            msg_hdr->result = FDSP_ERR_FAILED;
+        }
         FDSP_DMT_Resp_TypePtr dmt_resp(new FDSP_DMT_Resp_Type);
         dmt_resp->DMT_version = dmt_version;
         resp_client_prx->NotifyDMTCloseResp(msg_hdr, dmt_resp);
@@ -923,16 +940,8 @@ Error OMgrClient::recvDLTStartMigration(FDSP_DLT_Data_TypePtr& dlt_info) {
 
 Error OMgrClient::recvDMTPushMeta(FDSP_PushMetaPtr& push_meta,
 				  const std::string& session_uuid) {
-    Error err(ERR_OK);
-    if (this->catalog_evt_hdlr) {
-      err = this->catalog_evt_hdlr(push_meta, session_uuid);
-    }
-
-    // TODO(xxx) remove this when implement actual callback
-    // when push meta is done
-    sendPushMetaRespToOM(err, session_uuid);
-
-    return err;
+    fds_verify(this->catalog_evt_hdlr != NULL);
+    return this->catalog_evt_hdlr(fds_catalog_push_meta, push_meta, session_uuid);
 }
 
 int OMgrClient::recvDMTUpdate(FDSP_DMT_TypePtr& dmt_info,
