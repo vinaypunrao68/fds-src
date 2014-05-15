@@ -50,17 +50,26 @@ EpPlatLibMod::ep_map_record(const ep_map_rec_t *rec)
 
     ep_mtx.lock();
     for (idx = 0; idx < MAX_DOMAIN_EP_SVC; idx++) {
-        if (ep_shm_map->mp_records[idx].rmp_uuid == 0) {
-            /* Use this index */
+        if (ep_shm_map->mp_records[idx].rmp_uuid == rec->rmp_uuid) {
+            /* Found existing slot, overwrite with the new mapping. */
             ep_shm_map->mp_records[idx] = *rec;
-            ep_shm_map->mp_rec_cnt++;
             break;
+        }
+    }
+    if (idx == MAX_DOMAIN_EP_SVC) {
+        for (idx = 0; idx < MAX_DOMAIN_EP_SVC; idx++) {
+            if (ep_shm_map->mp_records[idx].rmp_uuid == 0) {
+                /* Use this index */
+                ep_shm_map->mp_records[idx] = *rec;
+                ep_shm_map->mp_rec_cnt++;
+                break;
+            }
         }
     }
     fds_verify(ep_shm_map->mp_rec_cnt <= MAX_DOMAIN_EP_SVC);
     ep_mtx.unlock();
 
-    if (idx < MAX_DOMAIN_EP_SVC) {
+    if (idx == MAX_DOMAIN_EP_SVC) {
         idx = -1;
     }
     return idx;
@@ -80,7 +89,7 @@ EpPlatLibMod::ep_unmap_record(fds_uint64_t uuid, int idx)
             }
         }
     }
-    if (idx <= MAX_DOMAIN_EP_SVC) {
+    if (idx < MAX_DOMAIN_EP_SVC) {
         ep_map_rec_t *rec;
 
         rec = &ep_shm_map->mp_records[idx];
@@ -92,7 +101,11 @@ EpPlatLibMod::ep_unmap_record(fds_uint64_t uuid, int idx)
     }
     fds_verify(ep_shm_map->mp_rec_cnt >= 0);
     ep_mtx.unlock();
-    return 0;
+
+    if (idx == MAX_DOMAIN_EP_SVC) {
+        idx = -1;
+    }
+    return idx;
 }
 
 // ep_lookup_rec
@@ -111,7 +124,7 @@ EpPlatLibMod::ep_lookup_rec(fds_uint64_t uuid, ep_map_rec_t *out)
         }
     }
     ep_mtx.unlock();
-    if (idx < MAX_DOMAIN_EP_SVC) {
+    if (idx == MAX_DOMAIN_EP_SVC) {
         memset(out, 0, sizeof(*out));
         idx = -1;
     }
@@ -126,15 +139,15 @@ EpPlatLibMod::ep_lookup_rec(int idx, fds_uint64_t uuid, ep_map_rec_t *out)
         if (ep_shm_map->mp_records[idx].rmp_uuid == uuid) {
             *out = ep_shm_map->mp_records[idx];
         } else {
-            memset(out, 0, sizeof(*out));
             idx = -1;
         }
         ep_mtx.unlock();
-    } else {
-        idx = -1;
-        memset(out, 0, sizeof(*out));
+        if (idx >= 0) {
+            return idx;
+        }
     }
-    return idx;
+    memset(out, 0, sizeof(*out));
+    return -1;
 }
 
 int

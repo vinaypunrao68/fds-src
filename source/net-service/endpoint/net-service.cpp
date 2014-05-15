@@ -66,41 +66,51 @@ NetMgr::ep_register(EpSvc::pointer ep, bool update_domain)
     int                 idx, port;
     fds_uint64_t        uuid, peer;
     ep_map_rec_t        map;
-    EpSvcImpl::pointer  myep, exist;
+    EpSvcImpl::pointer  myep;
 
     myep = EP_CAST_PTR(EpSvcImpl, ep);
     myep->ep_fillin_binding(&map);
 
-    // Check if we have any ep operated on the same port.
-    port  = EpAttr::netaddr_get_port(&map.rmp_addr);
-    exist = EP_CAST_PTR(EpSvcImpl, ep_lookup_port(port));
-    if (exist != NULL) {
-        // fds_verify(exist->ep_get_rcv_handler() == myep->ep_get_rcv_handler());
-    }
+    port = EpAttr::netaddr_get_port(&map.rmp_addr);
+    fds_verify(port != 0);
+    fds_verify(map.rmp_uuid != 0);
+    fds_assert(map.rmp_uuid == myep->ep_my_uuid());
+
+    // TODO(Vy): Check if we have any ep operated on the same port.
+    //
     idx = ep_shm->ep_map_record(&map);
 
     // Add to the local mapping.
     if (idx != -1) {
-        ep_mtx.lock();
-        if (port != 0) {
-            ep_port_map[port].push_back(ep);
-        }
         uuid = myep->ep_my_uuid();
-        ep_uuid_map[uuid] = idx;
-        ep_svc_map[uuid]  = ep;
-
         peer = myep->ep_peer_uuid();
-        if ((peer != 0) && (peer != uuid)) {
-            ep_svc_map[peer] = ep;
+
+        ep_mtx.lock();
+        ep_uuid_map[uuid] = idx;
+        if (myep->ep_is_connection() == true) {
+            // This is the physical endpoint, record it in ep map.
+            ep_map[uuid].push_front(ep);
+            if ((peer != 0) && (peer != uuid)) {
+                ep_map[peer].push_front(ep);
+            }
+        } else {
+            // This is the logical service, record it in svc map.
+            ep_svc_map[uuid] = ep;
+            if ((peer != 0) && (peer != uuid)) {
+                ep_svc_map[peer] = ep;
+            }
         }
         ep_mtx.unlock();
     }
+    if (update_domain == true) {
+    }
+    // TODO(Vy): error handling.
 }
 
 // ep_unregister
 // -------------
 // Unregister the endpoint.  This is lazy unregister.  Stale endpoint will be notified
-// when the sender sends to the down endpoint.
+// when the sender sends to it.
 //
 void
 NetMgr::ep_unregister(const fpi::SvcUuid &uuid)
@@ -168,13 +178,20 @@ NetMgr::endpoint_lookup(const fpi::SvcUuid &uuid)
 {
     EpSvc::pointer ep;
 
-    ep = svc_lookup(uuid, 0, 0);
-    if (ep != NULL) {
-        if (ep->ep_is_connection()) {
-            return ep;
+    ep_mtx.lock();
+    try {
+        EpSvcList &list = ep_map.at(uuid.svc_uuid);
+        if (list.empty()) {
+            ep_map.erase(uuid.svc_uuid);
+        } else {
+            ep = list.front();
+            fds_verify(ep != NULL);
         }
+    } catch(const std::out_of_range &oor) {
+        ep = NULL;
     }
-    return NULL;
+    ep_mtx.unlock();
+    return ep;
 }
 
 EpSvc::pointer
@@ -211,6 +228,7 @@ NetMgr::ep_uuid_bindings(const struct ep_map_rec **map)
 
 // ep_uuid_binding
 // ---------------
+// Return the <ip, port> binding to the given uuid.
 //
 int
 NetMgr::ep_uuid_binding(const fpi::SvcUuid &uuid, std::string *ip)
@@ -245,11 +263,14 @@ NetMgr::ep_uuid_binding(const fpi::SvcUuid &uuid, std::string *ip)
 void
 NetMgr::ep_register_binding(const ep_map_rec_t *rec)
 {
-    int                idx;
+    int                idx, port;
+    std::string        ip;
     EpSvc::pointer     ep;
     EpSvcImpl::pointer ept;
 
-    if (rec->rmp_uuid == 0) {
+    port = EpAttr::netaddr_get_port(&rec->rmp_addr);
+    if ((rec->rmp_uuid == 0) || (port == 0)) {
+        // TODO(Vy): log the error.
         return;
     }
     idx = ep_shm->ep_map_record(rec);
@@ -264,6 +285,13 @@ NetMgr::ep_register_binding(const ep_map_rec_t *rec)
         }
         ep_mtx.unlock();
         if (ept != NULL) {
+            fds_verify(ept->ep_is_connection() == true);
+            ip.reserve(INET6_ADDRSTRLEN + 1);
+            EpAttr::netaddr_to_str(&rec->rmp_addr,
+                                   const_cast<char *>(ip.c_str()), INET6_ADDRSTRLEN);
+
+            // Connect to the peer if we haven't connected.
+            ept->ep_connect_server(port, ip);
         }
     }
 }

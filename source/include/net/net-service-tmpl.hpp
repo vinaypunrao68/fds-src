@@ -72,6 +72,8 @@ class EpSvcImpl : public EpSvc
     void ep_fillin_binding(struct ep_map_rec *map);
     void ep_peer_uuid(fpi::SvcUuid &uuid) { uuid = ep_peer_id.svc_uuid; }
     fds_uint64_t ep_peer_uuid() { return ep_peer_id.svc_uuid.svc_uuid; }
+
+    virtual void ep_connect_server(int port, const std::string &ip) = 0;
 };
 
 class NetPlatSvc;
@@ -174,10 +176,11 @@ class EndPoint : public EpSvcImpl
     void ep_connect_server(int port, const std::string &ip)
     {
         if (ep_clnt_ptr == NULL) {
+            bo::shared_ptr<SendIf> rpc;
+
             ep_clnt_ptr = new EpSvcHandle(this, NULL, NULL);
-            endpoint_connect_server<SendIf>(port, ip,
-                                            ep_clnt_ptr->ep_rpc,
-                                            ep_clnt_ptr->ep_trans);
+            endpoint_connect_server<SendIf>(port, ip, rpc, ep_clnt_ptr->ep_trans);
+            ep_clnt_ptr->ep_rpc = rpc;
         }
     }
     void ep_activate() {

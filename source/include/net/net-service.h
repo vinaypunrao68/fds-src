@@ -319,6 +319,7 @@ extern NetPlatform           gl_netPlatform;
 
 typedef std::list<EpSvc::pointer>                         EpSvcList;
 typedef std::unordered_map<fds_uint64_t, int>             UuidShmMap;
+typedef std::unordered_map<fds_uint64_t, EpSvcList>       UuidEpMap;
 typedef std::unordered_map<fds_uint64_t, EpSvc::pointer>  UuidSvcMap;
 typedef std::unordered_map<int, EpSvcList>                PortSvcMap;
 
@@ -385,6 +386,21 @@ class NetMgr : public Module
     virtual void ep_handle_error(const fpi::SvcUuid &uuid, const Error &e);
 
     /**
+     * Lookup an endpoint.  The caller must call EpSvc::ep_cast<SendIf, RecvIf> to
+     * cast it to the correct type.
+     */
+    virtual EpSvc::pointer endpoint_lookup(const fpi::SvcUuid &uuid);
+    virtual EpSvc::pointer endpoint_lookup(const char *name);
+
+    /**
+     * Return the handle to the domain master.  From the handle, the caller can make
+     * RPC calls, send async messages to it.
+     */
+    virtual EpSvcHandle::pointer
+    svc_domain_master(const fpi::DomainID &id,
+                      boost::shared_ptr<fpi::PlatNetSvcClient> &rpc);
+
+    /**
      * Allocate a handle to communicate with the peer endpoint.  The 'mine' uuid can be
      * taken from the platform library to get the default uuid.
      */
@@ -449,21 +465,6 @@ class NetMgr : public Module
         return NULL;
     }
 
-    /**
-     * Lookup an endpoint.  The caller must call EpSvc::ep_cast<SendIf, RecvIf> to
-     * cast it to the correct type.
-     */
-    virtual EpSvc::pointer endpoint_lookup(const fpi::SvcUuid &uuid);
-    virtual EpSvc::pointer endpoint_lookup(const char *name);
-
-    /**
-     * Return the handle to the domain master.  From the handle, the caller can make
-     * RPC calls, send async messages to it.
-     */
-    virtual EpSvcHandle::pointer
-    svc_domain_master(const fpi::DomainID &id,
-                      boost::shared_ptr<fpi::PlatNetSvcClient> &rpc);
-
     // Hook up with domain membership to know which node belongs to which domain.
     //
 
@@ -475,6 +476,7 @@ class NetMgr : public Module
     Platform                      *plat_lib;
     EpPlatLibMod                  *ep_shm;
 
+    UuidEpMap                      ep_map;
     UuidSvcMap                     ep_svc_map;
     UuidShmMap                     ep_uuid_map;
     PortSvcMap                     ep_port_map;
