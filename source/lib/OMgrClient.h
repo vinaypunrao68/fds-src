@@ -48,6 +48,11 @@ namespace fds {
     fds_notify_vol_snap    = 6, 
     MAX
   } fds_vol_notify_t;
+
+  typedef enum {
+      fds_catalog_push_meta = 0,
+      fds_catalog_dmt_close = 1
+  } fds_catalog_action_t;
   
   typedef void (*migration_event_handler_t)(bool dlt_type);
   typedef void (*dltclose_event_handler_t)(FDSP_DltCloseTypePtr& dlt_close,
@@ -60,7 +65,7 @@ namespace fds {
   typedef Error (*volume_event_handler_t)(fds::fds_volid_t volume_id, 
                                           fds::VolumeDesc *vdb, 
                                           fds_vol_notify_t vol_action,
-                                          fds_bool_t check_only,
+                                          FDSP_NotifyVolFlag vol_flag,
                                           const FDSP_ResultType result);
   typedef void (*throttle_cmd_handler_t)(const float throttle_level);
   typedef void (*tier_cmd_handler_t)(const FDSP_TierPolicyPtr &tier);
@@ -68,7 +73,8 @@ namespace fds {
   typedef void (*bucket_stats_cmd_handler_t)(const FDSP_MsgHdrTypePtr& rx_msg,
 					     const FDSP_BucketStatsRespTypePtr& buck_stats);
   typedef void (*scavenger_event_handler_t)(FDSP_ScavengerCmd cmd);
-  typedef Error (*catalog_event_handler_t)(FDSP_PushMetaPtr& push_meta,
+  typedef Error (*catalog_event_handler_t)(fds_catalog_action_t cat_action,
+                                           const FDSP_PushMetaPtr& push_meta,
 					   const std::string& session_uuid);
 
   class OMgrClient {
@@ -173,7 +179,6 @@ namespace fds {
 			     const FDS_ProtocolInterface::FDSP_VolumeDescTypePtr& vol_desc);
     int pushGetBucketStatsToOM(fds_uint32_t req_cookie);
     int sendMigrationStatusToOM(const Error& err);
-    void sendPushMetaRespToOM(const Error& err, const std::string& session_uuid);
 
     int getNodeInfo(fds_uint64_t node_id,
                     unsigned int *node_ip_addr,
@@ -218,11 +223,13 @@ namespace fds {
     Error recvDLTStartMigration(FDSP_DLT_Data_TypePtr& dlt_info);
     int recvDMTUpdate(FDSP_DMT_TypePtr& dmt_info, const std::string& session_uuid);
     Error recvDMTPushMeta(FDSP_PushMetaPtr& push_meta, const std::string& session_uuid);
+    Error sendDMTPushMetaAck(const Error& op_err, const std::string& session_uuid);
+
     int recvDMTClose(fds_uint64_t dmt_version, const std::string& session_uuid);
 
     int recvNotifyVol(VolumeDesc *vdb,
                       fds_vol_notify_t vol_action,
-                      fds_bool_t check_only,
+                      FDSP_NotifyVolFlag vol_flag,
 		      FDSP_ResultType,
                       const std::string& session_uuid);
     int recvVolAttachState(VolumeDesc *vdb, fds_vol_notify_t vol_action,

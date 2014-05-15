@@ -31,8 +31,10 @@ VolumeCatalog* VolumeMeta::getVcat()
 }
 
 VolumeMeta::VolumeMeta(const std::string& _name,
-                       fds_int64_t _uuid,VolumeDesc* desc)
-    : dm_log(NULL)
+                       fds_int64_t _uuid,
+                       VolumeDesc* desc,
+                       fds_bool_t crt_catalogs)
+        : dm_log(NULL), vcat(NULL), tcat(NULL)
 {
     const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
 
@@ -41,23 +43,31 @@ VolumeMeta::VolumeMeta(const std::string& _name,
     dmCopyVolumeDesc(vol_desc, desc);
 
     root->fds_mkdir(root->dir_user_repo_dm().c_str());
-     vcat = new VolumeCatalog(root->dir_user_repo_dm() + _name + "_vcat.ldb");
-     tcat = new TimeCatalog(root->dir_user_repo_dm() + _name + "_tcat.ldb");
+    if (crt_catalogs) {
+        vcat = new VolumeCatalog(root->dir_user_repo_dm() + _name + "_vcat.ldb");
+        tcat = new TimeCatalog(root->dir_user_repo_dm() + _name + "_tcat.ldb");
+    }
 }
 
 VolumeMeta::VolumeMeta(const std::string& _name,
                        fds_int64_t _uuid,
-                       fds_log* _dm_log,VolumeDesc* _desc)
-    : VolumeMeta(_name, _uuid, _desc) {
+                       fds_log* _dm_log,
+                       VolumeDesc* _desc,
+                       fds_bool_t crt_catalogs)
+        : VolumeMeta(_name, _uuid, _desc, crt_catalogs) {
 
   dm_log = _dm_log;
 }
 
 VolumeMeta::~VolumeMeta() {
-  delete vcat;
-  delete tcat;
-  delete vol_desc;
-  delete vol_mtx;
+    if (vcat) {
+        delete vcat;
+    }
+    if (tcat) {
+        delete tcat;
+    }
+    delete vol_desc;
+    delete vol_mtx;
 }
 
 Error VolumeMeta::OpenTransaction(const std::string blob_name,

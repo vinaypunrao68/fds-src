@@ -1299,8 +1299,9 @@ VolumeContainer::om_notify_vol_resp(om_vol_notify_t type,
     switch (type) {
         case om_notify_vol_add:
             if (resp_err.ok()) {
+                NodeUuid from_svc((fdsp_msg->src_service_uuid).uuid);
                 vol->vol_event(VolCrtOkEvt(true));
-                dmtMod->dmt_deploy_event(DmtVolAckEvt());
+                dmtMod->dmt_deploy_event(DmtVolAckEvt(from_svc));
             } else {
                 // TODO(anna) send response to volume create here with error
                 LOGERROR << "Received volume create response with error ("

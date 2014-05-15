@@ -13,8 +13,8 @@ extern DataMgr *dataMgr;
 Error DataMgr::vol_handler(fds_volid_t vol_uuid,
                            VolumeDesc *desc,
                            fds_vol_notify_t vol_action,
-                           fds_bool_t check_only,
-                           FDS_ProtocolInterface::FDSP_ResultType result) {
+                           fpi::FDSP_NotifyVolFlag vol_flag,
+                           fpi::FDSP_ResultType result) {
     Error err(ERR_OK);
     GLOGNORMAL << "Received vol notif from OM for "
                << desc->getName() << ":"
@@ -27,9 +27,10 @@ Error DataMgr::vol_handler(fds_volid_t vol_uuid,
          */
         err = dataMgr->_process_add_vol(dataMgr->getPrefix() +
                                         std::to_string(vol_uuid),
-                                        vol_uuid, desc);
+                                        vol_uuid, desc,
+                                        (vol_flag != fpi::FDSP_NOTIFY_VOL_WILL_SYNC));
     } else if (vol_action == fds_notify_vol_rm) {
-        err = dataMgr->_process_rm_vol(vol_uuid, check_only);
+        err = dataMgr->_process_rm_vol(vol_uuid, vol_flag == fpi::FDSP_NOTIFY_VOL_CHECK_ONLY);
     } else if (vol_action == fds_notify_vol_mod) {
         err = dataMgr->_process_mod_vol(vol_uuid, *desc);
     } else {
@@ -46,10 +47,19 @@ void DataMgr::node_handler(fds_int32_t  node_id,
 }
 
 Error
-DataMgr::volcat_evt_handler(FDS_ProtocolInterface::FDSP_PushMetaPtr& push_meta,
+DataMgr::volcat_evt_handler(fds_catalog_action_t catalog_action,
+                            const FDS_ProtocolInterface::FDSP_PushMetaPtr& push_meta,
                             const std::string& session_uuid) {
-    GLOGNORMAL << "Received Push Meta request";
-    return dataMgr->catSyncMgr->startCatalogSync(push_meta->metaVol);
+    Error err(ERR_OK);
+    GLOGNORMAL << "Received Volume Catalog request";
+    if (catalog_action == fds_catalog_push_meta) {
+        err = dataMgr->catSyncMgr->startCatalogSync(push_meta->metaVol, session_uuid);
+    } else if (catalog_action == fds_catalog_dmt_close) {
+        dataMgr->catSyncMgr->notifyCatalogSyncFinish();
+    } else {
+        fds_assert(!"Unknown catalog command");
+    }
+    return err;
 }
 
 Error DataMgr::enqueueMsg(fds_volid_t volId,
@@ -92,7 +102,7 @@ Error DataMgr::_add_if_no_vol(const std::string& vol_name,
 
     vol_map_mtx->unlock();
 
-    err = _add_vol_locked(vol_name, vol_uuid, desc);
+    err = _add_vol_locked(vol_name, vol_uuid, desc, true);
 
 
     return err;
@@ -102,28 +112,38 @@ Error DataMgr::_add_if_no_vol(const std::string& vol_name,
  * Meant to be called holding the vol_map_mtx.
  */
 Error DataMgr::_add_vol_locked(const std::string& vol_name,
-                               fds_volid_t vol_uuid, VolumeDesc *vdesc) {
+                               fds_volid_t vol_uuid,
+                               VolumeDesc *vdesc,
+                               fds_bool_t crt_catalogs) {
     Error err(ERR_OK);
 
     vol_map_mtx->lock();
-    vol_meta_map[vol_uuid] = new VolumeMeta(vol_name,
-                                            vol_uuid,
-                                            GetLog(), vdesc);
-    LOGNORMAL << "Added vol meta for vol uuid and per Volume queue"
-              << vol_uuid;
+    VolumeMeta *volmeta = new VolumeMeta(vol_name,
+                                         vol_uuid,
+                                         GetLog(),
+                                         vdesc,
+                                         crt_catalogs);
 
-    VolumeMeta *vm = vol_meta_map[vol_uuid];
-    vm->dmVolQueue = new FDS_VolumeQueue(4096, vdesc->iops_max, 2*vdesc->iops_min, vdesc->relativePrio);
-    vm->dmVolQueue->activate();
-    dataMgr->qosCtrl->registerVolume(vol_uuid, dynamic_cast<FDS_VolumeQueue*>(vm->dmVolQueue));
+    LOGNORMAL << "Added vol meta for vol uuid and per Volume queue" << std::hex
+              << vol_uuid << std::dec << ", created catalogs? " << crt_catalogs;
 
+    volmeta->dmVolQueue = new FDS_VolumeQueue(4096, vdesc->iops_max, 2*vdesc->iops_min, vdesc->relativePrio);
+    volmeta->dmVolQueue->activate();
+    err = dataMgr->qosCtrl->registerVolume(vol_uuid, dynamic_cast<FDS_VolumeQueue*>(volmeta->dmVolQueue));
+    if (err.ok()) {
+        vol_meta_map[vol_uuid] = volmeta;
+    } else {
+        delete volmeta;
+    }
     vol_map_mtx->unlock();
+
     return err;
 }
 
 Error DataMgr::_process_add_vol(const std::string& vol_name,
                                 fds_volid_t vol_uuid,
-                                VolumeDesc *desc) {
+                                VolumeDesc *desc,
+                                fds_bool_t crt_catalogs) {
     Error err(ERR_OK);
 
     /*
@@ -139,7 +159,7 @@ Error DataMgr::_process_add_vol(const std::string& vol_name,
     }
     vol_map_mtx->unlock();
 
-    err = _add_vol_locked(vol_name, vol_uuid, desc);
+    err = _add_vol_locked(vol_name, vol_uuid, desc, crt_catalogs);
     return err;
 }
 
@@ -600,7 +620,7 @@ void DataMgr::proc_pre_startup()
                                      testVolId * 2,
                                      testVolId);
             fds_assert(testVdb != NULL);
-            vol_handler(testVolId, testVdb, fds_notify_vol_add, false, FDS_ProtocolInterface::FDSP_ERR_OK);
+            vol_handler(testVolId, testVdb, fds_notify_vol_add, fpi::FDSP_NOTIFY_VOL_NO_FLAG, FDS_ProtocolInterface::FDSP_ERR_OK);
 
             delete testVdb;
         }
@@ -1529,7 +1549,7 @@ DataMgr::snapVolCat(DmIoSnapVolCat* snapReq) {
 
     // TODO(xxx) call CatalogSync callback which will do RSync
     // TODO(xxx) add and pass other required params to do rsync
-    snapReq->dmio_snap_vcat_cb(err);
+    snapReq->dmio_snap_vcat_cb(err, omClient);
 
     // mark this request as complete
     qosCtrl->markIODone(*snapReq);

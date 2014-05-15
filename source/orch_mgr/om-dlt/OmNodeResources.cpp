@@ -12,6 +12,8 @@
 #include <OmAdminCtrl.h>
 #include <lib/PerfStats.h>
 #include <orchMgr.h>
+#include <OmVolumePlacement.h>
+#include <orch-mgr/om-service.h>
 
 namespace fds {
 
@@ -127,17 +129,17 @@ OM_NodeAgent::om_send_node_cmd(const om_node_msg_t &msg)
 //
 void
 OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer vol,
-                            fpi::FDSP_MsgCodeType cmd_type,
-                            fds_bool_t check_only)
+                              fpi::FDSP_MsgCodeType cmd_type,
+                              fpi::FDSP_NotifyVolFlag vol_flag)
 {
-    om_send_vol_cmd(vol, NULL, cmd_type, check_only);
+    om_send_vol_cmd(vol, NULL, cmd_type, vol_flag);
 }
 
 void
 OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer    vol,
-                            std::string           *vname,
-                            fpi::FDSP_MsgCodeType  cmd_type,
-                            fds_bool_t check_only)
+                              std::string           *vname,
+                              fpi::FDSP_MsgCodeType  cmd_type,
+                              fpi::FDSP_NotifyVolFlag vol_flag)
 {
     const char                *log;
     const VolumeDesc          *desc;
@@ -161,7 +163,7 @@ OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer    vol,
                 fds_verify(vol != NULL);
                 vol->vol_fmt_desc_pkt(&notif->vol_desc);
                 notif->vol_name = vol->vol_get_name();
-                notif->check_only = check_only;
+                notif->flag = vol_flag;
                 m_hdr->msg_code = cmd_type;
 
                 if (cmd_type == fpi::FDSP_MSG_CREATE_VOL) {
@@ -1143,8 +1145,17 @@ static void
 om_send_vol_info(NodeAgent::pointer me, fds_uint32_t *cnt, VolumeInfo::pointer vol)
 {
     (*cnt)++;
-    LOGDEBUG << "Dmt Send Volume to Node :" << vol->vol_get_name();
-    OM_SmAgent::agt_cast_ptr(me)->om_send_vol_cmd(vol, fpi::FDSP_MSG_CREATE_VOL);
+    OM_Module* om = OM_Module::om_singleton();
+    VolumePlacement* vp = om->om_volplace_mod();
+    fpi::FDSP_NotifyVolFlag vol_flag = fpi::FDSP_NOTIFY_VOL_NO_FLAG;
+    if (vp->hasCommittedDMT()) {
+      vol_flag = fpi::FDSP_NOTIFY_VOL_WILL_SYNC;
+    }
+    LOGDEBUG << "Dmt Send Volume to Node :" << vol->vol_get_name()
+             << "; will sync flag " << vp->hasCommittedDMT();
+    OM_NodeAgent::agt_cast_ptr(me)->om_send_vol_cmd(vol,
+                                                    fpi::FDSP_MSG_CREATE_VOL,
+                                                    vol_flag);
 }
 
 // om_bcast_vol_list
@@ -1166,24 +1177,35 @@ OM_NodeContainer::om_bcast_vol_list(NodeAgent::pointer node)
 //
 static void
 om_send_vol_command(fpi::FDSP_MsgCodeType cmd_type,
-                    fds_bool_t check_only,
+                    fpi::FDSP_NotifyVolFlag vol_flag,
                     VolumeInfo::pointer   vol,
                     NodeAgent::pointer    agent)
 {
-    OM_SmAgent::agt_cast_ptr(agent)->om_send_vol_cmd(vol, cmd_type, check_only);
+    OM_SmAgent::agt_cast_ptr(agent)->om_send_vol_cmd(vol, cmd_type, vol_flag);
 }
 
 // om_bcast_vol_create
 // -------------------
+// TODO(xxx) this function should broadcast to DMs that are in committed DMT, not
+// to all DMs. May currently have a race condition -- since we are not setting
+// will sync flag here.
 //
 fds_uint32_t
 OM_NodeContainer::om_bcast_vol_create(VolumeInfo::pointer vol)
 {
-    dc_sm_nodes->agent_foreach<fpi::FDSP_MsgCodeType, fds_bool_t, VolumeInfo::pointer>
-            (fpi::FDSP_MSG_CREATE_VOL, false, vol, om_send_vol_command);
+    dc_sm_nodes->agent_foreach<fpi::FDSP_MsgCodeType,
+                               fpi::FDSP_NotifyVolFlag,
+                               VolumeInfo::pointer>(fpi::FDSP_MSG_CREATE_VOL,
+                                                    fpi::FDSP_NOTIFY_VOL_NO_FLAG,
+                                                    vol,
+                                                    om_send_vol_command);
 
-    dc_dm_nodes->agent_foreach<fpi::FDSP_MsgCodeType, fds_bool_t, VolumeInfo::pointer>
-            (fpi::FDSP_MSG_CREATE_VOL, false, vol, om_send_vol_command);
+    dc_dm_nodes->agent_foreach<fpi::FDSP_MsgCodeType,
+                               fpi::FDSP_NotifyVolFlag,
+                               VolumeInfo::pointer>(fpi::FDSP_MSG_CREATE_VOL,
+                                                    fpi::FDSP_NOTIFY_VOL_NO_FLAG,
+                                                    vol,
+                                                    om_send_vol_command);
 
     return dc_sm_nodes->rs_available_elm() + dc_dm_nodes->rs_available_elm();
 }
@@ -1194,14 +1216,20 @@ OM_NodeContainer::om_bcast_vol_create(VolumeInfo::pointer vol)
 void
 OM_NodeContainer::om_bcast_vol_modify(VolumeInfo::pointer vol)
 {
-    dc_sm_nodes->agent_foreach<fpi::FDSP_MsgCodeType, fds_bool_t, VolumeInfo::pointer>
-            (fpi::FDSP_MSG_MODIFY_VOL, false, vol, om_send_vol_command);
+    dc_sm_nodes->agent_foreach<fpi::FDSP_MsgCodeType,
+                               fpi::FDSP_NotifyVolFlag,
+                               VolumeInfo::pointer>(fpi::FDSP_MSG_MODIFY_VOL,
+                                                    fpi::FDSP_NOTIFY_VOL_NO_FLAG,
+                                                    vol, om_send_vol_command);
 
-    dc_dm_nodes->agent_foreach<fpi::FDSP_MsgCodeType, fds_bool_t, VolumeInfo::pointer>
-            (fpi::FDSP_MSG_MODIFY_VOL, false, vol, om_send_vol_command);
+    dc_dm_nodes->agent_foreach<fpi::FDSP_MsgCodeType,
+                               fpi::FDSP_NotifyVolFlag,
+                               VolumeInfo::pointer>(fpi::FDSP_MSG_MODIFY_VOL,
+                                                    fpi::FDSP_NOTIFY_VOL_NO_FLAG,
+                                                    vol, om_send_vol_command);
 
-    vol->vol_foreach_am<fpi::FDSP_MsgCodeType, fds_bool_t>
-            (fpi::FDSP_MSG_MODIFY_VOL, false, om_send_vol_command);
+    vol->vol_foreach_am<fpi::FDSP_MsgCodeType, fpi::FDSP_NotifyVolFlag>
+            (fpi::FDSP_MSG_MODIFY_VOL, fpi::FDSP_NOTIFY_VOL_NO_FLAG, om_send_vol_command);
 }
 
 // om_bcast_vol_snap
@@ -1210,8 +1238,11 @@ OM_NodeContainer::om_bcast_vol_modify(VolumeInfo::pointer vol)
 fds_uint32_t
 OM_NodeContainer::om_bcast_vol_snap(VolumeInfo::pointer vol)
 {
-    dc_dm_nodes->agent_foreach<fpi::FDSP_MsgCodeType, fds_bool_t, VolumeInfo::pointer>
-            (fpi::FDSP_MSG_SNAP_VOL, false, vol, om_send_vol_command);
+    dc_dm_nodes->agent_foreach<fpi::FDSP_MsgCodeType,
+                               fpi::FDSP_NotifyVolFlag,
+                               VolumeInfo::pointer>(fpi::FDSP_MSG_SNAP_VOL,
+                                                    fpi::FDSP_NOTIFY_VOL_NO_FLAG,
+                                                    vol, om_send_vol_command);
     return  dc_dm_nodes->rs_available_elm();
 }
 
@@ -1221,8 +1252,10 @@ OM_NodeContainer::om_bcast_vol_snap(VolumeInfo::pointer vol)
 fds_uint32_t
 OM_NodeContainer::om_bcast_vol_detach(VolumeInfo::pointer vol)
 {
-    return vol->vol_foreach_am<fpi::FDSP_MsgCodeType, fds_bool_t>
-            (fpi::FDSP_MSG_DETACH_VOL_CTRL, false, om_send_vol_command);
+    return vol->vol_foreach_am<fpi::FDSP_MsgCodeType,
+                               fpi::FDSP_NotifyVolFlag>(fpi::FDSP_MSG_DETACH_VOL_CTRL,
+                                                        fpi::FDSP_NOTIFY_VOL_NO_FLAG,
+                                                        om_send_vol_command);
 }
 
 
@@ -1233,14 +1266,25 @@ fds_uint32_t
 OM_NodeContainer::om_bcast_vol_delete(VolumeInfo::pointer vol, fds_bool_t check_only)
 {
     fds_uint32_t count = 0;
+    fpi::FDSP_NotifyVolFlag vol_flag = fpi::FDSP_NOTIFY_VOL_NO_FLAG;
+    if (check_only) {
+        vol_flag = fpi::FDSP_NOTIFY_VOL_CHECK_ONLY;
+    }
+
     if (!check_only) {
-        dc_sm_nodes->agent_foreach<fpi::FDSP_MsgCodeType, fds_bool_t, VolumeInfo::pointer>
-                (fpi::FDSP_MSG_DELETE_VOL, check_only, vol, om_send_vol_command);
+        dc_sm_nodes->agent_foreach<fpi::FDSP_MsgCodeType,
+                                   fpi::FDSP_NotifyVolFlag,
+                                   VolumeInfo::pointer>(fpi::FDSP_MSG_DELETE_VOL,
+                                                        vol_flag, vol,
+                                                        om_send_vol_command);
         count += dc_sm_nodes->rs_available_elm();
     }
 
-    dc_dm_nodes->agent_foreach<fpi::FDSP_MsgCodeType, fds_bool_t, VolumeInfo::pointer>
-            (fpi::FDSP_MSG_DELETE_VOL, check_only, vol, om_send_vol_command);
+    dc_dm_nodes->agent_foreach<fpi::FDSP_MsgCodeType,
+                               fpi::FDSP_NotifyVolFlag,
+                               VolumeInfo::pointer>(fpi::FDSP_MSG_DELETE_VOL,
+                                                    vol_flag, vol,
+                                                    om_send_vol_command);
     count += dc_dm_nodes->rs_available_elm();
 
     return count;
