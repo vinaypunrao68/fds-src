@@ -19,7 +19,7 @@ namespace fds {
   class VolumeCatalog : public Catalog {
  private:
  public:
-    explicit VolumeCatalog(const std::string& _file);
+    explicit VolumeCatalog(const std::string& _file, fds_bool_t cat_flag);
     ~VolumeCatalog();
 
     using Catalog::Query;
@@ -34,7 +34,7 @@ namespace fds {
   class TimeCatalog : public Catalog {
  private:
  public:
-    explicit TimeCatalog(const std::string& _file);
+    explicit TimeCatalog(const std::string& _file, fds_bool_t cat_flag);
     ~TimeCatalog();
   };
 

@@ -141,7 +141,6 @@ namespace fds {
         void syncDoneCb(fds_volid_t volid,
                         OMgrClient* omclient,
                         const Error& error);
-        void syncDoneCb(fds_volid_t volid, const Error& error);
         netMetaSyncClientSession*
         get_metaSync_client(const std::string &ip, const int &port);
         void SendMetaSyncDone(fds_volid_t volid, NodeUuid dst_node_uuid);

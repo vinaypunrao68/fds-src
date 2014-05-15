@@ -15,7 +15,7 @@ namespace fds {
 /** Catalog constructor
  * @param[in] _file The catalog's on disk backing file
  */
-Catalog::Catalog(const std::string& _file)
+Catalog::Catalog(const std::string& _file, fds_bool_t cat_flag)
     : backing_file(_file) {
     /*
      * Setup DB options
@@ -25,12 +25,12 @@ Catalog::Catalog(const std::string& _file)
             leveldb::NewBloomFilterPolicy(FILTER_BITS_PER_KEY);
     options.write_buffer_size = WRITE_BUFFER_SIZE;
 
-    write_options.sync = true;
+      write_options.sync = true;
 
-    leveldb::Status status = leveldb::DB::Open(options, backing_file, &db);
-    /* Open has to succeed */
-    env = leveldb::Env::Default();
-    assert(status.ok());
+      leveldb::Status status = leveldb::DB::Open(options, backing_file, &db);
+      /* Open has to succeed */
+      env = leveldb::Env::Default();
+      assert(status.ok());
 }
 
 /** The default destructor
