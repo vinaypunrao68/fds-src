@@ -55,7 +55,7 @@ namespace fds {
 
  public:
     /** Constructor */
-    explicit Catalog(const std::string& _file);
+    Catalog(const std::string& _file, fds_bool_t cat_flag = true);
     /** Default destructor */
     ~Catalog();
 
