@@ -49,7 +49,7 @@ int scheduleSnapVolCat(void* _io);
 class DataMgr : public PlatformProcess, public DmIoReqHandler
 {
   public:
-    void InitMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr);
+    static void InitMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr);
 
   class ReqHandler;
   

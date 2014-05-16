@@ -51,9 +51,10 @@ DataMgr::volcat_evt_handler(fds_catalog_action_t catalog_action,
                             const FDS_ProtocolInterface::FDSP_PushMetaPtr& push_meta,
                             const std::string& session_uuid) {
     Error err(ERR_OK);
+    OMgrClient* om_client = dataMgr->omClient;
     GLOGNORMAL << "Received Volume Catalog request";
     if (catalog_action == fds_catalog_push_meta) {
-        err = dataMgr->catSyncMgr->startCatalogSync(push_meta->metaVol, session_uuid);
+        err = dataMgr->catSyncMgr->startCatalogSync(push_meta->metaVol, om_client, session_uuid);
     } else if (catalog_action == fds_catalog_dmt_close) {
         dataMgr->catSyncMgr->notifyCatalogSyncFinish();
     } else {
@@ -1549,7 +1550,7 @@ DataMgr::snapVolCat(DmIoSnapVolCat* snapReq) {
 
     // TODO(xxx) call CatalogSync callback which will do RSync
     // TODO(xxx) add and pass other required params to do rsync
-    snapReq->dmio_snap_vcat_cb(err, omClient);
+    snapReq->dmio_snap_vcat_cb(snapReq->volId, err);
 
     // mark this request as complete
     qosCtrl->markIODone(*snapReq);

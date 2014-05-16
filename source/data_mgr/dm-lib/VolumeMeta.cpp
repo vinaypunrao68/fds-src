@@ -245,8 +245,6 @@ VolumeMeta::syncVolCat(fds_volid_t volId, NodeUuid node_uuid)
   // returnCode = std::system((const char *)("rsync -r --rsh='sshpass -p passwd ssh -l root' "+dst+"/  root@"+dest_ip+":"+dst_node+"").c_str());
    FDS_PLOG(dm_log) << "system Command  rsync return Code : " << returnCode;
 
-  dataMgr->catSyncMgr->SendMetaSyncDone(volId, node_uuid);
-
   return err;
 }
 

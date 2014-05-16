@@ -16,8 +16,6 @@
 
 namespace fds {
 
-    class OMgrClient;  // forward definition
-
     /*
      * TODO: Make more generic name than catalog request
      */
@@ -120,8 +118,8 @@ namespace fds {
     class DmIoSnapVolCat: public dmCatReq {
   public:
         // TODO(xxx) what other params do we need?
-        typedef std::function<void (const Error& error,
-                                    OMgrClient *omclient)> CbType; 
+      typedef std::function<void (fds_volid_t volid,
+                                  const Error& error)> CbType;
 
   public:
         DmIoSnapVolCat() {

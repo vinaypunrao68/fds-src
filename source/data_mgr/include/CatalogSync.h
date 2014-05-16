@@ -7,6 +7,7 @@
 #include <atomic>
 #include <unordered_map>
 #include <string>
+#include <set>
 
 #include <dm-platform.h>
 #include <fds_error.h>
@@ -35,7 +36,7 @@ namespace fds {
 
     /**
      * Callback type to notify that catalog sync process is finished for
-     * a given volume
+     * a given node
      */
      typedef std::function<void (fds_volid_t vol_id,
                                  OMgrClient* omclient,
@@ -46,8 +47,8 @@ namespace fds {
      */
     class CatalogSync {
   public:
-        CatalogSync(fds_volid_t vol_id,
-                    const NodeUuid &uuid,
+        CatalogSync(const NodeUuid &uuid,
+                    OMgrClient* omclient,
                     DmIoReqHandler* dm_req_hdlr);
         ~CatalogSync();
 
@@ -58,34 +59,36 @@ namespace fds {
         } csStateType;
 
         /**
-         * Actually start catalog sync process. Will queue
-         * work item to make a level db snapshot
+         * Actually start catalog sync process for given set of
+         * volumes to node for which this CatalogSync is reponsible for.
          * @param[in] done_evt_hdlr a callback CatalogSync will call
          * when the sync process is finished.
          */
-        Error startSync(catsync_done_handler_t done_evt_hdlr);
+        Error startSync(const std::set<fds_volid_t>& volumes,
+                        netMetaSyncClientSession* client,
+                        catsync_done_handler_t done_evt_hdlr);
 
         /**
          * @return true if catalog sync is finished
          */
-        inline fds_bool_t isDone() const {
-            return (state == CSSTATE_DONE);
-        }
+        fds_bool_t isDone() const;
 
         /**
          * Callback from data mgr that volume cat snapshot
          * is complete; can do rsync here
          */
-        void snapDoneCb(const Error& error,
-                        OMgrClient* omclient
+        void snapDoneCb(fds_volid_t volid,
+                        const Error& error
                         /*vol_snap_req*/
                         /* open file desc ?*/);
 
+  private:  // methods
+        Error sendMetaSyncDone(fds_volid_t volid);
+
   private:
-        fds_volid_t volume_id;  // volume to sync
         NodeUuid node_uuid;  // destination node
 
-        csStateType state;  // current state
+        std::atomic<csStateType> state;  // current state
 
         /**
          * Pointer to DmIoReqHandler so we can queue work/IO to
@@ -98,10 +101,26 @@ namespace fds {
          * when catalog sync job is finished
          */
         catsync_done_handler_t done_evt_handler;
+
+        /**
+         * Cashed OM client passed via constructor, does not own
+         */
+        OMgrClient* om_client;
+
+        /**
+         * For tracking sync progress
+         */
+        fds_uint32_t total_vols;  // num of vols for this sync job
+        std::atomic<fds_uint32_t> vols_done;  // num of vols synced
+
+        /**
+         * Client to destination DM with uuid 'node_uuid'
+         */
+        netMetaSyncClientSession *meta_client;
     };
 
     typedef boost::shared_ptr<CatalogSync> CatalogSyncPtr;
-    typedef std::unordered_map<fds_volid_t, CatalogSyncPtr> CatSyncMap;
+    typedef std::unordered_map<NodeUuid, CatalogSyncPtr, UuidHash> CatSyncMap;
 
     // typedef std::unordered_map<NodeUuid, netMetaSyncClientSession> NetMetaSyncMap;
 
@@ -127,6 +146,7 @@ namespace fds {
          * cat sync is still in progress, later we may revisit this...
          */
         Error startCatalogSync(const fpi::FDSP_metaDataList& metaVol,
+                               OMgrClient* omclient,
                                const std::string& context);
 
         /**
@@ -141,9 +161,10 @@ namespace fds {
         void syncDoneCb(fds_volid_t volid,
                         OMgrClient* omclient,
                         const Error& error);
+
+  private:  // methods
         netMetaSyncClientSession*
-        get_metaSync_client(const std::string &ip, const int &port);
-        void SendMetaSyncDone(fds_volid_t volid, NodeUuid dst_node_uuid);
+                create_metaSync_client(const NodeUuid& node_uuid, OMgrClient* omclient);
 
   private:
         fds_bool_t sync_in_progress;
@@ -171,8 +192,6 @@ namespace fds {
         netSessionTblPtr netSessionTbl;
         boost::shared_ptr<FDSP_MetaSyncRpc> meta_handler;
         netMetaSyncServerSession *meta_session;
-        netMetaSyncClientSession *meta_client;
-        // NetMetaSyncMap  meta_client;
     };
 
     typedef boost::shared_ptr<CatalogSyncMgr> CatalogSyncMgrPtr;
