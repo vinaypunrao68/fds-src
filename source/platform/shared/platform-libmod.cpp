@@ -247,7 +247,7 @@ Platform::plf_svc_uuid_from_node(const NodeUuid &node,
 }
 
 // -----------------------------------------------------------------------------------
-// Module methods.
+// Module methods.: TODO(Vy) - We don't need these functions
 // -----------------------------------------------------------------------------------
 int
 Platform::mod_init(SysParams const *const param)

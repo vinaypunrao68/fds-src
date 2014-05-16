@@ -96,9 +96,6 @@ EpAttr::netaddr_my_ip(struct sockaddr *adr,
             char ipv4[INET_ADDRSTRLEN];
 
             /* Hacking, should be based on IP used with the GW */
-            if (cur->ifa_addr->sa_family != AF_INET) {
-                continue;
-            }
             if (cur->ifa_name[0] != 'l' && cur->ifa_name[1] != 'o') {
                 ip = reinterpret_cast<struct sockaddr_in *>(cur->ifa_addr);
                 inet_ntop(AF_INET, &ip->sin_addr, ipv4, INET_ADDRSTRLEN);

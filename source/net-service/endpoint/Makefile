@@ -7,6 +7,7 @@ user_cpp         := \
     endpoint.cpp \
     ep-map.cpp \
     ep-attr.cpp \
+    net-plat-shared.cpp \
     net-service.cpp
 
 user_ar_libs     := fds-net-svc

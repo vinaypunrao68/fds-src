@@ -180,7 +180,7 @@ class EndPoint : public EpSvcImpl
             std::string  ip;
             fpi::SvcUuid peer;
 
-            ep_my_uuid(peer);
+            ep_peer_uuid(peer);
             if (peer.svc_uuid != 0) {
                 port = NetMgr::ep_mgr_singleton()->ep_uuid_binding(peer, &ip);
                 if (port != -1) {
