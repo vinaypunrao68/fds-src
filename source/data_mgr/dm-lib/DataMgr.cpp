@@ -547,6 +547,10 @@ void DataMgr::proc_pre_startup()
     LOGNORMAL << "Data Manager using IP:"
               << myIp << " and node name " << node_name;
 
+    // Init the commit log. TODO(Andrew): We should be loading
+    // from the previous commit log on disk.
+    commitLog = DmCommitLog::ptr(new DmCommitLog("DM Trans Commit Log"));
+
     setup_metadatapath_server(myIp);
 
     if (use_om) {
@@ -1268,6 +1272,10 @@ DataMgr::startBlobTxBackend(const dmCatReq *startBlobTxReq) {
     LOGDEBUG << "Got blob tx backend for volume "
              << startBlobTxReq->getVolId() << " and blob "
              << startBlobTxReq->blob_name;
+
+    BlobTxId::const_ptr blobTxId = startBlobTxReq->getBlobTxId();
+    fds_verify(*blobTxId != blobTxIdInvalid);
+    Error err = commitLog->openTrans(blobTxId);
 
     FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr(new FDSP_MsgHdrType());
     InitMsgHdr(msgHdr);

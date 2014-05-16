@@ -79,10 +79,14 @@ class BlobTxId {
     typedef boost::shared_ptr<BlobTxId> ptr;
     typedef boost::shared_ptr<const BlobTxId> const_ptr;
     BlobTxId& operator=(const BlobTxId& rhs);
+    fds_bool_t operator==(const BlobTxId& rhs) const;
+    fds_bool_t operator!=(const BlobTxId& rhs) const;
     friend std::ostream& operator<<(std::ostream& out, const BlobTxId& txId);
 
     fds_uint64_t getValue() const;
 };
+
+static const BlobTxId blobTxIdInvalid(0);
 
 std::ostream& operator<<(std::ostream& out, const BlobTxId& txId);
 }  // namespace fds

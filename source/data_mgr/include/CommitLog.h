@@ -4,10 +4,12 @@
 #ifndef SOURCE_DATA_MGR_INCLUDE_COMMITLOG_H_
 #define SOURCE_DATA_MGR_INCLUDE_COMMITLOG_H_
 
+#include <unordered_map>
 #include <fds_error.h>
 #include <fds_module.h>
 #include <blob/BlobTypes.h>
 #include <lib/Catalog.h>
+#include <VolumeMeta.h>
 
 namespace fds {
 
@@ -18,9 +20,15 @@ namespace fds {
  */
 class DmCommitLog : public Module {
   private:
-    fds_uint32_t temp;
     // TODO(Andrew): Make into log specific catalog
+    /// Persistent journal of pending operations.
+    /// Allows the pendingBlobNodes map to be rebuilt
+    /// in the event of a crash
     Catalog::ptr ondiskLog;
+
+    typedef std::unordered_map<std::string, BlobNode::ptr> PendingBlobMap;
+    /// Manages in-memory pending blobnodes
+    PendingBlobMap pendingBlobNodes;
 
   public:
     explicit DmCommitLog(const std::string &modName);

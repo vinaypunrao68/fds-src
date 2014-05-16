@@ -65,9 +65,20 @@ BlobTxId::getValue() const {
     return txId;
 }
 
-BlobTxId& BlobTxId::operator=(const BlobTxId& rhs) {
+BlobTxId&
+BlobTxId::operator=(const BlobTxId& rhs) {
     txId = rhs.txId;
     return *this;
+}
+
+fds_bool_t
+BlobTxId::operator==(const BlobTxId& rhs) const {
+    return txId == rhs.txId;
+}
+
+fds_bool_t
+BlobTxId::operator!=(const BlobTxId& rhs) const {
+    return txId != rhs.txId;
 }
 
 std::ostream&

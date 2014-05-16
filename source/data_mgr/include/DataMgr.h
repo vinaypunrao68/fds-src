@@ -194,6 +194,10 @@ public:
         void setBlobTxId(BlobTxId::const_ptr id) {
             blobTxId = id;
         }
+
+        BlobTxId::const_ptr getBlobTxId() const {
+            return blobTxId;
+        }
     };
 
  private:
@@ -308,6 +312,11 @@ public:
      * Used to protect access to vol_meta_map.
      */
     fds_mutex *vol_map_mtx;
+
+    /**
+     * Manages pending 2-phase commit updates
+     */
+    DmCommitLog::ptr commitLog;
 
     /**
      * Giant, slow, big hammer lock.
