@@ -158,14 +158,15 @@ class FDSBlockVolumeDriver(driver.VolumeDriver):
 
     def initialize_connection(self, volume, connector):
         with self._get_services() as fds:
-            device = self._attach_fds_block_dev(volume['name'])
+            device = self._attach_fds_block_dev(fds, volume['name'])
             return {
                 'driver_volume_type': 'local',
                 'data': {'device_path': device }
             }
 
     def terminate_connection(self, volume, connector, **kwargs):
-        self._detach_fds_block_dev(self, volume['name'])
+        with self._get_services() as fds:
+            self._detach_fds_block_dev(fds, volume['name'])
 
     def get_volume_stats(self, refresh=False):
         # FIXME: real stats
@@ -192,4 +193,15 @@ class FDSBlockVolumeDriver(driver.VolumeDriver):
     def ensure_export(self, context, volume):
         pass
 
+    def copy_image_to_volume(self, context, volume, image_service, image_id):
+        with self._get_services() as fds:
+            dev = self._attach_fds_block_dev(fds, volume["name"])
+            image_utils.fetch_to_raw(
+                context,
+                image_service,
+                image_id,
+                dev,
+                self.configuration.volume_dd_blocksize,
+                size=volume["size"])
+            self._detach_fds_block_dev(fds, volume["name"])
 
