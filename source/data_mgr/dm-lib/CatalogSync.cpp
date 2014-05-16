@@ -51,7 +51,7 @@ Error CatalogSync::startSync(const std::set<fds_volid_t>& volumes,
     // set callback to notify when sync job is done
     meta_client = client;
     done_evt_handler = done_evt_hdlr;
-    total_vols = 0;
+    total_vols = volumes.size();
     fds_uint32_t counter_zero = 0;
     std::atomic_store(&vols_done, counter_zero);
 
@@ -133,6 +133,8 @@ Error CatalogSync::sendMetaSyncDone(fds_volid_t volid) {
 
     DataMgr::InitMsgHdr(msg_hdr);  // init the  message  header
     msg_hdr->dst_id = FDSP_DATA_MGR;
+
+    LOGDEBUG << "Will send MetaSyncDone msg";
 
     try {
         meta_client->getClient()->MetaSyncDone(msg_hdr, vol_meta);

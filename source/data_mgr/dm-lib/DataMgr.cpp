@@ -1543,6 +1543,7 @@ DataMgr::snapVolCat(DmIoSnapVolCat* snapReq) {
 
     VolumeMeta *vm = vol_meta_map[snapReq->volId];
     err = vm->syncVolCat(snapReq->volId, snapReq->node_uuid);
+    LOGDEBUG << "Finished rsync, calling catsync callback";
 
     // TODO(xxx) snapshot volume catalog here or could do in
     // CatalogSync::snapDoneCb() which we call below
