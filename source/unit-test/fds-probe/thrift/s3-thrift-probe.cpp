@@ -138,6 +138,8 @@ ProbeAmFoo::js_exec_obj(JsObject *parent, JsObjTemplate *tmpl, JsObjOutput *out)
     am_foo_arg_t *p = am_probe_foo();
 
     RpcRequestPool pool;
+    fpi::SvcUuid myEpId;
+    myEpId.svc_uuid = 0xabcdef;
     std::vector<fpi::SvcUuid> uuid_list;
     fpi::SvcUuid id1;
     id1.svc_uuid = 0xfedcba;
@@ -146,8 +148,9 @@ ProbeAmFoo::js_exec_obj(JsObject *parent, JsObjTemplate *tmpl, JsObjOutput *out)
 
     boost::shared_ptr<fpi::ProbeGetMsgResp> arg1(new fpi::ProbeGetMsgResp());
 
-    auto failoverReq = pool.newFailoverRpcRequest<fpi::ProbeServiceAMClient>(uuid_list,
-            static_cast<void(ProbeServiceAMClient::*)(boost::shared_ptr<fpi::ProbeGetMsgResp>&)>(&fpi::ProbeServiceAMClient::am_probe_put_resp), // NOLINT
+    auto failoverReq = pool.newFailoverRpcRequest<fpi::ProbeServiceAMClient>(
+        myEpId, uuid_list,
+        static_cast<void(ProbeServiceAMClient::*)(boost::shared_ptr<fpi::ProbeGetMsgResp>&)>(&fpi::ProbeServiceAMClient::am_probe_put_resp), // NOLINT
             arg1);
 
     failoverReq->invoke();

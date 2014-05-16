@@ -13,7 +13,7 @@ namespace fds {
  *
  */
 FailoverRpcRequest::FailoverRpcRequest()
-: FailoverRpcRequest(0, std::vector<fpi::SvcUuid>())
+: FailoverRpcRequest(0, fpi::SvcUuid(), std::vector<fpi::SvcUuid>())
 {
 }
 
@@ -23,11 +23,12 @@ FailoverRpcRequest::FailoverRpcRequest()
  * @param uuid
  */
 FailoverRpcRequest::FailoverRpcRequest(const AsyncRpcRequestId& id,
-        const std::vector<fpi::SvcUuid>& svcUuids)
-    : AsyncRpcRequestIf(0),
+                                       const fpi::SvcUuid &myEpId,
+                                       const std::vector<fpi::SvcUuid>& peerEpIds)
+    : AsyncRpcRequestIf(id, myEpId),
       curEpIdx_(0)
 {
-    for (auto uuid : svcUuids) {
+    for (auto uuid : peerEpIds) {
         addEndpoint(uuid);
     }
 }
@@ -40,7 +41,7 @@ FailoverRpcRequest::FailoverRpcRequest(const AsyncRpcRequestId& id,
  */
 void FailoverRpcRequest::addEndpoint(const fpi::SvcUuid& uuid)
 {
-    epReqs_.push_back(EPAsyncRpcRequestPtr(new EPAsyncRpcRequest(id_, uuid)));
+    epReqs_.push_back(EPAsyncRpcRequestPtr(new EPAsyncRpcRequest(id_, myEpId_, uuid)));
 }
 
 /**
@@ -101,7 +102,7 @@ void FailoverRpcRequest::invoke()
 void FailoverRpcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
         boost::shared_ptr<std::string>& payload)
 {
-    bool invokeRpc = false;
+    // bool invokeRpc = false;
     fpi::SvcUuid errdEpId;
 
     fds_scoped_lock l(respLock_);
@@ -112,7 +113,7 @@ void FailoverRpcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header
         return;
     }
 
-    if (header->msg_src_uuid != epReqs_[curEpIdx_]->epId_) {
+    if (header->msg_src_uuid != epReqs_[curEpIdx_]->peerEpId_) {
         /* Response isn't from the last endpoint we issued the request against.
          * Don't do anything here
          */
@@ -182,7 +183,7 @@ bool FailoverRpcRequest::moveToNextHealthyEndpoint_()
     for (; curEpIdx_ < epReqs_.size(); curEpIdx_++) {
         // TODO(Rao): Pass the right rpc version id
         auto ep = NetMgr::ep_mgr_singleton()->\
-                    endpoint_lookup(epReqs_[curEpIdx_]->epId_);
+                    endpoint_lookup(epReqs_[curEpIdx_]->peerEpId_);
 
         if (ep == nullptr) {
             epReqs_[curEpIdx_]->error_ = ERR_EP_NON_EXISTANT;

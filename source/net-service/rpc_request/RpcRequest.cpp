@@ -10,12 +10,14 @@
 namespace fds {
 
 AsyncRpcRequestIf::AsyncRpcRequestIf()
-    : AsyncRpcRequestIf(0)
+    : AsyncRpcRequestIf(0, fpi::SvcUuid())
 {
 }
 
-AsyncRpcRequestIf::AsyncRpcRequestIf(const AsyncRpcRequestId &id)
+AsyncRpcRequestIf::AsyncRpcRequestIf(const AsyncRpcRequestId &id,
+                                     const fpi::SvcUuid &myEpId)
     : id_(id),
+      myEpId_(myEpId),
       state_(PRIOR_INVOCATION),
       timeoutMs_(0)
 {
@@ -74,9 +76,9 @@ void AsyncRpcRequestIf::setCompletionCb(RpcRequestCompletionCb &completionCb)
  * Common invocation handler across all async requests
  * @param epId
  */
-void AsyncRpcRequestIf::invokeCommon_(const fpi::SvcUuid &epId)
+void AsyncRpcRequestIf::invokeCommon_(const fpi::SvcUuid &peerEpId)
 {
-    auto header = RpcRequestPool::newAsyncHeader(id_, epId);
+    auto header = RpcRequestPool::newAsyncHeader(id_, myEpId_, peerEpId);
     rpc_->setHeader(header);
 
     GLOGDEBUG << logString(header);
@@ -90,15 +92,16 @@ void AsyncRpcRequestIf::invokeCommon_(const fpi::SvcUuid &epId)
 }
 
 EPAsyncRpcRequest::EPAsyncRpcRequest()
-    : EPAsyncRpcRequest(0, fpi::SvcUuid())
+    : EPAsyncRpcRequest(0, fpi::SvcUuid(), fpi::SvcUuid())
 {
 }
 
 EPAsyncRpcRequest::EPAsyncRpcRequest(const AsyncRpcRequestId &id,
-        const fpi::SvcUuid &uuid)
-    : AsyncRpcRequestIf(id)
+                                     const fpi::SvcUuid &myEpId,
+                                     const fpi::SvcUuid &peerEpId)
+    : AsyncRpcRequestIf(id, myEpId)
 {
-    epId_ = uuid;
+    peerEpId_ = peerEpId;
 }
 
 void EPAsyncRpcRequest::onSuccessCb(RpcRequestSuccessCb &cb) {
@@ -121,7 +124,7 @@ void EPAsyncRpcRequest::invoke()
     // TODO(Rao): Determine endpoint is healthy or not
 
     if (epHealthy) {
-       invokeCommon_(epId_);
+       invokeCommon_(peerEpId_);
     } else {
         // TODO(Rao): post error to threadpool
     }

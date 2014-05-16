@@ -2,7 +2,7 @@
  */
 #include <string>
 
-#include <BaseAsyncSvcHandler.h>
+#include <net/BaseAsyncSvcHandler.h>
 #include <util/Log.h>
 #include <net/RpcRequest.h>
 #include <net/AsyncRpcRequestTracker.h>
@@ -38,20 +38,27 @@ void BaseAsyncSvcHandler::asyncReqt(
 }
 
 /**
- *
- * @param msg
- */
-void BaseAsyncSvcHandler::uuidBind(
-        const FDS_ProtocolInterface::UuidBindMsg& msg) {
+* @brief 
+*
+* @param _return
+* @param msg
+*/
+void BaseAsyncSvcHandler::uuidBind(FDS_ProtocolInterface::RespHdr& _return,
+                    const FDS_ProtocolInterface::UuidBindMsg& msg)
+{
 }
 
 /**
- *
- * @param msg
- */
-void BaseAsyncSvcHandler::uuidBind(
-        boost::shared_ptr<FDS_ProtocolInterface::UuidBindMsg>& msg) {
+* @brief 
+*
+* @param _return
+* @param msg
+*/
+void BaseAsyncSvcHandler::uuidBind(FDS_ProtocolInterface::RespHdr& _return,
+                        boost::shared_ptr<FDS_ProtocolInterface::UuidBindMsg>& msg)
+{
 }
+
 /**
  *
  * @param header
@@ -71,6 +78,7 @@ void BaseAsyncSvcHandler::asyncResp(
         boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
         boost::shared_ptr<std::string>& payload)
 {
+    GLOGDEBUG;
     auto asyncReq = gAsyncRpcTracker->\
             getAsyncRpcRequest(static_cast<AsyncRpcRequestId>(header->msg_src_id));
     if (!asyncReq) {

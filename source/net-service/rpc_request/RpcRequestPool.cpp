@@ -53,10 +53,11 @@ EPRpcRequestPtr RpcRequestPool::newEPRpcRequest(const fpi::SvcUuid &uuid)
  * @return
  */
 EPAsyncRpcRequestPtr
-RpcRequestPool::newEPAsyncRpcRequest(const fpi::SvcUuid &uuid)
+RpcRequestPool::newEPAsyncRpcRequest(const fpi::SvcUuid &myEpId,
+                                     const fpi::SvcUuid &peerEpId)
 {
     auto reqId = nextAsyncReqId_++;
-    EPAsyncRpcRequestPtr req(new EPAsyncRpcRequest(reqId, uuid));
+    EPAsyncRpcRequestPtr req(new EPAsyncRpcRequest(reqId, myEpId, peerEpId));
     asyncRpcCommonHandling(req);
 
     return req;
@@ -67,13 +68,13 @@ RpcRequestPool::newEPAsyncRpcRequest(const fpi::SvcUuid &uuid)
  */
 fpi::AsyncHdr
 RpcRequestPool::newAsyncHeader(const AsyncRpcRequestId& reqId,
+                               const fpi::SvcUuid &srcUuid,
                                const fpi::SvcUuid &dstUuid)
 {
     fpi::AsyncHdr header;
 
     header.msg_src_id = reqId;
-    // TODO(Rao): Fill the src uuid
-    // header.msg_src_uuid = ;
+    header.msg_src_uuid = srcUuid;
     header.msg_dst_uuid = dstUuid;
     header.msg_code = 0;
     return header;

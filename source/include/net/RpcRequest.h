@@ -42,7 +42,7 @@ class AsyncRpcRequestIf {
  public:
     AsyncRpcRequestIf();
 
-    explicit AsyncRpcRequestIf(const AsyncRpcRequestId &id);
+    AsyncRpcRequestIf(const AsyncRpcRequestId &id, const fpi::SvcUuid &myEpId);
 
     virtual ~AsyncRpcRequestIf();
 
@@ -76,6 +76,8 @@ class AsyncRpcRequestIf {
     RpcFuncPtr rpc_;
     /* Request Id */
     AsyncRpcRequestId id_;
+    /* My endpoint id */
+    fpi::SvcUuid myEpId_;
     /* Async rpc state */
     AsyncRpcState state_;
     /* Error if any */
@@ -95,7 +97,8 @@ class EPAsyncRpcRequest : public AsyncRpcRequestIf {
     EPAsyncRpcRequest();
 
     EPAsyncRpcRequest(const AsyncRpcRequestId &id,
-            const fpi::SvcUuid &svcUuids);
+                      const fpi::SvcUuid &myEpId,
+                      const fpi::SvcUuid &peerEpId);
 
     void onSuccessCb(RpcRequestSuccessCb &cb);
 
@@ -107,7 +110,7 @@ class EPAsyncRpcRequest : public AsyncRpcRequestIf {
             boost::shared_ptr<std::string>& payload) override;
 
  protected:
-    fpi::SvcUuid epId_;
+    fpi::SvcUuid peerEpId_;
     /* Response callbacks.  If set they are invoked in handleResponse() */
     RpcRequestSuccessCb successCb_;
     RpcRequestErrorCb errorCb_;
@@ -124,7 +127,8 @@ class FailoverRpcRequest : public AsyncRpcRequestIf {
     FailoverRpcRequest();
 
     FailoverRpcRequest(const AsyncRpcRequestId& id,
-            const std::vector<fpi::SvcUuid>& uuid);
+            const fpi::SvcUuid &myEpId,
+            const std::vector<fpi::SvcUuid>& peerEpIds);
 
     void addEndpoint(const fpi::SvcUuid& uuid);
 
@@ -239,18 +243,18 @@ class EPRpcRequest : public RpcRequestIf<ServiceT, ArgT> {
     }
 
     explicit EPRpcRequest(const fpi::SvcUuid &uuid) {
-        epId_ = uuid;
+        peerEpId_ = uuid;
     }
 
     virtual ~EPRpcRequest() {
     }
 
     void setEndpointId(const fpi::SvcUuid &uuid) {
-        epId_ = uuid;
+        peerEpId_ = uuid;
     }
 
     fpi::SvcUuid getEndpointId() const {
-        return epId_;
+        return peerEpId_;
     }
 
     virtual void handleError(const Error&e, VoidPtr resp) override {
@@ -304,7 +308,7 @@ class EPRpcRequest : public RpcRequestIf<ServiceT, ArgT> {
 
  protected:
     /* Endpoint id */
-    fpi::SvcUuid epId_;
+    fpi::SvcUuid peerEpId_;
     /* Error if any was set */
     Error error_;
 };

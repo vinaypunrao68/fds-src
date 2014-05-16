@@ -13,6 +13,10 @@
 #include <fds_error.h>
 #include <shared/fds-constants.h>
 #include <fdsp/fds_service_types.h>
+#include <fdsp/AsyncRspSvc.h>
+#include <thrift/protocol/TBinaryProtocol.h>
+#include <thrift/transport/TBufferTransports.h>
+#include <util/Log.h>
 #include <fds_typedefs.h>
 
 // Forward declarations
@@ -29,6 +33,7 @@ namespace fpi = FDS_ProtocolInterface;
 namespace fds {
 namespace bo  = boost;
 namespace tt  = apache::thrift::transport;
+namespace tp  = apache::thrift::protocol;
 
 class EpSvc;
 class EpSvcImpl;
@@ -473,6 +478,34 @@ class NetMgr : public Module
         return NULL;
     }
 
+    template<class PayloadT>
+    void ep_send_async_resp(const fpi::AsyncHdr& req_hdr, const PayloadT& payload)
+    {
+        GLOGDEBUG;
+        auto resp_hdr = ep_swap_header(req_hdr);
+
+        boost::shared_ptr<tt::TMemoryBuffer> buffer(new tt::TMemoryBuffer());
+        boost::shared_ptr<tp::TProtocol> binary_buf(new tp::TBinaryProtocol(buffer));
+
+        auto written = payload.write(binary_buf.get());
+        fds_verify(written > 0);
+
+        EpSvcHandle::pointer ep = svc_get_handle<fpi::AsyncRspSvcClient>(
+                                            resp_hdr.msg_dst_uuid, 0 , 0);
+        auto client = ep->svc_rpc<fpi::AsyncRspSvcClient>();
+        client->asyncResponse(resp_hdr, buffer->getBufferAsString());
+        // auto client = getEpClient<AsyncRspSvcClient>(resp_hdr.msg_dst_uuid.svc_uuid);
+
+        // client->asyncResponse(resp_hdr, buffer->getBufferAsString());
+    }
+
+    static fpi::AsyncHdr ep_swap_header(const fpi::AsyncHdr &req_hdr)
+    {
+        auto resp_hdr = req_hdr;
+        resp_hdr.msg_src_uuid = req_hdr.msg_dst_uuid;
+        resp_hdr.msg_dst_uuid = req_hdr.msg_src_uuid;
+        return resp_hdr;
+    }
     // Hook up with domain membership to know which node belongs to which domain.
     //
 
