@@ -140,6 +140,13 @@ class FDSBlockVolumeDriver(driver.VolumeDriver):
         # del self.attached_devices[name]
         pass
 
+    @contextmanager
+    def _use_block_device(self, fds, name):
+        pre_attached = self.attached_devices.has_key(name)
+        yield self._attach_fds_block_dev(self, fds, name)
+        if not pre_attached:
+            self._detach_fds_block_dev(fds, name)
+
     def check_for_setup_error(self):
         # FIXME: do checks
         # ensure domain exists
@@ -195,13 +202,21 @@ class FDSBlockVolumeDriver(driver.VolumeDriver):
 
     def copy_image_to_volume(self, context, volume, image_service, image_id):
         with self._get_services() as fds:
-            dev = self._attach_fds_block_dev(fds, volume["name"])
-            image_utils.fetch_to_raw(
-                context,
-                image_service,
-                image_id,
-                dev,
-                self.configuration.volume_dd_blocksize,
-                size=volume["size"])
-            self._detach_fds_block_dev(fds, volume["name"])
+            with self._use_block_device(fds, volume["name"]) as dev:
+                image_utils.fetch_to_raw(
+                    context,
+                    image_service,
+                    image_id,
+                    dev,
+                    self.configuration.volume_dd_blocksize,
+                    size=volume["size"])
+
+    def copy_volume_to_image(self, context, volume, image_service, image_meta):
+        with self._get_services() as fds:
+            with self._use_block_device(fds, volume["name"]) as dev:
+                image_utils.upload_volume(
+                    context,
+                    image_service,
+                    image_meta,
+                    dev)
 
