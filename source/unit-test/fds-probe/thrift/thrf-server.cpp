@@ -32,7 +32,7 @@ int main(int argc, char **argv)
         &fds::gl_fds_stat,
         &fds::gl_probeS3Eng,
         &fds::gl_AmPlatform,
-        &fds::gl_netService,
+        &fds::gl_NetService,
         &fds::gl_ProbeTestSM,
         NULL
     };

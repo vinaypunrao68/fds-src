@@ -28,6 +28,8 @@ namespace FDS_ProtocolInterface {
     class PlatNetSvcClient;
 }  // namespace FDS_ProtocolInterface
 
+namespace fpi = FDS_ProtocolInterface;
+
 namespace fds {
 namespace bo  = boost;
 namespace tt  = apache::thrift::transport;
@@ -41,8 +43,9 @@ class EpPlatLibMod;
 class NetMgr;
 class NetPlatSvc;
 class NetPlatform;
+class NetPlatSvc;
 class fds_threadpool;
-class PmAgent;
+class DomainAgent;
 class Platform;
 
 struct ep_map_rec;
@@ -320,8 +323,9 @@ class EpSvcHandle
 /**
  * Module vector hookup
  */
-extern NetMgr                gl_netService;
-extern NetPlatform           gl_netPlatform;
+extern NetMgr                gl_NetService;
+extern NetPlatform          *gl_NetPlatSvc;
+
 
 typedef std::list<EpSvc::pointer>                         EpSvcList;
 typedef std::unordered_map<fds_uint64_t, int>             UuidShmMap;
@@ -342,9 +346,10 @@ class NetMgr : public Module
     //
     virtual int  mod_init(SysParams const *const p);
     virtual void mod_startup();
+    virtual void mod_enable_service();
     virtual void mod_shutdown();
 
-    static NetMgr *ep_mgr_singleton() { return &gl_netService; }
+    static NetMgr *ep_mgr_singleton() { return &gl_NetService; }
     static fds_threadpool *ep_mgr_thrpool();
 
     /**
@@ -494,16 +499,17 @@ class NetMgr : public Module
     // Dependent modules.
     //
     Platform                      *plat_lib;
+    NetPlatSvc                    *plat_net;
     EpPlatLibMod                  *ep_shm;
 
     UuidEpMap                      ep_map;
     UuidSvcMap                     ep_svc_map;
     UuidShmMap                     ep_uuid_map;
     PortSvcMap                     ep_port_map;
-
-    EpSvcHandle::pointer           ep_domain_clnt;
-    boost::intrusive_ptr<PmAgent>  ep_domain_agent;
     fds_mutex                      ep_mtx;
+
+    EpSvcHandle::pointer               ep_domain_clnt;
+    boost::intrusive_ptr<DomainAgent>  ep_domain_agent;
 
     ResourceUUID const *const ep_my_platform_uuid();
     virtual EpSvc::pointer ep_lookup_port(int port);
@@ -511,7 +517,7 @@ class NetMgr : public Module
 };
 
 /**
- * Singleton module linked with platform daemon.
+ * Singleton module providing platform network services.
  */
 class NetPlatform : public Module
 {
@@ -519,21 +525,23 @@ class NetPlatform : public Module
     explicit NetPlatform(const char *name);
     virtual ~NetPlatform() {}
 
-    // Module methods.
-    //
-    virtual int  mod_init(SysParams const *const p);
-    virtual void mod_startup();
-    virtual void mod_shutdown();
+    inline static NetPlatform *nplat_singleton() { return gl_NetPlatSvc; }
+    virtual EpSvcHandle::pointer nplat_domain_rpc(const fpi::DomainID &id) = 0;
 
-    static NetPlatform *nplat_singleton() { return &gl_netPlatform; }
-    EpSvcHandle::pointer nplat_domain_rpc(const fpi::DomainID &id);
+  protected:
+    // Dependent module.
+    //
+    NetMgr                        *netmgr;
+    Platform                      *plat_lib;
 };
 
 /**
  * Down cast an endpoint intrusive pointer.
  */
 template <class T>
-T *ep_cast_ptr(EpSvc::pointer ep) { return static_cast<T *>(get_pointer(ep)); }
+boost::intrusive_ptr<T> ep_cast_ptr(EpSvc::pointer ep) {
+    return static_cast<T *>(get_pointer(ep));
+}
 
 }  // namespace fds
 #endif  // SOURCE_INCLUDE_NET_NET_SERVICE_H_

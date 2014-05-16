@@ -3,14 +3,15 @@
  */
 #include <string>
 #include <fds_process.h>
-#include <net/net-service-tmpl.hpp>
 #include <platform/platform-lib.h>
+#include <net/net-service-tmpl.hpp>
 #include <fdsp/PlatNetSvc.h>
 #include <ep-map.h>
+#include <net-plat-shared.h>
 
 namespace fds {
 
-NetMgr              gl_netService("EndPoint Mgr");
+NetMgr              gl_NetService("EndPoint Mgr");
 const fpi::SvcUuid  NullSvcUuid;
 
 /*
@@ -23,10 +24,12 @@ NetMgr::NetMgr(const char *name)
     : Module(name), plat_lib(NULL), ep_shm(NULL), ep_domain_clnt(NULL), ep_mtx("Ep mtx")
 {
     static Module *ep_mgr_mods[] = {
-        &gl_EpPlatLib,
+        &gl_EpShmPlatLib,
+        &gl_NetPlatform,
         NULL
     };
-    ep_shm     = &gl_EpPlatLib;
+    ep_shm     = &gl_EpShmPlatLib;
+    plat_net   = &gl_NetPlatform;
     mod_intern = ep_mgr_mods;
 }
 
@@ -45,9 +48,8 @@ NetMgr::ep_mgr_thrpool()
 int
 NetMgr::mod_init(SysParams const *const p)
 {
-    Module::mod_init(p);
     plat_lib = Platform::platf_singleton();
-    return 0;
+    return Module::mod_init(p);
 }
 
 // mod_startup
@@ -56,6 +58,16 @@ NetMgr::mod_init(SysParams const *const p)
 void
 NetMgr::mod_startup()
 {
+    Module::mod_startup();
+}
+
+// mod_enable_services
+// -------------------
+//
+void
+NetMgr::mod_enable_service()
+{
+    Module::mod_enable_service();
 }
 
 // mod_shutdown
@@ -64,6 +76,7 @@ NetMgr::mod_startup()
 void
 NetMgr::mod_shutdown()
 {
+    Module::mod_shutdown();
 }
 
 // ep_register

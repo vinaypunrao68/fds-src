@@ -252,14 +252,6 @@ AgentContainer::agent_handshake(boost::shared_ptr<netSessionTbl> net,
 // PM Agent
 // --------------------------------------------------------------------------------------
 
-void
-PmAgent::pma_connect_domain(const fpi::DomainID &id)
-{
-    if (agt_domain_ep == NULL) {
-        NetMgr *net = NetMgr::ep_mgr_singleton();
-        agt_domain_ep = net->svc_domain_master(id, agt_domain_rpc);
-    }
-}
 
 // --------------------------------------------------------------------------------------
 // SM Agent
@@ -307,7 +299,7 @@ SmContainer::agent_handshake(boost::shared_ptr<netSessionTbl> net,
                              NodeAgentDpRespPtr               sm_resp,
                              NodeAgent::pointer               agent)
 {
-    SmAgent::pointer sm = SmAgent::agt_cast_ptr(agent);
+    SmAgent::pointer sm = agt_cast_ptr<SmAgent>(agent);
     sm->sm_handshake(net, sm_resp);
 }
 
@@ -407,10 +399,10 @@ AgentContainer::agent_register(const NodeUuid       &uuid,
     add   = false;
     *out  = NULL;
     name  = msg->node_name;
-    agent = NodeAgent::agt_cast_ptr(agent_info(uuid));
+    agent = agt_cast_ptr<NodeAgent>(agent_info(uuid));
     if (agent == NULL) {
         add   = activate;
-        agent = NodeAgent::agt_cast_ptr(rs_alloc_new(uuid));
+        agent = agt_cast_ptr<NodeAgent>(rs_alloc_new(uuid));
         agent->node_fill_inventory(msg);
 
         // TODO(vy): share the inventory here with shared mem.

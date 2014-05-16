@@ -2144,7 +2144,7 @@ ObjectStorMgr::getProxyClient(ObjectID& oid,
 
     NodeAgent::pointer node = plf_mgr->plf_node_inventory()->
             dc_get_sm_nodes()->agent_info(uuid);
-    SmAgent::pointer sm = SmAgent::agt_cast_ptr(node);
+    SmAgent::pointer sm = agt_cast_ptr<SmAgent>(node);
     NodeAgentDpClientPtr smClient = sm->get_sm_client();
 
     // Increment the proxy count so the receiver knows

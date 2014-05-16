@@ -247,7 +247,7 @@ Platform::plf_svc_uuid_from_node(const NodeUuid &node,
 }
 
 // -----------------------------------------------------------------------------------
-// Module methods.
+// Module methods.: TODO(Vy) - We don't need these functions
 // -----------------------------------------------------------------------------------
 int
 Platform::mod_init(SysParams const *const param)
@@ -275,9 +275,6 @@ void
 Platform::mod_enable_service()
 {
     fds_verify(plf_domain == NULL);
-
-    plf_domain = new PmAgent(plf_my_node_uuid());
-    plf_domain->pma_connect_domain(fpi::DomainID());
 }
 
 namespace util {

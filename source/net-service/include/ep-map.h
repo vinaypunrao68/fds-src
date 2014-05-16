@@ -7,6 +7,7 @@
 #include <netinet/in.h>
 #include <string>
 #include <fds_module.h>
+#include <net/net-service.h>
 #include <shared/fds-constants.h>
 #include <concurrency/Mutex.h>
 
@@ -80,8 +81,8 @@ class EpPlatformMod : public EpPlatLibMod
     virtual int  ep_lookup_rec(const char *name, ep_map_rec_t *out);
 };
 
-extern EpPlatLibMod          gl_EpPlatLib;
-extern EpPlatformMod         gl_EpPlatform;
+extern EpPlatLibMod          gl_EpShmPlatLib;
+extern EpPlatformMod         gl_EpShmPlatform;
 
 }  // namespace fds
 #endif  // SOURCE_NET_SERVICE_INCLUDE_EP_MAP_H_

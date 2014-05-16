@@ -11,12 +11,7 @@
 #include <fds_resource.h>
 #include <fds_module.h>
 #include <serialize.h>
-#include <net/net-service.h>
 #include <platform/platform-rpc.h>
-
-namespace FDS_ProtocolInterface {
-    class PlatNetSvcClient;
-}  // namespace FDS_ProtocolInterface
 
 namespace fds {
 
@@ -165,10 +160,6 @@ class NodeAgent : public NodeInventory
     typedef boost::intrusive_ptr<NodeAgent> pointer;
     typedef boost::intrusive_ptr<const NodeAgent> const_ptr;
 
-    static inline NodeAgent::pointer agt_cast_ptr(Resource::pointer ptr) {
-        return static_cast<NodeAgent *>(get_pointer(ptr));
-    }
-
     /**
      * Return the storage weight -- currently capacity in GB / 10
      */
@@ -180,8 +171,24 @@ class NodeAgent : public NodeInventory
     explicit NodeAgent(const NodeUuid &uuid) : NodeInventory(uuid) {}
 };
 
-class EpSvcHandle;
+/**
+ * Down cast a node agent intrusive pointer.
+ */
+template <class T>
+static inline T *agt_cast_ptr(NodeAgent::pointer agt) {
+    return static_cast<T *>(get_pointer(agt));
+}
 
+template <class T>
+static inline T *agt_cast_ptr(Resource::pointer rs) {
+    return static_cast<T *>(get_pointer(rs));
+}
+
+/*
+ * -------------------------------------------------------------------------------------
+ * Specific node agent type setup for peer to peer communication.
+ * -------------------------------------------------------------------------------------
+ */
 class PmAgent : public NodeAgent
 {
   public:
@@ -189,17 +196,7 @@ class PmAgent : public NodeAgent
     typedef boost::intrusive_ptr<const PmAgent> const_ptr;
 
     virtual ~PmAgent() {}
-    PmAgent(const NodeUuid &uuid)
-        : NodeAgent(uuid), agt_domain_ep(NULL), agt_domain_rpc(NULL) {}
-
-    static inline PmAgent::pointer agt_cast_ptr(NodeAgent::pointer ptr) {
-        return static_cast<PmAgent *>(get_pointer(ptr));
-    }
-    virtual void pma_connect_domain(const fpi::DomainID &id);
-
-  protected:
-    boost::intrusive_ptr<EpSvcHandle>        agt_domain_ep;
-    boost::shared_ptr<fpi::PlatNetSvcClient> agt_domain_rpc;
+    PmAgent(const NodeUuid &uuid) : NodeAgent(uuid) {}
 };
 
 class SmAgent : public NodeAgent
@@ -210,10 +207,6 @@ class SmAgent : public NodeAgent
 
     SmAgent(const NodeUuid &uuid);
     virtual ~SmAgent();
-
-    static inline SmAgent::pointer agt_cast_ptr(NodeAgent::pointer ptr) {
-        return static_cast<SmAgent *>(get_pointer(ptr));
-    }
 
     virtual void
     sm_handshake(boost::shared_ptr<netSessionTbl> net, NodeAgentDpRespPtr sm_resp);
@@ -235,10 +228,6 @@ class DmAgent : public NodeAgent
 
     DmAgent(const NodeUuid &uuid) : NodeAgent(uuid) {}
     virtual ~DmAgent() {}
-
-    static inline DmAgent::pointer agt_cast_ptr(NodeAgent::pointer ptr) {
-        return static_cast<DmAgent *>(get_pointer(ptr));
-    }
 };
 
 class AmAgent : public NodeAgent
@@ -249,10 +238,6 @@ class AmAgent : public NodeAgent
 
     AmAgent(const NodeUuid &uuid) : NodeAgent(uuid) {}
     virtual ~AmAgent() {}
-
-    static inline AmAgent::pointer agt_cast_ptr(NodeAgent::pointer ptr) {
-        return static_cast<AmAgent *>(get_pointer(ptr));
-    }
 };
 
 class OmAgent : public NodeAgent
@@ -264,9 +249,6 @@ class OmAgent : public NodeAgent
     OmAgent(const NodeUuid &uuid);
     virtual ~OmAgent();
 
-    static inline OmAgent::pointer agt_cast_ptr(NodeAgent::pointer ptr) {
-        return static_cast<OmAgent *>(get_pointer(ptr));
-    }
     /**
      * Packet format functions.
      */
@@ -303,7 +285,7 @@ class AgentContainer : public RsContainer
     template <typename T>
     void agent_foreach(T arg, void (*fn)(T arg, NodeAgent::pointer elm)) {
         for (fds_uint32_t i = 0; i < rs_cur_idx; i++) {
-            NodeAgent::pointer cur = NodeAgent::agt_cast_ptr(rs_array[i]);
+            NodeAgent::pointer cur = agt_cast_ptr<NodeAgent>(rs_array[i]);
             if (rs_array[i] != NULL) {
                 (*fn)(arg, cur);
             }
@@ -312,7 +294,7 @@ class AgentContainer : public RsContainer
     template <typename T1, typename T2>
     void agent_foreach(T1 a1, T2 a2, void (*fn)(T1, T2, NodeAgent::pointer elm)) {
         for (fds_uint32_t i = 0; i < rs_cur_idx; i++) {
-            NodeAgent::pointer cur = NodeAgent::agt_cast_ptr(rs_array[i]);
+            NodeAgent::pointer cur = agt_cast_ptr<NodeAgent>(rs_array[i]);
             if (rs_array[i] != NULL) {
                 (*fn)(a1, a2, cur);
             }
@@ -322,7 +304,7 @@ class AgentContainer : public RsContainer
     void agent_foreach(T1 a1, T2 a2, T3 a3,
                        void (*fn)(T1, T2, T3, NodeAgent::pointer elm)) {
         for (fds_uint32_t i = 0; i < rs_cur_idx; i++) {
-            NodeAgent::pointer cur = NodeAgent::agt_cast_ptr(rs_array[i]);
+            NodeAgent::pointer cur = agt_cast_ptr<NodeAgent>(rs_array[i]);
             if (rs_array[i] != NULL) {
                 (*fn)(a1, a2, a3, cur);
             }
@@ -332,7 +314,7 @@ class AgentContainer : public RsContainer
     void agent_foreach(T1 a1, T2 a2, T3 a3, T4 a4,
                        void (*fn)(T1, T2, T3, T4, NodeAgent::pointer elm)) {
         for (fds_uint32_t i = 0; i < rs_cur_idx; i++) {
-            NodeAgent::pointer cur = NodeAgent::agt_cast_ptr(rs_array[i]);
+            NodeAgent::pointer cur = agt_cast_ptr<NodeAgent>(rs_array[i]);
             if (rs_array[i] != NULL) {
                 (*fn)(a1, a2, a3, a4, cur);
             }
@@ -347,7 +329,7 @@ class AgentContainer : public RsContainer
         fds_uint32_t count = 0;
         for (fds_uint32_t i = 0; i < rs_cur_idx; i++) {
             Error err(ERR_OK);
-            NodeAgent::pointer cur = NodeAgent::agt_cast_ptr(rs_array[i]);
+            NodeAgent::pointer cur = agt_cast_ptr<NodeAgent>(rs_array[i]);
             if (rs_array[i] != NULL) {
                 err = (*fn)(arg, cur);
                 if (err.ok()) {
@@ -363,12 +345,12 @@ class AgentContainer : public RsContainer
      */
     inline NodeAgent::pointer agent_info(fds_uint32_t idx) {
         if (idx < rs_cur_idx) {
-            return NodeAgent::agt_cast_ptr(rs_array[idx]);
+            return agt_cast_ptr<NodeAgent>(rs_array[idx]);
         }
         return NULL;
     }
     inline NodeAgent::pointer agent_info(const NodeUuid &uuid) {
-        return NodeAgent::agt_cast_ptr(rs_get_resource(uuid));
+        return agt_cast_ptr<NodeAgent>(rs_get_resource(uuid));
     }
 
     /**
@@ -406,15 +388,24 @@ class AgentContainer : public RsContainer
     AgentContainer(FdspNodeType id);
 };
 
+/**
+ * Down cast a node container intrusive pointer.
+ */
+template <class T>
+static inline T *agt_cast_ptr(AgentContainer::pointer ptr) {
+    return static_cast<T *>(get_pointer(ptr));
+}
+
+template <class T>
+static inline T *agt_cast_ptr(RsContainer::pointer ptr) {
+    return static_cast<T *>(get_pointer(ptr));
+}
+
 class PmContainer : public AgentContainer
 {
   public:
     typedef boost::intrusive_ptr<PmContainer> pointer;
     PmContainer(FdspNodeType id) : AgentContainer(id) {}
-
-    static inline PmContainer::pointer agt_cast_ptr(RsContainer::pointer ptr) {
-        return static_cast<PmContainer *>(get_pointer(ptr));
-    }
 
   protected:
     virtual ~PmContainer() {}
@@ -434,10 +425,6 @@ class SmContainer : public AgentContainer
                     NodeAgentDpRespPtr               resp,
                     NodeAgent::pointer               agent);
 
-    static inline SmContainer::pointer agt_cast_ptr(RsContainer::pointer ptr) {
-        return static_cast<SmContainer *>(get_pointer(ptr));
-    }
-
   protected:
     virtual ~SmContainer() {}
     virtual Resource *rs_new(const ResourceUUID &uuid) {
@@ -450,10 +437,6 @@ class DmContainer : public AgentContainer
   public:
     typedef boost::intrusive_ptr<DmContainer> pointer;
     DmContainer(FdspNodeType id) : AgentContainer(id) {}
-
-    static inline DmContainer::pointer agt_cast_ptr(RsContainer::pointer ptr) {
-        return static_cast<DmContainer *>(get_pointer(ptr));
-    }
 
   protected:
     virtual ~DmContainer() {}
@@ -468,10 +451,6 @@ class AmContainer : public AgentContainer
     typedef boost::intrusive_ptr<AmContainer> pointer;
     AmContainer(FdspNodeType id) : AgentContainer(id) {}
 
-    static inline AmContainer::pointer agt_cast_ptr(RsContainer::pointer ptr) {
-        return static_cast<AmContainer *>(get_pointer(ptr));
-    }
-
   protected:
     virtual ~AmContainer() {}
     virtual Resource *rs_new(const ResourceUUID &uuid) {
@@ -484,10 +463,6 @@ class OmContainer : public AgentContainer
   public:
     typedef boost::intrusive_ptr<OmContainer> pointer;
     OmContainer(FdspNodeType id) : AgentContainer(id) {}
-
-    static inline OmContainer::pointer agt_cast_ptr(RsContainer::pointer ptr) {
-        return static_cast<OmContainer *>(get_pointer(ptr));
-    }
 
   protected:
     virtual ~OmContainer() {}
@@ -531,7 +506,7 @@ class DomainContainer
      * Get/set methods for different containers.
      */
     inline SmContainer::pointer dc_get_sm_nodes() {
-        return SmContainer::agt_cast_ptr(dc_sm_nodes);
+        return agt_cast_ptr<SmContainer>(dc_sm_nodes);
     }
     inline void dc_set_sm_nodes(SmContainer::pointer sm) {
         fds_assert(dc_sm_nodes == NULL);
@@ -539,7 +514,7 @@ class DomainContainer
     }
 
     inline DmContainer::pointer dc_get_dm_nodes() {
-        return DmContainer::agt_cast_ptr(dc_dm_nodes);
+        return agt_cast_ptr<DmContainer>(dc_dm_nodes);
     }
     inline void dc_set_dm_nodes(DmContainer::pointer dm) {
         fds_assert(dc_dm_nodes == NULL);
@@ -547,7 +522,7 @@ class DomainContainer
     }
 
     inline AmContainer::pointer dc_get_am_nodes() {
-        return AmContainer::agt_cast_ptr(dc_am_nodes);
+        return agt_cast_ptr<AmContainer>(dc_am_nodes);
     }
     inline void dc_set_am_nodes(AmContainer::pointer am) {
         fds_assert(dc_am_nodes == NULL);
@@ -555,7 +530,7 @@ class DomainContainer
     }
 
     inline PmContainer::pointer dc_get_pm_nodes() {
-        return PmContainer::agt_cast_ptr(dc_pm_nodes);
+        return agt_cast_ptr<PmContainer>(dc_pm_nodes);
     }
     inline void dc_set_pm_nodes(PmContainer::pointer pm) {
         fds_assert(dc_pm_nodes == NULL);
@@ -563,7 +538,7 @@ class DomainContainer
     }
 
     inline OmContainer::pointer dc_get_om_nodes() {
-        return OmContainer::agt_cast_ptr(dc_om_nodes);
+        return agt_cast_ptr<OmContainer>(dc_om_nodes);
     }
     inline void dc_set_om_nodes(OmContainer::pointer om) {
         fds_assert(dc_om_nodes == NULL);

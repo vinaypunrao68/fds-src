@@ -1668,7 +1668,7 @@ DataMgr::expungeObject(fds_volid_t volId, const ObjectID &objId) {
             NodeUuid uuid = tokenGroup->get(i);
             NodeAgent::pointer node = plf_mgr->plf_node_inventory()->
                     dc_get_sm_nodes()->agent_info(uuid);
-            SmAgent::pointer sm = SmAgent::agt_cast_ptr(node);
+            SmAgent::pointer sm = agt_cast_ptr<SmAgent>(node);
             NodeAgentDpClientPtr smClient = sm->get_sm_client();
 
             msgHdr->session_uuid = sm->get_sm_sess_id();
