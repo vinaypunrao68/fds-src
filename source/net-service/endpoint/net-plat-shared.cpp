@@ -117,7 +117,7 @@ DomainAgent::pda_connect_domain(const fpi::DomainID &id)
     fds_verify(eptr != NULL);
 
     std::string const *const om_ip = net->nplat_domain_master(&port);
-    eptr->ep_new_handle(port, *om_ip, &agt_domain_ep, &agt_domain_evt);
+    eptr->ep_new_handle(eptr, port, *om_ip, &agt_domain_ep, &agt_domain_evt);
 }
 
 /**

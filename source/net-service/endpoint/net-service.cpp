@@ -87,7 +87,7 @@ void
 NetMgr::ep_register(EpSvc::pointer ep, bool update_domain)
 {
     int                 idx, port;
-    fds_uint64_t        uuid, peer;
+    fds_uint64_t        mine, peer;
     ep_map_rec_t        map;
     EpSvcImpl::pointer  myep;
 
@@ -105,21 +105,21 @@ NetMgr::ep_register(EpSvc::pointer ep, bool update_domain)
 
     // Add to the local mapping.
     if (idx != -1) {
-        uuid = myep->ep_my_uuid();
+        mine = myep->ep_my_uuid();
         peer = myep->ep_peer_uuid();
 
         ep_mtx.lock();
-        ep_uuid_map[uuid] = idx;
+        ep_uuid_map[mine] = idx;
         if (myep->ep_is_connection() == true) {
             // This is the physical endpoint, record it in ep map.
-            ep_map[uuid].push_front(ep);
-            if ((peer != 0) && (peer != uuid)) {
+            ep_map[mine].push_front(ep);
+            if ((peer != 0) && (peer != mine)) {
                 ep_map[peer].push_front(ep);
             }
         } else {
             // This is the logical service, record it in svc map.
-            ep_svc_map[uuid] = ep;
-            if ((peer != 0) && (peer != uuid)) {
+            ep_svc_map[mine] = ep;
+            if ((peer != 0) && (peer != mine)) {
                 ep_svc_map[peer] = ep;
             }
         }
@@ -213,18 +213,45 @@ NetMgr::svc_domain_master(const fpi::DomainID &id,
 // ---------------
 //
 EpSvc::pointer
-NetMgr::endpoint_lookup(const fpi::SvcUuid &uuid)
+NetMgr::endpoint_lookup(const fpi::SvcUuid &peer)
 {
     EpSvc::pointer ep;
 
     ep_mtx.lock();
     try {
-        EpSvcList &list = ep_map.at(uuid.svc_uuid);
+        EpSvcList &list = ep_map.at(peer.svc_uuid);
         if (list.empty()) {
-            ep_map.erase(uuid.svc_uuid);
+            ep_map.erase(peer.svc_uuid);
         } else {
+            // Just return the front of the list and swap it to the back.
             ep = list.front();
             fds_verify(ep != NULL);
+        }
+    } catch(...) {
+        ep = NULL;
+    }
+    ep_mtx.unlock();
+    return ep;
+}
+
+EpSvc::pointer
+NetMgr::endpoint_lookup(const fpi::SvcUuid &mine, const fpi::SvcUuid &peer)
+{
+    EpSvc::pointer ep;
+
+    ep_mtx.lock();
+    try {
+        EpSvcList &list = ep_map.at(peer.svc_uuid);
+        if (list.empty()) {
+            ep_map.erase(peer.svc_uuid);
+        } else {
+            ep = NULL;
+            for (auto it = list.cbegin(); it != list.cend(); it++) {
+                if ((*it)->ep_my_uuid() == (fds_uint64_t)mine.svc_uuid) {
+                    ep = *it;
+                    break;
+                }
+            }
         }
     } catch(...) {
         ep = NULL;
@@ -323,7 +350,7 @@ NetMgr::ep_register_binding(const ep_map_rec_t *rec)
             ept = NULL;
         }
         ep_mtx.unlock();
-        if (ept != NULL) {
+        if ((ept != NULL) && (ept->ep_my_uuid() != rec->rmp_uuid)) {
             fds_verify(ept->ep_is_connection() == true);
             ip.reserve(INET6_ADDRSTRLEN + 1);
             EpAttr::netaddr_to_str(&rec->rmp_addr,

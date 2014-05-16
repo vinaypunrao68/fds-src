@@ -8,14 +8,14 @@
 #include <list>
 #include <string>
 #include <boost/intrusive_ptr.hpp>
+#include <thrift/protocol/TBinaryProtocol.h>
+#include <thrift/transport/TBufferTransports.h>
+
 #include <fds_module.h>
 #include <fds_resource.h>
 #include <fds_error.h>
 #include <shared/fds-constants.h>
 #include <fdsp/fds_service_types.h>
-#include <fdsp/AsyncRspSvc.h>
-#include <thrift/protocol/TBinaryProtocol.h>
-#include <thrift/transport/TBufferTransports.h>
 #include <util/Log.h>
 #include <fds_typedefs.h>
 
@@ -232,18 +232,20 @@ class EpSvc
      * Cast to the correct EndPoint type.  Return NULL if this is pure service object.
      */
     template <class SendIf, class RecvIf>
-    inline boost::intrusive_ptr<EndPoint<SendIf, RecvIf>> ep_cast() {
+    inline bo::intrusive_ptr<EndPoint<SendIf, RecvIf>> ep_cast() {
         if (ep_is_connection()) {
             return static_cast<EndPoint<SendIf, RecvIf> *>(this);
         }
         return NULL;
     }
+    inline bo::intrusive_ptr<EpSvcHandle> ep_send_handle()  { return ep_peer; }
 
   protected:
     fpi::SvcID                       svc_id;
     fpi::SvcVer                      svc_ver;
     EpEvtPlugin::pointer             ep_evt;
     EpAttr::pointer                  ep_attr;
+    bo::intrusive_ptr<EpSvcHandle>   ep_peer;
 
     fpi::DomainID                   *svc_domain;
     NetMgr                          *ep_mgr;
@@ -277,6 +279,14 @@ class EpSvc
         }
     }
 };
+
+/**
+ * Down cast an endpoint intrusive pointer.
+ */
+template <class T>
+boost::intrusive_ptr<T> ep_cast_ptr(EpSvc::pointer ep) {
+    return static_cast<T *>(get_pointer(ep));
+}
 
 /**
  * Service object handle (e.g. client side).  A service provider can service many
@@ -340,12 +350,10 @@ class EpSvcHandle
 extern NetMgr                gl_NetService;
 extern NetPlatform          *gl_NetPlatSvc;
 
-
-typedef std::list<EpSvc::pointer>                         EpSvcList;
-typedef std::unordered_map<fds_uint64_t, int>             UuidShmMap;
-typedef std::unordered_map<fds_uint64_t, EpSvcList>       UuidEpMap;
-typedef std::unordered_map<fds_uint64_t, EpSvc::pointer>  UuidSvcMap;
-typedef std::unordered_map<int, EpSvcList>                PortSvcMap;
+typedef std::list<EpSvc::pointer>                        EpSvcList;
+typedef std::unordered_map<fds_uint64_t, int>            UuidShmMap;
+typedef std::unordered_map<fds_uint64_t, EpSvcList>      UuidEpMap;
+typedef std::unordered_map<fds_uint64_t, EpSvc::pointer> UuidSvcMap;
 
 /**
  * Singleton module manages all endpoints.
@@ -378,7 +386,7 @@ class NetMgr : public Module
      * Endpoint registration and lookup.
      */
     virtual void ep_register(EpSvc::pointer ep, bool update_domain = true);
-    virtual void ep_unregister(const fpi::SvcUuid &uuid);
+    virtual void ep_unregister(const fpi::SvcUuid &peer);
 
     /**
      * Lookup a service handler based on its uuid/name and major/minor version.
@@ -410,9 +418,12 @@ class NetMgr : public Module
     /**
      * Lookup an endpoint.  The caller must call EpSvc::ep_cast<SendIf, RecvIf> to
      * cast it to the correct type.
+     * @param s (i) - the source uuid.
+     * @param d (i) - the destination uuid.
      */
-    virtual EpSvc::pointer endpoint_lookup(const fpi::SvcUuid &uuid);
     virtual EpSvc::pointer endpoint_lookup(const char *name);
+    virtual EpSvc::pointer endpoint_lookup(const fpi::SvcUuid &d);
+    virtual EpSvc::pointer endpoint_lookup(const fpi::SvcUuid &s, const fpi::SvcUuid &d);
 
     /**
      * Return the handle to the domain master.  From the handle, the caller can make
@@ -426,60 +437,50 @@ class NetMgr : public Module
      * Allocate a handle to communicate with the peer endpoint.  The 'mine' uuid can be
      * taken from the platform library to get the default uuid.
      */
-    template <class SendIf>
-    EpSvcHandle::pointer
-    svc_new_handle(const fpi::SvcUuid &mine,
-                   const fpi::SvcUuid &peer,
-                   fds_uint32_t        maj = 0,
-                   fds_uint32_t        min = 0)
+    template <class SendIf> void
+    svc_new_handle(const fpi::SvcUuid   &mine,
+                   const fpi::SvcUuid   &peer,
+                   EpSvcHandle::pointer *out)
     {
-        int             port;
-        std::string     ip;
-        fpi::SvcUuid    def;
         EpSvc::pointer  ep;
         boost::intrusive_ptr<EndPoint<SendIf, void>> myep;
 
+        *out = NULL;
         if (mine == NullSvcUuid) {
-            def.svc_uuid = ep_my_platform_uuid()->uuid_get_val();
-            ep = endpoint_lookup(def);
+            ep = endpoint_lookup(peer);
         } else {
-            ep = endpoint_lookup(mine);
+            ep = endpoint_lookup(mine, peer);
         }
         if (ep != NULL) {
             myep = ep->ep_cast<SendIf, void>();
             if (myep != NULL) {
-                port = ep_uuid_binding(peer, &ip);
-                if (port != -1) {
-                    EpSvcHandle::pointer ret;
-                    myep->ep_new_handle(port, ip, &ret, NULL);
-                    return ret;
-                }
+                myep->ep_svc_new_handle(peer, out);
             }
         }
-        return NULL;
     }
     /**
      * Get a handle from existing endpoint to the peer.
      */
-    template <class SendIf>
-    EpSvcHandle::pointer
-    svc_get_handle(const fpi::SvcUuid &peer, fds_uint32_t maj, fds_uint32_t min)
+    template <class SendIf> void
+    svc_get_handle(const fpi::SvcUuid   &peer,
+                   EpSvcHandle::pointer *out,
+                   fds_uint32_t          maj,
+                   fds_uint32_t          min)
     {
-        EpSvc::pointer        ep;
-        boost::intrusive_ptr<EndPoint<SendIf, void>> myep;
+        EpSvc::pointer  ep;
 
         ep = endpoint_lookup(peer);
         if (ep != NULL) {
-            myep = ep->ep_cast<SendIf, void>();
-            if (myep != NULL) {
-                return myep->ep_server_handle();
-            }
+            *out = ep->ep_send_handle();
+        } else {
+            svc_new_handle<SendIf>(NullSvcUuid, peer, out);
         }
-        return NULL;
     }
-
-    template<class PayloadT>
-    void ep_send_async_resp(const fpi::AsyncHdr& req_hdr, const PayloadT& payload)
+    /**
+     * Common send async response method.
+     */
+    template<class PayloadT> void
+    ep_send_async_resp(const fpi::AsyncHdr& req_hdr, const PayloadT& payload)
     {
         GLOGDEBUG;
         auto resp_hdr = ep_swap_header(req_hdr);
@@ -498,7 +499,6 @@ class NetMgr : public Module
 
         // client->asyncResponse(resp_hdr, buffer->getBufferAsString());
     }
-
     static fpi::AsyncHdr ep_swap_header(const fpi::AsyncHdr &req_hdr)
     {
         auto resp_hdr = req_hdr;
@@ -521,7 +521,6 @@ class NetMgr : public Module
     UuidEpMap                      ep_map;
     UuidSvcMap                     ep_svc_map;
     UuidShmMap                     ep_uuid_map;
-    PortSvcMap                     ep_port_map;
     fds_mutex                      ep_mtx;
 
     EpSvcHandle::pointer               ep_domain_clnt;
@@ -551,14 +550,6 @@ class NetPlatform : public Module
     NetMgr                        *netmgr;
     Platform                      *plat_lib;
 };
-
-/**
- * Down cast an endpoint intrusive pointer.
- */
-template <class T>
-boost::intrusive_ptr<T> ep_cast_ptr(EpSvc::pointer ep) {
-    return static_cast<T *>(get_pointer(ep));
-}
 
 }  // namespace fds
 #endif  // SOURCE_INCLUDE_NET_NET_SERVICE_H_

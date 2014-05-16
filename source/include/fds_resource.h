@@ -82,6 +82,30 @@ class UuidHash {
     }
 };
 
+/**
+ * ------------------------------------------------------------------------------------
+ * Hash key of 2 uuids.
+ * ------------------------------------------------------------------------------------
+ */
+struct UuidDouble
+{
+    fds_uint64_t             src_uuid;
+    fds_uint64_t             dst_uuid;
+
+    bool operator == (const UuidDouble &rhs) const {
+        return ((this->src_uuid == rhs.src_uuid) && (this->dst_uuid == rhs.dst_uuid));
+    }
+    bool operator != (const UuidDouble &rhs) const {
+        return !(*this == rhs);
+    }
+};
+
+struct UuidDoubleHash {
+    fds_uint64_t operator()(const UuidDouble &v) const {
+        return v.src_uuid + v.dst_uuid;
+    }
+};
+
 const int RS_NAME_MAX           = 64;
 const int RS_DEFAULT_ELEM_CNT   = 1024;
 

@@ -76,7 +76,7 @@ class EpSvcImpl : public EpSvc
     void         ep_peer_uuid(fpi::SvcUuid &uuid)  { uuid = ep_peer_id.svc_uuid; }
     fds_uint64_t ep_peer_uuid()  { return ep_peer_id.svc_uuid.svc_uuid; }
 
-    virtual void ep_connect_server(int port, const std::string &ip) = 0;
+    virtual void ep_connect_server(int port, const std::string &ip);
 
   public:
     /**
@@ -176,43 +176,10 @@ class EndPoint : public EpSvcImpl
      */
     EpSvcHandle::pointer ep_server_handle()
     {
-        if (ep_clnt_ptr == NULL) {
-            int          port;
-            std::string  ip;
-            fpi::SvcUuid peer;
-
-            ep_peer_uuid(peer);
-            if (peer.svc_uuid != 0) {
-                port = NetMgr::ep_mgr_singleton()->ep_uuid_binding(peer, &ip);
-                if (port != -1) {
-                    ep_connect_server(port, ip);
-                }
-            }
+        if (ep_peer == NULL) {
+            ep_svc_new_handle(ep_peer_uuid, &ep_peer);
         }
-        return ep_clnt_ptr;
-    }
-    /**
-     * Connect to the server.  Save connection handles to this endpoint.
-     */
-    void ep_connect_server(int port, const std::string &ip)
-    {
-        if (ep_clnt_ptr == NULL) {
-            ep_clnt_ptr = new EpSvcHandle(this, ep_evt);
-            EpSvcImpl::ep_connect_server<SendIf>(port, ip, ep_clnt_ptr);
-        }
-    }
-    /**
-     * Connect to the server, return the net-service handle to represent the client
-     * side of the connection.
-     */
-    void
-    ep_new_handle(int                   port,
-                  const std::string    &ip,
-                  EpSvcHandle::pointer *clnt,
-                  EpEvtPlugin::pointer  evt)
-    {
-        (*clnt) = new EpSvcHandle(this, evt == NULL ? ep_evt : evt);
-        EpSvcImpl::ep_connect_server<SendIf>(port, ip, *clnt);
+        return ep_peer;
     }
     void ep_activate() {
         ep_setup_server();
@@ -226,8 +193,8 @@ class EndPoint : public EpSvcImpl
      */
     boost::shared_ptr<SendIf> ep_sync_rpc()
     {
-        if (ep_clnt_ptr != NULL) {
-            return boost::static_pointer_cast<SendIf>(ep_clnt_ptr->ep_rpc);
+        if (ep_peer != NULL) {
+            return boost::static_pointer_cast<SendIf>(ep_peer->ep_rpc);
         }
         return NULL;
     }
@@ -245,11 +212,25 @@ class EndPoint : public EpSvcImpl
     bo::shared_ptr<tt::TTransport>         ep_trans;
     bo::shared_ptr<ts::TThreadedServer>    ep_server;
     bo::shared_ptr<ts::TNonblockingServer> ep_nb_srv;
-    EpSvcHandle::pointer                   ep_clnt_ptr;
 
     int  ep_get_status()     { return 0; }
     bool ep_is_connection()  { return true; }
     void svc_receive_msg(const fpi::AsyncHdr &msg) {}
+
+    /**
+     * ep_svc_new_handle
+     * -----------------
+     */
+    void ep_svc_new_handle(const fpi::SvcUuid peer, EpSvcHandle::pointer &ret)
+    {
+        int          port;
+        std::string  ip;
+
+        port = NetMgr::ep_mgr_singleton()->ep_uuid_binding(peer, &ip);
+        if (port != -1) {
+            ep_new_handle(this, port, ip, ret, ep_evt);
+        }
+    }
 
   private:
 #if 0
@@ -278,7 +259,21 @@ class EndPoint : public EpSvcImpl
         ep_trans    = NULL;
         ep_server   = NULL;
         ep_nb_srv   = NULL;
-        ep_clnt_ptr = NULL;
+    }
+
+  public:
+    /**
+     * Connect to the server, return the net-service handle to represent the client
+     * side of the connection.
+     */
+    static void ep_new_handle(EpSvc::pointer        ep,
+                              int                   port,
+                              const std::string    &ip,
+                              EpSvcHandle::pointer *clnt,
+                              EpEvtPlugin::pointer  evt)
+    {
+        *clnt = new EpSvcHandle(ep, evt);
+        EpSvcImpl::ep_connect_server<SendIf>(port, ip, *clnt);
     }
 };
 

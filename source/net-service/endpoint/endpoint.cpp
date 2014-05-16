@@ -13,7 +13,7 @@ namespace fds {
  * -----------------------------------------------------------------------------------
  */
 EpSvc::EpSvc(const ResourceUUID &uuid, fds_uint32_t major, fds_uint32_t minor)
-    : ep_evt(NULL), ep_attr(NULL), svc_domain(NULL), ep_refcnt(0)
+    : ep_refcnt(0), ep_evt(NULL), ep_attr(NULL), svc_domain(NULL)
 {
     svc_ver.ver_major = major;
     svc_ver.ver_minor = minor;
@@ -103,6 +103,7 @@ EpSvcImpl::EpSvcImpl(const NodeUuid       &mine,
 {
     peer.uuid_assign(&ep_peer_id.svc_uuid);
     ep_evt   = ops;
+    ep_peer  = NULL;
     ep_attr  = new EpAttr();
     *ep_attr = attr;
     if (ep_evt != NULL) {
@@ -117,6 +118,14 @@ EpSvcImpl::EpSvcImpl(const fpi::SvcID     &mine,
     : EpSvcImpl(ResourceUUID(mine.svc_uuid), ResourceUUID(peer.svc_uuid), attr, ops)
 {
     ep_peer_id = peer;
+}
+
+// ep_connect_server
+// -----------------
+//
+void
+EpSvcImpl::ep_connect_server(int port, const std::string &ip)
+{
 }
 
 // ep_bind_service
