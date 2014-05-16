@@ -79,11 +79,12 @@ class EpSvcImpl : public EpSvc
     virtual void ep_connect_server(int port, const std::string &ip) = 0;
 
   public:
-    // ep_connect_server
-    // -----------------
-    // Connect to a server by its known IP and port.  Thrift's connection handles are
-    // saved by the caller.
-    //
+    /**
+     * ep_connect_server
+     * -----------------
+     * Connect to a server by its known IP and port.  Thrift's connection handles are
+     * saved by the caller.
+     */
     template <class SendIf> static void
     ep_connect_server(int port, const std::string &ip, EpSvcHandle::pointer ptr)
     {
@@ -99,7 +100,10 @@ class EpSvcImpl : public EpSvc
             ptr->ep_rpc = rpc;
         }
         try {
+            ptr->ep_state = EP_ST_CONNECTING;
             ptr->ep_trans->open();
+            ptr->ep_state = EP_ST_CONNECTED;
+            ptr->ep_notify_plugin();
         } catch(at::TException &tx) {
             std::cout << "Error: " << tx.what() << std::endl;
             fds_threadpool *pool = NetMgr::ep_mgr_singleton()->ep_mgr_thrpool();
@@ -146,15 +150,17 @@ class EndPoint : public EpSvcImpl
             ep_init_obj();
         }
 
-    // ep_reconnect
-    // ------------
-    //
+    /**
+     * ep_reconnect
+     * ------------
+     */
     void ep_reconnect()
     {
     }
-    // ep_server_listen
-    // ----------------
-    //
+    /**
+     * ep_setup_server
+     * ---------------
+     */
     void ep_setup_server()
     {
         int port = ep_attr->attr_get_port();
@@ -165,16 +171,11 @@ class EndPoint : public EpSvcImpl
         ep_server = bo::shared_ptr<ts::TThreadedServer>(
                 new ts::TThreadedServer(ep_rpc_recv, trans, tfact, proto));
     }
-    // Connect to the server, return the net-service handle to represent the client
-    // side of the connection.
-    //
-    EpSvcHandle::pointer ep_new_handle(int port, const std::string &ip)
+    /**
+     * Get the handle to communicate with the peer endpoint.
+     */
+    EpSvcHandle::pointer ep_server_handle()
     {
-        EpSvcHandle::pointer clnt = new EpSvcHandle(this);
-        EpSvcImpl::ep_connect_server<SendIf>(port, ip, clnt);
-        return clnt;
-    }
-    EpSvcHandle::pointer ep_server_handle() {
         if (ep_clnt_ptr == NULL) {
             int          port;
             std::string  ip;
@@ -190,14 +191,28 @@ class EndPoint : public EpSvcImpl
         }
         return ep_clnt_ptr;
     }
-    // Connect to the server.  Save connection handles to this endpoint.
-    //
+    /**
+     * Connect to the server.  Save connection handles to this endpoint.
+     */
     void ep_connect_server(int port, const std::string &ip)
     {
         if (ep_clnt_ptr == NULL) {
-            ep_clnt_ptr = new EpSvcHandle(this);
+            ep_clnt_ptr = new EpSvcHandle(this, ep_evt);
             EpSvcImpl::ep_connect_server<SendIf>(port, ip, ep_clnt_ptr);
         }
+    }
+    /**
+     * Connect to the server, return the net-service handle to represent the client
+     * side of the connection.
+     */
+    void
+    ep_new_handle(int                   port,
+                  const std::string    &ip,
+                  EpSvcHandle::pointer *clnt,
+                  EpEvtPlugin::pointer  evt)
+    {
+        (*clnt) = new EpSvcHandle(this, evt == NULL ? ep_evt : evt);
+        EpSvcImpl::ep_connect_server<SendIf>(port, ip, *clnt);
     }
     void ep_activate() {
         ep_setup_server();
@@ -206,8 +221,9 @@ class EndPoint : public EpSvcImpl
     void ep_run_server() {
         ep_server->serve();
     }
-    // Synchronous send/receive handlers.
-    //
+    /**
+     * Synchronous send/receive handlers.
+     */
     boost::shared_ptr<SendIf> ep_sync_rpc()
     {
         if (ep_clnt_ptr != NULL) {
@@ -217,9 +233,10 @@ class EndPoint : public EpSvcImpl
     }
     boost::shared_ptr<RecvIf> ep_rpc_handler() { return ep_rpc_recv; }
 
-    // Async message passing.
-    //
-    //
+    /**
+     * Async message passing.
+     *
+     */
 
   protected:
     friend class NetPlatSvc;

@@ -4,7 +4,6 @@
 #ifndef SOURCE_UNIT_TEST_FDS_PROBE_THRIFT_ENDPOINT_TEST_H_
 #define SOURCE_UNIT_TEST_FDS_PROBE_THRIFT_ENDPOINT_TEST_H_
 
-#include <net/net-service.h>
 #include <net/net-service-tmpl.hpp>
 #include <ProbeServiceSM.h>
 #include <ProbeServiceAM.h>

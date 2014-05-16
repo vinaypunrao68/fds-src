@@ -50,6 +50,15 @@ template <class SendIf, class RecvIf> class EndPoint;
 //
 extern const fpi::SvcUuid NullSvcUuid;
 
+typedef enum
+{
+    EP_ST_INIT         = 0,
+    EP_ST_DISCONNECTED = 1,
+    EP_ST_CONNECTING   = 2,
+    EP_ST_CONNECTED    = 3,
+    EP_ST_MAX
+} ep_state_e;
+
 /**
  * -------------------
  * Theory of Operation
@@ -218,8 +227,7 @@ class EpSvc
      * Cast to the correct EndPoint type.  Return NULL if this is pure service object.
      */
     template <class SendIf, class RecvIf>
-    inline boost::intrusive_ptr<EndPoint<SendIf, RecvIf>> ep_cast()
-    {
+    inline boost::intrusive_ptr<EndPoint<SendIf, RecvIf>> ep_cast() {
         if (ep_is_connection()) {
             return static_cast<EndPoint<SendIf, RecvIf> *>(this);
         }
@@ -277,7 +285,7 @@ class EpSvcHandle
     typedef boost::intrusive_ptr<const EpSvcHandle> const_ptr;
 
     virtual int  ep_reconnect();
-    virtual int  ep_get_status() { return 0; }
+    virtual ep_state_e ep_get_status()  { return ep_state; }
 
     template <class SendIf>
     boost::shared_ptr<SendIf> svc_rpc() {
@@ -291,16 +299,22 @@ class EpSvcHandle
     friend class EpSvcImpl;
     template <class SendIf, class RecvIf>friend class EndPoint;
 
+    ep_state_e                        ep_state;
     EpSvc::pointer                    ep_owner;
+    EpEvtPlugin::pointer              ep_plugin;
     boost::shared_ptr<void>           ep_rpc;
     boost::shared_ptr<tt::TTransport> ep_trans;
 
     virtual ~EpSvcHandle();
     EpSvcHandle()
-        : ep_refcnt(0), ep_owner(NULL), ep_rpc(NULL), ep_trans(NULL) {}
+        : ep_refcnt(0), ep_state(EP_ST_INIT), ep_owner(NULL),
+          ep_plugin(NULL), ep_rpc(NULL), ep_trans(NULL) {}
 
-    explicit EpSvcHandle(EpSvc::pointer svc)
-        : ep_refcnt(0), ep_owner(svc), ep_rpc(NULL), ep_trans(NULL) {}
+    EpSvcHandle(EpSvc::pointer svc, EpEvtPlugin::pointer evt) : EpSvcHandle() {
+        ep_owner  = svc;
+        ep_plugin = evt;
+    }
+    void ep_notify_plugin();
 
   private:
     mutable boost::atomic<int>        ep_refcnt;
@@ -431,7 +445,9 @@ class NetMgr : public Module
             if (myep != NULL) {
                 port = ep_uuid_binding(peer, &ip);
                 if (port != -1) {
-                    return myep->ep_new_handle(port, ip);
+                    EpSvcHandle::pointer ret;
+                    myep->ep_new_handle(port, ip, &ret, NULL);
+                    return ret;
                 }
             }
         }
@@ -492,7 +508,8 @@ class NetPlatform : public Module
     explicit NetPlatform(const char *name);
     virtual ~NetPlatform() {}
 
-    inline static NetPlatform *nplat_singleton() { return gl_NetPlatSvc; }
+    inline static NetPlatform   *nplat_singleton() { return gl_NetPlatSvc; }
+    virtual EpSvc::pointer       nplat_my_ep() = 0;
     virtual EpSvcHandle::pointer nplat_domain_rpc(const fpi::DomainID &id) = 0;
 
   protected:

@@ -8,12 +8,14 @@
 #include <vector>
 #include <net/net-service.h>
 #include <fdsp/PlatNetSvc.h>
-#include <platform/node-inventory.h>
+#include <platform/platform-lib.h>
+// #include <platform/node-inventory.h>
 
 namespace fds {
 class Platform;
 class NetPlatSvc;
 class NetPlatHandler;
+class DomainAgent;
 template <class SendIf, class RecvIf>class EndPoint;
 struct ep_map_rec;
 
@@ -40,6 +42,27 @@ class PlatNetPlugin : public EpEvtPlugin
 };
 
 /**
+ * Plugin for domain agent to deal with network error.
+ */
+class DomainAgentPlugin : public EpEvtPlugin
+{
+  public:
+    typedef boost::intrusive_ptr<DomainAgentPlugin> pointer;
+    typedef boost::intrusive_ptr<const DomainAgentPlugin> const_ptr;
+
+    virtual ~DomainAgentPlugin() {}
+    explicit DomainAgentPlugin(boost::intrusive_ptr<DomainAgent> agt) : pda_agent(agt) {}
+
+    void ep_connected();
+    void ep_down();
+    void svc_up(EpSvcHandle::pointer handle);
+    void svc_down(EpSvc::pointer svc, EpSvcHandle::pointer handle);
+
+  protected:
+    boost::intrusive_ptr<DomainAgent>  pda_agent;
+};
+
+/**
  * Node domain master agent.  This is the main interface to the master domain
  * service.
  */
@@ -50,15 +73,20 @@ class DomainAgent : public PmAgent
     typedef boost::intrusive_ptr<const DomainAgent> const_ptr;
 
     virtual ~DomainAgent() {}
-    explicit DomainAgent(const NodeUuid &uuid) : PmAgent(uuid) {}
+    explicit DomainAgent(const NodeUuid &uuid);
 
-    inline EpSvcHandle::pointer pda_rpc()  { return agt_domain_ep; }
+    inline EpSvcHandle::pointer pda_rpc_handle() {
+        return agt_domain_ep;
+    }
+    inline boost::shared_ptr<fpi::PlatNetSvcClient> pda_rpc() {
+        return agt_domain_ep->svc_rpc<fpi::PlatNetSvcClient>();
+    }
     virtual void pda_connect_domain(const fpi::DomainID &id);
     virtual void pda_update_binding(const struct ep_map_rec *rec, int cnt);
 
   protected:
+    DomainAgentPlugin                     agt_domain_evt;
     EpSvcHandle::pointer                  agt_domain_ep;
-    bo::shared_ptr<fpi::PlatNetSvcClient> agt_domain_rpc;
 };
 
 class NetPlatSvc : public NetPlatform
@@ -74,7 +102,15 @@ class NetPlatSvc : public NetPlatform
     virtual void mod_enable_service();
     virtual void mod_shutdown();
 
-    EpSvcHandle::pointer nplat_domain_rpc(const fpi::DomainID &id);
+    // Common net platform services.
+    //
+    EpSvc::pointer        nplat_my_ep()  { return plat_ep; }
+    EpSvcHandle::pointer  nplat_domain_rpc(const fpi::DomainID &id);
+
+    inline std::string const *const nplat_domain_master(int *port) {
+        *port = plat_lib->plf_get_om_svc_port();
+        return plat_lib->plf_get_om_ip();
+    }
 
   protected:
     PlatNetEpPtr                         plat_ep;

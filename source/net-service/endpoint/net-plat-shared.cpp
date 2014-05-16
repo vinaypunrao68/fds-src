@@ -87,7 +87,7 @@ NetPlatSvc::mod_shutdown()
 EpSvcHandle::pointer
 NetPlatSvc::nplat_domain_rpc(const fpi::DomainID &id)
 {
-    return plat_agent->pda_rpc();
+    return plat_agent->pda_rpc_handle();
 }
 
 /*
@@ -95,13 +95,78 @@ NetPlatSvc::nplat_domain_rpc(const fpi::DomainID &id)
  * Domain Agent
  * -----------------------------------------------------------------------------------
  */
+DomainAgent::DomainAgent(const NodeUuid &uuid)
+    : PmAgent(uuid), agt_domain_evt(this), agt_domain_ep(NULL) {}
+
+/**
+ * pda_connect_domain
+ * ------------------
+ */
 void
 DomainAgent::pda_connect_domain(const fpi::DomainID &id)
 {
+    int                port;
+    NetPlatSvc        *net;
+    PlatNetEpPtr       eptr;
+
+    if (agt_domain_ep != NULL) {
+        return;
+    }
+    net  = &gl_NetPlatform;
+    eptr = ep_cast_ptr<PlatNetEp>(net->nplat_my_ep());
+    fds_verify(eptr != NULL);
+
+    std::string const *const om_ip = net->nplat_domain_master(&port);
+    eptr->ep_new_handle(port, *om_ip, &agt_domain_ep, &agt_domain_evt);
 }
 
+/**
+ * pda_update_binding
+ * ------------------
+ */
 void
 DomainAgent::pda_update_binding(const struct ep_map_rec *rec, int cnt)
+{
+}
+
+/**
+ * ep_connected
+ * ------------
+ */
+void
+DomainAgentPlugin::ep_connected()
+{
+    std::vector<UuidBindMsg> ret;
+    auto rpc = pda_agent->pda_rpc();
+
+    std::cout << "Agent domain connected..." << std::endl;
+    rpc->allUuidBinding(ret, UuidBindMsg());
+}
+
+/**
+ * ep_down
+ * -------
+ */
+void
+DomainAgentPlugin::ep_down()
+{
+}
+
+/**
+ * svc_up
+ * ------
+ */
+void
+DomainAgentPlugin::svc_up(EpSvcHandle::pointer handle)
+{
+}
+
+/**
+ * svc_down
+ * --------
+ */
+void
+DomainAgentPlugin::svc_down(EpSvc::pointer svc, EpSvcHandle::pointer handle)
 {
 }
 
@@ -151,12 +216,14 @@ NetPlatHandler::asyncResp(bo::shared_ptr<fpi::AsyncHdr>  &hdr,
 void
 NetPlatHandler::uuidBind(fpi::RespHdr &ret, bo::shared_ptr<fpi::UuidBindMsg> &msg)
 {
+    std::cout << "uuidBind there" << std::endl;
 }
 
 void
 NetPlatHandler::allUuidBinding(std::vector<fpi::UuidBindMsg>   &ret,
                                bo::shared_ptr<fpi::UuidBindMsg> &msg)
 {
+    std::cout << "all uuidBind there" << std::endl;
 }
 
 void

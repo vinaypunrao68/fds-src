@@ -61,7 +61,32 @@ endpoint_retry_connect(EpSvcHandle::pointer ptr)
 int
 EpSvcHandle::ep_reconnect()
 {
-    return 0;
+    fds_verify(ep_trans != NULL);
+    ep_trans->close();
+    while (1) {
+        try {
+            ep_state = EP_ST_CONNECTING;
+            ep_trans->open();
+            ep_state = EP_ST_CONNECTED;
+            ep_notify_plugin();
+            return 0;
+        } catch(...) {
+            sleep(1);
+        }
+    }
+    return -1;
+}
+
+// ep_notify_plugin
+// ----------------
+//
+void
+EpSvcHandle::ep_notify_plugin()
+{
+    fds_verify(ep_plugin != NULL);
+    if (ep_state == EP_ST_CONNECTED) {
+        ep_plugin->ep_connected();
+    }
 }
 
 /*
