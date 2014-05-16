@@ -3,10 +3,7 @@ package com.formationds.demo;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.apis.VolumePolicy;
-import com.formationds.apis.VolumeConnector;
 import com.formationds.xdi.Xdi;
-import org.apache.thrift.TException;
 import org.joda.time.DateTime;
 import org.joda.time.Duration;
 
@@ -22,28 +19,6 @@ public class RealDemoState implements DemoState {
     private final ImageWriter writer;
 
     public RealDemoState(Duration timeToLive, Xdi xdi) {
-        try {
-            xdi.deleteVolume(Main.DEMO_DOMAIN, "Volume1");
-            xdi.deleteVolume(Main.DEMO_DOMAIN, "Volume2");
-            xdi.deleteVolume(Main.DEMO_DOMAIN, "Volume3");
-            xdi.deleteVolume(Main.DEMO_DOMAIN, "Volume4");
-        } catch (Exception e) {
-
-        }
-
-        try {
-            xdi.createVolume(Main.DEMO_DOMAIN, "Volume1",
-                             new VolumePolicy(1024 * 4, VolumeConnector.S3));
-            xdi.createVolume(Main.DEMO_DOMAIN, "Volume2",
-                             new VolumePolicy(1024 * 4, VolumeConnector.S3));
-            xdi.createVolume(Main.DEMO_DOMAIN, "Volume3",
-                             new VolumePolicy(1024 * 4, VolumeConnector.S3));
-            xdi.createVolume(Main.DEMO_DOMAIN, "Volume4",
-                             new VolumePolicy(1024 * 4, VolumeConnector.S3));
-        } catch (TException e) {
-            throw new RuntimeException(e);
-        }
-
         reader = new FdsImageReader(xdi);
         writer = new FdsImageWriter(xdi);
 
@@ -70,7 +45,7 @@ public class RealDemoState implements DemoState {
             demoRunner = newRunner;
             demoRunner.start();
         } else {
-            demoRunner = new DemoRunner(searchExpression, reader, writer, 1, 1);
+            demoRunner = new DemoRunner(searchExpression, reader, writer, 0, 0);
             demoRunner.start();
         }
     }
@@ -83,14 +58,13 @@ public class RealDemoState implements DemoState {
 
     @Override
     public Optional<ImageResource> peekReadQueue() {
-        lastAccessed = DateTime.now();
-        return demoRunner == null || demoRunner.peekReadQueue() == null? Optional.empty() : Optional.of(demoRunner.peekReadQueue());
+        return peekWriteQueue();
     }
 
     @Override
     public Optional<ImageResource> peekWriteQueue() {
         lastAccessed = DateTime.now();
-        return demoRunner == null || demoRunner.peekWriteQueue() == null? Optional.empty() : Optional.of(demoRunner.peekWriteQueue());
+        return demoRunner == null ? Optional.empty() : demoRunner.peekReadQueue();
     }
 
     @Override

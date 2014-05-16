@@ -5,5 +5,5 @@ package com.formationds.demo;
 
 interface ImageReader {
     public Counts consumeCounts();
-    public ImageResource readOne();
+    public StoredImage read(StoredImage lastWritten);
 }

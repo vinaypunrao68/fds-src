@@ -3,15 +3,10 @@ package com.formationds.demo;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.apis.BlobDescriptor;
-import com.formationds.apis.VolumeDescriptor;
 import com.formationds.xdi.Xdi;
 import org.apache.commons.io.IOUtils;
 
 import java.io.InputStream;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
 
 public class FdsImageReader implements ImageReader {
     private Counts counts;
@@ -28,22 +23,13 @@ public class FdsImageReader implements ImageReader {
     }
 
     @Override
-    public ImageResource readOne() {
+    public StoredImage read(StoredImage lastWritten) {
         try {
             Thread.sleep(500);
-            List<VolumeDescriptor> volumes = xdi.listVolumes(Main.DEMO_DOMAIN);
-            Collections.shuffle(volumes);
-            String volumeName = volumes.get(0).getName();
-            List<BlobDescriptor> blobs = xdi.volumeContents(Main.DEMO_DOMAIN, volumeName, 1000, 0l);
-            Collections.shuffle(blobs);
-            BlobDescriptor blobDescriptor = blobs.get(0);
-            Map<String, String> metadata = blobDescriptor.getMetadata();
-            String id = metadata.get(FdsImageWriter.ID_METADATA);
-            String url = metadata.get(FdsImageWriter.URL_METADATA);
-            InputStream inputStream = xdi.readStream(Main.DEMO_DOMAIN, volumeName, blobDescriptor.getName());
-            byte[] bytes = IOUtils.toByteArray(inputStream);
-            counts.increment(volumeName);
-            return new ImageResource(id, url, bytes.length);
+            InputStream inputStream = xdi.readStream(Main.DEMO_DOMAIN, lastWritten.getVolumeName(), lastWritten.getImageResource().getId());
+            IOUtils.toByteArray(inputStream);
+            counts.increment(lastWritten.getVolumeName());
+            return lastWritten;
         } catch (Exception e) {
             throw new RuntimeException(e);
         }

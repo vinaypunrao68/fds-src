@@ -1,8 +1,8 @@
 package com.formationds.om;
 
+import com.formationds.fdsp.ClientFactory;
 import com.formationds.security.Authenticator;
 import com.formationds.security.AuthorizationToken;
-import com.formationds.fdsp.ClientFactory;
 import com.formationds.util.Configuration;
 import com.formationds.util.libconfig.ParserFacade;
 import com.formationds.web.toolkit.HttpMethod;
@@ -57,8 +57,8 @@ public class Main {
         authorize(HttpMethod.GET, "/api/config/domains", ListDomains::new);
         authorize(HttpMethod.GET, "/api/config/volumeDefaults", () -> new ShowVolumeDefaults());
 
-        int demoWebappPort = omConfig.lookup("fds.om.demo_webapp_port").intValue();
-        new Thread(() -> new com.formationds.demo.Main().start(demoWebappPort)).start();
+        //int demoWebappPort = omConfig.lookup("fds.om.demo_webapp_port").intValue();
+        //new Thread(() -> new com.formationds.demo.Main().start(demoWebappPort)).start();
 
         int adminWebappPort = omConfig.lookup("fds.om.admin_webapp_port").intValue();
         webApp.start(adminWebappPort);

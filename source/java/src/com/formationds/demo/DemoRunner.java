@@ -6,6 +6,7 @@ package com.formationds.demo;
 import org.apache.log4j.Logger;
 
 import java.util.Iterator;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingDeque;
@@ -21,8 +22,7 @@ public class DemoRunner {
     private final ExecutorService executor;
     private Iterator<ImageResource> imageIterator;
     private final LinkedBlockingDeque<ImageResource> writeQueue;
-    private ImageResource lastRead;
-    private ImageResource lastWritten;
+    private StoredImage lastWritten;
 
     public DemoRunner(String searchExpression, ImageReader reader, ImageWriter writer, int readParallelism, int writeParallelism) {
         LOG.info("New DemoRunner, q=" + searchExpression);
@@ -33,7 +33,6 @@ public class DemoRunner {
         this.writeParallelism = writeParallelism;
         executor = Executors.newCachedThreadPool();
         writeQueue = new LinkedBlockingDeque<>(1000);
-        lastRead = null;
         lastWritten = null;
     }
 
@@ -42,7 +41,8 @@ public class DemoRunner {
         executor.submit(() -> {
             while (imageIterator.hasNext()) {
                 try {
-                    writeQueue.put(imageIterator.next());
+                    ImageResource next = imageIterator.next();
+                    writeQueue.put(next);
                 } catch (InterruptedException e) {
                     //throw new RuntimeException(e);
                 }
@@ -50,18 +50,16 @@ public class DemoRunner {
         });
 
         for (int i = 0; i < writeParallelism; i++) {
-            executor.submit(() -> {
+            executor.submit((Runnable) () -> {
                 while (true) {
                     try {
                         ImageResource resource = writeQueue.take();
-                        lastWritten = resource;
-                        writer.write(resource);
-                    } catch (InterruptedException e) {
-                        break;
+                        lastWritten = writer.write(resource);
+                        LOG.debug("Wrote " + resource.getUrl());
+                    } catch (Exception e) {
+                        LOG.info("Error writing :", e);
                     }
                 }
-
-                return true;
             });
         }
 
@@ -69,9 +67,12 @@ public class DemoRunner {
             executor.submit((Runnable)() -> {
                 while (true) {
                     try {
-                        ImageResource r = reader.readOne();
-                        lastRead = r;
+                        if (lastWritten != null) {
+                            StoredImage r = reader.read(lastWritten);
+                            LOG.debug("Read " + lastWritten);
+                        }
                     } catch (Exception e) {
+                        LOG.info("Error reading image", e);
                         //break;
                     }
                 }
@@ -80,12 +81,12 @@ public class DemoRunner {
         executor.shutdown();
     }
 
-    public ImageResource peekWriteQueue() {
-        return lastWritten;
+    public java.util.Optional<ImageResource> peekWriteQueue() {
+        return lastWritten == null ? Optional.<ImageResource>empty() : Optional.of(lastWritten.getImageResource());
     }
 
-    public ImageResource peekReadQueue() {
-        return lastRead;
+    public java.util.Optional<ImageResource> peekReadQueue() {
+        return peekWriteQueue();
     }
 
     public Counts consumeReadCounts() {

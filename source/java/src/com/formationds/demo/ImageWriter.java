@@ -5,5 +5,5 @@ package com.formationds.demo;
 
 interface ImageWriter {
     public Counts consumeCounts();
-    public void write(ImageResource resource);
+    public StoredImage write(ImageResource resource);
 }

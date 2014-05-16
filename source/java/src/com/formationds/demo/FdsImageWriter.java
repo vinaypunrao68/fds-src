@@ -10,7 +10,10 @@ import org.apache.thrift.TException;
 import java.io.BufferedInputStream;
 import java.io.InputStream;
 import java.net.URL;
-import java.util.*;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class FdsImageWriter implements ImageWriter {
     public static final String URL_METADATA = "url";
@@ -36,7 +39,7 @@ public class FdsImageWriter implements ImageWriter {
     }
 
     @Override
-    public void write(ImageResource resource) {
+    public StoredImage write(ImageResource resource) {
         try {
             Thread.sleep(500);
             String volume = randomVolume();
@@ -45,12 +48,12 @@ public class FdsImageWriter implements ImageWriter {
             Map<String, String> metadata = new HashMap<>();
             metadata.put(URL_METADATA, resource.getUrl());
             metadata.put(ID_METADATA, resource.getId());
-
-            String name = UUID.randomUUID().toString() + ".jpg";
-            xdi.writeStream(Main.DEMO_DOMAIN, volume, name, inputStream, metadata);
+            xdi.writeStream(Main.DEMO_DOMAIN, volume, resource.getId(), inputStream, metadata);
             counts.increment(volume);
+            return new StoredImage(resource, volume);
         } catch (Exception e) {
             System.out.println(e);
+            throw new RuntimeException(e);
         }
     }
 
