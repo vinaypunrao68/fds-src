@@ -8,6 +8,7 @@
 #include <net/net-service-tmpl.hpp>
 #include <ProbeServiceSM.h>
 #include <ProbeServiceAM.h>
+#include <net/BaseAsyncSvcHandler.h>
 
 namespace fds {
 
@@ -89,6 +90,8 @@ class ProbeEpTestAM : public Module
     // its peer.
     //
     EndPoint<fpi::ProbeServiceAMClient, fpi::ProbeServiceAMProcessor>::pointer probe_ep;
+    EndPoint<fpi::ProbeServiceAMClient,
+        fpi::ProbeServiceAMProcessor>::pointer ret_probe_ep;
 };
 
 /**

@@ -24,15 +24,17 @@ class RpcRequestPool {
 #if 0
     EPRpcRequestPtr newEPRpcRequest(const fpi::SvcUuid &uuid);
 #endif
-    EPAsyncRpcRequestPtr newEPAsyncRpcRequest(const fpi::SvcUuid &uuid);
+    EPAsyncRpcRequestPtr newEPAsyncRpcRequest(const fpi::SvcUuid &myEpId,
+                                              const fpi::SvcUuid &peerEpId);
 
     template <typename ServiceT, typename MemFuncT, typename Arg1T>
     FailoverRpcRequestPtr newFailoverRpcRequest(
-            const std::vector<fpi::SvcUuid>& uuid_list, MemFuncT f, Arg1T a1)
+            const fpi::SvcUuid& myEpId,
+            const std::vector<fpi::SvcUuid>& peerEpIds, MemFuncT f, Arg1T a1)
     {
         auto reqId = nextAsyncReqId_++;
 
-        FailoverRpcRequestPtr req(new FailoverRpcRequest(reqId, uuid_list));
+        FailoverRpcRequestPtr req(new FailoverRpcRequest(reqId, myEpId, peerEpIds));
         boost::shared_ptr<RpcFuncIf> rpc(new RpcFunc1<ServiceT, MemFuncT, Arg1T>(f, a1));
 
         asyncRpcCommonHandling(req);
@@ -42,7 +44,7 @@ class RpcRequestPool {
     }
 
     static fpi::AsyncHdr newAsyncHeader(const AsyncRpcRequestId& reqId,
-            const fpi::SvcUuid &dstUuid);
+            const fpi::SvcUuid &srcUuid, const fpi::SvcUuid &dstUuid);
 
  protected:
     std::atomic<uint64_t> nextAsyncReqId_;

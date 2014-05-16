@@ -35,7 +35,7 @@ struct ProbeBar {
     7: optional i32      p5,
 }
 
-service ProbeServiceSM {
+service ProbeServiceSM extends fds_service.BaseAsyncSvc {
     /* Required for async message passing semantic */
     oneway void msg_async_resp(1: fds_service.AsyncHdr orig,
                                2: fds_service.AsyncHdr resp),
@@ -60,7 +60,7 @@ struct ProbeAmCreatVolResp {
     3: required i64                  vol_mb_size,
 }
 
-service ProbeServiceAM {
+service ProbeServiceAM extends fds_service.BaseAsyncSvc {
     /* Required for async message passing semantic */
     oneway void msg_async_resp(1: fds_service.AsyncHdr orig,
                                2: fds_service.AsyncHdr resp),
