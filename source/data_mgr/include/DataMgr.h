@@ -31,6 +31,8 @@
 #include <lib/qos_min_prio.h>
 #include <NetSession.h>
 
+#include <CommitLog.h>
+
 #include <blob/BlobTypes.h>
 
 #undef FDS_TEST_DM_NOOP     /* if defined, puts complete as soon as they arrive to DM (not for gets right now) */
