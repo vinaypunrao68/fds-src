@@ -10,6 +10,8 @@ import com.amazonaws.services.s3.model.Bucket;
 import com.amazonaws.services.s3.model.S3Object;
 import com.formationds.apis.AmService;
 import com.formationds.apis.ConfigurationService;
+import com.formationds.apis.VolumeConnector;
+import com.formationds.apis.VolumePolicy;
 import com.formationds.security.Authenticator;
 import com.formationds.security.AuthorizationToken;
 import com.formationds.util.Configuration;
@@ -22,20 +24,22 @@ import org.junit.Test;
 import java.io.ByteArrayOutputStream;
 
 public class S3TestCase {
-    //@Test
+    @Test
     public void testMount() throws Exception {
-        TSocket amTransport = new TSocket("localhost", 9988);
+        TSocket amTransport = new TSocket("192.168.33.10", 9988);
         amTransport.open();
         AmService.Iface am = new AmService.Client(new TBinaryProtocol(amTransport));
 
-        String omHost = "localhost";
+        String omHost = "192.168.33.10";
         TSocket omTransport = new TSocket(omHost, 9090);
         omTransport.open();
         ConfigurationService.Iface config = new ConfigurationService.Client(new TBinaryProtocol(omTransport));
 
-        //config.createVolume("fds", "Volume1", new VolumePolicy(1024 * 4, VolumeConnector.CINDER));
+        config.createVolume("fds", "Volume1", new VolumePolicy(1024 * 4, VolumeConnector.CINDER));
+        Thread.sleep(2000);
         am.attachVolume("fds", "Volume1");
     }
+
     //@Test
     public void testFdsImplementation() throws Exception {
         new Configuration(new String[0]);
