@@ -10,6 +10,7 @@
 #include <orch-mgr/om-service.h>
 #include <OmDeploy.h>
 #include <OmDataPlacement.h>
+#include <OmVolumePlacement.h>
 
 namespace fds {
 
@@ -191,6 +192,9 @@ UT_DP_NodeInfo::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput 
 
     NodeList newNodes, rmNodes;
 
+    std::cout << "hello here" << std::endl;
+    return this;
+
     domain = OM_NodeDomainMod::om_local_domain();
     ptr = FdspNodeRegPtr(new FdspNodeReg());
     num = parent->js_array_size();
@@ -244,6 +248,101 @@ UT_DP_NodeInfo::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput 
     return this;  //  to free this obj
 }
 
+JsObject *
+UT_VP_NodeInfo::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput *out)
+{
+    int               i, num;
+    FdspNodeRegPtr    ptr;
+    fpi::FDSP_VolumeInfoType fdsp_vol_info;
+    UT_VP_NodeInfo   *node;
+    ut_resource_info_t   *info;
+    OM_NodeDomainMod *domain;
+
+    NodeList newNodes, rmNodes;
+
+    domain = OM_NodeDomainMod::om_local_domain();
+    OM_NodeContainer* loc_domain = OM_NodeDomainMod::om_loc_domain_ctrl();
+    VolumeContainer::pointer volumes = loc_domain->om_vol_mgr();
+    ptr = FdspNodeRegPtr(new FdspNodeReg());
+    num = parent->js_array_size();
+
+    for (i = 0; i < num; i++) {
+        node = static_cast<UT_VP_NodeInfo *>((*parent)[i]);
+        info = node->vp_node_info();
+
+        if (info->rs_type == ut_rs_dm) {
+            std::cout << "DM uuid " << std::hex << info->rs_uuid << std::dec
+                      << ", name " << info->rs_name
+                      << " add?" << info->add <<  std::endl;
+        } else {
+            std::cout << "Volume uuid " << std::hex << info->rs_uuid << std::dec
+                      << ", name " << info->rs_name
+                      << " add?" << info->add <<  std::endl;
+        }
+
+        ResourceUUID r_uuid(info->rs_uuid);
+
+        if (info->add == true) {
+            if (info->rs_type == ut_rs_dm) {
+                OM_DmAgent::pointer agent(new OM_DmAgent(r_uuid));
+                agent->node_fill_inventory(ptr);
+                newNodes.push_back(agent);
+            } else {
+                VolumeInfo::pointer vol;
+                vol = VolumeInfo::vol_cast_ptr(volumes->rs_alloc_new(r_uuid));
+                fdsp_vol_info.vol_name = std::string(info->rs_name);
+                vol->vol_mk_description(fdsp_vol_info);
+                volumes->rs_register(vol);
+            }
+        } else {
+            if (info->rs_type == ut_rs_dm) {
+                OM_DmAgent::pointer agent(new OM_DmAgent(r_uuid));
+                agent->node_fill_inventory(ptr);
+                rmNodes.push_back(agent);
+            } else {
+                std::cout << "Removing volume not supported yet, ignoring"
+                          << std::endl;
+            }
+        }
+    }
+
+    if ((newNodes.size() == 0) && (rmNodes.size() == 0)) {
+        std::cout << "Did not add or remove any DMs, done" << std::endl;
+        return this;
+    }
+
+    // Get modules and print current DMT
+    ProbeMod *mod  = out->js_get_context();
+    OM_Module *om  = static_cast<OM_Module *>(mod->pr_get_owner_module());
+    VolumePlacement *vp = om->om_volplace_mod();
+    ClusterMap* cm = om->om_clusmap_mod();
+
+    if (vp->hasCommittedDMT()) {
+        DMTPtr oldDmt = vp->getCommittedDMT();
+        std::cout << "Old Committed DMT: " << std::endl;
+        std::cout << *oldDmt << std::endl;
+    } else {
+        std::cout << "Old Committed DMT: NULL" << std::endl;
+    }
+
+    // Update cluster map and recompute the DMT
+    cm->updateMap(fpi::FDSP_DATA_MGR, newNodes, rmNodes);
+    vp->computeDMT(cm);
+
+    // do rebalance to see which vols we will pusj
+    NodeUuidSet push_meta_dms;
+    vp->beginRebalance(cm, &push_meta_dms);
+    vp->commitDMT();
+    cm->resetPendServices(fpi::FDSP_DATA_MGR);
+
+    // print newly committed DMT
+    fds_verify(vp->hasCommittedDMT());
+    DMTPtr newDmt = vp->getCommittedDMT();
+    std::cout << "New committed DMT:" << std::endl;
+    std::cout << *newDmt << std::endl;
+
+    return this;  //  to free this obj
+}
 
 fds_uint64_t*
 UT_DLT_EvalHelper::copy_dlt(const DLT* dlt)

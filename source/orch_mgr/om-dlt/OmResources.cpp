@@ -737,7 +737,6 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
 {
     NodeAgent::pointer      newNode;
     OM_PmContainer::pointer pmNodes;
-    fds_uint32_t  numVols = 0;
 
     pmNodes = om_locDomain->om_pm_nodes();
     fds_assert(pmNodes != NULL);
@@ -752,40 +751,6 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
                     << " on node with uuid " << std::hex << (msg->node_uuid).uuid
                     << std::dec << "; Check if Platform daemon is running";
             return Error(ERR_NODE_NOT_ACTIVE);
-        }
-    }
-
-    // TEMP -- so we can test push meta to DM, will put it to the right
-    // place soon
-    fpi::FDSP_PushMetaPtr meta_msg(new FDSP_PushMeta());
-    NodeAgent::pointer oldDmNode;
-    if (msg->node_type == fpi::FDSP_DATA_MGR) {
-        OM_DmContainer::pointer dmNodes;
-        dmNodes = om_locDomain->om_dm_nodes();
-        fds_verify(dmNodes != NULL);
-        for (fds_uint32_t i = 0; i < dmNodes->rs_available_elm(); ++i) {
-            NodeAgent::pointer agt = dmNodes->agent_info(i);
-            if (agt != NULL) {
-                // we just find first DM and send it push meta
-                oldDmNode = agt;
-                break;
-            }
-        }
-        if (oldDmNode) {
-            FDSP_metaData md;
-            md.node_uuid.uuid = uuid.uuid_get_val();
-            VolumeContainer::pointer volumes = om_locDomain->om_vol_mgr();
-            RsArray ary;
-            fds_uint32_t count = volumes->rs_container_snapshot(&ary);
-            // will send message to push all volumes
-            for (fds_uint32_t i = 0; i < count; ++i) {
-                if (ary[i] != NULL) {
-                    md.volList.push_back((ary[i]->rs_get_uuid()).uuid_get_val());
-                }
-            }
-            if (md.volList.size() > 0) {
-                (meta_msg->metaVol).push_back(md);
-            }
         }
     }
 

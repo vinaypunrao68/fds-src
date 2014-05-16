@@ -164,9 +164,6 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
         DmtColumnPtr cmt_col = dmtMgr->getCommittedNodeGroup(volid);
         DmtColumnPtr target_col = dmtMgr->getTargetNodeGroup(volid);
 
-        LOGDEBUG << "Check if we need to push_meta for vol"
-                 << std::hex << volid << std::dec;
-
         // for each DM in target column, find all DMs that
         // that got added to that column
         NodeUuidSet new_dms;
@@ -209,7 +206,6 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
             // search meta list if we already have item with same
             // destination uuid
             fds_bool_t found = false;
-            LOGDEBUG << "Have src_dm? " << push_meta_msgs.count(src_dm);
             for (fds_uint32_t idx = 0;
                  idx < ((push_meta_msgs[src_dm])->metaVol).size();
                  ++idx) {
@@ -221,7 +217,6 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
                     break;
                 }
             }
-            LOGDEBUG << "Found destination node for vol ? " << found;
             if (!found) {
                 FDSP_metaData meta;
                 meta.node_uuid.uuid = (*cit).uuid_get_val();
@@ -235,6 +230,20 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
     for (pm_msgs_t::iterator it = push_meta_msgs.begin();
          it != push_meta_msgs.end();
          ++it) {
+        for (auto metavol : (it->second)->metaVol) {
+            std::string volid_str;
+            for (auto vol : metavol.volList) {
+                volid_str.append(std::to_string(vol));
+                volid_str.append(",");
+            }
+            LOGDEBUG << "Src node " << std::hex << it->first << ", Dst node "
+                     << metavol.node_uuid.uuid << std::dec << " volumes " << volid_str;
+        }
+        if (OM_NodeDomainMod::om_in_test_mode()) {
+            LOGDEBUG << "IN TEST MODE: not sending push meta messages";
+            continue;
+        }
+        // send message
         OM_DmAgent::pointer agent = loc_domain->om_dm_agent(NodeUuid(it->first));
         fds_verify(agent != NULL);
         err = agent->om_send_pushmeta(it->second);

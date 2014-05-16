@@ -407,16 +407,6 @@ OM_NodeAgent::om_send_pushmeta(fpi::FDSP_PushMetaPtr& meta_msg)
     LOGNORMAL << "OM: send Push_Meta to " << get_node_name() << " uuid 0x"
               << std::hex << (get_uuid()).uuid_get_val() << std::dec;
 
-    for (auto metavol : meta_msg->metaVol) {
-        std::string volid_str;
-        for (auto vol : metavol.volList) {
-            volid_str.append(std::to_string(vol));
-            volid_str.append(",");
-        }
-        LOGDEBUG << "Destination node " << std::hex << metavol.node_uuid.uuid
-                 << std::dec << " volumes " << volid_str;
-    }
-
     return err;
 }
 
