@@ -10,6 +10,7 @@
 #include "DataMgr.h"
 
 namespace fds {
+    extern DataMgr *dataMgr;
 
 /****** CatalogSync implementation ******/
 
@@ -133,6 +134,8 @@ Error CatalogSync::sendMetaSyncDone(fds_volid_t volid) {
 
     DataMgr::InitMsgHdr(msg_hdr);  // init the  message  header
     msg_hdr->dst_id = FDSP_DATA_MGR;
+
+    vol_meta->vol_uuid = volid;
 
     LOGDEBUG << "Will send MetaSyncDone msg";
 
@@ -334,7 +337,16 @@ void
 FDSP_MetaSyncRpc::MetaSyncDone(FDSP_MsgHdrTypePtr& fdsp_msg,
                                FDSP_VolMetaStatePtr& vol_meta) {
 
+
+    const std::string vol_name =  dataMgr->getPrefix() +
+                              std::to_string(vol_meta->vol_uuid);
+    const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
+    VolumeMeta *vm = dataMgr->vol_meta_map[vol_meta->vol_uuid];
+    // re-open the db and  get ready for the transactions 
+    vm->vcat = new VolumeCatalog(root->dir_user_repo_dm() + vol_name + "_vcat.ldb", true);
+    vm->tcat = new TimeCatalog(root->dir_user_repo_dm() + vol_name + "_tcat.ldb", true);
     LOGNORMAL << "Received MetaSyncDone Rpc message ";
+
 }
 
 

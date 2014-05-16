@@ -595,16 +595,6 @@ class VolumeMeta {
   private:
     fds_mutex  *vol_mtx;
 
-    /*
-     * The volume catalog maintains mappings from
-     * vol/blob/offset to object id.
-     */
-    VolumeCatalog *vcat;
-    /*
-     * The time catalog maintains pending changes to
-     * the volume catalog.
-     */
-    TimeCatalog *tcat;
 
     /*
      * A logger received during instantiation.
@@ -621,6 +611,16 @@ class VolumeMeta {
     VolumeMeta& operator=(const VolumeMeta rhs);
 
  public:
+    /*
+     * The volume catalog maintains mappings from
+     * vol/blob/offset to object id.
+     */
+    VolumeCatalog *vcat;
+    /*
+     * The time catalog maintains pending changes to
+     * the volume catalog.
+     */
+    TimeCatalog *tcat;
 
     VolumeCatalog *getVcat();
     VolumeDesc *vol_desc;

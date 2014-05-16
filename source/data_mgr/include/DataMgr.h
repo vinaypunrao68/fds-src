@@ -56,6 +56,11 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler
   typedef boost::shared_ptr<ReqHandler> ReqHandlerPtr;
   typedef boost::shared_ptr<FDS_ProtocolInterface::FDSP_MetaDataPathRespClient> RespHandlerPrx;
   OMgrClient     *omClient;
+    /*
+     * TODO: Move to STD shared or unique pointers. That's
+     * safer.
+     */
+    std::unordered_map<fds_uint64_t, VolumeMeta*> vol_meta_map;
   /**
    * Catalog sync manager
    */
@@ -161,11 +166,6 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler
     fds_uint32_t num_threads;
     fds_threadpool *_tp;
 
-    /*
-     * TODO: Move to STD shared or unique pointers. That's
-     * safer.
-     */
-    std::unordered_map<fds_uint64_t, VolumeMeta*> vol_meta_map;
     /*
      * Used to protect access to vol_meta_map.
      */

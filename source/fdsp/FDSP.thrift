@@ -803,7 +803,7 @@ struct FDSP_metaData
 
 struct FDSP_VolMetaState
 {
-    1: vol_List_Type  volList;
+    1:i64        vol_uuid;
 }
 
 typedef list<FDSP_metaData> FDSP_metaDataList
