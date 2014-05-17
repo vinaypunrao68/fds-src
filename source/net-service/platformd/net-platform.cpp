@@ -4,10 +4,9 @@
 #include <string>
 #include <vector>
 #include <ep-map.h>
-#include <net-platform.h>
 #include <net/net-service-tmpl.hpp>
 #include <platform/platform-lib.h>
-#include <net-plat-shared.h>
+#include <net-platform.h>
 
 namespace fds {
 

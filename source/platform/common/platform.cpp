@@ -50,9 +50,6 @@ NodePlatform::mod_init(SysParams const *const param)
     Platform::mod_init(param);
     FdsConfigAccessor conf(g_fdsprocess->get_conf_helper());
 
-    plf_om_ip_str    = conf.get_abs<std::string>("fds.plat.om_ip");
-    plf_om_ctrl_port = conf.get_abs<int>("fds.plat.om_port");
-    plf_om_svc_port  = conf.get_abs<int>("fds.plat.om_svc_port");
     plf_my_ctrl_port = conf.get_abs<int>("fds.plat.control_port");
     plf_my_conf_port = plf_conf_port(plf_my_ctrl_port);
     plf_my_data_port = plf_data_port(plf_my_ctrl_port);

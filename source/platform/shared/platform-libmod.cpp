@@ -247,34 +247,41 @@ Platform::plf_svc_uuid_from_node(const NodeUuid &node,
 }
 
 // -----------------------------------------------------------------------------------
-// Module methods.: TODO(Vy) - We don't need these functions
+// Module methods
 // -----------------------------------------------------------------------------------
 int
 Platform::mod_init(SysParams const *const param)
 {
     Module::mod_init(param);
 
-    plf_net_sess = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_PLATFORM));
-    plf_rpc_reqt = boost::shared_ptr<PlatRpcReqt>(plat_creat_reqt_disp());
-
+    plf_net_sess   = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_PLATFORM));
+    plf_rpc_reqt   = boost::shared_ptr<PlatRpcReqt>(plat_creat_reqt_disp());
     plf_dpath_resp = NodeAgentDpRespPtr(plat_creat_dpath_resp());
+
+    FdsConfigAccessor conf(g_fdsprocess->get_conf_helper());
+    plf_om_ip_str    = conf.get_abs<std::string>("fds.plat.om_ip");
+    plf_om_ctrl_port = conf.get_abs<int>("fds.plat.om_port");
+    plf_om_svc_port  = conf.get_abs<int>("fds.plat.om_svc_port");
+
     return 0;
 }
 
 void
 Platform::mod_startup()
 {
-}
-
-void
-Platform::mod_shutdown()
-{
+    Module::mod_startup();
 }
 
 void
 Platform::mod_enable_service()
 {
-    fds_verify(plf_domain == NULL);
+    Module::mod_enable_service();
+}
+
+void
+Platform::mod_shutdown()
+{
+    Module::mod_shutdown();
 }
 
 namespace util {

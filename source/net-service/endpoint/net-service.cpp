@@ -206,19 +206,6 @@ EpSvcHandle::pointer
 NetMgr::svc_domain_master(const fpi::DomainID &id,
                           bo::shared_ptr<fpi::PlatNetSvcClient> &rpc)
 {
-    int                            port;
-    bo::shared_ptr<void>           ep_rpc;
-    bo::shared_ptr<tt::TTransport> trans;
-
-    if (ep_domain_clnt == NULL) {
-        const std::string *ip = plat_lib->plf_get_om_ip();
-
-        port = plat_lib->plf_get_om_svc_port();
-        ep_domain_clnt = new EpSvcHandle(NULL);
-        EpSvcImpl::ep_connect_server<fpi::PlatNetSvcClient>(port, *ip, ep_domain_clnt);
-
-        ep_rpc = rpc;
-    }
     return ep_domain_clnt;
 }
 

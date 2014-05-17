@@ -6,9 +6,6 @@
 
 #include <string>
 #include <vector>
-#include <net/net-service.h>
-#include <fdsp/PlatNetSvc.h>
-#include <net-plat-shared.h>
 
 namespace fds {
 
