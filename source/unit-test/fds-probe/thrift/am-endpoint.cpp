@@ -107,13 +107,13 @@ ProbeEpSvcTestAM::mod_init(SysParams const *const p)
     //
     mgr          = NetMgr::ep_mgr_singleton();
     svc.svc_uuid = 0x1234;
-    am_hello     = mgr->svc_new_handle<fpi::ProbeServiceSMClient>(mine, svc);
+    mgr->svc_new_handle<fpi::ProbeServiceSMClient>(mine, svc, &am_hello);
 
     svc.svc_uuid = 0xcafe;
-    am_bye       = mgr->svc_new_handle<fpi::ProbeServiceSMClient>(mine, svc);
+    mgr->svc_new_handle<fpi::ProbeServiceSMClient>(mine, svc, &am_bye);
 
     svc.svc_uuid = 0xbeef;
-    am_poke      = mgr->svc_new_handle<fpi::ProbeServiceSMClient>(mine, svc);
+    mgr->svc_new_handle<fpi::ProbeServiceSMClient>(mine, svc, &am_poke);
     return 0;
 }
 

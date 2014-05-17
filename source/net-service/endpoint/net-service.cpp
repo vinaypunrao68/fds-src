@@ -169,6 +169,38 @@ NetMgr::ep_unregister(const fpi::SvcUuid &uuid)
     }
 }
 
+// ep_handler_register
+// -------------------
+//
+void
+NetMgr::ep_handler_register(EpSvcHandle::pointer handle)
+{
+    fpi::SvcUuid peer;
+
+    handle->ep_peer_uuid(peer);
+    fds_verify(peer != NullSvcUuid);
+
+    ep_mtx.lock();
+    ep_handle_map[peer.svc_uuid] = handle;
+    ep_mtx.unlock();
+}
+
+// ep_handler_unregister
+// ---------------------
+//
+void
+NetMgr::ep_handler_unregister(const fpi::SvcUuid &peer)
+{
+    ep_mtx.lock();
+    ep_handle_map.erase(peer.svc_uuid);
+    ep_mtx.unlock();
+}
+
+void
+NetMgr::ep_handler_unregister(EpSvcHandle::pointer handle)
+{
+}
+
 // svc_lookup
 // ----------
 // Lookup a service handle based on uuid and correct version.
@@ -197,6 +229,25 @@ EpSvc::pointer
 NetMgr::svc_lookup(const char *peer_name, fds_uint32_t maj, fds_uint32_t min)
 {
     return NULL;
+}
+
+// svc_handler_lookup
+// ------------------
+//
+EpSvcHandle::pointer
+NetMgr::svc_handler_lookup(const fpi::SvcUuid &uuid)
+{
+    EpSvcHandle::pointer  client;
+
+    ep_mtx.lock();
+    try {
+        client = ep_handle_map[uuid.svc_uuid];
+    } catch(...) {
+        client = NULL;
+    }
+    ep_mtx.unlock();
+
+    return client;
 }
 
 // svc_domain_master
@@ -357,7 +408,7 @@ NetMgr::ep_register_binding(const ep_map_rec_t *rec)
                                    const_cast<char *>(ip.c_str()), INET6_ADDRSTRLEN);
 
             // Connect to the peer if we haven't connected.
-            ept->ep_connect_server(port, ip);
+            ept->ep_connect_peer(port, ip);
         }
     }
 }

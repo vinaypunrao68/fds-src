@@ -72,11 +72,12 @@ class EpSvcImpl : public EpSvc
               const EpAttr         &attr,
               EpEvtPlugin::pointer  ops);
 
+    EpSvcImpl(const fpi::SvcID &mine, const fpi::SvcID &peer, EpEvtPlugin::pointer ops);
+
+    void         ep_connect_peer(int port, const std::string &ip);
     void         ep_fillin_binding(struct ep_map_rec *map);
     void         ep_peer_uuid(fpi::SvcUuid &uuid)  { uuid = ep_peer_id.svc_uuid; }
     fds_uint64_t ep_peer_uuid()  { return ep_peer_id.svc_uuid.svc_uuid; }
-
-    virtual void ep_connect_server(int port, const std::string &ip);
 
   public:
     /**
@@ -125,12 +126,6 @@ template <class SendIf, class RecvIf>
 class EndPoint : public EpSvcImpl
 {
   public:
-    typedef boost::intrusive_ptr<EndPoint<SendIf, RecvIf>> pointer;
-    typedef boost::intrusive_ptr<const EndPoint<SendIf, RecvIf>> const_ptr;
-
-    static inline EndPoint<SendIf, RecvIf>::pointer ep_cast_ptr(EpSvc::pointer ptr) {
-        return static_cast<EndPoint<SendIf, RecvIf> *>(get_pointer(ptr));
-    }
     virtual ~EndPoint() {}
     EndPoint(const fpi::SvcID          &mine,
              const fpi::SvcID          &peer,
@@ -194,7 +189,7 @@ class EndPoint : public EpSvcImpl
     boost::shared_ptr<SendIf> ep_sync_rpc()
     {
         if (ep_peer != NULL) {
-            return boost::static_pointer_cast<SendIf>(ep_peer->ep_rpc);
+            return ep_peer->svc_rpc<SendIf>();
         }
         return NULL;
     }
@@ -212,7 +207,6 @@ class EndPoint : public EpSvcImpl
     bo::shared_ptr<RecvIf>                 ep_rpc_recv;
     bo::shared_ptr<tt::TTransport>         ep_trans;
     bo::shared_ptr<ts::TThreadedServer>    ep_server;
-    bo::shared_ptr<ts::TNonblockingServer> ep_nb_srv;
 
     int  ep_get_status()     { return 0; }
     bool ep_is_connection()  { return true; }
@@ -227,30 +221,14 @@ class EndPoint : public EpSvcImpl
         int          port;
         std::string  ip;
 
+        *ret = NULL;
         port = NetMgr::ep_mgr_singleton()->ep_uuid_binding(peer, &ip);
         if (port != -1) {
-            ep_new_handle(this, port, ip, ret, ep_evt);
+            this->ep_new_handle(this, port, ip, ret, ep_evt);
         }
     }
 
   private:
-#if 0
-    void ep_setup_server_nb()
-    {
-        boost::shared_ptr<tp::TProtocolFactory> proto(new tp::TBinaryProtocolFactory());
-        boost::shared_ptr<tc::ThreadManager>
-            thr_mgr(tc::ThreadManager::newSimpleThreadManager(15));
-
-        boost::shared_ptr<tc::PosixThreadFactory> thr_fact(new tc::PosixThreadFactory());
-        thr_mgr->threadFactory(thr_fact);
-
-        ep_nb_srv = boost::shared_ptr<ts::TNonblockingServer>(
-                new ts::TNonblockingServer(ep_rpc_recv, proto, 8888, thr_mgr));
-
-        thr_mgr->start();
-        ep_nb_srv->serve();
-    }
-#endif
     // ep_init_obj
     // -----------
     //
@@ -259,10 +237,15 @@ class EndPoint : public EpSvcImpl
         ep_rpc_send = NULL;
         ep_trans    = NULL;
         ep_server   = NULL;
-        ep_nb_srv   = NULL;
     }
 
   public:
+    typedef boost::intrusive_ptr<EndPoint<SendIf, RecvIf>> pointer;
+    typedef boost::intrusive_ptr<const EndPoint<SendIf, RecvIf>> const_ptr;
+
+    static inline EndPoint<SendIf, RecvIf>::pointer ep_cast_ptr(EpSvc::pointer ptr) {
+        return static_cast<EndPoint<SendIf, RecvIf> *>(get_pointer(ptr));
+    }
     /**
      * Connect to the server, return the net-service handle to represent the client
      * side of the connection.

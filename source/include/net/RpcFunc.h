@@ -37,8 +37,10 @@ class RpcFunc1 : public RpcFuncIf {
         a1_ = a1;
     }
     virtual void invoke() override {
-        EpSvcHandle::pointer ep = NetMgr::ep_mgr_singleton()->\
-                svc_get_handle<ServiceT>(a1_->hdr.msg_dst_uuid, 0 , 0);
+        EpSvcHandle::pointer ep;
+        NetMgr::ep_mgr_singleton()->\
+            svc_get_handle<ServiceT>(a1_->hdr.msg_dst_uuid, &ep, 0 , 0);
+
         if (ep == nullptr) {
             throw std::runtime_error("Null endpoint");
         }

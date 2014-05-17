@@ -39,6 +39,21 @@ EpSvc::ep_apply_attr()
 {
 }
 
+EpSvcHandle::EpSvcHandle()
+    : ep_refcnt(0), ep_state(EP_ST_INIT),
+      ep_owner(NULL), ep_plugin(NULL), ep_rpc(NULL), ep_trans(NULL) {}
+
+EpSvcHandle::EpSvcHandle(EpSvc::pointer svc, EpEvtPlugin::pointer evt) : EpSvcHandle()
+{
+    ep_plugin = evt;
+    ep_owner  = svc;
+    if (svc != NULL) {
+        svc->ep_peer_uuid(ep_peer_id);
+    } else {
+        ep_peer_id = NullSvcUuid;
+    }
+}
+
 EpSvcHandle::~EpSvcHandle()
 {
     if (ep_trans != NULL) {
@@ -46,8 +61,15 @@ EpSvcHandle::~EpSvcHandle()
     }
 }
 
+/*
+ * -----------------------------------------------------------------------------------
+ * EndPoint Handler
+ * -----------------------------------------------------------------------------------
+ */
+
 // endpoint_etry_connect
 // ---------------------
+// Thread pool function to retry the connection.
 //
 void
 endpoint_retry_connect(EpSvcHandle::pointer ptr)
@@ -120,12 +142,17 @@ EpSvcImpl::EpSvcImpl(const fpi::SvcID     &mine,
     ep_peer_id = peer;
 }
 
-// ep_connect_server
-// -----------------
-//
-void
-EpSvcImpl::ep_connect_server(int port, const std::string &ip)
+EpSvcImpl::EpSvcImpl(const fpi::SvcID     &mine,
+                     const fpi::SvcID     &peer,
+                     EpEvtPlugin::pointer  ops)
+    : EpSvc(ResourceUUID(mine.svc_uuid), 0, 0)
 {
+    ep_peer_id = peer;
+    ep_evt     = ops;
+    ep_attr    = NULL;
+    if (ep_evt != NULL) {
+        ep_evt->assign_ep_owner(this);
+    }
 }
 
 // ep_bind_service
@@ -188,6 +215,11 @@ EpSvcImpl::ep_fillin_binding(ep_map_rec_t *rec)
     rec->rmp_uuid = svc_id.svc_uuid.svc_uuid;
     memcpy(&rec->rmp_addr, &ep_attr->ep_addr, sizeof(rec->rmp_addr));
     strncpy(rec->rmp_name, svc_id.svc_name.c_str(), MAX_SVC_NAME_LEN - 1);
+}
+
+void
+EpSvcImpl::ep_connect_peer(int port, const std::string &ip)
+{
 }
 
 /*

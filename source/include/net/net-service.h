@@ -300,37 +300,34 @@ class EpSvcHandle
     typedef boost::intrusive_ptr<EpSvcHandle> pointer;
     typedef boost::intrusive_ptr<const EpSvcHandle> const_ptr;
 
-    virtual int  ep_reconnect();
-    virtual ep_state_e ep_get_status()  { return ep_state; }
+    virtual ~EpSvcHandle();
+    EpSvcHandle(EpSvc::pointer svc, EpEvtPlugin::pointer evt);
+    EpSvcHandle(const fpi::SvcUuid &peer, EpEvtPlugin::pointer evt)
+        : EpSvcHandle(NULL, evt) { ep_peer_id = peer; }
+
+    int        ep_reconnect();
+    ep_state_e ep_get_status()  { return ep_state; }
 
     template <class SendIf>
     boost::shared_ptr<SendIf> svc_rpc() {
         return boost::static_pointer_cast<SendIf>(ep_rpc);
     }
+
+    void ep_notify_plugin();
     void ep_my_uuid(fpi::SvcUuid &uuid)    { ep_owner->ep_my_uuid(uuid); }
-    void ep_peer_uuid(fpi::SvcUuid &uuid)  { ep_owner->ep_peer_uuid(uuid); }
+    void ep_peer_uuid(fpi::SvcUuid &uuid)  { uuid = ep_peer_id; }
 
   protected:
-    friend class NetMgr;
     friend class EpSvcImpl;
-    template <class SendIf, class RecvIf>friend class EndPoint;
 
     ep_state_e                        ep_state;
+    fpi::SvcUuid                      ep_peer_id;
     EpSvc::pointer                    ep_owner;
     EpEvtPlugin::pointer              ep_plugin;
     boost::shared_ptr<void>           ep_rpc;
     boost::shared_ptr<tt::TTransport> ep_trans;
 
-    virtual ~EpSvcHandle();
-    EpSvcHandle()
-        : ep_refcnt(0), ep_state(EP_ST_INIT), ep_owner(NULL),
-          ep_plugin(NULL), ep_rpc(NULL), ep_trans(NULL) {}
-
-    EpSvcHandle(EpSvc::pointer svc, EpEvtPlugin::pointer evt) : EpSvcHandle() {
-        ep_owner  = svc;
-        ep_plugin = evt;
-    }
-    void ep_notify_plugin();
+    EpSvcHandle();
 
   private:
     mutable boost::atomic<int>        ep_refcnt;
@@ -351,10 +348,11 @@ class EpSvcHandle
 extern NetMgr                gl_NetService;
 extern NetPlatform          *gl_NetPlatSvc;
 
-typedef std::list<EpSvc::pointer>                        EpSvcList;
-typedef std::unordered_map<fds_uint64_t, int>            UuidShmMap;
-typedef std::unordered_map<fds_uint64_t, EpSvcList>      UuidEpMap;
-typedef std::unordered_map<fds_uint64_t, EpSvc::pointer> UuidSvcMap;
+typedef std::list<EpSvc::pointer>                              EpSvcList;
+typedef std::unordered_map<fds_uint64_t, int>                  UuidShmMap;
+typedef std::unordered_map<fds_uint64_t, EpSvcList>            UuidEpMap;
+typedef std::unordered_map<fds_uint64_t, EpSvc::pointer>       UuidSvcMap;
+typedef std::unordered_map<fds_uint64_t, EpSvcHandle::pointer> EpHandleMap;
 
 /**
  * Singleton module manages all endpoints.
@@ -389,6 +387,10 @@ class NetMgr : public Module
     virtual void ep_register(EpSvc::pointer ep, bool update_domain = true);
     virtual void ep_unregister(const fpi::SvcUuid &peer);
 
+    virtual void ep_handler_register(EpSvcHandle::pointer handle);
+    virtual void ep_handler_unregister(EpSvcHandle::pointer handle);
+    virtual void ep_handler_unregister(const fpi::SvcUuid &peer);
+
     /**
      * Lookup a service handler based on its uuid/name and major/minor version.
      * Services are only available in the local domain.
@@ -402,6 +404,9 @@ class NetMgr : public Module
 
     virtual EpSvc::pointer
     svc_lookup(const char *name, fds_uint32_t maj, fds_uint32_t min);
+
+    virtual EpSvcHandle::pointer
+    svc_handler_lookup(const fpi::SvcUuid &uuid);
 
     /**
      * Returns true if error e is actionable on the endpoint
@@ -470,11 +475,14 @@ class NetMgr : public Module
     {
         EpSvc::pointer  ep;
 
-        ep = endpoint_lookup(peer);
-        if (ep != NULL) {
-            *out = ep->ep_send_handle();
-        } else {
-            svc_new_handle<SendIf>(NullSvcUuid, peer, out);
+        *out = this->svc_handler_lookup(peer);
+        if (*out == NULL) {
+            ep = this->endpoint_lookup(peer);
+            if (ep != NULL) {
+                *out = ep->ep_send_handle();
+            } else {
+                this->svc_new_handle<SendIf>(NullSvcUuid, peer, out);
+            }
         }
     }
     /**
@@ -529,6 +537,7 @@ class NetMgr : public Module
     UuidEpMap                      ep_map;
     UuidSvcMap                     ep_svc_map;
     UuidShmMap                     ep_uuid_map;
+    EpHandleMap                    ep_handle_map;
     fds_mutex                      ep_mtx;
 
     EpSvcHandle::pointer               ep_domain_clnt;
