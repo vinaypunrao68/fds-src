@@ -266,8 +266,8 @@ class EndPoint : public EpSvcImpl
 // Connect the serice handle to its peer.  The binding is taken from the peer uuid.
 //
 template <class SendIf> void
-ep_svc_handle_connect(EpSvcHandle::pointer ptr,
-                      const fpi::SvcUuid &peer = NullSvcUuid, int retry = 0)
+endpoint_connect_handle(EpSvcHandle::pointer ptr,
+                        const fpi::SvcUuid &peer = NullSvcUuid, int retry = 0)
 {
     int          port;
     std::string  ip;
@@ -289,7 +289,7 @@ ep_svc_handle_connect(EpSvcHandle::pointer ptr,
             return;
         }
         retry++;
-        pool->schedule(ep_svc_handle_connect<SendIf>, ptr, uuid, retry);
+        pool->schedule(endpoint_connect_handle<SendIf>, ptr, uuid, retry);
     }
 }
 

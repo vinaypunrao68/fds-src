@@ -290,9 +290,6 @@ boost::intrusive_ptr<T> ep_cast_ptr(EpSvc::pointer ep) {
     return static_cast<T *>(get_pointer(ep));
 }
 
-extern int
-endpoint_uuid_binding(const fpi::SvcUuid ep_peer_id, const std::string *ip);
-
 /**
  * Service object handle (e.g. client side).  A service provider can service many
  * concurrent clients in the domain.  This service handle object governs the life
@@ -345,6 +342,11 @@ class EpSvcHandle
         }
     }
 };
+
+template <class SendIf>
+extern void
+endpoint_connect_handle(EpSvcHandle::pointer eh,
+                        const fpi::SvcUuid &uuid = NullSvcUuid, int retry = 0);
 
 /**
  * Module vector hookup
@@ -461,12 +463,18 @@ class NetMgr : public Module
         } else {
             ep = endpoint_lookup(mine, peer);
         }
+        *out = NULL;
         if (ep != NULL) {
             myep = ep->ep_cast<SendIf, void>();
             if (myep != NULL) {
                 myep->ep_svc_new_handle(peer, out);
             }
         }
+        if (*out == NULL) {
+            // TODO(Vy): must suppy default values here.
+            *out = new EpSvcHandle(NULL, NULL);
+        }
+        endpoint_connect_handle<SendIf>(*out);
     }
     /**
      * Get a handle from existing endpoint to the peer.
@@ -519,14 +527,6 @@ class NetMgr : public Module
         }
         client->asyncResp(resp_hdr, buffer->getBufferAsString());
     }
-    static fpi::AsyncHdr ep_swap_header(const fpi::AsyncHdr &req_hdr)
-    {
-        auto resp_hdr = req_hdr;
-        resp_hdr.msg_src_uuid = req_hdr.msg_dst_uuid;
-        resp_hdr.msg_dst_uuid = req_hdr.msg_src_uuid;
-        return resp_hdr;
-    }
-
     boost::shared_ptr<FdsTimer> ep_get_timer() const;
 
     /**

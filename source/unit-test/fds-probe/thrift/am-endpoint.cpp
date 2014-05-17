@@ -67,6 +67,7 @@ ProbeEpTestAM::mod_init(SysParams const *const p)
 
     uuid.svc_uuid = 0xfedcba;
     am_clnt = new EpSvcHandle(uuid, new ProbeEpPlugin());
+    endpoint_connect_handle<fpi::ProbeServiceAMClient>(am_clnt);
 
     ret_probe_ep = new EndPoint<fpi::ProbeServiceAMClient, fpi::ProbeServiceAMProcessor>(
             9001,                           /* port number         */
@@ -80,7 +81,6 @@ ProbeEpTestAM::mod_init(SysParams const *const p)
     mgr->ep_register(probe_ep);
     mgr->ep_register(ret_probe_ep);
 
-    ep_svc_handle_connect<fpi::ProbeServiceAMClient>(am_clnt);
     mgr->ep_handler_register(am_clnt);
     return 0;
 }
