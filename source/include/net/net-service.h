@@ -81,12 +81,12 @@ typedef enum
 class EpAttr
 {
   public:
-    typedef boost::intrusive_ptr<EpAttr> pointer;
-    typedef boost::intrusive_ptr<const EpAttr> const_ptr;
+    typedef bo::intrusive_ptr<EpAttr> pointer;
+    typedef bo::intrusive_ptr<const EpAttr> const_ptr;
 
     // Physcial attributes of an endpoint.
     //
-    struct sockaddr                  ep_addr;
+    struct sockaddr               ep_addr;
 
     // Server attributes.
     //
@@ -116,14 +116,14 @@ class EpAttr
     static void netaddr_to_str(const struct sockaddr *adr, char *ip, int ip_len);
 
   private:
-    mutable boost::atomic<int>       ep_refcnt;
+    mutable bo::atomic<int>       ep_refcnt;
 
     friend void intrusive_ptr_add_ref(const EpAttr *x) {
-        x->ep_refcnt.fetch_add(1, boost::memory_order_relaxed);
+        x->ep_refcnt.fetch_add(1, bo::memory_order_relaxed);
     }
     friend void intrusive_ptr_release(const EpAttr *x) {
-        if (x->ep_refcnt.fetch_sub(1, boost::memory_order_release) == 1) {
-            boost::atomic_thread_fence(boost::memory_order_acquire);
+        if (x->ep_refcnt.fetch_sub(1, bo::memory_order_release) == 1) {
+            bo::atomic_thread_fence(bo::memory_order_acquire);
             delete x;
         }
     }
@@ -137,8 +137,8 @@ class EpAttr
 class EpEvtPlugin
 {
   public:
-    typedef boost::intrusive_ptr<EpEvtPlugin> pointer;
-    typedef boost::intrusive_ptr<const EpEvtPlugin> const_ptr;
+    typedef bo::intrusive_ptr<EpEvtPlugin> pointer;
+    typedef bo::intrusive_ptr<const EpEvtPlugin> const_ptr;
 
     EpEvtPlugin();
     virtual ~EpEvtPlugin() {}
@@ -157,9 +157,9 @@ class EpEvtPlugin
      * @param handle (i) - same as EpSvcHandle::pointer type, pointer to the handle
      *            of a client of the service (e.g. client object).
      */
-    virtual void svc_up(boost::intrusive_ptr<EpSvcHandle>   handle) = 0;
-    virtual void svc_down(boost::intrusive_ptr<EpSvc>       svc,
-                          boost::intrusive_ptr<EpSvcHandle> handle) = 0;
+    virtual void svc_up(bo::intrusive_ptr<EpSvcHandle>   handle) = 0;
+    virtual void svc_down(bo::intrusive_ptr<EpSvc>       svc,
+                          bo::intrusive_ptr<EpSvcHandle> handle) = 0;
 
     /**
      * Feedback to the error recovery flow.  When the plugin code is ready to handle
@@ -173,22 +173,25 @@ class EpEvtPlugin
     void svc_cleanup_finish();
 
   protected:
-    boost::intrusive_ptr<EpSvc>      ep_owner;
+    bo::intrusive_ptr<EpSvc>       ep_owner;
+    bo::intrusive_ptr<EpSvcHandle> ep_handle;
 
   private:
     friend class EpSvcImpl;
-    mutable boost::atomic<int>       ep_refcnt;
+    friend class EpSvcHandle;
+    mutable bo::atomic<int>       ep_refcnt;
 
     friend void intrusive_ptr_add_ref(const EpEvtPlugin *x) {
-        x->ep_refcnt.fetch_add(1, boost::memory_order_relaxed);
+        x->ep_refcnt.fetch_add(1, bo::memory_order_relaxed);
     }
     friend void intrusive_ptr_release(const EpEvtPlugin *x) {
-        if (x->ep_refcnt.fetch_sub(1, boost::memory_order_release) == 1) {
-            boost::atomic_thread_fence(boost::memory_order_acquire);
+        if (x->ep_refcnt.fetch_sub(1, bo::memory_order_release) == 1) {
+            bo::atomic_thread_fence(bo::memory_order_acquire);
             delete x;
         }
     }
-    void assign_ep_owner(boost::intrusive_ptr<EpSvc> owner) { ep_owner = owner; }
+    void assign_ep_owner(bo::intrusive_ptr<EpSvc> owner) { ep_owner = owner; }
+    void assign_ep_handle(bo::intrusive_ptr<EpSvcHandle> handle) { ep_handle = handle; }
 };
 
 /*
@@ -199,8 +202,8 @@ class EpEvtPlugin
 class EpSvc
 {
   public:
-    typedef boost::intrusive_ptr<EpSvc> pointer;
-    typedef boost::intrusive_ptr<const EpSvc> const_ptr;
+    typedef bo::intrusive_ptr<EpSvc> pointer;
+    typedef bo::intrusive_ptr<const EpSvc> const_ptr;
 
     /*
      * When a message sent to this service handler arrives, the network layer will
@@ -229,6 +232,8 @@ class EpSvc
 
     inline void ep_my_uuid(fpi::SvcUuid &uuid) { uuid = svc_id.svc_uuid; }
     inline fds_uint64_t ep_my_uuid() { return svc_id.svc_uuid.svc_uuid; }
+    virtual void ep_peer_uuid(fpi::SvcUuid &uuid) { uuid.svc_uuid = 0; }
+    virtual fds_uint64_t ep_peer_uuid() { return INVALID_RESOURCE_UUID.uuid_get_val(); }
 
     /**
      * Cast to the correct EndPoint type.  Return NULL if this is pure service object.
@@ -263,20 +268,18 @@ class EpSvc
 
     virtual ~EpSvc() {}
     virtual bool ep_is_connection() { return false; }
-    virtual void ep_peer_uuid(fpi::SvcUuid &uuid) { uuid.svc_uuid = 0; }
-    virtual fds_uint64_t ep_peer_uuid() { return INVALID_RESOURCE_UUID.uuid_get_val(); }
 
   private:
     friend class NetMgr;
     friend class EpSvcHandle;
-    mutable boost::atomic<int>       ep_refcnt;
+    mutable bo::atomic<int>       ep_refcnt;
 
     friend void intrusive_ptr_add_ref(const EpSvc *x) {
-        x->ep_refcnt.fetch_add(1, boost::memory_order_relaxed);
+        x->ep_refcnt.fetch_add(1, bo::memory_order_relaxed);
     }
     friend void intrusive_ptr_release(const EpSvc *x) {
-        if (x->ep_refcnt.fetch_sub(1, boost::memory_order_release) == 1) {
-            boost::atomic_thread_fence(boost::memory_order_acquire);
+        if (x->ep_refcnt.fetch_sub(1, bo::memory_order_release) == 1) {
+            bo::atomic_thread_fence(bo::memory_order_acquire);
             delete x;
         }
     }
@@ -286,7 +289,7 @@ class EpSvc
  * Down cast an endpoint intrusive pointer.
  */
 template <class T>
-boost::intrusive_ptr<T> ep_cast_ptr(EpSvc::pointer ep) {
+bo::intrusive_ptr<T> ep_cast_ptr(EpSvc::pointer ep) {
     return static_cast<T *>(get_pointer(ep));
 }
 
@@ -298,8 +301,8 @@ boost::intrusive_ptr<T> ep_cast_ptr(EpSvc::pointer ep) {
 class EpSvcHandle
 {
   public:
-    typedef boost::intrusive_ptr<EpSvcHandle> pointer;
-    typedef boost::intrusive_ptr<const EpSvcHandle> const_ptr;
+    typedef bo::intrusive_ptr<EpSvcHandle> pointer;
+    typedef bo::intrusive_ptr<const EpSvcHandle> const_ptr;
 
     virtual ~EpSvcHandle();
     EpSvcHandle(EpSvc::pointer svc, EpEvtPlugin::pointer evt);
@@ -310,8 +313,8 @@ class EpSvcHandle
     ep_state_e ep_get_status()  { return ep_state; }
 
     template <class SendIf>
-    boost::shared_ptr<SendIf> svc_rpc() {
-        return boost::static_pointer_cast<SendIf>(ep_rpc);
+    bo::shared_ptr<SendIf> svc_rpc() {
+        return bo::static_pointer_cast<SendIf>(ep_rpc);
     }
 
     void ep_notify_plugin();
@@ -321,30 +324,29 @@ class EpSvcHandle
   protected:
     friend class EpSvcImpl;
 
-    ep_state_e                        ep_state;
-    fpi::SvcUuid                      ep_peer_id;
-    EpSvc::pointer                    ep_owner;
-    EpEvtPlugin::pointer              ep_plugin;
-    boost::shared_ptr<void>           ep_rpc;
-    boost::shared_ptr<tt::TTransport> ep_trans;
+    ep_state_e                     ep_state;
+    fpi::SvcUuid                   ep_peer_id;
+    EpSvc::pointer                 ep_owner;
+    EpEvtPlugin::pointer           ep_plugin;
+    bo::shared_ptr<void>           ep_rpc;
+    bo::shared_ptr<tt::TTransport> ep_trans;
 
     EpSvcHandle();
 
   private:
-    mutable boost::atomic<int>        ep_refcnt;
+    mutable bo::atomic<int>        ep_refcnt;
     friend void intrusive_ptr_add_ref(const EpSvcHandle *x) {
-        x->ep_refcnt.fetch_add(1, boost::memory_order_relaxed);
+        x->ep_refcnt.fetch_add(1, bo::memory_order_relaxed);
     }
     friend void intrusive_ptr_release(const EpSvcHandle *x) {
-        if (x->ep_refcnt.fetch_sub(1, boost::memory_order_release) == 1) {
-            boost::atomic_thread_fence(boost::memory_order_acquire);
+        if (x->ep_refcnt.fetch_sub(1, bo::memory_order_release) == 1) {
+            bo::atomic_thread_fence(bo::memory_order_acquire);
             delete x;
         }
     }
 };
 
-template <class SendIf>
-extern void
+template <class SendIf> extern void
 endpoint_connect_handle(EpSvcHandle::pointer eh,
                         const fpi::SvcUuid &uuid = NullSvcUuid, int retry = 0);
 
@@ -443,7 +445,7 @@ class NetMgr : public Module
      */
     virtual EpSvcHandle::pointer
     svc_domain_master(const fpi::DomainID &id,
-                      boost::shared_ptr<fpi::PlatNetSvcClient> &rpc);
+                      bo::shared_ptr<fpi::PlatNetSvcClient> &rpc);
 
     /**
      * Allocate a handle to communicate with the peer endpoint.  The 'mine' uuid can be
@@ -455,7 +457,7 @@ class NetMgr : public Module
                    EpSvcHandle::pointer *out)
     {
         EpSvc::pointer  ep;
-        boost::intrusive_ptr<EndPoint<SendIf, void>> myep;
+        bo::intrusive_ptr<EndPoint<SendIf, void>> myep;
 
         *out = NULL;
         if (mine == NullSvcUuid) {
@@ -506,8 +508,8 @@ class NetMgr : public Module
         GLOGDEBUG;
         auto resp_hdr = ep_swap_header(req_hdr);
 
-        boost::shared_ptr<tt::TMemoryBuffer> buffer(new tt::TMemoryBuffer());
-        boost::shared_ptr<tp::TProtocol> binary_buf(new tp::TBinaryProtocol(buffer));
+        bo::shared_ptr<tt::TMemoryBuffer> buffer(new tt::TMemoryBuffer());
+        bo::shared_ptr<tp::TProtocol> binary_buf(new tp::TBinaryProtocol(buffer));
 
         auto written = payload.write(binary_buf.get());
         fds_verify(written > 0);
@@ -527,7 +529,7 @@ class NetMgr : public Module
         }
         client->asyncResp(resp_hdr, buffer->getBufferAsString());
     }
-    boost::shared_ptr<FdsTimer> ep_get_timer() const;
+    bo::shared_ptr<FdsTimer> ep_get_timer() const;
 
     /**
      * Utility function for swapping the endpoints in the header
@@ -552,8 +554,8 @@ class NetMgr : public Module
     EpHandleMap                    ep_handle_map;
     fds_mutex                      ep_mtx;
 
-    EpSvcHandle::pointer               ep_domain_clnt;
-    boost::intrusive_ptr<DomainAgent>  ep_domain_agent;
+    EpSvcHandle::pointer           ep_domain_clnt;
+    bo::intrusive_ptr<DomainAgent> ep_domain_agent;
 
     ResourceUUID const *const ep_my_platform_uuid();
     virtual EpSvc::pointer ep_lookup_port(int port);

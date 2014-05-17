@@ -1,6 +1,7 @@
 /*
  * Copyright 2014 by Formation Data Systems, Inc.
  */
+#include <iostream>  // NOLINT
 #include <endpoint-test.h>
 
 namespace fds {

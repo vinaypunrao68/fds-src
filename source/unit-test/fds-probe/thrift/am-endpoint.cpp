@@ -22,7 +22,10 @@ class ProbeTestAM_RPC : virtual public fpi::ProbeServiceAMIf,
     void am_creat_vol(fpi::ProbeAmCreatVolResp &ret,
                       const fpi::ProbeAmCreatVol &cmd) {}
     void am_creat_vol(fpi::ProbeAmCreatVolResp &ret,
-                      boost::shared_ptr<fpi::ProbeAmCreatVol> &cmd) {}
+                      boost::shared_ptr<fpi::ProbeAmCreatVol> &cmd)
+    {
+        std::cout << "Am create vol is called" << std::endl;
+    }
 
     void am_probe_put_resp(const fpi::ProbeGetMsgResp &resp) {
         GLOGDEBUG;
@@ -39,6 +42,25 @@ class ProbeTestAM_RPC : virtual public fpi::ProbeServiceAMIf,
 
 ProbeEpTestAM                 gl_ProbeTestAM("Probe AM EP");
 ProbeEpSvcTestAM              gl_ProbeSvcTestAM("Probe Svc AM");
+
+class AMClntPlugin : public EpEvtPlugin
+{
+  public:
+    void ep_connected()
+    {
+        fpi::SvcUuid             uuid;
+        fpi::ProbeAmCreatVol     cmd;
+        fpi::ProbeAmCreatVolResp ret;
+        auto rpc = ep_handle->svc_rpc<fpi::ProbeServiceAMClient>();
+
+        ep_handle->ep_peer_uuid(uuid);
+        std::cout << "Connected, send test cmd " << uuid.svc_uuid << std::endl;
+        rpc->am_creat_vol(ret, cmd);
+    }
+    void ep_down() {}
+    void svc_up(EpSvcHandle::pointer hd) {}
+    void svc_down(EpSvc::pointer svc, EpSvcHandle::pointer hd) {}
+};
 
 /*
  * -----------------------------------------------------------------------------------
@@ -66,7 +88,7 @@ ProbeEpTestAM::mod_init(SysParams const *const p)
             new ProbeEpPlugin());
 
     uuid.svc_uuid = 0xfedcba;
-    am_clnt = new EpSvcHandle(uuid, new ProbeEpPlugin());
+    am_clnt = new EpSvcHandle(uuid, new AMClntPlugin());
     endpoint_connect_handle<fpi::ProbeServiceAMClient>(am_clnt);
 
     ret_probe_ep = new EndPoint<fpi::ProbeServiceAMClient, fpi::ProbeServiceAMProcessor>(

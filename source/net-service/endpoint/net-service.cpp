@@ -363,7 +363,7 @@ NetMgr::ep_uuid_binding(const fpi::SvcUuid &uuid, std::string *ip)
 
     if (idx < 0) {
         ip->clear();
-        return 0;
+        return -1;
     }
     if (ep_shm->ep_lookup_rec(idx, uuid.svc_uuid, &map) >= 0) {
         ip->reserve(INET6_ADDRSTRLEN + 1);
@@ -371,7 +371,7 @@ NetMgr::ep_uuid_binding(const fpi::SvcUuid &uuid, std::string *ip)
                                const_cast<char *>(ip->c_str()), INET6_ADDRSTRLEN);
         return EpAttr::netaddr_get_port(&map.rmp_addr);
     }
-    return 0;
+    return -1;
 }
 
 // ep_register_binding

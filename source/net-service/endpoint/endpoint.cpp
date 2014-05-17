@@ -52,6 +52,9 @@ EpSvcHandle::EpSvcHandle(EpSvc::pointer svc, EpEvtPlugin::pointer evt) : EpSvcHa
     } else {
         ep_peer_id = NullSvcUuid;
     }
+    if (evt != NULL) {
+        evt->assign_ep_handle(this);
+    }
 }
 
 EpSvcHandle::~EpSvcHandle()
