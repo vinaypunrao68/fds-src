@@ -289,6 +289,9 @@ boost::intrusive_ptr<T> ep_cast_ptr(EpSvc::pointer ep) {
     return static_cast<T *>(get_pointer(ep));
 }
 
+extern int
+endpoint_uuid_binding(const fpi::SvcUuid ep_peer_id, const std::string *ip);
+
 /**
  * Service object handle (e.g. client side).  A service provider can service many
  * concurrent clients in the domain.  This service handle object governs the life

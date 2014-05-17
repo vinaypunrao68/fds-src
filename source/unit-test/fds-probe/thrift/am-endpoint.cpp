@@ -49,6 +49,7 @@ int
 ProbeEpTestAM::mod_init(SysParams const *const p)
 {
     NetMgr *mgr;
+    fpi::SvcUuid uuid;
 
     Module::mod_init(p);
 
@@ -64,6 +65,9 @@ ProbeEpTestAM::mod_init(SysParams const *const p)
                 new fpi::ProbeServiceAMProcessor(hdler)),
             new ProbeEpPlugin());
 
+    uuid.svc_uuid = 0xfedcba;
+    am_clnt = new EpSvcHandle(uuid, new ProbeEpPlugin());
+
     ret_probe_ep = new EndPoint<fpi::ProbeServiceAMClient, fpi::ProbeServiceAMProcessor>(
             9001,                           /* port number         */
             NodeUuid(0xabcdef),             /* my uuid             */
@@ -75,6 +79,9 @@ ProbeEpTestAM::mod_init(SysParams const *const p)
     mgr = NetMgr::ep_mgr_singleton();
     mgr->ep_register(probe_ep);
     mgr->ep_register(ret_probe_ep);
+
+    ep_svc_handle_connect<fpi::ProbeServiceAMClient>(am_clnt);
+    mgr->ep_handler_register(am_clnt);
     return 0;
 }
 

@@ -88,7 +88,9 @@ class ProbeEpTestAM : public Module
     // One endpoint bound to a physical port of the local node.  Full duplex with
     // its peer.
     //
+    EpSvcHandle::pointer am_clnt;
     EndPoint<fpi::ProbeServiceAMClient, fpi::ProbeServiceAMProcessor>::pointer probe_ep;
+
     EndPoint<fpi::ProbeServiceAMClient,
         fpi::ProbeServiceAMProcessor>::pointer ret_probe_ep;
 };

@@ -261,5 +261,37 @@ class EndPoint : public EpSvcImpl
     }
 };
 
+// ep_svc_handle_connect
+// ---------------------
+// Connect the serice handle to its peer.  The binding is taken from the peer uuid.
+//
+template <class SendIf> void
+ep_svc_handle_connect(EpSvcHandle::pointer ptr,
+                      const fpi::SvcUuid &peer = NullSvcUuid, int retry = 0)
+{
+    int          port;
+    std::string  ip;
+    fpi::SvcUuid uuid;
+
+    if (peer == NullSvcUuid) {
+        ptr->ep_peer_uuid(uuid);
+    } else {
+        uuid = peer;
+    }
+    port = NetMgr::ep_mgr_singleton()->ep_uuid_binding(uuid, &ip);
+    if (port != -1) {
+        EpSvcImpl::ep_connect_server<SendIf>(port, ip, ptr);
+    } else {
+        fds_threadpool *pool = NetMgr::ep_mgr_singleton()->ep_mgr_thrpool();
+        if (retry > 0) {
+            sleep(1);
+        } else if (retry > 100) {
+            return;
+        }
+        retry++;
+        pool->schedule(ep_svc_handle_connect<SendIf>, ptr, uuid, retry);
+    }
+}
+
 }  // namespace fds
 #endif  // SOURCE_INCLUDE_NET_NET_SERVICE_TMPL_H_
