@@ -492,8 +492,9 @@ class NetMgr : public Module
         auto written = payload.write(binary_buf.get());
         fds_verify(written > 0);
 
-        EpSvcHandle::pointer ep = svc_get_handle<fpi::BaseAsyncSvcClient>(
-                                            resp_hdr.msg_dst_uuid, 0 , 0);
+        EpSvcHandle::pointer ep;
+        svc_get_handle<fpi::BaseAsyncSvcClient>(resp_hdr.msg_dst_uuid, &ep, 0 , 0);
+
         if (ep == nullptr) {
             GLOGERROR << "Null destination endpoint: " << resp_hdr.msg_dst_uuid.svc_uuid;
             return;

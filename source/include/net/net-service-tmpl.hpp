@@ -206,6 +206,7 @@ class EndPoint : public EpSvcImpl
      */
 
   protected:
+    friend class NetMgr;
     friend class NetPlatSvc;
     bo::shared_ptr<SendIf>                 ep_rpc_send;
     bo::shared_ptr<RecvIf>                 ep_rpc_recv;
@@ -221,7 +222,7 @@ class EndPoint : public EpSvcImpl
      * ep_svc_new_handle
      * -----------------
      */
-    void ep_svc_new_handle(const fpi::SvcUuid peer, EpSvcHandle::pointer &ret)
+    void ep_svc_new_handle(const fpi::SvcUuid peer, EpSvcHandle::pointer *ret)
     {
         int          port;
         std::string  ip;
