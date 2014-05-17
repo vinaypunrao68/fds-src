@@ -36,16 +36,16 @@ namespace fds {
         /**
          * Compute DMT from scratch
          */
-        virtual Error computeDMT(const ClusterMap* curMap,
-                                 DMT* newDMT) = 0;
+        virtual void computeDMT(const ClusterMap* curMap,
+                                DMT* newDMT) = 0;
         /**
          * Compute DMT taking into account changes in cluster
          * map when we already have a DMT for previous version of
          * cluster map.
          */
-        virtual Error updateDMT(const ClusterMap* curMap,
-                                const DMTPtr& curDmt,
-                                DMT* newDMT) = 0;
+        virtual void updateDMT(const ClusterMap* curMap,
+                               const DMTPtr& curDmt,
+                               DMT* newDMT) = 0;
         virtual ~VolPlacementAlgorithm() {}
     };
 
@@ -59,16 +59,16 @@ namespace fds {
         /**
          * Compute DMT from scratch
          */
-        virtual Error computeDMT(const ClusterMap* curMap,
-                                 DMT* newDMT);
+        virtual void computeDMT(const ClusterMap* curMap,
+                                DMT* newDMT);
         /**
          * Compute DMT taking into account changes in cluster
          * map when we already have a DMT for previous version of
          * cluster map.
          */
-        virtual Error updateDMT(const ClusterMap* curMap,
-                                const DMTPtr& curDmt,
-                                DMT* newDMT);
+        virtual void updateDMT(const ClusterMap* curMap,
+                               const DMTPtr& curDmt,
+                               DMT* newDMT);
     };
 
     /**
@@ -84,16 +84,16 @@ namespace fds {
         /**
          * Compute DMT from scratch
          */
-        virtual Error computeDMT(const ClusterMap* curMap,
-                                 DMT* newDMT);
+        virtual void computeDMT(const ClusterMap* curMap,
+                                DMT* newDMT);
         /**
          * Compute DMT taking into account changes in cluster
          * map when we already have a DMT for previous version of
          * cluster map.
          */
-        virtual Error updateDMT(const ClusterMap* curMap,
-                                const DMTPtr& curDmt,
-                                DMT* newDMT);
+        virtual void updateDMT(const ClusterMap* curMap,
+                               const DMTPtr& curDmt,
+                               DMT* newDMT);
     };
 
     /**
