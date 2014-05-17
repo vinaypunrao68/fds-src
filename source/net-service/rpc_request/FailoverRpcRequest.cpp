@@ -33,6 +33,11 @@ FailoverRpcRequest::FailoverRpcRequest(const AsyncRpcRequestId& id,
     }
 }
 
+FailoverRpcRequest::~FailoverRpcRequest()
+{
+    GLOGDEBUG << " id: " << id_;
+}
+
 /**
  * For adding endpoint.
  * NOTE: Only invoke during initialization.  Donot invoke once
@@ -89,6 +94,8 @@ void FailoverRpcRequest::invoke()
     } else {
         // TODO(Rao): post error to threadpool.  Simulate the error as it's coming from
         // last endpoint
+        GLOGDEBUG << "Failing over.  Unhealthy endpoint: "
+            << epReqs_[curEpIdx_]->peerEpId_.svc_uuid;
     }
 }
 
@@ -102,6 +109,8 @@ void FailoverRpcRequest::invoke()
 void FailoverRpcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
         boost::shared_ptr<std::string>& payload)
 {
+    GLOGDEBUG << " id: " << id_;
+
     // bool invokeRpc = false;
     fpi::SvcUuid errdEpId;
 
@@ -121,50 +130,44 @@ void FailoverRpcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header
         return;
     }
 
-    /* Forward the response the current endpoint request */
-    epReqs_[curEpIdx_]->handleResponse(header, payload);
-}
+    epReqs_[curEpIdx_]->complete(header->msg_code);
 
-/**
- * Call back from the current endpoint request with a succesful reponse
- * @param payload
- */
-void FailoverRpcRequest::epReqSuccessCb_(boost::shared_ptr<std::string> payload)
-{
-    if (successCb_) {
-        successCb_(payload);
-    }
-    complete(ERR_OK);
-}
+    if (header->msg_code == ERR_OK) {
+        if (successCb_) {
+            successCb_(payload);
+        }
+        complete(ERR_OK);
+    } else {
+        GLOGWARN << logString(*header);
 
-/**
- * Call back from the current endpoint request on an error
- * @param payload
- */
-void FailoverRpcRequest::epReqErrorCb_(const Error& e,
-        boost::shared_ptr<std::string> payload)
-{
-    if (failoverCb_) {
-        bool reqComplete = false;
-        failoverCb_(e, payload, reqComplete);
-        if (reqComplete) {
-            // NOTE: errorCb_ isn't invoked here
-            complete(ERR_RPC_USER_INTERRUPTED);
+        /* Notify actionable error to endpoint manager */
+        if (NetMgr::ep_mgr_singleton()->ep_actionable_error(header->msg_code)) {
+            NetMgr::ep_mgr_singleton()->ep_handle_error(
+                header->msg_src_uuid, header->msg_code);
+        }
+
+        /* Invoke failover cb */
+        if (failoverCb_) {
+            bool reqComplete = false;
+            failoverCb_(header->msg_code, payload, reqComplete);
+            if (reqComplete) {
+                // NOTE: errorCb_ isn't invoked here
+                complete(ERR_RPC_USER_INTERRUPTED);
+                return;
+            }
+        }
+
+        /* Move to the next healhy endpoint and invoke */
+        bool healthyEpExists = moveToNextHealthyEndpoint_();
+        if (!healthyEpExists) {
+            if (errorCb_) {
+                errorCb_(header->msg_code, payload);
+            }
+            complete(ERR_RPC_FAILED);
             return;
         }
+        epReqs_[curEpIdx_]->invoke();
     }
-
-    /* Move to the next healhy endpoint and invoke */
-    bool healthyEpExists = moveToNextHealthyEndpoint_();
-    if (!healthyEpExists) {
-        if (errorCb_) {
-            errorCb_(e, payload);
-        }
-        complete(ERR_RPC_FAILED);
-        return;
-    }
-
-    epReqs_[curEpIdx_]->invoke();
 }
 
 /**
@@ -184,23 +187,23 @@ bool FailoverRpcRequest::moveToNextHealthyEndpoint_()
         // TODO(Rao): Pass the right rpc version id
         auto ep = NetMgr::ep_mgr_singleton()->\
                     endpoint_lookup(epReqs_[curEpIdx_]->peerEpId_);
+        Error epStatus = ERR_OK;
 
         if (ep == nullptr) {
-            epReqs_[curEpIdx_]->error_ = ERR_EP_NON_EXISTANT;
+            epStatus = ERR_EP_NON_EXISTANT;
         } else {
-            epReqs_[curEpIdx_]->error_ = ep->ep_get_status();
+            epStatus = ep->ep_get_status();
         }
 
-        if (epReqs_[curEpIdx_]->error_ == ERR_OK) {
+        if (epStatus == ERR_OK) {
             epReqs_[curEpIdx_]->rpc_ = rpc_;
-            epReqs_[curEpIdx_]->successCb_ =
-                    std::bind(&FailoverRpcRequest::epReqSuccessCb_,
-                            this, std::placeholders::_1);
-            epReqs_[curEpIdx_]->errorCb_ =
-                    std::bind(&FailoverRpcRequest::epReqErrorCb_,
-                            this, std::placeholders::_1, std::placeholders::_2);
             return true;
+        } else {
+            epReqs_[curEpIdx_]->complete(epStatus);
+            GLOGDEBUG << "Failing over.  Unhealthy endpoint: "
+                << epReqs_[curEpIdx_]->peerEpId_.svc_uuid;
         }
+
         skipped_cnt++;
     }
 

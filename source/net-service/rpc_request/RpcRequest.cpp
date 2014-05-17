@@ -31,6 +31,9 @@ AsyncRpcRequestIf::~AsyncRpcRequestIf() {}
  * @param error
  */
 void AsyncRpcRequestIf::complete(const Error& error) {
+    GLOGDEBUG << " id: " << id_;
+
+    fds_assert(state_ != RPC_COMPLETE);
     state_ = RPC_COMPLETE;
     error_ = error;
     if (completionCb_) {
@@ -104,6 +107,11 @@ EPAsyncRpcRequest::EPAsyncRpcRequest(const AsyncRpcRequestId &id,
     peerEpId_ = peerEpId;
 }
 
+EPAsyncRpcRequest::~EPAsyncRpcRequest()
+{
+    GLOGDEBUG << " id: " << id_;
+}
+
 void EPAsyncRpcRequest::onSuccessCb(RpcRequestSuccessCb &cb) {
     successCb_ = cb;
 }
@@ -140,7 +148,9 @@ void EPAsyncRpcRequest::invoke()
 void EPAsyncRpcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
         boost::shared_ptr<std::string>& payload)
 {
-    bool invokeRpc = false;
+    GLOGDEBUG << " id: " << id_;
+
+    // bool invokeRpc = false;
     fpi::SvcUuid errdEpId;
 
     {

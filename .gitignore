@@ -89,3 +89,6 @@ tmppkg*/
 .settings
 
 *.iml
+
+#youcompleteme related
+ycm.flags
