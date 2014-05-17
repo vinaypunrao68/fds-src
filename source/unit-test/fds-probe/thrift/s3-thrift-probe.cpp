@@ -142,9 +142,18 @@ ProbeAmFoo::js_exec_obj(JsObject *parent, JsObjTemplate *tmpl, JsObjOutput *out)
     myEpId.svc_uuid = 0xabcdef;
     std::vector<fpi::SvcUuid> uuid_list;
     fpi::SvcUuid id1;
-    id1.svc_uuid = 0xfedcba;
+    fpi::SvcUuid id2;
+    fpi::SvcUuid id3;
+    fpi::SvcUuid id4;
+    id1.svc_uuid = 0x1;
+    id2.svc_uuid = 0x2;
+    id3.svc_uuid = 0x3;
+    id4.svc_uuid = 0xfedcba;
 
     uuid_list.push_back(id1);
+    uuid_list.push_back(id2);
+    uuid_list.push_back(id3);
+    uuid_list.push_back(id4);
 
     boost::shared_ptr<fpi::ProbeGetMsgResp> arg1(new fpi::ProbeGetMsgResp());
 

@@ -3,6 +3,7 @@
 #ifndef SOURCE_INCLUDE_NET_RPCFUNC_H_
 #define SOURCE_INCLUDE_NET_RPCFUNC_H_
 
+#include <exception>
 #include <functional>
 #include <boost/shared_ptr.hpp>
 
@@ -38,7 +39,14 @@ class RpcFunc1 : public RpcFuncIf {
     virtual void invoke() override {
         EpSvcHandle::pointer ep = NetMgr::ep_mgr_singleton()->\
                 svc_get_handle<ServiceT>(a1_->hdr.msg_dst_uuid, 0 , 0);
+        if (ep == nullptr) {
+            throw std::runtime_error("Null endpoint");
+        }
+
         auto client = ep->svc_rpc<ServiceT>();
+        if (!client) {
+            throw std::runtime_error("Null client");
+        }
         (client.get()->*f_)(a1_);
     }
     virtual void setHeader(const fpi::AsyncHdr &hdr) {

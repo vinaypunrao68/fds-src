@@ -13,7 +13,7 @@
 #include <fds_error.h>
 #include <shared/fds-constants.h>
 #include <fdsp/fds_service_types.h>
-#include <fdsp/AsyncRspSvc.h>
+#include <fdsp/BaseAsyncSvc.h>
 #include <thrift/protocol/TBinaryProtocol.h>
 #include <thrift/transport/TBufferTransports.h>
 #include <util/Log.h>
@@ -474,13 +474,19 @@ class NetMgr : public Module
         auto written = payload.write(binary_buf.get());
         fds_verify(written > 0);
 
-        EpSvcHandle::pointer ep = svc_get_handle<fpi::AsyncRspSvcClient>(
+        EpSvcHandle::pointer ep = svc_get_handle<fpi::BaseAsyncSvcClient>(
                                             resp_hdr.msg_dst_uuid, 0 , 0);
-        auto client = ep->svc_rpc<fpi::AsyncRspSvcClient>();
-        client->asyncResponse(resp_hdr, buffer->getBufferAsString());
-        // auto client = getEpClient<AsyncRspSvcClient>(resp_hdr.msg_dst_uuid.svc_uuid);
+        if (ep == nullptr) {
+            GLOGERROR << "Null destination endpoint: " << resp_hdr.msg_dst_uuid.svc_uuid;
+            return;
+        }
 
-        // client->asyncResponse(resp_hdr, buffer->getBufferAsString());
+        auto client = ep->svc_rpc<fpi::BaseAsyncSvcClient>();
+        if (client == nullptr) {
+            GLOGERROR << "Null destination client: " << resp_hdr.msg_dst_uuid.svc_uuid;
+            return;
+        }
+        client->asyncResp(resp_hdr, buffer->getBufferAsString());
     }
 
     static fpi::AsyncHdr ep_swap_header(const fpi::AsyncHdr &req_hdr)

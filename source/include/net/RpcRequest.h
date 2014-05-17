@@ -100,6 +100,8 @@ class EPAsyncRpcRequest : public AsyncRpcRequestIf {
                       const fpi::SvcUuid &myEpId,
                       const fpi::SvcUuid &peerEpId);
 
+    ~EPAsyncRpcRequest();
+
     void onSuccessCb(RpcRequestSuccessCb &cb);
 
     void onErrorCb(RpcRequestErrorCb &cb);
@@ -130,6 +132,8 @@ class FailoverRpcRequest : public AsyncRpcRequestIf {
             const fpi::SvcUuid &myEpId,
             const std::vector<fpi::SvcUuid>& peerEpIds);
 
+    ~FailoverRpcRequest();
+
     void addEndpoint(const fpi::SvcUuid& uuid);
 
     void onFailoverCb(RpcRequestFailoverCb& cb);
@@ -144,10 +148,6 @@ class FailoverRpcRequest : public AsyncRpcRequestIf {
             boost::shared_ptr<std::string>& payload) override;
 
  protected:
-    void epReqSuccessCb_(boost::shared_ptr<std::string> payload);
-
-    void epReqErrorCb_(const Error& e, boost::shared_ptr<std::string> payload);
-
     bool moveToNextHealthyEndpoint_();
 
     void invokeInternal_();
