@@ -8,6 +8,7 @@
 #include <functional>
 #include <boost/shared_ptr.hpp>
 
+#include <fds_timer.h>
 #include <fds_typedefs.h>
 #include <fdsp/fds_service_types.h>
 #include <fds_error.h>
@@ -33,6 +34,19 @@ enum AsyncRpcState {
     PRIOR_INVOCATION,
     INVOCATION_PROGRESS,
     RPC_COMPLETE
+};
+
+/**
+* @brief Timer task for Async Rpc requests
+*/
+struct AsyncRpcTimer : FdsTimerTask {
+    AsyncRpcTimer(const AsyncRpcRequestId &id,
+                  const fpi::SvcUuid &myEpId, const fpi::SvcUuid &peerEpId);
+
+    virtual void runTimerTask() override;
+
+ protected:
+    boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr> header_;
 };
 
 /**
@@ -67,6 +81,8 @@ class AsyncRpcRequestIf {
 
     void setCompletionCb(RpcRequestCompletionCb &completionCb);
 
+    static void postError(boost::shared_ptr<fpi::AsyncHdr> &header);
+
  protected:
     void invokeCommon_(const fpi::SvcUuid &epId);
 
@@ -84,6 +100,8 @@ class AsyncRpcRequestIf {
     Error error_;
     /* Timeout */
     uint32_t timeoutMs_;
+    /* Timer */
+    FdsTimerTaskPtr timer_;
     /* Completion cb */
     RpcRequestCompletionCb completionCb_;
 };

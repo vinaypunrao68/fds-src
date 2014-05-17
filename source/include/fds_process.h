@@ -113,6 +113,13 @@ class FdsProcess : public boost::noncopyable, public HasLogger {
     boost::shared_ptr<FdsConfig> get_fds_config() const;
 
     /**
+    * @brief Returns process wide timer
+    *
+    * @return 
+    */
+    FdsTimerPtr getTimer() const;
+
+    /**
      * Return global counter manager
      * @return
      */

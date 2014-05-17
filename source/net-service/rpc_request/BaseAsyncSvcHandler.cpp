@@ -78,6 +78,21 @@ void BaseAsyncSvcHandler::asyncResp(
         boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
         boost::shared_ptr<std::string>& payload)
 {
+    asyncRespHandler(header, payload);
+}
+
+
+/**
+* @brief Static async response handler. Making this static so that this function
+* is accessible locally(with in the process) to everyone.
+*
+* @param header
+* @param payload
+*/
+void BaseAsyncSvcHandler::asyncRespHandler(
+        boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
+        boost::shared_ptr<std::string>& payload)
+{
     GLOGDEBUG;
     auto asyncReq = gAsyncRpcTracker->\
             getAsyncRpcRequest(static_cast<AsyncRpcRequestId>(header->msg_src_id));
@@ -87,5 +102,6 @@ void BaseAsyncSvcHandler::asyncResp(
     }
     asyncReq->handleResponse(header, payload);
 }
+
 }  // namespace fds
 

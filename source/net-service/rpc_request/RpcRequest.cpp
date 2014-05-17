@@ -2,12 +2,33 @@
 
 #include <string>
 
+#include <concurrency/ThreadPool.h>
 #include <net/RpcRequest.h>
 #include <net/RpcRequestPool.h>
+#include <net/BaseAsyncSvcHandler.h>
 #include <util/Log.h>
 #include <fdsp_utils.h>
 
 namespace fds {
+
+AsyncRpcTimer::AsyncRpcTimer(const AsyncRpcRequestId &id,
+                             const fpi::SvcUuid &myEpId,
+                             const fpi::SvcUuid &peerEpId)
+    : FdsTimerTask(*NetMgr::ep_mgr_singleton()->ep_mgr_singleton()->ep_get_timer())
+{
+    header_.reset(new fpi::AsyncHdr());
+    *header_ = gRpcRequestPool->newAsyncHeader(id, peerEpId, myEpId);
+    header_->msg_code = ERR_RPC_TIMEOUT;
+}
+
+/**
+* @brief Sends a timeout error BaseAsyncSvcHandler.  Note this call is executed
+* on a threadpool
+*/
+void AsyncRpcTimer::runTimerTask()
+{
+    AsyncRpcRequestIf::postError(header_);
+}
 
 AsyncRpcRequestIf::AsyncRpcRequestIf()
     : AsyncRpcRequestIf(0, fpi::SvcUuid())
@@ -23,7 +44,9 @@ AsyncRpcRequestIf::AsyncRpcRequestIf(const AsyncRpcRequestId &id,
 {
 }
 
-AsyncRpcRequestIf::~AsyncRpcRequestIf() {}
+AsyncRpcRequestIf::~AsyncRpcRequestIf()
+{
+}
 
 
 /**
@@ -36,6 +59,12 @@ void AsyncRpcRequestIf::complete(const Error& error) {
     fds_assert(state_ != RPC_COMPLETE);
     state_ = RPC_COMPLETE;
     error_ = error;
+
+    if (timer_) {
+        NetMgr::ep_mgr_singleton()->ep_get_timer()->cancel(timer_);
+        timer_.reset();
+    }
+
     if (completionCb_) {
         completionCb_(id_);
     }
@@ -89,9 +118,20 @@ void AsyncRpcRequestIf::invokeCommon_(const fpi::SvcUuid &peerEpId)
     try {
         rpc_->invoke();
     } catch(...) {
-        // TODO(Rao):
-        // Post an error to threadpool
+        // TODO(Rao): Catch different exceptions
+        auto respHdr = RpcRequestPool::newAsyncHeaderPtr(id_, peerEpId, myEpId_);
+        respHdr->msg_code = ERR_RPC_INVOCATION;
+        postError(respHdr);
     }
+}
+
+void AsyncRpcRequestIf::postError(boost::shared_ptr<fpi::AsyncHdr> &header)
+{
+    fds_assert(header->msg_code != ERR_OK);
+
+    boost::shared_ptr<std::string> payload;
+    NetMgr::ep_mgr_singleton()->ep_mgr_thrpool()->schedule(
+        &BaseAsyncSvcHandler::asyncRespHandler, header, payload);
 }
 
 EPAsyncRpcRequest::EPAsyncRpcRequest()
@@ -127,14 +167,22 @@ void EPAsyncRpcRequest::invoke()
 {
     fds_verify(error_ == ERR_OK);
 
-    state_ = INVOCATION_PROGRESS;
-    bool epHealthy = true;
     // TODO(Rao): Determine endpoint is healthy or not
-
+    bool epHealthy = true;
+    state_ = INVOCATION_PROGRESS;
     if (epHealthy) {
        invokeCommon_(peerEpId_);
+       /* start the timer */
+       if (timeoutMs_) {
+           timer_.reset(new AsyncRpcTimer(id_, myEpId_, peerEpId_));
+           bool ret = NetMgr::ep_mgr_singleton()->ep_get_timer()->\
+                      schedule(timer_, std::chrono::milliseconds(timeoutMs_));
+           fds_assert(ret == true);
+       }
     } else {
-        // TODO(Rao): post error to threadpool
+        auto respHdr = RpcRequestPool::newAsyncHeaderPtr(id_, peerEpId_, myEpId_);
+        respHdr->msg_code = ERR_RPC_INVOCATION;
+        postError(respHdr);
     }
 }
 

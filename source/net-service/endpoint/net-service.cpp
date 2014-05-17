@@ -422,6 +422,14 @@ NetMgr::ep_my_platform_uuid()
     return plat_lib->plf_get_my_uuid();
 }
 
+// ep_get_timer
+// -------------------
+//
+FdsTimerPtr NetMgr::ep_get_timer() const
+{
+    return g_fdsprocess->getTimer();
+}
+
 // ep_actionable_error
 // -------------------
 //
@@ -439,4 +447,11 @@ NetMgr::ep_handle_error(const fpi::SvcUuid &uuid, const Error &e)
 {
 }
 
+fpi::AsyncHdr NetMgr::ep_swap_header(const fpi::AsyncHdr &req_hdr)
+{
+    auto resp_hdr = req_hdr;
+    resp_hdr.msg_src_uuid = req_hdr.msg_dst_uuid;
+    resp_hdr.msg_dst_uuid = req_hdr.msg_src_uuid;
+    return resp_hdr;
+}
 }  // namespace fds

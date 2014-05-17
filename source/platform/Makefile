@@ -8,6 +8,7 @@ user_incl_dir    := include
 user_fds_ar_libs := \
     fds-plat-daemon \
 	fds-plat-disk \
+	fds-rpc-request \
 	fds-net-svc \
 	fds-net-platd
 

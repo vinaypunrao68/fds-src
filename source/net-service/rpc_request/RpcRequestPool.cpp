@@ -80,4 +80,22 @@ RpcRequestPool::newAsyncHeader(const AsyncRpcRequestId& reqId,
     return header;
 }
 
+/**
+* @brief 
+*
+* @param reqId
+* @param srcUuid
+* @param dstUuid
+*
+* @return 
+*/
+boost::shared_ptr<fpi::AsyncHdr> RpcRequestPool::newAsyncHeaderPtr(
+                                    const AsyncRpcRequestId& reqId,
+                                    const fpi::SvcUuid &srcUuid,
+                                    const fpi::SvcUuid &dstUuid)
+{
+    boost::shared_ptr<fpi::AsyncHdr> hdr(new fpi::AsyncHdr());
+    *hdr = newAsyncHeader(reqId, srcUuid, dstUuid);
+    return hdr;
+}
 }  // namespace fds
