@@ -104,7 +104,6 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) {
                 // Mark the IO complete, clean up txn, and callback
                 qos_ctrl->markIODone(qosReq);
                 txn->trans_state = FDS_TRANS_EMPTY;
-                txn->write_ctx   = 0;
                 // del_timer(txn->p_ti);
                 blobReq->cbWithResult(0);
 
@@ -396,7 +395,6 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
 
         storHvisor->qos_ctrl->markIODone(journEntry->io);
         journEntry->trans_state = FDS_TRANS_EMPTY;
-        journEntry->write_ctx = 0;
 
         blobReq->setDataLen(0);
         fds_int32_t result = -1;

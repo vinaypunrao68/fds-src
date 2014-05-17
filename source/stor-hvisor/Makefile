@@ -39,7 +39,6 @@ user_no_style     := $(user_cc) \
     StorHvisorClient.h \
     StorHvisorCPP.h \
     StorHvisorNet.h \
-    StorHvJournal.h \
     StorHvQosCtrl.h \
     StorHvVolumes.h \
     StorHvisorNet.cpp \
@@ -48,7 +47,6 @@ user_no_style     := $(user_cc) \
     StorHvisorTx.cpp \
     StorHvisorTbl.cpp \
     StorHvisorRx.cpp \
-    StorHvJournal.cpp \
     qos_ctrl.cpp \
     StorHvQosCtrl.cpp \
     StorHvVolumes.cpp \

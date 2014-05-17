@@ -217,6 +217,11 @@ public:
     Error StatBlob(AmQosReq *qosReq);
     Error SetBlobMetaData(AmQosReq *qosReq);
 
+    // Stuff for pending offset operations
+    fds::Error resumePutBlob(StorHvJournalEntry *journEntry);
+    fds::Error resumeGetBlob(StorHvJournalEntry *journEntry);
+    fds::Error resumeDeleteBlob(StorHvJournalEntry *journEntry);
+
     fds::Error listBucket(AmQosReq *qosReq);
     fds::Error getBucketStats(AmQosReq *qosReq);
     fds::Error putObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
@@ -248,7 +253,7 @@ public:
     void fbd_process_req_timeout(unsigned long arg);
 
     int fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rx_msg);  
-    int fds_move_del_req_state_machine(const FDSP_MsgHdrTypePtr& rx_msg);  
+    int fds_move_del_req_state_machine(const FDSP_MsgHdrTypePtr& rx_msg);
     SysParams* getSysParams();
     void StartOmClient();
     sh_comm_modes GetRunTimeMode() { return mode; }
