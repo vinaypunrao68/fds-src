@@ -16,7 +16,8 @@ class DmtRowBalancer {
     DmtRowBalancer(const NodeUuidSet& nodes,
                    DMT* dmt, fds_uint32_t row,
                    DmtRowBalancer* prev_row_balancer) {
-        double target = dmt->getNumColumns() / nodes.size();
+        double num_nodes = nodes.size();
+        double target = dmt->getNumColumns() / num_nodes;
         for (NodeUuidSet::const_iterator cit = nodes.cbegin();
              cit != nodes.cend();
              ++cit) {
@@ -34,6 +35,9 @@ class DmtRowBalancer {
     void balanceWithinColumn(DMT* dmt);
     void balance(DMT* dmt);
 
+    friend std::ostream& operator<< (std::ostream &out,
+                                     const DmtRowBalancer& balancer);
+
   private:  // methods
     inline double getDiff(const NodeUuid& uuid) {
         if (node_diff.count(uuid) > 0) {
@@ -43,10 +47,12 @@ class DmtRowBalancer {
     }
     inline void transferOne(const NodeUuid& from_uuid,
                             const NodeUuid& to_uuid) {
-        fds_verify(node_diff.count(from_uuid) > 0);
+        if (from_uuid.uuid_get_val() != 0) {
+            fds_verify(node_diff.count(from_uuid) > 0);
+            node_diff[from_uuid]++;
+        }
         fds_verify(node_diff.count(to_uuid) > 0);
-        node_diff[from_uuid]--;
-        node_diff[to_uuid]++;
+        node_diff[to_uuid]--;
     }
     fds_uint32_t getNodeCount(const NodeUuid& node_uuid,
                               fds_uint32_t row,
@@ -78,7 +84,7 @@ double DmtRowBalancer::getMaxDiffNode(NodeUuid* ret_node,
     for (NodeDiffMapType::const_iterator cit = node_diff.cbegin();
          cit != node_diff.cend();
          ++cit) {
-        if ((col->find(cit->second) < 0) && (cit->second > max_diff)) {
+        if ((col->find(cit->first) < 0) && (cit->second > max_diff)) {
             max_diff = cit->second;
             (*ret_node) = cit->first;
         }
@@ -96,14 +102,15 @@ void DmtRowBalancer::balanceWithinColumn(DMT *dmt) {
     for (fds_uint32_t i = 0; i < dmt->getNumColumns(); ++i) {
         DmtColumnPtr col = dmt->getNodeGroup(i);
         NodeUuid my_row_uuid = col->get(my_row);
-        if (getDiff(my_row_uuid) < 0) {
+        if (getDiff(my_row_uuid) < -0.5) {
             // can descrease number of cells occupied by this node
             for (fds_uint32_t j = (my_row + 1); j < dmt->getDepth(); ++j) {
-                if (getDiff(col->get(j)) > 0) {
+                if (getDiff(col->get(j)) > 0.5) {
                     // can increase # of cells occupied by this node
                     transferOne(my_row_uuid, col->get(j));
                     dmt->setNode(i, my_row, col->get(j));
                     dmt->setNode(i, j, my_row_uuid);
+                    break;
                 }
             }
         }
@@ -125,16 +132,28 @@ void DmtRowBalancer::balance(DMT* dmt) {
         DmtColumnPtr col = dmt->getNodeGroup(i);
         NodeUuid my_row_uuid = col->get(my_row);
         if ((my_row_uuid.uuid_get_val() == 0) ||
-            (getDiff(my_row_uuid) < -1)) {
+            (getDiff(my_row_uuid) < -0.5)) {
             // will give this cell to node that needs it most
             NodeUuid new_node;
             double diff = getMaxDiffNode(&new_node, col);
-            if ((my_row_uuid.uuid_get_val() != 0) && (diff <= 0)) continue;
+            if ((my_row_uuid.uuid_get_val() != 0) && (diff <= 0.5)) continue;
             fds_verify(new_node.uuid_get_val() != 0);
             transferOne(my_row_uuid, new_node);
             dmt->setNode(i, my_row, new_node);
         }
     }
+}
+
+std::ostream& operator<< (std::ostream &oss,
+                          const DmtRowBalancer& balancer) {
+    oss << "Dmt diff for row " << balancer.my_row << "\n";
+    for (NodeDiffMapType::const_iterator cit = balancer.node_diff.cbegin();
+         cit != balancer.node_diff.cend();
+         ++cit) {
+        oss << "Node 0x" << std::hex << (cit->first).uuid_get_val()
+            << std::dec << " diff " << cit->second << ", ";
+    }
+    return oss;
 }
 
 /******* RoundRobin algorithm implementation ******/
@@ -277,19 +296,23 @@ void DynamicRRAlgorithm::updateDMT(const ClusterMap* curMap,
         }
     }
     DmtRowBalancerPtr prim_balancer(new DmtRowBalancer(nodes, newDmt, 0, NULL));
+    LOGDEBUG << "Before balance: " << *prim_balancer;
     // actually balance the primary row
     prim_balancer->balanceWithinColumn(newDmt);
+    LOGDEBUG << "After balance: " << *prim_balancer;
 
     // include added nodes in the list of nodes and balance replica rows
     nodes.insert(addNodes.begin(), addNodes.end());
     std::vector<DmtRowBalancerPtr> row_balancers;
-    row_balancers[0] = prim_balancer;
+    row_balancers.push_back(prim_balancer);
     for (fds_uint32_t j = 1; j < newDmt->getDepth(); ++j) {
         DmtRowBalancerPtr prev_row_balancer = row_balancers[j-1];
         DmtRowBalancerPtr j_balancer(
             new DmtRowBalancer(nodes, newDmt, j, prev_row_balancer.get()));
+        LOGDEBUG << "Before balance: " << *j_balancer;
         j_balancer->balance(newDmt);
-        row_balancers[j] = j_balancer;
+        LOGDEBUG << "After balance: " << *j_balancer;
+        row_balancers.push_back(j_balancer);
     }
 }
 }  // namespace fds

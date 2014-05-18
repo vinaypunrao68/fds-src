@@ -30,10 +30,10 @@ VolumePlacement::mod_init(SysParams const *const param)
     Module::mod_init(param);
 
     // Should we also get DMT width, depth, algo from config?
-    curDmtWidth = 3;
+    curDmtWidth = 4;
     curDmtDepth = 4;
 
-    std::string algo_type_str("RoundRobin");
+    std::string algo_type_str("RoundRobinDynamic");
     VolPlacementAlgorithm::AlgorithmTypes type =
             VolPlacementAlgorithm::AlgorithmTypes::RoundRobin;
     if (algo_type_str.compare("RoundRobinDynamic") == 0) {
