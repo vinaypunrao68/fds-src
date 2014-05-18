@@ -47,6 +47,7 @@ class NetPlatSvc;
 class fds_threadpool;
 class DomainAgent;
 class Platform;
+class FdsTimer;
 
 struct ep_map_rec;
 template <class SendIf, class RecvIf> class EndPoint;
@@ -505,13 +506,13 @@ class NetMgr : public Module
         client->asyncResp(resp_hdr, buffer->getBufferAsString());
     }
 
-    static fpi::AsyncHdr ep_swap_header(const fpi::AsyncHdr &req_hdr)
-    {
-        auto resp_hdr = req_hdr;
-        resp_hdr.msg_src_uuid = req_hdr.msg_dst_uuid;
-        resp_hdr.msg_dst_uuid = req_hdr.msg_src_uuid;
-        return resp_hdr;
-    }
+    boost::shared_ptr<FdsTimer> ep_get_timer() const;
+
+    /**
+     * Utility function for swapping the endpoints in the header
+     */
+    static fpi::AsyncHdr ep_swap_header(const fpi::AsyncHdr &req_hdr);
+
     // Hook up with domain membership to know which node belongs to which domain.
     //
 

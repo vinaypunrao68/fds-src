@@ -46,6 +46,11 @@ class RpcRequestPool {
     static fpi::AsyncHdr newAsyncHeader(const AsyncRpcRequestId& reqId,
             const fpi::SvcUuid &srcUuid, const fpi::SvcUuid &dstUuid);
 
+    static boost::shared_ptr<fpi::AsyncHdr> newAsyncHeaderPtr(
+            const AsyncRpcRequestId& reqId,
+            const fpi::SvcUuid &srcUuid,
+            const fpi::SvcUuid &dstUuid);
+
  protected:
     std::atomic<uint64_t> nextAsyncReqId_;
     /* Common completion callback for rpc requests */

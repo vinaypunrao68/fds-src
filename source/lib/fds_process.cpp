@@ -178,6 +178,11 @@ boost::shared_ptr<FdsCountersMgr> FdsProcess::get_cntrs_mgr() const {
     return cntrs_mgrPtr_;
 }
 
+FdsTimerPtr FdsProcess::getTimer() const
+{
+    return timer_servicePtr_;
+}
+
 void*
 FdsProcess::sig_handler(void* param)
 {
