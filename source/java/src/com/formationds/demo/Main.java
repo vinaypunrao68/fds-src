@@ -60,8 +60,16 @@ public class Main {
 
         String webDir = "/home/fabrice/demo/dist";
         WebApp webApp = new WebApp(webDir);
-        //createVolumes(xdi);
-        DemoState state = new RealDemoState(Duration.standardMinutes(5), xdi);
+        //String[] volumes = createVolumes(xdi);
+        String[] volumes = xdi.listVolumes(DEMO_DOMAIN)
+                .stream()
+                .map(v -> v.getName())
+                .toArray(i -> new String[i]);
+
+        //DemoState state = new RealDemoState(Duration.standardMinutes(5), new XdiImageReader(xdi), new XdiImageWriter(xdi, volumes));
+        DemoState state = new RealDemoState(Duration.standardMinutes(5),
+                new S3ImageReader("localhost", 8000),
+                new S3ImageWriter("localhost", 8000, volumes));
 
         webApp.route(HttpMethod.GET, "/", () -> new LandingPage(webDir));
 
@@ -121,7 +129,7 @@ public class Main {
         webApp.start(port);
     }
 
-    private void createVolumes(Xdi xdi) throws InterruptedException {
+    private String[] createVolumes(Xdi xdi) throws InterruptedException {
         try {
             //xdi.deleteVolume(Main.DEMO_DOMAIN, "Volume1");
             //xdi.deleteVolume(Main.DEMO_DOMAIN, "Volume2");
@@ -145,8 +153,8 @@ public class Main {
                     new VolumePolicy(1024 * 4, VolumeConnector.S3));
             Thread.sleep(1000);
         } catch (TException e) {
-            //toothrow new RuntimeException(e);
+            throw new RuntimeException(e);
         }
-
+        return new String[] {"Volume1", "Volume2", "Volume3", "Volume4"};
     }
 }

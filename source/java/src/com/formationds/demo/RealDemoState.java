@@ -3,7 +3,6 @@ package com.formationds.demo;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.xdi.Xdi;
 import org.joda.time.DateTime;
 import org.joda.time.Duration;
 
@@ -18,10 +17,9 @@ public class RealDemoState implements DemoState {
     private final ImageReader reader;
     private final ImageWriter writer;
 
-    public RealDemoState(Duration timeToLive, Xdi xdi) {
-        reader = new FdsImageReader(xdi);
-        writer = new FdsImageWriter(xdi);
-
+    public RealDemoState(Duration timeToLive, ImageReader reader, ImageWriter writer) {
+        this.reader = reader;
+        this.writer = writer;
         lastAccessed = DateTime.now();
 
         ScheduledExecutorService scavenger = Executors.newSingleThreadScheduledExecutor();
