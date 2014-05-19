@@ -200,6 +200,7 @@ namespace fds {
                               fds_int32_t *n_nodes);
 #endif
     DmtColumnPtr getDMTNodesForVolume(fds_volid_t vol_id);
+    fds_uint64_t getDMTVersion() const;
     int pushPerfstatsToOM(const std::string& start_ts,
 			  int stat_slot_len, 
 			  const FDS_ProtocolInterface::FDSP_VolPerfHistListType& hist_list);

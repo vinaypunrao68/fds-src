@@ -1098,3 +1098,7 @@ DltTokenGroupPtr OMgrClient::getDLTNodesForDoidKey(const ObjectID &objId) {
 DmtColumnPtr OMgrClient::getDMTNodesForVolume(fds_volid_t vol_id) {
     return dmtMgr->getCommittedNodeGroup(vol_id);  // thread-safe, do not hold lock
 }
+
+fds_uint64_t OMgrClient::getDMTVersion() const {
+    return dmtMgr->getCommittedVersion();
+}
