@@ -1,7 +1,7 @@
 topdir            := ..
 user_target       := lib
 user_rtime_env    := user
-user_build_dir    :=
+user_build_dir    := handler
 
 # TODO: remove the topdir path in the include search
 #
