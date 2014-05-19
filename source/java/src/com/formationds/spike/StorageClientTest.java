@@ -81,6 +81,11 @@ class MetadataResponseHandler implements FDSP_MetaDataPathReq.Iface {
     public void GetBlobMetaData(FDSP_MsgHdrType header, String volumeName, String blobName) throws TException {
         System.out.println(header);
     }
+
+    @Override
+    public void GetVolumeMetaData(FDSP_MsgHdrType header, String volumeName) throws TException {
+        System.out.println(header);
+    }
 }
 
 class DataResponseHandler implements FDSP_DataPathResp.Iface {

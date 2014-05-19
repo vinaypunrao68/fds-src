@@ -146,7 +146,7 @@ public class ToyServices implements AmService.Iface, ConfigurationService.Iface 
                         .add(Restrictions.eq("name", domainName))
                         .setProjection(Projections.rowCount()))
                 .uniqueResult();
-        return new VolumeStatus(count);
+        return new VolumeStatus();
     }
 
     @Override

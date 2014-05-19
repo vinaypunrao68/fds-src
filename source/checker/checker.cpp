@@ -293,6 +293,16 @@ class MetaDatapathRespImpl : public FDS_ProtocolInterface::FDSP_MetaDataPathResp
         fds_assert(0);
     }
 
+    void GetVolumeMetaDataResp(const FDSP_MsgHdrType& header,
+                               const FDSP_VolumeMetaData& volumeMeta) {
+        fds_assert(0);
+    }
+
+    void GetVolumeMetaDataResp(boost::shared_ptr<FDSP_MsgHdrType>& header,
+                               boost::shared_ptr<FDSP_VolumeMetaData>& volumeMeta) {
+        fds_assert(0);
+    }
+
  private:
     // XXX: list of blobs in volume goes here
     BlobInfoListType *resp_vector;

@@ -91,9 +91,20 @@ public class SmokeTest {
         
         System.out.println("stating volume");
         System.out.println(config.statVolume(DOMAIN_NAME, VOLUME_NAME));
+        System.out.println(am.volumeStatus(DOMAIN_NAME, VOLUME_NAME));
+
+        System.out.println("volume contents");
+        System.out.println(am.volumeContents(DOMAIN_NAME, VOLUME_NAME, 0, 0));
 
         System.out.println("deleting blob");
         am.deleteBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME);
+
+        System.out.println("stating volume");
+        System.out.println(config.statVolume(DOMAIN_NAME, VOLUME_NAME));
+        System.out.println(am.volumeStatus(DOMAIN_NAME, VOLUME_NAME));
+        
+        System.out.println("volume contents");
+        System.out.println(am.volumeContents(DOMAIN_NAME, VOLUME_NAME, 0, 0));
 
         System.out.println("volume list");
         System.out.println(config.listVolumes(DOMAIN_NAME));
