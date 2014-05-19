@@ -14,10 +14,12 @@ import com.formationds.util.Configuration;
 import com.formationds.util.libconfig.ParserFacade;
 import com.formationds.web.toolkit.HttpMethod;
 import com.formationds.web.toolkit.WebApp;
+import com.formationds.xdi.ConnectionProxy;
 import com.formationds.xdi.Xdi;
 import org.apache.thrift.TException;
 import org.apache.thrift.protocol.TBinaryProtocol;
 import org.apache.thrift.transport.TSocket;
+import org.apache.thrift.transport.TTransportException;
 import org.joda.time.Duration;
 
 public class Main {
@@ -31,20 +33,34 @@ public class Main {
         Configuration configuration = new Configuration(args);
         ParserFacade amConfig = configuration.getPlatformConfig();
 
-        TSocket amTransport = new TSocket("localhost", 9988);
-        amTransport.open();
-        AmService.Iface am = new AmService.Client(new TBinaryProtocol(amTransport));
+        AmService.Iface am = new ConnectionProxy<>(AmService.Iface.class, () -> {
+            TSocket amTransport = new TSocket("localhost", 9988);
+            try {
+                amTransport.open();
+            } catch (TTransportException e) {
+                throw new RuntimeException(e);
+            }
+            return new AmService.Client(new TBinaryProtocol(amTransport));
+        }).makeProxy();
 
-        String omHost = amConfig.lookup("fds.am.om_ip").stringValue();
-        TSocket omTransport = new TSocket(omHost, 9090);
-        omTransport.open();
-        ConfigurationService.Iface config = new ConfigurationService.Client(new TBinaryProtocol(omTransport));
+        ConfigurationService.Iface config = new ConnectionProxy<>(ConfigurationService.Iface.class, () -> {
+            String omHost = amConfig.lookup("fds.am.om_ip").stringValue();
+            TSocket omTransport = new TSocket(omHost, 9090);
+            try {
+                omTransport.open();
+            } catch (TTransportException e) {
+                throw new RuntimeException(e);
+            }
+            return new ConfigurationService.Client(new TBinaryProtocol(omTransport));
+        }).makeProxy();
+
         Authenticator authenticator = new JaasAuthenticator();
         Xdi xdi = new Xdi(am, config, authenticator);
 
+
         String webDir = "/home/fabrice/demo/dist";
         WebApp webApp = new WebApp(webDir);
-        createVolumes(xdi);
+        //createVolumes(xdi);
         DemoState state = new RealDemoState(Duration.standardMinutes(5), xdi);
 
         webApp.route(HttpMethod.GET, "/", () -> new LandingPage(webDir));

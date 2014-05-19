@@ -38,46 +38,27 @@ public class DemoRunner {
 
     public void start() {
         imageIterator = new CircularIterator<>(() -> new FlickrStream(searchExpression, 500));
-        executor.submit(() -> {
-            while (imageIterator.hasNext()) {
-                try {
-                    ImageResource next = imageIterator.next();
-                    writeQueue.put(next);
-                } catch (InterruptedException e) {
-                    //throw new RuntimeException(e);
-                }
-            }
-        });
+
+        executor.submit(new Stoppable("Enqueue image", () -> {
+            ImageResource next = imageIterator.next();
+            writeQueue.put(next);
+        }));
 
         for (int i = 0; i < writeParallelism; i++) {
-            executor.submit((Runnable) () -> {
-                while (true) {
-                    try {
-                        ImageResource resource = writeQueue.take();
-                        lastWritten = writer.write(resource);
-                        LOG.debug("Wrote " + resource.getUrl());
-                    } catch (Exception e) {
-                        LOG.info("Error writing :", e);
-                    }
-                }
-            });
+            executor.submit(new Stoppable("Writing image", () -> {
+                ImageResource resource = writeQueue.take();
+                lastWritten = writer.write(resource);
+            }));
         }
 
         for (int i = 0; i < readParallelism; i++) {
-            executor.submit((Runnable)() -> {
-                while (true) {
-                    try {
-                        if (lastWritten != null) {
-                            StoredImage r = reader.read(lastWritten);
-                            LOG.debug("Read " + lastWritten);
-                        }
-                    } catch (Exception e) {
-                        LOG.info("Error reading image", e);
-                        //break;
-                    }
+            executor.submit(new Stoppable("Reading image", () -> {
+                if (lastWritten != null) {
+                    StoredImage r = reader.read(lastWritten);
                 }
-            });
+            }));
         }
+
         executor.shutdown();
     }
 

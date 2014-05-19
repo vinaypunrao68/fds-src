@@ -23,15 +23,11 @@ public class FdsImageReader implements ImageReader {
     }
 
     @Override
-    public StoredImage read(StoredImage lastWritten) {
-        try {
-            Thread.sleep(500);
-            InputStream inputStream = xdi.readStream(Main.DEMO_DOMAIN, lastWritten.getVolumeName(), lastWritten.getImageResource().getId());
-            IOUtils.toByteArray(inputStream);
-            counts.increment(lastWritten.getVolumeName());
-            return lastWritten;
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+    public StoredImage read(StoredImage lastWritten) throws Exception {
+        Thread.sleep(500);
+        InputStream inputStream = xdi.readStream(Main.DEMO_DOMAIN, lastWritten.getVolumeName(), lastWritten.getImageResource().getId());
+        IOUtils.toByteArray(inputStream);
+        counts.increment(lastWritten.getVolumeName());
+        return lastWritten;
     }
 }

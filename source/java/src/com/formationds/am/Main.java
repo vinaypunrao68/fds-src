@@ -9,11 +9,13 @@ import com.formationds.security.Authenticator;
 import com.formationds.security.JaasAuthenticator;
 import com.formationds.util.Configuration;
 import com.formationds.util.libconfig.ParserFacade;
+import com.formationds.xdi.ConnectionProxy;
 import com.formationds.xdi.Xdi;
 import com.formationds.xdi.s3.S3Endpoint;
 import com.formationds.xdi.swift.SwiftEndpoint;
 import org.apache.thrift.protocol.TBinaryProtocol;
 import org.apache.thrift.transport.TSocket;
+import org.apache.thrift.transport.TTransportException;
 
 public class Main {
 
@@ -23,14 +25,28 @@ public class Main {
             ParserFacade amConfig = configuration.getPlatformConfig();
             NativeAm.startAm(args);
             Thread.sleep(200);
-            TSocket amTransport = new TSocket("localhost", 9988);
-            amTransport.open();
-            AmService.Iface am = new AmService.Client(new TBinaryProtocol(amTransport));
 
-            String omHost = amConfig.lookup("fds.am.om_ip").stringValue();
-            TSocket omTransport = new TSocket(omHost, 9090);
-            omTransport.open();
-            ConfigurationService.Iface config = new ConfigurationService.Client(new TBinaryProtocol(omTransport));
+            AmService.Iface am = new ConnectionProxy<>(AmService.Iface.class, () -> {
+                TSocket amTransport = new TSocket("localhost", 9988);
+                try {
+                    amTransport.open();
+                } catch (TTransportException e) {
+                    throw new RuntimeException(e);
+                }
+                return new AmService.Client(new TBinaryProtocol(amTransport));
+            }).makeProxy();
+
+            ConfigurationService.Iface config = new ConnectionProxy<>(ConfigurationService.Iface.class, () -> {
+                String omHost = amConfig.lookup("fds.am.om_ip").stringValue();
+                TSocket omTransport = new TSocket(omHost, 9090);
+                try {
+                    omTransport.open();
+                } catch (TTransportException e) {
+                    throw new RuntimeException(e);
+                }
+                return new ConfigurationService.Client(new TBinaryProtocol(omTransport));
+            }).makeProxy();
+
             Authenticator authenticator = new JaasAuthenticator();
             Xdi xdi = new Xdi(am, config, authenticator);
 //
