@@ -5,10 +5,12 @@
 #define SOURCE_INCLUDE_NATIVE_TYPES_H_
 #include <string>
 #include <boost/shared_ptr.hpp>
+#include <fdsp/FDSP_types.h>
 #include <fds_types.h>
 #include <blob/BlobTypes.h>
 #include <fds_error.h>
 #include <fds_defines.h>
+#include <fds_typedefs.h>
 #define FDSN_QOS_PERF_NORMALIZER 20
 
 namespace fds {
@@ -475,6 +477,11 @@ namespace fds {
         typedef boost::shared_ptr<StartBlobTxCallback> ptr;
         /// The blob trans ID to fill in
         BlobTxId      txId;
+    };
+
+    struct GetVolumeMetaDataCallback : virtual Callback {
+        TYPE_SHAREDPTR(GetVolumeMetaDataCallback);
+        fpi::FDSP_VolumeMetaData volumeMetaData;
     };
 }  // namespace fds
 #endif  // SOURCE_INCLUDE_NATIVE_TYPES_H_
