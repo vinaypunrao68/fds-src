@@ -315,6 +315,14 @@ static void processBlobReq(AmQosReq *qosReq) {
             err = storHvisor->StatBlob(qosReq);
             break;
 
+        case fds::FDS_LIST_BUCKET:
+            err = storHvisor->listBucket(qosReq);
+            break;
+  
+        case fds::FDS_BUCKET_STATS:
+            err = storHvisor->getBucketStats(qosReq);
+            break;
+
         case fds::FDS_SET_BLOB_METADATA:
             err = storHvisor->SetBlobMetaData(qosReq);
             break;
