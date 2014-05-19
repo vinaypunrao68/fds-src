@@ -478,12 +478,15 @@ void StorHvVolumeTable::moveWaitBlobsToQosQueue(fds_volid_t vol_uuid,
             blobs[i] = NULL;
             FdsBlobReq* blobReq = qosReq->getBlobReqPtr();
             // Hard coding a result!
-            // TODO(Andrew): This is calling the old callback mechanism
-            // Not sure what happens to those using new mechanism
-            FDS_NativeAPI::DoCallback(blobReq, err, 0, 0);
+            LOGERROR << "some issue : " << err;
             LOGWARN << "Calling back with error since request is waiting"
                     << " for volume " << blobReq->getVolId()
                     << " that doesn't exist";
+            if (blobReq->cb.get() != NULL) {
+                blobReq->cb->call(FDSN_StatusEntityDoesNotExist);
+            } else {
+                FDS_NativeAPI::DoCallback(blobReq, err, 0, 0);
+            }
             delete qosReq;
         }
         blobs.clear();
