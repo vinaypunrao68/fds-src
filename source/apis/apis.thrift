@@ -20,7 +20,7 @@ struct VolumeDescriptor {
 
 struct VolumeStatus {
        1: required i64 blobCount
-       2: required i64 size;
+       2: required i64 currentUsageInBytes;
 }
 
 struct ObjectOffset {
