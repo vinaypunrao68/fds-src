@@ -69,7 +69,7 @@ public class GetContainer  implements SwiftRequestHandler {
                 .map(d -> new JSONObject()
                         .put("hash", digest(d))
                         .put("last_modified", lastModified(d))
-                        .put("byes", d.getByteCount())
+                        .put("bytes", d.getByteCount())
                         .put("name", d.getName())
                         .put("content_type", contentType(d)))
                 .collect(new JsonArrayCollector());

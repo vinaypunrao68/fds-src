@@ -25,10 +25,6 @@ abstract class ImageWriter {
         counts.increment(s);
     }
 
-    public String[] getVolumeNames() {
-        return volumeNames;
-    }
-
     public abstract StoredImage write(ImageResource resource);
 
     protected String randomVolume() {

@@ -60,11 +60,11 @@ public class Main {
 
         String webDir = "/home/fabrice/demo/dist";
         WebApp webApp = new WebApp(webDir);
-        //String[] volumes = createVolumes(xdi);
-        String[] volumes = xdi.listVolumes(DEMO_DOMAIN)
-                .stream()
-                .map(v -> v.getName())
-                .toArray(i -> new String[i]);
+        String[] volumes = createVolumes(xdi);
+//        String[] volumes = xdi.listVolumes(DEMO_DOMAIN)
+//                .stream()
+//                .map(v -> v.getName())
+//                .toArray(i -> new String[i]);
 
         //DemoState state = new RealDemoState(Duration.standardMinutes(5), new XdiImageReader(xdi), new XdiImageWriter(xdi, volumes));
         DemoState state = new RealDemoState(Duration.standardMinutes(5),
@@ -153,7 +153,7 @@ public class Main {
                     new VolumePolicy(1024 * 4, VolumeConnector.S3));
             Thread.sleep(1000);
         } catch (TException e) {
-            throw new RuntimeException(e);
+            //throw new RuntimeException(e);
         }
         return new String[] {"Volume1", "Volume2", "Volume3", "Volume4"};
     }

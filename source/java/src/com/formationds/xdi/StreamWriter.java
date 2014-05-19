@@ -54,7 +54,7 @@ public class StreamWriter {
                     byteBuffer, true);
         }
 
-        // am.updateMetadata(domainName, volumeName, blobName, tx, metadata);
+        am.updateMetadata(domainName, volumeName, blobName, tx, metadata);
         am.commitBlobTx(tx);
         return digest;
     }

@@ -77,8 +77,8 @@ public class ListContainers implements SwiftRequestHandler {
                     }
                     return new JSONObject()
                             .put("name", v.getName())
-                            .put("count", Long.toString(status.getBlobCount()))
-                            .put("size", Long.toString(0));
+                            .put("count", status.getBlobCount())
+                            .put("bytes", status.getCurrentUsageInBytes());
                 })
                 .collect(new JsonArrayCollector());
         return new JsonResource(array);
@@ -99,7 +99,7 @@ public class ListContainers implements SwiftRequestHandler {
                     Element object = root.addElement("container");
                     object.addElement("name").addText(v.getName());
                     object.addElement("count").addText(Long.toString(status.getBlobCount()));
-                    object.addElement("bytes").addText("0");
+                    object.addElement("bytes").addText(Long.toString(status.getCurrentUsageInBytes()));
                 });
 
         return new Dom4jResource(document);
