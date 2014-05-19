@@ -855,10 +855,9 @@ StorHvCtrl::statBlobResp(const FDSP_MsgHdrTypePtr rxMsg,
          it++) {
         cb->blobDesc.addKvMeta(it->first, it->second);
     }
-    cb->call(FDSN_StatusOK);
     txn->reset();
     vol->journal_tbl->releaseTransId(transId);
-    
+    cb->call(FDSN_StatusOK);
     delete blobReq;
 }
 
