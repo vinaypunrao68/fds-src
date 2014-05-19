@@ -158,11 +158,11 @@ ProbeAmFoo::js_exec_obj(JsObject *parent, JsObjTemplate *tmpl, JsObjOutput *out)
     id3.svc_uuid = 0x3;
     id4.svc_uuid = 0xfedcba;
 
-    uuid_list.push_back(id1);
-    uuid_list.push_back(id2);
-    uuid_list.push_back(id3);
+    // uuid_list.push_back(id1);
+    // uuid_list.push_back(id2);
+    // uuid_list.push_back(id3);
     uuid_list.push_back(id4);
-
+#if 0
     boost::shared_ptr<fpi::ProbeGetMsgResp> arg1(new fpi::ProbeGetMsgResp());
 
     auto failoverReq = pool.newFailoverRpcRequest<fpi::ProbeServiceAMClient>(
@@ -184,7 +184,17 @@ ProbeAmFoo::js_exec_obj(JsObject *parent, JsObjTemplate *tmpl, JsObjOutput *out)
     errorReq->onSuccessCb(successCb);
     errorReq->onErrorCb(errorCb);
     errorReq->invoke();
-
+#endif
+    boost::shared_ptr<fpi::ProbeFoo> fooArg1(new fpi::ProbeFoo());
+    auto timeoutReq = pool.newFailoverRpcRequest<fpi::ProbeServiceAMClient>(
+        myEpId,
+        uuid_list,
+        static_cast<void(ProbeServiceAMClient::*)(boost::shared_ptr<fpi::ProbeFoo>&)>(&fpi::ProbeServiceAMClient::foo), // NOLINT
+            fooArg1);
+    timeoutReq->setTimeoutMs(10);
+    timeoutReq->onSuccessCb(successCb);
+    timeoutReq->onErrorCb(errorCb);
+    timeoutReq->invoke();
     std::cout << "In foo func " << p->am_func << std::endl;
     return this;
 }

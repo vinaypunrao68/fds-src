@@ -75,6 +75,9 @@ FdsProcess::FdsProcess(int argc, char *argv[],
         }
         setup_cntrs_mgr(net::get_my_hostname() + "."  + proc_id);
 
+        /* Process wide timer service */
+        setup_timer_service();
+
         /* if graphite is enabled, setup graphite task to dump counters */
         if (conf_helper_.get<bool>("enable_graphite")) {
             /* NOTE: Timer service will be setup as well */
@@ -259,8 +262,6 @@ void FdsProcess::setup_graphite()
 {
     std::string ip = conf_helper_.get<std::string>("graphite.ip");
     int port = conf_helper_.get<int>("graphite.port");
-
-    setup_timer_service();
 
     graphitePtr_.reset(new GraphiteClient(ip, port,
                                           timer_servicePtr_, cntrs_mgrPtr_));

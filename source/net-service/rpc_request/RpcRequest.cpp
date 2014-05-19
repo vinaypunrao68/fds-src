@@ -28,6 +28,7 @@ AsyncRpcTimer::AsyncRpcTimer(const AsyncRpcRequestId &id,
 */
 void AsyncRpcTimer::runTimerTask()
 {
+    GLOGDEBUG << "Timeout: " << logString(*header_);
     AsyncRpcRequestIf::postError(header_);
 }
 
@@ -118,6 +119,13 @@ void AsyncRpcRequestIf::invokeCommon_(const fpi::SvcUuid &peerEpId)
 
     try {
         rpc_->invoke();
+       /* start the timer */
+       if (timeoutMs_) {
+           timer_.reset(new AsyncRpcTimer(id_, myEpId_, peerEpId));
+           bool ret = NetMgr::ep_mgr_singleton()->ep_get_timer()->\
+                      schedule(timer_, std::chrono::milliseconds(timeoutMs_));
+           fds_assert(ret == true);
+       }
     } catch(...) {
         // TODO(Rao): Catch different exceptions
         auto respHdr = RpcRequestPool::newAsyncHeaderPtr(id_, peerEpId, myEpId_);
@@ -174,13 +182,6 @@ void EPAsyncRpcRequest::invoke()
     state_ = INVOCATION_PROGRESS;
     if (epHealthy) {
        invokeCommon_(peerEpId_);
-       /* start the timer */
-       if (timeoutMs_) {
-           timer_.reset(new AsyncRpcTimer(id_, myEpId_, peerEpId_));
-           bool ret = NetMgr::ep_mgr_singleton()->ep_get_timer()->\
-                      schedule(timer_, std::chrono::milliseconds(timeoutMs_));
-           fds_assert(ret == true);
-       }
     } else {
         auto respHdr = RpcRequestPool::newAsyncHeaderPtr(id_, peerEpId_, myEpId_);
         respHdr->msg_code = ERR_RPC_INVOCATION;

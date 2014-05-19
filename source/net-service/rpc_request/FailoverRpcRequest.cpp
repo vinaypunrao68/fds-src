@@ -169,6 +169,8 @@ void FailoverRpcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header
             complete(ERR_RPC_FAILED);
             return;
         }
+
+        /* NOTE: We may consider moving this outside the lockscope */
         epReqs_[curEpIdx_]->invoke();
     }
 }
@@ -200,6 +202,7 @@ bool FailoverRpcRequest::moveToNextHealthyEndpoint_()
 
         if (epStatus == ERR_OK) {
             epReqs_[curEpIdx_]->rpc_ = rpc_;
+            epReqs_[curEpIdx_]->setTimeoutMs(timeoutMs_);
             return true;
         } else {
             /* When ep is not healthy invoke complete on associated ep request, except

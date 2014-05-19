@@ -68,4 +68,7 @@ service ProbeServiceAM extends fds_service.BaseAsyncSvc {
     /* Regular RPC semantic */
     ProbeAmCreatVolResp am_creat_vol(1: ProbeAmCreatVol cmd),
     oneway void am_probe_put_resp(1: ProbeGetMsgResp resp),
+
+    /*Probe foo */
+    oneway void foo(1: ProbeFoo f),
 }
