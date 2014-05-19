@@ -30,13 +30,13 @@ public class S3ImageWriter extends ImageWriter {
     @Override
     public StoredImage write(ImageResource resource) {
         try {
-            Thread.sleep(500);
             String volume = randomVolume();
             URL url = new URL(resource.getUrl());
-            InputStream inputStream = new BufferedInputStream(url.openConnection().getInputStream(), 1024 * 10);
-            client.putObject(volume, resource.getId(), inputStream, new ObjectMetadata());
-            increment(volume);
-            return new StoredImage(resource, volume);
+            try (InputStream inputStream = new BufferedInputStream(url.openConnection().getInputStream(), 1024 * 10)) {
+                client.putObject(volume, resource.getId(), inputStream, new ObjectMetadata());
+                increment(volume);
+                return new StoredImage(resource, volume);
+            }
         } catch (Exception e) {
             throw new RuntimeException(e);
         }

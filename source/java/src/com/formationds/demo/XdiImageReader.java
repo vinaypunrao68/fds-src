@@ -18,11 +18,13 @@ public class XdiImageReader extends ImageReader {
 
     @Override
     public StoredImage read(StoredImage storedImage) throws Exception {
-        Thread.sleep(500);
-        InputStream inputStream = xdi.readStream(Main.DEMO_DOMAIN, storedImage.getVolumeName(), storedImage.getImageResource().getId());
-        IOUtils.toByteArray(inputStream);
-        increment(storedImage.getVolumeName());
-        return storedImage;
+        try (InputStream inputStream =  xdi.readStream(Main.DEMO_DOMAIN,
+                                                       storedImage.getVolumeName(),
+                                                       storedImage.getImageResource().getId())) {
+            IOUtils.toByteArray(inputStream);
+            increment(storedImage.getVolumeName());
+            return storedImage;
+        }
     }
 }
 
