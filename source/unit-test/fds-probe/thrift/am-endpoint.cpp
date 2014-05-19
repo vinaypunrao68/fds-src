@@ -98,12 +98,17 @@ ProbeEpTestAM::mod_init(SysParams const *const p)
             boost::shared_ptr<fpi::ProbeServiceAMProcessor>(
                 new fpi::ProbeServiceAMProcessor(hdler)),
             new ProbeEpPlugin());
+    uuid.svc_uuid = 0xabcdef;
+    am_clnt_ret = new EpSvcHandle(uuid, new AMClntPlugin());
+    endpoint_connect_handle<fpi::ProbeServiceAMClient>(am_clnt_ret);
+
     // Register the endpoint in the local domain.
     mgr = NetMgr::ep_mgr_singleton();
     mgr->ep_register(probe_ep);
     mgr->ep_register(ret_probe_ep);
 
     mgr->ep_handler_register(am_clnt);
+    mgr->ep_handler_register(am_clnt_ret);
     return 0;
 }
 

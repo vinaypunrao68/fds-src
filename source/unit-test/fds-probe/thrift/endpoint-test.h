@@ -91,6 +91,7 @@ class ProbeEpTestAM : public Module
     EpSvcHandle::pointer am_clnt;
     EndPoint<fpi::ProbeServiceAMClient, fpi::ProbeServiceAMProcessor>::pointer probe_ep;
 
+    EpSvcHandle::pointer am_clnt_ret;
     EndPoint<fpi::ProbeServiceAMClient,
         fpi::ProbeServiceAMProcessor>::pointer ret_probe_ep;
 };

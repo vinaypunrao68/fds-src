@@ -166,7 +166,8 @@ ProbeAmFoo::js_exec_obj(JsObject *parent, JsObjTemplate *tmpl, JsObjOutput *out)
     boost::shared_ptr<fpi::ProbeGetMsgResp> arg1(new fpi::ProbeGetMsgResp());
 
     auto failoverReq = pool.newFailoverRpcRequest<fpi::ProbeServiceAMClient>(
-        myEpId, uuid_list,
+        myEpId,
+        uuid_list,
         static_cast<void(ProbeServiceAMClient::*)(boost::shared_ptr<fpi::ProbeGetMsgResp>&)>(&fpi::ProbeServiceAMClient::am_probe_put_resp), // NOLINT
             arg1);
     failoverReq->onSuccessCb(successCb);
@@ -176,7 +177,8 @@ ProbeAmFoo::js_exec_obj(JsObject *parent, JsObjTemplate *tmpl, JsObjOutput *out)
 
     uuid_list.pop_back();
     auto errorReq = pool.newFailoverRpcRequest<fpi::ProbeServiceAMClient>(
-        myEpId, uuid_list,
+        myEpId,
+        uuid_list,
         static_cast<void(ProbeServiceAMClient::*)(boost::shared_ptr<fpi::ProbeGetMsgResp>&)>(&fpi::ProbeServiceAMClient::am_probe_put_resp), // NOLINT
             arg1);
     errorReq->onSuccessCb(successCb);
