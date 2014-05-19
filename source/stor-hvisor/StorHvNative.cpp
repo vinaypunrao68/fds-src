@@ -26,26 +26,7 @@ FDS_NativeAPI::~FDS_NativeAPI() {
 
 void FDS_NativeAPI::initVolInfo(FDSP_VolumeInfoTypePtr vol_info,
                                 const std::string& bucket_name) {
-    vol_info->vol_name = std::string(bucket_name);
-    vol_info->tennantId = 0;
-    vol_info->localDomainId = 0;
-    vol_info->globDomainId = 0;
-
-    // Volume capacity is in MB
-    vol_info->capacity = (1024*10);  // for now presetting to 10GB
-    vol_info->maxQuota = 0;
-    vol_info->volType = FDSP_VOL_S3_TYPE;
-
-    vol_info->defReplicaCnt = 0;
-    vol_info->defWriteQuorum = 0;
-    vol_info->defReadQuorum = 0;
-    vol_info->defConsisProtocol = FDSP_CONS_PROTO_STRONG;
-
-    vol_info->volPolicyId = 50;  // default S3 policy desc ID
-    vol_info->archivePolicyId = 0;
-    vol_info->placementPolicy = 0;
-    vol_info->appWorkload = FDSP_APP_WKLD_TRANSACTION;
-    vol_info->mediaPolicy = FDSP_MEDIA_POLICY_HDD;
+    storHvisor->initVolInfo(vol_info, bucket_name);
 }
 
 void FDS_NativeAPI::initVolDesc(FDSP_VolumeDescTypePtr vol_desc,
@@ -644,23 +625,7 @@ void FDS_NativeAPI::DoCallback(FdsBlobReq  *blob_req,
 Error FDS_NativeAPI::sendTestBucketToOM(const std::string& bucket_name,
                                         const std::string& access_key_id,
                                         const std::string& secret_access_key) {
-    Error err(ERR_OK);
-    int om_err = 0;
-    LOGNORMAL << "FDS_NativeAPI::testBucketInternal bucket " << bucket_name;
-
-    // send test bucket message to OM
-    FDSP_VolumeInfoTypePtr vol_info(new FDSP_VolumeInfoType());
-    initVolInfo(vol_info, bucket_name);
-    om_err = storHvisor->om_client->testBucket(bucket_name,
-                                               vol_info,
-                                               true,
-                                               access_key_id,
-                                               secret_access_key);
-
-    if (om_err != 0) {
-        err = Error(ERR_INVALID_ARG);
-    }
-    return err;
+    return storHvisor->sendTestBucketToOM(bucket_name, access_key_id, secret_access_key);
 }
 
 void
@@ -786,5 +751,10 @@ void FDS_NativeAPI::setBlobMetaData(const std::string& volumeName,
                                    "",  // The access key isn't used
                                    "");  // The secret key isn't used
     fds_verify(err == ERR_OK);
+}
+
+void FDS_NativeAPI::GetVolumeMetaData(const std::string& volumeName, CallbackPtr cb) {
+    Error err = storHvisor->handlerGetVolumeMetaData->handleRequest(volumeName, cb);
+    fds_verify(err.ok());
 }
 }  // namespace fds
