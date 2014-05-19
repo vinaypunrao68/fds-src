@@ -270,6 +270,7 @@ function taillog() {
     local app=$1
     case "${app}" in
         om|am|dm|sm|pm)
+            ls -1 ${FDSROOT}/var/logs/${app}.log*.log
             tail -F ${FDSROOT}/var/logs/${app}.log*.log
             ;;
         redis)
