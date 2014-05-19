@@ -1,0 +1,10 @@
+{
+    "AM": {
+         "ProbeFoo": {
+            "p1": 12,
+            "p2": 32,
+            "p3": "This is a test",
+            "func": "hello"
+        }
+    }
+}
