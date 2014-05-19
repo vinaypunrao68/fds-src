@@ -330,6 +330,8 @@ class AgentContainer : public RsContainer
 
     /**
      * iterator that returns number of agents that completed function successfully
+     * Only iterates through active agents (for which we called agent_activate, and
+     * did not call agent_deactivate).
      */
     template <typename T>
     fds_uint32_t agent_ret_foreach(T arg, Error (*fn)(T arg, NodeAgent::pointer elm)) {
@@ -337,7 +339,8 @@ class AgentContainer : public RsContainer
         for (fds_uint32_t i = 0; i < rs_cur_idx; i++) {
             Error err(ERR_OK);
             NodeAgent::pointer cur = NodeAgent::agt_cast_ptr(rs_array[i]);
-            if (rs_array[i] != NULL) {
+            if ((rs_array[i] != NULL) &&
+                (rs_get_resource(cur->get_uuid()) != NULL)) {
                 err = (*fn)(arg, cur);
                 if (err.ok()) {
                     ++count;

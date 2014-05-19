@@ -65,6 +65,8 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
     };
     struct DST_Commit : public msm::front::state<>
     {
+        typedef mpl::vector<DmtCommitAckEvt> deferred_events;
+
         template <class Evt, class Fsm, class State>
         void operator()(Evt const &, Fsm &, State &) {}
 
@@ -76,6 +78,8 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
     };
     struct DST_Close : public msm::front::state<>
     {
+        typedef mpl::vector<DmtCloseOkEvt> deferred_events;
+
         DST_Close() : commit_acks_to_wait(0) {}
 
         template <class Evt, class Fsm, class State>

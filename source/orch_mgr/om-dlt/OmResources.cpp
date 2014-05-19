@@ -876,6 +876,7 @@ OM_NodeDomainMod::om_del_services(const NodeUuid& node_uuid,
                      << ":" << std::dec << node_uuid.uuid_get_val() << std::hex
                      << " result: " << err.GetErrstr();
         }
+        om_dmt_update_cluster();
     }
     if (err.ok() && remove_am) {
         uuid = pmNodes->handle_unregister_service(node_uuid, node_name, FDSP_STOR_HVISOR);
