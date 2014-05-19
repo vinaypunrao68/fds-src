@@ -11,6 +11,7 @@
 #include <endpoint-test.h>
 #include <net/RpcRequestPool.h>
 #include <ProbeServiceSM.h>
+#include <util/Log.h>
 
 using namespace ::fpi;                 // NOLINT
 
@@ -127,6 +128,13 @@ Thrift_ProbeMod::mod_shutdown()
 {
 }
 
+void successCb(boost::shared_ptr<std::string> resp) {
+    GLOGNORMAL;
+}
+
+void errorCb(const Error &e, boost::shared_ptr<std::string> resp) {
+    GLOGNORMAL;
+}
 /*
  * ------------------------------------------------------------------------------------
  * Probe Control Path
@@ -161,8 +169,19 @@ ProbeAmFoo::js_exec_obj(JsObject *parent, JsObjTemplate *tmpl, JsObjOutput *out)
         myEpId, uuid_list,
         static_cast<void(ProbeServiceAMClient::*)(boost::shared_ptr<fpi::ProbeGetMsgResp>&)>(&fpi::ProbeServiceAMClient::am_probe_put_resp), // NOLINT
             arg1);
+    failoverReq->onSuccessCb(successCb);
+    failoverReq->onErrorCb(errorCb);
 
     failoverReq->invoke();
+
+    uuid_list.pop_back();
+    auto errorReq = pool.newFailoverRpcRequest<fpi::ProbeServiceAMClient>(
+        myEpId, uuid_list,
+        static_cast<void(ProbeServiceAMClient::*)(boost::shared_ptr<fpi::ProbeGetMsgResp>&)>(&fpi::ProbeServiceAMClient::am_probe_put_resp), // NOLINT
+            arg1);
+    errorReq->onSuccessCb(successCb);
+    errorReq->onErrorCb(errorCb);
+    errorReq->invoke();
 
     std::cout << "In foo func " << p->am_func << std::endl;
     return this;

@@ -54,7 +54,7 @@ void FailoverRpcRequest::addEndpoint(const fpi::SvcUuid& uuid)
  * the request is in progress
  * @param cb
  */
-void FailoverRpcRequest::onFailoverCb(RpcRequestFailoverCb& cb)
+void FailoverRpcRequest::onFailoverCb(RpcRequestFailoverCb cb)
 {
     failoverCb_ = cb;
 }
@@ -65,7 +65,7 @@ void FailoverRpcRequest::onFailoverCb(RpcRequestFailoverCb& cb)
  *
  * @param cb
  */
-void FailoverRpcRequest::onSuccessCb(RpcRequestSuccessCb& cb)
+void FailoverRpcRequest::onSuccessCb(RpcRequestSuccessCb cb)
 {
     successCb_ = cb;
 }
@@ -76,7 +76,7 @@ void FailoverRpcRequest::onSuccessCb(RpcRequestSuccessCb& cb)
  *
  * @param cb
  */
-void FailoverRpcRequest::onErrorCb(RpcRequestErrorCb& cb)
+void FailoverRpcRequest::onErrorCb(RpcRequestErrorCb cb)
 {
     errorCb_ = cb;
 }
@@ -92,10 +92,13 @@ void FailoverRpcRequest::invoke()
     if (healthyEpExists) {
         epReqs_[curEpIdx_]->invoke();
     } else {
-        // TODO(Rao): post error to threadpool.  Simulate the error as it's coming from
-        // last endpoint
-        GLOGDEBUG << "Failing over.  Unhealthy endpoint: "
-            << epReqs_[curEpIdx_]->peerEpId_.svc_uuid;
+        GLOGDEBUG << "No healthy endpoints left";
+        fds_assert(curEpIdx_ == epReqs_.size() - 1);
+        auto respHdr = RpcRequestPool::newAsyncHeaderPtr(id_,
+                                                     epReqs_[curEpIdx_]->peerEpId_,
+                                                     myEpId_);
+        respHdr->msg_code = ERR_RPC_INVOCATION;
+        postError(respHdr);
     }
 }
 
@@ -199,13 +202,27 @@ bool FailoverRpcRequest::moveToNextHealthyEndpoint_()
             epReqs_[curEpIdx_]->rpc_ = rpc_;
             return true;
         } else {
-            epReqs_[curEpIdx_]->complete(epStatus);
-            GLOGDEBUG << "Failing over.  Unhealthy endpoint: "
+            /* When ep is not healthy invoke complete on associated ep request, except
+             * the last ep request.  For the last unhealthy ep, complete is invoked in
+             * handleResponse()
+             */
+            if (curEpIdx_ != epReqs_.size() - 1) {
+                epReqs_[curEpIdx_]->complete(epStatus);
+            }
+            GLOGDEBUG << "Unhealthy endpoint: "
                 << epReqs_[curEpIdx_]->peerEpId_.svc_uuid;
         }
 
         skipped_cnt++;
     }
+
+    /* We've exhausted all the endpoints.  Decrement so that curEpIdx_ stays valid. Next
+     * we will post an error to simulated an error from last endpoint.  This will get 
+     * handled in handleResponse().  We do this so that user registered callbacks are
+     * invoked.
+     */
+    fds_assert(curEpIdx_ == epReqs_.size());
+    curEpIdx_--;
 
     GLOGDEBUG << "Req: " << id_ << " skipped cnt: " << skipped_cnt;
     return false;

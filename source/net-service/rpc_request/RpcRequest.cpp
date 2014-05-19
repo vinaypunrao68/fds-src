@@ -8,6 +8,7 @@
 #include <net/BaseAsyncSvcHandler.h>
 #include <util/Log.h>
 #include <fdsp_utils.h>
+#include <thread>
 
 namespace fds {
 
@@ -125,13 +126,14 @@ void AsyncRpcRequestIf::invokeCommon_(const fpi::SvcUuid &peerEpId)
     }
 }
 
-void AsyncRpcRequestIf::postError(boost::shared_ptr<fpi::AsyncHdr> &header)
+void AsyncRpcRequestIf::postError(boost::shared_ptr<fpi::AsyncHdr> header)
 {
     fds_assert(header->msg_code != ERR_OK);
 
     boost::shared_ptr<std::string> payload;
-    NetMgr::ep_mgr_singleton()->ep_mgr_thrpool()->schedule(
-        &BaseAsyncSvcHandler::asyncRespHandler, header, payload);
+    /* NetMgr::ep_mgr_singleton()->ep_mgr_thrpool()->schedule(
+        std::bind(&BaseAsyncSvcHandler::asyncRespHandler, header, payload)); */
+    new std::thread(std::bind(&BaseAsyncSvcHandler::asyncRespHandler, header, payload));
 }
 
 EPAsyncRpcRequest::EPAsyncRpcRequest()
@@ -152,11 +154,11 @@ EPAsyncRpcRequest::~EPAsyncRpcRequest()
     GLOGDEBUG << " id: " << id_;
 }
 
-void EPAsyncRpcRequest::onSuccessCb(RpcRequestSuccessCb &cb) {
+void EPAsyncRpcRequest::onSuccessCb(RpcRequestSuccessCb cb) {
     successCb_ = cb;
 }
 
-void EPAsyncRpcRequest::onErrorCb(RpcRequestErrorCb &cb) {
+void EPAsyncRpcRequest::onErrorCb(RpcRequestErrorCb cb) {
     errorCb_ = cb;
 }
 

@@ -81,7 +81,7 @@ class AsyncRpcRequestIf {
 
     void setCompletionCb(RpcRequestCompletionCb &completionCb);
 
-    static void postError(boost::shared_ptr<fpi::AsyncHdr> &header);
+    static void postError(boost::shared_ptr<fpi::AsyncHdr> header);
 
  protected:
     void invokeCommon_(const fpi::SvcUuid &epId);
@@ -120,9 +120,9 @@ class EPAsyncRpcRequest : public AsyncRpcRequestIf {
 
     ~EPAsyncRpcRequest();
 
-    void onSuccessCb(RpcRequestSuccessCb &cb);
+    void onSuccessCb(RpcRequestSuccessCb cb);
 
-    void onErrorCb(RpcRequestErrorCb &cb);
+    void onErrorCb(RpcRequestErrorCb cb);
 
     virtual void invoke() override;
 
@@ -154,11 +154,11 @@ class FailoverRpcRequest : public AsyncRpcRequestIf {
 
     void addEndpoint(const fpi::SvcUuid& uuid);
 
-    void onFailoverCb(RpcRequestFailoverCb& cb);
+    void onFailoverCb(RpcRequestFailoverCb cb);
 
-    void onSuccessCb(RpcRequestSuccessCb& cb);
+    void onSuccessCb(RpcRequestSuccessCb cb);
 
-    void onErrorCb(RpcRequestErrorCb& cb);
+    void onErrorCb(RpcRequestErrorCb cb);
 
     virtual void invoke() override;
 
