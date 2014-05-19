@@ -19,5 +19,8 @@
 #define ENUMCASEOS(x, os) case x : os << #x ; break;
 
 #define SHARED_DYN_CAST(T, ptr) boost::dynamic_pointer_cast<T>(ptr)
+// we can change to static_cast later
+#define TO_DERIVED(T,ptr) dynamic_cast<T*>(ptr) //NOLINT
 
+#define TYPE_SHAREDPTR(T) typedef boost::shared_ptr<T> ptr
 #endif  // SOURCE_INCLUDE_FDS_DEFINES_H_
