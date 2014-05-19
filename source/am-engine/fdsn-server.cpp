@@ -59,6 +59,11 @@ class FdsnIf : public apis::AmServiceIf {
     void volumeStatus(apis::VolumeStatus& _return,
                       boost::shared_ptr<std::string>& domainName,
                       boost::shared_ptr<std::string>& volumeName) {
+        LOGDEBUG << "volumeStatus for vol:" << *volumeName;
+        StatVolumeResponseHandler::ptr handler(new StatVolumeResponseHandler(_return));
+        am_api->GetVolumeMetaData(*volumeName, SHARED_DYN_CAST(Callback, handler));
+        handler->wait();
+        handler->process();
     }
 
     void volumeContents(std::vector<apis::BlobDescriptor> & _return,

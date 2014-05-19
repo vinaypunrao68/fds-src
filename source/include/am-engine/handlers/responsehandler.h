@@ -33,11 +33,11 @@ struct ResponseHandler : virtual Callback {
     concurrency::TaskStatus task;
 };
 
-    struct SimpleResponseHandler : ResponseHandler {
-        typedef boost::shared_ptr<SimpleResponseHandler> ptr;
-        std::string name;
-        SimpleResponseHandler();
-        SimpleResponseHandler(const std::string& name);
+struct SimpleResponseHandler : ResponseHandler {
+    typedef boost::shared_ptr<SimpleResponseHandler> ptr;
+    std::string name;
+    SimpleResponseHandler();
+    SimpleResponseHandler(const std::string& name);
 
     virtual void process();
     virtual ~SimpleResponseHandler();
@@ -152,7 +152,7 @@ struct ListBucketResponseHandler : ResponseHandler {
     int isTruncated = 0;
     const char *nextMarker = NULL;
     int contentsCount = 0;
-    const ListBucketContents *contents =NULL;
+    const ListBucketContents *contents = NULL;
     int commonPrefixesCount = 0;
     const char **commonPrefixes = NULL;
 
@@ -171,6 +171,13 @@ struct BucketStatsResponseHandler : ResponseHandler {
 
     virtual void process();
     virtual ~BucketStatsResponseHandler();
+};
+
+struct StatVolumeResponseHandler : ResponseHandler, GetVolumeMetaDataCallback {
+    TYPE_SHAREDPTR(StatVolumeResponseHandler);
+    apis::VolumeStatus& volumeStatus;
+    explicit StatVolumeResponseHandler(apis::VolumeStatus& volumeStatus);
+    virtual void process();
 };
 
 }  // namespace fds

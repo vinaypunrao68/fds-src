@@ -206,4 +206,13 @@ AttachVolumeResponseHandler::process() {
 AttachVolumeResponseHandler::~AttachVolumeResponseHandler() {
 }
 
+StatVolumeResponseHandler::StatVolumeResponseHandler(apis::VolumeStatus& volumeStatus)
+        : volumeStatus(volumeStatus) {
+}
+
+void StatVolumeResponseHandler::process() {
+    XCHECKSTATUS(status);
+    volumeStatus.blobCount = volumeMetaData.blobCount;
+    volumeStatus.size = volumeMetaData.size;
+}
 }  // namespace fds
