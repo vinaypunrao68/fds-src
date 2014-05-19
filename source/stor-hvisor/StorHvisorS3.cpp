@@ -40,8 +40,11 @@ StorHvCtrl::TxnResponseHelper::TxnResponseHelper(StorHvCtrl* storHvisor,
 
 StorHvCtrl::TxnResponseHelper::~TxnResponseHelper() {
     storHvisor->qos_ctrl->markIODone(txn->io);
+    GLOGDEBUG << "releasing txn:" << txnId;
     txn->reset();
     vol->journal_tbl->releaseTransId(txnId);
+    GLOGDEBUG << "doing callback for txnid:" << txnId;
+    blobReq->cb->call();
     delete blobReq;
     delete je_lock;
     delete vol_lock;
@@ -849,11 +852,8 @@ StorHvCtrl::statBlobResp(const FDSP_MsgHdrTypePtr rxMsg,
 
     cb->blobDesc.setBlobName(blobDesc->name);
     cb->blobDesc.setBlobSize(blobDesc->byteCount);
-    for (std::map<std::string, std::string>::const_iterator it =
-                 blobDesc->metadata.cbegin();
-         it != blobDesc->metadata.cend();
-         it++) {
-        cb->blobDesc.addKvMeta(it->first, it->second);
+    for (auto const &it : blobDesc->metadata) {
+        cb->blobDesc.addKvMeta(it.first, it.second);
     }
     txn->reset();
     vol->journal_tbl->releaseTransId(transId);
@@ -892,10 +892,9 @@ void StorHvCtrl::handleSetBlobMetaDataResp(const FDSP_MsgHdrTypePtr rxMsg) {
         txn->reset();
         return;
     }
-
-    blobReq->cb->call(FDSN_StatusOK);
     txn->reset();
     vol->journal_tbl->releaseTransId(transId);
+    blobReq->cb->call(FDSN_StatusOK);
 }
 
 fds::Error StorHvCtrl::upCatResp(const FDSP_MsgHdrTypePtr& rxMsg,

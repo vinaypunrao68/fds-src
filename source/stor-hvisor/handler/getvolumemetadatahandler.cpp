@@ -32,7 +32,7 @@ Error GetVolumeMetaDataHandler::handleResponse(fpi::FDSP_MsgHdrTypePtr& header,
     // Return if err
     if (header->result != FDSP_ERR_OK) {
         LOGWARN << "error in response: " << header->result;
-        txnHelper.blobReq->cb->call(FDSN_StatusErrorUnknown);
+        txnHelper.blobReq->cb->status = FDSN_StatusErrorUnknown;
         return ERR_MAX;
     }
 
@@ -40,8 +40,7 @@ Error GetVolumeMetaDataHandler::handleResponse(fpi::FDSP_MsgHdrTypePtr& header,
                 SHARED_DYN_CAST(GetVolumeMetaDataCallback, txnHelper.blobReq->cb);
 
     cb->volumeMetaData = *volumeMeta;
-    LOGDEBUG << "doing callback";
-    cb->call(FDSN_StatusOK);
+    cb->status = FDSN_StatusOK;
     return err;
 }
 
