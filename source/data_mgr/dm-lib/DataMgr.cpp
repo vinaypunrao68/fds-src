@@ -3,7 +3,7 @@
  */
 
 #include <string>
-
+#include <list>
 #include <fds_timestamp.h>
 #include <DataMgr.h>
 
@@ -2147,6 +2147,56 @@ void DataMgr::setBlobMetaDataBackend(const dmCatReq *request) {
     }
 }
 
+void DataMgr::getVolumeMetaDataBackend(const dmCatReq *request) {
+    Error err(ERR_OK);
+    std::unique_ptr<dmCatReq> reqPtr(const_cast<dmCatReq *>(request));
+    fpi::FDSP_MsgHdrTypePtr msgHeader(new FDSP_MsgHdrType);
+    fpi::FDSP_VolumeMetaDataPtr volumeMetaData(new FDSP_VolumeMetaData());
+
+    InitMsgHdr(msgHeader);
+    request->fillResponseHeader(msgHeader);
+    LOGDEBUG << "txnid: " << request->reqCookie;
+    
+    if (!volExists(request->volId)) {
+        err = ERR_VOL_NOT_FOUND;
+        LOGWARN << "volume not found: " << request->volId;
+    } else {
+        BlobNode* bNode;
+        synchronized(big_fat_lock) {
+            // get the current metadata
+            std::list<BlobNode> bNodeList;
+            err = _process_list(request->volId, bNodeList);
+            volumeMetaData->blobCount = bNodeList.size();
+            volumeMetaData->size = 0;
+
+            if (err == ERR_OK) {
+                for (auto const& blob : bNodeList) {
+                    volumeMetaData->size += blob.blob_size;
+                }
+            } else {
+                LOGWARN << " error getting volume Meta data: "
+                        << " vol: " << request->volId
+                        << " err: " << err;
+            }
+        }
+    }
+    LOGDEBUG << " vol:" << request->volId
+             << " blobCount:" << volumeMetaData->blobCount
+             << " size:" << volumeMetaData->size;
+
+    // send the response
+    setResponseError(msgHeader,err);
+    read_synchronized(dataMgr->respMapMtx) {
+        try {
+            LOGDEBUG << "sending reponse to GetVolumeMetaData";
+            respHandleCli(request->session_uuid)->GetVolumeMetaDataResp(*msgHeader, *volumeMetaData);
+        } catch(att::TTransportException& e) {
+            LOGERROR << "error during network call : " << e.what();
+        }
+    }
+}
+
+
 Error
 DataMgr::deleteCatObjInternal(FDSP_DeleteCatalogTypePtr delCatReq,
                               fds_volid_t volId, long srcIp, long dstIp, fds_uint32_t srcPort,
@@ -2256,8 +2306,19 @@ void DataMgr::ReqHandler::GetBlobMetaData(boost::shared_ptr<FDSP_MsgHdrType>& ms
     RequestHeader reqHeader(msgHeader);
     dmCatReq* request = new DataMgr::dmCatReq(reqHeader, FDS_GET_BLOB_METADATA);
     request->blob_name = *blobName;
-    err = dataMgr->qosCtrl->enqueueIO(request->volId,request);
+    err = dataMgr->qosCtrl->enqueueIO(request->volId, request);
 
+    fds_verify(err == ERR_OK);
+}
+
+void DataMgr::ReqHandler::GetVolumeMetaData(boost::shared_ptr<FDSP_MsgHdrType>& header,
+                                            boost::shared_ptr<std::string>& volumeName) {
+    Error err(ERR_OK);
+    GLOGDEBUG << " volume:" << *volumeName << " txnid:" << header->req_cookie;
+
+    RequestHeader reqHeader(header);
+    dmCatReq* request = new DataMgr::dmCatReq(reqHeader, FDS_GET_VOLUME_METADATA);
+    err = dataMgr->qosCtrl->enqueueIO(request->volId, request);
     fds_verify(err == ERR_OK);
 }
 
@@ -2310,6 +2371,11 @@ int scheduleGetBlobMetaData(void* io) {
 
 int scheduleSetBlobMetaData(void* io) {
     dataMgr->setBlobMetaDataBackend((fds::DataMgr::dmCatReq*)io);
+    return 0;
+}
+
+int scheduleGetVolumeMetaData(void* io) {
+    dataMgr->getVolumeMetaDataBackend((fds::DataMgr::dmCatReq*)io);
     return 0;
 }
 

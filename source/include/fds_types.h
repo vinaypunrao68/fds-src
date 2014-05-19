@@ -199,6 +199,7 @@ typedef enum {
     FDS_STAT_BLOB,
     FDS_GET_BLOB_METADATA,
     FDS_SET_BLOB_METADATA,
+    FDS_GET_VOLUME_METADATA,
     FDS_DELETE_BLOB,
     FDS_LIST_BUCKET,
     FDS_BUCKET_STATS,
@@ -223,7 +224,7 @@ std::ostream& operator<<(std::ostream& os, const fds_io_op_t& opType);
 class FDS_IOType {
   public:
     FDS_IOType() {}
-    ~FDS_IOType() {}
+    virtual ~FDS_IOType() {}
 
     typedef enum {
         STOR_HV_IO,

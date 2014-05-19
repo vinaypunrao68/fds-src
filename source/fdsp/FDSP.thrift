@@ -209,6 +209,24 @@ struct FDSP_MetaDataPair {
 
 typedef list <FDSP_MetaDataPair> FDSP_MetaDataList
 
+struct FDSP_VolumeMetaData {
+  1: i64 blobCount;
+  2: i64 size; // in bytes
+//  3: FDSP_MetaDataList metaData;
+}
+
+struct FDSP_UpdateCatalogType {
+  1: string blob_name, /* User visible name of the blob */
+  2: i64 blob_version, /* Version of the blob. Only used in response! */
+  3: i64 blob_size, /* Size of blob. Only use in  response! */
+  4: i32 blob_mime_type, /* Encoding type of blob contents. */
+  5: FDSP_BlobDigestType digest, /* Not sure...? */
+  6: FDSP_BlobObjectList obj_list, /* List of object ids of the objects that this blob is being mapped to */
+  7: FDSP_MetaDataList meta_list, /* sequence of arbitrary key/value pairs */
+  8: i32 dm_transaction_id,   /* Transaction id */
+  9: i32 dm_operation,        /* Transaction type = OPEN, COMMIT, CANCEL */
+}
+
 /* Can be consolidated when apis and fdsp merge or whatever */
 struct TxDescriptor {
        1: required i64 txId
@@ -1065,6 +1083,7 @@ service FDSP_MetaDataPathReq {
     oneway void StatBlob(1:FDSP_MsgHdrType fds_msg, 2:string volumeName, 3:string blobName)
     oneway void SetBlobMetaData(1:FDSP_MsgHdrType header, 2:string volumeName, 3:string blobName, 4:FDSP_MetaDataList metaDataList)
     oneway void GetBlobMetaData(1:FDSP_MsgHdrType header, 2:string volumeName, 3:string blobName)
+    oneway void GetVolumeMetaData(1:FDSP_MsgHdrType header, 2:string volumeName)
 }
 
 service FDSP_MetaDataPathResp {
@@ -1079,6 +1098,7 @@ service FDSP_MetaDataPathResp {
     oneway void StatBlobResp(1:FDSP_MsgHdrType fds_msg, 2:BlobDescriptor blobDesc)
     oneway void SetBlobMetaDataResp(1:FDSP_MsgHdrType header, 2:string blobName)
     oneway void GetBlobMetaDataResp(1:FDSP_MsgHdrType header, 2:string blobName, 3:FDSP_MetaDataList metaDataList)
+    oneway void GetVolumeMetaDataResp(1:FDSP_MsgHdrType header, 2:FDSP_VolumeMetaData volumeMeta)
 }
 
 /*

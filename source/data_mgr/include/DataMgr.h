@@ -48,6 +48,7 @@ int scheduleDeleteCatObj(void * _io);
 int scheduleBlobList(void * _io);
 int scheduleGetBlobMetaData(void* io);
 int scheduleSetBlobMetaData(void* io);
+int scheduleGetVolumeMetaData(void* io);
 
 class DataMgr : public PlatformProcess {
 public:
@@ -253,6 +254,10 @@ public:
             case FDS_SET_BLOB_METADATA:
                 threadPool->schedule(scheduleSetBlobMetaData, io);
                 break;
+
+             case FDS_GET_VOLUME_METADATA:
+                threadPool->schedule(scheduleGetVolumeMetaData, io);
+                break;
             default:
                 FDS_PLOG(FDS_QoSControl::qos_log) << "Unknown IO Type received";
                 assert(0);
@@ -415,7 +420,7 @@ public:
     void startBlobTxBackend(const dmCatReq *startBlobTxReq);
     void getBlobMetaDataBackend(const dmCatReq *request);
     void setBlobMetaDataBackend(const dmCatReq *request);
-
+    void getVolumeMetaDataBackend(const dmCatReq *request);
     /* 
      * FDS protocol processing proto types 
      */
@@ -499,6 +504,10 @@ public:
                            const std::string& blobName) {
       }
 
+      void GetVolumeMetaData(const FDSP_MsgHdrType& header, 
+                             const std::string& volumeName) {
+      }
+
       // ================================================================================================
       // The actual stuff
       // ================================================================================================
@@ -541,7 +550,8 @@ public:
                            boost::shared_ptr<std::string>& volumeName,
                            boost::shared_ptr<std::string>& blobName);
 
-
+      void GetVolumeMetaData(boost::shared_ptr<FDSP_MsgHdrType>& header,
+                             boost::shared_ptr<std::string>& volumeName);
     };
 
 };

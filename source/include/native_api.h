@@ -123,7 +123,9 @@ namespace fds {
                              boost::shared_ptr<fpi::FDSP_MetaDataList>& metaDataList,
                              CallbackPtr cb);
 
-  private:
+        void GetVolumeMetaData(const std::string& volumeName, CallbackPtr cb);
+
+      private:
         /**
          * Sends 'test bucket' message to OM. If bucket exists (OM knows about it),
          * OM will attach the bucket to this AM. Otherwise, will return error.
@@ -133,8 +135,8 @@ namespace fds {
          *    Other error codes if error happened.
          */
         Error sendTestBucketToOM(const std::string& bucket_name,
-                                 const std::string& access_key_id,
-                                 const std::string& secret_access_key);
+                                 const std::string& access_key_id = "" ,
+                                 const std::string& secret_access_key = "");
 
         /* helper function to initialize volume info to some default values, 
            used by several native api methods */

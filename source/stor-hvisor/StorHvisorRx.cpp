@@ -2,7 +2,7 @@
 #include "./list.h"
 #include "./StorHvisorCPP.h"
 #include <arpa/inet.h>
-
+#include <string>
 using namespace std;
 using namespace FDS_ProtocolInterface;
 #define SRC_IP  0x0a010a65
@@ -226,7 +226,7 @@ FDSP_MetaDataPathRespCbackI::StatBlobResp(boost::shared_ptr<FDSP_MsgHdrType> &ms
 void FDSP_MetaDataPathRespCbackI::SetBlobMetaDataResp(boost::shared_ptr<FDSP_MsgHdrType>& header,
                                                       boost::shared_ptr<std::string>& blobName) {
     LOGDEBUG << "received response for txn: "<< header->req_cookie;
-    storHvisor->setBlobMetaDataResp(header);
+    storHvisor->handleSetBlobMetaDataResp(header);
 }
 
 void FDSP_MetaDataPathRespCbackI::GetBlobMetaDataResp(boost::shared_ptr<FDSP_MsgHdrType>& header,
@@ -523,4 +523,9 @@ void FDSP_MetaDataPathRespCbackI::GetVolumeBlobListResp(
              <<  fdsp_msg_hdr->req_cookie; 
     fds::Error err = storHvisor->getBucketResp(fdsp_msg_hdr, blob_list_resp);
     fds_verify(err == ERR_OK);
+}
+
+void FDSP_MetaDataPathRespCbackI::GetVolumeMetaDataResp(fpi::FDSP_MsgHdrTypePtr& header,
+                                                        fpi::FDSP_VolumeMetaDataPtr& volumeMeta) {
+    storHvisor->handlerGetVolumeMetaData->handleResponse(header, volumeMeta);
 }
