@@ -21,6 +21,110 @@ typedef fds::hash::Sha1 GeneratorHash;
 
 std::atomic_uint nextIoReqId;
 
+StorHvCtrl::TxnResponseHelper::TxnResponseHelper(StorHvCtrl* storHvisor,
+                                                 fds_volid_t  volId, fds_uint32_t txnId)
+        : storHvisor(storHvisor), txnId(txnId), volId(volId)
+{
+    vol = storHvisor->vol_table->getVolume(volId);
+    vol_lock = new StorHvVolumeLock(vol);
+    txn = vol->journal_tbl->get_journal_entry(txnId);
+    je_lock = new StorHvJournalEntryLock(txn);
+
+    fds_verify(txn != NULL);
+    fds_verify(txn->isActive() == true);
+    fds::AmQosReq   *qosReq  = TO_DERIVED(fds::AmQosReq, txn->io);
+    fds_verify(qosReq != NULL);
+    blobReq = qosReq->getBlobReqPtr();
+    fds_verify(blobReq != NULL);
+}
+
+StorHvCtrl::TxnResponseHelper::~TxnResponseHelper() {
+    storHvisor->qos_ctrl->markIODone(txn->io);
+    txn->reset();
+    vol->journal_tbl->releaseTransId(txnId);
+    delete blobReq;
+    delete je_lock;
+    delete vol_lock;
+}
+
+
+StorHvCtrl::TxnRequestHelper::TxnRequestHelper(StorHvCtrl* storHvisor,
+                                               fds::FdsBlobReq* blobReq)
+        : storHvisor(storHvisor), blobReq(blobReq) {
+    volId = blobReq->getVolId();
+    shVol = storHvisor->vol_table->getLockedVolume(volId);
+    blobReq->setQueuedUsec(shVol->journal_tbl->microsecSinceCtime(
+        boost::posix_time::microsec_clock::universal_time()));
+}
+
+bool StorHvCtrl::TxnRequestHelper::isValidVolume() {
+    return ((shVol != NULL) && (shVol->isValidLocked()));
+}
+
+bool StorHvCtrl::TxnRequestHelper::setupTxn() {
+    bool trans_in_progress = false;
+    txnId = shVol->journal_tbl->get_trans_id_for_blob(blobReq->getBlobName(),
+                                                      blobReq->getBlobOffset(),
+                                                      trans_in_progress);
+
+    txn = shVol->journal_tbl->get_journal_entry(txnId);
+    fds_verify(txn != NULL);
+    jeLock = new StorHvJournalEntryLock(txn);
+
+    if (trans_in_progress || txn->isActive()) {
+        GLOGWARN << "txn: " << txnId << " is already ACTIVE";
+        return false;
+    }
+    txn->setActive();
+    return true;
+}
+
+bool StorHvCtrl::TxnRequestHelper::getPrimaryDM(fds_uint32_t& ip, fds_uint32_t& port) {
+    fds_int32_t numNodes = 1, node_state;
+    fds_uint64_t nodeId;
+    storHvisor->dataPlacementTbl->getDMTNodesForVolume(volId,
+                                                       &nodeId,
+                                                       &numNodes);
+    fds_verify(numNodes == 1);
+    storHvisor->dataPlacementTbl->getNodeInfo(nodeId,
+                                              &ip,
+                                              &port,
+                                              &node_state);
+    return true;
+}
+
+void StorHvCtrl::TxnRequestHelper::scheduleTimer() {
+    shVol->journal_tbl->schedule(txn->ioTimerTask, std::chrono::seconds(FDS_IO_LONG_TIME));
+}
+
+StorHvCtrl::TxnRequestHelper::~TxnRequestHelper() {
+    if (jeLock) delete jeLock;
+    if (shVol) shVol->readUnlock();
+}
+
+StorHvCtrl::BlobRequestHelper::BlobRequestHelper(StorHvCtrl* storHvisor, const std::string& volumeName)
+        : storHvisor(storHvisor), volumeName(volumeName) {}
+
+void StorHvCtrl::BlobRequestHelper::setupVolumeInfo() {
+    if (storHvisor->vol_table->volumeExists(volumeName)) {
+        volId = storHvisor->vol_table->getVolumeUUID(volumeName);
+        fds_verify(volId != invalid_vol_id);
+    }
+}
+
+fds::Error StorHvCtrl::BlobRequestHelper::processRequest() {
+    if (volId != invalid_vol_id) {
+        storHvisor->pushBlobReq(blobReq);
+        return ERR_OK;
+    } else {
+        // If we don't have the volume, queue up the request
+        storHvisor->vol_table->addBlobToWaitQueue(volumeName, blobReq);
+    }
+
+    // if we are here, bucket is not attached to this AM, send test bucket msg to OM
+    return storHvisor->sendTestBucketToOM(volumeName, "", "");
+}
+
 fds::Error StorHvCtrl::pushBlobReq(fds::FdsBlobReq *blobReq) {
     fds_verify(blobReq->magicInUse() == true);
     fds::Error err(ERR_OK);
@@ -754,11 +858,11 @@ StorHvCtrl::statBlobResp(const FDSP_MsgHdrTypePtr rxMsg,
     cb->call(FDSN_StatusOK);
     txn->reset();
     vol->journal_tbl->releaseTransId(transId);
-
+    
     delete blobReq;
 }
 
-void StorHvCtrl::setBlobMetaDataResp(const FDSP_MsgHdrTypePtr rxMsg) {
+void StorHvCtrl::handleSetBlobMetaDataResp(const FDSP_MsgHdrTypePtr rxMsg) {
     Error err(ERR_OK);
 
     fds_uint32_t transId = rxMsg->req_cookie;
@@ -1582,7 +1686,6 @@ Error StorHvCtrl::SetBlobMetaData(fds::AmQosReq *qosReq) {
 
     return err;
 }
-
 
 /**
  * Function called when volume waiting queue is drained.
