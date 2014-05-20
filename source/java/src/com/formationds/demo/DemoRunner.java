@@ -38,12 +38,14 @@ public class DemoRunner {
         imageIterator = new CircularIterator<>(() -> new FlickrStream(searchExpression, 500));
 
         executor.submit(new Stoppable("Enqueue image", () -> {
+            Thread.sleep(500);
             ImageResource next = imageIterator.next();
             writeQueue.put(next);
         }));
 
         for (int i = 0; i < writeParallelism; i++) {
             executor.submit(new Stoppable("Writing image", () -> {
+                Thread.sleep(500);
                 ImageResource resource = writeQueue.take();
                 lastWritten = objectStore.getImageWriter().write(resource);
             }));
@@ -51,6 +53,7 @@ public class DemoRunner {
 
         for (int i = 0; i < readParallelism; i++) {
             executor.submit(new Stoppable("Reading image", () -> {
+                Thread.sleep(500);
                 if (lastWritten != null) {
                     StoredImage r = objectStore.getImageReader().read(lastWritten);
                 }

@@ -26,7 +26,7 @@ public class Main {
     public void start(int port, String[] args) throws Exception {
         Configuration configuration = new Configuration(args);
         ParsedConfig d = configuration.getDemoConfig();
-        
+
         DemoConfig demoConfig = new DemoConfig(
                 d.lookup("fds.demo.am_host").stringValue(),
                 d.lookup("fds.demo.swift_port").intValue(),
@@ -37,15 +37,15 @@ public class Main {
                 ),
                 VOLUMES
         );
-        
-        String webDir = "/home/fabrice/demo/dist";
-        WebApp webApp = new WebApp(webDir);
+
 
         createLocalVolumes(demoConfig);
         createAwsVolumes(demoConfig);
 
         DemoState state = new RealDemoState(Duration.standardMinutes(5), demoConfig);
-        
+
+        String webDir = "/home/fabrice/demo/dist";
+        WebApp webApp = new WebApp(webDir);
         webApp.route(HttpMethod.GET, "/", () -> new LandingPage(webDir));
 
         // POST query string (URL string, q=foo)

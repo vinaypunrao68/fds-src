@@ -26,7 +26,7 @@ public class RealDemoState implements DemoState {
                 if (demoRunner != null) {
                     demoRunner.tearDown();
                     demoRunner = null;
-                }
+                }   
             }
         }, 0, 5, TimeUnit.SECONDS);
         scavenger.shutdown();
