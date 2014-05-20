@@ -38,6 +38,16 @@ class ProbeTestAM_RPC : virtual public fpi::ProbeServiceAMIf,
         NetMgr::ep_mgr_singleton()->ep_send_async_resp(resp->hdr, r);
         std::cout << __FUNCTION__ << __LINE__;
     }
+
+    void foo(const FDS_ProtocolInterface::ProbeFoo& arg)
+    {
+        GLOGDEBUG;
+    }
+
+    void foo(boost::shared_ptr<FDS_ProtocolInterface::ProbeFoo>&)
+    {
+        GLOGDEBUG;
+    }
 };
 
 ProbeEpTestAM                 gl_ProbeTestAM("Probe AM EP");

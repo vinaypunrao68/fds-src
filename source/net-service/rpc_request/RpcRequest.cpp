@@ -3,6 +3,7 @@
 #include <string>
 
 #include <concurrency/ThreadPool.h>
+#include <net/net-service.h>
 #include <net/RpcRequest.h>
 #include <net/RpcRequestPool.h>
 #include <net/BaseAsyncSvcHandler.h>
@@ -28,6 +29,7 @@ AsyncRpcTimer::AsyncRpcTimer(const AsyncRpcRequestId &id,
 */
 void AsyncRpcTimer::runTimerTask()
 {
+    GLOGDEBUG << "Timeout: " << logString(*header_);
     AsyncRpcRequestIf::postError(header_);
 }
 
@@ -81,7 +83,7 @@ bool AsyncRpcRequestIf::isComplete()
 }
 
 
-void AsyncRpcRequestIf::setRpcFunc(RpcFuncPtr rpc) {
+void AsyncRpcRequestIf::setRpcFunc(RpcFunc rpc) {
     rpc_ = rpc;
 }
 
@@ -112,12 +114,18 @@ void AsyncRpcRequestIf::setCompletionCb(RpcRequestCompletionCb &completionCb)
 void AsyncRpcRequestIf::invokeCommon_(const fpi::SvcUuid &peerEpId)
 {
     auto header = RpcRequestPool::newAsyncHeader(id_, myEpId_, peerEpId);
-    rpc_->setHeader(header);
 
     GLOGDEBUG << logString(header);
 
     try {
-        rpc_->invoke();
+        rpc_(header);
+       /* start the timer */
+       if (timeoutMs_) {
+           timer_.reset(new AsyncRpcTimer(id_, myEpId_, peerEpId));
+           bool ret = NetMgr::ep_mgr_singleton()->ep_get_timer()->\
+                      schedule(timer_, std::chrono::milliseconds(timeoutMs_));
+           fds_assert(ret == true);
+       }
     } catch(...) {
         // TODO(Rao): Catch different exceptions
         auto respHdr = RpcRequestPool::newAsyncHeaderPtr(id_, peerEpId, myEpId_);
@@ -174,13 +182,6 @@ void EPAsyncRpcRequest::invoke()
     state_ = INVOCATION_PROGRESS;
     if (epHealthy) {
        invokeCommon_(peerEpId_);
-       /* start the timer */
-       if (timeoutMs_) {
-           timer_.reset(new AsyncRpcTimer(id_, myEpId_, peerEpId_));
-           bool ret = NetMgr::ep_mgr_singleton()->ep_get_timer()->\
-                      schedule(timer_, std::chrono::milliseconds(timeoutMs_));
-           fds_assert(ret == true);
-       }
     } else {
         auto respHdr = RpcRequestPool::newAsyncHeaderPtr(id_, peerEpId_, myEpId_);
         respHdr->msg_code = ERR_RPC_INVOCATION;
