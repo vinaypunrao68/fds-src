@@ -8,6 +8,7 @@ import com.google.common.net.InetAddresses;
 import org.apache.thrift.TException;
 import org.apache.thrift.protocol.TBinaryProtocol;
 import org.apache.thrift.protocol.TProtocol;
+import org.apache.thrift.transport.TFramedTransport;
 import org.apache.thrift.transport.TSocket;
 
 import java.net.Inet4Address;
@@ -62,7 +63,7 @@ public class ClientFactory {
         try {
             TSocket socket = new TSocket(host, port);
             socket.open();
-            TProtocol protocol = new TBinaryProtocol(socket);
+            TProtocol protocol = new TBinaryProtocol(new TFramedTransport(socket));
             FDSP_Service.Client client = new FDSP_Service.Client(protocol);
             FDSP_MsgHdrType msg = new FDSP_MsgHdrType();
             FDSP_SessionReqResp response = client.EstablishSession(msg);

@@ -49,6 +49,11 @@ fds_disk_block_to_byte(fds_blk_t blk)
 #define MAX_SVC_NAME_LEN               (12)
 #define MAX_DOMAIN_EP_SVC              (10000)
 
+/**
+ * System platform constants.
+ */
+#define FDS_MAX_CPUS                   (32)
+
 c_decls_end
 
 #endif  /* SOURCE_INCLUDE_SHARED_FDS_CONSTANTS_H_  // NOLINT */

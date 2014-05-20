@@ -172,7 +172,7 @@ class netClientSessionEx : public netSession , public net::SocketEventHandler {
                      boost::shared_ptr<RespHandlerT> resp_handler)
       : netSession(node_name, port, local_mgr, remote_mgr),
             socket_(new fds::net::Socket(node_name, port)),
-      transport_(new apache::thrift::transport::TBufferedTransport(
+      transport_(new apache::thrift::transport::TFramedTransport(
               boost::dynamic_pointer_cast<apache::thrift::transport::TTransport>(socket_))),
       protocol_(new TBinaryProtocol(transport_)),
       session_id_(""),
@@ -592,14 +592,14 @@ class netServerSessionEx: public netSession {
       /* NOTE: if return a diffrent TTransportFactory, make sure you adjust
        * getTransportKey() to match as well
        */
-      return new apache::thrift::transport::TBufferedTransportFactory();
+      return new apache::thrift::transport::TFramedTransportFactory();
   }
 
   static std::string getTransportKey(TTransportPtr transport)
   {
-      /* What we get is TBufferedTransport.  We will extract TSocket from it */
-      boost::shared_ptr<apache::thrift::transport::TBufferedTransport> buf_transport =
-          boost::static_pointer_cast<apache::thrift::transport::TBufferedTransport>(transport);
+      /* What we get is TFramedTransport.  We will extract TSocket from it */
+      boost::shared_ptr<apache::thrift::transport::TFramedTransport> buf_transport =
+          boost::static_pointer_cast<apache::thrift::transport::TFramedTransport>(transport);
 
       boost::shared_ptr<apache::thrift::transport::TSocket> sock =
           boost::static_pointer_cast<apache::thrift::transport::TSocket>\
@@ -830,5 +830,7 @@ class netSessionTbl {
 
 typedef boost::shared_ptr<netSessionTbl> netSessionTblPtr;
 
-
+#define METADATA_SESSION(session,tbl,ip,port) \
+    netMetaDataPathClientSession *session = tbl->getClientSession<netMetaDataPathClientSession>(ip, port); \
+    fds_verify(session != NULL);
 #endif

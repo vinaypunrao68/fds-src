@@ -68,7 +68,9 @@ public class ToyServices implements AmService.Iface, ConfigurationService.Iface 
     @Override
     public VolumeDescriptor statVolume(String domainName, String volumeName) throws ApiException, TException {
         Volume volume = getVolume(domainName, volumeName);
-        return new VolumeDescriptor(volumeName, volume.getTimestamp(), new VolumePolicy(volume.getObjectSize()));
+        return new VolumeDescriptor(volumeName, volume.getTimestamp(),
+                                    new VolumePolicy(volume.getObjectSize(),
+                                                     VolumeConnector.S3));
     }
 
     @Override
@@ -80,7 +82,9 @@ public class ToyServices implements AmService.Iface, ConfigurationService.Iface 
                         .list());
 
         return volumes.stream()
-                .map(v -> new VolumeDescriptor(v.getName(), v.getTimestamp(), new VolumePolicy(v.getObjectSize())))
+                .map(v -> new VolumeDescriptor(v.getName(), v.getTimestamp(),
+                                               new VolumePolicy(v.getObjectSize(),
+                                                                VolumeConnector.S3)))
                 .collect(Collectors.toList());
     }
 
@@ -109,7 +113,27 @@ public class ToyServices implements AmService.Iface, ConfigurationService.Iface 
     @Override
     public BlobDescriptor statBlob(String domainName, String volumeName, String blobName) throws ApiException, TException {
         Blob blob = getBlob(domainName, volumeName, blobName);
+        if (blob == null) {
+            throw new ApiException("No such resource", ErrorCode.MISSING_RESOURCE);
+        }
         return new BlobDescriptor(blobName, blob.getByteCount(), ByteBuffer.wrap(blob.getDigest()), blob.getMetadata());
+    }
+
+    @Override
+    public TxDescriptor startBlobTx(String domainName, String volumeName, String blobName) throws ApiException, TException {        
+        return new TxDescriptor(0);
+    }
+
+    @Override
+    public void commitBlobTx(TxDescriptor txDesc) throws ApiException, TException {
+    }
+
+    @Override
+    public void abortBlobTx(TxDescriptor txDesc) throws ApiException, TException {
+    }
+
+    @Override
+    public void attachVolume(String domainName, String volumeName) throws ApiException, TException {
     }
 
     @Override
@@ -122,7 +146,7 @@ public class ToyServices implements AmService.Iface, ConfigurationService.Iface 
                         .add(Restrictions.eq("name", domainName))
                         .setProjection(Projections.rowCount()))
                 .uniqueResult();
-        return new VolumeStatus(count);
+        return new VolumeStatus();
     }
 
     @Override
@@ -139,14 +163,14 @@ public class ToyServices implements AmService.Iface, ConfigurationService.Iface 
     }
 
     @Override
-    public void updateMetadata(String domainName, String volumeName, String blobName, Map<String, String> metadata) throws ApiException, TException {
+    public void updateMetadata(String domainName, String volumeName, String blobName, TxDescriptor txDesc, Map<String, String> metadata) throws ApiException, TException {
         Blob blob = getOrCreate(domainName, volumeName, blobName);
         blob.setMetadataJson(new JSONObject(metadata).toString(2));
         persister.update(blob);
     }
 
     @Override
-    public void updateBlob(String domainName, String volumeName, String blobName, ByteBuffer bytes, int length, ObjectOffset objectOffset, ByteBuffer digest, boolean isLast) throws ApiException, TException {
+    public void updateBlob(String domainName, String volumeName, String blobName, TxDescriptor txDesc, ByteBuffer bytes, int length, ObjectOffset objectOffset, ByteBuffer digest, boolean isLast) throws ApiException, TException {
         Blob blob = getOrCreate(domainName, volumeName, blobName);
         int objectSize = blob.getVolume().getObjectSize();
         long newByteCount = Math.max(blob.getByteCount(), objectSize * objectOffset.getValue() + length);

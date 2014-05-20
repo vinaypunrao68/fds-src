@@ -1,0 +1,18 @@
+1. Get vagrant 
+$ sudo apt-get install vagrant
+
+2. while in this directory bring up the vagrant machine
+~/fds-src/vagrant/devstack$ vagrant up
+
+3. SSH into the vagrant box
+~/fds-src/vagrant/devstack$ vagrant ssh
+
+4. If this is the first time running this vagrant box, use the setup to get devstack and its dependencies from github
+vagrant@precise32:~$ /vagrant_data/setup_devstack.sh
+
+5. Run stack.sh to bring up devstack, it takes a while - get coffee
+vagrant@precise32:~/devstack$ ./stack.sh
+
+The administration interface is port forwarded to 3840  
+Go to http://localhost:3840/ to use the admin interface
+

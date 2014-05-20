@@ -35,9 +35,9 @@ public class GetObject implements RequestHandler {
 
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
-        String domain = routeParameters.get("account");
-        String volume = routeParameters.get("container");
-        String object = routeParameters.get("object");
+        String domain = requiredString(routeParameters, "account");
+        String volume = requiredString(routeParameters, "container");
+        String object = requiredString(routeParameters, "object");
 
         ArrayList<Range> ranges = parseRanges(request.getHeader("Range"));
         BlobDescriptor stat = xdi.statBlob(domain, volume, object);
@@ -55,17 +55,13 @@ public class GetObject implements RequestHandler {
         // FIXME: add Accept-Ranges header
         // FIXME: add actual value for Last-Modified header
 
-        String contentType = stat.getMetadata().getOrDefault("Content-Type", StaticFileHandler.getMimeType(object));
-        return new StreamResource(objStream, contentType) {
-            @Override
-            public Multimap<String, String> extraHeaders() {
-                LinkedListMultimap<String, String> headers = LinkedListMultimap.create();
-                headers.put("ETag", Hex.encodeHexString(stat.getDigest()));
-                headers.put("Last-Modified", Long.toString(DateTime.now().getMillis()));
-                headers.put("Date", DateTime.now().toString());
-                return headers;
-            };
-        };
+        Map<String, String> metadata = stat.getMetadata();
+        String contentType = metadata.getOrDefault("Content-Type", StaticFileHandler.getMimeType(object));
+        String lastModified = metadata.getOrDefault("Last-Modified", SwiftUtility.formatRfc1123Date(DateTime.now()));
+
+        return SwiftUtility.swiftResource(new StreamResource(objStream, contentType))
+                .withHeader("ETag", Hex.encodeHexString(stat.getDigest()))
+                .withHeader("Last-Modified", lastModified);
     }
 
     private InputStream readStreamForRange(Xdi xdi, String domain, String volume, String object, Range range, long blobLength) throws Exception {
@@ -83,11 +79,11 @@ public class GetObject implements RequestHandler {
     }
 
     private ArrayList<Range> parseRanges(String rangeDefinition) {
-        rangeDefinition = rangeDefinition.replaceFirst("bytes=", "").trim();
-
         ArrayList<Range> ranges = new ArrayList<Range>();
         if(rangeDefinition == null)
             return ranges;
+
+        rangeDefinition = rangeDefinition.replaceFirst("bytes=", "").trim();
 
         String[] rangeSpecs = rangeDefinition.split(",");
         for(String rangeSpec : rangeSpecs){

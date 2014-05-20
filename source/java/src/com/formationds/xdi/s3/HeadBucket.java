@@ -3,7 +3,6 @@ package com.formationds.xdi.s3;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.am.Main;
 import com.formationds.apis.VolumeDescriptor;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
@@ -23,7 +22,7 @@ public class HeadBucket implements RequestHandler {
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
         String bucketName = requiredString(routeParameters, "bucket");
-        VolumeDescriptor descriptor = xdi.volumeConfiguration(Main.FDS_S3, bucketName);
+        VolumeDescriptor descriptor = xdi.volumeConfiguration(S3Endpoint.FDS_S3, bucketName);
         return new TextResource("");
     }
 }

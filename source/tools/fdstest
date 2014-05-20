@@ -3,7 +3,6 @@ import sys
 import os
 import unittest
 import time
-import json
 import random
 import xml.etree.ElementTree as ET
 try:
@@ -45,10 +44,9 @@ class Api:
     def __init__(self):
         self.host = 'localhost'
         self.port = 8000
-        self.omhost = 'localhost'
-        self.omport = 7777
         self.ua = 'fdstest/1.0'
         self.postheaders={'content-type':'application/x-www-form-urlencoded','User-Agent':self.ua}
+        self.postheaders={'User-Agent':self.ua}
         self.headers={'User-Agent':self.ua}
         if 'testhost' in os.environ:
             host=os.environ['testhost']
@@ -67,24 +65,56 @@ class Api:
 
         return 'http://%s:%s/%s/%s' %(self.host,str(self.port), bucket, objName)
 
+    class Bucket:
+        def __init__(self,api,name):
+            self.name = name
+            self.api = api
+
+        def items(self):
+            return self.api.getBucketItems(self.name)
+
+        def put(self,key,value):
+            return self.api.put(self.name,key,value)
+
+        def get(self,key):
+            return self.api.get(self.name,key)
+
+        def putFile(self,filename,name=None):
+            return self.api.put(self.name,filename,name)
+
+        def create(self):
+            return self.api.createBucket(self.name)
+
+        def delete(self,key):
+            return self.api.delete(self.name,key)
+
+        def destroy(self):
+            return self.api.deleteBucket(self.name)
+
     def getBucketList(self):
         try:
-            r = requests.get("http://%s:%d/config/volumes" % (self.omhost,self.omport), headers=self.headers)
-            print r
-            return [bucket['name'] for bucket in json.loads(r.text, object_hook=_decode_dict )]
+            r = requests.get(self.getUrl(), headers=self.headers)
+            #return r.text
+            ns='{http://s3.amazonaws.com/doc/2006-03-01}'
+            root = ET.fromstring(r.text)
+            return [item.text for item in root.findall('%sBuckets/%sBucket/%sName' % (ns,ns,ns))]
         except ConnectionError:
-            print "unable to connect to [%s:%s]"  % (self.omhost,self.omport)
+            print "unable to connect to [%s:%s]"  % (self.host,self.port)
         except KeyboardInterrupt:
             print "request cancelled on interrupt"
         return None
 
-    def getBucket(self,bucket,parse=True):
+    def getBucket(self,bucket):
+        return Api.Bucket(self,bucket)
+
+    def getBucketItems(self,bucket,parse=True):
         try:
             r=requests.get(self.getUrl(bucket),headers=self.headers)
-            print r
+            #print r
             if parse:
+                ns='{http://s3.amazonaws.com/doc/2006-03-01/}'
                 root = ET.fromstring(r.text)
-                return [item.text for item in root.findall('Contents/Key')]
+                return [item.text for item in root.findall('%sContents/%sKey' % (ns,ns))]
             else:
                 return r.text
         except ConnectionError:
@@ -111,7 +141,7 @@ class Api:
     def putFile(self,bucket,filepath,name=None):
         try:
             name = name if name else os.path.basename(filepath)
-            return requests.post(self.getUrl(bucket,name),data=open(filepath,'rb'),headers=self.postheaders)
+            return requests.put(self.getUrl(bucket,name),data=open(filepath,'rb'),headers=self.postheaders)
         except ConnectionError:
             print "unable to connect to [%s:%s]"  % (self.host,self.port)
         except KeyboardInterrupt:
@@ -119,14 +149,14 @@ class Api:
 
     def put(self,bucket,objname,data):
         try:
-            return requests.post(self.getUrl(bucket,objname),data=data,headers=self.postheaders)
+            return requests.put(self.getUrl(bucket,objname),data=data,headers=self.postheaders)
         except ConnectionError:
             print "unable to connect to [%s:%s]"  % (self.host,self.port)
 
     def get(self,bucket,objname):
         try:
             r=requests.get(self.getUrl(bucket,objname),headers=self.headers)
-            print r
+            #print r
             return r.text
         except ConnectionError:
             print "unable to connect to [%s:%s]"  % (self.host,self.port)

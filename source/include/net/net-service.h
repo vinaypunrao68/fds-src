@@ -7,10 +7,10 @@
 #include <netinet/in.h>
 #include <list>
 #include <string>
-#include <boost/intrusive_ptr.hpp>
 #include <thrift/protocol/TBinaryProtocol.h>
 #include <thrift/transport/TBufferTransports.h>
 
+#include <fds_ptr.h>
 #include <fds_module.h>
 #include <fds_resource.h>
 #include <fds_error.h>
@@ -116,17 +116,7 @@ class EpAttr
     static void netaddr_to_str(const struct sockaddr *adr, char *ip, int ip_len);
 
   private:
-    mutable bo::atomic<int>       ep_refcnt;
-
-    friend void intrusive_ptr_add_ref(const EpAttr *x) {
-        x->ep_refcnt.fetch_add(1, bo::memory_order_relaxed);
-    }
-    friend void intrusive_ptr_release(const EpAttr *x) {
-        if (x->ep_refcnt.fetch_sub(1, bo::memory_order_release) == 1) {
-            bo::atomic_thread_fence(bo::memory_order_acquire);
-            delete x;
-        }
-    }
+    INTRUSIVE_PTR_DEFS(EpAttr, ep_refcnt);
 };
 
 /*
@@ -179,17 +169,8 @@ class EpEvtPlugin
   private:
     friend class EpSvcImpl;
     friend class EpSvcHandle;
-    mutable bo::atomic<int>       ep_refcnt;
+    INTRUSIVE_PTR_DEFS(EpEvtPlugin, ep_refcnt);
 
-    friend void intrusive_ptr_add_ref(const EpEvtPlugin *x) {
-        x->ep_refcnt.fetch_add(1, bo::memory_order_relaxed);
-    }
-    friend void intrusive_ptr_release(const EpEvtPlugin *x) {
-        if (x->ep_refcnt.fetch_sub(1, bo::memory_order_release) == 1) {
-            bo::atomic_thread_fence(bo::memory_order_acquire);
-            delete x;
-        }
-    }
     void assign_ep_owner(bo::intrusive_ptr<EpSvc> owner) { ep_owner = owner; }
     void assign_ep_handle(bo::intrusive_ptr<EpSvcHandle> handle) { ep_handle = handle; }
 };
@@ -272,17 +253,7 @@ class EpSvc
   private:
     friend class NetMgr;
     friend class EpSvcHandle;
-    mutable bo::atomic<int>       ep_refcnt;
-
-    friend void intrusive_ptr_add_ref(const EpSvc *x) {
-        x->ep_refcnt.fetch_add(1, bo::memory_order_relaxed);
-    }
-    friend void intrusive_ptr_release(const EpSvc *x) {
-        if (x->ep_refcnt.fetch_sub(1, bo::memory_order_release) == 1) {
-            bo::atomic_thread_fence(bo::memory_order_acquire);
-            delete x;
-        }
-    }
+    INTRUSIVE_PTR_DEFS(EpSvc, ep_refcnt);
 };
 
 /**
@@ -334,16 +305,7 @@ class EpSvcHandle
     EpSvcHandle();
 
   private:
-    mutable bo::atomic<int>        ep_refcnt;
-    friend void intrusive_ptr_add_ref(const EpSvcHandle *x) {
-        x->ep_refcnt.fetch_add(1, bo::memory_order_relaxed);
-    }
-    friend void intrusive_ptr_release(const EpSvcHandle *x) {
-        if (x->ep_refcnt.fetch_sub(1, bo::memory_order_release) == 1) {
-            bo::atomic_thread_fence(bo::memory_order_acquire);
-            delete x;
-        }
-    }
+    INTRUSIVE_PTR_DEFS(EpSvcHandle, ep_refcnt);
 };
 
 template <class SendIf> extern void
@@ -521,6 +483,13 @@ class NetMgr : public Module
      */
     static fpi::AsyncHdr ep_swap_header(const fpi::AsyncHdr &req_hdr);
 
+    /**
+     * Return mutex hashed by a pointer object.
+     */
+    inline fds_mutex *ep_obj_mutex(void *ptr) {
+        return &ep_obj_mtx[reinterpret_cast<fds_uint64_t>(ptr) % ep_mtx_arr];
+    }
+
     // Hook up with domain membership to know which node belongs to which domain.
     //
 
@@ -529,6 +498,8 @@ class NetMgr : public Module
   protected:
     // Dependent modules.
     //
+    static const int               ep_mtx_arr = 16;
+
     Platform                      *plat_lib;
     NetPlatSvc                    *plat_net;
     EpPlatLibMod                  *ep_shm;
@@ -538,6 +509,7 @@ class NetMgr : public Module
     UuidShmMap                     ep_uuid_map;
     EpHandleMap                    ep_handle_map;
     fds_mutex                      ep_mtx;
+    fds_mutex                      ep_obj_mtx[ep_mtx_arr];
 
     EpSvcHandle::pointer           ep_domain_clnt;
     bo::intrusive_ptr<DomainAgent> ep_domain_agent;

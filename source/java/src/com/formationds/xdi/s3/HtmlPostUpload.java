@@ -1,6 +1,5 @@
 package com.formationds.xdi.s3;
 
-import com.formationds.am.Main;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.StaticFileHandler;
@@ -49,7 +48,7 @@ public class HtmlPostUpload implements RequestHandler {
             metadata.put("Content-Type", StaticFileHandler.getMimeType(fileName));
         }
 
-        byte[] digest = xdi.writeStream(Main.FDS_S3, bucketName, fileName, filePart.getInputStream(), metadata);
+        byte[] digest = xdi.writeStream(S3Endpoint.FDS_S3, bucketName, fileName, filePart.getInputStream(), metadata);
 
         return new TextResource("") {
             @Override

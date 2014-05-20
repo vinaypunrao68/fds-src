@@ -17,6 +17,12 @@ void fn_StatBlobHandler(FDSN_Status status,
                         BlobDescriptor blobDesc,
                         void *callbackData);
 
+void
+fn_StartBlobTxHandler(FDSN_Status status,
+                      const ErrorDetails *errorDetails,
+                      BlobTxId blobTxId,
+                      void *callbackData);
+
 FDSN_Status fn_GetObjectHandler(BucketContextPtr bucket_ctx,
                                 void *reqContext,
                                 fds_uint64_t bufferSize,
@@ -27,6 +33,17 @@ FDSN_Status fn_GetObjectHandler(BucketContextPtr bucket_ctx,
                                 void *callbackData,
                                 FDSN_Status status,
                                 ErrorDetails *errDetails);
+
+FDSN_Status fn_GetObjectBlkHandler(BucketContextPtr bucket_ctx,
+                                   void *reqContext,
+                                   fds_uint64_t bufferSize,
+                                   fds_off_t offset,
+                                   const char *buffer,
+                                   fds_uint64_t blobSize,
+                                   const std::string &blobEtag,
+                                   void *callbackData,
+                                   FDSN_Status status,
+                                   ErrorDetails *errDetails);
 
 void fn_ListBucketHandler(int isTruncated,
                           const char *nextMarker,
@@ -52,5 +69,13 @@ int fn_PutObjectHandler(void *reqContext,
                         void *callbackData,
                         FDSN_Status status,
                         ErrorDetails* errDetails);
+
+int fn_PutObjectBlkHandler(void *reqContext,
+                           fds_uint64_t bufferSize,
+                           fds_off_t offset,
+                           char *buffer,
+                           void *callbackData,
+                           FDSN_Status status,
+                           ErrorDetails* errDetails);
 }  // namespace fds
 #endif  // SOURCE_INCLUDE_AM_ENGINE_HANDLERS_HANDLERMAPPINGS_H_

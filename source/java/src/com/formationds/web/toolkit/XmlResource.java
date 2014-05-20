@@ -7,6 +7,9 @@ public class XmlResource extends TextResource {
     public XmlResource(String text) {
         super(text);
     }
+    public XmlResource(String text, int statusCode) {
+        super(statusCode, text);
+    }
 
     @Override
     public String getContentType() {

@@ -37,7 +37,9 @@ public class LegacyConfigurationService implements ConfigurationService.Iface {
     }
 
     private VolumeDescriptor toVolumeDescriptor(FDSP_VolumeDescType volumeDescriptor) {
-        return new VolumeDescriptor(volumeDescriptor.getVol_name(), DateTime.now().getMillis(), new VolumePolicy(2 * 1024 * 1024));
+        return new VolumeDescriptor(volumeDescriptor.getVol_name(),
+                                    DateTime.now().getMillis(),
+                                    new VolumePolicy(2 * 1024 * 1024, VolumeConnector.S3));
     }
 
     @Override

@@ -14,12 +14,26 @@ public class MockDemoState implements DemoState {
             "http://i.imgur.com/MtlS0.jpg",
             "http://s2.quickmeme.com/img/49/49eb7809d1b084f7005b380d125e5230011fec134501671e245e66897bad242a.jpg",
             "http://uproxx.files.wordpress.com/2012/10/sudden-clarity-cat-25.jpg",
-            "http://www.50-best.com/images/cat_memes/buy_a_boat.jpg"
+            "http://www.50-best.com/images/cat_memes/buy_a_boat.jpg",
+            "http://assets.dogtime.com/asset/image/50eeec2bb7a2a379310000dd/column_Cat-meme_021.jpg",
+            "http://weknowmemes.com/wp-content/uploads/2012/05/restraining-cat-meme.jpg",
+            "http://assets.dogtime.com/asset/image/51a777f16dab622278003e0d/column_This-doesnt-concern-you-walk-away.jpg",
+            "http://t2.gstatic.com/images?q=tbn:ANd9GcQz0ohNQrTZO11Cz3k4KtAJTWAEVdCgCq8MLjFpxugBamVTPwmx"
     };
     private String searchExpression;
     private int readThrottle;
     private int writeThrottle;
+    private ObjectStoreType objectStoreType = ObjectStoreType.apiS3;
 
+    @Override
+    public void setObjectStore(ObjectStoreType type) {
+        this.objectStoreType = type;
+    }
+
+    @Override
+    public ObjectStoreType getObjectStore() {
+        return objectStoreType;
+    }
 
     @Override
     public void setSearchExpression(String searchExpression) {
@@ -77,7 +91,7 @@ public class MockDemoState implements DemoState {
     }
 
     private Counts oneVolume(String volumeName) {
-        double count = Math.random() * 100d;
+        double count = Math.random() * 20d;
         Counts counts = new Counts();
         counts.increment(volumeName, (int) count);
         return counts;

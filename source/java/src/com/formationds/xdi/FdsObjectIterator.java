@@ -48,6 +48,7 @@ public class FdsObjectIterator {
 
             @Override
             public byte[] next() {
+                // TODO: add transaction handling for totalObjects > 1
                 long startObjectOffset = requestBytesOffset / fdsObjectSize;
                 ObjectOffset objectOffset = new ObjectOffset(startObjectOffset + numObjectsRead);
                 long readLength = fdsObjectSize;

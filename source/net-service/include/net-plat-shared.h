@@ -9,7 +9,6 @@
 #include <net/net-service.h>
 #include <fdsp/PlatNetSvc.h>
 #include <platform/platform-lib.h>
-// #include <platform/node-inventory.h>
 
 namespace fds {
 class Platform;
