@@ -106,6 +106,9 @@ namespace fds {
     std::ostream& operator<<(std::ostream& out, const Error& err);
 
     typedef enum {
+        /* do denote uninitialized value*/
+        FDSN_StatusNOTSET                                          ,
+
         FDSN_StatusOK                                              ,
         FDSN_StatusCreated                                         ,
 
@@ -116,6 +119,7 @@ namespace fds {
         FDSN_StatusInternalError                                   ,
         FDSN_StatusOutOfMemory                                     ,
         FDSN_StatusInterrupted                                     ,
+        FDSN_StatusTxnInProgress                                   ,
         FDSN_StatusInvalidBucketNameTooLong                        ,
         FDSN_StatusInvalidBucketNameFirstCharacter                 ,
         FDSN_StatusInvalidBucketNameCharacter                      ,
