@@ -2097,6 +2097,7 @@ void DataMgr::getBlobMetaDataBackend(const dmCatReq *request) {
             GLOGERROR << "error during network call : " << e.what() ;
         }
     }
+    qosCtrl->markIODone(*request);
 }
 
 void DataMgr::setBlobMetaDataBackend(const dmCatReq *request) {
@@ -2145,6 +2146,7 @@ void DataMgr::setBlobMetaDataBackend(const dmCatReq *request) {
             GLOGERROR << "error during network call : " << e.what() ;
         }
     }
+    qosCtrl->markIODone(*request);
 }
 
 void DataMgr::getVolumeMetaDataBackend(const dmCatReq *request) {
@@ -2194,6 +2196,7 @@ void DataMgr::getVolumeMetaDataBackend(const dmCatReq *request) {
             LOGERROR << "error during network call : " << e.what();
         }
     }
+    qosCtrl->markIODone(*request);
 }
 
 
