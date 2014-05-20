@@ -27,42 +27,6 @@ RpcRequestPool::~RpcRequestPool()
 }
 
 /**
- * Common handling as part of any async request creation
- * @param req
- */
-void RpcRequestPool::asyncRpcCommonHandling(AsyncRpcRequestIfPtr req)
-{
-    gAsyncRpcTracker->addForTracking(req->getRequestId(), req);
-    req->setCompletionCb(finishTrackingCb_);
-}
-
-/**
- * Constructs EPRpcRequest object
- * @param uuid
- * @return
- */
-#if 0
-EPRpcRequestPtr RpcRequestPool::newEPRpcRequest(const fpi::SvcUuid &uuid)
-{
-    return EPRpcRequestPtr(new EPRpcRequest(uuid));
-}
-#endif
-/**
- * Constructs EPAsyncRpcRequest object
- * @param uuid
- * @return
- */
-EPAsyncRpcRequestPtr
-RpcRequestPool::newEPAsyncRpcRequest(const fpi::SvcUuid &myEpId,
-                                     const fpi::SvcUuid &peerEpId)
-{
-    auto reqId = nextAsyncReqId_++;
-    EPAsyncRpcRequestPtr req(new EPAsyncRpcRequest(reqId, myEpId, peerEpId));
-    asyncRpcCommonHandling(req);
-
-    return req;
-}
-/**
  *
  * @return
  */
@@ -98,4 +62,51 @@ boost::shared_ptr<fpi::AsyncHdr> RpcRequestPool::newAsyncHeaderPtr(
     *hdr = newAsyncHeader(reqId, srcUuid, dstUuid);
     return hdr;
 }
+
+/**
+ * Common handling as part of any async request creation
+ * @param req
+ */
+void RpcRequestPool::asyncRpcCommonHandling(AsyncRpcRequestIfPtr req)
+{
+    gAsyncRpcTracker->addForTracking(req->getRequestId(), req);
+    req->setCompletionCb(finishTrackingCb_);
+}
+
+/**
+ * Constructs EPAsyncRpcRequest object
+ * @param uuid
+ * @return
+ */
+EPAsyncRpcRequestPtr
+RpcRequestPool::newEPAsyncRpcRequest(const fpi::SvcUuid &myEpId,
+                                     const fpi::SvcUuid &peerEpId)
+{
+    auto reqId = nextAsyncReqId_++;
+    EPAsyncRpcRequestPtr req(new EPAsyncRpcRequest(reqId, myEpId, peerEpId));
+    asyncRpcCommonHandling(req);
+
+    return req;
+}
+
+/**
+* @brief Constructs a failover rpc request context
+*
+* @param myEpId
+* @param peerEpIds
+*
+* @return 
+*/
+FailoverRpcRequestPtr RpcRequestPool::newFailoverRpcRequest(
+    const fpi::SvcUuid& myEpId,
+    const std::vector<fpi::SvcUuid>& peerEpIds)
+{
+    auto reqId = nextAsyncReqId_++;
+
+    FailoverRpcRequestPtr req(new FailoverRpcRequest(reqId, myEpId, peerEpIds));
+    asyncRpcCommonHandling(req);
+
+    return req;
+}
+
 }  // namespace fds

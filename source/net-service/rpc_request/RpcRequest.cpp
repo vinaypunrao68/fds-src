@@ -3,6 +3,7 @@
 #include <string>
 
 #include <concurrency/ThreadPool.h>
+#include <net/net-service.h>
 #include <net/RpcRequest.h>
 #include <net/RpcRequestPool.h>
 #include <net/BaseAsyncSvcHandler.h>
@@ -82,7 +83,7 @@ bool AsyncRpcRequestIf::isComplete()
 }
 
 
-void AsyncRpcRequestIf::setRpcFunc(RpcFuncPtr rpc) {
+void AsyncRpcRequestIf::setRpcFunc(RpcFunc rpc) {
     rpc_ = rpc;
 }
 
@@ -113,12 +114,11 @@ void AsyncRpcRequestIf::setCompletionCb(RpcRequestCompletionCb &completionCb)
 void AsyncRpcRequestIf::invokeCommon_(const fpi::SvcUuid &peerEpId)
 {
     auto header = RpcRequestPool::newAsyncHeader(id_, myEpId_, peerEpId);
-    rpc_->setHeader(header);
 
     GLOGDEBUG << logString(header);
 
     try {
-        rpc_->invoke();
+        rpc_(header);
        /* start the timer */
        if (timeoutMs_) {
            timer_.reset(new AsyncRpcTimer(id_, myEpId_, peerEpId));

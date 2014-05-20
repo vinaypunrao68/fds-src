@@ -69,7 +69,7 @@ class AsyncRpcRequestIf {
 
     virtual bool isComplete();
 
-    void setRpcFunc(RpcFuncPtr rpc);
+    void setRpcFunc(RpcFunc rpc);
 
     void setTimeoutMs(const uint32_t &timeout_ms);
 
@@ -89,7 +89,7 @@ class AsyncRpcRequestIf {
     /* Lock for synchronizing response handling */
     fds_mutex respLock_;
     /* Wrapper around rpc function call */
-    RpcFuncPtr rpc_;
+    RpcFunc rpc_;
     /* Request Id */
     AsyncRpcRequestId id_;
     /* My endpoint id */
@@ -140,8 +140,10 @@ class EPAsyncRpcRequest : public AsyncRpcRequestIf {
 typedef boost::shared_ptr<EPAsyncRpcRequest> EPAsyncRpcRequestPtr;
 
 /**
- *
- */
+* @brief Use this class for issuing failover style rpc to a set of endpoints.  It will
+* invoke the rpc agains each of the provides endpoints in order, until a success or they
+* are exhausted.
+*/
 class FailoverRpcRequest : public AsyncRpcRequestIf {
  public:
     FailoverRpcRequest();

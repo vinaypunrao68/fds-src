@@ -2,6 +2,7 @@
  */
 #include <string>
 #include <vector>
+#include <net/net-service.h>
 #include <net/RpcRequest.h>
 #include <net/RpcRequestPool.h>
 #include <util/Log.h>
