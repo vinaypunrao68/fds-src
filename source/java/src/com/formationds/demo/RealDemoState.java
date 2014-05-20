@@ -3,15 +3,21 @@ package com.formationds.demo;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+import com.amazonaws.services.s3.AmazonS3Client;
+import com.amazonaws.services.s3.S3ClientOptions;
+import org.apache.log4j.Logger;
 import org.joda.time.DateTime;
 import org.joda.time.Duration;
 
+import java.util.Arrays;
 import java.util.Optional;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 public class RealDemoState implements DemoState {
+    private static final Logger LOG = Logger.getLogger(RealDemoState.class);
+
     private static final ObjectStoreType DEFAULT_OBJECT_STORE = ObjectStoreType.swift;
     private DateTime lastAccessed;
     private DemoRunner demoRunner;
@@ -20,6 +26,10 @@ public class RealDemoState implements DemoState {
     public RealDemoState(Duration timeToLive, DemoConfig demoConfig) {
         this.demoConfig = demoConfig;
         lastAccessed = DateTime.now();
+
+        createLocalVolumes(demoConfig);
+        createAwsVolumes(demoConfig);
+
         ScheduledExecutorService scavenger = Executors.newSingleThreadScheduledExecutor();
         scavenger.scheduleAtFixedRate(() -> {
             if (new Duration(lastAccessed, DateTime.now()).isLongerThan(timeToLive)) {
@@ -30,6 +40,30 @@ public class RealDemoState implements DemoState {
             }
         }, 0, 5, TimeUnit.SECONDS);
         scavenger.shutdown();
+        LOG.info("Demo state started");
+    }
+
+    private void createAwsVolumes(DemoConfig demoConfig) {
+        AmazonS3Client client = new AmazonS3Client(demoConfig.getCreds());
+        createVolumes(client, demoConfig.getVolumeNames());
+    }
+
+    private void createLocalVolumes(DemoConfig demoConfig){
+        AmazonS3Client client = new AmazonS3Client(demoConfig.getCreds());
+        client.setS3ClientOptions(new S3ClientOptions().withPathStyleAccess(true));
+        client.setEndpoint("http://" + demoConfig.getAmHost() + ":" + demoConfig.getS3Port());
+        createVolumes(client, demoConfig.getVolumeNames());
+    }
+
+    private void createVolumes(AmazonS3Client client, String[] bucketNames) {
+        Arrays.stream(bucketNames)
+                .forEach(b -> {
+                    try {
+                        client.createBucket(b);
+                    } catch (Exception e) {
+                        LOG.info("Error creating buckets - can probably be ignored", e);
+                    }
+                });
     }
 
     @Override

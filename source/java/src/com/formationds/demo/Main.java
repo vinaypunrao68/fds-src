@@ -4,8 +4,6 @@ package com.formationds.demo;
  */
 
 import com.amazonaws.auth.BasicAWSCredentials;
-import com.amazonaws.services.s3.AmazonS3Client;
-import com.amazonaws.services.s3.S3ClientOptions;
 import com.formationds.om.LandingPage;
 import com.formationds.util.Configuration;
 import com.formationds.util.libconfig.ParsedConfig;
@@ -13,20 +11,16 @@ import com.formationds.web.toolkit.HttpMethod;
 import com.formationds.web.toolkit.WebApp;
 import org.joda.time.Duration;
 
-import java.util.Arrays;
-
 public class Main {
     public static final String DEMO_DOMAIN = "demo";
     public static final String[] VOLUMES = new String[]{"fdspanda", "fdslemur", "fdsfrog", "fdsmuskrat"};
 
     public static void main(String[] args) throws Exception {
-        new Main().start(args);
+        ParsedConfig demoConfig = new Configuration("demo", args).getDemoConfig();
+        new Main().start(demoConfig);
     }
 
-    public void start(String[] args) throws Exception {
-        Configuration configuration = new Configuration("demo", args);
-        ParsedConfig d = configuration.getDemoConfig();
-
+    public void start(ParsedConfig d) throws Exception {
         DemoConfig demoConfig = new DemoConfig(
                 d.lookup("fds.demo.am_host").stringValue(),
                 d.lookup("fds.demo.swift_port").intValue(),
@@ -37,10 +31,6 @@ public class Main {
                 ),
                 VOLUMES
         );
-
-
-        createLocalVolumes(demoConfig);
-//        createAwsVolumes(demoConfig);
 
         DemoState state = new RealDemoState(Duration.standardMinutes(1), demoConfig);
 
@@ -87,29 +77,5 @@ public class Main {
         webApp.route(HttpMethod.GET, "/demo/adapter", () -> new GetObjectStore(state));
 
         webApp.start(webappPort);
-    }
-
-    private void createAwsVolumes(DemoConfig demoConfig) {
-        AmazonS3Client client = new AmazonS3Client(demoConfig.getCreds());
-        createVolumes(client, VOLUMES);
-    }
-
-    private void createLocalVolumes(DemoConfig demoConfig){
-        AmazonS3Client client = new AmazonS3Client(demoConfig.getCreds());
-        client.setS3ClientOptions(new S3ClientOptions().withPathStyleAccess(true));
-        client.setEndpoint("http://" + demoConfig.getAmHost() + ":" + demoConfig.getS3Port());
-        createVolumes(client, VOLUMES);
-    }
-
-    private void createVolumes(AmazonS3Client client, String[] bucketNames) {
-        Arrays.stream(bucketNames)
-                .forEach(b -> {
-                    try {
-                        client.createBucket(b);
-                        Thread.sleep(1000);
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-                });
     }
 }
