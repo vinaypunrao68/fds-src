@@ -24,7 +24,7 @@ Error GetVolumeMetaDataHandler::handleResponse(fpi::FDSP_MsgHdrTypePtr& header,
     Error err(ERR_OK);
     LOGDEBUG << "vol:" << header->glob_volume_id
              << " txnid:" << header->req_cookie
-             << " blobCount: " << volumeMeta->blobCount
+             << " blobCount:" << volumeMeta->blobCount
              << " size:" << volumeMeta->size;
 
     StorHvCtrl::TxnResponseHelper txnHelper(storHvisor, header->glob_volume_id, header->req_cookie);
@@ -32,7 +32,7 @@ Error GetVolumeMetaDataHandler::handleResponse(fpi::FDSP_MsgHdrTypePtr& header,
     // Return if err
     if (header->result != FDSP_ERR_OK) {
         LOGWARN << "error in response: " << header->result;
-        txnHelper.blobReq->cb->status = FDSN_StatusErrorUnknown;
+        txnHelper.setStatus(FDSN_StatusErrorUnknown);
         return ERR_MAX;
     }
 
@@ -40,7 +40,6 @@ Error GetVolumeMetaDataHandler::handleResponse(fpi::FDSP_MsgHdrTypePtr& header,
                 SHARED_DYN_CAST(GetVolumeMetaDataCallback, txnHelper.blobReq->cb);
 
     cb->volumeMetaData = *volumeMeta;
-    cb->status = FDSN_StatusOK;
     return err;
 }
 
@@ -51,19 +50,17 @@ Error GetVolumeMetaDataHandler::handleQueueItem(AmQosReq *qosReq) {
 
     if (!helper.isValidVolume()) {
         LOGCRITICAL << "unable to get volume info for vol: " << helper.volId;
-        helper.blobReq->cb->call(FDSN_StatusErrorUnknown);
-        delete qosReq;
+        helper.setStatus(FDSN_StatusErrorUnknown);
         return ERR_DISK_READ_FAILED;
     }
 
     if (!helper.setupTxn()) {
         LOGWARN << "unable to get txn for vol: " << helper.volId;
-        helper.blobReq->cb->call(FDSN_StatusErrorUnknown);
-        delete qosReq;
+        helper.setStatus(FDSN_StatusTxnInProgress);
         return ERR_DISK_READ_FAILED;
     }
 
-    LOGDEBUG << "setup txn:" << helper.txnId
+    LOGDEBUG << "setup txnid:" << helper.txnId
              << " for vol:" << helper.volId;
 
     helper.txn->op          = FDS_GET_VOLUME_METADATA;
@@ -89,8 +86,8 @@ Error GetVolumeMetaDataHandler::handleQueueItem(AmQosReq *qosReq) {
     } catch(att::TTransportException &e) {
         LOGERROR << "error during network call: " << e.what();
         err = ERR_NETWORK_TRANSPORT;
+        helper.setStatus(FDSN_StatusErrorUnknown);
     }
-    helper.scheduleTimer();
     return err;
 }
 

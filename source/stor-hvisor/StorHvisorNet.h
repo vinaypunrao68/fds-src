@@ -288,6 +288,7 @@ public:
         fds::FdsBlobReq* blobReq = NULL;
 
         TxnResponseHelper(StorHvCtrl* storHvisor, fds_volid_t  volId, fds_uint32_t txnId);
+        void setStatus(FDSN_Status  status);
         ~TxnResponseHelper();
     };
 
@@ -295,17 +296,21 @@ public:
         StorHvCtrl* storHvisor = NULL;
         fds_uint32_t txnId = 0;
         fds_volid_t  volId = 0;
+        FDSN_Status  status = FDSN_StatusNOTSET;
         StorHvVolume *shVol = NULL;
         StorHvJournalEntry *txn = NULL;
         StorHvJournalEntryLock *jeLock = NULL;
         StorHvVolume* vol = NULL;
+        AmQosReq *qosReq;
         fds::FdsBlobReq* blobReq = NULL;
 
-        TxnRequestHelper(StorHvCtrl* storHvisor, fds::FdsBlobReq* blobReq);
+        TxnRequestHelper(StorHvCtrl* storHvisor, AmQosReq *qosReq);
 
         bool getPrimaryDM(fds_uint32_t& ip, fds_uint32_t& port);
         bool isValidVolume();
         bool setupTxn();
+        bool hasError();
+        void setStatus(FDSN_Status  status);
         void scheduleTimer();
         ~TxnRequestHelper();
     };

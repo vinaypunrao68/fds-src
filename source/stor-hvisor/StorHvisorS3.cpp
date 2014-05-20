@@ -36,11 +36,16 @@ StorHvCtrl::TxnResponseHelper::TxnResponseHelper(StorHvCtrl* storHvisor,
     fds_verify(qosReq != NULL);
     blobReq = qosReq->getBlobReqPtr();
     fds_verify(blobReq != NULL);
+    blobReq->cb->status = FDSN_StatusOK;
+}
+
+void StorHvCtrl::TxnResponseHelper::setStatus(FDSN_Status  status) {
+    blobReq->cb->status = status;
 }
 
 StorHvCtrl::TxnResponseHelper::~TxnResponseHelper() {
     storHvisor->qos_ctrl->markIODone(txn->io);
-    GLOGDEBUG << "releasing txn:" << txnId;
+    GLOGDEBUG << "releasing txnid:" << txnId;
     txn->reset();
     vol->journal_tbl->releaseTransId(txnId);
     GLOGDEBUG << "doing callback for txnid:" << txnId;
@@ -52,8 +57,9 @@ StorHvCtrl::TxnResponseHelper::~TxnResponseHelper() {
 
 
 StorHvCtrl::TxnRequestHelper::TxnRequestHelper(StorHvCtrl* storHvisor,
-                                               fds::FdsBlobReq* blobReq)
-        : storHvisor(storHvisor), blobReq(blobReq) {
+                                               AmQosReq *qosReq)
+        : storHvisor(storHvisor), qosReq(qosReq) {
+    blobReq = qosReq->getBlobReqPtr();
     volId = blobReq->getVolId();
     shVol = storHvisor->vol_table->getLockedVolume(volId);
     blobReq->setQueuedUsec(shVol->journal_tbl->microsecSinceCtime(
@@ -97,15 +103,39 @@ bool StorHvCtrl::TxnRequestHelper::getPrimaryDM(fds_uint32_t& ip, fds_uint32_t& 
 }
 
 void StorHvCtrl::TxnRequestHelper::scheduleTimer() {
+    GLOGDEBUG << "scheduling timer for txnid:" << txnId;
     shVol->journal_tbl->schedule(txn->ioTimerTask, std::chrono::seconds(FDS_IO_LONG_TIME));
+}
+
+void StorHvCtrl::TxnRequestHelper::setStatus(FDSN_Status status) {
+    this->status = status;
+}
+
+bool StorHvCtrl::TxnRequestHelper::hasError() {
+    return ((status != FDSN_StatusOK) && (status != FDSN_StatusNOTSET))
 }
 
 StorHvCtrl::TxnRequestHelper::~TxnRequestHelper() {
     if (jeLock) delete jeLock;
     if (shVol) shVol->readUnlock();
+
+    if (hasError()) {
+        GLOGWARN << "error processing txnid:" << txnId << " : " << status;
+        txn->reset();
+        shVol->journal_tbl->releaseTransId(txnId);
+        if (blobReq->cb.get() != NULL) {
+            GLOGDEBUG << "doing callback for txnid:" << txnId;
+            blobReq->cb->call(status);
+        }
+        delete qosReq;
+        //delete blobReq;
+    } else {
+        scheduleTimer();
+    }
 }
 
-StorHvCtrl::BlobRequestHelper::BlobRequestHelper(StorHvCtrl* storHvisor, const std::string& volumeName)
+StorHvCtrl::BlobRequestHelper::BlobRequestHelper(StorHvCtrl* storHvisor,
+                                                 const std::string& volumeName)
         : storHvisor(storHvisor), volumeName(volumeName) {}
 
 void StorHvCtrl::BlobRequestHelper::setupVolumeInfo() {
@@ -402,6 +432,8 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
         shVol->readUnlock();
         LOGCRITICAL << "Transaction " << transId << " is already ACTIVE"
                     << ", just give up and return error.";
+        shVol->journal_tbl->releaseTransId(transId);
+        journEntry->reset();
         blobReq->cbWithResult(-2);
         err = ERR_NOT_IMPLEMENTED;
         delete qosReq;
@@ -772,8 +804,8 @@ StorHvCtrl::startBlobTxResp(const FDSP_MsgHdrTypePtr rxMsg) {
     // Return if err
     if (rxMsg->result != FDSP_ERR_OK) {
         vol->journal_tbl->releaseTransId(transId);
-        blobReq->cb->call(FDSN_StatusErrorUnknown);
         txn->reset();
+        blobReq->cb->call(FDSN_StatusErrorUnknown);
         delete blobReq;
         return;
     }
@@ -1344,9 +1376,10 @@ StorHvCtrl::startBlobTx(AmQosReq *qosReq) {
         LOGWARN << "Transaction " << transId << " is already in ACTIVE state, giving up...";
         // There is an ongoing transaciton for this offset.
         // We should queue this up for later processing once that completes.
-    
         // For now, return an error.
-        blobReq->cbWithResult(-2);
+        shVol->journal_tbl->releaseTransId(transId);
+        journEntry->reset();
+        blobReq->cb->call(FDSN_StatusTxnInProgress);
         err = ERR_NOT_IMPLEMENTED;
         delete blobReq;
         return err;
