@@ -8,6 +8,7 @@ import com.formationds.util.libconfig.ParsedConfig;
 import com.formationds.web.toolkit.HttpMethod;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.WebApp;
+import org.apache.log4j.Logger;
 
 import java.util.function.Supplier;
 
@@ -16,20 +17,19 @@ import java.util.function.Supplier;
  */
 
 public class Main {
+    private static final Logger LOG = Logger.getLogger(Main.class);
 
     private WebApp webApp;
     private Configuration configuration;
 
     public static void main(String[] args) throws Exception {
-        new Main(args).start();
+        new Main().start(args);
     }
 
-    public Main(String[] args) throws Exception {
-        configuration = new Configuration(args);
+    public void start(String[] args) throws Exception {
+        configuration = new Configuration("om-xdi", args);
         NativeOm.startOm(args);
-    }
 
-    public void start() throws Exception {
         ParsedConfig omParsedConfig = configuration.getOmConfig();
         String omHost = omParsedConfig.lookup("fds.om.ip_address").stringValue();
         int omPort = omParsedConfig.lookup("fds.om.config_port").intValue();
@@ -57,8 +57,13 @@ public class Main {
         authorize(HttpMethod.GET, "/api/config/domains", ListDomains::new);
         authorize(HttpMethod.GET, "/api/config/volumeDefaults", () -> new ShowVolumeDefaults());
 
-        //int demoWebappPort = omConfig.lookup("fds.om.demo_webapp_port").intValue();
-        //new Thread(() -> new com.formationds.demo.Main().start(demoWebappPort)).start();
+       new Thread(() -> {
+            try {
+                new com.formationds.demo.Main().start(args);
+            } catch (Exception e) {
+                LOG.error("Couldn't start demo app", e);
+            }
+        }).start();
 
         int adminWebappPort = omParsedConfig.lookup("fds.om.admin_webapp_port").intValue();
         webApp.start(adminWebappPort);

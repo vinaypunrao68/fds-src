@@ -20,7 +20,7 @@ public class S3Endpoint {
     private final WebApp webApp;
 
     public static void main(String[] args) throws Exception {
-        Configuration configuration = new Configuration(args);
+        Configuration configuration = new Configuration("s3", args);
         ToyServices foo = new ToyServices("foo");
         foo.createDomain(FDS_S3);
         Xdi xdi = new Xdi(foo, foo, new BypassAuthenticator());

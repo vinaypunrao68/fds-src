@@ -13,7 +13,8 @@ user_clean        := \
 	target \
 	gen-java \
 	$(comm_dir_lib)/java \
-	$(comm_dir_lib)/admin-webapp
+	$(comm_dir_lib)/admin-webapp \
+	$(comm_dir_lib)/demo
 
 include $(topdir)/Makefile.incl
 
@@ -23,3 +24,4 @@ compile:
 	rm -rf $(comm_dir_lib)/java/classes
 	mvn -DskipTests assembly:directory -Dbuild.dir=$(comm_dir_lib)/java
 	cp -rv admin-webapp $(comm_dir_lib)
+	cp -rv demo $(comm_dir_lib)

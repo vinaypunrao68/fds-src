@@ -20,11 +20,11 @@ public class Main {
     public static final String[] VOLUMES = new String[]{"fdspanda", "fdslemur", "fdsfrog", "fdsmuskrat"};
 
     public static void main(String[] args) throws Exception {
-        new Main().start(8888, args);
+        new Main().start(args);
     }
 
-    public void start(int port, String[] args) throws Exception {
-        Configuration configuration = new Configuration(args);
+    public void start(String[] args) throws Exception {
+        Configuration configuration = new Configuration("demo", args);
         ParsedConfig d = configuration.getDemoConfig();
 
         DemoConfig demoConfig = new DemoConfig(
@@ -42,9 +42,11 @@ public class Main {
         createLocalVolumes(demoConfig);
 //        createAwsVolumes(demoConfig);
 
-        DemoState state = new RealDemoState(Duration.standardMinutes(5), demoConfig);
+        DemoState state = new RealDemoState(Duration.standardMinutes(1), demoConfig);
 
-        String webDir = "/home/fabrice/demo/dist";
+        String webDir = d.lookup("fds.demo.web_dir").stringValue();
+        int webappPort = d.lookup("fds.demo.webapp_port").intValue();
+
         WebApp webApp = new WebApp(webDir);
         webApp.route(HttpMethod.GET, "/", () -> new LandingPage(webDir));
 
@@ -84,7 +86,7 @@ public class Main {
         // return 200 OK, {"type": "amazonS3"}
         webApp.route(HttpMethod.GET, "/demo/adapter", () -> new GetObjectStore(state));
 
-        webApp.start(port);
+        webApp.start(webappPort);
     }
 
     private void createAwsVolumes(DemoConfig demoConfig) {

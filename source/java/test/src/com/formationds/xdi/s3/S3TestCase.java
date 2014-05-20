@@ -44,7 +44,7 @@ public class S3TestCase {
 
     //@Test
     public void testFdsImplementation() throws Exception {
-        new Configuration(new String[0]);
+        new Configuration("foo", new String[0]);
         //AmazonS3Client client = new AmazonS3Client(new BasicAWSCredentials("AKIAINOGA4D75YX26VXQ", "/ZE1BUJ/vJ8BDESUvf5F3pib7lJW+pBa5FTakmjf"));
 
         AmazonS3Client client = new AmazonS3Client(new BasicAWSCredentials("fabrice", "7VpLGuZy7VCKq2B/Z4yEOw=="));
