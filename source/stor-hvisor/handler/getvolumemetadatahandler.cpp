@@ -46,7 +46,7 @@ Error GetVolumeMetaDataHandler::handleResponse(fpi::FDSP_MsgHdrTypePtr& header,
 Error GetVolumeMetaDataHandler::handleQueueItem(AmQosReq *qosReq) {
     Error err(ERR_OK);
 
-    StorHvCtrl::TxnRequestHelper helper(storHvisor, qosReq->getBlobReqPtr());
+    StorHvCtrl::TxnRequestHelper helper(storHvisor, qosReq);
 
     if (!helper.isValidVolume()) {
         LOGCRITICAL << "unable to get volume info for vol: " << helper.volId;
