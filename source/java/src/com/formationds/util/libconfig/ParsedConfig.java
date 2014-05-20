@@ -11,18 +11,18 @@ import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 
-public class ParserFacade {
+public class ParsedConfig {
     private Map<String, Node> map;
 
-    public ParserFacade(String input) {
+    public ParsedConfig(String input) {
         this(new ANTLRStringStream(input));
     }
 
-    public ParserFacade(InputStream inputStream) throws IOException {
+    public ParsedConfig(InputStream inputStream) throws IOException {
         this(new ANTLRInputStream(inputStream));
     }
 
-    public ParserFacade(CharStream charStream) {
+    public ParsedConfig(CharStream charStream) {
         LibConfigParser parser = new LibConfigParser(new CommonTokenStream(new LibConfigLexer(charStream)));
         LibConfigParser.namespace_return v = null;
         try {

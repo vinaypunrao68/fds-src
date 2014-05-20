@@ -12,16 +12,14 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 public class RealDemoState implements DemoState {
+    private static final ObjectStoreType DEFAULT_OBJECT_STORE = ObjectStoreType.apiS3;
     private DateTime lastAccessed;
     private DemoRunner demoRunner;
-    private final ImageReader reader;
-    private final ImageWriter writer;
+    private DemoConfig demoConfig;
 
-    public RealDemoState(Duration timeToLive, ImageReader reader, ImageWriter writer) {
-        this.reader = reader;
-        this.writer = writer;
+    public RealDemoState(Duration timeToLive, DemoConfig demoConfig) {
+        this.demoConfig = demoConfig;
         lastAccessed = DateTime.now();
-
         ScheduledExecutorService scavenger = Executors.newSingleThreadScheduledExecutor();
         scavenger.scheduleAtFixedRate(() -> {
             if (new Duration(lastAccessed, DateTime.now()).isLongerThan(timeToLive)) {
@@ -39,11 +37,12 @@ public class RealDemoState implements DemoState {
         lastAccessed = DateTime.now();
         if (demoRunner != null) {
             demoRunner.tearDown();
-            DemoRunner newRunner = new DemoRunner(searchExpression, reader, writer, demoRunner.getReadParallelism(), demoRunner.getWriteParallelism());
+            DemoRunner newRunner = new DemoRunner(searchExpression, demoRunner.getReadParallelism(), demoRunner.getWriteParallelism(), demoRunner.getObjectStore());
             demoRunner = newRunner;
             demoRunner.start();
         } else {
-            demoRunner = new DemoRunner(searchExpression, reader, writer, 0, 0);
+            ObjectStore objectStore = new ObjectStore(demoConfig, DEFAULT_OBJECT_STORE);
+            demoRunner = new DemoRunner(searchExpression, 0, 0, objectStore);
             demoRunner.start();
         }
     }
@@ -76,7 +75,7 @@ public class RealDemoState implements DemoState {
         lastAccessed = DateTime.now();
         if (demoRunner != null) {
             demoRunner.tearDown();
-            DemoRunner newRunner = new DemoRunner(demoRunner.getQuery(), reader, writer, value, demoRunner.getWriteParallelism());
+            DemoRunner newRunner = new DemoRunner(demoRunner.getQuery(), value, demoRunner.getWriteParallelism(), demoRunner.getObjectStore());
             demoRunner = newRunner;
             demoRunner.start();
         }
@@ -93,10 +92,28 @@ public class RealDemoState implements DemoState {
         lastAccessed = DateTime.now();
         if (demoRunner != null) {
             demoRunner.tearDown();
-            DemoRunner newRunner = new DemoRunner(demoRunner.getQuery(), reader, writer, demoRunner.getReadParallelism(), value);
+            DemoRunner newRunner = new DemoRunner(demoRunner.getQuery(), demoRunner.getReadParallelism(), value, demoRunner.getObjectStore());
             demoRunner = newRunner;
             demoRunner.start();
         }
+    }
+
+    @Override
+    public void setObjectStore(ObjectStoreType type) {
+        lastAccessed = DateTime.now();
+        if (demoRunner != null) {
+            demoRunner.tearDown();
+            ObjectStore objectStore = new ObjectStore(demoConfig, type);
+            DemoRunner newRunner = new DemoRunner(demoRunner.getQuery(), demoRunner.getReadParallelism(), demoRunner.getWriteParallelism(), objectStore);
+            demoRunner = newRunner;
+            demoRunner.start();
+        }
+    }
+
+    @Override
+    public ObjectStoreType getObjectStore() {
+        lastAccessed = DateTime.now();
+        return demoRunner == null? DEFAULT_OBJECT_STORE : demoRunner.getObjectStore().getType();
     }
 
     @Override

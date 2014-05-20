@@ -32,6 +32,14 @@ public interface RequestHandler {
         return value;
     }
 
+    public default <T extends Enum<T>> T requiredEnum(Request request, String name, Class<T> klass) throws UsageException {
+        String valueString = requiredString(request, name);
+        try {
+            return Enum.valueOf(klass, valueString);
+        } catch (Exception e) {
+            throw new UsageException("Invalid value for " + name);
+        }
+    }
     public default String requiredString(Request request, String name) throws UsageException {
         String value = request.getParameter(name);
         if (value == null) {
@@ -46,6 +54,7 @@ public interface RequestHandler {
         if ((value == null)) {
             throw new UsageException(String.format("Parameter '%s' is missing", name));
         }
+
         return value;
     }
 

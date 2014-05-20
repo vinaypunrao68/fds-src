@@ -8,7 +8,7 @@ import com.formationds.apis.ConfigurationService;
 import com.formationds.security.Authenticator;
 import com.formationds.security.JaasAuthenticator;
 import com.formationds.util.Configuration;
-import com.formationds.util.libconfig.ParserFacade;
+import com.formationds.util.libconfig.ParsedConfig;
 import com.formationds.xdi.ConnectionProxy;
 import com.formationds.xdi.Xdi;
 import com.formationds.xdi.s3.S3Endpoint;
@@ -22,7 +22,7 @@ public class Main {
     public static void main(String[] args) throws Exception {
         try {
             Configuration configuration = new Configuration(args);
-            ParserFacade amConfig = configuration.getPlatformConfig();
+            ParsedConfig amParsedConfig = configuration.getPlatformConfig();
             NativeAm.startAm(args);
             Thread.sleep(200);
 
@@ -37,7 +37,7 @@ public class Main {
             }).makeProxy();
 
             ConfigurationService.Iface config = new ConnectionProxy<>(ConfigurationService.Iface.class, () -> {
-                String omHost = amConfig.lookup("fds.am.om_ip").stringValue();
+                String omHost = amParsedConfig.lookup("fds.am.om_ip").stringValue();
                 TSocket omTransport = new TSocket(omHost, 9090);
                 try {
                     omTransport.open();
@@ -54,11 +54,11 @@ public class Main {
 //        foo.createDomain(FDS_S3);
 //        Xdi xdi = new Xdi(foo, foo);
 
-            boolean enforceAuthorization = amConfig.lookup("fds.am.enforce_authorization").booleanValue();
-            int s3Port = amConfig.lookup("fds.am.s3_port").intValue();
+            boolean enforceAuthorization = amParsedConfig.lookup("fds.am.enforce_authorization").booleanValue();
+            int s3Port = amParsedConfig.lookup("fds.am.s3_port").intValue();
             new Thread(() -> new S3Endpoint(xdi, enforceAuthorization).start(s3Port)).start();
 
-            int swiftPort = amConfig.lookup("fds.am.swift_port").intValue();
+            int swiftPort = amParsedConfig.lookup("fds.am.swift_port").intValue();
             new SwiftEndpoint(xdi, enforceAuthorization).start(swiftPort);
         } catch (Throwable throwable) {
             System.out.println(throwable.getMessage());

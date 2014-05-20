@@ -4,7 +4,7 @@ import com.formationds.fdsp.ClientFactory;
 import com.formationds.security.Authenticator;
 import com.formationds.security.AuthorizationToken;
 import com.formationds.util.Configuration;
-import com.formationds.util.libconfig.ParserFacade;
+import com.formationds.util.libconfig.ParsedConfig;
 import com.formationds.web.toolkit.HttpMethod;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.WebApp;
@@ -30,10 +30,10 @@ public class Main {
     }
 
     public void start() throws Exception {
-        ParserFacade omConfig = configuration.getOmConfig();
-        String omHost = omConfig.lookup("fds.om.ip_address").stringValue();
-        int omPort = omConfig.lookup("fds.om.config_port").intValue();
-        String webDir = omConfig.lookup("fds.om.web_dir").stringValue();
+        ParsedConfig omParsedConfig = configuration.getOmConfig();
+        String omHost = omParsedConfig.lookup("fds.om.ip_address").stringValue();
+        int omPort = omParsedConfig.lookup("fds.om.config_port").intValue();
+        String webDir = omParsedConfig.lookup("fds.om.web_dir").stringValue();
 
         ClientFactory clientFactory = new ClientFactory();
 
@@ -60,7 +60,7 @@ public class Main {
         //int demoWebappPort = omConfig.lookup("fds.om.demo_webapp_port").intValue();
         //new Thread(() -> new com.formationds.demo.Main().start(demoWebappPort)).start();
 
-        int adminWebappPort = omConfig.lookup("fds.om.admin_webapp_port").intValue();
+        int adminWebappPort = omParsedConfig.lookup("fds.om.admin_webapp_port").intValue();
         webApp.start(adminWebappPort);
     }
 
