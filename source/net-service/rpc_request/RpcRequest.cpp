@@ -1,6 +1,7 @@
 /* Copyright 2014 Formation Data Systems, Inc. */
 
 #include <string>
+#include <vector>
 
 #include <concurrency/ThreadPool.h>
 #include <net/net-service.h>
@@ -103,6 +104,14 @@ void AsyncRpcRequestIf::setRequestId(const AsyncRpcRequestId &id) {
     id_ = id;
 }
 
+void AsyncRpcRequestIf::onSuccessCb(RpcRequestSuccessCb cb) {
+    successCb_ = cb;
+}
+
+void AsyncRpcRequestIf::onErrorCb(RpcRequestErrorCb cb) {
+    errorCb_ = cb;
+}
+
 void AsyncRpcRequestIf::setCompletionCb(RpcRequestCompletionCb &completionCb)
 {
     completionCb_ = completionCb;
@@ -160,14 +169,6 @@ EPAsyncRpcRequest::EPAsyncRpcRequest(const AsyncRpcRequestId &id,
 EPAsyncRpcRequest::~EPAsyncRpcRequest()
 {
     GLOGDEBUG << " id: " << id_;
-}
-
-void EPAsyncRpcRequest::onSuccessCb(RpcRequestSuccessCb cb) {
-    successCb_ = cb;
-}
-
-void EPAsyncRpcRequest::onErrorCb(RpcRequestErrorCb cb) {
-    errorCb_ = cb;
 }
 
 /**
@@ -234,5 +235,100 @@ void EPAsyncRpcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
         NetMgr::ep_mgr_singleton()->ep_handle_error(errdEpId, header->msg_code);
     }
 }
-}  // namespace fds
 
+
+/**
+* @brief 
+*/
+MultiEpAsyncRpcRequest::MultiEpAsyncRpcRequest()
+    : MultiEpAsyncRpcRequest(0, fpi::SvcUuid(), std::vector<fpi::SvcUuid>())
+{
+}
+
+/**
+* @brief 
+*
+* @param id
+* @param myEpId
+* @param peerEpIds
+*/
+MultiEpAsyncRpcRequest::MultiEpAsyncRpcRequest(const AsyncRpcRequestId& id,
+            const fpi::SvcUuid &myEpId,
+            const std::vector<fpi::SvcUuid>& peerEpIds)
+    : AsyncRpcRequestIf(id, myEpId)
+{
+    for (auto uuid : peerEpIds) {
+        addEndpoint(uuid);
+    }
+}
+
+/**
+ * For adding endpoint.
+ * NOTE: Only invoke during initialization.  Donot invoke once
+ * the request is in progress
+ * @param uuid
+ */
+void MultiEpAsyncRpcRequest::addEndpoint(const fpi::SvcUuid& uuid)
+{
+    epReqs_.push_back(EPAsyncRpcRequestPtr(new EPAsyncRpcRequest(id_, myEpId_, uuid)));
+}
+
+/**
+ * NOTE: Only invoke during initialization.  Donot invoke once
+ * the request is in progress
+ * @param cb
+ */
+void MultiEpAsyncRpcRequest::onFailoverCb(RpcRequestFailoverCb cb)
+{
+    failoverCb_ = cb;
+}
+
+
+/**
+* @brief 
+*/
+QuorumRpcRequest::QuorumRpcRequest()
+    : QuorumRpcRequest(0, fpi::SvcUuid(), std::vector<fpi::SvcUuid>())
+{
+}
+
+/**
+* @brief 
+*
+* @param id
+* @param myEpId
+* @param peerEpIds
+*/
+QuorumRpcRequest::QuorumRpcRequest(const AsyncRpcRequestId& id,
+                                   const fpi::SvcUuid &myEpId,
+                                   const std::vector<fpi::SvcUuid>& peerEpIds)
+    : MultiEpAsyncRpcRequest(id, myEpId, peerEpIds)
+{
+}
+
+/**
+* @brief 
+*/
+QuorumRpcRequest::~QuorumRpcRequest()
+{
+}
+
+/**
+* @brief 
+*/
+void QuorumRpcRequest::invoke()
+{
+}
+
+/**
+* @brief 
+*
+* @param header
+* @param payload
+*/
+void QuorumRpcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
+                                      boost::shared_ptr<std::string>& payload)
+{
+}
+
+}  // namespace fds
