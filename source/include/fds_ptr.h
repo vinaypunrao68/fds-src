@@ -10,13 +10,13 @@
 /**
  * Template to embed intrusive pointer to an object.
  */
-#define INTRUSIVE_PTR_DEFS(type, refcnt)                                       \
+#define INTRUSIVE_PTR_DEFS(Type, refcnt)                                       \
     mutable boost::atomic<int>  refcnt;                                        \
-    friend void intrusive_ptr_add_ref(const type *x) {                         \
+    friend void intrusive_ptr_add_ref(const Type *x) {                         \
         x->refcnt.fetch_add(1, boost::memory_order_relaxed);                   \
     }                                                                          \
-    friend void intrusive_ptr_release(const type *x) {                         \
-        if (x->rs_refcnt.fetch_sub(1, boost::memory_order_release) == 1) {     \
+    friend void intrusive_ptr_release(const Type *x) {                         \
+        if (x->refcnt.fetch_sub(1, boost::memory_order_release) == 1) {        \
             boost::atomic_thread_fence(boost::memory_order_acquire);           \
             delete x;                                                          \
         }                                                                      \
