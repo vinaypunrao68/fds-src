@@ -169,12 +169,24 @@ class EndPoint : public EpSvcImpl
     /**
      * Get the handle to communicate with the peer endpoint.
      */
-    EpSvcHandle::pointer ep_server_handle()
+    EpSvcHandle::pointer ep_send_handle()
     {
         if (ep_peer == NULL) {
-            ep_svc_new_handle(ep_peer_uuid, &ep_peer);
+            ep_peer = new EpSvcHandle(this, ep_evt);
+            endpoint_connect_handle<SendIf>(ep_peer);
         }
         return ep_peer;
+    }
+    /**
+     * Register the endpoint and make full duplex connection.  Use this method
+     * instead of NetMgr::ep_register() because NetMgr can't do connection w/out
+     * the SendIf template.
+     */
+    void ep_register(bool update_domain = true)
+    {
+        NetMgr::ep_mgr_singleton()->ep_register(this, update_domain);
+        EpSvcHandle::pointer ptr = ep_send_handle();
+        fds_verify(ptr != NULL);
     }
     void ep_activate() {
         ep_setup_server();
@@ -211,22 +223,6 @@ class EndPoint : public EpSvcImpl
     int  ep_get_status()     { return 0; }
     bool ep_is_connection()  { return true; }
     void svc_receive_msg(const fpi::AsyncHdr &msg) {}
-
-    /**
-     * ep_svc_new_handle
-     * -----------------
-     */
-    void ep_svc_new_handle(const fpi::SvcUuid peer, EpSvcHandle::pointer *ret)
-    {
-        int          port;
-        std::string  ip;
-
-        *ret = NULL;
-        port = NetMgr::ep_mgr_singleton()->ep_uuid_binding(peer, &ip);
-        if (port != -1) {
-            this->ep_new_handle(this, port, ip, ret, ep_evt);
-        }
-    }
 
   private:
     // ep_init_obj

@@ -103,10 +103,10 @@ ProbeEpTestAM::mod_init(SysParams const *const p)
     endpoint_connect_handle<fpi::ProbeServiceAMClient>(am_clnt_ret);
 
     // Register the endpoint in the local domain.
-    mgr = NetMgr::ep_mgr_singleton();
-    mgr->ep_register(probe_ep);
-    mgr->ep_register(ret_probe_ep);
+    probe_ep->ep_register();
+    ret_probe_ep->ep_register();
 
+    mgr = NetMgr::ep_mgr_singleton();
     mgr->ep_handler_register(am_clnt);
     mgr->ep_handler_register(am_clnt_ret);
     return 0;
@@ -141,13 +141,13 @@ ProbeEpSvcTestAM::mod_init(SysParams const *const p)
     //
     mgr          = NetMgr::ep_mgr_singleton();
     svc.svc_uuid = 0x1234;
-    mgr->svc_new_handle<fpi::ProbeServiceSMClient>(mine, svc, &am_hello);
+    mgr->svc_get_handle<fpi::ProbeServiceSMClient>(mine, svc, &am_hello, 0, 0);
 
     svc.svc_uuid = 0xcafe;
-    mgr->svc_new_handle<fpi::ProbeServiceSMClient>(mine, svc, &am_bye);
+    mgr->svc_get_handle<fpi::ProbeServiceSMClient>(mine, svc, &am_bye, 0, 0);
 
     svc.svc_uuid = 0xbeef;
-    mgr->svc_new_handle<fpi::ProbeServiceSMClient>(mine, svc, &am_poke);
+    mgr->svc_get_handle<fpi::ProbeServiceSMClient>(mine, svc, &am_poke, 0, 0);
     return 0;
 }
 

@@ -448,41 +448,12 @@ class NetMgr : public Module
                       bo::shared_ptr<fpi::PlatNetSvcClient> &rpc);
 
     /**
-     * Allocate a handle to communicate with the peer endpoint.  The 'mine' uuid can be
-     * taken from the platform library to get the default uuid.
+     * Get or allocate a handle to communicate with the peer endpoint.  The 'mine' uuid
+     * can be taken from the platform library to get the default uuid.
      */
     template <class SendIf> void
-    svc_new_handle(const fpi::SvcUuid   &mine,
+    svc_get_handle(const fpi::SvcUuid   &mine,
                    const fpi::SvcUuid   &peer,
-                   EpSvcHandle::pointer *out)
-    {
-        EpSvc::pointer  ep;
-        bo::intrusive_ptr<EndPoint<SendIf, void>> myep;
-
-        *out = NULL;
-        if (mine == NullSvcUuid) {
-            ep = endpoint_lookup(peer);
-        } else {
-            ep = endpoint_lookup(mine, peer);
-        }
-        *out = NULL;
-        if (ep != NULL) {
-            myep = ep->ep_cast<SendIf, void>();
-            if (myep != NULL) {
-                myep->ep_svc_new_handle(peer, out);
-            }
-        }
-        if (*out == NULL) {
-            // TODO(Vy): must suppy default values here.
-            *out = new EpSvcHandle(NULL, NULL);
-        }
-        endpoint_connect_handle<SendIf>(*out);
-    }
-    /**
-     * Get a handle from existing endpoint to the peer.
-     */
-    template <class SendIf> void
-    svc_get_handle(const fpi::SvcUuid   &peer,
                    EpSvcHandle::pointer *out,
                    fds_uint32_t          maj,
                    fds_uint32_t          min)
@@ -491,13 +462,27 @@ class NetMgr : public Module
 
         *out = this->svc_handler_lookup(peer);
         if (*out == NULL) {
-            ep = this->endpoint_lookup(peer);
+            if (mine == NullSvcUuid) {
+                ep = this->endpoint_lookup(peer);
+            } else {
+                ep = this->endpoint_lookup(mine, peer);
+            }
             if (ep != NULL) {
                 *out = ep->ep_send_handle();
-            } else {
-                this->svc_new_handle<SendIf>(NullSvcUuid, peer, out);
+                return;
             }
+            // TODO(Vy): must suppy default values here.
+            *out = new EpSvcHandle(peer, NULL);
+            endpoint_connect_handle<SendIf>(*out);
         }
+    }
+    template <class SendIf> void
+    svc_get_handle(const fpi::SvcUuid   &peer,
+                   EpSvcHandle::pointer *out,
+                   fds_uint32_t          maj,
+                   fds_uint32_t          min)
+    {
+        svc_get_handle<SendIf>(NullSvcUuid, peer, out, maj, min);
     }
     /**
      * Common send async response method.

@@ -130,10 +130,12 @@ Thrift_ProbeMod::mod_shutdown()
 
 void successCb(boost::shared_ptr<std::string> resp) {
     GLOGNORMAL;
+    std::cout << "On sucess callback" << std::endl;
 }
 
 void errorCb(const Error &e, boost::shared_ptr<std::string> resp) {
     GLOGNORMAL;
+    std::cout << "On error callback" << std::endl;
 }
 /*
  * ------------------------------------------------------------------------------------
