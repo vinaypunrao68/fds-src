@@ -348,7 +348,7 @@ class EpSvcHandle
 
 template <class SendIf> extern void
 endpoint_connect_handle(EpSvcHandle::pointer eh,
-                        const fpi::SvcUuid &uuid = NullSvcUuid, int retry = 0);
+                        fpi::SvcUuid uuid = NullSvcUuid, int retry = 0);
 
 /**
  * Module vector hookup

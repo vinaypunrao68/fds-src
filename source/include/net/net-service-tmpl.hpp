@@ -89,6 +89,9 @@ class EpSvcImpl : public EpSvc
     template <class SendIf> static void
     ep_connect_server(int port, const std::string &ip, EpSvcHandle::pointer ptr)
     {
+        if (ptr->ep_state == EP_ST_CONNECTED) {
+            return;
+        }
         if (ptr->ep_trans != NULL) {
             // Reset the old connection.
             ptr->ep_trans->close();
@@ -105,10 +108,6 @@ class EpSvcImpl : public EpSvc
             ptr->ep_trans->open();
             ptr->ep_state = EP_ST_CONNECTED;
             ptr->ep_notify_plugin();
-        } catch(at::TException &tx) {
-            std::cout << "Error: " << tx.what() << std::endl;
-            fds_threadpool *pool = NetMgr::ep_mgr_singleton()->ep_mgr_thrpool();
-            pool->schedule(endpoint_retry_connect, ptr);
         } catch(...) {
             fds_threadpool *pool = NetMgr::ep_mgr_singleton()->ep_mgr_thrpool();
             pool->schedule(endpoint_retry_connect, ptr);
@@ -185,8 +184,10 @@ class EndPoint : public EpSvcImpl
     void ep_register(bool update_domain = true)
     {
         NetMgr::ep_mgr_singleton()->ep_register(this, update_domain);
-        EpSvcHandle::pointer ptr = ep_send_handle();
-        fds_verify(ptr != NULL);
+        if (ep_peer_id.svc_uuid != NullSvcUuid) {
+            EpSvcHandle::pointer ptr = ep_send_handle();
+            fds_verify(ptr != NULL);
+        }
     }
     void ep_activate() {
         ep_setup_server();
@@ -219,6 +220,7 @@ class EndPoint : public EpSvcImpl
     bo::shared_ptr<RecvIf>                 ep_rpc_recv;
     bo::shared_ptr<tt::TTransport>         ep_trans;
     bo::shared_ptr<ts::TThreadedServer>    ep_server;
+    fds_mutex                              ep_mtx;
 
     int  ep_get_status()     { return 0; }
     bool ep_is_connection()  { return true; }
@@ -260,10 +262,11 @@ class EndPoint : public EpSvcImpl
 // ep_svc_handle_connect
 // ---------------------
 // Connect the serice handle to its peer.  The binding is taken from the peer uuid.
+// Note that we must pass by value here because we'll dispatch the threadpool request.
 //
 template <class SendIf> void
 endpoint_connect_handle(EpSvcHandle::pointer ptr,
-                        const fpi::SvcUuid &peer = NullSvcUuid, int retry = 0)
+                        fpi::SvcUuid peer = NullSvcUuid, int retry = 0)
 {
     int          port;
     std::string  ip;

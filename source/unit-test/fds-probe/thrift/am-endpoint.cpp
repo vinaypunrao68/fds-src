@@ -97,10 +97,6 @@ ProbeEpTestAM::mod_init(SysParams const *const p)
                 new fpi::ProbeServiceAMProcessor(hdler)),
             new ProbeEpPlugin());
 
-    uuid.svc_uuid = 0xfedcba;
-    am_clnt = new EpSvcHandle(uuid, new AMClntPlugin());
-    endpoint_connect_handle<fpi::ProbeServiceAMClient>(am_clnt);
-
     ret_probe_ep = new EndPoint<fpi::ProbeServiceAMClient, fpi::ProbeServiceAMProcessor>(
             9001,                           /* port number         */
             NodeUuid(0xabcdef),             /* my uuid             */
@@ -108,17 +104,10 @@ ProbeEpTestAM::mod_init(SysParams const *const p)
             boost::shared_ptr<fpi::ProbeServiceAMProcessor>(
                 new fpi::ProbeServiceAMProcessor(hdler)),
             new ProbeEpPlugin());
-    uuid.svc_uuid = 0xabcdef;
-    am_clnt_ret = new EpSvcHandle(uuid, new AMClntPlugin());
-    endpoint_connect_handle<fpi::ProbeServiceAMClient>(am_clnt_ret);
 
     // Register the endpoint in the local domain.
     probe_ep->ep_register();
     ret_probe_ep->ep_register();
-
-    mgr = NetMgr::ep_mgr_singleton();
-    mgr->ep_handler_register(am_clnt);
-    mgr->ep_handler_register(am_clnt_ret);
     return 0;
 }
 
@@ -150,6 +139,7 @@ ProbeEpSvcTestAM::mod_init(SysParams const *const p)
     // Locate service handle based on uuid; don't care where they are located.
     //
     mgr          = NetMgr::ep_mgr_singleton();
+#if 0
     svc.svc_uuid = 0x1234;
     mgr->svc_get_handle<fpi::ProbeServiceSMClient>(mine, svc, &am_hello, 0, 0);
 
@@ -158,6 +148,7 @@ ProbeEpSvcTestAM::mod_init(SysParams const *const p)
 
     svc.svc_uuid = 0xbeef;
     mgr->svc_get_handle<fpi::ProbeServiceSMClient>(mine, svc, &am_poke, 0, 0);
+#endif
     return 0;
 }
 
