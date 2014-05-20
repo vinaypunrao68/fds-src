@@ -1,5 +1,3 @@
-#include <atomic>
-
 /*
  * Copyright 2013 Formation Data Systems, Inc.
  */
@@ -12,6 +10,8 @@
 #include "StorHvisorCPP.h"
 #include "StorHvQosCtrl.h"
 
+#include <atomic>
+
 extern StorHvCtrl *storHvisor;
 
 namespace fds {
@@ -22,7 +22,8 @@ StorHvVolume::StorHvVolume(const VolumeDesc& vdesc, StorHvCtrl *sh_ctrl, fds_log
     journal_tbl = new StorHvJournal(FDS_READ_WRITE_LOG_ENTRIES);
     vol_catalog_cache = new VolumeCatalogCache(voldesc->volUUID, sh_ctrl, parent_log);
 
-    if ( voldesc->volType == FDSP_VOL_BLKDEV_TYPE && parent_sh->GetRunTimeMode() == StorHvCtrl::NORMAL) {
+    if (voldesc->volType == FDSP_VOL_BLKDEV_TYPE &&
+        parent_sh->GetRunTimeMode() == StorHvCtrl::NORMAL) {
         blkdev_minor = hvisor_create_blkdev(voldesc->volUUID, voldesc->capacity);
     }
 
@@ -338,9 +339,11 @@ StorHvVolumeTable::getVolumeIds() {
     return volIds;
 }
 
-/* returns volume UUID if found in volume map, otherwise returns invalid_vol_id */
-fds_volid_t StorHvVolumeTable::getVolumeUUID(const std::string& vol_name)
-{
+/**
+ * returns volume UUID if found in volume map, otherwise returns invalid_vol_id
+ */
+fds_volid_t
+StorHvVolumeTable::getVolumeUUID(const std::string& vol_name) {
     fds_volid_t ret_id = invalid_vol_id;
     map_rwlock.read_lock();
     /* we need to iterate to check names of volumes (or we could keep vol name -> uuid
@@ -359,6 +362,29 @@ fds_volid_t StorHvVolumeTable::getVolumeUUID(const std::string& vol_name)
     return ret_id;
 }
 
+/**
+ * returns volume name if found in volume map, otherwise returns empy string
+ */
+std::string
+StorHvVolumeTable::getVolumeName(fds_volid_t volId) {
+    fds_verify(volId != invalid_vol_id);
+    std::string foundVolName;
+
+    map_rwlock.read_lock();
+    // we need to iterate to check ids of volumes (or we could keep vol name -> uuid
+    // map, but we would need to synchronize it with volume_map, etc, can revisit this later)
+    for (std::unordered_map<fds_volid_t, StorHvVolume*>::iterator it = volume_map.begin();
+         it != volume_map.end();
+         ++it) {
+        if ((it->second)->voldesc->volUUID == volId) {
+            fds_verify((it->second)->voldesc->name.empty() == false);
+            foundVolName = (it->second)->voldesc->name;
+            break;
+        }
+    }
+    map_rwlock.read_unlock();
+    return foundVolName;
+}
 
 /*
  * Add blob request to wait queue because a blob is waiting for OM
@@ -451,8 +477,16 @@ void StorHvVolumeTable::moveWaitBlobsToQosQueue(fds_volid_t vol_uuid,
             AmQosReq* qosReq = blobs[i];
             blobs[i] = NULL;
             FdsBlobReq* blobReq = qosReq->getBlobReqPtr();
-            FDS_NativeAPI::DoCallback(blobReq, err, 0, 0);  // Hard coding a result!
-            LOGDEBUG          << "VolumeTable -- completion of blob request before moving it to QoS queue";
+            // Hard coding a result!
+            LOGERROR << "some issue : " << err;
+            LOGWARN << "Calling back with error since request is waiting"
+                    << " for volume " << blobReq->getVolId()
+                    << " that doesn't exist";
+            if (blobReq->cb.get() != NULL) {
+                blobReq->cb->call(FDSN_StatusEntityDoesNotExist);
+            } else {
+                FDS_NativeAPI::DoCallback(blobReq, err, 0, 0);
+            }
             delete qosReq;
         }
         blobs.clear();
@@ -483,8 +517,12 @@ Error StorHvVolumeTable::volumeEventHandler(fds_volid_t vol_uuid,
             else if (result == FDS_ProtocolInterface::FDSP_ERR_VOLUME_DOES_NOT_EXIST) {
                 /* complete all requests that are waiting on bucket to attach with error */
                 if (vdb) {
-                    GLOGNOTIFY << "StorHvVolumeTable - Volume " << vdb->name << "does not exist.";
-                    storHvisor->vol_table->moveWaitBlobsToQosQueue(vol_uuid, vdb->name, Error(ERR_NOT_FOUND));
+                    GLOGNOTIFY << "Requested volume "
+                               << vdb->name << " does not exist";
+                    storHvisor->vol_table->
+                            moveWaitBlobsToQosQueue(vol_uuid,
+                                                    vdb->name,
+                                                    ERR_NOT_FOUND);
                 }
             }
             break;
@@ -524,7 +562,14 @@ void StorHvVolumeTable::dump()
 }
 
 BEGIN_C_DECLS
+/**
+ * This function is the "glue" between UBD and AM.
+ * FBD block requests are passed in and then translated
+ * into internal AM requests.
+ */
 int pushFbdReq(fbd_request_t *blkReq) {
+    // Pass to AM
+    // storHvisor->processFbdReq(blkReq);
     if (blkReq->io_type == FDS_IO_READ)
         blkReq->io_type = FDS_GET_BLOB;
     else if ( blkReq->io_type == FDS_IO_WRITE)

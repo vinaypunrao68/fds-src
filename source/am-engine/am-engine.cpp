@@ -1025,6 +1025,9 @@ Conn_PutObject::ame_request_handler()
     buf = ame_reqt_iter_data_next(get_max_buf_len(), &len);
     LOGDEBUG << "request data size :" << len;
 
+    // Create a fake transaction for now
+    BlobTxId::ptr txDesc(new BlobTxId());
+
     if (len == 0) {
         LOGWARN <<"zero size request received";
         // special case where no data is given
@@ -1033,10 +1036,10 @@ Conn_PutObject::ame_request_handler()
         Error err = ame_ctx->ame_add_ctx_req(offset);
         fds_verify(err == ERR_OK);
         api = ame->ame_fds_hook();
-        api->PutObject(&bucket_ctx, get_object_id(), putProps,
-                       static_cast<void *>(ame_ctx), buf, 0,
-                       len, true, fdsn_putobj_cbfn,
-                       static_cast<void *>(this));
+        api->PutBlob(&bucket_ctx, get_object_id(), putProps,
+                     static_cast<void *>(ame_ctx), buf, 0,
+                     len, txDesc, true, fdsn_putobj_cbfn,
+                     static_cast<void *>(this));
     }
 
     while (len != 0) {
@@ -1070,10 +1073,10 @@ Conn_PutObject::ame_request_handler()
 
         // Issue async request
         api = ame->ame_fds_hook();
-        api->PutObject(&bucket_ctx, get_object_id(), putProps,
-                       static_cast<void *>(ame_ctx), buf, offset,
-                       len, last_byte, fdsn_putobj_cbfn,
-                       static_cast<void *>(this));
+        api->PutBlob(&bucket_ctx, get_object_id(), putProps,
+                     static_cast<void *>(ame_ctx), buf, offset,
+                     len, txDesc, last_byte, fdsn_putobj_cbfn,
+                     static_cast<void *>(this));
 
         // Get the next data and data len
         buf = ame_reqt_iter_data_next(get_max_buf_len(), &len);

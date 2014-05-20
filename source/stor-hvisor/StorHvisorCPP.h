@@ -1,4 +1,7 @@
-#include "StorHvisorNet.h"
+#ifndef SOURCE_STOR_HVISOR_STORHVISORCPP_H_
+#define SOURCE_STOR_HVISOR_STORHVISORCPP_H_
+
+#include "ubd.h"
 #ifdef __cplusplus
 #define BEGIN_C_DECLS extern "C" {
 #define END_C_DECLS }
@@ -10,8 +13,6 @@
 BEGIN_C_DECLS
 typedef int (*hv_create_blkdev)(uint64_t voluuid, uint64_t capacity);
 typedef void  (*hv_delete_blkdev)(int minor);
-int hvisor_create_blkdev(uint64_t voluuid, uint64_t capacity);
-void  hvisor_delete_blkdev(int minor);
 void init_DPAPI();
 void integration_stub( void *buf,  int len);
 int StorHvisorProcIoRd(void *io);
@@ -39,4 +40,15 @@ void cppOut( char *format, ... );
 void ctrlCCallbackHandler(int signal);
 int pushVolQueue(void *req);
 int pushFbdReq(fbd_request_t *blkReq);
+
+/// Interface for AM to create UBD device
+int hvisor_create_blkdev(uint64_t voluuid, uint64_t capacity);
+/// Interface for AM to delete UBD device
+void hvisor_delete_blkdev(int minor);
+/// Put blob interface bridge between UBD and AM
+int amUbdPutBlob(fbd_request_t *blkReq);
+/// Get blob interface bridge between UBD and AM
+int amUbdGetBlob(fbd_request_t *blkReq);
 END_C_DECLS
+
+#endif  // SOURCE_STOR_HVISOR_STORHVISORCPP_H_

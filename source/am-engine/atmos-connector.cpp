@@ -118,11 +118,14 @@ Atmos_PutObject::ame_request_handler()
         ame_finalize_request(NGX_HTTP_BAD_REQUEST);
         return;
     }
+    // Create a fake transaction for now
+    BlobTxId::ptr txDesc(new BlobTxId());
+
     api = ame->ame_fds_hook();
-    api->PutObject(&bucket_ctx, get_object_id(), NULL,
-                   static_cast<void *>(ame_ctx), buf, offset,
-                   len, false,
-                   atmos_putobj_cbfn, static_cast<void *>(this));
+    api->PutBlob(&bucket_ctx, get_object_id(), NULL,
+                 static_cast<void *>(ame_ctx), buf, offset,
+                 len, txDesc, false,
+                 atmos_putobj_cbfn, static_cast<void *>(this));
 }
 
 std::string Atmos_PutObject::get_bucket_id()

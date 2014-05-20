@@ -4,9 +4,13 @@ package com.formationds.xdi;
  */
 
 import com.formationds.apis.*;
+import com.formationds.security.Authenticator;
+import com.formationds.security.AuthorizationToken;
+import com.sun.security.auth.UserPrincipal;
 import org.apache.thrift.TException;
 import org.joda.time.DateTime;
 
+import javax.security.auth.login.LoginException;
 import java.io.InputStream;
 import java.util.Iterator;
 import java.util.List;
@@ -17,10 +21,19 @@ public class Xdi {
     private ConfigurationService.Iface config;
 
     public static final String LAST_MODIFIED = "Last-Modified";
+    private Authenticator authenticator;
 
-    public Xdi(AmService.Iface am, ConfigurationService.Iface config) {
+    public Xdi(AmService.Iface am, ConfigurationService.Iface config, Authenticator authenticator) {
         this.am = am;
         this.config = config;
+        this.authenticator = authenticator;
+    }
+
+    public XdiCredentials authenticate(String login, String password) throws LoginException {
+        authenticator.login(login, password);
+        UserPrincipal principal = new UserPrincipal(login);
+        AuthorizationToken token = new AuthorizationToken(Authenticator.KEY, principal);
+        return new XdiCredentials(principal, token.getKey());
     }
 
     public void createVolume(String domainName, String volumeName, VolumePolicy volumePolicy) throws ApiException, TException {

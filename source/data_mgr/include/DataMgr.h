@@ -31,6 +31,10 @@
 #include <lib/qos_min_prio.h>
 #include <NetSession.h>
 
+#include <CommitLog.h>
+
+#include <blob/BlobTypes.h>
+
 #undef FDS_TEST_DM_NOOP     /* if defined, puts complete as soon as they arrive to DM (not for gets right now) */
 
 namespace fds {
@@ -39,113 +43,162 @@ namespace fds {
 int scheduleUpdateCatalog(void * _io);
 int scheduleQueryCatalog(void * _io);
 int scheduleStatBlob(void * _io);
+int scheduleStartBlobTx(void * _io);
 int scheduleDeleteCatObj(void * _io);
 int scheduleBlobList(void * _io);
+int scheduleGetBlobMetaData(void* io);
+int scheduleSetBlobMetaData(void* io);
+int scheduleGetVolumeMetaData(void* io);
 
-class DataMgr : public PlatformProcess
-{
-  public:
+class DataMgr : public PlatformProcess {
+public:
     void InitMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr);
 
-  class ReqHandler;
-  
-  typedef boost::shared_ptr<ReqHandler> ReqHandlerPtr;
-  typedef boost::shared_ptr<FDS_ProtocolInterface::FDSP_MetaDataPathRespClient> RespHandlerPrx;
+    class ReqHandler;
+    typedef boost::shared_ptr<ReqHandler> ReqHandlerPtr;
+    typedef boost::shared_ptr<FDS_ProtocolInterface::FDSP_MetaDataPathRespClient> RespHandlerPrx; //NOLINT
 
+    struct RequestHeader {
+        fds_volid_t volId;
+        long srcIp;  //NOLINT
+        long dstIp;  //NOLINT
+        fds_uint32_t srcPort;
+        fds_uint32_t dstPort;
+        std::string session_uuid;
+        fds_uint32_t reqCookie;
 
-  /*
-   * TODO: Make more generic name than catalog request
-   */
-  class dmCatReq : public FDS_IOType {
- public:
-    fds_volid_t  volId;
-    std::string blob_name;
-    blob_version_t blob_version;
-    fds_uint32_t transId;
-    fds_uint32_t transOp;
-    long 	 srcIp;
-    long 	 dstIp;
-    fds_uint32_t srcPort;
-    fds_uint32_t dstPort;
-    std::string session_uuid;
-    fds_uint32_t reqCookie;
-    FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr fdspUpdCatReqPtr;
+        explicit RequestHeader(const FDSP_MsgHdrTypePtr &hdr) {
+            volId = hdr->glob_volume_id;
+            srcIp = hdr->src_ip_lo_addr;
+            dstIp = hdr->dst_ip_lo_addr;
+            srcPort = hdr->src_port;
+            dstPort = hdr->dst_port;
+            session_uuid = hdr->session_uuid;
+            reqCookie = hdr->req_cookie;
+        }
+    };
 
-    dmCatReq(fds_volid_t  _volId,
-             long 	  _srcIp,
-	     long 	  _dstIp,
-	     fds_uint32_t _srcPort,
-	     fds_uint32_t _dstPort,
-	     std::string  _session_uuid,
-	     fds_uint32_t _reqCookie,
-	     fds_io_op_t  _ioType)
-        : volId(_volId), srcIp(_srcIp), dstIp(_dstIp),
-        srcPort(_srcPort), dstPort(_dstPort), session_uuid(_session_uuid),
-        reqCookie(_reqCookie), fdspUpdCatReqPtr(NULL) {
-      io_type = _ioType;
-      io_vol_id = _volId;
-      blob_version = blob_version_invalid;
-    }
+    /*
+     * TODO: Make more generic name than catalog request
+     */
+    class dmCatReq : public FDS_IOType {
+      public:
+        fds_volid_t  volId;
+        std::string blob_name;
+        blob_version_t blob_version;
+        fds_uint32_t transId;
+        fds_uint32_t transOp;
+        long 	 srcIp;
+        long 	 dstIp;
+        fds_uint32_t srcPort;
+        fds_uint32_t dstPort;
+        std::string session_uuid;
+        fds_uint32_t reqCookie;
+        BlobTxId::const_ptr blobTxId;
+        fpi::FDSP_UpdateCatalogTypePtr fdspUpdCatReqPtr;
+        boost::shared_ptr<fpi::FDSP_MetaDataList> metadataList;
 
-    dmCatReq(fds_volid_t  _volId,
-             const std::string &blobName,
-             long 	  _srcIp,
-	     long 	  _dstIp,
-	     fds_uint32_t _srcPort,
-	     fds_uint32_t _dstPort,
-	     std::string  _session_uuid,
-	     fds_uint32_t _reqCookie,
-	     fds_io_op_t  _ioType)
-            : volId(_volId), blob_name(blobName), srcIp(_srcIp), dstIp(_dstIp),
-        srcPort(_srcPort), dstPort(_dstPort), session_uuid(_session_uuid),
-        reqCookie(_reqCookie), fdspUpdCatReqPtr(NULL) {
-      io_type = _ioType;
-      io_vol_id = _volId;
-      blob_version = blob_version_invalid;
-    }
+        dmCatReq(fds_volid_t  _volId,
+                 long 	  _srcIp,
+                 long 	  _dstIp,
+                 fds_uint32_t _srcPort,
+                 fds_uint32_t _dstPort,
+                 std::string  _session_uuid,
+                 fds_uint32_t _reqCookie,
+                 fds_io_op_t  _ioType)
+                : volId(_volId), srcIp(_srcIp), dstIp(_dstIp),
+                  srcPort(_srcPort), dstPort(_dstPort), session_uuid(_session_uuid),
+                  reqCookie(_reqCookie), fdspUpdCatReqPtr(NULL) {
+            io_type = _ioType;
+            io_vol_id = _volId;
+            blob_version = blob_version_invalid;
+        }
 
-    dmCatReq(fds_volid_t        _volId,
-	     std::string        _blob_name,
-	     fds_uint32_t 	_transId,
-	     fds_uint32_t 	_transOp,
-	     long 	 	_srcIp,
-	     long 	 	_dstIp,
-	     fds_uint32_t 	_srcPort,
-	     fds_uint32_t 	_dstPort,
-	     std::string        _session_uuid,
-	     fds_uint32_t 	_reqCookie,
-	     fds_io_op_t        _ioType,
-	     FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr _updCatReq) {
-         volId             = _volId;
-      	 blob_name         = _blob_name;
-         blob_version      = blob_version_invalid;
-         transId           = _transId;
-         transOp           = _transOp;
-         srcIp 	           = _srcIp;
-         dstIp 	           = _dstIp;
-         srcPort           = _srcPort;
-         dstPort           = _dstPort;
-	 session_uuid     = _session_uuid;
-         reqCookie         = _reqCookie;
-         FDS_IOType::io_type = _ioType;
-	 FDS_IOType::io_vol_id = _volId;
-	 fdspUpdCatReqPtr = _updCatReq;
-	 if (_ioType !=   FDS_CAT_UPD) {
-	   fds_verify(_updCatReq == (FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr)NULL);
-	 }
-      }
+        dmCatReq(fds_volid_t  _volId,
+                 const std::string &blobName,
+                 long 	  _srcIp,
+                 long 	  _dstIp,
+                 fds_uint32_t _srcPort,
+                 fds_uint32_t _dstPort,
+                 std::string  _session_uuid,
+                 fds_uint32_t _reqCookie,
+                 fds_io_op_t  _ioType)
+                : volId(_volId), blob_name(blobName), srcIp(_srcIp), dstIp(_dstIp),
+                  srcPort(_srcPort), dstPort(_dstPort), session_uuid(_session_uuid),
+            reqCookie(_reqCookie), fdspUpdCatReqPtr(NULL) {
+            io_type = _ioType;
+            io_vol_id = _volId;
+            blob_version = blob_version_invalid;
+        }
 
-      fds_volid_t getVolId() const {
-        return volId;
-      }
+        dmCatReq(const DataMgr::RequestHeader& hdr,
+                 fds_io_op_t  ioType) 
+                : volId(hdr.volId), srcIp(hdr.srcIp), dstIp(hdr.dstIp),
+                  srcPort(hdr.srcPort), dstPort(hdr.dstPort), session_uuid(hdr.session_uuid),
+                  reqCookie(hdr.reqCookie),
+                  blob_version(blob_version_invalid) {
+            io_type = ioType;
+            io_vol_id = hdr.volId;
+        }
 
-      ~dmCatReq() {
-	fdspUpdCatReqPtr = NULL;
-      }
+        dmCatReq(fds_volid_t        _volId,
+                 std::string        _blob_name,
+                 fds_uint32_t 	_transId,
+                 fds_uint32_t 	_transOp,
+                 long 	 	_srcIp,
+                 long 	 	_dstIp,
+                 fds_uint32_t 	_srcPort,
+                 fds_uint32_t 	_dstPort,
+                 std::string        _session_uuid,
+                 fds_uint32_t 	_reqCookie,
+                 fds_io_op_t        _ioType,
+                 FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr _updCatReq) {
+            volId             = _volId;
+            blob_name         = _blob_name;
+            blob_version      = blob_version_invalid;
+            transId           = _transId;
+            transOp           = _transOp;
+            srcIp 	           = _srcIp;
+            dstIp 	           = _dstIp;
+            srcPort           = _srcPort;
+            dstPort           = _dstPort;
+            session_uuid     = _session_uuid;
+            reqCookie         = _reqCookie;
+            FDS_IOType::io_type = _ioType;
+            FDS_IOType::io_vol_id = _volId;
+            fdspUpdCatReqPtr = _updCatReq;
+            if (_ioType !=   FDS_CAT_UPD) {
+                fds_verify(_updCatReq == (FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr)NULL);
+            }
+        }
 
-      void setBlobVersion(blob_version_t version) {
-          blob_version = version;          
-      }
+        void fillResponseHeader(fpi::FDSP_MsgHdrTypePtr& msg_hdr) const{
+            msg_hdr->src_ip_lo_addr =  dstIp;
+            msg_hdr->dst_ip_lo_addr =  srcIp;
+            msg_hdr->src_port =  dstPort;
+            msg_hdr->dst_port =  srcPort;
+            msg_hdr->glob_volume_id =  volId;
+            msg_hdr->req_cookie =  reqCookie;
+        }
+
+        fds_volid_t getVolId() const {
+            return volId;
+        }
+
+        ~dmCatReq() {
+            fdspUpdCatReqPtr = NULL;
+        }
+
+        void setBlobVersion(blob_version_t version) {
+            blob_version = version;
+        }
+        void setBlobTxId(BlobTxId::const_ptr id) {
+            blobTxId = id;
+        }
+
+        BlobTxId::const_ptr getBlobTxId() const {
+            return blobTxId;
+        }
     };
 
  private:
@@ -154,7 +207,6 @@ class DataMgr : public PlatformProcess
       TEST_MODE   = 1,
       MAX
     } dmRunModes;
- 
     dmRunModes    runMode;
     fds_uint32_t numTestVols;  /* Number of vols to use in test mode */
 
@@ -176,32 +228,40 @@ class DataMgr : public PlatformProcess
       Error processIO(FDS_IOType* _io) {
         Error err(ERR_OK);
         dmCatReq *io = static_cast<dmCatReq*>(_io);
-	switch(io->io_type)
-	{
-	  case FDS_CAT_UPD:
-             FDS_PLOG(FDS_QoSControl::qos_log) << "Processing  the Catalog update  request";
-	     threadPool->schedule(scheduleUpdateCatalog, io);
-	     break;
-	  case FDS_CAT_QRY:
-             FDS_PLOG(FDS_QoSControl::qos_log) << "Processing  the Catalog Query  request";
-	     threadPool->schedule(scheduleQueryCatalog, io);
-	     break;
+        GLOGDEBUG << "processing : " << io->io_type;
+	switch (io->io_type){
+            case FDS_CAT_UPD:
+                threadPool->schedule(scheduleUpdateCatalog, io);
+                break;
+            case FDS_CAT_QRY:
+                threadPool->schedule(scheduleQueryCatalog, io);
+                break;
             case FDS_STAT_BLOB:
-             GLOGDEBUG << "Scheduling a stat blob request";
-	     threadPool->schedule(scheduleStatBlob, io);
-	     break;
-	  case FDS_DELETE_BLOB:
-             FDS_PLOG(FDS_QoSControl::qos_log) << "Processing  the Delete Blob request";
-	     threadPool->schedule(scheduleDeleteCatObj, io);
-	     break;
-	  case FDS_LIST_BLOB:
-             FDS_PLOG(FDS_QoSControl::qos_log) << "Processing the blob list request";
-	     threadPool->schedule(scheduleBlobList, io);
-	     break;
-	  default:
-             FDS_PLOG(FDS_QoSControl::qos_log) << "Unknown IO Type received";
-             assert(0);
-	     break;
+                threadPool->schedule(scheduleStatBlob, io);
+                break;
+            case FDS_START_BLOB_TX:
+                threadPool->schedule(scheduleStartBlobTx, io);
+                break;
+            case FDS_DELETE_BLOB:
+                threadPool->schedule(scheduleDeleteCatObj, io);
+                break;
+            case FDS_LIST_BLOB:
+                threadPool->schedule(scheduleBlobList, io);
+                break;
+            case FDS_GET_BLOB_METADATA:
+                threadPool->schedule(scheduleGetBlobMetaData, io);
+                break;
+            case FDS_SET_BLOB_METADATA:
+                threadPool->schedule(scheduleSetBlobMetaData, io);
+                break;
+
+             case FDS_GET_VOLUME_METADATA:
+                threadPool->schedule(scheduleGetVolumeMetaData, io);
+                break;
+            default:
+                FDS_PLOG(FDS_QoSControl::qos_log) << "Unknown IO Type received";
+                assert(0);
+                break;
 	}
 
         return err;
@@ -259,6 +319,11 @@ class DataMgr : public PlatformProcess
     fds_mutex *vol_map_mtx;
 
     /**
+     * Manages pending 2-phase commit updates
+     */
+    DmCommitLog::ptr commitLog;
+
+    /**
      * Giant, slow, big hammer lock.
      * TODO(Andrew): Remove this! It's needed to provide
      * serialization of update catalog requests to the same
@@ -266,6 +331,9 @@ class DataMgr : public PlatformProcess
      * needs to be added. It's just more code...
      */
     fds_mutex *big_fat_lock;
+
+    Error getVolObjSize(fds_volid_t volId,
+                        fds_uint32_t *maxObjSize);
 
     Error _add_if_no_vol(const std::string& vol_name,
                          fds_volid_t vol_uuid,VolumeDesc* desc);
@@ -332,6 +400,7 @@ class DataMgr : public PlatformProcess
     virtual void interrupt_cb(int signum) override;
 
     void swapMgrId(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg);
+    void setResponseError(fpi::FDSP_MsgHdrTypePtr& msg_hdr, const Error& err);
 
     std::string getPrefix() const;
     fds_bool_t volExists(fds_volid_t vol_uuid) const;
@@ -348,7 +417,10 @@ class DataMgr : public PlatformProcess
     Error deleteBlobProcess(const dmCatReq  *delCatReq, BlobNode **bnode);
     void blobListBackend(dmCatReq *listBlobReq);
     void statBlobBackend(const dmCatReq *statBlobReq);
-
+    void startBlobTxBackend(const dmCatReq *startBlobTxReq);
+    void getBlobMetaDataBackend(const dmCatReq *request);
+    void setBlobMetaDataBackend(const dmCatReq *request);
+    void getVolumeMetaDataBackend(const dmCatReq *request);
     /* 
      * FDS protocol processing proto types 
      */
@@ -367,7 +439,16 @@ class DataMgr : public PlatformProcess
     Error statBlobInternal(const std::string volumeName, const std::string &blobName,
                            fds_volid_t volId, long srcIp, long dstIp, fds_uint32_t srcPort,
                            fds_uint32_t dstPort, std::string session_uuid, fds_uint32_t reqCookie);
-
+    void startBlobTxInternal(const std::string volumeName, const std::string &blobName,
+                             BlobTxId::const_ptr blobTxId,
+                             fds_volid_t volId, long srcIp, long dstIp, fds_uint32_t srcPort,
+                             fds_uint32_t dstPort, std::string session_uuid, fds_uint32_t reqCookie);
+    void commitBlobTxInternal(BlobTxId::const_ptr blobTxId,
+                             fds_volid_t volId, long srcIp, long dstIp, fds_uint32_t srcPort,
+                             fds_uint32_t dstPort, std::string session_uuid, fds_uint32_t reqCookie);
+    void abortBlobTxInternal(BlobTxId::const_ptr blobTxId,
+                             fds_volid_t volId, long srcIp, long dstIp, fds_uint32_t srcPort,
+                             fds_uint32_t dstPort, std::string session_uuid, fds_uint32_t reqCookie);
 
     /*
      * Nested class that manages the server interface.
@@ -378,6 +459,13 @@ class DataMgr : public PlatformProcess
    public:
       explicit ReqHandler();
       ~ReqHandler();
+
+      void StartBlobTx(const FDSP_MsgHdrType& msg_hdr,
+                       const std::string &volumeName,
+                       const std::string &blobName,
+                       const TxDescriptor &txDesc) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+      }
 
       void UpdateCatalogObject(const FDSP_MsgHdrType& fdsp_msg, 
 			       const FDSP_UpdateCatalogType& cat_obj_req) {
@@ -405,6 +493,30 @@ class DataMgr : public PlatformProcess
         // Don't do anything here. This stub is just to keep cpp compiler happy
       }
 
+      void SetBlobMetaData(const FDSP_MsgHdrType& header, 
+                           const std::string& volumeName, 
+                           const std::string& blobName, const 
+                           FDSP_MetaDataList& metaDataList) {
+      }
+      
+      void GetBlobMetaData(const FDSP_MsgHdrType& header, 
+                           const std::string& volumeName, 
+                           const std::string& blobName) {
+      }
+
+      void GetVolumeMetaData(const FDSP_MsgHdrType& header, 
+                             const std::string& volumeName) {
+      }
+
+      // ================================================================================================
+      // The actual stuff
+      // ================================================================================================
+
+      void StartBlobTx(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
+                       boost::shared_ptr<std::string> &volumeName,
+                       boost::shared_ptr<std::string> &blobName,
+                       FDS_ProtocolInterface::TxDescriptorPtr& txDesc);
+
       void UpdateCatalogObject(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr
                                &msg_hdr,
                                FDS_ProtocolInterface::
@@ -429,9 +541,20 @@ class DataMgr : public PlatformProcess
                     boost::shared_ptr<std::string> &volumeName,
                     boost::shared_ptr<std::string> &blobName);
 
+      void SetBlobMetaData(boost::shared_ptr<FDSP_MsgHdrType>& header, 
+                           boost::shared_ptr<std::string>& volumeName, 
+                           boost::shared_ptr<std::string>& blobName, 
+                           boost::shared_ptr<FDSP_MetaDataList>& metaDataList);
+
+      void GetBlobMetaData(boost::shared_ptr<FDSP_MsgHdrType>& header,
+                           boost::shared_ptr<std::string>& volumeName,
+                           boost::shared_ptr<std::string>& blobName);
+
+      void GetVolumeMetaData(boost::shared_ptr<FDSP_MsgHdrType>& header,
+                             boost::shared_ptr<std::string>& volumeName);
     };
 
-   };
+};
 
 }  // namespace fds
 

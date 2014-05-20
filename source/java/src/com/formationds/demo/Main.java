@@ -3,28 +3,75 @@ package com.formationds.demo;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+import com.formationds.apis.AmService;
+import com.formationds.apis.ConfigurationService;
+import com.formationds.apis.VolumeConnector;
+import com.formationds.apis.VolumePolicy;
+import com.formationds.om.LandingPage;
+import com.formationds.security.Authenticator;
+import com.formationds.security.JaasAuthenticator;
 import com.formationds.util.Configuration;
+import com.formationds.util.libconfig.ParserFacade;
 import com.formationds.web.toolkit.HttpMethod;
 import com.formationds.web.toolkit.WebApp;
+import com.formationds.xdi.ConnectionProxy;
 import com.formationds.xdi.Xdi;
-import com.formationds.xdi.local.ToyServices;
+import org.apache.thrift.TException;
+import org.apache.thrift.protocol.TBinaryProtocol;
+import org.apache.thrift.transport.TSocket;
+import org.apache.thrift.transport.TTransportException;
+import org.joda.time.Duration;
 
 public class Main {
     public static final String DEMO_DOMAIN = "demo";
 
     public static void main(String[] args) throws Exception {
-        Configuration config = new Configuration(args);
-        new Main().start(8888);
+        new Main().start(8888, args);
     }
 
-    public void start(int port)  {
-        ToyServices services = new ToyServices(DEMO_DOMAIN);
-        services.createDomain(DEMO_DOMAIN);
+    public void start(int port, String[] args) throws Exception {
+        Configuration configuration = new Configuration(args);
+        ParserFacade amConfig = configuration.getPlatformConfig();
 
-        Xdi xdi = new Xdi(services, services);
-        WebApp webApp = new WebApp();
-        //DemoState state = new RealDemoState(Duration.standardMinutes(5), xdi);
-        DemoState state = new MockDemoState();
+        AmService.Iface am = new ConnectionProxy<>(AmService.Iface.class, () -> {
+            TSocket amTransport = new TSocket("localhost", 9988);
+            try {
+                amTransport.open();
+            } catch (TTransportException e) {
+                throw new RuntimeException(e);
+            }
+            return new AmService.Client(new TBinaryProtocol(amTransport));
+        }).makeProxy();
+
+        ConfigurationService.Iface config = new ConnectionProxy<>(ConfigurationService.Iface.class, () -> {
+            String omHost = amConfig.lookup("fds.am.om_ip").stringValue();
+            TSocket omTransport = new TSocket(omHost, 9090);
+            try {
+                omTransport.open();
+            } catch (TTransportException e) {
+                throw new RuntimeException(e);
+            }
+            return new ConfigurationService.Client(new TBinaryProtocol(omTransport));
+        }).makeProxy();
+
+        Authenticator authenticator = new JaasAuthenticator();
+        Xdi xdi = new Xdi(am, config, authenticator);
+
+
+        String webDir = "/home/fabrice/demo/dist";
+        WebApp webApp = new WebApp(webDir);
+        String[] volumes = createVolumes(xdi);
+//        String[] volumes = xdi.listVolumes(DEMO_DOMAIN)
+//                .stream()
+//                .map(v -> v.getName())
+//                .toArray(i -> new String[i]);
+
+        //DemoState state = new RealDemoState(Duration.standardMinutes(5), new XdiImageReader(xdi), new XdiImageWriter(xdi, volumes));
+        DemoState state = new RealDemoState(Duration.standardMinutes(5),
+                new S3ImageReader("localhost", 8000),
+                new S3ImageWriter("localhost", 8000, volumes));
+
+        webApp.route(HttpMethod.GET, "/", () -> new LandingPage(webDir));
 
         // POST query string (URL string, q=foo)
         // return 200 OK, body unspecified
@@ -80,5 +127,34 @@ public class Main {
        ]
 */
         webApp.start(port);
+    }
+
+    private String[] createVolumes(Xdi xdi) throws InterruptedException {
+        try {
+            //xdi.deleteVolume(Main.DEMO_DOMAIN, "Volume1");
+            //xdi.deleteVolume(Main.DEMO_DOMAIN, "Volume2");
+            //xdi.deleteVolume(Main.DEMO_DOMAIN, "Volume3");
+            //xdi.deleteVolume(Main.DEMO_DOMAIN, "Volume4");
+        } catch (Exception e) {
+
+        }
+
+        try {
+            xdi.createVolume(Main.DEMO_DOMAIN, "Volume1",
+                    new VolumePolicy(1024 * 4, VolumeConnector.S3));
+            Thread.sleep(1000);
+            xdi.createVolume(Main.DEMO_DOMAIN, "Volume2",
+                    new VolumePolicy(1024 * 4, VolumeConnector.S3));
+            Thread.sleep(1000);
+            xdi.createVolume(Main.DEMO_DOMAIN, "Volume3",
+                    new VolumePolicy(1024 * 4, VolumeConnector.S3));
+            Thread.sleep(1000);
+            xdi.createVolume(Main.DEMO_DOMAIN, "Volume4",
+                    new VolumePolicy(1024 * 4, VolumeConnector.S3));
+            Thread.sleep(1000);
+        } catch (TException e) {
+            //throw new RuntimeException(e);
+        }
+        return new String[] {"Volume1", "Volume2", "Volume3", "Volume4"};
     }
 }

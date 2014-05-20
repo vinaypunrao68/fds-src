@@ -32,6 +32,15 @@ public interface RequestHandler {
         return value;
     }
 
+    public default String requiredString(Request request, String name) throws UsageException {
+        String value = request.getParameter(name);
+        if (value == null) {
+            throw new UsageException(String.format("Parameter '%s' is missing", name));
+        }
+
+        return value;
+    }
+
     public default String requiredString(Map<String, String> routeAttributes, String name) throws UsageException {
         String value = routeAttributes.get(name);
         if ((value == null)) {

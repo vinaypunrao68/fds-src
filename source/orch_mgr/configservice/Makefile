@@ -7,5 +7,5 @@ user_hh           := $(wildcard *.h)
 user_cpp          := $(wildcard *.cpp)
 user_ar_libs      := fds-om-lib
 fds-om-lib        := $(user_cpp)
-user_no_style     := $(user_cpp)
+#user_no_style     := $(user_cpp)
 include $(topdir)/Makefile.incl

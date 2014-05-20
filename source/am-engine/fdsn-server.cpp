@@ -35,71 +35,20 @@ class FdsnIf : public apis::AmServiceIf {
 
     typedef boost::shared_ptr<FdsnIf> ptr;
 
-    void createVolume(const std::string& domainName,
-                      const std::string& volumeName,
-                      const apis::VolumePolicy& volumePolicy) {
-    }
-
-    void createVolume(boost::shared_ptr<std::string>& domainName,
-                      boost::shared_ptr<std::string>& volumeName,
-                      boost::shared_ptr<apis::VolumePolicy>& volumePolicy) {
-        BucketContext bucket_ctx("host", *volumeName, "accessid", "secretkey");
-        fds_uint32_t fakeMaxObjSize = 2 * 1024 * 1024;
-
-        if ((volumePolicy->maxObjectSizeInBytes % fakeMaxObjSize) != 0) {
-            apis::ApiException fdsE;
-            fdsE.errorCode = apis::BAD_REQUEST;
-            throw fdsE;
-        }
-
-        // The CreateBucket is synchronous...though still uses
-        // the callback mechanism. The callback will throw
-        // an exception if we get an error
-        SimpleResponseHandler handler(__func__);
-        am_api->CreateBucket(&bucket_ctx, CannedAclPrivate,
-                             NULL, fn_ResponseHandler, &handler);
-        handler.wait();
-        handler.process();
-    }
-
-    void deleteVolume(const std::string& domainName,
+    void attachVolume(const std::string& domainName,
                       const std::string& volumeName) {
     }
 
-    void deleteVolume(boost::shared_ptr<std::string>& domainName,
+    void attachVolume(boost::shared_ptr<std::string>& domainName,
                       boost::shared_ptr<std::string>& volumeName) {
-        BucketContext bucket_ctx("host", *volumeName, "accessid", "secretkey");
+        AttachVolumeResponseHandler::ptr handler(
+            new AttachVolumeResponseHandler());
 
-        // The DeleteBucket is synchronous...though still uses
-        // the callback mechanism. The callback will throw
-        // an exception if we get an error
-        SimpleResponseHandler handler(__func__);
-        am_api->DeleteBucket(&bucket_ctx, NULL, fn_ResponseHandler, &handler);
-        handler.wait();
-        handler.process();
-    }
+        am_api->attachVolume(*volumeName,
+                             SHARED_DYN_CAST(Callback, handler));
 
-    void statVolume(apis::VolumeDescriptor& _return,
-                    const std::string& domainName,
-                    const std::string& volumeName) {
-    }
-
-    void statVolume(apis::VolumeDescriptor& _return,
-                    boost::shared_ptr<std::string>& domainName,
-                    boost::shared_ptr<std::string>& volumeName) {
-        BucketContext bucket_ctx("host", *volumeName, "accessid", "secretkey");
-        BucketStatsResponseHandler handler(_return);
-        am_api->GetBucketStats(&bucket_ctx, fn_BucketStatsHandler, &handler);
-        handler.wait();
-        handler.process();
-    }
-
-    void listVolumes(std::vector<apis::VolumeDescriptor> & _return,
-                     const std::string& domainName) {
-    }
-
-    void listVolumes(std::vector<apis::VolumeDescriptor> & _return,
-                     boost::shared_ptr<std::string>& domainName) {
+        handler->wait();
+        handler->process();
     }
 
     void volumeStatus(apis::VolumeStatus& _return,
@@ -110,6 +59,11 @@ class FdsnIf : public apis::AmServiceIf {
     void volumeStatus(apis::VolumeStatus& _return,
                       boost::shared_ptr<std::string>& domainName,
                       boost::shared_ptr<std::string>& volumeName) {
+        LOGDEBUG << "volumeStatus for vol:" << *volumeName;
+        StatVolumeResponseHandler::ptr handler(new StatVolumeResponseHandler(_return));
+        am_api->GetVolumeMetaData(*volumeName, SHARED_DYN_CAST(Callback, handler));
+        handler->wait();
+        handler->process();
     }
 
     void volumeContents(std::vector<apis::BlobDescriptor> & _return,
@@ -124,6 +78,18 @@ class FdsnIf : public apis::AmServiceIf {
                         boost::shared_ptr<std::string>& volumeName,
                         boost::shared_ptr<int32_t>& count,
                         boost::shared_ptr<int64_t>& offset) {
+        BucketContext *bucket_ctxt = new BucketContext("host",
+                                                       *volumeName,
+                                                       "accessid",
+                                                       "secretkey");
+        ListBucketResponseHandler handler(_return);
+
+        am_api->GetBucket(bucket_ctxt,
+                          "", "", "", *count,
+                          NULL,
+                          fn_ListBucketHandler, &handler);
+        handler.wait();
+        handler.process();
     }
 
     void statBlob(apis::BlobDescriptor& _return,
@@ -136,16 +102,46 @@ class FdsnIf : public apis::AmServiceIf {
                   boost::shared_ptr<std::string>& domainName,
                   boost::shared_ptr<std::string>& volumeName,
                   boost::shared_ptr<std::string>& blobName) {
-        StatBlobResponseHandler statBlobHandler(_return);
+        StatBlobResponseHandler::ptr handler(
+            new StatBlobResponseHandler(_return));
 
         am_api->StatBlob(*volumeName,
                          *blobName,
-                         fn_StatBlobHandler,
-                         static_cast<void *>(&statBlobHandler));
+                         SHARED_DYN_CAST(Callback, handler));
 
-        statBlobHandler.wait();
+        handler->wait();
+        handler->process();
+    }
 
-        statBlobHandler.process();
+    void startBlobTx(apis::TxDescriptor& _return,
+                  const std::string& domainName,
+                  const std::string& volumeName,
+                  const std::string& blobName) {
+    }
+
+    void startBlobTx(apis::TxDescriptor& _return,
+                     boost::shared_ptr<std::string>& domainName,
+                     boost::shared_ptr<std::string>& volumeName,
+                     boost::shared_ptr<std::string>& blobName) {
+        StartBlobTxResponseHandler::ptr handler(
+            new StartBlobTxResponseHandler(_return));
+
+        am_api->StartBlobTx(*volumeName, *blobName, SHARED_DYN_CAST(Callback, handler));
+
+        handler->wait();
+        handler->process();
+    }
+
+    void commitBlobTx(const apis::TxDescriptor& txDesc) {
+    }
+
+    void commitBlobTx(boost::shared_ptr<apis::TxDescriptor>& txDesc) {
+    }
+
+    void abortBlobTx(const apis::TxDescriptor& txDesc) {
+    }
+
+    void abortBlobTx(boost::shared_ptr<apis::TxDescriptor>& txDesc) {
     }
 
     void getBlob(std::string& _return,
@@ -216,19 +212,37 @@ class FdsnIf : public apis::AmServiceIf {
     void updateMetadata(const std::string& domainName,
                         const std::string& volumeName,
                         const std::string& blobName,
+                        const apis::TxDescriptor& txDesc,
                         const std::map<std::string, std::string> & metadata) {
     }
 
     void updateMetadata(boost::shared_ptr<std::string>& domainName,
                         boost::shared_ptr<std::string>& volumeName,
                         boost::shared_ptr<std::string>& blobName,
-                        boost::shared_ptr<
-                            std::map<std::string, std::string> >& metadata) {
+                        boost::shared_ptr<apis::TxDescriptor>& txDesc,
+                        boost::shared_ptr< std::map<std::string, std::string> >& metadata) {
+        SimpleResponseHandler::ptr handler(new SimpleResponseHandler(__func__));
+        boost::shared_ptr<fpi::FDSP_MetaDataList> metaDataList(new fpi::FDSP_MetaDataList());
+        LOGDEBUG << "received updateMetadata cmd";
+        fpi::FDSP_MetaDataPair metaPair;
+        for (auto const & meta : *metadata) {
+            LOGDEBUG << meta.first << ":" << meta.second;
+            metaPair.key = meta.first;
+            metaPair.value = meta.second;
+            metaDataList->push_back(metaPair);
+        }
+
+        am_api->setBlobMetaData(*volumeName, *blobName, metaDataList,
+                                SHARED_DYN_CAST(Callback, handler));
+        handler->wait();
+        LOGDEBUG << "set meta data returned";
+        handler->process();
     }
 
     void updateBlob(const std::string& domainName,
                     const std::string& volumeName,
                     const std::string& blobName,
+                    const apis::TxDescriptor& txDesc,
                     const std::string& bytes,
                     const int32_t length,
                     const apis::ObjectOffset& objectOffset,
@@ -239,6 +253,7 @@ class FdsnIf : public apis::AmServiceIf {
     void updateBlob(boost::shared_ptr<std::string>& domainName,
                     boost::shared_ptr<std::string>& volumeName,
                     boost::shared_ptr<std::string>& blobName,
+                    boost::shared_ptr<apis::TxDescriptor>& txDesc,
                     boost::shared_ptr<std::string>& bytes,
                     boost::shared_ptr<int32_t>& length,
                     boost::shared_ptr<apis::ObjectOffset>& objectOffset,
@@ -265,19 +280,24 @@ class FdsnIf : public apis::AmServiceIf {
             digest->c_str()),
                                         digest->size());
 
+        // Setup the transcation descriptor
+        BlobTxId::ptr blobTxDesc(new BlobTxId(
+            txDesc->txId));
+
         // Do async putobject
         // TODO(Andrew): The error path callback maybe called
         // in THIS thread's context...need to fix or handle that.
-        am_api->PutObject(&bucket_ctx,
-                          *blobName,
-                          putProps,
-                          NULL,  // Not passing any context for the callback
-                          const_cast<char *>(bytes->c_str()),
-                          offset,
-                          *length,
-                          *isLast,
-                          fn_PutObjectHandler,
-                          static_cast<void *>(&putHandler));
+        am_api->PutBlob(&bucket_ctx,
+                        *blobName,
+                        putProps,
+                        NULL,  // Not passing any context for the callback
+                        const_cast<char *>(bytes->c_str()),
+                        offset,
+                        *length,
+                        blobTxDesc,
+                        *isLast,
+                        fn_PutObjectHandler,
+                        static_cast<void *>(&putHandler));
 
         // Wait for a signal from the callback thread
         putHandler.wait();

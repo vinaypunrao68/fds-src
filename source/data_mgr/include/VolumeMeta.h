@@ -382,6 +382,9 @@ class BlobNode {
     fds_uint32_t consisProtocol;
     MetaList meta_list; /// List of metadata key-value pairs
     BlobObjectList obj_list;
+
+    typedef boost::shared_ptr<BlobNode> ptr;
+    typedef boost::shared_ptr<const BlobNode> const_ptr;
       
     const char delim = ';';
     const std::string open_seq = "";
