@@ -2116,23 +2116,34 @@ void DataMgr::setBlobMetaDataBackend(const dmCatReq *request) {
             // get the current metadata
             LOGDEBUG << "updating the meta for blob: " << request->blob_name;
             err = _process_query(request->volId, request->blob_name, bNode);
-            if (err == ERR_OK) {
-                // add the new metadata
-                for (auto& meta : *(request->metadataList)) {
-                    bNode->updateMetadata(meta.key, meta.value);
-                    LOGDEBUG << "meta update [" << meta.key <<":" << meta.value << "]";
-                }
-                // write back the metadata
-                _process_open(request->volId,
-                              request->blob_name,
-                              1,
-                              bNode);
+            if (err == ERR_CAT_ENTRY_NOT_FOUND) {
+                // If this blob doesn't already exist, allocate a new one
+                LOGDEBUG << "No blob found with name " << request->blob_name
+                         << ", so allocating a new one";
+                bNode = new BlobNode(request->volId,
+                                     request->blob_name);
+                // Set an initial version
+                bNode->version++;
+                err = ERR_OK;
             } else {
-                GLOGWARN << " error getting blob data: "
+                LOGWARN << "Error getting blob data: "
                         << " vol: " << request->volId
                         << " blob: " << request->blob_name
                         << " err: " << err;
             }
+
+            // add the new metadata
+            for (auto& meta : *(request->metadataList)) {
+                bNode->updateMetadata(meta.key, meta.value);
+                LOGDEBUG << "meta update [" << meta.key <<":" << meta.value << "]";
+            }
+            // write back the metadata
+            err = _process_open(request->volId,
+                                request->blob_name,
+                                1,
+                                bNode);
+            fds_verify(err == ERR_OK);
+
         }
     }
     
