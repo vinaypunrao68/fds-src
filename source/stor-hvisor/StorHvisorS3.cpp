@@ -112,7 +112,7 @@ void StorHvCtrl::TxnRequestHelper::setStatus(FDSN_Status status) {
 }
 
 bool StorHvCtrl::TxnRequestHelper::hasError() {
-    return ((status != FDSN_StatusOK) && (status != FDSN_StatusNOTSET))
+    return ((status != FDSN_StatusOK) && (status != FDSN_StatusNOTSET));
 }
 
 StorHvCtrl::TxnRequestHelper::~TxnRequestHelper() {
