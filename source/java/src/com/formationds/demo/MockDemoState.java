@@ -23,7 +23,17 @@ public class MockDemoState implements DemoState {
     private String searchExpression;
     private int readThrottle;
     private int writeThrottle;
+    private ObjectStoreType objectStoreType = ObjectStoreType.apiS3;
 
+    @Override
+    public void setObjectStore(ObjectStoreType type) {
+        this.objectStoreType = type;
+    }
+
+    @Override
+    public ObjectStoreType getObjectStore() {
+        return objectStoreType;
+    }
 
     @Override
     public void setSearchExpression(String searchExpression) {

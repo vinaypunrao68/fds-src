@@ -14,6 +14,10 @@ public interface DemoState {
 
     Optional<ImageResource> peekWriteQueue();
 
+    void setObjectStore(ObjectStoreType type);
+
+    ObjectStoreType getObjectStore();
+
     int getReadThrottle();
 
     void setReadThrottle(int value);

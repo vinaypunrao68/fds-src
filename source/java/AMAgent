@@ -8,4 +8,5 @@ for i in ../lib/java/fds-1.0-bin/fds-1.0/* ; do {
 CLASSPATH=$CLASSPATH:../lib/java/classes
 
 java -classpath $CLASSPATH \
+     -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=4000 \
      com.formationds.am.Main $*

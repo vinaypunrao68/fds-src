@@ -33,8 +33,10 @@ public class GetObject implements RequestHandler {
 
     public Resource handle(Request request, String bucketName, String objectName) throws Exception {
         BlobDescriptor blobDescriptor = xdi.statBlob(S3Endpoint.FDS_S3, bucketName, objectName);
+        // String digest = Hex.encodeHexString(blobDescriptor.getDigest());
+        String digest = blobDescriptor.getMetadata().getOrDefault("etag", "");
 
-        String etag = "\"" + Hex.encodeHexString(blobDescriptor.getDigest()) + "\"";
+        String etag = "\"" + digest + "\"";
 
         String headerValue = request.getHeader("If-None-Match");
         if (headerValue != null) {

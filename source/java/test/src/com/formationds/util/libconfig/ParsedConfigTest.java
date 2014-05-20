@@ -8,10 +8,10 @@ import org.junit.Test;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-public class ParserFacadeTest {
+public class ParsedConfigTest {
     @Test
     public void testParse() throws Exception {
-        ParserFacade adapter = new ParserFacade(input);
+        ParsedConfig adapter = new ParsedConfig(input);
         assertEquals("bar", adapter.lookup("fds.foo").stringValue());
         assertEquals(42, adapter.lookup("fds.hello").intValue());
         assertTrue(adapter.lookup("fds.panda").booleanValue());
@@ -19,7 +19,7 @@ public class ParserFacadeTest {
 
     @Test(expected = RuntimeException.class)
     public void testError() throws Exception {
-        new ParserFacade("poop");
+        new ParsedConfig("poop");
     }
 
     private final static String input =

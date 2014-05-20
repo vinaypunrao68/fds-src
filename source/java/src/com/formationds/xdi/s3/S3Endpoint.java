@@ -35,6 +35,7 @@ public class S3Endpoint {
 
     public void start(int port) {
         authorize(HttpMethod.GET, "/", () -> new ListBuckets(xdi));
+        authorize(HttpMethod.POST, "/", () -> new DeleteMultipleObjects(xdi));
         authorize(HttpMethod.PUT, "/:bucket", () -> new CreateBucket(xdi));
         authorize(HttpMethod.DELETE, "/:bucket", () -> new DeleteBucket(xdi));
         authorize(HttpMethod.GET, "/:bucket", () -> new ListObjects(xdi));

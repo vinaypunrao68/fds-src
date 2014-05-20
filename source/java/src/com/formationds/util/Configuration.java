@@ -3,7 +3,7 @@ package com.formationds.util;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.util.libconfig.ParserFacade;
+import com.formationds.util.libconfig.ParsedConfig;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import org.apache.log4j.PropertyConfigurator;
@@ -61,19 +61,24 @@ public class Configuration {
         return fdsRoot.getAbsolutePath();
     }
 
-    public ParserFacade getPlatformConfig() {
+    public ParsedConfig getPlatformConfig() {
         Path path = Paths.get(getFdsRoot(), "etc", "platform.conf");
         return getParserFacade(path);
     }
 
-    public ParserFacade getOmConfig() {
+    public ParsedConfig getOmConfig() {
         Path path = Paths.get(getFdsRoot(), "etc", "orch_mgr.conf");
         return getParserFacade(path);
     }
 
-    private ParserFacade getParserFacade(Path path) {
+    public ParsedConfig getDemoConfig() {
+        Path path = Paths.get(getFdsRoot(), "etc", "demo.conf");
+        return getParserFacade(path);
+    }
+
+    private ParsedConfig getParserFacade(Path path) {
         try {
-            return new ParserFacade(Files.newInputStream(path));
+            return new ParsedConfig(Files.newInputStream(path));
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
