@@ -16,7 +16,7 @@
 
 namespace fds {
 /* Forward declarations */
-class FailoverRpcRequest;
+struct FailoverRpcRequest;
 
 /* Async rpc request identifier */
 typedef uint64_t AsyncRpcRequestId;
@@ -52,8 +52,7 @@ struct AsyncRpcTimer : FdsTimerTask {
 /**
  * Base class for async rpc requests
  */
-class AsyncRpcRequestIf {
- public:
+struct AsyncRpcRequestIf {
     AsyncRpcRequestIf();
 
     AsyncRpcRequestIf(const AsyncRpcRequestId &id, const fpi::SvcUuid &myEpId);
@@ -70,6 +69,10 @@ class AsyncRpcRequestIf {
     virtual bool isComplete();
 
     void setRpcFunc(RpcFunc rpc);
+
+    void onSuccessCb(RpcRequestSuccessCb cb);
+
+    void onErrorCb(RpcRequestErrorCb cb);
 
     void setTimeoutMs(const uint32_t &timeout_ms);
 
@@ -90,6 +93,10 @@ class AsyncRpcRequestIf {
     fds_mutex respLock_;
     /* Wrapper around rpc function call */
     RpcFunc rpc_;
+    /* Callback to be invoked on success */
+    RpcRequestSuccessCb successCb_;
+    /* Callback to be invoked when this request errors outs */
+    RpcRequestErrorCb errorCb_;
     /* Request Id */
     AsyncRpcRequestId id_;
     /* My endpoint id */
@@ -110,8 +117,7 @@ typedef boost::shared_ptr<AsyncRpcRequestIf> AsyncRpcRequestIfPtr;
 /**
  * Wrapper around asynchronous rpc request
  */
-class EPAsyncRpcRequest : public AsyncRpcRequestIf {
- public:
+struct EPAsyncRpcRequest : AsyncRpcRequestIf {
     EPAsyncRpcRequest();
 
     EPAsyncRpcRequest(const AsyncRpcRequestId &id,
@@ -120,10 +126,6 @@ class EPAsyncRpcRequest : public AsyncRpcRequestIf {
 
     ~EPAsyncRpcRequest();
 
-    void onSuccessCb(RpcRequestSuccessCb cb);
-
-    void onErrorCb(RpcRequestErrorCb cb);
-
     virtual void invoke() override;
 
     virtual void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
@@ -131,21 +133,38 @@ class EPAsyncRpcRequest : public AsyncRpcRequestIf {
 
  protected:
     fpi::SvcUuid peerEpId_;
-    /* Response callbacks.  If set they are invoked in handleResponse() */
-    RpcRequestSuccessCb successCb_;
-    RpcRequestErrorCb errorCb_;
 
     friend class FailoverRpcRequest;
 };
 typedef boost::shared_ptr<EPAsyncRpcRequest> EPAsyncRpcRequestPtr;
 
 /**
+* @brief Base class for mutiple endpoint based requests
+*/
+struct MultiEpAsyncRpcRequest : AsyncRpcRequestIf {
+    MultiEpAsyncRpcRequest();
+
+    MultiEpAsyncRpcRequest(const AsyncRpcRequestId& id,
+            const fpi::SvcUuid &myEpId,
+            const std::vector<fpi::SvcUuid>& peerEpIds);
+
+    void addEndpoint(const fpi::SvcUuid& uuid);
+
+    void onFailoverCb(RpcRequestFailoverCb cb);
+
+ protected:
+    /* Endpoint request collection */
+    std::vector<EPAsyncRpcRequestPtr> epReqs_;
+    /* Callback to invoke before failing over to the next endpoint */
+    RpcRequestFailoverCb failoverCb_;
+};
+
+/**
 * @brief Use this class for issuing failover style rpc to a set of endpoints.  It will
 * invoke the rpc agains each of the provides endpoints in order, until a success or they
 * are exhausted.
 */
-class FailoverRpcRequest : public AsyncRpcRequestIf {
- public:
+struct FailoverRpcRequest : MultiEpAsyncRpcRequest {
     FailoverRpcRequest();
 
     FailoverRpcRequest(const AsyncRpcRequestId& id,
@@ -153,14 +172,6 @@ class FailoverRpcRequest : public AsyncRpcRequestIf {
             const std::vector<fpi::SvcUuid>& peerEpIds);
 
     ~FailoverRpcRequest();
-
-    void addEndpoint(const fpi::SvcUuid& uuid);
-
-    void onFailoverCb(RpcRequestFailoverCb cb);
-
-    void onSuccessCb(RpcRequestSuccessCb cb);
-
-    void onErrorCb(RpcRequestErrorCb cb);
 
     virtual void invoke() override;
 
@@ -172,22 +183,29 @@ class FailoverRpcRequest : public AsyncRpcRequestIf {
 
     void invokeInternal_();
 
-
     /* Next endpoint to invoke the request on */
     uint8_t curEpIdx_;
-
-    /* Endpoint request collection */
-    std::vector<EPAsyncRpcRequestPtr> epReqs_;
-
-    /* Callback to invoke before failing over to the next endpoint */
-    RpcRequestFailoverCb failoverCb_;
-    /* Callback to invoke when response is succesfully received */
-    RpcRequestSuccessCb successCb_;
-    /* Callback to invoke when all the endpoints have failed */
-    RpcRequestErrorCb errorCb_;
 };
 typedef boost::shared_ptr<FailoverRpcRequest> FailoverRpcRequestPtr;
 
+
+struct QuorumRpcRequest : MultiEpAsyncRpcRequest {
+    QuorumRpcRequest();
+
+    QuorumRpcRequest(const AsyncRpcRequestId& id,
+            const fpi::SvcUuid &myEpId,
+            const std::vector<fpi::SvcUuid>& peerEpIds);
+
+    ~QuorumRpcRequest();
+
+    virtual void invoke() override;
+
+    virtual void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
+            boost::shared_ptr<std::string>& payload) override;
+
+ protected:
+};
+typedef boost::shared_ptr<QuorumRpcRequest> QuorumRpcRequestPtr;
 #if 0
 /**
  * Helper macro for invoking an rpc

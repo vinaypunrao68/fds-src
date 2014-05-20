@@ -26,12 +26,9 @@ FailoverRpcRequest::FailoverRpcRequest()
 FailoverRpcRequest::FailoverRpcRequest(const AsyncRpcRequestId& id,
                                        const fpi::SvcUuid &myEpId,
                                        const std::vector<fpi::SvcUuid>& peerEpIds)
-    : AsyncRpcRequestIf(id, myEpId),
+    : MultiEpAsyncRpcRequest(id, myEpId, peerEpIds),
       curEpIdx_(0)
 {
-    for (auto uuid : peerEpIds) {
-        addEndpoint(uuid);
-    }
 }
 
 FailoverRpcRequest::~FailoverRpcRequest()
@@ -39,48 +36,7 @@ FailoverRpcRequest::~FailoverRpcRequest()
     GLOGDEBUG << " id: " << id_;
 }
 
-/**
- * For adding endpoint.
- * NOTE: Only invoke during initialization.  Donot invoke once
- * the request is in progress
- * @param uuid
- */
-void FailoverRpcRequest::addEndpoint(const fpi::SvcUuid& uuid)
-{
-    epReqs_.push_back(EPAsyncRpcRequestPtr(new EPAsyncRpcRequest(id_, myEpId_, uuid)));
-}
 
-/**
- * NOTE: Only invoke during initialization.  Donot invoke once
- * the request is in progress
- * @param cb
- */
-void FailoverRpcRequest::onFailoverCb(RpcRequestFailoverCb cb)
-{
-    failoverCb_ = cb;
-}
-
-/**
- * NOTE: Only invoke during initialization.  Donot invoke once
- * the request is in progress
- *
- * @param cb
- */
-void FailoverRpcRequest::onSuccessCb(RpcRequestSuccessCb cb)
-{
-    successCb_ = cb;
-}
-
-/**
- * NOTE: Only invoke during initialization.  Donot invoke once
- * the request is in progress
- *
- * @param cb
- */
-void FailoverRpcRequest::onErrorCb(RpcRequestErrorCb cb)
-{
-    errorCb_ = cb;
-}
 
 /**
  * Not thread safe.  Client should invoke this function only once.
