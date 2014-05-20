@@ -6,7 +6,7 @@ package com.formationds.spike;
 import FDS_ProtocolInterface.*;
 import com.formationds.fdsp.ClientFactory;
 import org.apache.thrift.TException;
-
+import java.util.List;
 import java.nio.ByteBuffer;
 
 public class StorageClientTest {
@@ -61,6 +61,30 @@ class MetadataResponseHandler implements FDSP_MetaDataPathReq.Iface {
                          String blobName) throws TException {
         System.out.println(fds_msg);
         // System.out.println(blob_list_req);
+    }
+
+    @Override
+    public void StartBlobTx(FDSP_MsgHdrType fds_msg,
+                            String volumeName,
+                            String blobName,
+                            TxDescriptor txDesc) throws TException {
+        System.out.println(fds_msg);
+        // System.out.println(blob_list_req);
+    }
+
+    @Override
+    public void SetBlobMetaData(FDSP_MsgHdrType header, String volumeName, String blobName, List<FDSP_MetaDataPair> metaDataList) throws TException {
+        System.out.println(header);
+    }
+
+    @Override
+    public void GetBlobMetaData(FDSP_MsgHdrType header, String volumeName, String blobName) throws TException {
+        System.out.println(header);
+    }
+
+    @Override
+    public void GetVolumeMetaData(FDSP_MsgHdrType header, String volumeName) throws TException {
+        System.out.println(header);
     }
 }
 

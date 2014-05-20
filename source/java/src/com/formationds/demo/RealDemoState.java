@@ -3,9 +3,6 @@ package com.formationds.demo;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.apis.VolumePolicy;
-import com.formationds.xdi.Xdi;
-import org.apache.thrift.TException;
 import org.joda.time.DateTime;
 import org.joda.time.Duration;
 
@@ -15,42 +12,21 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 public class RealDemoState implements DemoState {
+    private static final ObjectStoreType DEFAULT_OBJECT_STORE = ObjectStoreType.swift;
     private DateTime lastAccessed;
     private DemoRunner demoRunner;
-    private final ImageReader reader;
-    private final ImageWriter writer;
+    private DemoConfig demoConfig;
 
-    public RealDemoState(Duration timeToLive, Xdi xdi) {
-        try {
-            xdi.deleteVolume(Main.DEMO_DOMAIN, "Volume1");
-            xdi.deleteVolume(Main.DEMO_DOMAIN, "Volume2");
-            xdi.deleteVolume(Main.DEMO_DOMAIN, "Volume3");
-            xdi.deleteVolume(Main.DEMO_DOMAIN, "Volume4");
-        } catch (Exception e) {
-
-        }
-
-        try {
-            xdi.createVolume(Main.DEMO_DOMAIN, "Volume1", new VolumePolicy(1024 * 4));
-            xdi.createVolume(Main.DEMO_DOMAIN, "Volume2", new VolumePolicy(1024 * 4));
-            xdi.createVolume(Main.DEMO_DOMAIN, "Volume3", new VolumePolicy(1024 * 4));
-            xdi.createVolume(Main.DEMO_DOMAIN, "Volume4", new VolumePolicy(1024 * 4));
-        } catch (TException e) {
-            throw new RuntimeException(e);
-        }
-
-        reader = new FdsImageReader(xdi);
-        writer = new FdsImageWriter(xdi);
-
+    public RealDemoState(Duration timeToLive, DemoConfig demoConfig) {
+        this.demoConfig = demoConfig;
         lastAccessed = DateTime.now();
-
         ScheduledExecutorService scavenger = Executors.newSingleThreadScheduledExecutor();
         scavenger.scheduleAtFixedRate(() -> {
             if (new Duration(lastAccessed, DateTime.now()).isLongerThan(timeToLive)) {
                 if (demoRunner != null) {
                     demoRunner.tearDown();
                     demoRunner = null;
-                }
+                }   
             }
         }, 0, 5, TimeUnit.SECONDS);
         scavenger.shutdown();
@@ -61,11 +37,12 @@ public class RealDemoState implements DemoState {
         lastAccessed = DateTime.now();
         if (demoRunner != null) {
             demoRunner.tearDown();
-            DemoRunner newRunner = new DemoRunner(searchExpression, reader, writer, demoRunner.getReadParallelism(), demoRunner.getWriteParallelism());
+            DemoRunner newRunner = new DemoRunner(searchExpression, demoRunner.getReadParallelism(), demoRunner.getWriteParallelism(), demoRunner.getObjectStore());
             demoRunner = newRunner;
             demoRunner.start();
         } else {
-            demoRunner = new DemoRunner(searchExpression, reader, writer, 1, 1);
+            ObjectStore objectStore = new ObjectStore(demoConfig, DEFAULT_OBJECT_STORE);
+            demoRunner = new DemoRunner(searchExpression, 0, 0, objectStore);
             demoRunner.start();
         }
     }
@@ -78,14 +55,13 @@ public class RealDemoState implements DemoState {
 
     @Override
     public Optional<ImageResource> peekReadQueue() {
-        lastAccessed = DateTime.now();
-        return demoRunner == null || demoRunner.peekReadQueue() == null? Optional.empty() : Optional.of(demoRunner.peekReadQueue());
+        return peekWriteQueue();
     }
 
     @Override
     public Optional<ImageResource> peekWriteQueue() {
         lastAccessed = DateTime.now();
-        return demoRunner == null || demoRunner.peekWriteQueue() == null? Optional.empty() : Optional.of(demoRunner.peekWriteQueue());
+        return demoRunner == null ? Optional.empty() : demoRunner.peekReadQueue();
     }
 
     @Override
@@ -99,7 +75,7 @@ public class RealDemoState implements DemoState {
         lastAccessed = DateTime.now();
         if (demoRunner != null) {
             demoRunner.tearDown();
-            DemoRunner newRunner = new DemoRunner(demoRunner.getQuery(), reader, writer, value, demoRunner.getWriteParallelism());
+            DemoRunner newRunner = new DemoRunner(demoRunner.getQuery(), value, demoRunner.getWriteParallelism(), demoRunner.getObjectStore());
             demoRunner = newRunner;
             demoRunner.start();
         }
@@ -116,10 +92,28 @@ public class RealDemoState implements DemoState {
         lastAccessed = DateTime.now();
         if (demoRunner != null) {
             demoRunner.tearDown();
-            DemoRunner newRunner = new DemoRunner(demoRunner.getQuery(), reader, writer, demoRunner.getReadParallelism(), value);
+            DemoRunner newRunner = new DemoRunner(demoRunner.getQuery(), demoRunner.getReadParallelism(), value, demoRunner.getObjectStore());
             demoRunner = newRunner;
             demoRunner.start();
         }
+    }
+
+    @Override
+    public void setObjectStore(ObjectStoreType type) {
+        lastAccessed = DateTime.now();
+        if (demoRunner != null) {
+            demoRunner.tearDown();
+            ObjectStore objectStore = new ObjectStore(demoConfig, type);
+            DemoRunner newRunner = new DemoRunner(demoRunner.getQuery(), demoRunner.getReadParallelism(), demoRunner.getWriteParallelism(), objectStore);
+            demoRunner = newRunner;
+            demoRunner.start();
+        }
+    }
+
+    @Override
+    public ObjectStoreType getObjectStore() {
+        lastAccessed = DateTime.now();
+        return demoRunner == null? DEFAULT_OBJECT_STORE : demoRunner.getObjectStore().getType();
     }
 
     @Override

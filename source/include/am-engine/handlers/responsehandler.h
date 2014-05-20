@@ -10,102 +10,175 @@
 #include <apis/apis_types.h>
 
 namespace fds {
-    /**
-     * HandlerType:
-     *    - defines how the cb is executed when call() is called!!
-     *    WAITEDFOR : Someone else will wait for this call to complete & then process
-     *    IMMEDIATE : will be processed at the time of call
-     *    QUEUED    : this data will be queued for later processing
-     */
-    enum class HandlerType { WAITEDFOR, IMMEDIATE, QUEUED };
+/**
+ * HandlerType:
+ *    - defines how the cb is executed when call() is called!!
+ *    WAITEDFOR : Someone else will wait for this call to complete & then process
+ *    IMMEDIATE : will be processed at the time of call
+ *    QUEUED    : this data will be queued for later processing
+ */
+enum class HandlerType { WAITEDFOR, IMMEDIATE, QUEUED };
 
-    struct ResponseHandler : virtual native::Callback {
-        HandlerType type = HandlerType::WAITEDFOR;
-        void call();
-        void ready();
-        void wait();
-        bool waitFor(ulong timeout);
+struct ResponseHandler : virtual Callback {
+    HandlerType type = HandlerType::WAITEDFOR;
+    void call();
+    void ready();
+    void wait();
+    bool waitFor(ulong timeout);
 
-        virtual void process() {};
+    virtual void process() {};
 
-        virtual ~ResponseHandler();
+    virtual ~ResponseHandler();
   protected:
-        concurrency::TaskStatus task;
-    };
+    concurrency::TaskStatus task;
+};
 
-    struct SimpleResponseHandler : ResponseHandler {
-        std::string name;
-        SimpleResponseHandler();
-        SimpleResponseHandler(const std::string& name);
+struct SimpleResponseHandler : ResponseHandler {
+    typedef boost::shared_ptr<SimpleResponseHandler> ptr;
+    std::string name;
+    SimpleResponseHandler();
+    SimpleResponseHandler(const std::string& name);
 
-        virtual void process();
-        virtual ~SimpleResponseHandler();
-    };
+    virtual void process();
+    virtual ~SimpleResponseHandler();
+};
 
-    struct StatBlobResponseHandler : ResponseHandler {
-        StatBlobResponseHandler(apis::BlobDescriptor &retVal);
+struct StatBlobResponseHandler : ResponseHandler , StatBlobCallback {
+    StatBlobResponseHandler(apis::BlobDescriptor &retVal);
+    typedef boost::shared_ptr<StatBlobResponseHandler> ptr;
 
-        apis::BlobDescriptor &retBlobDesc;
-        BlobDescriptor blobDesc;
+    apis::BlobDescriptor &retBlobDesc;
 
-        virtual void process();
-        virtual ~StatBlobResponseHandler();
-    };
+    virtual void process();
+    virtual ~StatBlobResponseHandler();
+};
 
-    struct PutObjectResponseHandler : ResponseHandler {
-        void *reqContext = NULL;
-        fds_uint64_t bufferSize = 0;
-        fds_off_t offset = 0;
-        char *buffer;
+struct AttachVolumeResponseHandler : ResponseHandler {
+    AttachVolumeResponseHandler();
+    typedef boost::shared_ptr<AttachVolumeResponseHandler> ptr;
 
-        virtual void process();
-        virtual ~PutObjectResponseHandler();
-    };
+    virtual void process();
+    virtual ~AttachVolumeResponseHandler();
+};
 
-    struct GetObjectResponseHandler : ResponseHandler {
-        BucketContextPtr bucket_ctx;
-        void *reqContext = NULL;
-        fds_uint64_t bufferSize = 0;
-        fds_off_t offset = 0;
-        const char *buffer = NULL;
-        fds_uint64_t blobSize = 0;
-        std::string blobEtag;
+struct StartBlobTxResponseHandler : ResponseHandler, StartBlobTxCallback {
+    StartBlobTxResponseHandler(apis::TxDescriptor &retVal);
+    typedef boost::shared_ptr<StartBlobTxResponseHandler> ptr;
 
-        virtual void process();
-        virtual ~GetObjectResponseHandler();
-    };
+    apis::TxDescriptor &retTxDesc;
+    BlobTxId            blobTxId;
 
-    struct ListBucketResponseHandler : ResponseHandler {
-        int isTruncated = 0;
-        const char *nextMarker = NULL;
-        int contentsCount = 0;
-        const ListBucketContents *contents =NULL;
-        int commonPrefixesCount = 0;
-        const char **commonPrefixes = NULL;
+    virtual void process();
+    virtual ~StartBlobTxResponseHandler();
+};
 
-        virtual void process();
-        virtual ~ListBucketResponseHandler();
-    };
+struct PutObjectResponseHandler : ResponseHandler {
+    void *reqContext = NULL;
+    fds_uint64_t bufferSize = 0;
+    fds_off_t offset = 0;
+    char *buffer;
 
-    struct BucketStatsResponseHandler : ResponseHandler {
-        BucketStatsResponseHandler(apis::VolumeDescriptor& volumeDescriptor);
+    virtual void process();
+    virtual ~PutObjectResponseHandler();
+};
 
-        apis::VolumeDescriptor& volumeDescriptor;
-        const std::string* timestamp = NULL;
-        int content_count = 0;
-        const BucketStatsContent* contents = NULL;
-        void *req_context = NULL;
+/**
+ * Response handler for native putObject() calls done
+ * for block-specific requests.
+ * A specific handler is needed because an additional
+ * callback to UBD is needed to notify the kernel that
+ * a request has been processed.
+ */
+struct PutObjectBlkResponseHandler : PutObjectResponseHandler {
+    typedef boost::function<void(fds_int32_t)> blkCallback;
+    blkCallback ubdCallback;
 
-        virtual void process();
-        virtual ~BucketStatsResponseHandler();
-    };
+    template<typename F, typename A, typename B, typename C>
+    PutObjectBlkResponseHandler(F f,
+                                A a,
+                                B b,
+                                C c)
+            : ubdCallback(boost::bind(f, a, b, c, _1)) {
+        type = HandlerType::IMMEDIATE;
+    }
+    virtual void process();
+    virtual ~PutObjectBlkResponseHandler();
 
-    /** Newer callback schemes **/
+    typedef boost::shared_ptr<PutObjectBlkResponseHandler> ptr;
+};
 
-// struct StatBlobResponseHandler : virtual ResponseHandler, virtual native::StatBlobCallback {
-//     apis::BlobDescriptor* blobDescriptor;
-//      virtual void process();
-//  };
+struct GetObjectResponseHandler : ResponseHandler {
+    BucketContextPtr bucket_ctx;
+    void *reqContext = NULL;
+    fds_uint64_t bufferSize = 0;
+    fds_off_t offset = 0;
+    const char *buffer = NULL;
+    fds_uint64_t blobSize = 0;
+    std::string blobEtag;
+
+    virtual void process();
+    virtual ~GetObjectResponseHandler();
+};
+
+/**
+ * Response handler for native getObject() calls done
+ * for block-specific requests.
+ * A specific handler is needed because an additional
+ * callback to UBD is needed to notify the kernel that
+ * a request has been processed.
+ */
+struct GetObjectBlkResponseHandler : GetObjectResponseHandler {
+    typedef boost::function<void(fds_int32_t)> blkCallback;
+    blkCallback ubdCallback;
+
+    template<typename F, typename A, typename B, typename C>
+    GetObjectBlkResponseHandler(F f,
+                                A a,
+                                B b,
+                                C c)
+            : ubdCallback(boost::bind(f, a, b, c, _1)) {
+        type = HandlerType::IMMEDIATE;
+    }
+    virtual void process();
+    virtual ~GetObjectBlkResponseHandler();
+
+    typedef boost::shared_ptr<GetObjectBlkResponseHandler> ptr;
+};
+
+struct ListBucketResponseHandler : ResponseHandler {
+    ListBucketResponseHandler(std::vector<apis::BlobDescriptor> & vecBlobs);
+
+    std::vector<apis::BlobDescriptor> & vecBlobs;
+    int isTruncated = 0;
+    const char *nextMarker = NULL;
+    int contentsCount = 0;
+    const ListBucketContents *contents = NULL;
+    int commonPrefixesCount = 0;
+    const char **commonPrefixes = NULL;
+
+    virtual void process();
+    virtual ~ListBucketResponseHandler();
+};
+
+struct BucketStatsResponseHandler : ResponseHandler {
+    BucketStatsResponseHandler(apis::VolumeDescriptor& volumeDescriptor);
+
+    apis::VolumeDescriptor& volumeDescriptor;
+    const std::string* timestamp = NULL;
+    int content_count = 0;
+    const BucketStatsContent* contents = NULL;
+    void *req_context = NULL;
+
+    virtual void process();
+    virtual ~BucketStatsResponseHandler();
+};
+
+struct StatVolumeResponseHandler : ResponseHandler, GetVolumeMetaDataCallback {
+    TYPE_SHAREDPTR(StatVolumeResponseHandler);
+    apis::VolumeStatus& volumeStatus;
+    explicit StatVolumeResponseHandler(apis::VolumeStatus& volumeStatus);
+    virtual void process();
+};
 
 }  // namespace fds
 #endif  // SOURCE_INCLUDE_AM_ENGINE_HANDLERS_RESPONSEHANDLER_H_

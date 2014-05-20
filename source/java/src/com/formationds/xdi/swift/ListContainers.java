@@ -36,19 +36,28 @@ public class ListContainers implements SwiftRequestHandler {
         String accountName = requiredString(routeParameters, "account");
 
         ResponseFormat format = obtainFormat(request);
+        // TODO: get xdi call for a subset of this info
+        // TODO: implement limit, marker, end_marker, format, prefix, delimiter query string variables
         List<VolumeDescriptor> volumes = xdi.listVolumes(accountName);
 
+        Resource result;
         switch (format) {
             case xml:
-                return xmlView(volumes, accountName);
+                result = xmlView(volumes, accountName);
+                break;
 
             case json:
-                return jsonView(volumes, accountName);
+                result = jsonView(volumes, accountName);
+                break;
 
             default:
-                return plainView(volumes);
+                result = plainView(volumes);
+                break;
         }
 
+        // TODO: Implement X-Account-Object-Count, X-Account-Bytes-Used, X-Account-Meta-*
+        //
+        return SwiftUtility.swiftResource(result);
     }
 
     private Resource plainView(List<VolumeDescriptor> volumes) {
@@ -68,8 +77,8 @@ public class ListContainers implements SwiftRequestHandler {
                     }
                     return new JSONObject()
                             .put("name", v.getName())
-                            .put("count", Long.toString(status.getBlobCount()))
-                            .put("size", Long.toString(0));
+                            .put("count", status.getBlobCount())
+                            .put("bytes", status.getCurrentUsageInBytes());
                 })
                 .collect(new JsonArrayCollector());
         return new JsonResource(array);
@@ -90,7 +99,7 @@ public class ListContainers implements SwiftRequestHandler {
                     Element object = root.addElement("container");
                     object.addElement("name").addText(v.getName());
                     object.addElement("count").addText(Long.toString(status.getBlobCount()));
-                    object.addElement("bytes").addText("0");
+                    object.addElement("bytes").addText(Long.toString(status.getCurrentUsageInBytes()));
                 });
 
         return new Dom4jResource(document);

@@ -19,6 +19,33 @@ public class PerfStats implements RequestHandler {
         this.state = state;
     }
 
+/*
+       Returns a jason frame like so:
+
+       [
+          {
+             operation: "Read performance",
+             unit: "IOPs/second"
+             values:
+             {
+                "Volume1": 43,
+                "Volume2": 5,
+                "Volume3": 12,
+             }
+          },
+          {
+             operation: "Write performance",
+             unit: "IOPs/second"
+             values:
+             {
+                "Volume1": 43,
+                "Volume2": 5,
+                "Volume3": 12,
+             }
+          }
+       ]
+*/
+
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
         Counts readCounts = state.consumeReadCounts();

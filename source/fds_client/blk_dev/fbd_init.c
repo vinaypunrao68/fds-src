@@ -147,14 +147,14 @@ static int fbd_set_tgt_blksize(struct block_device *bdev, struct fbd_device *fbd
 		return 0;
 }
 
-static int fbd_set_tgt_size(struct block_device *bdev, struct fbd_device *fbd, int data)
+static int fbd_set_tgt_size(struct block_device *bdev, struct fbd_device *fbd, u64 data)
 {
-		fbd->bytesize = data & ~(fbd->blocksize-1);
-		bdev->bd_inode->i_size = fbd->bytesize;
-//		set_blocksize(bdev, fbd->blocksize);
-		set_capacity(fbd->disk, fbd->bytesize >> 9);
-		return 0;
-
+    fbd->bytesize = data & ~((u64)((u64)fbd->blocksize - 1));
+    bdev->bd_inode->i_size = fbd->bytesize;
+    //	set_blocksize(bdev, fbd->blocksize);
+    set_capacity(fbd->disk, fbd->bytesize >> 9);
+                
+    return 0;
 }
 
 static int __fbd_dev_ioctl(struct block_device *bdev, struct fbd_device *fbd,

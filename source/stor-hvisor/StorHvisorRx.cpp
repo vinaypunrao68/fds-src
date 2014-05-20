@@ -1,8 +1,8 @@
-#include "StorHvisorNet.h"
-#include "list.h"
-#include "StorHvisorCPP.h"
+#include "./StorHvisorNet.h"
+#include "./list.h"
+#include "./StorHvisorCPP.h"
 #include <arpa/inet.h>
-
+#include <string>
 using namespace std;
 using namespace FDS_ProtocolInterface;
 #define SRC_IP  0x0a010a65
@@ -10,6 +10,7 @@ using namespace FDS_ProtocolInterface;
 extern StorHvCtrl *storHvisor;
 
 // Warning: Assumes that caller holds the lock to the transaction
+// TODO(Andrew): Why don't we just pass the journal entry...?
 int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) {
 
     fds_int32_t  result  = 0;
@@ -33,6 +34,19 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) {
               << " dm_commits:" << txn->dm_commit_cnt
               << " num_dm_nodes:" << txn->num_dm_nodes
               << " num_sm_nodes:" << txn->num_sm_nodes;
+
+    // TODO(Andrew): Handle start blob trans separate from
+    // the normal put/get transactions
+    if (txn->trans_state == FDS_TRANS_BLOB_START) {
+        if (txn->dm_ack_cnt == txn->num_dm_nodes) {
+            // We return 1 to indicate all of the acks
+            // have been received. This allows the caller
+            // to handle what needs to be done instead
+            // of this generic helper function.
+            return 1;
+        }
+        return 0;
+    }
             
     switch(txn->trans_state)  {
         case FDS_TRANS_OPEN:
@@ -90,7 +104,6 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) {
                 // Mark the IO complete, clean up txn, and callback
                 qos_ctrl->markIODone(qosReq);
                 txn->trans_state = FDS_TRANS_EMPTY;
-                txn->write_ctx   = 0;
                 // del_timer(txn->p_ti);
                 blobReq->cbWithResult(0);
 
@@ -132,6 +145,8 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) {
         upd_obj_req->obj_list.clear();
         upd_obj_req->obj_list.push_back(upd_obj_info);
         upd_obj_req->meta_list.clear();
+        // TODO(Andrew): Actually set this...
+        upd_obj_req->txDesc.txId = 0;
 
         /*
          * Set the blob name from the blob request
@@ -184,6 +199,13 @@ void FDSP_DataPathRespCbackI::PutObjectResp(FDSP_MsgHdrTypePtr& msghdr,
     fds_verify(err == ERR_OK);
 }
 
+void
+FDSP_MetaDataPathRespCbackI::StartBlobTxResp(boost::shared_ptr<FDSP_MsgHdrType> &msgHdr) {
+    LOGDEBUG << "Received StartBlobTx response for journal txn "
+             << msgHdr->req_cookie;
+    storHvisor->startBlobTxResp(msgHdr);
+}
+
 void FDSP_MetaDataPathRespCbackI::UpdateCatalogObjectResp(FDSP_MsgHdrTypePtr& fdsp_msg,
                                                           FDSP_UpdateCatalogTypePtr& update_cat) {
     LOGDEBUG << "Received updCatObjResp for txn "
@@ -199,6 +221,17 @@ FDSP_MetaDataPathRespCbackI::StatBlobResp(boost::shared_ptr<FDSP_MsgHdrType> &ms
     LOGDEBUG << "Received StatBlob response for txn "
              << msgHdr->req_cookie;
     storHvisor->statBlobResp(msgHdr, blobDesc);
+}
+
+void FDSP_MetaDataPathRespCbackI::SetBlobMetaDataResp(boost::shared_ptr<FDSP_MsgHdrType>& header,
+                                                      boost::shared_ptr<std::string>& blobName) {
+    LOGDEBUG << "received response for txn: "<< header->req_cookie;
+    storHvisor->handleSetBlobMetaDataResp(header);
+}
+
+void FDSP_MetaDataPathRespCbackI::GetBlobMetaDataResp(boost::shared_ptr<FDSP_MsgHdrType>& header,
+                                                      boost::shared_ptr<std::string>& blobName,
+                                                      boost::shared_ptr<FDSP_MetaDataList>& metaDataList) {
 }
 
 int StorHvCtrl::fds_move_del_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) {
@@ -362,7 +395,6 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
 
         storHvisor->qos_ctrl->markIODone(journEntry->io);
         journEntry->trans_state = FDS_TRANS_EMPTY;
-        journEntry->write_ctx = 0;
 
         blobReq->setDataLen(0);
         fds_int32_t result = -1;
@@ -376,6 +408,8 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
         shvol->journal_tbl->releaseTransId(trans_id);
         return;
     }
+
+    fds_bool_t offsetFound = false;
 
     // Insert the returned entries into the cache
     FDS_ProtocolInterface::FDSP_BlobObjectList blobOffList = cat_obj_req->obj_list;
@@ -392,11 +426,36 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
                                                (fds_uint32_t)(*it).size,
                                                offsetObjId);
         fds_verify(err == ERR_OK);
+
+        // Check if we received the offset we queried about
+        // TODO(Andrew): Today DM just gives us the entire
+        // blob, so it doesn't tell us if the offset we queried
+        // about was in the list or not
+        if ((fds_uint64_t)(*it).offset == blobReq->getBlobOffset()) {
+            offsetFound = true;
+        }
+    }
+
+    if (offsetFound == false) {
+        // We queried for a specific blob offset and didn't get it
+        // in the response
+        LOGWARN << "Blob " << blobReq->getBlobName()
+                << " query catalog did NOT return requested offset "
+                << blobReq->getBlobOffset();
+        
+        storHvisor->qos_ctrl->markIODone(journEntry->io);
+        journEntry->trans_state = FDS_TRANS_DONE;
+
+        blobReq->setDataLen(0);
+        blobReq->cbWithResult(FDSN_StatusEntityDoesNotExist);
+        journEntry->reset();
+        shvol->journal_tbl->releaseTransId(trans_id);
+        return;
     }
 
     // Insert the blob's etag into the cache
     FDS_ProtocolInterface::FDSP_MetaDataList blobMetaList = cat_obj_req->meta_list;
-    fds_verify(blobMetaList.empty() == false);
+    // fds_verify(blobMetaList.empty() == false);
     for (FDS_ProtocolInterface::FDSP_MetaDataList::const_iterator it =
                  blobMetaList.cbegin();
          it != blobMetaList.cend();
@@ -464,4 +523,9 @@ void FDSP_MetaDataPathRespCbackI::GetVolumeBlobListResp(
              <<  fdsp_msg_hdr->req_cookie; 
     fds::Error err = storHvisor->getBucketResp(fdsp_msg_hdr, blob_list_resp);
     fds_verify(err == ERR_OK);
+}
+
+void FDSP_MetaDataPathRespCbackI::GetVolumeMetaDataResp(fpi::FDSP_MsgHdrTypePtr& header,
+                                                        fpi::FDSP_VolumeMetaDataPtr& volumeMeta) {
+    storHvisor->handlerGetVolumeMetaData->handleResponse(header, volumeMeta);
 }

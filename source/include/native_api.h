@@ -5,7 +5,8 @@
 #include <fds_error.h>
 #include <list>
 #include <native/types.h>
-
+#include <string>
+#include <fds_typedefs.h>
 /* Put Bucket Policy and Get Stats use normalized values (between 0 and 100) for
  * "sla" (iops_min), "limit" (iops_max) and "performance" (average iops).
  * For now we are just dividing absolute values by the below constant number
@@ -17,12 +18,11 @@ namespace fds {
 
     // FDS_NativeAPI  object class : One object per client Type so that the semantics of
     // the particular access protocols can be followed in returning the data
-    // TODO: [Vy] I'd like to make this class as singleton and inherits from
+    // TODO:(Vy):  I'd like to make this class as singleton and inherits from
     // fds::Module class.
     //
     class FDS_NativeAPI {
   public:
-
         enum FDSN_ClientType {
             FDSN_AWS_S3,
             FDSN_MSFT_AZURE,
@@ -82,16 +82,17 @@ namespace fds {
                        fdsnGetObjectHandler getObjCallback,
                        void *callbackdata);
 
-        void PutObject(BucketContext *bucket_ctxt,
-                       std::string ObjKey,
-                       PutPropertiesPtr putproperties,
-                       void *reqContext,
-                       char *buffer,
-                       fds_uint64_t startByte,
-                       fds_uint64_t buflen,
-                       fds_bool_t lastBuf,
-                       fdsnPutObjectHandler putObjHandler,
-                       void *callbackData);
+        void PutBlob(BucketContext *bucket_ctxt,
+                     std::string ObjKey,
+                     PutPropertiesPtr putproperties,
+                     void *reqContext,
+                     char *buffer,
+                     fds_uint64_t startByte,
+                     fds_uint64_t buflen,
+                     BlobTxId::ptr txDesc,
+                     fds_bool_t lastBuf,
+                     fdsnPutObjectHandler putObjHandler,
+                     void *callbackData);
 
         void DeleteObject(BucketContext *bucket_ctxt,
                           std::string ObjKey,
@@ -108,10 +109,23 @@ namespace fds {
         /** Callbacks on the newer scheme **/
         void StatBlob(const std::string& volumeName,
                       const std::string& blobName,
-                      fdsnStatBlobHandler cb,
-                      void *cbData);
+                      CallbackPtr cb);
 
-  private:
+        void StartBlobTx(const std::string& volumeName,
+                         const std::string& blobName,
+                         CallbackPtr cb);
+
+        void attachVolume(const std::string& volumeName,
+                          CallbackPtr cb);
+
+        void setBlobMetaData(const std::string& volumeName,
+                             const std::string& blobName,
+                             boost::shared_ptr<fpi::FDSP_MetaDataList>& metaDataList,
+                             CallbackPtr cb);
+
+        void GetVolumeMetaData(const std::string& volumeName, CallbackPtr cb);
+
+      private:
         /**
          * Sends 'test bucket' message to OM. If bucket exists (OM knows about it),
          * OM will attach the bucket to this AM. Otherwise, will return error.
@@ -121,16 +135,16 @@ namespace fds {
          *    Other error codes if error happened.
          */
         Error sendTestBucketToOM(const std::string& bucket_name,
-                                 const std::string& access_key_id,
-                                 const std::string& secret_access_key);
+                                 const std::string& access_key_id = "" ,
+                                 const std::string& secret_access_key = "");
 
-        /* helper function to initialize volume info to some default values, used by several native api methods */
+        /* helper function to initialize volume info to some default values, 
+           used by several native api methods */
         void initVolInfo(FDS_ProtocolInterface::FDSP_VolumeInfoTypePtr vol_info,
                          const std::string& bucket_name);
 
         void initVolDesc(FDS_ProtocolInterface::FDSP_VolumeDescTypePtr vol_desc,
                          const std::string& bucket_name);
-
     };
 }  // namespace fds
-#endif
+#endif  // SOURCE_INCLUDE_NATIVE_API_H_

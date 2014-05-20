@@ -26,9 +26,9 @@ public class CreateObject implements RequestHandler {
 
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
-        String domain = routeParameters.get("account");
-        String volume = routeParameters.get("container");
-        String object = routeParameters.get("object");
+        String domain = requiredString(routeParameters, "account");
+        String volume = requiredString(routeParameters, "container");
+        String object = requiredString(routeParameters, "object");
 
         String contentType = request.getHeader("Content-Type");
 
@@ -36,22 +36,17 @@ public class CreateObject implements RequestHandler {
             contentType = StaticFileHandler.getMimeType(object);
         }
 
-        Map<String, String> metadata = new HashMap<>();
+        // TODO: factor this into common XDI stuff
+        Map<String, String> metadata = new HashMap<String, String>();
         metadata.put("Content-Type", contentType);
+        metadata.put("Last-Modified", SwiftUtility.formatRfc1123Date(DateTime.now()));
 
         byte[] digest = xdi.writeStream(domain, volume, object, request.getInputStream(), metadata);
 
-        final String finalContentType = contentType;
-        TextResource resource = new TextResource(201, "") {
-            @Override
-            public Multimap<String, String> extraHeaders() {
-                LinkedListMultimap<String, String> headers = LinkedListMultimap.create();
-                headers.put("ETag", Hex.encodeHexString(digest));
-                headers.put("Content-Type", finalContentType);
-                headers.put("Date", DateTime.now().toString());
-                return headers;
-            }
-        };
-        return resource;
+
+        // TODO: add real transactionId instead of call to swiftResource here
+        return SwiftUtility.swiftResource(new TextResource(201, ""))
+                .withHeader("ETag", Hex.encodeHexString(digest))
+                .withHeader("Content-Type", contentType);
     }
 }
