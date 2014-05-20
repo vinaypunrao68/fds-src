@@ -39,6 +39,11 @@ EpSvc::ep_apply_attr()
 {
 }
 
+/*
+ * -----------------------------------------------------------------------------------
+ * EndPoint Handler
+ * -----------------------------------------------------------------------------------
+ */
 EpSvcHandle::EpSvcHandle()
     : ep_refcnt(0), ep_state(EP_ST_INIT),
       ep_owner(NULL), ep_plugin(NULL), ep_rpc(NULL), ep_trans(NULL) {}
@@ -64,42 +69,40 @@ EpSvcHandle::~EpSvcHandle()
     }
 }
 
-/*
- * -----------------------------------------------------------------------------------
- * EndPoint Handler
- * -----------------------------------------------------------------------------------
- */
-
-// endpoint_etry_connect
-// ---------------------
-// Thread pool function to retry the connection.
-//
-void
-endpoint_retry_connect(EpSvcHandle::pointer ptr)
-{
-    ptr->ep_reconnect();
-}
-
 // ep_reconnect
 // ------------
 //
 int
 EpSvcHandle::ep_reconnect()
 {
-    fds_verify(ep_trans != NULL);
-    ep_trans->close();
-    while (1) {
+    NetMgr    *net;
+    fds_mutex *mtx;
+
+    fds_verify((ep_rpc != NULL) && (ep_trans != NULL));
+    if ((ep_state == EP_ST_CONNECTED) || (ep_state == EP_ST_CONNECTING)) {
+        return 0;
+    }
+    net = NetMgr::ep_mgr_singleton();
+    mtx = net->ep_obj_mutex(this);
+
+    mtx->lock();
+    if (ep_state != EP_ST_CONNECTING) {
+        ep_state = EP_ST_CONNECTING;
+        mtx->unlock();
+
         try {
-            ep_state = EP_ST_CONNECTING;
             ep_trans->open();
             ep_state = EP_ST_CONNECTED;
             ep_notify_plugin();
-            return 0;
         } catch(...) {
+            ep_state = EP_ST_DISCONNECTED;
             sleep(1);
+            net->ep_mgr_thrpool()->schedule(&EpSvcHandle::ep_reconnect, this);
         }
+    } else {
+        mtx->unlock();
     }
-    return -1;
+    return 0;
 }
 
 // ep_notify_plugin

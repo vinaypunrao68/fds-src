@@ -89,29 +89,26 @@ class EpSvcImpl : public EpSvc
     template <class SendIf> static void
     ep_connect_server(int port, const std::string &ip, EpSvcHandle::pointer ptr)
     {
-        if (ptr->ep_state == EP_ST_CONNECTED) {
-            return;
-        }
-        if (ptr->ep_trans != NULL) {
-            // Reset the old connection.
-            ptr->ep_trans->close();
-        } else {
+        if (ptr->ep_state == EP_ST_INIT) {
             bo::shared_ptr<tt::TTransport> sock(new tt::TSocket(ip, port));
-            ptr->ep_trans.reset(new tt::TFramedTransport(sock));
+            bo::shared_ptr<tt::TTransport> trans(new tt::TFramedTransport(sock));
+            bo::shared_ptr<tp::TProtocol>  proto(new tp::TBinaryProtocol(trans));
+            bo::shared_ptr<SendIf>         rpc(new SendIf(proto));
 
-            bo::shared_ptr<tp::TProtocol> proto(new tp::TBinaryProtocol(ptr->ep_trans));
-            bo::shared_ptr<SendIf> rpc(new SendIf(proto));
-            ptr->ep_rpc = rpc;
+            NetMgr    *net = NetMgr::ep_mgr_singleton();
+            fds_mutex *mtx = net->ep_obj_mutex(get_pointer(ptr));
+
+            mtx->lock();
+            if (ptr->ep_state == EP_ST_INIT) {
+                ptr->ep_state = EP_ST_DISCONNECTED;
+                fds_verify((ptr->ep_trans == NULL) && (ptr->ep_rpc == NULL));
+                ptr->ep_trans = trans;
+                ptr->ep_rpc   = rpc;
+            }
+            // else, these ptrs are deleted when we're out of scope.
+            mtx->unlock();
         }
-        try {
-            ptr->ep_state = EP_ST_CONNECTING;
-            ptr->ep_trans->open();
-            ptr->ep_state = EP_ST_CONNECTED;
-            ptr->ep_notify_plugin();
-        } catch(...) {
-            fds_threadpool *pool = NetMgr::ep_mgr_singleton()->ep_mgr_thrpool();
-            pool->schedule(endpoint_retry_connect, ptr);
-        }
+        ptr->ep_reconnect();
     }
 };
 
@@ -119,6 +116,9 @@ class NetPlatSvc;
 
 /**
  * Endpoint is the logical RPC representation of a physical connection.
+ * There isn't any lock in EndPoint object because by design, it's setup by a module,
+ * which is single threaded in initialization path.
+ *
  * Thrift template implementation.
  */
 template <class SendIf, class RecvIf>
@@ -150,10 +150,13 @@ class EndPoint : public EpSvcImpl
      */
     void ep_reconnect()
     {
+        fds_assert(ep_peer != NULL);
+        ep_peer->ep_reconnect();
     }
     /**
      * ep_setup_server
      * ---------------
+     * Provide different methods to setup a Thrift's server.
      */
     void ep_setup_server()
     {
@@ -165,18 +168,41 @@ class EndPoint : public EpSvcImpl
         ep_server = bo::shared_ptr<ts::TThreadedServer>(
                 new ts::TThreadedServer(ep_rpc_recv, trans, tfact, proto));
     }
+    void ep_activate()
+    {
+        ep_setup_server();
+        ep_server->serve();
+    }
+    void ep_run_server() { ep_server->serve(); }
+
     /**
-     * Get the handle to communicate with the peer endpoint.
+     * ep_send_handle
+     * --------------
+     * Get the handle to communicate with the peer endpoint.  The init. path must call
+     * this method to setup the full duplex mode for this endpoint.
      */
     EpSvcHandle::pointer ep_send_handle()
     {
         if (ep_peer == NULL) {
-            ep_peer = new EpSvcHandle(this, ep_evt);
-            endpoint_connect_handle<SendIf>(ep_peer);
+            bool       out = true;
+            NetMgr    *net = NetMgr::ep_mgr_singleton();
+            fds_mutex *mtx = net->ep_obj_mutex(this);
+
+            mtx->lock();
+            if (ep_peer == NULL) {
+                out     = false;
+                ep_peer = new EpSvcHandle(this, ep_evt);
+            }
+            mtx->unlock();
+            if (out == false) {
+                endpoint_connect_handle<SendIf>(ep_peer);
+            }
         }
         return ep_peer;
     }
     /**
+     * ep_register
+     * -----------
      * Register the endpoint and make full duplex connection.  Use this method
      * instead of NetMgr::ep_register() because NetMgr can't do connection w/out
      * the SendIf template.
@@ -188,13 +214,6 @@ class EndPoint : public EpSvcImpl
             EpSvcHandle::pointer ptr = ep_send_handle();
             fds_verify(ptr != NULL);
         }
-    }
-    void ep_activate() {
-        ep_setup_server();
-        ep_server->serve();
-    }
-    void ep_run_server() {
-        ep_server->serve();
     }
     /**
      * Synchronous send/receive handlers.
@@ -282,6 +301,7 @@ endpoint_connect_handle(EpSvcHandle::pointer ptr,
         EpSvcImpl::ep_connect_server<SendIf>(port, ip, ptr);
     } else {
         fds_threadpool *pool = NetMgr::ep_mgr_singleton()->ep_mgr_thrpool();
+
         if (retry > 0) {
             sleep(1);
         } else if (retry > 100) {

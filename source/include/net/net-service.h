@@ -521,6 +521,13 @@ class NetMgr : public Module
      */
     static fpi::AsyncHdr ep_swap_header(const fpi::AsyncHdr &req_hdr);
 
+    /**
+     * Return mutex hashed by a pointer object.
+     */
+    inline fds_mutex *ep_obj_mutex(void *ptr) {
+        return &ep_obj_mtx[reinterpret_cast<fds_uint64_t>(ptr) % ep_mtx_arr];
+    }
+
     // Hook up with domain membership to know which node belongs to which domain.
     //
 
@@ -529,6 +536,8 @@ class NetMgr : public Module
   protected:
     // Dependent modules.
     //
+    static const int               ep_mtx_arr = 16;
+
     Platform                      *plat_lib;
     NetPlatSvc                    *plat_net;
     EpPlatLibMod                  *ep_shm;
@@ -538,6 +547,7 @@ class NetMgr : public Module
     UuidShmMap                     ep_uuid_map;
     EpHandleMap                    ep_handle_map;
     fds_mutex                      ep_mtx;
+    fds_mutex                      ep_obj_mtx[ep_mtx_arr];
 
     EpSvcHandle::pointer           ep_domain_clnt;
     bo::intrusive_ptr<DomainAgent> ep_domain_agent;
