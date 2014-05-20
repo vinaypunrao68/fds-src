@@ -17,7 +17,7 @@ import java.util.Arrays;
 
 public class Main {
     public static final String DEMO_DOMAIN = "demo";
-    public static final String[] VOLUMES = new String[]{"Volume1", "Volume2", "Volume3", "Volume4"};
+    public static final String[] VOLUMES = new String[]{"fdspanda", "fdslemur", "fdsfrog", "fdsmuskrat"};
 
     public static void main(String[] args) throws Exception {
         new Main().start(8888, args);
@@ -40,7 +40,7 @@ public class Main {
 
 
         createLocalVolumes(demoConfig);
-        createAwsVolumes(demoConfig);
+//        createAwsVolumes(demoConfig);
 
         DemoState state = new RealDemoState(Duration.standardMinutes(5), demoConfig);
 

@@ -49,10 +49,10 @@ public class Main {
 
             Authenticator authenticator = new JaasAuthenticator();
             Xdi xdi = new Xdi(am, config, authenticator);
-//
+
 //        ToyServices foo = new ToyServices("foo");
-//        foo.createDomain(FDS_S3);
-//        Xdi xdi = new Xdi(foo, foo);
+//        foo.createDomain(S3Endpoint.FDS_S3);
+//        Xdi xdi = new Xdi(foo, foo, new BypassAuthenticator());
 
             boolean enforceAuthorization = amParsedConfig.lookup("fds.am.enforce_authorization").booleanValue();
             int s3Port = amParsedConfig.lookup("fds.am.s3_port").intValue();

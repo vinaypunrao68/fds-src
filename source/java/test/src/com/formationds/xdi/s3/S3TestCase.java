@@ -7,6 +7,7 @@ import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.S3ClientOptions;
 import com.amazonaws.services.s3.model.Bucket;
+import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.S3Object;
 import com.formationds.apis.AmService;
 import com.formationds.apis.ConfigurationService;
@@ -22,9 +23,10 @@ import org.apache.thrift.transport.TSocket;
 import org.junit.Test;
 
 import java.io.ByteArrayOutputStream;
+import java.io.FileInputStream;
 
 public class S3TestCase {
-    @Test
+    //@Test
     public void testMount() throws Exception {
         TSocket amTransport = new TSocket("192.168.33.10", 9988);
         amTransport.open();
@@ -48,11 +50,11 @@ public class S3TestCase {
         AmazonS3Client client = new AmazonS3Client(new BasicAWSCredentials("fabrice", "7VpLGuZy7VCKq2B/Z4yEOw=="));
         //AmazonS3Client client = new AmazonS3Client(new BasicAWSCredentials("fabrice", "9VpLGuZy7VCKq2B/Z4yEOw=="));
         client.setS3ClientOptions(new S3ClientOptions().withPathStyleAccess(true));
-        client.setEndpoint("http://localhost:9999");
+        client.setEndpoint("http://localhost:8000");
         Bucket bucket = client.createBucket("foo");
-        //ObjectMetadata metadata = new ObjectMetadata();
+        ObjectMetadata metadata = new ObjectMetadata();
         //metadata.setContentType("image/jpg");
-        //client.putObject("foo", "image.jpg", new FileInputStream("/home/fabrice/Downloads/cat3.jpg"), metadata);
+        client.putObject("foo", "foo.jpg", new FileInputStream("/home/fabrice/Downloads/cat3.jpg"), metadata);
         S3Object foo = client.getObject("foo", "foo.jpg");
         int read = IOUtils.copy(foo.getObjectContent(), new ByteArrayOutputStream());
         System.out.println("Read " + read + " bytes");

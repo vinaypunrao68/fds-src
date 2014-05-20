@@ -21,7 +21,7 @@ public class SwiftImageReader extends ImageReader {
 
     @Override
     protected StoredImage read(StoredImage storedImage) throws Exception {
-        String url = MessageFormat.format(URL_PATTERN, host, port, storedImage.getVolumeName(), storedImage.getImageResource());
+        String url = MessageFormat.format(URL_PATTERN, host, Integer.toString(port), storedImage.getVolumeName(), storedImage.getImageResource().getId());
         try (InputStream inputStream = new URL(url).openConnection().getInputStream()) {
             IOUtils.toByteArray(inputStream);
             increment(storedImage.getVolumeName());

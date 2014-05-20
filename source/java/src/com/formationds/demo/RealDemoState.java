@@ -12,7 +12,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 public class RealDemoState implements DemoState {
-    private static final ObjectStoreType DEFAULT_OBJECT_STORE = ObjectStoreType.apiS3;
+    private static final ObjectStoreType DEFAULT_OBJECT_STORE = ObjectStoreType.swift;
     private DateTime lastAccessed;
     private DemoRunner demoRunner;
     private DemoConfig demoConfig;

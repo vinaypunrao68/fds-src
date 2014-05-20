@@ -1,22 +1,29 @@
 package com.formationds.demo;
+
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
-
 public class ObjectStore {
-    private DemoConfig demoConfig;
+
+    private final ImageReader imageReader;
+    private final ImageWriter imageWriter;
     private ObjectStoreType type;
 
     public ObjectStore(DemoConfig demoConfig, ObjectStoreType type) {
-        this.demoConfig = demoConfig;
         this.type = type;
-    }
-
-    public ObjectStoreType getType() {
-        return type;
+        imageReader = makeImageReader(demoConfig, type);
+        imageWriter = makeImageWriter(demoConfig, type);
     }
 
     public ImageReader getImageReader() {
+        return imageReader;
+    }
+
+    public ImageWriter getImageWriter() {
+        return imageWriter;
+    }
+
+    private ImageReader makeImageReader(DemoConfig demoConfig, ObjectStoreType type) {
         switch (type) {
             case swift:
                 return new SwiftImageReader(demoConfig.getAmHost(), demoConfig.getSwiftPort());
@@ -29,7 +36,7 @@ public class ObjectStore {
         }
     }
 
-    public ImageWriter getImageWriter() {
+    private ImageWriter makeImageWriter(DemoConfig demoConfig, ObjectStoreType type) {
         switch (type) {
             case swift:
                 return new SwiftImageWriter(demoConfig.getAmHost(), demoConfig.getSwiftPort(), demoConfig.getVolumeNames());
@@ -40,5 +47,9 @@ public class ObjectStore {
             default:
                 return new S3ImageWriter(demoConfig.getAmHost(), demoConfig.getS3Port(), demoConfig.getVolumeNames());
         }
+    }
+
+    public ObjectStoreType getType() {
+        return type;
     }
 }
