@@ -35,7 +35,13 @@ public class S3Authorizer implements Supplier<RequestHandler> {
     public RequestHandler get() {
         return (request, routeParameters) -> {
             String candidateHeader = request.getHeader("Authorization");
-            BasicAWSCredentials candidateCredentials = tryParse(candidateHeader);
+            BasicAWSCredentials candidateCredentials = null;
+            try {
+                candidateCredentials = tryParse(candidateHeader);
+            } catch (SecurityException e) {
+                return new S3Failure(S3Failure.ErrorCode.AccessDenied, "Access denied", request.getRequestURI());
+            }
+
             String requestHash = hashRequest(request, candidateCredentials);
 
             if (candidateHeader.equals(requestHash)) {

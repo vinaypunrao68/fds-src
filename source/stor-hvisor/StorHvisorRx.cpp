@@ -95,7 +95,9 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) {
                 // Add the blob's etag into the cache if it's set
                 std::string etag = blobReq->getEtag();
                 if (etag.empty() == false) {
-                    fds_verify(etag.size() == 32);
+                    // TODO(Andrew): Remove this when etag moves
+                    // to updateMetadata path.
+                    // fds_verify(etag.size() == 32);
                     err = vol->vol_catalog_cache->setBlobEtag(blobReq->getBlobName(),
                                                               etag);
                     fds_verify(err == ERR_OK);

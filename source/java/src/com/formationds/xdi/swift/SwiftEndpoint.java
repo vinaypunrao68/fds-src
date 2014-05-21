@@ -20,7 +20,7 @@ public class SwiftEndpoint {
     private WebApp webApp;
 
     public static void main(String[] args) throws Exception {
-        Configuration configuration = new Configuration(args);
+        Configuration configuration = new Configuration("swift", args);
         ToyServices foo = new ToyServices("foo");
         foo.createDomain(S3Endpoint.FDS_S3);
         Xdi xdi = new Xdi(foo, foo, new JaasAuthenticator());

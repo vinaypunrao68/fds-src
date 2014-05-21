@@ -20,11 +20,11 @@ public class S3Endpoint {
     private final WebApp webApp;
 
     public static void main(String[] args) throws Exception {
-        Configuration configuration = new Configuration(args);
+        Configuration configuration = new Configuration("s3", args);
         ToyServices foo = new ToyServices("foo");
         foo.createDomain(FDS_S3);
         Xdi xdi = new Xdi(foo, foo, new BypassAuthenticator());
-        new S3Endpoint(xdi, true).start(9999);
+        new S3Endpoint(xdi, false).start(9999);
     }
 
     public S3Endpoint(Xdi xdi, boolean enforceAuth) {
@@ -35,14 +35,13 @@ public class S3Endpoint {
 
     public void start(int port) {
         authorize(HttpMethod.GET, "/", () -> new ListBuckets(xdi));
-        authorize(HttpMethod.POST, "/", () -> new DeleteMultipleObjects(xdi));
         authorize(HttpMethod.PUT, "/:bucket", () -> new CreateBucket(xdi));
         authorize(HttpMethod.DELETE, "/:bucket", () -> new DeleteBucket(xdi));
         authorize(HttpMethod.GET, "/:bucket", () -> new ListObjects(xdi));
         authorize(HttpMethod.HEAD, "/:bucket", () -> new HeadBucket(xdi));
 
         authorize(HttpMethod.PUT, "/:bucket/:object", () -> new PutObject(xdi));
-        authorize(HttpMethod.POST, "/:bucket", () -> new HtmlPostUpload(xdi));
+        authorize(HttpMethod.POST, "/:bucket", () -> new PostUploadOrDeleteMultipleObjects(xdi));
         authorize(HttpMethod.GET, "/:bucket/:object", () -> new GetObject(xdi));
         authorize(HttpMethod.DELETE, "/:bucket/:object", () -> new DeleteObject(xdi));
 

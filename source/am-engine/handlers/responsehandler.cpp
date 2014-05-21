@@ -174,6 +174,11 @@ void StatBlobResponseHandler::process() {
     for (const_kv_iterator it = blobDesc.kvMetaBegin();
          it != blobDesc.kvMetaEnd();
          it++) {
+        // TODO(Andrew): Remove this when etag moves
+        // to updateMetadata path.
+        if (it->first == "etag") {
+            retBlobDesc.digest = it->second;
+        }
         retBlobDesc.metadata[it->first] = it->second;
     }
 }

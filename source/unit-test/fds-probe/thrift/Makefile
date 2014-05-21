@@ -14,8 +14,7 @@ user_fds_ar_libs  :=       \
     fds-rpc-request \
     fds-net-svc \
     fds-StorHvisor         \
-    fds-probe-thrift-utest \
-    fds-ubd
+    fds-probe-thrift-utest
 
 user_non_fds_libs :=
 
