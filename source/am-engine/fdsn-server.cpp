@@ -276,9 +276,11 @@ class FdsnIf : public apis::AmServiceIf {
         // transactions, always set a put properties and etag.
         PutPropertiesPtr putProps;
         putProps.reset(new PutProperties());
-        putProps->md5 = ObjectID::ToHex(reinterpret_cast<const uint8_t *>(
-            digest->c_str()),
-                                        digest->size());
+        putProps->md5.assign(digest->c_str(),
+                             digest->size());
+        // putProps->md5 = ObjectID::ToHex(reinterpret_cast<const uint8_t *>(
+        // digest->c_str()),
+        //                              digest->size());
 
         // Setup the transcation descriptor
         BlobTxId::ptr blobTxDesc(new BlobTxId(
