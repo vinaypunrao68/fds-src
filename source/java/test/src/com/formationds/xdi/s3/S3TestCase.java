@@ -6,9 +6,7 @@ package com.formationds.xdi.s3;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.S3ClientOptions;
-import com.amazonaws.services.s3.model.Bucket;
-import com.amazonaws.services.s3.model.ObjectMetadata;
-import com.amazonaws.services.s3.model.S3Object;
+import com.amazonaws.services.s3.model.*;
 import com.formationds.apis.AmService;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.VolumeConnector;
@@ -26,6 +24,22 @@ import java.io.ByteArrayOutputStream;
 import java.io.FileInputStream;
 
 public class S3TestCase {
+    //@Test
+    public void deleteMultipleObjects() throws Exception {
+        new Configuration("foo", new String[0]);
+        AmazonS3Client client = new AmazonS3Client(new BasicAWSCredentials("fabrice", "7VpLGuZy7VCKq2B/Z4yEOw=="));
+        //AmazonS3Client client = new AmazonS3Client(new BasicAWSCredentials("fabrice", "9VpLGuZy7VCKq2B/Z4yEOw=="));
+        client.setS3ClientOptions(new S3ClientOptions().withPathStyleAccess(true));
+        client.setEndpoint("http://localhost:9999");
+
+        Bucket bucket = client.createBucket("foo");
+        ObjectMetadata metadata = new ObjectMetadata();
+        //metadata.setContentType("image/jpg");
+        client.putObject("foo", "foo.jpg", new FileInputStream("/home/fabrice/Downloads/cat3.jpg"), metadata);
+        DeleteObjectsResult result = client.deleteObjects(new DeleteObjectsRequest("foo").withKeys("foo.jpg", "bar.jpg"));
+        System.out.println(result);
+    }
+
     //@Test
     public void testMount() throws Exception {
         TSocket amTransport = new TSocket("192.168.33.10", 9988);
