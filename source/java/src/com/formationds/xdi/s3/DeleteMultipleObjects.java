@@ -5,17 +5,22 @@ package com.formationds.xdi.s3;
 
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
+import com.formationds.web.toolkit.TextResource;
 import com.formationds.xdi.Xdi;
 import org.eclipse.jetty.server.Request;
 
 import java.util.Map;
 
 public class DeleteMultipleObjects implements RequestHandler {
+    private Xdi xdi;
+
     public DeleteMultipleObjects(Xdi xdi) {
+        this.xdi = xdi;
     }
 
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
-        return null;
+        String panda = request.getParameter("delete");
+        return new TextResource("Panda: '" + panda + "'");
     }
 }
