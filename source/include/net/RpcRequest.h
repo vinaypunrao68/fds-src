@@ -49,6 +49,26 @@ struct AsyncRpcTimer : FdsTimerTask {
     boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr> header_;
 };
 
+struct EpIdProvider {
+    virtual fpi::SvcUuid getNextEp() = 0;
+    virtual std::vector<fpi::SvcUuid> getEps() = 0;
+};
+typedef boost::shared_ptr<EpIdProvider> EpIdProviderPtr;
+
+struct DltObjectIdEpProvider : EpIdProvider {
+    explicit DltObjectIdEpProvider(const ObjectID &objId);
+    virtual fpi::SvcUuid getNextEp() override;
+    virtual std::vector<fpi::SvcUuid> getEps() override;
+
+    protected:
+};
+
+struct DmtVolumeIdEpProvider : EpIdProvider {
+    explicit DmtVolumeIdEpProvider(const fds_volid_t& volId);
+    virtual fpi::SvcUuid getNextEp() override;
+    virtual std::vector<fpi::SvcUuid> getEps() override;
+};
+
 /**
  * Base class for async rpc requests
  */
@@ -131,6 +151,8 @@ struct EPAsyncRpcRequest : AsyncRpcRequestIf {
     virtual void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
             boost::shared_ptr<std::string>& payload) override;
 
+    fpi::SvcUuid getPeerEpId() const;
+
  protected:
     fpi::SvcUuid peerEpId_;
 
@@ -148,11 +170,13 @@ struct MultiEpAsyncRpcRequest : AsyncRpcRequestIf {
             const fpi::SvcUuid &myEpId,
             const std::vector<fpi::SvcUuid>& peerEpIds);
 
-    void addEndpoint(const fpi::SvcUuid& uuid);
+    void addEndpoint(const fpi::SvcUuid& peerEpId);
 
     void onFailoverCb(RpcRequestFailoverCb cb);
 
  protected:
+    EPAsyncRpcRequestPtr getEpReq_(fpi::SvcUuid &peerEpId);
+
     /* Endpoint request collection */
     std::vector<EPAsyncRpcRequestPtr> epReqs_;
     /* Callback to invoke before failing over to the next endpoint */
@@ -170,6 +194,11 @@ struct FailoverRpcRequest : MultiEpAsyncRpcRequest {
     FailoverRpcRequest(const AsyncRpcRequestId& id,
             const fpi::SvcUuid &myEpId,
             const std::vector<fpi::SvcUuid>& peerEpIds);
+
+    FailoverRpcRequest(const AsyncRpcRequestId& id,
+            const fpi::SvcUuid &myEpId,
+            const EpIdProviderPtr epProvider);
+
 
     ~FailoverRpcRequest();
 
@@ -203,7 +232,12 @@ struct QuorumRpcRequest : MultiEpAsyncRpcRequest {
     virtual void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
             boost::shared_ptr<std::string>& payload) override;
 
+    void setQuorumCnt(const uint32_t cnt);
+
  protected:
+    uint32_t successAckd_;
+    uint32_t errorAckd_;
+    uint32_t quorumCnt_;
 };
 typedef boost::shared_ptr<QuorumRpcRequest> QuorumRpcRequestPtr;
 #if 0

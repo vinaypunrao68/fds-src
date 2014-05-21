@@ -1,6 +1,7 @@
 /*
  * Copyright 2014 by Formation Data Systems, Inc.
  */
+include "FDSP.thrift"
 namespace cpp FDS_ProtocolInterface
 
 /*
@@ -26,6 +27,15 @@ struct DomainID {
 }
 
 /*
+ * Generic response message format.
+ */
+ // TODO(Rao): Not sure if it's needed..Remove
+struct RespHdr {
+    1: required i32           status,
+    2: required string        text,
+}
+
+/*
  * This message header is owned, controlled and set by the net service layer.
  * Application code treats it as opaque type.
  */
@@ -37,36 +47,28 @@ struct AsyncHdr {
     5: required i32           msg_code,
 }
 
-/*
- * Generic response message format.
- */
-struct RespHdr {
-    1: required i32           status,
-    2: required string        text,
+struct GetObjectMsg {
+   1: required AsyncHdr        hdr;
+   2: FDSP.FDS_ObjectIdType data_obj_id,
+   3: i32              data_obj_len,
+   4: i32              dlt_version,
+   5: binary           data_obj,
+   6: binary           dlt_data,
 }
 
-struct GetObjReq {
-    1: required AsyncHdr      header,
-    2: required string        id,
-}
-struct PutObjReq {
-    1: required AsyncHdr      header,
-    2: required string        id,
-    3: required string        data,
-}
+struct QueryCatalogMsg {
+   1: required AsyncHdr        hdr;
+   2: string   blob_name,           /* User visible name of the blob*/
+   3: i64 blob_version,             /* Version of the blob to query */
+   4: i64 blob_size,
+   5: i32 blob_mime_type,
+   6: FDSP.FDSP_BlobDigestType digest,
+   7: FDSP.FDSP_BlobObjectList obj_list, /* List of object ids of the objects that this blob is being mapped to */
+   8: FDSP.FDSP_MetaDataList meta_list,  /* sequence of arbitrary key/value pairs */
 
-struct GetObjRsp {
-	1: required i32           len,
-    2: required string        etag,
-	3: required string        data,
+   9: i32      dm_transaction_id,   /* Transaction id */
+   10: i32      dm_operation,        /* Transaction type = OPEN, COMMIT, CANCEL */
 }
-
-struct PutObjRsp {
-	1: required i32           status,
-    2: required string        etag,
-    3: optional string        text,
-}
-
 /*
  * --------------------------------------------------------------------------------
  * Node endpoint/service registration handshake
@@ -129,8 +131,11 @@ service PlatNetSvc extends BaseAsyncSvc {
 }
 
 service SMSvc extends BaseAsyncSvc {
-    oneway void getObject(1: GetObjReq req),
-    oneway void putObject(1: PutObjReq req)
+    oneway void getObject(1: GetObjectMsg getObjMsg),
+}
+
+service DMSvc extends BaseAsyncSvc {
+    oneway void queryCatalogObject(1:QueryCatalogMsg queryMsg) 
 }
 
 service AMSvc extends BaseAsyncSvc {

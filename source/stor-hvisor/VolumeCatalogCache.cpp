@@ -34,6 +34,7 @@ Error CatalogCache::Query(fds_uint64_t block_id,
     return err;
 }
 
+
 Error CatalogCache::Update(fds_uint64_t blobOffset,
                            fds_uint32_t objectLen,
                            const ObjectID& oid,
@@ -262,6 +263,30 @@ Error VolumeCatalogCache::queryDm(const std::string& blobName,
     err = ERR_PENDING_RESP;
 
     return err;
+}
+
+bool VolumeCatalogCache::LookupObjectId(const std::string &blobName,
+                                   const uint64_t &offset, ObjectID &objId)
+{
+    Error err(ERR_OK);
+
+    blobRwLock.read_lock();
+
+    if (blobMap.count(blobName) == 0) {
+        blobRwLock.read_unlock();
+        return false;
+    } else {
+        CatalogCache *catCache = blobMap.at(blobName);
+        fds_verify(catCache != NULL);
+        blobRwLock.read_unlock();
+
+        err = catCache->Query(offset, &objId);
+        if (!err.ok()) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 Error VolumeCatalogCache::Query(const std::string& blobName,

@@ -19,14 +19,16 @@ class RpcRequestPool {
     RpcRequestPool();
     ~RpcRequestPool();
 
-    void asyncRpcCommonHandling(AsyncRpcRequestIfPtr req);
-
     EPAsyncRpcRequestPtr newEPAsyncRpcRequest(const fpi::SvcUuid &myEpId,
                                               const fpi::SvcUuid &peerEpId);
 
     FailoverRpcRequestPtr newFailoverRpcRequest(
         const fpi::SvcUuid& myEpId,
         const std::vector<fpi::SvcUuid>& peerEpIds);
+
+    FailoverRpcRequestPtr newFailoverRpcRequest(
+        const fpi::SvcUuid& myEpId,
+        const EpIdProviderPtr epProvider);
 
     static fpi::AsyncHdr newAsyncHeader(const AsyncRpcRequestId& reqId,
             const fpi::SvcUuid &srcUuid, const fpi::SvcUuid &dstUuid);
@@ -37,6 +39,8 @@ class RpcRequestPool {
             const fpi::SvcUuid &dstUuid);
 
  protected:
+    void asyncRpcInitCommon_(AsyncRpcRequestIfPtr req);
+
     std::atomic<uint64_t> nextAsyncReqId_;
     /* Common completion callback for rpc requests */
     RpcRequestCompletionCb finishTrackingCb_;

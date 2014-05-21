@@ -34,6 +34,7 @@
 #include <CommitLog.h>
 
 #include <blob/BlobTypes.h>
+#include <fdsp/DMSvc.h>
 
 #undef FDS_TEST_DM_NOOP     /* if defined, puts complete as soon as they arrive to DM (not for gets right now) */
 
@@ -554,6 +555,24 @@ public:
                              boost::shared_ptr<std::string>& volumeName);
     };
 
+};
+
+
+class DMSvcHandler : virtual public DMSvcIf {
+ public:
+  DMSvcHandler() {
+    // Your initialization goes here
+  }
+
+  void queryCatalogObject(const QueryCatalogMsg& queryMsg) {
+    // Don't do anything here. This stub is just to keep cpp compiler happy
+  }
+
+
+  void queryCatalogObject(boost::shared_ptr<QueryCatalogMsg>& queryMsg) {
+    // Your implementation goes here
+    printf("queryCatalogObject\n");
+  }
 };
 
 }  // namespace fds

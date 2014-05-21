@@ -476,6 +476,23 @@ class NetMgr : public Module
         }
         client->asyncResp(resp_hdr, buffer->getBufferAsString());
     }
+
+    template<class PayloadT>
+    static boost::shared_ptr<PayloadT> ep_deserialize(std::string &buf)
+    {
+        GLOGDEBUG;
+
+        bo::shared_ptr<tt::TMemoryBuffer> memory_buf(
+            new tt::TMemoryBuffer(reinterpret_cast<uint8_t*>(const_cast<char*>(buf.c_str())),
+                                  buf.size()));
+        bo::shared_ptr<tp::TProtocol> binary_buf(new tp::TBinaryProtocol(memory_buf));
+
+        boost::shared_ptr<PayloadT> result(boost::make_shared<PayloadT>());
+        auto read = result->read(binary_buf.get());
+        fds_verify(read > 0);
+        return result;
+    }
+
     bo::shared_ptr<FdsTimer> ep_get_timer() const;
 
     /**

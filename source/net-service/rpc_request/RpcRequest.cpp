@@ -239,6 +239,16 @@ void EPAsyncRpcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
 
 /**
 * @brief 
+*
+* @return 
+*/
+fpi::SvcUuid EPAsyncRpcRequest::getPeerEpId() const
+{
+    return peerEpId_;
+}
+
+/**
+* @brief 
 */
 MultiEpAsyncRpcRequest::MultiEpAsyncRpcRequest()
     : MultiEpAsyncRpcRequest(0, fpi::SvcUuid(), std::vector<fpi::SvcUuid>())
@@ -268,9 +278,10 @@ MultiEpAsyncRpcRequest::MultiEpAsyncRpcRequest(const AsyncRpcRequestId& id,
  * the request is in progress
  * @param uuid
  */
-void MultiEpAsyncRpcRequest::addEndpoint(const fpi::SvcUuid& uuid)
+void MultiEpAsyncRpcRequest::addEndpoint(const fpi::SvcUuid& peerEpId)
 {
-    epReqs_.push_back(EPAsyncRpcRequestPtr(new EPAsyncRpcRequest(id_, myEpId_, uuid)));
+    epReqs_.push_back(EPAsyncRpcRequestPtr(
+            new EPAsyncRpcRequest(id_, myEpId_, peerEpId)));
 }
 
 /**
@@ -283,6 +294,23 @@ void MultiEpAsyncRpcRequest::onFailoverCb(RpcRequestFailoverCb cb)
     failoverCb_ = cb;
 }
 
+/**
+* @brief Returns the endpoint request identified by epId 
+* NOTE: If we manage a lot of endpoints, we should consider using a map
+* here.
+* @param epId
+*
+* @return 
+*/
+EPAsyncRpcRequestPtr MultiEpAsyncRpcRequest::getEpReq_(fpi::SvcUuid &peerEpId)
+{
+    for (auto ep : epReqs_) {
+        if (ep->getPeerEpId() == peerEpId) {
+            return ep;
+        }
+    }
+    return nullptr;
+}
 
 /**
 * @brief 
@@ -304,6 +332,9 @@ QuorumRpcRequest::QuorumRpcRequest(const AsyncRpcRequestId& id,
                                    const std::vector<fpi::SvcUuid>& peerEpIds)
     : MultiEpAsyncRpcRequest(id, myEpId, peerEpIds)
 {
+    successAckd_ = 0;
+    errorAckd_ = 0;
+    quorumCnt_ = peerEpIds.size();
 }
 
 /**
@@ -315,9 +346,24 @@ QuorumRpcRequest::~QuorumRpcRequest()
 
 /**
 * @brief 
+*
+* @param cnt
+*/
+void QuorumRpcRequest::setQuorumCnt(const uint32_t cnt)
+{
+    quorumCnt_ = cnt;
+}
+
+/**
+* @brief 
 */
 void QuorumRpcRequest::invoke()
 {
+    for (auto ep : epReqs_) {
+        ep->setRpcFunc(rpc_);
+        ep->setTimeoutMs(timeoutMs_);
+        ep->invoke();
+    }
 }
 
 /**
@@ -329,6 +375,55 @@ void QuorumRpcRequest::invoke()
 void QuorumRpcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
                                       boost::shared_ptr<std::string>& payload)
 {
+    GLOGDEBUG << " id: " << id_;
+
+    // bool invokeRpc = false;
+    fpi::SvcUuid errdEpId;
+
+    fds_scoped_lock l(respLock_);
+    auto epReq = getEpReq_(header->msg_src_uuid);
+    if (isComplete() || !epReq) {
+        /* Drop completed requests or responses from uknown endpoint src ids */
+        return;
+    }
+
+    epReq->complete(header->msg_code);
+
+    if (header->msg_code == ERR_OK) {
+        successAckd_++;
+    } else {
+        GLOGWARN << logString(*header);
+
+        /* Notify actionable error to endpoint manager */
+        if (NetMgr::ep_mgr_singleton()->ep_actionable_error(header->msg_code)) {
+            NetMgr::ep_mgr_singleton()->ep_handle_error(
+                header->msg_src_uuid, header->msg_code);
+        }
+
+        errorAckd_++;
+        if (failoverCb_) {
+            bool reqComplete = false;
+            failoverCb_(header->msg_code, payload, reqComplete);
+            if (reqComplete) {
+                // NOTE: errorCb_ isn't invoked here
+                complete(ERR_RPC_USER_INTERRUPTED);
+                return;
+            }
+        }
+    }
+
+    if (successAckd_ == quorumCnt_) {
+        if (successCb_) {
+            successCb_(payload);
+        }
+        complete(ERR_OK);
+    } else if (errorAckd_ > (epReqs_.size() - quorumCnt_)) {
+        if (errorCb_) {
+            errorCb_(header->msg_code, payload);
+        }
+        complete(ERR_RPC_FAILED);
+        return;
+    }
 }
 
 }  // namespace fds
