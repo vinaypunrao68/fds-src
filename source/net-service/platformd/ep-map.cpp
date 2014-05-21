@@ -5,15 +5,13 @@
 
 namespace fds {
 
-EpPlatformMod                 gl_EpPlatform("EP Platformd");
-
-EpPlatformMod::EpPlatformMod(const char *name) : EpPlatLibMod(name) {}
+EpPlatformdMod::EpPlatformdMod(const char *name) : EpPlatLibMod(name) {}
 
 // mod_init
 // --------
 //
 int
-EpPlatformMod::mod_init(SysParams const *const p)
+EpPlatformdMod::mod_init(SysParams const *const p)
 {
     Module::mod_init(p);
 
@@ -24,7 +22,7 @@ EpPlatformMod::mod_init(SysParams const *const p)
 // -----------
 //
 void
-EpPlatformMod::mod_startup()
+EpPlatformdMod::mod_startup()
 {
 }
 
@@ -32,7 +30,7 @@ EpPlatformMod::mod_startup()
 // ------------
 //
 void
-EpPlatformMod::mod_shutdown()
+EpPlatformdMod::mod_shutdown()
 {
 }
 
@@ -40,7 +38,7 @@ EpPlatformMod::mod_shutdown()
 // -------------
 //
 int
-EpPlatformMod::ep_map_record(const ep_map_rec_t *rec)
+EpPlatformdMod::ep_map_record(const ep_map_rec_t *rec)
 {
     return EpPlatLibMod::ep_map_record(rec);
     return 0;
@@ -50,7 +48,7 @@ EpPlatformMod::ep_map_record(const ep_map_rec_t *rec)
 // ---------------
 //
 int
-EpPlatformMod::ep_unmap_record(fds_uint64_t uuid, int idx)
+EpPlatformdMod::ep_unmap_record(fds_uint64_t uuid, int idx)
 {
     return EpPlatLibMod::ep_unmap_record(uuid, idx);
     return 0;
@@ -60,14 +58,14 @@ EpPlatformMod::ep_unmap_record(fds_uint64_t uuid, int idx)
 // -------------
 //
 int
-EpPlatformMod::ep_lookup_rec(fds_uint64_t uuid, ep_map_rec_t *out)
+EpPlatformdMod::ep_lookup_rec(fds_uint64_t uuid, ep_map_rec_t *out)
 {
     return EpPlatLibMod::ep_lookup_rec(uuid, out);
     return 0;
 }
 
 int
-EpPlatformMod::ep_lookup_rec(const char *name, ep_map_rec_t *out)
+EpPlatformdMod::ep_lookup_rec(const char *name, ep_map_rec_t *out)
 {
     return EpPlatLibMod::ep_lookup_rec(name, out);
     return 0;

@@ -3,6 +3,7 @@
  */
 #define FUSE_USE_VERSION 30
 
+#include <linux/fs.h>
 #include <stdlib.h>
 #include <cuse_lowlevel.h>
 #include <string>
@@ -86,7 +87,46 @@ cuse_ioctl(fuse_req_t            req,
            size_t                in_bufsz,
            size_t                out_bufsz)
 {
-    fuse_reply_ioctl(req, 0, NULL, 0);
+    fds_uint32_t s;
+    fds_uint64_t s64;
+
+    switch (cmd) {
+    case BLKGETSIZE64:
+    case BLKGETSIZE:
+        s = 1 << 30;
+        if (!out_bufsz) {
+            struct iovec iov = { arg, sizeof(s) };
+            fuse_reply_ioctl_retry(req, NULL, 0, &iov, 1);
+            break;
+        }
+        fuse_reply_ioctl(req, 0, reinterpret_cast<void *>(&s), sizeof(s));
+        break;
+
+    case BLKPBSZGET:
+    case BLKSSZGET:
+        s = 4 << 10;
+        if (!out_bufsz) {
+            struct iovec iov = { arg, sizeof(s) };
+            fuse_reply_ioctl_retry(req, NULL, 0, &iov, 1);
+            break;
+        }
+        fuse_reply_ioctl(req, 0, reinterpret_cast<void *>(&s), sizeof(s));
+        break;
+
+    case BLKROGET:
+    case BLKDISCARDZEROES:
+        s = 0;
+        if (!out_bufsz) {
+            struct iovec iov = { arg, sizeof(s) };
+            fuse_reply_ioctl_retry(req, NULL, 0, &iov, 1);
+            break;
+        }
+        fuse_reply_ioctl(req, 0, reinterpret_cast<void *>(&s), sizeof(s));
+        break;
+
+    default:
+        fuse_reply_ioctl(req, 0, NULL, 0);
+    }
 }
 
 static const struct cuse_lowlevel_ops cuse_clop =

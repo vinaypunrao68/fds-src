@@ -4,13 +4,13 @@ user_target      := exe
 user_rtime_env   := user
 user_build_dir   := include shared common disk python
 
-user_incl_dir    := include
+user_incl_dir    := include ../net-service/include
 user_fds_ar_libs := \
     fds-plat-daemon \
 	fds-plat-disk \
-	fds-rpc-request \
 	fds-net-svc \
-	fds-net-platd
+	fds-net-platd \
+	fds-rpc-request
 
 user_non_fds_libs := \
 	udev \

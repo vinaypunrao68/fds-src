@@ -6,8 +6,97 @@
 
 #include <string>
 #include <vector>
+#include <ep-map.h>
+#include <net-plat-shared.h>
 
 namespace fds {
+
+/**
+ * Net service functions done by platform daemon.  This code produces the lib linked
+ * with platform daemon.
+ */
+class PlatformdNetSvc;
+class PlatformEpHandler;
+
+/**
+ * This class provides plugin for the endpoint run by platform daemon to represent a
+ * node.
+ */
+class PlatformdPlugin : public EpEvtPlugin
+{
+  public:
+    typedef bo::intrusive_ptr<PlatformdPlugin> pointer;
+    typedef bo::intrusive_ptr<const PlatformdPlugin> const_ptr;
+
+    explicit PlatformdPlugin(PlatformdNetSvc *svc);
+    virtual ~PlatformdPlugin();
+
+    void ep_connected();
+    void ep_down();
+
+    void svc_up(EpSvcHandle::pointer handle);
+    void svc_down(EpSvc::pointer svc, EpSvcHandle::pointer handle);
+
+  protected:
+    PlatformdNetSvc         *plat_svc;
+};
+
+class PlatformdNetSvc : public NetPlatSvc
+{
+  public:
+    explicit PlatformdNetSvc(const char *name);
+    virtual ~PlatformdNetSvc();
+
+    // Module methods
+    ///
+    virtual int  mod_init(SysParams const *const p);
+    virtual void mod_startup();
+    virtual void mod_enable_service();
+    virtual void mod_shutdown();
+
+    void plat_update_local_binding(const struct ep_map_rec *rec);
+    void plat_update_domain_binding(const struct ep_map_rec *rec);
+
+    EpSvcHandle::pointer nplat_peer(const fpi::SvcUuid &uuid);
+    EpSvcHandle::pointer nplat_peer(const fpi::DomainID &id, const fpi::SvcUuid &uuid);
+
+  protected:
+    EpPlatformdMod                    *plat_shm;
+    PlatformdPlugin::pointer           plat_plugin;
+    bo::shared_ptr<PlatformEpHandler>  plat_recv;
+};
+
+/**
+ * Module plugin platformd's control vector.
+ */
+extern PlatformdNetSvc       gl_PlatformdNetSvc;
+
+/**
+ * This class provides handler for platform RPC daemon.
+ */
+class PlatformEpHandler : virtual public fpi::PlatNetSvcIf, public BaseAsyncSvcHandler
+{
+  public:
+    virtual ~PlatformEpHandler();
+    explicit PlatformEpHandler(PlatformdNetSvc *svc);
+
+    // PlatNetSvcIf methods.
+    //
+    void allUuidBinding(std::vector<fpi::UuidBindMsg> &ret,
+                        const fpi::UuidBindMsg        &mine) {}
+    void notifyNodeInfo(std::vector<fpi::NodeInfoMsg> &ret,
+                        const fpi::NodeInfoMsg        &info) {}
+    void notifyNodeUp(fpi::RespHdr &ret, const fpi::NodeInfoMsg &info) {}
+
+    void allUuidBinding(std::vector<fpi::UuidBindMsg>    &ret,
+                        bo::shared_ptr<fpi::UuidBindMsg> &msg);
+    void notifyNodeInfo(std::vector<fpi::NodeInfoMsg> &ret,
+                        bo::shared_ptr<fpi::NodeInfoMsg> &i);
+    void notifyNodeUp(fpi::RespHdr &ret, bo::shared_ptr<fpi::NodeInfoMsg> &info);
+
+  protected:
+    PlatformdNetSvc         *net_plat;
+};
 
 }  // namespace fds
 #endif  // SOURCE_NET_SERVICE_INCLUDE_NET_PLATFORM_H_

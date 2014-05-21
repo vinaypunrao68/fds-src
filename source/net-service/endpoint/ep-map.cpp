@@ -5,7 +5,8 @@
 
 namespace fds {
 
-EpPlatLibMod                 gl_EpShmPlatLib("EP Plat");
+static EpPlatLibMod          gl_EpShmSharedLib("Ep PlatShm Lib");
+EpPlatLibMod                *gl_EpShmPlatLib = &gl_EpShmSharedLib;
 
 EpPlatLibMod::EpPlatLibMod(const char *name)
     : Module(name), ep_shm_map(NULL), ep_mtx("mtx") {}

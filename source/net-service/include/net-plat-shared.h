@@ -9,6 +9,7 @@
 #include <net/net-service.h>
 #include <fdsp/PlatNetSvc.h>
 #include <platform/platform-lib.h>
+#include <net/BaseAsyncSvcHandler.h>
 
 namespace fds {
 class Platform;
@@ -103,8 +104,8 @@ class NetPlatSvc : public NetPlatform
 
     // Common net platform services.
     //
-    EpSvc::pointer        nplat_my_ep()  { return plat_ep; }
-    EpSvcHandle::pointer  nplat_domain_rpc(const fpi::DomainID &id);
+    virtual EpSvc::pointer       nplat_my_ep();
+    virtual EpSvcHandle::pointer nplat_domain_rpc(const fpi::DomainID &id);
 
     inline std::string const *const nplat_domain_master(int *port) {
         *port = plat_lib->plf_get_om_svc_port();
@@ -123,23 +124,12 @@ class NetPlatSvc : public NetPlatform
  */
 extern NetPlatSvc            gl_NetPlatform;
 
-class NetPlatHandler : virtual public fpi::PlatNetSvcIf
+class NetPlatHandler : virtual public fpi::PlatNetSvcIf, public BaseAsyncSvcHandler
 {
   public:
     virtual ~NetPlatHandler() {}
     explicit NetPlatHandler(NetPlatSvc *svc)
-        : fpi::BaseAsyncSvcIf(), fpi::PlatNetSvcIf(), net_plat(svc) {}
-
-    // BaseAsyncSvcIf methods.
-    //
-    void asyncReqt(const fpi::AsyncHdr &hdr) {}
-    void asyncResp(const fpi::AsyncHdr &hdr, const std::string &payload) {}
-    void uuidBind(fpi::RespHdr &ret, const fpi::UuidBindMsg &msg) {}
-
-    void asyncReqt(bo::shared_ptr<fpi::AsyncHdr> &hdr);
-    void asyncResp(bo::shared_ptr<fpi::AsyncHdr> &hdr,
-                   bo::shared_ptr<std::string>   &payload);
-    void uuidBind(fpi::RespHdr &ret, bo::shared_ptr<fpi::UuidBindMsg> &msg);
+        : fpi::PlatNetSvcIf(), net_plat(svc) {}
 
     // PlatNetSvcIf methods.
     //

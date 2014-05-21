@@ -62,11 +62,11 @@ class EpPlatLibMod : public Module
     fds_mutex                ep_mtx;
 };
 
-class EpPlatformMod : public EpPlatLibMod
+class EpPlatformdMod : public EpPlatLibMod
 {
   public:
-    explicit EpPlatformMod(const char *name);
-    virtual ~EpPlatformMod() {}
+    explicit EpPlatformdMod(const char *name);
+    virtual ~EpPlatformdMod() {}
 
     /**
      * Module methods.
@@ -81,8 +81,7 @@ class EpPlatformMod : public EpPlatLibMod
     virtual int  ep_lookup_rec(const char *name, ep_map_rec_t *out);
 };
 
-extern EpPlatLibMod          gl_EpShmPlatLib;
-extern EpPlatformMod         gl_EpShmPlatform;
+extern EpPlatLibMod         *gl_EpShmPlatLib;
 
 }  // namespace fds
 #endif  // SOURCE_NET_SERVICE_INCLUDE_EP_MAP_H_
