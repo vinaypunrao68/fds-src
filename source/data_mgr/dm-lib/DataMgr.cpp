@@ -1080,10 +1080,10 @@ DataMgr::updateCatalogBackend(dmCatReq  *updCatReq) {
             update_catalog->meta_list.push_back(etagPair);
 
             LOGDEBUG << "Returning etag value "
-                     << ObjectID::ToHex(reinterpret_cast<const uint8_t *>(
-                         etagPair.value.c_str()),
-                                        etagPair.value.size())
-                    // << etagPair.value
+                    // << ObjectID::ToHex(reinterpret_cast<const uint8_t *>(
+                    //  etagPair.value.c_str()),
+                    //                  etagPair.value.size())
+                     << etagPair.value
                      << " for blob " << updCatReq->blob_name;
         }
     }
