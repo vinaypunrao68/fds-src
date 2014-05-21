@@ -11,14 +11,13 @@ import org.joda.time.Duration;
 
 import java.util.Arrays;
 import java.util.Optional;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 
 public class RealDemoState implements DemoState {
     private static final Logger LOG = Logger.getLogger(RealDemoState.class);
 
-    private static final ObjectStoreType DEFAULT_OBJECT_STORE = ObjectStoreType.swift;
+    private static final ObjectStoreType DEFAULT_OBJECT_STORE = ObjectStoreType.apiS3;
     private DateTime lastAccessed;
     private DemoRunner demoRunner;
     private DemoConfig demoConfig;
@@ -27,18 +26,26 @@ public class RealDemoState implements DemoState {
         this.demoConfig = demoConfig;
         lastAccessed = DateTime.now();
 
-        createLocalVolumes(demoConfig);
-        createAwsVolumes(demoConfig);
+        //createLocalVolumes(demoConfig);
+        //createAwsVolumes(demoConfig);
 
-        ScheduledExecutorService scavenger = Executors.newSingleThreadScheduledExecutor();
-        scavenger.scheduleAtFixedRate(() -> {
-            if (new Duration(lastAccessed, DateTime.now()).isLongerThan(timeToLive)) {
-                if (demoRunner != null) {
-                    demoRunner.tearDown();
-                    demoRunner = null;
-                }   
+        ExecutorService scavenger = Executors.newCachedThreadPool();
+        scavenger.submit((Runnable) () -> {
+            while (true) {
+                try {
+                    Thread.sleep(5 * 1000);
+                    if (new Duration(lastAccessed, DateTime.now()).isLongerThan(timeToLive)) {
+                        if (demoRunner != null) {
+                            demoRunner.tearDown();
+                            LOG.info("Took down demo runner");
+                            demoRunner = null;
+                        }
+                    }
+                } catch (Exception e) {
+                    LOG.error("Error scavenging demo runner", e);
+                }
             }
-        }, 0, 5, TimeUnit.SECONDS);
+        });
         scavenger.shutdown();
         LOG.info("Demo state started");
     }
