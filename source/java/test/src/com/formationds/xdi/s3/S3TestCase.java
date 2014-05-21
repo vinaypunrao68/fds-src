@@ -11,6 +11,7 @@ import com.formationds.apis.AmService;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.VolumeConnector;
 import com.formationds.apis.VolumePolicy;
+import com.formationds.demo.Main;
 import com.formationds.security.Authenticator;
 import com.formationds.security.AuthorizationToken;
 import com.formationds.util.Configuration;
@@ -22,8 +23,26 @@ import org.junit.Test;
 
 import java.io.ByteArrayOutputStream;
 import java.io.FileInputStream;
+import java.util.Arrays;
 
 public class S3TestCase {
+    // @Test
+    public void cleanupAwsVolumes() throws Exception {
+        new Configuration("foo", new String[] {"--console"});
+        AmazonS3Client client = new AmazonS3Client(new BasicAWSCredentials("AKIAINOGA4D75YX26VXQ", "/ZE1BUJ/vJ8BDESUvf5F3pib7lJW+pBa5FTakmjf"));
+        Arrays.stream(Main.VOLUMES)
+                .forEach(v -> {
+                    ObjectListing objectListing = client.listObjects(v);
+                    String[] keys = objectListing.getObjectSummaries()
+                            .stream()
+                            .map(o -> o.getKey())
+                            .toArray(i -> new String[i]);
+
+                    DeleteObjectsResult result = client.deleteObjects(new DeleteObjectsRequest(v).withKeys(keys));
+                    System.out.println("Deleted " + result.getDeletedObjects().size() + " keys in " + v);
+                });
+    }
+
     //@Test
     public void deleteMultipleObjects() throws Exception {
         new Configuration("foo", new String[0]);
