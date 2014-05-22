@@ -6,6 +6,7 @@ ifdef user_std_libs
         fds-util \
         fds-net-platd \
         fds-net-svc \
+        fds-rpc-request \
         fds-fdsp \
         fds-hash \
         fds-thread \

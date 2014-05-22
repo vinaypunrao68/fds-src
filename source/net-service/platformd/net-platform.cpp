@@ -47,15 +47,17 @@ PlatformdNetSvc::mod_startup()
 {
     Module::mod_startup();
 
-    plat_recv      = bo::shared_ptr<PlatformEpHandler>(new PlatformEpHandler(this));
-    plat_plugin    = new PlatformdPlugin(this);
-    plat_ep        = new PlatNetEp(
-            plat_lib->plf_get_my_ctrl_port(),
+    plat_agent  = new DomainAgent(plat_lib->plf_my_node_uuid());
+    plat_recv   = bo::shared_ptr<PlatformEpHandler>(new PlatformEpHandler(this));
+    plat_plugin = new PlatformdPlugin(this);
+    plat_ep     = new PlatNetEp(
+            plat_lib->plf_get_my_nsvc_port(),
             plat_lib->plf_my_node_uuid(),
             NodeUuid(0ULL),
             bo::shared_ptr<fpi::PlatNetSvcProcessor>(
                 new fpi::PlatNetSvcProcessor(plat_recv)), plat_plugin);
-    std::cout << "Startup platform specific net svc" << std::endl;
+    std::cout << "Startup platform specific net svc, port "
+       << plat_lib->plf_get_my_nsvc_port() << std::endl;
 }
 
 // mod_enable_service
@@ -64,9 +66,7 @@ PlatformdNetSvc::mod_startup()
 void
 PlatformdNetSvc::mod_enable_service()
 {
-    Module::mod_enable_service();
-
-    netmgr->ep_register(plat_ep, false);
+    NetPlatSvc::mod_enable_service();
 }
 
 // mod_shutdown

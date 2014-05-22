@@ -23,6 +23,7 @@ void
 PlatformEpHandler::allUuidBinding(std::vector<fpi::UuidBindMsg>    &ret,
                                   bo::shared_ptr<fpi::UuidBindMsg> &msg)
 {
+    std::cout << "Platform domain master, all uuidBind is called" << std::endl;
 }
 
 // notifyNodeInfo

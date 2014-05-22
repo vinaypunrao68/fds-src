@@ -55,13 +55,14 @@ NetPlatSvc::mod_startup()
     plat_ep_hdler  = bo::shared_ptr<NetPlatHandler>(new NetPlatHandler(this));
     plat_ep_plugin = new PlatNetPlugin(this);
     plat_ep        = new PlatNetEp(
-            plat_lib->plf_get_my_data_port(),     /* hack, need to consolidate ports */
+            plat_lib->plf_get_my_nsvc_port(),
             *plat_lib->plf_get_my_plf_svc_uuid(), /* bind to my platform lib svc  */
             NodeUuid(0ULL),                       /* pure server mode */
             bo::shared_ptr<fpi::PlatNetSvcProcessor>(
                 new fpi::PlatNetSvcProcessor(plat_ep_hdler)),
             plat_ep_plugin);
-    std::cout << "startup shared platform net svc" << std::endl;
+    std::cout << "startup shared platform net svc, port "
+        << plat_lib->plf_get_my_nsvc_port() << std::endl;
 }
 
 void
@@ -129,6 +130,7 @@ DomainAgent::pda_connect_domain(const fpi::DomainID &id)
 
     std::string const *const om_ip = net->nplat_domain_master(&port);
     eptr->ep_new_handle(eptr, port, *om_ip, &agt_domain_ep, &agt_domain_evt);
+    std::cout << "Domain master ip " << *om_ip << ", port " << port << std::endl;
 }
 
 /**
