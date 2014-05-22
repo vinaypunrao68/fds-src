@@ -61,8 +61,10 @@ NetPlatSvc::mod_startup()
             bo::shared_ptr<fpi::PlatNetSvcProcessor>(
                 new fpi::PlatNetSvcProcessor(plat_ep_hdler)),
             plat_ep_plugin);
-    std::cout << "startup shared platform net svc, port "
-        << plat_lib->plf_get_my_nsvc_port() << std::endl;
+
+    LOGNORMAL << "startup shared platform net svc, port "
+              << plat_lib->plf_get_my_nsvc_port() << std::hex
+              << plat_lib->plf_get_my_plf_svc_uuid()->uuid_get_val();
 }
 
 void
@@ -130,7 +132,7 @@ DomainAgent::pda_connect_domain(const fpi::DomainID &id)
 
     std::string const *const om_ip = net->nplat_domain_master(&port);
     eptr->ep_new_handle(eptr, port, *om_ip, &agt_domain_ep, &agt_domain_evt);
-    std::cout << "Domain master ip " << *om_ip << ", port " << port << std::endl;
+    LOGNORMAL << "Domain master ip " << *om_ip << ", port " << port;
 }
 
 /**
@@ -152,7 +154,6 @@ DomainAgentPlugin::ep_connected()
     std::vector<UuidBindMsg> ret;
     auto rpc = pda_agent->pda_rpc();
 
-    std::cout << "Agent domain connected..." << std::endl;
     rpc->allUuidBinding(ret, UuidBindMsg());
 }
 

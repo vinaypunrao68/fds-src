@@ -1,21 +1,21 @@
 namespace cpp fds.apis
 namespace java com.formationds.apis
 
-enum VolumeConnector {
-     S3 = 0,
-     SWIFT,
-     CINDER
+enum VolumeType {
+     OBJECT = 0,
+     BLOCK = 1
 }
 
-struct VolumePolicy {
+struct VolumeSettings {
        1: required i32 maxObjectSizeInBytes,
-       2: required VolumeConnector connector;
+       2: required VolumeType volumeType,
+       3: optional i32 blockDeviceSizeInBytes
 }
 
 struct VolumeDescriptor {
        1: required string name,
        2: required i64 dateCreated,
-       3: required VolumePolicy policy
+       3: required VolumeSettings policy
 }
 
 struct VolumeStatus {
@@ -89,7 +89,7 @@ service AmService {
 
 
 service ConfigurationService {
-        void createVolume(1:string domainName, 2:string volumeName, 3:VolumePolicy volumePolicy)
+        void createVolume(1:string domainName, 2:string volumeName, 3:VolumeSettings volumeSettings)
              throws (1: ApiException e),
 
         void deleteVolume(1:string domainName, 2:string volumeName)

@@ -28,7 +28,7 @@ public class FdsObjectIteratorTest {
                 ByteBuffer.wrap(new byte[] {4, 5, 6}),
         };
 
-        VolumeDescriptor volumeDescriptor = new VolumeDescriptor("foo", 0, new VolumePolicy(blockSize, VolumeConnector.S3));
+        VolumeDescriptor volumeDescriptor = new VolumeDescriptor("foo", 0, new VolumeSettings(blockSize, VolumeType.OBJECT));
         BlobDescriptor blobDescriptor = new BlobDescriptor(blobName, 7, ByteBuffer.wrap(new byte[0]), Maps.newHashMap());
 
         when(config.statVolume(domainName, volumeName)).thenReturn(volumeDescriptor);

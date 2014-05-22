@@ -56,8 +56,9 @@ PlatformdNetSvc::mod_startup()
             NodeUuid(0ULL),
             bo::shared_ptr<fpi::PlatNetSvcProcessor>(
                 new fpi::PlatNetSvcProcessor(plat_recv)), plat_plugin);
-    std::cout << "Startup platform specific net svc, port "
-       << plat_lib->plf_get_my_nsvc_port() << std::endl;
+
+    LOGNORMAL << "Startup platform specific net svc, port "
+              << plat_lib->plf_get_my_nsvc_port();
 }
 
 // mod_enable_service

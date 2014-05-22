@@ -16,7 +16,7 @@ user_fds_so_libs  :=
 user_fds_ar_libs  := \
     fds-migrations\
     fds-smlib\
-    fds-StorHvisor \
+    fds-am-engine\
     fds-sm-plat \
     fds-dsk-mgnt \
     fds-dsk-io \

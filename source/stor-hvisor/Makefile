@@ -54,7 +54,7 @@ user_no_style     := $(user_cc) \
     FDSNStat.cpp
 
 #user_no_style     :=
-user_ar_libs      := fds-StorHvisor
-fds-StorHvisor    := $(StorHvisor_cpp)
+user_ar_libs      := fds-am-engine
+fds-am-engine     := $(StorHvisor_cpp)
 
 include $(topdir)/Makefile.incl

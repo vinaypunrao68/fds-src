@@ -13,7 +13,6 @@ user_fds_ar_libs  +=  \
     fds-probe-adapters \
     fds-s3-probe \
     fds-probe \
-    fds-StorHvisor \
     fds-am-engine \
     fds-am-plat \
     fds-dsk-io \

@@ -82,7 +82,7 @@ struct UuidBindMsg {
     1: required AsyncHdr      header,
     2: required SvcID         svc_id,
     3: required string        svc_addr,
-    4: required i32           scv_port,
+    4: required i32           svc_port,
 }
 
 /*

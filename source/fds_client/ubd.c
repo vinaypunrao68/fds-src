@@ -322,7 +322,8 @@ hvisor_create_io_ring(td_vbd_t *vbd, const char *devname)
 	}
 
 	ring->mem = mmap(0, psize * BLKTAP_MMAP_REGION_SIZE,
-			 PROT_READ | PROT_WRITE, MAP_SHARED|MAP_LOCKED, ring->fd, 0);
+                         PROT_READ | PROT_WRITE, MAP_SHARED, ring->fd, 0);
+			 // PROT_READ | PROT_WRITE, MAP_SHARED|MAP_LOCKED, ring->fd, 0);
 	if (ring->mem == MAP_FAILED) {
 		err = -errno;
 		cppout("Failed to mmap %s: %d\n", devname, err);
@@ -332,8 +333,10 @@ hvisor_create_io_ring(td_vbd_t *vbd, const char *devname)
 	}
 
 	ring->sring = (blkif_sring_t *)((unsigned long)ring->mem);
-	BACK_RING_INIT(&ring->fe_ring, ring->sring, (psize * BLKTAP_RING_PAGES) );
-	cppout("Initialized ring size:%d",RING_SIZE(&ring->fe_ring));
+        BACK_RING_INIT(&ring->fe_ring, ring->sring, psize);
+        cppout("Initialized ring");
+	// BACK_RING_INIT(&ring->fe_ring, ring->sring, (psize * BLKTAP_RING_PAGES) );
+	// cppout("Initialized ring size:%d",RING_SIZE(&ring->fe_ring));
 
 	ring->vstart =
 		(unsigned long)ring->mem + (BLKTAP_RING_PAGES * psize);

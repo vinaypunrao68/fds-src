@@ -135,6 +135,8 @@ class NodeInventory : public Resource
     virtual void init_msg_hdr(fpi::FDSP_MsgHdrTypePtr msgHdr) const;
     virtual void init_node_info_pkt(fpi::FDSP_Node_Info_TypePtr pkt) const;
     virtual void init_node_reg_pkt(fpi::FDSP_RegisterNodeTypePtr pkt) const;
+    virtual void init_stor_cap_msg(fpi::StorCapMsg *msg) const;
+    virtual void init_plat_info_msg(fpi::NodeInfoMsg *msg) const;
 
   protected:
     const NodeInvData       *node_inv;
