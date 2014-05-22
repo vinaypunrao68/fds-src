@@ -455,9 +455,11 @@ DiskLabelMgr::dsk_reconcile_label(PmDiskInventory::pointer inv, bool creat)
         delete curr;
     }
     dl_valid_labels += valid_labels;
+#if 0
     if (master != NULL) {
         delete master;
     }
+#endif
     if ((dl_map != NULL) && (creat == true)) {
         // This isn't thread-safe but we won't need dl_map in post-alpha.
         dl_map->flush();
