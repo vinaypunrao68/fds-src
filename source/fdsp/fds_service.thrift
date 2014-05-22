@@ -48,7 +48,7 @@ struct AsyncHdr {
 }
 
 struct GetObjectMsg {
-   1: required AsyncHdr        header;
+   1: required AsyncHdr        hdr;
    2: FDSP.FDS_ObjectIdType data_obj_id,
    3: i32              data_obj_len,
    4: i32              dlt_version,
@@ -57,7 +57,7 @@ struct GetObjectMsg {
 }
 
 struct QueryCatalogMsg {
-   1: required AsyncHdr        header;
+   1: required AsyncHdr        hdr;
    2: string   blob_name,           /* User visible name of the blob*/
    3: i64 blob_version,             /* Version of the blob to query */
    4: i64 blob_size,

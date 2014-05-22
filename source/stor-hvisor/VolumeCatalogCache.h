@@ -126,6 +126,8 @@ class VolumeCatalogCache {
     VolumeCatalogCache();
     ~VolumeCatalogCache();
 
+    bool LookupObjectId(const std::string &blobName,
+                         const uint64_t &offset, ObjectID &objId);
     Error Query(const std::string& blobName,
                 fds_uint64_t blobOffset,
                 fds_uint32_t trans_id,

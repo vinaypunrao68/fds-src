@@ -13,6 +13,10 @@
 #include "NetSession.h"
 #include <dlt.h>
 #include <ObjectId.h>
+#include <net/net-service.h>
+#include <net/RpcRequestPool.h>
+#include <fdsp/DMSvc.h>
+#include <fdsp/SMSvc.h>
 
 extern StorHvCtrl *storHvisor;
 using namespace std;
@@ -1045,7 +1049,196 @@ fds::Error StorHvCtrl::deleteCatResp(const FDSP_MsgHdrTypePtr& rxMsg,
     return err;
 }
 
-fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq) {
+
+Error StorHvCtrl::getBlob2(fds::AmQosReq *qosReq) {
+    /*
+     * Pull out the blob request
+     */
+    Error err = ERR_OK;
+    fds::GetBlobReq *blobReq = static_cast<fds::GetBlobReq *>(
+        qosReq->getBlobReqPtr());
+    fds_verify(blobReq->magicInUse() == true);
+
+    // TODO(Andrew) : Do we need this check?
+    fds_volid_t   volId = blobReq->getVolId();
+    StorHvVolume *shVol = vol_table->getVolume(volId);
+    if ((shVol == NULL) || (shVol->isValidLocked() == false)) {
+        LOGCRITICAL << "getBlob failed to get volume for vol "
+                    << volId;    
+        blobReq->cbWithResult(-1);
+        err = ERR_DISK_WRITE_FAILED;
+        // TODO(Rao): Do we need to call markIoDone here?
+        delete qosReq;
+        return err;
+    }
+
+    // TODO(Rao): Do we need to make sure other get reqs aren't in progress
+
+    ObjectID objId;
+    bool inCache = shVol->vol_catalog_cache->LookupObjectId(blobReq->getBlobName(),
+                                          blobReq->getBlobOffset(),
+                                          objId);
+    if (!inCache) {
+        issueQueryCatalog(blobReq->getBlobName(),
+                          blobReq->getBlobOffset(),
+                          volId,
+                          std::bind(&StorHvCtrl::getBlobQueryCatalogResp, this,
+                                    blobReq, ERR_OK, std::placeholders::_1),
+                          std::bind(&StorHvCtrl::getBlobQueryCatalogResp, this, blobReq,
+                                    std::placeholders::_1, std::placeholders::_2));
+    } else {
+       issueGetObject(objId,
+                      std::bind(&StorHvCtrl::getBlobGetObjectResp, this,
+                                blobReq, ERR_OK, std::placeholders::_1),
+                      std::bind(&StorHvCtrl::getBlobGetObjectResp, this, blobReq,
+                                std::placeholders::_1, std::placeholders::_2));
+    }
+    return err;
+}
+
+void StorHvCtrl::issueQueryCatalog(const std::string& blobName,
+                       const fds_uint64_t& blobOffset,
+                       const fds_volid_t& volId,
+                       RpcRequestSuccessCb successCb,
+                       RpcRequestErrorCb errorCb)
+{
+    /*
+     * TODO(Andrew): We should eventually specify the offset in the blob
+     * we want...all objects won't work well for large blobs.
+     */
+    fpi::QueryCatalogMsgPtr queryMsg(new fpi::QueryCatalogMsg());
+    queryMsg->blob_name             = blobName;
+    // We don't currently specify a version
+    queryMsg->blob_version          = blob_version_invalid;
+    // TODO(rao): Figure out where this is used
+    queryMsg->dm_transaction_id     = 1;
+    queryMsg->dm_operation          =
+        FDS_ProtocolInterface::FDS_DMGR_TXN_STATUS_OPEN;
+    queryMsg->obj_list.clear();
+    queryMsg->meta_list.clear();
+
+    // TODO(Rao): Get my ep id
+    fpi::SvcUuid myEpId;
+    auto asyncQueryReq = gRpcRequestPool->newFailoverRpcRequest(
+        myEpId, boost::make_shared<DmtVolumeIdEpProvider>(volId ));
+    asyncQueryReq->setRpcFunc(
+        CREATE_RPC_SPTR(fpi::DMSvcClient, queryCatalogObject, queryMsg));
+    asyncQueryReq->onSuccessCb(successCb);
+    asyncQueryReq->onErrorCb(errorCb);
+}
+
+void StorHvCtrl::issueGetObject(const ObjectID& objId,
+                    RpcRequestSuccessCb successCb,
+                    RpcRequestErrorCb errorCb)
+{
+    // TODO(Rao): get my ep id
+    fpi::SvcUuid myEpId;
+    fds_volid_t  volId;
+    fpi::GetObjectMsgPtr getObjMsg(boost::make_shared<fpi::GetObjectMsg>());
+    getObjMsg->data_obj_id.digest = std::string((const char *)objId.GetId(),
+                                                (size_t)objId.GetLen());
+
+    // TODO(Rao): Set rpc
+    auto asyncGetReq = gRpcRequestPool->newFailoverRpcRequest(
+        myEpId, boost::make_shared<DmtVolumeIdEpProvider>(volId));
+    asyncGetReq->setRpcFunc(
+        CREATE_RPC_SPTR(fpi::SMSvcClient, getObject, getObjMsg));
+    asyncGetReq->onSuccessCb(successCb);
+    asyncGetReq->onErrorCb(errorCb);
+}
+
+void StorHvCtrl::getBlobQueryCatalogResp(GetBlobReq *blobReq,
+                             const Error& error,
+                             boost::shared_ptr<std::string> payload)
+{
+    if (error != ERR_OK) {
+        LOGERROR << "blob name: " << blobReq->getBlobName() << "offset: "
+            << blobReq->getBlobOffset() << " Error: " << error; 
+        blobReq->cbWithResult(-1);
+        // TODO(Rao): Release io request?
+        delete blobReq;
+        return;
+    }
+    ObjectID objId;
+    // TODO(Rao): Set the objectid
+    issueGetObject(objId,
+                   std::bind(&StorHvCtrl::getBlobGetObjectResp, this,
+                             blobReq, ERR_OK, std::placeholders::_1),
+                   std::bind(&StorHvCtrl::getBlobGetObjectResp, this, blobReq,
+                             std::placeholders::_1, std::placeholders::_2));
+}
+
+void StorHvCtrl::getBlobGetObjectResp(GetBlobReq *blobReq, const Error& error,
+                                      boost::shared_ptr<std::string> payload)
+{
+    if (error != ERR_OK) {
+        LOGERROR << "blob name: " << blobReq->getBlobName() << "offset: "
+            << blobReq->getBlobOffset() << " Error: " << error; 
+        blobReq->cbWithResult(-1);
+        // TODO(Rao): Release io request?
+        delete blobReq;
+        return;
+    }
+
+    // TODO(rao): xlate
+    fpi::GetObjectMsgPtr getObjRsp(boost::make_shared<fpi::GetObjectMsg>());
+
+    fds_volid_t   volId = blobReq->getVolId();
+    StorHvVolume *vol = vol_table->getVolume(volId);
+
+    fds_verify(vol != NULL);  // Should not receive resp for non existant vol
+
+    StorHvVolumeLock vol_lock(vol);
+    fds_verify(vol->isValidLocked() == true);
+
+    /*
+     * how to handle the length miss-match (requested  length and  recived legth from 
+     * SM differ)?.   We will have to handle sending more data due to length difference
+     */
+
+    fds_uint64_t blobSize = 0;
+    std::string blobEtag;
+
+    Error err;
+    err = vol->vol_catalog_cache->getBlobSize(blobReq->getBlobName(), &blobSize);
+    fds_verify(err == ERR_OK);
+    fds_verify(blobSize > 0);
+
+    err = vol->vol_catalog_cache->getBlobEtag(blobReq->getBlobName(), &blobEtag);
+    fds_verify(err == ERR_OK);
+    // Either the etag is empty or its set to
+    // the proper length
+    fds_verify((blobEtag.size() == 0) ||
+               (blobEtag.size() == 32));
+
+    // TODO(Rao) : log notification
+
+    // TODO(Rao):  What is io here
+    // qos_ctrl->markIODone(txn->io);
+
+    /* NOTE: we are currently supporting only getting the whole blob
+     * so the requester does not know about the blob length, 
+     * we get the blob length in response from SM;
+     * will need to revisit when we also support (don't ignore) byteCount in native api.
+     * For now, just verify the existing buffer is big enough to hold
+     * the data.
+     */
+    if (blobReq->getDataLen() >= (4 * 1024)) {
+        // Check that we didn't get too much data
+        // Since 4K is our min, it's OK to get more
+        // when less than 4K is requested
+        // TODO(Andrew): Revisit for unaligned IO
+        fds_verify((uint)(getObjRsp->data_obj_len) <= (blobReq->getDataLen()));
+    }
+    blobReq->setDataLen(getObjRsp->data_obj_len);    
+    blobReq->setDataBuf(getObjRsp->data_obj.c_str());
+    blobReq->setBlobSize(blobSize);
+    blobReq->setBlobEtag(blobEtag);
+    blobReq->cbWithResult(ERR_OK);
+}
+
+fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq)
+{
     fds::Error err(ERR_OK);
 
     LOGNORMAL << "Doing a get blob operation!";

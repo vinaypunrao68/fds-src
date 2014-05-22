@@ -33,6 +33,7 @@
 #include <fdsp/FDSP_ControlPathReq.h>
 #include <fdsp/FDSP_ControlPathResp.h>
 #include <fdsp/FDSP_ConfigPathReq.h>
+#include <net/RpcRequest.h>
 
 
 #include "NetSession.h"
@@ -326,6 +327,24 @@ public:
         fds::Error processRequest();
     };
 
+    fds::Error getBlob2(fds::AmQosReq *qosReq);
+
+    void issueQueryCatalog(const std::string& blobName,
+                           const fds_uint64_t& blobOffset,
+                           const fds_volid_t& volId,
+                           RpcRequestSuccessCb successCb,
+                           RpcRequestErrorCb errorCb);
+
+    void issueGetObject(const ObjectID& objId,
+                        RpcRequestSuccessCb successCb,
+                        RpcRequestErrorCb errorCbsuccessCb);
+
+    void getBlobQueryCatalogResp(GetBlobReq *blobReq,
+                                 const Error& error,
+                                 boost::shared_ptr<std::string> payload);
+
+    void getBlobGetObjectResp(GetBlobReq *blobReq, const Error& error,
+                              boost::shared_ptr<std::string> payload);
 
 private:
     void handleDltMismatch(StorHvVolume *vol,
