@@ -128,7 +128,8 @@ namespace fds {
         virtual std::string log_string() const override {
             std::stringstream ret;
             ret << "dmIoSnapVolCat for vol "
-                << std::hex << volId << std::dec;
+                << std::hex << volId << std::dec << " first rsync? "
+                << (io_type == FDS_DM_SNAP_VOLCAT);
             return ret.str();
         }
 

@@ -51,7 +51,8 @@ namespace fds {
 
   typedef enum {
       fds_catalog_push_meta = 0,
-      fds_catalog_dmt_close = 1
+      fds_catalog_dmt_commit = 1,
+      fds_catalog_dmt_close = 2
   } fds_catalog_action_t;
   
   typedef void (*migration_event_handler_t)(bool dlt_type);

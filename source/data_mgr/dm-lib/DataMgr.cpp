@@ -55,6 +55,13 @@ DataMgr::volcat_evt_handler(fds_catalog_action_t catalog_action,
     GLOGNORMAL << "Received Volume Catalog request";
     if (catalog_action == fds_catalog_push_meta) {
         err = dataMgr->catSyncMgr->startCatalogSync(push_meta->metaVol, om_client, session_uuid);
+    } else if (catalog_action == fds_catalog_dmt_commit) {
+        // we will ignore this msg if catalog sync is not in progress
+        if (dataMgr->catSyncMgr->isSyncInProgress()) {
+            err = dataMgr->catSyncMgr->startCatalogSyncDelta(session_uuid);
+        } else {
+            GLOGNOTIFY << "Will not start catalog sync delta, because sync not in progress!";
+        }
     } else if (catalog_action == fds_catalog_dmt_close) {
         dataMgr->catSyncMgr->notifyCatalogSyncFinish();
     } else {
@@ -69,6 +76,7 @@ Error DataMgr::enqueueMsg(fds_volid_t volId,
 
     switch (ioReq->io_type) {
         case FDS_DM_SNAP_VOLCAT:
+        case FDS_DM_SNAPDELTA_VOLCAT:
             err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
             break;
         default:
@@ -1559,6 +1567,30 @@ DataMgr::snapVolCat(DmIoSnapVolCat* snapReq) {
 }
 
 /**
+ * Do second rsync for the given volume to the given node
+ * (in snapReq msg).
+ */
+void
+DataMgr::pushDeltaVolCat(DmIoSnapVolCat* snapReq) {
+    Error err(ERR_OK);
+    fds_verify(snapReq != NULL);
+
+    LOGDEBUG << "Will do second rsync for volume " << std::hex
+             << snapReq->volId << " to node "
+             << (snapReq->node_uuid).uuid_get_val() << std::dec;
+
+    // TODO(xxx) do second rsync here or in CatalogSync::deltaDoneCb
+
+    // call CatalogSync update to record rsync progress
+    snapReq->dmio_snap_vcat_cb(snapReq->volId, err);
+
+    // mark this request as complete
+    qosCtrl->markIODone(*snapReq);
+    delete snapReq;
+}
+
+
+/**
  * Populates an fdsp message header with stock fields.
  *
  * @param[in] Ptr to msg header to modify
@@ -1948,6 +1980,13 @@ int scheduleSnapVolCat(void * _io) {
     fds::DmIoSnapVolCat *io = (fds::DmIoSnapVolCat*)_io;
 
     dataMgr->snapVolCat(io);
+    return 0;
+}
+
+int schedulePushDeltaVolCat(void * _io) {
+    fds::DmIoSnapVolCat *io = (fds::DmIoSnapVolCat*)_io;
+
+    dataMgr->pushDeltaVolCat(io);
     return 0;
 }
 

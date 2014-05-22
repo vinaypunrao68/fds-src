@@ -960,6 +960,17 @@ int OMgrClient::recvDMTUpdate(FDSP_DMT_TypePtr& dmt_info,
       LOGERROR << "Failed to add DMT to DMTManager " << err;
   }
 
+  // notify DataMgr
+  if (this->catalog_evt_hdlr) {
+      err = this->catalog_evt_hdlr(fds_catalog_dmt_commit,
+                                   FDSP_PushMetaPtr(),
+                                   session_uuid);
+  }
+
+  // TODO(xxx) move the below code to another func so that it could be called asyn
+  // do that when CatalogSync starts sending commit responses on delta rsync finish
+
+
   // send ack back to OM
   boost::shared_ptr<FDS_ProtocolInterface::FDSP_ControlPathRespClient> resp_client_prx =
           omrpc_handler_session_->getRespClient(session_uuid);

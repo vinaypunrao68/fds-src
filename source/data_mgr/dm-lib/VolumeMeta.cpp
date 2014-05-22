@@ -70,6 +70,21 @@ VolumeMeta::~VolumeMeta() {
     delete vol_mtx;
 }
 
+/**
+ * If this volume's catalogs were pushed from other DM, this method
+ * is called when pusing volume's catalogs is done so they can be
+ * now opened and ready for transactions
+ */
+void VolumeMeta::openCatalogs()
+{
+    const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
+    fds_verify((vcat == NULL) && (tcat == NULL));
+    vcat = new VolumeCatalog(root->dir_user_repo_dm() + vol_desc->name + "_vcat.ldb", true);
+    tcat = new TimeCatalog(root->dir_user_repo_dm() + vol_desc->name + "_tcat.ldb", true);
+
+    // TODO(xxx) unblock this volume's qos queue
+}
+
 Error VolumeMeta::OpenTransaction(const std::string blob_name,
                                   const BlobNode*& bnode, VolumeDesc* desc) {
   Error err(ERR_OK);

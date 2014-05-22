@@ -45,6 +45,7 @@ int scheduleQueryCatalog(void * _io);
 int scheduleDeleteCatObj(void * _io);
 int scheduleBlobList(void * _io);
 int scheduleSnapVolCat(void* _io);
+int schedulePushDeltaVolCat(void* _io);
 
 class DataMgr : public PlatformProcess, public DmIoReqHandler
 {
@@ -115,6 +116,10 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler
               case FDS_DM_SNAP_VOLCAT:
                   FDS_PLOG(FDS_QoSControl::qos_log) << "Processing snapshot catalog request ";
                   threadPool->schedule(scheduleSnapVolCat, io);
+                  break;
+              case FDS_DM_SNAPDELTA_VOLCAT:
+                  FDS_PLOG(FDS_QoSControl::qos_log) << "Processing push delta catalog snap request ";
+                  threadPool->schedule(schedulePushDeltaVolCat, io);
                   break;
               default:
                   FDS_PLOG(FDS_QoSControl::qos_log) << "Unknown IO Type received";
@@ -273,6 +278,7 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler
     Error deleteBlobProcess(const dmCatReq  *delCatReq, BlobNode **bnode);
     void blobListBackend(dmCatReq *listBlobReq);
     void snapVolCat(DmIoSnapVolCat* snapReq);
+    void pushDeltaVolCat(DmIoSnapVolCat* snapReq);
 
     /* 
      * FDS protocol processing proto types 
