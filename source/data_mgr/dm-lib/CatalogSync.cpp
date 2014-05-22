@@ -83,13 +83,12 @@ Error CatalogSync::startSync(std::set<fds_volid_t>* volumes,
     return err;
 }
 
-Error CatalogSync::doDeltaSync() {
+void CatalogSync::doDeltaSync() {
     Error err(ERR_OK);
     csStateType cur_state = std::atomic_load(&state);
     if (cur_state != CSSTATE_DELTA_SYNC) {
-        LOGNOTIFY << "doDeltaSync is called in wrong state, must not happen!";
-        fds_verify(false);
-        return ERR_NOT_READY;
+        fds_panic("doDeltaSync is called in wrong state! node_uuid %llx",
+                  node_uuid.uuid_get_val());
     }
 
     LOGNORMAL << "Start delta sync to destination node "
@@ -121,11 +120,9 @@ Error CatalogSync::doDeltaSync() {
         // add system queue
         err = dm_req_handler->enqueueMsg(*cit, snap_req);
         // TODO(xxx) handle error -- probably queue is full and we
-        // should retry later?
+        // should start timer to retry
         fds_verify(err.ok());
     }
-
-    return err;
 }
 
 
@@ -396,7 +393,7 @@ CatalogSyncMgr::startCatalogSyncDelta(const std::string& context) {
     fds_mutex::scoped_lock l(cat_sync_lock);
     // sync must be in progress
     if (!sync_in_progress) {
-        LOGERROR << "Cannot start delta sync if sync process is not started!";
+        LOGWARN << "Will Not start delta sync because catsync not in progress!";
         return ERR_NOT_READY;
     }
     fds_verify(cat_sync_map.size() > 0);
@@ -405,9 +402,8 @@ CatalogSyncMgr::startCatalogSyncDelta(const std::string& context) {
          cit != cat_sync_map.cend();
          ++cit) {
         if ((cit->second)->isInitialSyncDone() == false) {
-            LOGERROR << "Cannot start delta sync if initial sync is not done!!!";
-            fds_verify(false);  // ensure this method is called on DMT commit from OM
-            return ERR_NOT_READY;
+            // make sure this method is called on DMT commit from OM
+            fds_panic("Cannot start delta sync if initial sync is not done!!!");
         }
     }
     // update context to return with callback
@@ -416,10 +412,7 @@ CatalogSyncMgr::startCatalogSyncDelta(const std::string& context) {
     for (CatSyncMap::const_iterator cit = cat_sync_map.cbegin();
          cit != cat_sync_map.cend();
          ++cit) {
-        err = (cit->second)->doDeltaSync();
-        if (!err.ok()) {
-            // TODO(xxx) handle this error, for now continuing...
-        }
+        (cit->second)->doDeltaSync();
     }
     return err;
 }
@@ -465,7 +458,7 @@ void CatalogSyncMgr::syncDoneCb(catsync_notify_evt_t event,
     } else if ((event == CATSYNC_DELTA_SYNC_DONE) && send_ack) {
         LOGNORMAL << "Delta sync finished for all volumes, sending commit ack";
         sync_in_progress = false;
-        // TODO(xxx) send async DMT commit ack
+        omclient->sendDMTCommitAck(error, cat_sync_context);
     }
 }
 

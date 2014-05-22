@@ -98,7 +98,7 @@ namespace fds {
          * Start process for performing delta syncs for all the volumes
          * we did initial sync (passed with startSync()).
          */
-        Error doDeltaSync();
+        void doDeltaSync();
 
         /**
          * @return true if catalog sync is finished

@@ -56,12 +56,8 @@ DataMgr::volcat_evt_handler(fds_catalog_action_t catalog_action,
     if (catalog_action == fds_catalog_push_meta) {
         err = dataMgr->catSyncMgr->startCatalogSync(push_meta->metaVol, om_client, session_uuid);
     } else if (catalog_action == fds_catalog_dmt_commit) {
-        // we will ignore this msg if catalog sync is not in progress
-        if (dataMgr->catSyncMgr->isSyncInProgress()) {
-            err = dataMgr->catSyncMgr->startCatalogSyncDelta(session_uuid);
-        } else {
-            GLOGNOTIFY << "Will not start catalog sync delta, because sync not in progress!";
-        }
+        // thsi will ignore this msg if catalog sync is not in progress
+        err = dataMgr->catSyncMgr->startCatalogSyncDelta(session_uuid);
     } else if (catalog_action == fds_catalog_dmt_close) {
         dataMgr->catSyncMgr->notifyCatalogSyncFinish();
     } else {
