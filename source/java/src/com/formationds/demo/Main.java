@@ -32,7 +32,7 @@ public class Main {
                 VOLUMES
         );
 
-        DemoState state = new RealDemoState(Duration.standardMinutes(1), demoConfig);
+        DemoState state = new RealDemoState(Duration.standardSeconds(30), demoConfig);
 
         String webDir = d.lookup("fds.demo.web_dir").stringValue();
         int webappPort = d.lookup("fds.demo.webapp_port").intValue();
