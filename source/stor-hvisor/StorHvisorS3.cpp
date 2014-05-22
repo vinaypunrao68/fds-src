@@ -1159,8 +1159,8 @@ void StorHvCtrl::getBlobQueryCatalogResp(GetBlobReq *blobReq,
         delete blobReq;
         return;
     }
-    ObjectID objId;
     // TODO(Rao): Set the objectid
+    ObjectID objId;
     issueGetObject(objId,
                    std::bind(&StorHvCtrl::getBlobGetObjectResp, this,
                              blobReq, ERR_OK, std::placeholders::_1),
@@ -1180,8 +1180,7 @@ void StorHvCtrl::getBlobGetObjectResp(GetBlobReq *blobReq, const Error& error,
         return;
     }
 
-    // TODO(rao): xlate
-    fpi::GetObjectMsgPtr getObjRsp(boost::make_shared<fpi::GetObjectMsg>());
+    fpi::GetObjectMsgPtr getObjRsp = NetMgr::ep_deserialize<fpi::GetObjectMsg>(*payload);
 
     fds_volid_t   volId = blobReq->getVolId();
     StorHvVolume *vol = vol_table->getVolume(volId);
