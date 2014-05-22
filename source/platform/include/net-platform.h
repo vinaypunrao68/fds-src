@@ -1,8 +1,8 @@
 /*
  * Copyright 2014 by Formation Data Systems, Inc.
  */
-#ifndef SOURCE_NET_SERVICE_INCLUDE_NET_PLATFORM_H_
-#define SOURCE_NET_SERVICE_INCLUDE_NET_PLATFORM_H_
+#ifndef SOURCE_PLATFORM_INCLUDE_NET_PLATFORM_H_
+#define SOURCE_PLATFORM_INCLUDE_NET_PLATFORM_H_
 
 #include <string>
 #include <vector>
@@ -49,10 +49,10 @@ class PlatformdNetSvc : public NetPlatSvc
 
     // Module methods
     ///
-    virtual int  mod_init(SysParams const *const p);
-    virtual void mod_startup();
-    virtual void mod_enable_service();
-    virtual void mod_shutdown();
+    virtual int  mod_init(SysParams const *const p) override;
+    virtual void mod_startup() override;
+    virtual void mod_enable_service() override;
+    virtual void mod_shutdown() override;
 
     void plat_update_local_binding(const struct ep_map_rec *rec);
     void plat_update_domain_binding(const struct ep_map_rec *rec);
@@ -64,6 +64,50 @@ class PlatformdNetSvc : public NetPlatSvc
     EpPlatformdMod                    *plat_shm;
     PlatformdPlugin::pointer           plat_plugin;
     bo::shared_ptr<PlatformEpHandler>  plat_recv;
+};
+
+/**
+ * Platform specific node agent and its container.
+ */
+class PlatAgent : public DomainAgent
+{
+  public:
+    typedef boost::intrusive_ptr<PlatAgent> pointer;
+    typedef boost::intrusive_ptr<const PlatAgent> const_ptr;
+
+    virtual ~PlatAgent() {}
+    explicit PlatAgent(const NodeUuid &uuid);
+
+    virtual void init_stor_cap_msg(fpi::StorCapMsg *msg) const override;
+};
+
+class PlatAgentPlugin : public DomainAgentPlugin
+{
+  public:
+    typedef boost::intrusive_ptr<PlatAgentPlugin> pointer;
+    typedef boost::intrusive_ptr<const PlatAgentPlugin> const_ptr;
+
+    virtual ~PlatAgentPlugin() {}
+    explicit PlatAgentPlugin(PlatAgent::pointer agt) : DomainAgentPlugin(agt) {}
+
+    void ep_connected() override;
+    void ep_down() override;
+    void svc_up(EpSvcHandle::pointer handle) override;
+    void svc_down(EpSvc::pointer svc, EpSvcHandle::pointer handle) override;
+};
+
+class PlatAgentContainer : public PmContainer
+{
+  public:
+    typedef boost::intrusive_ptr<PlatAgentContainer> pointer;
+    typedef boost::intrusive_ptr<const PlatAgentContainer> const_ptr;
+    PlatAgentContainer() : PmContainer(fpi::FDSP_PLATFORM) {}
+
+  protected:
+    virtual ~PlatAgentContainer() {}
+    virtual Resource *rs_new(const ResourceUUID &uuid) override {
+        return new PlatAgent(uuid);
+    }
 };
 
 /**
@@ -99,4 +143,4 @@ class PlatformEpHandler : virtual public fpi::PlatNetSvcIf, public BaseAsyncSvcH
 };
 
 }  // namespace fds
-#endif  // SOURCE_NET_SERVICE_INCLUDE_NET_PLATFORM_H_
+#endif  // SOURCE_PLATFORM_INCLUDE_NET_PLATFORM_H_

@@ -53,10 +53,10 @@ class DomainAgentPlugin : public EpEvtPlugin
     virtual ~DomainAgentPlugin() {}
     explicit DomainAgentPlugin(boost::intrusive_ptr<DomainAgent> agt) : pda_agent(agt) {}
 
-    void ep_connected();
-    void ep_down();
-    void svc_up(EpSvcHandle::pointer handle);
-    void svc_down(EpSvc::pointer svc, EpSvcHandle::pointer handle);
+    virtual void ep_connected();
+    virtual void ep_down();
+    virtual void svc_up(EpSvcHandle::pointer handle);
+    virtual void svc_down(EpSvc::pointer svc, EpSvcHandle::pointer handle);
 
   protected:
     boost::intrusive_ptr<DomainAgent>  pda_agent;
@@ -73,7 +73,7 @@ class DomainAgent : public PmAgent
     typedef boost::intrusive_ptr<const DomainAgent> const_ptr;
 
     virtual ~DomainAgent() {}
-    explicit DomainAgent(const NodeUuid &uuid);
+    explicit DomainAgent(const NodeUuid &uuid, bool alloc_plugin = true);
 
     inline EpSvcHandle::pointer pda_rpc_handle() {
         return agt_domain_ep;
@@ -85,7 +85,7 @@ class DomainAgent : public PmAgent
     virtual void pda_update_binding(const struct ep_map_rec *rec, int cnt);
 
   protected:
-    DomainAgentPlugin                     agt_domain_evt;
+    DomainAgentPlugin::pointer            agt_domain_evt;
     EpSvcHandle::pointer                  agt_domain_ep;
 };
 

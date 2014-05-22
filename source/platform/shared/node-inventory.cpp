@@ -4,7 +4,7 @@
 #include <string>
 #include <stdlib.h>
 #include <dlt.h>
-#include <net-platform.h>
+#include <net/net-service.h>
 #include <platform/platform-lib.h>
 
 namespace fds {
@@ -253,8 +253,9 @@ NodeAgent::node_stor_weight() const
     // lets normalize = nodes have same weight if their
     // capacity is within 10GB diff
     fds_uint64_t weight = node_inv->nd_gbyte_cap / 10;
-    if (weight < 1)
+    if (weight < 1) {
         weight = 1;
+    }
     return weight;
 }
 
@@ -285,7 +286,6 @@ AgentContainer::agent_handshake(boost::shared_ptr<netSessionTbl> net,
 // --------------------------------------------------------------------------------------
 // PM Agent
 // --------------------------------------------------------------------------------------
-
 
 // --------------------------------------------------------------------------------------
 // SM Agent

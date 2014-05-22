@@ -33,6 +33,10 @@ void
 PlatformEpHandler::notifyNodeInfo(std::vector<fpi::NodeInfoMsg> &ret,
                                   bo::shared_ptr<fpi::NodeInfoMsg> &info)
 {
+    std::cout << "Node notify "
+        << "\nDisk iops max......... " << info->node_stor.disk_iops_max
+        << "\nDisk iops min......... " << info->node_stor.disk_iops_min
+        << "\nDisk capacity......... " << info->node_stor.disk_capacity << std::endl;
 }
 
 // notifyNodeUp

@@ -4,6 +4,8 @@
 #include <string>
 #include <platform.h>
 #include <fds_process.h>
+#include <disk.h>
+#include <net-platform.h>
 
 namespace fds {
 
@@ -20,14 +22,14 @@ NodePlatform::NodePlatform()
                                  new SmContainer(FDSP_PLATFORM),
                                  new DmContainer(FDSP_PLATFORM),
                                  new AmContainer(FDSP_PLATFORM),
-                                 new PmContainer(FDSP_PLATFORM),
+                                 new PlatAgentContainer(),
                                  new OmContainer(FDSP_PLATFORM)),
                new DomainClusterMap("Node-Platform-ClusMap",
                                  NULL,
                                  new SmContainer(FDSP_PLATFORM),
                                  new DmContainer(FDSP_PLATFORM),
                                  new AmContainer(FDSP_PLATFORM),
-                                 new PmContainer(FDSP_PLATFORM),
+                                 new PlatAgentContainer(),
                                  new OmContainer(FDSP_PLATFORM)),
                new DomainResources("Node-Resources"),
                NULL)
@@ -50,6 +52,7 @@ NodePlatform::mod_init(SysParams const *const param)
     Platform::mod_init(param);
     FdsConfigAccessor conf(g_fdsprocess->get_conf_helper());
 
+    disk_ctrl        = DiskPlatModule::dsk_plat_singleton();
     plf_my_ctrl_port = conf.get_abs<int>("fds.plat.control_port");
     plf_my_conf_port = plf_conf_port(plf_my_ctrl_port);
     plf_my_data_port = plf_data_port(plf_my_ctrl_port);
@@ -92,7 +95,6 @@ NodePlatform::plat_creat_resp_disp()
     return new PlatformRpcResp(this);
 }
 
-// --------------------------------------------------------------------------------------
 // RPC handlers
 // --------------------------------------------------------------------------------------
 PlatformRpcReqt::PlatformRpcReqt(const Platform *plf) : PlatRpcReqt(plf) {}
