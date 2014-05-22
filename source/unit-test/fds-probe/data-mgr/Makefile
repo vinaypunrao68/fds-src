@@ -14,7 +14,6 @@ user_fds_so_libs  :=
 user_fds_ar_libs  := \
     fds-dm-lib       \
     fds-StorHvisor   \
-    fds-ubd          \
     fds-dm-plat      \
     fds-plat-lib     \
     fds-lib          \
