@@ -67,7 +67,7 @@ boost::shared_ptr<fpi::AsyncHdr> RpcRequestPool::newAsyncHeaderPtr(
  * Common handling as part of any async request creation
  * @param req
  */
-void RpcRequestPool::asyncRpcCommonHandling(AsyncRpcRequestIfPtr req)
+void RpcRequestPool::asyncRpcInitCommon_(AsyncRpcRequestIfPtr req)
 {
     gAsyncRpcTracker->addForTracking(req->getRequestId(), req);
     req->setCompletionCb(finishTrackingCb_);
@@ -84,7 +84,7 @@ RpcRequestPool::newEPAsyncRpcRequest(const fpi::SvcUuid &myEpId,
 {
     auto reqId = nextAsyncReqId_++;
     EPAsyncRpcRequestPtr req(new EPAsyncRpcRequest(reqId, myEpId, peerEpId));
-    asyncRpcCommonHandling(req);
+    asyncRpcInitCommon_(req);
 
     return req;
 }
@@ -104,9 +104,20 @@ FailoverRpcRequestPtr RpcRequestPool::newFailoverRpcRequest(
     auto reqId = nextAsyncReqId_++;
 
     FailoverRpcRequestPtr req(new FailoverRpcRequest(reqId, myEpId, peerEpIds));
-    asyncRpcCommonHandling(req);
+    asyncRpcInitCommon_(req);
 
     return req;
 }
 
+FailoverRpcRequestPtr RpcRequestPool::newFailoverRpcRequest(
+    const fpi::SvcUuid& myEpId,
+    const EpIdProviderPtr epProvider)
+{
+    auto reqId = nextAsyncReqId_++;
+
+    FailoverRpcRequestPtr req(new FailoverRpcRequest(reqId, myEpId, epProvider));
+    asyncRpcInitCommon_(req);
+
+    return req;
+}
 }  // namespace fds

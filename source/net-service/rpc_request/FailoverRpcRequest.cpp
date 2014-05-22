@@ -18,16 +18,36 @@ FailoverRpcRequest::FailoverRpcRequest()
 {
 }
 
+
 /**
- *
- * @param id
- * @param uuid
- */
+* @brief 
+*
+* @param id
+* @param myEpId
+* @param peerEpIds
+*/
 FailoverRpcRequest::FailoverRpcRequest(const AsyncRpcRequestId& id,
                                        const fpi::SvcUuid &myEpId,
                                        const std::vector<fpi::SvcUuid>& peerEpIds)
     : MultiEpAsyncRpcRequest(id, myEpId, peerEpIds),
       curEpIdx_(0)
+{
+}
+
+/**
+* @brief
+*
+* @param id
+* @param myEpId
+* @param epProvider
+*/
+// TODO(Rao): Need to store epProvider.  So that we iterate endpoint
+// Ids when needes as opposed to using getEps(), like we are doing
+// now.
+FailoverRpcRequest::FailoverRpcRequest(const AsyncRpcRequestId& id,
+                                       const fpi::SvcUuid &myEpId,
+                                       const EpIdProviderPtr epProvider)
+    : FailoverRpcRequest(id, myEpId, epProvider->getEps())
 {
 }
 

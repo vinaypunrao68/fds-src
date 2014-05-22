@@ -49,6 +49,26 @@ struct AsyncRpcTimer : FdsTimerTask {
     boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr> header_;
 };
 
+struct EpIdProvider {
+    virtual fpi::SvcUuid getNextEp() = 0;
+    virtual std::vector<fpi::SvcUuid> getEps() = 0;
+};
+typedef boost::shared_ptr<EpIdProvider> EpIdProviderPtr;
+
+struct DltObjectIdEpProvider : EpIdProvider {
+    DltObjectIdEpProvider(const ObjectID &objId);
+    virtual fpi::SvcUuid getNextEp() override;
+    virtual std::vector<fpi::SvcUuid> getEps() override;
+
+    protected:
+}
+
+struct DmtVolumeIdEpProvider : EpIdProvider {
+    DmtVolumeIdEpProvider(const fds_volid_t& volId);
+    virtual fpi::SvcUuid getNextEp() override;
+    virtual std::vector<fpi::SvcUuid> getEps() override;
+}
+
 /**
  * Base class for async rpc requests
  */
@@ -174,6 +194,11 @@ struct FailoverRpcRequest : MultiEpAsyncRpcRequest {
     FailoverRpcRequest(const AsyncRpcRequestId& id,
             const fpi::SvcUuid &myEpId,
             const std::vector<fpi::SvcUuid>& peerEpIds);
+
+    FailoverRpcRequest(const AsyncRpcRequestId& id,
+            const fpi::SvcUuid &myEpId,
+            const EpIdProviderPtr epProvider);
+
 
     ~FailoverRpcRequest();
 
