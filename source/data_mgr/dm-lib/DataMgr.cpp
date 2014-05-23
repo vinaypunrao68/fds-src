@@ -499,6 +499,9 @@ DataMgr::~DataMgr()
     }
     vol_meta_map.clear();
 
+    qosCtrl->deregisterVolume(FdsDmSysTaskId);
+    delete sysTaskQueue;
+
     delete omClient;
     delete big_fat_lock;
     delete vol_map_mtx;
@@ -537,6 +540,7 @@ void DataMgr::setup_metadatapath_server(const std::string &ip)
 
 void DataMgr::proc_pre_startup()
 {
+    Error err(ERR_OK);
     fds::DmDiskInfo     *info;
     fds::DmDiskQuery     in;
     fds::DmDiskQueryOut  out;
@@ -577,6 +581,13 @@ void DataMgr::proc_pre_startup()
               << myIp << " and node name " << node_name;
 
     setup_metadatapath_server(myIp);
+
+    // Create a queue for system (background) tasks
+    sysTaskQueue = new FDS_VolumeQueue(1024, 10000, 20, FdsDmSysTaskPrio);
+    sysTaskQueue->activate();
+    err = qosCtrl->registerVolume(FdsDmSysTaskId, sysTaskQueue);
+    fds_verify(err.ok());
+    LOGNORMAL << "Registered System Task Queue";
 
     if (use_om) {
         LOGNORMAL << " Initialising the OM client ";

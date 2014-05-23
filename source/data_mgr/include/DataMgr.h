@@ -153,6 +153,7 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler
 
     dmQosCtrl   *qosCtrl;
 
+    FDS_VolumeQueue*  sysTaskQueue;
 
     /*
      * Cmdline configurables

@@ -74,7 +74,7 @@ Error CatalogSync::startSync(std::set<fds_volid_t>* volumes,
         // enqueue to qos queue
         // TODO(anna) for now enqueueing to vol queue, need to
         // add system queue
-        err = dm_req_handler->enqueueMsg(*cit, snap_req);
+        err = dm_req_handler->enqueueMsg(FdsDmSysTaskId, snap_req);
         // TODO(xxx) handle error -- probably queue is full and we
         // should retry later?
         fds_verify(err.ok());
@@ -118,7 +118,7 @@ void CatalogSync::doDeltaSync() {
         // enqueue to qos queue
         // TODO(anna) for now enqueueing to vol queue, need to
         // add system queue
-        err = dm_req_handler->enqueueMsg(*cit, snap_req);
+        err = dm_req_handler->enqueueMsg(FdsDmSysTaskId, snap_req);
         // TODO(xxx) handle error -- probably queue is full and we
         // should start timer to retry
         fds_verify(err.ok());

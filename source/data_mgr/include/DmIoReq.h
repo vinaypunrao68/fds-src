@@ -14,6 +14,9 @@
 #include <fds_volume.h>
 #include <fdsp/FDSP_types.h>
 
+#define FdsDmSysTaskId      0x8fffffff
+#define FdsDmSysTaskPrio    5
+
 namespace fds {
 
     /*
