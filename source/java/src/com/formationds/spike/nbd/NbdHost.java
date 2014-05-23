@@ -56,6 +56,7 @@ public class NbdHost {
         ConfigurationService.Iface config = XdiClientFactory.remoteOmService(configuration);
 
         FdsServerOperations ops = new FdsServerOperations(am, config);
+        //NbdServerOperations ops = new RamOperations("hello", 10000000);
 
         new NbdHost(10809, ops).run();
         //config.createVolume("fds", "hello", new VolumePolicy(4 * 1024, VolumeConnector.CINDER));
