@@ -46,7 +46,7 @@ class ShmObjRO
     template <class T>
     const T *shm_get_rec(int idx) const {
         fds_assert(idx < shm_obj_cnt);
-        return static_cast<T *>(shm_area + (idx * shm_obj_siz));
+        return reinterpret_cast<const T *>(shm_area + (idx * shm_obj_siz));
     }
 
   protected:

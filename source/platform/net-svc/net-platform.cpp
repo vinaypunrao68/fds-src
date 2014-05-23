@@ -17,7 +17,7 @@ namespace fds {
  * -----------------------------------------------------------------------------------
  */
 PlatformdNetSvc              gl_PlatformdNetSvc("platformd net");
-static EpPlatLibMod          gl_PlatformdShmLib("Platformd Shm Lib");
+static EpPlatformdMod        gl_PlatformdShmLib("Platformd Shm Lib");
 
 PlatformdNetSvc::~PlatformdNetSvc() {}
 PlatformdNetSvc::PlatformdNetSvc(const char *name) : NetPlatSvc(name)

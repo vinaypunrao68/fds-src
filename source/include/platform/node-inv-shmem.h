@@ -54,7 +54,7 @@ typedef struct _node_data_t
     FdspNodeState            nd_node_state;
     fds_uint64_t             nd_dlt_version;
     fds_uint32_t             nd_disk_type;
-    node_capability_t        nd_capability;
+    node_stor_cap_t          nd_capability;
 } node_data_t;
 
 typedef enum

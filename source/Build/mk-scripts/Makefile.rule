@@ -60,10 +60,10 @@ include $(incl_scripts)/Makefile.scpt
 # Main make rule.
 #
 .PHONY: all
-all: setupfdsrepo devsetup $(user_predep) devenv base_predepend $(user_postdep)                            \
-     $(user_predepend) base_depend $(user_postdepend)                         \
-	 $(user_preall) base_dirs base_style base_objs base_all $(user_postall)   \
-	 $(user_tool) $(user_scripts) base_postmake                               \
+all: setupfdsrepo devsetup $(user_predep) devenv base_predepend $(user_postdep) \
+     $(user_predepend) base_depend $(user_postdepend)                           \
+	 $(user_preall) base_dirs base_style base_objs base_all $(user_postall)     \
+	 $(user_tool) $(user_scripts) base_postmake                                 \
      $(user_preinstall) base_install $(user_postinstall)
 
 # -----------------------------------------------------------------------------
@@ -123,14 +123,14 @@ base_objs: $(local_obj_files)
 .PHONY: base_dirs
 base_dirs:
 ifdef user_build_dir
-	@for f in $(user_build_dir); do                                          \
-		echo Making $(MAKECMDGOALS) in `pwd`/$$f;                            \
-		makearg="$(MAKECMDGOALS) --no-print-directory";                      \
-		if [ -e $$f/Makefile.fds ]; then                                     \
-			($(MAKE) -C $$f -f Makefile.fds $$makearg) || exit 1;            \
-		else                                                                 \
-			($(MAKE) -C $$f $$makearg) || exit 1;                            \
-		fi                                                                   \
+	@for f in $(user_build_dir); do                                                   \
+		echo Making $(MAKECMDGOALS) in `pwd`/$$f;                                     \
+		makearg="--no-print-directory";                                               \
+		if [ -e $$f/Makefile.fds ]; then                                              \
+			($(MAKE) -C $$f -f Makefile.fds $(MAKECMDGOALS) $$makearg) || exit 1;     \
+		else                                                                          \
+			($(MAKE) -C $$f $(MAKECMDGOALS) $$makearg) || exit 1;                     \
+		fi                                                                            \
 	done
 endif
 
@@ -179,9 +179,13 @@ endif
 # -----------------------------------------------------------------------------
 # Clean target
 #
+local_targets := $(comm_libs) $(comm_libsos) $(comm_exes) $(comm_mods) $(comm_imgs)
 .PHONY: clean
 clean:
 	@$(scpt_make_clean)
+ifdef local_targets
+	@rm -f $(local_targets)
+endif
 ifdef user_clean
 	@for f in $(user_clean); do                                               \
         [ -f $$f ] && rm $$f;                                                 \
@@ -197,11 +201,11 @@ endif
 ifdef user_build_dir
 	@for f in $(user_build_dir); do                                           \
 		echo Cleaning `pwd`/$$f;                                              \
-		makearg="clean --no-print-directory";                                 \
+		makearg="--no-print-directory";                                       \
 		if [ -e $$f/Makefile.fds ]; then                                      \
-			(cd $$f && $(MAKE) -f Makefile.fds $$makearg);                    \
+			(cd $$f && $(MAKE) -f Makefile.fds clean $$makearg);              \
 		else                                                                  \
-			(cd $$f && $(MAKE) $$makearg);                                    \
+			(cd $$f && $(MAKE) clean $$makearg);                              \
 		fi                                                                    \
 	done
 endif

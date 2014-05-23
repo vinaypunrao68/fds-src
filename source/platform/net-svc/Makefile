@@ -5,6 +5,7 @@ user_build_dir   :=
 user_incl_dir    := ../include ../../net-service/include
 user_cpp         := \
     ep-map.cpp \
+    node-inv-shmem.cpp \
     net-service.cpp \
     net-platform.cpp \
     net-registration.cpp
