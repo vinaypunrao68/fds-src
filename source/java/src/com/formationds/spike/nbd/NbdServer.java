@@ -88,17 +88,21 @@ public class NbdServer extends ByteToMessageDecoder {
             int errno = 0;
             ByteBuf readBuf = null;
 
-            switch(cmd) {
-                case NBD_CMD_WRITE:
-                    // FIXME: don't copy these bytes
-                    ByteBuf writeBuf = Unpooled.buffer(length);
-                    in.readBytes(writeBuf, length);
-                    operations.write(exportName, writeBuf, offset, length);
-                    break;
-                case NBD_CMD_READ:
-                    readBuf = Unpooled.buffer(length);
-                    operations.read(exportName, readBuf, offset, length);
-                    break;
+            try {
+                switch (cmd) {
+                    case NBD_CMD_WRITE:
+                        // FIXME: don't copy these bytes
+                        ByteBuf writeBuf = Unpooled.buffer(length);
+                        in.readBytes(writeBuf, length);
+                        operations.write(exportName, writeBuf, offset, length);
+                        break;
+                    case NBD_CMD_READ:
+                        readBuf = Unpooled.buffer(length);
+                        operations.read(exportName, readBuf, offset, length);
+                        break;
+                }
+            } catch(Exception e) {
+                errno = 5;  // EIO
             }
 
             ByteBuf buf = ctx.alloc().buffer();
