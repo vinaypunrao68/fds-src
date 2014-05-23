@@ -89,3 +89,4 @@ tmppkg*/
 .settings
 
 *.iml
+.idea/*
