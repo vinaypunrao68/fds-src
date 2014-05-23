@@ -98,7 +98,6 @@ class ShmObjRW : public ShmObjRO
 
   protected:
     fds_mutex                rw_mtx;
-    int                      shm_obj_cnt;
     char                    *shm_rw_area;
 };
 

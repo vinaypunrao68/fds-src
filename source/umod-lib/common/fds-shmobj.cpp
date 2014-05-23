@@ -129,7 +129,6 @@ ShmObjRW::ShmObjRW(const FdsShmem *shm,
                    int             obj_cnt)
     : ShmObjRO(shm, off, key_siz, key_off, obj_siz, obj_cnt), rw_mtx()
 {
-    shm_obj_cnt = 0;
     shm_rw_area = static_cast<char *>(shm_ctrl->shm_area()) + off;
     fds_assert(shm_rw_area == shm_area);
 }
