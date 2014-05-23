@@ -104,7 +104,7 @@ Dm_ProbeMod::sendUpdate(const OpParams &updateParams)
     upCatReq->dm_transaction_id = 1;
     upCatReq->dm_operation      = FDS_DMGR_TXN_STATUS_OPEN;
     // TODO(Andrew): Actually set this...
-    updCatReq->txDesc.txId      = 0;
+    upCatReq->txDesc.txId       = 0;
 
     fdspi::FDSP_BlobObjectInfo blobObjInfo;
     blobObjInfo.offset = updateParams.blobOffset;

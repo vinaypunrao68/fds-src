@@ -17,6 +17,7 @@ user_fds_ar_libs  := \
     fds-om-dlt \
     fds-om-lib \
     fds-om-discovery \
+    fds-plat-lib \
     fds-xdi
 
 user_non_fds_libs := \

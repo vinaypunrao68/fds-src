@@ -20,27 +20,27 @@ public class Configuration {
     Properties properties = new Properties();
     private File fdsRoot;
 
-    public Configuration(String[] commandLineArgs) throws Exception {
+    public Configuration(String commandName, String[] commandLineArgs) throws Exception {
         OptionParser parser = new OptionParser();
         parser.allowsUnrecognizedOptions();
         parser.accepts("fds-root").withRequiredArg();
+        parser.accepts("console");
         OptionSet options = parser.parse(commandLineArgs);
         if (options.has("fds-root")) {
             fdsRoot = new File((String) options.valueOf("fds-root"));
         } else {
             fdsRoot = new File("/fds");
         }
-        initLog4J();
+
+        if (options.has("console")) {
+            initConsoleLogging();
+        } else {
+            initFileLogging(commandName, fdsRoot);
+        }
         initJaas(fdsRoot);
     }
 
-    private void initJaas(File fdsRoot) throws Exception {
-        Path jaasConfig = Paths.get(fdsRoot.getCanonicalPath(), "etc", "auth.conf");
-        URL configUrl = jaasConfig.toFile().toURL();
-        System.setProperty("java.security.auth.login.config", configUrl.toExternalForm());
-    }
-
-    private void initLog4J() {
+    private void initConsoleLogging() {
         properties.put("log4j.rootCategory", "INFO, console");
         properties.put("log4j.appender.console", "org.apache.log4j.ConsoleAppender");
         properties.put("log4j.appender.console.layout", "org.apache.log4j.PatternLayout");
@@ -51,6 +51,31 @@ public class Configuration {
         properties.put("log4j.logger.org.jetty", "INFO");
         properties.put("log4j.logger.org.apache.thrift", "DEBUG");
         PropertyConfigurator.configure(properties);
+    }
+
+    private void initFileLogging(String commandName, File fdsRoot) {
+        Path logPath = Paths.get(fdsRoot.getAbsolutePath(), "var", "logs", commandName + ".log").toAbsolutePath();
+        properties.put("log4j.rootLogger", "INFO, rolling");
+        properties.put("log4j.appender.rolling", "org.apache.log4j.RollingFileAppender");
+        properties.put("log4j.appender.rolling.File", logPath.toString());
+        properties.put("log4j.appender.rolling.MaxFileSize", "5120KB");
+        properties.put("log4j.appender.rolling.MaxBackupIndex", "10");
+        properties.put("log4j.appender.rolling.layout", "org.apache.log4j.PatternLayout");
+        properties.put("log4j.appender.rolling.layout.ConversionPattern", "[%t] %-5p %l - %m%n");
+        properties.put("log4j.appender.rolling.layout.ConversionPattern", "%d{ISO8601} - %p %c - %m%n");
+        properties.put("log4j.logger.org.hibernate", "WARN");
+        properties.put("log4j.logger.com.mchange", "WARN");
+        properties.put("log4j.logger.org.jetty", "INFO");
+        properties.put("log4j.logger.org.apache.thrift", "WARN");
+        properties.put("log4j.logger.com.formationds", "DEBUG");
+        properties.put("log4j.logger.com.amazonaws", "DEBUG");
+        PropertyConfigurator.configure(properties);
+    }
+
+    private void initJaas(File fdsRoot) throws Exception {
+        Path jaasConfig = Paths.get(fdsRoot.getCanonicalPath(), "etc", "auth.conf");
+        URL configUrl = jaasConfig.toFile().toURL();
+        System.setProperty("java.security.auth.login.config", configUrl.toExternalForm());
     }
 
     public boolean enforceRestAuth() {

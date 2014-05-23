@@ -111,7 +111,9 @@ void CatalogCache::setBlobEtag(const std::string &etag) {
     map_rwlock.read_unlock();
     // It it's being set, it should be to
     // a valid value
-    fds_verify(blobEtag.size() == 32);
+    // TODO(Andrew): Remove this when etag moves
+    // to updateMetadata path.
+    // fds_verify(blobEtag.size() == 32);
 }
 
 void CatalogCache::Clear() {

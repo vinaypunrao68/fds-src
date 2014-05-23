@@ -305,6 +305,9 @@ class Platform : public Module
     inline PmAgent::pointer      plf_domain_ctrl() const { return plf_domain; }
     inline NodeUuid const *const plf_get_my_uuid() const { return &plf_my_uuid; }
     inline NodeUuid const *const plf_get_my_svc_uuid() const { return &plf_my_svc_uuid; }
+    inline NodeUuid const *const plf_get_my_plf_svc_uuid() const {
+        return &plf_my_plf_svc_uuid;
+    }
 
   protected:
     friend class PlatRpcReqt;
@@ -313,6 +316,7 @@ class Platform : public Module
     FDSP_MgrIdType             plf_node_type;
     NodeUuid                   plf_my_uuid;
     NodeUuid                   plf_my_svc_uuid;
+    NodeUuid                   plf_my_plf_svc_uuid;
     std::string                plf_my_node_name;
     std::string                plf_my_ip;
     std::string                plf_om_ip_str;

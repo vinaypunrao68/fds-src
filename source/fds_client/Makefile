@@ -8,7 +8,7 @@ user_cpp_flags    :=
 ubd_cc            :=                   \
     ubd.c
 
-user_ar_libs      := fds-ubd
-fds-ubd           := $(ubd_cc)
+user_ar_libs      := fds-am-engine
+fds-am-engine     := $(ubd_cc)
 
 include $(topdir)/Makefile.incl

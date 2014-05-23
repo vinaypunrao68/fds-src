@@ -18,32 +18,38 @@ public class S3FailureHandler implements Supplier<RequestHandler> {
     @Override
     public RequestHandler get() {
         return (request, routeParameters) -> {
+            String requestedResource = request.getRequestURI();
+
             try {
                 return supplier.get().handle(request, routeParameters);
             } catch (ApiException e) {
-                switch (e.getErrorCode()) {
-                    case MISSING_RESOURCE:
-                        return new S3Failure(S3Failure.ErrorCode.NoSuchKey, "No such resource", request.getRequestURI());
-
-                    case BAD_REQUEST:
-                        return new S3Failure(S3Failure.ErrorCode.InvalidRequest, "Invalid request", request.getRequestURI());
-
-                    case INTERNAL_SERVER_ERROR:
-                        return new S3Failure(S3Failure.ErrorCode.InternalError, e.getMessage(), request.getRequestURI());
-
-                    case SERVICE_NOT_READY:
-                        return new S3Failure(S3Failure.ErrorCode.ServiceUnavailable, "The service is unavailable (no storage nodes?)", request.getRequestURI());
-
-                    case RESOURCE_ALREADY_EXISTS:
-                        return new S3Failure(S3Failure.ErrorCode.BucketAlreadyExists, "Bucket already exists", request.getRequestURI());
-
-                    case RESOURCE_NOT_EMPTY:
-                        return new S3Failure(S3Failure.ErrorCode.BucketNotEmpty, "Bucket is not empty", request.getRequestURI());
-
-                    default:
-                        return new S3Failure(S3Failure.ErrorCode.InternalError, e.getMessage(), request.getRequestURI());
-                }
+                return makeS3Failure(requestedResource, e);
             }
         };
+    }
+
+    public static S3Failure makeS3Failure(String requestedResource, ApiException e) {
+        switch (e.getErrorCode()) {
+            case MISSING_RESOURCE:
+                return new S3Failure(S3Failure.ErrorCode.NoSuchKey, "No such resource", requestedResource);
+
+            case BAD_REQUEST:
+                return new S3Failure(S3Failure.ErrorCode.InvalidRequest, "Invalid request", requestedResource);
+
+            case INTERNAL_SERVER_ERROR:
+                return new S3Failure(S3Failure.ErrorCode.InternalError, e.getMessage(), requestedResource);
+
+            case SERVICE_NOT_READY:
+                return new S3Failure(S3Failure.ErrorCode.ServiceUnavailable, "The service is unavailable (no storage nodes?)", requestedResource);
+
+            case RESOURCE_ALREADY_EXISTS:
+                return new S3Failure(S3Failure.ErrorCode.BucketAlreadyExists, "Bucket already exists", requestedResource);
+
+            case RESOURCE_NOT_EMPTY:
+                return new S3Failure(S3Failure.ErrorCode.BucketNotEmpty, "Bucket is not empty", requestedResource);
+
+            default:
+                return new S3Failure(S3Failure.ErrorCode.InternalError, e.getMessage(), requestedResource);
+        }
     }
 }

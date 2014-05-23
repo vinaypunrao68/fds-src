@@ -495,9 +495,11 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
     if (blobReq->isLastBuf() == true) {
         std::string etagKey   = "etag";
         std::string etagValue = blobReq->getEtag();
-        if (blobReq->getDataLen() > 0) {
-            fds_verify(etagValue.size() == 32);
-        }
+        // TODO(Andrew): Remove this when etag moves
+        // to updateMetadata path.
+        // if (blobReq->getDataLen() > 0) {
+        // fds_verify(etagValue.size() == 32);
+        // }
         FDS_ProtocolInterface::FDSP_MetaDataPair mdPair;
         mdPair.__set_key(etagKey);
         mdPair.__set_value(etagValue);
@@ -1470,8 +1472,10 @@ fds::Error StorHvCtrl::getObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
     fds_verify(err == ERR_OK);
     // Either the etag is empty or its set to
     // the proper length
-    fds_verify((blobEtag.size() == 0) ||
-               (blobEtag.size() == 32));
+    // TODO(Andrew): Remove this when etag moves
+    // to updateMetadata path.
+    // fds_verify((blobEtag.size() == 0) ||
+    //        (blobEtag.size() == 32));
 
     LOGNOTIFY << "Responding to getBlob trans " << transId
               <<" for blob " << blobReq->getBlobName()

@@ -549,6 +549,8 @@ class NetPlatform : public Module
     virtual EpSvc::pointer       nplat_my_ep() = 0;
     virtual EpSvcHandle::pointer nplat_domain_rpc(const fpi::DomainID &id) = 0;
 
+    virtual std::string const *const nplat_domain_master(int *port) = 0;
+
   protected:
     // Dependent module.
     //

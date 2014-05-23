@@ -21,7 +21,6 @@ NetPlatform                 *gl_NetPlatSvc = &gl_NetPlatform;
 NetPlatform::NetPlatform(const char *name) : Module(name)
 {
     static Module *net_plat_deps[] = {
-        gl_PlatformSvc,
         NULL
     };
     netmgr     = NULL;
@@ -56,12 +55,13 @@ NetPlatSvc::mod_startup()
     plat_ep_hdler  = bo::shared_ptr<NetPlatHandler>(new NetPlatHandler(this));
     plat_ep_plugin = new PlatNetPlugin(this);
     plat_ep        = new PlatNetEp(
-            plat_lib->plf_get_my_data_port(), /* hack, need to consolidate ports */
-            plat_lib->plf_my_node_uuid(),     /* bind to my uuid  */
-            NodeUuid(0ULL),                   /* pure server mode */
+            plat_lib->plf_get_my_data_port(),     /* hack, need to consolidate ports */
+            *plat_lib->plf_get_my_plf_svc_uuid(), /* bind to my platform lib svc  */
+            NodeUuid(0ULL),                       /* pure server mode */
             bo::shared_ptr<fpi::PlatNetSvcProcessor>(
                 new fpi::PlatNetSvcProcessor(plat_ep_hdler)),
             plat_ep_plugin);
+    std::cout << "startup shared platform net svc" << std::endl;
 }
 
 void
@@ -71,7 +71,9 @@ NetPlatSvc::mod_enable_service()
 
     // Regiser my node endpoint.
     netmgr->ep_register(plat_ep, false);
-    plat_agent->pda_connect_domain(fpi::DomainID());
+    if (!plat_lib->plf_is_om_node()) {
+        plat_agent->pda_connect_domain(fpi::DomainID());
+    }
 }
 
 void
@@ -90,6 +92,15 @@ NetPlatSvc::nplat_domain_rpc(const fpi::DomainID &id)
     return plat_agent->pda_rpc_handle();
 }
 
+// nplat_my_ep
+// -----------
+//
+EpSvc::pointer
+NetPlatSvc::nplat_my_ep()
+{
+    return plat_ep;
+}
+
 /*
  * -----------------------------------------------------------------------------------
  * Domain Agent
@@ -106,13 +117,13 @@ void
 DomainAgent::pda_connect_domain(const fpi::DomainID &id)
 {
     int                port;
-    NetPlatSvc        *net;
+    NetPlatform       *net;
     PlatNetEpPtr       eptr;
 
     if (agt_domain_ep != NULL) {
         return;
     }
-    net  = &gl_NetPlatform;
+    net  = NetPlatform::nplat_singleton();
     eptr = ep_cast_ptr<PlatNetEp>(net->nplat_my_ep());
     fds_verify(eptr != NULL);
 
@@ -202,23 +213,6 @@ PlatNetPlugin::svc_down(EpSvc::pointer svc, EpSvcHandle::pointer handle)
  * RPC Handlers
  * -----------------------------------------------------------------------------------
  */
-void
-NetPlatHandler::asyncReqt(bo::shared_ptr<fpi::AsyncHdr> &hdr)
-{
-}
-
-void
-NetPlatHandler::asyncResp(bo::shared_ptr<fpi::AsyncHdr>  &hdr,
-                          bo::shared_ptr<std::string>    &payload)
-{
-}
-
-void
-NetPlatHandler::uuidBind(fpi::RespHdr &ret, bo::shared_ptr<fpi::UuidBindMsg> &msg)
-{
-    std::cout << "uuidBind there" << std::endl;
-}
-
 void
 NetPlatHandler::allUuidBinding(std::vector<fpi::UuidBindMsg>   &ret,
                                bo::shared_ptr<fpi::UuidBindMsg> &msg)

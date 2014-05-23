@@ -21,17 +21,8 @@ const fpi::SvcUuid  NullSvcUuid;
  */
 NetMgr::~NetMgr() {}
 NetMgr::NetMgr(const char *name)
-    : Module(name), plat_lib(NULL), ep_shm(NULL), ep_domain_clnt(NULL), ep_mtx("Ep mtx")
-{
-    static Module *ep_mgr_mods[] = {
-        &gl_EpShmPlatLib,
-        &gl_NetPlatform,
-        NULL
-    };
-    ep_shm     = &gl_EpShmPlatLib;
-    plat_net   = &gl_NetPlatform;
-    mod_intern = ep_mgr_mods;
-}
+    : Module(name), plat_lib(NULL), ep_shm(NULL),
+      ep_domain_clnt(NULL), ep_mtx("Ep mtx") {}
 
 // ep_mgr_thrpool
 // --------------
@@ -48,7 +39,15 @@ NetMgr::ep_mgr_thrpool()
 int
 NetMgr::mod_init(SysParams const *const p)
 {
-    plat_lib = Platform::platf_singleton();
+    static Module *ep_mgr_mods[] = {
+        gl_EpShmPlatLib,
+        &gl_NetPlatform,
+        NULL
+    };
+    ep_shm     = gl_EpShmPlatLib;
+    plat_lib   = Platform::platf_singleton();
+    plat_net   = &gl_NetPlatform;
+    mod_intern = ep_mgr_mods;
     return Module::mod_init(p);
 }
 

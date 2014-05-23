@@ -455,9 +455,12 @@ DiskLabelMgr::dsk_reconcile_label(PmDiskInventory::pointer inv, bool creat)
         delete curr;
     }
     dl_valid_labels += valid_labels;
+#if 0
+    /* It's the bug here, master is still chained to the list. */
     if (master != NULL) {
         delete master;
     }
+#endif
     if ((dl_map != NULL) && (creat == true)) {
         // This isn't thread-safe but we won't need dl_map in post-alpha.
         dl_map->flush();
