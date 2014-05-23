@@ -5,8 +5,10 @@
 #include <vector>
 #include <disk.h>
 #include <ep-map.h>
+#include <platform.h>
 #include <net/net-service-tmpl.hpp>
 #include <platform/platform-lib.h>
+#include <platform/node-inv-shmem.h>
 #include <net-platform.h>
 
 namespace fds {
@@ -68,6 +70,7 @@ PlatformdNetSvc::mod_startup()
 void
 PlatformdNetSvc::mod_enable_service()
 {
+    plat_agent->pda_register(Platform::plf_pm_nodes());
     NetPlatSvc::mod_enable_service();
 }
 
@@ -178,6 +181,29 @@ PlatAgent::init_stor_cap_msg(fpi::StorCapMsg *msg) const
     NodeAgent::init_stor_cap_msg(msg);
 }
 
+// pda_register
+// ------------
+//
+void
+PlatAgent::pda_register(PmContainer::pointer container)
+{
+    int                idx;
+    node_data_t        rec;
+    fpi::NodeInfoMsg   msg;
+    ShmObjRWKeyUint64 *shm;
+
+    this->init_plat_info_msg(&msg);
+    this->node_info_msg_to_shm(&msg, &rec);
+
+    shm = NodeShmRWCtrl::shm_node_rw_inv();
+    idx = shm->shm_insert_rec(static_cast<void *>(&rec.nd_node_uuid),
+                              static_cast<void *>(&rec), sizeof(rec));
+    fds_verify(idx != -1);
+
+    this->node_fill_shm_inv(shm, idx, idx);
+    container->agent_activate(this);
+}
+
 // ep_connected
 // ------------
 //
@@ -195,6 +221,8 @@ PlatAgentPlugin::ep_connected()
     auto rpc = pda_agent->pda_rpc();
     auto pkt = bo::shared_ptr<fpi::NodeInfoMsg>(msg);
     rpc->notifyNodeInfo(ret, pkt);
+
+    std::cout << "Got " << ret.size() << " elements back" << std::endl;
 }
 
 // ep_down

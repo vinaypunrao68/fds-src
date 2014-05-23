@@ -166,7 +166,6 @@ RsContainer::rs_free_resource(Resource::pointer rs)
 void
 RsContainer::rs_foreach(ResourceIter *iter)
 {
-    iter->rs_iter_cnt = 0;
     for (fds_uint32_t i = 0; i < rs_cur_idx; i++) {
         Resource::pointer cur = rs_array[i];
         if (rs_array[i] != NULL) {

@@ -147,13 +147,14 @@ class Resource
 class ResourceIter
 {
   public:
-    ResourceIter() {}
+    ResourceIter() : rs_iter_cnt(0) {}
     virtual ~ResourceIter() {}
 
     /**
      * Return true to continue the iteration loop; false to quit.
      */
     virtual bool rs_iter_fn(Resource::pointer curr) = 0;
+    inline int rs_iter_count() { return rs_iter_cnt; }
 
   protected:
     friend class RsContainer;

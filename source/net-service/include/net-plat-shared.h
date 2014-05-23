@@ -85,8 +85,12 @@ class DomainAgent : public PmAgent
     virtual void pda_update_binding(const struct ep_map_rec *rec, int cnt);
 
   protected:
+    friend class PlatformdNetSvc;
+
     DomainAgentPlugin::pointer            agt_domain_evt;
     EpSvcHandle::pointer                  agt_domain_ep;
+
+    virtual void pda_register(PmContainer::pointer pm) {}
 };
 
 class NetPlatSvc : public NetPlatform

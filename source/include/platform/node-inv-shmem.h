@@ -24,7 +24,7 @@ typedef fpi::FDSP_NodeState            FdspNodeState;
 typedef fpi::FDSP_MgrIdType            FdspNodeType;
 typedef fpi::FDSP_RegisterNodeTypePtr  FdspNodeRegPtr;
 
-typedef struct _node_stor_cap_t
+typedef struct node_stor_cap
 {
     fds_uint64_t             disk_capacity;
     fds_uint32_t             disk_iops_max;
@@ -208,7 +208,8 @@ class ShmOwnerNodeInv : public ShmNodeInv
 extern ShmNodeInv *gl_ShmNodeInv;
 #endif
 
-extern NodeShmCtrl           gl_NodeShmCtrl;
+extern NodeShmCtrl           gl_NodeShmROCtrl;
+extern NodeShmCtrl          *gl_NodeShmCtrl;
 
 class NodeShmCtrl : public Module
 {
@@ -220,10 +221,11 @@ class NodeShmCtrl : public Module
     static const int shm_max_ams   = FDS_MAX_AM_NODES;
     static const int shm_max_nodes = MAX_DOMAIN_NODES;
 
-    static ShmObjROKeyUint64 *shm_am_inventory() { return gl_NodeShmCtrl.shm_am_inv; }
-    static ShmObjROKeyUint64 *shm_node_inventory() { return gl_NodeShmCtrl.shm_node_inv; }
-    static ShmObjROKeyUint64 *shm_uuid_binding() { return gl_NodeShmCtrl.shm_uuid_bind; }
-
+    static ShmObjROKeyUint64 *shm_am_inventory() { return gl_NodeShmCtrl->shm_am_inv; }
+    static ShmObjROKeyUint64 *shm_uuid_binding() { return gl_NodeShmCtrl->shm_uuid_bind; }
+    static ShmObjROKeyUint64 *shm_node_inventory() {
+        return gl_NodeShmCtrl->shm_node_inv;
+    }
     void shm_init_header(struct node_shm_inventory *hdr);
 
     /**

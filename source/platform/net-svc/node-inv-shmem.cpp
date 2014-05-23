@@ -11,7 +11,8 @@
 
 namespace fds {
 
-NodeShmCtrl                  gl_NodeShmCtrl("NodeShm");
+NodeShmCtrl                  gl_NodeShmROCtrl("NodeShm");
+NodeShmCtrl                 *gl_NodeShmCtrl = &gl_NodeShmROCtrl;
 
 /*
  * --------------------------------------------------------------------------------------

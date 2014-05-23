@@ -7,6 +7,8 @@
 
 namespace fds {
 
+NodeShmRWCtrl   gl_NodeShmRWCtrl("NodeShmRW");
+
 /*
  * --------------------------------------------------------------------------------------
  * Node Shared Memory Controller
@@ -26,6 +28,7 @@ NodeShmRWCtrl::NodeShmRWCtrl(const char *name) : NodeShmCtrl(name)
 int
 NodeShmRWCtrl::mod_init(SysParams const *const p)
 {
+    gl_NodeShmCtrl = &gl_NodeShmRWCtrl;
     return NodeShmCtrl::mod_init(p);
 }
 

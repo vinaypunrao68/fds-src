@@ -12,7 +12,7 @@ EpPlatLibMod                *gl_EpShmPlatLib = &gl_EpShmSharedLib;
 EpPlatLibMod::EpPlatLibMod(const char *name) : Module(name), ep_uuid_bind(NULL)
 {
     static Module *ep_plat_dep_mods[] = {
-        &gl_NodeShmCtrl,
+        &gl_NodeShmROCtrl,
         NULL
     };
     mod_intern = ep_plat_dep_mods;

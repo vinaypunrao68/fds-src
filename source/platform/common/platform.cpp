@@ -14,7 +14,6 @@
 namespace fds {
 
 NodePlatform    gl_NodePlatform;
-NodeShmRWCtrl   gl_NodeShmRWCtrl("NodeShmRW");
 
 // -------------------------------------------------------------------------------------
 // Node Specific Platform

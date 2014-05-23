@@ -138,22 +138,28 @@ class NodeInventory : public Resource
     virtual void init_node_reg_pkt(fpi::FDSP_RegisterNodeTypePtr pkt) const;
     virtual void init_stor_cap_msg(fpi::StorCapMsg *msg) const;
     virtual void init_plat_info_msg(fpi::NodeInfoMsg *msg) const;
+    virtual void init_node_info_msg(fpi::NodeInfoMsg *msg) const;
 
     /**
      * Convert from message format to POD type used in shared memory.
      */
-    static void node_info_msg_to_shm(const NodeInfoMsgPtr &msg, struct node_data *rec);
-    static void node_info_msg_frm_shm(bool am, int ro_idx, NodeInfoMsgPtr &msg);
+    static void node_info_msg_to_shm(const NodeInfoMsg *msg, struct node_data *rec);
+    static void node_info_msg_frm_shm(bool am, int ro_idx, NodeInfoMsg *msg);
+    static void node_stor_cap_to_shm(const fpi::StorCapMsg *msg, struct node_stor_cap *);
+    static void node_stor_cap_frm_shm(fpi::StorCapMsg *msg, const struct node_stor_cap *);
 
   protected:
     const NodeInvData       *node_inv;
+    FdspNodeType             node_svc_type;
     int                      node_ro_idx;
     int                      node_rw_idx;
 
     virtual ~NodeInventory() {}
     explicit NodeInventory(const NodeUuid &uuid)
-        : Resource(uuid), node_inv(NULL), node_ro_idx(-1), node_rw_idx(-1) {}
+        : Resource(uuid), node_inv(NULL),
+          node_svc_type(fpi::FDSP_PLATFORM), node_ro_idx(-1), node_rw_idx(-1) {}
 
+    const ShmObjRO *node_shm_ctrl() const;
     void node_set_inventory(NodeInvData const *const inv);
 };
 

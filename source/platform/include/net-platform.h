@@ -80,6 +80,7 @@ class PlatAgent : public DomainAgent
     virtual ~PlatAgent() {}
     explicit PlatAgent(const NodeUuid &uuid);
 
+    virtual void pda_register(PmContainer::pointer container);
     virtual void init_stor_cap_msg(fpi::StorCapMsg *msg) const override;
 };
 

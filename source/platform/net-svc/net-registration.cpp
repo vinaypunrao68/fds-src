@@ -18,6 +18,12 @@ class NodeInfoIter : public ResourceIter
 
     virtual bool rs_iter_fn(Resource::pointer curr)
     {
+        fpi::NodeInfoMsg    msg;
+        NodeAgent::pointer  node;
+
+        node = agt_cast_ptr<NodeAgent>(curr);
+        node->init_node_info_msg(&msg);
+        nd_iter_ret.push_back(msg);
         return true;
     }
 
@@ -58,7 +64,7 @@ PlatformEpHandler::notifyNodeInfo(std::vector<fpi::NodeInfoMsg>    &ret,
     NodeAgent::pointer      agent;
     DomainNodeInv::pointer  local;
 
-    NodeInventory::node_info_msg_to_shm(msg, &rec);
+    NodeInventory::node_info_msg_to_shm(msg.get(), &rec);
     shm = NodeShmRWCtrl::shm_node_rw_inv();
     idx = shm->shm_insert_rec(static_cast<void *>(&rec.nd_node_uuid),
                               static_cast<void *>(&rec), sizeof(rec));
@@ -68,7 +74,7 @@ PlatformEpHandler::notifyNodeInfo(std::vector<fpi::NodeInfoMsg>    &ret,
     local = Platform::platf_singleton()->plf_node_inventory();
     local->dc_register_node(shm, &agent, idx, idx);
 
-    // Go through the entire domain to send back info to the new node.
+    // Go through the entire domain to send back inventory info to the new node.
     local->dc_foreach_am(&iter);
     local->dc_foreach_pm(&iter);
     local->dc_foreach_dm(&iter);
@@ -77,7 +83,8 @@ PlatformEpHandler::notifyNodeInfo(std::vector<fpi::NodeInfoMsg>    &ret,
     std::cout << "Node notify idx: " << idx
         << "\nDisk iops max......... " << msg->node_stor.disk_iops_max
         << "\nDisk iops min......... " << msg->node_stor.disk_iops_min
-        << "\nDisk capacity......... " << msg->node_stor.disk_capacity << std::endl;
+        << "\nDisk capacity......... " << msg->node_stor.disk_capacity
+        << "Sent back " << iter.rs_iter_count() << std::endl;
 }
 
 // notifyNodeUp

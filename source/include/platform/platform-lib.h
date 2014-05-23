@@ -244,6 +244,9 @@ class Platform : public Module
     static inline AmContainer::pointer plf_am_cluster() {
         return platf_singleton()->plf_clus_map->dc_get_am_nodes();
     }
+    static inline PmContainer::pointer plf_pm_nodes() {
+        return platf_singleton()->plf_node_inv->dc_get_pm_nodes();
+    }
     static inline const NodeUuid &plf_my_node_uuid() {
         return platf_singleton()->plf_my_uuid;
     }
