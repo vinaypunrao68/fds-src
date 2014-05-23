@@ -62,7 +62,7 @@ NodeShmCtrl::shm_init_header(node_shm_inventory_t *hdr)
     hdr->shm_state   = NODE_SHM_ACTIVE;
 
     hdr->shm_node_inv_off     = shm_node_off;
-    hdr->shm_node_inv_key_off = offsetof(node_data_t, nd_uuid);
+    hdr->shm_node_inv_key_off = offsetof(node_data_t, nd_node_uuid);
     hdr->shm_node_inv_key_siz = sizeof(fds_uint64_t);
     hdr->shm_node_inv_obj_siz = sizeof(node_data_t);
 
@@ -72,7 +72,7 @@ NodeShmCtrl::shm_init_header(node_shm_inventory_t *hdr)
     hdr->shm_uuid_bind_obj_siz = sizeof(ep_map_rec_t);
 
     hdr->shm_am_inv_off     = shm_am_off;
-    hdr->shm_am_inv_key_off = offsetof(node_data_t, nd_uuid);
+    hdr->shm_am_inv_key_off = offsetof(node_data_t, nd_node_uuid);
     hdr->shm_am_inv_key_siz = sizeof(fds_uint64_t);
     hdr->shm_am_inv_obj_siz = sizeof(node_data_t);
 }
@@ -238,183 +238,6 @@ OwnerNodeInvData::node_update_inventory(const FdspNodeRegPtr msg)
     ncap->ssd_latency_max  = msg->disk_info.ssd_latency_max;
     ncap->ssd_latency_min  = msg->disk_info.ssd_latency_min;
     strncpy(cur->nd_node_name, msg->node_name.c_str(), FDS_MAX_NODE_NAME);
-}
-
-/*
- * ----------------------------------------------------------------------------------
- * ----------------------------------------------------------------------------------
- */
-ShmNodeInv::~ShmNodeInv() {}
-ShmNodeInv::ShmNodeInv(const char *name) : Module("shm"), FdsShmem(name) {}
-
-// mod_init
-// --------
-//
-int
-ShmNodeInv::mod_init(SysParams const *const p)
-{
-    return Module::mod_init(p);
-}
-
-// mod_startup
-// -----------
-//
-void
-ShmNodeInv::mod_startup()
-{
-    Module::mod_startup();
-    shm_setup_inventory();
-}
-
-// mod_cleanup
-// -----------
-//
-void
-ShmNodeInv::mod_shutdown()
-{
-    Module::mod_shutdown();
-}
-
-// shm_setup_inventory
-// -------------------
-//
-void
-ShmNodeInv::shm_setup_inventory()
-{
-    shm_attach();
-    nd_inventory = static_cast<const node_shm_inventory_t *>(sh_addr);
-}
-
-// node_lookup_inventory
-// ---------------------
-//
-const node_data_t *
-ShmNodeInv::node_lookup_inventory(fpi::FDSP_MgrIdType  t,
-                                  fds_uint64_t         uuid,
-                                  int                 *midx,
-                                  int                 *zidx)
-{
-    int                i, lim;
-    const node_data_t *cur, *arr;
-
-    *midx = -1;
-    *zidx = -1;
-    if (t == fpi::FDSP_STOR_HVISOR) {
-        lim = FDS_MAX_AM_NODES;
-        arr = nd_inventory->nd_am_nodes;
-    } else {
-        lim = FDS_MAX_CLUS_NODES;
-        arr = nd_inventory->nd_fds_nodes;
-    }
-    for (i = 0; (i < lim) && (*midx != -1) && (*zidx != -1); i++) {
-        cur = arr + i;
-        if ((cur->nd_uuid == 0) && (*zidx == -1)) {
-            *zidx = i;
-        }
-        if (cur->nd_uuid == uuid) {
-            *midx = i;
-        }
-    }
-    return arr;
-}
-
-// node_match_inventory
-// --------------------
-//
-NodeInvData *
-ShmNodeInv::node_connect_inventory(fpi::FDSP_MgrIdType t, fds_uint64_t uuid)
-{
-    int                zidx, midx;
-    const node_data_t *arr;
-
-    arr = node_lookup_inventory(t, uuid, &midx, &zidx);
-    if (midx != -1) {
-        return new NodeInvData(arr + midx);
-    }
-    return NULL;
-}
-
-/*
- * ----------------------------------------------------------------------------------
- * ----------------------------------------------------------------------------------
- */
-ShmOwnerNodeInv::~ShmOwnerNodeInv() {}
-ShmOwnerNodeInv::ShmOwnerNodeInv(const char *name) : ShmNodeInv(name) {}
-
-// shm_setup_inventory
-// -------------------
-//
-void
-ShmOwnerNodeInv::shm_setup_inventory()
-{
-    shm_alloc(sizeof(*nd_inventory));
-    nd_inventory    = static_cast<const node_shm_inventory_t *>(sh_addr);
-    nd_rw_inventory = static_cast<node_shm_inventory_t *>(sh_addr);
-
-    if (nd_rw_inventory->nd_shm_state != NODE_SHM_ACTIVE) {
-        memset(nd_rw_inventory, 0, sizeof(*nd_inventory));
-    }
-}
-
-// node_connect_inventory
-// ----------------------
-//
-NodeInvData *
-ShmOwnerNodeInv::node_connect_inventory(fpi::FDSP_MgrIdType t, fds_uint64_t uuid)
-{
-    int                zidx, midx;
-    const node_data_t *arr;
-
-    arr = node_lookup_inventory(t, uuid, &midx, &zidx);
-    if (midx != -1) {
-        return new OwnerNodeInvData(const_cast<node_data_t *>(arr + midx));
-    }
-    return NULL;
-}
-
-// node_fill_inventory
-// -------------------
-//
-NodeInvData *
-ShmOwnerNodeInv::node_fill_inventory(const FdspNodeRegPtr msg)
-{
-    int                i, midx, zidx, lim;
-    node_data_t       *cur;
-    const node_data_t *arr;
-    OwnerNodeInvData  *res;
-
-    // Validate the message.
-    if ((msg->node_uuid.uuid == 0) || (msg->service_uuid.uuid == 0)) {
-        return NULL;
-    }
-    if ((msg->node_type != fpi::FDSP_STOR_HVISOR) ||
-         (msg->node_type != fpi::FDSP_PLATFORM)) {
-        // Derrive from existing node.
-        return NULL;
-    }
-    nd_mtx.lock();
-    arr = node_lookup_inventory(msg->node_type,
-                                (fds_uint64_t)msg->node_uuid.uuid, &midx, &zidx);
-    if (midx != -1) {
-        cur = const_cast<node_data_t *>(arr + midx);
-    } else if (zidx != -1) {
-        cur = const_cast<node_data_t *>(arr + zidx);
-    } else {
-        // No more free slot!
-        cur = NULL;
-    }
-    if (cur != NULL) {
-        cur->nd_uuid         = msg->node_uuid.uuid;
-        cur->nd_service_uuid = msg->service_uuid.uuid;
-    }
-    nd_mtx.unlock();
-
-    if (cur == NULL) {
-        return NULL;
-    }
-    res = new OwnerNodeInvData(cur);
-    res->node_update_inventory(msg);
-    return res;
 }
 
 #endif

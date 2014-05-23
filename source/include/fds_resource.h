@@ -154,6 +154,18 @@ class Resource
     }
 };
 
+class ResourceIter
+{
+  public:
+    ResourceIter() {}
+    virtual ~ResourceIter() {}
+
+    /**
+     * Return true to continue the iteration loop; false to quit.
+     */
+    virtual bool rs_iter_fn(Resource::pointer curr, ResourceIter *arg) = 0;
+};
+
 typedef std::unordered_map<ResourceUUID, Resource::pointer, UuidHash> RsUuidMap;
 typedef std::unordered_map<std::string, Resource::pointer> RsNameMap;
 typedef std::list<Resource::pointer>   RsList;
@@ -186,6 +198,7 @@ class RsContainer
     /**
      * Iterator plugins.
      */
+    virtual void rs_foreach(ResourceIter *iter);
 
     /**
      * Methods to allocate and reference the node.

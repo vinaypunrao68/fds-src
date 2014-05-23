@@ -72,6 +72,7 @@ struct QueryCatalogMsg {
    10: i32      dm_transaction_id,   /* Transaction id */
    11: i32      dm_operation,        /* Transaction type = OPEN, COMMIT, CANCEL */
 }
+
 /*
  * --------------------------------------------------------------------------------
  * Node endpoint/service registration handshake
@@ -82,10 +83,13 @@ struct QueryCatalogMsg {
  * Uuid to physical location binding registration.
  */
 struct UuidBindMsg {
-    1: required AsyncHdr      header,
-    2: required SvcID         svc_id,
-    3: required string        svc_addr,
-    4: required i32           svc_port,
+    1: required AsyncHdr                 header,
+    2: required SvcID                    svc_id,
+    3: required string                   svc_addr,
+    4: required i32                      svc_port,
+    5: required SvcID                    svc_node,
+    6: required string                   svc_auto_name,
+    7: required FDSP.FDSP_MgrIdType      svc_type,
 }
 
 /*
@@ -114,6 +118,7 @@ struct NodeInfoMsg {
     1: required UuidBindMsg   node_loc,
     2: required DomainID      node_domain,
     3: required StorCapMsg    node_stor,
+    4: required i32           nd_base_port,
 }
 
 /*

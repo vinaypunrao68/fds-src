@@ -38,19 +38,17 @@ typedef struct _node_stor_cap_t
     fds_uint32_t             ssd_latency_min;
 } node_stor_cap_t;
 
-typedef struct _node_data_t
+typedef struct node_data
 {
-    fds_uint64_t             nd_uuid;
+    fds_uint64_t             nd_node_uuid;
     fds_uint64_t             nd_service_uuid;
 
-    fds_uint32_t             nd_ip_addr;
-    fds_uint32_t             nd_data_port;
-    fds_uint32_t             nd_ctrl_port;
-    fds_uint32_t             nd_migration_port;
-    char                     nd_node_name[FDS_MAX_NODE_NAME];
-    char                     nd_user_name[FDS_MAX_NODE_NAME];
+    fds_uint32_t             nd_base_port;
+    char                     nd_ip_addr[FDS_MAX_IP_STR];
+    char                     nd_auto_name[FDS_MAX_NODE_NAME];
+    char                     nd_assign_name[FDS_MAX_NODE_NAME];
 
-    FdspNodeType             nd_node_type;
+    FdspNodeType             nd_svc_type;
     FdspNodeState            nd_node_state;
     fds_uint64_t             nd_dlt_version;
     fds_uint32_t             nd_disk_type;

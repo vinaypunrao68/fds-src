@@ -14,6 +14,8 @@
 #include <platform/platform-rpc.h>
 
 namespace fds {
+struct node_data;
+class ShmObjRO;
 
 typedef fpi::FDSP_RegisterNodeType     FdspNodeReg;
 typedef fpi::FDSP_RegisterNodeTypePtr  FdspNodeRegPtr;
@@ -121,6 +123,7 @@ class NodeInventory : public Resource
     /**
      * Fill in the inventory for this agent based on data provided by the message.
      */
+    void node_fill_shm_inv(const ShmObjRO *shm, int ro, int rw);
     void node_fill_inventory(const FdspNodeRegPtr msg);
     void node_update_inventory(const FdspNodeRegPtr msg);
     void set_node_state(FdspNodeState state);
@@ -135,11 +138,21 @@ class NodeInventory : public Resource
     virtual void init_stor_cap_msg(fpi::StorCapMsg *msg) const;
     virtual void init_plat_info_msg(fpi::NodeInfoMsg *msg) const;
 
+    /**
+     * Convert from message format to POD type used in shared memory.
+     */
+    static void node_info_msg_to_shm(const NodeInfoMsgPtr &msg, struct node_data *rec);
+    static void node_info_msg_frm_shm(bool am, int ro_idx, NodeInfoMsgPtr &msg);
+
   protected:
     const NodeInvData       *node_inv;
+    int                      node_ro_idx;
+    int                      node_rw_idx;
 
     virtual ~NodeInventory() {}
-    explicit NodeInventory(const NodeUuid &uuid) : Resource(uuid) {}
+    explicit NodeInventory(const NodeUuid &uuid)
+        : Resource(uuid), node_inv(NULL), node_ro_idx(-1), node_rw_idx(-1) {}
+
     void node_set_inventory(NodeInvData const *const inv);
 };
 
@@ -371,6 +384,13 @@ class AgentContainer : public RsContainer
                                  bool                  activate = true);
     virtual Error agent_unregister(const NodeUuid &uuid, const std::string &name);
 
+    virtual void
+    agent_register(const ShmObjRO     *shm,
+                   NodeAgent::pointer *out,
+                   int                 ro,
+                   int                 rw,
+                   bool                activate = true);
+
     /**
      * Establish RPC connection with the remte agent.
      */
@@ -380,6 +400,7 @@ class AgentContainer : public RsContainer
                     NodeAgent::pointer               agent);
 
   protected:
+    // NetSession fields, need to remove.
     FdspNodeType                       ac_id;
     boost::shared_ptr<netSessionTbl>   ac_cpSessTbl;
 
@@ -495,6 +516,9 @@ class DomainContainer
 
     virtual Error dc_unregister_node(const NodeUuid &uuid, const std::string &name);
     virtual Error dc_unregister_agent(const NodeUuid &uuid, FdspNodeType type);
+
+    virtual void
+    dc_register_node(const ShmObjRO *shm, NodeAgent::pointer *agent, int ro, int rw);
 
     /**
      * Return the agent container matching with the node type.

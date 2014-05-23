@@ -302,7 +302,9 @@ class Platform : public Module
     inline std::string const *const plf_get_my_name() const { return &plf_my_node_name; }
     inline std::string const *const plf_get_my_ip() const { return &plf_my_ip; }
     inline std::string const *const plf_get_om_ip() const { return &plf_om_ip_str; }
-
+    inline std::string const *const plf_get_auto_node_name() const {
+        return &plf_my_auto_name;
+    }
     inline OmAgent::pointer      plf_om_master() const { return plf_master; }
     inline PmAgent::pointer      plf_domain_ctrl() const { return plf_domain; }
     inline NodeUuid const *const plf_get_my_uuid() const { return &plf_my_uuid; }
@@ -316,10 +318,11 @@ class Platform : public Module
     friend class PlatRpcResp;
 
     FDSP_MgrIdType             plf_node_type;
-    NodeUuid                   plf_my_uuid;
-    NodeUuid                   plf_my_svc_uuid;
-    NodeUuid                   plf_my_plf_svc_uuid;
-    std::string                plf_my_node_name;
+    NodeUuid                   plf_my_uuid;           /**< this node HW uuid.         */
+    NodeUuid                   plf_my_svc_uuid;       /**< SM/DM/AM... svc uuid.      */
+    NodeUuid                   plf_my_plf_svc_uuid;   /**< platform service.          */
+    std::string                plf_my_node_name;      /**< user assigned node name.   */
+    std::string                plf_my_auto_name;      /**< domain assigned auto node. */
     std::string                plf_my_ip;
     std::string                plf_om_ip_str;
     fds_uint32_t               plf_om_ctrl_port;
