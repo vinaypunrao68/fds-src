@@ -101,6 +101,15 @@ namespace fds {
         void doDeltaSync();
 
         /**
+         * Forward catalog update to DM
+         * TODO(xxx) add parameters (dmCatReq?)
+         * CatalogSync must be responsible for volume 'volid'
+         * CatalogSync must be in CSSTATE_FORWARDING state
+         * @return ERR_OK on success; or networks error
+         */
+        Error forwardCatalogUpdate(fds_volid_t volid);
+
+        /**
          * @return true if catalog sync is finished
          */
         fds_bool_t isInitialSyncDone() const;
@@ -124,6 +133,13 @@ namespace fds {
                          /*vol_snap_req*/
                          /* open file desc ?*/);
 
+        /**
+         * @return true if CatalogSync is reponsible for syncing
+         * given volume 'volid'
+         */
+        inline fds_bool_t hasVolume(fds_volid_t volid) {
+            return (sync_volumes.count(volid) > 0);
+        }
 
   private:  // methods
         Error sendMetaSyncDone(fds_volid_t volid);
@@ -216,6 +232,14 @@ namespace fds {
          * catalog sync and forwarding, etc, so we can cleanup state of this sync
          */
         void notifyCatalogSyncFinish();
+
+        /**
+         * Forward catalog update to DM to which we are pushing vol meta for the
+         * corresponding volume.
+         * Must be called only for volumes for which sync is in progress
+         * TODO(xxx) add parameters (dmCatReq?)
+         */
+        Error forwardCatalogUpdate(fds_volid_t volume_id);
 
         fds_bool_t isSyncInProgress() const { return sync_in_progress; }
 

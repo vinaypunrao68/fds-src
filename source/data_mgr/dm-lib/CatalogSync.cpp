@@ -226,6 +226,16 @@ fds_bool_t CatalogSync::isDeltaSyncDone() const {
             (cur_state != CSSTATE_DELTA_SYNC));
 }
 
+Error CatalogSync::forwardCatalogUpdate(fds_volid_t volid) {
+    Error err(ERR_OK);
+    fds_verify(hasVolume(volid));
+    LOGDEBUG << "Will forward catalog update for volume "
+             << std::hex << volid << std::dec;
+
+    // TODO(xxx) implement.
+    return err;
+}
+
 Error CatalogSync::sendMetaSyncDone(fds_volid_t volid) {
     Error err(ERR_OK);
     FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
@@ -417,6 +427,32 @@ CatalogSyncMgr::startCatalogSyncDelta(const std::string& context) {
     return err;
 }
 
+Error CatalogSyncMgr::forwardCatalogUpdate(fds_volid_t volume_id) {
+    Error err(ERR_OK);
+    fds_bool_t found_volume = false;
+
+    fds_mutex::scoped_lock l(cat_sync_lock);
+    // this method must be called only when sync is in progress
+    fds_verify(sync_in_progress);
+
+    // find CatalogSync that is responsible for this volume
+    for (CatSyncMap::const_iterator cit = cat_sync_map.cbegin();
+         cit != cat_sync_map.cend();
+         ++cit) {
+        if ((cit->second)->hasVolume(volume_id)) {
+            err = (cit->second)->forwardCatalogUpdate(volume_id);
+            found_volume = true;
+            break;
+        }
+    }
+
+    // must be called only for volumes for which sync is in progress!
+    // otherwise make sure that VolumeMeta has correct forwarding state/flag
+    fds_verify(found_volume);
+
+    return err;
+}
+
 /**
  * Called when initial or delta sync is finished for a given
  * volume 'volid'
@@ -457,7 +493,6 @@ void CatalogSyncMgr::syncDoneCb(catsync_notify_evt_t event,
         omclient->sendDMTPushMetaAck(error, cat_sync_context);
     } else if ((event == CATSYNC_DELTA_SYNC_DONE) && send_ack) {
         LOGNORMAL << "Delta sync finished for all volumes, sending commit ack";
-        sync_in_progress = false;
         omclient->sendDMTCommitAck(error, cat_sync_context);
     }
 }
@@ -467,9 +502,14 @@ void CatalogSyncMgr::syncDoneCb(catsync_notify_evt_t event,
  * state of this sync and be ready for next sync...
  */
 void CatalogSyncMgr::notifyCatalogSyncFinish() {
-    // must be called when catalog sync is finished for all vols!
     fds_mutex::scoped_lock l(cat_sync_lock);
-    fds_verify(sync_in_progress == false);
+    // delta sync must be done for all volumes!
+    for (CatSyncMap::const_iterator cit = cat_sync_map.cbegin();
+         cit != cat_sync_map.cend();
+         ++cit) {
+        fds_verify((cit->second)->isDeltaSyncDone());
+    }
+    sync_in_progress = false;
 
     // cleanup
     cat_sync_map.clear();
