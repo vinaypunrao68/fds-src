@@ -640,6 +640,14 @@ class VolumeMeta {
                VolumeDesc *v_desc,
                fds_bool_t crt_catalogs);
     ~VolumeMeta();
+
+    /**
+     * If this volume's catalogs were pushed from other DM, this method
+     * is called when pusing volume's catalogs is done so they can be
+     * now opened and ready for transactions
+     */
+    void openCatalogs();
+
     void dmCopyVolumeDesc(VolumeDesc *v_desc, VolumeDesc *pVol);
   /*
    * per volume queue

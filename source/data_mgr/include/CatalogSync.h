@@ -25,7 +25,6 @@
 #include <NetSession.h>
 
 namespace fpi = FDS_ProtocolInterface;
-using  namespace  ::FDS_ProtocolInterface;  // NOLINT
 
 namespace fds {
 
@@ -34,16 +33,39 @@ namespace fds {
      class OMgrClient;
      class CatalogSyncMgr;
 
+     typedef enum {
+         CATSYNC_INITIAL_SYNC_DONE = 0,  // finished initial rsync
+         CATSYNC_DELTA_SYNC_DONE         // finished second (delta) rsync
+     } catsync_notify_evt_t;
+
     /**
      * Callback type to notify that catalog sync process is finished for
      * a given node
      */
-     typedef std::function<void (fds_volid_t vol_id,
+     typedef std::function<void (catsync_notify_evt_t event,
+                                 fds_volid_t vol_id,
                                  OMgrClient* omclient,
                                  const Error& error)> catsync_done_handler_t;
 
     /**
      * Manages per-volume catalog sync job
+     * Process is as follows:
+     *    1) startSync() puts CatalogSync into CSSTATE_INITIAL_SYNC state and
+     *       puts sync work items into qos queue, one per volume
+     *    2) When sync work item is pulled from Qos queue, snapDoneCb is called,
+     *       progress is recorded. If this is the last snapDoneCb (we finished
+     *       all volumes), CatalogSync sets state to CSTATE_DELTA_SYNC and
+     *       notifies CatalogSyncMgr
+     *    3) performDeltaSync() must be called only when CatalogSync is in
+     *       CSSTATE_DELTA_SYNC (we finished initial sync for all volumes).
+     *       CatalogSync puts sync work items into qos queue, one per volume
+     *       (we save the volumes we started rsync for that were
+     *       passed with startSync()).
+     *    4) When sync work item is pulled from QoS queue, snapDoneCb is called
+     *       with flag that this is the second rsync; progress is recorded. If
+     *       we done doing delta rsync for all the volumes for which CatalogSync
+     *       is responsible, we set flag to CSTATE_FORWARDING and notify
+     *       CatalogSyncMgr that we are done with delta sync
      */
     class CatalogSync {
   public:
@@ -53,37 +75,66 @@ namespace fds {
         ~CatalogSync();
 
         typedef enum {
-            CSSTATE_READY = 0,     // we can call startSync
-            CSSTATE_IN_PROGRESS,   // sync in progress
-            CSSTATE_DONE           // done syncing
+            CSSTATE_READY = 0,      // we can call startSync
+            CSSTATE_INITIAL_SYNC,   // initial sync in progress
+            CSSTATE_DELTA_SYNC ,    // second (delta) sync in progress
+            CSSTATE_FORWARDING,     // forwarding updates
+            CSSTATE_DONE            // done syncing
         } csStateType;
 
         /**
          * Actually start catalog sync process for given set of
          * volumes to node for which this CatalogSync is reponsible for.
          * @param[in] done_evt_hdlr a callback CatalogSync will call
-         * when the sync process is finished.
+         * when initial sync and delta sync is finished.
+         * @param[in] volumes is set of volumes which this CatalogSync
+         * will need to sync; on function return, the set will be empty
          */
-        Error startSync(const std::set<fds_volid_t>& volumes,
+        Error startSync(std::set<fds_volid_t>* volumes,
                         netMetaSyncClientSession* client,
                         catsync_done_handler_t done_evt_hdlr);
 
         /**
-         * @return true if catalog sync is finished
+         * Start process for performing delta syncs for all the volumes
+         * we did initial sync (passed with startSync()).
          */
-        fds_bool_t isDone() const;
+        void doDeltaSync();
 
         /**
-         * Callback from data mgr that volume cat snapshot
-         * is complete; can do rsync here
+         * @return true if catalog sync is finished
+         */
+        fds_bool_t isInitialSyncDone() const;
+        fds_bool_t isDeltaSyncDone() const;
+
+        /**
+         * Callback from data mgr that volume cat initial push
+         * is complete
          */
         void snapDoneCb(fds_volid_t volid,
                         const Error& error
                         /*vol_snap_req*/
                         /* open file desc ?*/);
 
+        /**
+         * Callback from data mgr that volume cat delta push
+         * is complete
+         */
+        void deltaDoneCb(fds_volid_t volid,
+                         const Error& error
+                         /*vol_snap_req*/
+                         /* open file desc ?*/);
+
+
   private:  // methods
         Error sendMetaSyncDone(fds_volid_t volid);
+
+        /**
+         * Record progress of one volume (either initial sync
+         * where expected state is CSSTATE_INITIAL_SYNC or delta sync
+         * where expected state is CSSTATE_DELTA_SYNC)
+         * @return total volumes done
+         */
+        fds_uint32_t recordVolumeDone(csStateType expected_state);
 
   private:
         NodeUuid node_uuid;  // destination node
@@ -108,9 +159,14 @@ namespace fds {
         OMgrClient* om_client;
 
         /**
-         * For tracking sync progress
+         * Cashed volumes we are working with
          */
-        fds_uint32_t total_vols;  // num of vols for this sync job
+        std::set<fds_volid_t> sync_volumes;
+
+        /**
+         * For tracking sync progress
+         * vols_done are used for both initial sync and delta sync
+         */
         std::atomic<fds_uint32_t> vols_done;  // num of vols synced
 
         /**
@@ -121,8 +177,6 @@ namespace fds {
 
     typedef boost::shared_ptr<CatalogSync> CatalogSyncPtr;
     typedef std::unordered_map<NodeUuid, CatalogSyncPtr, UuidHash> CatSyncMap;
-
-    // typedef std::unordered_map<NodeUuid, netMetaSyncClientSession> NetMetaSyncMap;
 
     /**
      * Manages Catalog sync process
@@ -150,15 +204,26 @@ namespace fds {
                                const std::string& context);
 
         /**
+         * Called when DM receives DMT commit so that in-progress catalog syncs
+         * can do delta rsync to DMs.
+         * @return ERR_NOT_READY if called in the middle of initial rsync; returns
+         * ERR_OK if success.
+         */
+        Error startCatalogSyncDelta(const std::string& context);
+
+        /**
          * Called when OM sends DMT close message to DM to notify that we are done
          * catalog sync and forwarding, etc, so we can cleanup state of this sync
          */
         void notifyCatalogSyncFinish();
 
+        fds_bool_t isSyncInProgress() const { return sync_in_progress; }
+
         /**
          * Callback from CatalogSync that sync is finished for given volume
          */
-        void syncDoneCb(fds_volid_t volid,
+        void syncDoneCb(catsync_notify_evt_t event,
+                        fds_volid_t volid,
                         OMgrClient* omclient,
                         const Error& error);
 
@@ -197,8 +262,8 @@ namespace fds {
     typedef boost::shared_ptr<CatalogSyncMgr> CatalogSyncMgrPtr;
 
 
-    class FDSP_MetaSyncRpc : virtual public FDSP_MetaSyncReqIf,
-        virtual public FDSP_MetaSyncRespIf, public HasLogger
+    class FDSP_MetaSyncRpc : virtual public fpi::FDSP_MetaSyncReqIf,
+            virtual public fpi::FDSP_MetaSyncRespIf, public HasLogger
     {
    public:
         FDSP_MetaSyncRpc(CatalogSyncMgr &meta_sync_, fds_log *log)
@@ -210,37 +275,36 @@ namespace fds {
         std::string log_string() {
             return "FDSP_MigrationPathRpc";
         }
-       void PushMetaSyncReq(const FDSP_MsgHdrType& fdsp_msg,
-               const FDSP_UpdateCatalogType& push_meta_req) {
-          // Don't do anything here. This stub is just to keep cpp compiler happy
-       }
+        void PushMetaSyncReq(const fpi::FDSP_MsgHdrType& fdsp_msg,
+                             const fpi::FDSP_UpdateCatalogType& push_meta_req) {
+            // Don't do anything here. This stub is just to keep cpp compiler happy
+        }
+        void PushMetaSyncReq(fpi::FDSP_MsgHdrTypePtr& fdsp_msg,
+                             fpi::FDSP_UpdateCatalogTypePtr& push_meta_req) {
+        }
+        void MetaSyncDone(const fpi::FDSP_MsgHdrType& fdsp_msg,
+                          const fpi::FDSP_VolMetaState& vol_meta) {
+            // Don't do anything here. This stub is just to keep cpp compiler happy
+        }
+        void MetaSyncDone(fpi::FDSP_MsgHdrTypePtr& fdsp_msg,
+                          fpi::FDSP_VolMetaStatePtr& vol_meta);
 
-       void PushMetaSyncReq(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,
-               boost::shared_ptr<FDSP_UpdateCatalogType>& push_meta_req) {
-       }
-       void MetaSyncDone(const FDSP_MsgHdrType& fdsp_msg,
-                       const FDSP_VolMetaState& vol_meta) {
-          // Don't do anything here. This stub is just to keep cpp compiler happy
-       }
-       void MetaSyncDone(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,
-                        boost::shared_ptr<FDSP_VolMetaState>& vol_meta);
-
-       void PushMetaSyncResp(const FDSP_MsgHdrType& fdsp_msg,
-                       const FDSP_UpdateCatalogType& push_meta_resp) {
-          // Don't do anything here. This stub is just to keep cpp compiler happy
-       }
-       void PushMetaSyncResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,
-                        boost::shared_ptr<FDSP_UpdateCatalogType>& push_meta_resp) {
-       }
-       void MetaSyncDoneResp(const FDSP_MsgHdrType& fdsp_msg,
-                       const FDSP_VolMetaState& vol_meta) {
-          // Don't do anything here. This stub is just to keep cpp compiler happy
-       }
-       virtual void MetaSyncDoneResp(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,
-                       boost::shared_ptr<FDSP_VolMetaState>& vol_meta) {
-       }
-    protected:
-       CatalogSyncMgr  &metaSyncMgr;
+        void PushMetaSyncResp(const fpi::FDSP_MsgHdrType& fdsp_msg,
+                              const fpi::FDSP_UpdateCatalogType& push_meta_resp) {
+            // Don't do anything here. This stub is just to keep cpp compiler happy
+        }
+        void PushMetaSyncResp(fpi::FDSP_MsgHdrTypePtr& fdsp_msg,
+                              fpi::FDSP_UpdateCatalogTypePtr& push_meta_resp) {
+        }
+        void MetaSyncDoneResp(const fpi::FDSP_MsgHdrType& fdsp_msg,
+                              const fpi::FDSP_VolMetaState& vol_meta) {
+            // Don't do anything here. This stub is just to keep cpp compiler happy
+        }
+        void MetaSyncDoneResp(fpi::FDSP_MsgHdrTypePtr& fdsp_msg,
+                              fpi::FDSP_VolMetaStatePtr& vol_meta) {
+        }
+  protected:
+        CatalogSyncMgr  &metaSyncMgr;
     };
 }  // namespace fds
 

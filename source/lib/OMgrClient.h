@@ -51,7 +51,8 @@ namespace fds {
 
   typedef enum {
       fds_catalog_push_meta = 0,
-      fds_catalog_dmt_close = 1
+      fds_catalog_dmt_commit = 1,
+      fds_catalog_dmt_close = 2
   } fds_catalog_action_t;
   
   typedef void (*migration_event_handler_t)(bool dlt_type);
@@ -222,9 +223,10 @@ namespace fds {
     int sendDLTCloseAckToOM(FDSP_DltCloseTypePtr& dlt_close,
             const std::string& session_uuid);
     Error recvDLTStartMigration(FDSP_DLT_Data_TypePtr& dlt_info);
-    int recvDMTUpdate(FDSP_DMT_TypePtr& dmt_info, const std::string& session_uuid);
+    Error recvDMTUpdate(FDSP_DMT_TypePtr& dmt_info, const std::string& session_uuid);
     Error recvDMTPushMeta(FDSP_PushMetaPtr& push_meta, const std::string& session_uuid);
     Error sendDMTPushMetaAck(const Error& op_err, const std::string& session_uuid);
+    Error sendDMTCommitAck(const Error& op_err, const std::string& session_uuid);
 
     int recvDMTClose(fds_uint64_t dmt_version, const std::string& session_uuid);
 

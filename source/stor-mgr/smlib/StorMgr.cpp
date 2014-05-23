@@ -112,7 +112,12 @@ ObjectStorMgrI::PutObject(FDSP_MsgHdrTypePtr& msgHdr,
     if (msgHdr->err_code != ERR_OK || msgHdr->result != FDSP_ERR_OK) {
         msgHdr->msg_code = FDSP_MSG_PUT_OBJ_RSP;
         objStorMgr->swapMgrId(msgHdr);
-        objStorMgr->fdspDataPathClient(msgHdr->session_uuid)->PutObjectResp(msgHdr, putObj);
+        try { 
+            objStorMgr->fdspDataPathClient(msgHdr->session_uuid)->PutObjectResp(msgHdr, putObj);
+        } catch (att::TTransportException& e) {
+            LOGERROR << "error during network call : " << e.what() ;
+        }
+
 
         LOGERROR << "Sent async PutObj response after receiving";
     }
@@ -125,11 +130,17 @@ ObjectStorMgrI::GetObject(FDSP_MsgHdrTypePtr& msgHdr,
     LOGDEBUG << "Received a Getobject() network request";
 
 #ifdef FDS_TEST_SM_NOOP
-    msgHdr->msg_code = FDSP_MSG_GET_OBJ_RSP;
-    msgHdr->result = FDSP_ERR_OK;
-    objStorMgr->swapMgrId(msgHdr);
-    objStorMgr->fdspDataPathClient(msgHdr->session_uuid)->GetObjectResp(msgHdr, getObj);
-    LOGDEBUG << "FDS_TEST_SM_NOOP defined. Sent async GetObj response right after receiving req.";
+    try { 
+        msgHdr->msg_code = FDSP_MSG_GET_OBJ_RSP;
+        msgHdr->result = FDSP_ERR_OK;
+        objStorMgr->swapMgrId(msgHdr);
+        
+        objStorMgr->fdspDataPathClient(msgHdr->session_uuid)->GetObjectResp(msgHdr, getObj);
+        LOGDEBUG << "FDS_TEST_SM_NOOP defined. Sent async GetObj response right after receiving req.";
+    } catch(att::TTransportException& e) {
+        LOGERROR << "error during network call : " << e.what() ;
+    }
+
     return;
 #endif /* FDS_TEST_SM_NOOP */
 
@@ -164,10 +175,15 @@ ObjectStorMgrI::GetObject(FDSP_MsgHdrTypePtr& msgHdr,
         }
 
         objStorMgr->swapMgrId(msgHdr);
-        objStorMgr->fdspDataPathClient(msgHdr->session_uuid)->GetObjectResp(msgHdr, getObj);
+      
+        try {
+            objStorMgr->fdspDataPathClient(msgHdr->session_uuid)->GetObjectResp(msgHdr, getObj);
+        } catch(att::TTransportException& e) {
+            LOGERROR << "error during network call : " << e.what() ;
+        }
+    }
 
         LOGDEBUG << "Sent async GetObj response after receiving";
-    }
 }
 
 void
@@ -215,7 +231,11 @@ ObjectStorMgrI::DeleteObject(FDSP_MsgHdrTypePtr& msgHdr,
 
         msgHdr->msg_code = FDSP_MSG_DELETE_OBJ_RSP;
         objStorMgr->swapMgrId(msgHdr);
-        objStorMgr->fdspDataPathClient(msgHdr->session_uuid)->DeleteObjectResp(msgHdr, delObj);
+        try {
+            objStorMgr->fdspDataPathClient(msgHdr->session_uuid)->DeleteObjectResp(msgHdr, delObj);
+        } catch(att::TTransportException& e) {
+            LOGERROR << "error during network call : " << e.what() ;
+        }
 
         LOGDEBUG << "Sent async DeleteObj response after receiving";
     }
@@ -579,6 +599,7 @@ void
 ObjectStorMgr::addSvcMap(const NodeUuid    &svcUuid,
                          const SessionUuid &sessUuid) {
     svcSessLock.write_lock();
+    LOGDEBUG << "NodeUuid: " << svcUuid.uuid_get_val() << ", Session Uuid: " << sessUuid;
     svcSessMap[svcUuid] = sessUuid;
     svcSessLock.write_unlock();
 }
@@ -1113,6 +1134,7 @@ ObjectStorMgr::deleteObjectMetaData(const OpCtx &opCtx,
         LOGDEBUG << "Not able to read existing object locations"
                 << ", assuming no prior entry existed";
         err = ERR_OK;
+        smObjDb->unlock(objId);
         return err;
     }
 
@@ -1680,9 +1702,16 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
 
     msgHdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_PUT_OBJ_RSP;
     swapMgrId(msgHdr);
-    fdspDataPathClient(msgHdr->session_uuid)->PutObjectResp(msgHdr, putObj);
+    try {
+        fdspDataPathClient(msgHdr->session_uuid)->PutObjectResp(msgHdr, putObj);
+    } catch(att::TTransportException& e) {
+        LOGERROR << "error during network call : " << e.what() ;
+    } catch(...) {
+        LOGERROR << "Unexpected exception during network call";
+        throw;
+    }
     omJrnl->release_transaction(putReq->getTransId());
-    LOGDEBUG << "Sent async PutObj response after processing";
+    LOGDEBUG << "Sent async PutObj response after processing " << objId;
 
     /*
      * Free the IO request structure that
@@ -1852,7 +1881,11 @@ ObjectStorMgr::deleteObjectInternal(SmIoReq* delReq) {
 
     msgHdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_DELETE_OBJ_RSP;
     swapMgrId(msgHdr);
-    fdspDataPathClient(msgHdr->session_uuid)->DeleteObjectResp(msgHdr, delObj);
+    try {
+        fdspDataPathClient(msgHdr->session_uuid)->DeleteObjectResp(msgHdr, delObj);
+    } catch(att::TTransportException& e) {
+        LOGERROR << "error during network call : " << e.what() ;
+    }
     omJrnl->release_transaction(delReq->getTransId());
     LOGDEBUG << "Sent async DelObj response after processing";
 
@@ -2030,7 +2063,11 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
         LOGWARN << "Doing a get() redirection to AM with service UUID "
                 << svcUuid;
     }
-    client->GetObjectResp(msgHdr, getObj);
+    try {
+       client->GetObjectResp(msgHdr, getObj);
+    } catch(att::TTransportException& e) {
+        LOGERROR << "error during network call : " << e.what() ;
+    }
     LOGDEBUG << "Sent async GetObj response after processing";
     omJrnl->release_transaction(getReq->getTransId());
 
@@ -2780,4 +2817,3 @@ void log_ocache_stats() {
 
 
 }  // namespace fds
-

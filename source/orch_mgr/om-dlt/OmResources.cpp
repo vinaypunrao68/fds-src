@@ -1014,7 +1014,7 @@ OM_NodeDomainMod::om_recv_dmt_commit_resp(FdspNodeType node_type,
         return err;
     }
 
-    dmtMod->dmt_deploy_event(DmtCommitAckEvt(dmt_version));
+    dmtMod->dmt_deploy_event(DmtCommitAckEvt(dmt_version, node_type));
 
     return err;
 }

@@ -91,6 +91,8 @@ namespace fds {
        * If GC is in progress, this method is noop
        */
       void updateDiskStats();
+    
+      fds_bool_t isTokenCompacted(const fds_token_id& tok_id);
 
     private:
       /**

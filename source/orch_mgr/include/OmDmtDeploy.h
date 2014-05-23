@@ -42,10 +42,13 @@ class DmtPushMetaAckEvt
 class DmtCommitAckEvt
 {
   public:
-    explicit DmtCommitAckEvt(fds_uint64_t dmt_ver)
-            : dmt_version(dmt_ver) {}
+    explicit DmtCommitAckEvt(fds_uint64_t dmt_ver,
+                             fpi::FDSP_MgrIdType type)
+            : dmt_version(dmt_ver),
+            svc_type(type) {}
 
     fds_uint64_t dmt_version;
+    fpi::FDSP_MgrIdType svc_type;
 };
 
 class DmtCloseOkEvt
