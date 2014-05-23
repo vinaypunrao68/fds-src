@@ -6,6 +6,7 @@
 
 #include <VolumeMeta.h>
 #include <fds_process.h>
+#include <util/fds_stat.h>
 #include "DataMgr.h"
 
 namespace fds {
@@ -201,6 +202,7 @@ VolumeMeta::syncVolCat(fds_volid_t volId, NodeUuid node_uuid)
 {
 
   Error err(ERR_OK);
+  fds_uint64_t start, end;
   int  returnCode = 0;
   const std::string vol_name =  dataMgr->getPrefix() +
                               std::to_string(volId);
@@ -243,13 +245,19 @@ VolumeMeta::syncVolCat(fds_volid_t volId, NodeUuid node_uuid)
     return err;
   }
 
+    start = fds_rdtsc();
+    FDS_PLOG(dm_log) << " system Command rsync  start time: " <<  start;
   // rsync the meta data to the new DM nodes 
    // returnCode = std::system((const char *)("sshpass -p passwd rsync -r "+dst_dir+"  root@"+dest_ip+":/tmp").c_str());
    returnCode = std::system((const char *)("sshpass -p passwd rsync -r "+src_sync_vcat+"  root@"+dest_ip+":"+dst_node+"").c_str());
    returnCode = std::system((const char *)("sshpass -p passwd rsync -r "+src_sync_tcat+"  root@"+dest_ip+":"+dst_node+"").c_str());
   // returnCode = std::system((const char *)("rsync -r --rsh='sshpass -p passwd ssh -l root' "+dst+"/  root@"+dest_ip+":"+dst_node+"").c_str());
-   FDS_PLOG(dm_log) << "system Command  rsync return Code : " << returnCode;
+   
+  end = fds_rdtsc();
+  if ((end - start))
+    FDS_PLOG(dm_log) << " system Command rsync time: " <<  ((end - start) / fds_tck_per_us());
 
+    FDS_PLOG(dm_log) << "system Command :  return Code : " << returnCode;
   return err;
 }
 
