@@ -31,6 +31,7 @@ NodeShmCtrl                  gl_NodeShmCtrl("NodeShm");
  */
 NodeShmCtrl::NodeShmCtrl(const char *name) : Module(name)
 {
+    shm_flags     = PROT_READ;
     shm_node_off  = sizeof(*shm_node_hdr);
     shm_node_siz  = sizeof(node_data_t) * shm_max_nodes;
     shm_total_siz = sizeof(*shm_node_hdr) + shm_node_siz;
@@ -99,7 +100,7 @@ NodeShmCtrl::mod_startup()
              Platform::platf_singleton()->plf_my_node_uuid().uuid_get_val(), 0);
     shm_ctrl = new FdsShmem(shm_name, shm_total_siz);
 
-    shm = shm_ctrl->shm_attach();
+    shm = shm_ctrl->shm_attach(shm_flags);
     if (shm == NULL) {
         shm = shm_ctrl->shm_alloc(shm_total_siz);
         fds_verify(shm != NULL);

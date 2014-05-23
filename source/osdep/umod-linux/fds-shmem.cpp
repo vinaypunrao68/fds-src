@@ -27,7 +27,7 @@ FdsShmem::shm_alloc(size_t siz)
     }
 
     // Map the region
-    sh_addr = mmap(NULL, sh_size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+    sh_addr = mmap(NULL, sh_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     if (sh_addr == NULL) {
         return NULL;
     }
@@ -39,7 +39,7 @@ FdsShmem::shm_alloc(size_t siz)
 }
 
 void *
-FdsShmem::shm_attach()
+FdsShmem::shm_attach(int flags)
 {
     int fd;
     // If sh_addr is NULL then we need to try to open the shm segment
@@ -48,7 +48,7 @@ FdsShmem::shm_attach()
         if (fd == -1) {
             return NULL;
         } else {
-            sh_addr = mmap(NULL, sh_size, PROT_READ, MAP_SHARED, fd, 0);
+            sh_addr = mmap(NULL, sh_size, flags, MAP_SHARED, fd, 0);
         }
     }
     // We should no longer need the file descriptor
@@ -65,7 +65,6 @@ FdsShmem::shm_detach()
     if (sh_addr == NULL) {
         return -1;
     }
-
     return munmap(sh_addr, sh_size);
 }
 

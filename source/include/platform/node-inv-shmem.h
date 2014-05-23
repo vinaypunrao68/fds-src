@@ -236,6 +236,7 @@ class NodeShmCtrl : public Module
     virtual void mod_shutdown();
 
   protected:
+    int                        shm_flags;
     size_t                     shm_node_off;
     size_t                     shm_node_siz;
     size_t                     shm_uuid_off;

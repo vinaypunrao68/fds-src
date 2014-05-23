@@ -21,7 +21,7 @@ class FdsShmem
     virtual ~FdsShmem();
 
     void  *shm_alloc(size_t size);
-    void  *shm_attach();
+    void  *shm_attach(int flags);
     int    shm_detach();
     int    shm_remove();
 
