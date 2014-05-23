@@ -1,6 +1,7 @@
 /*
  * Copyright 2014 by Formation Data Systems, Inc.
  */
+#include <stdio.h>
 #include <platform/fds-shmem.h>
 
 namespace fds {
@@ -8,13 +9,13 @@ namespace fds {
 FdsShmem::FdsShmem(const char *name, size_t size)
     : sh_name(name), sh_addr(NULL), sh_size(size) {}
 
-
 FdsShmem::~FdsShmem() {}
 
 void *
-FdsShmem::shm_alloc()
+FdsShmem::shm_alloc(size_t siz)
 {
     int fd = shm_open(sh_name, O_RDWR|O_CREAT| O_EXCL, S_IRWXU);
+    perror("Error shm_open: ");
 
     // fd should be 0
     if (fd == -1) {

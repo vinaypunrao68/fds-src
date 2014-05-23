@@ -1,12 +1,12 @@
 ifdef user_std_libs
     user_fds_ar_libs += \
         fds-plat-lib \
-        fds-lib \
-        fds-umod \
-        fds-util \
         fds-net-platd \
         fds-net-svc \
         fds-rpc-request \
+        fds-lib \
+        fds-umod \
+        fds-util \
         fds-fdsp \
         fds-hash \
         fds-thread \

@@ -11,25 +11,26 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <assert.h>
 
 namespace fds {
 
 class FdsShmem
 {
   public:
-    FdsShmem(const char *name, size_t size);
+    explicit FdsShmem(const char *name, size_t size);
     virtual ~FdsShmem();
 
-    void  *shm_alloc();
+    void  *shm_alloc(size_t size);
     void  *shm_attach();
-    int   shm_detach();
-    int   shm_remove();
+    int    shm_detach();
+    int    shm_remove();
+
+    inline void *shm_area() const { return sh_addr; }
 
   protected:
-    const char               *sh_name;
-    void                     *sh_addr;
-    size_t                    sh_size;
+    const char *sh_name;
+    void       *sh_addr;
+    size_t      sh_size;
 };
 
 }  // namespace fds

@@ -48,9 +48,6 @@ typedef struct _node_capability_t
 class NodeInvData
 {
   public:
-    // typedef boost::shared_ptr<NodeInvData>       pointer;
-    // typedef boost::shared_ptr<const NodeInvData> const_ptr;
-
     // TODO(Andrew): Add back a better checksum library
     // Sha1Digest               nd_checksum;
     NodeUuid                 nd_uuid;

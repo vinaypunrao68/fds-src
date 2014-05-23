@@ -14,6 +14,7 @@ user_fds_ar_libs := \
 
 user_non_fds_libs := \
 	udev \
+	rt \
 	parted
 
 user_cpp         := platform-main.cpp

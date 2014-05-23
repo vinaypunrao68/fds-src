@@ -4,7 +4,8 @@ user_rtime_env   := user
 user_incl_dir    := ../include ../../net-service/include
 
 user_cpp         := \
-    platform.cpp
+    platform.cpp \
+    platform-shm-rw.cpp
 
 user_ar_libs     := fds-plat-daemon
 fds-plat-daemon  := $(user_cpp)

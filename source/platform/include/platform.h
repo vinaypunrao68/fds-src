@@ -7,12 +7,16 @@
 #include <string>
 #include <fds_process.h>
 #include <kvstore/platformdb.h>
+#include <shared/fds-constants.h>
 #include <platform/platform-lib.h>
-#include <net-plat-shared.h>
+#include <platform/node-inv-shmem.h>
 
 namespace fds {
+class ShmObjRWKeyUint64;
+class NodeShmRWCtrl;
 class DiskPlatModule;
 class NodePlatformProc;
+struct node_shm_inventory;
 
 class NodePlatform : public Platform
 {
@@ -37,6 +41,37 @@ class NodePlatform : public Platform
 
     virtual PlatRpcReqt *plat_creat_reqt_disp();
     virtual PlatRpcResp *plat_creat_resp_disp();
+};
+
+extern NodeShmRWCtrl         gl_NodeShmRWCtrl;
+
+class NodeShmRWCtrl : public NodeShmCtrl
+{
+  public:
+    virtual ~NodeShmRWCtrl() {}
+    explicit NodeShmRWCtrl(const char *name);
+
+    static ShmObjRWKeyUint64 *shm_am_rw_inv() {
+        return gl_NodeShmRWCtrl.shm_am_rw;
+    }
+    static ShmObjRWKeyUint64 *shm_node_rw_inv() {
+        return gl_NodeShmRWCtrl.shm_node_rw;
+    }
+    static ShmObjRWKeyUint64 *shm_uuid_rw_binding() {
+        return gl_NodeShmRWCtrl.shm_uuid_rw;
+    }
+
+    /**
+     * Module methods
+     */
+    virtual int  mod_init(SysParams const *const p);
+    virtual void mod_startup();
+    virtual void mod_shutdown();
+
+  protected:
+    ShmObjRWKeyUint64         *shm_am_rw;
+    ShmObjRWKeyUint64         *shm_node_rw;
+    ShmObjRWKeyUint64         *shm_uuid_rw;
 };
 
 /**

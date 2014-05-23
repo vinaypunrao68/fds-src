@@ -11,7 +11,7 @@ user_incl_dir     := \
     include \
     migrations \
     $(topdir)/lib \
-	$(topdir)/persistent_layer/include
+    $(topdir)/persistent_layer/include
 
 user_cpp_flags    :=
 user_fds_so_libs  :=

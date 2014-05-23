@@ -41,13 +41,11 @@ NetMgr::mod_init(SysParams const *const p)
 {
     static Module *ep_mgr_mods[] = {
         gl_EpShmPlatLib,
-        // &gl_NetPlatform,
         gl_NetPlatSvc,
         NULL
     };
     ep_shm     = gl_EpShmPlatLib;
     plat_lib   = Platform::platf_singleton();
-    // plat_net   = &gl_NetPlatform;
     plat_net   = static_cast<NetPlatSvc *>(gl_NetPlatSvc);
     mod_intern = ep_mgr_mods;
     return Module::mod_init(p);
