@@ -56,17 +56,41 @@ struct EpIdProvider {
 typedef boost::shared_ptr<EpIdProvider> EpIdProviderPtr;
 
 struct DltObjectIdEpProvider : EpIdProvider {
-    explicit DltObjectIdEpProvider(const ObjectID &objId);
-    virtual fpi::SvcUuid getNextEp() override;
-    virtual std::vector<fpi::SvcUuid> getEps() override;
+    explicit DltObjectIdEpProvider(const ObjectID &objId)
+    {
+    }
+    virtual fpi::SvcUuid getNextEp() override
+    {
+        // TODO(Rao): Impl
+        fpi::SvcUuid svcId;
+        return svcId;
+    }
+    virtual std::vector<fpi::SvcUuid> getEps() override
+    {
+        // TODO(Rao): Impl
+        std::vector<fpi::SvcUuid> uuids;
+        return uuids;
+    }
 
     protected:
 };
 
 struct DmtVolumeIdEpProvider : EpIdProvider {
-    explicit DmtVolumeIdEpProvider(const fds_volid_t& volId);
-    virtual fpi::SvcUuid getNextEp() override;
-    virtual std::vector<fpi::SvcUuid> getEps() override;
+    explicit DmtVolumeIdEpProvider(const fds_volid_t& volId)
+    {
+    }
+    virtual fpi::SvcUuid getNextEp() override
+    {
+        // TODO(Rao): Impl
+        fpi::SvcUuid svcId;
+        return svcId;
+    }
+    virtual std::vector<fpi::SvcUuid> getEps() override
+    {
+        // TODO(Rao): Impl
+        std::vector<fpi::SvcUuid> uuids;
+        return uuids;
+    }
 };
 
 /**

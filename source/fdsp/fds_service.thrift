@@ -50,24 +50,27 @@ struct AsyncHdr {
 struct GetObjectMsg {
    1: required AsyncHdr        hdr;
    2: FDSP.FDS_ObjectIdType data_obj_id,
-   3: i32              data_obj_len,
-   4: i32              dlt_version,
-   5: binary           data_obj,
-   6: binary           dlt_data,
+}
+
+struct GetObjectResp {
+   1: required AsyncHdr        hdr;
+   2: i32              data_obj_len,
+   3: binary           data_obj,
 }
 
 struct QueryCatalogMsg {
    1: required AsyncHdr        hdr;
-   2: string   blob_name,           /* User visible name of the blob*/
-   3: i64 blob_version,             /* Version of the blob to query */
-   4: i64 blob_size,
-   5: i32 blob_mime_type,
-   6: FDSP.FDSP_BlobDigestType digest,
-   7: FDSP.FDSP_BlobObjectList obj_list, /* List of object ids of the objects that this blob is being mapped to */
-   8: FDSP.FDSP_MetaDataList meta_list,  /* sequence of arbitrary key/value pairs */
+   2: i64    volume_id,
+   3: string   blob_name,           /* User visible name of the blob*/
+   4: i64 blob_version,             /* Version of the blob to query */
+   5: i64 blob_size,
+   6: i32 blob_mime_type,
+   7: FDSP.FDSP_BlobDigestType digest,
+   8: FDSP.FDSP_BlobObjectList obj_list, /* List of object ids of the objects that this blob is being mapped to */
+   9: FDSP.FDSP_MetaDataList meta_list,  /* sequence of arbitrary key/value pairs */
 
-   9: i32      dm_transaction_id,   /* Transaction id */
-   10: i32      dm_operation,        /* Transaction type = OPEN, COMMIT, CANCEL */
+   10: i32      dm_transaction_id,   /* Transaction id */
+   11: i32      dm_operation,        /* Transaction type = OPEN, COMMIT, CANCEL */
 }
 /*
  * --------------------------------------------------------------------------------

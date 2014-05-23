@@ -35,6 +35,7 @@
 
 #include <blob/BlobTypes.h>
 #include <fdsp/DMSvc.h>
+#include <functional>
 
 #undef FDS_TEST_DM_NOOP     /* if defined, puts complete as soon as they arrive to DM (not for gets right now) */
 
@@ -50,6 +51,10 @@ int scheduleBlobList(void * _io);
 int scheduleGetBlobMetaData(void* io);
 int scheduleSetBlobMetaData(void* io);
 int scheduleGetVolumeMetaData(void* io);
+
+class DataMgr;
+class DMSvcHandler;
+extern DataMgr *dataMgr;
 
 class DataMgr : public PlatformProcess {
 public:
@@ -98,6 +103,7 @@ public:
         BlobTxId::const_ptr blobTxId;
         fpi::FDSP_UpdateCatalogTypePtr fdspUpdCatReqPtr;
         boost::shared_ptr<fpi::FDSP_MetaDataList> metadataList;
+        std::function<void (const Error &e, dmCatReq *req, BlobNode *bnode)> resp_cb;
 
         dmCatReq(fds_volid_t  _volId,
                  long 	  _srcIp,
@@ -236,6 +242,9 @@ public:
                 break;
             case FDS_CAT_QRY:
                 threadPool->schedule(scheduleQueryCatalog, io);
+                break;
+            case FDS_CAT_QRY2:
+                threadPool->schedule(&DataMgr::queryCatalogBackend2, dataMgr, io);
                 break;
             case FDS_STAT_BLOB:
                 threadPool->schedule(scheduleStatBlob, io);
@@ -413,6 +422,7 @@ public:
     void updateCatalogBackend(dmCatReq  *updCatReq);
     Error updateCatalogProcess(const dmCatReq  *updCatReq, BlobNode **bnode);
     void queryCatalogBackend(dmCatReq  *qryCatReq);
+    void queryCatalogBackend2(void * _io);
     Error queryCatalogProcess(const dmCatReq  *qryCatReq, BlobNode **bnode);
     void deleteCatObjBackend(dmCatReq  *delCatReq);
     Error deleteBlobProcess(const dmCatReq  *delCatReq, BlobNode **bnode);
@@ -555,8 +565,8 @@ public:
                              boost::shared_ptr<std::string>& volumeName);
     };
 
+    friend class DMSvcHandler;
 };
-
 
 class DMSvcHandler : virtual public DMSvcIf {
  public:
@@ -569,10 +579,10 @@ class DMSvcHandler : virtual public DMSvcIf {
   }
 
 
-  void queryCatalogObject(boost::shared_ptr<QueryCatalogMsg>& queryMsg) {
-    // Your implementation goes here
-    printf("queryCatalogObject\n");
-  }
+  void queryCatalogObject(boost::shared_ptr<QueryCatalogMsg>& queryMsg);
+  void queryCatalogObjectCb(boost::shared_ptr<QueryCatalogMsg>& queryMsg,
+                            const Error &e, DataMgr::dmCatReq *req, BlobNode *bnode);
+
 };
 
 }  // namespace fds
