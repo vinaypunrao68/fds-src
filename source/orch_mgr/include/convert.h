@@ -13,7 +13,7 @@ namespace fds {
                                      fpi::FDSP_CreateVolTypePtr& request,
                                      const std::string& domain,
                                      const std::string& volume,
-                                     const apis::VolumePolicy volPolicy);
+                                     const apis::VolumeSettings volSettings);
 
         void getFDSPDeleteVolRequest(fpi::FDSP_MsgHdrTypePtr& header,
                                      fpi::FDSP_DeleteVolTypePtr& request,

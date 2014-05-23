@@ -21,7 +21,7 @@ public class LegacyConfigurationService implements ConfigurationService.Iface {
     }
 
     @Override
-    public void createVolume(String domainName, String volumeName, VolumePolicy volumePolicy) throws ApiException, TException {
+    public void createVolume(String domainName, String volumeName, VolumeSettings volumePolicy) throws ApiException, TException {
         new CreateVolume(client).createVolume(volumeName, 0, Integer.MAX_VALUE, 1);
     }
 
@@ -39,7 +39,7 @@ public class LegacyConfigurationService implements ConfigurationService.Iface {
     private VolumeDescriptor toVolumeDescriptor(FDSP_VolumeDescType volumeDescriptor) {
         return new VolumeDescriptor(volumeDescriptor.getVol_name(),
                                     DateTime.now().getMillis(),
-                                    new VolumePolicy(2 * 1024 * 1024, VolumeConnector.S3));
+                                    new VolumeSettings(2 * 1024 * 1024, VolumeType.OBJECT));
     }
 
     @Override

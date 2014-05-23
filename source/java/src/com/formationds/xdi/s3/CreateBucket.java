@@ -3,8 +3,8 @@ package com.formationds.xdi.s3;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.apis.VolumePolicy;
-import com.formationds.apis.VolumeConnector;
+import com.formationds.apis.VolumeSettings;
+import com.formationds.apis.VolumeType;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
@@ -23,8 +23,8 @@ public class CreateBucket implements RequestHandler {
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
         String bucketName = requiredString(routeParameters, "bucket");
-        xdi.createVolume(S3Endpoint.FDS_S3, bucketName, new VolumePolicy(1024 * 1024 * 2,
-                                                                   VolumeConnector.S3));
+        xdi.createVolume(S3Endpoint.FDS_S3, bucketName, new VolumeSettings(1024 * 1024 * 2,
+                                                                   VolumeType.OBJECT));
         return new TextResource("");
     }
 }

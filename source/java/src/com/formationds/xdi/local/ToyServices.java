@@ -34,7 +34,7 @@ public class ToyServices implements AmService.Iface, ConfigurationService.Iface 
     }
 
     @Override
-    public void createVolume(String domainName, String volumeName, VolumePolicy volumePolicy) throws ApiException, TException {
+    public void createVolume(String domainName, String volumeName, VolumeSettings volumePolicy) throws ApiException, TException {
         Domain domain = (Domain) persister.execute(session -> session.createCriteria(Domain.class)
                 .add(Restrictions.eq("name", domainName))
                 .uniqueResult());
@@ -69,8 +69,8 @@ public class ToyServices implements AmService.Iface, ConfigurationService.Iface 
     public VolumeDescriptor statVolume(String domainName, String volumeName) throws ApiException, TException {
         Volume volume = getVolume(domainName, volumeName);
         return new VolumeDescriptor(volumeName, volume.getTimestamp(),
-                                    new VolumePolicy(volume.getObjectSize(),
-                                                     VolumeConnector.S3));
+                                    new VolumeSettings(volume.getObjectSize(),
+                                                     VolumeType.OBJECT));
     }
 
     @Override
@@ -83,8 +83,8 @@ public class ToyServices implements AmService.Iface, ConfigurationService.Iface 
 
         return volumes.stream()
                 .map(v -> new VolumeDescriptor(v.getName(), v.getTimestamp(),
-                                               new VolumePolicy(v.getObjectSize(),
-                                                                VolumeConnector.S3)))
+                                               new VolumeSettings(v.getObjectSize(),
+                                                                VolumeType.OBJECT)))
                 .collect(Collectors.toList());
     }
 

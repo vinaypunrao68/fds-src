@@ -5,8 +5,8 @@ package com.formationds.xdi.local;
 
 import com.formationds.apis.BlobDescriptor;
 import com.formationds.apis.ObjectOffset;
-import com.formationds.apis.VolumePolicy;
-import com.formationds.apis.VolumeConnector;
+import com.formationds.apis.VolumeSettings;
+import com.formationds.apis.VolumeType;
 import com.formationds.apis.TxDescriptor;
 import org.junit.Test;
 
@@ -29,9 +29,9 @@ public class ToyServicesTest {
 
         shim.createDomain(domainName);
         shim.createVolume(domainName, volumeName,
-                          new VolumePolicy(8, VolumeConnector.S3));
+                          new VolumeSettings(8, VolumeType.OBJECT));
         shim.createVolume(domainName, "v2",
-                          new VolumePolicy(32, VolumeConnector.S3));
+                          new VolumeSettings(32, VolumeType.OBJECT));
 
         assertEquals(2, shim.listVolumes(domainName).size());
         shim.deleteVolume(domainName, "v2");

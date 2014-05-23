@@ -11,7 +11,7 @@ void getFDSPCreateVolRequest(fpi::FDSP_MsgHdrTypePtr& header,
                              fpi::FDSP_CreateVolTypePtr& request,
                              const std::string& domain,
                              const std::string& volume,
-                             const apis::VolumePolicy volPolicy) {
+                             const apis::VolumeSettings volSettings) {
     header.reset(new fpi::FDSP_MsgHdrType());
     request.reset(new fpi::FDSP_CreateVolType());
 
@@ -34,16 +34,15 @@ void getFDSPCreateVolRequest(fpi::FDSP_MsgHdrTypePtr& header,
     // Set connector
     // TODO(Andrew): Have the api service just replace the fdsp version
     // so that his conversion isn't needed
-    if ((volPolicy.connector == apis::S3) ||
-        (volPolicy.connector == apis::SWIFT)) {
-        // TODO(Andrew): We create an s3 vol for swift as well
-        // since FDSP doesn't have another enum value and there
-        // isn't any backend difference at the moment. Clean up.
-        request->vol_info.volType = fpi::FDSP_VOL_S3_TYPE;
-    } else if (volPolicy.connector == apis::CINDER) {
-        request->vol_info.volType = fpi::FDSP_VOL_BLKDEV_TYPE;
-    } else {
-        fds_panic("Unknown connector type!");
+    switch (volSettings.volumeType) {
+        case apis::OBJECT:
+            request->vol_info.volType = fpi::FDSP_VOL_S3_TYPE;
+            break;
+        case apis::BLOCK:
+            request->vol_info.volType = fpi::FDSP_VOL_BLKDEV_TYPE;
+            break;
+        default:
+            fds_panic("Unknown connector type!");
     }
 
     request->vol_info.defReplicaCnt = 0;

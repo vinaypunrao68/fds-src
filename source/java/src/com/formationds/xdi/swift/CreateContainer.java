@@ -3,8 +3,8 @@ package com.formationds.xdi.swift;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.apis.VolumePolicy;
-import com.formationds.apis.VolumeConnector;
+import com.formationds.apis.VolumeSettings;
+import com.formationds.apis.VolumeType;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.ResourceWrapper;
@@ -26,8 +26,8 @@ public class CreateContainer implements RequestHandler {
         String accountName = requiredString(routeParameters, "account");
         String containerName = requiredString(routeParameters, "container");
 
-        xdi.createVolume(accountName, containerName, new VolumePolicy(1024 * 1024 * 2,
-                                                                      VolumeConnector.SWIFT));
+        xdi.createVolume(accountName, containerName, new VolumeSettings(1024 * 1024 * 2,
+                                                                      VolumeType.OBJECT));
         return SwiftUtility.swiftResource(new TextResource(201, ""));
     }
 }

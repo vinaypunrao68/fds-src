@@ -48,21 +48,21 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     }
 
     // Don't do anything here. This stub is just to keep cpp compiler happy
-    void createVolume(const std::string& domainName, const std::string& volumeName, const VolumePolicy& volumePolicy) {}  //NOLINT
+    void createVolume(const std::string& domainName, const std::string& volumeName, const VolumeSettings& volumeSettings) {}  //NOLINT
     void deleteVolume(const std::string& domainName, const std::string& volumeName) {}  //NOLINT
     void statVolume(VolumeDescriptor& _return, const std::string& domainName, const std::string& volumeName) {}  //NOLINT
     void listVolumes(std::vector<VolumeDescriptor> & _return, const std::string& domainName) {}  //NOLINT
 
     void createVolume(boost::shared_ptr<std::string>& domainName,
                       boost::shared_ptr<std::string>& volumeName,
-                      boost::shared_ptr<VolumePolicy>& volumePolicy) {
+                      boost::shared_ptr<VolumeSettings>& volumeSettings) {
         LOGNOTIFY << " domain: " << *domainName
                   << " volume: " << *volumeName;
 
         // TODO(Andrew): Temp hack to ensure volumes are aligned to specific size.
         // Can remove when we support varible object sizes
-        if ((volumePolicy->maxObjectSizeInBytes % (2 * 1024 * 1024) != 0) &&
-            (volumePolicy->maxObjectSizeInBytes % (4 * 1024) != 0)) {
+        if ((volumeSettings->maxObjectSizeInBytes % (2 * 1024 * 1024) != 0) &&
+            (volumeSettings->maxObjectSizeInBytes % (4 * 1024) != 0)) {
             apis::ApiException fdsE;
             throw fdsE;
         }
@@ -77,7 +77,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         fpi::FDSP_MsgHdrTypePtr header;
         fpi::FDSP_CreateVolTypePtr request;
         convert::getFDSPCreateVolRequest(header, request,
-                                         *domainName, *volumeName, *volumePolicy);
+                                         *domainName, *volumeName, *volumeSettings);
         err = volContainer->om_create_vol(header, request, false);
         if (err != ERR_OK) apiException("error creating volume");
     }

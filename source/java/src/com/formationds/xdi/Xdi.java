@@ -36,7 +36,7 @@ public class Xdi {
         return new XdiCredentials(principal, token.getKey());
     }
 
-    public void createVolume(String domainName, String volumeName, VolumePolicy volumePolicy) throws ApiException, TException {
+    public void createVolume(String domainName, String volumeName, VolumeSettings volumePolicy) throws ApiException, TException {
         config.createVolume(domainName, volumeName, volumePolicy);
     }
 
