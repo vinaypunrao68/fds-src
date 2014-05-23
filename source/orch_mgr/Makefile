@@ -21,7 +21,8 @@ user_fds_ar_libs  := \
     fds-netproxy \
     fds-fdsp \
     fds-umod \
-    fds-thread
+    fds-thread \
+    fds-osdep
 
 user_non_fds_libs := \
     boost_log \

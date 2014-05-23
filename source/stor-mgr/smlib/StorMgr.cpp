@@ -599,6 +599,7 @@ void
 ObjectStorMgr::addSvcMap(const NodeUuid    &svcUuid,
                          const SessionUuid &sessUuid) {
     svcSessLock.write_lock();
+    LOGDEBUG << "NodeUuid: " << svcUuid.uuid_get_val() << ", Session Uuid: " << sessUuid;
     svcSessMap[svcUuid] = sessUuid;
     svcSessLock.write_unlock();
 }
