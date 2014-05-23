@@ -10,6 +10,21 @@
 
 namespace fds {
 
+class NodeInfoIter : public ResourceIter
+{
+  public:
+    virtual ~NodeInfoIter() {}
+    explicit NodeInfoIter(std::vector<fpi::NodeInfoMsg> &res) : nd_iter_ret(res) {}
+
+    virtual bool rs_iter_fn(Resource::pointer curr)
+    {
+        return true;
+    }
+
+  protected:
+    std::vector<fpi::NodeInfoMsg>        &nd_iter_ret;
+};
+
 /*
  * -----------------------------------------------------------------------------------
  * RPC Handlers
@@ -38,6 +53,7 @@ PlatformEpHandler::notifyNodeInfo(std::vector<fpi::NodeInfoMsg>    &ret,
 {
     int                     idx;
     node_data_t             rec;
+    NodeInfoIter            iter(ret);
     ShmObjRWKeyUint64      *shm;
     NodeAgent::pointer      agent;
     DomainNodeInv::pointer  local;
@@ -51,6 +67,12 @@ PlatformEpHandler::notifyNodeInfo(std::vector<fpi::NodeInfoMsg>    &ret,
     fds_verify(idx != -1);
     local = Platform::platf_singleton()->plf_node_inventory();
     local->dc_register_node(shm, &agent, idx, idx);
+
+    // Go through the entire domain to send back info to the new node.
+    local->dc_foreach_am(&iter);
+    local->dc_foreach_pm(&iter);
+    local->dc_foreach_dm(&iter);
+    local->dc_foreach_sm(&iter);
 
     std::cout << "Node notify idx: " << idx
         << "\nDisk iops max......... " << msg->node_stor.disk_iops_max

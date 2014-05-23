@@ -9,9 +9,8 @@
 #include <vector>
 #include <ostream>
 #include <unordered_map>
-#include <boost/atomic.hpp>
-#include <boost/intrusive_ptr.hpp>
 
+#include <fds_ptr.h>
 #include <cpplist.h>
 #include <shared/fds_types.h>
 #include <concurrency/Mutex.h>
@@ -142,16 +141,7 @@ class Resource
         : rs_uuid(uuid), rs_mtx("rs-mtx"), rs_refcnt(0) {}
 
   private:
-    mutable boost::atomic<int>  rs_refcnt;
-    friend void intrusive_ptr_add_ref(const Resource  *x) {
-        x->rs_refcnt.fetch_add(1, boost::memory_order_relaxed);
-    }
-    friend void intrusive_ptr_release(const Resource *x) {
-        if (x->rs_refcnt.fetch_sub(1, boost::memory_order_release) == 1) {
-            boost::atomic_thread_fence(boost::memory_order_acquire);
-            delete x;
-        }
-    }
+    INTRUSIVE_PTR_DEFS(Resource, rs_refcnt);
 };
 
 class ResourceIter
@@ -163,7 +153,11 @@ class ResourceIter
     /**
      * Return true to continue the iteration loop; false to quit.
      */
-    virtual bool rs_iter_fn(Resource::pointer curr, ResourceIter *arg) = 0;
+    virtual bool rs_iter_fn(Resource::pointer curr) = 0;
+
+  protected:
+    friend class RsContainer;
+    int          rs_iter_cnt;
 };
 
 typedef std::unordered_map<ResourceUUID, Resource::pointer, UuidHash> RsUuidMap;
@@ -236,16 +230,7 @@ class RsContainer
     }
 
   private:
-    mutable boost::atomic<int>  rs_refcnt;
-    friend void intrusive_ptr_add_ref(const RsContainer *x) {
-        x->rs_refcnt.fetch_add(1, boost::memory_order_relaxed);
-    }
-    friend void intrusive_ptr_release(const RsContainer *x) {
-        if (x->rs_refcnt.fetch_sub(1, boost::memory_order_release) == 1) {
-            boost::atomic_thread_fence(boost::memory_order_acquire);
-            delete x;
-        }
-    }
+    INTRUSIVE_PTR_DEFS(RsContainer, rs_refcnt);
 };
 
 // ----------------------------------------------------------------------------

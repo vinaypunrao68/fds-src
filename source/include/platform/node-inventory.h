@@ -7,6 +7,7 @@
 #include <string>
 #include <ostream>
 #include <boost/shared_ptr.hpp>
+#include <fds_ptr.h>
 #include <fds_error.h>
 #include <fds_resource.h>
 #include <fds_module.h>
@@ -510,15 +511,19 @@ class DomainContainer
                     AgentContainer::pointer pm,
                     AgentContainer::pointer om);
 
+    /**
+     * Register and unregister an agent to the domain.
+     * TODO(Vy): retire this function.
+     */
     virtual Error dc_register_node(const NodeUuid       &uuid,
                                    const FdspNodeRegPtr  msg,
                                    NodeAgent::pointer   *agent);
 
-    virtual Error dc_unregister_node(const NodeUuid &uuid, const std::string &name);
-    virtual Error dc_unregister_agent(const NodeUuid &uuid, FdspNodeType type);
-
     virtual void
     dc_register_node(const ShmObjRO *shm, NodeAgent::pointer *agent, int ro, int rw);
+
+    virtual Error dc_unregister_node(const NodeUuid &uuid, const std::string &name);
+    virtual Error dc_unregister_agent(const NodeUuid &uuid, FdspNodeType type);
 
     /**
      * Return the agent container matching with the node type.
@@ -526,46 +531,40 @@ class DomainContainer
     AgentContainer::pointer dc_container_frm_msg(FdspNodeType node_type);
 
     /**
-     * Get/set methods for different containers.
+     * Domain iteration plugin
+     */
+    inline void dc_foreach_am(ResourceIter *iter) {
+        dc_am_nodes->rs_foreach(iter);
+    }
+    inline void dc_foreach_sm(ResourceIter *iter) {
+        dc_sm_nodes->rs_foreach(iter);
+    }
+    inline void dc_foreach_dm(ResourceIter *iter) {
+        dc_dm_nodes->rs_foreach(iter);
+    }
+    inline void dc_foreach_pm(ResourceIter *iter) {
+        dc_pm_nodes->rs_foreach(iter);
+    }
+    inline void dc_foreach_om(ResourceIter *iter) {
+        dc_om_nodes->rs_foreach(iter);
+    }
+    /**
+     * Get methods for different containers.
      */
     inline SmContainer::pointer dc_get_sm_nodes() {
         return agt_cast_ptr<SmContainer>(dc_sm_nodes);
     }
-    inline void dc_set_sm_nodes(SmContainer::pointer sm) {
-        fds_assert(dc_sm_nodes == NULL);
-        dc_sm_nodes = sm;
-    }
-
     inline DmContainer::pointer dc_get_dm_nodes() {
         return agt_cast_ptr<DmContainer>(dc_dm_nodes);
     }
-    inline void dc_set_dm_nodes(DmContainer::pointer dm) {
-        fds_assert(dc_dm_nodes == NULL);
-        dc_dm_nodes = dm;
-    }
-
     inline AmContainer::pointer dc_get_am_nodes() {
         return agt_cast_ptr<AmContainer>(dc_am_nodes);
     }
-    inline void dc_set_am_nodes(AmContainer::pointer am) {
-        fds_assert(dc_am_nodes == NULL);
-        dc_am_nodes = am;
-    }
-
     inline PmContainer::pointer dc_get_pm_nodes() {
         return agt_cast_ptr<PmContainer>(dc_pm_nodes);
     }
-    inline void dc_set_pm_nodes(PmContainer::pointer pm) {
-        fds_assert(dc_pm_nodes == NULL);
-        dc_pm_nodes = pm;
-    }
-
     inline OmContainer::pointer dc_get_om_nodes() {
         return agt_cast_ptr<OmContainer>(dc_om_nodes);
-    }
-    inline void dc_set_om_nodes(OmContainer::pointer om) {
-        fds_assert(dc_om_nodes == NULL);
-        dc_om_nodes = om;
     }
 
   protected:
@@ -577,16 +576,7 @@ class DomainContainer
     AgentContainer::pointer  dc_pm_nodes;
 
   private:
-    mutable boost::atomic<int>  rs_refcnt;
-    friend void intrusive_ptr_add_ref(const DomainContainer *x) {
-        x->rs_refcnt.fetch_add(1, boost::memory_order_relaxed);
-    }
-    friend void intrusive_ptr_release(const DomainContainer *x) {
-        if (x->rs_refcnt.fetch_sub(1, boost::memory_order_release) == 1) {
-            boost::atomic_thread_fence(boost::memory_order_acquire);
-            delete x;
-        }
-    }
+    INTRUSIVE_PTR_DEFS(DomainContainer, rs_refcnt);
 };
 
 }  // namespace fds
