@@ -19,6 +19,8 @@ user_fds_ar_libs  :=                   \
     fds-smlib \
     fds-migrations \
     fds-StorHvisor \
+    fds-rpc-request \
+    fds-net-svc \
     fds-odb \
     fds-dsk-mgnt \
     fds-sm-plat \
@@ -27,7 +29,8 @@ user_fds_ar_libs  :=                   \
     fds-odb \
     fds-vpolicy \
     fds-hash \
-    fds-migrations
+    fds-migrations \
+    fds-net-svc \
 
 user_non_fds_libs := \
     boost_timer \

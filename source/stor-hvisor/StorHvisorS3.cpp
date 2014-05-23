@@ -1180,7 +1180,7 @@ void StorHvCtrl::getBlobGetObjectResp(GetBlobReq *blobReq, const Error& error,
         return;
     }
 
-    fpi::GetObjectMsgPtr getObjRsp = NetMgr::ep_deserialize<fpi::GetObjectMsg>(*payload);
+    fpi::GetObjectRespPtr getObjRsp = NetMgr::ep_deserialize<fpi::GetObjectResp>(*payload);
 
     fds_volid_t   volId = blobReq->getVolId();
     StorHvVolume *vol = vol_table->getVolume(volId);

@@ -50,10 +50,11 @@ struct AsyncHdr {
 struct GetObjectMsg {
    1: required AsyncHdr        hdr;
    2: FDSP.FDS_ObjectIdType data_obj_id,
-   3: i32              data_obj_len,
-   4: i32              dlt_version,
-   5: binary           data_obj,
-   6: binary           dlt_data,
+}
+
+struct GetObjectResp {
+   1: i32              data_obj_len,
+   2: binary           data_obj,
 }
 
 struct QueryCatalogMsg {

@@ -14,6 +14,8 @@
 #include "fds_obj_cache.h"
 #include <fds_timestamp.h>
 #include <TokenCompactor.h>
+#include <fdsp_utils.h>
+#include <net/net-service.h>
 
 namespace fds {
 
@@ -305,6 +307,39 @@ void ObjectStorMgrI::GetTokenMigrationStats(FDSP_TokenMigrationStats& _return,
             stats[static_cast<int>(kvstore::TokenStateInfo::SYNCING)] +
             stats[static_cast<int>(kvstore::TokenStateInfo::PULL_REMAINING)];
     _return.pending = stats[static_cast<int>(kvstore::TokenStateInfo::UNINITIALIZED)];
+}
+
+void SMSvcHandler::getObject(boost::shared_ptr<GetObjectMsg>& getObjMsg)  // NOLINT
+{
+    Error err(ERR_OK);
+    auto read_data_msg = new SmIoReadObjectdata();
+    read_data_msg->io_type = FDS_SM_READ_OBJECTDATA;
+    read_data_msg->obj_data.obj_id = getObjMsg->data_obj_id;
+    read_data_msg->smio_readdata_resp_cb = std::bind(
+            &SMSvcHandler::getObjectCb, this, getObjMsg,
+            std::placeholders::_1, std::placeholders::_2);
+
+    // TODO(Rao): Change the queue to the right volume queue
+    err = objStorMgr->enqueueMsg(FdsSysTaskQueueId, read_data_msg);
+    if (err != fds::ERR_OK) {
+        fds_assert(!"Hit an error in enqueing");
+        LOGERROR << "Failed to enqueue to SmIoReadObjectMetadata to StorMgr.  Error: "
+                << err;
+        getObjectCb(getObjMsg, err, read_data_msg);
+    }
+}
+
+void SMSvcHandler::getObjectCb(boost::shared_ptr<GetObjectMsg>& getObjMsg,
+                               const Error &err,
+                               SmIoReadObjectdata *read_data)
+{
+
+    auto resp = boost::make_shared<GetObjectResp>();
+    resp->data_obj_len = read_data->obj_data.data.size();
+    resp->data_obj = read_data->obj_data.data;
+    NetMgr::ep_mgr_singleton()->ep_send_async_resp(getObjMsg->hdr, *resp);
+
+    delete read_data;
 }
 
 /**
