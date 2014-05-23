@@ -19,19 +19,22 @@ namespace fds {
   class VolumeCatalog : public Catalog {
  private:
  public:
-    explicit VolumeCatalog(const std::string& _file);
+    explicit VolumeCatalog(const std::string& _file, fds_bool_t cat_flag);
     ~VolumeCatalog();
 
     using Catalog::Query;
     using Catalog::Update;
     using Catalog::GetFile;
     using Catalog::DbEmpty;
+    using Catalog::DbSnap;
+    using Catalog::QuerySnap;
+    using Catalog::QueryNew;
   };
 
   class TimeCatalog : public Catalog {
  private:
  public:
-    explicit TimeCatalog(const std::string& _file);
+    explicit TimeCatalog(const std::string& _file, fds_bool_t cat_flag);
     ~TimeCatalog();
   };
 

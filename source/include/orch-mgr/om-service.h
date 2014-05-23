@@ -12,6 +12,7 @@ class OM_DLTMod;
 class OM_DMTMod;
 class OM_NodeDomainMod;
 class DataPlacement;
+class VolumePlacement;
 
 /**
  * Main OM module vector.
@@ -42,6 +43,9 @@ class OM_Module : public Module
     inline OM_DMTMod *om_dmt_mod() {
         return om_dmt;
     }
+    inline VolumePlacement *om_volplace_mod() {
+        return om_volume_place;
+    }
     /**
      * Module methods.
      */
@@ -55,6 +59,7 @@ class OM_Module : public Module
     OM_DLTMod               *om_dlt;
     OM_DMTMod               *om_dmt;
     DataPlacement           *om_data_place;
+    VolumePlacement         *om_volume_place;
 };
 
 extern OM_Module             gl_OMModule;

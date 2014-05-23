@@ -27,6 +27,7 @@ user_cpp         :=      \
     TransJournal.cpp     \
     fdsp_utils.cpp       \
     FDSP_RpcServiceBaseImpl.cpp \
+    dmt.cpp              \
     fds_error.cpp
 
 user_incl_dir    := $(topdir)

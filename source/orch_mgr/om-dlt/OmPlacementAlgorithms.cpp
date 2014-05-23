@@ -26,12 +26,12 @@ PlacementMetrics::PlacementMetrics(const ClusterMap *cm,
                                    fds_uint32_t dlt_depth)
         : numTokens(tokens),
           totalWeight(cm->getTotalStorWeight()) {
-    ClusterMap::const_iterator node_it, it2;
+    ClusterMap::const_sm_iterator node_it, it2;
     fds_uint32_t l1_tok_count, l12_tok_count;
     fds_uint32_t token_count = 0;
 
     fds_verify(totalWeight > 0);
-    for (node_it = cm->cbegin(); node_it != cm->cend(); node_it++) {
+    for (node_it = cm->cbegin_sm(); node_it != cm->cend_sm(); node_it++) {
         NodeUuid uuid = (*node_it).first;
         // Ensure we haven't counted this node before
         fds_verify(node_weight_toks.count(uuid) == 0);
@@ -56,26 +56,26 @@ PlacementMetrics::PlacementMetrics(const ClusterMap *cm,
     // to first set of nodes in the node map
     LOGDEBUG << "Allocated token_count " << token_count
              << "tokens, will finish allocatating total " << numTokens;
-    node_it = cm->cbegin();
+    node_it = cm->cbegin_sm();
     while (token_count < numTokens) {
-        fds_verify(node_it != cm->cend());
+        fds_verify(node_it != cm->cend_sm());
         node_weight_toks[node_it->first].second++;
         node_it++;
         token_count++;
     }
 
     // Calculate number of tokens for l1-l2 group and fill in the map
-    if ((cm->getNumMembers() < 2) || (dlt_depth < 2)) {
+    if ((cm->getNumMembers(fpi::FDSP_STOR_MGR) < 2) || (dlt_depth < 2)) {
         print();
         return;  // no l1-2 groups, since less than 2 nodes
     }
-    for (node_it = cm->cbegin(); node_it != cm->cend(); ++node_it) {
+    for (node_it = cm->cbegin_sm(); node_it != cm->cend_sm(); ++node_it) {
         NodeUuid l1_uuid = (*node_it).first;
         l1_tok_count = std::get<1>(node_weight_toks[l1_uuid]);
         // calculate number of secondary tokens for l1_uuid per other node
         NodeTokCountMap l12_toks;
         token_count = 0;
-        for (it2 = cm->cbegin(); it2 != cm->cend(); ++it2) {
+        for (it2 = cm->cbegin_sm(); it2 != cm->cend_sm(); ++it2) {
             NodeUuid l2_uuid = (*it2).first;
             if (l2_uuid == l1_uuid) {
                 continue;  // skip this node
@@ -623,9 +623,9 @@ RoundRobinAlgorithm::computeNewDlt(const ClusterMap *curMap,
 
 
     Error err(ERR_OK);
-    ClusterMap::const_iterator rr_it = curMap->cbegin();
+    ClusterMap::const_sm_iterator rr_it = curMap->cbegin_sm();
 
-    fds_uint32_t total_num_nodes = curMap->getNumMembers();
+    fds_uint32_t total_num_nodes = curMap->getNumMembers(fpi::FDSP_STOR_MGR);
     fds_uint32_t column_depth = newDlt->getDepth();
     // Ensure we have enough nodes to fill columns with
     // unique nodes
@@ -638,8 +638,8 @@ RoundRobinAlgorithm::computeNewDlt(const ClusterMap *curMap,
     for (fds_token_id i = 0; i < numTokens; i++) {
         // If we've reached the end of the cluster map's
         // list, round robin back to the beginning
-        ClusterMap::const_iterator nl_it = rr_it;
-        if (nl_it == curMap->cend()) {
+        ClusterMap::const_sm_iterator nl_it = rr_it;
+        if (nl_it == curMap->cend_sm()) {
             continue;
         }
 
@@ -648,8 +648,8 @@ RoundRobinAlgorithm::computeNewDlt(const ClusterMap *curMap,
             NodeUuid uuid = (nl_it->second)->get_uuid();
             tg.set(j, uuid);
             nl_it++;
-            if (nl_it == curMap->cend()) {
-                nl_it = curMap->cbegin();
+            if (nl_it == curMap->cend_sm()) {
+                nl_it = curMap->cbegin_sm();
             }
         }
         newDlt->setNodes(i, tg);
@@ -658,8 +658,8 @@ RoundRobinAlgorithm::computeNewDlt(const ClusterMap *curMap,
         // and reset it to the beginning if we've
         // looped around.
         rr_it++;
-        if (rr_it == curMap->cend()) {
-            rr_it = curMap->cbegin();
+        if (rr_it == curMap->cend_sm()) {
+            rr_it = curMap->cbegin_sm();
         }
     }
 
@@ -675,7 +675,7 @@ ConsistHashAlgorithm::computeNewDlt(const ClusterMap *currMap,
                                     const DLT *currDlt,
                                     DLT *newDlt) {
     Error err(ERR_OK);
-    fds_uint32_t total_nodes = currMap->getNumMembers();
+    fds_uint32_t total_nodes = currMap->getNumMembers(fpi::FDSP_STOR_MGR);
     fds_verify(newDlt != NULL);
 
     // Compute DLT from scratch if this is the first version
@@ -687,16 +687,16 @@ ConsistHashAlgorithm::computeNewDlt(const ClusterMap *currMap,
     if ((currDlt == NULL) || (currDlt->getDepth() < 2) ||
         (newDlt->getWidth() != currDlt->getWidth())) {
         FDS_PLOG(getLog()) << "ConsistHashAlgorithm: compute new DLT for "
-                           << total_nodes << " nodes";
+                           << total_nodes << " SMs";
         computeInitialDlt(currMap, newDlt);
         return err;
     }
 
     FDS_PLOG(getLog()) << "ConsistHashAlgorithm: recompute new DLT for "
-                       << (currMap->getAddedNodes()).size()
-                       << " node additions and "
-                       << (currMap->getRemovedNodes()).size()
-                       << " node deletions";
+                       << (currMap->getAddedServices(fpi::FDSP_STOR_MGR)).size()
+                       << " SM additions and "
+                       << (currMap->getRemovedServices(fpi::FDSP_STOR_MGR)).size()
+                       << " SM deletions";
 
     // at this point both DLTs have same number of tokens
     fds_uint32_t numTokens = newDlt->getNumTokens();
@@ -732,15 +732,15 @@ ConsistHashAlgorithm::handleDltChange(const ClusterMap *curMap,
     fds_bool_t bret;
     NodeUuidSet::const_iterator cit, cit2, cit3;
     fds_uint32_t numTokens = newDlt->getNumTokens();
-    NodeUuidSet rmNodes = curMap->getRemovedNodes();
+    NodeUuidSet rmNodes = curMap->getRemovedServices(fpi::FDSP_STOR_MGR);
 
     // should not be called if new DLT width has changed
     fds_verify(curDlt->getWidth() == newDlt->getWidth());
 
     // build a list of all nodes including removed nodes
-    NodeUuidSet nodes = curMap->getRemovedNodes();
-    for (ClusterMap::const_iterator cit = curMap->cbegin();
-         cit != curMap->cend();
+    NodeUuidSet nodes = curMap->getRemovedServices(fpi::FDSP_STOR_MGR);
+    for (ClusterMap::const_sm_iterator cit = curMap->cbegin_sm();
+         cit != curMap->cend_sm();
          ++cit) {
         nodes.insert(cit->first);
     }
@@ -885,10 +885,10 @@ ConsistHashAlgorithm::computeInitialDlt(const ClusterMap *curMap,
                                         DLT* newDLT)
 {
     NodeUuid cur_uuid;
-    fds_uint32_t total_nodes = curMap->getNumMembers();
+    fds_uint32_t total_nodes = curMap->getNumMembers(fpi::FDSP_STOR_MGR);
     fds_uint32_t col_depth = newDLT->getDepth();
     fds_uint64_t numTokens = pow(2, newDLT->getWidth());
-    ClusterMap::const_iterator node_it = curMap->cbegin();
+    ClusterMap::const_sm_iterator node_it = curMap->cbegin_sm();
 
     if (total_nodes == 0) {
         // we assume that newDLT is already initialized to 0s
@@ -909,9 +909,9 @@ ConsistHashAlgorithm::computeInitialDlt(const ClusterMap *curMap,
 
     // We assign actual tokens to nodes by assigning the first set tokens to
     // the first node, then second set of tokens to the second node and so on
-    ClusterMap::const_iterator it2, it3, it4;
+    ClusterMap::const_sm_iterator it2, it3, it4;
     fds_uint32_t tok_idx = 0;
-    for (node_it = curMap->cbegin(); node_it != curMap->cend(); ++node_it) {
+    for (node_it = curMap->cbegin_sm(); node_it != curMap->cend_sm(); ++node_it) {
         // Fill in the first row
         NodeUuid l1_uuid = (*node_it).first;
         fds_uint32_t l1_toks = metricsPtr->tokens(l1_uuid);
@@ -926,7 +926,7 @@ ConsistHashAlgorithm::computeInitialDlt(const ClusterMap *curMap,
         // Fill in the second row when the primary is node 'uuid'
         // = columns [tok_idx ... tok_idx + toks)
         fds_uint32_t l2_idx = tok_idx;
-        for (it2 = curMap->cbegin(); it2 != curMap->cend(); ++it2) {
+        for (it2 = curMap->cbegin_sm(); it2 != curMap->cend_sm(); ++it2) {
             NodeUuid l2_uuid = (*it2).first;
             if (l2_uuid == l1_uuid) {
                 continue;  // skip this node
@@ -946,8 +946,8 @@ ConsistHashAlgorithm::computeInitialDlt(const ClusterMap *curMap,
             fds_uint32_t l3_idx = l2_idx;
             l2_idx += l2_toks_count;
             if (col_depth < 3) continue;
-            for (ClusterMap::const_iterator it3 = curMap->cbegin();
-                 it3 != curMap->cend();
+            for (ClusterMap::const_sm_iterator it3 = curMap->cbegin_sm();
+                 it3 != curMap->cend_sm();
                  ++it3) {
                 NodeUuid l3_uuid = (*it3).first;
                 if ((l3_uuid == l1_uuid) || (l3_uuid == l2_uuid)) {
@@ -966,8 +966,8 @@ ConsistHashAlgorithm::computeInitialDlt(const ClusterMap *curMap,
                 fds_uint32_t l4_idx = l3_idx;
                 l3_idx += l3_toks;
                 if (col_depth < 4) continue;
-                for (ClusterMap::const_iterator it4 = curMap->cbegin();
-                     it4 != curMap->cend();
+                for (ClusterMap::const_sm_iterator it4 = curMap->cbegin_sm();
+                     it4 != curMap->cend_sm();
                      ++it4) {
                     NodeUuid l4_uuid = (*it4).first;
                     if ((l4_uuid == l1_uuid) || (l4_uuid == l2_uuid) ||

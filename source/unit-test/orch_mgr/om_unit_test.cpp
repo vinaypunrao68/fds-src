@@ -66,6 +66,20 @@ class ControlPathReq : public FDS_ProtocolInterface::FDSP_ControlPathReqIf {
         PrintVolumeDesc("NotifyAddVol", vdb);  
         delete vdb;
     }
+  
+    void NotifySnapVol(const FDSP_MsgHdrType& fdsp_msg,
+                      const FDSP_NotifyVolType& not_snap_vol_req) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+
+    void NotifySnapVol(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
+                      FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& vol_msg) {
+        assert(vol_msg->type == FDS_ProtocolInterface::FDSP_NOTIFY_SNAP_VOL);
+        // VolumeDesc *vdb = new VolumeDesc(vol_msg->vol_desc);
+        // PrintVolumeDesc("NotifySnapVol", vdb);
+        // delete vdb;
+    }
+
 
     void NotifyRmVol(const FDSP_MsgHdrType& fdsp_msg,
                      const FDSP_NotifyVolType& not_rm_vol_req) {
@@ -117,6 +131,16 @@ class ControlPathReq : public FDS_ProtocolInterface::FDSP_ControlPathReqIf {
 		   FDS_ProtocolInterface::FDSP_AttachVolTypePtr& vol_msg) {
         FDS_PLOG(test_log) << "DetachVol recvd";
     }
+ 
+    void SnapVol(const FDSP_MsgHdrType& fdsp_msg,
+                   const FDSP_AttachVolType& snap_vol_req) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+     }
+    void SnapVol(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
+                   FDS_ProtocolInterface::FDSP_AttachVolTypePtr& vol_msg) {
+        FDS_PLOG(test_log) << "SnapVol recvd";
+    }
+
 
     void NotifyNodeAdd(const FDSP_MsgHdrType& fdsp_msg,
                        const FDSP_Node_Info_Type& node_info) {
@@ -168,6 +192,19 @@ class ControlPathReq : public FDS_ProtocolInterface::FDSP_ControlPathReqIf {
 #endif
     }
 
+    void PushMetaDMTReq(const FDSP_MsgHdrType& fdsp_msg,
+                        const FDSP_PushMeta& push_meta_resp) {}
+    void PushMetaDMTReq(FDSP_MsgHdrTypePtr& fdsp_msg,
+                        FDSP_PushMetaPtr& push_meta_resp) {}
+
+    void NotifyDMTClose(const FDSP_MsgHdrType& fdsp_msg,
+                        const FDSP_DmtCloseType& dmt_close) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+    void NotifyDMTClose(FDSP_MsgHdrTypePtr& fdsp_msg,
+                        FDSP_DmtCloseTypePtr& dmt_close) {
+    }
+
     void NotifyDLTClose(const FDSP_MsgHdrType& fdsp_msg,
                         const FDSP_DltCloseType& dlt_info) {
         // Don't do anything here. This stub is just to keep cpp compiler happy
@@ -186,12 +223,14 @@ class ControlPathReq : public FDS_ProtocolInterface::FDSP_ControlPathReqIf {
     void NotifyDMTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
 			 FDSP_DMT_TypePtr& dmt_info) {
         FDS_PLOG(test_log) << "Received a DMT update" << std::endl;
+        /*
         for (fds_uint32_t i = 0; i < dmt_info->DMT.size(); i++) {
             for (fds_uint32_t j = 0; j < dmt_info->DMT[i].size(); j++) {
                 FDS_PLOG(test_log) << "Bucket " << i << " entry " << j
                                    << " value " << dmt_info->DMT[i][j] << std::endl;
             }
         }
+        */
     }
     
     void SetThrottleLevel(const FDSP_MsgHdrType& msg_hdr,
