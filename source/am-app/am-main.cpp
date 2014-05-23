@@ -37,8 +37,6 @@ class AM_Process : public PlatformProcess
         FDS_NativeAPI::ptr api_xdi(new FDS_NativeAPI(FDS_NativeAPI::FDSN_AWS_S3));
         FDS_NativeAPI::ptr api_am_ubd(new FDS_NativeAPI(FDS_NativeAPI::FDSN_AWS_S3));
 
-        gl_AMEngineS3.init_server(api);
-        gl_AMEngineAtmos.init_server(api_atmos);
         gl_FdsnServer.init_server(api_xdi);
         gl_AmUbdConnect.init_server(api_am_ubd);
 
@@ -46,7 +44,7 @@ class AM_Process : public PlatformProcess
         CreateStorHvisorS3(argc, argv);
     }
     int run() override {
-        AMEngine::run_all_servers();
+        gl_FdsnServer.deinit_server();
         return 0;
     }
 };
@@ -62,8 +60,6 @@ int main(int argc, char **argv)
     fds::Module *am_mod_vec[] = {
         &fds::gl_fds_stat,
         &fds::gl_AmPlatform,
-        &fds::gl_AMEngineS3,
-        &fds::gl_AMEngineAtmos,
         &fds::gl_FdsnServer,
         &fds::gl_AmUbdConnect,
         nullptr

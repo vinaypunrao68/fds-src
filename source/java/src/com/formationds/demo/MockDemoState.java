@@ -49,7 +49,22 @@ public class MockDemoState implements DemoState {
     public Optional<ImageResource> peekReadQueue() {
         List<String> list = Lists.newArrayList(images);
         Collections.shuffle(list);
-        return Optional.of(new ImageResource("42", list.get(0)));
+        return Optional.of(new ImageResource() {
+            @Override
+            public String getId() {
+                return "42";
+            }
+
+            @Override
+            public String getUrl() {
+                return list.get(0);
+            }
+
+            @Override
+            public String getThumbnailUrl() {
+                return list.get(0);
+            }
+        });
     }
 
     @Override
