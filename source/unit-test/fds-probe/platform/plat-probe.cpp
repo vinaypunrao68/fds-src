@@ -98,11 +98,8 @@ Plat_ProbeMod::mod_startup()
 
     if (pr_parent != NULL) {
         mgr = pr_parent->pr_get_obj_mgr();
-        svc = mgr->js_get_template("Run-Setup");
-        svc->js_register_template(new UT_ServSetupTempl(mgr));
-
-        svc = mgr->js_get_template("Run-Input");
-        svc->js_register_template(new UT_RunServTempl(mgr));
+        mgr->js_register_template(new UT_ServSetupTempl(mgr));
+        mgr->js_register_template(new UT_RunServTempl(mgr));
     }
 }
 
