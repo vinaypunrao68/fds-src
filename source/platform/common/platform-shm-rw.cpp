@@ -66,4 +66,14 @@ NodeShmRWCtrl::mod_shutdown()
     NodeShmCtrl::mod_shutdown();
 }
 
+void
+NodeShmRWCtrl::shm_init_queue(node_shm_queue_t *queue)
+{
+}
+
+void
+NodeShmRWCtrl::shm_setup_queue()
+{
+}
+
 }  // namespace fds

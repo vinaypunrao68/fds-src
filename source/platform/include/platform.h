@@ -5,6 +5,7 @@
 #define SOURCE_PLATFORM_INCLUDE_PLATFORM_H_
 
 #include <string>
+#include <fds-shmobj.h>
 #include <fds_process.h>
 #include <kvstore/platformdb.h>
 #include <shared/fds-constants.h>
@@ -43,6 +44,9 @@ class NodePlatform : public Platform
     virtual PlatRpcResp *plat_creat_resp_disp();
 };
 
+/**
+ * Platform daemon module controls share memory segments.
+ */
 extern NodeShmRWCtrl         gl_NodeShmRWCtrl;
 
 class NodeShmRWCtrl : public NodeShmCtrl
@@ -64,14 +68,17 @@ class NodeShmRWCtrl : public NodeShmCtrl
     /**
      * Module methods
      */
-    virtual int  mod_init(SysParams const *const p);
-    virtual void mod_startup();
-    virtual void mod_shutdown();
+    virtual int  mod_init(SysParams const *const p) override;
+    virtual void mod_startup() override;
+    virtual void mod_shutdown() override;
 
   protected:
-    ShmObjRWKeyUint64         *shm_am_rw;
-    ShmObjRWKeyUint64         *shm_node_rw;
-    ShmObjRWKeyUint64         *shm_uuid_rw;
+    ShmObjRWKeyUint64       *shm_am_rw;
+    ShmObjRWKeyUint64       *shm_node_rw;
+    ShmObjRWKeyUint64       *shm_uuid_rw;
+
+    void shm_init_queue(node_shm_queue_t *queue);
+    virtual void shm_setup_queue() override;
 };
 
 /**

@@ -28,6 +28,15 @@ NodeShmCtrl                 *gl_NodeShmCtrl = &gl_NodeShmROCtrl;
  *   |   AM node inventory data   |
  *   +----------------------------+
  *
+ * Shared Memory Queue Segment
+ *   +----------------------------+
+ *   |      node_shm_queue_t      |
+ *   +----------------------------+
+ *   |    node_shm_queue_item_t   |
+ *   |            ....            |
+ *   |    node_shm_queue_item_t   |
+ *   +----------------------------+
+ *
  * --------------------------------------------------------------------------------------
  */
 NodeShmCtrl::NodeShmCtrl(const char *name) : Module(name)
@@ -45,6 +54,14 @@ NodeShmCtrl::NodeShmCtrl(const char *name) : Module(name)
     shm_am_siz    = sizeof(node_data_t) * shm_max_ams;
     shm_total_siz = shm_total_siz + shm_am_siz;
 
+    shm_rw_name[0] = '\0';
+    shm_rw        = NULL;
+    shm_rw_data   = NULL;
+    shm_cons_q    = NULL;
+    shm_prod_q    = NULL;
+    shm_queue     = NULL;
+
+    shm_name[0]   = '\0';
     shm_am_inv    = NULL;
     shm_node_inv  = NULL;
     shm_uuid_bind = NULL;
@@ -97,9 +114,7 @@ NodeShmCtrl::mod_startup()
 
     Module::mod_startup();
     fds_verify(shm_total_siz > 0);
-    snprintf(shm_name, FDS_MAX_UUID_STR, "/0x%llx-%d",
-             Platform::platf_singleton()->plf_my_node_uuid().uuid_get_val(), 0);
-    shm_ctrl = new FdsShmem(shm_name, shm_total_siz);
+    shm_ctrl = shm_create_obj("0x%llx-%d", shm_name, shm_total_siz);
 
     shm = shm_ctrl->shm_attach(shm_flags);
     if (shm == NULL) {
@@ -131,6 +146,7 @@ NodeShmCtrl::mod_startup()
     shm_am_inv    = new ShmObjROKeyUint64(shm_ctrl, shm_am_off,
                             shm_node_hdr->shm_am_inv_key_off,
                             shm_node_hdr->shm_am_inv_obj_siz, shm_max_ams);
+    shm_setup_queue();
 }
 
 // mod_shutdown
@@ -140,6 +156,45 @@ void
 NodeShmCtrl::mod_shutdown()
 {
     Module::mod_shutdown();
+}
+
+// shm_create_obj
+// --------------
+// Common function to create a shared memory segment.
+//
+FdsShmem *
+NodeShmCtrl::shm_create_obj(const char *fmt, char *name, int shm_size)
+{
+    snprintf(name, FDS_MAX_UUID_STR, fmt,
+             Platform::platf_singleton()->plf_my_node_uuid().uuid_get_val(), 0);
+
+    return new FdsShmem(name, shm_size);
+}
+
+// shm_setup_queue
+// ---------------
+//
+void
+NodeShmCtrl::shm_setup_queue()
+{
+    int   shm_size;
+    void *shm;
+
+    shm_size  = NodeShmCtrl::shm_queue_hdr;
+    shm_size += (NodeShmCtrl::shm_q_item_size * NodeShmCtrl::shm_q_item_count);
+    shm_rw    = shm_create_obj("/0x%llx-rw-%d", shm_rw_name, shm_size);
+    shm       = shm_rw->shm_attach(PROT_READ | PROT_WRITE);
+    shm_queue = static_cast<node_shm_queue_t *>(shm);
+
+    shm_rw_data = new ShmObjRW(shm_rw,
+                               NodeShmCtrl::shm_queue_hdr, 0, 0,
+                               NodeShmCtrl::shm_q_item_size,
+                               NodeShmCtrl::shm_q_item_count);
+
+    shm_cons_q = new Shm_nPrd_1Con(&shm_queue->smq_sync,
+                                   &shm_queue->smq_svc2plat, shm_rw_data);
+    shm_prod_q = new Shm_1Prd_nCon(&shm_queue->smq_sync,
+                                   &shm_queue->smq_plat2svc, shm_rw_data);
 }
 
 #if 0

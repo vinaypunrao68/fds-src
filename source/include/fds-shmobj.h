@@ -189,7 +189,7 @@ class Shm_1Prd_nCon : public ShmConPrdQueue
 class Shm_nPrd_1Con : public ShmConPrdQueue
 {
   public:
-    Shm_nPrd_1Con(shm_con_prd_sync_t *sync, shm_1prd_ncon_q_t *ctrl, ShmObjRW *data);
+    Shm_nPrd_1Con(shm_con_prd_sync_t *sync, shm_nprd_1con_q_t *ctrl, ShmObjRW *data);
 
     void shm_consumer(void *data, size_t size, int consumer = 0) override;
     void shm_producer(const void *data, size_t size, int producer = 0) override;
