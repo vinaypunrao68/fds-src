@@ -2,6 +2,7 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 #include <ep-map.h>
+#include <fdsp/fds_service_types.h>
 #include <platform/node-inv-shmem.h>
 
 namespace fds {
@@ -87,6 +88,22 @@ int
 EpPlatLibMod::ep_lookup_rec(const char *name, ep_map_rec_t *out)
 {
     return 0;
+}
+
+// ep_uuid_bind_frm_shm
+// --------------------
+//
+void
+ep_uuid_bind_frm_shm(fpi::UuidBindMsg *msg, const ep_map_rec_t *rec)
+{
+}
+
+// ep_uuid_bind_to_shm
+// -------------------
+//
+void
+ep_uuid_bind_to_shm(fpi::UuidBindMsg *msg, const ep_map_rec_t *rec)
+{
 }
 
 }  // namespace fds

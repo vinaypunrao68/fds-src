@@ -78,9 +78,10 @@ class ProbeEpTestAM : public Module
     explicit ProbeEpTestAM(const char *name) : Module(name) {}
 
     // Module methods.
-    int  mod_init(SysParams const *const p);
-    void mod_startup();
-    void mod_shutdown();
+    int  mod_init(SysParams const *const p) override;
+    void mod_startup() override;
+    void mod_enable_service() override;
+    void mod_shutdown() override;
 
     void ep_serve() { probe_ep->ep_run_server(); }
 
@@ -106,9 +107,9 @@ class ProbeEpSvcTestAM : public Module
     explicit ProbeEpSvcTestAM(const char *name) : Module(name) {}
 
     // Module methods.
-    int  mod_init(SysParams const *const p);
-    void mod_startup();
-    void mod_shutdown();
+    int  mod_init(SysParams const *const p) override;
+    void mod_startup() override;
+    void mod_shutdown() override;
 
   protected:
     // Handle to a service used to pass message to it.

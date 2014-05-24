@@ -23,6 +23,9 @@ struct ep_map_rec
     char                     rmp_name[MAX_SVC_NAME_LEN];
 };
 
+extern void ep_uuid_bind_frm_shm(fpi::UuidBindMsg *msg, const ep_map_rec_t *rec);
+extern void ep_uuid_bind_to_shm(const fpi::UuidBindMsg *msg, ep_map_rec_t *rec);
+
 class EpPlatLibMod : public Module
 {
   public:
@@ -31,9 +34,9 @@ class EpPlatLibMod : public Module
 
     // Module methods.
     //
-    virtual int  mod_init(SysParams const *const p);
-    virtual void mod_startup();
-    virtual void mod_shutdown();
+    virtual int  mod_init(SysParams const *const p) override;
+    virtual void mod_startup() override;
+    virtual void mod_shutdown() override;
 
     virtual int  ep_map_record(const ep_map_rec_t *rec);
     virtual int  ep_unmap_record(fds_uint64_t uuid, int idx);
@@ -55,9 +58,9 @@ class EpPlatformdMod : public EpPlatLibMod
     explicit EpPlatformdMod(const char *name);
     virtual ~EpPlatformdMod() {}
 
-    virtual void mod_startup();
-    virtual int  ep_map_record(const ep_map_rec_t *rec);
-    virtual int  ep_unmap_record(fds_uint64_t uuid, int idx);
+    virtual void mod_startup() override;
+    virtual int  ep_map_record(const ep_map_rec_t *rec) override;
+    virtual int  ep_unmap_record(fds_uint64_t uuid, int idx) override;
 
   protected:
     ShmObjRWKeyUint64       *ep_uuid_rw;

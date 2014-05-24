@@ -5,7 +5,8 @@
 #include <stdlib.h>
 #include <dlt.h>
 #include <fds-shmobj.h>
-#include <net/net-service.h>
+#include <fdsp/PlatNetSvc.h>
+#include <net/net-service-tmpl.hpp>
 #include <platform/platform-lib.h>
 #include <platform/node-inv-shmem.h>
 
@@ -446,6 +447,23 @@ AgentContainer::agent_handshake(boost::shared_ptr<netSessionTbl> net,
 // --------------------------------------------------------------------------------------
 // PM Agent
 // --------------------------------------------------------------------------------------
+boost::shared_ptr<fpi::PlatNetSvcClient>
+PmAgent::agent_rpc()
+{
+    NetMgr              *net;
+    fpi::SvcUuid          peer;
+    EpSvcHandle::pointer  handle;
+
+    net = NetMgr::ep_mgr_singleton();
+    peer.svc_uuid = rs_uuid.uuid_get_val();
+    net->svc_get_handle<fpi::PlatNetSvcClient>(peer, &handle, 0, 0);
+
+    /* TODO(Vy): wire up the common event plugin to handle error. */
+    if (handle != NULL) {
+        return handle->svc_rpc<fpi::PlatNetSvcClient>();
+    }
+    return NULL;
+}
 
 // --------------------------------------------------------------------------------------
 // SM Agent

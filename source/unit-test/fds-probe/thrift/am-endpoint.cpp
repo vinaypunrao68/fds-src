@@ -80,10 +80,22 @@ class AMClntPlugin : public EpEvtPlugin
 int
 ProbeEpTestAM::mod_init(SysParams const *const p)
 {
+    return Module::mod_init(p);
+}
+
+void
+ProbeEpTestAM::mod_startup()
+{
+    Module::mod_startup();
+}
+
+void
+ProbeEpTestAM::mod_enable_service()
+{
     NetMgr *mgr;
     fpi::SvcUuid uuid;
 
-    Module::mod_init(p);
+    Module::mod_enable_service();
 
     // Allocate the endpoint, bound to a physical port.
     //
@@ -108,13 +120,6 @@ ProbeEpTestAM::mod_init(SysParams const *const p)
     // Register the endpoint in the local domain.
     probe_ep->ep_register();
     ret_probe_ep->ep_register();
-    return 0;
-}
-
-void
-ProbeEpTestAM::mod_startup()
-{
-    // probe_ep->ep_activate();
 }
 
 void

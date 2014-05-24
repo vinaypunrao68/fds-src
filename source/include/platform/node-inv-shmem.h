@@ -127,85 +127,6 @@ class NodeInvData
     FdspNodeState            nd_my_node_state;
 };
 
-/**
- * Obj represents a node from RW inventory data.
- */
-class OwnerNodeInvData : public NodeInvData
-{
-  public:
-    explicit OwnerNodeInvData(node_data_t *shm);
-    virtual ~OwnerNodeInvData();
-
-    virtual void node_update_inventory(const FdspNodeRegPtr msg);
-    virtual void node_set_state(FdspNodeState state) {
-        nd_rw_shm->nd_node_state = state;
-    }
-    virtual void node_set_dlt_version(fds_uint64_t ver) {
-        nd_rw_shm->nd_dlt_version = ver;
-    }
-
-  private:
-    node_data_t             *nd_rw_shm;
-};
-
-/**
- * Node inventory shared among services, uses RO data.
- */
-class ShmNodeInv : public Module, public FdsShmem
-{
-  public:
-    explicit ShmNodeInv(const char *name);
-    virtual ~ShmNodeInv();
-
-    // Module methods.
-    //
-    virtual int  mod_init(SysParams const *const p);
-    virtual void mod_startup();
-    virtual void mod_shutdown();
-
-    // Node inventory methods.
-    //
-    virtual NodeInvData *node_fill_inventory(const FdspNodeRegPtr msg);
-
-    virtual NodeInvData *
-    node_connect_inventory(fpi::FDSP_MgrIdType t, fds_uint64_t uuid);
-
-  protected:
-    const node_shm_inventory_t  *nd_inventory;
-
-    const node_data_t *
-    node_lookup_inventory(fpi::FDSP_MgrIdType  t,
-                          fds_uint64_t         uuid,
-                          int                 *zero_idx,
-                          int                 *match_idx);
-
-    virtual void shm_setup_inventory();
-};
-
-/**
- * Node inventory owned by platform daemon or AM platform lib.
- */
-class ShmOwnerNodeInv : public ShmNodeInv
-{
-  public:
-    explicit ShmOwnerNodeInv(const char *name);
-    virtual ~ShmOwnerNodeInv();
-
-    // Maintain exact node inventory methods as the parent class.
-    //
-    virtual NodeInvData *node_fill_inventory(const FdspNodeRegPtr msg) override;
-
-    virtual NodeInvData *
-    node_connect_inventory(fpi::FDSP_MgrIdType t, fds_uint64_t uuid) override;
-
-  private:
-    fds_mutex                    nd_mtx;
-    node_shm_inventory_t        *nd_rw_inventory;
-
-    virtual void shm_setup_inventory() override;
-};
-
-extern ShmNodeInv *gl_ShmNodeInv;
 #endif
 
 extern NodeShmCtrl           gl_NodeShmROCtrl;
@@ -231,9 +152,9 @@ class NodeShmCtrl : public Module
     /**
      * Module methods
      */
-    virtual int  mod_init(SysParams const *const p);
-    virtual void mod_startup();
-    virtual void mod_shutdown();
+    virtual int  mod_init(SysParams const *const p) override;
+    virtual void mod_startup() override;
+    virtual void mod_shutdown() override;
 
   protected:
     int                        shm_flags;

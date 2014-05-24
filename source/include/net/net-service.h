@@ -26,6 +26,7 @@ namespace apache { namespace thrift { namespace transport {
 }}}  // namespace apache::thrift::transport
 
 namespace FDS_ProtocolInterface {
+    class UuidBindMsg;
     class NodeInfoMsg;
     class PlatNetSvcClient;
 }  // namespace FDS_ProtocolInterface
@@ -511,7 +512,7 @@ class NetMgr : public Module
      * Return mutex hashed by a pointer object.
      */
     inline fds_mutex *ep_obj_mutex(void *ptr) {
-        return &ep_obj_mtx[reinterpret_cast<fds_uint64_t>(ptr) % ep_mtx_arr];
+        return &ep_obj_mtx[(reinterpret_cast<fds_uint64_t>(ptr) >> 4) % ep_mtx_arr];
     }
 
     // Hook up with domain membership to know which node belongs to which domain.

@@ -39,6 +39,12 @@ AmPlatform::AmPlatform()
                new DomainResources("AM-Resources"),
                NULL) {}
 
+// mod_init
+// --------
+// Values from configuration file for platform library linked with AM typed apps where
+// we may not have shared memory with the platform daemon.  AM typed apps are stand
+// alone unit tests or probe type, checker...
+//
 int
 AmPlatform::mod_init(SysParams const *const param)
 {
@@ -57,6 +63,7 @@ AmPlatform::mod_init(SysParams const *const param)
     plf_my_ctrl_port = plf_ctrl_port(base);
     plf_my_data_port = plf_data_port(base);
     plf_my_conf_port = plf_conf_port(base);
+    plf_my_nsvc_port = plf_nsvc_port(base);
     plf_my_migr_port = plf_migration_port(base);
     plf_my_ip        = util::get_local_ip();
     plf_my_node_name = plf_my_ip;

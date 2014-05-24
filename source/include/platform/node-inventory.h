@@ -14,6 +14,13 @@
 #include <serialize.h>
 #include <platform/platform-rpc.h>
 
+// Forward declarations
+namespace FDS_ProtocolInterface {
+    class PlatNetSvcClient;
+}  // namespace FDS_ProtocolInterface
+
+namespace fpi = FDS_ProtocolInterface;
+
 namespace fds {
 struct node_data;
 class ShmObjRO;
@@ -216,6 +223,11 @@ class PmAgent : public NodeAgent
 
     virtual ~PmAgent() {}
     PmAgent(const NodeUuid &uuid) : NodeAgent(uuid) {}
+
+    /**
+     * Return the RPC handler used to communicate with the peer node agent.
+     */
+    boost::shared_ptr<fpi::PlatNetSvcClient> agent_rpc();
 };
 
 class SmAgent : public NodeAgent
