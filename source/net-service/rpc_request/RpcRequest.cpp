@@ -202,40 +202,37 @@ void EPAsyncRpcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
 {
     GLOGDEBUG << " id: " << id_;
 
-    // bool invokeRpc = false;
-    fpi::SvcUuid errdEpId;
 
-    {
-        fds_scoped_lock l(respLock_);
-        if (isComplete()) {
-            /* Request is already complete.  At this point we don't do anything on
-             * the responses than just draining them out
-             */
-            return;
-        }
-
-        if (header->msg_code == ERR_OK) {
-            if (successCb_) {
-                successCb_(payload);
-            }
-            complete(ERR_OK);
-        } else {
-            GLOGWARN << logString(*header);
-
-            errdEpId = header->msg_src_uuid;
-            if (errorCb_) {
-                errorCb_(header->msg_code, payload);
-            }
-            complete(ERR_RPC_FAILED);
-        }
+    fds_scoped_lock l(respLock_);
+    if (isComplete()) {
+        /* Request is already complete.  At this point we don't do anything on
+         * the responses than just draining them out
+         */
+        return;
     }
 
-    if (errdEpId.svc_uuid != 0 &&
+    /* Notify actionable error to endpoint manager */
+    if (header->msg_code == ERR_OK &&
         NetMgr::ep_mgr_singleton()->ep_actionable_error(header->msg_code)) {
-        NetMgr::ep_mgr_singleton()->ep_handle_error(errdEpId, header->msg_code);
+        NetMgr::ep_mgr_singleton()->ep_handle_error(
+            header->msg_src_uuid, header->msg_code);
     }
+    if (respCb_) {
+        respCb_(this, header->msg_code, payload);
+    }
+    complete(ERR_OK);
 }
 
+
+/**
+* @brief 
+*
+* @param cb
+*/
+void EPAsyncRpcRequest::onResponseCb(EPAsyncRpcRespCb cb)
+{
+    respCb_ = cb;
+}
 
 /**
 * @brief 
@@ -289,9 +286,9 @@ void MultiEpAsyncRpcRequest::addEndpoint(const fpi::SvcUuid& peerEpId)
  * the request is in progress
  * @param cb
  */
-void MultiEpAsyncRpcRequest::onFailoverCb(RpcRequestFailoverCb cb)
+void MultiEpAsyncRpcRequest::onEPAppStatusCb(EPAppStatusCb cb)
 {
-    failoverCb_ = cb;
+    epAppStatusCb_ = cb;
 }
 
 /**
@@ -401,9 +398,9 @@ void QuorumRpcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
         }
 
         errorAckd_++;
-        if (failoverCb_) {
+        if (epAppStatusCb_) {
             bool reqComplete = false;
-            failoverCb_(header->msg_code, payload, reqComplete);
+            epAppStatusCb_(header->msg_code, payload);
             if (reqComplete) {
                 // NOTE: errorCb_ isn't invoked here
                 complete(ERR_RPC_USER_INTERRUPTED);
@@ -424,6 +421,11 @@ void QuorumRpcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
         complete(ERR_RPC_FAILED);
         return;
     }
+}
+
+void QuorumRpcRequest::onResponseCb(QuorumRpcRespCb cb)
+{
+    respCb_ = cb;
 }
 
 }  // namespace fds

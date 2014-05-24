@@ -1085,16 +1085,14 @@ Error StorHvCtrl::getBlob2(fds::AmQosReq *qosReq) {
         issueQueryCatalog(blobReq->getBlobName(),
                           blobReq->getBlobOffset(),
                           volId,
-                          std::bind(&StorHvCtrl::getBlobQueryCatalogResp, this,
-                                    blobReq, ERR_OK, std::placeholders::_1),
                           std::bind(&StorHvCtrl::getBlobQueryCatalogResp, this, blobReq,
-                                    std::placeholders::_1, std::placeholders::_2));
+                                    std::placeholders::_1, std::placeholders::_2,
+                                    std::placeholders::_3));
     } else {
        issueGetObject(objId,
-                      std::bind(&StorHvCtrl::getBlobGetObjectResp, this,
-                                blobReq, ERR_OK, std::placeholders::_1),
                       std::bind(&StorHvCtrl::getBlobGetObjectResp, this, blobReq,
-                                std::placeholders::_1, std::placeholders::_2));
+                                std::placeholders::_1, std::placeholders::_2,
+                                std::placeholders::_3));
     }
     return err;
 }
@@ -1102,8 +1100,7 @@ Error StorHvCtrl::getBlob2(fds::AmQosReq *qosReq) {
 void StorHvCtrl::issueQueryCatalog(const std::string& blobName,
                        const fds_uint64_t& blobOffset,
                        const fds_volid_t& volId,
-                       RpcRequestSuccessCb successCb,
-                       RpcRequestErrorCb errorCb)
+                       FailoverRpcRespCb respCb)
 {
     /*
      * TODO(Andrew): We should eventually specify the offset in the blob
@@ -1126,13 +1123,11 @@ void StorHvCtrl::issueQueryCatalog(const std::string& blobName,
         myEpId, boost::make_shared<DmtVolumeIdEpProvider>(volId ));
     asyncQueryReq->setRpcFunc(
         CREATE_RPC_SPTR(fpi::DMSvcClient, queryCatalogObject, queryMsg));
-    asyncQueryReq->onSuccessCb(successCb);
-    asyncQueryReq->onErrorCb(errorCb);
+    asyncQueryReq->onResponseCb(respCb);
 }
 
 void StorHvCtrl::issueGetObject(const ObjectID& objId,
-                    RpcRequestSuccessCb successCb,
-                    RpcRequestErrorCb errorCb)
+                                FailoverRpcRespCb respCb)
 {
     // TODO(Rao): get my ep id
     fpi::SvcUuid myEpId;
@@ -1146,13 +1141,13 @@ void StorHvCtrl::issueGetObject(const ObjectID& objId,
         myEpId, boost::make_shared<DmtVolumeIdEpProvider>(volId));
     asyncGetReq->setRpcFunc(
         CREATE_RPC_SPTR(fpi::SMSvcClient, getObject, getObjMsg));
-    asyncGetReq->onSuccessCb(successCb);
-    asyncGetReq->onErrorCb(errorCb);
+    asyncGetReq->onResponseCb(respCb);
 }
 
 void StorHvCtrl::getBlobQueryCatalogResp(GetBlobReq *blobReq,
-                             const Error& error,
-                             boost::shared_ptr<std::string> payload)
+                                         FailoverRpcRequest* rpcReq,
+                                         const Error& error,
+                                         boost::shared_ptr<std::string> payload)
 {
     if (error != ERR_OK) {
         LOGERROR << "blob name: " << blobReq->getBlobName() << "offset: "
@@ -1165,13 +1160,14 @@ void StorHvCtrl::getBlobQueryCatalogResp(GetBlobReq *blobReq,
     // TODO(Rao): Set the objectid
     ObjectID objId;
     issueGetObject(objId,
-                   std::bind(&StorHvCtrl::getBlobGetObjectResp, this,
-                             blobReq, ERR_OK, std::placeholders::_1),
                    std::bind(&StorHvCtrl::getBlobGetObjectResp, this, blobReq,
-                             std::placeholders::_1, std::placeholders::_2));
+                             std::placeholders::_1, std::placeholders::_2,
+                             std::placeholders::_3));
 }
 
-void StorHvCtrl::getBlobGetObjectResp(GetBlobReq *blobReq, const Error& error,
+void StorHvCtrl::getBlobGetObjectResp(GetBlobReq *blobReq,
+                                      FailoverRpcRequest* rpcReq,
+                                      const Error& error,
                                       boost::shared_ptr<std::string> payload)
 {
     if (error != ERR_OK) {

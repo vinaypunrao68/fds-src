@@ -332,18 +332,19 @@ public:
     void issueQueryCatalog(const std::string& blobName,
                            const fds_uint64_t& blobOffset,
                            const fds_volid_t& volId,
-                           RpcRequestSuccessCb successCb,
-                           RpcRequestErrorCb errorCb);
+                           FailoverRpcRespCb respCb);
 
     void issueGetObject(const ObjectID& objId,
-                        RpcRequestSuccessCb successCb,
-                        RpcRequestErrorCb errorCbsuccessCb);
+                        FailoverRpcRespCb respCb);
 
     void getBlobQueryCatalogResp(GetBlobReq *blobReq,
+                                 FailoverRpcRequest* rpcReq,
                                  const Error& error,
                                  boost::shared_ptr<std::string> payload);
 
-    void getBlobGetObjectResp(GetBlobReq *blobReq, const Error& error,
+    void getBlobGetObjectResp(GetBlobReq *blobReq,
+                              FailoverRpcRequest* rpcReq,
+                              const Error& error,
                               boost::shared_ptr<std::string> payload);
 
 private:
