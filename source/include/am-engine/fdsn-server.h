@@ -17,6 +17,7 @@
 #include <thrift/protocol/TBinaryProtocol.h>
 #include <thrift/server/TThreadPoolServer.h>
 #include <thrift/server/TThreadedServer.h>
+#include <thrift/server/TNonblockingServer.h>
 #include <thrift/transport/TServerSocket.h>
 #include <thrift/transport/TBufferTransports.h>
 #include <thrift/transport/TTransportUtils.h>
@@ -25,6 +26,7 @@ namespace fds {
 
 namespace xdi_at  = apache::thrift;
 namespace xdi_att = apache::thrift::transport;
+namespace xdi_atc = apache::thrift::concurrency;
 namespace xdi_atp = apache::thrift::protocol;
 namespace xdi_ats = apache::thrift::server;
 
@@ -47,8 +49,12 @@ class FdsnServer : public Module {
     boost::shared_ptr<xdi_att::TServerTransport>  serverTransport;
     boost::shared_ptr<xdi_att::TTransportFactory> transportFactory;
     boost::shared_ptr<xdi_atp::TProtocolFactory>  protocolFactory;
-    boost::shared_ptr<apis::AmServiceProcessor>    processor;
-    boost::shared_ptr<xdi_ats::TThreadedServer>   server;
+    boost::shared_ptr<apis::AmServiceProcessor>   processor;
+
+    boost::shared_ptr<xdi_atc::ThreadManager>      threadManager;
+    boost::shared_ptr<xdi_atc::PosixThreadFactory> threadFactory;
+    boost::shared_ptr<xdi_ats::TThreadedServer>    server;
+    // boost::shared_ptr<xdi_ats::TNonblockingServer> server;
     // boost::shared_ptr<xdi::AmShimIf>  handler;
 
     boost::shared_ptr<boost::thread> listen_thread;

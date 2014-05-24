@@ -41,6 +41,7 @@ user_non_fds_libs :=  \
     config++ \
     cryptopp \
     hiredis \
+    event \
     $(user_nginx_libs)
 
 user_cc           :=  \
@@ -52,7 +53,7 @@ user_incl_dir     += $(topdir) \
 
 user_cpp      := $(wildcard *.cpp)
 
-user_ld_flags := -shared
+user_ld_flags := -shared -Wl,--no-allow-shlib-undefined
 
 user_no_style     := $(user_cc) $(wildcard com_*.h)
 user_bin_exe      := libaccessmgr.so

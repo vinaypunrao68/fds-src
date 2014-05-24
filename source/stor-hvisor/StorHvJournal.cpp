@@ -124,7 +124,8 @@ StorHvJournalEntry::fds_set_dmack_status(int ipAddr,
             (dm_ack[node].port == port)) {
             if (dm_ack[node].ack_status < FDS_SET_ACK) {
                 dm_ack_cnt++;
-                LOGNORMAL << "updating the DM ACK: " << dm_ack_cnt;
+                LOGDEBUG << "updating the DM ACK: "
+                         << (fds_uint32_t)dm_ack_cnt;
                 dm_ack[node].ack_status = FDS_SET_ACK;
                 return 0;
             }
@@ -192,23 +193,25 @@ StorHvJournalEntryLock::~StorHvJournalEntryLock() {
 
 void
 StorHvJournalEntry::resumeTransaction(void) {
-    /*
-    switch(op) { 
+    Error err(ERR_OK);
+
+    switch (op) {
         case FDS_PUT_BLOB:
         case FDS_IO_WRITE:
-            storHvisor->resumePutBlob(this);
+            err = storHvisor->resumePutBlob(this);
             break;
-
-        case FDS_GET_BLOB:
-        case FDS_IO_READ:
-            storHvisor->resumeGetBlob(this);
-            break;
-
-        case FDS_DELETE_BLOB: 
-            storHvisor->resumeDeleteBlob(this);
-            break;
+            // case FDS_GET_BLOB:
+            // case FDS_IO_READ:
+            // storHvisor->resumeGetBlob(this);
+            // break;
+            // case FDS_DELETE_BLOB:
+            // storHvisor->resumeDeleteBlob(this);
+            // break;
+        default:
+            fds_panic("Attempting to resume unknown op!");
     }
-    */
+
+    fds_verify(err == ERR_OK);
 }
 
 StorHvJournal::StorHvJournal(unsigned int max_jrnl_entries)
@@ -295,6 +298,59 @@ StorHvJournal::popAllDltTrans() {
     return poppedTrans;
 }
 
+/**
+ * Resumes the first (if any) of the operations
+ * pending completion of this journal op.
+ */
+void
+StorHvJournal::resumePendingTrans(fds_uint32_t trans_id) {
+    // Get the journel entry ops may be waiting on
+    lock();
+    StorHvJournalEntry *journEntry = &rwlog_tbl[trans_id];
+    if (journEntry->pendingTransactions.size() == 0) {
+        // No ops are waiting
+        unlock();
+        return;
+    }
+
+    // Get the first waiting op
+    StorHvJournalEntry *firstJrnlEntry = journEntry->pendingTransactions.front();
+    journEntry->pendingTransactions.pop_front();
+    // Add the blob/offset op to the journal
+    std::string blobName = rwlog_tbl[trans_id].blobName;
+    fds_uint64_t blobOffset = rwlog_tbl[trans_id].blobOffset;
+    blob_to_jrnl_idx[blobName + ":" + std::to_string(blobOffset)] = firstJrnlEntry->trans_id;
+    // Copy over all ops pending to old entry to this entry
+    firstJrnlEntry->pendingTransactions = journEntry->pendingTransactions;
+    unlock();
+    // Start resuming the op in this thread context...
+    firstJrnlEntry->resumeTransaction();
+}
+
+/**
+ * Creates a new transaction ID.
+ */
+fds_uint32_t
+StorHvJournal::create_trans_id(const std::string& blobName,
+                               fds_uint64_t blobOffset) {
+    fds_uint32_t trans_id;
+
+    lock();
+    trans_id = get_free_trans_id();
+    unlock();
+    StorHvJournalEntryLock je_lock(&rwlog_tbl[trans_id]);
+    fds_verify(rwlog_tbl[trans_id].isActive() == false);
+
+    rwlog_tbl[trans_id].blobName = blobName;
+    rwlog_tbl[trans_id].blobOffset = blobOffset;
+
+    LOGDEBUG << "Assigned trans id "
+             << trans_id << " for blob "
+             << blobName << " offset "
+             << blobOffset;
+    return trans_id;
+}
+
 // The function returns a new transaction id (that is currently unused)
 // if one is not in use for the block offset.
 // If there is one for the passed offset, that trans_id is returned.
@@ -332,10 +388,10 @@ StorHvJournal::get_trans_id_for_blob(const std::string& blobName,
         rwlog_tbl[trans_id].blobOffset = blobOffset;
         unlock();
     }
-    LOGNORMAL << "Assigned trans id "
-              << trans_id << " for blob "
-              << blobName << " offset "
-              << blobOffset;
+    LOGDEBUG << "Assigned trans id "
+             << trans_id << " for blob "
+             << blobName << " offset "
+             << blobOffset;
     return trans_id;
 }
 

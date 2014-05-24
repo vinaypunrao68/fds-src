@@ -110,7 +110,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
         VolumeInfo::pointer  vol = volContainer->get_volume(*volumeName);
 
-        volDescriptor.name = *volumeName;
+        convert::getVolumeDescriptor(volDescriptor, vol);
         volDescriptor.policy.maxObjectSizeInBytes = 2*1024*1024;
     }
 
@@ -123,7 +123,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
         volContainer->vol_up_foreach<std::vector<VolumeDescriptor> &>(_return, [] (std::vector<VolumeDescriptor> &vec, VolumeInfo::pointer vol) { //NOLINT
                 VolumeDescriptor volDescriptor;
-                volDescriptor.name = vol->vol_get_name();
+                convert::getVolumeDescriptor(volDescriptor, vol);
                 vec.push_back(volDescriptor);
             });
     }

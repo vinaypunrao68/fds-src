@@ -233,6 +233,11 @@ public:
     Error SetBlobMetaData(AmQosReq *qosReq);
 
     // Stuff for pending offset operations
+    // TODO(Andrew): Reconcile with dispatchSm...
+    fds::Error processSmPutObj(PutBlobReq *putBlobReq,
+                               StorHvJournalEntry *journEntry);
+    fds::Error processDmUpdateBlob(PutBlobReq *putBlobReq,
+                                   StorHvJournalEntry *journEntry);
     fds::Error resumePutBlob(StorHvJournalEntry *journEntry);
     fds::Error resumeGetBlob(StorHvJournalEntry *journEntry);
     fds::Error resumeDeleteBlob(StorHvJournalEntry *journEntry);
@@ -276,6 +281,8 @@ public:
     boost::shared_ptr<FDSP_MetaDataPathRespCbackI> mPathRespCback;
     Error dispatchSmPutMsg(StorHvJournalEntry *journEntry, const NodeUuid &send_uuid);
     Error dispatchSmGetMsg(StorHvJournalEntry *journEntry);
+    Error dispatchDmUpdMsg(StorHvJournalEntry *journEntry,
+                           const NodeUuid &send_uuid);
     friend class FDSP_MetaDataPathRespCbackI;
 
     struct TxnResponseHelper {

@@ -58,7 +58,7 @@ public class NbdHost {
         ConfigurationService.Iface config = XdiClientFactory.remoteOmService(configuration);
 
         NbdServerOperations ops = new FdsServerOperations(am, config);
-        //NbdServerOperations ops = new RamOperations("hello", 1000000000);
+        //NbdServerOperations ops = new RamOperations("hello", 1040 * 1024 * 1024);
         //ops = new ReadWriteVerifierOperations(ops);
 
         new NbdHost(10809, ops).run();
