@@ -6,7 +6,7 @@ user_install_loc  := test
 
 user_fds_so_libs  :=
 user_fds_ar_libs  := \
-    fds-StorHvisor \
+    fds-am-engine \
     fds-hash \
     fds-lib \
     fds-util \
@@ -15,7 +15,7 @@ user_fds_ar_libs  := \
     fds-odb \
     fds-umod \
     fds-osdep
-	
+
 user_non_fds_libs :=                                                          \
     boost_log \
     boost_filesystem \

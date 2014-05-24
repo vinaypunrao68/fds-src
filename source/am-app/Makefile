@@ -7,9 +7,8 @@ user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  :=  \
     fds-am-engine \
-    fds-StorHvisor \
-	fds-am-plat \
-	fds-plat-lib \
+    fds-am-plat \
+    fds-plat-lib \
     fds-lib \
     fds-umod \
     fds-util \

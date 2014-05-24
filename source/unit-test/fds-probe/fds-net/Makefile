@@ -5,7 +5,7 @@ user_incl_dir     :=
 user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  := \
-    fds-StorHvisor
+    fds-am-engine
 
 user_non_fds_libs :=
 
