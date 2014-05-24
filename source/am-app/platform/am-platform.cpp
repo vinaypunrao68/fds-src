@@ -37,16 +37,15 @@ AmPlatform::AmPlatform()
                                  new PmContainer(FDSP_STOR_HVISOR),
                                  new OmContainer(FDSP_STOR_HVISOR)),
                new DomainResources("AM-Resources"),
-               NULL)
-{
-    Platform::platf_assign_singleton(&gl_AmPlatform);
-    plf_node_type = FDSP_STOR_HVISOR;
-}
+               NULL) {}
 
 int
 AmPlatform::mod_init(SysParams const *const param)
 {
     fds_uint32_t base;
+
+    Platform::platf_assign_singleton(&gl_AmPlatform);
+    plf_node_type = FDSP_STOR_HVISOR;
 
     FdsConfigAccessor conf(g_fdsprocess->get_conf_helper());
     Platform::mod_init(param);
