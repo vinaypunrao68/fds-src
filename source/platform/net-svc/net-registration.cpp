@@ -57,34 +57,18 @@ void
 PlatformEpHandler::notifyNodeInfo(std::vector<fpi::NodeInfoMsg>    &ret,
                                   bo::shared_ptr<fpi::NodeInfoMsg> &msg)
 {
-    int                     idx;
-    node_data_t             rec;
-    NodeInfoIter            iter(ret);
-    ShmObjRWKeyUint64      *shm;
-    NodeAgent::pointer      agent;
-    DomainNodeInv::pointer  local;
+    NodeInfoIter           iter(ret);
+    DomainNodeInv::pointer local;
 
-    NodeInventory::node_info_msg_to_shm(msg.get(), &rec);
-    shm = NodeShmRWCtrl::shm_node_rw_inv();
-    idx = shm->shm_insert_rec(static_cast<void *>(&rec.nd_node_uuid),
-                              static_cast<void *>(&rec), sizeof(rec));
-
-    // Assert for now to debug any problems with leaking...
-    fds_verify(idx != -1);
-    local = Platform::platf_singleton()->plf_node_inventory();
-    local->dc_register_node(shm, &agent, idx, idx);
+    net_plat->nplat_register_node(msg.get());
 
     // Go through the entire domain to send back inventory info to the new node.
+    local = Platform::platf_singleton()->plf_node_inventory();
     local->dc_foreach_am(&iter);
     local->dc_foreach_pm(&iter);
     local->dc_foreach_dm(&iter);
     local->dc_foreach_sm(&iter);
-
-    std::cout << "Node notify idx: " << idx
-        << "\nDisk iops max......... " << msg->node_stor.disk_iops_max
-        << "\nDisk iops min......... " << msg->node_stor.disk_iops_min
-        << "\nDisk capacity......... " << msg->node_stor.disk_capacity
-        << "Sent back " << iter.rs_iter_count() << std::endl;
+    std::cout << "Sent back " << iter.rs_iter_count() << std::endl;
 }
 
 // notifyNodeUp

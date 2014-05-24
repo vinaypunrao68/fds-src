@@ -2,7 +2,6 @@ ifdef user_std_libs
     user_fds_ar_libs += \
         fds-plat-lib \
         fds-net-svc \
-        fds-net-platd \
         fds-rpc-request \
         fds-lib \
         fds-umod \

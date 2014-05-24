@@ -91,14 +91,6 @@ PlatformdNetSvc::plat_update_local_binding(const ep_map_rec_t *rec)
 {
 }
 
-// plat_update_domain_binding
-// --------------------------
-//
-void
-PlatformdNetSvc::plat_update_domain_binding(const ep_map_rec_t *rec)
-{
-}
-
 // nplat_peer
 // ----------
 //
@@ -115,6 +107,30 @@ EpSvcHandle::pointer
 PlatformdNetSvc::nplat_peer(const fpi::DomainID &id, const fpi::SvcUuid &uuid)
 {
     return NULL;
+}
+
+// nplat_register_node
+// -------------------
+// Platform daemon registers this node info from the network packet.
+//
+void
+PlatformdNetSvc::nplat_register_node(const fpi::NodeInfoMsg *msg)
+{
+    int                     idx;
+    node_data_t             rec;
+    ShmObjRWKeyUint64      *shm;
+    NodeAgent::pointer      agent;
+    DomainNodeInv::pointer  local;
+
+    NodeInventory::node_info_msg_to_shm(msg, &rec);
+    shm = NodeShmRWCtrl::shm_node_rw_inv();
+    idx = shm->shm_insert_rec(static_cast<void *>(&rec.nd_node_uuid),
+                              static_cast<void *>(&rec), sizeof(rec));
+
+    // Assert for now to debug any problem with leaking...
+    fds_verify(idx != -1);
+    local = Platform::platf_singleton()->plf_node_inventory();
+    local->dc_register_node(shm, &agent, idx, idx);
 }
 
 /*
@@ -210,6 +226,7 @@ PlatAgent::pda_register(PmContainer::pointer container)
 void
 PlatAgentPlugin::ep_connected()
 {
+    NetPlatform                   *net_plat;
     fpi::NodeInfoMsg              *msg;
     std::vector<fpi::NodeInfoMsg>  ret;
 
@@ -223,6 +240,11 @@ PlatAgentPlugin::ep_connected()
     rpc->notifyNodeInfo(ret, pkt);
 
     std::cout << "Got " << ret.size() << " elements back" << std::endl;
+
+    net_plat = NetPlatform::nplat_singleton();
+    for (auto it = ret.cbegin(); it != ret.cend(); it++) {
+        net_plat->nplat_register_node(&*it);
+    }
 }
 
 // ep_down

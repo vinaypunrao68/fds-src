@@ -108,8 +108,9 @@ class NetPlatSvc : public NetPlatform
 
     // Common net platform services.
     //
-    virtual EpSvc::pointer       nplat_my_ep();
-    virtual EpSvcHandle::pointer nplat_domain_rpc(const fpi::DomainID &id);
+    virtual EpSvc::pointer       nplat_my_ep() override;
+    virtual EpSvcHandle::pointer nplat_domain_rpc(const fpi::DomainID &id) override;
+    virtual void nplat_register_node(const fpi::NodeInfoMsg *msg) override;
 
     inline std::string const *const nplat_domain_master(int *port) {
         *port = plat_lib->plf_get_om_svc_port();
