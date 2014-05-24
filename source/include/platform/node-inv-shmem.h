@@ -164,7 +164,6 @@ class NodeShmCtrl : public Module
     virtual void mod_shutdown() override;
 
   protected:
-    int                        shm_flags;
     size_t                     shm_node_off;
     size_t                     shm_node_siz;
     size_t                     shm_uuid_off;
@@ -189,9 +188,7 @@ class NodeShmCtrl : public Module
     ShmObjROKeyUint64         *shm_uuid_bind;
     struct node_shm_inventory *shm_node_hdr;
 
-    void      shm_init_header(struct node_shm_inventory *hdr);
     FdsShmem *shm_create_obj(const char *fmt, char *name, int size);
-
     virtual void shm_setup_queue();
 };
 

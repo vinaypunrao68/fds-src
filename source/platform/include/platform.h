@@ -78,6 +78,8 @@ class NodeShmRWCtrl : public NodeShmCtrl
     ShmObjRWKeyUint64       *shm_uuid_rw;
 
     void shm_init_queue(node_shm_queue_t *queue);
+    void shm_init_header(node_shm_inventory_t *hdr);
+
     virtual void shm_setup_queue() override;
 };
 

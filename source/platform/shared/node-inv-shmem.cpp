@@ -41,7 +41,6 @@ NodeShmCtrl                 *gl_NodeShmCtrl = &gl_NodeShmROCtrl;
  */
 NodeShmCtrl::NodeShmCtrl(const char *name) : Module(name)
 {
-    shm_flags     = PROT_READ;
     shm_node_off  = sizeof(*shm_node_hdr);
     shm_node_siz  = sizeof(node_data_t) * shm_max_nodes;
     shm_total_siz = sizeof(*shm_node_hdr) + shm_node_siz;
@@ -69,38 +68,14 @@ NodeShmCtrl::NodeShmCtrl(const char *name) : Module(name)
     shm_ctrl      = NULL;
 }
 
-// shm_init_header
-// ---------------
-//
-void
-NodeShmCtrl::shm_init_header(node_shm_inventory_t *hdr)
-{
-    hdr->shm_magic   = 0xFEEDCAFE;
-    hdr->shm_version = 0;
-    hdr->shm_state   = NODE_SHM_ACTIVE;
-
-    hdr->shm_node_inv_off     = shm_node_off;
-    hdr->shm_node_inv_key_off = offsetof(node_data_t, nd_node_uuid);
-    hdr->shm_node_inv_key_siz = sizeof(fds_uint64_t);
-    hdr->shm_node_inv_obj_siz = sizeof(node_data_t);
-
-    hdr->shm_uuid_bind_off     = shm_uuid_off;
-    hdr->shm_uuid_bind_key_off = offsetof(ep_map_rec_t, rmp_uuid);
-    hdr->shm_uuid_bind_key_siz = sizeof(fds_uint64_t);
-    hdr->shm_uuid_bind_obj_siz = sizeof(ep_map_rec_t);
-
-    hdr->shm_am_inv_off     = shm_am_off;
-    hdr->shm_am_inv_key_off = offsetof(node_data_t, nd_node_uuid);
-    hdr->shm_am_inv_key_siz = sizeof(fds_uint64_t);
-    hdr->shm_am_inv_obj_siz = sizeof(node_data_t);
-}
-
 // mod_init
 // --------
 //
 int
 NodeShmCtrl::mod_init(SysParams const *const p)
 {
+    fds_verify(shm_total_siz > 0);
+    shm_ctrl = shm_create_obj("0x%llx-%d", shm_name, shm_total_siz);
     return Module::mod_init(p);
 }
 
@@ -113,28 +88,19 @@ NodeShmCtrl::mod_startup()
     void  *shm;
 
     Module::mod_startup();
-    fds_verify(shm_total_siz > 0);
-    shm_ctrl = shm_create_obj("0x%llx-%d", shm_name, shm_total_siz);
+    shm = shm_ctrl->shm_attach(PROT_READ);
+    fds_verify(shm != NULL);
 
-    shm = shm_ctrl->shm_attach(shm_flags);
-    if (shm == NULL) {
-        shm = shm_ctrl->shm_alloc(shm_total_siz);
-        fds_verify(shm != NULL);
+    shm_node_hdr = static_cast<node_shm_inventory_t *>(shm);
+    fds_verify(shm_node_hdr->shm_node_inv_off == shm_node_off);
+    fds_verify(shm_node_hdr->shm_node_inv_obj_siz == sizeof(node_data_t));
 
-        std::cout << "Alloc " << shm_total_siz << " bytes in shmem" << std::endl;
-        shm_node_hdr = static_cast<node_shm_inventory_t *>(shm);
-        shm_init_header(shm_node_hdr);
-    } else {
-        shm_node_hdr = static_cast<node_shm_inventory_t *>(shm);
-        fds_verify(shm_node_hdr->shm_node_inv_off == shm_node_off);
-        fds_verify(shm_node_hdr->shm_node_inv_obj_siz == sizeof(node_data_t));
+    fds_verify(shm_node_hdr->shm_uuid_bind_off == shm_uuid_off);
+    fds_verify(shm_node_hdr->shm_uuid_bind_obj_siz == sizeof(ep_map_rec_t));
 
-        fds_verify(shm_node_hdr->shm_uuid_bind_off == shm_uuid_off);
-        fds_verify(shm_node_hdr->shm_uuid_bind_obj_siz == sizeof(ep_map_rec_t));
+    fds_verify(shm_node_hdr->shm_am_inv_off == shm_am_off);
+    fds_verify(shm_node_hdr->shm_am_inv_obj_siz == sizeof(node_data_t));
 
-        fds_verify(shm_node_hdr->shm_am_inv_off == shm_am_off);
-        fds_verify(shm_node_hdr->shm_am_inv_obj_siz == sizeof(node_data_t));
-    }
     shm_node_inv  = new ShmObjROKeyUint64(shm_ctrl, shm_node_off,
                             shm_node_hdr->shm_node_inv_key_off,
                             shm_node_hdr->shm_node_inv_obj_siz, shm_max_nodes);
@@ -185,6 +151,7 @@ NodeShmCtrl::shm_setup_queue()
     shm_rw    = shm_create_obj("/0x%llx-rw-%d", shm_rw_name, shm_size);
     shm       = shm_rw->shm_attach(PROT_READ | PROT_WRITE);
     shm_queue = static_cast<node_shm_queue_t *>(shm);
+    fds_assert(shm != NULL);
 
     shm_rw_data = new ShmObjRW(shm_rw,
                                NodeShmCtrl::shm_queue_hdr, 0, 0,
