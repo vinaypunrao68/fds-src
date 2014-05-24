@@ -5,6 +5,7 @@ user_incl_dir    := ../include ../../net-service/include
 
 user_cpp         := \
     platform.cpp \
+    platform-proc.cpp \
     platform-shm-rw.cpp
 
 user_ar_libs     := fds-plat-daemon

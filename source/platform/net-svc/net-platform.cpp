@@ -181,6 +181,7 @@ PlatformdPlugin::svc_down(EpSvc::pointer svc, EpSvcHandle::pointer handle)
 PlatAgent::PlatAgent(const NodeUuid &uuid) : DomainAgent(uuid, false)
 {
     fds_verify(agt_domain_evt == NULL);
+    node_svc_type  = fpi::FDSP_PLATFORM;
     agt_domain_evt = new PlatAgentPlugin(this);
 }
 

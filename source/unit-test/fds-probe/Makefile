@@ -8,6 +8,7 @@ user_build_dir    := s3 thrift pm sm \
     stor-mgr-full\
     data-mgr     \
     orch-mgr     \
+    platform     \
     mock-server
 
 include $(topdir)/Makefile.incl
