@@ -9,6 +9,7 @@
 #include <fds-shmobj.h>
 #include <net/net-service.h>
 #include <shared/fds-constants.h>
+#include <platform/node-inv-shmem.h>
 
 namespace fds {
 
@@ -23,8 +24,17 @@ struct ep_map_rec
     char                     rmp_name[MAX_SVC_NAME_LEN];
 };
 
-extern void ep_uuid_bind_frm_shm(fpi::UuidBindMsg *msg, const ep_map_rec_t *rec);
-extern void ep_uuid_bind_to_shm(const fpi::UuidBindMsg *msg, ep_map_rec_t *rec);
+/**
+ * Item to put in shared memory queue.
+ */
+typedef struct ep_shmq_req
+{
+    NODE_SHM_QUEUE_ITEM_FIELDS;
+    int                      smq_idx;
+    ep_map_rec_t             smq_rec;
+} ep_shmq_req_t;
+
+cc_assert(ep_map0, sizeof(ep_shmq_req_t) <= sizeof(node_shm_queue_item_t));
 
 class EpPlatLibMod : public Module
 {
@@ -49,7 +59,10 @@ class EpPlatLibMod : public Module
     }
 
   protected:
+    int                      ep_my_type;
     ShmObjROKeyUint64       *ep_uuid_bind;
+
+    int ep_req_map_record(fds_uint32_t op, const ep_map_rec_t *rec);
 };
 
 class EpPlatformdMod : public EpPlatLibMod

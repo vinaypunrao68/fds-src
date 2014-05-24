@@ -42,6 +42,7 @@ user_non_fds_libs :=  \
     cryptopp \
     hiredis \
     event \
+	rt \
     $(user_nginx_libs)
 
 user_cc           :=  \
