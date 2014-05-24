@@ -4,6 +4,7 @@
 #ifndef SOURCE_INCLUDE_FDS_SHMOBJ_H_
 #define SOURCE_INCLUDE_FDS_SHMOBJ_H_
 
+#include <pthread.h>
 #include <fds_assert.h>
 #include <fds_module.h>
 #include <concurrency/Mutex.h>
@@ -116,6 +117,85 @@ class ShmObjRWKeyUint64 : public ShmObjRW
 
   protected:
     virtual int obj_key_cmp(const char *k1, const char *k2, size_t size) const;
+};
+
+/**
+ * ------------------------------------------------------------------------------------
+ * Producer/consumer interface in shared memory.
+ * ------------------------------------------------------------------------------------
+ */
+
+/** Brain, free to change stuffs here  */
+
+/**
+ * Queue for 1 producer, n consumers.  This data structure is in shared memory.
+ */
+typedef struct shm_1prd_ncon_q
+{
+    int                      shm_1prd_idx;
+    int                      shm_ncon_cnt;
+    int                      shm_ncon_idx[0];     /** -1 if don't care */
+} shm_1prd_ncon_q_t;
+
+/**
+ * Queue for n producers, 1 consumer.  This data structure is in shared memory.
+ */
+typedef struct shm_nprd_1con_q
+{
+    fds_uint32_t             shm_1con_idx;
+    fds_uint32_t             shm_nprd_cnt;
+    fds_uint32_t             shm_ncon_idx[0];
+} shm_nprd_1con_q_t;
+
+/**
+ * Synchronization among consumer(s), producer(s).  This is also in shared memory.
+ */
+typedef struct shm_con_prd_sync
+{
+    pthread_mutex_t          shm_mtx;
+    pthread_cond_t           shm_con_cv;
+    pthread_cond_t           shm_prd_cv;
+} shm_con_prd_sync_t;
+
+class ShmConPrdQueue
+{
+  public:
+    /**
+     * Block if the queue is empty.
+     * @param consumer (i) : default is 0, if not index to control the consumer index
+     *     pointer.
+     */
+    virtual void shm_consumer(void *data, size_t size, int consumer = 0) = 0;
+    virtual void shm_producer(const void *data, size_t size, int producer = 0) = 0;
+
+  protected:
+    ShmConPrdQueue(shm_con_prd_sync_t *sync, shm_1prd_ncon_q_t *ctrl, ShmObjRW *data);
+    ShmConPrdQueue(shm_con_prd_sync_t *sync, shm_nprd_1con_q_t *ctrl, ShmObjRW *data);
+    virtual ~ShmConPrdQueue() {}
+};
+
+class Shm_1Prd_nCon : public ShmConPrdQueue
+{
+  public:
+    Shm_1Prd_nCon(shm_con_prd_sync_t *sync, shm_1prd_ncon_q_t *ctrl, ShmObjRW *data);
+
+    void shm_consumer(void *data, size_t size, int consumer = 0) override;
+    void shm_producer(const void *data, size_t size, int producer = 0) override;
+
+  private:
+    ~Shm_1Prd_nCon() {}
+};
+
+class Shm_nPrd_1Con : public ShmConPrdQueue
+{
+  public:
+    Shm_nPrd_1Con(shm_con_prd_sync_t *sync, shm_1prd_ncon_q_t *ctrl, ShmObjRW *data);
+
+    void shm_consumer(void *data, size_t size, int consumer = 0) override;
+    void shm_producer(const void *data, size_t size, int producer = 0) override;
+
+  private:
+    ~Shm_nPrd_1Con() {}
 };
 
 }  // namespace fds

@@ -451,8 +451,8 @@ boost::shared_ptr<fpi::PlatNetSvcClient>
 PmAgent::agent_rpc()
 {
     NetMgr              *net;
-    fpi::SvcUuid          peer;
-    EpSvcHandle::pointer  handle;
+    fpi::SvcUuid         peer;
+    EpSvcHandle::pointer handle;
 
     net = NetMgr::ep_mgr_singleton();
     peer.svc_uuid = rs_uuid.uuid_get_val();
