@@ -60,6 +60,7 @@ int main(int argc, char **argv)
     fds::Module *am_mod_vec[] = {
         &fds::gl_fds_stat,
         &fds::gl_AmPlatform,
+        &fds::gl_NetService,
         &fds::gl_FdsnServer,
         &fds::gl_AmUbdConnect,
         nullptr

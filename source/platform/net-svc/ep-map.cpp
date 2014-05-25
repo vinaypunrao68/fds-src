@@ -14,10 +14,13 @@ namespace fds {
 class PlatUuidBind : public ShmqReqIn
 {
   public:
-    PlatUuidBind() : ShmqReqIn() {}
+    PlatUuidBind(EpLatformdMod *rw) : ShmqReqIn(), ep_shm_rw(rw) {}
     virtual ~PlatUuidBind() {}
 
     void shmq_handler(const shmq_req_t *in, size_t size);
+
+  private:
+    EpPlatformdMod          *ep_shm_rw;
 };
 
 // shmq_handler
@@ -26,7 +29,16 @@ class PlatUuidBind : public ShmqReqIn
 void
 PlatUuidBind::shmq_handler(const shmq_req_t *in, size_t size)
 {
+    int             idx;
+    shmq_req_t      out;
+    ShmConPrdQueue *plat;
+
     std::cout << "UUID binding request is called" << std::endl;
+    idx = ep_shm_rw->ep_map_record(&in->smq_rec);
+    fds_verify(idx != NULL);
+
+    plat = NodeShmCtrl::shm_producer();
+    plat->shm_producer(static_cast<void *>(&out), sizeof(out), 0);
 }
 
 static PlatUuidBind platform_uuid_bind;
