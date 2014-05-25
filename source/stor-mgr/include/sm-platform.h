@@ -5,8 +5,20 @@
 #define SOURCE_STOR_MGR_INCLUDE_SM_PLATFORM_H_
 
 #include <platform/platform-lib.h>
+#include <net/net-service.h>
+#include <fds_typedefs.h>
+
+/* Forward declarations */
+namespace FDS_ProtocolInterface {
+class SMSvcClient;
+class SMSvcProcessor;
+}
 
 namespace fds {
+
+/* Forward declarations */
+class SMSvcHandler;
+class SmPlatform;
 
 class SmVolEvent : public VolPlatEvent
 {
@@ -22,6 +34,28 @@ class SmVolEvent : public VolPlatEvent
     virtual void plat_evt_handler(const FDSP_MsgHdrTypePtr &hdr);
 };
 
+/**
+ * This class provides plugin for the endpoint run by SmPlatform
+ */
+class SMEpPlugin: public EpEvtPlugin
+{
+  public:
+    typedef bo::intrusive_ptr<SMEpPlugin> pointer;
+    typedef bo::intrusive_ptr<const SMEpPlugin> const_ptr;
+
+    explicit SMEpPlugin(SmPlatform *sm_plat);
+    virtual ~SMEpPlugin();
+
+    void ep_connected();
+    void ep_down();
+
+    void svc_up(EpSvcHandle::pointer handle);
+    void svc_down(EpSvc::pointer svc, EpSvcHandle::pointer handle);
+
+  protected:
+    SmPlatform *sm_plat_;
+};
+
 class SmPlatform : public Platform
 {
   public:
@@ -33,14 +67,19 @@ class SmPlatform : public Platform
     /**
      * Module methods
      */
-    virtual int  mod_init(SysParams const *const param);
-    virtual void mod_startup();
-    virtual void mod_shutdown();
+    virtual int  mod_init(SysParams const *const param) override;
+    virtual void mod_startup() override;
+    virtual void mod_enable_service() override;
+    virtual void mod_shutdown() override;
 
   protected:
     virtual PlatRpcReqt *plat_creat_reqt_disp();
     virtual PlatRpcResp *plat_creat_resp_disp();
     virtual PlatDataPathResp *plat_creat_dpath_resp();
+
+    SMEpPlugin::pointer           sm_plugin;
+    bo::shared_ptr<SMSvcHandler>  sm_recv;
+    EndPoint<FDS_ProtocolInterface::SMSvcClient, FDS_ProtocolInterface::SMSvcProcessor> *sm_ep;
 };
 
 /**

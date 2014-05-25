@@ -11,7 +11,8 @@ user_cpp          := \
 	DataMgr.cpp \
 	VolumeMeta.cpp \
 	qos_ctrl.cpp \
-	CommitLog.cpp
+	CommitLog.cpp \
+	DMSvcHandler.cpp
 
 user_no_style     := $(user_cpp)
 user_ar_libs      := fds-dm-lib

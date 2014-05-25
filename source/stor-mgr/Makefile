@@ -24,6 +24,7 @@ user_fds_ar_libs  :=                   \
     fds-odb \
     fds-dsk-mgnt \
     fds-sm-plat \
+    fds-smlib \
     fds-dsk-io \
     fds-dsk-mgnt \
     fds-odb \

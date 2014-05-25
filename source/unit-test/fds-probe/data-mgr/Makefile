@@ -15,6 +15,7 @@ user_fds_ar_libs  := \
     fds-dm-lib       \
     fds-am-engine    \
     fds-dm-plat      \
+    fds-dm-lib       \
     fds-plat-lib     \
     fds-lib          \
     fds-dsk-mgnt     \

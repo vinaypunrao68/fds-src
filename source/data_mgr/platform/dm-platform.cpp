@@ -9,6 +9,9 @@
 #include <arpa/inet.h>
 #include <dm-platform.h>
 #include <fds_process.h>
+#include <fdsp/DMSvc.h>
+#include <DMSvcHandler.h>
+#include <net/net-service-tmpl.hpp>
 
 namespace fds {
 
@@ -19,6 +22,46 @@ DmPlatform gl_DmPlatform;
 // -------------------------------------------------------------------------------------
 void
 DmVolEvent::plat_evt_handler(const FDSP_MsgHdrTypePtr &hdr)
+{
+}
+
+/*
+ * -----------------------------------------------------------------------------------
+ * Endpoint Plugin
+ * -----------------------------------------------------------------------------------
+ */
+DMEpPlugin::~DMEpPlugin() {}
+DMEpPlugin::DMEpPlugin(DmPlatform *dm_plat) : EpEvtPlugin(), dm_plat_(dm_plat) {}
+
+// ep_connected
+// ------------
+//
+void
+DMEpPlugin::ep_connected()
+{
+}
+
+// ep_done
+// -------
+//
+void
+DMEpPlugin::ep_down()
+{
+}
+
+// svc_up
+// ------
+//
+void
+DMEpPlugin::svc_up(EpSvcHandle::pointer handle)
+{
+}
+
+// svc_down
+// --------
+//
+void
+DMEpPlugin::svc_down(EpSvc::pointer svc, EpSvcHandle::pointer handle)
 {
 }
 
@@ -75,6 +118,27 @@ void
 DmPlatform::mod_startup()
 {
     Platform::mod_startup();
+
+    dm_recv   = bo::shared_ptr<DMSvcHandler>(new DMSvcHandler());
+    dm_plugin = new DMEpPlugin(this);
+    dm_ep     = new EndPoint<fpi::DMSvcClient, fpi::DMSvcProcessor>(
+        Platform::platf_singleton()->plf_get_dm_port(),
+        *Platform::platf_singleton()->plf_get_my_svc_uuid(),
+        NodeUuid(0ULL),
+        bo::shared_ptr<fpi::DMSvcProcessor>(new fpi::DMSvcProcessor(dm_recv)),
+        dm_plugin);
+
+    LOGNORMAL << "Startup platform specific net svc, port "
+              << Platform::platf_singleton()->plf_get_dm_port();
+}
+
+// mod_enable_service
+// ------------------
+//
+void
+DmPlatform::mod_enable_service()
+{
+    NetMgr::ep_mgr_singleton()->ep_register(dm_ep, false);
 }
 
 void
