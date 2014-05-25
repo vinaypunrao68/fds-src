@@ -31,7 +31,7 @@ init_loghelper /tmp/fds_tool.log
 REDIS_ARG=
 
 # Variables
-applist="om pm dm sm am"
+applist="pm om dm sm am"
 declare -A apps
 
 apps["om"]="orchMgr"

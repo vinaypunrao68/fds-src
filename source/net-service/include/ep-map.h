@@ -24,6 +24,7 @@ struct ep_map_rec
     char                     rmp_name[MAX_SVC_NAME_LEN];
 };
 
+const int SHM_TAB_NONE        = 0x0;
 const int SHM_TAB_UUID_BIND   = 0x1;       /**< table recording uuid binding.  */
 const int SHM_TAB_NODE_INFO   = 0x2;       /**< node info table. */
 const int SHM_TAB_AM_INFO     = 0x3;       /**< info about AM nodes. */

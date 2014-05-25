@@ -19,10 +19,8 @@ namespace fds {
 
 OrchMgr *orchMgr;
 
-OrchMgr::OrchMgr(int argc, char *argv[],
-                 const std::string& default_config_path,
-                 const std::string& base_path, Module **mod_vec)
-        : FdsProcess(argc, argv, default_config_path, base_path, mod_vec),
+OrchMgr::OrchMgr(int argc, char *argv[], Platform *platform, Module **mod_vec)
+    : PlatformProcess(argc, argv, "fds.om.", "om.log", platform, mod_vec),
           conf_port_num(0),
           ctrl_port_num(0),
           test_mode(false),
@@ -63,6 +61,7 @@ void OrchMgr::proc_pre_startup()
     int    argc;
     char **argv;
 
+    PlatformProcess::proc_pre_startup();
     argv = mod_vectors_->mod_argv(&argc);
 
     /*

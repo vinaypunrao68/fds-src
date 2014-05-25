@@ -116,6 +116,7 @@ EpPlatLibMod::ep_req_map_record(fds_uint32_t op, const ep_map_rec_t *rec)
     resp.smq_idx  = -1;
     reqt.smq_idx  = -1;
     reqt.smq_rec  = *rec;
+    reqt.smq_type = SHM_TAB_NONE;
     reqt.smq_hdr.smq_code = op;
     resp.smq_rec.rmp_uuid = 0;
 

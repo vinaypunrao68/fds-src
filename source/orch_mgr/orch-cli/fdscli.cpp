@@ -682,7 +682,7 @@ int main(int argc, char* argv[])
         nullptr
     };
     fds::fdsCli = new fds::FdsCli(argc, argv,
-                                  "orch_mgr.conf", "fds.om.", "cli.log", cliVec);
+                                  "platform.conf", "fds.om.", "cli.log", cliVec);
     int retcode = fds::fdsCli->main();
     delete fds::fdsCli;
     return retcode;

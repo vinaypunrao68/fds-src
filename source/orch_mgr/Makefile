@@ -13,11 +13,11 @@ user_build_dir    := \
 	configservice
 
 user_fds_ar_libs  := \
-    fds-am-plat \
     fds-om-common \
     fds-om-dlt \
     fds-om-lib \
     fds-om-discovery \
+    fds-am-plat \
     fds-plat-lib \
     fds-xdi
 

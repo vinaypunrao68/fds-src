@@ -8,7 +8,7 @@
 #include <vector>
 #include <orch-mgr/om-service.h>
 #include <OmResources.h>
-#include <am-platform.h>
+#include <am-platform.h>  // TODO(Vy): must be om-platform.h
 #include <net/net-service.h>
 
 namespace fds {
@@ -32,7 +32,7 @@ int main(int argc, char *argv[])
         &fds::gl_OMModule,
         NULL
     };
-    fds::orchMgr = new fds::OrchMgr(argc, argv, "orch_mgr.conf", "fds.om.", omVec);
+    fds::orchMgr = new fds::OrchMgr(argc, argv, &fds::gl_AmPlatform, omVec);
     fds::gl_orch_mgr = fds::orchMgr;
     int ret = fds::orchMgr->main();
     delete fds::orchMgr;
