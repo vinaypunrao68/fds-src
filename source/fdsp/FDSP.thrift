@@ -1025,20 +1025,8 @@ service FDSP_Service {
 	FDSP_SessionReqResp EstablishSession(1:FDSP_MsgHdrType fdsp_msg)
 }
 
-enum FDSP_RpcServiceStatus {
-	SVC_STATUS_INVALID,
-	SVC_STATUS_ACTIVE,
-	SVC_STATUS_INACTIVE,
-	SVC_STATUS_IN_ERR
-}
 
-service FDSP_RpcService {
-	FDSP_RpcServiceStatus GetStatus(1: i32 nullarg),
-	map<string, i64> GetStats(1: string id),
-	void SetConfigVal(1:string id, 2:i64 value )
-}
-
-service FDSP_DataPathReq extends FDSP_RpcService {
+service FDSP_DataPathReq {
     oneway void GetObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetObjType get_obj_req),
     oneway void PutObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_PutObjType put_obj_req),
     oneway void DeleteObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DeleteObjType del_obj_req),

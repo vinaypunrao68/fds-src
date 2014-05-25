@@ -70,7 +70,6 @@
 
 #include <NetSession.h>
 #include <kvstore/tokenstatedb.h>
-#include <FDSP_RpcServiceBaseImpl.h>
 #include <fdsp/SMSvc.h>
 
 #undef FDS_TEST_SM_NOOP      /* if defined, IO completes as soon as it arrives to SM */
@@ -575,7 +574,7 @@ class ObjectStorMgr :
     friend class SmObjDb;
 };
 
-class ObjectStorMgrI : virtual public FDSP_DataPathReqIf, virtual public FDSP_RpcServiceBaseImpl {
+class ObjectStorMgrI : virtual public FDSP_DataPathReqIf {
  public:
     ObjectStorMgrI();
     ~ObjectStorMgrI();

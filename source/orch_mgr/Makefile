@@ -10,7 +10,8 @@ user_build_dir    := \
 	om-common \
 	om-lib \
 	om-discovery \
-	configservice
+	configservice \
+	platform
 
 user_fds_ar_libs  := \
     fds-om-common \

@@ -121,21 +121,31 @@ struct NodeInfoMsg {
     4: required i32           nd_base_port,
 }
 
+enum ServiceStatus {
+    SVC_STATUS_INVALID,
+    SVC_STATUS_ACTIVE,
+    SVC_STATUS_INACTIVE,
+    SVC_STATUS_IN_ERR
+}
 /*
  * --------------------------------------------------------------------------------
  * Common services
  * --------------------------------------------------------------------------------
  */
+
 service BaseAsyncSvc {
-	oneway void asyncReqt(1: AsyncHdr header),
-	oneway void asyncResp(1: AsyncHdr header, 2: string payload),
-    RespHdr uuidBind(1: UuidBindMsg msg)
+    oneway void asyncReqt(1: AsyncHdr header),
+    oneway void asyncResp(1: AsyncHdr header, 2: string payload),
+    RespHdr uuidBind(1: UuidBindMsg msg),
 }
 
 service PlatNetSvc extends BaseAsyncSvc {
     list<UuidBindMsg> allUuidBinding(1: UuidBindMsg mine),
     list<NodeInfoMsg> notifyNodeInfo(1: NodeInfoMsg info),
     RespHdr notifyNodeUp(1: NodeInfoMsg info)
+    // ServiceStatus getStatus(1: i32 nullarg),
+    // map<string, i64> getCounters(1: string id),
+    // void setConfigVal(1:string id, 2:i64 value )
 }
 
 service SMSvc extends BaseAsyncSvc {
