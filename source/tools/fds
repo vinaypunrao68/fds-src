@@ -95,7 +95,7 @@ function startApp() {
     setupFbd
 
     if [[ $appname == "all" ]]; then
-        justapps="om pm"
+        justapps="pm om"
     fi
 
     # start redis if needed
