@@ -29,7 +29,7 @@ struct ep_map_rec
  */
 typedef struct ep_shmq_req
 {
-    NODE_SHM_QUEUE_ITEM_FIELDS;
+    shmq_req_t               smq_hdr;
     int                      smq_idx;
     ep_map_rec_t             smq_rec;
 } ep_shmq_req_t;

@@ -7,6 +7,7 @@
 #include <pthread.h>
 #include <fds_assert.h>
 #include <fds_module.h>
+#include <fds_request.h>
 #include <concurrency/Mutex.h>
 
 /**
@@ -14,6 +15,7 @@
  */
 namespace fds {
 class FdsShmem;
+class ShmConPrdQueue;
 
 class ShmObjRO
 {
@@ -93,6 +95,7 @@ class ShmObjRW : public ShmObjRO
              size_t          obj_siz,
              int             obj_cnt);
 
+    virtual int shm_insert_rec(int idx, const void *data, size_t rec_sz);
     virtual int shm_insert_rec(const void *key, const void *data, size_t rec_sz);
     virtual int shm_remove_rec(const void *key, void *data, size_t rec_sz);
     virtual int shm_remove_rec(int idx, const void *key, void *data, size_t rec_sz);
@@ -157,9 +160,96 @@ typedef struct shm_con_prd_sync
     pthread_cond_t           shm_prd_cv;
 } shm_con_prd_sync_t;
 
-class ShmConPrdQueue
+/**
+ * The smq_code field with masks to tell if a request is tracking type to notify the
+ * requestor based on smq_id.
+ */
+const int SHMQ_TRACK_MASK        = 0x80000000;
+const int SHMQ_REQ_NULL          = 0x00000000;
+const int SHMQ_REQ_UUID_BIND     = 0x00000001;
+const int SHMQ_REQ_UUID_UNBIND   = 0x00000002;
+
+/**
+ * Common header for items in producer/consumer queue.
+ */
+typedef struct shmq_req
+{
+    fds_uint32_t             smq_code;
+    fds_uint32_t             smq_id;
+} shmq_req_t;
+
+/**
+ * Obj to track outgoing request - producer type, from producer to consumer.
+ */
+class ShmqReqOut : public fdsio::Request
 {
   public:
+    virtual ~ShmqReqOut() {}
+    ShmqReqOut(bool block, shmq_req_t *in, size_t size)
+        : fdsio::Request(block), req_in(in), req_size(size) {}
+
+  protected:
+    friend class ShmConPrdQueue;
+
+    size_t                   req_size;  /**< size of the request/response.          */
+    shmq_req_t               req_out;   /**< only keep header for outgoing req.     */
+    shmq_req_t              *req_in;    /**< storage to store in-comming response.  */
+};
+
+/**
+ * Obj to track incomming request - consumer type, from consumer to producer.
+ */
+class ShmqReqIn
+{
+  public:
+    virtual ~ShmqReqIn() {}
+    ShmqReqIn() {}
+
+    virtual void shmq_handler(const shmq_req_t *in_hdr, size_t size) = 0;
+};
+
+/**
+ * Shared memory consumer/producer queue.
+ */
+class ShmConPrdQueue : public fdsio::RequestQueue
+{
+  public:
+    /**
+     * Use this method if the producer wants to track the request.  Typical usage
+     * ...
+     * ShmConPrdQueue *consumer = consumer_singleton();
+     * ShmConPrdQueue *producer = producer_singleton();
+     *
+     * shmq_req_t *in, *out;
+     * ShmaReqOut *req = new ShmqReqOut(in, size);
+     *
+     * consumer->shm_track_request(req, out);
+     * producer->shm_producer(out, size, ...);
+     * ...
+     * req->req_wait();          // block waiting for response from consumer queue.
+     * req->req_in should have the response data.
+     * See the file net-service/endpoint/ep-map.cpp for actual usage.
+     */
+    virtual void shm_track_request(ShmqReqOut *out, shmq_req_t *hdr);
+
+    /**
+     * For requests with tracking option, use this method before sending back the
+     * response to get back to the original sender.
+     */
+    static void shm_swap_req_header(shmq_req_t *x, shmq_req_t *y);
+
+    /**
+     * Register handler to dispatch the smq_code to the right handler.  Note that
+     * incomming request with tracking bit on will be mapped to the original sender
+     * to notify it.
+     */
+    virtual void shm_register_handler(int smq_code, ShmqReqIn *cb);
+
+    /**
+     * Run forever by a threadpool to consume data queued to the consumer queue.
+     */
+    virtual void shm_consume_loop(int consumer_idx);
+
     /**
      * Block if the queue is empty.
      * @param consumer (i) : default is 0, if not index to control the consumer index
@@ -172,6 +262,9 @@ class ShmConPrdQueue
     ShmConPrdQueue(shm_con_prd_sync_t *sync, shm_1prd_ncon_q_t *ctrl, ShmObjRW *data);
     ShmConPrdQueue(shm_con_prd_sync_t *sync, shm_nprd_1con_q_t *ctrl, ShmObjRW *data);
     virtual ~ShmConPrdQueue() {}
+
+    ShmqReqOut *shm_get_saved_req(fds_uint32_t id);
+    ShmqReqIn  *shm_get_callback(fds_uint32_t code);
 };
 
 class Shm_1Prd_nCon : public ShmConPrdQueue

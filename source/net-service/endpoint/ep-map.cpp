@@ -73,23 +73,29 @@ EpPlatLibMod::ep_unmap_record(fds_uint64_t uuid, int idx)
 int
 EpPlatLibMod::ep_req_map_record(fds_uint32_t op, const ep_map_rec_t *rec)
 {
-    ep_shmq_req_t   req;
-    ShmConPrdQueue *queue;
+    ShmConPrdQueue *mine, *plat;
+    ep_shmq_req_t   reqt, resp;
+    ShmqReqOut      out(true, &resp.smq_hdr, sizeof(resp));
 
-    req.smq_code = op;
-    req.smq_idx  = -1;
-    req.smq_rec  = *rec;
+    resp.smq_idx  = -1;
+    reqt.smq_idx  = -1;
+    reqt.smq_rec  = *rec;
+    reqt.smq_hdr.smq_code = op;
+    resp.smq_rec.rmp_uuid = 0;
 
-    queue = NodeShmCtrl::shm_producer();
-    queue->shm_producer(static_cast<void *>(&req), sizeof(req), ep_my_type);
+    plat = NodeShmCtrl::shm_producer();
+    mine = NodeShmCtrl::shm_consumer();
 
-    // XXX: block here for the mapping to come back.
+    mine->shm_track_request(&out, &reqt.smq_hdr);
+    plat->shm_producer(static_cast<void *>(&reqt), sizeof(reqt), ep_my_type);
 
-    return 0;
+    // Block for the mapping to come back.
+    out.req_wait();
 
     // Panic for now...
-    fds_verify(req.smq_idx != -1);
-    return req.smq_idx;
+    fds_verify(resp.smq_idx != -1);
+    fds_verify(resp.smq_rec.rmp_uuid == rec->rmp_uuid);
+    return resp.smq_idx;
 }
 
 // ep_lookup_rec
