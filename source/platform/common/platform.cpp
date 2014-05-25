@@ -96,6 +96,11 @@ NodePlatform::mod_startup()
     Platform::mod_startup();
 }
 
+// mod_enable_service
+// ------------------
+// The Platform::mod_enable_service is common for platform lib.  We are running in
+// platform daemon, which required different logic for the same API.
+//
 void
 NodePlatform::mod_enable_service()
 {
@@ -106,7 +111,7 @@ NodePlatform::mod_enable_service()
     consumer->shm_register_handler(SHMQ_REQ_UUID_UNBIND, &platform_uuid_bind);
 
     NodeShmCtrl::shm_ctrl_singleton()->shm_start_consumer_thr(plf_node_type);
-    Platform::mod_enable_service();
+    Module::mod_enable_service();
 }
 
 void

@@ -6,6 +6,7 @@
 
 #include <string>
 #include <dlt.h>
+#include <fds-shmobj.h>
 #include <fds_process.h>
 #include <fds_typedefs.h>
 #include <kvstore/platformdb.h>
@@ -424,6 +425,23 @@ class PlatformProcess : public FdsProcess
     virtual void plf_load_node_data();
     virtual void plf_apply_node_data();
 };
+
+
+/*
+ * -------------------------------------------------------------------------------------
+ * Platform lib shared memory queue handlers
+ * -------------------------------------------------------------------------------------
+ */
+class PlatLibUuidBind : public ShmqReqIn
+{
+  public:
+    PlatLibUuidBind() : ShmqReqIn() {}
+    virtual ~PlatLibUuidBind() {}
+
+    void shmq_handler(const shmq_req_t *in, size_t size) override;
+};
+
+extern PlatLibUuidBind  platlib_uuid_bind;
 
 /* TODO(Vy): need to remove this code. */
 namespace util { extern std::string get_local_ip(); }
