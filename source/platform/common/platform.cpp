@@ -6,37 +6,12 @@
 #include <platform.h>
 #include <fds_process.h>
 #include <net-platform.h>
-#include <platform/fds-shmem.h>
 #include <platform/node-inv-shmem.h>
-#include <fds-shmobj.h>
 #include <ep-map.h>
 
 namespace fds {
 
 NodePlatform    gl_NodePlatform;
-
-// -------------------------------------------------------------------------------------
-// Platform deamon shared memory queue handlers
-// -------------------------------------------------------------------------------------
-class PlatUuidBind : public ShmqReqIn
-{
-  public:
-    PlatUuidBind() : ShmqReqIn() {}
-    virtual ~PlatUuidBind() {}
-
-    void shmq_handler(const shmq_req_t *in, size_t size);
-};
-
-// shmq_handler
-// ------------
-//
-void
-PlatUuidBind::shmq_handler(const shmq_req_t *in, size_t size)
-{
-    std::cout << "UUID binding request is called" << std::endl;
-}
-
-static PlatUuidBind platform_uuid_bind;
 
 // -------------------------------------------------------------------------------------
 // Node Specific Platform
@@ -104,12 +79,6 @@ NodePlatform::mod_startup()
 void
 NodePlatform::mod_enable_service()
 {
-    ShmConPrdQueue *consumer;
-
-    consumer = NodeShmCtrl::shm_consumer();
-    consumer->shm_register_handler(SHMQ_REQ_UUID_BIND, &platform_uuid_bind);
-    consumer->shm_register_handler(SHMQ_REQ_UUID_UNBIND, &platform_uuid_bind);
-
     NodeShmCtrl::shm_ctrl_singleton()->shm_start_consumer_thr(plf_node_type);
     Module::mod_enable_service();
 }

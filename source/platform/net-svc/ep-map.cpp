@@ -6,6 +6,36 @@
 
 namespace fds {
 
+/*
+ * -------------------------------------------------------------------------------------
+ * Platform deamon shared memory queue handlers
+ * -------------------------------------------------------------------------------------
+ */
+class PlatUuidBind : public ShmqReqIn
+{
+  public:
+    PlatUuidBind() : ShmqReqIn() {}
+    virtual ~PlatUuidBind() {}
+
+    void shmq_handler(const shmq_req_t *in, size_t size);
+};
+
+// shmq_handler
+// ------------
+//
+void
+PlatUuidBind::shmq_handler(const shmq_req_t *in, size_t size)
+{
+    std::cout << "UUID binding request is called" << std::endl;
+}
+
+static PlatUuidBind platform_uuid_bind;
+
+/*
+ * -------------------------------------------------------------------------------------
+ * Platform NetEndPoint services
+ * -------------------------------------------------------------------------------------
+ */
 EpPlatformdMod::EpPlatformdMod(const char *name) : EpPlatLibMod(name)
 {
     static Module *ep_plat_dep_mods[] = {
@@ -24,6 +54,19 @@ EpPlatformdMod::mod_startup()
     Module::mod_startup();
     ep_uuid_rw   = NodeShmRWCtrl::shm_uuid_rw_binding();
     ep_uuid_bind = NodeShmRWCtrl::shm_uuid_binding();
+}
+
+// mod_enable_service
+// ------------------
+//
+void
+EpPlatformdMod::mod_enable_service()
+{
+    ShmConPrdQueue *consumer;
+
+    consumer = NodeShmCtrl::shm_consumer();
+    consumer->shm_register_handler(SHMQ_REQ_UUID_BIND, &platform_uuid_bind);
+    consumer->shm_register_handler(SHMQ_REQ_UUID_UNBIND, &platform_uuid_bind);
 }
 
 // ep_map_record
