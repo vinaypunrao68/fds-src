@@ -5,6 +5,7 @@
 #define SOURCE_INCLUDE_PLATFORM_NODE_INV_SHMEM_H_
 
 #include <string>
+#include <thread>
 #include <ostream>
 #include <fds-shmobj.h>
 #include <fds_module.h>
@@ -130,6 +131,9 @@ class NodeInvData
 
 #endif
 
+#define SHM_INV_FMT         "/0x%llx-%d"
+#define SHM_QUEUE_FMT       "/0x%llx-rw-%d"
+
 extern NodeShmCtrl           gl_NodeShmROCtrl;
 extern NodeShmCtrl          *gl_NodeShmCtrl;
 
@@ -148,6 +152,7 @@ class NodeShmCtrl : public Module
     static const int shm_q_item_count  = 508;             /** 32K segment */
     static const int shm_svc_consumers = 8;
 
+    static NodeShmCtrl       *shm_ctrl_singleton() { return gl_NodeShmCtrl; }
     static ShmObjROKeyUint64 *shm_am_inventory() { return gl_NodeShmCtrl->shm_am_inv; }
     static ShmObjROKeyUint64 *shm_uuid_binding() { return gl_NodeShmCtrl->shm_uuid_bind; }
     static ShmObjROKeyUint64 *shm_node_inventory() {
@@ -157,6 +162,13 @@ class NodeShmCtrl : public Module
     static ShmConPrdQueue *shm_producer() { return gl_NodeShmCtrl->shm_prod_q; }
 
     /**
+     * Start a thread to consume at the unique index.
+     */
+    virtual void shm_start_consumer_thr(int cons_idx) {
+        shm_cons_thr =
+            new std::thread(&ShmConPrdQueue::shm_consume_loop, shm_cons_q, cons_idx);
+    }
+    /**
      * Module methods
      */
     virtual int  mod_init(SysParams const *const p) override;
@@ -164,14 +176,6 @@ class NodeShmCtrl : public Module
     virtual void mod_shutdown() override;
 
   protected:
-    size_t                     shm_node_off;
-    size_t                     shm_node_siz;
-    size_t                     shm_uuid_off;
-    size_t                     shm_uuid_siz;
-    size_t                     shm_am_off;
-    size_t                     shm_am_siz;
-    size_t                     shm_total_siz;
-
     /* Shared memory command queue, RW in lib. */
     char                       shm_rw_name[FDS_MAX_UUID_STR];
     FdsShmem                  *shm_rw;
@@ -179,6 +183,10 @@ class NodeShmCtrl : public Module
     ShmConPrdQueue            *shm_cons_q;
     ShmConPrdQueue            *shm_prod_q;
     struct node_shm_queue     *shm_queue;
+    std::thread               *shm_cons_thr;
+
+    size_t       shm_cmd_queue_size();
+    virtual void shm_setup_queue();
 
     /* Node inventory and uuid binding, RO in plat lib, RW in platform. */
     char                       shm_name[FDS_MAX_UUID_STR];
@@ -188,8 +196,15 @@ class NodeShmCtrl : public Module
     ShmObjROKeyUint64         *shm_uuid_bind;
     struct node_shm_inventory *shm_node_hdr;
 
-    FdsShmem *shm_create_obj(const char *fmt, char *name, int size);
-    virtual void shm_setup_queue();
+    size_t                     shm_node_off;
+    size_t                     shm_node_siz;
+    size_t                     shm_uuid_off;
+    size_t                     shm_uuid_siz;
+    size_t                     shm_am_off;
+    size_t                     shm_am_siz;
+    size_t                     shm_total_siz;
+
+    FdsShmem *shm_create_mgr(const char *fmt, char *name, int size);
 };
 
 /**
@@ -208,19 +223,6 @@ typedef struct node_shm_queue
     shm_1prd_ncon_q_t        smq_plat2svc;         /* *< 1 platformd to multiple svcs. */
     int                      smq_plat_pad[NodeShmCtrl::shm_svc_consumers];
 } node_shm_queue_t;
-
-/**
- * Opaque item in producer/consumer queue in shared memory.
- */
-#define NODE_SHM_QUEUE_ITEM_FIELDS                                      \
-    fds_uint32_t             smq_code
-
-/**
- * Message code to communicate with shared memory queue.
- */
-const int SMQ_NULL_CMD                 = 0x0;
-const int SMQ_UUID_BIND_REQ            = 0x1;
-const int SMQ_UUID_UNBIND_REQ          = 0x2;
 
 typedef struct node_shm_queue_item
 {

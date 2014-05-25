@@ -55,7 +55,7 @@ EpPlatLibMod::mod_shutdown()
 int
 EpPlatLibMod::ep_map_record(const ep_map_rec_t *rec)
 {
-    return ep_req_map_record(SMQ_UUID_BIND_REQ, rec);
+    return ep_req_map_record(SHMQ_REQ_UUID_BIND, rec);
 }
 
 // ep_unmap_record

@@ -40,13 +40,18 @@ NodeShmRWCtrl::mod_startup()
 {
     void  *shm;
 
-    fds_verify(shm_ctrl != NULL);
+    fds_verify(shm_ctrl == NULL);
+    shm_ctrl = shm_create_mgr(SHM_INV_FMT, shm_name, shm_total_siz);
+
     shm = shm_ctrl->shm_attach(PROT_READ | PROT_WRITE);
     if (shm == NULL) {
         shm = shm_ctrl->shm_alloc(shm_total_siz);
         fds_verify(shm != NULL);
+
         shm_node_hdr = static_cast<node_shm_inventory_t *>(shm);
         shm_init_header(shm_node_hdr);
+    } else {
+        shm_node_hdr = static_cast<node_shm_inventory_t *>(shm);
     }
     NodeShmCtrl::mod_startup();
     fds_verify(shm_node_hdr != NULL);
@@ -107,6 +112,31 @@ NodeShmRWCtrl::shm_init_queue(node_shm_queue_t *queue)
 void
 NodeShmRWCtrl::shm_setup_queue()
 {
+    size_t  size;
+    void   *area;
+
+    size   = shm_cmd_queue_size();
+    shm_rw = shm_create_mgr(SHM_QUEUE_FMT, shm_rw_name, size);
+    area   = shm_rw->shm_attach(PROT_READ | PROT_WRITE);
+    if (area == NULL) {
+        area = shm_rw->shm_alloc(size);
+        fds_assert(area != NULL);
+    }
+    shm_queue = static_cast<node_shm_queue_t *>(area);
+    fds_assert(shm_queue != NULL);
+
+    shm_rw_data = new ShmObjRW(shm_rw,
+                               NodeShmCtrl::shm_queue_hdr, 4, 0,
+                               NodeShmCtrl::shm_q_item_size,
+                               NodeShmCtrl::shm_q_item_count);
+
+    /* Platform deamon is the single consumer to n number of FDS service daemons. */
+    shm_cons_q = new Shm_nPrd_1Con(&shm_queue->smq_sync,
+                                   &shm_queue->smq_svc2plat, shm_rw_data);
+
+    /* Platform daemon is the single producer to n number of consumers. */
+    shm_prod_q = new Shm_1Prd_nCon(&shm_queue->smq_sync,
+                                   &shm_queue->smq_plat2svc, shm_rw_data);
 }
 
 }  // namespace fds

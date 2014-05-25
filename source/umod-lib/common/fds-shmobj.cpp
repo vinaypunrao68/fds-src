@@ -307,6 +307,8 @@ ShmConPrdQueue::shm_consume_loop(int consumer_idx)
         if (cb != NULL) {
             cb->shmq_handler(inp, size);
         }
+        // Remove me!
+        sleep(2);
     }
 }
 

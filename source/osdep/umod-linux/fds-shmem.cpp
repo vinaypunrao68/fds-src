@@ -18,6 +18,7 @@ FdsShmem::shm_alloc(size_t siz)
 
     // fd should be 0
     if (fd == -1) {
+        perror(sh_name);
         return NULL;
     }
 

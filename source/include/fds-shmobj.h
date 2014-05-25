@@ -146,8 +146,7 @@ typedef struct shm_1prd_ncon_q
 typedef struct shm_nprd_1con_q
 {
     fds_uint32_t             shm_1con_idx;
-    fds_uint32_t             shm_nprd_cnt;
-    fds_uint32_t             shm_ncon_idx[0];
+    fds_uint32_t             shm_nprd_idx;
 } shm_nprd_1con_q_t;
 
 /**
