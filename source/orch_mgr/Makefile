@@ -13,6 +13,7 @@ user_build_dir    := \
 	configservice
 
 user_fds_ar_libs  := \
+    fds-am-plat \
     fds-om-common \
     fds-om-dlt \
     fds-om-lib \
@@ -26,6 +27,7 @@ user_non_fds_libs := \
 # TODO: need to move Catalog.h to include, avoid cross module include ref.
 #
 user_incl_dir     := $(topdir) include \
+	$(topdir)/am-app/include \
 	$(JAVA_HOME)/include \
 	$(JAVA_HOME)/include/linux
 
