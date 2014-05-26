@@ -135,6 +135,11 @@ NetPlatSvc::nplat_register_node(const fpi::NodeInfoMsg *msg)
 /*
  * -----------------------------------------------------------------------------------
  * Domain Agent
+ *
+ * This obj is also platform agent (DmAgent) but it has special methods to communicate
+ * with "the" domain master.  In the future, domain master can move to other node but
+ * the interface from this obj remains unchanged.  It always knows how to talk to "the"
+ * domain master.
  * -----------------------------------------------------------------------------------
  */
 DomainAgent::DomainAgent(const NodeUuid &uuid, bool alloc_plugin)
@@ -148,6 +153,7 @@ DomainAgent::DomainAgent(const NodeUuid &uuid, bool alloc_plugin)
 /**
  * pda_connect_domain
  * ------------------
+ * Establish connection to the domain master.  Null domain implies local one.
  */
 void
 DomainAgent::pda_connect_domain(const fpi::DomainID &id)
@@ -172,14 +178,11 @@ DomainAgent::pda_connect_domain(const fpi::DomainID &id)
 /**
  * ep_connected
  * ------------
+ * This is called when the domain agent establihed connection to the domain master.
  */
 void
 DomainAgentPlugin::ep_connected()
 {
-    std::vector<UuidBindMsg> ret;
-    auto rpc = pda_agent->pda_rpc();
-
-    rpc->allUuidBinding(ret, UuidBindMsg(), false);
 }
 
 /**

@@ -42,11 +42,15 @@ typedef struct ep_shmq_req
 
 cc_assert(ep_map0, sizeof(ep_shmq_req_t) <= sizeof(node_shm_queue_item_t));
 
+extern EpPlatLibMod         *gl_EpShmPlatLib;
+
 class EpPlatLibMod : public Module
 {
   public:
     explicit EpPlatLibMod(const char *name);
     virtual ~EpPlatLibMod() {}
+
+    static EpPlatLibMod *ep_shm_singleton() { return gl_EpShmPlatLib; }
 
     // Module methods.
     //
@@ -74,6 +78,7 @@ class EpPlatLibMod : public Module
      */
     static void ep_node_info_to_mapping(const node_data_t *src, ep_map_rec_t *dest);
     static void ep_uuid_bind_to_msg(const ep_map_rec_t *src, fpi::UuidBindMsg *msg);
+    static void ep_uuid_bind_frm_msg(ep_map_rec_t *src, const fpi::UuidBindMsg *msg);
 
   protected:
     int                      ep_my_type;
@@ -99,8 +104,6 @@ class EpPlatformdMod : public EpPlatLibMod
   protected:
     ShmObjRWKeyUint64       *ep_uuid_rw;
 };
-
-extern EpPlatLibMod         *gl_EpShmPlatLib;
 
 }  // namespace fds
 #endif  // SOURCE_NET_SERVICE_INCLUDE_EP_MAP_H_

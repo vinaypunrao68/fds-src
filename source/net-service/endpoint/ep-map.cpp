@@ -105,7 +105,23 @@ EpPlatLibMod::ep_unmap_record(fds_uint64_t uuid, int idx)
 
 // ep_req_map_record
 // -----------------
+// This is the main entry to the uuid binding update protocol.
 //
+// Binding Service  :  Local Platformd      :    Peer Platformds   :   Peer Services
+// ---------------  :  ---------------      :    ---------------   :   -------------
+// ep_req_map_record                        :                      :
+//     -- shmq req --> PlatUuidBind::shmq_handler (net-svc/ep-map.cpp)
+//                  :    o record binding   :                      :
+//     <-- shmq resp --  o send back response                      :
+// Done             :    o update peer Platformds                  :
+//                  :  PlatUuidBindUpdate::uuid_bind_update        :
+//                  :             -- message --> PlatformEpHandler::allUuidBinding
+//                  :                       :    (net-svc/net-registration.cpp)
+//                  :                       :      o record binding.
+//                  :                       :      o update local services
+//                  :                       :            --- shmq req -->
+//                  :                       :                      : PlatLibUuidBind::
+//                  :                       :                      : shmq_handler
 int
 EpPlatLibMod::ep_req_map_record(fds_uint32_t op, const ep_map_rec_t *rec)
 {
@@ -186,20 +202,9 @@ EpPlatLibMod::node_info_lookup(int idx, fds_uint64_t node_uuid, ep_map_rec_t *ou
 /* static */ void
 EpPlatLibMod::ep_node_info_to_mapping(const node_data_t *src, ep_map_rec_t *dest)
 {
-    struct sockaddr    *adr;
-    struct sockaddr_in *ip4;
-
     dest->rmp_uuid = src->nd_node_uuid;
     strncpy(dest->rmp_name, src->nd_assign_name, sizeof(dest->rmp_name));
-
-    /* Do IPv4 for now */
-    adr = &dest->rmp_addr;
-    ip4 = reinterpret_cast<struct sockaddr_in *>(adr);
-
-    adr->sa_family = AF_INET;
-    ip4->sin_port  = src->nd_base_port;
-    inet_ntop(AF_INET, src->nd_ip_addr,
-              reinterpret_cast<char *>(&ip4->sin_addr), INET_ADDRSTRLEN);
+    EpAttr::netaddr_frm_str(&dest->rmp_addr, src->nd_base_port, src->nd_ip_addr);
 }
 
 // ep_uuid_bind_to_msg
@@ -208,6 +213,32 @@ EpPlatLibMod::ep_node_info_to_mapping(const node_data_t *src, ep_map_rec_t *dest
 /* static */ void
 EpPlatLibMod::ep_uuid_bind_to_msg(const ep_map_rec_t *src, fpi::UuidBindMsg *msg)
 {
+    Platform *plat;
+    char      buf[INET6_ADDRSTRLEN + 1];
+
+    EpAttr::netaddr_to_str(&src->rmp_addr, buf, INET6_ADDRSTRLEN);
+    msg->svc_addr.assign(buf);
+    msg->svc_id.svc_name.assign(src->rmp_name);
+
+    msg->svc_port = EpAttr::netaddr_get_port(&src->rmp_addr);
+    msg->svc_id.svc_uuid.svc_uuid = src->rmp_uuid;
+
+    plat = Platform::platf_singleton();
+    msg->svc_type                   = plat->plf_get_node_type();
+    msg->svc_auto_name              = *plat->plf_get_auto_node_name();
+    msg->svc_node.svc_name          = *plat->plf_get_my_name();
+    msg->svc_node.svc_uuid.svc_uuid = plat->plf_my_node_uuid().uuid_get_val();
+}
+
+// ep_uuid_bind_frm_msg
+// --------------------
+//
+/* static */ void
+EpPlatLibMod::ep_uuid_bind_frm_msg(ep_map_rec_t *rec, const fpi::UuidBindMsg *msg)
+{
+    rec->rmp_uuid = msg->svc_id.svc_uuid.svc_uuid;
+    EpAttr::netaddr_frm_str(&rec->rmp_addr, msg->svc_port, msg->svc_addr.c_str());
+    strncpy(rec->rmp_name, msg->svc_id.svc_name.c_str(), sizeof(rec->rmp_name));
 }
 
 /*
@@ -218,7 +249,13 @@ EpPlatLibMod::ep_uuid_bind_to_msg(const ep_map_rec_t *src, fpi::UuidBindMsg *msg
 void
 PlatLibUuidBind::shmq_handler(const shmq_req_t *in, size_t size)
 {
+    const ep_shmq_req_t *map = reinterpret_cast<const ep_shmq_req_t *>(in);
+
     std::cout << "Plat lib uuid binding is called " << std::endl;
+
+    /* Cache the binding info. */
+    fds_assert(map->smq_idx >= 0);
+    NetMgr::ep_mgr_singleton()->ep_register_binding(&map->smq_rec, map->smq_idx);
 }
 
 }  // namespace fds

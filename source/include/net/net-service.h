@@ -117,6 +117,8 @@ class EpAttr
 
     static int  netaddr_get_port(const struct sockaddr *adr);
     static void netaddr_to_str(const struct sockaddr *adr, char *ip, int ip_len);
+    static void netaddr_frm_str(struct sockaddr *adr,
+                                int port, const char *ip, bool v4 = true);
 
   private:
     INTRUSIVE_PTR_DEFS(EpAttr, ep_refcnt);

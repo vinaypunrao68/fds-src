@@ -42,13 +42,46 @@ PlatformEpHandler::PlatformEpHandler(PlatformdNetSvc *svc)
 
 // allUuidBinding
 // --------------
+// Each platform deamon in the domain receives this request from a peer daemon to
+// notify it about a new uuid to physical binding.
+//
+// The protocol flow is documented in net-service/endpoint/ep-map.cpp.
 //
 void
 PlatformEpHandler::allUuidBinding(std::vector<fpi::UuidBindMsg>    &ret,
                                   bo::shared_ptr<fpi::UuidBindMsg> &msg,
                                   bo::shared_ptr<bool>             &all_list)
 {
+    int              idx;
+    ep_shmq_req_t    rec;
+    EpPlatLibMod    *shm;
+    ShmConPrdQueue  *plat;
+
     std::cout << "Platform domain master, all uuidBind is called" << std::endl;
+    EpPlatLibMod::ep_uuid_bind_frm_msg(&rec.smq_rec, msg.get());
+
+    /* Save the binding to shared memory, in the uuid binding section. */
+    shm = EpPlatLibMod::ep_shm_singleton();
+    idx = shm->ep_map_record(&rec.smq_rec);
+    fds_assert(idx != -1);
+
+    /* Cache the binding info. */
+    NetMgr::ep_mgr_singleton()->ep_register_binding(&rec.smq_rec, idx);
+
+    /*
+     * Notify all services running in the node about the new binding.  This can be
+     * lazy update since the binding is already in shared memory.
+     */
+    rec.smq_idx  = idx;
+    rec.smq_type = msg->svc_type;
+    rec.smq_hdr.smq_code = SHMQ_REQ_UUID_BIND;
+
+    plat = NodeShmCtrl::shm_producer();
+    plat->shm_producer(static_cast<void *>(&rec), sizeof(rec), 0);
+
+    if (*all_list == true) {
+        /* Reply back with all uuid bindings in shared memory. */
+    }
 }
 
 // notifyNodeInfo
