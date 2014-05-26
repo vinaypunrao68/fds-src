@@ -13,7 +13,7 @@
 #include <orch-mgr/om-service.h>
 #include <om-discovery.h>
 #include <kvstore/configdbmodule.h>
-#include <am-platform.h>  // TODO(Vy): must be om-platform.h
+#include <om-platform.h>
 #include <net/net-service.h>
 
 namespace fds {
@@ -65,7 +65,7 @@ int main(int argc, char **argv)
 {
     fds::Module *probe_vec[] = {
         &fds::gl_fds_stat,
-        &fds::gl_AmPlatform,
+        &fds::gl_OmPlatform,
         &fds::gl_NetService,
         &fds::gl_probeS3Eng,
         &fds::gl_OMModule,

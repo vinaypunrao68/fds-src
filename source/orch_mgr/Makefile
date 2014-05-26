@@ -18,7 +18,7 @@ user_fds_ar_libs  := \
     fds-om-dlt \
     fds-om-lib \
     fds-om-discovery \
-    fds-am-plat \
+    fds-om-plat \
     fds-plat-lib \
     fds-xdi
 
@@ -28,7 +28,6 @@ user_non_fds_libs := \
 # TODO: need to move Catalog.h to include, avoid cross module include ref.
 #
 user_incl_dir     := $(topdir) include \
-	$(topdir)/am-app/include \
 	$(JAVA_HOME)/include \
 	$(JAVA_HOME)/include/linux
 

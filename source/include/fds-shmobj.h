@@ -232,12 +232,6 @@ class ShmConPrdQueue : public fdsio::RequestQueue
     virtual void shm_track_request(ShmqReqOut *out, shmq_req_t *hdr);
 
     /**
-     * For requests with tracking option, use this method before sending back the
-     * response to get back to the original sender.
-     */
-    static void shm_swap_req_header(shmq_req_t *x, shmq_req_t *y);
-
-    /**
      * Register handler to dispatch the smq_code to the right handler.  Note that
      * incomming request with tracking bit on will be mapped to the original sender
      * to notify it.

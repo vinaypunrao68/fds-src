@@ -270,11 +270,6 @@ ShmConPrdQueue::shm_track_request(ShmqReqOut *out, shmq_req_t *hdr)
     this->rq_enqueue(out, 0);
 }
 
-/* static */ void
-ShmConPrdQueue::shm_swap_req_header(shmq_req_t *x, shmq_req_t *y)
-{
-}
-
 void
 ShmConPrdQueue::shm_register_handler(int smq_code, ShmqReqIn *cb)
 {

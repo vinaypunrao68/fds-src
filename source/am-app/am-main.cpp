@@ -9,6 +9,7 @@
 #include <util/fds_stat.h>
 #include <native_api.h>
 #include <am-platform.h>
+#include <net/net-service.h>
 
 extern "C" {
 extern void CreateStorHvisorS3(int argc, char **argv);

@@ -8,7 +8,7 @@
 #include <vector>
 #include <orch-mgr/om-service.h>
 #include <OmResources.h>
-#include <am-platform.h>  // TODO(Vy): must be om-platform.h
+#include <om-platform.h>
 #include <net/net-service.h>
 
 namespace fds {
@@ -27,12 +27,12 @@ OM_Module *OM_Module::om_singleton()
 int main(int argc, char *argv[])
 {
     fds::Module *omVec[] = {
-        &fds::gl_AmPlatform,
+        &fds::gl_OmPlatform,
         &fds::gl_NetService,
         &fds::gl_OMModule,
         NULL
     };
-    fds::orchMgr = new fds::OrchMgr(argc, argv, &fds::gl_AmPlatform, omVec);
+    fds::orchMgr = new fds::OrchMgr(argc, argv, &fds::gl_OmPlatform, omVec);
     fds::gl_orch_mgr = fds::orchMgr;
     int ret = fds::orchMgr->main();
     delete fds::orchMgr;
