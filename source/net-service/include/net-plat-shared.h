@@ -83,7 +83,6 @@ class DomainAgent : public PmAgent
         return agt_domain_ep->svc_rpc<fpi::PlatNetSvcClient>();
     }
     virtual void pda_connect_domain(const fpi::DomainID &id);
-    virtual void pda_update_binding(const struct ep_map_rec *rec, int cnt);
 
   protected:
     friend class PlatformdNetSvc;

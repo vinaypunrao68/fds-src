@@ -1,8 +1,10 @@
 /*
  * Copyright 2014 by Formation Data Systems, Inc.
  */
+#include <vector>
 #include <ep-map.h>
 #include <platform.h>
+#include <net-plat-shared.h>
 
 namespace fds {
 
@@ -23,6 +25,41 @@ class PlatUuidBind : public ShmqReqIn
     EpPlatformdMod          *ep_shm_rw;
 };
 
+class PlatUuidBindUpdate : public NodeAgentIter
+{
+  public:
+    typedef bo::intrusive_ptr<PlatUuidBindUpdate> pointer;
+
+    /**
+     * Plugin that iterates through each platform agent in the local domain inventory.
+     */
+    bool rs_iter_fn(Resource::pointer curr)
+    {
+        DomainAgent::pointer          agent;
+        std::vector<fpi::UuidBindMsg> ret;
+
+        agent = agt_cast_ptr<DomainAgent>(curr);
+        agent->pda_rpc()->allUuidBinding(ret, bind_msg, false);
+        return true;
+    }
+    /**
+     * Perform uuid binding update in a worker thread.
+     */
+    static void
+    uuid_bind_update(PlatUuidBindUpdate::pointer itr, ep_shmq_req_t *rec)
+    {
+        itr->bind_rec = rec;
+        EpPlatLibMod::ep_uuid_bind_to_msg(&rec->smq_rec, &itr->bind_msg);
+
+        itr->foreach_pm();
+        delete rec;
+    }
+
+  protected:
+    ep_shmq_req_t           *bind_rec;
+    fpi::UuidBindMsg         bind_msg;
+};
+
 // shmq_handler
 // ------------
 //
@@ -30,7 +67,8 @@ void
 PlatUuidBind::shmq_handler(const shmq_req_t *in, size_t size)
 {
     int                  idx;
-    ep_shmq_req_t        out;
+    ep_shmq_req_t       *out;
+    fds_threadpool      *thr;
     ShmConPrdQueue      *plat;
     const ep_shmq_req_t *ep_map = reinterpret_cast<const ep_shmq_req_t *>(in);
 
@@ -43,14 +81,22 @@ PlatUuidBind::shmq_handler(const shmq_req_t *in, size_t size)
     /* Cache the binding info. */
     NetMgr::ep_mgr_singleton()->ep_register_binding(&ep_map->smq_rec, idx);
 
-    /* Relay the header from 'in' to 'out'. */
-    out.smq_hdr = *in;
+    /* Relay same info from 'in' to 'out' with the new index. */
+    out           = new ep_shmq_req_t;
+    out->smq_hdr  = *in;
+    out->smq_idx  = idx;
+    out->smq_type = ep_map->smq_type;
+    out->smq_rec  = ep_map->smq_rec;
 
     /* Reply the mapping result back to the sender and all other services. */
     plat = NodeShmCtrl::shm_producer();
-    plat->shm_producer(static_cast<void *>(&out), sizeof(out), 0);
+    plat->shm_producer(static_cast<void *>(out), sizeof(*out), 0);
 
     /* Iterate through each platform node in the domain & update the binding. */
+    PlatUuidBindUpdate::pointer iter = new PlatUuidBindUpdate();
+
+    thr = NetMgr::ep_mgr_thrpool();
+    thr->schedule(&PlatUuidBindUpdate::uuid_bind_update, iter, out);
 }
 
 static PlatUuidBind *platform_uuid_bind;

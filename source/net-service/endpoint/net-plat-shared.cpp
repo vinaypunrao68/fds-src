@@ -170,15 +170,6 @@ DomainAgent::pda_connect_domain(const fpi::DomainID &id)
 }
 
 /**
- * pda_update_binding
- * ------------------
- */
-void
-DomainAgent::pda_update_binding(const struct ep_map_rec *rec, int cnt)
-{
-}
-
-/**
  * ep_connected
  * ------------
  */

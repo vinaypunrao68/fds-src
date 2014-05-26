@@ -73,6 +73,7 @@ class EpPlatLibMod : public Module
      * Convert node info to endpoint mapping record format.
      */
     static void ep_node_info_to_mapping(const node_data_t *src, ep_map_rec_t *dest);
+    static void ep_uuid_bind_to_msg(const ep_map_rec_t *src, fpi::UuidBindMsg *msg);
 
   protected:
     int                      ep_my_type;

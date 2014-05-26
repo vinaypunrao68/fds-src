@@ -6,6 +6,7 @@
 
 #include <string>
 #include <dlt.h>
+#include <fds_ptr.h>
 #include <fds-shmobj.h>
 #include <fds_process.h>
 #include <fds_typedefs.h>
@@ -425,6 +426,38 @@ class PlatformProcess : public FdsProcess
 
     virtual void plf_load_node_data();
     virtual void plf_apply_node_data();
+};
+
+/*
+ * ------------------------------------------------------------------------------------
+ * Generic container iterator
+ * ------------------------------------------------------------------------------------
+ */
+class NodeAgentIter : public ResourceIter
+{
+  public:
+    virtual ~NodeAgentIter() {}
+    NodeAgentIter() : itr_refcnt(0) {
+        itr_domain = Platform::platf_singleton()->plf_node_inventory();
+    }
+    inline void foreach_pm() {
+        itr_domain->dc_foreach_pm(this);
+    }
+    inline void foreach_am() {
+        itr_domain->dc_foreach_am(this);
+    }
+    inline void foreach_sm() {
+        itr_domain->dc_foreach_sm(this);
+    }
+    inline void foreach_dm() {
+        itr_domain->dc_foreach_dm(this);
+    }
+
+  protected:
+    DomainNodeInv::pointer   itr_domain;
+
+  private:
+    INTRUSIVE_PTR_DEFS(NodeAgentIter, itr_refcnt);
 };
 
 /* TODO(Vy): need to remove this code. */

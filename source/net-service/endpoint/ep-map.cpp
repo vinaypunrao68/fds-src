@@ -202,6 +202,14 @@ EpPlatLibMod::ep_node_info_to_mapping(const node_data_t *src, ep_map_rec_t *dest
               reinterpret_cast<char *>(&ip4->sin_addr), INET_ADDRSTRLEN);
 }
 
+// ep_uuid_bind_to_msg
+// -------------------
+//
+/* static */ void
+EpPlatLibMod::ep_uuid_bind_to_msg(const ep_map_rec_t *src, fpi::UuidBindMsg *msg)
+{
+}
+
 /*
  * -------------------------------------------------------------------------------------
  * Platform lib shared memory queue handlers
