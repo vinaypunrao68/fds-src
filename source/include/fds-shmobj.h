@@ -174,7 +174,11 @@ const int SHMQ_REQ_UUID_UNBIND   = 0x00000002;
 typedef struct shmq_req
 {
     fds_uint32_t             smq_code;
-    fds_uint32_t             smq_id;
+    fds_uint32_t             smq_idx : 8;
+    fds_uint32_t             smq_id : 24;
+    /* Currently unused: */
+    size_t                   smq_payload_size;
+    fds_uint8_t              reserved[16];
 } shmq_req_t;
 
 /**
@@ -229,7 +233,7 @@ class ShmConPrdQueue : public fdsio::RequestQueue
      * req->req_in should have the response data.
      * See the file net-service/endpoint/ep-map.cpp for actual usage.
      */
-    virtual void shm_track_request(ShmqReqOut *out, shmq_req_t *hdr);
+    virtual void shm_track_request(ShmqReqOut *out, shmq_req_t *hdr, int caller);
 
     /**
      * Register handler to dispatch the smq_code to the right handler.  Note that
@@ -252,12 +256,25 @@ class ShmConPrdQueue : public fdsio::RequestQueue
     virtual void shm_producer(const void *data, size_t size, int producer = 0) = 0;
 
   protected:
-    ShmConPrdQueue(shm_con_prd_sync_t *sync, shm_1prd_ncon_q_t *ctrl, ShmObjRW *data);
-    ShmConPrdQueue(shm_con_prd_sync_t *sync, shm_nprd_1con_q_t *ctrl, ShmObjRW *data);
+    ShmConPrdQueue(shm_con_prd_sync_t *sync, ShmObjRW *data);
+
+    // Track the pointers provided by our constructor
+    shm_con_prd_sync_t *smq_sync;
+    ShmObjRW *smq_data;
+    const uint smq_size; // Size of the queue for index calculations
+
     virtual ~ShmConPrdQueue() {}
 
     ShmqReqOut *shm_get_saved_req(fds_uint32_t id);
     ShmqReqIn  *shm_get_callback(fds_uint32_t code);
+
+  private:
+    // Keep a unique ID for request tracking
+    static fds_uint32_t smq_reqID;
+    // Map for reqID -> ShmReqOut objs
+    std::unordered_map<fds_uint32_t, ShmqReqOut*> smq_reqOutMap;
+    // Map for smq_code -> ShmqReqIn* (callback function)
+    std::unordered_map<fds_uint32_t, ShmqReqIn*> smq_cb_map;
 };
 
 class Shm_1Prd_nCon : public ShmConPrdQueue
@@ -269,6 +286,8 @@ class Shm_1Prd_nCon : public ShmConPrdQueue
     void shm_producer(const void *data, size_t size, int producer = 0) override;
 
   private:
+    shm_1prd_ncon_q_t *smq_ctrl;
+
     ~Shm_1Prd_nCon() {}
 };
 
@@ -281,6 +300,8 @@ class Shm_nPrd_1Con : public ShmConPrdQueue
     void shm_producer(const void *data, size_t size, int producer = 0) override;
 
   private:
+    shm_nprd_1con_q_t *smq_ctrl;
+
     ~Shm_nPrd_1Con() {}
 };
 
