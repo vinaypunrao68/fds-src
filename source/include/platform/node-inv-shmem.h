@@ -148,8 +148,8 @@ class NodeShmCtrl : public Module
     static const int shm_max_nodes = MAX_DOMAIN_NODES;
 
     static const int shm_queue_hdr     = 256;
-    static const int shm_q_item_size   = 64;
-    static const int shm_q_item_count  = 508;             /** 32K segment */
+    static const int shm_q_item_size   = 128;
+    static const int shm_q_item_count  = 1016;             /** 64K segment */
     static const int shm_svc_consumers = 8;
 
     static NodeShmCtrl       *shm_ctrl_singleton() { return gl_NodeShmCtrl; }

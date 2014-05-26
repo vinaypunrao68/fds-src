@@ -1,7 +1,9 @@
 /*
  * Copyright 2014 by Formation Data Systems, Inc.
  */
+#include <algorithm>
 #include <fds-shmobj.h>
+#include <platform/node-inv-shmem.h>
 #include <platform/fds-shmem.h>
 
 namespace fds {
@@ -247,15 +249,6 @@ ShmObjRW::shm_remove_rec(int idx, const void *key, void *data, size_t rec_sz)
 // Queue stuff
 // -----------
 //
-ShmConPrdQueue::ShmConPrdQueue(shm_con_prd_sync_t *sync, shm_1prd_ncon_q_t *ctrl, ShmObjRW *data)
-    : fdsio::RequestQueue(1, -1)
-{
-}
-
-ShmConPrdQueue::ShmConPrdQueue(shm_con_prd_sync_t *sync, shm_nprd_1con_q_t *ctrl, ShmObjRW *data)
-    : fdsio::RequestQueue(1, -1)
-{
-}
 ShmConPrdQueue::ShmConPrdQueue(shm_con_prd_sync_t *sync, ShmObjRW *data)
         : fdsio::RequestQueue(1, -1), smq_sync(sync), smq_data(data),
           smq_size(NodeShmCtrl::shm_q_item_count)
@@ -376,7 +369,7 @@ void
 Shm_1Prd_nCon::shm_consumer(void *data, size_t size, int consumer /* = 0 */)
 {
     fds_assert(consumer > 0);
-    fds_assert(static_cast<uint>(consumer) <= smq_ctrl->shm_ncon_cnt);
+    fds_assert(consumer <= smq_ctrl->shm_ncon_cnt);
     fds_assert(data != nullptr);
     fds_assert(size > 0);
 
