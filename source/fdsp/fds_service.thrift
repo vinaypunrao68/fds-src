@@ -140,7 +140,7 @@ service BaseAsyncSvc {
 }
 
 service PlatNetSvc extends BaseAsyncSvc {
-    list<UuidBindMsg> allUuidBinding(1: UuidBindMsg mine),
+    list<UuidBindMsg> allUuidBinding(1: UuidBindMsg mine, 2: bool all_list),
     list<NodeInfoMsg> notifyNodeInfo(1: NodeInfoMsg info),
     RespHdr notifyNodeUp(1: NodeInfoMsg info)
     // ServiceStatus getStatus(1: i32 nullarg),

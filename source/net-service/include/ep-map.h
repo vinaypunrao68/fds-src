@@ -64,7 +64,7 @@ class EpPlatLibMod : public Module
     /**
      * Lookup node-info records in shared memory.
      */
-    virtual int  node_info_lookup(fds_uint64_t node_uuid, ep_map_rec_t *out);
+    virtual int  node_info_lookup(int idx, fds_uint64_t node_uuid, ep_map_rec_t *out);
 
     inline const ep_map_rec_t *ep_get_rec(int idx) {
         return ep_uuid_bind->shm_get_rec<ep_map_rec_t>(idx);

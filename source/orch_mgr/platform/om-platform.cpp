@@ -78,6 +78,10 @@ OmPlatform::OmPlatform()
                new DomainResources("OM-Resources"),
                NULL) {}
 
+/**
+ * The way AM and OM get their ports are different from SM/DM; therefore we can't use
+ * the base class method to get OM & AM port numbers.
+ */
 int
 OmPlatform::mod_init(SysParams const *const param)
 {
@@ -103,7 +107,6 @@ OmPlatform::mod_init(SysParams const *const param)
 
     LOGNORMAL << "My ctrl port " << plf_my_ctrl_port
         << ", data port " << plf_my_data_port << ", OM ip: " << plf_om_ip_str;
-
 
     return 0;
 }

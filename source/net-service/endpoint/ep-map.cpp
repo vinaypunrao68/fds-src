@@ -159,16 +159,19 @@ EpPlatLibMod::ep_lookup_rec(const char *name, ep_map_rec_t *out)
 }
 
 int
-EpPlatLibMod::node_info_lookup(fds_uint64_t node_uuid, ep_map_rec_t *out)
+EpPlatLibMod::node_info_lookup(int idx, fds_uint64_t node_uuid, ep_map_rec_t *out)
 {
-    int          idx;
+    int          ret;
     node_data_t  ninfo;
 
-    idx = ep_node_bind->shm_lookup_rec(static_cast<void *>(&node_uuid),
+    fds_verify(idx >= 0);
+    ret = ep_node_bind->shm_lookup_rec(idx, static_cast<void *>(&node_uuid),
                                        static_cast<void *>(&ninfo), sizeof(ninfo));
     if (idx == -1) {
-        idx = ep_am_bind->shm_lookup_rec(static_cast<void *>(&node_uuid),
+        idx = ep_am_bind->shm_lookup_rec(idx, static_cast<void *>(&node_uuid),
                                          static_cast<void *>(&ninfo), sizeof(ninfo));
+    } else {
+        idx = ret;
     }
     if (idx == -1) {
         return idx;

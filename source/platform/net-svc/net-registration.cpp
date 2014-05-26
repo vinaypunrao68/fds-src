@@ -45,7 +45,8 @@ PlatformEpHandler::PlatformEpHandler(PlatformdNetSvc *svc)
 //
 void
 PlatformEpHandler::allUuidBinding(std::vector<fpi::UuidBindMsg>    &ret,
-                                  bo::shared_ptr<fpi::UuidBindMsg> &msg)
+                                  bo::shared_ptr<fpi::UuidBindMsg> &msg,
+                                  bo::shared_ptr<bool>             &all_list)
 {
     std::cout << "Platform domain master, all uuidBind is called" << std::endl;
 }

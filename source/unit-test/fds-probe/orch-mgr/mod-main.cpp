@@ -37,7 +37,7 @@ class OM_Probe : public OrchMgr
   public:
     virtual ~OM_Probe() {}
     OM_Probe(int argc, char **argv, Module **mod_vec)
-        : OrchMgr(argc, argv, &gl_AmPlatform, mod_vec) {}
+        : OrchMgr(argc, argv, &gl_OmPlatform, mod_vec) {}
 
     void proc_pre_startup() override
     {

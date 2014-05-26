@@ -51,6 +51,7 @@ class fds_threadpool;
 class DomainAgent;
 class Platform;
 class FdsTimer;
+class PlatUuidBind;
 
 struct ep_map_rec;
 template <class SendIf, class RecvIf> class EndPoint;
@@ -368,6 +369,7 @@ class NetMgr : public Module
     virtual void ep_handler_register(EpSvcHandle::pointer handle);
     virtual void ep_handler_unregister(EpSvcHandle::pointer handle);
     virtual void ep_handler_unregister(const fpi::SvcUuid &peer);
+    virtual void ep_register_binding(const struct ep_map_rec *rec, int idx);
 
     /**
      * Lookup a service handler based on its uuid/name and major/minor version.
@@ -521,8 +523,6 @@ class NetMgr : public Module
     // Hook with with node/domain state machine events.
     //
   protected:
-    // Dependent modules.
-    //
     static const int               ep_mtx_arr = 16;
 
     Platform                      *plat_lib;
@@ -543,7 +543,6 @@ class NetMgr : public Module
     void ep_register_thr(EpSvc::pointer ep, bool update_domain);
 
     virtual EpSvc::pointer ep_lookup_port(int port);
-    virtual void ep_register_binding(const struct ep_map_rec *rec);
 };
 
 /**

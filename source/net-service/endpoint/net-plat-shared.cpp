@@ -5,10 +5,11 @@
 #include <vector>
 #include <map>
 #include <ep-map.h>
+#include <fds_process.h>
 #include <net/net-service-tmpl.hpp>
 #include <platform/platform-lib.h>
+#include <platform/node-inv-shmem.h>
 #include <net-plat-shared.h>
-#include <fds_process.h>
 
 namespace fds {
 
@@ -114,6 +115,21 @@ NetPlatSvc::nplat_my_ep()
 void
 NetPlatSvc::nplat_register_node(const fpi::NodeInfoMsg *msg)
 {
+    int                     idx;
+    node_data_t             rec;
+    ep_map_rec_t            map;
+    NodeAgent::pointer      agent;
+    DomainNodeInv::pointer  local;
+
+    NodeInventory::node_info_msg_to_shm(msg, &rec);
+    EpPlatLibMod::ep_node_info_to_mapping(&rec, &map);
+
+    /* Search through shm for matching key, return back the index */
+    idx = 0;
+    NetMgr::ep_mgr_singleton()->ep_register_binding(&map, idx);
+
+    local = Platform::platf_singleton()->plf_node_inventory();
+    // local->dc_register_node(shm, &agent, idx, -1);
 }
 
 /*
@@ -172,7 +188,7 @@ DomainAgentPlugin::ep_connected()
     std::vector<UuidBindMsg> ret;
     auto rpc = pda_agent->pda_rpc();
 
-    rpc->allUuidBinding(ret, UuidBindMsg());
+    rpc->allUuidBinding(ret, UuidBindMsg(), false);
 }
 
 /**
@@ -235,8 +251,9 @@ PlatNetPlugin::svc_down(EpSvc::pointer svc, EpSvcHandle::pointer handle)
  * -----------------------------------------------------------------------------------
  */
 void
-NetPlatHandler::allUuidBinding(std::vector<fpi::UuidBindMsg>   &ret,
-                               bo::shared_ptr<fpi::UuidBindMsg> &msg)
+NetPlatHandler::allUuidBinding(std::vector<fpi::UuidBindMsg>    &ret,
+                               bo::shared_ptr<fpi::UuidBindMsg> &msg,
+                               bo::shared_ptr<bool>             &all_list)
 {
     std::cout << "all uuidBind there" << std::endl;
 }

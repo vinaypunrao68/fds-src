@@ -360,7 +360,7 @@ NetMgr::ep_uuid_bindings(const struct ep_map_rec **map)
 int
 NetMgr::ep_uuid_binding(const fpi::SvcUuid &uuid, std::string *ip)
 {
-    int          idx;
+    int          idx, ret;
     char         str[INET6_ADDRSTRLEN + 1];
     ep_map_rec_t map;
 
@@ -376,9 +376,11 @@ NetMgr::ep_uuid_binding(const fpi::SvcUuid &uuid, std::string *ip)
         ip->clear();
         return -1;
     }
-    idx = ep_shm->ep_lookup_rec(idx, uuid.svc_uuid, &map);
-    if (idx == -1) {
-        idx = ep_shm->node_info_lookup(uuid.svc_uuid, &map);
+    ret = ep_shm->ep_lookup_rec(idx, uuid.svc_uuid, &map);
+    if (ret == -1) {
+        idx = ep_shm->node_info_lookup(idx, uuid.svc_uuid, &map);
+    } else {
+        idx = ret;
     }
     if (idx >= 0) {
         EpAttr::netaddr_to_str(&map.rmp_addr, str, INET6_ADDRSTRLEN);
@@ -392,39 +394,19 @@ NetMgr::ep_uuid_binding(const fpi::SvcUuid &uuid, std::string *ip)
 // -------------------
 //
 void
-NetMgr::ep_register_binding(const ep_map_rec_t *rec)
+NetMgr::ep_register_binding(const ep_map_rec_t *rec, int idx)
 {
-    int                idx, port;
-    char               buf[INET6_ADDRSTRLEN + 1];
-    std::string        ip;
-    EpSvc::pointer     ep;
-    EpSvcImpl::pointer ept;
+    int port;
 
+    fds_assert(idx >= 0);
     port = EpAttr::netaddr_get_port(&rec->rmp_addr);
     if ((rec->rmp_uuid == 0) || (port == 0)) {
         // TODO(Vy): log the error.
         return;
     }
-    idx = ep_shm->ep_map_record(rec);
-    if (idx != -1) {
-        ep_mtx.lock();
-        ep_uuid_map[rec->rmp_uuid] = idx;
-        try {
-            ep  = ep_svc_map.at(rec->rmp_uuid);
-            ept = ep_cast_ptr<EpSvcImpl>(ep);
-        } catch(...) {
-            ept = NULL;
-        }
-        ep_mtx.unlock();
-        if ((ept != NULL) && (ept->ep_my_uuid() != rec->rmp_uuid)) {
-            fds_verify(ept->ep_is_connection() == true);
-            EpAttr::netaddr_to_str(&rec->rmp_addr, buf, INET6_ADDRSTRLEN);
-
-            // Connect to the peer if we haven't connected.
-            ip.assign(buf);
-            ept->ep_connect_peer(port, ip);
-        }
-    }
+    ep_mtx.lock();
+    ep_uuid_map[rec->rmp_uuid] = idx;
+    ep_mtx.unlock();
 }
 
 // ep_my_platform_uuid

@@ -118,17 +118,22 @@ PlatformdNetSvc::nplat_register_node(const fpi::NodeInfoMsg *msg)
 {
     int                     idx;
     node_data_t             rec;
+    ep_map_rec_t            map;
     ShmObjRWKeyUint64      *shm;
     NodeAgent::pointer      agent;
     DomainNodeInv::pointer  local;
 
     NodeInventory::node_info_msg_to_shm(msg, &rec);
+    EpPlatLibMod::ep_node_info_to_mapping(&rec, &map);
+
     shm = NodeShmRWCtrl::shm_node_rw_inv();
     idx = shm->shm_insert_rec(static_cast<void *>(&rec.nd_node_uuid),
                               static_cast<void *>(&rec), sizeof(rec));
 
     // Assert for now to debug any problem with leaking...
     fds_verify(idx != -1);
+    NetMgr::ep_mgr_singleton()->ep_register_binding(&map, idx);
+
     local = Platform::platf_singleton()->plf_node_inventory();
     local->dc_register_node(shm, &agent, idx, idx);
 }

@@ -35,14 +35,22 @@ PlatUuidBind::shmq_handler(const shmq_req_t *in, size_t size)
     const ep_shmq_req_t *ep_map = reinterpret_cast<const ep_shmq_req_t *>(in);
 
     std::cout << "UUID binding request is called" << std::endl;
+
+    /* Save the uuid to physical binding info to the node shared memory. */
     idx = ep_shm_rw->ep_map_record(&ep_map->smq_rec);
     fds_verify(idx != -1);
+
+    /* Cache the binding info. */
+    NetMgr::ep_mgr_singleton()->ep_register_binding(&ep_map->smq_rec, idx);
 
     /* Relay the header from 'in' to 'out'. */
     out.smq_hdr = *in;
 
+    /* Reply the mapping result back to the sender and all other services. */
     plat = NodeShmCtrl::shm_producer();
     plat->shm_producer(static_cast<void *>(&out), sizeof(out), 0);
+
+    /* Iterate through each platform node in the domain & update the binding. */
 }
 
 static PlatUuidBind *platform_uuid_bind;
