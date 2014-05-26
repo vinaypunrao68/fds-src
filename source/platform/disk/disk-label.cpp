@@ -458,6 +458,7 @@ DiskLabelMgr::dsk_reconcile_label(PmDiskInventory::pointer inv, bool creat)
 #if 0
     /* It's the bug here, master is still chained to the list. */
     if (master != NULL) {
+        /* this is bug because master is still chained to the list. */
         delete master;
     }
 #endif

@@ -21,9 +21,10 @@ namespace fds {
 extern OrchMgr *orchMgr;
 OM_Module       gl_OMModule("OM");
 
-static void run_om_server(OrchMgr *inst)
+static void run_probe_server(void *arg)
 {
-    inst->run();   //  not return.
+    FDS_NativeAPI *api = new FDS_NativeAPI(fds::FDS_NativeAPI::FDSN_AWS_S3);
+    gl_probeS3Eng.run_server(api);
 }
 
 OM_Module *
@@ -46,17 +47,14 @@ class OM_Probe : public OrchMgr
         for (int i = 0; i < 0; i++) {
             gl_probeS3Eng.probe_add_adapter(gl_OM_ProbeMod.pr_new_instance());
         }
+        OrchMgr::proc_pre_startup();
     }
     void proc_pre_service() override
     {
         fds_threadpool *pool = gl_probeS3Eng.probe_get_thrpool();
-        pool->schedule(fds::run_om_server, fds::orchMgr);
-    }
-    int run() override
-    {
-        FDS_NativeAPI *api = new FDS_NativeAPI(fds::FDS_NativeAPI::FDSN_AWS_S3);
-        gl_probeS3Eng.run_server(api);
-        return 0;
+        pool->schedule(run_probe_server, orchMgr);
+
+        OrchMgr::proc_pre_service();
     }
 };
 }  // namespace fds

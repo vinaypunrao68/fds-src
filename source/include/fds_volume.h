@@ -21,244 +21,217 @@
 #include <boost/lockfree/queue.hpp>
 #include <boost/atomic.hpp>
 #include <serialize.h>
-#define FDS_MAX_VOLUME_POLICY  128
-#define FDS_MAX_ARCHIVE_POLICY  128
-using namespace FDS_ProtocolInterface;
-using namespace boost;
 
 #define FdsSysTaskQueueId 0xefffffff
 #define FdsSysTaskPri 5
 
 namespace fds {
 
-    // typedef fds_uint64_t fds_volid_t;
-    typedef boost::posix_time::ptime ptime;
+// typedef fds_uint64_t fds_volid_t;
+typedef boost::posix_time::ptime ptime;
 
-    const fds_volid_t invalid_vol_id = 0;
-    const fds_volid_t admin_vol_id = 0x8001;  /* not a real volume, using volume data struct to queue admin commands from AM to OM */
+static const fds_volid_t invalid_vol_id = 0;
+/// not real volume, used to queue admin commands from AM to OM
+static const fds_volid_t admin_vol_id = 0x8001;
 
-    /*
-     * Basic descriptor class for a volume. This is intended
-     * to be a cacheable/passable description of a volume instance.
-     * The authoritative volume information is stored on the OM.
-     */
-    class VolumeDesc {
+/**
+ * Basic descriptor class for a volume. This is intended
+ * to be a cacheable/passable description of a volume instance.
+ * The authoritative volume information is stored on the OM.
+ */
+class VolumeDesc {
   public:
-        /*
-         * Basic ID information.
-         */
-        std::string            name;
-        int                    tennantId;  // Tennant id that owns the volume
-        int                    localDomainId;  // Local domain id that owns vol
-        int                    globDomainId;
-        fds_volid_t            volUUID;
+    // Basic ID information.
+    std::string            name;
+    int                    tennantId;  // Tennant id that owns the volume
+    int                    localDomainId;  // Local domain id that owns vol
+    int                    globDomainId;
+    fds_volid_t            volUUID;
 
-        FDSP_VolType           volType;
-        double                 capacity;  // Volume capacity is in MB
-        double                 maxQuota;  // Quota % of capacity tho should alert
-        int                    replicaCnt;  // Number of replicas reqd for this volume
-        int                    writeQuorum;  // Quorum number of writes for success
-        int                    readQuorum;  // This will be 1 for now
-        FDSP_ConsisProtoType   consisProtocol;  // Read-Write consistency protocol
-        // Other policies
-        int                    volPolicyId;
-        int                    archivePolicyId;
-        FDSP_MediaPolicy       mediaPolicy;   // can change media policy
-        int                    placementPolicy;  // Can change placement policy
-        FDSP_AppWorkload       appWorkload;
-        int                    backupVolume;  // UUID of backup volume
+    // Basic settings
+    FDS_ProtocolInterface::FDSP_VolType volType;
+    double                 capacity;  // Volume capacity is in MB
+    double                 maxQuota;  // Quota % of capacity tho should alert
+    int                    replicaCnt;  // Number of replicas reqd for this volume
+    fds_uint32_t           maxObjSizeInBytes;
 
-        /* policy info */
-        double                 iops_min;
-        double                 iops_max;
-        int                    relativePrio;
-        ptime                  tier_start_time;
-        fds_uint32_t           tier_duration_sec;
+    // Advanced settings
+    int                    writeQuorum;  // Quorum number of writes for success
+    int                    readQuorum;  // This will be 1 for now
+    FDS_ProtocolInterface::FDSP_ConsisProtoType
+    consisProtocol;  // Read-Write consistency protocol
+    // Other policies
+    int                    volPolicyId;
+    int                    archivePolicyId;
+    FDS_ProtocolInterface::FDSP_MediaPolicy mediaPolicy;   // can change media policy
+    int                    placementPolicy;  // Can change placement policy
+    FDS_ProtocolInterface::FDSP_AppWorkload appWorkload;
+    int                    backupVolume;  // UUID of backup volume
 
-        ptime ctime; /* Create time */
+    // QoS settings
+    double                 iops_min;
+    double                 iops_max;
+    int                    relativePrio;
+    ptime                  tier_start_time;
+    fds_uint32_t           tier_duration_sec;
 
-        /*
-         * Constructors/destructors
-         */
-    
-        VolumeDesc(const FDS_ProtocolInterface::FDSP_VolumeInfoType& volinfo,
-                   fds_volid_t vol_uuid);
+    ptime ctime; /* Create time */
 
-        VolumeDesc(const VolumeDesc& vdesc);
-        VolumeDesc(const FDS_ProtocolInterface::FDSP_VolumeDescType& voldesc);
-        /*
-         * Used for testing where we don't have all of these fields.
-         */
-        VolumeDesc(const std::string& _name, fds_volid_t _uuid);
+    VolumeDesc(const FDS_ProtocolInterface::FDSP_VolumeInfoType& volinfo,
+               fds_volid_t vol_uuid);
 
-        VolumeDesc(const std::string& _name,
-                   fds_volid_t _uuid,
-                   fds_uint32_t _iops_min,
-                   fds_uint32_t _iops_max,
-                   fds_uint32_t _priority);
+    VolumeDesc(const VolumeDesc& vdesc);  // NOLINT
+    VolumeDesc(const FDS_ProtocolInterface::FDSP_VolumeDescType& voldesc);  //NOLINT
+    //  Used for testing where we don't have all of these fields.
+    VolumeDesc(const std::string& _name, fds_volid_t _uuid);
+    VolumeDesc(const std::string& _name,
+               fds_volid_t _uuid,
+               fds_uint32_t _iops_min,
+               fds_uint32_t _iops_max,
+               fds_uint32_t _priority);
+    ~VolumeDesc();
 
-        ~VolumeDesc();
+    void modifyPolicyInfo(fds_uint64_t _iops_min,
+                          fds_uint64_t _iops_max,
+                          fds_uint32_t _priority);
 
-        void modifyPolicyInfo(fds_uint64_t _iops_min,
-                              fds_uint64_t _iops_max,
-                              fds_uint32_t _priority);
+    std::string getName() const;
+    fds_volid_t GetID() const;
 
-        std::string getName() const;
-        fds_volid_t GetID() const;
+    double getIopsMin() const;
 
-        double getIopsMin() const;
+    double getIopsMax() const;
+    int getPriority() const;
 
-        double getIopsMax() const;
-        int getPriority() const;
+    std::string ToString();
 
-        std::string ToString();
+    bool operator==(const VolumeDesc &rhs) const;
 
-        bool operator==(const VolumeDesc &rhs) const;
+    bool operator!=(const VolumeDesc &rhs) const;
+    VolumeDesc & operator=(const VolumeDesc& volinfo);
+    friend std::ostream& operator<<(std::ostream& out, const VolumeDesc& vol_desc);
+};
 
-        bool operator!=(const VolumeDesc &rhs) const;
-        VolumeDesc & operator=(const VolumeDesc& volinfo);
-        friend std::ostream& operator<<(std::ostream& out, const VolumeDesc& vol_desc);
-    };
+/**
+ * Possible types of volumes.
+ * TODO(Andrew): Disconnect volume layout type from
+ * connector type and tiering policy.
+ * We should only need blk and object types.
+ */
+enum FDS_VolType {
+    FDS_VOL_S3_TYPE,
+    FDS_VOL_BLKDEV_TYPE,
+    FDS_VOL_BLKDEV_SSD_TYPE,
+    FDS_VOL_BLKDEV_DISK_TYPE,
+    FDS_VOL_BLKDEV_HYBRID_TYPE,
+    FDS_VOL_BLKDEV_HYBRID_PREFCAP_TYPE
+};
 
-    
+/**
+ * Preconfigured application settings.
+ * Defines app types that correspond to known settings
+ * that are optimized for that application
+ */
+enum FDS_AppWorkload {
+    FDS_APP_WKLD_TRANSACTION,
+    FDS_APP_WKLD_NOSQL,
+    FDS_APP_WKLD_HDFS,
+    FDS_APP_WKLD_JOURNAL_FILESYS,  // Ext3/ext4
+    FDS_APP_WKLD_FILESYS,  // XFS, other
+    FDS_APP_NATIVE_OBJS,  // Native object aka not going over http/rest apis
+    FDS_APP_S3_OBJS,  // Amazon S3 style objects workload
+    FDS_APP_AZURE_OBJS,  // Azure style objects workload
+};
 
-    enum FDS_VolType {
-        FDS_VOL_S3_TYPE,
-        FDS_VOL_BLKDEV_TYPE,
-        FDS_VOL_BLKDEV_SSD_TYPE,
-        FDS_VOL_BLKDEV_DISK_TYPE,
-        FDS_VOL_BLKDEV_HYBRID_TYPE,
-        FDS_VOL_BLKDEV_HYBRID_PREFCAP_TYPE
-    };
+/**
+ * Update consistency settings.
+ */
+enum FDS_ConsisProtoType {
+    FDS_CONS_PROTO_STRONG,
+    FDS_CONS_PROTO_WEAK,
+    FDS_CONS_PROTO_EVENTUAL
+};
 
-    enum FDS_AppWorkload {
-        FDS_APP_WKLD_TRANSACTION,
-        FDS_APP_WKLD_NOSQL,
-        FDS_APP_WKLD_HDFS,
-        FDS_APP_WKLD_JOURNAL_FILESYS,  // Ext3/ext4
-        FDS_APP_WKLD_FILESYS,  // XFS, other
-        FDS_APP_NATIVE_OBJS,  // Native object aka not going over http/rest apis
-        FDS_APP_S3_OBJS,  // Amazon S3 style objects workload
-        FDS_APP_AZURE_OBJS,  // Azure style objects workload
-    };
-
-    enum FDS_ConsisProtoType {
-        FDS_CONS_PROTO_STRONG,
-        FDS_CONS_PROTO_WEAK,
-        FDS_CONS_PROTO_EVENTUAL
-    };
-
-    class FDS_Volume {
+/**
+ * Basic volume descriptor class
+ * TODO(Andrew): Combine with VolumeDesc...we
+ * don't need both.
+ */
+class FDS_Volume {
   public:
-        VolumeDesc   *voldesc;
-        fds_uint64_t  real_iops_max;
-        fds_uint64_t  real_iops_min;
-    
-        FDS_Volume();
- 
-        FDS_Volume(const VolumeDesc& vol_desc);      
-        ~FDS_Volume();
-    };
+    VolumeDesc   *voldesc;
+    fds_uint64_t  real_iops_max;
+    fds_uint64_t  real_iops_min;
 
-    class FDS_VolumePolicy : public serialize::Serializable {
+    FDS_Volume();
+    explicit FDS_Volume(const VolumeDesc& vol_desc);
+    ~FDS_Volume();
+};
+
+/**
+ * Volume QoS policy settings.
+ * TODO(Andrew): Rename to something QoS specific since
+ * that's what these really are...
+ */
+class FDS_VolumePolicy : public serialize::Serializable {
   public:
-        fds_uint32_t   volPolicyId;
-        std::string    volPolicyName;
-        fds_uint64_t   iops_max;
-        fds_uint64_t   iops_min;
-        fds_uint64_t   thruput;       // in MByte/sec
-        fds_uint32_t   relativePrio;  // Relative priority
+    fds_uint32_t   volPolicyId;
+    std::string    volPolicyName;
+    fds_uint64_t   iops_max;
+    fds_uint64_t   iops_min;
+    fds_uint64_t   thruput;       // in MByte/sec
+    fds_uint32_t   relativePrio;  // Relative priority
 
-        FDS_VolumePolicy();
-        ~FDS_VolumePolicy();
+    FDS_VolumePolicy();
+    ~FDS_VolumePolicy();
 
-        uint32_t virtual write(serialize::Serializer*  s) const;
-        uint32_t virtual read(serialize::Deserializer* d);
-        uint32_t virtual getEstimatedSize() const;
-        friend std::ostream& operator<<(std::ostream& os, const FDS_VolumePolicy& policy);
-    };
+    fds_uint32_t virtual write(serialize::Serializer*  s) const;
+    fds_uint32_t virtual read(serialize::Deserializer* d);
+    fds_uint32_t virtual getEstimatedSize() const;
+    friend std::ostream& operator<<(std::ostream& os, const FDS_VolumePolicy& policy);
+};
 
-    class FDS_ArchivePolicy {
+typedef enum {
+    FDS_VOL_Q_INACTIVE,
+    FDS_VOL_Q_SUSPENDED,
+    FDS_VOL_Q_QUIESCING,
+    FDS_VOL_Q_ACTIVE
+} VolumeQState;
+
+/* **********************************************
+ *  FDS_VolumeQueue: VolumeQueue
+ *
+ **********************************************************/
+class FDS_VolumeQueue {
   public:
-        fds_uint32_t   snapshotFreq;   // Number of minutes/hrs to take snapshot
-        fds_uint32_t   archive2Cloud;  // Archive to cloud enabled
-        fds_uint32_t   time2archive;   // TTL for unchanged objects to
-        // archive to DR site
+    boost::lockfree::queue<FDS_IOType*> *volQueue;  // NOLINT
+    VolumeQState volQState;
 
-        FDS_ArchivePolicy();
-        ~FDS_ArchivePolicy();
-    };
+    // Qos Parameters set for this volume/VolumeQueue
+    fds_uint64_t  iops_max;
+    fds_uint64_t iops_min;
+    fds_uint32_t priority;  // Relative priority
 
-    class FDS_ArchivePolicyTbl {
-  private:
-        FDS_ArchivePolicy  archivePolicy[FDS_MAX_ARCHIVE_POLICY];
+    // Ctor/dtor
+    FDS_VolumeQueue(fds_uint32_t q_capacity,
+                    fds_uint64_t _iops_max,
+                    fds_uint64_t _iops_min,
+                    fds_uint32_t prio);
+    ~FDS_VolumeQueue();
 
-  public:
-        FDS_ArchivePolicyTbl();
-        ~FDS_ArchivePolicyTbl();
-        Error& AddArchivePolicy(const FDS_ArchivePolicy& archive_policy);
-        void DeleteArchivePolicy(const FDS_ArchivePolicy& archive_policy);
-        void DeleteArchivePolicy(fds_uint32_t archive_policy_id);
-    };
+    void modifyQosParams(fds_uint64_t _iops_min,
+                         fds_uint64_t _iops_max,
+                         fds_uint32_t _prio);
+    void activate();
 
-    class FDS_VolumePolicyTbl {
-  private:
-        FDS_VolumePolicy  volPolicy[FDS_MAX_VOLUME_POLICY];
+    // Quiesce queued IOs on this queue & block any new IOs
+    void  quiesceIOs();
+    void   suspendIO();
 
-  public:
-        FDS_VolumePolicyTbl();
-        ~FDS_VolumePolicyTbl();
-        Error& AddVolumePolicy(const FDS_VolumePolicy& vol_policy);
-        void DeleteVolumePolicy(const FDS_VolumePolicy& vol_policy);
-        FDS_VolumePolicy& GetVolumePolicy(fds_uint32_t vol_policy_id);
-    };
+    void   resumeIO();
 
-
-    typedef enum {
-        FDS_VOL_Q_INACTIVE,
-        FDS_VOL_Q_SUSPENDED,
-        FDS_VOL_Q_QUIESCING,
-        FDS_VOL_Q_ACTIVE
-    } VolumeQState;
-
-    /* **********************************************
-     *  FDS_VolumeQueue: VolumeQueue
-     *
-     **********************************************************/
-    class FDS_VolumeQueue {
-  public:
-
-        boost::lockfree::queue<FDS_IOType*>  *volQueue;
-        VolumeQState volQState;
-
-        // Qos Parameters set for this volume/VolumeQueue
-        fds_uint64_t  iops_max;
-        fds_uint64_t iops_min;
-        fds_uint32_t priority; // Relative priority
-
-        // Ctor/dtor
-        FDS_VolumeQueue(fds_uint32_t q_capacity, 
-                        fds_uint64_t _iops_max, 
-                        fds_uint64_t _iops_min, 
-                        fds_uint32_t prio) ;
-
-        ~FDS_VolumeQueue();
-
-        void modifyQosParams(fds_uint64_t _iops_min,
-                             fds_uint64_t _iops_max,
-                             fds_uint32_t _prio);
-
-        void activate();
-
-
-        // Quiesce queued IOs on this queue & block any new IOs
-        void  quiesceIOs();
-        void   suspendIO();
-
-        void   resumeIO();
-
-        void   enqueueIO(FDS_IOType *io);
-        FDS_IOType   *dequeueIO();
-    };
+    void   enqueueIO(FDS_IOType *io);
+    FDS_IOType   *dequeueIO();
+};
 }  // namespace fds
 #endif  // SOURCE_INCLUDE_FDS_VOLUME_H_

@@ -12,6 +12,8 @@ user_cpp          := \
     OmClusMap.cpp \
     OmDataPlacement.cpp \
     OmPlacementAlgorithms.cpp \
+    OmVolumePlacement.cpp \
+    OmVolPlacementAlgo.cpp \
 	OmVolume.cpp
 
 user_ar_libs      := fds-om-dlt

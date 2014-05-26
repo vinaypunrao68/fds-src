@@ -448,6 +448,7 @@ namespace fds {
         void cbWithResult(int result);
         const std::string& getBlobName() const;
         fds_uint64_t getBlobOffset() const;
+        void setBlobOffset(fds_uint64_t offset);
         const char *getDataBuf() const;
         fds_uint64_t getDataLen() const;
         void setDataLen(fds_uint64_t len);

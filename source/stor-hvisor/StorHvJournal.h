@@ -54,6 +54,7 @@ enum TxnState {
     FDS_TRANS_GET_BUCKET,
     FDS_TRANS_BUCKET_STATS,
     FDS_TRANS_PENDING_DLT,
+    FDS_TRANS_MULTIDM,
     FDS_TRANS_PENDING_WAIT  // Waiting for existing journal
 };
 std::ostream& operator<<(ostream& os, const TxnState& state);

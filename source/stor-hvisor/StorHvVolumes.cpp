@@ -339,6 +339,15 @@ StorHvVolumeTable::getVolumeIds() {
     return volIds;
 }
 
+fds_uint32_t
+StorHvVolumeTable::getVolMaxObjSize(fds_volid_t volUuid) {
+    map_rwlock.read_lock();
+    fds_verify(volume_map.count(volUuid) > 0);
+    fds_uint32_t maxObjSize = volume_map[volUuid]->voldesc->maxObjSizeInBytes;
+    map_rwlock.read_unlock();
+    return maxObjSize;
+}
+
 /**
  * returns volume UUID if found in volume map, otherwise returns invalid_vol_id
  */
@@ -499,7 +508,7 @@ void StorHvVolumeTable::moveWaitBlobsToQosQueue(fds_volid_t vol_uuid,
 Error StorHvVolumeTable::volumeEventHandler(fds_volid_t vol_uuid,
                                             VolumeDesc *vdb,
                                             fds_vol_notify_t vol_action,
-                                            fds_bool_t check_only,
+                                            FDS_ProtocolInterface::FDSP_NotifyVolFlag vol_flag,
                                             FDS_ProtocolInterface::FDSP_ResultType result)
 {
     Error err(ERR_OK);

@@ -7,7 +7,7 @@
 
 #include <sstream>
 #include <string>
-#include <fds_types.h>
+#include <shared/fds_types.h>
 #include <fdsp/FDSP_types.h>
 
 namespace fds {
@@ -51,6 +51,7 @@ namespace fds {
         ERR_VOL_NOT_FOUND        = 30,
         ERR_NETWORK_CORRUPT      = 31,
         ERR_ONDISK_DATA_CORRUPT  = 32,
+        ERR_INVALID_DMT          = 33,
 
         /* I/O error range */
         ERR_IO_DLT_MISMATCH      = 100,

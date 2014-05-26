@@ -261,7 +261,7 @@ Error ObjStatsTracker::updateDbStats(const ObjectID& oid,ioPathStats *updStats) 
 
   levelDbStats  *stats  = new levelDbStats();
   leveldb::Slice value((char*)stats, sizeof(levelDbStats));
-  leveldb::Slice key((const char *)&oid, sizeof(oid));
+  leveldb::Slice key((const char *)oid.GetId(), oid.getDigestLength());
   std::string valueR = "";
 
  stats->lastAccessTimeR = updStats->lastAccessTimeR ; 

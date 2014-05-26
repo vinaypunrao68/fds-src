@@ -13,7 +13,6 @@
 #include <fds_error.h>
 #include <fds_config.hpp>
 #include <fds_process.h>
-#include <fds_placement_table.h>
 #include <fdsp/FDSP_ConfigPathReq.h>
 #include <fdsp/FDSP_OMControlPathReq.h>
 #include <fdsp/FDSP_ControlPathResp.h>
@@ -53,13 +52,10 @@ class OrchMgr: public PlatformProcess {
 
 
     int current_dlt_version;
-    int current_dmt_version;
     FDS_ProtocolInterface::Node_Table_Type current_dlt_table;
-    FDS_ProtocolInterface::Node_Table_Type current_dmt_table;
     fds_mutex *om_mutex;
     std::string node_id_to_name[MAX_OM_NODES];
     const int table_type_dlt = 0;
-    const int table_type_dmt = 1;
 
     /*
      * Cmdline configurables
@@ -137,6 +133,13 @@ class OrchMgr: public PlatformProcess {
         int32_t ModifyVol(
             ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
             ::FDS_ProtocolInterface::FDSP_ModifyVolTypePtr& mod_vol_req);
+
+        int32_t SnapVol(
+            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const ::FDS_ProtocolInterface::FDSP_CreateVolType& snap_vol_req);
+        int32_t SnapVol(
+            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            ::FDS_ProtocolInterface::FDSP_CreateVolTypePtr& snap_vol_req);
 
         int32_t CreatePolicy(
             const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
@@ -372,6 +375,13 @@ class OrchMgr: public PlatformProcess {
             ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
             ::FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& not_mod_vol_resp);
 
+        void NotifySnapVolResp(
+            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const ::FDS_ProtocolInterface::FDSP_NotifyVolType& not_snap_vol_resp);
+        void NotifySnapVolResp(
+            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            ::FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& not_snap_vol_resp);
+
         void AttachVolResp(
             const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
             const ::FDS_ProtocolInterface::FDSP_AttachVolType& atc_vol_resp);
@@ -421,12 +431,26 @@ class OrchMgr: public PlatformProcess {
             ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
             ::FDS_ProtocolInterface::FDSP_DLT_Resp_TypePtr& dlt_info_resp);
 
+        void NotifyDMTCloseResp(
+            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const ::FDS_ProtocolInterface::FDSP_DMT_Resp_Type& dmt_info_resp);
+        void NotifyDMTCloseResp(
+            FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            FDS_ProtocolInterface::FDSP_DMT_Resp_TypePtr& dmt_info_resp);
+
+        void PushMetaDMTResp(
+            const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+            const ::FDS_ProtocolInterface::FDSP_PushMeta& push_meta_resp);
+        void PushMetaDMTResp(
+            FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            FDS_ProtocolInterface::FDSP_PushMetaPtr& push_meta_resp);
+
         void NotifyDMTUpdateResp(
             const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
             const FDS_ProtocolInterface::FDSP_DMT_Resp_Type& dmt_info_resp);
         void NotifyDMTUpdateResp(
-            ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
-            ::FDS_ProtocolInterface::FDSP_DMT_Resp_TypePtr& dmt_info_resp);
+            FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+            FDS_ProtocolInterface::FDSP_DMT_Resp_TypePtr& dmt_info_resp);
 
   private:
         OrchMgr* orchMgr;

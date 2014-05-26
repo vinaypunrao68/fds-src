@@ -7,14 +7,14 @@
 
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <assert.h>
-#include "fds_types.h"
+#include <shared/fds_types.h>
 
 namespace fds {
     using TimeStamp = fds_int64_t;
     namespace util {
 
         extern const boost::posix_time::ptime epoch;
-        TimeStamp getTimeStampMillis() ;
+        TimeStamp getTimeStampMillis();
 
     } // namespace util
 } // namespace fds

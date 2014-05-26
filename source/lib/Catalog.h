@@ -41,6 +41,11 @@ class Catalog {
     leveldb::DB* db;
 
     /*
+     * leveldb file system interface 
+     */
+    leveldb::Env* env;
+
+    /*
      * Database options. These are not expected
      * to change.
      */
@@ -50,7 +55,7 @@ class Catalog {
 
   public:
     /** Constructor */
-    explicit Catalog(const std::string& _file);
+    Catalog(const std::string& _file, fds_bool_t cat_flag = true);
     /** Default destructor */
     ~Catalog();
 
@@ -68,6 +73,9 @@ class Catalog {
     fds::Error Query(const Record& key, std::string* val);
     fds::Error Delete(const Record& key);
     bool DbEmpty();
+    fds::Error DbSnap(const std::string& _file);
+    fds::Error QuerySnap(const std::string& _file, const Record& key, std::string* value);
+    fds::Error QueryNew(const std::string& _file, const Record& key, std::string* value);
 
     std::string GetFile() const;
   };

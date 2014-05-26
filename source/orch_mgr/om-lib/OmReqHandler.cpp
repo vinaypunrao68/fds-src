@@ -49,6 +49,42 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::CreateVol(
     return err.GetErrno();
 }
 
+int32_t OrchMgr::FDSP_ConfigPathReqHandler::SnapVol(
+    const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+    const ::FDS_ProtocolInterface::FDSP_CreateVolType& snap_vol_req) {
+    // Don't do anything here. This stub is just to keep cpp compiler happy
+    return 0;
+}
+
+int32_t OrchMgr::FDSP_ConfigPathReqHandler::SnapVol(
+    ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+    ::FDS_ProtocolInterface::FDSP_CreateVolTypePtr& snap_vol_req) {
+    Error err(ERR_OK);
+    LOGNOTIFY << "Received Snap volume " << snap_vol_req->vol_name
+              << " from " << fdsp_msg->src_node_name  << " node uuid: "
+              << std::hex << fdsp_msg->src_service_uuid.uuid << std::dec;
+
+    try {
+        OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+        OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+        if (domain->om_local_domain_up()) {
+            err = local->om_snap_vol(fdsp_msg, snap_vol_req);
+        } else {
+            LOGWARN << "OM Local Domain is not up yet, rejecting snap "
+                    << " create; try later";
+            err = Error(ERR_NOT_READY);
+        }
+    }
+    catch(...) {
+        LOGERROR << "Orch Mgr encountered exception while "
+                 << "processing snap volume";
+        err = Error(ERR_NETWORK_TRANSPORT);  // only transport throws exceptions
+    }
+
+    return err.GetErrno();
+}
+
+
 int32_t OrchMgr::FDSP_ConfigPathReqHandler::DeleteVol(
     const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
     const ::FDS_ProtocolInterface::FDSP_DeleteVolType& del_vol_req) {

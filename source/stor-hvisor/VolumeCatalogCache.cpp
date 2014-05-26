@@ -211,24 +211,21 @@ Error VolumeCatalogCache::queryDm(const std::string& blobName,
      * Locate a DM endpoint to try.
      */
     netSession *endPoint = NULL;
-    fds_uint64_t node_ids[8];
-    int num_nodes = 8;
-    parent_sh->dataPlacementTbl->getDMTNodesForVolume(vol_id,
-                                                      node_ids,
-                                                      &num_nodes);
+    DmtColumnPtr node_ids = parent_sh->dataPlacementTbl->getDMTNodesForVolume(vol_id);
+
     fds_uint32_t node_ip;
     fds_uint32_t node_port;
     int node_state;
     fds_bool_t located_ep = false;
     // send the query request to the Primary DM only. we may have to revisit this logic
-    err = parent_sh->dataPlacementTbl->getNodeInfo(node_ids[0],
+    err = parent_sh->dataPlacementTbl->getNodeInfo((node_ids->get(0)).uuid_get_val(),
                                                    &node_ip,
                                                    &node_port,
                                                    &node_state);
     if (!err.ok()) {
         FDS_PLOG(vcc_log) << "VolumeCatalogCache - "
-                          << "Unable to get node info for node "
-                          << node_ids[0];
+                          << "Unable to get node info for node " << std::hex
+                          << (node_ids->get(0)).uuid_get_val() << std::dec << " " << err;
         return err;
     }
 

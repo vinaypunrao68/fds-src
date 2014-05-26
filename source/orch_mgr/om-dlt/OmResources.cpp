@@ -13,6 +13,7 @@
 #include <OmDmtDeploy.h>
 #include <OmResources.h>
 #include <OmDataPlacement.h>
+#include <OmVolumePlacement.h>
 #include <fds_process.h>
 
 #define OM_WAIT_NODES_UP_SECONDS   (5*60)
@@ -286,8 +287,8 @@ NodeDomainFSM::DACT_NodesUp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tg
 
     // cluster map must not have pending nodes, but remember that
     // sm nodes in container may have pending nodes that are already in DLT
-    fds_verify((cm->getAddedNodes()).size() == 0);
-    fds_verify((cm->getRemovedNodes()).size() == 0);
+    fds_verify((cm->getAddedServices(fpi::FDSP_STOR_MGR)).size() == 0);
+    fds_verify((cm->getRemovedServices(fpi::FDSP_STOR_MGR)).size() == 0);
     dltMod->dlt_deploy_event(DltLoadedDbEvt());
 
     // move nodes that are already in DLT from pending list
@@ -297,10 +298,10 @@ NodeDomainFSM::DACT_NodesUp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tg
     OM_SmContainer::pointer smNodes = local->om_sm_nodes();
     NodeList addNodes, rmNodes;
     smNodes->om_splice_nodes_pend(&addNodes, &rmNodes, src.sm_up);
-    cm->updateMap(addNodes, rmNodes);
+    cm->updateMap(fpi::FDSP_STOR_MGR, addNodes, rmNodes);
     // since updateMap keeps those nodes as pending, we tell cluster map that
     // they are not pending, since these nodes are already in the DLT
-    cm->resetPendNodes();
+    cm->resetPendServices(fpi::FDSP_STOR_MGR);
 }
 
 /**
@@ -471,18 +472,18 @@ NodeDomainFSM::DACT_UpdDlt::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
     dom_ctrl->om_bcast_dlt(dp->getCommitedDlt(), true);
 
     // at this point there should be no pending add/rm nodes in cluster map
-    fds_verify((cm->getAddedNodes()).size() == 0);
-    fds_verify((cm->getRemovedNodes()).size() == 0);
+    fds_verify((cm->getAddedServices(fpi::FDSP_STOR_MGR)).size() == 0);
+    fds_verify((cm->getRemovedServices(fpi::FDSP_STOR_MGR)).size() == 0);
 
     // move nodes that came up (which are already in DLT) from pending nodes in
     // SM container to cluster map
     OM_SmContainer::pointer smNodes = dom_ctrl->om_sm_nodes();
     NodeList addNodes, rmNodes;
     smNodes->om_splice_nodes_pend(&addNodes, &rmNodes, src.sm_up);
-    cm->updateMap(addNodes, rmNodes);
+    cm->updateMap(fpi::FDSP_STOR_MGR, addNodes, rmNodes);
     // since updateMap keeps those nodes as pending, we tell cluster map that
     // they are not pending, since these nodes are already in the DLT
-    cm->resetPendNodes();
+    cm->resetPendServices(fpi::FDSP_STOR_MGR);
 
     // set SMs that did not come up as 'delete pending' in cluster map
     // -- this will tell DP to remove those nodes from DLT
@@ -492,13 +493,13 @@ NodeDomainFSM::DACT_UpdDlt::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
         if (src.sm_up.count(*cit) == 0) {
             LOGDEBUG << "DACT_UpdDlt: will remove node " << std::hex
                      << (*cit).uuid_get_val() << std::dec << " from DLT";
-            cm->addPendingRmNode(*cit);
+            cm->addPendingRmService(fpi::FDSP_STOR_MGR, *cit);
 
             // also remove that node from configDB
             domain->om_rm_sm_configDB(*cit);
         }
     }
-    fds_verify((cm->getRemovedNodes()).size() > 0);
+    fds_verify((cm->getRemovedServices(fpi::FDSP_STOR_MGR)).size() > 0);
 
     // start cluster update process that will recompute DLT /rebalance /etc
     // so that we move to DLT that reflects actual nodes that came up
@@ -736,7 +737,6 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
 {
     NodeAgent::pointer      newNode;
     OM_PmContainer::pointer pmNodes;
-    fds_uint32_t  numVols = 0;
 
     pmNodes = om_locDomain->om_pm_nodes();
     fds_assert(pmNodes != NULL);
@@ -796,7 +796,11 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
             }
         }
         om_locDomain->om_update_node_list(newNode, msg);
-        numVols = om_locDomain->om_bcast_vol_list(newNode);
+
+        if (msg->node_type != fpi::FDSP_DATA_MGR) {
+            om_locDomain->om_bcast_vol_list(newNode);
+            // for new DMs, we send volume list as part of DMT deploy state machine
+        }
 
         // Let this new node know about existing dlt if this is not SM node
         // DLT deploy state machine will take care of SMs
@@ -808,10 +812,18 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
         }
 
         // Send the DMT to DMs.
-        // om_locDomain->om_round_robin_dmt();
-        // om_locDomain->om_bcast_dmt_table();
-           LOGDEBUG << "Invoking the DMT state transition: " << numVols;
-           om_dmt_update_cluster(numVols);
+        if (msg->node_type == fpi::FDSP_DATA_MGR) {
+            om_dmt_update_cluster();
+        } else {
+            OM_Module *om = OM_Module::om_singleton();
+            VolumePlacement* vp = om->om_volplace_mod();
+            if (vp->hasCommittedDMT()) {
+                OM_NodeAgent::agt_cast_ptr(newNode)->om_send_dmt(vp->getCommittedDMT());
+            } else {
+                LOGNORMAL << "Not sending DMT to new node, because no "
+                          << " committed DMT yet";
+            }
+        }
 
         if (om_local_domain_up()) {
             if (msg->node_type == fpi::FDSP_STOR_MGR) {
@@ -864,6 +876,7 @@ OM_NodeDomainMod::om_del_services(const NodeUuid& node_uuid,
                      << ":" << std::dec << node_uuid.uuid_get_val() << std::hex
                      << " result: " << err.GetErrstr();
         }
+        om_dmt_update_cluster();
     }
     if (err.ok() && remove_am) {
         uuid = pmNodes->handle_unregister_service(node_uuid, node_name, FDSP_STOR_HVISOR);
@@ -898,13 +911,14 @@ OM_NodeDomainMod::om_delete_domain(const FdspCrtDomPtr &crt_domain)
 }
 
 void
-OM_NodeDomainMod::om_dmt_update_cluster(fds_uint32_t vols) {
+OM_NodeDomainMod::om_dmt_update_cluster() {
     OM_Module *om = OM_Module::om_singleton();
     OM_DMTMod *dmtMod = om->om_dmt_mod();
 
-    dmtMod->dmt_deploy_event(DmtComputeEvt(vols));
-    if (!vols)
-       dmtMod->dmt_deploy_event(DmtVolAckEvt());
+    dmtMod->dmt_deploy_event(DmtDeployEvt());
+
+    // in case there are no vol acks to wait
+    dmtMod->dmt_deploy_event(DmtVolAckEvt(NodeUuid()));
 }
 
 
@@ -966,6 +980,19 @@ OM_NodeDomainMod::om_recv_migration_done(const NodeUuid& uuid,
     return err;
 }
 
+
+//
+// Called when OM received push meta response from DM service
+//
+Error
+OM_NodeDomainMod::om_recv_push_meta_resp(const NodeUuid& uuid) {
+    Error err(ERR_OK);
+    OM_Module *om = OM_Module::om_singleton();
+    OM_DMTMod *dmtMod = om->om_dmt_mod();
+    dmtMod->dmt_deploy_event(DmtPushMetaAckEvt(uuid));
+    return err;
+}
+
 //
 // Called when OM receives response for DMT commit from a node
 //
@@ -987,11 +1014,27 @@ OM_NodeDomainMod::om_recv_dmt_commit_resp(FdspNodeType node_type,
         return err;
     }
 
-    LOGDEBUG << "Invoking the DmtCloseOkEvt";
-    dmtMod->dmt_deploy_event(DmtCloseOkEvt());
+    dmtMod->dmt_deploy_event(DmtCommitAckEvt(dmt_version));
 
     return err;
 }
+
+//
+// Called when OM receives response for DMT close from DM
+//
+Error
+OM_NodeDomainMod::om_recv_dmt_close_resp(const NodeUuid& uuid,
+                                         fds_uint64_t dmt_version) {
+    Error err(ERR_OK);
+    OM_Module *om = OM_Module::om_singleton();
+    OM_DMTMod *dmtMod = om->om_dmt_mod();
+
+    // tell state machine that we received ack for close
+    dmtMod->dmt_deploy_event(DmtCloseOkEvt(dmt_version));
+
+    return err;
+}
+
 
 //
 // Called when OM receives response for DLT commit from a node
@@ -1100,6 +1143,35 @@ OM_ControlRespHandler::NotifyAddVolResp(
 }
 
 void
+OM_ControlRespHandler::NotifySnapVolResp(
+    const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+    const FDS_ProtocolInterface::FDSP_NotifyVolType& not_snap_vol_resp) {
+    // Don't do anything here. This stub is just to keep cpp compiler happy
+}
+
+void
+OM_ControlRespHandler::NotifySnapVolResp(
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+    FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& not_snap_vol_resp) {
+#if 0
+    LOGNOTIFY << "OM received response for NotifySnapVol from node "
+              << fdsp_msg->src_node_name << " for volume "
+              << "[" << not_add_vol_resp->vol_name << ":"
+              << std::hex << not_add_vol_resp->vol_desc.volUUID << std::dec
+              << "] Result: " << fdsp_msg->err_code;
+
+    OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+    VolumeContainer::pointer volumes = local->om_vol_mgr();
+    volumes->om_notify_vol_resp(om_notify_vol_add,
+                                fdsp_msg,
+                                not_add_vol_resp->vol_name,
+                                not_add_vol_resp->vol_desc.volUUID);
+#endif
+}
+
+
+
+void
 OM_ControlRespHandler::NotifyRmVolResp(
     const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
     const FDS_ProtocolInterface::FDSP_NotifyVolType& not_rm_vol_resp) {
@@ -1110,8 +1182,9 @@ void
 OM_ControlRespHandler::NotifyRmVolResp(
     FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& not_rm_vol_resp) {
+    fds_bool_t check_only = (not_rm_vol_resp->flag == fpi::FDSP_NOTIFY_VOL_CHECK_ONLY);
     LOGNOTIFY << "OM received response for NotifyRmVol (check only "
-              << not_rm_vol_resp->check_only << ") from node "
+              << check_only << ") from node "
               << fdsp_msg->src_node_name << " for volume "
               << "[" << not_rm_vol_resp->vol_name << ":"
               << std::hex << not_rm_vol_resp->vol_desc.volUUID << std::dec
@@ -1119,9 +1192,7 @@ OM_ControlRespHandler::NotifyRmVolResp(
 
     OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
     VolumeContainer::pointer volumes = local->om_vol_mgr();
-    om_vol_notify_t type = om_notify_vol_rm;
-    if (not_rm_vol_resp->check_only)
-        type = om_notify_vol_rm_chk;
+    om_vol_notify_t type = check_only ? om_notify_vol_rm_chk : om_notify_vol_rm;
     volumes->om_notify_vol_resp(type,
                                 fdsp_msg,
                                 not_rm_vol_resp->vol_name,
@@ -1266,6 +1337,54 @@ OM_ControlRespHandler::NotifyDLTUpdateResp(
     OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
     NodeUuid node_uuid((fdsp_msg->src_service_uuid).uuid);
     domain->om_recv_dlt_commit_resp(fdsp_msg->src_id, node_uuid, dlt_resp->DLT_version);
+}
+
+void
+OM_ControlRespHandler::NotifyDMTCloseResp(
+    const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+    const FDS_ProtocolInterface::FDSP_DMT_Resp_Type& dmt_resp) {
+    // Don't do anything here. This stub is just to keep cpp compiler happy
+}
+
+void
+OM_ControlRespHandler::NotifyDMTCloseResp(
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+    FDS_ProtocolInterface::FDSP_DMT_Resp_TypePtr& dmt_resp) {
+
+    LOGNOTIFY << "OM received response for NotifyDMTClose from node "
+            << fdsp_msg->src_node_name << ":"
+            << std::hex << fdsp_msg->src_service_uuid.uuid << std::dec
+            << " for DMT version " << dmt_resp->DMT_version;
+
+    fds_verify(fdsp_msg->src_id == fpi::FDSP_DATA_MGR);
+
+    // notify DMT state machine
+    OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
+    NodeUuid node_uuid((fdsp_msg->src_service_uuid).uuid);
+    domain->om_recv_dmt_close_resp(node_uuid, dmt_resp->DMT_version);
+}
+
+void
+OM_ControlRespHandler::PushMetaDMTResp(
+    const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+    const FDS_ProtocolInterface::FDSP_PushMeta& push_meta_resp) {
+    // Don't do anything here. This stub is just to keep cpp compiler happy
+}
+
+void
+OM_ControlRespHandler::PushMetaDMTResp(
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+    FDS_ProtocolInterface::FDSP_PushMetaPtr& push_meta_resp) {
+    LOGNOTIFY << "Received PushMeta response from node "
+            << fdsp_msg->src_node_name << ":"
+            << std::hex << fdsp_msg->src_service_uuid.uuid << std::dec;
+
+    fds_verify(fdsp_msg->src_id == fpi::FDSP_DATA_MGR);
+
+    // notify DMT state machine
+    OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
+    NodeUuid node_uuid((fdsp_msg->src_service_uuid).uuid);
+    domain->om_recv_push_meta_resp(node_uuid);
 }
 
 void

@@ -22,7 +22,7 @@
 #include <functional>
 #include <atomic>
 #include <shared/fds_types.h>
-
+#include <serialize.h>
 #include <fds_assert.h>
 
 #include <boost/bind.hpp>
@@ -82,10 +82,10 @@ static const blob_version_t blob_version_invalid = 0;
 static const blob_version_t blob_version_initial = 1;
 static const blob_version_t blob_version_deleted =
         std::numeric_limits<fds_uint64_t>::max();
-
-class ObjectID {
+static const uint OBJECTID_DIGESTLEN = 20;
+class ObjectID : public serialize::Serializable {
   private:
-    uint8_t  digest[20];
+    uint8_t  digest[OBJECTID_DIGESTLEN];
 
   public:
     ObjectID();
@@ -94,7 +94,7 @@ class ObjectID {
     ObjectID(const ObjectID& rhs);  // NOLINT
     explicit ObjectID(const std::string& oid);
     ObjectID(uint8_t  *objId, uint32_t length);
-    ~ObjectID();
+    virtual ~ObjectID();
 
     /*
      * Assumes the length of the data is 2 * hash size.
@@ -107,6 +107,10 @@ class ObjectID {
         memcpy(digest, data.data(), data.length());
     }
     const uint8_t* GetId() const;
+
+    const uint getDigestLength() const {
+        return OBJECTID_DIGESTLEN;
+    }
 
    /*
     * bit mask. this will help to boost the performance 
@@ -122,6 +126,10 @@ class ObjectID {
     ObjectID& operator=(const ObjectID& rhs);
     ObjectID& operator=(const std::string& hexStr);
     std::string ToHex() const;
+
+    uint32_t write(serialize::Serializer*  serializer) const;
+    uint32_t read(serialize::Deserializer* deserializer);
+
     static std::string ToHex(const ObjectID& oid);
     static std::string ToHex(const uint8_t *key, fds_uint32_t len);
     static std::string ToHex(const char *key, fds_uint32_t len);
@@ -215,6 +223,7 @@ typedef enum {
     FDS_SM_READ_OBJECTDATA,
     FDS_SM_READ_OBJECTMETADATA,
     FDS_SM_COMPACT_OBJECTS,
+    FDS_DM_SNAP_VOLCAT,
     FDS_OP_INVALID
 } fds_io_op_t;
 

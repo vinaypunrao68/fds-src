@@ -13,7 +13,6 @@
 
 #include <fds_types.h>
 #include <fds_error.h>
-#include <fds_placement_table.h>
 #include <fds_volume.h>
 #include <fds_typedefs.h>
 #include <util/Log.h>
@@ -27,6 +26,9 @@ class FdsAdminCtrl {
   public:
     FdsAdminCtrl(const std::string& om_prefix, fds_log* om_log);
     ~FdsAdminCtrl();
+
+    // Defines minimum object size in a volume in bytes
+    static const fds_uint32_t minVolObjSize = (4 * 1024);  // 4KB
 
     /* Per local domain  dynamic disk resource  counters */
     fds_uint64_t  total_disk_iops_max;
