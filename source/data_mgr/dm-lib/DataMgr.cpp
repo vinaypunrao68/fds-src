@@ -743,8 +743,6 @@ DataMgr::applyBlobUpdate(fds_volid_t volUuid,
     Error err(ERR_OK);
     fds_verify(offsetList.size() != 0);
 
-    LOGDEBUG << "Applying update to blob " << *bnode;
-
     fds_uint32_t maxObjSize;
     err = getVolObjSize(volUuid, &maxObjSize);
     fds_verify(err == ERR_OK);
@@ -905,8 +903,6 @@ DataMgr::applyBlobUpdate(fds_volid_t volUuid,
     } else {
         bnode->version++;
     }
-
-    LOGDEBUG << "Applied update to blob " << *bnode;
 
     return err;
 }
