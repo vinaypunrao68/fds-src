@@ -59,7 +59,7 @@ public class Main {
 
        new Thread(() -> {
             try {
-                new com.formationds.demo.Main().start(configuration.getDemoConfig());
+                //new com.formationds.demo.Main().start(configuration.getDemoConfig());
             } catch (Exception e) {
                 LOG.error("Couldn't start demo app", e);
             }
