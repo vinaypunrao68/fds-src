@@ -798,7 +798,14 @@ DataMgr::applyBlobUpdate(fds_volid_t volUuid,
                 // it should be because this entry is going to
                 // be the new end of the blob. Otherwise, we'd
                 // expect it to be at max object size
-                fds_verify(offsetList[i].blob_end == true);
+                // TODO(Andrew): The verify is commented out
+                // so that we can support our hacky transactions
+                // for a little while longer. XDI will write
+                // the last offset twice, with the first having
+                // blob_end = false and the second to true. So
+                // We ignore for now so that the first write
+                // will succeed.
+                // fds_verify(offsetList[i].blob_end == true);
                 bnode->blob_size -= (oldBlobObj.size - size);
             }
 
