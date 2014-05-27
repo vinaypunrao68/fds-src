@@ -21,6 +21,7 @@
 #include <concurrency/Mutex.h>
 #include <fds_volume.h>
 #include <ObjectId.h>
+#include <fdsp/fds_service_types.h>
 
 namespace fds {
 
@@ -583,6 +584,13 @@ class BlobNode {
     }
 
     void ToFdspPayload(FDS_ProtocolInterface::FDSP_QueryCatalogTypePtr& query_msg) const {
+        query_msg->blob_name = blob_name;
+        query_msg->blob_size = blob_size;
+        query_msg->blob_version = version;
+        metaListToFDSPMetaList(query_msg->meta_list);
+        obj_list.ToFDSPObjList(query_msg->obj_list);
+    }
+    void ToFdspPayload(fpi::QueryCatalogMsgPtr& query_msg) const {
         query_msg->blob_name = blob_name;
         query_msg->blob_size = blob_size;
         query_msg->blob_version = version;
