@@ -56,17 +56,29 @@ struct EpIdProvider {
 typedef boost::shared_ptr<EpIdProvider> EpIdProviderPtr;
 
 struct DltObjectIdEpProvider : EpIdProvider {
-    explicit DltObjectIdEpProvider(const ObjectID &objId);
-    virtual fpi::SvcUuid getNextEp() override;
-    virtual std::vector<fpi::SvcUuid> getEps() override;
+    explicit DltObjectIdEpProvider(const ObjectID &objId)
+    {
+    }
+    virtual fpi::SvcUuid getNextEp() override
+    {
+    }
+    virtual std::vector<fpi::SvcUuid> getEps() override
+    {
+    }
 
     protected:
 };
 
 struct DmtVolumeIdEpProvider : EpIdProvider {
-    explicit DmtVolumeIdEpProvider(const fds_volid_t& volId);
-    virtual fpi::SvcUuid getNextEp() override;
-    virtual std::vector<fpi::SvcUuid> getEps() override;
+    explicit DmtVolumeIdEpProvider(const fds_volid_t& volId)
+    {
+    }
+    virtual fpi::SvcUuid getNextEp() override
+    {
+    }
+    virtual std::vector<fpi::SvcUuid> getEps() override
+    {
+    }
 };
 
 /**

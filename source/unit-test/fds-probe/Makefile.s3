@@ -17,7 +17,10 @@ user_fds_ar_libs  +=  \
     fds-am-plat \
     fds-dsk-io \
     fds-dsk-mgnt \
-    fds-hash
+    fds-hash \
+    fds-rpc-request \
+    fds-net-svc \
+    fds-rpc-request \
 
 local_nginx_libs   :=  \
     ngx-http-module \
