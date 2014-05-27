@@ -24,11 +24,6 @@ struct ep_map_rec
     char                     rmp_name[MAX_SVC_NAME_LEN];
 };
 
-const int SHM_TAB_NONE        = 0x0;
-const int SHM_TAB_UUID_BIND   = 0x1;       /**< table recording uuid binding.  */
-const int SHM_TAB_NODE_INFO   = 0x2;       /**< node info table. */
-const int SHM_TAB_AM_INFO     = 0x3;       /**< info about AM nodes. */
-
 /**
  * Item to put in shared memory queue.
  */
@@ -36,11 +31,21 @@ typedef struct ep_shmq_req
 {
     shmq_req_t               smq_hdr;      /**< standard shm queue header. */
     int                      smq_idx;      /**< index in shm queue header. */
-    int                      smq_type;     /**< where we can find the mapping rec. */
+    FdspNodeType             smq_type;     /**< AM nodes or platform domain nodes. */
     ep_map_rec_t             smq_rec;      /**< the actual mapping record. */
 } ep_shmq_req_t;
 
+typedef struct ep_shmq_node_reg
+{
+    shmq_req_t               smq_hdr;
+    int                      smq_idx;
+    FdspNodeType             smq_type;      /**< AM nodes or domain nodes section.  */
+    fds_uint64_t             smq_node_uuid; /**< consistency check with actual rec.  */
+    fds_uint64_t             smq_svc_uuid;  /**< consistency check with actual rec.  */
+} ep_shmq_node_req_t;
+
 cc_assert(ep_map0, sizeof(ep_shmq_req_t) <= sizeof(node_shm_queue_item_t));
+cc_assert(ep_map1, sizeof(ep_shmq_node_req_t) <= sizeof(node_shm_queue_item_t));
 
 extern EpPlatLibMod         *gl_EpShmPlatLib;
 
@@ -95,11 +100,15 @@ class EpPlatformdMod : public EpPlatLibMod
     explicit EpPlatformdMod(const char *name);
     virtual ~EpPlatformdMod() {}
 
+    static EpPlatformdMod *ep_shm_singleton();
+
     virtual void mod_startup() override;
     virtual void mod_enable_service() override;
 
     virtual int  ep_map_record(const ep_map_rec_t *rec) override;
     virtual int  ep_unmap_record(fds_uint64_t uuid, int idx) override;
+
+    void node_reg_notify(const node_data_t *info);
 
   protected:
     ShmObjRWKeyUint64       *ep_uuid_rw;

@@ -245,16 +245,15 @@ PlatNetPlugin::svc_down(EpSvc::pointer svc, EpSvcHandle::pointer handle)
  * -----------------------------------------------------------------------------------
  */
 void
-NetPlatHandler::allUuidBinding(std::vector<fpi::UuidBindMsg>    &ret,
-                               bo::shared_ptr<fpi::UuidBindMsg> &msg,
-                               bo::shared_ptr<bool>             &all_list)
+NetPlatHandler::allUuidBinding(bo::shared_ptr<fpi::UuidBindMsg> &msg)
 {
     std::cout << "all uuidBind there" << std::endl;
 }
 
 void
 NetPlatHandler::notifyNodeInfo(std::vector<fpi::NodeInfoMsg>    &ret,
-                               bo::shared_ptr<fpi::NodeInfoMsg> &inf)
+                               bo::shared_ptr<fpi::NodeInfoMsg> &inf,
+                               bo::shared_ptr<bool>             &bcast)
 {
 }
 

@@ -158,6 +158,13 @@ class NodeShmCtrl : public Module
     static ShmObjROKeyUint64 *shm_node_inventory() {
         return gl_NodeShmCtrl->shm_node_inv;
     }
+    static ShmObjROKeyUint64 *shm_node_inventory(FdspNodeType type)
+    {
+        if (type == fpi::FDSP_STOR_HVISOR) {
+            return gl_NodeShmCtrl->shm_am_inv;
+        }
+        return gl_NodeShmCtrl->shm_node_inv;
+    }
     static ShmConPrdQueue *shm_consumer() { return gl_NodeShmCtrl->shm_cons_q; }
     static ShmConPrdQueue *shm_producer() { return gl_NodeShmCtrl->shm_prod_q; }
 

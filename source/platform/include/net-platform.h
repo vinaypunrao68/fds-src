@@ -131,17 +131,16 @@ class PlatformEpHandler : virtual public fpi::PlatNetSvcIf, public BaseAsyncSvcH
 
     // PlatNetSvcIf methods.
     //
-    void allUuidBinding(std::vector<fpi::UuidBindMsg> &ret,
-                        const fpi::UuidBindMsg        &mine, const bool all_list) {}
+    void allUuidBinding(const fpi::UuidBindMsg &mine) {}
     void notifyNodeInfo(std::vector<fpi::NodeInfoMsg> &ret,
-                        const fpi::NodeInfoMsg        &info) {}
+                        const fpi::NodeInfoMsg        &info,
+                        const bool                     bcast) {}
     void notifyNodeUp(fpi::RespHdr &ret, const fpi::NodeInfoMsg &info) {}
 
-    void allUuidBinding(std::vector<fpi::UuidBindMsg>    &ret,
-                        bo::shared_ptr<fpi::UuidBindMsg> &msg,
-                        bo::shared_ptr<bool>             &all_list);
-    void notifyNodeInfo(std::vector<fpi::NodeInfoMsg> &ret,
-                        bo::shared_ptr<fpi::NodeInfoMsg> &i);
+    void allUuidBinding(bo::shared_ptr<fpi::UuidBindMsg> &msg);
+    void notifyNodeInfo(std::vector<fpi::NodeInfoMsg>    &ret,
+                        bo::shared_ptr<fpi::NodeInfoMsg> &info,
+                        bo::shared_ptr<bool>             &bcast);
     void notifyNodeUp(fpi::RespHdr &ret, bo::shared_ptr<fpi::NodeInfoMsg> &info);
 
   protected:

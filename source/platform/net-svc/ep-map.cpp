@@ -35,11 +35,10 @@ class PlatUuidBindUpdate : public NodeAgentIter
      */
     bool rs_iter_fn(Resource::pointer curr)
     {
-        DomainAgent::pointer          agent;
-        std::vector<fpi::UuidBindMsg> ret;
+        DomainAgent::pointer  agent;
 
         agent = agt_cast_ptr<DomainAgent>(curr);
-        agent->pda_rpc()->allUuidBinding(ret, bind_msg, false);
+        agent->agent_rpc()->allUuidBinding(bind_msg);
         return true;
     }
     /**
@@ -99,7 +98,7 @@ PlatUuidBind::shmq_handler(const shmq_req_t *in, size_t size)
     thr->schedule(&PlatUuidBindUpdate::uuid_bind_update, iter, out);
 }
 
-static PlatUuidBind *platform_uuid_bind;
+static PlatUuidBind         *platform_uuid_bind;
 
 /*
  * -------------------------------------------------------------------------------------
@@ -158,6 +157,45 @@ int
 EpPlatformdMod::ep_unmap_record(fds_uint64_t uuid, int idx)
 {
     return ep_uuid_rw->shm_remove_rec(idx, static_cast<const void *>(&uuid), NULL, 0);
+}
+
+// node_reg_notify
+// ---------------
+//
+void
+EpPlatformdMod::node_reg_notify(const node_data_t *info)
+{
+    int                     idx;
+    ep_map_rec_t            map;
+    ep_shmq_node_req_t      out;
+    ShmConPrdQueue         *plat;
+    ShmObjRWKeyUint64      *shm;
+    NodeAgent::pointer      agent;
+    DomainNodeInv::pointer  local;
+
+    /* Save the node_info binding to shared memory. */
+    shm = NodeShmRWCtrl::shm_node_rw_inv(info->nd_svc_type);
+    idx = shm->shm_insert_rec(static_cast<const void *>(&info->nd_node_uuid),
+                              static_cast<void *>(&info), sizeof(info));
+
+    /* Cache the binding info. */
+    fds_verify(idx >= 0);
+    EpPlatLibMod::ep_node_info_to_mapping(info, &map);
+    NetMgr::ep_mgr_singleton()->ep_register_binding(&map, idx);
+
+    /* Notify all services running in the same node. */
+    out.smq_idx          = idx;
+    out.smq_type         = info->nd_svc_type;
+    out.smq_node_uuid    = info->nd_node_uuid;
+    out.smq_svc_uuid     = info->nd_service_uuid;
+    out.smq_hdr.smq_code = SHMQ_NODE_REGISTRATION;
+
+    plat = NodeShmCtrl::shm_producer();
+    plat->shm_producer(static_cast<void *>(&out), sizeof(out), 0);
+
+    /* Allocate node agent to represent this node. */
+    local = Platform::platf_singleton()->plf_node_inventory();
+    local->dc_register_node(shm, &agent, idx, idx);
 }
 
 }  // namespace fds

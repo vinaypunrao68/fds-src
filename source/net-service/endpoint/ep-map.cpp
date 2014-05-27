@@ -17,13 +17,17 @@ EpPlatLibMod                *gl_EpShmPlatLib = &gl_EpShmSharedLib;
 class PlatLibUuidBind : public ShmqReqIn
 {
   public:
-    PlatLibUuidBind() : ShmqReqIn() {}
-    virtual ~PlatLibUuidBind() {}
-
     void shmq_handler(const shmq_req_t *in, size_t size) override;
 };
 
-static PlatLibUuidBind  platlib_uuid_bind;
+class PlatLibNodeReg : public ShmqReqIn
+{
+  public:
+    void shmq_handler(const shmq_req_t *in, size_t size) override;
+};
+
+static PlatLibNodeReg        platlib_node_reg;
+static PlatLibUuidBind       platlib_uuid_bind;
 
 /*
  * -------------------------------------------------------------------------------------
@@ -74,6 +78,7 @@ EpPlatLibMod::mod_enable_service()
     consumer = NodeShmCtrl::shm_consumer();
     consumer->shm_register_handler(SHMQ_REQ_UUID_BIND, &platlib_uuid_bind);
     consumer->shm_register_handler(SHMQ_REQ_UUID_UNBIND, &platlib_uuid_bind);
+    consumer->shm_register_handler(SHMQ_NODE_REGISTRATION, &platlib_uuid_bind);
 }
 
 // mod_shutdown
@@ -132,7 +137,7 @@ EpPlatLibMod::ep_req_map_record(fds_uint32_t op, const ep_map_rec_t *rec)
     resp.smq_idx  = -1;
     reqt.smq_idx  = -1;
     reqt.smq_rec  = *rec;
-    reqt.smq_type = SHM_TAB_NONE;
+    reqt.smq_type = fpi::FDSP_OMCLIENT_MGR;   /* TODO(Vy): invalid type */
     reqt.smq_hdr.smq_code = op;
     resp.smq_rec.rmp_uuid = 0;
 
@@ -256,6 +261,22 @@ PlatLibUuidBind::shmq_handler(const shmq_req_t *in, size_t size)
     /* Cache the binding info. */
     fds_assert(map->smq_idx >= 0);
     NetMgr::ep_mgr_singleton()->ep_register_binding(&map->smq_rec, map->smq_idx);
+}
+
+void
+PlatLibNodeReg::shmq_handler(const shmq_req_t *in, size_t size)
+{
+    NodeAgent::pointer        agent;
+    DomainNodeInv::pointer    local;
+    ShmObjROKeyUint64        *shm;
+    const ep_shmq_node_req_t *req = reinterpret_cast<const ep_shmq_node_req_t *>(in);
+
+    /* Do consistency check */
+    shm = NodeShmCtrl::shm_node_inventory(req->smq_type);
+
+    /* Register the node to platform lib domain. */
+    local = Platform::platf_singleton()->plf_node_inventory();
+    local->dc_register_node(shm, &agent, req->smq_idx, -1);
 }
 
 }  // namespace fds

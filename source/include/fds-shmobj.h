@@ -164,10 +164,11 @@ typedef struct shm_con_prd_sync
  * The smq_code field with masks to tell if a request is tracking type to notify the
  * requestor based on smq_id.
  */
-const int SHMQ_TRACK_MASK        = 0x80000000;
-const int SHMQ_REQ_NULL          = 0x00000000;
-const int SHMQ_REQ_UUID_BIND     = 0x00000001;
-const int SHMQ_REQ_UUID_UNBIND   = 0x00000002;
+const int SHMQ_TRACK_MASK        = 0x000000;
+const int SHMQ_REQ_NULL          = 0x000000;
+const int SHMQ_REQ_UUID_BIND     = 0x000001;
+const int SHMQ_REQ_UUID_UNBIND   = 0x000002;
+const int SHMQ_NODE_REGISTRATION = 0x000003;
 
 /**
  * Common header for items in producer/consumer queue.

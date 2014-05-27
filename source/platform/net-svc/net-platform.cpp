@@ -33,6 +33,15 @@ PlatformdNetSvc::PlatformdNetSvc(const char *name) : NetPlatSvc(name)
     mod_intern = platd_net_deps;
 }
 
+// ep_shm_singleton
+// ----------------
+//
+/*  static */ EpPlatformdMod *
+EpPlatformdMod::ep_shm_singleton()
+{
+    return &gl_PlatformdShmLib;
+}
+
 // mod_init
 // --------
 //
@@ -116,26 +125,11 @@ PlatformdNetSvc::nplat_peer(const fpi::DomainID &id, const fpi::SvcUuid &uuid)
 void
 PlatformdNetSvc::nplat_register_node(const fpi::NodeInfoMsg *msg)
 {
-    int                     idx;
-    node_data_t             rec;
-    ep_map_rec_t            map;
-    ShmObjRWKeyUint64      *shm;
-    NodeAgent::pointer      agent;
-    DomainNodeInv::pointer  local;
+    node_data_t  rec;
 
+    // Notify all services about this node through shared memory queue.
     NodeInventory::node_info_msg_to_shm(msg, &rec);
-    EpPlatLibMod::ep_node_info_to_mapping(&rec, &map);
-
-    shm = NodeShmRWCtrl::shm_node_rw_inv();
-    idx = shm->shm_insert_rec(static_cast<void *>(&rec.nd_node_uuid),
-                              static_cast<void *>(&rec), sizeof(rec));
-
-    // Assert for now to debug any problem with leaking...
-    fds_verify(idx != -1);
-    NetMgr::ep_mgr_singleton()->ep_register_binding(&map, idx);
-
-    local = Platform::platf_singleton()->plf_node_inventory();
-    local->dc_register_node(shm, &agent, idx, idx);
+    EpPlatformdMod::ep_shm_singleton()->node_reg_notify(&rec);
 }
 
 /*
@@ -242,8 +236,7 @@ PlatAgentPlugin::ep_connected()
     pda_agent->init_plat_info_msg(msg);
 
     auto rpc = pda_agent->pda_rpc();
-    auto pkt = bo::shared_ptr<fpi::NodeInfoMsg>(msg);
-    rpc->notifyNodeInfo(ret, pkt);
+    rpc->notifyNodeInfo(ret, *msg, true);
 
     std::cout << "Got " << ret.size() << " elements back" << std::endl;
 

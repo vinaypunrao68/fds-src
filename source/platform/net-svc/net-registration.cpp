@@ -31,6 +31,34 @@ class NodeInfoIter : public ResourceIter
     std::vector<fpi::NodeInfoMsg>        &nd_iter_ret;
 };
 
+class NodeUpdateIter : public NodeAgentIter
+{
+  public:
+    typedef bo::intrusive_ptr<NodeUpdateIter> pointer;
+
+    bool rs_iter_fn(Resource::pointer curr)
+    {
+        DomainAgent::pointer          agent;
+        std::vector<fpi::NodeInfoMsg> ret;
+
+        agent = agt_cast_ptr<DomainAgent>(curr);
+        agent->agent_rpc()->notifyNodeInfo(ret, *(nd_reg_msg.get()), false);
+        return true;
+    }
+    /**
+     * Update to platform nodes in a worker thread.
+     */
+    static void
+    node_reg_update(NodeUpdateIter::pointer itr, bo::shared_ptr<fpi::NodeInfoMsg> &info)
+    {
+        itr->nd_reg_msg = info;
+        itr->foreach_pm();
+    }
+
+  protected:
+    bo::shared_ptr<fpi::NodeInfoMsg>  nd_reg_msg;
+};
+
 /*
  * -----------------------------------------------------------------------------------
  * RPC Handlers
@@ -48,9 +76,7 @@ PlatformEpHandler::PlatformEpHandler(PlatformdNetSvc *svc)
 // The protocol flow is documented in net-service/endpoint/ep-map.cpp.
 //
 void
-PlatformEpHandler::allUuidBinding(std::vector<fpi::UuidBindMsg>    &ret,
-                                  bo::shared_ptr<fpi::UuidBindMsg> &msg,
-                                  bo::shared_ptr<bool>             &all_list)
+PlatformEpHandler::allUuidBinding(bo::shared_ptr<fpi::UuidBindMsg> &msg)
 {
     int              idx;
     ep_shmq_req_t    rec;
@@ -78,10 +104,6 @@ PlatformEpHandler::allUuidBinding(std::vector<fpi::UuidBindMsg>    &ret,
 
     plat = NodeShmCtrl::shm_producer();
     plat->shm_producer(static_cast<void *>(&rec), sizeof(rec), 0);
-
-    if (*all_list == true) {
-        /* Reply back with all uuid bindings in shared memory. */
-    }
 }
 
 // notifyNodeInfo
@@ -89,20 +111,31 @@ PlatformEpHandler::allUuidBinding(std::vector<fpi::UuidBindMsg>    &ret,
 //
 void
 PlatformEpHandler::notifyNodeInfo(std::vector<fpi::NodeInfoMsg>    &ret,
-                                  bo::shared_ptr<fpi::NodeInfoMsg> &msg)
+                                  bo::shared_ptr<fpi::NodeInfoMsg> &msg,
+                                  bo::shared_ptr<bool>             &bcast)
 {
-    NodeInfoIter           iter(ret);
     DomainNodeInv::pointer local;
 
+    if (*bcast == true) {
+        fds_threadpool          *thr;
+        NodeUpdateIter::pointer  iter = new NodeUpdateIter();
+
+        thr = NetMgr::ep_mgr_thrpool();
+        thr->schedule(&NodeUpdateIter::node_reg_update, iter, msg);
+    }
     net_plat->nplat_register_node(msg.get());
 
     // Go through the entire domain to send back inventory info to the new node.
-    local = Platform::platf_singleton()->plf_node_inventory();
-    local->dc_foreach_am(&iter);
-    local->dc_foreach_pm(&iter);
-    local->dc_foreach_dm(&iter);
-    local->dc_foreach_sm(&iter);
-    std::cout << "Sent back " << iter.rs_iter_count() << std::endl;
+    if (*bcast == true) {
+        NodeInfoIter iter(ret);
+
+        local = Platform::platf_singleton()->plf_node_inventory();
+        local->dc_foreach_am(&iter);
+        local->dc_foreach_pm(&iter);
+        local->dc_foreach_dm(&iter);
+        local->dc_foreach_sm(&iter);
+        std::cout << "Sent back " << iter.rs_iter_count() << std::endl;
+    }
 }
 
 // notifyNodeUp
