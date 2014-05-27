@@ -24,7 +24,7 @@ public class PeekReadQueue implements RequestHandler {
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
         Optional<ImageResource> resource = state.peekReadQueue();
         if (resource.isPresent()) {
-            return new JsonResource(new JSONObject().put("url", resource.get().getUrl()));
+            return new JsonResource(new JSONObject().put("url", resource.get().getThumbnailUrl()));
         } else {
             return new FourOhFour();
         }

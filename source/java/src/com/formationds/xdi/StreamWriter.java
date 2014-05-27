@@ -41,6 +41,7 @@ public class StreamWriter {
                     new ObjectOffset(objectOffset),
                     ByteBuffer.wrap(new byte[0]), false);
             lastBufSize = read;
+
             objectOffset++;
         }
 

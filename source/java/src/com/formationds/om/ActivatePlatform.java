@@ -32,7 +32,7 @@ public class ActivatePlatform implements RequestHandler {
 
         boolean activateDm = dms == 0;
 
-        int status = client.ActivateNode(new FDSP_MsgHdrType(), new FDSP_ActivateOneNodeType(domainId, new FDSP_Uuid(nodeUuid), true, activateDm, true));
+            int status = client.ActivateNode(new FDSP_MsgHdrType(), new FDSP_ActivateOneNodeType(domainId, new FDSP_Uuid(nodeUuid), true, activateDm, true));
         int httpCode = status == 0 ? HttpServletResponse.SC_OK : HttpServletResponse.SC_BAD_REQUEST;
         return new JsonResource(new JSONObject().put("status", status), httpCode);
     }
