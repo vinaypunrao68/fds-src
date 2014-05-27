@@ -5,7 +5,7 @@ package com.formationds.demo;
 
 public class FlickrImageResource implements ImageResource {
     private static String LARGE_IMAGE_URL = "http://farm%d.staticflickr.com/%s/%s_%s_z.jpg";
-    private static String THUMBNAIL_IMAGE_URL = "http://farm%d.staticflickr.com/%s/%s_%s_m.jpg";
+    private static String THUMBNAIL_IMAGE_URL = "http://farm%d.staticflickr.com/%s/%s_%s_mMain.jpg";
 
     private String id;
     private int farm;
