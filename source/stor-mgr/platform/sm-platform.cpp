@@ -92,11 +92,10 @@ SmPlatform::mod_init(SysParams const *const param)
 {
     FdsConfigAccessor conf(g_fdsprocess->get_conf_helper());
 
-    Platform::platf_assign_singleton(&gl_SmPlatform);
     plf_node_type  = FDSP_STOR_MGR;
+    Platform::platf_assign_singleton(&gl_SmPlatform);
     Platform::mod_init(param);
 
-    plf_om_ip_str    = conf.get_abs<std::string>("fds.sm.om_ip");
     plf_my_ip        = util::get_local_ip();
     plf_my_node_name = "my-sm-node";  // plf_my_ip;
 
@@ -114,7 +113,7 @@ SmPlatform::mod_startup()
     sm_recv   = bo::shared_ptr<SMSvcHandler>(new SMSvcHandler());
     sm_plugin = new SMEpPlugin(this);
     sm_ep     = new EndPoint<fpi::SMSvcClient, fpi::SMSvcProcessor>(
-        Platform::platf_singleton()->plf_get_my_data_port(),
+        Platform::platf_singleton()->plf_get_my_base_port(),
         *Platform::platf_singleton()->plf_get_my_svc_uuid(),
         NodeUuid(0ULL),
         bo::shared_ptr<fpi::SMSvcProcessor>(new fpi::SMSvcProcessor(sm_recv)),

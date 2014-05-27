@@ -55,19 +55,19 @@ NetPlatSvc::mod_startup()
 
     // Create the agent and register the ep
     plat_ep_plugin = new PlatNetPlugin(this);
-    plat_agent     = new DomainAgent(plat_lib->plf_my_node_uuid());
+    plat_agent     = new DomainAgent(*plat_lib->plf_get_my_node_uuid());
     plat_ep_hdler  = bo::shared_ptr<NetPlatHandler>(new NetPlatHandler(this));
     plat_ep        = new PlatNetEp(
-            plat_lib->plf_get_my_nsvc_port(),
-            *plat_lib->plf_get_my_plf_svc_uuid(), /* bind to my platform lib svc  */
+            plat_lib->plf_get_my_node_port(),
+            *plat_lib->plf_get_my_node_uuid(), /* bind to my platform lib svc  */
             NodeUuid(0ULL),                       /* pure server mode */
             bo::shared_ptr<fpi::PlatNetSvcProcessor>(
                 new fpi::PlatNetSvcProcessor(plat_ep_hdler)),
             plat_ep_plugin);
 
     LOGNORMAL << "startup shared platform net svc, port "
-              << plat_lib->plf_get_my_nsvc_port() << std::hex
-              << plat_lib->plf_get_my_plf_svc_uuid()->uuid_get_val();
+              << plat_lib->plf_get_my_node_port() << std::hex
+              << plat_lib->plf_get_my_node_uuid()->uuid_get_val();
 }
 
 void
@@ -76,8 +76,8 @@ NetPlatSvc::mod_enable_service()
     Module::mod_enable_service();
 
     // Regiser my node endpoint.
-    netmgr->ep_register(plat_ep, false);
     if (!plat_lib->plf_is_om_node()) {
+        netmgr->ep_register(plat_ep, false);
         plat_agent->pda_connect_domain(fpi::DomainID());
     }
 }

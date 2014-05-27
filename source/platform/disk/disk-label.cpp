@@ -48,7 +48,7 @@ DiskLabel::dsk_label_init_header(dlabel_hdr_t *hdr)
     hdr->dl_quorum_seq    = 0;
 
     fds_verify(dl_owner != NULL);
-    Platform::plf_my_node_uuid().uuid_set_to_raw(hdr->dl_node_uuid);
+    Platform::plf_get_my_node_uuid()->uuid_set_to_raw(hdr->dl_node_uuid);
     dl_owner->rs_get_uuid().uuid_set_to_raw(hdr->dl_disk_uuid);
 }
 

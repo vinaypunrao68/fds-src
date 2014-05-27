@@ -97,18 +97,12 @@ DmPlatform::mod_init(SysParams const *const param)
     plf_node_type = FDSP_DATA_MGR;
     Platform::mod_init(param);
 
-    if (conf.get_abs<bool>("fds.dm.test_mode", false) == true) {
-        plf_my_ctrl_port = conf.get_abs<int>("fds.dm.cp_port");
-        plf_my_data_port = conf.get_abs<int>("fds.dm.port");
-        plf_my_metasync_port = conf.get_abs<int>("fds.dm.sync_port");
-    }
-    plf_om_ip_str    = conf.get_abs<std::string>("fds.dm.om_ip");
     plf_my_ip        = util::get_local_ip();
     plf_my_node_name = plf_my_ip;
 
-    LOGNORMAL << "My ctrl port " << plf_my_ctrl_port
-        << ", data port " << plf_my_data_port << ", OM ip: " << plf_om_ip_str
-        << ", meta sync server port " << plf_my_metasync_port;
+    LOGNORMAL << "My ctrl port " << plf_get_my_ctrl_port()
+        << ", data port " << plf_get_my_data_port() << ", OM ip: " << plf_om_ip_str
+        << ", meta sync server port " << plf_get_my_metasync_port();
 
     plf_vol_evt  = new DmVolEvent(plf_resources, plf_clus_map, this);
     plf_node_evt = new NodePlatEvent(plf_resources, plf_clus_map, this);
@@ -124,14 +118,14 @@ DmPlatform::mod_startup()
     dm_recv   = bo::shared_ptr<DMSvcHandler>(new DMSvcHandler());
     dm_plugin = new DMEpPlugin(this);
     dm_ep     = new EndPoint<fpi::DMSvcClient, fpi::DMSvcProcessor>(
-        Platform::platf_singleton()->plf_get_dm_port(),
+        Platform::platf_singleton()->plf_get_my_base_port(),
         *Platform::platf_singleton()->plf_get_my_svc_uuid(),
         NodeUuid(0ULL),
         bo::shared_ptr<fpi::DMSvcProcessor>(new fpi::DMSvcProcessor(dm_recv)),
         dm_plugin);
 
     LOGNORMAL << "Startup platform specific net svc, port "
-              << Platform::platf_singleton()->plf_get_dm_port();
+              << Platform::platf_singleton()->plf_get_my_base_port();
 }
 
 // mod_enable_service

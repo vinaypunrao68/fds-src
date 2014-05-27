@@ -123,7 +123,7 @@ NodeInventory::init_plat_info_msg(fpi::NodeInfoMsg *msg) const
     msg_bind->svc_auto_name     = *plat->plf_get_my_ip();
     msg_bind->svc_id.svc_name   = "";
     msg_bind->svc_node.svc_name = *plat->plf_get_my_name();
-    msg_bind->svc_node.svc_uuid.svc_uuid = plat->plf_get_my_uuid()->uuid_get_val();
+    msg_bind->svc_node.svc_uuid.svc_uuid = plat->plf_get_my_node_uuid()->uuid_get_val();
 }
 
 // init_node_info_msg
@@ -694,7 +694,7 @@ OmAgent::init_node_reg_pkt(fpi::FDSP_RegisterNodeTypePtr pkt) const
 
     NodeInventory::init_node_reg_pkt(pkt);
     pkt->node_type         = plat->plf_get_node_type();
-    pkt->node_uuid.uuid    = plat->plf_get_my_uuid()->uuid_get_val();
+    pkt->node_uuid.uuid    = plat->plf_get_my_node_uuid()->uuid_get_val();
     pkt->service_uuid.uuid = pkt->node_uuid.uuid + 1 + pkt->node_type;
     pkt->node_name         = *plat->plf_get_my_name();
     pkt->ip_hi_addr        = 0;

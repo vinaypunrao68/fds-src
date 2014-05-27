@@ -249,21 +249,34 @@ class Platform : public Module
     static inline PmContainer::pointer plf_pm_nodes() {
         return platf_singleton()->plf_node_inv->dc_get_pm_nodes();
     }
-    static inline const NodeUuid &plf_my_node_uuid() {
-        return platf_singleton()->plf_my_uuid;
+    static inline NodeUuid const *const plf_get_my_node_uuid() {
+        return &platf_singleton()->plf_my_uuid;
     }
-    static inline fds_uint32_t plf_ctrl_port(fds_uint32_t base) { return base; }
-    static inline fds_uint32_t plf_conf_port(fds_uint32_t base) { return base + 1; }
-    static inline fds_uint32_t plf_data_port(fds_uint32_t base) { return base + 2; }
-    static inline fds_uint32_t plf_migration_port(fds_uint32_t base) { return base + 3; }
-    static inline fds_uint32_t plf_nsvc_port(fds_uint32_t base) { return base + 4; }
-    static inline fds_uint32_t plf_dm_port(fds_uint32_t base) { return base + 5; }
-    static inline fds_uint32_t plf_metasync_port(fds_uint32_t base) { return base + 6; }
+    static inline NodeUuid const *const plf_get_my_svc_uuid() {
+        return &platf_singleton()->plf_my_svc_uuid;
+    }
+    /**
+     * Return service uuid and port from node uuid and service type.
+     */
+    static int  plf_svc_port_from_node(int platform, fpi::FDSP_MgrIdType);
+    static void plf_svc_uuid_from_node(const NodeUuid &, NodeUuid *, fpi::FDSP_MgrIdType);
 
     /**
-     * Return service uuid from node uuid and service type.
+     * Return the base port and uuid of the service running in this node.
      */
-    static void plf_svc_uuid_from_node(const NodeUuid &node, NodeUuid *, FDSP_MgrIdType);
+    static int  plf_get_my_node_svc_uuid(fpi::SvcUuid *uuid, fpi::FDSP_MgrIdType);
+    static inline int plf_get_my_am_svc_uuid(fpi::SvcUuid *uuid) {
+        return plf_get_my_node_svc_uuid(uuid, fpi::FDSP_STOR_HVISOR);
+    }
+    static inline int plf_get_my_sm_svc_uuid(fpi::SvcUuid *uuid) {
+        return plf_get_my_node_svc_uuid(uuid, fpi::FDSP_STOR_MGR);
+    }
+    static inline int plf_get_my_dm_svc_uuid(fpi::SvcUuid *uuid) {
+        return plf_get_my_node_svc_uuid(uuid, fpi::FDSP_DATA_MGR);
+    }
+    static inline int plf_get_my_om_svc_uuid(fpi::SvcUuid *uuid) {
+        return plf_get_my_node_svc_uuid(uuid, fpi::FDSP_ORCH_MGR);
+    }
 
     /**
      * Platform methods.
@@ -299,15 +312,18 @@ class Platform : public Module
      */
     inline FDSP_MgrIdType plf_get_node_type() const { return plf_node_type; }
     inline fds_uint32_t   plf_get_om_ctrl_port() const { return plf_om_ctrl_port; }
-    inline fds_uint32_t   plf_get_om_svc_port() const { return plf_om_svc_port; }
-    inline fds_uint32_t   plf_get_my_ctrl_port() const { return plf_my_ctrl_port; }
-    inline fds_uint32_t   plf_get_my_conf_port() const { return plf_my_conf_port; }
-    inline fds_uint32_t   plf_get_my_data_port() const { return plf_my_data_port; }
-    inline fds_uint32_t   plf_get_dm_port() const { return plf_my_dm_port; }
-
-    inline fds_uint32_t   plf_get_my_nsvc_port() const { return plf_my_nsvc_port; }
-    inline fds_uint32_t   plf_get_my_migration_port() const { return plf_my_migr_port; }
-    inline fds_uint32_t   plf_get_my_metasync_port() const { return plf_my_metasync_port; }
+    inline fds_uint32_t   plf_get_om_svc_port()  const { return plf_om_svc_port; }
+    inline fds_uint32_t   plf_get_my_base_port() const { return plf_my_base_port; }
+    inline fds_uint32_t   plf_get_my_node_port() const { return plf_my_node_port; }
+    inline fds_uint32_t   plf_get_my_ctrl_port() const { return plf_my_base_port + 1; }
+    inline fds_uint32_t   plf_get_my_conf_port() const { return plf_my_base_port + 2; }
+    inline fds_uint32_t   plf_get_my_data_port() const { return plf_my_base_port + 3; }
+    inline fds_uint32_t   plf_get_my_migration_port() const {
+        return plf_my_base_port + 4;
+    }
+    inline fds_uint32_t   plf_get_my_metasync_port() const {
+        return plf_my_base_port + 5;
+    }
 
     inline std::string const *const plf_get_my_name() const { return &plf_my_node_name; }
     inline std::string const *const plf_get_my_ip() const { return &plf_my_ip; }
@@ -318,12 +334,6 @@ class Platform : public Module
     inline OmAgent::pointer      plf_om_master() const { return plf_master; }
     inline PmAgent::pointer      plf_domain_ctrl() const { return plf_domain; }
     inline std::string const *const plf_node_fdsroot() const { return &pIf_node_fdsroot; }
-
-    inline NodeUuid const *const plf_get_my_uuid() const { return &plf_my_uuid; }
-    inline NodeUuid const *const plf_get_my_svc_uuid() const { return &plf_my_svc_uuid; }
-    inline NodeUuid const *const plf_get_my_plf_svc_uuid() const {
-        return &plf_my_plf_svc_uuid;
-    }
 
   protected:
     friend class PlatRpcReqt;
@@ -340,13 +350,8 @@ class Platform : public Module
     std::string                pIf_node_fdsroot;
     fds_uint32_t               plf_om_ctrl_port;
     fds_uint32_t               plf_om_svc_port;
-    fds_uint32_t               plf_my_ctrl_port;
-    fds_uint32_t               plf_my_conf_port;
-    fds_uint32_t               plf_my_data_port;
-    fds_uint32_t               plf_my_nsvc_port;
-    fds_uint32_t               plf_my_migr_port;
-    fds_uint32_t               plf_my_dm_port;
-    fds_uint32_t               plf_my_metasync_port;
+    fds_uint32_t               plf_my_base_port;
+    fds_uint32_t               plf_my_node_port;
 
     PmAgent::pointer           plf_domain;
     OmAgent::pointer           plf_master;
@@ -398,21 +403,6 @@ class PlatformProcess : public FdsProcess
     PlatformProcess() {}
 
     virtual void proc_pre_startup() override;
-
-    /**
-     * Derrive ports for different node services from a common base.
-     */
-    static inline fds_uint32_t
-    plf_get_platform_port(fds_uint32_t base, fds_uint32_t node) {
-        return base + (node * 100);
-    }
-    /**
-     * The base port for all services is the platform daemon.  Other services such as
-     * SM/DM/AM base ports are derrived from the platform port.
-     */
-    static inline fds_uint32_t plf_get_sm_port(fds_uint32_t plat) { return plat + 10; }
-    static inline fds_uint32_t plf_get_dm_port(fds_uint32_t plat) { return plat + 20; }
-    static inline fds_uint32_t plf_get_am_port(fds_uint32_t plat) { return plat + 30; }
 
     /**
      * Return platform manager from the global singleton.

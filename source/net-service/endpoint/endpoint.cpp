@@ -15,6 +15,7 @@ namespace fds {
 EpSvc::EpSvc(const ResourceUUID &uuid, fds_uint32_t major, fds_uint32_t minor)
     : ep_refcnt(0), ep_evt(NULL), ep_attr(NULL), svc_domain(NULL)
 {
+    svc_type          = fpi::FDSP_PLATFORM;
     svc_ver.ver_major = major;
     svc_ver.ver_minor = minor;
     uuid.uuid_assign(&svc_id.svc_uuid);
@@ -29,6 +30,11 @@ EpSvc::EpSvc(const ResourceUUID &domain,
 {
     svc_domain = new fpi::DomainID();
     domain.uuid_assign(&svc_domain->domain_id);
+}
+
+EpSvc::EpSvc(const ResourceUUID &uuid, fpi::FDSP_MgrIdType type) : EpSvc(uuid, 0, 0)
+{
+    svc_type = type;
 }
 
 // ep_apply_attr

@@ -9,7 +9,7 @@
 #include <string>
 #include <functional>
 #include <qos_ctrl.h>
-#include <ThreadPool.h>
+#include <concurrency/ThreadPool.h>
 #include <TransJournal.h>
 #include <hash/MurmurHash3.h>
 #include <fds_process.h>

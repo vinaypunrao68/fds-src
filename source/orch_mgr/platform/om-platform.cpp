@@ -92,21 +92,11 @@ OmPlatform::mod_init(SysParams const *const param)
     plf_node_type = FDSP_ORCH_MGR;
     Platform::mod_init(param);
 
-    if (conf.get_abs<bool>("fds.om.test_mode", false) == true) {
-        plf_my_ctrl_port = conf.get_abs<int>("fds.om.cp_port");
-        plf_my_data_port = conf.get_abs<int>("fds.om.port");
-    }
-    base             = conf.get_abs<int>("fds.om.control_port");
-    plf_my_ctrl_port = plf_ctrl_port(base);
-    plf_my_data_port = plf_data_port(base);
-    plf_my_conf_port = plf_conf_port(base);
-    plf_my_nsvc_port = plf_nsvc_port(base);
-    plf_my_migr_port = plf_migration_port(base);
     plf_my_ip        = util::get_local_ip();
     plf_my_node_name = plf_my_ip;
 
-    LOGNORMAL << "My ctrl port " << plf_my_ctrl_port
-        << ", data port " << plf_my_data_port << ", OM ip: " << plf_om_ip_str;
+    LOGNORMAL << "My ctrl port " << plf_get_my_ctrl_port()
+        << ", data port " << plf_get_my_data_port() << ", OM ip: " << plf_om_ip_str;
 
     return 0;
 }

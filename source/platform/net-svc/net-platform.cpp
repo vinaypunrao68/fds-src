@@ -59,18 +59,18 @@ PlatformdNetSvc::mod_startup()
 {
     Module::mod_startup();
 
-    plat_agent  = new PlatAgent(plat_lib->plf_my_node_uuid());
+    plat_agent  = new PlatAgent(*plat_lib->plf_get_my_node_uuid());
     plat_recv   = bo::shared_ptr<PlatformEpHandler>(new PlatformEpHandler(this));
     plat_plugin = new PlatformdPlugin(this);
     plat_ep     = new PlatNetEp(
-            plat_lib->plf_get_my_nsvc_port(),
-            plat_lib->plf_my_node_uuid(),
+            plat_lib->plf_get_my_node_port(),
+            *plat_lib->plf_get_my_node_uuid(),
             NodeUuid(0ULL),
             bo::shared_ptr<fpi::PlatNetSvcProcessor>(
                 new fpi::PlatNetSvcProcessor(plat_recv)), plat_plugin);
 
     LOGNORMAL << "Startup platform specific net svc, port "
-              << plat_lib->plf_get_my_nsvc_port();
+              << plat_lib->plf_get_my_node_port();
 }
 
 // mod_enable_service

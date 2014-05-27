@@ -369,7 +369,7 @@ int OMgrClient::registerNodeWithOM(Platform *plat)
         reg_node_msg->metasync_port  = plat->plf_get_my_metasync_port();
 
         // TODO(Vy): simple service uuid from node uuid.
-        reg_node_msg->node_uuid.uuid    = plat->plf_get_my_uuid()->uuid_get_val();
+        reg_node_msg->node_uuid.uuid    = plat->plf_get_my_node_uuid()->uuid_get_val();
         reg_node_msg->service_uuid.uuid = plat->plf_get_my_svc_uuid()->uuid_get_val();
         myUuid.uuid_set_val(plat->plf_get_my_svc_uuid()->uuid_get_val());
 

@@ -361,7 +361,7 @@ int
 NetMgr::ep_uuid_binding(const fpi::SvcUuid &uuid, std::string *ip)
 {
     // TODO(Rao): Hack to get port number
-    // void plf_my_node_uuid();
+    // void plf_get_my_node_uuid();
 
     int          idx, ret;
     char         str[INET6_ADDRSTRLEN + 1];
@@ -418,7 +418,7 @@ NetMgr::ep_register_binding(const ep_map_rec_t *rec, int idx)
 ResourceUUID const *const
 NetMgr::ep_my_platform_uuid()
 {
-    return plat_lib->plf_get_my_uuid();
+    return plat_lib->plf_get_my_node_uuid();
 }
 
 // ep_get_timer

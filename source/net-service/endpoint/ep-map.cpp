@@ -144,6 +144,7 @@ EpPlatLibMod::ep_req_map_record(fds_uint32_t op, const ep_map_rec_t *rec)
     plat = NodeShmCtrl::shm_producer();
     mine = NodeShmCtrl::shm_consumer();
 
+    return 0;
     mine->shm_track_request(&out, &reqt.smq_hdr, ep_my_type);
     plat->shm_producer(static_cast<void *>(&reqt), sizeof(reqt), ep_my_type);
 
@@ -232,7 +233,7 @@ EpPlatLibMod::ep_uuid_bind_to_msg(const ep_map_rec_t *src, fpi::UuidBindMsg *msg
     msg->svc_type                   = plat->plf_get_node_type();
     msg->svc_auto_name              = *plat->plf_get_auto_node_name();
     msg->svc_node.svc_name          = *plat->plf_get_my_name();
-    msg->svc_node.svc_uuid.svc_uuid = plat->plf_my_node_uuid().uuid_get_val();
+    msg->svc_node.svc_uuid.svc_uuid = plat->plf_get_my_node_uuid()->uuid_get_val();
 }
 
 // ep_uuid_bind_frm_msg

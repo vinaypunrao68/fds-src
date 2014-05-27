@@ -242,6 +242,7 @@ class EpSvc
   protected:
     fpi::SvcID                       svc_id;
     fpi::SvcVer                      svc_ver;
+    fpi::FDSP_MgrIdType              svc_type;
     EpEvtPlugin::pointer             ep_evt;
     EpAttr::pointer                  ep_attr;
     bo::intrusive_ptr<EpSvcHandle>   ep_peer;
@@ -251,6 +252,7 @@ class EpSvc
 
     // Service bound to the local domain.
     EpSvc(const ResourceUUID &uuid, fds_uint32_t major, fds_uint32_t minor);
+    EpSvc(const ResourceUUID &uuid, fpi::FDSP_MgrIdType type);
 
     // Service bound to a remote domain.
     EpSvc(const ResourceUUID &domain,
