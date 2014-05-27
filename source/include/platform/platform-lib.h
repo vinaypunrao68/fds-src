@@ -250,6 +250,7 @@ class Platform : public Module
     static inline fds_uint32_t plf_ctrl_port(fds_uint32_t base) { return base; }
     static inline fds_uint32_t plf_conf_port(fds_uint32_t base) { return base + 1; }
     static inline fds_uint32_t plf_data_port(fds_uint32_t base) { return base + 2; }
+    static inline fds_uint32_t plf_nsvc_port(fds_uint32_t base) { return base + 4; }
     static inline fds_uint32_t plf_migration_port(fds_uint32_t base) { return base + 3; }
 
     /**
@@ -295,6 +296,7 @@ class Platform : public Module
     inline fds_uint32_t   plf_get_my_ctrl_port() const { return plf_my_ctrl_port; }
     inline fds_uint32_t   plf_get_my_conf_port() const { return plf_my_conf_port; }
     inline fds_uint32_t   plf_get_my_data_port() const { return plf_my_data_port; }
+    inline fds_uint32_t   plf_get_my_nsvc_port() const { return plf_my_nsvc_port; }
     inline fds_uint32_t   plf_get_my_migration_port() const { return plf_my_migr_port; }
 
     inline std::string const *const plf_get_my_name() const { return &plf_my_node_name; }
@@ -325,6 +327,7 @@ class Platform : public Module
     fds_uint32_t               plf_my_ctrl_port;
     fds_uint32_t               plf_my_conf_port;
     fds_uint32_t               plf_my_data_port;
+    fds_uint32_t               plf_my_nsvc_port;
     fds_uint32_t               plf_my_migr_port;
 
     PmAgent::pointer           plf_domain;

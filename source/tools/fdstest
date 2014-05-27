@@ -80,7 +80,7 @@ class Api:
             return self.api.get(self.name,key)
 
         def putFile(self,filename,name=None):
-            return self.api.put(self.name,filename,name)
+            return self.api.putFile(self.name,filename,name)
 
         def create(self):
             return self.api.createBucket(self.name)

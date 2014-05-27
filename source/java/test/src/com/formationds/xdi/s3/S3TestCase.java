@@ -9,8 +9,8 @@ import com.amazonaws.services.s3.S3ClientOptions;
 import com.amazonaws.services.s3.model.*;
 import com.formationds.apis.AmService;
 import com.formationds.apis.ConfigurationService;
-import com.formationds.apis.VolumeConnector;
-import com.formationds.apis.VolumePolicy;
+import com.formationds.apis.VolumeType;
+import com.formationds.apis.VolumeSettings;
 import com.formationds.demo.Main;
 import com.formationds.security.Authenticator;
 import com.formationds.security.AuthorizationToken;
@@ -70,7 +70,7 @@ public class S3TestCase {
         omTransport.open();
         ConfigurationService.Iface config = new ConfigurationService.Client(new TBinaryProtocol(omTransport));
 
-        config.createVolume("fds", "Volume1", new VolumePolicy(1024 * 4, VolumeConnector.CINDER));
+        config.createVolume("fds", "Volume1", new VolumeSettings(1024 * 4, VolumeType.BLOCK));
         Thread.sleep(2000);
         am.attachVolume("fds", "Volume1");
     }

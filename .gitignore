@@ -92,3 +92,4 @@ tmppkg*/
 
 #youcompleteme related
 ycm.flags
+.idea/*

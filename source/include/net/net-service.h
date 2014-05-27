@@ -199,6 +199,11 @@ class EpSvc
     virtual void ep_apply_attr();
 
     /**
+     * Format the uuid binding from this obj.
+     */
+    virtual void ep_fmt_uuid_binding(fpi::UuidBindMsg *msg, fpi::DomainID *domain);
+
+    /**
      * Force the reconnection of this end-point.
      */
     virtual int  ep_get_status() { return 0; }
@@ -213,6 +218,7 @@ class EpSvc
 
     inline void ep_my_uuid(fpi::SvcUuid &uuid) { uuid = svc_id.svc_uuid; }
     inline fds_uint64_t ep_my_uuid() { return svc_id.svc_uuid.svc_uuid; }
+
     virtual void ep_peer_uuid(fpi::SvcUuid &uuid) { uuid.svc_uuid = 0; }
     virtual fds_uint64_t ep_peer_uuid() { return INVALID_RESOURCE_UUID.uuid_get_val(); }
 

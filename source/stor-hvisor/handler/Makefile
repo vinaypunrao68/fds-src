@@ -13,7 +13,7 @@ user_cpp          := $(wildcard *.cpp)
 user_hh           := $(wildcard *.h)
 user_no_style     := 
 
-user_ar_libs      := fds-StorHvisor
-fds-StorHvisor    := $(user_cpp)
+user_ar_libs      := fds-am-engine
+fds-am-engine     := $(user_cpp)
 
 include $(topdir)/Makefile.incl

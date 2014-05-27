@@ -144,7 +144,7 @@ Platform::plf_is_om_node()
     // port for net service update protocols.
     //
     if (/* (*plf_get_my_ip() == *plf_get_om_ip()) && */
-        (plf_get_om_svc_port() == plf_get_my_data_port())) {
+        (plf_get_om_svc_port() == plf_get_my_nsvc_port())) {
         return true;
     }
     return false;
@@ -159,14 +159,12 @@ Platform::plf_rpc_server_thread()
     // TODO(Rao): Ideally createServerSession should take a shared pointer for
     // plf_rpc_sess.  Make sure that happens; otherwise you end up with a pointer leak.
     //
-#if 0
     plf_my_sess = plf_net_sess->createServerSession<netControlPathServerSession>(
             netSession::ipString2Addr(netSession::getLocalIp()),
             plf_my_ctrl_port, plf_my_node_name,
             FDSP_ORCH_MGR, plf_rpc_reqt);
 
     plf_net_sess->listenServer(plf_my_sess);
-#endif
 }
 
 // plf_change_info
@@ -224,6 +222,7 @@ Platform::plf_change_info(const plat_node_data_t *ndata)
     plf_my_ctrl_port = plf_ctrl_port(base);
     plf_my_conf_port = plf_conf_port(base);
     plf_my_data_port = plf_data_port(base);
+    plf_my_nsvc_port = plf_nsvc_port(base);
     plf_my_migr_port = plf_migration_port(base);
 
     LOGNOTIFY << "My ctrl port " << std::dec << plf_my_ctrl_port << std::endl

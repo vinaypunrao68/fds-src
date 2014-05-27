@@ -51,17 +51,20 @@ NetPlatSvc::mod_startup()
     Module::mod_startup();
 
     // Create the agent and register the ep
+    plat_ep_plugin = new PlatNetPlugin(this);
     plat_agent     = new DomainAgent(plat_lib->plf_my_node_uuid());
     plat_ep_hdler  = bo::shared_ptr<NetPlatHandler>(new NetPlatHandler(this));
-    plat_ep_plugin = new PlatNetPlugin(this);
     plat_ep        = new PlatNetEp(
-            plat_lib->plf_get_my_data_port(),     /* hack, need to consolidate ports */
+            plat_lib->plf_get_my_nsvc_port(),
             *plat_lib->plf_get_my_plf_svc_uuid(), /* bind to my platform lib svc  */
             NodeUuid(0ULL),                       /* pure server mode */
             bo::shared_ptr<fpi::PlatNetSvcProcessor>(
                 new fpi::PlatNetSvcProcessor(plat_ep_hdler)),
             plat_ep_plugin);
-    std::cout << "startup shared platform net svc" << std::endl;
+
+    LOGNORMAL << "startup shared platform net svc, port "
+              << plat_lib->plf_get_my_nsvc_port() << std::hex
+              << plat_lib->plf_get_my_plf_svc_uuid()->uuid_get_val();
 }
 
 void
@@ -106,8 +109,13 @@ NetPlatSvc::nplat_my_ep()
  * Domain Agent
  * -----------------------------------------------------------------------------------
  */
-DomainAgent::DomainAgent(const NodeUuid &uuid)
-    : PmAgent(uuid), agt_domain_evt(this), agt_domain_ep(NULL) {}
+DomainAgent::DomainAgent(const NodeUuid &uuid, bool alloc_plugin)
+    : PmAgent(uuid), agt_domain_evt(NULL), agt_domain_ep(NULL)
+{
+    if (alloc_plugin == true) {
+        agt_domain_evt = new DomainAgentPlugin(this);
+    }
+}
 
 /**
  * pda_connect_domain
@@ -120,6 +128,7 @@ DomainAgent::pda_connect_domain(const fpi::DomainID &id)
     NetPlatform       *net;
     PlatNetEpPtr       eptr;
 
+    fds_verify(agt_domain_evt != NULL);
     if (agt_domain_ep != NULL) {
         return;
     }
@@ -128,7 +137,8 @@ DomainAgent::pda_connect_domain(const fpi::DomainID &id)
     fds_verify(eptr != NULL);
 
     std::string const *const om_ip = net->nplat_domain_master(&port);
-    eptr->ep_new_handle(eptr, port, *om_ip, &agt_domain_ep, &agt_domain_evt);
+    eptr->ep_new_handle(eptr, port, *om_ip, &agt_domain_ep, agt_domain_evt);
+    LOGNORMAL << "Domain master ip " << *om_ip << ", port " << port;
 }
 
 /**
@@ -150,7 +160,6 @@ DomainAgentPlugin::ep_connected()
     std::vector<UuidBindMsg> ret;
     auto rpc = pda_agent->pda_rpc();
 
-    std::cout << "Agent domain connected..." << std::endl;
     rpc->allUuidBinding(ret, UuidBindMsg());
 }
 

@@ -4,7 +4,7 @@
 #include <string>
 #include <stdlib.h>
 #include <dlt.h>
-#include <net-platform.h>
+#include <net/net-service.h>
 #include <platform/platform-lib.h>
 
 namespace fds {
@@ -134,6 +134,40 @@ NodeInventory::init_node_reg_pkt(fpi::FDSP_RegisterNodeTypePtr pkt) const
     pkt->control_port  = plat->plf_get_my_ctrl_port();
 }
 
+// init_stor_cap_msg
+// -----------------
+//
+void
+NodeInventory::init_stor_cap_msg(fpi::StorCapMsg *msg) const
+{
+    /* Real numbers are sent by platform daemon. */
+    msg->disk_iops_max     = 20000;
+    msg->disk_iops_min     = 2000;
+    msg->disk_capacity     = 0x7ffff;
+    msg->disk_latency_max  = 1000000 / msg->disk_iops_min;
+    msg->disk_latency_min  = 1000000 / msg->disk_iops_max;
+    msg->ssd_iops_max      = 200000;
+    msg->ssd_iops_min      = 20000;
+    msg->ssd_capacity      = 0x1000;
+    msg->ssd_latency_max   = 1000000 / msg->ssd_iops_min;
+    msg->ssd_latency_min   = 1000000 / msg->ssd_iops_max;
+    msg->ssd_count         = 2;
+    msg->disk_count        = 24;
+    msg->disk_type         = FDS_DISK_SATA;
+}
+
+// init_plat_info_msg
+// ------------------
+//
+void
+NodeInventory::init_plat_info_msg(fpi::NodeInfoMsg *msg) const
+{
+    EpSvc::pointer plf = NetPlatform::nplat_singleton()->nplat_my_ep();
+
+    plf->ep_fmt_uuid_binding(&msg->node_loc, &msg->node_domain);
+    init_stor_cap_msg(&msg->node_stor);
+}
+
 // set_node_state
 // --------------
 //
@@ -219,8 +253,9 @@ NodeAgent::node_stor_weight() const
     // lets normalize = nodes have same weight if their
     // capacity is within 10GB diff
     fds_uint64_t weight = node_inv->nd_gbyte_cap / 10;
-    if (weight < 1)
+    if (weight < 1) {
         weight = 1;
+    }
     return weight;
 }
 
@@ -251,7 +286,6 @@ AgentContainer::agent_handshake(boost::shared_ptr<netSessionTbl> net,
 // --------------------------------------------------------------------------------------
 // PM Agent
 // --------------------------------------------------------------------------------------
-
 
 // --------------------------------------------------------------------------------------
 // SM Agent

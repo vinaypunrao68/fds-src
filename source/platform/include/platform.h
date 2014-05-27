@@ -8,8 +8,10 @@
 #include <fds_process.h>
 #include <kvstore/platformdb.h>
 #include <platform/platform-lib.h>
+#include <net-plat-shared.h>
 
 namespace fds {
+class DiskPlatModule;
 class NodePlatformProc;
 
 class NodePlatform : public Platform
@@ -31,6 +33,7 @@ class NodePlatform : public Platform
 
   protected:
     NodePlatformProc    *plf_process;
+    DiskPlatModule      *disk_ctrl;
 
     virtual PlatRpcReqt *plat_creat_reqt_disp();
     virtual PlatRpcResp *plat_creat_resp_disp();

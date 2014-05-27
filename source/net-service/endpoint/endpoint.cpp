@@ -39,6 +39,23 @@ EpSvc::ep_apply_attr()
 {
 }
 
+// ep_fmt_uuid_binding
+// -------------------
+//
+void
+EpSvc::ep_fmt_uuid_binding(fpi::UuidBindMsg *msg, fpi::DomainID *domain)
+{
+    msg->svc_addr.reserve(INET6_ADDRSTRLEN + 1);
+    msg->svc_port = EpAttr::netaddr_get_port(&ep_attr->ep_addr);
+    msg->svc_id   = svc_id;
+    EpAttr::netaddr_to_str(&ep_attr->ep_addr,
+                           const_cast<char *>(msg->svc_addr.c_str()), INET6_ADDRSTRLEN);
+
+    if ((domain != NULL) && (svc_domain != NULL)) {
+        *domain = *svc_domain;
+    }
+}
+
 /*
  * -----------------------------------------------------------------------------------
  * EndPoint Handler

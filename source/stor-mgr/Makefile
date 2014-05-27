@@ -21,6 +21,7 @@ user_fds_ar_libs  :=                   \
     fds-StorHvisor \
     fds-rpc-request \
     fds-net-svc \
+    fds-am-engine \
     fds-odb \
     fds-dsk-mgnt \
     fds-sm-plat \

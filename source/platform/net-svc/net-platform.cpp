@@ -3,6 +3,7 @@
  */
 #include <string>
 #include <vector>
+#include <disk.h>
 #include <ep-map.h>
 #include <net/net-service-tmpl.hpp>
 #include <platform/platform-lib.h>
@@ -47,15 +48,18 @@ PlatformdNetSvc::mod_startup()
 {
     Module::mod_startup();
 
-    plat_recv      = bo::shared_ptr<PlatformEpHandler>(new PlatformEpHandler(this));
-    plat_plugin    = new PlatformdPlugin(this);
-    plat_ep        = new PlatNetEp(
-            plat_lib->plf_get_my_ctrl_port(),
+    plat_agent  = new PlatAgent(plat_lib->plf_my_node_uuid());
+    plat_recv   = bo::shared_ptr<PlatformEpHandler>(new PlatformEpHandler(this));
+    plat_plugin = new PlatformdPlugin(this);
+    plat_ep     = new PlatNetEp(
+            plat_lib->plf_get_my_nsvc_port(),
             plat_lib->plf_my_node_uuid(),
             NodeUuid(0ULL),
             bo::shared_ptr<fpi::PlatNetSvcProcessor>(
                 new fpi::PlatNetSvcProcessor(plat_recv)), plat_plugin);
-    std::cout << "Startup platform specific net svc" << std::endl;
+
+    LOGNORMAL << "Startup platform specific net svc, port "
+              << plat_lib->plf_get_my_nsvc_port();
 }
 
 // mod_enable_service
@@ -64,9 +68,7 @@ PlatformdNetSvc::mod_startup()
 void
 PlatformdNetSvc::mod_enable_service()
 {
-    Module::mod_enable_service();
-
-    netmgr->ep_register(plat_ep, false);
+    NetPlatSvc::mod_enable_service();
 }
 
 // mod_shutdown
@@ -149,6 +151,73 @@ PlatformdPlugin::svc_up(EpSvcHandle::pointer handle)
 //
 void
 PlatformdPlugin::svc_down(EpSvc::pointer svc, EpSvcHandle::pointer handle)
+{
+}
+
+/*
+ * -------------------------------------------------------------------------------------
+ * Platform Node Agent
+ * -------------------------------------------------------------------------------------
+ */
+PlatAgent::PlatAgent(const NodeUuid &uuid) : DomainAgent(uuid, false)
+{
+    fds_verify(agt_domain_evt == NULL);
+    agt_domain_evt = new PlatAgentPlugin(this);
+}
+
+// init_stor_cap_msg
+// -----------------
+//
+void
+PlatAgent::init_stor_cap_msg(fpi::StorCapMsg *msg) const
+{
+    DiskPlatModule *disk;
+
+    std::cout << "Platform agent fill in storage cap msg" << std::endl;
+    disk = DiskPlatModule::dsk_plat_singleton();
+    NodeAgent::init_stor_cap_msg(msg);
+}
+
+// ep_connected
+// ------------
+//
+void
+PlatAgentPlugin::ep_connected()
+{
+    fpi::NodeInfoMsg              *msg;
+    std::vector<fpi::NodeInfoMsg>  ret;
+
+    std::cout << "Platform agent connected to domain controller" << std::endl;
+
+    msg = new fpi::NodeInfoMsg();
+    pda_agent->init_plat_info_msg(msg);
+
+    auto rpc = pda_agent->pda_rpc();
+    auto pkt = bo::shared_ptr<fpi::NodeInfoMsg>(msg);
+    rpc->notifyNodeInfo(ret, pkt);
+}
+
+// ep_down
+// -------
+//
+void
+PlatAgentPlugin::ep_down()
+{
+}
+
+// svc_up
+// ------
+//
+void
+PlatAgentPlugin::svc_up(EpSvcHandle::pointer handle)
+{
+}
+
+// svc_down
+// --------
+//
+void
+PlatAgentPlugin::svc_down(EpSvc::pointer svc, EpSvcHandle::pointer handle)
 {
 }
 
