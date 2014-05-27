@@ -554,10 +554,10 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
         shVol->readUnlock();
         LOGCRITICAL << "Transaction " << transId << " hits network transport error "
                     << ", just give up and return error.";
-        blobReq->cbWithResult(-2);
         err = ERR_NOT_IMPLEMENTED;
         journEntry->reset();
         shVol->journal_tbl->releaseTransId(transId);
+        blobReq->cbWithResult(-2);
         delete qosReq;
         return err;
     }
@@ -1187,9 +1187,9 @@ fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq) {
         journEntry->trans_state = FDS_TRANS_DONE;
 
         blobReq->setDataLen(0);
-        blobReq->cbWithResult(FDSN_StatusEntityEmpty);
         journEntry->reset();
         shVol->journal_tbl->releaseTransId(transId);
+        blobReq->cbWithResult(FDSN_StatusEntityEmpty);
     } else {
         journEntry->trans_state = FDS_TRANS_GET_OBJ;
         LOGNORMAL << "Getting object " << objId << " for blob "
@@ -1316,9 +1316,9 @@ fds::Error StorHvCtrl::getObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
         blobReq->setDataBuf(getObjRsp->data_obj.c_str());
         blobReq->setBlobSize(blobSize);
         blobReq->setBlobEtag(blobEtag);
-        blobReq->cbWithResult(0);
         txn->reset();
         vol->journal_tbl->releaseTransId(transId);
+        blobReq->cbWithResult(0);
     } else {
         /*
          * We received an error from SM. check the Error. If the Obj Not found 
@@ -1332,8 +1332,8 @@ fds::Error StorHvCtrl::getObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
        }
        else {
         vol->journal_tbl->releaseTransId(transId);
-        blobReq->cbWithResult(-1);
         txn->reset();
+        blobReq->cbWithResult(-1);        
         delete blobReq;
         blobReq = NULL;
        }
@@ -2079,6 +2079,9 @@ fds::Error StorHvCtrl::getBucketResp(const FDSP_MsgHdrTypePtr& rxMsg,
      * Mark the IO complete, clean up txn, and callback
      */
     qos_ctrl->markIODone(txn->io);
+    txn->reset();
+    vol->journal_tbl->releaseTransId(transId);
+
     if (rxMsg->result == FDSP_ERR_OK) {
         ListBucketContents* contents = new ListBucketContents[blobListResp->num_blobs_in_resp];
         fds_verify(contents != NULL);
@@ -2111,9 +2114,6 @@ fds::Error StorHvCtrl::getBucketResp(const FDSP_MsgHdrTypePtr& rxMsg,
          */
         blobReq->cbWithResult(-1);
     }
-
-    txn->reset();
-    vol->journal_tbl->releaseTransId(transId);
 
     /* if there are more blobs to return, we update blobReq with new iter_cookie 
      * that we got from SM and queue back to QoS queue 
@@ -2270,6 +2270,9 @@ void StorHvCtrl::getBucketStatsResp(const FDSP_MsgHdrTypePtr& rx_msg,
      * Mark the IO complete, clean up txn, and callback
      */
     qos_ctrl->markIODone(txn->io);
+    txn->reset();
+    vol->journal_tbl->releaseTransId(transId);
+    
     if (rx_msg->result == FDSP_ERR_OK) {
         BucketStatsContent* contents = NULL;
         int count = (buck_stats->bucket_stats_list).size();
@@ -2297,10 +2300,7 @@ void StorHvCtrl::getBucketStatsResp(const FDSP_MsgHdrTypePtr& rx_msg,
          */
         blobReq->cbWithResult(-1);
     }
-  
-    txn->reset();
-    vol->journal_tbl->releaseTransId(transId);
-    /*
+      /*
      * TODO: We're deleting the request structure. This assumes
      * that the caller got everything they needed when the callback
      * was invoked.

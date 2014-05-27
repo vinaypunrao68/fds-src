@@ -107,11 +107,9 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) {
                 qos_ctrl->markIODone(qosReq);
                 txn->trans_state = FDS_TRANS_EMPTY;
                 // del_timer(txn->p_ti);
-                blobReq->cbWithResult(0);
-
                 txn->reset();
                 vol->journal_tbl->releaseTransId(transId);
-
+                blobReq->cbWithResult(0);
                 /*
                  * TODO: We're deleting the request structure. This assumes
                  * that the caller got everything they needed when the callback
@@ -281,6 +279,8 @@ int StorHvCtrl::fds_move_del_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) 
              * Mark the IO complete, clean up txn, and callback
              */
             qos_ctrl->markIODone(txn->io);
+            txn->reset();
+            vol->journal_tbl->releaseTransId(transId);
             if (rxMsg->result == FDSP_ERR_OK) {
                 LOGNOTIFY << "Invoking the callback";
                 blobReq->cbWithResult(0);
@@ -290,9 +290,6 @@ int StorHvCtrl::fds_move_del_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) 
                  */
                 blobReq->cbWithResult(-1);
             }
-
-            txn->reset();
-            vol->journal_tbl->releaseTransId(transId);
 
             /*
              * TODO: We're deleting the request structure. This assumes
@@ -404,10 +401,10 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
             // Set the error code accordingly if the blob wasn't found
             result = FDSN_StatusEntityDoesNotExist;
         }
-        blobReq->cbWithResult(result);
         journEntry->reset();
-        delete blobReq;
         shvol->journal_tbl->releaseTransId(trans_id);
+        blobReq->cbWithResult(result);        
+        delete blobReq;        
         return;
     }
 
@@ -448,10 +445,11 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
         storHvisor->qos_ctrl->markIODone(journEntry->io);
         journEntry->trans_state = FDS_TRANS_DONE;
 
-        blobReq->setDataLen(0);
-        blobReq->cbWithResult(FDSN_StatusEntityDoesNotExist);
         journEntry->reset();
         shvol->journal_tbl->releaseTransId(trans_id);
+        blobReq->setDataLen(0);        
+        blobReq->cbWithResult(FDSN_StatusEntityDoesNotExist);
+        
         return;
     }
 
@@ -498,10 +496,11 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
         storHvisor->qos_ctrl->markIODone(journEntry->io);
         journEntry->trans_state = FDS_TRANS_DONE;
 
-        blobReq->setDataLen(0);
-        blobReq->cbWithResult(FDSN_StatusEntityEmpty);
         journEntry->reset();
         shvol->journal_tbl->releaseTransId(trans_id);
+        blobReq->setDataLen(0);
+        blobReq->cbWithResult(FDSN_StatusEntityEmpty);
+        
     } else {
         LOGNORMAL << "sending get request to sm"
                   << " name:" << blobReq->getBlobName()
