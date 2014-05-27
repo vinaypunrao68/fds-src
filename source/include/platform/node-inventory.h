@@ -24,6 +24,13 @@ namespace fpi = FDS_ProtocolInterface;
 namespace fds {
 struct node_data;
 class ShmObjRO;
+class SmSvcEp;
+class DmSvcEp;
+class AmSvcEp;
+class OmSvcEp;
+class PmSvcEp;
+class EpSvc;
+class EpSvcImpl;
 
 typedef fpi::FDSP_RegisterNodeType     FdspNodeReg;
 typedef fpi::FDSP_RegisterNodeTypePtr  FdspNodeRegPtr;
@@ -202,6 +209,8 @@ class NodeAgent : public NodeInventory
   protected:
     virtual ~NodeAgent() {}
     explicit NodeAgent(const NodeUuid &uuid) : NodeInventory(uuid) {}
+
+    void agent_bind_ep(boost::intrusive_ptr<EpSvcImpl>, boost::intrusive_ptr<EpSvc>);
 };
 
 /**
@@ -228,13 +237,19 @@ class PmAgent : public NodeAgent
     typedef boost::intrusive_ptr<PmAgent> pointer;
     typedef boost::intrusive_ptr<const PmAgent> const_ptr;
 
-    virtual ~PmAgent() {}
-    PmAgent(const NodeUuid &uuid) : NodeAgent(uuid) {}
+    virtual ~PmAgent();
+    virtual void agent_bind_ep();
+
+    PmAgent(const NodeUuid &uuid);
+    boost::intrusive_ptr<PmSvcEp> agent_ep_svc();
 
     /**
      * Return the RPC handler used to communicate with the peer node agent.
      */
     boost::shared_ptr<fpi::PlatNetSvcClient> agent_rpc();
+
+  protected:
+    boost::intrusive_ptr<PmSvcEp>      pm_ep_svc;
 };
 
 class SmAgent : public NodeAgent
@@ -243,19 +258,22 @@ class SmAgent : public NodeAgent
     typedef boost::intrusive_ptr<SmAgent> pointer;
     typedef boost::intrusive_ptr<const SmAgent> const_ptr;
 
-    SmAgent(const NodeUuid &uuid);
     virtual ~SmAgent();
-
+    virtual void agent_bind_ep();
     virtual void
     sm_handshake(boost::shared_ptr<netSessionTbl> net, NodeAgentDpRespPtr sm_resp);
+
+    SmAgent(const NodeUuid &uuid);
+    boost::intrusive_ptr<SmSvcEp> agent_ep_svc();
 
     NodeAgentDpClientPtr get_sm_client();
     std::string get_sm_sess_id();
 
   protected:
-    netDataPathClientSession  *sm_sess;
-    NodeAgentDpClientPtr       sm_reqt;
-    std::string                sm_sess_id;
+    netDataPathClientSession      *sm_sess;
+    NodeAgentDpClientPtr           sm_reqt;
+    std::string                    sm_sess_id;
+    boost::intrusive_ptr<SmSvcEp>  sm_ep_svc;
 };
 
 class DmAgent : public NodeAgent
@@ -264,8 +282,14 @@ class DmAgent : public NodeAgent
     typedef boost::intrusive_ptr<DmAgent> pointer;
     typedef boost::intrusive_ptr<const DmAgent> const_ptr;
 
-    DmAgent(const NodeUuid &uuid) : NodeAgent(uuid) {}
-    virtual ~DmAgent() {}
+    virtual ~DmAgent();
+    virtual void agent_bind_ep();
+
+    DmAgent(const NodeUuid &uuid);
+    boost::intrusive_ptr<DmSvcEp> agent_ep_svc();
+
+  protected:
+    boost::intrusive_ptr<DmSvcEp>  dm_ep_svc;
 };
 
 class AmAgent : public NodeAgent
@@ -274,8 +298,14 @@ class AmAgent : public NodeAgent
     typedef boost::intrusive_ptr<AmAgent> pointer;
     typedef boost::intrusive_ptr<const AmAgent> const_ptr;
 
-    AmAgent(const NodeUuid &uuid) : NodeAgent(uuid) {}
-    virtual ~AmAgent() {}
+    virtual ~AmAgent();
+    virtual void agent_bind_ep();
+
+    AmAgent(const NodeUuid &uuid);
+    boost::intrusive_ptr<AmSvcEp> agent_ep_svc();
+
+  protected:
+    boost::intrusive_ptr<AmSvcEp>  am_ep_svc;
 };
 
 class OmAgent : public NodeAgent
@@ -284,8 +314,11 @@ class OmAgent : public NodeAgent
     typedef boost::intrusive_ptr<OmAgent> pointer;
     typedef boost::intrusive_ptr<const OmAgent> const_ptr;
 
-    OmAgent(const NodeUuid &uuid);
     virtual ~OmAgent();
+    virtual void agent_bind_ep();
+
+    OmAgent(const NodeUuid &uuid);
+    boost::intrusive_ptr<OmSvcEp> agent_ep_svc();
 
     /**
      * Packet format functions.
@@ -307,6 +340,7 @@ class OmAgent : public NodeAgent
     netOMControlPathClientSession *om_sess;        /** the rpc session to OM.  */
     NodeAgentCpOmClientPtr         om_reqt;        /**< handle to send reqt to OM.  */
     std::string                    om_sess_id;
+    boost::intrusive_ptr<OmSvcEp>  om_ep_svc;
 };
 
 // -------------------------------------------------------------------------------------

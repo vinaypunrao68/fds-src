@@ -101,7 +101,7 @@ NetPlatSvc::nplat_domain_rpc(const fpi::DomainID &id)
 // nplat_my_ep
 // -----------
 //
-EpSvc::pointer
+EpSvcImpl::pointer
 NetPlatSvc::nplat_my_ep()
 {
     return plat_ep;

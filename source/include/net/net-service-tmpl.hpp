@@ -57,6 +57,9 @@ class EpSvcImpl : public EpSvc
     virtual EpSvc::pointer ep_lookup_service(const ResourceUUID &uuid);
     virtual EpSvc::pointer ep_lookup_service(const char *name);
 
+    static EpSvcImpl::pointer ep_impl_cast(EpSvc::pointer svc) {
+        return static_cast<EpSvcImpl *>(get_pointer(svc));
+    }
   protected:
     friend class NetMgr;
     fpi::SvcID                       ep_peer_id;

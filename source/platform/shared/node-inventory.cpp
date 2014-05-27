@@ -9,6 +9,7 @@
 #include <net/net-service-tmpl.hpp>
 #include <platform/platform-lib.h>
 #include <platform/node-inv-shmem.h>
+#include <platform/service-ep-lib.h>
 
 namespace fds {
 
@@ -109,9 +110,9 @@ NodeInventory::node_info_msg_frm_shm(bool am, int ro_idx, NodeInfoMsg *msg)
 void
 NodeInventory::init_plat_info_msg(fpi::NodeInfoMsg *msg) const
 {
-    UuidBindMsg    *msg_bind;
-    Platform::ptr   plat = Platform::platf_const_singleton();
-    EpSvc::pointer  psvc = NetPlatform::nplat_singleton()->nplat_my_ep();
+    UuidBindMsg        *msg_bind;
+    Platform::ptr       plat = Platform::platf_const_singleton();
+    EpSvcImpl::pointer  psvc = NetPlatform::nplat_singleton()->nplat_my_ep();
 
     msg_bind = &msg->node_loc;
     psvc->ep_fmt_uuid_binding(msg_bind, &msg->node_domain);
@@ -436,6 +437,15 @@ NodeAgent::node_set_weight(fds_uint64_t weight)
     const_cast<NodeInvData *>(node_inv)->nd_gbyte_cap = weight;
 }
 
+// agent_bind_ep
+// -------------
+//
+void
+NodeAgent::agent_bind_ep(EpSvcImpl::pointer ep, EpSvc::pointer svc)
+{
+    ep->ep_bind_service(svc);
+}
+
 AgentContainer::AgentContainer(FdspNodeType id) : RsContainer()
 {
     ac_cpSessTbl = boost::shared_ptr<netSessionTbl>(new netSessionTbl(id));
@@ -454,6 +464,16 @@ AgentContainer::agent_handshake(boost::shared_ptr<netSessionTbl> net,
 // --------------------------------------------------------------------------------------
 // PM Agent
 // --------------------------------------------------------------------------------------
+PmAgent::PmAgent(const NodeUuid &uuid) : NodeAgent(uuid)
+{
+    pm_ep_svc = new PmSvcEp(uuid, 0, 0);
+}
+
+PmAgent::~PmAgent() {}
+
+// agent_rpc
+// ---------
+//
 boost::shared_ptr<fpi::PlatNetSvcClient>
 PmAgent::agent_rpc()
 {
@@ -472,15 +492,55 @@ PmAgent::agent_rpc()
     return NULL;
 }
 
+// agent_ep_svc
+// ------------
+//
+PmSvcEp::pointer
+PmAgent::agent_ep_svc()
+{
+    return pm_ep_svc;
+}
+
+// agent_bind_ep
+// -------------
+//
+void
+PmAgent::agent_bind_ep()
+{
+    EpSvcImpl::pointer ep = NetPlatform::nplat_singleton()->nplat_my_ep();
+    NodeAgent::agent_bind_ep(ep, pm_ep_svc);
+}
+
 // --------------------------------------------------------------------------------------
 // SM Agent
 // --------------------------------------------------------------------------------------
-SmAgent::SmAgent(const NodeUuid &uuid)
-    : NodeAgent(uuid), sm_sess(NULL), sm_reqt(NULL) {}
+SmAgent::SmAgent(const NodeUuid &uuid) : NodeAgent(uuid), sm_sess(NULL), sm_reqt(NULL)
+{
+    sm_ep_svc = new SmSvcEp(uuid, 0, 0);
+}
 
 SmAgent::~SmAgent()
 {
     /* TODO(Vy): shutdown netsession and cleanup stuffs here */
+}
+
+// agent_ep_svc
+// ------------
+//
+SmSvcEp::pointer
+SmAgent::agent_ep_svc()
+{
+    return sm_ep_svc;
+}
+
+// agent_bind_ep
+// -------------
+//
+void
+SmAgent::agent_bind_ep()
+{
+    EpSvcImpl::pointer ep = NetPlatform::nplat_singleton()->nplat_my_ep();
+    NodeAgent::agent_bind_ep(ep, sm_ep_svc);
 }
 
 // sm_handshake
@@ -523,14 +583,93 @@ SmContainer::agent_handshake(boost::shared_ptr<netSessionTbl> net,
 }
 
 // --------------------------------------------------------------------------------------
+// DmAgent
+// --------------------------------------------------------------------------------------
+DmAgent::DmAgent(const NodeUuid &uuid) : NodeAgent(uuid)
+{
+    dm_ep_svc = new DmSvcEp(uuid, 0, 0);
+}
+
+DmAgent::~DmAgent() {}
+
+// agent_ep_svc
+// ------------
+//
+DmSvcEp::pointer
+DmAgent::agent_ep_svc()
+{
+    return dm_ep_svc;
+}
+
+// agent_bind_ep
+// -------------
+//
+void
+DmAgent::agent_bind_ep()
+{
+    EpSvcImpl::pointer ep = NetPlatform::nplat_singleton()->nplat_my_ep();
+    NodeAgent::agent_bind_ep(ep, dm_ep_svc);
+}
+
+// --------------------------------------------------------------------------------------
+// AmAgent
+// --------------------------------------------------------------------------------------
+AmAgent::AmAgent(const NodeUuid &uuid) : NodeAgent(uuid)
+{
+    am_ep_svc = new AmSvcEp(uuid, 0, 0);
+}
+
+AmAgent::~AmAgent() {}
+
+// agent_ep_svc
+// ------------
+//
+AmSvcEp::pointer
+AmAgent::agent_ep_svc()
+{
+    return am_ep_svc;
+}
+
+// agent_bind_ep
+// -------------
+//
+void
+AmAgent::agent_bind_ep()
+{
+    EpSvcImpl::pointer ep = NetPlatform::nplat_singleton()->nplat_my_ep();
+    NodeAgent::agent_bind_ep(ep, am_ep_svc);
+}
+
+// --------------------------------------------------------------------------------------
 // OM Agent
 // --------------------------------------------------------------------------------------
-OmAgent::OmAgent(const NodeUuid &uuid)
-    : NodeAgent(uuid), om_sess(NULL), om_reqt(NULL) {}
+OmAgent::OmAgent(const NodeUuid &uuid) : NodeAgent(uuid), om_sess(NULL), om_reqt(NULL)
+{
+    om_ep_svc = new OmSvcEp(uuid, 0, 0);
+}
 
 OmAgent::~OmAgent()
 {
     /* TODO(Vy): shutdown netsession and cleanup stuffs here */
+}
+
+// agent_ep_svc
+// ------------
+//
+OmSvcEp::pointer
+OmAgent::agent_ep_svc()
+{
+    return om_ep_svc;
+}
+
+// agent_bind_ep
+// -------------
+//
+void
+OmAgent::agent_bind_ep()
+{
+    EpSvcImpl::pointer ep = NetPlatform::nplat_singleton()->nplat_my_ep();
+    NodeAgent::agent_bind_ep(ep, om_ep_svc);
 }
 
 // init_msg_hdr

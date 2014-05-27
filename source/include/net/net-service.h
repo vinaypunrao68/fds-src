@@ -558,9 +558,9 @@ class NetPlatform : public Module
 
     inline static NetPlatform   *nplat_singleton() { return gl_NetPlatSvc; }
     virtual void                 nplat_register_node(const fpi::NodeInfoMsg *msg) = 0;
-    virtual EpSvc::pointer       nplat_my_ep() = 0;
     virtual EpSvcHandle::pointer nplat_domain_rpc(const fpi::DomainID &id) = 0;
 
+    virtual bo::intrusive_ptr<EpSvcImpl> nplat_my_ep() = 0;
     virtual std::string const *const nplat_domain_master(int *port) = 0;
 
   protected:
