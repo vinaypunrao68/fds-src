@@ -16,6 +16,7 @@
 #include <TokenCompactor.h>
 #include <fdsp_utils.h>
 #include <net/net-service.h>
+#include <net/net-service-tmpl.hpp>
 
 namespace fds {
 
@@ -335,6 +336,7 @@ void SMSvcHandler::getObjectCb(boost::shared_ptr<GetObjectMsg>& getObjMsg,
 {
 
     auto resp = boost::make_shared<GetObjectResp>();
+    resp->hdr.msg_code = static_cast<int32_t>(err.GetErrno());
     resp->data_obj_len = read_data->obj_data.data.size();
     resp->data_obj = read_data->obj_data.data;
     NetMgr::ep_mgr_singleton()->ep_send_async_resp(getObjMsg->hdr, *resp);
