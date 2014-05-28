@@ -38,7 +38,10 @@ class PlatUuidBindUpdate : public NodeAgentIter
         DomainAgent::pointer  agent;
 
         agent = agt_cast_ptr<DomainAgent>(curr);
-        agent->agent_rpc()->allUuidBinding(bind_msg);
+        auto rpc = agent->agent_rpc();
+        if (rpc != NULL) {
+            rpc->allUuidBinding(bind_msg);
+        }
         return true;
     }
     /**

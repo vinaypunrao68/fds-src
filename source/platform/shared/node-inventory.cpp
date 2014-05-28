@@ -30,18 +30,21 @@ NodeInventory::node_shm_ctrl() const
 // -----------------
 //
 void
-NodeInventory::node_fill_shm_inv(const ShmObjRO *shm, int ro, int rw)
+NodeInventory::node_fill_shm_inv(const ShmObjRO *shm, int ro, int rw, FdspNodeType id)
 {
     const node_data_t *info;
 
     fds_assert(ro != -1);
+    node_svc_type = id;
+
     info = shm->shm_get_rec<node_data_t>(ro);
     if (node_ro_idx == -1) {
-        node_svc_type = info->nd_svc_type;
         strncpy(rs_name, info->nd_auto_name, RS_NAME_MAX - 1);
     } else {
-        fds_verify(info->nd_svc_type == node_svc_type);
-        fds_assert(info->nd_service_uuid == rs_uuid.uuid_get_val());
+        NodeUuid svc, node(info->nd_node_uuid);
+
+        Platform::plf_svc_uuid_from_node(node, &svc, node_svc_type);
+        fds_assert(rs_uuid == svc);
     }
     node_ro_idx = ro;
     node_rw_idx = rw;
@@ -446,6 +449,14 @@ NodeAgent::agent_bind_ep(EpSvcImpl::pointer ep, EpSvc::pointer svc)
     ep->ep_bind_service(svc);
 }
 
+// agent_publish_ep
+// ----------------
+//
+void
+NodeAgent::agent_publish_ep()
+{
+}
+
 AgentContainer::AgentContainer(FdspNodeType id) : RsContainer()
 {
     ac_cpSessTbl = boost::shared_ptr<netSessionTbl>(new netSessionTbl(id));
@@ -762,7 +773,6 @@ AgentContainer::agent_register(const NodeUuid       &uuid,
     if (agent == NULL) {
         add   = activate;
         agent = agt_cast_ptr<NodeAgent>(rs_alloc_new(uuid));
-        FDS_PLOG(g_fdslog) << " Node root " << msg->node_root;
         agent->node_fill_inventory(msg);
     } else {
         if (name.compare(agent->get_node_name()) != 0) {
@@ -788,21 +798,23 @@ AgentContainer::agent_register(const ShmObjRO     *shm,
                                bool                activate)
 {
     bool                add;
-    NodeUuid            svc;
+    NodeUuid            svc, node;
     const node_data_t  *info;
     NodeAgent::pointer  agent;
 
     add   = false;
     *out  = NULL;
     info  = shm->shm_get_rec<node_data_t>(ro);
-    // Platform::plf_svc_uuid_from_node();
 
-    agent = agt_cast_ptr<NodeAgent>(agent_info(info->nd_service_uuid));
+    node.uuid_set_val(info->nd_service_uuid);
+    Platform::plf_svc_uuid_from_node(node, &svc, ac_id);
+
+    agent = agt_cast_ptr<NodeAgent>(agent_info(svc));
     if (agent == NULL) {
         add   = activate;
-        agent = agt_cast_ptr<NodeAgent>(rs_alloc_new(info->nd_service_uuid));
+        agent = agt_cast_ptr<NodeAgent>(rs_alloc_new(svc));
     }
-    agent->node_fill_shm_inv(shm, ro, rw);
+    agent->node_fill_shm_inv(shm, ro, rw, ac_id);
 
     *out = agent;
     if (add == true) {

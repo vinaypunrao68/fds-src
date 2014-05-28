@@ -130,6 +130,7 @@ void
 SmPlatform::mod_enable_service()
 {
     NetMgr::ep_mgr_singleton()->ep_register(sm_ep, false);
+    Platform::mod_enable_service();
 }
 
 void

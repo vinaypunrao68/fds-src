@@ -127,11 +127,13 @@ void
 OmPlatform::mod_enable_service()
 {
     // NetMgr::ep_mgr_singleton()->ep_register(om_ep, false);
+    Platform::mod_enable_service();
 }
 
 void
 OmPlatform::mod_shutdown()
 {
+    Platform::mod_shutdown();
 }
 
 

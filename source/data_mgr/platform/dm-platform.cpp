@@ -135,11 +135,13 @@ void
 DmPlatform::mod_enable_service()
 {
     NetMgr::ep_mgr_singleton()->ep_register(dm_ep, false);
+    Platform::mod_enable_service();
 }
 
 void
 DmPlatform::mod_shutdown()
 {
+    Platform::mod_shutdown();
 }
 
 // plf_reg_node_info

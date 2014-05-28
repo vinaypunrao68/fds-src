@@ -145,7 +145,7 @@ class NodeInventory : public Resource
     /**
      * Fill in the inventory for this agent based on data provided by the message.
      */
-    void node_fill_shm_inv(const ShmObjRO *shm, int ro, int rw);
+    void node_fill_shm_inv(const ShmObjRO *shm, int ro, int rw, FdspNodeType id);
     void node_fill_inventory(const FdspNodeRegPtr msg);
     void node_update_inventory(const FdspNodeRegPtr msg);
     void set_node_state(FdspNodeState state);
@@ -210,6 +210,7 @@ class NodeAgent : public NodeInventory
     virtual ~NodeAgent() {}
     explicit NodeAgent(const NodeUuid &uuid) : NodeInventory(uuid) {}
 
+    void agent_publish_ep();
     void agent_bind_ep(boost::intrusive_ptr<EpSvcImpl>, boost::intrusive_ptr<EpSvc>);
 };
 

@@ -166,7 +166,7 @@ typedef struct shm_con_prd_sync
  * The smq_code field with masks to tell if a request is tracking type to notify the
  * requestor based on smq_id.
  */
-const int SHMQ_TRACK_MASK        = 0x000000;
+const int SHMQ_TRACK_MASK        = 0x800000;
 const int SHMQ_REQ_NULL          = 0x000000;
 const int SHMQ_REQ_UUID_BIND     = 0x000001;
 const int SHMQ_REQ_UUID_UNBIND   = 0x000002;
@@ -268,6 +268,7 @@ class ShmConPrdQueue : public fdsio::RequestQueue
      * Initialize consumer indexes, setting all indexes to -1 (inactive).
      */
     virtual void shm_init_consumer_queue() = 0;
+    virtual void shm_activate_consumer(int consumer) = 0;
 
   protected:
     ShmConPrdQueue(shm_con_prd_sync_t *sync, ShmObjRW *data);
@@ -299,8 +300,7 @@ class Shm_1Prd_nCon : public ShmConPrdQueue
     void shm_consumer(void *data, size_t size, int consumer = 0) override;
     void shm_producer(const void *data, size_t size, int producer = 0) override;
     void shm_init_consumer_queue() override;
-
-    void shm_activate_consumer(int consumer);
+    void shm_activate_consumer(int consumer) override;
 
   private:
     shm_1prd_ncon_q_t *smq_ctrl;
@@ -316,8 +316,7 @@ class Shm_nPrd_1Con : public ShmConPrdQueue
     void shm_consumer(void *data, size_t size, int consumer = 0) override;
     void shm_producer(const void *data, size_t size, int producer = 0) override;
     void shm_init_consumer_queue() override;
-
-    void shm_activate_consumer();
+    void shm_activate_consumer(int cons) override;
 
   private:
     shm_nprd_1con_q_t *smq_ctrl;

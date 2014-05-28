@@ -216,7 +216,7 @@ PlatAgent::pda_register(PmContainer::pointer container)
                               static_cast<void *>(&rec), sizeof(rec));
     fds_verify(idx != -1);
 
-    this->node_fill_shm_inv(shm, idx, idx);
+    this->node_fill_shm_inv(shm, idx, idx, rec.nd_svc_type);
     container->agent_activate(this);
 }
 

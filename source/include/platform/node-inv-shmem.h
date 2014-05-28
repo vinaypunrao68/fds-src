@@ -172,6 +172,7 @@ class NodeShmCtrl : public Module
      * Start a thread to consume at the unique index.
      */
     virtual void shm_start_consumer_thr(int cons_idx) {
+        shm_cons_q->shm_activate_consumer(cons_idx);
         shm_cons_thr =
             new std::thread(&ShmConPrdQueue::shm_consume_loop, shm_cons_q, cons_idx);
     }
