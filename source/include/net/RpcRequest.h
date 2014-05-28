@@ -61,9 +61,15 @@ struct DltObjectIdEpProvider : EpIdProvider {
     }
     virtual fpi::SvcUuid getNextEp() override
     {
+        // TODO(Rao): Impl
+        fpi::SvcUuid svcId;
+        return svcId;
     }
     virtual std::vector<fpi::SvcUuid> getEps() override
     {
+        // TODO(Rao): Impl
+        std::vector<fpi::SvcUuid> uuids;
+        return uuids;
     }
 
     protected:
@@ -75,9 +81,15 @@ struct DmtVolumeIdEpProvider : EpIdProvider {
     }
     virtual fpi::SvcUuid getNextEp() override
     {
+        // TODO(Rao): Impl
+        fpi::SvcUuid svcId;
+        return svcId;
     }
     virtual std::vector<fpi::SvcUuid> getEps() override
     {
+        // TODO(Rao): Impl
+        std::vector<fpi::SvcUuid> uuids;
+        return uuids;
     }
 };
 

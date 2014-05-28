@@ -8,6 +8,8 @@
 
 namespace fds {
 
+RpcRequestPool *gRpcRequestPool = new RpcRequestPool();
+
 /**
  * Constructor
  */

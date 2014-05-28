@@ -14,6 +14,7 @@
 #include <dlt.h>
 #include <ObjectId.h>
 #include <net/net-service.h>
+#include <net/net-service-tmpl.hpp>
 #include <net/RpcRequestPool.h>
 #include <fdsp/DMSvc.h>
 #include <fdsp/SMSvc.h>
