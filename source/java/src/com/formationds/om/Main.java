@@ -1,5 +1,7 @@
 package com.formationds.om;
 
+import com.formationds.apis.AmService;
+import com.formationds.apis.ConfigurationService;
 import com.formationds.fdsp.ClientFactory;
 import com.formationds.security.Authenticator;
 import com.formationds.security.AuthorizationToken;
@@ -8,6 +10,7 @@ import com.formationds.util.libconfig.ParsedConfig;
 import com.formationds.web.toolkit.HttpMethod;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.WebApp;
+import com.formationds.xdi.XdiClientFactory;
 import org.apache.log4j.Logger;
 
 import java.util.function.Supplier;
@@ -31,6 +34,9 @@ public class Main {
         NativeOm.startOm(args);
 
         ParsedConfig omParsedConfig = configuration.getOmConfig();
+        ConfigurationService.Iface configApi = XdiClientFactory.remoteOmService(configuration);
+        AmService.Iface amService = XdiClientFactory.remoteAmService("localhost");
+
         String omHost = omParsedConfig.lookup("fds.om.ip_address").stringValue();
         int omPort = omParsedConfig.lookup("fds.om.config_port").intValue();
         String webDir = omParsedConfig.lookup("fds.om.web_dir").stringValue();
@@ -47,15 +53,13 @@ public class Main {
         authorize(HttpMethod.GET, "/api/config/services", () -> new ListServices(clientFactory.configPathClient(omHost, omPort)));
         authorize(HttpMethod.POST, "/api/config/services/:node_uuid/:domain_id", () -> new ActivatePlatform(clientFactory.configPathClient(omHost, omPort)));
 
-        authorize(HttpMethod.GET, "/api/config/volumes", () -> new ListVolumes(clientFactory.configPathClient(omHost, omPort)));
-        authorize(HttpMethod.POST, "/api/config/volumes/:name", () -> new CreateVolume(clientFactory.configPathClient(omHost, omPort)));
-        authorize(HttpMethod.POST, "/api/config/volume", () -> new FancyCreateVolume(clientFactory.configPathClient(omHost, omPort)));
+        authorize(HttpMethod.GET, "/api/config/volumes", () -> new ListVolumes(configApi, amService, clientFactory.configPathClient(omHost, omPort)));
+        authorize(HttpMethod.POST, "/api/config/volumes", () -> new CreateVolume(configApi, clientFactory.configPathClient(omHost, omPort)));
         authorize(HttpMethod.DELETE, "/api/config/volumes/:name", () -> new DeleteVolume(clientFactory.configPathClient(omHost, omPort)));
         authorize(HttpMethod.PUT, "/api/config/volume/:uuid", () -> new SetVolumeQosParams(clientFactory.configPathClient(omHost, omPort)));
 
         authorize(HttpMethod.GET, "/api/config/globaldomain", ShowGlobalDomain::new);
         authorize(HttpMethod.GET, "/api/config/domains", ListDomains::new);
-        authorize(HttpMethod.GET, "/api/config/volumeDefaults", () -> new ShowVolumeDefaults());
 
        new Thread(() -> {
             try {

@@ -3,43 +3,52 @@ package com.formationds.om;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-
-import FDS_ProtocolInterface.*;
+import FDS_ProtocolInterface.FDSP_ConfigPathReq;
+import com.formationds.apis.ConfigurationService;
+import com.formationds.apis.VolumeSettings;
+import com.formationds.apis.VolumeType;
+import com.formationds.util.SizeUnit;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
+import org.apache.commons.io.IOUtils;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
 
 import java.util.Map;
-import java.util.UUID;
 
 public class CreateVolume implements RequestHandler {
-    private FDSP_ConfigPathReq.Iface client;
+    private ConfigurationService.Iface configApi;
+    private FDSP_ConfigPathReq.Iface legacyConfigPath;
 
-    public CreateVolume(FDSP_ConfigPathReq.Iface client) {
-        this.client = client;
+    public CreateVolume(ConfigurationService.Iface configApi, FDSP_ConfigPathReq.Iface legacyConfigPath) {
+        this.configApi = configApi;
+        this.legacyConfigPath = legacyConfigPath;
     }
 
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
-        String name = requiredString(routeParameters, "volume");
-        int returnValue = createVolume(name, 0, 1000, 1);
-        return new JsonResource(new JSONObject().put("status", returnValue));
-    }
+        JSONObject o = new JSONObject(IOUtils.toString(request.getInputStream()));
+        String name = o.getString("name");
+        int priority = o.getInt("priority");
+        int sla = o.getInt("sla");
+        int limit = o.getInt("limit");
+        JSONObject connector = o.getJSONObject("data_connector");
+        String type = connector.getString("type");
+        if ("block".equals(type)) {
+            JSONObject attributes = connector.getJSONObject("attributes");
+            int sizeUnits = attributes.getInt("size");
+            long sizeInBytes = SizeUnit.valueOf(attributes.getString("unit")).totalBytes(sizeUnits);
+            VolumeSettings volumeSettings = new VolumeSettings(1024 * 4, VolumeType.BLOCK);
+            volumeSettings.setBlockDeviceSizeInBytes(sizeInBytes);
+            configApi.createVolume("", "", volumeSettings);
+        } else {
+            configApi.createVolume("", "", new VolumeSettings(1024 * 1024 * 4, VolumeType.OBJECT));
+        }
 
-    public int createVolume(String name, int minIops, int maxIops, int priority) throws org.apache.thrift.TException {
-        FDSP_MsgHdrType msg = new FDSP_MsgHdrType();
-        String policyName = name + "_policy";
-        int policyId = (int) UUID.randomUUID().getLeastSignificantBits();
-        client.CreatePolicy(msg, new FDSP_CreatePolicyType(policyName, new FDSP_PolicyInfoType(policyName,
-                policyId,
-                minIops,
-                maxIops,
-                priority)));
-        FDSP_VolumeInfoType volInfo = new FDSP_VolumeInfoType();
-        volInfo.setVol_name(name);
-        volInfo.setVolPolicyId(policyId);
-        return client.CreateVol(msg, new FDSP_CreateVolType(name, volInfo));
+        Thread.sleep(200);
+        SetVolumeQosParams.setVolumeQos(legacyConfigPath, name, sla, priority, limit);
+        return new JsonResource(new JSONObject().put("status", "ok"));
     }
 }
+

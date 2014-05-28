@@ -34,14 +34,8 @@ public class SetVolumeQosParams implements RequestHandler {
                 .findFirst()
                 .orElseThrow(() -> new RuntimeException("No such volume"));
 
-        FDSP_VolumeDescType volInfo = client.GetVolInfo(new FDSP_MsgHdrType(), new FDSP_GetVolInfoReqType(volumeDescType.getVol_name(), 0));
-        volInfo.setIops_min(minIops);
-        volInfo.setRel_prio(priority);
-        volInfo.setIops_max(maxIops);
-        volInfo.setVolPolicyId(0);
-        client.ModifyVol(new FDSP_MsgHdrType(), new FDSP_ModifyVolType(volInfo.getVol_name(),
-                volInfo.getVolUUID(),
-                volInfo));
+        String volumeName = volumeDescType.getVol_name();
+        FDSP_VolumeDescType volInfo = setVolumeQos(client, volumeName, minIops, priority, maxIops);
 
         return new TextResource(new HalfFakeVolume(volInfo).toString()) {
             @Override
@@ -49,5 +43,17 @@ public class SetVolumeQosParams implements RequestHandler {
                 return "application/json";
             }
         };
+    }
+
+    public static  FDSP_VolumeDescType setVolumeQos(FDSP_ConfigPathReq.Iface client, String volumeName, int minIops, int priority, int maxIops) throws org.apache.thrift.TException {
+        FDSP_VolumeDescType volInfo = client.GetVolInfo(new FDSP_MsgHdrType(), new FDSP_GetVolInfoReqType(volumeName, 0));
+        volInfo.setIops_min(minIops);
+        volInfo.setRel_prio(priority);
+        volInfo.setIops_max(maxIops);
+        volInfo.setVolPolicyId(0);
+        client.ModifyVol(new FDSP_MsgHdrType(), new FDSP_ModifyVolType(volInfo.getVol_name(),
+                volInfo.getVolUUID(),
+                volInfo));
+        return volInfo;
     }
 }
