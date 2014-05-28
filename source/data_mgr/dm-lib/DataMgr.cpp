@@ -1619,7 +1619,10 @@ DataMgr::pushDeltaVolCat(DmIoSnapVolCat* snapReq) {
              << snapReq->volId << " to node "
              << (snapReq->node_uuid).uuid_get_val() << std::dec;
 
-    // TODO(xxx) do second rsync here or in CatalogSync::deltaDoneCb
+    VolumeMeta *vm = vol_meta_map[snapReq->volId];
+    //  do second rsync here or in CatalogSync::deltaDoneCb
+    err = vm->deltaSyncVolCat(snapReq->volId, snapReq->node_uuid);
+    LOGDEBUG << "Finished delta rsync, calling catsync callback";
 
     // call CatalogSync update to record rsync progress
     snapReq->dmio_snap_vcat_cb(snapReq->volId, err);

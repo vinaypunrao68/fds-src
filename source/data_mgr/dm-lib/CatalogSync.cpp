@@ -526,7 +526,7 @@ FDSP_MetaSyncRpc::MetaSyncDone(fpi::FDSP_MsgHdrTypePtr& fdsp_msg,
     LOGNORMAL << "Received MetaSyncDone Rpc message ";
     fds_verify(dataMgr->vol_meta_map.count(vol_meta->vol_uuid) > 0);
     VolumeMeta *vm = dataMgr->vol_meta_map[vol_meta->vol_uuid];
-    vm->openCatalogs();
+    vm->openCatalogs(vol_meta->vol_uuid);
 }
 
 

@@ -646,7 +646,7 @@ class VolumeMeta {
      * is called when pusing volume's catalogs is done so they can be
      * now opened and ready for transactions
      */
-    void openCatalogs();
+    void openCatalogs(fds_volid_t volId);
 
     void dmCopyVolumeDesc(VolumeDesc *v_desc, VolumeDesc *pVol);
   /*
@@ -663,6 +663,7 @@ class VolumeMeta {
     fds_bool_t isEmpty() const;
     Error listBlobs(std::list<BlobNode>& bNodeList);
     Error syncVolCat(fds_volid_t volId, NodeUuid node_uuid);
+    Error deltaSyncVolCat(fds_volid_t volId, NodeUuid node_uuid);
 };
 
 }  // namespace fds

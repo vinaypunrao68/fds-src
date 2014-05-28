@@ -76,12 +76,14 @@ VolumeMeta::~VolumeMeta() {
  * is called when pusing volume's catalogs is done so they can be
  * now opened and ready for transactions
  */
-void VolumeMeta::openCatalogs()
+void VolumeMeta::openCatalogs(fds_volid_t volid)
 {
+    const std::string vol_name =  dataMgr->getPrefix() +
+                              std::to_string(volid);
     const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
     fds_verify((vcat == NULL) && (tcat == NULL));
-    vcat = new VolumeCatalog(root->dir_user_repo_dm() + vol_desc->name + "_vcat.ldb", true);
-    tcat = new TimeCatalog(root->dir_user_repo_dm() + vol_desc->name + "_tcat.ldb", true);
+    vcat = new VolumeCatalog(root->dir_user_repo_dm() + vol_name + "_vcat.ldb", true);
+    tcat = new TimeCatalog(root->dir_user_repo_dm() + vol_name + "_tcat.ldb", true);
 
     // TODO(xxx) unblock this volume's qos queue
 }
@@ -275,6 +277,75 @@ VolumeMeta::syncVolCat(fds_volid_t volId, NodeUuid node_uuid)
     FDS_PLOG(dm_log) << "system Command :  return Code : " << returnCode;
   return err;
 }
+
+
+Error
+VolumeMeta::deltaSyncVolCat(fds_volid_t volId, NodeUuid node_uuid)
+{
+
+  Error err(ERR_OK);
+  fds_uint64_t start, end;
+  int  returnCode = 0;
+  const std::string vol_name =  dataMgr->getPrefix() +
+                              std::to_string(volId);
+  fds_uint32_t node_ip   = 0;
+  fds_uint32_t node_port = 0;
+  fds_int32_t node_state = -1;
+
+  FDS_PLOG(dm_log) << " syncDeltaVolCat: " << volId;
+
+  const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
+  NodeAgent::pointer node = Platform::plf_dm_nodes()->agent_info(node_uuid);
+  DmAgent::pointer dm = DmAgent::agt_cast_ptr(node);
+  const std::string dst_node = dm->get_node_root() + "user-repo/dm-names/";
+  const std::string src_dir_vcat = root->dir_user_repo_dm() + vol_name + "_vcat.ldb";
+  const std::string src_dir_tcat = root->dir_user_repo_dm() + vol_name + "_tcat.ldb";
+  const std::string dst_dir =  root->dir_user_repo_snap();
+  const std::string src_sync_vcat =  root->dir_user_repo_snap() + vol_name + "_vcat.ldb";
+  const std::string src_sync_tcat =  root->dir_user_repo_snap() + vol_name + "_tcat.ldb";
+
+  dataMgr->omClient->getNodeInfo(node_uuid.uuid_get_val(), &node_ip, &node_port, &node_state);
+  std::string dest_ip = netSessionTbl::ipAddr2String(node_ip);
+
+
+  const std::string test_cp = "cp -r "+src_dir_vcat+"*  "+dst_dir+" ";
+  const std::string test_rsync = "sshpass -p passwd rsync -r "+dst_dir+"  root@"+dest_ip+":"+dst_node+"";
+  FDS_PLOG(dm_log) << " rsync: local copy  " << test_cp;
+  FDS_PLOG(dm_log) << " rsync:  " << test_rsync;
+
+  /* clean the content of the snap dir. */
+  returnCode = std::system((const char *)("rm -rf  "+dst_dir+"* ").c_str());
+  returnCode = std::system((const char *)("rm -rf  "+dst_dir+"* ").c_str());
+
+  vol_mtx->lock();
+  //err = vcat->DbSnap(root->dir_user_repo_dm() + "snap" + vol_name + "_vcat.ldb");
+  returnCode = std::system((const char *)("cp -r "+src_dir_vcat+"  "+dst_dir+" ").c_str());
+  returnCode = std::system((const char *)("cp -r "+src_dir_tcat+"  "+dst_dir+" ").c_str());
+  vol_mtx->unlock();
+
+  FDS_PLOG(dm_log) << "system Command  copy return Code : " << returnCode;
+
+  if (! err.ok()) {
+    FDS_PLOG(dm_log) << "Failed to create vol snap " << " with err " << err;
+    return err;
+  }
+
+    start = fds_rdtsc();
+    FDS_PLOG(dm_log) << " system Command rsync  start time: " <<  start;
+  // rsync the meta data to the new DM nodes 
+   // returnCode = std::system((const char *)("sshpass -p passwd rsync -r "+dst_dir+"  root@"+dest_ip+":/tmp").c_str());
+   returnCode = std::system((const char *)("sshpass -p passwd rsync -r "+src_sync_vcat+"  root@"+dest_ip+":"+dst_node+"").c_str());
+   returnCode = std::system((const char *)("sshpass -p passwd rsync -r "+src_sync_tcat+"  root@"+dest_ip+":"+dst_node+"").c_str());
+  // returnCode = std::system((const char *)("rsync -r --rsh='sshpass -p passwd ssh -l root' "+dst+"/  root@"+dest_ip+":"+dst_node+"").c_str());
+   
+  end = fds_rdtsc();
+  if ((end - start))
+    FDS_PLOG(dm_log) << " system Command rsync time: " <<  ((end - start) / fds_tck_per_us());
+
+    FDS_PLOG(dm_log) << "system Command :  return Code : " << returnCode;
+  return err;
+}
+
 
 
 void VolumeMeta::dmCopyVolumeDesc(VolumeDesc *v_desc, VolumeDesc *pVol) {
