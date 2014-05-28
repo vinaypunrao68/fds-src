@@ -106,11 +106,11 @@ namespace fds {
     std::ostream& operator<<(std::ostream& out, const Error& err);
 
     typedef enum {
-        /* do denote uninitialized value*/
-        FDSN_StatusNOTSET                                          ,
-
         FDSN_StatusOK                                              ,
         FDSN_StatusCreated                                         ,
+
+        /* do denote uninitialized value*/
+        FDSN_StatusNOTSET                                          ,
 
         /**
          * Errors that prevent the S3 request from being issued or response from

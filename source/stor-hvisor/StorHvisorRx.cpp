@@ -109,7 +109,7 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) {
                 // del_timer(txn->p_ti);
                 txn->reset();
                 vol->journal_tbl->releaseTransId(transId);
-                blobReq->cbWithResult(0);
+                blobReq->cbWithResult(FDSN_StatusOK);
                 /*
                  * TODO: We're deleting the request structure. This assumes
                  * that the caller got everything they needed when the callback
@@ -283,7 +283,7 @@ int StorHvCtrl::fds_move_del_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) 
             vol->journal_tbl->releaseTransId(transId);
             if (rxMsg->result == FDSP_ERR_OK) {
                 LOGNOTIFY << "Invoking the callback";
-                blobReq->cbWithResult(0);
+                blobReq->cbWithResult(FDSN_StatusOK);
             } else {
                 /*
                  * We received an error from SM

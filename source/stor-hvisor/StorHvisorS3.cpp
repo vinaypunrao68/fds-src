@@ -1318,7 +1318,7 @@ fds::Error StorHvCtrl::getObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
         blobReq->setBlobEtag(blobEtag);
         txn->reset();
         vol->journal_tbl->releaseTransId(transId);
-        blobReq->cbWithResult(0);
+        blobReq->cbWithResult(FDSN_StatusOK);
     } else {
         /*
          * We received an error from SM. check the Error. If the Obj Not found 
