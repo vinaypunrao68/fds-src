@@ -251,16 +251,28 @@ EpPlatLibMod::ep_uuid_bind_frm_msg(ep_map_rec_t *rec, const fpi::UuidBindMsg *ms
  * Platform lib shared memory queue handlers
  * -------------------------------------------------------------------------------------
  */
+
+// This function is notified from EpPlatformMod::node_reg_notify() through shared
+// memory queue interface.
+//
 void
 PlatLibUuidBind::shmq_handler(const shmq_req_t *in, size_t size)
 {
-    const ep_shmq_req_t *map = reinterpret_cast<const ep_shmq_req_t *>(in);
+    const ep_shmq_req_t    *map = reinterpret_cast<const ep_shmq_req_t *>(in);
+    NodeAgent::pointer      agent;
+    DomainNodeInv::pointer  local;
 
     std::cout << "Plat lib uuid binding is called " << std::endl;
 
     /* Cache the binding info. */
     fds_assert(map->smq_idx >= 0);
     NetMgr::ep_mgr_singleton()->ep_register_binding(&map->smq_rec, map->smq_idx);
+
+    /* Allocate node agents as proxy to this node and its services. */
+    agent = NULL;
+    local = Platform::platf_singleton()->plf_node_inventory();
+    local->dc_register_node(NodeShmCtrl::shm_node_inventory(), &agent,
+                            map->smq_idx, -1, NODE_DO_PROXY_ALL_SVCS);
 }
 
 void
@@ -275,8 +287,9 @@ PlatLibNodeReg::shmq_handler(const shmq_req_t *in, size_t size)
     shm = NodeShmCtrl::shm_node_inventory(req->smq_type);
 
     /* Register the node to platform lib domain. */
+    agent = NULL;
     local = Platform::platf_singleton()->plf_node_inventory();
-    local->dc_register_node(shm, &agent, req->smq_idx, -1);
+    local->dc_register_node(shm, &agent, req->smq_idx, -1, NODE_DO_PROXY_ALL_SVCS);
 }
 
 }  // namespace fds

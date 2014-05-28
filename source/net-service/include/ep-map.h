@@ -112,6 +112,7 @@ class EpPlatformdMod : public EpPlatLibMod
 
   protected:
     ShmObjRWKeyUint64       *ep_uuid_rw;
+    ShmObjRWKeyUint64       *ep_node_rw;
 };
 
 }  // namespace fds

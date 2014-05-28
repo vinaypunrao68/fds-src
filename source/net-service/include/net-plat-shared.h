@@ -85,12 +85,13 @@ class DomainAgent : public PmAgent
     virtual void pda_connect_domain(const fpi::DomainID &id);
 
   protected:
+    friend class NetPlatSvc;
     friend class PlatformdNetSvc;
 
     DomainAgentPlugin::pointer            agt_domain_evt;
     EpSvcHandle::pointer                  agt_domain_ep;
 
-    virtual void pda_register(PmContainer::pointer pm) {}
+    virtual void pda_register();
 };
 
 class NetPlatSvc : public NetPlatform

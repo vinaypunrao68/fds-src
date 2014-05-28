@@ -31,6 +31,7 @@ class OmSvcEp;
 class PmSvcEp;
 class EpSvc;
 class EpSvcImpl;
+class AgentContainer;
 
 typedef fpi::FDSP_RegisterNodeType     FdspNodeReg;
 typedef fpi::FDSP_RegisterNodeTypePtr  FdspNodeRegPtr;
@@ -44,6 +45,8 @@ typedef boost::shared_ptr<PlatRpcResp>                        OmRespDispatchPtr;
 
 typedef boost::shared_ptr<fpi::FDSP_DataPathReqClient>        NodeAgentDpClientPtr;
 typedef boost::shared_ptr<PlatDataPathResp>                   NodeAgentDpRespPtr;
+
+const fds_uint32_t NODE_DO_PROXY_ALL_SVCS = (NODE_SVC_SM | NODE_SVC_DM | NODE_SVC_AM);
 
 /**
  * POD types for common node inventory.
@@ -207,6 +210,8 @@ class NodeAgent : public NodeInventory
     virtual void         node_set_weight(fds_uint64_t weight);
 
   protected:
+    friend class AgentContainer;
+
     virtual ~NodeAgent() {}
     explicit NodeAgent(const NodeUuid &uuid) : NodeInventory(uuid) {}
 
@@ -448,12 +453,14 @@ class AgentContainer : public RsContainer
                                  bool                  activate = true);
     virtual Error agent_unregister(const NodeUuid &uuid, const std::string &name);
 
+    /**
+     * @param shm (i) - the shared memory segment to access inventory data.
+     * @param out (i/o) - NULL if the agent obj hasn't been allocated.
+     * @param ro, rw (i) - indices to get the node inventory data RO or RW (-1 invalid).
+     * @param bool (i) - true if want to register, publish the node/service endpoint.
+     */
     virtual void
-    agent_register(const ShmObjRO     *shm,
-                   NodeAgent::pointer *out,
-                   int                 ro,
-                   int                 rw,
-                   bool                activate = true);
+    agent_register(const ShmObjRO *shm, NodeAgent::pointer *out, int ro, int rw);
 
     /**
      * Establish RPC connection with the remte agent.
@@ -464,8 +471,8 @@ class AgentContainer : public RsContainer
                     NodeAgent::pointer               agent);
 
   protected:
-    // NetSession fields, need to remove.
     FdspNodeType                       ac_id;
+    // NetSession fields, need to remove.
     boost::shared_ptr<netSessionTbl>   ac_cpSessTbl;
 
     virtual ~AgentContainer();
@@ -489,7 +496,7 @@ class PmContainer : public AgentContainer
 {
   public:
     typedef boost::intrusive_ptr<PmContainer> pointer;
-    PmContainer(FdspNodeType id) : AgentContainer(id) {}
+    PmContainer(FdspNodeType id) : AgentContainer(id) { ac_id = fpi::FDSP_PLATFORM; }
 
   protected:
     virtual ~PmContainer() {}
@@ -520,7 +527,7 @@ class DmContainer : public AgentContainer
 {
   public:
     typedef boost::intrusive_ptr<DmContainer> pointer;
-    DmContainer(FdspNodeType id) : AgentContainer(id) {}
+    DmContainer(FdspNodeType id) : AgentContainer(id) { ac_id = fpi::FDSP_DATA_MGR; }
 
   protected:
     virtual ~DmContainer() {}
@@ -533,7 +540,7 @@ class AmContainer : public AgentContainer
 {
   public:
     typedef boost::intrusive_ptr<AmContainer> pointer;
-    AmContainer(FdspNodeType id) : AgentContainer(id) {}
+    AmContainer(FdspNodeType id) : AgentContainer(id) { ac_id = fpi::FDSP_STOR_HVISOR; }
 
   protected:
     virtual ~AmContainer() {}
@@ -546,7 +553,7 @@ class OmContainer : public AgentContainer
 {
   public:
     typedef boost::intrusive_ptr<OmContainer> pointer;
-    OmContainer(FdspNodeType id) : AgentContainer(id) {}
+    OmContainer(FdspNodeType id) : AgentContainer(id) { ac_id = fpi::FDSP_ORCH_MGR; }
 
   protected:
     virtual ~OmContainer() {}

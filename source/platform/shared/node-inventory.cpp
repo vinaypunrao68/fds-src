@@ -455,6 +455,9 @@ NodeAgent::agent_bind_ep(EpSvcImpl::pointer ep, EpSvc::pointer svc)
 void
 NodeAgent::agent_publish_ep()
 {
+    LOGDEBUG << "Agent publish ep " << std::hex << rs_uuid.uuid_get_val()
+        << ", obj " << this << ", svc type " << node_svc_type
+        << ", idx " << node_ro_idx << ", rw idx " << node_rw_idx;
 }
 
 AgentContainer::AgentContainer(FdspNodeType id) : RsContainer()
@@ -579,7 +582,10 @@ std::string SmAgent::get_sm_sess_id() {
     return sm_sess_id;
 }
 
-SmContainer::SmContainer(FdspNodeType id) : AgentContainer(id) {}
+SmContainer::SmContainer(FdspNodeType id) : AgentContainer(id)
+{
+    ac_id = fpi::FDSP_STOR_MGR;
+}
 
 // agent_handshake
 // ---------------
@@ -794,31 +800,35 @@ void
 AgentContainer::agent_register(const ShmObjRO     *shm,
                                NodeAgent::pointer *out,
                                int                 ro,
-                               int                 rw,
-                               bool                activate)
+                               int                 rw)
 {
     bool                add;
     NodeUuid            svc, node;
     const node_data_t  *info;
     NodeAgent::pointer  agent;
 
-    add   = false;
-    *out  = NULL;
-    info  = shm->shm_get_rec<node_data_t>(ro);
+    add = true;
+    if (*out == NULL) {
+        info = shm->shm_get_rec<node_data_t>(ro);
+        node.uuid_set_val(info->nd_service_uuid);
+        Platform::plf_svc_uuid_from_node(node, &svc, ac_id);
 
-    node.uuid_set_val(info->nd_service_uuid);
-    Platform::plf_svc_uuid_from_node(node, &svc, ac_id);
-
-    agent = agt_cast_ptr<NodeAgent>(agent_info(svc));
-    if (agent == NULL) {
-        add   = activate;
-        agent = agt_cast_ptr<NodeAgent>(rs_alloc_new(svc));
+        agent = agt_cast_ptr<NodeAgent>(agent_info(svc));
+        if (agent == NULL) {
+            agent = agt_cast_ptr<NodeAgent>(rs_alloc_new(svc));
+        } else {
+            add = false;
+        }
+        *out = agent;
+    } else {
+        agent = *out;
+        fds_verify(agent->node_svc_type == ac_id);
     }
     agent->node_fill_shm_inv(shm, ro, rw, ac_id);
 
-    *out = agent;
     if (add == true) {
         agent_activate(agent);
+        agent->agent_publish_ep();
     }
 }
 
@@ -938,15 +948,19 @@ DomainContainer::dc_register_node(const ShmObjRO     *shm,
     container->agent_register(shm, agent, ro, rw);
 
     if ((mask & fpi::NODE_SVC_SM) != 0) {
+        tmp = NULL;
         dc_sm_nodes->agent_register(shm, &tmp, ro, rw);
     }
     if ((mask & fpi::NODE_SVC_DM) != 0) {
+        tmp = NULL;
         dc_dm_nodes->agent_register(shm, &tmp, ro, rw);
     }
     if ((mask & fpi::NODE_SVC_AM) != 0) {
+        tmp = NULL;
         dc_am_nodes->agent_register(shm, &tmp, ro, rw);
     }
     if ((mask & fpi::NODE_SVC_OM) != 0) {
+        tmp = NULL;
         dc_om_nodes->agent_register(shm, &tmp, ro, rw);
     }
 }

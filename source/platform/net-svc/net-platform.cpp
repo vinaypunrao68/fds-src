@@ -79,7 +79,7 @@ PlatformdNetSvc::mod_startup()
 void
 PlatformdNetSvc::mod_enable_service()
 {
-    plat_agent->pda_register(Platform::plf_pm_nodes());
+    netmgr->ep_register(plat_ep, false);
     NetPlatSvc::mod_enable_service();
 }
 
@@ -201,12 +201,14 @@ PlatAgent::init_stor_cap_msg(fpi::StorCapMsg *msg) const
 // ------------
 //
 void
-PlatAgent::pda_register(PmContainer::pointer container)
+PlatAgent::pda_register()
 {
-    int                idx;
-    node_data_t        rec;
-    fpi::NodeInfoMsg   msg;
-    ShmObjRWKeyUint64 *shm;
+    int                     idx;
+    node_data_t             rec;
+    fpi::NodeInfoMsg        msg;
+    ShmObjRWKeyUint64      *shm;
+    NodeAgent::pointer      agent;
+    DomainNodeInv::pointer  local;
 
     this->init_plat_info_msg(&msg);
     this->node_info_msg_to_shm(&msg, &rec);
@@ -216,8 +218,9 @@ PlatAgent::pda_register(PmContainer::pointer container)
                               static_cast<void *>(&rec), sizeof(rec));
     fds_verify(idx != -1);
 
-    this->node_fill_shm_inv(shm, idx, idx, rec.nd_svc_type);
-    container->agent_activate(this);
+    agent = this;
+    local = Platform::platf_singleton()->plf_node_inventory();
+    local->dc_register_node(shm, &agent, idx, idx, NODE_DO_PROXY_ALL_SVCS);
 }
 
 // ep_connected

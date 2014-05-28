@@ -127,6 +127,8 @@ EpPlatformdMod::mod_startup()
     Module::mod_startup();
     ep_uuid_rw   = NodeShmRWCtrl::shm_uuid_rw_binding();
     ep_uuid_bind = NodeShmRWCtrl::shm_uuid_binding();
+    ep_node_rw   = NodeShmRWCtrl::shm_node_rw_inv();
+    ep_node_bind = NodeShmRWCtrl::shm_node_inventory();
 }
 
 // mod_enable_service
@@ -169,7 +171,6 @@ void
 EpPlatformdMod::node_reg_notify(const node_data_t *info)
 {
     int                     idx;
-    fds_uint32_t            mask;
     ep_map_rec_t            map;
     ep_shmq_node_req_t      out;
     ShmConPrdQueue         *plat;
@@ -180,7 +181,7 @@ EpPlatformdMod::node_reg_notify(const node_data_t *info)
     /* Save the node_info binding to shared memory. */
     shm = NodeShmRWCtrl::shm_node_rw_inv(info->nd_svc_type);
     idx = shm->shm_insert_rec(static_cast<const void *>(&info->nd_node_uuid),
-                              static_cast<void *>(&info), sizeof(info));
+                              reinterpret_cast<const void *>(info), sizeof(*info));
 
     /* Cache the binding info. */
     fds_verify(idx >= 0);
@@ -197,10 +198,10 @@ EpPlatformdMod::node_reg_notify(const node_data_t *info)
     plat = NodeShmCtrl::shm_producer();
     plat->shm_producer(static_cast<void *>(&out), sizeof(out), 0);
 
-    /* Allocate node agent to represent this node. */
+    /* Allocate node agents as proxy to this node and its services. */
+    agent = NULL;
     local = Platform::platf_singleton()->plf_node_inventory();
-    mask  = NODE_SVC_SM | NODE_SVC_DM | NODE_SVC_AM;
-    local->dc_register_node(shm, &agent, idx, idx, mask);
+    local->dc_register_node(shm, &agent, idx, idx, NODE_DO_PROXY_ALL_SVCS);
 }
 
 }  // namespace fds

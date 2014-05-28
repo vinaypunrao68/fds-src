@@ -42,7 +42,10 @@ class NodeUpdateIter : public NodeAgentIter
         std::vector<fpi::NodeInfoMsg> ret;
 
         agent = agt_cast_ptr<DomainAgent>(curr);
-        agent->agent_rpc()->notifyNodeInfo(ret, *(nd_reg_msg.get()), false);
+        auto rpc = agent->agent_rpc();
+        if (rpc != NULL) {
+            rpc->notifyNodeInfo(ret, *(nd_reg_msg.get()), false);
+        }
         return true;
     }
     /**
@@ -116,25 +119,20 @@ PlatformEpHandler::notifyNodeInfo(std::vector<fpi::NodeInfoMsg>    &ret,
 {
     DomainNodeInv::pointer local;
 
+    net_plat->nplat_register_node(msg.get());
     if (*bcast == true) {
         fds_threadpool          *thr;
-        NodeUpdateIter::pointer  iter = new NodeUpdateIter();
+        NodeInfoIter             info(ret);
+        NodeUpdateIter::pointer  update = new NodeUpdateIter();
 
         thr = NetMgr::ep_mgr_thrpool();
-        thr->schedule(&NodeUpdateIter::node_reg_update, iter, msg);
-    }
-    net_plat->nplat_register_node(msg.get());
+        thr->schedule(&NodeUpdateIter::node_reg_update, update, msg);
 
-    // Go through the entire domain to send back inventory info to the new node.
-    if (*bcast == true) {
-        NodeInfoIter iter(ret);
+        // Go through the entire domain to send back inventory info to the new node.
 
         local = Platform::platf_singleton()->plf_node_inventory();
-        local->dc_foreach_am(&iter);
-        local->dc_foreach_pm(&iter);
-        local->dc_foreach_dm(&iter);
-        local->dc_foreach_sm(&iter);
-        std::cout << "Sent back " << iter.rs_iter_count() << std::endl;
+        local->dc_foreach_dm(&info);
+        std::cout << "Sent back " << info.rs_iter_count() << std::endl;
     }
 }
 

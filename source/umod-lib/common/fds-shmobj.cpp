@@ -3,6 +3,7 @@
  */
 #include <algorithm>
 #include <vector>
+#include <util/Log.h>
 #include <fds-shmobj.h>
 #include <platform/node-inv-shmem.h>
 #include <platform/fds-shmem.h>
@@ -67,9 +68,11 @@ ShmObjRO::shm_lookup_rec(int idx, const void *key, void *rec, size_t rec_sz) con
     fds_verify((0 <= idx) && (idx < shm_obj_cnt));
     cur = shm_area + (idx * shm_obj_siz);
     if (key != NULL) {
-        /* Verify the key. */
-        fds_verify(obj_key_cmp(static_cast<const char *>(key),
-                               cur + shm_key_off, shm_key_siz) == 0);
+        /* Verify the key if the index is wrong. */
+        if (obj_key_cmp(static_cast<const char *>(key),
+                        cur + shm_key_off, shm_key_siz) != 0) {
+            return -1;
+        }
     }
     memcpy(rec, cur, shm_obj_siz);
     return idx;
@@ -266,6 +269,7 @@ ShmConPrdQueue::shm_track_request(ShmqReqOut *out, shmq_req_t *hdr, int caller)
     //
     hdr->smq_code |= SHMQ_TRACK_MASK;
     hdr->smq_idx = caller;
+    hdr->smq_payload_size = 0;
 
     // Mutex down so we don't duplicate IDs by accident
     pthread_mutex_lock(&smq_sync->shm_mtx);
@@ -327,6 +331,9 @@ ShmConPrdQueue::shm_consume_loop(int consumer_idx)
         } else {
             cb = shm_get_callback(inp->smq_code);
         }
+        LOGDEBUG << "Recv shm: " << inp->smq_code << ", " << inp->smq_idx <<
+            ", id " << inp->smq_id;
+
         if (cb != NULL) {
             cb->shmq_handler(inp, size);
         }
@@ -366,8 +373,9 @@ ShmConPrdQueue::shm_get_callback(fds_uint32_t code)
     }
 }
 
-Shm_1Prd_nCon::Shm_1Prd_nCon(shm_con_prd_sync_t *sync, shm_1prd_ncon_q_t *ctrl, ShmObjRW *data)
-        : ShmConPrdQueue(sync, data), smq_ctrl(ctrl) {}
+Shm_1Prd_nCon::Shm_1Prd_nCon(shm_con_prd_sync_t *sync,
+                             shm_1prd_ncon_q_t *ctrl, ShmObjRW *data)
+    : ShmConPrdQueue(sync, data), smq_ctrl(ctrl) {}
 
 void
 Shm_1Prd_nCon::shm_init_consumer_queue()
@@ -488,8 +496,9 @@ Shm_1Prd_nCon::shm_producer(const void *data, size_t size, int producer /* = 0 *
 }
 
 
-Shm_nPrd_1Con::Shm_nPrd_1Con(shm_con_prd_sync_t *sync, shm_nprd_1con_q_t *ctrl, ShmObjRW *data)
-        : ShmConPrdQueue(sync, data), smq_ctrl(ctrl) {}
+Shm_nPrd_1Con::Shm_nPrd_1Con(shm_con_prd_sync_t *sync,
+                             shm_nprd_1con_q_t *ctrl, ShmObjRW *data)
+    : ShmConPrdQueue(sync, data), smq_ctrl(ctrl) {}
 
 void
 Shm_nPrd_1Con::shm_init_consumer_queue()
