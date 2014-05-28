@@ -788,12 +788,15 @@ AgentContainer::agent_register(const ShmObjRO     *shm,
                                bool                activate)
 {
     bool                add;
+    NodeUuid            svc;
     const node_data_t  *info;
     NodeAgent::pointer  agent;
 
     add   = false;
     *out  = NULL;
     info  = shm->shm_get_rec<node_data_t>(ro);
+    // Platform::plf_svc_uuid_from_node();
+
     agent = agt_cast_ptr<NodeAgent>(agent_info(info->nd_service_uuid));
     if (agent == NULL) {
         add   = activate;
@@ -903,20 +906,37 @@ DomainContainer::dc_register_node(const NodeUuid       &uuid,
 }
 
 void
-DomainContainer::dc_register_node(const ShmObjRO *shm,
-                                  NodeAgent::pointer *agent, int ro, int rw)
+DomainContainer::dc_register_node(const ShmObjRO     *shm,
+                                  NodeAgent::pointer *agent,
+                                  int ro, int rw, fds_uint32_t mask)
 {
     const node_data_t       *node;
+    NodeAgent::pointer       tmp;
     AgentContainer::pointer  container;
 
     fds_verify(ro != -1);
     node = shm->shm_get_rec<node_data_t>(ro);
 
+    fds_verify(node->nd_svc_type == fpi::FDSP_PLATFORM);
     LOGDEBUG << "Platform domain register node uuid " << std::hex
-        << node->nd_node_uuid << ", svc uuid " << node->nd_service_uuid;
+        << node->nd_node_uuid << ", svc uuid " << node->nd_service_uuid
+        << ", svc mask " << mask;
 
     container = dc_container_frm_msg(node->nd_svc_type);
-    return container->agent_register(shm, agent, ro, rw);
+    container->agent_register(shm, agent, ro, rw);
+
+    if ((mask & fpi::NODE_SVC_SM) != 0) {
+        dc_sm_nodes->agent_register(shm, &tmp, ro, rw);
+    }
+    if ((mask & fpi::NODE_SVC_DM) != 0) {
+        dc_dm_nodes->agent_register(shm, &tmp, ro, rw);
+    }
+    if ((mask & fpi::NODE_SVC_AM) != 0) {
+        dc_am_nodes->agent_register(shm, &tmp, ro, rw);
+    }
+    if ((mask & fpi::NODE_SVC_OM) != 0) {
+        dc_om_nodes->agent_register(shm, &tmp, ro, rw);
+    }
 }
 
 // dc_unregister_node

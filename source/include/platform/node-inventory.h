@@ -582,7 +582,8 @@ class DomainContainer
                                    NodeAgent::pointer   *agent);
 
     virtual void
-    dc_register_node(const ShmObjRO *shm, NodeAgent::pointer *agent, int ro, int rw);
+    dc_register_node(const ShmObjRO     *shm,
+                     NodeAgent::pointer *agent, int ro, int rw, fds_uint32_t mask = 0);
 
     virtual Error dc_unregister_node(const NodeUuid &uuid, const std::string &name);
     virtual Error dc_unregister_agent(const NodeUuid &uuid, FdspNodeType type);

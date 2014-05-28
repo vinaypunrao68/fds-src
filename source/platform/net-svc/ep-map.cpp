@@ -166,6 +166,7 @@ void
 EpPlatformdMod::node_reg_notify(const node_data_t *info)
 {
     int                     idx;
+    fds_uint32_t            mask;
     ep_map_rec_t            map;
     ep_shmq_node_req_t      out;
     ShmConPrdQueue         *plat;
@@ -195,7 +196,8 @@ EpPlatformdMod::node_reg_notify(const node_data_t *info)
 
     /* Allocate node agent to represent this node. */
     local = Platform::platf_singleton()->plf_node_inventory();
-    local->dc_register_node(shm, &agent, idx, idx);
+    mask  = NODE_SVC_SM | NODE_SVC_DM | NODE_SVC_AM;
+    local->dc_register_node(shm, &agent, idx, idx, mask);
 }
 
 }  // namespace fds
