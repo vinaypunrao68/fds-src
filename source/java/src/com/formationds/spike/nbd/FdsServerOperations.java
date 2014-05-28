@@ -2,17 +2,17 @@ package com.formationds.spike.nbd;/*
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.apis.AmService;
-import com.formationds.apis.ConfigurationService;
-import com.formationds.apis.ObjectOffset;
-import com.formationds.apis.TxDescriptor;
+import com.formationds.apis.*;
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 import org.apache.log4j.Logger;
 import org.apache.thrift.TException;
 
 import java.io.InputStream;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 
 public class FdsServerOperations implements NbdServerOperations {
@@ -44,11 +44,11 @@ public class FdsServerOperations implements NbdServerOperations {
 
     @Override
     public long size(String exportName) {
-        return 10 * 1024 * 1024;
+        return 100 * 1024 * 1024;
     }
 
     @Override
-    public void read(String exportName, ByteBuf target, final long offset, int len) {
+    public synchronized void read(String exportName, ByteBuf target, final long offset, int len) throws Exception {
         int objectSize = getMaxObjectSize(exportName);
 
         try {
@@ -60,35 +60,71 @@ public class FdsServerOperations implements NbdServerOperations {
                 int i_len = Math.min(len - am_bytes_read, objectSize - i_off);
 
                 ObjectOffset objectOffset = new ObjectOffset(o_off);
-                ByteBuffer buf = am.getBlob(FDS, exportName, BLOCK_DEV_NAME, objectSize, objectOffset);
+                ByteBuffer buf = guardedRead(exportName, objectSize, objectOffset);
 
                 target.writeBytes(buf.array(), i_off, i_len);
                 am_bytes_read += i_len;
             }
         } catch (TException e) {
             LOG.error("error reading bytes", e);
+            throw e;
         }
     }
 
     @Override
-    public void write(String exportName, ByteBuf source, long offset, int len) {
+    public synchronized void write(String exportName, ByteBuf source, long offset, int len) throws Exception {
         int objectSize = getMaxObjectSize(exportName);
 
         try {
             int am_bytes_written = 0;
-            TxDescriptor txId = am.startBlobTx(FDS, exportName, exportName);
-            ByteBuffer readBuf = ByteBuffer.wrap(source.array());
+
             while(am_bytes_written < len) {
                 long cur = offset + am_bytes_written;
                 long o_off = cur / objectSize;
+                int i_off = (int)(cur % objectSize);
+                int i_len = Math.min(len - am_bytes_written, objectSize - i_off);
                 ObjectOffset objectOffset = new ObjectOffset(o_off);
 
-                am.updateBlob(FDS, exportName, BLOCK_DEV_NAME, txId, readBuf, objectSize, objectOffset, ByteBuffer.allocate(0), true);
-                am_bytes_written += objectSize;
+                TxDescriptor txId = am.startBlobTx(FDS, exportName, exportName);
+                if(i_off == 0) {
+                    ByteBuffer readBuf =  ByteBuffer.allocate(i_len);
+                    System.arraycopy(source.array(), am_bytes_written, readBuf.array(), 0, i_len);
+                    am.updateBlob(FDS, exportName, BLOCK_DEV_NAME, txId, readBuf, i_len, objectOffset, ByteBuffer.allocate(0), false);
+                    am_bytes_written += i_len;
+                } else {
+                    ByteBuffer readBuf = guardedRead(exportName, objectSize, objectOffset);
+                    System.arraycopy(source.array(), 0, readBuf.array(), i_off, i_len);
+                    am.updateBlob(FDS, exportName, BLOCK_DEV_NAME, txId, readBuf, objectSize, objectOffset, ByteBuffer.allocate(0), false);
+                    am_bytes_written += i_len;
+                }
+                am.commitBlobTx(txId);
             }
-            am.commitBlobTx(txId);
+
+            // write verification
+            /*ByteBuf v_buf = Unpooled.buffer(len);
+            read(exportName, v_buf, offset, len);
+            if(v_buf.compareTo(source) != 0) {
+                ArrayList<Integer> differences = new ArrayList<>();
+                for(int i = 0; i < len; i++) {
+                    if(v_buf.getByte(i) != source.getByte(i))
+                        differences.add(i);
+                }
+                LOG.warn("write verify failed");
+            } */
         } catch (TException e) {
             LOG.error("error writing bytes", e);
+            throw e;
+        }
+    }
+
+    private ByteBuffer guardedRead(String exportName, int objectSize, ObjectOffset objectOffset) throws TException {
+        try {
+            return am.getBlob(FDS, exportName, BLOCK_DEV_NAME, objectSize, objectOffset);
+        } catch(ApiException e) {
+            if(e.getErrorCode() == ErrorCode.MISSING_RESOURCE)
+                return ByteBuffer.allocate(objectSize);
+
+            throw e;
         }
     }
 }

@@ -2,8 +2,8 @@ package com.formationds.spike.nbd;/*
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.apis.AmService;
-import com.formationds.apis.ConfigurationService;
+import com.formationds.apis.*;
+import com.formationds.spike.ReadWriteVerifierOperations;
 import com.formationds.util.Configuration;
 import com.formationds.xdi.XdiClientFactory;
 import io.netty.bootstrap.ServerBootstrap;
@@ -14,6 +14,8 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
+
+import java.nio.ByteBuffer;
 
 public class NbdHost {
     private int port;
@@ -55,10 +57,14 @@ public class NbdHost {
         AmService.Iface am = XdiClientFactory.remoteAmService("localhost");
         ConfigurationService.Iface config = XdiClientFactory.remoteOmService(configuration);
 
-        FdsServerOperations ops = new FdsServerOperations(am, config);
-        //NbdServerOperations ops = new RamOperations("hello", 10000000);
+        NbdServerOperations ops = new FdsServerOperations(am, config);
+        //NbdServerOperations ops = new RamOperations("hello", 1000000000);
+        //ops = new ReadWriteVerifierOperations(ops);
 
         new NbdHost(10809, ops).run();
         //config.createVolume("fds", "hello", new VolumeSettings(4 * 1024, VolumeType.BLOCK));
+        //TxDescriptor desc = am.startBlobTx("fds", "hello", "block_dev_0");
+        //am.updateBlob("fds", "hello", "block_dev_0", desc, ByteBuffer.allocate(4096), 4096, new ObjectOffset(0), ByteBuffer.allocate(0), false);
+        //am.commitBlobTx(desc);
     }
 }
