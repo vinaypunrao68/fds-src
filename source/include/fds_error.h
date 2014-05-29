@@ -7,7 +7,7 @@
 
 #include <sstream>
 #include <string>
-#include <fds_types.h>
+#include <shared/fds_types.h>
 #include <fdsp/FDSP_types.h>
 
 namespace fds {
