@@ -544,7 +544,7 @@ void LevelDBChecker::run_checker()
         }
     }
 
-    LOGNORMAL << "Checker run done!" << std::endl;
+    LOGNORMAL << "Checker run done, all tests PASSED!" << std::endl;
     LOGNORMAL << cntrs_.toString();
 }
 
