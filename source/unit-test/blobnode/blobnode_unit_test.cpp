@@ -11,6 +11,19 @@
 using namespace fds;
 using namespace fds::serialize;
 
+TEST_CASE("ObjectId") {
+    ObjectID id1, id2;
+
+    id1.SetId("company");
+    std::string buffer;
+    id1.getSerialized(buffer);
+    id2.loadSerialized(buffer);
+    // std::cout << id1.ToHex() << ":" << id2.ToHex() << std::endl;
+    REQUIRE(id1.ToString() == id2.ToHex());
+}
+
+
+
 TEST_CASE("Metadata") {
     MetadataPair meta,meta1;
     meta.key = "name";
