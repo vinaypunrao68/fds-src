@@ -504,7 +504,6 @@ void LevelDBChecker::run_checker()
 
     DmtColumnPtr col_ptr = om_client->getDMTNodesForVolume(volume_id);
     std::cout << "Got col_ptr " << col_ptr << std::endl;
-    std::cout << "First entry = " << col_ptr->get(0) << std::endl;
 
     // Col 0 is master, everything should check against this
     list_bucket(col_ptr->get(0), volume_id, v_name);
@@ -512,10 +511,10 @@ void LevelDBChecker::run_checker()
     BlobInfoListType master(resp_vector);
 
     // For each row in the table
-    for (uint i = 0; i < col_ptr->getLength(); ++i) {
+    for (uint i = 1; i < col_ptr->getLength(); ++i) {
         // Get the BlobInfoVector
         list_bucket(col_ptr->get(i), volume_id, v_name);
-
+        std::cout << "Comparing master vs " << col_ptr->get(i) << std::endl;
         // Should now have a resp_vector -> BlobInfoListType
         for (uint j = 0; j < master.size(); ++j) {
             FDSP_BlobInfoType &m_elm = master.at(j);
