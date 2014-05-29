@@ -11,7 +11,8 @@
 #include <thrift/protocol/TProtocol.h>
 #include <thrift/transport/TBufferTransports.h>
 #include <util/timeutils.h>
-
+#include <string>
+#include <vector>
 namespace fds {
 namespace serialize {
 typedef boost::shared_ptr<apache::thrift::protocol::TProtocol> TProtocolPtr;
@@ -76,8 +77,8 @@ struct Deserializer {
  * serialize/deserialize .
  */
 struct Serializable {
-    uint32_t virtual write(Serializer*  serializer  ) const = 0;
-    uint32_t virtual read(Deserializer* deserializer) = 0;
+    uint32_t virtual write(Serializer*  s) const = 0;
+    uint32_t virtual read(Deserializer* d) = 0;
     uint32_t virtual getEstimatedSize() const;
     Error virtual getSerialized(std::string& serializedData) const; //NOLINT
     Error virtual loadSerialized(const std::string& serializedData);
