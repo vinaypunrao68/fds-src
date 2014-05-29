@@ -6,6 +6,7 @@ package com.formationds.xdi;
 import com.formationds.apis.*;
 import org.apache.thrift.protocol.TBinaryProtocol;
 import org.apache.thrift.transport.TSocket;
+import org.apache.thrift.transport.TFramedTransport;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
@@ -30,8 +31,9 @@ public class SmokeTest {
         }
 
         TSocket socket = new TSocket(host, port);
-        socket.open();
-        AmService.Iface am = new AmService.Client(new TBinaryProtocol(socket));
+        TFramedTransport tfTrans = new TFramedTransport(socket);
+        tfTrans.open();
+        AmService.Iface am = new AmService.Client(new TBinaryProtocol(tfTrans));
         TSocket omTransport = new TSocket("localhost", 9090);
         omTransport.open();
         

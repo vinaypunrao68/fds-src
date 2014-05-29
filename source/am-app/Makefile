@@ -38,7 +38,8 @@ user_non_fds_libs :=  \
     thrift \
     config++ \
     cryptopp \
-	hiredis \
+    hiredis \
+    event \
     $(user_nginx_libs)
 
 user_cc           :=  \
