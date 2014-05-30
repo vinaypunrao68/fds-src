@@ -218,7 +218,8 @@ namespace fds {
         FDS_VOL_Q_INACTIVE,
         FDS_VOL_Q_SUSPENDED,
         FDS_VOL_Q_QUIESCING,
-        FDS_VOL_Q_ACTIVE
+        FDS_VOL_Q_ACTIVE,
+        FDS_VOL_Q_STOP_DEQUEUE
     } VolumeQState;
 
     /* **********************************************
@@ -249,6 +250,7 @@ namespace fds {
                              fds_uint32_t _prio);
 
         void activate();
+        void stopDequeue();
 
 
         // Quiesce queued IOs on this queue & block any new IOs

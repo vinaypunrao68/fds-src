@@ -9,12 +9,12 @@
 #include <unordered_map>
 #include <boost/thread.hpp>
 #include <thrift/concurrency/ThreadManager.h>
-#include <thrift/concurrency/PosixThreadFactory.h>
-#include <thrift/protocol/TBinaryProtocol.h>
-#include <thrift/server/TThreadPoolServer.h>
+// #include <thrift/concurrency/PosixThreadFactory.h>
+// #include <thrift/protocol/TBinaryProtocol.h>
+// #include <thrift/server/TThreadPoolServer.h>
 #include <thrift/server/TThreadedServer.h>
-#include <thrift/transport/TServerSocket.h>
-#include <thrift/transport/TBufferTransports.h>
+// #include <thrift/transport/TServerSocket.h>
+// #include <thrift/transport/TBufferTransports.h>
 #include <thrift/transport/TTransportUtils.h>
 #include <fdsp/FDSP_DataPathReq.h>
 #include <fdsp/FDSP_DataPathResp.h>
