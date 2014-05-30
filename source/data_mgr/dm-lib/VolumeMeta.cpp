@@ -34,6 +34,7 @@ uint32_t MetadataPair::write(serialize::Serializer* s) const {
 
 uint32_t MetadataPair::read(serialize::Deserializer* d) {
     uint32_t b = 0;
+    key.clear(); value.clear();
     b += d->readString(key);
     b += d->readString(value);
     return b;
@@ -218,15 +219,18 @@ uint32_t BlobNode::write(serialize::Serializer*  s) const {
     bytes += s->writeI32(readQuorum);
     bytes += s->writeI32(consisProtocol);
 
-    bytes += s->writeVector(meta_list);
+    uint32_t sz = meta_list.size();
+    bytes += s->writeI32(sz);
+    for (const MetadataPair& meta : meta_list) {
+        bytes += meta.write(s);
+    }
     bytes += obj_list.write(s);
-
     return bytes;
 }
 
 uint32_t BlobNode::read(serialize::Deserializer* d) {
     uint32_t bytes = 0;
-
+    blob_name.clear();
     bytes += d->readString(blob_name);
     bytes += d->readI64(version);
     bytes += d->readI64(reinterpret_cast<int64_t&>(vol_id));
@@ -236,9 +240,15 @@ uint32_t BlobNode::read(serialize::Deserializer* d) {
     bytes += d->readI32(writeQuorum);
     bytes += d->readI32(readQuorum);
     bytes += d->readI32(consisProtocol);
-
+    uint32_t sz = 0;
+    bytes += d->readI32(sz);
     meta_list.clear();
-    bytes += d->readVector(meta_list);
+    meta_list.reserve(sz);
+    for ( ; sz > 0 ; --sz) {
+        MetadataPair meta;
+        bytes += meta.read(d);
+        meta_list.push_back(meta);
+    }
     bytes += obj_list.read(d);
 
     return bytes;
@@ -350,10 +360,10 @@ Error VolumeMeta::OpenTransaction(const std::string blob_name,
      */
 
 
-    Record key((const char *)blob_name.c_str(),
-               blob_name.size());
+    Record key(blob_name);
 
     std::string serializedData;
+    LOGDEBUG << "storing bnode";
     bnode->getSerialized(serializedData);
 
     Record val(serializedData);
@@ -377,7 +387,8 @@ fds_bool_t VolumeMeta::isEmpty() const {
     for (dbIt->SeekToFirst(); dbIt->Valid(); dbIt->Next()) {
         Record key = dbIt->key();
         BlobNode bnode;
-        bnode.loadSerialized(dbIt->value().ToString());
+        LOGDEBUG << "loading bnode";
+        fds_verify(bnode.loadSerialized(dbIt->value().ToString()) == ERR_OK);
         if (bnode.version != blob_version_deleted) {
             // Found a non-deleted blob in the volume
             return false;
@@ -401,7 +412,8 @@ Error VolumeMeta::listBlobs(std::list<BlobNode>& bNodeList) {
         Record key = dbIt->key();
         LOGNORMAL << "List blobs iterating over key " << key.ToString();
         BlobNode bnode;
-        bnode.loadSerialized(dbIt->value().ToString());
+        LOGDEBUG << "loading bnode";
+        fds_verify(bnode.loadSerialized(dbIt->value().ToString()) == ERR_OK);
         if (bnode.version != blob_version_deleted) {
             bNodeList.push_back(bnode);
         }
@@ -411,14 +423,12 @@ Error VolumeMeta::listBlobs(std::list<BlobNode>& bNodeList) {
     return err;
 }
 
-Error VolumeMeta::QueryVcat(const std::string blob_name,
-                            BlobNode*& bnode) {
+Error VolumeMeta::QueryVcat(const std::string blob_name, BlobNode*& bnode) {
     Error err(ERR_OK);
 
     bnode = NULL;
 
-    Record key((const char *)blob_name.c_str(),
-               blob_name.size());
+    Record key(blob_name);
 
     /*
      * The query will allocate the record.
@@ -439,7 +449,8 @@ Error VolumeMeta::QueryVcat(const std::string blob_name,
     }
 
     bnode = new BlobNode();
-    bnode->loadSerialized(val);
+    LOGDEBUG << "loading bnode";
+    fds_verify(bnode->loadSerialized(val) == ERR_OK);
 
     return err;
 }
@@ -448,8 +459,7 @@ Error VolumeMeta::DeleteVcat(const std::string blob_name) {
     Error err(ERR_OK);
 
 
-    Record key((const char *)blob_name.c_str(),
-               blob_name.size());
+    Record key(blob_name);
 
     vol_mtx->lock();
     err = vcat->Delete(key);
@@ -564,11 +574,9 @@ std::ostream& operator<<(std::ostream& out, const BlobNode& bnode) {
         << " version:" << bnode.version
         << " size:" << bnode.blob_size
         << " volume:" << bnode.vol_id
-        << " entries: {offset:size} ";
+        << " entries: ("
+        << bnode.obj_list << ")";
 
-    for (const auto& obj :  bnode.obj_list) {
-        out << "{" << obj.offset << ":" << obj.size << "} ";
-    }
 
     out << " meta: ";
     for (const auto& meta :  bnode.meta_list) {
