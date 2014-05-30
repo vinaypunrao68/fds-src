@@ -333,6 +333,10 @@ void FDS_VolumeQueue::activate() {
     volQState = FDS_VOL_Q_ACTIVE;
 }
 
+void FDS_VolumeQueue::stopDequeue() {
+    volQState = FDS_VOL_Q_STOP_DEQUEUE;
+}
+
 
 // Quiesce queued IOs on this queue & block any new IOs
 void  FDS_VolumeQueue::quiesceIOs() {
@@ -348,7 +352,7 @@ void   FDS_VolumeQueue::resumeIO() {
 }
 
 void FDS_VolumeQueue::enqueueIO(FDS_IOType *io) {
-    if (volQState == FDS_VOL_Q_ACTIVE) {
+    if (volQState == FDS_VOL_Q_ACTIVE || volQState == FDS_VOL_Q_STOP_DEQUEUE) {
         while (!volQueue->push(io)){}
     }
 }

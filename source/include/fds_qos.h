@@ -190,6 +190,14 @@ namespace fds {
         que->suspendIO();
     }
 
+    virtual void deactivateQueue(fds_qid_t queue_id) {
+        if (queue_map.count(queue_id) == 0) {	
+            return;
+        }
+        FDS_VolumeQueue *que = queue_map[queue_id];
+        que->stopDequeue();
+    }
+
     virtual void resumeQueue(fds_qid_t queue_id) {
         if (queue_map.count(queue_id) == 0) {	
             return;
