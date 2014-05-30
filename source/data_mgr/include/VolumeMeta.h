@@ -640,6 +640,14 @@ class VolumeMeta {
                VolumeDesc *v_desc,
                fds_bool_t crt_catalogs);
     ~VolumeMeta();
+
+    /**
+     * If this volume's catalogs were pushed from other DM, this method
+     * is called when pusing volume's catalogs is done so they can be
+     * now opened and ready for transactions
+     */
+    void openCatalogs(fds_volid_t volId);
+
     void dmCopyVolumeDesc(VolumeDesc *v_desc, VolumeDesc *pVol);
   /*
    * per volume queue
@@ -655,6 +663,7 @@ class VolumeMeta {
     fds_bool_t isEmpty() const;
     Error listBlobs(std::list<BlobNode>& bNodeList);
     Error syncVolCat(fds_volid_t volId, NodeUuid node_uuid);
+    Error deltaSyncVolCat(fds_volid_t volId, NodeUuid node_uuid);
 };
 
 }  // namespace fds

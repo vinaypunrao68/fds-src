@@ -35,12 +35,15 @@ CatalogSync::CatalogSync(const NodeUuid& uuid,
 CatalogSync::~CatalogSync() {
 }
 
-Error CatalogSync::startSync(const std::set<fds_volid_t>& volumes,
+/**
+ * On return, set 'volumes' will be empty
+ */
+Error CatalogSync::startSync(std::set<fds_volid_t>* volumes,
                              netMetaSyncClientSession* client,
                              catsync_done_handler_t done_evt_hdlr) {
     Error err(ERR_OK);
     csStateType expect = CSSTATE_READY;
-    if (!std::atomic_compare_exchange_strong(&state, &expect, CSSTATE_IN_PROGRESS)) {
+    if (!std::atomic_compare_exchange_strong(&state, &expect, CSSTATE_INITIAL_SYNC)) {
         LOGNOTIFY << "startSync called in not ready state, must not happen!";
         fds_verify(false);
         return ERR_NOT_READY;
@@ -52,13 +55,13 @@ Error CatalogSync::startSync(const std::set<fds_volid_t>& volumes,
     // set callback to notify when sync job is done
     meta_client = client;
     done_evt_handler = done_evt_hdlr;
-    total_vols = volumes.size();
+    sync_volumes.swap(*volumes);
     fds_uint32_t counter_zero = 0;
     std::atomic_store(&vols_done, counter_zero);
 
     // queue qos requests to do db snapshot and do rsync per volume!
-    for (std::set<fds_volid_t>::const_iterator cit = volumes.cbegin();
-         cit != volumes.cend();
+    for (std::set<fds_volid_t>::const_iterator cit = sync_volumes.cbegin();
+         cit != sync_volumes.cend();
          ++cit) {
         DmIoSnapVolCat* snap_req = new DmIoSnapVolCat();
         snap_req->io_type = FDS_DM_SNAP_VOLCAT;
@@ -71,7 +74,7 @@ Error CatalogSync::startSync(const std::set<fds_volid_t>& volumes,
         // enqueue to qos queue
         // TODO(anna) for now enqueueing to vol queue, need to
         // add system queue
-        err = dm_req_handler->enqueueMsg(*cit, snap_req);
+        err = dm_req_handler->enqueueMsg(FdsDmSysTaskId, snap_req);
         // TODO(xxx) handle error -- probably queue is full and we
         // should retry later?
         fds_verify(err.ok());
@@ -80,14 +83,53 @@ Error CatalogSync::startSync(const std::set<fds_volid_t>& volumes,
     return err;
 }
 
+void CatalogSync::doDeltaSync() {
+    Error err(ERR_OK);
+    csStateType cur_state = std::atomic_load(&state);
+    if (cur_state != CSSTATE_DELTA_SYNC) {
+        fds_panic("doDeltaSync is called in wrong state! node_uuid %llx",
+                  node_uuid.uuid_get_val());
+    }
+
+    LOGNORMAL << "Start delta sync to destination node "
+              << std::hex << node_uuid.uuid_get_val() << std::dec;
+
+    // at this point, we must have meta client and done evt handler
+    fds_verify(meta_client != NULL);
+    fds_verify(done_evt_handler != NULL);
+
+    // reset vols_done so we can also use it
+    // for tracking delta sync progress
+    fds_uint32_t counter_zero = 0;
+    std::atomic_store(&vols_done, counter_zero);
+
+    // queue qos requests to do db snapshot and do second rsync per volume!
+    for (std::set<fds_volid_t>::const_iterator cit = sync_volumes.cbegin();
+         cit != sync_volumes.cend();
+         ++cit) {
+        DmIoSnapVolCat* snap_req = new DmIoSnapVolCat();
+        snap_req->io_type = FDS_DM_SNAPDELTA_VOLCAT;
+        snap_req->node_uuid = node_uuid;
+        snap_req->volId = *cit;
+        snap_req->dmio_snap_vcat_cb = std::bind(
+            &CatalogSync::deltaDoneCb, this,
+            std::placeholders::_1, std::placeholders::_2);
+
+        // enqueue to qos queue
+        // TODO(anna) for now enqueueing to vol queue, need to
+        // add system queue
+        err = dm_req_handler->enqueueMsg(FdsDmSysTaskId, snap_req);
+        // TODO(xxx) handle error -- probably queue is full and we
+        // should start timer to retry
+        fds_verify(err.ok());
+    }
+}
+
+
 void CatalogSync::snapDoneCb(fds_volid_t volid,
                              const Error& error) {
-    fds_uint32_t done_before, total_done;
-    fds_uint32_t vols_done_now = 1;  // doing 1 vol at a time
-
-    // we must be in progress state
-    csStateType cur_state = std::atomic_load(&state);
-    fds_verify(cur_state == CSSTATE_IN_PROGRESS);
+    // record progress
+    fds_uint32_t total_done = recordVolumeDone(CSSTATE_INITIAL_SYNC);
 
     if (!error.ok()) {
         LOGERROR << "Rsync finished with error!";
@@ -96,35 +138,102 @@ void CatalogSync::snapDoneCb(fds_volid_t volid,
         // for now ignoring...
     }
 
-    // account for progress and see if we finished rsyncing all
-    // volumes to this node
-    done_before = std::atomic_fetch_add(&vols_done, vols_done_now);
-    total_done = done_before + vols_done_now;
-    fds_verify(total_done <= total_vols);
-
     LOGDEBUG << "Finished rsync for volume " << std::hex << volid
              << " to node " << node_uuid.uuid_get_val() << std::dec
              << ", " << error << "; volumes finished so far "
-             << total_done << " out of " << total_vols;
+             << total_done << " out of " << sync_volumes.size();
+
+    if (total_done == sync_volumes.size()) {
+        // we are done with the initial sync for this node!
+        std::atomic_exchange(&state, CSSTATE_DELTA_SYNC);
+
+        // reset vols_done so we can re-use it
+        // for tracking delta sync progress
+        fds_uint32_t counter_zero = 0;
+        std::atomic_store(&vols_done, counter_zero);
+
+        // notify catsync mgr that we are done
+        fds_verify(done_evt_handler);
+        done_evt_handler(CATSYNC_INITIAL_SYNC_DONE, volid, om_client, error);
+    }
+}
+
+void CatalogSync::deltaDoneCb(fds_volid_t volid,
+                              const Error& error) {
+    // record progress
+    fds_uint32_t total_done = recordVolumeDone(CSSTATE_DELTA_SYNC);
+
+    if (!error.ok()) {
+        LOGERROR << "Second Rsync finished with error!";
+        // TODO(xxx) should we remember the error and continue with
+        // other rsync???
+        // for now ignoring...
+    }
+
+    LOGDEBUG << "Finished second rsync for volume " << std::hex << volid
+             << " to node " << node_uuid.uuid_get_val() << std::dec
+             << ", " << error << "; volumes finished so far "
+             << total_done << " out of " << sync_volumes.size();
 
     // Send msg to DM that we finished syncing this volume
+    // this means that we are not going to do any rsync for this
+    // volume anymore, only forward updates
     Error err = sendMetaSyncDone(volid);
     if (!err.ok()) {
         // TODO(xxx) how should we handle this? for now ignoring
     }
 
-    if (total_done == total_vols) {
-        // we are done for this node!
-        std::atomic_exchange(&state, CSSTATE_DONE);
+    if (total_done == sync_volumes.size()) {
+        // we are done with delta rsync for this node!
+        std::atomic_exchange(&state, CSSTATE_FORWARDING);
         // notify catsync mgr that we are done
         fds_verify(done_evt_handler);
-        done_evt_handler(volid, om_client, error);
+        done_evt_handler(CATSYNC_DELTA_SYNC_DONE, volid, om_client, error);
     }
 }
 
-fds_bool_t CatalogSync::isDone() const {
+/**
+ * Record progress of one volume finishing either initial sync or
+ * delta sync -- common functionality used by snapDoneCb() and deltaDoneCb()
+ */
+fds_uint32_t CatalogSync::recordVolumeDone(csStateType expected_state) {
+    fds_uint32_t done_before, total_done;
+    fds_uint32_t vols_done_now = 1;  // doing 1 vol at a time
+
+    // we must be in 'expected_state' sync state
     csStateType cur_state = std::atomic_load(&state);
-    return (cur_state == CSSTATE_DONE);
+    fds_verify(cur_state == expected_state);
+
+    // account for progress and see if we finished rsyncing all
+    // volumes to this node
+    done_before = std::atomic_fetch_add(&vols_done, vols_done_now);
+    total_done = done_before + vols_done_now;
+    fds_verify(total_done <= sync_volumes.size());
+
+    return total_done;
+}
+
+fds_bool_t CatalogSync::isInitialSyncDone() const {
+    csStateType cur_state = std::atomic_load(&state);
+    return ((cur_state != CSSTATE_READY) &&
+            (cur_state != CSSTATE_INITIAL_SYNC));
+}
+
+fds_bool_t CatalogSync::isDeltaSyncDone() const {
+    csStateType cur_state = std::atomic_load(&state);
+    return ((cur_state != CSSTATE_READY) &&
+            (cur_state != CSSTATE_INITIAL_SYNC) &&
+            (cur_state != CSSTATE_DELTA_SYNC));
+}
+
+Error CatalogSync::forwardCatalogUpdate(fds_volid_t volid) {
+    Error err(ERR_OK);
+    fds_verify(hasVolume(volid));
+    LOGDEBUG << "Will forward catalog update for volume "
+             << std::hex << volid << std::dec;
+
+    // TODO(xxx) implement.
+    return err;
 }
 
 Error CatalogSync::sendMetaSyncDone(fds_volid_t volid) {
@@ -276,42 +385,115 @@ CatalogSyncMgr::startCatalogSync(const FDS_ProtocolInterface::FDSP_metaDataList&
 
         // Tell CatalogSync to start the sync process
         // TODO(xxx) only start max_syn_inprogress syncs, but for now starting all
-        catsync->startSync(vols, meta_client,
+        catsync->startSync(&vols, meta_client,
                            std::bind(&CatalogSyncMgr::syncDoneCb, this,
                                      std::placeholders::_1,
                                      std::placeholders::_2,
-                                     std::placeholders::_3));
+                                     std::placeholders::_3,
+                                     std::placeholders::_4));
     }
 
     return err;
 }
 
-void CatalogSyncMgr::syncDoneCb(fds_volid_t volid,
+Error
+CatalogSyncMgr::startCatalogSyncDelta(const std::string& context) {
+    Error err(ERR_OK);
+
+    fds_mutex::scoped_lock l(cat_sync_lock);
+    // sync must be in progress
+    if (!sync_in_progress) {
+        LOGWARN << "Will Not start delta sync because catsync not in progress!";
+        return ERR_NOT_READY;
+    }
+    fds_verify(cat_sync_map.size() > 0);
+    // make sure that all CatalogSync objects finished the initial sync
+    for (CatSyncMap::const_iterator cit = cat_sync_map.cbegin();
+         cit != cat_sync_map.cend();
+         ++cit) {
+        if ((cit->second)->isInitialSyncDone() == false) {
+            // make sure this method is called on DMT commit from OM
+            fds_panic("Cannot start delta sync if initial sync is not done!!!");
+        }
+    }
+    // update context to return with callback
+    cat_sync_context = context;
+    // start delta sync on all our CatalogSync objects
+    for (CatSyncMap::const_iterator cit = cat_sync_map.cbegin();
+         cit != cat_sync_map.cend();
+         ++cit) {
+        (cit->second)->doDeltaSync();
+    }
+    return err;
+}
+
+Error CatalogSyncMgr::forwardCatalogUpdate(fds_volid_t volume_id) {
+    Error err(ERR_OK);
+    fds_bool_t found_volume = false;
+
+    fds_mutex::scoped_lock l(cat_sync_lock);
+    // this method must be called only when sync is in progress
+    fds_verify(sync_in_progress);
+
+    // find CatalogSync that is responsible for this volume
+    for (CatSyncMap::const_iterator cit = cat_sync_map.cbegin();
+         cit != cat_sync_map.cend();
+         ++cit) {
+        if ((cit->second)->hasVolume(volume_id)) {
+            err = (cit->second)->forwardCatalogUpdate(volume_id);
+            found_volume = true;
+            break;
+        }
+    }
+
+    // must be called only for volumes for which sync is in progress!
+    // otherwise make sure that VolumeMeta has correct forwarding state/flag
+    fds_verify(found_volume);
+
+    return err;
+}
+
+/**
+ * Called when initial or delta sync is finished for a given
+ * volume 'volid'
+ */
+void CatalogSyncMgr::syncDoneCb(catsync_notify_evt_t event,
+                                fds_volid_t volid,
                                 OMgrClient* omclient,
                                 const Error& error) {
-    fds_bool_t send_meta_push_ack = false;
+    fds_bool_t send_ack = false;
     {  // check if all cat sync jobs are finished
         fds_mutex::scoped_lock l(cat_sync_lock);
         if (sync_in_progress) {
-            send_meta_push_ack = true;
+            send_ack = true;
             for (CatSyncMap::const_iterator cit = cat_sync_map.cbegin();
                  cit != cat_sync_map.cend();
                  ++cit) {
-                if ((cit->second)->isDone() == false) {
-                    send_meta_push_ack = false;
-                    break;
+                if (event == CATSYNC_INITIAL_SYNC_DONE) {
+                    if ((cit->second)->isInitialSyncDone() == false) {
+                        send_ack = false;
+                        break;
+                    }
+                } else {
+                    fds_verify(event == CATSYNC_DELTA_SYNC_DONE);
+                    if ((cit->second)->isDeltaSyncDone() == false) {
+                        send_ack = false;
+                        break;
+                    }
                 }
             }
-            sync_in_progress = (send_meta_push_ack == false);
         }
     }
 
     LOGNORMAL << "Sync is finished for volume " << std::hex << volid
               << std::dec << " " << error;
 
-    if (send_meta_push_ack) {
-        LOGNORMAL << "Catalog Sync finished for all volumes";
+    if ((event == CATSYNC_INITIAL_SYNC_DONE) && send_ack) {
+        LOGNORMAL << "PushMeta finished for all volumes";
         omclient->sendDMTPushMetaAck(error, cat_sync_context);
+    } else if ((event == CATSYNC_DELTA_SYNC_DONE) && send_ack) {
+        LOGNORMAL << "Delta sync finished for all volumes, sending commit ack";
+        omclient->sendDMTCommitAck(error, cat_sync_context);
     }
 }
 
@@ -320,9 +502,14 @@ void CatalogSyncMgr::syncDoneCb(fds_volid_t volid,
  * state of this sync and be ready for next sync...
  */
 void CatalogSyncMgr::notifyCatalogSyncFinish() {
-    // must be called when catalog sync is finished for all vols!
     fds_mutex::scoped_lock l(cat_sync_lock);
-    fds_verify(sync_in_progress == false);
+    // delta sync must be done for all volumes!
+    for (CatSyncMap::const_iterator cit = cat_sync_map.cbegin();
+         cit != cat_sync_map.cend();
+         ++cit) {
+        fds_verify((cit->second)->isDeltaSyncDone());
+    }
+    sync_in_progress = false;
 
     // cleanup
     cat_sync_map.clear();
@@ -334,19 +521,12 @@ void CatalogSyncMgr::notifyCatalogSyncFinish() {
 }
 
 void
-FDSP_MetaSyncRpc::MetaSyncDone(FDSP_MsgHdrTypePtr& fdsp_msg,
-                               FDSP_VolMetaStatePtr& vol_meta) {
-
-
-    const std::string vol_name =  dataMgr->getPrefix() +
-                              std::to_string(vol_meta->vol_uuid);
-    const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
-    VolumeMeta *vm = dataMgr->vol_meta_map[vol_meta->vol_uuid];
-    // re-open the db and  get ready for the transactions 
-    vm->vcat = new VolumeCatalog(root->dir_user_repo_dm() + vol_name + "_vcat.ldb", true);
-    vm->tcat = new TimeCatalog(root->dir_user_repo_dm() + vol_name + "_tcat.ldb", true);
+FDSP_MetaSyncRpc::MetaSyncDone(fpi::FDSP_MsgHdrTypePtr& fdsp_msg,
+                               fpi::FDSP_VolMetaStatePtr& vol_meta) {
     LOGNORMAL << "Received MetaSyncDone Rpc message ";
-
+    fds_verify(dataMgr->vol_meta_map.count(vol_meta->vol_uuid) > 0);
+    VolumeMeta *vm = dataMgr->vol_meta_map[vol_meta->vol_uuid];
+    vm->openCatalogs(vol_meta->vol_uuid);
 }
 
 

@@ -442,7 +442,8 @@ class OM_NodeContainer : public DomainContainer
                                             fds_bool_t activate_sm,
                                             fds_bool_t activate_md,
                                             fds_bool_t activate_am);
-    virtual fds_uint32_t om_bcast_dmt(const DMTPtr& curDmt);
+    virtual fds_uint32_t om_bcast_dmt(fpi::FDSP_MgrIdType svc_type,
+                                      const DMTPtr& curDmt);
     virtual fds_uint32_t om_bcast_dmt_close(fds_uint64_t dmt_version);
 
   private:

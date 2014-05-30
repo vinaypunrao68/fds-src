@@ -124,7 +124,20 @@ void OMgrClientRPCI::NotifyScavengerCmd(FDSP_MsgHdrTypePtr& msg_hdr,
 
 void OMgrClientRPCI::NotifyDMTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
 				     FDSP_DMT_TypePtr& dmt_info) {
-  om_client->recvDMTUpdate(dmt_info, msg_hdr->session_uuid);
+    Error err(ERR_OK);
+    err = om_client->recvDMTUpdate(dmt_info, msg_hdr->session_uuid);
+    if (om_client->getNodeType() == FDS_ProtocolInterface::FDSP_DATA_MGR) {
+        // if not error, commit ack is async, so only reply here on error
+        if (!err.ok()) {
+            LOGERROR << "Commit DMT failed, volume meta may not be synced properly";
+            // ignore not ready errors
+            if (err == ERR_NOT_READY) err = ERR_OK;
+            om_client->sendDMTCommitAck(err, msg_hdr->session_uuid);
+        }
+    } else {
+        // DMT commit is sync for all other services, send response now
+        om_client->sendDMTCommitAck(err, msg_hdr->session_uuid);
+    }
 }
 
 void OMgrClientRPCI::NotifyDLTClose(FDSP_MsgHdrTypePtr& fdsp_msg,
@@ -625,6 +638,33 @@ Error OMgrClient::sendDMTPushMetaAck(const Error& op_err,
     return err;
 }
 
+Error OMgrClient::sendDMTCommitAck(const Error& op_err,
+                                   const std::string& session_uuid) {
+    Error err(ERR_OK);
+
+    // send ack back to OM
+    boost::shared_ptr<FDS_ProtocolInterface::FDSP_ControlPathRespClient> resp_client_prx =
+            omrpc_handler_session_->getRespClient(session_uuid);
+
+    try {
+        FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
+        initOMMsgHdr(msg_hdr);
+        msg_hdr->err_code = op_err.GetErrno();
+        if (!op_err.ok()) {
+            msg_hdr->result = FDSP_ERR_FAILED;
+        }
+        FDSP_DMT_Resp_TypePtr dmt_resp(new FDSP_DMT_Resp_Type);
+        dmt_resp->DMT_version = getDMTVersion();
+        resp_client_prx->NotifyDMTUpdateResp(msg_hdr, dmt_resp);
+        LOGNOTIFY << "OMClient sent response for DMT update to OM " << op_err;
+    } catch (...) {
+        LOGERROR << "OMClient failed to send DMT response to OM";
+        err = ERR_NETWORK_TRANSPORT;
+    }
+
+    return err;
+}
+
 int OMgrClient::recvNodeEvent(int node_id, 
 			      FDSP_MgrIdType node_type, 
 			      unsigned int node_ip, 
@@ -947,39 +987,28 @@ Error OMgrClient::recvDMTPushMeta(FDSP_PushMetaPtr& push_meta,
     return this->catalog_evt_hdlr(fds_catalog_push_meta, push_meta, session_uuid);
 }
 
-int OMgrClient::recvDMTUpdate(FDSP_DMT_TypePtr& dmt_info,
-                              const std::string& session_uuid) {
+Error OMgrClient::recvDMTUpdate(FDSP_DMT_TypePtr& dmt_info,
+                                const std::string& session_uuid) {
+    Error err(ERR_OK);
+    LOGNOTIFY << "OMClient received new DMT version " << dmt_info->dmt_version;
 
-  Error err(ERR_OK);
-  LOGNOTIFY << "OMClient received new DMT version " << dmt_info->dmt_version;
+    // before we implement DM sync, any DMT we receive from OM is committed DMT
+    // dmtMgr is thread-safe, uses it's internal lock
+    err = dmtMgr->addSerialized(dmt_info->dmt_data, DMT_COMMITTED);
+    if (!err.ok()) {
+        LOGERROR << "Failed to add DMT to DMTManager " << err;
+        return err;
+    }
 
-  // before we implement DM sync, any DMT we receive from OM is committed DMT
-  // dmtMgr is thread-safe, uses it's internal lock
-  err = dmtMgr->addSerialized(dmt_info->dmt_data, DMT_COMMITTED);
-  if (!err.ok()) {
-      LOGERROR << "Failed to add DMT to DMTManager " << err;
-  }
+    // notify DataMgr
+    if (getNodeType() == FDS_ProtocolInterface::FDSP_DATA_MGR) {
+        fds_verify(this->catalog_evt_hdlr != NULL);
+        err = this->catalog_evt_hdlr(fds_catalog_dmt_commit,
+                                     FDSP_PushMetaPtr(),
+                                     session_uuid);
+    }
 
-  // send ack back to OM
-  boost::shared_ptr<FDS_ProtocolInterface::FDSP_ControlPathRespClient> resp_client_prx =
-          omrpc_handler_session_->getRespClient(session_uuid);
-
-  try {
-      FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
-      initOMMsgHdr(msg_hdr);
-      msg_hdr->err_code = err.GetErrno();
-      if (!err.ok()) {
-          msg_hdr->result = FDSP_ERR_FAILED;
-      }
-      FDSP_DMT_Resp_TypePtr dmt_resp(new FDSP_DMT_Resp_Type);
-      dmt_resp->DMT_version = dmt_info->dmt_version;
-      resp_client_prx->NotifyDMTUpdateResp(msg_hdr, dmt_resp);
-      LOGNOTIFY << "OMClient sent response for DMT update to OM";
-   } catch (...) {
-      LOGERROR << "OMClient failed to send DMT response to OM";
-      return -1;
-  }
-  return (0);
+    return err;
 }
 
 int OMgrClient::recvSetThrottleLevel(const float throttle_level) {

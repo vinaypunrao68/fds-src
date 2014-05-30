@@ -3,6 +3,7 @@
  */
 #include <unistd.h>
 #include <DataMgr.h>
+#include <util/fds_stat.h>
 
 namespace fds {
 DataMgr *dataMgr;
@@ -13,6 +14,7 @@ int gdb_stop = 0;
 int main(int argc, char *argv[])
 {
     fds::Module *dmVec[] = {
+        &fds::gl_fds_stat,
         &gl_DmPlatform,
         NULL
     };

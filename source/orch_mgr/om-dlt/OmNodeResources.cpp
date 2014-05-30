@@ -1381,12 +1381,19 @@ om_send_dmt(const DMTPtr& curDmt, NodeAgent::pointer agent)
 // -------------
 //
 fds_uint32_t
-OM_NodeContainer::om_bcast_dmt(const DMTPtr& curDmt)
+OM_NodeContainer::om_bcast_dmt(fpi::FDSP_MgrIdType svc_type,
+                               const DMTPtr& curDmt)
 {
     fds_uint32_t count = 0;
-    count += dc_dm_nodes->agent_ret_foreach<const DMTPtr&>(curDmt, om_send_dmt);
-    count += dc_am_nodes->agent_ret_foreach<const DMTPtr&>(curDmt, om_send_dmt);
-    LOGDEBUG << "Sent DMT to " << count << " nodes successfully";
+    if (svc_type == fpi::FDSP_DATA_MGR) {
+        count += dc_dm_nodes->agent_ret_foreach<const DMTPtr&>(curDmt, om_send_dmt);
+        LOGDEBUG << "Sent DMT to " << count << " DM services successfully";
+    } else {
+        // this method must only be called for either DM or AM!
+        fds_verify(svc_type == fpi::FDSP_STOR_HVISOR);
+        count += dc_am_nodes->agent_ret_foreach<const DMTPtr&>(curDmt, om_send_dmt);
+        LOGDEBUG << "Sent DMT to " << count << " AM services successfully";
+    }
     return count;
 }
 

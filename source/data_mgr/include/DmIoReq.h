@@ -14,6 +14,9 @@
 #include <fds_volume.h>
 #include <fdsp/FDSP_types.h>
 
+#define FdsDmSysTaskId      0x8fffffff
+#define FdsDmSysTaskPrio    5
+
 namespace fds {
 
     /*
@@ -128,7 +131,8 @@ namespace fds {
         virtual std::string log_string() const override {
             std::stringstream ret;
             ret << "dmIoSnapVolCat for vol "
-                << std::hex << volId << std::dec;
+                << std::hex << volId << std::dec << " first rsync? "
+                << (io_type == FDS_DM_SNAP_VOLCAT);
             return ret.str();
         }
 
