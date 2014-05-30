@@ -77,8 +77,11 @@ class StorHvIoTimerTask : public fds::FdsTimerTask {
     }
     typedef boost::shared_ptr<StorHvIoTimerTask> ptr;
 };
-// typedef boost::shared_ptr<StorHvIoTimerTask> StorHvIoTimerTaskPtr;
 
+/// Forward declare to avoid circular dependency
+class AmQosReq;
+
+/// Represents an outstanding operations to a blob
 class  StorHvJournalEntry {
   private:
     fds_mutex *je_mutex;
@@ -86,7 +89,9 @@ class  StorHvJournalEntry {
   public:
     StorHvJournalEntry();
     ~StorHvJournalEntry();
+    boost::shared_ptr<StorHvJournalEntry> ptr;
 
+    /// List of operations waiting for others to finish
     std::list<StorHvJournalEntry*> pendingTransactions;
     /// Resumes the next waiting operation
     void  resumeTransaction();
@@ -137,6 +142,7 @@ class  StorHvJournalEntry {
     fpi::FDSP_PutObjTypePtr    putMsg;
     fpi::FDSP_GetObjTypePtr    getMsg;
     fpi::FDSP_DeleteObjTypePtr delMsg;
+    fpi::FDSP_UpdateCatalogTypePtr updCatMsg;
 
     int nodeSeq;
     fds_uint8_t num_dm_nodes;

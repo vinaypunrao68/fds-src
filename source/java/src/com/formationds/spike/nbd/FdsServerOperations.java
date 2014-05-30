@@ -7,13 +7,11 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import org.apache.log4j.Logger;
 import org.apache.thrift.TException;
+import org.apache.thrift.transport.TTransportException;
 
 import java.io.InputStream;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
+import java.util.*;
 
 public class FdsServerOperations implements NbdServerOperations {
     private static final Logger LOG = Logger.getLogger(FdsServerOperations.class);
@@ -39,12 +37,19 @@ public class FdsServerOperations implements NbdServerOperations {
 
     @Override
     public boolean exists(String exportName) {
-        return volumeObjectSizes.keySet().contains(exportName);
+        // FIXME: better exception path?
+        try {
+             List<VolumeDescriptor> volumes = config.listVolumes(FDS);
+            return volumes.stream().anyMatch(vd -> vd.getName().equals(exportName));
+        } catch(TException exception) {
+            return false;
+        }
+
     }
 
     @Override
     public long size(String exportName) {
-        return 100 * 1024 * 1024;
+        return 1024l * 1024l * 1024l * 10l;
     }
 
     @Override

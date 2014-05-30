@@ -8,6 +8,7 @@ from cinder.db.sqlalchemy import api
 from cinder import exception
 from cinder.image import image_utils
 from cinder.openstack.common import log as logging
+from cinder.openstack.common.processutils import ProcessExecutionError
 from cinder.volume import driver
 from cinder.volume.drivers.fds.apis.AmService import Client as AmClient
 from cinder.volume.drivers.fds.apis.ConfigurationService import Client as CsClient
@@ -24,8 +25,11 @@ from contextlib import contextmanager
 LOG = logging.getLogger(__name__)
 
 volume_opts = [
+    cfg.StrOpt('fds_nbd_server',
+                default='localhost',
+                help='FDS NBD server hostname'),
     cfg.StrOpt('fds_domain',
-                default='',
+                default='fds',
                 help='FDS storage domain'),
     cfg.StrOpt('fds_am_host',
                default='localhost',
@@ -126,24 +130,33 @@ class FDSBlockVolumeDriver(driver.VolumeDriver):
         if self.attached_devices.has_key(name):
             return self.attached_devices[name]
 
-        fds.am.attachVolume(self.fds_domain, name)
-        # FIXME: attachVolume needs to expose a device name instead of us looking through /dev
-        cur_attached_devices = set(self.attached_devices.itervalues())
-        for dev in os.listdir('/dev'):
-            if dev.startswith('fbd') and dev[:3].isdigit() and dev not in cur_attached_devices:
-                dev_path = "/dev/" + dev
-                self.attached_devices[name] = dev_path
-                return "/dev/" + dev
+        # FIXME: smarter scanning
+        for i in xrange(1, 3):
+            for i in xrange(0, 16):
+                devName = '/dev/nbd' + str(i)
+                try:
+                    # nbd_client needs to go in cinder-rootwrap config
+                    self._execute('nbd-client', '-c', devName, run_as_root=True)
+                    self._execute('nbd-client', '-N', name, self.configuration.fds_nbd_server, devName, '-b', '4096',
+                              run_as_root=True)
+                    self.attached_devices[name] = devName
+                    return devName
+
+                except ProcessExecutionError:
+                    #log?
+                    continue
+
+        raise Exception("failed to attach device")
+
 
     def _detach_fds_block_dev(self, fds, name):
-        # FIXME: do something here
-        # del self.attached_devices[name]
-        pass
+        self._execute('nbd-client', '-d', self.attached_devices[name])
+        del self.attached_devices[name]
 
     @contextmanager
     def _use_block_device(self, fds, name):
         pre_attached = self.attached_devices.has_key(name)
-        yield self._attach_fds_block_dev(self, fds, name)
+        yield self._attach_fds_block_dev(fds, name)
         if not pre_attached:
             self._detach_fds_block_dev(fds, name)
 
@@ -154,8 +167,7 @@ class FDSBlockVolumeDriver(driver.VolumeDriver):
 
     def create_volume(self, volume):
         with self._get_services() as fds:
-            fds.cs.createVolume(self.fds_domain, volume['name'], VolumePolicy(4096, VolumeConnector.CINDER))
-
+            fds.cs.createVolume(self.fds_domain, volume['name'], VolumeSettings(4096, VolumeType.BLOCK))
 
     def delete_volume(self, volume):
         with self._get_services() as fds:

@@ -27,13 +27,13 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) {
   
     FDSP_MsgHdrTypePtr dmMsg = txn->dm_msg;
   
-    LOGNORMAL << " txnid:" << transId
-              << " state:"  << txn->trans_state
-              << " sm_ack:" << txn->sm_ack_cnt
-              << " dm_ack:" << txn->dm_ack_cnt
-              << " dm_commits:" << txn->dm_commit_cnt
-              << " num_dm_nodes:" << txn->num_dm_nodes
-              << " num_sm_nodes:" << txn->num_sm_nodes;
+    LOGDEBUG << "Moving state machine txnid:" << transId
+             << " state:"  << txn->trans_state
+             << " sm_ack:" << (fds_uint32_t)txn->sm_ack_cnt
+             << " dm_ack:" << (fds_uint32_t)txn->dm_ack_cnt
+             << " dm_commits:" << (fds_uint32_t)txn->dm_commit_cnt
+             << " num_dm_nodes:" << (fds_uint32_t)txn->num_dm_nodes
+             << " num_sm_nodes:" << (fds_uint32_t)txn->num_sm_nodes;
 
     // TODO(Andrew): Handle start blob trans separate from
     // the normal put/get transactions
@@ -88,7 +88,7 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) {
                     blobReq->getBlobName(),
                     blobReq->getBlobOffset(),
                     (fds_uint32_t)blobReq->getDataLen(),
-                    ObjectID(txn->data_obj_id.digest),
+                    blobReq->getObjId(),
                     blobReq->isLastBuf());
                 fds_verify(err == ERR_OK);
 
@@ -103,20 +103,25 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) {
                     fds_verify(err == ERR_OK);
                 }
 
-                // Mark the IO complete, clean up txn, and callback
+                // Mark the IO complete
                 qos_ctrl->markIODone(qosReq);
+
+                // Resume any pending operations waiting for this txn
+                // TODO(Andrew): This performs the op with the
+                // response thread. Also, this performs the op before
+                // cleaning up the journal entry and notifying the
+                // app about the other I/O
+                vol->journal_tbl->resumePendingTrans(txn->trans_id);
+
+                // clean up the journal entry
                 txn->trans_state = FDS_TRANS_EMPTY;
-                // del_timer(txn->p_ti);
                 txn->reset();
                 vol->journal_tbl->releaseTransId(transId);
-                blobReq->cbWithResult(FDSN_StatusOK);
-                /*
-                 * TODO: We're deleting the request structure. This assumes
-                 * that the caller got everything they needed when the callback
-                 * was invoked.
-                 */
-                delete blobReq;
 
+                // Notify the application the operation is done
+                blobReq->cbWithResult(FDSN_StatusOK);
+                
+                delete blobReq;
                 return result;
             }
             break;

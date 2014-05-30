@@ -73,5 +73,17 @@ void getFDSPDeleteVolRequest(fpi::FDSP_MsgHdrTypePtr& header,
     request->domain_id = 1;
 }
 
+void getVolumeDescriptor(apis::VolumeDescriptor& volDescriptor, VolumeInfo::pointer  vol) {
+    volDescriptor.name = vol->vol_get_name();
+    VolumeDesc* volDesc = vol->vol_get_properties();
+    switch (volDesc->volType) {
+        case fpi::FDSP_VOL_BLKDEV_TYPE:
+            volDescriptor.policy.volumeType = apis::BLOCK;
+            break;
+        default:
+            volDescriptor.policy.volumeType = apis::OBJECT;
+    }
+}
+
 }  // namespace convert
 }  // namespace fds

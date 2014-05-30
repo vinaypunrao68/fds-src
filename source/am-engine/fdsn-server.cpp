@@ -334,6 +334,12 @@ FdsnServer::FdsnServer(const std::string &name)
     transportFactory.reset(new xdi_att::TBufferedTransportFactory());
     protocolFactory.reset(new xdi_atp::TBinaryProtocolFactory());
 
+    // TODO(Andrew): Leave the server single threaded for now...
+    threadManager = xdi_atc::ThreadManager::newSimpleThreadManager(1);
+    threadFactory.reset(new xdi_atc::PosixThreadFactory());
+    threadManager->threadFactory(threadFactory);
+    threadManager->start();
+
     // server_->setServerEventHandler(event_handler_);
 }
 
@@ -374,6 +380,9 @@ FdsnServer::init_server(FDS_NativeAPI::ptr api) {
     processor.reset(new apis::AmServiceProcessor(
         fdsnInterface));
     // event_handler_.reset(new ServerEventHandler(*this));
+
+    // server.reset(new xdi_ats::TNonblockingServer(
+    //  processor, protocolFactory, 9988, threadManager));
     server.reset(new xdi_ats::TThreadedServer(processor,
                                               serverTransport,
                                               transportFactory,
@@ -381,6 +390,7 @@ FdsnServer::init_server(FDS_NativeAPI::ptr api) {
 
     try {
         LOGNORMAL << "Starting the FDSN server...";
+        // listen_thread.reset(new boost::thread(&xdi_ats::TNonblockingServer::serve,
         listen_thread.reset(new boost::thread(&xdi_ats::TThreadedServer::serve,
                                               server.get()));
     } catch(const xdi_att::TTransportException& e) {
