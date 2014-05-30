@@ -112,44 +112,45 @@ void FailoverRpcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header
 
     epReqs_[curEpIdx_]->complete(header->msg_code);
 
-    if (header->msg_code == ERR_OK) {
-        if (successCb_) {
-            successCb_(payload);
-        }
-        complete(ERR_OK);
-    } else {
-        GLOGWARN << logString(*header);
+    bool bSuccess = (header->msg_code == ERR_OK);
 
+    /* Handle the error */
+    if (header->msg_code != ERR_OK) {
+        GLOGWARN << logString(*header);
         /* Notify actionable error to endpoint manager */
         if (NetMgr::ep_mgr_singleton()->ep_actionable_error(header->msg_code)) {
             NetMgr::ep_mgr_singleton()->ep_handle_error(
                 header->msg_src_uuid, header->msg_code);
-        }
-
-        /* Invoke failover cb */
-        if (failoverCb_) {
-            bool reqComplete = false;
-            failoverCb_(header->msg_code, payload, reqComplete);
-            if (reqComplete) {
-                // NOTE: errorCb_ isn't invoked here
-                complete(ERR_RPC_USER_INTERRUPTED);
-                return;
+        } else {
+            /* Handle Application specific errors here */
+            if (epAppStatusCb_) {
+                bSuccess = epAppStatusCb_(header->msg_code, payload);
             }
         }
-
-        /* Move to the next healhy endpoint and invoke */
-        bool healthyEpExists = moveToNextHealthyEndpoint_();
-        if (!healthyEpExists) {
-            if (errorCb_) {
-                errorCb_(header->msg_code, payload);
-            }
-            complete(ERR_RPC_FAILED);
-            return;
-        }
-
-        /* NOTE: We may consider moving this outside the lockscope */
-        epReqs_[curEpIdx_]->invoke();
     }
+
+    /* Handle the case where response from this endpoint is considered success */
+    if (bSuccess) {
+        if (respCb_) {
+            respCb_(this, ERR_OK, payload);
+        }
+        complete(ERR_OK);
+        return;
+    }
+
+    /* Move to the next healhy endpoint and invoke */
+    bool healthyEpExists = moveToNextHealthyEndpoint_();
+    if (!healthyEpExists) {
+        if (respCb_) {
+            /* NOTE: We are last failure code in this case */
+            respCb_(this, header->msg_code, payload);
+        }
+        complete(ERR_RPC_FAILED);
+        return;
+    }
+
+    /* NOTE: We may consider moving this outside the lockscope */
+    epReqs_[curEpIdx_]->invoke();
 }
 
 /**
@@ -208,74 +209,15 @@ bool FailoverRpcRequest::moveToNextHealthyEndpoint_()
     return false;
 }
 
-#if 0
 /**
- * @brief
- *
- * @param header
- * @param payload
- */
-// TODO(Rao): logging, invoking cb, error for each endpoint
-void FailoverRpcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
-        boost::shared_ptr<std::string>& payload)
+* @brief 
+*
+* @param cb
+*/
+void FailoverRpcRequest::onResponseCb(FailoverRpcRespCb cb)
 {
-    bool invokeRpc = false;
-    fpi::SvcUuid errdEpId;
-
-    {
-        fds_scoped_lock l(respLock_);
-        if (isComplete()) {
-            /* Request is already complete.  At this point we don't do anything on
-             * the responses than just draining them out
-             */
-            return;
-        }
-
-        if (header->msg_code == ERR_OK) {
-            if (successCb_) {
-                successCb_(payload);
-            }
-            complete(ERR_OK);
-        } else {
-            GLOGWARN << logString(*header);
-            if (header->msg_src_uuid != eps_[curEpIdx_].epId) {
-                /* Response isn't from the last endpoint we issued the request against.
-                 * Don't do anything here
-                 */
-                return;
-            }
-            errdEpId = header->msg_src_uuid;
-            bool healthyEpExists = moveToNextHealthyEndpoint_();
-            if (!healthyEpExists) {
-                if (errorCb_) {
-                    errorCb_(header->msg_code, payload);
-                }
-                complete(ERR_RPC_FAILED);
-            } else {
-                if (failoverCb_) {
-                    bool reqComplete = false;
-                    failoverCb_(header->msg_code, payload, reqComplete);
-                    if (reqComplete) {
-                        // NOTE(Rao): We could invoke failure callback here
-                        complete(ERR_RPC_USER_INTERRUPTED);
-                        return;
-                    }
-                }
-                invokeRpc = true;
-            }
-        }
-    }
-
-    if (invokeRpc) {
-        invokeCommon_(eps_[curEpIdx_].epId);
-    }
-
-    if (errdEpId.svc_uuid != 0 &&
-        NetMgr::ep_mgr_singleton()->ep_actionable_error(header->msg_code)) {
-        NetMgr::ep_mgr_singleton()->ep_handle_error(header->msg_code);
-    }
+    respCb_ = cb;
 }
-#endif
 
 } /* namespace fds */
 

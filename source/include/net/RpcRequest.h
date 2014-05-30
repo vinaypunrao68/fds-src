@@ -16,18 +16,26 @@
 
 namespace fds {
 /* Forward declarations */
+struct EPAsyncRpcRequest;
 struct FailoverRpcRequest;
+struct QuorumRpcRequest;
 
 /* Async rpc request identifier */
 typedef uint64_t AsyncRpcRequestId;
 
 /* Async rpc request callback types */
+typedef std::function<void(const AsyncRpcRequestId&)> RpcRequestCompletionCb;
 typedef std::function<void(boost::shared_ptr<std::string>)> RpcRequestSuccessCb;
 typedef std::function<void(const Error&,
         boost::shared_ptr<std::string>)> RpcRequestErrorCb;
-typedef std::function<void(const Error&,
-        boost::shared_ptr<std::string>, bool&)> RpcRequestFailoverCb;
-typedef std::function<void(const AsyncRpcRequestId&)> RpcRequestCompletionCb;
+typedef std::function<bool(const Error&,
+        boost::shared_ptr<std::string>)> EPAppStatusCb;
+typedef std::function<void(EPAsyncRpcRequest*,
+                           const Error&, boost::shared_ptr<std::string>)> EPAsyncRpcRespCb;
+typedef std::function<void(FailoverRpcRequest*,
+                           const Error&, boost::shared_ptr<std::string>)> FailoverRpcRespCb;
+typedef std::function<void(QuorumRpcRequest*,
+                           const Error&, boost::shared_ptr<std::string>)> QuorumRpcRespCb;
 
 /* Async rpc request states */
 enum AsyncRpcState {
@@ -158,6 +166,7 @@ struct AsyncRpcRequestIf {
 };
 typedef boost::shared_ptr<AsyncRpcRequestIf> AsyncRpcRequestIfPtr;
 
+
 /**
  * Wrapper around asynchronous rpc request
  */
@@ -177,8 +186,12 @@ struct EPAsyncRpcRequest : AsyncRpcRequestIf {
 
     fpi::SvcUuid getPeerEpId() const;
 
+    void onResponseCb(EPAsyncRpcRespCb cb);
+
  protected:
     fpi::SvcUuid peerEpId_;
+    /* Reponse callback */
+    EPAsyncRpcRespCb respCb_;
 
     friend class FailoverRpcRequest;
 };
@@ -196,7 +209,7 @@ struct MultiEpAsyncRpcRequest : AsyncRpcRequestIf {
 
     void addEndpoint(const fpi::SvcUuid& peerEpId);
 
-    void onFailoverCb(RpcRequestFailoverCb cb);
+    void onEPAppStatusCb(EPAppStatusCb cb);
 
  protected:
     EPAsyncRpcRequestPtr getEpReq_(fpi::SvcUuid &peerEpId);
@@ -204,7 +217,7 @@ struct MultiEpAsyncRpcRequest : AsyncRpcRequestIf {
     /* Endpoint request collection */
     std::vector<EPAsyncRpcRequestPtr> epReqs_;
     /* Callback to invoke before failing over to the next endpoint */
-    RpcRequestFailoverCb failoverCb_;
+    EPAppStatusCb epAppStatusCb_;
 };
 
 /**
@@ -231,6 +244,8 @@ struct FailoverRpcRequest : MultiEpAsyncRpcRequest {
     virtual void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
             boost::shared_ptr<std::string>& payload) override;
 
+    void onResponseCb(FailoverRpcRespCb cb);
+
  protected:
     bool moveToNextHealthyEndpoint_();
 
@@ -238,6 +253,9 @@ struct FailoverRpcRequest : MultiEpAsyncRpcRequest {
 
     /* Next endpoint to invoke the request on */
     uint8_t curEpIdx_;
+
+    /* Response callback */
+    FailoverRpcRespCb respCb_;
 };
 typedef boost::shared_ptr<FailoverRpcRequest> FailoverRpcRequestPtr;
 
@@ -258,10 +276,13 @@ struct QuorumRpcRequest : MultiEpAsyncRpcRequest {
 
     void setQuorumCnt(const uint32_t cnt);
 
+    void onResponseCb(QuorumRpcRespCb cb);
+
  protected:
     uint32_t successAckd_;
     uint32_t errorAckd_;
     uint32_t quorumCnt_;
+    QuorumRpcRespCb respCb_;
 };
 typedef boost::shared_ptr<QuorumRpcRequest> QuorumRpcRequestPtr;
 #if 0
