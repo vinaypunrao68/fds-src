@@ -28,8 +28,7 @@ typedef std::function<void(const AsyncRpcRequestId&)> RpcRequestCompletionCb;
 typedef std::function<void(boost::shared_ptr<std::string>)> RpcRequestSuccessCb;
 typedef std::function<void(const Error&,
         boost::shared_ptr<std::string>)> RpcRequestErrorCb;
-typedef std::function<bool(const Error&,
-        boost::shared_ptr<std::string>)> EPAppStatusCb;
+typedef std::function<bool (const Error&, boost::shared_ptr<std::string>)> EPAppStatusCb;
 typedef std::function<void(EPAsyncRpcRequest*,
                            const Error&, boost::shared_ptr<std::string>)> EPAsyncRpcRespCb;
 typedef std::function<void(FailoverRpcRequest*,
