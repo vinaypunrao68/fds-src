@@ -162,7 +162,7 @@ class FdsnIf : public apis::AmServiceIf {
             new BucketContext("host", *volumeName, "accessid", "secretkey"));
 
         // TODO(Andrew): Remove this hackey maxObjSize
-        fds_uint64_t maxObjSize = 2 * 1024 * 1024;
+        fds_uint64_t maxObjSize = 4096;  // 2 * 1024 * 1024;
         fds_uint64_t offset = objectOffset->value * maxObjSize;
 
         fds_verify(*length >= 0);
@@ -262,7 +262,7 @@ class FdsnIf : public apis::AmServiceIf {
         BucketContext bucket_ctx("host", *volumeName, "accessid", "secretkey");
 
         // TODO(Andrew): Remove this hackey maxObjSize to force alignment
-        fds_uint64_t maxObjSize = 2 * 1024 * 1024;
+        fds_uint64_t maxObjSize = 4096;  // 2 * 1024 * 1024;
         fds_uint64_t offset = objectOffset->value * maxObjSize;
 
         fds_verify(*length >= 0);
