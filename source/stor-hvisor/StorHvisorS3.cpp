@@ -678,7 +678,6 @@ StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
         // Set this entry as active
         newJournEntry->setActive();
         journEntry->pendingTransactions.push_back(newJournEntry);
-        journEntry->pendingBlobOps.push_back(qosReq);
 
         return err;
     }
