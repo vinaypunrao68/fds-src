@@ -41,6 +41,7 @@ const char* fds_errstrs[] = {
     "Volume not found",
     "Object Buffer corrupted network",
     "OnDisk Object Buffer corrupt",
+    "Invalid DMT",
     "Dlt mismatch",
     "Invalid blob offset",
     "Duplicate migration request",
@@ -81,7 +82,7 @@ fds_errno_t Error::GetErrno() const {
 }
 
 std::string Error::GetErrstr() const {
-    if (_errno <= ERR_VOL_NOT_FOUND) {
+    if (_errno <= ERR_INVALID_DMT) {
         return fds_errstrs[_errno];
     }
     std::string ret = "Error no: " + std::to_string(_errno);

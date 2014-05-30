@@ -1814,7 +1814,6 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
     unsigned int node_ip = 0;
     fds_uint32_t node_port = 0;
     unsigned int doid_dlt_key=0;
-    int num_nodes = MAX_DM_NODES, i =0;
     int node_state = -1;
     fds::Error err(ERR_OK);
     ObjectID oid;
@@ -1907,16 +1906,13 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
     fdsp_msg_hdr_dm->src_port = 0;
     fdsp_msg_hdr_dm->dst_port = node_port;
     journEntry->dm_msg = fdsp_msg_hdr_dm;
-    num_nodes = MAX_DM_NODES;
-    fds_uint64_t  node_ids[num_nodes];
-    memset(node_ids, 0x00, sizeof(fds_int64_t) * num_nodes);
-    storHvisor->dataPlacementTbl->getDMTNodesForVolume(vol_id, node_ids, &num_nodes);
+    DmtColumnPtr node_ids = storHvisor->dataPlacementTbl->getDMTNodesForVolume(vol_id);
     uint errcount = 0;
-    for (i = 0; i < num_nodes; i++) {
+    for (fds_uint32_t i = 0; i < node_ids->getLength(); i++) {
         node_ip = 0;
         node_port = 0;
         node_state = -1;
-        storHvisor->dataPlacementTbl->getNodeInfo(node_ids[i],
+        storHvisor->dataPlacementTbl->getNodeInfo((node_ids->get(i)).uuid_get_val(),
                                                   &node_ip,
                                                   &node_port,
                                                   &node_state);
@@ -1927,7 +1923,7 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
         fdsp_msg_hdr_dm->dst_port = node_port;
         journEntry->dm_ack[i].ack_status = FDS_CLS_ACK;
         journEntry->dm_ack[i].commit_status = FDS_CLS_ACK;
-        journEntry->num_dm_nodes = num_nodes;
+        journEntry->num_dm_nodes = node_ids->getLength();
         del_cat_obj_req->blob_name = blobReq->getBlobName();
         // TODO(Andrew): Set to a specific version rather than
         // always just the current
@@ -2048,12 +2044,8 @@ fds::Error StorHvCtrl::listBucket(fds::AmQosReq *qosReq) {
     journEntry->data_obj_id.digest.clear(); 
     journEntry->data_obj_len = 0;
     journEntry->io = qosReq;
-    fds_int32_t num_nodes = MAX_DM_NODES;  // TODO: Why 8? Look up vol/blob repl factor
-    fds_uint64_t node_ids[num_nodes];  // TODO: Doesn't need to be signed
-    memset(node_ids, 0x00, sizeof(fds_int64_t) * num_nodes);
-    dataPlacementTbl->getDMTNodesForVolume(volId, node_ids, &num_nodes);
-
-    if(num_nodes == 0) {
+    DmtColumnPtr node_ids = dataPlacementTbl->getDMTNodesForVolume(volId);
+    if (node_ids->getLength() == 0) {
         LOGERROR <<" StorHvisorTx:" << "IO-XID:" << transId << " volID: 0x" << std::hex << volId << std::dec 
                  << " -  DMT Nodes  NOT  configured. Check on OM Manager. Completing request with ERROR(-1)";
         blobReq->cbWithResult(-1);
@@ -2069,7 +2061,7 @@ fds::Error StorHvCtrl::listBucket(fds::AmQosReq *qosReq) {
     node_ip = 0;
     node_port = 0;
     node_state = -1;
-    dataPlacementTbl->getNodeInfo(node_ids[0],
+    dataPlacementTbl->getNodeInfo((node_ids->get(0)).uuid_get_val(),
                                   &node_ip,
                                   &node_port,
                                   &node_state);

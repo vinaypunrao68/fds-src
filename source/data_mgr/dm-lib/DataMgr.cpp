@@ -13,8 +13,8 @@ extern DataMgr *dataMgr;
 Error DataMgr::vol_handler(fds_volid_t vol_uuid,
                            VolumeDesc *desc,
                            fds_vol_notify_t vol_action,
-                           fds_bool_t check_only,
-                           FDS_ProtocolInterface::FDSP_ResultType result) {
+                           fpi::FDSP_NotifyVolFlag vol_flag,
+                           fpi::FDSP_ResultType result) {
     Error err(ERR_OK);
     GLOGNORMAL << "Received vol notif from OM for "
                << desc->getName() << ":"
@@ -27,9 +27,10 @@ Error DataMgr::vol_handler(fds_volid_t vol_uuid,
          */
         err = dataMgr->_process_add_vol(dataMgr->getPrefix() +
                                         std::to_string(vol_uuid),
-                                        vol_uuid, desc);
+                                        vol_uuid, desc,
+                                        (vol_flag != fpi::FDSP_NOTIFY_VOL_WILL_SYNC));
     } else if (vol_action == fds_notify_vol_rm) {
-        err = dataMgr->_process_rm_vol(vol_uuid, check_only);
+        err = dataMgr->_process_rm_vol(vol_uuid, vol_flag == fpi::FDSP_NOTIFY_VOL_CHECK_ONLY);
     } else if (vol_action == fds_notify_vol_mod) {
         err = dataMgr->_process_mod_vol(vol_uuid, *desc);
     } else {
@@ -43,6 +44,42 @@ void DataMgr::node_handler(fds_int32_t  node_id,
                            fds_int32_t  node_st,
                            fds_uint32_t node_port,
                            FDS_ProtocolInterface::FDSP_MgrIdType node_type) {
+}
+
+Error
+DataMgr::volcat_evt_handler(fds_catalog_action_t catalog_action,
+                            const FDS_ProtocolInterface::FDSP_PushMetaPtr& push_meta,
+                            const std::string& session_uuid) {
+    Error err(ERR_OK);
+    OMgrClient* om_client = dataMgr->omClient;
+    GLOGNORMAL << "Received Volume Catalog request";
+    if (catalog_action == fds_catalog_push_meta) {
+        err = dataMgr->catSyncMgr->startCatalogSync(push_meta->metaVol, om_client, session_uuid);
+    } else if (catalog_action == fds_catalog_dmt_close) {
+        dataMgr->catSyncMgr->notifyCatalogSyncFinish();
+    } else {
+        fds_assert(!"Unknown catalog command");
+    }
+    return err;
+}
+
+Error DataMgr::enqueueMsg(fds_volid_t volId,
+                          dmCatReq* ioReq) {
+    Error err(ERR_OK);
+
+    switch (ioReq->io_type) {
+        case FDS_DM_SNAP_VOLCAT:
+            err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
+            break;
+        default:
+            fds_assert(!"Unknown message");
+    };
+
+    if (!err.ok()) {
+        LOGERROR << "Failed to enqueue message " << ioReq->log_string()
+                 << " " << err;
+    }
+    return err;
 }
 
 /*
@@ -66,7 +103,7 @@ Error DataMgr::_add_if_no_vol(const std::string& vol_name,
 
     vol_map_mtx->unlock();
 
-    err = _add_vol_locked(vol_name, vol_uuid, desc);
+    err = _add_vol_locked(vol_name, vol_uuid, desc, true);
 
 
     return err;
@@ -76,28 +113,38 @@ Error DataMgr::_add_if_no_vol(const std::string& vol_name,
  * Meant to be called holding the vol_map_mtx.
  */
 Error DataMgr::_add_vol_locked(const std::string& vol_name,
-                               fds_volid_t vol_uuid, VolumeDesc *vdesc) {
+                               fds_volid_t vol_uuid,
+                               VolumeDesc *vdesc,
+                               fds_bool_t crt_catalogs) {
     Error err(ERR_OK);
 
     vol_map_mtx->lock();
-    vol_meta_map[vol_uuid] = new VolumeMeta(vol_name,
-                                            vol_uuid,
-                                            GetLog(), vdesc);
-    LOGNORMAL << "Added vol meta for vol uuid and per Volume queue"
-              << vol_uuid;
+    VolumeMeta *volmeta = new VolumeMeta(vol_name,
+                                         vol_uuid,
+                                         GetLog(),
+                                         vdesc,
+                                         crt_catalogs);
 
-    VolumeMeta *vm = vol_meta_map[vol_uuid];
-    vm->dmVolQueue = new FDS_VolumeQueue(4096, vdesc->iops_max, 2*vdesc->iops_min, vdesc->relativePrio);
-    vm->dmVolQueue->activate();
-    dataMgr->qosCtrl->registerVolume(vol_uuid, dynamic_cast<FDS_VolumeQueue*>(vm->dmVolQueue));
+    LOGNORMAL << "Added vol meta for vol uuid and per Volume queue" << std::hex
+              << vol_uuid << std::dec << ", created catalogs? " << crt_catalogs;
 
+    volmeta->dmVolQueue = new FDS_VolumeQueue(4096, vdesc->iops_max, 2*vdesc->iops_min, vdesc->relativePrio);
+    volmeta->dmVolQueue->activate();
+    err = dataMgr->qosCtrl->registerVolume(vol_uuid, dynamic_cast<FDS_VolumeQueue*>(volmeta->dmVolQueue));
+    if (err.ok()) {
+        vol_meta_map[vol_uuid] = volmeta;
+    } else {
+        delete volmeta;
+    }
     vol_map_mtx->unlock();
+
     return err;
 }
 
 Error DataMgr::_process_add_vol(const std::string& vol_name,
                                 fds_volid_t vol_uuid,
-                                VolumeDesc *desc) {
+                                VolumeDesc *desc,
+                                fds_bool_t crt_catalogs) {
     Error err(ERR_OK);
 
     /*
@@ -113,7 +160,7 @@ Error DataMgr::_process_add_vol(const std::string& vol_name,
     }
     vol_map_mtx->unlock();
 
-    err = _add_vol_locked(vol_name, vol_uuid, desc);
+    err = _add_vol_locked(vol_name, vol_uuid, desc, crt_catalogs);
     return err;
 }
 
@@ -521,6 +568,12 @@ void DataMgr::proc_pre_startup()
 
     runMode = NORMAL_MODE;
 
+   /*
+    LOGNORMAL << "before running system command rsync ";
+    std::system((const char *)("sshpass -p passwd rsync -r /tmp/logs  root@10.1.10.216:/tmp"));
+    LOGNORMAL << "After running system command rsync ";
+   */
+
     PlatformProcess::proc_pre_startup();
 
     // Get config values from that platform lib.
@@ -567,6 +620,7 @@ void DataMgr::proc_pre_startup()
         omClient->initialize();
         omClient->registerEventHandlerForNodeEvents(node_handler);
         omClient->registerEventHandlerForVolEvents(vol_handler);
+        omClient->registerCatalogEventHandler(volcat_evt_handler);
         /*
          * Brings up the control path interface.
          * This does not require OM to be running and can
@@ -599,13 +653,22 @@ void DataMgr::proc_pre_startup()
                                      testVolId * 2,
                                      testVolId);
             fds_assert(testVdb != NULL);
-            vol_handler(testVolId, testVdb, fds_notify_vol_add, false, FDS_ProtocolInterface::FDSP_ERR_OK);
+            vol_handler(testVolId, testVdb, fds_notify_vol_add, fpi::FDSP_NOTIFY_VOL_NO_FLAG, FDS_ProtocolInterface::FDSP_ERR_OK);
 
             delete testVdb;
         }
     }
 
+   setup_metasync_service();
 }
+
+void DataMgr::setup_metasync_service()
+{
+    catSyncMgr.reset(new CatalogSyncMgr(1, this, nstable)); 
+    // TODO(xxx) should we start catalog sync manager when no OM?
+    catSyncMgr->mod_startup();
+}
+
 
 void DataMgr::swapMgrId(const FDS_ProtocolInterface::
                         FDSP_MsgHdrTypePtr& fdsp_msg) {
@@ -655,6 +718,7 @@ fds_bool_t DataMgr::volExists(fds_volid_t vol_uuid) const {
 void DataMgr::interrupt_cb(int signum) {
     LOGNORMAL << " Received signal "
               << signum << ". Shutting down communicator";
+    catSyncMgr->mod_shutdown();
     exit(0);
 }
 
@@ -708,20 +772,11 @@ void DataMgr::ReqHandler::GetVolumeBlobList(FDSP_MsgHdrTypePtr& msg_hdr,
  */
 fds_bool_t
 DataMgr::amIPrimary(fds_volid_t volUuid) {
-    int numNodes = 1;
-    fds_uint64_t nodeId;
-    int result = omClient->getDMTNodesForVolume(volUuid,
-                                                &nodeId,
-                                                &numNodes);
-    fds_verify(result == 0);
-    fds_verify(numNodes == 1);
+    DmtColumnPtr nodes = omClient->getDMTNodesForVolume(volUuid);
+    fds_verify(nodes->getLength() > 0);
 
-    NodeUuid primaryUuid(nodeId);
     const NodeUuid *mySvcUuid = plf_mgr->plf_get_my_svc_uuid();
-    if (*mySvcUuid == primaryUuid) {
-        return true;
-    }
-    return false;
+    return (*mySvcUuid == nodes->get(0));
 }
 
 /**
@@ -1141,10 +1196,10 @@ DataMgr::updateCatalogInternal(FDSP_UpdateCatalogTypePtr updCatReq,
     /*
      * allocate a new update cat log  class and  queue  to per volume queue.
      */
-    dmCatReq *dmUpdReq = new DataMgr::dmCatReq(volId, updCatReq->blob_name,
-                                               updCatReq->dm_transaction_id, updCatReq->dm_operation, srcIp,
-                                               dstIp, srcPort, dstPort, session_uuid, reqCookie, FDS_CAT_UPD,
-                                               updCatReq);
+    dmCatReq *dmUpdReq = new dmCatReq(volId, updCatReq->blob_name,
+                                      updCatReq->dm_transaction_id, updCatReq->dm_operation, srcIp,
+                                      dstIp, srcPort, dstPort, session_uuid, reqCookie, FDS_CAT_UPD,
+                                      updCatReq);
 
     err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(dmUpdReq));
     if (err != ERR_OK) {
@@ -1579,8 +1634,8 @@ DataMgr::blobListInternal(const FDSP_GetVolumeBlobListReqTypePtr& blob_list_req,
     /*
      * allocate a new query cat log  class and  queue  to per volume queue.
      */
-    dmCatReq *dmListReq = new DataMgr::dmCatReq(volId, srcIp, dstIp, srcPort, dstPort,
-                                                session_uuid, reqCookie, FDS_LIST_BLOB);
+    dmCatReq *dmListReq = new dmCatReq(volId, srcIp, dstIp, srcPort, dstPort,
+                                       session_uuid, reqCookie, FDS_LIST_BLOB);
     err = qosCtrl->enqueueIO(dmListReq->getVolId(), static_cast<FDS_IOType*>(dmListReq));
     if (err != ERR_OK) {
         LOGNORMAL << "Unable to enqueue blob list request "
@@ -1692,11 +1747,11 @@ DataMgr::queryCatalogInternal(FDSP_QueryCatalogTypePtr qryCatReq,
     /*
      * allocate a new query cat log  class and  queue  to per volume queue.
      */
-    dmCatReq *dmQryReq = new DataMgr::dmCatReq(volId, qryCatReq->blob_name,
-                                               qryCatReq->dm_transaction_id,
-                                               qryCatReq->dm_operation, srcIp,
-                                               dstIp, srcPort, dstPort, session_uuid,
-                                               reqCookie, FDS_CAT_QRY, NULL);
+    dmCatReq *dmQryReq = new dmCatReq(volId, qryCatReq->blob_name,
+                                      qryCatReq->dm_transaction_id,
+                                      qryCatReq->dm_operation, srcIp,
+                                      dstIp, srcPort, dstPort, session_uuid,
+                                      reqCookie, FDS_CAT_QRY, NULL);
     // Set the version
     // TODO(Andrew): Have a better constructor so that I can
     // set it that way.
@@ -1767,6 +1822,33 @@ void DataMgr::ReqHandler::QueryCatalogObject(FDS_ProtocolInterface::
     }
 }
 
+
+/**
+ * Make snapshot of volume catalog for sync and notify
+ * CatalogSync.
+ */
+void
+DataMgr::snapVolCat(DmIoSnapVolCat* snapReq) {
+    Error err(ERR_OK);
+    fds_verify(snapReq != NULL);
+
+    VolumeMeta *vm = vol_meta_map[snapReq->volId];
+    err = vm->syncVolCat(snapReq->volId, snapReq->node_uuid);
+    LOGDEBUG << "Finished rsync, calling catsync callback";
+
+    // TODO(xxx) snapshot volume catalog here or could do in
+    // CatalogSync::snapDoneCb() which we call below
+
+
+    // TODO(xxx) call CatalogSync callback which will do RSync
+    // TODO(xxx) add and pass other required params to do rsync
+    snapReq->dmio_snap_vcat_cb(snapReq->volId, err);
+
+    // mark this request as complete
+    qosCtrl->markIODone(*snapReq);
+    delete snapReq;
+}
+
 /**
  * Populates an fdsp message header with stock fields.
  *
@@ -1831,6 +1913,7 @@ DataMgr::expungeObject(fds_volid_t volId, const ObjectID &objId) {
     for (fds_uint32_t i = 0; i < tokenGroup->getLength(); i++) {
         try {
             NodeUuid uuid = tokenGroup->get(i);
+	   // NodeAgent::pointer node = Platform::plf_dm_nodes()->agent_info(uuid);
             NodeAgent::pointer node = plf_mgr->plf_node_inventory()->
                     dc_get_sm_nodes()->agent_info(uuid);
             SmAgent::pointer sm = SmAgent::agt_cast_ptr(node);
@@ -2228,9 +2311,9 @@ DataMgr::deleteCatObjInternal(FDSP_DeleteCatalogTypePtr delCatReq,
     /*
      * allocate a new query cat log  class and  queue  to per volume queue.
      */
-    dmCatReq *dmDelReq = new DataMgr::dmCatReq(volId, delCatReq->blob_name, srcIp, 0, 0,
-                                               dstIp, srcPort, dstPort, session_uuid,
-                                               reqCookie, FDS_DELETE_BLOB, NULL);
+    dmCatReq *dmDelReq = new dmCatReq(volId, delCatReq->blob_name, srcIp, 0, 0,
+                                      dstIp, srcPort, dstPort, session_uuid,
+                                      reqCookie, FDS_DELETE_BLOB, NULL);
     dmDelReq->blob_version = delCatReq->blob_version;
 
     err = qosCtrl->enqueueIO(dmDelReq->getVolId(), static_cast<FDS_IOType*>(dmDelReq));
@@ -2345,14 +2428,14 @@ void DataMgr::ReqHandler::GetVolumeMetaData(boost::shared_ptr<FDSP_MsgHdrType>& 
 }
 
 int scheduleUpdateCatalog(void * _io) {
-    fds::DataMgr::dmCatReq *io = (fds::DataMgr::dmCatReq*)_io;
+    fds::dmCatReq *io = (fds::dmCatReq*)_io;
 
     dataMgr->updateCatalogBackend(io);
     return 0;
 }
 
 int scheduleQueryCatalog(void * _io) {
-    fds::DataMgr::dmCatReq *io = (fds::DataMgr::dmCatReq*)_io;
+    fds::dmCatReq *io = (fds::dmCatReq*)_io;
 
     dataMgr->queryCatalogBackend(io);
     return 0;
@@ -2373,14 +2456,14 @@ int scheduleStatBlob(void * _io) {
 }
 
 int scheduleDeleteCatObj(void * _io) {
-    fds::DataMgr::dmCatReq *io = (fds::DataMgr::dmCatReq*)_io;
+    fds::dmCatReq *io = (fds::dmCatReq*)_io;
 
     dataMgr->deleteCatObjBackend(io);
     return 0;
 }
 
 int scheduleBlobList(void * _io) {
-    fds::DataMgr::dmCatReq *io = (fds::DataMgr::dmCatReq*)_io;
+    fds::dmCatReq *io = (fds::dmCatReq*)_io;
 
     dataMgr->blobListBackend(io);
     return 0;
@@ -2398,6 +2481,13 @@ int scheduleSetBlobMetaData(void* io) {
 
 int scheduleGetVolumeMetaData(void* io) {
     dataMgr->getVolumeMetaDataBackend((fds::DataMgr::dmCatReq*)io);
+    return 0;
+}
+
+int scheduleSnapVolCat(void * _io) {
+    fds::DmIoSnapVolCat *io = (fds::DmIoSnapVolCat*)_io;
+
+    dataMgr->snapVolCat(io);
     return 0;
 }
 

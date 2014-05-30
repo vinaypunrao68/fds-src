@@ -14,6 +14,7 @@
 
 #include <fds_types.h>
 #include <fds_error.h>
+#include <dm-platform.h>
 #include <util/Log.h>
 
 /* TODO: avoid cross compont include, move to include directory. */
@@ -586,16 +587,6 @@ class VolumeMeta {
   private:
     fds_mutex  *vol_mtx;
 
-    /*
-     * The volume catalog maintains mappings from
-     * vol/blob/offset to object id.
-     */
-    VolumeCatalog *vcat;
-    /*
-     * The time catalog maintains pending changes to
-     * the volume catalog.
-     */
-    TimeCatalog *tcat;
 
     /*
      * A logger received during instantiation.
@@ -612,6 +603,16 @@ class VolumeMeta {
     VolumeMeta& operator=(const VolumeMeta rhs);
 
  public:
+    /*
+     * The volume catalog maintains mappings from
+     * vol/blob/offset to object id.
+     */
+    VolumeCatalog *vcat;
+    /*
+     * The time catalog maintains pending changes to
+     * the volume catalog.
+     */
+    TimeCatalog *tcat;
 
     VolumeCatalog *getVcat();
     VolumeDesc *vol_desc;
@@ -622,10 +623,14 @@ class VolumeMeta {
      */
     VolumeMeta();
     VolumeMeta(const std::string& _name,
-               fds_volid_t _uuid,VolumeDesc *v_desc);
+               fds_volid_t _uuid,
+               VolumeDesc *v_desc,
+               fds_bool_t crt_catalogs);
     VolumeMeta(const std::string& _name,
                fds_volid_t _uuid,
-               fds_log* _dm_log,VolumeDesc *v_desc);
+               fds_log* _dm_log,
+               VolumeDesc *v_desc,
+               fds_bool_t crt_catalogs);
     ~VolumeMeta();
     void dmCopyVolumeDesc(VolumeDesc *v_desc, VolumeDesc *pVol);
   /*
@@ -641,6 +646,7 @@ class VolumeMeta {
     Error DeleteVcat(const std::string blob_name);
     fds_bool_t isEmpty() const;
     Error listBlobs(std::list<BlobNode>& bNodeList);
+    Error syncVolCat(fds_volid_t volId, NodeUuid node_uuid);
 };
 
 }  // namespace fds

@@ -62,10 +62,12 @@ class NodeInvData
     fds_uint32_t             nd_data_port;
     fds_uint32_t             nd_ctrl_port;
     fds_uint32_t             nd_migration_port;
+    fds_uint32_t             nd_metasync_port;
     fds_uint32_t             nd_disk_type;
     node_capability_t        nd_capability;
 
     std::string              nd_node_name;
+    std::string              nd_node_root;
     FdspNodeType             nd_node_type;
     FdspNodeState            nd_node_state;
     fds_uint64_t             nd_dlt_version;
@@ -101,8 +103,13 @@ class NodeInventory : public Resource
     inline std::string get_node_name() const {
         return node_inv->nd_node_name;
     }
+
     inline std::string get_ip_str() const {
         return node_inv->nd_ip_str;
+    }
+
+    inline std::string get_node_root() const {
+        return node_inv->nd_node_root;
     }
     inline fds_uint32_t get_ctrl_port() const {
         return node_inv->nd_ctrl_port;
@@ -323,6 +330,8 @@ class AgentContainer : public RsContainer
 
     /**
      * iterator that returns number of agents that completed function successfully
+     * Only iterates through active agents (for which we called agent_activate, and
+     * did not call agent_deactivate).
      */
     template <typename T>
     fds_uint32_t agent_ret_foreach(T arg, Error (*fn)(T arg, NodeAgent::pointer elm)) {
@@ -330,7 +339,8 @@ class AgentContainer : public RsContainer
         for (fds_uint32_t i = 0; i < rs_cur_idx; i++) {
             Error err(ERR_OK);
             NodeAgent::pointer cur = NodeAgent::agt_cast_ptr(rs_array[i]);
-            if (rs_array[i] != NULL) {
+            if ((rs_array[i] != NULL) &&
+                (rs_get_resource(cur->get_uuid()) != NULL)) {
                 err = (*fn)(arg, cur);
                 if (err.ok()) {
                     ++count;

@@ -30,6 +30,8 @@
 #include <lib/QoSWFQDispatcher.h>
 #include <lib/qos_min_prio.h>
 #include <NetSession.h>
+#include <DmIoReq.h>
+#include <CatalogSync.h>
 
 #include <CommitLog.h>
 
@@ -49,14 +51,25 @@ int scheduleBlobList(void * _io);
 int scheduleGetBlobMetaData(void* io);
 int scheduleSetBlobMetaData(void* io);
 int scheduleGetVolumeMetaData(void* io);
+int scheduleSnapVolCat(void* _io);
 
-class DataMgr : public PlatformProcess {
+class DataMgr : public PlatformProcess, public DmIoReqHandler {
 public:
-    void InitMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr);
+    static void InitMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr);
 
     class ReqHandler;
     typedef boost::shared_ptr<ReqHandler> ReqHandlerPtr;
     typedef boost::shared_ptr<FDS_ProtocolInterface::FDSP_MetaDataPathRespClient> RespHandlerPrx; //NOLINT
+    OMgrClient     *omClient;
+    /*
+     * TODO: Move to STD shared or unique pointers. That's
+     * safer.
+     */
+    std::unordered_map<fds_uint64_t, VolumeMeta*> vol_meta_map;
+    /**
+     * Catalog sync manager
+     */
+    CatalogSyncMgrPtr catSyncMgr;
 
     struct RequestHeader {
         fds_volid_t volId;
@@ -211,7 +224,7 @@ public:
     fds_uint32_t numTestVols;  /* Number of vols to use in test mode */
 
     class dmQosCtrl : public FDS_QoSControl {
-   public:
+ public:
       DataMgr *parentDm;
 
       dmQosCtrl(DataMgr *_parent,
@@ -254,7 +267,9 @@ public:
             case FDS_SET_BLOB_METADATA:
                 threadPool->schedule(scheduleSetBlobMetaData, io);
                 break;
-
+            case FDS_DM_SNAP_VOLCAT:
+                threadPool->schedule(scheduleSnapVolCat, io);
+                break
              case FDS_GET_VOLUME_METADATA:
                 threadPool->schedule(scheduleGetVolumeMetaData, io);
                 break;
@@ -285,11 +300,11 @@ public:
     boost::shared_ptr<netSessionTbl> nstable;
     netMetaDataPathServerSession *metadatapath_session;
     // std::unordered_map<std::string, RespHandlerPrx> respHandleCli;
-   
+    
     fds_rwlock respMapMtx;
-    OMgrClient     *omClient;
 
     dmQosCtrl   *qosCtrl;
+
 
     /*
      * Cmdline configurables
@@ -308,11 +323,6 @@ public:
     fds_uint32_t num_threads;
     fds_threadpool *_tp;
 
-    /*
-     * TODO: Move to STD shared or unique pointers. That's
-     * safer.
-     */
-    std::unordered_map<fds_uint64_t, VolumeMeta*> vol_meta_map;
     /*
      * Used to protect access to vol_meta_map.
      */
@@ -338,9 +348,11 @@ public:
     Error _add_if_no_vol(const std::string& vol_name,
                          fds_volid_t vol_uuid,VolumeDesc* desc);
     Error _add_vol_locked(const std::string& vol_name,
-                          fds_volid_t vol_uuid,VolumeDesc* desc);
+                          fds_volid_t vol_uuid, VolumeDesc* desc,
+                          fds_bool_t crt_catalogs);
     Error _process_add_vol(const std::string& vol_name,
-                           fds_volid_t vol_uuid,VolumeDesc* desc);
+                           fds_volid_t vol_uuid,VolumeDesc* desc,
+                           fds_bool_t crt_catalogs);
     Error _process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only);
     Error _process_mod_vol(fds_volid_t vol_uuid,
 			   const VolumeDesc& voldesc);
@@ -375,11 +387,16 @@ public:
 
     fds_bool_t volExistsLocked(fds_volid_t vol_uuid) const;
 
+    /**
+     * DmIoReqHandler method implementation
+     */
+    virtual Error enqueueMsg(fds_volid_t volId, dmCatReq* ioReq);
+
     static Error vol_handler(fds_volid_t vol_uuid,
                              VolumeDesc* desc,
                              fds_vol_notify_t vol_action,
-                             fds_bool_t check_only,
-                             FDS_ProtocolInterface::FDSP_ResultType result);
+                             fpi::FDSP_NotifyVolFlag vol_flag,
+                             fpi::FDSP_ResultType result);
 
     static void node_handler(fds_int32_t  node_id,
                              fds_uint32_t node_ip,
@@ -387,8 +404,13 @@ public:
                              fds_uint32_t node_port,
                              FDS_ProtocolInterface::FDSP_MgrIdType node_type);
 
+    static Error volcat_evt_handler(fds_catalog_action_t,
+                                    const fpi::FDSP_PushMetaPtr& push_meta,
+                                    const std::string& session_uuid);
+
   protected:
     void setup_metadatapath_server(const std::string &ip);
+    void setup_metasync_service();
 
   public:
     DataMgr(int argc, char *argv[], Platform *platform, Module **mod_vec);
@@ -421,6 +443,7 @@ public:
     void getBlobMetaDataBackend(const dmCatReq *request);
     void setBlobMetaDataBackend(const dmCatReq *request);
     void getVolumeMetaDataBackend(const dmCatReq *request);
+    void snapVolCat(DmIoSnapVolCat* snapReq);
     /* 
      * FDS protocol processing proto types 
      */

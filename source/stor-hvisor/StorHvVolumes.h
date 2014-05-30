@@ -164,7 +164,7 @@ class StorHvVolumeTable : public HasLogger
   static Error volumeEventHandler(fds_volid_t vol_uuid, 
                                   VolumeDesc *vdb,
                                   fds_vol_notify_t vol_action,
-                                  fds_bool_t check_only,
+                                  FDS_ProtocolInterface::FDSP_NotifyVolFlag,
                                   FDS_ProtocolInterface::FDSP_ResultType);
   
   Error modifyVolumePolicy(fds_volid_t vol_uuid,

@@ -72,6 +72,18 @@ LocalClusterMap::getNodeMigPort(NodeUuid uuid) {
     return port;
 }
 
+fds_uint32_t
+LocalClusterMap::getNodeMetaSyncPort(NodeUuid uuid) {
+    fds_uint32_t port;
+    lcmLock.read_lock();
+    fds_verify(clusterMembers.count(uuid.uuid_get_val()) != 0);
+    port = clusterMembers[uuid.uuid_get_val()].meta_sync_port;
+    lcmLock.read_unlock();
+
+    return port;
+}
+
+
 Error
 LocalClusterMap::addNode(node_info_t *node,
                          FDSP_MgrIdType myRole,
