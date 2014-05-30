@@ -1654,11 +1654,11 @@ DataMgr::commitBlobTxInternal(BlobTxId::const_ptr blobTxId,
     Error err(ERR_OK);
 
     // The volume and blob will be derived from the transaction id
-    dmCatReq *dmCommitTxReq = new DataMgr::dmCatReq(0, "",
-                                                    srcIp, dstIp,
-                                                    srcPort, dstPort,
-                                                    session_uuid, reqCookie,
-                                                    FDS_COMMIT_BLOB_TX);
+    dmCatReq *dmCommitTxReq = new dmCatReq(0, "",
+                                           srcIp, dstIp,
+                                           srcPort, dstPort,
+                                           session_uuid, reqCookie,
+                                           FDS_COMMIT_BLOB_TX);
     fds_verify(dmCommitTxReq != NULL);
 
     // Set the desired version to invalid for now (so we get the newest)
@@ -1677,11 +1677,11 @@ DataMgr::abortBlobTxInternal(BlobTxId::const_ptr blobTxId,
     Error err(ERR_OK);
 
     // The volume and blob will be derived from the transaction id
-    dmCatReq *dmAbortTxReq = new DataMgr::dmCatReq(0, "",
-                                                   srcIp, dstIp,
-                                                   srcPort, dstPort,
-                                                   session_uuid, reqCookie,
-                                                   FDS_ABORT_BLOB_TX);
+    dmCatReq *dmAbortTxReq = new dmCatReq(0, "",
+                                          srcIp, dstIp,
+                                          srcPort, dstPort,
+                                          session_uuid, reqCookie,
+                                          FDS_ABORT_BLOB_TX);
     fds_verify(dmAbortTxReq != NULL);
 
     // Set the desired version to invalid for now (so we get the newest)
@@ -1700,11 +1700,11 @@ DataMgr::startBlobTxInternal(const std::string volumeName, const std::string &bl
                              fds_uint32_t dstPort, std::string session_uuid, fds_uint32_t reqCookie) {
     Error err(ERR_OK);
 
-    dmCatReq *dmStartTxReq = new DataMgr::dmCatReq(volId, blobName,
-                                                   srcIp, dstIp,
-                                                   srcPort, dstPort,
-                                                   session_uuid, reqCookie,
-                                                   FDS_START_BLOB_TX);
+    dmCatReq *dmStartTxReq = new dmCatReq(volId, blobName,
+                                          srcIp, dstIp,
+                                          srcPort, dstPort,
+                                          session_uuid, reqCookie,
+                                          FDS_START_BLOB_TX);
     fds_verify(dmStartTxReq != NULL);
 
     // Set the desired version to invalid for now (so we get the newest)
@@ -1722,11 +1722,11 @@ DataMgr::statBlobInternal(const std::string volumeName, const std::string &blobN
                           fds_uint32_t dstPort, std::string session_uuid, fds_uint32_t reqCookie) {
     Error err(ERR_OK);
 
-    dmCatReq *dmStatReq = new DataMgr::dmCatReq(volId, blobName,
-                                                srcIp, dstIp,
-                                                srcPort, dstPort,
-                                                session_uuid, reqCookie,
-                                                FDS_STAT_BLOB);
+    dmCatReq *dmStatReq = new dmCatReq(volId, blobName,
+                                       srcIp, dstIp,
+                                       srcPort, dstPort,
+                                       session_uuid, reqCookie,
+                                       FDS_STAT_BLOB);
     fds_verify(dmStatReq != NULL);
 
     // Set the desired version to invalid for now (so we get the newest)
@@ -2387,7 +2387,7 @@ void DataMgr::ReqHandler::SetBlobMetaData(boost::shared_ptr<FDSP_MsgHdrType>& ms
               << " cookie: " << reqHeader.reqCookie
               << " session: " << reqHeader.session_uuid;
 
-    dmCatReq* request = new DataMgr::dmCatReq(reqHeader, FDS_SET_BLOB_METADATA);
+    dmCatReq* request = new dmCatReq(reqHeader, FDS_SET_BLOB_METADATA);
     
     for (auto& meta : *metaDataList) {
         GLOGDEBUG << "received meta  [" << meta.key <<":" << meta.value << "]";
@@ -2409,7 +2409,7 @@ void DataMgr::ReqHandler::GetBlobMetaData(boost::shared_ptr<FDSP_MsgHdrType>& ms
              << " blob:" << *blobName;
 
     RequestHeader reqHeader(msgHeader);
-    dmCatReq* request = new DataMgr::dmCatReq(reqHeader, FDS_GET_BLOB_METADATA);
+    dmCatReq* request = new dmCatReq(reqHeader, FDS_GET_BLOB_METADATA);
     request->blob_name = *blobName;
     err = dataMgr->qosCtrl->enqueueIO(request->volId, request);
 
@@ -2422,70 +2422,70 @@ void DataMgr::ReqHandler::GetVolumeMetaData(boost::shared_ptr<FDSP_MsgHdrType>& 
     GLOGDEBUG << " volume:" << *volumeName << " txnid:" << header->req_cookie;
 
     RequestHeader reqHeader(header);
-    dmCatReq* request = new DataMgr::dmCatReq(reqHeader, FDS_GET_VOLUME_METADATA);
+    dmCatReq* request = new dmCatReq(reqHeader, FDS_GET_VOLUME_METADATA);
     err = dataMgr->qosCtrl->enqueueIO(request->volId, request);
     fds_verify(err == ERR_OK);
 }
 
 int scheduleUpdateCatalog(void * _io) {
-    fds::dmCatReq *io = (fds::dmCatReq*)_io;
+    dmCatReq *io = (dmCatReq*)_io;
 
     dataMgr->updateCatalogBackend(io);
     return 0;
 }
 
 int scheduleQueryCatalog(void * _io) {
-    fds::dmCatReq *io = (fds::dmCatReq*)_io;
+    dmCatReq *io = (dmCatReq*)_io;
 
     dataMgr->queryCatalogBackend(io);
     return 0;
 }
 
 int scheduleStartBlobTx(void * _io) {
-    fds::DataMgr::dmCatReq *io = (fds::DataMgr::dmCatReq*)_io;
+    dmCatReq *io = (dmCatReq*)_io;
 
     dataMgr->startBlobTxBackend(io);
     return 0;
 }
 
 int scheduleStatBlob(void * _io) {
-    fds::DataMgr::dmCatReq *io = (fds::DataMgr::dmCatReq*)_io;
+    dmCatReq *io = (dmCatReq*)_io;
 
     dataMgr->statBlobBackend(io);
     return 0;
 }
 
 int scheduleDeleteCatObj(void * _io) {
-    fds::dmCatReq *io = (fds::dmCatReq*)_io;
+    dmCatReq *io = (dmCatReq*)_io;
 
     dataMgr->deleteCatObjBackend(io);
     return 0;
 }
 
 int scheduleBlobList(void * _io) {
-    fds::dmCatReq *io = (fds::dmCatReq*)_io;
+    dmCatReq *io = (dmCatReq*)_io;
 
     dataMgr->blobListBackend(io);
     return 0;
 }
 
 int scheduleGetBlobMetaData(void* io) {
-    dataMgr->getBlobMetaDataBackend((fds::DataMgr::dmCatReq*)io);
+    dataMgr->getBlobMetaDataBackend((dmCatReq*)io);
     return 0;
 }
 
 int scheduleSetBlobMetaData(void* io) {
-    dataMgr->setBlobMetaDataBackend((fds::DataMgr::dmCatReq*)io);
+    dataMgr->setBlobMetaDataBackend((dmCatReq*)io);
     return 0;
 }
 
 int scheduleGetVolumeMetaData(void* io) {
-    dataMgr->getVolumeMetaDataBackend((fds::DataMgr::dmCatReq*)io);
+    dataMgr->getVolumeMetaDataBackend((dmCatReq*)io);
     return 0;
 }
 
 int scheduleSnapVolCat(void * _io) {
-    fds::DmIoSnapVolCat *io = (fds::DmIoSnapVolCat*)_io;
+    DmIoSnapVolCat *io = (DmIoSnapVolCat*)_io;
 
     dataMgr->snapVolCat(io);
     return 0;

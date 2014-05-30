@@ -4,6 +4,7 @@
 #ifndef SOURCE_DATA_MGR_INCLUDE_COMMITLOG_H_
 #define SOURCE_DATA_MGR_INCLUDE_COMMITLOG_H_
 
+#include <string>
 #include <unordered_map>
 #include <fds_error.h>
 #include <fds_module.h>
@@ -47,4 +48,4 @@ class DmCommitLog : public Module {
 
 }  // namespace fds
 
-#endif  // DATA_MGR_INCLUDE_COMMITLOG_H_
+#endif  // SOURCE_DATA_MGR_INCLUDE_COMMITLOG_H_
