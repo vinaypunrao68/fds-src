@@ -1155,6 +1155,12 @@ DataMgr::updateCatalogBackend(dmCatReq  *updCatReq) {
     }
 
     qosCtrl->markIODone(*updCatReq);
+
+    /*
+     * we have updated the local MEta Db successfully, if the forwarding flag is set, 
+     * forward the  request to the respective node 
+     */
+    catSyncMgr->forwardCatalogUpdate(updCatReq);
     delete updCatReq;
 
 }
@@ -1467,7 +1473,7 @@ DataMgr::queryCatalogBackend(dmCatReq  *qryCatReq) {
               << ", OP ID " << query_catalog->dm_operation;
 
     qosCtrl->markIODone(*qryCatReq);
-    delete qryCatReq;
+     delete qryCatReq;
 
 }
 

@@ -107,7 +107,7 @@ namespace fds {
          * CatalogSync must be in CSSTATE_FORWARDING state
          * @return ERR_OK on success; or networks error
          */
-        Error forwardCatalogUpdate(fds_volid_t volid);
+        Error forwardCatalogUpdate(dmCatReq  *updCatReq);
 
         /**
          * @return true if catalog sync is finished
@@ -239,7 +239,7 @@ namespace fds {
          * Must be called only for volumes for which sync is in progress
          * TODO(xxx) add parameters (dmCatReq?)
          */
-        Error forwardCatalogUpdate(fds_volid_t volume_id);
+        Error forwardCatalogUpdate(dmCatReq  *updCatReq);
 
         fds_bool_t isSyncInProgress() const { return sync_in_progress; }
 
@@ -304,8 +304,8 @@ namespace fds {
             // Don't do anything here. This stub is just to keep cpp compiler happy
         }
         void PushMetaSyncReq(fpi::FDSP_MsgHdrTypePtr& fdsp_msg,
-                             fpi::FDSP_UpdateCatalogTypePtr& push_meta_req) {
-        }
+                             fpi::FDSP_UpdateCatalogTypePtr& push_meta_req);
+
         void MetaSyncDone(const fpi::FDSP_MsgHdrType& fdsp_msg,
                           const fpi::FDSP_VolMetaState& vol_meta) {
             // Don't do anything here. This stub is just to keep cpp compiler happy

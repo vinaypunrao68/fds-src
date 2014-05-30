@@ -226,13 +226,42 @@ fds_bool_t CatalogSync::isDeltaSyncDone() const {
             (cur_state != CSSTATE_DELTA_SYNC));
 }
 
-Error CatalogSync::forwardCatalogUpdate(fds_volid_t volid) {
+Error CatalogSync::forwardCatalogUpdate(dmCatReq  *updCatReq) {
     Error err(ERR_OK);
-    fds_verify(hasVolume(volid));
+    fds_verify(hasVolume(updCatReq->volId));
     LOGDEBUG << "Will forward catalog update for volume "
-             << std::hex << volid << std::dec;
+             << std::hex << updCatReq->volId << std::dec;
 
-    // TODO(xxx) implement.
+    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
+    FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr
+            updCatalog(new FDSP_UpdateCatalogType);
+
+    DataMgr::InitMsgHdr(msg_hdr);  // init the  message  header
+    msg_hdr->dst_id = FDSP_DATA_MGR;
+    msg_hdr->glob_volume_id = updCatReq->volId;
+       
+    /*
+     * init the update  catalog  structu
+     */
+    updCatalog->blob_name = updCatReq->blob_name; 
+    updCatalog->blob_version = updCatReq->blob_version;
+    updCatalog->blob_size = updCatReq->fdspUpdCatReqPtr->blob_size;
+    updCatalog->blob_mime_type = updCatReq->fdspUpdCatReqPtr->blob_mime_type;
+    updCatalog->obj_list = updCatReq->fdspUpdCatReqPtr->obj_list;
+    updCatalog->meta_list = updCatReq->fdspUpdCatReqPtr->meta_list;
+
+    /*
+     * send the uipdate catalog to new node
+     */
+    LOGDEBUG << "Will send PushMetaSyncReq msg";
+
+    try {
+        meta_client->getClient()->PushMetaSyncReq(msg_hdr, updCatalog);
+        LOGNORMAL << "Senr PushMetaSyncReq Rpc message : " << meta_client;
+    } catch (...) {
+        LOGERROR << "Unable to send PushMetaSyncReq to DM";
+        err = ERR_NETWORK_TRANSPORT;
+    }
     return err;
 }
 
@@ -427,7 +456,7 @@ CatalogSyncMgr::startCatalogSyncDelta(const std::string& context) {
     return err;
 }
 
-Error CatalogSyncMgr::forwardCatalogUpdate(fds_volid_t volume_id) {
+Error CatalogSyncMgr::forwardCatalogUpdate(dmCatReq  *updCatReq) {
     Error err(ERR_OK);
     fds_bool_t found_volume = false;
 
@@ -439,8 +468,8 @@ Error CatalogSyncMgr::forwardCatalogUpdate(fds_volid_t volume_id) {
     for (CatSyncMap::const_iterator cit = cat_sync_map.cbegin();
          cit != cat_sync_map.cend();
          ++cit) {
-        if ((cit->second)->hasVolume(volume_id)) {
-            err = (cit->second)->forwardCatalogUpdate(volume_id);
+        if ((cit->second)->hasVolume(updCatReq->volId)) {
+            err = (cit->second)->forwardCatalogUpdate(updCatReq);
             found_volume = true;
             break;
         }
@@ -518,6 +547,27 @@ void CatalogSyncMgr::notifyCatalogSyncFinish() {
     // we pushed meta?
 
     LOGDEBUG << "Cleaned up cat sync state";
+}
+
+void
+FDSP_MetaSyncRpc::PushMetaSyncReq(fpi::FDSP_MsgHdrTypePtr& fdsp_msg,
+                         fpi::FDSP_UpdateCatalogTypePtr& meta_req)
+{
+    Error err(ERR_OK);
+    LOGNORMAL << "Received PushMetaSyncReq Rpc message ";
+    BlobNode *bnode = NULL;
+
+    dmCatReq *metaUpdReq = new dmCatReq(fdsp_msg->glob_volume_id, meta_req->blob_name,
+                                    meta_req->dm_transaction_id, meta_req->dm_operation,
+                                    fdsp_msg->src_ip_lo_addr, fdsp_msg->dst_ip_lo_addr,
+                                    fdsp_msg->src_port, fdsp_msg->dst_port,
+                                    fdsp_msg->session_uuid, 0,
+                                    FDS_CAT_UPD, meta_req);
+    err = dataMgr->updateCatalogProcess(metaUpdReq, &bnode);
+    if (err == ERR_OK) {
+        fds_verify(bnode != NULL);
+    }
+
 }
 
 void
