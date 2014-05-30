@@ -92,13 +92,11 @@ bool StorHvCtrl::TxnRequestHelper::setupTxn() {
 }
 
 bool StorHvCtrl::TxnRequestHelper::getPrimaryDM(fds_uint32_t& ip, fds_uint32_t& port) {
-    fds_int32_t numNodes = 1, node_state;
-    fds_uint64_t nodeId;
-    storHvisor->dataPlacementTbl->getDMTNodesForVolume(volId,
-                                                       &nodeId,
-                                                       &numNodes);
-    fds_verify(numNodes == 1);
-    storHvisor->dataPlacementTbl->getNodeInfo(nodeId,
+    // Get DMT node list from dmt
+    DmtColumnPtr nodeIds = storHvisor->dataPlacementTbl->getDMTNodesForVolume(volId);
+    fds_verify(nodeIds->getLength() > 0);
+    fds_int32_t node_state = -1;
+    storHvisor->dataPlacementTbl->getNodeInfo(nodeIds->get(0).uuid_get_val(),
                                               &ip,
                                               &port,
                                               &node_state);
@@ -218,19 +216,16 @@ StorHvCtrl::dispatchDmUpdMsg(StorHvJournalEntry *journEntry,
     fds_volid_t volId = dmMsgHdr->glob_volume_id;
 
     // Get DMT node list from dmt
-    fds_uint32_t numNodes = MAX_DM_NODES;
-    fds_uint64_t nodeIds[numNodes];
-    memset(nodeIds, 0x00, sizeof(fds_int64_t) * numNodes);
-    dataPlacementTbl->getDMTNodesForVolume(volId, nodeIds, (int*)&numNodes);
-    fds_verify(numNodes > 0);
+    DmtColumnPtr nodeIds = dataPlacementTbl->getDMTNodesForVolume(volId);
+    fds_verify(nodeIds->getLength() > 0);
 
     // Issue a blob update for each DM in the DMT
     fds_uint32_t errcount = 0;
-    for (fds_uint32_t i = 0; i < numNodes; i++) {
+    for (fds_uint32_t i = 0; i < nodeIds->getLength(); i++) {
         fds_uint32_t node_ip   = 0;
         fds_uint32_t node_port = 0;
         fds_int32_t node_state = -1;
-        dataPlacementTbl->getNodeInfo(nodeIds[i],
+        dataPlacementTbl->getNodeInfo(nodeIds->get(i).uuid_get_val(),
                                       &node_ip,
                                       &node_port,
                                       &node_state);
@@ -242,7 +237,7 @@ StorHvCtrl::dispatchDmUpdMsg(StorHvJournalEntry *journEntry,
         dmMsgHdr->dst_port                  = node_port;
         journEntry->dm_ack[i].ack_status    = FDS_CLS_ACK;
         journEntry->dm_ack[i].commit_status = FDS_CLS_ACK;
-        journEntry->num_dm_nodes            = numNodes;
+        journEntry->num_dm_nodes            = nodeIds->getLength();
     
         // Call Update Catalog RPC call to DM
         try {
@@ -1500,19 +1495,15 @@ StorHvCtrl::startBlobTx(AmQosReq *qosReq) {
         new std::string(blobReq->getBlobName()));
 
     // Get the DM nodes info to query
-    fds_int32_t numNodes = 4; // TODO(Andrew): Why 4? Why not...
-    fds_uint64_t nodeIds[numNodes];
-    storHvisor->dataPlacementTbl->getDMTNodesForVolume(volId,
-                                                       nodeIds,
-                                                       &numNodes);
-    fds_verify(numNodes > 0);
-    journEntry->num_dm_nodes = numNodes;
+    DmtColumnPtr nodeIds = dataPlacementTbl->getDMTNodesForVolume(volId);
+    fds_verify(nodeIds->getLength() > 0);
+    journEntry->num_dm_nodes = nodeIds->getLength();
 
-    for (fds_int32_t i = 0; i < numNodes; i++) {
+    for (fds_uint32_t i = 0; i < nodeIds->getLength(); i++) {
         fds_uint32_t node_ip;
         fds_uint32_t node_port;
         fds_int32_t  node_state;
-        storHvisor->dataPlacementTbl->getNodeInfo(nodeIds[i],
+        storHvisor->dataPlacementTbl->getNodeInfo(nodeIds->get(i).uuid_get_val(),
                                                   &node_ip,
                                                   &node_port,
                                                   &node_state);
@@ -1620,16 +1611,13 @@ StorHvCtrl::StatBlob(fds::AmQosReq *qosReq) {
     msgHdr->dst_port       = 0;
 
     // Get the DM node info to query
-    fds_int32_t numNodes = 1;
-    fds_uint64_t nodeId;
-    storHvisor->dataPlacementTbl->getDMTNodesForVolume(volId,
-                                                       &nodeId,
-                                                       &numNodes);
-    fds_verify(numNodes == 1);
+    DmtColumnPtr nodeIds = dataPlacementTbl->getDMTNodesForVolume(volId);
+    fds_verify(nodeIds->getLength() > 0);
+
     fds_uint32_t node_ip;
     fds_uint32_t node_port;
     fds_int32_t  node_state;
-    storHvisor->dataPlacementTbl->getNodeInfo(nodeId,
+    storHvisor->dataPlacementTbl->getNodeInfo(nodeIds->get(0).uuid_get_val(),
                                               &node_ip,
                                               &node_port,
                                               &node_state);
@@ -1728,13 +1716,11 @@ Error StorHvCtrl::SetBlobMetaData(fds::AmQosReq *qosReq) {
     msgHdr->src_node_name  = "";
     msgHdr->src_port       = 0;
     msgHdr->dst_port       = 0;
-
-    fds_uint32_t numNodes = MAX_DM_NODES;
     InitDmMsgHdr(msgHdr);
-    fds_uint64_t nodeIds[numNodes];
-    memset(nodeIds, 0x00, sizeof(fds_int64_t) * numNodes);
-    dataPlacementTbl->getDMTNodesForVolume(volId, nodeIds, (int*)&numNodes);
-    fds_verify(numNodes > 0);
+
+    // Get DMT node list from dmt
+    DmtColumnPtr nodeIds = dataPlacementTbl->getDMTNodesForVolume(volId);
+    fds_verify(nodeIds->getLength() > 0);
 
     boost::shared_ptr<std::string> volNamePtr(
         new std::string(blobReq->volumeName));
@@ -1742,11 +1728,11 @@ Error StorHvCtrl::SetBlobMetaData(fds::AmQosReq *qosReq) {
         new std::string(blobReq->getBlobName()));
 
     uint errcount = 0;
-    for (fds_uint32_t i = 0; i < numNodes; i++) {
+    for (fds_uint32_t i = 0; i < nodeIds->getLength(); i++) {
         fds_uint32_t node_ip   = 0;
         fds_uint32_t node_port = 0;
         fds_int32_t node_state = -1;
-        dataPlacementTbl->getNodeInfo(nodeIds[i],
+        dataPlacementTbl->getNodeInfo(nodeIds->get(i).uuid_get_val(),
                                       &node_ip,
                                       &node_port,
                                       &node_state);
@@ -1756,7 +1742,7 @@ Error StorHvCtrl::SetBlobMetaData(fds::AmQosReq *qosReq) {
         msgHdr->dst_port                    = node_port;
         journEntry->dm_ack[i].ack_status    = FDS_CLS_ACK;
         journEntry->dm_ack[i].commit_status = FDS_CLS_ACK;
-        journEntry->num_dm_nodes            = numNodes;
+        journEntry->num_dm_nodes            = nodeIds->getLength();
 
         // Call Update Catalog RPC call to DM
         try {
