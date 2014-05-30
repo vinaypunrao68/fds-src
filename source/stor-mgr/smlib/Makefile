@@ -18,7 +18,8 @@ user_cpp          :=                   \
     ObjMeta.cpp                        \
     SmObjDb.cpp                        \
     Scavenger.cpp                      \
-    TokenCompactor.cpp
+    TokenCompactor.cpp                 \
+    SMSvcHandler.cpp
 
 user_no_style     := \
     StorMgr.cpp                        \

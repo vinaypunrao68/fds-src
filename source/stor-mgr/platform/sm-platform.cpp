@@ -9,6 +9,9 @@
 #include <arpa/inet.h>
 #include <sm-platform.h>
 #include <fds_process.h>
+#include <fdsp/SMSvc.h>
+#include <SMSvcHandler.h>
+#include <net/net-service-tmpl.hpp>
 
 namespace fds {
 
@@ -22,8 +25,47 @@ SmVolEvent::plat_evt_handler(const FDSP_MsgHdrTypePtr &hdr)
 {
 }
 
+/*
+ * -----------------------------------------------------------------------------------
+ * Endpoint Plugin
+ * -----------------------------------------------------------------------------------
+ */
+SMEpPlugin::~SMEpPlugin() {}
+SMEpPlugin::SMEpPlugin(SmPlatform *sm_plat) : EpEvtPlugin(), sm_plat_(sm_plat) {}
+
+// ep_connected
+// ------------
+//
+void
+SMEpPlugin::ep_connected()
+{
+}
+
+// ep_done
+// -------
+//
+void
+SMEpPlugin::ep_down()
+{
+}
+
+// svc_up
+// ------
+//
+void
+SMEpPlugin::svc_up(EpSvcHandle::pointer handle)
+{
+}
+
+// svc_down
+// --------
+//
+void
+SMEpPlugin::svc_down(EpSvc::pointer svc, EpSvcHandle::pointer handle)
+{
+}
 // -------------------------------------------------------------------------------------
-// DM Specific Platform
+// SM Specific Platform
 // -------------------------------------------------------------------------------------
 SmPlatform::SmPlatform()
     : Platform("SM-Platform",
@@ -67,6 +109,28 @@ SmPlatform::mod_init(SysParams const *const param)
 void
 SmPlatform::mod_startup()
 {
+    Module::mod_startup();
+
+    sm_recv   = bo::shared_ptr<SMSvcHandler>(new SMSvcHandler());
+    sm_plugin = new SMEpPlugin(this);
+    sm_ep     = new EndPoint<fpi::SMSvcClient, fpi::SMSvcProcessor>(
+        Platform::platf_singleton()->plf_get_my_data_port(),
+        *Platform::platf_singleton()->plf_get_my_svc_uuid(),
+        NodeUuid(0ULL),
+        bo::shared_ptr<fpi::SMSvcProcessor>(new fpi::SMSvcProcessor(sm_recv)),
+        sm_plugin);
+
+    LOGNORMAL << "Startup platform specific net svc, port "
+              << Platform::platf_singleton()->plf_get_my_nsvc_port();
+}
+
+// mod_enable_service
+// ------------------
+//
+void
+SmPlatform::mod_enable_service()
+{
+    NetMgr::ep_mgr_singleton()->ep_register(sm_ep, false);
 }
 
 void

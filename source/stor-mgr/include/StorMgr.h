@@ -627,24 +627,6 @@ class ObjectStorMgrI : virtual public FDSP_DataPathReqIf, virtual public FDSP_Rp
             boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg);
 };
 
-class SMSvcHandler : virtual public SMSvcIf {
- public:
-  SMSvcHandler() {
-    // Your initialization goes here
-  }
-
-  void getObject(const GetObjectMsg& getObjMsg) {
-    // Don't do anything here. This stub is just to keep cpp compiler happy
-  }
-
-
-  void getObject(boost::shared_ptr<GetObjectMsg>& getObjMsg);
-
-  void getObjectCb(boost::shared_ptr<GetObjectMsg>& getObjMsg,
-                   const Error &err,
-                   SmIoReadObjectdata *read_data);
-
-};
 }  // namespace fds
 
 #endif  // SOURCE_STOR_MGR_STORMGR_H_
