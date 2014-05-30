@@ -44,11 +44,11 @@ std::ostream& operator<<(std::ostream& out, const MetaList& metaList);
 
 class BlobObjectInfo : public serialize::Serializable {
   public:
-    fds_uint64_t offset;
+    fds_uint64_t offset = 0 ;
     ObjectID data_obj_id;
-    fds_uint64_t size;
-    fds_bool_t sparse;
-    fds_bool_t blob_end;
+    fds_uint64_t size = 0;
+    fds_bool_t sparse = false;
+    fds_bool_t blob_end = false;
 
     BlobObjectInfo();
     BlobObjectInfo(const fpi::FDSP_BlobObjectInfo& blob_obj_info);
@@ -88,14 +88,14 @@ std::ostream& operator<<(std::ostream& out, const BlobObjectList& blobObjectList
 class BlobNode : public serialize::Serializable {
   public:
     std::string blob_name;
-    blob_version_t version;
-    fds_volid_t vol_id;
-    fds_uint64_t blob_size;
-    fds_uint32_t blob_mime_type;
-    fds_uint32_t replicaCnt;
-    fds_uint32_t writeQuorum;
-    fds_uint32_t readQuorum;
-    fds_uint32_t consisProtocol;
+    blob_version_t version = 0 ;
+    fds_volid_t vol_id = 0;
+    fds_uint64_t blob_size = 0;
+    fds_uint32_t blob_mime_type = 0;
+    fds_uint32_t replicaCnt = 0;
+    fds_uint32_t writeQuorum = 0;
+    fds_uint32_t readQuorum = 0;
+    fds_uint32_t consisProtocol = 0;
     MetaList meta_list;
     BlobObjectList obj_list;
 
