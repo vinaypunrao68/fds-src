@@ -43,17 +43,15 @@ SmPlatform::SmPlatform()
                                  new PmContainer(FDSP_STOR_MGR),
                                  new OmContainer(FDSP_STOR_MGR)),
                new DomainResources("DM-Resources"),
-               NULL)
-{
-    Platform::platf_assign_singleton(&gl_SmPlatform);
-    plf_node_type  = FDSP_STOR_MGR;
-}
+               NULL) {}
 
 int
 SmPlatform::mod_init(SysParams const *const param)
 {
     FdsConfigAccessor conf(g_fdsprocess->get_conf_helper());
 
+    Platform::platf_assign_singleton(&gl_SmPlatform);
+    plf_node_type  = FDSP_STOR_MGR;
     Platform::mod_init(param);
 
     plf_om_ip_str    = conf.get_abs<std::string>("fds.sm.om_ip");

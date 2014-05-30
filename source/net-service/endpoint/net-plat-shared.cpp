@@ -104,6 +104,16 @@ NetPlatSvc::nplat_my_ep()
     return plat_ep;
 }
 
+// nplat_register_node
+// -------------------
+// Platform lib which linked to FDS daemon registers node inventory based on RO data
+// from the shared memory segment.
+//
+void
+NetPlatSvc::nplat_register_node(const fpi::NodeInfoMsg *msg)
+{
+}
+
 /*
  * -----------------------------------------------------------------------------------
  * Domain Agent

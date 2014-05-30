@@ -9,8 +9,10 @@ user_fds_ar_libs  :=  \
     fds-am-engine \
     fds-am-plat \
     fds-plat-lib \
-    fds-lib \
+    fds-net-svc \
+    fds-rpc-request \
     fds-umod \
+    fds-lib \
     fds-util \
     fds-fdsp \
     fds-xdi \
@@ -38,7 +40,7 @@ user_non_fds_libs :=  \
     thrift \
     config++ \
     cryptopp \
-	hiredis \
+    hiredis \
     $(user_nginx_libs)
 
 user_cc           :=  \

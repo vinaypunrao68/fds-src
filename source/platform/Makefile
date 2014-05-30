@@ -7,13 +7,11 @@ user_build_dir   := include shared common disk net-svc python
 user_incl_dir    := include ../net-service/include
 user_fds_ar_libs := \
     fds-plat-daemon \
-    fds-plat-disk \
-    fds-net-svc \
-    fds-net-platd \
-    fds-rpc-request
+    fds-plat-disk
 
 user_non_fds_libs := \
 	udev \
+	rt \
 	parted
 
 user_cpp         := platform-main.cpp

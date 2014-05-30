@@ -41,13 +41,11 @@ NetMgr::mod_init(SysParams const *const p)
 {
     static Module *ep_mgr_mods[] = {
         gl_EpShmPlatLib,
-        // &gl_NetPlatform,
         gl_NetPlatSvc,
         NULL
     };
     ep_shm     = gl_EpShmPlatLib;
     plat_lib   = Platform::platf_singleton();
-    // plat_net   = &gl_NetPlatform;
     plat_net   = static_cast<NetPlatSvc *>(gl_NetPlatSvc);
     mod_intern = ep_mgr_mods;
     return Module::mod_init(p);
@@ -382,6 +380,7 @@ void
 NetMgr::ep_register_binding(const ep_map_rec_t *rec)
 {
     int                idx, port;
+    char               buf[INET6_ADDRSTRLEN + 1];
     std::string        ip;
     EpSvc::pointer     ep;
     EpSvcImpl::pointer ept;
@@ -404,11 +403,10 @@ NetMgr::ep_register_binding(const ep_map_rec_t *rec)
         ep_mtx.unlock();
         if ((ept != NULL) && (ept->ep_my_uuid() != rec->rmp_uuid)) {
             fds_verify(ept->ep_is_connection() == true);
-            ip.reserve(INET6_ADDRSTRLEN + 1);
-            EpAttr::netaddr_to_str(&rec->rmp_addr,
-                                   const_cast<char *>(ip.c_str()), INET6_ADDRSTRLEN);
+            EpAttr::netaddr_to_str(&rec->rmp_addr, buf, INET6_ADDRSTRLEN);
 
             // Connect to the peer if we haven't connected.
+            ip.assign(buf);
             ept->ep_connect_peer(port, ip);
         }
     }

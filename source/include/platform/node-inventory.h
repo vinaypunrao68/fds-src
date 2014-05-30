@@ -7,6 +7,7 @@
 #include <string>
 #include <ostream>
 #include <boost/shared_ptr.hpp>
+#include <fds_ptr.h>
 #include <fds_error.h>
 #include <fds_resource.h>
 #include <fds_module.h>
@@ -14,6 +15,8 @@
 #include <platform/platform-rpc.h>
 
 namespace fds {
+struct node_data;
+class ShmObjRO;
 
 typedef fpi::FDSP_RegisterNodeType     FdspNodeReg;
 typedef fpi::FDSP_RegisterNodeTypePtr  FdspNodeRegPtr;
@@ -48,9 +51,6 @@ typedef struct _node_capability_t
 class NodeInvData
 {
   public:
-    // typedef boost::shared_ptr<NodeInvData>       pointer;
-    // typedef boost::shared_ptr<const NodeInvData> const_ptr;
-
     // TODO(Andrew): Add back a better checksum library
     // Sha1Digest               nd_checksum;
     NodeUuid                 nd_uuid;
@@ -124,6 +124,7 @@ class NodeInventory : public Resource
     /**
      * Fill in the inventory for this agent based on data provided by the message.
      */
+    void node_fill_shm_inv(const ShmObjRO *shm, int ro, int rw);
     void node_fill_inventory(const FdspNodeRegPtr msg);
     void node_update_inventory(const FdspNodeRegPtr msg);
     void set_node_state(FdspNodeState state);
@@ -137,12 +138,28 @@ class NodeInventory : public Resource
     virtual void init_node_reg_pkt(fpi::FDSP_RegisterNodeTypePtr pkt) const;
     virtual void init_stor_cap_msg(fpi::StorCapMsg *msg) const;
     virtual void init_plat_info_msg(fpi::NodeInfoMsg *msg) const;
+    virtual void init_node_info_msg(fpi::NodeInfoMsg *msg) const;
+
+    /**
+     * Convert from message format to POD type used in shared memory.
+     */
+    static void node_info_msg_to_shm(const NodeInfoMsg *msg, struct node_data *rec);
+    static void node_info_msg_frm_shm(bool am, int ro_idx, NodeInfoMsg *msg);
+    static void node_stor_cap_to_shm(const fpi::StorCapMsg *msg, struct node_stor_cap *);
+    static void node_stor_cap_frm_shm(fpi::StorCapMsg *msg, const struct node_stor_cap *);
 
   protected:
     const NodeInvData       *node_inv;
+    FdspNodeType             node_svc_type;
+    int                      node_ro_idx;
+    int                      node_rw_idx;
 
     virtual ~NodeInventory() {}
-    explicit NodeInventory(const NodeUuid &uuid) : Resource(uuid) {}
+    explicit NodeInventory(const NodeUuid &uuid)
+        : Resource(uuid), node_inv(NULL),
+          node_svc_type(fpi::FDSP_PLATFORM), node_ro_idx(-1), node_rw_idx(-1) {}
+
+    const ShmObjRO *node_shm_ctrl() const;
     void node_set_inventory(NodeInvData const *const inv);
 };
 
@@ -374,6 +391,13 @@ class AgentContainer : public RsContainer
                                  bool                  activate = true);
     virtual Error agent_unregister(const NodeUuid &uuid, const std::string &name);
 
+    virtual void
+    agent_register(const ShmObjRO     *shm,
+                   NodeAgent::pointer *out,
+                   int                 ro,
+                   int                 rw,
+                   bool                activate = true);
+
     /**
      * Establish RPC connection with the remte agent.
      */
@@ -383,6 +407,7 @@ class AgentContainer : public RsContainer
                     NodeAgent::pointer               agent);
 
   protected:
+    // NetSession fields, need to remove.
     FdspNodeType                       ac_id;
     boost::shared_ptr<netSessionTbl>   ac_cpSessTbl;
 
@@ -492,9 +517,16 @@ class DomainContainer
                     AgentContainer::pointer pm,
                     AgentContainer::pointer om);
 
+    /**
+     * Register and unregister an agent to the domain.
+     * TODO(Vy): retire this function.
+     */
     virtual Error dc_register_node(const NodeUuid       &uuid,
                                    const FdspNodeRegPtr  msg,
                                    NodeAgent::pointer   *agent);
+
+    virtual void
+    dc_register_node(const ShmObjRO *shm, NodeAgent::pointer *agent, int ro, int rw);
 
     virtual Error dc_unregister_node(const NodeUuid &uuid, const std::string &name);
     virtual Error dc_unregister_agent(const NodeUuid &uuid, FdspNodeType type);
@@ -505,46 +537,40 @@ class DomainContainer
     AgentContainer::pointer dc_container_frm_msg(FdspNodeType node_type);
 
     /**
-     * Get/set methods for different containers.
+     * Domain iteration plugin
+     */
+    inline void dc_foreach_am(ResourceIter *iter) {
+        dc_am_nodes->rs_foreach(iter);
+    }
+    inline void dc_foreach_sm(ResourceIter *iter) {
+        dc_sm_nodes->rs_foreach(iter);
+    }
+    inline void dc_foreach_dm(ResourceIter *iter) {
+        dc_dm_nodes->rs_foreach(iter);
+    }
+    inline void dc_foreach_pm(ResourceIter *iter) {
+        dc_pm_nodes->rs_foreach(iter);
+    }
+    inline void dc_foreach_om(ResourceIter *iter) {
+        dc_om_nodes->rs_foreach(iter);
+    }
+    /**
+     * Get methods for different containers.
      */
     inline SmContainer::pointer dc_get_sm_nodes() {
         return agt_cast_ptr<SmContainer>(dc_sm_nodes);
     }
-    inline void dc_set_sm_nodes(SmContainer::pointer sm) {
-        fds_assert(dc_sm_nodes == NULL);
-        dc_sm_nodes = sm;
-    }
-
     inline DmContainer::pointer dc_get_dm_nodes() {
         return agt_cast_ptr<DmContainer>(dc_dm_nodes);
     }
-    inline void dc_set_dm_nodes(DmContainer::pointer dm) {
-        fds_assert(dc_dm_nodes == NULL);
-        dc_dm_nodes = dm;
-    }
-
     inline AmContainer::pointer dc_get_am_nodes() {
         return agt_cast_ptr<AmContainer>(dc_am_nodes);
     }
-    inline void dc_set_am_nodes(AmContainer::pointer am) {
-        fds_assert(dc_am_nodes == NULL);
-        dc_am_nodes = am;
-    }
-
     inline PmContainer::pointer dc_get_pm_nodes() {
         return agt_cast_ptr<PmContainer>(dc_pm_nodes);
     }
-    inline void dc_set_pm_nodes(PmContainer::pointer pm) {
-        fds_assert(dc_pm_nodes == NULL);
-        dc_pm_nodes = pm;
-    }
-
     inline OmContainer::pointer dc_get_om_nodes() {
         return agt_cast_ptr<OmContainer>(dc_om_nodes);
-    }
-    inline void dc_set_om_nodes(OmContainer::pointer om) {
-        fds_assert(dc_om_nodes == NULL);
-        dc_om_nodes = om;
     }
 
   protected:
@@ -556,16 +582,7 @@ class DomainContainer
     AgentContainer::pointer  dc_pm_nodes;
 
   private:
-    mutable boost::atomic<int>  rs_refcnt;
-    friend void intrusive_ptr_add_ref(const DomainContainer *x) {
-        x->rs_refcnt.fetch_add(1, boost::memory_order_relaxed);
-    }
-    friend void intrusive_ptr_release(const DomainContainer *x) {
-        if (x->rs_refcnt.fetch_sub(1, boost::memory_order_release) == 1) {
-            boost::atomic_thread_fence(boost::memory_order_acquire);
-            delete x;
-        }
-    }
+    INTRUSIVE_PTR_DEFS(DomainContainer, rs_refcnt);
 };
 
 }  // namespace fds

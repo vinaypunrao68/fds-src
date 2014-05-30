@@ -160,6 +160,24 @@ RsContainer::rs_free_resource(Resource::pointer rs)
     // Don't need to do anything more.  The ptr will be freed when its refcnt is 0.
 }
 
+// rs_foreach
+// ----------
+//
+void
+RsContainer::rs_foreach(ResourceIter *iter)
+{
+    for (fds_uint32_t i = 0; i < rs_cur_idx; i++) {
+        Resource::pointer cur = rs_array[i];
+        if (rs_array[i] != NULL) {
+            /* The refcnt already set by the cur var. */
+            iter->rs_iter_cnt++;
+            if (iter->rs_iter_fn(cur) == false) {
+                break;
+            }
+        }
+    }
+}
+
 QueryMgr::QueryMgr()
 {
 }

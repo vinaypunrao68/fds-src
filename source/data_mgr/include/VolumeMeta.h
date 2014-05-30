@@ -42,8 +42,6 @@ class MetadataPair {
       key = str.substr(open_seq.size(), (pos - open_seq.size()));
       value = str.substr(pos + 1,
                          str.size() -1 - pos - end_seq.size());
-      LOGDEBUG << "Built metadata pair " << *this
-               << " from string " << str;
     }
 
     MetadataPair(const std::string &_key,
@@ -144,8 +142,6 @@ class BlobObjectInfo {
                  << size << delim
                  << sparse << delim
                  << blob_end;
-        LOGDEBUG << "Serialized blob object info " << *this
-                 << " to " << binfoOss.str();
 
         return binfoOss.str();
     }
@@ -202,9 +198,6 @@ class BlobObjectInfo {
             }
             next_start = next_end+2;
         }
-
-        LOGDEBUG << "From string " << str << " created blob object info "
-                 << *this;
     }
 
     BlobObjectInfo& operator=(const BlobObjectInfo &rhs) {
@@ -426,16 +419,12 @@ class BlobNode {
             if ((*it).key == key) {
                 // We already store the key, overwrite
                 (*it).value = value;
-                LOGNORMAL << "Modified metadata for blob " << blob_name
-                          << " key=" << key << " value=" << value;
                 return;
             }
         }
 
         // We don't already have the key, append it
         meta_list.push_back(MetadataPair(key, value));
-        LOGNORMAL << "Added metadata for blob " << blob_name
-                  << " key=" << key << " value=" << value;
     }
 
     std::string metaListToString() const {

@@ -85,8 +85,12 @@ class DomainAgent : public PmAgent
     virtual void pda_update_binding(const struct ep_map_rec *rec, int cnt);
 
   protected:
+    friend class PlatformdNetSvc;
+
     DomainAgentPlugin::pointer            agt_domain_evt;
     EpSvcHandle::pointer                  agt_domain_ep;
+
+    virtual void pda_register(PmContainer::pointer pm) {}
 };
 
 class NetPlatSvc : public NetPlatform
@@ -104,8 +108,9 @@ class NetPlatSvc : public NetPlatform
 
     // Common net platform services.
     //
-    virtual EpSvc::pointer       nplat_my_ep();
-    virtual EpSvcHandle::pointer nplat_domain_rpc(const fpi::DomainID &id);
+    virtual EpSvc::pointer       nplat_my_ep() override;
+    virtual EpSvcHandle::pointer nplat_domain_rpc(const fpi::DomainID &id) override;
+    virtual void nplat_register_node(const fpi::NodeInfoMsg *msg) override;
 
     inline std::string const *const nplat_domain_master(int *port) {
         *port = plat_lib->plf_get_om_svc_port();

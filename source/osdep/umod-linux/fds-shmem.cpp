@@ -1,6 +1,7 @@
 /*
  * Copyright 2014 by Formation Data Systems, Inc.
  */
+#include <stdio.h>
 #include <platform/fds-shmem.h>
 
 namespace fds {
@@ -8,11 +9,10 @@ namespace fds {
 FdsShmem::FdsShmem(const char *name, size_t size)
     : sh_name(name), sh_addr(NULL), sh_size(size) {}
 
-
 FdsShmem::~FdsShmem() {}
 
 void *
-FdsShmem::shm_alloc()
+FdsShmem::shm_alloc(size_t siz)
 {
     int fd = shm_open(sh_name, O_RDWR|O_CREAT| O_EXCL, S_IRWXU);
 
@@ -27,7 +27,7 @@ FdsShmem::shm_alloc()
     }
 
     // Map the region
-    sh_addr = mmap(NULL, sh_size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+    sh_addr = mmap(NULL, sh_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     if (sh_addr == NULL) {
         return NULL;
     }
@@ -39,7 +39,7 @@ FdsShmem::shm_alloc()
 }
 
 void *
-FdsShmem::shm_attach()
+FdsShmem::shm_attach(int flags)
 {
     int fd;
     // If sh_addr is NULL then we need to try to open the shm segment
@@ -48,7 +48,7 @@ FdsShmem::shm_attach()
         if (fd == -1) {
             return NULL;
         } else {
-            sh_addr = mmap(NULL, sh_size, PROT_READ, MAP_SHARED, fd, 0);
+            sh_addr = mmap(NULL, sh_size, flags, MAP_SHARED, fd, 0);
         }
     }
     // We should no longer need the file descriptor
@@ -65,7 +65,6 @@ FdsShmem::shm_detach()
     if (sh_addr == NULL) {
         return -1;
     }
-
     return munmap(sh_addr, sh_size);
 }
 

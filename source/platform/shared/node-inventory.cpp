@@ -4,14 +4,207 @@
 #include <string>
 #include <stdlib.h>
 #include <dlt.h>
+#include <fds-shmobj.h>
 #include <net/net-service.h>
 #include <platform/platform-lib.h>
+#include <platform/node-inv-shmem.h>
 
 namespace fds {
 
 // --------------------------------------------------------------------------------------
 // Node Inventory
 // --------------------------------------------------------------------------------------
+
+const ShmObjRO *
+NodeInventory::node_shm_ctrl() const
+{
+    if (node_svc_type == fpi::FDSP_STOR_HVISOR) {
+        return NodeShmCtrl::shm_am_inventory();
+    }
+    return NodeShmCtrl::shm_node_inventory();
+}
+
+// node_fill_shm_inv
+// -----------------
+//
+void
+NodeInventory::node_fill_shm_inv(const ShmObjRO *shm, int ro, int rw)
+{
+    const node_data_t *info;
+
+    fds_assert(ro != -1);
+    info = shm->shm_get_rec<node_data_t>(ro);
+    if (node_ro_idx == -1) {
+        node_svc_type = info->nd_svc_type;
+        strncpy(rs_name, info->nd_auto_name, RS_NAME_MAX - 1);
+    } else {
+        fds_verify(info->nd_svc_type == node_svc_type);
+        fds_assert(info->nd_service_uuid == rs_uuid.uuid_get_val());
+    }
+    node_ro_idx = ro;
+    node_rw_idx = rw;
+}
+
+// node_info_msg_to_shm
+// --------------------
+// Convert data from the node info message to record to save to the shared memory seg.
+//
+/* static */ void
+NodeInventory::node_info_msg_to_shm(const NodeInfoMsg *msg, node_data_t *rec)
+{
+    const UuidBindMsg *msg_bind;
+
+    msg_bind             = &msg->node_loc;
+    rec->nd_node_uuid    = msg_bind->svc_node.svc_uuid.svc_uuid;
+    rec->nd_service_uuid = msg_bind->svc_id.svc_uuid.svc_uuid;
+    rec->nd_base_port    = msg->nd_base_port;
+    rec->nd_svc_type     = msg->node_loc.svc_type;
+    rec->nd_node_state   = fpi::FDS_Node_Discovered;
+    rec->nd_dlt_version  = DLT_VER_INVALID;
+    rec->nd_disk_type    = msg->node_stor.disk_type;
+
+    node_stor_cap_to_shm(&msg->node_stor, &rec->nd_capability);
+    strncpy(rec->nd_ip_addr, msg_bind->svc_addr.c_str(), FDS_MAX_IP_STR);
+    strncpy(rec->nd_auto_name, msg_bind->svc_auto_name.c_str(), FDS_MAX_NODE_NAME);
+    strncpy(rec->nd_assign_name, msg_bind->svc_id.svc_name.c_str(), FDS_MAX_NODE_NAME);
+}
+
+// node_info_msg_frm_shm
+// ---------------------
+// Convert data from shm at the given index to the node info message.
+//
+/* static */ void
+NodeInventory::node_info_msg_frm_shm(bool am, int ro_idx, NodeInfoMsg *msg)
+{
+    UuidBindMsg           *msg_bind;
+    const ShmObjRO        *shm;
+    const node_data_t     *rec;
+
+    if (am == true) {
+        shm = NodeShmCtrl::shm_am_inventory();
+    } else {
+        shm = NodeShmCtrl::shm_node_inventory();
+    }
+    fds_verify(ro_idx != -1);
+    rec = shm->shm_get_rec<node_data_t>(ro_idx);
+
+    msg_bind = &msg->node_loc;
+    msg_bind->svc_id.svc_uuid.svc_uuid   = rec->nd_service_uuid;
+    msg_bind->svc_node.svc_uuid.svc_uuid = rec->nd_node_uuid;
+    msg_bind->svc_type                   = rec->nd_svc_type;
+    msg->nd_base_port                    = rec->nd_base_port;
+
+    msg_bind->svc_addr.assign(rec->nd_ip_addr);
+    msg_bind->svc_auto_name.assign(rec->nd_auto_name);
+    msg_bind->svc_id.svc_name.assign(rec->nd_assign_name);
+    node_stor_cap_frm_shm(&msg->node_stor, &rec->nd_capability);
+}
+
+// init_plat_info_msg
+// ------------------
+// Format the NodeInfoMsg that will be processed by functions above.  The data is taken
+// from the platform lib to represent the HW node running the SW.
+//
+void
+NodeInventory::init_plat_info_msg(fpi::NodeInfoMsg *msg) const
+{
+    UuidBindMsg    *msg_bind;
+    Platform::ptr   plat = Platform::platf_const_singleton();
+    EpSvc::pointer  psvc = NetPlatform::nplat_singleton()->nplat_my_ep();
+
+    msg_bind = &msg->node_loc;
+    psvc->ep_fmt_uuid_binding(msg_bind, &msg->node_domain);
+    init_stor_cap_msg(&msg->node_stor);
+
+    msg->nd_base_port           = plat->plf_get_my_ctrl_port();
+    msg_bind->svc_type          = plat->plf_get_node_type();
+    msg_bind->svc_auto_name     = *plat->plf_get_my_ip();
+    msg_bind->svc_id.svc_name   = "";
+    msg_bind->svc_node.svc_name = *plat->plf_get_my_name();
+    msg_bind->svc_node.svc_uuid.svc_uuid = plat->plf_get_my_uuid()->uuid_get_val();
+}
+
+// init_node_info_msg
+// ------------------
+// Format the NodeInfoMsg with data from this node agent obj.
+void
+NodeInventory::init_node_info_msg(fpi::NodeInfoMsg *msg) const
+{
+    node_info_msg_frm_shm(node_svc_type == fpi::FDSP_STOR_HVISOR ? true : false,
+                          node_ro_idx, msg);
+}
+
+// node_stor_cap_to_shm
+// --------------------
+// Format storage capability info in shared memory from a network message.
+//
+/* static */ void
+NodeInventory::node_stor_cap_to_shm(const fpi::StorCapMsg *msg, node_stor_cap_t *stor)
+{
+    stor->disk_capacity    = msg->disk_capacity;
+    stor->disk_iops_max    = msg->disk_iops_max;
+    stor->disk_iops_min    = msg->disk_iops_min;
+    stor->disk_latency_max = msg->disk_latency_max;
+    stor->disk_latency_min = msg->disk_latency_min;
+    stor->ssd_iops_max     = msg->ssd_iops_max;
+    stor->ssd_iops_min     = msg->ssd_iops_min;
+    stor->ssd_capacity     = msg->ssd_capacity;
+    stor->ssd_latency_max  = msg->ssd_latency_max;
+    stor->ssd_latency_min  = msg->ssd_latency_min;
+}
+
+// node_stor_cap_frm_shm
+// ---------------------
+// Format storage capability info to a network message from data in shared memory.
+//
+/* static */ void
+NodeInventory::node_stor_cap_frm_shm(fpi::StorCapMsg *msg, const node_stor_cap_t *stor)
+{
+    msg->disk_capacity    = stor->disk_capacity;
+    msg->disk_iops_max    = stor->disk_iops_max;
+    msg->disk_iops_min    = stor->disk_iops_min;
+    msg->disk_latency_max = stor->disk_latency_max;
+    msg->disk_latency_min = stor->disk_latency_min;
+    msg->ssd_iops_max     = stor->ssd_iops_max;
+    msg->ssd_iops_min     = stor->ssd_iops_min;
+    msg->ssd_capacity     = stor->ssd_capacity;
+    msg->ssd_latency_max  = stor->ssd_latency_max;
+    msg->ssd_latency_min  = stor->ssd_latency_min;
+}
+
+// init_stor_cap_msg
+// -----------------
+//
+void
+NodeInventory::init_stor_cap_msg(fpi::StorCapMsg *msg) const
+{
+    const ShmObjRO    *shm;
+    const node_data_t *rec;
+
+    if (node_ro_idx == -1) {
+        /* Don't have real numbers, made up some values. */
+        msg->disk_iops_max     = 20000;
+        msg->disk_iops_min     = 2000;
+        msg->disk_capacity     = 0x7ffff;
+        msg->disk_latency_max  = 1000000 / msg->disk_iops_min;
+        msg->disk_latency_min  = 1000000 / msg->disk_iops_max;
+        msg->ssd_iops_max      = 200000;
+        msg->ssd_iops_min      = 20000;
+        msg->ssd_capacity      = 0x1000;
+        msg->ssd_latency_max   = 1000000 / msg->ssd_iops_min;
+        msg->ssd_latency_min   = 1000000 / msg->ssd_iops_max;
+        msg->ssd_count         = 2;
+        msg->disk_count        = 24;
+        msg->disk_type         = FDS_DISK_SATA;
+    } else {
+        shm = node_shm_ctrl();
+        rec = shm->shm_get_rec<node_data_t>(node_ro_idx);
+        node_stor_cap_frm_shm(msg, &rec->nd_capability);
+    }
+}
+
+// TODO(Vy): deprecate this function.
+//
 void
 NodeInventory::node_set_inventory(NodeInvData const *const inv)
 {
@@ -21,6 +214,7 @@ NodeInventory::node_set_inventory(NodeInvData const *const inv)
 
 // node_fill_inventory
 // -------------------
+// TODO(Vy): depricate this function.
 //
 void
 NodeInventory::node_fill_inventory(const FdspNodeRegPtr msg)
@@ -132,40 +326,6 @@ NodeInventory::init_node_reg_pkt(fpi::FDSP_RegisterNodeTypePtr pkt) const
     pkt->ip_hi_addr    = 0;
     pkt->ip_lo_addr    = str_to_ipv4_addr(*plat->plf_get_my_ip());
     pkt->control_port  = plat->plf_get_my_ctrl_port();
-}
-
-// init_stor_cap_msg
-// -----------------
-//
-void
-NodeInventory::init_stor_cap_msg(fpi::StorCapMsg *msg) const
-{
-    /* Real numbers are sent by platform daemon. */
-    msg->disk_iops_max     = 20000;
-    msg->disk_iops_min     = 2000;
-    msg->disk_capacity     = 0x7ffff;
-    msg->disk_latency_max  = 1000000 / msg->disk_iops_min;
-    msg->disk_latency_min  = 1000000 / msg->disk_iops_max;
-    msg->ssd_iops_max      = 200000;
-    msg->ssd_iops_min      = 20000;
-    msg->ssd_capacity      = 0x1000;
-    msg->ssd_latency_max   = 1000000 / msg->ssd_iops_min;
-    msg->ssd_latency_min   = 1000000 / msg->ssd_iops_max;
-    msg->ssd_count         = 2;
-    msg->disk_count        = 24;
-    msg->disk_type         = FDS_DISK_SATA;
-}
-
-// init_plat_info_msg
-// ------------------
-//
-void
-NodeInventory::init_plat_info_msg(fpi::NodeInfoMsg *msg) const
-{
-    EpSvc::pointer plf = NetPlatform::nplat_singleton()->nplat_my_ep();
-
-    plf->ep_fmt_uuid_binding(&msg->node_loc, &msg->node_domain);
-    init_stor_cap_msg(&msg->node_stor);
 }
 
 // set_node_state
@@ -438,11 +598,8 @@ AgentContainer::agent_register(const NodeUuid       &uuid,
         add   = activate;
         agent = agt_cast_ptr<NodeAgent>(rs_alloc_new(uuid));
         agent->node_fill_inventory(msg);
-
-        // TODO(vy): share the inventory here with shared mem.
     } else {
         if (name.compare(agent->get_node_name()) != 0) {
-            // TODO(vy): we should assert here because the uuid function isn't good.
             return Error(ERR_DUPLICATE_UUID);
         }
         agent->node_update_inventory(msg);
@@ -452,6 +609,36 @@ AgentContainer::agent_register(const NodeUuid       &uuid,
         agent_activate(agent);
     }
     return Error(ERR_OK);
+}
+
+// agent_register
+// --------------
+//
+void
+AgentContainer::agent_register(const ShmObjRO     *shm,
+                               NodeAgent::pointer *out,
+                               int                 ro,
+                               int                 rw,
+                               bool                activate)
+{
+    bool                add;
+    const node_data_t  *info;
+    NodeAgent::pointer  agent;
+
+    add   = false;
+    *out  = NULL;
+    info  = shm->shm_get_rec<node_data_t>(ro);
+    agent = agt_cast_ptr<NodeAgent>(agent_info(info->nd_service_uuid));
+    if (agent == NULL) {
+        add   = activate;
+        agent = agt_cast_ptr<NodeAgent>(rs_alloc_new(info->nd_service_uuid));
+    }
+    agent->node_fill_shm_inv(shm, ro, rw);
+
+    *out = agent;
+    if (add == true) {
+        agent_activate(agent);
+    }
 }
 
 // agent_unregister
@@ -547,6 +734,23 @@ DomainContainer::dc_register_node(const NodeUuid       &uuid,
     // fully initialized.
     sleep(2);
     return nodes->agent_register(uuid, msg, agent, true);
+}
+
+void
+DomainContainer::dc_register_node(const ShmObjRO *shm,
+                                  NodeAgent::pointer *agent, int ro, int rw)
+{
+    const node_data_t       *node;
+    AgentContainer::pointer  container;
+
+    fds_verify(ro != -1);
+    node = shm->shm_get_rec<node_data_t>(ro);
+
+    LOGDEBUG << "Platform domain register node uuid " << std::hex
+        << node->nd_node_uuid << ", svc uuid " << node->nd_service_uuid;
+
+    container = dc_container_frm_msg(node->nd_svc_type);
+    return container->agent_register(shm, agent, ro, rw);
 }
 
 // dc_unregister_node

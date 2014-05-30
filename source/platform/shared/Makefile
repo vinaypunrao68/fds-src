@@ -8,7 +8,8 @@ user_cpp         := \
     platform-rpc.cpp \
     platform-libmod.cpp \
     node-inventory.cpp \
-    disk-inventory.cpp
+    disk-inventory.cpp \
+    node-inv-shmem.cpp
 
 user_ar_libs     := fds-plat-lib
 fds-plat-lib     := $(user_cpp) $(user_cc)

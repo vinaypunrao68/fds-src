@@ -54,11 +54,15 @@ class PlatformdNetSvc : public NetPlatSvc
     virtual void mod_enable_service() override;
     virtual void mod_shutdown() override;
 
-    void plat_update_local_binding(const struct ep_map_rec *rec);
-    void plat_update_domain_binding(const struct ep_map_rec *rec);
+    // Net platform services
+    //
+    virtual void nplat_register_node(const fpi::NodeInfoMsg *msg) override;
+    virtual void plat_update_local_binding(const struct ep_map_rec *rec);
 
     EpSvcHandle::pointer nplat_peer(const fpi::SvcUuid &uuid);
     EpSvcHandle::pointer nplat_peer(const fpi::DomainID &id, const fpi::SvcUuid &uuid);
+
+    inline EpPlatformdMod *plat_rw_shm() { return plat_shm; }
 
   protected:
     EpPlatformdMod                    *plat_shm;
@@ -78,6 +82,7 @@ class PlatAgent : public DomainAgent
     virtual ~PlatAgent() {}
     explicit PlatAgent(const NodeUuid &uuid);
 
+    virtual void pda_register(PmContainer::pointer container);
     virtual void init_stor_cap_msg(fpi::StorCapMsg *msg) const override;
 };
 

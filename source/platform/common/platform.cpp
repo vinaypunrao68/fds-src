@@ -2,14 +2,18 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 #include <string>
+#include <disk.h>
 #include <platform.h>
 #include <fds_process.h>
-#include <disk.h>
 #include <net-platform.h>
+#include <platform/fds-shmem.h>
+#include <platform/node-inv-shmem.h>
+#include <fds-shmobj.h>
+#include <ep-map.h>
 
 namespace fds {
 
-NodePlatform gl_NodePlatform;
+NodePlatform    gl_NodePlatform;
 
 // -------------------------------------------------------------------------------------
 // Node Specific Platform
@@ -36,9 +40,6 @@ NodePlatform::NodePlatform()
 {
     plf_node_evt  = new NodePlatEvent(plf_resources, plf_clus_map, this);
     plf_vol_evt   = new VolPlatEvent(plf_resources, plf_clus_map, this);
-    plf_node_type = FDSP_PLATFORM;
-
-    Platform::platf_assign_singleton(&gl_NodePlatform);
 }
 
 void
@@ -49,6 +50,9 @@ NodePlatform::mod_load_from_config()
 int
 NodePlatform::mod_init(SysParams const *const param)
 {
+    plf_node_type = FDSP_PLATFORM;
+    Platform::platf_assign_singleton(&gl_NodePlatform);
+
     Platform::mod_init(param);
     FdsConfigAccessor conf(g_fdsprocess->get_conf_helper());
 
@@ -95,6 +99,7 @@ NodePlatform::plat_creat_resp_disp()
     return new PlatformRpcResp(this);
 }
 
+// --------------------------------------------------------------------------------------
 // RPC handlers
 // --------------------------------------------------------------------------------------
 PlatformRpcReqt::PlatformRpcReqt(const Platform *plf) : PlatRpcReqt(plf) {}

@@ -1,12 +1,11 @@
 ifdef user_std_libs
     user_fds_ar_libs += \
         fds-plat-lib \
+        fds-net-svc \
+        fds-rpc-request \
         fds-lib \
         fds-umod \
         fds-util \
-        fds-net-platd \
-        fds-net-svc \
-        fds-rpc-request \
         fds-fdsp \
         fds-hash \
         fds-thread \
@@ -21,6 +20,7 @@ ifdef user_std_libs
         boost_filesystem \
         thrift \
         config++ \
+        rt \
         hiredis
 endif
 

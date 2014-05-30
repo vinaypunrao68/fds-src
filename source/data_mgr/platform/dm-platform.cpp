@@ -43,17 +43,15 @@ DmPlatform::DmPlatform()
                                  new PmContainer(FDSP_DATA_MGR),
                                  new OmContainer(FDSP_DATA_MGR)),
                new DomainResources("DM-Resources"),
-               NULL)
-{
-    Platform::platf_assign_singleton(&gl_DmPlatform);
-    plf_node_type = FDSP_DATA_MGR;
-}
+               NULL) {}
 
 int
 DmPlatform::mod_init(SysParams const *const param)
 {
     FdsConfigAccessor conf(g_fdsprocess->get_conf_helper());
 
+    Platform::platf_assign_singleton(&gl_DmPlatform);
+    plf_node_type = FDSP_DATA_MGR;
     Platform::mod_init(param);
 
     if (conf.get_abs<bool>("fds.dm.test_mode", false) == true) {

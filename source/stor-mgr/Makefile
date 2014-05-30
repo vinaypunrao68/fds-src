@@ -11,14 +11,13 @@ user_incl_dir     := \
     include \
     migrations \
     $(topdir)/lib \
-	$(topdir)/persistent_layer/include
+    $(topdir)/persistent_layer/include
 
 user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  :=                   \
     fds-smlib \
     fds-migrations \
-    fds-StorHvisor \
     fds-rpc-request \
     fds-net-svc \
     fds-am-engine \

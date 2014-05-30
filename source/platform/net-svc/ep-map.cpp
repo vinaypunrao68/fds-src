@@ -2,20 +2,17 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 #include <ep-map.h>
+#include <platform.h>
 
 namespace fds {
 
-EpPlatformdMod::EpPlatformdMod(const char *name) : EpPlatLibMod(name) {}
-
-// mod_init
-// --------
-//
-int
-EpPlatformdMod::mod_init(SysParams const *const p)
+EpPlatformdMod::EpPlatformdMod(const char *name) : EpPlatLibMod(name)
 {
-    Module::mod_init(p);
-
-    return 0;
+    static Module *ep_plat_dep_mods[] = {
+        &gl_NodeShmRWCtrl,
+        NULL
+    };
+    mod_intern = ep_plat_dep_mods;
 }
 
 // mod_startup
@@ -24,14 +21,9 @@ EpPlatformdMod::mod_init(SysParams const *const p)
 void
 EpPlatformdMod::mod_startup()
 {
-}
-
-// mod_shutdown
-// ------------
-//
-void
-EpPlatformdMod::mod_shutdown()
-{
+    Module::mod_startup();
+    ep_uuid_rw   = NodeShmRWCtrl::shm_uuid_rw_binding();
+    ep_uuid_bind = NodeShmRWCtrl::shm_uuid_binding();
 }
 
 // ep_map_record
@@ -40,8 +32,9 @@ EpPlatformdMod::mod_shutdown()
 int
 EpPlatformdMod::ep_map_record(const ep_map_rec_t *rec)
 {
-    return EpPlatLibMod::ep_map_record(rec);
-    return 0;
+    std::cout << "Platform ep map record " << rec->rmp_uuid << std::endl;
+    return ep_uuid_rw->shm_insert_rec(static_cast<const void *>(&rec->rmp_uuid),
+                                      static_cast<const void *>(rec), sizeof(*rec));
 }
 
 // ep_unmap_record
@@ -50,25 +43,7 @@ EpPlatformdMod::ep_map_record(const ep_map_rec_t *rec)
 int
 EpPlatformdMod::ep_unmap_record(fds_uint64_t uuid, int idx)
 {
-    return EpPlatLibMod::ep_unmap_record(uuid, idx);
-    return 0;
-}
-
-// ep_lookup_rec
-// -------------
-//
-int
-EpPlatformdMod::ep_lookup_rec(fds_uint64_t uuid, ep_map_rec_t *out)
-{
-    return EpPlatLibMod::ep_lookup_rec(uuid, out);
-    return 0;
-}
-
-int
-EpPlatformdMod::ep_lookup_rec(const char *name, ep_map_rec_t *out)
-{
-    return EpPlatLibMod::ep_lookup_rec(name, out);
-    return 0;
+    return ep_uuid_rw->shm_remove_rec(idx, static_cast<const void *>(&uuid), NULL, 0);
 }
 
 }  // namespace fds
