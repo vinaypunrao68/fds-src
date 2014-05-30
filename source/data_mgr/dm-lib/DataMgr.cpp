@@ -1084,7 +1084,7 @@ DataMgr::updateCatalogBackend(dmCatReq  *updCatReq) {
     if (err == ERR_OK) {
         fds_verify(bnode != NULL);
     }
-
+    LOGDEBUG << "got bnode: " << *bnode;
     FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
     FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr
             update_catalog(new FDSP_UpdateCatalogType);
@@ -1178,12 +1178,12 @@ DataMgr::updateCatalogBackend(dmCatReq  *updCatReq) {
     }
 
     if (bnode != NULL) {
+        LOGDEBUG << "done processing bnode : " << *bnode;
         delete bnode;
     }
 
     qosCtrl->markIODone(*updCatReq);
     delete updCatReq;
-
 }
 
 
@@ -1622,7 +1622,6 @@ DataMgr::queryCatalogBackend(dmCatReq  *qryCatReq) {
 
     qosCtrl->markIODone(*qryCatReq);
     delete qryCatReq;
-
 }
 
 Error
@@ -2216,11 +2215,11 @@ void DataMgr::setBlobMetaDataBackend(const dmCatReq *request) {
                 // Set an initial version
                 bNode->version++;
                 err = ERR_OK;
-            } else {
-                LOGWARN << "Error getting blob data: "
-                        << " vol: " << request->volId
-                        << " blob: " << request->blob_name
-                        << " err: " << err;
+            } else if (err != ERR_OK) {
+                LOGERROR << "Error getting blob data: "
+                         << " vol: " << request->volId
+                         << " blob: " << request->blob_name
+                         << " err: " << err;
             }
 
             // add the new metadata
