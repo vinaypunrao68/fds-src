@@ -31,9 +31,11 @@ public class SmokeTest {
         }
 
         TSocket socket = new TSocket(host, port);
-        TFramedTransport tfTrans = new TFramedTransport(socket);
-        tfTrans.open();
-        AmService.Iface am = new AmService.Client(new TBinaryProtocol(tfTrans));
+        // TFramedTransport tfTrans = new TFramedTransport(socket);
+        // tfTrans.open();
+        socket.open();
+        // AmService.Iface am = new AmService.Client(new TBinaryProtocol(tfTrans));
+        AmService.Iface am = new AmService.Client(new TBinaryProtocol(socket));
         TSocket omTransport = new TSocket("localhost", 9090);
         omTransport.open();
         

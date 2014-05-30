@@ -29,13 +29,15 @@ public class XdiClientFactory {
     public static AmService.Iface remoteAmService(String host) {
         return new ConnectionProxy<>(AmService.Iface.class, () -> {
                     TSocket amTransport = new TSocket(host, 9988);
-                    TFramedTransport amFrameTrans = new TFramedTransport(amTransport);
+                    // TFramedTransport amFrameTrans = new TFramedTransport(amTransport);
                     try {
-                        amFrameTrans.open();
+                        // amFrameTrans.open();
+                        amTransport.open();
                     } catch (TTransportException e) {
                         throw new RuntimeException(e);
                     }
-                    return new AmService.Client(new TBinaryProtocol(amFrameTrans));
+                    // return new AmService.Client(new TBinaryProtocol(amFrameTrans));
+                    return new AmService.Client(new TBinaryProtocol(amTransport));
                 }).makeProxy();
     }
 }
