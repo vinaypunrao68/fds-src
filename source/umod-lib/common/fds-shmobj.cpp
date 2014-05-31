@@ -235,4 +235,45 @@ ShmObjRW::shm_remove_rec(int idx, const void *key, void *data, size_t rec_sz)
     return idx;
 }
 
+// Queue stuff
+// -----------
+//
+ShmConPrdQueue::ShmConPrdQueue(shm_con_prd_sync_t *sync, shm_1prd_ncon_q_t *ctrl, ShmObjRW *data)
+{
+}
+
+ShmConPrdQueue::ShmConPrdQueue(shm_con_prd_sync_t *sync, shm_nprd_1con_q_t *ctrl, ShmObjRW *data)
+{
+}
+
+Shm_1Prd_nCon::Shm_1Prd_nCon(shm_con_prd_sync_t *sync, shm_1prd_ncon_q_t *ctrl, ShmObjRW *data)
+        : ShmConPrdQueue(sync, ctrl, data)
+{
+}
+
+void
+Shm_1Prd_nCon::shm_consumer(void *data, size_t size, int consumer /* = 0 */)
+{
+}
+
+void
+Shm_1Prd_nCon::shm_producer(const void *data, size_t size, int producer /* = 0 */)
+{
+}
+
+
+Shm_nPrd_1Con::Shm_nPrd_1Con(shm_con_prd_sync_t *sync, shm_nprd_1con_q_t *ctrl, ShmObjRW *data)
+        : ShmConPrdQueue(sync, ctrl, data)
+{
+}
+
+void
+Shm_nPrd_1Con::shm_consumer(void *data, size_t size, int consumer /* = 0 */)
+{
+}
+void
+Shm_nPrd_1Con::shm_producer(const void *data, size_t size, int producer /* = 0 */)
+{
+}
+
 }  // namespace fds
