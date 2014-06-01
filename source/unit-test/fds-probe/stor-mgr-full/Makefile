@@ -17,6 +17,7 @@ user_fds_ar_libs  := \
     fds-migrations \
     fds-am-engine \
     fds-sm-plat \
+    fds-smlib \
     fds-plat-lib \
     fds-lib \
     fds-vpolicy \
