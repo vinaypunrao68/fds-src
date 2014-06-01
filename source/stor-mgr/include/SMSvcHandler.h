@@ -1,8 +1,8 @@
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
-#ifndef SOURCE_STOR_MGR_INCLUDE_SM_SVCHANDLER_H_
-#define SOURCE_STOR_MGR_INCLUDE_SM_SVCHANDLER_H_
+#ifndef SOURCE_STOR_MGR_INCLUDE_SMSVCHANDLER_H_
+#define SOURCE_STOR_MGR_INCLUDE_SMSVCHANDLER_H_
 
 #include <fdsp/fds_service_types.h>
 #include <net/BaseAsyncSvcHandler.h>
@@ -13,26 +13,22 @@ namespace fds {
 /* Forward declarations */
 class SmIoReadObjectdata;
 
-class SMSvcHandler : virtual public SMSvcIf,
-                     public BaseAsyncSvcHandler {
+class SMSvcHandler : virtual public SMSvcIf, public BaseAsyncSvcHandler {
  public:
-  SMSvcHandler() {
-    // Your initialization goes here
-  }
+    SMSvcHandler();
 
-  void getObject(const fpi::GetObjectMsg& getObjMsg) {
-    // Don't do anything here. This stub is just to keep cpp compiler happy
-  }
+    void getObject(const fpi::GetObjectMsg& getObjMsg) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
 
 
-  void getObject(boost::shared_ptr<fpi::GetObjectMsg>& getObjMsg);
+    void getObject(boost::shared_ptr<fpi::GetObjectMsg>& getObjMsg);
 
-  void getObjectCb(boost::shared_ptr<fpi::GetObjectMsg>& getObjMsg,
-                   const Error &err,
-                   SmIoReadObjectdata *read_data);
-
+    void getObjectCb(boost::shared_ptr<fpi::GetObjectMsg>& getObjMsg,
+                     const Error &err,
+                     SmIoReadObjectdata *read_data);
 };
 
 }  // namespace fds
 
-#endif
+#endif  // SOURCE_STOR_MGR_INCLUDE_SMSVCHANDLER_H_

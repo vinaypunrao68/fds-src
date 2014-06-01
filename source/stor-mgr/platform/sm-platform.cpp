@@ -109,7 +109,7 @@ SmPlatform::mod_init(SysParams const *const param)
 void
 SmPlatform::mod_startup()
 {
-    Module::mod_startup();
+    Platform::mod_startup();
 
     sm_recv   = bo::shared_ptr<SMSvcHandler>(new SMSvcHandler());
     sm_plugin = new SMEpPlugin(this);
@@ -121,7 +121,7 @@ SmPlatform::mod_startup()
         sm_plugin);
 
     LOGNORMAL << "Startup platform specific net svc, port "
-              << Platform::platf_singleton()->plf_get_my_nsvc_port();
+              << Platform::platf_singleton()->plf_get_my_data_port();
 }
 
 // mod_enable_service

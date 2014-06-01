@@ -2,12 +2,16 @@
  * Copyright 2014 Formation Data Systems, Inc.
  */
 #include <StorMgr.h>
-#include <net/net-service.h>
+#include <net/net-service-tmpl.hpp>
 #include <SMSvcHandler.h>
 
 namespace fds {
 
 extern ObjectStorMgr *objStorMgr;
+
+SMSvcHandler::SMSvcHandler()
+{
+}
 
 void SMSvcHandler::getObject(boost::shared_ptr<fpi::GetObjectMsg>& getObjMsg)  // NOLINT
 {

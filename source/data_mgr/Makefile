@@ -10,7 +10,9 @@ user_fds_so_libs  :=
 user_fds_ar_libs  := \
     fds-dm-lib \
     fds-dm-plat \
-    fds-dsk-mgnt
+    fds-dm-lib \
+    fds-dsk-mgnt \
+    fds-net-svc \
 
 user_non_fds_libs := \
     leveldb \

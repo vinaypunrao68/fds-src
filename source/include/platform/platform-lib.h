@@ -299,6 +299,9 @@ class Platform : public Module
     inline fds_uint32_t   plf_get_my_ctrl_port() const { return plf_my_ctrl_port; }
     inline fds_uint32_t   plf_get_my_conf_port() const { return plf_my_conf_port; }
     inline fds_uint32_t   plf_get_my_data_port() const { return plf_my_data_port; }
+    inline fds_uint32_t   plf_get_dm_port() const {
+        fds_assert(!"Not impl"); return 0;
+    }
     inline fds_uint32_t   plf_get_my_nsvc_port() const { return plf_my_nsvc_port; }
     inline fds_uint32_t   plf_get_my_migration_port() const { return plf_my_migr_port; }
 
