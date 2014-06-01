@@ -143,9 +143,9 @@ class NodeShmCtrl : public Module
     static const int shm_max_ams   = FDS_MAX_AM_NODES;
     static const int shm_max_nodes = MAX_DOMAIN_NODES;
 
-    static const int shm_queue_hdr     = 128;
+    static const int shm_queue_hdr     = 256;
     static const int shm_q_item_size   = 64;
-    static const int shm_q_item_count  = 510;             /** 32K segment */
+    static const int shm_q_item_count  = 508;             /** 32K segment */
     static const int shm_svc_consumers = 8;
 
     static ShmObjROKeyUint64 *shm_am_inventory() { return gl_NodeShmCtrl->shm_am_inv; }
@@ -212,12 +212,22 @@ typedef struct node_shm_queue
 /**
  * Opaque item in producer/consumer queue in shared memory.
  */
+#define NODE_SHM_QUEUE_ITEM_FIELDS                                      \
+    fds_uint32_t             smq_code
+
+/**
+ * Message code to communicate with shared memory queue.
+ */
+const int SMQ_NULL_CMD                 = 0x0;
+const int SMQ_UUID_BIND_REQ            = 0x1;
+const int SMQ_UUID_UNBIND_REQ          = 0x2;
+
 typedef struct node_shm_queue_item
 {
     char                     smq_item[NodeShmCtrl::shm_q_item_size];
 } node_shm_queue_item_t;
 
-// cc_assert(node_inv_shm0, sizeof(node_shm_queue_t) <= NodeShmCtrl::shm_queue_hdr);
+cc_assert(node_inv_shm0, sizeof(node_shm_queue_t) <= NodeShmCtrl::shm_queue_hdr);
 cc_assert(node_inv_shm1, sizeof(node_shm_queue_item_t) <= NodeShmCtrl::shm_q_item_size);
 
 }  // namespace fds

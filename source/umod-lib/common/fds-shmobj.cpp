@@ -137,6 +137,15 @@ ShmObjRW::ShmObjRW(const FdsShmem *shm,
 // --------------
 //
 int
+ShmObjRW::shm_insert_rec(int idx, const void *data, size_t rec_sz)
+{
+    return 0;
+}
+
+// shm_insert_rec
+// --------------
+//
+int
 ShmObjRW::shm_insert_rec(const void *key, const void *data, size_t dat_siz)
 {
     int         idx, empty;
@@ -239,11 +248,78 @@ ShmObjRW::shm_remove_rec(int idx, const void *key, void *data, size_t rec_sz)
 // -----------
 //
 ShmConPrdQueue::ShmConPrdQueue(shm_con_prd_sync_t *sync, shm_1prd_ncon_q_t *ctrl, ShmObjRW *data)
+    : fdsio::RequestQueue(1, -1)
 {
 }
 
 ShmConPrdQueue::ShmConPrdQueue(shm_con_prd_sync_t *sync, shm_nprd_1con_q_t *ctrl, ShmObjRW *data)
+    : fdsio::RequestQueue(1, -1)
 {
+}
+
+void
+ShmConPrdQueue::shm_track_request(ShmqReqOut *out, shmq_req_t *hdr)
+{
+    // Assign the unique tracking id and submit the 'out' request to this queue.
+    // Map this id to the 'out' object so that we can retrieve it later.
+    //
+    hdr->smq_id    = 0;
+    hdr->smq_code |= SHMQ_TRACK_MASK;
+
+    out->req_out = *hdr;
+    this->rq_enqueue(out, 0);
+}
+
+/* static */ void
+ShmConPrdQueue::shm_swap_req_header(shmq_req_t *x, shmq_req_t *y)
+{
+}
+
+void
+ShmConPrdQueue::shm_register_handler(int smq_code, ShmqReqIn *cb)
+{
+}
+
+void
+ShmConPrdQueue::shm_consume_loop(int consumer_idx)
+{
+    int          size = 64;     // take from parameter/constructor
+    char         data[size];
+    shmq_req_t  *inp;
+
+    inp = reinterpret_cast<shmq_req_t *>(data);
+    while (1) {
+        /* Block if we don't have anything to consume. */
+        shm_consumer(data, size, consumer_idx);
+
+        if (inp->smq_code & SHMQ_TRACK_MASK) {
+            /* Lookup the saved request in shm_track_request() */
+            ShmqReqOut *orig = shm_get_saved_req(inp->smq_id);
+            if (orig != NULL) {
+                /* Notify the sender, this also takes it out of the queue. */
+                orig->req_complete();
+                continue;
+            }
+            /* Clear the mask and lookup registered handler. */
+            inp->smq_code &= ~SHMQ_TRACK_MASK;
+        }
+        ShmqReqIn *cb = shm_get_callback(inp->smq_code);
+        if (cb != NULL) {
+            cb->shmq_handler(inp, size);
+        }
+    }
+}
+
+ShmqReqOut *
+ShmConPrdQueue::shm_get_saved_req(fds_uint32_t id)
+{
+    return NULL;
+}
+
+ShmqReqIn *
+ShmConPrdQueue::shm_get_callback(fds_uint32_t code)
+{
+    return NULL;
 }
 
 Shm_1Prd_nCon::Shm_1Prd_nCon(shm_con_prd_sync_t *sync, shm_1prd_ncon_q_t *ctrl, ShmObjRW *data)
