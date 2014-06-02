@@ -3,10 +3,10 @@
  */
 
 #include <string>
-
+#include <list>
 #include <VolumeMeta.h>
 #include <fds_process.h>
-#include "DataMgr.h"
+#include <DataMgr.h>
 
 namespace fds {
 
@@ -135,6 +135,7 @@ void BlobObjectList::initFromFDSPObjList(fpi::FDSP_BlobObjectList& blob_obj_list
     clear();
     for (uint i = 0; i < blob_obj_list.size(); i++) {
         push_back(blob_obj_list[i]);
+        // insert(blob_obj_list[i].offset, blob_obj_list[i]);
     }
 }
 
@@ -144,22 +145,23 @@ void BlobObjectList::ToFDSPObjList(fpi::FDSP_BlobObjectList& fdsp_obj_list) cons
         fpi::FDSP_BlobObjectInfo obj_info;
         obj_info.offset = blob.offset;
         obj_info.size = blob.size;
-        obj_info.data_obj_id.digest = std::string((const char *)(blob.data_obj_id.GetId()),
-                                                  (size_t)blob.data_obj_id.GetLen());
+        obj_info.data_obj_id.digest = std::string(
+            (const char *)(blob.data_obj_id.GetId()),
+            (size_t)blob.data_obj_id.GetLen());
         fdsp_obj_list.push_back(obj_info);
     }
 }
 
-uint32_t BlobObjectList::write(serialize::Serializer*  s) const {
+fds_uint32_t BlobObjectList::write(serialize::Serializer*  s) const {
     uint32_t bytes = 0;
     bytes += s->writeI64(size());
-    for (const auto& item : *this){
+    for (const auto& item : *this) {
         bytes += item.write(s);
     }
     return bytes;
 }
 
-uint32_t BlobObjectList::read(serialize::Deserializer* d) {
+fds_uint32_t BlobObjectList::read(serialize::Deserializer* d) {
     uint32_t bytes = 0;
     uint64_t sz;
     clear();
@@ -475,64 +477,63 @@ Error VolumeMeta::DeleteVcat(const std::string blob_name) {
     return err;
 }
 
-
 Error
-VolumeMeta::syncVolCat(fds_volid_t volId, NodeUuid node_uuid)
-{
+VolumeMeta::syncVolCat(fds_volid_t volId, NodeUuid node_uuid) {
+    Error err(ERR_OK);
+    int  returnCode = 0;
+    const std::string vol_name =  dataMgr->getPrefix() +
+            std::to_string(volId);
+    fds_uint32_t node_ip   = 0;
+    fds_uint32_t node_port = 0;
+    fds_int32_t node_state = -1;
 
-  Error err(ERR_OK);
-  int  returnCode = 0;
-  const std::string vol_name =  dataMgr->getPrefix() +
-                              std::to_string(volId);
-  fds_uint32_t node_ip   = 0;
-  fds_uint32_t node_port = 0;
-  fds_int32_t node_state = -1;
+    LOGNORMAL << " syncVolCat: " << volId;
 
-  LOGNORMAL << " syncVolCat: " << volId;
+    const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
+    NodeAgent::pointer node = Platform::plf_dm_nodes()->agent_info(node_uuid);
+    DmAgent::pointer dm = DmAgent::agt_cast_ptr(node);
+    const std::string dst_node = dm->get_node_root() + "user-repo/dm-names/";
+    const std::string src_dir_vcat = root->dir_user_repo_dm() + vol_name + "_vcat.ldb";
+    const std::string src_dir_tcat = root->dir_user_repo_dm() + vol_name + "_tcat.ldb";
+    const std::string dst_dir =  root->dir_user_repo_snap();
+    const std::string src_sync_vcat =  root->dir_user_repo_snap() + vol_name + "_vcat.ldb";
+    const std::string src_sync_tcat =  root->dir_user_repo_snap() + vol_name + "_tcat.ldb";
 
-  const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
-  NodeAgent::pointer node = Platform::plf_dm_nodes()->agent_info(node_uuid);
-  DmAgent::pointer dm = DmAgent::agt_cast_ptr(node);
-  const std::string dst_node = dm->get_node_root() + "user-repo/dm-names/";
-  const std::string src_dir_vcat = root->dir_user_repo_dm() + vol_name + "_vcat.ldb";
-  const std::string src_dir_tcat = root->dir_user_repo_dm() + vol_name + "_tcat.ldb";
-  const std::string dst_dir =  root->dir_user_repo_snap();
-  const std::string src_sync_vcat =  root->dir_user_repo_snap() + vol_name + "_vcat.ldb";
-  const std::string src_sync_tcat =  root->dir_user_repo_snap() + vol_name + "_tcat.ldb";
+    dataMgr->omClient->getNodeInfo(node_uuid.uuid_get_val(), &node_ip, &node_port, &node_state);
+    std::string dest_ip = netSessionTbl::ipAddr2String(node_ip);
 
-  dataMgr->omClient->getNodeInfo(node_uuid.uuid_get_val(), &node_ip, &node_port, &node_state);
-  std::string dest_ip = netSessionTbl::ipAddr2String(node_ip);
+    const std::string test_cp = "cp -r "+src_dir_vcat+"*  "+dst_dir+" ";
+    const std::string test_rsync = "sshpass -p passwd rsync -r "
+            + dst_dir + "  root@" + dest_ip + ":" + dst_node + "";
+    LOGNORMAL << " rsync: local copy  " << test_cp;
+    LOGNORMAL << " rsync:  " << test_rsync;
 
+    vol_mtx->lock();
+    // err = vcat->DbSnap(root->dir_user_repo_dm() + "snap" + vol_name + "_vcat.ldb");
+    returnCode = std::system((const char *)("cp -r "+src_dir_vcat+"  "+dst_dir+" ").c_str());
+    returnCode = std::system((const char *)("cp -r "+src_dir_tcat+"  "+dst_dir+" ").c_str());
+    vol_mtx->unlock();
 
-  const std::string test_cp = "cp -r "+src_dir_vcat+"*  "+dst_dir+" ";
-  const std::string test_rsync = "sshpass -p passwd rsync -r "+dst_dir+"  root@"+dest_ip+":"+dst_node+"";
-  LOGNORMAL << " rsync: local copy  " << test_cp;
-  LOGNORMAL << " rsync:  " << test_rsync;
+    LOGNORMAL << "system Command  copy return Code : " << returnCode;
 
+    if (!err.ok()) {
+        LOGNORMAL << "Failed to create vol snap " << " with err " << err;
+        return err;
+    }
 
-  vol_mtx->lock();
-  //err = vcat->DbSnap(root->dir_user_repo_dm() + "snap" + vol_name + "_vcat.ldb");
-  returnCode = std::system((const char *)("cp -r "+src_dir_vcat+"  "+dst_dir+" ").c_str());
-  returnCode = std::system((const char *)("cp -r "+src_dir_tcat+"  "+dst_dir+" ").c_str());
-  vol_mtx->unlock();
+    // rsync the meta data to the new DM nodes
+    // returnCode = std::system((const char *)("sshpass -p passwd rsync -r
+    // "+dst_dir+"  root@"+dest_ip+":/tmp").c_str());
+    returnCode = std::system((const char *)("sshpass -p passwd rsync -r "+src_sync_vcat+
+                                            "  root@"+dest_ip+":"+dst_node+"").c_str());
+    returnCode = std::system((const char *)("sshpass -p passwd rsync -r "+src_sync_tcat+
+                                            "  root@"+dest_ip+":"+dst_node+"").c_str());
+    // returnCode = std::system((const char *)("rsync -r --rsh='sshpass -p passwd ssh -l root' "+
+    // dst+"/  root@"+dest_ip+":"+dst_node+"").c_str());
+    LOGNORMAL << "system Command  rsync return Code : " << returnCode;
 
-  LOGNORMAL << "system Command  copy return Code : " << returnCode;
-
-  if (! err.ok()) {
-    LOGNORMAL << "Failed to create vol snap " << " with err " << err;
     return err;
-  }
-
-  // rsync the meta data to the new DM nodes 
-   // returnCode = std::system((const char *)("sshpass -p passwd rsync -r "+dst_dir+"  root@"+dest_ip+":/tmp").c_str());
-   returnCode = std::system((const char *)("sshpass -p passwd rsync -r "+src_sync_vcat+"  root@"+dest_ip+":"+dst_node+"").c_str());
-   returnCode = std::system((const char *)("sshpass -p passwd rsync -r "+src_sync_tcat+"  root@"+dest_ip+":"+dst_node+"").c_str());
-  // returnCode = std::system((const char *)("rsync -r --rsh='sshpass -p passwd ssh -l root' "+dst+"/  root@"+dest_ip+":"+dst_node+"").c_str());
-   LOGNORMAL << "system Command  rsync return Code : " << returnCode;
-
-  return err;
 }
-
 
 void VolumeMeta::dmCopyVolumeDesc(VolumeDesc *v_desc, VolumeDesc *pVol) {
     v_desc->name = pVol->name;

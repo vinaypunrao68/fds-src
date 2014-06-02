@@ -11,7 +11,9 @@
 #define SOURCE_DATA_MGR_INCLUDE_VOLUMEMETA_H_
 
 #include <string>
+#include <list>
 #include <vector>
+#include <unordered_map>
 #include <fds_types.h>
 #include <fds_error.h>
 #include <dm-platform.h>
@@ -31,7 +33,7 @@ class MetadataPair : public serialize::Serializable {
     std::string value;
     MetadataPair();
     MetadataPair(const std::string &_key, const std::string &_value);
-    MetadataPair(fpi::FDSP_MetaDataPair mpair);
+    MetadataPair(fpi::FDSP_MetaDataPair mpair);  // NOLINT
 
     uint32_t write(serialize::Serializer*  s) const;
     uint32_t read(serialize::Deserializer* d);
@@ -44,14 +46,14 @@ std::ostream& operator<<(std::ostream& out, const MetaList& metaList);
 
 class BlobObjectInfo : public serialize::Serializable {
   public:
-    fds_uint64_t offset = 0 ;
+    fds_uint64_t offset = 0;
     ObjectID data_obj_id;
     fds_uint64_t size = 0;
     fds_bool_t sparse = false;
     fds_bool_t blob_end = false;
 
     BlobObjectInfo();
-    BlobObjectInfo(const fpi::FDSP_BlobObjectInfo& blob_obj_info);
+    BlobObjectInfo(const fpi::FDSP_BlobObjectInfo& blob_obj_info); // NOLINT
 
     BlobObjectInfo(const BlobObjectInfo &rhs);
     BlobObjectInfo(fds_uint64_t off, fds_uint64_t _size);
@@ -68,11 +70,11 @@ std::ostream& operator<<(std::ostream& out, const BlobObjectInfo& binfo);
 class BlobObjectList : public std::vector<BlobObjectInfo>, public serialize::Serializable {
   public:
     BlobObjectList();
-    BlobObjectList(fpi::FDSP_BlobObjectList& blob_obj_list);
+    BlobObjectList(fpi::FDSP_BlobObjectList& blob_obj_list);  // NOLINT
     ~BlobObjectList();
 
-    uint32_t write(serialize::Serializer*  s) const;
-    uint32_t read(serialize::Deserializer* d);
+    fds_uint32_t write(serialize::Serializer*  s) const;
+    fds_uint32_t read(serialize::Deserializer* d);
 
     const BlobObjectInfo& objectForOffset(const fds_uint64_t offset) const;
     void initFromFDSPObjList(fpi::FDSP_BlobObjectList& blob_obj_list);
@@ -88,7 +90,7 @@ std::ostream& operator<<(std::ostream& out, const BlobObjectList& blobObjectList
 class BlobNode : public serialize::Serializable {
   public:
     std::string blob_name;
-    blob_version_t version = 0 ;
+    blob_version_t version = 0;
     fds_volid_t vol_id = 0;
     fds_uint64_t blob_size = 0;
     fds_uint32_t blob_mime_type = 0;

@@ -805,7 +805,7 @@ DataMgr::applyBlobUpdate(fds_volid_t volUuid,
                (maxObjSize == (2 *1024 * 1024)));
 
     // Iterate over each offset.
-    // For now, we're requiring that the list
+    // For now, we're requiring that the offset list
     // be sorted
     for (fds_uint32_t i = 0; i < offsetList.size(); i++) {
 
@@ -820,8 +820,6 @@ DataMgr::applyBlobUpdate(fds_volid_t volUuid,
                  << " with object id " << offsetList[i].data_obj_id
                  << " and size " << size;
 
-
-        // fds_verify(size > 0);
         fds_verify(size <= maxObjSize);
 
         fds_uint32_t blobOffsetIndex = 0;
