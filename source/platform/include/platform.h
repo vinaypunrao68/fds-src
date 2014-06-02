@@ -29,9 +29,10 @@ class NodePlatform : public Platform
      * Module methods
      */
     void mod_load_from_config();
-    virtual int  mod_init(SysParams const *const param);
-    virtual void mod_startup();
-    virtual void mod_shutdown();
+    virtual int  mod_init(SysParams const *const param) override;
+    virtual void mod_startup() override;
+    virtual void mod_enable_service() override;
+    virtual void mod_shutdown() override;
 
     void        plf_start_node_services(const fpi::FDSP_ActivateNodeTypePtr &msg);
     inline void plf_bind_process(NodePlatformProc *ptr) { plf_process = ptr; }

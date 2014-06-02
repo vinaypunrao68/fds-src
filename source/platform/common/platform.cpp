@@ -16,6 +16,29 @@ namespace fds {
 NodePlatform    gl_NodePlatform;
 
 // -------------------------------------------------------------------------------------
+// Platform deamon shared memory queue handlers
+// -------------------------------------------------------------------------------------
+class PlatUuidBind : public ShmqReqIn
+{
+  public:
+    PlatUuidBind() : ShmqReqIn() {}
+    virtual ~PlatUuidBind() {}
+
+    void shmq_handler(const shmq_req_t *in, size_t size);
+};
+
+// shmq_handler
+// ------------
+//
+void
+PlatUuidBind::shmq_handler(const shmq_req_t *in, size_t size)
+{
+    std::cout << "UUID binding request is called" << std::endl;
+}
+
+static PlatUuidBind platform_uuid_bind;
+
+// -------------------------------------------------------------------------------------
 // Node Specific Platform
 // -------------------------------------------------------------------------------------
 NodePlatform::NodePlatform()
@@ -71,6 +94,24 @@ void
 NodePlatform::mod_startup()
 {
     Platform::mod_startup();
+}
+
+// mod_enable_service
+// ------------------
+// The Platform::mod_enable_service is common for platform lib.  We are running in
+// platform daemon, which required different logic for the same API.
+//
+void
+NodePlatform::mod_enable_service()
+{
+    ShmConPrdQueue *consumer;
+
+    consumer = NodeShmCtrl::shm_consumer();
+    consumer->shm_register_handler(SHMQ_REQ_UUID_BIND, &platform_uuid_bind);
+    consumer->shm_register_handler(SHMQ_REQ_UUID_UNBIND, &platform_uuid_bind);
+
+    NodeShmCtrl::shm_ctrl_singleton()->shm_start_consumer_thr(plf_node_type);
+    Module::mod_enable_service();
 }
 
 void

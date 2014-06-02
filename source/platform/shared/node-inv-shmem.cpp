@@ -59,6 +59,7 @@ NodeShmCtrl::NodeShmCtrl(const char *name) : Module(name)
     shm_cons_q    = NULL;
     shm_prod_q    = NULL;
     shm_queue     = NULL;
+    shm_cons_thr  = NULL;
 
     shm_name[0]   = '\0';
     shm_am_inv    = NULL;
@@ -74,8 +75,6 @@ NodeShmCtrl::NodeShmCtrl(const char *name) : Module(name)
 int
 NodeShmCtrl::mod_init(SysParams const *const p)
 {
-    fds_verify(shm_total_siz > 0);
-    shm_ctrl = shm_create_obj("0x%llx-%d", shm_name, shm_total_siz);
     return Module::mod_init(p);
 }
 
@@ -85,13 +84,14 @@ NodeShmCtrl::mod_init(SysParams const *const p)
 void
 NodeShmCtrl::mod_startup()
 {
-    void  *shm;
-
     Module::mod_startup();
-    shm = shm_ctrl->shm_attach(PROT_READ);
-    fds_verify(shm != NULL);
-
-    shm_node_hdr = static_cast<node_shm_inventory_t *>(shm);
+    if (shm_ctrl == NULL) {
+        fds_verify(shm_total_siz > 0);
+        shm_ctrl     = shm_create_mgr(SHM_INV_FMT, shm_name, shm_total_siz);
+        void *shm    = shm_ctrl->shm_attach(PROT_READ);
+        shm_node_hdr = static_cast<node_shm_inventory_t *>(shm);
+    }
+    fds_verify(shm_node_hdr != NULL);
     fds_verify(shm_node_hdr->shm_node_inv_off == shm_node_off);
     fds_verify(shm_node_hdr->shm_node_inv_obj_siz == sizeof(node_data_t));
 
@@ -124,17 +124,30 @@ NodeShmCtrl::mod_shutdown()
     Module::mod_shutdown();
 }
 
-// shm_create_obj
+// shm_create_mgr
 // --------------
 // Common function to create a shared memory segment.
 //
 FdsShmem *
-NodeShmCtrl::shm_create_obj(const char *fmt, char *name, int shm_size)
+NodeShmCtrl::shm_create_mgr(const char *fmt, char *name, int shm_size)
 {
     snprintf(name, FDS_MAX_UUID_STR, fmt,
              Platform::platf_singleton()->plf_my_node_uuid().uuid_get_val(), 0);
 
     return new FdsShmem(name, shm_size);
+}
+
+// shm_cmd_queue_size
+// ------------------
+//
+size_t
+NodeShmCtrl::shm_cmd_queue_size()
+{
+    size_t  shm_size;
+
+    shm_size  = NodeShmCtrl::shm_queue_hdr;
+    shm_size += (NodeShmCtrl::shm_q_item_size * NodeShmCtrl::shm_q_item_count);
+    return shm_size;
 }
 
 // shm_setup_queue
@@ -143,24 +156,25 @@ NodeShmCtrl::shm_create_obj(const char *fmt, char *name, int shm_size)
 void
 NodeShmCtrl::shm_setup_queue()
 {
-    int   shm_size;
     void *shm;
 
-    shm_size  = NodeShmCtrl::shm_queue_hdr;
-    shm_size += (NodeShmCtrl::shm_q_item_size * NodeShmCtrl::shm_q_item_count);
-    shm_rw    = shm_create_obj("/0x%llx-rw-%d", shm_rw_name, shm_size);
-    shm       = shm_rw->shm_attach(PROT_READ | PROT_WRITE);
+    shm_rw = shm_create_mgr(SHM_QUEUE_FMT, shm_rw_name, shm_cmd_queue_size());
+    shm    = shm_rw->shm_attach(PROT_READ | PROT_WRITE);
+
     shm_queue = static_cast<node_shm_queue_t *>(shm);
-    fds_assert(shm != NULL);
+    fds_assert(shm_queue != NULL);
 
     shm_rw_data = new ShmObjRW(shm_rw,
-                               NodeShmCtrl::shm_queue_hdr, 0, 0,
+                               NodeShmCtrl::shm_queue_hdr, 4, 0,
                                NodeShmCtrl::shm_q_item_size,
                                NodeShmCtrl::shm_q_item_count);
 
-    shm_cons_q = new Shm_nPrd_1Con(&shm_queue->smq_sync,
+    /* Platform lib linked with n producers to 1 platform daemon consumer. */
+    shm_prod_q = new Shm_nPrd_1Con(&shm_queue->smq_sync,
                                    &shm_queue->smq_svc2plat, shm_rw_data);
-    shm_prod_q = new Shm_1Prd_nCon(&shm_queue->smq_sync,
+
+    /* Platform lib is n consumers from 1 platform daemon producer. */
+    shm_cons_q = new Shm_1Prd_nCon(&shm_queue->smq_sync,
                                    &shm_queue->smq_plat2svc, shm_rw_data);
 }
 
