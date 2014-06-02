@@ -87,7 +87,7 @@ fds::Error ObjectDB::Put(const DiskLoc& disk_location,
   fds::Error err(fds::ERR_OK);
 
   leveldb::Slice key((const char *)&disk_location, sizeof(disk_location));
-  leveldb::Slice value((char *)&obj_id, sizeof(obj_id));
+  leveldb::Slice value((const char *)obj_id.GetId(), obj_id.getDigestLength());
 
 
   timer_start();
