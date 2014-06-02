@@ -113,7 +113,7 @@ fds::Error ObjectDB::Delete(const ObjectID& object_id)
 {
   fds::Error err(fds::ERR_OK);
 
-  leveldb::Slice key((const char *)&object_id, sizeof(object_id));
+  leveldb::Slice key((const char*)object_id.GetId(), object_id.getDigestLength());
   std::string value;
 
   timer_start();
@@ -139,7 +139,7 @@ fds::Error ObjectDB::Put(const ObjectID& object_id,
                          const ObjectBuf& obj_buf) {
   fds::Error err(fds::ERR_OK);
 
-  leveldb::Slice key((const char *)object_id.GetId(), sizeof(ObjectID));
+  leveldb::Slice key((const char *)object_id.GetId(), object_id.getDigestLength());
   leveldb::Slice value(obj_buf.data.data(), obj_buf.size);
 
   timer_start();
@@ -219,7 +219,7 @@ fds::Error ObjectDB::Get(const ObjectID& obj_id,
                          ObjectBuf& obj_buf) {
   fds::Error err(fds::ERR_OK);
 
-  leveldb::Slice key((const char *)obj_id.GetId(), sizeof(ObjectID));
+  leveldb::Slice key((const char *)obj_id.GetId(), obj_id.getDigestLength());
   std::string value;
 
   timer_start();
