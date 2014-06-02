@@ -488,7 +488,7 @@ VolumeMeta::syncVolCat(fds_volid_t volId, NodeUuid node_uuid)
   fds_uint32_t node_port = 0;
   fds_int32_t node_state = -1;
 
-  FDS_PLOG(dm_log) << " syncVolCat: " << volId;
+  LOGNORMAL << " syncVolCat: " << volId;
 
   const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
   NodeAgent::pointer node = Platform::plf_dm_nodes()->agent_info(node_uuid);
@@ -506,8 +506,8 @@ VolumeMeta::syncVolCat(fds_volid_t volId, NodeUuid node_uuid)
 
   const std::string test_cp = "cp -r "+src_dir_vcat+"*  "+dst_dir+" ";
   const std::string test_rsync = "sshpass -p passwd rsync -r "+dst_dir+"  root@"+dest_ip+":"+dst_node+"";
-  FDS_PLOG(dm_log) << " rsync: local copy  " << test_cp;
-  FDS_PLOG(dm_log) << " rsync:  " << test_rsync;
+  LOGNORMAL << " rsync: local copy  " << test_cp;
+  LOGNORMAL << " rsync:  " << test_rsync;
 
 
   vol_mtx->lock();
@@ -516,10 +516,10 @@ VolumeMeta::syncVolCat(fds_volid_t volId, NodeUuid node_uuid)
   returnCode = std::system((const char *)("cp -r "+src_dir_tcat+"  "+dst_dir+" ").c_str());
   vol_mtx->unlock();
 
-  FDS_PLOG(dm_log) << "system Command  copy return Code : " << returnCode;
+  LOGNORMAL << "system Command  copy return Code : " << returnCode;
 
   if (! err.ok()) {
-    FDS_PLOG(dm_log) << "Failed to create vol snap " << " with err " << err;
+    LOGNORMAL << "Failed to create vol snap " << " with err " << err;
     return err;
   }
 
@@ -528,7 +528,7 @@ VolumeMeta::syncVolCat(fds_volid_t volId, NodeUuid node_uuid)
    returnCode = std::system((const char *)("sshpass -p passwd rsync -r "+src_sync_vcat+"  root@"+dest_ip+":"+dst_node+"").c_str());
    returnCode = std::system((const char *)("sshpass -p passwd rsync -r "+src_sync_tcat+"  root@"+dest_ip+":"+dst_node+"").c_str());
   // returnCode = std::system((const char *)("rsync -r --rsh='sshpass -p passwd ssh -l root' "+dst+"/  root@"+dest_ip+":"+dst_node+"").c_str());
-   FDS_PLOG(dm_log) << "system Command  rsync return Code : " << returnCode;
+   LOGNORMAL << "system Command  rsync return Code : " << returnCode;
 
   return err;
 }
