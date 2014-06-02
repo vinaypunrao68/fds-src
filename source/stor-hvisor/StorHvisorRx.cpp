@@ -37,7 +37,8 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) {
 
     // TODO(Andrew): Handle start blob trans separate from
     // the normal put/get transactions
-    if (txn->trans_state == FDS_TRANS_BLOB_START) {
+    if (txn->trans_state == FDS_TRANS_BLOB_START ||
+        txn->trans_state == FDS_TRANS_MULTIDM ) {
         if (txn->dm_ack_cnt == txn->num_dm_nodes) {
             // We return 1 to indicate all of the acks
             // have been received. This allows the caller

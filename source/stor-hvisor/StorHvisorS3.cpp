@@ -981,13 +981,26 @@ void StorHvCtrl::handleSetBlobMetaDataResp(const FDSP_MsgHdrTypePtr rxMsg) {
     // Return if err
     if (rxMsg->result != FDSP_ERR_OK) {
         vol->journal_tbl->releaseTransId(transId);
-        blobReq->cb->call(FDSN_StatusErrorUnknown);
         txn->reset();
+        blobReq->cb->call(FDSN_StatusErrorUnknown);
         return;
     }
-    txn->reset();
-    vol->journal_tbl->releaseTransId(transId);
-    blobReq->cb->call(FDSN_StatusOK);
+    // Increment the ack status
+    fds_int32_t result = txn->fds_set_dmack_status(rxMsg->src_ip_lo_addr,
+                                                   rxMsg->src_port);
+    LOGDEBUG << "txn: " << transId
+             << " rcvd DM response ip:"
+             << rxMsg->src_ip_lo_addr
+             << " port:" << rxMsg->src_port;
+
+    result = fds_move_wr_req_state_machine(rxMsg);
+    if (1 == result) {
+        txn->reset();
+        vol->journal_tbl->releaseTransId(transId);
+        blobReq->cb->call(FDSN_StatusOK);
+    } else {
+        fds_verify(result == 0);
+    }
 }
 
 fds::Error StorHvCtrl::upCatResp(const FDSP_MsgHdrTypePtr& rxMsg,
@@ -1668,7 +1681,7 @@ Error StorHvCtrl::SetBlobMetaData(fds::AmQosReq *qosReq) {
     fds_uint32_t transId = shVol->journal_tbl->get_trans_id_for_blob(blobReq->getBlobName(),
                                                                      blobReq->getBlobOffset(),
                                                                      txInProgress);
-    StorHvJournalEntry *journEntry = shVol->journal_tbl->get_journal_entry(transId);  
+    StorHvJournalEntry *journEntry = shVol->journal_tbl->get_journal_entry(transId);
     StorHvJournalEntryLock je_lock(journEntry);
 
     // Just bail out if there's an outstanding request
@@ -1686,6 +1699,7 @@ Error StorHvCtrl::SetBlobMetaData(fds::AmQosReq *qosReq) {
         delete qosReq;
         return err;
     }
+    journEntry->trans_state = FDS_TRANS_MULTIDM;
 
     // Activate the journal entry
     journEntry->setActive();
