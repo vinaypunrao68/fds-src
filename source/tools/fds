@@ -307,17 +307,23 @@ function cleanBinDirs() {
 
 
 function clean() {
-    loginfo "cleaning up: ${FDSROOT}"
-    (
-        rm -rf /${FDSROOT}/hdd/sd?
-        rm -rf /${FDSROOT}/ssd/sd?
-        rm -rf /${FDSROOT}/sys-repo/*
-        rm -rf /${FDSROOT}/nginx/logs/*
-        rm -rf /${FDSROOT}/user-repo/*
-        # redis stuff
-        ${TOOLSDIR}/redis.sh clean 1 $REDIS_ARG
-        cleanlogs
-    ) 2>/dev/null
+    for node in ${FDSROOT} ${FDSROOT}/node1 ${FDSROOT}/node2 ${FDSROOT}/node3 ${FDSROOT}/node4 ; do
+        if [[ -d $node ]] ; then
+            loginfo "cleaning up: ${node}"
+            (
+                rm -rf /${node}/hdd/sd?
+                rm -rf /${node}/ssd/sd?
+                rm -rf /${node}/sys-repo/*
+                rm -rf /${node}/nginx/logs/*
+                rm -rf /${node}/user-repo/*
+                rm -rf /${node}/dev/*
+                rm -rf /${node}/var/stats/*
+                # redis stuff
+                ${TOOLSDIR}/redis.sh clean 1 $REDIS_ARG
+                cleanlogs
+            ) 2>/dev/null
+        fi
+    done
 
     cleanBinDirs
 }
