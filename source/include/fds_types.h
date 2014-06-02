@@ -80,10 +80,10 @@ static const blob_version_t blob_version_invalid = 0;
 static const blob_version_t blob_version_initial = 1;
 static const blob_version_t blob_version_deleted =
         std::numeric_limits<fds_uint64_t>::max();
-
+static const uint OBJECTID_DIGESTLEN = 20;
 class ObjectID : public serialize::Serializable {
   private:
-    uint8_t  digest[20];
+    uint8_t  digest[OBJECTID_DIGESTLEN];
 
   public:
     ObjectID();
@@ -105,6 +105,10 @@ class ObjectID : public serialize::Serializable {
         memcpy(digest, data.data(), data.length());
     }
     const uint8_t* GetId() const;
+
+    const uint getDigestLength() const {
+        return OBJECTID_DIGESTLEN;
+    }
 
    /*
     * bit mask. this will help to boost the performance 
