@@ -860,12 +860,11 @@ StorHvCtrl::startBlobTxResp(const FDSP_MsgHdrTypePtr rxMsg) {
     fds_verify(blobReq != NULL);
     fds_verify(blobReq->getIoType() == FDS_START_BLOB_TX);
 
-    qos_ctrl->markIODone(txn->io);
-
     // Return if err
     if (rxMsg->result != FDSP_ERR_OK) {
         vol->journal_tbl->releaseTransId(transId);
         txn->reset();
+        qos_ctrl->markIODone(txn->io);
         blobReq->cb->call(FDSN_StatusErrorUnknown);
         delete blobReq;
         return;
@@ -889,9 +888,10 @@ StorHvCtrl::startBlobTxResp(const FDSP_MsgHdrTypePtr rxMsg) {
     if (result == 1) {
         StartBlobTxCallback::ptr cb = SHARED_DYN_CAST(StartBlobTxCallback,
                                                       blobReq->cb);
-        cb->call(FDSN_StatusOK);
         txn->reset();
         vol->journal_tbl->releaseTransId(transId);
+        qos_ctrl->markIODone(txn->io);
+        cb->call(FDSN_StatusOK);
         delete blobReq;
     } else {
         fds_verify(result == 0);
@@ -1440,8 +1440,8 @@ StorHvCtrl::startBlobTx(AmQosReq *qosReq) {
         // There is an ongoing transaciton for this offset.
         // We should queue this up for later processing once that completes.
         // For now, return an error.
-        shVol->journal_tbl->releaseTransId(transId);
-        journEntry->reset();
+        // shVol->journal_tbl->releaseTransId(transId);
+        // journEntry->reset();
         blobReq->cb->call(FDSN_StatusTxnInProgress);
         err = ERR_NOT_IMPLEMENTED;
         delete blobReq;
