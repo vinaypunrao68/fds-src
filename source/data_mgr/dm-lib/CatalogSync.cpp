@@ -226,9 +226,16 @@ fds_bool_t CatalogSync::isDeltaSyncDone() const {
             (cur_state != CSSTATE_DELTA_SYNC));
 }
 
+fds_bool_t CatalogSync::isInForwardState() const {
+    csStateType cur_state = std::atomic_load(&state);
+    return (cur_state != CSSTATE_FORWARDING);
+}
+
 Error CatalogSync::forwardCatalogUpdate(dmCatReq  *updCatReq) {
     Error err(ERR_OK);
+    csStateType cur_state = std::atomic_load(&state);
     fds_verify(hasVolume(updCatReq->volId));
+
     LOGDEBUG << "Will forward catalog update for volume "
              << std::hex << updCatReq->volId << std::dec;
 
@@ -469,9 +476,13 @@ Error CatalogSyncMgr::forwardCatalogUpdate(dmCatReq  *updCatReq) {
          cit != cat_sync_map.cend();
          ++cit) {
         if ((cit->second)->hasVolume(updCatReq->volId)) {
-            err = (cit->second)->forwardCatalogUpdate(updCatReq);
-            found_volume = true;
-            break;
+            if((cit->second)->isInForwardState() == false)
+               continue;
+            else {
+                err = (cit->second)->forwardCatalogUpdate(updCatReq);
+                found_volume = true;
+                break;
+           }
         }
     }
 

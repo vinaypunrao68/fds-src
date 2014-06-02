@@ -114,6 +114,7 @@ namespace fds {
          */
         fds_bool_t isInitialSyncDone() const;
         fds_bool_t isDeltaSyncDone() const;
+        fds_bool_t isInForwardState() const;
 
         /**
          * Callback from data mgr that volume cat initial push
