@@ -56,7 +56,7 @@ public class Main {
         authorize(HttpMethod.GET, "/api/config/volumes", () -> new ListVolumes(configApi, amService, clientFactory.configPathClient(omHost, omPort)));
         authorize(HttpMethod.POST, "/api/config/volumes", () -> new CreateVolume(configApi, clientFactory.configPathClient(omHost, omPort)));
         authorize(HttpMethod.DELETE, "/api/config/volumes/:name", () -> new DeleteVolume(clientFactory.configPathClient(omHost, omPort)));
-        authorize(HttpMethod.PUT, "/api/config/volumes/:uuid", () -> new SetVolumeQosParams(clientFactory.configPathClient(omHost, omPort)));
+        authorize(HttpMethod.PUT, "/api/config/volumes/:uuid", () -> new SetVolumeQosParams(clientFactory.configPathClient(omHost, omPort), configApi, amService));
 
         authorize(HttpMethod.GET, "/api/config/globaldomain", ShowGlobalDomain::new);
         authorize(HttpMethod.GET, "/api/config/domains", ListDomains::new);

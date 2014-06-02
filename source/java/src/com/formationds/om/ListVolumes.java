@@ -18,12 +18,15 @@ import org.eclipse.jetty.server.Request;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.text.DecimalFormat;
 import java.util.Map;
 
 public class ListVolumes implements RequestHandler {
     private ConfigurationService.Iface configApi;
     private AmService.Iface amApi;
     private FDSP_ConfigPathReq.Iface legacyConfig;
+
+    private static DecimalFormat df = new DecimalFormat("#.00");
 
     public ListVolumes(ConfigurationService.Iface configApi, AmService.Iface amApi, FDSP_ConfigPathReq.Iface legacyConfig) {
         this.configApi = configApi;
@@ -53,9 +56,13 @@ public class ListVolumes implements RequestHandler {
             throw new RuntimeException(e);
         }
 
+        return toJsonObject(v, volInfo, status);
+    }
+
+    public static JSONObject toJsonObject(VolumeDescriptor v, FDSP_VolumeDescType volInfo, VolumeStatus status) {
         JSONObject o = new JSONObject();
         o.put("name", v.getName());
-        o.put("id", volInfo.getVolUUID());
+        o.put("id", Long.toString(volInfo.getVolUUID()));
         o.put("priority", volInfo.getRel_prio());
         o.put("sla", volInfo.getIops_min());
         o.put("limit", volInfo.getIops_max());
@@ -75,9 +82,17 @@ public class ListVolumes implements RequestHandler {
 
         Size usage = Size.size(status.getCurrentUsageInBytes());
         JSONObject dataUsage = new JSONObject()
-                .put("size", usage.getCount())
+                .put("size", formatSize(usage))
                 .put("unit", usage.getSizeUnit().toString());
         o.put("current_usage", dataUsage);
         return o;
+    }
+
+    private static String formatSize(Size usage) {
+        if (usage.getCount() == 0) {
+            return "0";
+        }
+
+        return df.format(usage.getCount());
     }
 }

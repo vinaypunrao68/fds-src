@@ -44,7 +44,7 @@ public class CreateVolume implements RequestHandler {
             volumeSettings.setBlockDeviceSizeInBytes(sizeInBytes);
             configApi.createVolume("", name, volumeSettings);
         } else {
-            configApi.createVolume("", name, new VolumeSettings(1024 * 1024 * 4, VolumeType.OBJECT));
+            configApi.createVolume("", name, new VolumeSettings(1024 * 1024 * 2, VolumeType.OBJECT));
         }
 
         Thread.sleep(200);

@@ -26,7 +26,6 @@ public class Stoppable implements Runnable {
     public void run() {
         while (shouldRun) {
             try {
-                Thread.sleep(200);
                 action.execute();
                 LOG.debug("Stoppable '" + name + "' successful");
             } catch (InterruptedException e) {
