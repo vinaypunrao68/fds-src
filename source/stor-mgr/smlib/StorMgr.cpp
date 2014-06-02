@@ -1099,11 +1099,16 @@ ObjectStorMgr::readObjMetaData(const ObjectID &objId,
 {
     Error err = smObjDb->get(objId, objMap);
     if (err == ERR_OK) {
+        LOGDEBUG << objId
+                 << " refcnt:" << objMap.getRefCnt()
+                 << " dataexists:" << objMap.dataPhysicallyExists();
         /* While sync is going on we can have metadata but object could be missing */
         if (!objMap.dataPhysicallyExists()) {
             fds_verify(isTokenInSyncMode(getDLT()->getToken(objId)));
             err = ERR_DISK_READ_FAILED;
         }
+    } else {
+        LOGWARN << "unable to read object meta: " << objId;
     }
     return err;
 }
