@@ -918,7 +918,7 @@ DataMgr::applyBlobUpdate(fds_volid_t volUuid,
                         }
                     }
 
-                    bnode->obj_list.popBack();
+                    bnode->obj_list.pop_back();
                 }
             }
         } else {
@@ -944,7 +944,7 @@ DataMgr::applyBlobUpdate(fds_volid_t volUuid,
                      j < offset;
                      j += maxObjSize) {
                     // Append a 'sparse' info entry to the end of the blob
-                    bnode->obj_list.pushBack(BlobObjectInfo(j, maxObjSize));
+                    bnode->obj_list.push_back(BlobObjectInfo(j, maxObjSize));
                     // Increase the size as the sparse entry still counts
                     // towards the blob's size
                     bnode->blob_size += maxObjSize;
@@ -952,7 +952,7 @@ DataMgr::applyBlobUpdate(fds_volid_t volUuid,
 
                 // Add the entry into its correct range
                 // and update the size.
-                bnode->obj_list.pushBack(offsetList[i]);
+                bnode->obj_list.push_back(offsetList[i]);
                 bnode->blob_size += size;
             }
         }
