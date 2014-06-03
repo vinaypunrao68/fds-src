@@ -16,7 +16,7 @@ public enum SizeUnit {
         this.multiplier = multiplier;
     }
 
-    public long totalBytes(int count) {
-        return ((long) count) * multiplier;
+    public long totalBytes(double count) {
+        return (long) (count * multiplier);
     }
 }

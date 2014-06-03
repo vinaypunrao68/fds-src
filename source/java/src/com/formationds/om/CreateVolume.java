@@ -40,11 +40,10 @@ public class CreateVolume implements RequestHandler {
             JSONObject attributes = connector.getJSONObject("attributes");
             int sizeUnits = attributes.getInt("size");
             long sizeInBytes = SizeUnit.valueOf(attributes.getString("unit")).totalBytes(sizeUnits);
-            VolumeSettings volumeSettings = new VolumeSettings(1024 * 4, VolumeType.BLOCK);
-            volumeSettings.setBlockDeviceSizeInBytes(sizeInBytes);
+            VolumeSettings volumeSettings = new VolumeSettings(1024 * 4, VolumeType.BLOCK, sizeInBytes);
             configApi.createVolume("", name, volumeSettings);
         } else {
-            configApi.createVolume("", name, new VolumeSettings(1024 * 1024 * 2, VolumeType.OBJECT));
+            configApi.createVolume("", name, new VolumeSettings(1024 * 1024 * 2, VolumeType.OBJECT, 0));
         }
 
         Thread.sleep(200);

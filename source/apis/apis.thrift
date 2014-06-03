@@ -9,7 +9,7 @@ enum VolumeType {
 struct VolumeSettings {
        1: required i32 maxObjectSizeInBytes,
        2: required VolumeType volumeType,
-       3: optional i64 blockDeviceSizeInBytes
+       3: required i64 blockDeviceSizeInBytes
 }
 
 struct VolumeDescriptor {

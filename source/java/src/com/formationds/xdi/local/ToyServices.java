@@ -70,7 +70,7 @@ public class ToyServices implements AmService.Iface, ConfigurationService.Iface 
         Volume volume = getVolume(domainName, volumeName);
         return new VolumeDescriptor(volumeName, volume.getTimestamp(),
                                     new VolumeSettings(volume.getObjectSize(),
-                                                     VolumeType.OBJECT));
+                                                     VolumeType.OBJECT, 0));
     }
 
     @Override
@@ -84,7 +84,7 @@ public class ToyServices implements AmService.Iface, ConfigurationService.Iface 
         return volumes.stream()
                 .map(v -> new VolumeDescriptor(v.getName(), v.getTimestamp(),
                                                new VolumeSettings(v.getObjectSize(),
-                                                                VolumeType.OBJECT)))
+                                                                VolumeType.OBJECT, 0)))
                 .collect(Collectors.toList());
     }
 

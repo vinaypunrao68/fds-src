@@ -29,9 +29,9 @@ public class ToyServicesTest {
 
         shim.createDomain(domainName);
         shim.createVolume(domainName, volumeName,
-                          new VolumeSettings(8, VolumeType.OBJECT));
+                          new VolumeSettings(8, VolumeType.OBJECT, 0));
         shim.createVolume(domainName, "v2",
-                          new VolumeSettings(32, VolumeType.OBJECT));
+                          new VolumeSettings(32, VolumeType.OBJECT, 0));
 
         assertEquals(2, shim.listVolumes(domainName).size());
         shim.deleteVolume(domainName, "v2");

@@ -20,6 +20,10 @@ public class Size {
         return sizeUnit;
     }
 
+    public long totalBytes() {
+        return sizeUnit.totalBytes(count);
+    }
+
     public static Size size(long byteCount) {
         SizeUnit[] values = SizeUnit.values();
         SizeUnit current = SizeUnit.B;

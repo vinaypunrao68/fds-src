@@ -4,14 +4,15 @@ package com.formationds.xdi;
  */
 
 import com.formationds.apis.*;
+import com.formationds.util.Size;
+import com.formationds.util.SizeUnit;
 import org.apache.thrift.protocol.TBinaryProtocol;
 import org.apache.thrift.transport.TSocket;
-import org.apache.thrift.transport.TFramedTransport;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
-import java.util.List;
 import java.util.HashMap;
+import java.util.List;
 
 public class SmokeTest {
 
@@ -44,16 +45,14 @@ public class SmokeTest {
         String cinderVolumeName = "CinderVol";
         System.out.println("Creating volume " + cinderVolumeName +
                            ", policy: 4KB blocksize");
-        VolumeSettings cinderPolicy = new VolumeSettings(4 * 1024,
-                                                     VolumeType.BLOCK);
+        VolumeSettings cinderPolicy = new VolumeSettings(4 * 1024, VolumeType.BLOCK, new Size(20, SizeUnit.GB).totalBytes());
         config.createVolume(DOMAIN_NAME, cinderVolumeName, cinderPolicy);
 
         System.out.println("Attaching volume " + cinderVolumeName);
         am.attachVolume(DOMAIN_NAME, cinderVolumeName);
 
         System.out.println("Creating volume " + VOLUME_NAME + ", policy: 2MB blocksize");
-        VolumeSettings volumePolicy = new VolumeSettings(2 * 1024 * 1024,
-                                                     VolumeType.OBJECT);
+        VolumeSettings volumePolicy = new VolumeSettings(2 * 1024 * 1024, VolumeType.OBJECT, 0);
         config.createVolume(DOMAIN_NAME, VOLUME_NAME, volumePolicy);
         Thread.sleep(4000);
 
