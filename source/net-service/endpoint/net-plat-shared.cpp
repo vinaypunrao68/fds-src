@@ -3,10 +3,12 @@
  */
 #include <string>
 #include <vector>
+#include <map>
 #include <ep-map.h>
 #include <net/net-service-tmpl.hpp>
 #include <platform/platform-lib.h>
 #include <net-plat-shared.h>
+#include <fds_process.h>
 
 namespace fds {
 
@@ -264,6 +266,55 @@ NetPlatHandler::notifyNodeInfo(std::vector<fpi::NodeInfoMsg>    &ret,
 void
 NetPlatHandler::notifyNodeUp(fpi::RespHdr &ret, bo::shared_ptr<fpi::NodeInfoMsg> &info)
 {
+}
+
+/**
+ * Returns the status of the service
+ * @param nullarg
+ * @return
+ */
+fpi::ServiceStatus NetPlatHandler::
+getStatus(boost::shared_ptr<int32_t>& nullarg)  // NOLINT
+{
+    if (!g_fdsprocess)
+        return fpi::SVC_STATUS_INVALID;
+    return fpi::SVC_STATUS_ACTIVE;
+}
+
+/**
+ * Returns the stats associated with counters identified by id
+ * @param _return
+ * @param id
+ */
+void NetPlatHandler::getCounters(std::map<std::string, int64_t> & _return,
+        boost::shared_ptr<std::string>& id)
+{
+    if (!g_fdsprocess) return;
+
+    auto cntrs = g_fdsprocess->get_cntrs_mgr()->get_counters(*id);
+    if (cntrs == nullptr) {
+        return;
+    }
+    cntrs->toMap(_return);
+}
+
+/**
+ * For setting a flag dynamically
+ * @param id
+ * @param val
+ */
+void NetPlatHandler::
+setConfigVal(boost::shared_ptr<std::string>& id,  // NOLINT
+            boost::shared_ptr<int64_t>& val)
+{
+    if (!g_fdsprocess) return;
+
+    try {
+        g_fdsprocess->get_fds_config()->set(*id, *val);
+    } catch(...) {
+        // TODO(Rao): Only ignore SettingNotFound exception
+        /* Ignore the error */
+    }
 }
 
 }  // namespace fds
