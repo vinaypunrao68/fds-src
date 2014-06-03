@@ -975,13 +975,16 @@ void StorHvCtrl::handleSetBlobMetaDataResp(const FDSP_MsgHdrTypePtr rxMsg) {
     // Get request from transaction
     fds::AmQosReq   *qosReq  = static_cast<fds::AmQosReq *>(txn->io);
     fds_verify(qosReq != NULL);
-    std::unique_ptr<fds::FdsBlobReq> blobReq(qosReq->getBlobReqPtr());
-    qos_ctrl->markIODone(txn->io);
+    fds::SetBlobMetaDataReq *blobReq = static_cast<fds::SetBlobMetaDataReq *>(
+        qosReq->getBlobReqPtr());
+    fds_verify(blobReq != NULL);
+    fds_verify(blobReq->getIoType() == FDS_SET_BLOB_METADATA);
 
     // Return if err
     if (rxMsg->result != FDSP_ERR_OK) {
         vol->journal_tbl->releaseTransId(transId);
         txn->reset();
+        qos_ctrl->markIODone(txn->io);
         blobReq->cb->call(FDSN_StatusErrorUnknown);
         return;
     }
@@ -997,6 +1000,7 @@ void StorHvCtrl::handleSetBlobMetaDataResp(const FDSP_MsgHdrTypePtr rxMsg) {
     if (1 == result) {
         txn->reset();
         vol->journal_tbl->releaseTransId(transId);
+        qos_ctrl->markIODone(txn->io);
         blobReq->cb->call(FDSN_StatusOK);
     } else {
         fds_verify(result == 0);
