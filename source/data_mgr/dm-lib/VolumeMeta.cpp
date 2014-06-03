@@ -118,24 +118,19 @@ BlobObjectList::BlobObjectList(fpi::FDSP_BlobObjectList& blob_obj_list)
 BlobObjectList::~BlobObjectList() {
 }
 
-const BlobObjectInfo& BlobObjectList::objectForOffset(const fds_uint64_t offset) const {
-    uint i;
-    for (i = 0; ((i < size()) && (at(i).offset < offset)); i++) {}
+bool BlobObjectList::hasObjectAtOffset(fds_uint64_t offset) const {
+    const auto iter = find(offset);
+    return iter != end();
+}
 
-    if (i == size()) {
-        throw std::runtime_error(std::string("Offset out of bound"));
-    }
-
-    if (at(i).offset == offset)
-        return at(i);
-    return at(i-1);
+const BlobObjectInfo& BlobObjectList::objectAtOffset(const fds_uint64_t offset) const {
+    return at(offset);
 }
 
 void BlobObjectList::initFromFDSPObjList(fpi::FDSP_BlobObjectList& blob_obj_list) {
     clear();
     for (uint i = 0; i < blob_obj_list.size(); i++) {
-        push_back(blob_obj_list[i]);
-        // insert(blob_obj_list[i].offset, blob_obj_list[i]);
+        at(blob_obj_list[i].offset) =  blob_obj_list[i];
     }
 }
 
@@ -143,11 +138,10 @@ void BlobObjectList::ToFDSPObjList(fpi::FDSP_BlobObjectList& fdsp_obj_list) cons
     fdsp_obj_list.clear();
     for (const auto& blob : *this) {
         fpi::FDSP_BlobObjectInfo obj_info;
-        obj_info.offset = blob.offset;
-        obj_info.size = blob.size;
-        obj_info.data_obj_id.digest = std::string(
-            (const char *)(blob.data_obj_id.GetId()),
-            (size_t)blob.data_obj_id.GetLen());
+        obj_info.offset = blob.second.offset;
+        obj_info.size = blob.second.size;
+        obj_info.data_obj_id.digest = std::string((const char *)(blob.second.data_obj_id.GetId()),
+                                                  (size_t)blob.second.data_obj_id.GetLen());
         fdsp_obj_list.push_back(obj_info);
     }
 }
@@ -155,8 +149,9 @@ void BlobObjectList::ToFDSPObjList(fpi::FDSP_BlobObjectList& fdsp_obj_list) cons
 fds_uint32_t BlobObjectList::write(serialize::Serializer*  s) const {
     uint32_t bytes = 0;
     bytes += s->writeI64(size());
-    for (const auto& item : *this) {
-        bytes += item.write(s);
+    for (const auto& item : *this){
+        // prem: NO need to write the offset ..
+        bytes += item.second.write(s);
     }
     return bytes;
 }
@@ -170,7 +165,7 @@ fds_uint32_t BlobObjectList::read(serialize::Deserializer* d) {
     for (; sz > 0; --sz) {
         BlobObjectInfo blob;
         bytes += blob.read(d);
-        push_back(blob);
+        insert(value_type(blob.offset, blob));
     }
     return bytes;
 }
@@ -295,8 +290,8 @@ void BlobNode::initFromFDSPPayload(const fpi::FDSP_UpdateCatalogTypePtr cat_msg,
     // setting the entire blobs contents. This needs to
     // change when we allow partial updates or sparse blobs.
     blob_size = 0;
-    for (const auto& blob : obj_list) {
-        blob_size += blob.size;
+    for (const auto& iter : obj_list) {
+        blob_size += iter.second.size;
     }
 }
 
@@ -604,7 +599,7 @@ std::ostream& operator<<(std::ostream& out, const BlobObjectInfo& binfo) {
 
 std::ostream& operator<<(std::ostream& out, const BlobObjectList& blobObjectList) {
     for (const auto& blobObject : blobObjectList) {
-        out << blobObject << " ";
+        out << blobObject.second << " ";
     }
     return out;
 }
