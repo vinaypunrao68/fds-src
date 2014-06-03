@@ -360,6 +360,9 @@ NetMgr::ep_uuid_bindings(const struct ep_map_rec **map)
 int
 NetMgr::ep_uuid_binding(const fpi::SvcUuid &uuid, std::string *ip)
 {
+    // TODO(Rao): Hack to get port number
+    // void plf_my_node_uuid();
+
     int          idx, ret;
     char         str[INET6_ADDRSTRLEN + 1];
     ep_map_rec_t map;

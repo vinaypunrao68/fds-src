@@ -1188,6 +1188,7 @@ void StorHvCtrl::issueQueryCatalog(const std::string& blobName,
     asyncQueryReq->setRpcFunc(
         CREATE_RPC_SPTR(fpi::DMSvcClient, queryCatalogObject, queryMsg));
     asyncQueryReq->onResponseCb(respCb);
+    asyncQueryReq->invoke();
 }
 
 void StorHvCtrl::issueGetObject(const ObjectID& objId,
@@ -1302,6 +1303,7 @@ void StorHvCtrl::getBlobGetObjectResp(GetBlobReq *blobReq,
 fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq)
 {
     fds::Error err(ERR_OK);
+    return getBlob2(qosReq);
 
     LOGNORMAL << "Doing a get blob operation!";
 
