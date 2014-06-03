@@ -102,7 +102,6 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         VolumeInfo::pointer  vol = volContainer->get_volume(*volumeName);
 
         convert::getVolumeDescriptor(volDescriptor, vol);
-        volDescriptor.policy.maxObjectSizeInBytes = 2*1024*1024;
     }
 
     void listVolumes(std::vector<VolumeDescriptor> & _return,

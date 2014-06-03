@@ -4,14 +4,13 @@ package com.formationds.spike.nbd;/*
 
 import com.formationds.apis.*;
 import io.netty.buffer.ByteBuf;
-import io.netty.buffer.Unpooled;
 import org.apache.log4j.Logger;
 import org.apache.thrift.TException;
-import org.apache.thrift.transport.TTransportException;
 
-import java.io.InputStream;
 import java.nio.ByteBuffer;
-import java.util.*;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class FdsServerOperations implements NbdServerOperations {
     private static final Logger LOG = Logger.getLogger(FdsServerOperations.class);
@@ -21,18 +20,27 @@ public class FdsServerOperations implements NbdServerOperations {
     private AmService.Iface am;
     private ConfigurationService.Iface config;
     private final Map<String, Integer> volumeObjectSizes;
+    private final Map<String, Long> volumeCapacity;
 
     public FdsServerOperations(AmService.Iface am, ConfigurationService.Iface config) throws TException {
         this.am = am;
         this.config = config;
-        volumeObjectSizes = new HashMap<>();
-        config.listVolumes(FDS).stream()
-            .forEach(v -> volumeObjectSizes.put(v.getName(), v.getPolicy().getMaxObjectSizeInBytes()));
-
+        volumeObjectSizes = new ConcurrentHashMap<>();
+        volumeCapacity = new ConcurrentHashMap<>();
     }
 
     private int getMaxObjectSize(String exportName) {
-        return 4096;
+        return volumeObjectSizes.compute(exportName, (k, v) -> {
+            if (v == null) {
+                try {
+                    v = config.statVolume(FDS, exportName).getPolicy().getMaxObjectSizeInBytes();
+                } catch (TException e) {
+                    LOG.error("Error getting max object size", e);
+                }
+            }
+
+            return v;
+        });
     }
 
     @Override
@@ -49,7 +57,18 @@ public class FdsServerOperations implements NbdServerOperations {
 
     @Override
     public long size(String exportName) {
-        return 1024l * 1024l * 1024l * 10l;
+        return volumeCapacity.compute(exportName, (k, v) -> {
+            if (v == null) {
+                try {
+                    v = config.statVolume(FDS, exportName).getPolicy().getBlockDeviceSizeInBytes();
+                } catch (TException e) {
+                    LOG.error("Can't stat volume", e);
+                    v = 0l;
+                }
+            }
+
+            return v;
+        });
     }
 
     @Override
