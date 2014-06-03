@@ -12,6 +12,8 @@
 #include <OmAdminCtrl.h>
 #include <lib/PerfStats.h>
 #include <orchMgr.h>
+#include <OmVolumePlacement.h>
+#include <orch-mgr/om-service.h>
 
 namespace fds {
 
@@ -127,17 +129,17 @@ OM_NodeAgent::om_send_node_cmd(const om_node_msg_t &msg)
 //
 void
 OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer vol,
-                            fpi::FDSP_MsgCodeType cmd_type,
-                            fds_bool_t check_only)
+                              fpi::FDSP_MsgCodeType cmd_type,
+                              fpi::FDSP_NotifyVolFlag vol_flag)
 {
-    om_send_vol_cmd(vol, NULL, cmd_type, check_only);
+    om_send_vol_cmd(vol, NULL, cmd_type, vol_flag);
 }
 
 void
 OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer    vol,
-                            std::string           *vname,
-                            fpi::FDSP_MsgCodeType  cmd_type,
-                            fds_bool_t check_only)
+                              std::string           *vname,
+                              fpi::FDSP_MsgCodeType  cmd_type,
+                              fpi::FDSP_NotifyVolFlag vol_flag)
 {
     const char                *log;
     const VolumeDesc          *desc;
@@ -154,13 +156,14 @@ OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer    vol,
         switch (cmd_type) {
             case fpi::FDSP_MSG_DELETE_VOL:
             case fpi::FDSP_MSG_MODIFY_VOL:
+            case fpi::FDSP_MSG_SNAP_VOL:
             case fpi::FDSP_MSG_CREATE_VOL: {
                 FdspNotVolPtr notif(new fpi::FDSP_NotifyVolType);
 
                 fds_verify(vol != NULL);
                 vol->vol_fmt_desc_pkt(&notif->vol_desc);
                 notif->vol_name = vol->vol_get_name();
-                notif->check_only = check_only;
+                notif->flag = vol_flag;
                 m_hdr->msg_code = cmd_type;
 
                 if (cmd_type == fpi::FDSP_MSG_CREATE_VOL) {
@@ -171,6 +174,10 @@ OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer    vol,
                     log = "Send modify volume ";
                     notif->type = fpi::FDSP_NOTIFY_MOD_VOL;
                     ndCpClient->NotifyModVol(m_hdr, notif);
+                } else if (cmd_type == fpi::FDSP_MSG_SNAP_VOL) {
+                    log = "Send snap volume ";
+                    notif->type = fpi::FDSP_NOTIFY_SNAP_VOL;
+                    ndCpClient->NotifySnapVol(m_hdr, notif);
                 } else {
                     log = "Send remove volume ";
                     notif->type = fpi::FDSP_NOTIFY_RM_VOL;
@@ -287,6 +294,40 @@ OM_NodeAgent::om_send_dlt(const DLT *curDlt) {
     return err;
 }
 
+Error
+OM_NodeAgent::om_send_dmt(const DMTPtr& curDmt) {
+    Error err(ERR_OK);
+    fds_verify(curDmt->getVersion() != DMT_VER_INVALID);
+
+    fpi::FDSP_MsgHdrTypePtr    m_hdr(new fpi::FDSP_MsgHdrType);
+    this->init_msg_hdr(m_hdr);
+    m_hdr->msg_code        = fpi::FDSP_MSG_DMT_UPDATE;
+    m_hdr->msg_id          = 0;
+    m_hdr->tennant_id      = 1;
+    m_hdr->local_domain_id = 1;
+
+    fpi::FDSP_DMT_TypePtr dmt_msg(new fpi::FDSP_DMT_Type());
+    dmt_msg->dmt_version = curDmt->getVersion();
+    err = curDmt->getSerialized(dmt_msg->dmt_data);
+    if (!err.ok()) {
+        LOGERROR << "Failed to fill in dmt_data, not sending DMT";
+        return err;
+    }
+
+    try {
+        ndCpClient->NotifyDMTUpdate(m_hdr, dmt_msg);
+    } catch(const att::TTransportException& e) {
+        LOGERROR << "error during network call : " << e.what();
+        return Error(ERR_NETWORK_TRANSPORT);
+    }
+
+    LOGNORMAL << "OM: Send dmt info (version " << curDmt->getVersion()
+              << ") to " << get_node_name() << " uuid 0x"
+              << std::hex << (get_uuid()).uuid_get_val() << std::dec;
+
+    return err;
+}
+
 //
 // Currently sends scavenger start message
 // TODO(xxx) extend to other scavenger commands (pass cmd type)
@@ -343,6 +384,60 @@ OM_NodeAgent::om_send_dlt_close(fds_uint64_t cur_dlt_version) {
 
     return err;
 }
+
+Error
+OM_NodeAgent::om_send_pushmeta(fpi::FDSP_PushMetaPtr& meta_msg)
+{
+    Error err(ERR_OK);
+    fpi::FDSP_MsgHdrTypePtr m_hdr(new fpi::FDSP_MsgHdrType);
+    this->init_msg_hdr(m_hdr);
+
+    m_hdr->msg_code = fpi::FDSP_MSG_PUSH_META;
+    m_hdr->msg_id = 0;
+    m_hdr->tennant_id = 1;
+    m_hdr->local_domain_id = 1;
+
+    try {
+        ndCpClient->PushMetaDMTReq(m_hdr, meta_msg);
+    } catch(const att::TTransportException& e) {
+        LOGERROR << "error during network call : " << e.what();
+        return Error(ERR_NETWORK_TRANSPORT);
+    }
+
+    LOGNORMAL << "OM: send Push_Meta to " << get_node_name() << " uuid 0x"
+              << std::hex << (get_uuid()).uuid_get_val() << std::dec;
+
+    return err;
+}
+
+Error
+OM_NodeAgent::om_send_dmt_close(fds_uint64_t dmt_version) {
+    Error err(ERR_OK);
+    fpi::FDSP_MsgHdrTypePtr m_hdr(new fpi::FDSP_MsgHdrType);
+    fpi::FDSP_DmtCloseTypePtr d_msg(new fpi::FDSP_DmtCloseType());
+    this->init_msg_hdr(m_hdr);
+
+    m_hdr->msg_code = fpi::FDSP_MSG_DMT_CLOSE;
+    m_hdr->msg_id = 0;
+    m_hdr->tennant_id = 1;
+    m_hdr->local_domain_id = 1;
+
+    d_msg->DMT_version = dmt_version;
+
+    try {
+        ndCpClient->NotifyDMTClose(m_hdr, d_msg);
+    } catch(const att::TTransportException& e) {
+        LOGERROR << "error during network call : " << e.what();
+        return Error(ERR_NETWORK_TRANSPORT);
+    }
+
+    LOGNORMAL << "OM: send DMT close (version " << dmt_version
+              << ") to " << get_node_name() << " uuid 0x"
+              << std::hex << (get_uuid()).uuid_get_val() << std::dec;
+
+    return err;
+}
+
 
 void
 OM_NodeAgent::init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const
@@ -812,14 +907,14 @@ OM_SmContainer::OM_SmContainer() : OM_AgentContainer(FDSP_STOR_MGR) {}
 // --------------
 //
 void
-OM_SmContainer::agent_activate(NodeAgent::pointer agent)
+OM_AgentContainer::agent_activate(NodeAgent::pointer agent)
 {
     LOGNORMAL << "Activate node uuid " << std::hex
               << "0x" << agent->get_uuid().uuid_get_val() << std::dec;
 
     rs_mtx.lock();
     rs_register_mtx(agent);
-    node_up_pend.push_back(OM_SmAgent::agt_cast_ptr(agent));
+    node_up_pend.push_back(OM_NodeAgent::agt_cast_ptr(agent));
     rs_mtx.unlock();
 }
 
@@ -827,14 +922,14 @@ OM_SmContainer::agent_activate(NodeAgent::pointer agent)
 // ----------------
 //
 void
-OM_SmContainer::agent_deactivate(NodeAgent::pointer agent)
+OM_AgentContainer::agent_deactivate(NodeAgent::pointer agent)
 {
     LOGNORMAL << "Deactivate node uuid " << std::hex
               << "0x" << agent->get_uuid().uuid_get_val() << std::dec;
 
     rs_mtx.lock();
     rs_unregister_mtx(agent);
-    node_down_pend.push_back(OM_SmAgent::agt_cast_ptr(agent));
+    node_down_pend.push_back(OM_NodeAgent::agt_cast_ptr(agent));
     rs_mtx.unlock();
 }
 
@@ -842,7 +937,7 @@ OM_SmContainer::agent_deactivate(NodeAgent::pointer agent)
 // --------------------
 //
 void
-OM_SmContainer::om_splice_nodes_pend(NodeList *addNodes, NodeList *rmNodes)
+OM_AgentContainer::om_splice_nodes_pend(NodeList *addNodes, NodeList *rmNodes)
 {
     rs_mtx.lock();
     addNodes->splice(addNodes->begin(), node_up_pend);
@@ -851,9 +946,9 @@ OM_SmContainer::om_splice_nodes_pend(NodeList *addNodes, NodeList *rmNodes)
 }
 
 void
-OM_SmContainer::om_splice_nodes_pend(NodeList *addNodes,
-                                     NodeList *rmNodes,
-                                     const NodeUuidSet& filter_nodes)
+OM_AgentContainer::om_splice_nodes_pend(NodeList *addNodes,
+                                        NodeList *rmNodes,
+                                        const NodeUuidSet& filter_nodes)
 {
     rs_mtx.lock();
     for (NodeUuidSet::const_iterator cit = filter_nodes.cbegin();
@@ -899,8 +994,7 @@ OM_NodeContainer::OM_NodeContainer()
                       new OM_DmContainer(),
                       new OM_AmContainer(),
                       new OM_PmContainer(),
-                      new OmContainer(FDSP_ORCH_MGR)),
-    om_dmt_mtx("DMT-Mtx")
+                      new OmContainer(FDSP_ORCH_MGR))
 {
     om_volumes    = new VolumeContainer();
 }
@@ -917,10 +1011,6 @@ void
 OM_NodeContainer::om_init_domain()
 {
     om_admin_ctrl = new FdsAdminCtrl(OrchMgr::om_stor_prefix(), g_fdslog);
-    om_dmt_ver    = 0;
-    om_dmt_width  = 3;  // can address 2^3  DMs.
-    om_dmt_depth  = 4;  // max 4 total DM replicas.
-    om_curDmt     = new FdsDmt(om_dmt_width, om_dmt_depth);
 
     am_stats = new PerfStats(OrchMgr::om_stor_prefix() + "OM_from_AM",
                              5 * FDS_STAT_DEFAULT_HIST_SLOTS);
@@ -1045,8 +1135,17 @@ static void
 om_send_vol_info(NodeAgent::pointer me, fds_uint32_t *cnt, VolumeInfo::pointer vol)
 {
     (*cnt)++;
-    LOGDEBUG << "Dmt Send Volume to Node :" << vol->vol_get_name();
-    OM_SmAgent::agt_cast_ptr(me)->om_send_vol_cmd(vol, fpi::FDSP_MSG_CREATE_VOL);
+    OM_Module* om = OM_Module::om_singleton();
+    VolumePlacement* vp = om->om_volplace_mod();
+    fpi::FDSP_NotifyVolFlag vol_flag = fpi::FDSP_NOTIFY_VOL_NO_FLAG;
+    if (vp->hasCommittedDMT()) {
+      vol_flag = fpi::FDSP_NOTIFY_VOL_WILL_SYNC;
+    }
+    LOGDEBUG << "Dmt Send Volume to Node :" << vol->vol_get_name()
+             << "; will sync flag " << vp->hasCommittedDMT();
+    OM_NodeAgent::agt_cast_ptr(me)->om_send_vol_cmd(vol,
+                                                    fpi::FDSP_MSG_CREATE_VOL,
+                                                    vol_flag);
 }
 
 // om_bcast_vol_list
@@ -1068,24 +1167,35 @@ OM_NodeContainer::om_bcast_vol_list(NodeAgent::pointer node)
 //
 static void
 om_send_vol_command(fpi::FDSP_MsgCodeType cmd_type,
-                    fds_bool_t check_only,
+                    fpi::FDSP_NotifyVolFlag vol_flag,
                     VolumeInfo::pointer   vol,
                     NodeAgent::pointer    agent)
 {
-    OM_SmAgent::agt_cast_ptr(agent)->om_send_vol_cmd(vol, cmd_type, check_only);
+    OM_SmAgent::agt_cast_ptr(agent)->om_send_vol_cmd(vol, cmd_type, vol_flag);
 }
 
 // om_bcast_vol_create
 // -------------------
+// TODO(xxx) this function should broadcast to DMs that are in committed DMT, not
+// to all DMs. May currently have a race condition -- since we are not setting
+// will sync flag here.
 //
 fds_uint32_t
 OM_NodeContainer::om_bcast_vol_create(VolumeInfo::pointer vol)
 {
-    dc_sm_nodes->agent_foreach<fpi::FDSP_MsgCodeType, fds_bool_t, VolumeInfo::pointer>
-            (fpi::FDSP_MSG_CREATE_VOL, false, vol, om_send_vol_command);
+    dc_sm_nodes->agent_foreach<fpi::FDSP_MsgCodeType,
+                               fpi::FDSP_NotifyVolFlag,
+                               VolumeInfo::pointer>(fpi::FDSP_MSG_CREATE_VOL,
+                                                    fpi::FDSP_NOTIFY_VOL_NO_FLAG,
+                                                    vol,
+                                                    om_send_vol_command);
 
-    dc_dm_nodes->agent_foreach<fpi::FDSP_MsgCodeType, fds_bool_t, VolumeInfo::pointer>
-            (fpi::FDSP_MSG_CREATE_VOL, false, vol, om_send_vol_command);
+    dc_dm_nodes->agent_foreach<fpi::FDSP_MsgCodeType,
+                               fpi::FDSP_NotifyVolFlag,
+                               VolumeInfo::pointer>(fpi::FDSP_MSG_CREATE_VOL,
+                                                    fpi::FDSP_NOTIFY_VOL_NO_FLAG,
+                                                    vol,
+                                                    om_send_vol_command);
 
     return dc_sm_nodes->rs_available_elm() + dc_dm_nodes->rs_available_elm();
 }
@@ -1096,14 +1206,34 @@ OM_NodeContainer::om_bcast_vol_create(VolumeInfo::pointer vol)
 void
 OM_NodeContainer::om_bcast_vol_modify(VolumeInfo::pointer vol)
 {
-    dc_sm_nodes->agent_foreach<fpi::FDSP_MsgCodeType, fds_bool_t, VolumeInfo::pointer>
-            (fpi::FDSP_MSG_MODIFY_VOL, false, vol, om_send_vol_command);
+    dc_sm_nodes->agent_foreach<fpi::FDSP_MsgCodeType,
+                               fpi::FDSP_NotifyVolFlag,
+                               VolumeInfo::pointer>(fpi::FDSP_MSG_MODIFY_VOL,
+                                                    fpi::FDSP_NOTIFY_VOL_NO_FLAG,
+                                                    vol, om_send_vol_command);
 
-    dc_dm_nodes->agent_foreach<fpi::FDSP_MsgCodeType, fds_bool_t, VolumeInfo::pointer>
-            (fpi::FDSP_MSG_MODIFY_VOL, false, vol, om_send_vol_command);
+    dc_dm_nodes->agent_foreach<fpi::FDSP_MsgCodeType,
+                               fpi::FDSP_NotifyVolFlag,
+                               VolumeInfo::pointer>(fpi::FDSP_MSG_MODIFY_VOL,
+                                                    fpi::FDSP_NOTIFY_VOL_NO_FLAG,
+                                                    vol, om_send_vol_command);
 
-    vol->vol_foreach_am<fpi::FDSP_MsgCodeType, fds_bool_t>
-            (fpi::FDSP_MSG_MODIFY_VOL, false, om_send_vol_command);
+    vol->vol_foreach_am<fpi::FDSP_MsgCodeType, fpi::FDSP_NotifyVolFlag>
+            (fpi::FDSP_MSG_MODIFY_VOL, fpi::FDSP_NOTIFY_VOL_NO_FLAG, om_send_vol_command);
+}
+
+// om_bcast_vol_snap
+// -------------------
+//
+fds_uint32_t
+OM_NodeContainer::om_bcast_vol_snap(VolumeInfo::pointer vol)
+{
+    dc_dm_nodes->agent_foreach<fpi::FDSP_MsgCodeType,
+                               fpi::FDSP_NotifyVolFlag,
+                               VolumeInfo::pointer>(fpi::FDSP_MSG_SNAP_VOL,
+                                                    fpi::FDSP_NOTIFY_VOL_NO_FLAG,
+                                                    vol, om_send_vol_command);
+    return  dc_dm_nodes->rs_available_elm();
 }
 
 // om_bcast_vol_detach
@@ -1112,8 +1242,10 @@ OM_NodeContainer::om_bcast_vol_modify(VolumeInfo::pointer vol)
 fds_uint32_t
 OM_NodeContainer::om_bcast_vol_detach(VolumeInfo::pointer vol)
 {
-    return vol->vol_foreach_am<fpi::FDSP_MsgCodeType, fds_bool_t>
-            (fpi::FDSP_MSG_DETACH_VOL_CTRL, false, om_send_vol_command);
+    return vol->vol_foreach_am<fpi::FDSP_MsgCodeType,
+                               fpi::FDSP_NotifyVolFlag>(fpi::FDSP_MSG_DETACH_VOL_CTRL,
+                                                        fpi::FDSP_NOTIFY_VOL_NO_FLAG,
+                                                        om_send_vol_command);
 }
 
 
@@ -1124,14 +1256,25 @@ fds_uint32_t
 OM_NodeContainer::om_bcast_vol_delete(VolumeInfo::pointer vol, fds_bool_t check_only)
 {
     fds_uint32_t count = 0;
+    fpi::FDSP_NotifyVolFlag vol_flag = fpi::FDSP_NOTIFY_VOL_NO_FLAG;
+    if (check_only) {
+        vol_flag = fpi::FDSP_NOTIFY_VOL_CHECK_ONLY;
+    }
+
     if (!check_only) {
-        dc_sm_nodes->agent_foreach<fpi::FDSP_MsgCodeType, fds_bool_t, VolumeInfo::pointer>
-                (fpi::FDSP_MSG_DELETE_VOL, check_only, vol, om_send_vol_command);
+        dc_sm_nodes->agent_foreach<fpi::FDSP_MsgCodeType,
+                                   fpi::FDSP_NotifyVolFlag,
+                                   VolumeInfo::pointer>(fpi::FDSP_MSG_DELETE_VOL,
+                                                        vol_flag, vol,
+                                                        om_send_vol_command);
         count += dc_sm_nodes->rs_available_elm();
     }
 
-    dc_dm_nodes->agent_foreach<fpi::FDSP_MsgCodeType, fds_bool_t, VolumeInfo::pointer>
-            (fpi::FDSP_MSG_DELETE_VOL, check_only, vol, om_send_vol_command);
+    dc_dm_nodes->agent_foreach<fpi::FDSP_MsgCodeType,
+                               fpi::FDSP_NotifyVolFlag,
+                               VolumeInfo::pointer>(fpi::FDSP_MSG_DELETE_VOL,
+                                                    vol_flag, vol,
+                                                    om_send_vol_command);
     count += dc_dm_nodes->rs_available_elm();
 
     return count;
@@ -1225,27 +1368,52 @@ OM_NodeContainer::om_bcast_tier_audit(fpi::FDSP_TierPolicyAuditPtr audit)
 {
 }
 
-// om_bcast_dmt_table
-// ------------------
+// om_send_dlt
+// -----------------------
+//
+static Error
+om_send_dmt(const DMTPtr& curDmt, NodeAgent::pointer agent)
+{
+    return OM_NodeAgent::agt_cast_ptr(agent)->om_send_dmt(curDmt);
+}
+
+// om_bcast_dmt
+// -------------
 //
 fds_uint32_t
-OM_NodeContainer::om_bcast_dmt_table()
+OM_NodeContainer::om_bcast_dmt(const DMTPtr& curDmt)
 {
     fds_uint32_t count = 0;
-    om_node_msg_t         msg;
-    fpi::FDSP_DMT_TypePtr dmt = om_curDmt->toFdsp();
-
-    msg.nd_msg_code  = fpi::FDSP_MSG_DMT_UPDATE;
-    msg.u.nd_dmt_tab = &dmt;
-    dc_am_nodes->agent_foreach<const om_node_msg_t &, \
-          fds_uint32_t *>(msg, &count, om_send_node_command);
-    LOGDEBUG << "Sent dmt to " << count << "AM nodes successfully";
-
-    dc_dm_nodes->agent_foreach<const om_node_msg_t &, \
-          fds_uint32_t *>(msg, &count, om_send_node_command);
-    LOGDEBUG << "Sent dmt to " << count << " DM nodes successfully";
+    count += dc_dm_nodes->agent_ret_foreach<const DMTPtr&>(curDmt, om_send_dmt);
+    count += dc_am_nodes->agent_ret_foreach<const DMTPtr&>(curDmt, om_send_dmt);
+    LOGDEBUG << "Sent DMT to " << count << " nodes successfully";
     return count;
 }
+
+// om_send_dmt_close
+// -----------------------
+//
+static Error
+om_send_dmt_close(fds_uint64_t dmt_version, NodeAgent::pointer agent)
+{
+    return OM_DmAgent::agt_cast_ptr(agent)->om_send_dmt_close(dmt_version);
+}
+
+// om_bcast_dmt_close
+// ------------------
+// @return number of nodes we sent the message to (and
+// we are waiting for that many responses)
+//
+fds_uint32_t
+OM_NodeContainer::om_bcast_dmt_close(fds_uint64_t dmt_version)
+{
+    fds_uint32_t count = 0;
+    count = dc_dm_nodes->agent_ret_foreach<fds_uint64_t>(dmt_version,
+                                                         om_send_dmt_close);
+    LOGDEBUG << "Send DMT close to " << count << " DMs successfully";
+    return count;
+}
+
 
 // om_send_dlt
 // -----------------------
@@ -1318,55 +1486,4 @@ OM_NodeContainer::om_bcast_scavenger_cmd(FDS_ProtocolInterface::FDSP_ScavengerCm
     dc_sm_nodes->agent_foreach<FDS_ProtocolInterface::FDSP_ScavengerCmd>(
         cmd, om_send_scavenger_cmd);
 }
-
-// om_round_robin_dmt
-// ------------------
-//
-void
-OM_NodeContainer::om_round_robin_dmt()
-{
-    int                        dm_it, node_it, total_num_nodes, bucket_depth;
-    RsArray                    dmMap;
-    fds_placement_table       *table;
-    std::vector<fds_nodeid_t>  node_list;
-
-    table           = static_cast<fds_placement_table *>(om_curDmt);
-    bucket_depth    = table->getMaxDepth();
-    total_num_nodes = dc_dm_nodes->rs_container_snapshot(&dmMap);
-
-    if (bucket_depth > total_num_nodes) {
-        bucket_depth = total_num_nodes;
-    }
-    dm_it = 0;
-    om_dmt_mtx.lock();
-    for (fds_uint32_t i = 0; i < table->getNumBuckets(); i++) {
-        node_it = dm_it;
-        node_list.clear();
-
-        if (node_it == total_num_nodes) {
-            break;
-        }
-        for (fds_int32_t j = 0; j < bucket_depth; j++) {
-            node_list.push_back(dmMap[node_it]->rs_get_uuid().uuid_get_val());
-
-            node_it++;
-            if (node_it == total_num_nodes) {
-                node_it = 0;
-            }
-        }
-        Error err = table->insert(i, node_list);
-        fds_assert(err == ERR_OK);
-
-        /*
-         * Move the starting point for the list and reset it to the beginning if we've
-         * looped around.
-         */
-        dm_it++;
-        if (dm_it == total_num_nodes) {
-            dm_it = 0;
-        }
-    }
-    om_dmt_mtx.unlock();
-}
-
 }  // namespace fds

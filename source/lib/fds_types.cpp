@@ -178,8 +178,18 @@ namespace fds {
     }
 
     std::string ObjectID::ToHex() const {
-      return ToHex(*this);
+        return ToHex(*this);
     }
+
+uint32_t ObjectID::write(serialize::Serializer* s) const {
+    return s->writeBuffer(reinterpret_cast<const int8_t*>(digest), 20);
+}
+
+uint32_t ObjectID::read(serialize::Deserializer* d) {
+    return d->readBuffer(reinterpret_cast<int8_t*>(digest), 20);
+}
+
+
 
     /*
      * Static members for transforming ObjectIDs.

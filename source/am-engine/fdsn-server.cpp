@@ -261,12 +261,8 @@ class FdsnIf : public apis::AmServiceIf {
                     boost::shared_ptr<bool>& isLast) {
         BucketContext bucket_ctx("host", *volumeName, "accessid", "secretkey");
 
-        // TODO(Andrew): Remove this hackey maxObjSize to force alignment
-        fds_uint64_t maxObjSize = 2 * 1024 * 1024;
-        fds_uint64_t offset = objectOffset->value * maxObjSize;
-
         fds_verify(*length >= 0);
-        fds_verify(offset >= 0);
+        fds_verify(objectOffset->value >= 0);
 
         // Create context handler
         PutObjectResponseHandler putHandler;
@@ -276,8 +272,6 @@ class FdsnIf : public apis::AmServiceIf {
         // transactions, always set a put properties and etag.
         PutPropertiesPtr putProps;
         putProps.reset(new PutProperties());
-        // putProps->md5.assign(digest->c_str(),
-        //                  digest->size());
         putProps->md5 = ObjectID::ToHex(reinterpret_cast<const uint8_t *>(
             digest->c_str()),
                                         digest->size());
@@ -294,7 +288,7 @@ class FdsnIf : public apis::AmServiceIf {
                         putProps,
                         NULL,  // Not passing any context for the callback
                         const_cast<char *>(bytes->c_str()),
-                        offset,
+                        static_cast<fds_uint64_t>(objectOffset->value),
                         *length,
                         blobTxDesc,
                         *isLast,

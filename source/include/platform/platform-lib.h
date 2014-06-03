@@ -257,6 +257,7 @@ class Platform : public Module
     static inline fds_uint32_t plf_migration_port(fds_uint32_t base) { return base + 3; }
     static inline fds_uint32_t plf_nsvc_port(fds_uint32_t base) { return base + 4; }
     static inline fds_uint32_t plf_dm_port(fds_uint32_t base) { return base + 5; }
+    static inline fds_uint32_t plf_metasync_port(fds_uint32_t base) { return base + 6; }
 
     /**
      * Return service uuid from node uuid and service type.
@@ -305,6 +306,7 @@ class Platform : public Module
 
     inline fds_uint32_t   plf_get_my_nsvc_port() const { return plf_my_nsvc_port; }
     inline fds_uint32_t   plf_get_my_migration_port() const { return plf_my_migr_port; }
+    inline fds_uint32_t   plf_get_my_metasync_port() const { return plf_my_metasync_port; }
 
     inline std::string const *const plf_get_my_name() const { return &plf_my_node_name; }
     inline std::string const *const plf_get_my_ip() const { return &plf_my_ip; }
@@ -314,6 +316,8 @@ class Platform : public Module
     }
     inline OmAgent::pointer      plf_om_master() const { return plf_master; }
     inline PmAgent::pointer      plf_domain_ctrl() const { return plf_domain; }
+    inline std::string const *const plf_node_fdsroot() const { return &pIf_node_fdsroot; }
+
     inline NodeUuid const *const plf_get_my_uuid() const { return &plf_my_uuid; }
     inline NodeUuid const *const plf_get_my_svc_uuid() const { return &plf_my_svc_uuid; }
     inline NodeUuid const *const plf_get_my_plf_svc_uuid() const {
@@ -332,6 +336,7 @@ class Platform : public Module
     std::string                plf_my_auto_name;      /**< domain assigned auto node. */
     std::string                plf_my_ip;
     std::string                plf_om_ip_str;
+    std::string                pIf_node_fdsroot;
     fds_uint32_t               plf_om_ctrl_port;
     fds_uint32_t               plf_om_svc_port;
     fds_uint32_t               plf_my_ctrl_port;
@@ -340,6 +345,7 @@ class Platform : public Module
     fds_uint32_t               plf_my_nsvc_port;
     fds_uint32_t               plf_my_migr_port;
     fds_uint32_t               plf_my_dm_port;
+    fds_uint32_t               plf_my_metasync_port;
 
     PmAgent::pointer           plf_domain;
     OmAgent::pointer           plf_master;

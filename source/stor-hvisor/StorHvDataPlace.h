@@ -62,19 +62,20 @@ public:
   }
 #endif
 
-  void  getDMTNodesForVolume(fds_volid_t volid, fds_uint64_t *node_ids, int *n_nodes ) {
-    if (mode == DP_NO_OM_MODE) {
-      /*
-       * TODO: Set up some stock response here.
-       * Returns 1 nodes with ID 1. The DM has
-       * stock node id 1.
-       */
-      (*n_nodes) = 1;
-      node_ids[(*n_nodes) - 1] = 1;
-    } else {
+  DmtColumnPtr getDMTNodesForVolume(fds_volid_t volid) {
+      if (mode == DP_NO_OM_MODE) {
+          /*
+           * TODO: Set up some stock response here.
+           * Returns 1 nodes with ID 1. The DM has
+           * stock node id 1.
+           */
+          DmtColumnPtr col(new DmtColumn(1));
+          col->set(0, 1);  // node id 1
+          return col;
+      }
+      // else normal mode
       assert(mode == DP_NORMAL_MODE);
-      parent_omc->getDMTNodesForVolume(volid, node_ids, n_nodes);
-    }
+      return parent_omc->getDMTNodesForVolume(volid);
   }
 
   Error getNodeInfo(fds_uint64_t node_id,

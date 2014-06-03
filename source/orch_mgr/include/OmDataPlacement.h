@@ -18,7 +18,6 @@
 #include <fds_typedefs.h>
 #include <fds_error.h>
 #include <fds_module.h>
-#include <fds_placement_table.h>
 #include <concurrency/Mutex.h>
 #include <OmResources.h>
 #include <OmClusterMap.h>

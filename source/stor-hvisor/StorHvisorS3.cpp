@@ -9,7 +9,6 @@
 #include "StorHvisorNet.h"
 #include "StorHvisorCPP.h"
 #include "hvisor_lib.h"
-#include <hash/MurmurHash3.h>
 #include <fds_config.hpp>
 #include <fds_process.h>
 #include <boost/date_time/posix_time/posix_time.hpp>
@@ -97,13 +96,11 @@ bool StorHvCtrl::TxnRequestHelper::setupTxn() {
 }
 
 bool StorHvCtrl::TxnRequestHelper::getPrimaryDM(fds_uint32_t& ip, fds_uint32_t& port) {
-    fds_int32_t numNodes = 1, node_state;
-    fds_uint64_t nodeId;
-    storHvisor->dataPlacementTbl->getDMTNodesForVolume(volId,
-                                                       &nodeId,
-                                                       &numNodes);
-    fds_verify(numNodes == 1);
-    storHvisor->dataPlacementTbl->getNodeInfo(nodeId,
+    // Get DMT node list from dmt
+    DmtColumnPtr nodeIds = storHvisor->dataPlacementTbl->getDMTNodesForVolume(volId);
+    fds_verify(nodeIds->getLength() > 0);
+    fds_int32_t node_state = -1;
+    storHvisor->dataPlacementTbl->getNodeInfo(nodeIds->get(0).uuid_get_val(),
                                               &ip,
                                               &port,
                                               &node_state);
@@ -223,19 +220,16 @@ StorHvCtrl::dispatchDmUpdMsg(StorHvJournalEntry *journEntry,
     fds_volid_t volId = dmMsgHdr->glob_volume_id;
 
     // Get DMT node list from dmt
-    fds_uint32_t numNodes = MAX_DM_NODES;
-    fds_uint64_t nodeIds[numNodes];
-    memset(nodeIds, 0x00, sizeof(fds_int64_t) * numNodes);
-    dataPlacementTbl->getDMTNodesForVolume(volId, nodeIds, (int*)&numNodes);
-    fds_verify(numNodes > 0);
+    DmtColumnPtr nodeIds = dataPlacementTbl->getDMTNodesForVolume(volId);
+    fds_verify(nodeIds->getLength() > 0);
 
     // Issue a blob update for each DM in the DMT
     fds_uint32_t errcount = 0;
-    for (fds_uint32_t i = 0; i < numNodes; i++) {
+    for (fds_uint32_t i = 0; i < nodeIds->getLength(); i++) {
         fds_uint32_t node_ip   = 0;
         fds_uint32_t node_port = 0;
         fds_int32_t node_state = -1;
-        dataPlacementTbl->getNodeInfo(nodeIds[i],
+        dataPlacementTbl->getNodeInfo(nodeIds->get(i).uuid_get_val(),
                                       &node_ip,
                                       &node_port,
                                       &node_state);
@@ -247,7 +241,7 @@ StorHvCtrl::dispatchDmUpdMsg(StorHvJournalEntry *journEntry,
         dmMsgHdr->dst_port                  = node_port;
         journEntry->dm_ack[i].ack_status    = FDS_CLS_ACK;
         journEntry->dm_ack[i].commit_status = FDS_CLS_ACK;
-        journEntry->num_dm_nodes            = numNodes;
+        journEntry->num_dm_nodes            = nodeIds->getLength();
     
         // Call Update Catalog RPC call to DM
         try {
@@ -614,6 +608,9 @@ StorHvCtrl::resumePutBlob(StorHvJournalEntry *journEntry) {
     }
     blobReq->setObjId(objId);
 
+    // Initialize the journal's transaction state
+    journEntry->trans_state = FDS_TRANS_OPEN;
+
     // Process SM object put messages
     err = processSmPutObj(blobReq, journEntry);
     fds_verify(err == ERR_OK);
@@ -642,6 +639,14 @@ StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
     StorHvVolume *shVol = storHvisor->vol_table->getLockedVolume(volId);
     fds_verify(shVol != NULL);
     fds_verify(shVol->isValidLocked() == true);
+
+    // TODO(Andrew): Here we're turning the offset aligned
+    // blobOffset back into an absolute blob offset (i.e.,
+    // not aligned to the maximum object size). This allows
+    // the rest of the putBlob routines to still expect an
+    // absolute offset in case we need it
+    fds_uint32_t maxObjSize = shVol->voldesc->maxObjSizeInBytes;
+    blobReq->setBlobOffset(blobReq->getBlobOffset() * maxObjSize);
 
     // Track how long the request was queued before put() dispatch
     // TODO(Andrew): Consider moving to the QoS request
@@ -870,12 +875,11 @@ StorHvCtrl::startBlobTxResp(const FDSP_MsgHdrTypePtr rxMsg) {
     fds_verify(blobReq != NULL);
     fds_verify(blobReq->getIoType() == FDS_START_BLOB_TX);
 
-    qos_ctrl->markIODone(txn->io);
-
     // Return if err
     if (rxMsg->result != FDSP_ERR_OK) {
         vol->journal_tbl->releaseTransId(transId);
         txn->reset();
+        qos_ctrl->markIODone(txn->io);
         blobReq->cb->call(FDSN_StatusErrorUnknown);
         delete blobReq;
         return;
@@ -899,9 +903,10 @@ StorHvCtrl::startBlobTxResp(const FDSP_MsgHdrTypePtr rxMsg) {
     if (result == 1) {
         StartBlobTxCallback::ptr cb = SHARED_DYN_CAST(StartBlobTxCallback,
                                                       blobReq->cb);
-        cb->call(FDSN_StatusOK);
         txn->reset();
         vol->journal_tbl->releaseTransId(transId);
+        qos_ctrl->markIODone(txn->io);
+        cb->call(FDSN_StatusOK);
         delete blobReq;
     } else {
         fds_verify(result == 0);
@@ -985,19 +990,36 @@ void StorHvCtrl::handleSetBlobMetaDataResp(const FDSP_MsgHdrTypePtr rxMsg) {
     // Get request from transaction
     fds::AmQosReq   *qosReq  = static_cast<fds::AmQosReq *>(txn->io);
     fds_verify(qosReq != NULL);
-    std::unique_ptr<fds::FdsBlobReq> blobReq(qosReq->getBlobReqPtr());
-    qos_ctrl->markIODone(txn->io);
+    fds::SetBlobMetaDataReq *blobReq = static_cast<fds::SetBlobMetaDataReq *>(
+        qosReq->getBlobReqPtr());
+    fds_verify(blobReq != NULL);
+    fds_verify(blobReq->getIoType() == FDS_SET_BLOB_METADATA);
 
     // Return if err
     if (rxMsg->result != FDSP_ERR_OK) {
         vol->journal_tbl->releaseTransId(transId);
-        blobReq->cb->call(FDSN_StatusErrorUnknown);
         txn->reset();
+        qos_ctrl->markIODone(txn->io);
+        blobReq->cb->call(FDSN_StatusErrorUnknown);
         return;
     }
-    txn->reset();
-    vol->journal_tbl->releaseTransId(transId);
-    blobReq->cb->call(FDSN_StatusOK);
+    // Increment the ack status
+    fds_int32_t result = txn->fds_set_dmack_status(rxMsg->src_ip_lo_addr,
+                                                   rxMsg->src_port);
+    LOGDEBUG << "txn: " << transId
+             << " rcvd DM response ip:"
+             << rxMsg->src_ip_lo_addr
+             << " port:" << rxMsg->src_port;
+
+    result = fds_move_wr_req_state_machine(rxMsg);
+    if (1 == result) {
+        txn->reset();
+        vol->journal_tbl->releaseTransId(transId);
+        qos_ctrl->markIODone(txn->io);
+        blobReq->cb->call(FDSN_StatusOK);
+    } else {
+        fds_verify(result == 0);
+    }
 }
 
 fds::Error StorHvCtrl::upCatResp(const FDSP_MsgHdrTypePtr& rxMsg,
@@ -1324,6 +1346,14 @@ fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq)
         return err;
     }
 
+    // TODO(Andrew): Here we're turning the offset aligned
+    // blobOffset back into an absolute blob offset (i.e.,
+    // not aligned to the maximum object size). This allows
+    // the rest of the getBlob routines to still expect an
+    // absolute offset in case we need it
+    fds_uint32_t maxObjSize = shVol->voldesc->maxObjSizeInBytes;
+    blobReq->setBlobOffset(blobReq->getBlobOffset() * maxObjSize);
+
     /*
      * Track how long the request was queued before get() dispatch
      * TODO: Consider moving to the QoS request
@@ -1636,8 +1666,8 @@ StorHvCtrl::startBlobTx(AmQosReq *qosReq) {
         // There is an ongoing transaciton for this offset.
         // We should queue this up for later processing once that completes.
         // For now, return an error.
-        shVol->journal_tbl->releaseTransId(transId);
-        journEntry->reset();
+        // shVol->journal_tbl->releaseTransId(transId);
+        // journEntry->reset();
         blobReq->cb->call(FDSN_StatusTxnInProgress);
         err = ERR_NOT_IMPLEMENTED;
         delete blobReq;
@@ -1691,19 +1721,15 @@ StorHvCtrl::startBlobTx(AmQosReq *qosReq) {
         new std::string(blobReq->getBlobName()));
 
     // Get the DM nodes info to query
-    fds_int32_t numNodes = 4; // TODO(Andrew): Why 4? Why not...
-    fds_uint64_t nodeIds[numNodes];
-    storHvisor->dataPlacementTbl->getDMTNodesForVolume(volId,
-                                                       nodeIds,
-                                                       &numNodes);
-    fds_verify(numNodes > 0);
-    journEntry->num_dm_nodes = numNodes;
+    DmtColumnPtr nodeIds = dataPlacementTbl->getDMTNodesForVolume(volId);
+    fds_verify(nodeIds->getLength() > 0);
+    journEntry->num_dm_nodes = nodeIds->getLength();
 
-    for (fds_int32_t i = 0; i < numNodes; i++) {
+    for (fds_uint32_t i = 0; i < nodeIds->getLength(); i++) {
         fds_uint32_t node_ip;
         fds_uint32_t node_port;
         fds_int32_t  node_state;
-        storHvisor->dataPlacementTbl->getNodeInfo(nodeIds[i],
+        storHvisor->dataPlacementTbl->getNodeInfo(nodeIds->get(i).uuid_get_val(),
                                                   &node_ip,
                                                   &node_port,
                                                   &node_state);
@@ -1811,16 +1837,13 @@ StorHvCtrl::StatBlob(fds::AmQosReq *qosReq) {
     msgHdr->dst_port       = 0;
 
     // Get the DM node info to query
-    fds_int32_t numNodes = 1;
-    fds_uint64_t nodeId;
-    storHvisor->dataPlacementTbl->getDMTNodesForVolume(volId,
-                                                       &nodeId,
-                                                       &numNodes);
-    fds_verify(numNodes == 1);
+    DmtColumnPtr nodeIds = dataPlacementTbl->getDMTNodesForVolume(volId);
+    fds_verify(nodeIds->getLength() > 0);
+
     fds_uint32_t node_ip;
     fds_uint32_t node_port;
     fds_int32_t  node_state;
-    storHvisor->dataPlacementTbl->getNodeInfo(nodeId,
+    storHvisor->dataPlacementTbl->getNodeInfo(nodeIds->get(0).uuid_get_val(),
                                               &node_ip,
                                               &node_port,
                                               &node_state);
@@ -1871,7 +1894,7 @@ Error StorHvCtrl::SetBlobMetaData(fds::AmQosReq *qosReq) {
     fds_uint32_t transId = shVol->journal_tbl->get_trans_id_for_blob(blobReq->getBlobName(),
                                                                      blobReq->getBlobOffset(),
                                                                      txInProgress);
-    StorHvJournalEntry *journEntry = shVol->journal_tbl->get_journal_entry(transId);  
+    StorHvJournalEntry *journEntry = shVol->journal_tbl->get_journal_entry(transId);
     StorHvJournalEntryLock je_lock(journEntry);
 
     // Just bail out if there's an outstanding request
@@ -1889,6 +1912,7 @@ Error StorHvCtrl::SetBlobMetaData(fds::AmQosReq *qosReq) {
         delete qosReq;
         return err;
     }
+    journEntry->trans_state = FDS_TRANS_MULTIDM;
 
     // Activate the journal entry
     journEntry->setActive();
@@ -1919,13 +1943,11 @@ Error StorHvCtrl::SetBlobMetaData(fds::AmQosReq *qosReq) {
     msgHdr->src_node_name  = "";
     msgHdr->src_port       = 0;
     msgHdr->dst_port       = 0;
-
-    fds_uint32_t numNodes = MAX_DM_NODES;
     InitDmMsgHdr(msgHdr);
-    fds_uint64_t nodeIds[numNodes];
-    memset(nodeIds, 0x00, sizeof(fds_int64_t) * numNodes);
-    dataPlacementTbl->getDMTNodesForVolume(volId, nodeIds, (int*)&numNodes);
-    fds_verify(numNodes > 0);
+
+    // Get DMT node list from dmt
+    DmtColumnPtr nodeIds = dataPlacementTbl->getDMTNodesForVolume(volId);
+    fds_verify(nodeIds->getLength() > 0);
 
     boost::shared_ptr<std::string> volNamePtr(
         new std::string(blobReq->volumeName));
@@ -1933,11 +1955,11 @@ Error StorHvCtrl::SetBlobMetaData(fds::AmQosReq *qosReq) {
         new std::string(blobReq->getBlobName()));
 
     uint errcount = 0;
-    for (fds_uint32_t i = 0; i < numNodes; i++) {
+    for (fds_uint32_t i = 0; i < nodeIds->getLength(); i++) {
         fds_uint32_t node_ip   = 0;
         fds_uint32_t node_port = 0;
         fds_int32_t node_state = -1;
-        dataPlacementTbl->getNodeInfo(nodeIds[i],
+        dataPlacementTbl->getNodeInfo(nodeIds->get(i).uuid_get_val(),
                                       &node_ip,
                                       &node_port,
                                       &node_state);
@@ -1947,7 +1969,7 @@ Error StorHvCtrl::SetBlobMetaData(fds::AmQosReq *qosReq) {
         msgHdr->dst_port                    = node_port;
         journEntry->dm_ack[i].ack_status    = FDS_CLS_ACK;
         journEntry->dm_ack[i].commit_status = FDS_CLS_ACK;
-        journEntry->num_dm_nodes            = numNodes;
+        journEntry->num_dm_nodes            = nodeIds->getLength();
 
         // Call Update Catalog RPC call to DM
         try {
@@ -2005,7 +2027,6 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
     unsigned int node_ip = 0;
     fds_uint32_t node_port = 0;
     unsigned int doid_dlt_key=0;
-    int num_nodes = MAX_DM_NODES, i =0;
     int node_state = -1;
     fds::Error err(ERR_OK);
     ObjectID oid;
@@ -2098,16 +2119,13 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
     fdsp_msg_hdr_dm->src_port = 0;
     fdsp_msg_hdr_dm->dst_port = node_port;
     journEntry->dm_msg = fdsp_msg_hdr_dm;
-    num_nodes = MAX_DM_NODES;
-    fds_uint64_t  node_ids[num_nodes];
-    memset(node_ids, 0x00, sizeof(fds_int64_t) * num_nodes);
-    storHvisor->dataPlacementTbl->getDMTNodesForVolume(vol_id, node_ids, &num_nodes);
+    DmtColumnPtr node_ids = storHvisor->dataPlacementTbl->getDMTNodesForVolume(vol_id);
     uint errcount = 0;
-    for (i = 0; i < num_nodes; i++) {
+    for (fds_uint32_t i = 0; i < node_ids->getLength(); i++) {
         node_ip = 0;
         node_port = 0;
         node_state = -1;
-        storHvisor->dataPlacementTbl->getNodeInfo(node_ids[i],
+        storHvisor->dataPlacementTbl->getNodeInfo((node_ids->get(i)).uuid_get_val(),
                                                   &node_ip,
                                                   &node_port,
                                                   &node_state);
@@ -2118,7 +2136,7 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
         fdsp_msg_hdr_dm->dst_port = node_port;
         journEntry->dm_ack[i].ack_status = FDS_CLS_ACK;
         journEntry->dm_ack[i].commit_status = FDS_CLS_ACK;
-        journEntry->num_dm_nodes = num_nodes;
+        journEntry->num_dm_nodes = node_ids->getLength();
         del_cat_obj_req->blob_name = blobReq->getBlobName();
         // TODO(Andrew): Set to a specific version rather than
         // always just the current
@@ -2239,12 +2257,8 @@ fds::Error StorHvCtrl::listBucket(fds::AmQosReq *qosReq) {
     journEntry->data_obj_id.digest.clear(); 
     journEntry->data_obj_len = 0;
     journEntry->io = qosReq;
-    fds_int32_t num_nodes = MAX_DM_NODES;  // TODO: Why 8? Look up vol/blob repl factor
-    fds_uint64_t node_ids[num_nodes];  // TODO: Doesn't need to be signed
-    memset(node_ids, 0x00, sizeof(fds_int64_t) * num_nodes);
-    dataPlacementTbl->getDMTNodesForVolume(volId, node_ids, &num_nodes);
-
-    if(num_nodes == 0) {
+    DmtColumnPtr node_ids = dataPlacementTbl->getDMTNodesForVolume(volId);
+    if (node_ids->getLength() == 0) {
         LOGERROR <<" StorHvisorTx:" << "IO-XID:" << transId << " volID: 0x" << std::hex << volId << std::dec 
                  << " -  DMT Nodes  NOT  configured. Check on OM Manager. Completing request with ERROR(-1)";
         blobReq->cbWithResult(-1);
@@ -2260,7 +2274,7 @@ fds::Error StorHvCtrl::listBucket(fds::AmQosReq *qosReq) {
     node_ip = 0;
     node_port = 0;
     node_state = -1;
-    dataPlacementTbl->getNodeInfo(node_ids[0],
+    dataPlacementTbl->getNodeInfo((node_ids->get(0)).uuid_get_val(),
                                   &node_ip,
                                   &node_port,
                                   &node_state);

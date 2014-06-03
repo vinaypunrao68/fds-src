@@ -617,6 +617,7 @@ VolumeInfo::vol_fmt_desc_pkt(FDSP_VolumeDescType *pkt) const
     pkt->localDomainId = pVol->localDomainId;
     pkt->globDomainId  = pVol->globDomainId;
 
+    pkt->maxObjSizeInBytes = pVol->maxObjSizeInBytes;
     pkt->capacity      = pVol->capacity;
     pkt->volType       = pVol->volType;
     pkt->maxQuota      = pVol->maxQuota;
@@ -970,6 +971,32 @@ VolumeContainer::om_create_vol(const FdspMsgHdrPtr &hdr,
     return err;
 }
 
+// om_snap_vol
+// -------------
+//
+Error
+VolumeContainer::om_snap_vol(const FdspMsgHdrPtr &hdr,
+                               const FdspCrtVolPtr &snap_msg)
+{
+    Error err(ERR_OK);
+    OM_NodeContainer    *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+    FdsAdminCtrl        *admin = local->om_get_admin_ctrl();
+    std::string         &vname = snap_msg->vol_name;
+    ResourceUUID         uuid(fds_get_uuid64(vname));
+    VolumeInfo::pointer  vol;
+
+    vol = VolumeInfo::vol_cast_ptr(rs_get_resource(uuid));
+    if (vol == NULL) {
+        LOGWARN << "Received SnapVol for non-existing volume " << vname;
+        return Error(ERR_NOT_FOUND);
+    }
+
+    fds_uint32_t count = local->om_bcast_vol_snap(vol);
+
+    return err;
+}
+
+
 // om_delete_vol
 // -------------
 //
@@ -1284,8 +1311,9 @@ VolumeContainer::om_notify_vol_resp(om_vol_notify_t type,
     switch (type) {
         case om_notify_vol_add:
             if (resp_err.ok()) {
+                NodeUuid from_svc((fdsp_msg->src_service_uuid).uuid);
                 vol->vol_event(VolCrtOkEvt(true));
-                dmtMod->dmt_deploy_event(DmtVolAckEvt());
+                dmtMod->dmt_deploy_event(DmtVolAckEvt(from_svc));
             } else {
                 // TODO(anna) send response to volume create here with error
                 LOGERROR << "Received volume create response with error ("

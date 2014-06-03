@@ -224,7 +224,9 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
             ("om_ip", po::value<std::string>(),
              "OM IP addr") /* Consumed already */
             ("om_port", po::value<fds_uint32_t>(),
-             "OM config port"); /* Consumed already */
+             "OM config port"), /* Consumed already */
+            ("volume-snap", po::value<std::string>(),
+             "Create Snap: volume-snap <vol name>");
 
     po::variables_map vm;
     po::store(po::command_line_parser(argc, argv).
@@ -619,6 +621,20 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         } else {
             LOGNOTIFY << "Unrecognized scavenger command!";
             std::cout << "Unrecognized scavenger command";
+        }
+    } else if (vm.count("volume-snap")) {
+        LOGNOTIFY << "Constructing the CLI";
+        LOGNOTIFY << " Snap Volume ";
+        LOGNOTIFY << vm["volume-snap"].as<std::string>() << " -volume name";
+
+        FDS_ProtocolInterface::FDSP_CreateVolType volData;
+        volData.vol_name = vm["volume-snap"].as<std::string>();
+        volData.vol_info.vol_name = vm["volume-snap"].as<std::string>();
+
+        NETWORKCHECK(return_code = cfgPrx->SnapVol(msg_hdr, volData));
+        if (return_code !=0) {
+            std::system("clear");
+            cout << "Error: Snap Volume \n";
         }
     } else {
         gl_OMCli.setCliClient(cfgPrx);

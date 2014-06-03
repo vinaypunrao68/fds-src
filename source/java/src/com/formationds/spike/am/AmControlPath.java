@@ -33,6 +33,11 @@ public class AmControlPath implements FDSP_ControlPathReq.Iface {
     }
 
     @Override
+    public void NotifySnapVol(FDSP_MsgHdrType fdsp_msg, FDSP_NotifyVolType not_snap_vol_req) throws TException {
+        LOG.debug(not_snap_vol_req);
+    }
+
+    @Override
     public void AttachVol(FDSP_MsgHdrType fdsp_msg, FDSP_AttachVolType atc_vol_req) throws TException {
         LOG.debug(atc_vol_req);
     }
@@ -81,6 +86,23 @@ public class AmControlPath implements FDSP_ControlPathReq.Iface {
     @Override
     public void TierPolicy(FDSP_TierPolicy tier) throws TException {
         LOG.debug(tier);
+    }
+
+    /*
+    @Override
+    public void PushMetaDMTReq(FDSP_PushMeta  metaData) throws TException {
+        LOG.debug(metaData);
+    }
+    */
+
+    @Override
+    public void NotifyDMTClose(FDSP_MsgHdrType fdsp_msg, FDSP_DmtCloseType dmt_close) throws TException {
+        LOG.debug(dmt_close);
+    }
+
+    @Override
+    public void PushMetaDMTReq(FDSP_MsgHdrType fdsp_msg, FDSP_PushMeta push_meta_req) throws TException {
+        LOG.debug(push_meta_req);
     }
 
     @Override

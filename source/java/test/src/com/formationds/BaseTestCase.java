@@ -22,7 +22,9 @@ public abstract class BaseTestCase {
                 102,
                 new FDSP_Uuid(UUID.randomUUID().getMostSignificantBits()),
                 new FDSP_Uuid(UUID.randomUUID().getMostSignificantBits()),
-                new FDSP_AnnounceDiskCapability());
+                new FDSP_AnnounceDiskCapability(),
+                null,
+                0);
         return node;
     }
 }

@@ -16,6 +16,7 @@ VolumeDesc::VolumeDesc(const fpi::FDSP_VolumeInfoType& volinfo,
     globDomainId = volinfo.globDomainId;
     volUUID = vol_uuid;
     volType = volinfo.volType;
+    maxObjSizeInBytes = volinfo.maxObjSizeInBytes;
     capacity = volinfo.capacity;
     maxQuota = volinfo.maxQuota;
     replicaCnt = volinfo.defReplicaCnt;
@@ -45,6 +46,7 @@ VolumeDesc::VolumeDesc(const VolumeDesc& vdesc) {
     globDomainId = vdesc.globDomainId;
     volUUID = vdesc.volUUID;
     volType = vdesc.volType;
+    maxObjSizeInBytes = vdesc.maxObjSizeInBytes;
     capacity = vdesc.capacity;
     maxQuota = vdesc.maxQuota;
     replicaCnt = vdesc.replicaCnt;
@@ -70,6 +72,7 @@ VolumeDesc::VolumeDesc(const fpi::FDSP_VolumeDescType& voldesc) {
     globDomainId = voldesc.globDomainId;
     volUUID = voldesc.volUUID;
     volType = voldesc.volType;
+    maxObjSizeInBytes = voldesc.maxObjSizeInBytes;
     capacity = voldesc.capacity;
     maxQuota = voldesc.maxQuota;
     replicaCnt = voldesc.defReplicaCnt;
@@ -100,6 +103,7 @@ VolumeDesc::VolumeDesc(const std::string& _name, fds_volid_t _uuid)
     localDomainId = 0;
     globDomainId = 0;
     volType = fpi::FDSP_VOL_S3_TYPE;
+    maxObjSizeInBytes = 0;
     capacity = 0;
     maxQuota = 0;
     replicaCnt = 0;
@@ -134,6 +138,7 @@ VolumeDesc::VolumeDesc(const std::string& _name,
     localDomainId = 0;
     globDomainId = 0;
     volType = fpi::FDSP_VOL_S3_TYPE;
+    maxObjSizeInBytes = 0;
     capacity = 0;
     maxQuota = 0;
     replicaCnt = 0;
@@ -187,7 +192,7 @@ std::string VolumeDesc::ToString() {
 }
 
 bool VolumeDesc::operator==(const VolumeDesc &rhs) const {
-    return (this->volUUID == rhs.volUUID );
+    return (this->volUUID == rhs.volUUID);
 }
 
 bool VolumeDesc::operator!=(const VolumeDesc &rhs) const {
@@ -201,6 +206,7 @@ VolumeDesc& VolumeDesc::operator=(const VolumeDesc& volinfo) {
     this->globDomainId = volinfo.globDomainId;
     this->volUUID = volinfo.volUUID;
     this->volType = volinfo.volType;
+    this->maxObjSizeInBytes = volinfo.maxObjSizeInBytes;
     this->capacity = volinfo.capacity;
     this->maxQuota = volinfo.maxQuota;
     this->replicaCnt = volinfo.replicaCnt;
@@ -224,6 +230,7 @@ std::ostream& operator<<(std::ostream& os, const VolumeDesc& vol) {
               << " localdomain:" <<vol.localDomainId
               << " global.domain:" << vol.globDomainId
               << " type:" << vol.volType
+              << " max obj size in bytes " << vol.maxObjSizeInBytes
               << " capacity:" << vol.capacity
               << " quota:" << vol.maxQuota
               << " replica:" << vol.replicaCnt

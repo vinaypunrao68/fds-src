@@ -26,6 +26,7 @@ user_cpp         :=      \
     fds_volume.cpp       \
     TransJournal.cpp     \
     fdsp_utils.cpp       \
+    dmt.cpp              \
     fds_error.cpp
 
 user_incl_dir    := $(topdir)

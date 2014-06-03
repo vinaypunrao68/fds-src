@@ -89,46 +89,50 @@ class StorHvVolumeLock
 };
 class AmQosReq;
 
-class StorHvVolumeTable : public HasLogger
-{
- public:
-  /* A logger is created if not passed in */
-  StorHvVolumeTable(StorHvCtrl *sh_ctrl);
-  /* Use logger that passed in to the constructor */
-  StorHvVolumeTable(StorHvCtrl *sh_ctrl, fds_log *parent_log);
-  ~StorHvVolumeTable();
+class StorHvVolumeTable : public HasLogger {
+  public:
+    /// A logger is created if not passed in
+    StorHvVolumeTable(StorHvCtrl *sh_ctrl);
+    /// Use logger that passed in to the constructor
+    StorHvVolumeTable(StorHvCtrl *sh_ctrl, fds_log *parent_log);
+    ~StorHvVolumeTable();
 
-  Error registerVolume(const VolumeDesc& vdesc); 
-  Error removeVolume(fds_volid_t vol_uuid);
+    Error registerVolume(const VolumeDesc& vdesc); 
+    Error removeVolume(fds_volid_t vol_uuid);
 
-  /* 
-   * Returns the locked volume object. Guarantees that the
-   * returned volume object is valid (i.e., can safely access
-   * journal table and volume catalog cache) 
-   * Must call StorHvVolume::readUnlock on returned volume object 
-   * Returns NULL if volume does not exist
-   */
-  StorHvVolume* getLockedVolume(fds_volid_t vol_uuid);
+    /**
+     * Returns the locked volume object. Guarantees that the
+     * returned volume object is valid (i.e., can safely access
+     * journal table and volume catalog cache) 
+     * Must call StorHvVolume::readUnlock on returned volume object 
+     * Returns NULL if volume does not exist
+     */
+    StorHvVolume* getLockedVolume(fds_volid_t vol_uuid);
 
-  /**
-   * Returns volume but not thread-safe 
-   * Use StorHvVolumeLock to lock the volume and check if volume
-   * object is still valid via StorHvVolume::isValidLocked() 
-   * before using the volume object 
-   * Returns NULL is volume does not exist
-   */
-  StorHvVolume* getVolume(fds_volid_t vol_uuid);
+    /**
+     * Returns volume but not thread-safe 
+     * Use StorHvVolumeLock to lock the volume and check if volume
+     * object is still valid via StorHvVolume::isValidLocked() 
+     * before using the volume object 
+     * Returns NULL is volume does not exist
+     */
+    StorHvVolume* getVolume(fds_volid_t vol_uuid);
 
-  /**
-   * Returns list of volume ids currently in the table
-   */
-  StorHvVolVec getVolumeIds();
+    /**
+     * Returns list of volume ids currently in the table
+     */
+    StorHvVolVec getVolumeIds();
 
-  /**
-   * Returns volume uuid if found in volume map.
-   * if volume does not exist, returns 'invalid_vol_id'  
-   */
-  fds_volid_t getVolumeUUID(const std::string& vol_name);
+    /**
+     * Returns the volumes max object size
+     */
+    fds_uint32_t getVolMaxObjSize(fds_volid_t volUuid);
+
+    /**
+     * Returns volume uuid if found in volume map.
+     * if volume does not exist, returns 'invalid_vol_id'  
+     */
+    fds_volid_t getVolumeUUID(const std::string& vol_name);
 
     /**
      * Returns volume name if found in volume map.
@@ -136,69 +140,62 @@ class StorHvVolumeTable : public HasLogger
      */
     std::string getVolumeName(fds_volid_t volId);
 
-  /** returns true if volume exists, otherwise retuns false */
-  fds_bool_t volumeExists(const std::string& vol_name);
+    /** returns true if volume exists, otherwise retuns false */
+    fds_bool_t volumeExists(const std::string& vol_name);
 
-  /**
-   * Add blob request to wait queue -- those are blobs that
-   * are waiting for OM to attach buckets to AM; once 
-   * vol table receives vol attach event, it will move 
-   * all requests waiting in the queue for that bucket to
-   * appropriate qos queue
-   */
-  void addBlobToWaitQueue(const std::string& bucket_name,
-			  FdsBlobReq* blob_req);
+    /**
+     * Add blob request to wait queue -- those are blobs that
+     * are waiting for OM to attach buckets to AM; once 
+     * vol table receives vol attach event, it will move 
+     * all requests waiting in the queue for that bucket to
+     * appropriate qos queue
+     */
+    void addBlobToWaitQueue(const std::string& bucket_name,
+                            FdsBlobReq* blob_req);
 
-  /**
-   * Complete blob requests that are waiting in wait queue
-   * with error (because e.g. volume not found, etc).
-   */
-  void completeWaitBlobsWithError(const std::string& bucket_name,
-                                  Error err) {
-      moveWaitBlobsToQosQueue(invalid_vol_id, bucket_name, err);
-  }
+    /**
+     * Complete blob requests that are waiting in wait queue
+     * with error (because e.g. volume not found, etc).
+     */
+    void completeWaitBlobsWithError(const std::string& bucket_name,
+                                    Error err) {
+        moveWaitBlobsToQosQueue(invalid_vol_id, bucket_name, err);
+    }
 
- private: /* methods */ 
-
-  /* handler for volume-related control message from OM */
-  static Error volumeEventHandler(fds_volid_t vol_uuid, 
-                                  VolumeDesc *vdb,
-                                  fds_vol_notify_t vol_action,
-                                  fds_bool_t check_only,
-                                  FDS_ProtocolInterface::FDSP_ResultType);
-  
-  Error modifyVolumePolicy(fds_volid_t vol_uuid,
-			  const VolumeDesc& vdesc);
- 
-  void moveWaitBlobsToQosQueue(fds_volid_t vol_uuid,
-			       const std::string& vol_name,
-			       Error error);
-
-  /* print volume map, other detailed state to log */
-  void dump();
+  private:
+    /// handler for volume-related control message from OM
+    static Error volumeEventHandler(fds_volid_t vol_uuid, 
+                                    VolumeDesc *vdb,
+                                    fds_vol_notify_t vol_action,
+                                    FDS_ProtocolInterface::FDSP_NotifyVolFlag,
+                                    FDS_ProtocolInterface::FDSP_ResultType);
+    Error modifyVolumePolicy(fds_volid_t vol_uuid,
+                             const VolumeDesc& vdesc);
+    void moveWaitBlobsToQosQueue(fds_volid_t vol_uuid,
+                                 const std::string& vol_name,
+                                 Error error);
+    /// print volume map, other detailed state to log
+    void dump();
     
- private: /* data */
+  private:
+    /// volume uuid -> StorHvVolume map
+    std::unordered_map<fds_volid_t, StorHvVolume*> volume_map;   
 
-  /* volume uuid -> StorHvVolume map */
-  std::unordered_map<fds_volid_t, StorHvVolume*> volume_map;   
+    /// Protects volume_map
+    fds_rwlock map_rwlock;
 
-  /* Protects volume_map */
-  fds_rwlock map_rwlock;
+    /**
+     * list of blobs that are waiting for OM to attach appropriate
+     * bucket to AM if it exists/ or return 'does not exist error
+     */
+    typedef std::vector<AmQosReq*> bucket_wait_vec_t;
+    typedef std::map<std::string, bucket_wait_vec_t> wait_blobs_t;
+    typedef std::map<std::string, bucket_wait_vec_t>::iterator wait_blobs_it_t; 
+    wait_blobs_t wait_blobs;
+    fds_rwlock wait_rwlock;
 
-  /* list of blobs that are waiting for OM to attach appropriate
-   * bucket to AM if it exists/ or return 'does not exist error */
-  typedef std::vector<AmQosReq*> bucket_wait_vec_t;
-  typedef std::map<std::string, bucket_wait_vec_t> wait_blobs_t;
-  typedef std::map<std::string, bucket_wait_vec_t>::iterator wait_blobs_it_t; 
-  wait_blobs_t wait_blobs;
-  fds_rwlock wait_rwlock;
-
-  /* Reference to parent SH instance */
-  StorHvCtrl *parent_sh;
-
-  /*
-   * Pointer to logger to use 
-   */
+    /// Reference to parent SH instance
+    StorHvCtrl *parent_sh;
 };
 
 class StartBlobTxReq : public FdsBlobReq {

@@ -31,6 +31,7 @@ namespace fds {
         unsigned int node_ip_address;
         fds_uint32_t port;
         fds_uint32_t mig_port;  /**< Port for migration services */
+        fds_uint32_t meta_sync_port;  /**< Port for meta sync  services */
         FDS_ProtocolInterface::FDSP_NodeState node_state;
         NodeMigSessionPtr   ndMigSession;
         std::string         ndMigSessionId;
@@ -77,6 +78,7 @@ namespace fds {
                       FDSP_MgrIdType nodeRole);
 
         fds_uint32_t getNodeMigPort(NodeUuid uuid);
+        fds_uint32_t getNodeMetaSyncPort(NodeUuid uuid);
 
         /**
          * Module methods.

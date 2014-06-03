@@ -6,6 +6,7 @@
 #include <OmDeploy.h>
 #include <OmDmtDeploy.h>
 #include <OmDataPlacement.h>
+#include <OmVolumePlacement.h>
 #include <om-discovery.h>
 
 namespace fds {
@@ -14,6 +15,7 @@ OM_Module::OM_Module(char const *const name)
     : Module(name)
 {
     om_data_place = new DataPlacement();
+    om_volume_place = new VolumePlacement();
     /*
      * TODO: Let's use member variables rather than globals.
      * Members are a better OO-design.
@@ -22,6 +24,7 @@ OM_Module::OM_Module(char const *const name)
         &gl_OMNodeDomainMod,
         &gl_OMClusMapMod,
         om_data_place,
+        om_volume_place,
         &gl_OMDltMod,
         &gl_OMDmtMod,
         &gl_OmDiscoveryMod,
@@ -36,6 +39,7 @@ OM_Module::OM_Module(char const *const name)
 
 OM_Module::~OM_Module() {
     delete om_data_place;
+    delete om_volume_place;
 }
 
 int

@@ -21,7 +21,7 @@ void DMSvcHandler::queryCatalogObject(boost::shared_ptr<fpi::QueryCatalogMsg>& q
      */
     // TODO(Rao): Provide a constructor that doens't take unnecessary
     // params
-    auto dmQryReq = new DataMgr::dmCatReq(queryMsg->volume_id, queryMsg->blob_name,
+    auto dmQryReq = new dmCatReq(queryMsg->volume_id, queryMsg->blob_name,
                                           queryMsg->dm_transaction_id,
                                           queryMsg->dm_operation, 0,
                                           0, 0, 0, "",
@@ -40,8 +40,7 @@ void DMSvcHandler::queryCatalogObject(boost::shared_ptr<fpi::QueryCatalogMsg>& q
         LOGNORMAL << "Unable to enqueue Query Catalog request "
                   << logString(queryMsg->hdr);
         dmQryReq->resp_cb(err, dmQryReq, nullptr);
-    }
-    else {
+    } else {
         LOGNORMAL << "Successfully enqueued  Catalog  request "
                   << logString(queryMsg->hdr);
     }
@@ -49,7 +48,7 @@ void DMSvcHandler::queryCatalogObject(boost::shared_ptr<fpi::QueryCatalogMsg>& q
 
 // TODO(Rao): Refactor dmCatReq to contain BlobNode information? Check with Andrew.
 void DMSvcHandler::queryCatalogObjectCb(boost::shared_ptr<fpi::QueryCatalogMsg>& queryMsg,
-                                        const Error &e, DataMgr::dmCatReq *req,
+                                        const Error &e, dmCatReq *req,
                                         BlobNode *bnode)
 {
     queryMsg->obj_list.clear();

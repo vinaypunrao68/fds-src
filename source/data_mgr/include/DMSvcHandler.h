@@ -1,8 +1,8 @@
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
-#ifndef SOURCE_STOR_MGR_INCLUDE_DMSVCHANDLER_H_
-#define SOURCE_STOR_MGR_INCLUDE_DMSVCHANDLER_H_
+#ifndef SOURCE_DATA_MGR_INCLUDE_DMSVCHANDLER_H_
+#define SOURCE_DATA_MGR_INCLUDE_DMSVCHANDLER_H_
 
 #include <fdsp/fds_service_types.h>
 #include <net/BaseAsyncSvcHandler.h>
@@ -24,10 +24,9 @@ class DMSvcHandler : virtual public DMSvcIf, public BaseAsyncSvcHandler {
 
     void queryCatalogObject(boost::shared_ptr<fpi::QueryCatalogMsg>& queryMsg);
     void queryCatalogObjectCb(boost::shared_ptr<fpi::QueryCatalogMsg>& queryMsg,
-                              const Error &e, DataMgr::dmCatReq *req, BlobNode *bnode);
-
+                              const Error &e, dmCatReq *req, BlobNode *bnode);
 };
 
 }  // namespace fds
 
-#endif  // SOURCE_STOR_MGR_INCLUDE_DMSVCHANDLER_H_
+#endif  // SOURCE_DATA_MGR_INCLUDE_DMSVCHANDLER_H_
