@@ -339,6 +339,15 @@ StorHvVolumeTable::getVolumeIds() {
     return volIds;
 }
 
+fds_uint32_t
+StorHvVolumeTable::getVolMaxObjSize(fds_volid_t volUuid) {
+    map_rwlock.read_lock();
+    fds_verify(volume_map.count(volUuid) > 0);
+    fds_uint32_t maxObjSize = volume_map[volUuid]->voldesc->maxObjSizeInBytes;
+    map_rwlock.read_unlock();
+    return maxObjSize;
+}
+
 /**
  * returns volume UUID if found in volume map, otherwise returns invalid_vol_id
  */

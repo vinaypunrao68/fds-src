@@ -127,7 +127,6 @@ class VolumeMeta : public HasLogger {
   private:
     fds_mutex  *vol_mtx;
 
-
     /*
      * This class is non-copyable.
      * Disable copy constructor/assignment operator.

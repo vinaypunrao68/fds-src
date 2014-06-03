@@ -617,6 +617,7 @@ VolumeInfo::vol_fmt_desc_pkt(FDSP_VolumeDescType *pkt) const
     pkt->localDomainId = pVol->localDomainId;
     pkt->globDomainId  = pVol->globDomainId;
 
+    pkt->maxObjSizeInBytes = pVol->maxObjSizeInBytes;
     pkt->capacity      = pVol->capacity;
     pkt->volType       = pVol->volType;
     pkt->maxQuota      = pVol->maxQuota;

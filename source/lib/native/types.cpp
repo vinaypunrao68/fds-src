@@ -68,6 +68,10 @@ fds_uint64_t FdsBlobReq::getBlobOffset() const {
     return blobOffset;
 }
 
+void FdsBlobReq::setBlobOffset(fds_uint64_t offset) {
+    blobOffset = offset;
+}
+
 const char* FdsBlobReq::getDataBuf() const {
     return dataBuf;
 }

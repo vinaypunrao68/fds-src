@@ -30,6 +30,8 @@ void getFDSPCreateVolRequest(fpi::FDSP_MsgHdrTypePtr& header,
     // Volume capacity is in MB
     request->vol_info.capacity = (1024*10);  // for now presetting to 10GB
     request->vol_info.maxQuota = 0;
+    request->vol_info.maxObjSizeInBytes =
+            volSettings.maxObjectSizeInBytes;
 
     // Set connector
     // TODO(Andrew): Have the api service just replace the fdsp version
@@ -73,7 +75,7 @@ void getFDSPDeleteVolRequest(fpi::FDSP_MsgHdrTypePtr& header,
     request->domain_id = 1;
 }
 
-void getVolumeDescriptor(apis::VolumeDescriptor& volDescriptor, VolumeInfo::pointer  vol) {
+void getVolumeDescriptor(apis::VolumeDescriptor& volDescriptor, VolumeInfo::pointer vol) {
     volDescriptor.name = vol->vol_get_name();
     VolumeDesc* volDesc = vol->vol_get_properties();
     switch (volDesc->volType) {
@@ -83,6 +85,8 @@ void getVolumeDescriptor(apis::VolumeDescriptor& volDescriptor, VolumeInfo::poin
         default:
             volDescriptor.policy.volumeType = apis::OBJECT;
     }
+    volDescriptor.policy.maxObjectSizeInBytes =
+            volDesc->maxObjSizeInBytes;
 }
 
 }  // namespace convert

@@ -393,39 +393,7 @@ struct FDSP_VolumeInfoType {
 // Basic operational properties
 
   5: FDSP_VolType        volType,
-  6: double        	 capacity,
-  7: double        	 maxQuota,  // Quota % of capacity tho should alert
-
-// Consistency related properties
-
-  8: i32        		 defReplicaCnt,  // Number of replicas reqd for this volume
-  9: i32        		 defWriteQuorum,  // Quorum number of writes for success
-  10: i32        		 defReadQuorum,  // This will be 1 for now
-  11: FDSP_ConsisProtoType 	 defConsisProtocol,  // Read-Write consistency protocol
-
-// Other policies
-
-  12: i32        		 volPolicyId,
-  13: i32         		 archivePolicyId,
-  14: i32        		 placementPolicy,  // Can change placement policy
-  15: FDSP_AppWorkload     	 appWorkload,
-  16: FDSP_MediaPolicy           mediaPolicy,      // can change media policy
-
-  17: i32         		 backupVolume,  // UUID of backup volume
-
-}
-
-struct FDSP_VolumeDescType {
-
-  1: string 		 vol_name,  /* Name of the volume */
-  2: i32 	 		 tennantId,  // Tennant id that owns the volume
-  3: i32    		 localDomainId,  // Local domain id that owns vol
-  4: i32	 		 globDomainId,
-  5: i64	 	 volUUID,
-
-// Basic operational properties
-
-  6: FDSP_VolType		 volType,
+  6: i32                 maxObjSizeInBytes,
   7: double        	 capacity,
   8: double        	 maxQuota,  // Quota % of capacity tho should alert
 
@@ -442,14 +410,48 @@ struct FDSP_VolumeDescType {
   14: i32         		 archivePolicyId,
   15: i32        		 placementPolicy,  // Can change placement policy
   16: FDSP_AppWorkload     	 appWorkload,
+  17: FDSP_MediaPolicy           mediaPolicy,      // can change media policy
 
-  17: i32         		 backupVolume,  // UUID of backup volume
+  18: i32         		 backupVolume,  // UUID of backup volume
+
+}
+
+struct FDSP_VolumeDescType {
+
+  1: string 		 vol_name,  /* Name of the volume */
+  2: i32 	 		 tennantId,  // Tennant id that owns the volume
+  3: i32    		 localDomainId,  // Local domain id that owns vol
+  4: i32	 		 globDomainId,
+  5: i64	 	 volUUID,
+
+// Basic operational properties
+
+  6: FDSP_VolType		 volType,
+  7: i32                 maxObjSizeInBytes,
+  8: double        	 capacity,
+  9: double        	 maxQuota,  // Quota % of capacity tho should alert
+
+// Consistency related properties
+
+  10: i32        		 defReplicaCnt,  // Number of replicas reqd for this volume
+  11: i32        		 defWriteQuorum,  // Quorum number of writes for success
+  12: i32        		 defReadQuorum,  // This will be 1 for now
+  13: FDSP_ConsisProtoType 	 defConsisProtocol,  // Read-Write consistency protocol
+
+// Other policies
+
+  14: i32        		 volPolicyId,
+  15: i32         		 archivePolicyId,
+  16: i32        		 placementPolicy,  // Can change placement policy
+  17: FDSP_AppWorkload     	 appWorkload,
+
+  18: i32         		 backupVolume,  // UUID of backup volume
 
 // volume policy details
-  18: double                 iops_min, /* minimum (guaranteed) iops */
-  19: double                 iops_max, /* maximum iops */
-  20: i32                    rel_prio, /* relative priority */
-  21: FDSP_MediaPolicy       mediaPolicy   /* media policy */
+  19: double                 iops_min, /* minimum (guaranteed) iops */
+  20: double                 iops_max, /* maximum iops */
+  21: i32                    rel_prio, /* relative priority */
+  22: FDSP_MediaPolicy       mediaPolicy   /* media policy */
 }
 
 struct FDSP_CreateDomainType {

@@ -9,7 +9,6 @@
 #include "StorHvisorNet.h"
 #include "StorHvisorCPP.h"
 #include "hvisor_lib.h"
-#include <hash/MurmurHash3.h>
 #include <fds_config.hpp>
 #include <fds_process.h>
 #include <boost/date_time/posix_time/posix_time.hpp>
@@ -604,6 +603,9 @@ StorHvCtrl::resumePutBlob(StorHvJournalEntry *journEntry) {
     }
     blobReq->setObjId(objId);
 
+    // Initialize the journal's transaction state
+    journEntry->trans_state = FDS_TRANS_OPEN;
+
     // Process SM object put messages
     err = processSmPutObj(blobReq, journEntry);
     fds_verify(err == ERR_OK);
@@ -632,6 +634,14 @@ StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
     StorHvVolume *shVol = storHvisor->vol_table->getLockedVolume(volId);
     fds_verify(shVol != NULL);
     fds_verify(shVol->isValidLocked() == true);
+
+    // TODO(Andrew): Here we're turning the offset aligned
+    // blobOffset back into an absolute blob offset (i.e.,
+    // not aligned to the maximum object size). This allows
+    // the rest of the putBlob routines to still expect an
+    // absolute offset in case we need it
+    fds_uint32_t maxObjSize = shVol->voldesc->maxObjSizeInBytes;
+    blobReq->setBlobOffset(blobReq->getBlobOffset() * maxObjSize);
 
     // Track how long the request was queued before put() dispatch
     // TODO(Andrew): Consider moving to the QoS request
@@ -1144,6 +1154,14 @@ fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq) {
         delete qosReq;
         return err;
     }
+
+    // TODO(Andrew): Here we're turning the offset aligned
+    // blobOffset back into an absolute blob offset (i.e.,
+    // not aligned to the maximum object size). This allows
+    // the rest of the getBlob routines to still expect an
+    // absolute offset in case we need it
+    fds_uint32_t maxObjSize = shVol->voldesc->maxObjSizeInBytes;
+    blobReq->setBlobOffset(blobReq->getBlobOffset() * maxObjSize);
 
     /*
      * Track how long the request was queued before get() dispatch
