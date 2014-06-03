@@ -611,6 +611,12 @@ class VolumeMeta {
     VolumeMeta& operator=(const VolumeMeta rhs);
 
  public:
+
+    /*
+     * volume  meta forwarding state 
+     */
+
+     std::atomic<bool> volSyncState;
     /*
      * The volume catalog maintains mappings from
      * vol/blob/offset to object id.

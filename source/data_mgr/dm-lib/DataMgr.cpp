@@ -1160,7 +1160,8 @@ DataMgr::updateCatalogBackend(dmCatReq  *updCatReq) {
      * we have updated the local MEta Db successfully, if the forwarding flag is set, 
      * forward the  request to the respective node 
      */
-    catSyncMgr->forwardCatalogUpdate(updCatReq);
+    if (catSyncMgr->isSyncInProgress() == true)
+	    catSyncMgr->forwardCatalogUpdate(updCatReq);
     delete updCatReq;
 
 }

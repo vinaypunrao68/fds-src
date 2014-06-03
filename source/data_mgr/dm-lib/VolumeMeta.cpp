@@ -35,7 +35,7 @@ VolumeMeta::VolumeMeta(const std::string& _name,
                        fds_int64_t _uuid,
                        VolumeDesc* desc,
                        fds_bool_t crt_catalogs)
-        : dm_log(NULL), vcat(NULL), tcat(NULL)
+        : dm_log(NULL), vcat(NULL), tcat(NULL), volSyncState(false)
 {
     const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
 

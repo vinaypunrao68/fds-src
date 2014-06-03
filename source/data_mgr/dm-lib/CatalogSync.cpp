@@ -476,13 +476,11 @@ Error CatalogSyncMgr::forwardCatalogUpdate(dmCatReq  *updCatReq) {
          cit != cat_sync_map.cend();
          ++cit) {
         if ((cit->second)->hasVolume(updCatReq->volId)) {
-            if((cit->second)->isInForwardState() == false)
-               continue;
-            else {
+            if((cit->second)->isInForwardState() == true) {
                 err = (cit->second)->forwardCatalogUpdate(updCatReq);
                 found_volume = true;
                 break;
-           }
+            }
         }
     }
 
