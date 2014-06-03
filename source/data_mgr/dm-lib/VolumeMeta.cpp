@@ -542,6 +542,7 @@ void VolumeMeta::dmCopyVolumeDesc(VolumeDesc *v_desc, VolumeDesc *pVol) {
     v_desc->localDomainId = pVol->localDomainId;
     v_desc->globDomainId = pVol->globDomainId;
 
+    v_desc->maxObjSizeInBytes = pVol->maxObjSizeInBytes;
     v_desc->capacity = pVol->capacity;
     v_desc->volType = pVol->volType;
     v_desc->maxQuota = pVol->maxQuota;

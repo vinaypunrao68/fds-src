@@ -262,13 +262,7 @@ Error DataMgr::getVolObjSize(fds_volid_t volId,
     vol_map_mtx->unlock();
 
     fds_verify(vol_meta != NULL);
-    if (vol_meta->vol_desc->volType ==
-        FDS_ProtocolInterface::FDSP_VOL_BLKDEV_TYPE) {
-        *maxObjSize = (4 * 1024);
-        return err;
-    }
-
-    *maxObjSize = (2 * 1024 * 1024);
+    *maxObjSize = vol_meta->vol_desc->maxObjSizeInBytes;
     return err;
 }
 
@@ -801,8 +795,6 @@ DataMgr::applyBlobUpdate(fds_volid_t volUuid,
     fds_uint32_t maxObjSize;
     err = getVolObjSize(volUuid, &maxObjSize);
     fds_verify(err == ERR_OK);
-    fds_verify((maxObjSize == (4 * 1024)) ||
-               (maxObjSize == (2 *1024 * 1024)));
 
     // Iterate over each offset.
     // For now, we're requiring that the offset list
@@ -923,7 +915,7 @@ DataMgr::applyBlobUpdate(fds_volid_t volUuid,
             // We're extending the blob
             LOGDEBUG << "Extending blob " << bnode->blob_name
                      << " from " << bnode->blob_size << " to offset "
-                     << offset;
+                     << offset + size;
 
             // Don't need to push if the object size is 0
             // TODO(Andrew): This check is only really needed

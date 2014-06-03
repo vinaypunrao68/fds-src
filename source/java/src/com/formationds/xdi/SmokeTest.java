@@ -63,7 +63,7 @@ public class SmokeTest {
         TxDescriptor txDesc = am.startBlobTx(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME);
         System.out.println("Started transaction " + txDesc.txId);
 
-        int length = 2 * 1024 * 1024; // volumePolicy.getMaxObjectSizeInBytes();
+        int length = volumePolicy.getMaxObjectSizeInBytes();
         byte[] putData = new byte[length];
         byte pattern = (byte)255;
         Arrays.fill(putData, pattern);
