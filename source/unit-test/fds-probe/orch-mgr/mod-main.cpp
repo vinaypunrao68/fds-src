@@ -13,6 +13,8 @@
 #include <orch-mgr/om-service.h>
 #include <om-discovery.h>
 #include <kvstore/configdbmodule.h>
+#include <am-platform.h>  // TODO(Vy): must be om-platform.h
+#include <net/net-service.h>
 
 namespace fds {
 
@@ -35,7 +37,7 @@ class OM_Probe : public OrchMgr
   public:
     virtual ~OM_Probe() {}
     OM_Probe(int argc, char **argv, Module **mod_vec)
-        : OrchMgr(argc, argv, "orch_mgr.conf", "fds.om", mod_vec) {}
+        : OrchMgr(argc, argv, &gl_AmPlatform, mod_vec) {}
 
     void proc_pre_startup() override
     {
@@ -63,6 +65,8 @@ int main(int argc, char **argv)
 {
     fds::Module *probe_vec[] = {
         &fds::gl_fds_stat,
+        &fds::gl_AmPlatform,
+        &fds::gl_NetService,
         &fds::gl_probeS3Eng,
         &fds::gl_OMModule,
         &fds::gl_OM_ProbeMod,

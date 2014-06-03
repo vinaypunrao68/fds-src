@@ -78,12 +78,12 @@ NetMgr::mod_shutdown()
     Module::mod_shutdown();
 }
 
-// ep_register
-// -----------
+// ep_register_thr
+// ---------------
 // Register the endpoint to the local domain.
 //
 void
-NetMgr::ep_register(EpSvc::pointer ep, bool update_domain)
+NetMgr::ep_register_thr(EpSvc::pointer ep, bool update_domain)
 {
     int                 idx, port;
     fds_uint64_t        mine, peer;
@@ -102,7 +102,7 @@ NetMgr::ep_register(EpSvc::pointer ep, bool update_domain)
     //
     idx = ep_shm->ep_map_record(&map);
 
-    // Add to the local mapping.
+    // Add to the local mapping cache.
     if (idx != -1) {
         mine = myep->ep_my_uuid();
         peer = myep->ep_peer_uuid();
@@ -126,9 +126,20 @@ NetMgr::ep_register(EpSvc::pointer ep, bool update_domain)
     }
     if (update_domain == true) {
     }
-    fds_threadpool *pool = ep_mgr_thrpool();
-    pool->schedule(&EpSvcImpl::ep_activate, myep);
+    myep->ep_activate();
     // TODO(Vy): error handling.
+}
+
+// ep_register
+// -----------
+//
+void
+NetMgr::ep_register(EpSvc::pointer ep, bool update_domain)
+{
+    fds_threadpool *pool;
+
+    pool = ep_mgr_thrpool();
+    pool->schedule(&NetMgr::ep_register_thr, this, ep, update_domain);
 }
 
 // ep_unregister
@@ -350,6 +361,7 @@ int
 NetMgr::ep_uuid_binding(const fpi::SvcUuid &uuid, std::string *ip)
 {
     int          idx;
+    char         str[INET6_ADDRSTRLEN + 1];
     ep_map_rec_t map;
 
     ep_mtx.lock();
@@ -364,10 +376,13 @@ NetMgr::ep_uuid_binding(const fpi::SvcUuid &uuid, std::string *ip)
         ip->clear();
         return -1;
     }
-    if (ep_shm->ep_lookup_rec(idx, uuid.svc_uuid, &map) >= 0) {
-        ip->reserve(INET6_ADDRSTRLEN + 1);
-        EpAttr::netaddr_to_str(&map.rmp_addr,
-                               const_cast<char *>(ip->c_str()), INET6_ADDRSTRLEN);
+    idx = ep_shm->ep_lookup_rec(idx, uuid.svc_uuid, &map);
+    if (idx == -1) {
+        idx = ep_shm->node_info_lookup(uuid.svc_uuid, &map);
+    }
+    if (idx >= 0) {
+        EpAttr::netaddr_to_str(&map.rmp_addr, str, INET6_ADDRSTRLEN);
+        ip->assign(str);
         return EpAttr::netaddr_get_port(&map.rmp_addr);
     }
     return -1;

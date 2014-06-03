@@ -281,12 +281,6 @@ Platform::mod_startup()
 void
 Platform::mod_enable_service()
 {
-    ShmConPrdQueue *consumer;
-
-    consumer = NodeShmCtrl::shm_consumer();
-    consumer->shm_register_handler(SHMQ_REQ_UUID_BIND, &platlib_uuid_bind);
-    consumer->shm_register_handler(SHMQ_REQ_UUID_UNBIND, &platlib_uuid_bind);
-
     NodeShmCtrl::shm_ctrl_singleton()->shm_start_consumer_thr(plf_node_type);
     Module::mod_enable_service();
 }

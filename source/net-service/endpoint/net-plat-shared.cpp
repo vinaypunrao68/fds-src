@@ -230,22 +230,6 @@ PlatNetPlugin::svc_down(EpSvc::pointer svc, EpSvcHandle::pointer handle)
 }
 
 /*
- * -------------------------------------------------------------------------------------
- * Platform lib shared memory queue handlers
- * -------------------------------------------------------------------------------------
- */
-PlatLibUuidBind  platlib_uuid_bind;
-
-// shmq_lib_handler
-// ----------------
-//
-void
-PlatLibUuidBind::shmq_handler(const shmq_req_t *in, size_t size)
-{
-    std::cout << "Plat lib uuid binding is called " << std::endl;
-}
-
-/*
  * -----------------------------------------------------------------------------------
  * RPC Handlers
  * -----------------------------------------------------------------------------------

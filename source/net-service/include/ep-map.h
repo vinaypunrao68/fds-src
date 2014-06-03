@@ -24,14 +24,20 @@ struct ep_map_rec
     char                     rmp_name[MAX_SVC_NAME_LEN];
 };
 
+const int SHM_TAB_NONE        = 0x0;
+const int SHM_TAB_UUID_BIND   = 0x1;       /**< table recording uuid binding.  */
+const int SHM_TAB_NODE_INFO   = 0x2;       /**< node info table. */
+const int SHM_TAB_AM_INFO     = 0x3;       /**< info about AM nodes. */
+
 /**
  * Item to put in shared memory queue.
  */
 typedef struct ep_shmq_req
 {
-    shmq_req_t               smq_hdr;
-    int                      smq_idx;
-    ep_map_rec_t             smq_rec;
+    shmq_req_t               smq_hdr;      /**< standard shm queue header. */
+    int                      smq_idx;      /**< index in shm queue header. */
+    int                      smq_type;     /**< where we can find the mapping rec. */
+    ep_map_rec_t             smq_rec;      /**< the actual mapping record. */
 } ep_shmq_req_t;
 
 cc_assert(ep_map0, sizeof(ep_shmq_req_t) <= sizeof(node_shm_queue_item_t));
@@ -46,6 +52,7 @@ class EpPlatLibMod : public Module
     //
     virtual int  mod_init(SysParams const *const p) override;
     virtual void mod_startup() override;
+    virtual void mod_enable_service() override;
     virtual void mod_shutdown() override;
 
     virtual int  ep_map_record(const ep_map_rec_t *rec);
@@ -54,13 +61,24 @@ class EpPlatLibMod : public Module
     virtual int  ep_lookup_rec(int idx, fds_uint64_t uuid, ep_map_rec_t *out);
     virtual int  ep_lookup_rec(const char *name, ep_map_rec_t *out);
 
+    /**
+     * Lookup node-info records in shared memory.
+     */
+    virtual int  node_info_lookup(fds_uint64_t node_uuid, ep_map_rec_t *out);
+
     inline const ep_map_rec_t *ep_get_rec(int idx) {
         return ep_uuid_bind->shm_get_rec<ep_map_rec_t>(idx);
     }
+    /**
+     * Convert node info to endpoint mapping record format.
+     */
+    static void ep_node_info_to_mapping(const node_data_t *src, ep_map_rec_t *dest);
 
   protected:
     int                      ep_my_type;
     ShmObjROKeyUint64       *ep_uuid_bind;
+    ShmObjROKeyUint64       *ep_node_bind;
+    ShmObjROKeyUint64       *ep_am_bind;
 
     int ep_req_map_record(fds_uint32_t op, const ep_map_rec_t *rec);
 };
@@ -72,6 +90,8 @@ class EpPlatformdMod : public EpPlatLibMod
     virtual ~EpPlatformdMod() {}
 
     virtual void mod_startup() override;
+    virtual void mod_enable_service() override;
+
     virtual int  ep_map_record(const ep_map_rec_t *rec) override;
     virtual int  ep_unmap_record(fds_uint64_t uuid, int idx) override;
 

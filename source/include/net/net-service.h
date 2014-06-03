@@ -540,6 +540,8 @@ class NetMgr : public Module
     bo::intrusive_ptr<DomainAgent> ep_domain_agent;
 
     ResourceUUID const *const ep_my_platform_uuid();
+    void ep_register_thr(EpSvc::pointer ep, bool update_domain);
+
     virtual EpSvc::pointer ep_lookup_port(int port);
     virtual void ep_register_binding(const struct ep_map_rec *rec);
 };

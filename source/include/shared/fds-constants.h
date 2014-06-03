@@ -56,7 +56,7 @@ fds_disk_block_to_byte(fds_blk_t blk)
 #define FDS_MAX_FILE_NAME              (256)
 #define FDS_MAX_IP_STR                 (32)
 #define FDS_MAX_UUID_STR               (32)
-#define FDS_MAX_NODE_NAME              (16)
+#define FDS_MAX_NODE_NAME              (12)
 #define MAX_SVC_NAME_LEN               (12)
 #define MAX_DOMAIN_EP_SVC              (10240)
 

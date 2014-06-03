@@ -25,6 +25,7 @@
 #include <OmVolPolicy.hpp>
 #include <OmAdminCtrl.h>
 #include <kvstore/configdb.h>
+#include <platform/platform-lib.h>
 
 #define MAX_OM_NODES            (512)
 #define DEFAULT_LOC_DOMAIN_ID   (1)
@@ -32,7 +33,7 @@
 
 namespace fds {
 
-class OrchMgr: public FdsProcess {
+class OrchMgr: public PlatformProcess {
   private:
     fds_log *om_log;
     SysParams *sysParams;
@@ -77,9 +78,7 @@ class OrchMgr: public FdsProcess {
     void SetThrottleLevelForDomain(int domain_id, float throttle_level);
 
   public:
-    OrchMgr(int argc, char *argv[],
-            const std::string& default_config_path,
-            const std::string& base_path, fds::Module **mod_vec);
+    OrchMgr(int argc, char *argv[], Platform *platform, Module **mod_vec);
     ~OrchMgr();
     void start_cfgpath_server();
 
