@@ -283,6 +283,9 @@ class FdsnIf : public apis::AmServiceIf {
         // Wait for a signal from the callback thread
         putHandler.wait();
 
+        LOGDEBUG << "Finishing updateBlob for blob " << *blobName
+                 << " at object offset " << objectOffset->value;
+
         // Throw an exception if we didn't get an OK response
         if (putHandler.status != FDSN_StatusOK) {
             apis::ApiException fdsE;
