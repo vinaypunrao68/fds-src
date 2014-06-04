@@ -14,7 +14,6 @@
 #include <list>
 #include <vector>
 #include <map>
-#include <list>
 #include <fds_types.h>
 #include <fds_error.h>
 #include <dm-platform.h>
