@@ -261,7 +261,7 @@ class ShmConPrdQueue : public fdsio::RequestQueue
     // Track the pointers provided by our constructor
     shm_con_prd_sync_t *smq_sync;
     ShmObjRW *smq_data;
-    const uint smq_size; // Size of the queue for index calculations
+    const uint smq_size;  // Size of the queue for index calculations
 
     virtual ~ShmConPrdQueue() {}
 
