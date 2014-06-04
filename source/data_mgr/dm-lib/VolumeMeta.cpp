@@ -130,7 +130,7 @@ const BlobObjectInfo& BlobObjectList::objectAtOffset(const fds_uint64_t offset) 
 void BlobObjectList::initFromFDSPObjList(fpi::FDSP_BlobObjectList& blob_obj_list) {
     clear();
     for (uint i = 0; i < blob_obj_list.size(); i++) {
-        at(blob_obj_list[i].offset) =  blob_obj_list[i];
+        (*this)[blob_obj_list[i].offset] =  blob_obj_list[i];
     }
 }
 
