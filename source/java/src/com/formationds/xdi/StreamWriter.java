@@ -13,6 +13,7 @@ import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.security.MessageDigest;
 import java.util.Map;
+import org.apache.commons.codec.binary.Hex;
 
 public class StreamWriter {
 
@@ -38,22 +39,20 @@ public class StreamWriter {
             md.update(buf, 0, read);
             am.updateBlob(domainName, volumeName, blobName, tx,
                     ByteBuffer.wrap(buf, 0, read), read,
-                    new ObjectOffset(objectOffset),
-                    ByteBuffer.wrap(new byte[0]), false);
+                    new ObjectOffset(objectOffset), false);
             lastBufSize = read;
-
             objectOffset++;
         }
 
         // do this until we have proper transactions
         if (lastBufSize != 0) {
-            digest = md.digest();
-            ByteBuffer byteBuffer = ByteBuffer.wrap(digest);
             am.updateBlob(domainName, volumeName, blobName, tx,
                     ByteBuffer.wrap(buf), lastBufSize,
-                    new ObjectOffset(objectOffset - 1),
-                    byteBuffer, true);
+                    new ObjectOffset(objectOffset - 1), true);
         }
+
+        digest = md.digest();
+        metadata.put("etag", Hex.encodeHexString(digest));
 
         am.updateMetadata(domainName, volumeName, blobName, tx, metadata);
         am.commitBlobTx(tx);

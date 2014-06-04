@@ -60,7 +60,7 @@ public class GetObject implements RequestHandler {
         String lastModified = metadata.getOrDefault("Last-Modified", SwiftUtility.formatRfc1123Date(DateTime.now()));
 
         return SwiftUtility.swiftResource(new StreamResource(objStream, contentType))
-                .withHeader("ETag", Hex.encodeHexString(stat.getDigest()))
+                .withHeader("ETag", stat.getMetadata().getOrDefault("etag", ""))
                 .withHeader("Last-Modified", lastModified);
     }
 

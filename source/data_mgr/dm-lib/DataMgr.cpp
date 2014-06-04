@@ -1112,30 +1112,6 @@ DataMgr::updateCatalogBackend(dmCatReq  *updCatReq) {
     update_catalog->dm_transaction_id = updCatReq->transId;
     update_catalog->dm_operation = updCatReq->transOp;
 
-    // Add the blob's etag to the response
-    // TODO(Andrew): We're just setting the etag is the resp
-    // if it was given in the req because we don't know at
-    // this level if a new etag was set or not and don't
-    // want to return an old one
-    for (fds_uint32_t i = 0;
-         i < updCatReq->fdspUpdCatReqPtr->meta_list.size();
-         i++) {
-        if (updCatReq->fdspUpdCatReqPtr->meta_list[i].key == "etag") {
-            FDS_ProtocolInterface::FDSP_MetaDataPair etagPair;
-            etagPair.__set_key(updCatReq->fdspUpdCatReqPtr->meta_list[i].key);
-            etagPair.__set_value(updCatReq->fdspUpdCatReqPtr->meta_list[i].value);
-
-            update_catalog->meta_list.push_back(etagPair);
-
-            LOGDEBUG << "Returning etag value "
-                    // << ObjectID::ToHex(reinterpret_cast<const uint8_t *>(
-                    //  etagPair.value.c_str()),
-                    //                  etagPair.value.size())
-                     << etagPair.value
-                     << " for blob " << updCatReq->blob_name;
-        }
-    }
-
     /*
      * Reverse the msg direction and send the response.
      */

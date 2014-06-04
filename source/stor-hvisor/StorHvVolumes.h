@@ -320,12 +320,6 @@ class GetBlobReq: public FdsBlobReq {
     fdsnGetObjectHandler getObjCallback;
     void *callback_data;
 
-    /// Size of the blob read from
-    fds_uint64_t blobSize;
-
-    /// Etag of the blob read from
-    std::string blobEtag;
-
     GetBlobReq(fds_volid_t _volid,
                const std::string& _blob_name, //same as objKey
                fds_uint64_t _blob_offset,
@@ -345,8 +339,7 @@ class GetBlobReq: public FdsBlobReq {
               byteCount(_byte_count),
               req_context(_req_context),
               getObjCallback(_get_obj_handler),
-              callback_data(_callback_data),
-              blobSize(0) {
+              callback_data(_callback_data) {
     }
 
     ~GetBlobReq() { };
@@ -354,20 +347,7 @@ class GetBlobReq: public FdsBlobReq {
     void DoCallback(FDSN_Status status, ErrorDetails* errDetails) {
         (getObjCallback)(bucket_ctxt,
                          req_context, dataLen, blobOffset, dataBuf,
-                         blobSize, blobEtag,
                          callback_data, status, errDetails);
-    }
-
-    void setBlobSize(fds_uint64_t size) {
-        blobSize = size;
-    }
-
-    void setBlobEtag(const std::string &etag) {
-        blobEtag = etag;
-    }
-
-    std::string getBlobEtag() {
-        return blobEtag;
     }
 };
 

@@ -113,12 +113,12 @@ public class FdsServerOperations implements NbdServerOperations {
                 if(i_off == 0) {
                     ByteBuffer readBuf =  ByteBuffer.allocate(i_len);
                     System.arraycopy(source.array(), am_bytes_written, readBuf.array(), 0, i_len);
-                    am.updateBlob(FDS, exportName, BLOCK_DEV_NAME, txId, readBuf, i_len, objectOffset, ByteBuffer.allocate(0), false);
+                    am.updateBlob(FDS, exportName, BLOCK_DEV_NAME, txId, readBuf, i_len, objectOffset, false);
                     am_bytes_written += i_len;
                 } else {
                     ByteBuffer readBuf = guardedRead(exportName, objectSize, objectOffset);
                     System.arraycopy(source.array(), 0, readBuf.array(), i_off, i_len);
-                    am.updateBlob(FDS, exportName, BLOCK_DEV_NAME, txId, readBuf, objectSize, objectOffset, ByteBuffer.allocate(0), false);
+                    am.updateBlob(FDS, exportName, BLOCK_DEV_NAME, txId, readBuf, objectSize, objectOffset, false);
                     am_bytes_written += i_len;
                 }
                 am.commitBlobTx(txId);

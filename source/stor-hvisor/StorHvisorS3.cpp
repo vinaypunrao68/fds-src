@@ -546,18 +546,6 @@ StorHvCtrl::processDmUpdateBlob(PutBlobReq *putBlobReq,
 
     // Setup blob metadata updates
     updCatReq->meta_list.clear();
-    // If this is the last put in the stream, lets
-    // write the etag/md5 with the blob's metadata
-    // TODO(Andrew): Remove this when etag moves
-    // to updateMetadata path.
-    if (putBlobReq->isLastBuf() == true) {
-        std::string etagKey   = "etag";
-        std::string etagValue = putBlobReq->getEtag();
-        FDS_ProtocolInterface::FDSP_MetaDataPair mdPair;
-        mdPair.__set_key(etagKey);
-        mdPair.__set_value(etagValue);
-        updCatReq->meta_list.push_back(mdPair);
-    }
 
     // Update the DM-related journal fields
     journEntry->trans_state   = FDS_TRANS_OPEN;
@@ -1362,29 +1350,10 @@ fds::Error StorHvCtrl::getObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
         qosReq->getBlobReqPtr());
     fds_verify(blobReq != NULL);
 
-    fds_uint64_t blobSize = 0;
-    err = vol->vol_catalog_cache->getBlobSize(blobReq->getBlobName(),
-                                              &blobSize);
-    fds_verify(err == ERR_OK);
-    fds_verify(blobSize > 0);
-
-    std::string blobEtag;
-    err = vol->vol_catalog_cache->getBlobEtag(blobReq->getBlobName(),
-                                              &blobEtag);
-    fds_verify(err == ERR_OK);
-    // Either the etag is empty or its set to
-    // the proper length
-    // TODO(Andrew): Remove this when etag moves
-    // to updateMetadata path.
-    // fds_verify((blobEtag.size() == 0) ||
-    //        (blobEtag.size() == 32));
-
     LOGNOTIFY << "Responding to getBlob trans " << transId
               <<" for blob " << blobReq->getBlobName()
               << " and offset " << blobReq->getBlobOffset()
               << " length " << getObjRsp->data_obj_len
-              << " total blob size " << blobSize
-              << " etag " << blobEtag
               << " with result " << rxMsg->result;
     /*
      * Mark the IO complete, clean up txn, and callback
@@ -1406,10 +1375,8 @@ fds::Error StorHvCtrl::getObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
             // TODO(Andrew): Revisit for unaligned IO
             fds_verify((uint)(getObjRsp->data_obj_len) <= (blobReq->getDataLen()));
         }
-        blobReq->setDataLen(getObjRsp->data_obj_len);    
+        blobReq->setDataLen(getObjRsp->data_obj_len);
         blobReq->setDataBuf(getObjRsp->data_obj.c_str());
-        blobReq->setBlobSize(blobSize);
-        blobReq->setBlobEtag(blobEtag);
         txn->reset();
         vol->journal_tbl->releaseTransId(transId);
         blobReq->cbWithResult(FDSN_StatusOK);

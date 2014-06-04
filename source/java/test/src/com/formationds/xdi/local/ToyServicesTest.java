@@ -41,15 +41,13 @@ public class ToyServicesTest {
         TxDescriptor txDesc = shim.startBlobTx(domainName, volumeName, blobName);
         ByteBuffer buffer = ByteBuffer.wrap(new byte[]{1, 2, 3, 4, 5});
         shim.updateBlob(domainName, volumeName, blobName, txDesc,
-                        buffer, 4, new ObjectOffset(0),
-                        ByteBuffer.wrap(new byte[0]), false);
+                        buffer, 4, new ObjectOffset(0), false);
         shim.updateBlob(domainName, volumeName, blobName, txDesc,
-                        buffer, 5, new ObjectOffset(1),
-                        ByteBuffer.wrap(new byte[] {42, 43}), true);
+                        buffer, 5, new ObjectOffset(1), true);
 
         BlobDescriptor blob = shim.statBlob(domainName, volumeName, blobName);
         assertEquals(13, blob.getByteCount());
-        assertArrayEquals(new byte[] {42, 43}, blob.getDigest());
+        assertArrayEquals(new byte[] {42, 43}, blob.getMetadata().getOrDefault("etag", "").getBytes());
 
         assertArrayEquals(new byte[]{1, 2, 3, 4, 0, 0, 0, 0}, shim.getBlob(domainName, volumeName, blobName, 8, new ObjectOffset(0)).array());
         assertArrayEquals(new byte[] {1, 2, 3, 4, 5, 0, 0, 0}, shim.getBlob(domainName, volumeName, blobName, 8, new ObjectOffset(1)).array());
@@ -67,8 +65,7 @@ public class ToyServicesTest {
 
         String otherBlob = "otherBlob";
         shim.updateBlob(domainName, volumeName, otherBlob, txDesc,
-                        buffer, 4, new ObjectOffset(0),
-                        ByteBuffer.wrap(new byte[0]), true);
+                        buffer, 4, new ObjectOffset(0), true);
         List<BlobDescriptor> parts = shim.volumeContents(domainName, volumeName, Integer.MAX_VALUE, 0);
         assertEquals(2, parts.size());
 

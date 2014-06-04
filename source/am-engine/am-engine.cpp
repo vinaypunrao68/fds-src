@@ -734,11 +734,11 @@ fdsn_getobj_cbfn(BucketContextPtr bucket_ctx,
 
                 // Issue the get() request with the desired read length set to the
                 // current buffer length since we don't know how much data to read
-                api->GetObject(bucket_ctx, conn_go->get_object_id(), NULL,
-                               ame_cur_offset,
-                               buf_req_len, adr, buf_req_len,
-                               static_cast<void *>(ctx), fdsn_getobj_cbfn,
-                               static_cast<void *>(conn_go));
+                // api->GetObject(bucket_ctx, conn_go->get_object_id(), NULL,
+                //            ame_cur_offset,
+                //             buf_req_len, adr, buf_req_len,
+                //             static_cast<void *>(ctx), fdsn_getobj_cbfn,
+                //             static_cast<void *>(conn_go));
             }
         }  // Ends if (wasAllSet)
     }  // Ends if (status == FDSN_Status_OK)
@@ -909,10 +909,10 @@ Conn_GetObject::ame_request_handler()
     api = ame->ame_fds_hook();
     // Issue the get() request with the desired read length set to the
     // current buffer length since we don't know how much data to read
-    api->GetObject(bucket_ctx, get_object_id(), NULL, ame_cur_offset,
-                   len, adr, len,
-                   static_cast<void *>(ame_ctx), fdsn_getobj_cbfn,
-                   static_cast<void *>(this));
+    // api->GetObject(bucket_ctx, get_object_id(), NULL, ame_cur_offset,
+    //            len, adr, len,
+    //             static_cast<void *>(ame_ctx), fdsn_getobj_cbfn,
+    //             static_cast<void *>(this));
 
     fds_stat_record(STAT_NGX,
                     STAT_NGX_GET_FDSN_RET, ame_clk_fdsn, fds_rdtsc());

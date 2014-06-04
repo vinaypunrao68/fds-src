@@ -33,7 +33,6 @@ public class GetObject implements RequestHandler {
 
     public Resource handle(Request request, String bucketName, String objectName) throws Exception {
         BlobDescriptor blobDescriptor = xdi.statBlob(S3Endpoint.FDS_S3, bucketName, objectName);
-        // String digest = Hex.encodeHexString(blobDescriptor.getDigest());
         String digest = blobDescriptor.getMetadata().getOrDefault("etag", "");
 
         String etag = "\"" + digest + "\"";
@@ -41,8 +40,7 @@ public class GetObject implements RequestHandler {
         String headerValue = request.getHeader("If-None-Match");
         if (headerValue != null) {
             headerValue = headerValue.replaceAll("\"", "");
-            ByteBuffer candidateValue = ByteBuffer.wrap(Hex.decodeHex(headerValue.toCharArray()));
-            if (candidateValue.compareTo(blobDescriptor.bufferForDigest()) == 0) {
+            if (headerValue == blobDescriptor.getMetadata().getOrDefault("etag", "")) {
                 return new TextResource(HttpServletResponse.SC_NOT_MODIFIED, "")
                         .withHeader("ETag", etag);
             }

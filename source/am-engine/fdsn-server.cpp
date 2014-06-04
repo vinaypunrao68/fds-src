@@ -246,7 +246,6 @@ class FdsnIf : public apis::AmServiceIf {
                     const std::string& bytes,
                     const int32_t length,
                     const apis::ObjectOffset& objectOffset,
-                    const std::string& digest,
                     const bool isLast) {
     }
 
@@ -257,7 +256,6 @@ class FdsnIf : public apis::AmServiceIf {
                     boost::shared_ptr<std::string>& bytes,
                     boost::shared_ptr<int32_t>& length,
                     boost::shared_ptr<apis::ObjectOffset>& objectOffset,
-                    boost::shared_ptr<std::string>& digest,
                     boost::shared_ptr<bool>& isLast) {
         BucketContext bucket_ctx("host", *volumeName, "accessid", "secretkey");
 
@@ -266,15 +264,6 @@ class FdsnIf : public apis::AmServiceIf {
 
         // Create context handler
         PutObjectResponseHandler putHandler;
-
-        // Setup put properties
-        // TODO(Andrew): Since we don't currently handle the
-        // transactions, always set a put properties and etag.
-        PutPropertiesPtr putProps;
-        putProps.reset(new PutProperties());
-        putProps->md5 = ObjectID::ToHex(reinterpret_cast<const uint8_t *>(
-            digest->c_str()),
-                                        digest->size());
 
         // Setup the transcation descriptor
         BlobTxId::ptr blobTxDesc(new BlobTxId(
@@ -285,7 +274,7 @@ class FdsnIf : public apis::AmServiceIf {
         // in THIS thread's context...need to fix or handle that.
         am_api->PutBlob(&bucket_ctx,
                         *blobName,
-                        putProps,
+                        NULL,  // Not passing any put properties
                         NULL,  // Not passing any context for the callback
                         const_cast<char *>(bytes->c_str()),
                         static_cast<fds_uint64_t>(objectOffset->value),

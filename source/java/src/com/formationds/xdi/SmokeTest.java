@@ -72,12 +72,10 @@ public class SmokeTest {
         for (offCount = 0; offCount < 10; offCount++) {
             am.updateBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME, txDesc,
                           ByteBuffer.wrap(putData), length,
-                          new ObjectOffset(offCount),
-                          ByteBuffer.wrap(new byte[0]), false);
+                          new ObjectOffset(offCount), false);
         }
         am.updateBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME, txDesc,
-                      ByteBuffer.wrap(putData), 0, new ObjectOffset(offCount),
-                      ByteBuffer.wrap(new byte[0]), true);
+                      ByteBuffer.wrap(putData), 0, new ObjectOffset(offCount), true);
 
         ByteBuffer data = am.getBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME,
                                          length, new ObjectOffset(0));

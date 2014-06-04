@@ -286,8 +286,6 @@ namespace fds {
                                                 fds_uint64_t bufferSize,
                                                 fds_off_t offset,
                                                 const char *buffer,
-                                                fds_uint64_t blobSize,
-                                                const std::string &blobEtag,
                                                 void *callbackData,
                                                 FDSN_Status status,
                                                 ErrorDetails *errDetails);

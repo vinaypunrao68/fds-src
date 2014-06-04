@@ -44,7 +44,6 @@ exception ApiException {
 struct BlobDescriptor {
        1: required string name,
        2: required i64 byteCount,
-       3: required binary digest,
        4: required map<string, string> metadata
 }
 
@@ -78,7 +77,7 @@ service AmService {
              throws (1: ApiException e),
 
         void updateBlob(1:string domainName, 
-          2:string volumeName, 3:string blobName, 4:TxDescriptor txDesc, 5:binary bytes, 6:i32 length, 7:ObjectOffset objectOffset, 8:binary digest, 9:bool isLast) throws (1: ApiException e),
+          2:string volumeName, 3:string blobName, 4:TxDescriptor txDesc, 5:binary bytes, 6:i32 length, 7:ObjectOffset objectOffset, 9:bool isLast) throws (1: ApiException e),
           
           void deleteBlob(1:string domainName, 2:string volumeName, 3:string blobName)
             throws (1: ApiException e)
