@@ -161,12 +161,8 @@ class FdsnIf : public apis::AmServiceIf {
         BucketContextPtr bucket_ctx(
             new BucketContext("host", *volumeName, "accessid", "secretkey"));
 
-        // TODO(Andrew): Remove this hackey maxObjSize
-        fds_uint64_t maxObjSize = 2 * 1024 * 1024;
-        fds_uint64_t offset = objectOffset->value * maxObjSize;
-
         fds_verify(*length >= 0);
-        fds_verify(offset >= 0);
+        fds_verify(objectOffset->value >= 0);
 
         // Get a buffer of the requested size
         // TODO(Andrew): This should be a shared pointer
@@ -184,7 +180,7 @@ class FdsnIf : public apis::AmServiceIf {
         am_api->GetObject(bucket_ctx,
                           *blobName,
                           NULL,  // No get conditions
-                          offset,
+                          static_cast<fds_uint64_t>(objectOffset->value),
                           *length,
                           buf,
                           *length,  // We always allocate buf of the requested size

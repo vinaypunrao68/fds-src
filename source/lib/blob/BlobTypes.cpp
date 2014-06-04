@@ -83,7 +83,7 @@ BlobTxId::operator!=(const BlobTxId& rhs) const {
 
 std::ostream&
 operator<<(std::ostream& out, const BlobTxId& txId) {
-    return out << "0x" << std::hex << txId.txId;
+    return out << "0x" << std::hex << txId.txId << std::dec;
 }
 
 }  // namespace fds
