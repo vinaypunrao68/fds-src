@@ -868,9 +868,11 @@ DataMgr::applyBlobUpdate(fds_volid_t volUuid,
             // were after it in the previous version
             if (blob.blob_end == true) {
                 auto iter = bnode->obj_list.find(offset);
-
+                fds_verify(iter != bnode->obj_list.end());
+                ++iter;
                 while (iter != bnode->obj_list.end()) {
-                    auto thisIter = iter++;
+                    auto thisIter = iter;
+                    iter++;
                     // Pop the last blob entry from the bnode
                     BlobObjectInfo truncBlobObj = thisIter->second;
                     LOGDEBUG << "Truncating entry from blob " << bnode->blob_name
@@ -906,6 +908,7 @@ DataMgr::applyBlobUpdate(fds_volid_t volUuid,
     bnode->version =  (bnode->version == blob_version_deleted) ?
             blob_version_initial : (bnode->version + 1);
 
+    LOGDEBUG << "after update: " << (*bnode);
     return err;
 }
 
@@ -1296,6 +1299,7 @@ DataMgr::statBlobBackend(const dmCatReq *statBlobReq) {
         new FDS_ProtocolInterface::BlobDescriptor());
 
     if (err == ERR_OK) {
+        LOGDEBUG << "fetched bnode:" << (*bnode);
         // Copy the metadata into the blob descriptor to return
         blobDesc->name = bnode->blob_name;
         blobDesc->byteCount = bnode->blob_size;
@@ -1938,6 +1942,7 @@ DataMgr::deleteBlobProcess(const dmCatReq  *delCatReq, BlobNode **bnode) {
         LOGDEBUG << "zero size blob:" << (*bnode)->blob_name;
     }
 
+    LOGDEBUG << "about to delete blob: " << *bnode;
     if (delCatReq->blob_version == blob_version_invalid) {
         // Allocate a delete marker blob node. The
         // marker is just a place holder marking the
