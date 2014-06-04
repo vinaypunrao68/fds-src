@@ -969,11 +969,11 @@ DataMgr::updateCatalogProcess(const dmCatReq  *updCatReq, BlobNode **bnode) {
         BlobObjectList offsetList(updCatReq->fdspUpdCatReqPtr->obj_list);
 
         // check for zero size objects and assign default objectid
-        for ( uint i = 0; i < offsetList.size(); i++ ) {
-            if ( 0 == offsetList[i].size ) {
+        for ( auto iter : offsetList ) {
+            if ( 0 == iter.second.size ) {
                 LOGWARN << "obj size is zero. setting id to nullobjectid"
-                        << " ["<< i <<"] : " << offsetList[i].data_obj_id;
-                offsetList[i].data_obj_id = NullObjectID;
+                        << " ["<< iter.first <<"] : " << iter.second.data_obj_id;
+                iter.second.data_obj_id = NullObjectID;
             }
         }
 
