@@ -653,7 +653,7 @@ StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
 
         // Set up a new journal entry to represent the waiting operation
         LOGNOTIFY << "Journal operation " << transId << " is already ACTIVE"
-                  << " at offset" << blobReq->getBlobOffset()
+                  << " at offset " << blobReq->getBlobOffset()
                   << " barriering this op " << newTransId;
 
         StorHvJournalEntry *newJournEntry = shVol->journal_tbl->get_journal_entry(newTransId);
