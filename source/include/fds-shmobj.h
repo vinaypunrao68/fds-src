@@ -146,8 +146,8 @@ typedef struct shm_1prd_ncon_q
  */
 typedef struct shm_nprd_1con_q
 {
-    fds_uint32_t             shm_1con_idx;
-    fds_uint32_t             shm_nprd_idx;
+    int                      shm_1con_idx;
+    int                      shm_nprd_idx;
 } shm_nprd_1con_q_t;
 
 /**
@@ -257,11 +257,15 @@ class ShmConPrdQueue : public fdsio::RequestQueue
 
     /**
      * Block if the queue is empty.
-     * @param consumer (i) : default is 0, if not index to control the consumer index
-     *     pointer.
+     * @param consumer (i) : default is 0, if not index to control the consumer index * pointer.
      */
     virtual void shm_consumer(void *data, size_t size, int consumer = 0) = 0;
     virtual void shm_producer(const void *data, size_t size, int producer = 0) = 0;
+
+    /**
+     * Initialize consumer indexes, setting all indexes to -1 (inactive).
+     */
+    virtual void shm_init_consumer_queue() = 0;
 
   protected:
     ShmConPrdQueue(shm_con_prd_sync_t *sync, ShmObjRW *data);
@@ -292,6 +296,9 @@ class Shm_1Prd_nCon : public ShmConPrdQueue
 
     void shm_consumer(void *data, size_t size, int consumer = 0) override;
     void shm_producer(const void *data, size_t size, int producer = 0) override;
+    void shm_init_consumer_queue() override;
+
+    void shm_activate_consumer(int consumer);
 
   private:
     shm_1prd_ncon_q_t *smq_ctrl;
@@ -306,6 +313,9 @@ class Shm_nPrd_1Con : public ShmConPrdQueue
 
     void shm_consumer(void *data, size_t size, int consumer = 0) override;
     void shm_producer(const void *data, size_t size, int producer = 0) override;
+    void shm_init_consumer_queue() override;
+
+    void shm_activate_consumer();
 
   private:
     shm_nprd_1con_q_t *smq_ctrl;

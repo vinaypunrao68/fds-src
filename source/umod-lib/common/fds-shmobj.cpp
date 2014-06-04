@@ -2,6 +2,7 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 #include <algorithm>
+#include <vector>
 #include <fds-shmobj.h>
 #include <platform/node-inv-shmem.h>
 #include <platform/fds-shmem.h>
@@ -290,7 +291,7 @@ ShmConPrdQueue::shm_swap_req_header(shmq_req_t *x, shmq_req_t *y)
 void
 ShmConPrdQueue::shm_register_handler(int smq_code, ShmqReqIn *cb)
 {
-    // TODO(brian): Threadsafe? Don't think this one matters.
+    // XXX: Threadsafe? Don't think this one matters.
     // A new callback shouldn't be registered with an existing code?
     smq_cb_map[smq_code] = cb;
 }
@@ -366,6 +367,34 @@ Shm_1Prd_nCon::Shm_1Prd_nCon(shm_con_prd_sync_t *sync, shm_1prd_ncon_q_t *ctrl, 
         : ShmConPrdQueue(sync, data), smq_ctrl(ctrl) {}
 
 void
+Shm_1Prd_nCon::shm_init_consumer_queue()
+{
+    // XXX: Threadsafe? This probably shouldn't be called
+    // if consumers are already initialized, and likely does not
+    // need to be threadsafe
+    // -------
+
+    // For each index, set it to -1
+    for (int i = 0; i < smq_ctrl->shm_ncon_cnt; ++i) {
+        smq_ctrl->shm_ncon_idx[i] = -1;
+    }
+}
+
+void
+Shm_1Prd_nCon::shm_activate_consumer(int consumer)
+{
+    // Consumer index should be -1 to perform this operation
+    fds_assert(smq_ctrl->shm_ncon_idx[consumer] == -1);
+
+    // Mutex down
+    pthread_mutex_lock(&smq_sync->shm_mtx);
+    // Set consumer idx to prod idx
+    smq_ctrl->shm_ncon_idx[consumer] = smq_ctrl->shm_1prd_idx;
+    // Mutex up
+    pthread_mutex_unlock(&smq_sync->shm_mtx);
+}
+
+void
 Shm_1Prd_nCon::shm_consumer(void *data, size_t size, int consumer /* = 0 */)
 {
     fds_assert(consumer > 0);
@@ -377,15 +406,16 @@ Shm_1Prd_nCon::shm_consumer(void *data, size_t size, int consumer /* = 0 */)
     pthread_mutex_lock(&smq_sync->shm_mtx);
     // We know the queue is empty if the consumer index is equal to
     // the producer index
-    while ( (smq_ctrl->shm_1prd_idx % smq_size) ==
-            (smq_ctrl->shm_ncon_idx[consumer] % smq_size) ) {
+    while ( smq_ctrl->shm_1prd_idx ==
+            smq_ctrl->shm_ncon_idx[consumer] ) {
         // Wait on the consumer condition variable
         pthread_cond_wait(&smq_sync->shm_con_cv, &smq_sync->shm_mtx);
     }
     // Take a request from the queue
     memcpy(data, &smq_data[smq_ctrl->shm_ncon_idx[consumer]], size);
     // Increase this queue's index counter
-    smq_ctrl->shm_ncon_idx[consumer]++;
+    smq_ctrl->shm_ncon_idx[consumer] =
+            (smq_ctrl->shm_ncon_idx[consumer] + 1) % smq_size;
 
     // Signal to producer that we've consumed
     pthread_cond_signal(&smq_sync->shm_prd_cv);
@@ -402,25 +432,37 @@ Shm_1Prd_nCon::shm_producer(const void *data, size_t size, int producer /* = 0 *
     // In this case we need to be careful that all of the queues
     // have progressed before we can write a new entry
     // -----------
+
+    std::vector<int> active_idxs;
+
     // Mutex down
     pthread_mutex_lock(&smq_sync->shm_mtx);
-    // Get LOWEST_VALUE_IDX
-    int low_idx = *std::min_element(smq_ctrl->shm_ncon_idx,
-                                   smq_ctrl->shm_ncon_idx + smq_ctrl->shm_ncon_cnt);
-    // We know the queue has space if prd_index + 1 % queue_size != cons_idx % queue_size
-    // e.g. -- MAX_QUEUE_SIZE = 32; prd_idx = 31, cns_idx = 0; 31 + 1 % 32 == 0
-    while (((smq_ctrl->shm_1prd_idx + 1) % smq_size) ==
-           (smq_ctrl->shm_ncon_idx[low_idx] % smq_size) ) {
-        // Wait on the producer condition variable
-        pthread_cond_wait(&smq_sync->shm_prd_cv, &smq_sync->shm_mtx);
-        // Recalculate the low_idx -- we should still have the mutex
-        low_idx = *std::min_element(smq_ctrl->shm_ncon_idx,
-                                   smq_ctrl->shm_ncon_idx + smq_ctrl->shm_ncon_cnt);
+    // Get only active consumers
+    std::remove_copy(smq_ctrl->shm_ncon_idx,
+                     smq_ctrl->shm_ncon_idx + smq_ctrl->shm_ncon_cnt,
+                     std::back_inserter(active_idxs),
+                     -1);
+
+    // Only check if queue full when there are active consumers
+    if (active_idxs.size() > 0) {
+        // Get LOWEST_VALUE_IDX
+        int low_idx = *std::min_element(active_idxs.begin(), active_idxs.end());
+        // We know the queue has space if prd_index + 1 % queue_size != cons_idx % queue_size
+        // e.g. -- MAX_QUEUE_SIZE = 32; prd_idx = 31, cns_idx = 0; 31 + 1 % 32 == 0
+        while ( (smq_ctrl->shm_1prd_idx + 1) ==
+                smq_ctrl->shm_ncon_idx[low_idx] ) {
+            // Wait on the producer condition variable
+            pthread_cond_wait(&smq_sync->shm_prd_cv, &smq_sync->shm_mtx);
+            // Recalculate the low_idx -- we should still have the mutex
+            low_idx = *std::min_element(smq_ctrl->shm_ncon_idx,
+                                        smq_ctrl->shm_ncon_idx + smq_ctrl->shm_ncon_cnt);
+        }
     }
     // Add new data to the queue
     memcpy(&this->smq_data[smq_ctrl->shm_1prd_idx], data, size);
     // Increase the prd_index
-    smq_ctrl->shm_1prd_idx++;
+    smq_ctrl->shm_1prd_idx =
+            (smq_ctrl->shm_1prd_idx + 1) % smq_size;
 
     // Signal to consumers that there is more stuff
     pthread_cond_broadcast(&smq_sync->shm_con_cv);
@@ -433,6 +475,30 @@ Shm_nPrd_1Con::Shm_nPrd_1Con(shm_con_prd_sync_t *sync, shm_nprd_1con_q_t *ctrl, 
         : ShmConPrdQueue(sync, data), smq_ctrl(ctrl) {}
 
 void
+Shm_nPrd_1Con::shm_init_consumer_queue()
+{
+    // XXX: Threadsafe? This probably shouldn't be called
+    // if consumers are already initialized, and likely does not
+    // need to be threadsafe
+    // -------
+    smq_ctrl->shm_1con_idx = -1;
+}
+
+void
+Shm_nPrd_1Con::shm_activate_consumer()
+{
+    // con idx should be -1 to perform this operation
+    fds_assert(smq_ctrl->shm_1con_idx == -1);
+
+    // Mutex down
+    pthread_mutex_lock(&smq_sync->shm_mtx);
+    // Set consumer idx to prod idx
+    smq_ctrl->shm_1con_idx = smq_ctrl->shm_nprd_idx;
+    // Mutex up
+    pthread_mutex_unlock(&smq_sync->shm_mtx);
+}
+
+void
 Shm_nPrd_1Con::shm_consumer(void *data, size_t size, int consumer /* = 0 */)
 {
     fds_assert(data != nullptr);
@@ -441,15 +507,15 @@ Shm_nPrd_1Con::shm_consumer(void *data, size_t size, int consumer /* = 0 */)
     pthread_mutex_lock(&smq_sync->shm_mtx);
     // We know the queue is empty if the consumer index is equal to
     // the producer index
-    while ( (smq_ctrl->shm_nprd_idx % smq_size) ==
-            (smq_ctrl->shm_1con_idx % smq_size) ) {
+    while ( smq_ctrl->shm_nprd_idx == smq_ctrl->shm_1con_idx ) {
         // Wait on the consumer condition variable
         pthread_cond_wait(&smq_sync->shm_con_cv, &smq_sync->shm_mtx);
     }
     // Take a request from the queue
     memcpy(data, &this->smq_data[smq_ctrl->shm_1con_idx], size);
     // Increase this queue's index counter
-    smq_ctrl->shm_1con_idx++;
+    smq_ctrl->shm_1con_idx =
+            (smq_ctrl->shm_1con_idx + 1) % smq_size;
 
     // Signal to producer that we've consumed
     pthread_cond_signal(&smq_sync->shm_prd_cv);
@@ -465,15 +531,15 @@ Shm_nPrd_1Con::shm_producer(const void *data, size_t size, int producer /* = 0 *
     pthread_mutex_lock(&smq_sync->shm_mtx);
     // We know the queue has space if prd_index + 1 % queue_size != cons_idx % queue_size
     // e.g. -- MAX_QUEUE_SIZE = 32; prd_idx = 31, cns_idx = 0; 31 + 1 % 32 == 0
-    while (((smq_ctrl->shm_nprd_idx + 1) % smq_size) ==
-           (smq_ctrl->shm_1con_idx % smq_size) ) {
+    while ( (smq_ctrl->shm_nprd_idx + 1) == smq_ctrl->shm_1con_idx ) {
         // Wait on the producer condition variable
         pthread_cond_wait(&smq_sync->shm_prd_cv, &smq_sync->shm_mtx);
     }
     // Add new data to the queue
     memcpy(&this->smq_data[smq_ctrl->shm_nprd_idx], data, size);
     // Increase the prd_index
-    smq_ctrl->shm_nprd_idx++;
+    smq_ctrl->shm_nprd_idx =
+            (smq_ctrl->shm_nprd_idx + 1) % smq_size;
 
     // Signal to consumers that there is more stuff
     pthread_cond_broadcast(&smq_sync->shm_con_cv);
