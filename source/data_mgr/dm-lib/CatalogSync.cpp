@@ -231,6 +231,11 @@ fds_bool_t CatalogSync::isInForwardState() const {
     return (cur_state != CSSTATE_FORWARDING);
 }
 
+fds_bool_t CatalogSync::syncDone() {
+    std::atomic_exchange(&state, CSSTATE_DONE);
+    return (true);
+}
+
 Error CatalogSync::forwardCatalogUpdate(dmCatReq  *updCatReq) {
     Error err(ERR_OK);
     csStateType cur_state = std::atomic_load(&state);
@@ -256,6 +261,7 @@ Error CatalogSync::forwardCatalogUpdate(dmCatReq  *updCatReq) {
     updCatalog->blob_mime_type = updCatReq->fdspUpdCatReqPtr->blob_mime_type;
     updCatalog->obj_list = updCatReq->fdspUpdCatReqPtr->obj_list;
     updCatalog->meta_list = updCatReq->fdspUpdCatReqPtr->meta_list;
+    updCatalog->dm_operation = FDS_DMGR_TXN_STATUS_OPEN;
 
     /*
      * send the uipdate catalog to new node
@@ -477,6 +483,7 @@ Error CatalogSyncMgr::forwardCatalogUpdate(dmCatReq  *updCatReq) {
          ++cit) {
         if ((cit->second)->hasVolume(updCatReq->volId)) {
             if((cit->second)->isInForwardState() == true) {
+                LOGDEBUG << "FORWARD:sync catalog update for volume " << updCatReq->volId;
                 err = (cit->second)->forwardCatalogUpdate(updCatReq);
                 found_volume = true;
                 break;
@@ -535,12 +542,22 @@ void CatalogSyncMgr::syncDoneCb(catsync_notify_evt_t event,
     }
 }
 
+void CatalogSyncMgr::cleanupSyncState() {
+
+      fds_mutex::scoped_lock l(cat_sync_lock);
+     for (CatSyncMap::const_iterator cit = cat_sync_map.cbegin();
+           cit != cat_sync_map.cend();
+              ++cit) {
+                    (cit->second)->syncDone();
+     }
+}
 /**
  * Called when OM sends DMT close message to DM, so we can cleanup the
  * state of this sync and be ready for next sync...
  */
 void CatalogSyncMgr::notifyCatalogSyncFinish() {
     fds_mutex::scoped_lock l(cat_sync_lock);
+      LOGNORMAL << "DMT_CLOSE: Received dmt close from OM";
     // delta sync must be done for all volumes!
     for (CatSyncMap::const_iterator cit = cat_sync_map.cbegin();
          cit != cat_sync_map.cend();
@@ -577,6 +594,7 @@ FDSP_MetaSyncRpc::PushMetaSyncReq(fpi::FDSP_MsgHdrTypePtr& fdsp_msg,
         fds_verify(bnode != NULL);
     }
 
+
 }
 
 void
@@ -585,6 +603,8 @@ FDSP_MetaSyncRpc::MetaSyncDone(fpi::FDSP_MsgHdrTypePtr& fdsp_msg,
     LOGNORMAL << "Received MetaSyncDone Rpc message ";
     fds_verify(dataMgr->vol_meta_map.count(vol_meta->vol_uuid) > 0);
     VolumeMeta *vm = dataMgr->vol_meta_map[vol_meta->vol_uuid];
+    /* clear  the sync state  */
+     dataMgr->catSyncMgr->cleanupSyncState();
     vm->openCatalogs(vol_meta->vol_uuid);
 }
 

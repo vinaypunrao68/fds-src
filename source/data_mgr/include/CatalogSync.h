@@ -115,6 +115,7 @@ namespace fds {
         fds_bool_t isInitialSyncDone() const;
         fds_bool_t isDeltaSyncDone() const;
         fds_bool_t isInForwardState() const;
+        fds_bool_t syncDone();
 
         /**
          * Callback from data mgr that volume cat initial push
@@ -251,6 +252,7 @@ namespace fds {
                         fds_volid_t volid,
                         OMgrClient* omclient,
                         const Error& error);
+        void cleanupSyncState();
 
   private:  // methods
         netMetaSyncClientSession*
