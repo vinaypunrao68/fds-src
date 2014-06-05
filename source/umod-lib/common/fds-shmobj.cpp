@@ -397,13 +397,15 @@ Shm_1Prd_nCon::shm_activate_consumer(int consumer)
 void
 Shm_1Prd_nCon::shm_consumer(void *data, size_t size, int consumer /* = 0 */)
 {
-    fds_assert(consumer > 0);
-    fds_assert(consumer <= smq_ctrl->shm_ncon_cnt);
+    fds_assert(consumer >= 0);
+    fds_assert(consumer < smq_ctrl->shm_ncon_cnt);
     fds_assert(data != nullptr);
     fds_assert(size > 0);
 
+    int ret_code = -1;
     // Mutex down
-    pthread_mutex_lock(&smq_sync->shm_mtx);
+    ret_code = pthread_mutex_lock(&smq_sync->shm_mtx);
+    fds_assert(0 == ret_code);
     // We know the queue is empty if the consumer index is equal to
     // the producer index
     while ( smq_ctrl->shm_1prd_idx ==
@@ -418,9 +420,11 @@ Shm_1Prd_nCon::shm_consumer(void *data, size_t size, int consumer /* = 0 */)
             (smq_ctrl->shm_ncon_idx[consumer] + 1) % smq_size;
 
     // Signal to producer that we've consumed
-    pthread_cond_signal(&smq_sync->shm_prd_cv);
+    ret_code = pthread_cond_signal(&smq_sync->shm_prd_cv);
+    fds_assert(0 == ret_code);
     // Mutex up
-    pthread_mutex_unlock(&smq_sync->shm_mtx);
+    ret_code = pthread_mutex_unlock(&smq_sync->shm_mtx);
+    fds_assert(0 == ret_code);
 }
 
 void
@@ -434,9 +438,11 @@ Shm_1Prd_nCon::shm_producer(const void *data, size_t size, int producer /* = 0 *
     // -----------
 
     std::vector<int> active_idxs;
+    int ret_code = -1;
 
     // Mutex down
-    pthread_mutex_lock(&smq_sync->shm_mtx);
+    ret_code = pthread_mutex_lock(&smq_sync->shm_mtx);
+    fds_assert(0 == ret_code);
     // Get only active consumers
     std::remove_copy(smq_ctrl->shm_ncon_idx,
                      smq_ctrl->shm_ncon_idx + smq_ctrl->shm_ncon_cnt,
@@ -465,9 +471,11 @@ Shm_1Prd_nCon::shm_producer(const void *data, size_t size, int producer /* = 0 *
             (smq_ctrl->shm_1prd_idx + 1) % smq_size;
 
     // Signal to consumers that there is more stuff
-    pthread_cond_broadcast(&smq_sync->shm_con_cv);
+    ret_code = pthread_cond_broadcast(&smq_sync->shm_con_cv);
+    fds_assert(0 == ret_code);
     // Mutex up
-    pthread_mutex_unlock(&smq_sync->shm_mtx);
+    ret_code = pthread_mutex_unlock(&smq_sync->shm_mtx);
+    fds_assert(0 == ret_code);
 }
 
 
@@ -490,12 +498,15 @@ Shm_nPrd_1Con::shm_activate_consumer()
     // con idx should be -1 to perform this operation
     fds_assert(smq_ctrl->shm_1con_idx == -1);
 
+    int ret_code = -1;
     // Mutex down
-    pthread_mutex_lock(&smq_sync->shm_mtx);
+    ret_code = pthread_mutex_lock(&smq_sync->shm_mtx);
+    fds_assert(0 == ret_code);
     // Set consumer idx to prod idx
     smq_ctrl->shm_1con_idx = smq_ctrl->shm_nprd_idx;
     // Mutex up
-    pthread_mutex_unlock(&smq_sync->shm_mtx);
+    ret_code = pthread_mutex_unlock(&smq_sync->shm_mtx);
+    fds_assert(0 == ret_code);
 }
 
 void
@@ -503,8 +514,11 @@ Shm_nPrd_1Con::shm_consumer(void *data, size_t size, int consumer /* = 0 */)
 {
     fds_assert(data != nullptr);
     fds_assert(size > 0);
+
+    int ret_code = -1;
     // Mutex down
-    pthread_mutex_lock(&smq_sync->shm_mtx);
+    ret_code = pthread_mutex_lock(&smq_sync->shm_mtx);
+    fds_assert(0 == ret_code);
     // We know the queue is empty if the consumer index is equal to
     // the producer index
     while ( smq_ctrl->shm_nprd_idx == smq_ctrl->shm_1con_idx ) {
@@ -518,17 +532,22 @@ Shm_nPrd_1Con::shm_consumer(void *data, size_t size, int consumer /* = 0 */)
             (smq_ctrl->shm_1con_idx + 1) % smq_size;
 
     // Signal to producer that we've consumed
-    pthread_cond_signal(&smq_sync->shm_prd_cv);
+    ret_code = pthread_cond_signal(&smq_sync->shm_prd_cv);
+    fds_assert(0 == ret_code);
     // Mutex up
-    pthread_mutex_unlock(&smq_sync->shm_mtx);
+    ret_code = pthread_mutex_unlock(&smq_sync->shm_mtx);
+    fds_assert(0 == ret_code);
 }
 void
 Shm_nPrd_1Con::shm_producer(const void *data, size_t size, int producer /* = 0 */)
 {
     fds_assert(data != nullptr);
     fds_assert(size > 0);
+
+    int ret_code = -1;
     // Mutex down
-    pthread_mutex_lock(&smq_sync->shm_mtx);
+    ret_code = pthread_mutex_lock(&smq_sync->shm_mtx);
+    fds_assert(0 == ret_code);
     // We know the queue has space if prd_index + 1 % queue_size != cons_idx % queue_size
     // e.g. -- MAX_QUEUE_SIZE = 32; prd_idx = 31, cns_idx = 0; 31 + 1 % 32 == 0
     while ( (smq_ctrl->shm_nprd_idx + 1) == smq_ctrl->shm_1con_idx ) {
@@ -542,9 +561,11 @@ Shm_nPrd_1Con::shm_producer(const void *data, size_t size, int producer /* = 0 *
             (smq_ctrl->shm_nprd_idx + 1) % smq_size;
 
     // Signal to consumers that there is more stuff
-    pthread_cond_broadcast(&smq_sync->shm_con_cv);
+    ret_code = pthread_cond_broadcast(&smq_sync->shm_con_cv);
+    fds_assert(0 == ret_code);
     // Mutex up
-    pthread_mutex_unlock(&smq_sync->shm_mtx);
+    ret_code = pthread_mutex_unlock(&smq_sync->shm_mtx);
+    fds_assert(0 == ret_code);
 }
 
 }  // namespace fds
