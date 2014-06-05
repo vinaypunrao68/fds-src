@@ -12,6 +12,8 @@
 #include <fds_typedefs.h>
 #include <fdsp/fds_service_types.h>
 #include <fds_error.h>
+#include <fds_dmt.h>
+#include <dlt.h>
 #include <net/RpcFunc.h>
 
 namespace fds {
@@ -66,39 +68,67 @@ struct DltObjectIdEpProvider : EpIdProvider {
     explicit DltObjectIdEpProvider(const ObjectID &objId)
     {
     }
+    // TODO(Rao): Remove, once dlt is managed by platform.  At that point
+    // we don't need this interface
+    explicit DltObjectIdEpProvider(DltTokenGroupPtr group)
+    {
+        auto &g = *group;
+        for (uint32_t i = 0; i < g.getLength(); i++) {
+            epIds_.push_back(g[i].toSvcUuid());
+        }
+    }
     virtual fpi::SvcUuid getNextEp() override
     {
         // TODO(Rao): Impl
-        fpi::SvcUuid svcId;
-        return svcId;
+        fds_verify(!"Not impl");
+        return fpi::SvcUuid();
     }
     virtual std::vector<fpi::SvcUuid> getEps() override
     {
-        // TODO(Rao): Impl
-        std::vector<fpi::SvcUuid> uuids;
-        return uuids;
+        return epIds_;
     }
 
-    protected:
+ protected:
+    /* List of endpoints.
+     * NOTE: We may not need this memenber.  We can make getting endpoints
+     * more dynamic and based on DMT
+     */
+    std::vector<fpi::SvcUuid> epIds_;
 };
 
 struct DmtVolumeIdEpProvider : EpIdProvider {
     explicit DmtVolumeIdEpProvider(const fds_volid_t& volId)
     {
+        fds_verify(!"Not impl");
+    }
+    // TODO(Rao): Remove, once dlt is managed by platform.  At that point
+    // we don't need this interface
+    explicit DmtVolumeIdEpProvider(DmtColumnPtr group)
+    {
+        auto &g = *group;
+        for (uint32_t i = 0; i < g.getLength(); i++) {
+            epIds_.push_back(g[i].toSvcUuid());
+        }
     }
     virtual fpi::SvcUuid getNextEp() override
     {
         // TODO(Rao): Impl
-        fpi::SvcUuid svcId;
-        return svcId;
+        fds_verify(!"Not impl");
+        return fpi::SvcUuid();
     }
     virtual std::vector<fpi::SvcUuid> getEps() override
     {
-        // TODO(Rao): Impl
-        std::vector<fpi::SvcUuid> uuids;
-        return uuids;
+        return epIds_;
     }
+
+ protected:
+    /* List of endpoints.
+     * NOTE: We may not need this memenber.  We can make getting endpoints
+     * more dynamic and based on DMT
+     */
+    std::vector<fpi::SvcUuid> epIds_;
 };
+
 
 /**
  * Base class for async rpc requests
@@ -118,6 +148,8 @@ struct AsyncRpcRequestIf {
     virtual void complete(const Error& error);
 
     virtual bool isComplete();
+
+    virtual std::string logString() = 0;
 
     void setRpcFunc(RpcFunc rpc);
 
@@ -139,6 +171,8 @@ struct AsyncRpcRequestIf {
 
  protected:
     void invokeCommon_(const fpi::SvcUuid &epId);
+    std::stringstream& logRpcReqCommon_(std::stringstream &oss,
+                                        const std::string &type);
 
     /* Lock for synchronizing response handling */
     fds_mutex respLock_;
@@ -182,6 +216,8 @@ struct EPAsyncRpcRequest : AsyncRpcRequestIf {
 
     virtual void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
             boost::shared_ptr<std::string>& payload) override;
+
+    virtual std::string logString() override;
 
     fpi::SvcUuid getPeerEpId() const;
 
@@ -243,6 +279,8 @@ struct FailoverRpcRequest : MultiEpAsyncRpcRequest {
     virtual void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
             boost::shared_ptr<std::string>& payload) override;
 
+    virtual std::string logString() override;
+
     void onResponseCb(FailoverRpcRespCb cb);
 
  protected:
@@ -272,6 +310,8 @@ struct QuorumRpcRequest : MultiEpAsyncRpcRequest {
 
     virtual void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
             boost::shared_ptr<std::string>& payload) override;
+
+    virtual std::string logString() override;
 
     void setQuorumCnt(const uint32_t cnt);
 

@@ -3,6 +3,7 @@
  */
 #include <fds_assert.h>
 #include <fds_resource.h>
+#include <fdsp_utils.h>
 
 namespace fds {
 
@@ -13,6 +14,11 @@ ResourceUUID::ResourceUUID(const fds_uint8_t *raw)
 {
     const fds_uint64_t *ptr = reinterpret_cast<const fds_uint64_t *>(raw);
     rs_uuid = *ptr;
+}
+
+fpi::SvcUuid ResourceUUID::toSvcUuid() const {
+    fpi::SvcUuid s;
+    return assign(s, *this);
 }
 
 std::ostream& operator<< (std::ostream& os, const fds::ResourceUUID& uuid) {

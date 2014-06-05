@@ -5,16 +5,22 @@
 #include <net/RpcRequestPool.h>
 #include <net/net-service.h>
 #include <net/AsyncRpcRequestTracker.h>
+#include <platform/platform-lib.h>
+#include <fdsp_utils.h>
 
 namespace fds {
 
+// TODO(Rao): Make RpcRequestPool and AsyncRpcRequestTracker a module
 RpcRequestPool *gRpcRequestPool = new RpcRequestPool();
+AsyncRpcRequestTracker* gAsyncRpcTracker;
 
 /**
  * Constructor
  */
 RpcRequestPool::RpcRequestPool()
 {
+    gAsyncRpcTracker = new AsyncRpcRequestTracker();
+
     nextAsyncReqId_ = 0;
     finishTrackingCb_ = std::bind(&AsyncRpcRequestTracker::removeFromTracking,
             gAsyncRpcTracker, std::placeholders::_1);
@@ -112,10 +118,12 @@ FailoverRpcRequestPtr RpcRequestPool::newFailoverRpcRequest(
 }
 
 FailoverRpcRequestPtr RpcRequestPool::newFailoverRpcRequest(
-    const fpi::SvcUuid& myEpId,
     const EpIdProviderPtr epProvider)
 {
     auto reqId = nextAsyncReqId_++;
+
+    fpi::SvcUuid myEpId;
+    fds::assign(myEpId, *PlatformProcess::plf_manager()->plf_get_my_svc_uuid());
 
     FailoverRpcRequestPtr req(new FailoverRpcRequest(reqId, myEpId, epProvider));
     asyncRpcInitCommon_(req);

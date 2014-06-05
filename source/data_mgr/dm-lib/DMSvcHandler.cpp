@@ -16,6 +16,7 @@ DMSvcHandler::DMSvcHandler()
 
 void DMSvcHandler::queryCatalogObject(boost::shared_ptr<fpi::QueryCatalogMsg>& queryMsg)
 {
+    DBG(GLOGDEBUG << logString(*queryMsg));
     /*
      * allocate a new query cat log  class and  queue  to per volume queue.
      */
@@ -30,7 +31,8 @@ void DMSvcHandler::queryCatalogObject(boost::shared_ptr<fpi::QueryCatalogMsg>& q
     // TODO(Andrew): Have a better constructor so that I can
     // set it that way.
     dmQryReq->setBlobVersion(queryMsg->blob_version);
-    dmQryReq->resp_cb = std::bind(&DMSvcHandler::queryCatalogObjectCb, this, queryMsg,
+    dmQryReq->resp_cb = std::bind(&DMSvcHandler::queryCatalogObjectCb, this,
+                                  queryMsg,
                                   std::placeholders::_1, std::placeholders::_2,
                                   std::placeholders::_3);
 
@@ -51,6 +53,8 @@ void DMSvcHandler::queryCatalogObjectCb(boost::shared_ptr<fpi::QueryCatalogMsg>&
                                         const Error &e, dmCatReq *req,
                                         BlobNode *bnode)
 {
+    DBG(GLOGDEBUG << logString(*queryMsg));
+
     queryMsg->obj_list.clear();
     queryMsg->meta_list.clear();
     queryMsg->hdr.msg_code = static_cast<int32_t>(e.GetErrno());
@@ -58,8 +62,10 @@ void DMSvcHandler::queryCatalogObjectCb(boost::shared_ptr<fpi::QueryCatalogMsg>&
         bnode->ToFdspPayload(queryMsg);
         delete bnode;
     }
-    delete req;
+
     NetMgr::ep_mgr_singleton()->ep_send_async_resp(queryMsg->hdr, *queryMsg);
+
+    delete req;
 }
 
 }  // namespace fds

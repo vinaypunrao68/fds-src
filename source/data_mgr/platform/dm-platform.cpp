@@ -130,8 +130,8 @@ DmPlatform::mod_startup()
         bo::shared_ptr<fpi::DMSvcProcessor>(new fpi::DMSvcProcessor(dm_recv)),
         dm_plugin);
 
-    LOGNORMAL << "Startup platform specific net svc, port "
-              << Platform::platf_singleton()->plf_get_dm_port();
+    LOGNORMAL << " my_svc_uuid: " << *Platform::platf_singleton()->plf_get_my_svc_uuid()
+        << " port: " << Platform::platf_singleton()->plf_get_dm_port();
 }
 
 // mod_enable_service

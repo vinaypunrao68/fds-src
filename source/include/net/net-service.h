@@ -488,19 +488,29 @@ class NetMgr : public Module
     }
 
     template<class PayloadT>
-    static boost::shared_ptr<PayloadT> ep_deserialize(std::string &buf)
+    static boost::shared_ptr<PayloadT> ep_deserialize(Error &e, std::string &buf)
     {
-        GLOGDEBUG;
+        DBG(GLOGDEBUG);
 
-        bo::shared_ptr<tt::TMemoryBuffer> memory_buf(
-            new tt::TMemoryBuffer(reinterpret_cast<uint8_t*>(const_cast<char*>(buf.c_str())),
-                                  buf.size()));
-        bo::shared_ptr<tp::TProtocol> binary_buf(new tp::TBinaryProtocol(memory_buf));
+        if (e != ERR_OK) {
+            return nullptr;
+        }
 
-        boost::shared_ptr<PayloadT> result(boost::make_shared<PayloadT>());
-        auto read = result->read(binary_buf.get());
-        fds_verify(read > 0);
-        return result;
+        try {
+            bo::shared_ptr<tt::TMemoryBuffer> memory_buf(
+                new tt::TMemoryBuffer(reinterpret_cast<uint8_t*>(const_cast<char*>(buf.c_str())),
+                                      buf.size()));
+            bo::shared_ptr<tp::TProtocol> binary_buf(new tp::TBinaryProtocol(memory_buf));
+
+            boost::shared_ptr<PayloadT> result(boost::make_shared<PayloadT>());
+            auto read = result->read(binary_buf.get());
+            fds_verify(read > 0);
+            return result;
+        } catch(std::exception& ex) {
+            GLOGWARN << "Failed to deserialize. Exception: " << ex.what();
+            e = ERR_SERIALIZE_FAILED;
+            return nullptr;
+        }
     }
 
     bo::shared_ptr<FdsTimer> ep_get_timer() const;

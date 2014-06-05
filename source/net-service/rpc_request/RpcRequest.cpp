@@ -30,7 +30,7 @@ AsyncRpcTimer::AsyncRpcTimer(const AsyncRpcRequestId &id,
 */
 void AsyncRpcTimer::runTimerTask()
 {
-    GLOGDEBUG << "Timeout: " << logString(*header_);
+    GLOGWARN << "Timeout: " << fds::logString(*header_);
     AsyncRpcRequestIf::postError(header_);
 }
 
@@ -58,7 +58,7 @@ AsyncRpcRequestIf::~AsyncRpcRequestIf()
  * @param error
  */
 void AsyncRpcRequestIf::complete(const Error& error) {
-    GLOGDEBUG << " id: " << id_;
+    DBG(GLOGDEBUG << logString());
 
     fds_assert(state_ != RPC_COMPLETE);
     state_ = RPC_COMPLETE;
@@ -124,7 +124,7 @@ void AsyncRpcRequestIf::invokeCommon_(const fpi::SvcUuid &peerEpId)
 {
     auto header = RpcRequestPool::newAsyncHeader(id_, myEpId_, peerEpId);
 
-    GLOGDEBUG << logString(header);
+    DBG(GLOGDEBUG << fds::logString(header));
 
     try {
         rpc_(header);
@@ -137,6 +137,7 @@ void AsyncRpcRequestIf::invokeCommon_(const fpi::SvcUuid &peerEpId)
        }
     } catch(...) {
         // TODO(Rao): Catch different exceptions
+        GLOGERROR << logString();
         auto respHdr = RpcRequestPool::newAsyncHeaderPtr(id_, peerEpId, myEpId_);
         respHdr->msg_code = ERR_RPC_INVOCATION;
         postError(respHdr);
@@ -151,6 +152,14 @@ void AsyncRpcRequestIf::postError(boost::shared_ptr<fpi::AsyncHdr> header)
     /* NetMgr::ep_mgr_singleton()->ep_mgr_thrpool()->schedule(
         std::bind(&BaseAsyncSvcHandler::asyncRespHandler, header, payload)); */
     new std::thread(std::bind(&BaseAsyncSvcHandler::asyncRespHandler, header, payload));
+}
+
+
+std::stringstream& AsyncRpcRequestIf::logRpcReqCommon_(std::stringstream &oss,
+                                                       const std::string &type)
+{
+    oss << " " << type << " Req Id: " << id_ << " From: " << myEpId_.svc_uuid;
+    return oss;
 }
 
 EPAsyncRpcRequest::EPAsyncRpcRequest()
@@ -168,7 +177,7 @@ EPAsyncRpcRequest::EPAsyncRpcRequest(const AsyncRpcRequestId &id,
 
 EPAsyncRpcRequest::~EPAsyncRpcRequest()
 {
-    GLOGDEBUG << " id: " << id_;
+    DBG(GLOGDEBUG << logString());
 }
 
 /**
@@ -184,6 +193,7 @@ void EPAsyncRpcRequest::invoke()
     if (epHealthy) {
        invokeCommon_(peerEpId_);
     } else {
+        GLOGERROR << logString() << " No healthy endpoints left";
         auto respHdr = RpcRequestPool::newAsyncHeaderPtr(id_, peerEpId_, myEpId_);
         respHdr->msg_code = ERR_RPC_INVOCATION;
         postError(respHdr);
@@ -200,8 +210,7 @@ void EPAsyncRpcRequest::invoke()
 void EPAsyncRpcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
         boost::shared_ptr<std::string>& payload)
 {
-    GLOGDEBUG << " id: " << id_;
-
+    DBG(GLOGDEBUG << logString());
 
     fds_scoped_lock l(respLock_);
     if (isComplete()) {
@@ -223,6 +232,17 @@ void EPAsyncRpcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
     complete(ERR_OK);
 }
 
+/**
+* @brief 
+*
+* @return 
+*/
+std::string EPAsyncRpcRequest::logString()
+{
+    std::stringstream oss;
+    logRpcReqCommon_(oss, "EPAsyncRpcRequest") << " To: " << peerEpId_.svc_uuid;
+    return oss.str();
+}
 
 /**
 * @brief 
@@ -372,7 +392,7 @@ void QuorumRpcRequest::invoke()
 void QuorumRpcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
                                       boost::shared_ptr<std::string>& payload)
 {
-    GLOGDEBUG << " id: " << id_;
+    DBG(GLOGDEBUG << logString());
 
     // bool invokeRpc = false;
     fpi::SvcUuid errdEpId;
@@ -389,7 +409,7 @@ void QuorumRpcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
     if (header->msg_code == ERR_OK) {
         successAckd_++;
     } else {
-        GLOGWARN << logString(*header);
+        GLOGWARN << fds::logString(*header);
 
         /* Notify actionable error to endpoint manager */
         if (NetMgr::ep_mgr_singleton()->ep_actionable_error(header->msg_code)) {
@@ -421,6 +441,18 @@ void QuorumRpcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
         complete(ERR_RPC_FAILED);
         return;
     }
+}
+
+/**
+* @brief 
+*
+* @return 
+*/
+std::string QuorumRpcRequest::logString()
+{
+    std::stringstream oss;
+    logRpcReqCommon_(oss, "QuorumRpcRequest");
+    return oss.str();
 }
 
 void QuorumRpcRequest::onResponseCb(QuorumRpcRespCb cb)

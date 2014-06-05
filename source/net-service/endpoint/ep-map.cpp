@@ -122,7 +122,8 @@ EpPlatLibMod::ep_req_map_record(fds_uint32_t op, const ep_map_rec_t *rec)
 
     plat = NodeShmCtrl::shm_producer();
     mine = NodeShmCtrl::shm_consumer();
-
+    return 0;
+    // TODO(Vy): Fix it
     mine->shm_track_request(&out, &reqt.smq_hdr);
     plat->shm_producer(static_cast<void *>(&reqt), sizeof(reqt), ep_my_type);
 

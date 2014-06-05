@@ -344,12 +344,12 @@ public:
     void issueGetObject(const ObjectID& objId,
                         FailoverRpcRespCb respCb);
 
-    void getBlobQueryCatalogResp(GetBlobReq *blobReq,
+    void getBlobQueryCatalogResp(fds::AmQosReq* qosReq,
                                  FailoverRpcRequest* rpcReq,
                                  const Error& error,
                                  boost::shared_ptr<std::string> payload);
 
-    void getBlobGetObjectResp(GetBlobReq *blobReq,
+    void getBlobGetObjectResp(fds::AmQosReq* qosReq,
                               FailoverRpcRequest* rpcReq,
                               const Error& error,
                               boost::shared_ptr<std::string> payload);

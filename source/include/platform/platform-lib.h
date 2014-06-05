@@ -256,8 +256,9 @@ class Platform : public Module
     static inline fds_uint32_t plf_data_port(fds_uint32_t base) { return base + 2; }
     static inline fds_uint32_t plf_migration_port(fds_uint32_t base) { return base + 3; }
     static inline fds_uint32_t plf_nsvc_port(fds_uint32_t base) { return base + 4; }
-    static inline fds_uint32_t plf_dm_port(fds_uint32_t base) { return base + 5; }
-    static inline fds_uint32_t plf_metasync_port(fds_uint32_t base) { return base + 6; }
+    static inline fds_uint32_t plf_sm_port(fds_uint32_t base) { return base + 5; }
+    static inline fds_uint32_t plf_dm_port(fds_uint32_t base) { return base + 6; }
+    static inline fds_uint32_t plf_metasync_port(fds_uint32_t base) { return base + 7; }
 
     /**
      * Return service uuid from node uuid and service type.
@@ -302,6 +303,7 @@ class Platform : public Module
     inline fds_uint32_t   plf_get_my_ctrl_port() const { return plf_my_ctrl_port; }
     inline fds_uint32_t   plf_get_my_conf_port() const { return plf_my_conf_port; }
     inline fds_uint32_t   plf_get_my_data_port() const { return plf_my_data_port; }
+    inline fds_uint32_t   plf_get_sm_port() const { return plf_my_sm_port; }
     inline fds_uint32_t   plf_get_dm_port() const { return plf_my_dm_port; }
 
     inline fds_uint32_t   plf_get_my_nsvc_port() const { return plf_my_nsvc_port; }
@@ -344,6 +346,7 @@ class Platform : public Module
     fds_uint32_t               plf_my_data_port;
     fds_uint32_t               plf_my_nsvc_port;
     fds_uint32_t               plf_my_migr_port;
+    fds_uint32_t               plf_my_sm_port;
     fds_uint32_t               plf_my_dm_port;
     fds_uint32_t               plf_my_metasync_port;
 

@@ -20,6 +20,7 @@
 #include <net/RpcRequestPool.h>
 #include <fdsp/DMSvc.h>
 #include <fdsp/SMSvc.h>
+#include <fdsp_utils.h>
 
 extern StorHvCtrl *storHvisor;
 using namespace std;
@@ -1156,7 +1157,8 @@ Error StorHvCtrl::getBlob2(fds::AmQosReq *qosReq) {
                     << volId;    
         blobReq->cbWithResult(-1);
         err = ERR_DISK_WRITE_FAILED;
-        // TODO(Rao): Do we need to call markIoDone here?
+        qos_ctrl->markIODone(qosReq);
+        delete blobReq;
         delete qosReq;
         return err;
     }
@@ -1167,18 +1169,19 @@ Error StorHvCtrl::getBlob2(fds::AmQosReq *qosReq) {
     bool inCache = shVol->vol_catalog_cache->LookupObjectId(blobReq->getBlobName(),
                                           blobReq->getBlobOffset(),
                                           objId);
-    if (!inCache) {
+    if (true || !inCache) {
         issueQueryCatalog(blobReq->getBlobName(),
                           blobReq->getBlobOffset(),
                           volId,
-                          std::bind(&StorHvCtrl::getBlobQueryCatalogResp, this, blobReq,
+                          std::bind(&StorHvCtrl::getBlobQueryCatalogResp, this, qosReq,
                                     std::placeholders::_1, std::placeholders::_2,
                                     std::placeholders::_3));
     } else {
-       issueGetObject(objId,
-                      std::bind(&StorHvCtrl::getBlobGetObjectResp, this, blobReq,
-                                std::placeholders::_1, std::placeholders::_2,
-                                std::placeholders::_3));
+        fds_verify(objId != NullObjectID);
+        issueGetObject(objId,
+                       std::bind(&StorHvCtrl::getBlobGetObjectResp, this, qosReq,
+                                 std::placeholders::_1, std::placeholders::_2,
+                                 std::placeholders::_3));
     }
     return err;
 }
@@ -1188,11 +1191,13 @@ void StorHvCtrl::issueQueryCatalog(const std::string& blobName,
                        const fds_volid_t& volId,
                        FailoverRpcRespCb respCb)
 {
+    LOGDEBUG << "blob name: " << blobName << " offset: " << blobOffset << " volid: " << volId;
     /*
      * TODO(Andrew): We should eventually specify the offset in the blob
      * we want...all objects won't work well for large blobs.
      */
     fpi::QueryCatalogMsgPtr queryMsg(new fpi::QueryCatalogMsg());
+    queryMsg->volume_id = volId;
     queryMsg->blob_name             = blobName;
     // We don't currently specify a version
     queryMsg->blob_version          = blob_version_invalid;
@@ -1203,70 +1208,86 @@ void StorHvCtrl::issueQueryCatalog(const std::string& blobName,
     queryMsg->obj_list.clear();
     queryMsg->meta_list.clear();
 
-    // TODO(Rao): Get my ep id
-    fpi::SvcUuid myEpId;
     auto asyncQueryReq = gRpcRequestPool->newFailoverRpcRequest(
-        myEpId, boost::make_shared<DmtVolumeIdEpProvider>(volId ));
+        boost::make_shared<DmtVolumeIdEpProvider>(om_client->getDMTNodesForVolume(volId)));
     asyncQueryReq->setRpcFunc(
         CREATE_RPC_SPTR(fpi::DMSvcClient, queryCatalogObject, queryMsg));
     asyncQueryReq->onResponseCb(respCb);
     asyncQueryReq->invoke();
+
+    LOGDEBUG << asyncQueryReq->logString() << fds::logString(*queryMsg);
 }
 
 void StorHvCtrl::issueGetObject(const ObjectID& objId,
                                 FailoverRpcRespCb respCb)
 {
-    // TODO(Rao): get my ep id
-    fpi::SvcUuid myEpId;
     fds_volid_t  volId;
     fpi::GetObjectMsgPtr getObjMsg(boost::make_shared<fpi::GetObjectMsg>());
     getObjMsg->data_obj_id.digest = std::string((const char *)objId.GetId(),
                                                 (size_t)objId.GetLen());
 
-    // TODO(Rao): Set rpc
     auto asyncGetReq = gRpcRequestPool->newFailoverRpcRequest(
-        myEpId, boost::make_shared<DmtVolumeIdEpProvider>(volId));
+        boost::make_shared<DltObjectIdEpProvider>(om_client->getDLTNodesForDoidKey(objId)));
     asyncGetReq->setRpcFunc(
         CREATE_RPC_SPTR(fpi::SMSvcClient, getObject, getObjMsg));
     asyncGetReq->onResponseCb(respCb);
+    asyncGetReq->invoke();
+
+    LOGDEBUG << asyncGetReq->logString() << fds::logString(*getObjMsg);
 }
 
-void StorHvCtrl::getBlobQueryCatalogResp(GetBlobReq *blobReq,
+void StorHvCtrl::getBlobQueryCatalogResp(fds::AmQosReq* qosReq,
                                          FailoverRpcRequest* rpcReq,
                                          const Error& error,
                                          boost::shared_ptr<std::string> payload)
 {
+    fds::GetBlobReq *blobReq = static_cast<fds::GetBlobReq *>(qosReq->getBlobReqPtr());
+    fpi::QueryCatalogMsgPtr qryCatRsp =
+        NetMgr::ep_deserialize<fpi::QueryCatalogMsg>(const_cast<Error&>(error), *payload);
+
     if (error != ERR_OK) {
         LOGERROR << "blob name: " << blobReq->getBlobName() << "offset: "
             << blobReq->getBlobOffset() << " Error: " << error; 
         blobReq->cbWithResult(-1);
-        // TODO(Rao): Release io request?
+        qos_ctrl->markIODone(qosReq);
         delete blobReq;
         return;
     }
-    // TODO(Rao): Set the objectid
-    ObjectID objId;
+
+    LOGDEBUG << rpcReq->logString() << fds::logString(*qryCatRsp);
+
+    // TODO(Rao): Update cache
+    /* NOTE: For now making the assumption that there is only one object id */
+    fds_verify(qryCatRsp->obj_list.size() == 1);
+    ObjectID objId(qryCatRsp->obj_list[0].data_obj_id.digest);
+    fds_verify(objId != NullObjectID);
+
     issueGetObject(objId,
-                   std::bind(&StorHvCtrl::getBlobGetObjectResp, this, blobReq,
+                   std::bind(&StorHvCtrl::getBlobGetObjectResp, this, qosReq,
                              std::placeholders::_1, std::placeholders::_2,
                              std::placeholders::_3));
 }
 
-void StorHvCtrl::getBlobGetObjectResp(GetBlobReq *blobReq,
+void StorHvCtrl::getBlobGetObjectResp(fds::AmQosReq* qosReq,
                                       FailoverRpcRequest* rpcReq,
                                       const Error& error,
                                       boost::shared_ptr<std::string> payload)
 {
+    fds::GetBlobReq *blobReq = static_cast<fds::GetBlobReq *>(qosReq->getBlobReqPtr());
+    fpi::GetObjectRespPtr getObjRsp =
+        NetMgr::ep_deserialize<fpi::GetObjectResp>(const_cast<Error&>(error), *payload);
+
     if (error != ERR_OK) {
         LOGERROR << "blob name: " << blobReq->getBlobName() << "offset: "
             << blobReq->getBlobOffset() << " Error: " << error; 
         blobReq->cbWithResult(-1);
-        // TODO(Rao): Release io request?
+        qos_ctrl->markIODone(qosReq);
         delete blobReq;
+        delete qosReq;
         return;
     }
 
-    fpi::GetObjectRespPtr getObjRsp = NetMgr::ep_deserialize<fpi::GetObjectResp>(*payload);
+    LOGDEBUG << rpcReq->logString() << fds::logString(*getObjRsp);
 
     fds_volid_t   volId = blobReq->getVolId();
     StorHvVolume *vol = vol_table->getVolume(volId);
@@ -1298,8 +1319,7 @@ void StorHvCtrl::getBlobGetObjectResp(GetBlobReq *blobReq,
 
     // TODO(Rao) : log notification
 
-    // TODO(Rao):  What is io here
-    // qos_ctrl->markIODone(txn->io);
+    qos_ctrl->markIODone(qosReq);
 
     /* NOTE: we are currently supporting only getting the whole blob
      * so the requester does not know about the blob length, 
@@ -1320,6 +1340,9 @@ void StorHvCtrl::getBlobGetObjectResp(GetBlobReq *blobReq,
     blobReq->setBlobSize(blobSize);
     blobReq->setBlobEtag(blobEtag);
     blobReq->cbWithResult(ERR_OK);
+    delete blobReq;
+    // TODO(Rao): Ask andrew why we can't delete this qosReq
+    // delete qosReq;
 }
 
 fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq)

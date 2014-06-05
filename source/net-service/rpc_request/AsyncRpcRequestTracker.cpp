@@ -3,10 +3,10 @@
 #include <net/AsyncRpcRequestTracker.h>
 #include <net/net-service.h>
 #include <util/Log.h>
+#include <fdsp_utils.h>
 
 namespace fds {
 
-AsyncRpcRequestTracker* gAsyncRpcTracker = new AsyncRpcRequestTracker();
 
 /**
  * Add the request for tracking
@@ -16,7 +16,7 @@ AsyncRpcRequestTracker* gAsyncRpcTracker = new AsyncRpcRequestTracker();
 bool AsyncRpcRequestTracker::addForTracking(const AsyncRpcRequestId& id,
         AsyncRpcRequestIfPtr req)
 {
-    GLOGDEBUG << "id: " << id;
+    DBG(GLOGDEBUG << req->logString());
 
     fds_scoped_lock l(asyncReqMaplock_);
     if (asyncReqMap_.find(id) == asyncReqMap_.end()) {
@@ -32,7 +32,7 @@ bool AsyncRpcRequestTracker::addForTracking(const AsyncRpcRequestId& id,
  */
 bool AsyncRpcRequestTracker::removeFromTracking(const AsyncRpcRequestId& id)
 {
-    GLOGDEBUG << "id: " << id;
+    DBG(GLOGDEBUG << "Req Id: " << id);
 
     fds_scoped_lock l(asyncReqMaplock_);
     auto itr = asyncReqMap_.find(id);

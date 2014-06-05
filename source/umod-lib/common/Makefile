@@ -8,7 +8,8 @@ user_cpp         := \
     fds_module.cpp \
     fds_stat.cpp \
     fds-shmobj.cpp \
-    fds_python_bind.cpp
+    fds_python_bind.cpp \
+    fdsp_utils.cpp
 
 user_no_style    := \
     fds_request.cpp \

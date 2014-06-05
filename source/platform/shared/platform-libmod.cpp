@@ -224,6 +224,7 @@ Platform::plf_change_info(const plat_node_data_t *ndata)
     plf_my_conf_port = plf_conf_port(base);
     plf_my_data_port = plf_data_port(base);
     plf_my_nsvc_port = plf_nsvc_port(base);
+    plf_my_sm_port   = plf_sm_port(base);
     plf_my_dm_port   = plf_dm_port(base);
     plf_my_migr_port = plf_migration_port(base);
     plf_my_metasync_port = plf_metasync_port(base);

@@ -130,9 +130,12 @@ EpSvcHandle::ep_reconnect()
 void
 EpSvcHandle::ep_notify_plugin()
 {
-    fds_verify(ep_plugin != NULL);
+    // TODO(Vy): Enable this verify
+    // fds_verify(ep_plugin != NULL);
     if (ep_state == EP_ST_CONNECTED) {
-        ep_plugin->ep_connected();
+        if (ep_plugin) {
+            ep_plugin->ep_connected();
+        }
     }
 }
 

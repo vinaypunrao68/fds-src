@@ -114,14 +114,14 @@ SmPlatform::mod_startup()
     sm_recv   = bo::shared_ptr<SMSvcHandler>(new SMSvcHandler());
     sm_plugin = new SMEpPlugin(this);
     sm_ep     = new EndPoint<fpi::SMSvcClient, fpi::SMSvcProcessor>(
-        Platform::platf_singleton()->plf_get_my_data_port(),
+        Platform::platf_singleton()->plf_get_sm_port(),
         *Platform::platf_singleton()->plf_get_my_svc_uuid(),
         NodeUuid(0ULL),
         bo::shared_ptr<fpi::SMSvcProcessor>(new fpi::SMSvcProcessor(sm_recv)),
         sm_plugin);
 
-    LOGNORMAL << "Startup platform specific net svc, port "
-              << Platform::platf_singleton()->plf_get_my_data_port();
+    LOGNORMAL << " my_svc_uuid: " << *Platform::platf_singleton()->plf_get_my_svc_uuid()
+        << " port: " << Platform::platf_singleton()->plf_get_sm_port();
 }
 
 // mod_enable_service

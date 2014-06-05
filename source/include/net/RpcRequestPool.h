@@ -26,9 +26,7 @@ class RpcRequestPool {
         const fpi::SvcUuid& myEpId,
         const std::vector<fpi::SvcUuid>& peerEpIds);
 
-    FailoverRpcRequestPtr newFailoverRpcRequest(
-        const fpi::SvcUuid& myEpId,
-        const EpIdProviderPtr epProvider);
+    FailoverRpcRequestPtr newFailoverRpcRequest(const EpIdProviderPtr epProvider);
 
     static fpi::AsyncHdr newAsyncHeader(const AsyncRpcRequestId& reqId,
             const fpi::SvcUuid &srcUuid, const fpi::SvcUuid &dstUuid);

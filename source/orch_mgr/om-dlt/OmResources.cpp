@@ -564,6 +564,7 @@ OM_NodeDomainMod::om_local_domain()
 fds_bool_t
 OM_NodeDomainMod::om_local_domain_up()
 {
+    return true;
     return om_local_domain()->domain_fsm->is_flag_active<LocalDomainUp>();
 }
 

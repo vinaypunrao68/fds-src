@@ -47,7 +47,7 @@ class ResourceUUID
     inline void uuid_assign(fpi::SvcUuid *svc) const {
         svc->svc_uuid = rs_uuid;
     }
-    inline void uuid_copy(fpi::SvcUuid &svc) {
+    inline void uuid_copy(const fpi::SvcUuid &svc) {
         rs_uuid = svc.svc_uuid;
     }
 
@@ -67,6 +67,8 @@ class ResourceUUID
         rs_uuid = rhs.rs_uuid;
         return *this;
     }
+
+    fpi::SvcUuid toSvcUuid() const;
 
   protected:
     fds_uint64_t             rs_uuid;

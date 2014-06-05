@@ -25,7 +25,6 @@ user_cpp         :=      \
     ClusterCommMgr.cpp   \
     fds_volume.cpp       \
     TransJournal.cpp     \
-    fdsp_utils.cpp       \
     dmt.cpp              \
     fds_error.cpp
 

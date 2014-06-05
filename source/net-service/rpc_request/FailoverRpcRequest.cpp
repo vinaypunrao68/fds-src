@@ -53,7 +53,7 @@ FailoverRpcRequest::FailoverRpcRequest(const AsyncRpcRequestId& id,
 
 FailoverRpcRequest::~FailoverRpcRequest()
 {
-    GLOGDEBUG << " id: " << id_;
+    DBG(GLOGDEBUG << logString());
 }
 
 
@@ -69,8 +69,11 @@ void FailoverRpcRequest::invoke()
     if (healthyEpExists) {
         epReqs_[curEpIdx_]->invoke();
     } else {
-        GLOGDEBUG << "No healthy endpoints left";
+        DBG(GLOGDEBUG << logString() << " No healthy endpoints left");
         fds_assert(curEpIdx_ == epReqs_.size() - 1);
+        /* No healthy endpoints left.  Lets post an error.  This error
+         * We will simulate as if the error is from last endpoint
+         */
         auto respHdr = RpcRequestPool::newAsyncHeaderPtr(id_,
                                                      epReqs_[curEpIdx_]->peerEpId_,
                                                      myEpId_);
@@ -81,6 +84,18 @@ void FailoverRpcRequest::invoke()
 
 /**
  * @brief
+ * Handles asynchronous response.  Response source can be from
+ * 1. Network
+ * 2. Local where we simulate an error.  This can happen when invocation fails
+ * immediately
+ * NOTE: We make the assumption that response always comes on a different thread
+ * than rpc invocation thread.
+ *
+ * Success case handling: Invoke the registered response cb
+ *
+ * Error case handling: Invoke application error handler (Only for application errors)
+ * if one is registered.  Move on to the next healthy endpont and invoke rpc. If
+ * we don't have healthy endpoints, then invoke response cb with error.
  *
  * @param header
  * @param payload
@@ -89,7 +104,7 @@ void FailoverRpcRequest::invoke()
 void FailoverRpcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
         boost::shared_ptr<std::string>& payload)
 {
-    GLOGDEBUG << " id: " << id_;
+    DBG(GLOGDEBUG << logString());
 
     // bool invokeRpc = false;
     fpi::SvcUuid errdEpId;
@@ -116,7 +131,7 @@ void FailoverRpcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header
 
     /* Handle the error */
     if (header->msg_code != ERR_OK) {
-        GLOGWARN << logString(*header);
+        GLOGWARN << fds::logString(*header);
         /* Notify actionable error to endpoint manager */
         if (NetMgr::ep_mgr_singleton()->ep_actionable_error(header->msg_code)) {
             NetMgr::ep_mgr_singleton()->ep_handle_error(
@@ -154,6 +169,18 @@ void FailoverRpcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header
 }
 
 /**
+* @brief 
+*
+* @return 
+*/
+std::string FailoverRpcRequest::logString()
+{
+    std::stringstream oss;
+    logRpcReqCommon_(oss, "FailoverRpcRequest");
+    return oss.str();
+}
+
+/**
  * Moves to the next healyth endpoint in the sequence start from curEpIdx_
  * @return True if healthy endpoint is found in the sequence.  False otherwise
  */
@@ -172,11 +199,14 @@ bool FailoverRpcRequest::moveToNextHealthyEndpoint_()
                     endpoint_lookup(epReqs_[curEpIdx_]->peerEpId_);
         Error epStatus = ERR_OK;
 
+        // TODO(Rao): Uncomment once endpoint_lookup is implemented
+        #if 0
         if (ep == nullptr) {
             epStatus = ERR_EP_NON_EXISTANT;
         } else {
             epStatus = ep->ep_get_status();
         }
+        #endif
 
         if (epStatus == ERR_OK) {
             epReqs_[curEpIdx_]->rpc_ = rpc_;
@@ -190,8 +220,8 @@ bool FailoverRpcRequest::moveToNextHealthyEndpoint_()
             if (curEpIdx_ != epReqs_.size() - 1) {
                 epReqs_[curEpIdx_]->complete(epStatus);
             }
-            GLOGDEBUG << "Unhealthy endpoint: "
-                << epReqs_[curEpIdx_]->peerEpId_.svc_uuid;
+            DBG(GLOGDEBUG << logString() << " Unhealthy endpoint: "
+                << epReqs_[curEpIdx_]->peerEpId_.svc_uuid);
         }
 
         skipped_cnt++;
@@ -205,7 +235,7 @@ bool FailoverRpcRequest::moveToNextHealthyEndpoint_()
     fds_assert(curEpIdx_ == epReqs_.size());
     curEpIdx_--;
 
-    GLOGDEBUG << "Req: " << id_ << " skipped cnt: " << skipped_cnt;
+    DBG(GLOGDEBUG << logString() << " skipped cnt: " << skipped_cnt);
     return false;
 }
 
