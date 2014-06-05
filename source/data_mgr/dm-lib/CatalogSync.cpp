@@ -185,7 +185,7 @@ void CatalogSync::deltaDoneCb(fds_volid_t volid,
 
     if (total_done == sync_volumes.size()) {
         // we are done with delta rsync for this node!
-        std::atomic_exchange(&state, CSSTATE_FORWARDING);
+        std::atomic_exchange(&state, CSSTATE_FORWARD_ONLY);
         // notify catsync mgr that we are done
         fds_verify(done_evt_handler);
         done_evt_handler(CATSYNC_DELTA_SYNC_DONE, volid, om_client, error);
@@ -226,11 +226,6 @@ fds_bool_t CatalogSync::isDeltaSyncDone() const {
             (cur_state != CSSTATE_DELTA_SYNC));
 }
 
-fds_bool_t CatalogSync::isInForwardState() const {
-    csStateType cur_state = std::atomic_load(&state);
-    return (cur_state != CSSTATE_FORWARDING);
-}
-
 fds_bool_t CatalogSync::syncDone() {
     std::atomic_exchange(&state, CSSTATE_DONE);
     return (true);
@@ -240,6 +235,8 @@ Error CatalogSync::forwardCatalogUpdate(dmCatReq  *updCatReq) {
     Error err(ERR_OK);
     csStateType cur_state = std::atomic_load(&state);
     fds_verify(hasVolume(updCatReq->volId));
+    fds_verify((cur_state == CSSTATE_DELTA_SYNC) ||
+               (cur_state == CSSTATE_FORWARD_ONLY));
 
     LOGDEBUG << "Will forward catalog update for volume "
              << std::hex << updCatReq->volId << std::dec;
@@ -264,13 +261,11 @@ Error CatalogSync::forwardCatalogUpdate(dmCatReq  *updCatReq) {
     updCatalog->dm_operation = FDS_DMGR_TXN_STATUS_OPEN;
 
     /*
-     * send the uipdate catalog to new node
+     * send the update catalog to new node
      */
-    LOGDEBUG << "Will send PushMetaSyncReq msg";
-
     try {
         meta_client->getClient()->PushMetaSyncReq(msg_hdr, updCatalog);
-        LOGNORMAL << "Senr PushMetaSyncReq Rpc message : " << meta_client;
+        LOGNORMAL << "Sent PushMetaSyncReq Rpc message : " << meta_client;
     } catch (...) {
         LOGERROR << "Unable to send PushMetaSyncReq to DM";
         err = ERR_NETWORK_TRANSPORT;
@@ -482,12 +477,11 @@ Error CatalogSyncMgr::forwardCatalogUpdate(dmCatReq  *updCatReq) {
          cit != cat_sync_map.cend();
          ++cit) {
         if ((cit->second)->hasVolume(updCatReq->volId)) {
-            if((cit->second)->isInForwardState() == true) {
-                LOGDEBUG << "FORWARD:sync catalog update for volume " << updCatReq->volId;
-                err = (cit->second)->forwardCatalogUpdate(updCatReq);
-                found_volume = true;
-                break;
-            }
+            LOGDEBUG << "FORWARD:sync catalog update for volume "
+                     << std::hex << updCatReq->volId << std::dec;
+            err = (cit->second)->forwardCatalogUpdate(updCatReq);
+            found_volume = true;
+            break;
         }
     }
 

@@ -78,7 +78,7 @@ namespace fds {
             CSSTATE_READY = 0,      // we can call startSync
             CSSTATE_INITIAL_SYNC,   // initial sync in progress
             CSSTATE_DELTA_SYNC ,    // second (delta) sync in progress
-            CSSTATE_FORWARDING,     // forwarding updates
+            CSSTATE_FORWARD_ONLY,   // all rsyncs done, only forwarding updates
             CSSTATE_DONE            // done syncing
         } csStateType;
 
@@ -114,7 +114,6 @@ namespace fds {
          */
         fds_bool_t isInitialSyncDone() const;
         fds_bool_t isDeltaSyncDone() const;
-        fds_bool_t isInForwardState() const;
         fds_bool_t syncDone();
 
         /**

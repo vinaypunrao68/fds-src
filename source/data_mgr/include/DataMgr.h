@@ -229,6 +229,13 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler
     fds_bool_t volExistsLocked(fds_volid_t vol_uuid) const;
 
     /**
+     * Will move volumes that are in forwarding state to
+     * finish forwarding state -- forwarding will actually end when
+     * all updates that are currently queued are processed.
+     */
+    void notifyStopForwardUpdates();
+
+    /**
      * DmIoReqHandler method implementation
      */
     virtual Error enqueueMsg(fds_volid_t volId, dmCatReq* ioReq);

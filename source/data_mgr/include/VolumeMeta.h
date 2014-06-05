@@ -592,9 +592,23 @@ class BlobNode {
 std::ostream& operator<<(std::ostream& out, const BlobNode& bnode);
 
 class VolumeMeta {
+ public:
+    /**
+     * volume  meta forwarding state 
+     */
+    typedef enum {
+        VFORWARD_STATE_NONE,      // not fowarding
+        VFORWARD_STATE_INPROG,    // forwarding
+        VFORWARD_STATE_FINISHING  // forwarding queued updates before finish
+    } fwdStateType;
+
   private:
     fds_mutex  *vol_mtx;
 
+    /**
+     * volume meta forwarding state
+     */
+    fwdStateType fwd_state;  // write protected by vol_mtx
 
     /*
      * A logger received during instantiation.
@@ -612,11 +626,11 @@ class VolumeMeta {
 
  public:
 
-    /*
-     * volume  meta forwarding state 
-     */
+    fds_bool_t isForwarding() const {
+        return (fwd_state != VFORWARD_STATE_NONE);
+    }
+    void finishForwarding();
 
-     std::atomic<bool> volSyncState;
     /*
      * The volume catalog maintains mappings from
      * vol/blob/offset to object id.

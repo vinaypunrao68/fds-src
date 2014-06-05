@@ -59,6 +59,10 @@ DataMgr::volcat_evt_handler(fds_catalog_action_t catalog_action,
         // thsi will ignore this msg if catalog sync is not in progress
         err = dataMgr->catSyncMgr->startCatalogSyncDelta(session_uuid);
     } else if (catalog_action == fds_catalog_dmt_close) {
+        // will finish forwarding when all queued updates are processed
+        dataMgr->notifyStopForwardUpdates();
+        // TODO(xxx) this should be called after we stop forwarding
+        // for all volumes
         dataMgr->catSyncMgr->notifyCatalogSyncFinish();
     } else {
         fds_assert(!"Unknown catalog command");
@@ -246,6 +250,23 @@ Error DataMgr::_process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only) {
     vol_map_mtx->unlock();
 
     return err;
+}
+
+/**
+ * For all volumes that are in forwarding state, move them to
+ * finish forwarding state.
+ */
+void DataMgr::notifyStopForwardUpdates() {
+    std::unordered_map<fds_uint64_t, VolumeMeta*>::iterator vol_it;
+
+    vol_map_mtx->lock();
+    for (vol_it = vol_meta_map.begin();
+         vol_it != vol_meta_map.end();
+         ++vol_it) {
+        VolumeMeta *vol_meta = vol_it->second;
+        vol_meta->finishForwarding();
+    }
+    vol_map_mtx->unlock();
 }
 
 Error DataMgr::_process_open(fds_volid_t vol_uuid,
@@ -1160,10 +1181,19 @@ DataMgr::updateCatalogBackend(dmCatReq  *updCatReq) {
      * we have updated the local Meta Db successfully, if the forwarding flag is set, 
      * forward the  request to the respective node 
      */
-    if (catSyncMgr->isSyncInProgress() == true)
-	    catSyncMgr->forwardCatalogUpdate(updCatReq);
-     delete updCatReq;
+    if (update_catalog->dm_operation == fpi::FDS_DMGR_TXN_STATUS_COMMITED) {
+        fds_bool_t do_forward = false;
+        vol_map_mtx->lock();
+        fds_verify(vol_meta_map.count(updCatReq->volId) > 0);
+        VolumeMeta *vol_meta = vol_meta_map[updCatReq->volId];
+        do_forward = vol_meta->isForwarding();
+        vol_map_mtx->unlock();
+        if (do_forward) {
+            catSyncMgr->forwardCatalogUpdate(updCatReq);
+        }
+    }
 
+    delete updCatReq;
 }
 
 

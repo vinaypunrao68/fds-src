@@ -35,7 +35,7 @@ VolumeMeta::VolumeMeta(const std::string& _name,
                        fds_int64_t _uuid,
                        VolumeDesc* desc,
                        fds_bool_t crt_catalogs)
-        : dm_log(NULL), vcat(NULL), tcat(NULL), volSyncState(false)
+        : dm_log(NULL), vcat(NULL), tcat(NULL), fwd_state(VFORWARD_STATE_NONE)
 {
     const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
 
@@ -321,6 +321,10 @@ VolumeMeta::deltaSyncVolCat(fds_volid_t volId, NodeUuid node_uuid)
   //err = vcat->DbSnap(root->dir_user_repo_dm() + "snap" + vol_name + "_vcat.ldb");
   returnCode = std::system((const char *)("cp -r "+src_dir_vcat+"  "+dst_dir+" ").c_str());
   returnCode = std::system((const char *)("cp -r "+src_dir_tcat+"  "+dst_dir+" ").c_str());
+  // we must set forwarding flag under the same lock we create snapshots
+  // so that all in-flight updates waiting for this lock to update DB (those are updates that
+  // will not be in the snapshot and will have to be forwarded) will be forwarded on commit
+  fwd_state = VFORWARD_STATE_INPROG;
   vol_mtx->unlock();
 
   FDS_PLOG(dm_log) << "system Command  copy return Code : " << returnCode;
@@ -346,7 +350,15 @@ VolumeMeta::deltaSyncVolCat(fds_volid_t volId, NodeUuid node_uuid)
   return err;
 }
 
-
+void VolumeMeta::finishForwarding() {
+    vol_mtx->lock();
+    // TODO(WIN-433) set state to VFORWARD_STATE_FINISHING here
+    // so that we are still forwarding untill all queued updates
+    // are processed, but for now, we assume no pending in queue
+    fwd_state = VFORWARD_STATE_NONE;
+    //    fwd_state = VFORWARD_STATE_FINISHING;
+    vol_mtx->unlock();
+}
 
 void VolumeMeta::dmCopyVolumeDesc(VolumeDesc *v_desc, VolumeDesc *pVol) {
   v_desc->name = pVol->name;
