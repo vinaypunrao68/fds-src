@@ -414,7 +414,11 @@ Shm_1Prd_nCon::shm_consumer(void *data, size_t size, int consumer /* = 0 */)
         pthread_cond_wait(&smq_sync->shm_con_cv, &smq_sync->shm_mtx);
     }
     // Take a request from the queue
-    memcpy(data, &smq_data[smq_ctrl->shm_ncon_idx[consumer]], size);
+    void *out_ptr = static_cast<char *>(smq_data->shm_rw_base()) +
+            (smq_ctrl->shm_ncon_idx[consumer] * size);
+    fds_assert(out_ptr <=
+               (static_cast<const char *>(smq_data->shm_bound()) - size));
+    memcpy(data, out_ptr, size);
     // Increase this queue's index counter
     smq_ctrl->shm_ncon_idx[consumer] =
             (smq_ctrl->shm_ncon_idx[consumer] + 1) % smq_size;
@@ -465,7 +469,11 @@ Shm_1Prd_nCon::shm_producer(const void *data, size_t size, int producer /* = 0 *
         }
     }
     // Add new data to the queue
-    memcpy(&this->smq_data[smq_ctrl->shm_1prd_idx], data, size);
+    void *from_ptr = static_cast<char *>(smq_data->shm_rw_base()) +
+            (smq_ctrl->shm_1prd_idx * size);
+    fds_assert(from_ptr <=
+               (static_cast<const char *>(smq_data->shm_bound()) - size));
+    memcpy(from_ptr, data, size);
     // Increase the prd_index
     smq_ctrl->shm_1prd_idx =
             (smq_ctrl->shm_1prd_idx + 1) % smq_size;
@@ -526,7 +534,11 @@ Shm_nPrd_1Con::shm_consumer(void *data, size_t size, int consumer /* = 0 */)
         pthread_cond_wait(&smq_sync->shm_con_cv, &smq_sync->shm_mtx);
     }
     // Take a request from the queue
-    memcpy(data, &this->smq_data[smq_ctrl->shm_1con_idx], size);
+    void *out_ptr = static_cast<char *>(smq_data->shm_rw_base()) +
+            (smq_ctrl->shm_1con_idx * size);
+    fds_assert(out_ptr <=
+               (static_cast<const char *>(smq_data->shm_bound()) - size));
+    memcpy(data, out_ptr, size);
     // Increase this queue's index counter
     smq_ctrl->shm_1con_idx =
             (smq_ctrl->shm_1con_idx + 1) % smq_size;
@@ -555,7 +567,11 @@ Shm_nPrd_1Con::shm_producer(const void *data, size_t size, int producer /* = 0 *
         pthread_cond_wait(&smq_sync->shm_prd_cv, &smq_sync->shm_mtx);
     }
     // Add new data to the queue
-    memcpy(&this->smq_data[smq_ctrl->shm_nprd_idx], data, size);
+    void *from_ptr = static_cast<char *>(smq_data->shm_rw_base()) +
+            (smq_ctrl->shm_nprd_idx * size);
+    fds_assert(from_ptr <=
+               (static_cast<const char *>(smq_data->shm_bound()) - size));
+    memcpy(from_ptr, data, size);
     // Increase the prd_index
     smq_ctrl->shm_nprd_idx =
             (smq_ctrl->shm_nprd_idx + 1) % smq_size;

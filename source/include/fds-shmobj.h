@@ -101,6 +101,8 @@ class ShmObjRW : public ShmObjRO
     virtual int shm_remove_rec(const void *key, void *data, size_t rec_sz);
     virtual int shm_remove_rec(int idx, const void *key, void *data, size_t rec_sz);
 
+    inline void *shm_rw_base() { return shm_rw_area; }
+
   protected:
     fds_mutex                rw_mtx;
     char                    *shm_rw_area;
