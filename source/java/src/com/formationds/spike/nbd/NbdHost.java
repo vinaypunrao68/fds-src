@@ -56,8 +56,8 @@ public class NbdHost {
 
         NbdServerOperations ops = new FdsServerOperations(am, config);
         //NbdServerOperations ops = new SparseRamOperations(1024L * 1024L * 1024L * 10);
-        //ops = new WriteVerifyOperationsWrapper(ops);
-        //ops = new OracleVerifyOperationsWrapper(ops, new SparseRamOperations(1024L * 1024L * 1024L * 10));
+        // NbdServerOperations ops = new SparseRamOperations(1024L * 1024L * 1024L * 10);
+        //ops = new ReadWriteVerifierOperations(ops, new SparseRamOperations(1024L * 1024L * 1024L * 10));
 
         new NbdHost(10809, ops).run();
         //config.createVolume("fds", "hello", new VolumeSettings(4 * 1024, VolumeType.BLOCK, 1024 * 1024 * 1024));
