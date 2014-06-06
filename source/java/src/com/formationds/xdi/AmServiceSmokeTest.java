@@ -19,7 +19,7 @@ import java.util.Random;
 
 
 
-public class SmokeTest {
+public class AmServiceSmokeTest {
 
     public static final String DOMAIN_NAME = "FDS";
     public static final String VOLUME_NAME = "smoke_volume2";
@@ -82,7 +82,7 @@ public class SmokeTest {
             port = Integer.parseInt(args[1]); 
             count = Integer.parseInt(args[2]);
         } else if (args.length > 0) {
-            System.out.println("Usage: SmokeTest <host> <port> <req_count>");
+            System.out.println("Usage: AmServiceSmokeTest <host> <port> <req_count>");
             return;
         }
 
