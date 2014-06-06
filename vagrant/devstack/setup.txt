@@ -7,13 +7,16 @@ $ dpkg -i vagrant_1.6.2_x86_64.deb
 3. SSH into the vagrant box
 ~/fds-src/vagrant/devstack$ vagrant ssh
 
-4. If this is the first time running this vagrant box, use the setup to get devstack and its dependencies from github
-vagrant@precise32:~$ /vagrant/install_deps.sh
+4. If this is the first time running this vagrant box, use the setup to get devstack and its dependencies from github - during this it will ask you to configure the mysql root password - I suggest you use 'stackdb' (without quotes) as your password
+$ /vagrant/install_deps.sh
 
-5. Run stack.sh to bring up devstack, it takes a while - get coffee
-vagrant@precise32:~/devstack$ ./stack.sh
+5. (optional). A devstack configuration file (local.conf) is in the vagrant directory which is mapped to vagrant which has the networking already set up.  
+$ cp /vagrant/local.conf ~/devstack/local.conf
 
-The administration interface is port forwarded to 3840  
-Go to http://localhost:3840/ to use the admin interface
+6. Run stack.sh to bring up devstack, it takes a while - get coffee
+~/devstack$ ./stack.sh
+
+The administration interface should be available at http://192.168.83.10/
+The password is in the local.conf (or set when you launch stach.sh if you aren't using local.conf)
 
 This fds-src dir on the host machine is mounted to /fds-src
