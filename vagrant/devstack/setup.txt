@@ -1,4 +1,4 @@
-1. Get vagrant - go to https://www.vagrantup.com/downloads.html and get the latest
+1. Get vagrant - go to https://www.vagrantup.com/downloads.html and get the latest - you may also need a more recent version of VirtualBox than what ships with ubuntu 13.10
 $ dpkg -i vagrant_1.6.2_x86_64.deb
 
 2. while in this directory bring up the vagrant machine
