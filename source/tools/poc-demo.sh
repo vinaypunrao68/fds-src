@@ -16,7 +16,7 @@
 #sleep 15
 
 # read sequentially data we wrote
-#./run-delay-workloads.sh -p "poc-demo-read" -w "sample_workloads/seq_read.sh:/dev/fbd0" -w "sample_workloads/seq_read.sh:/dev/fbd2" -w "sample_workloads/seq_read.sh:/dev/fbd2" -w "sample_workloads/seq_read.sh:/dev/fbd3"
+./run-delay-workloads.sh -p "poc-demo-read" -w "sample_workloads/seq_read.sh:/dev/nbd0"
 
 #mv results results-poc-demo
 
