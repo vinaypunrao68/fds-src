@@ -277,6 +277,7 @@ class ShmConPrdQueue : public fdsio::RequestQueue
     shm_con_prd_sync_t *smq_sync;
     ShmObjRW *smq_data;
     const uint smq_size;  // Size of the queue for index calculations
+    const size_t smq_itm_size;  // Size of queue data items
 
     virtual ~ShmConPrdQueue() {}
 

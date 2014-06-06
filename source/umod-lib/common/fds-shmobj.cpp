@@ -252,7 +252,8 @@ ShmObjRW::shm_remove_rec(int idx, const void *key, void *data, size_t rec_sz)
 //
 ShmConPrdQueue::ShmConPrdQueue(shm_con_prd_sync_t *sync, ShmObjRW *data)
         : fdsio::RequestQueue(1, -1), smq_sync(sync), smq_data(data),
-          smq_size(NodeShmCtrl::shm_q_item_count)
+          smq_size(NodeShmCtrl::shm_q_item_count),
+          smq_itm_size(NodeShmCtrl::shm_q_item_size)
 {
 }
 // Initialize reqID
@@ -416,11 +417,11 @@ Shm_1Prd_nCon::shm_consumer(void *data, size_t size, int consumer /* = 0 */)
         pthread_cond_wait(&smq_sync->shm_con_cv, &smq_sync->shm_mtx);
     }
     // Take a request from the queue
-    void *out_ptr = static_cast<char *>(smq_data->shm_rw_base()) +
-            (smq_ctrl->shm_ncon_idx[consumer] * size);
-    fds_assert(out_ptr <=
+    void *from_ptr = static_cast<char *>(smq_data->shm_rw_base()) +
+            (smq_ctrl->shm_ncon_idx[consumer] * smq_itm_size);
+    fds_assert(from_ptr <=
                (static_cast<const char *>(smq_data->shm_bound()) - size));
-    memcpy(data, out_ptr, size);
+    memcpy(data, from_ptr, size);
     // Increase this queue's index counter
     smq_ctrl->shm_ncon_idx[consumer] =
             (smq_ctrl->shm_ncon_idx[consumer] + 1) % smq_size;
@@ -464,21 +465,24 @@ Shm_1Prd_nCon::shm_producer(const void *data, size_t size, int producer /* = 0 *
 
             // Recalculate the low_idx -- we should still have the mutex
             prod = (smq_ctrl->shm_1prd_idx + 1) % smq_size;
+            // Reset active_idxs
+            active_idxs.clear();
             std::remove_copy(smq_ctrl->shm_ncon_idx,
                              smq_ctrl->shm_ncon_idx + smq_ctrl->shm_ncon_cnt,
                              std::back_inserter(active_idxs),
                              -1);
 
-            low_idx = *std::min_element(smq_ctrl->shm_ncon_idx,
-                                        smq_ctrl->shm_ncon_idx + smq_ctrl->shm_ncon_cnt);
+            low_idx = *std::min_element(active_idxs.begin(),
+                                        active_idxs.end());
         }
     }
     // Add new data to the queue
-    void *from_ptr = static_cast<char *>(smq_data->shm_rw_base()) +
-        (smq_ctrl->shm_1prd_idx * 128);
-    fds_assert(from_ptr <= (static_cast<const char *>(smq_data->shm_bound()) - size));
+    void *out_ptr = static_cast<char *>(smq_data->shm_rw_base()) +
+        (smq_ctrl->shm_1prd_idx * smq_itm_size);
+    fds_assert(out_ptr <=
+               (static_cast<const char *>(smq_data->shm_bound()) - smq_itm_size));
 
-    memcpy(from_ptr, data, size);
+    memcpy(out_ptr, data, size);
     // Increase the prd_index
     smq_ctrl->shm_1prd_idx = prod;
 
@@ -535,11 +539,13 @@ Shm_nPrd_1Con::shm_consumer(void *data, size_t size, int consumer /* = 0 */)
         pthread_cond_wait(&smq_sync->shm_con_cv, &smq_sync->shm_mtx);
     }
     // Take a request from the queue
-    void *out_ptr = static_cast<char *>(smq_data->shm_rw_base()) +
-            (smq_ctrl->shm_1con_idx * size);
-    fds_assert(out_ptr <=
-               (static_cast<const char *>(smq_data->shm_bound()) - size));
-    memcpy(data, out_ptr, size);
+    void *from_ptr = static_cast<char *>(smq_data->shm_rw_base()) +
+            (smq_ctrl->shm_1con_idx * smq_itm_size);
+    fds_assert(from_ptr <=
+               (static_cast<const char *>(smq_data->shm_bound()) -
+                smq_itm_size));
+
+    memcpy(data, from_ptr, size);
     // Increase this queue's index counter
     smq_ctrl->shm_1con_idx =
             (smq_ctrl->shm_1con_idx + 1) % smq_size;
@@ -568,11 +574,12 @@ Shm_nPrd_1Con::shm_producer(const void *data, size_t size, int producer /* = 0 *
         prod = (smq_ctrl->shm_nprd_idx + 1) % smq_size;
     }
     // Add new data to the queue
-    void *from_ptr = static_cast<char *>(smq_data->shm_rw_base()) +
-        (smq_ctrl->shm_nprd_idx * 128);
-    fds_assert(from_ptr <= (static_cast<const char *>(smq_data->shm_bound()) - size));
+    void *out_ptr = static_cast<char *>(smq_data->shm_rw_base()) +
+        (smq_ctrl->shm_nprd_idx * smq_itm_size);
+    fds_assert(out_ptr <=
+               (static_cast<const char *>(smq_data->shm_bound()) - smq_itm_size));
 
-    memcpy(from_ptr, data, size);
+    memcpy(out_ptr, data, size);
     // Increase the prd_index
     smq_ctrl->shm_nprd_idx = prod;
 
