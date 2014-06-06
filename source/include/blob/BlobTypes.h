@@ -71,13 +71,16 @@ class BlobTxId {
     fds_uint64_t txId;
 
   public:
-    /// Creates a new blob transaction ID with random value
+    /// Creates a new blob transaction ID with invalid value
     BlobTxId();
     /// Creates a new blob transaction with a specific value
     explicit BlobTxId(fds_uint64_t givenId);
     ~BlobTxId();
     typedef boost::shared_ptr<BlobTxId> ptr;
     typedef boost::shared_ptr<const BlobTxId> const_ptr;
+
+    static const fds_uint64_t txIdInvalid = 0;
+
     BlobTxId& operator=(const BlobTxId& rhs);
     fds_bool_t operator==(const BlobTxId& rhs) const;
     fds_bool_t operator!=(const BlobTxId& rhs) const;
@@ -86,7 +89,7 @@ class BlobTxId {
     fds_uint64_t getValue() const;
 };
 
-static const BlobTxId blobTxIdInvalid(0);
+static const BlobTxId blobTxIdInvalid(BlobTxId::txIdInvalid);
 
 std::ostream& operator<<(std::ostream& out, const BlobTxId& txId);
 }  // namespace fds

@@ -475,7 +475,7 @@ namespace fds {
     struct StartBlobTxCallback : virtual Callback {
         typedef boost::shared_ptr<StartBlobTxCallback> ptr;
         /// The blob trans ID to fill in
-        BlobTxId      txId;
+        BlobTxId      blobTxId;
     };
 
     struct GetVolumeMetaDataCallback : virtual Callback {

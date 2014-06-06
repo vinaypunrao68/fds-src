@@ -189,6 +189,10 @@ StorHvCtrl::StorHvCtrl(int argc,
     qos_ctrl->registerOmClient(om_client); /* so it will start periodically pushing perfstats to OM */
     om_client->startAcceptingControlMessages();
 
+    // Init rand num generator
+    // TODO(Andrew): Move this to platform process so everyone gets it
+    // and make AM extend from platform process
+    randNumGen = RandNumGenerator::ptr(new RandNumGenerator(RandNumGenerator::getRandSeed()));
 
     /* TODO: for now StorHvVolumeTable constructor will create
      * volume 1, revisit this soon when we add multi-volume support

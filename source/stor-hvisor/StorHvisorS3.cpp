@@ -1465,7 +1465,7 @@ StorHvCtrl::startBlobTx(AmQosReq *qosReq) {
 
     // Generate a random transaction ID to use
     // Note: construction, generates a random ID
-    BlobTxId txId;
+    BlobTxId txId(storHvisor->randNumGen->genNum());
     LOGDEBUG << "Starting blob transaction " << txId << " for blob "
              << blobReq->getBlobName() << " in journal trans "
              << transId << " and vol 0x" << std::hex << volId << std::dec;
@@ -1473,7 +1473,7 @@ StorHvCtrl::startBlobTx(AmQosReq *qosReq) {
     // Stash the newly created ID in the callback for later
     StartBlobTxCallback::ptr cb = SHARED_DYN_CAST(StartBlobTxCallback,
                                                   blobReq->cb);
-    cb->txId = txId;
+    cb->blobTxId = txId;
 
     // Setup RPC request to DM
     FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr(new FDSP_MsgHdrType);

@@ -5,6 +5,10 @@
 
 namespace fds {
 
+DmCommitLogEntry::DmCommitLogEntry(BlobTxId::ptr _desc)
+        : txDesc(_desc) {
+}
+
 DmCommitLog::DmCommitLog(const std::string &name)
         : Module(name.c_str()) {
 }
@@ -37,6 +41,8 @@ DmCommitLog::mod_shutdown() {
 
 Error
 DmCommitLog::openTrans(BlobTxId::const_ptr txDesc) {
+    LOGDEBUG << "Starting blob transaction " << *txDesc;
+
     return ERR_OK;
 }
 

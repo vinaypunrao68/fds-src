@@ -25,6 +25,7 @@
 #include "fds_qos.h" 
 #include "StorHvQosCtrl.h" 
 #include <hash/md5.h>
+#include <FdsRandom.h>
 #include "./handler/handler.h"
 #include <fdsp/FDSP_DataPathReq.h>
 #include <fdsp/FDSP_DataPathResp.h>
@@ -214,6 +215,8 @@ public:
 
     std::string                 myIp;
     std::string                 my_node_name;
+
+    RandNumGenerator::ptr randNumGen;
 
     Error sendTestBucketToOM(const std::string& bucket_name,
                              const std::string& access_key_id = "",

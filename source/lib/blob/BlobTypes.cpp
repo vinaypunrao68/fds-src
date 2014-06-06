@@ -50,7 +50,7 @@ BlobDescriptor::addKvMeta(const std::string &key,
 }
 
 BlobTxId::BlobTxId() {
-    txId = fds_get_uuid64(get_uuid());
+    txId = txIdInvalid;
 }
 
 BlobTxId::BlobTxId(fds_uint64_t givenId)
