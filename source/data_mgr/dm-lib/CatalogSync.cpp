@@ -492,6 +492,31 @@ Error CatalogSyncMgr::forwardCatalogUpdate(dmCatReq  *updCatReq) {
     return err;
 }
 
+
+Error CatalogSyncMgr::removeVolume(fds_volid_t volid) {
+    Error err(ERR_OK);
+
+    fds_mutex::scoped_lock l(cat_sync_lock);
+
+    for (CatSyncMap::const_iterator cit = cat_sync_map.cbegin();
+         cit != cat_sync_map.cend();
+         ++cit) {
+        if ((cit->second)->hasVolume(volid)) {
+            LOGDEBUG << "DEL-VOL: Map Clean up "
+                     << std::hex << volid << std::dec;
+            err = (cit->second)->delVolume(volid);
+
+            if (((cit->second)->emptyVolume())) 
+                cat_sync_map.erase(cit);
+            break; 
+        }
+       
+        
+    }
+    return err;
+}
+
+
 /**
  * Called when initial or delta sync is finished for a given
  * volume 'volid'

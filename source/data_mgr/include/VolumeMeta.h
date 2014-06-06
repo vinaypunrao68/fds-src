@@ -593,6 +593,7 @@ std::ostream& operator<<(std::ostream& out, const BlobNode& bnode);
 
 class VolumeMeta {
  public:
+    boost::posix_time::ptime dmtclose_time; // timestamp when dmt_close  arrived 
     /**
      * volume  meta forwarding state 
      */
@@ -609,6 +610,8 @@ class VolumeMeta {
      * volume meta forwarding state
      */
     fwdStateType fwd_state;  // write protected by vol_mtx
+
+    
 
     /*
      * A logger received during instantiation.
@@ -628,6 +631,10 @@ class VolumeMeta {
 
     fds_bool_t isForwarding() const {
         return (fwd_state != VFORWARD_STATE_NONE);
+    }
+    fds_bool_t setForwardFinish() {
+        fwd_state = VFORWARD_STATE_NONE;
+        return (true);
     }
     void finishForwarding();
 

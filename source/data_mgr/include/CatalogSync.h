@@ -142,6 +142,14 @@ namespace fds {
             return (sync_volumes.count(volid) > 0);
         }
 
+        inline fds_bool_t emptyVolume() {
+            return (sync_volumes.empty());
+        }
+
+        inline fds_bool_t delVolume(fds_volid_t volid) {
+            return (sync_volumes.erase(volid));
+        }
+
   private:  // methods
         Error sendMetaSyncDone(fds_volid_t volid);
 
@@ -241,6 +249,7 @@ namespace fds {
          * TODO(xxx) add parameters (dmCatReq?)
          */
         Error forwardCatalogUpdate(dmCatReq  *updCatReq);
+        Error removeVolume(fds_volid_t volid);
 
         fds_bool_t isSyncInProgress() const { return sync_in_progress; }
 

@@ -61,9 +61,6 @@ DataMgr::volcat_evt_handler(fds_catalog_action_t catalog_action,
     } else if (catalog_action == fds_catalog_dmt_close) {
         // will finish forwarding when all queued updates are processed
         dataMgr->notifyStopForwardUpdates();
-        // TODO(xxx) this should be called after we stop forwarding
-        // for all volumes
-        dataMgr->catSyncMgr->notifyCatalogSyncFinish();
     } else {
         fds_assert(!"Unknown catalog command");
     }
@@ -1188,9 +1185,17 @@ DataMgr::updateCatalogBackend(dmCatReq  *updCatReq) {
         VolumeMeta *vol_meta = vol_meta_map[updCatReq->volId];
         do_forward = vol_meta->isForwarding();
         vol_map_mtx->unlock();
-        if (do_forward) {
+        if ((do_forward)  && ( vol_meta->dmtclose_time > updCatReq->enqueue_time)){
             catSyncMgr->forwardCatalogUpdate(updCatReq);
         }
+        // move the state, once we drain  planned queue contents 
+        if (vol_meta->dmtclose_time < updCatReq->enqueue_time) {
+            vol_meta->setForwardFinish();
+            // remove the volume from sync_volume list
+            catSyncMgr->removeVolume(updCatReq->volId);
+        }        
+           
+
     }
 
     delete updCatReq;

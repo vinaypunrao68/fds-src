@@ -352,10 +352,17 @@ VolumeMeta::deltaSyncVolCat(fds_volid_t volId, NodeUuid node_uuid)
 
 void VolumeMeta::finishForwarding() {
     vol_mtx->lock();
+
+     if (fwd_state == VFORWARD_STATE_INPROG) {
+	dmtclose_time = boost::posix_time::microsec_clock::universal_time();
+     }
+     else {
+        fwd_state = VFORWARD_STATE_NONE;
+     }
+
     // TODO(WIN-433) set state to VFORWARD_STATE_FINISHING here
     // so that we are still forwarding untill all queued updates
     // are processed, but for now, we assume no pending in queue
-    fwd_state = VFORWARD_STATE_NONE;
     //    fwd_state = VFORWARD_STATE_FINISHING;
     vol_mtx->unlock();
 }
