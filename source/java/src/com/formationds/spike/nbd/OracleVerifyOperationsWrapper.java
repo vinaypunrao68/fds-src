@@ -11,11 +11,11 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
-public class ReadWriteVerifierOperations implements NbdServerOperations {
+public class OracleVerifyOperationsWrapper implements NbdServerOperations {
     private NbdServerOperations innerOperations;
     private NbdServerOperations oracle;
 
-    public ReadWriteVerifierOperations(NbdServerOperations inner, NbdServerOperations oracle) {
+    public OracleVerifyOperationsWrapper(NbdServerOperations inner, NbdServerOperations oracle) {
 
         innerOperations = inner;
         this.oracle = oracle;
@@ -43,6 +43,9 @@ public class ReadWriteVerifierOperations implements NbdServerOperations {
                 if(target.getByte(i) != ramTarget.getByte(i))
                     differences.add(i);
             }
+
+            if(differences.size() > 0)
+                throw new Exception("read buffer does not match oracle");
         }
     }
 
