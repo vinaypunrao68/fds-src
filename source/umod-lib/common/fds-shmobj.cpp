@@ -459,7 +459,7 @@ Shm_1Prd_nCon::shm_producer(const void *data, size_t size, int producer /* = 0 *
         // Get LOWEST_VALUE_IDX
         int low_idx = *std::min_element(active_idxs.begin(), active_idxs.end());
         prod = (smq_ctrl->shm_1prd_idx + 1) % smq_size;
-        while (prod == smq_ctrl->shm_ncon_idx[low_idx]) {
+        while (prod == low_idx) {
             // Wait on the producer condition variable
             pthread_cond_wait(&smq_sync->shm_prd_cv, &smq_sync->shm_mtx);
 
