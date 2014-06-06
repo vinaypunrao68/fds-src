@@ -443,7 +443,7 @@ Shm_1Prd_nCon::shm_producer(const void *data, size_t size, int producer /* = 0 *
     // In this case we need to be careful that all of the queues
     // have progressed before we can write a new entry
     // -----------
-    int prod;
+    uint prod = 0;
     std::vector<int> active_idxs;
 
     // Mutex down
@@ -457,8 +457,9 @@ Shm_1Prd_nCon::shm_producer(const void *data, size_t size, int producer /* = 0 *
     // Only check if queue full when there are active consumers
     if (active_idxs.size() > 0) {
         // Get LOWEST_VALUE_IDX
-        int low_idx = *std::min_element(active_idxs.begin(), active_idxs.end());
+        uint low_idx = *std::min_element(active_idxs.begin(), active_idxs.end());
         prod = (smq_ctrl->shm_1prd_idx + 1) % smq_size;
+
         while (prod == low_idx) {
             // Wait on the producer condition variable
             pthread_cond_wait(&smq_sync->shm_prd_cv, &smq_sync->shm_mtx);
@@ -479,6 +480,7 @@ Shm_1Prd_nCon::shm_producer(const void *data, size_t size, int producer /* = 0 *
     // Add new data to the queue
     void *out_ptr = static_cast<char *>(smq_data->shm_rw_base()) +
         (smq_ctrl->shm_1prd_idx * smq_itm_size);
+    fds_assert(out_ptr >= smq_data->shm_rw_base());
     fds_assert(out_ptr <=
                (static_cast<const char *>(smq_data->shm_bound()) - smq_itm_size));
 
@@ -551,7 +553,7 @@ Shm_nPrd_1Con::shm_consumer(void *data, size_t size, int consumer /* = 0 */)
             (smq_ctrl->shm_1con_idx + 1) % smq_size;
 
     // Signal to producer that we've consumed
-    ret_code = pthread_cond_signal(&smq_sync->shm_prd_cv);
+    ret_code = pthread_cond_broadcast(&smq_sync->shm_prd_cv);
     fds_assert(0 == ret_code);
     // Mutex up
     ret_code = pthread_mutex_unlock(&smq_sync->shm_mtx);
