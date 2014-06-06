@@ -79,6 +79,9 @@ void
 AmPlatform::mod_startup()
 {
     Platform::mod_startup();
+    // TODO(Rao): Hack remove
+    Platform::write_uuid_port(Platform::platf_singleton()->plf_get_my_svc_uuid()->uuid_get_val(),
+                              Platform::platf_singleton()->plf_get_my_nsvc_port());
 }
 
 void

@@ -361,7 +361,10 @@ int
 NetMgr::ep_uuid_binding(const fpi::SvcUuid &uuid, std::string *ip)
 {
     // TODO(Rao): Hack to get port number
+    int port = static_cast<int>(Platform::lookup_svc_port(uuid.svc_uuid));
     *ip = "127.0.0.1";
+    fds_assert(port != 0);
+    return port;
     auto myuuid = Platform::plf_my_node_uuid();
     NodeUuid dm_svcid;
     NodeUuid sm_svcid;

@@ -70,6 +70,7 @@ if __name__ == '__main__':
         for n in nodes:
             n.nd_cleanup_node()
             n.nd_rmt_agent.ssh_exec('/fds/sbin/redis.sh clean')
+            n.nd_rmt_agent.ssh_exec('rm /fds/uuid_port')
        
     # Status
     if options.clus_status:
@@ -91,13 +92,15 @@ if __name__ == '__main__':
     om = cfg.rt_om_node
     om_ip = om.nd_conf_dict['ip']
 
+    for n in nodes:
+        n.nd_start_platform(om_ip)
+
     if start_om:
         print "Start OM on IP", om_ip
         om.nd_start_om()
-        time.sleep(2)
+	time.sleep(2)
 
     for n in nodes:
-        n.nd_start_platform(om_ip)
         if n.nd_conf_dict['node-name'] == 'node1':
             cli.run_cli('--activate-nodes abc -k 1 -e sm,dm')
         else:

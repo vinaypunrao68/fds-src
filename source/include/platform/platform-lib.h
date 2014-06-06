@@ -265,6 +265,11 @@ class Platform : public Module
      */
     static void plf_svc_uuid_from_node(const NodeUuid &node, NodeUuid *, FDSP_MgrIdType);
 
+
+    // TODO(Rao): Hack.  Remove once shared memory is working
+    static void write_uuid_port(uint64_t uuid, uint32_t port);
+    static uint32_t lookup_svc_port(uint64_t key);
+
     /**
      * Platform methods.
      */

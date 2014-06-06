@@ -10,6 +10,9 @@
 #include <platform/platform-lib.h>
 #include <platform/node-inv-shmem.h>
 #include <NetSession.h>
+// TODO(Rao): remove stream includs
+#include <iostream>
+#include <fstream>
 
 namespace fds {
 
@@ -237,6 +240,34 @@ Platform::plf_change_info(const plat_node_data_t *ndata)
               << "My node uuid " << std::hex << plf_my_uuid.uuid_get_val() << std::endl
               << "My OM port   " << std::dec << plf_om_ctrl_port << std::endl
               << "My OM IP     " << plf_om_ip_str << std::endl;
+}
+
+// TODO(Rao): Hack.  Remove once shared memory is working
+void Platform::write_uuid_port(uint64_t uuid, uint32_t port)
+{
+    std::ofstream of("/fds/uuid_port", ios::out | ios::app);
+    fds_verify(of.is_open());
+    of << uuid << " " << port << "\n";
+    of.close();
+    GLOGDEBUG << "uuid: " << uuid << " port: " << port;
+}
+
+// TODO(Rao): Hack.  Remove once shared memory is working
+uint32_t Platform::lookup_svc_port(uint64_t key)
+{
+    uint64_t uuid;
+    uint32_t port;
+    std::ifstream f("/fds/uuid_port");
+    fds_verify(f.is_open());
+    while (f >> uuid) {
+        f >> port;
+        if (uuid == key) {
+            f.close();
+            return port;
+        }
+    }
+    f.close();
+    return 0;
 }
 
 // plf_svc_uuid_from_node
