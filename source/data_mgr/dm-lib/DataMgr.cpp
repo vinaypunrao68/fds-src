@@ -1552,7 +1552,10 @@ DataMgr::queryCatalogBackend2(void * _io)
 
     BlobNode *bnode = NULL;
     err = queryCatalogProcess(qryCatReq, &bnode);
+    qosCtrl->markIODone(*qryCatReq);
     qryCatReq->resp_cb(err, qryCatReq, bnode);
+    
+    // TODO(Rao): deleteing qryCatReq and io
 }
 
 void

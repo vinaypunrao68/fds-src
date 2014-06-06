@@ -18,6 +18,14 @@ void SMSvcHandler::getObject(boost::shared_ptr<fpi::GetObjectMsg>& getObjMsg)  /
 {
     DBG(GLOGDEBUG << fds::logString(*getObjMsg));
 
+    if (objStorMgr->getDLT()->getPrimary(ObjectID(getObjMsg->data_obj_id.digest)).\
+        uuid_get_val() == static_cast<uint64_t>(getObjMsg->hdr.msg_dst_uuid.svc_uuid) ||
+        objStorMgr->getDLT()->getNode(ObjectID(getObjMsg->data_obj_id.digest), 1).\
+        uuid_get_val() == static_cast<uint64_t>(getObjMsg->hdr.msg_dst_uuid.svc_uuid)) {
+        DBG(GLOGDEBUG << "Ignoring");
+        return;
+    }
+
     Error err(ERR_OK);
     auto read_data_msg = new SmIoReadObjectdata();
     read_data_msg->io_type = FDS_SM_READ_OBJECTDATA;

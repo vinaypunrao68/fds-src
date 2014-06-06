@@ -488,7 +488,8 @@ class NetMgr : public Module
     }
 
     template<class PayloadT>
-    static boost::shared_ptr<PayloadT> ep_deserialize(Error &e, std::string &buf)
+    static boost::shared_ptr<PayloadT> ep_deserialize(Error &e,
+                                                      boost::shared_ptr<std::string> payload)
     {
         DBG(GLOGDEBUG);
 
@@ -498,8 +499,9 @@ class NetMgr : public Module
 
         try {
             bo::shared_ptr<tt::TMemoryBuffer> memory_buf(
-                new tt::TMemoryBuffer(reinterpret_cast<uint8_t*>(const_cast<char*>(buf.c_str())),
-                                      buf.size()));
+                new tt::TMemoryBuffer(reinterpret_cast<uint8_t*>(
+                                        const_cast<char*>(payload->c_str())),
+                                        payload->size()));
             bo::shared_ptr<tp::TProtocol> binary_buf(new tp::TBinaryProtocol(memory_buf));
 
             boost::shared_ptr<PayloadT> result(boost::make_shared<PayloadT>());

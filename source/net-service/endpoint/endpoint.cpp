@@ -115,6 +115,8 @@ EpSvcHandle::ep_reconnect()
             ep_notify_plugin();
         } catch(...) {
             ep_state = EP_ST_DISCONNECTED;
+            // TODO(Vy): Fix this
+            return 0;
             sleep(1);
             net->ep_mgr_thrpool()->schedule(&EpSvcHandle::ep_reconnect, this);
         }

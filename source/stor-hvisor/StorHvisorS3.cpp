@@ -1212,6 +1212,7 @@ void StorHvCtrl::issueQueryCatalog(const std::string& blobName,
         boost::make_shared<DmtVolumeIdEpProvider>(om_client->getDMTNodesForVolume(volId)));
     asyncQueryReq->setRpcFunc(
         CREATE_RPC_SPTR(fpi::DMSvcClient, queryCatalogObject, queryMsg));
+    asyncQueryReq->setTimeoutMs(500);
     asyncQueryReq->onResponseCb(respCb);
     asyncQueryReq->invoke();
 
@@ -1230,6 +1231,7 @@ void StorHvCtrl::issueGetObject(const ObjectID& objId,
         boost::make_shared<DltObjectIdEpProvider>(om_client->getDLTNodesForDoidKey(objId)));
     asyncGetReq->setRpcFunc(
         CREATE_RPC_SPTR(fpi::SMSvcClient, getObject, getObjMsg));
+    asyncGetReq->setTimeoutMs(500);
     asyncGetReq->onResponseCb(respCb);
     asyncGetReq->invoke();
 
@@ -1243,7 +1245,7 @@ void StorHvCtrl::getBlobQueryCatalogResp(fds::AmQosReq* qosReq,
 {
     fds::GetBlobReq *blobReq = static_cast<fds::GetBlobReq *>(qosReq->getBlobReqPtr());
     fpi::QueryCatalogMsgPtr qryCatRsp =
-        NetMgr::ep_deserialize<fpi::QueryCatalogMsg>(const_cast<Error&>(error), *payload);
+        NetMgr::ep_deserialize<fpi::QueryCatalogMsg>(const_cast<Error&>(error), payload);
 
     if (error != ERR_OK) {
         LOGERROR << "blob name: " << blobReq->getBlobName() << "offset: "
@@ -1275,7 +1277,7 @@ void StorHvCtrl::getBlobGetObjectResp(fds::AmQosReq* qosReq,
 {
     fds::GetBlobReq *blobReq = static_cast<fds::GetBlobReq *>(qosReq->getBlobReqPtr());
     fpi::GetObjectRespPtr getObjRsp =
-        NetMgr::ep_deserialize<fpi::GetObjectResp>(const_cast<Error&>(error), *payload);
+        NetMgr::ep_deserialize<fpi::GetObjectResp>(const_cast<Error&>(error), payload);
 
     if (error != ERR_OK) {
         LOGERROR << "blob name: " << blobReq->getBlobName() << "offset: "
@@ -1283,7 +1285,6 @@ void StorHvCtrl::getBlobGetObjectResp(fds::AmQosReq* qosReq,
         blobReq->cbWithResult(-1);
         qos_ctrl->markIODone(qosReq);
         delete blobReq;
-        delete qosReq;
         return;
     }
 

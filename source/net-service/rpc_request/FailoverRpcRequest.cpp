@@ -53,7 +53,6 @@ FailoverRpcRequest::FailoverRpcRequest(const AsyncRpcRequestId& id,
 
 FailoverRpcRequest::~FailoverRpcRequest()
 {
-    DBG(GLOGDEBUG << logString());
 }
 
 
@@ -104,7 +103,7 @@ void FailoverRpcRequest::invoke()
 void FailoverRpcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
         boost::shared_ptr<std::string>& payload)
 {
-    DBG(GLOGDEBUG << logString());
+    DBG(GLOGDEBUG << fds::logString(*header));
 
     // bool invokeRpc = false;
     fpi::SvcUuid errdEpId;
@@ -176,7 +175,8 @@ void FailoverRpcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header
 std::string FailoverRpcRequest::logString()
 {
     std::stringstream oss;
-    logRpcReqCommon_(oss, "FailoverRpcRequest");
+    logRpcReqCommon_(oss, "FailoverRpcRequest")
+        << " curEpIdx: " << static_cast<uint32_t>(curEpIdx_);
     return oss.str();
 }
 
@@ -192,7 +192,6 @@ bool FailoverRpcRequest::moveToNextHealthyEndpoint_()
         curEpIdx_++;
     }
 
-    uint32_t skipped_cnt = 0;
     for (; curEpIdx_ < epReqs_.size(); curEpIdx_++) {
         // TODO(Rao): Pass the right rpc version id
         auto ep = NetMgr::ep_mgr_singleton()->\
@@ -211,6 +210,8 @@ bool FailoverRpcRequest::moveToNextHealthyEndpoint_()
         if (epStatus == ERR_OK) {
             epReqs_[curEpIdx_]->rpc_ = rpc_;
             epReqs_[curEpIdx_]->setTimeoutMs(timeoutMs_);
+            DBG(GLOGDEBUG << logString() << " Healthy endpoint: "
+                << epReqs_[curEpIdx_]->peerEpId_.svc_uuid << " idx: " << curEpIdx_);
             return true;
         } else {
             /* When ep is not healthy invoke complete on associated ep request, except
@@ -221,10 +222,8 @@ bool FailoverRpcRequest::moveToNextHealthyEndpoint_()
                 epReqs_[curEpIdx_]->complete(epStatus);
             }
             DBG(GLOGDEBUG << logString() << " Unhealthy endpoint: "
-                << epReqs_[curEpIdx_]->peerEpId_.svc_uuid);
+                << epReqs_[curEpIdx_]->peerEpId_.svc_uuid << " idx: " << curEpIdx_);
         }
-
-        skipped_cnt++;
     }
 
     /* We've exhausted all the endpoints.  Decrement so that curEpIdx_ stays valid. Next
@@ -235,7 +234,6 @@ bool FailoverRpcRequest::moveToNextHealthyEndpoint_()
     fds_assert(curEpIdx_ == epReqs_.size());
     curEpIdx_--;
 
-    DBG(GLOGDEBUG << logString() << " skipped cnt: " << skipped_cnt);
     return false;
 }
 

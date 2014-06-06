@@ -58,7 +58,7 @@ AsyncRpcRequestIf::~AsyncRpcRequestIf()
  * @param error
  */
 void AsyncRpcRequestIf::complete(const Error& error) {
-    DBG(GLOGDEBUG << logString());
+    DBG(GLOGDEBUG << logString() << error);
 
     fds_assert(state_ != RPC_COMPLETE);
     state_ = RPC_COMPLETE;
@@ -127,6 +127,7 @@ void AsyncRpcRequestIf::invokeCommon_(const fpi::SvcUuid &peerEpId)
     DBG(GLOGDEBUG << fds::logString(header));
 
     try {
+        /* Invoke rpc */
         rpc_(header);
        /* start the timer */
        if (timeoutMs_) {
@@ -148,10 +149,11 @@ void AsyncRpcRequestIf::postError(boost::shared_ptr<fpi::AsyncHdr> header)
 {
     fds_assert(header->msg_code != ERR_OK);
 
+    /* Simulate an error for remote endpoint */
     boost::shared_ptr<std::string> payload;
-    /* NetMgr::ep_mgr_singleton()->ep_mgr_thrpool()->schedule(
-        std::bind(&BaseAsyncSvcHandler::asyncRespHandler, header, payload)); */
-    new std::thread(std::bind(&BaseAsyncSvcHandler::asyncRespHandler, header, payload));
+    NetMgr::ep_mgr_singleton()->ep_mgr_thrpool()->schedule(
+        &BaseAsyncSvcHandler::asyncRespHandler, header, payload);
+    // new std::thread(std::bind(&BaseAsyncSvcHandler::asyncRespHandler, header, payload));
 }
 
 
@@ -177,7 +179,6 @@ EPAsyncRpcRequest::EPAsyncRpcRequest(const AsyncRpcRequestId &id,
 
 EPAsyncRpcRequest::~EPAsyncRpcRequest()
 {
-    DBG(GLOGDEBUG << logString());
 }
 
 /**
@@ -221,7 +222,7 @@ void EPAsyncRpcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
     }
 
     /* Notify actionable error to endpoint manager */
-    if (header->msg_code == ERR_OK &&
+    if (header->msg_code != ERR_OK &&
         NetMgr::ep_mgr_singleton()->ep_actionable_error(header->msg_code)) {
         NetMgr::ep_mgr_singleton()->ep_handle_error(
             header->msg_src_uuid, header->msg_code);
