@@ -136,6 +136,10 @@ NodeShmRWCtrl::shm_setup_queue()
     for (int i = 0; i < shm_queue->smq_plat2svc.shm_ncon_cnt; ++i) {
         shm_queue->smq_plat2svc.shm_ncon_idx[i] = -1;
     }
+    shm_queue->smq_plat2svc.shm_1prd_idx = 0;
+
+    shm_queue->smq_svc2plat.shm_1con_idx = 0;
+    shm_queue->smq_svc2plat.shm_nprd_idx = 0;
 
     // SHM SYNC STRUCTURES (MUTEX & CONDITION VARIABLES)
     int ret = -1;

@@ -455,11 +455,12 @@ Shm_1Prd_nCon::shm_producer(const void *data, size_t size, int producer /* = 0 *
                      -1);
 
     // Only check if queue full when there are active consumers
+    prod = (smq_ctrl->shm_1prd_idx + 1) % smq_size;
+
     if (active_idxs.size() > 0) {
         // Get LOWEST_VALUE_IDX
         uint low_idx = *std::min_element(active_idxs.begin(), active_idxs.end());
-        prod = (smq_ctrl->shm_1prd_idx + 1) % smq_size;
-
+        
         while (prod == low_idx) {
             // Wait on the producer condition variable
             pthread_cond_wait(&smq_sync->shm_prd_cv, &smq_sync->shm_mtx);
