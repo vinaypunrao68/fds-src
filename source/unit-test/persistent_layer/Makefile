@@ -1,5 +1,6 @@
 topdir            := ../..
 user_target       := test
+user_std_libs     := true
 user_rtime_env    := user
 
 user_incl_dir     :=
@@ -7,24 +8,9 @@ user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  := \
     fds-dsk-mgnt \
-    fds-dsk-io \
-    fds-lib \
-    fds-umod \
-    fds-thread  \
-    fds-util \
-    fds-hash \
-    fds-fdsp \
-    fds-osdep
+    fds-dsk-io
 
-user_non_fds_libs :=  \
-    boost_log \
-    boost_system \
-    boost_thread  \
-    boost_date_time \
-    boost_program_options \
-    boost_filesystem \
-    leveldb \
-    config++
+user_non_fds_libs :=
 
 user_cpp          :=                   \
     dm_service_test.cpp                \

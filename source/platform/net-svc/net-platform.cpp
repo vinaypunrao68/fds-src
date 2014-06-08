@@ -244,11 +244,12 @@ PlatAgent::agent_publish_ep()
 
     ep_map = EpPlatformdMod::ep_shm_singleton();
     node_info_frm_shm(&ninfo);
+    LOGDEBUG << "Platform agent uuid " << std::hex << ninfo.nd_node_uuid;
 
     agent_bind_svc(ep_map, &ninfo, fpi::FDSP_STOR_MGR);
     agent_bind_svc(ep_map, &ninfo, fpi::FDSP_DATA_MGR);
-    agent_bind_svc(ep_map, &ninfo, fpi::FDSP_ORCH_MGR);
     agent_bind_svc(ep_map, &ninfo, fpi::FDSP_STOR_HVISOR);
+    agent_bind_svc(ep_map, &ninfo, fpi::FDSP_ORCH_MGR);
 }
 
 // agent_bind_svc
@@ -257,37 +258,29 @@ PlatAgent::agent_publish_ep()
 void
 PlatAgent::agent_bind_svc(EpPlatformdMod *map, node_data_t *ninfo, fpi::FDSP_MgrIdType t)
 {
-    int           idx, port;
+    int           idx, saved_port;
+    NodeUuid      node, svc;
+    fds_uint64_t  saved_uuid;
     ep_map_rec_t  rec;
-    fpi::SvcUuid  svc;
 
-    switch (t) {
-    case fpi::FDSP_STOR_MGR:
-        port = Platform::plf_get_my_am_svc_uuid(&svc);
-        break;
+    saved_port = ninfo->nd_base_port;
+    saved_uuid = ninfo->nd_node_uuid;
 
-    case fpi::FDSP_DATA_MGR:
-        port = Platform::plf_get_my_dm_svc_uuid(&svc);
-        break;
+    node.uuid_set_val(saved_uuid);
+    Platform::plf_svc_uuid_from_node(node, &svc, t);
 
-    case fpi::FDSP_ORCH_MGR:
-        port = Platform::plf_get_my_om_svc_uuid(&svc);
-        break;
-
-    case fpi::FDSP_STOR_HVISOR:
-        port = Platform::plf_get_my_am_svc_uuid(&svc);
-        break;
-
-    default:
-        return;
-    }
-    ninfo->nd_node_uuid = svc.svc_uuid;
-    ninfo->nd_base_port = port;
+    ninfo->nd_node_uuid = svc.uuid_get_val();
+    ninfo->nd_base_port = Platform::plf_svc_port_from_node(saved_port, t);
     EpPlatLibMod::ep_node_info_to_mapping(ninfo, &rec);
 
     idx = map->ep_map_record(&rec);
-    LOGDEBUG << "Platform daemon binds " << t << ":" << std::hex << svc.svc_uuid << "@"
-        << ninfo->nd_ip_addr << ":" << ninfo->nd_base_port << "idx " << idx << std::dec;
+    LOGDEBUG << "Platform daemon binds " << t << ":" << std::hex << svc.uuid_get_val()
+        << "@" << ninfo->nd_ip_addr << ":" << std::dec
+        << ninfo->nd_base_port << " idx " << idx;
+
+    /* Restore everything back to ninfo for the next loop */
+    ninfo->nd_base_port = saved_port;
+    ninfo->nd_node_uuid = saved_uuid;
 }
 
 // ep_connected
