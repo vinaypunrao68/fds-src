@@ -22,6 +22,7 @@
 
 // Forward declarations
 namespace apache { namespace thrift { namespace transport {
+    class TSocket;
     class TTransport;
 }}}  // namespace apache::thrift::transport
 
@@ -262,6 +263,7 @@ class EpSvc
 
     virtual ~EpSvc() {}
     virtual bool ep_is_connection() { return false; }
+    virtual void ep_handle_error(const Error &err);
 
   private:
     friend class NetMgr;
@@ -307,6 +309,7 @@ class EpSvcHandle
     void ep_peer_uuid(fpi::SvcUuid &uuid)  { uuid = ep_peer_id; }
 
   protected:
+    friend class NetMgr;
     friend class EpSvcImpl;
 
     ep_state_e                     ep_state;
@@ -314,9 +317,11 @@ class EpSvcHandle
     EpSvc::pointer                 ep_owner;
     EpEvtPlugin::pointer           ep_plugin;
     bo::shared_ptr<void>           ep_rpc;
+    bo::shared_ptr<tt::TSocket>    ep_sock;
     bo::shared_ptr<tt::TTransport> ep_trans;
 
     EpSvcHandle();
+    virtual void ep_handle_error(const Error &err);
 
   private:
     INTRUSIVE_PTR_DEFS(EpSvcHandle, ep_refcnt);
@@ -546,6 +551,7 @@ class NetMgr : public Module
 
     ResourceUUID const *const ep_my_platform_uuid();
     void ep_register_thr(EpSvc::pointer ep, bool update_domain);
+    void ep_handle_error_thr(fpi::SvcUuid *uuid, Error *e);
 
     virtual EpSvc::pointer ep_lookup_port(int port);
 };

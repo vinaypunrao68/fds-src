@@ -64,14 +64,22 @@ EpSvc::ep_fmt_uuid_binding(fpi::UuidBindMsg *msg, fpi::DomainID *domain)
     }
 }
 
+// ep_handle_error
+// ---------------
+//
+void
+EpSvc::ep_handle_error(const Error &err)
+{
+}
+
 /*
  * -----------------------------------------------------------------------------------
  * EndPoint Handler
  * -----------------------------------------------------------------------------------
  */
 EpSvcHandle::EpSvcHandle()
-    : ep_refcnt(0), ep_state(EP_ST_INIT),
-      ep_owner(NULL), ep_plugin(NULL), ep_rpc(NULL), ep_trans(NULL) {}
+    : ep_refcnt(0), ep_state(EP_ST_INIT), ep_owner(NULL),
+      ep_plugin(NULL), ep_rpc(NULL), ep_sock(NULL), ep_trans(NULL) {}
 
 EpSvcHandle::EpSvcHandle(EpSvc::pointer svc, EpEvtPlugin::pointer evt) : EpSvcHandle()
 {
@@ -110,7 +118,8 @@ EpSvcHandle::ep_reconnect()
     net = NetMgr::ep_mgr_singleton();
     mtx = net->ep_obj_mutex(this);
 
-    LOGDEBUG << "EpHandle handle net reconnect";
+    LOGDEBUG << "EpHandle connect@" << ep_sock->getHost() << ":" << ep_sock->getPort();
+
     mtx->lock();
     if (ep_state != EP_ST_CONNECTING) {
         ep_state = EP_ST_CONNECTING;
@@ -129,6 +138,9 @@ EpSvcHandle::ep_reconnect()
     return ep_state;
 }
 
+// ep_handle_net_error
+// -------------------
+//
 void
 EpSvcHandle::ep_handle_net_error()
 {
@@ -136,7 +148,15 @@ EpSvcHandle::ep_handle_net_error()
     if (ep_trans != NULL) {
         ep_trans->close();
     }
-    LOGDEBUG << "EpHandle handle net error";
+    LOGDEBUG << "EpHandle net error@" << ep_sock->getHost() << ":" << ep_sock->getPort();
+}
+
+// ep_handle_error
+// ---------------
+//
+void
+EpSvcHandle::ep_handle_error(const Error &err)
+{
 }
 
 // ep_notify_plugin
@@ -236,6 +256,14 @@ EpSvcImpl::ep_input_event(fds_uint32_t evt)
 //
 void
 EpSvcImpl::ep_reconnect()
+{
+}
+
+// ep_handle_error
+// ---------------
+//
+void
+EpSvcImpl::ep_handle_error(const Error &err)
 {
 }
 

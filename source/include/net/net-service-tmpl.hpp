@@ -77,6 +77,7 @@ class EpSvcImpl : public EpSvc
 
     EpSvcImpl(const fpi::SvcID &mine, const fpi::SvcID &peer, EpEvtPlugin::pointer ops);
 
+    void         ep_handle_error(const Error &err);
     void         ep_connect_peer(int port, const std::string &ip);
     void         ep_fillin_binding(struct ep_map_rec *map);
     void         ep_peer_uuid(fpi::SvcUuid &uuid)  { uuid = ep_peer_id.svc_uuid; }
@@ -101,13 +102,14 @@ class EpSvcImpl : public EpSvc
             NetMgr    *net = NetMgr::ep_mgr_singleton();
             fds_mutex *mtx = net->ep_obj_mutex(get_pointer(ptr));
 
-            LOGDEBUG << "EP srv connect " << ip << ", port " << port;
             mtx->lock();
             if (ptr->ep_state == EP_ST_INIT) {
                 ptr->ep_state = EP_ST_DISCONNECTED;
                 fds_verify((ptr->ep_trans == NULL) && (ptr->ep_rpc == NULL));
+
                 ptr->ep_trans = trans;
                 ptr->ep_rpc   = rpc;
+                ptr->ep_sock  = bo::static_pointer_cast<tt::TSocket>(sock);
             }
             // else, these ptrs are deleted when we're out of scope.
             mtx->unlock();

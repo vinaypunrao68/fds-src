@@ -16,7 +16,28 @@
  */
 namespace fds {
 class FdsShmem;
+class ShmObjRO;
 class ShmConPrdQueue;
+
+class ShmObjIter
+{
+  public:
+    ShmObjIter() : iter_cnt(0) {}
+    virtual ~ShmObjIter() {}
+
+    virtual bool
+    shm_obj_iter_fn(int         idx,
+                    const void *key,
+                    const void *rec,
+                    size_t      key_sz,
+                    size_t      rec_sz) = 0;
+
+    inline int shm_obj_iter_cnt() { return iter_cnt; }
+
+  public:
+    friend class ShmObjRO;
+    int          iter_cnt;
+};
 
 class ShmObjRO
 {
@@ -34,8 +55,9 @@ class ShmObjRO
     virtual int shm_lookup_rec(const void *key, void *rec, size_t rec_sz) const;
     virtual int shm_lookup_rec(int idx, const void *key, void *rec, size_t rec_sz) const;
 
-    // Hookup with producer/consume queue for notification.
+    // Iterate through shm records
     //
+    virtual int shm_iter_objs(ShmObjIter *iter) const;
 
     // Inline and template methods.
     //

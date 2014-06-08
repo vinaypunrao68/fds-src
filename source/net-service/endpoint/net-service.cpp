@@ -441,6 +441,38 @@ NetMgr::ep_actionable_error(/*const fpi::SvcUuid &uuid, */const Error &e) const
 void
 NetMgr::ep_handle_error(const fpi::SvcUuid &uuid, const Error &e)
 {
+    fds_threadpool *pool;
+
+    pool = ep_mgr_thrpool();
+    pool->schedule(&NetMgr::ep_handle_error_thr, this,
+                   new fpi::SvcUuid(uuid), new Error(e));
+}
+
+// ep_handle_error_thr
+// -------------------
+// Wire up errors in data path to the correct handling object and handle it in the
+// common threadpool.
+//
+void
+NetMgr::ep_handle_error_thr(fpi::SvcUuid *uuid, Error *e)
+{
+    EpSvc::pointer       svc;
+    EpSvcHandle::pointer eph;
+
+    eph = svc_handler_lookup(*uuid);
+    if (eph != NULL) {
+        eph->ep_handle_error(*e);
+    } else {
+        svc = svc_lookup(*uuid, 0, 0);
+        if (svc != NULL) {
+            svc->ep_handle_error(*e);
+        } else {
+            LOGDEBUG << "Can not lookup uuid " << std::hex << uuid->svc_uuid
+                << ", err: " << e->GetErrstr();
+        }
+    }
+    delete uuid;
+    delete e;
 }
 
 fpi::AsyncHdr NetMgr::ep_swap_header(const fpi::AsyncHdr &req_hdr)

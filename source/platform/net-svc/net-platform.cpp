@@ -132,6 +132,15 @@ PlatformdNetSvc::nplat_register_node(const fpi::NodeInfoMsg *msg)
     EpPlatformdMod::ep_shm_singleton()->node_reg_notify(&rec);
 }
 
+// nplat_refresh_shm
+// -----------------
+//
+void
+PlatformdNetSvc::nplat_refresh_shm()
+{
+    std::cout << "Platform daemon refresh shm" << std::endl;
+}
+
 /*
  * -----------------------------------------------------------------------------------
  * Endpoint Plugin

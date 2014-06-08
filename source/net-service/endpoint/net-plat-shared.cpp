@@ -74,23 +74,47 @@ NetPlatSvc::mod_shutdown()
     Module::mod_shutdown();
 }
 
-// nplat_domain_rpc
-// ----------------
-// Get the RPC handles needed to contact the master platform services.
-//
-EpSvcHandle::pointer
-NetPlatSvc::nplat_domain_rpc(const fpi::DomainID &id)
+NodeInfoShmIter::NodeInfoShmIter(bool rw)
+    : it_no_rec(0), it_no_rec_quit(10), it_shm_rw(rw)
 {
-    return plat_agent->pda_rpc_handle();
+    it_shm   = NodeShmCtrl::shm_node_inventory();
+    it_local = Platform::platf_singleton()->plf_node_inventory();
 }
 
-// nplat_my_ep
-// -----------
+// shm_obj_iter_fn
+// ---------------
+// Iterate through node info records in shared memory and create agent objs in the
+// node inventory.
 //
-EpSvcImpl::pointer
-NetPlatSvc::nplat_my_ep()
+bool
+NodeInfoShmIter::shm_obj_iter_fn(int         idx,
+                                 const void *key,
+                                 const void *rec,
+                                 size_t      key_sz,
+                                 size_t      rec_sz)
 {
-    return plat_ep;
+    int                 rw_idx;
+    ep_map_rec_t        epmap;
+    NodeAgent::pointer  agent;
+    const fds_uint64_t *uuid;
+
+    fds_assert(sizeof(*uuid) == key_sz);
+    fds_assert(sizeof(node_data_t) == rec_sz);
+
+    uuid = reinterpret_cast<const fds_uint64_t *>(key);
+    if (*uuid == 0) {
+        return ++it_no_rec < it_no_rec_quit ? true : false;
+    }
+    // My node is taken care by the domain master.
+    if (*uuid == Platform::plf_get_my_node_uuid()->uuid_get_val()) {
+        std::cout << "shm_obj_iter: skip my uuid..." << std::endl;
+        return true;
+    }
+    agent  = NULL;
+    rw_idx = it_shm_rw == false ? -1 : idx;
+    it_local->dc_register_node(it_shm, &agent, idx, rw_idx, NODE_DO_PROXY_ALL_SVCS);
+
+    return true;
 }
 
 // nplat_refresh_shm
@@ -99,6 +123,11 @@ NetPlatSvc::nplat_my_ep()
 void
 NetPlatSvc::nplat_refresh_shm()
 {
+    const ShmObjRO  *shm;
+    NodeInfoShmIter  iter(false);
+
+    shm = NodeShmCtrl::shm_node_inventory();
+    shm->shm_iter_objs(&iter);
 }
 
 // nplat_register_node
@@ -124,6 +153,25 @@ NetPlatSvc::nplat_register_node(const fpi::NodeInfoMsg *msg)
 
     local = Platform::platf_singleton()->plf_node_inventory();
     // local->dc_register_node(shm, &agent, idx, -1);
+}
+
+// nplat_domain_rpc
+// ----------------
+// Get the RPC handles needed to contact the master platform services.
+//
+EpSvcHandle::pointer
+NetPlatSvc::nplat_domain_rpc(const fpi::DomainID &id)
+{
+    return plat_agent->pda_rpc_handle();
+}
+
+// nplat_my_ep
+// -----------
+//
+EpSvcImpl::pointer
+NetPlatSvc::nplat_my_ep()
+{
+    return plat_ep;
 }
 
 /*

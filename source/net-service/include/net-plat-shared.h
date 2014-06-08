@@ -7,9 +7,11 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <fds-shmobj.h>
 #include <net/net-service.h>
 #include <fdsp/PlatNetSvc.h>
 #include <platform/platform-lib.h>
+#include <platform/node-inventory.h>
 #include <net/BaseAsyncSvcHandler.h>
 
 namespace fds {
@@ -92,6 +94,26 @@ class DomainAgent : public PmAgent
     EpSvcHandle::pointer                  agt_domain_ep;
 
     virtual void pda_register();
+};
+
+/**
+ * Iterate through node info records in shared memory.
+ */
+class NodeInfoShmIter : public ShmObjIter
+{
+  public:
+    virtual ~NodeInfoShmIter() {}
+    explicit NodeInfoShmIter(bool rw = false);
+
+    virtual bool
+    shm_obj_iter_fn(int idx, const void *k, const void *r, size_t ksz, size_t rsz);
+
+  protected:
+    int                     it_no_rec;
+    int                     it_no_rec_quit;
+    bool                    it_shm_rw;
+    const ShmObjRO         *it_shm;
+    DomainNodeInv::pointer  it_local;
 };
 
 class NetPlatSvc : public NetPlatform

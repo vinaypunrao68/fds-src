@@ -78,6 +78,28 @@ ShmObjRO::shm_lookup_rec(int idx, const void *key, void *rec, size_t rec_sz) con
     return idx;
 }
 
+// shm_iter_objs
+// -------------
+//
+int
+ShmObjRO::shm_iter_objs(ShmObjIter *iter) const
+{
+    int         idx;
+    size_t      off;
+    const char *cur, *key;
+
+    for (idx = 0; idx < shm_obj_cnt; idx++, off += shm_obj_siz) {
+        cur = shm_area + off;
+        key = cur + shm_key_off;
+
+        iter->iter_cnt++;
+        if (iter->shm_obj_iter_fn(idx, key, cur, shm_key_siz, shm_obj_siz) == false) {
+            break;
+        }
+    }
+    return iter->iter_cnt;
+}
+
 // obj_key_cmp
 // -----------
 //

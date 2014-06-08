@@ -500,9 +500,6 @@ PmAgent::agent_rpc(EpSvcHandle::pointer *handle)
 
     /* TODO(Vy): wire up the common event plugin to handle error. */
     if (*handle != NULL) {
-        LOGDEBUG << "Do rpc connect to "
-            << rs_uuid.uuid_get_val() << ", handle " << handle;
-
         return (*handle)->svc_rpc<fpi::PlatNetSvcClient>();
     }
     return NULL;

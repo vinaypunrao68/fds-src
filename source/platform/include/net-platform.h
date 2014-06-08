@@ -56,6 +56,7 @@ class PlatformdNetSvc : public NetPlatSvc
 
     // Net platform services
     //
+    virtual void nplat_refresh_shm() override;
     virtual void nplat_register_node(const fpi::NodeInfoMsg *msg) override;
     virtual void plat_update_local_binding(const struct ep_map_rec *rec);
 
