@@ -3,6 +3,27 @@
 #ifndef SOURCE_INCLUDE_NET_RPCFUNC_H_
 #define SOURCE_INCLUDE_NET_RPCFUNC_H_
 
+#include <net/net-service.h>
+
+#define NET_SVC_RPC_CALL(eph, rpc, rpc_fn, ...)                                        \
+    do {                                                                               \
+        bool __retry = false;                                                          \
+        do {                                                                           \
+            try {                                                                      \
+                rpc->rpc_fn(__VA_ARGS__);                                              \
+                LOGDEBUG << "Rpc sent ok " << __FUNCTION__; \
+                __retry = false;                                                       \
+            } catch(...) {                                                             \
+                eph->ep_handle_net_error();                                            \
+                if (eph->ep_reconnect() == EP_ST_CONNECTED) {                          \
+                    __retry = true;                                                    \
+                } else { \
+                    LOGDEBUG << "Give up RPC " << __FUNCTION__; \
+                } \
+            }                                                                          \
+        } while (__retry == true);                                                     \
+    } while (0)
+
 /**
 * @brief private wrapper for invoking rpc function
 *

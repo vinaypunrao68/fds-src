@@ -4,6 +4,7 @@
 #ifndef SOURCE_INCLUDE_FDS_SHMOBJ_H_
 #define SOURCE_INCLUDE_FDS_SHMOBJ_H_
 
+#include <unordered_map>
 #include <pthread.h>
 #include <fds_assert.h>
 #include <fds_module.h>
@@ -15,7 +16,28 @@
  */
 namespace fds {
 class FdsShmem;
+class ShmObjRO;
 class ShmConPrdQueue;
+
+class ShmObjIter
+{
+  public:
+    ShmObjIter() : iter_cnt(0) {}
+    virtual ~ShmObjIter() {}
+
+    virtual bool
+    shm_obj_iter_fn(int         idx,
+                    const void *key,
+                    const void *rec,
+                    size_t      key_sz,
+                    size_t      rec_sz) = 0;
+
+    inline int shm_obj_iter_cnt() { return iter_cnt; }
+
+  public:
+    friend class ShmObjRO;
+    int          iter_cnt;
+};
 
 class ShmObjRO
 {
@@ -33,8 +55,9 @@ class ShmObjRO
     virtual int shm_lookup_rec(const void *key, void *rec, size_t rec_sz) const;
     virtual int shm_lookup_rec(int idx, const void *key, void *rec, size_t rec_sz) const;
 
-    // Hookup with producer/consume queue for notification.
+    // Iterate through shm records
     //
+    virtual int shm_iter_objs(ShmObjIter *iter) const;
 
     // Inline and template methods.
     //
@@ -100,6 +123,8 @@ class ShmObjRW : public ShmObjRO
     virtual int shm_remove_rec(const void *key, void *data, size_t rec_sz);
     virtual int shm_remove_rec(int idx, const void *key, void *data, size_t rec_sz);
 
+    inline void *shm_rw_base() { return shm_rw_area; }
+
   protected:
     fds_mutex                rw_mtx;
     char                    *shm_rw_area;
@@ -145,8 +170,8 @@ typedef struct shm_1prd_ncon_q
  */
 typedef struct shm_nprd_1con_q
 {
-    fds_uint32_t             shm_1con_idx;
-    fds_uint32_t             shm_nprd_idx;
+    int                      shm_1con_idx;
+    int                      shm_nprd_idx;
 } shm_nprd_1con_q_t;
 
 /**
@@ -163,10 +188,11 @@ typedef struct shm_con_prd_sync
  * The smq_code field with masks to tell if a request is tracking type to notify the
  * requestor based on smq_id.
  */
-const int SHMQ_TRACK_MASK        = 0x80000000;
-const int SHMQ_REQ_NULL          = 0x00000000;
-const int SHMQ_REQ_UUID_BIND     = 0x00000001;
-const int SHMQ_REQ_UUID_UNBIND   = 0x00000002;
+const int SHMQ_TRACK_MASK        = 0x800000;
+const int SHMQ_REQ_NULL          = 0x000000;
+const int SHMQ_REQ_UUID_BIND     = 0x000001;
+const int SHMQ_REQ_UUID_UNBIND   = 0x000002;
+const int SHMQ_NODE_REGISTRATION = 0x000003;
 
 /**
  * Common header for items in producer/consumer queue.
@@ -174,7 +200,11 @@ const int SHMQ_REQ_UUID_UNBIND   = 0x00000002;
 typedef struct shmq_req
 {
     fds_uint32_t             smq_code;
-    fds_uint32_t             smq_id;
+    fds_uint32_t             smq_idx : 8;
+    fds_uint32_t             smq_id : 24;
+    /* Currently unused: */
+    size_t                   smq_payload_size;
+    fds_uint8_t              reserved[16];
 } shmq_req_t;
 
 /**
@@ -229,7 +259,13 @@ class ShmConPrdQueue : public fdsio::RequestQueue
      * req->req_in should have the response data.
      * See the file net-service/endpoint/ep-map.cpp for actual usage.
      */
-    virtual void shm_track_request(ShmqReqOut *out, shmq_req_t *hdr);
+    virtual void shm_track_request(ShmqReqOut *out, shmq_req_t *hdr, int caller);
+
+    /**
+     * For requests with tracking option, use this method before sending back the
+     * response to get back to the original sender.
+     */
+    static void shm_swap_req_header(shmq_req_t *x, shmq_req_t *y);
 
     /**
      * Register handler to dispatch the smq_code to the right handler.  Note that
@@ -245,19 +281,39 @@ class ShmConPrdQueue : public fdsio::RequestQueue
 
     /**
      * Block if the queue is empty.
-     * @param consumer (i) : default is 0, if not index to control the consumer index
-     *     pointer.
+     * @param consumer (i) : default is 0, if not index to control the consumer
+     * index * pointer.
      */
     virtual void shm_consumer(void *data, size_t size, int consumer = 0) = 0;
     virtual void shm_producer(const void *data, size_t size, int producer = 0) = 0;
 
+    /**
+     * Initialize consumer indexes, setting all indexes to -1 (inactive).
+     */
+    virtual void shm_init_consumer_queue() = 0;
+    virtual void shm_activate_consumer(int consumer) = 0;
+
   protected:
-    ShmConPrdQueue(shm_con_prd_sync_t *sync, shm_1prd_ncon_q_t *ctrl, ShmObjRW *data);
-    ShmConPrdQueue(shm_con_prd_sync_t *sync, shm_nprd_1con_q_t *ctrl, ShmObjRW *data);
+    ShmConPrdQueue(shm_con_prd_sync_t *sync, ShmObjRW *data);
+
+    // Track the pointers provided by our constructor
+    shm_con_prd_sync_t *smq_sync;
+    ShmObjRW *smq_data;
+    const uint smq_size;  // Size of the queue for index calculations
+    const size_t smq_itm_size;  // Size of queue data items
+
     virtual ~ShmConPrdQueue() {}
 
     ShmqReqOut *shm_get_saved_req(fds_uint32_t id);
     ShmqReqIn  *shm_get_callback(fds_uint32_t code);
+
+  private:
+    // Keep a unique ID for request tracking
+    static fds_uint32_t smq_reqID;
+    // Map for reqID -> ShmReqOut objs
+    std::unordered_map<fds_uint32_t, ShmqReqOut*> smq_reqOutMap;
+    // Map for smq_code -> ShmqReqIn* (callback function)
+    std::unordered_map<fds_uint32_t, ShmqReqIn*> smq_cb_map;
 };
 
 class Shm_1Prd_nCon : public ShmConPrdQueue
@@ -267,8 +323,12 @@ class Shm_1Prd_nCon : public ShmConPrdQueue
 
     void shm_consumer(void *data, size_t size, int consumer = 0) override;
     void shm_producer(const void *data, size_t size, int producer = 0) override;
+    void shm_init_consumer_queue() override;
+    void shm_activate_consumer(int consumer) override;
 
   private:
+    shm_1prd_ncon_q_t *smq_ctrl;
+
     ~Shm_1Prd_nCon() {}
 };
 
@@ -279,8 +339,12 @@ class Shm_nPrd_1Con : public ShmConPrdQueue
 
     void shm_consumer(void *data, size_t size, int consumer = 0) override;
     void shm_producer(const void *data, size_t size, int producer = 0) override;
+    void shm_init_consumer_queue() override;
+    void shm_activate_consumer(int cons) override;
 
   private:
+    shm_nprd_1con_q_t *smq_ctrl;
+
     ~Shm_nPrd_1Con() {}
 };
 

@@ -22,6 +22,7 @@
 
 // Forward declarations
 namespace apache { namespace thrift { namespace transport {
+    class TSocket;
     class TTransport;
 }}}  // namespace apache::thrift::transport
 
@@ -117,6 +118,8 @@ class EpAttr
 
     static int  netaddr_get_port(const struct sockaddr *adr);
     static void netaddr_to_str(const struct sockaddr *adr, char *ip, int ip_len);
+    static void netaddr_frm_str(struct sockaddr *adr,
+                                int port, const char *ip, bool v4 = true);
 
   private:
     INTRUSIVE_PTR_DEFS(EpAttr, ep_refcnt);
@@ -240,6 +243,7 @@ class EpSvc
   protected:
     fpi::SvcID                       svc_id;
     fpi::SvcVer                      svc_ver;
+    fpi::FDSP_MgrIdType              svc_type;
     EpEvtPlugin::pointer             ep_evt;
     EpAttr::pointer                  ep_attr;
     bo::intrusive_ptr<EpSvcHandle>   ep_peer;
@@ -249,6 +253,7 @@ class EpSvc
 
     // Service bound to the local domain.
     EpSvc(const ResourceUUID &uuid, fds_uint32_t major, fds_uint32_t minor);
+    EpSvc(const ResourceUUID &uuid, fpi::FDSP_MgrIdType type);
 
     // Service bound to a remote domain.
     EpSvc(const ResourceUUID &domain,
@@ -258,6 +263,7 @@ class EpSvc
 
     virtual ~EpSvc() {}
     virtual bool ep_is_connection() { return false; }
+    virtual void ep_handle_error(const Error &err);
 
   private:
     friend class NetMgr;
@@ -289,7 +295,7 @@ class EpSvcHandle
     EpSvcHandle(const fpi::SvcUuid &peer, EpEvtPlugin::pointer evt)
         : EpSvcHandle(NULL, evt) { ep_peer_id = peer; }
 
-    int        ep_reconnect();
+    ep_state_e ep_reconnect();
     ep_state_e ep_get_status()  { return ep_state; }
 
     template <class SendIf>
@@ -298,10 +304,12 @@ class EpSvcHandle
     }
 
     void ep_notify_plugin();
+    void ep_handle_net_error();
     void ep_my_uuid(fpi::SvcUuid &uuid)    { ep_owner->ep_my_uuid(uuid); }
     void ep_peer_uuid(fpi::SvcUuid &uuid)  { uuid = ep_peer_id; }
 
   protected:
+    friend class NetMgr;
     friend class EpSvcImpl;
 
     ep_state_e                     ep_state;
@@ -309,9 +317,11 @@ class EpSvcHandle
     EpSvc::pointer                 ep_owner;
     EpEvtPlugin::pointer           ep_plugin;
     bo::shared_ptr<void>           ep_rpc;
+    bo::shared_ptr<tt::TSocket>    ep_sock;
     bo::shared_ptr<tt::TTransport> ep_trans;
 
     EpSvcHandle();
+    virtual void ep_handle_error(const Error &err);
 
   private:
     INTRUSIVE_PTR_DEFS(EpSvcHandle, ep_refcnt);
@@ -553,6 +563,7 @@ class NetMgr : public Module
 
     ResourceUUID const *const ep_my_platform_uuid();
     void ep_register_thr(EpSvc::pointer ep, bool update_domain);
+    void ep_handle_error_thr(fpi::SvcUuid *uuid, Error *e);
 
     virtual EpSvc::pointer ep_lookup_port(int port);
 };
@@ -568,9 +579,9 @@ class NetPlatform : public Module
 
     inline static NetPlatform   *nplat_singleton() { return gl_NetPlatSvc; }
     virtual void                 nplat_register_node(const fpi::NodeInfoMsg *msg) = 0;
-    virtual EpSvc::pointer       nplat_my_ep() = 0;
     virtual EpSvcHandle::pointer nplat_domain_rpc(const fpi::DomainID &id) = 0;
 
+    virtual bo::intrusive_ptr<EpSvcImpl> nplat_my_ep() = 0;
     virtual std::string const *const nplat_domain_master(int *port) = 0;
 
   protected:

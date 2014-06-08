@@ -111,6 +111,14 @@ struct StorCapMsg {
     13: i32                   disk_count,
 }
 
+enum NodeSvcMask {
+    NODE_SVC_SM       = 0x0001,
+    NODE_SVC_DM       = 0x0002,
+    NODE_SVC_AM       = 0x0004,
+    NODE_SVC_OM       = 0x0008,
+    NODE_SVC_GENERAL  = 0x1000
+}
+
 /*
  * Node registration message format.
  */
@@ -119,6 +127,7 @@ struct NodeInfoMsg {
     2: required DomainID      node_domain,
     3: required StorCapMsg    node_stor,
     4: required i32           nd_base_port,
+    5: required i32           nd_svc_mask,
 }
 
 enum ServiceStatus {
@@ -127,6 +136,7 @@ enum ServiceStatus {
     SVC_STATUS_INACTIVE,
     SVC_STATUS_IN_ERR
 }
+
 /*
  * --------------------------------------------------------------------------------
  * Common services
@@ -140,8 +150,8 @@ service BaseAsyncSvc {
 }
 
 service PlatNetSvc extends BaseAsyncSvc {
-    list<UuidBindMsg> allUuidBinding(1: UuidBindMsg mine, 2: bool all_list),
-    list<NodeInfoMsg> notifyNodeInfo(1: NodeInfoMsg info),
+    oneway void allUuidBinding(1: UuidBindMsg mine),
+    list<NodeInfoMsg> notifyNodeInfo(1: NodeInfoMsg info, 2: bool bcast),
     RespHdr notifyNodeUp(1: NodeInfoMsg info)
     // ServiceStatus getStatus(1: i32 nullarg),
     // map<string, i64> getCounters(1: string id),

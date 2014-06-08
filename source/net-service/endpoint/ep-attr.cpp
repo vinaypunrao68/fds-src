@@ -46,7 +46,7 @@ EpAttr::attr_get_port()
     return (((struct sockaddr_in6 *)&ep_addr)->sin6_port);
 }
 
-int
+/* static */ int
 EpAttr::netaddr_get_port(const struct sockaddr *adr)
 {
     if (adr->sa_family == AF_INET) {
@@ -55,7 +55,10 @@ EpAttr::netaddr_get_port(const struct sockaddr *adr)
     return (((struct sockaddr_in6 *)adr)->sin6_port);
 }
 
-void
+// netaddr_to_str
+// --------------
+//
+/* static */ void
 EpAttr::netaddr_to_str(const struct sockaddr *adr, char *ip, int ip_len)
 {
     int   len;
@@ -74,7 +77,25 @@ EpAttr::netaddr_to_str(const struct sockaddr *adr, char *ip, int ip_len)
     inet_ntop(AF_INET, buf, ip, len);
 }
 
-void
+// netaddr_frm_str
+// ---------------
+//
+/* static */ void
+EpAttr::netaddr_frm_str(struct sockaddr *adr, int port, const char *ip, bool v4)
+{
+    struct sockaddr_in *ip4;
+
+    if (v4 == true) {
+        ip4 = reinterpret_cast<struct sockaddr_in *>(adr);
+        adr->sa_family = AF_INET;
+        ip4->sin_port  = port;
+        inet_pton(AF_INET, ip, reinterpret_cast<char *>(&ip4->sin_addr));
+    } else {
+        fds_panic("not implement yet!");
+    }
+}
+
+/* static */ void
 EpAttr::netaddr_my_ip(struct sockaddr *adr,
                       struct sockaddr *mask,
                       unsigned int    *flags,

@@ -9,13 +9,13 @@
 #include <net/net-service-tmpl.hpp>
 #include <platform/platform-lib.h>
 #include <platform/node-inv-shmem.h>
+#include <platform/service-ep-lib.h>
 
 namespace fds {
 
 // --------------------------------------------------------------------------------------
 // Node Inventory
 // --------------------------------------------------------------------------------------
-
 const ShmObjRO *
 NodeInventory::node_shm_ctrl() const
 {
@@ -29,18 +29,21 @@ NodeInventory::node_shm_ctrl() const
 // -----------------
 //
 void
-NodeInventory::node_fill_shm_inv(const ShmObjRO *shm, int ro, int rw)
+NodeInventory::node_fill_shm_inv(const ShmObjRO *shm, int ro, int rw, FdspNodeType id)
 {
     const node_data_t *info;
 
     fds_assert(ro != -1);
+    node_svc_type = id;
+
     info = shm->shm_get_rec<node_data_t>(ro);
     if (node_ro_idx == -1) {
-        node_svc_type = info->nd_svc_type;
         strncpy(rs_name, info->nd_auto_name, RS_NAME_MAX - 1);
     } else {
-        fds_verify(info->nd_svc_type == node_svc_type);
-        fds_assert(info->nd_service_uuid == rs_uuid.uuid_get_val());
+        NodeUuid svc, node(info->nd_node_uuid);
+
+        Platform::plf_svc_uuid_from_node(node, &svc, node_svc_type);
+        fds_assert(rs_uuid == svc);
     }
     node_ro_idx = ro;
     node_rw_idx = rw;
@@ -109,20 +112,20 @@ NodeInventory::node_info_msg_frm_shm(bool am, int ro_idx, NodeInfoMsg *msg)
 void
 NodeInventory::init_plat_info_msg(fpi::NodeInfoMsg *msg) const
 {
-    UuidBindMsg    *msg_bind;
-    Platform::ptr   plat = Platform::platf_const_singleton();
-    EpSvc::pointer  psvc = NetPlatform::nplat_singleton()->nplat_my_ep();
+    UuidBindMsg        *msg_bind;
+    Platform::ptr       plat = Platform::platf_const_singleton();
+    EpSvcImpl::pointer  psvc = NetPlatform::nplat_singleton()->nplat_my_ep();
 
     msg_bind = &msg->node_loc;
     psvc->ep_fmt_uuid_binding(msg_bind, &msg->node_domain);
     init_stor_cap_msg(&msg->node_stor);
 
-    msg->nd_base_port           = plat->plf_get_my_ctrl_port();
+    msg->nd_base_port           = plat->plf_get_my_node_port();
     msg_bind->svc_type          = plat->plf_get_node_type();
     msg_bind->svc_auto_name     = *plat->plf_get_my_ip();
     msg_bind->svc_id.svc_name   = "";
     msg_bind->svc_node.svc_name = *plat->plf_get_my_name();
-    msg_bind->svc_node.svc_uuid.svc_uuid = plat->plf_get_my_uuid()->uuid_get_val();
+    msg_bind->svc_node.svc_uuid.svc_uuid = plat->plf_get_my_node_uuid()->uuid_get_val();
 }
 
 // init_node_info_msg
@@ -351,6 +354,23 @@ NodeInventory::set_node_dlt_version(fds_uint64_t dlt_version)
     const_cast<NodeInvData *>(node_inv)->nd_dlt_version = dlt_version;
 }
 
+// node_info_frm_shm
+// -----------------
+//
+void
+NodeInventory::node_info_frm_shm(node_data_t *out) const
+{
+    int             idx;
+    fds_uint64_t    uid;
+    const ShmObjRO *shm;
+
+    shm = node_shm_ctrl();
+    uid = rs_uuid.uuid_get_val();
+    idx = shm->shm_lookup_rec(node_ro_idx, static_cast<const void *>(&uid),
+                              static_cast<void *>(out), sizeof(*out));
+    fds_assert(idx == node_ro_idx);
+}
+
 std::ostream& operator<< (std::ostream &os, const NodeInvData& node) {
     os << "["
        << " uuid:" << node.nd_uuid
@@ -436,6 +456,30 @@ NodeAgent::node_set_weight(fds_uint64_t weight)
     const_cast<NodeInvData *>(node_inv)->nd_gbyte_cap = weight;
 }
 
+// agent_bind_ep
+// -------------
+//
+void
+NodeAgent::agent_bind_ep(EpSvcImpl::pointer ep, EpSvc::pointer svc)
+{
+    ep->ep_bind_service(svc);
+}
+
+// agent_publish_ep
+// ----------------
+//
+void
+NodeAgent::agent_publish_ep()
+{
+    NodeUuid uuid;
+
+    Platform::plf_svc_uuid_to_node(&uuid, rs_uuid, node_svc_type);
+    LOGDEBUG << "Agent publish ep " << std::hex << rs_uuid.uuid_get_val()
+        << ", my node " << uuid.uuid_get_val()
+        << ", obj " << this << ", svc type " << node_svc_type
+        << ", idx " << node_ro_idx << ", rw idx " << node_rw_idx;
+}
+
 AgentContainer::AgentContainer(FdspNodeType id) : RsContainer()
 {
     ac_cpSessTbl = boost::shared_ptr<netSessionTbl>(new netSessionTbl(id));
@@ -454,33 +498,82 @@ AgentContainer::agent_handshake(boost::shared_ptr<netSessionTbl> net,
 // --------------------------------------------------------------------------------------
 // PM Agent
 // --------------------------------------------------------------------------------------
+PmAgent::PmAgent(const NodeUuid &uuid) : NodeAgent(uuid)
+{
+    pm_ep_svc = new PmSvcEp(uuid, 0, 0);
+}
+
+PmAgent::~PmAgent() {}
+
+// agent_rpc
+// ---------
+//
 boost::shared_ptr<fpi::PlatNetSvcClient>
-PmAgent::agent_rpc()
+PmAgent::agent_rpc(EpSvcHandle::pointer *handle)
 {
     NetMgr              *net;
     fpi::SvcUuid         peer;
-    EpSvcHandle::pointer handle;
 
     net = NetMgr::ep_mgr_singleton();
     peer.svc_uuid = rs_uuid.uuid_get_val();
-    net->svc_get_handle<fpi::PlatNetSvcClient>(peer, &handle, 0, 0);
+    net->svc_get_handle<fpi::PlatNetSvcClient>(peer, handle, 0, 0);
 
     /* TODO(Vy): wire up the common event plugin to handle error. */
-    if (handle != NULL) {
-        return handle->svc_rpc<fpi::PlatNetSvcClient>();
+    if (*handle != NULL) {
+        return (*handle)->svc_rpc<fpi::PlatNetSvcClient>();
     }
     return NULL;
+}
+
+// agent_ep_svc
+// ------------
+//
+PmSvcEp::pointer
+PmAgent::agent_ep_svc()
+{
+    return pm_ep_svc;
+}
+
+// agent_bind_ep
+// -------------
+//
+void
+PmAgent::agent_bind_ep()
+{
+    EpSvcImpl::pointer ep = NetPlatform::nplat_singleton()->nplat_my_ep();
+    NodeAgent::agent_bind_ep(ep, pm_ep_svc);
 }
 
 // --------------------------------------------------------------------------------------
 // SM Agent
 // --------------------------------------------------------------------------------------
-SmAgent::SmAgent(const NodeUuid &uuid)
-    : NodeAgent(uuid), sm_sess(NULL), sm_reqt(NULL) {}
+SmAgent::SmAgent(const NodeUuid &uuid) : NodeAgent(uuid), sm_sess(NULL), sm_reqt(NULL)
+{
+    sm_ep_svc = new SmSvcEp(uuid, 0, 0);
+}
 
 SmAgent::~SmAgent()
 {
     /* TODO(Vy): shutdown netsession and cleanup stuffs here */
+}
+
+// agent_ep_svc
+// ------------
+//
+SmSvcEp::pointer
+SmAgent::agent_ep_svc()
+{
+    return sm_ep_svc;
+}
+
+// agent_bind_ep
+// -------------
+//
+void
+SmAgent::agent_bind_ep()
+{
+    EpSvcImpl::pointer ep = NetPlatform::nplat_singleton()->nplat_my_ep();
+    NodeAgent::agent_bind_ep(ep, sm_ep_svc);
 }
 
 // sm_handshake
@@ -508,7 +601,10 @@ std::string SmAgent::get_sm_sess_id() {
     return sm_sess_id;
 }
 
-SmContainer::SmContainer(FdspNodeType id) : AgentContainer(id) {}
+SmContainer::SmContainer(FdspNodeType id) : AgentContainer(id)
+{
+    ac_id = fpi::FDSP_STOR_MGR;
+}
 
 // agent_handshake
 // ---------------
@@ -523,14 +619,93 @@ SmContainer::agent_handshake(boost::shared_ptr<netSessionTbl> net,
 }
 
 // --------------------------------------------------------------------------------------
+// DmAgent
+// --------------------------------------------------------------------------------------
+DmAgent::DmAgent(const NodeUuid &uuid) : NodeAgent(uuid)
+{
+    dm_ep_svc = new DmSvcEp(uuid, 0, 0);
+}
+
+DmAgent::~DmAgent() {}
+
+// agent_ep_svc
+// ------------
+//
+DmSvcEp::pointer
+DmAgent::agent_ep_svc()
+{
+    return dm_ep_svc;
+}
+
+// agent_bind_ep
+// -------------
+//
+void
+DmAgent::agent_bind_ep()
+{
+    EpSvcImpl::pointer ep = NetPlatform::nplat_singleton()->nplat_my_ep();
+    NodeAgent::agent_bind_ep(ep, dm_ep_svc);
+}
+
+// --------------------------------------------------------------------------------------
+// AmAgent
+// --------------------------------------------------------------------------------------
+AmAgent::AmAgent(const NodeUuid &uuid) : NodeAgent(uuid)
+{
+    am_ep_svc = new AmSvcEp(uuid, 0, 0);
+}
+
+AmAgent::~AmAgent() {}
+
+// agent_ep_svc
+// ------------
+//
+AmSvcEp::pointer
+AmAgent::agent_ep_svc()
+{
+    return am_ep_svc;
+}
+
+// agent_bind_ep
+// -------------
+//
+void
+AmAgent::agent_bind_ep()
+{
+    EpSvcImpl::pointer ep = NetPlatform::nplat_singleton()->nplat_my_ep();
+    NodeAgent::agent_bind_ep(ep, am_ep_svc);
+}
+
+// --------------------------------------------------------------------------------------
 // OM Agent
 // --------------------------------------------------------------------------------------
-OmAgent::OmAgent(const NodeUuid &uuid)
-    : NodeAgent(uuid), om_sess(NULL), om_reqt(NULL) {}
+OmAgent::OmAgent(const NodeUuid &uuid) : NodeAgent(uuid), om_sess(NULL), om_reqt(NULL)
+{
+    om_ep_svc = new OmSvcEp(uuid, 0, 0);
+}
 
 OmAgent::~OmAgent()
 {
     /* TODO(Vy): shutdown netsession and cleanup stuffs here */
+}
+
+// agent_ep_svc
+// ------------
+//
+OmSvcEp::pointer
+OmAgent::agent_ep_svc()
+{
+    return om_ep_svc;
+}
+
+// agent_bind_ep
+// -------------
+//
+void
+OmAgent::agent_bind_ep()
+{
+    EpSvcImpl::pointer ep = NetPlatform::nplat_singleton()->nplat_my_ep();
+    NodeAgent::agent_bind_ep(ep, om_ep_svc);
 }
 
 // init_msg_hdr
@@ -555,7 +730,7 @@ OmAgent::init_node_reg_pkt(fpi::FDSP_RegisterNodeTypePtr pkt) const
 
     NodeInventory::init_node_reg_pkt(pkt);
     pkt->node_type         = plat->plf_get_node_type();
-    pkt->node_uuid.uuid    = plat->plf_get_my_uuid()->uuid_get_val();
+    pkt->node_uuid.uuid    = plat->plf_get_my_node_uuid()->uuid_get_val();
     pkt->service_uuid.uuid = pkt->node_uuid.uuid + 1 + pkt->node_type;
     pkt->node_name         = *plat->plf_get_my_name();
     pkt->ip_hi_addr        = 0;
@@ -623,7 +798,6 @@ AgentContainer::agent_register(const NodeUuid       &uuid,
     if (agent == NULL) {
         add   = activate;
         agent = agt_cast_ptr<NodeAgent>(rs_alloc_new(uuid));
-        FDS_PLOG(g_fdslog) << " Node root " << msg->node_root;
         agent->node_fill_inventory(msg);
     } else {
         if (name.compare(agent->get_node_name()) != 0) {
@@ -645,27 +819,36 @@ void
 AgentContainer::agent_register(const ShmObjRO     *shm,
                                NodeAgent::pointer *out,
                                int                 ro,
-                               int                 rw,
-                               bool                activate)
+                               int                 rw)
 {
     bool                add;
+    NodeUuid            svc, node;
     const node_data_t  *info;
     NodeAgent::pointer  agent;
 
-    add   = false;
-    *out  = NULL;
-    info  = shm->shm_get_rec<node_data_t>(ro);
-    agent = agt_cast_ptr<NodeAgent>(agent_info(info->nd_service_uuid));
-    if (agent == NULL) {
-        add   = activate;
-        agent = agt_cast_ptr<NodeAgent>(rs_alloc_new(info->nd_service_uuid));
-    }
-    agent->node_fill_shm_inv(shm, ro, rw);
+    add = true;
+    if (*out == NULL) {
+        info = shm->shm_get_rec<node_data_t>(ro);
+        node.uuid_set_val(info->nd_service_uuid);
+        Platform::plf_svc_uuid_from_node(node, &svc, ac_id);
 
-    *out = agent;
+        agent = agt_cast_ptr<NodeAgent>(agent_info(svc));
+        if (agent == NULL) {
+            agent = agt_cast_ptr<NodeAgent>(rs_alloc_new(svc));
+        } else {
+            add = false;
+        }
+        *out = agent;
+    } else {
+        agent = *out;
+        fds_verify(agent->node_svc_type == ac_id);
+    }
+    agent->node_fill_shm_inv(shm, ro, rw, ac_id);
+
     if (add == true) {
         agent_activate(agent);
     }
+    agent->agent_publish_ep();
 }
 
 // agent_unregister
@@ -764,20 +947,41 @@ DomainContainer::dc_register_node(const NodeUuid       &uuid,
 }
 
 void
-DomainContainer::dc_register_node(const ShmObjRO *shm,
-                                  NodeAgent::pointer *agent, int ro, int rw)
+DomainContainer::dc_register_node(const ShmObjRO     *shm,
+                                  NodeAgent::pointer *agent,
+                                  int ro, int rw, fds_uint32_t mask)
 {
     const node_data_t       *node;
+    NodeAgent::pointer       tmp;
     AgentContainer::pointer  container;
 
     fds_verify(ro != -1);
     node = shm->shm_get_rec<node_data_t>(ro);
 
+    fds_verify(node->nd_svc_type == fpi::FDSP_PLATFORM);
     LOGDEBUG << "Platform domain register node uuid " << std::hex
-        << node->nd_node_uuid << ", svc uuid " << node->nd_service_uuid;
+        << node->nd_node_uuid << ", svc uuid " << node->nd_service_uuid
+        << ", svc mask " << mask;
 
     container = dc_container_frm_msg(node->nd_svc_type);
-    return container->agent_register(shm, agent, ro, rw);
+    container->agent_register(shm, agent, ro, rw);
+
+    if ((mask & fpi::NODE_SVC_SM) != 0) {
+        tmp = NULL;
+        dc_sm_nodes->agent_register(shm, &tmp, ro, rw);
+    }
+    if ((mask & fpi::NODE_SVC_DM) != 0) {
+        tmp = NULL;
+        dc_dm_nodes->agent_register(shm, &tmp, ro, rw);
+    }
+    if ((mask & fpi::NODE_SVC_AM) != 0) {
+        tmp = NULL;
+        dc_am_nodes->agent_register(shm, &tmp, ro, rw);
+    }
+    if ((mask & fpi::NODE_SVC_OM) != 0) {
+        tmp = NULL;
+        dc_om_nodes->agent_register(shm, &tmp, ro, rw);
+    }
 }
 
 // dc_unregister_node

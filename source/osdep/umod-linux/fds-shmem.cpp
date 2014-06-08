@@ -24,12 +24,16 @@ FdsShmem::shm_alloc(size_t siz)
 
     // Truncate the region
     if (ftruncate(fd, sh_size) == -1) {
+        perror(sh_name);
+        printf("ftruncate....\n");
         return NULL;
     }
 
     // Map the region
     sh_addr = mmap(NULL, sh_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     if (sh_addr == NULL) {
+        perror(sh_name);
+        printf("mmap....\n");
         return NULL;
     }
 

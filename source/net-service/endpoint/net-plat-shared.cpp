@@ -53,21 +53,7 @@ NetPlatSvc::mod_startup()
 {
     Module::mod_startup();
 
-    // Create the agent and register the ep
-    plat_ep_plugin = new PlatNetPlugin(this);
-    plat_agent     = new DomainAgent(plat_lib->plf_my_node_uuid());
-    plat_ep_hdler  = bo::shared_ptr<NetPlatHandler>(new NetPlatHandler(this));
-    plat_ep        = new PlatNetEp(
-            plat_lib->plf_get_my_nsvc_port(),
-            *plat_lib->plf_get_my_plf_svc_uuid(), /* bind to my platform lib svc  */
-            NodeUuid(0ULL),                       /* pure server mode */
-            bo::shared_ptr<fpi::PlatNetSvcProcessor>(
-                new fpi::PlatNetSvcProcessor(plat_ep_hdler)),
-            plat_ep_plugin);
-
-    LOGNORMAL << "startup shared platform net svc, port "
-              << plat_lib->plf_get_my_nsvc_port() << std::hex
-              << plat_lib->plf_get_my_plf_svc_uuid()->uuid_get_val();
+    plat_agent = new DomainAgent(*plat_lib->plf_get_my_node_uuid());
 }
 
 void
@@ -75,11 +61,11 @@ NetPlatSvc::mod_enable_service()
 {
     Module::mod_enable_service();
 
-    // Regiser my node endpoint.
-    netmgr->ep_register(plat_ep, false);
     if (!plat_lib->plf_is_om_node()) {
         plat_agent->pda_connect_domain(fpi::DomainID());
     }
+    plat_agent->pda_register();
+    nplat_refresh_shm();
 }
 
 void
@@ -88,23 +74,60 @@ NetPlatSvc::mod_shutdown()
     Module::mod_shutdown();
 }
 
-// nplat_domain_rpc
-// ----------------
-// Get the RPC handles needed to contact the master platform services.
-//
-EpSvcHandle::pointer
-NetPlatSvc::nplat_domain_rpc(const fpi::DomainID &id)
+NodeInfoShmIter::NodeInfoShmIter(bool rw)
+    : it_no_rec(0), it_no_rec_quit(10), it_shm_rw(rw)
 {
-    return plat_agent->pda_rpc_handle();
+    it_shm   = NodeShmCtrl::shm_node_inventory();
+    it_local = Platform::platf_singleton()->plf_node_inventory();
 }
 
-// nplat_my_ep
-// -----------
+// shm_obj_iter_fn
+// ---------------
+// Iterate through node info records in shared memory and create agent objs in the
+// node inventory.
 //
-EpSvc::pointer
-NetPlatSvc::nplat_my_ep()
+bool
+NodeInfoShmIter::shm_obj_iter_fn(int         idx,
+                                 const void *key,
+                                 const void *rec,
+                                 size_t      key_sz,
+                                 size_t      rec_sz)
 {
-    return plat_ep;
+    int                 rw_idx;
+    ep_map_rec_t        epmap;
+    NodeAgent::pointer  agent;
+    const fds_uint64_t *uuid;
+
+    fds_assert(sizeof(*uuid) == key_sz);
+    fds_assert(sizeof(node_data_t) == rec_sz);
+
+    uuid = reinterpret_cast<const fds_uint64_t *>(key);
+    if (*uuid == 0) {
+        return ++it_no_rec < it_no_rec_quit ? true : false;
+    }
+    // My node is taken care by the domain master.
+    if (*uuid == Platform::plf_get_my_node_uuid()->uuid_get_val()) {
+        std::cout << "shm_obj_iter: skip my uuid..." << std::endl;
+        return true;
+    }
+    agent  = NULL;
+    rw_idx = it_shm_rw == false ? -1 : idx;
+    it_local->dc_register_node(it_shm, &agent, idx, rw_idx, NODE_DO_PROXY_ALL_SVCS);
+
+    return true;
+}
+
+// nplat_refresh_shm
+// -----------------
+//
+void
+NetPlatSvc::nplat_refresh_shm()
+{
+    const ShmObjRO  *shm;
+    NodeInfoShmIter  iter(false);
+
+    shm = NodeShmCtrl::shm_node_inventory();
+    shm->shm_iter_objs(&iter);
 }
 
 // nplat_register_node
@@ -132,9 +155,33 @@ NetPlatSvc::nplat_register_node(const fpi::NodeInfoMsg *msg)
     // local->dc_register_node(shm, &agent, idx, -1);
 }
 
+// nplat_domain_rpc
+// ----------------
+// Get the RPC handles needed to contact the master platform services.
+//
+EpSvcHandle::pointer
+NetPlatSvc::nplat_domain_rpc(const fpi::DomainID &id)
+{
+    return plat_agent->pda_rpc_handle();
+}
+
+// nplat_my_ep
+// -----------
+//
+EpSvcImpl::pointer
+NetPlatSvc::nplat_my_ep()
+{
+    return plat_ep;
+}
+
 /*
  * -----------------------------------------------------------------------------------
  * Domain Agent
+ *
+ * This obj is also platform agent (DmAgent) but it has special methods to communicate
+ * with "the" domain master.  In the future, domain master can move to other node but
+ * the interface from this obj remains unchanged.  It always knows how to talk to "the"
+ * domain master.
  * -----------------------------------------------------------------------------------
  */
 DomainAgent::DomainAgent(const NodeUuid &uuid, bool alloc_plugin)
@@ -148,6 +195,7 @@ DomainAgent::DomainAgent(const NodeUuid &uuid, bool alloc_plugin)
 /**
  * pda_connect_domain
  * ------------------
+ * Establish connection to the domain master.  Null domain implies local one.
  */
 void
 DomainAgent::pda_connect_domain(const fpi::DomainID &id)
@@ -170,25 +218,38 @@ DomainAgent::pda_connect_domain(const fpi::DomainID &id)
 }
 
 /**
- * pda_update_binding
- * ------------------
+ * pda_register
+ * ------------
  */
 void
-DomainAgent::pda_update_binding(const struct ep_map_rec *rec, int cnt)
+DomainAgent::pda_register()
 {
+    int                     idx;
+    node_data_t             rec;
+    fds_uint64_t            uid;
+    ShmObjROKeyUint64      *shm;
+    NodeAgent::pointer      agent;
+    DomainNodeInv::pointer  local;
+
+    uid = rs_uuid.uuid_get_val();
+    shm = NodeShmCtrl::shm_node_inventory();
+    idx = shm->shm_lookup_rec(static_cast<const void *>(&uid),
+                              static_cast<void *>(&rec), sizeof(rec));
+    fds_verify(idx != -1);
+
+    agent = this;
+    local = Platform::platf_singleton()->plf_node_inventory();
+    local->dc_register_node(shm, &agent, idx, -1, NODE_DO_PROXY_ALL_SVCS);
 }
 
 /**
  * ep_connected
  * ------------
+ * This is called when the domain agent establihed connection to the domain master.
  */
 void
 DomainAgentPlugin::ep_connected()
 {
-    std::vector<UuidBindMsg> ret;
-    auto rpc = pda_agent->pda_rpc();
-
-    rpc->allUuidBinding(ret, UuidBindMsg(), false);
 }
 
 /**
@@ -251,16 +312,15 @@ PlatNetPlugin::svc_down(EpSvc::pointer svc, EpSvcHandle::pointer handle)
  * -----------------------------------------------------------------------------------
  */
 void
-NetPlatHandler::allUuidBinding(std::vector<fpi::UuidBindMsg>    &ret,
-                               bo::shared_ptr<fpi::UuidBindMsg> &msg,
-                               bo::shared_ptr<bool>             &all_list)
+NetPlatHandler::allUuidBinding(bo::shared_ptr<fpi::UuidBindMsg> &msg)
 {
     std::cout << "all uuidBind there" << std::endl;
 }
 
 void
 NetPlatHandler::notifyNodeInfo(std::vector<fpi::NodeInfoMsg>    &ret,
-                               bo::shared_ptr<fpi::NodeInfoMsg> &inf)
+                               bo::shared_ptr<fpi::NodeInfoMsg> &inf,
+                               bo::shared_ptr<bool>             &bcast)
 {
 }
 

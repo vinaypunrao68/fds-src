@@ -65,6 +65,13 @@ class NodeShmRWCtrl : public NodeShmCtrl
     static ShmObjRWKeyUint64 *shm_uuid_rw_binding() {
         return gl_NodeShmRWCtrl.shm_uuid_rw;
     }
+    static ShmObjRWKeyUint64 *shm_node_rw_inv(FdspNodeType type)
+    {
+        if (type == fpi::FDSP_STOR_HVISOR) {
+            return gl_NodeShmRWCtrl.shm_am_rw;
+        }
+        return gl_NodeShmRWCtrl.shm_node_rw;
+    }
 
     /**
      * Module methods

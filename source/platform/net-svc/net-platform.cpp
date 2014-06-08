@@ -33,6 +33,15 @@ PlatformdNetSvc::PlatformdNetSvc(const char *name) : NetPlatSvc(name)
     mod_intern = platd_net_deps;
 }
 
+// ep_shm_singleton
+// ----------------
+//
+/*  static */ EpPlatformdMod *
+EpPlatformdMod::ep_shm_singleton()
+{
+    return &gl_PlatformdShmLib;
+}
+
 // mod_init
 // --------
 //
@@ -50,18 +59,18 @@ PlatformdNetSvc::mod_startup()
 {
     Module::mod_startup();
 
-    plat_agent  = new PlatAgent(plat_lib->plf_my_node_uuid());
+    plat_agent  = new PlatAgent(*plat_lib->plf_get_my_node_uuid());
     plat_recv   = bo::shared_ptr<PlatformEpHandler>(new PlatformEpHandler(this));
     plat_plugin = new PlatformdPlugin(this);
     plat_ep     = new PlatNetEp(
-            plat_lib->plf_get_my_nsvc_port(),
-            plat_lib->plf_my_node_uuid(),
+            plat_lib->plf_get_my_node_port(),
+            *plat_lib->plf_get_my_node_uuid(),
             NodeUuid(0ULL),
             bo::shared_ptr<fpi::PlatNetSvcProcessor>(
                 new fpi::PlatNetSvcProcessor(plat_recv)), plat_plugin);
 
     LOGNORMAL << "Startup platform specific net svc, port "
-              << plat_lib->plf_get_my_nsvc_port();
+              << plat_lib->plf_get_my_node_port();
 }
 
 // mod_enable_service
@@ -70,7 +79,7 @@ PlatformdNetSvc::mod_startup()
 void
 PlatformdNetSvc::mod_enable_service()
 {
-    plat_agent->pda_register(Platform::plf_pm_nodes());
+    netmgr->ep_register(plat_ep, false);
     NetPlatSvc::mod_enable_service();
 }
 
@@ -116,26 +125,20 @@ PlatformdNetSvc::nplat_peer(const fpi::DomainID &id, const fpi::SvcUuid &uuid)
 void
 PlatformdNetSvc::nplat_register_node(const fpi::NodeInfoMsg *msg)
 {
-    int                     idx;
-    node_data_t             rec;
-    ep_map_rec_t            map;
-    ShmObjRWKeyUint64      *shm;
-    NodeAgent::pointer      agent;
-    DomainNodeInv::pointer  local;
+    node_data_t  rec;
 
+    // Notify all services about this node through shared memory queue.
     NodeInventory::node_info_msg_to_shm(msg, &rec);
-    EpPlatLibMod::ep_node_info_to_mapping(&rec, &map);
+    EpPlatformdMod::ep_shm_singleton()->node_reg_notify(&rec);
+}
 
-    shm = NodeShmRWCtrl::shm_node_rw_inv();
-    idx = shm->shm_insert_rec(static_cast<void *>(&rec.nd_node_uuid),
-                              static_cast<void *>(&rec), sizeof(rec));
-
-    // Assert for now to debug any problem with leaking...
-    fds_verify(idx != -1);
-    NetMgr::ep_mgr_singleton()->ep_register_binding(&map, idx);
-
-    local = Platform::platf_singleton()->plf_node_inventory();
-    local->dc_register_node(shm, &agent, idx, idx);
+// nplat_refresh_shm
+// -----------------
+//
+void
+PlatformdNetSvc::nplat_refresh_shm()
+{
+    std::cout << "Platform daemon refresh shm" << std::endl;
 }
 
 /*
@@ -207,12 +210,14 @@ PlatAgent::init_stor_cap_msg(fpi::StorCapMsg *msg) const
 // ------------
 //
 void
-PlatAgent::pda_register(PmContainer::pointer container)
+PlatAgent::pda_register()
 {
-    int                idx;
-    node_data_t        rec;
-    fpi::NodeInfoMsg   msg;
-    ShmObjRWKeyUint64 *shm;
+    int                     idx;
+    node_data_t             rec;
+    fpi::NodeInfoMsg        msg;
+    ShmObjRWKeyUint64      *shm;
+    NodeAgent::pointer      agent;
+    DomainNodeInv::pointer  local;
 
     this->init_plat_info_msg(&msg);
     this->node_info_msg_to_shm(&msg, &rec);
@@ -222,8 +227,67 @@ PlatAgent::pda_register(PmContainer::pointer container)
                               static_cast<void *>(&rec), sizeof(rec));
     fds_verify(idx != -1);
 
-    this->node_fill_shm_inv(shm, idx, idx);
-    container->agent_activate(this);
+    agent = this;
+    local = Platform::platf_singleton()->plf_node_inventory();
+    local->dc_register_node(shm, &agent, idx, idx, NODE_DO_PROXY_ALL_SVCS);
+}
+
+// agent_publish_ep
+// ----------------
+// Called by the platform daemon side to publish uuid binding info to shared memory.
+//
+void
+PlatAgent::agent_publish_ep()
+{
+    node_data_t        ninfo;
+    EpPlatformdMod    *ep_map;
+
+    ep_map = EpPlatformdMod::ep_shm_singleton();
+    node_info_frm_shm(&ninfo);
+
+    agent_bind_svc(ep_map, &ninfo, fpi::FDSP_STOR_MGR);
+    agent_bind_svc(ep_map, &ninfo, fpi::FDSP_DATA_MGR);
+    agent_bind_svc(ep_map, &ninfo, fpi::FDSP_ORCH_MGR);
+    agent_bind_svc(ep_map, &ninfo, fpi::FDSP_STOR_HVISOR);
+}
+
+// agent_bind_svc
+// --------------
+//
+void
+PlatAgent::agent_bind_svc(EpPlatformdMod *map, node_data_t *ninfo, fpi::FDSP_MgrIdType t)
+{
+    int           idx, port;
+    ep_map_rec_t  rec;
+    fpi::SvcUuid  svc;
+
+    switch (t) {
+    case fpi::FDSP_STOR_MGR:
+        port = Platform::plf_get_my_am_svc_uuid(&svc);
+        break;
+
+    case fpi::FDSP_DATA_MGR:
+        port = Platform::plf_get_my_dm_svc_uuid(&svc);
+        break;
+
+    case fpi::FDSP_ORCH_MGR:
+        port = Platform::plf_get_my_om_svc_uuid(&svc);
+        break;
+
+    case fpi::FDSP_STOR_HVISOR:
+        port = Platform::plf_get_my_am_svc_uuid(&svc);
+        break;
+
+    default:
+        return;
+    }
+    ninfo->nd_node_uuid = svc.svc_uuid;
+    ninfo->nd_base_port = port;
+    EpPlatLibMod::ep_node_info_to_mapping(ninfo, &rec);
+
+    idx = map->ep_map_record(&rec);
+    LOGDEBUG << "Platform daemon binds " << t << ":" << std::hex << svc.svc_uuid << "@"
+        << ninfo->nd_ip_addr << ":" << ninfo->nd_base_port << "idx " << idx << std::dec;
 }
 
 // ep_connected
@@ -242,8 +306,7 @@ PlatAgentPlugin::ep_connected()
     pda_agent->init_plat_info_msg(msg);
 
     auto rpc = pda_agent->pda_rpc();
-    auto pkt = bo::shared_ptr<fpi::NodeInfoMsg>(msg);
-    rpc->notifyNodeInfo(ret, pkt);
+    rpc->notifyNodeInfo(ret, *msg, true);
 
     std::cout << "Got " << ret.size() << " elements back" << std::endl;
 

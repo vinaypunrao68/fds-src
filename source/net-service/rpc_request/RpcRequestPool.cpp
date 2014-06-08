@@ -123,7 +123,7 @@ FailoverRpcRequestPtr RpcRequestPool::newFailoverRpcRequest(
     auto reqId = nextAsyncReqId_++;
 
     fpi::SvcUuid myEpId;
-    fds::assign(myEpId, *PlatformProcess::plf_manager()->plf_get_my_svc_uuid());
+    fds::assign(myEpId, *Platform::plf_get_my_svc_uuid());
 
     FailoverRpcRequestPtr req(new FailoverRpcRequest(reqId, myEpId, epProvider));
     asyncRpcInitCommon_(req);

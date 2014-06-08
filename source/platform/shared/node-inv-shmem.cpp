@@ -132,7 +132,7 @@ FdsShmem *
 NodeShmCtrl::shm_create_mgr(const char *fmt, char *name, int shm_size)
 {
     snprintf(name, FDS_MAX_UUID_STR, fmt,
-             Platform::platf_singleton()->plf_my_node_uuid().uuid_get_val(), 0);
+             Platform::platf_singleton()->plf_get_my_node_uuid()->uuid_get_val(), 0);
 
     return new FdsShmem(name, shm_size);
 }

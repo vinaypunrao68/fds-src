@@ -188,11 +188,11 @@ NetMgr::ep_handler_register(EpSvcHandle::pointer handle)
     fpi::SvcUuid peer;
 
     handle->ep_peer_uuid(peer);
-    fds_verify(peer != NullSvcUuid);
-
-    ep_mtx.lock();
-    ep_handle_map[peer.svc_uuid] = handle;
-    ep_mtx.unlock();
+    if (peer != NullSvcUuid) {
+        ep_mtx.lock();
+        ep_handle_map[peer.svc_uuid] = handle;
+        ep_mtx.unlock();
+    }
 }
 
 // ep_handler_unregister
@@ -360,6 +360,7 @@ NetMgr::ep_uuid_bindings(const struct ep_map_rec **map)
 int
 NetMgr::ep_uuid_binding(const fpi::SvcUuid &uuid, std::string *ip)
 {
+#if 0
     // TODO(Rao): Hack to get port number
     int port = static_cast<int>(Platform::lookup_svc_port(uuid.svc_uuid));
     *ip = "127.0.0.1";
@@ -382,7 +383,7 @@ NetMgr::ep_uuid_binding(const fpi::SvcUuid &uuid, std::string *ip)
     } else {
         fds_verify(!"Not impl");
     }
-
+#endif
     int          idx, ret;
     char         str[INET6_ADDRSTRLEN + 1];
     ep_map_rec_t map;
@@ -396,14 +397,24 @@ NetMgr::ep_uuid_binding(const fpi::SvcUuid &uuid, std::string *ip)
     ep_mtx.unlock();
 
     if (idx < 0) {
-        ip->clear();
-        return -1;
-    }
-    ret = ep_shm->ep_lookup_rec(idx, uuid.svc_uuid, &map);
-    if (ret == -1) {
-        idx = ep_shm->node_info_lookup(idx, uuid.svc_uuid, &map);
+        // Don't have it in the cache, lookup in shared memory.
+        idx = ep_shm->ep_lookup_rec(uuid.svc_uuid, &map);
+        if (idx == -1) {
+            idx = ep_shm->node_info_lookup(uuid.svc_uuid, &map);
+            if (idx == -1) {
+                ip->clear();
+                return -1;
+            }
+        }
+        // Cache the binding to the shared memory location.
+        ep_register_binding(&map, idx);
     } else {
-        idx = ret;
+        ret = ep_shm->ep_lookup_rec(idx, uuid.svc_uuid, &map);
+        if (ret == -1) {
+            idx = ep_shm->node_info_lookup(idx, uuid.svc_uuid, &map);
+        } else {
+            idx = ret;
+        }
     }
     if (idx >= 0) {
         EpAttr::netaddr_to_str(&map.rmp_addr, str, INET6_ADDRSTRLEN);
@@ -438,11 +449,11 @@ NetMgr::ep_register_binding(const ep_map_rec_t *rec, int idx)
 ResourceUUID const *const
 NetMgr::ep_my_platform_uuid()
 {
-    return plat_lib->plf_get_my_uuid();
+    return plat_lib->plf_get_my_node_uuid();
 }
 
 // ep_get_timer
-// -------------------
+// ------------
 //
 FdsTimerPtr NetMgr::ep_get_timer() const
 {
@@ -464,9 +475,42 @@ NetMgr::ep_actionable_error(/*const fpi::SvcUuid &uuid, */const Error &e) const
 void
 NetMgr::ep_handle_error(const fpi::SvcUuid &uuid, const Error &e)
 {
+    fds_threadpool *pool;
+
+    pool = ep_mgr_thrpool();
+    pool->schedule(&NetMgr::ep_handle_error_thr, this,
+                   new fpi::SvcUuid(uuid), new Error(e));
 }
 
-fpi::AsyncHdr NetMgr::ep_swap_header(const fpi::AsyncHdr &req_hdr)
+// ep_handle_error_thr
+// -------------------
+// Wire up errors in data path to the correct handling object and handle it in the
+// common threadpool.
+//
+void
+NetMgr::ep_handle_error_thr(fpi::SvcUuid *uuid, Error *e)
+{
+    EpSvc::pointer       svc;
+    EpSvcHandle::pointer eph;
+
+    eph = svc_handler_lookup(*uuid);
+    if (eph != NULL) {
+        eph->ep_handle_error(*e);
+    } else {
+        svc = svc_lookup(*uuid, 0, 0);
+        if (svc != NULL) {
+            svc->ep_handle_error(*e);
+        } else {
+            LOGDEBUG << "Can not lookup uuid " << std::hex << uuid->svc_uuid
+                << ", err: " << e->GetErrstr();
+        }
+    }
+    delete uuid;
+    delete e;
+}
+
+fpi::AsyncHdr
+NetMgr::ep_swap_header(const fpi::AsyncHdr &req_hdr)
 {
     auto resp_hdr = req_hdr;
     resp_hdr.msg_src_uuid = req_hdr.msg_dst_uuid;

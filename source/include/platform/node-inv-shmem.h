@@ -148,14 +148,21 @@ class NodeShmCtrl : public Module
     static const int shm_max_nodes = MAX_DOMAIN_NODES;
 
     static const int shm_queue_hdr     = 256;
-    static const int shm_q_item_size   = 64;
-    static const int shm_q_item_count  = 508;             /** 32K segment */
+    static const int shm_q_item_size   = 128;
+    static const int shm_q_item_count  = 1016;             /** 64K segment */
     static const int shm_svc_consumers = 8;
 
     static NodeShmCtrl       *shm_ctrl_singleton() { return gl_NodeShmCtrl; }
     static ShmObjROKeyUint64 *shm_am_inventory() { return gl_NodeShmCtrl->shm_am_inv; }
     static ShmObjROKeyUint64 *shm_uuid_binding() { return gl_NodeShmCtrl->shm_uuid_bind; }
     static ShmObjROKeyUint64 *shm_node_inventory() {
+        return gl_NodeShmCtrl->shm_node_inv;
+    }
+    static ShmObjROKeyUint64 *shm_node_inventory(FdspNodeType type)
+    {
+        if (type == fpi::FDSP_STOR_HVISOR) {
+            return gl_NodeShmCtrl->shm_am_inv;
+        }
         return gl_NodeShmCtrl->shm_node_inv;
     }
     static ShmConPrdQueue *shm_consumer() { return gl_NodeShmCtrl->shm_cons_q; }
@@ -165,6 +172,7 @@ class NodeShmCtrl : public Module
      * Start a thread to consume at the unique index.
      */
     virtual void shm_start_consumer_thr(int cons_idx) {
+        shm_cons_q->shm_activate_consumer(cons_idx);
         shm_cons_thr =
             new std::thread(&ShmConPrdQueue::shm_consume_loop, shm_cons_q, cons_idx);
     }

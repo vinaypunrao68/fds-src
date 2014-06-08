@@ -1,7 +1,11 @@
 /*
  * Copyright 2014 by Formation Data Systems, Inc.
  */
+#include <algorithm>
+#include <vector>
+#include <util/Log.h>
 #include <fds-shmobj.h>
+#include <platform/node-inv-shmem.h>
 #include <platform/fds-shmem.h>
 
 namespace fds {
@@ -64,12 +68,36 @@ ShmObjRO::shm_lookup_rec(int idx, const void *key, void *rec, size_t rec_sz) con
     fds_verify((0 <= idx) && (idx < shm_obj_cnt));
     cur = shm_area + (idx * shm_obj_siz);
     if (key != NULL) {
-        /* Verify the key. */
-        fds_verify(obj_key_cmp(static_cast<const char *>(key),
-                               cur + shm_key_off, shm_key_siz) == 0);
+        /* Verify the key if the index is wrong. */
+        if (obj_key_cmp(static_cast<const char *>(key),
+                        cur + shm_key_off, shm_key_siz) != 0) {
+            return -1;
+        }
     }
     memcpy(rec, cur, shm_obj_siz);
     return idx;
+}
+
+// shm_iter_objs
+// -------------
+//
+int
+ShmObjRO::shm_iter_objs(ShmObjIter *iter) const
+{
+    int         idx;
+    size_t      off;
+    const char *cur, *key;
+
+    for (idx = 0; idx < shm_obj_cnt; idx++, off += shm_obj_siz) {
+        cur = shm_area + off;
+        key = cur + shm_key_off;
+
+        iter->iter_cnt++;
+        if (iter->shm_obj_iter_fn(idx, key, cur, shm_key_siz, shm_obj_siz) == false) {
+            break;
+        }
+    }
+    return iter->iter_cnt;
 }
 
 // obj_key_cmp
@@ -247,106 +275,350 @@ ShmObjRW::shm_remove_rec(int idx, const void *key, void *data, size_t rec_sz)
 // Queue stuff
 // -----------
 //
-ShmConPrdQueue::ShmConPrdQueue(shm_con_prd_sync_t *sync, shm_1prd_ncon_q_t *ctrl, ShmObjRW *data)
-    : fdsio::RequestQueue(1, -1)
+ShmConPrdQueue::ShmConPrdQueue(shm_con_prd_sync_t *sync, ShmObjRW *data)
+        : fdsio::RequestQueue(1, -1), smq_sync(sync), smq_data(data),
+          smq_size(NodeShmCtrl::shm_q_item_count),
+          smq_itm_size(NodeShmCtrl::shm_q_item_size)
 {
 }
-
-ShmConPrdQueue::ShmConPrdQueue(shm_con_prd_sync_t *sync, shm_nprd_1con_q_t *ctrl, ShmObjRW *data)
-    : fdsio::RequestQueue(1, -1)
-{
-}
+// Initialize reqID
+fds_uint32_t ShmConPrdQueue::smq_reqID = 0;
 
 void
-ShmConPrdQueue::shm_track_request(ShmqReqOut *out, shmq_req_t *hdr)
+ShmConPrdQueue::shm_track_request(ShmqReqOut *out, shmq_req_t *hdr, int caller)
 {
     // Assign the unique tracking id and submit the 'out' request to this queue.
     // Map this id to the 'out' object so that we can retrieve it later.
     //
-    hdr->smq_id    = 0;
     hdr->smq_code |= SHMQ_TRACK_MASK;
+    hdr->smq_idx = caller;
+    hdr->smq_payload_size = 0;
+
+    // Mutex down so we don't duplicate IDs by accident
+    pthread_mutex_lock(&smq_sync->shm_mtx);
+    hdr->smq_id    = ShmConPrdQueue::smq_reqID++;
+    smq_reqOutMap[hdr->smq_id] = out;
+    // Mutex up
+    pthread_mutex_unlock(&smq_sync->shm_mtx);
 
     out->req_out = *hdr;
     this->rq_enqueue(out, 0);
 }
 
+/* static */ void
+ShmConPrdQueue::shm_swap_req_header(shmq_req_t *x, shmq_req_t *y)
+{
+    fds_assert((x != nullptr) && (y != nullptr));
+    shmq_req_t temp;
+    memcpy(static_cast<void *>(&temp), static_cast<void *>(x), sizeof(shmq_req_t));
+    memcpy(static_cast<void *>(x), static_cast<void *>(y), sizeof(shmq_req_t));
+    memcpy(static_cast<void *>(y), static_cast<void *>(&temp), sizeof(shmq_req_t));
+}
+
 void
 ShmConPrdQueue::shm_register_handler(int smq_code, ShmqReqIn *cb)
 {
+    // XXX: Threadsafe? Don't think this one matters.
+    // A new callback shouldn't be registered with an existing code?
+    smq_cb_map[smq_code] = cb;
 }
 
 void
 ShmConPrdQueue::shm_consume_loop(int consumer_idx)
 {
-    int          size = 64;     // take from parameter/constructor
+    int          size = 128;     // take from parameter/constructor
     char         data[size];
+    ShmqReqIn   *cb;
     shmq_req_t  *inp;
 
     inp = reinterpret_cast<shmq_req_t *>(data);
     while (1) {
         /* Block if we don't have anything to consume. */
+        cb = NULL;
         shm_consumer(data, size, consumer_idx);
 
         if (inp->smq_code & SHMQ_TRACK_MASK) {
             /* Lookup the saved request in shm_track_request() */
-            ShmqReqOut *orig = shm_get_saved_req(inp->smq_id);
-            if (orig != NULL) {
-                /* Notify the sender, this also takes it out of the queue. */
-                orig->req_complete();
-                continue;
+            if (inp->smq_idx == consumer_idx) {
+                ShmqReqOut *orig = shm_get_saved_req(inp->smq_id);
+                if (orig != NULL) {
+                    /* Notify the sender, this also takes it out of the queue. */
+                    fds_verify(orig->req_size <= (size_t)size);
+                    memcpy(orig->req_in, data, orig->req_size);
+                    orig->req_complete();
+                    continue;
+                }
             }
             /* Clear the mask and lookup registered handler. */
-            inp->smq_code &= ~SHMQ_TRACK_MASK;
+            cb = shm_get_callback(inp->smq_code & ~SHMQ_TRACK_MASK);
+        } else {
+            cb = shm_get_callback(inp->smq_code);
         }
-        ShmqReqIn *cb = shm_get_callback(inp->smq_code);
+        LOGDEBUG << "Recv shm: " << inp->smq_code << ", " << inp->smq_idx <<
+            ", id " << inp->smq_id;
+
         if (cb != NULL) {
             cb->shmq_handler(inp, size);
         }
-        // Remove me!
-        sleep(2);
     }
 }
 
 ShmqReqOut *
 ShmConPrdQueue::shm_get_saved_req(fds_uint32_t id)
 {
-    return NULL;
+    // Try to find the key in the map
+    try {
+        std::unordered_map<fds_uint32_t, ShmqReqOut*>::const_iterator found =
+                smq_reqOutMap.find(id);
+        // If the key is not found return nullptr
+        if ( found == smq_reqOutMap.end() ) {
+            return nullptr;
+        }
+        // Else return the pointer to the correct ShmqReqOut
+        return found->second;
+    } catch(int e) {
+        return nullptr;
+    }
 }
 
 ShmqReqIn *
 ShmConPrdQueue::shm_get_callback(fds_uint32_t code)
 {
-    return NULL;
+    try {
+        std::unordered_map<fds_uint32_t, ShmqReqIn*>::const_iterator found =
+                smq_cb_map.find(code);
+        if ( found == smq_cb_map.end() ) {
+            return nullptr;
+        }
+        return found->second;
+    } catch(int e) {
+        return nullptr;
+    }
 }
 
-Shm_1Prd_nCon::Shm_1Prd_nCon(shm_con_prd_sync_t *sync, shm_1prd_ncon_q_t *ctrl, ShmObjRW *data)
-        : ShmConPrdQueue(sync, ctrl, data)
+Shm_1Prd_nCon::Shm_1Prd_nCon(shm_con_prd_sync_t *sync,
+                             shm_1prd_ncon_q_t *ctrl, ShmObjRW *data)
+    : ShmConPrdQueue(sync, data), smq_ctrl(ctrl) {}
+
+void
+Shm_1Prd_nCon::shm_init_consumer_queue()
 {
+    // XXX: Threadsafe? This probably shouldn't be called
+    // if consumers are already initialized, and likely does not
+    // need to be threadsafe
+    // -------
+
+    // For each index, set it to -1
+    for (int i = 0; i < smq_ctrl->shm_ncon_cnt; ++i) {
+        smq_ctrl->shm_ncon_idx[i] = -1;
+    }
+}
+
+void
+Shm_1Prd_nCon::shm_activate_consumer(int consumer)
+{
+    // Consumer index should be -1 to perform this operation
+    // (smq_ctrl->shm_ncon_idx[consumer] == -1)
+    // Mutex down
+    pthread_mutex_lock(&smq_sync->shm_mtx);
+    // Set consumer idx to prod idx
+    smq_ctrl->shm_ncon_idx[consumer] = smq_ctrl->shm_1prd_idx;
+    // Mutex up
+    pthread_mutex_unlock(&smq_sync->shm_mtx);
 }
 
 void
 Shm_1Prd_nCon::shm_consumer(void *data, size_t size, int consumer /* = 0 */)
 {
+    fds_assert(consumer >= 0);
+    fds_assert(consumer < smq_ctrl->shm_ncon_cnt);
+    fds_assert(data != nullptr);
+    fds_assert(size > 0);
+
+    int ret_code = -1;
+    // Mutex down
+    ret_code = pthread_mutex_lock(&smq_sync->shm_mtx);
+    fds_assert(0 == ret_code);
+    // We know the queue is empty if the consumer index is equal to
+    // the producer index
+    while ( smq_ctrl->shm_1prd_idx ==
+            smq_ctrl->shm_ncon_idx[consumer] ) {
+        // Wait on the consumer condition variable
+        pthread_cond_wait(&smq_sync->shm_con_cv, &smq_sync->shm_mtx);
+    }
+    // Take a request from the queue
+    void *from_ptr = static_cast<char *>(smq_data->shm_rw_base()) +
+            (smq_ctrl->shm_ncon_idx[consumer] * smq_itm_size);
+    fds_assert(from_ptr <=
+               (static_cast<const char *>(smq_data->shm_bound()) - size));
+    memcpy(data, from_ptr, size);
+    // Increase this queue's index counter
+    smq_ctrl->shm_ncon_idx[consumer] =
+            (smq_ctrl->shm_ncon_idx[consumer] + 1) % smq_size;
+
+    // Signal to producer that we've consumed
+    ret_code = pthread_cond_signal(&smq_sync->shm_prd_cv);
+    fds_assert(0 == ret_code);
+    // Mutex up
+    ret_code = pthread_mutex_unlock(&smq_sync->shm_mtx);
+    fds_assert(0 == ret_code);
 }
 
 void
 Shm_1Prd_nCon::shm_producer(const void *data, size_t size, int producer /* = 0 */)
 {
+    fds_assert(data != nullptr);
+    fds_assert(size > 0);
+
+    // In this case we need to be careful that all of the queues
+    // have progressed before we can write a new entry
+    // -----------
+    uint prod = 0;
+    std::vector<int> active_idxs;
+
+    // Mutex down
+    pthread_mutex_lock(&smq_sync->shm_mtx);
+    // Get only active consumers
+    std::remove_copy(smq_ctrl->shm_ncon_idx,
+                     smq_ctrl->shm_ncon_idx + smq_ctrl->shm_ncon_cnt,
+                     std::back_inserter(active_idxs),
+                     -1);
+
+    // Only check if queue full when there are active consumers
+    prod = (smq_ctrl->shm_1prd_idx + 1) % smq_size;
+
+    if (active_idxs.size() > 0) {
+        // Get LOWEST_VALUE_IDX
+        uint low_idx = *std::min_element(active_idxs.begin(), active_idxs.end());
+        while (prod == low_idx) {
+            // Wait on the producer condition variable
+            pthread_cond_wait(&smq_sync->shm_prd_cv, &smq_sync->shm_mtx);
+
+            // Recalculate the low_idx -- we should still have the mutex
+            prod = (smq_ctrl->shm_1prd_idx + 1) % smq_size;
+            // Reset active_idxs
+            active_idxs.clear();
+            std::remove_copy(smq_ctrl->shm_ncon_idx,
+                             smq_ctrl->shm_ncon_idx + smq_ctrl->shm_ncon_cnt,
+                             std::back_inserter(active_idxs),
+                             -1);
+
+            low_idx = *std::min_element(active_idxs.begin(),
+                                        active_idxs.end());
+        }
+    }
+    // Add new data to the queue
+    void *out_ptr = static_cast<char *>(smq_data->shm_rw_base()) +
+        (smq_ctrl->shm_1prd_idx * smq_itm_size);
+    fds_assert(out_ptr >= smq_data->shm_rw_base());
+    fds_assert(out_ptr <=
+               (static_cast<const char *>(smq_data->shm_bound()) - smq_itm_size));
+
+    memcpy(out_ptr, data, size);
+    // Increase the prd_index
+    smq_ctrl->shm_1prd_idx = prod;
+
+    // Signal to consumers that there is more stuff
+    pthread_cond_broadcast(&smq_sync->shm_con_cv);
+    pthread_mutex_unlock(&smq_sync->shm_mtx);
 }
 
 
-Shm_nPrd_1Con::Shm_nPrd_1Con(shm_con_prd_sync_t *sync, shm_nprd_1con_q_t *ctrl, ShmObjRW *data)
-        : ShmConPrdQueue(sync, ctrl, data)
+Shm_nPrd_1Con::Shm_nPrd_1Con(shm_con_prd_sync_t *sync,
+                             shm_nprd_1con_q_t *ctrl, ShmObjRW *data)
+    : ShmConPrdQueue(sync, data), smq_ctrl(ctrl) {}
+
+void
+Shm_nPrd_1Con::shm_init_consumer_queue()
 {
+    // XXX: Threadsafe? This probably shouldn't be called
+    // if consumers are already initialized, and likely does not
+    // need to be threadsafe
+    // -------
+    smq_ctrl->shm_1con_idx = -1;
+}
+
+void
+Shm_nPrd_1Con::shm_activate_consumer(int cons)
+{
+    // con idx should be -1 to perform this operation
+    // fds_assert(smq_ctrl->shm_1con_idx == -1);
+
+    int ret_code = -1;
+    // Mutex down
+    ret_code = pthread_mutex_lock(&smq_sync->shm_mtx);
+    fds_assert(0 == ret_code);
+    // Set consumer idx to prod idx
+    smq_ctrl->shm_1con_idx = smq_ctrl->shm_nprd_idx;
+    // Mutex up
+    ret_code = pthread_mutex_unlock(&smq_sync->shm_mtx);
+    fds_assert(0 == ret_code);
 }
 
 void
 Shm_nPrd_1Con::shm_consumer(void *data, size_t size, int consumer /* = 0 */)
 {
+    fds_assert(data != nullptr);
+    fds_assert(size > 0);
+
+    int ret_code = -1;
+    // Mutex down
+    ret_code = pthread_mutex_lock(&smq_sync->shm_mtx);
+    fds_assert(0 == ret_code);
+    // We know the queue is empty if the consumer index is equal to
+    // the producer index
+    while ( smq_ctrl->shm_nprd_idx == smq_ctrl->shm_1con_idx ) {
+        // Wait on the consumer condition variable
+        pthread_cond_wait(&smq_sync->shm_con_cv, &smq_sync->shm_mtx);
+    }
+    // Take a request from the queue
+    void *from_ptr = static_cast<char *>(smq_data->shm_rw_base()) +
+            (smq_ctrl->shm_1con_idx * smq_itm_size);
+    fds_assert(from_ptr <=
+               (static_cast<const char *>(smq_data->shm_bound()) -
+                smq_itm_size));
+
+    memcpy(data, from_ptr, size);
+    // Increase this queue's index counter
+    smq_ctrl->shm_1con_idx =
+            (smq_ctrl->shm_1con_idx + 1) % smq_size;
+
+    // Signal to producer that we've consumed
+    ret_code = pthread_cond_broadcast(&smq_sync->shm_prd_cv);
+    fds_assert(0 == ret_code);
+    // Mutex up
+    ret_code = pthread_mutex_unlock(&smq_sync->shm_mtx);
+    fds_assert(0 == ret_code);
 }
 void
 Shm_nPrd_1Con::shm_producer(const void *data, size_t size, int producer /* = 0 */)
 {
+    int prod;
+
+    fds_assert(data != nullptr);
+    fds_assert(size > 0);
+
+    // Mutex down
+    pthread_mutex_lock(&smq_sync->shm_mtx);
+    prod = (smq_ctrl->shm_nprd_idx + 1) % smq_size;
+    while (prod == smq_ctrl->shm_1con_idx) {
+        // Wait on the producer condition variable
+        pthread_cond_wait(&smq_sync->shm_prd_cv, &smq_sync->shm_mtx);
+        prod = (smq_ctrl->shm_nprd_idx + 1) % smq_size;
+    }
+    // Add new data to the queue
+    void *out_ptr = static_cast<char *>(smq_data->shm_rw_base()) +
+        (smq_ctrl->shm_nprd_idx * smq_itm_size);
+    fds_assert(out_ptr <=
+               (static_cast<const char *>(smq_data->shm_bound()) - smq_itm_size));
+
+    memcpy(out_ptr, data, size);
+    // Increase the prd_index
+    smq_ctrl->shm_nprd_idx = prod;
+
+    // Signal to consumers that there is more stuff
+    pthread_cond_broadcast(&smq_sync->shm_con_cv);
+    pthread_mutex_unlock(&smq_sync->shm_mtx);
 }
 
 }  // namespace fds

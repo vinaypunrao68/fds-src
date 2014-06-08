@@ -57,6 +57,9 @@ class EpSvcImpl : public EpSvc
     virtual EpSvc::pointer ep_lookup_service(const ResourceUUID &uuid);
     virtual EpSvc::pointer ep_lookup_service(const char *name);
 
+    static EpSvcImpl::pointer ep_impl_cast(EpSvc::pointer svc) {
+        return static_cast<EpSvcImpl *>(get_pointer(svc));
+    }
   protected:
     friend class NetMgr;
     fpi::SvcID                       ep_peer_id;
@@ -74,6 +77,7 @@ class EpSvcImpl : public EpSvc
 
     EpSvcImpl(const fpi::SvcID &mine, const fpi::SvcID &peer, EpEvtPlugin::pointer ops);
 
+    void         ep_handle_error(const Error &err);
     void         ep_connect_peer(int port, const std::string &ip);
     void         ep_fillin_binding(struct ep_map_rec *map);
     void         ep_peer_uuid(fpi::SvcUuid &uuid)  { uuid = ep_peer_id.svc_uuid; }
@@ -102,11 +106,16 @@ class EpSvcImpl : public EpSvc
             if (ptr->ep_state == EP_ST_INIT) {
                 ptr->ep_state = EP_ST_DISCONNECTED;
                 fds_verify((ptr->ep_trans == NULL) && (ptr->ep_rpc == NULL));
+
                 ptr->ep_trans = trans;
                 ptr->ep_rpc   = rpc;
+                ptr->ep_sock  = bo::static_pointer_cast<tt::TSocket>(sock);
             }
             // else, these ptrs are deleted when we're out of scope.
             mtx->unlock();
+
+            // It's ok to register twice.
+            NetMgr::ep_mgr_singleton()->ep_handler_register(ptr);
         }
         ptr->ep_reconnect();
     }
@@ -309,6 +318,7 @@ endpoint_connect_handle(EpSvcHandle::pointer ptr,
         }
         retry++;
         pool->schedule(endpoint_connect_handle<SendIf>, ptr, uuid, retry);
+        LOGDEBUG << "EP retry conn " << ip << ", port " << port << ", retry " << retry;
     }
 }
 

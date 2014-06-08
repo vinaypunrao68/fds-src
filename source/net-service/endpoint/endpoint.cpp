@@ -15,6 +15,7 @@ namespace fds {
 EpSvc::EpSvc(const ResourceUUID &uuid, fds_uint32_t major, fds_uint32_t minor)
     : ep_refcnt(0), ep_evt(NULL), ep_attr(NULL), svc_domain(NULL)
 {
+    svc_type          = fpi::FDSP_PLATFORM;
     svc_ver.ver_major = major;
     svc_ver.ver_minor = minor;
     uuid.uuid_assign(&svc_id.svc_uuid);
@@ -29,6 +30,11 @@ EpSvc::EpSvc(const ResourceUUID &domain,
 {
     svc_domain = new fpi::DomainID();
     domain.uuid_assign(&svc_domain->domain_id);
+}
+
+EpSvc::EpSvc(const ResourceUUID &uuid, fpi::FDSP_MgrIdType type) : EpSvc(uuid, 0, 0)
+{
+    svc_type = type;
 }
 
 // ep_apply_attr
@@ -58,14 +64,22 @@ EpSvc::ep_fmt_uuid_binding(fpi::UuidBindMsg *msg, fpi::DomainID *domain)
     }
 }
 
+// ep_handle_error
+// ---------------
+//
+void
+EpSvc::ep_handle_error(const Error &err)
+{
+}
+
 /*
  * -----------------------------------------------------------------------------------
  * EndPoint Handler
  * -----------------------------------------------------------------------------------
  */
 EpSvcHandle::EpSvcHandle()
-    : ep_refcnt(0), ep_state(EP_ST_INIT),
-      ep_owner(NULL), ep_plugin(NULL), ep_rpc(NULL), ep_trans(NULL) {}
+    : ep_refcnt(0), ep_state(EP_ST_INIT), ep_owner(NULL),
+      ep_plugin(NULL), ep_rpc(NULL), ep_sock(NULL), ep_trans(NULL) {}
 
 EpSvcHandle::EpSvcHandle(EpSvc::pointer svc, EpEvtPlugin::pointer evt) : EpSvcHandle()
 {
@@ -91,7 +105,7 @@ EpSvcHandle::~EpSvcHandle()
 // ep_reconnect
 // ------------
 //
-int
+ep_state_e
 EpSvcHandle::ep_reconnect()
 {
     NetMgr    *net;
@@ -99,10 +113,12 @@ EpSvcHandle::ep_reconnect()
 
     fds_verify((ep_rpc != NULL) && (ep_trans != NULL));
     if ((ep_state == EP_ST_CONNECTED) || (ep_state == EP_ST_CONNECTING)) {
-        return 0;
+        return ep_state;
     }
     net = NetMgr::ep_mgr_singleton();
     mtx = net->ep_obj_mutex(this);
+
+    LOGDEBUG << "EpHandle connect@" << ep_sock->getHost() << ":" << ep_sock->getPort();
 
     mtx->lock();
     if (ep_state != EP_ST_CONNECTING) {
@@ -115,15 +131,32 @@ EpSvcHandle::ep_reconnect()
             ep_notify_plugin();
         } catch(...) {
             ep_state = EP_ST_DISCONNECTED;
-            // TODO(Vy): Fix this
-            return 0;
-            sleep(1);
-            net->ep_mgr_thrpool()->schedule(&EpSvcHandle::ep_reconnect, this);
         }
     } else {
         mtx->unlock();
     }
-    return 0;
+    return ep_state;
+}
+
+// ep_handle_net_error
+// -------------------
+//
+void
+EpSvcHandle::ep_handle_net_error()
+{
+    ep_state = EP_ST_DISCONNECTED;
+    if (ep_trans != NULL) {
+        ep_trans->close();
+    }
+    LOGDEBUG << "EpHandle net error@" << ep_sock->getHost() << ":" << ep_sock->getPort();
+}
+
+// ep_handle_error
+// ---------------
+//
+void
+EpSvcHandle::ep_handle_error(const Error &err)
+{
 }
 
 // ep_notify_plugin
@@ -132,8 +165,9 @@ EpSvcHandle::ep_reconnect()
 void
 EpSvcHandle::ep_notify_plugin()
 {
-    // TODO(Vy): Enable this verify
-    // fds_verify(ep_plugin != NULL);
+    if (ep_plugin == NULL) {
+        return;
+    }
     if (ep_state == EP_ST_CONNECTED) {
         if (ep_plugin) {
             ep_plugin->ep_connected();
@@ -187,10 +221,18 @@ EpSvcImpl::EpSvcImpl(const fpi::SvcID     &mine,
 
 // ep_bind_service
 // ---------------
+// Bind the generic 'svc' to this endpoint implementation.  The 'svc' obj may not bound
+// to physical port.
 //
 void
 EpSvcImpl::ep_bind_service(EpSvc::pointer svc)
 {
+    // 'svc' has uuid binding info so that when we need to communicate with it, we know
+    // where to go.
+    //
+    //
+    // 'this' endpoint implementation provides return processing path so that when the
+    // remote service returns back an async message to us, it knows where to go.
 }
 
 // ep_unbind_service
@@ -224,6 +266,14 @@ EpSvcImpl::ep_input_event(fds_uint32_t evt)
 //
 void
 EpSvcImpl::ep_reconnect()
+{
+}
+
+// ep_handle_error
+// ---------------
+//
+void
+EpSvcImpl::ep_handle_error(const Error &err)
 {
 }
 

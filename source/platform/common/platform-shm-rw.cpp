@@ -125,6 +125,48 @@ NodeShmRWCtrl::shm_setup_queue()
     shm_queue = static_cast<node_shm_queue_t *>(area);
     fds_assert(shm_queue != NULL);
 
+    // --------------------------------
+    // INIT SHM CONSTRUCTS
+    // --------------------------------
+    //
+    // SHM CTRL STRUCTURES (INDEXES, # of CONSUMERS)
+    // Set the number of consumers to 8
+    shm_queue->smq_plat2svc.shm_ncon_cnt = 8;
+    // Initialize all consumers index to -1
+    for (int i = 0; i < shm_queue->smq_plat2svc.shm_ncon_cnt; ++i) {
+        shm_queue->smq_plat2svc.shm_ncon_idx[i] = -1;
+    }
+    shm_queue->smq_plat2svc.shm_1prd_idx = 0;
+
+    shm_queue->smq_svc2plat.shm_1con_idx = 0;
+    shm_queue->smq_svc2plat.shm_nprd_idx = 0;
+
+    // SHM SYNC STRUCTURES (MUTEX & CONDITION VARIABLES)
+    int ret = -1;
+    // Mutex stuffs
+    pthread_mutexattr_t mtx_attr;
+    ret = pthread_mutexattr_init(&mtx_attr);
+    fds_assert(0 == ret);
+    ret = pthread_mutexattr_setpshared(&mtx_attr, PTHREAD_PROCESS_SHARED);
+    fds_assert(0 == ret);
+    ret = pthread_mutex_init(&shm_queue->smq_sync.shm_mtx, &mtx_attr);
+    fds_assert(0 == ret);
+    // Condition var stuffs
+    pthread_condattr_t cond_attr;
+    ret = pthread_condattr_init(&cond_attr);
+    fds_assert(0 == ret);
+    ret = pthread_condattr_setpshared(&cond_attr, PTHREAD_PROCESS_SHARED);
+    fds_assert(0 == ret);
+    ret = pthread_cond_init(&shm_queue->smq_sync.shm_con_cv, &cond_attr);
+    fds_assert(0 == ret);
+    ret = pthread_cond_init(&shm_queue->smq_sync.shm_prd_cv, &cond_attr);
+    fds_assert(0 == ret);
+
+    ret = pthread_condattr_destroy(&cond_attr);
+    fds_assert(0 == ret);
+    ret = pthread_mutexattr_destroy(&mtx_attr);
+    fds_assert(0 == ret);
+
     shm_rw_data = new ShmObjRW(shm_rw,
                                NodeShmCtrl::shm_queue_hdr, 4, 0,
                                NodeShmCtrl::shm_q_item_size,

@@ -7,9 +7,11 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <fds-shmobj.h>
 #include <net/net-service.h>
 #include <fdsp/PlatNetSvc.h>
 #include <platform/platform-lib.h>
+#include <platform/node-inventory.h>
 #include <net/BaseAsyncSvcHandler.h>
 
 namespace fds {
@@ -83,15 +85,35 @@ class DomainAgent : public PmAgent
         return agt_domain_ep->svc_rpc<fpi::PlatNetSvcClient>();
     }
     virtual void pda_connect_domain(const fpi::DomainID &id);
-    virtual void pda_update_binding(const struct ep_map_rec *rec, int cnt);
 
   protected:
+    friend class NetPlatSvc;
     friend class PlatformdNetSvc;
 
     DomainAgentPlugin::pointer            agt_domain_evt;
     EpSvcHandle::pointer                  agt_domain_ep;
 
-    virtual void pda_register(PmContainer::pointer pm) {}
+    virtual void pda_register();
+};
+
+/**
+ * Iterate through node info records in shared memory.
+ */
+class NodeInfoShmIter : public ShmObjIter
+{
+  public:
+    virtual ~NodeInfoShmIter() {}
+    explicit NodeInfoShmIter(bool rw = false);
+
+    virtual bool
+    shm_obj_iter_fn(int idx, const void *k, const void *r, size_t ksz, size_t rsz);
+
+  protected:
+    int                     it_no_rec;
+    int                     it_no_rec_quit;
+    bool                    it_shm_rw;
+    const ShmObjRO         *it_shm;
+    DomainNodeInv::pointer  it_local;
 };
 
 class NetPlatSvc : public NetPlatform
@@ -109,9 +131,10 @@ class NetPlatSvc : public NetPlatform
 
     // Common net platform services.
     //
-    virtual EpSvc::pointer       nplat_my_ep() override;
+    virtual void nplat_refresh_shm();
     virtual EpSvcHandle::pointer nplat_domain_rpc(const fpi::DomainID &id) override;
     virtual void nplat_register_node(const fpi::NodeInfoMsg *msg) override;
+    virtual bo::intrusive_ptr<EpSvcImpl> nplat_my_ep() override;
 
     inline std::string const *const nplat_domain_master(int *port) {
         *port = plat_lib->plf_get_om_svc_port();
@@ -139,28 +162,25 @@ class NetPlatHandler : virtual public fpi::PlatNetSvcIf, public BaseAsyncSvcHand
 
     // PlatNetSvcIf methods.
     //
-    void allUuidBinding(std::vector<fpi::UuidBindMsg> &ret,
-                        const fpi::UuidBindMsg        &mine, const bool all_list) {}
+    void allUuidBinding(const fpi::UuidBindMsg &mine) {}
     void notifyNodeInfo(std::vector<fpi::NodeInfoMsg> &ret,
-                        const fpi::NodeInfoMsg        &info) {}
+                        const fpi::NodeInfoMsg &info, const bool bcast) {}
     void notifyNodeUp(fpi::RespHdr &ret, const fpi::NodeInfoMsg &info) {}
-    virtual ServiceStatus getStatus(const int32_t nullarg) {return SVC_STATUS_INVALID;}
+    virtual ServiceStatus getStatus(const int32_t nullarg) { return SVC_STATUS_INVALID; }
     virtual void getCounters(std::map<std::string, int64_t> & _return,
             const std::string& id) {}
     virtual void setConfigVal(const std::string& id, const int64_t val) {}
 
-    void allUuidBinding(std::vector<fpi::UuidBindMsg>    &ret,
-                        bo::shared_ptr<fpi::UuidBindMsg> &msg,
-                        bo::shared_ptr<bool>             &all_list);
-    void notifyNodeInfo(std::vector<fpi::NodeInfoMsg> &ret,
-                        bo::shared_ptr<fpi::NodeInfoMsg> &i);
+    void allUuidBinding(bo::shared_ptr<fpi::UuidBindMsg> &msg);
+    void notifyNodeInfo(std::vector<fpi::NodeInfoMsg>    &ret,
+                        bo::shared_ptr<fpi::NodeInfoMsg> &info,
+                        bo::shared_ptr<bool>             &bcast);
     void notifyNodeUp(fpi::RespHdr &ret, bo::shared_ptr<fpi::NodeInfoMsg> &info);
     virtual fpi::ServiceStatus getStatus(boost::shared_ptr<int32_t>& nullarg);  // NOLINT
     virtual void getCounters(std::map<std::string, int64_t> & _return,
             boost::shared_ptr<std::string>& id);
     virtual void setConfigVal(boost::shared_ptr<std::string>& id,  // NOLINT
             boost::shared_ptr<int64_t>& val);
-
 
   protected:
     NetPlatSvc              *net_plat;

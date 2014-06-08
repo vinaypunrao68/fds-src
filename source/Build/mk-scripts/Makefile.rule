@@ -24,7 +24,8 @@ rule_so_flags   := $(osdep_so_flags) $(user_so_flags)
 rule_so_flags   += $(main_so_flags) $(comm_so_flags)
 
 rule_ld_flags   := $(comm_ld_flags) $(osdep_ld_flags)
-rule_ld_flags   += $(main_ld_flags) $(user_ld_flags)
+rule_ld_flags   += -Wl,--start-group $(main_ld_flags) -Wl,--end-group
+rule_ld_flags   += $(user_ld_flags)
 
 rule_exe_flags  := $(rule_ld_flags)
 rule_mod_flags  := $(osdep_ld_flags) $(osdep_mod_flags)
