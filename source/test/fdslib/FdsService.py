@@ -34,7 +34,8 @@ class FdsService(object):
     def connect_rpc_endpoint(ip_int, port, thrift_svc):
         ip_str = socket.inet_ntoa(struct.pack("!I", ip_int))
         sock = TSocket.TSocket(ip_str, port)
-        transport = TTransport.TBufferedTransport(sock)
+        #transport = TTransport.TBufferedTransport(sock)
+        transport = TTransport.TFramedTransport(sock)
         protocol = TBinaryProtocol.TBinaryProtocol(transport)
         transport.open()
 
