@@ -31,6 +31,7 @@ class OmSvcEp;
 class PmSvcEp;
 class EpSvc;
 class EpSvcImpl;
+class EpSvcHandle;
 class AgentContainer;
 
 typedef fpi::FDSP_RegisterNodeType     FdspNodeReg;
@@ -252,7 +253,8 @@ class PmAgent : public NodeAgent
     /**
      * Return the RPC handler used to communicate with the peer node agent.
      */
-    boost::shared_ptr<fpi::PlatNetSvcClient> agent_rpc();
+    boost::shared_ptr<fpi::PlatNetSvcClient>
+    agent_rpc(boost::intrusive_ptr<EpSvcHandle> *eph);
 
   protected:
     boost::intrusive_ptr<PmSvcEp>      pm_ep_svc;

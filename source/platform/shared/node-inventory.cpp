@@ -121,7 +121,7 @@ NodeInventory::init_plat_info_msg(fpi::NodeInfoMsg *msg) const
     psvc->ep_fmt_uuid_binding(msg_bind, &msg->node_domain);
     init_stor_cap_msg(&msg->node_stor);
 
-    msg->nd_base_port           = plat->plf_get_my_ctrl_port();
+    msg->nd_base_port           = plat->plf_get_my_node_port();
     msg_bind->svc_type          = plat->plf_get_node_type();
     msg_bind->svc_auto_name     = *plat->plf_get_my_ip();
     msg_bind->svc_id.svc_name   = "";
@@ -489,19 +489,21 @@ PmAgent::~PmAgent() {}
 // ---------
 //
 boost::shared_ptr<fpi::PlatNetSvcClient>
-PmAgent::agent_rpc()
+PmAgent::agent_rpc(EpSvcHandle::pointer *handle)
 {
     NetMgr              *net;
     fpi::SvcUuid         peer;
-    EpSvcHandle::pointer handle;
 
     net = NetMgr::ep_mgr_singleton();
     peer.svc_uuid = rs_uuid.uuid_get_val();
-    net->svc_get_handle<fpi::PlatNetSvcClient>(peer, &handle, 0, 0);
+    net->svc_get_handle<fpi::PlatNetSvcClient>(peer, handle, 0, 0);
 
     /* TODO(Vy): wire up the common event plugin to handle error. */
-    if (handle != NULL) {
-        return handle->svc_rpc<fpi::PlatNetSvcClient>();
+    if (*handle != NULL) {
+        LOGDEBUG << "Do rpc connect to "
+            << rs_uuid.uuid_get_val() << ", handle " << handle;
+
+        return (*handle)->svc_rpc<fpi::PlatNetSvcClient>();
     }
     return NULL;
 }
@@ -828,8 +830,8 @@ AgentContainer::agent_register(const ShmObjRO     *shm,
 
     if (add == true) {
         agent_activate(agent);
-        agent->agent_publish_ep();
     }
+    agent->agent_publish_ep();
 }
 
 // agent_unregister

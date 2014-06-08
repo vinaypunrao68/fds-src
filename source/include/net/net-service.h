@@ -293,7 +293,7 @@ class EpSvcHandle
     EpSvcHandle(const fpi::SvcUuid &peer, EpEvtPlugin::pointer evt)
         : EpSvcHandle(NULL, evt) { ep_peer_id = peer; }
 
-    int        ep_reconnect();
+    ep_state_e ep_reconnect();
     ep_state_e ep_get_status()  { return ep_state; }
 
     template <class SendIf>
@@ -302,6 +302,7 @@ class EpSvcHandle
     }
 
     void ep_notify_plugin();
+    void ep_handle_net_error();
     void ep_my_uuid(fpi::SvcUuid &uuid)    { ep_owner->ep_my_uuid(uuid); }
     void ep_peer_uuid(fpi::SvcUuid &uuid)  { uuid = ep_peer_id; }
 

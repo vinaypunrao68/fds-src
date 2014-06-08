@@ -65,6 +65,7 @@ NetPlatSvc::mod_enable_service()
         plat_agent->pda_connect_domain(fpi::DomainID());
     }
     plat_agent->pda_register();
+    nplat_refresh_shm();
 }
 
 void
@@ -90,6 +91,14 @@ EpSvcImpl::pointer
 NetPlatSvc::nplat_my_ep()
 {
     return plat_ep;
+}
+
+// nplat_refresh_shm
+// -----------------
+//
+void
+NetPlatSvc::nplat_refresh_shm()
+{
 }
 
 // nplat_register_node

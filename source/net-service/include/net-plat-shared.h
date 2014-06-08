@@ -109,6 +109,7 @@ class NetPlatSvc : public NetPlatform
 
     // Common net platform services.
     //
+    virtual void nplat_refresh_shm();
     virtual EpSvcHandle::pointer nplat_domain_rpc(const fpi::DomainID &id) override;
     virtual void nplat_register_node(const fpi::NodeInfoMsg *msg) override;
     virtual bo::intrusive_ptr<EpSvcImpl> nplat_my_ep() override;

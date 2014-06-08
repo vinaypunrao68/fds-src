@@ -7,6 +7,7 @@
 #include <net/net-service-tmpl.hpp>
 #include <net-platform.h>
 #include <platform/node-inv-shmem.h>
+#include <net/RpcFunc.h>
 
 namespace fds {
 
@@ -39,12 +40,13 @@ class NodeUpdateIter : public NodeAgentIter
     bool rs_iter_fn(Resource::pointer curr)
     {
         DomainAgent::pointer          agent;
+        EpSvcHandle::pointer          eph;
         std::vector<fpi::NodeInfoMsg> ret;
 
         agent = agt_cast_ptr<DomainAgent>(curr);
-        auto rpc = agent->agent_rpc();
+        auto rpc = agent->agent_rpc(&eph);
         if (rpc != NULL) {
-            rpc->notifyNodeInfo(ret, *(nd_reg_msg.get()), false);
+            NET_SVC_RPC_CALL(eph, rpc, notifyNodeInfo, ret, *(nd_reg_msg.get()), false);
         }
         return true;
     }
@@ -118,6 +120,9 @@ PlatformEpHandler::notifyNodeInfo(std::vector<fpi::NodeInfoMsg>    &ret,
                                   bo::shared_ptr<bool>             &bcast)
 {
     DomainNodeInv::pointer local;
+
+    LOGDEBUG << "recv notifyNodeInfo " << msg->node_loc.svc_id.svc_uuid.svc_uuid
+        << ", bcast " << *bcast;
 
     net_plat->nplat_register_node(msg.get());
     if (*bcast == true) {

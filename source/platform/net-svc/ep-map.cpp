@@ -5,6 +5,7 @@
 #include <ep-map.h>
 #include <platform.h>
 #include <net-plat-shared.h>
+#include <net/RpcFunc.h>
 
 namespace fds {
 
@@ -35,12 +36,13 @@ class PlatUuidBindUpdate : public NodeAgentIter
      */
     bool rs_iter_fn(Resource::pointer curr)
     {
+        EpSvcHandle::pointer  eph;
         DomainAgent::pointer  agent;
 
         agent = agt_cast_ptr<DomainAgent>(curr);
-        auto rpc = agent->agent_rpc();
+        auto rpc = agent->agent_rpc(&eph);
         if (rpc != NULL) {
-            rpc->allUuidBinding(bind_msg);
+            NET_SVC_RPC_CALL(eph, rpc, allUuidBinding, bind_msg);
         }
         return true;
     }
@@ -178,6 +180,10 @@ EpPlatformdMod::node_reg_notify(const node_data_t *info)
     NodeAgent::pointer      agent;
     DomainNodeInv::pointer  local;
 
+    if (info->nd_node_uuid == Platform::plf_get_my_node_uuid()->uuid_get_val()) {
+        LOGDEBUG << "Skip registration notify for my node uuid";
+        return;
+    }
     /* Save the node_info binding to shared memory. */
     shm = NodeShmRWCtrl::shm_node_rw_inv(info->nd_svc_type);
     idx = shm->shm_insert_rec(static_cast<const void *>(&info->nd_node_uuid),

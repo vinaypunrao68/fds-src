@@ -188,11 +188,11 @@ NetMgr::ep_handler_register(EpSvcHandle::pointer handle)
     fpi::SvcUuid peer;
 
     handle->ep_peer_uuid(peer);
-    fds_verify(peer != NullSvcUuid);
-
-    ep_mtx.lock();
-    ep_handle_map[peer.svc_uuid] = handle;
-    ep_mtx.unlock();
+    if (peer != NullSvcUuid) {
+        ep_mtx.lock();
+        ep_handle_map[peer.svc_uuid] = handle;
+        ep_mtx.unlock();
+    }
 }
 
 // ep_handler_unregister

@@ -89,7 +89,7 @@ EpAttr::netaddr_frm_str(struct sockaddr *adr, int port, const char *ip, bool v4)
         ip4 = reinterpret_cast<struct sockaddr_in *>(adr);
         adr->sa_family = AF_INET;
         ip4->sin_port  = port;
-        inet_ntop(AF_INET, ip, reinterpret_cast<char *>(&ip4->sin_addr), INET_ADDRSTRLEN);
+        inet_pton(AF_INET, ip, reinterpret_cast<char *>(&ip4->sin_addr));
     } else {
         fds_panic("not implement yet!");
     }

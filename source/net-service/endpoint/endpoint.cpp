@@ -97,7 +97,7 @@ EpSvcHandle::~EpSvcHandle()
 // ep_reconnect
 // ------------
 //
-int
+ep_state_e
 EpSvcHandle::ep_reconnect()
 {
     NetMgr    *net;
@@ -105,11 +105,12 @@ EpSvcHandle::ep_reconnect()
 
     fds_verify((ep_rpc != NULL) && (ep_trans != NULL));
     if ((ep_state == EP_ST_CONNECTED) || (ep_state == EP_ST_CONNECTING)) {
-        return 0;
+        return ep_state;
     }
     net = NetMgr::ep_mgr_singleton();
     mtx = net->ep_obj_mutex(this);
 
+    LOGDEBUG << "EpHandle handle net reconnect";
     mtx->lock();
     if (ep_state != EP_ST_CONNECTING) {
         ep_state = EP_ST_CONNECTING;
@@ -121,13 +122,21 @@ EpSvcHandle::ep_reconnect()
             ep_notify_plugin();
         } catch(...) {
             ep_state = EP_ST_DISCONNECTED;
-            sleep(1);
-            net->ep_mgr_thrpool()->schedule(&EpSvcHandle::ep_reconnect, this);
         }
     } else {
         mtx->unlock();
     }
-    return 0;
+    return ep_state;
+}
+
+void
+EpSvcHandle::ep_handle_net_error()
+{
+    ep_state = EP_ST_DISCONNECTED;
+    if (ep_trans != NULL) {
+        ep_trans->close();
+    }
+    LOGDEBUG << "EpHandle handle net error";
 }
 
 // ep_notify_plugin
@@ -136,7 +145,9 @@ EpSvcHandle::ep_reconnect()
 void
 EpSvcHandle::ep_notify_plugin()
 {
-    fds_verify(ep_plugin != NULL);
+    if (ep_plugin == NULL) {
+        return;
+    }
     if (ep_state == EP_ST_CONNECTED) {
         ep_plugin->ep_connected();
     }

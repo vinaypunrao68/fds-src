@@ -101,6 +101,7 @@ class EpSvcImpl : public EpSvc
             NetMgr    *net = NetMgr::ep_mgr_singleton();
             fds_mutex *mtx = net->ep_obj_mutex(get_pointer(ptr));
 
+            LOGDEBUG << "EP srv connect " << ip << ", port " << port;
             mtx->lock();
             if (ptr->ep_state == EP_ST_INIT) {
                 ptr->ep_state = EP_ST_DISCONNECTED;
@@ -110,6 +111,9 @@ class EpSvcImpl : public EpSvc
             }
             // else, these ptrs are deleted when we're out of scope.
             mtx->unlock();
+
+            // It's ok to register twice.
+            NetMgr::ep_mgr_singleton()->ep_handler_register(ptr);
         }
         ptr->ep_reconnect();
     }
@@ -312,6 +316,7 @@ endpoint_connect_handle(EpSvcHandle::pointer ptr,
         }
         retry++;
         pool->schedule(endpoint_connect_handle<SendIf>, ptr, uuid, retry);
+        LOGDEBUG << "EP retry conn " << ip << ", port " << port << ", retry " << retry;
     }
 }
 
