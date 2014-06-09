@@ -184,3 +184,7 @@ endif
 ifdef user_thrift
 comm_thrf_files := $(patsubst %.thrift,$(user_thrift_loc)/%_types.h,$(user_thrift))
 endif
+
+ifdef user_thrift_py_flag
+comm_thrf_files += $(patsubst %.thrift,$(user_thrift_py_loc)/%/ttypes.py,$(user_thrift))
+endif
