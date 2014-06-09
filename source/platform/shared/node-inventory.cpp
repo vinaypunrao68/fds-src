@@ -472,13 +472,17 @@ NodeAgent::agent_bind_ep(EpSvcImpl::pointer ep, EpSvc::pointer svc)
 void
 NodeAgent::agent_publish_ep()
 {
-    NodeUuid uuid;
+    int          port;
+    NodeUuid     uuid;
+    std::string  ip;
+    fpi::SvcUuid svc;
 
-    Platform::plf_svc_uuid_to_node(&uuid, rs_uuid, node_svc_type);
-    LOGDEBUG << "Agent publish ep " << std::hex << rs_uuid.uuid_get_val()
-        << ", my node " << uuid.uuid_get_val()
+    svc.svc_uuid = rs_uuid.uuid_get_val();
+    port = NetMgr::ep_mgr_singleton()->ep_uuid_binding(svc, &ip);
+    LOGDEBUG << "Agent lookup ep " << std::hex << svc.svc_uuid
         << ", obj " << this << ", svc type " << node_svc_type
-        << ", idx " << node_ro_idx << ", rw idx " << node_rw_idx;
+        << ", idx " << node_ro_idx << ", rw idx " << node_rw_idx
+        << ", ip " << ip << ":" << std::dec << port;
 }
 
 AgentContainer::AgentContainer(FdspNodeType id) : RsContainer()
