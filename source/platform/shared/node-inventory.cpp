@@ -62,7 +62,8 @@ NodeInventory::node_info_msg_to_shm(const NodeInfoMsg *msg, node_data_t *rec)
     rec->nd_node_uuid    = msg_bind->svc_node.svc_uuid.svc_uuid;
     rec->nd_service_uuid = msg_bind->svc_id.svc_uuid.svc_uuid;
     rec->nd_base_port    = msg->nd_base_port;
-    rec->nd_svc_type     = msg->node_loc.svc_type;
+    // rec->nd_svc_type     = msg->node_loc.svc_type;
+    rec->nd_svc_type     = fpi::FDSP_PLATFORM;
     rec->nd_node_state   = fpi::FDS_Node_Discovered;
     rec->nd_dlt_version  = DLT_VER_INVALID;
     rec->nd_disk_type    = msg->node_stor.disk_type;
@@ -958,11 +959,11 @@ DomainContainer::dc_register_node(const ShmObjRO     *shm,
     fds_verify(ro != -1);
     node = shm->shm_get_rec<node_data_t>(ro);
 
-    fds_verify(node->nd_svc_type == fpi::FDSP_PLATFORM);
     LOGDEBUG << "Platform domain register node uuid " << std::hex
         << node->nd_node_uuid << ", svc uuid " << node->nd_service_uuid
         << ", svc mask " << mask;
 
+    fds_verify(node->nd_svc_type == fpi::FDSP_PLATFORM);
     container = dc_container_frm_msg(node->nd_svc_type);
     container->agent_register(shm, agent, ro, rw);
 

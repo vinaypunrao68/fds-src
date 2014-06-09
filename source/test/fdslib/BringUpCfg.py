@@ -114,7 +114,7 @@ class FdsNodeConfig(FdsConfig):
                    (self.nd_conf_dict['fds_root'], self.nd_conf_dict['node-name'])
         if 'fds_port' in self.nd_conf_dict:
             port = self.nd_conf_dict['fds_port']
-            port_arg = port_arg + (' --fds.plat.control_port=%s' % port)
+            port_arg = port_arg + (' --fds.plat.platform_port=%s' % port)
 
         if om_ip is not None:
             port_arg = port_arg + (' --fds.plat.om_ip=%s' % om_ip)

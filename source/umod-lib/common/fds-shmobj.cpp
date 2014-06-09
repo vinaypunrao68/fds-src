@@ -88,6 +88,7 @@ ShmObjRO::shm_iter_objs(ShmObjIter *iter) const
     size_t      off;
     const char *cur, *key;
 
+    off = 0;
     for (idx = 0; idx < shm_obj_cnt; idx++, off += shm_obj_siz) {
         cur = shm_area + off;
         key = cur + shm_key_off;
