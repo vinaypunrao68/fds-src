@@ -3,11 +3,14 @@
  * License : BSD Clause 2 : http://bit.ly/bsd-clause-2
  ****************************************************************************/
 #include <string.h>
+#include <string>
+#include <vector>
 #include <iostream>
-#include "cmdconsole.h"
+#include "./cmdconsole.h"
 #include <algorithm>
 
-using namespace std;
+using std::cout;
+using std::endl;
 
 CmdConsole::CmdConsole() {
     registerCommand("help", (CmdCallBack) &CmdConsole::cmdHelp);
@@ -15,6 +18,10 @@ CmdConsole::CmdConsole() {
 }
 
 CmdConsole* CmdConsole::CompletionCB::console = NULL;
+
+void CmdConsole::normalizeCommand(std::string& cmd) {
+    std::transform(cmd.begin(), cmd.end(), cmd.begin(), ::tolower);
+}
 
 void CmdConsole::setPrompt(const std::string& prompt) {
     this->prompt = prompt;
@@ -33,10 +40,9 @@ void CmdConsole::clearScreen() {
 }
 
 void CmdConsole::complete(const std::string& line, Completions& completions) {
-    std::map <std::string, CmdCallBack>::const_iterator cmdIter;
-    for ( cmdIter = mapCallBacks.begin() ; cmdIter != mapCallBacks.end() ; ++ cmdIter) {
-        if (0 == strncmp(line.c_str(),cmdIter->first.c_str(), line.length())){
-            completions.add(cmdIter->first);
+    for ( auto cmdIter : mapCallBacks ) {
+        if (0 == strncmp(line.c_str(), cmdIter.first.c_str(), line.length())){
+            completions.add(cmdIter.first);
         }
     }
 }
@@ -47,27 +53,26 @@ void CmdConsole::cmdUnknown(const std::string& line) {
 
 void CmdConsole::cmdHelp(std::vector<std::string>& args) {
     cout << Color::BoldMagenta << "Available Commands: "<< Color::End << "\n";
-    std::map <std::string, CmdCallBack>::const_iterator cmdIter;
-    for ( cmdIter = mapCallBacks.begin() ; cmdIter != mapCallBacks.end() ; ++cmdIter) {
-        cout << "  " << cmdIter->first << "\n";
+    for (auto cmdIter : mapCallBacks) {
+        cout << "  " << cmdIter.first << "\n";
     }
     if (!args.empty()) {
         cout << "\n";
         cout << Color::BoldWhite << "Arguments:" << Color::End << "\n";
-        for (uint i=0 ; i< args.size(); i++) {
-            cout << "  " << args[i] << "\n";
+        for (const auto& arg : args) {
+            cout << "  " << arg << "\n";
         }
     }
 }
 
 void CmdConsole::registerCommand(const std::string& cmd, CmdCallBack cb) {
-    std::string lowercmd=cmd;
-    std::transform(lowercmd.begin(), lowercmd.end(), lowercmd.begin(), ::tolower);
+    std::string lowercmd = cmd;
+    normalizeCommand(lowercmd);
     mapCallBacks[lowercmd] = cb;
 }
 
 void CmdConsole::run() {
-    char *line,*next;
+    char *line, *next;
     CompletionCB::console = this;
     linenoiseSetCompletionCallback(CompletionCB::completion);
 
@@ -76,29 +81,27 @@ void CmdConsole::run() {
     }
 
     std::string cmd;
-    std::map <std::string, CmdCallBack>::const_iterator cmdIter;
     std::vector<std::string> args;
-    while((line = linenoise(prompt.c_str())) != NULL) {
+    while ((line = linenoise(prompt.c_str())) != NULL) {
         if (line[0] != '\0') {
             next = line;
-            while(next[0]!='\0' && !isspace(next[0])) next++;
-                        
-            cmd = std::string(line,next-line);
+            while (next[0] != '\0' && !isspace(next[0])) next++;
+            cmd = std::string(line, next-line);
             // cout << line << ":" << cmd << "\n";
             args.clear();
-            
+
             // find first non white space
-            while(next[0]!='\0' && isspace(next[0])) next++;
-            // cout << "next=" << next << "\n";
+            while (next[0]!= '\0' && isspace(next[0])) next++;
+            // cout << "next= " << next << "\n";
 
-            std::transform(cmd.begin(), cmd.end(), cmd.begin(), ::tolower);
-
-            cmdIter = mapCallBacks.find(cmd);
+            normalizeCommand(cmd);
+            auto cmdIter = mapCallBacks.find(cmd);
             if (cmdIter != mapCallBacks.end()) {
                 // cout << "known command: " << cmdIter->first << "\n";
-                if (next[0]!='\0') {
-                    if (!splitArgs(next,args)) {
-                        cout << Color::Yellow << "[WARN] error parsing line .. " << Color::End <<"\n";
+                if (next[0]!= '\0') {
+                    if (!splitArgs(next, args)) {
+                        cout << Color::Yellow << "[WARN] error parsing line .. "
+                             << Color::End <<"\n";
                     }
                 }
                 (this->*(cmdIter->second))(args);
@@ -108,9 +111,8 @@ void CmdConsole::run() {
 
             linenoiseHistoryAdd(line);
             if (!historyFile.empty()) {
-                 linenoiseHistorySave(historyFile.c_str());
+                linenoiseHistorySave(historyFile.c_str());
             }
-            
         }
         free(line);
     }
@@ -123,16 +125,16 @@ void CmdConsole::run() {
 bool CmdConsole::splitArgs(const std::string& line, std::vector<std::string>& args) {
     const char *p = line.c_str();
     std::string current;
-    while(true) {
-        while(*p && isspace(*p)) p++;
+    while (true) {
+        while (*p && isspace(*p)) p++;
         if (*p) {
-            int inq=0;  /* set to 1 if we are in "quotes" */
-            int insq=0; /* set to 1 if we are in 'single quotes' */
-            int done=0;
-            while(!done) {
+            int inq= 0;  /* set to 1 if we are in "quotes" */
+            int insq= 0; /* set to 1 if we are in 'single quotes' */
+            int done= 0;
+            while (!done) {
                 if (inq) {
-                    if (*p == '\\' && *(p+1) == '"') { 
-                        current.append(1,'"');
+                    if (*p == '\\' && *(p+1) == '"') {
+                        current.append(1, '"');
                         p++;
                     } else if (*p == '"') {
                         /* closing quote must be followed by a space or
@@ -143,22 +145,22 @@ bool CmdConsole::splitArgs(const std::string& line, std::vector<std::string>& ar
                         /* unterminated quotes */
                         return false;
                     } else {
-                        current = current.append(1,p[0]);
-                    }                    
+                        current = current.append(1, p[0]);
+                    }
                 } else if (insq) {
                     if (*p == '\\' && *(p+1) == '\'') {
                         p++;
-                        current.append(1,'\'');
+                        current.append(1, '\'');
                     } else if (*p == '\'') {
                         /* closing quote must be followed by a space or
                          * nothing at all. */
                         if (*(p+1) && !isspace(*(p+1))) return false;
-                        done=1;
+                        done= 1;
                     } else if (!*p) {
                         /* unterminated quotes */
                         return false;
                     } else {
-                        current = current.append(1,p[0]);
+                        current = current.append(1, p[0]);
                     }
                 } else {
                     switch(*p) {
@@ -167,28 +169,28 @@ bool CmdConsole::splitArgs(const std::string& line, std::vector<std::string>& ar
                         case '\r':
                         case '\t':
                         case '\0':
-                            done=1;
+                            done= 1;
                             break;
                         case '"':
-                            inq=1;
+                            inq= 1;
                             break;
                         case '\'':
-                            insq=1;
+                            insq= 1;
                             break;
                         default:
-                            current.append(1,p[0]);
+                            current.append(1, p[0]);
                             // cout << "append:" << p[0] << ":" << current <<"\n";
                             break;
                     }
                 }
                 if (*p) p++;
-            } // while (!done)
+            }  // while (!done)
             args.push_back(current);
             current.clear();
-        } else { // if p
+        } else {  // if p
             return true;
         }
-    } // while true
+    }  // while true
     return false;
 }
 
