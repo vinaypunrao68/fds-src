@@ -17,8 +17,7 @@ user_cpp          :=                   \
     dm_io_test.cpp
 
 user_no_style     := $(user_cpp) $(user_cc)
-user_bin_exe      := dm_svc_test dm_io_test
-dm_svc_test       := dm_service_test.cpp
+user_bin_exe      := dm_io_test
 dm_io_test        := dm_io_test.cpp
 
 include $(topdir)/Makefile.incl

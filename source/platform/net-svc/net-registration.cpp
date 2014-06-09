@@ -99,6 +99,10 @@ PlatformEpHandler::allUuidBinding(bo::shared_ptr<fpi::UuidBindMsg> &msg)
     /* Cache the binding info. */
     NetMgr::ep_mgr_singleton()->ep_register_binding(&rec.smq_rec, idx);
 
+    LOGDEBUG << "Send SHMQ_REQ_UUID_BIND: idx " << rec.smq_idx
+        << ", uuid " << rec.smq_rec.rmp_uuid << ", port "
+        << EpAttr::netaddr_get_port(&rec.smq_rec.rmp_addr);
+
     /*
      * Notify all services running in the node about the new binding.  This can be
      * lazy update since the binding is already in shared memory.

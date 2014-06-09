@@ -208,15 +208,6 @@ NodeInventory::init_stor_cap_msg(fpi::StorCapMsg *msg) const
     }
 }
 
-// TODO(Vy): deprecate this function.
-//
-void
-NodeInventory::node_set_inventory(NodeInvData const *const inv)
-{
-    node_inv = inv;
-    strncpy(rs_name, inv->nd_node_name.c_str(), RS_NAME_MAX - 1);
-}
-
 // node_fill_inventory
 // -------------------
 // TODO(Vy): depricate this function.
@@ -226,7 +217,6 @@ NodeInventory::node_fill_inventory(const FdspNodeRegPtr msg)
 {
     NodeInvData       *data;
     node_capability_t *ncap;
-
 
     data = new NodeInvData();
     ncap = &data->nd_capability;
@@ -803,13 +793,8 @@ AgentContainer::agent_register(const NodeUuid       &uuid,
     if (agent == NULL) {
         add   = activate;
         agent = agt_cast_ptr<NodeAgent>(rs_alloc_new(uuid));
-        agent->node_fill_inventory(msg);
-    } else {
-        if (name.compare(agent->get_node_name()) != 0) {
-            return Error(ERR_DUPLICATE_UUID);
-        }
-        agent->node_update_inventory(msg);
     }
+    agent->node_fill_inventory(msg);
     *out = agent;
     if (add == true) {
         agent_activate(agent);
