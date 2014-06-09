@@ -6,14 +6,13 @@ package com.formationds.xdi;
 import com.formationds.apis.AmService;
 import com.formationds.apis.ObjectOffset;
 import com.formationds.apis.TxDescriptor;
+import org.apache.commons.codec.binary.Hex;
 
-import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.security.MessageDigest;
 import java.util.Map;
-import org.apache.commons.codec.binary.Hex;
 
 public class StreamWriter {
 
@@ -26,7 +25,6 @@ public class StreamWriter {
     }
 
     public byte[] write(String domainName, String volumeName, String blobName, InputStream input, Map<String, String> metadata) throws Exception {
-        InputStream in = new BufferedInputStream(input, objectSize);
         long objectOffset = 0;
         int lastBufSize = 0;
         MessageDigest md = MessageDigest.getInstance("MD5");
@@ -35,7 +33,7 @@ public class StreamWriter {
         TxDescriptor tx = am.startBlobTx(domainName, volumeName, blobName);
         byte[] buf = new byte[objectSize];
 
-        for (int read = readFully(in, buf); read != -1; read = readFully(in, buf)) {
+        for (int read = readFully(input, buf); read != -1; read = readFully(input, buf)) {
             md.update(buf, 0, read);
             am.updateBlob(domainName, volumeName, blobName, tx,
                     ByteBuffer.wrap(buf, 0, read), read,
