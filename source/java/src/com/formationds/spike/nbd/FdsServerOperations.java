@@ -57,7 +57,8 @@ public class FdsServerOperations implements NbdServerOperations {
 
     @Override
     public long size(String exportName) {
-        return volumeCapacity.compute(exportName, (k, v) -> {
+        return 1024L * 1024L * 1024L * 10L;
+/*        return volumeCapacity.compute(exportName, (k, v) -> {
             if (v == null) {
                 try {
                     v = config.statVolume(FDS, exportName).getPolicy().getBlockDeviceSizeInBytes();
@@ -66,9 +67,9 @@ public class FdsServerOperations implements NbdServerOperations {
                     v = 0l;
                 }
             }
-
             return v;
-        });
+
+        }); */
     }
 
     @Override
@@ -110,31 +111,18 @@ public class FdsServerOperations implements NbdServerOperations {
                 ObjectOffset objectOffset = new ObjectOffset(o_off);
 
                 TxDescriptor txId = am.startBlobTx(FDS, exportName, exportName);
-                if(i_off == 0) {
-                    ByteBuffer readBuf =  ByteBuffer.allocate(i_len);
-                    System.arraycopy(source.array(), am_bytes_written, readBuf.array(), 0, i_len);
-                    am.updateBlob(FDS, exportName, BLOCK_DEV_NAME, txId, readBuf, i_len, objectOffset, false);
-                    am_bytes_written += i_len;
-                } else {
-                    ByteBuffer readBuf = guardedRead(exportName, objectSize, objectOffset);
-                    System.arraycopy(source.array(), 0, readBuf.array(), i_off, i_len);
-                    am.updateBlob(FDS, exportName, BLOCK_DEV_NAME, txId, readBuf, objectSize, objectOffset, false);
-                    am_bytes_written += i_len;
-                }
+
+                ByteBuffer readBuf = null;
+                if(i_off != 0 || i_len != objectSize)
+                    readBuf = guardedRead(exportName, objectSize, objectOffset);
+                else
+                    readBuf = ByteBuffer.allocate(objectSize);
+                System.arraycopy(source.array(), am_bytes_written, readBuf.array(), i_off, i_len);
+                am.updateBlob(FDS, exportName, BLOCK_DEV_NAME, txId, readBuf, objectSize, objectOffset, false);
+                am_bytes_written += i_len;
+
                 am.commitBlobTx(txId);
             }
-
-            // write verification
-            /*ByteBuf v_buf = Unpooled.buffer(len);
-            read(exportName, v_buf, offset, len);
-            if(v_buf.compareTo(source) != 0) {
-                ArrayList<Integer> differences = new ArrayList<>();
-                for(int i = 0; i < len; i++) {
-                    if(v_buf.getByte(i) != source.getByte(i))
-                        differences.add(i);
-                }
-                LOG.warn("write verify failed");
-            } */
         } catch (TException e) {
             LOG.error("error writing bytes", e);
             throw e;
