@@ -25,9 +25,9 @@ public class XdiClientFactory {
                 }).makeProxy();
     }
 
-    public static AmService.Iface remoteAmService(String host) {
+    public static AmService.Iface remoteAmService(String host, int port) {
         return new ConnectionProxy<>(AmService.Iface.class, () -> {
-                    TSocket amTransport = new TSocket(host, 9988);
+                    TSocket amTransport = new TSocket(host, port);
                     // TFramedTransport amFrameTrans = new TFramedTransport(amTransport);
                     try {
                         // amFrameTrans.open();

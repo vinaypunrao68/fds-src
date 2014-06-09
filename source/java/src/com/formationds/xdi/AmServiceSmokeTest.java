@@ -32,7 +32,7 @@ public class AmServiceSmokeTest {
     }
 
     private static void doOnePut(String host, int port) throws Exception {
-        AmService.Iface am = XdiClientFactory.remoteAmService(host);
+        AmService.Iface am = XdiClientFactory.remoteAmService(host, 9988);
 
         String blobName = BLOB_NAME + totalPuts;
 

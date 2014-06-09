@@ -54,7 +54,7 @@ public class NbdHost {
     public static void main(String[] args) throws Exception {
         Configuration configuration = new Configuration("xdi", args);
 
-        AmService.Iface am = XdiClientFactory.remoteAmService("localhost");
+        AmService.Iface am = XdiClientFactory.remoteAmService("localhost", 9988);
         ConfigurationService.Iface config = XdiClientFactory.remoteOmService(configuration);
 
         NbdServerOperations ops = new FdsServerOperations(am, config);

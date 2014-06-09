@@ -17,6 +17,14 @@ public class ParsedConfigTest {
         assertTrue(adapter.lookup("fds.panda").booleanValue());
     }
 
+    @Test
+    public void defaultValue() throws Exception {
+        ParsedConfig adapter = new ParsedConfig(input);
+        assertEquals(3, adapter.defaultInt("fds.poop", 3));
+        assertEquals(3, adapter.defaultInt("fds.panda", 3));
+        assertEquals(42, adapter.defaultInt("fds.hello", 3));
+    }
+
     @Test(expected = RuntimeException.class)
     public void testError() throws Exception {
         new ParsedConfig("poop");

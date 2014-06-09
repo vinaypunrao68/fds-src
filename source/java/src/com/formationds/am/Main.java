@@ -15,6 +15,18 @@ import com.formationds.xdi.Xdi;
 import com.formationds.xdi.XdiClientFactory;
 import com.formationds.xdi.s3.S3Endpoint;
 import com.formationds.xdi.swift.SwiftEndpoint;
+import org.apache.thrift.server.TServer;
+import org.apache.thrift.server.TThreadPoolServer;
+import org.apache.thrift.transport.TServerSocket;
+
+class FakeAmServer {
+    public static void main(String[] args) throws Exception {
+        AmService.Processor<AmService.Iface> processor = new AmService.Processor<>(new FakeAmService());
+        TServerSocket transport = new TServerSocket(4242);
+        TServer server = new TThreadPoolServer(new TThreadPoolServer.Args(transport).processor(processor));
+        server.serve();
+    }
+}
 
 public class Main {
 
@@ -27,7 +39,8 @@ public class Main {
 
             boolean useFakeAm = amParsedConfig.lookup("fds.am.memory_backend").booleanValue();
             AmService.Iface am = useFakeAm ? new FakeAmService() :
-                    XdiClientFactory.remoteAmService("localhost");
+                    XdiClientFactory.remoteAmService("localhost", 9988);
+                    //XdiClientFactory.remoteAmService("localhost", 4242);
 
             ConfigurationService.Iface config = new CachingConfigurationService(XdiClientFactory.remoteOmService(configuration));
 

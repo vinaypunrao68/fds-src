@@ -35,7 +35,7 @@ public class Main {
 
         ParsedConfig omParsedConfig = configuration.getOmConfig();
         ConfigurationService.Iface configApi = XdiClientFactory.remoteOmService(configuration);
-        AmService.Iface amService = XdiClientFactory.remoteAmService("localhost");
+        AmService.Iface amService = XdiClientFactory.remoteAmService("localhost", 9988);
 
         String omHost = omParsedConfig.lookup("fds.om.ip_address").stringValue();
         int omPort = omParsedConfig.lookup("fds.om.config_port").intValue();
