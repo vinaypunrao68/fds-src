@@ -72,9 +72,13 @@ class FdsCluster:
         if node_cfg.nd_conf_dict['node-name'] != self.__om_node_id:
             node_cfg.nd_connect_rmt_agent(self.env)
             node_cfg.nd_rmt_agent.ssh_setup_env('')
+            # TODO(Rao): check with Vy if this needs to change later after shared memory
+            # changes
+            node_cfg.nd_start_platform(om_ip=self.get_node(self.__om_node_id).get_ip())
+
             
         # Run platform daemon
-        node_cfg.nd_start_platform(om_ip=self.get_node(self.__om_node_id).get_ip())
+        # node_cfg.nd_start_platform(om_ip=self.get_node(self.__om_node_id).get_ip())
 
         # activate services
         for service_id in activate_services:
@@ -217,6 +221,8 @@ class FdsCluster:
             if n.nd_run_om():
                 n.nd_connect_rmt_agent(self.env)
                 n.nd_rmt_agent.ssh_setup_env('')
+                # TODO(Rao): Starting platform before OM.  Check with Vy is this is ok
+                n.nd_start_platform(om_ip=n.nd_conf_dict['ip'])
                 n.nd_start_om()
                 # cache om node id
                 self.__om_node_id = n.nd_conf_dict['node-name']
