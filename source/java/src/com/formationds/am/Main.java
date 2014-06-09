@@ -9,6 +9,7 @@ import com.formationds.security.Authenticator;
 import com.formationds.security.JaasAuthenticator;
 import com.formationds.util.Configuration;
 import com.formationds.util.libconfig.ParsedConfig;
+import com.formationds.xdi.CachingConfigurationService;
 import com.formationds.xdi.Xdi;
 import com.formationds.xdi.XdiClientFactory;
 import com.formationds.xdi.s3.S3Endpoint;
@@ -24,7 +25,7 @@ public class Main {
             Thread.sleep(200);
 
             AmService.Iface am = XdiClientFactory.remoteAmService("localhost");
-            ConfigurationService.Iface config = XdiClientFactory.remoteOmService(configuration);
+            ConfigurationService.Iface config = new CachingConfigurationService(XdiClientFactory.remoteOmService(configuration));
 
             Authenticator authenticator = new JaasAuthenticator();
             Xdi xdi = new Xdi(am, config, authenticator);
