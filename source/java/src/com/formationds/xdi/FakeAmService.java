@@ -44,7 +44,7 @@ public class FakeAmService implements AmService.Iface {
 
     @Override
     public ByteBuffer getBlob(String domainName, String volumeName, String blobName, int length, ObjectOffset offset) throws ApiException, TException {
-        return ByteBuffer.wrap(new byte[length]);
+        return ByteBuffer.wrap(new byte[0]);
     }
 
     @Override

@@ -15,9 +15,10 @@ import java.security.MessageDigest;
 import java.util.Map;
 
 public class StreamWriter {
-
     private int objectSize;
     private AmService.Iface am;
+
+    private static ThreadLocal<byte[]> localBytes = new ThreadLocal<>();
 
     public StreamWriter(int objectSize, AmService.Iface am) {
         this.objectSize = objectSize;
@@ -31,7 +32,11 @@ public class StreamWriter {
         byte[] digest = new byte[0];
 
         TxDescriptor tx = am.startBlobTx(domainName, volumeName, blobName);
-        byte[] buf = new byte[objectSize];
+        if (localBytes.get() == null || localBytes.get().length != objectSize) {
+            localBytes.set(new byte[objectSize]);
+        }
+
+        byte[] buf = localBytes.get();
 
         for (int read = readFully(input, buf); read != -1; read = readFully(input, buf)) {
             md.update(buf, 0, read);

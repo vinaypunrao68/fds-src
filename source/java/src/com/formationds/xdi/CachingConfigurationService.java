@@ -36,16 +36,12 @@ public class CachingConfigurationService implements ConfigurationService.Iface {
     @Override
     public VolumeDescriptor statVolume(String domainName, String volumeName) throws ApiException, TException {
         Key key = new Key(domainName, volumeName);
-        return map.compute(key, (k, v) -> {
-            if (v == null) {
-                try {
-                    v = service.statVolume(domainName, volumeName);
-                } catch (TException e) {
-                    throw new RuntimeException(e);
-                }
+        return map.computeIfAbsent(key, k -> {
+            try {
+                return service.statVolume(domainName, volumeName);
+            } catch (TException e) {
+                throw new RuntimeException(e);
             }
-
-            return v;
         });
     }
 
