@@ -266,14 +266,15 @@ class FdsPackage:
             sys.stdout.write(tar_ball)
 
             subprocess.call(['tar', 'cf', tar_ball, 'bin'])
-            subprocess.call(['tar', 'rf', tar_ball, 'lib'])
+            subprocess.call(['tar', 'rf', tar_ball, 'lib/java'])
+            subprocess.call(['tar', 'rf', tar_ball, 'lib/admin-webapp'])
             sys.stdout.write('..')
             with pushd(self.p_env.get_config_dir()):
                 subprocess.call(['tar', 'rf', tar_ball, 'etc'])
                 sys.stdout.write('..')
 
-            with pushd(self.p_env.get_fds_source()):
-                subprocess.call(['tar', 'rf', tar_ball, 'test'])
+            #with pushd(self.p_env.get_fds_source()):
+            #    subprocess.call(['tar', 'rf', tar_ball, 'test'])
 
             with pushd(self.p_env.get_fds_source()):
                 subprocess.call(['tar', 'rf', tar_ball, 'tools'])

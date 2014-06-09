@@ -32,7 +32,7 @@ class thpool_worker
      */
     inline void wk_verify_obj(void)
     {
-        fds_assert(wk_pool_idx < wk_owner->thp_num_threads);
+        fds_assert(wk_pool_idx < wk_owner->thp_max_threads);
         fds_assert(this == wk_owner->thp_workers[wk_pool_idx]);
     }
     /** \wk_exec_task
@@ -313,11 +313,10 @@ fds_threadpool::~fds_threadpool()
         worker = fds_object_of(thpool_worker, wk_link, ptr);
 
         fds_assert(worker->wk_owner == this);
-        fds_assert(worker->wk_pool_idx < thp_num_threads);
+        fds_assert(worker->wk_pool_idx < thp_max_threads);
         fds_assert(thp_workers[worker->wk_pool_idx] == worker);
         delete worker;
     }
-    fds_verify(i == thp_num_threads);
     thp_mutex.unlock();
 
     delete [] thp_workers;
