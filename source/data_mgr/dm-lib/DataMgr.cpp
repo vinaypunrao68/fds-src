@@ -474,10 +474,16 @@ DataMgr::DataMgr(int argc, char *argv[], Platform *platform, Module **vec)
     // If we're in test mode, don't daemonize.
     // TODO(Andrew): We probably want another config field and
     // not to override test_mode
-    fds_bool_t noDaemon = conf_helper_.get_abs<bool>("fds.dm.test_mode", false);
+    fds_bool_t noDaemon = conf_helper_.get_abs<bool>("fds.dm.testing.test_mode", false);
     if (noDaemon == false) {
         daemonize();
     }
+
+    // Set testing related members
+    testUturnAll       = conf_helper_.get_abs<bool>("fds.dm.testing.uturn_all", false);
+    testUturnStartTx = conf_helper_.get_abs<bool>("fds.dm.testing.uturn_starttx", false);
+    testUturnUpdateCat = conf_helper_.get_abs<bool>("fds.dm.testing.uturn_updatecat", false);
+    testUturnSetMeta   = conf_helper_.get_abs<bool>("fds.dm.testing.uturn_setmeta", false);
 
     vol_map_mtx = new fds_mutex("Volume map mutex");
 
@@ -576,7 +582,7 @@ void DataMgr::proc_pre_startup()
     omIpStr      = *plf_mgr->plf_get_om_ip();
 
     use_om = !(conf_helper_.get_abs<bool>("fds.dm.no_om", false));
-    useTestMode = conf_helper_.get_abs<bool>("fds.dm.test_mode", false);
+    useTestMode = conf_helper_.get_abs<bool>("fds.dm.testing.test_mode", false);
     int sev_level = conf_helper_.get_abs<int>("fds.dm.log_severity", 0);
 
     GetLog()->setSeverityFilter(( fds_log::severity_level)sev_level);
@@ -1141,6 +1147,24 @@ DataMgr::ReqHandler::StartBlobTx(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msgH
     GLOGDEBUG << "Received start blob transction request for volume "
               << *volumeName << " and blob " << *blobName;
 
+    if ((dataMgr->testUturnAll == true) ||
+        (dataMgr->testUturnStartTx == true)) {
+        GLOGNOTIFY << "Uturn testing start blob tx";
+        msgHdr->msg_code = FDS_ProtocolInterface::FDSP_START_BLOB_TX;
+        msgHdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
+        dataMgr->swapMgrId(msgHdr);
+        dataMgr->respMapMtx.read_lock();
+        try { 
+            dataMgr->respHandleCli(msgHdr->session_uuid)->StartBlobTxResp(
+                *msgHdr);
+        } catch (att::TTransportException& e) {
+            GLOGERROR << "error during network call : " << e.what() ;
+        }
+        
+        dataMgr->respMapMtx.read_unlock();
+        return;
+    }
+
     BlobTxId::const_ptr blobTxDesc = BlobTxId::ptr(new BlobTxId(
         txDesc->txId));
     
@@ -1175,40 +1199,37 @@ void DataMgr::ReqHandler::UpdateCatalogObject(FDS_ProtocolInterface::
                                               FDS_ProtocolInterface::
                                               FDSP_UpdateCatalogTypePtr
                                               &update_catalog) {
-    Error err(ERR_OK);
-
-#ifdef FDS_TEST_DM_NOOP
-    msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_UPDATE_CAT_OBJ_RSP;
-    msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
-    dataMgr->swapMgrId(msg_hdr);
-    dataMgr->respMapMtx.read_lock();
-    try { 
-        dataMgr->respHandleCli(msg_hdr->session_uuid)->UpdateCatalogObjectResp(
-            *msg_hdr,
-            *update_catalog);
-    } catch (att::TTransportException& e) {
-            GLOGERROR << "error during network call : " << e.what() ;
-     }
-
-    dataMgr->respMapMtx.read_unlock();
-    LOGNORMAL << "FDS_TEST_DM_NOOP defined. Set update catalog response right after receiving req.";
-
-    return;
-#endif /* FDS_TEST_DM_NOOP */
-
-
     GLOGNORMAL << "Processing update catalog request with "
                << "volume id: " << msg_hdr->glob_volume_id
                << ", blob_name: "
                << update_catalog->blob_name
-            // << ", Obj ID: " << oid
                << ", Trans ID: "
                << update_catalog->dm_transaction_id
                << ", OP ID " << update_catalog->dm_operation;
 
-    err = dataMgr->updateCatalogInternal(update_catalog, msg_hdr->glob_volume_id,
-                                         msg_hdr->src_ip_lo_addr, msg_hdr->dst_ip_lo_addr, msg_hdr->src_port,
-                                         msg_hdr->dst_port, msg_hdr->session_uuid, msg_hdr->req_cookie);
+    if ((dataMgr->testUturnAll == true) ||
+        (dataMgr->testUturnUpdateCat == true)) {
+        GLOGNOTIFY << "Uturn testing update catalog";
+        msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_UPDATE_CAT_OBJ_RSP;
+        msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
+        dataMgr->swapMgrId(msg_hdr);
+        dataMgr->respMapMtx.read_lock();
+        try { 
+            dataMgr->respHandleCli(msg_hdr->session_uuid)->UpdateCatalogObjectResp(
+                *msg_hdr,
+                *update_catalog);
+        } catch (att::TTransportException& e) {
+            GLOGERROR << "error during network call : " << e.what() ;
+        }
+        
+        dataMgr->respMapMtx.read_unlock();
+        return;
+    }
+
+    Error err = dataMgr->updateCatalogInternal(update_catalog, msg_hdr->glob_volume_id,
+                                               msg_hdr->src_ip_lo_addr, msg_hdr->dst_ip_lo_addr,
+                                               msg_hdr->src_port, msg_hdr->dst_port,
+                                               msg_hdr->session_uuid, msg_hdr->req_cookie);
 
     if (!err.ok()) {
         GLOGNORMAL << "Error Queueing the update Catalog request to Per volume Queue";
@@ -1275,7 +1296,7 @@ DataMgr::startBlobTxBackend(const dmCatReq *startBlobTxReq) {
     respMapMtx.read_lock();
     respHandleCli(startBlobTxReq->session_uuid)->StartBlobTxResp(msgHdr);
     respMapMtx.read_unlock();
-    LOGDEBUG << "Sending stat blob response with "
+    LOGDEBUG << "Sending start blob tx response with "
              << "volume " << startBlobTxReq->volId
              << " and blob " << startBlobTxReq->blob_name;
 
@@ -2296,8 +2317,28 @@ void DataMgr::ReqHandler::SetBlobMetaData(boost::shared_ptr<FDSP_MsgHdrType>& ms
                                           boost::shared_ptr<FDSP_MetaDataList>& metaDataList) {
     Error err(ERR_OK);
 
-    GLOGDEBUG << " volume:" << *volumeName 
+    GLOGDEBUG << " Set metadata for volume:" << *volumeName 
               << " blob:" << *blobName;
+
+    if ((dataMgr->testUturnAll == true) ||
+        (dataMgr->testUturnSetMeta == true)) {
+        GLOGNOTIFY << "Uturn testing set metadata";
+        // The msg_code isnt used for this call so it doesnt
+        // matter that its wrong here.
+        msgHeader->msg_code = FDS_ProtocolInterface::FDSP_MSG_UPDATE_CAT_OBJ_RSP;
+        msgHeader->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
+        dataMgr->swapMgrId(msgHeader);
+        dataMgr->respMapMtx.read_lock();
+        try { 
+            dataMgr->respHandleCli(msgHeader->session_uuid)->SetBlobMetaDataResp(
+                *msgHeader, *blobName);
+        } catch (att::TTransportException& e) {
+            GLOGERROR << "error during network call : " << e.what() ;
+        }
+        
+        dataMgr->respMapMtx.read_unlock();
+        return;
+    }
     
     RequestHeader reqHeader(msgHeader);
     GLOGDEBUG << "header: "
