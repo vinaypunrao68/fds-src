@@ -57,8 +57,7 @@ public class FdsServerOperations implements NbdServerOperations {
 
     @Override
     public long size(String exportName) {
-        return 1024L * 1024L * 1024L * 10L;
-/*        return volumeCapacity.compute(exportName, (k, v) -> {
+        return volumeCapacity.compute(exportName, (k, v) -> {
             if (v == null) {
                 try {
                     v = config.statVolume(FDS, exportName).getPolicy().getBlockDeviceSizeInBytes();
@@ -68,8 +67,7 @@ public class FdsServerOperations implements NbdServerOperations {
                 }
             }
             return v;
-
-        }); */
+        });
     }
 
     @Override
