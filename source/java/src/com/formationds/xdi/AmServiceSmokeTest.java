@@ -3,18 +3,13 @@ package com.formationds.xdi;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.apis.*;
-import com.formationds.util.Size;
-import com.formationds.util.SizeUnit;
-import org.apache.thrift.protocol.TBinaryProtocol;
-import org.apache.thrift.transport.TSocket;
+import com.formationds.apis.AmService;
+import com.formationds.apis.ObjectOffset;
+import com.formationds.apis.TxDescriptor;
 import org.joda.time.DateTime;
 import org.joda.time.Interval;
 
 import java.nio.ByteBuffer;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
 import java.util.Random;
 
 
@@ -36,7 +31,9 @@ public class AmServiceSmokeTest {
         }
     }
 
-    private static void doOnePut(AmService.Iface am) throws Exception {
+    private static void doOnePut(String host, int port) throws Exception {
+        AmService.Iface am = XdiClientFactory.remoteAmService(host);
+
         String blobName = BLOB_NAME + totalPuts;
 
         long start = System.currentTimeMillis();
@@ -64,19 +61,10 @@ public class AmServiceSmokeTest {
         totalUpdateBlob += end - start;
     }
 
-    private static AmService.Iface getNewAmService(String host, int port)
-                                                                    throws Exception {
-        TSocket socket = new TSocket(host, port);
-        socket.open();
-        AmService.Iface am = new AmService.Client(new TBinaryProtocol(socket));
-
-        return am;
-    }
-
     public static void main(String[] args) throws Exception {
         String host="localhost";
         int port = 9988;
-        int count = 1;
+        int count = 1000;
         if (args.length == 3) {
             host = args[0];
             port = Integer.parseInt(args[1]); 
@@ -89,15 +77,12 @@ public class AmServiceSmokeTest {
         /* initialize the data array */
         initData();
 
-        AmService.Iface am = getNewAmService(host, port);
 
-        TxDescriptor txDesc = am.startBlobTx(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME);
-        
         System.out.println("Starting test...");
         /* run the test */
         DateTime start = DateTime.now();
         for (int i = 0; i < count; i++) {
-            doOnePut(am);
+            doOnePut(host, port);
 
 /*
             am.updateBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME, txDesc,
