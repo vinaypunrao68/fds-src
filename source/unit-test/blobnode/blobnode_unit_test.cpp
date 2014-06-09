@@ -63,13 +63,13 @@ TEST_CASE("BlobObjectList") {
     b1.size   = 200;
     b1.sparse = false;
     b1.blob_end = true;
-    l1.push_back(b1);
+    l1[b1.offset] = b1;
 
     b1.offset = 102;
     b1.size   = 200;
     b1.sparse = false;
     b1.blob_end = true;
-    l1.push_back(b1);
+    l1[b1.offset] = b1;
 
     std::string buffer;
     l1.getSerialized(buffer);
@@ -89,13 +89,14 @@ TEST_CASE("BlobNode") {
     b1.size   = 200;
     b1.sparse = false;
     b1.blob_end = true;
-    n1.obj_list.push_back(b1);
+    n1.obj_list[b1.offset] = b1;
+
 
     b1.offset = 102;
     b1.size   = 200;
     b1.sparse = false;
     b1.blob_end = true;
-    n1.obj_list.push_back(b1);
+    n1.obj_list[b1.offset] = b1;
 
     n1.blob_name = "fds";
     n1.version   = 10;
