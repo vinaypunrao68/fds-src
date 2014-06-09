@@ -778,7 +778,8 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
                            << std::dec << ", type " << msg->node_type;
 
         // since we already checked above that we could add service, verify error ok
-        fds_verify(err.ok());
+        // Vy: we could get duplicate if the agent already reigstered by platform lib.
+        // fds_verify(err.ok());
 
         om_locDomain->om_bcast_new_node(newNode, msg);
 

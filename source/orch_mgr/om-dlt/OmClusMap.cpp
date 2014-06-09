@@ -143,7 +143,7 @@ ClusterMap::updateMap(fpi::FDSP_MgrIdType svc_type,
         } else {
             // For now, assume it's incorrect to add a node
             // that already exists
-            fds_verify(curDmMap.count(uuid) == 0);
+            // fds_verify(curDmMap.count(uuid) == 0);
             curDmMap[uuid] = (*it);
             addedDMs.insert(uuid);
         }
