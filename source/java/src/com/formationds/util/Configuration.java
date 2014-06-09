@@ -25,6 +25,7 @@ public class Configuration {
             "INFO",
             "WARN",
             "ERROR",
+            "FATAL",
             "FATAL"
     };
 
