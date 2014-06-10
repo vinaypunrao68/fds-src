@@ -632,6 +632,11 @@ class VolumeMeta {
     fds_bool_t isForwarding() const {
         return (fwd_state != VFORWARD_STATE_NONE);
     }
+
+    fds_bool_t isForwardFinish() const {
+        return (fwd_state == VFORWARD_STATE_FINISHING);
+    }
+
     fds_bool_t setForwardFinish() {
         fwd_state = VFORWARD_STATE_NONE;
         return (true);

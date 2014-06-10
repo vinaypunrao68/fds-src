@@ -391,6 +391,7 @@ CatalogSyncMgr::startCatalogSync(const FDS_ProtocolInterface::FDSP_metaDataList&
     fds_mutex::scoped_lock l(cat_sync_lock);
     // we should not get request to start a sync until
     // close is finished -- OM serializes DM deployment, so return an error
+    LOGNORMAL << "startCatalogSync :" << sync_in_progress;
     if (sync_in_progress) {
         return ERR_NOT_READY;
     }
@@ -441,7 +442,7 @@ CatalogSyncMgr::startCatalogSyncDelta(const std::string& context) {
     // sync must be in progress
     if (!sync_in_progress) {
         LOGWARN << "Will Not start delta sync because catsync not in progress!";
-        return ERR_NOT_READY;
+        return ERR_CATSYNC_NOT_PROGRESS;
     }
     fds_verify(cat_sync_map.size() > 0);
     // make sure that all CatalogSync objects finished the initial sync
@@ -510,10 +511,16 @@ Error CatalogSyncMgr::removeVolume(fds_volid_t volid) {
                 cat_sync_map.erase(cit);
             break; 
         }
-       
-        
     }
-    return err;
+
+   if (cat_sync_map.empty()) {
+      FDS_ProtocolInterface::FDSP_DmtCloseTypePtr
+            dmtCloseAck(new FDSP_DmtCloseType);
+          //sync_in_progress = false;
+      dataMgr->omClient->sendDMTCloseAckToOM(dmtCloseAck, cat_sync_context);
+   }
+
+   return err;
 }
 
 
@@ -570,6 +577,7 @@ void CatalogSyncMgr::cleanupSyncState() {
                     (cit->second)->syncDone();
      }
 }
+#if 0
 /**
  * Called when OM sends DMT close message to DM, so we can cleanup the
  * state of this sync and be ready for next sync...
@@ -593,6 +601,7 @@ void CatalogSyncMgr::notifyCatalogSyncFinish() {
 
     LOGDEBUG << "Cleaned up cat sync state";
 }
+#endif
 
 void
 FDSP_MetaSyncRpc::PushMetaSyncReq(fpi::FDSP_MsgHdrTypePtr& fdsp_msg,

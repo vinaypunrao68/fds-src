@@ -35,7 +35,7 @@ VolumeMeta::VolumeMeta(const std::string& _name,
                        fds_int64_t _uuid,
                        VolumeDesc* desc,
                        fds_bool_t crt_catalogs)
-        : dm_log(NULL), vcat(NULL), tcat(NULL), fwd_state(VFORWARD_STATE_NONE)
+        : dm_log(NULL), vcat(NULL), tcat(NULL), fwd_state(VFORWARD_STATE_NONE), dmtclose_time(boost::posix_time::min_date_time)
 {
     const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
 
@@ -353,8 +353,12 @@ VolumeMeta::deltaSyncVolCat(fds_volid_t volId, NodeUuid node_uuid)
 void VolumeMeta::finishForwarding() {
     vol_mtx->lock();
 
+     FDS_PLOG(dm_log) << "finishForwarding:  " << fwd_state;
+ 
      if (fwd_state == VFORWARD_STATE_INPROG) {
 	dmtclose_time = boost::posix_time::microsec_clock::universal_time();
+        fwd_state = VFORWARD_STATE_FINISHING;
+        FDS_PLOG(dm_log) << "finishForwarding:  close time: " << dmtclose_time;
      }
      else {
         fwd_state = VFORWARD_STATE_NONE;
@@ -363,7 +367,6 @@ void VolumeMeta::finishForwarding() {
     // TODO(WIN-433) set state to VFORWARD_STATE_FINISHING here
     // so that we are still forwarding untill all queued updates
     // are processed, but for now, we assume no pending in queue
-    //    fwd_state = VFORWARD_STATE_FINISHING;
     vol_mtx->unlock();
 }
 

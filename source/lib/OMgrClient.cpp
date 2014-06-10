@@ -925,7 +925,7 @@ int OMgrClient::sendDLTCloseAckToOM(FDSP_DltCloseTypePtr& dlt_close,
  * DMT close event notifies that nodes in the cluster received
  * the commited (new) DMT
  */
-int OMgrClient::recvDMTClose(fds_uint64_t dmt_version,
+void OMgrClient::recvDMTClose(fds_uint64_t dmt_version,
                              const std::string& session_uuid)
 {
     Error err(ERR_OK);
@@ -937,10 +937,23 @@ int OMgrClient::recvDMTClose(fds_uint64_t dmt_version,
     err = this->catalog_evt_hdlr(fds_catalog_dmt_close,
                                  FDSP_PushMetaPtr(),
                                  session_uuid);
+    if (!err.ok()) {
+        LOGERROR << "DMT Close,  volume meta may not be synced properly";
+        // ignore not ready errors
+        if (err == ERR_CATSYNC_NOT_PROGRESS)
+            err = ERR_OK;
+        FDS_ProtocolInterface::FDSP_DmtCloseTypePtr
+            dmtCloseAck(new FDSP_DmtCloseType);
+        sendDMTCloseAckToOM(dmtCloseAck, session_uuid);
+    }
 
-    // TODO(xxx) when we extend to handling forwarding DM requests to
-    // new DM, we may have this event handler async and also async response
-    // we are returning response here for now...
+}
+
+int OMgrClient::sendDMTCloseAckToOM(FDSP_DmtCloseTypePtr& dmt_close,
+        const std::string& session_uuid)
+{
+    Error err(ERR_OK);
+    LOGDEBUG << "Sending dmt close ack to OM";
 
     // sending response right away for now...
     boost::shared_ptr<FDS_ProtocolInterface::FDSP_ControlPathRespClient> resp_client_prx =
@@ -954,7 +967,7 @@ int OMgrClient::recvDMTClose(fds_uint64_t dmt_version,
             msg_hdr->result = FDSP_ERR_FAILED;
         }
         FDSP_DMT_Resp_TypePtr dmt_resp(new FDSP_DMT_Resp_Type);
-        dmt_resp->DMT_version = dmt_version;
+        dmt_resp->DMT_version = getDMTVersion();
         resp_client_prx->NotifyDMTCloseResp(msg_hdr, dmt_resp);
         LOGNOTIFY << "OMClient sent response for DMT close to OM";
     } catch (...) {

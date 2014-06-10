@@ -60,7 +60,8 @@ DataMgr::volcat_evt_handler(fds_catalog_action_t catalog_action,
         err = dataMgr->catSyncMgr->startCatalogSyncDelta(session_uuid);
     } else if (catalog_action == fds_catalog_dmt_close) {
         // will finish forwarding when all queued updates are processed
-        dataMgr->notifyStopForwardUpdates();
+        GLOGNORMAL << "Received DMT Close";
+        err = dataMgr->notifyStopForwardUpdates();
     } else {
         fds_assert(!"Unknown catalog command");
     }
@@ -253,17 +254,27 @@ Error DataMgr::_process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only) {
  * For all volumes that are in forwarding state, move them to
  * finish forwarding state.
  */
-void DataMgr::notifyStopForwardUpdates() {
+Error  DataMgr::notifyStopForwardUpdates() {
     std::unordered_map<fds_uint64_t, VolumeMeta*>::iterator vol_it;
+
+    Error err(ERR_OK);
+
+    if(!catSyncMgr->isSyncInProgress()) {  
+      err = ERR_CATSYNC_NOT_PROGRESS;
+      return err;
+    }
 
     vol_map_mtx->lock();
     for (vol_it = vol_meta_map.begin();
          vol_it != vol_meta_map.end();
          ++vol_it) {
         VolumeMeta *vol_meta = vol_it->second;
+        LOGNORMAL << " Stop Forwarding  for vol uuid ";
         vol_meta->finishForwarding();
     }
     vol_map_mtx->unlock();
+
+  return err;
 }
 
 Error DataMgr::_process_open(fds_volid_t vol_uuid,
@@ -1180,18 +1191,24 @@ DataMgr::updateCatalogBackend(dmCatReq  *updCatReq) {
      */
     if (update_catalog->dm_operation == fpi::FDS_DMGR_TXN_STATUS_COMMITED) {
         fds_bool_t do_forward = false;
+        fds_bool_t do_finish = false;
         vol_map_mtx->lock();
         fds_verify(vol_meta_map.count(updCatReq->volId) > 0);
         VolumeMeta *vol_meta = vol_meta_map[updCatReq->volId];
         do_forward = vol_meta->isForwarding();
+        do_finish  = vol_meta->isForwardFinish();
         vol_map_mtx->unlock();
-        if ((do_forward)  && ( vol_meta->dmtclose_time > updCatReq->enqueue_time)){
+        if ((do_forward)  || ( vol_meta->dmtclose_time > updCatReq->enqueue_time)){
             catSyncMgr->forwardCatalogUpdate(updCatReq);
         }
         // move the state, once we drain  planned queue contents 
-        if (vol_meta->dmtclose_time < updCatReq->enqueue_time) {
+         LOGNORMAL << "DMT close Time:  " << vol_meta->dmtclose_time 
+                        << " Enqueue Time: " << updCatReq->enqueue_time;
+        
+        if ((vol_meta->dmtclose_time < updCatReq->enqueue_time) && (do_finish)) {
             vol_meta->setForwardFinish();
             // remove the volume from sync_volume list
+            LOGNORMAL << "CleanUP: remove Volume " << updCatReq->volId;
             catSyncMgr->removeVolume(updCatReq->volId);
         }        
            

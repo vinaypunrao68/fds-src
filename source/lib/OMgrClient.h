@@ -228,7 +228,9 @@ namespace fds {
     Error sendDMTPushMetaAck(const Error& op_err, const std::string& session_uuid);
     Error sendDMTCommitAck(const Error& op_err, const std::string& session_uuid);
 
-    int recvDMTClose(fds_uint64_t dmt_version, const std::string& session_uuid);
+    void recvDMTClose(fds_uint64_t dmt_version, const std::string& session_uuid);
+    int sendDMTCloseAckToOM(FDSP_DmtCloseTypePtr& dmt_close,
+            const std::string& session_uuid);
 
     int recvNotifyVol(VolumeDesc *vdb,
                       fds_vol_notify_t vol_action,

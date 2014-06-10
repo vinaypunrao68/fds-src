@@ -233,7 +233,7 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler
      * finish forwarding state -- forwarding will actually end when
      * all updates that are currently queued are processed.
      */
-    void notifyStopForwardUpdates();
+    Error  notifyStopForwardUpdates();
 
     /**
      * DmIoReqHandler method implementation
