@@ -35,12 +35,16 @@ public class CachingConfigurationService implements ConfigurationService.Iface {
 
     @Override
     public VolumeDescriptor statVolume(String domainName, String volumeName) throws ApiException, TException {
+        return getFromCache(domainName, volumeName);
+    }
+
+    private VolumeDescriptor getFromCache(String domainName, String volumeName) {
         Key key = new Key(domainName, volumeName);
         return map.computeIfAbsent(key, k -> {
             try {
                 return service.statVolume(domainName, volumeName);
             } catch (TException e) {
-                throw new RuntimeException(e);
+                return null;
             }
         });
     }

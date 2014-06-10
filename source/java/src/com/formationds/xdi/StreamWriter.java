@@ -32,6 +32,7 @@ public class StreamWriter {
         byte[] digest = new byte[0];
 
         TxDescriptor tx = am.startBlobTx(domainName, volumeName, blobName);
+
         if (localBytes.get() == null || localBytes.get().length != objectSize) {
             localBytes.set(new byte[objectSize]);
         }
