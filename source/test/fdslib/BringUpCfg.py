@@ -539,8 +539,9 @@ class FdsConfigRun(object):
             sys.exit(1)
 
         om_ip = om_node.nd_conf_dict['ip']
-        if run_om == True:
-            om_node.nd_start_om()
-
         for n in self.rt_obj.cfg_nodes:
             n.nd_start_platform(om_ip)
+
+        if run_om == True:
+            om_node.nd_start_om()
+        time.sleep(4)
