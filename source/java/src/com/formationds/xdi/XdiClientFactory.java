@@ -20,7 +20,6 @@ public class XdiClientFactory {
 
     public XdiClientFactory() {
         GenericKeyedObjectPoolConfig config = new GenericKeyedObjectPoolConfig();
-        config.setBlockWhenExhausted(false);
         config.setMaxTotal(1000);
         config.setMinIdlePerKey(5);
         config.setSoftMinEvictableIdleTimeMillis(30000);

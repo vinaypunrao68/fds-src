@@ -20,6 +20,26 @@ class ConnectionSpecification {
         this.host = host;
         this.port = port;
     }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+
+        ConnectionSpecification that = (ConnectionSpecification) o;
+
+        if (port != that.port) return false;
+        if (!host.equals(that.host)) return false;
+
+        return true;
+    }
+
+    @Override
+    public int hashCode() {
+        int result = host.hashCode();
+        result = 31 * result + port;
+        return result;
+    }
 }
 
 class XdiClientConnection<T> {
