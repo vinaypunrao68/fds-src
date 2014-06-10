@@ -10,6 +10,7 @@
 #include <FdsCrypto.h>
 #include <fds_uuid.h>
 #include <concurrency/Mutex.h>
+#include <fds_process.h>
 #include <am-engine/fdsn-server.h>
 #include <am-engine/handlers/handlermappings.h>
 #include <am-engine/handlers/responsehandler.h>
@@ -28,9 +29,35 @@ class FdsnIf : public apis::AmServiceIf {
     /// Pointer to AM's data API
     FDS_NativeAPI::ptr am_api;
 
+    /// Uturn test all AM service APIs
+    fds_bool_t testUturnAll;
+    /// Uturn test start tx API
+    fds_bool_t testUturnStartTx;
+    /// Uturn test update blob API
+    fds_bool_t testUturnUpdateBlob;
+    /// Uturn test update metadata API
+    fds_bool_t testUturnUpdateMeta;
+
   public:
     explicit FdsnIf(FDS_NativeAPI::ptr api)
             : am_api(api) {
+        FdsConfigAccessor conf(g_fdsprocess->get_conf_helper());
+        testUturnAll = conf.get_abs<bool>("fds.am.testing.uturn_amserv_all");
+        if (testUturnAll == true) {
+            LOGDEBUG << "Enabling uturn testing for all AM service APIs";
+        }
+        testUturnStartTx = conf.get_abs<bool>("fds.am.testing.uturn_amserv_starttx");
+        if (testUturnStartTx == true) {
+            LOGDEBUG << "Enabling uturn testing for AM service start tx API";
+        }
+        testUturnUpdateBlob = conf.get_abs<bool>("fds.am.testing.uturn_amserv_updateblob");
+        if (testUturnUpdateBlob == true) {
+            LOGDEBUG << "Enabling uturn testing for AM service update blob API";
+        }
+        testUturnUpdateMeta = conf.get_abs<bool>("fds.am.testing.uturn_amserv_updatemeta");
+        if (testUturnUpdateMeta == true) {
+            LOGDEBUG << "Enabling uturn testing for AM service update metadata API";
+        }
     }
 
     typedef boost::shared_ptr<FdsnIf> ptr;
@@ -123,6 +150,11 @@ class FdsnIf : public apis::AmServiceIf {
                      boost::shared_ptr<std::string>& domainName,
                      boost::shared_ptr<std::string>& volumeName,
                      boost::shared_ptr<std::string>& blobName) {
+        if ((testUturnAll == true) ||
+            (testUturnStartTx == true)) {
+            LOGDEBUG << "Uturn testing start blob tx";
+            return;
+        }
         StartBlobTxResponseHandler::ptr handler(
             new StartBlobTxResponseHandler(_return));
 
@@ -217,6 +249,11 @@ class FdsnIf : public apis::AmServiceIf {
                         boost::shared_ptr<std::string>& blobName,
                         boost::shared_ptr<apis::TxDescriptor>& txDesc,
                         boost::shared_ptr< std::map<std::string, std::string> >& metadata) {
+        if ((testUturnAll == true) ||
+            (testUturnUpdateMeta == true)) {
+            LOGDEBUG << "Uturn testing update metadata";
+            return;
+        }
         SimpleResponseHandler::ptr handler(new SimpleResponseHandler(__func__));
         boost::shared_ptr<fpi::FDSP_MetaDataList> metaDataList(new fpi::FDSP_MetaDataList());
         LOGDEBUG << "received updateMetadata cmd";
@@ -253,6 +290,12 @@ class FdsnIf : public apis::AmServiceIf {
                     boost::shared_ptr<int32_t>& length,
                     boost::shared_ptr<apis::ObjectOffset>& objectOffset,
                     boost::shared_ptr<bool>& isLast) {
+        if ((testUturnAll == true) ||
+            (testUturnUpdateBlob == true)) {
+            LOGDEBUG << "Uturn testing update blob";
+            return;
+        }
+
         BucketContext bucket_ctx("host", *volumeName, "accessid", "secretkey");
 
         fds_verify(*length >= 0);
