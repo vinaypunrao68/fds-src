@@ -6,6 +6,7 @@ import com.formationds.apis.AmService;
 import com.formationds.apis.ConfigurationService;
 import org.apache.commons.pool2.KeyedObjectPool;
 import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
+import org.apache.commons.pool2.impl.GenericKeyedObjectPoolConfig;
 import org.apache.thrift.protocol.TProtocolException;
 import org.apache.thrift.transport.TTransportException;
 
@@ -18,13 +19,17 @@ public class XdiClientFactory {
     private final GenericKeyedObjectPool<ConnectionSpecification, XdiClientConnection<AmService.Iface>> amPool;
 
     public XdiClientFactory() {
-        XdiClientConnectionFactory csFactory = new XdiClientConnectionFactory<ConfigurationService.Iface>(proto -> new ConfigurationService.Client(proto));
+        GenericKeyedObjectPoolConfig config = new GenericKeyedObjectPoolConfig();
+        config.setBlockWhenExhausted(false);
+        config.setMaxTotal(1000);
+        config.setMinIdlePerKey(5);
+        config.setSoftMinEvictableIdleTimeMillis(30000);
 
-        configPool = new GenericKeyedObjectPool<ConnectionSpecification, XdiClientConnection<ConfigurationService.Iface>>(csFactory);
+        XdiClientConnectionFactory csFactory = new XdiClientConnectionFactory<ConfigurationService.Iface>(proto -> new ConfigurationService.Client(proto));
+        configPool = new GenericKeyedObjectPool<ConnectionSpecification, XdiClientConnection<ConfigurationService.Iface>>(csFactory, config);
 
         XdiClientConnectionFactory amFactory = new XdiClientConnectionFactory<AmService.Iface>(proto -> new AmService.Client(proto));
-
-        amPool = new GenericKeyedObjectPool<ConnectionSpecification, XdiClientConnection<AmService.Iface>>(amFactory);
+        amPool = new GenericKeyedObjectPool<ConnectionSpecification, XdiClientConnection<AmService.Iface>>(amFactory, config);
 
     }
 
