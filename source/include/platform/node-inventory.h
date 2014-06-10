@@ -186,7 +186,6 @@ class NodeInventory : public Resource
           node_svc_type(fpi::FDSP_PLATFORM), node_ro_idx(-1), node_rw_idx(-1) {}
 
     const ShmObjRO *node_shm_ctrl() const;
-    void node_set_inventory(NodeInvData const *const inv);
 };
 
 /**

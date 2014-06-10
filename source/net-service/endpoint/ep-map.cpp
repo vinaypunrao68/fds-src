@@ -78,7 +78,7 @@ EpPlatLibMod::mod_enable_service()
     consumer = NodeShmCtrl::shm_consumer();
     consumer->shm_register_handler(SHMQ_REQ_UUID_BIND, &platlib_uuid_bind);
     consumer->shm_register_handler(SHMQ_REQ_UUID_UNBIND, &platlib_uuid_bind);
-    consumer->shm_register_handler(SHMQ_NODE_REGISTRATION, &platlib_uuid_bind);
+    consumer->shm_register_handler(SHMQ_NODE_REGISTRATION, &platlib_node_reg);
 }
 
 // mod_shutdown
@@ -190,7 +190,7 @@ EpPlatLibMod::node_info_lookup(int idx, fds_uint64_t node_uuid, ep_map_rec_t *ou
     fds_verify(idx >= 0);
     ret = ep_node_bind->shm_lookup_rec(idx, static_cast<const void *>(&node_uuid),
                                        static_cast<void *>(&ninfo), sizeof(ninfo));
-    if (idx == -1) {
+    if (ret == -1) {
         ret = ep_am_bind->shm_lookup_rec(idx, static_cast<const void *>(&node_uuid),
                                          static_cast<void *>(&ninfo), sizeof(ninfo));
         if (ret == -1) {
@@ -284,12 +284,15 @@ PlatLibUuidBind::shmq_handler(const shmq_req_t *in, size_t size)
     DomainNodeInv::pointer  local;
 
     std::cout << "Plat lib uuid binding is called " << std::endl;
+    return;
 
     /* Cache the binding info. */
     fds_assert(map->smq_idx >= 0);
     NetMgr::ep_mgr_singleton()->ep_register_binding(&map->smq_rec, map->smq_idx);
 
     /* Allocate node agents as proxy to this node and its services. */
+    /* The index here is for uuid mapping, not for node_data_t type! */
+    // BUG;
     agent = NULL;
     local = Platform::platf_singleton()->plf_node_inventory();
     local->dc_register_node(NodeShmCtrl::shm_node_inventory(), &agent,

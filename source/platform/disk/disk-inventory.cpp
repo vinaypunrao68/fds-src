@@ -632,8 +632,8 @@ DiskPlatModule::~DiskPlatModule()
     mod_shutdown();
 
     delete dsk_label;
-    dsk_devices = NULL;
-    dsk_inuse   = NULL;
+    // dsk_devices = NULL;
+    // dsk_inuse   = NULL;
     udev_enumerate_unref(dsk_enum);
     udev_unref(dsk_ctrl);
 }
