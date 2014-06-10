@@ -347,7 +347,7 @@ private:
     sh_comm_modes mode;
 
     /// Toggles the local volume catalog cache
-    fds_bool_t useVcc;
+    fds_bool_t disableVcc;
 };
 
 extern StorHvCtrl *storHvisor;

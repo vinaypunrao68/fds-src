@@ -1233,7 +1233,7 @@ fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq) {
     /*
      * Get the object ID from vcc and add it to journal entry and get msg
      */
-    if (useVcc == true) {
+    if (disableVcc == true) {
         shVol->vol_catalog_cache->Clear();
     }
     // TODO(Andrew): Here we need to check if the offset is aligned or handle
