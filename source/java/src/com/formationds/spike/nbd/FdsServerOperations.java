@@ -116,7 +116,8 @@ public class FdsServerOperations implements NbdServerOperations {
                 else
                     readBuf = ByteBuffer.allocate(objectSize);
                 System.arraycopy(source.array(), am_bytes_written, readBuf.array(), i_off, i_len);
-                am.updateBlob(FDS, exportName, BLOCK_DEV_NAME, txId, readBuf, objectSize, objectOffset, false);
+                //am.updateBlob(FDS, exportName, BLOCK_DEV_NAME, txId, readBuf, objectSize, objectOffset, false);
+                am.updateBlob(FDS, exportName, BLOCK_DEV_NAME + Long.toString(o_off), txId, readBuf, objectSize, new ObjectOffset(0), false);
                 am_bytes_written += i_len;
 
                 am.commitBlobTx(txId);
@@ -129,7 +130,8 @@ public class FdsServerOperations implements NbdServerOperations {
 
     private ByteBuffer guardedRead(String exportName, int objectSize, ObjectOffset objectOffset) throws TException {
         try {
-            return am.getBlob(FDS, exportName, BLOCK_DEV_NAME, objectSize, objectOffset);
+            //return am.getBlob(FDS, exportName, BLOCK_DEV_NAME, objectSize, objectOffset);
+            return am.getBlob(FDS, exportName, BLOCK_DEV_NAME + Long.toString(objectOffset.getValue()), objectSize, new ObjectOffset(0));
         } catch(ApiException e) {
             if(e.getErrorCode() == ErrorCode.MISSING_RESOURCE)
                 return ByteBuffer.allocate(objectSize);

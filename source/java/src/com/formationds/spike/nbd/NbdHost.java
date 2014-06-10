@@ -6,7 +6,6 @@ package com.formationds.spike.nbd;
 
 import com.formationds.apis.AmService;
 import com.formationds.apis.ConfigurationService;
-import com.formationds.util.Configuration;
 import com.formationds.xdi.XdiClientFactory;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
@@ -52,15 +51,15 @@ public class NbdHost {
     }
 
     public static void main(String[] args) throws Exception {
-        Configuration configuration = new Configuration("xdi", args);
-
-        AmService.Iface am = XdiClientFactory.remoteAmService("localhost", 9988);
-        ConfigurationService.Iface config = XdiClientFactory.remoteOmService(configuration);
+        XdiClientFactory clientFactory = new XdiClientFactory();
+        AmService.Iface am = clientFactory.remoteAmService("localhost", 9988);
+        ConfigurationService.Iface config = clientFactory.remoteOmService("localhost", 9090);
 
         NbdServerOperations ops = new FdsServerOperations(am, config);
         //NbdServerOperations ops = new SparseRamOperations(1024L * 1024L * 1024L * 10);
         // NbdServerOperations ops = new SparseRamOperations(1024L * 1024L * 1024L * 10);
-        //ops = new ReadWriteVerifierOperations(ops, new SparseRamOperations(1024L * 1024L * 1024L * 10));
+        //ops = new WriteVerifyOperationsWrapper(ops);
+        //ops = new OracleVerifyOperationsWrapper(ops, new SparseRamOperations(1024L * 1024L * 1024L * 10));
 
         new NbdHost(10809, ops).run();
         //config.createVolume("fds", "hello", new VolumeSettings(4 * 1024, VolumeType.BLOCK, 1024 * 1024 * 1024));

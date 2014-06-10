@@ -2,7 +2,7 @@ package com.formationds.om;
 
 import com.formationds.apis.AmService;
 import com.formationds.apis.ConfigurationService;
-import com.formationds.fdsp.ClientFactory;
+import com.formationds.fdsp.LegacyClientFactory;
 import com.formationds.security.Authenticator;
 import com.formationds.security.AuthorizationToken;
 import com.formationds.util.Configuration;
@@ -34,14 +34,15 @@ public class Main {
         NativeOm.startOm(args);
 
         ParsedConfig omParsedConfig = configuration.getOmConfig();
-        ConfigurationService.Iface configApi = XdiClientFactory.remoteOmService(configuration);
-        AmService.Iface amService = XdiClientFactory.remoteAmService("localhost", 9988);
+        XdiClientFactory clientFactory = new XdiClientFactory();
+        ConfigurationService.Iface configApi = clientFactory.remoteOmService("localhost", 9090);
+        AmService.Iface amService = clientFactory.remoteAmService("localhost", 9988);
 
         String omHost = omParsedConfig.lookup("fds.om.ip_address").stringValue();
         int omPort = omParsedConfig.lookup("fds.om.config_port").intValue();
         String webDir = omParsedConfig.lookup("fds.om.web_dir").stringValue();
 
-        ClientFactory clientFactory = new ClientFactory();
+        LegacyClientFactory legacyClientFactory = new LegacyClientFactory();
 
         webApp = new WebApp(webDir);
 
@@ -50,13 +51,13 @@ public class Main {
         webApp.route(HttpMethod.POST, "/api/auth/token", () -> new IssueToken(Authenticator.KEY));
         webApp.route(HttpMethod.GET, "/api/auth/token", () -> new IssueToken(Authenticator.KEY));
 
-        authorize(HttpMethod.GET, "/api/config/services", () -> new ListServices(clientFactory.configPathClient(omHost, omPort)));
-        authorize(HttpMethod.POST, "/api/config/services/:node_uuid", () -> new ActivatePlatform(clientFactory.configPathClient(omHost, omPort)));
+        authorize(HttpMethod.GET, "/api/config/services", () -> new ListServices(legacyClientFactory.configPathClient(omHost, omPort)));
+        authorize(HttpMethod.POST, "/api/config/services/:node_uuid", () -> new ActivatePlatform(legacyClientFactory.configPathClient(omHost, omPort)));
 
-        authorize(HttpMethod.GET, "/api/config/volumes", () -> new ListVolumes(configApi, amService, clientFactory.configPathClient(omHost, omPort)));
-        authorize(HttpMethod.POST, "/api/config/volumes", () -> new CreateVolume(configApi, clientFactory.configPathClient(omHost, omPort)));
-        authorize(HttpMethod.DELETE, "/api/config/volumes/:name", () -> new DeleteVolume(clientFactory.configPathClient(omHost, omPort)));
-        authorize(HttpMethod.PUT, "/api/config/volumes/:uuid", () -> new SetVolumeQosParams(clientFactory.configPathClient(omHost, omPort), configApi, amService));
+        authorize(HttpMethod.GET, "/api/config/volumes", () -> new ListVolumes(configApi, amService, legacyClientFactory.configPathClient(omHost, omPort)));
+        authorize(HttpMethod.POST, "/api/config/volumes", () -> new CreateVolume(configApi, legacyClientFactory.configPathClient(omHost, omPort)));
+        authorize(HttpMethod.DELETE, "/api/config/volumes/:name", () -> new DeleteVolume(legacyClientFactory.configPathClient(omHost, omPort)));
+        authorize(HttpMethod.PUT, "/api/config/volumes/:uuid", () -> new SetVolumeQosParams(legacyClientFactory.configPathClient(omHost, omPort), configApi, amService));
 
         authorize(HttpMethod.GET, "/api/config/globaldomain", ShowGlobalDomain::new);
         authorize(HttpMethod.GET, "/api/config/domains", ListDomains::new);

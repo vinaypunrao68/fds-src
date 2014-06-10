@@ -24,6 +24,7 @@ public class AmServiceSmokeTest {
     private static long totalStartBlobTx = 0;
     private static long totalUpdateBlob = 0;
     private static TxDescriptor gl_txDesc = new TxDescriptor();
+    private static XdiClientFactory clientFactory = new XdiClientFactory();
 
     private static void initData() {
         for (int i = 0; i < glData.length; i++) {
@@ -32,7 +33,7 @@ public class AmServiceSmokeTest {
     }
 
     private static void doOnePut(String host, int port) throws Exception {
-        AmService.Iface am = XdiClientFactory.remoteAmService(host, 9988);
+        AmService.Iface am = clientFactory.remoteAmService(host, 9988);
 
         String blobName = BLOB_NAME + totalPuts;
 

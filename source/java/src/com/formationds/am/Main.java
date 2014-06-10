@@ -37,12 +37,17 @@ public class Main {
             NativeAm.startAm(args);
             Thread.sleep(200);
 
-            boolean useFakeAm = amParsedConfig.lookup("fds.am.memory_backend").booleanValue();
-            AmService.Iface am = useFakeAm ? new FakeAmService() :
-                    XdiClientFactory.remoteAmService("localhost", 9988);
-                    //XdiClientFactory.remoteAmService("localhost", 4242);
+            XdiClientFactory clientFactory = new XdiClientFactory();
 
-            ConfigurationService.Iface config = new CachingConfigurationService(XdiClientFactory.remoteOmService(configuration));
+            boolean useFakeAm = amParsedConfig.lookup("fds.am.memory_backend").booleanValue();
+            String omHost = amParsedConfig.lookup("fds.am.om_ip").stringValue();
+            int omPort = 9090;
+
+            AmService.Iface am = useFakeAm ? new FakeAmService() :
+                    clientFactory.remoteAmService("localhost", 9988);
+                    //clientFactory.remoteAmService("localhost", 4242);
+
+            ConfigurationService.Iface config = new CachingConfigurationService(clientFactory.remoteOmService(omHost, omPort));
 
             Authenticator authenticator = new JaasAuthenticator();
             Xdi xdi = new Xdi(am, config, authenticator);

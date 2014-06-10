@@ -13,7 +13,7 @@ import org.apache.thrift.transport.TSocket;
 
 import java.net.Inet4Address;
 
-public class ClientFactory {
+public class LegacyClientFactory {
     public FDSP_ControlPathReq.Iface controlPathClient(FDSP_RegisterNodeType node) throws TException {
         return new FDSP_ControlPathReq.Client(hanshake(node, node.getControl_port()));
     }
