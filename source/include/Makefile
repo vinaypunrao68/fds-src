@@ -23,7 +23,6 @@ user_no_style  := \
 	fds_config.hpp        \
 	fds_obj_cache.h       \
 	fds_qos.h             \
-	native_api.h          \
 	odb.h                 \
 	PerfTrace.h           \
 	qos_ctrl.h            \
