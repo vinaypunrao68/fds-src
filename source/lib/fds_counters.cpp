@@ -96,6 +96,22 @@ void FdsCountersMgr::export_to_ostream(std::ostream &stream)  // NOLINT
 }
 
 /**
+ * Converts to map
+ * @param m
+ */
+void FdsCountersMgr::toMap(std::map<std::string, int64_t>& m) const  // NOLINT
+{
+    fds_mutex::scoped_lock lock(lock_);
+
+    for (auto counters : exp_counters_) {
+        std::string counters_id = counters->id();
+        for (auto c : counters->exp_counters_) {
+            m[c->id()] = static_cast<int64_t>(c->value());
+        }
+    }
+}
+
+/**
  * Constructor
  * @param id
  * @param mgr

@@ -12,7 +12,7 @@
 #include <fdsp/PlatNetSvc.h>
 #include <platform/platform-lib.h>
 #include <platform/node-inventory.h>
-#include <net/BaseAsyncSvcHandler.h>
+#include <net/PlatNetSvcHandler.h>
 
 namespace fds {
 class Platform;
@@ -153,7 +153,7 @@ class NetPlatSvc : public NetPlatform
  */
 extern NetPlatSvc            gl_NetPlatform;
 
-class NetPlatHandler : virtual public fpi::PlatNetSvcIf, public BaseAsyncSvcHandler
+class NetPlatHandler : public PlatNetSvcHandler
 {
   public:
     virtual ~NetPlatHandler() {}

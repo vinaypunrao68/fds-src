@@ -36,6 +36,8 @@ public:
 
     void export_to_ostream(std::ostream &stream);
 
+    void toMap(std::map<std::string, int64_t>& m) const;
+
 protected:
     std::string id_;
     /* Counter objects that are exported out */
