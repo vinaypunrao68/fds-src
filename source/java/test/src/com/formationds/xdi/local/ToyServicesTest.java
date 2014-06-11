@@ -3,11 +3,7 @@ package com.formationds.xdi.local;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.apis.BlobDescriptor;
-import com.formationds.apis.ObjectOffset;
-import com.formationds.apis.VolumeSettings;
-import com.formationds.apis.VolumeType;
-import com.formationds.apis.TxDescriptor;
+import com.formationds.apis.*;
 import org.junit.Test;
 
 import java.nio.ByteBuffer;
@@ -47,7 +43,6 @@ public class ToyServicesTest {
 
         BlobDescriptor blob = shim.statBlob(domainName, volumeName, blobName);
         assertEquals(13, blob.getByteCount());
-        assertArrayEquals(new byte[] {42, 43}, blob.getMetadata().getOrDefault("etag", "").getBytes());
 
         assertArrayEquals(new byte[]{1, 2, 3, 4, 0, 0, 0, 0}, shim.getBlob(domainName, volumeName, blobName, 8, new ObjectOffset(0)).array());
         assertArrayEquals(new byte[] {1, 2, 3, 4, 5, 0, 0, 0}, shim.getBlob(domainName, volumeName, blobName, 8, new ObjectOffset(1)).array());
