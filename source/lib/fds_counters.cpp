@@ -99,7 +99,7 @@ void FdsCountersMgr::export_to_ostream(std::ostream &stream)  // NOLINT
  * Converts to map
  * @param m
  */
-void FdsCountersMgr::toMap(std::map<std::string, int64_t>& m) const  // NOLINT
+void FdsCountersMgr::toMap(std::map<std::string, int64_t>& m)
 {
     fds_mutex::scoped_lock lock(lock_);
 

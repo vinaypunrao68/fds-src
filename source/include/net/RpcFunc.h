@@ -11,14 +11,14 @@
         do {                                                                           \
             try {                                                                      \
                 rpc->rpc_fn(__VA_ARGS__);                                              \
-                LOGDEBUG << "Rpc sent ok " << __FUNCTION__; \
+                GLOGDEBUG << "Rpc sent ok " << __FUNCTION__; \
                 __retry = false;                                                       \
             } catch(...) {                                                             \
                 eph->ep_handle_net_error();                                            \
                 if (eph->ep_reconnect() == EP_ST_CONNECTED) {                          \
                     __retry = true;                                                    \
                 } else { \
-                    LOGDEBUG << "Give up RPC " << __FUNCTION__; \
+                    GLOGDEBUG << "Give up RPC " << __FUNCTION__; \
                 } \
             }                                                                          \
         } while (__retry == true);                                                     \

@@ -36,7 +36,7 @@ public:
 
     void export_to_ostream(std::ostream &stream);
 
-    void toMap(std::map<std::string, int64_t>& m) const;
+    void toMap(std::map<std::string, int64_t>& m);
 
 protected:
     std::string id_;

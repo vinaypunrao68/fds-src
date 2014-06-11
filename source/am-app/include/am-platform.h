@@ -5,8 +5,19 @@
 #define SOURCE_AM_APP_INCLUDE_AM_PLATFORM_H_
 
 #include <platform/platform-lib.h>
+#include <net/net-service.h>
+
+/* Forward declarations */
+namespace FDS_ProtocolInterface {
+class BaseAsyncSvcClient;
+class BaseAsyncSvcProcessor;
+}
 
 namespace fds {
+
+/* Forward declarations */
+class AmPlatform;
+class BaseAsyncSvcHandler;
 
 class AmVolEvent : public VolPlatEvent
 {
@@ -22,6 +33,28 @@ class AmVolEvent : public VolPlatEvent
     virtual void plat_evt_handler(const FDSP_MsgHdrTypePtr &hdr);
 };
 
+/**
+ * This class provides plugin for the endpoint run by SmPlatform
+ */
+class AMEpPlugin: public EpEvtPlugin
+{
+  public:
+    typedef bo::intrusive_ptr<AMEpPlugin> pointer;
+    typedef bo::intrusive_ptr<const AMEpPlugin> const_ptr;
+
+    explicit AMEpPlugin(AmPlatform *am_plat);
+    virtual ~AMEpPlugin();
+
+    void ep_connected();
+    void ep_down();
+
+    void svc_up(EpSvcHandle::pointer handle);
+    void svc_down(EpSvc::pointer svc, EpSvcHandle::pointer handle);
+
+  protected:
+    AmPlatform *am_plat_;
+};
+
 class AmPlatform : public Platform
 {
   public:
@@ -32,12 +65,18 @@ class AmPlatform : public Platform
      * Module methods
      */
     virtual int  mod_init(SysParams const *const param);
-    virtual void mod_startup();
-    virtual void mod_shutdown();
+    virtual void mod_startup() override;
+    virtual void mod_enable_service() override;
+    virtual void mod_shutdown() override;
 
   protected:
     virtual PlatRpcReqt *plat_creat_reqt_disp();
     virtual PlatRpcResp *plat_creat_resp_disp();
+
+    AMEpPlugin::pointer           am_plugin;
+    bo::shared_ptr<BaseAsyncSvcHandler>  am_recv;
+    EndPoint<FDS_ProtocolInterface::BaseAsyncSvcClient,
+        FDS_ProtocolInterface::BaseAsyncSvcProcessor> *am_ep;
 };
 
 /**

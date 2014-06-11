@@ -8,8 +8,7 @@ user_cpp         := \
     ep-map.cpp \
     ep-attr.cpp \
     net-plat-shared.cpp \
-    net-service.cpp \
-    PlatNetSvcHandler.cpp
+    net-service.cpp
 
 user_ar_libs     := fds-net-svc
 fds-net-svc      := $(user_cpp) $(user_cc)

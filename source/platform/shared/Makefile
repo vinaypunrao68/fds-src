@@ -10,7 +10,10 @@ user_cpp         := \
     node-inventory.cpp \
     disk-inventory.cpp \
     node-inv-shmem.cpp \
-    service-ep-lib.cpp
+    service-ep-lib.cpp \
+    BaseAsyncSvcHandler.cpp \
+    PlatNetSvcHandler.cpp \
+    fds_flags.cpp
 
 user_ar_libs     := fds-plat-lib
 fds-plat-lib     := $(user_cpp) $(user_cc)

@@ -289,7 +289,7 @@ struct FailoverRpcRequest : MultiEpAsyncRpcRequest {
     void invokeInternal_();
 
     /* Next endpoint to invoke the request on */
-    uint8_t curEpIdx_;
+    uint32_t curEpIdx_;
 
     /* Response callback */
     FailoverRpcRespCb respCb_;

@@ -12,10 +12,13 @@
 #include <fdsp/SMSvc.h>
 #include <SMSvcHandler.h>
 #include <net/net-service-tmpl.hpp>
+#include <platform/platform-lib.h>
 
 namespace fds {
 
 SmPlatform gl_SmPlatform;
+
+
 
 // -------------------------------------------------------------------------------------
 // SM Platform Event Handler
@@ -109,6 +112,7 @@ void
 SmPlatform::mod_startup()
 {
     Platform::mod_startup();
+    registerFlags();
 
     sm_recv   = bo::shared_ptr<SMSvcHandler>(new SMSvcHandler());
     sm_plugin = new SMEpPlugin(this);
@@ -175,6 +179,20 @@ PlatDataPathResp *
 SmPlatform::plat_creat_dpath_resp()
 {
     return new PlatDataPathResp(this);
+}
+
+/**
+* @brief Register sm flags
+*/
+void SmPlatform::registerFlags()
+{
+    PlatformProcess::plf_manager()->\
+        plf_get_flags_map().registerCommonFlags();
+    /* SM specific flags */
+    DBG(REGISTER_FLAG(PlatformProcess::plf_manager()->\
+                  plf_get_flags_map(), sm_drop_gets));
+    DBG(REGISTER_FLAG(PlatformProcess::plf_manager()->\
+                  plf_get_flags_map(), sm_drop_puts));
 }
 
 // --------------------------------------------------------------------------------------

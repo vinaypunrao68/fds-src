@@ -12,6 +12,7 @@
 #include <fds_typedefs.h>
 #include <kvstore/platformdb.h>
 #include <platform/node-inventory.h>
+#include <platform/fds_flags.h>
 
 namespace fds {
 
@@ -341,6 +342,8 @@ class Platform : public Module
     inline PmAgent::pointer      plf_domain_ctrl() const { return plf_domain; }
     inline std::string const *const plf_node_fdsroot() const { return &pIf_node_fdsroot; }
 
+    inline FlagsMap& plf_get_flags_map() { return plf_flags_map; }
+
   protected:
     friend class PlatRpcReqt;
     friend class PlatRpcResp;
@@ -383,6 +386,9 @@ class Platform : public Module
     NodeAgentDpRespPtr                plf_dpath_resp;
     netControlPathServerSession      *plf_my_sess;
 
+    /* Process wide flags */
+    FlagsMap                          plf_flags_map;
+
     /**
      * Required Factory methods.
      */
@@ -410,6 +416,7 @@ class PlatformProcess : public FdsProcess
 
     virtual void proc_pre_startup() override;
 
+
     /**
      * Return platform manager from the global singleton.
      */
@@ -425,6 +432,7 @@ class PlatformProcess : public FdsProcess
     fds_bool_t                plf_stand_alone;
     std::string               plf_db_key;
     plat_node_data_t          plf_node_data;
+
 
     virtual void plf_load_node_data();
     virtual void plf_apply_node_data();
