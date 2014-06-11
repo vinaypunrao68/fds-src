@@ -324,9 +324,18 @@ NetPlatHandler::notifyNodeInfo(std::vector<fpi::NodeInfoMsg>    &ret,
 {
 }
 
+/**
+ * Return list of domain nodes in the node inventory.
+ */
 void
-NetPlatHandler::notifyNodeUp(fpi::RespHdr &ret, bo::shared_ptr<fpi::NodeInfoMsg> &info)
+NetPlatHandler::getDomainNodes(fpi::DomainNodes                 &ret,
+                               bo::shared_ptr<fpi::DomainNodes> &domain)
 {
+    /* Only do the local domain for now */
+    DomainNodeInv::pointer local;
+
+    local = Platform::platf_singleton()->plf_node_inventory();
+    local->dc_node_svc_info(ret);
 }
 
 /**

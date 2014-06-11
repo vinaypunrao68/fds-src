@@ -165,7 +165,7 @@ class NetPlatHandler : virtual public fpi::PlatNetSvcIf, public BaseAsyncSvcHand
     void allUuidBinding(const fpi::UuidBindMsg &mine) {}
     void notifyNodeInfo(std::vector<fpi::NodeInfoMsg> &ret,
                         const fpi::NodeInfoMsg &info, const bool bcast) {}
-    void notifyNodeUp(fpi::RespHdr &ret, const fpi::NodeInfoMsg &info) {}
+    void getDomainNodes(fpi::DomainNodes &ret, const fpi::DomainNodes &d) {}
     virtual ServiceStatus getStatus(const int32_t nullarg) { return SVC_STATUS_INVALID; }
     virtual void getCounters(std::map<std::string, int64_t> & _return,
             const std::string& id) {}
@@ -175,7 +175,8 @@ class NetPlatHandler : virtual public fpi::PlatNetSvcIf, public BaseAsyncSvcHand
     void notifyNodeInfo(std::vector<fpi::NodeInfoMsg>    &ret,
                         bo::shared_ptr<fpi::NodeInfoMsg> &info,
                         bo::shared_ptr<bool>             &bcast);
-    void notifyNodeUp(fpi::RespHdr &ret, bo::shared_ptr<fpi::NodeInfoMsg> &info);
+    void getDomainNodes(fpi::DomainNodes                 &ret,
+                        bo::shared_ptr<fpi::DomainNodes> &req);
     virtual fpi::ServiceStatus getStatus(boost::shared_ptr<int32_t>& nullarg);  // NOLINT
     virtual void getCounters(std::map<std::string, int64_t> & _return,
             boost::shared_ptr<std::string>& id);

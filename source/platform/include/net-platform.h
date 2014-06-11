@@ -140,13 +140,14 @@ class PlatformEpHandler : virtual public fpi::PlatNetSvcIf, public BaseAsyncSvcH
     void notifyNodeInfo(std::vector<fpi::NodeInfoMsg> &ret,
                         const fpi::NodeInfoMsg        &info,
                         const bool                     bcast) {}
-    void notifyNodeUp(fpi::RespHdr &ret, const fpi::NodeInfoMsg &info) {}
+    void getDomainNodes(fpi::DomainNodes &ret, const fpi::DomainNodes &r) {}
 
     void allUuidBinding(bo::shared_ptr<fpi::UuidBindMsg> &msg);
     void notifyNodeInfo(std::vector<fpi::NodeInfoMsg>    &ret,
                         bo::shared_ptr<fpi::NodeInfoMsg> &info,
                         bo::shared_ptr<bool>             &bcast);
-    void notifyNodeUp(fpi::RespHdr &ret, bo::shared_ptr<fpi::NodeInfoMsg> &info);
+    void getDomainNodes(fpi::DomainNodes                 &ret,
+                        bo::shared_ptr<fpi::DomainNodes> &req);
 
   protected:
     PlatformdNetSvc         *net_plat;
