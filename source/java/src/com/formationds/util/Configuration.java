@@ -56,7 +56,7 @@ public class Configuration {
     }
 
     private void initConsoleLogging(String loglevel) {
-        properties.put("log4j.rootCategory", "FATAL, console");
+        properties.put("log4j.rootCategory", loglevel + ", console");
         properties.put("log4j.appender.console", "org.apache.log4j.ConsoleAppender");
         properties.put("log4j.appender.console.layout", "org.apache.log4j.PatternLayout");
         properties.put("log4j.appender.console.layout.ConversionPattern", "%-4r [%t] %-5p %c %x - %m%n");
