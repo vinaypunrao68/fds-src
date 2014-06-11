@@ -1,6 +1,7 @@
 /* Copyright 2013 Formation Data Systems, Inc.
  */
 #include <string>
+#include <map>
 #include <unordered_map>
 #include <fds_assert.h>
 #include <platform/fds_flags.h>
@@ -16,7 +17,7 @@ FlagsMap::~FlagsMap()
 {
 }
 
-void FlagsMap::registerFlag(const std::string &id, uint64_t *flag)
+void FlagsMap::registerFlag(const std::string &id, int64_t *flag)
 {
     auto itr = flags_.find(id);
     if (itr != flags_.end()) {
@@ -34,7 +35,7 @@ void FlagsMap::registerFlag(const std::string &id, uint64_t *flag)
 *
 * @return true if flag is set
 */
-bool FlagsMap::setFlag(const std::string &id, uint64_t value)
+bool FlagsMap::setFlag(const std::string &id, int64_t value)
 {
     auto itr = flags_.find(id);
     if (itr == flags_.end()) {
@@ -52,7 +53,7 @@ bool FlagsMap::setFlag(const std::string &id, uint64_t value)
 *
 * @return true if flag with id is found
 */
-bool FlagsMap::getFlag(const std::string &id, uint64_t &value)
+bool FlagsMap::getFlag(const std::string &id, int64_t &value)
 {
     auto itr = flags_.find(id);
     if (itr == flags_.end()) {
@@ -69,6 +70,21 @@ void FlagsMap::registerCommonFlags()
 {
     /* Common flags registration */
     DBG(REGISTER_FLAG((*this), common_drop_async_resp));
+}
+
+
+/**
+* @brief return flags map
+*
+* @return 
+*/
+std::map<std::string, int64_t> FlagsMap::toMap()
+{
+    std::map<std::string, int64_t> ret;
+    for (auto kv : flags_) {
+        ret[kv.first] = *(kv.second);
+    }
+    return ret;
 }
 
 }  // namespace fds

@@ -33,6 +33,7 @@ class PlatNetSvcHandler : virtual public fpi::PlatNetSvcIf, public BaseAsyncSvcH
     virtual void setConfigVal(const std::string& id, const int64_t val);
     void setFlag(const std::string& id, const int64_t value);
     int64_t getFlag(const std::string& id);
+    void getFlags(std::map<std::string, int64_t> & _return, const int32_t nullarg);  // NOLINT
 
     virtual fpi::ServiceStatus getStatus(boost::shared_ptr<int32_t>& nullarg);  // NOLINT
     virtual void getCounters(std::map<std::string, int64_t> & _return,
@@ -41,6 +42,7 @@ class PlatNetSvcHandler : virtual public fpi::PlatNetSvcIf, public BaseAsyncSvcH
                               boost::shared_ptr<int64_t>& val);
     void setFlag(boost::shared_ptr<std::string>& id, boost::shared_ptr<int64_t>& value);  // NOLINT
     int64_t getFlag(boost::shared_ptr<std::string>& id);  // NOLINT
+    void getFlags(std::map<std::string, int64_t> & _return, boost::shared_ptr<int32_t>& nullarg);  // NOLINT
 };
 }  // namespace fds
 #endif  // SOURCE_INCLUDE_NET_PLATNETSVCHANDLER_H_

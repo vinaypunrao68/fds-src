@@ -41,10 +41,14 @@ def setflag(node, svc, id, val):
     except:
         return 'Unable to set flag: {}'.format(id)
 
-def getflag(node, svc, id):
+def printflag(node, svc, id):
     try:
-        val = svc_map.client(node, svc).getFlag(id)
-        return 'Success'
+        if id is '*':
+            flags = svc_map.client(node, svc).getFlags()
+            return tabulate([(k,v) for k,v in flags.iteritems()],
+                            headers=['flag', 'value'])
+        else:
+            return svc_map.client(node, svc).getFlag(id)
     except:
         return 'Unable to get flag: {}'.format(id)
 

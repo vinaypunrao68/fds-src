@@ -158,7 +158,7 @@ service PlatNetSvc extends BaseAsyncSvc {
     void setConfigVal(1:string id, 2:i64 value )
     void setFlag(1:string id, 2:i64 value )
     i64 getFlag(1:string id)
-    map<string, i64> getFlags()
+    map<string, i64> getFlags(1: i32 nullarg)
 }
 
 service SMSvc extends PlatNetSvc {

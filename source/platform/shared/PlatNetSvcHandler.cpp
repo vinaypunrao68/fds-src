@@ -53,6 +53,11 @@ void PlatNetSvcHandler::getCounters(std::map<std::string, int64_t> & _return,   
 {
 }
 
+void PlatNetSvcHandler::getFlags(std::map<std::string, int64_t> & _return,
+                                 const int32_t nullarg)  // NOLINT
+{
+}
+
 void PlatNetSvcHandler::setConfigVal(const std::string& id, const int64_t val)
 {
 }
@@ -143,10 +148,23 @@ void PlatNetSvcHandler::setFlag(boost::shared_ptr<std::string>& id,  // NOLINT
 */
 int64_t PlatNetSvcHandler::getFlag(boost::shared_ptr<std::string>& id)  // NOLINT
 {
-    uint64_t val = 0;
+    int64_t val = 0;
     bool found = PlatformProcess::plf_manager()->\
                  plf_get_flags_map().getFlag(*id, val);
     // TODO(Rao): Throw an exception if found is false;
-    return static_cast<int64_t>(val);
+    return val;
 }
+
+/**
+* @brief map of all the flags
+*
+* @param _return
+* @param nullarg
+*/
+void PlatNetSvcHandler::getFlags(std::map<std::string, int64_t> & _return,  // NOLINT
+                                 boost::shared_ptr<int32_t>& nullarg)
+{
+    _return = PlatformProcess::plf_manager()->plf_get_flags_map().toMap();
+}
+
 }  // namespace fds
