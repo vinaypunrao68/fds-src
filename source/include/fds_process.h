@@ -21,6 +21,9 @@
 
 namespace fds {
 
+/* Forward declarations */
+class FlagsMap;
+
 /* These are exposed to make it easy to access them */
 extern FdsProcess* g_fdsprocess;
 extern fds_log* g_fdslog;
@@ -124,6 +127,7 @@ class FdsProcess : public boost::noncopyable, public HasLogger {
      * @return
      */
     boost::shared_ptr<FdsCountersMgr> get_cntrs_mgr() const;
+
     /**
      * Return the fds root directory obj.
      */

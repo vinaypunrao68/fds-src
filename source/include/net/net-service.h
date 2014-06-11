@@ -19,6 +19,7 @@
 #include <fdsp/BaseAsyncSvc.h>
 #include <util/Log.h>
 #include <fds_typedefs.h>
+#include <net/RpcFunc.h>
 
 // Forward declarations
 namespace apache { namespace thrift { namespace transport {
@@ -485,6 +486,7 @@ class NetMgr : public Module
         svc_get_handle<fpi::BaseAsyncSvcClient>(resp_hdr.msg_dst_uuid, &ep, 0 , 0);
 
         if (ep == nullptr) {
+            fds_assert(!"This shouldn't happen");
             GLOGERROR << "Null destination endpoint: " << resp_hdr.msg_dst_uuid.svc_uuid;
             return;
         }
@@ -494,7 +496,16 @@ class NetMgr : public Module
             GLOGERROR << "Null destination client: " << resp_hdr.msg_dst_uuid.svc_uuid;
             return;
         }
-        client->asyncResp(resp_hdr, buffer->getBufferAsString());
+
+        // TODO(Rao): Enable this code instead of the try..catch.  I was getting
+        // a compiler error when I enabled the following code.
+        // NET_SVC_RPC_CALL(ep, client, fpi::BaseAsyncSvcClient::asyncResp,
+                         // resp_hdr, buffer->getBufferAsString());
+        try {
+            client->asyncResp(resp_hdr, buffer->getBufferAsString());
+        } catch(...) {
+            ep->ep_handle_net_error();
+        }
     }
 
     template<class PayloadT>

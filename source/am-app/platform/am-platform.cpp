@@ -3,6 +3,8 @@
  */
 #include <string>
 #include <am-platform.h>
+#include <net/BaseAsyncSvcHandler.h>
+#include <net/net-service-tmpl.hpp>
 
 namespace fds {
 
@@ -16,6 +18,45 @@ AmVolEvent::plat_evt_handler(const FDSP_MsgHdrTypePtr &hdr)
 {
 }
 
+/*
+ * -----------------------------------------------------------------------------------
+ * Endpoint Plugin
+ * -----------------------------------------------------------------------------------
+ */
+AMEpPlugin::~AMEpPlugin() {}
+AMEpPlugin::AMEpPlugin(AmPlatform *am_plat) : EpEvtPlugin(), am_plat_(am_plat) {}
+
+// ep_connected
+// ------------
+//
+void
+AMEpPlugin::ep_connected()
+{
+}
+
+// ep_done
+// -------
+//
+void
+AMEpPlugin::ep_down()
+{
+}
+
+// svc_up
+// ------
+//
+void
+AMEpPlugin::svc_up(EpSvcHandle::pointer handle)
+{
+}
+
+// svc_down
+// --------
+//
+void
+AMEpPlugin::svc_down(EpSvc::pointer svc, EpSvcHandle::pointer handle)
+{
+}
 // -------------------------------------------------------------------------------------
 // DM Specific Platform
 // -------------------------------------------------------------------------------------
@@ -69,9 +110,27 @@ void
 AmPlatform::mod_startup()
 {
     Platform::mod_startup();
-    // TODO(Rao): Hack remove
-    Platform::write_uuid_port(Platform::platf_singleton()->plf_get_my_svc_uuid()->uuid_get_val(),
-                              Platform::platf_singleton()->plf_get_my_base_port());
+    am_recv   = bo::shared_ptr<BaseAsyncSvcHandler>(new BaseAsyncSvcHandler());
+    am_plugin = new AMEpPlugin(this);
+    am_ep     = new EndPoint<fpi::BaseAsyncSvcClient, fpi::BaseAsyncSvcProcessor>(
+        Platform::platf_singleton()->plf_get_my_base_port(),
+        *Platform::platf_singleton()->plf_get_my_svc_uuid(),
+        NodeUuid(0ULL),
+        bo::shared_ptr<fpi::BaseAsyncSvcProcessor>(new fpi::BaseAsyncSvcProcessor(am_recv)),
+        am_plugin);
+
+    LOGNORMAL << " my_svc_uuid: " << *Platform::platf_singleton()->plf_get_my_svc_uuid()
+        << " port: " << Platform::platf_singleton()->plf_get_my_base_port();
+}
+
+// mod_enable_service
+// ------------------
+//
+void
+AmPlatform::mod_enable_service()
+{
+    NetMgr::ep_mgr_singleton()->ep_register(am_ep, false);
+    Platform::mod_enable_service();
 }
 
 void

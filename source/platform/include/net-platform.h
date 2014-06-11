@@ -8,6 +8,7 @@
 #include <vector>
 #include <ep-map.h>
 #include <net-plat-shared.h>
+#include <net/PlatNetSvcHandler.h>
 
 namespace fds {
 
@@ -128,7 +129,7 @@ extern PlatformdNetSvc       gl_PlatformdNetSvc;
 /**
  * This class provides handler for platform RPC daemon.
  */
-class PlatformEpHandler : virtual public fpi::PlatNetSvcIf, public BaseAsyncSvcHandler
+class PlatformEpHandler : public PlatNetSvcHandler
 {
   public:
     virtual ~PlatformEpHandler();

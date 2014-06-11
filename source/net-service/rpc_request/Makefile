@@ -6,7 +6,6 @@ user_incl_dir    := $(topdir) . ../include
 user_cpp         := \
 	AsyncRpcRequestTracker.cpp \
 	RpcRequestPool.cpp \
-	BaseAsyncSvcHandler.cpp \
 	RpcRequest.cpp \
 	FailoverRpcRequest.cpp
 

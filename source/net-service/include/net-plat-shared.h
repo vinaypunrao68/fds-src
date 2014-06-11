@@ -12,7 +12,7 @@
 #include <fdsp/PlatNetSvc.h>
 #include <platform/platform-lib.h>
 #include <platform/node-inventory.h>
-#include <net/BaseAsyncSvcHandler.h>
+#include <net/PlatNetSvcHandler.h>
 
 namespace fds {
 class Platform;
@@ -153,7 +153,7 @@ class NetPlatSvc : public NetPlatform
  */
 extern NetPlatSvc            gl_NetPlatform;
 
-class NetPlatHandler : virtual public fpi::PlatNetSvcIf, public BaseAsyncSvcHandler
+class NetPlatHandler : public PlatNetSvcHandler
 {
   public:
     virtual ~NetPlatHandler() {}
@@ -166,21 +166,12 @@ class NetPlatHandler : virtual public fpi::PlatNetSvcIf, public BaseAsyncSvcHand
     void notifyNodeInfo(std::vector<fpi::NodeInfoMsg> &ret,
                         const fpi::NodeInfoMsg &info, const bool bcast) {}
     void notifyNodeUp(fpi::RespHdr &ret, const fpi::NodeInfoMsg &info) {}
-    virtual ServiceStatus getStatus(const int32_t nullarg) { return SVC_STATUS_INVALID; }
-    virtual void getCounters(std::map<std::string, int64_t> & _return,
-            const std::string& id) {}
-    virtual void setConfigVal(const std::string& id, const int64_t val) {}
 
     void allUuidBinding(bo::shared_ptr<fpi::UuidBindMsg> &msg);
     void notifyNodeInfo(std::vector<fpi::NodeInfoMsg>    &ret,
                         bo::shared_ptr<fpi::NodeInfoMsg> &info,
                         bo::shared_ptr<bool>             &bcast);
     void notifyNodeUp(fpi::RespHdr &ret, bo::shared_ptr<fpi::NodeInfoMsg> &info);
-    virtual fpi::ServiceStatus getStatus(boost::shared_ptr<int32_t>& nullarg);  // NOLINT
-    virtual void getCounters(std::map<std::string, int64_t> & _return,
-            boost::shared_ptr<std::string>& id);
-    virtual void setConfigVal(boost::shared_ptr<std::string>& id,  // NOLINT
-            boost::shared_ptr<int64_t>& val);
 
   protected:
     NetPlatSvc              *net_plat;

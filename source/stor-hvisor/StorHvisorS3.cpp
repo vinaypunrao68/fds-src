@@ -1143,7 +1143,7 @@ Error StorHvCtrl::getBlob2(fds::AmQosReq *qosReq) {
     if ((shVol == NULL) || (shVol->isValidLocked() == false)) {
         LOGCRITICAL << "getBlob failed to get volume for vol "
                     << volId;    
-        blobReq->cbWithResult(-1);
+        blobReq->cbWithResult(ERR_INVALID);
         err = ERR_DISK_WRITE_FAILED;
         qos_ctrl->markIODone(qosReq);
         delete blobReq;
@@ -1238,7 +1238,7 @@ void StorHvCtrl::getBlobQueryCatalogResp(fds::AmQosReq* qosReq,
     if (error != ERR_OK) {
         LOGERROR << "blob name: " << blobReq->getBlobName() << "offset: "
             << blobReq->getBlobOffset() << " Error: " << error; 
-        blobReq->cbWithResult(-1);
+        blobReq->cbWithResult(ERR_INVALID);
         qos_ctrl->markIODone(qosReq);
         delete blobReq;
         return;
@@ -1270,7 +1270,7 @@ void StorHvCtrl::getBlobGetObjectResp(fds::AmQosReq* qosReq,
     if (error != ERR_OK) {
         LOGERROR << "blob name: " << blobReq->getBlobName() << "offset: "
             << blobReq->getBlobOffset() << " Error: " << error; 
-        blobReq->cbWithResult(-1);
+        blobReq->cbWithResult(ERR_INVALID);
         qos_ctrl->markIODone(qosReq);
         delete blobReq;
         return;

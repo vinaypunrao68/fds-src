@@ -31,7 +31,6 @@ class BaseAsyncSvcHandler : virtual public FDS_ProtocolInterface::BaseAsyncSvcIf
         boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
         boost::shared_ptr<std::string>& payload);
 };
-
 }  // namespace fds
 
 #endif  // SOURCE_INCLUDE_NET_BASEASYNCSVCHANDLER_H_

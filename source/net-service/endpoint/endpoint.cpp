@@ -118,7 +118,8 @@ EpSvcHandle::ep_reconnect()
     net = NetMgr::ep_mgr_singleton();
     mtx = net->ep_obj_mutex(this);
 
-    LOGDEBUG << "EpHandle connect@" << ep_sock->getHost() << ":" << ep_sock->getPort();
+    LOGDEBUG << "EpHandle peer " << ep_peer_id.svc_uuid
+        << " connect@" << ep_sock->getHost() << ":" << ep_sock->getPort();
 
     mtx->lock();
     if (ep_state != EP_ST_CONNECTING) {
