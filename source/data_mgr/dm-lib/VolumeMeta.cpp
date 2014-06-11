@@ -84,8 +84,6 @@ void VolumeMeta::openCatalogs(fds_volid_t volid)
     fds_verify((vcat == NULL) && (tcat == NULL));
     vcat = new VolumeCatalog(root->dir_user_repo_dm() + vol_name + "_vcat.ldb", true);
     tcat = new TimeCatalog(root->dir_user_repo_dm() + vol_name + "_tcat.ldb", true);
-
-    // TODO(xxx) unblock this volume's qos queue
 }
 
 Error VolumeMeta::OpenTransaction(const std::string blob_name,

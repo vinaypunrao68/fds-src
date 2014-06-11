@@ -32,7 +32,7 @@ namespace fds {
         ERR_GET_DLT_FAILED       = 11,
         ERR_GET_DMT_FAILED       = 12,
         ERR_NOT_IMPLEMENTED      = 13,
-        ERR_OUT_OF_MEMEORY       = 14,
+        ERR_OUT_OF_MEMORY        = 14,
         ERR_DUPLICATE_UUID       = 15,
         ERR_TRANS_JOURNAL_OUT_OF_IDS = 16,
         ERR_TRANS_JOURNAL_REQUEST_QUEUED = 17,

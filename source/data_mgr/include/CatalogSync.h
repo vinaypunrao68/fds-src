@@ -135,6 +135,13 @@ namespace fds {
                          /* open file desc ?*/);
 
         /**
+         * Notification that we finished sync/forwarding for
+         * volume 'volid', will send MetaSyncDone and remove vol
+         * from list
+         */
+        Error handleVolumeDone(fds_volid_t volid);
+
+        /**
          * @return true if CatalogSync is reponsible for syncing
          * given volume 'volid'
          */
@@ -146,12 +153,8 @@ namespace fds {
             return (sync_volumes.empty());
         }
 
-        inline fds_bool_t delVolume(fds_volid_t volid) {
-            return (sync_volumes.erase(volid));
-        }
-
   private:  // methods
-        Error sendMetaSyncDone(fds_volid_t volid);
+        Error sendMetaSyncDone(fds_volid_t volid, fds_bool_t forward_done);
 
         /**
          * Record progress of one volume (either initial sync
@@ -159,7 +162,7 @@ namespace fds {
          * where expected state is CSSTATE_DELTA_SYNC)
          * @return total volumes done
          */
-        fds_uint32_t recordVolumeDone(csStateType expected_state);
+        fds_uint32_t recordVolSyncDone(csStateType expected_state);
 
   private:
         NodeUuid node_uuid;  // destination node
@@ -202,6 +205,7 @@ namespace fds {
 
     typedef boost::shared_ptr<CatalogSync> CatalogSyncPtr;
     typedef std::unordered_map<NodeUuid, CatalogSyncPtr, UuidHash> CatSyncMap;
+    typedef boost::shared_ptr<fpi::FDSP_MetaSyncRespClient> MetaSyncRespHandlerPrx;
 
     /**
      * Manages Catalog sync process
@@ -237,12 +241,6 @@ namespace fds {
         Error startCatalogSyncDelta(const std::string& context);
 
         /**
-         * Called when OM sends DMT close message to DM to notify that we are done
-         * catalog sync and forwarding, etc, so we can cleanup state of this sync
-         */
-        void notifyCatalogSyncFinish();
-
-        /**
          * Forward catalog update to DM to which we are pushing vol meta for the
          * corresponding volume.
          * Must be called only for volumes for which sync is in progress
@@ -260,7 +258,13 @@ namespace fds {
                         fds_volid_t volid,
                         OMgrClient* omclient,
                         const Error& error);
-        void cleanupSyncState();
+
+        /**
+         * response client for meta sync responses
+         */
+        inline MetaSyncRespHandlerPrx respCli(const string& session_uuid) {
+            return meta_session->getRespClient(session_uuid);
+        }
 
   private:  // methods
         netMetaSyncClientSession*
@@ -329,8 +333,7 @@ namespace fds {
             // Don't do anything here. This stub is just to keep cpp compiler happy
         }
         void PushMetaSyncResp(fpi::FDSP_MsgHdrTypePtr& fdsp_msg,
-                              fpi::FDSP_UpdateCatalogTypePtr& push_meta_resp) {
-        }
+                              fpi::FDSP_UpdateCatalogTypePtr& push_meta_resp);
         void MetaSyncDoneResp(const fpi::FDSP_MsgHdrType& fdsp_msg,
                               const fpi::FDSP_VolMetaState& vol_meta) {
             // Don't do anything here. This stub is just to keep cpp compiler happy

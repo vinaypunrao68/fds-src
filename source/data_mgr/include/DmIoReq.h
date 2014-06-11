@@ -13,6 +13,7 @@
 #include <fds_types.h>
 #include <fds_volume.h>
 #include <fdsp/FDSP_types.h>
+#include <fds_typedefs.h>
 
 #define FdsDmSysTaskId      0x8fffffff
 #define FdsDmSysTaskPrio    5

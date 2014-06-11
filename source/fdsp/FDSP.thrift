@@ -803,7 +803,8 @@ struct FDSP_metaData
 
 struct FDSP_VolMetaState
 {
-    1:i64        vol_uuid;
+    1: i64        vol_uuid;
+    2: bool       forward_done;   /* true means forwarding done, false means second rsync done */
 }
 
 typedef list<FDSP_metaData> FDSP_metaDataList

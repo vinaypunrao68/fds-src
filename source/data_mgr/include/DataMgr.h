@@ -32,6 +32,7 @@
 #include <NetSession.h>
 #include <DmIoReq.h>
 #include <CatalogSync.h>
+#include <CatalogSyncRecv.h>
 
 namespace fpi = FDS_ProtocolInterface;
 
@@ -49,23 +50,24 @@ int schedulePushDeltaVolCat(void* _io);
 
 class DataMgr : public PlatformProcess, public DmIoReqHandler
 {
-  public:
+public:
     static void InitMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr);
 
-  class ReqHandler;
-  
-  typedef boost::shared_ptr<ReqHandler> ReqHandlerPtr;
-  typedef boost::shared_ptr<FDS_ProtocolInterface::FDSP_MetaDataPathRespClient> RespHandlerPrx;
-  OMgrClient     *omClient;
+    class ReqHandler;
+
+    typedef boost::shared_ptr<ReqHandler> ReqHandlerPtr;
+    typedef boost::shared_ptr<FDS_ProtocolInterface::FDSP_MetaDataPathRespClient> RespHandlerPrx;
+    OMgrClient     *omClient;
     /*
      * TODO: Move to STD shared or unique pointers. That's
      * safer.
      */
     std::unordered_map<fds_uint64_t, VolumeMeta*> vol_meta_map;
-  /**
-   * Catalog sync manager
-   */
-    CatalogSyncMgrPtr catSyncMgr;
+    /**
+     * Catalog sync manager
+     */
+    CatalogSyncMgrPtr catSyncMgr;  // sending vol meta
+    CatSyncReceiverPtr catSyncRecv;  // receiving vol meta
 
  private:
     typedef enum {
@@ -98,6 +100,7 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler
           switch(io->io_type)
           {
               case FDS_CAT_UPD:
+              case FDS_DM_FWD_CAT_UPD:
                   FDS_PLOG(FDS_QoSControl::qos_log) << "Processing  the Catalog update  request";
                   threadPool->schedule(scheduleUpdateCatalog, io);
                   break;
@@ -190,10 +193,10 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler
                          fds_volid_t vol_uuid,VolumeDesc* desc);
     Error _add_vol_locked(const std::string& vol_name,
                           fds_volid_t vol_uuid, VolumeDesc* desc,
-                          fds_bool_t crt_catalogs);
+                          fds_bool_t vol_will_sync);
     Error _process_add_vol(const std::string& vol_name,
                            fds_volid_t vol_uuid,VolumeDesc* desc,
-                           fds_bool_t crt_catalogs);
+                           fds_bool_t vol_will_sync);
     Error _process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only);
     Error _process_mod_vol(fds_volid_t vol_uuid,
 			   const VolumeDesc& voldesc);
@@ -287,6 +290,12 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler
     void blobListBackend(dmCatReq *listBlobReq);
     void snapVolCat(DmIoSnapVolCat* snapReq);
     void pushDeltaVolCat(DmIoSnapVolCat* snapReq);
+
+    /**
+     * Callback from volume meta receiver that volume meta is received
+     * for volume 'volid', so we can start process AMs' requests for this volume
+     */
+    void volmetaRecvd(fds_volid_t volid, const Error& error);
 
     /* 
      * FDS protocol processing proto types 

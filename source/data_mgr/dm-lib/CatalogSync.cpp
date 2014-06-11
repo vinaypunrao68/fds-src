@@ -129,7 +129,7 @@ void CatalogSync::doDeltaSync() {
 void CatalogSync::snapDoneCb(fds_volid_t volid,
                              const Error& error) {
     // record progress
-    fds_uint32_t total_done = recordVolumeDone(CSSTATE_INITIAL_SYNC);
+    fds_uint32_t total_done = recordVolSyncDone(CSSTATE_INITIAL_SYNC);
 
     if (!error.ok()) {
         LOGERROR << "Rsync finished with error!";
@@ -161,7 +161,7 @@ void CatalogSync::snapDoneCb(fds_volid_t volid,
 void CatalogSync::deltaDoneCb(fds_volid_t volid,
                               const Error& error) {
     // record progress
-    fds_uint32_t total_done = recordVolumeDone(CSSTATE_DELTA_SYNC);
+    fds_uint32_t total_done = recordVolSyncDone(CSSTATE_DELTA_SYNC);
 
     if (!error.ok()) {
         LOGERROR << "Second Rsync finished with error!";
@@ -178,7 +178,7 @@ void CatalogSync::deltaDoneCb(fds_volid_t volid,
     // Send msg to DM that we finished syncing this volume
     // this means that we are not going to do any rsync for this
     // volume anymore, only forward updates
-    Error err = sendMetaSyncDone(volid);
+    Error err = sendMetaSyncDone(volid, false);
     if (!err.ok()) {
         // TODO(xxx) how should we handle this? for now ignoring
     }
@@ -196,7 +196,7 @@ void CatalogSync::deltaDoneCb(fds_volid_t volid,
  * Record progress of one volume finishing either initial sync or
  * delta sync -- common functionality used by snapDoneCb() and deltaDoneCb()
  */
-fds_uint32_t CatalogSync::recordVolumeDone(csStateType expected_state) {
+fds_uint32_t CatalogSync::recordVolSyncDone(csStateType expected_state) {
     fds_uint32_t done_before, total_done;
     fds_uint32_t vols_done_now = 1;  // doing 1 vol at a time
 
@@ -213,6 +213,15 @@ fds_uint32_t CatalogSync::recordVolumeDone(csStateType expected_state) {
     return total_done;
 }
 
+Error CatalogSync::handleVolumeDone(fds_volid_t volid) {
+    fds_verify(sync_volumes.count(volid) > 0);
+    Error err = sendMetaSyncDone(volid, true);
+    if (err.ok()) {
+        sync_volumes.erase(volid);
+    }
+    return err;
+}
+
 fds_bool_t CatalogSync::isInitialSyncDone() const {
     csStateType cur_state = std::atomic_load(&state);
     return ((cur_state != CSSTATE_READY) &&
@@ -224,11 +233,6 @@ fds_bool_t CatalogSync::isDeltaSyncDone() const {
     return ((cur_state != CSSTATE_READY) &&
             (cur_state != CSSTATE_INITIAL_SYNC) &&
             (cur_state != CSSTATE_DELTA_SYNC));
-}
-
-fds_bool_t CatalogSync::syncDone() {
-    std::atomic_exchange(&state, CSSTATE_DONE);
-    return (true);
 }
 
 Error CatalogSync::forwardCatalogUpdate(dmCatReq  *updCatReq) {
@@ -273,7 +277,8 @@ Error CatalogSync::forwardCatalogUpdate(dmCatReq  *updCatReq) {
     return err;
 }
 
-Error CatalogSync::sendMetaSyncDone(fds_volid_t volid) {
+Error CatalogSync::sendMetaSyncDone(fds_volid_t volid,
+                                    fds_bool_t forward_done) {
     Error err(ERR_OK);
     FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
     FDS_ProtocolInterface::FDSP_VolMetaStatePtr vol_meta(new FDSP_VolMetaState);
@@ -282,8 +287,10 @@ Error CatalogSync::sendMetaSyncDone(fds_volid_t volid) {
     msg_hdr->dst_id = FDSP_DATA_MGR;
 
     vol_meta->vol_uuid = volid;
+    vol_meta->forward_done = forward_done;
 
-    LOGDEBUG << "Will send MetaSyncDone msg";
+    LOGDEBUG << "Will send MetaSyncDone msg for vol " << std::hex
+             << volid << std::dec << " fwd done? " << forward_done;
 
     try {
         meta_client->getClient()->MetaSyncDone(msg_hdr, vol_meta);
@@ -505,7 +512,7 @@ Error CatalogSyncMgr::removeVolume(fds_volid_t volid) {
         if ((cit->second)->hasVolume(volid)) {
             LOGDEBUG << "DEL-VOL: Map Clean up "
                      << std::hex << volid << std::dec;
-            err = (cit->second)->delVolume(volid);
+            err = (cit->second)->handleVolumeDone(volid);
 
             if (((cit->second)->emptyVolume())) 
                 cat_sync_map.erase(cit);
@@ -568,73 +575,54 @@ void CatalogSyncMgr::syncDoneCb(catsync_notify_evt_t event,
     }
 }
 
-void CatalogSyncMgr::cleanupSyncState() {
-
-      fds_mutex::scoped_lock l(cat_sync_lock);
-     for (CatSyncMap::const_iterator cit = cat_sync_map.cbegin();
-           cit != cat_sync_map.cend();
-              ++cit) {
-                    (cit->second)->syncDone();
-     }
-}
-#if 0
-/**
- * Called when OM sends DMT close message to DM, so we can cleanup the
- * state of this sync and be ready for next sync...
- */
-void CatalogSyncMgr::notifyCatalogSyncFinish() {
-    fds_mutex::scoped_lock l(cat_sync_lock);
-      LOGNORMAL << "DMT_CLOSE: Received dmt close from OM";
-    // delta sync must be done for all volumes!
-    for (CatSyncMap::const_iterator cit = cat_sync_map.cbegin();
-         cit != cat_sync_map.cend();
-         ++cit) {
-        fds_verify((cit->second)->isDeltaSyncDone());
-    }
-    sync_in_progress = false;
-
-    // cleanup
-    cat_sync_map.clear();
-
-    // TODO(xxx) maybe close client connections to other DMs
-    // we pushed meta?
-
-    LOGDEBUG << "Cleaned up cat sync state";
-}
-#endif
-
 void
 FDSP_MetaSyncRpc::PushMetaSyncReq(fpi::FDSP_MsgHdrTypePtr& fdsp_msg,
                          fpi::FDSP_UpdateCatalogTypePtr& meta_req)
 {
     Error err(ERR_OK);
-    LOGNORMAL << "Received PushMetaSyncReq Rpc message ";
-    BlobNode *bnode = NULL;
-
-    dmCatReq *metaUpdReq = new dmCatReq(fdsp_msg->glob_volume_id, meta_req->blob_name,
-                                    meta_req->dm_transaction_id, meta_req->dm_operation,
-                                    fdsp_msg->src_ip_lo_addr, fdsp_msg->dst_ip_lo_addr,
-                                    fdsp_msg->src_port, fdsp_msg->dst_port,
-                                    fdsp_msg->session_uuid, 0,
-                                    FDS_CAT_UPD, meta_req);
-    err = dataMgr->updateCatalogProcess(metaUpdReq, &bnode);
-    if (err == ERR_OK) {
-        fds_verify(bnode != NULL);
+    LOGNORMAL << "Received PushMetaSyncReq Rpc message for vol 0x"
+              << std::hex  << fdsp_msg->glob_volume_id << std::dec;
+    dmCatReq *metaUpdReq = new(std::nothrow) dmCatReq(fdsp_msg->glob_volume_id,
+                                                      meta_req->blob_name,
+                                                      meta_req->dm_transaction_id,
+                                                      meta_req->dm_operation,
+                                                      fdsp_msg->src_ip_lo_addr,
+                                                      fdsp_msg->dst_ip_lo_addr,
+                                                      fdsp_msg->src_port, fdsp_msg->dst_port,
+                                                      fdsp_msg->session_uuid, 0,
+                                                      FDS_DM_FWD_CAT_UPD, meta_req);
+    if (metaUpdReq) {
+        err = dataMgr->catSyncRecv->enqueueFwdUpdate(metaUpdReq);
+    } else {
+        LOGCRITICAL << "Failed to allocate metaUpdReq";
+        err = ERR_OUT_OF_MEMORY;
     }
 
+    // TODO(xxx) handle the error!
+}
 
+void
+FDSP_MetaSyncRpc::PushMetaSyncResp(fpi::FDSP_MsgHdrTypePtr& fdsp_msg,
+                                   fpi::FDSP_UpdateCatalogTypePtr& push_meta_resp) {
+    LOGDEBUG << "Received PushMetaSyncResp for volume "
+             << std::hex << fdsp_msg->glob_volume_id << std::dec;
 }
 
 void
 FDSP_MetaSyncRpc::MetaSyncDone(fpi::FDSP_MsgHdrTypePtr& fdsp_msg,
                                fpi::FDSP_VolMetaStatePtr& vol_meta) {
-    LOGNORMAL << "Received MetaSyncDone Rpc message ";
-    fds_verify(dataMgr->vol_meta_map.count(vol_meta->vol_uuid) > 0);
-    VolumeMeta *vm = dataMgr->vol_meta_map[vol_meta->vol_uuid];
-    /* clear  the sync state  */
-     dataMgr->catSyncMgr->cleanupSyncState();
-    vm->openCatalogs(vol_meta->vol_uuid);
+    LOGNORMAL << "Received MetaSyncDone Rpc message "
+              << " forward done? " << vol_meta->forward_done;
+    if (!vol_meta->forward_done) {
+        // open catalogs so we can start processing updates
+        fds_verify(dataMgr->vol_meta_map.count(vol_meta->vol_uuid) > 0);
+        VolumeMeta *vm = dataMgr->vol_meta_map[vol_meta->vol_uuid];
+        vm->openCatalogs(vol_meta->vol_uuid);
+        // start processing forwarded updates
+        dataMgr->catSyncRecv->startProcessFwdUpdates(vol_meta->vol_uuid);
+    } else {
+        dataMgr->catSyncRecv->handleFwdDone(vol_meta->vol_uuid);
+    }
 }
-
 
 }  // namespace fds

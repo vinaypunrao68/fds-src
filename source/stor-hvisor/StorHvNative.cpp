@@ -554,7 +554,7 @@ void FDS_NativeAPI::DoCallback(FdsBlobReq  *blob_req,
                 case ERR_GET_DLT_FAILED               :
                 case ERR_GET_DMT_FAILED               :
                 case ERR_NOT_IMPLEMENTED              :
-                case ERR_OUT_OF_MEMEORY               :
+                case ERR_OUT_OF_MEMORY                :
                 case ERR_DUPLICATE_UUID               :
                 case ERR_TRANS_JOURNAL_OUT_OF_IDS     :
                 case ERR_TRANS_JOURNAL_REQUEST_QUEUED :

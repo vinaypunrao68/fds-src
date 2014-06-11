@@ -28,7 +28,7 @@ Error DataMgr::vol_handler(fds_volid_t vol_uuid,
         err = dataMgr->_process_add_vol(dataMgr->getPrefix() +
                                         std::to_string(vol_uuid),
                                         vol_uuid, desc,
-                                        (vol_flag != fpi::FDSP_NOTIFY_VOL_WILL_SYNC));
+                                        (vol_flag == fpi::FDSP_NOTIFY_VOL_WILL_SYNC));
     } else if (vol_action == fds_notify_vol_rm) {
         err = dataMgr->_process_rm_vol(vol_uuid, vol_flag == fpi::FDSP_NOTIFY_VOL_CHECK_ONLY);
     } else if (vol_action == fds_notify_vol_mod) {
@@ -68,6 +68,29 @@ DataMgr::volcat_evt_handler(fds_catalog_action_t catalog_action,
     return err;
 }
 
+/**
+ * Callback from vol meta receiver that receiving vol meta is done
+ * for volume 'volid'. This method activates volume's QoS queue
+ * so this DM starts processing requests from AM for this volume
+ */
+void 
+DataMgr::volmetaRecvd(fds_volid_t volid, const Error& error) {
+    LOGDEBUG << "Will unblock qos queue for volume "
+             << std::hex << volid << std::dec;
+    vol_map_mtx->lock();
+    fds_verify(vol_meta_map.count(volid) > 0);
+    VolumeMeta *vol_meta = vol_meta_map[volid];
+    vol_meta->dmVolQueue->activate();
+    vol_map_mtx->unlock();
+}
+
+/**
+ * Note that volId may not necessarily match volume id in ioReq
+ * Example when it will not match: if we enqueue request for volumeA
+ * to shadow queue, we will pass shadow queue's volId (queue id)
+ * but ioReq will contain actual volume id; so maybe we should change
+ * this method to pass queue id as first param not volid
+ */
 Error DataMgr::enqueueMsg(fds_volid_t volId,
                           dmCatReq* ioReq) {
     Error err(ERR_OK);
@@ -75,6 +98,7 @@ Error DataMgr::enqueueMsg(fds_volid_t volId,
     switch (ioReq->io_type) {
         case FDS_DM_SNAP_VOLCAT:
         case FDS_DM_SNAPDELTA_VOLCAT:
+        case FDS_DM_FWD_CAT_UPD:
             err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
             break;
         default:
@@ -83,7 +107,7 @@ Error DataMgr::enqueueMsg(fds_volid_t volId,
 
     if (!err.ok()) {
         LOGERROR << "Failed to enqueue message " << ioReq->log_string()
-                 << " " << err;
+                 << " to queue "<< std::hex << volId << std::dec << " " << err;
     }
     return err;
 }
@@ -117,32 +141,95 @@ Error DataMgr::_add_if_no_vol(const std::string& vol_name,
 
 /*
  * Meant to be called holding the vol_map_mtx.
+ * @param vol_will_sync true if this volume's meta will be synced from
+ * other DM first
  */
 Error DataMgr::_add_vol_locked(const std::string& vol_name,
                                fds_volid_t vol_uuid,
                                VolumeDesc *vdesc,
-                               fds_bool_t crt_catalogs) {
+                               fds_bool_t vol_will_sync) {
     Error err(ERR_OK);
-
-    vol_map_mtx->lock();
-    VolumeMeta *volmeta = new VolumeMeta(vol_name,
-                                         vol_uuid,
-                                         GetLog(),
-                                         vdesc,
-                                         crt_catalogs);
+    VolumeMeta *volmeta = new(std::nothrow) VolumeMeta(vol_name,
+                                                       vol_uuid,
+                                                       GetLog(),
+                                                       vdesc,
+                                                       !vol_will_sync);
+    if (!volmeta) {
+        LOGERROR << "Failed to allocate VolumeMeta for volume "
+                 << std::hex << vol_uuid << std::dec;
+        return ERR_OUT_OF_MEMORY;
+    }
+    volmeta->dmVolQueue = new(std::nothrow) FDS_VolumeQueue(4096,
+                                                            vdesc->iops_max,
+                                                            2*vdesc->iops_min,
+                                                            vdesc->relativePrio);
+    if (!volmeta->dmVolQueue) {
+        LOGERROR << "Failed to allocate Qos queue for volume "
+                 << std::hex << vol_uuid << std::dec;
+        delete volmeta;
+        return ERR_OUT_OF_MEMORY;
+    }
+    volmeta->dmVolQueue->activate();
 
     LOGNORMAL << "Added vol meta for vol uuid and per Volume queue" << std::hex
-              << vol_uuid << std::dec << ", created catalogs? " << crt_catalogs;
+              << vol_uuid << std::dec << ", created catalogs? " << !vol_will_sync;
 
-    volmeta->dmVolQueue = new FDS_VolumeQueue(4096, vdesc->iops_max, 2*vdesc->iops_min, vdesc->relativePrio);
-    volmeta->dmVolQueue->activate();
+    vol_map_mtx->lock();
     err = dataMgr->qosCtrl->registerVolume(vol_uuid, dynamic_cast<FDS_VolumeQueue*>(volmeta->dmVolQueue));
-    if (err.ok()) {
-        vol_meta_map[vol_uuid] = volmeta;
-    } else {
+    if (!err.ok()) {
         delete volmeta;
+        vol_map_mtx->unlock();
+        return err;
+    }
+
+    // if we will sync vol meta, block processing IO requests from this volume's
+    // qos queue and create a shadow queue for receiving volume meta from another DM
+    if (vol_will_sync) {
+        // we will use the priority of the volume, but no min iops (otherwise we will
+        // need to implement temp deregister of vol queue, so we have enough total iops
+        // to admit iops of shadow queue)
+        FDS_VolumeQueue* shadowVolQueue = 
+                new(std::nothrow) FDS_VolumeQueue(4096, 10000, 0, vdesc->relativePrio);
+        if (shadowVolQueue) {
+            fds_volid_t shadow_volid = catSyncRecv->shadowVolUuid(vol_uuid);
+            // block volume's qos queue
+            volmeta->dmVolQueue->stopDequeue();
+            // register shadow queue
+            err = dataMgr->qosCtrl->registerVolume(shadow_volid, shadowVolQueue);
+            if (err.ok()) {
+                LOGERROR << "Registered shadow volume queue for volume 0x"
+                         << std::hex << vol_uuid << " shadow id " << shadow_volid << std::dec;
+                // pass ownership of shadow volume queue to volume meta receiver
+                catSyncRecv->startRecvVolmeta(vol_uuid, shadowVolQueue);
+            } else {
+                LOGERROR << "Failed to register shadow volume queue for volume 0x"
+                         << std::hex << vol_uuid << " shadow id " << shadow_volid
+                         << std::dec << " " << err;
+                // cleanup, we will revert volume registration and creation
+                delete shadowVolQueue;
+                shadowVolQueue = NULL;
+            }
+        } else {
+            LOGERROR << "Failed to allocate shadow volume queue for volume "
+                     << std::hex << vol_uuid << std::dec;
+            err = ERR_OUT_OF_MEMORY;
+        }
+    }
+
+    if (err.ok()) {
+        // we registered queue and shadow queue if needed
+        vol_meta_map[vol_uuid] = volmeta;
     }
     vol_map_mtx->unlock();
+
+    if (!err.ok()) {
+        // cleanup volmeta and deregister queue
+        LOGERROR << "Cleaning up volume queue and vol meta because of error "
+                 << " volid 0x" << std::hex << vol_uuid << std::dec;
+        dataMgr->qosCtrl->deregisterVolume(vol_uuid);
+        delete volmeta->dmVolQueue;
+        delete volmeta;
+    }
 
     return err;
 }
@@ -150,7 +237,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
 Error DataMgr::_process_add_vol(const std::string& vol_name,
                                 fds_volid_t vol_uuid,
                                 VolumeDesc *desc,
-                                fds_bool_t crt_catalogs) {
+                                fds_bool_t vol_will_sync) {
     Error err(ERR_OK);
 
     /*
@@ -166,7 +253,7 @@ Error DataMgr::_process_add_vol(const std::string& vol_name,
     }
     vol_map_mtx->unlock();
 
-    err = _add_vol_locked(vol_name, vol_uuid, desc, crt_catalogs);
+    err = _add_vol_locked(vol_name, vol_uuid, desc, vol_will_sync);
     return err;
 }
 
@@ -480,7 +567,11 @@ DataMgr::DataMgr(int argc, char *argv[], Platform *platform, Module **vec)
           numTestVols(10),
           runMode(NORMAL_MODE),
           scheduleRate(4000),
-          num_threads(DM_TP_THREADS)
+          num_threads(DM_TP_THREADS),
+          catSyncRecv(new CatSyncReceiver(this,std::bind(&DataMgr::volmetaRecvd,
+                                                         this,
+                                                         std::placeholders::_1,
+                                                         std::placeholders::_2)))
 {
     // If we're in test mode, don't daemonize.
     // TODO(Andrew): We probably want another config field and
@@ -1092,6 +1183,16 @@ DataMgr::updateCatalogBackend(dmCatReq  *updCatReq) {
     err = updateCatalogProcess(updCatReq, &bnode);
     if (err == ERR_OK) {
         fds_verify(bnode != NULL);
+    }
+    if (updCatReq->io_type == FDS_DM_FWD_CAT_UPD) {
+        // we got this update forwarded from other DM
+        // so do not reply to AM, but notify cat sync receiver
+        // which will do all required post processing
+        catSyncRecv->fwdUpdateReqDone(updCatReq, bnode->version, err,
+                                      catSyncMgr->respCli(updCatReq->session_uuid));
+        qosCtrl->markIODone(*updCatReq);
+        delete updCatReq;
+        return;
     }
 
     FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);

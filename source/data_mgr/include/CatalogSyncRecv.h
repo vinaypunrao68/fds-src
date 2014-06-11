@@ -9,14 +9,26 @@
 
 #include <fds_error.h>
 #include <fds_types.h>
+#include <fds_volume.h>
 #include <fds_module.h>
 #include <util/Log.h>
 #include <fds_process.h>
 #include <concurrency/Mutex.h>
+#include <NetSession.h>
+#include <DmIoReq.h>
+
+namespace fpi = FDS_ProtocolInterface;
 
 namespace fds {
 
-    class DmIoReqHandler;
+    typedef boost::shared_ptr<fpi::FDSP_MetaSyncRespClient> MetaSyncRespHandlerPrx;
+
+    /**
+     * Callback type to notify that volume meta sync is finished (including
+     * forwarded updates), so that DM can start processing requests from AMs
+     */
+    typedef std::function<void (fds_volid_t volid,
+                                const Error& error)> vmeta_recv_done_handler_t;
 
     /**
      * Responsible for receiving forwarded catalog updates from source
@@ -24,7 +36,8 @@ namespace fds {
      */
     class CatSyncReceiver {
   public:
-        explicit CatSyncReceiver(DmIoReqHandler* dm_req_hdlr);
+        CatSyncReceiver(DmIoReqHandler* dm_req_hdlr,
+                        vmeta_recv_done_handler_t done_evt_hdlr);
         ~CatSyncReceiver();
 
         /**
@@ -43,13 +56,13 @@ namespace fds {
          * struct to track the progress of volume meta sync and receive forwarded
          * updates
          */
-        Error startRecvVolmeta(fds_volid_t volid);
+        Error startRecvVolmeta(fds_volid_t volid, FDS_VolumeQueue* shadowQueue);
 
         /**
          * Called when rsyncs for volume is finished and we should start
          * processing forwarded updates
          */
-        Error startProcessFwdUpdates(fds_volid_t volid);
+        void startProcessFwdUpdates(fds_volid_t volid);
 
         /**
          * Called when source DM notifies us that it finished forwarding
@@ -66,21 +79,37 @@ namespace fds {
          * Called when finished processing forwarded update.
          * If volume 'volid' in RECV_FWD_FINISHING state and shadow queue
          * is empty, the volume's shadow queue is removed.
-         * @return true if this is the last forwarded update, volume meta
-         * syncing process is done; otherwise false
+         * If this is the last forwarded update, volume meta
+         * syncing process is done -- will call vmeta_recv_done callback
          */
-        fds_bool_t fwdUpdateDone(fds_volid_t volid);
+        void fwdUpdateReqDone(dmCatReq* updCatReq,
+                              blob_version_t blob_version,
+                              const Error& error,
+                              MetaSyncRespHandlerPrx respCli);
 
-  provate:  // methods
+        /**
+         * WARNING: when this code was written, volume uuid only used low 63 bits,
+         * so we assign shadow vol uuid by setting the most significant bit to 1;
+         * if this assumption changes, our shadow volume id may not be unique!!!
+         * so register volume may fail
+         */
+        inline fds_volid_t shadowVolUuid(fds_volid_t volid) const {
+            return (volid | 0x8000000000000000);
+        }
 
+  private:  // methods
         struct VolReceiver {
-            explicit VolReceiver(fds_volid_t volid);
+            VolReceiver(fds_volid_t volid,
+                        FDS_VolumeQueue* shadowQueue);
             ~VolReceiver();
 
             volSyncRecvState state;
+            FDS_VolumeQueue* shadowVolQueue;
         };
         typedef boost::shared_ptr<VolReceiver> VolReceiverPtr;
         typedef std::unordered_map<fds_volid_t, VolReceiverPtr> VolToReceiverTable;
+
+        void recvdVolMetaLocked(fds_volid_t volid);
 
   private:  // members
         /**
@@ -89,13 +118,19 @@ namespace fds {
          * this volume is in progress.
          */
         VolToReceiverTable vol_recv_map;
-        fds_mutex vol_recv_lock;  // protects vol_recv_map
+        fds_mutex cat_recv_lock;  // protects vol_recv_map
 
         /**
          * Pointer to DmIoReqHandler so we can queue requests to
          * shadow volume QoS queues; passed in constructor; does not own.
          */
         DmIoReqHandler *dm_req_handler;
+
+        /**
+         * This callback is passed in constructor and called each time
+         * syncing volume meta is finished for a volume
+         */
+        vmeta_recv_done_handler_t done_evt_handler;
     };
 
     typedef boost::shared_ptr<CatSyncReceiver> CatSyncReceiverPtr;
