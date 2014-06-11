@@ -4,7 +4,10 @@
 #include <StorMgr.h>
 #include <net/net-service-tmpl.hpp>
 #include <fdsp_utils.h>
+#include <fds_assert.h>
 #include <SMSvcHandler.h>
+#include <platform/fds_flags.h>
+#include <sm-platform.h>
 
 namespace fds {
 
@@ -18,6 +21,9 @@ void SMSvcHandler::getObject(boost::shared_ptr<fpi::GetObjectMsg>& getObjMsg)  /
 {
     DBG(GLOGDEBUG << fds::logString(*getObjMsg));
 
+    FLAG_CHECK_RETURN_VOID(PlatformProcess::plf_manager()->\
+                 plf_get_flags_map().common_drop_async_resp > 0);
+#if 0
     if (objStorMgr->getDLT()->getPrimary(ObjectID(getObjMsg->data_obj_id.digest)).\
         uuid_get_val() == static_cast<uint64_t>(getObjMsg->hdr.msg_dst_uuid.svc_uuid) ||
         objStorMgr->getDLT()->getNode(ObjectID(getObjMsg->data_obj_id.digest), 1).\
@@ -25,6 +31,7 @@ void SMSvcHandler::getObject(boost::shared_ptr<fpi::GetObjectMsg>& getObjMsg)  /
         DBG(GLOGDEBUG << "Ignoring");
         return;
     }
+#endif
 
     Error err(ERR_OK);
     auto read_data_msg = new SmIoReadObjectdata();

@@ -26,7 +26,7 @@ public class GetObjectTest {
     public void testIfMatch() throws Exception {
         Xdi xdi = mock(Xdi.class);
         byte[] digest = new byte[]{1, 2, 3};
-        BlobDescriptor descriptor = new BlobDescriptor("poop", 0, ByteBuffer.wrap(digest), Maps.newHashMap());
+        BlobDescriptor descriptor = new BlobDescriptor("poop", 0, Maps.newHashMap());
         when(xdi.statBlob(anyString(), anyString(), anyString())).thenReturn(descriptor);
         
         GetObject handler = new GetObject(xdi);

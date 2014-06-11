@@ -3,7 +3,7 @@ package com.formationds.spike.om;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.fdsp.ClientFactory;
+import com.formationds.fdsp.LegacyClientFactory;
 import com.formationds.spike.ServerFactory;
 import com.formationds.spike.ServiceDirectory;
 import com.formationds.web.toolkit.HttpMethod;
@@ -20,7 +20,7 @@ public class Om {
 
     public void start(int omControlPort, int omConfigPort, int omHttpPort) throws TException {
         ServiceDirectory serviceDirectory = new ServiceDirectory();
-        ClientFactory clientFactory = new ClientFactory();
+        LegacyClientFactory clientFactory = new LegacyClientFactory();
         ServerFactory serverFactory = new ServerFactory();
         OmControlPath controlPath = new OmControlPath(serviceDirectory);
         OmConfigPath configPath = new OmConfigPath(serviceDirectory, clientFactory);

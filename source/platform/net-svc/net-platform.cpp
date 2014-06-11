@@ -10,6 +10,7 @@
 #include <platform/platform-lib.h>
 #include <platform/node-inv-shmem.h>
 #include <net-platform.h>
+#include <net/PlatNetSvcHandler.h>
 
 namespace fds {
 

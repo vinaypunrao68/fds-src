@@ -103,4 +103,12 @@ public class ParsedConfig {
 
         throw new RuntimeException("key not found: '" + path + "'");
     }
+
+    public int defaultInt(String s, int defaultValue) {
+        try {
+            return lookup(s).intValue();
+        } catch (Exception e) {
+            return defaultValue;
+        }
+    }
 }

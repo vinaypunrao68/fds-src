@@ -45,14 +45,15 @@ ObjectStorMgrI::PutObject(FDSP_MsgHdrTypePtr& msgHdr,
                           FDSP_PutObjTypePtr& putObj) {
     LOGDEBUG << "Received a Putobject() network request";
 
-#ifdef FDS_TEST_SM_NOOP
-    msgHdr->msg_code = FDSP_MSG_PUT_OBJ_RSP;
-    msgHdr->result = FDSP_ERR_OK;
-    objStorMgr->swapMgrId(msgHdr);
-    objStorMgr->fdspDataPathClient(msgHdr->session_uuid)->PutObjectResp(msgHdr, putObj);
-    LOGDEBUG << "FDS_TEST_SM_NOOP defined. Sent async PutObj response right after receiving req.";
-    return;
-#endif /* FDS_TEST_SM_NOOP */
+    if ((objStorMgr->testUturnAll == true) ||
+        (objStorMgr->testUturnPutObj == true)) {
+        LOGDEBUG << "Uturn testing put object";
+        msgHdr->msg_code = FDSP_MSG_PUT_OBJ_RSP;
+        msgHdr->result = FDSP_ERR_OK;
+        objStorMgr->swapMgrId(msgHdr);
+        objStorMgr->fdspDataPathClient(msgHdr->session_uuid)->PutObjectResp(msgHdr, putObj);
+        return;
+    }
 
     // Store the mapping of this service UUID to its session UUID,
     // except when this is a proxied request
@@ -510,16 +511,19 @@ void ObjectStorMgr::proc_pre_startup()
 
     clust_comm_mgr_.reset(new ClusterCommMgr(omClient));
 
+    testUturnAll    = conf_helper_.get<bool>("testing.uturn_all");
+    testUturnPutObj = conf_helper_.get<bool>("testing.uturn_putobj");
+
     /*
      * Create local variables for test mode
      */
-    if (conf_helper_.get<bool>("test_mode") == true) {
+    if (conf_helper_.get<bool>("testing.test_mode") == true) {
         /*
          * Create test volumes.
          */
         VolumeDesc*  testVdb;
         std::string testVolName;
-        int numTestVols = conf_helper_.get<int>("test_volume_cnt");
+        int numTestVols = conf_helper_.get<int>("testing.test_volume_cnt");
         for (fds_int32_t testVolId = 1; testVolId < numTestVols + 1; testVolId++) {
             testVolName = "testVol" + std::to_string(testVolId);
             /*

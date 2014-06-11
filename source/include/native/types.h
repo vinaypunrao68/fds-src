@@ -286,8 +286,6 @@ namespace fds {
                                                 fds_uint64_t bufferSize,
                                                 fds_off_t offset,
                                                 const char *buffer,
-                                                fds_uint64_t blobSize,
-                                                const std::string &blobEtag,
                                                 void *callbackData,
                                                 FDSN_Status status,
                                                 ErrorDetails *errDetails);
@@ -477,7 +475,7 @@ namespace fds {
     struct StartBlobTxCallback : virtual Callback {
         typedef boost::shared_ptr<StartBlobTxCallback> ptr;
         /// The blob trans ID to fill in
-        BlobTxId      txId;
+        BlobTxId      blobTxId;
     };
 
     struct GetVolumeMetaDataCallback : virtual Callback {

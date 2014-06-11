@@ -202,6 +202,11 @@ class ObjectStorMgr :
     /** Cluster communication manager */
     ClusterCommMgrPtr clust_comm_mgr_;
 
+    /// Enables uturn testing for all sm service ops
+    fds_bool_t testUturnAll;
+    /// Enables uturn testing for put object ops
+    fds_bool_t testUturnPutObj;
+
     /** Migrations related */
     FdsMigrationSvcPtr migrationSvc_;
 

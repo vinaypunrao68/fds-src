@@ -138,9 +138,9 @@ void AsyncRpcRequestIf::invokeCommon_(const fpi::SvcUuid &peerEpId)
        }
     } catch(...) {
         // TODO(Rao): Catch different exceptions
-        GLOGERROR << logString();
         auto respHdr = RpcRequestPool::newAsyncHeaderPtr(id_, peerEpId, myEpId_);
         respHdr->msg_code = ERR_RPC_INVOCATION;
+        GLOGERROR << logString() << " Error: " << respHdr->msg_code;
         postError(respHdr);
     }
 }

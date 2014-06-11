@@ -9,12 +9,14 @@ import com.amazonaws.services.s3.S3ClientOptions;
 import com.amazonaws.services.s3.model.*;
 import com.formationds.apis.AmService;
 import com.formationds.apis.ConfigurationService;
-import com.formationds.apis.VolumeType;
 import com.formationds.apis.VolumeSettings;
+import com.formationds.apis.VolumeType;
 import com.formationds.demo.Main;
 import com.formationds.security.Authenticator;
 import com.formationds.security.AuthorizationToken;
 import com.formationds.util.Configuration;
+import com.formationds.util.Size;
+import com.formationds.util.SizeUnit;
 import com.sun.security.auth.UserPrincipal;
 import org.apache.commons.io.IOUtils;
 import org.apache.thrift.protocol.TBinaryProtocol;
@@ -26,7 +28,7 @@ import java.io.FileInputStream;
 import java.util.Arrays;
 
 public class S3TestCase {
-    // @Test
+    @Test
     public void cleanupAwsVolumes() throws Exception {
         new Configuration("foo", new String[] {"--console"});
         AmazonS3Client client = new AmazonS3Client(new BasicAWSCredentials("AKIAINOGA4D75YX26VXQ", "/ZE1BUJ/vJ8BDESUvf5F3pib7lJW+pBa5FTakmjf"));
@@ -70,7 +72,7 @@ public class S3TestCase {
         omTransport.open();
         ConfigurationService.Iface config = new ConfigurationService.Client(new TBinaryProtocol(omTransport));
 
-        config.createVolume("fds", "Volume1", new VolumeSettings(1024 * 4, VolumeType.BLOCK));
+        config.createVolume("fds", "Volume1", new VolumeSettings(1024 * 4, VolumeType.BLOCK, new Size(20, SizeUnit.GB).totalBytes()));
         Thread.sleep(2000);
         am.attachVolume("fds", "Volume1");
     }

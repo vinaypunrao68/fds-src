@@ -183,9 +183,15 @@ service PlatNetSvc extends BaseAsyncSvc {
     // ServiceStatus getStatus(1: i32 nullarg),
     // map<string, i64> getCounters(1: string id),
     // void setConfigVal(1:string id, 2:i64 value )
+    ServiceStatus getStatus(1: i32 nullarg),
+    map<string, i64> getCounters(1: string id),
+    void setConfigVal(1:string id, 2:i64 value )
+    void setFlag(1:string id, 2:i64 value )
+    i64 getFlag(1:string id)
+    map<string, i64> getFlags(1: i32 nullarg)
 }
 
-service SMSvc extends BaseAsyncSvc {
+service SMSvc extends PlatNetSvc {
     oneway void getObject(1: GetObjectMsg getObjMsg),
 }
 

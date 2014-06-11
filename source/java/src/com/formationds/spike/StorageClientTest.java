@@ -4,16 +4,17 @@ package com.formationds.spike;
  */
 
 import FDS_ProtocolInterface.*;
-import com.formationds.fdsp.ClientFactory;
+import com.formationds.fdsp.LegacyClientFactory;
 import org.apache.thrift.TException;
-import java.util.List;
+
 import java.nio.ByteBuffer;
+import java.util.List;
 
 public class StorageClientTest {
     public static void main(String[] args) throws Exception {
         int port = 6666;
         ServerFactory serverFactory = new ServerFactory();
-        ClientFactory clientFactory = new ClientFactory();
+        LegacyClientFactory clientFactory = new LegacyClientFactory();
         serverFactory.startDataPathRespServer(new DataResponseHandler(), port);
 
         Mutable<Dlt> dltCache = new Mutable<>();

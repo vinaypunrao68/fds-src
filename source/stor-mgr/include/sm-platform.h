@@ -77,9 +77,15 @@ class SmPlatform : public Platform
     virtual PlatRpcResp *plat_creat_resp_disp();
     virtual PlatDataPathResp *plat_creat_dpath_resp();
 
+    void registerFlags();
+
     SMEpPlugin::pointer           sm_plugin;
     bo::shared_ptr<SMSvcHandler>  sm_recv;
     EndPoint<FDS_ProtocolInterface::SMSvcClient, FDS_ProtocolInterface::SMSvcProcessor> *sm_ep;
+
+    /* SM specific flags */
+    DBG(DECLARE_FLAG(sm_drop_gets));
+    DBG(DECLARE_FLAG(sm_drop_puts));
 };
 
 /**

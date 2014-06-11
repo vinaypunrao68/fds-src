@@ -7,39 +7,92 @@ import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import FDS_ProtocolInterface.FDSP_GetVolInfoReqType;
 import FDS_ProtocolInterface.FDSP_MsgHdrType;
 import FDS_ProtocolInterface.FDSP_VolumeDescType;
+import com.formationds.apis.*;
+import com.formationds.util.JsonArrayCollector;
+import com.formationds.util.Size;
+import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
-import com.formationds.web.toolkit.TextResource;
-import com.google.common.base.Joiner;
 import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
-import java.util.List;
+import java.text.DecimalFormat;
 import java.util.Map;
 
 public class ListVolumes implements RequestHandler {
-    private FDSP_ConfigPathReq.Iface iface;
+    private ConfigurationService.Iface configApi;
+    private AmService.Iface amApi;
+    private FDSP_ConfigPathReq.Iface legacyConfig;
 
-    public ListVolumes(FDSP_ConfigPathReq.Iface iface) {
-        this.iface = iface;
+    private static DecimalFormat df = new DecimalFormat("#.00");
+
+    public ListVolumes(ConfigurationService.Iface configApi, AmService.Iface amApi, FDSP_ConfigPathReq.Iface legacyConfig) {
+        this.configApi = configApi;
+        this.amApi = amApi;
+        this.legacyConfig = legacyConfig;
     }
 
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
-        FDSP_MsgHdrType msg = new FDSP_MsgHdrType();
-        List<FDSP_VolumeDescType> volumes = iface.ListVolumes(msg);
-        String[] descriptions = volumes.stream()
-                .map(v -> {
-                    try {
-                        FDSP_VolumeDescType volInfo = iface.GetVolInfo(msg, new FDSP_GetVolInfoReqType(v.getVol_name(), v.getGlobDomainId()));
-                        return new HalfFakeVolume(volInfo).toString();
+        JSONArray jsonArray = configApi
+                .listVolumes("")
+                .stream()
+                .map(v -> toJsonObject(v))
+                .collect(new JsonArrayCollector());
 
-                    } catch (TException e) {
-                        throw new RuntimeException(e);
-                    }
-                })
-                .toArray(i -> new String[i]);
-        return new TextResource("[" + Joiner.on(",\n").join(descriptions) + "]");
+        return new JsonResource(jsonArray);
     }
 
+    private JSONObject toJsonObject(VolumeDescriptor v) {
+        FDSP_MsgHdrType msg = new FDSP_MsgHdrType();
+        FDSP_VolumeDescType volInfo = null;
+        VolumeStatus status = null;
+        try {
+            volInfo = legacyConfig.GetVolInfo(msg, new FDSP_GetVolInfoReqType(v.getName(), 0));
+            status = amApi.volumeStatus("", v.getName());
+        } catch (TException e) {
+            throw new RuntimeException(e);
+        }
+
+        return toJsonObject(v, volInfo, status);
+    }
+
+    public static JSONObject toJsonObject(VolumeDescriptor v, FDSP_VolumeDescType volInfo, VolumeStatus status) {
+        JSONObject o = new JSONObject();
+        o.put("name", v.getName());
+        o.put("id", Long.toString(volInfo.getVolUUID()));
+        o.put("priority", volInfo.getRel_prio());
+        o.put("sla", volInfo.getIops_min());
+        o.put("limit", volInfo.getIops_max());
+
+        if (v.getPolicy().getVolumeType().equals(VolumeType.OBJECT)) {
+            o.put("data_connector", new JSONObject().put("type", "object"));
+            o.put("apis", "S3, Swift");
+        } else {
+            JSONObject connector = new JSONObject().put("type", "block");
+            Size size = Size.size(v.getPolicy().getBlockDeviceSizeInBytes());
+            JSONObject attributes = new JSONObject()
+                    .put("size", size.getCount())
+                    .put("unit", size.getSizeUnit().toString());
+            connector.put("attributes", attributes);
+            o.put("data_connector", connector);
+        }
+
+        Size usage = Size.size(status.getCurrentUsageInBytes());
+        JSONObject dataUsage = new JSONObject()
+                .put("size", formatSize(usage))
+                .put("unit", usage.getSizeUnit().toString());
+        o.put("current_usage", dataUsage);
+        return o;
+    }
+
+    private static String formatSize(Size usage) {
+        if (usage.getCount() == 0) {
+            return "0";
+        }
+
+        return df.format(usage.getCount());
+    }
 }
