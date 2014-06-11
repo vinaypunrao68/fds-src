@@ -13,7 +13,8 @@ user_cpp         :=               \
     http_utils.cpp \
     am-urls.cpp \
     fdsn-server.cpp \
-    am-ubd-connect.cpp
+    am-ubd-connect.cpp \
+    am-probe.cpp
 
 user_no_style    := am-urls.cpp
 user_ar_libs     := fds-am-engine

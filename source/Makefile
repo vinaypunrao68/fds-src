@@ -13,8 +13,8 @@ user_build_dir :=                       \
     umod-lib                            \
     util                                \
     lib                                 \
-    am-engine                           \
     fds-probe                           \
+    am-engine                           \
     persistent_layer                    \
     platform                            \
     stor-hvisor                         \
