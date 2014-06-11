@@ -501,35 +501,39 @@ Error CatalogSyncMgr::forwardCatalogUpdate(dmCatReq  *updCatReq) {
 }
 
 
-Error CatalogSyncMgr::removeVolume(fds_volid_t volid) {
+void CatalogSyncMgr::finishedForwardVolmeta(fds_volid_t volid) {
     Error err(ERR_OK);
+    fds_bool_t send_dmt_close_ack = false;
 
-    fds_mutex::scoped_lock l(cat_sync_lock);
-
-    for (CatSyncMap::const_iterator cit = cat_sync_map.cbegin();
-         cit != cat_sync_map.cend();
-         ++cit) {
-        if ((cit->second)->hasVolume(volid)) {
-            LOGDEBUG << "DEL-VOL: Map Clean up "
-                     << std::hex << volid << std::dec;
-            err = (cit->second)->handleVolumeDone(volid);
-
-            if (((cit->second)->emptyVolume())) 
-                cat_sync_map.erase(cit);
-            break; 
+    {  // begin scoped lock
+        fds_mutex::scoped_lock l(cat_sync_lock);
+        fds_verify(sync_in_progress);
+        for (CatSyncMap::const_iterator cit = cat_sync_map.cbegin();
+             cit != cat_sync_map.cend();
+             ++cit) {
+            if ((cit->second)->hasVolume(volid)) {
+                LOGDEBUG << "DEL-VOL: Map Clean up "
+                         << std::hex << volid << std::dec;
+                err = (cit->second)->handleVolumeDone(volid);
+                if (((cit->second)->emptyVolume())) 
+                    cat_sync_map.erase(cit);
+                break; 
+            }
         }
+        send_dmt_close_ack = cat_sync_map.empty();
+        sync_in_progress = !send_dmt_close_ack;
+    }  // end of scoped lock
+
+    // TODO(xxx) if error, means we couldn't send meta sync done
+    // notification to destination DM, so destination DM will not
+    // move to the right state of processing requests from AM
+    // we should retry? or/and send error to OM?
+
+    if (send_dmt_close_ack) {
+        fpi::FDSP_DmtCloseTypePtr dmtCloseAck(new FDSP_DmtCloseType);
+        dataMgr->omClient->sendDMTCloseAckToOM(dmtCloseAck, cat_sync_context);
     }
-
-   if (cat_sync_map.empty()) {
-      FDS_ProtocolInterface::FDSP_DmtCloseTypePtr
-            dmtCloseAck(new FDSP_DmtCloseType);
-          //sync_in_progress = false;
-      dataMgr->omClient->sendDMTCloseAckToOM(dmtCloseAck, cat_sync_context);
-   }
-
-   return err;
 }
-
 
 /**
  * Called when initial or delta sync is finished for a given

@@ -348,24 +348,28 @@ VolumeMeta::deltaSyncVolCat(fds_volid_t volId, NodeUuid node_uuid)
   return err;
 }
 
-void VolumeMeta::finishForwarding() {
-    vol_mtx->lock();
+//
+// Returns true if volume is in forwarding state, and qos queue is empty;
+// otherwise returns false (volume not in forwarding state or qos queue
+// is not empty
+//
+fds_bool_t VolumeMeta::finishForwarding() {
+    fds_bool_t bret = false;
+    FDS_PLOG(dm_log) << "finishForwarding for volume " << *vol_desc
+                     << ", state " << fwd_state;
 
-     FDS_PLOG(dm_log) << "finishForwarding:  " << fwd_state;
- 
-     if (fwd_state == VFORWARD_STATE_INPROG) {
+    vol_mtx->lock();
+    if (fwd_state == VFORWARD_STATE_INPROG) {
+        bret = dmVolQueue->volQueue->empty();
 	dmtclose_time = boost::posix_time::microsec_clock::universal_time();
         fwd_state = VFORWARD_STATE_FINISHING;
         FDS_PLOG(dm_log) << "finishForwarding:  close time: " << dmtclose_time;
-     }
-     else {
+    }
+    else {
         fwd_state = VFORWARD_STATE_NONE;
-     }
-
-    // TODO(WIN-433) set state to VFORWARD_STATE_FINISHING here
-    // so that we are still forwarding untill all queued updates
-    // are processed, but for now, we assume no pending in queue
+    }
     vol_mtx->unlock();
+    return bret;
 }
 
 void VolumeMeta::dmCopyVolumeDesc(VolumeDesc *v_desc, VolumeDesc *pVol) {

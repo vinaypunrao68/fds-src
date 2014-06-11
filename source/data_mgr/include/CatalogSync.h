@@ -244,12 +244,21 @@ namespace fds {
          * Forward catalog update to DM to which we are pushing vol meta for the
          * corresponding volume.
          * Must be called only for volumes for which sync is in progress
-         * TODO(xxx) add parameters (dmCatReq?)
          */
         Error forwardCatalogUpdate(dmCatReq  *updCatReq);
-        Error removeVolume(fds_volid_t volid);
 
-        fds_bool_t isSyncInProgress() const { return sync_in_progress; }
+        /**
+         * Called when forwarding can be finished for volume 'volid'
+         * so volume-related datastucts can be freed
+         */
+        void finishedForwardVolmeta(fds_volid_t volid);
+
+        /**
+         * @return true if sync is in progress = time between push meta
+         * is received from OM and time when we finished forwarding
+         * cat updates for all volumes
+         */
+        inline fds_bool_t isSyncInProgress() const { return sync_in_progress; }
 
         /**
          * Callback from CatalogSync that sync is finished for given volume

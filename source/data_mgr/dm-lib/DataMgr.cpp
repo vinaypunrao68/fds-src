@@ -341,14 +341,14 @@ Error DataMgr::_process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only) {
  * For all volumes that are in forwarding state, move them to
  * finish forwarding state.
  */
-Error  DataMgr::notifyStopForwardUpdates() {
+Error DataMgr::notifyStopForwardUpdates() {
     std::unordered_map<fds_uint64_t, VolumeMeta*>::iterator vol_it;
 
     Error err(ERR_OK);
 
-    if(!catSyncMgr->isSyncInProgress()) {  
-      err = ERR_CATSYNC_NOT_PROGRESS;
-      return err;
+    if (!catSyncMgr->isSyncInProgress()) {  
+        err = ERR_CATSYNC_NOT_PROGRESS;
+        return err;
     }
 
     vol_map_mtx->lock();
@@ -356,12 +356,18 @@ Error  DataMgr::notifyStopForwardUpdates() {
          vol_it != vol_meta_map.end();
          ++vol_it) {
         VolumeMeta *vol_meta = vol_it->second;
-        LOGNORMAL << " Stop Forwarding  for vol uuid ";
-        vol_meta->finishForwarding();
+        fds_bool_t stop_forward = vol_meta->finishForwarding();
+        if (stop_forward) {
+            vol_meta->setForwardFinish();
+            // remove the volume from sync_volume list
+            LOGNORMAL << "CleanUP: remove Volume " << std::hex
+                      << vol_it->first << std::dec;
+            catSyncMgr->finishedForwardVolmeta(vol_it->first);
+        }
     }
     vol_map_mtx->unlock();
 
-  return err;
+    return err;
 }
 
 Error DataMgr::_process_open(fds_volid_t vol_uuid,
@@ -1310,7 +1316,7 @@ DataMgr::updateCatalogBackend(dmCatReq  *updCatReq) {
             vol_meta->setForwardFinish();
             // remove the volume from sync_volume list
             LOGNORMAL << "CleanUP: remove Volume " << updCatReq->volId;
-            catSyncMgr->removeVolume(updCatReq->volId);
+            catSyncMgr->finishedForwardVolmeta(updCatReq->volId);
         }        
            
 

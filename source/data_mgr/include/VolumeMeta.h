@@ -637,11 +637,14 @@ class VolumeMeta {
         return (fwd_state == VFORWARD_STATE_FINISHING);
     }
 
-    fds_bool_t setForwardFinish() {
+    void setForwardFinish() {
         fwd_state = VFORWARD_STATE_NONE;
-        return (true);
     }
-    void finishForwarding();
+    /**
+     * returns true if in VFORWARD_STATE_INPROG state
+     * and volume's qos queue is empty
+     */
+    fds_bool_t finishForwarding();
 
     /*
      * The volume catalog maintains mappings from
