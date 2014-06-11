@@ -4,7 +4,7 @@ package com.formationds.spike.am;
  */
 
 import FDS_ProtocolInterface.*;
-import com.formationds.fdsp.ClientFactory;
+import com.formationds.fdsp.LegacyClientFactory;
 import com.formationds.spike.*;
 
 import java.util.UUID;
@@ -14,7 +14,7 @@ import java.util.concurrent.CountDownLatch;
 public class FakeAm {
     public static void main(String[] args) throws Exception {
         Mutable<Dlt> dltCache = new Mutable<>();
-        ClientFactory clientFactory = new ClientFactory();
+        LegacyClientFactory clientFactory = new LegacyClientFactory();
         ServerFactory serverFactory = new ServerFactory();
 
         AmControlPath controlPath = new AmControlPath(dltCache);

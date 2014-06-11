@@ -81,7 +81,7 @@ public class GetContainer  implements SwiftRequestHandler {
     }
 
     private String digest(BlobDescriptor d) {
-        return Hex.encodeHexString(d.getDigest());
+        return d.getMetadata().getOrDefault("etag", "");
     }
 
     private String lastModified(BlobDescriptor d) {

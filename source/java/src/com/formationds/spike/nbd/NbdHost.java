@@ -1,10 +1,11 @@
-package com.formationds.spike.nbd;/*
+package com.formationds.spike.nbd;
+
+/*
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.apis.*;
-import com.formationds.spike.ReadWriteVerifierOperations;
-import com.formationds.util.Configuration;
+import com.formationds.apis.AmService;
+import com.formationds.apis.ConfigurationService;
 import com.formationds.xdi.XdiClientFactory;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
@@ -14,8 +15,6 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
-
-import java.nio.ByteBuffer;
 
 public class NbdHost {
     private int port;
@@ -52,17 +51,18 @@ public class NbdHost {
     }
 
     public static void main(String[] args) throws Exception {
-        Configuration configuration = new Configuration("xdi", args);
-
-        AmService.Iface am = XdiClientFactory.remoteAmService("localhost");
-        ConfigurationService.Iface config = XdiClientFactory.remoteOmService(configuration);
+        XdiClientFactory clientFactory = new XdiClientFactory();
+        AmService.Iface am = clientFactory.remoteAmService("localhost", 9988);
+        ConfigurationService.Iface config = clientFactory.remoteOmService("localhost", 9090);
 
         NbdServerOperations ops = new FdsServerOperations(am, config);
-        //NbdServerOperations ops = new RamOperations("hello", 1040 * 1024 * 1024);
-        //ops = new ReadWriteVerifierOperations(ops);
+        //NbdServerOperations ops = new SparseRamOperations(1024L * 1024L * 1024L * 10);
+        // NbdServerOperations ops = new SparseRamOperations(1024L * 1024L * 1024L * 10);
+        //ops = new WriteVerifyOperationsWrapper(ops);
+        //ops = new OracleVerifyOperationsWrapper(ops, new SparseRamOperations(1024L * 1024L * 1024L * 10));
 
         new NbdHost(10809, ops).run();
-        //config.createVolume("fds", "hello", new VolumeSettings(4 * 1024, VolumeType.BLOCK));
+        //config.createVolume("fds", "hello", new VolumeSettings(4 * 1024, VolumeType.BLOCK, 1024 * 1024 * 1024));
         //TxDescriptor desc = am.startBlobTx("fds", "hello", "block_dev_0");
         //am.updateBlob("fds", "hello", "block_dev_0", desc, ByteBuffer.allocate(4096), 4096, new ObjectOffset(0), ByteBuffer.allocate(0), false);
         //am.commitBlobTx(desc);

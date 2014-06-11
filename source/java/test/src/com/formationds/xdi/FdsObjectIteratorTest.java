@@ -28,8 +28,8 @@ public class FdsObjectIteratorTest {
                 ByteBuffer.wrap(new byte[] {4, 5, 6}),
         };
 
-        VolumeDescriptor volumeDescriptor = new VolumeDescriptor("foo", 0, new VolumeSettings(blockSize, VolumeType.OBJECT));
-        BlobDescriptor blobDescriptor = new BlobDescriptor(blobName, 7, ByteBuffer.wrap(new byte[0]), Maps.newHashMap());
+        VolumeDescriptor volumeDescriptor = new VolumeDescriptor("foo", 0, new VolumeSettings(blockSize, VolumeType.OBJECT, 0));
+        BlobDescriptor blobDescriptor = new BlobDescriptor(blobName, 7, Maps.newHashMap());
 
         when(config.statVolume(domainName, volumeName)).thenReturn(volumeDescriptor);
         when(am.statBlob(domainName, volumeName, blobName)).thenReturn(blobDescriptor);

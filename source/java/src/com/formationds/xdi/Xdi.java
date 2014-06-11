@@ -74,7 +74,6 @@ public class Xdi {
         return new FdsObjectStreamer(iterator);
     }
 
-
     public byte[] writeStream(String domainName, String volumeName, String blobName, InputStream in, Map<String, String> metadata) throws Exception {
         VolumeDescriptor volume = config.statVolume(domainName, volumeName);
         int bufSize = volume.getPolicy().getMaxObjectSizeInBytes();
