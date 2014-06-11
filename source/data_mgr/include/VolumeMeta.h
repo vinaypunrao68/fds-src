@@ -13,7 +13,7 @@
 #include <string>
 #include <list>
 #include <vector>
-#include <unordered_map>
+#include <map>
 #include <fds_types.h>
 #include <fds_error.h>
 #include <dm-platform.h>
@@ -28,8 +28,7 @@
 
 namespace fds {
 
-class MetadataPair : public serialize::Serializable {
-  public:
+struct MetadataPair : serialize::Serializable {
     std::string key;
     std::string value;
     MetadataPair();
@@ -45,8 +44,7 @@ typedef std::vector<MetadataPair> MetaList;
 std::ostream& operator<<(std::ostream& out, const MetadataPair& mdPair);
 std::ostream& operator<<(std::ostream& out, const MetaList& metaList);
 
-class BlobObjectInfo : public serialize::Serializable {
-  public:
+struct BlobObjectInfo : serialize::Serializable {
     fds_uint64_t offset = 0;
     ObjectID data_obj_id;
     fds_uint64_t size = 0;
@@ -68,8 +66,7 @@ class BlobObjectInfo : public serialize::Serializable {
 
 std::ostream& operator<<(std::ostream& out, const BlobObjectInfo& binfo);
 
-class BlobObjectList : public std::vector<BlobObjectInfo>, public serialize::Serializable {
-  public:
+struct BlobObjectList : std::map<fds_uint64_t, BlobObjectInfo>, serialize::Serializable {
     BlobObjectList();
     BlobObjectList(fpi::FDSP_BlobObjectList& blob_obj_list);  // NOLINT
     ~BlobObjectList();
@@ -77,7 +74,8 @@ class BlobObjectList : public std::vector<BlobObjectInfo>, public serialize::Ser
     fds_uint32_t write(serialize::Serializer*  s) const;
     fds_uint32_t read(serialize::Deserializer* d);
 
-    const BlobObjectInfo& objectForOffset(const fds_uint64_t offset) const;
+    bool hasObjectAtOffset(fds_uint64_t offset) const;
+    const BlobObjectInfo& objectAtOffset(const fds_uint64_t offset) const;
     void initFromFDSPObjList(fpi::FDSP_BlobObjectList& blob_obj_list);
     void ToFDSPObjList(fpi::FDSP_BlobObjectList& fdsp_obj_list) const;
 };
@@ -88,8 +86,7 @@ std::ostream& operator<<(std::ostream& out, const BlobObjectList& blobObjectList
  * Metadata that describes the blob. Analagous to
  * a file inode in a file system.
  */
-class BlobNode : public serialize::Serializable {
-  public:
+struct BlobNode : serialize::Serializable {
     std::string blob_name;
     blob_version_t version = 0;
     fds_volid_t vol_id = 0;

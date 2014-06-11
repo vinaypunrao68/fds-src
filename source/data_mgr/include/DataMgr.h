@@ -282,6 +282,12 @@ public:
     DataMgr(int argc, char *argv[], Platform *platform, Module **mod_vec);
     ~DataMgr();
 
+    // Test related members
+    fds_bool_t testUturnAll;
+    fds_bool_t testUturnUpdateCat;
+    fds_bool_t testUturnStartTx;
+    fds_bool_t testUturnSetMeta;
+
   /* From FdsProcess */
     virtual void proc_pre_startup() override;
     virtual int  run() override;

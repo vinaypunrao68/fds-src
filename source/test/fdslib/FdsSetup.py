@@ -242,7 +242,9 @@ class FdsRmtEnv(FdsEnv):
         self.ssh_exec(cmd +
             '; echo "%e-%p.core" | sudo tee /proc/sys/kernel/core_pattern ' +
             '; sudo sysctl -w "kernel.core_pattern=%e-%p.core"' +
-            '; sysctl -p')
+            '; sysctl -p' +
+            '; echo "1" >/proc/sys/net/ipv4/tcp_tw_reuse' +
+            '; echo "1" >/proc/sys/net/ipv4/tcp_tw_recycle')
 
 ###
 # Package FDS tar ball and unpackage it to a remote host

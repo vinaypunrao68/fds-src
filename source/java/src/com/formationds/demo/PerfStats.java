@@ -3,9 +3,9 @@ package com.formationds.demo;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
+import com.formationds.web.toolkit.TextResource;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -56,7 +56,13 @@ public class PerfStats implements RequestHandler {
                 .put(makeSummary(readCounts, "Read performance", "Images read"))
                 .put(makeSummary(writeCounts, "Write performance", "Images written"));
 
-        return new JsonResource(array);
+        //return new JsonResource(array);
+        return new TextResource(canned) {
+            @Override
+            public String getContentType() {
+                return "application/json";
+            }
+        };
     }
 
     private JSONObject makeSummary(Counts counts, String legend, String unitName) {
@@ -75,27 +81,22 @@ public class PerfStats implements RequestHandler {
     }
 
     private static String canned =
-            "\n" +
-                    "       [\n" +
-                    "          {\n" +
-                    "             operation: \"Read performance\",\n" +
-                    "             unit: \"IOPs/second\"\n" +
-                    "             values:\n" +
-                    "             {\n" +
-                    "                \"Volume1\": 43,\n" +
-                    "                \"Volume2\": 5,\n" +
-                    "                \"Volume3\": 12,\n" +
-                    "             }\n" +
-                    "          },\n" +
-                    "          {\n" +
-                    "             operation: \"Write performance\",\n" +
-                    "             unit: \"IOPs/second\"\n" +
-                    "             values:\n" +
-                    "             {\n" +
-                    "                \"Volume1\": 43,\n" +
-                    "                \"Volume2\": 5,\n" +
-                    "                \"Volume3\": 12,\n" +
-                    "             }\n" +
-                    "          }\n" +
-                    "       ]";
+           "[\n" +
+                   "    {\n" +
+                   "        \"unit\": \"Images read\",\n" +
+                   "        \"values\": {\n" +
+                   "            \"fdspanda\": 25,\n" +
+                   "            \"fdsfrog\": 30\n" +
+                   "        },\n" +
+                   "        \"operation\": \"Read performance\"\n" +
+                   "    },\n" +
+                   "    {\n" +
+                   "        \"unit\": \"Images written\",\n" +
+                   "        \"values\": {\n" +
+                   "            \"fdspanda\": 25,\n" +
+                   "            \"fdsfrog\": 30\n" +
+                   "        },\n" +
+                   "        \"operation\": \"Write performance\"\n" +
+                   "    }\n" +
+                   "]\n";
 }

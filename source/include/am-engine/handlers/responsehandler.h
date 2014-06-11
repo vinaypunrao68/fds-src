@@ -66,7 +66,6 @@ struct StartBlobTxResponseHandler : ResponseHandler, StartBlobTxCallback {
     typedef boost::shared_ptr<StartBlobTxResponseHandler> ptr;
 
     apis::TxDescriptor &retTxDesc;
-    BlobTxId            blobTxId;
 
     virtual void process();
     virtual ~StartBlobTxResponseHandler();
