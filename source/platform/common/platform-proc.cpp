@@ -62,6 +62,7 @@ NodePlatformProc::plf_start_node_services(const fpi::FDSP_ActivateNodeTypePtr &m
     plf_db->set(plf_db_key,
                 std::string((const char *)&plf_node_data, sizeof(plf_node_data)));
 
+    sleep(10);
     if (auto_start == true) {
         if (msg->has_sm_service) {
             pid = fds_spawn_service("StorMgr",
@@ -71,7 +72,6 @@ NodePlatformProc::plf_start_node_services(const fpi::FDSP_ActivateNodeTypePtr &m
             LOGNOTIFY << "Spawn SM as daemon";
 
             // TODO(Vy): must fix the transport stuff!
-            sleep(1);
         }
         if (msg->has_dm_service) {
             pid = fds_spawn_service("DataMgr",
@@ -81,7 +81,6 @@ NodePlatformProc::plf_start_node_services(const fpi::FDSP_ActivateNodeTypePtr &m
             LOGNOTIFY << "Spawn DM as daemon";
         }
         if (msg->has_am_service) {
-            sleep(5);
             pid = fds_spawn_service("AMAgent",
                     (std::string("--fds.am.om_ip=") +
                             conf.get<std::string>("om_ip")).c_str(),

@@ -187,6 +187,19 @@ else
 endif
 endef
 
+define scpt_mk_gen_thrift
+$(patsubst %.thrift,$(2)/%/ttypes.py, $(1)): $(1)
+ifdef VERBOSE
+	@echo $(tool_thrift) $(3) $$<
+	@export LD_LIBRARY_PATH=$(toolchain_lib); \
+	$(tool_thrift) $(3) -out $(2) $$<
+else
+	@echo "    [GEN .thrift] $$<"
+	@export LD_LIBRARY_PATH=$(toolchain_lib); \
+	$(tool_thrift) $(3) -out $(2) $$<
+endif
+endef
+
 # ----------------------------------------------------------------------------
 # Script to compile ragel files
 #

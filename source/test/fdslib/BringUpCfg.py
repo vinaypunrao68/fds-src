@@ -141,9 +141,9 @@ class FdsNodeConfig(FdsConfig):
             wait_compl=True)
         self.nd_rmt_agent.ssh_exec('pkill -9 Mgr', wait_compl=True)
         self.nd_rmt_agent.ssh_exec('pkill -9 AMAgent', wait_compl=True)
-        self.nd_rmt_agent.ssh_exec('pkill -9 platformd; ', wait_compl=True)
-        self.nd_rmt_agent.ssh_exec('pkill -9 -f com.formationds.om.Main;',
-            wait_compl=True)
+        self.nd_rmt_agent.ssh_exec('pkill -9 platformd', wait_compl=True)
+        self.nd_rmt_agent.ssh_exec('pkill -9 -f com.formationds.om.Main', wait_compl=True)
+        self.nd_rmt_agent.ssh_exec('rm /dev/shm/0x*', wait_compl=True)
         time.sleep(2)
 
     def nd_cleanup_daemons_with_fdsroot(self, fds_root):
@@ -171,7 +171,8 @@ class FdsNodeConfig(FdsConfig):
             '(cd /corefiles && rm *.core); '  +
             '(cd %s/core && rm *.core); ' % var_dir +
             '(cd %s && ./fds clean -i); ' % tools_dir +
-            '(cd %s && rm -f hdd-*/* && rm -f ssd-*/*)' % dev_dir, wait_compl=True)
+            '(cd %s && rm -f hdd-*/* && rm -f ssd-*/*); ' % dev_dir +
+            '(cd /dev/shm && rm -f 0x*)', wait_compl=True)
 
 ###
 # Handle AM config section
@@ -544,4 +545,3 @@ class FdsConfigRun(object):
 
         if run_om == True:
             om_node.nd_start_om()
-        time.sleep(4)

@@ -107,6 +107,11 @@ endif
 
 ifdef user_thrift
 $(foreach thft,$(user_thrift),$(eval $(call scpt_mk_thrift,$(thft))))
+
+ifdef user_thrift_py_flag
+$(foreach thft,$(user_thrift),$(eval $(call \
+			scpt_mk_gen_thrift,$(thft),$(user_thrift_py_loc),$(user_thrift_py_flag))))
+endif
 endif
 
 # -----------------------------------------------------------------------------

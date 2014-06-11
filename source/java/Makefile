@@ -18,10 +18,11 @@ user_clean        := \
 
 include $(topdir)/Makefile.incl
 
+#	@rm -rf $(comm_dir_lib)/java
+
 compile:
-	rm -f $(comm_dir_bin)/AMAgent
-	rm -rf $(comm_dir_lib)/java
-	mkdir -p $(comm_dir_lib)/java/
-	mvn -DskipTests assembly:directory -Dbuild.dir=$(comm_dir_lib)/java
-	cp -rv admin-webapp $(comm_dir_lib)
-	cp -rv demo $(comm_dir_lib)
+	@rm -f $(comm_dir_bin)/AMAgent
+	@mkdir -p $(comm_dir_lib)/java/
+	@mvn -DskipTests assembly:directory -Dbuild.dir=$(comm_dir_lib)/java
+	@cp -r admin-webapp $(comm_dir_lib)
+	@cp -r demo $(comm_dir_lib)
