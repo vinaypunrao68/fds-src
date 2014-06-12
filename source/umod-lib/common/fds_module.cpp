@@ -92,8 +92,9 @@ Module::mod_enable_service()
     int i;
 
     if (mod_exec_state & MOD_ST_FUNCTIONAL) {
-        mod_exec_state |= MOD_ST_FUNCTIONAL;
+        return; //TODO: confirm this change
     }
+    mod_exec_state |= MOD_ST_FUNCTIONAL;
     if (mod_intern != NULL) {
         for (i = 0; mod_intern[i] != NULL; i++) {
             mod_intern[i]->mod_enable_service();

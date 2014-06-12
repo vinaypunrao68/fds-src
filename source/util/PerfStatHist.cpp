@@ -1,9 +1,10 @@
+#include <limits>
 #include <util/PerfStatHist.h>
 
 namespace fds {
 
   Stat::Stat()
-    : nsamples(0), min_lat(98765432), max_lat(0), ave_lat(0) 
+    : nsamples(0), min_lat(std::numeric_limits<unsigned long>::max()), max_lat(0), ave_lat(0) 
   {
   }
 
@@ -15,7 +16,7 @@ namespace fds {
   {
     nsamples = 0;
     ave_lat = 0;
-    min_lat = 98765432; /* real latency should be smaller */
+    min_lat = std::numeric_limits<unsigned long>::max(); /* real latency should be smaller */
     max_lat = 0; 
   }
 
@@ -172,10 +173,6 @@ namespace fds {
     
     /* create array that will hold stats history */
     stat_slots = new IoStat[nslots];
-    if (!stat_slots) {
-      nslots = 0;
-      return;
-    }
     for (int i = 0; i < nslots; ++i)
       {
 	stat_slots[i].reset(0, sec_in_slot);
@@ -268,13 +265,13 @@ namespace fds {
 
   void StatHistory::print(std::ofstream& dumpFile, boost::posix_time::ptime curts)
   {
+    if (nslots == 0) return;
+
     lock.read_lock();
     int endix = last_slot_num % nslots;
     int startix = (endix + 1) % nslots; /* index of oldest stat */
     int ix = startix;
     long latest_ts = 0;
-
-    if (nslots == 0) return;
 
     /* we will skip the last timeslot, because it is most likely not filled in */
     while (ix != endix)
@@ -342,13 +339,13 @@ namespace fds {
 
 void StatHistory::getStats(FDS_ProtocolInterface::FDSP_PerfStatListType* perf_list)
 {
+    if (nslots == 0) return;
+
     long latest_ts = 0;
     lock.read_lock();
     int endix = last_slot_num % nslots;
     int startix = (endix + 1) % nslots; /* index of oldest stat */
     int ix = startix;
-
-    if (nslots == 0) return;
 
     /* we will skip the last timeslot, because it is most likely not filled in */
     while (ix != endix)
