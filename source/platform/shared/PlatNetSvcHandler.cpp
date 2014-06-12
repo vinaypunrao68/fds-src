@@ -20,27 +20,41 @@ void PlatNetSvcHandler::allUuidBinding(const fpi::UuidBindMsg& mine)
 {
 }
 
-void PlatNetSvcHandler::allUuidBinding(boost::shared_ptr<fpi::UuidBindMsg>& mine)    // NOLINT
+void PlatNetSvcHandler::allUuidBinding(
+        boost::shared_ptr<fpi::UuidBindMsg>& mine)  // NOLINT
 {
 }
 
-void PlatNetSvcHandler::notifyNodeInfo(std::vector<fpi::NodeInfoMsg> & _return,      // NOLINT
-                    const fpi::NodeInfoMsg& info, const bool bcast)
+void PlatNetSvcHandler::notifyNodeInfo(
+        std::vector<fpi::NodeInfoMsg> & _return,      // NOLINT
+        const fpi::NodeInfoMsg& info, const bool bcast)
 {
 }
 
-void PlatNetSvcHandler::notifyNodeInfo(std::vector<fpi::NodeInfoMsg> & _return,      // NOLINT
-                    boost::shared_ptr<fpi::NodeInfoMsg>& info,                       // NOLINT
-                    boost::shared_ptr<bool>& bcast)
+void PlatNetSvcHandler::notifyNodeInfo(
+        std::vector<fpi::NodeInfoMsg> & _return,      // NOLINT
+        boost::shared_ptr<fpi::NodeInfoMsg>& info,                       // NOLINT
+        boost::shared_ptr<bool>& bcast)
 {
 }
 
-void PlatNetSvcHandler::notifyNodeUp(fpi::RespHdr& _return, const fpi::NodeInfoMsg& info) // NOLINT
+/**
+ * Return list of domain nodes in the node inventory.
+ */
+void
+PlatNetSvcHandler::getDomainNodes(fpi::DomainNodes &ret, const fpi::DomainNodes &domain)
 {
 }
 
-void PlatNetSvcHandler::notifyNodeUp(fpi::RespHdr& _return, boost::shared_ptr<fpi::NodeInfoMsg>& info)  // NOLINT
+void
+PlatNetSvcHandler::getDomainNodes(fpi::DomainNodes                    &ret,
+                                  boost::shared_ptr<fpi::DomainNodes> &domain)
 {
+    /*  Only do the local domain for now */
+    DomainNodeInv::pointer local;
+
+    local = Platform::platf_singleton()->plf_node_inventory();
+    local->dc_node_svc_info(ret);
 }
 
 fpi::ServiceStatus PlatNetSvcHandler::getStatus(const int32_t nullarg)

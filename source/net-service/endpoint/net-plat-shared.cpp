@@ -306,36 +306,4 @@ PlatNetPlugin::svc_down(EpSvc::pointer svc, EpSvcHandle::pointer handle)
 {
 }
 
-/*
- * -----------------------------------------------------------------------------------
- * RPC Handlers
- * -----------------------------------------------------------------------------------
- */
-void
-NetPlatHandler::allUuidBinding(bo::shared_ptr<fpi::UuidBindMsg> &msg)
-{
-    std::cout << "all uuidBind there" << std::endl;
-}
-
-void
-NetPlatHandler::notifyNodeInfo(std::vector<fpi::NodeInfoMsg>    &ret,
-                               bo::shared_ptr<fpi::NodeInfoMsg> &inf,
-                               bo::shared_ptr<bool>             &bcast)
-{
-}
-
-/**
- * Return list of domain nodes in the node inventory.
- */
-void
-NetPlatHandler::getDomainNodes(fpi::DomainNodes                 &ret,
-                               bo::shared_ptr<fpi::DomainNodes> &domain)
-{
-    /* Only do the local domain for now */
-    DomainNodeInv::pointer local;
-
-    local = Platform::platf_singleton()->plf_node_inventory();
-    local->dc_node_svc_info(ret);
-}
-
 }  // namespace fds

@@ -24,8 +24,8 @@ class PlatNetSvcHandler : virtual public fpi::PlatNetSvcIf, public BaseAsyncSvcH
     void notifyNodeInfo(std::vector<fpi::NodeInfoMsg> & _return,  // NOLINT
                         boost::shared_ptr<fpi::NodeInfoMsg>& info,  // NOLINT
                         boost::shared_ptr<bool>& bcast);
-    void notifyNodeUp(fpi::RespHdr& _return, const fpi::NodeInfoMsg& info);  // NOLINT
-    void notifyNodeUp(fpi::RespHdr& _return, boost::shared_ptr<fpi::NodeInfoMsg>& info);  // NOLINT
+    void getDomainNodes(fpi::DomainNodes &ret, const fpi::DomainNodes &d);
+    void getDomainNodes(fpi::DomainNodes &ret, boost::shared_ptr<fpi::DomainNodes> &d);
 
     virtual fpi::ServiceStatus getStatus(const int32_t nullarg);
     virtual void getCounters(std::map<std::string, int64_t> & _return,
