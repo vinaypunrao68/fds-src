@@ -27,6 +27,7 @@ needed_packages=(
     bison
     flex
     ragel
+    ccache
 
     libboost-log1.54-dev
     libboost-program-options1.54-dev
