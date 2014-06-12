@@ -86,7 +86,7 @@ Error CatSyncReceiver::handleFwdDone(fds_volid_t volid) {
     fds_verify(volrecv->state == VSYNC_RECV_FWD_INPROG);
     volrecv->state = VSYNC_RECV_FWD_FINISHING;
 
-    if (volrecv->shadowVolQueue->volQueue->empty()) {
+    if (volrecv->pending == 0) {
         // we are done, notify DataMgr that will activate qos queue
         recvdVolMetaLocked(volid);
     }
@@ -109,10 +109,14 @@ Error CatSyncReceiver::enqueueFwdUpdate(dmCatReq* updReq) {
     // we must have receiver created for this volume
     fds_verify(vol_recv_map.count(updReq->volId) > 0);
     VolReceiverPtr volrecv = vol_recv_map[updReq->volId];
-    fds_verify(volrecv->state != VSYNC_RECV_SYNCING);
+    // fwd update can arrive in any state, even before we unblock
+    // shadow queeu and set state to FWD_INPROG
 
     // enqueue request into shadow queue
     err = dm_req_handler->enqueueMsg(shadowVolUuid(updReq->volId), updReq);
+    if (err.ok()) {
+        volrecv->pending++;
+    }
     return err;
 }
 
@@ -131,10 +135,14 @@ CatSyncReceiver::fwdUpdateReqDone(dmCatReq* updCatReq,
         // we must have receiver create for this volume
         fds_verify(vol_recv_map.count(updCatReq->volId) > 0);
         VolReceiverPtr volrecv = vol_recv_map[updCatReq->volId];
+        fds_verify(volrecv->pending > 0);
+        volrecv->pending--;
 
         if (volrecv->state == VSYNC_RECV_FWD_FINISHING) {
             // shadow queue is empty, we finished getting vol meta for volid
-            if (volrecv->shadowVolQueue->volQueue->empty()) {
+            LOGDEBUG << "FWD_FINISHING vol " << std::hex << updCatReq->volId
+                     << std::dec << " pending " << volrecv->pending;
+            if (volrecv->pending == 0) {
                 recvdVolMetaLocked(updCatReq->volId);
             }
         }
@@ -192,7 +200,8 @@ void CatSyncReceiver::recvdVolMetaLocked(fds_volid_t volid) {
 CatSyncReceiver::VolReceiver::VolReceiver(fds_volid_t volid,
                                           FDS_VolumeQueue* shadowQueue)
         : state(VSYNC_RECV_SYNCING),
-          shadowVolQueue(shadowQueue) {
+          shadowVolQueue(shadowQueue),
+          pending(0) {
     // initially shadow volume queue is blocked, until we
     // get initial meta push via rsync
     shadowVolQueue->stopDequeue();
