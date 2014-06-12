@@ -540,10 +540,7 @@ void FDS_NativeAPI::DoCallback(FdsBlobReq  *blob_req,
               << " [result:" << result << ":" << static_cast<FDSN_Status>(result) << "]";
 
     if ( !error.ok() || (result != 0) ) {
-        if (result > 0 && result < FDSN_StatusErrorUnknown) {
-            // the result is a fdsn status
-            status = (FDSN_Status)result;
-        } else if (result < 0) {
+        if (result < 0 || !error.ok()) {
             // TODO(Prem/Andrew): We're not actually ever setting
             // the error variable and there are cases where AM returns
             // just a negative result value with no other info...we need
@@ -552,42 +549,8 @@ void FDS_NativeAPI::DoCallback(FdsBlobReq  *blob_req,
             // For now, we just throw our hands up and give a 500.
             status = FDSN_StatusInternalError;
         } else {
-            switch (error.GetErrno()) {
-                case ERR_OK                           : break;
-
-                case ERR_DUPLICATE                    :
-                case ERR_HASH_COLLISION               :
-                case ERR_DISK_WRITE_FAILED            :
-                case ERR_DISK_READ_FAILED             :
-                case ERR_CAT_QUERY_FAILED             :
-                case ERR_CAT_ENTRY_NOT_FOUND          :
-                case ERR_INVALID_ARG                  :
-                case ERR_PENDING_RESP                 : status = FDSN_StatusInternalError; break; //NOLINT
-
-                case ERR_VOL_ADMISSION_FAILED         :
-                case ERR_GET_DLT_FAILED               :
-                case ERR_GET_DMT_FAILED               :
-                case ERR_NOT_IMPLEMENTED              :
-                case ERR_OUT_OF_MEMEORY               :
-                case ERR_DUPLICATE_UUID               :
-                case ERR_TRANS_JOURNAL_OUT_OF_IDS     :
-                case ERR_TRANS_JOURNAL_REQUEST_QUEUED :
-                case ERR_NODE_NOT_ACTIVE              :
-
-                case ERR_NOT_READY                    :
-                case ERR_INVALID_DLT                  :
-                case ERR_PERSIST_STATE_MISMATCH       :
-                case ERR_EXCEED_MIN_IOPS              : status = FDSN_StatusInternalError; break; //NOLINT
-
-                case ERR_UNAUTH_ACCESS                : status = FDSN_StatusErrorAccessDenied; break; //NOLINT
-
-                case ERR_NOT_FOUND                    :
-                case ERR_BLOB_NOT_FOUND               : status = FDSN_StatusEntityDoesNotExist; break; //NOLINT
-                case ERR_VOL_NOT_FOUND                : status = FDSN_StatusErrorBucketNotExists; break; //NOLINT
-                case ERR_VOL_NOT_EMPTY                : status = FDSN_StatusErrorBucketNotEmpty; break; //NOLINT
-
-                default: status = FDSN_StatusInternalError; break;
-            }
+            // the result is a fdsn status
+            status = (FDSN_Status)result;
         }
     }
 

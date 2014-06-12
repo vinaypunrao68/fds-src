@@ -1,5 +1,6 @@
 import sys
 import os
+import logging
 sys.path.append('/home/nbayyana/fds-src/source/test')
 sys.path.append('/home/nbayyana/fds-src/source/test/fdslib/pyfdsp')
 
@@ -20,6 +21,7 @@ from fdslib import ProcessUtils
 from fdslib import IOGen
 
 # Globals
+log = None
 parser = None
 svc_map = SvcMap()
 
@@ -36,51 +38,42 @@ def list(node, svc, verbose = False):
 
 def setflag(node, svc, id, val):
     try:
-        svc_map.client(node, svc).setFlag(id, val)
+        svc_map.client(node, svc).setFlag(id, int(val))
         return 'Success'
     except:
+        log.warn(sys.exc_info()[0])
         return 'Unable to set flag: {}'.format(id)
 
-def printflag(node, svc, id):
+def printflag(node, svc, id=None):
     try:
-        if id is '*':
-            flags = svc_map.client(node, svc).getFlags()
+        if id is None:
+            flags = svc_map.client(node, svc).getFlags(None)
             return tabulate([(k,v) for k,v in flags.iteritems()],
                             headers=['flag', 'value'])
         else:
             return svc_map.client(node, svc).getFlag(id)
     except:
+        log.warn(sys.exc_info()[0])
         return 'Unable to get flag: {}'.format(id)
 
 
-parser = argh.ArghParser()
-parser.add_commands([add_node, counters, list, setflag])
-parser.dispatch()
-
-# assembling:
-"""
-svc_info = FDSP_Node_Info_Type()
-svc_info.control_port = 8903;
-svc_info.ip_lo_addr = struct.unpack("!I", socket.inet_aton('127.0.0.1'))[0]
-om_svc = OMService(svc_info)
-
-"""
-
-
-"""
 class MyShell(cmd.Cmd):
+    prompt = 'FDS::>'
+    """
+    def __init__(self):
+        self.parser = argh.ArghParser()
+        self.parser.add_commands([add_node, counters, list, setflag, printflag])
+        """
+
     def onecmd(self, line):
-        parser.dispatch(argv=line.split())
+        try:
+            parser.dispatch(argv=line.split())
+        except:
+            pass
         return None
-# dispatching:
 
 if __name__ == '__main__':
-    ProcessUtils.setup_logger()
-
-    (options, args) = ProcessUtils.parse_fdscluster_args()
-
-    cluster = FdsCluster(options.config_file)
-    time.sleep(5)
-
+    log = ProcessUtils.setup_logger()
+    parser = argh.ArghParser()
+    parser.add_commands([add_node, counters, list, setflag, printflag])
     MyShell().cmdloop()
-    """
