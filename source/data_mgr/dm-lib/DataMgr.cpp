@@ -1328,6 +1328,8 @@ Error  DataMgr::forwardUpdateCatalogRequest(dmCatReq  *updCatReq) {
         if ((do_forward)  || ( vol_meta->dmtclose_time > updCatReq->enqueue_time)) {
             err = catSyncMgr->forwardCatalogUpdate(updCatReq);
         }
+         else 
+          err = ERR_DMT_FORWARD;
 
         // move the state, once we drain  planned queue contents 
          LOGNORMAL << "DMT close Time:  " << vol_meta->dmtclose_time 
