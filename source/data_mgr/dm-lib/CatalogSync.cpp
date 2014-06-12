@@ -242,6 +242,14 @@ Error CatalogSync::forwardCatalogUpdate(dmCatReq  *updCatReq) {
     fds_verify((cur_state == CSSTATE_DELTA_SYNC) ||
                (cur_state == CSSTATE_FORWARD_ONLY));
 
+    LOGNORMAL << "DMT VERSION:  " << updCatReq->fdspUpdCatReqPtr->dmt_version
+                           << ":" << dataMgr->omClient->getDMTVersion(); 
+    if((uint)updCatReq->fdspUpdCatReqPtr->dmt_version ==
+                     dataMgr->omClient->getDMTVersion()) {
+        LOGDEBUG << " DMT version matches , Do not  forward  the  request ";
+        return ERR_DMT_EQUAL; 
+    }
+
     LOGDEBUG << "Will forward catalog update for volume "
              << std::hex << updCatReq->volId << std::dec;
 
@@ -252,6 +260,8 @@ Error CatalogSync::forwardCatalogUpdate(dmCatReq  *updCatReq) {
     DataMgr::InitMsgHdr(msg_hdr);  // init the  message  header
     msg_hdr->dst_id = FDSP_DATA_MGR;
     msg_hdr->glob_volume_id = updCatReq->volId;
+    msg_hdr->session_uuid = meta_client->getSessionId();
+    
        
     /*
      * init the update  catalog  structu
@@ -477,8 +487,10 @@ Error CatalogSyncMgr::forwardCatalogUpdate(dmCatReq  *updCatReq) {
     fds_bool_t found_volume = false;
 
     fds_mutex::scoped_lock l(cat_sync_lock);
-    // this method must be called only when sync is in progress
-    fds_verify(sync_in_progress);
+    // noop if sync is in not in progress; pr return error 
+    if (!sync_in_progress) {
+       return err;
+    }
 
     // find CatalogSync that is responsible for this volume
     for (CatSyncMap::const_iterator cit = cat_sync_map.cbegin();
@@ -607,9 +619,25 @@ FDSP_MetaSyncRpc::PushMetaSyncReq(fpi::FDSP_MsgHdrTypePtr& fdsp_msg,
 
 void
 FDSP_MetaSyncRpc::PushMetaSyncResp(fpi::FDSP_MsgHdrTypePtr& fdsp_msg,
-                                   fpi::FDSP_UpdateCatalogTypePtr& push_meta_resp) {
+                                   fpi::FDSP_UpdateCatalogTypePtr& meta_resp) {
+    Error err(ERR_OK);
     LOGDEBUG << "Received PushMetaSyncResp for volume "
              << std::hex << fdsp_msg->glob_volume_id << std::dec;
+    dmCatReq *metaUpdResp = new(std::nothrow) dmCatReq(fdsp_msg->glob_volume_id,
+                                                      meta_resp->blob_name,
+                                                      meta_resp->dm_transaction_id,
+                                                      meta_resp->dm_operation,
+                                                      fdsp_msg->src_ip_lo_addr,
+                                                      fdsp_msg->dst_ip_lo_addr,
+                                                      fdsp_msg->src_port, fdsp_msg->dst_port,
+                                                      fdsp_msg->session_uuid, 0,
+                                                      FDS_DM_FWD_CAT_UPD, meta_resp);
+    if (metaUpdResp) {
+        dataMgr->sendUpdateCatalogResp(metaUpdResp);
+    } else {
+        LOGCRITICAL << "Failed to send the  metaUpdResp";
+        err = ERR_OUT_OF_MEMORY;
+    }
 }
 
 void

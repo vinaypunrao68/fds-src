@@ -53,6 +53,8 @@ namespace fds {
         ERR_ONDISK_DATA_CORRUPT  = 32,
         ERR_INVALID_DMT          = 33,
         ERR_CATSYNC_NOT_PROGRESS = 34,
+        ERR_DMT_EQUAL            = 35,
+        ERR_DMT_FORWARD          = 36,
 
         /* I/O error range */
         ERR_IO_DLT_MISMATCH      = 100,

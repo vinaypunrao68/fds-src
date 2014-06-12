@@ -222,6 +222,7 @@ struct FDSP_UpdateCatalogType {
   7: FDSP_MetaDataList meta_list, /* sequence of arbitrary key/value pairs */
   8: i32 dm_transaction_id,   /* Transaction id */
   9: i32 dm_operation,        /* Transaction type = OPEN, COMMIT, CANCEL */
+ 10: i32 dmt_version,
 }
 
 struct FDSP_QueryCatalogType {
@@ -233,14 +234,15 @@ struct FDSP_QueryCatalogType {
   5: FDSP_BlobDigestType digest,
   6: FDSP_BlobObjectList obj_list, /* List of object ids of the objects that this blob is being mapped to */
   7: FDSP_MetaDataList meta_list,  /* sequence of arbitrary key/value pairs */
-
-  8: i32      dm_transaction_id,   /* Transaction id */
-  9: i32      dm_operation,        /* Transaction type = OPEN, COMMIT, CANCEL */
+  8: i32  dm_transaction_id,   /* Transaction id */
+  9: i32  dm_operation,        /* Transaction type = OPEN, COMMIT, CANCEL */
+ 10: i32  dmt_version,
 }
 
 struct  FDSP_DeleteCatalogType { /* This is a SH-->SM msg to delete the objectId */
   1: string   blob_name,       /* User visible name of the blob*/
   2: i64 blob_version, /* Version to delete */
+  3: i32  dmt_version,
 }
 
 struct FDSP_BlobInfoType{

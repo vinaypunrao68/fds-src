@@ -346,6 +346,7 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
     upd_obj_req->obj_list.push_back(upd_obj_info);
     upd_obj_req->meta_list.clear();
     upd_obj_req->blob_size = blobReq->getDataLen();  // Size of the whole blob? Or just what I'm putting
+    upd_obj_req->dmt_version = storHvisor->om_client->getDMTVersion();
     // If this is the last put in the stream, lets
     // write the etag/md5 with the blob's metadata
     if (blobReq->isLastBuf() == true) {

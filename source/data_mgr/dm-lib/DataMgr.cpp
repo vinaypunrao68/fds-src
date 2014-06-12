@@ -1201,6 +1201,20 @@ DataMgr::updateCatalogBackend(dmCatReq  *updCatReq) {
         return;
     }
 
+    err = forwardUpdateCatalogRequest(updCatReq);
+    if ( err.ok()) {
+    } else {
+      sendUpdateCatalogResp(updCatReq);
+    }
+    
+    // if  the update request  is not forwarded, send the response. 
+}
+
+void 
+DataMgr::sendUpdateCatalogResp(dmCatReq  *updCatReq) {
+    Error err(ERR_OK);
+    BlobNode *bnode = NULL;
+
     FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
     FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr
             update_catalog(new FDSP_UpdateCatalogType);
@@ -1292,11 +1306,16 @@ DataMgr::updateCatalogBackend(dmCatReq  *updCatReq) {
 
     qosCtrl->markIODone(*updCatReq);
 
+    delete updCatReq;
+}
+
+Error  DataMgr::forwardUpdateCatalogRequest(dmCatReq  *updCatReq) {
+    Error err(ERR_OK);
     /*
      * we have updated the local Meta Db successfully, if the forwarding flag is set, 
      * forward the  request to the respective node 
      */
-    if (update_catalog->dm_operation == fpi::FDS_DMGR_TXN_STATUS_COMMITED) {
+    if (updCatReq->transOp == fpi::FDS_DMGR_TXN_STATUS_COMMITED) {
         fds_bool_t do_forward = false;
         fds_bool_t do_finish = false;
         vol_map_mtx->lock();
@@ -1305,9 +1324,11 @@ DataMgr::updateCatalogBackend(dmCatReq  *updCatReq) {
         do_forward = vol_meta->isForwarding();
         do_finish  = vol_meta->isForwardFinish();
         vol_map_mtx->unlock();
-        if ((do_forward)  || ( vol_meta->dmtclose_time > updCatReq->enqueue_time)){
-            catSyncMgr->forwardCatalogUpdate(updCatReq);
+     
+        if ((do_forward)  || ( vol_meta->dmtclose_time > updCatReq->enqueue_time)) {
+            err = catSyncMgr->forwardCatalogUpdate(updCatReq);
         }
+
         // move the state, once we drain  planned queue contents 
          LOGNORMAL << "DMT close Time:  " << vol_meta->dmtclose_time 
                         << " Enqueue Time: " << updCatReq->enqueue_time;
@@ -1318,12 +1339,13 @@ DataMgr::updateCatalogBackend(dmCatReq  *updCatReq) {
             LOGNORMAL << "CleanUP: remove Volume " << updCatReq->volId;
             catSyncMgr->finishedForwardVolmeta(updCatReq->volId);
         }        
-           
 
     }
-
-    delete updCatReq;
+     else 
+       err = ERR_DMT_FORWARD;
+   return err;
 }
+
 
 
 Error

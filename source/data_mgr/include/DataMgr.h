@@ -290,6 +290,8 @@ public:
     void blobListBackend(dmCatReq *listBlobReq);
     void snapVolCat(DmIoSnapVolCat* snapReq);
     void pushDeltaVolCat(DmIoSnapVolCat* snapReq);
+    Error forwardUpdateCatalogRequest(dmCatReq  *updCatReq);
+    void sendUpdateCatalogResp(dmCatReq  *updCatReq);
 
     /**
      * Callback from volume meta receiver that volume meta is received

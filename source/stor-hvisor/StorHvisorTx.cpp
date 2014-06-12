@@ -355,6 +355,7 @@ int StorHvisorProcIoWr(void *_io)
   // DMT lookup from the data placement object
   storHvisor->InitDmMsgHdr(fdsp_msg_hdr_dm);
   upd_obj_req->blob_name = std::to_string(data_offset);
+  upd_obj_req->dmt_version = storHvisor->om_client->getDMTVersion();
   upd_obj_req->dm_transaction_id = 1;
   upd_obj_req->dm_operation = FDS_DMGR_TXN_STATUS_OPEN;
   fdsp_msg_hdr_dm->req_cookie = trans_id;
