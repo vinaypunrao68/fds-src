@@ -80,7 +80,7 @@ namespace fds {
             FDS_IOType::io_type = _ioType;
             FDS_IOType::io_vol_id = _volId;
             fdspUpdCatReqPtr = _updCatReq;
-            if (_ioType !=   FDS_CAT_UPD) {
+            if ((_ioType != FDS_CAT_UPD) && (_ioType != FDS_DM_FWD_CAT_UPD)) {
                 fds_verify(_updCatReq == (FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr)NULL);
             }
         }

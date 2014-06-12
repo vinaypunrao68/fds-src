@@ -252,6 +252,7 @@ Error CatalogSync::forwardCatalogUpdate(dmCatReq  *updCatReq) {
     DataMgr::InitMsgHdr(msg_hdr);  // init the  message  header
     msg_hdr->dst_id = FDSP_DATA_MGR;
     msg_hdr->glob_volume_id = updCatReq->volId;
+    msg_hdr->session_uuid = meta_client->getSessionId();
        
     /*
      * init the update  catalog  structu
@@ -477,8 +478,10 @@ Error CatalogSyncMgr::forwardCatalogUpdate(dmCatReq  *updCatReq) {
     fds_bool_t found_volume = false;
 
     fds_mutex::scoped_lock l(cat_sync_lock);
-    // this method must be called only when sync is in progress
-    fds_verify(sync_in_progress);
+    // noop if sync is in not in progress; or return error?
+    if (!sync_in_progress) {
+        return err;
+    }
 
     // find CatalogSync that is responsible for this volume
     for (CatSyncMap::const_iterator cit = cat_sync_map.cbegin();

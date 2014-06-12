@@ -105,6 +105,7 @@ namespace fds {
 
             volSyncRecvState state;
             FDS_VolumeQueue* shadowVolQueue;
+            fds_uint32_t pending;  // queued + outstanding
         };
         typedef boost::shared_ptr<VolReceiver> VolReceiverPtr;
         typedef std::unordered_map<fds_volid_t, VolReceiverPtr> VolToReceiverTable;
