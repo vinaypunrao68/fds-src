@@ -21,11 +21,7 @@ extern void fds_panic(const char *fmt, ...) panic_attr;
     }
 
 #ifdef DEBUG
-#define fds_assert(expr)                                                     \
-    if (!(expr)) {                                                           \
-        fds_panic("Assertion \"%s\" fails at %s, line %d\n",                 \
-                  #expr, __FILE__, __LINE__);                                \
-    }
+#define fds_assert(expr) fds_verify(expr)
 
 /* Statement that is only enabled in debug build */
 #define DBG(statement) statement
@@ -37,10 +33,6 @@ extern void fds_panic(const char *fmt, ...) panic_attr;
 #define DBG(statement)
 
 #endif  /* DEBUG */
-
-#ifdef DEBUG
-#else
-#endif
 
 /* For marking certain functions virtual only in test builds */
 // TODO(Rao): Create a TEST define and ifdef TVIRTUAL around that

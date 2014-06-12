@@ -23,9 +23,9 @@ namespace fds {
   class Stat
   {
   public:
-    long nsamples;
-    long min_lat;
-    long max_lat;
+    unsigned long nsamples;
+    unsigned long min_lat;
+    unsigned long max_lat;
     double ave_lat;
 
     Stat();
