@@ -70,7 +70,7 @@ public class ToyServices implements AmService.Iface, ConfigurationService.Iface 
         Volume volume = getVolume(domainName, volumeName);
         return new VolumeDescriptor(volumeName, volume.getTimestamp(),
                                     new VolumeSettings(volume.getObjectSize(),
-                                                     VolumeType.OBJECT));
+                                                     VolumeType.OBJECT, 0));
     }
 
     @Override
@@ -84,7 +84,7 @@ public class ToyServices implements AmService.Iface, ConfigurationService.Iface 
         return volumes.stream()
                 .map(v -> new VolumeDescriptor(v.getName(), v.getTimestamp(),
                                                new VolumeSettings(v.getObjectSize(),
-                                                                VolumeType.OBJECT)))
+                                                                VolumeType.OBJECT, 0)))
                 .collect(Collectors.toList());
     }
 
@@ -96,7 +96,7 @@ public class ToyServices implements AmService.Iface, ConfigurationService.Iface 
         return blobs.stream()
                 .skip(offset)
                 .limit(count)
-                .map(b -> new BlobDescriptor(b.getName(), b.getByteCount(), ByteBuffer.wrap(new byte[0]), b.getMetadata()))
+                .map(b -> new BlobDescriptor(b.getName(), b.getByteCount(), b.getMetadata()))
                 .collect(Collectors.toList());
     }
 
@@ -116,7 +116,7 @@ public class ToyServices implements AmService.Iface, ConfigurationService.Iface 
         if (blob == null) {
             throw new ApiException("No such resource", ErrorCode.MISSING_RESOURCE);
         }
-        return new BlobDescriptor(blobName, blob.getByteCount(), ByteBuffer.wrap(blob.getDigest()), blob.getMetadata());
+        return new BlobDescriptor(blobName, blob.getByteCount(), blob.getMetadata());
     }
 
     @Override
@@ -170,13 +170,12 @@ public class ToyServices implements AmService.Iface, ConfigurationService.Iface 
     }
 
     @Override
-    public void updateBlob(String domainName, String volumeName, String blobName, TxDescriptor txDesc, ByteBuffer bytes, int length, ObjectOffset objectOffset, ByteBuffer digest, boolean isLast) throws ApiException, TException {
+    public void updateBlob(String domainName, String volumeName, String blobName, TxDescriptor txDesc, ByteBuffer bytes, int length, ObjectOffset objectOffset, boolean isLast) throws ApiException, TException {
         Blob blob = getOrCreate(domainName, volumeName, blobName);
         int objectSize = blob.getVolume().getObjectSize();
         long newByteCount = Math.max(blob.getByteCount(), objectSize * objectOffset.getValue() + length);
         int blockSize = blob.getVolume().getObjectSize();
         blob.setByteCount(newByteCount);
-        blob.setDigest(digest.array());
         BlockWriter writer = new BlockWriter(i -> getOrMakeBlock(i, blob.getId(), blockSize), blockSize);
         Iterator<Block> updated = writer.update(bytes.array(), length, objectOffset.getValue() * objectSize);
         while (updated.hasNext()) {

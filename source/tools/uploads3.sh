@@ -15,10 +15,10 @@ flist=`ls | head -80`
 #flist=`ls`
 
 # Create bucket
-curl -v -X POST http://$ip:8000/$bucket
+curl -v -X PUT http://$ip:8000/$bucket
 
 # Post images
 for f in $flist; do
-    echo curl -X POST --data-binary @$f http://$ip:8000/$bucket/$f;
-    curl -X POST --data-binary @$f http://$ip:8000/$bucket/$f;
+    echo curl -X PUT --data-binary @$f http://$ip:8000/$bucket/$f;
+    curl -X PUT --data-binary @$f http://$ip:8000/$bucket/$f;
 done

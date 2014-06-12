@@ -1,6 +1,7 @@
 /*
  * Copyright 2014 by Formation Data Systems, Inc.
  */
+#include <vector>
 #include <string>
 #include <stdlib.h>
 #include <dlt.h>
@@ -62,7 +63,6 @@ NodeInventory::node_info_msg_to_shm(const NodeInfoMsg *msg, node_data_t *rec)
     rec->nd_node_uuid    = msg_bind->svc_node.svc_uuid.svc_uuid;
     rec->nd_service_uuid = msg_bind->svc_id.svc_uuid.svc_uuid;
     rec->nd_base_port    = msg->nd_base_port;
-    // rec->nd_svc_type     = msg->node_loc.svc_type;
     rec->nd_svc_type     = fpi::FDSP_PLATFORM;
     rec->nd_node_state   = fpi::FDS_Node_Discovered;
     rec->nd_dlt_version  = DLT_VER_INVALID;
@@ -206,6 +206,23 @@ NodeInventory::init_stor_cap_msg(fpi::StorCapMsg *msg) const
         rec = shm->shm_get_rec<node_data_t>(node_ro_idx);
         node_stor_cap_frm_shm(msg, &rec->nd_capability);
     }
+}
+
+// svc_info_frm_shm
+// ----------------
+//
+void
+NodeInventory::svc_info_frm_shm(fpi::SvcInfo *svc) const
+{
+    node_data_t ninfo;
+
+    node_info_frm_shm(&ninfo);
+    svc->svc_id.svc_uuid.svc_uuid = ninfo.nd_node_uuid;
+
+    svc->svc_id.svc_name.assign(rs_name);
+    svc->svc_auto_name.assign(ninfo.nd_auto_name);
+    svc->svc_type   = node_svc_type;
+    svc->svc_status = SVC_STATUS_ACTIVE;
 }
 
 // node_fill_inventory
@@ -499,6 +516,57 @@ PmAgent::PmAgent(const NodeUuid &uuid) : NodeAgent(uuid)
 }
 
 PmAgent::~PmAgent() {}
+
+// agent_svc_info
+// --------------
+//
+void
+PmAgent::agent_svc_info(fpi::NodeSvcInfo *out) const
+{
+    node_data_t   ninfo;
+
+    node_info_frm_shm(&ninfo);
+    out->node_addr.assign(ninfo.nd_ip_addr);
+    out->node_auto_name.assign(ninfo.nd_auto_name);
+
+    out->node_base_port = ninfo.nd_base_port;
+    out->node_state     = node_state();
+    out->node_svc_mask  = NODE_DO_PROXY_ALL_SVCS;
+
+    agent_svc_fillin(out, &ninfo, fpi::FDSP_STOR_MGR);
+    agent_svc_fillin(out, &ninfo, fpi::FDSP_DATA_MGR);
+    agent_svc_fillin(out, &ninfo, fpi::FDSP_STOR_HVISOR);
+    agent_svc_fillin(out, &ninfo, fpi::FDSP_ORCH_MGR);
+    agent_svc_fillin(out, &ninfo, fpi::FDSP_PLATFORM);
+}
+
+// agent_svc_fillin
+// ----------------
+// Fill in service specific info based on the node info from shared memory.
+//
+void
+PmAgent::agent_svc_fillin(fpi::NodeSvcInfo    *out,
+                          const node_data_t   *ninfo,
+                          fpi::FDSP_MgrIdType  type) const
+{
+    int           port;
+    NodeUuid      base, svc;
+    fpi::SvcInfo  data;
+    fpi::SvcUuid  uuid;
+
+    base.uuid_set_val(ninfo->nd_node_uuid);
+    Platform::plf_svc_uuid_from_node(base, &svc, type);
+
+    data.svc_id.svc_uuid.svc_uuid = svc.uuid_get_val();
+    data.svc_id.svc_name.assign(ninfo->nd_assign_name);
+    data.svc_auto_name.assign(ninfo->nd_auto_name);
+
+    data.svc_status = SVC_STATUS_ACTIVE;
+    data.svc_type   = type;
+    data.svc_port   = Platform::plf_svc_port_from_node(ninfo->nd_base_port, type);
+
+    out->node_svc_list.push_back(data);
+}
 
 // agent_rpc
 // ---------
@@ -1017,6 +1085,36 @@ DomainContainer::dc_unregister_agent(const NodeUuid &uuid, FdspNodeType type)
         }
     }
     return Error(ERR_NOT_FOUND);
+}
+
+class NodeSvcIter : public ResourceIter
+{
+  public:
+    explicit NodeSvcIter(fpi::DomainNodes &ret) : iter_ret(ret) {}
+
+    bool rs_iter_fn(Resource::pointer curr)
+    {
+        PmAgent::pointer pm;
+        fpi::NodeSvcInfo info;
+
+        pm = agt_cast_ptr<PmAgent>(curr);
+        pm->agent_svc_info(&info);
+        iter_ret.dom_nodes.push_back(info);
+        return true;
+    }
+
+  protected:
+    fpi::DomainNodes        &iter_ret;
+};
+
+// dc_node_svc_info
+// ----------------
+//
+void
+DomainContainer::dc_node_svc_info(fpi::DomainNodes &ret)
+{
+    NodeSvcIter iter(ret);
+    dc_foreach_pm(&iter);
 }
 
 }  // namespace fds

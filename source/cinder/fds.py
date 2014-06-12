@@ -134,11 +134,13 @@ class FDSBlockVolumeDriver(driver.VolumeDriver):
         for i in xrange(1, 3):
             for i in xrange(0, 16):
                 devName = '/dev/nbd' + str(i)
+                if devName in self.attached_devices.values():
+                    continue
+
                 try:
-                    # nbd_client needs to go in cinder-rootwrap config
-                    self._execute('nbd-client', '-c', devName, run_as_root=True)
+                    # self._execute('nbd-client', '-c', devName, run_as_root=True)
                     self._execute('nbd-client', '-N', name, self.configuration.fds_nbd_server, devName, '-b', '4096',
-                              run_as_root=True)
+                                  run_as_root=True)
                     self.attached_devices[name] = devName
                     return devName
 
@@ -150,8 +152,9 @@ class FDSBlockVolumeDriver(driver.VolumeDriver):
 
 
     def _detach_fds_block_dev(self, fds, name):
-        self._execute('nbd-client', '-d', self.attached_devices[name])
-        del self.attached_devices[name]
+	if name in self.attached_devices:
+       	    self._execute('nbd-client', '-d', self.attached_devices[name], run_as_root=True)
+            del self.attached_devices[name]
 
     @contextmanager
     def _use_block_device(self, fds, name):
@@ -167,7 +170,8 @@ class FDSBlockVolumeDriver(driver.VolumeDriver):
 
     def create_volume(self, volume):
         with self._get_services() as fds:
-            fds.cs.createVolume(self.fds_domain, volume['name'], VolumeSettings(4096, VolumeType.BLOCK))
+            fds.cs.createVolume(self.fds_domain, volume['name'], VolumeSettings(4096, VolumeType.BLOCK, volume['size']))
+
 
     def delete_volume(self, volume):
         with self._get_services() as fds:
@@ -231,4 +235,5 @@ class FDSBlockVolumeDriver(driver.VolumeDriver):
                     image_service,
                     image_meta,
                     dev)
+
 

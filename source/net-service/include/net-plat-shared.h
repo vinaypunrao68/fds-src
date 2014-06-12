@@ -144,7 +144,7 @@ class NetPlatSvc : public NetPlatform
   protected:
     PlatNetEpPtr                         plat_ep;
     PlatNetPlugin::pointer               plat_ep_plugin;
-    bo::shared_ptr<NetPlatHandler>       plat_ep_hdler;
+    bo::shared_ptr<PlatNetSvcHandler>    plat_ep_hdler;
     DomainAgent::pointer                 plat_agent;
 };
 
@@ -152,30 +152,6 @@ class NetPlatSvc : public NetPlatform
  * Internal module vector providing network platform services.
  */
 extern NetPlatSvc            gl_NetPlatform;
-
-class NetPlatHandler : public PlatNetSvcHandler
-{
-  public:
-    virtual ~NetPlatHandler() {}
-    explicit NetPlatHandler(NetPlatSvc *svc)
-        : fpi::PlatNetSvcIf(), net_plat(svc) {}
-
-    // PlatNetSvcIf methods.
-    //
-    void allUuidBinding(const fpi::UuidBindMsg &mine) {}
-    void notifyNodeInfo(std::vector<fpi::NodeInfoMsg> &ret,
-                        const fpi::NodeInfoMsg &info, const bool bcast) {}
-    void notifyNodeUp(fpi::RespHdr &ret, const fpi::NodeInfoMsg &info) {}
-
-    void allUuidBinding(bo::shared_ptr<fpi::UuidBindMsg> &msg);
-    void notifyNodeInfo(std::vector<fpi::NodeInfoMsg>    &ret,
-                        bo::shared_ptr<fpi::NodeInfoMsg> &info,
-                        bo::shared_ptr<bool>             &bcast);
-    void notifyNodeUp(fpi::RespHdr &ret, bo::shared_ptr<fpi::NodeInfoMsg> &info);
-
-  protected:
-    NetPlatSvc              *net_plat;
-};
 
 }  // namespace fds
 #endif  // SOURCE_NET_SERVICE_INCLUDE_NET_PLAT_SHARED_H_

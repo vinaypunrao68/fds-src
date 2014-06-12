@@ -4,6 +4,7 @@
 #ifndef SOURCE_INCLUDE_PLATFORM_NODE_INVENTORY_H_
 #define SOURCE_INCLUDE_PLATFORM_NODE_INVENTORY_H_
 
+#include <vector>
 #include <string>
 #include <ostream>
 #include <boost/shared_ptr.hpp>
@@ -149,6 +150,7 @@ class NodeInventory : public Resource
     /**
      * Fill in the inventory for this agent based on data provided by the message.
      */
+    void svc_info_frm_shm(fpi::SvcInfo *svc) const;
     void node_info_frm_shm(struct node_data *out) const;
     void node_fill_shm_inv(const ShmObjRO *shm, int ro, int rw, FdspNodeType id);
     void node_fill_inventory(const FdspNodeRegPtr msg);
@@ -246,6 +248,7 @@ class PmAgent : public NodeAgent
 
     virtual ~PmAgent();
     virtual void agent_bind_ep();
+    virtual void agent_svc_info(fpi::NodeSvcInfo *out) const;
 
     PmAgent(const NodeUuid &uuid);
     boost::intrusive_ptr<PmSvcEp> agent_ep_svc();
@@ -258,6 +261,9 @@ class PmAgent : public NodeAgent
 
   protected:
     boost::intrusive_ptr<PmSvcEp>      pm_ep_svc;
+
+    void agent_svc_fillin(fpi::NodeSvcInfo *,
+                          const struct node_data *, fpi::FDSP_MgrIdType) const;
 };
 
 class SmAgent : public NodeAgent
@@ -602,6 +608,11 @@ class DomainContainer
      * Return the agent container matching with the node type.
      */
     AgentContainer::pointer dc_container_frm_msg(FdspNodeType node_type);
+
+    /**
+     * Get service info in all nodes connecting to this domain.
+     */
+    void dc_node_svc_info(fpi::DomainNodes &ret);
 
     /**
      * Domain iteration plugin

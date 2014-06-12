@@ -145,13 +145,17 @@ PlatformEpHandler::notifyNodeInfo(std::vector<fpi::NodeInfoMsg>    &ret,
     }
 }
 
-// notifyNodeUp
-// ------------
+// getDomainNodes
+// --------------
 //
 void
-PlatformEpHandler::notifyNodeUp(fpi::RespHdr &ret,
-                                bo::shared_ptr<fpi::NodeInfoMsg> &info)
+PlatformEpHandler::getDomainNodes(fpi::DomainNodes                 &ret,
+                                  bo::shared_ptr<fpi::DomainNodes> &dom)
 {
+    DomainNodeInv::pointer local;
+
+    local = Platform::platf_singleton()->plf_node_inventory();
+    local->dc_node_svc_info(ret);
 }
 
 }  // namespace fds

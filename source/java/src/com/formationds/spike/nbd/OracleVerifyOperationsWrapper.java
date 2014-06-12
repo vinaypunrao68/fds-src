@@ -1,4 +1,4 @@
-package com.formationds.spike;/*
+package com.formationds.spike.nbd;/*
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
@@ -11,14 +11,14 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
-public class ReadWriteVerifierOperations implements NbdServerOperations {
+public class OracleVerifyOperationsWrapper implements NbdServerOperations {
     private NbdServerOperations innerOperations;
-    private Map<String, RamOperations> ramOperationsMap;
+    private NbdServerOperations oracle;
 
-    public ReadWriteVerifierOperations(NbdServerOperations inner) {
+    public OracleVerifyOperationsWrapper(NbdServerOperations inner, NbdServerOperations oracle) {
 
         innerOperations = inner;
-        ramOperationsMap = new HashMap<String, RamOperations>();
+        this.oracle = oracle;
     }
 
     @Override
@@ -33,9 +33,8 @@ public class ReadWriteVerifierOperations implements NbdServerOperations {
 
     @Override
     public void read(String exportName, ByteBuf target, long offset, int len) throws Exception {
-        RamOperations ramOps = getRamOps(exportName);
         ByteBuf ramTarget = target.copy();
-        ramOps.read(exportName, ramTarget, offset, len);
+        oracle.read(exportName, ramTarget, offset, len);
 
         innerOperations.read(exportName, target, offset, len);
         ArrayList<Integer> differences = new ArrayList<>();
@@ -44,21 +43,16 @@ public class ReadWriteVerifierOperations implements NbdServerOperations {
                 if(target.getByte(i) != ramTarget.getByte(i))
                     differences.add(i);
             }
-        }
-    }
 
-    private RamOperations getRamOps(String exportName) {
-        if(!ramOperationsMap.containsKey(exportName)) {
-            ramOperationsMap.put(exportName, new RamOperations(exportName, (int)size(exportName)));
+            if(differences.size() > 0)
+                throw new Exception("read buffer does not match oracle");
         }
-        return ramOperationsMap.get(exportName);
     }
 
     @Override
     public void write(String exportName, ByteBuf source, long offset, int len) throws Exception {
-        RamOperations ramOps = getRamOps(exportName);
         ByteBuf ramSource = source.copy();
-        ramOps.write(exportName, ramSource, offset, len);
+        oracle.write(exportName, ramSource, offset, len);
         innerOperations.write(exportName, source, offset, len);
     }
 }

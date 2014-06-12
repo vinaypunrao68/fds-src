@@ -306,27 +306,4 @@ PlatNetPlugin::svc_down(EpSvc::pointer svc, EpSvcHandle::pointer handle)
 {
 }
 
-/*
- * -----------------------------------------------------------------------------------
- * RPC Handlers
- * -----------------------------------------------------------------------------------
- */
-void
-NetPlatHandler::allUuidBinding(bo::shared_ptr<fpi::UuidBindMsg> &msg)
-{
-    std::cout << "all uuidBind there" << std::endl;
-}
-
-void
-NetPlatHandler::notifyNodeInfo(std::vector<fpi::NodeInfoMsg>    &ret,
-                               bo::shared_ptr<fpi::NodeInfoMsg> &inf,
-                               bo::shared_ptr<bool>             &bcast)
-{
-}
-
-void
-NetPlatHandler::notifyNodeUp(fpi::RespHdr &ret, bo::shared_ptr<fpi::NodeInfoMsg> &info)
-{
-}
-
 }  // namespace fds

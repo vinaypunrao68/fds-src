@@ -24,7 +24,7 @@ public class CreateBucket implements RequestHandler {
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
         String bucketName = requiredString(routeParameters, "bucket");
         xdi.createVolume(S3Endpoint.FDS_S3, bucketName, new VolumeSettings(1024 * 1024 * 2,
-                                                                   VolumeType.OBJECT));
+                                                                   VolumeType.OBJECT, 0));
         return new TextResource("");
     }
 }

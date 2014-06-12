@@ -11,8 +11,22 @@
 #include <blob/BlobTypes.h>
 #include <lib/Catalog.h>
 #include <VolumeMeta.h>
+#include <serialize.h>
 
 namespace fds {
+
+class DmCommitLogEntry : public serialize::Serializable {
+  private:
+    BlobTxId::ptr txDesc;
+
+  public:
+    explicit DmCommitLogEntry(BlobTxId::ptr _desc);
+
+    fds_uint32_t write(serialize::Serializer*  s) const = 0;
+    fds_uint32_t read(serialize::Deserializer* d) = 0;
+};
+
+// class DmStartEntry : p
 
 /**
  * Manages pending DM catalog updates and commits. Used

@@ -131,10 +131,36 @@ struct NodeInfoMsg {
 }
 
 enum ServiceStatus {
-    SVC_STATUS_INVALID,
-    SVC_STATUS_ACTIVE,
-    SVC_STATUS_INACTIVE,
-    SVC_STATUS_IN_ERR
+    SVC_STATUS_INVALID      = 0x0000,
+    SVC_STATUS_ACTIVE       = 0x0001,
+    SVC_STATUS_INACTIVE     = 0x0002,
+    SVC_STATUS_IN_ERR       = 0x0004
+}
+
+/**
+ * Service map info
+ */
+struct SvcInfo {
+    1: required SvcID                    svc_id,
+    2: required i32                      svc_port,
+    3: required FDSP.FDSP_MgrIdType      svc_type,
+    4: required ServiceStatus            svc_status,
+    5: required string                   svc_auto_name,
+}
+
+struct NodeSvcInfo {
+    1: i32                               node_base_port,
+    2: string                            node_addr,
+    3: string                            node_auto_name,
+    4: FDSP.FDSP_NodeState               node_state;
+    5: i32                               node_svc_mask,
+    6: list<SvcInfo>                     node_svc_list,
+}
+
+struct DomainNodes {
+    1: required AsyncHdr                 dom_hdr,
+    2: required DomainID                 dom_id,
+    3: list<NodeSvcInfo>                 dom_nodes,
 }
 
 /*
@@ -152,7 +178,11 @@ service BaseAsyncSvc {
 service PlatNetSvc extends BaseAsyncSvc {
     oneway void allUuidBinding(1: UuidBindMsg mine),
     list<NodeInfoMsg> notifyNodeInfo(1: NodeInfoMsg info, 2: bool bcast),
-    RespHdr notifyNodeUp(1: NodeInfoMsg info)
+    DomainNodes getDomainNodes(1: DomainNodes dom),
+
+    // ServiceStatus getStatus(1: i32 nullarg),
+    // map<string, i64> getCounters(1: string id),
+    // void setConfigVal(1:string id, 2:i64 value )
     ServiceStatus getStatus(1: i32 nullarg),
     map<string, i64> getCounters(1: string id),
     void setConfigVal(1:string id, 2:i64 value )

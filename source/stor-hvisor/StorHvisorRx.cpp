@@ -93,17 +93,6 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) {
                     blobReq->isLastBuf());
                 fds_verify(err == ERR_OK);
 
-                // Add the blob's etag into the cache if it's set
-                std::string etag = blobReq->getEtag();
-                if (etag.empty() == false) {
-                    // TODO(Andrew): Remove this when etag moves
-                    // to updateMetadata path.
-                    // fds_verify(etag.size() == 32);
-                    err = vol->vol_catalog_cache->setBlobEtag(blobReq->getBlobName(),
-                                                              etag);
-                    fds_verify(err == ERR_OK);
-                }
-
                 // Mark the IO complete
                 qos_ctrl->markIODone(qosReq);
 
@@ -459,20 +448,6 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
         return;
     }
 
-    // Insert the blob's etag into the cache
-    FDS_ProtocolInterface::FDSP_MetaDataList blobMetaList = cat_obj_req->meta_list;
-    // fds_verify(blobMetaList.empty() == false);
-    for (FDS_ProtocolInterface::FDSP_MetaDataList::const_iterator it =
-                 blobMetaList.cbegin();
-         it != blobMetaList.cend();
-         it++) {
-        if ((*it).key == "etag") {
-            err = shvol->vol_catalog_cache->setBlobEtag(blobReq->getBlobName(),
-                                                        (*it).value);
-            break;
-        }
-    }
-    
     // Get the object ID from the cache
     ObjectID offsetObjId;
     err = shvol->vol_catalog_cache->Query(blobReq->getBlobName(),

@@ -318,7 +318,7 @@ FDS_NativeAPI::GetObject(BucketContextPtr bucket_ctxt,
                               callback_data);
 
     if (!blob_req) {
-        (getObjCallback)(bucket_ctxt, req_context, 0, startByte, NULL, 0, "",
+        (getObjCallback)(bucket_ctxt, req_context, 0, startByte, NULL,
                          callback_data, FDSN_StatusOutOfMemory, NULL);
         LOGERROR << "FDS_NativeAPI::GetObject bucket "
                  << bucket_ctxt->bucketName

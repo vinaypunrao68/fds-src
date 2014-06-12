@@ -4,7 +4,7 @@ package com.formationds.spike;
  */
 
 import FDS_ProtocolInterface.*;
-import com.formationds.fdsp.ClientFactory;
+import com.formationds.fdsp.LegacyClientFactory;
 import com.formationds.util.MyIp;
 import com.google.common.net.InetAddresses;
 
@@ -12,9 +12,9 @@ import java.net.InetAddress;
 import java.util.UUID;
 
 public class RegisterNode {
-    ClientFactory clientFactory;
+    LegacyClientFactory clientFactory;
 
-    public RegisterNode(ClientFactory clientFactory) {
+    public RegisterNode(LegacyClientFactory clientFactory) {
         this.clientFactory = clientFactory;
     }
 

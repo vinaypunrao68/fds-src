@@ -19,6 +19,15 @@ import java.util.Properties;
 public class Configuration {
     Properties properties = new Properties();
     private File fdsRoot;
+    private static final String[] LOGLEVELS = new String[] {
+            "TRACE",
+            "DEBUG",
+            "INFO",
+            "WARN",
+            "ERROR",
+            "FATAL",
+            "FATAL"
+    };
 
     public Configuration(String commandName, String[] commandLineArgs) throws Exception {
         OptionParser parser = new OptionParser();
@@ -32,30 +41,29 @@ public class Configuration {
             fdsRoot = new File("/fds");
         }
 
+        int logLevel = getPlatformConfig().defaultInt("fds.plat.log_severity", 0);
+
         if (options.has("console")) {
-            initConsoleLogging();
+            initConsoleLogging(LOGLEVELS[logLevel]);
         } else {
-            initFileLogging(commandName, fdsRoot);
+            initFileLogging(commandName, fdsRoot, LOGLEVELS[logLevel]);
         }
+
         initJaas(fdsRoot);
     }
 
-    private void initConsoleLogging() {
-        properties.put("log4j.rootCategory", "INFO, console");
+    private void initConsoleLogging(String loglevel) {
+        properties.put("log4j.rootCategory", "FATAL, console");
         properties.put("log4j.appender.console", "org.apache.log4j.ConsoleAppender");
         properties.put("log4j.appender.console.layout", "org.apache.log4j.PatternLayout");
         properties.put("log4j.appender.console.layout.ConversionPattern", "%-4r [%t] %-5p %c %x - %m%n");
-        properties.put("log4j.logger.org.hibernate", "WARN");
-        properties.put("log4j.logger.com.mchange", "WARN");
-        properties.put("log4j.logger.com.formationds", "DEBUG");
-        properties.put("log4j.logger.org.jetty", "INFO");
-        properties.put("log4j.logger.org.apache.thrift", "DEBUG");
+        properties.put("log4j.logger.com.formationds", loglevel);
         PropertyConfigurator.configure(properties);
     }
 
-    private void initFileLogging(String commandName, File fdsRoot) {
+    private void initFileLogging(String commandName, File fdsRoot, String loglevel) {
         Path logPath = Paths.get(fdsRoot.getAbsolutePath(), "var", "logs", commandName + ".log").toAbsolutePath();
-        properties.put("log4j.rootLogger", "INFO, rolling");
+        properties.put("log4j.rootLogger", "FATAL, rolling");
         properties.put("log4j.appender.rolling", "org.apache.log4j.RollingFileAppender");
         properties.put("log4j.appender.rolling.File", logPath.toString());
         properties.put("log4j.appender.rolling.MaxFileSize", "5120KB");
@@ -63,12 +71,7 @@ public class Configuration {
         properties.put("log4j.appender.rolling.layout", "org.apache.log4j.PatternLayout");
         properties.put("log4j.appender.rolling.layout.ConversionPattern", "[%t] %-5p %l - %m%n");
         properties.put("log4j.appender.rolling.layout.ConversionPattern", "%d{ISO8601} - %p %c - %m%n");
-        properties.put("log4j.logger.org.hibernate", "WARN");
-        properties.put("log4j.logger.com.mchange", "WARN");
-        properties.put("log4j.logger.org.jetty", "INFO");
-        properties.put("log4j.logger.org.apache.thrift", "WARN");
-        properties.put("log4j.logger.com.formationds", "DEBUG");
-        properties.put("log4j.logger.com.amazonaws", "DEBUG");
+        properties.put("log4j.logger.com.formationds", loglevel);
         PropertyConfigurator.configure(properties);
     }
 

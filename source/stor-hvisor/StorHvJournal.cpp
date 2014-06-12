@@ -198,6 +198,7 @@ StorHvJournalEntry::resumeTransaction(void) {
     switch (op) {
         case FDS_PUT_BLOB:
         case FDS_IO_WRITE:
+            LOGDEBUG << "Resuming putBlob op ID " << trans_id;
             err = storHvisor->resumePutBlob(this);
             break;
             // case FDS_GET_BLOB:

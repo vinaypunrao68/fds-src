@@ -28,7 +28,7 @@ void getFDSPCreateVolRequest(fpi::FDSP_MsgHdrTypePtr& header,
     request->vol_info.globDomainId = 0;
 
     // Volume capacity is in MB
-    request->vol_info.capacity = (1024*10);  // for now presetting to 10GB
+    request->vol_info.capacity = volSettings.blockDeviceSizeInBytes / (1024 * 1024);
     request->vol_info.maxQuota = 0;
     request->vol_info.maxObjSizeInBytes =
             volSettings.maxObjectSizeInBytes;
@@ -78,8 +78,10 @@ void getFDSPDeleteVolRequest(fpi::FDSP_MsgHdrTypePtr& header,
 void getVolumeDescriptor(apis::VolumeDescriptor& volDescriptor, VolumeInfo::pointer vol) {
     volDescriptor.name = vol->vol_get_name();
     VolumeDesc* volDesc = vol->vol_get_properties();
+
     switch (volDesc->volType) {
         case fpi::FDSP_VOL_BLKDEV_TYPE:
+            volDescriptor.policy.blockDeviceSizeInBytes = volDesc->capacity * (1024 * 1024);
             volDescriptor.policy.volumeType = apis::BLOCK;
             break;
         default:
