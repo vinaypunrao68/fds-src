@@ -4,7 +4,7 @@ package com.formationds.spike.om;
  */
 
 import FDS_ProtocolInterface.*;
-import com.formationds.fdsp.ClientFactory;
+import com.formationds.fdsp.LegacyClientFactory;
 import com.formationds.spike.ServiceDirectory;
 import org.apache.thrift.TException;
 
@@ -12,9 +12,9 @@ import java.util.List;
 
 public class OmConfigPath implements FDSP_ConfigPathReq.Iface {
     private ServiceDirectory serviceDirectory;
-    private ClientFactory controlClientFactory;
+    private LegacyClientFactory controlClientFactory;
 
-    public OmConfigPath(ServiceDirectory serviceDirectory, ClientFactory clientFactory) {
+    public OmConfigPath(ServiceDirectory serviceDirectory, LegacyClientFactory clientFactory) {
         this.serviceDirectory = serviceDirectory;
         this.controlClientFactory = clientFactory;
     }

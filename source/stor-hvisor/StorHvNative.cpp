@@ -26,26 +26,7 @@ FDS_NativeAPI::~FDS_NativeAPI() {
 
 void FDS_NativeAPI::initVolInfo(FDSP_VolumeInfoTypePtr vol_info,
                                 const std::string& bucket_name) {
-    vol_info->vol_name = std::string(bucket_name);
-    vol_info->tennantId = 0;
-    vol_info->localDomainId = 0;
-    vol_info->globDomainId = 0;
-
-    // Volume capacity is in MB
-    vol_info->capacity = (1024*10);  // for now presetting to 10GB
-    vol_info->maxQuota = 0;
-    vol_info->volType = FDSP_VOL_S3_TYPE;
-
-    vol_info->defReplicaCnt = 0;
-    vol_info->defWriteQuorum = 0;
-    vol_info->defReadQuorum = 0;
-    vol_info->defConsisProtocol = FDSP_CONS_PROTO_STRONG;
-
-    vol_info->volPolicyId = 50;  // default S3 policy desc ID
-    vol_info->archivePolicyId = 0;
-    vol_info->placementPolicy = 0;
-    vol_info->appWorkload = FDSP_APP_WKLD_TRANSACTION;
-    vol_info->mediaPolicy = FDSP_MEDIA_POLICY_HDD;
+    storHvisor->initVolInfo(vol_info, bucket_name);
 }
 
 void FDS_NativeAPI::initVolDesc(FDSP_VolumeDescTypePtr vol_desc,
@@ -305,8 +286,9 @@ FDS_NativeAPI::GetObject(BucketContextPtr bucket_ctxt,
     fds_volid_t volid = invalid_vol_id;
     fds_uint64_t start, end;
     FdsBlobReq *blob_req = NULL;
-    LOGNORMAL << "FDS_NativeAPI::GetObject bucket " << bucket_ctxt->bucketName
-              << " objKey " << ObjKey;
+    LOGNORMAL << "FDS_NativeAPI::GetObject for volume " << bucket_ctxt->bucketName
+              << ", blob " << ObjKey << " of size " << byteCount << " at offset "
+              << startByte;
 
     /* check if bucket is attached to this AM */
     start = fds_rdtsc();
@@ -336,7 +318,7 @@ FDS_NativeAPI::GetObject(BucketContextPtr bucket_ctxt,
                               callback_data);
 
     if (!blob_req) {
-        (getObjCallback)(bucket_ctxt, req_context, 0, startByte, NULL, 0, "",
+        (getObjCallback)(bucket_ctxt, req_context, 0, startByte, NULL,
                          callback_data, FDSN_StatusOutOfMemory, NULL);
         LOGERROR << "FDS_NativeAPI::GetObject bucket "
                  << bucket_ctxt->bucketName
@@ -375,26 +357,66 @@ FDS_NativeAPI::GetObject(BucketContextPtr bucket_ctxt,
     }
 }
 
-void FDS_NativeAPI::PutObject(BucketContext *bucket_ctxt,
-                              std::string ObjKey,
-                              PutPropertiesPtr put_properties,
-                              void *req_context,
-                              char *buffer,
-                              fds_uint64_t startByte,
-                              fds_uint64_t buflen,
-                              fds_bool_t lastBuf,
-                              fdsnPutObjectHandler putObjHandler,
-                              void *callback_data) {
-    Error err(ERR_OK);
-    fds_volid_t volid = invalid_vol_id;
-    FdsBlobReq *blob_req = NULL;
-    LOGNORMAL << "bucket: " << bucket_ctxt->bucketName
-              << " objKey: " << ObjKey
-              << " startByte:" << startByte
-              << " buffer-len: " << buflen
-              << " last buffer: " << std::boolalpha << lastBuf;
+void
+FDS_NativeAPI::attachVolume(const std::string& volumeName,
+                            CallbackPtr cb) {
+    LOGDEBUG << "Attach request for volume " << volumeName;
 
     // check if bucket is attached to this AM
+    fds_volid_t volId = invalid_vol_id;
+    if (storHvisor->vol_table->volumeExists(volumeName)) {
+        volId = storHvisor->vol_table->getVolumeUUID(volumeName);
+        fds_verify(volId != invalid_vol_id);
+        LOGDEBUG << "Volume " << volumeName
+                 << " with UUID " << volId
+                 << " already attached";
+        cb->call(FDSN_StatusOK);
+    }
+    // Make sure the volume isn't attached already
+    fds_verify(volId == invalid_vol_id);
+
+    AttachVolBlobReq *blobReq =
+            new AttachVolBlobReq(volId,
+                                 volumeName,
+                                 "",  // No blob name
+                                 0,  // No blob offset
+                                 0,  // No data length
+                                 NULL,  // No buffer
+                                 cb);
+    fds_verify(blobReq != NULL);
+
+    // Enqueue this request to process the callback
+    // when the attach is complete
+    storHvisor->vol_table->addBlobToWaitQueue(volumeName, blobReq);
+
+    Error err = sendTestBucketToOM(volumeName,
+                                   "",  // The access key isn't used
+                                   ""); // The secret key isn't used
+    // Make sure we were able to send async OM message
+    fds_verify(err == ERR_OK);
+}
+
+void
+FDS_NativeAPI::PutBlob(BucketContext *bucket_ctxt,
+                       std::string ObjKey,
+                       PutPropertiesPtr put_properties,
+                       void *req_context,
+                       char *buffer,
+                       fds_uint64_t startByte,
+                       fds_uint64_t buflen,
+                       BlobTxId::ptr txDesc,
+                       fds_bool_t lastBuf,
+                       fdsnPutObjectHandler putObjHandler,
+                       void *callback_data) {
+    Error err(ERR_OK);
+    LOGDEBUG << "Start putBlob for volume " << bucket_ctxt->bucketName
+             << " blob " << ObjKey
+             << " offset " << startByte
+             << " length " << buflen
+             << " tx " << *txDesc;
+
+    // check if bucket is attached to this AM
+    fds_volid_t volid = invalid_vol_id;
     if (storHvisor->vol_table->volumeExists(bucket_ctxt->bucketName)) {
         volid = storHvisor->vol_table->getVolumeUUID(bucket_ctxt->bucketName);
         fds_verify(volid != invalid_vol_id);
@@ -405,26 +427,18 @@ void FDS_NativeAPI::PutObject(BucketContext *bucket_ctxt,
     // after we put a request to the wait queue and not before!
 
     /* create request */
-    blob_req = new PutBlobReq(volid,
-                              ObjKey,
-                              startByte,
-                              buflen,
-                              buffer,
-                              lastBuf,
-                              bucket_ctxt,
-                              put_properties,
-                              req_context,
-                              putObjHandler,
-                              callback_data);
-
-    if (!blob_req) {
-        (putObjHandler)(req_context, 0, 0, NULL, callback_data, FDSN_StatusOutOfMemory, NULL); //NOLINT
-        LOGERROR << "FDS_NativeAPI::PutObject bucket "
-                 << bucket_ctxt->bucketName
-                 << " objKey " << ObjKey
-                 << " -- failed to allocate PutBlobReq";
-        return;
-    }
+    FdsBlobReq *blob_req = new PutBlobReq(volid,
+                                          ObjKey,
+                                          startByte,
+                                          buflen,
+                                          buffer,
+                                          txDesc,
+                                          lastBuf,
+                                          bucket_ctxt,
+                                          put_properties,
+                                          req_context,
+                                          putObjHandler,
+                                          callback_data);
 
     if (volid != invalid_vol_id) {
         /* bucket is already attached to this AM, enqueue IO */
@@ -598,7 +612,7 @@ void FDS_NativeAPI::DoCallback(FdsBlobReq  *blob_req,
             static_cast<BucketStatsReq*>(blob_req)->DoCallback("", 0, NULL, status, NULL);
             break;
         default:
-            break;
+            fds_panic("Unknown blob request type!");
     };
 }
 
@@ -611,53 +625,136 @@ void FDS_NativeAPI::DoCallback(FdsBlobReq  *blob_req,
 Error FDS_NativeAPI::sendTestBucketToOM(const std::string& bucket_name,
                                         const std::string& access_key_id,
                                         const std::string& secret_access_key) {
-    Error err(ERR_OK);
-    int om_err = 0;
-    LOGNORMAL << "FDS_NativeAPI::testBucketInternal bucket " << bucket_name;
-
-    // send test bucket message to OM
-    FDSP_VolumeInfoTypePtr vol_info(new FDSP_VolumeInfoType());
-    initVolInfo(vol_info, bucket_name);
-    om_err = storHvisor->om_client->testBucket(bucket_name,
-                                               vol_info,
-                                               true,
-                                               access_key_id,
-                                               secret_access_key);
-
-    if (om_err != 0) {
-        err = Error(ERR_INVALID_ARG);
-    }
-    return err;
+    return storHvisor->sendTestBucketToOM(bucket_name, access_key_id, secret_access_key);
 }
 
-void FDS_NativeAPI::StatBlob(const std::string& volumeName, const std::string& blobName,
-                             native::StatBlobCallbackPtr cb) {
+void
+FDS_NativeAPI::StartBlobTx(const std::string& volumeName,
+                           const std::string& blobName,
+                           CallbackPtr cb) {
     fds_volid_t volId = invalid_vol_id;
-    LOGNORMAL << " volume: " << volumeName
-              << " blobName " << blobName;
+    LOGDEBUG << "Start blob tx for volume " << volumeName
+             << ", blobName " << blobName;
 
-    native::ScopedCallBack(cb.get());
     // check if bucket is attached to this AM
     if (storHvisor->vol_table->volumeExists(volumeName)) {
         volId = storHvisor->vol_table->getVolumeUUID(volumeName);
         fds_verify(volId != invalid_vol_id);
-    } else {
-        LOGERROR << "bucket should be here.. but missing : " << volumeName;
-        cb->status = FDSN_StatusErrorBucketNotExists;
+    }
+
+    FdsBlobReq *blobReq = NULL;
+    blobReq = new StartBlobTxReq(volId,
+                                 volumeName,
+                                 blobName,
+                                 0,  // No blob offset
+                                 0,  // No data length
+                                 NULL,  // No buffer
+                                 cb);
+    fds_verify(blobReq != NULL);
+
+    // Push the request if we have the vol already
+    if (volId != invalid_vol_id) {
+        storHvisor->pushBlobReq(blobReq);
         return;
+    } else {
+        // If we don't have the volume, queue up the request
+        // until we get it
+        // TODO(Andrew): Will this time out? What if it fails?
+        storHvisor->vol_table->addBlobToWaitQueue(volumeName, blobReq);
     }
 
-    StorHvVolume* vol = storHvisor->vol_table->getVolume(volId);
-    fds_verify(vol != NULL);
-    fds_uint64_t blobSize;
-    Error err = vol->vol_catalog_cache->getBlobSize(blobName, &blobSize);
-
-    if (err == ERR_OK) {
-        cb->status = FDSN_StatusOK;
-        cb->blobSize = blobSize;
-        LOGDEBUG << " blobsize: " << blobSize
-                 << " blobname: " << blobName;
-    }
+    // if we are here, bucket is not attached to this AM, send test bucket msg to OM
+    Error err = sendTestBucketToOM(volumeName,
+                                   "",  // The access key isn't used
+                                   ""); // The secret key isn't used
+    fds_verify(err == ERR_OK);
 }
 
+void FDS_NativeAPI::StatBlob(const std::string& volumeName,
+                             const std::string& blobName,
+                             CallbackPtr cb) {
+    fds_volid_t volId = invalid_vol_id;
+    LOGDEBUG << "AM service stating volume: " << volumeName
+              << ", blob: " << blobName;
+
+    // check if bucket is attached to this AM
+    if (storHvisor->vol_table->volumeExists(volumeName)) {
+        volId = storHvisor->vol_table->getVolumeUUID(volumeName);
+        fds_verify(volId != invalid_vol_id);
+    }
+
+    FdsBlobReq *blobReq = NULL;
+    blobReq = new StatBlobReq(volId,
+                              volumeName,
+                              blobName,
+                              0,  // No blob offset
+                              0,  // No data length
+                              NULL,  // No buffer
+                              cb);
+    fds_verify(blobReq != NULL);
+
+    // Push the request if we have the vol already
+    if (volId != invalid_vol_id) {
+        storHvisor->pushBlobReq(blobReq);
+        return;
+    } else {
+        // If we don't have the volume, queue up the request
+        // until we get it
+        // TODO(Andrew): Will this time out? What if it fails?
+        storHvisor->vol_table->addBlobToWaitQueue(volumeName, blobReq);
+    }
+
+    // if we are here, bucket is not attached to this AM, send test bucket msg to OM
+    Error err = sendTestBucketToOM(volumeName,
+                                   "",  // The access key isn't used
+                                   "");  // The secret key isn't used
+    fds_verify(err == ERR_OK);
+}
+
+void FDS_NativeAPI::setBlobMetaData(const std::string& volumeName,
+                                    const std::string& blobName,
+                                    boost::shared_ptr<fpi::FDSP_MetaDataList>& metaDataList,
+                                    CallbackPtr cb) {
+    fds_volid_t volId = invalid_vol_id;
+    LOGDEBUG << "volume: " << volumeName
+             << "blob: " << blobName;
+
+    // check if bucket is attached to this AM
+    if (storHvisor->vol_table->volumeExists(volumeName)) {
+        volId = storHvisor->vol_table->getVolumeUUID(volumeName);
+        fds_verify(volId != invalid_vol_id);
+    }
+
+    for (auto& meta : *metaDataList) {
+        LOGDEBUG << "will send meta  [" << meta.key <<":" << meta.value << "]";
+    }
+    LOGDEBUG << "ready to send some meta to be updated..";
+
+    FdsBlobReq *blobReq = NULL;
+    blobReq = new SetBlobMetaDataReq(volId,
+                                     volumeName,
+                                     blobName,
+                                     metaDataList,
+                                     cb);
+
+    // Push the request if we have the vol already
+    if (volId != invalid_vol_id) {
+        storHvisor->pushBlobReq(blobReq);
+        return;
+    } else {
+        // If we don't have the volume, queue up the request
+        storHvisor->vol_table->addBlobToWaitQueue(volumeName, blobReq);
+    }
+
+    // if we are here, bucket is not attached to this AM, send test bucket msg to OM
+    Error err = sendTestBucketToOM(volumeName,
+                                   "",  // The access key isn't used
+                                   "");  // The secret key isn't used
+    fds_verify(err == ERR_OK);
+}
+
+void FDS_NativeAPI::GetVolumeMetaData(const std::string& volumeName, CallbackPtr cb) {
+    Error err = storHvisor->handlerGetVolumeMetaData->handleRequest(volumeName, cb);
+    fds_verify(err.ok());
+}
 }  // namespace fds

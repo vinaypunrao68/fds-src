@@ -7,7 +7,7 @@
 
 #include <sstream>
 #include <string>
-#include <fds_types.h>
+#include <shared/fds_types.h>
 #include <fdsp/FDSP_types.h>
 
 namespace fds {
@@ -110,6 +110,9 @@ namespace fds {
         FDSN_StatusOK                                              ,
         FDSN_StatusCreated                                         ,
 
+        /* do denote uninitialized value*/
+        FDSN_StatusNOTSET                                          ,
+
         /**
          * Errors that prevent the S3 request from being issued or response from
          * being read
@@ -117,6 +120,7 @@ namespace fds {
         FDSN_StatusInternalError                                   ,
         FDSN_StatusOutOfMemory                                     ,
         FDSN_StatusInterrupted                                     ,
+        FDSN_StatusTxnInProgress                                   ,
         FDSN_StatusInvalidBucketNameTooLong                        ,
         FDSN_StatusInvalidBucketNameFirstCharacter                 ,
         FDSN_StatusInvalidBucketNameCharacter                      ,

@@ -131,11 +131,13 @@ std::ostream& operator<<(std::ostream& out, const Error& err) {
 
 std::ostream& operator<<(std::ostream& os, FDSN_Status status) {
     switch (status) {
+        ENUMCASEOS(FDSN_StatusNOTSET                             , os);
         ENUMCASEOS(FDSN_StatusOK                                 , os);
         ENUMCASEOS(FDSN_StatusCreated                            , os);
         ENUMCASEOS(FDSN_StatusInternalError                      , os);
         ENUMCASEOS(FDSN_StatusOutOfMemory                        , os);
         ENUMCASEOS(FDSN_StatusInterrupted                        , os);
+        ENUMCASEOS(FDSN_StatusTxnInProgress                      , os);
         ENUMCASEOS(FDSN_StatusInvalidBucketNameTooLong           , os);
         ENUMCASEOS(FDSN_StatusInvalidBucketNameFirstCharacter    , os);
         ENUMCASEOS(FDSN_StatusInvalidBucketNameCharacter         , os);
@@ -204,11 +206,13 @@ std::ostream& operator<<(std::ostream& os, FDSN_Status status) {
 
 std::string toString(FDSN_Status status) {
     switch (status) {
+        ENUMCASE(FDSN_StatusNOTSET);
         ENUMCASE(FDSN_StatusOK);
         ENUMCASE(FDSN_StatusCreated);
         ENUMCASE(FDSN_StatusInternalError);
         ENUMCASE(FDSN_StatusOutOfMemory);
         ENUMCASE(FDSN_StatusInterrupted);
+        ENUMCASE(FDSN_StatusTxnInProgress);
         ENUMCASE(FDSN_StatusInvalidBucketNameTooLong);
         ENUMCASE(FDSN_StatusInvalidBucketNameFirstCharacter);
         ENUMCASE(FDSN_StatusInvalidBucketNameCharacter);

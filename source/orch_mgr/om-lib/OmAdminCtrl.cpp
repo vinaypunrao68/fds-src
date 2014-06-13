@@ -141,6 +141,16 @@ Error FdsAdminCtrl::volAdminControl(VolumeDesc  *pVolDesc)
     double vol_capacity_GB = pVolDesc->capacity / 1024;
     fds_uint32_t replication_factor = REPLICATION_FACTOR;
 
+    // Check max object size
+    if ((pVolDesc->maxObjSizeInBytes < minVolObjSize) ||
+        ((pVolDesc->maxObjSizeInBytes % minVolObjSize) != 0)) {
+        // We expect the max object size to be at least some min size
+        // and a multiple of that size
+        LOGERROR << "Invalid maximum object size of " << pVolDesc->maxObjSizeInBytes
+                 << ", the minimum size is " << minVolObjSize;
+        return Error(ERR_VOL_ADMISSION_FAILED);
+    }
+
     fds_verify(replication_factor != 0);  // make sure REPLICATION_FACTOR > 0
     if (replication_factor > num_nodes) {
         // we will access at most num_nodes nodes

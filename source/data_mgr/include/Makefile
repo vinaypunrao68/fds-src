@@ -9,7 +9,6 @@ user_no_style  := \
         data_mgr_pvt.h           \
         data_mgr_transactions.h  \
         dm-platform.h            \
-        VolumeMeta.h             \
         dm.h                     \
         DmIoReq.h                     
 

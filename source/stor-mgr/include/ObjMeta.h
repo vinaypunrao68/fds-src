@@ -30,7 +30,7 @@
 #include <fds_qos.h>
 #include <fds_assert.h>
 #include <fds_config.hpp>
-#include <fds_stopwatch.h>
+#include <util/timeutils.h>
 
 #include <ObjStats.h>
 #include <serialize.h>

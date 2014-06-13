@@ -26,7 +26,7 @@ toolchain_nginx_incl += -I$(toolchain_nginx)/objs
 tool_thrift          := $(toolchain_bin)/thrift
 toolchain_thrf       := $(topdir)/../thrift-0.9.0
 toolchain_thrf_incl  := -I$(toolchain_thrf)/lib/cpp/src
-toolchain_thrf_opts  := --gen cpp:pure_enums --allow-64bit-consts
+toolchain_thrf_opts  := $(user_thrift_flag)
 
 ifdef user_thrift_loc
 toolchain_thrf_opts  += -out $(user_thrift_loc)
@@ -45,43 +45,43 @@ toolchain_ldb_lib    := $(toolchain_ldb)
 
 # Libconfig settings.
 #
-toolchain_libconfig        := $(topdir)/../libconfig-1.4.9
-toolchain_libconfig_incl   := $(toolchain_libconfig)/lib
+toolchain_libconfig       := $(topdir)/../libconfig-1.4.9
+toolchain_libconfig_incl  := $(toolchain_libconfig)/lib
 
 # Jansson settings.
 #
-toolchain_jansson          := $(topdir)/../jansson-2.5
-toolchain_jansson_incl     := -I$(toolchain_jansson)/src
+toolchain_jansson         := $(topdir)/../jansson-2.5
+toolchain_jansson_incl    := -I$(toolchain_jansson)/src
 
 # Redis settings
 #
-toolchain_hiredis            := $(topdir)/../hiredis
-toolchain_hiredis_incl       := -I$(toolchain_hiredis)/
+toolchain_hiredis         := $(topdir)/../hiredis
+toolchain_hiredis_incl    := -I$(toolchain_hiredis)/
 
 # Redis settings
 #
-toolchain_cmdconsole            := $(topdir)/../cmdconsole
-toolchain_cmdconsole_incl       := -I$(toolchain_cmdconsole)/
+toolchain_cmdconsole      := $(topdir)/../cmdconsole
+toolchain_cmdconsole_incl := -I$(toolchain_cmdconsole)/
 
 ## Cryptopp settings
 #
-toolchain_cryptopp         := $(topdir)/../cryptopp
-toolchain_cryptopp_incl    := -I$(toolchain_cryptopp)
+toolchain_cryptopp        := $(topdir)/../cryptopp
+toolchain_cryptopp_incl   := -I$(toolchain_cryptopp)
 
 ## gmock settings
 #
-toolchain_gmock            := $(topdir)/../gmock-1.7.0
-toolchain_gmock_incl       := -I$(toolchain_gmock)/gtest/include -I$(toolchain_gmock)/include
-toolchain_gmock_lib        := -L$(toolchain_gmock)
+toolchain_gmock        := $(topdir)/../gmock-1.7.0
+toolchain_gmock_incl   := -I$(toolchain_gmock)/gtest/include -I$(toolchain_gmock)/include
+toolchain_gmock_lib    := -L$(toolchain_gmock)
 
 ## Python binding settings
 #
 ifdef user_python
 local_python_lib           := $(shell python-config --ldflags)
 toolchain_python_bind_lib  := $(local_python_lib)
-local_python_cpp           := $(shell python-config --cflags | \
-                                sed 's/-Wstrict-prototypes//' | \
-								sed 's/-O2//')
+local_python_cpp           := \
+	$(shell python-config --cflags | sed 's/-Wstrict-prototypes//' | sed 's/-O2//')
+
 toolchain_python_bind_incl := $(local_python_cpp)
 endif
 

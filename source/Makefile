@@ -6,15 +6,15 @@ topdir         := .
 #
 user_build_dir :=                       \
     fdsp                                \
-    xdi                                 \
+    apis                                \
     include                             \
     osdep                               \
     net-proxies                         \
     umod-lib                            \
     util                                \
     lib                                 \
-    am-engine                           \
     fds-probe                           \
+    am-engine                           \
     persistent_layer                    \
     platform                            \
     stor-hvisor                         \
@@ -25,6 +25,7 @@ user_build_dir :=                       \
     am-app                              \
     tools                               \
     java                                \
+    unit-test                           \
     checker                             
 
 include $(topdir)/Makefile.incl

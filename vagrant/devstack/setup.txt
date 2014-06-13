@@ -1,0 +1,22 @@
+1. Get vagrant - go to https://www.vagrantup.com/downloads.html and get the latest - you may also need a more recent version of VirtualBox than what ships with ubuntu 13.10
+$ dpkg -i vagrant_1.6.2_x86_64.deb
+
+2. while in this directory bring up the vagrant machine
+~/fds-src/vagrant/devstack$ vagrant up
+
+3. SSH into the vagrant box
+~/fds-src/vagrant/devstack$ vagrant ssh
+
+4. If this is the first time running this vagrant box, use the setup to get devstack and its dependencies from github - during this it will ask you to configure the mysql root password - I suggest you use 'stackdb' (without quotes) as your password
+$ /vagrant/install_deps.sh
+
+5. (optional). A devstack configuration file (local.conf) is in the vagrant directory which is mapped to vagrant which has the networking already set up.  
+$ cp /vagrant/local.conf ~/devstack/local.conf
+
+6. Run stack.sh to bring up devstack, it takes a while - get coffee
+~/devstack$ ./stack.sh
+
+The administration interface should be available at http://192.168.83.10/
+The password is in the local.conf (or set when you launch stach.sh if you aren't using local.conf)
+
+This fds-src dir on the host machine is mounted to /fds-src

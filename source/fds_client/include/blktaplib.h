@@ -46,8 +46,7 @@
 #define XC_PAGE_MASK            (~(XC_PAGE_SIZE-1))
 
 
-#define BLKTAP_RING_PAGES       2 /* Front */
-#define BLK_RING_SIZE __CONST_RING_SIZE(blkif, (XC_PAGE_SIZE * BLKTAP_RING_PAGES))
+#define BLK_RING_SIZE __CONST_RING_SIZE(blkif, XC_PAGE_SIZE)
 
 /* size of the extra VMA area to map in attached pages. */
 #define BLKTAP_VMA_PAGES BLK_RING_SIZE
@@ -95,6 +94,7 @@ static inline int BLKTAP_MODE_VALID(unsigned long arg)
 
 extern int blktap_major;
 
+#define BLKTAP_RING_PAGES       1 /* Front */
 #define BLKTAP_MMAP_REGION_SIZE (BLKTAP_RING_PAGES + MMAP_PAGES)
 
 struct blkif;

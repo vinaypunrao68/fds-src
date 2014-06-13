@@ -17,7 +17,7 @@ cd $files_dir
 flist=`ls`
 
 # Create bucket
-#curl -v -X POST http://$ip:8000/$bucket
+#curl -v -X PUT http://$ip:8000/$bucket
 
 # Post images
 for f in $flist; do

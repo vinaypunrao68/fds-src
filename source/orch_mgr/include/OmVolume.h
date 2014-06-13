@@ -361,6 +361,8 @@ class VolumeContainer : public RsContainer
     virtual void om_test_bucket(const FdspMsgHdrPtr     &hdr,
                                 const FdspTestBucketPtr &req);
 
+    virtual Error getVolumeStatus(const std::string& volumeName);
+
     /**
      * Handling responses for volume events
      */

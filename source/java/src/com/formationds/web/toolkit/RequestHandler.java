@@ -12,11 +12,49 @@ import java.util.Optional;
 public interface RequestHandler {
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception;
 
+    public default int optionalInt(Request request, String name, int defaultValue) throws UsageException {
+        String value = request.getParameter(name);
+
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException e) {
+            return defaultValue;
+        }
+    }
+
+    public default String optionalString(Request request, String name, String defaultValue) throws UsageException {
+        String value = request.getParameter(name);
+
+        if (value == null) {
+            return defaultValue;
+        }
+
+        return value;
+    }
+
+    public default <T extends Enum<T>> T requiredEnum(Request request, String name, Class<T> klass) throws UsageException {
+        String valueString = requiredString(request, name);
+        try {
+            return Enum.valueOf(klass, valueString);
+        } catch (Exception e) {
+            throw new UsageException("Invalid value for " + name);
+        }
+    }
+    public default String requiredString(Request request, String name) throws UsageException {
+        String value = request.getParameter(name);
+        if (value == null) {
+            throw new UsageException(String.format("Parameter '%s' is missing", name));
+        }
+
+        return value;
+    }
+
     public default String requiredString(Map<String, String> routeAttributes, String name) throws UsageException {
         String value = routeAttributes.get(name);
         if ((value == null)) {
             throw new UsageException(String.format("Parameter '%s' is missing", name));
         }
+
         return value;
     }
 

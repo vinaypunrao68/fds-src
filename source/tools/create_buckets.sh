@@ -8,5 +8,5 @@ bucket=smoke_volume
 
 cnt=6
 # Create buckets
-for f in `seq 0 $cnt`; do curl -v -X POST http://$ip:8000/${bucket}${f}; done
-#curl -v -X POST http://${ip}:${port}/${bucket}
+for f in `seq 0 $cnt`; do curl -v -X PUT http://$ip:8000/${bucket}${f}; done
+#curl -v -X PUT http://${ip}:${port}/${bucket}

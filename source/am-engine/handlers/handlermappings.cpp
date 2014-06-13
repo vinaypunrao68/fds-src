@@ -4,6 +4,8 @@
 #include <am-engine/handlers/handlermappings.h>
 #include <am-engine/handlers/responsehandler.h>
 #include <string>
+#include <util/Log.h>
+
 namespace fds {
 
 void fn_ResponseHandler(FDSN_Status status,
@@ -15,13 +17,36 @@ void fn_ResponseHandler(FDSN_Status status,
     handler->ready();
 }
 
+void fn_StatBlobHandler(FDSN_Status status,
+                        const ErrorDetails *errorDetails,
+                        BlobDescriptor blobDesc,
+                        void *callbackData) {
+    StatBlobResponseHandler* handler= reinterpret_cast<StatBlobResponseHandler*>(callbackData); //NOLINT
+    handler->status = status;
+    handler->errorDetails = errorDetails;
+    handler->blobDesc = blobDesc;
+
+    handler->ready();
+}
+
+void fn_StartBlobTxHandler(FDSN_Status status,
+                           const ErrorDetails *errorDetails,
+                           BlobTxId blobTxId,
+                           void *callbackData) {
+    StartBlobTxResponseHandler* handler =
+            reinterpret_cast<StartBlobTxResponseHandler*>(callbackData); //NOLINT
+    handler->status = status;
+    handler->errorDetails = errorDetails;
+    handler->blobTxId = blobTxId;
+
+    handler->ready();
+}
+
 FDSN_Status fn_GetObjectHandler(BucketContextPtr bucket_ctx,
                                 void *reqContext,
                                 fds_uint64_t bufferSize,
                                 fds_off_t offset,
                                 const char *buffer,
-                                fds_uint64_t blobSize,
-                                const std::string &blobEtag,
                                 void *callbackData,
                                 FDSN_Status status,
                                 ErrorDetails *errorDetails) {
@@ -34,11 +59,35 @@ FDSN_Status fn_GetObjectHandler(BucketContextPtr bucket_ctx,
     handler->bufferSize = bufferSize;
     handler->offset = offset;
     handler->buffer = buffer;
-    handler->blobSize = blobSize;
-    handler->blobEtag = &blobEtag;
 
     handler->ready();
     return FDSN_StatusOK;
+}
+
+FDSN_Status
+fn_GetObjectBlkHandler(BucketContextPtr bucket_ctx,
+                       void *reqContext,
+                       fds_uint64_t bufferSize,
+                       fds_off_t offset,
+                       const char *buffer,
+                       void *callbackData,
+                       FDSN_Status status,
+                       ErrorDetails *errorDetails) {
+    GetObjectBlkResponseHandler* handler =
+            reinterpret_cast<GetObjectBlkResponseHandler*>(callbackData); //NOLINT
+    handler->status = status;
+    handler->errorDetails = errorDetails;
+
+    handler->bucket_ctx = bucket_ctx;
+    handler->reqContext = reqContext;
+    handler->bufferSize = bufferSize;
+    handler->offset = offset;
+    handler->buffer = buffer;
+
+    handler->call();
+
+    delete handler;
+    return status;
 }
 
 void fn_ListBucketHandler(int isTruncated,
@@ -92,6 +141,24 @@ int fn_PutObjectHandler(void *reqContext,
     handler->errorDetails = errorDetails;
 
     handler->ready();
+    return 0;
+}
+
+int fn_PutObjectBlkHandler(void *reqContext,
+                           fds_uint64_t bufferSize,
+                           fds_off_t offset,
+                           char *buffer,
+                           void *callbackData,
+                           FDSN_Status status,
+                           ErrorDetails* errorDetails) {
+    PutObjectBlkResponseHandler* handler =
+            reinterpret_cast<PutObjectBlkResponseHandler*>(callbackData); //NOLINT
+    handler->status = status;
+    handler->errorDetails = errorDetails;
+
+    handler->call();
+
+    delete handler;
     return 0;
 }
 

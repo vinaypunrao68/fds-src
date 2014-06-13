@@ -13,9 +13,9 @@ import org.json.JSONObject;
 import java.util.Map;
 
 public class GetCurrentSearch implements RequestHandler {
-    private TransientState state;
+    private DemoState state;
 
-    public GetCurrentSearch(TransientState state) {
+    public GetCurrentSearch(DemoState state) {
         this.state = state;
     }
 

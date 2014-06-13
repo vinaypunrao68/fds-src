@@ -8,7 +8,8 @@ user_cpp          := \
     TServer.cpp \
     TSimpleServer.cpp \
     TThreadPoolServer.cpp \
-    TThreadedServer.cpp
+    TThreadedServer.cpp \
+    TNonblockingServer.cpp
 
 user_ar_libs      := thrift
 thrift            := $(user_cc) $(user_cpp)

@@ -4,16 +4,17 @@ package com.formationds.spike;
  */
 
 import FDS_ProtocolInterface.*;
-import com.formationds.fdsp.ClientFactory;
+import com.formationds.fdsp.LegacyClientFactory;
 import org.apache.thrift.TException;
 
 import java.nio.ByteBuffer;
+import java.util.List;
 
 public class StorageClientTest {
     public static void main(String[] args) throws Exception {
         int port = 6666;
         ServerFactory serverFactory = new ServerFactory();
-        ClientFactory clientFactory = new ClientFactory();
+        LegacyClientFactory clientFactory = new LegacyClientFactory();
         serverFactory.startDataPathRespServer(new DataResponseHandler(), port);
 
         Mutable<Dlt> dltCache = new Mutable<>();
@@ -53,6 +54,38 @@ class MetadataResponseHandler implements FDSP_MetaDataPathReq.Iface {
     public void GetVolumeBlobList(FDSP_MsgHdrType fds_msg, FDSP_GetVolumeBlobListReqType blob_list_req) throws TException {
         System.out.println(fds_msg);
         System.out.println(blob_list_req);
+    }
+
+    @Override
+    public void StatBlob(FDSP_MsgHdrType fds_msg,
+                         String volumeName,
+                         String blobName) throws TException {
+        System.out.println(fds_msg);
+        // System.out.println(blob_list_req);
+    }
+
+    @Override
+    public void StartBlobTx(FDSP_MsgHdrType fds_msg,
+                            String volumeName,
+                            String blobName,
+                            TxDescriptor txDesc) throws TException {
+        System.out.println(fds_msg);
+        // System.out.println(blob_list_req);
+    }
+
+    @Override
+    public void SetBlobMetaData(FDSP_MsgHdrType header, String volumeName, String blobName, List<FDSP_MetaDataPair> metaDataList) throws TException {
+        System.out.println(header);
+    }
+
+    @Override
+    public void GetBlobMetaData(FDSP_MsgHdrType header, String volumeName, String blobName) throws TException {
+        System.out.println(header);
+    }
+
+    @Override
+    public void GetVolumeMetaData(FDSP_MsgHdrType header, String volumeName) throws TException {
+        System.out.println(header);
     }
 }
 

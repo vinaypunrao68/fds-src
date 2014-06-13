@@ -3,20 +3,21 @@ package com.formationds.xdi;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.xdi.shim.AmShim;
-import com.formationds.xdi.shim.VolumePolicy;
-import org.apache.commons.io.IOUtils;
+import com.formationds.apis.*;
+import com.formationds.util.Size;
+import com.formationds.util.SizeUnit;
 import org.apache.thrift.protocol.TBinaryProtocol;
 import org.apache.thrift.transport.TSocket;
-import com.formationds.xdi.shim.*;
-import java.io.InputStream;
+
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 
 public class SmokeTest {
 
     public static final String DOMAIN_NAME = "FDS";
-    public static final String VOLUME_NAME = "Volume1";
+    public static final String VOLUME_NAME = "S3Vol";
     public static final String BLOB_NAME   = "someBytes.bin";
 
     public static void main(String[] args) throws Exception {
@@ -31,47 +32,86 @@ public class SmokeTest {
         }
 
         TSocket socket = new TSocket(host, port);
+        // TFramedTransport tfTrans = new TFramedTransport(socket);
+        // tfTrans.open();
         socket.open();
-        AmShim.Iface client = new AmShim.Client(new TBinaryProtocol(socket));
-        System.out.println("Creating volume 'Volume1', policy: 4kb blocksize");
-        try {
-            client.createVolume(DOMAIN_NAME, VOLUME_NAME, new VolumePolicy(4 * 1024));
-        } catch(XdiException e) {
-            e.printStackTrace();
-        }
+        // AmService.Iface am = new AmService.Client(new TBinaryProtocol(tfTrans));
+        AmService.Iface am = new AmService.Client(new TBinaryProtocol(socket));
+        TSocket omTransport = new TSocket("localhost", 9090);
+        omTransport.open();
+        
+        ConfigurationService.Iface config = new ConfigurationService.Client(new TBinaryProtocol(omTransport));
+
+        String cinderVolumeName = "CinderVol";
+        System.out.println("Creating volume " + cinderVolumeName +
+                           ", policy: 4KB blocksize");
+        VolumeSettings cinderPolicy = new VolumeSettings(4 * 1024, VolumeType.BLOCK, new Size(20, SizeUnit.GB).totalBytes());
+        config.createVolume(DOMAIN_NAME, cinderVolumeName, cinderPolicy);
+
+        System.out.println("Attaching volume " + cinderVolumeName);
+        am.attachVolume(DOMAIN_NAME, cinderVolumeName);
+
+        System.out.println("Creating volume " + VOLUME_NAME + ", policy: 2MB blocksize");
+        VolumeSettings volumePolicy = new VolumeSettings(2 * 1024 * 1024, VolumeType.OBJECT, 0);
+        config.createVolume(DOMAIN_NAME, VOLUME_NAME, volumePolicy);
         Thread.sleep(4000);
 
-        int maxObjSize = 2 * 1024 * 1024;
+        List<VolumeDescriptor> volumeDescriptors = config.listVolumes(DOMAIN_NAME);
+        System.out.println("Found " + volumeDescriptors.size() + " volumes");
 
-        System.out.println("Creating object 'someBytes.bin', size: 8192 bytes");
+        TxDescriptor txDesc = am.startBlobTx(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME);
+        System.out.println("Started transaction " + txDesc.txId);
+
+        int length = volumePolicy.getMaxObjectSizeInBytes();
+        byte[] putData = new byte[length];
+        byte pattern = (byte)255;
+        Arrays.fill(putData, pattern);
+
+        System.out.println("Creating object '"+BLOB_NAME+"', size: " + length + " bytes");
         int offCount = 0;
         for (offCount = 0; offCount < 10; offCount++) {
-            client.updateBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME,
-                              ByteBuffer.wrap(new byte[maxObjSize]), maxObjSize,
-                              offCount * maxObjSize, false);
+            am.updateBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME, txDesc,
+                          ByteBuffer.wrap(putData), length,
+                          new ObjectOffset(offCount), false);
         }
-        client.updateBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME,
-                          ByteBuffer.wrap(new byte[maxObjSize], 0, 0), 0, 0, true);
+        am.updateBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME, txDesc,
+                      ByteBuffer.wrap(putData), 0, new ObjectOffset(offCount), true);
 
-        // System.out.println("Writing arbitrary length stream, size: a few bytes");
-        // InputStream inputStream = IOUtils.toInputStream("hello, world!");
-        // new StreamWriter(maxObjSize, client).write(DOMAIN_NAME, VOLUME_NAME, "stream.bin", inputStream, new HashMap<>());
+        ByteBuffer data = am.getBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME,
+                                         length, new ObjectOffset(0));
 
-        // System.out.println("Deleting object 'someBytes.bin'");
-        // client.deleteBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME);
-        // System.out.println("Deleting volume 'Volume1'");
+        System.out.println("setting blob meta");
+        HashMap<String,String> meta = new HashMap<String,String>();
+
+        meta.put("company","fds");
+        am.updateMetadata(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME, txDesc, meta);
+        System.out.println("done setting metadata");
         
         System.out.println("stating blob");
-        System.out.println(client.statBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME));
+        System.out.println(am.statBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME));
         
         System.out.println("stating volume");
-        System.out.println(client.statVolume(DOMAIN_NAME, VOLUME_NAME));
+        System.out.println(config.statVolume(DOMAIN_NAME, VOLUME_NAME));
+        System.out.println(am.volumeStatus(DOMAIN_NAME, VOLUME_NAME));
+
+        System.out.println("volume contents");
+        System.out.println(am.volumeContents(DOMAIN_NAME, VOLUME_NAME, 0, 0));
 
         System.out.println("deleting blob");
-        client.deleteBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME);
+        am.deleteBlob(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME);
+
+        System.out.println("stating volume");
+        System.out.println(config.statVolume(DOMAIN_NAME, VOLUME_NAME));
+        System.out.println(am.volumeStatus(DOMAIN_NAME, VOLUME_NAME));
+        
+        System.out.println("volume contents");
+        System.out.println(am.volumeContents(DOMAIN_NAME, VOLUME_NAME, 0, 0));
+
+        System.out.println("volume list");
+        System.out.println(config.listVolumes(DOMAIN_NAME));
 
         System.out.println("deleting volume");
-        client.deleteVolume(DOMAIN_NAME, VOLUME_NAME);
+        config.deleteVolume(DOMAIN_NAME, VOLUME_NAME);
         System.out.println("All done.");
     }
 }

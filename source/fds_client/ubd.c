@@ -14,16 +14,9 @@
 #include <sys/ioctl.h>
 #include <linux/major.h>
 
-
-//#include "tapdisk-image.h"
-//#include "tapdisk-driver.h"
-//#include "tapdisk-server.h"
-//#include "tapdisk-interface.h"
-//#include "tapdisk-disktype.h"
 #include "tapdisk-vbd.h"
 #include "blktap2.h"
 #include "tapdisk-ring.h"
-//#include "tap-ctl.h"
 
 #include "ubd.h"
 #include "hvisor_lib.h"
@@ -196,7 +189,7 @@ tap_ctl_allocate_device(int *minor, char **devname)
 	fd = open("/dev/blktap-control", O_RDONLY);
 	if (fd == -1) {
 	  cppout("Failed to open control device %s: %d\n", BLKTAP2_CONTROL_DEVICE, errno);
-		return errno;
+          return errno;
 	}
 
 	err = ioctl(fd, BLKTAP2_IOCTL_ALLOC_TAP, &handle);
@@ -275,216 +268,40 @@ void ctrlcHandler(int signal)
    exit(1);
 }
 
-
-#if 0
-int main(int argc, char *argv[]) {
-  
-  int err;
-  char *ring_devname = 0;
-  char *io_devname = 0;
-  int i,minor=0;
-  int run_test = 0;
-  uint32_t dm_port = 0;
-  uint32_t sm_port = 0;
-  uint32_t ut_mins = 0;
-  const char *infile_name = NULL;
-  const char *outfile_name = NULL;
-  uint32_t base_vol = 1;
-  uint32_t num_vols = 1;
-  uint32_t no_om = 1;
-
-  signal(SIGINT, ctrlcHandler);
-  
-  /*
-   * Parse command line
-   */
-  for (i = 1; i < argc; i++) {
-    if (strncmp(argv[i], "--unit_test", 11) == 0) {
-      run_test = 1;
-    } else if (strncmp(argv[i], "--ut_file", 9) == 0) {
-      run_test = 2;
-    } else if (strncmp(argv[i], "--sm_port=", 10) == 0) {
-      sm_port = atoi(argv[i] + 10);
-    } else if (strncmp(argv[i], "--dm_port=", 10) == 0) {
-      dm_port = atoi(argv[i] + 10);
-    } else if (strncmp(argv[i], "--infile=", 9) == 0) {
-      infile_name = argv[i] + 9;
-    } else if (strncmp(argv[i], "--outfile=", 10) == 0) {
-      outfile_name = argv[i] + 10;
-    } else if (strncmp(argv[i], "--minutes=", 10) == 0) {
-      ut_mins = atoi(argv[i] + 10);
-    } else if (strncmp(argv[i], "--base_vol=", 11) == 0) {
-      base_vol = atoi(argv[i] + 11);
-    } else if (strncmp(argv[i], "--num_vols=", 11) == 0) {
-      num_vols = atoi(argv[i] + 11);
-    } else if (strncmp(argv[i], "--use_om", 7) == 0) {
-      no_om = 0;
-    }
-    /*
-     * We pass argc and argv to other functions later
-     * so there may be unprocessed cmdline args.
-     */
-  }
-  
-  /*
-   * Check the cmdline args for the test
-   * are all there.
-   */
-  if (run_test != 0) {
-    if (sm_port != 0 && dm_port == 0) {
-      fprintf(stderr, "Invalid cmdline arg. Both a sm and dm port must be specified");
-      return -1;
-    } else if (dm_port != 0 && sm_port == 0) {
-      fprintf(stderr, "Invalid cmdline arg. Both a sm and dm port must be specified");
-      return -1;
-    }
-  }
-  if (run_test == 2) {
-    if ((infile_name == NULL) ||
-        (outfile_name == NULL)) {
-      fprintf(stderr, "Invalid cmdline arg. An input and output file must be specified");
-      return -1;
-    }
-  }
-  if ((ut_mins != 0) &&
-      (run_test == 0)) {
-    fprintf(stderr, "Invalid cmdline arg. Minutes is only valid with unit test.\n");
-    return -1;
-  }
-
-#ifdef HVISOR_USPACE_TEST
-  CreateStorHvisorBlk(argc, argv, hvisor_create_blkdev, hvisor_delete_blkdev, no_om, sm_port, dm_port);
-#else
-  CreateStorHvisorBlk(argc, argv, hvisor_create_blkdev, hvisor_delete_blkdev, 0, 0, 0);
-#endif
-  
-#ifndef HVISOR_USPACE_TEST
-  
-  memset(data_image, 'x', sizeof(data_image));
-  
-  
-#endif
-  
-#ifdef HVISOR_USPACE_TEST
-  while(1) {
-  char *line_ptr = NULL;
-  int n_bytes = 0;
-  char cmd_wd[32];
-  int offset = 0;
-  int vol_id = 0;
-  int result = 0;
-  
-  if (run_test == 1) {
-      result = unitTest(ut_mins);
-      if (result == 0) {
-        fprintf(stdout, "Unit test PASSED\n");
-      } else {
-        fprintf(stdout, "Unit test FAILED\n");
-      }
-//     sleep(5);
-      DeleteStorHvisor();
-      return result;
-  } else if (run_test == 2) {
-    result = unitTestFile(infile_name, outfile_name, base_vol, num_vols);
-      if (result == 0) {
-        fprintf(stdout, "Unit test PASSED\n");
-      } else {
-        fprintf(stdout, "Unit test FAILED\n");
-      }
-      DeleteStorHvisor();
-      return result;
-  }
-
-    printf(">");
-    if (getline(&line_ptr, &n_bytes, stdin) <= 1) {
-      continue;
-    }
-    sscanf(line_ptr, "%s", cmd_wd);
-    
-
-    if (strcmp(cmd_wd, "q") == 0) {
-      return(0);
-    } else if (strcmp(cmd_wd, "s") == 0) {
-      sscanf(line_ptr, "%s %d %d", cmd_wd, &offset, &vol_id);
-      send_test_io(offset,vol_id);
-      printf("Send IO complete \n");
-    } else if (strcmp(cmd_wd, "r")== 0){
-      sscanf(line_ptr, "%s %d %d", cmd_wd, &offset, &vol_id);
-      read_test_io(offset,vol_id);
-      printf("Read IO complete \n");
-    } else if (strcmp(cmd_wd, "filetest")== 0){
-
-      int base_vol;
-      int num_vols;
-      char in_file[32];
-      char out_file[32];
-      int result;
-
-      sscanf(line_ptr, "%s %s %s %d %d", cmd_wd, in_file, out_file, &base_vol, &num_vols);
-      result = unitTestFile(in_file, out_file, base_vol, num_vols);
-      if (result == 0) {
-        fprintf(stdout, "Unit test PASSED\n");
-      } else {
-        fprintf(stdout, "Unit test FAILED\n");
-      }
-
-    } else {
-      printf("Invalid input. Usage: [q/s/r]\n");
-    }
-    free(line_ptr);
-
-  }
-
-#else
-  while(1); 
-  cppout("All done. About to enter wait loop \n");
-
-#endif
-
-
-  return (0);
-
-}
-#endif
-
 td_vbd_t*
-hvisor_vbd_create(uint64_t uuid, uint64_t capacity)
-{
-	td_vbd_t *vbd;
-	int i;
+hvisor_vbd_create(uint64_t uuid, uint64_t capacity) {
+    td_vbd_t *vbd;
+    int i;
 
-	vbd = calloc(1, sizeof(td_vbd_t));
-	if (!vbd) {
-		cppout("Failed to allocate tapdisk state\n");
-		return NULL;
-	}
+    vbd = calloc(1, sizeof(td_vbd_t));
+    if (!vbd) {
+        cppout("Failed to allocate tapdisk state\n");
+        return NULL;
+    }
 
-	vbd->uuid     = uuid;
-	vbd->minor    = -1;
-	vbd->ring.fd  = -1;
-        vbd->capacity = capacity;
+    vbd->uuid     = uuid;
+    vbd->minor    = -1;
+    vbd->ring.fd  = -1;
+    vbd->capacity = capacity;
 
-	/* default blktap ring completion */
-	//vbd->callback = tapdisk_vbd_callback;
-	//vbd->argument = vbd;
+    pthread_mutex_init(&vbd->vbd_mutex, 0);
+    vbd->num_responses_in_ring = 0;
+    vbd->num_pending_req_segs = 0;
 
-	pthread_mutex_init(&vbd->vbd_mutex, 0);
-	vbd->num_responses_in_ring = 0;
-	vbd->num_pending_req_segs = 0;
+    INIT_LIST_HEAD(&vbd->driver_stack);
+    INIT_LIST_HEAD(&vbd->images);
+    INIT_LIST_HEAD(&vbd->new_requests);
+    INIT_LIST_HEAD(&vbd->pending_requests);
+    INIT_LIST_HEAD(&vbd->failed_requests);
+    INIT_LIST_HEAD(&vbd->completed_requests);
+    INIT_LIST_HEAD(&vbd->next);
+    gettimeofday(&vbd->ts, NULL);
 
-	INIT_LIST_HEAD(&vbd->driver_stack);
-	INIT_LIST_HEAD(&vbd->images);
-	INIT_LIST_HEAD(&vbd->new_requests);
-	INIT_LIST_HEAD(&vbd->pending_requests);
-	INIT_LIST_HEAD(&vbd->failed_requests);
-	INIT_LIST_HEAD(&vbd->completed_requests);
-	INIT_LIST_HEAD(&vbd->next);
-	gettimeofday(&vbd->ts, NULL);
+    for (i = 0; i < MAX_REQUESTS; i++) {
+        hvisor_vbd_initialize_vreq(vbd->request_list + i);
+    }
 
-	for (i = 0; i < MAX_REQUESTS; i++)
-		hvisor_vbd_initialize_vreq(vbd->request_list + i);
-
-	return vbd;
+    return vbd;
 }
 
 static int
@@ -505,7 +322,8 @@ hvisor_create_io_ring(td_vbd_t *vbd, const char *devname)
 	}
 
 	ring->mem = mmap(0, psize * BLKTAP_MMAP_REGION_SIZE,
-			 PROT_READ | PROT_WRITE, MAP_SHARED|MAP_LOCKED, ring->fd, 0);
+                         PROT_READ | PROT_WRITE, MAP_SHARED, ring->fd, 0);
+			 // PROT_READ | PROT_WRITE, MAP_SHARED|MAP_LOCKED, ring->fd, 0);
 	if (ring->mem == MAP_FAILED) {
 		err = -errno;
 		cppout("Failed to mmap %s: %d\n", devname, err);
@@ -515,8 +333,10 @@ hvisor_create_io_ring(td_vbd_t *vbd, const char *devname)
 	}
 
 	ring->sring = (blkif_sring_t *)((unsigned long)ring->mem);
-	BACK_RING_INIT(&ring->fe_ring, ring->sring, (psize * BLKTAP_RING_PAGES) );
-	cppout("Initialized ring size:%d",RING_SIZE(&ring->fe_ring));
+        BACK_RING_INIT(&ring->fe_ring, ring->sring, psize);
+        cppout("Initialized ring");
+	// BACK_RING_INIT(&ring->fe_ring, ring->sring, (psize * BLKTAP_RING_PAGES) );
+	// cppout("Initialized ring size:%d",RING_SIZE(&ring->fe_ring));
 
 	ring->vstart =
 		(unsigned long)ring->mem + (BLKTAP_RING_PAGES * psize);
@@ -536,108 +356,100 @@ fail:
 	return err;
 }
 
-int  hvisor_create_blkdev(uint64_t vol_uuid, uint64_t capacity)
-{
-  int minor = 0;
-  char *io_devname = 0;
-  char *ring_devname = 0;
-  td_vbd_t *vbd;
-  int err=0;
+int
+hvisor_create_blkdev(uint64_t vol_uuid, uint64_t capacity) {
+    int minor = 0;
+    char *io_devname = 0;
+    char *ring_devname = 0;
+    td_vbd_t *vbd;
+    int err=0;
 
-#ifdef HVISOR_USPACE_TEST
-  return (0);
-#endif
-  vbd = hvisor_vbd_create(vol_uuid, capacity);
-  
-  cppout("create blkdev for volume : %lx  capacity : %ld \n", vol_uuid, capacity);
-  err = tap_ctl_allocate_device(&minor, &io_devname);
-  if (err) {
-    cppout("Failed to create ring and io devices for volume : %lx", vol_uuid);
-    return (-1);
-  }
-  
-  err = asprintf(&ring_devname, BLKTAP2_RING_DEVICE"%d", minor);
-  if (err == -1) {
-    err = -ENOMEM;
-    cppout("Failed constructing ring device name for volume %lx ", vol_uuid);
-    return (-1);
-  }
-  
-  err = hvisor_create_io_ring(vbd, ring_devname);
-  if (err) {
-    cppout("Failed to create ring for volume %lx", vol_uuid);
-    return (-1);
-  }
+    // The capacity provided is in MB
+    // Convert to bytes to pass in
+    capacity *= (1024 * 1024);
 
+    vbd = hvisor_vbd_create(vol_uuid, capacity);
   
-  hvisor_vbds[minor] = vbd;
-  vbd->minor = minor;
-  vbd->runningFlag = 1;
-  hvisor_set_capacity(minor, capacity);
-  pthread_create(&vbd->tx_thread, NULL, __hvisor_run, vbd);
-  return minor;
+    cppout("create blkdev for volume : %lx  capacity : %ld \n", vol_uuid, capacity);
+    err = tap_ctl_allocate_device(&minor, &io_devname);
+    if (err) {
+        cppout("Failed to create ring and io devices for volume : %lx", vol_uuid);
+        return (-1);
+    }
+  
+    err = asprintf(&ring_devname, BLKTAP2_RING_DEVICE"%d", minor);
+    if (err == -1) {
+        err = -ENOMEM;
+        cppout("Failed constructing ring device name for volume %lx ", vol_uuid);
+        return (-1);
+    }
+  
+    err = hvisor_create_io_ring(vbd, ring_devname);
+    if (err) {
+        cppout("Failed to create ring for volume %lx", vol_uuid);
+        return (-1);
+    }
 
+    hvisor_vbds[minor] = vbd;
+    vbd->minor = minor;
+    vbd->runningFlag = 1;
+    hvisor_set_capacity(minor, capacity);
+    pthread_create(&vbd->tx_thread, NULL, __hvisor_run, vbd);
+    return minor;
 }
 
 
-int hvisor_delete_blkdev(int minor) 
-{
-
-#ifdef HVISOR_USPACE_TEST
-  return (0);
-#endif
-  td_vbd_t *vbd;
-   if (minor < HVISOR_MAX_VBDS && hvisor_vbds[minor] != NULL) { 
-       vbd = hvisor_vbds[minor]; 
-       vbd->runningFlag = 0;
-       sleep(4);
-       close(vbd->ring.fd);
-       tap_ctl_free(minor);
-       hvisor_vbds[minor] = NULL;
-   }
-  return 0;
+int
+hvisor_delete_blkdev(int minor) {
+    td_vbd_t *vbd;
+    if (minor < HVISOR_MAX_VBDS && hvisor_vbds[minor] != NULL) { 
+        vbd = hvisor_vbds[minor]; 
+        vbd->runningFlag = 0;
+        sleep(4);
+        close(vbd->ring.fd);
+        tap_ctl_free(minor);
+        hvisor_vbds[minor] = NULL;
+    }
+    return 0;
 }
 
+int
+hvisor_set_capacity(int minor, uint64_t capacity) {
+    char devname[64];
+    int fbd = -1, ret=0;
+    memset(devname, 0x00, 64);
+    sprintf(devname, "/dev/fbd%d",minor);
+    fbd = open(devname, O_RDWR);
 
-int hvisor_set_capacity(int minor, uint64_t capacity) {
-char devname[64];
-int fbd = -1, ret=0;
-     memset(devname, 0x00, 64);
-     sprintf(devname, "/dev/fbd%d",minor);
-     fbd = open(devname, O_RDWR);
-
-        if (fbd < 0)
-                cppout( "Cannot open  the device: device was not  created \n"); 
+    if (fbd < 0)
+        cppout( "Cannot open  the device: device was not  created \n"); 
      
-     if((ret = ioctl(fbd, FBD_SET_TGT_SIZE, capacity)) < 0) 
-     {
-         cppout("Error %d: setting the  target disk  size \n",ret);
-         return ret;
-     }
-
-     return ret;
+    if((ret = ioctl(fbd, FBD_SET_TGT_SIZE, capacity)) < 0) {
+        cppout("Error %d: setting the  target disk  size \n",ret);
+        return ret;
+    }
+    return ret;
 }
 
-static int hvisor_wait_for_events(td_vbd_t *vbd) {
+static int
+hvisor_wait_for_events(td_vbd_t *vbd) {
+    int ret;
+    struct timeval tv;
+    fd_set read_fds;
 
-  int ret;
-  struct timeval tv;
-  fd_set read_fds;
+    tv.tv_sec  = 0;
+    tv.tv_usec = HVISOR_MAX_REQ_RSP_HOLD_TIME;
 
-  tv.tv_sec  = 0;
-  tv.tv_usec = HVISOR_MAX_REQ_RSP_HOLD_TIME;
+    FD_ZERO(&read_fds);
+    FD_SET(vbd->ring.fd, &read_fds);
 
-  FD_ZERO(&read_fds);
-  FD_SET(vbd->ring.fd, &read_fds);
-
-  ret = select(vbd->ring.fd + 1, &read_fds,
-	       0, 0, &tv);
+    ret = select(vbd->ring.fd + 1, &read_fds,
+                 0, 0, &tv);
   
-  if (ret < 0)
-    return ret;
+    if (ret < 0)
+        return ret;
 
-  return (0);
-
+    return 0;
 }
 
 // Caller should have acquired the vbd mutex
@@ -749,56 +561,42 @@ hvisor_complete_td_request(void *arg1, void *arg2,
 
 
 
-void hvisor_queue_read(td_vbd_t *vbd, td_vbd_request_t *vreq, td_request_t treq)
-{
-	int      size    = treq.secs * HVISOR_SECTOR_SIZE;
-	uint64_t offset  = treq.sec * (uint64_t)HVISOR_SECTOR_SIZE;
-	char test_c;
-	int i;
-	int rc = 0;
-	fbd_request_t *p_new_req;
+void hvisor_queue_read(td_vbd_t *vbd,
+                       td_vbd_request_t *vreq,
+                       td_request_t treq) {
+    int      size    = treq.secs * HVISOR_SECTOR_SIZE;
+    uint64_t offset  = treq.sec * (uint64_t)HVISOR_SECTOR_SIZE;
+    char test_c;
+    int i;
+    int rc = 0;
+    fbd_request_t *p_new_req;
 
-	p_new_req = (fbd_request_t *)malloc(sizeof(fbd_request_t));
-	memset(p_new_req, 0 , sizeof(fbd_request_t ));
-	p_new_req->sec = treq.sec;
-	p_new_req->secs = treq.secs;
-	p_new_req->buf = treq.buf;
-	p_new_req->op = treq.op;
-	p_new_req->io_type = 0;
-	p_new_req->req_data = (void *)vreq;
-	p_new_req->len = size;
-  	p_new_req->vbd = vbd;
-  	p_new_req->vReq = vreq;
-  	p_new_req->volUUID = vbd->uuid;
-  	p_new_req->hvisorHdl = hvisor_hdl;
-  	p_new_req->cb_request = hvisor_complete_td_request;
-	p_new_req->req_magic = FDS_UBD_IO_MAGIC_IN_USE;
-	
+    p_new_req = (fbd_request_t *)malloc(sizeof(fbd_request_t));
+    memset(p_new_req, 0 , sizeof(fbd_request_t ));
+    p_new_req->sec = treq.sec;
+    p_new_req->secs = treq.secs;
+    p_new_req->buf = treq.buf;
+    p_new_req->op = treq.op;
+    p_new_req->io_type = 0;
+    p_new_req->req_data = (void *)vreq;
+    p_new_req->len = size;
+    p_new_req->vbd = vbd;
+    p_new_req->vReq = vreq;
+    p_new_req->volUUID = vbd->uuid;
+    p_new_req->hvisorHdl = hvisor_hdl;
+    p_new_req->cb_request = hvisor_complete_td_request;
+    p_new_req->req_magic = FDS_UBD_IO_MAGIC_IN_USE;
 
-	cppout("Received read request at offset %lx for %d bytes, buf - %p \n", offset, size, p_new_req->buf);
+    cppout("Received read request at offset %lx for %d bytes, buf - %p \n", offset, size, p_new_req->buf);
 
-#if BLKTAP_UNIT_TEST	
-	if (offset + size < sizeof(data_image)) {
-	  memcpy(p_new_req->buf, data_image + offset, size);
-	}
-//	for (i = 0; i < size; i++) {
-//	  printf("%2x", p_new_req->buf[i]);
-//	}
-//	printf("\n");
-	hvisor_complete_td_request((void *)vbd, (void *)vreq, p_new_req, rc);
-#else
+    cppout("UBD: Sending read req to hypervisor with vbd - %p, vol - %lx, vreq - %p, fbd_req - %p\n",
+           vbd, vbd->uuid, vreq, p_new_req);
 
-	cppout("UBD: Sending read req to hypervisor with vbd - %p, vol - %lx, vreq - %p, fbd_req - %p\n",
-	       vbd, vbd->uuid, vreq, p_new_req);
-
-	/* queue the  request  to the per volume queue */
-        rc = pushFbdReq(p_new_req);
-	// rc = pushVolQueue(p_new_req);
-	if (rc) {
-	  hvisor_complete_td_request((void *)vbd, (void *)vreq, p_new_req, rc);
-	}
-#endif
-
+    /* queue the  request  to the per volume queue */
+    rc = amUbdGetBlob(p_new_req);
+    if (rc) {
+        hvisor_complete_td_request((void *)vbd, (void *)vreq, p_new_req, rc);
+    }
 }
 
 void hvisor_queue_write(td_vbd_t *vbd, td_vbd_request_t *vreq, td_request_t treq)
@@ -852,15 +650,13 @@ void hvisor_queue_write(td_vbd_t *vbd, td_vbd_request_t *vreq, td_request_t treq
 	       vbd, vbd->uuid, vreq, p_new_req);
 
 	/* queue the  request  to the per volume queue */
-        rc = pushFbdReq(p_new_req);
-	// rc = pushVolQueue(p_new_req);
+        rc = amUbdPutBlob(p_new_req);
 	if (rc) {
 	  hvisor_complete_td_request((void *)vbd, (void *)vreq, p_new_req, rc);
 	}
 #endif
 
 }
-
 
 static int
 hvisor_handle_request(td_vbd_t *vbd, td_vbd_request_t *vreq)
@@ -1117,7 +913,6 @@ int send_test_io(int offset, int vol_id) {
    * TODO: Let's not always return 0 here.
    */
   pushFbdReq(p_new_treq);
-  // pushVolQueue(p_new_treq);
   return 0;
 }
 
@@ -1142,7 +937,6 @@ int read_test_io(int offset, int vol_id)
     p_new_treq->cb_request = hvisor_complete_td_request_noop;
 
     pushFbdReq(p_new_treq);
-    // pushVolQueue(p_new_treq);
     return 0;
 
 }

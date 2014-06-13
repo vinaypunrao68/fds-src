@@ -726,6 +726,58 @@ class TestResp : public FDS_ProtocolInterface::FDSP_MetaDataPathRespIf {
                                  del_cat_obj) {
     }
 
+    void StartBlobTxResp(const
+                         FDS_ProtocolInterface::FDSP_MsgHdrType&
+                         fdsp_msg) {
+    }
+
+    void StartBlobTxResp(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr&
+                         fdsp_msg) {
+    }
+
+    void StatBlobResp(const
+                      FDS_ProtocolInterface::FDSP_MsgHdrType&
+                      fdsp_msg,
+                      const
+                      FDS_ProtocolInterface::BlobDescriptor&
+                      blobDesc) {
+    }
+
+    void SetBlobMetaDataResp(
+        const FDS_ProtocolInterface::FDSP_MsgHdrType& header,
+        const std::string& blobName) {
+    }
+
+    void SetBlobMetaDataResp(
+        boost::shared_ptr<FDS_ProtocolInterface::FDSP_MsgHdrType>& header,
+        boost::shared_ptr<std::string>& blobName) {
+    }
+
+    void GetBlobMetaDataResp(
+        boost::shared_ptr<FDS_ProtocolInterface::FDSP_MsgHdrType>& header,
+        boost::shared_ptr<std::string>& blobName,
+        boost::shared_ptr<FDS_ProtocolInterface::FDSP_MetaDataList>& metaDataList) {
+    }
+
+    void GetBlobMetaDataResp(const FDS_ProtocolInterface::FDSP_MsgHdrType& header,
+                             const std::string& blobName,
+                             const FDS_ProtocolInterface::FDSP_MetaDataList& metaDataList) {
+    }
+
+    void StatBlobResp(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr&
+                      fdsp_msg,
+                      FDS_ProtocolInterface::BlobDescriptorPtr&
+                      blobDesc) {
+    }
+
+    void GetVolumeMetaDataResp(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& header,
+                               FDS_ProtocolInterface::FDSP_VolumeMetaDataPtr& volumeMeta) {
+    }
+
+    void GetVolumeMetaDataResp(const FDS_ProtocolInterface::FDSP_MsgHdrType& header,
+                               const FDS_ProtocolInterface::FDSP_VolumeMetaData& volumeMeta) {
+    }
+
     void GetVolumeBlobListResp(const FDS_ProtocolInterface::FDSP_MsgHdrType& 
                                fds_msg, 
                                const FDS_ProtocolInterface::FDSP_GetVolumeBlobListRespType& 

@@ -14,9 +14,9 @@ import java.util.Map;
 import java.util.Optional;
 
 public class PeekWriteQueue implements RequestHandler {
-    private TransientState state;
+    private DemoState state;
 
-    public PeekWriteQueue(TransientState state) {
+    public PeekWriteQueue(DemoState state) {
         this.state = state;
     }
 
@@ -24,7 +24,7 @@ public class PeekWriteQueue implements RequestHandler {
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
         Optional<ImageResource> resource = state.peekWriteQueue();
         if (resource.isPresent()) {
-            return new JsonResource(new JSONObject().put("url", resource.get().getUrl()));
+            return new JsonResource(new JSONObject().put("url", resource.get().getThumbnailUrl()));
         } else {
             return new FourOhFour();
         }

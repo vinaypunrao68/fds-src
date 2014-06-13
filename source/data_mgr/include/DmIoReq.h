@@ -13,41 +13,91 @@
 #include <fds_types.h>
 #include <fds_volume.h>
 #include <fdsp/FDSP_types.h>
+#include <blob/BlobTypes.h>
 
 namespace fds {
+
+    struct RequestHeader {
+        fds_volid_t volId;
+        long srcIp;  //NOLINT
+        long dstIp;  //NOLINT
+        fds_uint32_t srcPort;
+        fds_uint32_t dstPort;
+        std::string session_uuid;
+        fds_uint32_t reqCookie;
+
+        explicit RequestHeader(const FDSP_MsgHdrTypePtr &hdr) {
+            volId = hdr->glob_volume_id;
+            srcIp = hdr->src_ip_lo_addr;
+            dstIp = hdr->dst_ip_lo_addr;
+            srcPort = hdr->src_port;
+            dstPort = hdr->dst_port;
+            session_uuid = hdr->session_uuid;
+            reqCookie = hdr->req_cookie;
+        }
+    };
 
     /*
      * TODO: Make more generic name than catalog request
      */
     class dmCatReq : public FDS_IOType {
-  public:
+      public:
         fds_volid_t  volId;
         std::string blob_name;
         blob_version_t blob_version;
         fds_uint32_t transId;
         fds_uint32_t transOp;
-        long srcIp;
-        long dstIp;
+        long 	 srcIp;
+        long 	 dstIp;
         fds_uint32_t srcPort;
         fds_uint32_t dstPort;
         std::string session_uuid;
         fds_uint32_t reqCookie;
-        FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr fdspUpdCatReqPtr;
+        BlobTxId::const_ptr blobTxId;
+        fpi::FDSP_UpdateCatalogTypePtr fdspUpdCatReqPtr;
+        boost::shared_ptr<fpi::FDSP_MetaDataList> metadataList;
 
-  dmCatReq(fds_volid_t _volId,
-           long  _srcIp,
-           long  _dstIp,
-           fds_uint32_t _srcPort,
-           fds_uint32_t _dstPort,
-           std::string  _session_uuid,
-           fds_uint32_t _reqCookie,
-           fds_io_op_t  _ioType)
-          : volId(_volId), srcIp(_srcIp), dstIp(_dstIp),
-                srcPort(_srcPort), dstPort(_dstPort), session_uuid(_session_uuid),
-                reqCookie(_reqCookie), fdspUpdCatReqPtr(NULL) {
+        dmCatReq(fds_volid_t  _volId,
+                 long 	  _srcIp,
+                 long 	  _dstIp,
+                 fds_uint32_t _srcPort,
+                 fds_uint32_t _dstPort,
+                 std::string  _session_uuid,
+                 fds_uint32_t _reqCookie,
+                 fds_io_op_t  _ioType)
+                : volId(_volId), srcIp(_srcIp), dstIp(_dstIp),
+                  srcPort(_srcPort), dstPort(_dstPort), session_uuid(_session_uuid),
+                  reqCookie(_reqCookie), fdspUpdCatReqPtr(NULL) {
             io_type = _ioType;
             io_vol_id = _volId;
             blob_version = blob_version_invalid;
+        }
+
+        dmCatReq(fds_volid_t  _volId,
+                 const std::string &blobName,
+                 long 	  _srcIp,
+                 long 	  _dstIp,
+                 fds_uint32_t _srcPort,
+                 fds_uint32_t _dstPort,
+                 std::string  _session_uuid,
+                 fds_uint32_t _reqCookie,
+                 fds_io_op_t  _ioType)
+                : volId(_volId), blob_name(blobName), srcIp(_srcIp), dstIp(_dstIp),
+                  srcPort(_srcPort), dstPort(_dstPort), session_uuid(_session_uuid),
+            reqCookie(_reqCookie), fdspUpdCatReqPtr(NULL) {
+            io_type = _ioType;
+            io_vol_id = _volId;
+            blob_version = blob_version_invalid;
+        }
+
+        dmCatReq(const RequestHeader& hdr,
+                 fds_io_op_t  ioType) 
+                : volId(hdr.volId), srcIp(hdr.srcIp), dstIp(hdr.dstIp),
+                  srcPort(hdr.srcPort), dstPort(hdr.dstPort), session_uuid(hdr.session_uuid),
+                  reqCookie(hdr.reqCookie),
+                  blob_version(blob_version_invalid) {
+            io_type = ioType;
+            io_vol_id = hdr.volId;
         }
 
         dmCatReq(fds_volid_t        _volId,
@@ -81,21 +131,39 @@ namespace fds {
             }
         }
 
+        // TODO(Andrew): Remove this...
         dmCatReq() {
+        }
+
+        void fillResponseHeader(fpi::FDSP_MsgHdrTypePtr& msg_hdr) const{
+            msg_hdr->src_ip_lo_addr =  dstIp;
+            msg_hdr->dst_ip_lo_addr =  srcIp;
+            msg_hdr->src_port =  dstPort;
+            msg_hdr->dst_port =  srcPort;
+            msg_hdr->glob_volume_id =  volId;
+            msg_hdr->req_cookie =  reqCookie;
         }
 
         fds_volid_t getVolId() const {
             return volId;
         }
 
-        virtual ~dmCatReq() {
+        ~dmCatReq() {
             fdspUpdCatReqPtr = NULL;
         }
 
         void setBlobVersion(blob_version_t version) {
-            blob_version = version;          
+            blob_version = version;
+        }
+        void setBlobTxId(BlobTxId::const_ptr id) {
+            blobTxId = id;
         }
 
+        BlobTxId::const_ptr getBlobTxId() const {
+            return blobTxId;
+        }
+
+        // Why is this not a ostream operator?
         virtual std::string log_string() const {
             std::stringstream ret;
             ret << "dmCatReq for vol " << std::hex << volId
@@ -125,6 +193,7 @@ namespace fds {
         DmIoSnapVolCat() {
         }
 
+        // Why is this not a ostream operator?
         virtual std::string log_string() const override {
             std::stringstream ret;
             ret << "dmIoSnapVolCat for vol "

@@ -24,6 +24,8 @@ needed_packages=(
     libssl-dev
     libfuse-dev
 
+    libevent-dev
+
     bison
     flex
     ragel

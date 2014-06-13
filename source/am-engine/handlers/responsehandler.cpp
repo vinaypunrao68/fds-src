@@ -6,14 +6,14 @@
 #include <util/timeutils.h>
 #include <string>
 #include <sstream>
-
+#include <vector>
 #define XCHECKSTATUS(status)             \
     if (status != FDSN_StatusOK) {       \
         LOGWARN << " status:" << status; \
-        xdi::XdiException xe;            \
-        xe.errorCode = xdi::ErrorCode::INTERNAL_SERVER_ERROR;   \
-        xe.message = toString(status);   \
-        throw xe;                        \
+        apis::ApiException e;            \
+        e.errorCode = apis::ErrorCode::INTERNAL_SERVER_ERROR;   \
+        e.message = toString(status);   \
+        throw e;                        \
     }
 
 namespace fds {
@@ -38,7 +38,7 @@ void ResponseHandler::wait() {
     task.await();
 }
 
-bool ResponseHandler::waitFor(ulong timeout) {
+    bool ResponseHandler::waitFor(ulong timeout) {
     return task.await(timeout);
 }
 
@@ -70,6 +70,20 @@ PutObjectResponseHandler::~PutObjectResponseHandler() {
 }
 //================================================================================
 
+void PutObjectBlkResponseHandler::process() {
+    if (status == FDSN_StatusOK) {
+        ubdCallback(0);
+    } else {
+        // TODO(Andrew): For now, just pass -1 when something
+        // went wrong
+        ubdCallback(-1);
+    }
+}
+
+PutObjectBlkResponseHandler::~PutObjectBlkResponseHandler() {
+}
+//================================================================================
+
 void GetObjectResponseHandler::process() {
 }
 
@@ -77,16 +91,52 @@ GetObjectResponseHandler::~GetObjectResponseHandler() {
 }
 //================================================================================
 
+void GetObjectBlkResponseHandler::process() {
+    if (status == FDSN_StatusOK) {
+        ubdCallback(0);
+    } else if (status == FDSN_StatusEntityDoesNotExist) {
+        // For unwritten block offsets, return success and
+        // zeros
+        LOGDEBUG << "Returning zeros for unwritten block device offset "
+                 << offset;
+        std::memset(const_cast<char *>(buffer), 0x00, bufferSize);
+        ubdCallback(0);
+    } else {
+        // TODO(Andrew): For now, just pass -1 when something
+        // went wrong
+        ubdCallback(-1);
+    }
+}
+
+GetObjectBlkResponseHandler::~GetObjectBlkResponseHandler() {
+}
+//================================================================================
+
+ListBucketResponseHandler::ListBucketResponseHandler(std::vector<apis::BlobDescriptor> & vecBlobs) : vecBlobs(vecBlobs) { //NOLINT
+}
+
 void ListBucketResponseHandler::process() {
+    XCHECKSTATUS(status);
+    for (int i = 0; i < contentsCount; i++) {
+        apis::BlobDescriptor blob;
+        blob.name = contents[i].objKey;
+        blob.byteCount = contents[i].size;
+        vecBlobs.push_back(blob);
+    }
 }
 
 ListBucketResponseHandler::~ListBucketResponseHandler() {
+    if (contents) delete[] contents;
+    if (commonPrefixes) {
+        // delete *commonPrefixes;
+        // delete commonPrefixes;
+    }
 }
 
 //================================================================================
 
 BucketStatsResponseHandler::BucketStatsResponseHandler(
-    xdi::VolumeDescriptor& volumeDescriptor) : volumeDescriptor(volumeDescriptor) {
+    apis::VolumeDescriptor& volumeDescriptor) : volumeDescriptor(volumeDescriptor) {
 }
 
 void BucketStatsResponseHandler::process() {
@@ -110,10 +160,59 @@ BucketStatsResponseHandler::~BucketStatsResponseHandler() {
     }
 }
 
-void StatBlobResponseHandler::process() {
-    XCHECKSTATUS(status);
-    LOGDEBUG << "setting bytecount: " << blobSize;
-    blobDescriptor->byteCount = blobSize;
+StatBlobResponseHandler::StatBlobResponseHandler(
+    apis::BlobDescriptor& retVal) : retBlobDesc(retVal) {
 }
 
+
+void StatBlobResponseHandler::process() {
+    XCHECKSTATUS(status);
+
+    retBlobDesc.name      = blobDesc.getBlobName();
+    retBlobDesc.byteCount = blobDesc.getBlobSize();
+
+    for (const_kv_iterator it = blobDesc.kvMetaBegin();
+         it != blobDesc.kvMetaEnd();
+         it++) {
+        retBlobDesc.metadata[it->first] = it->second;
+    }
+}
+
+StatBlobResponseHandler::~StatBlobResponseHandler() {
+}
+
+StartBlobTxResponseHandler::StartBlobTxResponseHandler(
+    apis::TxDescriptor& retVal) : retTxDesc(retVal) {
+}
+
+void
+StartBlobTxResponseHandler::process() {
+    XCHECKSTATUS(status);
+
+    retTxDesc.txId = blobTxId.getValue();
+}
+
+StartBlobTxResponseHandler::~StartBlobTxResponseHandler() {
+}
+
+AttachVolumeResponseHandler::AttachVolumeResponseHandler() {
+}
+
+void
+AttachVolumeResponseHandler::process() {
+    XCHECKSTATUS(status);
+}
+
+AttachVolumeResponseHandler::~AttachVolumeResponseHandler() {
+}
+
+StatVolumeResponseHandler::StatVolumeResponseHandler(apis::VolumeStatus& volumeStatus)
+        : volumeStatus(volumeStatus) {
+}
+
+void StatVolumeResponseHandler::process() {
+    XCHECKSTATUS(status);
+    volumeStatus.blobCount = volumeMetaData.blobCount;
+    volumeStatus.currentUsageInBytes = volumeMetaData.size;
+}
 }  // namespace fds

@@ -5,8 +5,12 @@
 #define SOURCE_INCLUDE_NATIVE_TYPES_H_
 #include <string>
 #include <boost/shared_ptr.hpp>
+#include <fdsp/FDSP_types.h>
 #include <fds_types.h>
+#include <blob/BlobTypes.h>
 #include <fds_error.h>
+#include <fds_defines.h>
+#include <fds_typedefs.h>
 #define FDSN_QOS_PERF_NORMALIZER 20
 
 namespace fds {
@@ -85,8 +89,7 @@ namespace fds {
                  double _limit);
     };
 
-    typedef enum
-    {
+    typedef enum {
         AclPermissionRead                    = 0,
         AclPermissionWrite                   = 1,
         AclPermissionReadACP                 = 2,
@@ -94,8 +97,7 @@ namespace fds {
         AclPermissionFullControl             = 4
     } AclPermission;
 
-    typedef struct ErrorDetails
-    {
+    typedef struct ErrorDetails {
         /**
          * This is the human-readable message that Amazon supplied describing the
          * error
@@ -140,8 +142,7 @@ namespace fds {
      * AuthenticatedRead canned ACL gives the owner FULL_CONTROL and authenticated
      *     S3 users Read permission
      **/
-    typedef enum
-    {
+    typedef enum {
         CannedAclPrivate                  = 0, /* private */
         CannedAclPublicRead               = 1, /* public-read */
         CannedAclPublicReadWrite          = 2, /* public-read-write */
@@ -149,8 +150,7 @@ namespace fds {
     } CannedAcl;
 
 
-    typedef enum
-    {
+    typedef enum {
         GranteeTypeAmazonCustomerByEmail  = 0,
         GranteeTypeCanonicalUser          = 1,
         GranteeTypeAllAwsUsers            = 2,
@@ -286,11 +286,19 @@ namespace fds {
                                                 fds_uint64_t bufferSize,
                                                 fds_off_t offset,
                                                 const char *buffer,
-                                                fds_uint64_t blobSize,
-                                                const std::string &blobEtag,
                                                 void *callbackData,
                                                 FDSN_Status status,
                                                 ErrorDetails *errDetails);
+
+    typedef void (*fdsnStatBlobHandler)(FDSN_Status status,
+                                        const ErrorDetails *errorDetails,
+                                        BlobDescriptor blobDesc,
+                                        void *callbackData);
+
+    typedef void (*fdsnStartBlobTxHandler)(FDSN_Status status,
+                                           const ErrorDetails *errorDetails,
+                                           BlobTxId txId,
+                                           void *callbackData);
 
     typedef void (*fdsnResponseHandler)(FDSN_Status status,
                                         const ErrorDetails *errorDetails,
@@ -313,6 +321,14 @@ namespace fds {
                                            FDSN_Status status,
                                            ErrorDetails *err_details);
 
+    /**
+     * NOTE:
+     *   - the member variables should all be return values to be
+     *     processed by another consumer.
+     *   - all member variables will be owned & destroyed by cb
+     *   - these are interfaces :
+     *     look at am-engine/handlers for implementation
+     */    
     /** New Callback Scheme **/
 
     /**
@@ -321,38 +337,150 @@ namespace fds {
      * is implementation dependent
      */
 
-    namespace native {
+    struct Callback {
+        FDSN_Status status = FDSN_StatusErrorUnknown;
+        const ErrorDetails *errorDetails = NULL;
+        Error error = ERR_MAX;
 
-        /**
-         * NOTE:
-         *   - the member variables should all be return values to be
-         *     processed by another consumer.
-         *   - all member variables will be owned & destroyed by cb
-         *   - these are interfaces :
-         *     look at am-engine/handlers for implementation
+        void operator()(FDSN_Status status = FDSN_StatusErrorUnknown);
+        void call(FDSN_Status status);
+        bool isStatusSet();
+        bool isErrorSet();
+
+        virtual void call() = 0;
+        virtual ~Callback();
+    };
+    typedef boost::shared_ptr<Callback> CallbackPtr;
+
+
+    class FdsBlobReq {
+  public:
+        /*
+         * Callback members
+         * TODO: Resolve this with what's needed by the object-based callbacks.
          */
+        typedef boost::function<void(fds_int32_t)> callbackBind;
 
-        struct Callback {
-            FDSN_Status status = FDSN_StatusErrorUnknown;
-            const ErrorDetails *errorDetails = NULL;
-            virtual void call() = 0;
-            virtual ~Callback() {
-                if (errorDetails) delete errorDetails;
-            }
-        };
-        typedef boost::shared_ptr<Callback> CallbackPtr;
+  protected:
+        /*
+         * Common request header members
+         */
+        fds_uint32_t magic;
+        fds_io_op_t  ioType;
 
-        struct ScopedCallBack {
-            Callback* cb;
-            explicit ScopedCallBack(Callback* _cb) {cb = _cb;}
-            ~ScopedCallBack() {if (cb) cb->call();}
-        };
+        /*
+         * Volume members
+         */
+        fds_volid_t volId;
+
+        /*
+         * Blob members
+         */
+        std::string  blobName;
+        fds_uint64_t blobOffset;
+
+        /*
+         * Object members
+         */
+        ObjectID objId;
+
+        /*
+         * Buffer members
+         */
+        fds_uint64_t  dataLen;
+        char         *dataBuf;
+
+        /*
+         * Callback members
+         */
+        callbackBind callback;
+
+        /*
+         * Perf members
+         */
+        fds_uint64_t queuedUsec;  /* Time spec in queue */
+
+  public:
+        FdsBlobReq(fds_io_op_t      _op,
+                   fds_volid_t        _volId,
+                   const std::string &_blobName,
+                   fds_uint64_t       _blobOffset,
+                   fds_uint64_t       _dataLen,
+                   char              *_dataBuf);
+
+        FdsBlobReq(fds_io_op_t      _op,
+                   fds_volid_t        _volId,
+                   const std::string &_blobName,
+                   fds_uint64_t       _blobOffset,
+                   fds_uint64_t       _dataLen,
+                   char              *_dataBuf,
+                   CallbackPtr cb
+                   );
+        template<typename F, typename A, typename B, typename C>
+        FdsBlobReq(fds_io_op_t      _op,
+                   fds_volid_t        _volId,
+                   const std::string &_blobName,
+                   fds_uint64_t       _blobOffset,
+                   fds_uint64_t       _dataLen,
+                   char              *_dataBuf,
+                   F f,
+                   A a,
+                   B b,
+                   C c)
+                : magic(FDS_SH_IO_MAGIC_IN_USE),
+                ioType(_op),
+                volId(_volId),
+                blobName(_blobName),
+                blobOffset(_blobOffset),
+                dataLen(_dataLen),
+                dataBuf(_dataBuf),
+                callback(boost::bind(f, a, b, c, _1)) {
+        }
+
+        virtual ~FdsBlobReq();
+        CallbackPtr cb;
+        fds_bool_t magicInUse() const;
+        fds_volid_t getVolId() const;
+        fds_io_op_t  getIoType() const;
+        void setVolId(fds_volid_t vol_id);
+        void cbWithResult(int result);
+        const std::string& getBlobName() const;
+        fds_uint64_t getBlobOffset() const;
+        void setBlobOffset(fds_uint64_t offset);
+        const char *getDataBuf() const;
+        fds_uint64_t getDataLen() const;
+        void setDataLen(fds_uint64_t len);
+        void setDataBuf(const char* _buf);
+        ObjectID getObjId() const;
+        void setObjId(const ObjectID& _oid);
+        void setQueuedUsec(fds_uint64_t _usec);
+    };
 
 
-        struct StatBlobCallback : virtual Callback {
-            fds_uint64_t blobSize = -1;
-        };
-        typedef boost::shared_ptr<StatBlobCallback> StatBlobCallbackPtr;
-    }  // namespace native
+    // RAII model.
+    // NOTE: use this cautiously!!!
+    // at the end of scope the cb will be called!!
+    struct ScopedCallBack {
+        CallbackPtr cb;
+        explicit ScopedCallBack(CallbackPtr cb);
+        ~ScopedCallBack();
+    };
+
+    struct StatBlobCallback : virtual Callback {
+        typedef boost::shared_ptr<StatBlobCallback> ptr;
+        /// The blob descriptor to fill in
+        BlobDescriptor      blobDesc;
+    };
+
+    struct StartBlobTxCallback : virtual Callback {
+        typedef boost::shared_ptr<StartBlobTxCallback> ptr;
+        /// The blob trans ID to fill in
+        BlobTxId      blobTxId;
+    };
+
+    struct GetVolumeMetaDataCallback : virtual Callback {
+        TYPE_SHAREDPTR(GetVolumeMetaDataCallback);
+        fpi::FDSP_VolumeMetaData volumeMetaData;
+    };
 }  // namespace fds
 #endif  // SOURCE_INCLUDE_NATIVE_TYPES_H_

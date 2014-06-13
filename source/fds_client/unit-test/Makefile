@@ -7,7 +7,7 @@ user_incl_dir     := ../ ../include $(topdir)/stor_hvisor_ice
 user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  :=                                                          \
-    fds-StorHvisor \
+    fds-am-engine \
     fds-lib  \
     fds-umod \
     fds-thread \
