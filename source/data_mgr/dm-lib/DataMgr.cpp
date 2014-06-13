@@ -1353,7 +1353,8 @@ Error  DataMgr::forwardUpdateCatalogRequest(dmCatReq  *updCatReq) {
 Error
 DataMgr::updateCatalogInternal(FDSP_UpdateCatalogTypePtr updCatReq,
                                fds_volid_t volId, long srcIp, long dstIp, fds_uint32_t srcPort,
-                               fds_uint32_t dstPort, std::string session_uuid, fds_uint32_t reqCookie) {
+                               fds_uint32_t dstPort, std::string session_uuid,
+                               fds_uint32_t reqCookie,std::string session_cache) {
     fds::Error err(fds::ERR_OK);
 
     /*
@@ -1364,6 +1365,7 @@ DataMgr::updateCatalogInternal(FDSP_UpdateCatalogTypePtr updCatReq,
                                       dstIp, srcPort, dstPort, session_uuid, reqCookie, FDS_CAT_UPD,
                                       updCatReq);
 
+    dmUpdReq->session_cache = session_cache;
     err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(dmUpdReq));
     if (err != ERR_OK) {
         LOGNORMAL << "Unable to enqueue Update Catalog request "
@@ -1416,7 +1418,8 @@ void DataMgr::ReqHandler::UpdateCatalogObject(FDS_ProtocolInterface::
 
     err = dataMgr->updateCatalogInternal(update_catalog, msg_hdr->glob_volume_id,
                                          msg_hdr->src_ip_lo_addr, msg_hdr->dst_ip_lo_addr, msg_hdr->src_port,
-                                         msg_hdr->dst_port, msg_hdr->session_uuid, msg_hdr->req_cookie);
+                                         msg_hdr->dst_port, msg_hdr->session_uuid, msg_hdr->req_cookie,
+                                         msg_hdr->session_cache);
 
     if (!err.ok()) {
         GLOGNORMAL << "Error Queueing the update Catalog request to Per volume Queue";
