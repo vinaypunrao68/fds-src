@@ -19,6 +19,24 @@ TimeStamp getTimeStampNanos();
 TimeStamp getTimeStampMicros();
 TimeStamp getTimeStampMillis();
 
+extern fds_uint64_t CYCLES_PER_SECOND;
+
+// use with care .. will be called on load and will
+// initialize CYCLES_PER_SECOND
+fds_uint64_t getCpuSpeedHz();
+
+fds_uint64_t rdtsc();
+fds_uint64_t rdtsc_barrier();
+
+// same as rdtsc
+fds_uint64_t getClockTicks();
+
+// convert clock ticks to nanos
+TimeStamp getNanosFromTicks(fds_uint64_t ticks);
+
+/**
+ * To track time interval once
+ */
 struct StopWatch {
     TimeStamp start();
     void reset();
@@ -26,6 +44,13 @@ struct StopWatch {
   protected:
     TimeStamp startTime = 0;
 };
+
+/**
+ * To track time intervals in multiple stages..
+ * Maintians a named vector to stored 
+ * different points in time..
+ * print the tracker to get the individual times.
+ */
 
 struct TimeTracker {
     void start();
@@ -40,9 +65,8 @@ struct TimeTracker {
     StopWatch stopWatch;
 };
 std::ostream& operator<<(std::ostream& oss, const fds::util::TimeTracker& tracker);
+
 } // namespace util
 } // namespace fds
-
-
 
 #endif // SOURCE_UTIL_TIMEUTILS_H_
