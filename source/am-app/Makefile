@@ -40,6 +40,7 @@ user_non_fds_libs :=  \
     boost_program_options \
     boost_filesystem \
     thrift \
+    jansson \
     config++ \
     cryptopp \
     hiredis \

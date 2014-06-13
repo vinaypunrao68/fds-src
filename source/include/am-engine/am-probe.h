@@ -7,7 +7,9 @@
 #include <string>
 #include <fds_module.h>
 #include <native_api.h>
+#include <concurrency/ThreadPool.h>
 #include <fds-probe/fds_probe.h>
+#include <util/timeutils.h>
 
 namespace fds {
 
@@ -19,6 +21,78 @@ class AmProbe : public ProbeMod {
   private:
     FDS_NativeAPI::ptr               am_api;
     boost::shared_ptr<boost::thread> listen_thread;
+    fds_uint32_t                     numThreads;
+    fds_uint32_t                     numOps;
+    fds_atomic_ullong                recvdOps;
+    util::TimeStamp                  startTime;
+    util::TimeStamp                  endTime;
+
+    /**
+     * Parameters that can be set
+     */
+    class OpParams {
+      public:
+        std::string  op;
+        std::string  volumeName;
+        std::string  blobName;
+        fds_uint64_t blobOffset;
+    };
+
+    /**
+     * Operation service, type name "thpool-syscall",
+     * "thpool-boost", "thpool-math"
+     */
+    class AmProbeOp : public JsObject {
+      public:
+        virtual JsObject *js_exec_obj(JsObject *array,
+                                      JsObjTemplate *templ,
+                                      JsObjOutput *out);
+        inline AmProbe::OpParams *am_ops() {
+            return static_cast<AmProbe::OpParams *>(js_pod_object());
+        }
+    };
+
+    /**
+     * Op service template for json templates
+     */
+    class AmOpTemplate : public JsObjTemplate {
+      public:
+        virtual ~AmOpTemplate() {}
+        explicit AmOpTemplate(JsObjManager *mgr)
+                : JsObjTemplate("am-ops", mgr) {
+        }
+
+        virtual JsObject *js_new(json_t *in) {
+            AmProbe::OpParams *p = new AmProbe::OpParams();
+            char *op;
+            char *volName;
+            char *blobName;
+            if (json_unpack(in, "{s:s, s:s, s:s, s:i}",
+                            "blob-op", &op,
+                            "volume-name", &volName,
+                            "blob-name", &blobName,
+                            "blob-off", &p->blobOffset)) {
+                delete p;
+                return NULL;
+            }
+            p->op = op;
+            p->volumeName = volName;
+            p->blobName = blobName;
+
+            return js_parse(new AmProbeOp(), in, p);
+        }
+    };
+
+    class AmWorkloadTemplate : public JsObjTemplate {
+      public:
+        explicit AmWorkloadTemplate(JsObjManager *mgr)
+                : JsObjTemplate("am-workload", mgr) {
+            js_decode["am-ops"] = new AmOpTemplate(mgr);
+        }
+        virtual JsObject *js_new(json_t *in) {
+            return js_parse(new JsObject(), in, NULL);
+        }
+    };
 
   public:
     explicit AmProbe(const std::string &name,
@@ -42,6 +116,14 @@ class AmProbe : public ProbeMod {
     void pr_delete(ProbeRequest *req);
     void pr_verify_request(ProbeRequest *req);
     void pr_gen_report(std::string *out);
+
+    // Threadpool for managing workload
+    fds_threadpoolPtr threadPool;
+
+    // Workload related methods
+    void incResp();
+    static void doAsyncStartTx(const std::string &volumeName,
+                               const std::string &blobName);
 };
 
 extern AmProbe gl_AmProbe;
