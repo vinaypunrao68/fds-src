@@ -109,8 +109,8 @@ StatHistory* PerfStats::getHistoryWithReadLockHeld(fds_volid_t class_id)
 
     std::unordered_map<fds_volid_t, StatHistory*>::iterator iter = histmap.find(class_id);
     if (histmap.end() != iter) {
-        hist = iter->second
-        assert(hist);
+        hist = iter->second;
+        fds_assert(hist);
     } else {
       /* we see this class_id for the first time, create a history for it */
       map_rwlock.read_unlock();

@@ -20,7 +20,7 @@ namespace fds {
     max_lat = 0; 
   }
 
-  void Stat::add(long lat) 
+  void Stat::add(unsigned long lat) 
   {
     double n = nsamples;
     ++nsamples;
@@ -59,7 +59,7 @@ namespace fds {
   {
   }
 
-  void IoStat::add(long microlat, diskio::DataTier tier, fds_io_op_t opType)
+  void IoStat::add(unsigned long microlat, diskio::DataTier tier, fds_io_op_t opType)
   {
     int index = statIndex(tier, opType);
     fds_verify(index < PERF_STAT_TYPES);
@@ -83,34 +83,34 @@ namespace fds {
   }
 
   /* returns total iops */
-  long IoStat::getIops() const 
+  unsigned long IoStat::getIops() const 
   {
-    return (long)((double)stat[PERF_STAT_TYPES-1].nsamples / (double) interval_sec);
+    return (unsigned long)((double)stat[PERF_STAT_TYPES-1].nsamples / (double) interval_sec);
   }
 
   /* returns iops of specific type */
-  long IoStat::getIops(diskio::DataTier tier, fds_io_op_t opType) const 
+  unsigned long IoStat::getIops(diskio::DataTier tier, fds_io_op_t opType) const 
   {
     int index = statIndex(tier, opType);
     fds_verify(index < PERF_STAT_TYPES)
-    return (long)((double)stat[index].nsamples / (double) interval_sec);
+    return (unsigned long)((double)stat[index].nsamples / (double) interval_sec);
   }
 
   /* ave latency over all ops */
-  long IoStat::getAveLatency() const
+  unsigned long IoStat::getAveLatency() const
   {
     return (long)stat[PERF_STAT_TYPES-1].ave_lat;
   }
 
   /* ave latency over ops of specific type */
-  long IoStat::getAveLatency(diskio::DataTier tier, fds_io_op_t opType) const
+  unsigned long IoStat::getAveLatency(diskio::DataTier tier, fds_io_op_t opType) const
   {
     int index = statIndex(tier, opType);
     fds_verify(index < PERF_STAT_TYPES);
-    return (long)stat[index].ave_lat;
+    return (unsigned long)stat[index].ave_lat;
   }
 
-  long IoStat::getMinLatency() const
+  unsigned long IoStat::getMinLatency() const
   {
   if (stat[PERF_STAT_TYPES-1].nsamples == 0)
     return 0;
@@ -118,7 +118,7 @@ namespace fds {
     return stat[PERF_STAT_TYPES-1].min_lat;
   }
 
-  long IoStat::getMaxLatency() const
+  unsigned long IoStat::getMaxLatency() const
   {
     return stat[PERF_STAT_TYPES-1].max_lat;
   }
@@ -186,7 +186,7 @@ namespace fds {
     delete [] stat_slots;
   }
 
-  void StatHistory::addIo(long rel_seconds, long microlat, diskio::DataTier tier, fds_io_op_t opType)
+  void StatHistory::addIo(long rel_seconds, unsigned long microlat, diskio::DataTier tier, fds_io_op_t opType)
   {
     int index = 0;
     lock.write_lock();
@@ -304,10 +304,10 @@ namespace fds {
     lock.read_unlock();
   }
 
-  long StatHistory::getAverageIOPS(long rel_end_seconds,
+  unsigned long StatHistory::getAverageIOPS(long rel_end_seconds,
 				   int interval_sec)
   {
-    long ret_iops = 0;
+    unsigned long ret_iops = 0;
 
     lock.read_lock();
     int endix = last_slot_num % nslots;
@@ -331,7 +331,7 @@ namespace fds {
 
     /* get the average */
     if (slot_count > 0)
-      ret_iops = (long)( (double)ret_iops/(double)slot_count );
+      ret_iops = (unsigned long)( (double)ret_iops/(double)slot_count );
 
     lock.read_unlock();
     return ret_iops;
