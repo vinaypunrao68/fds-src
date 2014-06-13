@@ -168,6 +168,7 @@ CatSyncReceiver::fwdUpdateReqDone(dmCatReq* updCatReq,
     msg_hdr->msg_code = fpi::FDSP_MSG_UPDATE_CAT_OBJ_RSP;
     msg_hdr->glob_volume_id =  updCatReq->volId;
     msg_hdr->req_cookie =  updCatReq->reqCookie;
+    msg_hdr->session_cache =  updCatReq->session_cache;
 
     update_catalog->blob_name = updCatReq->blob_name;
     update_catalog->blob_version = blob_version;

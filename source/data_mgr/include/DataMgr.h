@@ -304,7 +304,8 @@ public:
      */
     Error updateCatalogInternal(FDSP_UpdateCatalogTypePtr updCatReq, 
                                 fds_volid_t volId,long srcIp,long dstIp,fds_uint32_t srcPort,
-                                fds_uint32_t dstPort, std::string session_uuid, fds_uint32_t reqCookie);
+                                fds_uint32_t dstPort, std::string session_uuid,
+                                fds_uint32_t reqCookie, std::string session_cache);
     Error queryCatalogInternal(FDSP_QueryCatalogTypePtr qryCatReq, 
                                fds_volid_t volId,long srcIp,long dstIp,fds_uint32_t srcPort,
                                fds_uint32_t dstPort, std::string session_uuid, fds_uint32_t reqCookie);

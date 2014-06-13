@@ -261,6 +261,7 @@ Error CatalogSync::forwardCatalogUpdate(dmCatReq  *updCatReq) {
     msg_hdr->dst_id = FDSP_DATA_MGR;
     msg_hdr->glob_volume_id = updCatReq->volId;
     msg_hdr->session_uuid = meta_client->getSessionId();
+    msg_hdr->session_cache = updCatReq->session_uuid;
        
     /*
      * init the update  catalog  structu

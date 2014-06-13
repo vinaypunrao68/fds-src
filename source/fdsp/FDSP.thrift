@@ -701,6 +701,7 @@ struct FDSP_MsgHdrType {
   29: FDSP_Uuid   src_service_uuid,    /* uuid of service that sent this request */
   30: i64         origin_timestamp,
   31: i32         proxy_count,
+  32: string      session_cache,  // this will be removed once we have  transcation journel  in DM
 }
 
 enum tier_prefetch_type_e

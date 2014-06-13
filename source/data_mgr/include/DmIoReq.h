@@ -37,6 +37,7 @@ namespace fds {
         std::string session_uuid;
         fds_uint32_t reqCookie;
         FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr fdspUpdCatReqPtr;
+        std::string session_cache;
 
   dmCatReq(fds_volid_t _volId,
            long  _srcIp,
