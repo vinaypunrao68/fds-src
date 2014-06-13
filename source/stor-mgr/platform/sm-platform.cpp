@@ -18,6 +18,9 @@ namespace fds {
 
 SmPlatform gl_SmPlatform;
 
+/* SM specific flags */
+DBG(DEFINE_FLAG(sm_drop_gets));
+DBG(DEFINE_FLAG(sm_drop_puts));
 
 
 // -------------------------------------------------------------------------------------

@@ -8,7 +8,8 @@
 #include <fds_assert.h>
 
 /* Use this macro for declaring a flag */
-#define DECLARE_FLAG(id)                    int64_t id
+#define DECLARE_FLAG(id)                    extern int64_t id
+#define DEFINE_FLAG(id)                     int64_t id
 /* Use this macro for registering a flag */
 #define REGISTER_FLAG(map, id)  \
     id = 0; \
@@ -25,7 +26,11 @@
 namespace fds {
 
 
-/*--------------------------------------------------------*/
+/* Declaration of flags that are common to all services */
+/* Drop async responses */
+DBG(DECLARE_FLAG(common_drop_async_resp));
+/* Enter gdb */
+DBG(DECLARE_FLAG(common_enter_gdb));
 
 
 class FlagsMap {
@@ -41,9 +46,6 @@ class FlagsMap {
 
     std::map<std::string, int64_t> toMap();
 
-    /* Declaration of flags that are common to all services */
-    /* Drop async responses */
-    DBG(DECLARE_FLAG(common_drop_async_resp));
 
  protected:
     std::unordered_map<std::string, int64_t*> flags_;

@@ -13,7 +13,10 @@ def setup_logger(file=None, level=logging.INFO):
     """
     log = logging.getLogger()
     log.setLevel(level)
-    handler = logging.StreamHandler(file)
+    if file is None:
+        handler = logging.StreamHandler()
+    else:
+       handler = logging.FileHandler(file) 
     handler.setLevel(level)
     log.addHandler(handler)
     return log

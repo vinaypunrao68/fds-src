@@ -20,6 +20,12 @@ from FDS_ProtocolInterface.ttypes import *
 from fdslib import ProcessUtils
 from fdslib import IOGen
 
+"""
+Cli exit exception
+"""
+class CliExitException(Exception):
+    pass
+
 # Globals
 log = None
 parser = None
@@ -63,6 +69,12 @@ def svclist():
 def refresh():
     svc_map.refresh()
 
+def exit():
+    # We could do sys.exit here.  But any invalid command also raises
+    # sys.exit and we ignoring those for now.  To cleanly exit we use
+    # CliExitException
+    raise CliExitException()
+
 class MyShell(cmd.Cmd):
     prompt = 'FDS::>'
     """
@@ -74,12 +86,22 @@ class MyShell(cmd.Cmd):
     def onecmd(self, line):
         try:
             parser.dispatch(argv=line.split())
+        except CliExitException:
+            print 'Goodbye!'
+            sys.exit(0)
         except:
+            log.warn('cmd: {} exception: {}'.format(line, sys.exc_info()[0]))
             pass
         return None
 
 if __name__ == '__main__':
-    log = ProcessUtils.setup_logger()
+    log = ProcessUtils.setup_logger(file = 'console.log')
     parser = ArghParser()
-    parser.add_commands([refresh, add_node, counters, svclist, setflag, printflag])
+    parser.add_commands([refresh,
+                         add_node,
+                         counters,
+                         svclist,
+                         setflag,
+                         printflag,
+                         exit])
     MyShell().cmdloop()
