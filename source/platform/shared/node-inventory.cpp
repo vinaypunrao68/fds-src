@@ -529,8 +529,9 @@ PmAgent::agent_svc_info(fpi::NodeSvcInfo *out) const
     out->node_addr.assign(ninfo.nd_ip_addr);
     out->node_auto_name.assign(ninfo.nd_auto_name);
 
+    out->node_base_uuid.svc_uuid = rs_uuid.uuid_get_val();
     out->node_base_port = ninfo.nd_base_port;
-    out->node_state     = node_state();
+    out->node_state     = fpi::FDS_Node_Up;
     out->node_svc_mask  = NODE_DO_PROXY_ALL_SVCS;
 
     agent_svc_fillin(out, &ninfo, fpi::FDSP_STOR_MGR);
