@@ -121,7 +121,7 @@ main_lint_flags :=
 #
 main_tool_dir   := /usr/bin
 cc              := $(main_tool_dir)/gcc
-cpp             := $(main_tool_dir)/g++
+cpp             := $(main_tool_dir)/ccache $(main_tool_dir)/g++
 ld              := $(main_tool_dir)/ld
 ar              := $(main_tool_dir)/ar
 yacc            := $(main_tool_dir)/bison
