@@ -209,34 +209,6 @@ Platform::plf_change_info(const plat_node_data_t *ndata)
         << "\nMy OM IP     " << plf_om_ip_str << std::endl;
 }
 
-// TODO(Rao): Hack.  Remove once shared memory is working
-void Platform::write_uuid_port(uint64_t uuid, uint32_t port)
-{
-    std::ofstream of("/fds/uuid_port", ios::out | ios::app);
-    fds_verify(of.is_open());
-    of << uuid << " " << port << "\n";
-    of.close();
-    GLOGDEBUG << "uuid: " << uuid << " port: " << port;
-}
-
-// TODO(Rao): Hack.  Remove once shared memory is working
-uint32_t Platform::lookup_svc_port(uint64_t key)
-{
-    uint64_t uuid;
-    uint32_t port;
-    std::ifstream f("/fds/uuid_port");
-    fds_verify(f.is_open());
-    while (f >> uuid) {
-        f >> port;
-        if (uuid == key) {
-            f.close();
-            return port;
-        }
-    }
-    f.close();
-    return 0;
-}
-
 // plf_svc_uuid_from_node
 // ----------------------
 // Simple formula to derrive service uuid from node uuid.
@@ -248,8 +220,9 @@ Platform::plf_svc_uuid_from_node(const NodeUuid      &node,
 {
     if (type == fpi::FDSP_PLATFORM) {
         svc->uuid_set_val(node.uuid_get_val());
+        fds_assert(svc->uuid_get_type() == fpi::FDSP_PLATFORM);
     } else {
-        svc->uuid_set_val(node.uuid_get_val() + (type + 1));
+        svc->uuid_set_type(node.uuid_get_val(), type);
     }
 }
 
@@ -265,8 +238,9 @@ Platform::plf_svc_uuid_to_node(NodeUuid             *node,
     if (type == fpi::FDSP_PLATFORM) {
         node->uuid_set_val(svc.uuid_get_val());
     } else {
-        node->uuid_set_val(svc.uuid_get_val() - (type + 1));
+        node->uuid_set_val(svc.uuid_get_val());
     }
+    fds_assert(node->uuid_get_type() == fpi::FDSP_PLATFORM);
 }
 
 // plf_svc_port_from_node

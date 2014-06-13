@@ -125,10 +125,6 @@ SmPlatform::mod_startup()
 
     LOGNORMAL << " my_svc_uuid: " << *Platform::platf_singleton()->plf_get_my_svc_uuid()
         << " port: " << Platform::platf_singleton()->plf_get_my_base_port();
-
-    // TODO(Rao): Hack remove
-    Platform::write_uuid_port(Platform::platf_singleton()->plf_get_my_svc_uuid()->uuid_get_val(),
-                              Platform::platf_singleton()->plf_get_my_base_port());
 }
 
 // mod_enable_service

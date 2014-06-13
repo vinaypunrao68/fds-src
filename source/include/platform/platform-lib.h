@@ -279,12 +279,6 @@ class Platform : public Module
     static inline int plf_get_my_om_svc_uuid(fpi::SvcUuid *uuid) {
         return plf_get_my_node_svc_uuid(uuid, fpi::FDSP_ORCH_MGR);
     }
-
-
-    // TODO(Rao): Hack.  Remove once shared memory is working
-    static void write_uuid_port(uint64_t uuid, uint32_t port);
-    static uint32_t lookup_svc_port(uint64_t key);
-
     /**
      * Platform methods.
      */
@@ -416,7 +410,6 @@ class PlatformProcess : public FdsProcess
 
     virtual void proc_pre_startup() override;
 
-
     /**
      * Return platform manager from the global singleton.
      */
@@ -432,7 +425,6 @@ class PlatformProcess : public FdsProcess
     fds_bool_t                plf_stand_alone;
     std::string               plf_db_key;
     plat_node_data_t          plf_node_data;
-
 
     virtual void plf_load_node_data();
     virtual void plf_apply_node_data();

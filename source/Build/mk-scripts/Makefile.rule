@@ -305,11 +305,11 @@ $(local_dep_file): $(local_src_files)
 	for f in $(local_cc_files); do                                            \
 		echo "    [DEP]         $$f";                                         \
 		obj=$${f%.*}.o;                                                       \
-        $(cc) -MM -MT $(comm_dir_objs)/$${f%.*}.o $(local_cc_flags) $$f >> $@;\
+        $(cc_dep) -MM -MT $(comm_dir_objs)/$${f%.*}.o $(local_cc_flags) $$f >> $@;\
 	done;                                                                     \
 	for f in $(local_cpp_files); do                                           \
 		echo "    [DEP]         $$f";                                         \
-        $(cpp) -MM -MT $(comm_dir_objs)/$${f%.*}.o $(local_cpp_flags) $$f >> $@;\
+        $(cpp_dep) -MM -MT $(comm_dir_objs)/$${f%.*}.o $(local_cpp_flags) $$f >> $@;\
     done;         
 endif
 

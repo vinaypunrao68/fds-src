@@ -23,9 +23,10 @@ NodePlatformProc::plf_load_node_data()
 {
     PlatformProcess::plf_load_node_data();
     if (plf_node_data.nd_has_data == 0) {
-        plf_node_data.nd_node_uuid = fds_get_uuid64(get_uuid());
-        std::cout << "NO UUID, generate one " << std::hex
-                  << plf_node_data.nd_node_uuid << std::endl;
+        NodeUuid uuid(fds_get_uuid64(get_uuid()));
+        plf_node_data.nd_node_uuid = uuid.uuid_get_val();
+        LOGNOTIFY << "NO UUID, generate one " << std::hex
+                  << plf_node_data.nd_node_uuid << std::dec;
     }
     // Make up some values for now.
     //

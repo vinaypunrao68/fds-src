@@ -132,12 +132,23 @@ EpPlatLibMod::ep_req_map_record(fds_uint32_t op, const ep_map_rec_t *rec)
 {
     ShmConPrdQueue *mine, *plat;
     ep_shmq_req_t   reqt, resp;
+    ResourceUUID    uuid;
     ShmqReqOut      out(true, &resp.smq_hdr, sizeof(resp));
 
+    uuid.uuid_set_from_raw(reinterpret_cast<const fds_uint8_t *>(&rec->rmp_uuid), false);
+    reqt.smq_type = uuid.uuid_get_type();
+    if (RsType::rs_func(reqt.smq_type, RsType::RS_IN_NODE_INV) == true) {
+        int          idx;
+        ep_map_rec_t svc;
+
+        idx = node_info_lookup(rec->rmp_uuid, &svc);
+        fds_assert(idx != -1);
+        fds_assert(rec->rmp_uuid == svc.rmp_uuid);
+        return idx;
+    }
     resp.smq_idx  = -1;
     reqt.smq_idx  = -1;
     reqt.smq_rec  = *rec;
-    reqt.smq_type = fpi::FDSP_OMCLIENT_MGR;   /* TODO(Vy): invalid type */
     reqt.smq_hdr.smq_code = op;
     resp.smq_rec.rmp_uuid = 0;
 
@@ -289,14 +300,6 @@ PlatLibUuidBind::shmq_handler(const shmq_req_t *in, size_t size)
     /* Cache the binding info. */
     fds_assert(map->smq_idx >= 0);
     NetMgr::ep_mgr_singleton()->ep_register_binding(&map->smq_rec, map->smq_idx);
-
-    /* Allocate node agents as proxy to this node and its services. */
-    /* The index here is for uuid mapping, not for node_data_t type! */
-    // BUG;
-    agent = NULL;
-    local = Platform::platf_singleton()->plf_node_inventory();
-    local->dc_register_node(NodeShmCtrl::shm_node_inventory(), &agent,
-                            map->smq_idx, -1, NODE_DO_PROXY_ALL_SVCS);
 }
 
 void
