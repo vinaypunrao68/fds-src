@@ -664,6 +664,12 @@ DmtDplyFSM::DACT_Close::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
     VolumePlacement* vp = om->om_volplace_mod();
     fds_uint64_t committed_ver = vp->getCommittedDMTVersion();
 
+    // tell VolumePlacement that AM received all acks, that will set flag
+    // 'not rebalancing' which will unblock the volume creation for volumes
+    // whose DMT columns were in rebalancing state
+    vp->notifyEndOfRebalancing();
+    // TODO(Anna) notify volume state machine to continue with create process
+
     // broadcast DMT close
     dst.close_acks_to_wait = loc_domain->om_bcast_dmt_close(committed_ver);
     // ok if there are no DMs to send close = no DMs at all

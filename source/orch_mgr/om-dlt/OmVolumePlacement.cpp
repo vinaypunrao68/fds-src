@@ -15,6 +15,7 @@ VolumePlacement::VolumePlacement()
           placeAlgo(NULL),
           placementMutex("Volume Placement mutex")
 {
+    bRebalancing = ATOMIC_VAR_INIT(false);
 }
 
 VolumePlacement::~VolumePlacement()
@@ -130,6 +131,8 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
                                 NodeUuidSet* dm_set)
 {
     Error err(ERR_OK);
+    fds_bool_t expect_rebal = false;
+    fds_uint64_t dmt_columns = pow(2, curDmtWidth);
     fds_verify(dm_set != NULL);
 
     // node to send the push meta msg -> push_meta message
@@ -146,7 +149,26 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
     }
     fds_verify(dmtMgr->hasTargetDMT());
 
-    LOGDEBUG << "Will get a list of nodes and volumes to rebalance";
+    // find the list of DMT columns whose volumes will be rebalanced
+    // = columns that have at least one different DM uuid
+    rebalColumns.clear();
+    for (fds_uint32_t cix = 0; cix < dmt_columns; ++cix) {
+        DmtColumnPtr cmt_col = dmtMgr->getDMT(DMT_COMMITTED)->getNodeGroup(cix);
+        DmtColumnPtr target_col = dmtMgr->getDMT(DMT_TARGET)->getNodeGroup(cix);
+        for (fds_uint32_t j = 0; j < target_col->getLength(); ++j) {
+            NodeUuid uuid = target_col->get(j);
+            if (cmt_col->find(uuid) < 0) {
+                // we have a new DM uuid in this column in target DMT
+                rebalColumns.insert(cix);
+                break;  // at least one, so no need to search remaining in col
+            }
+        }
+    }
+    // set rebalancing flag
+    if (!std::atomic_compare_exchange_strong(&bRebalancing, &expect_rebal, true)) {
+        fds_panic("VolumePlacement must not be in balancing state");
+        // fix DMT state machine!
+    }
 
     // get snapshot of current volumes
     OM_NodeContainer* loc_domain = OM_NodeDomainMod::om_loc_domain_ctrl();
@@ -253,6 +275,29 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
     }
 
     return err;
+}
+
+/**
+ * Return true if 2 conditions are true:
+ *  1. In rebalancing mode (between rebalancing started and
+ *     we got notified rebalancing is finished): bRebalancing == true.
+ *  2. Corresponding DMT column for volume 'volume id' is
+ *     getting rebalanced.
+ */
+fds_bool_t VolumePlacement::isRebalancing(fds_volid_t volume_id) const {
+    fds_uint64_t cols = pow(2, curDmtWidth);
+    fds_uint32_t col_ix = DMT::getNodeGroupIndex(volume_id, cols);
+    fds_bool_t b_rebal = std::atomic_load(&bRebalancing);
+    return (b_rebal && (rebalColumns.count(col_ix) > 0));
+}
+
+/**
+ * Notifies that rebalancing is finished. VolumePlacement may not be in
+ * rebalancing mode (e.g. was nothing to rebalance), which is ok
+ */
+void VolumePlacement::notifyEndOfRebalancing() {
+    std::atomic_exchange(&bRebalancing, false);
+    LOGNORMAL << "Notified VolumePlacement about end of vol meta rebalance";
 }
 
 void

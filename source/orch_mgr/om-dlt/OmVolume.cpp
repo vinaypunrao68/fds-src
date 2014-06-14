@@ -7,6 +7,7 @@
 #include <boost/msm/front/functor_row.hpp>
 #include <OmVolume.h>
 #include <OmResources.h>
+#include <OmVolumePlacement.h>
 #include <orchMgr.h>
 #include <om-discovery.h>
 #include <OmDmtDeploy.h>
@@ -896,6 +897,8 @@ VolumeContainer::om_create_vol(const FdspMsgHdrPtr &hdr,
 {
     Error err(ERR_OK);
     OM_NodeContainer    *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+    OM_Module *om = OM_Module::om_singleton();
+    VolumePlacement* vp = om->om_volplace_mod();
     VolPolicyMgr        *v_pol = OrchMgr::om_policy_mgr();
     FdsAdminCtrl        *admin = local->om_get_admin_ctrl();
     std::string         &vname = (creat_msg->vol_info).vol_name;
@@ -945,6 +948,16 @@ VolumeContainer::om_create_vol(const FdspMsgHdrPtr &hdr,
     // register before b-casting vol crt, in case we start recevings acks
     // before vol_event for create vol returns
     rs_register(vol);
+
+    // if we are rebalancing DMT column that corresponds to this volume
+    // delay volume's creation till rebalancing is finished
+    // Must be called after rs_register so that 
+    if (vp->isRebalancing(uuid.uuid_get_val())) {
+        LOGNOTIFY << "Volume " << volumeDesc.name << ":" << std::hex
+                  << uuid.uuid_get_val() << std::dec << " is in DMT columns that "
+                  << "is rebalancing now! "
+                  << "Will delay volume creation until rebalancing is finished";
+    }
 
     // this event will broadcast vol create msg to other nodes and wait for acks
     vol->vol_event(VolCreateEvt(vol.get()));
