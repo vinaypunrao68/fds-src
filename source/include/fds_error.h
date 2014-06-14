@@ -85,7 +85,8 @@ namespace fds {
         ERR_RPC_TIMEOUT,
 
         /* FDSN status errors */
-        FDSN_StatusCreated                                         ,
+        // TODO(Rao): Change FDSN_Status prefix to ERR_ prefix
+        FDSN_StatusCreated = 5000                                  ,
 
         /* do denote uninitialized value*/
         FDSN_StatusNOTSET                                          ,
