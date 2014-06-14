@@ -84,7 +84,7 @@ void FDS_NativeAPI::CreateBucket(BucketContext *bucket_ctx,
         return;
     }
 
-    (responseHandler)(FDSN_StatusOK, NULL, callback_data);
+    (responseHandler)(ERR_OK, NULL, callback_data);
 }
 
 
@@ -177,7 +177,7 @@ void FDS_NativeAPI::DeleteBucket(BucketContext* bucketCtxt,
     storHvisor->om_client->pushDeleteBucketToOM(volData);
     /* TBD. Since this one is async call Error
        checking involved, need more discussiosn */
-    (handler)(FDSN_StatusOK, NULL, callbackData);
+    (handler)(ERR_OK, NULL, callbackData);
     return;
 }
 
@@ -242,7 +242,7 @@ void FDS_NativeAPI::ModifyBucket(BucketContext *bucket_ctxt,
      * add 'admin' queue to volume queues with some rate and send msgs to OM when
      * we dequeue those requests (not here).
      */
-    (handler)(FDSN_StatusOK, NULL, callback_data);
+    (handler)(ERR_OK, NULL, callback_data);
 }
 
 /* get bucket stats for all existing buckets from OM*/
@@ -370,7 +370,7 @@ FDS_NativeAPI::attachVolume(const std::string& volumeName,
         LOGDEBUG << "Volume " << volumeName
                  << " with UUID " << volId
                  << " already attached";
-        cb->call(FDSN_StatusOK);
+        cb->call(ERR_OK);
     }
     // Make sure the volume isn't attached already
     fds_verify(volId == invalid_vol_id);
@@ -532,7 +532,7 @@ void FDS_NativeAPI::DoCallback(FdsBlobReq  *blob_req,
                                fds_uint32_t ignore,
                                fds_int32_t  result)
 {
-    FDSN_Status status(FDSN_StatusOK);
+    FDSN_Status status(ERR_OK);
 
     LOGNORMAL << " callback -"
               << " [iotype:" << blob_req->getIoType() << "]"

@@ -137,7 +137,7 @@ std::ostream& operator<<(std::ostream& out, const Error& err) {
 std::ostream& operator<<(std::ostream& os, FDSN_Status status) {
     switch (status) {
         ENUMCASEOS(FDSN_StatusNOTSET                             , os);
-        ENUMCASEOS(FDSN_StatusOK                                 , os);
+        ENUMCASEOS(ERR_OK                                        , os);
         ENUMCASEOS(FDSN_StatusCreated                            , os);
         ENUMCASEOS(FDSN_StatusInternalError                      , os);
         ENUMCASEOS(FDSN_StatusOutOfMemory                        , os);
@@ -212,7 +212,7 @@ std::ostream& operator<<(std::ostream& os, FDSN_Status status) {
 std::string toString(FDSN_Status status) {
     switch (status) {
         ENUMCASE(FDSN_StatusNOTSET);
-        ENUMCASE(FDSN_StatusOK);
+        ENUMCASE(ERR_OK);
         ENUMCASE(FDSN_StatusCreated);
         ENUMCASE(FDSN_StatusInternalError);
         ENUMCASE(FDSN_StatusOutOfMemory);
@@ -288,7 +288,7 @@ std::string toString(FDSN_Status status) {
 
 FDSN_Status getStatusFromError(const Error& error) {
     switch (error.GetErrno()) {
-        case ERR_OK                           : return FDSN_StatusOK;
+        case ERR_OK                           : return ERR_OK;
 
         case ERR_DUPLICATE                    :
         case ERR_HASH_COLLISION               :

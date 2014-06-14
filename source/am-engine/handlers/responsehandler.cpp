@@ -8,7 +8,7 @@
 #include <sstream>
 #include <vector>
 #define XCHECKSTATUS(status)             \
-    if (status != FDSN_StatusOK) {       \
+    if (status != ERR_OK) {       \
         LOGWARN << " status:" << status; \
         apis::ApiException e;            \
         e.errorCode = apis::ErrorCode::INTERNAL_SERVER_ERROR;   \
@@ -71,7 +71,7 @@ PutObjectResponseHandler::~PutObjectResponseHandler() {
 //================================================================================
 
 void PutObjectBlkResponseHandler::process() {
-    if (status == FDSN_StatusOK) {
+    if (status == ERR_OK) {
         ubdCallback(0);
     } else {
         // TODO(Andrew): For now, just pass -1 when something
@@ -92,7 +92,7 @@ GetObjectResponseHandler::~GetObjectResponseHandler() {
 //================================================================================
 
 void GetObjectBlkResponseHandler::process() {
-    if (status == FDSN_StatusOK) {
+    if (status == ERR_OK) {
         ubdCallback(0);
     } else if (status == FDSN_StatusEntityDoesNotExist) {
         // For unwritten block offsets, return success and

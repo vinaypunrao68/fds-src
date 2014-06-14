@@ -85,7 +85,6 @@ namespace fds {
         ERR_RPC_TIMEOUT,
 
         /* FDSN status errors */
-        FDSN_StatusOK = 5000                                       ,
         FDSN_StatusCreated                                         ,
 
         /* do denote uninitialized value*/

@@ -253,7 +253,7 @@ ame_keytab_t sgt_AMEKey[] =
 int AME_Request::ame_map_fdsn_status(FDSN_Status status) {
     LOGNORMAL << "fdsn status : " << status;
     switch (status) {
-        case FDSN_StatusOK                                  : return NGX_HTTP_OK;
+        case ERR_OK                                         : return NGX_HTTP_OK;
         case FDSN_StatusCreated                             : return NGX_HTTP_CREATED;
 
         case FDSN_StatusInvalidBucketNameTooLong            :
@@ -686,7 +686,7 @@ fdsn_getobj_cbfn(BucketContextPtr bucket_ctx,
     // TODO(Andrew): If one of the streaming gets() failed, we
     // will abort the stream, but may have sent the header back
     // already and may have stream info to still clean up...
-    if (status == FDSN_StatusOK) {
+    if (status == ERR_OK) {
         fds_verify(bufSize <= blobSize);
 
         // Update the ctx with whatever etag we received for the blob
@@ -745,7 +745,7 @@ fdsn_getobj_cbfn(BucketContextPtr bucket_ctx,
 
     // Update the ack map with the result
     AME_Ctx::AME_Ctx_Ack ack_status = AME_Ctx::OK;
-    if (status != FDSN_StatusOK) {
+    if (status != ERR_OK) {
         ack_status = AME_Ctx::FAILED;
     }
     err = ctx->ame_upd_ctx_req(offset, ack_status);
@@ -756,14 +756,14 @@ fdsn_getobj_cbfn(BucketContextPtr bucket_ctx,
     // TODO(Andrew): Need to figure out how to return
     // error when a later get() fails since we may have
     // already returned the header...
-    if (status == FDSN_StatusOK) {
-        conn_go->ame_signal_resume(AME_Request::ame_map_fdsn_status(FDSN_StatusOK));
+    if (status == ERR_OK) {
+        conn_go->ame_signal_resume(AME_Request::ame_map_fdsn_status(ERR_OK));
     } else {
         conn_go->ame_signal_resume(
             AME_Request::ame_map_fdsn_status(status));
     }
 
-    return FDSN_StatusOK;
+    return ERR_OK;
 }
 
 // ame_request_resume
@@ -952,7 +952,7 @@ fdsn_putobj_cbfn(void *reqContext, fds_uint64_t bufferSize, fds_off_t offset,
 
     // Update the status of this single request
     AME_Ctx::AME_Ctx_Ack ack_status = AME_Ctx::OK;
-    if (status != FDSN_StatusOK) {
+    if (status != ERR_OK) {
         ack_status = AME_Ctx::FAILED;
     }
     Error err = ctx->ame_upd_ctx_req(offset, ack_status);
@@ -961,7 +961,7 @@ fdsn_putobj_cbfn(void *reqContext, fds_uint64_t bufferSize, fds_off_t offset,
     // Check the status of the entire put request
     ack_status = ctx->ame_check_status();
     if (ack_status == AME_Ctx::OK) {
-        conn_po->ame_signal_resume(AME_Request::ame_map_fdsn_status(FDSN_StatusOK));
+        conn_po->ame_signal_resume(AME_Request::ame_map_fdsn_status(ERR_OK));
     } else if (ack_status == AME_Ctx::FAILED) {
         conn_po->ame_signal_resume(
             AME_Request::ame_map_fdsn_status(status));
@@ -1204,7 +1204,7 @@ fdsn_getbucket_cbfn(int isTruncated, const char *nextMarker, int contentCount,
 {
     Conn_GetBucket *gbucket = static_cast<Conn_GetBucket *>(cbarg);
 
-    if (status != FDSN_StatusOK) {
+    if (status != ERR_OK) {
         gbucket->ame_signal_resume(AME_Request::ame_map_fdsn_status(status));
         return;
     }
@@ -1539,7 +1539,7 @@ fdsn_getbucket_stat_cb(const std::string& timestamp,
     Conn_GetBucketStats *gbstats;
 
     gbstats = static_cast<Conn_GetBucketStats *>(callback_data);
-    if (status != FDSN_StatusOK) {
+    if (status != ERR_OK) {
         gbstats->ame_signal_resume(AME_Request::ame_map_fdsn_status(status));
         return;
     }

@@ -44,7 +44,7 @@ StorHvCtrl::TxnResponseHelper::TxnResponseHelper(StorHvCtrl* storHvisor,
     fds_verify(qosReq != NULL);
     blobReq = qosReq->getBlobReqPtr();
     fds_verify(blobReq != NULL);
-    blobReq->cb->status = FDSN_StatusOK;
+    blobReq->cb->status = ERR_OK;
 }
 
 void StorHvCtrl::TxnResponseHelper::setStatus(FDSN_Status  status) {
@@ -118,7 +118,7 @@ void StorHvCtrl::TxnRequestHelper::setStatus(FDSN_Status status) {
 }
 
 bool StorHvCtrl::TxnRequestHelper::hasError() {
-    return ((status != FDSN_StatusOK) && (status != FDSN_StatusNOTSET));
+    return ((status != ERR_OK) && (status != FDSN_StatusNOTSET));
 }
 
 StorHvCtrl::TxnRequestHelper::~TxnRequestHelper() {
@@ -895,7 +895,7 @@ StorHvCtrl::startBlobTxResp(const FDSP_MsgHdrTypePtr rxMsg) {
         txn->reset();
         vol->journal_tbl->releaseTransId(transId);
         qos_ctrl->markIODone(txn->io);
-        cb->call(FDSN_StatusOK);
+        cb->call(ERR_OK);
         delete blobReq;
     } else {
         fds_verify(result == 0);
@@ -954,7 +954,7 @@ StorHvCtrl::statBlobResp(const FDSP_MsgHdrTypePtr rxMsg,
     }
     txn->reset();
     vol->journal_tbl->releaseTransId(transId);
-    cb->call(FDSN_StatusOK);
+    cb->call(ERR_OK);
     delete blobReq;
 }
 
@@ -1005,7 +1005,7 @@ void StorHvCtrl::handleSetBlobMetaDataResp(const FDSP_MsgHdrTypePtr rxMsg) {
         txn->reset();
         vol->journal_tbl->releaseTransId(transId);
         qos_ctrl->markIODone(txn->io);
-        blobReq->cb->call(FDSN_StatusOK);
+        blobReq->cb->call(ERR_OK);
     } else {
         fds_verify(result == 0);
     }
@@ -1624,7 +1624,7 @@ fds::Error StorHvCtrl::getObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
         blobReq->setDataBuf(getObjRsp->data_obj.c_str());
         txn->reset();
         vol->journal_tbl->releaseTransId(transId);
-        blobReq->cbWithResult(FDSN_StatusOK);
+        blobReq->cbWithResult(ERR_OK);
     } else {
         /*
          * We received an error from SM. check the Error. If the Obj Not found 
@@ -2037,7 +2037,7 @@ StorHvCtrl::attachVolume(AmQosReq *qosReq) {
 
     LOGDEBUG << "Attach for volume " << blobReq->getVolumeName()
              << " complete. Notifying waiters";
-    blobReq->cb->call(FDSN_StatusOK);
+    blobReq->cb->call(ERR_OK);
 }
 
 /*****************************************************************************
@@ -2395,7 +2395,7 @@ fds::Error StorHvCtrl::getBucketResp(const FDSP_MsgHdrTypePtr& rxMsg,
                                "", // next_marker ?
                                blobListResp->num_blobs_in_resp,
                                contents,
-                               FDSN_StatusOK,
+                               ERR_OK,
                                NULL);
 
     } else {
@@ -2582,7 +2582,7 @@ void StorHvCtrl::getBucketStatsResp(const FDSP_MsgHdrTypePtr& rx_msg,
 
         /* call BucketStats callback directly */
         BucketStatsReq *stats_req = static_cast<BucketStatsReq*>(blobReq);
-        stats_req->DoCallback(buck_stats->timestamp, count, contents, FDSN_StatusOK, NULL);
+        stats_req->DoCallback(buck_stats->timestamp, count, contents, ERR_OK, NULL);
 
     } else {    
         /*

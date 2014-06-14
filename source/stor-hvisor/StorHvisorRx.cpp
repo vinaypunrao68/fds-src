@@ -109,7 +109,7 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) {
                 vol->journal_tbl->releaseTransId(transId);
 
                 // Notify the application the operation is done
-                blobReq->cbWithResult(FDSN_StatusOK);
+                blobReq->cbWithResult(ERR_OK);
                 
                 delete blobReq;
                 return result;
@@ -278,7 +278,7 @@ int StorHvCtrl::fds_move_del_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) 
             vol->journal_tbl->releaseTransId(transId);
             if (rxMsg->result == FDSP_ERR_OK) {
                 LOGNOTIFY << "Invoking the callback";
-                blobReq->cbWithResult(FDSN_StatusOK);
+                blobReq->cbWithResult(ERR_OK);
             } else {
                 /*
                  * We received an error from SM
