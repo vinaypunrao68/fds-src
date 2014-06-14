@@ -282,6 +282,8 @@ ShmConPrdQueue::ShmConPrdQueue(shm_con_prd_sync_t *sync, ShmObjRW *data)
           smq_itm_size(NodeShmCtrl::shm_q_item_size)
 {
 }
+
+
 // Initialize reqID
 fds_uint32_t ShmConPrdQueue::smq_reqID = 0;
 
@@ -297,7 +299,7 @@ ShmConPrdQueue::shm_track_request(ShmqReqOut *out, shmq_req_t *hdr, int caller)
 
     // Mutex down so we don't duplicate IDs by accident
     pthread_mutex_lock(&smq_sync->shm_mtx);
-    hdr->smq_id    = ShmConPrdQueue::smq_reqID++;
+    hdr->smq_id = ShmConPrdQueue::smq_reqID++;
     smq_reqOutMap[hdr->smq_id] = out;
     // Mutex up
     pthread_mutex_unlock(&smq_sync->shm_mtx);
@@ -428,6 +430,43 @@ Shm_1Prd_nCon::shm_activate_consumer(int consumer)
     pthread_mutex_unlock(&smq_sync->shm_mtx);
 }
 
+int
+Shm_1Prd_nCon::shm_calc_delta(int consumer)
+{
+    // Note: This should only be called while holding the mutex
+    int delta = 0;
+    // If cns < prd: prd - cns
+    if (smq_ctrl->shm_ncon_idx[consumer] < smq_ctrl->shm_1prd_idx) {
+        delta = smq_ctrl->shm_1prd_idx - smq_ctrl->shm_ncon_idx[consumer];
+    // If prd < cns: (queue_size - cns_index) + prd_index
+    } else if (smq_ctrl->shm_ncon_idx[consumer] > smq_ctrl->shm_1prd_idx) {
+        delta = (smq_size - smq_ctrl->shm_ncon_idx[consumer]) +
+                smq_ctrl->shm_1prd_idx;
+    }
+    return delta;
+}
+
+int
+Shm_1Prd_nCon::shm_calc_max_delta()
+{
+    // Get highest value delta
+    int delta, high_delta = -1;
+    // For each consumer
+    for (int i = 0; i < smq_ctrl->shm_ncon_cnt; ++i) {
+        // If the index is -1 cns not active, pass
+        if (smq_ctrl->shm_ncon_idx[i] == -1) {
+            continue;
+        }
+        // Calc the delta
+        delta = shm_calc_delta(i);
+        // Calc the max delta
+        if (delta > high_delta) {
+            high_delta = delta;
+        }
+    }
+    return high_delta;
+}
+
 void
 Shm_1Prd_nCon::shm_consumer(void *data, size_t size, int consumer /* = 0 */)
 {
@@ -440,19 +479,25 @@ Shm_1Prd_nCon::shm_consumer(void *data, size_t size, int consumer /* = 0 */)
     // Mutex down
     ret_code = pthread_mutex_lock(&smq_sync->shm_mtx);
     fds_assert(0 == ret_code);
-    // We know the queue is empty if the consumer index is equal to
-    // the producer index
-    while ( smq_ctrl->shm_1prd_idx ==
-            smq_ctrl->shm_ncon_idx[consumer] ) {
+
+    // Calculate delta
+    int delta = shm_calc_delta(consumer);
+
+    // We know the queue is empty if our delta == 0
+    while (delta == 0) {
         // Wait on the consumer condition variable
         pthread_cond_wait(&smq_sync->shm_con_cv, &smq_sync->shm_mtx);
+        // Update delta -- we should still be holding the mutex
+        delta = shm_calc_delta(consumer);
     }
     // Take a request from the queue
     void *from_ptr = static_cast<char *>(smq_data->shm_rw_base()) +
             (smq_ctrl->shm_ncon_idx[consumer] * smq_itm_size);
     fds_assert(from_ptr <=
                (static_cast<const char *>(smq_data->shm_bound()) - size));
+
     memcpy(data, from_ptr, size);
+
     // Increase this queue's index counter
     smq_ctrl->shm_ncon_idx[consumer] =
             (smq_ctrl->shm_ncon_idx[consumer] + 1) % smq_size;
@@ -474,38 +519,21 @@ Shm_1Prd_nCon::shm_producer(const void *data, size_t size, int producer /* = 0 *
     // In this case we need to be careful that all of the queues
     // have progressed before we can write a new entry
     // -----------
-    uint prod = 0;
-    std::vector<int> active_idxs;
-
     // Mutex down
     pthread_mutex_lock(&smq_sync->shm_mtx);
-    // Get only active consumers
-    std::remove_copy(smq_ctrl->shm_ncon_idx,
-                     smq_ctrl->shm_ncon_idx + smq_ctrl->shm_ncon_cnt,
-                     std::back_inserter(active_idxs),
-                     -1);
 
-    // Only check if queue full when there are active consumers
-    prod = (smq_ctrl->shm_1prd_idx + 1) % smq_size;
+    // Get highest value delta
+    int high_delta = -1;
+    high_delta = shm_calc_max_delta();
 
-    if (active_idxs.size() > 0) {
-        // Get LOWEST_VALUE_IDX
-        uint low_idx = *std::min_element(active_idxs.begin(), active_idxs.end());
-        while (prod == low_idx) {
+    // If high_delta is still -1 then no active consumers
+    if (high_delta > -1) {
+        // We know the producer cannot continue if the greatest delta is == smq_size
+        while (high_delta == (static_cast<int>(smq_size) - 1)) {
             // Wait on the producer condition variable
             pthread_cond_wait(&smq_sync->shm_prd_cv, &smq_sync->shm_mtx);
-
-            // Recalculate the low_idx -- we should still have the mutex
-            prod = (smq_ctrl->shm_1prd_idx + 1) % smq_size;
-            // Reset active_idxs
-            active_idxs.clear();
-            std::remove_copy(smq_ctrl->shm_ncon_idx,
-                             smq_ctrl->shm_ncon_idx + smq_ctrl->shm_ncon_cnt,
-                             std::back_inserter(active_idxs),
-                             -1);
-
-            low_idx = *std::min_element(active_idxs.begin(),
-                                        active_idxs.end());
+            // Recalculate the high_delta -- we should still have the mutex
+            high_delta = shm_calc_max_delta();
         }
     }
     // Add new data to the queue
@@ -517,7 +545,7 @@ Shm_1Prd_nCon::shm_producer(const void *data, size_t size, int producer /* = 0 *
 
     memcpy(out_ptr, data, size);
     // Increase the prd_index
-    smq_ctrl->shm_1prd_idx = prod;
+    smq_ctrl->shm_1prd_idx = (smq_ctrl->shm_1prd_idx + 1) % smq_size;
 
     // Signal to consumers that there is more stuff
     pthread_cond_broadcast(&smq_sync->shm_con_cv);
