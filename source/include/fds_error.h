@@ -11,6 +11,7 @@
 #include <fdsp/FDSP_types.h>
 
 namespace fds {
+
     // TODO(Rao): There is already a mismatch between enums and strings.
     // Ideally this errstrs isn't needed.  We need an error string catalog
     // that we lookup.  We need to remove this array.
@@ -83,42 +84,8 @@ namespace fds {
         ERR_RPC_USER_INTERRUPTED,
         ERR_RPC_TIMEOUT,
 
-        /* Generic catch all error.  DON'T USE IT, unless you don't have an option */
-        ERR_INVALID,
-
-        ERR_MAX
-    } fds_errno_t;
-
-    class Error {
-        fds_errno_t _errno;
-  public:
-        Error();
-        Error(fds_errno_t errno_arg);  //NOLINT
-        Error(fds_uint32_t errno_fdsp); //NOLINT
-        Error(const Error& err);
-
-        bool OK() const;
-
-        bool ok() const;
-        fds_errno_t GetErrno() const;
-        std::string GetErrstr() const;
-
-        FDS_ProtocolInterface::FDSP_ErrType getFdspErr() const;
-        Error& operator=(const Error& rhs);
-
-        Error& operator=(const fds_errno_t& rhs);
-
-        bool operator==(const Error& rhs) const;
-        bool operator==(const fds_errno_t& rhs) const;
-        bool operator!=(const Error& rhs) const;
-        bool operator!=(const fds_errno_t& rhs) const;
-        ~Error();
-    };
-
-    std::ostream& operator<<(std::ostream& out, const Error& err);
-
-    typedef enum {
-        FDSN_StatusOK                                              ,
+        /* FDSN status errors */
+        FDSN_StatusOK = 5000                                       ,
         FDSN_StatusCreated                                         ,
 
         /* do denote uninitialized value*/
@@ -199,8 +166,43 @@ namespace fds {
         FDSN_StatusErrorMissingContentLength                       ,
 
         /* keep this as the last*/
-        FDSN_StatusErrorUnknown
-    } FDSN_Status;
+        FDSN_StatusErrorUnknown                                     ,
+        /* Generic catch all error.  DON'T USE IT, unless you don't have an option */
+        ERR_INVALID,
+
+        ERR_MAX
+    } fds_errno_t;
+
+    typedef fds_errno_t FDSN_Status;
+
+    class Error {
+        fds_errno_t _errno;
+  public:
+        Error();
+        Error(fds_errno_t errno_arg);  //NOLINT
+        Error(fds_uint32_t errno_fdsp); //NOLINT
+        Error(const Error& err);
+
+        bool OK() const;
+
+        bool ok() const;
+        fds_errno_t GetErrno() const;
+        std::string GetErrstr() const;
+
+        FDS_ProtocolInterface::FDSP_ErrType getFdspErr() const;
+        Error& operator=(const Error& rhs);
+
+        Error& operator=(const fds_errno_t& rhs);
+
+        bool operator==(const Error& rhs) const;
+        bool operator==(const fds_errno_t& rhs) const;
+        bool operator!=(const Error& rhs) const;
+        bool operator!=(const fds_errno_t& rhs) const;
+        ~Error();
+    };
+
+    std::ostream& operator<<(std::ostream& out, const Error& err);
+
 
     std::ostream& operator<<(std::ostream& os, FDSN_Status status);
 

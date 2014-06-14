@@ -279,8 +279,11 @@ std::string toString(FDSN_Status status) {
         ENUMCASE(FDSN_StatusErrorEntityTooLarge);
         ENUMCASE(FDSN_StatusErrorMissingContentLength);
         ENUMCASE(FDSN_StatusErrorUnknown);
+        default:
+        {
+            return Error(status).GetErrstr();
+        }
     }
-    return "FDSN_StatusErrorUnknown";
 }
 
 FDSN_Status getStatusFromError(const Error& error) {
