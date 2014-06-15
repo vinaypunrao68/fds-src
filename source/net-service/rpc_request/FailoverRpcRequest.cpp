@@ -149,6 +149,7 @@ void FailoverRpcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header
             respCb_(this, ERR_OK, payload);
         }
         complete(ERR_OK);
+        gAsyncRpcCntrs->appsuccess.incr();
         return;
     }
 
@@ -160,6 +161,7 @@ void FailoverRpcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header
             respCb_(this, header->msg_code, payload);
         }
         complete(ERR_RPC_FAILED);
+        gAsyncRpcCntrs->apperrors.incr();
         return;
     }
 

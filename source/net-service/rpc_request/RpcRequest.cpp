@@ -149,11 +149,20 @@ void AsyncRpcRequestIf::postError(boost::shared_ptr<fpi::AsyncHdr> header)
 {
     fds_assert(header->msg_code != ERR_OK);
 
+    /* Counter adjustment */
+    switch (header->msg_code) {
+    case ERR_RPC_INVOCATION:
+        gAsyncRpcCntrs->invokeerrors.incr();
+        break;
+    case ERR_RPC_TIMEOUT:
+        gAsyncRpcCntrs->timedout.incr();
+        break;
+    }
+
     /* Simulate an error for remote endpoint */
     boost::shared_ptr<std::string> payload;
     NetMgr::ep_mgr_singleton()->ep_mgr_thrpool()->schedule(
         &BaseAsyncSvcHandler::asyncRespHandler, header, payload);
-    // new std::thread(std::bind(&BaseAsyncSvcHandler::asyncRespHandler, header, payload));
 }
 
 

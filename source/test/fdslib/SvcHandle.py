@@ -12,6 +12,7 @@ from fds_service.ttypes import *
 from fds_service.constants import *
 from fds_service import SMSvc
 from fds_service import DMSvc
+from fds_service import PlatNetSvc
 
 from thrift import Thrift
 from thrift.transport import TSocket
@@ -35,7 +36,7 @@ class SvcMap(object):
     svc_type_map = {
         'sm' : [FDSP_MgrIdType.FDSP_STOR_MGR,       SMSvc],
         'dm' : [FDSP_MgrIdType.FDSP_DATA_MGR,       DMSvc],
-        'am' : [FDSP_MgrIdType.FDSP_STOR_HVISOR,    None],
+        'am' : [FDSP_MgrIdType.FDSP_STOR_HVISOR,    PlatNetSvc],
         'om' : [FDSP_MgrIdType.FDSP_ORCH_MGR,       None]
     }
 

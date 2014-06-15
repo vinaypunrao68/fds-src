@@ -12,6 +12,7 @@
 #include <fdsp/SMSvc.h>
 #include <SMSvcHandler.h>
 #include <net/net-service-tmpl.hpp>
+#include <net/RpcRequestPool.h>
 #include <platform/platform-lib.h>
 
 namespace fds {
@@ -116,6 +117,7 @@ SmPlatform::mod_startup()
 {
     Platform::mod_startup();
     registerFlags();
+    gRpcRequestPool = new RpcRequestPool();
 
     sm_recv   = bo::shared_ptr<SMSvcHandler>(new SMSvcHandler());
     sm_plugin = new SMEpPlugin(this);
