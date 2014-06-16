@@ -38,7 +38,7 @@ uint32_t Serializer::writeI64(const int64_t i64) {
     return proto->writeI64(i64);
 }
 
-uint32_t Serializer::writeTimeStamp(const fds::TimeStamp timestamp) {
+uint32_t Serializer::writeTimeStamp(const fds::util::TimeStamp timestamp) {
     return proto->writeI64(timestamp);
 }
 
@@ -135,7 +135,7 @@ uint32_t Deserializer::readBuffer(int8_t* buf, const uint32_t& len)
     return readCnt;
 }
 
-uint32_t Deserializer::readTimeStamp(fds::TimeStamp& timestamp) {
+uint32_t Deserializer::readTimeStamp(fds::util::TimeStamp& timestamp) {
     return proto->readI64((int64_t&)timestamp);
 }
 

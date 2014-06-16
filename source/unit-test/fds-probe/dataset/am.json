@@ -1,0 +1,56 @@
+{
+    "Run-Input": {
+        "am-workload": {
+            "am-ops": [
+                {
+		    "blob-op":   "startBlobTx",
+		    "volume-name": "testVol",
+                    "blob-name": "blob-a",
+		    "blob-off":  0,
+                    "object-id": "0x2aae6c35c94fcfb415dbe95f408b9ce91ee846ed",
+		    "object-len": 2097152
+                },
+                {
+		    "blob-op":   "startBlobTx",
+		    "volume-name": "testVol",
+                    "blob-name": "blob-b",
+		    "blob-off":  0,
+                    "object-id": "0x2aae6c35c94fcfb415dbe95f408b9ce91ee846ed",
+		    "object-len": 2097152
+                },
+                {
+		    "blob-op":   "startBlobTx",
+		    "volume-name": "testVol",
+                    "blob-name": "blob-c",
+		    "blob-off":  0,
+                    "object-id": "0x2aae6c35c94fcfb415dbe95f408b9ce91ee846ed",
+		    "object-len": 2097152
+                },
+                {
+		    "blob-op":   "startBlobTx",
+		    "volume-name": "testVol",
+                    "blob-name": "blob-d",
+		    "blob-off":  0,
+                    "object-id": "0x2aae6c35c94fcfb415dbe95f408b9ce91ee846ed",
+		    "object-len": 2097152
+                },
+                {
+		    "blob-op":   "startBlobTx",
+		    "volume-name": "testVol",
+                    "blob-name": "blob-e",
+		    "blob-off":  0,
+                    "object-id": "0x2aae6c35c94fcfb415dbe95f408b9ce91ee846ed",
+		    "object-len": 2097152
+                },
+                {
+		    "blob-op":   "startBlobTx",
+		    "volume-name": "testVol",
+                    "blob-name": "blob-f",
+		    "blob-off":  0,
+                    "object-id": "0x2aae6c35c94fcfb415dbe95f408b9ce91ee846ed",
+		    "object-len": 2097152
+                }
+            ]
+        }
+    }
+}

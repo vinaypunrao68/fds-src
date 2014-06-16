@@ -11,7 +11,7 @@ import org.apache.commons.codec.binary.Hex;
 import org.eclipse.jetty.server.Request;
 import org.junit.Test;
 
-import java.nio.ByteBuffer;
+import java.util.HashMap;
 
 import static org.junit.Assert.assertEquals;
 import static org.mockito.Matchers.anyString;
@@ -26,7 +26,9 @@ public class GetObjectTest {
     public void testIfMatch() throws Exception {
         Xdi xdi = mock(Xdi.class);
         byte[] digest = new byte[]{1, 2, 3};
-        BlobDescriptor descriptor = new BlobDescriptor("poop", 0, Maps.newHashMap());
+        HashMap<String, String> metadata = Maps.newHashMap();
+        metadata.put("etag", Hex.encodeHexString(digest));
+        BlobDescriptor descriptor = new BlobDescriptor("poop", 0, metadata);
         when(xdi.statBlob(anyString(), anyString(), anyString())).thenReturn(descriptor);
         
         GetObject handler = new GetObject(xdi);

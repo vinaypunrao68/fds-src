@@ -41,7 +41,10 @@ public class Configuration {
             fdsRoot = new File("/fds");
         }
 
-        int logLevel = getPlatformConfig().defaultInt("fds.plat.log_severity", 0);
+        int logLevel = 0;
+        try {
+            logLevel = getPlatformConfig().defaultInt("fds.plat.log_severity", 0);
+        } catch (Exception e) {}
 
         if (options.has("console")) {
             initConsoleLogging(LOGLEVELS[logLevel]);

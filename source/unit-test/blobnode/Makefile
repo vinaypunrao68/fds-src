@@ -6,7 +6,10 @@ user_incl_dir     := $(topdir)/data_mgr/include $(topdir)
 user_fds_so_libs  :=
 user_fds_ar_libs  := \
 	fds-dm-lib \
+	fds-dm-plat \
+	fds-plat-lib \
 	fds-lib \
+        fds-dsk-mgnt \
 	fds-util \
 	fds-fdsp \
 	fds-umod \
@@ -16,10 +19,11 @@ user_fds_ar_libs  := \
 user_non_fds_libs := \
 	boost_log \
 	boost_system \
+	boost_filesystem \
 	boost_thread \
 	boost_date_time \
 	boost_program_options \
-	leveldb thrift  config++
+	leveldb thrift  config++ hiredis
 
 user_cpp          := blobnode_unit_test.cpp
 

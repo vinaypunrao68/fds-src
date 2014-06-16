@@ -6,10 +6,16 @@
 #include "../catch/catch.hpp"
 #include <serialize.h>
 #include <unistd.h>
+#include <DataMgr.h>
 #include <VolumeMeta.h>
 
 using namespace fds;
 using namespace fds::serialize;
+
+namespace fds {
+DataMgr *dataMgr;
+}  // namespace fds
+
 
 TEST_CASE("ObjectId") {
     ObjectID id1, id2;
@@ -63,22 +69,22 @@ TEST_CASE("BlobObjectList") {
     b1.size   = 200;
     b1.sparse = false;
     b1.blob_end = true;
-    l1.push_back(b1);
+    l1[b1.offset] = b1;
 
     b1.offset = 102;
     b1.size   = 200;
     b1.sparse = false;
     b1.blob_end = true;
-    l1.push_back(b1);
+    l1[b1.offset] = b1;
 
     std::string buffer;
     l1.getSerialized(buffer);
     l2.loadSerialized(buffer);
 
     REQUIRE(l2.size()  == 2);
-    REQUIRE(l2[0].size   == 200);
-    REQUIRE(l2[0].offset == 101);
-    REQUIRE(l2[1].offset == 102);
+    REQUIRE(l2[101].size   == 200);
+    REQUIRE(l2[101].offset == 101);
+    REQUIRE(l2[102].offset == 102);
 }
 
 TEST_CASE("BlobNode") {
@@ -89,13 +95,14 @@ TEST_CASE("BlobNode") {
     b1.size   = 200;
     b1.sparse = false;
     b1.blob_end = true;
-    n1.obj_list.push_back(b1);
+    n1.obj_list[b1.offset] = b1;
+
 
     b1.offset = 102;
     b1.size   = 200;
     b1.sparse = false;
     b1.blob_end = true;
-    n1.obj_list.push_back(b1);
+    n1.obj_list[b1.offset] = b1;
 
     n1.blob_name = "fds";
     n1.version   = 10;
@@ -113,9 +120,7 @@ TEST_CASE("BlobNode") {
 
     REQUIRE(n2.meta_list.size()  == 2);
     REQUIRE(n2.meta_list[1].key  == "ceo");
-    REQUIRE(n2.obj_list[0].size   == 200);
-    REQUIRE(n2.obj_list[0].offset == 101);
-    REQUIRE(n2.obj_list[1].offset == 102);
-
-    std::cout << n2 << std::endl;
+    REQUIRE(n2.obj_list[101].size   == 200);
+    REQUIRE(n2.obj_list[101].offset == 101);
+    REQUIRE(n2.obj_list[102].offset == 102);
 }

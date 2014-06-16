@@ -9,12 +9,10 @@ import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.StreamResource;
 import com.formationds.web.toolkit.TextResource;
 import com.formationds.xdi.Xdi;
-import org.apache.commons.codec.binary.Hex;
 import org.eclipse.jetty.server.Request;
 
 import javax.servlet.http.HttpServletResponse;
 import java.io.InputStream;
-import java.nio.ByteBuffer;
 import java.util.Map;
 
 public class GetObject implements RequestHandler {
@@ -40,7 +38,7 @@ public class GetObject implements RequestHandler {
         String headerValue = request.getHeader("If-None-Match");
         if (headerValue != null) {
             headerValue = headerValue.replaceAll("\"", "");
-            if (headerValue == blobDescriptor.getMetadata().getOrDefault("etag", "")) {
+            if (headerValue.equals(digest)) {
                 return new TextResource(HttpServletResponse.SC_NOT_MODIFIED, "")
                         .withHeader("ETag", etag);
             }
