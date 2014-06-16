@@ -23,9 +23,9 @@ namespace fds {
   class Stat
   {
   public:
-    long nsamples;
-    long min_lat;
-    long max_lat;
+    unsigned long nsamples;
+    unsigned long min_lat;
+    unsigned long max_lat;
     double ave_lat;
 
     Stat();
@@ -33,7 +33,7 @@ namespace fds {
 
     void reset();
 
-    void add(long lat);
+    void add(unsigned long lat);
     void add(const Stat& stat);
   };
 
@@ -51,20 +51,20 @@ class IoStat
 
   /* is stat_size_sec==0, do not change time interval */
   void reset(long ts_sec, int stat_size_sec=0);
-  void add(long microlat,
+  void add(unsigned long microlat,
 	   diskio::DataTier tier = diskio::maxTier,  /* Defaults to invalid tier */
 	   fds_io_op_t opType = FDS_OP_INVALID);     /* Defaults to invalid op */
 
   /* stats accessors */
   long getTimestamp() const;
-  long getIops(diskio::DataTier tier, fds_io_op_t opType) const;
-  long getAveLatency(diskio::DataTier tier, fds_io_op_t opType) const;
+  unsigned long getIops(diskio::DataTier tier, fds_io_op_t opType) const;
+  unsigned long getAveLatency(diskio::DataTier tier, fds_io_op_t opType) const;
 
   /* these are total for all op types */
-  long getIops() const;
-  long getAveLatency() const;
-  long getMinLatency() const;
-  long getMaxLatency() const;
+  unsigned long getIops() const;
+  unsigned long getAveLatency() const;
+  unsigned long getMinLatency() const;
+  unsigned long getMaxLatency() const;
 
   /* copy stat to fdsp struct if the stat contains at least one sample / IO */
   bool copyIfNotZero(FDS_ProtocolInterface::FDSP_PerfStatType& fdsp_stat,
@@ -108,7 +108,7 @@ class StatHistory
   ~StatHistory();
 
   void addIo(long rel_seconds, 
-	     long microlat,
+	     unsigned long microlat,
 	     diskio::DataTier tier = diskio::maxTier,  /* Defaults to invalid tier */
 	     fds_io_op_t opType = FDS_OP_INVALID);     /* Defaults to invalid op */
    
@@ -125,7 +125,7 @@ class StatHistory
                const FDS_ProtocolInterface::FDSP_PerfStatType& fdsp_stat);
 
   /* get average IOPS for interval [rel_end_seconds - interval_sec, rel_end_seconds) */
-  long getAverageIOPS(long rel_end_seconds, 
+  unsigned long getAverageIOPS(long rel_end_seconds, 
 		      int interval_sec);
 
 

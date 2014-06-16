@@ -153,8 +153,10 @@ namespace fds {
     }
 
     ObjectID& ObjectID::operator=(const ObjectID& rhs) {
-      memcpy(digest, rhs.digest, sizeof(digest));
-      return *this;
+        if (this != &rhs) {
+            memcpy(digest, rhs.digest, sizeof(digest));
+        }
+        return *this;
     }
 
     /**
@@ -234,7 +236,7 @@ uint32_t ObjectID::read(serialize::Deserializer* d) {
     }
 
     int ObjectID::compare(const ObjectID &lhs, const ObjectID &rhs) {
-        return  memcmp(lhs.digest, rhs.digest, sizeof(lhs.digest));
+        return  (&lhs == &rhs ? 0 : memcmp(lhs.digest, rhs.digest, sizeof(lhs.digest)));
     }
 
     void ObjectID::getTokenRange(const fds_token_id& tokenInput,

@@ -83,7 +83,7 @@ namespace fds {
   public:
         Error();
         Error(fds_errno_t errno_arg);  //NOLINT
-        Error(fds_uint32_t errno_fdsp); //NOLINT
+        explicit Error(fds_uint32_t errno_fdsp);
         Error(const Error& err);
 
         bool OK() const;

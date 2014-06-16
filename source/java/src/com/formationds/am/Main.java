@@ -7,6 +7,8 @@ import com.formationds.apis.AmService;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.security.Authenticator;
 import com.formationds.security.JaasAuthenticator;
+import com.formationds.spike.nbd.FdsServerOperations;
+import com.formationds.spike.nbd.NbdHost;
 import com.formationds.util.Configuration;
 import com.formationds.util.libconfig.ParsedConfig;
 import com.formationds.xdi.CachingConfigurationService;
@@ -49,12 +51,13 @@ public class Main {
 
             ConfigurationService.Iface config = new CachingConfigurationService(clientFactory.remoteOmService(omHost, omPort));
 
+            int nbdPort = amParsedConfig.lookup("fds.am.nbd_server_port").intValue();
+            NbdHost nbdHost = new NbdHost(nbdPort, new FdsServerOperations(am, config));
+            
+            new Thread(() -> nbdHost.run()).start();
+
             Authenticator authenticator = new JaasAuthenticator();
             Xdi xdi = new Xdi(am, config, authenticator);
-
-//        ToyServices foo = new ToyServices("foo");
-//        foo.createDomain(S3Endpoint.FDS_S3);
-//        Xdi xdi = new Xdi(foo, foo, new BypassAuthenticator());
 
             boolean enforceAuthorization = amParsedConfig.lookup("fds.am.enforce_authorization").booleanValue();
             int s3Port = amParsedConfig.lookup("fds.am.s3_port").intValue();

@@ -20,12 +20,12 @@ public class NbdHost {
     private int port;
     private NbdServerOperations ops;
 
-    private NbdHost(int port, NbdServerOperations ops) {
+    public NbdHost(int port, NbdServerOperations ops) {
         this.port = port;
         this.ops = ops;
     }
 
-    public void run() throws Exception {
+    public void run() {
         EventLoopGroup connectionLoop = new NioEventLoopGroup();
         EventLoopGroup executionLoop = new NioEventLoopGroup();
         try {
@@ -43,6 +43,8 @@ public class NbdHost {
 
             ChannelFuture f = b.bind(port).sync();
             f.channel().closeFuture().sync();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
         finally {
             connectionLoop.shutdownGracefully();
