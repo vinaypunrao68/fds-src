@@ -74,6 +74,17 @@ DmtColumnPtr DMT::getNodeGroup(fds_volid_t volume_id) const {
 }
 
 /**
+ * returns column index for given 'volume_id' for a given number of
+ * columns in DMT
+ * @param num_columns is number of columns in DMT, must be > 0
+ */
+fds_uint32_t DMT::getNodeGroupIndex(fds_volid_t volume_id,
+                                    fds_uint32_t num_columns) {
+    fds_verify(num_columns > 0);
+    return (volume_id % num_columns);
+}
+
+/**
  * Sets the column 'col_index' -- overwrites if already set
  */
 void DMT::setNodeGroup(fds_uint32_t col_index, const DmtColumn& nodes) {

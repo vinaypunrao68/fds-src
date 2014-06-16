@@ -49,6 +49,12 @@ namespace fds {
          */
         DmtColumnPtr getNodeGroup(fds_uint32_t col_index) const;
         DmtColumnPtr getNodeGroup(fds_volid_t volume_id) const;
+        /**
+         * Returns column index in the DMT that is responsivle for
+         * given volume id 'volume_id'.
+         */
+        static fds_uint32_t getNodeGroupIndex(fds_volid_t volid,
+                                              fds_uint32_t num_columns);
 
         /**
          * Set the node group or particular cell in the DMT

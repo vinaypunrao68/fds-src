@@ -117,6 +117,16 @@ fds_bool_t VolumeMeta::isEmpty() const {
     // Lock the entire DB for now since levelDB's iterator
     // isn't thread-safe
     vol_mtx->lock();
+
+    // it's possible that vcat is NULL, if we just starting
+    // to push meta for this volume from another DM -- in that
+    // case return TRUE for isEmpty (if it's not empty on
+    // other DMs, they will return false)
+    if (!vcat) {
+        vol_mtx->unlock();
+        return true;
+    }
+
     Catalog::catalog_iterator_t *dbIt = vcat->NewIterator();
     for (dbIt->SeekToFirst(); dbIt->Valid(); dbIt->Next()) {
         Record key = dbIt->key();
