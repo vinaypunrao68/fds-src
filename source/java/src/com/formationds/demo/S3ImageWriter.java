@@ -16,13 +16,13 @@ public class S3ImageWriter extends ImageWriter {
 
     private AmazonS3Client client;
 
-    public S3ImageWriter(BasicAWSCredentials credentials, String[] volumeNames) {
-        super(volumeNames);
+    public S3ImageWriter(BasicAWSCredentials credentials, String[] volumeNames, BucketStats bucketStats) {
+        super(volumeNames, bucketStats);
         client = new AmazonS3Client(credentials);
     }
 
-    public S3ImageWriter(String host, int port, String[] volumeNames) {
-        this(new BasicAWSCredentials("foo", "bar"), volumeNames);
+    public S3ImageWriter(String host, int port, String[] volumeNames, BucketStats bucketStats) {
+        this(new BasicAWSCredentials("foo", "bar"), volumeNames, bucketStats);
         client.setS3ClientOptions(new S3ClientOptions().withPathStyleAccess(true));
         client.setEndpoint("http://" + host + ":" + port);
     }

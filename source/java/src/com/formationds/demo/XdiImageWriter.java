@@ -13,8 +13,8 @@ import java.net.URL;
 public class XdiImageWriter extends ImageWriter {
     private Xdi xdi;
 
-    public XdiImageWriter(Xdi xdi, String[] volumeNames) {
-        super(volumeNames);
+    public XdiImageWriter(Xdi xdi, String[] volumeNames, BucketStats bucketStats) {
+        super(volumeNames, bucketStats);
         this.xdi = xdi;
     }
 

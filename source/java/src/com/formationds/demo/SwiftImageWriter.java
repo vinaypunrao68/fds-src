@@ -16,8 +16,8 @@ public class SwiftImageWriter extends ImageWriter {
     private String host;
     private int port;
 
-    public SwiftImageWriter(String host, int port, String[] volumeNames) {
-        super(volumeNames);
+    public SwiftImageWriter(String host, int port, String[] volumeNames, BucketStats bucketStats) {
+        super(volumeNames, bucketStats);
         this.host = host;
         this.port = port;
     }

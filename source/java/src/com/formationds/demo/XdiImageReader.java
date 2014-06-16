@@ -11,8 +11,8 @@ import java.io.InputStream;
 public class XdiImageReader extends ImageReader {
     private Xdi xdi;
 
-    public XdiImageReader(Xdi xdi) {
-        super();
+    public XdiImageReader(Xdi xdi, BucketStats bucketStats) {
+        super(bucketStats);
         this.xdi = xdi;
     }
 

@@ -14,7 +14,8 @@ public class SwiftImageReader extends ImageReader {
     private String host;
     private int port;
 
-    public SwiftImageReader(String host, int port) {
+    public SwiftImageReader(String host, int port, BucketStats bucketStats) {
+        super(bucketStats);
         this.host = host;
         this.port = port;
     }
