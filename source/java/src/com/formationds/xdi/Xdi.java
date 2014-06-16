@@ -3,7 +3,9 @@ package com.formationds.xdi;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import com.formationds.apis.*;
+import com.formationds.om.SetVolumeQosParams;
 import com.formationds.security.Authenticator;
 import com.formationds.security.AuthorizationToken;
 import com.sun.security.auth.UserPrincipal;
@@ -22,11 +24,13 @@ public class Xdi {
 
     public static final String LAST_MODIFIED = "Last-Modified";
     private Authenticator authenticator;
+    private FDSP_ConfigPathReq.Iface legacyConfig;
 
-    public Xdi(AmService.Iface am, ConfigurationService.Iface config, Authenticator authenticator) {
+    public Xdi(AmService.Iface am, ConfigurationService.Iface config, Authenticator authenticator, FDSP_ConfigPathReq.Iface legacyConfig) {
         this.am = am;
         this.config = config;
         this.authenticator = authenticator;
+        this.legacyConfig = legacyConfig;
     }
 
     public XdiCredentials authenticate(String login, String password) throws LoginException {
@@ -38,6 +42,7 @@ public class Xdi {
 
     public void createVolume(String domainName, String volumeName, VolumeSettings volumePolicy) throws ApiException, TException {
         config.createVolume(domainName, volumeName, volumePolicy);
+        SetVolumeQosParams.setVolumeQos(legacyConfig, volumeName, 0, 10, 0);
     }
 
     public void deleteVolume(String domainName, String volumeName) throws ApiException, TException {

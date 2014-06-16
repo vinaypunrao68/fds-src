@@ -76,7 +76,6 @@ public class Main {
         // return 200 OK, {"type": "amazonS3"}
         webApp.route(HttpMethod.GET, "/demo/adapter", () -> new GetObjectStore(state));
 
-//        webApp.start(webappPort);
-        webApp.start(8889);
+        webApp.start(webappPort);
     }
 }
