@@ -543,6 +543,9 @@ void CatalogSyncMgr::finishedForwardVolmeta(fds_volid_t volid) {
 
     if (send_dmt_close_ack) {
         fpi::FDSP_DmtCloseTypePtr dmtCloseAck(new FDSP_DmtCloseType);
+        // walk through the volume meta and. find out the Volume belongs to me based on the DMT
+        // remove the Volume not belongs to  the node
+        dataMgr->deleteVolumeDb();
         dataMgr->omClient->sendDMTCloseAckToOM(dmtCloseAck, cat_sync_context);
     }
 }

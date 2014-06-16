@@ -112,6 +112,27 @@ Error DataMgr::enqueueMsg(fds_volid_t volId,
     return err;
 }
 
+void DataMgr::deleteVolumeDb() {
+    std::unordered_map<fds_uint64_t, VolumeMeta*>::iterator vol_it;
+
+     vol_map_mtx->lock();
+     for (vol_it = vol_meta_map.begin();
+               vol_it != vol_meta_map.end(); ++vol_it) {
+        DmtColumnPtr dmt_col = omClient->getDMTNodesForVolume(vol_it->first);
+        LOGNORMAL << " Volume ID:" << std::hex << vol_it->first << std::dec;
+        NodeUuid uuid =  plf_mgr->plf_get_my_uuid()->uuid_get_val();
+        LOGNORMAL << " Node UUID :" << uuid;
+        if (dmt_col->find(uuid) < 0) {
+           // delete the vvc and tvc db;
+           VolumeMeta *vm = vol_meta_map[vol_it->first];
+           vm->vcat->DbDelete();
+           vm->tcat->DbDelete();
+        }  
+     }
+    vol_map_mtx->unlock();
+
+}
+
 /*
  * Adds the volume if it doesn't exist already.
  * Note this does NOT return error if the volume exists.
