@@ -191,6 +191,9 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
         // bRebalancing flag to true
         VolumeInfo::pointer volinfo = VolumeInfo::vol_cast_ptr(*it);
         if (volinfo->isVolumeInactive()) continue;
+        // also skip rebalancing volumes which are in the process of
+        // deleting (passed delete check)
+        if (volinfo->isDeletePending()) continue;
 
         // for each DM in target column, find all DMs that
         // that got added to that column
