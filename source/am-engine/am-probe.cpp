@@ -155,8 +155,11 @@ AmProbe::incResp() {
 
     if (recvdOps == numOps) {
         endTime = util::getTimeStampMicros();
-        LOGDEBUG << "Probe completed " << numOps << " ops in "
-                 << endTime - startTime << " microsecs";
+        LOGCRITICAL << "Probe completed " << numOps << " ops in "
+                    << endTime - startTime << " microsecs at a rate of "
+                    << (1000 * 1000) * (static_cast<float>(numOps)
+                                        / static_cast<float>(endTime - startTime));
+        recvdOps = 0;
     }
     fds_verify(recvdOps <= numOps);
 }
@@ -172,6 +175,17 @@ AmProbe::doAsyncStartTx(const std::string &volumeName,
         new ProbeStartBlobTxResponseHandler(*retVal));
 
     gl_AmProbe.am_api->StartBlobTx(volumeName, blobName, SHARED_DYN_CAST(Callback, handler));
+}
+
+/**
+ * Thread entry point to update blob
+ */
+void
+AmProbe::doAsyncUpdateBlob(const std::string &volumeName,
+                           const std::string &blobName,
+                           fds_uint64_t blobOffset,
+                           fds_uint32_t dataLen,
+                           const char *data) {
 }
 
 JsObject *
@@ -194,8 +208,8 @@ AmProbe::AmProbeOp::js_exec_obj(JsObject *parent,
             gl_AmProbe.threadPool->schedule(AmProbe::doAsyncStartTx,
                                             info->volumeName,
                                             info->blobName);
-        } else if (info->op == "delete") {
-            // gl_Dm_ProbeMod.sendDelete(*info);
+        } else if (info->op == "updateBlob") {
+            // gl_AmProbe.threadPool->schedule();
         } else if (info->op == "query") {
             // gl_Dm_ProbeMod.sendQuery(*info);
         }

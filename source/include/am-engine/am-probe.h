@@ -67,11 +67,10 @@ class AmProbe : public ProbeMod {
             char *op;
             char *volName;
             char *blobName;
-            if (json_unpack(in, "{s:s, s:s, s:s, s:i}",
+            if (json_unpack(in, "{s:s, s:s, s:s}",
                             "blob-op", &op,
                             "volume-name", &volName,
-                            "blob-name", &blobName,
-                            "blob-off", &p->blobOffset)) {
+                            "blob-name", &blobName)) {
                 delete p;
                 return NULL;
             }
@@ -124,6 +123,11 @@ class AmProbe : public ProbeMod {
     void incResp();
     static void doAsyncStartTx(const std::string &volumeName,
                                const std::string &blobName);
+    static void doAsyncUpdateBlob(const std::string &volumeName,
+                                  const std::string &blobName,
+                                  fds_uint64_t blobOffset,
+                                  fds_uint32_t dataLen,
+                                  const char *data);
 };
 
 extern AmProbe gl_AmProbe;
