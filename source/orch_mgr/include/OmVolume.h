@@ -87,14 +87,31 @@ class VolOpRespEvt
 class VolDelChkEvt
 {
  public:
-    VolDelChkEvt(VolumeInfo* vol,
+    VolDelChkEvt(const ResourceUUID& uuid, VolumeInfo* vol)
+            : vol_uuid(uuid), vol_ptr(vol) {}
+
+    ResourceUUID vol_uuid;
+    VolumeInfo* vol_ptr;
+};
+
+class DelChkAckEvt
+{
+ public:
+    /**
+     * @param recvd_ack is true if this event is called in
+     * response to ack for delete check, and false otherwise.
+     * Example of false: if we delayed delete operation because
+     * rebalancing was going on, then we call this event when
+     * rebalancing is finished so that we can continue vol delete
+     */
+    DelChkAckEvt(VolumeInfo* vol,
                  Error err,
-                 fds_uint32_t ack_w = 0)
-            : vol_ptr(vol), chk_err(err), acks_to_wait(ack_w) {}
+                 fds_bool_t ack = true)
+            : vol_ptr(vol), chk_err(err), recvd_ack(ack) {}
 
     VolumeInfo* vol_ptr;
     Error chk_err;
-    fds_uint32_t acks_to_wait;
+    fds_bool_t recvd_ack;
 };
 
 class DetachAllEvt
@@ -167,15 +184,6 @@ class VolumeInfo : public Resource
     inline VolumeDesc *vol_get_properties() {
         return vol_properties;
     }
-    inline fds_bool_t is_delete_pending() const {
-        return delete_pending;
-    }
-    inline fds_bool_t is_create_pending() const {
-        return create_pending;
-    }
-    inline void allow_vol_ops() {
-        create_pending = false;
-    }
 
     /**
      * Return the string containing current state of the volume
@@ -190,8 +198,12 @@ class VolumeInfo : public Resource
     void vol_event(VolOpEvt const &evt);
     void vol_event(VolOpRespEvt const &evt);
     void vol_event(VolDelChkEvt const &evt);
+    void vol_event(DelChkAckEvt const &evt);
     void vol_event(DetachAllEvt const &evt);
     void vol_event(DelNotifEvt const &evt);
+    fds_bool_t isVolumeInactive();
+    fds_bool_t isDeletePending();
+    fds_bool_t isCheckDelete();
 
     /**
      * Iter plugin to apply the function through each NodeAgent in the vol.
@@ -262,9 +274,6 @@ class VolumeInfo : public Resource
     VolumeDesc               *vol_properties;
     std::vector<NodeUuid>     vol_am_nodes;
 
-    fds_bool_t delete_pending;
-    fds_bool_t create_pending;
-
     FSM_Volume *volume_fsm;
     // to protect access to msm process_event
     fds_mutex  fsm_lock;
@@ -328,7 +337,7 @@ class VolumeContainer : public RsContainer
         for (fds_uint32_t i = 0; i < rs_cur_idx; i++) {
             VolumeInfo::pointer vol = VolumeInfo::vol_cast_ptr(rs_array[i]);
             if (rs_array[i] != NULL) {
-                if (!vol->is_delete_pending()) {
+                if (!vol->isDeletePending()) {
                     (*fn)(arg, vol);
                 }
             }
@@ -360,6 +369,15 @@ class VolumeContainer : public RsContainer
                                 const FdspAttVolCmdPtr    &detach);
     virtual void om_test_bucket(const FdspMsgHdrPtr     &hdr,
                                 const FdspTestBucketPtr &req);
+
+    /**
+     * Called by DMT state machine when rebalance is finished, and
+     * volumes that are waiting for rebalance to finish (to be created)
+     * can continue create process. In this method, we can assume
+     * that rebalancing is off, because the state machine does not
+     * continue until this method returns.
+     */
+    void continueCreateDeleteVolumes();
 
     /**
      * Handling responses for volume events

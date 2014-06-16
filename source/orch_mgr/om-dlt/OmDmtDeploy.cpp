@@ -662,13 +662,16 @@ DmtDplyFSM::DACT_Close::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
     OM_NodeContainer* loc_domain = OM_NodeDomainMod::om_loc_domain_ctrl();
     OM_Module* om = OM_Module::om_singleton();
     VolumePlacement* vp = om->om_volplace_mod();
+    VolumeContainer::pointer volumes = loc_domain->om_vol_mgr();
     fds_uint64_t committed_ver = vp->getCommittedDMTVersion();
 
     // tell VolumePlacement that AM received all acks, that will set flag
     // 'not rebalancing' which will unblock the volume creation for volumes
     // whose DMT columns were in rebalancing state
     vp->notifyEndOfRebalancing();
-    // TODO(Anna) notify volume state machine to continue with create process
+
+    // notify all inactive (delayed) volumes to continue with create/delete process
+    volumes->continueCreateDeleteVolumes();
 
     // broadcast DMT close
     dst.close_acks_to_wait = loc_domain->om_bcast_dmt_close(committed_ver);

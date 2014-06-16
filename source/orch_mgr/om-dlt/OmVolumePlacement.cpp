@@ -186,6 +186,12 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
         DmtColumnPtr cmt_col = dmtMgr->getCommittedNodeGroup(volid);
         DmtColumnPtr target_col = dmtMgr->getTargetNodeGroup(volid);
 
+        // skip rebalancing of volumes in 'inactive' state -- those
+        // are volumes that got delayed because we already set our
+        // bRebalancing flag to true
+        VolumeInfo::pointer volinfo = VolumeInfo::vol_cast_ptr(*it);
+        if (volinfo->isVolumeInactive()) continue;
+
         // for each DM in target column, find all DMs that
         // that got added to that column
         NodeUuidSet new_dms;
