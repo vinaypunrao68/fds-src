@@ -19,6 +19,29 @@
 
 namespace fds {
 
+/**
+ * We use 6 bits in 64-bit uuid to encode other data.  For node uuid, we use it to
+ * encode services such as SM, DM, AM in the node.
+ */
+const int          UUID_TYPE_SHFT = 6;
+const int          UUID_TYPE_MAX  = (1 << UUID_TYPE_SHFT);
+const fds_uint64_t UUID_MASK      = ((0x1ULL << UUID_TYPE_SHFT) - 1);
+
+// ----------------------------------------------------------------------------
+// Resource types
+// ----------------------------------------------------------------------------
+class RsType
+{
+  public:
+    static const fds_uint32_t RS_IN_NODE_INV    = 0x00000001;
+    static const fds_uint32_t RS_IN_AM_INV      = 0x00000002;
+
+    static inline bool rs_func(fpi::FDSP_MgrIdType type, fds_uint32_t mask) {
+        return (rs_func_mask[type] & mask) != 0 ? true : false;
+    }
+    static const fds_uint32_t rs_func_mask[UUID_TYPE_MAX];
+};
+
 // ----------------------------------------------------------------------------
 // Resource UUID
 // ----------------------------------------------------------------------------
@@ -28,17 +51,29 @@ class ResourceUUID
     ResourceUUID() : rs_uuid(0) {}
     ResourceUUID(fds_uint64_t uuid);  // NOLINT
     explicit ResourceUUID(const fds_uint8_t *raw);
-    explicit ResourceUUID(const fpi::SvcUuid &uuid) : rs_uuid(uuid.svc_uuid) {}
-
+    explicit ResourceUUID(const fpi::SvcUuid &uuid) {
+        uuid_set_val(uuid.svc_uuid);
+    }
+    inline fpi::FDSP_MgrIdType uuid_get_type() {
+        return static_cast<fpi::FDSP_MgrIdType>(rs_uuid & UUID_MASK);
+    }
+    inline void uuid_set_type(fds_uint64_t v, int t) {
+        rs_uuid = (v & ~UUID_MASK) | static_cast<fds_uint64_t>(t & UUID_MASK);
+    }
     inline fds_uint64_t uuid_get_val() const {
         return rs_uuid;
     }
     inline void uuid_set_val(fds_uint64_t val) {
-        rs_uuid = val;
+        rs_uuid = val & ~UUID_MASK;
     }
-    inline void uuid_set_from_raw(const fds_uint8_t *raw) {
+    inline void uuid_set_from_raw(const fds_uint8_t *raw, bool clr_type = true)
+    {
         const fds_uint64_t *ptr = reinterpret_cast<const fds_uint64_t *>(raw);
-        rs_uuid = *ptr;
+        if (clr_type == true) {
+            uuid_set_val(*ptr);
+        } else {
+            rs_uuid = *ptr;
+        }
     }
     inline void uuid_set_to_raw(fds_uint8_t *raw) const {
         fds_uint64_t *ptr = reinterpret_cast<fds_uint64_t *>(raw);
@@ -54,20 +89,16 @@ class ResourceUUID
     bool operator==(const ResourceUUID& rhs) const {
         return (this->rs_uuid == rhs.rs_uuid);
     }
-
     bool operator!=(const ResourceUUID& rhs) const {
         return !(*this == rhs);
     }
-
     bool operator<(const ResourceUUID& rhs) const {
         return rs_uuid < rhs.rs_uuid;
     }
-
     ResourceUUID& operator=(const ResourceUUID& rhs) {
         rs_uuid = rhs.rs_uuid;
         return *this;
     }
-
     fpi::SvcUuid toSvcUuid() const;
 
   protected:
@@ -80,30 +111,6 @@ class UuidHash {
   public:
     fds_uint64_t operator()(const ResourceUUID& rs) const {
         return rs.uuid_get_val();
-    }
-};
-
-/**
- * ------------------------------------------------------------------------------------
- * Hash key of 2 uuids.
- * ------------------------------------------------------------------------------------
- */
-struct UuidDouble
-{
-    fds_uint64_t             src_uuid;
-    fds_uint64_t             dst_uuid;
-
-    bool operator == (const UuidDouble &rhs) const {
-        return ((this->src_uuid == rhs.src_uuid) && (this->dst_uuid == rhs.dst_uuid));
-    }
-    bool operator != (const UuidDouble &rhs) const {
-        return !(*this == rhs);
-    }
-};
-
-struct UuidDoubleHash {
-    fds_uint64_t operator()(const UuidDouble &v) const {
-        return v.src_uuid + v.dst_uuid;
     }
 };
 
