@@ -20,6 +20,9 @@ namespace fds_test {
 std::unordered_map<int, std::atomic<bool>> inprogMap;
 std::atomic<int> completedCnt;
 
+fds::fds_threadpool tp;
+fds::fds_mutex *locks;
+
 void taskFunc(int qid, int seqId)
 {
     // std::cout << "qid: " << qid << " seqId: " << seqId << std::endl;
@@ -37,10 +40,9 @@ void taskFunc(int qid, int seqId)
  * Tests schedule function of SynchronizedTaskExecutor
  */
 TEST(SynchronizedTaskExecutor, schedule) {
-    int nQCnt = 20;
-    int nReqs = nQCnt * 1500;
+    int nQCnt = 2;
+    int nReqs = nQCnt * 15000;
     completedCnt = 0;
-    fds::fds_threadpool tp;
     fds::SynchronizedTaskExecutor<int> executor(tp);
 
     for (int i = 0; i < nQCnt; i++) {
@@ -50,6 +52,43 @@ TEST(SynchronizedTaskExecutor, schedule) {
     for (int i = 0; i < nReqs; i++) {
         auto qid = i%nQCnt;
         executor.schedule(qid, std::bind(taskFunc, qid, i));
+    }
+
+    while (completedCnt < nReqs) {
+        sleep(1);
+    }
+}
+
+
+void taskFunc2(int qid, int seqId)
+{
+    fds::fds_scoped_lock l(locks[qid]);
+    fds_assert(inprogMap[qid] == false)
+
+    inprogMap[qid] = true;
+
+    for (uint32_t i = 0; i < 100000; i++) {}
+
+    inprogMap[qid] = false;
+    completedCnt++;
+}
+/**
+ * Tests schedule function of SynchronizedTaskExecutor
+ */
+TEST(Threadpool, schedule) {
+    int nQCnt = 2;
+    int nReqs = nQCnt * 15000;
+    completedCnt = 0;
+    fds::fds_threadpool tp;
+    locks = new fds::fds_mutex[nQCnt];
+
+    for (int i = 0; i < nQCnt; i++) {
+        inprogMap[i] = false;
+    }
+
+    for (int i = 0; i < nReqs; i++) {
+        auto qid = i%nQCnt;
+        tp.schedule(taskFunc2, qid, i);
     }
 
     while (completedCnt < nReqs) {

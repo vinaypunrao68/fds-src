@@ -103,10 +103,12 @@ void BaseAsyncSvcHandler::asyncRespHandler(
         return;
     }
 
+#if 0
     SynchronizedTaskExecutor<uint64_t> taskExecutor(*NetMgr::ep_mgr_thrpool());
     taskExecutor.schedule(1,
                           std::bind(&AsyncRpcRequestIf::handleResponse,
                                     asyncReq.get(), header, payload));
+#endif
 
     asyncReq->handleResponse(header, payload);
 }
