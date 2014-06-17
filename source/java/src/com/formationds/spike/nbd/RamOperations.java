@@ -2,7 +2,10 @@ package com.formationds.spike.nbd;/*
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+import com.sun.xml.internal.ws.util.CompletedFuture;
 import io.netty.buffer.ByteBuf;
+
+import java.util.concurrent.CompletableFuture;
 
 public class RamOperations implements NbdServerOperations {
     private String name;
@@ -25,13 +28,14 @@ public class RamOperations implements NbdServerOperations {
     }
 
     @Override
-    public void read(String exportName, ByteBuf target, long offset, int len) {
+    public CompletableFuture<Void> read(String exportName, ByteBuf target, long offset, int len) {
         target.writeBytes(bytes, (int)offset, len);
+        return CompletableFuture.completedFuture(null);
     }
 
     @Override
-    public void write(String exportName, ByteBuf source, long offset, int len) {
+    public CompletableFuture<Void> write(String exportName, ByteBuf source, long offset, int len) {
         source.readBytes(bytes, (int)offset, len);
-
+        return CompletableFuture.completedFuture(null);
     }
 }
