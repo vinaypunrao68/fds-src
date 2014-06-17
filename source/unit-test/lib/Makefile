@@ -8,7 +8,8 @@ user_fds_so_libs  :=
 user_fds_ar_libs  := \
     fds-am-engine
 
-user_non_fds_libs :=
+user_non_fds_libs := \
+    gmock
 
 user_incl_dir     := \
     $(topdir) \
@@ -24,7 +25,8 @@ user_cpp          :=  \
     perfstat_unit_test.cpp \
     fds_process_interrupt_test.cpp \
     counters_test.cpp \
-    trans_journal_ut.cpp
+    trans_journal_ut.cpp \
+    SynchronizedTaskExecutor_ut.cpp
 
 user_cc           :=
 user_no_style     := $(user_cpp) $(user_cc) $(wildcard *.h)
@@ -37,7 +39,8 @@ user_bin_exe      := \
     perfstat_unit_test \
     fds_process_interrupt_test \
     counters_test \
-    trans_journal_ut
+    trans_journal_ut \
+    SynchronizedTaskExecutor_ut     
 
 catalog_test               := catalog_unit_test.cpp
 #qos_dispatcher_unit_test	:= qos_dispatcher_unit_test.cpp
@@ -48,5 +51,6 @@ fds_timer_test             := fds_timer_test.cpp
 fds_config_test            := fds_config_test.cpp
 counters_test              := counters_test.cpp
 trans_journal_ut           := trans_journal_ut.cpp
+SynchronizedTaskExecutor_ut     := SynchronizedTaskExecutor_ut.cpp
 
 include $(topdir)/Makefile.incl
