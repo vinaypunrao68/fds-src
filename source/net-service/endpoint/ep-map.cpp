@@ -135,6 +135,7 @@ EpPlatLibMod::ep_req_map_record(fds_uint32_t op, const ep_map_rec_t *rec)
     ResourceUUID    uuid;
     ShmqReqOut      out(true, &resp.smq_hdr, sizeof(resp));
 
+    return -1;
     uuid.uuid_set_from_raw(reinterpret_cast<const fds_uint8_t *>(&rec->rmp_uuid), false);
     reqt.smq_type = uuid.uuid_get_type();
     if (RsType::rs_func(reqt.smq_type, RsType::RS_IN_NODE_INV) == true) {
