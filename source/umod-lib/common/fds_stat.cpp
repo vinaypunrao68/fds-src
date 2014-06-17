@@ -23,7 +23,7 @@ StatRec::StatRec()
     stat_req_hist    = NULL;
     stat_prev_period = 0;
     stat_cpu_switch  = 0;
-    memset(stat_histgram, 0, sizeof(int) * STAT_HISTGRAM);
+    memset(stat_histgram , 0, sizeof(int) * STAT_HISTGRAM);
 }
 
 StatRec::~StatRec()

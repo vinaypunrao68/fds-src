@@ -1,8 +1,8 @@
 /*
  * Copyright 2013 by Formation Data Systems, Inc.
  */
-#ifndef INCLUDE_UTIL_FDS_STAT_H_
-#define INCLUDE_UTIL_FDS_STAT_H_
+#ifndef SOURCE_INCLUDE_UTIL_FDS_STAT_H_
+#define SOURCE_INCLUDE_UTIL_FDS_STAT_H_
 
 #include <time.h>
 #include <shared/fds_types.h>
@@ -112,6 +112,6 @@ fds_stat_record(stat_mod_e mod, int point, fds_uint64_t start, fds_uint64_t end)
     }
 }
 
-} // namespace fds
+}  // namespace fds
 
-#endif /* INCLUDE_UTIL_FDS_STAT_H_ */
+#endif  // SOURCE_INCLUDE_UTIL_FDS_STAT_H_
