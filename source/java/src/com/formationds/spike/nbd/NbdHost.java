@@ -17,6 +17,7 @@ import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.ThreadPoolExecutor;
 
 public class NbdHost {
     private int port;
@@ -60,7 +61,7 @@ public class NbdHost {
         ConfigurationService.Iface config = clientFactory.remoteOmService("localhost", 9090);
 
         //NbdServerOperations ops;
-        ForkJoinPool fjp = new ForkJoinPool(1000);
+        ForkJoinPool fjp = new ForkJoinPool(10);
         NbdServerOperations ops = new FdsServerOperations(am, config, fjp);
         //NbdServerOperations ops = new SparseRamOperations(1024L * 1024L * 1024L * 10);
         //SparseRamOperations srops = new SparseRamOperations(1024L * 1024L * 1024L * 10);

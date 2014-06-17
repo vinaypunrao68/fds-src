@@ -23,6 +23,8 @@ import org.apache.thrift.server.TServer;
 import org.apache.thrift.server.TThreadPoolServer;
 import org.apache.thrift.transport.TServerSocket;
 
+import java.util.concurrent.ForkJoinPool;
+
 class FakeAmServer {
     public static void main(String[] args) throws Exception {
         AmService.Processor<AmService.Iface> processor = new AmService.Processor<>(new FakeAmService());
@@ -57,7 +59,8 @@ public class Main {
             ConfigurationService.Iface config = new CachingConfigurationService(clientFactory.remoteOmService(omHost, omConfigPort));
 
             int nbdPort = amParsedConfig.lookup("fds.am.nbd_server_port").intValue();
-            NbdHost nbdHost = new NbdHost(nbdPort, new FdsServerOperations(am, config));
+            ForkJoinPool fjp = new ForkJoinPool(50);
+            NbdHost nbdHost = new NbdHost(nbdPort, new FdsServerOperations(am, config, fjp));
             
             new Thread(() -> nbdHost.run()).start();
 

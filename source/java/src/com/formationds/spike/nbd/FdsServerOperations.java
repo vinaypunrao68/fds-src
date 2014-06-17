@@ -26,8 +26,6 @@ public class FdsServerOperations implements NbdServerOperations {
     private final Map<String, Integer> volumeObjectSizes;
     private final Map<String, Long> volumeCapacity;
 
-
-
     public FdsServerOperations(AmService.Iface am, ConfigurationService.Iface config, Executor executor) throws TException {
         this.am = am;
         this.config = config;
