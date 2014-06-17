@@ -7,13 +7,33 @@
 
 namespace fds {
 
+// ------------------------------------------------------------------------------------
+// Resource types
+// ------------------------------------------------------------------------------------
+const fds_uint32_t RsType::rs_func_mask[UUID_TYPE_MAX] =
+{
+    /* fpi::FDSD_PLATFORM    */ RS_IN_NODE_INV,
+    /* fpi::FDSP_STOR_MGR    */ RS_IN_NODE_INV,
+    /* fpi::FDSP_DATA_MGR    */ RS_IN_NODE_INV,
+    /* fpi::FDSP_STOR_HVISOR */ RS_IN_NODE_INV,
+    /* fpi::FDSP_ORCH_MGR    */ RS_IN_NODE_INV,
+    0
+};
+
+// ------------------------------------------------------------------------------------
+// Resource UUID
+// ------------------------------------------------------------------------------------
 const fds_uint32_t INVALID_INDEX = 0xffffffff;
 
-ResourceUUID::ResourceUUID(fds_uint64_t val) : rs_uuid(val) {}
+ResourceUUID::ResourceUUID(fds_uint64_t val)
+{
+    uuid_set_val(val);
+}
+
 ResourceUUID::ResourceUUID(const fds_uint8_t *raw)
 {
     const fds_uint64_t *ptr = reinterpret_cast<const fds_uint64_t *>(raw);
-    rs_uuid = *ptr;
+    uuid_set_val(*ptr);
 }
 
 fpi::SvcUuid ResourceUUID::toSvcUuid() const {

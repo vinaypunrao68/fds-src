@@ -360,30 +360,6 @@ NetMgr::ep_uuid_bindings(const struct ep_map_rec **map)
 int
 NetMgr::ep_uuid_binding(const fpi::SvcUuid &uuid, std::string *ip)
 {
-#if 0
-    // TODO(Rao): Hack to get port number
-    int port = static_cast<int>(Platform::lookup_svc_port(uuid.svc_uuid));
-    *ip = "127.0.0.1";
-    fds_assert(port != 0);
-    return port;
-    auto myuuid = Platform::plf_my_node_uuid();
-    NodeUuid dm_svcid;
-    NodeUuid sm_svcid;
-    NodeUuid am_svcid;
-    Platform::plf_svc_uuid_from_node(myuuid, &dm_svcid, fpi::FDSP_DATA_MGR);
-    Platform::plf_svc_uuid_from_node(myuuid, &sm_svcid, fpi::FDSP_STOR_MGR);
-    Platform::plf_svc_uuid_from_node(myuuid, &am_svcid, fpi::FDSP_STOR_HVISOR);
-
-    if (ResourceUUID(uuid.svc_uuid) == dm_svcid) {
-        return 7026;
-    } else if (ResourceUUID(uuid.svc_uuid) == sm_svcid) {
-        return 7015;
-    } else if (ResourceUUID(uuid.svc_uuid) == am_svcid) {
-        return 7034;
-    } else {
-        fds_verify(!"Not impl");
-    }
-#endif
     int          idx, ret;
     char         str[INET6_ADDRSTRLEN + 1];
     ep_map_rec_t map;
