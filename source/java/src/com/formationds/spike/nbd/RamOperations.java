@@ -2,7 +2,6 @@ package com.formationds.spike.nbd;/*
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.sun.xml.internal.ws.util.CompletedFuture;
 import io.netty.buffer.ByteBuf;
 
 import java.util.concurrent.CompletableFuture;
