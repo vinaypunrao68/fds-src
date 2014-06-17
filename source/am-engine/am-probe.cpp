@@ -26,7 +26,9 @@ AmProbe::AmProbe(const std::string &name,
                    owner),
           numThreads(0),
           numOps(0),
-          recvdOps(0) {
+          recvdOps(0),
+          numBuffers(0),
+          bufSize(4096) {
 }
 
 AmProbe::~AmProbe() {
@@ -37,6 +39,17 @@ AmProbe::mod_init(SysParams const *const param) {
     FdsConfigAccessor conf(g_fdsprocess->get_conf_helper());
     numThreads = conf.get_abs<fds_uint32_t>("fds.am.testing.probe_num_threads");
     threadPool = fds_threadpoolPtr(new fds_threadpool(numThreads));
+
+    txDesc.reset(new BlobTxId());
+    putProps.reset(new PutProperties());
+    numBuffers = 10;
+    for (fds_uint32_t i = 0;
+         i < numBuffers;
+         i++) {
+        char *buf = new char[bufSize];
+        memset(buf, i, bufSize);
+        dataBuffers.push_back(buf);
+    }
     return 0;
 }
 
@@ -149,6 +162,38 @@ struct ProbeStartBlobTxResponseHandler : public StartBlobTxResponseHandler {
     }
 };
 
+struct ProbeUpdateBlobResponseHandler : public PutObjectResponseHandler {
+    explicit ProbeUpdateBlobResponseHandler() {
+        type = HandlerType::IMMEDIATE;
+    }
+    virtual ~ProbeUpdateBlobResponseHandler() {
+    }
+    typedef boost::shared_ptr<ProbeUpdateBlobResponseHandler> ptr;
+
+    virtual void process() {
+        gl_AmProbe.incResp();
+    }
+};
+
+int
+probeUpdateBlobHandler(void *reqContext,
+                       fds_uint64_t bufferSize,
+                       fds_off_t offset,
+                       char *buffer,
+                       void *callbackData,
+                       FDSN_Status status,
+                       ErrorDetails* errDetails) {
+    ProbeUpdateBlobResponseHandler* handler =
+            reinterpret_cast<ProbeUpdateBlobResponseHandler*>(callbackData); //NOLINT
+    handler->status = status;
+    handler->errorDetails = errDetails;
+
+    handler->call();
+
+    delete handler;
+    return 0;
+}
+
 void
 AmProbe::incResp() {
     recvdOps++;
@@ -184,8 +229,24 @@ void
 AmProbe::doAsyncUpdateBlob(const std::string &volumeName,
                            const std::string &blobName,
                            fds_uint64_t blobOffset,
-                           fds_uint32_t dataLen,
+                           fds_uint32_t dataLength,
                            const char *data) {
+    BucketContext bucket_ctx("host", volumeName, "accessid", "secretkey");
+
+    ProbeUpdateBlobResponseHandler *handler =
+            new ProbeUpdateBlobResponseHandler();
+
+    gl_AmProbe.am_api->PutBlob(&bucket_ctx,
+                               blobName,
+                               gl_AmProbe.putProps,
+                               NULL,  // Not passing any context for the callback
+                               gl_AmProbe.dataBuffers[0],  // Data buf
+                               blobOffset,
+                               dataLength,
+                               gl_AmProbe.txDesc,
+                               false,  // Never make it last
+                               probeUpdateBlobHandler,
+                               static_cast<void *>(handler));
 }
 
 JsObject *
@@ -209,7 +270,12 @@ AmProbe::AmProbeOp::js_exec_obj(JsObject *parent,
                                             info->volumeName,
                                             info->blobName);
         } else if (info->op == "updateBlob") {
-            // gl_AmProbe.threadPool->schedule();
+            gl_AmProbe.threadPool->schedule(AmProbe::doAsyncUpdateBlob,
+                                            info->volumeName,
+                                            info->blobName,
+                                            info->blobOffset,
+                                            info->dataLength,
+                                            info->data);
         } else if (info->op == "query") {
             // gl_Dm_ProbeMod.sendQuery(*info);
         }
