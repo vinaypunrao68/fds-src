@@ -6,7 +6,7 @@
 #include <memory.h>  // for memset
 #include <math.h>    // for sqrt
 #include <algorithm> // for sort
-
+#include <util/timeutils.h>
 //-----------------------------------------------------------------------------
 // We view our timing values as a series of random variables V that has been
 // contaminated with occasional outliers due to cache misses, thread
@@ -143,7 +143,7 @@ void FilterOutliers2 ( std::vector<double> & v )
 }
 
 //-----------------------------------------------------------------------------
-// We really want the rdtsc() calls to bracket the function call as tightly
+// We really want the fds::util::getClockTicks() calls to bracket the function call as tightly
 // as possible, but that's hard to do portably. We'll try and get as close as
 // possible by marking the function as NEVER_INLINE (to keep the optimizer from
 // moving it) and marking the timing variables as "volatile register".
@@ -154,11 +154,11 @@ NEVER_INLINE int64_t timehash ( pfHash hash, const void * key, int len, int seed
   
   uint32_t temp[16];
   
-  begin = rdtsc();
+  begin = fds::util::getClockTicks();
   
   hash(key,len,seed,temp);
   
-  end = rdtsc();
+  end = fds::util::getClockTicks();
   
   return end-begin;
 }

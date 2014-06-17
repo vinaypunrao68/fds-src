@@ -1,5 +1,5 @@
 #include "PerfTrace.h"
-#include "rdtsc.h"
+#include <util/timeutils.h>
 
 namespace fds {
 
@@ -7,7 +7,6 @@ class PerfEvent;
 using namespace std;
 // Per module (SM/DM/SH) perf tracer 
   PerfTracer::PerfTracer() { 
-     InitRdtsc();
   }
 
   PerfTracer::~PerfTracer() { 
@@ -18,11 +17,11 @@ using namespace std;
       if ( enabled == false) return;
       if ( perfEventTbl[eventId] ) { 
          if ( perfEventTbl[eventId]->enabled == false ) return;  
-         perfEventTbl[eventId]->start_cycle = RDTSC();
+         perfEventTbl[eventId]->start_cycle = fds::util::getClockTicks();
          perfEventTbl[eventId]->event_count++;
       } else {
         perfEventTbl[eventId] = new PerfEvent(eventId, _ev_name); 
-        perfEventTbl[eventId]->start_cycle = RDTSC();
+        perfEventTbl[eventId]->start_cycle = fds::util::getClockTicks();
         perfEventTbl[eventId]->event_count++;
       }
  }
@@ -33,8 +32,8 @@ using namespace std;
       if ( enabled == false) return;
       if ( perfEventTbl[eventId] ) { 
          if ( perfEventTbl[eventId]->enabled == false ) return;  
-          perfEventTbl[eventId]->end_cycle = RDTSC();
-          perfEventTbl[eventId]->tot_cycle = RDTSC() - perfEventTbl[eventId]->start_cycle;
+         perfEventTbl[eventId]->end_cycle = fds::util::getClockTicks();
+         perfEventTbl[eventId]->tot_cycle = fds::util::getClockTicks() - perfEventTbl[eventId]->start_cycle;
       }
   }
 

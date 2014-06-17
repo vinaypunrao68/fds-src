@@ -2,14 +2,7 @@
 #define __RDTSC_H__ 
 #include <stdint.h> /* for uint64_t */
 #include <time.h>  /* for struct timespec */
- 
-/* assembly code to read the TSC */
-static inline uint64_t RDTSC()
-{
-  unsigned int hi, lo;
-  __asm__ volatile("rdtsc" : "=a" (lo), "=d" (hi));
-  return ((uint64_t)hi << 32) | lo;
-}
+#include <util/timeutils.h>
  
 const int NANO_SECONDS_IN_SEC = 1000000000;
 /* returns a static buffer of struct timespec with the time difference of ts1 and ts2
@@ -32,10 +25,10 @@ static void CalibrateTicks()
   struct timespec begints, endts;
   uint64_t begin = 0, end = 0;
   clock_gettime(CLOCK_MONOTONIC, &begints);
-  begin = RDTSC();
+  begin = fds::util::getClockTicks();
   uint64_t i;
   for (i = 0; i < 1000000; i++); /* must be CPU intensive */
-  end = RDTSC();
+  end = fds::util::getClockTicks();
   clock_gettime(CLOCK_MONOTONIC, &endts);
   struct timespec *tmpts = TimeSpecDiff(&endts, &begints);
   uint64_t nsecElapsed = tmpts->tv_sec * 1000000000LL + tmpts->tv_nsec;
@@ -57,7 +50,7 @@ void GetTimeSpec(struct timespec *ts, uint64_t nsecs)
 /* ts will be filled with time converted from TSC reading */
 void GetRdtscTime(struct timespec *ts)
 {
-  GetTimeSpec(ts, RDTSC() / g_TicksPerNanoSec);
+  GetTimeSpec(ts, fds::util::getClockTicks() / g_TicksPerNanoSec);
 }
 
 
