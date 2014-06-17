@@ -8,6 +8,19 @@
 
 namespace fds {
 
+/* Definition of common flags */
+DBG(DEFINE_FLAG(common_drop_async_resp));
+DBG(DEFINE_FLAG(common_enter_gdb));
+
+/**
+* @brief Common flags registration
+*/
+void FlagsMap::registerCommonFlags()
+{
+    /* Common flags registration */
+    DBG(REGISTER_FLAG((*this), common_drop_async_resp));
+    DBG(REGISTER_FLAG((*this), common_enter_gdb));
+}
 
 FlagsMap::FlagsMap()
 {
@@ -62,16 +75,6 @@ bool FlagsMap::getFlag(const std::string &id, int64_t &value)
     value = *(itr->second);
     return true;
 }
-
-/**
-* @brief Common flags registration
-*/
-void FlagsMap::registerCommonFlags()
-{
-    /* Common flags registration */
-    DBG(REGISTER_FLAG((*this), common_drop_async_resp));
-}
-
 
 /**
 * @brief return flags map

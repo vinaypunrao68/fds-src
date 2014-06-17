@@ -328,6 +328,8 @@ class Shm_1Prd_nCon : public ShmConPrdQueue
 
   private:
     shm_1prd_ncon_q_t *smq_ctrl;
+    int shm_calc_delta(int consumer);
+    int shm_calc_max_delta();
 
     ~Shm_1Prd_nCon() {}
 };

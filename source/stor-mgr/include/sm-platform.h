@@ -20,6 +20,10 @@ namespace fds {
 class SMSvcHandler;
 class SmPlatform;
 
+/* SM specific flags */
+DBG(DECLARE_FLAG(sm_drop_gets));
+DBG(DECLARE_FLAG(sm_drop_puts));
+
 class SmVolEvent : public VolPlatEvent
 {
   public:
@@ -83,9 +87,6 @@ class SmPlatform : public Platform
     bo::shared_ptr<SMSvcHandler>  sm_recv;
     EndPoint<FDS_ProtocolInterface::SMSvcClient, FDS_ProtocolInterface::SMSvcProcessor> *sm_ep;
 
-    /* SM specific flags */
-    DBG(DECLARE_FLAG(sm_drop_gets));
-    DBG(DECLARE_FLAG(sm_drop_puts));
 };
 
 /**

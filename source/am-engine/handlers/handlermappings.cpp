@@ -61,7 +61,7 @@ FDSN_Status fn_GetObjectHandler(BucketContextPtr bucket_ctx,
     handler->buffer = buffer;
 
     handler->ready();
-    return FDSN_StatusOK;
+    return ERR_OK;
 }
 
 FDSN_Status

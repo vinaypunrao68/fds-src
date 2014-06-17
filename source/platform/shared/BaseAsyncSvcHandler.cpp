@@ -6,6 +6,7 @@
 #include <util/Log.h>
 #include <net/RpcRequest.h>
 #include <net/AsyncRpcRequestTracker.h>
+#include <concurrency/SynchronizedTaskExecutor.hpp>
 
 namespace fds {
 
@@ -94,12 +95,19 @@ void BaseAsyncSvcHandler::asyncRespHandler(
         boost::shared_ptr<std::string>& payload)
 {
     GLOGDEBUG;
+
     auto asyncReq = gAsyncRpcTracker->\
             getAsyncRpcRequest(static_cast<AsyncRpcRequestId>(header->msg_src_id));
     if (!asyncReq) {
         GLOGWARN << "Request " << header->msg_src_id << " doesn't exist";
         return;
     }
+
+    SynchronizedTaskExecutor<uint64_t> taskExecutor(*NetMgr::ep_mgr_thrpool());
+    taskExecutor.schedule(1,
+                          std::bind(&AsyncRpcRequestIf::handleResponse,
+                                    asyncReq.get(), header, payload));
+
     asyncReq->handleResponse(header, payload);
 }
 

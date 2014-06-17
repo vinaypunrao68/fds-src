@@ -149,12 +149,13 @@ struct SvcInfo {
 }
 
 struct NodeSvcInfo {
-    1: i32                               node_base_port,
-    2: string                            node_addr,
-    3: string                            node_auto_name,
-    4: FDSP.FDSP_NodeState               node_state;
-    5: i32                               node_svc_mask,
-    6: list<SvcInfo>                     node_svc_list,
+    1: required SvcUuid                  node_base_uuid,
+    2: i32                               node_base_port,
+    3: string                            node_addr,
+    4: string                            node_auto_name,
+    5: FDSP.FDSP_NodeState               node_state;
+    6: i32                               node_svc_mask,
+    7: list<SvcInfo>                     node_svc_list,
 }
 
 struct DomainNodes {

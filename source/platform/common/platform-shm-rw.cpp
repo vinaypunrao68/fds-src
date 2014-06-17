@@ -132,6 +132,7 @@ NodeShmRWCtrl::shm_setup_queue()
     // SHM CTRL STRUCTURES (INDEXES, # of CONSUMERS)
     // Set the number of consumers to 8
     shm_queue->smq_plat2svc.shm_ncon_cnt = 8;
+
     // Initialize all consumers index to -1
     for (int i = 0; i < shm_queue->smq_plat2svc.shm_ncon_cnt; ++i) {
         shm_queue->smq_plat2svc.shm_ncon_idx[i] = -1;

@@ -357,6 +357,9 @@ public:
                               const Error& error,
                               boost::shared_ptr<std::string> payload);
 
+    fds::Error updateCatalogCache(GetBlobReq *blobReq,
+                                  FDS_ProtocolInterface::FDSP_BlobObjectList& blobOffList);
+
 private:
     void handleDltMismatch(StorHvVolume *vol,
                            StorHvJournalEntry *journEntry);

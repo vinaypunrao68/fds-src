@@ -9,15 +9,15 @@
 
 /* Forward declarations */
 namespace FDS_ProtocolInterface {
-class BaseAsyncSvcClient;
-class BaseAsyncSvcProcessor;
+class PlatNetSvcClient;
+class PlatNetSvcProcessor;
 }
 
 namespace fds {
 
 /* Forward declarations */
 class AmPlatform;
-class BaseAsyncSvcHandler;
+class PlatNetSvcHandler;
 
 class AmVolEvent : public VolPlatEvent
 {
@@ -73,10 +73,12 @@ class AmPlatform : public Platform
     virtual PlatRpcReqt *plat_creat_reqt_disp();
     virtual PlatRpcResp *plat_creat_resp_disp();
 
+    void registerFlags();
+
     AMEpPlugin::pointer           am_plugin;
-    bo::shared_ptr<BaseAsyncSvcHandler>  am_recv;
-    EndPoint<FDS_ProtocolInterface::BaseAsyncSvcClient,
-        FDS_ProtocolInterface::BaseAsyncSvcProcessor> *am_ep;
+    bo::shared_ptr<PlatNetSvcHandler>  am_recv;
+    EndPoint<FDS_ProtocolInterface::PlatNetSvcClient,
+        FDS_ProtocolInterface::PlatNetSvcProcessor> *am_ep;
 };
 
 /**

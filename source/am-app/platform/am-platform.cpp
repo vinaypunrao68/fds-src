@@ -3,8 +3,9 @@
  */
 #include <string>
 #include <am-platform.h>
-#include <net/BaseAsyncSvcHandler.h>
+#include <net/PlatNetSvcHandler.h>
 #include <net/net-service-tmpl.hpp>
+#include <net/RpcRequestPool.h>
 
 namespace fds {
 
@@ -110,13 +111,16 @@ void
 AmPlatform::mod_startup()
 {
     Platform::mod_startup();
-    am_recv   = bo::shared_ptr<BaseAsyncSvcHandler>(new BaseAsyncSvcHandler());
+    registerFlags();
+    gRpcRequestPool = new RpcRequestPool();
+
+    am_recv   = bo::shared_ptr<PlatNetSvcHandler>(new PlatNetSvcHandler());
     am_plugin = new AMEpPlugin(this);
-    am_ep     = new EndPoint<fpi::BaseAsyncSvcClient, fpi::BaseAsyncSvcProcessor>(
+    am_ep     = new EndPoint<fpi::PlatNetSvcClient, fpi::PlatNetSvcProcessor>(
         Platform::platf_singleton()->plf_get_my_base_port(),
         *Platform::platf_singleton()->plf_get_my_svc_uuid(),
         NodeUuid(0ULL),
-        bo::shared_ptr<fpi::BaseAsyncSvcProcessor>(new fpi::BaseAsyncSvcProcessor(am_recv)),
+        bo::shared_ptr<fpi::PlatNetSvcProcessor>(new fpi::PlatNetSvcProcessor(am_recv)),
         am_plugin);
 
     LOGNORMAL << " my_svc_uuid: " << *Platform::platf_singleton()->plf_get_my_svc_uuid()
@@ -150,6 +154,15 @@ AmPlatform::plat_creat_resp_disp()
     return new PlatRpcResp(this);
 }
 
+/**
+* @brief Register am flags
+*/
+void AmPlatform::registerFlags()
+{
+    PlatformProcess::plf_manager()->\
+        plf_get_flags_map().registerCommonFlags();
+    /* AM specific flags */
+}
 // --------------------------------------------------------------------------------------
 // RPC handlers
 // --------------------------------------------------------------------------------------

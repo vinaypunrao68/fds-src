@@ -1,18 +1,40 @@
 /* Copyright 2014 Formation Data Systems, Inc.
  */
 #include <vector>
+#include <string>
 #include <functional>
 #include <net/RpcRequestPool.h>
 #include <net/net-service.h>
 #include <net/AsyncRpcRequestTracker.h>
 #include <platform/platform-lib.h>
 #include <fdsp_utils.h>
+#include <fds_process.h>
 
 namespace fds {
 
 // TODO(Rao): Make RpcRequestPool and AsyncRpcRequestTracker a module
-RpcRequestPool *gRpcRequestPool = new RpcRequestPool();
+RpcRequestPool *gRpcRequestPool;
 AsyncRpcRequestTracker* gAsyncRpcTracker;
+AsyncRpcCounters* gAsyncRpcCntrs;
+
+/**
+* @brief Constructor
+*
+* @param id
+* @param mgr
+*/
+AsyncRpcCounters::AsyncRpcCounters(const std::string &id, FdsCountersMgr *mgr)
+    : FdsCounters(id, mgr),
+    timedout("timedout", this),
+    invokeerrors("invokeerrors", this),
+    appsuccess("appsuccess", this),
+    apperrors("apperrors", this)
+{
+}
+
+AsyncRpcCounters::~AsyncRpcCounters()
+{
+}
 
 /**
  * Constructor
@@ -20,6 +42,7 @@ AsyncRpcRequestTracker* gAsyncRpcTracker;
 RpcRequestPool::RpcRequestPool()
 {
     gAsyncRpcTracker = new AsyncRpcRequestTracker();
+    gAsyncRpcCntrs = new AsyncRpcCounters("Rpc", g_cntrs_mgr.get());
 
     nextAsyncReqId_ = 0;
     finishTrackingCb_ = std::bind(&AsyncRpcRequestTracker::removeFromTracking,

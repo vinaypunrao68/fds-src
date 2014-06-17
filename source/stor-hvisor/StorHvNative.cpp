@@ -84,7 +84,7 @@ void FDS_NativeAPI::CreateBucket(BucketContext *bucket_ctx,
         return;
     }
 
-    (responseHandler)(FDSN_StatusOK, NULL, callback_data);
+    (responseHandler)(ERR_OK, NULL, callback_data);
 }
 
 
@@ -177,7 +177,7 @@ void FDS_NativeAPI::DeleteBucket(BucketContext* bucketCtxt,
     storHvisor->om_client->pushDeleteBucketToOM(volData);
     /* TBD. Since this one is async call Error
        checking involved, need more discussiosn */
-    (handler)(FDSN_StatusOK, NULL, callbackData);
+    (handler)(ERR_OK, NULL, callbackData);
     return;
 }
 
@@ -242,7 +242,7 @@ void FDS_NativeAPI::ModifyBucket(BucketContext *bucket_ctxt,
      * add 'admin' queue to volume queues with some rate and send msgs to OM when
      * we dequeue those requests (not here).
      */
-    (handler)(FDSN_StatusOK, NULL, callback_data);
+    (handler)(ERR_OK, NULL, callback_data);
 }
 
 /* get bucket stats for all existing buckets from OM*/
@@ -370,7 +370,7 @@ FDS_NativeAPI::attachVolume(const std::string& volumeName,
         LOGDEBUG << "Volume " << volumeName
                  << " with UUID " << volId
                  << " already attached";
-        cb->call(FDSN_StatusOK);
+        cb->call(ERR_OK);
     }
     // Make sure the volume isn't attached already
     fds_verify(volId == invalid_vol_id);
@@ -532,7 +532,7 @@ void FDS_NativeAPI::DoCallback(FdsBlobReq  *blob_req,
                                fds_uint32_t ignore,
                                fds_int32_t  result)
 {
-    FDSN_Status status(FDSN_StatusOK);
+    FDSN_Status status(ERR_OK);
 
     LOGNORMAL << " callback -"
               << " [iotype:" << blob_req->getIoType() << "]"
@@ -540,10 +540,7 @@ void FDS_NativeAPI::DoCallback(FdsBlobReq  *blob_req,
               << " [result:" << result << ":" << static_cast<FDSN_Status>(result) << "]";
 
     if ( !error.ok() || (result != 0) ) {
-        if (result > 0 && result < FDSN_StatusErrorUnknown) {
-            // the result is a fdsn status
-            status = (FDSN_Status)result;
-        } else if (result < 0) {
+        if (result < 0 || !error.ok()) {
             // TODO(Prem/Andrew): We're not actually ever setting
             // the error variable and there are cases where AM returns
             // just a negative result value with no other info...we need
@@ -552,42 +549,8 @@ void FDS_NativeAPI::DoCallback(FdsBlobReq  *blob_req,
             // For now, we just throw our hands up and give a 500.
             status = FDSN_StatusInternalError;
         } else {
-            switch (error.GetErrno()) {
-                case ERR_OK                           : break;
-
-                case ERR_DUPLICATE                    :
-                case ERR_HASH_COLLISION               :
-                case ERR_DISK_WRITE_FAILED            :
-                case ERR_DISK_READ_FAILED             :
-                case ERR_CAT_QUERY_FAILED             :
-                case ERR_CAT_ENTRY_NOT_FOUND          :
-                case ERR_INVALID_ARG                  :
-                case ERR_PENDING_RESP                 : status = FDSN_StatusInternalError; break; //NOLINT
-
-                case ERR_VOL_ADMISSION_FAILED         :
-                case ERR_GET_DLT_FAILED               :
-                case ERR_GET_DMT_FAILED               :
-                case ERR_NOT_IMPLEMENTED              :
-                case ERR_OUT_OF_MEMEORY               :
-                case ERR_DUPLICATE_UUID               :
-                case ERR_TRANS_JOURNAL_OUT_OF_IDS     :
-                case ERR_TRANS_JOURNAL_REQUEST_QUEUED :
-                case ERR_NODE_NOT_ACTIVE              :
-
-                case ERR_NOT_READY                    :
-                case ERR_INVALID_DLT                  :
-                case ERR_PERSIST_STATE_MISMATCH       :
-                case ERR_EXCEED_MIN_IOPS              : status = FDSN_StatusInternalError; break; //NOLINT
-
-                case ERR_UNAUTH_ACCESS                : status = FDSN_StatusErrorAccessDenied; break; //NOLINT
-
-                case ERR_NOT_FOUND                    :
-                case ERR_BLOB_NOT_FOUND               : status = FDSN_StatusEntityDoesNotExist; break; //NOLINT
-                case ERR_VOL_NOT_FOUND                : status = FDSN_StatusErrorBucketNotExists; break; //NOLINT
-                case ERR_VOL_NOT_EMPTY                : status = FDSN_StatusErrorBucketNotEmpty; break; //NOLINT
-
-                default: status = FDSN_StatusInternalError; break;
-            }
+            // the result is a fdsn status
+            status = (FDSN_Status)result;
         }
     }
 

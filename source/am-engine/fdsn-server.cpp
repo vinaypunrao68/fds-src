@@ -223,7 +223,7 @@ class FdsnIf : public apis::AmServiceIf {
         // Wait for a signal from the callback thread
         getHandler.wait();
 
-        if (getHandler.status != FDSN_StatusOK) {
+        if (getHandler.status != ERR_OK) {
             apis::ApiException fdsE;
             if (getHandler.status == FDSN_StatusEntityDoesNotExist) {
                 fdsE.errorCode = apis::MISSING_RESOURCE;
@@ -330,7 +330,7 @@ class FdsnIf : public apis::AmServiceIf {
                  << " at object offset " << objectOffset->value;
 
         // Throw an exception if we didn't get an OK response
-        if (putHandler.status != FDSN_StatusOK) {
+        if (putHandler.status != ERR_OK) {
             apis::ApiException fdsE;
             throw fdsE;
         }

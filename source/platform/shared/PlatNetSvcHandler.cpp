@@ -3,6 +3,7 @@
  */
 #include <string>
 #include <map>
+#include <csignal>
 #include <fds_process.h>
 #include <net/PlatNetSvcHandler.h>
 #include <platform/platform-lib.h>
@@ -147,6 +148,11 @@ setConfigVal(boost::shared_ptr<std::string>& id,  // NOLINT
 void PlatNetSvcHandler::setFlag(boost::shared_ptr<std::string>& id,  // NOLINT
                                 boost::shared_ptr<int64_t>& value)
 {
+    if (*id == "common_enter_gdb") {
+        // TODO(Rao): This isn't working.  Needs to be debugged
+        raise(SIGINT);
+        return;
+    }
     bool found = PlatformProcess::plf_manager()->\
                  plf_get_flags_map().setFlag(*id, *value);
     // TODO(Rao): Throw an exception if found is false;

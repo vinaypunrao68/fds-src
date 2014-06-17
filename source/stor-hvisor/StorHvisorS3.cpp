@@ -44,7 +44,7 @@ StorHvCtrl::TxnResponseHelper::TxnResponseHelper(StorHvCtrl* storHvisor,
     fds_verify(qosReq != NULL);
     blobReq = qosReq->getBlobReqPtr();
     fds_verify(blobReq != NULL);
-    blobReq->cb->status = FDSN_StatusOK;
+    blobReq->cb->status = ERR_OK;
 }
 
 void StorHvCtrl::TxnResponseHelper::setStatus(FDSN_Status  status) {
@@ -118,7 +118,7 @@ void StorHvCtrl::TxnRequestHelper::setStatus(FDSN_Status status) {
 }
 
 bool StorHvCtrl::TxnRequestHelper::hasError() {
-    return ((status != FDSN_StatusOK) && (status != FDSN_StatusNOTSET));
+    return ((status != ERR_OK) && (status != FDSN_StatusNOTSET));
 }
 
 StorHvCtrl::TxnRequestHelper::~TxnRequestHelper() {
@@ -895,7 +895,7 @@ StorHvCtrl::startBlobTxResp(const FDSP_MsgHdrTypePtr rxMsg) {
         txn->reset();
         vol->journal_tbl->releaseTransId(transId);
         qos_ctrl->markIODone(txn->io);
-        cb->call(FDSN_StatusOK);
+        cb->call(ERR_OK);
         delete blobReq;
     } else {
         fds_verify(result == 0);
@@ -954,7 +954,7 @@ StorHvCtrl::statBlobResp(const FDSP_MsgHdrTypePtr rxMsg,
     }
     txn->reset();
     vol->journal_tbl->releaseTransId(transId);
-    cb->call(FDSN_StatusOK);
+    cb->call(ERR_OK);
     delete blobReq;
 }
 
@@ -1005,7 +1005,7 @@ void StorHvCtrl::handleSetBlobMetaDataResp(const FDSP_MsgHdrTypePtr rxMsg) {
         txn->reset();
         vol->journal_tbl->releaseTransId(transId);
         qos_ctrl->markIODone(txn->io);
-        blobReq->cb->call(FDSN_StatusOK);
+        blobReq->cb->call(ERR_OK);
     } else {
         fds_verify(result == 0);
     }
@@ -1137,7 +1137,6 @@ Error StorHvCtrl::getBlob2(fds::AmQosReq *qosReq) {
         qosReq->getBlobReqPtr());
     fds_verify(blobReq->magicInUse() == true);
 
-    // TODO(Andrew) : Do we need this check?
     fds_volid_t   volId = blobReq->getVolId();
     StorHvVolume *shVol = vol_table->getVolume(volId);
     if ((shVol == NULL) || (shVol->isValidLocked() == false)) {
@@ -1246,7 +1245,17 @@ void StorHvCtrl::getBlobQueryCatalogResp(fds::AmQosReq* qosReq,
 
     LOGDEBUG << rpcReq->logString() << fds::logString(*qryCatRsp);
 
-    // TODO(Rao): Update cache
+    Error e = updateCatalogCache(blobReq,
+                                 qryCatRsp->obj_list);
+    if (e != ERR_OK) {
+        LOGERROR << "blob name: " << blobReq->getBlobName() << "offset: "
+            << blobReq->getBlobOffset() << " Error: " << e; 
+        blobReq->cbWithResult(e.GetErrno());
+        qos_ctrl->markIODone(qosReq);
+        delete blobReq;
+        return;
+    }
+
     /* NOTE: For now making the assumption that there is only one object id */
     fds_verify(qryCatRsp->obj_list.size() == 1);
     ObjectID objId(qryCatRsp->obj_list[0].data_obj_id.digest);
@@ -1286,28 +1295,6 @@ void StorHvCtrl::getBlobGetObjectResp(fds::AmQosReq* qosReq,
     StorHvVolumeLock vol_lock(vol);
     fds_verify(vol->isValidLocked() == true);
 
-    /*
-     * how to handle the length miss-match (requested  length and  recived legth from 
-     * SM differ)?.   We will have to handle sending more data due to length difference
-     */
-
-    fds_uint64_t blobSize = 0;
-    std::string blobEtag;
-
-    Error err;
-    err = vol->vol_catalog_cache->getBlobSize(blobReq->getBlobName(), &blobSize);
-    fds_verify(err == ERR_OK);
-    fds_verify(blobSize > 0);
-
-    err = vol->vol_catalog_cache->getBlobEtag(blobReq->getBlobName(), &blobEtag);
-    fds_verify(err == ERR_OK);
-    // Either the etag is empty or its set to
-    // the proper length
-    fds_verify((blobEtag.size() == 0) ||
-               (blobEtag.size() == 32));
-
-    // TODO(Rao) : log notification
-
     qos_ctrl->markIODone(qosReq);
 
     /* NOTE: we are currently supporting only getting the whole blob
@@ -1330,6 +1317,51 @@ void StorHvCtrl::getBlobGetObjectResp(fds::AmQosReq* qosReq,
     delete blobReq;
     // TODO(Rao): Ask andrew why we can't delete this qosReq
     // delete qosReq;
+}
+
+fds::Error StorHvCtrl::updateCatalogCache(GetBlobReq *blobReq,
+                                          FDS_ProtocolInterface::FDSP_BlobObjectList& blobOffList )
+{
+    // Get the volume specific to the request
+    StorHvVolume *shvol = vol_table->getVolume(blobReq->getVolId());
+    StorHvVolumeLock vol_lock(shvol);    
+    if (!shvol || !shvol->isValidLocked()) {
+        LOGERROR << " StorHvisorRx:" << " - Volume 0x"
+                 << std::hex << blobReq->getVolId()
+                 << std::dec <<  " not registered";
+        return ERR_VOL_NOT_FOUND;
+    }
+    // Insert the returned entries into the cache
+    fds_verify(blobOffList.empty() == false);
+    bool offsetFound  = false;
+    Error err = ERR_OK;
+    fds_uint64_t req_offset = blobReq->getBlobOffset();
+    for (FDS_ProtocolInterface::FDSP_BlobObjectList::const_iterator it =
+                 blobOffList.cbegin();
+         it != blobOffList.cend();
+         it++) {
+        ObjectID offsetObjId(((*it).data_obj_id).digest);
+        // TODO(Andrew): Need to pass in if this is the last
+        // offset in the blob or not...
+        err = shvol->vol_catalog_cache->Update(blobReq->getBlobName(),
+                                               (fds_uint64_t)(*it).offset,
+                                               (fds_uint32_t)(*it).size,
+                                               offsetObjId);
+        fds_verify(err == ERR_OK);
+
+        // Check if we received the offset we queried about
+        // TODO(Andrew): Today DM just gives us the entire
+        // blob, so it doesn't tell us if the offset we queried
+        // about was in the list or not
+        if ((fds_uint64_t)(*it).offset == req_offset) {
+            offsetFound = true;
+        }
+    }
+
+    if (offsetFound == false) {
+        return FDSN_StatusEntityDoesNotExist;
+    }
+    return ERR_OK;
 }
 
 fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq)
@@ -1592,7 +1624,7 @@ fds::Error StorHvCtrl::getObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
         blobReq->setDataBuf(getObjRsp->data_obj.c_str());
         txn->reset();
         vol->journal_tbl->releaseTransId(transId);
-        blobReq->cbWithResult(FDSN_StatusOK);
+        blobReq->cbWithResult(ERR_OK);
     } else {
         /*
          * We received an error from SM. check the Error. If the Obj Not found 
@@ -2005,7 +2037,7 @@ StorHvCtrl::attachVolume(AmQosReq *qosReq) {
 
     LOGDEBUG << "Attach for volume " << blobReq->getVolumeName()
              << " complete. Notifying waiters";
-    blobReq->cb->call(FDSN_StatusOK);
+    blobReq->cb->call(ERR_OK);
 }
 
 /*****************************************************************************
@@ -2363,7 +2395,7 @@ fds::Error StorHvCtrl::getBucketResp(const FDSP_MsgHdrTypePtr& rxMsg,
                                "", // next_marker ?
                                blobListResp->num_blobs_in_resp,
                                contents,
-                               FDSN_StatusOK,
+                               ERR_OK,
                                NULL);
 
     } else {
@@ -2550,7 +2582,7 @@ void StorHvCtrl::getBucketStatsResp(const FDSP_MsgHdrTypePtr& rx_msg,
 
         /* call BucketStats callback directly */
         BucketStatsReq *stats_req = static_cast<BucketStatsReq*>(blobReq);
-        stats_req->DoCallback(buck_stats->timestamp, count, contents, FDSN_StatusOK, NULL);
+        stats_req->DoCallback(buck_stats->timestamp, count, contents, ERR_OK, NULL);
 
     } else {    
         /*

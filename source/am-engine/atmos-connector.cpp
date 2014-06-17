@@ -97,7 +97,7 @@ atmos_putobj_cbfn(void *reqContext, fds_uint64_t bufferSize, fds_off_t offset,
     Conn_PutObject *conn_po = static_cast<Conn_PutObject *>(callbackData);
 
     ctx->ame_update_input_buf(bufferSize);
-    if (status == FDSN_StatusOK) {
+    if (status == ERR_OK) {
         status = FDSN_StatusCreated;
     }
     conn_po->ame_signal_resume(AME_Request::ame_map_fdsn_status(status));
