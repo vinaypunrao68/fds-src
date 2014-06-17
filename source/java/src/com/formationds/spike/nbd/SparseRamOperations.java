@@ -110,8 +110,9 @@ public class SparseRamOperations implements NbdServerOperations {
                 bytes_read += i_len;
 
                 delay(readDelay);
-                future.complete(null);
-            }});
+            }
+            future.complete(null);
+        });
 
         return future;
     }
