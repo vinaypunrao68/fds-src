@@ -28,7 +28,7 @@ public class SwiftImageWriter extends ImageWriter {
             String volume = randomVolume();
             URL sourceUrl = new URL(resource.getUrl());
             try (InputStream inputStream = new BufferedInputStream(sourceUrl.openConnection().getInputStream(), 1024 * 10)) {
-                String dest = MessageFormat.format(SwiftImageReader.URL_PATTERN, host, Integer.toString(port), volume, resource.getId());
+                String dest = MessageFormat.format(SwiftImageReader.URL_PATTERN, host, Integer.toString(port), volume, resource.getName());
                 HttpURLConnection cnx = (HttpURLConnection) new URL(dest).openConnection();
                 cnx.setDoOutput(true);
                 cnx.setRequestMethod("PUT");

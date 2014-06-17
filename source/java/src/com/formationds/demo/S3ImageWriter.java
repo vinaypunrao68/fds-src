@@ -33,7 +33,9 @@ public class S3ImageWriter extends ImageWriter {
             String volume = randomVolume();
             URL url = new URL(resource.getUrl());
             try (InputStream inputStream = new BufferedInputStream(url.openConnection().getInputStream(), 1024 * 10)) {
-                client.putObject(volume, resource.getId(), inputStream, new ObjectMetadata());
+                ObjectMetadata metadata = new ObjectMetadata();
+                metadata.setContentType("image/jpg");
+                client.putObject(volume, resource.getName(), inputStream, metadata);
                 increment(volume);
                 return new StoredImage(resource, volume);
             }

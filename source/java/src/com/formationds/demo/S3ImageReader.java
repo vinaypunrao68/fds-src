@@ -26,7 +26,7 @@ public class S3ImageReader extends ImageReader {
 
     @Override
     protected StoredImage read(StoredImage storedImage) throws Exception {
-        S3Object object = client.getObject(storedImage.getVolumeName(), storedImage.getImageResource().getId());
+        S3Object object = client.getObject(storedImage.getVolumeName(), storedImage.getImageResource().getName());
         try (S3ObjectInputStream content = object.getObjectContent()) {
             IOUtils.toByteArray(content);
             increment(storedImage.getVolumeName());
