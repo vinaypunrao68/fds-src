@@ -12,7 +12,7 @@ FdsShmem::FdsShmem(const char *name, size_t size)
 FdsShmem::~FdsShmem() {}
 
 void *
-FdsShmem::shm_alloc(size_t siz)
+FdsShmem::shm_alloc()
 {
     int fd = shm_open(sh_name, O_RDWR|O_CREAT| O_EXCL, S_IRWXU);
 
