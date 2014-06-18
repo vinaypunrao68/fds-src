@@ -250,8 +250,9 @@ namespace fds {
         /**
          * Called when forwarding can be finished for volume 'volid'
          * so volume-related datastucts can be freed
+         * @return true if all volumes finished forwarding metadata
          */
-        void finishedForwardVolmeta(fds_volid_t volid);
+        fds_bool_t finishedForwardVolmeta(fds_volid_t volid);
 
         /**
          * @return true if sync is in progress = time between push meta

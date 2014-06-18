@@ -119,9 +119,9 @@ void DataMgr::deleteVolumeDb() {
      for (vol_it = vol_meta_map.begin();
                vol_it != vol_meta_map.end(); ++vol_it) {
         DmtColumnPtr dmt_col = omClient->getDMTNodesForVolume(vol_it->first);
-        LOGNORMAL << " Volume ID:" << std::hex << vol_it->first << std::dec;
         NodeUuid uuid =  plf_mgr->plf_get_my_uuid()->uuid_get_val();
-        LOGNORMAL << " Node UUID :" << uuid;
+        LOGNORMAL << " Volume ID:" << std::hex << vol_it->first << std::dec
+                  << " Node UUID :" << uuid;
         if (dmt_col->find(uuid) < 0) {
            // delete the vvc and tvc db;
            VolumeMeta *vm = vol_meta_map[vol_it->first];
@@ -364,7 +364,7 @@ Error DataMgr::_process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only) {
  */
 Error DataMgr::notifyStopForwardUpdates() {
     std::unordered_map<fds_uint64_t, VolumeMeta*>::iterator vol_it;
-
+    fds_bool_t all_finished = false;
     Error err(ERR_OK);
 
     if (!catSyncMgr->isSyncInProgress()) {  
@@ -383,10 +383,16 @@ Error DataMgr::notifyStopForwardUpdates() {
             // remove the volume from sync_volume list
             LOGNORMAL << "CleanUP: remove Volume " << std::hex
                       << vol_it->first << std::dec;
-            catSyncMgr->finishedForwardVolmeta(vol_it->first);
+            if (catSyncMgr->finishedForwardVolmeta(vol_it->first)) {
+                all_finished = true;
+            }
         }
     }
     vol_map_mtx->unlock();
+
+    if (all_finished) {
+        deleteVolumeDb();
+    }
 
     return err;
 }
