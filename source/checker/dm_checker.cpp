@@ -9,6 +9,7 @@
 #include <boost/filesystem/operations.hpp>
 #include <boost/filesystem/path.hpp>
 #include <boost/progress.hpp>
+#include "boost/program_options.hpp"
 
 #include <fds_volume.h>
 #include <fdsp/FDSP_types.h>
@@ -17,6 +18,7 @@
 #include <FdsCrypto.h>
 #include <ObjectId.h>
 #include <am-platform.h>
+#include <stdlib.h>
 
 namespace fs = boost::filesystem;
 
@@ -487,11 +489,11 @@ auto md_session = get_metadatapath_session(dm_node_id);
 
 
 
-void LevelDBChecker::run_checker()
+void LevelDBChecker::run_checker(const char *volume)
 {
     std::cout << "Hit run_checker" << std::endl;
     // TODO(brian): fix so that vol_id isn't hardcoded
-    char *vol_name = "volume_smoke2";
+    const char *vol_name = volume;
     std::string v_name(vol_name);
 
     fds::ResourceUUID uuid(fds_get_uuid64(vol_name));
@@ -560,6 +562,33 @@ FdsCheckerProc::FdsCheckerProc(int argc, char *argv[],
     checker_ = reinterpret_cast<LevelDBChecker *>(platform);
     g_fdslog->setSeverityFilter(
             (fds_log::severity_level) conf_helper_.get<int>("log_severity"));
+
+
+    // Get --volume from command line args
+    namespace po = boost::program_options;
+    po::options_description desc("Run a LevelDB Checker");
+
+    desc.add_options()
+            ("help,h", "Print this help message")
+            ("volume,v", po::value<std::string>(),
+             "Name of the volume to check.");
+
+    po::variables_map vm;
+    po::store(po::parse_command_line(argc, argv, desc), vm);
+
+    po::notify(vm);
+
+    if (vm.count("help")) {
+        std::cout << desc << "\n";
+        exit(0);
+    }
+
+    if (vm.count("volume") == 0) {
+        std::cout << desc << "\n";
+        exit(-1);
+    }
+
+    volume = vm["volume"].as<std::string>().c_str();
 }
 
 FdsCheckerProc::~FdsCheckerProc()
@@ -576,7 +605,7 @@ void FdsCheckerProc::proc_pre_startup()
 
 int FdsCheckerProc::run()
 {
-    checker_->run_checker();
+    checker_->run_checker(volume);
     g_cntrs_mgr->export_to_ostream(std::cout);
     std::cout << "Checker completed\n";
     return 0;

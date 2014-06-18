@@ -64,7 +64,7 @@ class BaseChecker : public Platform {
 
     virtual ~BaseChecker() {}
 
-    virtual void run_checker() = 0;
+    virtual void run_checker(const char *volume) = 0;
     virtual void mod_load_from_config();
 
     virtual void log_corruption(const std::string& info);
@@ -97,7 +97,7 @@ class LevelDBChecker : public BaseChecker {
     virtual void mod_shutdown() override;
 
     /* BaseChecker overrides */
-    virtual void run_checker() override;
+    virtual void run_checker(const char *volume) override;
 
     fds_log* GetLog() { return g_fdslog;}
     void set_cfg_accessor(const FdsConfigAccessor &cfg_ac) { conf_helper_ = cfg_ac; }
@@ -148,6 +148,7 @@ class FdsCheckerProc : public PlatformProcess {
 
  private:
     BaseChecker *checker_;
+    const char *volume;
 };
 
 }  // namespace fds
