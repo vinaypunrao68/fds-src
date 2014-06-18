@@ -57,7 +57,8 @@ StatModule::StatModule(char const *const name)
 int
 StatModule::mod_init(SysParams const *const param)
 {
-    return fds::util::getCpuSpeedHz();
+    stat_cpu_mhz = fds::util::getCpuSpeedHz()/1000000;
+    return 0;
 }
 
 // mod_startup
