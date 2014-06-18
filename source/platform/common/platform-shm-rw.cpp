@@ -45,7 +45,7 @@ NodeShmRWCtrl::mod_startup()
 
     shm = shm_ctrl->shm_attach(PROT_READ | PROT_WRITE);
     if (shm == NULL) {
-        shm = shm_ctrl->shm_alloc(shm_total_siz);
+        shm = shm_ctrl->shm_alloc();
         fds_verify(shm != NULL);
 
         shm_node_hdr = static_cast<node_shm_inventory_t *>(shm);
@@ -119,7 +119,7 @@ NodeShmRWCtrl::shm_setup_queue()
     shm_rw = shm_create_mgr(SHM_QUEUE_FMT, shm_rw_name, size);
     area   = shm_rw->shm_attach(PROT_READ | PROT_WRITE);
     if (area == NULL) {
-        area = shm_rw->shm_alloc(size);
+        area = shm_rw->shm_alloc();
         fds_assert(area != NULL);
     }
     shm_queue = static_cast<node_shm_queue_t *>(area);
