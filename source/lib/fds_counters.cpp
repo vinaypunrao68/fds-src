@@ -1,5 +1,6 @@
 /* Copyright 2013 Formation Data Systems, Inc.
  */
+#include <limits>
 #include <string>
 #include <sstream>
 #include <fds_counters.h>
@@ -248,15 +249,19 @@ void NumericCounter::incr(const uint64_t v) {
  * @param export_parent
  */
 LatencyCounter::LatencyCounter(const std::string &id, FdsCounters *export_parent)
-: FdsBaseCounter(id, export_parent)
-{
-    total_latency_ = 0;
-    cnt_ = 0;
-}
+    :   FdsBaseCounter(id, export_parent),
+        total_latency_(0),
+        cnt_(0),
+        min_latency_(std::numeric_limits<uint64_t>::max()),
+        max_latency_(0) {}
 /**
  * Exposed for testing
  */
-LatencyCounter::LatencyCounter() {}
+LatencyCounter::LatencyCounter()
+    :   total_latency_(0),
+        cnt_(0),
+        min_latency_(std::numeric_limits<uint64_t>::max()),
+        max_latency_(0) {}
 
 /**
  *
@@ -264,20 +269,44 @@ LatencyCounter::LatencyCounter() {}
  */
 uint64_t LatencyCounter::value() const
 {
-    uint64_t cnt = cnt_.load();
-    uint64_t lat = total_latency_.load();
+    uint64_t cnt = count();
     if (cnt == 0) {
         return 0;
     }
-    return lat / cnt;
+    return total_latency() / cnt;
 }
 /**
  *
  * @param latency
  */
-inline void LatencyCounter::update(const uint64_t &latency) {
-    total_latency_.fetch_add(latency);
-    cnt_++;
+void LatencyCounter::update(const uint64_t &val, uint64_t cnt /* = 1 */) {
+    total_latency_.fetch_add(val);
+    cnt_.fetch_add(cnt);
+    if (1 == cnt) {
+        if (val < min_latency()) {
+            min_latency_.store(val);
+        }
+        if (val > max_latency()) {
+            max_latency_.store(val);
+        }
+    }
+}
+
+LatencyCounter & LatencyCounter::operator +=(const LatencyCounter & rhs) {
+    if (&rhs != this) {
+        update(rhs.total_latency(), rhs.count());
+
+        uint64_t rhs_min = rhs.min_latency();
+        if (rhs_min < min_latency()) {
+            min_latency_.store(rhs_min);
+        }
+
+        uint64_t rhs_max = rhs.max_latency();
+        if (rhs_max > max_latency()) {
+            max_latency_.store(rhs_max);
+        }
+    }
+    return *this;
 }
 
 }  // namespace fds

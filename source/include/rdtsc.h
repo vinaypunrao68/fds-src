@@ -54,12 +54,14 @@ void GetTimeSpec(struct timespec *ts, uint64_t nsecs)
   ts->tv_nsec = nsecs % NANO_SECONDS_IN_SEC;
 }
  
+uint64_t GetRdtscInNanoSec() {
+    return RDTSC() / g_TicksPerNanoSec;
+}
+
 /* ts will be filled with time converted from TSC reading */
 void GetRdtscTime(struct timespec *ts)
 {
-  GetTimeSpec(ts, RDTSC() / g_TicksPerNanoSec);
+  GetTimeSpec(ts, GetRdtscInNanoSec());
 }
-
-
 
 #endif

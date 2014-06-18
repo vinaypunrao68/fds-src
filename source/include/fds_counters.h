@@ -126,11 +126,39 @@ public:
 
     virtual uint64_t value() const override;
 
-    inline void update(const uint64_t &latency);
+    void update(const uint64_t &val, uint64_t cnt = 1);
+
+    virtual LatencyCounter & operator +=(const LatencyCounter & rhs);
+
+    inline double latency() const {
+        uint64_t cnt = count();
+        if (!cnt) {
+            return 0;
+        }
+        return static_cast<double>(total_latency()) / cnt;
+    }
+
+    inline uint64_t total_latency() const {
+        return total_latency_.load();
+    }
+
+    inline uint64_t count() const {
+        return cnt_.load();
+    }
+
+    inline uint64_t min_latency() const {
+        return min_latency_.load();
+    }
+
+    inline uint64_t max_latency() const {
+        return max_latency_.load();
+    }
 
 private:
     std::atomic<uint64_t> total_latency_;
     std::atomic<uint64_t> cnt_;
+    std::atomic<uint64_t> min_latency_;
+    std::atomic<uint64_t> max_latency_;
 };
 
 }  // namespace fds
