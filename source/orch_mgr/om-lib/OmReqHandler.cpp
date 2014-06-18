@@ -796,17 +796,12 @@ void OrchMgr::FDSP_OMControlPathReqHandler::RegisterNode(
     OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
     NodeUuid new_node_uuid;
 
-    if (reg_node_req->node_type == FDSP_PLATFORM) {
-        new_node_uuid = NodeUuid(reg_node_req->node_uuid.uuid);
-    } else {
-        new_node_uuid = NodeUuid(reg_node_req->service_uuid.uuid);
-    }
-    if (new_node_uuid.uuid_get_val() == 0) {
+    if (reg_node_req->node_uuid.uuid == 0) {
         LOGERROR << "Refuse to register a node without valid uuid: node_type "
             << reg_node_req->node_type << ", name " << reg_node_req->node_name;
         return;
     }
-
+    new_node_uuid.uuid_set_type(reg_node_req->node_uuid.uuid, reg_node_req->node_type);
     Error err = domain->om_reg_node_info(new_node_uuid, reg_node_req);
     if (!err.ok()) {
         LOGERROR << "Node Registration failed for "
@@ -818,6 +813,7 @@ void OrchMgr::FDSP_OMControlPathReqHandler::RegisterNode(
     }
     LOGNORMAL << "Done Registered new node " << reg_node_req->node_name << std::hex
               << ", node uuid " << reg_node_req->node_uuid.uuid
+              << ", svc uuid " << new_node_uuid.uuid_get_val()
               << ", node type " << reg_node_req->node_type << std::dec;
 }
 

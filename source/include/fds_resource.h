@@ -51,9 +51,8 @@ class ResourceUUID
     ResourceUUID() : rs_uuid(0) {}
     ResourceUUID(fds_uint64_t uuid);  // NOLINT
     explicit ResourceUUID(const fds_uint8_t *raw);
-    explicit ResourceUUID(const fpi::SvcUuid &uuid) {
-        uuid_set_val(uuid.svc_uuid);
-    }
+    explicit ResourceUUID(const fpi::SvcUuid &uuid);
+
     inline fpi::FDSP_MgrIdType uuid_get_type() {
         return static_cast<fpi::FDSP_MgrIdType>(rs_uuid & UUID_MASK);
     }
@@ -64,7 +63,7 @@ class ResourceUUID
         return rs_uuid;
     }
     inline void uuid_set_val(fds_uint64_t val) {
-        rs_uuid = val & ~UUID_MASK;
+        rs_uuid = val;
     }
     inline void uuid_set_from_raw(const fds_uint8_t *raw, bool clr_type = true)
     {

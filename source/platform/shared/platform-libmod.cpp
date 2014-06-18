@@ -181,9 +181,9 @@ Platform::plf_change_info(const plat_node_data_t *ndata)
         // uuid or can it generate only the fly during its bootstrap process.
         // When we're here and we don't have uuid, this must be AM or running
         // in a test mode where there's no OM/platform.
-        plf_my_uuid = NodeUuid(fds_get_uuid64(get_uuid()));
+        plf_my_uuid.uuid_set_type(fds_get_uuid64(get_uuid()), fpi::FDSP_PLATFORM);
     } else {
-        plf_my_uuid = uuid;
+        plf_my_uuid.uuid_set_type(uuid.uuid_get_val(), fpi::FDSP_PLATFORM);
     }
     Platform::plf_svc_uuid_from_node(plf_my_uuid, &plf_my_svc_uuid, plf_node_type);
 
