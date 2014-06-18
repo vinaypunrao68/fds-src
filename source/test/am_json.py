@@ -39,10 +39,26 @@ def printUpdateBody(numOps):
             body += "                },\n"
     print body
 
+def printGetBody(numOps):
+    body = ""
+    for i in range(0, numOps):
+        body += "                {\n"
+        body +=  "                    \"blob-op\": \"getBlob\",\n" +\
+                "                    \"volume-name\": \"testVol\",\n" +\
+                "                    \"blob-name\": \"blob-" + str(i) + "\",\n" +\
+                "                    \"blob-offset\": 0,\n" +\
+                "                    \"data-length\": 4096\n"
+        if i == (numOps - 1):
+            body += "                }"
+        else:
+            body += "                },\n"
+    print body
+
 def printJson():
     printHeader()
     #printStartBody(1)
-    printUpdateBody(8000)
+    #printUpdateBody(5000)
+    printGetBody(5000)
     printFooter()
 
 if __name__ == '__main__':

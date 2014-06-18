@@ -175,6 +175,19 @@ struct ProbeUpdateBlobResponseHandler : public PutObjectResponseHandler {
     }
 };
 
+struct ProbeGetBlobResponseHandler : public GetObjectResponseHandler {
+    explicit ProbeGetBlobResponseHandler() {
+        type = HandlerType::IMMEDIATE;
+    }
+    virtual ~ProbeGetBlobResponseHandler() {
+    }
+    typedef boost::shared_ptr<ProbeGetBlobResponseHandler> ptr;
+
+    virtual void process() {
+        gl_AmProbe.incResp();
+    }
+};
+
 int
 probeUpdateBlobHandler(void *reqContext,
                        fds_uint64_t bufferSize,
@@ -192,6 +205,33 @@ probeUpdateBlobHandler(void *reqContext,
 
     delete handler;
     return 0;
+}
+
+FDSN_Status
+probeGetBlobHandler(BucketContextPtr bucket_ctx,
+                    void *reqContext,
+                    fds_uint64_t bufferSize,
+                    fds_off_t offset,
+                    const char *buffer,
+                    void *callbackData,
+                    FDSN_Status status,
+                    ErrorDetails *errorDetails) {
+    ProbeGetBlobResponseHandler* handler =
+            reinterpret_cast<ProbeGetBlobResponseHandler*>(callbackData); //NOLINT
+    handler->status = status;
+    handler->errorDetails = errorDetails;
+
+    handler->bucket_ctx = bucket_ctx;
+    handler->reqContext = reqContext;
+    handler->bufferSize = bufferSize;
+    handler->offset = offset;
+    handler->buffer = buffer;
+
+    handler->call();
+
+    delete handler;
+    delete buffer;
+    return status;
 }
 
 void
@@ -249,6 +289,34 @@ AmProbe::doAsyncUpdateBlob(const std::string &volumeName,
                                static_cast<void *>(handler));
 }
 
+/**
+ * Thread entry point to get blob
+ */
+void
+AmProbe::doAsyncGetBlob(const std::string &volumeName,
+                        const std::string &blobName,
+                        fds_uint64_t blobOffset,
+                        fds_uint32_t dataLength) {
+     BucketContextPtr bucket_ctx(
+            new BucketContext("host", volumeName, "accessid", "secretkey"));
+
+     ProbeGetBlobResponseHandler *handler =
+             new ProbeGetBlobResponseHandler();
+
+     char *buf = new char[dataLength];
+
+     gl_AmProbe.am_api->GetObject(bucket_ctx,
+                                  blobName,
+                                  NULL,  // No get conditions
+                                  blobOffset,
+                                  dataLength,
+                                  buf,
+                                  dataLength,
+                                  NULL,  // Not passing a context right now
+                                  probeGetBlobHandler,
+                                  static_cast<void *>(handler));
+}
+
 JsObject *
 AmProbe::AmProbeOp::js_exec_obj(JsObject *parent,
                                 JsObjTemplate *templ,
@@ -276,8 +344,12 @@ AmProbe::AmProbeOp::js_exec_obj(JsObject *parent,
                                             info->blobOffset,
                                             info->dataLength,
                                             info->data);
-        } else if (info->op == "query") {
-            // gl_Dm_ProbeMod.sendQuery(*info);
+        } else if (info->op == "getBlob") {
+            gl_AmProbe.threadPool->schedule(AmProbe::doAsyncGetBlob,
+                                            info->volumeName,
+                                            info->blobName,
+                                            info->blobOffset,
+                                            info->dataLength);
         }
     }
 

@@ -145,6 +145,10 @@ class AmProbe : public ProbeMod {
                                   fds_uint64_t blobOffset,
                                   fds_uint32_t dataLength,
                                   const char *data);
+    static void doAsyncGetBlob(const std::string &volumeName,
+                               const std::string &blobName,
+                               fds_uint64_t blobOffset,
+                               fds_uint32_t dataLength);
 };
 
 extern AmProbe gl_AmProbe;
