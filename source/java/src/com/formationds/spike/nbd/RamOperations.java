@@ -4,6 +4,8 @@ package com.formationds.spike.nbd;/*
 
 import io.netty.buffer.ByteBuf;
 
+import java.util.concurrent.CompletableFuture;
+
 public class RamOperations implements NbdServerOperations {
     private String name;
     private byte[] bytes;
@@ -25,13 +27,14 @@ public class RamOperations implements NbdServerOperations {
     }
 
     @Override
-    public void read(String exportName, ByteBuf target, long offset, int len) {
+    public CompletableFuture<Void> read(String exportName, ByteBuf target, long offset, int len) {
         target.writeBytes(bytes, (int)offset, len);
+        return CompletableFuture.completedFuture(null);
     }
 
     @Override
-    public void write(String exportName, ByteBuf source, long offset, int len) {
+    public CompletableFuture<Void> write(String exportName, ByteBuf source, long offset, int len) {
         source.readBytes(bytes, (int)offset, len);
-
+        return CompletableFuture.completedFuture(null);
     }
 }
