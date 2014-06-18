@@ -207,32 +207,35 @@ class VolumeInfo : public Resource
 
     /**
      * Iter plugin to apply the function through each NodeAgent in the vol.
+     * @param returns number of volumes for which we function returned successfully
      */
     template <typename T>
     fds_uint32_t vol_foreach_am(T a,
-                                void (*fn)(T, VolumeInfo::pointer, NodeAgent::pointer)) {
+                                Error (*fn)(T, VolumeInfo::pointer, NodeAgent::pointer)) {
         // TODO(Vy): not thread safe for now...
         fds_uint32_t count = 0;
         for (uint32_t i = 0; i < vol_am_nodes.size(); i++) {
+            Error err(ERR_OK);
             NodeAgent::pointer am = vol_am_agent(vol_am_nodes[i]);
             if (am != NULL) {
-                (*fn)(a, this, am);
-                ++count;
+                err = (*fn)(a, this, am);
+                if (err.ok()) ++count;
             }
         }
         return count;
     }
     template <typename T1, typename T2>
     fds_uint32_t vol_foreach_am(T1 a1, T2 a2,
-                                void (*fn)(T1, T2,
+                                Error (*fn)(T1, T2,
                                            VolumeInfo::pointer, NodeAgent::pointer)) {
         // TODO(Vy): not thread safe for now...
         fds_uint32_t count = 0;
         for (uint32_t i = 0; i < vol_am_nodes.size(); i++) {
+            Error err(ERR_OK);
             NodeAgent::pointer am = vol_am_agent(vol_am_nodes[i]);
             if (am != NULL) {
-                (*fn)(a1, a2, this, am);
-                ++count;
+                err = (*fn)(a1, a2, this, am);
+                if (err.ok()) ++count;
             }
         }
         return count;

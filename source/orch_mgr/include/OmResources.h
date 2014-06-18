@@ -93,13 +93,13 @@ class OM_NodeAgent : public NodeAgent
     virtual void om_send_node_cmd(const om_node_msg_t &msg);
 
     virtual void om_send_reg_resp(const Error &err);
-    virtual void om_send_vol_cmd(VolumeInfo::pointer vol,
-                                 fpi::FDSP_MsgCodeType cmd,
-                                 fpi::FDSP_NotifyVolFlag = fpi::FDSP_NOTIFY_VOL_NO_FLAG);
-    virtual void om_send_vol_cmd(VolumeInfo::pointer    vol,
-                                 std::string           *vname,
-                                 fpi::FDSP_MsgCodeType  cmd,
-                                 fpi::FDSP_NotifyVolFlag = fpi::FDSP_NOTIFY_VOL_NO_FLAG);
+    virtual Error om_send_vol_cmd(VolumeInfo::pointer vol,
+                                  fpi::FDSP_MsgCodeType cmd,
+                                  fpi::FDSP_NotifyVolFlag = fpi::FDSP_NOTIFY_VOL_NO_FLAG);
+    virtual Error om_send_vol_cmd(VolumeInfo::pointer    vol,
+                                  std::string           *vname,
+                                  fpi::FDSP_MsgCodeType  cmd,
+                                  fpi::FDSP_NotifyVolFlag = fpi::FDSP_NOTIFY_VOL_NO_FLAG);
 
     virtual Error om_send_dlt(const DLT *curDlt);
     virtual Error om_send_dlt_close(fds_uint64_t cur_dlt_version);
