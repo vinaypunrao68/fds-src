@@ -262,6 +262,7 @@ Error CatalogSync::forwardCatalogUpdate(dmCatReq  *updCatReq) {
     msg_hdr->glob_volume_id = updCatReq->volId;
     msg_hdr->session_uuid = meta_client->getSessionId();
     msg_hdr->session_cache = updCatReq->session_uuid;
+    msg_hdr->req_cookie = updCatReq->reqCookie; 
        
     /*
      * init the update  catalog  structu
@@ -304,7 +305,7 @@ Error CatalogSync::sendMetaSyncDone(fds_volid_t volid,
 
     try {
         meta_client->getClient()->MetaSyncDone(msg_hdr, vol_meta);
-        LOGNORMAL << "Senr MetaSyncDone Rpc message : " << meta_client;
+        LOGNORMAL << "Send MetaSyncDone Rpc message : " << meta_client;
     } catch (...) {
         LOGERROR << "Unable to send MetaSyncDone to DM";
         err = ERR_NETWORK_TRANSPORT;
@@ -527,12 +528,15 @@ void CatalogSyncMgr::finishedForwardVolmeta(fds_volid_t volid) {
                 LOGDEBUG << "DEL-VOL: Map Clean up "
                          << std::hex << volid << std::dec;
                 err = (cit->second)->handleVolumeDone(volid);
-                if (((cit->second)->emptyVolume())) 
+                if (((cit->second)->emptyVolume())) { 
                     cat_sync_map.erase(cit);
+                    LOGDEBUG << "cat sync map erase:";
+                }
                 break; 
             }
         }
         send_dmt_close_ack = cat_sync_map.empty();
+         LOGDEBUG << "send_dmt_close_ack :  " << send_dmt_close_ack;
         sync_in_progress = !send_dmt_close_ack;
     }  // end of scoped lock
 
@@ -545,7 +549,7 @@ void CatalogSyncMgr::finishedForwardVolmeta(fds_volid_t volid) {
         fpi::FDSP_DmtCloseTypePtr dmtCloseAck(new FDSP_DmtCloseType);
         // walk through the volume meta and. find out the Volume belongs to me based on the DMT
         // remove the Volume not belongs to  the node
-        dataMgr->deleteVolumeDb();
+        // dataMgr->deleteVolumeDb();
         dataMgr->omClient->sendDMTCloseAckToOM(dmtCloseAck, cat_sync_context);
     }
 }
@@ -608,8 +612,9 @@ FDSP_MetaSyncRpc::PushMetaSyncReq(fpi::FDSP_MsgHdrTypePtr& fdsp_msg,
                                                       fdsp_msg->src_ip_lo_addr,
                                                       fdsp_msg->dst_ip_lo_addr,
                                                       fdsp_msg->src_port, fdsp_msg->dst_port,
-                                                      fdsp_msg->session_uuid, 0,
+                                                      fdsp_msg->session_uuid, fdsp_msg->req_cookie,
                                                       FDS_DM_FWD_CAT_UPD, meta_req);
+    metaUpdReq->session_cache = fdsp_msg->session_cache;
     if (metaUpdReq) {
         err = dataMgr->catSyncRecv->enqueueFwdUpdate(metaUpdReq);
     } else {
@@ -633,8 +638,9 @@ FDSP_MetaSyncRpc::PushMetaSyncResp(fpi::FDSP_MsgHdrTypePtr& fdsp_msg,
                                                       fdsp_msg->src_ip_lo_addr,
                                                       fdsp_msg->dst_ip_lo_addr,
                                                       fdsp_msg->src_port, fdsp_msg->dst_port,
-                                                      fdsp_msg->session_uuid, 0,
+                                                      fdsp_msg->session_uuid, fdsp_msg->req_cookie,
                                                       FDS_DM_FWD_CAT_UPD, meta_resp);
+    metaUpdResp->session_uuid = fdsp_msg->session_cache;
     if (metaUpdResp) {
         dataMgr->sendUpdateCatalogResp(metaUpdResp);
     } else {

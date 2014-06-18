@@ -121,6 +121,7 @@ void DataMgr::deleteVolumeDb() {
         DmtColumnPtr dmt_col = omClient->getDMTNodesForVolume(vol_it->first);
         LOGNORMAL << " Volume ID:" << std::hex << vol_it->first << std::dec;
         NodeUuid uuid =  plf_mgr->plf_get_my_uuid()->uuid_get_val();
+/*
         LOGNORMAL << " Node UUID :" << uuid;
         if (dmt_col->find(uuid) < 0) {
            // delete the vvc and tvc db;
@@ -128,6 +129,7 @@ void DataMgr::deleteVolumeDb() {
            vm->vcat->DbDelete();
            vm->tcat->DbDelete();
         }  
+*/
      }
     vol_map_mtx->unlock();
 
