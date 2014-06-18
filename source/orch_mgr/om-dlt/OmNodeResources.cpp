@@ -225,7 +225,9 @@ OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer    vol,
 
     if (desc != NULL) {
         LOGNORMAL << log << desc->volUUID << " " << desc->name
-                  << " to node " << get_node_name();
+                  << " to node " << get_node_name() << std::hex
+                  << ", uuid " << get_uuid().uuid_get_val() << std::dec
+                  << ", port " << get_ctrl_port();
     } else {
         LOGNORMAL << log << ", no vol to node " << get_node_name();
     }
@@ -716,6 +718,10 @@ OM_AgentContainer::agent_register(const NodeUuid       &uuid,
         fds_verify(agent != NULL);
         fds_verify(session != NULL);
         agent->setCpSession(session, fpi::FDSP_DATA_MGR);
+
+        LOGNOTIFY << "Agent uuid " << std::hex << agent->get_uuid().uuid_get_val()
+            << std::dec << " connects ip " << agent->get_ip_str()
+            << ", port " << agent->get_ctrl_port();
     } catch(const att::TTransportException& e) {
         rs_free_resource(agent);
         LOGERROR << "error during network call : " << e.what();
