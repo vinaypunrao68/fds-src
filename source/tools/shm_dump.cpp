@@ -167,7 +167,9 @@ int main(int argc, char *argv[]) {
     desc.add_options()
             ("help,h", "Print this help message")
             ("file,f", po::value<std::string>(),
-             "Filename of the shared memory file to dump (/dev/shm/\?\?\?)");
+             "Name of the shared memory file to dump (/dev/shm/\?\?\?) "
+             "Note: Do not include the full path (no /dev/shm/); ONLY "
+             "include the filename itself.");
 
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);
