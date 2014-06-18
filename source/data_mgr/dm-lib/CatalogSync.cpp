@@ -216,9 +216,13 @@ fds_uint32_t CatalogSync::recordVolSyncDone(csStateType expected_state) {
 Error CatalogSync::handleVolumeDone(fds_volid_t volid) {
     fds_verify(sync_volumes.count(volid) > 0);
     Error err = sendMetaSyncDone(volid, true);
-    if (err.ok()) {
-        sync_volumes.erase(volid);
+    // TODO(xxx) we should properly handle this error, how?
+    // probably reply to DMT close with error?
+    // in any case, finishing syncing for this volume in any case
+    if (!err.ok()) {
+        LOGERROR << "Error while sending Meta Sync Done";
     }
+    sync_volumes.erase(volid);
     return err;
 }
 
@@ -513,8 +517,11 @@ Error CatalogSyncMgr::forwardCatalogUpdate(dmCatReq  *updCatReq) {
     return err;
 }
 
-
-void CatalogSyncMgr::finishedForwardVolmeta(fds_volid_t volid) {
+//
+// returns true if CatalogSync finished forwarding meta for all volumes
+// and sent DMT close ack
+//
+fds_bool_t CatalogSyncMgr::finishedForwardVolmeta(fds_volid_t volid) {
     Error err(ERR_OK);
     fds_bool_t send_dmt_close_ack = false;
 
@@ -528,9 +535,14 @@ void CatalogSyncMgr::finishedForwardVolmeta(fds_volid_t volid) {
                 LOGDEBUG << "DEL-VOL: Map Clean up "
                          << std::hex << volid << std::dec;
                 err = (cit->second)->handleVolumeDone(volid);
+<<<<<<< HEAD
                 if (((cit->second)->emptyVolume())) { 
                     cat_sync_map.erase(cit);
                     LOGDEBUG << "cat sync map erase:";
+=======
+                if (((cit->second)->emptyVolume())) {
+                    cat_sync_map.erase(cit);
+>>>>>>> 508ac90746c39c01e9d8ce117d0cce043ed472a1
                 }
                 break; 
             }
@@ -547,11 +559,16 @@ void CatalogSyncMgr::finishedForwardVolmeta(fds_volid_t volid) {
 
     if (send_dmt_close_ack) {
         fpi::FDSP_DmtCloseTypePtr dmtCloseAck(new FDSP_DmtCloseType);
+<<<<<<< HEAD
         // walk through the volume meta and. find out the Volume belongs to me based on the DMT
         // remove the Volume not belongs to  the node
         // dataMgr->deleteVolumeDb();
+=======
+>>>>>>> 508ac90746c39c01e9d8ce117d0cce043ed472a1
         dataMgr->omClient->sendDMTCloseAckToOM(dmtCloseAck, cat_sync_context);
     }
+
+    return send_dmt_close_ack;
 }
 
 /**
