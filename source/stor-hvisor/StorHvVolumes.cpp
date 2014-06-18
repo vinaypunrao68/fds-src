@@ -549,7 +549,8 @@ Error StorHvVolumeTable::volumeEventHandler(fds_volid_t vol_uuid,
             break;
         default:
             GLOGWARN << "StorHvVolumeTable - Received unexpected volume event from OM"
-                     << " for volume " << std::hex << vol_uuid << std::dec;
+                     << " for volume " << std::hex << vol_uuid
+                     << ", action " << vol_action << std::dec;
     }
     return err;
 }

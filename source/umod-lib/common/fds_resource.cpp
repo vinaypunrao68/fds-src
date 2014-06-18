@@ -25,15 +25,12 @@ const fds_uint32_t RsType::rs_func_mask[UUID_TYPE_MAX] =
 // ------------------------------------------------------------------------------------
 const fds_uint32_t INVALID_INDEX = 0xffffffff;
 
-ResourceUUID::ResourceUUID(fds_uint64_t val)
-{
-    uuid_set_val(val);
-}
-
+ResourceUUID::ResourceUUID(fds_uint64_t val) : rs_uuid(val) {}
+ResourceUUID::ResourceUUID(const fpi::SvcUuid &uuid) : rs_uuid(uuid.svc_uuid) {}
 ResourceUUID::ResourceUUID(const fds_uint8_t *raw)
 {
     const fds_uint64_t *ptr = reinterpret_cast<const fds_uint64_t *>(raw);
-    uuid_set_val(*ptr);
+    rs_uuid = *ptr;
 }
 
 fpi::SvcUuid ResourceUUID::toSvcUuid() const {
