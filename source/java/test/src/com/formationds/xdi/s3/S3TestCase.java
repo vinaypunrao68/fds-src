@@ -28,7 +28,7 @@ import java.io.FileInputStream;
 import java.util.Arrays;
 
 public class S3TestCase {
-    //@Test
+    @Test
     public void cleanupAwsVolumes() throws Exception {
         new Configuration("foo", new String[] {"--console"});
         AmazonS3Client client = new AmazonS3Client(new BasicAWSCredentials("AKIAINOGA4D75YX26VXQ", "/ZE1BUJ/vJ8BDESUvf5F3pib7lJW+pBa5FTakmjf"));

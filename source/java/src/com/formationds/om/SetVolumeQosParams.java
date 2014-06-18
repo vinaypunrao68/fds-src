@@ -48,7 +48,7 @@ public class SetVolumeQosParams implements RequestHandler {
         return new JsonResource(o);
     }
 
-    public static  FDSP_VolumeDescType setVolumeQos(FDSP_ConfigPathReq.Iface client, String volumeName, int minIops, int priority, int maxIops) throws org.apache.thrift.TException {
+    public static FDSP_VolumeDescType setVolumeQos(FDSP_ConfigPathReq.Iface client, String volumeName, int minIops, int priority, int maxIops) throws org.apache.thrift.TException {
         FDSP_VolumeDescType volInfo = client.GetVolInfo(new FDSP_MsgHdrType(), new FDSP_GetVolInfoReqType(volumeName, 0));
         volInfo.setIops_min(minIops);
         volInfo.setRel_prio(priority);

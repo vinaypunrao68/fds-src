@@ -10,19 +10,19 @@ import java.util.List;
 
 abstract class ImageWriter {
     private String[] volumeNames;
-    private Counts counts;
+    private BucketStats bucketStats;
 
-    public ImageWriter(String[] volumeNames) {
-        counts = new Counts();
+    public ImageWriter(String[] volumeNames, BucketStats bucketStats) {
+        this.bucketStats = bucketStats;
         this.volumeNames = volumeNames;
     }
 
-    public final Counts consumeCounts() {
-        return counts.consume();
+    public final BucketStats consumeCounts() {
+        return bucketStats;
     }
 
     protected final void increment(String s) {
-        counts.increment(s);
+        bucketStats.increment(s);
     }
 
     public abstract StoredImage write(ImageResource resource);

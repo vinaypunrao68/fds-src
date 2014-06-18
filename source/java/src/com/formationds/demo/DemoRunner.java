@@ -75,11 +75,11 @@ public class DemoRunner {
         return peekWriteQueue();
     }
 
-    public Counts consumeReadCounts() {
-        return objectStore.getImageReader().consumeCounts();
+    public BucketStats readCounts() {
+        return objectStore.getImageReader().counts();
     }
 
-    public Counts consumeWriteCounts() {
+    public BucketStats writeCounts() {
         return objectStore.getImageWriter().consumeCounts();
     }
 

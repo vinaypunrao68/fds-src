@@ -6,6 +6,8 @@ package com.formationds.demo;
 public interface ImageResource {
     String getId();
 
+    String getName();
+
     String getUrl();
 
     String getThumbnailUrl();
