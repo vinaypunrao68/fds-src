@@ -102,12 +102,6 @@ void BaseAsyncSvcHandler::asyncRespHandler(
         GLOGWARN << "Request " << header->msg_src_id << " doesn't exist";
         return;
     }
-
-    SynchronizedTaskExecutor<uint64_t> taskExecutor(*NetMgr::ep_mgr_thrpool());
-    taskExecutor.schedule(1,
-                          std::bind(&AsyncRpcRequestIf::handleResponse,
-                                    asyncReq.get(), header, payload));
-
     asyncReq->handleResponse(header, payload);
 }
 
