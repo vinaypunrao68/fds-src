@@ -40,37 +40,72 @@ struct RespHdr {
  * Application code treats it as opaque type.
  */
 struct AsyncHdr {
-    1: required i32           msg_chksum,
-    2: required i32           msg_src_id,
-    3: required SvcUuid       msg_src_uuid,
-    4: required SvcUuid       msg_dst_uuid,
-    5: required i32           msg_code,
+    1: required i32           	msg_chksum,
+    2: required i32           	msg_src_id,
+    3: required SvcUuid       	msg_src_uuid,
+    4: required SvcUuid       	msg_dst_uuid,
+    5: required i32           	msg_code,
 }
 
 struct GetObjectMsg {
-   1: required AsyncHdr        hdr;
-   2: FDSP.FDS_ObjectIdType data_obj_id,
+   1: required AsyncHdr        	hdr;
+   2: FDSP.FDS_ObjectIdType 	data_obj_id,
 }
 
 struct GetObjectResp {
-   1: required AsyncHdr        hdr;
-   2: i32              data_obj_len,
-   3: binary           data_obj,
+   1: required AsyncHdr        	hdr;
+   2: i32              		data_obj_len,
+   3: binary           		data_obj,
 }
 
 struct QueryCatalogMsg {
-   1: required AsyncHdr        hdr;
-   2: i64    volume_id,
-   3: string   blob_name,           /* User visible name of the blob*/
-   4: i64 blob_version,             /* Version of the blob to query */
-   5: i64 blob_size,
-   6: i32 blob_mime_type,
-   7: FDSP.FDSP_BlobDigestType digest,
-   8: FDSP.FDSP_BlobObjectList obj_list, /* List of object ids of the objects that this blob is being mapped to */
-   9: FDSP.FDSP_MetaDataList meta_list,  /* sequence of arbitrary key/value pairs */
+   1: required AsyncHdr        	hdr;
+   2: i64    			volume_id,
+   3: string   			blob_name,           /* User visible name of the blob*/
+   4: i64 			blob_version,             /* Version of the blob to query */
+   5: i64 			blob_size,
+   6: i32 			blob_mime_type,
+   7: FDSP.FDSP_BlobDigestType 	digest,
+   8: FDSP.FDSP_BlobObjectList 	obj_list, /* List of object ids of the objects that this blob is being mapped to */
+   9: FDSP.FDSP_MetaDataList 	meta_list,  /* sequence of arbitrary key/value pairs */
 
-   10: i32      dm_transaction_id,   /* Transaction id */
-   11: i32      dm_operation,        /* Transaction type = OPEN, COMMIT, CANCEL */
+   10: i32      		dm_transaction_id,   /* Transaction id */
+   11: i32      		dm_operation,        /* Transaction type = OPEN, COMMIT, CANCEL */
+}
+
+struct PutObjectMsg {
+   1: required AsyncHdr        	hdr;
+   2: i64                      	origin_timestamp;
+   3: FDS_ObjectIdType 	       	data_obj_id;
+   4: i32                      	data_obj_len;
+   5: binary                   	data_obj,
+}
+
+struct PutObjectRspMsg {
+   1: required AsyncHdr        	hdr;
+}
+
+struct UpdateCatalogMsg {
+   1: required AsyncHdr        	hdr;
+   2: string 			blob_name; /* User visible name of the blob */
+   3: TxDescriptor 		txDlsc; /* Transaction ID...can supersede other tx fields */
+   4: FDSP_BlobObjectList 	obj_list; /* List of object ids of the objects that this blob is being mapped to */
+}
+
+struct UpdateCatalogRspMsg {
+   1: required AsyncHdr       	hdr;
+   2: i64 			blob_version; /* Version of the blob. Only used in response! */
+}
+
+struct SetBlobMetaDataMsg {
+   1: required AsyncHdr        	hdr;
+   2:string 			volumeName;
+   3:string 			blobName;
+   4:FDSP_MetaDataList 		metaDataList;
+}
+
+struct SetBlobMetaDataRspMsg {
+   1: required AsyncHdr        	hdr;
 }
 
 /*
