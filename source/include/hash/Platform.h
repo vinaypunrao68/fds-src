@@ -17,7 +17,7 @@ void SetAffinity ( int cpu );
 #include <math.h>   // Has to be included before intrin.h or VC complains about 'ceil'
 #include <intrin.h> // for __rdtsc
 #include "pstdint.h"
-
+#include <util/timeutils.h>
 #define ROTL32(x,y)	_rotl(x,y)
 #define ROTL64(x,y)	_rotl64(x,y)
 #define ROTR32(x,y)	_rotr(x,y)
@@ -29,9 +29,6 @@ void SetAffinity ( int cpu );
 
 #define BIG_CONSTANT(x) (x)
 
-// RDTSC == Read Time Stamp Counter
-
-#define rdtsc() __rdtsc()
 
 //-----------------------------------------------------------------------------
 // Other compilers
@@ -69,22 +66,6 @@ inline uint64_t rotr64 ( uint64_t x, int8_t r )
 #define ROTR64(x,y)	rotr64(x,y)
 
 #define BIG_CONSTANT(x) (x##LLU)
-
-__inline__ unsigned long long int rdtsc()
-{
-#ifdef __x86_64__
-    unsigned int a, d;
-    __asm__ volatile ("rdtsc" : "=a" (a), "=d" (d));
-    return (unsigned long)a | ((unsigned long)d << 32);
-#elif defined(__i386__)
-    unsigned long long int x;
-    __asm__ volatile ("rdtsc" : "=A" (x));
-    return x;
-#else
-#define NO_CYCLE_COUNTER
-    return 0;
-#endif
-}
 
 #include <strings.h>
 #define _stricmp strcasecmp

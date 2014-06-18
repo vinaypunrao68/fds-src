@@ -8,6 +8,7 @@
 #include <fcntl.h>
 #include <fds_assert.h>
 #include <util/fds_stat.h>
+#include <util/timeutils.h>
 #include <shared/bitutil.h>
 
 namespace fds {
@@ -22,7 +23,7 @@ StatRec::StatRec()
     stat_req_hist    = NULL;
     stat_prev_period = 0;
     stat_cpu_switch  = 0;
-    memset(stat_histgram, 0, sizeof(int) * STAT_HISTGRAM);
+    memset(stat_histgram , 0, sizeof(int) * STAT_HISTGRAM);
 }
 
 StatRec::~StatRec()
@@ -56,39 +57,7 @@ StatModule::StatModule(char const *const name)
 int
 StatModule::mod_init(SysParams const *const param)
 {
-    const int buf_len = 2096;
-    double mhz;
-    int    len, fd;
-    char   buf[buf_len], *p;
-
-    fd = open("/proc/cpuinfo", O_RDONLY);
-    if (fd < 0) {
-        goto def;
-    }
-    len = read(fd, buf, buf_len);
-    close(fd);
-    if (len <= 0) {
-        goto def;
-    }
-    for (p = buf; *p != '\0'; p++) {
-        if (p[0] == 'c' && p[1] == 'p' && p[2] == 'u' && p[3] == ' ' &&
-            p[4] == 'M' && p[5] == 'H' && p[6] == 'z') {
-            for (p += 6; *p != '\0' && *p != ':'; p++);
-            if (*p != ':') {
-                goto def;
-            }
-            mhz = atof(p + 1);
-            if (mhz < 1) {
-                goto def;
-            }
-            stat_cpu_mhz = (int)(mhz * 2);
-            break;
-        }
-    }
-    return 0;
-
-def:
-    stat_cpu_mhz = CLOCKS_PER_SEC;
+    stat_cpu_mhz = fds::util::getCpuSpeedHz()/1000000;
     return 0;
 }
 

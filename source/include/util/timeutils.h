@@ -47,7 +47,7 @@ struct StopWatch {
 
 /**
  * To track time intervals in multiple stages..
- * Maintians a named vector to stored 
+ * Maintains a named vector to store
  * different points in time..
  * print the tracker to get the individual times.
  */

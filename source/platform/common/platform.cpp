@@ -4,7 +4,7 @@
 #include <string>
 #include <platform.h>
 #include <fds_process.h>
-
+#include <util/timeutils.h>
 namespace fds {
 
 NodePlatform gl_NodePlatform;
