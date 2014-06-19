@@ -139,6 +139,7 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) {
         fds::FdsBlobReq *blobReq = qosReq->getBlobReqPtr();
         fds_verify(blobReq != NULL);
         upd_obj_req->blob_name = blobReq->getBlobName();
+        upd_obj_req->dmt_version = om_client->getDMTVersion();
 
 	// We are making sure we send the same UpdateCatalog message
 	// as UpdateCatalog we sent with STATUS_OPEN, for forwarding
