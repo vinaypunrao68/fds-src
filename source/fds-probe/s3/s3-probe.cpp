@@ -5,6 +5,7 @@
 #include <string>
 #include <fds-probe/s3-probe.h>
 #include <util/fds_stat.h>
+#include <util/timeutils.h>
 #include <am-plugin.h>
 #include <fds_assert.h>
 #include <utest-types.h>
@@ -72,7 +73,7 @@ probe_obj_read(ProbeMod        *probe,
                Probe_GetObject *obj,
                ProbeS3Eng      *s3eng)
 {
-    obj->ame_clk_fdsn_cb = fds_rdtsc();
+    obj->ame_clk_fdsn_cb = fds::util::getClockTicks();
     fds_stat_record(STAT_NGX, STAT_NGX_GET_FDSN_CB,
                     obj->ame_clk_fdsn, obj->ame_clk_fdsn_cb);
 
@@ -97,7 +98,7 @@ Probe_GetObject::ame_request_resume()
     ame_buf_t *buf;
 
     fds_stat_record(STAT_NGX,
-                    STAT_NGX_GET_RESUME, ame_clk_fdsn_cb, fds_rdtsc());
+                    STAT_NGX_GET_RESUME, ame_clk_fdsn_cb, fds::util::getClockTicks());
 
     fds_assert(ame_ctx != NULL);
     len = this->preq->pr_wr_size;
@@ -138,7 +139,7 @@ Probe_GetObject::ame_request_handler()
     } else {
         cookie = ame_ctx->ame_alloc_buf(len, &buf, &len);
     }
-    ame_clk_fdsn = fds_rdtsc();
+    ame_clk_fdsn = fds::util::getClockTicks();
     fds_stat_record(STAT_NGX, STAT_NGX_GET_FDSN, ame_clk_all, ame_clk_fdsn);
     ame_ctx->ame_push_output_buf(cookie);
 

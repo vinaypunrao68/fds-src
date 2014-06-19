@@ -14,14 +14,15 @@ public class SwiftImageReader extends ImageReader {
     private String host;
     private int port;
 
-    public SwiftImageReader(String host, int port) {
+    public SwiftImageReader(String host, int port, BucketStats bucketStats) {
+        super(bucketStats);
         this.host = host;
         this.port = port;
     }
 
     @Override
     protected StoredImage read(StoredImage storedImage) throws Exception {
-        String url = MessageFormat.format(URL_PATTERN, host, Integer.toString(port), storedImage.getVolumeName(), storedImage.getImageResource().getId());
+        String url = MessageFormat.format(URL_PATTERN, host, Integer.toString(port), storedImage.getVolumeName(), storedImage.getImageResource().getName());
         try (InputStream inputStream = new URL(url).openConnection().getInputStream()) {
             IOUtils.toByteArray(inputStream);
             increment(storedImage.getVolumeName());

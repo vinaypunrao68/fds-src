@@ -7,6 +7,7 @@
 #include <native_api.h>
 #include <StorHvisorNet.h>
 #include <string>
+#include <util/timeutils.h>
 extern StorHvCtrl *storHvisor;
 
 namespace fds {
@@ -291,12 +292,12 @@ FDS_NativeAPI::GetObject(BucketContextPtr bucket_ctxt,
               << startByte;
 
     /* check if bucket is attached to this AM */
-    start = fds_rdtsc();
+    start = fds::util::getClockTicks();
     if (storHvisor->vol_table->volumeExists(bucket_ctxt->bucketName)) {
         volid = storHvisor->vol_table->getVolumeUUID(bucket_ctxt->bucketName);
         fds_verify(volid != invalid_vol_id);
     }
-    end = fds_rdtsc();
+    end = fds::util::getClockTicks();
     fds_stat_record(STAT_FDSN, FDSN_GO_CHK_BKET_EXIST, start, end);
 
     // if bucket is not attached to this AM, before sending attach request to OM
@@ -326,14 +327,14 @@ FDS_NativeAPI::GetObject(BucketContextPtr bucket_ctxt,
                  << " -- failed to allocate GetBlobReq";
         return;
     }
-    end = fds_rdtsc();
+    end = fds::util::getClockTicks();
     fds_stat_record(STAT_FDSN, FDSN_GO_ALLOC_BLOB_REQ, start, end);
 
     if (volid != invalid_vol_id) {
         /* bucket is already attached to this AM, enqueue IO */
         start = end;
         storHvisor->pushBlobReq(blob_req);
-        end = fds_rdtsc();
+        end = fds::util::getClockTicks();
         fds_stat_record(STAT_FDSN, FDSN_GO_ENQUEUE_IO, start, end);
         return;
     } else {

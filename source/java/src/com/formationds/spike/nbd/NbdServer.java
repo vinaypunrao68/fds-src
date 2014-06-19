@@ -10,6 +10,7 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.ByteToMessageDecoder;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 // nbd ref: https://github.com/yoe/nbd/blob/master/doc/proto.txt
 public class NbdServer extends ByteToMessageDecoder {
@@ -88,30 +89,46 @@ public class NbdServer extends ByteToMessageDecoder {
             int errno = 0;
             ByteBuf readBuf = null;
 
+            CompletableFuture<Void> ioTask = null;
             try {
                 switch (cmd) {
                     case NBD_CMD_WRITE:
                         // FIXME: don't copy these bytes
                         ByteBuf writeBuf = Unpooled.buffer(length);
                         in.readBytes(writeBuf, length);
-                        operations.write(exportName, writeBuf, offset, length);
+                        ioTask = operations.write(exportName, writeBuf, offset, length);
                         break;
                     case NBD_CMD_READ:
                         readBuf = Unpooled.buffer(length);
-                        operations.read(exportName, readBuf, offset, length);
+                        ioTask = operations.read(exportName, readBuf, offset, length);
                         break;
+                    default:
+                        throw new Exception("Unknown NBD command");
                 }
             } catch(Exception e) {
-                errno = 5;  // EIO
+                ioTask = new CompletableFuture<>();
+                ioTask.completeExceptionally(e);
             }
 
-            ByteBuf buf = ctx.alloc().buffer();
-            buf.writeInt(RESPONSE_MAGIC_NUMBER);  // 32 bit magic number?
-            buf.writeInt(errno);
-            buf.writeLong(handle);
-            if(readBuf != null && errno == 0)
-                buf.writeBytes(readBuf, 0, length);
-            ctx.writeAndFlush(buf);
+            final ByteBuf readBufFinal = readBuf;
+            ioTask.thenRunAsync(() -> {
+                ByteBuf buf = ctx.alloc().buffer();
+                buf.writeInt(RESPONSE_MAGIC_NUMBER);  // 32 bit magic number?
+                buf.writeInt(0);
+                buf.writeLong(handle);
+                if (readBufFinal != null)
+                    buf.writeBytes(readBufFinal, 0, length);
+                ctx.writeAndFlush(buf);
+            });
+
+            ioTask.exceptionally(ex -> {
+                ByteBuf buf = ctx.alloc().buffer();
+                buf.writeInt(RESPONSE_MAGIC_NUMBER);  // 32 bit magic number?
+                buf.writeInt(5); // EIO
+                buf.writeLong(handle);
+                ctx.writeAndFlush(buf);
+                return null;
+            });
             in.discardReadBytes();
         } else if(protocolState == protocolState.AwaitingOptions && in.readableBytes() >= 16) {
             handleOptionMessage(ctx, in, out);

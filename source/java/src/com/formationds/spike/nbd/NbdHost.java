@@ -16,16 +16,19 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.ThreadPoolExecutor;
+
 public class NbdHost {
     private int port;
     private NbdServerOperations ops;
 
-    private NbdHost(int port, NbdServerOperations ops) {
+    public NbdHost(int port, NbdServerOperations ops) {
         this.port = port;
         this.ops = ops;
     }
 
-    public void run() throws Exception {
+    public void run() {
         EventLoopGroup connectionLoop = new NioEventLoopGroup();
         EventLoopGroup executionLoop = new NioEventLoopGroup();
         try {
@@ -43,6 +46,8 @@ public class NbdHost {
 
             ChannelFuture f = b.bind(port).sync();
             f.channel().closeFuture().sync();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
         finally {
             connectionLoop.shutdownGracefully();
@@ -55,13 +60,18 @@ public class NbdHost {
         AmService.Iface am = clientFactory.remoteAmService("localhost", 9988);
         ConfigurationService.Iface config = clientFactory.remoteOmService("localhost", 9090);
 
-        NbdServerOperations ops = new FdsServerOperations(am, config);
+        //NbdServerOperations ops;
+        ForkJoinPool fjp = new ForkJoinPool(10);
+        NbdServerOperations ops = new FdsServerOperations(am, config, fjp);
         //NbdServerOperations ops = new SparseRamOperations(1024L * 1024L * 1024L * 10);
-        // NbdServerOperations ops = new SparseRamOperations(1024L * 1024L * 1024L * 10);
-        //ops = new WriteVerifyOperationsWrapper(ops);
-        //ops = new OracleVerifyOperationsWrapper(ops, new SparseRamOperations(1024L * 1024L * 1024L * 10));
+        //SparseRamOperations srops = new SparseRamOperations(1024L * 1024L * 1024L * 10);
+        //srops.setReadDelay(10);
+        //srops.setWriteDelay(20);
 
-        new NbdHost(10809, ops).run();
+        //ops = new WriteVerifyOperationsWrapper(ops);
+        // ops = new OracleVerifyOperationsWrapper(srops, new SparseRamOperations(1024L * 1024L * 1024L * 10));////
+
+        new NbdHost(10810, ops).run();
         //config.createVolume("fds", "hello", new VolumeSettings(4 * 1024, VolumeType.BLOCK, 1024 * 1024 * 1024));
         //TxDescriptor desc = am.startBlobTx("fds", "hello", "block_dev_0");
         //am.updateBlob("fds", "hello", "block_dev_0", desc, ByteBuffer.allocate(4096), 4096, new ObjectOffset(0), ByteBuffer.allocate(0), false);

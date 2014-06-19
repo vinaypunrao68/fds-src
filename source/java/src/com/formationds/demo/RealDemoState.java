@@ -13,11 +13,13 @@ import java.util.Arrays;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 public class RealDemoState implements DemoState {
     private static final Logger LOG = Logger.getLogger(RealDemoState.class);
 
     private static final ObjectStoreType DEFAULT_OBJECT_STORE = ObjectStoreType.apiS3;
+    public static final int MAX_AGE_SECONDS = 10;
     private DateTime lastAccessed;
     private DemoRunner demoRunner;
     private DemoConfig demoConfig;
@@ -158,15 +160,15 @@ public class RealDemoState implements DemoState {
     }
 
     @Override
-    public Counts consumeReadCounts() {
+    public BucketStats readCounts() {
         lastAccessed = DateTime.now();
-        return demoRunner == null? new Counts(): demoRunner.consumeReadCounts();
+        return demoRunner == null? new BucketStats(MAX_AGE_SECONDS, TimeUnit.SECONDS): demoRunner.readCounts();
     }
 
     @Override
-    public Counts consumeWriteCounts() {
+    public BucketStats writeCounts() {
         lastAccessed = DateTime.now();
-        return demoRunner == null? new Counts(): demoRunner.consumeWriteCounts();
+        return demoRunner == null? new BucketStats(MAX_AGE_SECONDS, TimeUnit.SECONDS): demoRunner.writeCounts();
 
     }
 }

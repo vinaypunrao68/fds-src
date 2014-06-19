@@ -71,7 +71,7 @@ void stringToEventsFilter(const std::string & str, std::bitset<fds::MAX_EVENT_TY
 namespace fds {
 
 const char * eventTypeToStr[] = {
-        "trace",
+        "trace", //generic event
 
         "qos",
         "murmur3_hash",

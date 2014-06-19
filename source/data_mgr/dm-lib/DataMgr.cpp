@@ -1205,7 +1205,8 @@ void DataMgr::ReqHandler::UpdateCatalogObject(FDS_ProtocolInterface::
                << update_catalog->blob_name
                << ", Trans ID: "
                << update_catalog->dm_transaction_id
-               << ", OP ID " << update_catalog->dm_operation;
+               << ", OP ID " << update_catalog->dm_operation
+               << " request cookie " << msg_hdr->req_cookie;
 
     if ((dataMgr->testUturnAll == true) ||
         (dataMgr->testUturnUpdateCat == true)) {

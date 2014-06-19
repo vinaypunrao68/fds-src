@@ -26,6 +26,11 @@ public class FlickrImageResource implements ImageResource {
     }
 
     @Override
+    public String getName() {
+        return id + ".jpg";
+    }
+
+    @Override
     public String getUrl() {
         return String.format(LARGE_IMAGE_URL, farm, server, id, secret);
     }
