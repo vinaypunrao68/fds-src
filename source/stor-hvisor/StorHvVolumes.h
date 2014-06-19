@@ -455,9 +455,9 @@ class PutBlobReq: public FdsBlobReq {
     }
 
     void checkDoCompletionCb() {
-        if (updCatComplete && pubObjComplete) {
+        if (updCatComplete && putObjComplete) {
             // TODO(Rao): Mark qos io as done
-            cbWithResult(retStatus);
+            cbWithResult(retStatus.GetErrno());
             delete this;
         }
     }

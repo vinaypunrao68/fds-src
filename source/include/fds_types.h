@@ -198,6 +198,7 @@ typedef enum {
     FDS_IO_REDIR_READ,
     FDS_IO_OFFSET_WRITE,
     FDS_CAT_UPD,
+    FDS_CAT_UPD2,
     FDS_CAT_QRY,
     FDS_CAT_QRY2,
     FDS_START_BLOB_TX,

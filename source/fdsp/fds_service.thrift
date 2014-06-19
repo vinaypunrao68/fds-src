@@ -76,7 +76,7 @@ struct QueryCatalogMsg {
 struct PutObjectMsg {
    1: required AsyncHdr        	hdr;
    2: i64                      	origin_timestamp;
-   3: FDS_ObjectIdType 	       	data_obj_id;
+   3: FDSP.FDS_ObjectIdType 	data_obj_id;
    4: i32                      	data_obj_len;
    5: binary                   	data_obj,
 }
@@ -87,21 +87,22 @@ struct PutObjectRspMsg {
 
 struct UpdateCatalogMsg {
    1: required AsyncHdr        	hdr;
-   2: string 			blob_name; /* User visible name of the blob */
-   3: TxDescriptor 		txDlsc; /* Transaction ID...can supersede other tx fields */
-   4: FDSP_BlobObjectList 	obj_list; /* List of object ids of the objects that this blob is being mapped to */
+   2: i64    			volume_id;
+   3: string 			blob_name; /* User visible name of the blob */
+   4: i64                       blob_version; /* Version of the blob */
+   5: FDSP.TxDescriptor 	txDlsc; /* Transaction ID...can supersede other tx fields */
+   6: FDSP.FDSP_BlobObjectList 	obj_list; /* List of object ids of the objects that this blob is being mapped to */
 }
 
 struct UpdateCatalogRspMsg {
    1: required AsyncHdr       	hdr;
-   2: i64 			blob_version; /* Version of the blob. Only used in response! */
 }
 
 struct SetBlobMetaDataMsg {
    1: required AsyncHdr        	hdr;
-   2:string 			volumeName;
-   3:string 			blobName;
-   4:FDSP_MetaDataList 		metaDataList;
+   2: string 			volumeName;
+   3: string 			blobName;
+   4: FDSP.FDSP_MetaDataList 	metaDataList;
 }
 
 struct SetBlobMetaDataRspMsg {
@@ -233,6 +234,7 @@ service SMSvc extends PlatNetSvc {
 
 service DMSvc extends BaseAsyncSvc {
     oneway void queryCatalogObject(1:QueryCatalogMsg queryMsg) 
+    oneway void updateCatalog(1:UpdateCatalogMsg updCatMsg)
 }
 
 service AMSvc extends BaseAsyncSvc {

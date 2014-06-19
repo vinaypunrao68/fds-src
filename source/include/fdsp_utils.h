@@ -17,7 +17,11 @@ namespace FDS_ProtocolInterface {
     class GetObjectMsg;
     class GetObjectResp;
     class QueryCatalogMsg;
-}
+    class PutObjectMsg;
+    class PutObjectRspMsg;
+    class UpdateCatalogMsg;
+    class UpdateCatalogRspMsg;
+}  // namespace FDS_ProtocolInterface
 
 namespace fds {
 /* Forward declarations */
@@ -36,6 +40,9 @@ std::string logString(const FDS_ProtocolInterface::AsyncHdr &header);
 std::string logString(const FDS_ProtocolInterface::GetObjectMsg &getObj);
 std::string logString(const FDS_ProtocolInterface::GetObjectResp &getObj);
 std::string logString(const FDS_ProtocolInterface::QueryCatalogMsg& qryCat);
-
+std::string logString(const FDS_ProtocolInterface::PutObjectMsg& putObj);
+std::string logString(const FDS_ProtocolInterface::PutObjectRspMsg& putObj);
+std::string logString(const FDS_ProtocolInterface::UpdateCatalogMsg& updCat);
+std::string logString(const FDS_ProtocolInterface::UpdateCatalogRspMsg& updCat);
 }  // namespace fds
 #endif  // SOURCE_INCLUDE_FDSP_UTILS_H_

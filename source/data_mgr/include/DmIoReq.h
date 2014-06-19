@@ -58,7 +58,6 @@ namespace fds {
         BlobTxId::const_ptr blobTxId;
         fpi::FDSP_UpdateCatalogTypePtr fdspUpdCatReqPtr;
         boost::shared_ptr<fpi::FDSP_MetaDataList> metadataList;
-        std::function<void (const Error &e, dmCatReq *req, BlobNode *bnode)> resp_cb;
 
         dmCatReq(fds_volid_t  _volId,
                  long 	  _srcIp,
@@ -134,6 +133,24 @@ namespace fds {
             }
         }
 
+        dmCatReq(const fds_volid_t  &_volId,
+                 const std::string &_blobName,
+                 const blob_version_t &_blob_version,
+                 const fds_io_op_t  &_ioType)
+
+        : dmCatReq(_volId,
+                 _blobName,
+                 0,
+                 0,
+                 0,
+                 0,
+                 "",
+                 0,
+                 _ioType)
+        {
+            blob_version = _blob_version;
+        }
+
         // TODO(Andrew): Remove this...
         dmCatReq() {
         }
@@ -151,7 +168,7 @@ namespace fds {
             return volId;
         }
 
-        ~dmCatReq() {
+        virtual ~dmCatReq() {
             fdspUpdCatReqPtr = NULL;
         }
 
@@ -209,6 +226,56 @@ namespace fds {
         CbType dmio_snap_vcat_cb;
         NodeUuid node_uuid;
     };
+
+/**
+ * Request to query catalog
+ */
+class DmIoQueryCat: public dmCatReq {
+ public:
+  typedef std::function<void (const Error &e, DmIoQueryCat *req,
+                                        BlobNode *bnode)> CbType;
+ public:
+  DmIoQueryCat(const fds_volid_t  &_volId,
+                const std::string &_blobName,
+                const blob_version_t &_blob_version)
+      : dmCatReq(_volId, _blobName, _blob_version, FDS_CAT_QRY2) {
+      }
+
+  virtual std::string log_string() const override {
+      std::stringstream ret;
+      ret << "DmIoQueryCat"
+          << std::hex << volId << std::dec;
+      return ret.str();
+  }
+
+  /* response callback */
+  CbType dmio_querycat_resp_cb;
+};
+
+/**
+ * Request to update catalog
+ */
+class DmIoUpdateCat: public dmCatReq {
+ public:
+  typedef std::function<void (const Error &e, DmIoUpdateCat *req)> CbType;
+ public:
+  DmIoUpdateCat(const fds_volid_t  &_volId,
+                const std::string &_blobName,
+                const blob_version_t &_blob_version)
+      : dmCatReq(_volId, _blobName, _blob_version, FDS_CAT_UPD2) {
+      }
+
+  virtual std::string log_string() const override {
+      std::stringstream ret;
+      ret << "DmIoUpdateCat vol "
+          << std::hex << volId << std::dec;
+      return ret.str();
+  }
+
+  FDSP_BlobObjectList 	obj_list;
+  /* response callback */
+  CbType dmio_updatecat_resp_cb;
+};
 
 }  // namespace fds
 

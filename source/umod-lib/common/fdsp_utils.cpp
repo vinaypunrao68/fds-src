@@ -70,4 +70,31 @@ std::string logString(const FDS_ProtocolInterface::QueryCatalogMsg& qryCat)
     return oss.str();
 }
 
+std::string logString(const FDS_ProtocolInterface::PutObjectMsg& putObj)
+{
+    std::ostringstream oss;
+    logMsgCommon(oss, "PutObjectMsg", putObj.hdr);
+    return oss.str();
+}
+
+std::string logString(const FDS_ProtocolInterface::PutObjectRspMsg& putObj)
+{
+    std::ostringstream oss;
+    logMsgCommon(oss, "PutObjectRspMsg", putObj.hdr);
+    return oss.str();
+}
+
+std::string logString(const FDS_ProtocolInterface::UpdateCatalogMsg& updCat)
+{
+    std::ostringstream oss;
+    logMsgCommon(oss, "UpdateCatalogMsg", updCat.hdr);
+    return oss.str();
+}
+
+std::string logString(const FDS_ProtocolInterface::UpdateCatalogRspMsg& updCat)
+{
+    std::ostringstream oss;
+    logMsgCommon(oss, "UpdateCatalogRspMsg", updCat.hdr);
+    return oss.str();
+}
 }  // namespace fds

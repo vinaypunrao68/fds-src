@@ -1027,6 +1027,89 @@ DataMgr::updateCatalogProcess(const dmCatReq  *updCatReq, BlobNode **bnode) {
     return err;
 }
 
+/**
+ * Processes a catalog update.
+ * The blob node is allocated inside of this function and returned
+ * to the caller via a parameter. The bnode is only expected to be
+ * allocated if ERR_OK is returned.
+ *
+ * @param[in]  updCatReq catalog update request
+ * @param[out] bnode the blob node that was processed
+ * @return The result of the processing
+ */
+Error
+DataMgr::updateCatalogProcess2(DmIoUpdateCat *updCatReq, BlobNode **bnode) {
+    Error err(ERR_OK);
+    LOGNORMAL << updCatReq->log_string();
+
+    // Grab a big lock around the entire operation so that
+    // all updates to the same blob get serialized from disk
+    // read, in-memory update, and disk write
+    fds_scoped_lock l(*big_fat_lock);
+
+    // Check if this blob exists already and what its current version is.
+    *bnode = NULL;
+    err = _process_query(updCatReq->volId,
+                         updCatReq->blob_name,
+                         *bnode);
+    if (err == ERR_CAT_ENTRY_NOT_FOUND) {
+        // If this blob doesn't already exist, allocate a new one
+        LOGDEBUG << "No blob found with name " << updCatReq->blob_name
+                 << ", so allocating a new one";
+        *bnode = new BlobNode(updCatReq->volId,
+                              updCatReq->blob_name);
+        err = ERR_OK;
+    } else {
+        LOGDEBUG << "Located existing blob " << updCatReq->blob_name;
+        fds_verify(*bnode != NULL);
+        fds_verify((*bnode)->version != blob_version_invalid);
+    }
+    fds_verify(err == ERR_OK);
+
+    // Apply the updates to the blob
+    BlobObjectList offsetList(updCatReq->obj_list);
+
+    // check for zero size objects and assign default objectid
+    for ( auto iter : offsetList ) {
+        if ( 0 == iter.second.size ) {
+            LOGWARN << "obj size is zero. setting id to nullobjectid"
+                << " ["<< iter.first <<"] : " << iter.second.data_obj_id;
+            iter.second.data_obj_id = NullObjectID;
+        }
+    }
+
+    err = applyBlobUpdate(updCatReq->volId,
+                          offsetList,
+                          (*bnode));
+    if (err == ERR_OK) {
+        LOGDEBUG << "Updated blob " << (*bnode)->blob_name
+            << " to size " << (*bnode)->blob_size;
+
+        // Currently, this processes the entire blob at once.
+        // Any modifications to it need to be made before hand.
+        err = dataMgr->_process_open((fds_volid_t)updCatReq->volId,
+                                     updCatReq->blob_name,
+                                     0, /* TODO(Rao): Not used, remove */
+                                     (*bnode));
+    }
+
+    return err;
+}
+
+void
+DataMgr::updateCatalogBackend2(void * _io)
+{
+    Error err(ERR_OK);
+    DmIoUpdateCat *updCatReq= static_cast<DmIoUpdateCat*>(_io);
+
+    BlobNode *bnode = NULL;
+    err = updateCatalogProcess2(updCatReq, &bnode);
+    qosCtrl->markIODone(*updCatReq);
+    updCatReq->dmio_updatecat_resp_cb(err, updCatReq);
+    
+    // TODO(Rao): deleteing qryCatReq and io
+}
+
 void
 DataMgr::updateCatalogBackend(dmCatReq  *updCatReq) {
     Error err(ERR_OK);
@@ -1498,13 +1581,13 @@ void
 DataMgr::queryCatalogBackend2(void * _io)
 {
     Error err(ERR_OK);
-    dmCatReq  *qryCatReq = (fds::dmCatReq*)_io;
+    DmIoQueryCat *qryCatReq = (DmIoQueryCat*)_io;
     ObjectID obj_id;
 
     BlobNode *bnode = NULL;
     err = queryCatalogProcess(qryCatReq, &bnode);
     qosCtrl->markIODone(*qryCatReq);
-    qryCatReq->resp_cb(err, qryCatReq, bnode);
+    qryCatReq->dmio_querycat_resp_cb(err, qryCatReq, bnode);
     
     // TODO(Rao): deleteing qryCatReq and io
 }

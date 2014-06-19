@@ -360,6 +360,27 @@ public:
     fds::Error updateCatalogCache(GetBlobReq *blobReq,
                                   FDS_ProtocolInterface::FDSP_BlobObjectList& blobOffList);
 
+    fds::Error putBlob2(fds::AmQosReq *qosReq);
+    void issuePutObjectMsg(const ObjectID &objId,
+                           const char* dataBuf,
+                           const fds_uint64_t &len,
+                           FailoverRpcRespCb respCb);
+    void issueUpdateCatalogMsg(const ObjectID &objId,
+                               const std::string& blobName,
+                               const fds_uint64_t& blobOffset,
+                               const fds_uint64_t &len,
+                               const bool &lastBuf,
+                               const fds_volid_t& volId,
+                               FailoverRpcRespCb respCb);
+    void putBlobUpdateCatalogMsgResp(PutBlobReq *blobReq,
+                                     FailoverRpcRequest* rpcReq,
+                                     const Error& error,
+                                     boost::shared_ptr<std::string> payload);
+
+    void putBlobPutObjectMsgResp(PutBlobReq *blobReq,
+                                 FailoverRpcRequest* rpcReq,
+                                 const Error& error,
+                                 boost::shared_ptr<std::string> payload);
 private:
     void handleDltMismatch(StorHvVolume *vol,
                            StorHvJournalEntry *journEntry);

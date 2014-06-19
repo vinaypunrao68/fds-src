@@ -13,7 +13,8 @@ namespace fds {
 /**
  *
  */
-BaseAsyncSvcHandler::BaseAsyncSvcHandler() {
+BaseAsyncSvcHandler::BaseAsyncSvcHandler()
+{
 }
 
 /**
@@ -94,6 +95,9 @@ void BaseAsyncSvcHandler::asyncRespHandler(
         boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
         boost::shared_ptr<std::string>& payload)
 {
+    static SynchronizedTaskExecutor<uint64_t>* taskExecutor =
+        NetMgr::ep_mgr_singleton()->ep_get_task_executor();
+
     GLOGDEBUG;
 
     auto asyncReq = gAsyncRpcTracker->\
@@ -103,14 +107,14 @@ void BaseAsyncSvcHandler::asyncRespHandler(
         return;
     }
 
-#if 0
-    SynchronizedTaskExecutor<uint64_t> taskExecutor(*NetMgr::ep_mgr_thrpool());
-    taskExecutor.schedule(1,
-                          std::bind(&AsyncRpcRequestIf::handleResponse,
-                                    asyncReq.get(), header, payload));
-#endif
+    /* Execute on synchronized task exector so that handling for requests
+     * with same id gets serialized
+     */
+    taskExecutor->schedule(header->msg_src_id,
+                           std::bind(&AsyncRpcRequestIf::handleResponse,
+                                     asyncReq.get(), header, payload));
 
-    asyncReq->handleResponse(header, payload);
+    // asyncReq->handleResponse(header, payload);
 }
 
 }  // namespace fds

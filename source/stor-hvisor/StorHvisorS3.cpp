@@ -1369,6 +1369,7 @@ Error StorHvCtrl::putBlob2(fds::AmQosReq *qosReq) {
     
     // Pull out the blob request     
     PutBlobReq *blobReq = static_cast<PutBlobReq *>(qosReq->getBlobReqPtr());
+    ObjectID objId;
     bool fZeroSize = (blobReq->getDataLen() == 0);
     fds_verify(blobReq->magicInUse() == true);
 
@@ -1391,9 +1392,6 @@ Error StorHvCtrl::putBlob2(fds::AmQosReq *qosReq) {
     blobReq->setQueuedUsec(shVol->journal_tbl->microsecSinceCtime(
         boost::posix_time::microsec_clock::universal_time()));
 
-    // Get the object ID and set it in the request
-    bool fZeroSize = (blobReq->getDataLen() == 0);
-    ObjectID objId;
     if (fZeroSize) {
         LOGWARN << "zero size object - "
                 << " [objkey:" << blobReq->ObjKey <<"]";
@@ -1416,7 +1414,6 @@ Error StorHvCtrl::putBlob2(fds::AmQosReq *qosReq) {
                           blobReq->getBlobName(),
                           blobReq->getBlobOffset(),
                           blobReq->getDataLen(),
-                          const fds_uint64_t &len,
                           blobReq->isLastBuf(),
                           volId,
                           std::bind(&StorHvCtrl::putBlobUpdateCatalogMsgResp,
@@ -1441,9 +1438,10 @@ void StorHvCtrl::issuePutObjectMsg(const ObjectID &objId,
     PutObjectMsgPtr putObjMsg(new PutObjectMsg);
     putObjMsg->origin_timestamp = fds::util::getTimeStampMillis();
     putObjMsg->data_obj = std::string(dataBuf, len);
-    putObjMsg->data_obj_len = len
+    putObjMsg->data_obj_len = len;
     putObjMsg->data_obj_id.digest = std::string((const char *)objId.GetId(), (size_t)objId.GetLen());
 
+#if 0
     auto asyncPutReq = gRpcRequestPool->newFailoverRpcRequest(
         boost::make_shared<DltObjectIdEpProvider>(om_client->getDLTNodesForDoidKey(objId)));
     asyncPutReq->setRpcFunc(
@@ -1453,6 +1451,7 @@ void StorHvCtrl::issuePutObjectMsg(const ObjectID &objId,
     asyncPutReq->invoke();
 
     LOGDEBUG << asyncPutReq->logString() << fds::logString(*putObjMsg);
+#endif
 }
 
 void StorHvCtrl::issueUpdateCatalogMsg(const ObjectID &objId,
@@ -1465,6 +1464,9 @@ void StorHvCtrl::issueUpdateCatalogMsg(const ObjectID &objId,
 {
     UpdateCatalogMsgPtr updCatMsg(new UpdateCatalogMsg());
     updCatMsg->blob_name   = blobName;
+    updCatMsg->blob_version = blob_version_invalid;
+    updCatMsg->volume_id = volId;
+
 
     // Setup blob offset updates
     // TODO(Andrew): Today we only expect one offset update
@@ -1479,6 +1481,7 @@ void StorHvCtrl::issueUpdateCatalogMsg(const ObjectID &objId,
     // Add the offset info to the DM message
     updCatMsg->obj_list.push_back(updBlobInfo);
 
+#if 0
     auto asyncUpdateCatReq = gRpcRequestPool->newFailoverRpcRequest(
         boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(volId)));
     asyncUpdateCatReq->setRpcFunc(
@@ -1488,6 +1491,7 @@ void StorHvCtrl::issueUpdateCatalogMsg(const ObjectID &objId,
     asyncUpdateCatReq->invoke();
 
     LOGDEBUG << asyncUpdateCatReq->logString() << fds::logString(*updCatMsg);
+#endif
 }
 
 void StorHvCtrl::putBlobPutObjectMsgResp(PutBlobReq *blobReq,
@@ -1499,11 +1503,11 @@ void StorHvCtrl::putBlobPutObjectMsgResp(PutBlobReq *blobReq,
         NetMgr::ep_deserialize<fpi::PutObjectRspMsg>(const_cast<Error&>(error), payload);
 
     if (error != ERR_OK) {
-        LOGERROR << "Obj ID: " blobReq->getObjId()
+        LOGERROR << "Obj ID: " << blobReq->getObjId()
             << " blob name: " << blobReq->getBlobName()
             << " offset: " << blobReq->getBlobOffset() << " Error: " << error; 
     } else {
-        LOGDEBUG << rpcReq->logString() << fds::logString(*updCatRsp);
+        LOGDEBUG << rpcReq->logString() << fds::logString(*putObjRsp);
     }
     blobReq->notifyPutObjectComplete(error);
 }
@@ -1514,10 +1518,10 @@ void StorHvCtrl::putBlobUpdateCatalogMsgResp(PutBlobReq *blobReq,
                                              boost::shared_ptr<std::string> payload)
 {
     fpi::UpdateCatalogRspMsgPtr updCatRsp =
-        NetMgr::ep_deserialize<fpi::UpdateCatalogRspMsgPtr>(const_cast<Error&>(error), payload);
+        NetMgr::ep_deserialize<fpi::UpdateCatalogRspMsg>(const_cast<Error&>(error), payload);
 
     if (error != ERR_OK) {
-        LOGERROR << "Obj ID: " blobReq->getObjId()
+        LOGERROR << "Obj ID: " << blobReq->getObjId()
             << " blob name: " << blobReq->getBlobName()
             << " offset: " << blobReq->getBlobOffset() << " Error: " << error; 
     } else {
