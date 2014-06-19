@@ -1434,15 +1434,30 @@ om_send_dmt_close(fds_uint64_t dmt_version, NodeAgent::pointer agent)
 
 // om_bcast_dmt_close
 // ------------------
+// Broadcasts to DMs that are already in cluster map! Just added DMs that
+// are not included in DMT must not get DMT close message (which may arrive
+// without DMT update if DM was added right in the middle)
 // @return number of nodes we sent the message to (and
 // we are waiting for that many responses)
 //
 fds_uint32_t
 OM_NodeContainer::om_bcast_dmt_close(fds_uint64_t dmt_version)
 {
+    Error err(ERR_OK);
+    OM_Module* om = OM_Module::om_singleton();
+    OM_NodeContainer* loc_domain = OM_NodeDomainMod::om_loc_domain_ctrl();
+    ClusterMap* cm = om->om_clusmap_mod();
     fds_uint32_t count = 0;
-    count = dc_dm_nodes->agent_ret_foreach<fds_uint64_t>(dmt_version,
-                                                         om_send_dmt_close);
+
+    // iterate over DMs that are in cluster map, and send dmt close
+    // mesage to each of them
+    for (ClusterMap::const_dm_iterator cit = cm->cbegin_dm();
+         cit != cm->cend_dm();
+         ++cit) {
+        OM_DmAgent::pointer dm_agent = loc_domain->om_dm_agent(cit->first);
+        err = dm_agent->om_send_dmt_close(dmt_version);
+        if (err.ok()) ++count;
+    }
     LOGDEBUG << "Send DMT close to " << count << " DMs successfully";
     return count;
 }
