@@ -215,8 +215,8 @@ class MetaDatapathRespImpl : public FDS_ProtocolInterface::FDSP_MetaDataPathResp
         std::cout << "digest found : " << objId << std::endl;
 
         *resp_obj_list = cat_obj_req->obj_list;
-        std::cout << "digest found : " << cat_obj_req->obj_list[0].data_obj_id.digest
-                  << std::endl;
+        // std::cout << "digest found : " << cat_obj_req->obj_list[0].data_obj_id.digest
+        //          << std::endl;
         fds_assert(get_resp_monitor_);
         get_resp_monitor_->done();
     }
@@ -248,8 +248,8 @@ class MetaDatapathRespImpl : public FDS_ProtocolInterface::FDSP_MetaDataPathResp
         for (uint i = 0; i < vec->size(); i++) {
             // std::cout << *it << std::endl;
             FDSP_BlobInfoType &elm = vec->at(i);
-            std::cout << "found name " << elm.blob_name <<  std::endl;
-            std::cout << "found size " << elm.blob_size <<  std::endl;
+            // std::cout << "found name " << elm.blob_name <<  std::endl;
+            // std::cout << "found size " << elm.blob_size <<  std::endl;
         }
 
         get_resp_monitor_->done();
@@ -416,7 +416,7 @@ void LevelDBChecker::list_bucket(const NodeUuid &dm_node_id,
     md_resp_handler_->get_resp_monitor_ = nullptr;
     md_resp_handler_->resp_vector = nullptr;
 
-    std::cout << "list bucket recv a response" << std::endl;
+    // std::cout << "list bucket recv a response" << std::endl;
 
     return;  // resp_vector;
 }
@@ -482,7 +482,7 @@ auto md_session = get_metadatapath_session(dm_node_id);
     md_resp_handler_->get_resp_monitor_ = nullptr;
     md_resp_handler_->resp_vector = nullptr;
 
-    std::cout << "query catalog recv a response" << std::endl;
+    // std::cout << "query catalog recv a response" << std::endl;
 
     return query_req;
 }
@@ -491,8 +491,6 @@ auto md_session = get_metadatapath_session(dm_node_id);
 
 void LevelDBChecker::run_checker(const char *volume)
 {
-    std::cout << "Hit run_checker" << std::endl;
-    // TODO(brian): fix so that vol_id isn't hardcoded
     const char *vol_name = volume;
     std::string v_name(vol_name);
 
@@ -522,7 +520,7 @@ void LevelDBChecker::run_checker(const char *volume)
             FDSP_BlobInfoType &m_elm = master.at(j);
             FDSP_BlobInfoType &elm = resp_vector.at(j);
             // Get catalog info for this object
-            std::cout << "Getting catalog for blob " << m_elm.blob_name << std::endl;
+            // std::cout << "Getting catalog for blob " << m_elm.blob_name << std::endl;
 
             FDS_ProtocolInterface::FDSP_QueryCatalogTypePtr m_query_resp =
                     query_catalog(col_ptr->get(i), volume_id, v_name, m_elm.blob_name);
@@ -546,7 +544,7 @@ void LevelDBChecker::run_checker(const char *volume)
         }
     }
 
-    LOGNORMAL << "Checker run done, all tests PASSED!" << std::endl;
+    std::cout << "Checker run done, all tests PASSED!" << std::endl;
     LOGNORMAL << cntrs_.toString();
 }
 
@@ -608,7 +606,7 @@ int FdsCheckerProc::run()
 {
     checker_->run_checker(volume);
     g_cntrs_mgr->export_to_ostream(std::cout);
-    std::cout << "Checker completed\n";
+    // std::cout << "Checker completed\n";
     return 0;
 }
 
