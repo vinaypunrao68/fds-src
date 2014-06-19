@@ -169,6 +169,12 @@ CatSyncReceiver::fwdUpdateReqDone(dmCatReq* updCatReq,
     msg_hdr->glob_volume_id =  updCatReq->volId;
     msg_hdr->req_cookie =  updCatReq->reqCookie;
     msg_hdr->session_cache =  updCatReq->session_cache;
+    // we just copy (carry) those from original msg header from AM
+    // because AM will use ip and port to update dm commit ack count
+    msg_hdr->src_ip_lo_addr =  updCatReq->srcIp;
+    msg_hdr->dst_ip_lo_addr =  updCatReq->dstIp;
+    msg_hdr->src_port =  updCatReq->srcPort;
+    msg_hdr->dst_port =  updCatReq->dstPort;
 
     update_catalog->blob_name = updCatReq->blob_name;
     update_catalog->blob_version = blob_version;

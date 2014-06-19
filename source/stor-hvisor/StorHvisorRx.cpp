@@ -129,8 +129,6 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) {
         FDSP_UpdateCatalogTypePtr upd_obj_req(new FDSP_UpdateCatalogType);
         upd_obj_req->dm_operation = FDS_DMGR_TXN_STATUS_COMMITED;
         upd_obj_req->dm_transaction_id = 1;
-        upd_obj_req->obj_list.clear();
-        upd_obj_req->obj_list.push_back(upd_obj_info);
         upd_obj_req->meta_list.clear();
 
         /*
@@ -141,6 +139,27 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) {
         fds::FdsBlobReq *blobReq = qosReq->getBlobReqPtr();
         fds_verify(blobReq != NULL);
         upd_obj_req->blob_name = blobReq->getBlobName();
+
+	// We are making sure we send the same UpdateCatalog message
+	// as UpdateCatalog we sent with STATUS_OPEN, for forwarding
+	// requests to newly added DMs.
+	fds::PutBlobReq *putBlobReq = static_cast<fds::PutBlobReq *>(qosReq->getBlobReqPtr());
+	upd_obj_info.size = putBlobReq->getDataLen();
+	// Mark whether this update updates the end of the blob
+	upd_obj_info.blob_end = putBlobReq->isLastBuf();
+        upd_obj_req->obj_list.clear();
+        upd_obj_req->obj_list.push_back(upd_obj_info);
+	if (putBlobReq->isLastBuf() == true) {
+	  std::string etagKey   = "etag";
+	  std::string etagValue = putBlobReq->getEtag();
+	  if (putBlobReq->getDataLen() > 0) {
+            fds_verify(etagValue.size() == 32);
+	  }
+	  FDS_ProtocolInterface::FDSP_MetaDataPair mdPair;
+	  mdPair.__set_key(etagKey);
+	  mdPair.__set_value(etagValue);
+	  upd_obj_req->meta_list.push_back(mdPair);
+	}
     
         for (fds_int32_t node = 0; node < txn->num_dm_nodes; node++) {
             if (txn->dm_ack[node].ack_status != 0) {

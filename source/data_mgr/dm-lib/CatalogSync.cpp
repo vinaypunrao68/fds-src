@@ -8,6 +8,7 @@
 #include <lib/OMgrClient.h>
 #include <CatalogSync.h>
 #include "DataMgr.h"
+#include <VolumeMeta.h>
 
 namespace fds {
     extern DataMgr *dataMgr;
@@ -267,6 +268,14 @@ Error CatalogSync::forwardCatalogUpdate(dmCatReq  *updCatReq) {
     msg_hdr->session_uuid = meta_client->getSessionId();
     msg_hdr->session_cache = updCatReq->session_uuid;
     msg_hdr->req_cookie = updCatReq->reqCookie; 
+    // these are not used on destination DM, but destination DM
+    // will assign same fields back so that this DM can respond
+    // to AM with properly set port and IP which it uses to
+    // increment dm commit acks
+    msg_hdr->src_ip_lo_addr =  updCatReq->srcIp;
+    msg_hdr->dst_ip_lo_addr =  updCatReq->dstIp;
+    msg_hdr->src_port =  updCatReq->srcPort;
+    msg_hdr->dst_port =  updCatReq->dstPort;
        
     /*
      * init the update  catalog  structu
@@ -275,8 +284,12 @@ Error CatalogSync::forwardCatalogUpdate(dmCatReq  *updCatReq) {
     updCatalog->blob_version = updCatReq->blob_version;
     updCatalog->blob_size = updCatReq->fdspUpdCatReqPtr->blob_size;
     updCatalog->blob_mime_type = updCatReq->fdspUpdCatReqPtr->blob_mime_type;
-    updCatalog->obj_list = updCatReq->fdspUpdCatReqPtr->obj_list;
-    updCatalog->meta_list = updCatReq->fdspUpdCatReqPtr->meta_list;
+    updCatalog->obj_list.clear();
+    for (uint i = 0; i < updCatReq->fdspUpdCatReqPtr->obj_list.size(); i++)
+        updCatalog->obj_list.push_back(updCatReq->fdspUpdCatReqPtr->obj_list[i]);
+    updCatalog->meta_list.clear();
+    for (uint i = 0; i < updCatReq->fdspUpdCatReqPtr->meta_list.size(); i++)
+        updCatalog->meta_list.push_back(updCatReq->fdspUpdCatReqPtr->meta_list[i]);
     updCatalog->dm_operation = FDS_DMGR_TXN_STATUS_OPEN;
 
     /*
@@ -640,7 +653,8 @@ FDSP_MetaSyncRpc::PushMetaSyncResp(fpi::FDSP_MsgHdrTypePtr& fdsp_msg,
     dmCatReq *metaUpdResp = new(std::nothrow) dmCatReq(fdsp_msg->glob_volume_id,
                                                       meta_resp->blob_name,
                                                       meta_resp->dm_transaction_id,
-                                                      meta_resp->dm_operation,
+                                                       /*meta_resp->dm_operation,*/
+                                                       fpi::FDS_DMGR_TXN_STATUS_COMMITED,
                                                       fdsp_msg->src_ip_lo_addr,
                                                       fdsp_msg->dst_ip_lo_addr,
                                                       fdsp_msg->src_port, fdsp_msg->dst_port,
@@ -648,7 +662,9 @@ FDSP_MetaSyncRpc::PushMetaSyncResp(fpi::FDSP_MsgHdrTypePtr& fdsp_msg,
                                                       FDS_DM_FWD_CAT_UPD, meta_resp);
     metaUpdResp->session_uuid = fdsp_msg->session_cache;
     if (metaUpdResp) {
-        dataMgr->sendUpdateCatalogResp(metaUpdResp);
+        BlobNode *bnode = NULL;
+        dataMgr->sendUpdateCatalogResp(metaUpdResp, bnode);
+        delete metaUpdResp;
     } else {
         LOGCRITICAL << "Failed to send the  metaUpdResp";
         err = ERR_OUT_OF_MEMORY;

@@ -1231,18 +1231,23 @@ DataMgr::updateCatalogBackend(dmCatReq  *updCatReq) {
     }
 
     err = forwardUpdateCatalogRequest(updCatReq);
-    if ( err.ok()) {
-    } else {
-      sendUpdateCatalogResp(updCatReq);
+    if (!err.ok()) {
+        // if  the update request  is not forwarded, send the response. 
+        sendUpdateCatalogResp(updCatReq, bnode);
     }
-    
-    // if  the update request  is not forwarded, send the response. 
+
+    // cleanup in any case (forwarded or respond to AM)
+    if (bnode != NULL) {
+        delete bnode;
+    }
+
+    qosCtrl->markIODone(*updCatReq);
+    delete updCatReq;
 }
 
 void 
-DataMgr::sendUpdateCatalogResp(dmCatReq  *updCatReq) {
+DataMgr::sendUpdateCatalogResp(dmCatReq  *updCatReq, BlobNode *bnode) {
     Error err(ERR_OK);
-    BlobNode *bnode = NULL;
 
     FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
     FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr
@@ -1312,7 +1317,7 @@ DataMgr::sendUpdateCatalogResp(dmCatReq  *updCatReq) {
     dataMgr->respMapMtx.read_unlock();
 
     LOGDEBUG << "Sending async update catalog response with "
-             << "volume id: " << msg_hdr->glob_volume_id
+             << "volume id: " << std::hex << msg_hdr->glob_volume_id << std::dec
              << ", blob name: "
              << update_catalog->blob_name
              << ", blob version: "
@@ -1328,14 +1333,6 @@ DataMgr::sendUpdateCatalogResp(dmCatReq  *updCatReq) {
                FDS_ProtocolInterface::FDS_DMGR_TXN_STATUS_COMMITED) {
         LOGNORMAL << "End:Sent update response for trans commit request";
     }
-
-    if (bnode != NULL) {
-        delete bnode;
-    }
-
-    qosCtrl->markIODone(*updCatReq);
-
-    delete updCatReq;
 }
 
 Error  DataMgr::forwardUpdateCatalogRequest(dmCatReq  *updCatReq) {
@@ -1372,8 +1369,9 @@ Error  DataMgr::forwardUpdateCatalogRequest(dmCatReq  *updCatReq) {
         }        
 
     }
-     else 
-       err = ERR_DMT_FORWARD;
+    else 
+        err = ERR_DMT_FORWARD;
+
    return err;
 }
 
