@@ -33,6 +33,14 @@ NetMgr::ep_mgr_thrpool()
     return g_fdsprocess->proc_thrpool();
 }
 
+// ep_get_task_executor
+// --------------
+//
+SynchronizedTaskExecutor<uint64_t>*
+NetMgr::ep_get_task_executor() {
+    return ep_task_executor;
+}
+
 // mod_init
 // --------
 //
@@ -48,6 +56,7 @@ NetMgr::mod_init(SysParams const *const p)
     plat_lib   = Platform::platf_singleton();
     plat_net   = static_cast<NetPlatSvc *>(gl_NetPlatSvc);
     mod_intern = ep_mgr_mods;
+    ep_task_executor = new SynchronizedTaskExecutor<uint64_t>(*NetMgr::ep_mgr_thrpool());
     return Module::mod_init(p);
 }
 

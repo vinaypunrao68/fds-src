@@ -109,6 +109,9 @@ public:
             case FDS_CAT_UPD:
                 threadPool->schedule(scheduleUpdateCatalog, io);
                 break;
+            case FDS_CAT_UPD2:
+                threadPool->schedule(&DataMgr::updateCatalogBackend2, dataMgr, io);
+                break;
             case FDS_CAT_QRY:
                 threadPool->schedule(scheduleQueryCatalog, io);
                 break;
@@ -304,7 +307,9 @@ public:
     }
 
     void updateCatalogBackend(dmCatReq  *updCatReq);
+    void updateCatalogBackend2(void * _io);
     Error updateCatalogProcess(const dmCatReq  *updCatReq, BlobNode **bnode);
+    Error updateCatalogProcess2(DmIoUpdateCat *updCatReq, BlobNode **bnode);
     void queryCatalogBackend(dmCatReq  *qryCatReq);
     void queryCatalogBackend2(void * _io);
     Error queryCatalogProcess(const dmCatReq  *qryCatReq, BlobNode **bnode);

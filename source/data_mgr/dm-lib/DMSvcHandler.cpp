@@ -20,28 +20,25 @@ void DMSvcHandler::queryCatalogObject(boost::shared_ptr<fpi::QueryCatalogMsg>& q
     /*
      * allocate a new query cat log  class and  queue  to per volume queue.
      */
-    // TODO(Rao): Provide a constructor that doens't take unnecessary
-    // params
-    auto dmQryReq = new dmCatReq(queryMsg->volume_id, queryMsg->blob_name,
-                                          queryMsg->dm_transaction_id,
-                                          queryMsg->dm_operation, 0,
-                                          0, 0, 0, "",
-                                          0, FDS_CAT_QRY2, NULL);
+    auto dmQryReq = new DmIoQueryCat(queryMsg->volume_id,
+                                     queryMsg->blob_name,
+                                     queryMsg->blob_version);
     // Set the version
     // TODO(Andrew): Have a better constructor so that I can
     // set it that way.
     dmQryReq->setBlobVersion(queryMsg->blob_version);
-    dmQryReq->resp_cb = std::bind(&DMSvcHandler::queryCatalogObjectCb, this,
-                                  queryMsg,
-                                  std::placeholders::_1, std::placeholders::_2,
-                                  std::placeholders::_3);
+    dmQryReq->dmio_querycat_resp_cb =
+        std::bind(&DMSvcHandler::queryCatalogObjectCb, this,
+                  queryMsg,
+                  std::placeholders::_1, std::placeholders::_2,
+                  std::placeholders::_3);
 
     Error err = dataMgr->qosCtrl->enqueueIO(dmQryReq->getVolId(),
                                       static_cast<FDS_IOType*>(dmQryReq));
     if (err != ERR_OK) {
         LOGNORMAL << "Unable to enqueue Query Catalog request "
                   << logString(queryMsg->hdr);
-        dmQryReq->resp_cb(err, dmQryReq, nullptr);
+        dmQryReq->dmio_querycat_resp_cb(err, dmQryReq, nullptr);
     } else {
         LOGNORMAL << "Successfully enqueued  Catalog  request "
                   << logString(queryMsg->hdr);
@@ -64,6 +61,43 @@ void DMSvcHandler::queryCatalogObjectCb(boost::shared_ptr<fpi::QueryCatalogMsg>&
     }
 
     NetMgr::ep_mgr_singleton()->ep_send_async_resp(queryMsg->hdr, *queryMsg);
+
+    delete req;
+}
+
+void DMSvcHandler::updateCatalog(boost::shared_ptr<fpi::UpdateCatalogMsg>& updcatMsg)
+{
+    DBG(GLOGDEBUG << logString(*updcatMsg));
+    /*
+     * allocate a new query cat log  class and  queue  to per volume queue.
+     */
+    auto dmUpdCatReq = new DmIoUpdateCat(updcatMsg->volume_id,
+                                         updcatMsg->blob_name,
+                                         updcatMsg->blob_version);
+    dmUpdCatReq->obj_list = std::move(updcatMsg->obj_list);
+    dmUpdCatReq->dmio_updatecat_resp_cb =
+        std::bind(&DMSvcHandler::updateCatalogCb, this,
+                  updcatMsg,
+                  std::placeholders::_1, std::placeholders::_2);
+
+    Error err = dataMgr->qosCtrl->enqueueIO(dmUpdCatReq->getVolId(),
+                                            static_cast<FDS_IOType*>(dmUpdCatReq));
+    if (err != ERR_OK) {
+        LOGNORMAL << "Unable to enqueue Update Catalog request "
+                  << logString(updcatMsg->hdr);
+        dmUpdCatReq->dmio_updatecat_resp_cb(err, dmUpdCatReq);
+    } else {
+        LOGNORMAL << "Successfully enqueued Update Catalog  request "
+                  << logString(updcatMsg->hdr);
+    }
+}
+
+void DMSvcHandler::updateCatalogCb(boost::shared_ptr<fpi::UpdateCatalogMsg>& updcatMsg,
+                                        const Error &e, DmIoUpdateCat *req)
+{
+    DBG(GLOGDEBUG << logString(*updcatMsg));
+    fpi::UpdateCatalogRspMsg updcatRspMsg;
+    NetMgr::ep_mgr_singleton()->ep_send_async_resp(updcatMsg->hdr, updcatRspMsg);
 
     delete req;
 }

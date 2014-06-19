@@ -1364,6 +1364,173 @@ fds::Error StorHvCtrl::updateCatalogCache(GetBlobReq *blobReq,
     return ERR_OK;
 }
 
+Error StorHvCtrl::putBlob2(fds::AmQosReq *qosReq) {
+    fds::Error err(ERR_OK);
+    
+    // Pull out the blob request     
+    PutBlobReq *blobReq = static_cast<PutBlobReq *>(qosReq->getBlobReqPtr());
+    ObjectID objId;
+    bool fZeroSize = (blobReq->getDataLen() == 0);
+    fds_verify(blobReq->magicInUse() == true);
+
+    // Get the volume context structure
+    fds_volid_t   volId = blobReq->getVolId();
+    StorHvVolume *shVol = storHvisor->vol_table->getLockedVolume(volId);
+    fds_verify(shVol != NULL);
+    fds_verify(shVol->isValidLocked() == true);
+
+    // TODO(Andrew): Here we're turning the offset aligned
+    // blobOffset back into an absolute blob offset (i.e.,
+    // not aligned to the maximum object size). This allows
+    // the rest of the putBlob routines to still expect an
+    // absolute offset in case we need it
+    fds_uint32_t maxObjSize = shVol->voldesc->maxObjSizeInBytes;
+    blobReq->setBlobOffset(blobReq->getBlobOffset() * maxObjSize);
+
+    // Track how long the request was queued before put() dispatch
+    // TODO(Andrew): Consider moving to the QoS request
+    blobReq->setQueuedUsec(shVol->journal_tbl->microsecSinceCtime(
+        boost::posix_time::microsec_clock::universal_time()));
+
+    if (fZeroSize) {
+        LOGWARN << "zero size object - "
+                << " [objkey:" << blobReq->ObjKey <<"]";
+    } else {
+        objId = ObjIdGen::genObjectId(blobReq->getDataBuf(),
+                                      blobReq->getDataLen());
+    }
+    blobReq->setObjId(objId);
+
+    // Send put request to SM
+    issuePutObjectMsg(blobReq->getObjId(),
+                      blobReq->getDataBuf(),
+                      blobReq->getDataLen(),
+                      std::bind(&StorHvCtrl::putBlobPutObjectMsgResp,
+                                this, blobReq,
+                                std::placeholders::_1,
+                                std::placeholders::_2,std::placeholders::_3));
+
+    issueUpdateCatalogMsg(blobReq->getObjId(),
+                          blobReq->getBlobName(),
+                          blobReq->getBlobOffset(),
+                          blobReq->getDataLen(),
+                          blobReq->isLastBuf(),
+                          volId,
+                          std::bind(&StorHvCtrl::putBlobUpdateCatalogMsgResp,
+                                    this, blobReq,
+                                    std::placeholders::_1,
+                                    std::placeholders::_2,std::placeholders::_3));
+    // TODO(Rao): Check with andrew if this is the right place to unlock or
+    // can we unlock before
+    // TODO(Rao): Check if we can use scoped lock here
+    shVol->readUnlock();
+    return err;
+}
+
+void StorHvCtrl::issuePutObjectMsg(const ObjectID &objId,
+                                   const char* dataBuf,
+                                   const fds_uint64_t &len,
+                                   FailoverRpcRespCb respCb)
+{
+    if (len == 0) {
+        // TODO(Rao): Shortcut SM.  Issue a call back to indicate put successed
+    }
+    PutObjectMsgPtr putObjMsg(new PutObjectMsg);
+    putObjMsg->origin_timestamp = fds::util::getTimeStampMillis();
+    putObjMsg->data_obj = std::string(dataBuf, len);
+    putObjMsg->data_obj_len = len;
+    putObjMsg->data_obj_id.digest = std::string((const char *)objId.GetId(), (size_t)objId.GetLen());
+
+#if 0
+    auto asyncPutReq = gRpcRequestPool->newFailoverRpcRequest(
+        boost::make_shared<DltObjectIdEpProvider>(om_client->getDLTNodesForDoidKey(objId)));
+    asyncPutReq->setRpcFunc(
+        CREATE_RPC_SPTR(fpi::SMSvcClient, putObject, putObjMsg));
+    asyncPutReq->setTimeoutMs(500);
+    asyncPutReq->onResponseCb(respCb);
+    asyncPutReq->invoke();
+
+    LOGDEBUG << asyncPutReq->logString() << fds::logString(*putObjMsg);
+#endif
+}
+
+void StorHvCtrl::issueUpdateCatalogMsg(const ObjectID &objId,
+                                       const std::string& blobName,
+                                       const fds_uint64_t& blobOffset,
+                                       const fds_uint64_t &len,
+                                       const bool &lastBuf,
+                                       const fds_volid_t& volId,
+                                       FailoverRpcRespCb respCb)
+{
+    UpdateCatalogMsgPtr updCatMsg(new UpdateCatalogMsg());
+    updCatMsg->blob_name   = blobName;
+    updCatMsg->blob_version = blob_version_invalid;
+    updCatMsg->volume_id = volId;
+
+
+    // Setup blob offset updates
+    // TODO(Andrew): Today we only expect one offset update
+    // TODO(Andrew): Remove lastBuf when we have real transactions
+    updCatMsg->obj_list.clear();
+    FDS_ProtocolInterface::FDSP_BlobObjectInfo updBlobInfo;
+    updBlobInfo.offset   = blobOffset;
+    updBlobInfo.size     = len;
+    updBlobInfo.blob_end = lastBuf;
+    updBlobInfo.data_obj_id.digest =
+            std::string((const char *)objId.GetId(), (size_t)objId.GetLen());
+    // Add the offset info to the DM message
+    updCatMsg->obj_list.push_back(updBlobInfo);
+
+#if 0
+    auto asyncUpdateCatReq = gRpcRequestPool->newFailoverRpcRequest(
+        boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(volId)));
+    asyncUpdateCatReq->setRpcFunc(
+        CREATE_RPC_SPTR(fpi::DMSvcClient, updateCatalog, updCatMsg));
+    asyncUpdateCatReq->setTimeoutMs(500);
+    asyncUpdateCatReq->onResponseCb(respCb);
+    asyncUpdateCatReq->invoke();
+
+    LOGDEBUG << asyncUpdateCatReq->logString() << fds::logString(*updCatMsg);
+#endif
+}
+
+void StorHvCtrl::putBlobPutObjectMsgResp(PutBlobReq *blobReq,
+                                         FailoverRpcRequest* rpcReq,
+                                         const Error& error,
+                                         boost::shared_ptr<std::string> payload)
+{
+    fpi::PutObjectRspMsgPtr putObjRsp =
+        NetMgr::ep_deserialize<fpi::PutObjectRspMsg>(const_cast<Error&>(error), payload);
+
+    if (error != ERR_OK) {
+        LOGERROR << "Obj ID: " << blobReq->getObjId()
+            << " blob name: " << blobReq->getBlobName()
+            << " offset: " << blobReq->getBlobOffset() << " Error: " << error; 
+    } else {
+        LOGDEBUG << rpcReq->logString() << fds::logString(*putObjRsp);
+    }
+    blobReq->notifyPutObjectComplete(error);
+}
+
+void StorHvCtrl::putBlobUpdateCatalogMsgResp(PutBlobReq *blobReq,
+                                             FailoverRpcRequest* rpcReq,
+                                             const Error& error,
+                                             boost::shared_ptr<std::string> payload)
+{
+    fpi::UpdateCatalogRspMsgPtr updCatRsp =
+        NetMgr::ep_deserialize<fpi::UpdateCatalogRspMsg>(const_cast<Error&>(error), payload);
+
+    if (error != ERR_OK) {
+        LOGERROR << "Obj ID: " << blobReq->getObjId()
+            << " blob name: " << blobReq->getBlobName()
+            << " offset: " << blobReq->getBlobOffset() << " Error: " << error; 
+    } else {
+        LOGDEBUG << rpcReq->logString() << fds::logString(*updCatRsp);
+    }
+    blobReq->notifyUpdateCatalogComplete(error);
+
+}
+
 fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq)
 {
     fds::Error err(ERR_OK);

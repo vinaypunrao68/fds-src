@@ -367,6 +367,13 @@ class PutBlobReq: public FdsBlobReq {
     // Needed fields
     BlobTxId::ptr txDesc;
 
+    /* Indicates whether put object is acked */
+    bool putObjComplete;
+    /* Indicates whether update catalog object is acked */
+    bool updCatComplete;
+    /* Return status for completion callback */
+    Error retStatus;
+
     PutBlobReq(fds_volid_t _volid,
                const std::string& _blob_name, //same as objKey
                fds_uint64_t _blob_offset,
@@ -389,7 +396,11 @@ class PutBlobReq: public FdsBlobReq {
         req_context(_req_context),
         putObjCallback(_put_obj_handler),
         callback_data(_callback_data),
-        txDesc(_txDesc) {
+        txDesc(_txDesc),
+        putObjComplete(false),
+        updCatComplete(false),
+        retStatus(ERR_OK)
+    {
     }
 
     fds_bool_t isLastBuf() const {
@@ -413,6 +424,42 @@ class PutBlobReq: public FdsBlobReq {
     void DoCallback(FDSN_Status status, ErrorDetails* errDetails) {
         (putObjCallback)(req_context, dataLen, blobOffset, dataBuf,
                          callback_data, status, errDetails);
+    }
+
+    /* Nofication that put object to SM has been acked
+     * NOTE: In here we may delete this object if both SM
+     * and DM have ackd
+     */
+    void notifyPutObjectComplete(const Error &e)
+    {
+        fds_assert(putObjComplete == false);
+        putObjComplete = true;
+        if (retStatus == ERR_OK) {
+            retStatus = e;
+        }
+        checkDoCompletionCb();
+    }
+
+    /* Nofication that update catalog to DM has been acked
+     * NOTE: In here we may delete this object if both SM
+     * and DM have ackd
+     */
+    void notifyUpdateCatalogComplete(const Error &e)
+    {
+        fds_assert(updCatComplete == false);
+        updCatComplete = true;
+        if (retStatus == ERR_OK) {
+            retStatus = e;
+        }
+        checkDoCompletionCb();
+    }
+
+    void checkDoCompletionCb() {
+        if (updCatComplete && putObjComplete) {
+            // TODO(Rao): Mark qos io as done
+            cbWithResult(retStatus.GetErrno());
+            delete this;
+        }
     }
 };
 

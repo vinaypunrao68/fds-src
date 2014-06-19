@@ -105,10 +105,9 @@ void FailoverRpcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header
 {
     DBG(GLOGDEBUG << fds::logString(*header));
 
-    // bool invokeRpc = false;
     fpi::SvcUuid errdEpId;
 
-    fds_scoped_lock l(respLock_);
+    // fds_scoped_lock l(respLock_);
     if (isComplete()) {
         /* Request is already complete.  At this point we don't do anything on
          * the responses than just draining them out

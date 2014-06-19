@@ -404,41 +404,46 @@ void QuorumRpcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
 {
     DBG(GLOGDEBUG << logString());
 
-    // bool invokeRpc = false;
     fpi::SvcUuid errdEpId;
 
-    fds_scoped_lock l(respLock_);
+    // fds_scoped_lock l(respLock_);
     auto epReq = getEpReq_(header->msg_src_uuid);
-    if (isComplete() || !epReq) {
-        /* Drop completed requests or responses from uknown endpoint src ids */
+    if (isComplete()) {
+        /* Drop completed requests */
+        GLOGWARN << logString() << " Already completed";
+        return;
+    } else if (!epReq) {
+        /* Drop responses from uknown endpoint src ids */
+        GLOGWARN << logString() << " Unkonwn EpId";
         return;
     }
 
     epReq->complete(header->msg_code);
 
-    if (header->msg_code == ERR_OK) {
-        successAckd_++;
-    } else {
+    bool bSuccess = (header->msg_code == ERR_OK);
+    /* Handle the error */
+    if (header->msg_code != ERR_OK) {
         GLOGWARN << fds::logString(*header);
-
         /* Notify actionable error to endpoint manager */
         if (NetMgr::ep_mgr_singleton()->ep_actionable_error(header->msg_code)) {
             NetMgr::ep_mgr_singleton()->ep_handle_error(
                 header->msg_src_uuid, header->msg_code);
-        }
-
-        errorAckd_++;
-        if (epAppStatusCb_) {
-            bool reqComplete = false;
-            epAppStatusCb_(header->msg_code, payload);
-            if (reqComplete) {
-                // NOTE: errorCb_ isn't invoked here
-                complete(ERR_RPC_USER_INTERRUPTED);
-                return;
+        } else {
+            /* Handle Application specific errors here */
+            if (epAppStatusCb_) {
+                bSuccess = epAppStatusCb_(header->msg_code, payload);
             }
         }
     }
 
+    /* Update the endpoint ack counts */
+    if (bSuccess) {
+        successAckd_++;
+    } else {
+        errorAckd_++;
+    }
+
+    /* Take action based on the ack counts */
     if (successAckd_ == quorumCnt_) {
         if (successCb_) {
             successCb_(payload);

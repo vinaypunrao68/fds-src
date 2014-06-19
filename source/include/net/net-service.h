@@ -9,6 +9,7 @@
 #include <string>
 #include <thrift/protocol/TBinaryProtocol.h>
 #include <thrift/transport/TBufferTransports.h>
+#include <concurrency/SynchronizedTaskExecutor.hpp>
 
 #include <fds_ptr.h>
 #include <fds_module.h>
@@ -362,6 +363,7 @@ class NetMgr : public Module
 
     static NetMgr *ep_mgr_singleton() { return &gl_NetService; }
     static fds_threadpool *ep_mgr_thrpool();
+    SynchronizedTaskExecutor<uint64_t>* ep_get_task_executor();
 
     /**
      * Return all uuid binding records.  The RO array may have hole(s) where uuids
@@ -561,6 +563,8 @@ class NetMgr : public Module
     Platform                      *plat_lib;
     NetPlatSvc                    *plat_net;
     EpPlatLibMod                  *ep_shm;
+
+    SynchronizedTaskExecutor<uint64_t> *ep_task_executor;
 
     UuidEpMap                      ep_map;
     UuidSvcMap                     ep_svc_map;
