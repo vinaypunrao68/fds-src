@@ -259,6 +259,7 @@ VolumeMeta::syncVolCat(fds_volid_t volId, NodeUuid node_uuid)
 
   vol_mtx->lock();
   //err = vcat->DbSnap(root->dir_user_repo_dm() + "snap" + vol_name + "_vcat.ldb");
+  err = vcat->WaitFlush();  // make sure all updates are on disk
   returnCode = std::system((const char *)("cp -r "+src_dir_vcat+"  "+dst_dir+" ").c_str());
   returnCode = std::system((const char *)("cp -r "+src_dir_tcat+"  "+dst_dir+" ").c_str());
   vol_mtx->unlock();
@@ -327,6 +328,7 @@ VolumeMeta::deltaSyncVolCat(fds_volid_t volId, NodeUuid node_uuid)
 
   vol_mtx->lock();
   //err = vcat->DbSnap(root->dir_user_repo_dm() + "snap" + vol_name + "_vcat.ldb");
+  err = vcat->WaitFlush();  // make sure all updates are on disk
   returnCode = std::system((const char *)("cp -r "+src_dir_vcat+"  "+dst_dir+" ").c_str());
   returnCode = std::system((const char *)("cp -r "+src_dir_tcat+"  "+dst_dir+" ").c_str());
   // we must set forwarding flag under the same lock we create snapshots
@@ -363,15 +365,16 @@ VolumeMeta::deltaSyncVolCat(fds_volid_t volId, NodeUuid node_uuid)
 // otherwise returns false (volume not in forwarding state or qos queue
 // is not empty
 //
-fds_bool_t VolumeMeta::finishForwarding() {
-    fds_bool_t bret = false;
+void VolumeMeta::finishForwarding() {
     FDS_PLOG(dm_log) << "finishForwarding for volume " << *vol_desc
                      << ", state " << fwd_state;
 
     vol_mtx->lock();
     if (fwd_state == VFORWARD_STATE_INPROG) {
-        bret = dmVolQueue->volQueue->empty();
-	dmtclose_time = boost::posix_time::microsec_clock::universal_time();
+        // set close time to now + small(ish) time interval, so that we also include
+        // IO that are in fligt (sent from AM but did not reach DM's qos queue)
+	dmtclose_time = boost::posix_time::microsec_clock::universal_time() +
+                boost::posix_time::milliseconds(1600);
         fwd_state = VFORWARD_STATE_FINISHING;
         FDS_PLOG(dm_log) << "finishForwarding:  close time: " << dmtclose_time;
     }
@@ -379,7 +382,6 @@ fds_bool_t VolumeMeta::finishForwarding() {
         fwd_state = VFORWARD_STATE_NONE;
     }
     vol_mtx->unlock();
-    return bret;
 }
 
 void VolumeMeta::dmCopyVolumeDesc(VolumeDesc *v_desc, VolumeDesc *pVol) {

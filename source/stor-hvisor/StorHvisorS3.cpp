@@ -375,6 +375,7 @@ fds::Error StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
     journEntry->data_obj_id.digest = std::string((const char *)objId.GetId(), (size_t)objId.GetLen());
     journEntry->data_obj_len = blobReq->getDataLen();
     journEntry->putMsg = put_obj_req;
+    journEntry->dmt_version = upd_obj_req->dmt_version;
 
     InitSmMsgHdr(msgHdrSm);
     msgHdrSm->src_ip_lo_addr = SRC_IP;

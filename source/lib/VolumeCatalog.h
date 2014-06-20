@@ -30,6 +30,7 @@ namespace fds {
     using Catalog::DbSnap;
     using Catalog::QuerySnap;
     using Catalog::QueryNew;
+    using Catalog::WaitFlush;
   };
 
   class TimeCatalog : public Catalog {

@@ -641,10 +641,9 @@ class VolumeMeta {
         fwd_state = VFORWARD_STATE_NONE;
     }
     /**
-     * returns true if in VFORWARD_STATE_INPROG state
-     * and volume's qos queue is empty
+     * If state is 'in progress', will move to 'finishing'
      */
-    fds_bool_t finishForwarding();
+    void finishForwarding();
 
     /*
      * The volume catalog maintains mappings from

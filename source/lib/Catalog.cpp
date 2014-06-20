@@ -96,6 +96,15 @@ Catalog::Delete(const Record& key) {
     return err;
 }
 
+fds::Error Catalog::WaitFlush() {
+    Error err(ERR_OK);
+    leveldb::Status status = db->Write(leveldb::WriteOptions(), NULL);
+    if (!status.ok()) {
+        err = Error(ERR_DISK_WRITE_FAILED);
+    }
+    return err;
+}
+
 /*
  * browse through the  DB and  if the db is valid  data return 
  * False( non Empty) else return true ( empty)

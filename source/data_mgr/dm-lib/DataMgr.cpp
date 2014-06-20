@@ -85,6 +85,59 @@ DataMgr::volmetaRecvd(fds_volid_t volid, const Error& error) {
 }
 
 /**
+ * Is called on timer to finish forwarding for all volumes that
+ * are still forwarding, send DMT close ack, and remove vcat/tcat
+ * of volumes that do not longer this DM responsibility
+ */
+void
+DataMgr::finishCloseDMT() {
+    std::unordered_map<fds_uint64_t, VolumeMeta*>::iterator vol_it;
+    std::unordered_set<fds_volid_t> done_vols;
+    fds_bool_t all_finished = false;
+
+    LOGNOTIFY << "Finish handling DMT close and send ack if not sent yet";
+
+    // move all volumes that are in 'finish forwarding' state
+    // to not forwarding state, and make a set of these volumes
+    // the set is used so that we call catSyncMgr to cleanup/and
+    // and send push meta done msg outside of vol_map_mtx lock
+    vol_map_mtx->lock();
+    for (vol_it = vol_meta_map.begin();
+         vol_it != vol_meta_map.end();
+         ++vol_it) {
+        fds_volid_t volid = vol_it->first;
+        VolumeMeta *vol_meta = vol_it->second;
+        if (vol_meta->isForwardFinish()) {
+            vol_meta->setForwardFinish();
+            done_vols.insert(volid);
+        }
+        // we expect that volume is not forwarding
+        fds_verify(!vol_meta->isForwarding());
+    }
+    vol_map_mtx->unlock();
+
+    for (std::unordered_set<fds_volid_t>::const_iterator it = done_vols.cbegin();
+         it != done_vols.cend();
+         ++it) {
+        // remove the volume from sync_volume list
+        LOGNORMAL << "CleanUP: remove Volume " << std::hex << *it << std::dec;
+        if (catSyncMgr->finishedForwardVolmeta(*it)) {
+            all_finished = true;
+        }
+    }
+
+    // at this point we expect that all volumes are done
+    fds_verify(all_finished || !catSyncMgr->isSyncInProgress());
+
+    // Note that finishedForwardVolmeta sends ack to close DMT when it returns true
+    // either in this method or when we called finishedForwardVolume for the last
+    // volume to finish forwarding
+
+    // cleanup if needed
+    deleteVolumeDb();  
+}
+
+/**
  * Note that volId may not necessarily match volume id in ioReq
  * Example when it will not match: if we enqueue request for volumeA
  * to shadow queue, we will pass shadow queue's volId (queue id)
@@ -132,7 +185,6 @@ void DataMgr::deleteVolumeDb() {
 */
      }
     vol_map_mtx->unlock();
-
 }
 
 /*
@@ -366,7 +418,6 @@ Error DataMgr::_process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only) {
  */
 Error DataMgr::notifyStopForwardUpdates() {
     std::unordered_map<fds_uint64_t, VolumeMeta*>::iterator vol_it;
-    fds_bool_t all_finished = false;
     Error err(ERR_OK);
 
     if (!catSyncMgr->isSyncInProgress()) {  
@@ -379,21 +430,15 @@ Error DataMgr::notifyStopForwardUpdates() {
          vol_it != vol_meta_map.end();
          ++vol_it) {
         VolumeMeta *vol_meta = vol_it->second;
-        fds_bool_t stop_forward = vol_meta->finishForwarding();
-        if (stop_forward) {
-            vol_meta->setForwardFinish();
-            // remove the volume from sync_volume list
-            LOGNORMAL << "CleanUP: remove Volume " << std::hex
-                      << vol_it->first << std::dec;
-            if (catSyncMgr->finishedForwardVolmeta(vol_it->first)) {
-                all_finished = true;
-            }
-        }
+        vol_meta->finishForwarding();
     }
     vol_map_mtx->unlock();
 
-    if (all_finished) {
-        deleteVolumeDb();
+    // start timer where we will stop forwarding volumes that are
+    // still in 'finishing forwarding' state
+    if (!closedmt_timer->schedule(closedmt_timer_task, std::chrono::seconds(2))) {
+        // TODO(xxx) how do we handle this?
+        fds_panic("Failed to schedule closedmt timer!");
     }
 
     return err;
@@ -606,7 +651,11 @@ DataMgr::DataMgr(int argc, char *argv[], Platform *platform, Module **vec)
           catSyncRecv(new CatSyncReceiver(this,std::bind(&DataMgr::volmetaRecvd,
                                                          this,
                                                          std::placeholders::_1,
-                                                         std::placeholders::_2)))
+                                                         std::placeholders::_2))),
+          closedmt_timer(new FdsTimer()),
+          closedmt_timer_task(new CloseDMTTimerTask(*closedmt_timer,
+                                                    std::bind(&DataMgr::finishCloseDMT,
+                                                              this)))
 {
     // If we're in test mode, don't daemonize.
     // TODO(Andrew): We probably want another config field and
@@ -645,6 +694,8 @@ DataMgr::~DataMgr()
      * complete.
      */
     delete _tp;
+
+    closedmt_timer->destroy();
 
     for (std::unordered_map<fds_uint64_t, VolumeMeta*>::iterator
                  it = vol_meta_map.begin();
@@ -1125,7 +1176,8 @@ DataMgr::updateCatalogProcess(const dmCatReq  *updCatReq, BlobNode **bnode) {
               << ", Trans ID "
               << updCatReq->transId
               << ", OP ID " << updCatReq->transOp
-              << ", journ TXID " << updCatReq->reqCookie;
+              << ", journ TXID " << updCatReq->reqCookie
+	      << ", dmt_version " << updCatReq->fdspUpdCatReqPtr->dmt_version;
 
     // Grab a big lock around the entire operation so that
     // all updates to the same blob get serialized from disk
@@ -1351,23 +1403,22 @@ Error  DataMgr::forwardUpdateCatalogRequest(dmCatReq  *updCatReq) {
         do_finish  = vol_meta->isForwardFinish();
         vol_map_mtx->unlock();
      
-        if ((do_forward)  || ( vol_meta->dmtclose_time > updCatReq->enqueue_time)) {
+        if ((do_forward) || ( vol_meta->dmtclose_time > updCatReq->enqueue_time)) {
             err = catSyncMgr->forwardCatalogUpdate(updCatReq);
+        } else {
+            err = ERR_DMT_FORWARD;
         }
-         else 
-          err = ERR_DMT_FORWARD;
 
         // move the state, once we drain  planned queue contents 
-         LOGNORMAL << "DMT close Time:  " << vol_meta->dmtclose_time 
-                        << " Enqueue Time: " << updCatReq->enqueue_time;
+        LOGNORMAL << "DMT close Time:  " << vol_meta->dmtclose_time 
+                  << " Enqueue Time: " << updCatReq->enqueue_time;
         
-        if ((vol_meta->dmtclose_time < updCatReq->enqueue_time) && (do_finish)) {
+        if ((vol_meta->dmtclose_time <= updCatReq->enqueue_time) && (do_finish)) {
             vol_meta->setForwardFinish();
             // remove the volume from sync_volume list
             LOGNORMAL << "CleanUP: remove Volume " << updCatReq->volId;
             catSyncMgr->finishedForwardVolmeta(updCatReq->volId);
         }        
-
     }
     else 
         err = ERR_DMT_FORWARD;
@@ -2288,5 +2339,8 @@ void DataMgr::InitMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr)
     msg_hdr->result = FDSP_ERR_OK;
 }
 
+void CloseDMTTimerTask::runTimerTask() {
+    timeout_cb();
+}
 
 }  // namespace fds

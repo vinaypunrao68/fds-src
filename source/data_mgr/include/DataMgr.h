@@ -13,6 +13,7 @@
 #include <fds_types.h>
 #include <fds_volume.h>
 #include <dm-platform.h>
+#include <fds_timer.h>
 
 /* TODO: avoid cross module include, move API header file to include dir. */
 #include <lib/OMgrClient.h>
@@ -78,6 +79,12 @@ public:
  
     dmRunModes    runMode;
     fds_uint32_t numTestVols;  /* Number of vols to use in test mode */
+
+    /**
+     * For timing out request forwarding in DM (to send DMT close ack)
+     */
+    FdsTimerPtr closedmt_timer;
+    FdsTimerTaskPtr closedmt_timer_task;
 
     class dmQosCtrl : public FDS_QoSControl {
  public:
@@ -299,6 +306,11 @@ public:
      * for volume 'volid', so we can start process AMs' requests for this volume
      */
     void volmetaRecvd(fds_volid_t volid, const Error& error);
+    /**
+     * Timeout to send DMT close ack if not sent yet and stop forwarding
+     * cat updates for volumes that are still in 'finishing forwarding' state
+     */
+    void finishCloseDMT();
 
     /* 
      * FDS protocol processing proto types 
@@ -371,6 +383,21 @@ public:
     };
 
    };
+
+class CloseDMTTimerTask: public FdsTimerTask {
+public:
+    typedef std::function<void ()> cbType;
+
+    CloseDMTTimerTask(FdsTimer& timer, cbType cb)  //NOLINT
+            : FdsTimerTask(timer), timeout_cb(cb) {
+    }
+    ~CloseDMTTimerTask() {}
+
+    void runTimerTask();
+
+private:
+    cbType timeout_cb;
+};
 
 }  // namespace fds
 

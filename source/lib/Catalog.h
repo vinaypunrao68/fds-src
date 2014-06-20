@@ -74,6 +74,7 @@ namespace fds {
     fds::Error DbSnap(const std::string& _file);
     fds::Error QuerySnap(const std::string& _file, const Record& key, std::string* value);
     fds::Error QueryNew(const std::string& _file, const Record& key, std::string* value);
+    fds::Error WaitFlush();
 
     std::string GetFile() const;
   };

@@ -58,6 +58,8 @@ StorHvJournalEntry::StorHvJournalEntry()
 
     // Initialize lock to unlocked state here
     je_mutex = new fds_mutex("Journal Entry Mutex");
+
+    dmt_version = 0;
 }
 
 StorHvJournalEntry::~StorHvJournalEntry()

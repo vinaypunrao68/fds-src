@@ -148,6 +148,7 @@ public:
   FDSP_IpNode    dm_ack[FDS_MAX_DM_NODES_PER_CLST];
   short    num_sm_nodes;
   FDSP_IpNode    sm_ack[FDS_MAX_SM_NODES_PER_CLST];
+  fds_uint64_t dmt_version;  // set when we send open cat upd, and used when sending commit cat upd
 };
 
 class  StorHvJournalEntryLock {
