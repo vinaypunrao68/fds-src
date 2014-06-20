@@ -344,7 +344,7 @@ public:
                            const fds_volid_t& volId,
                            FailoverRpcRespCb respCb);
 
-    void issueGetObject(const ObjectID& objId,
+    void issueGetObject(const fds_volid_t& volId, const ObjectID& objId,
                         FailoverRpcRespCb respCb);
 
     void getBlobQueryCatalogResp(fds::AmQosReq* qosReq,
@@ -364,6 +364,7 @@ public:
     void issuePutObjectMsg(const ObjectID &objId,
                            const char* dataBuf,
                            const fds_uint64_t &len,
+                           const fds_volid_t& volId,
                            FailoverRpcRespCb respCb);
     void issueUpdateCatalogMsg(const ObjectID &objId,
                                const std::string& blobName,

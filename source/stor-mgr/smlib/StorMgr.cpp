@@ -1528,6 +1528,188 @@ ObjectStorMgr::relocateObject(const ObjectID &objId,
  * @return any associated error
  */
 Error
+ObjectStorMgr::putObjectInternal2(SmIoPutObjectReq *putReq) {
+    Error err(ERR_OK);
+    const ObjectID&  objId    = putReq->getObjId();
+    fds_volid_t volId         = putReq->getVolId();
+    diskio::DataTier tierUsed = diskio::maxTier;
+    ObjBufPtrType objBufPtr = NULL;
+    ObjectIdJrnlEntry* jrnlEntry =  omJrnl->get_transaction(putReq->getTransId());
+    OpCtx opCtx(OpCtx::PUT, putReq->origin_timestamp);
+    bool new_buff_allocated = false, added_cache = false;
+
+    ObjMetaData objMap;
+    //objStorMutex->lock();
+
+    fds_assert(volId != 0);
+    fds_assert(objId != NullObjectID);
+    fds_assert(putReq->origin_timestamp != 0);
+
+#ifdef OBJCACHE_ENABLE
+    objBufPtr = objCache->object_retrieve(volId, objId);
+    if (objBufPtr != NULL) {
+        fds_verify(!(objCache->is_object_io_in_progress(volId, objId, objBufPtr)));
+
+        // Now check for dedup here.
+        if (objBufPtr->data == putReq->data_obj) {
+            err = ERR_DUPLICATE;
+        } else {
+            /*
+             * Handle hash-collision - insert the next collision-id+obj-id
+             */
+            err = ERR_HASH_COLLISION;
+        }
+        objCache->object_release(volId, objId, objBufPtr);
+    }
+
+    // Find if this object is a duplicate
+    if (err == ERR_OK) {
+        // Nothing in cache. Let's allocate a new buf from cache mgr and copy over the data
+
+        objBufPtr = objCache->object_alloc(volId, objId, putReq->data_obj.size());
+        // TODO(Rao): We should use std move here
+        memcpy((void *)objBufPtr->data.c_str(), (void *)putReq->data_obj.c_str(), putReq->data_obj.size());
+        new_buff_allocated = true;
+
+        err = checkDuplicate(objId,
+                *objBufPtr, objMap);
+    }
+
+    if (err == ERR_DUPLICATE) {
+        if (new_buff_allocated) {
+            added_cache = true;
+            objCache->object_add(volId, objId, objBufPtr, false);
+            objCache->object_release(volId, objId, objBufPtr);
+        }
+        LOGDEBUG << "Put dup:  " << err
+                << ", returning success";
+
+        smObjDb->lock(objId);
+        // Update  the AssocEntry for dedupe-ing
+        err = readObjMetaData(objId, objMap);
+        if (err.ok()) {
+            objMap.updateAssocEntry(objId, volId);
+            err = smObjDb->put(opCtx, objId, objMap);
+            if (err == ERR_OK) {
+                LOGDEBUG << "Dedupe object Assoc Entry for object "
+                         << objId << " to " << objMap;
+            } else {
+                LOGERROR << "Failed to put ObjMetaData " << objId
+                         << " into odb with error " << err;
+            }
+        } else {
+            LOGERROR << "Failed to read ObjMetaData from db" << err;
+        }
+        smObjDb->unlock(objId);
+
+        /*
+         * Reset the err to OK to ack the metadata update.
+         */
+        err = ERR_OK;
+    } else if (err != ERR_OK) {
+        if (new_buff_allocated) {
+            objCache->object_release(volId, objId, objBufPtr);
+            objCache->object_delete(volId, objId);
+        }
+        LOGERROR << "Failed to check object duplicate status on put: "
+                 << err;
+    } else {
+
+        /*
+         * Write the object and record which tier it went to
+         */
+        err = writeObject(opCtx, objId, *objBufPtr, volId, tierUsed);
+
+        if (err != fds::ERR_OK) {
+            objCache->object_release(volId, objId, objBufPtr);
+            objCache->object_delete(volId, objId);
+            objCache->object_release(volId, objId, objBufPtr);
+            LOGDEBUG << "Successfully put object " << objId;
+            /* if we successfully put to flash -- notify ranking engine */
+            if (tierUsed == diskio::flashTier) {
+                StorMgrVolume *vol = volTbl->getVolume(volId);
+                fds_verify(vol);
+                rankEngine->rankAndInsertObject(objId, *(vol->voldesc));
+            }
+        } else if (added_cache == false) {
+            objCache->object_add(volId, objId, objBufPtr, false);
+        }
+
+
+
+        /*
+         * Stores a reverse mapping from the volume's disk location
+         * to the oid at that location.
+         */
+        /*
+          TODO: Comment this back in!
+          volTbl->createVolIndexEntry(putReq.io_vol_id,
+          put_obj_req->volume_offset,
+          put_obj_req->data_obj_id,
+          put_obj_req->data_obj_len);
+        */
+    }
+#else
+        objBufPtr = objCache->object_alloc(volId, objId, putReq->data_obj.size());
+        memcpy((void *)objBufPtr->data.c_str(), (void *)putReq->data_obj.c_str(), putReq->data_obj.size());
+
+        err = checkDuplicate(objId,
+                *objBufPtr, objMap);
+        if (err == ERR_DUPLICATE) {
+          // Update  the AssocEntry for dedupe-ing
+          LOGDEBUG << " Object  ID: " << objId << " objMap: " << objMap;
+          smObjDb->lock(objId);
+          err = readObjMetaData(objId, objMap);
+          /* At this point object metadata must exist */
+          fds_verify(err == ERR_OK);
+
+          objMap.updateAssocEntry(objId, volId);
+          err = smObjDb->put(opCtx, objId, objMap);
+          smObjDb->unlock(objId);
+          if (err == ERR_OK) {
+              LOGDEBUG << "Dedupe object Assoc Entry for object "
+                      << objId << " to " << objMap;
+          } else {
+              LOGERROR << "Failed to put ObjMetaData " << objId
+                      << " into odb with error " << err;
+          }  
+
+          err = ERR_OK;
+        } else {
+
+         err = writeObject(opCtx, objId, *objBufPtr, volId, tierUsed);
+
+          if (err != fds::ERR_OK) {
+              LOGDEBUG << "Successfully put object " << objId;
+              /* if we successfully put to flash -- notify ranking engine */
+              if (tierUsed == diskio::flashTier) {
+                  StorMgrVolume *vol = volTbl->getVolume(volId);
+                  fds_verify(vol);
+                  rankEngine->rankAndInsertObject(objId, *(vol->voldesc));
+              }
+         }
+ 
+       }
+       objCache->object_release(volId, objId, objBufPtr);
+       objCache->object_delete(volId, objId);
+
+#endif
+    //objStorMutex->unlock();
+
+    qosCtrl->markIODone(*putReq,
+                        tierUsed);
+    omJrnl->release_transaction(putReq->getTransId());
+
+    putReq->response_cb(err, putReq);
+
+    return err;
+}
+/**
+ * Process a single object put.
+ * @param the request structure ptr
+ * @return any associated error
+ */
+Error
 ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
     Error err(ERR_OK);
     const ObjectID&  objId    = putReq->getObjId();
@@ -1972,6 +2154,92 @@ ObjectStorMgr::DeleteObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
 }
 
 Error
+ObjectStorMgr::getObjectInternal2(SmIoReadObjectdata *getReq) {
+    Error            err(ERR_OK);
+    const ObjectID  &objId = getReq->getObjId();
+    fds_volid_t volId      = getReq->getVolId();
+    diskio::DataTier tierUsed = diskio::maxTier;
+    ObjBufPtrType objBufPtr = NULL;
+
+    fds_assert(volId != 0);
+    fds_assert(objId != NullObjectID);
+
+    /*
+     * We need to fix this once diskmanager keeps track of object size
+     * and allocates buffer automatically.
+     * For now, we will pass the fixed block size for size and preallocate
+     * memory for that size.
+     */
+
+    //objStorMutex->lock();
+    objBufPtr = objCache->object_retrieve(volId, objId);
+
+    if (!objBufPtr) {
+        ObjectBuf objData;
+        ObjMetaData objMetadata;
+        objData.size = 0;
+        objData.data = "";
+        err = readObject(SmObjDb::SYNC_MERGED, objId, objMetadata, objData, tierUsed);
+        if (err == fds::ERR_OK) {
+            objBufPtr = objCache->object_alloc(volId, objId, objData.size);
+            memcpy((void *)objBufPtr->data.c_str(), (void *)objData.data.c_str(), objData.size);
+            objCache->object_add(volId, objId, objBufPtr, false); // read data is always clean
+            // ACL: If this Volume never put this object, then it should not access the object
+            if (!objMetadata.isVolumeAssociated(volId)) {
+
+            // TODO (bao): Need a way to ignore acl to run checker process
+#define _IGNORE_ACL_CHECK_FOR_TEST_
+#ifdef _IGNORE_ACL_CHECK_FOR_TEST_
+                err = fds::ERR_OK;
+#else
+               err = ERR_UNAUTH_ACCESS;
+               LOGDEBUG << "Volume " << volId << " unauth-access of object " << objId
+                // << " and data " << objData.data
+                << " for request ID " << getReq->io_req_id;
+#endif
+
+            }
+        }
+    } else {
+        fds_verify(!(objCache->is_object_io_in_progress(volId, objId, objBufPtr)));
+    }
+
+    //objStorMutex->unlock();
+
+    if (err != fds::ERR_OK) {
+        LOGERROR << "Failed to get object " << objId
+                 << " with error " << err;
+        getReq->obj_data.data.clear();
+    } else {
+        LOGDEBUG << "Successfully got object " << objId
+                // << " and data " << objData.data
+                 << " for request ID " << getReq->io_req_id;
+        getReq->obj_data.data = std::move(objBufPtr->data);
+        objBufPtr->data.clear();
+    }
+
+    qosCtrl->markIODone(*getReq, tierUsed);
+
+    /*
+     * Prepare a response to send back.
+     */
+    ObjectIdJrnlEntry* jrnlEntry =  omJrnl->get_transaction(getReq->getTransId());
+    omJrnl->release_transaction(getReq->getTransId());
+
+    objStats->updateIOpathStats(getReq->getVolId(), getReq->getObjId());
+    volTbl->updateVolStats(getReq->getVolId());
+
+    objStats->updateIOpathStats(getReq->getVolId(),getReq->getObjId());
+    volTbl->updateVolStats(getReq->getVolId());
+
+    objCache->object_release(volId, objId, objBufPtr);
+
+    getReq->smio_readdata_resp_cb(err, getReq);
+
+    return err;
+}
+
+Error
 ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
     Error            err(ERR_OK);
     const ObjectID  &objId = getReq->getObjId();
@@ -2283,6 +2551,23 @@ Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
         case FDS_SM_COMPACT_OBJECTS:
         case FDS_SM_SNAPSHOT_TOKEN:
             err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
+            if (err != fds::ERR_OK) {
+                LOGERROR << "Failed to enqueue msg: " << ioReq->log_string();
+            }
+            break;
+        /* Following are messages that require io synchronization at object
+         * id level via transaction table
+         */
+        case FDS_SM_GET_OBJECT:
+            objectId = static_cast<SmIoReadObjectdata*>(ioReq)->getObjId();
+            err =  enqTransactionIo(nullptr, objectId, ioReq, trans_id);
+            if (err != fds::ERR_OK) {
+                LOGERROR << "Failed to enqueue msg: " << ioReq->log_string();
+            }
+            break;
+        case FDS_SM_PUT_OBJECT:
+            objectId = static_cast<SmIoPutObjectReq*>(ioReq)->getObjId();
+            err =  enqTransactionIo(nullptr, objectId, ioReq, trans_id);
             if (err != fds::ERR_OK) {
                 LOGERROR << "Failed to enqueue msg: " << ioReq->log_string();
             }
@@ -2752,6 +3037,16 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
         case FDS_DELETE_BLOB:
             FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a Delete request";
             threadPool->schedule(delObjectExt,io);
+            break;
+        case FDS_SM_GET_OBJECT:
+            FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a get request";
+            threadPool->schedule(&ObjectStorMgr::getObjectInternal2,
+                                 objStorMgr, static_cast<SmIoReadObjectdata*>(io));
+            break;
+        case FDS_SM_PUT_OBJECT:
+            FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a put request";
+            threadPool->schedule(&ObjectStorMgr::putObjectInternal2,
+                                 objStorMgr, static_cast<SmIoPutObjectReq*>(io));
             break;
         case FDS_SM_WRITE_TOKEN_OBJECTS:
         {

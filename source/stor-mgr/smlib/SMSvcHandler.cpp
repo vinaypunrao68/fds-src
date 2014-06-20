@@ -22,49 +22,81 @@ void SMSvcHandler::getObject(boost::shared_ptr<fpi::GetObjectMsg>& getObjMsg)  /
     DBG(GLOGDEBUG << fds::logString(*getObjMsg));
 
     DBG(FLAG_CHECK_RETURN_VOID(common_drop_async_resp > 0));
-#if 0
-    if (objStorMgr->getDLT()->getPrimary(ObjectID(getObjMsg->data_obj_id.digest)).\
-        uuid_get_val() == static_cast<uint64_t>(getObjMsg->hdr.msg_dst_uuid.svc_uuid) ||
-        objStorMgr->getDLT()->getNode(ObjectID(getObjMsg->data_obj_id.digest), 1).\
-        uuid_get_val() == static_cast<uint64_t>(getObjMsg->hdr.msg_dst_uuid.svc_uuid)) {
-        DBG(GLOGDEBUG << "Ignoring");
-        return;
-    }
-#endif
 
     Error err(ERR_OK);
-    auto read_data_msg = new SmIoReadObjectdata();
-    read_data_msg->io_type = FDS_SM_READ_OBJECTDATA;
-    read_data_msg->setObjId(ObjectID(getObjMsg->data_obj_id.digest));
-    read_data_msg->obj_data.obj_id = getObjMsg->data_obj_id;
-    read_data_msg->smio_readdata_resp_cb = std::bind(
+    auto read_req = new SmIoReadObjectdata();
+    read_req->io_type = FDS_SM_GET_OBJECT;
+    read_req->setVolId(getObjMsg->volume_id);
+    read_req->setObjId(ObjectID(getObjMsg->data_obj_id.digest));
+    read_req->obj_data.obj_id = getObjMsg->data_obj_id;
+    read_req->smio_readdata_resp_cb = std::bind(
             &SMSvcHandler::getObjectCb, this,
             getObjMsg,
             std::placeholders::_1, std::placeholders::_2);
 
-    // TODO(Rao): Change the queue to the right volume queue
-    err = objStorMgr->enqueueMsg(FdsSysTaskQueueId, read_data_msg);
+    err = objStorMgr->enqueueMsg(read_req->getVolId(), read_req);
     if (err != fds::ERR_OK) {
         fds_assert(!"Hit an error in enqueing");
         LOGERROR << "Failed to enqueue to SmIoReadObjectMetadata to StorMgr.  Error: "
                 << err;
-        getObjectCb(getObjMsg, err, read_data_msg);
+        getObjectCb(getObjMsg, err, read_req);
     }
 }
 
 void SMSvcHandler::getObjectCb(boost::shared_ptr<fpi::GetObjectMsg>& getObjMsg,
                                const Error &err,
-                               SmIoReadObjectdata *read_data)
+                               SmIoReadObjectdata *read_req)
 {
     DBG(GLOGDEBUG << fds::logString(*getObjMsg));
 
     auto resp = boost::make_shared<GetObjectResp>();
     resp->hdr.msg_code = static_cast<int32_t>(err.GetErrno());
-    resp->data_obj_len = read_data->obj_data.data.size();
-    resp->data_obj = read_data->obj_data.data;
+    resp->data_obj_len = read_req->obj_data.data.size();
+    resp->data_obj = read_req->obj_data.data;
     NetMgr::ep_mgr_singleton()->ep_send_async_resp(getObjMsg->hdr, *resp);
 
-    delete read_data;
+    delete read_req;
 }
 
+void SMSvcHandler::putObject(boost::shared_ptr<fpi::PutObjectMsg>& putObjMsg)  // NOLINT
+{
+    DBG(GLOGDEBUG << fds::logString(*putObjMsg));
+
+    DBG(FLAG_CHECK_RETURN_VOID(common_drop_async_resp > 0));
+
+    Error err(ERR_OK);
+    auto put_req = new SmIoPutObjectReq();
+    put_req->io_type = FDS_SM_PUT_OBJECT;
+    put_req->setVolId(putObjMsg->volume_id);
+    put_req->origin_timestamp = putObjMsg->origin_timestamp;
+    put_req->setObjId(ObjectID(putObjMsg->data_obj_id.digest));
+    put_req->data_obj = std::move(putObjMsg->data_obj);
+    putObjMsg->data_obj.clear();
+    put_req->response_cb= std::bind(
+            &SMSvcHandler::putObjectCb, this,
+            putObjMsg,
+            std::placeholders::_1, std::placeholders::_2);
+
+    // TODO(Rao): Change the queue to the right volume queue
+    err = objStorMgr->enqueueMsg(put_req->getVolId(), put_req);
+    if (err != fds::ERR_OK) {
+        fds_assert(!"Hit an error in enqueing");
+        LOGERROR << "Failed to enqueue to SmIoPutObjectReq to StorMgr.  Error: "
+                << err;
+        putObjectCb(putObjMsg, err, put_req);
+    }
+}
+
+void SMSvcHandler::putObjectCb(boost::shared_ptr<fpi::PutObjectMsg>& putObjMsg,
+                               const Error &err,
+                               SmIoPutObjectReq* put_req)
+{
+    DBG(GLOGDEBUG << fds::logString(*putObjMsg));
+
+    auto resp = boost::make_shared<fpi::PutObjectRspMsg>();
+    resp->hdr.msg_code = static_cast<int32_t>(err.GetErrno());
+    NetMgr::ep_mgr_singleton()->ep_send_async_resp(putObjMsg->hdr, *resp);
+
+    delete put_req;
+}
 }  // namespace fds

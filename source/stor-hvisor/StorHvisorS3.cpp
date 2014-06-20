@@ -1165,7 +1165,7 @@ Error StorHvCtrl::getBlob2(fds::AmQosReq *qosReq) {
                                     std::placeholders::_3));
     } else {
         fds_verify(objId != NullObjectID);
-        issueGetObject(objId,
+        issueGetObject(volId, objId,
                        std::bind(&StorHvCtrl::getBlobGetObjectResp, this, qosReq,
                                  std::placeholders::_1, std::placeholders::_2,
                                  std::placeholders::_3));
@@ -1206,11 +1206,12 @@ void StorHvCtrl::issueQueryCatalog(const std::string& blobName,
     LOGDEBUG << asyncQueryReq->logString() << fds::logString(*queryMsg);
 }
 
-void StorHvCtrl::issueGetObject(const ObjectID& objId,
+void StorHvCtrl::issueGetObject(const fds_volid_t& volId,
+                                const ObjectID& objId,
                                 FailoverRpcRespCb respCb)
 {
-    fds_volid_t  volId;
     fpi::GetObjectMsgPtr getObjMsg(boost::make_shared<fpi::GetObjectMsg>());
+    getObjMsg->volume_id = volId;
     getObjMsg->data_obj_id.digest = std::string((const char *)objId.GetId(),
                                                 (size_t)objId.GetLen());
 
@@ -1261,7 +1262,7 @@ void StorHvCtrl::getBlobQueryCatalogResp(fds::AmQosReq* qosReq,
     ObjectID objId(qryCatRsp->obj_list[0].data_obj_id.digest);
     fds_verify(objId != NullObjectID);
 
-    issueGetObject(objId,
+    issueGetObject(blobReq->getVolId(), objId,
                    std::bind(&StorHvCtrl::getBlobGetObjectResp, this, qosReq,
                              std::placeholders::_1, std::placeholders::_2,
                              std::placeholders::_3));
@@ -1405,6 +1406,7 @@ Error StorHvCtrl::putBlob2(fds::AmQosReq *qosReq) {
     issuePutObjectMsg(blobReq->getObjId(),
                       blobReq->getDataBuf(),
                       blobReq->getDataLen(),
+                      volId,
                       std::bind(&StorHvCtrl::putBlobPutObjectMsgResp,
                                 this, blobReq,
                                 std::placeholders::_1,
@@ -1430,12 +1432,14 @@ Error StorHvCtrl::putBlob2(fds::AmQosReq *qosReq) {
 void StorHvCtrl::issuePutObjectMsg(const ObjectID &objId,
                                    const char* dataBuf,
                                    const fds_uint64_t &len,
+                                   const fds_volid_t& volId,
                                    FailoverRpcRespCb respCb)
 {
     if (len == 0) {
         // TODO(Rao): Shortcut SM.  Issue a call back to indicate put successed
     }
     PutObjectMsgPtr putObjMsg(new PutObjectMsg);
+    putObjMsg->volume_id = volId;
     putObjMsg->origin_timestamp = fds::util::getTimeStampMillis();
     putObjMsg->data_obj = std::string(dataBuf, len);
     putObjMsg->data_obj_len = len;

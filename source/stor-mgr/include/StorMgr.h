@@ -494,7 +494,9 @@ class ObjectStorMgr :
     void DeleteObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
             const FDS_ProtocolInterface::FDSP_DeleteObjTypePtr& del_obj);
     Error getObjectInternal(SmIoReq* getReq);
+    Error getObjectInternal2(SmIoReadObjectdata *getReq);
     Error putObjectInternal(SmIoReq* putReq);
+    Error putObjectInternal2(SmIoPutObjectReq* putReq);
     Error deleteObjectInternal(SmIoReq* delReq);
     void putTokenObjectsInternal(SmIoReq* ioReq);
     void getTokenObjectsInternal(SmIoReq* ioReq);

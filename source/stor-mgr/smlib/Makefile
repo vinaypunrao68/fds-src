@@ -11,6 +11,7 @@ user_cpp_flags    := -DOBJCACHE_ENABLE
 user_cpp          :=                   \
     StorMgr.cpp                        \
     StorMgrVolumes.cpp                 \
+    SmIo.cpp			       \
     ObjRank.cpp                        \
     ObjStats.cpp                       \
     TierEngine.cpp                     \
