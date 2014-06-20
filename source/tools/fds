@@ -325,6 +325,8 @@ function clean() {
         fi
     done
 
+	rm -f /dev/shm/0x*
+
     cleanBinDirs
 }
 
