@@ -2214,8 +2214,8 @@ ObjectStorMgr::getObjectInternal2(SmIoReadObjectdata *getReq) {
         LOGDEBUG << "Successfully got object " << objId
                 // << " and data " << objData.data
                  << " for request ID " << getReq->io_req_id;
-        getReq->obj_data.data = std::move(objBufPtr->data);
-        objBufPtr->data.clear();
+        // TODO(Rao): Use std move here
+        getReq->obj_data.data = objBufPtr->data;
     }
 
     qosCtrl->markIODone(*getReq, tierUsed);
