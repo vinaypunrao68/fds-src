@@ -336,7 +336,7 @@ FdsRootDir::FdsRootDir(const std::string &root)
       d_user_repo(root     + std::string("user-repo/")),
       d_user_repo_objs(d_user_repo + std::string("objects/")),
       d_user_repo_dm(d_user_repo   + std::string("dm-names/")),
-      d_user_repo_snap(d_user_repo   + std::string("snap/")),
+      d_user_repo_snap(d_user_repo   + std::string("snap")),
 
       d_sys_repo(root      + std::string("sys-repo/")),
       d_sys_repo_etc(d_sys_repo       + std::string("etc/")),

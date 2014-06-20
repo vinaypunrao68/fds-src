@@ -231,6 +231,8 @@ VolumeMeta::syncVolCat(fds_volid_t volId, NodeUuid node_uuid)
   int  returnCode = 0;
   const std::string vol_name =  dataMgr->getPrefix() +
                               std::to_string(volId);
+  const std::string node_name =  dataMgr->getPrefix() +
+                              std::to_string(node_uuid.uuid_get_val());
   fds_uint32_t node_ip   = 0;
   fds_uint32_t node_port = 0;
   fds_int32_t node_state = -1;
@@ -243,9 +245,9 @@ VolumeMeta::syncVolCat(fds_volid_t volId, NodeUuid node_uuid)
   const std::string dst_node = dm->get_node_root() + "user-repo/dm-names/";
   const std::string src_dir_vcat = root->dir_user_repo_dm() + vol_name + "_vcat.ldb";
   const std::string src_dir_tcat = root->dir_user_repo_dm() + vol_name + "_tcat.ldb";
-  const std::string dst_dir =  root->dir_user_repo_snap();
-  const std::string src_sync_vcat =  root->dir_user_repo_snap() + vol_name + "_vcat.ldb";
-  const std::string src_sync_tcat =  root->dir_user_repo_snap() + vol_name + "_tcat.ldb";
+  const std::string dst_dir = root->dir_user_repo_snap() + node_name + std::string("/");;
+  const std::string src_sync_vcat =  root->dir_user_repo_snap() + node_name + std::string("/") + vol_name + "_vcat.ldb";
+  const std::string src_sync_tcat =  root->dir_user_repo_snap() + node_name + std::string("/") + vol_name + "_tcat.ldb";
 
   dataMgr->omClient->getNodeInfo(node_uuid.uuid_get_val(), &node_ip, &node_port, &node_state);
   std::string dest_ip = netSessionTbl::ipAddr2String(node_ip);
@@ -259,7 +261,6 @@ VolumeMeta::syncVolCat(fds_volid_t volId, NodeUuid node_uuid)
 
   vol_mtx->lock();
   //err = vcat->DbSnap(root->dir_user_repo_dm() + "snap" + vol_name + "_vcat.ldb");
-  err = vcat->WaitFlush();  // make sure all updates are on disk
   returnCode = std::system((const char *)("cp -r "+src_dir_vcat+"  "+dst_dir+" ").c_str());
   returnCode = std::system((const char *)("cp -r "+src_dir_tcat+"  "+dst_dir+" ").c_str());
   vol_mtx->unlock();
@@ -274,10 +275,8 @@ VolumeMeta::syncVolCat(fds_volid_t volId, NodeUuid node_uuid)
     start = fds_rdtsc();
     FDS_PLOG(dm_log) << " system Command rsync  start time: " <<  start;
   // rsync the meta data to the new DM nodes 
-   // returnCode = std::system((const char *)("sshpass -p passwd rsync -r "+dst_dir+"  root@"+dest_ip+":/tmp").c_str());
    returnCode = std::system((const char *)("sshpass -p passwd rsync -r "+src_sync_vcat+"  root@"+dest_ip+":"+dst_node+"").c_str());
    returnCode = std::system((const char *)("sshpass -p passwd rsync -r "+src_sync_tcat+"  root@"+dest_ip+":"+dst_node+"").c_str());
-  // returnCode = std::system((const char *)("rsync -r --rsh='sshpass -p passwd ssh -l root' "+dst+"/  root@"+dest_ip+":"+dst_node+"").c_str());
    
   end = fds_rdtsc();
   if ((end - start))
@@ -297,6 +296,8 @@ VolumeMeta::deltaSyncVolCat(fds_volid_t volId, NodeUuid node_uuid)
   int  returnCode = 0;
   const std::string vol_name =  dataMgr->getPrefix() +
                               std::to_string(volId);
+  const std::string node_name =  dataMgr->getPrefix() +
+                              std::to_string(node_uuid.uuid_get_val());
   fds_uint32_t node_ip   = 0;
   fds_uint32_t node_port = 0;
   fds_int32_t node_state = -1;
@@ -309,9 +310,9 @@ VolumeMeta::deltaSyncVolCat(fds_volid_t volId, NodeUuid node_uuid)
   const std::string dst_node = dm->get_node_root() + "user-repo/dm-names/";
   const std::string src_dir_vcat = root->dir_user_repo_dm() + vol_name + "_vcat.ldb";
   const std::string src_dir_tcat = root->dir_user_repo_dm() + vol_name + "_tcat.ldb";
-  const std::string dst_dir =  root->dir_user_repo_snap();
-  const std::string src_sync_vcat =  root->dir_user_repo_snap() + vol_name + "_vcat.ldb";
-  const std::string src_sync_tcat =  root->dir_user_repo_snap() + vol_name + "_tcat.ldb";
+  const std::string dst_dir = root->dir_user_repo_snap() + node_name + std::string("/");;
+  const std::string src_sync_vcat =  root->dir_user_repo_snap() + node_name + std::string("/") + vol_name + "_vcat.ldb";
+  const std::string src_sync_tcat =  root->dir_user_repo_snap() + node_name + std::string("/") + vol_name + "_tcat.ldb";
 
   dataMgr->omClient->getNodeInfo(node_uuid.uuid_get_val(), &node_ip, &node_port, &node_state);
   std::string dest_ip = netSessionTbl::ipAddr2String(node_ip);
