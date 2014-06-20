@@ -29,7 +29,8 @@ public class RouteFinder {
         String path = request.getMethod().toString() + request.getRequestURI()
                 .replaceAll("^" + request.getServletPath() + "/", "")
                 .replaceAll("^/", "")
-                .replaceAll("/$", "");
+                .replaceAll("/$", "")
+                .replaceAll("/+", "/");
         QueryResult<Supplier<RequestHandler>> result = map.find(path);
             MultiMap<String> parameters = request.getParameters() == null ? new MultiMap<>() : request.getParameters();
         if (result.found()) {
