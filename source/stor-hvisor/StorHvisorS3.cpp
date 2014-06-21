@@ -617,6 +617,7 @@ StorHvCtrl::resumePutBlob(StorHvJournalEntry *journEntry) {
 fds::Error
 StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
     fds::Error err(ERR_OK);
+    return putBlob2(qosReq);
     
     // Pull out the blob request     
     PutBlobReq *blobReq = static_cast<PutBlobReq *>(qosReq->getBlobReqPtr());
@@ -1433,7 +1434,7 @@ void StorHvCtrl::issuePutObjectMsg(const ObjectID &objId,
                                    const char* dataBuf,
                                    const fds_uint64_t &len,
                                    const fds_volid_t& volId,
-                                   FailoverRpcRespCb respCb)
+                                   QuorumRpcRespCb respCb)
 {
     if (len == 0) {
         // TODO(Rao): Shortcut SM.  Issue a call back to indicate put successed
@@ -1445,8 +1446,7 @@ void StorHvCtrl::issuePutObjectMsg(const ObjectID &objId,
     putObjMsg->data_obj_len = len;
     putObjMsg->data_obj_id.digest = std::string((const char *)objId.GetId(), (size_t)objId.GetLen());
 
-#if 0
-    auto asyncPutReq = gRpcRequestPool->newFailoverRpcRequest(
+    auto asyncPutReq = gRpcRequestPool->newQuorumRpcRequest(
         boost::make_shared<DltObjectIdEpProvider>(om_client->getDLTNodesForDoidKey(objId)));
     asyncPutReq->setRpcFunc(
         CREATE_RPC_SPTR(fpi::SMSvcClient, putObject, putObjMsg));
@@ -1455,7 +1455,6 @@ void StorHvCtrl::issuePutObjectMsg(const ObjectID &objId,
     asyncPutReq->invoke();
 
     LOGDEBUG << asyncPutReq->logString() << fds::logString(*putObjMsg);
-#endif
 }
 
 void StorHvCtrl::issueUpdateCatalogMsg(const ObjectID &objId,
@@ -1464,7 +1463,7 @@ void StorHvCtrl::issueUpdateCatalogMsg(const ObjectID &objId,
                                        const fds_uint64_t &len,
                                        const bool &lastBuf,
                                        const fds_volid_t& volId,
-                                       FailoverRpcRespCb respCb)
+                                       QuorumRpcRespCb respCb)
 {
     UpdateCatalogMsgPtr updCatMsg(new UpdateCatalogMsg());
     updCatMsg->blob_name   = blobName;
@@ -1485,8 +1484,7 @@ void StorHvCtrl::issueUpdateCatalogMsg(const ObjectID &objId,
     // Add the offset info to the DM message
     updCatMsg->obj_list.push_back(updBlobInfo);
 
-#if 0
-    auto asyncUpdateCatReq = gRpcRequestPool->newFailoverRpcRequest(
+    auto asyncUpdateCatReq = gRpcRequestPool->newQuorumRpcRequest(
         boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(volId)));
     asyncUpdateCatReq->setRpcFunc(
         CREATE_RPC_SPTR(fpi::DMSvcClient, updateCatalog, updCatMsg));
@@ -1495,11 +1493,10 @@ void StorHvCtrl::issueUpdateCatalogMsg(const ObjectID &objId,
     asyncUpdateCatReq->invoke();
 
     LOGDEBUG << asyncUpdateCatReq->logString() << fds::logString(*updCatMsg);
-#endif
 }
 
 void StorHvCtrl::putBlobPutObjectMsgResp(PutBlobReq *blobReq,
-                                         FailoverRpcRequest* rpcReq,
+                                         QuorumRpcRequest* rpcReq,
                                          const Error& error,
                                          boost::shared_ptr<std::string> payload)
 {
@@ -1513,11 +1510,11 @@ void StorHvCtrl::putBlobPutObjectMsgResp(PutBlobReq *blobReq,
     } else {
         LOGDEBUG << rpcReq->logString() << fds::logString(*putObjRsp);
     }
-    blobReq->notifyPutObjectComplete(error);
+    blobReq->notifyResponse(error);
 }
 
 void StorHvCtrl::putBlobUpdateCatalogMsgResp(PutBlobReq *blobReq,
-                                             FailoverRpcRequest* rpcReq,
+                                             QuorumRpcRequest* rpcReq,
                                              const Error& error,
                                              boost::shared_ptr<std::string> payload)
 {
@@ -1531,8 +1528,7 @@ void StorHvCtrl::putBlobUpdateCatalogMsgResp(PutBlobReq *blobReq,
     } else {
         LOGDEBUG << rpcReq->logString() << fds::logString(*updCatRsp);
     }
-    blobReq->notifyUpdateCatalogComplete(error);
-
+    blobReq->notifyResponse(error);
 }
 
 fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq)

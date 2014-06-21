@@ -28,6 +28,8 @@ class RpcRequestPool {
 
     FailoverRpcRequestPtr newFailoverRpcRequest(const EpIdProviderPtr epProvider);
 
+    QuorumRpcRequestPtr newQuorumRpcRequest(const EpIdProviderPtr epProvider);
+
     static fpi::AsyncHdr newAsyncHeader(const AsyncRpcRequestId& reqId,
             const fpi::SvcUuid &srcUuid, const fpi::SvcUuid &dstUuid);
 

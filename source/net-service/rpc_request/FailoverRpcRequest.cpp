@@ -156,7 +156,7 @@ void FailoverRpcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header
     bool healthyEpExists = moveToNextHealthyEndpoint_();
     if (!healthyEpExists) {
         if (respCb_) {
-            /* NOTE: We are last failure code in this case */
+            /* NOTE: We are using last failure code in this case */
             respCb_(this, header->msg_code, payload);
         }
         complete(ERR_RPC_FAILED);

@@ -5,6 +5,8 @@
 #include <net/net-service-tmpl.hpp>
 #include <fdsp_utils.h>
 #include <DMSvcHandler.h>
+#include <platform/fds_flags.h>
+#include <dm-platform.h>
 
 namespace fds {
 
@@ -17,6 +19,8 @@ DMSvcHandler::DMSvcHandler()
 void DMSvcHandler::queryCatalogObject(boost::shared_ptr<fpi::QueryCatalogMsg>& queryMsg)
 {
     DBG(GLOGDEBUG << logString(*queryMsg));
+    DBG(FLAG_CHECK_RETURN_VOID(common_drop_async_resp > 0));
+    DBG(FLAG_CHECK_RETURN_VOID(dm_drop_cat_queries > 0));
     /*
      * allocate a new query cat log  class and  queue  to per volume queue.
      */
@@ -68,6 +72,8 @@ void DMSvcHandler::queryCatalogObjectCb(boost::shared_ptr<fpi::QueryCatalogMsg>&
 void DMSvcHandler::updateCatalog(boost::shared_ptr<fpi::UpdateCatalogMsg>& updcatMsg)
 {
     DBG(GLOGDEBUG << logString(*updcatMsg));
+    DBG(FLAG_CHECK_RETURN_VOID(common_drop_async_resp > 0));
+    DBG(FLAG_CHECK_RETURN_VOID(dm_drop_cat_updates > 0));
     /*
      * allocate a new query cat log  class and  queue  to per volume queue.
      */

@@ -22,6 +22,7 @@ void SMSvcHandler::getObject(boost::shared_ptr<fpi::GetObjectMsg>& getObjMsg)  /
     DBG(GLOGDEBUG << fds::logString(*getObjMsg));
 
     DBG(FLAG_CHECK_RETURN_VOID(common_drop_async_resp > 0));
+    DBG(FLAG_CHECK_RETURN_VOID(sm_drop_gets > 0));
 
     Error err(ERR_OK);
     auto read_req = new SmIoReadObjectdata();
@@ -63,6 +64,7 @@ void SMSvcHandler::putObject(boost::shared_ptr<fpi::PutObjectMsg>& putObjMsg)  /
     DBG(GLOGDEBUG << fds::logString(*putObjMsg));
 
     DBG(FLAG_CHECK_RETURN_VOID(common_drop_async_resp > 0));
+    DBG(FLAG_CHECK_RETURN_VOID(sm_drop_puts > 0));
 
     Error err(ERR_OK);
     auto put_req = new SmIoPutObjectReq();

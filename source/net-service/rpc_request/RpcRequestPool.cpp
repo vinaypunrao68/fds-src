@@ -153,4 +153,17 @@ FailoverRpcRequestPtr RpcRequestPool::newFailoverRpcRequest(
 
     return req;
 }
+
+QuorumRpcRequestPtr RpcRequestPool::newQuorumRpcRequest(const EpIdProviderPtr epProvider)
+{
+    auto reqId = nextAsyncReqId_++;
+
+    fpi::SvcUuid myEpId;
+    fds::assign(myEpId, *Platform::plf_get_my_svc_uuid());
+
+    QuorumRpcRequestPtr req(new QuorumRpcRequest(reqId, myEpId, epProvider));
+    asyncRpcInitCommon_(req);
+
+    return req;
+}
 }  // namespace fds

@@ -237,12 +237,13 @@ service PlatNetSvc extends BaseAsyncSvc {
 }
 
 service SMSvc extends PlatNetSvc {
-    oneway void getObject(1: GetObjectMsg getObjMsg),
+    oneway void getObject(1: GetObjectMsg getObjMsg);
+    oneway void putObject(1: PutObjectMsg putObjMsg);
 }
 
 service DMSvc extends BaseAsyncSvc {
-    oneway void queryCatalogObject(1:QueryCatalogMsg queryMsg) 
-    oneway void updateCatalog(1:UpdateCatalogMsg updCatMsg)
+    oneway void queryCatalogObject(1:QueryCatalogMsg queryMsg);
+    oneway void updateCatalog(1:UpdateCatalogMsg updCatMsg);
 }
 
 service AMSvc extends BaseAsyncSvc {

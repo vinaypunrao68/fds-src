@@ -447,7 +447,7 @@ Error VolumeMeta::QueryVcat(const std::string blob_name, BlobNode*& bnode) {
     vol_mtx->unlock();
 
     if (!err.ok()) {
-        LOGERROR << "Failed to query for vol " << *vol_desc
+        LOGDEBUG << "Failed to query for vol " << *vol_desc
                  << " blob " << blob_name << " with err "
                  << err;
         return err;

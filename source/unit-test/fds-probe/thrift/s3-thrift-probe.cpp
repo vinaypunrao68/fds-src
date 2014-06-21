@@ -171,8 +171,8 @@ ProbeAmFoo::js_exec_obj(JsObject *parent, JsObjTemplate *tmpl, JsObjOutput *out)
                                                   uuid_list);
     failoverReq->setRpcFunc(
         CREATE_RPC_SPTR(fpi::ProbeServiceAMClient, am_probe_put_resp, arg1));
-    failoverReq->onSuccessCb(successCb);
-    failoverReq->onErrorCb(errorCb);
+    // failoverReq->onSuccessCb(successCb);
+    // failoverReq->onErrorCb(errorCb);
     failoverReq->invoke();
 
     boost::shared_ptr<fpi::ProbeFoo> fooArg1(new fpi::ProbeFoo());
@@ -182,8 +182,8 @@ ProbeAmFoo::js_exec_obj(JsObject *parent, JsObjTemplate *tmpl, JsObjOutput *out)
     timeoutReq->setRpcFunc(
         CREATE_RPC_SPTR(fpi::ProbeServiceAMClient, foo, fooArg1));
     timeoutReq->setTimeoutMs(10);
-    timeoutReq->onSuccessCb(successCb);
-    timeoutReq->onErrorCb(errorCb);
+    // timeoutReq->onSuccessCb(successCb);
+    // timeoutReq->onErrorCb(errorCb);
     timeoutReq->invoke();
 
     uuid_list.pop_back();
@@ -191,8 +191,8 @@ ProbeAmFoo::js_exec_obj(JsObject *parent, JsObjTemplate *tmpl, JsObjOutput *out)
                                                uuid_list);
     errorReq->setRpcFunc(
         CREATE_RPC_SPTR(fpi::ProbeServiceAMClient, am_probe_put_resp, arg1));
-    errorReq->onSuccessCb(successCb);
-    errorReq->onErrorCb(errorCb);
+    // errorReq->onSuccessCb(successCb);
+    // errorReq->onErrorCb(errorCb);
     errorReq->invoke();
 
     std::cout << "In foo func " << p->am_func << std::endl;

@@ -5,7 +5,7 @@
 #define SOURCE_DATA_MGR_INCLUDE_DMSVCHANDLER_H_
 
 #include <fdsp/fds_service_types.h>
-#include <net/BaseAsyncSvcHandler.h>
+#include <net/PlatNetSvcHandler.h>
 #include <fdsp/DMSvc.h>
 // TODO(Rao): Don't include DataMgr here.  The only reason we include now is
 // b/c dmCatReq is subclass in DataMgr and can't be forward declared
@@ -13,7 +13,7 @@
 
 namespace fds {
 
-class DMSvcHandler : virtual public DMSvcIf, public BaseAsyncSvcHandler {
+class DMSvcHandler : virtual public DMSvcIf, public PlatNetSvcHandler {
  public:
     DMSvcHandler();
 

@@ -12,11 +12,16 @@
 #include <fdsp/DMSvc.h>
 #include <DMSvcHandler.h>
 #include <net/net-service-tmpl.hpp>
+#include <net/RpcRequestPool.h>
+#include <platform/platform-lib.h>
 
 namespace fds {
 
 DmPlatform gl_DmPlatform;
 
+/* DM specific flags */
+DBG(DEFINE_FLAG(dm_drop_cat_queries));
+DBG(DEFINE_FLAG(dm_drop_cat_updates));
 // -------------------------------------------------------------------------------------
 // DM Platform Event Handler
 // -------------------------------------------------------------------------------------
@@ -114,6 +119,8 @@ void
 DmPlatform::mod_startup()
 {
     Platform::mod_startup();
+    registerFlags();
+    gRpcRequestPool = new RpcRequestPool();
 
     dm_recv   = bo::shared_ptr<DMSvcHandler>(new DMSvcHandler());
     dm_plugin = new DMEpPlugin(this);
@@ -182,6 +189,19 @@ DmPlatform::plat_creat_dpath_resp()
     return new PlatDataPathResp(this);
 }
 
+/**
+* @brief Register dm flags
+*/
+void DmPlatform::registerFlags()
+{
+    PlatformProcess::plf_manager()->\
+        plf_get_flags_map().registerCommonFlags();
+    /* DM specific flags */
+    DBG(REGISTER_FLAG(PlatformProcess::plf_manager()->\
+                  plf_get_flags_map(), dm_drop_cat_queries));
+    DBG(REGISTER_FLAG(PlatformProcess::plf_manager()->\
+                  plf_get_flags_map(), dm_drop_cat_updates));
+}
 // --------------------------------------------------------------------------------------
 // RPC handlers
 // --------------------------------------------------------------------------------------

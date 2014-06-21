@@ -104,14 +104,6 @@ void AsyncRpcRequestIf::setRequestId(const AsyncRpcRequestId &id) {
     id_ = id;
 }
 
-void AsyncRpcRequestIf::onSuccessCb(RpcRequestSuccessCb cb) {
-    successCb_ = cb;
-}
-
-void AsyncRpcRequestIf::onErrorCb(RpcRequestErrorCb cb) {
-    errorCb_ = cb;
-}
-
 void AsyncRpcRequestIf::setCompletionCb(RpcRequestCompletionCb &completionCb)
 {
     completionCb_ = completionCb;
@@ -365,6 +357,22 @@ QuorumRpcRequest::QuorumRpcRequest(const AsyncRpcRequestId& id,
 }
 
 /**
+* @brief
+*
+* @param id
+* @param myEpId
+* @param epProvider
+*/
+// TODO(Rao): Need to store epProvider.  So that we iterate endpoint
+// Ids when needes as opposed to using getEps(), like we are doing
+// now.
+QuorumRpcRequest::QuorumRpcRequest(const AsyncRpcRequestId& id,
+                                   const fpi::SvcUuid &myEpId,
+                                   const EpIdProviderPtr epProvider)
+: QuorumRpcRequest(id, myEpId, epProvider->getEps())
+{
+}
+/**
 * @brief 
 */
 QuorumRpcRequest::~QuorumRpcRequest()
@@ -445,15 +453,18 @@ void QuorumRpcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
 
     /* Take action based on the ack counts */
     if (successAckd_ == quorumCnt_) {
-        if (successCb_) {
-            successCb_(payload);
+        if (respCb_) {
+            respCb_(this, ERR_OK, payload);
         }
         complete(ERR_OK);
+        gAsyncRpcCntrs->appsuccess.incr();
     } else if (errorAckd_ > (epReqs_.size() - quorumCnt_)) {
-        if (errorCb_) {
-            errorCb_(header->msg_code, payload);
+        if (respCb_) {
+            /* NOTE: We are using last failure code in this case */
+            respCb_(this, header->msg_code, payload);
         }
         complete(ERR_RPC_FAILED);
+        gAsyncRpcCntrs->apperrors.incr();
         return;
     }
 }

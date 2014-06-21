@@ -21,6 +21,10 @@ namespace fds {
 class DMSvcHandler;
 class DmPlatform;
 
+/* DM specific flags */
+DBG(DECLARE_FLAG(dm_drop_cat_queries));
+DBG(DECLARE_FLAG(dm_drop_cat_updates));
+
 class DmVolEvent : public VolPlatEvent
 {
   public:
@@ -77,6 +81,8 @@ class DmPlatform : public Platform
     virtual PlatRpcReqt *plat_creat_reqt_disp();
     virtual PlatRpcResp *plat_creat_resp_disp();
     virtual PlatDataPathResp *plat_creat_dpath_resp();
+
+    void registerFlags();
 
     DMEpPlugin::pointer           dm_plugin;
     bo::shared_ptr<DMSvcHandler>  dm_recv;

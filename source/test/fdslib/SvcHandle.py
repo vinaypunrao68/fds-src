@@ -67,7 +67,7 @@ class SvcMap(object):
         try:
             self.svc_cache.clear()
             # TODO(Rao): Get this info from OM
-            self.domain_nodes = SvcHandle('127.0.0.1', 7010, SMSvc).client.getDomainNodes(None)
+            self.domain_nodes = SvcHandle('127.0.0.1', 7020, SMSvc).client.getDomainNodes(None)
         except:
             pass
 

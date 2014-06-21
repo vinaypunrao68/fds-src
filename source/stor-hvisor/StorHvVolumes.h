@@ -367,10 +367,8 @@ class PutBlobReq: public FdsBlobReq {
     // Needed fields
     BlobTxId::ptr txDesc;
 
-    /* Indicates whether put object is acked */
-    bool putObjComplete;
-    /* Indicates whether update catalog object is acked */
-    bool updCatComplete;
+    /* ack cnt for responses, decremented when response from SM and DM come back */
+    std::atomic<int> respAcks;
     /* Return status for completion callback */
     Error retStatus;
 
@@ -397,8 +395,7 @@ class PutBlobReq: public FdsBlobReq {
         putObjCallback(_put_obj_handler),
         callback_data(_callback_data),
         txDesc(_txDesc),
-        putObjComplete(false),
-        updCatComplete(false),
+        respAcks(2),
         retStatus(ERR_OK)
     {
     }
@@ -426,37 +423,19 @@ class PutBlobReq: public FdsBlobReq {
                          callback_data, status, errDetails);
     }
 
-    /* Nofication that put object to SM has been acked
-     * NOTE: In here we may delete this object if both SM
-     * and DM have ackd
-     */
-    void notifyPutObjectComplete(const Error &e)
-    {
-        fds_assert(putObjComplete == false);
-        putObjComplete = true;
+    void notifyResponse(const Error &e) {
+        int cnt;
+        /* NOTE: There is a race here in setting the error */
         if (retStatus == ERR_OK) {
             retStatus = e;
         }
-        checkDoCompletionCb();
-    }
 
-    /* Nofication that update catalog to DM has been acked
-     * NOTE: In here we may delete this object if both SM
-     * and DM have ackd
-     */
-    void notifyUpdateCatalogComplete(const Error &e)
-    {
-        fds_assert(updCatComplete == false);
-        updCatComplete = true;
-        if (retStatus == ERR_OK) {
-            retStatus = e;
-        }
-        checkDoCompletionCb();
-    }
+        cnt = --respAcks;
 
-    void checkDoCompletionCb() {
-        if (updCatComplete && putObjComplete) {
-            // TODO(Rao): Mark qos io as done
+        fds_assert(cnt >= 0);
+        DBG(LOGDEBUG << "cnt: " << cnt << e);
+
+        if (cnt == 0) {
             cbWithResult(retStatus.GetErrno());
             delete this;
         }

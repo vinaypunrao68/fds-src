@@ -93,6 +93,8 @@ class MyShell(cmd.Cmd):
             log.warn('cmd: {} exception: {}'.format(line, sys.exc_info()[0]))
             log.exception(e)
             pass
+        except:
+            pass
         return None
 
 if __name__ == '__main__':

@@ -153,10 +153,6 @@ struct AsyncRpcRequestIf {
 
     void setRpcFunc(RpcFunc rpc);
 
-    void onSuccessCb(RpcRequestSuccessCb cb);
-
-    void onErrorCb(RpcRequestErrorCb cb);
-
     void setTimeoutMs(const uint32_t &timeout_ms);
 
     uint32_t getTimeout();
@@ -178,10 +174,6 @@ struct AsyncRpcRequestIf {
     fds_mutex respLock_;
     /* Wrapper around rpc function call */
     RpcFunc rpc_;
-    /* Callback to be invoked on success */
-    RpcRequestSuccessCb successCb_;
-    /* Callback to be invoked when this request errors outs */
-    RpcRequestErrorCb errorCb_;
     /* Request Id */
     AsyncRpcRequestId id_;
     /* My endpoint id */
@@ -303,6 +295,10 @@ struct QuorumRpcRequest : MultiEpAsyncRpcRequest {
     QuorumRpcRequest(const AsyncRpcRequestId& id,
             const fpi::SvcUuid &myEpId,
             const std::vector<fpi::SvcUuid>& peerEpIds);
+
+    QuorumRpcRequest(const AsyncRpcRequestId& id,
+            const fpi::SvcUuid &myEpId,
+            const EpIdProviderPtr epProvider);
 
     ~QuorumRpcRequest();
 
