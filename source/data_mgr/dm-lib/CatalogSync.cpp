@@ -26,9 +26,12 @@ CatalogSync::CatalogSync(const NodeUuid& uuid,
     state = ATOMIC_VAR_INIT(CSSTATE_READY);
     vols_done = ATOMIC_VAR_INIT(0);
 
+    const std::string node_name =  dataMgr->getPrefix() +
+                              std::to_string(uuid.uuid_get_val());
     // create snap directory.
     const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
-    const std::string snap_dir = root->dir_user_repo_snap();
+    const std::string snap_dir = root->dir_user_repo_snap() + node_name + std::string("/");;
+    LOGNORMAL << " RSYNC_DIR:   " <<  snap_dir;
 
     std::system((const char *)("mkdir "+snap_dir+" ").c_str());
 }
