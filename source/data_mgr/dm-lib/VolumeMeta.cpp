@@ -259,7 +259,6 @@ VolumeMeta::syncVolCat(fds_volid_t volId, NodeUuid node_uuid)
 
   vol_mtx->lock();
   //err = vcat->DbSnap(root->dir_user_repo_dm() + "snap" + vol_name + "_vcat.ldb");
-  err = vcat->WaitFlush();  // make sure all updates are on disk
   returnCode = std::system((const char *)("cp -r "+src_dir_vcat+"  "+dst_dir+" ").c_str());
   returnCode = std::system((const char *)("cp -r "+src_dir_tcat+"  "+dst_dir+" ").c_str());
   vol_mtx->unlock();
@@ -322,13 +321,11 @@ VolumeMeta::deltaSyncVolCat(fds_volid_t volId, NodeUuid node_uuid)
   FDS_PLOG(dm_log) << " rsync: local copy  " << test_cp;
   FDS_PLOG(dm_log) << " rsync:  " << test_rsync;
 
-  /* clean the content of the snap dir. */
-  returnCode = std::system((const char *)("rm -rf  "+dst_dir+"* ").c_str());
-  returnCode = std::system((const char *)("rm -rf  "+dst_dir+"* ").c_str());
-
   vol_mtx->lock();
   //err = vcat->DbSnap(root->dir_user_repo_dm() + "snap" + vol_name + "_vcat.ldb");
-  err = vcat->WaitFlush();  // make sure all updates are on disk
+  /* clean the vcat and tcat ldb in the snap dir. */
+  returnCode = std::system((const char *)("rm -rf  "+dst_dir+vol_name+"_vcat.ldb").c_str());
+  returnCode = std::system((const char *)("rm -rf  "+dst_dir+vol_name+"_tcat.ldb").c_str());
   returnCode = std::system((const char *)("cp -r "+src_dir_vcat+"  "+dst_dir+" ").c_str());
   returnCode = std::system((const char *)("cp -r "+src_dir_tcat+"  "+dst_dir+" ").c_str());
   // we must set forwarding flag under the same lock we create snapshots
