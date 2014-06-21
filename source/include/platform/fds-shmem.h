@@ -20,7 +20,7 @@ class FdsShmem
     explicit FdsShmem(const char *name, size_t size);
     virtual ~FdsShmem();
 
-    void  *shm_alloc(size_t size);
+    void  *shm_alloc();
     void  *shm_attach(int flags);
     int    shm_detach();
     int    shm_remove();
