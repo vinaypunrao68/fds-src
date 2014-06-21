@@ -92,16 +92,7 @@ class DomainResources
     Node_Table_Type            drs_dmt;
 
   private:
-    mutable boost::atomic<int>  rs_refcnt;
-    friend void intrusive_ptr_add_ref(const DomainResources *x) {
-        x->rs_refcnt.fetch_add(1, boost::memory_order_relaxed);
-    }
-    friend void intrusive_ptr_release(const DomainResources *x) {
-        if (x->rs_refcnt.fetch_sub(1, boost::memory_order_release) == 1) {
-            boost::atomic_thread_fence(boost::memory_order_acquire);
-            delete x;
-        }
-    }
+    INTRUSIVE_PTR_DEFS(DomainResources, rs_refcnt);
 };
 
 // -------------------------------------------------------------------------------------
@@ -128,16 +119,7 @@ class PlatEvent
     const Platform            *pe_platform;
 
   private:
-    mutable boost::atomic<int>  rs_refcnt;
-    friend void intrusive_ptr_add_ref(const PlatEvent *x) {
-        x->rs_refcnt.fetch_add(1, boost::memory_order_relaxed);
-    }
-    friend void intrusive_ptr_release(const PlatEvent *x) {
-        if (x->rs_refcnt.fetch_sub(1, boost::memory_order_release) == 1) {
-            boost::atomic_thread_fence(boost::memory_order_acquire);
-            delete x;
-        }
-    }
+    INTRUSIVE_PTR_DEFS(PlatEvent, rs_refcnt);
 };
 
 class NodePlatEvent : public PlatEvent
@@ -325,6 +307,11 @@ class Platform : public Module
     inline fds_uint32_t   plf_get_my_metasync_port() const {
         return plf_my_base_port + 5;
     }
+    /**
+     * For now, this number must be the same as base_port + x above.
+     * See PlatAgent::agent_bind_svc() for detail.
+     */
+    static inline fds_uint32_t plf_get_my_max_ports() { return 5; }
 
     inline std::string const *const plf_get_my_name() const { return &plf_my_node_name; }
     inline std::string const *const plf_get_my_ip() const { return &plf_my_ip; }

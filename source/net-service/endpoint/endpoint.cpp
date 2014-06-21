@@ -81,8 +81,13 @@ EpSvcHandle::EpSvcHandle()
     : ep_refcnt(0), ep_state(EP_ST_INIT), ep_owner(NULL),
       ep_plugin(NULL), ep_rpc(NULL), ep_sock(NULL), ep_trans(NULL) {}
 
-EpSvcHandle::EpSvcHandle(EpSvc::pointer svc, EpEvtPlugin::pointer evt) : EpSvcHandle()
+EpSvcHandle::EpSvcHandle(EpSvc::pointer       svc,
+                         EpEvtPlugin::pointer evt,
+                         fds_uint32_t         maj,
+                         fds_uint32_t         min) : EpSvcHandle()
 {
+    ep_major  = maj;
+    ep_minor  = min;
     ep_plugin = evt;
     ep_owner  = svc;
     if (svc != NULL) {

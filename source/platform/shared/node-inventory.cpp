@@ -485,7 +485,7 @@ NodeAgent::agent_publish_ep()
     fpi::SvcUuid svc;
 
     svc.svc_uuid = rs_uuid.uuid_get_val();
-    port = NetMgr::ep_mgr_singleton()->ep_uuid_binding(svc, &ip);
+    port = NetMgr::ep_mgr_singleton()->ep_uuid_binding(svc, 0, 0, &ip);
     LOGDEBUG << "Agent lookup ep " << std::hex << svc.svc_uuid
         << ", obj " << this << ", svc type " << node_svc_type
         << ", idx " << node_ro_idx << ", rw idx " << node_rw_idx
@@ -505,6 +505,32 @@ AgentContainer::agent_handshake(boost::shared_ptr<netSessionTbl> net,
                                 NodeAgentDpRespPtr               resp,
                                 NodeAgent::pointer               agent)
 {
+}
+
+// node_ctrl_rpc
+// -------------
+//
+boost::shared_ptr<fpi::FDSP_ControlPathReqClient>
+NodeAgent::node_ctrl_rpc(EpSvcHandle::pointer *handle)
+{
+    NetMgr              *net;
+    Platform            *plat;
+    fds_uint32_t         base, port;
+    fpi::SvcUuid         peer;
+
+    net  = NetMgr::ep_mgr_singleton();
+    plat = Platform::platf_singleton();
+    base = plat->plf_get_my_node_port();
+    port = Platform::plf_svc_port_from_node(base, node_svc_type);
+
+    peer.svc_uuid = rs_uuid.uuid_get_val();
+    net->svc_get_handle<fpi::FDSP_ControlPathReqClient>(peer, handle, port, 0);
+
+    /* TODO(Vy): wire up the common event plugin to handle error. */
+    if (*handle != NULL) {
+        return (*handle)->svc_rpc<fpi::FDSP_ControlPathReqClient>();
+    }
+    return NULL;
 }
 
 // --------------------------------------------------------------------------------------

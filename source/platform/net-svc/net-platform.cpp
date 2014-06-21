@@ -69,7 +69,15 @@ PlatformdNetSvc::mod_startup()
             NodeUuid(0ULL),
             bo::shared_ptr<fpi::PlatNetSvcProcessor>(
                 new fpi::PlatNetSvcProcessor(plat_recv)), plat_plugin);
-
+#if 0
+    plat_ctrl_recv.reset(new PlatformRpcReqt(plat_lib));
+    plat_ctrl_ep = new PlatNetCtrlEp(
+            plat_lib->plf_get_my_ctrl_port(),
+            *plat_lib->plf_get_my_node_uuid(),
+            NodeUuid(0ULL),
+            bo::shared_ptr<fpi::FDSP_ControlPathReqProcessor>(
+                new fpi::FDSP_ControlPathReqProcessor(plat_ctrl_recv)), plat_plugin);
+#endif
     LOGNORMAL << "Startup platform specific net svc, port "
               << plat_lib->plf_get_my_node_port();
 }
@@ -259,7 +267,7 @@ PlatAgent::agent_publish_ep()
 void
 PlatAgent::agent_bind_svc(EpPlatformdMod *map, node_data_t *ninfo, fpi::FDSP_MgrIdType t)
 {
-    int           idx, saved_port;
+    int           i, idx, base_port, max_port, saved_port;
     NodeUuid      node, svc;
     fds_uint64_t  saved_uuid;
     ep_map_rec_t  rec;
@@ -274,11 +282,18 @@ PlatAgent::agent_bind_svc(EpPlatformdMod *map, node_data_t *ninfo, fpi::FDSP_Mgr
     ninfo->nd_base_port = Platform::plf_svc_port_from_node(saved_port, t);
     EpPlatLibMod::ep_node_info_to_mapping(ninfo, &rec);
 
-    idx = map->ep_map_record(&rec);
-    LOGDEBUG << "Platform daemon binds " << t << ":" << std::hex << svc.uuid_get_val()
-        << "@" << ninfo->nd_ip_addr << ":" << std::dec
-        << ninfo->nd_base_port << " idx " << idx;
+    /* Register services sharing the same uuid but using different port, encode in maj. */
+    max_port  = Platform::plf_get_my_max_ports();
+    base_port = ninfo->nd_base_port;
 
+    for (i = 0; i < max_port; i++) {
+        idx = map->ep_map_record(&rec);
+        LOGDEBUG << "Platform daemon binds " << t << ":" << std::hex << svc.uuid_get_val()
+            << "@" << ninfo->nd_ip_addr << ":" << std::dec << base_port << " idx " << idx;
+
+        rec.rmp_major = ++base_port;
+        ep_map_set_port_info(&rec, rec.rmp_major);
+    }
     /* Restore everything back to ninfo for the next loop */
     ninfo->nd_base_port = saved_port;
     ninfo->nd_node_uuid = saved_uuid;

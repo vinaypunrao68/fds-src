@@ -62,7 +62,7 @@ class NodeShmRWCtrl : public NodeShmCtrl
     static ShmObjRWKeyUint64 *shm_node_rw_inv() {
         return gl_NodeShmRWCtrl.shm_node_rw;
     }
-    static ShmObjRWKeyUint64 *shm_uuid_rw_binding() {
+    static ShmObjRW *shm_uuid_rw_binding() {
         return gl_NodeShmRWCtrl.shm_uuid_rw;
     }
     static ShmObjRWKeyUint64 *shm_node_rw_inv(FdspNodeType type)
@@ -83,7 +83,7 @@ class NodeShmRWCtrl : public NodeShmCtrl
   protected:
     ShmObjRWKeyUint64       *shm_am_rw;
     ShmObjRWKeyUint64       *shm_node_rw;
-    ShmObjRWKeyUint64       *shm_uuid_rw;
+    ShmObjRW                *shm_uuid_rw;
 
     void shm_init_queue(node_shm_queue_t *queue);
     void shm_init_header(node_shm_inventory_t *hdr);

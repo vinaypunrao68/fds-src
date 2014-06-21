@@ -3,7 +3,56 @@
 # --------------
 # Modify global variables for Linux build.
 #
-osdep_kern_cc_flags  := -D__LINUX__ -D__KERNEL__ -nostdinc 
+
+os_arch      := $(shell uname -m)
+os_target    := linux
+
+# Common Linux source tree
+#
+os_linux_src := /usr/src/linux-headers-3.11.0-23-generic
+
+# Get gcc version
+#
+cc_major := $(shell echo __GNUC__ | $(cc) -E -xc - | tail -n 1)
+cc_minor := $(shell echo __GNUC_MINOR__ | $(cc) -E -xc - | tail -n 1)
+cc_patch := $(shell echo  __GNUC_PATCHLEVEL__ | $(cc) -E -xc - | tail -n 1)
+
+# Overwrite kernel header if having private kernel checkout.
+#
+ifneq ($(MY_KERNEL),)
+	os_kern_hdr  := $(MY_KERNEL)/include
+    os_linux_src := $(MY_KERNEL)
+else
+	os_kern_hdr  := $(os_linux_src)/include
+endif
+
+ifeq ($(os_arch), x86_64)
+	os_wsize  := 64
+	os_isa    := x86_64
+	linux_asm := $(os_linux_src)/arch/x86/include
+endif
+
+# System include directory root
+#
+cc_ver  := $(cc_major).$(cc_minor).$(cc_patch)
+sys_inc := /usr/lib/gcc/$(os_arch)-linux-gnu/$(cc_ver)/include
+krn_inc := -I$(os_kern_hdr) -I$(os_kern_hdr)/linux -I$(linux_asm)
+krn_inc += -isystem $(sys_inc)
+krn_inc += -include $(os_kern_hdr)/generated/autoconf.h
+krn_wrn := -Wundef -Wno-trigraphs -fno-strict-aliasing -fno-common
+krn_wrn += -Werror-implicit-function-declaration -Wno-format-security
+krn_wrn += -Wno-sign-compare -Wframe-larger-than=1024
+krn_wrn += -Wdeclaration-after-statement -Wno-pointer-sign
+krn_opt := -fno-delete-null-pointer-checks -freg-struct-return
+krn_opt += -mpreferred-stack-boundary=4 $(os_march)
+krn_opt += -mtune=generic -maccumulate-outgoing-args -ffreestanding
+krn_opt += -fstack-protector -fno-asynchronous-unwind-tables -mno-sse -mno-mmx
+krn_opt += -mno-sse2 -mno-3dnow -fno-omit-frame-pointer
+krn_opt += -fno-optimize-sibling-calls -g -pg -fno-strict-overflow
+krn_opt += -fconserve-stack
+
+osdep_kern_cc_flags  := -D__LINUX__ -D__KERNEL__ -nostdinc
+osdep_kern_cc_flags  += $(krn_inc) $(krn_warn) $(krn_opt)
 osdep_kern_ld_flags  :=
 osdep_kern_ar_flags  :=
 osdep_kern_mod_flags :=

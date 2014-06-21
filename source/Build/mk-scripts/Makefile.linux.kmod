@@ -1,4 +1,34 @@
 #
 # Kernel specific setting to build modules.
 #
-osdep_kern_mod_flags  :=
+ifndef user_rtime_env
+$(error "Must specify variable user_rtime_env := user | kernel)
+endif
+
+cur_pwd  := $(shell pwd)/
+krn_objs  = $(patsubst %$(1), %.o, $(filter %$(1), $(2)))
+m_libs    = $(patsubst %, $(M)$(comm_dir_lib)/lib%.a, $(user_fds_ar_libs))
+m_objs    = $(call krn_objs,.c,$(1))
+m_objs   += $(call krn_objs,.s,$(1))
+m_objs   += $(call krn_objs,.S,$(1))
+m_objs   += $(call krn_objs,.asm,$(1))
+mod_libs  = $(patsubst %,-l%,$(user_fds_ar_libs))
+
+EXTRA_CFLAGS    += $(patsubst %, -I$(M)%, $(user_incl_dir))
+EXTRA_CFLAGS    += -I$(M)$(topdir)/include/shared
+LDFLAGS_MODLIBS += -L$(M)$(main_dir_kmod) $(mod_libs)
+
+$(foreach l,$(m_libs),$(eval $(l): FORCED))
+$(foreach m,$(usr_mods), $(foreach f,$($(m)),$(eval obj-m += $(call m_objs,$(f)))))
+
+# Hookup with Linux's Makefile system to build our own modules.
+#
+linux_clean:
+	$(MAKE) -C $(os_linux_src) M=$(cur_pwd) clean
+
+linux_all:
+	$(MAKE) -C $(os_linux_src) M=$(cur_pwd) modules
+
+linux_debug:
+	@echo $(M)
+	@echo mod $(usr_mods) $(m_libs)

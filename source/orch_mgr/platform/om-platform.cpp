@@ -5,10 +5,10 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <ifaddrs.h>
 #include <arpa/inet.h>
 #include <om-platform.h>
 #include <fds_process.h>
+#include <OmResources.h>
 #include <net/net-service-tmpl.hpp>
 
 namespace fds {
@@ -61,20 +61,14 @@ OMEpPlugin::svc_down(EpSvc::pointer svc, EpSvcHandle::pointer handle)
 OmPlatform::OmPlatform()
     : Platform("OM-Platform",
                FDSP_ORCH_MGR,
-               new DomainNodeInv("OM-Platform-NodeInv",
-                                 NULL,
-                                 new SmContainer(FDSP_ORCH_MGR),
-                                 new DmContainer(FDSP_ORCH_MGR),
-                                 new AmContainer(FDSP_ORCH_MGR),
-                                 new PmContainer(FDSP_ORCH_MGR),
-                                 new OmContainer(FDSP_ORCH_MGR)),
+               new OM_NodeContainer(),
                new DomainClusterMap("OM-Platform-ClusMap",
                                  NULL,
-                                 new SmContainer(FDSP_ORCH_MGR),
-                                 new DmContainer(FDSP_ORCH_MGR),
-                                 new AmContainer(FDSP_ORCH_MGR),
-                                 new PmContainer(FDSP_ORCH_MGR),
-                                 new OmContainer(FDSP_ORCH_MGR)),
+                                 new SmContainer(fpi::FDSP_STOR_MGR),
+                                 new DmContainer(fpi::FDSP_DATA_MGR),
+                                 new AmContainer(fpi::FDSP_STOR_HVISOR),
+                                 new PmContainer(fpi::FDSP_PLATFORM),
+                                 new OmContainer(fpi::FDSP_ORCH_MGR)),
                new DomainResources("OM-Resources"),
                NULL) {}
 
