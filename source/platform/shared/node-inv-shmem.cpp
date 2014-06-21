@@ -105,7 +105,8 @@ NodeShmCtrl::mod_startup()
                             shm_node_hdr->shm_node_inv_key_off,
                             shm_node_hdr->shm_node_inv_obj_siz, shm_max_nodes);
 
-    shm_uuid_bind = new ShmObjROKeyUint64(shm_ctrl, shm_uuid_off,
+    shm_uuid_bind = new ShmObjRO(shm_ctrl, shm_uuid_off,
+                            shm_node_hdr->shm_uuid_bind_key_siz,
                             shm_node_hdr->shm_uuid_bind_key_off,
                             shm_node_hdr->shm_uuid_bind_obj_siz, shm_max_svc);
 

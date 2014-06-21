@@ -60,7 +60,8 @@ NodeShmRWCtrl::mod_startup()
                             shm_node_hdr->shm_node_inv_key_off,
                             shm_node_hdr->shm_node_inv_obj_siz, shm_max_nodes);
 
-    shm_uuid_rw = new ShmObjRWKeyUint64(shm_ctrl, shm_uuid_off,
+    shm_uuid_rw = new ShmObjRW(shm_ctrl, shm_uuid_off,
+                            shm_node_hdr->shm_uuid_bind_key_siz,
                             shm_node_hdr->shm_uuid_bind_key_off,
                             shm_node_hdr->shm_uuid_bind_obj_siz, shm_max_svc);
 
@@ -95,7 +96,7 @@ NodeShmRWCtrl::shm_init_header(node_shm_inventory_t *hdr)
 
     hdr->shm_uuid_bind_off     = shm_uuid_off;
     hdr->shm_uuid_bind_key_off = offsetof(ep_map_rec_t, rmp_uuid);
-    hdr->shm_uuid_bind_key_siz = sizeof(fds_uint64_t);
+    hdr->shm_uuid_bind_key_siz = EP_MAP_REC_KEY_SZ;
     hdr->shm_uuid_bind_obj_siz = sizeof(ep_map_rec_t);
 
     hdr->shm_am_inv_off     = shm_am_off;

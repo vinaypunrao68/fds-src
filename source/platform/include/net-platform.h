@@ -19,6 +19,10 @@ namespace fds {
 class PlatformdNetSvc;
 class PlatformEpHandler;
 
+typedef EndPoint<fpi::FDSP_ControlPathReqIf,
+                 fpi::FDSP_ControlPathReqProcessor> PlatNetCtrlEp;
+typedef bo::intrusive_ptr<PlatNetCtrlEp>            PlatNetCtrlEpPtr;
+
 /**
  * This class provides plugin for the endpoint run by platform daemon to represent a
  * node.
@@ -70,6 +74,10 @@ class PlatformdNetSvc : public NetPlatSvc
     EpPlatformdMod                    *plat_shm;
     PlatformdPlugin::pointer           plat_plugin;
     bo::shared_ptr<PlatformEpHandler>  plat_recv;
+
+    // Control endpoint for platform daemon.
+    PlatNetCtrlEpPtr                   plat_ctrl_ep;
+    bo::shared_ptr<PlatformRpcReqt>    plat_ctrl_recv;
 };
 
 /**

@@ -164,6 +164,11 @@ Platform::plf_rpc_server_thread()
             FDSP_ORCH_MGR, plf_rpc_reqt);
 
     plf_net_sess->listenServer(plf_my_sess);
+#if 0
+    while (1) {
+        sleep(10);
+    }
+#endif
 }
 
 // plf_change_info

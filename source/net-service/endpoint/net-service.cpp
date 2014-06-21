@@ -87,6 +87,7 @@ NetMgr::ep_register_thr(EpSvc::pointer ep, bool update_domain)
 {
     int                 idx, port;
     fds_uint64_t        mine, peer;
+    UuidIntKey          key;
     ep_map_rec_t        map;
     EpSvcImpl::pointer  myep;
 
@@ -107,8 +108,11 @@ NetMgr::ep_register_thr(EpSvc::pointer ep, bool update_domain)
         mine = myep->ep_my_uuid();
         peer = myep->ep_peer_uuid();
 
+        key.h_key  = mine;
+        key.h_int1 = myep->ep_version(&key.h_int2);
+
         ep_mtx.lock();
-        ep_uuid_map[mine] = idx;
+        ep_uuid_map[key] = idx;
         if (myep->ep_is_connection() == true) {
             // This is the physical endpoint, record it in ep map.
             ep_map[mine].push_front(ep);
@@ -148,15 +152,20 @@ NetMgr::ep_register(EpSvc::pointer ep, bool update_domain)
 // when the sender sends to it.
 //
 void
-NetMgr::ep_unregister(const fpi::SvcUuid &uuid)
+NetMgr::ep_unregister(const fpi::SvcUuid &uuid, fds_uint32_t maj, fds_uint32_t min)
 {
     int            idx;
+    UuidIntKey     key;
     EpSvc::pointer ep;
+
+    key.h_key  = uuid.svc_uuid;
+    key.h_int1 = maj;
+    key.h_int2 = min;
 
     ep_mtx.lock();
     try {
-        idx = ep_uuid_map.at(uuid.svc_uuid);
-        ep_uuid_map.erase(uuid.svc_uuid);
+        idx = ep_uuid_map.at(key);
+        ep_uuid_map.erase(key);
     } catch(...) {
         idx = -1;
     }
@@ -185,12 +194,16 @@ NetMgr::ep_unregister(const fpi::SvcUuid &uuid)
 void
 NetMgr::ep_handler_register(EpSvcHandle::pointer handle)
 {
+    UuidIntKey   key;
     fpi::SvcUuid peer;
 
     handle->ep_peer_uuid(peer);
     if (peer != NullSvcUuid) {
+        key.h_key  = peer.svc_uuid;
+        key.h_int1 = handle->ep_version(&key.h_int2);
+
         ep_mtx.lock();
-        ep_handle_map[peer.svc_uuid] = handle;
+        ep_handle_map[key] = handle;
         ep_mtx.unlock();
     }
 }
@@ -201,14 +214,21 @@ NetMgr::ep_handler_register(EpSvcHandle::pointer handle)
 void
 NetMgr::ep_handler_unregister(const fpi::SvcUuid &peer)
 {
-    ep_mtx.lock();
-    ep_handle_map.erase(peer.svc_uuid);
-    ep_mtx.unlock();
 }
 
 void
 NetMgr::ep_handler_unregister(EpSvcHandle::pointer handle)
 {
+    UuidIntKey   key;
+    fpi::SvcUuid peer;
+
+    handle->ep_my_uuid(peer);
+    key.h_key  = peer.svc_uuid;
+    key.h_int1 = handle->ep_version(&key.h_int2);
+
+    ep_mtx.lock();
+    ep_handle_map.erase(key);
+    ep_mtx.unlock();
 }
 
 // svc_lookup
@@ -245,13 +265,18 @@ NetMgr::svc_lookup(const char *peer_name, fds_uint32_t maj, fds_uint32_t min)
 // ------------------
 //
 EpSvcHandle::pointer
-NetMgr::svc_handler_lookup(const fpi::SvcUuid &uuid)
+NetMgr::svc_handler_lookup(const fpi::SvcUuid &uuid, fds_uint32_t maj, fds_uint32_t min)
 {
+    UuidIntKey            key;
     EpSvcHandle::pointer  client;
+
+    key.h_key  = uuid.svc_uuid;
+    key.h_int1 = maj;
+    key.h_int2 = min;
 
     ep_mtx.lock();
     try {
-        client = ep_handle_map[uuid.svc_uuid];
+        client = ep_handle_map.at(key);
     } catch(...) {
         client = NULL;
     }
@@ -358,15 +383,23 @@ NetMgr::ep_uuid_bindings(const struct ep_map_rec **map)
 // Return the <ip, port> binding to the given uuid.
 //
 int
-NetMgr::ep_uuid_binding(const fpi::SvcUuid &uuid, std::string *ip)
+NetMgr::ep_uuid_binding(const fpi::SvcUuid &uuid,
+                        fds_uint32_t        maj,
+                        fds_uint32_t        min,
+                        std::string        *ip)
 {
     int          idx, ret;
     char         str[INET6_ADDRSTRLEN + 1];
+    UuidIntKey   key;
     ep_map_rec_t map;
+
+    key.h_int1 = maj;
+    key.h_int2 = min;
+    key.h_key  = uuid.svc_uuid;
 
     ep_mtx.lock();
     try {
-        idx = ep_uuid_map.at(uuid.svc_uuid);
+        idx = ep_uuid_map.at(key);
     } catch(...) {
         idx = -1;
     }
@@ -374,7 +407,7 @@ NetMgr::ep_uuid_binding(const fpi::SvcUuid &uuid, std::string *ip)
 
     if (idx < 0) {
         // Don't have it in the cache, lookup in shared memory.
-        idx = ep_shm->ep_lookup_rec(uuid.svc_uuid, &map);
+        idx = ep_shm->ep_lookup_rec(uuid.svc_uuid, maj, min, &map);
         if (idx == -1) {
             idx = ep_shm->node_info_lookup(uuid.svc_uuid, &map);
             if (idx == -1) {
@@ -385,7 +418,7 @@ NetMgr::ep_uuid_binding(const fpi::SvcUuid &uuid, std::string *ip)
         // Cache the binding to the shared memory location.
         ep_register_binding(&map, idx);
     } else {
-        ret = ep_shm->ep_lookup_rec(idx, uuid.svc_uuid, &map);
+        ret = ep_shm->ep_lookup_rec(idx, uuid.svc_uuid, maj, min, &map);
         if (ret == -1) {
             idx = ep_shm->node_info_lookup(idx, uuid.svc_uuid, &map);
         } else {
@@ -406,16 +439,21 @@ NetMgr::ep_uuid_binding(const fpi::SvcUuid &uuid, std::string *ip)
 void
 NetMgr::ep_register_binding(const ep_map_rec_t *rec, int idx)
 {
-    int port;
+    int         port;
+    UuidIntKey  key;
 
     fds_assert(idx >= 0);
+    key.h_key  = rec->rmp_uuid;
+    key.h_int1 = rec->rmp_major;
+    key.h_int2 = rec->rmp_minor;
+
     port = EpAttr::netaddr_get_port(&rec->rmp_addr);
     if ((rec->rmp_uuid == 0) || (port == 0)) {
         // TODO(Vy): log the error.
         return;
     }
     ep_mtx.lock();
-    ep_uuid_map[rec->rmp_uuid] = idx;
+    ep_uuid_map[key] = idx;
     ep_mtx.unlock();
 }
 
@@ -449,13 +487,16 @@ NetMgr::ep_actionable_error(/*const fpi::SvcUuid &uuid, */const Error &e) const
 // ---------------
 //
 void
-NetMgr::ep_handle_error(const fpi::SvcUuid &uuid, const Error &e)
+NetMgr::ep_handle_error(const fpi::SvcUuid &uuid,
+                        const Error        &e,
+                        fds_uint32_t        maj,
+                        fds_uint32_t        min)
 {
     fds_threadpool *pool;
 
     pool = ep_mgr_thrpool();
     pool->schedule(&NetMgr::ep_handle_error_thr, this,
-                   new fpi::SvcUuid(uuid), new Error(e));
+                   new fpi::SvcUuid(uuid), new Error(e), maj, min);
 }
 
 // ep_handle_error_thr
@@ -464,16 +505,18 @@ NetMgr::ep_handle_error(const fpi::SvcUuid &uuid, const Error &e)
 // common threadpool.
 //
 void
-NetMgr::ep_handle_error_thr(fpi::SvcUuid *uuid, Error *e)
+NetMgr::ep_handle_error_thr(fpi::SvcUuid *uuid, Error *e,
+                            fds_uint32_t  maj,
+                            fds_uint32_t  min)
 {
     EpSvc::pointer       svc;
     EpSvcHandle::pointer eph;
 
-    eph = svc_handler_lookup(*uuid);
+    eph = svc_handler_lookup(*uuid, maj, min);
     if (eph != NULL) {
         eph->ep_handle_error(*e);
     } else {
-        svc = svc_lookup(*uuid, 0, 0);
+        svc = svc_lookup(*uuid, maj, min);
         if (svc != NULL) {
             svc->ep_handle_error(*e);
         } else {
