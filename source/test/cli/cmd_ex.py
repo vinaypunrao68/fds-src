@@ -1,8 +1,8 @@
 import sys
 import os
 import logging
-sys.path.append('/home/nbayyana/fds-src/source/test')
-sys.path.append('/home/nbayyana/fds-src/source/test/fdslib/pyfdsp')
+sys.path.append('../../test')
+sys.path.append('../fdslib/pyfdsp')
 
 from argh import *
 import cmd
