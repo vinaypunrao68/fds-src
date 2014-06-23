@@ -144,9 +144,9 @@ class FDSBlockVolumeDriver(driver.VolumeDriver):
                     continue
 
                 try:
-                    self._execute('sshpass', '-p' + self.configuration.compute_host_password, 'ssh', self.configuration.compute_host_spec, 'nbd-client', '-c', devName, run_as_root=True, check_exit_code=[1])
+                    self._execute('sshpass', '-p' + self.configuration.compute_host_password, 'ssh', self.configuration.compute_host_spec, 'nbd-client', '-c', devName, run_as_root=False, check_exit_code=[1])
                     self._execute('sshpass', '-p' + self.configuration.compute_host_password, 'ssh', self.configuration.compute_host_spec, 'nbd-client', '-N', name, self.configuration.fds_nbd_server, devName, '-b', '4096',
-                                  run_as_root=True)
+                                  run_as_root=False)
                     self.attached_devices[name] = devName
                     return devName
 
@@ -166,7 +166,7 @@ class FDSBlockVolumeDriver(driver.VolumeDriver):
     def _detach_fds_block_dev(self, fds, name):
         if name in self.attached_devices:
             try:
-                self._execute('sshpass', '-p' + self.configuration.compute_host_password, 'ssh', self.configuration.compute_host_spec, 'nbd-client', '-d', self.attached_devices[name], run_as_root=True)
+                self._execute('sshpass', '-p' + self.configuration.compute_host_password, 'ssh', self.configuration.compute_host_spec, 'nbd-client', '-d', self.attached_devices[name], run_as_root=False)
                 del self.attached_devices[name]
             except ProcessExecutionError as e:
                 # Error message
