@@ -15,6 +15,10 @@
 
 namespace {
 
+// start garbage collection for PerfContext if entries in latencyMap_
+// reaches this number
+const unsigned MAX_PENDING_PERF_CONTEXTS = 25000;
+
 void createLatencyCounter(fds::PerfContext & ctx) {
     fds_assert(ctx.start_cycle);
     fds_assert(ctx.start_cycle <= ctx.end_cycle);
@@ -85,6 +89,8 @@ void stringToEventsFilter(const std::string & str, std::bitset<fds::MAX_EVENT_TY
 namespace fds {
 
 const std::string PERF_COUNTERS_NAME("perf");
+
+const unsigned PERF_CONTEXT_TIMEOUT = 1800; // in seconds (30 mins)
 
 const char * eventTypeToStr[] = {
         "trace", //generic event
@@ -294,6 +300,11 @@ void PerfTracer::tracePointBegin(const std::string & id, const PerfEventType & t
             type << "' name='" << name << "'";
     PerfContext * ctx = new PerfContext(type, name);
     tracePointBegin(*ctx);
+
+    size_t sz = instance().latencyMap_.size();
+    if (sz > MAX_PENDING_PERF_CONTEXTS) {
+        GLOGWARN << "Too many trace points pending - started but not ended (" << sz << ")";
+    }
 
     FDSGUARD(instance().latency_map_mutex_);
 #ifdef DEBUG

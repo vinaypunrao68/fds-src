@@ -28,6 +28,8 @@ namespace fds {
 
 extern const std::string PERF_COUNTERS_NAME;
 
+extern const unsigned PERF_CONTEXT_TIMEOUT;
+
 // XXX: update eventTypeToStr[] for each event added
 extern const char * eventTypeToStr[];
 typedef enum {
@@ -57,6 +59,7 @@ typedef struct PerfContext_ {
             type(TRACE),
             name(""),
             enabled(true),
+            timeout(PERF_CONTEXT_TIMEOUT),
             start_cycle(0),
             end_cycle(0),
             data(0),
@@ -66,6 +69,7 @@ typedef struct PerfContext_ {
             type(type_),
             name(name_),
             enabled(true),
+            timeout(PERF_CONTEXT_TIMEOUT),
             start_cycle(0),
             end_cycle(0),
             data(0),
@@ -76,6 +80,7 @@ typedef struct PerfContext_ {
     PerfEventType type;
     std::string name;
     bool enabled;
+    fds_uint64_t timeout;
     fds_uint64_t start_cycle;
     fds_uint64_t end_cycle;
     boost::shared_ptr<FdsBaseCounter> data;
