@@ -19,10 +19,34 @@ namespace fds {
 typedef struct ep_map_rec ep_map_rec_t;
 struct ep_map_rec
 {
-    struct sockaddr          rmp_addr;
+    /* uuid, major, minor must be in this order because they're the key in shm rec. */
     fds_uint64_t             rmp_uuid;
+    fds_uint32_t             rmp_major;
+    fds_uint32_t             rmp_minor;
+
+    struct sockaddr          rmp_addr;
     char                     rmp_name[MAX_SVC_NAME_LEN];
 };
+
+#define EP_MAP_REC_KEY_SZ    (sizeof(fds_uint64_t) + 2 * sizeof(fds_uint32_t))
+
+/**
+ * ep_map_get_port_info
+ * --------------------
+ * @return the port from addr binding in the mapping record.
+ */
+static inline int ep_map_get_port_info(const ep_map_rec_t &rec) {
+    return EpAttr::netaddr_get_port(&rec.rmp_addr);
+}
+
+/**
+ * ep_map_set_port_info
+ * --------------------
+ * @brief: set the port to addr binding in the mapping record.
+ */
+static inline void ep_map_set_port_info(ep_map_rec_t *rec, int port) {
+    return EpAttr::netaddr_set_port(&rec->rmp_addr, port);
+}
 
 /**
  * Item to put in shared memory queue.
@@ -66,9 +90,19 @@ class EpPlatLibMod : public Module
 
     virtual int  ep_map_record(const ep_map_rec_t *rec);
     virtual int  ep_unmap_record(fds_uint64_t uuid, int idx);
-    virtual int  ep_lookup_rec(fds_uint64_t uuid, ep_map_rec_t *out);
-    virtual int  ep_lookup_rec(int idx, fds_uint64_t uuid, ep_map_rec_t *out);
-    virtual int  ep_lookup_rec(const char *name, ep_map_rec_t *out);
+    virtual int  ep_lookup_rec(int           idx,
+                               fds_uint64_t  uuid,
+                               fds_uint32_t  maj,
+                               fds_uint32_t  min,
+                               ep_map_rec_t *out);
+    virtual int  ep_lookup_rec(fds_uint64_t  uuid,
+                               fds_uint32_t  maj,
+                               fds_uint32_t  min,
+                               ep_map_rec_t *out);
+    virtual int  ep_lookup_rec(const char   *name,
+                               fds_uint32_t  maj,
+                               fds_uint32_t  min,
+                               ep_map_rec_t *out);
 
     /**
      * Lookup node-info records in shared memory.
@@ -88,13 +122,16 @@ class EpPlatLibMod : public Module
 
   protected:
     int                      ep_my_type;
-    ShmObjROKeyUint64       *ep_uuid_bind;
+    ShmObjRO                *ep_uuid_bind;
     ShmObjROKeyUint64       *ep_node_bind;
     ShmObjROKeyUint64       *ep_am_bind;
 
     int ep_req_map_record(fds_uint32_t op, const ep_map_rec_t *rec);
 };
 
+/**
+ * This obj is for platform daemon that controls RW access to the shm segment.
+ */
 class EpPlatformdMod : public EpPlatLibMod
 {
   public:
@@ -112,7 +149,7 @@ class EpPlatformdMod : public EpPlatLibMod
     void node_reg_notify(const node_data_t *info);
 
   protected:
-    ShmObjRWKeyUint64       *ep_uuid_rw;
+    ShmObjRW                *ep_uuid_rw;
     ShmObjRWKeyUint64       *ep_node_rw;
 };
 

@@ -212,6 +212,12 @@ class NodeAgent : public NodeInventory
     virtual fds_uint64_t node_stor_weight() const;
     virtual void         node_set_weight(fds_uint64_t weight);
 
+    /**
+     * Return the RPC handler for services bound to the control port.
+     */
+    boost::shared_ptr<fpi::FDSP_ControlPathReqClient>
+    node_ctrl_rpc(boost::intrusive_ptr<EpSvcHandle> *eph);
+
   protected:
     friend class AgentContainer;
 

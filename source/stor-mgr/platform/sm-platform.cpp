@@ -167,19 +167,19 @@ SmPlatform::plf_reg_node_info(const NodeUuid &uuid, const FdspNodeRegPtr msg)
 PlatRpcReqt *
 SmPlatform::plat_creat_reqt_disp()
 {
-    return new SmRpcReq(this);
+    return NULL;
 }
 
 PlatRpcResp *
 SmPlatform::plat_creat_resp_disp()
 {
-    return new PlatRpcResp(this);
+    return NULL;
 }
 
 PlatDataPathResp *
 SmPlatform::plat_creat_dpath_resp()
 {
-    return new PlatDataPathResp(this);
+    return NULL;
 }
 
 /**
@@ -194,72 +194,6 @@ void SmPlatform::registerFlags()
                   plf_get_flags_map(), sm_drop_gets));
     DBG(REGISTER_FLAG(PlatformProcess::plf_manager()->\
                   plf_get_flags_map(), sm_drop_puts));
-}
-
-// --------------------------------------------------------------------------------------
-// RPC handlers
-// --------------------------------------------------------------------------------------
-SmRpcReq::SmRpcReq(const Platform *plf) : PlatRpcReqt(plf) {}
-SmRpcReq::~SmRpcReq() {}
-
-void
-SmRpcReq::NotifyAddVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
-                       fpi::FDSP_NotifyVolTypePtr &msg)
-{
-}
-
-void
-SmRpcReq::NotifyRmVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
-                      fpi::FDSP_NotifyVolTypePtr &msg)
-{
-}
-
-void
-SmRpcReq::NotifyModVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
-                       fpi::FDSP_NotifyVolTypePtr &msg)
-{
-}
-
-void
-SmRpcReq::AttachVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
-                    fpi::FDSP_AttachVolTypePtr &vol_msg)
-{
-}
-
-void
-SmRpcReq::DetachVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
-                    fpi::FDSP_AttachVolTypePtr &vol_msg)
-{
-}
-
-void
-SmRpcReq::NotifyNodeAdd(fpi::FDSP_MsgHdrTypePtr     &msg_hdr,
-                        fpi::FDSP_Node_Info_TypePtr &node_info)
-{
-}
-
-void
-SmRpcReq::NotifyNodeRmv(fpi::FDSP_MsgHdrTypePtr     &msg_hdr,
-                        fpi::FDSP_Node_Info_TypePtr &node_info)
-{
-}
-
-void
-SmRpcReq::NotifyDLTUpdate(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
-                          fpi::FDSP_DLT_Data_TypePtr &dlt_info)
-{
-}
-
-void
-SmRpcReq::NotifyDMTUpdate(fpi::FDSP_MsgHdrTypePtr &msg_hdr,  // NOLINT
-                          fpi::FDSP_DMT_TypePtr   &dmt)
-{
-}
-
-void
-SmRpcReq::NotifyStartMigration(fpi::FDSP_MsgHdrTypePtr    &hdr,
-                               fpi::FDSP_DLT_Data_TypePtr &dlt)
-{
 }
 
 }  // namespace fds

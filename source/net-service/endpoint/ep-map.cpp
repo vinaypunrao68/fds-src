@@ -9,6 +9,10 @@ namespace fds {
 static EpPlatLibMod          gl_EpShmSharedLib("Ep PlatShm Lib");
 EpPlatLibMod                *gl_EpShmPlatLib = &gl_EpShmSharedLib;
 
+/* Make sure keys are contiguous */
+cc_assert(m1, offsetof(ep_map_rec_t, rmp_uuid) == 0);
+cc_assert(m3, offsetof(ep_map_rec_t, rmp_addr) == EP_MAP_REC_KEY_SZ);
+
 /*
  * -------------------------------------------------------------------------------------
  * Platform lib shared memory queue handlers
@@ -171,22 +175,46 @@ EpPlatLibMod::ep_req_map_record(fds_uint32_t op, const ep_map_rec_t *rec)
 // -------------
 //
 int
-EpPlatLibMod::ep_lookup_rec(fds_uint64_t uuid, ep_map_rec_t *out)
+EpPlatLibMod::ep_lookup_rec(fds_uint64_t  uuid,
+                            fds_uint32_t  maj,
+                            fds_uint32_t  min,
+                            ep_map_rec_t *out)
 {
-    return ep_uuid_bind->shm_lookup_rec(static_cast<void *>(&uuid),
+    ep_map_rec_t key;
+
+    key.rmp_uuid  = uuid;
+    key.rmp_major = maj;
+    key.rmp_minor = min;
+    return ep_uuid_bind->shm_lookup_rec(static_cast<void *>(&key),
                                         static_cast<void *>(out), sizeof(*out));
 }
 
 int
-EpPlatLibMod::ep_lookup_rec(int idx, fds_uint64_t uuid, ep_map_rec_t *out)
+EpPlatLibMod::ep_lookup_rec(int           idx,
+                            fds_uint64_t  uuid,
+                            fds_uint32_t  maj,
+                            fds_uint32_t  min,
+                            ep_map_rec_t *out)
 {
-    return ep_uuid_bind->shm_lookup_rec(idx, static_cast<void *>(&uuid),
+    ep_map_rec_t key;
+
+    key.rmp_uuid  = uuid;
+    key.rmp_major = maj;
+    key.rmp_minor = min;
+    return ep_uuid_bind->shm_lookup_rec(idx, static_cast<void *>(&key),
                                         static_cast<void *>(out), sizeof(*out));
 }
 
 int
-EpPlatLibMod::ep_lookup_rec(const char *name, ep_map_rec_t *out)
+EpPlatLibMod::ep_lookup_rec(const char   *name,
+                            fds_uint32_t  maj,
+                            fds_uint32_t  min,
+                            ep_map_rec_t *out)
 {
+    ep_map_rec_t key;
+
+    key.rmp_major = maj;
+    key.rmp_minor = min;
     return 0;
 }
 
@@ -240,7 +268,9 @@ EpPlatLibMod::node_info_lookup(fds_uint64_t node_uuid, ep_map_rec_t *out)
 /* static */ void
 EpPlatLibMod::ep_node_info_to_mapping(const node_data_t *src, ep_map_rec_t *dest)
 {
-    dest->rmp_uuid = src->nd_node_uuid;
+    dest->rmp_uuid  = src->nd_node_uuid;
+    dest->rmp_major = 0;
+    dest->rmp_minor = 0;
     strncpy(dest->rmp_name, src->nd_assign_name, sizeof(dest->rmp_name));
     EpAttr::netaddr_frm_str(&dest->rmp_addr, src->nd_base_port, src->nd_ip_addr);
 }

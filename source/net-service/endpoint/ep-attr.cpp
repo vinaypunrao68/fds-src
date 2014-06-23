@@ -37,6 +37,9 @@ EpAttr::operator = (const EpAttr &rhs)
     return *this;
 }
 
+// attr_get_port
+// -------------
+//
 int
 EpAttr::attr_get_port()
 {
@@ -46,6 +49,9 @@ EpAttr::attr_get_port()
     return (((struct sockaddr_in6 *)&ep_addr)->sin6_port);
 }
 
+// netaddr_get_port
+// ----------------
+//
 /* static */ int
 EpAttr::netaddr_get_port(const struct sockaddr *adr)
 {
@@ -53,6 +59,19 @@ EpAttr::netaddr_get_port(const struct sockaddr *adr)
         return (((struct sockaddr_in *)adr)->sin_port);
     }
     return (((struct sockaddr_in6 *)adr)->sin6_port);
+}
+
+// netaddr_set_port
+// ----------------
+//
+/* static */ void
+EpAttr::netaddr_set_port(struct sockaddr *adr, int port)
+{
+    if (adr->sa_family == AF_INET) {
+        ((struct sockaddr_in *)adr)->sin_port = port;
+    } else {
+        ((struct sockaddr_in6 *)adr)->sin6_port = port;
+    }
 }
 
 // netaddr_to_str

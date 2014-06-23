@@ -200,7 +200,7 @@ class EndPoint : public EpSvcImpl
             mtx->lock();
             if (ep_peer == NULL) {
                 out     = false;
-                ep_peer = new EpSvcHandle(this, ep_evt);
+                ep_peer = new EpSvcHandle(this, ep_evt, 0, 0);
             }
             mtx->unlock();
             if (out == false) {
@@ -282,7 +282,7 @@ class EndPoint : public EpSvcImpl
                               EpSvcHandle::pointer *clnt,
                               EpEvtPlugin::pointer  evt)
     {
-        *clnt = new EpSvcHandle(ep, evt);
+        *clnt = new EpSvcHandle(ep, evt, port, 0);
         EpSvcImpl::ep_connect_server<SendIf>(port, ip, *clnt);
     }
 };
@@ -299,13 +299,15 @@ endpoint_connect_handle(EpSvcHandle::pointer ptr,
     int          port;
     std::string  ip;
     fpi::SvcUuid uuid;
+    fds_uint32_t maj, min;
 
     if (peer == NullSvcUuid) {
         ptr->ep_peer_uuid(uuid);
     } else {
         uuid = peer;
     }
-    port = NetMgr::ep_mgr_singleton()->ep_uuid_binding(uuid, &ip);
+    maj  = ptr->ep_version(&min);
+    port = NetMgr::ep_mgr_singleton()->ep_uuid_binding(uuid, maj, min, &ip);
     if (port != -1) {
         EpSvcImpl::ep_connect_server<SendIf>(port, ip, ptr);
     } else {

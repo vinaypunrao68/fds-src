@@ -153,8 +153,8 @@ class NodeShmCtrl : public Module
     static const int shm_svc_consumers = 8;
 
     static NodeShmCtrl       *shm_ctrl_singleton() { return gl_NodeShmCtrl; }
+    static ShmObjRO          *shm_uuid_binding() { return gl_NodeShmCtrl->shm_uuid_bind; }
     static ShmObjROKeyUint64 *shm_am_inventory() { return gl_NodeShmCtrl->shm_am_inv; }
-    static ShmObjROKeyUint64 *shm_uuid_binding() { return gl_NodeShmCtrl->shm_uuid_bind; }
     static ShmObjROKeyUint64 *shm_node_inventory() {
         return gl_NodeShmCtrl->shm_node_inv;
     }
@@ -201,7 +201,7 @@ class NodeShmCtrl : public Module
     FdsShmem                  *shm_ctrl;
     ShmObjROKeyUint64         *shm_am_inv;
     ShmObjROKeyUint64         *shm_node_inv;
-    ShmObjROKeyUint64         *shm_uuid_bind;
+    ShmObjRO                  *shm_uuid_bind;
     struct node_shm_inventory *shm_node_hdr;
 
     size_t                     shm_node_off;

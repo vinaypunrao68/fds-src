@@ -21,6 +21,7 @@
 #include <util/Log.h>
 #include <fds_typedefs.h>
 #include <net/RpcFunc.h>
+#include <util/hash-util.h>
 
 // Forward declarations
 namespace apache { namespace thrift { namespace transport {
@@ -101,7 +102,7 @@ class EpAttr
     EpAttr() : ep_refcnt(0) {}
     virtual ~EpAttr() {}
 
-    EpAttr(fds_uint32_t ip, int port);        /**< ipv4 net format. */
+    EpAttr(fds_uint32_t ip, int port);        /**< ipv4 net format.             */
     EpAttr(const char *iface, int port);      /**< get local ip from the iface. */
     EpAttr &operator = (const EpAttr &rhs);
 
@@ -119,6 +120,7 @@ class EpAttr
                               const char      *iface);
 
     static int  netaddr_get_port(const struct sockaddr *adr);
+    static void netaddr_set_port(struct sockaddr *adr, int port);
     static void netaddr_to_str(const struct sockaddr *adr, char *ip, int ip_len);
     static void netaddr_frm_str(struct sockaddr *adr,
                                 int port, const char *ip, bool v4 = true);
@@ -224,6 +226,11 @@ class EpSvc
     inline EpAttr::pointer      ep_get_attr() { return ep_attr; }
     inline EpEvtPlugin::pointer ep_evt_plugin() { return ep_evt; }
 
+    inline fds_uint32_t ep_version(fds_uint32_t *minor) {
+        *minor = svc_ver.ver_minor;
+        return svc_ver.ver_major;
+    }
+
     inline void ep_my_uuid(fpi::SvcUuid &uuid) { uuid = svc_id.svc_uuid; }
     inline fds_uint64_t ep_my_uuid() { return svc_id.svc_uuid.svc_uuid; }
 
@@ -293,9 +300,12 @@ class EpSvcHandle
     typedef bo::intrusive_ptr<const EpSvcHandle> const_ptr;
 
     virtual ~EpSvcHandle();
-    EpSvcHandle(EpSvc::pointer svc, EpEvtPlugin::pointer evt);
-    EpSvcHandle(const fpi::SvcUuid &peer, EpEvtPlugin::pointer evt)
-        : EpSvcHandle(NULL, evt) { ep_peer_id = peer; }
+    EpSvcHandle(EpSvc::pointer svc, EpEvtPlugin::pointer, fds_uint32_t, fds_uint32_t);
+    EpSvcHandle(const fpi::SvcUuid   &peer,
+                EpEvtPlugin::pointer  evt,
+                fds_uint32_t          maj,
+                fds_uint32_t          min)
+        : EpSvcHandle(NULL, evt, maj, min) { ep_peer_id = peer; }
 
     ep_state_e ep_reconnect();
     ep_state_e ep_get_status()  { return ep_state; }
@@ -303,6 +313,13 @@ class EpSvcHandle
     template <class SendIf>
     bo::shared_ptr<SendIf> svc_rpc() {
         return bo::static_pointer_cast<SendIf>(ep_rpc);
+    }
+    /**
+     * @return the major and minor version of this handle.
+     */
+    inline fds_uint32_t ep_version(fds_uint32_t *minor) const {
+        *minor = ep_minor;
+        return ep_major;
     }
 
     void ep_notify_plugin();
@@ -315,6 +332,8 @@ class EpSvcHandle
     friend class EpSvcImpl;
 
     ep_state_e                     ep_state;
+    fds_uint32_t                   ep_major;
+    fds_uint32_t                   ep_minor;
     fpi::SvcUuid                   ep_peer_id;
     EpSvc::pointer                 ep_owner;
     EpEvtPlugin::pointer           ep_plugin;
@@ -340,10 +359,10 @@ extern NetMgr                gl_NetService;
 extern NetPlatform          *gl_NetPlatSvc;
 
 typedef std::list<EpSvc::pointer>                              EpSvcList;
-typedef std::unordered_map<fds_uint64_t, int>                  UuidShmMap;
 typedef std::unordered_map<fds_uint64_t, EpSvcList>            UuidEpMap;
 typedef std::unordered_map<fds_uint64_t, EpSvc::pointer>       UuidSvcMap;
-typedef std::unordered_map<fds_uint64_t, EpSvcHandle::pointer> EpHandleMap;
+typedef std::unordered_map<UuidIntKey, int, UuidIntKeyHash>    UuidShmMap;
+typedef std::unordered_map<UuidIntKey, EpSvcHandle::pointer, UuidIntKeyHash> EpHandleMap;
 
 /**
  * Singleton module manages all endpoints.
@@ -371,13 +390,16 @@ class NetMgr : public Module
      * The caller doesn't have to free the RO array.
      */
     virtual int  ep_uuid_bindings(const struct ep_map_rec **map);
-    virtual int  ep_uuid_binding(const fpi::SvcUuid &uuid, std::string *ip);
+    virtual int  ep_uuid_binding(const fpi::SvcUuid &uuid,
+                                 fds_uint32_t        maj,
+                                 fds_uint32_t        min,
+                                 std::string        *ip);
 
     /**
      * Endpoint registration and lookup.
      */
     virtual void ep_register(EpSvc::pointer ep, bool update_domain = true);
-    virtual void ep_unregister(const fpi::SvcUuid &peer);
+    virtual void ep_unregister(const fpi::SvcUuid &peer, fds_uint32_t, fds_uint32_t);
 
     virtual void ep_handler_register(EpSvcHandle::pointer handle);
     virtual void ep_handler_unregister(EpSvcHandle::pointer handle);
@@ -399,7 +421,7 @@ class NetMgr : public Module
     svc_lookup(const char *name, fds_uint32_t maj, fds_uint32_t min);
 
     virtual EpSvcHandle::pointer
-    svc_handler_lookup(const fpi::SvcUuid &uuid);
+    svc_handler_lookup(const fpi::SvcUuid &uuid, fds_uint32_t maj, fds_uint32_t min);
 
     /**
      * Returns true if error e is actionable on the endpoint
@@ -412,7 +434,9 @@ class NetMgr : public Module
      * Handles endpoint error on a thread from threadpool.
      * @param e
      */
-    virtual void ep_handle_error(const fpi::SvcUuid &uuid, const Error &e);
+    virtual void ep_handle_error(const fpi::SvcUuid &uuid, const Error &e,
+                                 fds_uint32_t        maj = 0,
+                                 fds_uint32_t        min = 0);
 
     /**
      * Lookup an endpoint.  The caller must call EpSvc::ep_cast<SendIf, RecvIf> to
@@ -445,7 +469,7 @@ class NetMgr : public Module
     {
         EpSvc::pointer  ep;
 
-        *out = this->svc_handler_lookup(peer);
+        *out = this->svc_handler_lookup(peer, maj, min);
         if (*out == NULL) {
             if (mine == NullSvcUuid) {
                 ep = this->endpoint_lookup(peer);
@@ -457,7 +481,7 @@ class NetMgr : public Module
                 return;
             }
             // TODO(Vy): must suppy default values here.
-            *out = new EpSvcHandle(peer, NULL);
+            *out = new EpSvcHandle(peer, NULL, maj, min);
             endpoint_connect_handle<SendIf>(*out);
         }
     }
@@ -578,7 +602,7 @@ class NetMgr : public Module
 
     ResourceUUID const *const ep_my_platform_uuid();
     void ep_register_thr(EpSvc::pointer ep, bool update_domain);
-    void ep_handle_error_thr(fpi::SvcUuid *uuid, Error *e);
+    void ep_handle_error_thr(fpi::SvcUuid *uuid, Error *e, fds_uint32_t, fds_uint32_t);
 
     virtual EpSvc::pointer ep_lookup_port(int port);
 };
