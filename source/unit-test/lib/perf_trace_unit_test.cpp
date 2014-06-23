@@ -63,7 +63,7 @@ private:
 int PerfTraceUTProc::run() {
     for (unsigned i = 0; i < MAX_PERF_JOBS; ++i) {
         jobs_[i].type = static_cast<PerfEventType>(rand() % MAX_EVENT_TYPE);
-        jobs_[i].delay = TASK_SLEEP_TIME < 0 ? rand() % 31 : TASK_SLEEP_TIME;
+        jobs_[i].delay = TASK_SLEEP_TIME < 0 ? (rand() % 31) + 1 : TASK_SLEEP_TIME;
         jobs_[i].id = PREFIX[rand() % 3] + boost::lexical_cast<std::string>(i);
         jobs_[i].ctx.type = jobs_[i].type;
         jobs_[i].ctx.name = jobs_[i].id;
@@ -87,6 +87,7 @@ int PerfTraceUTProc::run() {
 #endif
 
     // Print all counter values
+    std::cout << "------------------------------\n";
     g_cntrs_mgr->export_to_ostream(std::cout);
     syncfs(STDOUT_FILENO);
 
@@ -112,7 +113,7 @@ void PerfTraceUTProc::task(int id) {
     }
 
     // task is executed here
-    std::this_thread::sleep_for(std::chrono::milliseconds((rand() % 31) + 1));
+    std::this_thread::sleep_for(std::chrono::milliseconds(jobs_[id].delay));
 
     // end perf trace
     boost::shared_ptr<PerfContext> pc;

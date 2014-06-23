@@ -95,7 +95,7 @@ public:
     static void incr(const PerfEventType & type, std::string name = "");
 
     // Increment counter value by val and (for LatencyCounter, count by cnt)
-    static void incr(const PerfEventType & type, fds_uint64_t val = 0,
+    static void incr(const PerfEventType & type, fds_uint64_t val,
             fds_uint64_t cnt = 0, std::string name = "");
 
     // For LatencyCounters
@@ -172,9 +172,6 @@ private:
      */
     PerfTracer();
     ~PerfTracer();
-
-    PerfTracer(const PerfTracer & rhs);
-    PerfTracer & operator =(const PerfTracer & rhs);
 
     void reconfig();
 

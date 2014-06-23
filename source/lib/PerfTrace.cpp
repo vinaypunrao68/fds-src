@@ -24,8 +24,10 @@ void createLatencyCounter(fds::PerfContext & ctx) {
     ctx.data.reset(plc);
 }
 
-void initializeCounter(fds::PerfContext * ctx, fds::FdsCounters * parent, bool latency) {
+template <typename T>
+void initializeCounter(fds::PerfContext * ctx, fds::FdsCounters * parent) {
     fds_assert(ctx);
+    fds_assert(0 == ctx->data.get());
     GLOGDEBUG << "Creating performance counter for type='" << ctx->type
             << "' name='" << ctx->name << "'";
 
@@ -34,29 +36,23 @@ void initializeCounter(fds::PerfContext * ctx, fds::FdsCounters * parent, bool l
         counterName += "." + ctx->name;
     }
 
-    if (latency) {
-        ctx->data.reset(new fds::LatencyCounter(counterName, parent));
-    } else {
-        ctx->data.reset(new fds::NumericCounter(counterName, parent));
-    }
+    ctx->data.reset(new T(counterName, parent));
 }
 
 void stringToEventsFilter(const std::string & str, std::bitset<fds::MAX_EVENT_TYPE> & filter) {
     // Sanitize the input and return bitset
     std::vector<std::string> tokenVec;
     boost::split(tokenVec, str, boost::is_any_of(","));
-    for (std::vector<std::string>::iterator i = tokenVec.begin();
-            tokenVec.end() != i; ++i) {
-
-        boost::trim(*i);
+    for(std::string & str : tokenVec) {
+        boost::trim(str);
         unsigned startPos = fds::MAX_EVENT_TYPE;
         unsigned endPos = startPos;
-        if (std::string::npos == i->find('-')) {
-            startPos = endPos = boost::lexical_cast<unsigned>(*i);
+        if (std::string::npos == str.find('-')) {
+            startPos = endPos = boost::lexical_cast<unsigned>(str);
         } else {
 
             std::vector<std::string> rangeVec;
-            boost::split(rangeVec, *i, boost::is_any_of("-"));
+            boost::split(rangeVec, str, boost::is_any_of("-"));
             if (2 != rangeVec.size()) {
                 throw std::runtime_error("Invalid event filter string");
             }
@@ -132,20 +128,17 @@ PerfTracer::PerfTracer() : aggregateCounters_(fds::MAX_EVENT_TYPE),
 
 PerfTracer::~PerfTracer() {
     GLOGDEBUG << "Destroying PerfTracer";
-    for (PerfContextMap::iterator i = latencyMap_.begin();
-            latencyMap_.end() != i; ++i) {
-        delete i->second;
+    for (auto& kv : latencyMap_) {
+        delete kv.second;
     }
     latencyMap_.clear();
 
-    for (std::vector<PerfContextMap>::iterator vIter =
-            namedCounters_.begin(); namedCounters_.end() != vIter; ++vIter) {
-        for (PerfContextMap::iterator mIter = vIter->begin();
-                vIter->end() != mIter; ++mIter) {
-            //TODO: exportedCounters->remove_from_export(mIter->second.data);
-            delete mIter->second;
+    for (PerfContextMap & m : namedCounters_) {
+        for (auto& kv : m) {
+            //TODO: exportedCounters->remove_from_export(kv.second.data);
+            delete kv.second;
         }
-        vIter->clear();
+        m.clear();
     }
     namedCounters_.clear();
 }
@@ -216,21 +209,18 @@ void PerfTracer::reconfig() {
 
 void PerfTracer::updateCounter(PerfContext & ctx, const fds_uint64_t & val,
         const fds_uint64_t cnt) {
-    FdsBaseCounter * pc = ctx.data.get();
-    if (!pc) {
-        FdsCounters * counterParent = ctx.enabled ? exportedCounters.get() : 0;
-        std::call_once(*ctx.once, initializeCounter, &ctx, counterParent, cnt != 0);
-    }
-
     GLOGNORMAL << "Updating performance counter for type='" << ctx.type
             << "' val='" << val << "' count='" << cnt << "' name='"
             << ctx.name << "'";
+    FdsCounters * counterParent = ctx.enabled ? exportedCounters.get() : 0;
     // update counter
     if (cnt) {
+        std::call_once(*ctx.once, initializeCounter<LatencyCounter>, &ctx, counterParent);
         LatencyCounter * plc = dynamic_cast<LatencyCounter *>(ctx.data.get());
         fds_assert(plc || !"Counter type mismatch between tracepoints!")
         plc->update(val, cnt);
     } else {
+        std::call_once(*ctx.once, initializeCounter<NumericCounter>, &ctx, counterParent);
         NumericCounter * pnc = dynamic_cast<NumericCounter *>(ctx.data.get());
         fds_assert(pnc || !"Counter type mismatch between tracepoints!")
         pnc->incr(val);
@@ -271,7 +261,7 @@ void PerfTracer::incr(const PerfEventType & type, std::string name /* = "" */) {
     PerfTracer::incr(type, 1, 0, name);
 }
 
-void PerfTracer::incr(const PerfEventType & type, fds_uint64_t val /* = 0 */,
+void PerfTracer::incr(const PerfEventType & type, fds_uint64_t val,
         fds_uint64_t cnt /* = 0 */, std::string name /* = "" */) {
     fds_assert(type < MAX_EVENT_TYPE);
 
