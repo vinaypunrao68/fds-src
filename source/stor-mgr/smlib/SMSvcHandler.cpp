@@ -79,7 +79,6 @@ void SMSvcHandler::putObject(boost::shared_ptr<fpi::PutObjectMsg>& putObjMsg)  /
             putObjMsg,
             std::placeholders::_1, std::placeholders::_2);
 
-    // TODO(Rao): Change the queue to the right volume queue
     err = objStorMgr->enqueueMsg(put_req->getVolId(), put_req);
     if (err != fds::ERR_OK) {
         fds_assert(!"Hit an error in enqueing");

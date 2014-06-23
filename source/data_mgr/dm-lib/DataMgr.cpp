@@ -1104,10 +1104,11 @@ DataMgr::updateCatalogBackend2(void * _io)
 
     BlobNode *bnode = NULL;
     err = updateCatalogProcess2(updCatReq, &bnode);
+    if (bnode) {
+        delete bnode;
+    }
     qosCtrl->markIODone(*updCatReq);
     updCatReq->dmio_updatecat_resp_cb(err, updCatReq);
-    
-    // TODO(Rao): deleteing qryCatReq and io
 }
 
 void
@@ -1588,8 +1589,6 @@ DataMgr::queryCatalogBackend2(void * _io)
     err = queryCatalogProcess(qryCatReq, &bnode);
     qosCtrl->markIODone(*qryCatReq);
     qryCatReq->dmio_querycat_resp_cb(err, qryCatReq, bnode);
-    
-    // TODO(Rao): deleteing qryCatReq and io
 }
 
 void

@@ -1143,11 +1143,10 @@ Error StorHvCtrl::getBlob2(fds::AmQosReq *qosReq) {
     if ((shVol == NULL) || (shVol->isValidLocked() == false)) {
         LOGCRITICAL << "getBlob failed to get volume for vol "
                     << volId;    
-        blobReq->cbWithResult(ERR_INVALID);
-        err = ERR_DISK_WRITE_FAILED;
         qos_ctrl->markIODone(qosReq);
+        blobReq->cbWithResult(ERR_INVALID);
         delete blobReq;
-        delete qosReq;
+        err = ERR_DISK_WRITE_FAILED;
         return err;
     }
 
@@ -1239,8 +1238,8 @@ void StorHvCtrl::getBlobQueryCatalogResp(fds::AmQosReq* qosReq,
     if (error != ERR_OK) {
         LOGERROR << "blob name: " << blobReq->getBlobName() << "offset: "
             << blobReq->getBlobOffset() << " Error: " << error; 
-        blobReq->cbWithResult(ERR_INVALID);
         qos_ctrl->markIODone(qosReq);
+        blobReq->cbWithResult(ERR_INVALID);
         delete blobReq;
         return;
     }
@@ -1252,8 +1251,8 @@ void StorHvCtrl::getBlobQueryCatalogResp(fds::AmQosReq* qosReq,
     if (e != ERR_OK) {
         LOGERROR << "blob name: " << blobReq->getBlobName() << "offset: "
             << blobReq->getBlobOffset() << " Error: " << e; 
-        blobReq->cbWithResult(e.GetErrno());
         qos_ctrl->markIODone(qosReq);
+        blobReq->cbWithResult(e.GetErrno());
         delete blobReq;
         return;
     }
@@ -1281,21 +1280,13 @@ void StorHvCtrl::getBlobGetObjectResp(fds::AmQosReq* qosReq,
     if (error != ERR_OK) {
         LOGERROR << "blob name: " << blobReq->getBlobName() << "offset: "
             << blobReq->getBlobOffset() << " Error: " << error; 
-        blobReq->cbWithResult(ERR_INVALID);
         qos_ctrl->markIODone(qosReq);
+        blobReq->cbWithResult(ERR_INVALID);
         delete blobReq;
         return;
     }
 
     LOGDEBUG << rpcReq->logString() << fds::logString(*getObjRsp);
-
-    fds_volid_t   volId = blobReq->getVolId();
-    StorHvVolume *vol = vol_table->getVolume(volId);
-
-    fds_verify(vol != NULL);  // Should not receive resp for non existant vol
-
-    StorHvVolumeLock vol_lock(vol);
-    fds_verify(vol->isValidLocked() == true);
 
     qos_ctrl->markIODone(qosReq);
 
@@ -1317,8 +1308,6 @@ void StorHvCtrl::getBlobGetObjectResp(fds::AmQosReq* qosReq,
     blobReq->setDataBuf(getObjRsp->data_obj.c_str());
     blobReq->cbWithResult(ERR_OK);
     delete blobReq;
-    // TODO(Rao): Ask andrew why we can't delete this qosReq
-    // delete qosReq;
 }
 
 fds::Error StorHvCtrl::updateCatalogCache(GetBlobReq *blobReq,
