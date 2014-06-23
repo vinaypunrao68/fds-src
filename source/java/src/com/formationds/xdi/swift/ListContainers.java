@@ -20,6 +20,7 @@ import org.eclipse.jetty.server.Request;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -40,6 +41,10 @@ public class ListContainers implements SwiftRequestHandler {
         // TODO: implement limit, marker, end_marker, format, prefix, delimiter query string variables
         List<VolumeDescriptor> volumes = xdi.listVolumes(accountName);
 
+        String marker = request.getParameter("marker");
+
+        volumes = filterVolumes(volumes, marker);
+
         Resource result;
         switch (format) {
             case xml:
@@ -58,6 +63,25 @@ public class ListContainers implements SwiftRequestHandler {
         // TODO: Implement X-Account-Object-Count, X-Account-Bytes-Used, X-Account-Meta-*
         //
         return SwiftUtility.swiftResource(result);
+    }
+
+    private List<VolumeDescriptor> filterVolumes(List<VolumeDescriptor> volumes, String marker) {
+        if (marker != null) {
+            boolean retain = false;
+            List<VolumeDescriptor> filtered = new ArrayList<>();
+
+            for (VolumeDescriptor volume : volumes) {
+                if (retain) {
+                    filtered.add(volume);
+                } else {
+                    if (marker.equals(volume.getName())) {
+                        retain = true;
+                    }
+                }
+            }
+            volumes = filtered;
+        }
+        return volumes;
     }
 
     private Resource plainView(List<VolumeDescriptor> volumes) {
