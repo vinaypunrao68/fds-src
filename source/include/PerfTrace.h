@@ -7,13 +7,16 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include <boost/regex.hpp>
-#include <boost/shared_ptr.hpp>
-
 #include <utility>
 #include <vector>
 #include <unordered_map>
 #include <bitset>
+#include <thread>
+#include <mutex>
+
+#include <boost/regex.hpp>
+#include <boost/shared_ptr.hpp>
+#include <boost/noncopyable.hpp>
 
 #include "fds_types.h"
 #include "fds_counters.h"
@@ -22,6 +25,8 @@
 #include "concurrency/Mutex.h"
 
 namespace fds { 
+
+extern const std::string PERF_COUNTERS_NAME;
 
 // XXX: update eventTypeToStr[] for each event added
 extern const char * eventTypeToStr[];
@@ -54,7 +59,8 @@ typedef struct PerfContext_ {
             enabled(true),
             start_cycle(0),
             end_cycle(0),
-            data(0) {}
+            data(0),
+            once(new std::once_flag()) {}
 
     PerfContext_(PerfEventType type_, std::string name_ = "") :
             type(type_),
@@ -62,11 +68,10 @@ typedef struct PerfContext_ {
             enabled(true),
             start_cycle(0),
             end_cycle(0),
-            data(0) {
+            data(0),
+            once(new std::once_flag()) {
         fds_assert(type < MAX_EVENT_TYPE);
     }
-
-    inline void generateLatency();
 
     PerfEventType type;
     std::string name;
@@ -74,37 +79,58 @@ typedef struct PerfContext_ {
     fds_uint64_t start_cycle;
     fds_uint64_t end_cycle;
     boost::shared_ptr<FdsBaseCounter> data;
+    boost::shared_ptr<std::once_flag> once;
 } PerfContext;
 
-// Per module (SM/DM/SH) perf tracer 
-class PerfTracer {
+/**
+ * Per module (SM/DM/SH) performance tracer
+ *
+ * This class is a sigleton, noncoyable and provides static utility functions for
+ * performance data collection. It supports LatencyCounters and NumericCounters.
+ */
+class PerfTracer : public boost::noncopyable {
 public:
 
     // Increment NumericCounter by 1
-    static inline void incr(const PerfEventType & type, std::string name = "");
+    static void incr(const PerfEventType & type, std::string name = "");
 
     // Increment counter value by val and (for LatencyCounter, count by cnt)
     static void incr(const PerfEventType & type, fds_uint64_t val = 0,
             fds_uint64_t cnt = 0, std::string name = "");
 
+    // For LatencyCounters
+    /**
+     * Begins trace point for calculating latency.
+     *
+     * Call this function typically at the start of some operation. This will get
+     * the current timestamp in nanoseconds and store it for given id. This will be
+     * used with tracePointEnd().
+     *
+     * @arg id: Used only to correlate tracePointBegin() and tracePointEnd()
+     * @arg type: type of the event
+     * @arg name: default is empty (ignored). If specified, LatencyCounter will be
+     *            maintained per type, per name.
+     */
     // update begin timestamp for identified event
     static void tracePointBegin(const std::string & id, const PerfEventType & type,
             std::string name = "");
-    static inline void tracePointBegin(PerfContext & ctx);
+    /**
+     * Begins trace point for calculating latency.
+     *
+     * Faster version as its lock free and no id based lookup is done.
+     */
+    static void tracePointBegin(PerfContext & ctx);
 
     // update end timestamp for identified context and updates latency
     static boost::shared_ptr<PerfContext> tracePointEnd(const std::string & id);
     static void tracePointEnd(PerfContext & ctx);
 
     // enable/ disable performance data collection
-    static inline void setEnabled(bool val = true);
-    static inline bool isEnabled();
+    static void setEnabled(bool val = true);
+    static bool isEnabled();
 
     // reload the configuration
-    static inline void refresh();
-
-    PerfTracer();
-    ~PerfTracer();
+    static void refresh();
 
 private:
 
@@ -119,8 +145,8 @@ private:
 
     std::vector<PerfContext> aggregateCounters_;
 
-    std::vector<PerfContextMap> nameCounters_;
-    fds_mutex ptrace_mutex_; // only for nameCounters_
+    std::vector<PerfContextMap> namedCounters_;
+    fds_mutex ptrace_mutex_; // only for namedCounters_
 
     /*
      * configuration
@@ -144,6 +170,9 @@ private:
     /*
      * Methods
      */
+    PerfTracer();
+    ~PerfTracer();
+
     PerfTracer(const PerfTracer & rhs);
     PerfTracer & operator =(const PerfTracer & rhs);
 

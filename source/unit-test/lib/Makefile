@@ -23,6 +23,7 @@ user_non_fds_libs :=                                                          \
     boost_thread \
     boost_date_time \
     boost_program_options \
+    boost_regex \
     ssl crypto \
     config++ \
 	thrift
@@ -44,6 +45,7 @@ user_cpp          :=                       \
     fds_process_interrupt_test.cpp \
     counters_test.cpp \
     trans_journal_ut.cpp \
+    perf_trace_unit_test.cpp \
 #    qos_dispatcher_unit_test.cpp \
 
 user_cc           :=
@@ -58,6 +60,7 @@ user_bin_exe      := \
     fds_process_interrupt_test \
     counters_test \
     trans_journal_ut \
+    perf_trace_unit_test
 
 catalog_test      := catalog_unit_test.cpp
 #qos_dispatcher_unit_test	:= qos_dispatcher_unit_test.cpp
@@ -68,5 +71,6 @@ fds_timer_test := fds_timer_test.cpp
 fds_config_test:= fds_config_test.cpp
 counters_test:= counters_test.cpp
 trans_journal_ut:=trans_journal_ut.cpp
+perf_trace_unit_test:=perf_trace_unit_test.cpp
 
 include $(topdir)/Makefile.incl

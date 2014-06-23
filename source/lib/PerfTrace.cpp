@@ -1,26 +1,44 @@
 #include <stdexcept>
 
-#include <boost/thread/once.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
 
-#include "rdtsc.h"
+#include "util/timeutils.h"
 #include "fds_process.h"
 #include "PerfTrace.h"
 
 // XXX: uncomment if name space for context is limited
 //#define CACHE_REGEX_MATCH_RESULTS
 
+// XXX: uncomment this to use rdtsc()
+//#define USE_RDTSC_TIME
+
 namespace {
 
-const std::string MODULE_NAME("perf");
+void createLatencyCounter(fds::PerfContext & ctx) {
+    fds_assert(ctx.start_cycle);
+    fds_assert(ctx.start_cycle <= ctx.end_cycle);
 
-fds::PerfTracer * instance_ = 0;
-boost::once_flag once = BOOST_ONCE_INIT;
+    fds::LatencyCounter * plc = new fds::LatencyCounter(ctx.name, 0);
+    plc->update(ctx.end_cycle - ctx.start_cycle);
+    ctx.data.reset(plc);
+}
 
-void create_instance() {
-    InitRdtsc();
-    instance_ = new fds::PerfTracer();
+void initializeCounter(fds::PerfContext * ctx, fds::FdsCounters * parent, bool latency) {
+    fds_assert(ctx);
+    GLOGDEBUG << "Creating performance counter for type='" << ctx->type
+            << "' name='" << ctx->name << "'";
+
+    std::string counterName = fds::eventTypeToStr[ctx->type];
+    if (!ctx->name.empty()) {
+        counterName += "." + ctx->name;
+    }
+
+    if (latency) {
+        ctx->data.reset(new fds::LatencyCounter(counterName, parent));
+    } else {
+        ctx->data.reset(new fds::NumericCounter(counterName, parent));
+    }
 }
 
 void stringToEventsFilter(const std::string & str, std::bitset<fds::MAX_EVENT_TYPE> & filter) {
@@ -70,6 +88,8 @@ void stringToEventsFilter(const std::string & str, std::bitset<fds::MAX_EVENT_TY
 
 namespace fds {
 
+const std::string PERF_COUNTERS_NAME("perf");
+
 const char * eventTypeToStr[] = {
         "trace", //generic event
 
@@ -89,18 +109,8 @@ const char * eventTypeToStr[] = {
         "get_obj_pl_read_disk"
 };
 
-void PerfContext::generateLatency() {
-    fds_assert(start_cycle);
-    fds_assert(start_cycle <= end_cycle);
-
-    LatencyCounter * plc = new LatencyCounter(name, 0);
-    plc->update(end_cycle - start_cycle);
-
-    data.reset(plc);
-}
-
 PerfTracer::PerfTracer() : aggregateCounters_(fds::MAX_EVENT_TYPE),
-                           nameCounters_(fds::MAX_EVENT_TYPE),
+                           namedCounters_(fds::MAX_EVENT_TYPE),
                            enable_(true),
                            useEventsFilter_(false),
                            nameFilter_("^$"),
@@ -110,7 +120,12 @@ PerfTracer::PerfTracer() : aggregateCounters_(fds::MAX_EVENT_TYPE),
     fds_assert(g_fdslog);
 
     GLOGDEBUG << "Instantiating PerfTracer";
-    exportedCounters.reset(new FdsCounters(MODULE_NAME, g_cntrs_mgr.get()));
+    for (unsigned i = 0; i < MAX_EVENT_TYPE; ++i) {
+        aggregateCounters_[i].type = static_cast<PerfEventType>(i);
+        aggregateCounters_[i].name = "";
+    }
+
+    exportedCounters.reset(new FdsCounters(PERF_COUNTERS_NAME, g_cntrs_mgr.get()));
 
     reconfig();
 }
@@ -124,7 +139,7 @@ PerfTracer::~PerfTracer() {
     latencyMap_.clear();
 
     for (std::vector<PerfContextMap>::iterator vIter =
-            nameCounters_.begin(); nameCounters_.end() != vIter; ++vIter) {
+            namedCounters_.begin(); namedCounters_.end() != vIter; ++vIter) {
         for (PerfContextMap::iterator mIter = vIter->begin();
                 vIter->end() != mIter; ++mIter) {
             //TODO: exportedCounters->remove_from_export(mIter->second.data);
@@ -132,24 +147,22 @@ PerfTracer::~PerfTracer() {
         }
         vIter->clear();
     }
-    nameCounters_.clear();
+    namedCounters_.clear();
 }
 
 PerfTracer & PerfTracer::instance() {
-    boost::call_once(&create_instance, once);
-
-    fds_assert(instance_);
-    return *instance_;
+    static PerfTracer instance_;
+    return instance_;
 }
 
 void PerfTracer::reconfig() {
     GLOGDEBUG << "Reading PerfTrace configuration";
 
     // read global enable/ disable settings
-    bool tmpEnable = config_helper_.get<bool>(MODULE_NAME + "." + "enable", false);
+    bool tmpEnable = config_helper_.get<bool>(PERF_COUNTERS_NAME + "." + "enable", false);
 
     // read events filter settings
-    const std::string eventsFilterKey(MODULE_NAME + "." + "event_types");
+    const std::string eventsFilterKey(PERF_COUNTERS_NAME + "." + "event_types");
     std::bitset<MAX_EVENT_TYPE> efilt;
     bool tmpUseEventsFilter = config_helper_.exists(eventsFilterKey);
     if (tmpUseEventsFilter) {
@@ -166,7 +179,7 @@ void PerfTracer::reconfig() {
     }
 
     // read name filter settings
-    const std::string nameFilterKey(MODULE_NAME + "." + "match");
+    const std::string nameFilterKey(PERF_COUNTERS_NAME + "." + "match");
     std::string exprStr;
     bool tmpUseNameFilter = config_helper_.exists(nameFilterKey);
     if (tmpUseNameFilter) {
@@ -187,7 +200,7 @@ void PerfTracer::reconfig() {
             tmpUseNameFilter = false;
         }
     }
-    useNameFilter_ = tmpUseEventsFilter;
+    useNameFilter_ = tmpUseNameFilter;
 
     // update events filter config
     if (tmpUseEventsFilter) {
@@ -198,26 +211,15 @@ void PerfTracer::reconfig() {
     useEventsFilter_ = tmpUseEventsFilter;
 
     // update global enable/ disable
-    //enable_ = tmpEnable;
+    enable_ = tmpEnable;
 }
 
 void PerfTracer::updateCounter(PerfContext & ctx, const fds_uint64_t & val,
         const fds_uint64_t cnt) {
     FdsBaseCounter * pc = ctx.data.get();
     if (!pc) {
-        GLOGDEBUG << "Creating performance counter for type='" << ctx.type
-                << "' name='" << ctx.name << "'";
-        std::string counterName(fds::eventTypeToStr[ctx.type]);
-        if (!ctx.name.empty()) {
-            counterName += + "." + ctx.name;
-        }
         FdsCounters * counterParent = ctx.enabled ? exportedCounters.get() : 0;
-
-        if (cnt) {
-            ctx.data.reset(new LatencyCounter(counterName, counterParent));
-        } else {
-            ctx.data.reset(new NumericCounter(counterName, counterParent));
-        }
+        std::call_once(*ctx.once, initializeCounter, &ctx, counterParent, cnt != 0);
     }
 
     GLOGNORMAL << "Updating performance counter for type='" << ctx.type
@@ -241,8 +243,8 @@ void PerfTracer::upsert(const PerfEventType & type, fds_uint64_t val, fds_uint64
 
     FDSGUARD(ptrace_mutex_);
 
-    PerfContextMap::iterator pos = nameCounters_[type].find(name);
-    if (nameCounters_[type].end() != pos) {
+    PerfContextMap::iterator pos = namedCounters_[type].find(name);
+    if (namedCounters_[type].end() != pos) {
         if (!pos->second->enabled) {
             return; // disabled for this name
         }
@@ -253,14 +255,12 @@ void PerfTracer::upsert(const PerfEventType & type, fds_uint64_t val, fds_uint64
         if (!name.empty()) {
 #ifdef CACHE_REGEX_MATCH_RESULTS
             if (!regex_match(name, nameFilter_)) {
-#endif
                 ctx->enabled = false;
-#ifdef CACHE_REGEX_MATCH_RESULTS
             }
 #endif
         }
 
-        nameCounters_[type][name] = ctx;
+        namedCounters_[type][name] = ctx;
     }
 
     // update counter
@@ -317,7 +317,11 @@ void PerfTracer::tracePointBegin(const std::string & id, const PerfEventType & t
 void PerfTracer::tracePointBegin(PerfContext & ctx) {
     GLOGDEBUG << "Starting perf trace for type='" << ctx.type << "' name='" <<
             ctx.name << "'";
-    ctx.start_cycle = GetRdtscInNanoSec();
+#ifdef USE_RDTSC_TIME
+    ctx.start_cycle = util::getNanosFromTicks(util::getClockTicks());
+#else
+    ctx.start_cycle = util::getTimeStampNanos();
+#endif
 }
 
 boost::shared_ptr<PerfContext> PerfTracer::tracePointEnd(const std::string & id) {
@@ -342,13 +346,18 @@ boost::shared_ptr<PerfContext> PerfTracer::tracePointEnd(const std::string & id)
 void PerfTracer::tracePointEnd(PerfContext & ctx) {
     GLOGDEBUG << "Ending perf trace for type='" << ctx.type << "' name='" <<
             ctx.name << "'";
-    ctx.end_cycle = GetRdtscInNanoSec();
-    ctx.generateLatency();
+#ifdef USE_RDTSC_TIME
+    ctx.end_cycle = util::getNanosFromTicks(util::getClockTicks());
+#else
+    ctx.end_cycle = util::getTimeStampNanos();
+#endif
+    createLatencyCounter(ctx);
     LatencyCounter * plc = dynamic_cast<LatencyCounter *>(ctx.data.get());
     incr(ctx.type, plc->total_latency(), plc->count(), ctx.name);
 }
 
 void PerfTracer::setEnabled(bool val /* = true */) {
+    // FDSGUARD(instance().config_mutex_);
     instance().enable_ = val;
 }
 
