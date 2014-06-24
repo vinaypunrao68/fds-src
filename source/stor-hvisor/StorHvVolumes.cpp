@@ -637,12 +637,12 @@ int  pushVolQueue(void *req1)
     io->io_req_id = atomic_fetch_add(&next_io_req_id, (unsigned int)1);
     io->io_magic = FDS_SH_IO_MAGIC_IN_USE;
 
-    LOGNORMAL << " Queueing IO " << io->io_req_id << " for  vol_id:  " << vol_id;
+    LOGDEBUG << " Queueing IO " << io->io_req_id << " for  vol_id:  " << vol_id;
 
     storHvisor->qos_ctrl->enqueueIO(vol_id, io);
     shvol->readUnlock();
 
-    LOGNORMAL << " Queueing the  IO done.  vol_id:  " << vol_id;
+    LOGDEBUG << " Queueing the  IO done.  vol_id:  " << vol_id;
 
     return 0;
 }

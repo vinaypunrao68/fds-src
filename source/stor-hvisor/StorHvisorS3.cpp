@@ -340,7 +340,7 @@ StorHvCtrl::dispatchSmPutMsg(StorHvJournalEntry *journEntry,
             journEntry->session_uuid = smMsgHdr->session_uuid;
 
             client->PutObject(smMsgHdr, putMsg);
-            LOGNORMAL << "For transaction " << journEntry->trans_id
+            LOGDEBUG << "For transaction " << journEntry->trans_id
                       << " sent async PUT_OBJ_REQ to SM ip "
                       << node_ip << " port " << node_port;
         } catch (att::TTransportException& e) {
@@ -410,7 +410,7 @@ StorHvCtrl::dispatchSmGetMsg(StorHvJournalEntry *journEntry) {
     journEntry->sm_ack[journEntry->nodeSeq].ack_status = FDS_CLS_ACK;
     journEntry->num_sm_nodes     = numNodes;
 
-    LOGNORMAL << "For transaction: " << journEntry->trans_id << "node_ip:" << node_ip << "node_port" << node_port;
+    LOGDEBUG << "For transaction: " << journEntry->trans_id << "node_ip:" << node_ip << "node_port" << node_port;
     getMsg->dlt_version = om_client->getDltVersion();
     fds_verify(getMsg->dlt_version != DLT_VER_INVALID);
 
@@ -431,7 +431,7 @@ StorHvCtrl::dispatchSmGetMsg(StorHvJournalEntry *journEntry) {
         // RPC getObject to StorMgr
         client->GetObject(smMsgHdr, getMsg);
 
-        LOGNORMAL << "For trans " << journEntry->trans_id
+        LOGDEBUG << "For trans " << journEntry->trans_id
                   << " sent async GetObj req to SM";
     } catch (att::TTransportException& e) {
         LOGERROR << "error during network call : " << e.what() ;
@@ -471,7 +471,7 @@ StorHvCtrl::processSmPutObj(PutBlobReq *putBlobReq,
     journEntry->sm_msg = msgHdrSm;
     journEntry->putMsg = putObjReq;
 
-    LOGNOTIFY << "Putting object " << objId << " for blob "
+    LOGDEBUG << "Putting object " << objId << " for blob "
               << putBlobReq->getBlobName() << " at offset "
               << putBlobReq->getBlobOffset() << " with length "
               << putBlobReq->getDataLen() << " in trans "
@@ -817,7 +817,7 @@ fds::Error StorHvCtrl::putObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
     result = txn->fds_set_smack_status(rxMsg->src_ip_lo_addr,
                                        rxMsg->src_port);
     fds_verify(result == 0);
-    LOGNORMAL << "For transaction " << transId
+    LOGDEBUG << "For transaction " << transId
               << " recvd PUT_OBJ_RESP from SM ip "
               << rxMsg->src_ip_lo_addr
               << " port " << rxMsg->src_port;
@@ -1033,7 +1033,7 @@ fds::Error StorHvCtrl::upCatResp(const FDSP_MsgHdrTypePtr& rxMsg,
         result = txn->fds_set_dmack_status(rxMsg->src_ip_lo_addr,
                                            rxMsg->src_port);
         fds_verify(result == 0);
-        LOGNORMAL << "Recvd DM TXN_STATUS_OPEN RSP for transId "
+        LOGDEBUG << "Recvd DM TXN_STATUS_OPEN RSP for transId "
                   << transId  << " ip " << rxMsg->src_ip_lo_addr
                   << " port " << rxMsg->src_port;
     } else {
@@ -1041,7 +1041,7 @@ fds::Error StorHvCtrl::upCatResp(const FDSP_MsgHdrTypePtr& rxMsg,
         result = txn->fds_set_dm_commit_status(rxMsg->src_ip_lo_addr,
                                                rxMsg->src_port);
         fds_verify(result == 0);
-        LOGNORMAL << "Recvd DM TXN_STATUS_COMMITED RSP for transId "
+        LOGDEBUG << "Recvd DM TXN_STATUS_COMMITED RSP for transId "
                   << transId  << " ip " << rxMsg->src_ip_lo_addr
                   << " port " << rxMsg->src_port;
     }  
@@ -1108,7 +1108,7 @@ fds::Error StorHvCtrl::deleteCatResp(const FDSP_MsgHdrTypePtr& rxMsg,
     if (rxMsg->msg_code == FDSP_MSG_DELETE_BLOB_RSP) {
         txn->fds_set_dmack_status(rxMsg->src_ip_lo_addr,
                                   rxMsg->src_port);
-        LOGNORMAL << " StorHvisorRx:" << "IO-XID:" << transId
+        LOGDEBUG << " StorHvisorRx:" << "IO-XID:" << transId
                   << " volID: 0x" << std::hex << volId << std::dec
                   << " -  Recvd DM TXN_STATUS_OPEN RSP "
                   << " ip " << rxMsg->src_ip_lo_addr
@@ -1124,7 +1124,7 @@ fds::Error StorHvCtrl::deleteCatResp(const FDSP_MsgHdrTypePtr& rxMsg,
 fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq) {
     fds::Error err(ERR_OK);
 
-    LOGNORMAL << "Doing a get blob operation!";
+    LOGDEBUG << "Doing a get blob operation!";
 
     /*
      * Pull out the blob request
@@ -1166,7 +1166,7 @@ fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq) {
                                                                      blobReq->getBlobOffset(),
                                                                      trans_in_progress);
 
-    LOGNORMAL << "Assigning transaction ID " << transId
+    LOGDEBUG << "Assigning transaction ID " << transId
               << " to get request";
 
     StorHvJournalEntry *journEntry = shVol->journal_tbl->get_journal_entry(transId);
@@ -1274,7 +1274,7 @@ fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq) {
         blobReq->cbWithResult(FDSN_StatusEntityEmpty);
     } else {
         journEntry->trans_state = FDS_TRANS_GET_OBJ;
-        LOGNORMAL << "Getting object " << objId << " for blob "
+        LOGDEBUG << "Getting object " << objId << " for blob "
                   << blobReq->getBlobName() << " and offset "
                   << blobReq->getBlobOffset() << " in trans "
                   << transId;
@@ -1350,7 +1350,7 @@ fds::Error StorHvCtrl::getObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
         qosReq->getBlobReqPtr());
     fds_verify(blobReq != NULL);
 
-    LOGNOTIFY << "Responding to getBlob trans " << transId
+    LOGDEBUG << "Responding to getBlob trans " << transId
               <<" for blob " << blobReq->getBlobName()
               << " and offset " << blobReq->getBlobOffset()
               << " length " << getObjRsp->data_obj_len
@@ -1760,7 +1760,7 @@ Error StorHvCtrl::SetBlobMetaData(fds::AmQosReq *qosReq) {
             client->SetBlobMetaData(msgHdr, volNamePtr, blobNamePtr, blobReq->metaDataList);
 
 
-            LOGNORMAL << "For transaction " << transId
+            LOGDEBUG << "For transaction " << transId
                       << " sent async UP_CAT_REQ to DM ip "
                       << node_ip << " port " << node_port;
         } catch (att::TTransportException& e) {
@@ -1835,7 +1835,7 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
     if ((trans_in_progress) || (journEntry->isActive())) {
         shVol->readUnlock();
 
-        LOGNORMAL <<" StorHvisorTx:" << "IO-XID:" << transId << " - Transaction  is already in ACTIVE state, completing request "
+        LOGNOTIFY<<" StorHvisorTx:" << "IO-XID:" << transId << " - Transaction  is already in ACTIVE state, completing request "
                   << transId << " with ERROR(-2) ";
         // There is an ongoing transaciton for this offset.
         // We should queue this up for later processing once that completes.
@@ -1863,7 +1863,7 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
     journEntry->delMsg = del_obj_req;
     journEntry->trans_state = FDS_TRANS_DEL_OBJ;
 
-    LOGNORMAL << "Deleting blob " << blobReq->getBlobName() << " in trans "
+    LOGDEBUG << "Deleting blob " << blobReq->getBlobName() << " in trans "
               << transId << " and vol 0x" << std::hex << vol_id << std::dec;
     
     // SAN- check the  version of the object. If the object version NULL ( object deleted) return
@@ -1930,7 +1930,7 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
             fdsp_msg_hdr_dm->session_uuid = sessionCtx->getSessionId();
             journEntry->session_uuid = fdsp_msg_hdr_dm->session_uuid;
             client->DeleteCatalogObject(fdsp_msg_hdr_dm, del_cat_obj_req);
-            LOGNORMAL << " txnid:" << transId
+            LOGDEBUG << " txnid:" << transId
                       << " volID:" << std::hex << vol_id << std::dec
                       << " - sent DELETE_BLOB_REQ request to DM @ "
                       <<  node_ip << ":" << node_port;
@@ -1952,7 +1952,7 @@ fds::Error StorHvCtrl::listBucket(fds::AmQosReq *qosReq) {
     fds_uint32_t node_port = 0;
     int node_state = -1;
 
-    LOGNORMAL << "Doing a list bucket operation!";
+    LOGDEBUG << "Doing a list bucket operation!";
 
     /*
      * Pull out the blob request
@@ -2002,7 +2002,7 @@ fds::Error StorHvCtrl::listBucket(fds::AmQosReq *qosReq) {
 
     journEntry->setActive();
 
-    LOGNORMAL << " StorHvisorTx:" << "IO-XID:" << transId << " volID: 0x"
+    LOGDEBUG << " StorHvisorTx:" << "IO-XID:" << transId << " volID: 0x"
               << std::hex << volId << std::dec << " - Activated txn for req :" << transId;
 
     /*
@@ -2072,7 +2072,7 @@ fds::Error StorHvCtrl::listBucket(fds::AmQosReq *qosReq) {
         msgHdr->session_uuid = sessionCtx->getSessionId();
         journEntry->session_uuid = msgHdr->session_uuid;
         client->GetVolumeBlobList(msgHdr, get_bucket_list_req);
-        LOGNORMAL << " StorHvisorTx:" << "IO-XID:"
+        LOGDEBUG << " StorHvisorTx:" << "IO-XID:"
                   << transId << " volID:" << std::hex << volId << std::dec
                   << " - Sent async GET_VOL_BLOB_LIST_REQ request to DM at "
                   <<  node_ip << " port " << node_port;
@@ -2115,7 +2115,7 @@ fds::Error StorHvCtrl::getBucketResp(const FDSP_MsgHdrTypePtr& rxMsg,
     fds::FdsBlobReq *blobReq = qosReq->getBlobReqPtr();
     fds_verify(blobReq != NULL);
     fds_verify(blobReq->getIoType() == FDS_LIST_BUCKET);
-    LOGNOTIFY << "Responding to getBucket trans " << transId
+    LOGDEBUG << "Responding to getBucket trans " << transId
               <<" for bucket " << blobReq->getBlobName()
               << " num of blobs " << blobListResp->num_blobs_in_resp
               << " end_of_list? " << blobListResp->end_of_list
@@ -2185,7 +2185,7 @@ fds::Error StorHvCtrl::getBucketStats(fds::AmQosReq *qosReq) {
     fds::Error err(ERR_OK);
     int om_err = 0;
   
-    LOGNORMAL << "Doing a get bucket stats operation!";
+    LOGDEBUG << "Doing a get bucket stats operation!";
   
     /*
      * Pull out the blob request
@@ -2236,7 +2236,7 @@ fds::Error StorHvCtrl::getBucketStats(fds::AmQosReq *qosReq) {
 
     journEntry->setActive();
 
-    LOGNORMAL <<" StorHvisorTx:" << "IO-XID:" << transId << " volID: 0x"
+    LOGDEBUG <<" StorHvisorTx:" << "IO-XID:" << transId << " volID: 0x"
               << std::hex << admin_vol_id << std::dec << " - Activated txn for req :" << transId;
  
     /*
@@ -2265,7 +2265,7 @@ fds::Error StorHvCtrl::getBucketStats(fds::AmQosReq *qosReq) {
         return err;
     }
 
-    LOGNORMAL << " StorHvisorTx:" << "IO-XID:"
+    LOGDEBUG << " StorHvisorTx:" << "IO-XID:"
               << transId 
               << " - Sent async Get Bucket Stats request to OM";
 
@@ -2307,7 +2307,7 @@ void StorHvCtrl::getBucketStatsResp(const FDSP_MsgHdrTypePtr& rx_msg,
     fds::FdsBlobReq *blobReq = qosReq->getBlobReqPtr();
     fds_verify(blobReq != NULL);
     fds_verify(blobReq->getIoType() == FDS_BUCKET_STATS);
-    LOGNOTIFY << "Responding to getBucketStats trans " << transId
+    LOGDEBUG << "Responding to getBucketStats trans " << transId
               << " number of buckets " << (buck_stats->bucket_stats_list).size()
               << " with result " << rx_msg->result;
 
