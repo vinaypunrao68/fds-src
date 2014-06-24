@@ -46,6 +46,8 @@ linux-*
 /source/java/gen-java
 /source/include/xdi/*.h
 /source/include/xdi/*.cpp
+/source/include/apis/*.h
+/source/include/apis/*.cpp
 
 # All Pharos stuffs
 /source/tools/pharos/libposix-aio-0.8.1/*
@@ -87,3 +89,4 @@ tmppkg*/
 .settings
 
 *.iml
+.idea/*

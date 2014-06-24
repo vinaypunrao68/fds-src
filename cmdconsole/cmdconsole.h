@@ -2,22 +2,21 @@
  * Copyright (c) 2012, voidnull@github
  * License : BSD Clause 2 : http://bit.ly/bsd-clause-2
  ****************************************************************************/
-#ifndef __CPP__CMDCONSOLE__H__
-#define __CPP__CMDCONSOLE__H__
+#ifndef CMDCONSOLE_CMDCONSOLE_H_
+#define CMDCONSOLE_CMDCONSOLE_H_
 
 #include <string>
 #include <map>
 #include <vector>
 
-#include "linenoise.h"
+#include "./linenoise.h"
 
 class CmdConsole {
-public:
-
+  public:
     struct Completions {
         linenoiseCompletions *lc;
         void add(const std::string& completion) {
-            linenoiseAddCompletion(lc,completion.c_str());
+            linenoiseAddCompletion(lc, completion.c_str());
         }
     };
 
@@ -26,12 +25,14 @@ public:
         static void completion(const char *buf, linenoiseCompletions *lc) {
             Completions completions;
             completions.lc = lc;
-            console->complete(std::string(buf),completions);
+            console->complete(std::string(buf), completions);
         }
     };
 
-    typedef void (CmdConsole::*CmdCallBack)(std::vector<std::string>&) ;
+    typedef void (CmdConsole::*CmdCallBack)(std::vector<std::string>&);
+
     CmdConsole();
+    void normalizeCommand(std::string& cmd);
     void setPrompt(const std::string& prompt);
     void setHistoryFile(const std::string& filename);
     void setHistoryLength(size_t length);
@@ -46,12 +47,11 @@ public:
     void registerCommand(const std::string& cmd, CmdCallBack cb);
     void run();
 
-protected:
+  protected:
     std::string prompt;
     std::string historyFile;
 
     std::map <std::string, CmdCallBack> mapCallBacks;
-
 };
 
 struct Color {
@@ -77,4 +77,4 @@ struct Color {
 };
 
 
-#endif // __CPP__CMDCONSOLE__H__
+#endif  // CMDCONSOLE_CMDCONSOLE_H_

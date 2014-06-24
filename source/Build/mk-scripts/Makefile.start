@@ -121,7 +121,7 @@ main_lint_flags :=
 #
 main_tool_dir   := /usr/bin
 cc              := $(main_tool_dir)/gcc
-cpp             := $(main_tool_dir)/g++
+cpp             := $(main_tool_dir)/ccache $(main_tool_dir)/g++
 ld              := $(main_tool_dir)/ld
 ar              := $(main_tool_dir)/ar
 yacc            := $(main_tool_dir)/bison
@@ -143,7 +143,8 @@ else
     main_cpp_flags     += -Wall -Werror -Wno-reorder -Wno-unused-function
     main_cpp_flags     += -Wno-unused-value -Wno-unused-but-set-variable
     main_cpp_flags     += -Wno-unused-variable -Wno-write-strings
-    main_cpp_flags     += -Winit-self -shared
+    main_cpp_flags     += -Winit-self
+    main_cpp_flags     += -feliminate-unused-debug-symbols
     main_exec_dep_libs := pthread
 endif
 

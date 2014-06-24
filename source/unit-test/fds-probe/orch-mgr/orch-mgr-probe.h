@@ -46,6 +46,14 @@ extern OM_ProbeMod           gl_OM_ProbeMod;
 // ------------------------------------------------------------------------------------
 // Handle OM Unit Test Setup
 // ------------------------------------------------------------------------------------
+enum ut_rs_type {
+    ut_rs_sm = 0,
+    ut_rs_dm = 1,
+    ut_rs_am = 2,
+    ut_rs_pm = 3,
+    ut_rs_vol = 4
+};
+
 typedef struct ut_node_info ut_node_info_t;
 struct ut_node_info
 {
@@ -53,6 +61,15 @@ struct ut_node_info
     fds_uint64_t             nd_uuid;
     const char              *nd_node_name;
     fds_uint64_t             nd_weight;
+};
+
+typedef struct ut_resource_info ut_resource_info_t;
+struct ut_resource_info
+{
+    fds_bool_t               add;
+    fds_uint64_t             rs_uuid;
+    const char              *rs_name;
+    ut_rs_type               rs_type;
 };
 
 class UT_DLT_EvalHelper
@@ -149,6 +166,17 @@ class UT_DP_NodeInfo : public JsObject
     }
 };
 
+class UT_VP_NodeInfo : public JsObject
+{
+  public:
+    virtual JsObject *
+    js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput *out);
+
+    inline ut_resource_info_t *vp_node_info() {
+        return static_cast<ut_resource_info_t *>(js_pod_object());
+    }
+};
+
 class UT_OM_NodeInfoTemplate : public JsObjTemplate
 {
   public:
@@ -177,7 +205,7 @@ class UT_OM_NodeInfoTemplate : public JsObjTemplate
         } else if (strcmp(action, "rm") == 0) {
             p->add = false;
         } else {
-            fds_panic("Unknown node action recieved");
+            fds_panic("Unknown node action received");
         }
         p->nd_uuid = strtoull(uuid, NULL, 16);
         return js_parse(new UT_OM_NodeInfo(), in, p);
@@ -223,6 +251,54 @@ class UT_DP_NodeInfoTemplate : public JsObjTemplate
 };
 
 
+//
+// Template for Volume Placement (VP) unit test
+//
+class UT_VP_NodeInfoTemplate : public JsObjTemplate
+{
+  public:
+    explicit UT_VP_NodeInfoTemplate(JsObjManager *mgr)
+        : JsObjTemplate("vp-dm-info", mgr) {}
+
+    virtual JsObject *js_new(json_t *in)
+    {
+        char           *uuid;
+        char           *action;
+        char           *type;
+        ut_resource_info_t *p = new ut_resource_info_t;
+
+        std::cout << "in js_new vol place" << std::endl;
+
+        if (json_unpack(in, "{s:s, s:s, s:s}",
+                        "rs-action", &action,
+                        "rs-uuid",   &uuid,
+                        "rs-name",   &p->rs_name)) {
+            delete p;
+            return NULL;
+        }
+        json_unpack(in, "{s:s}",
+                    "rs-type", &type);
+
+        if (strcmp(type, "dm") == 0) {
+            p->rs_type = ut_rs_dm;
+        } else if (strcmp(type, "vol") == 0) {
+            p->rs_type = ut_rs_vol;
+        } else {
+            fds_panic("Unknown resource type received");
+        }
+
+        if (strcmp(action, "add") == 0) {
+            p->add = true;
+        } else if (strcmp(action, "rm") == 0) {
+            p->add = false;
+        } else {
+            fds_panic("Unknown node action recieved");
+        }
+        p->rs_uuid = strtoull(uuid, NULL, 16);
+        return js_parse(new UT_VP_NodeInfo(), in, p);
+    }
+};
+
 
 class UT_OMSetupTemplate : public JsObjTemplate
 {
@@ -231,6 +307,7 @@ class UT_OMSetupTemplate : public JsObjTemplate
     {
         js_decode["node-info"] = new UT_OM_NodeInfoTemplate(mgr);
         js_decode["dp-node-info"] = new UT_DP_NodeInfoTemplate(mgr);
+        js_decode["vp-dm-info"] = new UT_VP_NodeInfoTemplate(mgr);
     }
     virtual JsObject *js_new(json_t *in) {
         return js_parse(new JsObject(), in, NULL);

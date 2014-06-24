@@ -6,13 +6,13 @@ user_incl_dir     := $(user_thrift_loc)
 user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  :=       \
-    fds-StorHvisor         \
-    fds-probe-thrift-utest \
-    fds-ubd
+    fds-am-engine          \
+    fds-probe-thrift-utest
 
 user_non_fds_libs :=
 
 user_thrift       := mesg.thrift
+user_thrift_flag  := --gen cpp:pure_enums --gen java --allow-64bit-consts
 user_hh           := \
     s3-thrift-probe.h
 

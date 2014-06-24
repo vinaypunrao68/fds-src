@@ -59,6 +59,7 @@ AmPlatform::mod_init(SysParams const *const param)
     plf_my_data_port = plf_data_port(base);
     plf_my_conf_port = plf_conf_port(base);
     plf_my_migr_port = plf_migration_port(base);
+    plf_my_metasync_port = plf_metasync_port(base);
     plf_my_ip        = util::get_local_ip();
     plf_my_node_name = plf_my_ip;
 

@@ -17,8 +17,6 @@
 #include <pthread.h>
 #endif
 #include <fdsp/FDSP_types.h>
-// #include <fdsp/FDSP_DataPathReq.h>
-// #include <fdsp/FDSP_DataPathResp.h>
 #include "stor_mgr_err.h"
 #include <fds_volume.h>
 #include <fds_types.h>
@@ -42,7 +40,7 @@
 #include <fds_obj_cache.h>
 #include <fds_assert.h>
 #include <fds_config.hpp>
-#include <fds_stopwatch.h>
+#include <util/timeutils.h>
 
 #include <utility>
 #include <atomic>
@@ -201,6 +199,11 @@ class ObjectStorMgr :
 
     /** Cluster communication manager */
     ClusterCommMgrPtr clust_comm_mgr_;
+
+    /// Enables uturn testing for all sm service ops
+    fds_bool_t testUturnAll;
+    /// Enables uturn testing for put object ops
+    fds_bool_t testUturnPutObj;
 
     /** Migrations related */
     FdsMigrationSvcPtr migrationSvc_;
@@ -518,7 +521,7 @@ class ObjectStorMgr :
     static Error volEventOmHandler(fds::fds_volid_t volume_id,
                                    fds::VolumeDesc *vdb,
                                    int vol_action,
-                                   fds_bool_t check_only,
+                                   FDSP_NotifyVolFlag vol_flag,
                                    FDSP_ResultType resut);
     static void scavengerEventHandler(FDS_ProtocolInterface::FDSP_ScavengerCmd cmd);
     static void migrationEventOmHandler(bool dlt_type);

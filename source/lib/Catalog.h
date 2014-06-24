@@ -15,18 +15,18 @@
 
 namespace fds {
 
-  /**
-   * Just use leveldb's slice. We should consider our
-   * own class in the future.
-   */
-  typedef leveldb::Slice Record;
+/**
+ * Just use leveldb's slice. We should consider our
+ * own class in the future.
+ */
+typedef leveldb::Slice Record;
 
-  /**
-   * Generic catalog super class.
-   * Provides basic backing storage, update, and query.
-   */
-  class Catalog {
- private:
+/**
+ * Generic catalog super class.
+ * Provides basic backing storage, update, and query.
+ */
+class Catalog {
+  private:
     /**
      * Backing file name
      */
@@ -41,6 +41,11 @@ namespace fds {
     leveldb::DB* db;
 
     /*
+     * leveldb file system interface 
+     */
+    leveldb::Env* env;
+
+    /*
      * Database options. These are not expected
      * to change.
      */
@@ -48,11 +53,14 @@ namespace fds {
     leveldb::WriteOptions write_options; /**< LevelDB write options */
     leveldb::ReadOptions  read_options;  /**< LevelDB read options */
 
- public:
+  public:
     /** Constructor */
-    explicit Catalog(const std::string& _file);
+    Catalog(const std::string& _file, fds_bool_t cat_flag = true);
     /** Default destructor */
     ~Catalog();
+
+    typedef boost::shared_ptr<Catalog> ptr;
+    typedef boost::shared_ptr<const Catalog> const_ptr;
 
     /** Uses the underlying leveldb iterator */
     typedef leveldb::Iterator catalog_iterator_t;
@@ -65,6 +73,9 @@ namespace fds {
     fds::Error Query(const Record& key, std::string* val);
     fds::Error Delete(const Record& key);
     bool DbEmpty();
+    fds::Error DbSnap(const std::string& _file);
+    fds::Error QuerySnap(const std::string& _file, const Record& key, std::string* value);
+    fds::Error QueryNew(const std::string& _file, const Record& key, std::string* value);
 
     std::string GetFile() const;
   };

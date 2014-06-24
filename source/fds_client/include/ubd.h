@@ -1,3 +1,9 @@
+/*
+ * Copyright 2014 Formation Data Systems, Inc.
+ */
+#ifndef SOURCE_FDS_CLIENT_INCLUDE_UBD_H_
+#define SOURCE_FDS_CLIENT_INCLUDE_UBD_H_
+
 #include "../blk_dev/tool/fbd.h"
 
 #define 	IO_READ		0
@@ -27,3 +33,5 @@ struct fbd_request {
 };
 
 typedef struct fbd_request            fbd_request_t;
+
+#endif  // SOURCE_FDS_CLIENT_INCLUDE_UBD_H_

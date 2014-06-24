@@ -13,7 +13,7 @@ orch_mgr_cpp      :=                   \
     orchMgr.cpp                        \
     OmTier.cpp                         \
     OmVolPolicy.cpp   	               \
-    OmLocDomain.cpp	  	               \
+    OmLocDomain.cpp	  	       \
     OmAdminCtrl.cpp                    \
     OmReqHandler.cpp                   \
     OmRespHandler.cpp                  \

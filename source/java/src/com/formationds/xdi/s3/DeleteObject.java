@@ -3,7 +3,6 @@ package com.formationds.xdi.s3;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.am.Main;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
@@ -23,7 +22,7 @@ public class DeleteObject implements RequestHandler {
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
         String bucketName = requiredString(routeParameters, "bucket");
         String objectName = requiredString(routeParameters, "object");
-        xdi.deleteBlob(Main.FDS_S3, bucketName, objectName);
+        xdi.deleteBlob(S3Endpoint.FDS_S3, bucketName, objectName);
         return new TextResource("");
     }
 }

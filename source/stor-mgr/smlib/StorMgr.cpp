@@ -42,14 +42,15 @@ ObjectStorMgrI::PutObject(FDSP_MsgHdrTypePtr& msgHdr,
                           FDSP_PutObjTypePtr& putObj) {
     LOGDEBUG << "Received a Putobject() network request";
 
-#ifdef FDS_TEST_SM_NOOP
-    msgHdr->msg_code = FDSP_MSG_PUT_OBJ_RSP;
-    msgHdr->result = FDSP_ERR_OK;
-    objStorMgr->swapMgrId(msgHdr);
-    objStorMgr->fdspDataPathClient(msgHdr->session_uuid)->PutObjectResp(msgHdr, putObj);
-    LOGDEBUG << "FDS_TEST_SM_NOOP defined. Sent async PutObj response right after receiving req.";
-    return;
-#endif /* FDS_TEST_SM_NOOP */
+    if ((objStorMgr->testUturnAll == true) ||
+        (objStorMgr->testUturnPutObj == true)) {
+        LOGDEBUG << "Uturn testing put object";
+        msgHdr->msg_code = FDSP_MSG_PUT_OBJ_RSP;
+        msgHdr->result = FDSP_ERR_OK;
+        objStorMgr->swapMgrId(msgHdr);
+        objStorMgr->fdspDataPathClient(msgHdr->session_uuid)->PutObjectResp(msgHdr, putObj);
+        return;
+    }
 
     // Store the mapping of this service UUID to its session UUID,
     // except when this is a proxied request
@@ -507,16 +508,19 @@ void ObjectStorMgr::proc_pre_startup()
 
     clust_comm_mgr_.reset(new ClusterCommMgr(omClient));
 
+    testUturnAll    = conf_helper_.get<bool>("testing.uturn_all");
+    testUturnPutObj = conf_helper_.get<bool>("testing.uturn_putobj");
+
     /*
      * Create local variables for test mode
      */
-    if (conf_helper_.get<bool>("test_mode") == true) {
+    if (conf_helper_.get<bool>("testing.test_mode") == true) {
         /*
          * Create test volumes.
          */
         VolumeDesc*  testVdb;
         std::string testVolName;
-        int numTestVols = conf_helper_.get<int>("test_volume_cnt");
+        int numTestVols = conf_helper_.get<int>("testing.test_volume_cnt");
         for (fds_int32_t testVolId = 1; testVolId < numTestVols + 1; testVolId++) {
             testVolName = "testVol" + std::to_string(testVolId);
             /*
@@ -542,7 +546,7 @@ void ObjectStorMgr::proc_pre_startup()
             volEventOmHandler(testVolId,
                               testVdb,
                               FDS_VOL_ACTION_CREATE,
-                              false,
+                              FDS_ProtocolInterface::FDSP_NOTIFY_VOL_NO_FLAG,
                               FDS_ProtocolInterface::FDSP_ERR_OK);
 
             delete testVdb;
@@ -599,6 +603,7 @@ void
 ObjectStorMgr::addSvcMap(const NodeUuid    &svcUuid,
                          const SessionUuid &sessUuid) {
     svcSessLock.write_lock();
+    LOGDEBUG << "NodeUuid: " << svcUuid.uuid_get_val() << ", Session Uuid: " << sessUuid;
     svcSessMap[svcUuid] = sessUuid;
     svcSessLock.write_unlock();
 }
@@ -819,7 +824,7 @@ Error
 ObjectStorMgr::volEventOmHandler(fds_volid_t  volumeId,
                                  VolumeDesc  *vdb,
                                  int          action,
-                                 fds_bool_t check_only,
+                                 FDSP_NotifyVolFlag vol_flag,
                                  FDSP_ResultType result) {
     StorMgrVolume* vol = NULL;
     Error err(ERR_OK);
@@ -1098,11 +1103,16 @@ ObjectStorMgr::readObjMetaData(const ObjectID &objId,
 {
     Error err = smObjDb->get(objId, objMap);
     if (err == ERR_OK) {
+        LOGDEBUG << objId
+                 << " refcnt:" << objMap.getRefCnt()
+                 << " dataexists:" << objMap.dataPhysicallyExists();
         /* While sync is going on we can have metadata but object could be missing */
         if (!objMap.dataPhysicallyExists()) {
             fds_verify(isTokenInSyncMode(getDLT()->getToken(objId)));
             err = ERR_DISK_READ_FAILED;
         }
+    } else {
+        LOGWARN << "unable to read object meta: " << objId;
     }
     return err;
 }
@@ -1133,6 +1143,7 @@ ObjectStorMgr::deleteObjectMetaData(const OpCtx &opCtx,
         LOGDEBUG << "Not able to read existing object locations"
                 << ", assuming no prior entry existed";
         err = ERR_OK;
+        smObjDb->unlock(objId);
         return err;
     }
 
@@ -1704,9 +1715,12 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
         fdspDataPathClient(msgHdr->session_uuid)->PutObjectResp(msgHdr, putObj);
     } catch(att::TTransportException& e) {
         LOGERROR << "error during network call : " << e.what() ;
+    } catch(...) {
+        LOGERROR << "Unexpected exception during network call";
+        throw;
     }
     omJrnl->release_transaction(putReq->getTransId());
-    LOGDEBUG << "Sent async PutObj response after processing";
+    LOGDEBUG << "Sent async PutObj response after processing " << objId;
 
     /*
      * Free the IO request structure that

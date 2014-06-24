@@ -11,7 +11,6 @@
 namespace fds {
 
 class Platform;
-namespace fpi = FDS_ProtocolInterface;
 
 class PlatRpcReqt : public fpi::FDSP_ControlPathReqIf
 {
@@ -29,6 +28,10 @@ class PlatRpcReqt : public fpi::FDSP_ControlPathReqIf
 
     void NotifyModVol(const FDSP_MsgHdrType &, const FDSP_NotifyVolType &);
     virtual void NotifyModVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
+                              fpi::FDSP_NotifyVolTypePtr &vol_msg);
+    
+    void NotifySnapVol(const FDSP_MsgHdrType &, const FDSP_NotifyVolType &);
+    virtual void NotifySnapVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
                               fpi::FDSP_NotifyVolTypePtr &vol_msg);
 
     void AttachVol(const FDSP_MsgHdrType &, const FDSP_AttachVolType &);
@@ -58,6 +61,14 @@ class PlatRpcReqt : public fpi::FDSP_ControlPathReqIf
     void NotifyDLTClose(const FDSP_MsgHdrType &, const FDSP_DltCloseType &);
     void NotifyDLTClose(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
                         fpi::FDSP_DltCloseTypePtr &dlt_close);
+
+    void NotifyDMTClose(const FDSP_MsgHdrType &, const FDSP_DmtCloseType &);
+    void NotifyDMTClose(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
+                        fpi::FDSP_DmtCloseTypePtr &dmt_close);
+
+    void PushMetaDMTReq(const FDSP_MsgHdrType&, const FDSP_PushMeta& push_meta_resp);
+    void PushMetaDMTReq(fpi::FDSP_MsgHdrTypePtr &msg_hdr,
+                        fpi::FDSP_PushMetaPtr& push_meta_resp);
 
     void NotifyDMTUpdate(const FDSP_MsgHdrType &, const FDSP_DMT_Type &);
     void NotifyDMTUpdate(fpi::FDSP_MsgHdrTypePtr &msg_hdr,

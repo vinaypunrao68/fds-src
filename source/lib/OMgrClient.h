@@ -23,6 +23,7 @@
 #include <net-proxies/vol_policy.h>
 #include <NetSession.h>
 #include <dlt.h>
+#include <fds_dmt.h>
 #include <LocalClusterMap.h>
 #include <platform/platform-lib.h>
 
@@ -44,8 +45,14 @@ namespace fds {
     fds_notify_vol_mod     = 3,
     fds_notify_vol_attatch = 4,
     fds_notify_vol_detach  = 5, 
+    fds_notify_vol_snap    = 6, 
     MAX
   } fds_vol_notify_t;
+
+  typedef enum {
+      fds_catalog_push_meta = 0,
+      fds_catalog_dmt_close = 1
+  } fds_catalog_action_t;
   
   typedef void (*migration_event_handler_t)(bool dlt_type);
   typedef void (*dltclose_event_handler_t)(FDSP_DltCloseTypePtr& dlt_close,
@@ -58,7 +65,7 @@ namespace fds {
   typedef Error (*volume_event_handler_t)(fds::fds_volid_t volume_id, 
                                           fds::VolumeDesc *vdb, 
                                           fds_vol_notify_t vol_action,
-                                          fds_bool_t check_only,
+                                          FDSP_NotifyVolFlag vol_flag,
                                           const FDSP_ResultType result);
   typedef void (*throttle_cmd_handler_t)(const float throttle_level);
   typedef void (*tier_cmd_handler_t)(const FDSP_TierPolicyPtr &tier);
@@ -66,6 +73,9 @@ namespace fds {
   typedef void (*bucket_stats_cmd_handler_t)(const FDSP_MsgHdrTypePtr& rx_msg,
 					     const FDSP_BucketStatsRespTypePtr& buck_stats);
   typedef void (*scavenger_event_handler_t)(FDSP_ScavengerCmd cmd);
+  typedef Error (*catalog_event_handler_t)(fds_catalog_action_t cat_action,
+                                           const FDSP_PushMetaPtr& push_meta,
+					   const std::string& session_uuid);
 
   class OMgrClient {
 
@@ -79,8 +89,7 @@ namespace fds {
     fds_uint32_t omConfigPort;
     const DLT *dlt;
     DLTManager dltMgr;
-    int dmt_version;
-    Node_Table_Type dmt;
+    DMTManagerPtr dmtMgr;
     float current_throttle_level;
 
     /**
@@ -100,6 +109,7 @@ namespace fds {
     tier_audit_cmd_handler_t tier_audit_cmd_hdlr;
     bucket_stats_cmd_handler_t bucket_stats_cmd_hdlr;
     scavenger_event_handler_t scavenger_evt_hdlr;
+    catalog_event_handler_t catalog_evt_hdlr;
 
     /**
      * Session table for OM client
@@ -150,6 +160,7 @@ namespace fds {
     int registerThrottleCmdHandler(throttle_cmd_handler_t throttle_cmd_hdlr);
     int registerBucketStatsCmdHandler(bucket_stats_cmd_handler_t cmd_hdlr);
     void registerScavengerEventHandler(scavenger_event_handler_t scav_event_hdlr);
+    void registerCatalogEventHandler(catalog_event_handler_t evt_hdlr);
 
     // This logging is public for external plugins.  Avoid making this object
     // too big and all methods uses its data as global variables with big lock.
@@ -182,12 +193,14 @@ namespace fds {
     const DLT* getPreviousDLT();
     const TokenList& getTokensForNode(const NodeUuid &uuid) const;
     fds_uint32_t getNodeMigPort(NodeUuid uuid);
+    fds_uint32_t getNodeMetaSyncPort(NodeUuid uuid);
 #if 0
     int  getDLTNodesForDoidKey(unsigned char doid_key,
                               fds_int32_t *node_ids,
                               fds_int32_t *n_nodes);
 #endif
-    int getDMTNodesForVolume(fds_volid_t vol_id, fds_uint64_t *node_ids, int *n_nodes);
+    DmtColumnPtr getDMTNodesForVolume(fds_volid_t vol_id);
+    fds_uint64_t getDMTVersion() const;
     int pushPerfstatsToOM(const std::string& start_ts,
 			  int stat_slot_len, 
 			  const FDS_ProtocolInterface::FDSP_VolPerfHistListType& hist_list);
@@ -210,10 +223,14 @@ namespace fds {
             const std::string& session_uuid);
     Error recvDLTStartMigration(FDSP_DLT_Data_TypePtr& dlt_info);
     int recvDMTUpdate(FDSP_DMT_TypePtr& dmt_info, const std::string& session_uuid);
+    Error recvDMTPushMeta(FDSP_PushMetaPtr& push_meta, const std::string& session_uuid);
+    Error sendDMTPushMetaAck(const Error& op_err, const std::string& session_uuid);
+
+    int recvDMTClose(fds_uint64_t dmt_version, const std::string& session_uuid);
 
     int recvNotifyVol(VolumeDesc *vdb,
                       fds_vol_notify_t vol_action,
-                      fds_bool_t check_only,
+                      FDSP_NotifyVolFlag vol_flag,
 		      FDSP_ResultType,
                       const std::string& session_uuid);
     int recvVolAttachState(VolumeDesc *vdb, fds_vol_notify_t vol_action,
@@ -259,6 +276,15 @@ namespace fds {
 
     void NotifyModVol(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
                       FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& vol_msg);
+
+    void NotifySnapVol(const FDSP_MsgHdrType& fdsp_msg,
+                      const FDSP_NotifyVolType& not_snap_vol_req) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+
+    void NotifySnapVol(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
+                      FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& vol_msg);
+
       
     void AttachVol(const FDSP_MsgHdrType& fdsp_msg, const FDSP_AttachVolType& atc_vol_req) {
         // Don't do anything here. This stub is just to keep cpp compiler happy
@@ -316,6 +342,21 @@ namespace fds {
     void NotifyDLTClose(FDSP_MsgHdrTypePtr& fdsp_msg,
                         FDSP_DltCloseTypePtr& dlt_close);
 
+    void PushMetaDMTReq(const FDSP_MsgHdrType& fdsp_msg,
+                        const FDSP_PushMeta& push_meta_req) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+    void PushMetaDMTReq(FDSP_MsgHdrTypePtr& fdsp_msg,
+                        FDSP_PushMetaPtr& push_meta_req);
+
+    void NotifyDMTClose(const FDSP_MsgHdrType& fdsp_msg,
+                        const FDSP_DmtCloseType& dmt_close) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+
+    void NotifyDMTClose(FDSP_MsgHdrTypePtr& fdsp_msg,
+                        FDSP_DmtCloseTypePtr& dmt_close);
+
     void NotifyDMTUpdate(const FDSP_MsgHdrType& msg_hdr,
 			 const FDSP_DMT_Type& dmt_info) {
         // Don't do anything here. This stub is just to keep cpp compiler happy
@@ -323,7 +364,6 @@ namespace fds {
 
     void NotifyDMTUpdate(FDSP_MsgHdrTypePtr& msg_hdr,
 			 FDSP_DMT_TypePtr& dmt_info);
-
 
     void SetThrottleLevel(const FDSP_MsgHdrType& msg_hdr,
                           const FDSP_ThrottleMsgType& throttle_msg) {

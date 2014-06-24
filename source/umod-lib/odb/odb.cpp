@@ -5,7 +5,7 @@
 #include <assert.h>
 #include <string>
 
-#include "odb.h"
+#include <odb.h>
 #include "leveldb/db.h"
 #include "leveldb/filter_policy.h"
 
@@ -16,38 +16,38 @@ namespace osm {
 #define FILTER_BITS_PER_KEY 128  // Todo: Change this to the max size of DiskLoc
 
 /** Constructs odb with filename.
- * 
+ *
  * @param filename (i) Name of file for backing storage.
- * 
+ *
  * @return ObjectDB object.
  */
 ObjectDB::ObjectDB(const std::string& filename)
-    : file(filename) {
-  /*
-   * Setup DB options
-   */
-  options.create_if_missing = 1;
-  options.filter_policy     =
-      leveldb::NewBloomFilterPolicy(FILTER_BITS_PER_KEY);
-  options.write_buffer_size = WRITE_BUFFER_SIZE;
+        : file(filename) {
+    /*
+     * Setup DB options
+     */
+    options.create_if_missing = 1;
+    options.filter_policy     =
+            leveldb::NewBloomFilterPolicy(FILTER_BITS_PER_KEY);
+    options.write_buffer_size = WRITE_BUFFER_SIZE;
 
-  write_options.sync = true;
+    write_options.sync = true;
 
-  leveldb::Status status = leveldb::DB::Open(options, file, &db);
-  /* Open has to succeed */
-  assert(status.ok());
+    leveldb::Status status = leveldb::DB::Open(options, file, &db);
+    /* Open has to succeed */
+    assert(status.ok());
 
-  histo_all.Clear();
-  histo_put.Clear();
-  histo_get.Clear();
+    histo_all.Clear();
+    histo_put.Clear();
+    histo_get.Clear();
 }
 
 /** Destructs odb.
  * @return None
  */
 ObjectDB::~ObjectDB() {
-  delete options.filter_policy;
-  delete db;
+    delete options.filter_policy;
+    delete db;
 }
 
 /** Puts an object at a disk location.
@@ -59,20 +59,20 @@ ObjectDB::~ObjectDB() {
  */
 fds::Error ObjectDB::Put(const DiskLoc& disk_location,
                          const ObjectBuf& obj_buf) {
-  fds::Error err(fds::ERR_OK);
+    fds::Error err(fds::ERR_OK);
 
-  leveldb::Slice key((const char *)&disk_location, sizeof(disk_location));
-  leveldb::Slice value(obj_buf.data.data(), obj_buf.size);
+    leveldb::Slice key((const char *)&disk_location, sizeof(disk_location));
+    leveldb::Slice value(obj_buf.data.data(), obj_buf.size);
 
-  timer_start();
-  leveldb::Status status = db->Put(write_options, key, value);
-  timer_stop();
-  timer_update_put_histo();
-  if (!status.ok()) {
-    err = fds::Error(fds::ERR_DISK_WRITE_FAILED);
-  }
+    timer_start();
+    leveldb::Status status = db->Put(write_options, key, value);
+    timer_stop();
+    timer_update_put_histo();
+    if (!status.ok()) {
+        err = fds::Error(fds::ERR_DISK_WRITE_FAILED);
+    }
 
-  return err;
+    return err;
 }
 
 /** Puts an object at a disk location.
@@ -84,21 +84,21 @@ fds::Error ObjectDB::Put(const DiskLoc& disk_location,
  */
 fds::Error ObjectDB::Put(const DiskLoc& disk_location,
                          const ObjectID& obj_id) {
-  fds::Error err(fds::ERR_OK);
+    fds::Error err(fds::ERR_OK);
 
-  leveldb::Slice key((const char *)&disk_location, sizeof(disk_location));
-  leveldb::Slice value((char *)&obj_id, sizeof(obj_id));
+    leveldb::Slice key((const char *)&disk_location, sizeof(disk_location));
+    leveldb::Slice value((char *)obj_id.GetId(), obj_id.getDigestLength());
 
 
-  timer_start();
-  leveldb::Status status = db->Put(write_options, key, value);
-  timer_stop();
-  timer_update_put_histo();
-  if (!status.ok()) {
-    err = fds::Error(fds::ERR_DISK_WRITE_FAILED);
-  }
+    timer_start();
+    leveldb::Status status = db->Put(write_options, key, value);
+    timer_stop();
+    timer_update_put_histo();
+    if (!status.ok()) {
+        err = fds::Error(fds::ERR_DISK_WRITE_FAILED);
+    }
 
-  return err;
+    return err;
 }
 
 
@@ -111,20 +111,20 @@ fds::Error ObjectDB::Put(const DiskLoc& disk_location,
  */
 fds::Error ObjectDB::Delete(const ObjectID& object_id)
 {
-  fds::Error err(fds::ERR_OK);
+    fds::Error err(fds::ERR_OK);
 
-  leveldb::Slice key((const char *)&object_id, sizeof(object_id));
-  std::string value;
+    leveldb::Slice key((const char*)object_id.GetId(), object_id.getDigestLength());
+    std::string value;
 
-  timer_start();
-  leveldb::Status status = db->Delete(write_options, key);
-  timer_stop();
-  timer_update_get_histo();
-  if (!status.ok()) {
-    err = fds::Error(fds::ERR_DISK_READ_FAILED);
-  }
+    timer_start();
+    leveldb::Status status = db->Delete(write_options, key);
+    timer_stop();
+    timer_update_get_histo();
+    if (!status.ok()) {
+        err = fds::Error(fds::ERR_DISK_READ_FAILED);
+    }
 
-  return err;
+    return err;
 }
 
 
@@ -137,20 +137,20 @@ fds::Error ObjectDB::Delete(const ObjectID& object_id)
  */
 fds::Error ObjectDB::Put(const ObjectID& object_id,
                          const ObjectBuf& obj_buf) {
-  fds::Error err(fds::ERR_OK);
+    fds::Error err(fds::ERR_OK);
 
-  leveldb::Slice key((const char *)object_id.GetId(), sizeof(ObjectID));
-  leveldb::Slice value(obj_buf.data.data(), obj_buf.size);
+    leveldb::Slice key((const char *)object_id.GetId(), object_id.getDigestLength());
+    leveldb::Slice value(obj_buf.data.data(), obj_buf.size);
 
-  timer_start();
-  leveldb::Status status = db->Put(write_options, key, value);
-  timer_stop();
-  timer_update_put_histo();
-  if (!status.ok()) {
-    err = fds::Error(fds::ERR_DISK_WRITE_FAILED);
-  }
+    timer_start();
+    leveldb::Status status = db->Put(write_options, key, value);
+    timer_stop();
+    timer_update_put_histo();
+    if (!status.ok()) {
+        err = fds::Error(fds::ERR_DISK_WRITE_FAILED);
+    }
 
-  return err;
+    return err;
 }
 
 /** Gets an object from a disk location.
@@ -162,24 +162,24 @@ fds::Error ObjectDB::Put(const ObjectID& object_id,
  */
 fds::Error ObjectDB::Get(const DiskLoc& disk_location,
                          ObjectBuf& obj_buf) {
-  fds::Error err(fds::ERR_OK);
+    fds::Error err(fds::ERR_OK);
 
-  leveldb::Slice key((const char *)&disk_location, sizeof(disk_location));
-  std::string value = "";
+    leveldb::Slice key((const char *)&disk_location, sizeof(disk_location));
+    std::string value = "";
 
-  timer_start();
-  leveldb::Status status = db->Get(read_options, key, &value);
-  timer_stop();
-  timer_update_get_histo();
-  if (!status.ok()) {
-    err = fds::Error(fds::ERR_DISK_READ_FAILED);
+    timer_start();
+    leveldb::Status status = db->Get(read_options, key, &value);
+    timer_stop();
+    timer_update_get_histo();
+    if (!status.ok()) {
+        err = fds::Error(fds::ERR_DISK_READ_FAILED);
+        return err;
+    }
+
+    obj_buf.data = value;
+    obj_buf.size = value.size();
+
     return err;
-  }
-
-  obj_buf.data = value;
-  obj_buf.size = value.size();
-
-  return err;
 }
 
 
@@ -191,20 +191,20 @@ fds::Error ObjectDB::Get(const DiskLoc& disk_location,
  * @return ERR_OK if successful, err otherwise.
  */
 fds::Error ObjectDB::Delete(const DiskLoc& disk_location) {
-  fds::Error err(fds::ERR_OK);
+    fds::Error err(fds::ERR_OK);
 
-  leveldb::Slice key((const char *)&disk_location, sizeof(disk_location));
-  std::string value;
+    leveldb::Slice key((const char *)&disk_location, sizeof(disk_location));
+    std::string value;
 
-  timer_start();
-  leveldb::Status status = db->Delete(write_options, key);
-  timer_stop();
-  timer_update_get_histo();
-  if (!status.ok()) {
-    err = fds::Error(fds::ERR_DISK_READ_FAILED);
-  }
+    timer_start();
+    leveldb::Status status = db->Delete(write_options, key);
+    timer_stop();
+    timer_update_get_histo();
+    if (!status.ok()) {
+        err = fds::Error(fds::ERR_DISK_READ_FAILED);
+    }
 
-  return err;
+    return err;
 }
 
 
@@ -217,22 +217,22 @@ fds::Error ObjectDB::Delete(const DiskLoc& disk_location) {
  */
 fds::Error ObjectDB::Get(const ObjectID& obj_id,
                          ObjectBuf& obj_buf) {
-  fds::Error err(fds::ERR_OK);
+    fds::Error err(fds::ERR_OK);
 
-  leveldb::Slice key((const char *)obj_id.GetId(), sizeof(ObjectID));
-  std::string value;
+    leveldb::Slice key((const char *)obj_id.GetId(), obj_id.getDigestLength());
+    std::string value;
 
-  timer_start();
-  leveldb::Status status = db->Get(read_options, key, &value);
-  timer_stop();
-  timer_update_get_histo();
-  if (!status.ok()) {
-    err = fds::Error(fds::ERR_DISK_READ_FAILED);
-  }
+    timer_start();
+    leveldb::Status status = db->Get(read_options, key, &value);
+    timer_stop();
+    timer_update_get_histo();
+    if (!status.ok()) {
+        err = fds::Error(fds::ERR_DISK_READ_FAILED);
+    }
 
-  obj_buf.data = value;
+    obj_buf.data = value;
 
-  return err;
+    return err;
 }
 
 }  // namespace osm

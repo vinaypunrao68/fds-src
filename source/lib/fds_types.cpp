@@ -153,8 +153,10 @@ namespace fds {
     }
 
     ObjectID& ObjectID::operator=(const ObjectID& rhs) {
-      memcpy(digest, rhs.digest, sizeof(digest));
-      return *this;
+        if (this != &rhs) {
+            memcpy(digest, rhs.digest, sizeof(digest));
+        }
+        return *this;
     }
 
     /**
@@ -178,8 +180,18 @@ namespace fds {
     }
 
     std::string ObjectID::ToHex() const {
-      return ToHex(*this);
+        return ToHex(*this);
     }
+
+uint32_t ObjectID::write(serialize::Serializer* s) const {
+    return s->writeBuffer(reinterpret_cast<const int8_t*>(digest), 20);
+}
+
+uint32_t ObjectID::read(serialize::Deserializer* d) {
+    return d->readBuffer(reinterpret_cast<int8_t*>(digest), 20);
+}
+
+
 
     /*
      * Static members for transforming ObjectIDs.
@@ -224,7 +236,7 @@ namespace fds {
     }
 
     int ObjectID::compare(const ObjectID &lhs, const ObjectID &rhs) {
-        return  memcmp(lhs.digest, rhs.digest, sizeof(lhs.digest));
+        return  (&lhs == &rhs ? 0 : memcmp(lhs.digest, rhs.digest, sizeof(lhs.digest)));
     }
 
     void ObjectID::getTokenRange(const fds_token_id& tokenInput,
@@ -272,67 +284,6 @@ namespace fds {
       return (std::string(tmp_ip, strlen(tmp_ip)));
     }
 
-    fds_bool_t FdsBlobReq::magicInUse() const {
-      return (magic == FDS_SH_IO_MAGIC_IN_USE);
-    }
-
-    fds_volid_t FdsBlobReq::getVolId() const {
-      return volId;
-    }
-
-    fds_io_op_t  FdsBlobReq::getIoType() const {
-      return ioType;
-    }
-
-    void FdsBlobReq::setVolId(fds_volid_t vol_id) {
-      volId = vol_id;
-    }
-
-    void FdsBlobReq::cbWithResult(int result) {
-      return callback(result);
-    }
-
-    const std::string& FdsBlobReq::getBlobName() const {
-      return blobName;
-    }
-
-    fds_uint64_t FdsBlobReq::getBlobOffset() const {
-      return blobOffset;
-    }
-
-    const char* FdsBlobReq::getDataBuf() const {
-      return dataBuf;
-    }
-
-    fds_uint64_t FdsBlobReq::getDataLen() const {
-      return dataLen;
-    }
-
-    void FdsBlobReq::setDataLen(fds_uint64_t len) {
-      dataLen = len;
-    }
-
-    void FdsBlobReq::setDataBuf(const char* _buf) {
-      /*
-       * TODO: For now we're assuming the buffer is preallocated
-       * by the owner and the length has been set already.
-       */
-      memcpy(dataBuf, _buf, dataLen);
-    }
-
-    ObjectID FdsBlobReq::getObjId() const
-    {
-        return objId;
-    }
-
-    void FdsBlobReq::setObjId(const ObjectID& _oid) {
-      objId = _oid;
-    }
-
-    void FdsBlobReq::setQueuedUsec(fds_uint64_t _usec) {
-      queuedUsec = _usec;
-    }
-
 std::ostream& operator<<(std::ostream& os, const fds_io_op_t& opType) {
     os << "{";
     switch (opType) {
@@ -342,9 +293,17 @@ std::ostream& operator<<(std::ostream& os, const fds_io_op_t& opType) {
         ENUMCASEOS(FDS_IO_OFFSET_WRITE           , os);
         ENUMCASEOS(FDS_CAT_UPD                   , os);
         ENUMCASEOS(FDS_CAT_QRY                   , os);
+        ENUMCASEOS(FDS_START_BLOB_TX             , os);
+        ENUMCASEOS(FDS_ABORT_BLOB_TX, os);
+        ENUMCASEOS(FDS_COMMIT_BLOB_TX, os);
+        ENUMCASEOS(FDS_ATTACH_VOL, os);
         ENUMCASEOS(FDS_LIST_BLOB                 , os);
         ENUMCASEOS(FDS_PUT_BLOB                  , os);
         ENUMCASEOS(FDS_GET_BLOB                  , os);
+        ENUMCASEOS(FDS_STAT_BLOB                 , os);
+        ENUMCASEOS(FDS_GET_BLOB_METADATA, os);
+        ENUMCASEOS(FDS_SET_BLOB_METADATA, os);
+        ENUMCASEOS(FDS_GET_VOLUME_METADATA, os);
         ENUMCASEOS(FDS_DELETE_BLOB               , os);
         ENUMCASEOS(FDS_LIST_BUCKET               , os);
         ENUMCASEOS(FDS_BUCKET_STATS              , os);

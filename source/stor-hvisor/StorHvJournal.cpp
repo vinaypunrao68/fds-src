@@ -1,21 +1,25 @@
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
+#include <string>
+#include <algorithm>
 #include <stdexcept>
 #include <fds_error.h>
 #include <fds_types.h>
 #include <fds_timer.h>
 #include <StorHvisorNet.h>
-//#include "fds_client/include/ubd.h"
-#include "StorHvJournal.h"
+#include <StorHvJournal.h>
 #include <fds_defines.h>
 
 extern StorHvCtrl *storHvisor;
+
 namespace fds {
 
-std::ostream& operator<<(ostream& os, const TxnState& state) {
+std::ostream&
+operator<<(ostream& os, const TxnState& state) {
     switch (state) {
         ENUMCASEOS(FDS_TRANS_EMPTY             , os);
+        ENUMCASEOS(FDS_TRANS_BLOB_START        , os);
         ENUMCASEOS(FDS_TRANS_OPEN              , os);
         ENUMCASEOS(FDS_TRANS_OPENED            , os);
         ENUMCASEOS(FDS_TRANS_COMMITTED         , os);
@@ -27,15 +31,15 @@ std::ostream& operator<<(ostream& os, const TxnState& state) {
         ENUMCASEOS(FDS_TRANS_GET_BUCKET        , os);
         ENUMCASEOS(FDS_TRANS_BUCKET_STATS      , os);
         ENUMCASEOS(FDS_TRANS_PENDING_DLT       , os);
-        default: os << "unknown txn type - " << (int) state << "-";
+        default:
+            os << "Unknown AM OP "
+               << static_cast<fds_uint32_t>(state);
     }
     return os;
 }
 
-StorHvJournalEntry::StorHvJournalEntry()
-{
+StorHvJournalEntry::StorHvJournalEntry() {
     trans_state = FDS_TRANS_EMPTY;
-    block_offset = 0;
     replc_cnt = 0;
     sm_msg = 0;
     dm_msg = 0;
@@ -43,11 +47,6 @@ StorHvJournalEntry::StorHvJournalEntry()
     dm_ack_cnt = 0;
     nodeSeq = 0;
     is_in_use = false;
-    write_ctx = 0;
-    read_ctx = 0;
-    comp_arg1 = 0;
-    comp_arg2 = 0;
-    incarnation_number = 0;
 
     putMsg = NULL;
     getMsg = NULL;
@@ -60,19 +59,20 @@ StorHvJournalEntry::StorHvJournalEntry()
     je_mutex = new fds_mutex("Journal Entry Mutex");
 }
 
-StorHvJournalEntry::~StorHvJournalEntry()
-{
+StorHvJournalEntry::~StorHvJournalEntry() {
     delete je_mutex;
 }
 
-void StorHvJournalEntry::init(unsigned int transid, StorHvJournal *jrnl_tbl, FdsTimer *ioTimer)
-{
+void
+StorHvJournalEntry::init(unsigned int transid,
+                         StorHvJournal *jrnl_tbl,
+                         FdsTimer *ioTimer) {
     trans_id = transid;
     ioTimerTask.reset(new StorHvIoTimerTask(this, jrnl_tbl, ioTimer));
 }
 
-void StorHvJournalEntry::reset()
-{
+void
+StorHvJournalEntry::reset() {
     trans_state = FDS_TRANS_EMPTY;
     replc_cnt = 0;
     sm_msg = 0;
@@ -81,57 +81,42 @@ void StorHvJournalEntry::reset()
     dm_ack_cnt = 0;
     nodeSeq = 0;
     is_in_use = false;
-    write_ctx = 0;
-    read_ctx = 0;
-    comp_arg1 = 0;
-    comp_arg2 = 0;
-    incarnation_number ++;
 
     putMsg = NULL;
     getMsg = NULL;
     delMsg = NULL;
-
-    // TODO: Free any pending timers here
-    // And any other necessary cleanup
 }
 
-void StorHvJournalEntry::setActive()
-{
+void
+StorHvJournalEntry::setActive() {
     is_in_use = true;
 }
 
-void StorHvJournalEntry::setInactive()
-{
+void
+StorHvJournalEntry::setInactive() {
     is_in_use = false;
     trans_state = FDS_TRANS_EMPTY;
 }
 
-bool StorHvJournalEntry::isActive()
-{
+bool
+StorHvJournalEntry::isActive() {
     return ((is_in_use) || (trans_state != FDS_TRANS_EMPTY));
 }
 
-void StorHvJournalEntry::lock()
-{
-    // TODO: convert this and other lock/unlock prints to a debug level log
-    // cout << "Acquiring lock for transaction " << trans_id << endl;
+void
+StorHvJournalEntry::lock() {
     je_mutex->lock();
-    // cout << "Acquired lock for transaction " << trans_id << endl;
-
 }
 
-void StorHvJournalEntry::unlock()
-{
+void
+StorHvJournalEntry::unlock() {
     je_mutex->unlock();
-    // cout << "Released lock for transaction " << trans_id << endl;
-
 }
-
-
 
 // Caller should hold the lock on the transaction
-int StorHvJournalEntry::fds_set_dmack_status(int ipAddr,
-                                             fds_uint32_t port) {
+int
+StorHvJournalEntry::fds_set_dmack_status(int ipAddr,
+                                         fds_uint32_t port) {
     for (fds_uint32_t node = 0;
          node < FDS_MAX_DM_NODES_PER_CLST;
          node++) {
@@ -139,7 +124,8 @@ int StorHvJournalEntry::fds_set_dmack_status(int ipAddr,
             (dm_ack[node].port == port)) {
             if (dm_ack[node].ack_status < FDS_SET_ACK) {
                 dm_ack_cnt++;
-                LOGNORMAL << "updating the DM ACK: " << dm_ack_cnt;
+                LOGDEBUG << "updating the DM ACK: "
+                         << (fds_uint32_t)dm_ack_cnt;
                 dm_ack[node].ack_status = FDS_SET_ACK;
                 return 0;
             }
@@ -150,8 +136,9 @@ int StorHvJournalEntry::fds_set_dmack_status(int ipAddr,
 }
 
 // Caller should hold the lock on the transaction
-int StorHvJournalEntry::fds_set_dm_commit_status(int ipAddr,
-                                                 fds_uint32_t port) {
+int
+StorHvJournalEntry::fds_set_dm_commit_status(int ipAddr,
+                                             fds_uint32_t port) {
     for (fds_uint32_t node = 0;
          node < FDS_MAX_DM_NODES_PER_CLST;
          node++) {
@@ -169,8 +156,10 @@ int StorHvJournalEntry::fds_set_dm_commit_status(int ipAddr,
 }
 
 // Caller should hold the lock on the transaction
-int StorHvJournalEntry::fds_set_smack_status(int ipAddr,
-                                             fds_uint32_t port) {
+// TODO(Andrew): Move the service UUIDs
+int
+StorHvJournalEntry::fds_set_smack_status(int ipAddr,
+                                         fds_uint32_t port) {
     for (fds_uint32_t node = 0;
          node < FDS_MAX_SM_NODES_PER_CLST;
          node++) {
@@ -178,7 +167,8 @@ int StorHvJournalEntry::fds_set_smack_status(int ipAddr,
          * TODO: Use a request or node id here rather than
          * ip/port.
          */
-        if ((memcmp((void *)&sm_ack[node].ipAddr, (void *)&ipAddr, 4) == 0) &&
+        if ((memcmp((void *)&sm_ack[node].ipAddr,  // NOLINT
+                    (void *)&ipAddr, 4) == 0) &&   // NOLINT
             (sm_ack[node].port == port)) {
             if (sm_ack[node].ack_status != FDS_SET_ACK) {
                 sm_ack[node].ack_status = FDS_SET_ACK;
@@ -192,24 +182,41 @@ int StorHvJournalEntry::fds_set_smack_status(int ipAddr,
     return -1;
 }
 
-// Caller should hold the lock on the transaction
-void StorHvJournalEntry::fbd_complete_req(fbd_request_t *req, int status)
-{
-    (*req->cb_request)(comp_arg1, comp_arg2, req, status);
-}
-
 StorHvJournalEntryLock::StorHvJournalEntryLock(StorHvJournalEntry *jrnl_entry) {
     jrnl_e = jrnl_entry;
     jrnl_e->lock();
 }
 
-StorHvJournalEntryLock::~ StorHvJournalEntryLock() {
+StorHvJournalEntryLock::~StorHvJournalEntryLock() {
     jrnl_e->unlock();
 }
 
+void
+StorHvJournalEntry::resumeTransaction(void) {
+    Error err(ERR_OK);
+
+    switch (op) {
+        case FDS_PUT_BLOB:
+        case FDS_IO_WRITE:
+            LOGDEBUG << "Resuming putBlob op ID " << trans_id;
+            err = storHvisor->resumePutBlob(this);
+            break;
+            // case FDS_GET_BLOB:
+            // case FDS_IO_READ:
+            // storHvisor->resumeGetBlob(this);
+            // break;
+            // case FDS_DELETE_BLOB:
+            // storHvisor->resumeDeleteBlob(this);
+            // break;
+        default:
+            fds_panic("Attempting to resume unknown op!");
+    }
+
+    fds_verify(err == ERR_OK);
+}
+
 StorHvJournal::StorHvJournal(unsigned int max_jrnl_entries)
-        : ioTimer(new FdsTimer())
-{
+        : ioTimer(new FdsTimer()) {
     unsigned int i =0;
 
     max_journal_entries = max_jrnl_entries;
@@ -224,37 +231,30 @@ StorHvJournal::StorHvJournal(unsigned int max_jrnl_entries)
     jrnl_tbl_mutex = new fds_mutex("Journal Table Mutex");
 
     ctime = boost::posix_time::microsec_clock::universal_time();
-    // printf("Created journal table lock %p for Journal Table %p \n", jrnl_tbl_mutex, this);
 
     return;
 }
 
-StorHvJournal::StorHvJournal()
-{
+StorHvJournal::StorHvJournal() {
     StorHvJournal(FDS_READ_WRITE_LOG_ENTRIES);
 }
 
-StorHvJournal::~StorHvJournal()
-{
+StorHvJournal::~StorHvJournal() {
     delete jrnl_tbl_mutex;
     ioTimer->destroy();
 }
 
-void StorHvJournal::lock()
-{
-    // cout << "Acquiring journal table lock" << endl;
+void StorHvJournal::lock() {
     jrnl_tbl_mutex->lock();
-    // cout << "Acquired journal table lock" << endl;
 }
 
-void StorHvJournal::unlock()
-{
+void StorHvJournal::unlock() {
     jrnl_tbl_mutex->unlock();
-    // cout << "Released journal table lock"<< endl;
 }
 
 // Caller must have acquired the Journal Table Write Lock before invoking this.
-unsigned int StorHvJournal::get_free_trans_id() {
+unsigned int
+StorHvJournal::get_free_trans_id() {
     unsigned int trans_id;
 
     if (free_trans_ids.empty()) {
@@ -263,45 +263,13 @@ unsigned int StorHvJournal::get_free_trans_id() {
     }
     trans_id = free_trans_ids.front();
     free_trans_ids.pop();
-    return (trans_id);
+    return trans_id;
 }
 
 // Caller must have acquired the Journal Table Write Lock before invoking this.
-void StorHvJournal::return_free_trans_id(unsigned int trans_id) {
-
+void
+StorHvJournal::return_free_trans_id(unsigned int trans_id) {
     free_trans_ids.push(trans_id);
-
-}
-
-// The function returns a new transaction id (that is currently unused) if one is not in use for the block offset.
-// If there is one for the passed offset, that trans_id is returned.
-// Caller must remember to acquire the lock for the journal entry after this call, before using it.
-
-fds_uint32_t StorHvJournal::get_trans_id_for_block(fds_uint64_t block_offset)
-{
-    fds_uint32_t trans_id;
-
-    lock();
-    try{
-        trans_id = block_to_jrnl_idx.at(block_offset);
-        if (rwlog_tbl[trans_id].block_offset != block_offset) {
-            unlock();
-            throw "Corrupt journal table, block offsets do not match";
-        }
-        unlock();
-    }
-    catch (const std::out_of_range& err) {
-        trans_id = get_free_trans_id();
-        block_to_jrnl_idx[block_offset] = trans_id;
-        unlock();
-        StorHvJournalEntryLock je_lock(&rwlog_tbl[trans_id]);
-        if (rwlog_tbl[trans_id].isActive()) {
-            throw "Corrupt journal table, allocated transaction is Active\n";
-        }
-        rwlog_tbl[trans_id].block_offset = block_offset;
-    }
-    LOGNORMAL <<"assigned txid:" << trans_id << " for offset:" << block_offset;
-    return trans_id;
 }
 
 /**
@@ -331,15 +299,74 @@ StorHvJournal::popAllDltTrans() {
     return poppedTrans;
 }
 
-fds_uint32_t StorHvJournal::get_trans_id_for_blob(const std::string& blobName,
-                                                  fds_uint64_t blobOffset,
-                                                  bool& trans_in_progress) {
+/**
+ * Resumes the first (if any) of the operations
+ * pending completion of this journal op.
+ */
+void
+StorHvJournal::resumePendingTrans(fds_uint32_t trans_id) {
+    // Get the journel entry ops may be waiting on
+    lock();
+    StorHvJournalEntry *journEntry = &rwlog_tbl[trans_id];
+    if (journEntry->pendingTransactions.size() == 0) {
+        // No ops are waiting
+        unlock();
+        return;
+    }
+
+    // Get the first waiting op
+    StorHvJournalEntry *firstJrnlEntry = journEntry->pendingTransactions.front();
+    journEntry->pendingTransactions.pop_front();
+    // Add the blob/offset op to the journal
+    std::string blobName = rwlog_tbl[trans_id].blobName;
+    fds_uint64_t blobOffset = rwlog_tbl[trans_id].blobOffset;
+    blob_to_jrnl_idx[blobName + ":" + std::to_string(blobOffset)] = firstJrnlEntry->trans_id;
+    // Copy over all ops pending to old entry to this entry
+    firstJrnlEntry->pendingTransactions = journEntry->pendingTransactions;
+    unlock();
+    // Start resuming the op in this thread context...
+    firstJrnlEntry->resumeTransaction();
+}
+
+/**
+ * Creates a new transaction ID.
+ */
+fds_uint32_t
+StorHvJournal::create_trans_id(const std::string& blobName,
+                               fds_uint64_t blobOffset) {
+    fds_uint32_t trans_id;
+
+    lock();
+    trans_id = get_free_trans_id();
+    unlock();
+    StorHvJournalEntryLock je_lock(&rwlog_tbl[trans_id]);
+    fds_verify(rwlog_tbl[trans_id].isActive() == false);
+
+    rwlog_tbl[trans_id].blobName = blobName;
+    rwlog_tbl[trans_id].blobOffset = blobOffset;
+
+    LOGDEBUG << "Assigned trans id "
+             << trans_id << " for blob "
+             << blobName << " offset "
+             << blobOffset;
+    return trans_id;
+}
+
+// The function returns a new transaction id (that is currently unused)
+// if one is not in use for the block offset.
+// If there is one for the passed offset, that trans_id is returned.
+// Caller must remember to acquire the lock for the journal entry after
+// this call, before using it.
+fds_uint32_t
+StorHvJournal::get_trans_id_for_blob(const std::string& blobName,
+                                     fds_uint64_t blobOffset,
+                                     bool& trans_in_progress) {
     fds_uint32_t trans_id;
 
     trans_in_progress = false;
 
     lock();
-    try{
+    try {
         trans_id = blob_to_jrnl_idx.at(blobName + ":" + std::to_string(blobOffset));
         trans_in_progress = true;
         LOGDEBUG << "Comparing "
@@ -349,7 +376,7 @@ fds_uint32_t StorHvJournal::get_trans_id_for_blob(const std::string& blobName,
                  << rwlog_tbl[trans_id].blobName
                  << " and " << blobName;
         unlock();
-    } catch (const std::out_of_range& err) {
+    } catch(const std::out_of_range& err) {
         /*
          * Catching this exception is our indicaction that the
          * journal entry didn't exist and we need to create it.
@@ -362,39 +389,18 @@ fds_uint32_t StorHvJournal::get_trans_id_for_blob(const std::string& blobName,
         rwlog_tbl[trans_id].blobOffset = blobOffset;
         unlock();
     }
-    LOGNORMAL << "Assigned trans id "
-              << trans_id << " for blob "
-              << blobName << " offset "
-              << blobOffset;
+    LOGDEBUG << "Assigned trans id "
+             << trans_id << " for blob "
+             << blobName << " offset "
+             << blobOffset;
     return trans_id;
 }
 
 
 // Caller should hold the lock to the transaction before calling this.
 // And then release the lock after returning from this call.
-
-void StorHvJournal::release_trans_id(unsigned int trans_id)
-{
-
-    unsigned int block_offset;
-
-    block_offset = rwlog_tbl[trans_id].block_offset;
-
-    lock();
-
-    block_to_jrnl_idx.erase(block_offset);
-    rwlog_tbl[trans_id].reset();
-    rwlog_tbl[trans_id].block_offset = 0;
-    ioTimer->cancel(rwlog_tbl[trans_id].ioTimerTask);
-    return_free_trans_id(trans_id);
-
-    unlock();
-
-    LOGNORMAL << " StorHvJournal:" << "IO-XID:" << trans_id <<  " - Released transaction id  " << trans_id;
-}
-
-void StorHvJournal::releaseTransId(unsigned int transId) {
-
+void
+StorHvJournal::releaseTransId(unsigned int transId) {
     std::string blobName = rwlog_tbl[transId].blobName;
     fds_uint64_t blobOffset = rwlog_tbl[transId].blobOffset;
 
@@ -410,14 +416,13 @@ void StorHvJournal::releaseTransId(unsigned int transId) {
 
     unlock();
 
-    LOGNORMAL << "Released transaction id " << transId;
+    LOGDEBUG << "Released transaction id " << transId;
 }
 
-StorHvJournalEntry *StorHvJournal::get_journal_entry(fds_uint32_t trans_id) {
-
+StorHvJournalEntry*
+StorHvJournal::get_journal_entry(fds_uint32_t trans_id) {
     StorHvJournalEntry *jrnl_e = &rwlog_tbl[trans_id];
     return jrnl_e;
-
 }
 
 
@@ -431,7 +436,7 @@ StorHvJournalEntry::fbd_process_req_timeout() {
     fds::Error err(ERR_OK);
 
     fds_volid_t   volId = blobReq->getVolId();
-    LOGWARN << __FUNCTION__ << " trans id" << trans_id << " timing out, responding to blob " 
+    LOGWARN << "Trans id" << trans_id << " timing out, responding to blob "
             << blobReq->getBlobName() << " offset" << blobReq->getBlobOffset();
     if (isActive()) {
         // try all the SM nodes and if we are not able to get the data  return error
@@ -446,12 +451,12 @@ StorHvJournalEntry::fbd_process_req_timeout() {
 
         fds_verify(txn->isActive() == true);  // Should not receive resp for inactive txn
         if (txn->nodeSeq < (txn->num_sm_nodes-1)) {
-            txn->nodeSeq += 1; // try all the SM nodes 
+            txn->nodeSeq += 1;  // try all the SM nodes
             if ( txn->op == FDS_IO_READ ) {
                 err = storHvisor->dispatchSmGetMsg(txn);
                 fds_verify(err == ERR_OK);
-            } else if ( txn->op == FDS_IO_WRITE) {
-                fds_verify(!"Put request timed out");
+            } else if (txn->op == FDS_IO_WRITE) {
+                fds_panic("Put request timed out");
                 /* TODO(Rao) win-340: Until we have a consistent implementation for
                  * timeouts, on first timeout error, we will crash.
                  */
@@ -467,10 +472,9 @@ StorHvJournalEntry::fbd_process_req_timeout() {
             // like setting more throttling on AM, etc.
             LOGCRITICAL << "Timed out accessing all SMs for blob " << blobReq->getBlobName()
                         << " offset " << blobReq->getBlobOffset() << " trans_id " << trans_id;
-            fds_verify(false);
-            
+            fds_panic("Timed out accessing all SMs!");
+
             storHvisor->qos_ctrl->markIODone(io);
-            write_ctx = 0;
             vol->journal_tbl->releaseTransId(trans_id);
             blobReq->cbWithResult(-1);
             delete blobReq;

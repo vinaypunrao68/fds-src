@@ -7,6 +7,7 @@ import FDS_ProtocolInterface.*;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
+import org.apache.commons.io.IOUtils;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
 
@@ -23,16 +24,20 @@ public class ActivatePlatform implements RequestHandler {
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
         long nodeUuid = requiredLong(routeParameters, "node_uuid");
-        int domainId = requiredInt(routeParameters, "domain_id");
+        String source = IOUtils.toString(request.getInputStream());
+        JSONObject o = new JSONObject(source);
+        boolean activateSm = o.getBoolean("sm");
+        boolean activateAm = o.getBoolean("am");
 
-        long dms = client.ListServices(new FDSP_MsgHdrType())
+        long dmCount = client.ListServices(new FDSP_MsgHdrType())
                 .stream()
                 .filter(n -> n.getNode_type() == FDSP_MgrIdType.FDSP_DATA_MGR)
                 .count();
 
-        boolean activateDm = dms == 0;
+        // We only support one dm now
+        boolean activateDm = o.getBoolean("dm") && dmCount == 0;
 
-        int status = client.ActivateNode(new FDSP_MsgHdrType(), new FDSP_ActivateOneNodeType(domainId, new FDSP_Uuid(nodeUuid), true, activateDm, true));
+            int status = client.ActivateNode(new FDSP_MsgHdrType(), new FDSP_ActivateOneNodeType(1, new FDSP_Uuid(nodeUuid), activateSm, activateDm, activateAm));
         int httpCode = status == 0 ? HttpServletResponse.SC_OK : HttpServletResponse.SC_BAD_REQUEST;
         return new JsonResource(new JSONObject().put("status", status), httpCode);
     }

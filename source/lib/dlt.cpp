@@ -18,10 +18,10 @@
  */
 namespace fds {
 
-std::ostream& operator<< (std::ostream &out, const DltTokenGroup& tokenGroup) {
-    out << "TokenGroup : ";
-    for (uint i = 0; i < tokenGroup.length; i++) {
-        out << "[" << i << ":" << tokenGroup.get(i).uuid_get_val() <<"] ";
+std::ostream& operator<< (std::ostream &out, const TableColumn& column) {
+    out << "Node Group : ";
+    for (uint i = 0; i < column.length; i++) {
+        out << "[" << i << ":" << column.get(i).uuid_get_val() <<"] ";
     }
     return out;
 }

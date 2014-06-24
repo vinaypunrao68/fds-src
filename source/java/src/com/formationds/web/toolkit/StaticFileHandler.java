@@ -49,7 +49,11 @@ public class StaticFileHandler implements RequestHandler {
 
     public static String getMimeType(String objectName) {
         int offset = objectName.lastIndexOf('.');
-        return MIME_TYPES.getOrDefault(objectName.substring(offset).toLowerCase(), "application/octet-stream");
+        String defaultValue = "application/octet-stream";
+        if (offset < 0) {
+            return defaultValue;
+        }
+        return MIME_TYPES.getOrDefault(objectName.substring(offset).toLowerCase(), defaultValue);
     }
 
 

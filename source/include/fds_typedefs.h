@@ -16,12 +16,13 @@
 #include <fds_resource.h>
 #include <fdsp/FDSP_types.h>
 
+namespace fpi = FDS_ProtocolInterface;
+
 namespace fds {
 
 typedef std::string NodeStrName;
 typedef ResourceUUID NodeUuid;
 typedef fds_uint64_t VersionNumber;
-
 typedef std::unordered_set<NodeUuid, UuidHash> NodeUuidSet;
 
 typedef std::string fds_node_name_t;

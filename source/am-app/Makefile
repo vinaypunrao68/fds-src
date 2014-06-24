@@ -2,22 +2,25 @@ topdir            := ..
 user_target       := exe
 user_rtime_env    := user
 user_build_dir    := include platform
-user_incl_dir     := include
+user_incl_dir     := $(topdir)/fds_client/include include
 user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  :=  \
     fds-am-engine \
-    fds-StorHvisor \
-    fds-ubd \
-	fds-am-plat \
-	fds-plat-lib \
+    fds-probe-adapters \
+    fds-s3-probe \
+    fds-probe \
+    fds-am-engine \
+    fds-am-plat \
+    fds-plat-lib \
     fds-lib \
     fds-umod \
     fds-util \
     fds-fdsp \
     fds-xdi \
     fds-hash \
-    fds-thread
+    fds-thread \
+    fds-osdep
 
 user_nginx_libs   :=  \
     ngx-http-module \
@@ -37,21 +40,23 @@ user_non_fds_libs :=  \
     boost_program_options \
     boost_filesystem \
     thrift \
+    jansson \
     config++ \
     cryptopp \
-	hiredis \
+    hiredis \
+    event \
     $(user_nginx_libs)
 
 user_cc           :=  \
     ngx_modules.c
 
-user_incl_dir     := $(topdir) include \
+user_incl_dir     += $(topdir) \
 	$(JAVA_HOME)/include \
 	$(JAVA_HOME)/include/linux
 
 user_cpp      := $(wildcard *.cpp)
 
-user_ld_flags := -shared
+user_ld_flags := -shared -Wl,--no-allow-shlib-undefined
 
 user_no_style     := $(user_cc) $(wildcard com_*.h)
 user_bin_exe      := libaccessmgr.so

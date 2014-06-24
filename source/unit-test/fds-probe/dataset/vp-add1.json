@@ -1,0 +1,32 @@
+{
+    "Run-Setup": {
+        "om-setup": {
+            "vp-dm-info": [
+                {
+                    "rs-action": "add",
+                    "rs-uuid":   "0x0000000a",
+                    "rs-name":   "dm10",
+                    "rs-type":   "dm"
+                },
+                {
+                    "rs-action": "add",
+                    "rs-uuid":   "0x00000001",
+                    "rs-name":   "vol1",
+                    "rs-type":   "vol"
+                },
+                {
+                    "rs-action": "add",
+                    "rs-uuid":   "0x00000002",
+                    "rs-name":   "vol2",
+                    "rs-type":   "vol"
+                },
+                {
+                    "rs-action": "add",
+                    "rs-uuid":   "0x00000003",
+                    "rs-name":   "vol3",
+                    "rs-type":   "vol"
+                }
+            ]
+        }
+    }
+}

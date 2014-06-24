@@ -12,10 +12,10 @@ import org.json.JSONObject;
 import java.util.Map;
 
 public class GetThrottle implements RequestHandler {
-    private TransientState state;
+    private DemoState state;
     private Throttle throttle;
 
-    public GetThrottle(TransientState state, Throttle throttle) {
+    public GetThrottle(DemoState state, Throttle throttle) {
         this.state = state;
         this.throttle = throttle;
     }

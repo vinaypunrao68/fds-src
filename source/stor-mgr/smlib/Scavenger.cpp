@@ -255,6 +255,14 @@ fds_bool_t DiskScavenger::getNextCompactToken(fds_token_id* tok_id) {
     return found;
 }
 
+fds_bool_t DiskScavenger::isTokenCompacted(const fds_token_id& tok_id) {
+    if (tokenDb.find(tok_id) != tokenDb.cend()) {
+       return true;
+    } else {
+       return false;
+    }
+}
+
 // Re-builds tokenDb with tokens that need to be scavenged
 // TODO(xxx) pass in policy which tokens need to be scavenged
 // for now all tokens we get from persistent layer
@@ -318,9 +326,11 @@ void DiskScavenger::startScavenge(fds_uint32_t token_reclaim_threshold) {
             std::atomic_exchange(&in_progress, false);
             break;
         }
-        tok_compactor_vec[i]->startCompaction(tok_id, disk_id, tier, std::bind(
-            &DiskScavenger::compactionDoneCb, this,
-            std::placeholders::_1, std::placeholders::_2));
+        if (!objStorMgr->isTokenInSyncMode(tok_id)) {
+           tok_compactor_vec[i]->startCompaction(tok_id, disk_id, tier, std::bind(
+               &DiskScavenger::compactionDoneCb, this,
+               std::placeholders::_1, std::placeholders::_2));
+        }
     }
 }
 
@@ -353,10 +363,12 @@ void DiskScavenger::compactionDoneCb(fds_token_id token_id, const Error& error) 
                     in_prog = false;
                     break;
                 }
-                tok_compactor_vec[i]->startCompaction(tok_id, disk_id, tier, std::bind(
-                    &DiskScavenger::compactionDoneCb, this,
-                    std::placeholders::_1, std::placeholders::_2));
-            }
+                if (!objStorMgr->isTokenInSyncMode(tok_id)) {
+                   tok_compactor_vec[i]->startCompaction(tok_id, disk_id, tier, std::bind(
+                       &DiskScavenger::compactionDoneCb, this,
+                       std::placeholders::_1, std::placeholders::_2));
+                 }
+             }
         }
     } else {
         // lets not continue if error

@@ -4,7 +4,106 @@
 
 #include <native/types.h>
 #include <string>
+
 namespace fds {
+FdsBlobReq::FdsBlobReq(fds_io_op_t      _op,
+                       fds_volid_t        _volId,
+                       const std::string &_blobName,
+                       fds_uint64_t       _blobOffset,
+                       fds_uint64_t       _dataLen,
+                       char              *_dataBuf)
+        : magic(FDS_SH_IO_MAGIC_IN_USE),
+          ioType(_op),
+          volId(_volId),
+          blobName(_blobName),
+          blobOffset(_blobOffset),
+          dataLen(_dataLen),
+          dataBuf(_dataBuf) {
+}
+
+FdsBlobReq::FdsBlobReq(fds_io_op_t      _op,
+                       fds_volid_t        _volId,
+                       const std::string &_blobName,
+                       fds_uint64_t       _blobOffset,
+                       fds_uint64_t       _dataLen,
+                       char              *_dataBuf,
+                       CallbackPtr cb)
+        : magic(FDS_SH_IO_MAGIC_IN_USE),
+          ioType(_op),
+          volId(_volId),
+          blobName(_blobName),
+          blobOffset(_blobOffset),
+          dataLen(_dataLen),
+          dataBuf(_dataBuf), cb(cb){
+}
+
+FdsBlobReq::~FdsBlobReq() {
+    magic = FDS_SH_IO_MAGIC_NOT_IN_USE;
+}
+fds_bool_t FdsBlobReq::magicInUse() const {
+    return (magic == FDS_SH_IO_MAGIC_IN_USE);
+}
+
+fds_volid_t FdsBlobReq::getVolId() const {
+    return volId;
+}
+
+fds_io_op_t  FdsBlobReq::getIoType() const {
+    return ioType;
+}
+
+void FdsBlobReq::setVolId(fds_volid_t vol_id) {
+    volId = vol_id;
+}
+
+void FdsBlobReq::cbWithResult(int result) {
+    return callback(result);
+}
+
+const std::string& FdsBlobReq::getBlobName() const {
+    return blobName;
+}
+
+fds_uint64_t FdsBlobReq::getBlobOffset() const {
+    return blobOffset;
+}
+
+void FdsBlobReq::setBlobOffset(fds_uint64_t offset) {
+    blobOffset = offset;
+}
+
+const char* FdsBlobReq::getDataBuf() const {
+    return dataBuf;
+}
+
+fds_uint64_t FdsBlobReq::getDataLen() const {
+    return dataLen;
+}
+
+void FdsBlobReq::setDataLen(fds_uint64_t len) {
+    dataLen = len;
+}
+
+void FdsBlobReq::setDataBuf(const char* _buf) {
+    /*
+     * TODO: For now we're assuming the buffer is preallocated
+     * by the owner and the length has been set already.
+     */
+    memcpy(dataBuf, _buf, dataLen);
+}
+
+ObjectID FdsBlobReq::getObjId() const
+{
+    return objId;
+}
+
+void FdsBlobReq::setObjId(const ObjectID& _oid) {
+    objId = _oid;
+}
+
+void FdsBlobReq::setQueuedUsec(fds_uint64_t _usec) {
+    queuedUsec = _usec;
+}
 
 BucketContext::BucketContext(const std::string& _hostName,
                              const std::string& _bucketName,
@@ -79,6 +178,35 @@ void BucketStatsContent::set(const std::string& _name,
     if (limit > 100.0) {
         limit = 100.0;
     }
+}
+
+
+Callback::~Callback() {
+    if (errorDetails) delete errorDetails;
+}
+
+void Callback::operator()(FDSN_Status status) {
+    call(status);
+}
+
+void Callback::call(FDSN_Status status) {
+    this->status = status;
+    call();
+}
+
+bool Callback::isStatusSet() {
+    return status != FDSN_StatusErrorUnknown;
+}
+
+bool Callback::isErrorSet() {
+    return error != ERR_MAX;
+}
+
+ScopedCallBack::ScopedCallBack(CallbackPtr cb) : cb(cb) {
+}
+
+ScopedCallBack::~ScopedCallBack() {
+    cb->call();
 }
 
 }  // namespace fds

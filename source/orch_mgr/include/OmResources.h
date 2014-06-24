@@ -14,9 +14,9 @@
 #include <fds_error.h>
 #include <OmVolume.h>
 #include <NetSession.h>
-#include <fds_placement_table.h>
 #include <platform/node-inventory.h>
 #include <dlt.h>
+#include <fds_dmt.h>
 #include <kvstore/configdb.h>
 
 namespace fds {
@@ -95,16 +95,18 @@ class OM_NodeAgent : public NodeAgent
     virtual void om_send_reg_resp(const Error &err);
     virtual void om_send_vol_cmd(VolumeInfo::pointer vol,
                                  fpi::FDSP_MsgCodeType cmd,
-                                 fds_bool_t check_only = false);
+                                 fpi::FDSP_NotifyVolFlag = fpi::FDSP_NOTIFY_VOL_NO_FLAG);
     virtual void om_send_vol_cmd(VolumeInfo::pointer    vol,
                                  std::string           *vname,
                                  fpi::FDSP_MsgCodeType  cmd,
-                                 fds_bool_t check_only = false);
+                                 fpi::FDSP_NotifyVolFlag = fpi::FDSP_NOTIFY_VOL_NO_FLAG);
 
     virtual Error om_send_dlt(const DLT *curDlt);
     virtual Error om_send_dlt_close(fds_uint64_t cur_dlt_version);
-    virtual Error om_send_scavenger_cmd(
-        FDS_ProtocolInterface::FDSP_ScavengerCmd cmd);
+    virtual Error om_send_dmt(const DMTPtr& curDmt);
+    virtual Error om_send_dmt_close(fds_uint64_t dmt_version);
+    virtual Error om_send_scavenger_cmd(fpi::FDSP_ScavengerCmd cmd);
+    virtual Error om_send_pushmeta(fpi::FDSP_PushMetaPtr& meta_msg);
     virtual void init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const;
 
   protected:
@@ -120,7 +122,7 @@ class OM_NodeAgent : public NodeAgent
 typedef OM_NodeAgent                    OM_SmAgent;
 typedef OM_NodeAgent                    OM_DmAgent;
 typedef OM_NodeAgent                    OM_AmAgent;
-typedef std::list<OM_SmAgent::pointer>  NodeList;
+typedef std::list<OM_NodeAgent::pointer>  NodeList;
 
 /**
  * Agent interface to communicate with the platform service on the remote node.
@@ -199,9 +201,25 @@ class OM_AgentContainer : public AgentContainer
                                  bool                  activate = true);
     virtual Error agent_unregister(const NodeUuid &uuid, const std::string &name);
 
+    virtual void agent_activate(NodeAgent::pointer agent);
+    virtual void agent_deactivate(NodeAgent::pointer agent);
+
+    /**
+     * Move all pending nodes to addNodes and rmNodes
+     * The second function only moves nodes that are in 'filter_nodes'
+     * set and leaves other pending nodes pending
+     */
+    void om_splice_nodes_pend(NodeList *addNodes, NodeList *rmNodes);
+    void om_splice_nodes_pend(NodeList *addNodes,
+                              NodeList *rmNodes,
+                              const NodeUuidSet& filter_nodes);
+
   protected:
     FdspNodeType                             ac_node_type;
     boost::shared_ptr<OM_ControlRespHandler> ctrlRspHndlr;
+
+    NodeList                                 node_up_pend;
+    NodeList                                 node_down_pend;
 
     explicit OM_AgentContainer(FdspNodeType id);
     virtual ~OM_AgentContainer() {}
@@ -264,27 +282,11 @@ class OM_SmContainer : public OM_AgentContainer
     OM_SmContainer();
     virtual ~OM_SmContainer() {}
 
-    /**
-     * Move all pending nodes to addNodes and rmNodes
-     * The second function only moves nodes that are in 'filter_nodes'
-     * set and leaves other pending nodes pending
-     */
-    void om_splice_nodes_pend(NodeList *addNodes, NodeList *rmNodes);
-    void om_splice_nodes_pend(NodeList *addNodes,
-                              NodeList *rmNodes,
-                              const NodeUuidSet& filter_nodes);
-
-    virtual void agent_activate(NodeAgent::pointer agent);
-    virtual void agent_deactivate(NodeAgent::pointer agent);
-
     static inline OM_SmContainer::pointer agt_cast_ptr(RsContainer::pointer ptr) {
         return static_cast<OM_SmContainer *>(get_pointer(ptr));
     }
 
   protected:
-    NodeList                                 node_up_pend;
-    NodeList                                 node_down_pend;
-
     virtual Resource *rs_new(const ResourceUUID &uuid) {
         return new OM_SmAgent(uuid);
     }
@@ -293,6 +295,8 @@ class OM_SmContainer : public OM_AgentContainer
 class OM_DmContainer : public OM_AgentContainer
 {
   public:
+    typedef boost::intrusive_ptr<OM_DmContainer> pointer;
+
     OM_DmContainer();
     virtual ~OM_DmContainer() {}
 
@@ -374,6 +378,10 @@ class OM_NodeContainer : public DomainContainer
                                fds_bool_t from_omcontrol_path) {
         return om_volumes->om_create_vol(hdr, creat_msg, from_omcontrol_path);
     }
+    inline Error om_snap_vol(const FDSP_MsgHdrTypePtr &hdr,
+                               const FdspCrtVolPtr      &snap_msg) {
+        return om_volumes->om_snap_vol(hdr, snap_msg);
+    }
     inline Error om_delete_vol(const FDSP_MsgHdrTypePtr &hdr,
                                const FdspDelVolPtr &del_msg) {
         return om_volumes->om_delete_vol(hdr, del_msg);
@@ -407,6 +415,7 @@ class OM_NodeContainer : public DomainContainer
     virtual void om_bcast_tier_audit(fpi::FDSP_TierPolicyAuditPtr audit);
     virtual fds_uint32_t  om_bcast_vol_list(NodeAgent::pointer node);
     virtual fds_uint32_t om_bcast_vol_create(VolumeInfo::pointer vol);
+    virtual fds_uint32_t om_bcast_vol_snap(VolumeInfo::pointer vol);
     virtual void om_bcast_vol_modify(VolumeInfo::pointer vol);
     virtual fds_uint32_t om_bcast_vol_delete(VolumeInfo::pointer vol,
                                              fds_bool_t check_only);
@@ -433,8 +442,8 @@ class OM_NodeContainer : public DomainContainer
                                             fds_bool_t activate_sm,
                                             fds_bool_t activate_md,
                                             fds_bool_t activate_am);
-    virtual fds_uint32_t  om_bcast_dmt_table();
-    virtual void om_round_robin_dmt();
+    virtual fds_uint32_t om_bcast_dmt(const DMTPtr& curDmt);
+    virtual fds_uint32_t om_bcast_dmt_close(fds_uint64_t dmt_version);
 
   private:
     friend class OM_NodeDomainMod;
@@ -446,15 +455,6 @@ class OM_NodeContainer : public DomainContainer
     FdsAdminCtrl             *om_admin_ctrl;
     VolumeContainer::pointer  om_volumes;
     float                     om_cur_throttle_level;
-
-    /**
-     * TODO(Vy): move this to DMT class.
-     */
-    fds_uint64_t              om_dmt_ver;
-    fds_uint32_t              om_dmt_width;
-    fds_uint32_t              om_dmt_depth;
-    FdsDmt                   *om_curDmt;
-    fds_mutex                 om_dmt_mtx;
 
     void om_init_domain();
 
@@ -619,6 +619,12 @@ class OM_NodeDomainMod : public Module
                                           fds_uint32_t dmt_version);
 
     /**
+     * Notification that OM received push meta response from
+     * node with uuid 'uuid'
+     */
+    virtual Error om_recv_push_meta_resp(const NodeUuid& uuid);
+
+    /**
      * Notification that OM received DLT close response from
      * node with uuid 'uuid' for dlt version 'dlt_version'
      */
@@ -626,9 +632,16 @@ class OM_NodeDomainMod : public Module
                                          fds_uint64_t dlt_version);
 
     /**
+     * Notification that OM received DMT close response from
+     * node with uuid 'uuid' for dmt version 'dmt_version'
+     */
+    virtual Error om_recv_dmt_close_resp(const NodeUuid& uuid,
+                                         fds_uint64_t dmt_version);
+
+    /**
      * Updates cluster map membership and does DLT
      */
-    virtual void om_dmt_update_cluster(fds_uint32_t numVols);
+    virtual void om_dmt_update_cluster();
     virtual void om_dlt_update_cluster();
     virtual void om_persist_node_info(fds_uint32_t node_idx);
 
@@ -692,6 +705,13 @@ class OM_ControlRespHandler : public fpi:: FDSP_ControlPathRespIf {
         FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
         FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& not_mod_vol_resp);
 
+    void NotifySnapVolResp(
+        const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+        const FDS_ProtocolInterface::FDSP_NotifyVolType& not_snap_vol_resp);
+    void NotifySnapVolResp(
+        FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+        FDS_ProtocolInterface::FDSP_NotifyVolTypePtr& not_snap_vol_resp);
+
     void AttachVolResp(
         const FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
         const FDS_ProtocolInterface::FDSP_AttachVolType& atc_vol_resp);
@@ -747,6 +767,20 @@ class OM_ControlRespHandler : public fpi:: FDSP_ControlPathRespIf {
     void NotifyDMTUpdateResp(
         FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
         FDS_ProtocolInterface::FDSP_DMT_Resp_TypePtr& dmt_info_resp);
+
+    void NotifyDMTCloseResp(
+        const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+        const ::FDS_ProtocolInterface::FDSP_DMT_Resp_Type& dmt_info_resp);
+    void NotifyDMTCloseResp(
+        FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+        FDS_ProtocolInterface::FDSP_DMT_Resp_TypePtr& dmt_info_resp);
+
+    void PushMetaDMTResp(
+        const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
+        const ::FDS_ProtocolInterface::FDSP_PushMeta& push_meta_resp);
+    void PushMetaDMTResp(
+        FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
+        FDS_ProtocolInterface::FDSP_PushMetaPtr& push_meta_resp);
 
   private:
         // TODO(Andrew): Add ptr back to resource manager.

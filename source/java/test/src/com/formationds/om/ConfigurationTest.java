@@ -11,7 +11,7 @@ import static org.junit.Assert.assertEquals;
 public class ConfigurationTest {
     @Test
     public void testParseArguments() throws Exception {
-        assertEquals("/foo", new Configuration(new String[] {"--fds-root=/foo"}).getFdsRoot());
-        assertEquals("/fds", new Configuration(new String[0]).getFdsRoot());
+        assertEquals("/foo", new Configuration("foo", new String[] {"--fds-root=/foo"}).getFdsRoot());
+        assertEquals("/fds", new Configuration("foo", new String[0]).getFdsRoot());
     }
 }

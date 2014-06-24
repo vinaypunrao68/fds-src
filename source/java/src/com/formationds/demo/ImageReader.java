@@ -3,7 +3,20 @@ package com.formationds.demo;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-interface ImageReader {
-    public Counts consumeCounts();
-    public ImageResource readOne();
+abstract class ImageReader {
+    private BucketStats bucketStats;
+
+    protected ImageReader(BucketStats bucketStats) {
+        this.bucketStats = bucketStats;
+    }
+
+    public BucketStats counts() {
+        return bucketStats;
+    }
+
+    protected void increment(String volumeName) {
+        bucketStats.increment(volumeName);
+    }
+
+    protected abstract StoredImage read(StoredImage lastWritten) throws Exception;
 }

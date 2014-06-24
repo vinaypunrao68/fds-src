@@ -19,68 +19,12 @@
 #include <ostream>
 #include <util/Log.h>
 #include <util/timeutils.h>
+#include <fds_placement_table.h>
 
 namespace fds {
 #define DLT_VER_INVALID 0  /**< Defines 0 as invalid DLT version */
 
-    /**
-     * Class to store an array of nodeuuids that are part of a
-     * DLT's token group. Had to do this for shared_ptr.
-     * will consider shared_array later.
-     */
-    class DltTokenGroup {
-  public:
-        explicit DltTokenGroup(fds_uint32_t len)
-                : length(len) {
-            // Create an array of uuid set to 0
-            p = new NodeUuid[length]();
-        }
-        explicit DltTokenGroup(const DltTokenGroup& n) {
-            length = n.length;
-            p = new NodeUuid[length];
-            // TODO(Prem): change to memcpy later
-            for (fds_uint32_t i = 0; i < length; i++) {
-                p[i] = n.p[i];
-            }
-        }
-        void set(fds_uint32_t index, NodeUuid uid) {
-            fds_verify(index < length);
-            p[index] = uid;
-        }
-        NodeUuid get(fds_uint32_t index) const {
-            fds_verify(index < length);
-            return p[index];
-        }
-
-        NodeUuid& operator[] (int index) {
-            return p[index];
-        }
-
-        int find(const NodeUuid &uid) const {
-            for (uint32_t i = 0; i < length; i++) {
-                if (p[i] == uid) {
-                    return static_cast<int>(i);
-                }
-            }
-            return -1;
-        }
-
-        fds_uint32_t getLength() const {
-            return length;
-        }
-        ~DltTokenGroup() {
-            if (p) {
-                delete[] p;
-            }
-        }
-        friend std::ostream& operator<< (std::ostream &out,
-                                         const DltTokenGroup& tokenGroup);
-
-  private:
-        NodeUuid     *p;
-        fds_uint32_t length;
-    };
-
+    typedef TableColumn DltTokenGroup;
     typedef boost::shared_ptr<DltTokenGroup> DltTokenGroupPtr;
     typedef boost::shared_ptr<std::vector<DltTokenGroupPtr>> DistributionList;
     typedef std::vector<fds_token_id> TokenList;
@@ -197,7 +141,7 @@ namespace fds {
         friend class DLTDiff;
 
         fds_uint64_t version;    /**< OM DLT version */
-        TimeStamp    timestamp;  /**< Time OM created DLT */
+        util::TimeStamp    timestamp;  /**< Time OM created DLT */
         fds_uint32_t numBitsForToken;      /**< numTokens = 2^numBitsForToken */
         fds_uint32_t numTokens;  /**< Expanded version of width */
         fds_uint32_t depth;      /**< Depth of each token group */
@@ -229,7 +173,7 @@ namespace fds {
         TokenList& getChangedTokens();
 
         fds_uint64_t version;
-        TimeStamp timestamp;
+        util::TimeStamp timestamp;
 
   private:
         bool fNewDlt;

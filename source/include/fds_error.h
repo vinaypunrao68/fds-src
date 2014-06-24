@@ -7,7 +7,7 @@
 
 #include <sstream>
 #include <string>
-#include <fds_types.h>
+#include <shared/fds_types.h>
 #include <fdsp/FDSP_types.h>
 
 namespace fds {
@@ -51,6 +51,7 @@ namespace fds {
         ERR_VOL_NOT_FOUND        = 30,
         ERR_NETWORK_CORRUPT      = 31,
         ERR_ONDISK_DATA_CORRUPT  = 32,
+        ERR_INVALID_DMT          = 33,
 
         /* I/O error range */
         ERR_IO_DLT_MISMATCH      = 100,
@@ -82,7 +83,7 @@ namespace fds {
   public:
         Error();
         Error(fds_errno_t errno_arg);  //NOLINT
-        Error(fds_uint32_t errno_fdsp); //NOLINT
+        explicit Error(fds_uint32_t errno_fdsp);
         Error(const Error& err);
 
         bool OK() const;
@@ -109,6 +110,9 @@ namespace fds {
         FDSN_StatusOK                                              ,
         FDSN_StatusCreated                                         ,
 
+        /* do denote uninitialized value*/
+        FDSN_StatusNOTSET                                          ,
+
         /**
          * Errors that prevent the S3 request from being issued or response from
          * being read
@@ -116,6 +120,7 @@ namespace fds {
         FDSN_StatusInternalError                                   ,
         FDSN_StatusOutOfMemory                                     ,
         FDSN_StatusInterrupted                                     ,
+        FDSN_StatusTxnInProgress                                   ,
         FDSN_StatusInvalidBucketNameTooLong                        ,
         FDSN_StatusInvalidBucketNameFirstCharacter                 ,
         FDSN_StatusInvalidBucketNameCharacter                      ,

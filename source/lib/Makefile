@@ -1,9 +1,10 @@
 topdir           := ..
 user_target      := lib
 user_rtime_env   := user
-user_build_dir   := net concurrency kvstore crypto native
+user_build_dir   := blob net concurrency kvstore crypto native
 user_cpp         :=      \
     dlt.cpp \
+    FdsRandom.cpp        \
     NetSession.cpp       \
     PerfTrace.cpp        \
     Catalog.cpp          \
@@ -27,6 +28,7 @@ user_cpp         :=      \
     TransJournal.cpp     \
     fdsp_utils.cpp       \
     FDSP_RpcServiceBaseImpl.cpp \
+    dmt.cpp              \
     fds_error.cpp
 
 user_incl_dir    := $(topdir)

@@ -9,12 +9,12 @@
 #include <unordered_map>
 #include <boost/thread.hpp>
 #include <thrift/concurrency/ThreadManager.h>
-#include <thrift/concurrency/PosixThreadFactory.h>
-#include <thrift/protocol/TBinaryProtocol.h>
-#include <thrift/server/TThreadPoolServer.h>
+// #include <thrift/concurrency/PosixThreadFactory.h>
+// #include <thrift/protocol/TBinaryProtocol.h>
+// #include <thrift/server/TThreadPoolServer.h>
 #include <thrift/server/TThreadedServer.h>
-#include <thrift/transport/TServerSocket.h>
-#include <thrift/transport/TBufferTransports.h>
+// #include <thrift/transport/TServerSocket.h>
+// #include <thrift/transport/TBufferTransports.h>
 #include <thrift/transport/TTransportUtils.h>
 #include <fdsp/FDSP_DataPathReq.h>
 #include <fdsp/FDSP_DataPathResp.h>
@@ -24,6 +24,8 @@
 #include <fdsp/FDSP_ConfigPathResp.h>
 #include <fdsp/FDSP_MigrationPathReq.h>
 #include <fdsp/FDSP_MigrationPathResp.h>
+#include <fdsp/FDSP_MetaSyncReq.h>
+#include <fdsp/FDSP_MetaSyncResp.h>
 #include <fdsp/FDSP_Service.h>
 
 #include <fds_globals.h>
@@ -172,7 +174,7 @@ class netClientSessionEx : public netSession , public net::SocketEventHandler {
                      boost::shared_ptr<RespHandlerT> resp_handler)
       : netSession(node_name, port, local_mgr, remote_mgr),
             socket_(new fds::net::Socket(node_name, port)),
-      transport_(new apache::thrift::transport::TBufferedTransport(
+      transport_(new apache::thrift::transport::TFramedTransport(
               boost::dynamic_pointer_cast<apache::thrift::transport::TTransport>(socket_))),
       protocol_(new TBinaryProtocol(transport_)),
       session_id_(""),
@@ -326,6 +328,8 @@ typedef netClientSessionEx<FDSP_ConfigPathReqClient,
         FDSP_ConfigPathRespProcessor, FDSP_ConfigPathRespIf> netConfigPathClientSession;
 typedef netClientSessionEx<FDSP_MigrationPathReqClient,
         FDSP_MigrationPathRespProcessor, FDSP_MigrationPathRespIf> netMigrationPathClientSession;
+typedef netClientSessionEx<FDSP_MetaSyncReqClient,
+        FDSP_MetaSyncRespProcessor, FDSP_MetaSyncRespIf> netMetaSyncClientSession;
 
 /**
  * @brief Encapsulates functionality for fds server sessions.  Responsibilities
@@ -592,14 +596,14 @@ class netServerSessionEx: public netSession {
       /* NOTE: if return a diffrent TTransportFactory, make sure you adjust
        * getTransportKey() to match as well
        */
-      return new apache::thrift::transport::TBufferedTransportFactory();
+      return new apache::thrift::transport::TFramedTransportFactory();
   }
 
   static std::string getTransportKey(TTransportPtr transport)
   {
-      /* What we get is TBufferedTransport.  We will extract TSocket from it */
-      boost::shared_ptr<apache::thrift::transport::TBufferedTransport> buf_transport =
-          boost::static_pointer_cast<apache::thrift::transport::TBufferedTransport>(transport);
+      /* What we get is TFramedTransport.  We will extract TSocket from it */
+      boost::shared_ptr<apache::thrift::transport::TFramedTransport> buf_transport =
+          boost::static_pointer_cast<apache::thrift::transport::TFramedTransport>(transport);
 
       boost::shared_ptr<apache::thrift::transport::TSocket> sock =
           boost::static_pointer_cast<apache::thrift::transport::TSocket>\
@@ -659,6 +663,8 @@ typedef netServerSessionEx<FDSP_ConfigPathReqProcessor,
         FDSP_ConfigPathReqIf, FDSP_ConfigPathRespClient> netConfigPathServerSession;
 typedef netServerSessionEx<FDSP_MigrationPathReqProcessor,
         FDSP_MigrationPathReqIf, FDSP_MigrationPathRespClient> netMigrationPathServerSession;
+typedef netServerSessionEx<FDSP_MetaSyncReqProcessor,
+        FDSP_MetaSyncReqIf, FDSP_MetaSyncRespClient> netMetaSyncServerSession;
 
 
 inline std::ostream& operator<<(std::ostream& out, const netSession& ep) {
@@ -830,5 +836,7 @@ class netSessionTbl {
 
 typedef boost::shared_ptr<netSessionTbl> netSessionTblPtr;
 
-
+#define METADATA_SESSION(session,tbl,ip,port) \
+    netMetaDataPathClientSession *session = tbl->getClientSession<netMetaDataPathClientSession>(ip, port); \
+    fds_verify(session != NULL);
 #endif

@@ -349,6 +349,8 @@ class VolumeContainer : public RsContainer
     virtual Error om_create_vol(const FDSP_MsgHdrTypePtr  &hdr,
                                 const FdspCrtVolPtr       &creat_msg,
                                 fds_bool_t from_omcontrol_path);
+    virtual Error om_snap_vol(const FDSP_MsgHdrTypePtr  &hdr,
+                                const FdspCrtVolPtr       &snap_msg);
     virtual Error om_delete_vol(const FDSP_MsgHdrTypePtr  &hdr,
                                 const FdspDelVolPtr &del_msg);
     virtual Error om_modify_vol(const FdspModVolPtr &mod_msg);
@@ -358,6 +360,8 @@ class VolumeContainer : public RsContainer
                                 const FdspAttVolCmdPtr    &detach);
     virtual void om_test_bucket(const FdspMsgHdrPtr     &hdr,
                                 const FdspTestBucketPtr &req);
+
+    virtual Error getVolumeStatus(const std::string& volumeName);
 
     /**
      * Handling responses for volume events

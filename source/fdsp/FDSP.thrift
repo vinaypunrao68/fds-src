@@ -29,6 +29,8 @@ enum FDSP_MsgCodeType {
    FDSP_MSG_GET_VOL_BLOB_LIST_REQ,
    FDSP_MSG_OFFSET_WRITE_OBJ_REQ,
    FDSP_MSG_REDIR_READ_OBJ_REQ,
+   FDSP_STAT_BLOB,
+   FDSP_START_BLOB_TX,
 
    FDSP_MSG_PUT_OBJ_RSP,
    FDSP_MSG_GET_OBJ_RSP,
@@ -62,11 +64,14 @@ enum FDSP_MsgCodeType {
    FDSP_MSG_DLT_UPDATE,
    FDSP_MSG_DLT_CLOSE,
    FDSP_MSG_DMT_UPDATE,
+   FDSP_MSG_DMT_CLOSE,
    FDSP_MSG_NODE_UPDATE,
    FDSP_MSG_NOTIFY_MIGRATION,
    FDSP_MSG_SCAVENGER_START,
+   FDSP_MSG_PUSH_META,
 
-   FDSP_MSG_SET_THROTTLE
+   FDSP_MSG_SET_THROTTLE,
+   FDSP_MSG_SNAP_VOL
 }
 
 enum FDSP_MgrIdType {
@@ -77,6 +82,7 @@ enum FDSP_MgrIdType {
     FDSP_CLI_MGR,
     FDSP_OMCLIENT_MGR,
     FDSP_MIGRATION_MGR,
+    FDSP_METASYNC_MGR,
     FDSP_PLATFORM
 }
 
@@ -112,7 +118,8 @@ enum FDSP_VolNotifyType {
   FDSP_NOTIFY_DEFAULT,
   FDSP_NOTIFY_ADD_VOL,
   FDSP_NOTIFY_RM_VOL,
-  FDSP_NOTIFY_MOD_VOL
+  FDSP_NOTIFY_MOD_VOL,
+  FDSP_NOTIFY_SNAP_VOL
 }
 
 enum FDSP_ConsisProtoType {
@@ -207,16 +214,36 @@ struct FDSP_MetaDataPair {
 
 typedef list <FDSP_MetaDataPair> FDSP_MetaDataList
 
+struct FDSP_VolumeMetaData {
+  1: i64 blobCount;
+  2: i64 size; // in bytes
+//  3: FDSP_MetaDataList metaData;
+}
+
+/* Can be consolidated when apis and fdsp merge or whatever */
+struct TxDescriptor {
+       1: required i64 txId
+       /* TODO(Andrew): Maybe add an op type (update/query)? */
+}
+
 struct FDSP_UpdateCatalogType {
   1: string blob_name, /* User visible name of the blob */
   2: i64 blob_version, /* Version of the blob. Only used in response! */
-  3: i64 blob_size, /* Size of blob. Only use in  response! */
-  4: i32 blob_mime_type, /* Encoding type of blob contents. */
-  5: FDSP_BlobDigestType digest, /* Not sure...? */
-  6: FDSP_BlobObjectList obj_list, /* List of object ids of the objects that this blob is being mapped to */
-  7: FDSP_MetaDataList meta_list, /* sequence of arbitrary key/value pairs */
-  8: i32 dm_transaction_id,   /* Transaction id */
-  9: i32 dm_operation,        /* Transaction type = OPEN, COMMIT, CANCEL */
+  3: TxDescriptor txDesc, /* Transaction ID...can supersede other tx fields */
+  4: i64 blob_size, /* Size of blob. Only use in  response! */
+  5: i32 blob_mime_type, /* Encoding type of blob contents. */
+  6: FDSP_BlobDigestType digest, /* Not sure...? */
+  7: FDSP_BlobObjectList obj_list, /* List of object ids of the objects that this blob is being mapped to */
+  8: FDSP_MetaDataList meta_list, /* sequence of arbitrary key/value pairs */
+  9: i32 dm_transaction_id,   /* Transaction id */
+  10: i32 dm_operation,        /* Transaction type = OPEN, COMMIT, CANCEL */
+}
+
+/* Can be consolidated when apis and fdsp merge or whatever */
+struct BlobDescriptor {
+     1: required string name,
+     2: required i64 byteCount,
+     3: required map<string, string> metadata
 }
 
 struct FDSP_QueryCatalogType {
@@ -310,6 +337,8 @@ struct FDSP_Node_Info_Type {
   9: i32                 migration_port, /* Migration service port */
   10: i64                node_uuid,      /* UUID of the node */
   11: i64                service_uuid,      /* UUID of the service */
+  12: string 	         node_root,      /* node root - string */
+  13: i32                 metasync_port, /* Migration service port */
 }
 
 typedef list<FDSP_Node_Info_Type> Node_Info_List_Type
@@ -323,8 +352,8 @@ struct FDSP_DLT_Type {
 }
 
 struct FDSP_DMT_Type {
-      1: i32 DMT_version,
-      2: Node_Table_Type DMT,
+      1: i64 dmt_version,       /* DMT version */
+      2: binary dmt_data        /* DMT table + meta in binary format */
 }
 
 struct FDSP_DLT_Data_Type {
@@ -341,12 +370,16 @@ struct FDSP_DltCloseType {
   1: i64 DLT_version
 }
 
+struct FDSP_DmtCloseType {
+  1: i64 DMT_version
+}
+
 struct FDSP_DLT_Resp_Type {
   1: i64 DLT_version
 }
 
 struct FDSP_DMT_Resp_Type {
-  1: i32 DMT_version
+  1: i64 DMT_version
 }
 
 struct FDSP_VolumeInfoType {
@@ -360,39 +393,7 @@ struct FDSP_VolumeInfoType {
 // Basic operational properties
 
   5: FDSP_VolType        volType,
-  6: double        	 capacity,
-  7: double        	 maxQuota,  // Quota % of capacity tho should alert
-
-// Consistency related properties
-
-  8: i32        		 defReplicaCnt,  // Number of replicas reqd for this volume
-  9: i32        		 defWriteQuorum,  // Quorum number of writes for success
-  10: i32        		 defReadQuorum,  // This will be 1 for now
-  11: FDSP_ConsisProtoType 	 defConsisProtocol,  // Read-Write consistency protocol
-
-// Other policies
-
-  12: i32        		 volPolicyId,
-  13: i32         		 archivePolicyId,
-  14: i32        		 placementPolicy,  // Can change placement policy
-  15: FDSP_AppWorkload     	 appWorkload,
-  16: FDSP_MediaPolicy           mediaPolicy,      // can change media policy
-
-  17: i32         		 backupVolume,  // UUID of backup volume
-
-}
-
-struct FDSP_VolumeDescType {
-
-  1: string 		 vol_name,  /* Name of the volume */
-  2: i32 	 		 tennantId,  // Tennant id that owns the volume
-  3: i32    		 localDomainId,  // Local domain id that owns vol
-  4: i32	 		 globDomainId,
-  5: i64	 	 volUUID,
-
-// Basic operational properties
-
-  6: FDSP_VolType		 volType,
+  6: i32                 maxObjSizeInBytes,
   7: double        	 capacity,
   8: double        	 maxQuota,  // Quota % of capacity tho should alert
 
@@ -409,14 +410,48 @@ struct FDSP_VolumeDescType {
   14: i32         		 archivePolicyId,
   15: i32        		 placementPolicy,  // Can change placement policy
   16: FDSP_AppWorkload     	 appWorkload,
+  17: FDSP_MediaPolicy           mediaPolicy,      // can change media policy
 
-  17: i32         		 backupVolume,  // UUID of backup volume
+  18: i32         		 backupVolume,  // UUID of backup volume
+
+}
+
+struct FDSP_VolumeDescType {
+
+  1: string 		 vol_name,  /* Name of the volume */
+  2: i32 	 		 tennantId,  // Tennant id that owns the volume
+  3: i32    		 localDomainId,  // Local domain id that owns vol
+  4: i32	 		 globDomainId,
+  5: i64	 	 volUUID,
+
+// Basic operational properties
+
+  6: FDSP_VolType		 volType,
+  7: i32                 maxObjSizeInBytes,
+  8: double        	 capacity,
+  9: double        	 maxQuota,  // Quota % of capacity tho should alert
+
+// Consistency related properties
+
+  10: i32        		 defReplicaCnt,  // Number of replicas reqd for this volume
+  11: i32        		 defWriteQuorum,  // Quorum number of writes for success
+  12: i32        		 defReadQuorum,  // This will be 1 for now
+  13: FDSP_ConsisProtoType 	 defConsisProtocol,  // Read-Write consistency protocol
+
+// Other policies
+
+  14: i32        		 volPolicyId,
+  15: i32         		 archivePolicyId,
+  16: i32        		 placementPolicy,  // Can change placement policy
+  17: FDSP_AppWorkload     	 appWorkload,
+
+  18: i32         		 backupVolume,  // UUID of backup volume
 
 // volume policy details
-  18: double                 iops_min, /* minimum (guaranteed) iops */
-  19: double                 iops_max, /* maximum iops */
-  20: i32                    rel_prio, /* relative priority */
-  21: FDSP_MediaPolicy       mediaPolicy   /* media policy */
+  19: double                 iops_min, /* minimum (guaranteed) iops */
+  20: double                 iops_max, /* maximum iops */
+  21: i32                    rel_prio, /* relative priority */
+  22: FDSP_MediaPolicy       mediaPolicy   /* media policy */
 }
 
 struct FDSP_CreateDomainType {
@@ -489,11 +524,17 @@ exception FDSP_VolumeNotFound {
   1: string message;
 }
 
+enum FDSP_NotifyVolFlag {
+  FDSP_NOTIFY_VOL_NO_FLAG,
+  FDSP_NOTIFY_VOL_CHECK_ONLY,  // for delete vol -- only check if objects in volume
+  FDSP_NOTIFY_VOL_WILL_SYNC    // for create vol -- volume meta already exists on other node, will be synced
+}
+
 struct FDSP_NotifyVolType {
   1: FDSP_VolNotifyType 	 type,       /* Type of notify */
   2: string             	 vol_name,   /* Name of the volume */
   3: FDSP_VolumeDescType	 vol_desc,   /* Volume properties and attributes */
-  4: bool                        check_only  /* for delete vol -- only check if objects in volume */
+  4: FDSP_NotifyVolFlag          flag        /* see FDSP_NotifyVolFlag */
 }
 
 struct FDSP_AttachVolType {
@@ -543,6 +584,8 @@ struct FDSP_RegisterNodeType {
   9: FDSP_Uuid   node_uuid;
   10: FDSP_Uuid  service_uuid;
   11: FDSP_AnnounceDiskCapability  disk_info, /* Add node capacity and other relevant fields here */
+  12: string 	 node_root,      /* node root - string */
+  13: i32         metasync_port, /*  Port for meta sync port service */
 }
 
 struct FDSP_ThrottleMsgType {
@@ -771,6 +814,28 @@ struct tier_pol_audit
     11: i64                    tier_pct_ssd_iop;
     12: i64                    tier_pct_hdd_iop;
     13: i64                    tier_pct_ssd_capacity;
+}
+
+typedef list<i64> vol_List_Type
+/* meta data  structure list of Volumes and  destination nodes */
+struct FDSP_metaData
+{
+    /* Object Metadata */
+    1: vol_List_Type  volList;
+    2: FDSP_Uuid  node_uuid,
+}
+
+struct FDSP_VolMetaState
+{
+    1:i64        vol_uuid;
+}
+
+typedef list<FDSP_metaData> FDSP_metaDataList
+/* DM meta data migration request */
+struct FDSP_PushMeta
+{
+     /* meta data */
+     2: FDSP_metaDataList          metaVol;
 }
 
 /* Token type */
@@ -1017,58 +1082,55 @@ service FDSP_RpcService {
 
 service FDSP_DataPathReq extends FDSP_RpcService {
     oneway void GetObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetObjType get_obj_req),
-
     oneway void PutObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_PutObjType put_obj_req),
-
     oneway void DeleteObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DeleteObjType del_obj_req),
-
     oneway void OffsetWriteObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_OffsetWriteObjType offset_write_obj_req),
-
     oneway void RedirReadObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_RedirReadObjType redir_write_obj_req),
-    
+
     /* Exposed for testing */
-	oneway void GetObjectMetadata(1:FDSP_GetObjMetadataReq metadata_req),
-	
-	FDSP_TokenMigrationStats GetTokenMigrationStats(1:FDSP_MsgHdrType fdsp_msg)
+    oneway void GetObjectMetadata(1:FDSP_GetObjMetadataReq metadata_req),
+    FDSP_TokenMigrationStats GetTokenMigrationStats(1:FDSP_MsgHdrType fdsp_msg)
 }
 
 service FDSP_DataPathResp {
     oneway void GetObjectResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetObjType get_obj_req),
-
     oneway void PutObjectResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_PutObjType put_obj_req),
-
     oneway void DeleteObjectResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DeleteObjType del_obj_req),
-
     oneway void OffsetWriteObjectResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_OffsetWriteObjType offset_write_obj_req),
-
     oneway void RedirReadObjectResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_RedirReadObjType redir_write_obj_req),
-    
     /* Exposed for testing */
-	oneway void GetObjectMetadataResp(1:FDSP_GetObjMetadataResp metadata_resp)
+    oneway void GetObjectMetadataResp(1:FDSP_GetObjMetadataResp metadata_resp)
 }
 
 service FDSP_MetaDataPathReq {
-
+    /* Using cleaner API convention. Just pass msg hdr for legacy compatability */
+    oneway void StartBlobTx(1:FDSP_MsgHdrType fds_msg, 2:string volumeName, 3:string blobName, 4:TxDescriptor txId),
     oneway void UpdateCatalogObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_UpdateCatalogType cat_obj_req),
-
     oneway void QueryCatalogObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_QueryCatalogType cat_obj_req),
-
     oneway void DeleteCatalogObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DeleteCatalogType cat_obj_req),
+    oneway void GetVolumeBlobList(1:FDSP_MsgHdrType fds_msg, 2:FDSP_GetVolumeBlobListReqType blob_list_req),
 
-    oneway void GetVolumeBlobList(1:FDSP_MsgHdrType fds_msg, 2:FDSP_GetVolumeBlobListReqType blob_list_req)
+    /* Using cleaner API convention. Just pass msg hdr for legacy compatability */
+    oneway void StatBlob(1:FDSP_MsgHdrType fds_msg, 2:string volumeName, 3:string blobName)
+    oneway void SetBlobMetaData(1:FDSP_MsgHdrType header, 2:string volumeName, 3:string blobName, 4:FDSP_MetaDataList metaDataList)
+    oneway void GetBlobMetaData(1:FDSP_MsgHdrType header, 2:string volumeName, 3:string blobName)
+    oneway void GetVolumeMetaData(1:FDSP_MsgHdrType header, 2:string volumeName)
 }
 
 service FDSP_MetaDataPathResp {
-
+    /* Using cleaner API convention. Only success or error is returned. Done in msg hdr for legacy */
+    oneway void StartBlobTxResp(1:FDSP_MsgHdrType fds_msg),
     oneway void UpdateCatalogObjectResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_UpdateCatalogType cat_obj_req),
-
     oneway void QueryCatalogObjectResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_QueryCatalogType cat_obj_req),
-
     oneway void DeleteCatalogObjectResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DeleteCatalogType cat_obj_req),
+    oneway void GetVolumeBlobListResp(1:FDSP_MsgHdrType fds_msg, 2:FDSP_GetVolumeBlobListRespType blob_list_rsp),
 
-    oneway void GetVolumeBlobListResp(1:FDSP_MsgHdrType fds_msg, 2:FDSP_GetVolumeBlobListRespType blob_list_rsp)
+    /* Using cleaner API convention. Just pass msg hdr for legacy compatability */
+    oneway void StatBlobResp(1:FDSP_MsgHdrType fds_msg, 2:BlobDescriptor blobDesc)
+    oneway void SetBlobMetaDataResp(1:FDSP_MsgHdrType header, 2:string blobName)
+    oneway void GetBlobMetaDataResp(1:FDSP_MsgHdrType header, 2:string blobName, 3:FDSP_MetaDataList metaDataList)
+    oneway void GetVolumeMetaDataResp(1:FDSP_MsgHdrType header, 2:FDSP_VolumeMetaData volumeMeta)
 }
-
 
 /*
  * From fdscli to OM (sync messages)
@@ -1077,6 +1139,7 @@ service FDSP_ConfigPathReq {
   i32 CreateVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_CreateVolType crt_vol_req),
   i32 DeleteVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DeleteVolType del_vol_req),
   i32 ModifyVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ModifyVolType mod_vol_req),
+  i32 SnapVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_CreateVolType snap_vol_req),
   i32 CreatePolicy(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_CreatePolicyType crt_pol_req),
   i32 DeletePolicy(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DeletePolicyType del_pol_req),
   i32 ModifyPolicy(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ModifyPolicyType mod_pol_req),
@@ -1139,6 +1202,7 @@ service FDSP_ControlPathReq {
   oneway void NotifyAddVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_NotifyVolType not_add_vol_req),
   oneway void NotifyRmVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_NotifyVolType not_rm_vol_req),
   oneway void NotifyModVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_NotifyVolType not_mod_vol_req),
+  oneway void NotifySnapVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_NotifyVolType not_snap_vol_req),
   oneway void AttachVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_AttachVolType atc_vol_req),
   oneway void DetachVol(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_AttachVolType dtc_vol_req),
   oneway void NotifyNodeAdd(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_Node_Info_Type node_info),
@@ -1147,6 +1211,8 @@ service FDSP_ControlPathReq {
   oneway void NotifyDLTUpdate(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DLT_Data_Type dlt_info),
   oneway void NotifyDLTClose(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DltCloseType dlt_close),
   oneway void NotifyDMTUpdate(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DMT_Type dmt_info),
+  oneway void NotifyDMTClose(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DmtCloseType dmt_close),
+  oneway void PushMetaDMTReq(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_PushMeta push_meta_req),
   oneway void SetThrottleLevel(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ThrottleMsgType throttle_msg),
   oneway void TierPolicy(1:FDSP_TierPolicy tier),
   oneway void TierPolicyAudit(1:FDSP_TierPolicyAudit audit),
@@ -1159,6 +1225,7 @@ service FDSP_ControlPathResp {
   oneway void NotifyAddVolResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_NotifyVolType not_add_vol_resp),
   oneway void NotifyRmVolResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_NotifyVolType not_rm_vol_resp),
   oneway void NotifyModVolResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_NotifyVolType not_mod_vol_resp),
+  oneway void NotifySnapVolResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_NotifyVolType not_snap_vol_resp),
   oneway void AttachVolResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_AttachVolType atc_vol_resp),
   oneway void DetachVolResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_AttachVolType dtc_vol_resp),
   oneway void NotifyNodeAddResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_Node_Info_Type node_info_resp),
@@ -1166,7 +1233,9 @@ service FDSP_ControlPathResp {
   oneway void NotifyNodeActiveResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_Node_Info_Type node_info_resp),
   oneway void NotifyDLTUpdateResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DLT_Resp_Type dlt_resp),
   oneway void NotifyDLTCloseResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DLT_Resp_Type dlt_resp),
-  oneway void NotifyDMTUpdateResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DMT_Resp_Type dmt_info_resp)
+  oneway void NotifyDMTUpdateResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DMT_Resp_Type dmt_info_resp),
+  oneway void NotifyDMTCloseResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DMT_Resp_Type dmt_resp),
+  oneway void PushMetaDMTResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_PushMeta push_meta_resp)
 }
 
 service FDSP_MigrationPathReq {
@@ -1187,6 +1256,17 @@ service FDSP_MigrationPathResp {
 
     oneway void PushTokenObjectsResp(1:FDSP_PushTokenObjectsResp pushtok_resp)
     oneway void PushTokenMetadataResp(1:FDSP_PushTokenMetadataResp push_md_resp)
+}
+
+service FDSP_MetaSyncReq {
+    oneway void PushMetaSyncReq(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_UpdateCatalogType push_meta_req)
+    oneway void MetaSyncDone(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_VolMetaState vol_meta)
+
+}
+
+service FDSP_MetaSyncResp {
+    oneway void PushMetaSyncResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_UpdateCatalogType push_meta_resp)
+    oneway void MetaSyncDoneResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_VolMetaState vol_meta)
 }
 
 #endif
