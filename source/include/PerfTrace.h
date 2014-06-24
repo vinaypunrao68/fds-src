@@ -24,6 +24,18 @@
 #include "util/Log.h"
 #include "concurrency/Mutex.h"
 
+#define SCOPED_TRACE_POINT(id, type, name) \
+        struct ScopedTracePoint_ { \
+            ScopedTracePoint_() { fds::PerfTracer::tracePointBegin(id, type, name); } \
+            ~ScopedTracePoint_() { fds::PerfTracer::tracePointEnd(id); } \
+        } tpVal_;
+
+#define SCOPED_TRACE_POINT_CTX(ctx) \
+        struct ScopedTracePointCtx_ { \
+            ScopedTracePointCtx_() { fds::PerfTracer::tracePointBegin(ctx); } \
+            ~ScopedTracePointCtx_() { fds::PerfTracer::tracePointEnd(ctx); } \
+        } tpcVal_;
+
 namespace fds { 
 
 extern const std::string PERF_COUNTERS_NAME;
@@ -90,8 +102,8 @@ typedef struct PerfContext_ {
 /**
  * Per module (SM/DM/SH) performance tracer
  *
- * This class is a sigleton, noncoyable and provides static utility functions for
- * performance data collection. It supports LatencyCounters and NumericCounters.
+ * This class is a sigleton and provides static utility functions for performance
+ * data collection. It supports LatencyCounters and NumericCounters.
  */
 class PerfTracer : public boost::noncopyable {
 public:
