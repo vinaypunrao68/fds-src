@@ -194,6 +194,7 @@ OMgrClient::OMgrClient(FDSP_MgrIdType node_type,
                        boost::shared_ptr<netSessionTbl> nst,
                        Platform *plf)
         : dmtMgr(new DMTManager()) {
+  fds_verify(_omPort != 0);
   my_node_type = node_type;
   omIpStr      = _omIpStr;
   omConfigPort = _omPort;

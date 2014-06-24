@@ -40,6 +40,9 @@ public class ListContainers implements SwiftRequestHandler {
         // TODO: implement limit, marker, end_marker, format, prefix, delimiter query string variables
         List<VolumeDescriptor> volumes = xdi.listVolumes(accountName);
 
+        volumes = new SkipUntil<VolumeDescriptor>(request.getParameter("marker"), v -> v.getName())
+                .apply(volumes);
+
         Resource result;
         switch (format) {
             case xml:

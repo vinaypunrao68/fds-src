@@ -3,7 +3,9 @@ package com.formationds.xdi.swift;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+import com.formationds.apis.ApiException;
 import com.formationds.apis.BlobDescriptor;
+import com.formationds.apis.ErrorCode;
 import com.formationds.util.JsonArrayCollector;
 import com.formationds.web.Dom4jResource;
 import com.formationds.web.toolkit.JsonResource;
@@ -11,7 +13,7 @@ import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
 import com.formationds.xdi.Xdi;
 import com.google.common.base.Joiner;
-import org.apache.commons.codec.binary.Hex;
+import org.apache.thrift.TException;
 import org.dom4j.Document;
 import org.dom4j.DocumentHelper;
 import org.dom4j.Element;
@@ -39,7 +41,15 @@ public class GetContainer  implements SwiftRequestHandler {
 
         int limit = optionalInt(request, "limit", Integer.MAX_VALUE);
         ResponseFormat format = obtainFormat(request);
-        List<BlobDescriptor> descriptors = xdi.volumeContents(accountName, containerName, limit, 0);
+        List<BlobDescriptor> descriptors = null;
+        try {
+            descriptors = xdi.volumeContents(accountName, containerName, limit, 0);
+        } catch (TException e) {
+            throw new ApiException("Not found", ErrorCode.MISSING_RESOURCE);
+        }
+
+        descriptors = new SkipUntil<BlobDescriptor>(request.getParameter("marker"), b -> b.getName())
+                .apply(descriptors);
 
         Resource result;
         switch (format) {

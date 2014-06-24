@@ -54,7 +54,7 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) {
             if ((txn->sm_ack_cnt < FDS_MIN_ACK) || (txn->dm_ack_cnt < FDS_MIN_ACK)) {
                 break;
             }
-            LOGNORMAL << "Move trans " << transId
+            LOGDEBUG << "Move trans " << transId
                       << " to FDS_TRANS_OPENED:"
                       << " received min DM/SM acks";
             txn->trans_state = FDS_TRANS_OPENED;
@@ -62,7 +62,7 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) {
      
         case FDS_TRANS_OPENED:
             if (txn->dm_commit_cnt >= FDS_MIN_ACK) {
-                LOGNORMAL << "Move trans " << transId
+                LOGDEBUG << "Move trans " << transId
                           << " to FDS_TRANS_COMMITTED:"
                           << " received min DM commits";
                 txn->trans_state = FDS_TRANS_COMMITTED;
@@ -74,7 +74,7 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) {
         case FDS_TRANS_COMMITTED:
             if((txn->sm_ack_cnt >= txn->num_sm_nodes) &&
                (txn->dm_commit_cnt == txn->num_dm_nodes)) {
-                LOGNORMAL << "Move trans " << transId
+                LOGDEBUG << "Move trans " << transId
                           << " to FDS_TRANS_SYNCED:"
                           << " received all DM/SM acks and commits.";
                 txn->trans_state = FDS_TRANS_SYNCED;
@@ -166,7 +166,7 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) {
                     dmMsg->session_uuid = sessionCtx->getSessionId();
                     client->UpdateCatalogObject(dmMsg, upd_obj_req);
                     txn->dm_ack[node].commit_status = FDS_COMMIT_MSG_SENT;
-                    LOGNORMAL << "For trans " << transId
+                    LOGDEBUG << "For trans " << transId
                               << " sent UpdCatObjCommit req to DM ip "
                               << txn->dm_ack[node].ipAddr
                               << " port " << txn->dm_ack[node].port;
@@ -181,7 +181,7 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) {
 
 void FDSP_DataPathRespCbackI::GetObjectResp(FDSP_MsgHdrTypePtr& msghdr,
                                             FDSP_GetObjTypePtr& get_obj) {
-    LOGNORMAL << " StorHvisorRx:" << "IO-XID:" << msghdr->req_cookie << " - Received get obj response for txn  " <<  msghdr->req_cookie; 
+    LOGDEBUG << " StorHvisorRx:" << "IO-XID:" << msghdr->req_cookie << " - Received get obj response for txn  " <<  msghdr->req_cookie; 
     fds::Error err = storHvisor->getObjResp(msghdr, get_obj);
     fds_verify(err == ERR_OK);
 }
@@ -244,12 +244,12 @@ int StorHvCtrl::fds_move_del_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) 
     switch(txn->trans_state)  {
         case FDS_TRANS_DEL_OBJ:
  
-            LOGNORMAL << "DM Ack: " << txn->dm_ack_cnt;
+            LOGDEBUG << "DM Ack: " << txn->dm_ack_cnt;
   
             if (txn->dm_ack_cnt < FDS_MIN_ACK) {
                 break;
             }
-            LOGNORMAL << "Move trans " << transId
+            LOGDEBUG << "Move trans " << transId
                       << " to FDS_TRANS_OPENED:"
                       << " received min DM/SM acks";
     
@@ -258,7 +258,7 @@ int StorHvCtrl::fds_move_del_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) 
 
         case FDS_TRANS_COMMITTED: 
             {
-            LOGNORMAL << "Move trans " << transId
+            LOGDEBUG << "Move trans " << transId
                       << " to FDS_TRANS_COMMITTED:"
                       << " received min DM acks";
             fds::AmQosReq *qosReq  = static_cast<fds::AmQosReq *>(txn->io);
@@ -266,7 +266,7 @@ int StorHvCtrl::fds_move_del_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) 
             fds::FdsBlobReq *blobReq = qosReq->getBlobReqPtr();
             fds_verify(blobReq != NULL);
             fds_verify(blobReq->getIoType() == FDS_DELETE_BLOB);
-            LOGNOTIFY << "Responding to deleteBlob trans " << transId
+            LOGDEBUG << "Responding to deleteBlob trans " << transId
                       <<" for blob " << blobReq->getBlobName()
                       << " with result " << rxMsg->result;
 
@@ -277,7 +277,7 @@ int StorHvCtrl::fds_move_del_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) 
             txn->reset();
             vol->journal_tbl->releaseTransId(transId);
             if (rxMsg->result == FDSP_ERR_OK) {
-                LOGNOTIFY << "Invoking the callback";
+                LOGDEBUG << "Invoking the callback";
                 blobReq->cbWithResult(FDSN_StatusOK);
             } else {
                 /*
@@ -343,7 +343,7 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
     int trans_id = fdsp_msg_hdr->req_cookie;
     fds_volid_t vol_id = fdsp_msg_hdr->glob_volume_id;
 
-    LOGNORMAL << " StorHvisorRx: trans " << trans_id << ", volume 0x" << std::hex
+    LOGDEBUG << " StorHvisorRx: trans " << trans_id << ", volume 0x" << std::hex
               << vol_id << std::dec << " received query catalog response" ;
 
     // Get the volume specific to the request
@@ -483,7 +483,7 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
         blobReq->cbWithResult(FDSN_StatusEntityEmpty);
         
     } else {
-        LOGNORMAL << "sending get request to sm"
+        LOGDEBUG << "sending get request to sm"
                   << " name:" << blobReq->getBlobName()
                   << " size:" << blobReq->getDataLen();
         err = storHvisor->dispatchSmGetMsg(journEntry);
@@ -493,7 +493,7 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
 
     // Schedule a timer here to track the responses and the original request
     shvol->journal_tbl->schedule(journEntry->ioTimerTask, std::chrono::seconds(FDS_IO_LONG_TIME));
-    LOGNORMAL << "Done with a update catalog response processing";
+    LOGDEBUG << "Done with a update catalog response processing";
 }
 
 

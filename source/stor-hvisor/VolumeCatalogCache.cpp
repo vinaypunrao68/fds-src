@@ -171,7 +171,7 @@ Error VolumeCatalogCache::queryDm(const std::string& blobName,
     /*
      * Not in the cache. Contact DM.
      */
-    LOGNORMAL << "VolumeCatalogCache - Cache query for volume 0x"
+    LOGDEBUG << "VolumeCatalogCache - Cache query for volume 0x"
               << std::hex << vol_id << std::dec << " blob " << blobName
               << " offset " << blobOffset
               << " failed. Contacting DM.";

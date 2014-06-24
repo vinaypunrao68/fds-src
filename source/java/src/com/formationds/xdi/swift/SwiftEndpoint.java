@@ -26,6 +26,7 @@ public class SwiftEndpoint {
 
         authorize(HttpMethod.GET, "/v1/:account/:container", () -> new GetContainer(xdi));
         authorize(HttpMethod.PUT, "/v1/:account/:container", () -> new CreateContainer(xdi));
+        authorize(HttpMethod.DELETE, "/v1/:account/:container", () -> new DeleteContainer(xdi));
         authorize(HttpMethod.GET, "/v1/:account", () -> new ListContainers(xdi));
         authorize(HttpMethod.PUT, "/v1/:account/:container/:object", () -> new CreateObject(xdi));
         authorize(HttpMethod.GET, "/v1/:account/:container/:object", () -> new GetObject(xdi));

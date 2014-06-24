@@ -61,6 +61,8 @@ class Module
     virtual void mod_lockstep_shutdown();
     virtual void mod_shutdown() = 0;
 
+    virtual const char* getName();
+
   protected:
     friend class ModuleVector;
 
