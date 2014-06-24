@@ -151,7 +151,7 @@ StorMgrVolumeTable::registerVolume(const VolumeDesc& vdb) {
 
   map_rwlock.write_lock();
   if (volume_map.count(volUuid) == 0) {
-    LOGDEBUG << "Registering new volume " << volUuid;
+    LOGNORMAL << "Registering new volume " << volUuid;
     StorMgrVolume* vol = new StorMgrVolume(vdb,
                                            parent_sm,
                                            GetLog());
@@ -208,8 +208,7 @@ StorMgrVolume *vol = NULL;
            
    delete vol;
            
-   LOGDEBUG << "StorMgrVolumeTable - Removed volume "
-                   << vol_uuid;
+   LOGNORMAL << "StorMgrVolumeTable - Removed volume " << vol_uuid;
  
   return err;
 }

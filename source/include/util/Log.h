@@ -27,9 +27,9 @@
 #include <boost/log/sources/severity_logger.hpp>
 #include <boost/log/sources/record_ostream.hpp>
 
-#define FDS_LOG(lg) BOOST_LOG_SEV(lg.get_slog(), fds::fds_log::normal)
+#define FDS_LOG(lg) BOOST_LOG_SEV(lg.get_slog(), fds::fds_log::debug)
 #define FDS_LOG_SEV(lg, sev) BOOST_LOG_SEV(lg.get_slog(), sev)
-#define FDS_PLOG(lg_ptr) BOOST_LOG_SEV(lg_ptr->get_slog(), fds::fds_log::normal)
+#define FDS_PLOG(lg_ptr) BOOST_LOG_SEV(lg_ptr->get_slog(), fds::fds_log::debug)
 #define FDS_PLOG_SEV(lg_ptr, sev) BOOST_LOG_SEV(lg_ptr->get_slog(), sev)
 #define FDS_PLOG_COMMON(lg_ptr, sev) BOOST_LOG_SEV(lg_ptr->get_slog(), sev) << __FUNCTION__ << " " << __LINE__ << " " << log_string() << " "
 #define FDS_PLOG_INFO(lg_ptr) FDS_PLOG_COMMON(lg_ptr, fds::fds_log::normal)
