@@ -133,59 +133,18 @@ class FDSBlockVolumeDriver(driver.VolumeDriver):
         return self.configuration.fds_volume
 
     def _attach_fds_block_dev(self, fds, name):
-        if self.attached_devices.has_key(name):
-            return self.attached_devices[name]
-
-        # FIXME: smarter scanning
-        for i in xrange(1, 3):
-            for i in xrange(0, 16):
-                devName = '/dev/nbd' + str(i)
-                if devName in self.attached_devices.values():
-                    continue
-
-                try:
-                    self._execute('sshpass', '-p' + self.configuration.compute_host_password, 'ssh', self.configuration.compute_host_spec, 'nbd-client', '-c', devName, run_as_root=False, check_exit_code=[1])
-                    self._execute('sshpass', '-p' + self.configuration.compute_host_password, 'ssh', self.configuration.compute_host_spec, 'nbd-client', '-N', name, self.configuration.fds_nbd_server, devName, '-b', '4096',
-                                  run_as_root=False)
-                    self.attached_devices[name] = devName
-                    return devName
-
-                except ProcessExecutionError as e:
-                    LOG.error(_('Failed to attach volume'
-                                'device %(devName)s, volume %(name)s.\n'
-                                'stdout: %(out)s\n stderr: %(err)s')
-                              % {'devName': devName,
-                                 'name': name,
-                                 'out': e.stdout,
-                                 'err': e.stderr})
-                    continue
-
-        raise Exception("failed to attach device")
+        (stdout, stderr) = self._execute('sshpass', '-p' + self.configuration.compute_host_password, 'ssh', '-o', 'StrictHostKeyChecking=no', self.configuration.compute_host_spec, 'nbdadm.py', 'attach', self.configuration.fds_nbd_server, name, run_as_root=False)
+        return stdout.strip()
 
 
     def _detach_fds_block_dev(self, fds, name):
-        if name in self.attached_devices:
-            try:
-                self._execute('sshpass', '-p' + self.configuration.compute_host_password, 'ssh', self.configuration.compute_host_spec, 'nbd-client', '-d', self.attached_devices[name], run_as_root=False)
-                del self.attached_devices[name]
-            except ProcessExecutionError as e:
-                # Error message
-                LOG.error(_('Failed to detach volume'
-                            'device %(devName)s, volume %(name)s.\n'
-                            'stdout: %(out)s\n stderr: %(err)s')
-                          % {'devName': self.attached_devices[name],
-                             'name': name,
-                             'out': e.stdout,
-                             'err': e.stderr})
+        (stdout, stderr) = self._execute('sshpass', '-p' + self.configuration.compute_host_password, 'ssh', '-o', 'StrictHostKeyChecking=no', self.configuration.compute_host_spec, 'nbdadm.py', 'detach', self.configuration.fds_nbd_server, name, run_as_root=False)
 
-                raise
 
     @contextmanager
     def _use_block_device(self, fds, name):
-        pre_attached = self.attached_devices.has_key(name)
         yield self._attach_fds_block_dev(fds, name)
-        if not pre_attached:
-            self._detach_fds_block_dev(fds, name)
+        self._detach_fds_block_dev(fds, name)
 
     def check_for_setup_error(self):
         # FIXME: do checks
@@ -201,8 +160,7 @@ class FDSBlockVolumeDriver(driver.VolumeDriver):
 
     def delete_volume(self, volume):
         with self._get_services() as fds:
-            if volume['name'] in self.attached_devices:
-                self._detach_fds_block_dev(self, volume['name'])
+            self._detach_fds_block_dev(self, volume['name'])
             fds.cs.deleteVolume(self.fds_domain, volume['name'])
 
     def initialize_connection(self, volume, connector):
@@ -229,8 +187,8 @@ class FDSBlockVolumeDriver(driver.VolumeDriver):
             'volume_backend_name': 'FDS',
         }
 
-    def local_path(self, volume):
-        return self.attached_devices.get(volume['name'], None)
+    #def local_path(self, volume):
+    #    return self.attached_devices.get(volume['name'], None)
 
     # we probably don't need to worry about exports (ceph/rbd doesn't)
     def remove_export(self, context, volume):
