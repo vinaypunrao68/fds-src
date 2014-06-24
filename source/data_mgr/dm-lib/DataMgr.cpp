@@ -125,8 +125,8 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
                                          vdesc,
                                          crt_catalogs);
 
-    LOGNORMAL << "Added vol meta for vol uuid and per Volume queue" << std::hex
-              << vol_uuid << std::dec << ", created catalogs? " << crt_catalogs;
+    LOGDEBUG << "Added vol meta for vol uuid and per Volume queue" << std::hex
+             << vol_uuid << std::dec << ", created catalogs? " << crt_catalogs;
 
     volmeta->dmVolQueue = new FDS_VolumeQueue(4096, vdesc->iops_max, 2*vdesc->iops_min, vdesc->relativePrio);
     volmeta->dmVolQueue->activate();
@@ -154,8 +154,8 @@ Error DataMgr::_process_add_vol(const std::string& vol_name,
     if (volExistsLocked(vol_uuid) == true) {
         err = Error(ERR_DUPLICATE);
         vol_map_mtx->unlock();
-        LOGNORMAL << "Received add request for existing vol uuid "
-                  << std::hex << vol_uuid << std::dec;
+        LOGDEBUG << "Received add request for existing vol uuid "
+                 << std::hex << vol_uuid << std::dec;
         return err;
     }
     vol_map_mtx->unlock();
@@ -197,9 +197,9 @@ Error DataMgr::_process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only) {
      */
     vol_map_mtx->lock();
     if (volExistsLocked(vol_uuid) == false) {
-        LOGNORMAL << "Received Delete request for:"
-                  << std::hex << vol_uuid << std::dec
-                  << " that doesn't exist.";
+        LOGWARN << "Received Delete request for:"
+                << std::hex << vol_uuid << std::dec
+                << " that doesn't exist.";
         err = ERR_INVALID_ARG;
         vol_map_mtx->unlock();
         return err;
@@ -300,12 +300,12 @@ Error DataMgr::_process_open(fds_volid_t vol_uuid,
     err = vol_meta->OpenTransaction(blob_name, bnode, vol_meta->vol_desc);
 
     if (err.ok()) {
-        LOGNORMAL << "Opened transaction for volume "
-                  << vol_uuid << ",  blob "
-                  << blob_name;
+        LOGDEBUG << "Opened transaction for volume "
+                 << vol_uuid << ",  blob "
+                 << blob_name;
     } else {
-        LOGNORMAL << "Failed to open transaction for volume "
-                  << vol_uuid;
+        LOGERROR << "Failed to open transaction for volume "
+                 << vol_uuid;
     }
 
     return err;
@@ -324,10 +324,10 @@ Error DataMgr::_process_commit(fds_volid_t vol_uuid,
      * For now, we don't need to do anything because it was put
      * into the VVC on open.
      */
-    LOGNORMAL << "Committed transaction for volume "
-              << vol_uuid << " , blob "
-              << blob_name << " with transaction id "
-              << trans_id;
+    LOGDEBUG << "Committed transaction for volume "
+             << vol_uuid << " , blob "
+             << blob_name << " with transaction id "
+             << trans_id;
 
     return err;
 }
@@ -384,12 +384,12 @@ Error DataMgr::_process_list(fds_volid_t volId,
 
     err = vol_meta->listBlobs(bNodeList);
     if (err.ok()) {
-        LOGNORMAL << "Vol meta list blobs for volume "
-                  << volId << " returned " << bNodeList.size()
-                  << " blobs";
+        LOGDEBUG << "Vol meta list blobs for volume "
+                 << volId << " returned " << bNodeList.size()
+                 << " blobs";
     } else {
-        LOGNORMAL << "Vol meta list blobs FAILED for volume "
-                  << volId;
+        LOGERROR << "Vol meta list blobs FAILED for volume "
+                 << volId;
     }
 
     return err;
@@ -427,12 +427,12 @@ Error DataMgr::_process_query(fds_volid_t vol_uuid,
     err = vol_meta->QueryVcat(blob_name, bnode);
 
     if (err.ok()) {
-        LOGNORMAL << "Vol meta query for volume "
-                  << vol_uuid << " , blob "
-                  << blob_name;
+        LOGDEBUG << "Vol meta query for volume "
+                 << vol_uuid << " , blob "
+                 << blob_name;
     } else {
-        LOGNORMAL << "Vol meta query FAILED for volume "
-                  << vol_uuid;
+        LOGERROR << "Vol meta query FAILED for volume "
+                 << vol_uuid;
     }
 
     return err;
@@ -607,7 +607,7 @@ void DataMgr::proc_pre_startup()
     setup_metadatapath_server(myIp);
 
     if (use_om) {
-        LOGNORMAL << " Initialising the OM client ";
+        LOGDEBUG << " Initialising the OM client ";
         /*
          * Setup communication with OM.
          */
@@ -914,7 +914,6 @@ DataMgr::applyBlobUpdate(fds_volid_t volUuid,
     bnode->version =  (bnode->version == blob_version_deleted) ?
             blob_version_initial : (bnode->version + 1);
 
-    LOGDEBUG << "after update: " << (*bnode);
     return err;
 }
 
@@ -932,14 +931,14 @@ Error
 DataMgr::updateCatalogProcess(const dmCatReq  *updCatReq, BlobNode **bnode) {
     Error err(ERR_OK);
 
-    LOGNORMAL << "Processing update catalog request with "
-              << "volume id: " << updCatReq->volId
-              << ", blob name: "
-              << updCatReq->blob_name
-              << ", Trans ID "
-              << updCatReq->transId
-              << ", OP ID " << updCatReq->transOp
-              << ", journ TXID " << updCatReq->reqCookie;
+    LOGDEBUG << "Processing update catalog request with "
+             << "volume id: " << updCatReq->volId
+             << ", blob name: "
+             << updCatReq->blob_name
+             << ", Trans ID "
+             << updCatReq->transId
+             << ", OP ID " << updCatReq->transOp
+             << ", journ TXID " << updCatReq->reqCookie;
 
     // Grab a big lock around the entire operation so that
     // all updates to the same blob get serialized from disk
@@ -995,10 +994,10 @@ DataMgr::updateCatalogProcess(const dmCatReq  *updCatReq, BlobNode **bnode) {
         for (fds_uint32_t i = 0;
              i < updCatReq->fdspUpdCatReqPtr->meta_list.size();
              i++) {
-            LOGNORMAL << "Received and applying metadata update pair key="
-                      << updCatReq->fdspUpdCatReqPtr->meta_list[i].key
-                      << " value="
-                      << updCatReq->fdspUpdCatReqPtr->meta_list[i].value;
+            LOGDEBUG << "Received and applying metadata update pair key="
+                     << updCatReq->fdspUpdCatReqPtr->meta_list[i].key
+                     << " value="
+                     << updCatReq->fdspUpdCatReqPtr->meta_list[i].value;
 
             (*bnode)->updateMetadata(updCatReq->fdspUpdCatReqPtr->meta_list[i].key,
                                      updCatReq->fdspUpdCatReqPtr->meta_list[i].value);
@@ -1096,10 +1095,10 @@ DataMgr::updateCatalogBackend(dmCatReq  *updCatReq) {
 
     if (update_catalog->dm_operation ==
         FDS_ProtocolInterface::FDS_DMGR_TXN_STATUS_OPEN) {
-        LOGNORMAL << "End:Sent update response for trans open request";
+        LOGDEBUG << "End:Sent update response for trans open request";
     } else if (update_catalog->dm_operation ==
                FDS_ProtocolInterface::FDS_DMGR_TXN_STATUS_COMMITED) {
-        LOGNORMAL << "End:Sent update response for trans commit request";
+        LOGDEBUG << "End:Sent update response for trans commit request";
     }
 
     if (bnode != NULL) {
@@ -1128,13 +1127,13 @@ DataMgr::updateCatalogInternal(FDSP_UpdateCatalogTypePtr updCatReq,
 
     err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(dmUpdReq));
     if (err != ERR_OK) {
-        LOGNORMAL << "Unable to enqueue Update Catalog request "
-                  << reqCookie << " error " << err.GetErrstr();
+        LOGERROR << "Unable to enqueue Update Catalog request "
+                 << reqCookie << " error " << err.GetErrstr();
         return err;
     }
     else
-        LOGNORMAL << "Successfully enqueued   update Catalog  request "
-                  << reqCookie;
+        LOGDEBUG << "Successfully enqueued   update Catalog  request "
+                 << reqCookie;
 
     return err;
 }
@@ -1199,14 +1198,14 @@ void DataMgr::ReqHandler::UpdateCatalogObject(FDS_ProtocolInterface::
                                               FDS_ProtocolInterface::
                                               FDSP_UpdateCatalogTypePtr
                                               &update_catalog) {
-    GLOGNORMAL << "Processing update catalog request with "
-               << "volume id: " << msg_hdr->glob_volume_id
-               << ", blob_name: "
-               << update_catalog->blob_name
-               << ", Trans ID: "
-               << update_catalog->dm_transaction_id
-               << ", OP ID " << update_catalog->dm_operation
-               << " request cookie " << msg_hdr->req_cookie;
+    GLOGDEBUG << "Processing update catalog request with "
+              << "volume id: " << msg_hdr->glob_volume_id
+              << ", blob_name: "
+              << update_catalog->blob_name
+              << ", Trans ID: "
+              << update_catalog->dm_transaction_id
+              << ", OP ID " << update_catalog->dm_operation
+              << " request cookie " << msg_hdr->req_cookie;
 
     if ((dataMgr->testUturnAll == true) ||
         (dataMgr->testUturnUpdateCat == true)) {
@@ -1233,7 +1232,7 @@ void DataMgr::ReqHandler::UpdateCatalogObject(FDS_ProtocolInterface::
                                                msg_hdr->session_uuid, msg_hdr->req_cookie);
 
     if (!err.ok()) {
-        GLOGNORMAL << "Error Queueing the update Catalog request to Per volume Queue";
+        GLOGERROR << "Error Queueing the update Catalog request to Per volume Queue";
         msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_FAILED;
         msg_hdr->err_msg  = "Something hit the fan...";
         msg_hdr->err_code = err.GetErrno();
@@ -1253,20 +1252,20 @@ void DataMgr::ReqHandler::UpdateCatalogObject(FDS_ProtocolInterface::
 
         dataMgr->respMapMtx.read_unlock();
 
-        GLOGNORMAL << "Sending async update catalog response with "
-                   << "volume id: " << msg_hdr->glob_volume_id
-                   << ", blob name: "
-                   << update_catalog->blob_name
-                   << ", Trans ID "
-                   << update_catalog->dm_transaction_id
-                   << ", OP ID " << update_catalog->dm_operation;
+        GLOGDEBUG << "Sending async update catalog response with "
+                  << "volume id: " << msg_hdr->glob_volume_id
+                  << ", blob name: "
+                  << update_catalog->blob_name
+                  << ", Trans ID "
+                  << update_catalog->dm_transaction_id
+                  << ", OP ID " << update_catalog->dm_operation;
 
         if (update_catalog->dm_operation ==
             FDS_ProtocolInterface::FDS_DMGR_TXN_STATUS_OPEN) {
-            GLOGNORMAL << "Sent update response for trans open request";
+            GLOGDEBUG << "Sent update response for trans open request";
         } else if (update_catalog->dm_operation ==
                    FDS_ProtocolInterface::FDS_DMGR_TXN_STATUS_COMMITED) {
-            GLOGNORMAL << "Sent update response for trans commit request";
+            GLOGDEBUG << "Sent update response for trans commit request";
         }
     }
 }
@@ -1357,9 +1356,9 @@ DataMgr::statBlobBackend(const dmCatReq *statBlobReq) {
     respMapMtx.read_lock();
     respHandleCli(statBlobReq->session_uuid)->StatBlobResp(msgHdr, blobDesc);
     respMapMtx.read_unlock();
-    LOGNORMAL << "Sending stat blob response with "
-              << "volume id: " << msgHdr->glob_volume_id
-              << " and blob " << blobDesc->name;
+    LOGDEBUG << "Sending stat blob response with "
+             << "volume id: " << msgHdr->glob_volume_id
+             << " and blob " << blobDesc->name;
 
     qosCtrl->markIODone(*statBlobReq);
     delete statBlobReq;
@@ -1413,9 +1412,9 @@ DataMgr::blobListBackend(dmCatReq *listBlobReq) {
     }
 
     respMapMtx.read_unlock();
-    LOGNORMAL << "Sending async blob list response with "
-              << "volume id: " << msg_hdr->glob_volume_id
-              << " and " << blobListResp->num_blobs_in_resp
+    LOGDEBUG << "Sending async blob list response with "
+             << "volume id: " << msg_hdr->glob_volume_id
+             << " and " << blobListResp->num_blobs_in_resp
               << " blobs";
 
     qosCtrl->markIODone(*listBlobReq);
@@ -1552,15 +1551,15 @@ DataMgr::queryCatalogBackend(dmCatReq  *qryCatReq) {
     }
 
     dataMgr->respMapMtx.read_unlock();
-    LOGNORMAL << "Sending async query catalog response with "
-              << "volume id: " << msg_hdr->glob_volume_id
-              << ", blob name: "
-              << query_catalog->blob_name
-              << ", version: "
-              << query_catalog->blob_version
-              << ", Trans ID "
-              << query_catalog->dm_transaction_id
-              << ", OP ID " << query_catalog->dm_operation;
+    LOGDEBUG << "Sending async query catalog response with "
+             << "volume id: " << msg_hdr->glob_volume_id
+             << ", blob name: "
+             << query_catalog->blob_name
+             << ", version: "
+             << query_catalog->blob_version
+             << ", Trans ID "
+             << query_catalog->dm_transaction_id
+             << ", OP ID " << query_catalog->dm_operation;
 
     qosCtrl->markIODone(*qryCatReq);
     delete qryCatReq;
@@ -1579,7 +1578,7 @@ DataMgr::blobListInternal(const FDSP_GetVolumeBlobListReqTypePtr& blob_list_req,
                                        session_uuid, reqCookie, FDS_LIST_BLOB);
     err = qosCtrl->enqueueIO(dmListReq->getVolId(), static_cast<FDS_IOType*>(dmListReq));
     if (err != ERR_OK) {
-        LOGNORMAL << "Unable to enqueue blob list request "
+        LOGERROR << "Unable to enqueue blob list request "
                   << reqCookie;
         delete dmListReq;
         return err;
@@ -1700,13 +1699,13 @@ DataMgr::queryCatalogInternal(FDSP_QueryCatalogTypePtr qryCatReq,
 
     err = qosCtrl->enqueueIO(dmQryReq->getVolId(), static_cast<FDS_IOType*>(dmQryReq));
     if (err != ERR_OK) {
-        LOGNORMAL << "Unable to enqueue Query Catalog request "
-                  << reqCookie;
+        LOGDEBUG << "Unable to enqueue Query Catalog request "
+                 << reqCookie;
         return err;
     }
     else
-        LOGNORMAL << "Successfully enqueued  Catalog  request "
-                  << reqCookie;
+        LOGDEBUG << "Successfully enqueued  Catalog  request "
+                 << reqCookie;
 
     return err;
 }
@@ -1719,13 +1718,13 @@ void DataMgr::ReqHandler::QueryCatalogObject(FDS_ProtocolInterface::
                                              FDSP_QueryCatalogTypePtr
                                              &query_catalog) {
     Error err(ERR_OK);
-    GLOGNORMAL << "Processing query catalog request with "
-               << "volume id: " << msg_hdr->glob_volume_id
-               << ", blob name: "
-               << query_catalog->blob_name
-               << ", Trans ID "
-               << query_catalog->dm_transaction_id
-               << ", OP ID " << query_catalog->dm_operation;
+    GLOGDEBUG << "Processing query catalog request with "
+              << "volume id: " << msg_hdr->glob_volume_id
+              << ", blob name: "
+              << query_catalog->blob_name
+              << ", Trans ID "
+              << query_catalog->dm_transaction_id
+              << ", OP ID " << query_catalog->dm_operation;
 
 
     err = dataMgr->queryCatalogInternal(query_catalog, msg_hdr->glob_volume_id,
@@ -1750,16 +1749,16 @@ void DataMgr::ReqHandler::QueryCatalogObject(FDS_ProtocolInterface::
         }
 
         dataMgr->respMapMtx.read_unlock();
-        GLOGNORMAL << "Sending async query catalog response with "
-                   << "volume id: " << msg_hdr->glob_volume_id
-                   << ", blob : "
-                   << query_catalog->blob_name
-                   << ", Trans ID "
-                   << query_catalog->dm_transaction_id
-                   << ", OP ID " << query_catalog->dm_operation;
+        GLOGDEBUG << "Sending async query catalog response with "
+                  << "volume id: " << msg_hdr->glob_volume_id
+                  << ", blob : "
+                  << query_catalog->blob_name
+                  << ", Trans ID "
+                  << query_catalog->dm_transaction_id
+                  << ", OP ID " << query_catalog->dm_operation;
     }
     else {
-        GLOGNORMAL << "Successfully Enqueued  the query catalog request";
+        GLOGDEBUG << "Successfully Enqueued  the query catalog request";
     }
 }
 
@@ -2079,10 +2078,10 @@ DataMgr::deleteCatObjBackend(dmCatReq  *delCatReq) {
     }
 
     dataMgr->respMapMtx.read_unlock();
-    LOGNORMAL << "Sending async delete catalog obj response with "
-              << "volume id: " << msg_hdr->glob_volume_id
-              << ", blob name: "
-              << delete_catalog->blob_name;
+    LOGDEBUG << "Sending async delete catalog obj response with "
+             << "volume id: " << msg_hdr->glob_volume_id
+             << ", blob name: "
+             << delete_catalog->blob_name;
 
     qosCtrl->markIODone(*delCatReq);
     delete delCatReq;
@@ -2277,10 +2276,10 @@ void DataMgr::ReqHandler::DeleteCatalogObject(FDS_ProtocolInterface::
 
     Error err(ERR_OK);
 
-    GLOGNORMAL << "Processing Delete catalog request with "
-               << "volume id: " << msg_hdr->glob_volume_id
-               << ", blob name: "
-               << delete_catalog->blob_name;
+    GLOGDEBUG << "Processing Delete catalog request with "
+              << "volume id: " << msg_hdr->glob_volume_id
+              << ", blob name: "
+              << delete_catalog->blob_name;
     err = dataMgr->deleteCatObjInternal(delete_catalog, msg_hdr->glob_volume_id,
                                         msg_hdr->src_ip_lo_addr, msg_hdr->dst_ip_lo_addr, msg_hdr->src_port,
                                         msg_hdr->dst_port, msg_hdr->session_uuid, msg_hdr->req_cookie);
@@ -2303,12 +2302,12 @@ void DataMgr::ReqHandler::DeleteCatalogObject(FDS_ProtocolInterface::
         }
 
         dataMgr->respMapMtx.read_unlock();
-        GLOGNORMAL << "Sending async delete catalog response with "
+        GLOGDEBUG << "Sending async delete catalog response with "
                    << "volume id: " << msg_hdr->glob_volume_id
                    << ", blob : "
                    << delete_catalog->blob_name;
     } else {
-        GLOGNORMAL << "Successfully Enqueued  the Delete catalog request";
+        GLOGDEBUG << "Successfully Enqueued  the Delete catalog request";
     }
 }
 
