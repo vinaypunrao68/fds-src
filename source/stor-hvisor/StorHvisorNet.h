@@ -42,6 +42,7 @@
 #include <map>
 // #include "util/concurrency/Thread.h"
 #include <concurrency/Synchronization.h>
+#include <fds_counters.h>
 
 
 #undef  FDS_TEST_SH_NOOP              /* IO returns (filled with 0s for read) as soon as SH receives it from ubd */
@@ -173,6 +174,26 @@ typedef union {
 
 typedef unsigned char doid_t[20];
 
+/**
+ * @brief Storage manager counters
+ */
+class AMCounters : public FdsCounters
+{
+ public:
+    AMCounters(const std::string &id, FdsCountersMgr *mgr)
+    : FdsCounters(id, mgr),
+      put_reqs("put_reqs", this),
+      get_reqs("get_reqs", this),
+      puts_latency("puts_latency", this),
+      gets_latency("gets_latency", this)
+    {
+    }
+
+    NumericCounter put_reqs;
+    NumericCounter get_reqs;
+    LatencyCounter puts_latency;
+    LatencyCounter gets_latency;
+};
 /*************************************************************************** */
 
 class StorHvCtrl : public HasLogger {
@@ -373,15 +394,19 @@ public:
                                const bool &lastBuf,
                                const fds_volid_t& volId,
                                QuorumRpcRespCb respCb);
-    void putBlobUpdateCatalogMsgResp(PutBlobReq *blobReq,
+    void putBlobUpdateCatalogMsgResp(fds::AmQosReq* qosReq,
                                      QuorumRpcRequest* rpcReq,
                                      const Error& error,
                                      boost::shared_ptr<std::string> payload);
 
-    void putBlobPutObjectMsgResp(PutBlobReq *blobReq,
+    void putBlobPutObjectMsgResp(fds::AmQosReq* qosReq,
                                  QuorumRpcRequest* rpcReq,
                                  const Error& error,
                                  boost::shared_ptr<std::string> payload);
+    inline AMCounters& getCounters()
+    {
+        return counters_;
+    }
 private:
     void handleDltMismatch(StorHvVolume *vol,
                            StorHvJournalEntry *journEntry);
@@ -393,6 +418,8 @@ private:
 
     /// Toggles the local volume catalog cache
     fds_bool_t disableVcc;
+    /** Counters */
+    AMCounters counters_;
 };
 
 extern StorHvCtrl *storHvisor;

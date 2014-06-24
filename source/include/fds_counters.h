@@ -128,7 +128,7 @@ public:
 
     virtual uint64_t value() const override;
 
-    inline void update(const uint64_t &latency);
+    void update(const uint64_t &latency);
 
 private:
     std::atomic<uint64_t> total_latency_;

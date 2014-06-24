@@ -11,6 +11,7 @@
 #include <fds_error.h>
 #include <fds_defines.h>
 #include <fds_typedefs.h>
+#include <util/timeutils.h>
 #define FDSN_QOS_PERF_NORMALIZER 20
 
 namespace fds {
@@ -399,6 +400,9 @@ namespace fds {
          * Perf members
          */
         fds_uint64_t queuedUsec;  /* Time spec in queue */
+
+        /* Lifecycle latency */
+        util::StopWatch stopWatch;
 
   public:
         FdsBlobReq(fds_io_op_t      _op,

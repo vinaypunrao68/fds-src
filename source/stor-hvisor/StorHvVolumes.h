@@ -38,6 +38,9 @@ class StorHvCtrl;
 
 namespace fds {
 
+/* Forward declarations */
+class StorHvQosCtrl;
+
 class StorHvVolume : public FDS_Volume , public HasLogger
 {
 public:
@@ -330,19 +333,9 @@ class GetBlobReq: public FdsBlobReq {
                GetConditions* _get_conds,
                void* _req_context,
                fdsnGetObjectHandler _get_obj_handler,
-               void* _callback_data)
-            : FdsBlobReq(FDS_GET_BLOB, _volid, _blob_name, _blob_offset,
-                         _data_len, _data_buf, FDS_NativeAPI::DoCallback, this, Error(ERR_OK), 0),
-              bucket_ctxt(_bucket_ctxt),
-              ObjKey(_blob_name),
-              get_cond(_get_conds),
-              byteCount(_byte_count),
-              req_context(_req_context),
-              getObjCallback(_get_obj_handler),
-              callback_data(_callback_data) {
-    }
+               void* _callback_data);
 
-    ~GetBlobReq() { };
+    ~GetBlobReq();
 
     void DoCallback(FDSN_Status status, ErrorDetails* errDetails) {
         (getObjCallback)(bucket_ctxt,
@@ -383,22 +376,7 @@ class PutBlobReq: public FdsBlobReq {
                PutPropertiesPtr _put_props,
                void* _req_context,
                fdsnPutObjectHandler _put_obj_handler,
-               void* _callback_data)
-            : FdsBlobReq(FDS_PUT_BLOB, _volid, _blob_name, _blob_offset,
-                         _data_len, _data_buf, FDS_NativeAPI::DoCallback,
-                         this, Error(ERR_OK), 0),
-        lastBuf(_last_buf),
-        bucket_ctxt(_bucket_ctxt),
-        ObjKey(_blob_name),
-        putProperties(_put_props),
-        req_context(_req_context),
-        putObjCallback(_put_obj_handler),
-        callback_data(_callback_data),
-        txDesc(_txDesc),
-        respAcks(2),
-        retStatus(ERR_OK)
-    {
-    }
+               void* _callback_data);
 
     fds_bool_t isLastBuf() const {
         return lastBuf;
@@ -416,30 +394,14 @@ class PutBlobReq: public FdsBlobReq {
         return txDesc;
     }
 
-    ~PutBlobReq() { };
+    virtual ~PutBlobReq();
 
     void DoCallback(FDSN_Status status, ErrorDetails* errDetails) {
         (putObjCallback)(req_context, dataLen, blobOffset, dataBuf,
                          callback_data, status, errDetails);
     }
 
-    void notifyResponse(const Error &e) {
-        int cnt;
-        /* NOTE: There is a race here in setting the error */
-        if (retStatus == ERR_OK) {
-            retStatus = e;
-        }
-
-        cnt = --respAcks;
-
-        fds_assert(cnt >= 0);
-        DBG(LOGDEBUG << "cnt: " << cnt << e);
-
-        if (cnt == 0) {
-            cbWithResult(retStatus.GetErrno());
-            delete this;
-        }
-    }
+    void notifyResponse(StorHvQosCtrl *qos_ctrl, fds::AmQosReq* qosReq, const Error &e);
 };
 
 

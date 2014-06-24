@@ -97,7 +97,9 @@ StorHvCtrl::StorHvCtrl(int argc,
                        sh_comm_modes _mode,
                        fds_uint32_t sm_port_num,
                        fds_uint32_t dm_port_num)
-        : mode(_mode) {
+    : mode(_mode),
+    counters_("AM", g_fdsprocess->get_cntrs_mgr().get())
+{
     std::string  omIpStr;
     fds_uint32_t omConfigPort;
     std::string node_name = "localhost-sh";

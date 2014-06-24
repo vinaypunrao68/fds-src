@@ -1129,7 +1129,10 @@ fds::Error StorHvCtrl::deleteCatResp(const FDSP_MsgHdrTypePtr& rxMsg,
 }
 
 
-Error StorHvCtrl::getBlob2(fds::AmQosReq *qosReq) {
+Error StorHvCtrl::getBlob2(fds::AmQosReq *qosReq)
+{
+    counters_.get_reqs.incr();
+
     /*
      * Pull out the blob request
      */
@@ -1355,8 +1358,12 @@ fds::Error StorHvCtrl::updateCatalogCache(GetBlobReq *blobReq,
     return ERR_OK;
 }
 
-Error StorHvCtrl::putBlob2(fds::AmQosReq *qosReq) {
+Error StorHvCtrl::putBlob2(fds::AmQosReq *qosReq)
+{
+    counters_.put_reqs.incr();
+
     fds::Error err(ERR_OK);
+
     
     // Pull out the blob request     
     PutBlobReq *blobReq = static_cast<PutBlobReq *>(qosReq->getBlobReqPtr());
@@ -1398,7 +1405,7 @@ Error StorHvCtrl::putBlob2(fds::AmQosReq *qosReq) {
                       blobReq->getDataLen(),
                       volId,
                       std::bind(&StorHvCtrl::putBlobPutObjectMsgResp,
-                                this, blobReq,
+                                this, qosReq,
                                 std::placeholders::_1,
                                 std::placeholders::_2,std::placeholders::_3));
 
@@ -1409,7 +1416,7 @@ Error StorHvCtrl::putBlob2(fds::AmQosReq *qosReq) {
                           blobReq->isLastBuf(),
                           volId,
                           std::bind(&StorHvCtrl::putBlobUpdateCatalogMsgResp,
-                                    this, blobReq,
+                                    this, qosReq,
                                     std::placeholders::_1,
                                     std::placeholders::_2,std::placeholders::_3));
     // TODO(Rao): Check with andrew if this is the right place to unlock or
@@ -1484,11 +1491,12 @@ void StorHvCtrl::issueUpdateCatalogMsg(const ObjectID &objId,
     LOGDEBUG << asyncUpdateCatReq->logString() << fds::logString(*updCatMsg);
 }
 
-void StorHvCtrl::putBlobPutObjectMsgResp(PutBlobReq *blobReq,
+void StorHvCtrl::putBlobPutObjectMsgResp(fds::AmQosReq* qosReq,
                                          QuorumRpcRequest* rpcReq,
                                          const Error& error,
                                          boost::shared_ptr<std::string> payload)
 {
+    PutBlobReq *blobReq = static_cast<fds::PutBlobReq*>(qosReq->getBlobReqPtr());
     fpi::PutObjectRspMsgPtr putObjRsp =
         NetMgr::ep_deserialize<fpi::PutObjectRspMsg>(const_cast<Error&>(error), payload);
 
@@ -1499,14 +1507,15 @@ void StorHvCtrl::putBlobPutObjectMsgResp(PutBlobReq *blobReq,
     } else {
         LOGDEBUG << rpcReq->logString() << fds::logString(*putObjRsp);
     }
-    blobReq->notifyResponse(error);
+    blobReq->notifyResponse(qos_ctrl, qosReq, error);
 }
 
-void StorHvCtrl::putBlobUpdateCatalogMsgResp(PutBlobReq *blobReq,
+void StorHvCtrl::putBlobUpdateCatalogMsgResp(fds::AmQosReq* qosReq,
                                              QuorumRpcRequest* rpcReq,
                                              const Error& error,
                                              boost::shared_ptr<std::string> payload)
 {
+    PutBlobReq *blobReq = static_cast<fds::PutBlobReq*>(qosReq->getBlobReqPtr());
     fpi::UpdateCatalogRspMsgPtr updCatRsp =
         NetMgr::ep_deserialize<fpi::UpdateCatalogRspMsg>(const_cast<Error&>(error), payload);
 
@@ -1517,7 +1526,7 @@ void StorHvCtrl::putBlobUpdateCatalogMsgResp(PutBlobReq *blobReq,
     } else {
         LOGDEBUG << rpcReq->logString() << fds::logString(*updCatRsp);
     }
-    blobReq->notifyResponse(error);
+    blobReq->notifyResponse(qos_ctrl, qosReq, error);
 }
 
 fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq)
