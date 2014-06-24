@@ -40,9 +40,12 @@ class SvcMap(object):
         'om' : [FDSP_MgrIdType.FDSP_ORCH_MGR,       None]
     }
 
-    def __init__(self):
+    def __init__(self, ip, port):
         self.svc_cache = {}
         self.domain_nodes = None
+        self.ip = ip
+        self.port = port
+        self.refresh()
 
     def client(self, nodeid, svc):
         """
@@ -67,7 +70,7 @@ class SvcMap(object):
         try:
             self.svc_cache.clear()
             # TODO(Rao): Get this info from OM
-            self.domain_nodes = SvcHandle('127.0.0.1', 7020, SMSvc).client.getDomainNodes(None)
+            self.domain_nodes = SvcHandle(self.ip, self.port, SMSvc).client.getDomainNodes(None)
         except:
             pass
 

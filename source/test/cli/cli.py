@@ -31,6 +31,9 @@ log = None
 parser = None
 svc_map = None
 
+def add_node(id):
+    cluster.add_node(id)
+
 @arg('nodeid', type=long)
 def counters(nodeid, svc):
     cntrs = svc_map.client(nodeid, svc).getCounters('*')
@@ -104,6 +107,7 @@ def main(ip='127.0.0.1', port=7020):
     global svc_map
     parser = ArghParser()
     parser.add_commands([refresh,
+                         add_node,
                          counters,
                          svclist,
                          setflag,
