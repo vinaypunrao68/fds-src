@@ -4,6 +4,7 @@ import os
 import subprocess
 import sys
 import argparse
+import traceback
 import psutil
 import time
 
@@ -136,7 +137,7 @@ def attach(args):
     return 4
 
 def disconnect(dev, process):
-    subprocess.call('sudo nbd-client -d %s' % dev, shell=True)
+    subprocess.call('nbd-client -d %s' % dev, shell=True)
     for i in xrange(0, 20):
         if not process.is_running():
             break
@@ -176,12 +177,20 @@ def main(argv = sys.argv):
     args.pop(0)
     parser = get_parser()
     result = parser.parse_args(args)
-    if result.command == 'list':
-        return list_conn(result)
-    elif result.command == 'attach':
-        return attach(result)
-    elif result.command == 'detach':
-        return detach(result)
+
+    try:
+        if result.command == 'list':
+            return list_conn(result)
+        elif result.command == 'attach':
+            return attach(result)
+        elif result.command == 'detach':
+            return detach(result)
+    except Exception as e:
+        sys.stderr.write(e.message + '\n')
+        tb = traceback.format_exec()
+        sys.stderr.write(tb + '\n')
+        return 255
+
 
 if __name__ == '__main__':
     sys.exit(main())
