@@ -211,12 +211,12 @@ UT_DP_NodeInfo::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput 
         ResourceUUID r_uuid(info->nd_uuid);
 
         if (info->add == true) {
-            OM_SmAgent::pointer agent(new OM_SmAgent(r_uuid));
+            OM_SmAgent::pointer agent(new OM_SmAgent(r_uuid, fpi::FDSP_STOR_MGR));
             agent->node_fill_inventory(ptr);
             agent->node_set_weight(info->nd_weight);
             newNodes.push_back(agent);
         } else {
-            OM_SmAgent::pointer agent(new OM_SmAgent(r_uuid));
+            OM_SmAgent::pointer agent(new OM_SmAgent(r_uuid, fpi::FDSP_STOR_MGR));
             agent->node_fill_inventory(ptr);
             agent->node_set_weight(info->nd_weight);
             rmNodes.push_back(agent);
@@ -284,7 +284,7 @@ UT_VP_NodeInfo::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput 
 
         if (info->add == true) {
             if (info->rs_type == ut_rs_dm) {
-                OM_DmAgent::pointer agent(new OM_DmAgent(r_uuid));
+                OM_DmAgent::pointer agent(new OM_DmAgent(r_uuid, fpi::FDSP_DATA_MGR));
                 agent->node_fill_inventory(ptr);
                 newNodes.push_back(agent);
             } else {
@@ -296,7 +296,7 @@ UT_VP_NodeInfo::js_exec_obj(JsObject *parent, JsObjTemplate *templ, JsObjOutput 
             }
         } else {
             if (info->rs_type == ut_rs_dm) {
-                OM_DmAgent::pointer agent(new OM_DmAgent(r_uuid));
+                OM_DmAgent::pointer agent(new OM_DmAgent(r_uuid, fpi::FDSP_DATA_MGR));
                 agent->node_fill_inventory(ptr);
                 rmNodes.push_back(agent);
             } else {

@@ -158,13 +158,13 @@ Platform::plf_rpc_server_thread()
     // TODO(Rao): Ideally createServerSession should take a shared pointer for
     // plf_rpc_sess.  Make sure that happens; otherwise you end up with a pointer leak.
     //
+#if 0
     plf_my_sess = plf_net_sess->createServerSession<netControlPathServerSession>(
             netSession::ipString2Addr(netSession::getLocalIp()),
             plf_get_my_ctrl_port(), plf_my_node_name,
             FDSP_ORCH_MGR, plf_rpc_reqt);
 
     plf_net_sess->listenServer(plf_my_sess);
-#if 0
     while (1) {
         sleep(10);
     }

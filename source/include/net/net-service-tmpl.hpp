@@ -68,14 +68,22 @@ class EpSvcImpl : public EpSvc
     EpSvcImpl(const NodeUuid       &mine,
               const NodeUuid       &peer,
               const EpAttr         &attr,
-              EpEvtPlugin::pointer  ops);
+              EpEvtPlugin::pointer  ops,
+              fds_uint32_t          major,
+              fds_uint32_t          minor);
 
     EpSvcImpl(const fpi::SvcID     &mine,
               const fpi::SvcID     &peer,
               const EpAttr         &attr,
-              EpEvtPlugin::pointer  ops);
+              EpEvtPlugin::pointer  ops,
+              fds_uint32_t          major,
+              fds_uint32_t          minor);
 
-    EpSvcImpl(const fpi::SvcID &mine, const fpi::SvcID &peer, EpEvtPlugin::pointer ops);
+    EpSvcImpl(const fpi::SvcID     &mine,
+              const fpi::SvcID     &peer,
+              EpEvtPlugin::pointer  ops,
+              fds_uint32_t          major,
+              fds_uint32_t          minor);
 
     void         ep_handle_error(const Error &err);
     void         ep_connect_peer(int port, const std::string &ip);
@@ -139,8 +147,10 @@ class EndPoint : public EpSvcImpl
              const fpi::SvcID          &peer,
              const EpAttr              &attr,
              boost::shared_ptr<RecvIf>  rcv_if,
-             EpEvtPlugin::pointer       ops)
-        : EpSvcImpl(mine, peer, attr, ops), ep_rpc_recv(rcv_if) {
+             EpEvtPlugin::pointer       ops,
+             fds_uint32_t               major = 0,
+             fds_uint32_t               minor = 0)
+        : EpSvcImpl(mine, peer, attr, ops, major, minor), ep_rpc_recv(rcv_if) {
             ep_init_obj();
         }
     EndPoint(int                        port,
@@ -148,8 +158,11 @@ class EndPoint : public EpSvcImpl
              const NodeUuid            &peer,
              boost::shared_ptr<RecvIf>  rcv_if,
              EpEvtPlugin::pointer       ops,
+             fds_uint32_t               major = 0,
+             fds_uint32_t               minor = 0,
              const char                *iface = "lo")
-        : EpSvcImpl(mine, peer, EpAttr(iface, port), ops), ep_rpc_recv(rcv_if) {
+        : EpSvcImpl(mine, peer, EpAttr(iface, port), ops, major, minor),
+          ep_rpc_recv(rcv_if) {
             ep_init_obj();
         }
 

@@ -10,6 +10,7 @@
 #include <orch-mgr/om-service.h>
 #include <fds_process.h>
 #include <OmDataPlacement.h>
+#include <net/net-service.h>
 
 namespace fds {
 
@@ -182,6 +183,10 @@ DataPlacement::beginRebalance() {
                 << std::hex << uuid.uuid_get_val() << std::dec;
 
         // invoke the RPC
+        if (naClient == NULL) {
+            EpSvcHandle::pointer eph;
+            naClient = na->node_ctrl_rpc(&eph);
+        }
         naClient->NotifyStartMigration(msgHdr, dltMsg);
     }
     placementMutex->unlock();
