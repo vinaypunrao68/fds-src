@@ -152,7 +152,9 @@ EpPlatformdMod::mod_enable_service()
 int
 EpPlatformdMod::ep_map_record(const ep_map_rec_t *rec)
 {
-    std::cout << "Platform ep map record " << rec->rmp_uuid << std::endl;
+    LOGDEBUG << "Platform ep map record " << std::hex << rec->rmp_uuid
+       << std::dec << ", maj " << rec->rmp_major << ", minor " << rec->rmp_minor;
+
     return ep_uuid_rw->shm_insert_rec(static_cast<const void *>(&rec->rmp_uuid),
                                       static_cast<const void *>(rec), sizeof(*rec));
 }

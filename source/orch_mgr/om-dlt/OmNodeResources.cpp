@@ -10,6 +10,7 @@
 #include <OmResources.h>
 #include <OmConstants.h>
 #include <OmAdminCtrl.h>
+#include <net/RpcFunc.h>
 #include <lib/PerfStats.h>
 #include <orchMgr.h>
 #include <OmVolumePlacement.h>
@@ -21,7 +22,11 @@ namespace fds {
 // OM SM NodeAgent
 // ---------------------------------------------------------------------------------
 OM_NodeAgent::~OM_NodeAgent() {}
-OM_NodeAgent::OM_NodeAgent(const NodeUuid &uuid) : NodeAgent(uuid) {}
+OM_NodeAgent::OM_NodeAgent(const NodeUuid &uuid, fpi::FDSP_MgrIdType type)
+    : NodeAgent(uuid)
+{
+    node_svc_type = type;
+}
 
 int
 OM_NodeAgent::node_calc_stor_weight()
@@ -66,6 +71,10 @@ OM_NodeAgent::om_send_myinfo(NodeAgent::pointer peer)
     m_hdr->tennant_id      = 1;
     m_hdr->local_domain_id = 1;
 
+    if (nd_eph != NULL) {
+        NET_SVC_RPC_CALL(nd_eph, nd_ctrl_rpc, NotifyNodeAdd, m_hdr, n_inf);
+        return;
+    }
     try {
         if (node_state() == fpi::FDS_Node_Down) {
             OM_SmAgent::agt_cast_ptr(peer)->ndCpClient->NotifyNodeRmv(m_hdr, n_inf);
@@ -103,11 +112,21 @@ OM_NodeAgent::om_send_node_cmd(const om_node_msg_t &msg)
         switch (msg.nd_msg_code) {
             case fpi::FDSP_MSG_SET_THROTTLE: {
                 log = "Send throttle command to node ";
+                if (nd_eph != NULL) {
+                    NET_SVC_RPC_CALL(nd_eph, nd_ctrl_rpc,
+                                     SetThrottleLevel, m_hdr, *msg.u.nd_throttle);
+                    break;
+                }
                 ndCpClient->SetThrottleLevel(m_hdr, *msg.u.nd_throttle);
                 break;
             }
             case fpi::FDSP_MSG_DMT_UPDATE: {
                 log = "Send DMT update command to node ";
+                if (nd_eph != NULL) {
+                    NET_SVC_RPC_CALL(nd_eph, nd_ctrl_rpc,
+                                     NotifyDMTUpdate, m_hdr, *msg.u.nd_dmt_tab);
+                    break;
+                }
                 ndCpClient->NotifyDMTUpdate(m_hdr, *msg.u.nd_dmt_tab);
                 break;
             }
@@ -169,19 +188,36 @@ OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer    vol,
                 if (cmd_type == fpi::FDSP_MSG_CREATE_VOL) {
                     log = "Send notify add volume ";
                     notif->type = fpi::FDSP_NOTIFY_ADD_VOL;
-                    ndCpClient->NotifyAddVol(m_hdr, notif);
+                    if (nd_eph != NULL) {
+                        NET_SVC_RPC_CALL(nd_eph, nd_ctrl_rpc, NotifyAddVol, m_hdr, notif);
+                    } else {
+                        ndCpClient->NotifyAddVol(m_hdr, notif);
+                    }
                 } else if (cmd_type == fpi::FDSP_MSG_MODIFY_VOL) {
                     log = "Send modify volume ";
                     notif->type = fpi::FDSP_NOTIFY_MOD_VOL;
-                    ndCpClient->NotifyModVol(m_hdr, notif);
+                    if (nd_eph != NULL) {
+                        NET_SVC_RPC_CALL(nd_eph, nd_ctrl_rpc, NotifyModVol, m_hdr, notif);
+                    } else {
+                        ndCpClient->NotifyModVol(m_hdr, notif);
+                    }
                 } else if (cmd_type == fpi::FDSP_MSG_SNAP_VOL) {
                     log = "Send snap volume ";
                     notif->type = fpi::FDSP_NOTIFY_SNAP_VOL;
-                    ndCpClient->NotifySnapVol(m_hdr, notif);
+                    if (nd_eph != NULL) {
+                        NET_SVC_RPC_CALL(nd_eph, nd_ctrl_rpc,
+                                         NotifySnapVol, m_hdr, notif);
+                    } else {
+                        ndCpClient->NotifySnapVol(m_hdr, notif);
+                    }
                 } else {
                     log = "Send remove volume ";
                     notif->type = fpi::FDSP_NOTIFY_RM_VOL;
-                    ndCpClient->NotifyRmVol(m_hdr, notif);
+                    if (nd_eph != NULL) {
+                        NET_SVC_RPC_CALL(nd_eph, nd_ctrl_rpc, NotifyRmVol, m_hdr, notif);
+                    } else {
+                        ndCpClient->NotifyRmVol(m_hdr, notif);
+                    }
                 }
                 break;
             }
@@ -207,10 +243,18 @@ OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer    vol,
 
                 if (cmd_type == fpi::FDSP_MSG_ATTACH_VOL_CTRL) {
                     log = "Send attach volume ";
-                    ndCpClient->AttachVol(m_hdr, attach);
+                    if (nd_eph != NULL) {
+                        NET_SVC_RPC_CALL(nd_eph, nd_ctrl_rpc, AttachVol, m_hdr, attach);
+                    } else {
+                        ndCpClient->AttachVol(m_hdr, attach);
+                    }
                 } else {
                     log = "Send detach volume ";
-                    ndCpClient->DetachVol(m_hdr, attach);
+                    if (nd_eph != NULL) {
+                        NET_SVC_RPC_CALL(nd_eph, nd_ctrl_rpc, DetachVol, m_hdr, attach);
+                    } else {
+                        ndCpClient->DetachVol(m_hdr, attach);
+                    }
                 }
                 break;
             }
@@ -280,14 +324,16 @@ OM_NodeAgent::om_send_dlt(const DLT *curDlt) {
         LOGERROR << "Failed to fill in dlt_data, not sending DLT";
         return err;
     }
-
-    try {
-        ndCpClient->NotifyDLTUpdate(m_hdr, d_msg);
-    } catch(const att::TTransportException& e) {
-        LOGERROR << "error during network call : " << e.what();
-        return Error(ERR_NETWORK_TRANSPORT);
+    if (nd_eph != NULL) {
+        NET_SVC_RPC_CALL(nd_eph, nd_ctrl_rpc, NotifyDLTUpdate, m_hdr, d_msg);
+    } else {
+        try {
+            ndCpClient->NotifyDLTUpdate(m_hdr, d_msg);
+        } catch(const att::TTransportException& e) {
+            LOGERROR << "error during network call : " << e.what();
+            return Error(ERR_NETWORK_TRANSPORT);
+        }
     }
-
     curDlt->dump();
     LOGNORMAL << "OM: Send dlt info (version " << curDlt->getVersion()
               << ") to " << get_node_name() << " uuid 0x"
@@ -315,14 +361,16 @@ OM_NodeAgent::om_send_dmt(const DMTPtr& curDmt) {
         LOGERROR << "Failed to fill in dmt_data, not sending DMT";
         return err;
     }
-
-    try {
-        ndCpClient->NotifyDMTUpdate(m_hdr, dmt_msg);
-    } catch(const att::TTransportException& e) {
-        LOGERROR << "error during network call : " << e.what();
-        return Error(ERR_NETWORK_TRANSPORT);
+    if (nd_eph != NULL) {
+        NET_SVC_RPC_CALL(nd_eph, nd_ctrl_rpc, NotifyDMTUpdate, m_hdr, dmt_msg);
+    } else {
+        try {
+            ndCpClient->NotifyDMTUpdate(m_hdr, dmt_msg);
+        } catch(const att::TTransportException& e) {
+            LOGERROR << "error during network call : " << e.what();
+            return Error(ERR_NETWORK_TRANSPORT);
+        }
     }
-
     LOGNORMAL << "OM: Send dmt info (version " << curDmt->getVersion()
               << ") to " << get_node_name() << " uuid 0x"
               << std::hex << (get_uuid()).uuid_get_val() << std::dec;
@@ -347,14 +395,16 @@ OM_NodeAgent::om_send_scavenger_cmd(fpi::FDSP_ScavengerCmd cmd) {
     m_hdr->local_domain_id = 1;
 
     gc_msg->cmd = cmd;
-
-    try {
-        ndCpClient->NotifyScavengerCmd(m_hdr, gc_msg);
-    } catch(const att::TTransportException& e) {
-        LOGERROR << "error during network call : " << e.what();
-        return ERR_NETWORK_TRANSPORT;
+    if (nd_eph != NULL) {
+        NET_SVC_RPC_CALL(nd_eph, nd_ctrl_rpc, NotifyScavengerCmd, m_hdr, gc_msg);
+    } else {
+        try {
+            ndCpClient->NotifyScavengerCmd(m_hdr, gc_msg);
+        } catch(const att::TTransportException& e) {
+            LOGERROR << "error during network call : " << e.what();
+            return ERR_NETWORK_TRANSPORT;
+        }
     }
-
     LOGNORMAL << "OM: send scavenger command: " << cmd;
     return err;
 }
@@ -372,14 +422,16 @@ OM_NodeAgent::om_send_dlt_close(fds_uint64_t cur_dlt_version) {
     m_hdr->local_domain_id = 1;
 
     d_msg->DLT_version = cur_dlt_version;
-
-    try {
-        ndCpClient->NotifyDLTClose(m_hdr, d_msg);
-    } catch(const att::TTransportException& e) {
-        LOGERROR << "error during network call : " << e.what();
-        return Error(ERR_NETWORK_TRANSPORT);
+    if (nd_eph != NULL) {
+        NET_SVC_RPC_CALL(nd_eph, nd_ctrl_rpc, NotifyDLTClose, m_hdr, d_msg);
+    } else {
+        try {
+            ndCpClient->NotifyDLTClose(m_hdr, d_msg);
+        } catch(const att::TTransportException& e) {
+            LOGERROR << "error during network call : " << e.what();
+            return Error(ERR_NETWORK_TRANSPORT);
+        }
     }
-
     LOGNORMAL << "OM: send dlt close (version " << cur_dlt_version
               << ") to " << get_node_name() << " uuid 0x"
               << std::hex << (get_uuid()).uuid_get_val() << std::dec;
@@ -399,13 +451,16 @@ OM_NodeAgent::om_send_pushmeta(fpi::FDSP_PushMetaPtr& meta_msg)
     m_hdr->tennant_id = 1;
     m_hdr->local_domain_id = 1;
 
-    try {
-        ndCpClient->PushMetaDMTReq(m_hdr, meta_msg);
-    } catch(const att::TTransportException& e) {
-        LOGERROR << "error during network call : " << e.what();
-        return Error(ERR_NETWORK_TRANSPORT);
+    if (nd_eph != NULL) {
+        NET_SVC_RPC_CALL(nd_eph, nd_ctrl_rpc, PushMetaDMTReq, m_hdr, meta_msg);
+    } else {
+        try {
+            ndCpClient->PushMetaDMTReq(m_hdr, meta_msg);
+        } catch(const att::TTransportException& e) {
+            LOGERROR << "error during network call : " << e.what();
+            return Error(ERR_NETWORK_TRANSPORT);
+        }
     }
-
     LOGNORMAL << "OM: send Push_Meta to " << get_node_name() << " uuid 0x"
               << std::hex << (get_uuid()).uuid_get_val() << std::dec;
 
@@ -425,14 +480,16 @@ OM_NodeAgent::om_send_dmt_close(fds_uint64_t dmt_version) {
     m_hdr->local_domain_id = 1;
 
     d_msg->DMT_version = dmt_version;
-
-    try {
-        ndCpClient->NotifyDMTClose(m_hdr, d_msg);
-    } catch(const att::TTransportException& e) {
-        LOGERROR << "error during network call : " << e.what();
-        return Error(ERR_NETWORK_TRANSPORT);
+    if (nd_eph != NULL) {
+        NET_SVC_RPC_CALL(nd_eph, nd_ctrl_rpc, NotifyDMTClose, m_hdr, d_msg);
+    } else {
+        try {
+            ndCpClient->NotifyDMTClose(m_hdr, d_msg);
+        } catch(const att::TTransportException& e) {
+            LOGERROR << "error during network call : " << e.what();
+            return Error(ERR_NETWORK_TRANSPORT);
+        }
     }
-
     LOGNORMAL << "OM: send DMT close (version " << dmt_version
               << ") to " << get_node_name() << " uuid 0x"
               << std::hex << (get_uuid()).uuid_get_val() << std::dec;
@@ -455,7 +512,8 @@ OM_NodeAgent::init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const
 // OM PM NodeAgent
 // ---------------------------------------------------------------------------------
 OM_PmAgent::~OM_PmAgent() {}
-OM_PmAgent::OM_PmAgent(const NodeUuid &uuid) : OM_NodeAgent(uuid) {}
+OM_PmAgent::OM_PmAgent(const NodeUuid &uuid)
+    : OM_NodeAgent(uuid, fpi::FDSP_PLATFORM) {}
 
 void
 OM_PmAgent::init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const
@@ -671,13 +729,7 @@ OM_PmAgent::send_activate_services(fds_bool_t activate_sm,
     node_msg->has_am_service = activate_am;
     node_msg->has_om_service = false;
 
-    try {
-        ndCpClient->NotifyNodeActive(m_hdr, node_msg);
-    } catch(const att::TTransportException& e) {
-        LOGERROR << "error during network call : " << e.what();
-        return Error(ERR_NETWORK_TRANSPORT);
-    }
-
+    NET_SVC_RPC_CALL(nd_eph, nd_ctrl_rpc, NotifyNodeActive, m_hdr, node_msg);
     return err;
 }
 
@@ -705,6 +757,11 @@ OM_AgentContainer::agent_register(const NodeUuid       &uuid,
         return err;
     }
     OM_NodeAgent::pointer agent = OM_NodeAgent::agt_cast_ptr(*out);
+    if (agent->node_get_svc_type() == fpi::FDSP_PLATFORM) {
+        agent->node_agent_up();
+        agent_activate(agent);
+        return err;
+    }
 
     try {
         NodeAgentCpSessionPtr session(

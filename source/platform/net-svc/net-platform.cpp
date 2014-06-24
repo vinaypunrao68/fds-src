@@ -69,15 +69,16 @@ PlatformdNetSvc::mod_startup()
             NodeUuid(0ULL),
             bo::shared_ptr<fpi::PlatNetSvcProcessor>(
                 new fpi::PlatNetSvcProcessor(plat_recv)), plat_plugin);
-#if 0
+
     plat_ctrl_recv.reset(new PlatformRpcReqt(plat_lib));
     plat_ctrl_ep = new PlatNetCtrlEp(
             plat_lib->plf_get_my_ctrl_port(),
             *plat_lib->plf_get_my_node_uuid(),
             NodeUuid(0ULL),
             bo::shared_ptr<fpi::FDSP_ControlPathReqProcessor>(
-                new fpi::FDSP_ControlPathReqProcessor(plat_ctrl_recv)), plat_plugin);
-#endif
+                new fpi::FDSP_ControlPathReqProcessor(plat_ctrl_recv)),
+            plat_plugin, plat_lib->plf_get_my_ctrl_port());
+
     LOGNORMAL << "Startup platform specific net svc, port "
               << plat_lib->plf_get_my_node_port();
 }
@@ -89,6 +90,7 @@ void
 PlatformdNetSvc::mod_enable_service()
 {
     netmgr->ep_register(plat_ep, false);
+    netmgr->ep_register(plat_ctrl_ep, false);
     NetPlatSvc::mod_enable_service();
 }
 

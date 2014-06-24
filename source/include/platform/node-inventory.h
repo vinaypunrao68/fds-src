@@ -146,6 +146,7 @@ class NodeInventory : public Resource
     inline const fds_uint64_t node_dlt_version() const {
       return node_inv->nd_dlt_version;
     }
+    inline FdspNodeType node_get_svc_type() { return node_svc_type; }
 
     /**
      * Fill in the inventory for this agent based on data provided by the message.
@@ -213,6 +214,12 @@ class NodeAgent : public NodeInventory
     virtual void         node_set_weight(fds_uint64_t weight);
 
     /**
+     * Establish/shutdown the communication with the peer.
+     */
+    virtual void node_agent_up();
+    virtual void node_agent_down();
+
+    /**
      * Return the RPC handler for services bound to the control port.
      */
     boost::shared_ptr<fpi::FDSP_ControlPathReqClient>
@@ -220,9 +227,11 @@ class NodeAgent : public NodeInventory
 
   protected:
     friend class AgentContainer;
+    boost::intrusive_ptr<EpSvcHandle>                 nd_eph;
+    boost::shared_ptr<fpi::FDSP_ControlPathReqClient> nd_ctrl_rpc;
 
-    virtual ~NodeAgent() {}
-    explicit NodeAgent(const NodeUuid &uuid) : NodeInventory(uuid) {}
+    virtual ~NodeAgent();
+    explicit NodeAgent(const NodeUuid &uuid);
 
     virtual void agent_publish_ep();
     void agent_bind_ep(boost::intrusive_ptr<EpSvcImpl>, boost::intrusive_ptr<EpSvc>);
