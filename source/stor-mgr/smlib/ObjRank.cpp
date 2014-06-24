@@ -44,7 +44,7 @@ ObjectRankEngine::ObjectRankEngine(const std::string& _sm_prefix,
    * small cache of insertions/deletions so it will trigger ranking process more often */
   max_cached_objects = 250;
 
-  FDS_PLOG(ranklog) << "ObjectRankEngine: construction done, will continue remaining initialization in background";
+  LOGNORMAL << "ObjectRankEngine: construction done, will continue remaining initialization in background";
 }
 
 ObjectRankEngine::~ObjectRankEngine()
@@ -97,7 +97,7 @@ Error ObjectRankEngine::initialize()
       }
       err = putToRankDB(oid, rank, false, false);
       if (!err.ok()) {
-	FDS_PLOG(ranklog) << "ObjectRankEngine: initialize() couldn't update rank db";
+          LOGERROR << "couldn't update rank db";
       }
       ++cur_rank_tbl_size; /* we are counting number of entries in db here as well */
     }
@@ -105,11 +105,11 @@ Error ObjectRankEngine::initialize()
   /* start timer for getting hot objects from the stats tracker.
    * for now setting small intervals so we can have short demo */
   if (!rankTimer->scheduleRepeated(rankTimerTask, std::chrono::seconds(100))) {
-      FDS_PLOG(ranklog) << "ObjectRankEngine: ERROR: failed to schedule timer to analyze stats from stat tracker";
+      LOGNORMAL << "ObjectRankEngine: ERROR: failed to schedule timer to analyze stats from stat tracker";
       err = ERR_MAX;
   }
 
-  FDS_PLOG(ranklog) << "ObjectRankEngine: finished initialization process, rank table size " << cur_rank_tbl_size;
+  LOGNORMAL << "ObjectRankEngine: finished initialization process, rank table size " << cur_rank_tbl_size;
   rankeng_state = RANK_ENG_ACTIVE;
   return err;
 }
@@ -123,7 +123,7 @@ fds_uint32_t ObjectRankEngine::rankAndInsertObject(const ObjectID& objId, const 
   /* current implementation works as if insert of existing object is an update, eg. of 
    * existing object has 'all disk' policy but we insert same object with 'all ssd' policy,
    * the object rank will reflect 'all ssd' policy */
-  //  FDS_PLOG(ranklog) << "ObjectRankEngine: rankAndInsertObject: vol " << voldesc.volUUID;
+  //  LOGNORMAL << "ObjectRankEngine: rankAndInsertObject: vol " << voldesc.volUUID;
 
   map_mutex->lock();
 
@@ -228,7 +228,7 @@ void ObjectRankEngine::analyzeStats()
     return;
 
   obj_stats->getHotObjectList(hot_list);
-  FDS_PLOG(ranklog) << "ObjectRankEngine: got hot object list from stat tracker of size " << hot_list.size();
+  LOGNORMAL;
 
   /* update ranks of objects in the cached list of lowest ranked objects in the table */
   tbl_mutex->lock();
@@ -254,7 +254,7 @@ void ObjectRankEngine::analyzeStats()
      * don't promote anymore hot objects until next ranking process  */
     if (lowrank_objs.size() == 0) {
       stop = true;
-      FDS_PLOG(ranklog) << "ObjectRankEngine: will stop, lowrank empty";
+      LOGNORMAL << "ObjectRankEngine: will stop, lowrank empty";
 
     }
    
@@ -276,7 +276,7 @@ void ObjectRankEngine::analyzeStats()
        * then no need to promote; if deleted not sure yet what we should do,
        * so for now not considering those objects */
       if (inInsertDeleteCache(*list_it)) {
-	FDS_PLOG(ranklog) << "ObjectRankEngine: obj " << (*list_it).ToHex() << " in insert/delete cache";
+	LOGNORMAL << " in insert/delete cache";
 	continue;
       }
 
@@ -299,8 +299,7 @@ void ObjectRankEngine::analyzeStats()
 	  /* insert to lowrank_objs. If database not full, remove highest ranked from
 	   * from lowrank_objs; otherwise, demote lowest ranked in lowrank_objs */
 	  std::pair<fds_uint32_t,ObjectID> entry(rank, *list_it);
-	  FDS_PLOG(ranklog) << "ObjectRankEngine: will promote hot object " << (*list_it).ToHex()
-			    << " vol " << volid << " rank " << rank;
+	  LOGNORMAL 			    << " vol " << volid << " rank " << rank;
 
 	  tbl_mutex->lock();
 	  lowrank_objs.insert(entry);
@@ -331,7 +330,7 @@ void ObjectRankEngine::analyzeStats()
 	    }
 	    tbl_mutex->unlock();
 	    deleteFromRankDB(del_oid);
-	    FDS_PLOG(ranklog) << "ObjectRankEngine: obj " << (*list_it).ToHex() << " caused demotion of obj " << del_oid.ToHex(); 
+	    LOGNORMAL; 
 	  }
 	  else {
 	    tbl_mutex->unlock();
@@ -345,11 +344,11 @@ void ObjectRankEngine::analyzeStats()
 	  tbl_mutex->lock();
 	  rankDeltaChgTbl[*list_it] = rank | RANK_PROMOTION_MASK;
 	  tbl_mutex->unlock();
-	  FDS_PLOG(ranklog) << "ObjectRankEngine: obj " << (*list_it).ToHex() << " rank " << rank << " will be promoted";
+	  LOGNORMAL << " rank " << rank << " will be promoted";
 
       }
       else {
-	FDS_PLOG(ranklog) << "ObjectRankEngine: obj " << (*list_it).ToHex() << " rank " << rank << " lower than ranks of all objs in rank table";
+	LOGNORMAL << " rank " << rank << " lower than ranks of all objs in rank table";
       }
     }
 
@@ -369,7 +368,7 @@ Error ObjectRankEngine::deleteFromRankDB(const ObjectID& oid)
   err = rankDB->Delete(del_key);
   fds_verify(cur_rank_tbl_size > 0);
   --cur_rank_tbl_size;
-  FDS_PLOG(ranklog) << "ObjectRankEngine: removed obj " << oid.ToHex() << " from rankDB";
+  LOGNORMAL << " from rankDB";
   return err;
 }
 
@@ -393,7 +392,7 @@ Error ObjectRankEngine::putToRankDB(const ObjectID& oid, fds_uint32_t rank,
   if (b_addition) {
     /* we are adding new entry */
     ++cur_rank_tbl_size;
-    FDS_PLOG(ranklog) << "ObjectRankEngine: adding obj " << oid.ToHex() << " rank " << o_rank << " to db";
+    LOGNORMAL << " rank " << o_rank << " to db";
   }
   err = rankDB->Update(put_key, put_val);
 
@@ -505,19 +504,19 @@ Error ObjectRankEngine::doRanking()
   obj_rank_cache_it_t it;
   obj_rank_cache_t *cached_objects = new obj_rank_cache_t;
   if (!cached_objects) {
-    FDS_PLOG(ranklog) << "ObjectRankEngine: failed to allocate memory for cached obj map";
+    LOGNORMAL << "ObjectRankEngine: failed to allocate memory for cached obj map";
     err = ERR_MAX;
     return err;
   }
   ordered_objects = new rank_order_objects_t;
   if (!ordered_objects) {
-    FDS_PLOG(ranklog) << "ObjectRankEngine: failed to allocate tmp memory for ranking process";
+    LOGNORMAL << "ObjectRankEngine: failed to allocate tmp memory for ranking process";
     delete cached_objects;
     err = ERR_MAX;
     return err;
   }
 
-  FDS_PLOG(ranklog) << "ObjectRankEngine: start ranking process";
+  LOGNORMAL << "ObjectRankEngine: start ranking process";
 
   /* first swap cached_obj_map with local map, so next insert/delete object 
    * method calls will work with a clear map.
@@ -534,10 +533,10 @@ Error ObjectRankEngine::doRanking()
   tbl_mutex->unlock();
 
   /* Step 1 -- apply all deletions to the rankDB, and make sure no collisions with delta chg tbl  */
-  FDS_PLOG(ranklog) << "ObjectRankEngine: Ranking: initial db size " << cur_rank_tbl_size;
+  LOGNORMAL << "ObjectRankEngine: Ranking: initial db size " << cur_rank_tbl_size;
   err = applyCachedOps(cached_objects);
   if ( !err.ok()) {
-    FDS_PLOG(ranklog) << "ObjectRankEngine: ERROR while applying cached deletion to the rankDB, error " << err.GetErrstr();
+    LOGNORMAL;
     /*TODO: how do we handle this? for now ignore */
   }
 
@@ -553,7 +552,7 @@ Error ObjectRankEngine::doRanking()
     fds_uint32_t rank = updateRank(it->first, it->second);
     std::pair<fds_uint32_t, ObjectID> entry(rank, it->first); 
     ordered_objects->insert(entry);
-    //FDS_PLOG(ranklog) << "ObjectRankEngine: Ranking: cached obj " << (it->first).ToString() << " rank=" << rank;
+    //LOGNORMAL << " rank=" << rank;
     cached_objects->erase(it);
     it = cached_objects->begin();
   }
@@ -566,14 +565,14 @@ Error ObjectRankEngine::doRanking()
     /* persist the change table */
     err = persistChgTableAndSwap();
     delete ordered_objects;
-    FDS_PLOG(ranklog) << "ObjectRankEngine: Ranking finished, rank table size " << cur_rank_tbl_size;
+    LOGNORMAL << "ObjectRankEngine: Ranking finished, rank table size " << cur_rank_tbl_size;
     return err;
   }
 
   /* Step 2 -- go through ordered_objects and either 1) update rank if object already in rank table
    * or 2) add highest ranked objects to database if the rank table is not full
    */
-  FDS_PLOG(ranklog) << "ObjectRankEngine: Ranking: part 2: rank db size " << cur_rank_tbl_size;
+  LOGNORMAL << "ObjectRankEngine: Ranking: part 2: rank db size " << cur_rank_tbl_size;
   for (mm_it = ordered_objects->begin();
        mm_it != ordered_objects->end(); )
     {
@@ -591,7 +590,7 @@ Error ObjectRankEngine::doRanking()
       }
     }
   fds_verify((cur_rank_tbl_size > 0) ||  (ordered_objects->size() == 0)); 
-  FDS_PLOG(ranklog) << "ObjectRankEngine: finished part 2 of ranking process, starting part 3; cur_rank_tbl_size = " << cur_rank_tbl_size;
+  LOGNORMAL << "ObjectRankEngine: finished part 2 of ranking process, starting part 3; cur_rank_tbl_size = " << cur_rank_tbl_size;
 
 
   /* Step 3 -- if we are here, ordered_objects contain candidate objects that may or may not replace 
@@ -633,7 +632,7 @@ Error ObjectRankEngine::doRanking()
       ObjectID oid(key.ToString());
       fds_uint32_t rank = (fds_uint32_t)std::stoul(value.ToString());
       rank = updateRank(oid, rank);
-      //FDS_PLOG(ranklog) << "ObjectRankEngine: Ranking: read from db obj " << key.ToString() << " rank " << rank;
+      //LOGNORMAL << " rank " << rank;
       /* temp overload set promotion flags to mark that this obj is in rank db - hack?*/ 
       fds_verify(!isRankDemotion(rank) && !isRankPromotion(rank));
       rank |= RANK_PROMOTION_MASK;
@@ -643,7 +642,7 @@ Error ObjectRankEngine::doRanking()
       ++it_count;
       ++objs_count;
       if ((it_count < max_count) && (objs_count < cur_rank_tbl_size)) continue;
-      FDS_PLOG(ranklog) << "ObjectRankEngine: Ranking part 2: pulled " << it_count << " objects to process";
+      LOGNORMAL << "ObjectRankEngine: Ranking part 2: pulled " << it_count << " objects to process";
 
       /* the first time we put number of objects = number of lowrank objects we want to keep cached */
       if (addt_count == 0) {
@@ -671,8 +670,7 @@ Error ObjectRankEngine::doRanking()
 	  err = putToRankDB(mm_it->second, o_rank, !in_rankdb, true); 
 
 	  if ((objs_count == 0) && (it_count < max_lowrank_objs)) {
-	    FDS_PLOG(ranklog) << "ObjectRankEngine: put to lowrank obj " << (mm_it->second).ToHex()
-			      << " rank " << (mm_it->first & 0xFFFFFF00);
+	    LOGNORMAL 			      << " rank " << (mm_it->first & 0xFFFFFF00);
 	    std::pair<fds_uint32_t,ObjectID> entry(mm_it->first & 0xFFFFFF00, mm_it->second);
 	    tbl_mutex->lock();
 	    lowrank_objs.insert(entry);
@@ -714,8 +712,7 @@ Error ObjectRankEngine::doRanking()
       } 
       else {
 	tmp_chgTbl[mm_it->second] = o_rank | RANK_DEMOTION_MASK;
-	//FDS_PLOG(ranklog) << "ObjectRankEngine: Ranking: (to demote) obj " << (mm_it->second).ToHex() 
-	//		  << " rank " << o_rank;
+	//LOGNORMAL  	//		  << " rank " << o_rank;
       }
     }
   ordered_objects->clear();
@@ -728,7 +725,7 @@ Error ObjectRankEngine::doRanking()
   /* persist the change table */
   err = persistChgTableAndSwap();
 
-  FDS_PLOG(ranklog) << "ObjectRankEngine: Ranking finished, rank table size " << cur_rank_tbl_size;
+  LOGNORMAL << "ObjectRankEngine: Ranking finished, rank table size " << cur_rank_tbl_size;
 
   return err;
 }
@@ -775,7 +772,7 @@ void ObjectRankEngine::runRankingThreadInternal()
   fds_verify(rankeng_state == RANK_ENG_INITIALIZING);
   err = initialize();
   if ( !err.ok() ) {
-    FDS_PLOG(ranklog) << "ObjectRankEngine: ERROR failed to initialize";
+    LOGNORMAL << "ObjectRankEngine: ERROR failed to initialize";
     // TODO: should we set state that ranking engine is invalid or something like that?
     // for now just not doing ranking..
     return;
@@ -816,7 +813,7 @@ void ObjectRankEngine::startObjRanking()
     {
       /* notify the ranking thread to start the ranking process  */
       rank_notify->notify();
-      FDS_PLOG(ranklog) << "ObjectRankEngine: Starting ranking process in a background thread";
+      LOGNORMAL << "ObjectRankEngine: Starting ranking process in a background thread";
     }
 }
 
@@ -825,7 +822,7 @@ void ObjectRankEngine::stopObjRanking()
   fds_bool_t was_enabled = atomic_exchange(&rankingEnabled, false);
   if (was_enabled)
     {
-      FDS_PLOG(ranklog) << "ObjectRankEngine: Stopping ranking process before it finished";
+      LOGNORMAL << "ObjectRankEngine: Stopping ranking process before it finished";
 
       /* should we keep the state if we stop in the middle so we start from 
        * where we left off or we will start from the beginning? */ 

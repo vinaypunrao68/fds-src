@@ -102,7 +102,7 @@ void FDS_NativeAPI::GetBucket(BucketContext *bucket_ctxt,
     Error err(ERR_OK);
     fds_volid_t volid = invalid_vol_id;
     FdsBlobReq *blob_req = NULL;
-    LOGNORMAL << "FDS_NativeAPI::GetBucket for bucket " << bucket_ctxt->bucketName;
+    LOGDEBUG << "FDS_NativeAPI::GetBucket for bucket " << bucket_ctxt->bucketName;
 
     /* check if bucket is attached to this AM */
     if (storHvisor->vol_table->volumeExists(bucket_ctxt->bucketName)) {
@@ -161,7 +161,7 @@ void FDS_NativeAPI::DeleteBucket(BucketContext* bucketCtxt,
                                  void *callbackData)
 {
     fds_volid_t ret_id;
-    LOGNORMAL << "FDS_NativeAPI:DeleteBucket for bucket " << bucketCtxt->bucketName;
+    LOGDEBUG << "FDS_NativeAPI:DeleteBucket for bucket " << bucketCtxt->bucketName;
     // check the bucket is already attached.
     ret_id = storHvisor->vol_table->getVolumeUUID(bucketCtxt->bucketName);
     if (ret_id == invalid_vol_id) {
@@ -214,7 +214,7 @@ void FDS_NativeAPI::ModifyBucket(BucketContext *bucket_ctxt,
     iops_min = iops_min * FDSN_QOS_PERF_NORMALIZER;
     iops_max = iops_max * FDSN_QOS_PERF_NORMALIZER;
 
-    LOGNORMAL << "FDS_NativeAPI::ModifyBucket bucket " << bucket_ctxt->bucketName
+    LOGDEBUG << "FDS_NativeAPI::ModifyBucket bucket " << bucket_ctxt->bucketName
               << " -- min_iops " << iops_min << " (sla " << qos_params.iops_min << ")"
               << ", max_iops " << iops_max << " (limit " << qos_params.iops_max << ")"
               << ", priority " << qos_params.relativePrio;
@@ -252,7 +252,7 @@ void FDS_NativeAPI::GetBucketStats(void *req_ctxt,
                                    void *callback_data)
 {
     FdsBlobReq *blob_req = NULL;
-    LOGNORMAL << "FDS_NativeAPI::GetBucketStats for all existing buckets";
+    LOGDEBUG << "FDS_NativeAPI::GetBucketStats for all existing buckets";
 
     /* this request will go directly to OM,
        so not need to check if buckets are attached, etc. */
@@ -287,7 +287,7 @@ FDS_NativeAPI::GetObject(BucketContextPtr bucket_ctxt,
     fds_volid_t volid = invalid_vol_id;
     fds_uint64_t start, end;
     FdsBlobReq *blob_req = NULL;
-    LOGNORMAL << "FDS_NativeAPI::GetObject for volume " << bucket_ctxt->bucketName
+    LOGDEBUG << "FDS_NativeAPI::GetObject for volume " << bucket_ctxt->bucketName
               << ", blob " << ObjKey << " of size " << byteCount << " at offset "
               << startByte;
 
@@ -474,7 +474,7 @@ void FDS_NativeAPI::DeleteObject(BucketContext *bucket_ctxt,
     Error err(ERR_OK);
     fds_volid_t volid = invalid_vol_id;
     FdsBlobReq *blob_req = NULL;
-    LOGNORMAL << "FDS_NativeAPI::DeleteObject bucket " << bucket_ctxt->bucketName
+    LOGDEBUG << "FDS_NativeAPI::DeleteObject bucket " << bucket_ctxt->bucketName
               << " objKey " << ObjKey;
 
     // check if bucket is attached to this AM
@@ -535,7 +535,7 @@ void FDS_NativeAPI::DoCallback(FdsBlobReq  *blob_req,
 {
     FDSN_Status status(FDSN_StatusOK);
 
-    LOGNORMAL << " callback -"
+    LOGDEBUG << " callback -"
               << " [iotype:" << blob_req->getIoType() << "]"
               << " [error:"  << error << "]"
               << " [result:" << result << ":" << static_cast<FDSN_Status>(result) << "]";

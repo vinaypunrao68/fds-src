@@ -3,6 +3,7 @@ import subprocess
 from optparse import OptionParser
 from os import listdir
 from os.path import isfile, join
+import time
 import ProcessUtils
 import logging
 
@@ -24,6 +25,7 @@ class PutGenerator:
         self.repeat_cnt = repeat_cnt
 
     def run(self):
+        log.info("Starting PutGenerator")
         # create a bucket
         cmd = "curl -v -X POST http://{}/{}".format(self.endpoint, self.bucket)
         send_cmd(cmd.split())
@@ -42,18 +44,23 @@ class GetGenerator:
                  endpoint,
                  bucket,
                  dir,
-                 repeat_cnt=1):
+                 repeat_cnt=1,
+                 sleep = 0):
         self.endpoint = endpoint
         self.bucket = bucket
         self.dir = dir
         self.repeat_cnt = repeat_cnt
+        self.sleep = sleep
 
     def run(self):
+        log.info("Starting GetGenerator")
         files = [f for f in listdir(self.dir) if isfile(join(self.dir,f))]
         for cnt in xrange(self.repeat_cnt):
             for f in files:
                 cmd = "curl -v http://{}/{}/{}".format(self.endpoint, self.bucket, f)
                 send_cmd(cmd.split())
+                if (self.sleep != 0):
+                    time.sleep(self.sleep)
         log.info("GetGenerator completed")
 
 if __name__ == "__main__":

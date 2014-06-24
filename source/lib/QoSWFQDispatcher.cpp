@@ -99,8 +99,9 @@ namespace fds {
 	  n_pios = atomic_load(&(next_qd->num_pending_ios));
 	  if ((n_pios == 0) && (next_qd->num_rate_based_credits < next_qd->max_rate_based_credits)) { 
 	    next_qd->num_rate_based_credits++;
-	    FDS_PLOG(qda_log) << "Dispatcher: Incrementing credit for queue " << next_queue
-			      << " to " << next_qd->num_rate_based_credits;
+	    FDS_PLOG_SEV(qda_log, fds::fds_log::debug)
+                    << "Dispatcher: Incrementing credit for queue " << next_queue
+                    << " to " << next_qd->num_rate_based_credits;
 	  }
 
 	  running_late = (current_guaranteed_ios_rate < 0.9 * expected_guaranteed_ios_rate);
@@ -134,11 +135,12 @@ namespace fds {
       //assert(next_qd->num_rate_based_credits <= next_qd->max_rate_based_credits);
       next_qd->num_rate_based_credits--;
       inc_num_ios_dispatched(io_dispatch_type_credit);
-      FDS_PLOG(qda_log) << "Dispatcher: picking next credit based queue " << next_queue
-			<< "(" << next_qd->num_rate_based_credits << ") for slot " << next_rate_based_spot-1
-			<< "; current throttle state - ("  
-			<< current_guaranteed_ios_rate << ":" << expected_guaranteed_ios_rate  << ", " 
-			<< running_ahead << ", " << running_late << ")";
+      FDS_PLOG_SEV(qda_log, fds::fds_log::debug)
+              << "Dispatcher: picking next credit based queue " << next_queue
+              << "(" << next_qd->num_rate_based_credits << ") for slot " << next_rate_based_spot-1
+              << "; current throttle state - ("  
+              << current_guaranteed_ios_rate << ":" << expected_guaranteed_ios_rate  << ", " 
+              << running_ahead << ", " << running_late << ")";
       return next_queue;
     }
 
@@ -168,11 +170,12 @@ namespace fds {
       assert(next_qd != NULL);
       assert(n_pios > 0);
       // Step3 end: next_queue is the queue we are going to dispatch from. next_qd is it's descriptor
-      FDS_PLOG(qda_log) << "Dispatcher: picking next priority based queue " << next_queue
-	                << " for slot " << next_rate_based_spot-1
-			<< "; current throttle state - (" 
-			<< current_guaranteed_ios_rate << ":" << expected_guaranteed_ios_rate  << ", " 
-			<< running_ahead << ", " << running_late << ")";
+      FDS_PLOG_SEV(qda_log, fds::fds_log::debug)
+              << "Dispatcher: picking next priority based queue " << next_queue
+              << " for slot " << next_rate_based_spot-1
+              << "; current throttle state - (" 
+              << current_guaranteed_ios_rate << ":" << expected_guaranteed_ios_rate  << ", " 
+              << running_ahead << ", " << running_late << ")";
 
 
       // Step 3: Now we will update the priority based WFQ state for the next iteration
@@ -248,8 +251,9 @@ namespace fds {
     }
     spot_list_string = spot_list_string + ")";
     total_rate_based_spots += queue->iops_min;
-    FDS_PLOG(qda_log) << "Dispatcher: assigning to queue " << qd->queue_id
-		      << " slots - " << spot_list_string;
+    FDS_PLOG_SEV(qda_log, fds::fds_log::debug)
+            << "Dispatcher: assigning to queue " << qd->queue_id
+            << " slots - " << spot_list_string;
 
     return err;
 
