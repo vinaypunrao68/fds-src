@@ -298,20 +298,26 @@ class Platform : public Module
     inline fds_uint32_t   plf_get_om_svc_port()  const { return plf_om_svc_port; }
     inline fds_uint32_t   plf_get_my_base_port() const { return plf_my_base_port; }
     inline fds_uint32_t   plf_get_my_node_port() const { return plf_my_node_port; }
-    inline fds_uint32_t   plf_get_my_ctrl_port() const { return plf_my_base_port + 1; }
-    inline fds_uint32_t   plf_get_my_conf_port() const { return plf_my_base_port + 2; }
-    inline fds_uint32_t   plf_get_my_data_port() const { return plf_my_base_port + 3; }
-    inline fds_uint32_t   plf_get_my_migration_port() const {
-        return plf_my_base_port + 4;
+    inline fds_uint32_t   plf_get_my_ctrl_port(fds_uint32_t base = 0) const {
+        return (base == 0 ? plf_my_base_port : base) + 1;
     }
-    inline fds_uint32_t   plf_get_my_metasync_port() const {
-        return plf_my_base_port + 5;
+    inline fds_uint32_t   plf_get_my_conf_port(fds_uint32_t base = 0) const {
+        return (base == 0 ? plf_my_base_port : base) + 2;
+    }
+    inline fds_uint32_t   plf_get_my_data_port(fds_uint32_t base = 0) const {
+        return (base == 0 ? plf_my_base_port : base) + 3;
+    }
+    inline fds_uint32_t   plf_get_my_migration_port(fds_uint32_t base = 0) const {
+        return (base == 0 ? plf_my_base_port : base) + 4;
+    }
+    inline fds_uint32_t   plf_get_my_metasync_port(fds_uint32_t base = 0) const {
+        return (base == 0 ? plf_my_base_port : base) + 5;
     }
     /**
      * For now, this number must be the same as base_port + x above.
      * See PlatAgent::agent_bind_svc() for detail.
      */
-    static inline fds_uint32_t plf_get_my_max_ports() { return 5; }
+    static inline fds_uint32_t plf_get_my_max_ports() { return 6; }
 
     inline std::string const *const plf_get_my_name() const { return &plf_my_node_name; }
     inline std::string const *const plf_get_my_ip() const { return &plf_my_ip; }

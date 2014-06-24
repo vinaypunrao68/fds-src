@@ -57,7 +57,7 @@ class OM_NodeAgent : public NodeAgent
     typedef boost::intrusive_ptr<OM_NodeAgent> pointer;
     typedef boost::intrusive_ptr<const OM_NodeAgent> const_ptr;
 
-    explicit OM_NodeAgent(const NodeUuid &uuid);
+    explicit OM_NodeAgent(const NodeUuid &uuid, fpi::FDSP_MgrIdType type);
     virtual ~OM_NodeAgent();
 
     static inline OM_NodeAgent::pointer agt_cast_ptr(Resource::pointer ptr) {
@@ -288,7 +288,7 @@ class OM_SmContainer : public OM_AgentContainer
 
   protected:
     virtual Resource *rs_new(const ResourceUUID &uuid) {
-        return new OM_SmAgent(uuid);
+        return new OM_SmAgent(uuid, fpi::FDSP_STOR_MGR);
     }
 };
 
@@ -306,7 +306,7 @@ class OM_DmContainer : public OM_AgentContainer
 
   protected:
     virtual Resource *rs_new(const ResourceUUID &uuid) {
-        return new OM_DmAgent(uuid);
+        return new OM_DmAgent(uuid, fpi::FDSP_DATA_MGR);
     }
 };
 
@@ -321,7 +321,7 @@ class OM_AmContainer : public OM_AgentContainer
     }
   protected:
     virtual Resource *rs_new(const ResourceUUID &uuid) {
-        return new OM_AmAgent(uuid);
+        return new OM_AmAgent(uuid, FDSP_STOR_HVISOR);
     }
 };
 

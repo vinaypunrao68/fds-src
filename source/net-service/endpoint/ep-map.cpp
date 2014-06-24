@@ -304,7 +304,9 @@ EpPlatLibMod::ep_uuid_bind_to_msg(const ep_map_rec_t *src, fpi::UuidBindMsg *msg
 /* static */ void
 EpPlatLibMod::ep_uuid_bind_frm_msg(ep_map_rec_t *rec, const fpi::UuidBindMsg *msg)
 {
-    rec->rmp_uuid = msg->svc_id.svc_uuid.svc_uuid;
+    rec->rmp_uuid  = msg->svc_id.svc_uuid.svc_uuid;
+    rec->rmp_major = 0;
+    rec->rmp_minor = 0;
     EpAttr::netaddr_frm_str(&rec->rmp_addr, msg->svc_port, msg->svc_addr.c_str());
     strncpy(rec->rmp_name, msg->svc_id.svc_name.c_str(), sizeof(rec->rmp_name));
 }

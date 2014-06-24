@@ -261,7 +261,10 @@ class EpSvc
 
     // Service bound to the local domain.
     EpSvc(const ResourceUUID &uuid, fds_uint32_t major, fds_uint32_t minor);
-    EpSvc(const ResourceUUID &uuid, fpi::FDSP_MgrIdType type);
+    EpSvc(const ResourceUUID &uuid,
+          fpi::FDSP_MgrIdType type,
+          fds_uint32_t        major = 0,
+          fds_uint32_t        minor = 0);
 
     // Service bound to a remote domain.
     EpSvc(const ResourceUUID &domain,

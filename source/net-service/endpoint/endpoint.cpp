@@ -32,7 +32,10 @@ EpSvc::EpSvc(const ResourceUUID &domain,
     domain.uuid_assign(&svc_domain->domain_id);
 }
 
-EpSvc::EpSvc(const ResourceUUID &uuid, fpi::FDSP_MgrIdType type) : EpSvc(uuid, 0, 0)
+EpSvc::EpSvc(const ResourceUUID &uuid,
+             fpi::FDSP_MgrIdType type,
+             fds_uint32_t        major,
+             fds_uint32_t        minor) : EpSvc(uuid, major, minor)
 {
     svc_type = type;
 }
@@ -191,7 +194,9 @@ EpSvcImpl::~EpSvcImpl() {}
 EpSvcImpl::EpSvcImpl(const NodeUuid       &mine,
                      const NodeUuid       &peer,
                      const EpAttr         &attr,
-                     EpEvtPlugin::pointer  ops) : EpSvc(mine, 0, 0)
+                     EpEvtPlugin::pointer  ops,
+                     fds_uint32_t          major,
+                     fds_uint32_t          minor) : EpSvc(mine, major, minor)
 {
     peer.uuid_assign(&ep_peer_id.svc_uuid);
     ep_evt   = ops;
@@ -206,16 +211,21 @@ EpSvcImpl::EpSvcImpl(const NodeUuid       &mine,
 EpSvcImpl::EpSvcImpl(const fpi::SvcID     &mine,
                      const fpi::SvcID     &peer,
                      const EpAttr         &attr,
-                     EpEvtPlugin::pointer  ops)
-    : EpSvcImpl(ResourceUUID(mine.svc_uuid), ResourceUUID(peer.svc_uuid), attr, ops)
+                     EpEvtPlugin::pointer  ops,
+                     fds_uint32_t          major,
+                     fds_uint32_t          minor)
+    : EpSvcImpl(ResourceUUID(mine.svc_uuid),
+                ResourceUUID(peer.svc_uuid), attr, ops, major, minor)
 {
     ep_peer_id = peer;
 }
 
 EpSvcImpl::EpSvcImpl(const fpi::SvcID     &mine,
                      const fpi::SvcID     &peer,
-                     EpEvtPlugin::pointer  ops)
-    : EpSvc(ResourceUUID(mine.svc_uuid), 0, 0)
+                     EpEvtPlugin::pointer  ops,
+                     fds_uint32_t          major,
+                     fds_uint32_t          minor)
+    : EpSvc(ResourceUUID(mine.svc_uuid), major, minor)
 {
     ep_peer_id = peer;
     ep_evt     = ops;
@@ -298,7 +308,8 @@ EpSvcImpl::ep_lookup_service(const char *name)
 void
 EpSvcImpl::ep_fillin_binding(ep_map_rec_t *rec)
 {
-    rec->rmp_uuid = svc_id.svc_uuid.svc_uuid;
+    rec->rmp_uuid  = svc_id.svc_uuid.svc_uuid;
+    rec->rmp_major = ep_version(&rec->rmp_minor);
     memcpy(&rec->rmp_addr, &ep_attr->ep_addr, sizeof(rec->rmp_addr));
     strncpy(rec->rmp_name, svc_id.svc_name.c_str(), MAX_SVC_NAME_LEN - 1);
 }
