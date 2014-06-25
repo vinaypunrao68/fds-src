@@ -736,9 +736,8 @@ OM_PmAgent::send_activate_services(fds_bool_t activate_sm,
 // ---------------------------------------------------------------------------------
 // Common OM Service Container
 // ---------------------------------------------------------------------------------
-OM_AgentContainer::OM_AgentContainer(FdspNodeType id) : AgentContainer(FDSP_ORCH_MGR)
+OM_AgentContainer::OM_AgentContainer(FdspNodeType id) : AgentContainer(id)
 {
-    ac_node_type = id;
     ctrlRspHndlr = boost::shared_ptr<OM_ControlRespHandler>(new OM_ControlRespHandler());
 }
 
@@ -768,7 +767,7 @@ OM_AgentContainer::agent_register(const NodeUuid       &uuid,
                 ac_cpSessTbl->startSession<netControlPathClientSession>(
                     agent->get_ip_str(),
                     agent->get_ctrl_port(),
-                    ac_node_type,      // TODO(Andrew): should be just a node
+                    ac_id,      // TODO(Andrew): should be just a node
                     1,                 // just 1 channel for now...
                     ctrlRspHndlr));
 
@@ -805,7 +804,7 @@ OM_AgentContainer::agent_unregister(const NodeUuid &uuid, const std::string &nam
 // ---------------------------------------------------------------------------------
 // OM Platform NodeAgent Container
 // ---------------------------------------------------------------------------------
-OM_PmContainer::OM_PmContainer() : OM_AgentContainer(FDSP_PLATFORM) {}
+OM_PmContainer::OM_PmContainer() : OM_AgentContainer(fpi::FDSP_PLATFORM) {}
 
 // agent_register
 // --------------
@@ -964,7 +963,7 @@ OM_PmContainer::handle_unregister_service(const NodeUuid& node_uuid,
 // ---------------------------------------------------------------------------------
 // OM SM NodeAgent Container
 // ---------------------------------------------------------------------------------
-OM_SmContainer::OM_SmContainer() : OM_AgentContainer(FDSP_STOR_MGR) {}
+OM_SmContainer::OM_SmContainer() : OM_AgentContainer(fpi::FDSP_STOR_MGR) {}
 
 // agent_activate
 // --------------
@@ -1040,12 +1039,12 @@ OM_AgentContainer::om_splice_nodes_pend(NodeList *addNodes,
 // --------------------------------------------------------------------------------------
 // OM DM NodeAgent Container
 // --------------------------------------------------------------------------------------
-OM_DmContainer::OM_DmContainer() : OM_AgentContainer(FDSP_DATA_MGR) {}
+OM_DmContainer::OM_DmContainer() : OM_AgentContainer(fpi::FDSP_DATA_MGR) {}
 
 // -------------------------------------------------------------------------------------
 // OM AM NodeAgent Container
 // -------------------------------------------------------------------------------------
-OM_AmContainer::OM_AmContainer() : OM_AgentContainer(FDSP_STOR_HVISOR) {}
+OM_AmContainer::OM_AmContainer() : OM_AgentContainer(fpi::FDSP_STOR_HVISOR) {}
 
 // --------------------------------------------------------------------------------------
 // OM Node Container

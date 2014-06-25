@@ -103,9 +103,7 @@ Platform::plf_rpc_om_handshake(fpi::FDSP_RegisterNodeTypePtr reg)
         fds_verify(plf_om_resp == NULL);
 
         plf_master  = new OmAgent(0);
-        plf_om_resp = boost::shared_ptr<PlatRpcResp>(plat_creat_resp_disp());
-
-        plf_master->om_handshake(plf_net_sess, plf_om_resp,
+        plf_master->om_handshake(plf_net_sess, NULL,
                                  plf_om_ip_str, plf_om_ctrl_port);
     }
     plf_master->init_node_reg_pkt(reg);
