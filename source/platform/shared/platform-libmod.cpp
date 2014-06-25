@@ -38,7 +38,6 @@ Platform::Platform(char const *const         name,
     plf_bucket_stats_evt = NULL;
     plf_om_ctrl_port     = 0;
 
-    plf_rpc_thrd  = NULL;
     plf_net_sess  = NULL;
     plf_rpc_reqt  = NULL;
     plf_my_sess   = NULL;
@@ -49,9 +48,6 @@ Platform::~Platform()
 {
     if (plf_my_sess != NULL) {
         plf_net_sess->endSession(plf_my_sess->getSessionTblKey());
-    }
-    if (plf_rpc_thrd != NULL) {
-        plf_rpc_thrd->join();
     }
 }
 
@@ -116,21 +112,6 @@ Platform::plf_rpc_om_handshake(fpi::FDSP_RegisterNodeTypePtr reg)
     plf_master->om_register_node(reg);
 }
 
-// plf_run_server
-// --------------
-//
-void
-Platform::plf_run_server(bool spawn_thr)
-{
-    if (spawn_thr == true) {
-        plf_rpc_thrd = boost::shared_ptr<std::thread>(
-               new std::thread(&Platform::plf_rpc_server_thread, this));
-    } else {
-        plf_rpc_thrd = NULL;
-        plf_rpc_server_thread();
-    }
-}
-
 // plf_is_om_node
 // --------------
 // Return true if this is the node running the primary OM node.
@@ -147,28 +128,6 @@ Platform::plf_is_om_node()
         return true;
     }
     return false;
-}
-
-// plf_rpc_server_thread
-// ---------------------
-//
-void
-Platform::plf_rpc_server_thread()
-{
-    // TODO(Rao): Ideally createServerSession should take a shared pointer for
-    // plf_rpc_sess.  Make sure that happens; otherwise you end up with a pointer leak.
-    //
-#if 0
-    plf_my_sess = plf_net_sess->createServerSession<netControlPathServerSession>(
-            netSession::ipString2Addr(netSession::getLocalIp()),
-            plf_get_my_ctrl_port(), plf_my_node_name,
-            FDSP_ORCH_MGR, plf_rpc_reqt);
-
-    plf_net_sess->listenServer(plf_my_sess);
-    while (1) {
-        sleep(10);
-    }
-#endif
 }
 
 // plf_change_info
