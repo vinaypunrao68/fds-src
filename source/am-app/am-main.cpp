@@ -58,6 +58,8 @@ extern "C" {
     extern void CreateStorHvisorS3(int argc, char *argv[]);
 }
 
+int am_gdb = 1;
+
 int main(int argc, char **argv)
 {
     fds::Module *am_mod_vec[] = {
@@ -70,6 +72,8 @@ int main(int argc, char **argv)
         &fds::gl_AmProbe,
         nullptr
     };
+    while (am_gdb == 0) { sleep(1); }
+
     fds::AM_Process am_process(argc, argv, &fds::gl_AmPlatform, am_mod_vec);
     return am_process.main();
 }

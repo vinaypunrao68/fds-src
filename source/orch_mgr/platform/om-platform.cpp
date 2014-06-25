@@ -9,6 +9,7 @@
 #include <om-platform.h>
 #include <fds_process.h>
 #include <OmResources.h>
+#include <orchMgr.h>
 #include <net/net-service-tmpl.hpp>
 
 namespace fds {
@@ -58,6 +59,8 @@ OMEpPlugin::svc_down(EpSvc::pointer svc, EpSvcHandle::pointer handle)
 // -------------------------------------------------------------------------------------
 // OM Specific Platform
 // -------------------------------------------------------------------------------------
+OmPlatform::~OmPlatform() {}
+
 OmPlatform::OmPlatform()
     : Platform("OM-Platform",
                FDSP_ORCH_MGR,
@@ -99,9 +102,9 @@ void
 OmPlatform::mod_startup()
 {
     Platform::mod_startup();
+    om_plugin = new OMEpPlugin(this);
 #if 0
     om_recv   = bo::shared_ptr<OMSvcHandler>(new OMSvcHandler());
-    om_plugin = new OMEpPlugin(this);
     om_ep     = new EndPoint<fpi::OMSvcClient, fpi::OMSvcProcessor>(
         Platform::platf_singleton()->plf_get_om_port(),
         *Platform::platf_singleton()->plf_get_my_svc_uuid(),
@@ -112,6 +115,11 @@ OmPlatform::mod_startup()
     LOGNORMAL << "Startup platform specific net svc, port "
               << Platform::platf_singleton()->plf_get_om_port();
 #endif
+    om_cfg_rcv  = bo::shared_ptr<FDSP_ConfigPathReqHandler>(
+                    new FDSP_ConfigPathReqHandler(gl_orch_mgr));
+    om_ctrl_rcv = bo::shared_ptr<FDSP_OMControlPathReqHandler>(
+                    new FDSP_OMControlPathReqHandler(gl_orch_mgr));
+    // om_plat_rcv = bo::shared_ptr<OMSvcHandler>(new OMSvcHandler());
 }
 
 // mod_enable_service

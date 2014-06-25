@@ -265,7 +265,6 @@ class Platform : public Module
      * Platform methods.
      */
     bool plf_is_om_node();
-    void plf_run_server(bool spawn_thr = false);
     void plf_rpc_om_handshake(fpi::FDSP_RegisterNodeTypePtr pkt);
     void plf_change_info(const plat_node_data_t *ndata);
 
@@ -368,7 +367,6 @@ class Platform : public Module
     /* Server attributes. */
     boost::shared_ptr<netSessionTbl>  plf_net_sess;
     boost::shared_ptr<PlatRpcReqt>    plf_rpc_reqt;  /**< rpc handler for OM reqt.   */
-    boost::shared_ptr<std::thread>    plf_rpc_thrd;  /**< thread running rpc handler */
     OmRespDispatchPtr                 plf_om_resp;   /**< RPC client response disp.  */
     NodeAgentDpRespPtr                plf_dpath_resp;
     netControlPathServerSession      *plf_my_sess;
@@ -382,9 +380,6 @@ class Platform : public Module
     virtual PlatRpcReqt      *plat_creat_reqt_disp() = 0;
     virtual PlatRpcResp      *plat_creat_resp_disp() = 0;
     virtual PlatDataPathResp *plat_creat_dpath_resp() { return NULL; }
-
-  private:
-    void plf_rpc_server_thread();
 };
 
 /**

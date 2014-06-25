@@ -28,7 +28,6 @@ class NodePlatform : public Platform
     /**
      * Module methods
      */
-    void mod_load_from_config();
     virtual int  mod_init(SysParams const *const param) override;
     virtual void mod_startup() override;
     virtual void mod_enable_service() override;

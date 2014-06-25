@@ -107,9 +107,10 @@ class OrchMgr: public PlatformProcess {
                         const FDSP_PerfstatsTypePtr& perf_stats_msg);
     int ApplyTierPolicy(::fpi::tier_pol_time_unitPtr& policy);  // NOLINT
     int AuditTierPolicy(::fpi::tier_pol_auditPtr& audit);  // NOLINT
+};
 
-    /* config path: cli -> OM  */
-    class FDSP_ConfigPathReqHandler : virtual public FDSP_ConfigPathReqIf {
+/* config path: cli -> OM  */
+class FDSP_ConfigPathReqHandler : virtual public FDSP_ConfigPathReqIf {
   public:
         explicit FDSP_ConfigPathReqHandler(OrchMgr *oMgr);
 
@@ -267,12 +268,11 @@ class OrchMgr: public PlatformProcess {
             ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg);
 
   private:
-        OrchMgr *orchMgr;
-    };
+    OrchMgr *orchMgr;
+};
 
-    /* OM control path: SH/SM/DM to OM */
-    class FDSP_OMControlPathReqHandler :
-    virtual public FDSP_OMControlPathReqIf {
+/* OM control path: SH/SM/DM to OM */
+class FDSP_OMControlPathReqHandler : virtual public FDSP_OMControlPathReqIf {
   public:
         explicit FDSP_OMControlPathReqHandler(OrchMgr *oMgr);
 
@@ -345,12 +345,13 @@ class OrchMgr: public PlatformProcess {
         void NotifyMigrationDone(
             ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
             ::FDS_ProtocolInterface::FDSP_MigrationStatusTypePtr& status_msg);
+
   private:
         OrchMgr* orchMgr;
-    };
+};
 
-    /* control response handler*/
-    class FDSP_ControlPathRespHandler : virtual public FDSP_ControlPathRespIf {
+/* control response handler*/
+class FDSP_ControlPathRespHandler : virtual public FDSP_ControlPathRespIf {
   public:
         explicit FDSP_ControlPathRespHandler(OrchMgr *oMgr);
 
@@ -454,7 +455,6 @@ class OrchMgr: public PlatformProcess {
 
   private:
         OrchMgr* orchMgr;
-    };
 };
 
 std::thread* runConfigService(OrchMgr* om);

@@ -10,18 +10,18 @@
 #define LOGGERPTR orchMgr->GetLog()
 namespace fds {
 
-OrchMgr::FDSP_ConfigPathReqHandler::FDSP_ConfigPathReqHandler(OrchMgr *oMgr) {
+FDSP_ConfigPathReqHandler::FDSP_ConfigPathReqHandler(OrchMgr *oMgr) {
     orchMgr = oMgr;
 }
 
-int32_t OrchMgr::FDSP_ConfigPathReqHandler::CreateVol(
+int32_t FDSP_ConfigPathReqHandler::CreateVol(
     const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
     const ::FDS_ProtocolInterface::FDSP_CreateVolType& crt_vol_req) {
     // Don't do anything here. This stub is just to keep cpp compiler happy
     return 0;
 }
 
-int32_t OrchMgr::FDSP_ConfigPathReqHandler::CreateVol(
+int32_t FDSP_ConfigPathReqHandler::CreateVol(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_CreateVolTypePtr& crt_vol_req) {
     Error err(ERR_OK);
@@ -49,14 +49,14 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::CreateVol(
     return err.GetErrno();
 }
 
-int32_t OrchMgr::FDSP_ConfigPathReqHandler::SnapVol(
+int32_t FDSP_ConfigPathReqHandler::SnapVol(
     const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
     const ::FDS_ProtocolInterface::FDSP_CreateVolType& snap_vol_req) {
     // Don't do anything here. This stub is just to keep cpp compiler happy
     return 0;
 }
 
-int32_t OrchMgr::FDSP_ConfigPathReqHandler::SnapVol(
+int32_t FDSP_ConfigPathReqHandler::SnapVol(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_CreateVolTypePtr& snap_vol_req) {
     Error err(ERR_OK);
@@ -85,14 +85,14 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::SnapVol(
 }
 
 
-int32_t OrchMgr::FDSP_ConfigPathReqHandler::DeleteVol(
+int32_t FDSP_ConfigPathReqHandler::DeleteVol(
     const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
     const ::FDS_ProtocolInterface::FDSP_DeleteVolType& del_vol_req) {
     // Don't do anything here. This stub is just to keep cpp compiler happy
     return 0;
 }
 
-int32_t OrchMgr::FDSP_ConfigPathReqHandler::DeleteVol(
+int32_t FDSP_ConfigPathReqHandler::DeleteVol(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_DeleteVolTypePtr& del_vol_req) {
 
@@ -112,14 +112,14 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::DeleteVol(
     return err.GetErrno();
 }
 
-int32_t OrchMgr::FDSP_ConfigPathReqHandler::ModifyVol(
+int32_t FDSP_ConfigPathReqHandler::ModifyVol(
     const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
     const ::FDS_ProtocolInterface::FDSP_ModifyVolType& mod_vol_req) {
     // Don't do anything here. This stub is just to keep cpp compiler happy
     return 0;
 }
 
-int32_t OrchMgr::FDSP_ConfigPathReqHandler::ModifyVol(
+int32_t FDSP_ConfigPathReqHandler::ModifyVol(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_ModifyVolTypePtr& mod_vol_req) {
     Error err(ERR_OK);
@@ -142,14 +142,14 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::ModifyVol(
     return err.GetErrno();
 }
 
-int32_t OrchMgr::FDSP_ConfigPathReqHandler::CreatePolicy(
+int32_t FDSP_ConfigPathReqHandler::CreatePolicy(
     const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
     const ::FDS_ProtocolInterface::FDSP_CreatePolicyType& crt_pol_req) {
     // Don't do anything here. This stub is just to keep cpp compiler happy
     return 0;
 }
 
-int32_t OrchMgr::FDSP_ConfigPathReqHandler::CreatePolicy(
+int32_t FDSP_ConfigPathReqHandler::CreatePolicy(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_CreatePolicyTypePtr& crt_pol_req) {
 
@@ -166,14 +166,14 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::CreatePolicy(
     return err;
 }
 
-int32_t OrchMgr::FDSP_ConfigPathReqHandler::DeletePolicy(
+int32_t FDSP_ConfigPathReqHandler::DeletePolicy(
     const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
     const ::FDS_ProtocolInterface::FDSP_DeletePolicyType& del_pol_req) {
     // Don't do anything here. This stub is just to keep cpp compiler happy
     return 0;
 }
 
-int32_t OrchMgr::FDSP_ConfigPathReqHandler::DeletePolicy(
+int32_t FDSP_ConfigPathReqHandler::DeletePolicy(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_DeletePolicyTypePtr& del_pol_req) {
 
@@ -190,14 +190,14 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::DeletePolicy(
     return err;
 }
 
-int32_t OrchMgr::FDSP_ConfigPathReqHandler::ModifyPolicy(
+int32_t FDSP_ConfigPathReqHandler::ModifyPolicy(
     const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
     const ::FDS_ProtocolInterface::FDSP_ModifyPolicyType& mod_pol_req) {
     // Don't do anything here. This stub is just to keep cpp compiler happy
     return 0;
 }
 
-int32_t OrchMgr::FDSP_ConfigPathReqHandler::ModifyPolicy(
+int32_t FDSP_ConfigPathReqHandler::ModifyPolicy(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_ModifyPolicyTypePtr& mod_pol_req) {
 
@@ -214,14 +214,14 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::ModifyPolicy(
     return err;
 }
 
-int32_t OrchMgr::FDSP_ConfigPathReqHandler::AttachVol(
+int32_t FDSP_ConfigPathReqHandler::AttachVol(
     const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
     const ::FDS_ProtocolInterface::FDSP_AttachVolCmdType& atc_vol_req) {
     // Don't do anything here. This stub is just to keep cpp compiler happy
     return 0;
 }
 
-int32_t OrchMgr::FDSP_ConfigPathReqHandler::AttachVol(
+int32_t FDSP_ConfigPathReqHandler::AttachVol(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_AttachVolCmdTypePtr& atc_vol_req) {
     Error err(ERR_OK);
@@ -244,14 +244,14 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::AttachVol(
     return err.GetErrno();
 }
 
-int32_t OrchMgr::FDSP_ConfigPathReqHandler::DetachVol(
+int32_t FDSP_ConfigPathReqHandler::DetachVol(
     const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
     const ::FDS_ProtocolInterface::FDSP_AttachVolCmdType& dtc_vol_req) {
     // Don't do anything here. This stub is just to keep cpp compiler happy
     return 0;
 }
 
-int32_t OrchMgr::FDSP_ConfigPathReqHandler::DetachVol(
+int32_t FDSP_ConfigPathReqHandler::DetachVol(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_AttachVolCmdTypePtr& dtc_vol_req) {
     Error err(ERR_OK);
@@ -271,25 +271,25 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::DetachVol(
     return err.GetErrno();
 }
 
-int32_t OrchMgr::FDSP_ConfigPathReqHandler::AssociateRespCallback(
+int32_t FDSP_ConfigPathReqHandler::AssociateRespCallback(
     const int64_t ident) {
     // Don't do anything here. This stub is just to keep cpp compiler happy
     return 0;
 }
 
-int32_t OrchMgr::FDSP_ConfigPathReqHandler::AssociateRespCallback(
+int32_t FDSP_ConfigPathReqHandler::AssociateRespCallback(
     boost::shared_ptr<int64_t>& ident) {
     return 0;
 }
 
-int32_t OrchMgr::FDSP_ConfigPathReqHandler::CreateDomain(
+int32_t FDSP_ConfigPathReqHandler::CreateDomain(
     const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
     const ::FDS_ProtocolInterface::FDSP_CreateDomainType& crt_dom_req) {
     // Don't do anything here. This stub is just to keep cpp compiler happy
     return 0;
 }
 
-int32_t OrchMgr::FDSP_ConfigPathReqHandler::CreateDomain(
+int32_t FDSP_ConfigPathReqHandler::CreateDomain(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_CreateDomainTypePtr& crt_dom_req) {
 
@@ -307,14 +307,14 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::CreateDomain(
     return err;
 }
 
-int32_t OrchMgr::FDSP_ConfigPathReqHandler::RemoveServices(
+int32_t FDSP_ConfigPathReqHandler::RemoveServices(
     const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
     const ::FDS_ProtocolInterface::FDSP_RemoveServicesType& rm_svc_req) {
     // Don't do anything here. This stub is just to keep cpp compiler happy
     return 0;
 }
 
-int32_t OrchMgr::FDSP_ConfigPathReqHandler::RemoveServices(
+int32_t FDSP_ConfigPathReqHandler::RemoveServices(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_RemoveServicesTypePtr& rm_svc_req) {
 
@@ -354,14 +354,14 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::RemoveServices(
     return err.GetErrno();
 }
 
-int32_t OrchMgr::FDSP_ConfigPathReqHandler::DeleteDomain(
+int32_t FDSP_ConfigPathReqHandler::DeleteDomain(
     const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
     const ::FDS_ProtocolInterface::FDSP_CreateDomainType& del_dom_req) {
     // Don't do anything here. This stub is just to keep cpp compiler happy
     return 0;
 }
 
-int32_t OrchMgr::FDSP_ConfigPathReqHandler::DeleteDomain(
+int32_t FDSP_ConfigPathReqHandler::DeleteDomain(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_CreateDomainTypePtr& del_dom_req) {
 
@@ -379,14 +379,14 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::DeleteDomain(
     return err;
 }
 
-int32_t OrchMgr::FDSP_ConfigPathReqHandler::SetThrottleLevel(
+int32_t FDSP_ConfigPathReqHandler::SetThrottleLevel(
     const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
     const ::FDS_ProtocolInterface::FDSP_ThrottleMsgType& throttle_msg) {
     // Don't do anything here. This stub is just to keep cpp compiler happy
     return 0;
 }
 
-int32_t OrchMgr::FDSP_ConfigPathReqHandler::SetThrottleLevel(
+int32_t FDSP_ConfigPathReqHandler::SetThrottleLevel(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_ThrottleMsgTypePtr& throttle_msg) {
 
@@ -406,14 +406,14 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::SetThrottleLevel(
     return err;
 }
 
-void OrchMgr::FDSP_ConfigPathReqHandler::GetVolInfo(
+void FDSP_ConfigPathReqHandler::GetVolInfo(
     ::FDS_ProtocolInterface::FDSP_VolumeDescType& _return,
     const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
     const ::FDS_ProtocolInterface::FDSP_GetVolInfoReqType& vol_info_req) {
     // Don't do anything here. This stub is just to keep cpp compiler happy
 }
 
-void OrchMgr::FDSP_ConfigPathReqHandler::GetVolInfo(
+void FDSP_ConfigPathReqHandler::GetVolInfo(
     ::FDS_ProtocolInterface::FDSP_VolumeDescType& _return,
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_GetVolInfoReqTypePtr& vol_info_req) {
@@ -436,14 +436,14 @@ void OrchMgr::FDSP_ConfigPathReqHandler::GetVolInfo(
     }
 }
 
-int32_t OrchMgr::FDSP_ConfigPathReqHandler::GetDomainStats(
+int32_t FDSP_ConfigPathReqHandler::GetDomainStats(
     const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
     const ::FDS_ProtocolInterface::FDSP_GetDomainStatsType& get_stats_msg) {
     // Don't do anything here. This stub is just to keep cpp compiler happy
     return 0;
 }
 
-int32_t OrchMgr::FDSP_ConfigPathReqHandler::GetDomainStats(
+int32_t FDSP_ConfigPathReqHandler::GetDomainStats(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_GetDomainStatsTypePtr& get_stats_msg) {
 
@@ -467,13 +467,13 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::GetDomainStats(
     return err;
 }
 
-void OrchMgr::FDSP_OMControlPathReqHandler::GetDomainStats(
+void FDSP_OMControlPathReqHandler::GetDomainStats(
     const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
     const ::FDS_ProtocolInterface::FDSP_GetDomainStatsType& get_stats_msg) {
     // Don't do anything here. This stub is just to keep cpp compiler happy
 }
 
-void OrchMgr::FDSP_OMControlPathReqHandler::GetDomainStats(
+void FDSP_OMControlPathReqHandler::GetDomainStats(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_GetDomainStatsTypePtr& get_stats_msg) {
 
@@ -495,14 +495,14 @@ void OrchMgr::FDSP_OMControlPathReqHandler::GetDomainStats(
     }
 }
 
-int32_t OrchMgr::FDSP_ConfigPathReqHandler::ActivateAllNodes(
+int32_t FDSP_ConfigPathReqHandler::ActivateAllNodes(
     const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
     const ::FDS_ProtocolInterface::FDSP_ActivateAllNodesType& act_node_msg) {
     // Don't do anything here. This stub is just to keep cpp compiler happy
     return 0;
 }
 
-int32_t OrchMgr::FDSP_ConfigPathReqHandler::ActivateAllNodes(
+int32_t FDSP_ConfigPathReqHandler::ActivateAllNodes(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_ActivateAllNodesTypePtr& act_node_msg) {
     int err = 0;
@@ -526,14 +526,14 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::ActivateAllNodes(
     return err;
 }
 
-int32_t OrchMgr::FDSP_ConfigPathReqHandler::ActivateNode(
+int32_t FDSP_ConfigPathReqHandler::ActivateNode(
     const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
     const ::FDS_ProtocolInterface::FDSP_ActivateOneNodeType& act_node_msg) {
     // Don't do anything here. This stub is just to keep cpp compiler happy
     return 0;
 }
 
-int32_t OrchMgr::FDSP_ConfigPathReqHandler::ActivateNode(
+int32_t FDSP_ConfigPathReqHandler::ActivateNode(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_ActivateOneNodeTypePtr& act_node_msg) {
     Error err(ERR_OK);
@@ -561,14 +561,14 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::ActivateNode(
     return err.GetErrno();
 }
 
-int32_t OrchMgr::FDSP_ConfigPathReqHandler::ScavengerCommand(
+int32_t FDSP_ConfigPathReqHandler::ScavengerCommand(
     const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
     const ::FDS_ProtocolInterface::FDSP_ScavengerType& gc_msg) {
     // Don't do anything here. This stub is just to keep cpp compiler happy
     return 0;
 }
 
-int32_t OrchMgr::FDSP_ConfigPathReqHandler::ScavengerCommand(
+int32_t FDSP_ConfigPathReqHandler::ScavengerCommand(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_ScavengerTypePtr& gc_msg) {
     switch (gc_msg->cmd) {
@@ -592,7 +592,7 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::ScavengerCommand(
     return 0;
 }
 
-void OrchMgr::FDSP_ConfigPathReqHandler::ListServices(
+void FDSP_ConfigPathReqHandler::ListServices(
     std::vector<FDSP_Node_Info_Type> & ret,
     const FDSP_MsgHdrType& fdsp_msg) {
     // Do nothing
@@ -615,7 +615,7 @@ static void add_to_vector(std::vector<FDSP_Node_Info_Type> &vec,  // NOLINT
     vec.push_back(nodeInfo);
 }
 
-void OrchMgr::FDSP_ConfigPathReqHandler::ListServices(
+void FDSP_ConfigPathReqHandler::ListServices(
     std::vector<FDSP_Node_Info_Type> &vec,
     boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg) {
 
@@ -631,7 +631,7 @@ void OrchMgr::FDSP_ConfigPathReqHandler::ListServices(
         agent_foreach<std::vector<FDSP_Node_Info_Type> &>(vec, add_to_vector);
 }
 
-void OrchMgr::FDSP_ConfigPathReqHandler::ListVolumes(
+void FDSP_ConfigPathReqHandler::ListVolumes(
     std::vector<FDS_ProtocolInterface::FDSP_VolumeDescType> & _return,
     const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg) {
     // Don't do anything here. This stub is just to keep cpp compiler happy
@@ -650,7 +650,7 @@ add_vol_to_vector(std::vector<FDS_ProtocolInterface::FDSP_VolumeDescType> &vec, 
     vec.push_back(voldesc);
 }
 
-void OrchMgr::FDSP_ConfigPathReqHandler::ListVolumes(
+void FDSP_ConfigPathReqHandler::ListVolumes(
     std::vector<FDS_ProtocolInterface::FDSP_VolumeDescType> & _return,
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg) {
     LOGNOTIFY<< "OM received ListVolumes message";
@@ -660,13 +660,13 @@ void OrchMgr::FDSP_ConfigPathReqHandler::ListVolumes(
     vols->vol_up_foreach<std::vector<FDSP_VolumeDescType> &>(_return, add_vol_to_vector);
 }
 
-int32_t OrchMgr::FDSP_ConfigPathReqHandler::applyTierPolicy(
+int32_t FDSP_ConfigPathReqHandler::applyTierPolicy(
     const ::FDS_ProtocolInterface::tier_pol_time_unit& policy) {
     // Don't do anything here. This stub is just to keep cpp compiler happy
     return 0;
 }
 
-int32_t OrchMgr::FDSP_ConfigPathReqHandler::applyTierPolicy(
+int32_t FDSP_ConfigPathReqHandler::applyTierPolicy(
     ::FDS_ProtocolInterface::tier_pol_time_unitPtr& policy) {
     int err = 0;
     try {
@@ -681,13 +681,13 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::applyTierPolicy(
     return err;
 }
 
-int32_t OrchMgr::FDSP_ConfigPathReqHandler::auditTierPolicy(
+int32_t FDSP_ConfigPathReqHandler::auditTierPolicy(
     const ::FDS_ProtocolInterface::tier_pol_audit& audit) {
     // Don't do anything here. This stub is just to keep cpp compiler happy
     return 0;
 }
 
-int32_t OrchMgr::FDSP_ConfigPathReqHandler::auditTierPolicy(
+int32_t FDSP_ConfigPathReqHandler::auditTierPolicy(
     ::FDS_ProtocolInterface::tier_pol_auditPtr& audit) {
     int err = 0;
     try {
@@ -703,18 +703,18 @@ int32_t OrchMgr::FDSP_ConfigPathReqHandler::auditTierPolicy(
 }
 
 
-OrchMgr::FDSP_OMControlPathReqHandler::FDSP_OMControlPathReqHandler(
+FDSP_OMControlPathReqHandler::FDSP_OMControlPathReqHandler(
     OrchMgr *oMgr) {
     orchMgr = oMgr;
 }
 
-void OrchMgr::FDSP_OMControlPathReqHandler::CreateBucket(
+void FDSP_OMControlPathReqHandler::CreateBucket(
     const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
     const ::FDS_ProtocolInterface::FDSP_CreateVolType& crt_buck_req) {
     // Don't do anything here. This stub is just to keep cpp compiler happy
 }
 
-void OrchMgr::FDSP_OMControlPathReqHandler::CreateBucket(
+void FDSP_OMControlPathReqHandler::CreateBucket(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_CreateVolTypePtr& crt_buck_req) {
     LOGNOTIFY << "Received create bucket " << crt_buck_req->vol_name
@@ -737,26 +737,26 @@ void OrchMgr::FDSP_OMControlPathReqHandler::CreateBucket(
     }
 }
 
-void OrchMgr::FDSP_OMControlPathReqHandler::DeleteBucket(
+void FDSP_OMControlPathReqHandler::DeleteBucket(
     const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
     const ::FDS_ProtocolInterface::FDSP_DeleteVolType& del_buck_req) {
     // Don't do anything here. This stub is just to keep cpp compiler happy
 }
 
-void OrchMgr::FDSP_OMControlPathReqHandler::DeleteBucket(
+void FDSP_OMControlPathReqHandler::DeleteBucket(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_DeleteVolTypePtr& del_buck_req) {
     OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
     local->om_delete_vol(fdsp_msg, del_buck_req);
 }
 
-void OrchMgr::FDSP_OMControlPathReqHandler::ModifyBucket(
+void FDSP_OMControlPathReqHandler::ModifyBucket(
     const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
     const ::FDS_ProtocolInterface::FDSP_ModifyVolType& mod_buck_req) {
     // Don't do anything here. This stub is just to keep cpp compiler happy
 }
 
-void OrchMgr::FDSP_OMControlPathReqHandler::ModifyBucket(
+void FDSP_OMControlPathReqHandler::ModifyBucket(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_ModifyVolTypePtr& mod_buck_req) {
     LOGNOTIFY << "Received modify bucket " << (mod_buck_req->vol_desc).vol_name
@@ -767,13 +767,13 @@ void OrchMgr::FDSP_OMControlPathReqHandler::ModifyBucket(
     local->om_modify_vol(mod_buck_req);
 }
 
-void OrchMgr::FDSP_OMControlPathReqHandler::AttachBucket(
+void FDSP_OMControlPathReqHandler::AttachBucket(
     const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
     const ::FDS_ProtocolInterface::FDSP_AttachVolCmdType& atc_buck_req) {
     // Don't do anything here. This stub is just to keep cpp compiler happy
 }
 
-void OrchMgr::FDSP_OMControlPathReqHandler::AttachBucket(
+void FDSP_OMControlPathReqHandler::AttachBucket(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_AttachVolCmdTypePtr& atc_buck_req) {
     LOGNOTIFY << "Received attach bucket " << atc_buck_req->vol_name
@@ -784,13 +784,13 @@ void OrchMgr::FDSP_OMControlPathReqHandler::AttachBucket(
     local->om_attach_vol(fdsp_msg, atc_buck_req);
 }
 
-void OrchMgr::FDSP_OMControlPathReqHandler::RegisterNode(
+void FDSP_OMControlPathReqHandler::RegisterNode(
     const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
     const ::FDS_ProtocolInterface::FDSP_RegisterNodeType& reg_node_req) {
     // Don't do anything here. This stub is just to keep cpp compiler happy
 }
 
-void OrchMgr::FDSP_OMControlPathReqHandler::RegisterNode(
+void FDSP_OMControlPathReqHandler::RegisterNode(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_RegisterNodeTypePtr& reg_node_req) {
     OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
@@ -817,51 +817,51 @@ void OrchMgr::FDSP_OMControlPathReqHandler::RegisterNode(
               << ", node type " << reg_node_req->node_type << std::dec;
 }
 
-void OrchMgr::FDSP_OMControlPathReqHandler::NotifyQueueFull(
+void FDSP_OMControlPathReqHandler::NotifyQueueFull(
     const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
     const ::FDS_ProtocolInterface::FDSP_NotifyQueueStateType& queue_state_info){
     // Don't do anything here. This stub is just to keep cpp compiler happy
 }
 
-void OrchMgr::FDSP_OMControlPathReqHandler::NotifyQueueFull(
+void FDSP_OMControlPathReqHandler::NotifyQueueFull(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_NotifyQueueStateTypePtr& queue_state_info) {
     orchMgr->NotifyQueueFull(fdsp_msg, queue_state_info);
 }
 
-void OrchMgr::FDSP_OMControlPathReqHandler::NotifyPerfstats(
+void FDSP_OMControlPathReqHandler::NotifyPerfstats(
     const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
     const ::FDS_ProtocolInterface::FDSP_PerfstatsType& perf_stats_msg) {
     // Don't do anything here. This stub is just to keep cpp compiler happy
 }
 
-void OrchMgr::FDSP_OMControlPathReqHandler::NotifyPerfstats(
+void FDSP_OMControlPathReqHandler::NotifyPerfstats(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_PerfstatsTypePtr& perf_stats_msg) {
 
     orchMgr->NotifyPerfstats(fdsp_msg, perf_stats_msg);
 }
 
-void OrchMgr::FDSP_OMControlPathReqHandler::TestBucket(
+void FDSP_OMControlPathReqHandler::TestBucket(
     const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
     const ::FDS_ProtocolInterface::FDSP_TestBucket& test_buck_msg) {
     // Don't do anything here. This stub is just to keep cpp compiler happy
 }
 
-void OrchMgr::FDSP_OMControlPathReqHandler::TestBucket(
+void FDSP_OMControlPathReqHandler::TestBucket(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_TestBucketPtr& test_buck_msg) {
     OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
     local->om_test_bucket(fdsp_msg, test_buck_msg);
 }
 
-void OrchMgr::FDSP_OMControlPathReqHandler::NotifyMigrationDone(
+void FDSP_OMControlPathReqHandler::NotifyMigrationDone(
     const ::FDS_ProtocolInterface::FDSP_MsgHdrType& fdsp_msg,
     const ::FDS_ProtocolInterface::FDSP_MigrationStatusType& status_msg) {
     // Don't do anything here. This stub is just to keep cpp compiler happy
 }
 
-void OrchMgr::FDSP_OMControlPathReqHandler::NotifyMigrationDone(
+void FDSP_OMControlPathReqHandler::NotifyMigrationDone(
     ::FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg,
     ::FDS_ProtocolInterface::FDSP_MigrationStatusTypePtr& status_msg) {
 

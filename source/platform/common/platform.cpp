@@ -41,11 +41,6 @@ NodePlatform::NodePlatform()
     plf_vol_evt   = new VolPlatEvent(plf_resources, plf_clus_map, this);
 }
 
-void
-NodePlatform::mod_load_from_config()
-{
-}
-
 int
 NodePlatform::mod_init(SysParams const *const param)
 {
