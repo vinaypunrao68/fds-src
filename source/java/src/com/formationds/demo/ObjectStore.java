@@ -1,5 +1,7 @@
 package com.formationds.demo;
 
+import java.util.concurrent.TimeUnit;
+
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
@@ -11,8 +13,8 @@ public class ObjectStore {
 
     public ObjectStore(DemoConfig demoConfig, ObjectStoreType type) {
         this.type = type;
-        imageReader = makeImageReader(demoConfig, type);
-        imageWriter = makeImageWriter(demoConfig, type);
+        imageReader = makeImageReader(demoConfig, type, new BucketStats(RealDemoState.MAX_AGE_SECONDS, TimeUnit.SECONDS));
+        imageWriter = makeImageWriter(demoConfig, type, new BucketStats(RealDemoState.MAX_AGE_SECONDS, TimeUnit.SECONDS));
     }
 
     public ImageReader getImageReader() {
@@ -23,29 +25,29 @@ public class ObjectStore {
         return imageWriter;
     }
 
-    private ImageReader makeImageReader(DemoConfig demoConfig, ObjectStoreType type) {
+    private ImageReader makeImageReader(DemoConfig demoConfig, ObjectStoreType type, BucketStats bucketStats) {
         switch (type) {
             case swift:
-                return new SwiftImageReader(demoConfig.getAmHost(), demoConfig.getSwiftPort());
+                return new SwiftImageReader(demoConfig.getAmHost(), demoConfig.getSwiftPort(), bucketStats);
 
             case amazonS3:
-                return new S3ImageReader(demoConfig.getCreds());
+                return new S3ImageReader(demoConfig.getCreds(), bucketStats);
 
             default:
-                return new S3ImageReader(demoConfig.getAmHost(), demoConfig.getS3Port());
+                return new S3ImageReader(demoConfig.getAmHost(), demoConfig.getS3Port(), bucketStats);
         }
     }
 
-    private ImageWriter makeImageWriter(DemoConfig demoConfig, ObjectStoreType type) {
+    private ImageWriter makeImageWriter(DemoConfig demoConfig, ObjectStoreType type, BucketStats bucketStats) {
         switch (type) {
             case swift:
-                return new SwiftImageWriter(demoConfig.getAmHost(), demoConfig.getSwiftPort(), demoConfig.getVolumeNames());
+                return new SwiftImageWriter(demoConfig.getAmHost(), demoConfig.getSwiftPort(), demoConfig.getVolumeNames(), bucketStats);
 
             case amazonS3:
-                return new S3ImageWriter(demoConfig.getCreds(), demoConfig.getVolumeNames());
+                return new S3ImageWriter(demoConfig.getCreds(), demoConfig.getVolumeNames(), bucketStats);
 
             default:
-                return new S3ImageWriter(demoConfig.getAmHost(), demoConfig.getS3Port(), demoConfig.getVolumeNames());
+                return new S3ImageWriter(demoConfig.getAmHost(), demoConfig.getS3Port(), demoConfig.getVolumeNames(), bucketStats);
         }
     }
 

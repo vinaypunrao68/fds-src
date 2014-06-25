@@ -638,12 +638,12 @@ int  pushVolQueue(void *req1)
     io->io_req_id = atomic_fetch_add(&next_io_req_id, (unsigned int)1);
     io->io_magic = FDS_SH_IO_MAGIC_IN_USE;
 
-    LOGNORMAL << " Queueing IO " << io->io_req_id << " for  vol_id:  " << vol_id;
+    LOGDEBUG << " Queueing IO " << io->io_req_id << " for  vol_id:  " << vol_id;
 
     storHvisor->qos_ctrl->enqueueIO(vol_id, io);
     shvol->readUnlock();
 
-    LOGNORMAL << " Queueing the  IO done.  vol_id:  " << vol_id;
+    LOGDEBUG << " Queueing the  IO done.  vol_id:  " << vol_id;
 
     return 0;
 }
@@ -651,5 +651,93 @@ int  pushVolQueue(void *req1)
 
 END_C_DECLS
 
+
+GetBlobReq::GetBlobReq(fds_volid_t _volid,
+                       const std::string& _blob_name, //same as objKey
+                       fds_uint64_t _blob_offset,
+                       fds_uint64_t _data_len,
+                       char* _data_buf,
+                       fds_uint64_t _byte_count, 
+                       BucketContextPtr _bucket_ctxt,
+                       GetConditions* _get_conds,
+                       void* _req_context,
+                       fdsnGetObjectHandler _get_obj_handler,
+                       void* _callback_data)
+    : FdsBlobReq(FDS_GET_BLOB, _volid, _blob_name, _blob_offset,
+                 _data_len, _data_buf, FDS_NativeAPI::DoCallback, this, Error(ERR_OK), 0),
+    bucket_ctxt(_bucket_ctxt),
+    ObjKey(_blob_name),
+    get_cond(_get_conds),
+    byteCount(_byte_count),
+    req_context(_req_context),
+    getObjCallback(_get_obj_handler),
+    callback_data(_callback_data)
+{
+    stopWatch.start();
+}
+
+GetBlobReq::~GetBlobReq()
+{
+    storHvisor->getCounters().gets_latency.update(stopWatch.getElapsedNanos());
+}
+
+PutBlobReq::PutBlobReq(fds_volid_t _volid,
+                       const std::string& _blob_name, //same as objKey
+                       fds_uint64_t _blob_offset,
+                       fds_uint64_t _data_len,
+                       char* _data_buf,
+                       BlobTxId::ptr _txDesc,
+                       fds_bool_t _last_buf,
+                       BucketContext* _bucket_ctxt,
+                       PutPropertiesPtr _put_props,
+                       void* _req_context,
+                       fdsnPutObjectHandler _put_obj_handler,
+                       void* _callback_data)
+: FdsBlobReq(FDS_PUT_BLOB, _volid, _blob_name, _blob_offset,
+             _data_len, _data_buf, FDS_NativeAPI::DoCallback,
+             this, Error(ERR_OK), 0),
+    lastBuf(_last_buf),
+    bucket_ctxt(_bucket_ctxt),
+    ObjKey(_blob_name),
+    putProperties(_put_props),
+    req_context(_req_context),
+    putObjCallback(_put_obj_handler),
+    callback_data(_callback_data),
+    txDesc(_txDesc),
+    respAcks(2),
+    retStatus(ERR_OK)
+{
+    stopWatch.start();
+}
+
+PutBlobReq::~PutBlobReq()
+{
+    storHvisor->getCounters().puts_latency.update(stopWatch.getElapsedNanos());
+}
+
+void PutBlobReq::notifyResponse(StorHvQosCtrl *qos_ctrl,
+                                fds::AmQosReq* qosReq, const Error &e)
+{
+    int cnt;
+    /* NOTE: There is a race here in setting the error from
+     * update catalog from dm and put object from sm in an error case
+     * Most of the case the first error will win.  This should be ok for
+     * now, in the event its' not we need a seperate lock here
+     */
+    if (retStatus == ERR_OK) {
+        retStatus = e;
+    }
+
+    cnt = --respAcks;
+
+    fds_assert(cnt >= 0);
+    DBG(LOGDEBUG << "cnt: " << cnt << e);
+
+    if (cnt == 0) {
+        qos_ctrl->markIODone(qosReq);
+        cbWithResult(retStatus.GetErrno());
+        delete this;
+    }
+}
 
 } // namespace fds

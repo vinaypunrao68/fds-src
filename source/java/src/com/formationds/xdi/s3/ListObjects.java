@@ -25,6 +25,7 @@ public class ListObjects implements RequestHandler {
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
         String bucket = requiredString(routeParameters, "bucket");
         List<BlobDescriptor> contents = xdi.volumeContents(S3Endpoint.FDS_S3, bucket, Integer.MAX_VALUE, 0);
+
         List<String> objects = contents.stream()
                 .map(c -> String.format(OBJECT_FORMAT, c.getName(), c.getByteCount()))
                 .collect(Collectors.toList());

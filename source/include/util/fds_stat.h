@@ -1,8 +1,8 @@
 /*
  * Copyright 2013 by Formation Data Systems, Inc.
  */
-#ifndef INCLUDE_UTIL_FDS_STAT_H_
-#define INCLUDE_UTIL_FDS_STAT_H_
+#ifndef SOURCE_INCLUDE_UTIL_FDS_STAT_H_
+#define SOURCE_INCLUDE_UTIL_FDS_STAT_H_
 
 #include <time.h>
 #include <shared/fds_types.h>
@@ -59,7 +59,7 @@ class StatModule : public Module
   public:
     fds_bool_t               stat_on;
 
-    StatModule(char const *const name);
+    explicit StatModule(char const *const name);
     virtual ~StatModule();
 
     virtual int  mod_init(SysParams const *const param);
@@ -100,26 +100,6 @@ static inline int fds_tck_per_us()
 }
 
 /*
- * fds_rdtsc
- * ---------
- * Return the current CPU's ticks.  Need to move this to arch dep header file.
- */
-static inline volatile fds_uint64_t fds_rdtsc()
-{
-//    return (fds_uint64_t)clock();
-#ifdef __i386__
-    register fds_uint64_t tsc asm("eax");
-    asm volatile(".byte 15, 49" : : : "eax", "edx");
-    return tsc;
-#else
-    register fds_uint64_t hi, lo;
-
-    asm volatile("cpuid; rdtscp" : "=a"(lo), "=d"(hi));
-    return ((hi << 32) | lo);
-#endif
-}
-
-/*
  * fds_stat_record
  * ---------------
  * Record the stat at the module and recording point.
@@ -132,6 +112,6 @@ fds_stat_record(stat_mod_e mod, int point, fds_uint64_t start, fds_uint64_t end)
     }
 }
 
-} // namespace fds
+}  // namespace fds
 
-#endif /* INCLUDE_UTIL_FDS_STAT_H_ */
+#endif  // SOURCE_INCLUDE_UTIL_FDS_STAT_H_

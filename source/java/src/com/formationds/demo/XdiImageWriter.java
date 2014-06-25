@@ -13,8 +13,8 @@ import java.net.URL;
 public class XdiImageWriter extends ImageWriter {
     private Xdi xdi;
 
-    public XdiImageWriter(Xdi xdi, String[] volumeNames) {
-        super(volumeNames);
+    public XdiImageWriter(Xdi xdi, String[] volumeNames, BucketStats bucketStats) {
+        super(volumeNames, bucketStats);
         this.xdi = xdi;
     }
 
@@ -24,7 +24,7 @@ public class XdiImageWriter extends ImageWriter {
             String volume = randomVolume();
             URL url = new URL(resource.getUrl());
             try (InputStream inputStream = new BufferedInputStream(url.openConnection().getInputStream(), 1024 * 10)) {
-                xdi.writeStream(Main.DEMO_DOMAIN, volume, resource.getId(), inputStream, Maps.newHashMap());
+                xdi.writeStream(Main.DEMO_DOMAIN, volume, resource.getName()    , inputStream, Maps.newHashMap());
                 increment(volume);
                 return new StoredImage(resource, volume);
             }

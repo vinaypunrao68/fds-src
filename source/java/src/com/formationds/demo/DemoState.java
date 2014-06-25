@@ -26,7 +26,7 @@ public interface DemoState {
 
     void setWriteThrottle(int value);
 
-    Counts consumeReadCounts();
+    BucketStats readCounts();
 
-    Counts consumeWriteCounts();
+    BucketStats writeCounts();
 }

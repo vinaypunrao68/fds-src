@@ -3,14 +3,10 @@ package com.formationds.xdi.swift;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.security.JaasAuthenticator;
-import com.formationds.util.Configuration;
 import com.formationds.web.toolkit.HttpMethod;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.WebApp;
 import com.formationds.xdi.Xdi;
-import com.formationds.xdi.local.ToyServices;
-import com.formationds.xdi.s3.S3Endpoint;
 
 import java.util.function.Supplier;
 
@@ -18,14 +14,6 @@ public class SwiftEndpoint {
     private Xdi xdi;
     private boolean enforceAuth;
     private WebApp webApp;
-
-    public static void main(String[] args) throws Exception {
-        Configuration configuration = new Configuration("swift", args);
-        ToyServices foo = new ToyServices("foo");
-        foo.createDomain(S3Endpoint.FDS_S3);
-        Xdi xdi = new Xdi(foo, foo, new JaasAuthenticator());
-        new SwiftEndpoint(xdi, true).start(9999);
-    }
 
     public SwiftEndpoint(Xdi xdi, boolean enforceAuth) {
         this.xdi = xdi;
@@ -38,6 +26,7 @@ public class SwiftEndpoint {
 
         authorize(HttpMethod.GET, "/v1/:account/:container", () -> new GetContainer(xdi));
         authorize(HttpMethod.PUT, "/v1/:account/:container", () -> new CreateContainer(xdi));
+        authorize(HttpMethod.DELETE, "/v1/:account/:container", () -> new DeleteContainer(xdi));
         authorize(HttpMethod.GET, "/v1/:account", () -> new ListContainers(xdi));
         authorize(HttpMethod.PUT, "/v1/:account/:container/:object", () -> new CreateObject(xdi));
         authorize(HttpMethod.GET, "/v1/:account/:container/:object", () -> new GetObject(xdi));

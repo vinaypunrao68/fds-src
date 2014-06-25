@@ -415,9 +415,7 @@ Error VolumeMeta::listBlobs(std::list<BlobNode>& bNodeList) {
     Catalog::catalog_iterator_t *dbIt = vcat->NewIterator();
     for (dbIt->SeekToFirst(); dbIt->Valid(); dbIt->Next()) {
         Record key = dbIt->key();
-        LOGNORMAL << "List blobs iterating over key " << key.ToString();
         BlobNode bnode;
-        LOGDEBUG << "loading bnode";
         fds_verify(bnode.loadSerialized(dbIt->value().ToString()) == ERR_OK);
         if (bnode.version != blob_version_deleted) {
             bNodeList.push_back(bnode);
@@ -454,7 +452,6 @@ Error VolumeMeta::QueryVcat(const std::string blob_name, BlobNode*& bnode) {
     }
 
     bnode = new BlobNode();
-    LOGDEBUG << "loading bnode";
     fds_verify(bnode->loadSerialized(val) == ERR_OK);
 
     return err;
@@ -508,8 +505,8 @@ VolumeMeta::syncVolCat(fds_volid_t volId, NodeUuid node_uuid) {
     const std::string test_cp = "cp -r "+src_dir_vcat+"*  "+dst_dir+" ";
     const std::string test_rsync = "sshpass -p passwd rsync -r "
             + dst_dir + "  root@" + dest_ip + ":" + dst_node + "";
-    LOGNORMAL << " rsync: local copy  " << test_cp;
-    LOGNORMAL << " rsync:  " << test_rsync;
+    LOGDEBUG << " rsync: local copy  " << test_cp;
+    LOGDEBUG << " rsync:  " << test_rsync;
 
     vol_mtx->lock();
     // err = vcat->DbSnap(root->dir_user_repo_dm() + "snap" + vol_name + "_vcat.ldb");
@@ -517,10 +514,10 @@ VolumeMeta::syncVolCat(fds_volid_t volId, NodeUuid node_uuid) {
     returnCode = std::system((const char *)("cp -r "+src_dir_tcat+"  "+dst_dir+" ").c_str());
     vol_mtx->unlock();
 
-    LOGNORMAL << "system Command  copy return Code : " << returnCode;
+    LOGDEBUG << "system Command  copy return Code : " << returnCode;
 
     if (!err.ok()) {
-        LOGNORMAL << "Failed to create vol snap " << " with err " << err;
+        LOGERROR << "Failed to create vol snap " << " with err " << err;
         return err;
     }
 
@@ -533,7 +530,7 @@ VolumeMeta::syncVolCat(fds_volid_t volId, NodeUuid node_uuid) {
                                             "  root@"+dest_ip+":"+dst_node+"").c_str());
     // returnCode = std::system((const char *)("rsync -r --rsh='sshpass -p passwd ssh -l root' "+
     // dst+"/  root@"+dest_ip+":"+dst_node+"").c_str());
-    LOGNORMAL << "system Command  rsync return Code : " << returnCode;
+    LOGDEBUG << "system Command  rsync return Code : " << returnCode;
 
     return err;
 }

@@ -87,7 +87,6 @@ namespace fds {
         /* FDSN status errors */
         // TODO(Rao): Change FDSN_Status prefix to ERR_ prefix
         FDSN_StatusCreated = 5000                                  ,
-
         /* do denote uninitialized value*/
         FDSN_StatusNOTSET                                          ,
 
@@ -177,7 +176,7 @@ namespace fds {
 
     class Error {
         fds_errno_t _errno;
-  public:
+     public:
         Error();
         Error(fds_errno_t errno_arg);  //NOLINT
         Error(fds_uint32_t errno_fdsp); //NOLINT
@@ -202,7 +201,6 @@ namespace fds {
     };
 
     std::ostream& operator<<(std::ostream& out, const Error& err);
-
 
     std::ostream& operator<<(std::ostream& os, FDSN_Status status);
 

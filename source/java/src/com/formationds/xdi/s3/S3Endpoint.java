@@ -3,13 +3,10 @@ package com.formationds.xdi.s3;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.security.BypassAuthenticator;
-import com.formationds.util.Configuration;
 import com.formationds.web.toolkit.HttpMethod;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.WebApp;
 import com.formationds.xdi.Xdi;
-import com.formationds.xdi.local.ToyServices;
 
 import java.util.function.Supplier;
 
@@ -18,14 +15,6 @@ public class S3Endpoint {
     private Xdi xdi;
     private boolean enforceAuth;
     private final WebApp webApp;
-
-    public static void main(String[] args) throws Exception {
-        Configuration configuration = new Configuration("s3", args);
-        ToyServices foo = new ToyServices("foo");
-        foo.createDomain(FDS_S3);
-        Xdi xdi = new Xdi(foo, foo, new BypassAuthenticator());
-        new S3Endpoint(xdi, false).start(9999);
-    }
 
     public S3Endpoint(Xdi xdi, boolean enforceAuth) {
         this.xdi = xdi;

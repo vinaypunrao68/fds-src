@@ -11,8 +11,8 @@ import java.io.InputStream;
 public class XdiImageReader extends ImageReader {
     private Xdi xdi;
 
-    public XdiImageReader(Xdi xdi) {
-        super();
+    public XdiImageReader(Xdi xdi, BucketStats bucketStats) {
+        super(bucketStats);
         this.xdi = xdi;
     }
 
@@ -20,7 +20,7 @@ public class XdiImageReader extends ImageReader {
     public StoredImage read(StoredImage storedImage) throws Exception {
         try (InputStream inputStream =  xdi.readStream(Main.DEMO_DOMAIN,
                                                        storedImage.getVolumeName(),
-                                                       storedImage.getImageResource().getId())) {
+                                                       storedImage.getImageResource().getName())) {
             IOUtils.toByteArray(inputStream);
             increment(storedImage.getVolumeName());
             return storedImage;

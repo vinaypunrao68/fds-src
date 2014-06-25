@@ -291,7 +291,7 @@ uint64_t LatencyCounter::value() const
  *
  * @param latency
  */
-inline void LatencyCounter::update(const uint64_t &latency) {
+void LatencyCounter::update(const uint64_t &latency) {
     total_latency_.fetch_add(latency);
     cnt_++;
 }

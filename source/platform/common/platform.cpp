@@ -8,6 +8,7 @@
 #include <net-platform.h>
 #include <platform/node-inv-shmem.h>
 #include <ep-map.h>
+#include <util/timeutils.h>
 
 namespace fds {
 

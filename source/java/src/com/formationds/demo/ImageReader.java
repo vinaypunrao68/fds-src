@@ -4,18 +4,18 @@ package com.formationds.demo;
  */
 
 abstract class ImageReader {
-    private Counts counts;
+    private BucketStats bucketStats;
 
-    protected ImageReader() {
-        counts = new Counts();
+    protected ImageReader(BucketStats bucketStats) {
+        this.bucketStats = bucketStats;
     }
 
-    public Counts consumeCounts() {
-        return counts.consume();
+    public BucketStats counts() {
+        return bucketStats;
     }
 
     protected void increment(String volumeName) {
-        counts.increment(volumeName);
+        bucketStats.increment(volumeName);
     }
 
     protected abstract StoredImage read(StoredImage lastWritten) throws Exception;

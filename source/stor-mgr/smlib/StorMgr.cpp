@@ -606,7 +606,7 @@ void
 ObjectStorMgr::addSvcMap(const NodeUuid    &svcUuid,
                          const SessionUuid &sessUuid) {
     svcSessLock.write_lock();
-    LOGDEBUG << "NodeUuid: " << svcUuid.uuid_get_val() << ", Session Uuid: " << sessUuid;
+    LOGNORMAL << "NodeUuid: " << svcUuid.uuid_get_val() << ", Session Uuid: " << sessUuid;
     svcSessMap[svcUuid] = sessUuid;
     svcSessLock.write_unlock();
 }
@@ -1010,7 +1010,7 @@ void ObjectStorMgr::unitTest() {
      */
     err = enqPutObjectReq(msgHdr, put_obj_req, vol_id, 0, num_objs);
     if (err != ERR_OK) {
-        LOGDEBUG << "Failed to put object ";
+        LOGERROR << "Failed to put object ";
         // delete put_obj_req;
         return;
     }

@@ -29,10 +29,7 @@ class CliExitException(Exception):
 # Globals
 log = None
 parser = None
-svc_map = SvcMap()
-
-def add_node(id):
-    cluster.add_node(id)
+svc_map = None
 
 @arg('nodeid', type=long)
 def counters(nodeid, svc):
@@ -97,14 +94,29 @@ class MyShell(cmd.Cmd):
             pass
         return None
 
-if __name__ == '__main__':
-    log = ProcessUtils.setup_logger(file = 'console.log')
+def main(ip='127.0.0.1', port=7020):
+    """
+    Main entry point. Creates the argument parser, shell, and svc map objects
+    ip - ip of service that provides the svc map
+    port - port of service that provides the svc map
+    """
+    global parser
+    global svc_map
     parser = ArghParser()
     parser.add_commands([refresh,
-                         add_node,
                          counters,
                          svclist,
                          setflag,
                          printflag,
                          exit])
+    svc_map = SvcMap(ip, port)
     MyShell().cmdloop()
+
+if __name__ == '__main__':
+    log = ProcessUtils.setup_logger(file = 'console.log')
+    # Just for parsing arguments for main function
+    argv = sys.argv
+    argv[0] = 'main'
+    temp_parser = ArghParser()
+    temp_parser.add_commands([main])
+    temp_parser.dispatch(argv)

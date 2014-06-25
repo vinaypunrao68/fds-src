@@ -177,7 +177,7 @@ Error Serializable::loadSerialized(const std::string& serializedData) {
     try {
         serialize::Deserializer *d = serialize::getMemDeserializer(serializedData);
         bytesRead = read(d);
-        LOGNORMAL << "bytesread : " <<bytesRead;
+        LOGDEBUG << "bytesread : " <<bytesRead;
         delete d;
     } catch(const TProtocolException& e) {
         LOGERROR << e.what();

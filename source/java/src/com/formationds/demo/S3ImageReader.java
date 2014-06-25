@@ -13,19 +13,20 @@ import org.apache.commons.io.IOUtils;
 public class S3ImageReader extends ImageReader {
     private AmazonS3Client client;
 
-    public S3ImageReader(BasicAWSCredentials credentials) {
+    public S3ImageReader(BasicAWSCredentials credentials, BucketStats bucketStats) {
+        super(bucketStats);
         client = new AmazonS3Client(credentials);
     }
 
-    public S3ImageReader(String host, int port) {
-        this(new BasicAWSCredentials("foo", "bar"));
+    public S3ImageReader(String host, int port, BucketStats bucketStats) {
+        this(new BasicAWSCredentials("foo", "bar"), bucketStats);
         client.setS3ClientOptions(new S3ClientOptions().withPathStyleAccess(true));
         client.setEndpoint("http://" + host + ":" + port);
     }
 
     @Override
     protected StoredImage read(StoredImage storedImage) throws Exception {
-        S3Object object = client.getObject(storedImage.getVolumeName(), storedImage.getImageResource().getId());
+        S3Object object = client.getObject(storedImage.getVolumeName(), storedImage.getImageResource().getName());
         try (S3ObjectInputStream content = object.getObjectContent()) {
             IOUtils.toByteArray(content);
             increment(storedImage.getVolumeName());

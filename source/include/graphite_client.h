@@ -84,6 +84,7 @@ class GraphiteClient : public boost::noncopyable
 
   virtual ~GraphiteClient()
   {
+      socket_.close();
   }
 
   void start(int seconds)
