@@ -1,10 +1,10 @@
 #include "Platform.h"
 
 #include <stdio.h>
-
+#include <util/timeutils.h>
 void testRDTSC ( void )
 {
-  int64_t temp = rdtsc();
+    int64_t temp = fds::util::getClockTicks();
 
   printf("%d",(int)temp);
 }

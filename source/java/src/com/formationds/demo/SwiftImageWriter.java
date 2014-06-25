@@ -16,8 +16,8 @@ public class SwiftImageWriter extends ImageWriter {
     private String host;
     private int port;
 
-    public SwiftImageWriter(String host, int port, String[] volumeNames) {
-        super(volumeNames);
+    public SwiftImageWriter(String host, int port, String[] volumeNames, BucketStats bucketStats) {
+        super(volumeNames, bucketStats);
         this.host = host;
         this.port = port;
     }
@@ -28,7 +28,7 @@ public class SwiftImageWriter extends ImageWriter {
             String volume = randomVolume();
             URL sourceUrl = new URL(resource.getUrl());
             try (InputStream inputStream = new BufferedInputStream(sourceUrl.openConnection().getInputStream(), 1024 * 10)) {
-                String dest = MessageFormat.format(SwiftImageReader.URL_PATTERN, host, Integer.toString(port), volume, resource.getId());
+                String dest = MessageFormat.format(SwiftImageReader.URL_PATTERN, host, Integer.toString(port), volume, resource.getName());
                 HttpURLConnection cnx = (HttpURLConnection) new URL(dest).openConnection();
                 cnx.setDoOutput(true);
                 cnx.setRequestMethod("PUT");

@@ -9,7 +9,6 @@
 #include <fds_assert.h>
 #include <fds_module.h>
 #include <fds_process.h>
-
 namespace fds {
 
 Module::Module(char const *const name)
@@ -17,6 +16,10 @@ Module::Module(char const *const name)
       mod_lockstep(NULL), mod_intern(NULL), mod_name(name), mod_params(NULL) {}
 
 Module::~Module() {}
+
+const char* Module::getName() {
+    return mod_name;
+}
 
 // \Module::mod_init
 // -----------------
@@ -242,7 +245,7 @@ ModuleVector::mod_mk_sysparams()
 void
 ModuleVector::mod_init_modules()
 {
-    int     i, bailout;
+    int     i, bailout, retval;
     Module *mod;
 
     if (sys_mod_cnt == 0) {
@@ -257,10 +260,11 @@ ModuleVector::mod_init_modules()
         if ((mod->mod_exec_state & MOD_ST_INIT) == 0) {
             bailout += mod->mod_init(&sys_params);
             mod->mod_exec_state |= MOD_ST_INIT;
+            GLOGERROR << "module init failed : " << i << " : " << mod->getName();
         }
     }
     if (bailout != 0) {
-        exit(1);
+        fds_panic("module init failed");
     }
 }
 

@@ -27,7 +27,6 @@
 #include <atomic>
 #include <list>
 #include <unordered_map>
-#include "rdtsc.h"
 
 namespace fds { 
 using namespace std;

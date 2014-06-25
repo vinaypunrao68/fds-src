@@ -100,26 +100,6 @@ static inline int fds_tck_per_us()
 }
 
 /*
- * fds_rdtsc
- * ---------
- * Return the current CPU's ticks.  Need to move this to arch dep header file.
- */
-static inline volatile fds_uint64_t fds_rdtsc()
-{
-//    return (fds_uint64_t)clock();
-#ifdef __i386__
-    register fds_uint64_t tsc asm("eax");
-    asm volatile(".byte 15, 49" : : : "eax", "edx");
-    return tsc;
-#else
-    register fds_uint64_t hi, lo;
-
-    asm volatile("cpuid; rdtscp" : "=a"(lo), "=d"(hi));
-    return ((hi << 32) | lo);
-#endif
-}
-
-/*
  * fds_stat_record
  * ---------------
  * Record the stat at the module and recording point.

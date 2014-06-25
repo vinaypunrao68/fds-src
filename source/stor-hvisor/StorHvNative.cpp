@@ -7,6 +7,7 @@
 #include <native_api.h>
 #include <StorHvisorNet.h>
 #include <string>
+#include <util/timeutils.h>
 extern StorHvCtrl *storHvisor;
 
 namespace fds {
@@ -101,7 +102,7 @@ void FDS_NativeAPI::GetBucket(BucketContext *bucket_ctxt,
     Error err(ERR_OK);
     fds_volid_t volid = invalid_vol_id;
     FdsBlobReq *blob_req = NULL;
-    LOGNORMAL << "FDS_NativeAPI::GetBucket for bucket " << bucket_ctxt->bucketName;
+    LOGDEBUG << "FDS_NativeAPI::GetBucket for bucket " << bucket_ctxt->bucketName;
 
     /* check if bucket is attached to this AM */
     if (storHvisor->vol_table->volumeExists(bucket_ctxt->bucketName)) {
@@ -160,7 +161,7 @@ void FDS_NativeAPI::DeleteBucket(BucketContext* bucketCtxt,
                                  void *callbackData)
 {
     fds_volid_t ret_id;
-    LOGNORMAL << "FDS_NativeAPI:DeleteBucket for bucket " << bucketCtxt->bucketName;
+    LOGDEBUG << "FDS_NativeAPI:DeleteBucket for bucket " << bucketCtxt->bucketName;
     // check the bucket is already attached.
     ret_id = storHvisor->vol_table->getVolumeUUID(bucketCtxt->bucketName);
     if (ret_id == invalid_vol_id) {
@@ -213,7 +214,7 @@ void FDS_NativeAPI::ModifyBucket(BucketContext *bucket_ctxt,
     iops_min = iops_min * FDSN_QOS_PERF_NORMALIZER;
     iops_max = iops_max * FDSN_QOS_PERF_NORMALIZER;
 
-    LOGNORMAL << "FDS_NativeAPI::ModifyBucket bucket " << bucket_ctxt->bucketName
+    LOGDEBUG << "FDS_NativeAPI::ModifyBucket bucket " << bucket_ctxt->bucketName
               << " -- min_iops " << iops_min << " (sla " << qos_params.iops_min << ")"
               << ", max_iops " << iops_max << " (limit " << qos_params.iops_max << ")"
               << ", priority " << qos_params.relativePrio;
@@ -251,7 +252,7 @@ void FDS_NativeAPI::GetBucketStats(void *req_ctxt,
                                    void *callback_data)
 {
     FdsBlobReq *blob_req = NULL;
-    LOGNORMAL << "FDS_NativeAPI::GetBucketStats for all existing buckets";
+    LOGDEBUG << "FDS_NativeAPI::GetBucketStats for all existing buckets";
 
     /* this request will go directly to OM,
        so not need to check if buckets are attached, etc. */
@@ -286,17 +287,17 @@ FDS_NativeAPI::GetObject(BucketContextPtr bucket_ctxt,
     fds_volid_t volid = invalid_vol_id;
     fds_uint64_t start, end;
     FdsBlobReq *blob_req = NULL;
-    LOGNORMAL << "FDS_NativeAPI::GetObject for volume " << bucket_ctxt->bucketName
+    LOGDEBUG << "FDS_NativeAPI::GetObject for volume " << bucket_ctxt->bucketName
               << ", blob " << ObjKey << " of size " << byteCount << " at offset "
               << startByte;
 
     /* check if bucket is attached to this AM */
-    start = fds_rdtsc();
+    start = fds::util::getClockTicks();
     if (storHvisor->vol_table->volumeExists(bucket_ctxt->bucketName)) {
         volid = storHvisor->vol_table->getVolumeUUID(bucket_ctxt->bucketName);
         fds_verify(volid != invalid_vol_id);
     }
-    end = fds_rdtsc();
+    end = fds::util::getClockTicks();
     fds_stat_record(STAT_FDSN, FDSN_GO_CHK_BKET_EXIST, start, end);
 
     // if bucket is not attached to this AM, before sending attach request to OM
@@ -326,14 +327,14 @@ FDS_NativeAPI::GetObject(BucketContextPtr bucket_ctxt,
                  << " -- failed to allocate GetBlobReq";
         return;
     }
-    end = fds_rdtsc();
+    end = fds::util::getClockTicks();
     fds_stat_record(STAT_FDSN, FDSN_GO_ALLOC_BLOB_REQ, start, end);
 
     if (volid != invalid_vol_id) {
         /* bucket is already attached to this AM, enqueue IO */
         start = end;
         storHvisor->pushBlobReq(blob_req);
-        end = fds_rdtsc();
+        end = fds::util::getClockTicks();
         fds_stat_record(STAT_FDSN, FDSN_GO_ENQUEUE_IO, start, end);
         return;
     } else {
@@ -473,7 +474,7 @@ void FDS_NativeAPI::DeleteObject(BucketContext *bucket_ctxt,
     Error err(ERR_OK);
     fds_volid_t volid = invalid_vol_id;
     FdsBlobReq *blob_req = NULL;
-    LOGNORMAL << "FDS_NativeAPI::DeleteObject bucket " << bucket_ctxt->bucketName
+    LOGDEBUG << "FDS_NativeAPI::DeleteObject bucket " << bucket_ctxt->bucketName
               << " objKey " << ObjKey;
 
     // check if bucket is attached to this AM
@@ -534,7 +535,7 @@ void FDS_NativeAPI::DoCallback(FdsBlobReq  *blob_req,
 {
     FDSN_Status status(ERR_OK);
 
-    LOGNORMAL << " callback -"
+    LOGDEBUG << " callback -"
               << " [iotype:" << blob_req->getIoType() << "]"
               << " [error:"  << error << "]"
               << " [result:" << result << ":" << static_cast<FDSN_Status>(result) << "]";
