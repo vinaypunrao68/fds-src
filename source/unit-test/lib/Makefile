@@ -26,7 +26,8 @@ user_cpp          :=  \
     fds_process_interrupt_test.cpp \
     counters_test.cpp \
     trans_journal_ut.cpp \
-    SynchronizedTaskExecutor_ut.cpp
+    SynchronizedTaskExecutor_ut.cpp \
+    perf_trace_unit_test.cpp
 
 user_cc           :=
 user_no_style     := $(user_cpp) $(user_cc) $(wildcard *.h)
@@ -40,7 +41,8 @@ user_bin_exe      := \
     fds_process_interrupt_test \
     counters_test \
     trans_journal_ut \
-    SynchronizedTaskExecutor_ut     
+    SynchronizedTaskExecutor_ut \
+    perf_trace_unit_test
 
 catalog_test               := catalog_unit_test.cpp
 #qos_dispatcher_unit_test	:= qos_dispatcher_unit_test.cpp
@@ -52,5 +54,6 @@ fds_config_test            := fds_config_test.cpp
 counters_test              := counters_test.cpp
 trans_journal_ut           := trans_journal_ut.cpp
 SynchronizedTaskExecutor_ut     := SynchronizedTaskExecutor_ut.cpp
+perf_trace_unit_test       := perf_trace_unit_test.cpp
 
 include $(topdir)/Makefile.incl

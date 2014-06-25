@@ -27,7 +27,6 @@ user_no_style  := \
 	odb.h                 \
 	PerfTrace.h           \
 	qos_ctrl.h            \
-	rdtsc.h               \
 	TransJournal.h        \
 	tvclib.h              \
 	vvclib.h              \
