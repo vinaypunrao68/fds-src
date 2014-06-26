@@ -215,7 +215,6 @@ class OM_AgentContainer : public AgentContainer
                               const NodeUuidSet& filter_nodes);
 
   protected:
-    FdspNodeType                             ac_node_type;
     boost::shared_ptr<OM_ControlRespHandler> ctrlRspHndlr;
 
     NodeList                                 node_up_pend;

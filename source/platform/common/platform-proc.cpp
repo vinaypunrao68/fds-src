@@ -131,8 +131,6 @@ NodePlatformProc::run()
 {
     fpi::FDSP_RegisterNodeTypePtr pkt(new FDSP_RegisterNodeType);
 
-    plf_mgr->plf_run_server(true);
-
     plf_fill_disk_capacity_pkt(pkt);
     plf_mgr->plf_rpc_om_handshake(pkt);
 

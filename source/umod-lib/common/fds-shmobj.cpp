@@ -56,6 +56,7 @@ ShmObjRO::shm_lookup_rec(const void *key, void *rec, size_t rec_sz) const
     }
     if (idx == shm_obj_cnt) {
         memset(rec, 0, shm_obj_siz);
+        idx = -1;
     }
     return idx;
 }
@@ -206,7 +207,6 @@ ShmObjRW::shm_insert_rec(const void *key, const void *data, size_t dat_siz)
             idx = empty;
             cur = shm_rw_area + (empty * shm_obj_siz);
             memcpy(cur, data, shm_obj_siz);
-            shm_obj_cnt++;
         } else {
             idx = -1;
         }
@@ -236,7 +236,6 @@ ShmObjRW::shm_remove_rec(const void *key, void *data, size_t rec_sz)
             /* Found the matching record, remove it. */
             if (data != NULL) {
                 fds_verify(rec_sz == shm_obj_siz);
-                shm_obj_cnt--;
                 memcpy(data, cur, shm_obj_siz);
             }
             memset(cur, 0, shm_obj_siz);
@@ -264,7 +263,6 @@ ShmObjRW::shm_remove_rec(int idx, const void *key, void *data, size_t rec_sz)
     if (key != NULL) {
         fds_verify(obj_key_cmp(k, cur + shm_key_off, shm_key_siz) == 0);
     }
-    shm_obj_cnt--;
     if (data != NULL) {
         fds_verify(rec_sz == shm_obj_siz);
         memcpy(data, cur, shm_obj_siz);

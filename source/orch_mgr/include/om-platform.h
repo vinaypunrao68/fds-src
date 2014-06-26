@@ -4,10 +4,10 @@
 #ifndef SOURCE_ORCH_MGR_INCLUDE_OM_PLATFORM_H_
 #define SOURCE_ORCH_MGR_INCLUDE_OM_PLATFORM_H_
 
+#include <orchMgr.h>
 #include <platform/platform-lib.h>
-
-#include <net/net-service.h>
 #include <fds_typedefs.h>
+#include <net/net-service.h>
 
 /* Forward declarations */
 namespace FDS_ProtocolInterface {
@@ -20,6 +20,7 @@ namespace fds {
 /* Forward declarations */
 class OMSvcHandler;
 class OmPlatform;
+template <class SendIf, class RecvIf>class EndPoint;
 
 /**
  * This class provides plugin for the endpoint run by OmPlatform
@@ -43,11 +44,21 @@ class OMEpPlugin: public EpEvtPlugin
     OmPlatform *om_plat_;
 };
 
+typedef EndPoint<fpi::FDSP_ConfigPathReqIf,
+                 fpi::FDSP_ConfigPathReqProcessor>      OmConfigEp;
+typedef EndPoint<fpi::FDSP_OMControlPathReqIf,
+                 fpi::FDSP_OMControlPathReqProcessor>   OmControlEp;
+typedef EndPoint<fpi::OMSvcClient, fpi::OMSvcProcessor> OmPlatSvcEp;
+
+typedef bo::intrusive_ptr<OmConfigEp>                   OmConfigEpPtr;
+typedef bo::intrusive_ptr<OmControlEp>                  OmControlEpPtr;
+typedef bo::intrusive_ptr<OmPlatSvcEp>                  OmPlatSvcEpPtr;
+
 class OmPlatform : public Platform
 {
   public:
     OmPlatform();
-    virtual ~OmPlatform() {}
+    virtual ~OmPlatform();
 
     /**
      * Module methods
@@ -62,9 +73,14 @@ class OmPlatform : public Platform
     virtual PlatRpcResp *plat_creat_resp_disp();
     virtual PlatDataPathResp *plat_creat_dpath_resp();
 
-    OMEpPlugin::pointer           om_plugin;
-    // bo::shared_ptr<OMSvcHandler>  om_recv;
-    // EndPoint<FDS_ProtocolInterface::OMSvcClient, FDS_ProtocolInterface::OMSvcProcessor> *om_ep;
+    OMEpPlugin::pointer  om_plugin;
+    OmConfigEpPtr        om_cfg_ep;
+    OmControlEpPtr       om_ctrl_ep;
+    OmPlatSvcEpPtr       om_plat_ep;
+
+    bo::shared_ptr<FDSP_ConfigPathReqHandler>     om_cfg_rcv;
+    bo::shared_ptr<FDSP_OMControlPathReqHandler>  om_ctrl_rcv;
+    bo::shared_ptr<OMSvcHandler>                  om_plat_rcv;
 };
 
 extern OmPlatform gl_OmPlatform;

@@ -228,6 +228,9 @@ class NodeAgent : public NodeInventory
   protected:
     friend class AgentContainer;
     boost::intrusive_ptr<EpSvcHandle>                 nd_eph;
+    boost::shared_ptr<fpi::PlatNetSvcClient>          nd_svc_rpc;
+
+    boost::intrusive_ptr<EpSvcHandle>                 nd_ctrl_eph;
     boost::shared_ptr<fpi::FDSP_ControlPathReqClient> nd_ctrl_rpc;
 
     virtual ~NodeAgent();

@@ -498,6 +498,7 @@ NodeAgent::agent_publish_ep()
 
 AgentContainer::AgentContainer(FdspNodeType id) : RsContainer()
 {
+    ac_id        = id;
     ac_cpSessTbl = boost::shared_ptr<netSessionTbl>(new netSessionTbl(id));
 }
 
