@@ -2869,12 +2869,12 @@ def CheckStyle(filename, clean_lines, linenum, file_extension, nesting_state,
       not Match(r'^\s*//.*http(s?)://\S*$', line) and
       not Match(r'^// \$Id:.*#[0-9]+ \$$', line)):
     line_width = GetLineWidth(line)
-    if line_width > 100:
+    if line_width > 120:
       error(filename, linenum, 'whitespace/line_length', 4,
-            'Lines should very rarely be longer than 100 characters')
-    elif line_width > 90:
+            'Lines should very rarely be longer than 120 characters')
+    elif line_width > 100:
       error(filename, linenum, 'whitespace/line_length', 2,
-            'Lines should be <= 90 characters long')
+            'Lines should be <= 100 characters long')
 
   if (cleansed_line.count(';') > 1 and
       # for loops are allowed two ;'s (and may run over two lines).

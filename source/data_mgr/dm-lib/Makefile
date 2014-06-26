@@ -12,12 +12,15 @@ user_cpp          := \
 	VolumeMeta.cpp \
 	qos_ctrl.cpp   \
         CatalogSync.cpp \
+	CommitLog.cpp \
         CatalogSyncRecv.cpp
 
 user_no_style     := \
 	DataMgr.cpp \
 	VolumeMeta.cpp \
 	qos_ctrl.cpp   \
+        CatalogSync.cpp \
+	CommitLog.cpp \
         CatalogSync.cpp
 
 user_ar_libs      := fds-dm-lib

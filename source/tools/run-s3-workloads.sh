@@ -97,7 +97,7 @@ do
   wpids="$wpids $wpid"
   ix=`expr $ix + 1`
 
-  sleep 15
+  sleep 5
 done
 
 echo "Waiting for workloads to finish"

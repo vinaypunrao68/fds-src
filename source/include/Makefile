@@ -3,7 +3,8 @@ user_target    := lib
 user_rtime_env := user
 user_build_dir := \
     fdsp \
-    xdi \
+    apis \
+    blob \
     am-engine \
     concurrency \
     kvstore \
@@ -22,8 +23,6 @@ user_no_style  := \
 	fds_config.hpp        \
 	fds_obj_cache.h       \
 	fds_qos.h             \
-	fds_volume.h          \
-	native_api.h          \
 	odb.h                 \
 	PerfTrace.h           \
 	qos_ctrl.h            \

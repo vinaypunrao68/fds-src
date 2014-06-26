@@ -134,9 +134,6 @@ blktap_read_ring(struct fbd_device *tap)
 static int blktap_ring_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 {
 	printk("FDS:%s:%d blktap ring fault \n",__FILE__,__LINE__);
-	printk("FDS:%s:%d:  Ring fault %lx-%lx (%lu) pgoff %lu\n",
-		__FILE__,__LINE__,vma->vm_start, vma->vm_end, vma_pages(vma),
-		vma->vm_pgoff);
 	return VM_FAULT_SIGBUS;
 }
 
@@ -186,7 +183,7 @@ blktap_ring_vm_close(struct vm_area_struct *vma)
 {
 	struct fbd_device *tap = vma->vm_private_data;
 
-	printk("FDS:%s:%d: vm_close %lx-%lx (%lu) pgoff %lu\n",
+	printk("FDS:%s:d: vm_close %lx-%lx (%lu) pgoff %lu\n",
 		__FILE__,__LINE__,vma->vm_start, vma->vm_end, vma_pages(vma),
 		vma->vm_pgoff);
 
@@ -221,7 +218,7 @@ blktap_ring_map_request(struct fbd_device *tap, struct file *filp,
 	addr  = MMAP_VADDR(ring->user_vstart, request->usr_idx, 0);
 	len   = request->nr_pages << PAGE_SHIFT;
 
-	pgoff = BLKTAP_PAGE_NUM + request->usr_idx * BLKTAP_SEGMENT_MAX;
+	pgoff = 1 + request->usr_idx * BLKTAP_SEGMENT_MAX;
 
 	printk("FDS:%s:%d:  invoke  vm_mmap addr: %p len:%d\n",__FILE__,__LINE__,addr,len);
 	addr = vm_mmap(filp, addr, len, prot, flags, pgoff << PAGE_SHIFT);
@@ -507,21 +504,16 @@ blktap_ring_mmap_sring(struct fbd_device *tap, struct vm_area_struct *vma)
 		return -EBUSY;
 	}
 
-	page = alloc_pages(GFP_KERNEL|__GFP_ZERO, (BLKTAP_PAGE_NUM-1)); // pages order 2^x
-    split_page(page,1);
+	page = alloc_page(GFP_KERNEL|__GFP_ZERO);
 	if (!page)
 	{
 		printk("FDS:%s:%d: Alloc Page: No Memory \n",__FILE__,__LINE__);
 		return -ENOMEM;
 	}
 
-    vma->vm_flags |= VM_IO;
-
 	SetPageReserved(page);
-	err = vm_insert_page(vma, vma->vm_start, page);
-    SetPageReserved(page+1);
-    err = vm_insert_page(vma, vma->vm_start+PAGE_SIZE, page+1);
 
+	err = vm_insert_page(vma, vma->vm_start, page);
 	if (err)
 	{
 	  printk("FDS:%s:%d: Error:  vm inseting the pages \n", __FILE__,__LINE__);
@@ -531,12 +523,12 @@ blktap_ring_mmap_sring(struct fbd_device *tap, struct vm_area_struct *vma)
 	sring = page_address(page);
 	SHARED_RING_INIT(sring);
 	printk("FDS:%s:%d: init shared ring \n", __FILE__,__LINE__);
-	FRONT_RING_INIT(&ring->ring, sring, (PAGE_SIZE * BLKTAP_PAGE_NUM ));
+	FRONT_RING_INIT(&ring->ring, sring, PAGE_SIZE);
 	printk("FDS:%s:%d: Init  front ring  size:%d ",__FILE__,__LINE__, RING_SIZE(&ring->ring));
 	printk("FDS:%s:%d: prod_pvt: %d  rsp_con: %d \n",__FILE__,__LINE__, ring->ring.req_prod_pvt, ring->ring.rsp_cons);
 
 	ring->ring_vstart = vma->vm_start;
-	ring->user_vstart = (ring->ring_vstart +  (PAGE_SIZE * BLKTAP_PAGE_NUM));
+	ring->user_vstart = ring->ring_vstart + PAGE_SIZE;
 
 	vma->vm_private_data = tap;
 

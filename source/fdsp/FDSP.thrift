@@ -29,6 +29,8 @@ enum FDSP_MsgCodeType {
    FDSP_MSG_GET_VOL_BLOB_LIST_REQ,
    FDSP_MSG_OFFSET_WRITE_OBJ_REQ,
    FDSP_MSG_REDIR_READ_OBJ_REQ,
+   FDSP_STAT_BLOB,
+   FDSP_START_BLOB_TX,
 
    FDSP_MSG_PUT_OBJ_RSP,
    FDSP_MSG_GET_OBJ_RSP,
@@ -212,17 +214,37 @@ struct FDSP_MetaDataPair {
 
 typedef list <FDSP_MetaDataPair> FDSP_MetaDataList
 
+struct FDSP_VolumeMetaData {
+  1: i64 blobCount;
+  2: i64 size; // in bytes
+//  3: FDSP_MetaDataList metaData;
+}
+
+/* Can be consolidated when apis and fdsp merge or whatever */
+struct TxDescriptor {
+       1: required i64 txId
+       /* TODO(Andrew): Maybe add an op type (update/query)? */
+}
+
 struct FDSP_UpdateCatalogType {
   1: string blob_name, /* User visible name of the blob */
   2: i64 blob_version, /* Version of the blob. Only used in response! */
-  3: i64 blob_size, /* Size of blob. Only use in  response! */
-  4: i32 blob_mime_type, /* Encoding type of blob contents. */
-  5: FDSP_BlobDigestType digest, /* Not sure...? */
-  6: FDSP_BlobObjectList obj_list, /* List of object ids of the objects that this blob is being mapped to */
-  7: FDSP_MetaDataList meta_list, /* sequence of arbitrary key/value pairs */
-  8: i32 dm_transaction_id,   /* Transaction id */
-  9: i32 dm_operation,        /* Transaction type = OPEN, COMMIT, CANCEL */
- 10: i32 dmt_version,
+  3: TxDescriptor txDesc, /* Transaction ID...can supersede other tx fields */
+  4: i64 blob_size, /* Size of blob. Only use in  response! */
+  5: i32 blob_mime_type, /* Encoding type of blob contents. */
+  6: FDSP_BlobDigestType digest, /* Not sure...? */
+  7: FDSP_BlobObjectList obj_list, /* List of object ids of the objects that this blob is being mapped to */
+  8: FDSP_MetaDataList meta_list, /* sequence of arbitrary key/value pairs */
+  9: i32 dm_transaction_id,   /* Transaction id */
+  10: i32 dm_operation,        /* Transaction type = OPEN, COMMIT, CANCEL */
+  11: i32 dmt_version,
+}
+
+/* Can be consolidated when apis and fdsp merge or whatever */
+struct BlobDescriptor {
+     1: required string name,
+     2: required i64 byteCount,
+     3: required map<string, string> metadata
 }
 
 struct FDSP_QueryCatalogType {
@@ -373,39 +395,7 @@ struct FDSP_VolumeInfoType {
 // Basic operational properties
 
   5: FDSP_VolType        volType,
-  6: double        	 capacity,
-  7: double        	 maxQuota,  // Quota % of capacity tho should alert
-
-// Consistency related properties
-
-  8: i32        		 defReplicaCnt,  // Number of replicas reqd for this volume
-  9: i32        		 defWriteQuorum,  // Quorum number of writes for success
-  10: i32        		 defReadQuorum,  // This will be 1 for now
-  11: FDSP_ConsisProtoType 	 defConsisProtocol,  // Read-Write consistency protocol
-
-// Other policies
-
-  12: i32        		 volPolicyId,
-  13: i32         		 archivePolicyId,
-  14: i32        		 placementPolicy,  // Can change placement policy
-  15: FDSP_AppWorkload     	 appWorkload,
-  16: FDSP_MediaPolicy           mediaPolicy,      // can change media policy
-
-  17: i32         		 backupVolume,  // UUID of backup volume
-
-}
-
-struct FDSP_VolumeDescType {
-
-  1: string 		 vol_name,  /* Name of the volume */
-  2: i32 	 		 tennantId,  // Tennant id that owns the volume
-  3: i32    		 localDomainId,  // Local domain id that owns vol
-  4: i32	 		 globDomainId,
-  5: i64	 	 volUUID,
-
-// Basic operational properties
-
-  6: FDSP_VolType		 volType,
+  6: i32                 maxObjSizeInBytes,
   7: double        	 capacity,
   8: double        	 maxQuota,  // Quota % of capacity tho should alert
 
@@ -422,14 +412,48 @@ struct FDSP_VolumeDescType {
   14: i32         		 archivePolicyId,
   15: i32        		 placementPolicy,  // Can change placement policy
   16: FDSP_AppWorkload     	 appWorkload,
+  17: FDSP_MediaPolicy           mediaPolicy,      // can change media policy
 
-  17: i32         		 backupVolume,  // UUID of backup volume
+  18: i32         		 backupVolume,  // UUID of backup volume
+
+}
+
+struct FDSP_VolumeDescType {
+
+  1: string 		 vol_name,  /* Name of the volume */
+  2: i32 	 		 tennantId,  // Tennant id that owns the volume
+  3: i32    		 localDomainId,  // Local domain id that owns vol
+  4: i32	 		 globDomainId,
+  5: i64	 	 volUUID,
+
+// Basic operational properties
+
+  6: FDSP_VolType		 volType,
+  7: i32                 maxObjSizeInBytes,
+  8: double        	 capacity,
+  9: double        	 maxQuota,  // Quota % of capacity tho should alert
+
+// Consistency related properties
+
+  10: i32        		 defReplicaCnt,  // Number of replicas reqd for this volume
+  11: i32        		 defWriteQuorum,  // Quorum number of writes for success
+  12: i32        		 defReadQuorum,  // This will be 1 for now
+  13: FDSP_ConsisProtoType 	 defConsisProtocol,  // Read-Write consistency protocol
+
+// Other policies
+
+  14: i32        		 volPolicyId,
+  15: i32         		 archivePolicyId,
+  16: i32        		 placementPolicy,  // Can change placement policy
+  17: FDSP_AppWorkload     	 appWorkload,
+
+  18: i32         		 backupVolume,  // UUID of backup volume
 
 // volume policy details
-  18: double                 iops_min, /* minimum (guaranteed) iops */
-  19: double                 iops_max, /* maximum iops */
-  20: i32                    rel_prio, /* relative priority */
-  21: FDSP_MediaPolicy       mediaPolicy   /* media policy */
+  19: double                 iops_min, /* minimum (guaranteed) iops */
+  20: double                 iops_max, /* maximum iops */
+  21: i32                    rel_prio, /* relative priority */
+  22: FDSP_MediaPolicy       mediaPolicy   /* media policy */
 }
 
 struct FDSP_CreateDomainType {
@@ -1062,59 +1086,55 @@ service FDSP_RpcService {
 
 service FDSP_DataPathReq extends FDSP_RpcService {
     oneway void GetObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetObjType get_obj_req),
-
     oneway void PutObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_PutObjType put_obj_req),
-
     oneway void DeleteObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DeleteObjType del_obj_req),
-
     oneway void OffsetWriteObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_OffsetWriteObjType offset_write_obj_req),
-
     oneway void RedirReadObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_RedirReadObjType redir_write_obj_req),
-    
+
     /* Exposed for testing */
-	oneway void GetObjectMetadata(1:FDSP_GetObjMetadataReq metadata_req),
-	
-	FDSP_TokenMigrationStats GetTokenMigrationStats(1:FDSP_MsgHdrType fdsp_msg)
+    oneway void GetObjectMetadata(1:FDSP_GetObjMetadataReq metadata_req),
+    FDSP_TokenMigrationStats GetTokenMigrationStats(1:FDSP_MsgHdrType fdsp_msg)
 }
 
 service FDSP_DataPathResp {
     oneway void GetObjectResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_GetObjType get_obj_req),
-
     oneway void PutObjectResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_PutObjType put_obj_req),
-
     oneway void DeleteObjectResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DeleteObjType del_obj_req),
-
     oneway void OffsetWriteObjectResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_OffsetWriteObjType offset_write_obj_req),
-
     oneway void RedirReadObjectResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_RedirReadObjType redir_write_obj_req),
-    
     /* Exposed for testing */
-	oneway void GetObjectMetadataResp(1:FDSP_GetObjMetadataResp metadata_resp)
+    oneway void GetObjectMetadataResp(1:FDSP_GetObjMetadataResp metadata_resp)
 }
 
 service FDSP_MetaDataPathReq {
-
+    /* Using cleaner API convention. Just pass msg hdr for legacy compatability */
+    oneway void StartBlobTx(1:FDSP_MsgHdrType fds_msg, 2:string volumeName, 3:string blobName, 4:TxDescriptor txId),
     oneway void UpdateCatalogObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_UpdateCatalogType cat_obj_req),
-
     oneway void QueryCatalogObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_QueryCatalogType cat_obj_req),
-
     oneway void DeleteCatalogObject(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DeleteCatalogType cat_obj_req),
-
     oneway void GetVolumeBlobList(1:FDSP_MsgHdrType fds_msg, 2:FDSP_GetVolumeBlobListReqType blob_list_req),
+
+    /* Using cleaner API convention. Just pass msg hdr for legacy compatability */
+    oneway void StatBlob(1:FDSP_MsgHdrType fds_msg, 2:string volumeName, 3:string blobName)
+    oneway void SetBlobMetaData(1:FDSP_MsgHdrType header, 2:string volumeName, 3:string blobName, 4:FDSP_MetaDataList metaDataList)
+    oneway void GetBlobMetaData(1:FDSP_MsgHdrType header, 2:string volumeName, 3:string blobName)
+    oneway void GetVolumeMetaData(1:FDSP_MsgHdrType header, 2:string volumeName)
 }
 
 service FDSP_MetaDataPathResp {
-
+    /* Using cleaner API convention. Only success or error is returned. Done in msg hdr for legacy */
+    oneway void StartBlobTxResp(1:FDSP_MsgHdrType fds_msg),
     oneway void UpdateCatalogObjectResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_UpdateCatalogType cat_obj_req),
-
     oneway void QueryCatalogObjectResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_QueryCatalogType cat_obj_req),
-
     oneway void DeleteCatalogObjectResp(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DeleteCatalogType cat_obj_req),
-
     oneway void GetVolumeBlobListResp(1:FDSP_MsgHdrType fds_msg, 2:FDSP_GetVolumeBlobListRespType blob_list_rsp),
 
+    /* Using cleaner API convention. Just pass msg hdr for legacy compatability */
+    oneway void StatBlobResp(1:FDSP_MsgHdrType fds_msg, 2:BlobDescriptor blobDesc)
+    oneway void SetBlobMetaDataResp(1:FDSP_MsgHdrType header, 2:string blobName)
+    oneway void GetBlobMetaDataResp(1:FDSP_MsgHdrType header, 2:string blobName, 3:FDSP_MetaDataList metaDataList)
+    oneway void GetVolumeMetaDataResp(1:FDSP_MsgHdrType header, 2:FDSP_VolumeMetaData volumeMeta)
 }
-
 
 /*
  * From fdscli to OM (sync messages)

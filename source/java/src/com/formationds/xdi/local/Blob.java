@@ -19,13 +19,15 @@ public class Blob implements Persistent {
     private Volume volume;
     private String name;
     private String metadataJson = "{}";
+    private byte[] digest;
 
     public Blob() {
     }
 
-    public Blob(Volume volume, String name) {
+    public Blob(Volume volume, String name, byte[] digest) {
         this.volume = volume;
         this.name = name;
+        this.digest = digest;
     }
 
     @Id
@@ -67,6 +69,15 @@ public class Blob implements Persistent {
             metadata.put(k, o.getString(k));
         }
         return metadata;
+    }
+
+    @Column(name="digest", nullable = false)
+    public byte[] getDigest() {
+        return digest;
+    }
+
+    public void setDigest(byte[] digest) {
+        this.digest = digest;
     }
 
     public void setByteCount(long byteCount) {

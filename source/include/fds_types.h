@@ -22,7 +22,7 @@
 #include <functional>
 #include <atomic>
 #include <shared/fds_types.h>
-
+#include <serialize.h>
 #include <fds_assert.h>
 
 #include <boost/bind.hpp>
@@ -80,10 +80,10 @@ static const blob_version_t blob_version_invalid = 0;
 static const blob_version_t blob_version_initial = 1;
 static const blob_version_t blob_version_deleted =
         std::numeric_limits<fds_uint64_t>::max();
-
-class ObjectID {
+static const uint OBJECTID_DIGESTLEN = 20;
+class ObjectID : public serialize::Serializable {
   private:
-    uint8_t  digest[20];
+    uint8_t  digest[OBJECTID_DIGESTLEN];
 
   public:
     ObjectID();
@@ -92,7 +92,7 @@ class ObjectID {
     ObjectID(const ObjectID& rhs);  // NOLINT
     explicit ObjectID(const std::string& oid);
     ObjectID(uint8_t  *objId, uint32_t length);
-    ~ObjectID();
+    virtual ~ObjectID();
 
     /*
      * Assumes the length of the data is 2 * hash size.
@@ -105,6 +105,10 @@ class ObjectID {
         memcpy(digest, data.data(), data.length());
     }
     const uint8_t* GetId() const;
+
+    const uint getDigestLength() const {
+        return OBJECTID_DIGESTLEN;
+    }
 
    /*
     * bit mask. this will help to boost the performance 
@@ -120,6 +124,10 @@ class ObjectID {
     ObjectID& operator=(const ObjectID& rhs);
     ObjectID& operator=(const std::string& hexStr);
     std::string ToHex() const;
+
+    uint32_t write(serialize::Serializer*  serializer) const;
+    uint32_t read(serialize::Deserializer* deserializer);
+
     static std::string ToHex(const ObjectID& oid);
     static std::string ToHex(const uint8_t *key, fds_uint32_t len);
     static std::string ToHex(const char *key, fds_uint32_t len);
@@ -189,9 +197,17 @@ typedef enum {
     FDS_IO_OFFSET_WRITE,
     FDS_CAT_UPD,
     FDS_CAT_QRY,
+    FDS_START_BLOB_TX,
+    FDS_ABORT_BLOB_TX,
+    FDS_COMMIT_BLOB_TX,
+    FDS_ATTACH_VOL,
     FDS_LIST_BLOB,
     FDS_PUT_BLOB,
     FDS_GET_BLOB,
+    FDS_STAT_BLOB,
+    FDS_GET_BLOB_METADATA,
+    FDS_SET_BLOB_METADATA,
+    FDS_GET_VOLUME_METADATA,
     FDS_DELETE_BLOB,
     FDS_LIST_BUCKET,
     FDS_BUCKET_STATS,
@@ -215,112 +231,11 @@ std::ostream& operator<<(std::ostream& os, const fds_io_op_t& opType);
 #define  FDS_SH_IO_MAGIC_IN_USE 0x1B0A2C3D
 #define  FDS_SH_IO_MAGIC_NOT_IN_USE 0xE1D0A2B3
 
-class FdsBlobReq {
-  public:
-    /*
-     * Callback members
-     * TODO: Resolve this with what's needed by the object-based callbacks.
-     */
-    typedef boost::function<void(fds_int32_t)> callbackBind;
-
-  protected:
-    /*
-     * Common request header members
-     */
-    fds_uint32_t magic;
-    fds_io_op_t  ioType;
-
-    /*
-     * Volume members
-     */
-    fds_volid_t volId;
-
-    /*
-     * Blob members
-     */
-    std::string  blobName;
-    fds_uint64_t blobOffset;
-
-    /*
-     * Object members
-     */
-    ObjectID objId;
-
-    /*
-     * Buffer members
-     */
-    fds_uint64_t  dataLen;
-    char         *dataBuf;
-
-    /*
-     * Callback members
-     */
-    callbackBind callback;
-
-    /*
-     * Perf members
-     */
-    fds_uint64_t queuedUsec;  /* Time spec in queue */
-
-  public:
-    FdsBlobReq(fds_io_op_t      _op,
-               fds_volid_t        _volId,
-               const std::string &_blobName,
-               fds_uint64_t       _blobOffset,
-               fds_uint64_t       _dataLen,
-               char              *_dataBuf)
-        : magic(FDS_SH_IO_MAGIC_IN_USE),
-        ioType(_op),
-        volId(_volId),
-        blobName(_blobName),
-        blobOffset(_blobOffset),
-        dataLen(_dataLen),
-        dataBuf(_dataBuf) {
-    }
-    template<typename F, typename A, typename B, typename C>
-    FdsBlobReq(fds_io_op_t      _op,
-               fds_volid_t        _volId,
-               const std::string &_blobName,
-               fds_uint64_t       _blobOffset,
-               fds_uint64_t       _dataLen,
-               char              *_dataBuf,
-               F f,
-               A a,
-               B b,
-               C c)
-        : magic(FDS_SH_IO_MAGIC_IN_USE),
-        ioType(_op),
-        volId(_volId),
-        blobName(_blobName),
-        blobOffset(_blobOffset),
-        dataLen(_dataLen),
-        dataBuf(_dataBuf),
-        callback(boost::bind(f, a, b, c, _1)) {
-    }
-    ~FdsBlobReq() {
-      magic = FDS_SH_IO_MAGIC_NOT_IN_USE;
-    }
-
-    fds_bool_t magicInUse() const;
-    fds_volid_t getVolId() const;
-    fds_io_op_t  getIoType() const;
-    void setVolId(fds_volid_t vol_id);
-    void cbWithResult(int result);
-    const std::string& getBlobName() const;
-    fds_uint64_t getBlobOffset() const;
-    const char *getDataBuf() const;
-    fds_uint64_t getDataLen() const;
-    void setDataLen(fds_uint64_t len);
-    void setDataBuf(const char* _buf);
-    ObjectID getObjId() const;
-    void setObjId(const ObjectID& _oid);
-    void setQueuedUsec(fds_uint64_t _usec);
-};
 
 class FDS_IOType {
   public:
     FDS_IOType() {}
-    ~FDS_IOType() {}
+    virtual ~FDS_IOType() {}
 
     typedef enum {
         STOR_HV_IO,

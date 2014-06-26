@@ -14,19 +14,23 @@
 needed_packages=(
     redis-server
     oracle-java8-installer oracle-java8-set-default maven
-    libudev-dev libparted0-dev
+    libudev-dev 
+    libparted0-dev=2.3-16ubuntu1
     python2.7
     python-dev
     python-pip
 
-    libpcre3-dev
+    libpcre3-dev=1:8.31-2
     libpcre3
     libssl-dev
     libfuse-dev
 
+    libevent-dev
+
     bison
     flex
     ragel
+    ccache
 
     libboost-log1.54-dev
     libboost-program-options1.54-dev
@@ -105,9 +109,9 @@ echo "[devsetup] : checking ubuntu packages...."
 for pkg in ${needed_packages[@]} 
 do 
     echo "[devsetup] : checking $pkg ..."
-    pkgname=${pkg%%_*}
-    if [[ $pkg == *_* ]]; then 
-        pkgversion=${pkg##*_}
+    pkgname=${pkg%%=*}
+    if [[ $pkg == *=* ]]; then 
+        pkgversion=${pkg##*=}
     else
         pkgversion=""
     fi
@@ -115,7 +119,7 @@ do
     if [[ -z $pkgversion ]] ; then
         pkginfo=$( dpkg-query -f '${Package}' -W $pkgname 2>/dev/null)
     else
-        pkginfo=$( dpkg-query -f '${Package}_${Version}' -W $pkgname 2>/dev/null)
+        pkginfo=$( dpkg-query -f '${Package}=${Version}' -W $pkgname 2>/dev/null)
     fi
 
     # check the pkg state
@@ -150,6 +154,7 @@ echo "[devsetup] : checking python packages...."
 for pkg in ${python_packages[@]} 
 do 
     pkgname=${pkg}
+    echo "[devsetup] : [python] checking : $pkg"
     name=$(pip freeze 2>/dev/null | grep ^${pkgname}= | cut -f1 -d=)
     if  [[ -z $name ]] ; then 
         echo "[devsetup] : $pkg is not installed, but needed .. installing."

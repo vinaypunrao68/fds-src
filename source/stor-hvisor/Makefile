@@ -1,7 +1,7 @@
 topdir            := ..
 user_target       := lib
 user_rtime_env    := user
-user_build_dir    :=
+user_build_dir    := handler
 
 # TODO: remove the topdir path in the include search
 #
@@ -40,7 +40,6 @@ user_no_style     := $(user_cc) \
     StorHvisorClient.h \
     StorHvisorCPP.h \
     StorHvisorNet.h \
-    StorHvJournal.h \
     StorHvQosCtrl.h \
     StorHvVolumes.h \
     StorHvisorNet.cpp \
@@ -49,7 +48,6 @@ user_no_style     := $(user_cc) \
     StorHvisorTx.cpp \
     StorHvisorTbl.cpp \
     StorHvisorRx.cpp \
-    StorHvJournal.cpp \
     qos_ctrl.cpp \
     StorHvQosCtrl.cpp \
     StorHvVolumes.cpp \
@@ -57,7 +55,7 @@ user_no_style     := $(user_cc) \
     FDSNStat.cpp
 
 #user_no_style     :=
-user_ar_libs      := fds-StorHvisor
-fds-StorHvisor    := $(StorHvisor_cpp)
+user_ar_libs      := fds-am-engine
+fds-am-engine     := $(StorHvisor_cpp)
 
 include $(topdir)/Makefile.incl

@@ -26,7 +26,7 @@ public class RouteFinderTest {
         route = resolve(HttpMethod.GET, routeFinder, "/foo/andy/hello").get();
         assertEquals("andy", route.getAttributes().get("bar"));
 
-        route = resolve(HttpMethod.GET, routeFinder, "/foo/andy/hello/somethingelse").get();
+        route = resolve(HttpMethod.GET, routeFinder, "/foo/andy/hello////somethingelse").get();
         assertEquals("andy", route.getAttributes().get("bar"));
         assertEquals("somethingelse", route.getAttributes().get("panda"));
     }

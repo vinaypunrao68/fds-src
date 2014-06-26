@@ -276,7 +276,6 @@ class VolumeInfo : public Resource
     fds_volid_t               volUUID;
     VolumeDesc               *vol_properties;
     std::vector<NodeUuid>     vol_am_nodes;
-
     FSM_Volume *volume_fsm;
     // to protect access to msm process_event
     fds_mutex  fsm_lock;
@@ -372,6 +371,8 @@ class VolumeContainer : public RsContainer
                                 const FdspAttVolCmdPtr    &detach);
     virtual void om_test_bucket(const FdspMsgHdrPtr     &hdr,
                                 const FdspTestBucketPtr &req);
+
+    virtual Error getVolumeStatus(const std::string& volumeName);
 
     /**
      * Called by DMT state machine when rebalance is finished, and

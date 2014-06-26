@@ -5,13 +5,11 @@
 #include <string>
 
 #include <fds_volume.h>
-#include <fdsp/FDSP_types.h>
+#include <fds_typedefs.h>
 #include <util/Log.h>
 #include <kvstore/configdb.h>
 /* TODO: move to include dir if this is the top level API header file. */
 // #include <lib/Catalog.h>
-
-namespace fpi = FDS_ProtocolInterface;
 
 namespace fds {
 

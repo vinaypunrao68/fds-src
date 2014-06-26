@@ -13,7 +13,6 @@ import java.util.Iterator;
 
 public class FlickrStream implements Iterator<ImageResource> {
 
-    private static String IMAGE_URL_TEMPLATE = "http://farm%d.staticflickr.com/%s/%s_%s_z.jpg";
     private static String SEARCH_URL_TEMPLATE =
             "https://api.flickr.com/services/rest/?method=flickr.photos.search&api_key=649db4003b39b609a9794618581854dc&text=%s&per_page=%d&page=%d&format=json&nojsoncallback=1";
 
@@ -50,13 +49,11 @@ public class FlickrStream implements Iterator<ImageResource> {
         String server = jsonObject.getString("server");
         int farm = jsonObject.getInt("farm");
         String secret = jsonObject.getString("secret");
-        String o = jsonObject.toString();
-        String url = String.format(IMAGE_URL_TEMPLATE, farm, server, id, secret);
         currentOffset += 1;
         isDirty = true;
 
 
-        return new ImageResource(id, url);
+        return new FlickrImageResource(id, farm, server, secret);
     }
 
 

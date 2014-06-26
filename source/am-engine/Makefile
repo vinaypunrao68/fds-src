@@ -2,7 +2,7 @@ topdir           := ..
 user_target      := lib
 user_rtime_env   := user
 user_build_dir   := handlers
-user_incl_dir    :=
+user_incl_dir    := $(topdir)/stor-hvisor $(topdir)/fds_client $(topdir)/fds_client/include $(topdir)
 user_ragel       := am-urls.rl
 user_clean       := am-urls.cpp
 user_cpp         :=               \
@@ -12,7 +12,9 @@ user_cpp         :=               \
     atmos-connector.cpp \
     http_utils.cpp \
     am-urls.cpp \
-    fdsn-server.cpp
+    fdsn-server.cpp \
+    am-ubd-connect.cpp \
+    am-probe.cpp
 
 user_no_style    := am-urls.cpp
 user_ar_libs     := fds-am-engine

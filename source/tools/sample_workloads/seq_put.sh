@@ -16,7 +16,7 @@ SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 echo $SCRIPTDIR
 
 # For now we'll set it here, since AB is not in the same tree as fds-src
-AB_DIR=/home/povzner/tools/AB
+AB_DIR=/root/ab
 
 runtime=100000       # number of IOs generator will produce ( positive number means length of experiment in seconds) 
 blocksize=1048576    # in bytes

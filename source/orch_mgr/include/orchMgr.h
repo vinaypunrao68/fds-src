@@ -458,6 +458,7 @@ class OrchMgr: public FdsProcess {
     };
 };
 
+std::thread* runConfigService(OrchMgr* om);
 extern OrchMgr *gl_orch_mgr;
 
 }  // namespace fds

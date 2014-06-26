@@ -836,5 +836,7 @@ class netSessionTbl {
 
 typedef boost::shared_ptr<netSessionTbl> netSessionTblPtr;
 
-
+#define METADATA_SESSION(session,tbl,ip,port) \
+    netMetaDataPathClientSession *session = tbl->getClientSession<netMetaDataPathClientSession>(ip, port); \
+    fds_verify(session != NULL);
 #endif

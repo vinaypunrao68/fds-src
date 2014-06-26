@@ -5,6 +5,9 @@
 #include <am-engine/s3connector.h>
 #include <am-engine/atmos-connector.h>
 #include <am-engine/fdsn-server.h>
+#include <am-engine/am-ubd-connect.h>
+#include <am-engine/am-probe.h>
+#include <fds-probe/s3-probe.h>
 #include <util/fds_stat.h>
 #include <native_api.h>
 #include <am-platform.h>
@@ -29,19 +32,21 @@ class AM_Process : public PlatformProcess
         char **argv;
 
         PlatformProcess::proc_pre_startup();
-        FDS_NativeAPI *api = new FDS_NativeAPI(FDS_NativeAPI::FDSN_AWS_S3);
-        FDS_NativeAPI *api_atmos = new FDS_NativeAPI(FDS_NativeAPI::FDSN_EMC_ATMOS);
-        FDS_NativeAPI::ptr api_xdi(new FDS_NativeAPI(FDS_NativeAPI::FDSN_AWS_S3));
 
-        gl_AMEngineS3.init_server(api);
-        gl_AMEngineAtmos.init_server(api_atmos);
-        gl_FdsnServer.init_server(api_xdi);
+        FDS_NativeAPI::ptr api(new FDS_NativeAPI(FDS_NativeAPI::FDSN_AWS_S3));
+        gl_FdsnServer.init_server(api);
+        gl_AmUbdConnect.init_server(api);
+        if (conf_helper_.get<bool>("testing.enable_probe") == true) {
+            // Add the AM probe to the S3 connector probe
+            gl_probeS3Eng.probe_add_adapter(&gl_AmProbe);
+            gl_AmProbe.init_server(api);
+        }
 
         argv = mod_vectors_->mod_argv(&argc);
         CreateStorHvisorS3(argc, argv);
     }
     int run() override {
-        AMEngine::run_all_servers();
+        gl_FdsnServer.deinit_server();
         return 0;
     }
 };
@@ -57,9 +62,10 @@ int main(int argc, char **argv)
     fds::Module *am_mod_vec[] = {
         &fds::gl_fds_stat,
         &fds::gl_AmPlatform,
-        &fds::gl_AMEngineS3,
-        &fds::gl_AMEngineAtmos,
         &fds::gl_FdsnServer,
+        &fds::gl_AmUbdConnect,
+        &fds::gl_probeS3Eng,
+        &fds::gl_AmProbe,
         nullptr
     };
     fds::AM_Process am_process(argc, argv, &fds::gl_AmPlatform, am_mod_vec);

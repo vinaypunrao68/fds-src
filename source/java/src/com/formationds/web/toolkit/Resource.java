@@ -28,4 +28,5 @@ public interface Resource {
         return HttpServletResponse.SC_OK;
     }
 
+    public default Resource withHeader(String key, String value) { return new ResourceWrapper(this).withHeader(key, value);  }
 }

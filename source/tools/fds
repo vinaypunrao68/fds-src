@@ -18,6 +18,7 @@ TOOLSDIR="$(cd -P "$( dirname "${SOURCE}" )" && pwd )"
 SOURCEDIR="$( cd ${TOOLSDIR}/.. && pwd)"
 CONFIG_ETC=${SOURCEDIR}/config/etc
 BINDIR="${SOURCEDIR}/Build/linux-x86_64.debug/bin"
+KODIR="${SOURCEDIR}/fds_client/blk_dev"
 FDSROOT=/fds
 
 # else run from install dir
@@ -68,6 +69,15 @@ function setupFdsDirs() {
     fi
 }
 
+function setupFbd() {
+    logwarn "inserting block kernel module..."
+    sudo insmod ${KODIR}/fbd.ko
+}
+
+function teardownFbd() {
+    logwarn "removing block kernel module..."
+    sudo rmmod fbd
+}
 
 function activate() {
     # Bao: wait for platformd before activate
@@ -82,6 +92,7 @@ function startApp() {
     local justapps="${applist}"
 
     setupFdsDirs
+    setupFbd
 
     if [[ $appname == "all" ]]; then
         justapps="om pm"
@@ -137,6 +148,8 @@ function stopApp() {
             fi
         fi
     done
+
+    teardownFbd
 
     # Not stopping redis for now
 }
@@ -207,9 +220,15 @@ function waitForApp() {
     local name=$1
     local lpid=""
     local maxcount=20
-    if [[ $# -eq 2 ]] ; then
+    local waitime=1
+    if [[ $# -ge 2 ]] ; then
         maxcount=$2
     fi
+
+    if [[ $# -ge 3 ]] ; then
+       waittime=$3
+    fi
+
     local count=0
     echo -n "... waiting for [$(boldblue $name)] to come up: "
     lpid=""
@@ -218,7 +237,7 @@ function waitForApp() {
         lpid=$(getAppPid $name)
         if [[ -z $lpid ]]; then
             (( count++ ))
-            sleep 1s ;
+            sleep ${waittime}s ;
         fi
     done
     echo
@@ -240,7 +259,7 @@ function attachgdb() {
         ;;
     esac
 
-    if (waitForApp $app); then
+    if (waitForApp $app 2000 0.1); then
         sudo gdb -p $(getAppPid $app)
     else
         logerror "could not attach to [$(blue $app)]"
@@ -251,6 +270,7 @@ function taillog() {
     local app=$1
     case "${app}" in
         om|am|dm|sm|pm)
+            ls -1 ${FDSROOT}/var/logs/${app}.log*.log
             tail -F ${FDSROOT}/var/logs/${app}.log*.log
             ;;
         redis)
@@ -287,17 +307,23 @@ function cleanBinDirs() {
 
 
 function clean() {
-    loginfo "cleaning up: ${FDSROOT}"
-    (
-        rm -rf /${FDSROOT}/hdd/sd?
-        rm -rf /${FDSROOT}/ssd/sd?
-        rm -rf /${FDSROOT}/sys-repo/*
-        rm -rf /${FDSROOT}/nginx/logs/*
-        rm -rf /${FDSROOT}/user-repo/*
-        # redis stuff
-        ${TOOLSDIR}/redis.sh clean 1 $REDIS_ARG
-        cleanlogs
-    ) 2>/dev/null
+    for node in ${FDSROOT} ${FDSROOT}/node1 ${FDSROOT}/node2 ${FDSROOT}/node3 ${FDSROOT}/node4 ; do
+        if [[ -d $node ]] ; then
+            loginfo "cleaning up: ${node}"
+            (
+                rm -rf /${node}/hdd/sd?
+                rm -rf /${node}/ssd/sd?
+                rm -rf /${node}/sys-repo/*
+                rm -rf /${node}/nginx/logs/*
+                rm -rf /${node}/user-repo/*
+                rm -rf /${node}/dev/*
+                rm -rf /${node}/var/stats/*
+                # redis stuff
+                ${TOOLSDIR}/redis.sh clean 1 $REDIS_ARG
+                cleanlogs
+            ) 2>/dev/null
+        fi
+    done
 
     cleanBinDirs
 }

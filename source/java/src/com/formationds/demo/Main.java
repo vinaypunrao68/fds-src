@@ -3,28 +3,42 @@ package com.formationds.demo;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+import com.amazonaws.auth.BasicAWSCredentials;
+import com.formationds.om.LandingPage;
 import com.formationds.util.Configuration;
+import com.formationds.util.libconfig.ParsedConfig;
 import com.formationds.web.toolkit.HttpMethod;
 import com.formationds.web.toolkit.WebApp;
-import com.formationds.xdi.Xdi;
-import com.formationds.xdi.local.LocalAmShim;
 import org.joda.time.Duration;
 
 public class Main {
     public static final String DEMO_DOMAIN = "demo";
+    public static final String[] VOLUMES = new String[]{"fdspanda", "fdslemur", "fdsfrog", "fdsmuskrat"};
 
     public static void main(String[] args) throws Exception {
-        Configuration config = new Configuration(args);
-        new Main().start(8888);
+        ParsedConfig demoConfig = new Configuration("demo", args).getDemoConfig();
+        new Main().start(demoConfig);
     }
 
-    public void start(int port)  {
-        LocalAmShim shim = new LocalAmShim(DEMO_DOMAIN);
-        shim.createDomain(DEMO_DOMAIN);
+    public void start(ParsedConfig d) throws Exception {
+        DemoConfig demoConfig = new DemoConfig(
+                d.lookup("fds.demo.am_host").stringValue(),
+                d.lookup("fds.demo.swift_port").intValue(),
+                d.lookup("fds.demo.s3_port").intValue(),
+                new BasicAWSCredentials(
+                        d.lookup("fds.demo.aws_id").stringValue(),
+                        d.lookup("fds.demo.aws_secret").stringValue()
+                ),
+                VOLUMES
+        );
 
-        Xdi xdi = new Xdi(shim);
-        WebApp webApp = new WebApp();
-        TransientState state = new TransientState(Duration.standardMinutes(5), xdi);
+        DemoState state = new RealDemoState(Duration.standardSeconds(30), demoConfig);
+
+        String webDir = d.lookup("fds.demo.web_dir").stringValue();
+        int webappPort = d.lookup("fds.demo.webapp_port").intValue();
+
+        WebApp webApp = new WebApp(webDir);
+        webApp.route(HttpMethod.GET, "/", () -> new LandingPage(webDir));
 
         // POST query string (URL string, q=foo)
         // return 200 OK, body unspecified
@@ -53,32 +67,15 @@ public class Main {
         webApp.route(HttpMethod.GET, "/demo/throttle/writes", () -> new GetThrottle(state, Throttle.write));
 
         webApp.route(HttpMethod.GET, "/demo/pollStats", () -> new PerfStats(state));
-    /*
-       Returns a jason frame like so:
 
-       [
-          {
-             operation: "Read performance",
-             unit: "IOPs/second"
-             values:
-             {
-                "Volume1": 43,
-                "Volume2": 5,
-                "Volume3": 12,
-             }
-          },
-          {
-             operation: "Write performance",
-             unit: "IOPs/second"
-             values:
-             {
-                "Volume1": 43,
-                "Volume2": 5,
-                "Volume3": 12,
-             }
-          }
-       ]
-*/
-        webApp.start(port);
+        // #POST, "/demo/adapter?type=amazonS3"
+        // return 200 OK, {"type": "amazonS3"}
+        webApp.route(HttpMethod.POST, "/demo/adapter", () -> new SetObjectStore(state));
+
+        // #GET, "/demo/adapter"
+        // return 200 OK, {"type": "amazonS3"}
+        webApp.route(HttpMethod.GET, "/demo/adapter", () -> new GetObjectStore(state));
+
+        webApp.start(webappPort);
     }
 }

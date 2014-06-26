@@ -17,6 +17,7 @@
 #include <fds_types.h>
 #include <fds_volume.h>
 #include <qos_ctrl.h>
+#include <blob/BlobTypes.h>
 #include <fds_qos.h>
 #include <util/Log.h>
 #include <concurrency/RwLock.h>
@@ -88,110 +89,225 @@ class StorHvVolumeLock
 };
 class AmQosReq;
 
-class StorHvVolumeTable : public HasLogger
-{
- public:
-  /* A logger is created if not passed in */
-  StorHvVolumeTable(StorHvCtrl *sh_ctrl);
-  /* Use logger that passed in to the constructor */
-  StorHvVolumeTable(StorHvCtrl *sh_ctrl, fds_log *parent_log);
-  ~StorHvVolumeTable();
+class StorHvVolumeTable : public HasLogger {
+  public:
+    /// A logger is created if not passed in
+    StorHvVolumeTable(StorHvCtrl *sh_ctrl);
+    /// Use logger that passed in to the constructor
+    StorHvVolumeTable(StorHvCtrl *sh_ctrl, fds_log *parent_log);
+    ~StorHvVolumeTable();
 
-  Error registerVolume(const VolumeDesc& vdesc); 
-  Error removeVolume(fds_volid_t vol_uuid);
+    Error registerVolume(const VolumeDesc& vdesc); 
+    Error removeVolume(fds_volid_t vol_uuid);
 
-  /* 
-   * Returns the locked volume object. Guarantees that the
-   * returned volume object is valid (i.e., can safely access
-   * journal table and volume catalog cache) 
-   * Must call StorHvVolume::readUnlock on returned volume object 
-   * Returns NULL if volume does not exist
-   */
-  StorHvVolume* getLockedVolume(fds_volid_t vol_uuid);
+    /**
+     * Returns the locked volume object. Guarantees that the
+     * returned volume object is valid (i.e., can safely access
+     * journal table and volume catalog cache) 
+     * Must call StorHvVolume::readUnlock on returned volume object 
+     * Returns NULL if volume does not exist
+     */
+    StorHvVolume* getLockedVolume(fds_volid_t vol_uuid);
 
-  /**
-   * Returns volume but not thread-safe 
-   * Use StorHvVolumeLock to lock the volume and check if volume
-   * object is still valid via StorHvVolume::isValidLocked() 
-   * before using the volume object 
-   * Returns NULL is volume does not exist
-   */
-  StorHvVolume* getVolume(fds_volid_t vol_uuid);
+    /**
+     * Returns volume but not thread-safe 
+     * Use StorHvVolumeLock to lock the volume and check if volume
+     * object is still valid via StorHvVolume::isValidLocked() 
+     * before using the volume object 
+     * Returns NULL is volume does not exist
+     */
+    StorHvVolume* getVolume(fds_volid_t vol_uuid);
 
-  /**
-   * Returns list of volume ids currently in the table
-   */
-  StorHvVolVec getVolumeIds();
+    /**
+     * Returns list of volume ids currently in the table
+     */
+    StorHvVolVec getVolumeIds();
 
-  /**
-   * Returns volume uuid if found in volume map.
-   * if volume does not exist, returns 'invalid_vol_id'  
-   */
-  fds_volid_t getVolumeUUID(const std::string& vol_name);
+    /**
+     * Returns the volumes max object size
+     */
+    fds_uint32_t getVolMaxObjSize(fds_volid_t volUuid);
 
-  /** returns true if volume exists, otherwise retuns false */
-  fds_bool_t volumeExists(const std::string& vol_name);
+    /**
+     * Returns volume uuid if found in volume map.
+     * if volume does not exist, returns 'invalid_vol_id'  
+     */
+    fds_volid_t getVolumeUUID(const std::string& vol_name);
 
-  /**
-   * Add blob request to wait queue -- those are blobs that
-   * are waiting for OM to attach buckets to AM; once 
-   * vol table receives vol attach event, it will move 
-   * all requests waiting in the queue for that bucket to
-   * appropriate qos queue
-   */
-  void addBlobToWaitQueue(const std::string& bucket_name,
-			  FdsBlobReq* blob_req);
+    /**
+     * Returns volume name if found in volume map.
+     * if volume does not exist, returns empty string
+     */
+    std::string getVolumeName(fds_volid_t volId);
 
-  /**
-   * Complete blob requests that are waiting in wait queue
-   * with error (because e.g. volume not found, etc).
-   */
-  void completeWaitBlobsWithError(const std::string& bucket_name,
-                                  Error err) {
-      moveWaitBlobsToQosQueue(invalid_vol_id, bucket_name, err);
-  }
+    /** returns true if volume exists, otherwise retuns false */
+    fds_bool_t volumeExists(const std::string& vol_name);
 
- private: /* methods */ 
+    /**
+     * Add blob request to wait queue -- those are blobs that
+     * are waiting for OM to attach buckets to AM; once 
+     * vol table receives vol attach event, it will move 
+     * all requests waiting in the queue for that bucket to
+     * appropriate qos queue
+     */
+    void addBlobToWaitQueue(const std::string& bucket_name,
+                            FdsBlobReq* blob_req);
 
-  /* handler for volume-related control message from OM */
-  static Error volumeEventHandler(fds_volid_t vol_uuid, 
-                                  VolumeDesc *vdb,
-                                  fds_vol_notify_t vol_action,
-                                  FDS_ProtocolInterface::FDSP_NotifyVolFlag,
-                                  FDS_ProtocolInterface::FDSP_ResultType);
-  
-  Error modifyVolumePolicy(fds_volid_t vol_uuid,
-			  const VolumeDesc& vdesc);
- 
-  void moveWaitBlobsToQosQueue(fds_volid_t vol_uuid,
-			       const std::string& vol_name,
-			       Error error);
+    /**
+     * Complete blob requests that are waiting in wait queue
+     * with error (because e.g. volume not found, etc).
+     */
+    void completeWaitBlobsWithError(const std::string& bucket_name,
+                                    Error err) {
+        moveWaitBlobsToQosQueue(invalid_vol_id, bucket_name, err);
+    }
 
-  /* print volume map, other detailed state to log */
-  void dump();
+  private:
+    /// handler for volume-related control message from OM
+    static Error volumeEventHandler(fds_volid_t vol_uuid, 
+                                    VolumeDesc *vdb,
+                                    fds_vol_notify_t vol_action,
+                                    FDS_ProtocolInterface::FDSP_NotifyVolFlag,
+                                    FDS_ProtocolInterface::FDSP_ResultType);
+    Error modifyVolumePolicy(fds_volid_t vol_uuid,
+                             const VolumeDesc& vdesc);
+    void moveWaitBlobsToQosQueue(fds_volid_t vol_uuid,
+                                 const std::string& vol_name,
+                                 Error error);
+    /// print volume map, other detailed state to log
+    void dump();
     
- private: /* data */
+  private:
+    /// volume uuid -> StorHvVolume map
+    std::unordered_map<fds_volid_t, StorHvVolume*> volume_map;   
 
-  /* volume uuid -> StorHvVolume map */
-  std::unordered_map<fds_volid_t, StorHvVolume*> volume_map;   
+    /// Protects volume_map
+    fds_rwlock map_rwlock;
 
-  /* Protects volume_map */
-  fds_rwlock map_rwlock;
+    /**
+     * list of blobs that are waiting for OM to attach appropriate
+     * bucket to AM if it exists/ or return 'does not exist error
+     */
+    typedef std::vector<AmQosReq*> bucket_wait_vec_t;
+    typedef std::map<std::string, bucket_wait_vec_t> wait_blobs_t;
+    typedef std::map<std::string, bucket_wait_vec_t>::iterator wait_blobs_it_t; 
+    wait_blobs_t wait_blobs;
+    fds_rwlock wait_rwlock;
 
-  /* list of blobs that are waiting for OM to attach appropriate
-   * bucket to AM if it exists/ or return 'does not exist error */
-  typedef std::vector<AmQosReq*> bucket_wait_vec_t;
-  typedef std::map<std::string, bucket_wait_vec_t> wait_blobs_t;
-  typedef std::map<std::string, bucket_wait_vec_t>::iterator wait_blobs_it_t; 
-  wait_blobs_t wait_blobs;
-  fds_rwlock wait_rwlock;
+    /// Reference to parent SH instance
+    StorHvCtrl *parent_sh;
+};
 
-  /* Reference to parent SH instance */
-  StorHvCtrl *parent_sh;
+class StartBlobTxReq : public FdsBlobReq {
+  public:
+    std::string volumeName;
 
-  /*
-   * Pointer to logger to use 
-   */
+    /**
+     * Request constructor. Some of the fields
+     * are not actually needed...the base blob
+     * request class just expects them.
+     */
+    StartBlobTxReq(fds_volid_t        _volid,
+                   const std::string &_vol_name,
+                   const std::string &_blob_name,
+                   fds_uint64_t       _blob_offset,
+                   fds_uint64_t       _data_len,
+                   char              *_data_buf,
+                   CallbackPtr        _cb) :
+            FdsBlobReq(FDS_START_BLOB_TX, _volid, _blob_name, _blob_offset,
+                       _data_len, _data_buf, _cb),
+            volumeName(_vol_name) {
+    }
+    ~StartBlobTxReq() {
+    }
+
+    const std::string& getVolumeName() const {
+        return volumeName;
+    }
+};
+
+class StatBlobReq : public FdsBlobReq {
+  public:
+    std::string volumeName;
+
+    /**
+     * Request constructor. Some of the fields
+     * are not actually needed...the base blob
+     * request class just expects them.
+     */
+    StatBlobReq(fds_volid_t          _volid,
+                const std::string   &_vol_name,
+                const std::string   &_blob_name,
+                fds_uint64_t         _blob_offset,
+                fds_uint64_t         _data_len,
+                char                *_data_buf,
+                CallbackPtr cb) :
+            FdsBlobReq(FDS_STAT_BLOB, _volid, _blob_name, _blob_offset,
+                       _data_len, _data_buf, cb),
+                    volumeName(_vol_name) {
+    }
+    ~StatBlobReq() {
+    }
+
+    const std::string& getVolumeName() const {
+        return volumeName;
+    }
+};
+
+struct SetBlobMetaDataReq : FdsBlobReq {
+    std::string volumeName;
+    boost::shared_ptr<FDSP_MetaDataList> metaDataList;
+    SetBlobMetaDataReq(fds_volid_t _volid,
+                       const std::string   &_vol_name,
+                       const std::string   &_blob_name,
+                       boost::shared_ptr<FDSP_MetaDataList> metaDataList,
+                       CallbackPtr cb) :
+            FdsBlobReq(FDS_SET_BLOB_METADATA, _volid, _blob_name, 0, 0, NULL, cb),
+            volumeName(_vol_name), metaDataList(metaDataList) {
+    }
+};
+
+struct GetVolumeMetaDataReq : FdsBlobReq {
+    std::string volumeName;
+    GetVolumeMetaDataReq(fds_volid_t volId, const std::string & volumeName, CallbackPtr cb) :
+            FdsBlobReq(FDS_GET_VOLUME_METADATA, volId, "" , 0, 0, NULL, cb),
+            volumeName(volumeName) {
+}
+};
+
+/**
+ * AM request to locally attach a volume.
+ * This request is not specific to a blob,
+ * but needs to be in the blob wait queue
+ * to call the callback and notify that the
+ * attach is complete.
+ */
+class AttachVolBlobReq : public FdsBlobReq {
+  public:
+    std::string volumeName;
+
+    /**
+     * Request constructor. Some of the fields
+     * are not actually needed...the base blob
+     * request class just expects them.
+     */
+    AttachVolBlobReq(fds_volid_t          _volid,
+                     const std::string   &_vol_name,
+                     const std::string   &_blob_name,
+                     fds_uint64_t         _blob_offset,
+                     fds_uint64_t         _data_len,
+                     char                *_data_buf,
+                     CallbackPtr cb) :
+            FdsBlobReq(FDS_ATTACH_VOL, _volid, _blob_name, _blob_offset,
+                       _data_len, _data_buf, cb),
+                    volumeName(_vol_name) {
+    }
+    ~AttachVolBlobReq() {
+    }
+
+    const std::string& getVolumeName() const {
+        return volumeName;
+    }
 };
 
 class GetBlobReq: public FdsBlobReq {
@@ -203,12 +319,6 @@ class GetBlobReq: public FdsBlobReq {
     void *req_context;
     fdsnGetObjectHandler getObjCallback;
     void *callback_data;
-
-    /// Size of the blob read from
-    fds_uint64_t blobSize;
-
-    /// Etag of the blob read from
-    std::string blobEtag;
 
     GetBlobReq(fds_volid_t _volid,
                const std::string& _blob_name, //same as objKey
@@ -229,8 +339,7 @@ class GetBlobReq: public FdsBlobReq {
               byteCount(_byte_count),
               req_context(_req_context),
               getObjCallback(_get_obj_handler),
-              callback_data(_callback_data),
-              blobSize(0) {
+              callback_data(_callback_data) {
     }
 
     ~GetBlobReq() { };
@@ -238,39 +347,32 @@ class GetBlobReq: public FdsBlobReq {
     void DoCallback(FDSN_Status status, ErrorDetails* errDetails) {
         (getObjCallback)(bucket_ctxt,
                          req_context, dataLen, blobOffset, dataBuf,
-                         blobSize, blobEtag,
                          callback_data, status, errDetails);
-    }
-
-    void setBlobSize(fds_uint64_t size) {
-        blobSize = size;
-    }
-
-    void setBlobEtag(const std::string &etag) {
-        blobEtag = etag;
-    }
-
-    std::string getBlobEtag() {
-        return blobEtag;
     }
 };
 
 
 class PutBlobReq: public FdsBlobReq {
   public:
+    // TODO(Andrew): Fields that could use some cleanup.
+    // We can mostly remove these with the new callback mechanism
     BucketContext *bucket_ctxt;
     std::string ObjKey;
     PutPropertiesPtr putProperties;
     void *req_context;
-    fdsnPutObjectHandler putObjCallback;
     void *callback_data;
     fds_bool_t lastBuf;
+    fdsnPutObjectHandler putObjCallback;
+
+    // Needed fields
+    BlobTxId::ptr txDesc;
 
     PutBlobReq(fds_volid_t _volid,
                const std::string& _blob_name, //same as objKey
                fds_uint64_t _blob_offset,
                fds_uint64_t _data_len,
                char* _data_buf,
+               BlobTxId::ptr _txDesc,
                fds_bool_t _last_buf,
                BucketContext* _bucket_ctxt,
                PutPropertiesPtr _put_props,
@@ -280,13 +382,14 @@ class PutBlobReq: public FdsBlobReq {
             : FdsBlobReq(FDS_PUT_BLOB, _volid, _blob_name, _blob_offset,
                          _data_len, _data_buf, FDS_NativeAPI::DoCallback,
                          this, Error(ERR_OK), 0),
-              lastBuf(_last_buf),
-              bucket_ctxt(_bucket_ctxt),
-              ObjKey(_blob_name),
-              putProperties(_put_props),
-              req_context(_req_context),
-              putObjCallback(_put_obj_handler),
-              callback_data(_callback_data) {
+        lastBuf(_last_buf),
+        bucket_ctxt(_bucket_ctxt),
+        ObjKey(_blob_name),
+        putProperties(_put_props),
+        req_context(_req_context),
+        putObjCallback(_put_obj_handler),
+        callback_data(_callback_data),
+        txDesc(_txDesc) {
     }
 
     fds_bool_t isLastBuf() const {
@@ -299,6 +402,10 @@ class PutBlobReq: public FdsBlobReq {
             etag = putProperties->md5;
         }
         return etag;
+    }
+
+    BlobTxId::const_ptr getTxId() const {
+        return txDesc;
     }
 
     ~PutBlobReq() { };
@@ -352,7 +459,7 @@ class BucketStatsReq: public FdsBlobReq {
   /* for "get all bucket stats", blob name in base class is set to 
    * "all", it's ok if some other bucket will have this name, because 
    * we can identify response to a request by trans id (once request is dispatched */
-
+    
   BucketStatsReq(void *_req_context,
 		 fdsnBucketStatsHandler _handler,
 		 void *_callback_data)

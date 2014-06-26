@@ -90,19 +90,14 @@ std::string Error::GetErrstr() const {
 }
 
 FDS_ProtocolInterface::FDSP_ErrType Error::getFdspErr() const {
-    switch (_errno) {
-        case ERR_OK:
-            return FDS_ProtocolInterface::FDSP_ERR_OKOK;
-        default:
-            if (!OK()) {
-                return FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE;
-            }
-    }
-    return FDS_ProtocolInterface::FDSP_ERR_OKOK;
+    return (OK() ? FDS_ProtocolInterface::FDSP_ERR_OKOK :
+            FDS_ProtocolInterface::FDSP_ERR_SM_NO_SPACE);
 }
 
 Error& Error::operator=(const Error& rhs) {
-    _errno = rhs._errno;
+    if (this != &rhs) {
+        _errno = rhs._errno;
+    }
     return *this;
 }
 
@@ -120,11 +115,11 @@ bool Error::operator==(const fds_errno_t& rhs) const {
 }
 
 bool Error::operator!=(const Error& rhs) const {
-    return (this->_errno != rhs._errno);
+    return !(*this == rhs);
 }
 
 bool Error::operator!=(const fds_errno_t& rhs) const {
-    return (this->_errno != rhs);
+    return !(*this == rhs);
 }
 
 Error::~Error() {
@@ -136,11 +131,13 @@ std::ostream& operator<<(std::ostream& out, const Error& err) {
 
 std::ostream& operator<<(std::ostream& os, FDSN_Status status) {
     switch (status) {
+        ENUMCASEOS(FDSN_StatusNOTSET                             , os);
         ENUMCASEOS(FDSN_StatusOK                                 , os);
         ENUMCASEOS(FDSN_StatusCreated                            , os);
         ENUMCASEOS(FDSN_StatusInternalError                      , os);
         ENUMCASEOS(FDSN_StatusOutOfMemory                        , os);
         ENUMCASEOS(FDSN_StatusInterrupted                        , os);
+        ENUMCASEOS(FDSN_StatusTxnInProgress                      , os);
         ENUMCASEOS(FDSN_StatusInvalidBucketNameTooLong           , os);
         ENUMCASEOS(FDSN_StatusInvalidBucketNameFirstCharacter    , os);
         ENUMCASEOS(FDSN_StatusInvalidBucketNameCharacter         , os);
@@ -209,11 +206,13 @@ std::ostream& operator<<(std::ostream& os, FDSN_Status status) {
 
 std::string toString(FDSN_Status status) {
     switch (status) {
+        ENUMCASE(FDSN_StatusNOTSET);
         ENUMCASE(FDSN_StatusOK);
         ENUMCASE(FDSN_StatusCreated);
         ENUMCASE(FDSN_StatusInternalError);
         ENUMCASE(FDSN_StatusOutOfMemory);
         ENUMCASE(FDSN_StatusInterrupted);
+        ENUMCASE(FDSN_StatusTxnInProgress);
         ENUMCASE(FDSN_StatusInvalidBucketNameTooLong);
         ENUMCASE(FDSN_StatusInvalidBucketNameFirstCharacter);
         ENUMCASE(FDSN_StatusInvalidBucketNameCharacter);

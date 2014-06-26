@@ -24,6 +24,7 @@ extern "C" {
 #include <iostream>
 
 #include <util/fds_stat.h>
+#include <util/timeutils.h>
 #include <am-plugin.h>
 #include <native_api.h>
 #include <util/Log.h>
@@ -334,7 +335,7 @@ AME_Request::AME_Request(AMEngine *eng, AME_HttpReq *req)
         : fdsio::Request(true), ame(eng), ame_req(req),
           ame_http(req), ame_finalize(false)
 {
-    ame_clk_all     = fds_rdtsc();
+    ame_clk_all     = fds::util::getClockTicks();
     ame_stat_pt     = STAT_NGX_DEFAULT;
     ame_clk_fdsn    = 0;
     ame_clk_fdsn_cb = 0;
@@ -346,7 +347,7 @@ AME_Request::AME_Request(AMEngine *eng, AME_HttpReq *req)
 AME_Request::~AME_Request()
 {
     req_complete();
-    fds_stat_record(STAT_NGX, ame_stat_pt, ame_clk_all, fds_rdtsc());
+    fds_stat_record(STAT_NGX, ame_stat_pt, ame_clk_all, fds::util::getClockTicks());
 }
 
 // ame_add_context
@@ -674,7 +675,7 @@ fdsn_getobj_cbfn(BucketContextPtr bucket_ctx,
     Conn_GetObject *conn_go = static_cast<Conn_GetObject *>(cbData);
     FDS_NativeAPI  *api = conn_go->ame_get_ame()->ame_fds_hook();
 
-    conn_go->ame_clk_fdsn_cb = fds_rdtsc();
+    conn_go->ame_clk_fdsn_cb = fds::util::getClockTicks();
     fds_stat_record(STAT_NGX, STAT_NGX_GET_FDSN_CB,
                     conn_go->ame_clk_fdsn, conn_go->ame_clk_fdsn_cb);
 
@@ -734,11 +735,11 @@ fdsn_getobj_cbfn(BucketContextPtr bucket_ctx,
 
                 // Issue the get() request with the desired read length set to the
                 // current buffer length since we don't know how much data to read
-                api->GetObject(bucket_ctx, conn_go->get_object_id(), NULL,
-                               ame_cur_offset,
-                               buf_req_len, adr, buf_req_len,
-                               static_cast<void *>(ctx), fdsn_getobj_cbfn,
-                               static_cast<void *>(conn_go));
+                // api->GetObject(bucket_ctx, conn_go->get_object_id(), NULL,
+                //            ame_cur_offset,
+                //             buf_req_len, adr, buf_req_len,
+                //             static_cast<void *>(ctx), fdsn_getobj_cbfn,
+                //             static_cast<void *>(conn_go));
             }
         }  // Ends if (wasAllSet)
     }  // Ends if (status == FDSN_Status_OK)
@@ -777,7 +778,7 @@ Conn_GetObject::ame_request_resume()
     int result = NGX_AGAIN;
 
     fds_stat_record(STAT_NGX,
-                    STAT_NGX_GET_RESUME, ame_clk_fdsn_cb, fds_rdtsc());
+                    STAT_NGX_GET_RESUME, ame_clk_fdsn_cb, fds::util::getClockTicks());
 
     // Lock the context during the resume since we want
     // all send/state updates to be atomic
@@ -903,19 +904,19 @@ Conn_GetObject::ame_request_handler()
         ame_signal_resume(200);
         return;
     }
-    ame_clk_fdsn = fds_rdtsc();
+    ame_clk_fdsn = fds::util::getClockTicks();
     fds_stat_record(STAT_NGX, STAT_NGX_GET_FDSN, ame_clk_all, ame_clk_fdsn);
 
     api = ame->ame_fds_hook();
     // Issue the get() request with the desired read length set to the
     // current buffer length since we don't know how much data to read
-    api->GetObject(bucket_ctx, get_object_id(), NULL, ame_cur_offset,
-                   len, adr, len,
-                   static_cast<void *>(ame_ctx), fdsn_getobj_cbfn,
-                   static_cast<void *>(this));
+    // api->GetObject(bucket_ctx, get_object_id(), NULL, ame_cur_offset,
+    //            len, adr, len,
+    //             static_cast<void *>(ame_ctx), fdsn_getobj_cbfn,
+    //             static_cast<void *>(this));
 
     fds_stat_record(STAT_NGX,
-                    STAT_NGX_GET_FDSN_RET, ame_clk_fdsn, fds_rdtsc());
+                    STAT_NGX_GET_FDSN_RET, ame_clk_fdsn, fds::util::getClockTicks());
 }
 
 // ---------------------------------------------------------------------------
@@ -1025,6 +1026,9 @@ Conn_PutObject::ame_request_handler()
     buf = ame_reqt_iter_data_next(get_max_buf_len(), &len);
     LOGDEBUG << "request data size :" << len;
 
+    // Create a fake transaction for now
+    BlobTxId::ptr txDesc(new BlobTxId());
+
     if (len == 0) {
         LOGWARN <<"zero size request received";
         // special case where no data is given
@@ -1033,10 +1037,10 @@ Conn_PutObject::ame_request_handler()
         Error err = ame_ctx->ame_add_ctx_req(offset);
         fds_verify(err == ERR_OK);
         api = ame->ame_fds_hook();
-        api->PutObject(&bucket_ctx, get_object_id(), putProps,
-                       static_cast<void *>(ame_ctx), buf, 0,
-                       len, true, fdsn_putobj_cbfn,
-                       static_cast<void *>(this));
+        api->PutBlob(&bucket_ctx, get_object_id(), putProps,
+                     static_cast<void *>(ame_ctx), buf, 0,
+                     len, txDesc, true, fdsn_putobj_cbfn,
+                     static_cast<void *>(this));
     }
 
     while (len != 0) {
@@ -1070,10 +1074,10 @@ Conn_PutObject::ame_request_handler()
 
         // Issue async request
         api = ame->ame_fds_hook();
-        api->PutObject(&bucket_ctx, get_object_id(), putProps,
-                       static_cast<void *>(ame_ctx), buf, offset,
-                       len, last_byte, fdsn_putobj_cbfn,
-                       static_cast<void *>(this));
+        api->PutBlob(&bucket_ctx, get_object_id(), putProps,
+                     static_cast<void *>(ame_ctx), buf, offset,
+                     len, txDesc, last_byte, fdsn_putobj_cbfn,
+                     static_cast<void *>(this));
 
         // Get the next data and data len
         buf = ame_reqt_iter_data_next(get_max_buf_len(), &len);

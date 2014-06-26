@@ -6,7 +6,7 @@ user_build_dir   := include shared common disk python
 user_incl_dir    := include
 user_fds_ar_libs := \
     fds-plat-daemon \
-	fds-plat-disk \
+    fds-plat-disk \
     fds-plat-lib \
     fds-lib \
     fds-umod \

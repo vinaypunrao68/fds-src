@@ -91,6 +91,7 @@ struct sync_helper {
     fds_scoped_lock fsl;
     bool fSynchronized = true;
     sync_helper(fds_mutex& m)  : fsl(m) {}
+    sync_helper(fds_mutex* m)  : fsl(*m) {}
 };
 
 }  // namespace fds

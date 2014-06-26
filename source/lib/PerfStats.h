@@ -46,7 +46,7 @@ class PerfStats
                 diskio::DataTier tier = diskio::maxTier,  /* Defaults to invalid tier */
                 fds_io_op_t opType = FDS_OP_INVALID);     /* Defaults to invalid op */
 
-  /* For use on OM side to fill in stats that we receive from other nodes from the Ice message */
+  /* For use on OM side to fill in stats that we receive from other nodes */
   void setStatFromFdsp(fds_volid_t class_id, 
                        const std::string& start_timestamp,
                        const FDS_ProtocolInterface::FDSP_PerfStatType& stat_msg);  

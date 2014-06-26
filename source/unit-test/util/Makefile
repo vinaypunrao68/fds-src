@@ -7,9 +7,9 @@ user_incl_dir     := include
 user_fds_so_libs  :=
 user_fds_ar_libs  := \
 	fds-lib \
-	fds-util \
 	fds-fdsp \
-	fds-hash
+	fds-hash \
+	fds-util
 
 user_non_fds_libs := \
 	boost_log \

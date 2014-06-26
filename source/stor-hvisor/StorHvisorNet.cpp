@@ -1,3 +1,6 @@
+/*
+ * Copyright 2014 Formation Data Systems, Inc.
+ */
 #include <iostream>
 #include <chrono>
 #include <cstdarg>
@@ -131,11 +134,13 @@ StorHvCtrl::StorHvCtrl(int argc,
          * removed from argc/argv
          */
     }
+
+    initHandlers();
     my_node_name = node_name;
 
     sysParams = params;
 
-    useVcc =  config.get_abs<bool>("fds.am.use_vcc", true);
+    disableVcc =  config.get_abs<bool>("fds.am.testing.disable_vcc", true);
 
     LOGNORMAL << "StorHvisorNet - Constructing the Storage Hvisor";
 
@@ -184,6 +189,10 @@ StorHvCtrl::StorHvCtrl(int argc,
     qos_ctrl->registerOmClient(om_client); /* so it will start periodically pushing perfstats to OM */
     om_client->startAcceptingControlMessages();
 
+    // Init rand num generator
+    // TODO(Andrew): Move this to platform process so everyone gets it
+    // and make AM extend from platform process
+    randNumGen = RandNumGenerator::ptr(new RandNumGenerator(RandNumGenerator::getRandSeed()));
 
     /* TODO: for now StorHvVolumeTable constructor will create
      * volume 1, revisit this soon when we add multi-volume support
@@ -264,7 +273,6 @@ StorHvCtrl::StorHvCtrl(int argc,
         dataPlacementTbl  = new StorHvDataPlacement(StorHvDataPlacement::DP_NORMAL_MODE,
                                                     om_client);
     }
-
 }
 
 /*
@@ -272,7 +280,6 @@ StorHvCtrl::StorHvCtrl(int argc,
  */
 StorHvCtrl::StorHvCtrl(int argc, char *argv[], SysParams *params)
         : StorHvCtrl(argc, argv, params, NORMAL, 0, 0) {
-
 }
 
 StorHvCtrl::StorHvCtrl(int argc,
@@ -291,12 +298,15 @@ StorHvCtrl::~StorHvCtrl()
     delete qos_ctrl;
 }
 
+void StorHvCtrl::initHandlers() {
+    handlerGetVolumeMetaData = new GetVolumeMetaDataHandler(this);
+}
+
 SysParams* StorHvCtrl::getSysParams() {
     return sysParams;
 }
 
 void StorHvCtrl::StartOmClient() {
-
     /*
      * Start listening for OM control messages
      * Appropriate callbacks were setup by data placement and volume table objects
@@ -305,7 +315,51 @@ void StorHvCtrl::StartOmClient() {
         LOGNOTIFY << "StorHvisorNet - Started accepting control messages from OM";
         om_client->registerNodeWithOM(&gl_AmPlatform);
     }
+}
 
+Error StorHvCtrl::sendTestBucketToOM(const std::string& bucket_name,
+                                        const std::string& access_key_id,
+                                        const std::string& secret_access_key) {
+    Error err(ERR_OK);
+    int om_err = 0;
+    LOGNORMAL << "bucket: " << bucket_name;
+
+    // send test bucket message to OM
+    FDSP_VolumeInfoTypePtr vol_info(new FDSP_VolumeInfoType());
+    initVolInfo(vol_info, bucket_name);
+    om_err = om_client->testBucket(bucket_name,
+                                               vol_info,
+                                               true,
+                                               access_key_id,
+                                               secret_access_key);
+    if (om_err != 0) {
+        err = Error(ERR_INVALID_ARG);
+    }
+    return err;
+}
+
+void StorHvCtrl::initVolInfo(FDSP_VolumeInfoTypePtr vol_info,
+                             const std::string& bucket_name) {
+    vol_info->vol_name = std::string(bucket_name);
+    vol_info->tennantId = 0;
+    vol_info->localDomainId = 0;
+    vol_info->globDomainId = 0;
+
+    // Volume capacity is in MB
+    vol_info->capacity = (1024*10);  // for now presetting to 10GB
+    vol_info->maxQuota = 0;
+    vol_info->volType = FDSP_VOL_S3_TYPE;
+
+    vol_info->defReplicaCnt = 0;
+    vol_info->defWriteQuorum = 0;
+    vol_info->defReadQuorum = 0;
+    vol_info->defConsisProtocol = FDSP_CONS_PROTO_STRONG;
+
+    vol_info->volPolicyId = 50;  // default S3 policy desc ID
+    vol_info->archivePolicyId = 0;
+    vol_info->placementPolicy = 0;
+    vol_info->appWorkload = FDSP_APP_WKLD_TRANSACTION;
+    vol_info->mediaPolicy = FDSP_MEDIA_POLICY_HDD;
 }
 
 BEGIN_C_DECLS

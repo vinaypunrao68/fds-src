@@ -308,8 +308,11 @@ PmDiskObj::dsk_blk_dev_path(const char *raw, std::string *blk, std::string *dev)
 
     block = strstr(raw, "block/sd");
     if (block == NULL) {
+        block = strstr(raw, "block/xvd");
+        if (block != NULL) { goto ok; }
         return false;
     }
+ ok:
     blk->assign(raw, (size_t)(block - raw) + sizeof("block"));
     dev->assign("/dev");
 
@@ -698,8 +701,12 @@ DiskPlatModule::dsk_discover_mount_pts()
     }
     while ((ent = getmntent(mnt)) != NULL) {
         if (strstr(ent->mnt_fsname, "/dev/sd") == NULL) {
+            if (strstr(ent->mnt_fsname, "/dev/xvd") != NULL) {
+                goto ok;
+            }
             continue;
         }
+ ok:
         PmDiskObj::pointer dsk = dsk_devices->dsk_get_info(ent->mnt_fsname);
         if (dsk == NULL) {
             LOGNORMAL << "Can't find maching dev " << ent->mnt_fsname;

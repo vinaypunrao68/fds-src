@@ -365,7 +365,7 @@ void ObjectRankEngine::analyzeStats()
 Error ObjectRankEngine::deleteFromRankDB(const ObjectID& oid)
 {
   Error err(ERR_OK);
-  Record del_key((const char*)&oid, sizeof(oid));
+  Record del_key((const char*)oid.GetId(), oid.getDigestLength());
   err = rankDB->Delete(del_key);
   fds_verify(cur_rank_tbl_size > 0);
   --cur_rank_tbl_size;
@@ -387,7 +387,7 @@ Error ObjectRankEngine::putToRankDB(const ObjectID& oid, fds_uint32_t rank,
 {
   Error err(ERR_OK);
   fds_uint32_t o_rank = rank & 0xFFFFFF00; /* ignore helper bits specifying promotion/demotion/etc. */
-  Record put_key((const char*)&oid, sizeof(oid));
+  Record put_key((const char*)oid.GetId(), oid.getDigestLength());
   std::string valstr = std::to_string(o_rank);
   Record put_val(valstr);
   if (b_addition) {
@@ -417,7 +417,7 @@ Error ObjectRankEngine::putToRankDB(const ObjectID& oid, fds_uint32_t rank,
 fds_bool_t ObjectRankEngine::inRankDB(const ObjectID& oid)
 {
   Error err(ERR_OK);
-  Record key((const char*)&oid, sizeof(oid));
+  Record key((const char*)oid.GetId(), oid.getDigestLength());
   std::string val("");
 
   err = rankDB->Query(key, &val);

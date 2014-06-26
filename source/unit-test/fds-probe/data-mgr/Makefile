@@ -13,8 +13,7 @@ user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  := \
     fds-dm-lib       \
-    fds-StorHvisor   \
-    fds-ubd          \
+    fds-am-engine    \
     fds-dm-plat      \
     fds-plat-lib     \
     fds-lib          \

@@ -715,6 +715,7 @@ VolumeInfo::vol_fmt_desc_pkt(FDSP_VolumeDescType *pkt) const
     pkt->localDomainId = pVol->localDomainId;
     pkt->globDomainId  = pVol->globDomainId;
 
+    pkt->maxObjSizeInBytes = pVol->maxObjSizeInBytes;
     pkt->capacity      = pVol->capacity;
     pkt->volType       = pVol->volType;
     pkt->maxQuota      = pVol->maxQuota;
@@ -1181,6 +1182,16 @@ void VolumeContainer::continueCreateDeleteVolumes() {
             }
         }
     }
+}
+
+Error VolumeContainer::getVolumeStatus(const std::string& volumeName) {
+    VolumeInfo::pointer  vol = get_volume(volumeName);
+    if (vol == NULL) {
+        return ERR_NOT_FOUND;
+    } else if (vol->isDeletePending()) {
+        return ERR_NOT_FOUND;
+    }
+    return ERR_OK;
 }
 
 // om_modify_vol

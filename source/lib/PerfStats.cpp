@@ -106,14 +106,15 @@ void PerfStats::disable()
 StatHistory* PerfStats::getHistoryWithReadLockHeld(fds_volid_t class_id)
 {
     StatHistory* hist = NULL;
-    
-    if (histmap.count(class_id) > 0) {
-      hist = histmap[class_id];
-      assert(hist);
+
+    std::unordered_map<fds_volid_t, StatHistory*>::iterator iter = histmap.find(class_id);
+    if (histmap.end() != iter) {
+        hist = iter->second;
+        fds_assert(hist);
     } else {
       /* we see this class_id for the first time, create a history for it */
       map_rwlock.read_unlock();
-      hist = new StatHistory(class_id, num_slots, sec_in_slot);
+      hist = new(std::nothrow) StatHistory(class_id, num_slots, sec_in_slot);
       if (!hist) return NULL;
 
       map_rwlock.write_lock();
