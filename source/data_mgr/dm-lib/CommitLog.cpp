@@ -2,6 +2,7 @@
  * Copyright 2014 Formation Data Systems, Inc.
  */
 #include <CommitLog.h>
+#include <string>
 
 namespace fds {
 
