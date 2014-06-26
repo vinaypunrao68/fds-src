@@ -600,9 +600,10 @@ VolumeMeta::deltaSyncVolCat(fds_volid_t volId, NodeUuid node_uuid)
 
 
   vol_mtx->lock();
-  /* clean the content of the snap dir. */
-  returnCode = std::system((const char *)("rm -rf  "+dst_dir+"* ").c_str());
-  returnCode = std::system((const char *)("rm -rf  "+dst_dir+"* ").c_str());
+  //err = vcat->DbSnap(root->dir_user_repo_dm() + "snap" + vol_name + "_vcat.ldb");
+  /* clean the vcat and tcat ldb in the snap dir. */
+  returnCode = std::system((const char *)("rm -rf  "+dst_dir+vol_name+"_vcat.ldb").c_str());
+  returnCode = std::system((const char *)("rm -rf  "+dst_dir+vol_name+"_tcat.ldb").c_str());
   returnCode = std::system((const char *)("cp -r "+src_dir_vcat+"  "+dst_dir+" ").c_str());
   returnCode = std::system((const char *)("cp -r "+src_dir_tcat+"  "+dst_dir+" ").c_str());
   // we must set forwarding flag under the same lock we create snapshots
