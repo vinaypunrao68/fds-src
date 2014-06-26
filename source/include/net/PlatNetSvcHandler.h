@@ -17,15 +17,21 @@ class PlatNetSvcHandler : virtual public fpi::PlatNetSvcIf, public BaseAsyncSvcH
  public:
     PlatNetSvcHandler();
     virtual ~PlatNetSvcHandler();
-    void allUuidBinding(const fpi::UuidBindMsg& mine);
-    void allUuidBinding(boost::shared_ptr<fpi::UuidBindMsg>& mine);  // NOLINT
-    void notifyNodeInfo(std::vector<fpi::NodeInfoMsg> & _return,  // NOLINT
+    virtual void allUuidBinding(const fpi::UuidBindMsg& mine);
+    virtual void allUuidBinding(boost::shared_ptr<fpi::UuidBindMsg>& mine);  // NOLINT
+
+    virtual void notifyNodeAdd(const fpi::FDSP_ActivateNodeType &info);
+    virtual void notifyNodeAdd(boost::shared_ptr<fpi::FDSP_ActivateNodeType>&);  // NOLINT
+
+    virtual void notifyNodeInfo(std::vector<fpi::NodeInfoMsg> & _return,  // NOLINT
                         const fpi::NodeInfoMsg& info, const bool bcast);
-    void notifyNodeInfo(std::vector<fpi::NodeInfoMsg> & _return,  // NOLINT
+    virtual void notifyNodeInfo(std::vector<fpi::NodeInfoMsg> & _return,  // NOLINT
                         boost::shared_ptr<fpi::NodeInfoMsg>& info,  // NOLINT
                         boost::shared_ptr<bool>& bcast);
-    void getDomainNodes(fpi::DomainNodes &ret, const fpi::DomainNodes &d);
-    void getDomainNodes(fpi::DomainNodes &ret, boost::shared_ptr<fpi::DomainNodes> &d);
+
+    virtual void getDomainNodes(fpi::DomainNodes &ret, const fpi::DomainNodes &d);
+    virtual void getDomainNodes(fpi::DomainNodes &ret,
+                        boost::shared_ptr<fpi::DomainNodes> &d);
 
     virtual fpi::ServiceStatus getStatus(const int32_t nullarg);
     virtual void getCounters(std::map<std::string, int64_t> & _return,

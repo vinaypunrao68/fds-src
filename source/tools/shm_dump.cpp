@@ -4,6 +4,8 @@
 
 #include <stdio.h>
 #include <string>
+#include <ep-map.h>
+#include <net/net-service.h>
 #include <platform.h>
 #include <platform/fds-shmem.h>
 #include <platform/node-inv-shmem.h>
@@ -95,6 +97,21 @@ ShmDump::read_inv_shm(const char *fname)
         std::cout << "Empty Inventory Node... x" << empty_nodes << std::endl << std::endl;
         empty_nodes = 0;
     }
+    char *uuid = shm + inv->shm_uuid_bind_off;
+    for (int i = 0; i < 10240; i++) {
+        char          ip[INET6_ADDRSTRLEN];
+        int           port;
+        ep_map_rec_t *map = reinterpret_cast<ep_map_rec_t *>(uuid);
+
+        port = EpAttr::netaddr_get_port(&map->rmp_addr);
+        EpAttr::netaddr_to_str(&map->rmp_addr, ip, sizeof(ip));
+        if (map->rmp_uuid != 0) {
+            std::cout << "Map uuid " << std::hex << map->rmp_uuid << std::dec
+                << " (" << map->rmp_major << ":" << map->rmp_minor
+                << " ip " << ip << ":" << port << std::endl;
+        }
+        uuid += sizeof(*map);
+    }
 }
 
 void
@@ -167,9 +184,7 @@ int main(int argc, char *argv[]) {
     desc.add_options()
             ("help,h", "Print this help message")
             ("file,f", po::value<std::string>(),
-             "Name of the shared memory file to dump (/dev/shm/\?\?\?) "
-             "Note: Do not include the full path (no /dev/shm/); ONLY "
-             "include the filename itself.");
+             "Name of the shared memory file to dump (/dev/shm/\?\?\?).");
 
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -186,10 +201,17 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    if (strstr(vm["file"].as<std::string>().c_str(), "-rw-") == nullptr) {
-        ShmDump::read_inv_shm(vm["file"].as<std::string>().c_str());
+    std::string filename = vm["file"].as<std::string>();
+    // If there is a /dev/shm/ cut it out
+    if (filename.compare(0, 9, "/dev/shm/") == 0) {
+        filename = filename.substr(9, std::string::npos);
+        std::cout << "Filename is now " << filename << "\n";
+    }
+
+    if (filename.find("-rw-") == std::string::npos) {
+        ShmDump::read_inv_shm(filename.c_str());
     } else {  // If we're printing a shared memory queue
-        ShmDump::read_queue_shm(vm["file"].as<std::string>().c_str());
+        ShmDump::read_queue_shm(filename.c_str());
     }
 
     return 0;
