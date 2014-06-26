@@ -482,8 +482,7 @@ StorHvCtrl::processSmPutObj(PutBlobReq *putBlobReq,
               << putBlobReq->getBlobOffset() << " with length "
               << putBlobReq->getDataLen() << " in trans "
               << transId;
-
-    // Dispatch SM put object requests
+ // Dispatch SM put object requests
     bool fZeroSize = (putBlobReq->getDataLen() == 0);
     if (!fZeroSize) {
         err = dispatchSmPutMsg(journEntry, INVALID_RESOURCE_UUID);
@@ -509,6 +508,7 @@ StorHvCtrl::processSmPutObj(PutBlobReq *putBlobReq,
 
     return err;
 }
+
 
 /**
  * Handles initial processing for blob catalog updates to DMs
@@ -536,6 +536,7 @@ StorHvCtrl::processDmUpdateBlob(PutBlobReq *putBlobReq,
     // TODO(Andrew): These can be removed when real transactions work
     updCatReq->dm_transaction_id = 1;
     updCatReq->dm_operation      = FDS_DMGR_TXN_STATUS_OPEN;
+    updCatReq->dmt_version       = storHvisor->om_client->getDMTVersion();
 
     // Setup blob offset updates
     // TODO(Andrew): Today we only expect one offset update

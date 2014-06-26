@@ -10,16 +10,21 @@ user_cpp_flags    := -DDMGR_LIVE_DEBUG
 user_cpp          := \
 	DataMgr.cpp \
 	VolumeMeta.cpp \
-	qos_ctrl.cpp \
+	qos_ctrl.cpp   \
+        CatalogSync.cpp \
 	CommitLog.cpp \
 	DMSvcHandler.cpp \
-        CatalogSync.cpp
+        CatalogSync.cpp \
+        CatalogSyncRecv.cpp
 
 user_no_style     := \
 	DataMgr.cpp \
-	qos_ctrl.cpp \
+	VolumeMeta.cpp \
+	qos_ctrl.cpp   \
+        CatalogSync.cpp \
 	CommitLog.cpp \
         CatalogSync.cpp
+
 user_ar_libs      := fds-dm-lib
 fds-dm-lib        := $(user_cpp)
 

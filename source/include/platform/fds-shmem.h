@@ -34,4 +34,5 @@ class FdsShmem
 };
 
 }  // namespace fds
+
 #endif  // SOURCE_INCLUDE_PLATFORM_FDS_SHMEM_H_

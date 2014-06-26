@@ -33,7 +33,7 @@ namespace fds {
         ERR_GET_DLT_FAILED       = 11,
         ERR_GET_DMT_FAILED       = 12,
         ERR_NOT_IMPLEMENTED      = 13,
-        ERR_OUT_OF_MEMEORY       = 14,
+        ERR_OUT_OF_MEMORY        = 14,
         ERR_DUPLICATE_UUID       = 15,
         ERR_TRANS_JOURNAL_OUT_OF_IDS = 16,
         ERR_TRANS_JOURNAL_REQUEST_QUEUED = 17,
@@ -53,6 +53,9 @@ namespace fds {
         ERR_NETWORK_CORRUPT      = 31,
         ERR_ONDISK_DATA_CORRUPT  = 32,
         ERR_INVALID_DMT          = 33,
+        ERR_CATSYNC_NOT_PROGRESS = 34,
+        ERR_DMT_EQUAL            = 35,
+        ERR_DMT_FORWARD          = 36,
 
         /* I/O error range */
         ERR_IO_DLT_MISMATCH      = 100,

@@ -239,6 +239,7 @@ struct FDSP_UpdateCatalogType {
   8: FDSP_MetaDataList meta_list, /* sequence of arbitrary key/value pairs */
   9: i32 dm_transaction_id,   /* Transaction id */
   10: i32 dm_operation,        /* Transaction type = OPEN, COMMIT, CANCEL */
+  11: i32 dmt_version,
 }
 
 /* Can be consolidated when apis and fdsp merge or whatever */
@@ -257,14 +258,15 @@ struct FDSP_QueryCatalogType {
   5: FDSP_BlobDigestType digest,
   6: FDSP_BlobObjectList obj_list, /* List of object ids of the objects that this blob is being mapped to */
   7: FDSP_MetaDataList meta_list,  /* sequence of arbitrary key/value pairs */
-
-  8: i32      dm_transaction_id,   /* Transaction id */
-  9: i32      dm_operation,        /* Transaction type = OPEN, COMMIT, CANCEL */
+  8: i32  dm_transaction_id,   /* Transaction id */
+  9: i32  dm_operation,        /* Transaction type = OPEN, COMMIT, CANCEL */
+ 10: i32  dmt_version,
 }
 
 struct  FDSP_DeleteCatalogType { /* This is a SH-->SM msg to delete the objectId */
   1: string   blob_name,       /* User visible name of the blob*/
   2: i64 blob_version, /* Version to delete */
+  3: i32  dmt_version,
 }
 
 struct FDSP_BlobInfoType{
@@ -725,6 +727,7 @@ struct FDSP_MsgHdrType {
   29: FDSP_Uuid   src_service_uuid,    /* uuid of service that sent this request */
   30: i64         origin_timestamp,
   31: i32         proxy_count,
+  32: string      session_cache,  // this will be removed once we have  transcation journel  in DM
 }
 
 enum tier_prefetch_type_e
@@ -829,7 +832,8 @@ struct FDSP_metaData
 
 struct FDSP_VolMetaState
 {
-    1:i64        vol_uuid;
+    1: i64        vol_uuid;
+    2: bool       forward_done;   /* true means forwarding done, false means second rsync done */
 }
 
 typedef list<FDSP_metaData> FDSP_metaDataList

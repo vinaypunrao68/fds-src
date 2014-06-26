@@ -79,6 +79,8 @@ class StorHvIoTimerTask : public fds::FdsTimerTask {
     typedef boost::shared_ptr<StorHvIoTimerTask> ptr;
 };
 
+typedef boost::shared_ptr<StorHvIoTimerTask> StorHvIoTimerTaskPtr;
+
 /// Forward declare to avoid circular dependency
 class AmQosReq;
 
@@ -150,6 +152,7 @@ class  StorHvJournalEntry {
     FDSP_IpNode dm_ack[FDS_MAX_DM_NODES_PER_CLST];
     fds_uint8_t num_sm_nodes;
     FDSP_IpNode sm_ack[FDS_MAX_SM_NODES_PER_CLST];
+    fds_uint64_t dmt_version;
 };
 
 class StorHvJournalEntryLock {
@@ -211,6 +214,7 @@ class StorHvJournal {
     StorHvJournalEntry *get_journal_entry(fds_uint32_t trans_id);
     // TODO(Andrew): Don't pass a non-const ref, make a shared ptr
     // TODO(Andrew): Don't require blob offset...using the whole blob
+    fds_uint32_t get_trans_id_for_block(fds_uint64_t block_offset);
     fds_uint32_t get_trans_id_for_blob(const std::string& blobName,
                                        fds_uint64_t blobOffset,
                                        bool& trans_in_progress);

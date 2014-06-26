@@ -140,7 +140,7 @@ class CopyS3Dir:
             cnt += burst_cnt
 
     def create_bucket(self):
-        time.sleep(1)
+        time.sleep(10)
         ret = subprocess.call(['curl', '-X' 'PUT', self.bucket_url])
         if ret != 0:
             print "Bucket create failed %d" % ret

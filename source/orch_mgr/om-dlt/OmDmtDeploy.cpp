@@ -76,6 +76,20 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
         // DMs that we send push_meta command and waiting for response from them
         NodeUuidSet push_meta_dms;
     };
+    struct DST_BcastAM : public msm::front::state<>
+    {
+        typedef mpl::vector<DmtCommitAckEvt> deferred_events;
+
+        DST_BcastAM() : commit_acks_to_wait(0) {}
+
+        template <class Evt, class Fsm, class State>
+        void operator()(Evt const &, Fsm &, State &) {}
+
+        template <class Event, class FSM> void on_entry(Event const &, FSM &) {}
+        template <class Event, class FSM> void on_exit(Event const &, FSM &) {}
+
+        fds_uint32_t commit_acks_to_wait;
+    };
     struct DST_Close : public msm::front::state<>
     {
         typedef mpl::vector<DmtCloseOkEvt> deferred_events;
@@ -144,6 +158,11 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
         template <class Evt, class Fsm, class SrcST, class TgtST>
         void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
     };
+    struct DACT_BcastAM
+    {
+        template <class Evt, class Fsm, class SrcST, class TgtST>
+        void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
+    };
     struct DACT_Close
     {
         template <class Evt, class Fsm, class SrcST, class TgtST>
@@ -172,6 +191,11 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
         template <class Evt, class Fsm, class SrcST, class TgtST>
         bool operator()(Evt const &, Fsm &, SrcST &, TgtST &);
     };
+    struct GRD_BcastAM
+    {
+        template <class Evt, class Fsm, class SrcST, class TgtST>
+        bool operator()(Evt const &, Fsm &, SrcST &, TgtST &);
+    };
     struct GRD_Close
     {
         template <class Evt, class Fsm, class SrcST, class TgtST>
@@ -188,14 +212,16 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
      */
     struct transition_table : mpl::vector<
     // +------------------+----------------+-------------+---------------+--------------+
-    // | Start            | Event          | Next        | Action       | Guard        |
+    // | Start            | Event          | Next        | Action        | Guard        |
     // +------------------+----------------+-------------+---------------+--------------+
-    msf::Row< DST_Idle    , DmtDeployEvt   , DST_Compute , DACT_Start  , GRD_DplyStart >,
-    msf::Row< DST_Idle    , DmtLoadedDbEvt , DST_Commit  , DACT_ComputeDb , msf::none  >,
+    msf::Row< DST_Idle    , DmtDeployEvt   , DST_Compute , DACT_Start   , GRD_DplyStart >,
+    msf::Row< DST_Idle    , DmtLoadedDbEvt , DST_Commit  , DACT_ComputeDb,  msf::none  >,
     // +------------------+----------------+-------------+---------------+--------------+
     msf::Row< DST_Compute , DmtVolAckEvt   , DST_Commit  , DACT_Compute, GRD_DmtCompute >,
     // +------------------+----------------+-------------+---------------+--------------+
-    msf::Row< DST_Commit , DmtPushMetaAckEvt, DST_Close  , DACT_Commit   ,  GRD_Commit  >,
+    msf::Row< DST_Commit , DmtPushMetaAckEvt, DST_BcastAM, DACT_Commit   , GRD_Commit   >,
+    // +------------------+----------------+-------------+---------------+--------------+
+    msf::Row< DST_BcastAM , DmtCommitAckEvt, DST_Close   , DACT_BcastAM  , GRD_BcastAM  >,
     // +------------------+----------------+-------------+---------------+--------------+
     msf::Row< DST_Close   , DmtCommitAckEvt, DST_Done    , DACT_Close    , GRD_Close    >,
     // +------------------+----------------+-------------+---------------+--------------+
@@ -505,24 +531,26 @@ DmtDplyFSM::DACT_Commit::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST 
     // cluster map
     cm->resetPendServices(fpi::FDSP_DATA_MGR);
 
-    // broadcast DMT
-    dst.commit_acks_to_wait = loc_domain->om_bcast_dmt(vp->getCommittedDMT());
+    // broadcast DMT to DMs first, once we receove acks, will bcast to AMs
+    dst.commit_acks_to_wait = loc_domain->om_bcast_dmt(fpi::FDSP_DATA_MGR,
+                                                       vp->getCommittedDMT());
     // there are must be nodes to which we send new DMT
     // unless all failed? -- in that case we should handle errors
     fds_verify(dst.commit_acks_to_wait > 0);
 
-    LOGDEBUG << "Committed DMT, will wait for " << dst.commit_acks_to_wait
+    LOGDEBUG << "Committed DMT to DMs, will wait for " << dst.commit_acks_to_wait
              << " DMT commit acks";
 }
 
+
 /**
- * GRD_Close
+ * GRD_BcastAM
  * -------------
- * @return true if we got all acks for DMT commit
+ * @return true if we got all acks for DMT commit from DMs
  */
 template <class Evt, class Fsm, class SrcST, class TgtST>
 bool
-DmtDplyFSM::GRD_Close::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
+DmtDplyFSM::GRD_BcastAM::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
     OM_Module* om = OM_Module::om_singleton();
     VolumePlacement* vp = om->om_volplace_mod();
@@ -536,17 +564,93 @@ DmtDplyFSM::GRD_Close::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &d
     // we should ignore ack for the old version
     fds_verify(evt.dmt_version <= committed_ver);
     if (evt.dmt_version != committed_ver) {
-        LOGDEBUG << "Received commit acks for old DMT version, acks to wait "
-                 << src.commit_acks_to_wait;
+        LOGNORMAL << "Received commit acks for old DMT version, acks to wait "
+                  << src.commit_acks_to_wait;
         return false;
     }
+    // otherwise the ack must be from DMs only
+    fds_verify(evt.svc_type == fpi::FDSP_DATA_MGR);
 
-    // for now assuming close is always a success
+    // for now assuming commit is always a success
     fds_verify(src.commit_acks_to_wait > 0);
     src.commit_acks_to_wait--;
 
     bool bret = (src.commit_acks_to_wait == 0);
-    LOGDEBUG << "Commit acks to wait " << src.commit_acks_to_wait
+    LOGDEBUG << "Commit acks to wait from DMs: " << src.commit_acks_to_wait
+             << ", returning " << bret;
+
+    return bret;
+}
+
+
+/* DACT_BcastAM
+ * ------------
+ * We got all acks for commit DMT from DMs. Broadcast DMT to all AMs
+ */
+template <class Evt, class Fsm, class SrcST, class TgtST>
+void
+DmtDplyFSM::DACT_BcastAM::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
+{
+    OM_NodeContainer* loc_domain = OM_NodeDomainMod::om_loc_domain_ctrl();
+    OM_Module* om = OM_Module::om_singleton();
+    VolumePlacement* vp = om->om_volplace_mod();
+
+    // broadcast DMT to AMs
+    dst.commit_acks_to_wait = loc_domain->om_bcast_dmt(fpi::FDSP_STOR_HVISOR,
+                                                       vp->getCommittedDMT());
+
+    // ok if there are not AMs to broadcast
+    if (dst.commit_acks_to_wait == 0) {
+        fds_uint64_t committed_ver = vp->getCommittedDMTVersion();
+        fsm.process_event(DmtCommitAckEvt(committed_ver, fpi::FDSP_STOR_HVISOR));
+    }
+
+    LOGDEBUG << "Sent DMT to all AMs, will wait for " << dst.commit_acks_to_wait
+             << " DMT commit acks";
+}
+
+
+/**
+ * GRD_Close
+ * -------------
+ * @return true if we got all acks for DMT commit to AMs
+ */
+template <class Evt, class Fsm, class SrcST, class TgtST>
+bool
+DmtDplyFSM::GRD_Close::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
+{
+    OM_Module* om = OM_Module::om_singleton();
+    VolumePlacement* vp = om->om_volplace_mod();
+    fds_uint64_t committed_ver = vp->getCommittedDMTVersion();
+
+    /* Ignore DMT acks from SM */
+    if (evt.svc_type == fpi::FDSP_STOR_MGR) {
+        LOGNOTIFY << "DMT Ack from SM...Ignoring";
+        return false;
+    }
+
+    // we can possibly have a race condition, where a new non-DM service
+    // gets registered while we are in the process of updating DMT
+    // and moving to the next DMT version. That node may receive old DMT,
+    // and now we have a different committed DMT. That node will also be
+    // send a new DMT, but we can still receive a reply for the old version
+    // we should ignore ack for the old version
+    fds_verify(evt.dmt_version <= committed_ver);
+    if (evt.dmt_version != committed_ver) {
+        LOGDEBUG << "Received commit acks for old DMT version, acks to wait "
+                 << src.commit_acks_to_wait;
+        return false;
+    }
+    // otherwise the ack must be from AMs only
+    fds_verify(evt.svc_type == fpi::FDSP_STOR_HVISOR);
+
+    // for now assuming commit is always a success
+    if (src.commit_acks_to_wait > 0) {
+        src.commit_acks_to_wait--;
+    }
+
+    bool bret = (src.commit_acks_to_wait == 0);
+    LOGDEBUG << "Commit acks to wait from AM: " << src.commit_acks_to_wait
              << ", returning " << bret;
 
     return bret;
@@ -564,7 +668,16 @@ DmtDplyFSM::DACT_Close::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
     OM_NodeContainer* loc_domain = OM_NodeDomainMod::om_loc_domain_ctrl();
     OM_Module* om = OM_Module::om_singleton();
     VolumePlacement* vp = om->om_volplace_mod();
+    VolumeContainer::pointer volumes = loc_domain->om_vol_mgr();
     fds_uint64_t committed_ver = vp->getCommittedDMTVersion();
+
+    // tell VolumePlacement that AM received all acks, that will set flag
+    // 'not rebalancing' which will unblock the volume creation for volumes
+    // whose DMT columns were in rebalancing state
+    vp->notifyEndOfRebalancing();
+
+    // notify all inactive (delayed) volumes to continue with create/delete process
+    volumes->continueCreateDeleteVolumes();
 
     // broadcast DMT close
     dst.close_acks_to_wait = loc_domain->om_bcast_dmt_close(committed_ver);

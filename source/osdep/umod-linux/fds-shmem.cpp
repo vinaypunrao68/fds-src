@@ -3,6 +3,9 @@
  */
 #include <stdio.h>
 #include <platform/fds-shmem.h>
+#include <utility>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 namespace fds {
 

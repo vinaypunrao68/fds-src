@@ -13,7 +13,11 @@
 #include <fds_types.h>
 #include <fds_volume.h>
 #include <fdsp/FDSP_types.h>
+#include <fds_typedefs.h>
 #include <blob/BlobTypes.h>
+
+#define FdsDmSysTaskId      0x8fffffff
+#define FdsDmSysTaskPrio    5
 
 namespace fds {
     /* Forward declarations */
@@ -58,6 +62,7 @@ namespace fds {
         BlobTxId::const_ptr blobTxId;
         fpi::FDSP_UpdateCatalogTypePtr fdspUpdCatReqPtr;
         boost::shared_ptr<fpi::FDSP_MetaDataList> metadataList;
+        std::string session_cache;
 
         dmCatReq(fds_volid_t  _volId,
                  long 	  _srcIp,
@@ -128,7 +133,7 @@ namespace fds {
             FDS_IOType::io_type = _ioType;
             FDS_IOType::io_vol_id = _volId;
             fdspUpdCatReqPtr = _updCatReq;
-            if (_ioType !=   FDS_CAT_UPD) {
+            if ((_ioType != FDS_CAT_UPD) && (_ioType != FDS_DM_FWD_CAT_UPD)) {
                 fds_verify(_updCatReq == (FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr)NULL);
             }
         }
@@ -217,7 +222,8 @@ namespace fds {
         virtual std::string log_string() const override {
             std::stringstream ret;
             ret << "dmIoSnapVolCat for vol "
-                << std::hex << volId << std::dec;
+                << std::hex << volId << std::dec << " first rsync? "
+                << (io_type == FDS_DM_SNAP_VOLCAT);
             return ret.str();
         }
 
