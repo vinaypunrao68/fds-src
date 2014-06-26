@@ -184,9 +184,7 @@ int main(int argc, char *argv[]) {
     desc.add_options()
             ("help,h", "Print this help message")
             ("file,f", po::value<std::string>(),
-             "Name of the shared memory file to dump (/dev/shm/\?\?\?) "
-             "Note: Do not include the full path (no /dev/shm/); ONLY "
-             "include the filename itself.");
+             "Name of the shared memory file to dump (/dev/shm/\?\?\?).");
 
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -203,10 +201,17 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    if (strstr(vm["file"].as<std::string>().c_str(), "-rw-") == nullptr) {
-        ShmDump::read_inv_shm(vm["file"].as<std::string>().c_str());
+    std::string filename = vm["file"].as<std::string>();
+    // If there is a /dev/shm/ cut it out
+    if (filename.compare(0, 9, "/dev/shm/") == 0) {
+        filename = filename.substr(9, std::string::npos);
+        std::cout << "Filename is now " << filename << "\n";
+    }
+
+    if (filename.find("-rw-") == std::string::npos) {
+        ShmDump::read_inv_shm(filename.c_str());
     } else {  // If we're printing a shared memory queue
-        ShmDump::read_queue_shm(vm["file"].as<std::string>().c_str());
+        ShmDump::read_queue_shm(filename.c_str());
     }
 
     return 0;
