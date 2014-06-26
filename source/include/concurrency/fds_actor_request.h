@@ -42,10 +42,10 @@ enum FdsActorRequestType {
     /* For starting Token receiver statemachine */
     FAR_ENUM(TRStart),
 
-    /* TokenCopySender message that token data has been read */
+    /* TokenSender message that token data has been read */
     FAR_ENUM(TcsDataReadDone),
 
-    /* TokenCopyReceiver message that token data has been written */
+    /* TokenReceiver message that token data has been written */
     FAR_ENUM(TcrWrittenEvt),
 
     /* Token copy done event */

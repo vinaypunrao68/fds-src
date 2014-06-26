@@ -15,7 +15,7 @@
 #include <fdsp_utils.h>
 #include <SmObjDb.h>
 #include <fds_migration.h>
-#include <TokenCopyReceiver.h>
+#include <TokenReceiver.h>
 #include <TokenSyncReceiver.h>
 
 namespace fds {
@@ -40,7 +40,7 @@ struct TokenSyncReceiverFSM_
         : public msm::front::state_machine_def<TokenSyncReceiverFSM_> {
     void init(const std::string &mig_stream_id,
             FdsMigrationSvc *migrationSvc,
-            TokenCopyReceiver *parent,
+            TokenReceiver *parent,
             SmIoReqHandler *data_store,
             const std::string &rcvr_ip,
             const int &rcvr_port,
@@ -593,7 +593,7 @@ struct TokenSyncReceiverFSM_
     FdsMigrationSvc *migrationSvc_;
 
     /* Parent */
-    TokenCopyReceiver *parent_;
+    TokenReceiver *parent_;
 
     /* Receiver ip */
     std::string rcvr_ip_;
@@ -647,7 +647,7 @@ struct PullReceiverFSM_
         : public msm::front::state_machine_def<PullReceiverFSM_> {
     void init(const std::string &mig_stream_id,
             FdsMigrationSvc *migrationSvc,
-            TokenCopyReceiver *parent,
+            TokenReceiver *parent,
             SmIoReqHandler *data_store,
             const std::string &rcvr_ip,
 
@@ -841,7 +841,7 @@ struct PullReceiverFSM_
     FdsMigrationSvc *migrationSvc_;
 
     /* Parent */
-    TokenCopyReceiver *parent_;
+    TokenReceiver *parent_;
 
     /* Receiver ip */
     std::string rcvr_ip_;
@@ -871,7 +871,7 @@ TokenSyncReceiver::~TokenSyncReceiver()
 
 void TokenSyncReceiver::init(const std::string &mig_stream_id,
             FdsMigrationSvc *migrationSvc,
-            TokenCopyReceiver *parent,
+            TokenReceiver *parent,
             SmIoReqHandler *data_store,
             const std::string &rcvr_ip,
             const int &rcvr_port,

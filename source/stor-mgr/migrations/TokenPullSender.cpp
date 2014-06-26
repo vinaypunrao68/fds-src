@@ -15,7 +15,7 @@
 #include <fdsp_utils.h>
 #include <SmObjDb.h>
 #include <fds_migration.h>
-#include <TokenCopySender.h>
+#include <TokenSender.h>
 #include <TokenPullSender.h>
 
 namespace fds {
@@ -33,7 +33,7 @@ struct TokenPullSenderFSM_
         : public msm::front::state_machine_def<TokenPullSenderFSM_> {
     void init(const std::string &mig_stream_id,
             FdsMigrationSvc *migrationSvc,
-            TokenCopySender *parent,
+            TokenSender *parent,
             SmIoReqHandler *data_store,
             const std::string &rcvr_ip,
             const int &rcvr_port,
@@ -311,7 +311,7 @@ struct TokenPullSenderFSM_
     FdsMigrationSvc *migrationSvc_;
 
     /* Parent */
-    TokenCopySender *parent_;
+    TokenSender *parent_;
 
     /* Receiver ip */
     std::string rcvr_ip_;
@@ -372,7 +372,7 @@ TokenPullSender::~TokenPullSender()
 
 void TokenPullSender::init(const std::string &mig_stream_id,
             FdsMigrationSvc *migrationSvc,
-            TokenCopySender *parent,
+            TokenSender *parent,
             SmIoReqHandler *data_store,
             const std::string &rcvr_ip,
             const int &rcvr_port,

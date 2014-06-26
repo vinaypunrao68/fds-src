@@ -30,7 +30,7 @@ using namespace  ::FDS_ProtocolInterface;
 /* Forward declarations */
 struct TokenSyncSenderFSM_;
 typedef boost::msm::back::state_machine<TokenSyncSenderFSM_> TokenSyncSenderFSM;
-class TokenCopySender;
+class TokenSender;
 
 /**
  * Leveldb based Token sync log
@@ -107,7 +107,7 @@ public:
     virtual ~TokenSyncSender();
     void init(const std::string &mig_stream_id,
             FdsMigrationSvc *migrationSvc,
-            TokenCopySender *parent,
+            TokenSender *parent,
             SmIoReqHandler *data_store,
             const std::string &rcvr_ip,
             const int &rcvr_port,

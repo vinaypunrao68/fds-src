@@ -26,7 +26,7 @@ namespace fds {
 using namespace  ::FDS_ProtocolInterface;
 
 /* Forward declarations */
-class TokenCopyReceiver;
+class TokenReceiver;
 struct TokenPullReceiverFSM_;
 typedef boost::msm::back::state_machine<TokenPullReceiverFSM_> TokenPullReceiverFSM;
 
@@ -47,7 +47,7 @@ public:
 
     void init(const std::string &mig_stream_id,
             FdsMigrationSvc *migrationSvc,
-            TokenCopyReceiver *parent,
+            TokenReceiver *parent,
             SmIoReqHandler *data_store,
             const std::string &rcvr_ip,
             const int &rcvr_port,
