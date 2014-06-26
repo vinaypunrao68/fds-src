@@ -88,7 +88,7 @@ PlatformEpHandler::allUuidBinding(bo::shared_ptr<fpi::UuidBindMsg> &msg)
     EpPlatLibMod    *shm;
     ShmConPrdQueue  *plat;
 
-    std::cout << "Platform domain master, all uuidBind is called" << std::endl;
+    LOGDEBUG << "Platform domain master, all uuidBind is called";
     EpPlatLibMod::ep_uuid_bind_frm_msg(&rec.smq_rec, msg.get());
 
     /* Save the binding to shared memory, in the uuid binding section. */
@@ -113,6 +113,18 @@ PlatformEpHandler::allUuidBinding(bo::shared_ptr<fpi::UuidBindMsg> &msg)
 
     plat = NodeShmCtrl::shm_producer();
     plat->shm_producer(static_cast<void *>(&rec), sizeof(rec), 0);
+}
+
+// notifyNodeAdd
+// -------------
+//
+void
+PlatformEpHandler::notifyNodeAdd(bo::shared_ptr<fpi::FDSP_ActivateNodeType> &info)
+{
+    LOGDEBUG << "Received message to activate node";
+    Platform     *plat = Platform::platf_singleton();
+    NodePlatform *node = static_cast<NodePlatform *>(plat);
+    node->plf_start_node_services(info);
 }
 
 // notifyNodeInfo

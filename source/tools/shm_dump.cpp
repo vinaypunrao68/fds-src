@@ -4,6 +4,8 @@
 
 #include <stdio.h>
 #include <string>
+#include <ep-map.h>
+#include <net/net-service.h>
 #include <platform.h>
 #include <platform/fds-shmem.h>
 #include <platform/node-inv-shmem.h>
@@ -94,6 +96,21 @@ ShmDump::read_inv_shm(const char *fname)
     if (empty_nodes) {
         std::cout << "Empty Inventory Node... x" << empty_nodes << std::endl << std::endl;
         empty_nodes = 0;
+    }
+    char *uuid = shm + inv->shm_uuid_bind_off;
+    for (int i = 0; i < 10240; i++) {
+        char          ip[INET6_ADDRSTRLEN];
+        int           port;
+        ep_map_rec_t *map = reinterpret_cast<ep_map_rec_t *>(uuid);
+
+        port = EpAttr::netaddr_get_port(&map->rmp_addr);
+        EpAttr::netaddr_to_str(&map->rmp_addr, ip, sizeof(ip));
+        if (map->rmp_uuid != 0) {
+            std::cout << "Map uuid " << std::hex << map->rmp_uuid << std::dec
+                << " (" << map->rmp_major << ":" << map->rmp_minor
+                << " ip " << ip << ":" << port << std::endl;
+        }
+        uuid += sizeof(*map);
     }
 }
 

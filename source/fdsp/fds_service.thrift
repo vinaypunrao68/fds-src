@@ -222,6 +222,8 @@ service BaseAsyncSvc {
 
 service PlatNetSvc extends BaseAsyncSvc {
     oneway void allUuidBinding(1: UuidBindMsg mine),
+    oneway void notifyNodeAdd(1: FDSP.FDSP_ActivateNodeType info),
+
     list<NodeInfoMsg> notifyNodeInfo(1: NodeInfoMsg info, 2: bool bcast),
     DomainNodes getDomainNodes(1: DomainNodes dom),
 

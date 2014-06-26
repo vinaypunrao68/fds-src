@@ -203,13 +203,13 @@ EpPlatformdMod::node_reg_notify(const node_data_t *info)
     out.smq_svc_uuid     = info->nd_service_uuid;
     out.smq_hdr.smq_code = SHMQ_NODE_REGISTRATION;
 
-    plat = NodeShmCtrl::shm_producer();
-    plat->shm_producer(static_cast<void *>(&out), sizeof(out), 0);
-
     /* Allocate node agents as proxy to this node and its services. */
     agent = NULL;
     local = Platform::platf_singleton()->plf_node_inventory();
     local->dc_register_node(shm, &agent, idx, idx, NODE_DO_PROXY_ALL_SVCS);
+
+    plat = NodeShmCtrl::shm_producer();
+    plat->shm_producer(static_cast<void *>(&out), sizeof(out), 0);
 }
 
 }  // namespace fds
