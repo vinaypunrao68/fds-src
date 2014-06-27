@@ -76,7 +76,7 @@ DataMgr::volcat_evt_handler(fds_catalog_action_t catalog_action,
  * for volume 'volid'. This method activates volume's QoS queue
  * so this DM starts processing requests from AM for this volume
  */
-void 
+void
 DataMgr::volmetaRecvd(fds_volid_t volid, const Error& error) {
     LOGDEBUG << "Will unblock qos queue for volume "
              << std::hex << volid << std::dec;
@@ -137,7 +137,7 @@ DataMgr::finishCloseDMT() {
     // volume to finish forwarding
 
     // cleanup if needed
-    deleteVolumeDb();  
+    deleteVolumeDb();
 }
 
 /**
@@ -255,7 +255,9 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
               << vol_uuid << std::dec << ", created catalogs? " << !vol_will_sync;
 
     vol_map_mtx->lock();
-    err = dataMgr->qosCtrl->registerVolume(vol_uuid, dynamic_cast<FDS_VolumeQueue*>(volmeta->dmVolQueue));
+    err = dataMgr->qosCtrl->registerVolume(vol_uuid,
+                                           static_cast<FDS_VolumeQueue*>(
+                                               volmeta->dmVolQueue));
     if (!err.ok()) {
         delete volmeta;
         vol_map_mtx->unlock();
@@ -268,7 +270,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
         // we will use the priority of the volume, but no min iops (otherwise we will
         // need to implement temp deregister of vol queue, so we have enough total iops
         // to admit iops of shadow queue)
-        FDS_VolumeQueue* shadowVolQueue = 
+        FDS_VolumeQueue* shadowVolQueue =
                 new(std::nothrow) FDS_VolumeQueue(4096, 10000, 0, vdesc->relativePrio);
         if (shadowVolQueue) {
             fds_volid_t shadow_volid = catSyncRecv->shadowVolUuid(vol_uuid);
@@ -353,7 +355,10 @@ Error DataMgr::_process_mod_vol(fds_volid_t vol_uuid, const VolumeDesc& voldesc)
     }
     VolumeMeta *vm = vol_meta_map[vol_uuid];
     vm->vol_desc->modifyPolicyInfo(2*voldesc.iops_min, voldesc.iops_max, voldesc.relativePrio);
-    err = qosCtrl->modifyVolumeQosParams(vol_uuid, 2*voldesc.iops_min, voldesc.iops_max, voldesc.relativePrio);
+    err = qosCtrl->modifyVolumeQosParams(vol_uuid,
+                                         2*voldesc.iops_min,
+                                         voldesc.iops_max,
+                                         voldesc.relativePrio);
     vol_map_mtx->unlock();
 
     LOGNOTIFY << "Modify policy for volume "
@@ -425,7 +430,7 @@ Error DataMgr::notifyStopForwardUpdates() {
     std::unordered_map<fds_uint64_t, VolumeMeta*>::iterator vol_it;
     Error err(ERR_OK);
 
-    if (!catSyncMgr->isSyncInProgress()) {  
+    if (!catSyncMgr->isSyncInProgress()) {
         err = ERR_CATSYNC_NOT_PROGRESS;
         return err;
     }
@@ -445,7 +450,7 @@ Error DataMgr::notifyStopForwardUpdates() {
         // TODO(xxx) how do we handle this?
         fds_panic("Failed to schedule closedmt timer!");
     }
-   return err;
+    return err;
 }
 
  /*
@@ -673,15 +678,15 @@ DataMgr::DataMgr(int argc, char *argv[], Platform *platform, Module **vec)
           numTestVols(10),
           runMode(NORMAL_MODE),
           scheduleRate(4000),
-          catSyncRecv(new CatSyncReceiver(this,std::bind(&DataMgr::volmetaRecvd,
-                                                         this,
-                                                         std::placeholders::_1,
-                                                         std::placeholders::_2))),
-          closedmt_timer(new FdsTimer()),
-          closedmt_timer_task(new CloseDMTTimerTask(*closedmt_timer,
-                                                    std::bind(&DataMgr::finishCloseDMT,
-                                                              this)))
-{
+          catSyncRecv(new CatSyncReceiver(this,
+                                          std::bind(&DataMgr::volmetaRecvd,
+                                                    this,
+                                                    std::placeholders::_1,
+                                                    std::placeholders::_2))),
+                     closedmt_timer(new FdsTimer()),
+                     closedmt_timer_task(new CloseDMTTimerTask(*closedmt_timer,
+                                                               std::bind(&DataMgr::finishCloseDMT,
+                                                                         this))) {
     // If we're in test mode, don't daemonize.
     // TODO(Andrew): We probably want another config field and
     // not to override test_mode
@@ -754,10 +759,10 @@ void DataMgr::setup_metadatapath_server(const std::string &ip)
 
     int myIpInt = netSession::ipString2Addr(ip);
     std::string node_name = "_DM_" + ip;
-    // TODO: Ideally createServerSession should take a shared pointer
+    // TODO(Andrew): Ideally createServerSession should take a shared pointer
     // for datapath_handler.  Make sure that happens.  Otherwise you
     // end up with a pointer leak.
-    // TODO: Figure out who cleans up datapath_session_
+    // TODO(Andrew): Figure out who cleans up datapath_session_
     metadatapath_session = nstable->\
             createServerSession<netMetaDataPathServerSession>(
                 myIpInt,
@@ -794,7 +799,7 @@ void DataMgr::proc_pre_startup()
     useTestMode = conf_helper_.get_abs<bool>("fds.dm.testing.test_mode", false);
     int sev_level = conf_helper_.get_abs<int>("fds.dm.log_severity", 0);
 
-    GetLog()->setSeverityFilter(( fds_log::severity_level)sev_level);
+    GetLog()->setSeverityFilter((fds_log::severity_level)sev_level);
     if (useTestMode == true) {
         runMode = TEST_MODE;
     }
@@ -869,18 +874,21 @@ void DataMgr::proc_pre_startup()
                                      testVolId * 2,
                                      testVolId);
             fds_assert(testVdb != NULL);
-            vol_handler(testVolId, testVdb, fds_notify_vol_add, fpi::FDSP_NOTIFY_VOL_NO_FLAG, FDS_ProtocolInterface::FDSP_ERR_OK);
-
+            vol_handler(testVolId,
+                        testVdb,
+                        fds_notify_vol_add,
+                        fpi::FDSP_NOTIFY_VOL_NO_FLAG,
+                        FDS_ProtocolInterface::FDSP_ERR_OK);
             delete testVdb;
         }
     }
 
-   setup_metasync_service();
+    setup_metasync_service();
 }
 
 void DataMgr::setup_metasync_service()
 {
-    catSyncMgr.reset(new CatalogSyncMgr(1, this, nstable)); 
+    catSyncMgr.reset(new CatalogSyncMgr(1, this, nstable));
     // TODO(xxx) should we start catalog sync manager when no OM?
     catSyncMgr->mod_startup();
 }
@@ -946,13 +954,12 @@ DataMgr::ReqHandler::~ReqHandler() {
 
 void DataMgr::ReqHandler::GetVolumeBlobList(FDSP_MsgHdrTypePtr& msg_hdr,
                                             FDSP_GetVolumeBlobListReqTypePtr& blobListReq) {
-
     Error err(ERR_OK);
 
     err = dataMgr->blobListInternal(blobListReq, msg_hdr->glob_volume_id,
-                                    msg_hdr->src_ip_lo_addr, msg_hdr->dst_ip_lo_addr, msg_hdr->src_port,
-                                    msg_hdr->dst_port, msg_hdr->session_uuid, msg_hdr->req_cookie);
-
+                                    msg_hdr->src_ip_lo_addr, msg_hdr->dst_ip_lo_addr,
+                                    msg_hdr->src_port, msg_hdr->dst_port,
+                                    msg_hdr->session_uuid, msg_hdr->req_cookie);
     if (!err.ok()) {
         GLOGNORMAL << "Error Queueing the blob list request to per volume Queue";
         msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_FAILED;
@@ -969,11 +976,11 @@ void DataMgr::ReqHandler::GetVolumeBlobList(FDSP_MsgHdrTypePtr& msg_hdr,
         blobListResp->num_blobs_in_resp = 0;
         blobListResp->end_of_list = true;
         dataMgr->respMapMtx.read_lock();
-        try { 
+        try {
             dataMgr->respHandleCli(msg_hdr->session_uuid)->GetVolumeBlobListResp(*msg_hdr,
                                                                              *blobListResp);
-        } catch (att::TTransportException& e) {
-            GLOGERROR << "error during network call : " << e.what() ;
+        } catch(att::TTransportException& e) {
+            GLOGERROR << "error during network call : " << e.what();
         }
         dataMgr->respMapMtx.read_unlock();
 
@@ -1148,14 +1155,14 @@ DataMgr::updateCatalogProcess(const dmCatReq  *updCatReq, BlobNode **bnode) {
     Error err(ERR_OK);
 
     LOGDEBUG << "Processing update catalog request with "
-              << "volume id: " << updCatReq->volId
-              << ", blob name: "
-              << updCatReq->blob_name
-              << ", Trans ID "
-              << updCatReq->transId
-              << ", OP ID " << updCatReq->transOp
-              << ", journ TXID " << updCatReq->reqCookie
-	      << ", dmt_version " << updCatReq->fdspUpdCatReqPtr->dmt_version;
+             << "volume id: " << updCatReq->volId
+             << ", blob name: "
+             << updCatReq->blob_name
+             << ", Trans ID "
+             << updCatReq->transId
+             << ", OP ID " << updCatReq->transOp
+             << ", journ TXID " << updCatReq->reqCookie
+             << ", dmt_version " << updCatReq->fdspUpdCatReqPtr->dmt_version;
 
     // Grab a big lock around the entire operation so that
     // all updates to the same blob get serialized from disk
@@ -1346,7 +1353,7 @@ DataMgr::updateCatalogBackend(dmCatReq  *updCatReq) {
 
     err = forwardUpdateCatalogRequest(updCatReq);
     if (!err.ok()) {
-        // if  the update request  is not forwarded, send the response. 
+        // if  the update request  is not forwarded, send the response.
         sendUpdateCatalogResp(updCatReq, bnode);
     }
 
@@ -1359,7 +1366,7 @@ DataMgr::updateCatalogBackend(dmCatReq  *updCatReq) {
     delete updCatReq;
 }
 
-void 
+void
 DataMgr::sendUpdateCatalogResp(dmCatReq  *updCatReq, BlobNode *bnode) {
     Error err(ERR_OK);
 
@@ -1407,9 +1414,11 @@ DataMgr::sendUpdateCatalogResp(dmCatReq  *updCatReq, BlobNode *bnode) {
 
     dataMgr->respMapMtx.read_lock();
     try {
-        dataMgr->respHandleCli(updCatReq->session_uuid)->UpdateCatalogObjectResp(*msg_hdr, *update_catalog);
-    } catch (att::TTransportException& e) {
-        GLOGERROR << "error during network call : " << e.what() ;
+        dataMgr->respHandleCli(
+            updCatReq->session_uuid)->UpdateCatalogObjectResp(*msg_hdr,
+                                                              *update_catalog);
+    } catch(att::TTransportException& e) {
+        GLOGERROR << "error during network call : " << e.what();
     }
     dataMgr->respMapMtx.read_unlock();
 
@@ -1447,28 +1456,28 @@ Error  DataMgr::forwardUpdateCatalogRequest(dmCatReq  *updCatReq) {
         do_forward = vol_meta->isForwarding();
         do_finish  = vol_meta->isForwardFinish();
         vol_map_mtx->unlock();
-     
-        if ((do_forward) || ( vol_meta->dmtclose_time > updCatReq->enqueue_time)) {
+
+        if ((do_forward) || (vol_meta->dmtclose_time > updCatReq->enqueue_time)) {
             err = catSyncMgr->forwardCatalogUpdate(updCatReq);
         } else {
             err = ERR_DMT_FORWARD;
         }
 
-        // move the state, once we drain  planned queue contents 
-        LOGNORMAL << "DMT close Time:  " << vol_meta->dmtclose_time 
+        // move the state, once we drain  planned queue contents
+        LOGNORMAL << "DMT close Time:  " << vol_meta->dmtclose_time
                   << " Enqueue Time: " << updCatReq->enqueue_time;
-        
+
         if ((vol_meta->dmtclose_time <= updCatReq->enqueue_time) && (do_finish)) {
             vol_meta->setForwardFinish();
             // remove the volume from sync_volume list
             LOGNORMAL << "CleanUP: remove Volume " << updCatReq->volId;
             catSyncMgr->finishedForwardVolmeta(updCatReq->volId);
-        }        
-    }
-    else 
+        }
+    } else {
         err = ERR_DMT_FORWARD;
+    }
 
-   return err;
+    return err;
 }
 
 
@@ -1478,7 +1487,7 @@ DataMgr::updateCatalogInternal(FDSP_UpdateCatalogTypePtr updCatReq,
                                fds_volid_t volId, fds_uint32_t srcIp,
                                fds_uint32_t dstIp, fds_uint32_t srcPort,
                                fds_uint32_t dstPort, std::string session_uuid,
-                               fds_uint32_t reqCookie,std::string session_cache) {
+                               fds_uint32_t reqCookie, std::string session_cache) {
     fds::Error err(fds::ERR_OK);
 
     /*
@@ -1495,10 +1504,10 @@ DataMgr::updateCatalogInternal(FDSP_UpdateCatalogTypePtr updCatReq,
         LOGERROR << "Unable to enqueue Update Catalog request "
                  << reqCookie << " error " << err.GetErrstr();
         return err;
-    }
-    else
+    } else {
         LOGDEBUG << "Successfully enqueued   update Catalog  request "
                  << reqCookie;
+    }
 
     return err;
 }
@@ -1518,20 +1527,20 @@ DataMgr::ReqHandler::StartBlobTx(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msgH
         msgHdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
         dataMgr->swapMgrId(msgHdr);
         dataMgr->respMapMtx.read_lock();
-        try { 
+        try {
             dataMgr->respHandleCli(msgHdr->session_uuid)->StartBlobTxResp(
                 *msgHdr);
-        } catch (att::TTransportException& e) {
-            GLOGERROR << "error during network call : " << e.what() ;
+        } catch(att::TTransportException& e) {
+            GLOGERROR << "error during network call : " << e.what();
         }
-        
+
         dataMgr->respMapMtx.read_unlock();
         return;
     }
 
     BlobTxId::const_ptr blobTxDesc = BlobTxId::ptr(new BlobTxId(
         txDesc->txId));
-    
+
     dataMgr->startBlobTxInternal(*volumeName, *blobName, blobTxDesc,
                                  msgHdr->glob_volume_id,
                                  msgHdr->src_ip_lo_addr, msgHdr->dst_ip_lo_addr,  // IP stuff
@@ -1581,23 +1590,23 @@ void DataMgr::ReqHandler::UpdateCatalogObject(FDS_ProtocolInterface::
         msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
         dataMgr->swapMgrId(msg_hdr);
         dataMgr->respMapMtx.read_lock();
-        try { 
+        try {
             dataMgr->respHandleCli(msg_hdr->session_uuid)->UpdateCatalogObjectResp(
                 *msg_hdr,
                 *update_catalog);
-        } catch (att::TTransportException& e) {
-            GLOGERROR << "error during network call : " << e.what() ;
+        } catch(att::TTransportException& e) {
+            GLOGERROR << "error during network call : " << e.what();
         }
-        
+
         dataMgr->respMapMtx.read_unlock();
         return;
     }
 
     err = dataMgr->updateCatalogInternal(update_catalog, msg_hdr->glob_volume_id,
-                                         msg_hdr->src_ip_lo_addr, msg_hdr->dst_ip_lo_addr, msg_hdr->src_port,
-                                         msg_hdr->dst_port, msg_hdr->session_uuid, msg_hdr->req_cookie,
+                                         msg_hdr->src_ip_lo_addr, msg_hdr->dst_ip_lo_addr,
+                                         msg_hdr->src_port, msg_hdr->dst_port,
+                                         msg_hdr->session_uuid, msg_hdr->req_cookie,
                                          msg_hdr->session_cache);
-
     if (!err.ok()) {
         GLOGERROR << "Error Queueing the update Catalog request to Per volume Queue";
         msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_FAILED;
@@ -1610,11 +1619,11 @@ void DataMgr::ReqHandler::UpdateCatalogObject(FDS_ProtocolInterface::
         msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_UPDATE_CAT_OBJ_RSP;
         dataMgr->swapMgrId(msg_hdr);
         dataMgr->respMapMtx.read_lock();
-        try { 
+        try {
             dataMgr->respHandleCli(msg_hdr->session_uuid)->UpdateCatalogObjectResp(*msg_hdr,
                                                                                *update_catalog);
-        } catch (att::TTransportException& e) {
-            GLOGERROR << "error during network call : " << e.what() ;
+        } catch(att::TTransportException& e) {
+            GLOGERROR << "error during network call : " << e.what();
         }
 
         dataMgr->respMapMtx.read_unlock();
@@ -1760,7 +1769,7 @@ DataMgr::blobListBackend(dmCatReq *listBlobReq) {
     msg_hdr->req_cookie     = listBlobReq->reqCookie;
 
     blobListResp->num_blobs_in_resp = bNodeList.size();
-    blobListResp->end_of_list       = true;  // TODO: For now, just returning entire list
+    blobListResp->end_of_list       = true;  // TODO(Andrew): For now, returning entire list
     blobListResp->iterator_cookie   = 0;
     for (std::list<BlobNode>::iterator it = bNodeList.begin();
          it != bNodeList.end();
@@ -1772,10 +1781,10 @@ DataMgr::blobListBackend(dmCatReq *listBlobReq) {
         blobListResp->blob_info_list.push_back(bInfo);
     }
     respMapMtx.read_lock();
-    try { 
+    try {
         respHandleCli(listBlobReq->session_uuid)->GetVolumeBlobListResp(*msg_hdr, *blobListResp);
-    } catch (att::TTransportException& e) {
-            GLOGERROR << "error during network call : " << e.what() ;
+    } catch(att::TTransportException& e) {
+            GLOGERROR << "error during network call : " << e.what();
     }
 
     respMapMtx.read_unlock();
@@ -1862,7 +1871,7 @@ void
 DataMgr::queryCatalogBackend2(void * _io)
 {
     Error err(ERR_OK);
-    DmIoQueryCat *qryCatReq = (DmIoQueryCat*)_io;
+    DmIoQueryCat *qryCatReq = static_cast<DmIoQueryCat*>(_io);
     ObjectID obj_id;
 
     BlobNode *bnode = NULL;
@@ -1924,10 +1933,12 @@ DataMgr::queryCatalogBackend(dmCatReq  *qryCatReq) {
     query_catalog->dm_operation = qryCatReq->transOp;
 
     dataMgr->respMapMtx.read_lock();
-    try { 
-        dataMgr->respHandleCli(qryCatReq->session_uuid)->QueryCatalogObjectResp(*msg_hdr, *query_catalog);
-    } catch (att::TTransportException& e) {
-            GLOGERROR << "error during network call : " << e.what() ;
+    try {
+        dataMgr->respHandleCli(
+            qryCatReq->session_uuid)->QueryCatalogObjectResp(*msg_hdr,
+                                                             *query_catalog);
+    } catch(att::TTransportException& e) {
+            GLOGERROR << "error during network call : " << e.what();
     }
 
     dataMgr->respMapMtx.read_unlock();
@@ -2091,10 +2102,10 @@ DataMgr::queryCatalogInternal(FDSP_QueryCatalogTypePtr qryCatReq,
         LOGDEBUG << "Unable to enqueue Query Catalog request "
                  << reqCookie;
         return err;
-    }
-    else
+    } else {
         LOGDEBUG << "Successfully enqueued  Catalog  request "
                  << reqCookie;
+    }
 
     return err;
 }
@@ -2115,8 +2126,9 @@ void DataMgr::ReqHandler::QueryCatalogObject(FDS_ProtocolInterface::
 
 
     err = dataMgr->queryCatalogInternal(query_catalog, msg_hdr->glob_volume_id,
-                                        msg_hdr->src_ip_lo_addr, msg_hdr->dst_ip_lo_addr, msg_hdr->src_port,
-                                        msg_hdr->dst_port, msg_hdr->session_uuid, msg_hdr->req_cookie);
+                                        msg_hdr->src_ip_lo_addr, msg_hdr->dst_ip_lo_addr,
+                                        msg_hdr->src_port, msg_hdr->dst_port,
+                                        msg_hdr->session_uuid, msg_hdr->req_cookie);
     if (!err.ok()) {
         msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_FAILED;
         msg_hdr->err_msg  = "Something hit the fan...";
@@ -2129,10 +2141,11 @@ void DataMgr::ReqHandler::QueryCatalogObject(FDS_ProtocolInterface::
         dataMgr->swapMgrId(msg_hdr);
         dataMgr->respMapMtx.read_lock();
         try {
-            dataMgr->respHandleCli(msg_hdr->session_uuid)->QueryCatalogObjectResp(*msg_hdr,
-                                                                              *query_catalog);
-        } catch (att::TTransportException& e) {
-            GLOGERROR << "error during network call : " << e.what() ;
+            dataMgr->respHandleCli(
+                msg_hdr->session_uuid)->QueryCatalogObjectResp(*msg_hdr,
+                                                               *query_catalog);
+        } catch(att::TTransportException& e) {
+            GLOGERROR << "error during network call : " << e.what();
         }
 
         dataMgr->respMapMtx.read_unlock();
@@ -2143,8 +2156,7 @@ void DataMgr::ReqHandler::QueryCatalogObject(FDS_ProtocolInterface::
                   << ", Trans ID "
                   << query_catalog->dm_transaction_id
                   << ", OP ID " << query_catalog->dm_operation;
-    }
-    else {
+    } else {
         GLOGDEBUG << "Successfully Enqueued  the query catalog request";
     }
 }
@@ -2267,7 +2279,7 @@ DataMgr::expungeObject(fds_volid_t volId, const ObjectID &objId) {
     for (fds_uint32_t i = 0; i < tokenGroup->getLength(); i++) {
         try {
             NodeUuid uuid = tokenGroup->get(i);
-	   // NodeAgent::pointer node = Platform::plf_dm_nodes()->agent_info(uuid);
+            // NodeAgent::pointer node = Platform::plf_dm_nodes()->agent_info(uuid);
             NodeAgent::pointer node = plf_mgr->plf_node_inventory()->
                     dc_get_sm_nodes()->agent_info(uuid);
             SmAgent::pointer sm = agt_cast_ptr<SmAgent>(node);
@@ -2277,11 +2289,11 @@ DataMgr::expungeObject(fds_volid_t volId, const ObjectID &objId) {
             smClient->DeleteObject(msgHdr, delReq);
         } catch(const att::TTransportException& e) {
             errorCount++;
-            GLOGERROR << "[" << errorCount << "]error during network call : " << e.what();
+            GLOGERROR << "[" << errorCount << "] error during network call : " << e.what();
         }
     }
 
-    if (errorCount >= int(ceil(tokenGroup->getLength()*0.5))) {
+    if (errorCount >= static_cast<int>(ceil(tokenGroup->getLength()*0.5))) {
         LOGCRITICAL << "too many network errors ["
                     << errorCount << "/" <<tokenGroup->getLength() <<"]";
         return ERR_NETWORK_TRANSPORT;
@@ -2485,10 +2497,12 @@ DataMgr::deleteCatObjBackend(dmCatReq  *delCatReq) {
     delete_catalog->blob_name = delCatReq->blob_name;
 
     dataMgr->respMapMtx.read_lock();
-    try { 
-        dataMgr->respHandleCli(delCatReq->session_uuid)->DeleteCatalogObjectResp(*msg_hdr, *delete_catalog);
-    } catch (att::TTransportException& e) {
-        GLOGERROR << "error during network call : " << e.what() ;
+    try {
+        dataMgr->respHandleCli(
+            delCatReq->session_uuid)->DeleteCatalogObjectResp(*msg_hdr,
+                                                              *delete_catalog);
+    } catch(att::TTransportException& e) {
+        GLOGERROR << "error during network call : " << e.what();
     }
 
     dataMgr->respMapMtx.read_unlock();
@@ -2518,9 +2532,9 @@ void DataMgr::getBlobMetaDataBackend(const dmCatReq *request) {
             err = _process_query(request->volId, request->blob_name, bNode);
             if (err == ERR_OK) {
                 fpi::FDSP_MetaDataPair metapair;
-                for( auto& meta : bNode->meta_list) {
+                for (auto& meta : bNode->meta_list) {
                     metapair.key = meta.key;
-                    metapair.value = meta.value;                    
+                    metapair.value = meta.value;
                     metaDataList->push_back(metapair);
                 }
             } else {
@@ -2531,14 +2545,16 @@ void DataMgr::getBlobMetaDataBackend(const dmCatReq *request) {
             }
         }
     }
-    
+
     // send the response
-    setResponseError(msgHeader,err);
+    setResponseError(msgHeader, err);
     read_synchronized(dataMgr->respMapMtx) {
         try {
-            respHandleCli(request->session_uuid)->GetBlobMetaDataResp(*msgHeader,request->blob_name,*metaDataList);
-        } catch (att::TTransportException& e) {
-            GLOGERROR << "error during network call : " << e.what() ;
+            respHandleCli(request->session_uuid)->GetBlobMetaDataResp(*msgHeader,
+                                                                      request->blob_name,
+                                                                      *metaDataList);
+        } catch(att::TTransportException& e) {
+            GLOGERROR << "error during network call : " << e.what();
         }
     }
     qosCtrl->markIODone(*request);
@@ -2587,18 +2603,18 @@ void DataMgr::setBlobMetaDataBackend(const dmCatReq *request) {
                                 1,
                                 bNode);
             fds_verify(err == ERR_OK);
-
         }
     }
-    
+
     // send the response
-    setResponseError(msgHeader,err);
+    setResponseError(msgHeader, err);
     read_synchronized(dataMgr->respMapMtx) {
         try {
             LOGDEBUG << "sending reponse to SetBlobMetaDataResp";
-            respHandleCli(request->session_uuid)->SetBlobMetaDataResp(*msgHeader, request->blob_name);
-        } catch (att::TTransportException& e) {
-            GLOGERROR << "error during network call : " << e.what() ;
+            respHandleCli(request->session_uuid)->SetBlobMetaDataResp(*msgHeader,
+                                                                      request->blob_name);
+        } catch(att::TTransportException& e) {
+            GLOGERROR << "error during network call : " << e.what();
         }
     }
     qosCtrl->markIODone(*request);
@@ -2613,7 +2629,7 @@ void DataMgr::getVolumeMetaDataBackend(const dmCatReq *request) {
     InitMsgHdr(msgHeader);
     request->fillResponseHeader(msgHeader);
     LOGDEBUG << "txnid: " << request->reqCookie;
-    
+
     if (!volExists(request->volId)) {
         err = ERR_VOL_NOT_FOUND;
         LOGWARN << "volume not found: " << request->volId;
@@ -2642,11 +2658,12 @@ void DataMgr::getVolumeMetaDataBackend(const dmCatReq *request) {
              << " size:" << volumeMetaData->size;
 
     // send the response
-    setResponseError(msgHeader,err);
+    setResponseError(msgHeader, err);
     read_synchronized(dataMgr->respMapMtx) {
         try {
             LOGDEBUG << "sending reponse to GetVolumeMetaData";
-            respHandleCli(request->session_uuid)->GetVolumeMetaDataResp(*msgHeader, *volumeMetaData);
+            respHandleCli(request->session_uuid)->GetVolumeMetaDataResp(*msgHeader,
+                                                                        *volumeMetaData);
         } catch(att::TTransportException& e) {
             LOGERROR << "error during network call : " << e.what();
         }
@@ -2676,8 +2693,7 @@ DataMgr::deleteCatObjInternal(FDSP_DeleteCatalogTypePtr delCatReq,
         LOGERROR << "Unable to enqueue Deletye Catalog request "
                  << reqCookie;
         return err;
-    }
-    else {
+    } else {
         LOGDEBUG << "Successfully enqueued  delete Catalog  request "
                  << reqCookie;
     }
@@ -2689,7 +2705,6 @@ void DataMgr::ReqHandler::DeleteCatalogObject(FDS_ProtocolInterface::
                                               FDS_ProtocolInterface::
                                               FDSP_DeleteCatalogTypePtr
                                               &delete_catalog) {
-
     Error err(ERR_OK);
 
     GLOGDEBUG << "Processing Delete catalog request with "
@@ -2697,8 +2712,9 @@ void DataMgr::ReqHandler::DeleteCatalogObject(FDS_ProtocolInterface::
               << ", blob name: "
               << delete_catalog->blob_name;
     err = dataMgr->deleteCatObjInternal(delete_catalog, msg_hdr->glob_volume_id,
-                                        msg_hdr->src_ip_lo_addr, msg_hdr->dst_ip_lo_addr, msg_hdr->src_port,
-                                        msg_hdr->dst_port, msg_hdr->session_uuid, msg_hdr->req_cookie);
+                                        msg_hdr->src_ip_lo_addr, msg_hdr->dst_ip_lo_addr,
+                                        msg_hdr->src_port, msg_hdr->dst_port,
+                                        msg_hdr->session_uuid, msg_hdr->req_cookie);
     if (!err.ok()) {
         msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_FAILED;
         msg_hdr->err_msg  = "Error Enqueue delete Cat request";
@@ -2710,11 +2726,12 @@ void DataMgr::ReqHandler::DeleteCatalogObject(FDS_ProtocolInterface::
         msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_DELETE_BLOB_RSP;
         dataMgr->swapMgrId(msg_hdr);
         dataMgr->respMapMtx.read_lock();
-        try { 
-            dataMgr->respHandleCli(msg_hdr->session_uuid)->DeleteCatalogObjectResp(*msg_hdr,
-                                                                               *delete_catalog);
-        } catch (att::TTransportException& e) {
-            GLOGERROR << "error during network call : " << e.what() ;
+        try {
+            dataMgr->respHandleCli(
+                msg_hdr->session_uuid)->DeleteCatalogObjectResp(*msg_hdr,
+                                                                *delete_catalog);
+        } catch(att::TTransportException& e) {
+            GLOGERROR << "error during network call : " << e.what();
         }
 
         dataMgr->respMapMtx.read_unlock();
@@ -2733,7 +2750,7 @@ void DataMgr::ReqHandler::SetBlobMetaData(boost::shared_ptr<FDSP_MsgHdrType>& ms
                                           boost::shared_ptr<FDSP_MetaDataList>& metaDataList) {
     Error err(ERR_OK);
 
-    GLOGDEBUG << " Set metadata for volume:" << *volumeName 
+    GLOGDEBUG << " Set metadata for volume:" << *volumeName
               << " blob:" << *blobName;
 
     if ((dataMgr->testUturnAll == true) ||
@@ -2745,17 +2762,17 @@ void DataMgr::ReqHandler::SetBlobMetaData(boost::shared_ptr<FDSP_MsgHdrType>& ms
         msgHeader->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
         dataMgr->swapMgrId(msgHeader);
         dataMgr->respMapMtx.read_lock();
-        try { 
+        try {
             dataMgr->respHandleCli(msgHeader->session_uuid)->SetBlobMetaDataResp(
                 *msgHeader, *blobName);
-        } catch (att::TTransportException& e) {
-            GLOGERROR << "error during network call : " << e.what() ;
+        } catch(att::TTransportException& e) {
+            GLOGERROR << "error during network call : " << e.what();
         }
-        
+
         dataMgr->respMapMtx.read_unlock();
         return;
     }
-    
+
     RequestHeader reqHeader(msgHeader);
     GLOGDEBUG << "header: "
               << " vol: " << reqHeader.volId
@@ -2763,7 +2780,7 @@ void DataMgr::ReqHandler::SetBlobMetaData(boost::shared_ptr<FDSP_MsgHdrType>& ms
               << " session: " << reqHeader.session_uuid;
 
     dmCatReq* request = new dmCatReq(reqHeader, FDS_SET_BLOB_METADATA);
-    
+
     for (auto& meta : *metaDataList) {
         GLOGDEBUG << "received meta  [" << meta.key <<":" << meta.value << "]";
     }
@@ -2771,8 +2788,8 @@ void DataMgr::ReqHandler::SetBlobMetaData(boost::shared_ptr<FDSP_MsgHdrType>& ms
 
     request->metadataList = metaDataList;
     request->blob_name = *blobName;
-    err = dataMgr->qosCtrl->enqueueIO(request->volId,request);
-                             
+    err = dataMgr->qosCtrl->enqueueIO(request->volId, request);
+
     fds_verify(err == ERR_OK);
 }
 
@@ -2803,71 +2820,74 @@ void DataMgr::ReqHandler::GetVolumeMetaData(boost::shared_ptr<FDSP_MsgHdrType>& 
 }
 
 int scheduleUpdateCatalog(void * _io) {
-    dmCatReq *io = (dmCatReq*)_io;
+    dmCatReq *io = static_cast<dmCatReq*>(_io);
 
     dataMgr->updateCatalogBackend(io);
     return 0;
 }
 
 int scheduleQueryCatalog(void * _io) {
-    dmCatReq *io = (dmCatReq*)_io;
+    dmCatReq *io = static_cast<dmCatReq*>(_io);
 
     dataMgr->queryCatalogBackend(io);
     return 0;
 }
 
 int scheduleStartBlobTx(void * _io) {
-    dmCatReq *io = (dmCatReq*)_io;
+    dmCatReq *io = static_cast<dmCatReq*>(_io);
 
     dataMgr->startBlobTxBackend(io);
     return 0;
 }
 
 int scheduleStatBlob(void * _io) {
-    dmCatReq *io = (dmCatReq*)_io;
+    dmCatReq *io = static_cast<dmCatReq*>(_io);
 
     dataMgr->statBlobBackend(io);
     return 0;
 }
 
 int scheduleDeleteCatObj(void * _io) {
-    dmCatReq *io = (dmCatReq*)_io;
+    dmCatReq *io = static_cast<dmCatReq*>(_io);
 
     dataMgr->deleteCatObjBackend(io);
     return 0;
 }
 
 int scheduleBlobList(void * _io) {
-    dmCatReq *io = (dmCatReq*)_io;
+    dmCatReq *io = static_cast<dmCatReq*>(_io);
 
     dataMgr->blobListBackend(io);
     return 0;
 }
 
 int scheduleGetBlobMetaData(void* io) {
-    dataMgr->getBlobMetaDataBackend((dmCatReq*)io);
+    dataMgr->getBlobMetaDataBackend(
+        static_cast<dmCatReq*>(io));
     return 0;
 }
 
 int scheduleSetBlobMetaData(void* io) {
-    dataMgr->setBlobMetaDataBackend((dmCatReq*)io);
+    dataMgr->setBlobMetaDataBackend(
+        static_cast<dmCatReq*>(io));
     return 0;
 }
 
 int scheduleGetVolumeMetaData(void* io) {
-    dataMgr->getVolumeMetaDataBackend((dmCatReq*)io);
+    dataMgr->getVolumeMetaDataBackend(
+        static_cast<dmCatReq*>(io));
     return 0;
 }
 
 int scheduleSnapVolCat(void * _io) {
-    DmIoSnapVolCat *io = (DmIoSnapVolCat*)_io;
+    DmIoSnapVolCat *io = static_cast<DmIoSnapVolCat*>(_io);
 
     dataMgr->snapVolCat(io);
     return 0;
 }
 
 int schedulePushDeltaVolCat(void * _io) {
-    fds::DmIoSnapVolCat *io = (fds::DmIoSnapVolCat*)_io;
+    DmIoSnapVolCat *io = static_cast<DmIoSnapVolCat*>(_io);
 
     dataMgr->pushDeltaVolCat(io);
     return 0;
@@ -2911,6 +2931,6 @@ void DataMgr::setResponseError(fpi::FDSP_MsgHdrTypePtr& msg_hdr, const Error& er
         msg_hdr->err_msg  = "FDSP_ERR_FAILED";
         msg_hdr->err_code = err.GetErrno();
     }
-} 
+}
 
 }  // namespace fds

@@ -16,9 +16,6 @@ user_cpp          := \
         CatalogSync.cpp \
         CatalogSyncRecv.cpp
 
-user_no_style     := \
-	DataMgr.cpp
-
 user_ar_libs      := fds-dm-lib
 fds-dm-lib        := $(user_cpp)
 
