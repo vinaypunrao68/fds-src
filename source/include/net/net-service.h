@@ -385,6 +385,7 @@ class NetMgr : public Module
 
     static NetMgr *ep_mgr_singleton() { return &gl_NetService; }
     static fds_threadpool *ep_mgr_thrpool();
+    boost::shared_ptr<boost::thread> ep_register_thread;
     SynchronizedTaskExecutor<uint64_t>* ep_get_task_executor();
 
     /**

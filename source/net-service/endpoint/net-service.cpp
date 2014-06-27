@@ -149,10 +149,10 @@ NetMgr::ep_register_thr(EpSvc::pointer ep, bool update_domain)
 void
 NetMgr::ep_register(EpSvc::pointer ep, bool update_domain)
 {
-    fds_threadpool *pool;
-
-    pool = ep_mgr_thrpool();
-    pool->schedule(&NetMgr::ep_register_thr, this, ep, update_domain);
+    // TODO(Andrew): We're not joining on this thread right now...
+    ep_register_thread = boost::shared_ptr<boost::thread>(
+        new boost::thread(boost::bind(
+            &NetMgr::ep_register_thr, this, ep, update_domain)));
 }
 
 // ep_unregister
