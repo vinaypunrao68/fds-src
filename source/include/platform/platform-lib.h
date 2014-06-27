@@ -187,9 +187,22 @@ class VolPlatEvent : public PlatEvent
 // -------------------------------------------------------------------------------------
 extern Platform *gl_PlatformSvc;
 
+/**
+ * Enums of different services sharing the same UUID EP.
+ */
+const int NET_SVC_CTRL        = 1;
+const int NET_SVC_CONFIG      = 2;
+const int NET_SVC_DATA        = 3;
+const int NET_SVC_MIGRATION   = 4;
+const int NET_SVC_META_SYNC   = 5;
+
 class Platform : public Module
 {
   public:
+    static const int plat_svc_types[];
+    static fds_uint32_t plf_get_my_max_svc_ports();
+
+
     typedef Platform const *const      ptr;
 
     virtual ~Platform();
@@ -298,26 +311,20 @@ class Platform : public Module
     inline fds_uint32_t   plf_get_my_base_port() const { return plf_my_base_port; }
     inline fds_uint32_t   plf_get_my_node_port() const { return plf_my_node_port; }
     inline fds_uint32_t   plf_get_my_ctrl_port(fds_uint32_t base = 0) const {
-        return (base == 0 ? plf_my_base_port : base) + 1;
+        return (base == 0 ? plf_my_base_port : base) + NET_SVC_CTRL;
     }
     inline fds_uint32_t   plf_get_my_conf_port(fds_uint32_t base = 0) const {
-        return (base == 0 ? plf_my_base_port : base) + 2;
+        return (base == 0 ? plf_my_base_port : base) + NET_SVC_CONFIG;
     }
     inline fds_uint32_t   plf_get_my_data_port(fds_uint32_t base = 0) const {
-        return (base == 0 ? plf_my_base_port : base) + 3;
+        return (base == 0 ? plf_my_base_port : base) + NET_SVC_DATA;
     }
     inline fds_uint32_t   plf_get_my_migration_port(fds_uint32_t base = 0) const {
-        return (base == 0 ? plf_my_base_port : base) + 4;
+        return (base == 0 ? plf_my_base_port : base) + NET_SVC_MIGRATION;
     }
     inline fds_uint32_t   plf_get_my_metasync_port(fds_uint32_t base = 0) const {
-        return (base == 0 ? plf_my_base_port : base) + 5;
+        return (base == 0 ? plf_my_base_port : base) + NET_SVC_META_SYNC;
     }
-    /**
-     * For now, this number must be the same as base_port + x above.
-     * See PlatAgent::agent_bind_svc() for detail.
-     */
-    static inline fds_uint32_t plf_get_my_max_ports() { return 6; }
-
     inline std::string const *const plf_get_my_name() const { return &plf_my_node_name; }
     inline std::string const *const plf_get_my_ip() const { return &plf_my_ip; }
     inline std::string const *const plf_get_om_ip() const { return &plf_om_ip_str; }

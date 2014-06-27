@@ -27,14 +27,14 @@ PlatNetSvcHandler::allUuidBinding(boost::shared_ptr<fpi::UuidBindMsg>& mine)  //
 }
 
 void
-PlatNetSvcHandler::notifyNodeAdd(const fpi::FDSP_ActivateNodeType &info)
+PlatNetSvcHandler::notifyNodeActive(const fpi::FDSP_ActivateNodeType &info)
 {
 }
 
 void
-PlatNetSvcHandler::notifyNodeAdd(boost::shared_ptr<fpi::FDSP_ActivateNodeType> &info)
+PlatNetSvcHandler::notifyNodeActive(boost::shared_ptr<fpi::FDSP_ActivateNodeType> &info)
 {
-    LOGDEBUG << "Boost notifyNodeAdd";
+    LOGDEBUG << "Boost notifyNodeActive";
 }
 
 void PlatNetSvcHandler::notifyNodeInfo(

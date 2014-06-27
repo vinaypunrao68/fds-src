@@ -324,6 +324,9 @@ class EpSvcHandle
         *minor = ep_minor;
         return ep_major;
     }
+    inline const bo::shared_ptr<tt::TSocket> ep_debug_sock() const {
+        return ep_sock;
+    }
 
     void ep_notify_plugin();
     void ep_handle_net_error();

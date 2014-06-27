@@ -10,13 +10,23 @@
 #include <platform/platform-lib.h>
 #include <platform/node-inv-shmem.h>
 #include <NetSession.h>
-// TODO(Rao): remove stream includs
-#include <iostream>
-#include <fstream>
 
 namespace fds {
 
 Platform *gl_PlatformSvc;
+
+const int Platform::plat_svc_types[] = {
+        NET_SVC_CTRL, NET_SVC_CONFIG, NET_SVC_DATA, NET_SVC_MIGRATION, NET_SVC_META_SYNC
+};
+
+// plf_get_my_max_svc_ports
+// ------------------------
+//
+fds_uint32_t
+Platform::plf_get_my_max_svc_ports()
+{
+    return sizeof(plat_svc_types) / sizeof(int);  // NOLINT
+}
 
 // -------------------------------------------------------------------------------------
 // Common Platform Services
