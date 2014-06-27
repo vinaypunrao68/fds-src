@@ -1475,7 +1475,8 @@ Error  DataMgr::forwardUpdateCatalogRequest(dmCatReq  *updCatReq) {
 
 Error
 DataMgr::updateCatalogInternal(FDSP_UpdateCatalogTypePtr updCatReq,
-                               fds_volid_t volId, long srcIp, long dstIp, fds_uint32_t srcPort,
+                               fds_volid_t volId, fds_uint32_t srcIp,
+                               fds_uint32_t dstIp, fds_uint32_t srcPort,
                                fds_uint32_t dstPort, std::string session_uuid,
                                fds_uint32_t reqCookie,std::string session_cache) {
     fds::Error err(fds::ERR_OK);
@@ -1946,7 +1947,8 @@ DataMgr::queryCatalogBackend(dmCatReq  *qryCatReq) {
 
 Error
 DataMgr::blobListInternal(const FDSP_GetVolumeBlobListReqTypePtr& blob_list_req,
-                          fds_volid_t volId, long srcIp, long dstIp, fds_uint32_t srcPort,
+                          fds_volid_t volId, fds_uint32_t srcIp,
+                          fds_uint32_t dstIp, fds_uint32_t srcPort,
                           fds_uint32_t dstPort, std::string session_uuid, fds_uint32_t reqCookie) {
     fds::Error err(fds::ERR_OK);
 
@@ -1968,8 +1970,10 @@ DataMgr::blobListInternal(const FDSP_GetVolumeBlobListReqTypePtr& blob_list_req,
 
 void
 DataMgr::commitBlobTxInternal(BlobTxId::const_ptr blobTxId,
-                             fds_volid_t volId, long srcIp, long dstIp, fds_uint32_t srcPort,
-                             fds_uint32_t dstPort, std::string session_uuid, fds_uint32_t reqCookie) {
+                              fds_volid_t volId, fds_uint32_t srcIp,
+                              fds_uint32_t dstIp, fds_uint32_t srcPort,
+                              fds_uint32_t dstPort, std::string session_uuid,
+                              fds_uint32_t reqCookie) {
     Error err(ERR_OK);
 
     // The volume and blob will be derived from the transaction id
@@ -1991,8 +1995,10 @@ DataMgr::commitBlobTxInternal(BlobTxId::const_ptr blobTxId,
 
 void
 DataMgr::abortBlobTxInternal(BlobTxId::const_ptr blobTxId,
-                             fds_volid_t volId, long srcIp, long dstIp, fds_uint32_t srcPort,
-                             fds_uint32_t dstPort, std::string session_uuid, fds_uint32_t reqCookie) {
+                             fds_volid_t volId, fds_uint32_t srcIp,
+                             fds_uint32_t dstIp, fds_uint32_t srcPort,
+                             fds_uint32_t dstPort, std::string session_uuid,
+                             fds_uint32_t reqCookie) {
     Error err(ERR_OK);
 
     // The volume and blob will be derived from the transaction id
@@ -2015,8 +2021,10 @@ DataMgr::abortBlobTxInternal(BlobTxId::const_ptr blobTxId,
 void
 DataMgr::startBlobTxInternal(const std::string volumeName, const std::string &blobName,
                              BlobTxId::const_ptr blobTxId,
-                             fds_volid_t volId, long srcIp, long dstIp, fds_uint32_t srcPort,
-                             fds_uint32_t dstPort, std::string session_uuid, fds_uint32_t reqCookie) {
+                             fds_volid_t volId, fds_uint32_t srcIp,
+                             fds_uint32_t dstIp, fds_uint32_t srcPort,
+                             fds_uint32_t dstPort, std::string session_uuid,
+                             fds_uint32_t reqCookie) {
     Error err(ERR_OK);
 
     dmCatReq *dmStartTxReq = new dmCatReq(volId, blobName,
@@ -2037,8 +2045,10 @@ DataMgr::startBlobTxInternal(const std::string volumeName, const std::string &bl
 
 Error
 DataMgr::statBlobInternal(const std::string volumeName, const std::string &blobName,
-                          fds_volid_t volId, long srcIp, long dstIp, fds_uint32_t srcPort,
-                          fds_uint32_t dstPort, std::string session_uuid, fds_uint32_t reqCookie) {
+                          fds_volid_t volId, fds_uint32_t srcIp,
+                          fds_uint32_t dstIp, fds_uint32_t srcPort,
+                          fds_uint32_t dstPort, std::string session_uuid,
+                          fds_uint32_t reqCookie) {
     Error err(ERR_OK);
 
     dmCatReq *dmStatReq = new dmCatReq(volId, blobName,
@@ -2057,8 +2067,8 @@ DataMgr::statBlobInternal(const std::string volumeName, const std::string &blobN
 
 Error
 DataMgr::queryCatalogInternal(FDSP_QueryCatalogTypePtr qryCatReq,
-                              fds_volid_t volId, long srcIp,
-                              long dstIp, fds_uint32_t srcPort,
+                              fds_volid_t volId, fds_uint32_t srcIp,
+                              fds_uint32_t dstIp, fds_uint32_t srcPort,
                               fds_uint32_t dstPort, std::string session_uuid,
                               fds_uint32_t reqCookie) {
     fds::Error err(fds::ERR_OK);
@@ -2647,8 +2657,10 @@ void DataMgr::getVolumeMetaDataBackend(const dmCatReq *request) {
 
 Error
 DataMgr::deleteCatObjInternal(FDSP_DeleteCatalogTypePtr delCatReq,
-                              fds_volid_t volId, long srcIp, long dstIp, fds_uint32_t srcPort,
-                              fds_uint32_t dstPort, std::string session_uuid, fds_uint32_t reqCookie) {
+                              fds_volid_t volId, fds_uint32_t srcIp,
+                              fds_uint32_t dstIp, fds_uint32_t srcPort,
+                              fds_uint32_t dstPort, std::string session_uuid,
+                              fds_uint32_t reqCookie) {
     fds::Error err(fds::ERR_OK);
 
     /*

@@ -4,9 +4,5 @@ user_rtime_env := user
 user_build_dir :=
 user_hh        := $(wildcard *.h)
 user_hpp       := $(wildcard *.h)
-user_no_style  := \
-        DataMgr.h                \
-        dm-platform.h            \
-        DmIoReq.h                     
 
 include $(topdir)/Makefile.incl

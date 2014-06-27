@@ -6,9 +6,10 @@
  * Umbrella classes for the data manager component.
  */
 
-#ifndef SOURCE_DATA_MGR_DATAMGR_H_
-#define SOURCE_DATA_MGR_DATAMGR_H_
+#ifndef SOURCE_DATA_MGR_INCLUDE_DATAMGR_H_
+#define SOURCE_DATA_MGR_INCLUDE_DATAMGR_H_
 
+#include <list>
 #include <fds_error.h>
 #include <fds_types.h>
 #include <fds_volume.h>
@@ -41,7 +42,10 @@
 #include <fdsp/DMSvc.h>
 #include <functional>
 
-#undef FDS_TEST_DM_NOOP     /* if defined, puts complete as soon as they arrive to DM (not for gets right now) */
+/* if defined, puts complete as soon as they
+ * arrive to DM (not for gets right now)
+ */
+#undef FDS_TEST_DM_NOOP
 
 namespace fds {
 
@@ -62,7 +66,7 @@ class DMSvcHandler;
 extern DataMgr *dataMgr;
 
 class DataMgr : public PlatformProcess, public DmIoReqHandler {
-public:
+  public:
     static void InitMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr);
 
     class ReqHandler;
@@ -97,85 +101,83 @@ public:
     FdsTimerTaskPtr closedmt_timer_task;
 
     class dmQosCtrl : public FDS_QoSControl {
- public:
-      DataMgr *parentDm;
+      public:
+        DataMgr *parentDm;
 
-      dmQosCtrl(DataMgr *_parent,
-                uint32_t _max_thrds,
-                dispatchAlgoType algo,
-                fds_log *log) :
-      FDS_QoSControl(_max_thrds, algo, log, "DM") {
-        parentDm = _parent;
-	dispatcher = new QoSWFQDispatcher(this, parentDm->scheduleRate, _max_thrds, log);
-	//dispatcher = new QoSMinPrioDispatcher(this, log, parentDm->scheduleRate);
-      }
+        dmQosCtrl(DataMgr *_parent,
+                  uint32_t _max_thrds,
+                  dispatchAlgoType algo,
+                  fds_log *log) :
+                FDS_QoSControl(_max_thrds, algo, log, "DM") {
+            parentDm = _parent;
+            dispatcher = new QoSWFQDispatcher(this, parentDm->scheduleRate, _max_thrds, log);
+            // dispatcher = new QoSMinPrioDispatcher(this, log, parentDm->scheduleRate);
+        }
 
+        Error processIO(FDS_IOType* _io) {
+            Error err(ERR_OK);
+            dmCatReq *io = static_cast<dmCatReq*>(_io);
+            GLOGDEBUG << "processing : " << io->io_type;
+            switch (io->io_type){
+                case FDS_CAT_UPD:
+                case FDS_DM_FWD_CAT_UPD:
+                    threadPool->schedule(scheduleUpdateCatalog, io);
+                    break;
+                case FDS_CAT_UPD2:
+                    threadPool->schedule(&DataMgr::updateCatalogBackend2, dataMgr, io);
+                    break;
+                case FDS_CAT_QRY:
+                    threadPool->schedule(scheduleQueryCatalog, io);
+                    break;
+                case FDS_CAT_QRY2:
+                    threadPool->schedule(&DataMgr::queryCatalogBackend2, dataMgr, io);
+                    break;
+                case FDS_STAT_BLOB:
+                    threadPool->schedule(scheduleStatBlob, io);
+                    break;
+                case FDS_START_BLOB_TX:
+                    threadPool->schedule(scheduleStartBlobTx, io);
+                    break;
+                case FDS_DELETE_BLOB:
+                    threadPool->schedule(scheduleDeleteCatObj, io);
+                    break;
+                case FDS_LIST_BLOB:
+                    threadPool->schedule(scheduleBlobList, io);
+                    break;
+                case FDS_DM_SNAP_VOLCAT:
+                    GLOGDEBUG << "Processing snapshot catalog request";
+                    threadPool->schedule(scheduleSnapVolCat, io);
+                    break;
+                case FDS_DM_SNAPDELTA_VOLCAT:
+                    GLOGDEBUG << "Processing push delta catalog snap request";
+                    threadPool->schedule(schedulePushDeltaVolCat, io);
+                    break;
+                case FDS_GET_BLOB_METADATA:
+                    threadPool->schedule(scheduleGetBlobMetaData, io);
+                    break;
+                case FDS_SET_BLOB_METADATA:
+                    threadPool->schedule(scheduleSetBlobMetaData, io);
+                    break;
+                case FDS_GET_VOLUME_METADATA:
+                    threadPool->schedule(scheduleGetVolumeMetaData, io);
+                    break;
+                default:
+                    FDS_PLOG(FDS_QoSControl::qos_log) << "Unknown IO Type received";
+                    assert(0);
+                    break;
+            }
 
-      Error processIO(FDS_IOType* _io) {
-        Error err(ERR_OK);
-        dmCatReq *io = static_cast<dmCatReq*>(_io);
-        GLOGDEBUG << "processing : " << io->io_type;
-	switch (io->io_type){
-            case FDS_CAT_UPD:
-            case FDS_DM_FWD_CAT_UPD:
-                threadPool->schedule(scheduleUpdateCatalog, io);
-                break;
-            case FDS_CAT_UPD2:
-                threadPool->schedule(&DataMgr::updateCatalogBackend2, dataMgr, io);
-                break;
-            case FDS_CAT_QRY:
-                threadPool->schedule(scheduleQueryCatalog, io);
-                break;
-            case FDS_CAT_QRY2:
-                threadPool->schedule(&DataMgr::queryCatalogBackend2, dataMgr, io);
-                break;
-            case FDS_STAT_BLOB:
-                threadPool->schedule(scheduleStatBlob, io);
-                break;
-            case FDS_START_BLOB_TX:
-                threadPool->schedule(scheduleStartBlobTx, io);
-                break;
-            case FDS_DELETE_BLOB:
-                threadPool->schedule(scheduleDeleteCatObj, io);
-                break;
-            case FDS_LIST_BLOB:
-                threadPool->schedule(scheduleBlobList, io);
-                break;
-            case FDS_DM_SNAP_VOLCAT:
-                GLOGDEBUG  << "Processing snapshot catalog request ";
-                threadPool->schedule(scheduleSnapVolCat, io);
-                break;
-            case FDS_DM_SNAPDELTA_VOLCAT:
-                FDS_PLOG(FDS_QoSControl::qos_log) << "Processing push delta catalog snap request ";
-                threadPool->schedule(schedulePushDeltaVolCat, io);
-                break;
-            case FDS_GET_BLOB_METADATA:
-                threadPool->schedule(scheduleGetBlobMetaData, io);
-                break;
-            case FDS_SET_BLOB_METADATA:
-                threadPool->schedule(scheduleSetBlobMetaData, io);
-                break;
-             case FDS_GET_VOLUME_METADATA:
-                threadPool->schedule(scheduleGetVolumeMetaData, io);
-                break;
-            default:
-                FDS_PLOG(FDS_QoSControl::qos_log) << "Unknown IO Type received";
-                assert(0);
-                break;
-	}
+            return err;
+        }
 
-        return err;
-      }
+        Error markIODone(const FDS_IOType& _io) {
+            Error err(ERR_OK);
+            dispatcher->markIODone(const_cast<FDS_IOType *>(&_io));
+            return err;
+        }
 
-      Error markIODone(const FDS_IOType& _io) {
-	Error err(ERR_OK);
-	dispatcher->markIODone((FDS_IOType *)&_io);
-	return err;
-      }
-
-      virtual ~dmQosCtrl() {
-      }
-
+        virtual ~dmQosCtrl() {
+        }
     };
 
     /*
@@ -185,7 +187,7 @@ public:
     boost::shared_ptr<netSessionTbl> nstable;
     netMetaDataPathServerSession *metadatapath_session;
     // std::unordered_map<std::string, RespHandlerPrx> respHandleCli;
-    
+
     fds_rwlock respMapMtx;
 
     dmQosCtrl   *qosCtrl;
@@ -226,16 +228,16 @@ public:
                         fds_uint32_t *maxObjSize);
 
     Error _add_if_no_vol(const std::string& vol_name,
-                         fds_volid_t vol_uuid,VolumeDesc* desc);
+                         fds_volid_t vol_uuid, VolumeDesc* desc);
     Error _add_vol_locked(const std::string& vol_name,
                           fds_volid_t vol_uuid, VolumeDesc* desc,
                           fds_bool_t vol_will_sync);
     Error _process_add_vol(const std::string& vol_name,
-                           fds_volid_t vol_uuid,VolumeDesc* desc,
+                           fds_volid_t vol_uuid, VolumeDesc* desc,
                            fds_bool_t vol_will_sync);
     Error _process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only);
     Error _process_mod_vol(fds_volid_t vol_uuid,
-			   const VolumeDesc& voldesc);
+                           const VolumeDesc& voldesc);
 
     Error _process_open(fds_volid_t vol_uuid,
                         std::string blob_name,
@@ -309,7 +311,7 @@ public:
     fds_bool_t testUturnStartTx;
     fds_bool_t testUturnSetMeta;
 
-  /* From FdsProcess */
+    /* From FdsProcess */
     virtual void proc_pre_startup() override;
     virtual int  run() override;
     virtual void interrupt_cb(int signum) override;
@@ -359,142 +361,144 @@ public:
     /* 
      * FDS protocol processing proto types 
      */
-    Error updateCatalogInternal(FDSP_UpdateCatalogTypePtr updCatReq, 
-                                fds_volid_t volId,long srcIp,long dstIp,fds_uint32_t srcPort,
+    Error updateCatalogInternal(FDSP_UpdateCatalogTypePtr updCatReq,
+                                fds_volid_t volId, fds_uint32_t srcIp,
+                                fds_uint32_t dstIp, fds_uint32_t srcPort,
                                 fds_uint32_t dstPort, std::string session_uuid,
                                 fds_uint32_t reqCookie, std::string session_cache);
-    Error queryCatalogInternal(FDSP_QueryCatalogTypePtr qryCatReq, 
-                               fds_volid_t volId,long srcIp,long dstIp,fds_uint32_t srcPort,
-                               fds_uint32_t dstPort, std::string session_uuid, fds_uint32_t reqCookie);
-    Error deleteCatObjInternal(FDSP_DeleteCatalogTypePtr delCatReq, 
-                               fds_volid_t volId,long srcIp,long dstIp,fds_uint32_t srcPort,
-                               fds_uint32_t dstPort, std::string session_uuid, fds_uint32_t reqCookie);
+    Error queryCatalogInternal(FDSP_QueryCatalogTypePtr qryCatReq,
+                               fds_volid_t volId, fds_uint32_t srcIp,
+                               fds_uint32_t dstIp, fds_uint32_t srcPort,
+                               fds_uint32_t dstPort, std::string session_uuid,
+                               fds_uint32_t reqCookie);
+    Error deleteCatObjInternal(FDSP_DeleteCatalogTypePtr delCatReq,
+                               fds_volid_t volId, fds_uint32_t srcIp,
+                               fds_uint32_t dstIp, fds_uint32_t srcPort,
+                               fds_uint32_t dstPort, std::string session_uuid,
+                               fds_uint32_t reqCookie);
     Error blobListInternal(const FDSP_GetVolumeBlobListReqTypePtr& blob_list_req,
-                           fds_volid_t volId,long srcIp,long dstIp,fds_uint32_t srcPort,
-                           fds_uint32_t dstPort, std::string session_uuid, fds_uint32_t reqCookie);
+                           fds_volid_t volId, fds_uint32_t srcIp,
+                           fds_uint32_t dstIp, fds_uint32_t srcPort,
+                           fds_uint32_t dstPort, std::string session_uuid,
+                           fds_uint32_t reqCookie);
     Error statBlobInternal(const std::string volumeName, const std::string &blobName,
-                           fds_volid_t volId, long srcIp, long dstIp, fds_uint32_t srcPort,
-                           fds_uint32_t dstPort, std::string session_uuid, fds_uint32_t reqCookie);
+                           fds_volid_t volId, fds_uint32_t srcIp,
+                           fds_uint32_t dstIp, fds_uint32_t srcPort,
+                           fds_uint32_t dstPort, std::string session_uuid,
+                           fds_uint32_t reqCookie);
     void startBlobTxInternal(const std::string volumeName, const std::string &blobName,
                              BlobTxId::const_ptr blobTxId,
-                             fds_volid_t volId, long srcIp, long dstIp, fds_uint32_t srcPort,
-                             fds_uint32_t dstPort, std::string session_uuid, fds_uint32_t reqCookie);
+                             fds_volid_t volId, fds_uint32_t srcIp,
+                             fds_uint32_t dstIp, fds_uint32_t srcPort,
+                             fds_uint32_t dstPort, std::string session_uuid,
+                             fds_uint32_t reqCookie);
     void commitBlobTxInternal(BlobTxId::const_ptr blobTxId,
-                             fds_volid_t volId, long srcIp, long dstIp, fds_uint32_t srcPort,
-                             fds_uint32_t dstPort, std::string session_uuid, fds_uint32_t reqCookie);
+                              fds_volid_t volId, fds_uint32_t srcIp,
+                              fds_uint32_t dstIp, fds_uint32_t srcPort,
+                              fds_uint32_t dstPort, std::string session_uuid,
+                              fds_uint32_t reqCookie);
     void abortBlobTxInternal(BlobTxId::const_ptr blobTxId,
-                             fds_volid_t volId, long srcIp, long dstIp, fds_uint32_t srcPort,
-                             fds_uint32_t dstPort, std::string session_uuid, fds_uint32_t reqCookie);
+                             fds_volid_t volId, fds_uint32_t srcIp,
+                             fds_uint32_t dstIp, fds_uint32_t srcPort,
+                             fds_uint32_t dstPort, std::string session_uuid,
+                             fds_uint32_t reqCookie);
 
     /*
      * Nested class that manages the server interface.
      */
     class ReqHandler : public FDS_ProtocolInterface::FDSP_MetaDataPathReqIf {
-   private:
+      public:
+        explicit ReqHandler();
+        ~ReqHandler();
 
-   public:
-      explicit ReqHandler();
-      ~ReqHandler();
+        void StartBlobTx(const FDSP_MsgHdrType& msg_hdr,
+                         const std::string &volumeName,
+                         const std::string &blobName,
+                         const TxDescriptor &txDesc) {
+            // Don't do anything here. This stub is just to keep cpp compiler happy
+        }
 
-      void StartBlobTx(const FDSP_MsgHdrType& msg_hdr,
-                       const std::string &volumeName,
-                       const std::string &blobName,
-                       const TxDescriptor &txDesc) {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
-      }
+        void UpdateCatalogObject(const FDSP_MsgHdrType& fdsp_msg,
+                                 const FDSP_UpdateCatalogType& cat_obj_req) {
+            // Don't do anything here. This stub is just to keep cpp compiler happy
+        }
 
-      void UpdateCatalogObject(const FDSP_MsgHdrType& fdsp_msg, 
-			       const FDSP_UpdateCatalogType& cat_obj_req) {
-	// Don't do anything here. This stub is just to keep cpp compiler happy
-      }
+        void QueryCatalogObject(const FDSP_MsgHdrType& fdsp_msg,
+                                const FDSP_QueryCatalogType& cat_obj_req) {
+            // Don't do anything here. This stub is just to keep cpp compiler happy
+        }
 
-      void QueryCatalogObject(const FDSP_MsgHdrType& fdsp_msg, 
-			      const FDSP_QueryCatalogType& cat_obj_req) {
-	// Don't do anything here. This stub is just to keep cpp compiler happy
-      }
+        void DeleteCatalogObject(const FDSP_MsgHdrType& fdsp_msg,
+                                 const FDSP_DeleteCatalogType& cat_obj_req) {
+            // Don't do anything here. This stub is just to keep cpp compiler happy
+        }
 
-      void DeleteCatalogObject(const FDSP_MsgHdrType& fdsp_msg, 
-			       const FDSP_DeleteCatalogType& cat_obj_req) {
-	// Don't do anything here. This stub is just to keep cpp compiler happy
-      }
+        void GetVolumeBlobList(const FDSP_MsgHdrType& fds_msg,
+                               const FDSP_GetVolumeBlobListReqType& blob_list_req) {
+            // Don't do anything here. This stub is just to keep cpp compiler happy
+        }
 
-      void GetVolumeBlobList(const FDSP_MsgHdrType& fds_msg, 
-			     const FDSP_GetVolumeBlobListReqType& blob_list_req) {
-	// Don't do anything here. This stub is just to keep cpp compiler happy
-      }
+        void StatBlob(const FDSP_MsgHdrType& msg_hdr,
+                      const std::string &volumeName,
+                      const std::string &blobName) {
+            // Don't do anything here. This stub is just to keep cpp compiler happy
+        }
 
-      void StatBlob(const FDSP_MsgHdrType& msg_hdr,
-                    const std::string &volumeName,
-                    const std::string &blobName) {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
-      }
+        void SetBlobMetaData(const FDSP_MsgHdrType& header,
+                             const std::string& volumeName,
+                             const std::string& blobName, const
+                             FDSP_MetaDataList& metaDataList) {
+        }
+        void GetBlobMetaData(const FDSP_MsgHdrType& header,
+                             const std::string& volumeName,
+                             const std::string& blobName) {
+        }
+        void GetVolumeMetaData(const FDSP_MsgHdrType& header,
+                               const std::string& volumeName) {
+        }
 
-      void SetBlobMetaData(const FDSP_MsgHdrType& header, 
-                           const std::string& volumeName, 
-                           const std::string& blobName, const 
-                           FDSP_MetaDataList& metaDataList) {
-      }
-      
-      void GetBlobMetaData(const FDSP_MsgHdrType& header, 
-                           const std::string& volumeName, 
-                           const std::string& blobName) {
-      }
-
-      void GetVolumeMetaData(const FDSP_MsgHdrType& header, 
-                             const std::string& volumeName) {
-      }
-
-      // ================================================================================================
-      // The actual stuff
-      // ================================================================================================
-
-      void StartBlobTx(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
-                       boost::shared_ptr<std::string> &volumeName,
-                       boost::shared_ptr<std::string> &blobName,
-                       FDS_ProtocolInterface::TxDescriptorPtr& txDesc);
-
-      void UpdateCatalogObject(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr
-                               &msg_hdr,
-                               FDS_ProtocolInterface::
-                               FDSP_UpdateCatalogTypePtr& update_catalog);
-
-
-      void QueryCatalogObject(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr
-                              &msg_hdr,
-                              FDS_ProtocolInterface::
-                              FDSP_QueryCatalogTypePtr& query_catalog);
-
-
-      void DeleteCatalogObject(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr
-			       &msg_hdr,
-			       FDS_ProtocolInterface::
-			       FDSP_DeleteCatalogTypePtr& query_catalog);
-
-      void GetVolumeBlobList(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr, 
-			     FDS_ProtocolInterface::FDSP_GetVolumeBlobListReqTypePtr& blobListReq);
-
-      void StatBlob(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
-                    boost::shared_ptr<std::string> &volumeName,
-                    boost::shared_ptr<std::string> &blobName);
-
-      void SetBlobMetaData(boost::shared_ptr<FDSP_MsgHdrType>& header, 
-                           boost::shared_ptr<std::string>& volumeName, 
-                           boost::shared_ptr<std::string>& blobName, 
-                           boost::shared_ptr<FDSP_MetaDataList>& metaDataList);
-
-      void GetBlobMetaData(boost::shared_ptr<FDSP_MsgHdrType>& header,
-                           boost::shared_ptr<std::string>& volumeName,
-                           boost::shared_ptr<std::string>& blobName);
-
-      void GetVolumeMetaData(boost::shared_ptr<FDSP_MsgHdrType>& header,
-                             boost::shared_ptr<std::string>& volumeName);
+        /* =========
+         * The actual interfaces that get called
+         * =========
+         */
+        void StartBlobTx(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
+                         boost::shared_ptr<std::string> &volumeName,
+                         boost::shared_ptr<std::string> &blobName,
+                         FDS_ProtocolInterface::TxDescriptorPtr& txDesc);
+        void UpdateCatalogObject(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr
+                                 &msg_hdr,
+                                 FDS_ProtocolInterface::
+                                 FDSP_UpdateCatalogTypePtr& update_catalog);
+        void QueryCatalogObject(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr
+                                &msg_hdr,
+                                FDS_ProtocolInterface::
+                                FDSP_QueryCatalogTypePtr& query_catalog);
+        void DeleteCatalogObject(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr
+                                 &msg_hdr,
+                                 FDS_ProtocolInterface::
+                                 FDSP_DeleteCatalogTypePtr& query_catalog);
+        void GetVolumeBlobList(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
+                               FDS_ProtocolInterface::FDSP_GetVolumeBlobListReqTypePtr&
+                               blobListReq);
+        void StatBlob(FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
+                      boost::shared_ptr<std::string> &volumeName,
+                      boost::shared_ptr<std::string> &blobName);
+        void SetBlobMetaData(boost::shared_ptr<FDSP_MsgHdrType>& header,
+                             boost::shared_ptr<std::string>& volumeName,
+                             boost::shared_ptr<std::string>& blobName,
+                             boost::shared_ptr<FDSP_MetaDataList>& metaDataList);
+        void GetBlobMetaData(boost::shared_ptr<FDSP_MsgHdrType>& header,
+                             boost::shared_ptr<std::string>& volumeName,
+                             boost::shared_ptr<std::string>& blobName);
+        void GetVolumeMetaData(boost::shared_ptr<FDSP_MsgHdrType>& header,
+                               boost::shared_ptr<std::string>& volumeName);
     };
 
     friend class DMSvcHandler;
 };
 
-class CloseDMTTimerTask: public FdsTimerTask {
-public:
+class CloseDMTTimerTask : public FdsTimerTask {
+  public:
     typedef std::function<void ()> cbType;
 
     CloseDMTTimerTask(FdsTimer& timer, cbType cb)  //NOLINT
@@ -504,10 +508,10 @@ public:
 
     void runTimerTask();
 
-private:
+  private:
     cbType timeout_cb;
 };
 
 }  // namespace fds
 
-#endif  // SOURCE_DATA_MGR_DATAMGR_H_
+#endif  // SOURCE_DATA_MGR_INCLUDE_DATAMGR_H_

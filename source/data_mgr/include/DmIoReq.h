@@ -9,6 +9,7 @@
 #ifndef SOURCE_DATA_MGR_INCLUDE_DMIOREQ_H_
 #define SOURCE_DATA_MGR_INCLUDE_DMIOREQ_H_
 
+#include <string>
 #include <fds_error.h>
 #include <fds_types.h>
 #include <fds_volume.h>
@@ -53,8 +54,8 @@ namespace fds {
         blob_version_t blob_version;
         fds_uint32_t transId;
         fds_uint32_t transOp;
-        long 	 srcIp;
-        long 	 dstIp;
+        fds_uint32_t srcIp;
+        fds_uint32_t dstIp;
         fds_uint32_t srcPort;
         fds_uint32_t dstPort;
         std::string session_uuid;
@@ -65,8 +66,8 @@ namespace fds {
         std::string session_cache;
 
         dmCatReq(fds_volid_t  _volId,
-                 long 	  _srcIp,
-                 long 	  _dstIp,
+                 fds_uint32_t _srcIp,
+                 fds_uint32_t _dstIp,
                  fds_uint32_t _srcPort,
                  fds_uint32_t _dstPort,
                  std::string  _session_uuid,
@@ -82,8 +83,8 @@ namespace fds {
 
         dmCatReq(fds_volid_t  _volId,
                  const std::string &blobName,
-                 long 	  _srcIp,
-                 long 	  _dstIp,
+                 fds_uint32_t _srcIp,
+                 fds_uint32_t _dstIp,
                  fds_uint32_t _srcPort,
                  fds_uint32_t _dstPort,
                  std::string  _session_uuid,
@@ -98,7 +99,7 @@ namespace fds {
         }
 
         dmCatReq(const RequestHeader& hdr,
-                 fds_io_op_t  ioType) 
+                 fds_io_op_t ioType)
                 : volId(hdr.volId), srcIp(hdr.srcIp), dstIp(hdr.dstIp),
                   srcPort(hdr.srcPort), dstPort(hdr.dstPort), session_uuid(hdr.session_uuid),
                   reqCookie(hdr.reqCookie),
@@ -109,23 +110,23 @@ namespace fds {
 
         dmCatReq(fds_volid_t        _volId,
                  std::string        _blob_name,
-                 fds_uint32_t 	_transId,
-                 fds_uint32_t 	_transOp,
-                 long 	 	_srcIp,
-                 long 	 	_dstIp,
-                 fds_uint32_t 	_srcPort,
-                 fds_uint32_t 	_dstPort,
-                 std::string        _session_uuid,
-                 fds_uint32_t 	_reqCookie,
-                 fds_io_op_t        _ioType,
+                 fds_uint32_t _transId,
+                 fds_uint32_t _transOp,
+                 fds_uint32_t _srcIp,
+                 fds_uint32_t _dstIp,
+                 fds_uint32_t _srcPort,
+                 fds_uint32_t _dstPort,
+                 std::string _session_uuid,
+                 fds_uint32_t _reqCookie,
+                 fds_io_op_t _ioType,
                  FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr _updCatReq) {
             volId             = _volId;
             blob_name         = _blob_name;
             blob_version      = blob_version_invalid;
             transId           = _transId;
             transOp           = _transOp;
-            srcIp 	           = _srcIp;
-            dstIp 	           = _dstIp;
+            srcIp             = _srcIp;
+            dstIp             = _dstIp;
             srcPort           = _srcPort;
             dstPort           = _dstPort;
             session_uuid     = _session_uuid;
@@ -238,49 +239,49 @@ namespace fds {
  */
 class DmIoQueryCat: public dmCatReq {
  public:
-  typedef std::function<void (const Error &e, DmIoQueryCat *req,
-                                        BlobNode *bnode)> CbType;
- public:
-  DmIoQueryCat(const fds_volid_t  &_volId,
-                const std::string &_blobName,
-                const blob_version_t &_blob_version)
-      : dmCatReq(_volId, _blobName, _blob_version, FDS_CAT_QRY2) {
-      }
+    typedef std::function<void (const Error &e, DmIoQueryCat *req,
+                                BlobNode *bnode)> CbType;
+  public:
+    DmIoQueryCat(const fds_volid_t  &_volId,
+                 const std::string &_blobName,
+                 const blob_version_t &_blob_version)
+            : dmCatReq(_volId, _blobName, _blob_version, FDS_CAT_QRY2) {
+    }
 
-  virtual std::string log_string() const override {
-      std::stringstream ret;
-      ret << "DmIoQueryCat"
-          << std::hex << volId << std::dec;
-      return ret.str();
-  }
+    virtual std::string log_string() const override {
+        std::stringstream ret;
+        ret << "DmIoQueryCat"
+            << std::hex << volId << std::dec;
+        return ret.str();
+    }
 
-  /* response callback */
-  CbType dmio_querycat_resp_cb;
+    /* response callback */
+    CbType dmio_querycat_resp_cb;
 };
 
 /**
  * Request to update catalog
  */
 class DmIoUpdateCat: public dmCatReq {
- public:
-  typedef std::function<void (const Error &e, DmIoUpdateCat *req)> CbType;
- public:
-  DmIoUpdateCat(const fds_volid_t  &_volId,
-                const std::string &_blobName,
-                const blob_version_t &_blob_version)
-      : dmCatReq(_volId, _blobName, _blob_version, FDS_CAT_UPD2) {
-      }
+  public:
+    typedef std::function<void (const Error &e, DmIoUpdateCat *req)> CbType;
+  public:
+    DmIoUpdateCat(const fds_volid_t  &_volId,
+                  const std::string &_blobName,
+                  const blob_version_t &_blob_version)
+            : dmCatReq(_volId, _blobName, _blob_version, FDS_CAT_UPD2) {
+    }
 
-  virtual std::string log_string() const override {
-      std::stringstream ret;
-      ret << "DmIoUpdateCat vol "
-          << std::hex << volId << std::dec;
-      return ret.str();
-  }
+    virtual std::string log_string() const override {
+        std::stringstream ret;
+        ret << "DmIoUpdateCat vol "
+            << std::hex << volId << std::dec;
+        return ret.str();
+    }
 
-  FDSP_BlobObjectList 	obj_list;
-  /* response callback */
-  CbType dmio_updatecat_resp_cb;
+    FDSP_BlobObjectList obj_list;
+    /* response callback */
+    CbType dmio_updatecat_resp_cb;
 };
 
 }  // namespace fds
