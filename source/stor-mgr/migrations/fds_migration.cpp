@@ -449,7 +449,7 @@ void FdsMigrationSvc::route_to_mig_actor(const std::string &mig_id,
 }
 
 /**
- * Handles FAR_ID(MigSvcCopyTokens).  Creates TokenCopyReceiver and starts
+ * Handles FAR_ID(MigSvcCopyTokens).  Creates TokenReceiver and starts
  * the state machine for it
  * This request is typically result of local entity such as om client
  * prompting migraton service to copy tokens
@@ -462,7 +462,7 @@ void FdsMigrationSvc::handle_migsvc_copy_token(FdsActorRequestPtr req)
 
     std::string mig_id = fds::get_uuid();
 
-    TokenCopyReceiver* copy_rcvr = new TokenCopyReceiver(this,
+    TokenReceiver* copy_rcvr = new TokenReceiver(this,
             data_store_, mig_id,
             threadpool_, GetLog(), copy_payload->token,
             migpath_handler_, clust_comm_mgr_);
@@ -471,13 +471,13 @@ void FdsMigrationSvc::handle_migsvc_copy_token(FdsActorRequestPtr req)
 
     copy_tracker_->mig_ids_.push_back(mig_id);
 
-    LOGNORMAL << " New TokenCopyReceiver.  Migration id: " << mig_id;
+    LOGNORMAL << " New TokenReceiver.  Migration id: " << mig_id;
 
     copy_rcvr->start();
 }
 
 /**
- * Handles FAR_ID(FDSP_CopyTokenReq).  Creates TokenCopySender and starts
+ * Handles FAR_ID(FDSP_CopyTokenReq).  Creates TokenSender and starts
  * the state machine for it
  * This is initiated by receiver requesting copy of tokens.
  */
@@ -485,7 +485,7 @@ void FdsMigrationSvc::handle_migsvc_copy_token_rpc(FdsActorRequestPtr req)
 {
     fds_assert(req->type == FAR_ID(FDSP_CopyTokenReq));
 
-    /* Start off the TokenCopySender state machine */
+    /* Start off the TokenSender state machine */
     auto copy_payload = req->get_payload<FDSP_CopyTokenReq>();
     std::string &mig_id = copy_payload->header.mig_id;
     std::string &mig_stream_id = copy_payload->header.mig_stream_id;
@@ -502,8 +502,8 @@ void FdsMigrationSvc::handle_migsvc_copy_token_rpc(FdsActorRequestPtr req)
     fds_assert(rcvr_ip.size() > 0);
     fds_assert(tokens.size() > 0);
 
-    TokenCopySender *copy_sender =
-            new TokenCopySender(this, data_store_,
+    TokenSender *copy_sender =
+            new TokenSender(this, data_store_,
                     mig_id, mig_stream_id,
                     threadpool_, GetLog(),
                     rcvr_ip, rcvr_port,
@@ -599,7 +599,7 @@ void FdsMigrationSvc::setup_migpath_server()
 
 /**
  * Acknowledge FAR_ID(FDSP_CopyTokenReq) request.  Ideally this should
- * be part of TokenCopySender.  keeping it here for now.
+ * be part of TokenSender.  keeping it here for now.
  * @param req
  */
 Error

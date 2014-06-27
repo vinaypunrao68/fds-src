@@ -19,6 +19,9 @@
 #define OM_WAIT_NODES_UP_SECONDS   (5*60)
 #define OM_WAIT_START_SECONDS      1
 
+// temp for testing
+// #define TEST_DELTA_RSYNC
+
 namespace fds {
 
 OM_NodeDomainMod             gl_OMNodeDomainMod("OM-Node");
@@ -991,6 +994,13 @@ OM_NodeDomainMod::om_recv_push_meta_resp(const NodeUuid& uuid) {
     Error err(ERR_OK);
     OM_Module *om = OM_Module::om_singleton();
     OM_DMTMod *dmtMod = om->om_dmt_mod();
+
+#ifdef TEST_DELTA_RSYNC
+    LOGNOTIFY << "TEST: Will sleep before processing push meta ack";
+    sleep(45);
+    LOGNOTIFY << "TEST: Finished sleeping, will process push meta ack";
+#endif
+
     dmtMod->dmt_deploy_event(DmtPushMetaAckEvt(uuid));
     return err;
 }
@@ -1016,7 +1026,7 @@ OM_NodeDomainMod::om_recv_dmt_commit_resp(FdspNodeType node_type,
         return err;
     }
 
-    dmtMod->dmt_deploy_event(DmtCommitAckEvt(dmt_version));
+    dmtMod->dmt_deploy_event(DmtCommitAckEvt(dmt_version, node_type));
 
     return err;
 }

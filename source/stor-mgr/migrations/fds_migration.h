@@ -18,8 +18,8 @@
 #include <concurrency/fds_actor_request.h>
 #include <NetSession.h>
 #include <ClusterCommMgr.h>
-#include <TokenCopySender.h>
-#include <TokenCopyReceiver.h>
+#include <TokenSender.h>
+#include <TokenReceiver.h>
 #include <kvstore/tokenstatedb.h>
 
 using namespace  ::FDS_ProtocolInterface;

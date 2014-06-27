@@ -73,6 +73,7 @@ class Catalog {
     fds::Error Query(const Record& key, std::string* val);
     fds::Error Delete(const Record& key);
     bool DbEmpty();
+    bool DbDelete();
     fds::Error DbSnap(const std::string& _file);
     fds::Error QuerySnap(const std::string& _file, const Record& key, std::string* value);
     fds::Error QueryNew(const std::string& _file, const Record& key, std::string* value);

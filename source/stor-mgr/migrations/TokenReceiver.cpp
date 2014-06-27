@@ -13,7 +13,7 @@
 #include <fdsp/FDSP_types.h>
 #include <fds_migration.h>
 #include <fds_timestamp.h>
-#include <TokenCopyReceiver.h>
+#include <TokenReceiver.h>
 #include <TokenSyncReceiver.h>
 #include <TokenPullReceiver.h>
 
@@ -64,7 +64,7 @@ typedef boost::shared_ptr<TRCopyDnEvt> TRCopyDnEvtPtr;
 struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
     void init(const std::string &mig_stream_id,
             FdsMigrationSvc *migrationSvc,
-            TokenCopyReceiver *parent,
+            TokenReceiver *parent,
             SmIoReqHandler *data_store,
             const std::string &sender_ip,
             const int &sender_port,
@@ -102,19 +102,19 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
     template <class Event, class FSM>
     void on_entry(Event const& , FSM&)
     {
-        LOGDEBUG << "TokenCopyReceiver SM";
+        LOGDEBUG << "TokenReceiver SM";
     }
     template <class Event, class FSM>
     void on_exit(Event const&, FSM&)
     {
-        LOGDEBUG << "TokenCopyReceiver SM";
+        LOGDEBUG << "TokenReceiver SM";
     }
 
     /* The list of state machine states */
     struct Init : public msm::front::state<>
     {
         // TODO(Rao): This shouldn't be needed if ack for copy req is performed by
-        // TokenCopySender.  Now it's done by fds_migration service
+        // TokenSender.  Now it's done by fds_migration service
         typedef mpl::vector<TokRecvdEvt> deferred_events;
 
         template <class Event, class FSM>
@@ -384,7 +384,7 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
     FdsMigrationSvc *migrationSvc_;
 
     /* Parent */
-    TokenCopyReceiver *parent_;
+    TokenReceiver *parent_;
 
     /* Sender ip */
     std::string sender_ip_;
@@ -426,7 +426,7 @@ struct TokenCopyReceiverFSM_ : public state_machine_def<TokenCopyReceiverFSM_> {
     netMigrationPathClientSession *sender_session_;
 };  /* struct TokenCopyReceiverFSM_ */
 
-TokenCopyReceiver::TokenCopyReceiver(FdsMigrationSvc *migrationSvc,
+TokenReceiver::TokenReceiver(FdsMigrationSvc *migrationSvc,
         SmIoReqHandler *data_store,
         const std::string &mig_id,
         fds_threadpoolPtr threadpool,
@@ -492,7 +492,7 @@ TokenCopyReceiver::TokenCopyReceiver(FdsMigrationSvc *migrationSvc,
             << "Stream id: " << mig_stream_id << " sender ip : " << sender_ip;
 }
 
-TokenCopyReceiver::~TokenCopyReceiver() {
+TokenReceiver::~TokenReceiver() {
     if (sync_fsm_) {
         delete sync_fsm_;
     }
@@ -504,7 +504,7 @@ TokenCopyReceiver::~TokenCopyReceiver() {
 /**
  * Start the statemachine for each stream in the statemachine
  */
-void TokenCopyReceiver::start()
+void TokenReceiver::start()
 {
     FdsActorRequestPtr far(new FdsActorRequest(
                         FAR_ID(TRStart), nullptr));
@@ -516,7 +516,7 @@ void TokenCopyReceiver::start()
  * @param req
  * @return
  */
-Error TokenCopyReceiver::handle_actor_request(FdsActorRequestPtr req)
+Error TokenReceiver::handle_actor_request(FdsActorRequestPtr req)
 {
     Error err = ERR_OK;
     FDSP_CopyTokenReqPtr copy_tok_req;
@@ -705,7 +705,7 @@ Error TokenCopyReceiver::handle_actor_request(FdsActorRequestPtr req)
  * Send notification to parent to destroy this
  * @param mig_stream_id
  */
-void TokenCopyReceiver::destroy_migration_stream(const std::string &mig_stream_id)
+void TokenReceiver::destroy_migration_stream(const std::string &mig_stream_id)
 {
     LOGNORMAL << " mig_id: " << mig_id_ << " mig_stream_id: " << mig_stream_id;
 

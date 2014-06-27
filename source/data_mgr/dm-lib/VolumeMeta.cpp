@@ -6,7 +6,8 @@
 #include <list>
 #include <VolumeMeta.h>
 #include <fds_process.h>
-#include <DataMgr.h>
+#include <util/timeutils.h>
+#include "DataMgr.h"
 
 namespace fds {
 
@@ -321,7 +322,8 @@ VolumeMeta::VolumeMeta(const std::string& _name,
                        fds_int64_t _uuid,
                        VolumeDesc* desc,
                        fds_bool_t crt_catalogs)
-        : vcat(NULL), tcat(NULL)
+              : vcat(NULL), tcat(NULL), fwd_state(VFORWARD_STATE_NONE),
+                dmtclose_time(boost::posix_time::min_date_time)
 {
     const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
 
@@ -342,7 +344,6 @@ VolumeMeta::VolumeMeta(const std::string& _name,
                        VolumeDesc* _desc,
                        fds_bool_t crt_catalogs)
         : VolumeMeta(_name, _uuid, _desc, crt_catalogs) {
-    if (_dm_log) SetLog(_dm_log);
 }
 
 VolumeMeta::~VolumeMeta() {
@@ -354,6 +355,21 @@ VolumeMeta::~VolumeMeta() {
     }
     delete vol_desc;
     delete vol_mtx;
+}
+
+/**
+ * If this volume's catalogs were pushed from other DM, this method
+ * is called when pusing volume's catalogs is done so they can be
+ * now opened and ready for transactions
+ */
+void VolumeMeta::openCatalogs(fds_volid_t volid)
+{
+    const std::string vol_name =  dataMgr->getPrefix() +
+                              std::to_string(volid);
+    const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
+    fds_verify((vcat == NULL) && (tcat == NULL));
+    vcat = new VolumeCatalog(root->dir_user_repo_dm() + vol_name + "_vcat.ldb", true);
+    tcat = new TimeCatalog(root->dir_user_repo_dm() + vol_name + "_tcat.ldb", true);
 }
 
 Error VolumeMeta::OpenTransaction(const std::string blob_name,
@@ -388,6 +404,16 @@ fds_bool_t VolumeMeta::isEmpty() const {
     // Lock the entire DB for now since levelDB's iterator
     // isn't thread-safe
     vol_mtx->lock();
+
+    // it's possible that vcat is NULL, if we just starting
+    // to push meta for this volume from another DM -- in that
+    // case return TRUE for isEmpty (if it's not empty on
+    // other DMs, they will return false)
+    if (!vcat) {
+        vol_mtx->unlock();
+        return true;
+    }
+
     Catalog::catalog_iterator_t *dbIt = vcat->NewIterator();
     for (dbIt->SeekToFirst(); dbIt->Valid(); dbIt->Next()) {
         Record key = dbIt->key();
@@ -478,26 +504,31 @@ Error VolumeMeta::DeleteVcat(const std::string blob_name) {
 }
 
 Error
-VolumeMeta::syncVolCat(fds_volid_t volId, NodeUuid node_uuid) {
-    Error err(ERR_OK);
-    int  returnCode = 0;
-    const std::string vol_name =  dataMgr->getPrefix() +
-            std::to_string(volId);
-    fds_uint32_t node_ip   = 0;
-    fds_uint32_t node_port = 0;
-    fds_int32_t node_state = -1;
+VolumeMeta::syncVolCat(fds_volid_t volId, NodeUuid node_uuid)
+{
 
-    LOGNORMAL << " syncVolCat: " << volId;
+  Error err(ERR_OK);
+  fds_uint64_t start, end;
+  int  returnCode = 0;
+  const std::string vol_name =  dataMgr->getPrefix() +
+                              std::to_string(volId);
+  const std::string node_name =  dataMgr->getPrefix() +
+                              std::to_string(node_uuid.uuid_get_val());
+  fds_uint32_t node_ip   = 0;
+  fds_uint32_t node_port = 0;
+  fds_int32_t node_state = -1;
 
-    const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
-    NodeAgent::pointer node = Platform::plf_dm_nodes()->agent_info(node_uuid);
-    DmAgent::pointer dm = agt_cast_ptr<DmAgent>(node);
-    const std::string dst_node = dm->get_node_root() + "user-repo/dm-names/";
-    const std::string src_dir_vcat = root->dir_user_repo_dm() + vol_name + "_vcat.ldb";
-    const std::string src_dir_tcat = root->dir_user_repo_dm() + vol_name + "_tcat.ldb";
-    const std::string dst_dir =  root->dir_user_repo_snap();
-    const std::string src_sync_vcat =  root->dir_user_repo_snap() + vol_name + "_vcat.ldb";
-    const std::string src_sync_tcat =  root->dir_user_repo_snap() + vol_name + "_tcat.ldb";
+  LOGDEBUG << " syncVolCat: " << volId;
+
+  const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
+  NodeAgent::pointer node = Platform::plf_dm_nodes()->agent_info(node_uuid);
+  DmAgent::pointer dm = agt_cast_ptr<DmAgent>(node);
+  const std::string dst_node = dm->get_node_root() + "user-repo/dm-names/";
+  const std::string src_dir_vcat = root->dir_user_repo_dm() + vol_name + "_vcat.ldb";
+  const std::string src_dir_tcat = root->dir_user_repo_dm() + vol_name + "_tcat.ldb";
+  const std::string dst_dir = root->dir_user_repo_snap() + node_name + std::string("/");;
+  const std::string src_sync_vcat =  root->dir_user_repo_snap() + node_name + std::string("/") + vol_name + "_vcat.ldb";
+  const std::string src_sync_tcat =  root->dir_user_repo_snap() + node_name + std::string("/") + vol_name + "_tcat.ldb";
 
     dataMgr->omClient->getNodeInfo(node_uuid.uuid_get_val(), &node_ip, &node_port, &node_state);
     std::string dest_ip = netSessionTbl::ipAddr2String(node_ip);
@@ -521,18 +552,117 @@ VolumeMeta::syncVolCat(fds_volid_t volId, NodeUuid node_uuid) {
         return err;
     }
 
-    // rsync the meta data to the new DM nodes
-    // returnCode = std::system((const char *)("sshpass -p passwd rsync -r
-    // "+dst_dir+"  root@"+dest_ip+":/tmp").c_str());
-    returnCode = std::system((const char *)("sshpass -p passwd rsync -r "+src_sync_vcat+
-                                            "  root@"+dest_ip+":"+dst_node+"").c_str());
-    returnCode = std::system((const char *)("sshpass -p passwd rsync -r "+src_sync_tcat+
-                                            "  root@"+dest_ip+":"+dst_node+"").c_str());
-    // returnCode = std::system((const char *)("rsync -r --rsh='sshpass -p passwd ssh -l root' "+
-    // dst+"/  root@"+dest_ip+":"+dst_node+"").c_str());
-    LOGDEBUG << "system Command  rsync return Code : " << returnCode;
+    start = fds::util::rdtsc();
+    LOGDEBUG << " system Command rsync  start time: " <<  start;
+    // rsync the meta data to the new DM nodes 
+    returnCode = std::system((const char *)("sshpass -p passwd rsync -r "+src_sync_vcat+"  root@"+dest_ip+":"+dst_node+"").c_str());
+    returnCode = std::system((const char *)("sshpass -p passwd rsync -r "+src_sync_tcat+"  root@"+dest_ip+":"+dst_node+"").c_str());
 
+    end = fds::util::rdtsc();
+    if ((end - start)) {
+        LOGDEBUG << " system Command rsync time: " <<  ((end - start) / fds::util::getClockTicks());
+    }
+
+    LOGNORMAL << "system Command :  return Code : " << returnCode;
     return err;
+}
+
+
+Error
+VolumeMeta::deltaSyncVolCat(fds_volid_t volId, NodeUuid node_uuid)
+{
+
+  Error err(ERR_OK);
+  fds_uint64_t start, end;
+  int  returnCode = 0;
+  const std::string vol_name =  dataMgr->getPrefix() +
+                              std::to_string(volId);
+  const std::string node_name =  dataMgr->getPrefix() +
+                              std::to_string(node_uuid.uuid_get_val());
+  fds_uint32_t node_ip   = 0;
+  fds_uint32_t node_port = 0;
+  fds_int32_t node_state = -1;
+
+  LOGDEBUG << " syncDeltaVolCat: " << volId;
+
+  const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
+  NodeAgent::pointer node = Platform::plf_dm_nodes()->agent_info(node_uuid);
+  DmAgent::pointer dm = agt_cast_ptr<DmAgent>(node);
+  const std::string dst_node = dm->get_node_root() + "user-repo/dm-names/";
+  const std::string src_dir_vcat = root->dir_user_repo_dm() + vol_name + "_vcat.ldb";
+  const std::string src_dir_tcat = root->dir_user_repo_dm() + vol_name + "_tcat.ldb";
+  const std::string dst_dir = root->dir_user_repo_snap() + node_name + std::string("/");;
+  const std::string src_sync_vcat =  root->dir_user_repo_snap() + node_name + std::string("/") + vol_name + "_vcat.ldb";
+  const std::string src_sync_tcat =  root->dir_user_repo_snap() + node_name + std::string("/") + vol_name + "_tcat.ldb";
+
+  dataMgr->omClient->getNodeInfo(node_uuid.uuid_get_val(), &node_ip, &node_port, &node_state);
+  std::string dest_ip = netSessionTbl::ipAddr2String(node_ip);
+
+
+  const std::string test_cp = "cp -r "+src_dir_vcat+"*  "+dst_dir+" ";
+  const std::string test_rsync = "sshpass -p passwd rsync -r "+dst_dir+"  root@"+dest_ip+":"+dst_node+"";
+  LOGDEBUG << " rsync: local copy  " << test_cp;
+  LOGDEBUG << " rsync:  " << test_rsync;
+
+
+  vol_mtx->lock();
+  //err = vcat->DbSnap(root->dir_user_repo_dm() + "snap" + vol_name + "_vcat.ldb");
+  /* clean the vcat and tcat ldb in the snap dir. */
+  returnCode = std::system((const char *)("rm -rf  "+dst_dir+vol_name+"_vcat.ldb").c_str());
+  returnCode = std::system((const char *)("rm -rf  "+dst_dir+vol_name+"_tcat.ldb").c_str());
+  returnCode = std::system((const char *)("cp -r "+src_dir_vcat+"  "+dst_dir+" ").c_str());
+  returnCode = std::system((const char *)("cp -r "+src_dir_tcat+"  "+dst_dir+" ").c_str());
+  // we must set forwarding flag under the same lock we create snapshots
+  // so that all in-flight updates waiting for this lock to update DB (those are updates that
+  // will not be in the snapshot and will have to be forwarded) will be forwarded on commit
+  fwd_state = VFORWARD_STATE_INPROG;
+  vol_mtx->unlock();
+
+  LOGNORMAL << "system Command  copy return Code : " << returnCode;
+
+  if (! err.ok()) {
+    LOGERROR << "Failed to create vol snap " << " with err " << err;
+    return err;
+  }
+
+    start = fds::util::rdtsc();
+    LOGDEBUG << " system Command rsync  start time: " <<  start;
+  // rsync the meta data to the new DM nodes 
+   // returnCode = std::system((const char *)("sshpass -p passwd rsync -r "+dst_dir+"  root@"+dest_ip+":/tmp").c_str());
+   returnCode = std::system((const char *)("sshpass -p passwd rsync -r "+src_sync_vcat+"  root@"+dest_ip+":"+dst_node+"").c_str());
+   returnCode = std::system((const char *)("sshpass -p passwd rsync -r "+src_sync_tcat+"  root@"+dest_ip+":"+dst_node+"").c_str());
+  // returnCode = std::system((const char *)("rsync -r --rsh='sshpass -p passwd ssh -l root' "+dst+"/  root@"+dest_ip+":"+dst_node+"").c_str());
+   
+  end = fds::util::rdtsc();
+  if ((end - start))
+    LOGDEBUG << " system Command rsync time: " <<  ((end - start) / fds::util::getClockTicks());
+
+    LOGDEBUG << "system Command :  return Code : " << returnCode;
+  return err;
+}
+
+//
+// Returns true if volume is in forwarding state, and qos queue is empty;
+// otherwise returns false (volume not in forwarding state or qos queue
+// is not empty
+//
+void VolumeMeta::finishForwarding() {
+    LOGNORMAL << "finishForwarding for volume " << *vol_desc
+                     << ", state " << fwd_state;
+
+    vol_mtx->lock();
+    if (fwd_state == VFORWARD_STATE_INPROG) {
+        // set close time to now + small(ish) time interval, so that we also include
+        // IO that are in fligt (sent from AM but did not reach DM's qos queue)
+	dmtclose_time = boost::posix_time::microsec_clock::universal_time() +
+                boost::posix_time::milliseconds(1600);
+        fwd_state = VFORWARD_STATE_FINISHING;
+        LOGDEBUG << "finishForwarding:  close time: " << dmtclose_time;
+    }
+    else {
+        fwd_state = VFORWARD_STATE_NONE;
+    }
+    vol_mtx->unlock();
 }
 
 void VolumeMeta::dmCopyVolumeDesc(VolumeDesc *v_desc, VolumeDesc *pVol) {
@@ -560,13 +690,6 @@ void VolumeMeta::dmCopyVolumeDesc(VolumeDesc *v_desc, VolumeDesc *pVol) {
 
 std::ostream& operator<<(std::ostream& out, const MetadataPair& mdPair) {
     out << "{meta:" << mdPair.key << "=" << mdPair.value <<"}";
-    return out;
-}
-
-std::ostream& operator<<(std::ostream& out, const MetaList& metaList) {
-    for (const auto& meta : metaList) {
-        out << meta << " ";
-    }
     return out;
 }
 

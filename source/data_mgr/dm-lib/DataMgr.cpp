@@ -31,7 +31,7 @@ Error DataMgr::vol_handler(fds_volid_t vol_uuid,
         err = dataMgr->_process_add_vol(dataMgr->getPrefix() +
                                         std::to_string(vol_uuid),
                                         vol_uuid, desc,
-                                        (vol_flag != fpi::FDSP_NOTIFY_VOL_WILL_SYNC));
+                                        (vol_flag == fpi::FDSP_NOTIFY_VOL_WILL_SYNC));
     } else if (vol_action == fds_notify_vol_rm) {
         err = dataMgr->_process_rm_vol(vol_uuid, vol_flag == fpi::FDSP_NOTIFY_VOL_CHECK_ONLY);
     } else if (vol_action == fds_notify_vol_mod) {
@@ -58,20 +58,103 @@ DataMgr::volcat_evt_handler(fds_catalog_action_t catalog_action,
     GLOGNORMAL << "Received Volume Catalog request";
     if (catalog_action == fds_catalog_push_meta) {
         err = dataMgr->catSyncMgr->startCatalogSync(push_meta->metaVol, om_client, session_uuid);
+    } else if (catalog_action == fds_catalog_dmt_commit) {
+        // thsi will ignore this msg if catalog sync is not in progress
+        err = dataMgr->catSyncMgr->startCatalogSyncDelta(session_uuid);
     } else if (catalog_action == fds_catalog_dmt_close) {
-        dataMgr->catSyncMgr->notifyCatalogSyncFinish();
+        // will finish forwarding when all queued updates are processed
+        GLOGNORMAL << "Received DMT Close";
+        err = dataMgr->notifyStopForwardUpdates();
     } else {
         fds_assert(!"Unknown catalog command");
     }
     return err;
 }
 
+/**
+ * Callback from vol meta receiver that receiving vol meta is done
+ * for volume 'volid'. This method activates volume's QoS queue
+ * so this DM starts processing requests from AM for this volume
+ */
+void 
+DataMgr::volmetaRecvd(fds_volid_t volid, const Error& error) {
+    LOGDEBUG << "Will unblock qos queue for volume "
+             << std::hex << volid << std::dec;
+    vol_map_mtx->lock();
+    fds_verify(vol_meta_map.count(volid) > 0);
+    VolumeMeta *vol_meta = vol_meta_map[volid];
+    vol_meta->dmVolQueue->activate();
+    vol_map_mtx->unlock();
+}
+
+/**
+ * Is called on timer to finish forwarding for all volumes that
+ * are still forwarding, send DMT close ack, and remove vcat/tcat
+ * of volumes that do not longer this DM responsibility
+ */
+void
+DataMgr::finishCloseDMT() {
+    std::unordered_map<fds_uint64_t, VolumeMeta*>::iterator vol_it;
+    std::unordered_set<fds_volid_t> done_vols;
+    fds_bool_t all_finished = false;
+
+    LOGNOTIFY << "Finish handling DMT close and send ack if not sent yet";
+
+    // move all volumes that are in 'finish forwarding' state
+    // to not forwarding state, and make a set of these volumes
+    // the set is used so that we call catSyncMgr to cleanup/and
+    // and send push meta done msg outside of vol_map_mtx lock
+    vol_map_mtx->lock();
+    for (vol_it = vol_meta_map.begin();
+         vol_it != vol_meta_map.end();
+         ++vol_it) {
+        fds_volid_t volid = vol_it->first;
+        VolumeMeta *vol_meta = vol_it->second;
+        if (vol_meta->isForwardFinish()) {
+            vol_meta->setForwardFinish();
+            done_vols.insert(volid);
+        }
+        // we expect that volume is not forwarding
+        fds_verify(!vol_meta->isForwarding());
+    }
+    vol_map_mtx->unlock();
+
+    for (std::unordered_set<fds_volid_t>::const_iterator it = done_vols.cbegin();
+         it != done_vols.cend();
+         ++it) {
+        // remove the volume from sync_volume list
+        LOGNORMAL << "CleanUP: remove Volume " << std::hex << *it << std::dec;
+        if (catSyncMgr->finishedForwardVolmeta(*it)) {
+            all_finished = true;
+        }
+    }
+
+    // at this point we expect that all volumes are done
+    fds_verify(all_finished || !catSyncMgr->isSyncInProgress());
+
+    // Note that finishedForwardVolmeta sends ack to close DMT when it returns true
+    // either in this method or when we called finishedForwardVolume for the last
+    // volume to finish forwarding
+
+    // cleanup if needed
+    deleteVolumeDb();  
+}
+
+/**
+ * Note that volId may not necessarily match volume id in ioReq
+ * Example when it will not match: if we enqueue request for volumeA
+ * to shadow queue, we will pass shadow queue's volId (queue id)
+ * but ioReq will contain actual volume id; so maybe we should change
+ * this method to pass queue id as first param not volid
+ */
 Error DataMgr::enqueueMsg(fds_volid_t volId,
                           dmCatReq* ioReq) {
     Error err(ERR_OK);
 
     switch (ioReq->io_type) {
         case FDS_DM_SNAP_VOLCAT:
+        case FDS_DM_SNAPDELTA_VOLCAT:
+        case FDS_DM_FWD_CAT_UPD:
             err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
             break;
         default:
@@ -80,9 +163,33 @@ Error DataMgr::enqueueMsg(fds_volid_t volId,
 
     if (!err.ok()) {
         LOGERROR << "Failed to enqueue message " << ioReq->log_string()
-                 << " " << err;
+                 << " to queue "<< std::hex << volId << std::dec << " " << err;
     }
     return err;
+}
+
+void DataMgr::deleteVolumeDb() {
+#if 0
+    std::unordered_map<fds_uint64_t, VolumeMeta*>::iterator vol_it;
+
+     vol_map_mtx->lock();
+     for (vol_it = vol_meta_map.begin();
+               vol_it != vol_meta_map.end(); ++vol_it) {
+        DmtColumnPtr dmt_col = omClient->getDMTNodesForVolume(vol_it->first);
+        NodeUuid uuid =  Platform::plf_get_my_svc_uuid();
+        LOGDEBUG << " Volume ID:" << std::hex << vol_it->first << std::dec
+                  << " Node UUID :" << uuid;
+/*
+        if (dmt_col->find(uuid) < 0) {
+           // delete the vvc and tvc db;
+           VolumeMeta *vm = vol_meta_map[vol_it->first];
+           vm->vcat->DbDelete();
+           vm->tcat->DbDelete();
+        }  
+*/
+     }
+    vol_map_mtx->unlock();
+#endif
 }
 
 /*
@@ -114,32 +221,95 @@ Error DataMgr::_add_if_no_vol(const std::string& vol_name,
 
 /*
  * Meant to be called holding the vol_map_mtx.
+ * @param vol_will_sync true if this volume's meta will be synced from
+ * other DM first
  */
 Error DataMgr::_add_vol_locked(const std::string& vol_name,
                                fds_volid_t vol_uuid,
                                VolumeDesc *vdesc,
-                               fds_bool_t crt_catalogs) {
+                               fds_bool_t vol_will_sync) {
     Error err(ERR_OK);
-
-    vol_map_mtx->lock();
-    VolumeMeta *volmeta = new VolumeMeta(vol_name,
-                                         vol_uuid,
-                                         GetLog(),
-                                         vdesc,
-                                         crt_catalogs);
+    VolumeMeta *volmeta = new(std::nothrow) VolumeMeta(vol_name,
+                                                       vol_uuid,
+                                                       GetLog(),
+                                                       vdesc,
+                                                       !vol_will_sync);
+    if (!volmeta) {
+        LOGERROR << "Failed to allocate VolumeMeta for volume "
+                 << std::hex << vol_uuid << std::dec;
+        return ERR_OUT_OF_MEMORY;
+    }
+    volmeta->dmVolQueue = new(std::nothrow) FDS_VolumeQueue(4096,
+                                                            vdesc->iops_max,
+                                                            2*vdesc->iops_min,
+                                                            vdesc->relativePrio);
+    if (!volmeta->dmVolQueue) {
+        LOGERROR << "Failed to allocate Qos queue for volume "
+                 << std::hex << vol_uuid << std::dec;
+        delete volmeta;
+        return ERR_OUT_OF_MEMORY;
+    }
+    volmeta->dmVolQueue->activate();
 
     LOGDEBUG << "Added vol meta for vol uuid and per Volume queue" << std::hex
-             << vol_uuid << std::dec << ", created catalogs? " << crt_catalogs;
+              << vol_uuid << std::dec << ", created catalogs? " << !vol_will_sync;
 
-    volmeta->dmVolQueue = new FDS_VolumeQueue(4096, vdesc->iops_max, 2*vdesc->iops_min, vdesc->relativePrio);
-    volmeta->dmVolQueue->activate();
+    vol_map_mtx->lock();
     err = dataMgr->qosCtrl->registerVolume(vol_uuid, dynamic_cast<FDS_VolumeQueue*>(volmeta->dmVolQueue));
-    if (err.ok()) {
-        vol_meta_map[vol_uuid] = volmeta;
-    } else {
+    if (!err.ok()) {
         delete volmeta;
+        vol_map_mtx->unlock();
+        return err;
+    }
+
+    // if we will sync vol meta, block processing IO requests from this volume's
+    // qos queue and create a shadow queue for receiving volume meta from another DM
+    if (vol_will_sync) {
+        // we will use the priority of the volume, but no min iops (otherwise we will
+        // need to implement temp deregister of vol queue, so we have enough total iops
+        // to admit iops of shadow queue)
+        FDS_VolumeQueue* shadowVolQueue = 
+                new(std::nothrow) FDS_VolumeQueue(4096, 10000, 0, vdesc->relativePrio);
+        if (shadowVolQueue) {
+            fds_volid_t shadow_volid = catSyncRecv->shadowVolUuid(vol_uuid);
+            // block volume's qos queue
+            volmeta->dmVolQueue->stopDequeue();
+            // register shadow queue
+            err = dataMgr->qosCtrl->registerVolume(shadow_volid, shadowVolQueue);
+            if (err.ok()) {
+                LOGERROR << "Registered shadow volume queue for volume 0x"
+                         << std::hex << vol_uuid << " shadow id " << shadow_volid << std::dec;
+                // pass ownership of shadow volume queue to volume meta receiver
+                catSyncRecv->startRecvVolmeta(vol_uuid, shadowVolQueue);
+            } else {
+                LOGERROR << "Failed to register shadow volume queue for volume 0x"
+                         << std::hex << vol_uuid << " shadow id " << shadow_volid
+                         << std::dec << " " << err;
+                // cleanup, we will revert volume registration and creation
+                delete shadowVolQueue;
+                shadowVolQueue = NULL;
+            }
+        } else {
+            LOGERROR << "Failed to allocate shadow volume queue for volume "
+                     << std::hex << vol_uuid << std::dec;
+            err = ERR_OUT_OF_MEMORY;
+        }
+    }
+
+    if (err.ok()) {
+        // we registered queue and shadow queue if needed
+        vol_meta_map[vol_uuid] = volmeta;
     }
     vol_map_mtx->unlock();
+
+    if (!err.ok()) {
+        // cleanup volmeta and deregister queue
+        LOGERROR << "Cleaning up volume queue and vol meta because of error "
+                 << " volid 0x" << std::hex << vol_uuid << std::dec;
+        dataMgr->qosCtrl->deregisterVolume(vol_uuid);
+        delete volmeta->dmVolQueue;
+        delete volmeta;
+    }
 
     return err;
 }
@@ -147,7 +317,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
 Error DataMgr::_process_add_vol(const std::string& vol_name,
                                 fds_volid_t vol_uuid,
                                 VolumeDesc *desc,
-                                fds_bool_t crt_catalogs) {
+                                fds_bool_t vol_will_sync) {
     Error err(ERR_OK);
 
     /*
@@ -163,7 +333,7 @@ Error DataMgr::_process_add_vol(const std::string& vol_name,
     }
     vol_map_mtx->unlock();
 
-    err = _add_vol_locked(vol_name, vol_uuid, desc, crt_catalogs);
+    err = _add_vol_locked(vol_name, vol_uuid, desc, vol_will_sync);
     return err;
 }
 
@@ -248,6 +418,37 @@ Error DataMgr::_process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only) {
 }
 
 /**
+ * For all volumes that are in forwarding state, move them to
+ * finish forwarding state.
+ */
+Error DataMgr::notifyStopForwardUpdates() {
+    std::unordered_map<fds_uint64_t, VolumeMeta*>::iterator vol_it;
+    Error err(ERR_OK);
+
+    if (!catSyncMgr->isSyncInProgress()) {  
+        err = ERR_CATSYNC_NOT_PROGRESS;
+        return err;
+    }
+
+    vol_map_mtx->lock();
+    for (vol_it = vol_meta_map.begin();
+         vol_it != vol_meta_map.end();
+         ++vol_it) {
+        VolumeMeta *vol_meta = vol_it->second;
+        vol_meta->finishForwarding();
+    }
+    vol_map_mtx->unlock();
+
+    // start timer where we will stop forwarding volumes that are
+    // still in 'finishing forwarding' state
+    if (!closedmt_timer->schedule(closedmt_timer_task, std::chrono::seconds(2))) {
+        // TODO(xxx) how do we handle this?
+        fds_panic("Failed to schedule closedmt timer!");
+    }
+   return err;
+}
+
+ /*
  * Returns the maxObjSize in the volume.
  * TODO(Andrew): This should be refactored into a
  * common library since everyone needs it, not just DM
@@ -472,7 +673,14 @@ DataMgr::DataMgr(int argc, char *argv[], Platform *platform, Module **vec)
           numTestVols(10),
           runMode(NORMAL_MODE),
           scheduleRate(4000),
-          num_threads(DM_TP_THREADS)
+          catSyncRecv(new CatSyncReceiver(this,std::bind(&DataMgr::volmetaRecvd,
+                                                         this,
+                                                         std::placeholders::_1,
+                                                         std::placeholders::_2))),
+          closedmt_timer(new FdsTimer()),
+          closedmt_timer_task(new CloseDMTTimerTask(*closedmt_timer,
+                                                    std::bind(&DataMgr::finishCloseDMT,
+                                                              this)))
 {
     // If we're in test mode, don't daemonize.
     // TODO(Andrew): We probably want another config field and
@@ -492,8 +700,6 @@ DataMgr::DataMgr(int argc, char *argv[], Platform *platform, Module **vec)
 
     big_fat_lock = new fds_mutex("big fat mutex");
 
-    _tp = new fds_threadpool(num_threads);
-
     /*
      * Comm with OM will be setup during run()
      */
@@ -512,11 +718,7 @@ DataMgr::~DataMgr()
 {
     LOGNORMAL << "Destructing the Data Manager";
 
-    /*
-     * This will wait for all current threads to
-     * complete.
-     */
-    delete _tp;
+    closedmt_timer->destroy();
 
     for (std::unordered_map<fds_uint64_t, VolumeMeta*>::iterator
                  it = vol_meta_map.begin();
@@ -525,6 +727,9 @@ DataMgr::~DataMgr()
         delete it->second;
     }
     vol_meta_map.clear();
+
+    qosCtrl->deregisterVolume(FdsDmSysTaskId);
+    delete sysTaskQueue;
 
     delete omClient;
     delete big_fat_lock;
@@ -564,6 +769,7 @@ void DataMgr::setup_metadatapath_server(const std::string &ip)
 
 void DataMgr::proc_pre_startup()
 {
+    Error err(ERR_OK);
     fds::DmDiskInfo     *info;
     fds::DmDiskQuery     in;
     fds::DmDiskQueryOut  out;
@@ -608,6 +814,13 @@ void DataMgr::proc_pre_startup()
     commitLog = DmCommitLog::ptr(new DmCommitLog("DM Trans Commit Log"));
 
     setup_metadatapath_server(myIp);
+
+    // Create a queue for system (background) tasks
+    sysTaskQueue = new FDS_VolumeQueue(1024, 10000, 20, FdsDmSysTaskPrio);
+    sysTaskQueue->activate();
+    err = qosCtrl->registerVolume(FdsDmSysTaskId, sysTaskQueue);
+    fds_verify(err.ok());
+    LOGNORMAL << "Registered System Task Queue";
 
     if (use_om) {
         LOGDEBUG << " Initialising the OM client ";
@@ -935,13 +1148,14 @@ DataMgr::updateCatalogProcess(const dmCatReq  *updCatReq, BlobNode **bnode) {
     Error err(ERR_OK);
 
     LOGDEBUG << "Processing update catalog request with "
-             << "volume id: " << updCatReq->volId
-             << ", blob name: "
-             << updCatReq->blob_name
-             << ", Trans ID "
-             << updCatReq->transId
-             << ", OP ID " << updCatReq->transOp
-             << ", journ TXID " << updCatReq->reqCookie;
+              << "volume id: " << updCatReq->volId
+              << ", blob name: "
+              << updCatReq->blob_name
+              << ", Trans ID "
+              << updCatReq->transId
+              << ", OP ID " << updCatReq->transOp
+              << ", journ TXID " << updCatReq->reqCookie
+	      << ", dmt_version " << updCatReq->fdspUpdCatReqPtr->dmt_version;
 
     // Grab a big lock around the entire operation so that
     // all updates to the same blob get serialized from disk
@@ -1119,7 +1333,36 @@ DataMgr::updateCatalogBackend(dmCatReq  *updCatReq) {
     if (err == ERR_OK) {
         fds_verify(bnode != NULL);
     }
-    LOGDEBUG << "got bnode: " << *bnode;
+    if (updCatReq->io_type == FDS_DM_FWD_CAT_UPD) {
+        // we got this update forwarded from other DM
+        // so do not reply to AM, but notify cat sync receiver
+        // which will do all required post processing
+        catSyncRecv->fwdUpdateReqDone(updCatReq, bnode->version, err,
+                                      catSyncMgr->respCli(updCatReq->session_uuid));
+        qosCtrl->markIODone(*updCatReq);
+        delete updCatReq;
+        return;
+    }
+
+    err = forwardUpdateCatalogRequest(updCatReq);
+    if (!err.ok()) {
+        // if  the update request  is not forwarded, send the response. 
+        sendUpdateCatalogResp(updCatReq, bnode);
+    }
+
+    // cleanup in any case (forwarded or respond to AM)
+    if (bnode != NULL) {
+        delete bnode;
+    }
+
+    qosCtrl->markIODone(*updCatReq);
+    delete updCatReq;
+}
+
+void 
+DataMgr::sendUpdateCatalogResp(dmCatReq  *updCatReq, BlobNode *bnode) {
+    Error err(ERR_OK);
+
     FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
     FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr
             update_catalog(new FDSP_UpdateCatalogType);
@@ -1171,7 +1414,7 @@ DataMgr::updateCatalogBackend(dmCatReq  *updCatReq) {
     dataMgr->respMapMtx.read_unlock();
 
     LOGDEBUG << "Sending async update catalog response with "
-             << "volume id: " << msg_hdr->glob_volume_id
+             << "volume id: " << std::hex << msg_hdr->glob_volume_id << std::dec
              << ", blob name: "
              << update_catalog->blob_name
              << ", blob version: "
@@ -1187,21 +1430,54 @@ DataMgr::updateCatalogBackend(dmCatReq  *updCatReq) {
                FDS_ProtocolInterface::FDS_DMGR_TXN_STATUS_COMMITED) {
         LOGDEBUG << "End:Sent update response for trans commit request";
     }
-
-    if (bnode != NULL) {
-        LOGDEBUG << "done processing bnode : " << *bnode;
-        delete bnode;
-    }
-
-    qosCtrl->markIODone(*updCatReq);
-    delete updCatReq;
 }
+
+Error  DataMgr::forwardUpdateCatalogRequest(dmCatReq  *updCatReq) {
+    Error err(ERR_OK);
+    /*
+     * we have updated the local Meta Db successfully, if the forwarding flag is set, 
+     * forward the  request to the respective node 
+     */
+    if (updCatReq->transOp == fpi::FDS_DMGR_TXN_STATUS_COMMITED) {
+        fds_bool_t do_forward = false;
+        fds_bool_t do_finish = false;
+        vol_map_mtx->lock();
+        fds_verify(vol_meta_map.count(updCatReq->volId) > 0);
+        VolumeMeta *vol_meta = vol_meta_map[updCatReq->volId];
+        do_forward = vol_meta->isForwarding();
+        do_finish  = vol_meta->isForwardFinish();
+        vol_map_mtx->unlock();
+     
+        if ((do_forward) || ( vol_meta->dmtclose_time > updCatReq->enqueue_time)) {
+            err = catSyncMgr->forwardCatalogUpdate(updCatReq);
+        } else {
+            err = ERR_DMT_FORWARD;
+        }
+
+        // move the state, once we drain  planned queue contents 
+        LOGNORMAL << "DMT close Time:  " << vol_meta->dmtclose_time 
+                  << " Enqueue Time: " << updCatReq->enqueue_time;
+        
+        if ((vol_meta->dmtclose_time <= updCatReq->enqueue_time) && (do_finish)) {
+            vol_meta->setForwardFinish();
+            // remove the volume from sync_volume list
+            LOGNORMAL << "CleanUP: remove Volume " << updCatReq->volId;
+            catSyncMgr->finishedForwardVolmeta(updCatReq->volId);
+        }        
+    }
+    else 
+        err = ERR_DMT_FORWARD;
+
+   return err;
+}
+
 
 
 Error
 DataMgr::updateCatalogInternal(FDSP_UpdateCatalogTypePtr updCatReq,
                                fds_volid_t volId, long srcIp, long dstIp, fds_uint32_t srcPort,
-                               fds_uint32_t dstPort, std::string session_uuid, fds_uint32_t reqCookie) {
+                               fds_uint32_t dstPort, std::string session_uuid,
+                               fds_uint32_t reqCookie,std::string session_cache) {
     fds::Error err(fds::ERR_OK);
 
     /*
@@ -1212,6 +1488,7 @@ DataMgr::updateCatalogInternal(FDSP_UpdateCatalogTypePtr updCatReq,
                                       dstIp, srcPort, dstPort, session_uuid, reqCookie, FDS_CAT_UPD,
                                       updCatReq);
 
+    dmUpdReq->session_cache = session_cache;
     err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(dmUpdReq));
     if (err != ERR_OK) {
         LOGERROR << "Unable to enqueue Update Catalog request "
@@ -1285,14 +1562,16 @@ void DataMgr::ReqHandler::UpdateCatalogObject(FDS_ProtocolInterface::
                                               FDS_ProtocolInterface::
                                               FDSP_UpdateCatalogTypePtr
                                               &update_catalog) {
+    Error err(ERR_OK);
+
     GLOGDEBUG << "Processing update catalog request with "
-              << "volume id: " << msg_hdr->glob_volume_id
-              << ", blob_name: "
-              << update_catalog->blob_name
-              << ", Trans ID: "
-              << update_catalog->dm_transaction_id
-              << ", OP ID " << update_catalog->dm_operation
-              << " request cookie " << msg_hdr->req_cookie;
+               << "volume id: " << msg_hdr->glob_volume_id
+               << ", blob_name: "
+               << update_catalog->blob_name
+               << ", Trans ID: "
+               << update_catalog->dm_transaction_id
+               << ", OP ID " << update_catalog->dm_operation
+               << " request cookie " << msg_hdr->req_cookie;
 
     if ((dataMgr->testUturnAll == true) ||
         (dataMgr->testUturnUpdateCat == true)) {
@@ -1313,10 +1592,10 @@ void DataMgr::ReqHandler::UpdateCatalogObject(FDS_ProtocolInterface::
         return;
     }
 
-    Error err = dataMgr->updateCatalogInternal(update_catalog, msg_hdr->glob_volume_id,
-                                               msg_hdr->src_ip_lo_addr, msg_hdr->dst_ip_lo_addr,
-                                               msg_hdr->src_port, msg_hdr->dst_port,
-                                               msg_hdr->session_uuid, msg_hdr->req_cookie);
+    err = dataMgr->updateCatalogInternal(update_catalog, msg_hdr->glob_volume_id,
+                                         msg_hdr->src_ip_lo_addr, msg_hdr->dst_ip_lo_addr, msg_hdr->src_port,
+                                         msg_hdr->dst_port, msg_hdr->session_uuid, msg_hdr->req_cookie,
+                                         msg_hdr->session_cache);
 
     if (!err.ok()) {
         GLOGERROR << "Error Queueing the update Catalog request to Per volume Queue";
@@ -1662,7 +1941,7 @@ DataMgr::queryCatalogBackend(dmCatReq  *qryCatReq) {
              << ", OP ID " << query_catalog->dm_operation;
 
     qosCtrl->markIODone(*qryCatReq);
-    delete qryCatReq;
+     delete qryCatReq;
 }
 
 Error
@@ -1886,6 +2165,33 @@ DataMgr::snapVolCat(DmIoSnapVolCat* snapReq) {
     qosCtrl->markIODone(*snapReq);
     delete snapReq;
 }
+
+/**
+ * Do second rsync for the given volume to the given node
+ * (in snapReq msg).
+ */
+void
+DataMgr::pushDeltaVolCat(DmIoSnapVolCat* snapReq) {
+    Error err(ERR_OK);
+    fds_verify(snapReq != NULL);
+
+    LOGDEBUG << "Will do second rsync for volume " << std::hex
+             << snapReq->volId << " to node "
+             << (snapReq->node_uuid).uuid_get_val() << std::dec;
+
+    VolumeMeta *vm = vol_meta_map[snapReq->volId];
+    //  do second rsync here or in CatalogSync::deltaDoneCb
+    err = vm->deltaSyncVolCat(snapReq->volId, snapReq->node_uuid);
+    LOGDEBUG << "Finished delta rsync, calling catsync callback";
+
+    // call CatalogSync update to record rsync progress
+    snapReq->dmio_snap_vcat_cb(snapReq->volId, err);
+
+    // mark this request as complete
+    qosCtrl->markIODone(*snapReq);
+    delete snapReq;
+}
+
 
 /**
  * Populates an fdsp message header with stock fields.
@@ -2548,6 +2854,13 @@ int scheduleSnapVolCat(void * _io) {
     return 0;
 }
 
+int schedulePushDeltaVolCat(void * _io) {
+    fds::DmIoSnapVolCat *io = (fds::DmIoSnapVolCat*)_io;
+
+    dataMgr->pushDeltaVolCat(io);
+    return 0;
+}
+
 void DataMgr::InitMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr)
 {
     msg_hdr->minor_ver = 0;
@@ -2573,6 +2886,10 @@ void DataMgr::InitMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr)
     msg_hdr->result = FDSP_ERR_OK;
 }
 
+void CloseDMTTimerTask::runTimerTask() {
+    timeout_cb();
+}
+
 void DataMgr::setResponseError(fpi::FDSP_MsgHdrTypePtr& msg_hdr, const Error& err) {
     if (err.ok()) {
         msg_hdr->result  = fpi::FDSP_ERR_OK;
@@ -2583,6 +2900,5 @@ void DataMgr::setResponseError(fpi::FDSP_MsgHdrTypePtr& msg_hdr, const Error& er
         msg_hdr->err_code = err.GetErrno();
     }
 } 
-
 
 }  // namespace fds

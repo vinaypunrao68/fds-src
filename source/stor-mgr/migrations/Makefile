@@ -8,8 +8,8 @@ user_build_dir    :=
 user_incl_dir     := $(topdir) ./ ../include $(topdir)/lib
 user_cpp_flags    := -Wall
 user_cpp          :=                   \
-    TokenCopyReceiver.cpp \
-    TokenCopySender.cpp \
+    TokenReceiver.cpp \
+    TokenSender.cpp \
     fds_migration.cpp \
     TokenSyncReceiver.cpp \
     TokenSyncSender.cpp \

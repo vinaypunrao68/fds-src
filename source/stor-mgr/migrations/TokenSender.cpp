@@ -12,7 +12,7 @@
 #include <boost/msm/front/euml/operator.hpp>
 
 #include <fds_migration.h>
-#include <TokenCopySender.h>
+#include <TokenSender.h>
 #include <TokenSyncSender.h>
 #include <TokenPullSender.h>
 
@@ -39,7 +39,7 @@ struct TokenCopySenderFSM_
         : public msm::front::state_machine_def<TokenCopySenderFSM_> {
     void init(const std::string &mig_stream_id,
             FdsMigrationSvc *migrationSvc,
-            TokenCopySender *parent,
+            TokenSender *parent,
             SmIoReqHandler *data_store,
             const std::string &rcvr_ip,
             const int &rcvr_port,
@@ -282,7 +282,7 @@ struct TokenCopySenderFSM_
     FdsMigrationSvc *migrationSvc_;
 
     /* Parent */
-    TokenCopySender *parent_;
+    TokenSender *parent_;
 
     /* Receiver ip */
     std::string rcvr_ip_;
@@ -311,7 +311,7 @@ struct TokenCopySenderFSM_
     netMigrationPathClientSession *rcvr_session_;
 };  /* struct TokenCopySenderFSM_ */
 
-TokenCopySender::TokenCopySender(FdsMigrationSvc *migrationSvc,
+TokenSender::TokenSender(FdsMigrationSvc *migrationSvc,
         SmIoReqHandler *data_store,
         const std::string &mig_id,
         const std::string &mig_stream_id,
@@ -355,21 +355,21 @@ TokenCopySender::TokenCopySender(FdsMigrationSvc *migrationSvc,
             << "Stream id: " << mig_stream_id << " receiver ip : " << rcvr_ip;
 }
 
-TokenCopySender::~TokenCopySender()
+TokenSender::~TokenSender()
 {
     delete sync_fsm_;
     delete pull_fsm_;
 }
 
 
-void TokenCopySender::start()
+void TokenSender::start()
 {
     FdsActorRequestPtr far(new FdsActorRequest(
                         FAR_ID(TSStart), nullptr));
     send_actor_request(far);
 }
 
-Error TokenCopySender::handle_actor_request(FdsActorRequestPtr req)
+Error TokenSender::handle_actor_request(FdsActorRequestPtr req)
 {
     Error err = ERR_OK;
 

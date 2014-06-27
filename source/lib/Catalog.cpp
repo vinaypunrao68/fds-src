@@ -110,6 +110,13 @@ Catalog::catalog_iterator_t *db_it = NewIterator();
     return false;
 }
 
+bool
+Catalog::DbDelete() {
+    delete options.filter_policy;
+    delete db;
+    return true;
+}
+
 Error
 Catalog::DbSnap(const std::string& _file) {
     Error err(ERR_OK);

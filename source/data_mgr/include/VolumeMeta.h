@@ -123,8 +123,24 @@ struct BlobNode : serialize::Serializable {
 std::ostream& operator<<(std::ostream& out, const BlobNode& bnode);
 
 class VolumeMeta : public HasLogger {
+ public:
+    boost::posix_time::ptime dmtclose_time;  // timestamp when dmt_close  arrived
+    /**
+     * volume  meta forwarding state
+     */
+    typedef enum {
+        VFORWARD_STATE_NONE,      // not fowarding
+        VFORWARD_STATE_INPROG,    // forwarding
+        VFORWARD_STATE_FINISHING  // forwarding queued updates before finish
+    } fwdStateType;
+
   private:
     fds_mutex  *vol_mtx;
+
+    /**
+     * volume meta forwarding state
+     */
+    fwdStateType fwd_state;  // write protected by vol_mtx
 
     /*
      * This class is non-copyable.
@@ -134,6 +150,22 @@ class VolumeMeta : public HasLogger {
     VolumeMeta& operator= (const VolumeMeta rhs);
 
  public:
+    fds_bool_t isForwarding() const {
+        return (fwd_state != VFORWARD_STATE_NONE);
+    }
+
+    fds_bool_t isForwardFinish() const {
+        return (fwd_state == VFORWARD_STATE_FINISHING);
+    }
+
+    void setForwardFinish() {
+        fwd_state = VFORWARD_STATE_NONE;
+    }
+    /**
+     * If state is 'in progress', will move to 'finishing'
+     */
+    void finishForwarding();
+
     /*
      * The volume catalog maintains mappings from
      * vol/blob/offset to object id.
@@ -163,6 +195,14 @@ class VolumeMeta : public HasLogger {
                VolumeDesc *v_desc,
                fds_bool_t crt_catalogs);
     ~VolumeMeta();
+
+    /**
+     * If this volume's catalogs were pushed from other DM, this method
+     * is called when pusing volume's catalogs is done so they can be
+     * now opened and ready for transactions
+     */
+    void openCatalogs(fds_volid_t volId);
+
     void dmCopyVolumeDesc(VolumeDesc *v_desc, VolumeDesc *pVol);
     /*
      * per volume queue
@@ -178,6 +218,7 @@ class VolumeMeta : public HasLogger {
     fds_bool_t isEmpty() const;
     Error listBlobs(std::list<BlobNode>& bNodeList);
     Error syncVolCat(fds_volid_t volId, NodeUuid node_uuid);
+    Error deltaSyncVolCat(fds_volid_t volId, NodeUuid node_uuid);
 };
 
 }  // namespace fds

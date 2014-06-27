@@ -30,9 +30,10 @@ user_non_fds_libs := \
     cryptopp \
     leveldb
 
-user_cpp          := checker.cpp 
+user_cpp          := checker.cpp dm_checker.cpp
 
-user_bin_exe      := checker 
+user_bin_exe      := checker dm_checker
 checker		  := checker.cpp
+dm_checker    := dm_checker.cpp
 
 include $(topdir)/Makefile.incl

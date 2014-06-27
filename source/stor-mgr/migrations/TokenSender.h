@@ -28,10 +28,10 @@ struct TokenPullSender;
 struct TokenCopySenderFSM_;
 typedef boost::msm::back::state_machine<TokenCopySenderFSM_> TokenCopySenderFSM;
 
-class TokenCopySender : public MigrationSender,
+class TokenSender : public MigrationSender,
                         public FdsRequestQueueActor {
 public:
-    TokenCopySender(FdsMigrationSvc *migrationSvc,
+    TokenSender(FdsMigrationSvc *migrationSvc,
             SmIoReqHandler *data_store,
             const std::string &mig_id,
             const std::string &mig_stream_id,
@@ -42,7 +42,7 @@ public:
             const std::set<fds_token_id> &tokens,
             boost::shared_ptr<FDSP_MigrationPathRespIf> client_resp_handler,
             ClusterCommMgrPtr clust_comm_mgr);
-    virtual ~TokenCopySender();
+    virtual ~TokenSender();
 
     fds_log* get_log() {
         return log_;
@@ -50,7 +50,7 @@ public:
 
     /* For logging */
     std::string log_string() {
-        return "TokenCopySender";
+        return "TokenSender";
     }
 
     void start();

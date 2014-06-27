@@ -151,6 +151,8 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) {
         fds::FdsBlobReq *blobReq = qosReq->getBlobReqPtr();
         fds_verify(blobReq != NULL);
         upd_obj_req->blob_name = blobReq->getBlobName();
+        upd_obj_req->dmt_version = txn->dmt_version;
+ 
     
         for (fds_int32_t node = 0; node < txn->num_dm_nodes; node++) {
             if (txn->dm_ack[node].ack_status != 0) {

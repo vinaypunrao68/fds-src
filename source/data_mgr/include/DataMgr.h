@@ -13,6 +13,7 @@
 #include <fds_types.h>
 #include <fds_volume.h>
 #include <dm-platform.h>
+#include <fds_timer.h>
 
 /* TODO: avoid cross module include, move API header file to include dir. */
 #include <lib/OMgrClient.h>
@@ -32,6 +33,7 @@
 #include <NetSession.h>
 #include <DmIoReq.h>
 #include <CatalogSync.h>
+#include <CatalogSyncRecv.h>
 
 #include <CommitLog.h>
 
@@ -43,7 +45,6 @@
 
 namespace fds {
 
-#define DM_TP_THREADS 20
 int scheduleUpdateCatalog(void * _io);
 int scheduleQueryCatalog(void * _io);
 int scheduleStatBlob(void * _io);
@@ -54,6 +55,7 @@ int scheduleGetBlobMetaData(void* io);
 int scheduleSetBlobMetaData(void* io);
 int scheduleGetVolumeMetaData(void* io);
 int scheduleSnapVolCat(void* _io);
+int schedulePushDeltaVolCat(void* _io);
 
 class DataMgr;
 class DMSvcHandler;
@@ -64,8 +66,9 @@ public:
     static void InitMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr);
 
     class ReqHandler;
+
     typedef boost::shared_ptr<ReqHandler> ReqHandlerPtr;
-    typedef boost::shared_ptr<FDS_ProtocolInterface::FDSP_MetaDataPathRespClient> RespHandlerPrx; //NOLINT
+    typedef boost::shared_ptr<FDS_ProtocolInterface::FDSP_MetaDataPathRespClient> RespHandlerPrx;
     OMgrClient     *omClient;
     /*
      * TODO: Move to STD shared or unique pointers. That's
@@ -75,7 +78,8 @@ public:
     /**
      * Catalog sync manager
      */
-    CatalogSyncMgrPtr catSyncMgr;
+    CatalogSyncMgrPtr catSyncMgr;  // sending vol meta
+    CatSyncReceiverPtr catSyncRecv;  // receiving vol meta
 
  private:
     typedef enum {
@@ -85,6 +89,12 @@ public:
     } dmRunModes;
     dmRunModes    runMode;
     fds_uint32_t numTestVols;  /* Number of vols to use in test mode */
+
+    /**
+     * For timing out request forwarding in DM (to send DMT close ack)
+     */
+    FdsTimerPtr closedmt_timer;
+    FdsTimerTaskPtr closedmt_timer_task;
 
     class dmQosCtrl : public FDS_QoSControl {
  public:
@@ -107,6 +117,7 @@ public:
         GLOGDEBUG << "processing : " << io->io_type;
 	switch (io->io_type){
             case FDS_CAT_UPD:
+            case FDS_DM_FWD_CAT_UPD:
                 threadPool->schedule(scheduleUpdateCatalog, io);
                 break;
             case FDS_CAT_UPD2:
@@ -130,14 +141,19 @@ public:
             case FDS_LIST_BLOB:
                 threadPool->schedule(scheduleBlobList, io);
                 break;
+            case FDS_DM_SNAP_VOLCAT:
+                GLOGDEBUG  << "Processing snapshot catalog request ";
+                threadPool->schedule(scheduleSnapVolCat, io);
+                break;
+            case FDS_DM_SNAPDELTA_VOLCAT:
+                FDS_PLOG(FDS_QoSControl::qos_log) << "Processing push delta catalog snap request ";
+                threadPool->schedule(schedulePushDeltaVolCat, io);
+                break;
             case FDS_GET_BLOB_METADATA:
                 threadPool->schedule(scheduleGetBlobMetaData, io);
                 break;
             case FDS_SET_BLOB_METADATA:
                 threadPool->schedule(scheduleSetBlobMetaData, io);
-                break;
-            case FDS_DM_SNAP_VOLCAT:
-                threadPool->schedule(scheduleSnapVolCat, io);
                 break;
              case FDS_GET_VOLUME_METADATA:
                 threadPool->schedule(scheduleGetVolumeMetaData, io);
@@ -174,6 +190,7 @@ public:
 
     dmQosCtrl   *qosCtrl;
 
+    FDS_VolumeQueue*  sysTaskQueue;
 
     /*
      * Cmdline configurables
@@ -185,12 +202,6 @@ public:
     fds_uint32_t omConfigPort;  /* Port of OM used to bootstrap */
 
     std::string myIp;
-
-    /*
-     * Internal threadpool.
-     */
-    fds_uint32_t num_threads;
-    fds_threadpool *_tp;
 
     /*
      * Used to protect access to vol_meta_map.
@@ -218,10 +229,10 @@ public:
                          fds_volid_t vol_uuid,VolumeDesc* desc);
     Error _add_vol_locked(const std::string& vol_name,
                           fds_volid_t vol_uuid, VolumeDesc* desc,
-                          fds_bool_t crt_catalogs);
+                          fds_bool_t vol_will_sync);
     Error _process_add_vol(const std::string& vol_name,
                            fds_volid_t vol_uuid,VolumeDesc* desc,
-                           fds_bool_t crt_catalogs);
+                           fds_bool_t vol_will_sync);
     Error _process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only);
     Error _process_mod_vol(fds_volid_t vol_uuid,
 			   const VolumeDesc& voldesc);
@@ -255,6 +266,13 @@ public:
     Error expungeObject(fds_volid_t volId, const ObjectID &objId);
 
     fds_bool_t volExistsLocked(fds_volid_t vol_uuid) const;
+
+    /**
+     * Will move volumes that are in forwarding state to
+     * finish forwarding state -- forwarding will actually end when
+     * all updates that are currently queued are processed.
+     */
+    Error  notifyStopForwardUpdates();
 
     /**
      * DmIoReqHandler method implementation
@@ -322,12 +340,29 @@ public:
     void setBlobMetaDataBackend(const dmCatReq *request);
     void getVolumeMetaDataBackend(const dmCatReq *request);
     void snapVolCat(DmIoSnapVolCat* snapReq);
+    void pushDeltaVolCat(DmIoSnapVolCat* snapReq);
+    Error forwardUpdateCatalogRequest(dmCatReq  *updCatReq);
+    void sendUpdateCatalogResp(dmCatReq  *updCatReq, BlobNode *bnode);
+    void deleteVolumeDb();
+
+    /**
+     * Callback from volume meta receiver that volume meta is received
+     * for volume 'volid', so we can start process AMs' requests for this volume
+     */
+    void volmetaRecvd(fds_volid_t volid, const Error& error);
+    /**
+     * Timeout to send DMT close ack if not sent yet and stop forwarding
+     * cat updates for volumes that are still in 'finishing forwarding' state
+     */
+    void finishCloseDMT();
+
     /* 
      * FDS protocol processing proto types 
      */
     Error updateCatalogInternal(FDSP_UpdateCatalogTypePtr updCatReq, 
                                 fds_volid_t volId,long srcIp,long dstIp,fds_uint32_t srcPort,
-                                fds_uint32_t dstPort, std::string session_uuid, fds_uint32_t reqCookie);
+                                fds_uint32_t dstPort, std::string session_uuid,
+                                fds_uint32_t reqCookie, std::string session_cache);
     Error queryCatalogInternal(FDSP_QueryCatalogTypePtr qryCatReq, 
                                fds_volid_t volId,long srcIp,long dstIp,fds_uint32_t srcPort,
                                fds_uint32_t dstPort, std::string session_uuid, fds_uint32_t reqCookie);
@@ -456,6 +491,21 @@ public:
     };
 
     friend class DMSvcHandler;
+};
+
+class CloseDMTTimerTask: public FdsTimerTask {
+public:
+    typedef std::function<void ()> cbType;
+
+    CloseDMTTimerTask(FdsTimer& timer, cbType cb)  //NOLINT
+            : FdsTimerTask(timer), timeout_cb(cb) {
+    }
+    ~CloseDMTTimerTask() {}
+
+    void runTimerTask();
+
+private:
+    cbType timeout_cb;
 };
 
 }  // namespace fds

@@ -173,6 +173,7 @@ class FDS_Volume {
  * TODO(Andrew): Rename to something QoS specific since
  * that's what these really are...
  */
+
 class FDS_VolumePolicy : public serialize::Serializable {
   public:
     fds_uint32_t   volPolicyId;
@@ -191,12 +192,14 @@ class FDS_VolumePolicy : public serialize::Serializable {
     friend std::ostream& operator<<(std::ostream& os, const FDS_VolumePolicy& policy);
 };
 
+
 typedef enum {
-    FDS_VOL_Q_INACTIVE,
-    FDS_VOL_Q_SUSPENDED,
-    FDS_VOL_Q_QUIESCING,
-    FDS_VOL_Q_ACTIVE
-} VolumeQState;
+        FDS_VOL_Q_INACTIVE,
+        FDS_VOL_Q_SUSPENDED,
+        FDS_VOL_Q_QUIESCING,
+        FDS_VOL_Q_ACTIVE,
+        FDS_VOL_Q_STOP_DEQUEUE
+}VolumeQState;
 
 /* **********************************************
  *  FDS_VolumeQueue: VolumeQueue
@@ -204,34 +207,39 @@ typedef enum {
  **********************************************************/
 class FDS_VolumeQueue {
   public:
-    boost::lockfree::queue<FDS_IOType*> *volQueue;  // NOLINT
-    VolumeQState volQState;
+        boost::lockfree::queue<FDS_IOType*>  *volQueue;  // NOLINT
+        VolumeQState volQState;
 
-    // Qos Parameters set for this volume/VolumeQueue
-    fds_uint64_t  iops_max;
-    fds_uint64_t iops_min;
-    fds_uint32_t priority;  // Relative priority
+        // Qos Parameters set for this volume/VolumeQueue
+        fds_uint64_t  iops_max;
+        fds_uint64_t iops_min;
+        fds_uint32_t priority;  // Relative priority
 
-    // Ctor/dtor
-    FDS_VolumeQueue(fds_uint32_t q_capacity,
-                    fds_uint64_t _iops_max,
-                    fds_uint64_t _iops_min,
-                    fds_uint32_t prio);
-    ~FDS_VolumeQueue();
+        // Ctor/dtor
+        FDS_VolumeQueue(fds_uint32_t q_capacity,
+                        fds_uint64_t _iops_max,
+                        fds_uint64_t _iops_min,
+                        fds_uint32_t prio);
 
-    void modifyQosParams(fds_uint64_t _iops_min,
-                         fds_uint64_t _iops_max,
-                         fds_uint32_t _prio);
-    void activate();
+        ~FDS_VolumeQueue();
 
-    // Quiesce queued IOs on this queue & block any new IOs
-    void  quiesceIOs();
-    void   suspendIO();
+        void modifyQosParams(fds_uint64_t _iops_min,
+                             fds_uint64_t _iops_max,
+                             fds_uint32_t _prio);
 
-    void   resumeIO();
+        void activate();
+        void stopDequeue();
 
-    void   enqueueIO(FDS_IOType *io);
-    FDS_IOType   *dequeueIO();
-};
+
+        // Quiesce queued IOs on this queue & block any new IOs
+        void  quiesceIOs();
+        void   suspendIO();
+
+        void   resumeIO();
+
+        void   enqueueIO(FDS_IOType *io);
+        FDS_IOType   *dequeueIO();
+    };
+
 }  // namespace fds
 #endif  // SOURCE_INCLUDE_FDS_VOLUME_H_

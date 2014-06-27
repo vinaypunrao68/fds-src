@@ -48,7 +48,7 @@ namespace fds {
     for (auto it=queue_desc_map.begin(); it != queue_desc_map.end(); ++it) {
       next_queue = it->first;
       next_qd = it->second;
-      fds_uint32_t n_pios = atomic_load(&(next_qd->num_pending_ios));
+      fds_uint32_t n_pios = next_qd->pendingActiveCount();  // pending IOs if queue is active, otherwise 0  
       fds_uint32_t n_credits = next_qd->num_rate_based_credits;
       float accumulated_credits = ((float) n_credits)/next_qd->max_rate_based_credits;
       credits_str = credits_str + "(" + std::to_string(next_queue) + "," + std::to_string(n_credits)
@@ -96,7 +96,7 @@ namespace fds {
 	  current_guaranteed_ios_rate = ((float)num_rate_based_slots_serviced * 1000000)/elapsed_usecs;
 
 	  next_qd = queue_desc_map[next_queue];
-	  n_pios = atomic_load(&(next_qd->num_pending_ios));
+	  n_pios = next_qd->pendingActiveCount();  // pending IOs if queue is active, otherwise 0
 	  if ((n_pios == 0) && (next_qd->num_rate_based_credits < next_qd->max_rate_based_credits)) { 
 	    next_qd->num_rate_based_credits++;
 	    FDS_PLOG_SEV(qda_log, fds::fds_log::debug)
@@ -151,7 +151,7 @@ namespace fds {
       WFQQueueDesc *next_qd = (queue_desc_map.count(next_queue) == 0)? NULL:queue_desc_map[next_queue];
       fds_uint32_t n_pios = 0;
       if (next_qd) {
-	n_pios = atomic_load(&(next_qd->num_pending_ios));
+	n_pios = next_qd->pendingActiveCount();  // pending IOs if queue is active, otherwise 0  
       }
 
       while ((!next_qd) || (n_pios == 0)){
@@ -162,8 +162,13 @@ namespace fds {
 	next_qd = (queue_desc_map.count(next_queue) == 0)? NULL:queue_desc_map[next_queue];
 	if (next_qd) {
 	  next_qd->num_priority_based_ios_dispatched = 0;
-	  n_pios = atomic_load(& next_qd->num_pending_ios);
+	  n_pios = next_qd->pendingActiveCount();  // pending IOs if queue is active, otherwise 0  
 	}
+      }
+
+      if (next_qd == NULL) {
+          // none of the active queues have any IOs pending, will not dispatch
+          return 0;
       }
 
       assert(queue_desc_map.count(next_queue) != 0);

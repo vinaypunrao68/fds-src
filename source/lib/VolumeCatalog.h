@@ -26,6 +26,7 @@ namespace fds {
     using Catalog::Update;
     using Catalog::GetFile;
     using Catalog::DbEmpty;
+    using Catalog::DbDelete;
     using Catalog::DbSnap;
     using Catalog::QuerySnap;
     using Catalog::QueryNew;

@@ -146,6 +146,23 @@ namespace fds {
             return dmtMgr->getCommittedVersion();
         }
 
+        /**
+         * Returns true if volume metadata for volumes in the same
+         * DM group as volume 'volume_id' is in the middle of migration
+         * from some DMs to other DMs. This happens between beginRebalance()
+         * and XXX, but if the corresponsing DM group did not change, then
+         * the function will return false even some DM groups changed and
+         * are in the middle of volume meta rebalancing.
+         */
+        fds_bool_t isRebalancing(fds_volid_t volume_id) const;
+
+        /**
+         * This method is called when OM gets all acks for DMT commit from
+         * OM. This means that DMs finished rebalancing volume meta and
+         * AMs know about the new volume meta locations.
+         */
+        void notifyEndOfRebalancing();
+
   private:
         /**
          * Keeps committed DMT and target DMT copy, and possibly a bit
@@ -175,6 +192,16 @@ namespace fds {
          * Mutex to protect shared state of the volume placement engine
          */
         fds_mutex placementMutex;
+
+        /**
+         * State and info about DM groups that we are rebalancing (if
+         * rebalancing is in progress).
+         * No need to protect rebalColumns with lock, because operations that
+         * change it are serialized by DMT state machine. bRebalancing is accessed
+         * by both DMT state machine and other OM code.
+         */
+        std::atomic<fds_bool_t> bRebalancing;  // true if vol meta is rebalancing
+        std::unordered_set<fds_uint32_t> rebalColumns;  // set of DMT cols rebalancing
     };
 }  // namespace fds
 
