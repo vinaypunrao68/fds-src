@@ -145,16 +145,8 @@ class PlatformEpHandler : public PlatNetSvcHandler
 
     // PlatNetSvcIf methods.
     //
-#if 0
-    void allUuidBinding(const fpi::UuidBindMsg &mine) {}
-    void notifyNodeInfo(std::vector<fpi::NodeInfoMsg> &ret,
-                        const fpi::NodeInfoMsg        &info,
-                        const bool                     bcast) {}
-    void getDomainNodes(fpi::DomainNodes &ret, const fpi::DomainNodes &r) {}
-#endif
-
     void allUuidBinding(bo::shared_ptr<fpi::UuidBindMsg> &msg);
-    void notifyNodeAdd(bo::shared_ptr<fpi::FDSP_ActivateNodeType> &info);
+    void notifyNodeActive(bo::shared_ptr<fpi::FDSP_ActivateNodeType> &info);
 
     void notifyNodeInfo(std::vector<fpi::NodeInfoMsg>    &ret,
                         bo::shared_ptr<fpi::NodeInfoMsg> &info,

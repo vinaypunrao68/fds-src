@@ -20,8 +20,8 @@ class PlatNetSvcHandler : virtual public fpi::PlatNetSvcIf, public BaseAsyncSvcH
     virtual void allUuidBinding(const fpi::UuidBindMsg& mine);
     virtual void allUuidBinding(boost::shared_ptr<fpi::UuidBindMsg>& mine);  // NOLINT
 
-    virtual void notifyNodeAdd(const fpi::FDSP_ActivateNodeType &info);
-    virtual void notifyNodeAdd(boost::shared_ptr<fpi::FDSP_ActivateNodeType>&);  // NOLINT
+    virtual void notifyNodeActive(const fpi::FDSP_ActivateNodeType &info);
+    virtual void notifyNodeActive(boost::shared_ptr<fpi::FDSP_ActivateNodeType> &);
 
     virtual void notifyNodeInfo(std::vector<fpi::NodeInfoMsg> & _return,  // NOLINT
                         const fpi::NodeInfoMsg& info, const bool bcast);

@@ -77,7 +77,7 @@ PlatformdNetSvc::mod_startup()
             NodeUuid(0ULL),
             bo::shared_ptr<fpi::FDSP_ControlPathReqProcessor>(
                 new fpi::FDSP_ControlPathReqProcessor(plat_ctrl_recv)),
-            plat_plugin, plat_lib->plf_get_my_ctrl_port());
+            plat_plugin, 0, NET_SVC_CTRL);
 
     LOGNORMAL << "Startup platform specific net svc, port "
               << plat_lib->plf_get_my_node_port();
@@ -285,16 +285,17 @@ PlatAgent::agent_bind_svc(EpPlatformdMod *map, node_data_t *ninfo, fpi::FDSP_Mgr
     EpPlatLibMod::ep_node_info_to_mapping(ninfo, &rec);
 
     /* Register services sharing the same uuid but using different port, encode in maj. */
-    max_port  = Platform::plf_get_my_max_ports();
+    max_port  = Platform::plf_get_my_max_svc_ports();
     base_port = ninfo->nd_base_port;
 
     for (i = 0; i < max_port; i++) {
         idx = map->ep_map_record(&rec);
         LOGDEBUG << "Platform daemon binds " << t << ":" << std::hex << svc.uuid_get_val()
-            << "@" << ninfo->nd_ip_addr << ":" << std::dec << base_port << " idx " << idx;
+            << "@" << ninfo->nd_ip_addr << ":" << std::dec
+            << rec.rmp_major << ":" << rec.rmp_minor << " idx " << idx;
 
-        rec.rmp_major = ++base_port;
-        ep_map_set_port_info(&rec, rec.rmp_major);
+        rec.rmp_minor = Platform::plat_svc_types[i];
+        ep_map_set_port_info(&rec, base_port + rec.rmp_minor);
     }
     /* Restore everything back to ninfo for the next loop */
     ninfo->nd_base_port = saved_port;
