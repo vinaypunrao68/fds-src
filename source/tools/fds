@@ -220,7 +220,7 @@ function waitForApp() {
     local name=$1
     local lpid=""
     local maxcount=20
-    local waitime=1
+    local waittime=1
     if [[ $# -ge 2 ]] ; then
         maxcount=$2
     fi
