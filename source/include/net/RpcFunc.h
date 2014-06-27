@@ -11,13 +11,13 @@
         do {                                                                           \
             try {                                                                      \
                 rpc->rpc_fn(__VA_ARGS__);                                              \
-                const bo::shared_ptr<tt::TSocket> sk = eph->ep_debug_sock();           \
                 __retry = false;                                                       \
             } catch(...) {                                                             \
                 eph->ep_handle_net_error();                                            \
                 if (eph->ep_reconnect() == EP_ST_CONNECTED) {                          \
                     __retry = true;                                                    \
                 } else {                                                               \
+                    const bo::shared_ptr<tt::TSocket> sk = eph->ep_debug_sock();       \
                     GLOGDEBUG << "Rpc fails " << sk->getHost() << ":" << sk->getPort(); \
                 } \
             }                                                                          \
