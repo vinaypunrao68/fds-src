@@ -1,13 +1,15 @@
-/*                                                                                                                                          
- * Copyright 2014 Formation Data Systems, Inc.                                                                                              
+/*
+ * Copyright 2014 Formation Data Systems, Inc.
  */
 
+#include <string>
+#include <set>
 #include <util/Log.h>
 #include <fds_assert.h>
 #include <fds_typedefs.h>
 #include <lib/OMgrClient.h>
 #include <CatalogSync.h>
-#include "DataMgr.h"
+#include <DataMgr.h>
 #include <VolumeMeta.h>
 
 namespace fds {
@@ -250,12 +252,12 @@ Error CatalogSync::forwardCatalogUpdate(dmCatReq  *updCatReq) {
     fds_verify((cur_state == CSSTATE_DELTA_SYNC) ||
                (cur_state == CSSTATE_FORWARD_ONLY));
 
-    LOGNORMAL << "DMT VERSION:  " << updCatReq->fdspUpdCatReqPtr->dmt_version
-                           << ":" << dataMgr->omClient->getDMTVersion(); 
-    if((uint)updCatReq->fdspUpdCatReqPtr->dmt_version ==
+    LOGNORMAL << "DMT VERSION: " << updCatReq->fdspUpdCatReqPtr->dmt_version
+              << ":" << dataMgr->omClient->getDMTVersion();
+    if ((uint)updCatReq->fdspUpdCatReqPtr->dmt_version ==
                      dataMgr->omClient->getDMTVersion()) {
         LOGDEBUG << " DMT version matches , Do not  forward  the  request ";
-        return ERR_DMT_EQUAL; 
+        return ERR_DMT_EQUAL;
     }
 
     LOGDEBUG << "Will forward catalog update for volume "
@@ -270,7 +272,7 @@ Error CatalogSync::forwardCatalogUpdate(dmCatReq  *updCatReq) {
     msg_hdr->glob_volume_id = updCatReq->volId;
     msg_hdr->session_uuid = meta_client->getSessionId();
     msg_hdr->session_cache = updCatReq->session_uuid;
-    msg_hdr->req_cookie = updCatReq->reqCookie; 
+    msg_hdr->req_cookie = updCatReq->reqCookie;
     // these are not used on destination DM, but destination DM
     // will assign same fields back so that this DM can respond
     // to AM with properly set port and IP which it uses to
@@ -279,11 +281,11 @@ Error CatalogSync::forwardCatalogUpdate(dmCatReq  *updCatReq) {
     msg_hdr->dst_ip_lo_addr =  updCatReq->dstIp;
     msg_hdr->src_port =  updCatReq->srcPort;
     msg_hdr->dst_port =  updCatReq->dstPort;
-       
+
     /*
      * init the update  catalog  structu
      */
-    updCatalog->blob_name = updCatReq->blob_name; 
+    updCatalog->blob_name = updCatReq->blob_name;
     updCatalog->blob_version = updCatReq->blob_version;
     updCatalog->blob_size = updCatReq->fdspUpdCatReqPtr->blob_size;
     updCatalog->blob_mime_type = updCatReq->fdspUpdCatReqPtr->blob_mime_type;
@@ -301,7 +303,7 @@ Error CatalogSync::forwardCatalogUpdate(dmCatReq  *updCatReq) {
     try {
         meta_client->getClient()->PushMetaSyncReq(msg_hdr, updCatalog);
         LOGNORMAL << "Sent PushMetaSyncReq Rpc message : " << meta_client;
-    } catch (...) {
+    } catch(...) {
         LOGERROR << "Unable to send PushMetaSyncReq to DM";
         err = ERR_NETWORK_TRANSPORT;
     }
@@ -326,7 +328,7 @@ Error CatalogSync::sendMetaSyncDone(fds_volid_t volid,
     try {
         meta_client->getClient()->MetaSyncDone(msg_hdr, vol_meta);
         LOGNORMAL << "Send MetaSyncDone Rpc message : " << meta_client;
-    } catch (...) {
+    } catch(...) {
         LOGERROR << "Unable to send MetaSyncDone to DM";
         err = ERR_NETWORK_TRANSPORT;
     }
@@ -343,7 +345,7 @@ CatalogSyncMgr::CatalogSyncMgr(fds_uint32_t max_jobs,
           sync_in_progress(false),
           max_sync_inprogress(max_jobs),
           dm_req_handler(dm_req_hdlr),
-          netSessionTbl(netSession),          
+          netSessionTbl(netSession),
           cat_sync_lock("Catalog Sync lock") {
     LOGNORMAL << "Constructing CatalogSyncMgr";
 }
@@ -372,11 +374,10 @@ void CatalogSyncMgr::mod_startup()
     LOGNORMAL << "Meta sync path server setup ip: "
               << ip << " port: " << port;
 
-    meta_session->listenServerNb(); 
+    meta_session->listenServerNb();
 }
 
-
- // create client  session
+/// create client session
 netMetaSyncClientSession*
 CatalogSyncMgr::create_metaSync_client(const NodeUuid& node_uuid, OMgrClient* omclient)
 {
@@ -425,7 +426,7 @@ CatalogSyncMgr::startCatalogSync(const FDS_ProtocolInterface::FDSP_metaDataList&
                                  OMgrClient* omclient,
                                  const std::string& context) {
     Error err(ERR_OK);
-    
+
     fds_mutex::scoped_lock l(cat_sync_lock);
     // we should not get request to start a sync until
     // close is finished -- OM serializes DM deployment, so return an error
@@ -551,11 +552,11 @@ fds_bool_t CatalogSyncMgr::finishedForwardVolmeta(fds_volid_t volid) {
                 LOGDEBUG << "DEL-VOL: Map Clean up "
                          << std::hex << volid << std::dec;
                 err = (cit->second)->handleVolumeDone(volid);
-                if (((cit->second)->emptyVolume())) { 
+                if (((cit->second)->emptyVolume())) {
                     cat_sync_map.erase(cit);
                     LOGDEBUG << "cat sync map erase:";
                 }
-                break; 
+                break;
             }
         }
         send_dmt_close_ack = cat_sync_map.empty();

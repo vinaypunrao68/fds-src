@@ -17,10 +17,7 @@ user_cpp          := \
         CatalogSyncRecv.cpp
 
 user_no_style     := \
-	DataMgr.cpp \
-	VolumeMeta.cpp \
-	qos_ctrl.cpp   \
-        CatalogSync.cpp
+	DataMgr.cpp
 
 user_ar_libs      := fds-dm-lib
 fds-dm-lib        := $(user_cpp)
