@@ -45,7 +45,6 @@
 
 namespace fds {
 
-#define DM_TP_THREADS 20
 int scheduleUpdateCatalog(void * _io);
 int scheduleQueryCatalog(void * _io);
 int scheduleStatBlob(void * _io);
@@ -203,12 +202,6 @@ public:
     fds_uint32_t omConfigPort;  /* Port of OM used to bootstrap */
 
     std::string myIp;
-
-    /*
-     * Internal threadpool.
-     */
-    fds_uint32_t num_threads;
-    fds_threadpool *_tp;
 
     /*
      * Used to protect access to vol_meta_map.

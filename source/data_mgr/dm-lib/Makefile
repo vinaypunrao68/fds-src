@@ -11,7 +11,6 @@ user_cpp          := \
 	DataMgr.cpp \
 	VolumeMeta.cpp \
 	qos_ctrl.cpp   \
-        CatalogSync.cpp \
 	CommitLog.cpp \
 	DMSvcHandler.cpp \
         CatalogSync.cpp \
@@ -21,8 +20,6 @@ user_no_style     := \
 	DataMgr.cpp \
 	VolumeMeta.cpp \
 	qos_ctrl.cpp   \
-        CatalogSync.cpp \
-	CommitLog.cpp \
         CatalogSync.cpp
 
 user_ar_libs      := fds-dm-lib

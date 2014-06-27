@@ -673,7 +673,6 @@ DataMgr::DataMgr(int argc, char *argv[], Platform *platform, Module **vec)
           numTestVols(10),
           runMode(NORMAL_MODE),
           scheduleRate(4000),
-          num_threads(DM_TP_THREADS),
           catSyncRecv(new CatSyncReceiver(this,std::bind(&DataMgr::volmetaRecvd,
                                                          this,
                                                          std::placeholders::_1,
@@ -701,8 +700,6 @@ DataMgr::DataMgr(int argc, char *argv[], Platform *platform, Module **vec)
 
     big_fat_lock = new fds_mutex("big fat mutex");
 
-    _tp = new fds_threadpool(num_threads);
-
     /*
      * Comm with OM will be setup during run()
      */
@@ -720,12 +717,6 @@ DataMgr::DataMgr(int argc, char *argv[], Platform *platform, Module **vec)
 DataMgr::~DataMgr()
 {
     LOGNORMAL << "Destructing the Data Manager";
-
-    /*
-     * This will wait for all current threads to
-     * complete.
-     */
-    delete _tp;
 
     closedmt_timer->destroy();
 
