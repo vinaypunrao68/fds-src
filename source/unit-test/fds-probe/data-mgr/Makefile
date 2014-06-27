@@ -5,7 +5,7 @@ user_install_loc  := test
 user_install      :=
 
 user_incl_dir     := \
-    $(local_topdir)/data_mgr/include \
+    $(local_topdir)/data-mgr/include \
     $(local_topdir) \
     $(local_topdir)/lib
 
