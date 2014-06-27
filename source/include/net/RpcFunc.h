@@ -12,14 +12,13 @@
             try {                                                                      \
                 rpc->rpc_fn(__VA_ARGS__);                                              \
                 const bo::shared_ptr<tt::TSocket> sk = eph->ep_debug_sock();           \
-                GLOGDEBUG << "Rpc sent ok " << sk->getHost() << ":" << sk->getPort();  \
                 __retry = false;                                                       \
             } catch(...) {                                                             \
                 eph->ep_handle_net_error();                                            \
                 if (eph->ep_reconnect() == EP_ST_CONNECTED) {                          \
                     __retry = true;                                                    \
-                } else { \
-                    GLOGDEBUG << "Give up RPC " << __FUNCTION__; \
+                } else {                                                               \
+                    GLOGDEBUG << "Rpc fails " << sk->getHost() << ":" << sk->getPort(); \
                 } \
             }                                                                          \
         } while (__retry == true);                                                     \
