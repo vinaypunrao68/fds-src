@@ -1,7 +1,7 @@
 topdir            := ../..
 user_target       := lib
 user_rtime_env    := user
-user_build_dir    :=
+user_build_dir    := dm-vol-cat
 
 # TODO: remove this once we have correct placement of header API.
 #
