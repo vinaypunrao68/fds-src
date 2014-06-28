@@ -14,6 +14,7 @@
 #include <fds_error.h>
 #include <fds_dmt.h>
 #include <dlt.h>
+#include <net/net-service.h>
 #include <net/RpcFunc.h>
 
 namespace fds {
@@ -140,11 +141,13 @@ struct DmtVolumeIdEpProvider : EpIdProvider {
 template<class PayloadT>
 void serializePayload(const PayloadT &payload, std::string &payloadBuf)
 {
+    #if 0
     bo::shared_ptr<tt::TMemoryBuffer> buffer(new tt::TMemoryBuffer());
     bo::shared_ptr<tp::TProtocol> binary_buf(new tp::TBinaryProtocol(buffer));
     auto written = payload.write(binary_buf.get());
     fds_verify(written > 0);
     payloadBuf = buffer->getBufferAsString();
+    #endif
 }
 
 /**
