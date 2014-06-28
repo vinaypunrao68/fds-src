@@ -14,7 +14,8 @@ user_cpp          := \
 	CommitLog.cpp \
 	DMSvcHandler.cpp \
         CatalogSync.cpp \
-        CatalogSyncRecv.cpp
+        CatalogSyncRecv.cpp \
+        DmBlobTypes.cpp
 
 user_ar_libs      := fds-dm-lib
 fds-dm-lib        := $(user_cpp)
