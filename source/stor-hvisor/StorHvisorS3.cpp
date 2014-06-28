@@ -1434,6 +1434,7 @@ void StorHvCtrl::issuePutObjectMsg(const ObjectID &objId,
                                    QuorumRpcRespCb respCb)
 {
     if (len == 0) {
+        fds_verify(!"Not impl");
         // TODO(Rao): Shortcut SM.  Issue a call back to indicate put successed
     }
     PutObjectMsgPtr putObjMsg(new PutObjectMsg);

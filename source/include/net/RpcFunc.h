@@ -30,11 +30,11 @@
 * @param ServiceT
 * @param hdr
 * @param func
-* @param arg1
+* @param ... arguments list for func
 *
 * @return 
 */
-#define INVOKE_RPC_INTERNAL(ServiceT, hdr, func, arg1) \
+#define INVOKE_RPC_INTERNAL(ServiceT, func, hdr, ...) \
     EpSvcHandle::pointer ep; \
     NetMgr::ep_mgr_singleton()->\
         svc_get_handle<ServiceT>(hdr.msg_dst_uuid, &ep, 0 , 0); \
@@ -45,7 +45,7 @@
     if (!client) { \
         throw std::runtime_error("Null client"); \
     } \
-    client->func(arg1)
+    client->func(__VA_ARGS__)
 
 /**
 * @brief Wrapper macro fro creating an rpc function
@@ -59,7 +59,7 @@
 #define CREATE_RPC(ServiceT, func, arg1) \
     [arg1] (const fpi::AsyncHdr &hdr) mutable { \
         arg1.hdr = hdr; \
-        INVOKE_RPC_INTERNAL(ServiceT, hdr, func, arg1); \
+        INVOKE_RPC_INTERNAL(ServiceT, func, hdr, arg1); \
     }
 
 /**
@@ -68,9 +68,17 @@
 #define CREATE_RPC_SPTR(ServiceT, func, arg1sptr) \
     [arg1sptr] (const fpi::AsyncHdr &hdr) mutable { \
         arg1sptr->hdr = hdr;                     \
-        INVOKE_RPC_INTERNAL(ServiceT, hdr, func, arg1sptr); \
+        INVOKE_RPC_INTERNAL(ServiceT, func, hdr, arg1sptr); \
     }
 
+/**
+ * @see CREATE_RPC() macro.  
+ * Use this macro for creating an rpc for sending network messages
+ */
+#define CREATE_NET_REQUEST_RPC_SPTR(arg1sptr) \
+    [arg1sptr] (const fpi::AsyncHdr &hdr) mutable { \
+        INVOKE_RPC_INTERNAL(fpi::BaseAsyncSvcClient, asyncReq, hdr, hdr, *arg1sptr); \
+    }
 namespace fds {
 
 typedef std::function<void (const fpi::AsyncHdr&)> RpcFunc;

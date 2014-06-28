@@ -215,7 +215,7 @@ struct DomainNodes {
  */
 
 service BaseAsyncSvc {
-    oneway void asyncReqt(1: AsyncHdr header),
+    oneway void asyncReqt(1: AsyncHdr header, 2: string payload),
     oneway void asyncResp(1: AsyncHdr header, 2: string payload),
     RespHdr uuidBind(1: UuidBindMsg msg),
 }
