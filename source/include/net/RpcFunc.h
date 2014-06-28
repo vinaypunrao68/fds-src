@@ -36,8 +36,7 @@
 */
 #define INVOKE_RPC_INTERNAL(ServiceT, hdr, func, arg1) \
     EpSvcHandle::pointer ep; \
-    NetMgr::ep_mgr_singleton()->\
-        svc_get_handle<ServiceT>(hdr.msg_dst_uuid, &ep, 0 , 0); \
+    net::svc_get_handle<ServiceT>(hdr.msg_dst_uuid, &ep, 0 , 0); \
     if (ep == nullptr) { \
         throw std::runtime_error("Null endpoint"); \
     } \
