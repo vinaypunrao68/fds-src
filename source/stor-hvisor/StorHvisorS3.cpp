@@ -1237,7 +1237,7 @@ void StorHvCtrl::getBlobQueryCatalogResp(fds::AmQosReq* qosReq,
 {
     fds::GetBlobReq *blobReq = static_cast<fds::GetBlobReq *>(qosReq->getBlobReqPtr());
     fpi::QueryCatalogMsgPtr qryCatRsp =
-        NetMgr::ep_deserialize<fpi::QueryCatalogMsg>(const_cast<Error&>(error), payload);
+        net::ep_deserialize<fpi::QueryCatalogMsg>(const_cast<Error&>(error), payload);
 
     if (error != ERR_OK) {
         LOGERROR << "blob name: " << blobReq->getBlobName() << "offset: "
@@ -1279,7 +1279,7 @@ void StorHvCtrl::getBlobGetObjectResp(fds::AmQosReq* qosReq,
 {
     fds::GetBlobReq *blobReq = static_cast<fds::GetBlobReq *>(qosReq->getBlobReqPtr());
     fpi::GetObjectRespPtr getObjRsp =
-        NetMgr::ep_deserialize<fpi::GetObjectResp>(const_cast<Error&>(error), payload);
+        net::ep_deserialize<fpi::GetObjectResp>(const_cast<Error&>(error), payload);
 
     if (error != ERR_OK) {
         LOGERROR << "blob name: " << blobReq->getBlobName() << "offset: "
@@ -1500,7 +1500,7 @@ void StorHvCtrl::putBlobPutObjectMsgResp(fds::AmQosReq* qosReq,
 {
     PutBlobReq *blobReq = static_cast<fds::PutBlobReq*>(qosReq->getBlobReqPtr());
     fpi::PutObjectRspMsgPtr putObjRsp =
-        NetMgr::ep_deserialize<fpi::PutObjectRspMsg>(const_cast<Error&>(error), payload);
+        net::ep_deserialize<fpi::PutObjectRspMsg>(const_cast<Error&>(error), payload);
 
     if (error != ERR_OK) {
         LOGERROR << "Obj ID: " << blobReq->getObjId()
@@ -1519,7 +1519,7 @@ void StorHvCtrl::putBlobUpdateCatalogMsgResp(fds::AmQosReq* qosReq,
 {
     PutBlobReq *blobReq = static_cast<fds::PutBlobReq*>(qosReq->getBlobReqPtr());
     fpi::UpdateCatalogRspMsgPtr updCatRsp =
-        NetMgr::ep_deserialize<fpi::UpdateCatalogRspMsg>(const_cast<Error&>(error), payload);
+        net::ep_deserialize<fpi::UpdateCatalogRspMsg>(const_cast<Error&>(error), payload);
 
     if (error != ERR_OK) {
         LOGERROR << "Obj ID: " << blobReq->getObjId()

@@ -40,7 +40,7 @@ class PlatUuidBindUpdate : public NodeAgentIter
         DomainAgent::pointer  agent;
 
         agent = agt_cast_ptr<DomainAgent>(curr);
-        auto rpc = agent->agent_rpc(&eph);
+        auto rpc = agent->node_svc_rpc(&eph);
         if (rpc != NULL) {
             NET_SVC_RPC_CALL(eph, rpc, allUuidBinding, bind_msg);
         }

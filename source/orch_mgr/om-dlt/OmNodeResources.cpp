@@ -16,6 +16,7 @@
 #include <orchMgr.h>
 #include <OmVolumePlacement.h>
 #include <orch-mgr/om-service.h>
+#include <fdsp/PlatNetSvc.h>
 
 namespace fds {
 
@@ -72,8 +73,8 @@ OM_NodeAgent::om_send_myinfo(NodeAgent::pointer peer)
     m_hdr->tennant_id      = 1;
     m_hdr->local_domain_id = 1;
 
-    if (nd_eph != NULL) {
-        NET_SVC_RPC_CALL(nd_eph, nd_ctrl_rpc, NotifyNodeAdd, m_hdr, n_inf);
+    if (nd_ctrl_eph != NULL) {
+        NET_SVC_RPC_CALL(nd_ctrl_eph, nd_ctrl_rpc, NotifyNodeAdd, m_hdr, n_inf);
         return;
     }
     try {
@@ -113,8 +114,8 @@ OM_NodeAgent::om_send_node_cmd(const om_node_msg_t &msg)
         switch (msg.nd_msg_code) {
             case fpi::FDSP_MSG_SET_THROTTLE: {
                 log = "Send throttle command to node ";
-                if (nd_eph != NULL) {
-                    NET_SVC_RPC_CALL(nd_eph, nd_ctrl_rpc,
+                if (nd_ctrl_eph != NULL) {
+                    NET_SVC_RPC_CALL(nd_ctrl_eph, nd_ctrl_rpc,
                                      SetThrottleLevel, m_hdr, *msg.u.nd_throttle);
                     break;
                 }
@@ -123,8 +124,8 @@ OM_NodeAgent::om_send_node_cmd(const om_node_msg_t &msg)
             }
             case fpi::FDSP_MSG_DMT_UPDATE: {
                 log = "Send DMT update command to node ";
-                if (nd_eph != NULL) {
-                    NET_SVC_RPC_CALL(nd_eph, nd_ctrl_rpc,
+                if (nd_ctrl_eph != NULL) {
+                    NET_SVC_RPC_CALL(nd_ctrl_eph, nd_ctrl_rpc,
                                      NotifyDMTUpdate, m_hdr, *msg.u.nd_dmt_tab);
                     break;
                 }
@@ -190,24 +191,26 @@ OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer    vol,
                 if (cmd_type == fpi::FDSP_MSG_CREATE_VOL) {
                     log = "Send notify add volume ";
                     notif->type = fpi::FDSP_NOTIFY_ADD_VOL;
-                    if (nd_eph != NULL) {
-                        NET_SVC_RPC_CALL(nd_eph, nd_ctrl_rpc, NotifyAddVol, m_hdr, notif);
+                    if (nd_ctrl_eph != NULL) {
+                        NET_SVC_RPC_CALL(nd_ctrl_eph, nd_ctrl_rpc,
+                                         NotifyAddVol, m_hdr, notif);
                     } else {
                         ndCpClient->NotifyAddVol(m_hdr, notif);
                     }
                 } else if (cmd_type == fpi::FDSP_MSG_MODIFY_VOL) {
                     log = "Send modify volume ";
                     notif->type = fpi::FDSP_NOTIFY_MOD_VOL;
-                    if (nd_eph != NULL) {
-                        NET_SVC_RPC_CALL(nd_eph, nd_ctrl_rpc, NotifyModVol, m_hdr, notif);
+                    if (nd_ctrl_eph != NULL) {
+                        NET_SVC_RPC_CALL(nd_ctrl_eph, nd_ctrl_rpc,
+                                         NotifyModVol, m_hdr, notif);
                     } else {
                         ndCpClient->NotifyModVol(m_hdr, notif);
                     }
                 } else if (cmd_type == fpi::FDSP_MSG_SNAP_VOL) {
                     log = "Send snap volume ";
                     notif->type = fpi::FDSP_NOTIFY_SNAP_VOL;
-                    if (nd_eph != NULL) {
-                        NET_SVC_RPC_CALL(nd_eph, nd_ctrl_rpc,
+                    if (nd_ctrl_eph != NULL) {
+                        NET_SVC_RPC_CALL(nd_ctrl_eph, nd_ctrl_rpc,
                                          NotifySnapVol, m_hdr, notif);
                     } else {
                         ndCpClient->NotifySnapVol(m_hdr, notif);
@@ -215,8 +218,9 @@ OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer    vol,
                 } else {
                     log = "Send remove volume ";
                     notif->type = fpi::FDSP_NOTIFY_RM_VOL;
-                    if (nd_eph != NULL) {
-                        NET_SVC_RPC_CALL(nd_eph, nd_ctrl_rpc, NotifyRmVol, m_hdr, notif);
+                    if (nd_ctrl_eph != NULL) {
+                        NET_SVC_RPC_CALL(nd_ctrl_eph, nd_ctrl_rpc,
+                                         NotifyRmVol, m_hdr, notif);
                     } else {
                         ndCpClient->NotifyRmVol(m_hdr, notif);
                     }
@@ -245,15 +249,17 @@ OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer    vol,
 
                 if (cmd_type == fpi::FDSP_MSG_ATTACH_VOL_CTRL) {
                     log = "Send attach volume ";
-                    if (nd_eph != NULL) {
-                        NET_SVC_RPC_CALL(nd_eph, nd_ctrl_rpc, AttachVol, m_hdr, attach);
+                    if (nd_ctrl_eph != NULL) {
+                        NET_SVC_RPC_CALL(nd_ctrl_eph, nd_ctrl_rpc,
+                                         AttachVol, m_hdr, attach);
                     } else {
                         ndCpClient->AttachVol(m_hdr, attach);
                     }
                 } else {
                     log = "Send detach volume ";
-                    if (nd_eph != NULL) {
-                        NET_SVC_RPC_CALL(nd_eph, nd_ctrl_rpc, DetachVol, m_hdr, attach);
+                    if (nd_ctrl_eph != NULL) {
+                        NET_SVC_RPC_CALL(nd_ctrl_eph, nd_ctrl_rpc,
+                                         DetachVol, m_hdr, attach);
                     } else {
                         ndCpClient->DetachVol(m_hdr, attach);
                     }
@@ -328,8 +334,8 @@ OM_NodeAgent::om_send_dlt(const DLT *curDlt) {
         LOGERROR << "Failed to fill in dlt_data, not sending DLT";
         return err;
     }
-    if (nd_eph != NULL) {
-        NET_SVC_RPC_CALL(nd_eph, nd_ctrl_rpc, NotifyDLTUpdate, m_hdr, d_msg);
+    if (nd_ctrl_eph != NULL) {
+        NET_SVC_RPC_CALL(nd_ctrl_eph, nd_ctrl_rpc, NotifyDLTUpdate, m_hdr, d_msg);
     } else {
         try {
             ndCpClient->NotifyDLTUpdate(m_hdr, d_msg);
@@ -365,8 +371,8 @@ OM_NodeAgent::om_send_dmt(const DMTPtr& curDmt) {
         LOGERROR << "Failed to fill in dmt_data, not sending DMT";
         return err;
     }
-    if (nd_eph != NULL) {
-        NET_SVC_RPC_CALL(nd_eph, nd_ctrl_rpc, NotifyDMTUpdate, m_hdr, dmt_msg);
+    if (nd_ctrl_eph != NULL) {
+        NET_SVC_RPC_CALL(nd_ctrl_eph, nd_ctrl_rpc, NotifyDMTUpdate, m_hdr, dmt_msg);
     } else {
         try {
             ndCpClient->NotifyDMTUpdate(m_hdr, dmt_msg);
@@ -399,8 +405,8 @@ OM_NodeAgent::om_send_scavenger_cmd(fpi::FDSP_ScavengerCmd cmd) {
     m_hdr->local_domain_id = 1;
 
     gc_msg->cmd = cmd;
-    if (nd_eph != NULL) {
-        NET_SVC_RPC_CALL(nd_eph, nd_ctrl_rpc, NotifyScavengerCmd, m_hdr, gc_msg);
+    if (nd_ctrl_eph != NULL) {
+        NET_SVC_RPC_CALL(nd_ctrl_eph, nd_ctrl_rpc, NotifyScavengerCmd, m_hdr, gc_msg);
     } else {
         try {
             ndCpClient->NotifyScavengerCmd(m_hdr, gc_msg);
@@ -426,8 +432,8 @@ OM_NodeAgent::om_send_dlt_close(fds_uint64_t cur_dlt_version) {
     m_hdr->local_domain_id = 1;
 
     d_msg->DLT_version = cur_dlt_version;
-    if (nd_eph != NULL) {
-        NET_SVC_RPC_CALL(nd_eph, nd_ctrl_rpc, NotifyDLTClose, m_hdr, d_msg);
+    if (nd_ctrl_eph != NULL) {
+        NET_SVC_RPC_CALL(nd_ctrl_eph, nd_ctrl_rpc, NotifyDLTClose, m_hdr, d_msg);
     } else {
         try {
             ndCpClient->NotifyDLTClose(m_hdr, d_msg);
@@ -455,8 +461,8 @@ OM_NodeAgent::om_send_pushmeta(fpi::FDSP_PushMetaPtr& meta_msg)
     m_hdr->tennant_id = 1;
     m_hdr->local_domain_id = 1;
 
-    if (nd_eph != NULL) {
-        NET_SVC_RPC_CALL(nd_eph, nd_ctrl_rpc, PushMetaDMTReq, m_hdr, meta_msg);
+    if (nd_ctrl_eph != NULL) {
+        NET_SVC_RPC_CALL(nd_ctrl_eph, nd_ctrl_rpc, PushMetaDMTReq, m_hdr, meta_msg);
     } else {
         try {
             ndCpClient->PushMetaDMTReq(m_hdr, meta_msg);
@@ -484,8 +490,8 @@ OM_NodeAgent::om_send_dmt_close(fds_uint64_t dmt_version) {
     m_hdr->local_domain_id = 1;
 
     d_msg->DMT_version = dmt_version;
-    if (nd_eph != NULL) {
-        NET_SVC_RPC_CALL(nd_eph, nd_ctrl_rpc, NotifyDMTClose, m_hdr, d_msg);
+    if (nd_ctrl_eph != NULL) {
+        NET_SVC_RPC_CALL(nd_ctrl_eph, nd_ctrl_rpc, NotifyDMTClose, m_hdr, d_msg);
     } else {
         try {
             ndCpClient->NotifyDMTClose(m_hdr, d_msg);
@@ -733,7 +739,7 @@ OM_PmAgent::send_activate_services(fds_bool_t activate_sm,
     node_msg->has_am_service = activate_am;
     node_msg->has_om_service = false;
 
-    NET_SVC_RPC_CALL(nd_eph, nd_ctrl_rpc, NotifyNodeActive, m_hdr, node_msg);
+    NET_SVC_RPC_CALL(nd_eph, nd_svc_rpc, notifyNodeActive, node_msg);
     return err;
 }
 
@@ -760,6 +766,7 @@ OM_AgentContainer::agent_register(const NodeUuid       &uuid,
         return err;
     }
     OM_NodeAgent::pointer agent = OM_NodeAgent::agt_cast_ptr(*out);
+
     if (agent->node_get_svc_type() == fpi::FDSP_PLATFORM) {
         agent->node_agent_up();
         agent_activate(agent);

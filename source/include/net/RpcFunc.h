@@ -11,14 +11,14 @@
         do {                                                                           \
             try {                                                                      \
                 rpc->rpc_fn(__VA_ARGS__);                                              \
-                GLOGDEBUG << "Rpc sent ok " << __FUNCTION__; \
                 __retry = false;                                                       \
             } catch(...) {                                                             \
                 eph->ep_handle_net_error();                                            \
                 if (eph->ep_reconnect() == EP_ST_CONNECTED) {                          \
                     __retry = true;                                                    \
-                } else { \
-                    GLOGDEBUG << "Give up RPC " << __FUNCTION__; \
+                } else {                                                               \
+                    const bo::shared_ptr<tt::TSocket> sk = eph->ep_debug_sock();       \
+                    GLOGDEBUG << "Rpc fails " << sk->getHost() << ":" << sk->getPort(); \
                 } \
             }                                                                          \
         } while (__retry == true);                                                     \
@@ -36,8 +36,7 @@
 */
 #define INVOKE_RPC_INTERNAL(ServiceT, func, hdr, ...) \
     EpSvcHandle::pointer ep; \
-    NetMgr::ep_mgr_singleton()->\
-        svc_get_handle<ServiceT>(hdr.msg_dst_uuid, &ep, 0 , 0); \
+    net::svc_get_handle<ServiceT>(hdr.msg_dst_uuid, &ep, 0 , 0); \
     if (ep == nullptr) { \
         throw std::runtime_error("Null endpoint"); \
     } \

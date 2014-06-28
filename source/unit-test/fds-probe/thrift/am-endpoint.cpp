@@ -30,12 +30,12 @@ class ProbeTestAM_RPC : virtual public fpi::ProbeServiceAMIf,
     void am_probe_put_resp(const fpi::ProbeGetMsgResp &resp) {
         GLOGDEBUG;
         auto r = resp;
-        NetMgr::ep_mgr_singleton()->ep_send_async_resp(resp.hdr, r);
+        net::ep_send_async_resp(resp.hdr, r);
     }
     void am_probe_put_resp(boost::shared_ptr<fpi::ProbeGetMsgResp> &resp) {
         GLOGDEBUG;
         auto r = *resp;
-        NetMgr::ep_mgr_singleton()->ep_send_async_resp(resp->hdr, r);
+        net::ep_send_async_resp(resp->hdr, r);
         std::cout << __FUNCTION__ << __LINE__;
     }
 
@@ -135,7 +135,6 @@ ProbeEpTestAM::mod_shutdown()
 int
 ProbeEpSvcTestAM::mod_init(SysParams const *const p)
 {
-    NetMgr       *mgr;
     fpi::SvcUuid  svc, mine;
 
     Module::mod_init(p);
@@ -143,16 +142,15 @@ ProbeEpSvcTestAM::mod_init(SysParams const *const p)
 
     // Locate service handle based on uuid; don't care where they are located.
     //
-    mgr          = NetMgr::ep_mgr_singleton();
 #if 0
     svc.svc_uuid = 0x1234;
-    mgr->svc_get_handle<fpi::ProbeServiceSMClient>(mine, svc, &am_hello, 0, 0);
+    net::svc_get_handle<fpi::ProbeServiceSMClient>(mine, svc, &am_hello, 0, 0);
 
     svc.svc_uuid = 0xcafe;
-    mgr->svc_get_handle<fpi::ProbeServiceSMClient>(mine, svc, &am_bye, 0, 0);
+    net::svc_get_handle<fpi::ProbeServiceSMClient>(mine, svc, &am_bye, 0, 0);
 
     svc.svc_uuid = 0xbeef;
-    mgr->svc_get_handle<fpi::ProbeServiceSMClient>(mine, svc, &am_poke, 0, 0);
+    net::svc_get_handle<fpi::ProbeServiceSMClient>(mine, svc, &am_poke, 0, 0);
 #endif
     return 0;
 }

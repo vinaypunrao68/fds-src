@@ -64,7 +64,7 @@ void DMSvcHandler::queryCatalogObjectCb(boost::shared_ptr<fpi::QueryCatalogMsg>&
         delete bnode;
     }
 
-    NetMgr::ep_mgr_singleton()->ep_send_async_resp(queryMsg->hdr, *queryMsg);
+    net::ep_send_async_resp(queryMsg->hdr, *queryMsg);
 
     delete req;
 }
@@ -103,7 +103,7 @@ void DMSvcHandler::updateCatalogCb(boost::shared_ptr<fpi::UpdateCatalogMsg>& upd
 {
     DBG(GLOGDEBUG << logString(*updcatMsg));
     fpi::UpdateCatalogRspMsg updcatRspMsg;
-    NetMgr::ep_mgr_singleton()->ep_send_async_resp(updcatMsg->hdr, updcatRspMsg);
+    net::ep_send_async_resp(updcatMsg->hdr, updcatRspMsg);
 
     delete req;
 }
