@@ -54,7 +54,7 @@ void SMSvcHandler::getObjectCb(boost::shared_ptr<fpi::GetObjectMsg>& getObjMsg,
     resp->hdr.msg_code = static_cast<int32_t>(err.GetErrno());
     resp->data_obj_len = read_req->obj_data.data.size();
     resp->data_obj = read_req->obj_data.data;
-    NetMgr::ep_mgr_singleton()->ep_send_async_resp(getObjMsg->hdr, *resp);
+    net::ep_send_async_resp(getObjMsg->hdr, *resp);
 
     delete read_req;
 }
@@ -96,7 +96,7 @@ void SMSvcHandler::putObjectCb(boost::shared_ptr<fpi::PutObjectMsg>& putObjMsg,
 
     auto resp = boost::make_shared<fpi::PutObjectRspMsg>();
     resp->hdr.msg_code = static_cast<int32_t>(err.GetErrno());
-    NetMgr::ep_mgr_singleton()->ep_send_async_resp(putObjMsg->hdr, *resp);
+    net::ep_send_async_resp(putObjMsg->hdr, *resp);
 
     delete put_req;
 }
