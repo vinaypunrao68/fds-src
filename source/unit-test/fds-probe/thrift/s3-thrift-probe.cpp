@@ -147,55 +147,6 @@ ProbeAmFoo::js_exec_obj(JsObject *parent, JsObjTemplate *tmpl, JsObjOutput *out)
 {
     am_foo_arg_t *p = am_probe_foo();
 
-    RpcRequestPool pool;
-    fpi::SvcUuid myEpId;
-    myEpId.svc_uuid = 0xabcdef;
-    std::vector<fpi::SvcUuid> uuid_list;
-    fpi::SvcUuid id1;
-    fpi::SvcUuid id2;
-    fpi::SvcUuid id3;
-    fpi::SvcUuid id4;
-    id1.svc_uuid = 0x1;
-    id2.svc_uuid = 0x2;
-    id3.svc_uuid = 0x3;
-    id4.svc_uuid = 0xfedcba;
-
-    uuid_list.push_back(id1);
-    uuid_list.push_back(id2);
-    uuid_list.push_back(id3);
-    uuid_list.push_back(id4);
-
-    boost::shared_ptr<fpi::ProbeGetMsgResp> arg1(new fpi::ProbeGetMsgResp());
-
-    auto failoverReq = pool.newFailoverRpcRequest(myEpId,
-                                                  uuid_list);
-    failoverReq->setRpcFunc(
-        CREATE_RPC_SPTR(fpi::ProbeServiceAMClient, am_probe_put_resp, arg1));
-    // failoverReq->onSuccessCb(successCb);
-    // failoverReq->onErrorCb(errorCb);
-    failoverReq->invoke();
-
-    boost::shared_ptr<fpi::ProbeFoo> fooArg1(new fpi::ProbeFoo());
-    auto timeoutReq = pool.newFailoverRpcRequest(
-        myEpId,
-        uuid_list);
-    timeoutReq->setRpcFunc(
-        CREATE_RPC_SPTR(fpi::ProbeServiceAMClient, foo, fooArg1));
-    timeoutReq->setTimeoutMs(10);
-    // timeoutReq->onSuccessCb(successCb);
-    // timeoutReq->onErrorCb(errorCb);
-    timeoutReq->invoke();
-
-    uuid_list.pop_back();
-    auto errorReq = pool.newFailoverRpcRequest(myEpId,
-                                               uuid_list);
-    errorReq->setRpcFunc(
-        CREATE_RPC_SPTR(fpi::ProbeServiceAMClient, am_probe_put_resp, arg1));
-    // errorReq->onSuccessCb(successCb);
-    // errorReq->onErrorCb(errorCb);
-    errorReq->invoke();
-
-    std::cout << "In foo func " << p->am_func << std::endl;
     return this;
 }
 

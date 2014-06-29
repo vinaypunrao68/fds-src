@@ -1202,7 +1202,7 @@ void StorHvCtrl::issueQueryCatalog(const std::string& blobName,
     auto asyncQueryReq = gRpcRequestPool->newFailoverRpcRequest(
         boost::make_shared<DmtVolumeIdEpProvider>(om_client->getDMTNodesForVolume(volId)));
     asyncQueryReq->setRpcFunc(
-        CREATE_RPC_SPTR(fpi::DMSvcClient, queryCatalogObject, queryMsg));
+        CREATE_RPC(fpi::DMSvcClient, queryCatalogObject, queryMsg));
     asyncQueryReq->setTimeoutMs(500);
     asyncQueryReq->onResponseCb(respCb);
     asyncQueryReq->invoke();
@@ -1222,7 +1222,7 @@ void StorHvCtrl::issueGetObject(const fds_volid_t& volId,
     auto asyncGetReq = gRpcRequestPool->newFailoverRpcRequest(
         boost::make_shared<DltObjectIdEpProvider>(om_client->getDLTNodesForDoidKey(objId)));
     asyncGetReq->setRpcFunc(
-        CREATE_RPC_SPTR(fpi::SMSvcClient, getObject, getObjMsg));
+        CREATE_RPC(fpi::SMSvcClient, getObject, getObjMsg));
     asyncGetReq->setTimeoutMs(500);
     asyncGetReq->onResponseCb(respCb);
     asyncGetReq->invoke();
@@ -1447,7 +1447,7 @@ void StorHvCtrl::issuePutObjectMsg(const ObjectID &objId,
     auto asyncPutReq = gRpcRequestPool->newQuorumRpcRequest(
         boost::make_shared<DltObjectIdEpProvider>(om_client->getDLTNodesForDoidKey(objId)));
     asyncPutReq->setRpcFunc(
-        CREATE_RPC_SPTR(fpi::SMSvcClient, putObject, putObjMsg));
+        CREATE_RPC(fpi::SMSvcClient, putObject, putObjMsg));
     asyncPutReq->setTimeoutMs(500);
     asyncPutReq->onResponseCb(respCb);
     asyncPutReq->invoke();
@@ -1485,7 +1485,7 @@ void StorHvCtrl::issueUpdateCatalogMsg(const ObjectID &objId,
     auto asyncUpdateCatReq = gRpcRequestPool->newQuorumRpcRequest(
         boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(volId)));
     asyncUpdateCatReq->setRpcFunc(
-        CREATE_RPC_SPTR(fpi::DMSvcClient, updateCatalog, updCatMsg));
+        CREATE_RPC(fpi::DMSvcClient, updateCatalog, updCatMsg));
     asyncUpdateCatReq->setTimeoutMs(500);
     asyncUpdateCatReq->onResponseCb(respCb);
     asyncUpdateCatReq->invoke();

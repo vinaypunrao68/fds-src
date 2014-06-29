@@ -27,9 +27,9 @@
 /**
 * @brief private wrapper for invoking rpc function
 *
-* @param ServiceT
-* @param hdr
-* @param func
+* @param ServiceT - service type
+* @param func - rpc function
+* @param hdr - AsyncHdr
 * @param ... arguments list for func
 *
 * @return 
@@ -44,40 +44,31 @@
     if (!client) { \
         throw std::runtime_error("Null client"); \
     } \
-    client->func(__VA_ARGS__)
+    client->func(hdr, __VA_ARGS__)
 
 /**
-* @brief Wrapper macro fro creating an rpc function
+* @brief Wrapper macro for creating service layer rpc function
 *
 * @param ServiceT service type class
 * @param func Function to create the wrapper.  Function must be a method in ServiceT class.
-* @param arg1 argument to the function.  It must contain a member with name "hdr"
+* @param arg1 argument to the function.
 *
-* @return std::function<void(arg1 type)>
+* @return std::function<void(const fpi::AsyncHdr &)>
 */
-#define CREATE_RPC(ServiceT, func, arg1) \
-    [arg1] (const fpi::AsyncHdr &hdr) mutable { \
-        arg1.hdr = hdr; \
-        INVOKE_RPC_INTERNAL(ServiceT, func, hdr, arg1); \
-    }
-
-/**
- * @see CREATE_RPC() macro.  Use this macro if arg1sptr is a shared pointer
- */
-#define CREATE_RPC_SPTR(ServiceT, func, arg1sptr) \
+#define CREATE_RPC(ServiceT, func, arg1sptr) \
     [arg1sptr] (const fpi::AsyncHdr &hdr) mutable { \
-        arg1sptr->hdr = hdr;                     \
-        INVOKE_RPC_INTERNAL(ServiceT, func, hdr, arg1sptr); \
+        INVOKE_RPC_INTERNAL(ServiceT, func, hdr, *arg1sptr); \
     }
 
 /**
  * @see CREATE_RPC() macro.  
  * Use this macro for creating an rpc for sending network messages
  */
-#define CREATE_NET_REQUEST_RPC_SPTR(arg1sptr) \
+#define CREATE_NET_REQUEST_RPC(arg1sptr) \
     [arg1sptr] (const fpi::AsyncHdr &hdr) mutable { \
-        INVOKE_RPC_INTERNAL(fpi::BaseAsyncSvcClient, asyncReq, hdr, hdr, *arg1sptr); \
+        INVOKE_RPC_INTERNAL(fpi::BaseAsyncSvcClient, asyncReq, hdr, *arg1sptr); \
     }
+
 namespace fds {
 
 typedef std::function<void (const fpi::AsyncHdr&)> RpcFunc;

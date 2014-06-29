@@ -17,9 +17,10 @@ SMSvcHandler::SMSvcHandler()
 {
 }
 
-void SMSvcHandler::getObject(boost::shared_ptr<fpi::GetObjectMsg>& getObjMsg)  // NOLINT
+void SMSvcHandler::getObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                             boost::shared_ptr<fpi::GetObjectMsg>& getObjMsg)  // NOLINT
 {
-    DBG(GLOGDEBUG << fds::logString(*getObjMsg));
+    DBG(GLOGDEBUG << logString(*asyncHdr) << fds::logString(*getObjMsg));
 
     DBG(FLAG_CHECK_RETURN_VOID(common_drop_async_resp > 0));
     DBG(FLAG_CHECK_RETURN_VOID(sm_drop_gets > 0));
@@ -32,7 +33,7 @@ void SMSvcHandler::getObject(boost::shared_ptr<fpi::GetObjectMsg>& getObjMsg)  /
     read_req->obj_data.obj_id = getObjMsg->data_obj_id;
     read_req->smio_readdata_resp_cb = std::bind(
             &SMSvcHandler::getObjectCb, this,
-            getObjMsg,
+            asyncHdr,
             std::placeholders::_1, std::placeholders::_2);
 
     err = objStorMgr->enqueueMsg(read_req->getVolId(), read_req);
@@ -40,28 +41,29 @@ void SMSvcHandler::getObject(boost::shared_ptr<fpi::GetObjectMsg>& getObjMsg)  /
         fds_assert(!"Hit an error in enqueing");
         LOGERROR << "Failed to enqueue to SmIoReadObjectMetadata to StorMgr.  Error: "
                 << err;
-        getObjectCb(getObjMsg, err, read_req);
+        getObjectCb(asyncHdr, err, read_req);
     }
 }
 
-void SMSvcHandler::getObjectCb(boost::shared_ptr<fpi::GetObjectMsg>& getObjMsg,
+void SMSvcHandler::getObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                const Error &err,
                                SmIoReadObjectdata *read_req)
 {
-    DBG(GLOGDEBUG << fds::logString(*getObjMsg));
+    DBG(GLOGDEBUG << fds::logString(*asyncHdr));
 
     auto resp = boost::make_shared<GetObjectResp>();
-    resp->hdr.msg_code = static_cast<int32_t>(err.GetErrno());
+    asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
     resp->data_obj_len = read_req->obj_data.data.size();
     resp->data_obj = read_req->obj_data.data;
-    net::ep_send_async_resp(getObjMsg->hdr, *resp);
+    net::ep_send_async_resp(*asyncHdr, *resp);
 
     delete read_req;
 }
 
-void SMSvcHandler::putObject(boost::shared_ptr<fpi::PutObjectMsg>& putObjMsg)  // NOLINT
+void SMSvcHandler::putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                             boost::shared_ptr<fpi::PutObjectMsg>& putObjMsg)  // NOLINT
 {
-    DBG(GLOGDEBUG << fds::logString(*putObjMsg));
+    DBG(GLOGDEBUG << fds::logString(*asyncHdr) << fds::logString(*putObjMsg));
 
     DBG(FLAG_CHECK_RETURN_VOID(common_drop_async_resp > 0));
     DBG(FLAG_CHECK_RETURN_VOID(sm_drop_puts > 0));
@@ -76,7 +78,7 @@ void SMSvcHandler::putObject(boost::shared_ptr<fpi::PutObjectMsg>& putObjMsg)  /
     putObjMsg->data_obj.clear();
     put_req->response_cb= std::bind(
             &SMSvcHandler::putObjectCb, this,
-            putObjMsg,
+            asyncHdr,
             std::placeholders::_1, std::placeholders::_2);
 
     err = objStorMgr->enqueueMsg(put_req->getVolId(), put_req);
@@ -84,19 +86,19 @@ void SMSvcHandler::putObject(boost::shared_ptr<fpi::PutObjectMsg>& putObjMsg)  /
         fds_assert(!"Hit an error in enqueing");
         LOGERROR << "Failed to enqueue to SmIoPutObjectReq to StorMgr.  Error: "
                 << err;
-        putObjectCb(putObjMsg, err, put_req);
+        putObjectCb(asyncHdr, err, put_req);
     }
 }
 
-void SMSvcHandler::putObjectCb(boost::shared_ptr<fpi::PutObjectMsg>& putObjMsg,
+void SMSvcHandler::putObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                const Error &err,
                                SmIoPutObjectReq* put_req)
 {
-    DBG(GLOGDEBUG << fds::logString(*putObjMsg));
+    DBG(GLOGDEBUG << fds::logString(*asyncHdr));
 
     auto resp = boost::make_shared<fpi::PutObjectRspMsg>();
-    resp->hdr.msg_code = static_cast<int32_t>(err.GetErrno());
-    net::ep_send_async_resp(putObjMsg->hdr, *resp);
+    asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
+    net::ep_send_async_resp(*asyncHdr, *resp);
 
     delete put_req;
 }

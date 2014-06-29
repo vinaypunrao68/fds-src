@@ -40,82 +40,14 @@ struct RespHdr {
  * Application code treats it as opaque type.
  */
 struct AsyncHdr {
-    1: required i32           	msg_chksum,
-    2: required i32           	msg_src_id,
-    3: required SvcUuid       	msg_src_uuid,
-    4: required SvcUuid       	msg_dst_uuid,
-    5: required i32           	msg_code,
+    1: required i32           	msg_chksum;
+    2: required i32           	msg_src_id;
+    3: required SvcUuid       	msg_src_uuid;
+    4: required SvcUuid       	msg_dst_uuid;
+    5: required i32           	msg_code;
 }
 
-/*
- * SM service specific messages
- */
-struct GetObjectMsg {
-   1: required AsyncHdr        	hdr;
-   2: i64    			volume_id,
-   3: FDSP.FDS_ObjectIdType 	data_obj_id,
-}
 
-struct GetObjectResp {
-   1: required AsyncHdr        	hdr;
-   2: i32              		data_obj_len,
-   3: binary           		data_obj,
-}
-
-struct PutObjectMsg {
-   1: required AsyncHdr        	hdr;
-   2: i64    			volume_id;
-   3: i64                      	origin_timestamp;
-   4: FDSP.FDS_ObjectIdType 	data_obj_id;
-   5: i32                      	data_obj_len;
-   6: binary                   	data_obj;
-}
-
-struct PutObjectRspMsg {
-   1: required AsyncHdr        	hdr;
-}
-
-/*
- * DM service specific messages
- */
-struct QueryCatalogMsg {
-   1: required AsyncHdr        	hdr;
-   2: i64    			volume_id;
-   3: string   			blob_name;		/* User visible name of the blob*/
-   4: i64 			blob_version;        	/* Version of the blob to query */
-   5: i64 			blob_size;
-   6: i32 			blob_mime_type;
-   7: FDSP.FDSP_BlobDigestType 	digest;
-   8: FDSP.FDSP_BlobObjectList 	obj_list; 		/* List of object ids of the objects that this blob is being mapped to */
-   9: FDSP.FDSP_MetaDataList 	meta_list;		/* sequence of arbitrary key/value pairs */
-
-   10: i32      		dm_transaction_id;   	/* Transaction id */
-   11: i32      		dm_operation;        	/* Transaction type = OPEN, COMMIT, CANCEL */
-}
-
-struct UpdateCatalogMsg {
-   1: required AsyncHdr        	hdr;
-   2: i64    			volume_id;
-   3: string 			blob_name; 	/* User visible name of the blob */
-   4: i64                       blob_version; 	/* Version of the blob */
-   5: FDSP.TxDescriptor 	txDlsc; 	/* Transaction ID...can supersede other tx fields */
-   6: FDSP.FDSP_BlobObjectList 	obj_list; 	/* List of object ids of the objects that this blob is being mapped to */
-}
-
-struct UpdateCatalogRspMsg {
-   1: required AsyncHdr       	hdr;
-}
-
-struct SetBlobMetaDataMsg {
-   1: required AsyncHdr        	hdr;
-   2: string 			volumeName;
-   3: string 			blobName;
-   4: FDSP.FDSP_MetaDataList 	metaDataList;
-}
-
-struct SetBlobMetaDataRspMsg {
-   1: required AsyncHdr        	hdr;
-}
 
 /*
  * --------------------------------------------------------------------------------
@@ -215,37 +147,109 @@ struct DomainNodes {
  */
 
 service BaseAsyncSvc {
-    oneway void asyncReqt(1: AsyncHdr header, 2: string payload),
-    oneway void asyncResp(1: AsyncHdr header, 2: string payload),
-    RespHdr uuidBind(1: UuidBindMsg msg),
+    oneway void asyncReqt(1: AsyncHdr asyncHdr, 2: string payload);
+    oneway void asyncResp(1: AsyncHdr asyncHdr, 2: string payload);
+    RespHdr uuidBind(1: UuidBindMsg msg);
 }
 
 service PlatNetSvc extends BaseAsyncSvc {
-    oneway void allUuidBinding(1: UuidBindMsg mine),
-    oneway void notifyNodeActive(1: FDSP.FDSP_ActivateNodeType info),
+    oneway void allUuidBinding(1: UuidBindMsg mine);
+    oneway void notifyNodeActive(1: FDSP.FDSP_ActivateNodeType info);
 
-    list<NodeInfoMsg> notifyNodeInfo(1: NodeInfoMsg info, 2: bool bcast),
-    DomainNodes getDomainNodes(1: DomainNodes dom),
+    list<NodeInfoMsg> notifyNodeInfo(1: NodeInfoMsg info, 2: bool bcast);
+    DomainNodes getDomainNodes(1: DomainNodes dom);
 
-    // ServiceStatus getStatus(1: i32 nullarg),
-    // map<string, i64> getCounters(1: string id),
-    // void setConfigVal(1:string id, 2:i64 value )
-    ServiceStatus getStatus(1: i32 nullarg),
-    map<string, i64> getCounters(1: string id),
-    void setConfigVal(1:string id, 2:i64 value )
-    void setFlag(1:string id, 2:i64 value )
-    i64 getFlag(1:string id)
-    map<string, i64> getFlags(1: i32 nullarg)
+    ServiceStatus getStatus(1: i32 nullarg);
+    map<string, i64> getCounters(1: string id);
+    void setConfigVal(1:string id, 2:i64 value);
+    void setFlag(1:string id, 2:i64 value);
+    i64 getFlag(1:string id);
+    map<string, i64> getFlags(1: i32 nullarg);
 }
 
+/*
+ * --------------------------------------------------------------------------------
+ * SM service specific messages
+ * --------------------------------------------------------------------------------
+ */
+/* Get object request message */
+struct GetObjectMsg {
+   1: required i64    			volume_id;
+   2: required FDSP.FDS_ObjectIdType 	data_obj_id;
+}
+
+/* Get object response message */
+struct GetObjectResp {
+   1: i32              		data_obj_len;
+   2: binary           		data_obj;
+}
+
+/* Put object request message */
+struct PutObjectMsg {
+   1: i64    			volume_id;
+   2: i64                      	origin_timestamp;
+   3: FDSP.FDS_ObjectIdType 	data_obj_id;
+   4: i32                      	data_obj_len;
+   5: binary                   	data_obj;
+}
+
+/* Put object response message */
+struct PutObjectRspMsg {
+}
+
+/* SM service */
 service SMSvc extends PlatNetSvc {
-    oneway void getObject(1: GetObjectMsg getObjMsg);
-    oneway void putObject(1: PutObjectMsg putObjMsg);
+    oneway void getObject(1: AsyncHdr asyncHdr, 2: GetObjectMsg getObjMsg);
+    oneway void putObject(1: AsyncHdr asyncHdr, 2: PutObjectMsg putObjMsg);
 }
 
+/*
+ * --------------------------------------------------------------------------------
+ * DM service specific messages
+ * --------------------------------------------------------------------------------
+ */
+ /* Query catalog request message */
+struct QueryCatalogMsg {
+   1: i64    			volume_id;
+   2: string   			blob_name;		/* User visible name of the blob*/
+   3: i64 			blob_version;        	/* Version of the blob to query */
+   4: i64 			blob_size;
+   5: i32 			blob_mime_type;
+   6: FDSP.FDSP_BlobDigestType 	digest;
+   7: FDSP.FDSP_BlobObjectList 	obj_list; 		/* List of object ids of the objects that this blob is being mapped to */
+   8: FDSP.FDSP_MetaDataList 	meta_list;		/* sequence of arbitrary key/value pairs */
+   9: i32      			dm_transaction_id;   	/* Transaction id */
+   10: i32      		dm_operation;        	/* Transaction type = OPEN, COMMIT, CANCEL */
+}
+
+/* Update catalog request message */
+struct UpdateCatalogMsg {
+   1: i64    			volume_id;
+   2: string 			blob_name; 	/* User visible name of the blob */
+   3: i64                       blob_version; 	/* Version of the blob */
+   4: FDSP.TxDescriptor 	txDlsc; 	/* Transaction ID...can supersede other tx fields */
+   5: FDSP.FDSP_BlobObjectList 	obj_list; 	/* List of object ids of the objects that this blob is being mapped to */
+}
+
+/* Update catalog response message */
+struct UpdateCatalogRspMsg {
+}
+
+/* Set blob metadata request message */
+struct SetBlobMetaDataMsg {
+   1: string 			volumeName;
+   2: string 			blobName;
+   3: FDSP.FDSP_MetaDataList 	metaDataList;
+}
+
+/* Set blob metadata request message */
+struct SetBlobMetaDataRspMsg {
+}
+
+/* DM Service */
 service DMSvc extends BaseAsyncSvc {
-    oneway void queryCatalogObject(1:QueryCatalogMsg queryMsg);
-    oneway void updateCatalog(1:UpdateCatalogMsg updCatMsg);
+    oneway void queryCatalogObject(1: AsyncHdr asyncHdr, 2:QueryCatalogMsg queryMsg);
+    oneway void updateCatalog(1: AsyncHdr asyncHdr, 2:UpdateCatalogMsg updCatMsg);
 }
 
 service AMSvc extends BaseAsyncSvc {

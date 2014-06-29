@@ -18,25 +18,25 @@ class SMSvcHandler : virtual public SMSvcIf, public PlatNetSvcHandler {
  public:
     SMSvcHandler();
 
-    void getObject(const fpi::GetObjectMsg& getObjMsg) {
+    void getObject(const fpi::AsyncHdr& asyncHdr,
+                   const fpi::GetObjectMsg& getObjMsg) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+    void putObject(const fpi::AsyncHdr& asyncHdr,
+                   const fpi::PutObjectMsg& putObjMsg) {
         // Don't do anything here. This stub is just to keep cpp compiler happy
     }
 
 
-    void getObject(boost::shared_ptr<fpi::GetObjectMsg>& getObjMsg);
-
-    void getObjectCb(boost::shared_ptr<fpi::GetObjectMsg>& getObjMsg,
+    void getObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                   boost::shared_ptr<fpi::GetObjectMsg>& getObjMsg);
+    void getObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                      const Error &err,
                      SmIoReadObjectdata *read_data);
 
-    void putObject(const fpi::PutObjectMsg& putObjMsg) {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
-    }
-
-
-    void putObject(boost::shared_ptr<fpi::PutObjectMsg>& putObjMsg);
-
-    void putObjectCb(boost::shared_ptr<fpi::PutObjectMsg>& putObjMsg,
+    void putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                   boost::shared_ptr<fpi::PutObjectMsg>& putObjMsg);
+    void putObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                      const Error &err,
                      SmIoPutObjectReq* put_req);
 };

@@ -17,20 +17,25 @@ class DMSvcHandler : virtual public DMSvcIf, public PlatNetSvcHandler {
  public:
     DMSvcHandler();
 
-    void queryCatalogObject(const fpi::QueryCatalogMsg& queryMsg) {
+    void queryCatalogObject(const fpi::AsyncHdr& asyncHdr,
+                            const fpi::QueryCatalogMsg& queryMsg) {
         // Don't do anything here. This stub is just to keep cpp compiler happy
     }
-    void updateCatalog(const fpi::UpdateCatalogMsg& updcatMsg) {
+    void updateCatalog(const fpi::AsyncHdr& asyncHdr,
+                       const fpi::UpdateCatalogMsg& updcatMsg) {
         // Don't do anything here. This stub is just to keep cpp compiler happy
     }
 
 
-    void queryCatalogObject(boost::shared_ptr<fpi::QueryCatalogMsg>& queryMsg);
-    void queryCatalogObjectCb(boost::shared_ptr<fpi::QueryCatalogMsg>& queryMsg,
+    void queryCatalogObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                            boost::shared_ptr<fpi::QueryCatalogMsg>& queryMsg);
+    void queryCatalogObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                              boost::shared_ptr<fpi::QueryCatalogMsg>& queryMsg,
                               const Error &e, dmCatReq *req, BlobNode *bnode);
 
-    void updateCatalog(boost::shared_ptr<fpi::UpdateCatalogMsg>& updcatMsg);
-    void updateCatalogCb(boost::shared_ptr<fpi::UpdateCatalogMsg>& updcatMsg,
+    void updateCatalog(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                       boost::shared_ptr<fpi::UpdateCatalogMsg>& updcatMsg);
+    void updateCatalogCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                          const Error &e, DmIoUpdateCat *req);
 };
 

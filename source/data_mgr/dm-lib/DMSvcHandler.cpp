@@ -16,9 +16,11 @@ DMSvcHandler::DMSvcHandler()
 {
 }
 
-void DMSvcHandler::queryCatalogObject(boost::shared_ptr<fpi::QueryCatalogMsg>& queryMsg)
+void DMSvcHandler::queryCatalogObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                                      boost::shared_ptr<fpi::QueryCatalogMsg>& queryMsg)
 {
-    DBG(GLOGDEBUG << logString(*queryMsg));
+    DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*queryMsg));
+
     DBG(FLAG_CHECK_RETURN_VOID(common_drop_async_resp > 0));
     DBG(FLAG_CHECK_RETURN_VOID(dm_drop_cat_queries > 0));
     /*
@@ -33,6 +35,7 @@ void DMSvcHandler::queryCatalogObject(boost::shared_ptr<fpi::QueryCatalogMsg>& q
     dmQryReq->setBlobVersion(queryMsg->blob_version);
     dmQryReq->dmio_querycat_resp_cb =
         std::bind(&DMSvcHandler::queryCatalogObjectCb, this,
+                  asyncHdr,
                   queryMsg,
                   std::placeholders::_1, std::placeholders::_2,
                   std::placeholders::_3);
@@ -40,38 +43,39 @@ void DMSvcHandler::queryCatalogObject(boost::shared_ptr<fpi::QueryCatalogMsg>& q
     Error err = dataMgr->qosCtrl->enqueueIO(dmQryReq->getVolId(),
                                       static_cast<FDS_IOType*>(dmQryReq));
     if (err != ERR_OK) {
-        LOGNORMAL << "Unable to enqueue Query Catalog request "
-                  << logString(queryMsg->hdr);
+        LOGWARN << "Unable to enqueue Query Catalog request "
+                  << logString(*asyncHdr) << logString(*queryMsg);
         dmQryReq->dmio_querycat_resp_cb(err, dmQryReq, nullptr);
-    } else {
-        LOGNORMAL << "Successfully enqueued  Catalog  request "
-                  << logString(queryMsg->hdr);
     }
 }
 
 // TODO(Rao): Refactor dmCatReq to contain BlobNode information? Check with Andrew.
-void DMSvcHandler::queryCatalogObjectCb(boost::shared_ptr<fpi::QueryCatalogMsg>& queryMsg,
+void DMSvcHandler::queryCatalogObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                                        boost::shared_ptr<fpi::QueryCatalogMsg>& queryMsg,
                                         const Error &e, dmCatReq *req,
                                         BlobNode *bnode)
 {
-    DBG(GLOGDEBUG << logString(*queryMsg));
+    DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*queryMsg));
 
+    // TODO(Rao): We should have a seperate response message for QueryCatalogMsg for
+    // consistency
     queryMsg->obj_list.clear();
     queryMsg->meta_list.clear();
-    queryMsg->hdr.msg_code = static_cast<int32_t>(e.GetErrno());
+    asyncHdr->msg_code = static_cast<int32_t>(e.GetErrno());
     if (bnode) {
         bnode->ToFdspPayload(queryMsg);
         delete bnode;
     }
 
-    net::ep_send_async_resp(queryMsg->hdr, *queryMsg);
+    net::ep_send_async_resp(*asyncHdr, *queryMsg);
 
     delete req;
 }
 
-void DMSvcHandler::updateCatalog(boost::shared_ptr<fpi::UpdateCatalogMsg>& updcatMsg)
+void DMSvcHandler::updateCatalog(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                                 boost::shared_ptr<fpi::UpdateCatalogMsg>& updcatMsg)
 {
-    DBG(GLOGDEBUG << logString(*updcatMsg));
+    DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*updcatMsg));
     DBG(FLAG_CHECK_RETURN_VOID(common_drop_async_resp > 0));
     DBG(FLAG_CHECK_RETURN_VOID(dm_drop_cat_updates > 0));
     /*
@@ -83,27 +87,24 @@ void DMSvcHandler::updateCatalog(boost::shared_ptr<fpi::UpdateCatalogMsg>& updca
     dmUpdCatReq->obj_list = std::move(updcatMsg->obj_list);
     dmUpdCatReq->dmio_updatecat_resp_cb =
         std::bind(&DMSvcHandler::updateCatalogCb, this,
-                  updcatMsg,
+                  asyncHdr,
                   std::placeholders::_1, std::placeholders::_2);
 
     Error err = dataMgr->qosCtrl->enqueueIO(dmUpdCatReq->getVolId(),
                                             static_cast<FDS_IOType*>(dmUpdCatReq));
     if (err != ERR_OK) {
-        LOGNORMAL << "Unable to enqueue Update Catalog request "
-                  << logString(updcatMsg->hdr);
+        LOGWARN << "Unable to enqueue Update Catalog request "
+            << logString(*asyncHdr) << logString(*updcatMsg);
         dmUpdCatReq->dmio_updatecat_resp_cb(err, dmUpdCatReq);
-    } else {
-        LOGNORMAL << "Successfully enqueued Update Catalog  request "
-                  << logString(updcatMsg->hdr);
     }
 }
 
-void DMSvcHandler::updateCatalogCb(boost::shared_ptr<fpi::UpdateCatalogMsg>& updcatMsg,
-                                        const Error &e, DmIoUpdateCat *req)
+void DMSvcHandler::updateCatalogCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                                   const Error &e, DmIoUpdateCat *req)
 {
-    DBG(GLOGDEBUG << logString(*updcatMsg));
+    DBG(GLOGDEBUG << logString(*asyncHdr));
     fpi::UpdateCatalogRspMsg updcatRspMsg;
-    net::ep_send_async_resp(updcatMsg->hdr, updcatRspMsg);
+    net::ep_send_async_resp(*asyncHdr, updcatRspMsg);
 
     delete req;
 }
