@@ -222,15 +222,17 @@ class NodeAgent : public NodeInventory
     /**
      * Return the RPC handler for services bound to the control port.
      */
-    boost::shared_ptr<fpi::FDSP_ControlPathReqClient>
+    virtual boost::shared_ptr<fpi::FDSP_ControlPathReqClient>
     node_ctrl_rpc(boost::intrusive_ptr<EpSvcHandle> *eph);
+
+    virtual boost::shared_ptr<fpi::PlatNetSvcClient>
+    node_svc_rpc(boost::intrusive_ptr<EpSvcHandle> *eph);
 
   protected:
     friend class AgentContainer;
     boost::intrusive_ptr<EpSvcHandle>                 nd_eph;
-    boost::shared_ptr<fpi::PlatNetSvcClient>          nd_svc_rpc;
-
     boost::intrusive_ptr<EpSvcHandle>                 nd_ctrl_eph;
+    boost::shared_ptr<fpi::PlatNetSvcClient>          nd_svc_rpc;
     boost::shared_ptr<fpi::FDSP_ControlPathReqClient> nd_ctrl_rpc;
 
     virtual ~NodeAgent();
@@ -270,12 +272,6 @@ class PmAgent : public NodeAgent
 
     PmAgent(const NodeUuid &uuid);
     boost::intrusive_ptr<PmSvcEp> agent_ep_svc();
-
-    /**
-     * Return the RPC handler used to communicate with the peer node agent.
-     */
-    boost::shared_ptr<fpi::PlatNetSvcClient>
-    agent_rpc(boost::intrusive_ptr<EpSvcHandle> *eph);
 
   protected:
     boost::intrusive_ptr<PmSvcEp>      pm_ep_svc;

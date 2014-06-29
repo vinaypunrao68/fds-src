@@ -39,19 +39,10 @@ std::string logString(const FDS_ProtocolInterface::AsyncHdr &header)
     return oss.str();
 }
 
-std::ostringstream& logMsgCommon(std::ostringstream& oss,
-                                 const std::string &type,
-                                 const FDS_ProtocolInterface::AsyncHdr &header)
-{
-    oss << type << " Req Id: " << header.msg_src_id << " From: " << header.msg_src_uuid.svc_uuid;
-    return oss;
-}
-
 std::string logString(const FDS_ProtocolInterface::GetObjectMsg &getObj)
 {
     std::ostringstream oss;
-    logMsgCommon(oss, "GetObjectMsg", getObj.hdr)
-        << " Obj Id: " << ObjectID(getObj.data_obj_id.digest);
+    oss << " GetObjectMsg Obj Id: " << ObjectID(getObj.data_obj_id.digest);
     return oss.str();
 }
 
@@ -65,7 +56,7 @@ std::string logString(const FDS_ProtocolInterface::GetObjectResp &getObj)
 std::string logString(const FDS_ProtocolInterface::QueryCatalogMsg& qryCat)
 {
     std::ostringstream oss;
-    logMsgCommon(oss, "QueryCatalogMsg", qryCat.hdr) << " volId: " << qryCat.volume_id
+    oss << " QueryCatalogMsg volId: " << qryCat.volume_id
         << " blobName:  " << qryCat.blob_name;
     return oss.str();
 }
@@ -73,28 +64,28 @@ std::string logString(const FDS_ProtocolInterface::QueryCatalogMsg& qryCat)
 std::string logString(const FDS_ProtocolInterface::PutObjectMsg& putObj)
 {
     std::ostringstream oss;
-    logMsgCommon(oss, "PutObjectMsg", putObj.hdr);
+    oss << " PutObjectMsg";
     return oss.str();
 }
 
 std::string logString(const FDS_ProtocolInterface::PutObjectRspMsg& putObj)
 {
     std::ostringstream oss;
-    logMsgCommon(oss, "PutObjectRspMsg", putObj.hdr);
+    oss << " PutObjectRspMsg";
     return oss.str();
 }
 
 std::string logString(const FDS_ProtocolInterface::UpdateCatalogMsg& updCat)
 {
     std::ostringstream oss;
-    logMsgCommon(oss, "UpdateCatalogMsg", updCat.hdr);
+    oss << " UpdateCatalogMsg";
     return oss.str();
 }
 
 std::string logString(const FDS_ProtocolInterface::UpdateCatalogRspMsg& updCat)
 {
     std::ostringstream oss;
-    logMsgCommon(oss, "UpdateCatalogRspMsg", updCat.hdr);
+    oss < " UpdateCatalogRspMsg";
     return oss.str();
 }
 }  // namespace fds

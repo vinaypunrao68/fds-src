@@ -27,8 +27,9 @@ BaseAsyncSvcHandler::~BaseAsyncSvcHandler() {
  *
  * @param header
  */
-void BaseAsyncSvcHandler::asyncReqt(
-        const FDS_ProtocolInterface::AsyncHdr& header) {
+void BaseAsyncSvcHandler::asyncReqt(const FDS_ProtocolInterface::AsyncHdr& header,
+                                    const std::string& payload)
+{
 }
 
 /**
@@ -36,7 +37,9 @@ void BaseAsyncSvcHandler::asyncReqt(
  * @param header
  */
 void BaseAsyncSvcHandler::asyncReqt(
-        boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header) {
+        boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
+        boost::shared_ptr<std::string>& payload)
+{
 }
 
 /**
@@ -67,7 +70,7 @@ void BaseAsyncSvcHandler::uuidBind(FDS_ProtocolInterface::RespHdr& _return,
  * @param payload
  */
 void BaseAsyncSvcHandler::asyncResp(const FDS_ProtocolInterface::AsyncHdr& header,
-        const std::string& payload)
+                                    const std::string& payload)
 {
 }
 

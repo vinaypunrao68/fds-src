@@ -14,6 +14,7 @@
 #include <fds_error.h>
 #include <fds_dmt.h>
 #include <dlt.h>
+#include <net/net-service.h>
 #include <net/RpcFunc.h>
 
 namespace fds {
@@ -131,6 +132,25 @@ struct DmtVolumeIdEpProvider : EpIdProvider {
 
 
 /**
+* @brief For serializing over the wire payloads
+*
+* @tparam PayloadT
+* @param payload
+* @param payloadBuf
+*/
+template<class PayloadT>
+void serializePayload(const PayloadT &payload, std::string &payloadBuf)
+{
+    #if 0
+    bo::shared_ptr<tt::TMemoryBuffer> buffer(new tt::TMemoryBuffer());
+    bo::shared_ptr<tp::TProtocol> binary_buf(new tp::TBinaryProtocol(buffer));
+    auto written = payload.write(binary_buf.get());
+    fds_verify(written > 0);
+    payloadBuf = buffer->getBufferAsString();
+    #endif
+}
+
+/**
  * Base class for async rpc requests
  */
 struct AsyncRpcRequestIf {
@@ -140,7 +160,7 @@ struct AsyncRpcRequestIf {
 
     virtual ~AsyncRpcRequestIf();
 
-    virtual void invoke() = 0;
+    virtual void invoke();
 
     virtual void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
             boost::shared_ptr<std::string>& payload) = 0;
@@ -166,6 +186,7 @@ struct AsyncRpcRequestIf {
     static void postError(boost::shared_ptr<fpi::AsyncHdr> header);
 
  protected:
+    virtual void invokeWork_() = 0;
     void invokeCommon_(const fpi::SvcUuid &epId);
     std::stringstream& logRpcReqCommon_(std::stringstream &oss,
                                         const std::string &type);
@@ -204,8 +225,6 @@ struct EPAsyncRpcRequest : AsyncRpcRequestIf {
 
     ~EPAsyncRpcRequest();
 
-    virtual void invoke() override;
-
     virtual void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
             boost::shared_ptr<std::string>& payload) override;
 
@@ -216,11 +235,14 @@ struct EPAsyncRpcRequest : AsyncRpcRequestIf {
     void onResponseCb(EPAsyncRpcRespCb cb);
 
  protected:
+    virtual void invokeWork_() override;
+
     fpi::SvcUuid peerEpId_;
     /* Reponse callback */
     EPAsyncRpcRespCb respCb_;
 
     friend class FailoverRpcRequest;
+    friend class QuorumRpcRequest;
 };
 typedef boost::shared_ptr<EPAsyncRpcRequest> EPAsyncRpcRequestPtr;
 
@@ -266,8 +288,6 @@ struct FailoverRpcRequest : MultiEpAsyncRpcRequest {
 
     ~FailoverRpcRequest();
 
-    virtual void invoke() override;
-
     virtual void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
             boost::shared_ptr<std::string>& payload) override;
 
@@ -276,9 +296,9 @@ struct FailoverRpcRequest : MultiEpAsyncRpcRequest {
     void onResponseCb(FailoverRpcRespCb cb);
 
  protected:
-    bool moveToNextHealthyEndpoint_();
+    virtual void invokeWork_() override;
 
-    void invokeInternal_();
+    bool moveToNextHealthyEndpoint_();
 
     /* Next endpoint to invoke the request on */
     uint32_t curEpIdx_;
@@ -289,6 +309,12 @@ struct FailoverRpcRequest : MultiEpAsyncRpcRequest {
 typedef boost::shared_ptr<FailoverRpcRequest> FailoverRpcRequestPtr;
 
 
+/**
+* @brief Use this class for issuing quorum style rpc to a set of endpoints.  It will
+* invoke broadcast the rpc against all of the endponints.  When quorum number of
+* succesfull responses are received the request is considered a success otherwise
+* it's considered failure.
+*/
 struct QuorumRpcRequest : MultiEpAsyncRpcRequest {
     QuorumRpcRequest();
 
@@ -302,8 +328,6 @@ struct QuorumRpcRequest : MultiEpAsyncRpcRequest {
 
     ~QuorumRpcRequest();
 
-    virtual void invoke() override;
-
     virtual void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
             boost::shared_ptr<std::string>& payload) override;
 
@@ -314,161 +338,14 @@ struct QuorumRpcRequest : MultiEpAsyncRpcRequest {
     void onResponseCb(QuorumRpcRespCb cb);
 
  protected:
+    virtual void invokeWork_() override;
+
     uint32_t successAckd_;
     uint32_t errorAckd_;
     uint32_t quorumCnt_;
     QuorumRpcRespCb respCb_;
 };
 typedef boost::shared_ptr<QuorumRpcRequest> QuorumRpcRequestPtr;
-#if 0
-/**
- * Helper macro for invoking an rpc
- * req - RpcRequest context object
- * SvcType - class type of the service
- * method - method to invoke
- * ... - arguments to the method
- */
-#define INVOKE_RPC(req, SvcType, method, ...)                               \
-    do {                                                                    \
-        boost::shared_ptr<SvcType> client;                                  \
-        auto ep = NetMgr::ep_mgr_singleton()->\
-            svc_lookup((req).getEndpointId(), 0 , 0);                       \
-        Error status = ep->ep_get_status();                                 \
-        if (status != ERR_OK) {                                             \
-            (req).setError(status);                                         \
-            GLOGWARN << "Not invoking the method: " ## method;              \
-            break;                                                          \
-        } else {                                                            \
-            client = ep->svc_rpc<SvcType>();                                \
-        }                                                                   \
-        try {                                                               \
-            client->method(__VA_ARGS__);                                    \
-        } catch(...) {                                                      \
-            (req).handleError(ERR_INVALID, VoidPtr(nullptr));               \
-        }                                                                   \
-    } while (false)
-
-
-
-/**
- * Base class for rpc request
- */
-template <class ServiceT, class ArgT>
-class RpcRequestIf {
- public:
-    virtual ~RpcRequestIf() {}
-
-    void setRpc(std::function<void(ArgT)> rpc, ArgT& arg) {
-        rpc_ = rpc;
-        rpcArg_ = arg;
-    }
-
-    virtual void handleError(const Error&e, VoidPtr resp) = 0;
-    virtual void invoke() = 0;
-
-    void setError(const Error &e) {
-        error_ = e;
-    }
-
-    Error getError() const {
-        return error_;
-    }
-
- protected:
-    /* RPC Request error if any */
-    Error error_;
-    /* Rpc to invoke */
-    std::function<void(ArgT)> rpc_;
-    /* Argument to rpc call */
-    ArgT rpcArg_;
-};
-
-
-/**
- * RPC request for single endpoint
- */
-template <class ServiceT, class ArgT>
-class EPRpcRequest : public RpcRequestIf<ServiceT, ArgT> {
- public:
-    EPRpcRequest()
-     : EPRpcRequest(fpi::SvcUuid()) {
-    }
-
-    explicit EPRpcRequest(const fpi::SvcUuid &uuid) {
-        peerEpId_ = uuid;
-    }
-
-    virtual ~EPRpcRequest() {
-    }
-
-    void setEndpointId(const fpi::SvcUuid &uuid) {
-        peerEpId_ = uuid;
-    }
-
-    fpi::SvcUuid getEndpointId() const {
-        return peerEpId_;
-    }
-
-    virtual void handleError(const Error&e, VoidPtr resp) override {
-        // TODO(Rao): Handle error
-    }
-
-    virtual void invoke() {
-        // TODO(Rao): Implement
-    }
-
-    /**
-     * Wrapper for invoking the member function on an endpoint
-     * Specialization for void return type
-     * @param mf - member function
-     * @param args - arguments to member function
-     */
-    template <typename T, typename ...Args>
-    void invoke(void (T::*mf)(Args...), Args &&... args)
-    {
-        T *client = nullptr;
-        Error e;
-        // TODO(Rao): Get client from ep id
-        try {
-            (client->*mf)(std::forward<Args>(args)...);
-        } catch(...) {
-            handleError(e, VoidPtr(nullptr));
-        }
-    }
-
-
-
-    /**
-     * Wrapper for invoking the member function on an endpoint
-     * @param mf - member function
-     * @param args - arguments to member function
-     */
-    template <typename T, typename R, typename ...Args>
-    R invoke(R (T::*mf)(Args...), Args &&... args)
-    {
-        T *client = nullptr;
-        Error e;
-        R ret;
-        // TODO(Rao): Get client from ep id
-        try {
-            ret = (client->*mf)(std::forward<Args>(args)...);
-        } catch(...) {
-            handleError(e, VoidPtr(nullptr));
-        }
-        return ret;
-    }
-
- protected:
-    /* Endpoint id */
-    fpi::SvcUuid peerEpId_;
-    /* Error if any was set */
-    Error error_;
-};
-// typedef boost::shared_ptr<EPRpcRequest> EPRpcRequestPtr;
-#endif
-
-
-
 }  // namespace fds
 
 #endif  // SOURCE_INCLUDE_NET_RPCREQUEST_H_

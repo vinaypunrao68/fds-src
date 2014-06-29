@@ -11,14 +11,14 @@
         do {                                                                           \
             try {                                                                      \
                 rpc->rpc_fn(__VA_ARGS__);                                              \
-                GLOGDEBUG << "Rpc sent ok " << __FUNCTION__; \
                 __retry = false;                                                       \
             } catch(...) {                                                             \
                 eph->ep_handle_net_error();                                            \
                 if (eph->ep_reconnect() == EP_ST_CONNECTED) {                          \
                     __retry = true;                                                    \
-                } else { \
-                    GLOGDEBUG << "Give up RPC " << __FUNCTION__; \
+                } else {                                                               \
+                    const bo::shared_ptr<tt::TSocket> sk = eph->ep_debug_sock();       \
+                    GLOGDEBUG << "Rpc fails " << sk->getHost() << ":" << sk->getPort(); \
                 } \
             }                                                                          \
         } while (__retry == true);                                                     \
@@ -27,17 +27,16 @@
 /**
 * @brief private wrapper for invoking rpc function
 *
-* @param ServiceT
-* @param hdr
-* @param func
-* @param arg1
+* @param ServiceT - service type
+* @param func - rpc function
+* @param hdr - AsyncHdr
+* @param ... arguments list for func
 *
 * @return 
 */
-#define INVOKE_RPC_INTERNAL(ServiceT, hdr, func, arg1) \
+#define INVOKE_RPC_INTERNAL(ServiceT, func, hdr, ...) \
     EpSvcHandle::pointer ep; \
-    NetMgr::ep_mgr_singleton()->\
-        svc_get_handle<ServiceT>(hdr.msg_dst_uuid, &ep, 0 , 0); \
+    net::svc_get_handle<ServiceT>(hdr.msg_dst_uuid, &ep, 0 , 0); \
     if (ep == nullptr) { \
         throw std::runtime_error("Null endpoint"); \
     } \
@@ -45,30 +44,29 @@
     if (!client) { \
         throw std::runtime_error("Null client"); \
     } \
-    client->func(arg1)
+    client->func(hdr, __VA_ARGS__)
 
 /**
-* @brief Wrapper macro fro creating an rpc function
+* @brief Wrapper macro for creating service layer rpc function
 *
 * @param ServiceT service type class
 * @param func Function to create the wrapper.  Function must be a method in ServiceT class.
-* @param arg1 argument to the function.  It must contain a member with name "hdr"
+* @param arg1 argument to the function.
 *
-* @return std::function<void(arg1 type)>
+* @return std::function<void(const fpi::AsyncHdr &)>
 */
-#define CREATE_RPC(ServiceT, func, arg1) \
-    [arg1] (const fpi::AsyncHdr &hdr) mutable { \
-        arg1.hdr = hdr; \
-        INVOKE_RPC_INTERNAL(ServiceT, hdr, func, arg1); \
+#define CREATE_RPC(ServiceT, func, arg1sptr) \
+    [arg1sptr] (const fpi::AsyncHdr &hdr) mutable { \
+        INVOKE_RPC_INTERNAL(ServiceT, func, hdr, *arg1sptr); \
     }
 
 /**
- * @see CREATE_RPC() macro.  Use this macro if arg1sptr is a shared pointer
+ * @see CREATE_RPC() macro.  
+ * Use this macro for creating an rpc for sending network messages
  */
-#define CREATE_RPC_SPTR(ServiceT, func, arg1sptr) \
+#define CREATE_NET_REQUEST_RPC(arg1sptr) \
     [arg1sptr] (const fpi::AsyncHdr &hdr) mutable { \
-        arg1sptr->hdr = hdr;                     \
-        INVOKE_RPC_INTERNAL(ServiceT, hdr, func, arg1sptr); \
+        INVOKE_RPC_INTERNAL(fpi::BaseAsyncSvcClient, asyncReq, hdr, *arg1sptr); \
     }
 
 namespace fds {

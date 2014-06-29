@@ -1202,7 +1202,7 @@ void StorHvCtrl::issueQueryCatalog(const std::string& blobName,
     auto asyncQueryReq = gRpcRequestPool->newFailoverRpcRequest(
         boost::make_shared<DmtVolumeIdEpProvider>(om_client->getDMTNodesForVolume(volId)));
     asyncQueryReq->setRpcFunc(
-        CREATE_RPC_SPTR(fpi::DMSvcClient, queryCatalogObject, queryMsg));
+        CREATE_RPC(fpi::DMSvcClient, queryCatalogObject, queryMsg));
     asyncQueryReq->setTimeoutMs(500);
     asyncQueryReq->onResponseCb(respCb);
     asyncQueryReq->invoke();
@@ -1222,7 +1222,7 @@ void StorHvCtrl::issueGetObject(const fds_volid_t& volId,
     auto asyncGetReq = gRpcRequestPool->newFailoverRpcRequest(
         boost::make_shared<DltObjectIdEpProvider>(om_client->getDLTNodesForDoidKey(objId)));
     asyncGetReq->setRpcFunc(
-        CREATE_RPC_SPTR(fpi::SMSvcClient, getObject, getObjMsg));
+        CREATE_RPC(fpi::SMSvcClient, getObject, getObjMsg));
     asyncGetReq->setTimeoutMs(500);
     asyncGetReq->onResponseCb(respCb);
     asyncGetReq->invoke();
@@ -1237,7 +1237,7 @@ void StorHvCtrl::getBlobQueryCatalogResp(fds::AmQosReq* qosReq,
 {
     fds::GetBlobReq *blobReq = static_cast<fds::GetBlobReq *>(qosReq->getBlobReqPtr());
     fpi::QueryCatalogMsgPtr qryCatRsp =
-        NetMgr::ep_deserialize<fpi::QueryCatalogMsg>(const_cast<Error&>(error), payload);
+        net::ep_deserialize<fpi::QueryCatalogMsg>(const_cast<Error&>(error), payload);
 
     if (error != ERR_OK) {
         LOGERROR << "blob name: " << blobReq->getBlobName() << "offset: "
@@ -1279,7 +1279,7 @@ void StorHvCtrl::getBlobGetObjectResp(fds::AmQosReq* qosReq,
 {
     fds::GetBlobReq *blobReq = static_cast<fds::GetBlobReq *>(qosReq->getBlobReqPtr());
     fpi::GetObjectRespPtr getObjRsp =
-        NetMgr::ep_deserialize<fpi::GetObjectResp>(const_cast<Error&>(error), payload);
+        net::ep_deserialize<fpi::GetObjectResp>(const_cast<Error&>(error), payload);
 
     if (error != ERR_OK) {
         LOGERROR << "blob name: " << blobReq->getBlobName() << "offset: "
@@ -1434,6 +1434,7 @@ void StorHvCtrl::issuePutObjectMsg(const ObjectID &objId,
                                    QuorumRpcRespCb respCb)
 {
     if (len == 0) {
+        fds_verify(!"Not impl");
         // TODO(Rao): Shortcut SM.  Issue a call back to indicate put successed
     }
     PutObjectMsgPtr putObjMsg(new PutObjectMsg);
@@ -1446,7 +1447,7 @@ void StorHvCtrl::issuePutObjectMsg(const ObjectID &objId,
     auto asyncPutReq = gRpcRequestPool->newQuorumRpcRequest(
         boost::make_shared<DltObjectIdEpProvider>(om_client->getDLTNodesForDoidKey(objId)));
     asyncPutReq->setRpcFunc(
-        CREATE_RPC_SPTR(fpi::SMSvcClient, putObject, putObjMsg));
+        CREATE_RPC(fpi::SMSvcClient, putObject, putObjMsg));
     asyncPutReq->setTimeoutMs(500);
     asyncPutReq->onResponseCb(respCb);
     asyncPutReq->invoke();
@@ -1484,7 +1485,7 @@ void StorHvCtrl::issueUpdateCatalogMsg(const ObjectID &objId,
     auto asyncUpdateCatReq = gRpcRequestPool->newQuorumRpcRequest(
         boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(volId)));
     asyncUpdateCatReq->setRpcFunc(
-        CREATE_RPC_SPTR(fpi::DMSvcClient, updateCatalog, updCatMsg));
+        CREATE_RPC(fpi::DMSvcClient, updateCatalog, updCatMsg));
     asyncUpdateCatReq->setTimeoutMs(500);
     asyncUpdateCatReq->onResponseCb(respCb);
     asyncUpdateCatReq->invoke();
@@ -1499,7 +1500,7 @@ void StorHvCtrl::putBlobPutObjectMsgResp(fds::AmQosReq* qosReq,
 {
     PutBlobReq *blobReq = static_cast<fds::PutBlobReq*>(qosReq->getBlobReqPtr());
     fpi::PutObjectRspMsgPtr putObjRsp =
-        NetMgr::ep_deserialize<fpi::PutObjectRspMsg>(const_cast<Error&>(error), payload);
+        net::ep_deserialize<fpi::PutObjectRspMsg>(const_cast<Error&>(error), payload);
 
     if (error != ERR_OK) {
         LOGERROR << "Obj ID: " << blobReq->getObjId()
@@ -1518,7 +1519,7 @@ void StorHvCtrl::putBlobUpdateCatalogMsgResp(fds::AmQosReq* qosReq,
 {
     PutBlobReq *blobReq = static_cast<fds::PutBlobReq*>(qosReq->getBlobReqPtr());
     fpi::UpdateCatalogRspMsgPtr updCatRsp =
-        NetMgr::ep_deserialize<fpi::UpdateCatalogRspMsg>(const_cast<Error&>(error), payload);
+        net::ep_deserialize<fpi::UpdateCatalogRspMsg>(const_cast<Error&>(error), payload);
 
     if (error != ERR_OK) {
         LOGERROR << "Obj ID: " << blobReq->getObjId()

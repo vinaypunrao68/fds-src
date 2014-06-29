@@ -44,7 +44,7 @@ class NodeUpdateIter : public NodeAgentIter
         std::vector<fpi::NodeInfoMsg> ret;
 
         agent = agt_cast_ptr<DomainAgent>(curr);
-        auto rpc = agent->agent_rpc(&eph);
+        auto rpc = agent->node_svc_rpc(&eph);
         if (rpc != NULL) {
             NET_SVC_RPC_CALL(eph, rpc, notifyNodeInfo, ret, *(nd_reg_msg.get()), false);
         }
@@ -119,7 +119,7 @@ PlatformEpHandler::allUuidBinding(bo::shared_ptr<fpi::UuidBindMsg> &msg)
 // -------------
 //
 void
-PlatformEpHandler::notifyNodeAdd(bo::shared_ptr<fpi::FDSP_ActivateNodeType> &info)
+PlatformEpHandler::notifyNodeActive(bo::shared_ptr<fpi::FDSP_ActivateNodeType> &info)
 {
     LOGDEBUG << "Received message to activate node";
     Platform     *plat = Platform::platf_singleton();

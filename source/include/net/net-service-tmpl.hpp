@@ -12,11 +12,14 @@
 #include <thrift/server/TNonblockingServer.h>
 #include <thrift/server/TThreadedServer.h>
 #include <thrift/concurrency/ThreadManager.h>
+#include <thrift/transport/TBufferTransports.h>
 
+#include <util/Log.h>
 #include <fds_resource.h>
 #include <net/net-service.h>
 #include <concurrency/ThreadPool.h>
 #include <fds_typedefs.h>
+#include <net/RpcFunc.h>
 
 namespace fds {
 
@@ -337,5 +340,115 @@ endpoint_connect_handle(EpSvcHandle::pointer ptr,
     }
 }
 
+namespace net {
+
+/**
+ * Get or allocate a handle to communicate with the peer endpoint.  The 'mine' uuid
+ * can be taken from the platform library to get the default uuid.
+ */
+template <class SendIf> void
+svc_get_handle(const fpi::SvcUuid   &mine,
+               const fpi::SvcUuid   &peer,
+               EpSvcHandle::pointer *out,
+               fds_uint32_t          maj,
+               fds_uint32_t          min)
+{
+    NetMgr         *net;
+    EpSvc::pointer  ep;
+
+    net  = NetMgr::ep_mgr_singleton();
+    *out = net->svc_handler_lookup(peer, maj, min);
+    if (*out == NULL) {
+        if (mine == NullSvcUuid) {
+            ep = net->endpoint_lookup(peer);
+        } else {
+            ep = net->endpoint_lookup(mine, peer);
+        }
+        if (ep != NULL) {
+            *out = ep->ep_send_handle();
+            return;
+        }
+        // TODO(Vy): must suppy default values here.
+        *out = new EpSvcHandle(peer, NULL, maj, min);
+        endpoint_connect_handle<SendIf>(*out);
+    }
+}
+
+template <class SendIf> void
+svc_get_handle(const fpi::SvcUuid   &peer,
+               EpSvcHandle::pointer *out,
+               fds_uint32_t          maj,
+               fds_uint32_t          min)
+{
+    svc_get_handle<SendIf>(NullSvcUuid, peer, out, maj, min);
+}
+
+/**
+ * Common send async response method.
+ */
+template<class PayloadT> void
+ep_send_async_resp(const fpi::AsyncHdr& req_hdr, const PayloadT& payload)
+{
+    GLOGDEBUG;
+    auto resp_hdr = NetMgr::ep_swap_header(req_hdr);
+
+    bo::shared_ptr<tt::TMemoryBuffer> buffer(new tt::TMemoryBuffer());
+    bo::shared_ptr<tp::TProtocol> binary_buf(new tp::TBinaryProtocol(buffer));
+
+    auto written = payload.write(binary_buf.get());
+    fds_verify(written > 0);
+
+    EpSvcHandle::pointer ep;
+    net::svc_get_handle<fpi::BaseAsyncSvcClient>(resp_hdr.msg_dst_uuid, &ep, 0 , 0);
+
+    if (ep == nullptr) {
+        fds_assert(!"This shouldn't happen");
+        GLOGERROR << "Null destination endpoint: " << resp_hdr.msg_dst_uuid.svc_uuid;
+        return;
+    }
+
+    auto client = ep->svc_rpc<fpi::BaseAsyncSvcClient>();
+    if (client == nullptr) {
+        GLOGERROR << "Null destination client: " << resp_hdr.msg_dst_uuid.svc_uuid;
+        return;
+    }
+
+    // TODO(Rao): Enable this code instead of the try..catch.  I was getting
+    // a compiler error when I enabled the following code.
+    // NET_SVC_RPC_CALL(ep, client, fpi::BaseAsyncSvcClient::asyncResp,
+                     // resp_hdr, buffer->getBufferAsString());
+    try {
+        client->asyncResp(resp_hdr, buffer->getBufferAsString());
+    } catch(...) {
+        ep->ep_handle_net_error();
+    }
+}
+
+template<class PayloadT> boost::shared_ptr<PayloadT>
+ep_deserialize(Error &e, boost::shared_ptr<std::string> payload)
+{
+    DBG(GLOGDEBUG);
+
+    if (e != ERR_OK) {
+        return nullptr;
+    }
+    try {
+        bo::shared_ptr<tt::TMemoryBuffer> memory_buf(
+                new tt::TMemoryBuffer(reinterpret_cast<uint8_t*>(
+                        const_cast<char*>(payload->c_str())), payload->size()));
+        bo::shared_ptr<tp::TProtocol> binary_buf(new tp::TBinaryProtocol(memory_buf));
+
+        boost::shared_ptr<PayloadT> result(boost::make_shared<PayloadT>());
+        auto read = result->read(binary_buf.get());
+        fds_verify(read > 0);
+        return result;
+    } catch(std::exception& ex) {
+        GLOGWARN << "Failed to deserialize. Exception: " << ex.what();
+        e = ERR_SERIALIZE_FAILED;
+        return nullptr;
+    }
+}
+
+}  // namespace net
 }  // namespace fds
 #endif  // SOURCE_INCLUDE_NET_NET_SERVICE_TMPL_H_
