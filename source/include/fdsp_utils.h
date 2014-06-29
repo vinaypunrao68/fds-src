@@ -6,11 +6,22 @@
 #define SOURCE_INCLUDE_FDSP_UTILS_H_
 
 #include <string>
+#include <unistd.h>
+#include <arpa/inet.h>
+#include <thrift/transport/TSocket.h>
+#include <thrift/transport/TBufferTransports.h>
+#include <thrift/protocol/TBinaryProtocol.h>
 #include <fds_types.h>
 #include <fdsp/FDSP_types.h>
 #include <persistent_layer/dm_metadata.h>
+#include <boost/make_shared.hpp>
 
-/* Forward declarations */
+// Forward declarations
+namespace apache { namespace thrift { namespace transport {
+    class TSocket;
+    class TTransport;
+}}}  // namespace apache::thrift::transport
+
 namespace FDS_ProtocolInterface {
     class AsyncHdr;
     class SvcUuid;
@@ -23,8 +34,13 @@ namespace FDS_ProtocolInterface {
     class UpdateCatalogRspMsg;
 }  // namespace FDS_ProtocolInterface
 
+namespace fpi = FDS_ProtocolInterface;
+
 namespace fds {
 /* Forward declarations */
+namespace bo  = boost;
+namespace tt  = apache::thrift::transport;
+namespace tp  = apache::thrift::protocol;
 class ResourceUUID;
 
 FDS_ProtocolInterface::FDS_ObjectIdType&
@@ -44,5 +60,34 @@ std::string logString(const FDS_ProtocolInterface::PutObjectMsg& putObj);
 std::string logString(const FDS_ProtocolInterface::PutObjectRspMsg& putObj);
 std::string logString(const FDS_ProtocolInterface::UpdateCatalogMsg& updCat);
 std::string logString(const FDS_ProtocolInterface::UpdateCatalogRspMsg& updCat);
+
+
+/**
+* @brief For deserializing FDSP messages 
+*
+* @tparam PayloadT - FDSP payload type
+* @param payload
+*
+* @return 
+*/
+template<class PayloadT>
+static boost::shared_ptr<PayloadT> deserializeFdspMsg(
+    const boost::shared_ptr<std::string> &payload)
+{
+    if (!payload) {
+        return nullptr;
+    }
+    // TODO(Rao): Do buffer managment so that the below deserialization is
+    // efficient
+    boost::shared_ptr<tt::TMemoryBuffer> memory_buf(
+        new tt::TMemoryBuffer(reinterpret_cast<uint8_t*>(
+                const_cast<char*>(payload->c_str())), payload->size()));
+    boost::shared_ptr<tp::TProtocol> binary_buf(new tp::TBinaryProtocol(memory_buf));
+
+    boost::shared_ptr<PayloadT> result(boost::make_shared<PayloadT>());
+    auto read = result->read(binary_buf.get());
+    fds_verify(read > 0);
+    return result;
+}
 }  // namespace fds
 #endif  // SOURCE_INCLUDE_FDSP_UTILS_H_

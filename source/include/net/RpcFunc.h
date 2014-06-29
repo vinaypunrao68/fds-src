@@ -3,6 +3,7 @@
 #ifndef SOURCE_INCLUDE_NET_RPCFUNC_H_
 #define SOURCE_INCLUDE_NET_RPCFUNC_H_
 
+#include <string>
 #include <net/net-service.h>
 
 #define NET_SVC_RPC_CALL(eph, rpc, rpc_fn, ...)                                        \
@@ -60,6 +61,31 @@
         INVOKE_RPC_INTERNAL(ServiceT, func, hdr, *arg1sptr); \
     }
 
+#define RPC_CB_INTERNAL(func, PayloadT, req, header, payload, ...) \
+    boost::shared_ptr<PayloadT> result; \
+    auto result = fds::deserializeFdspMsg<PayloadT>(payload); \
+    this->func(__VA_ARGS__, req, header->msg_code, result)
+
+#define EPASYNC_RPC_CB(func, PayloadT, ...) \
+    [__VA_ARGS__] (EPAsyncRpcRequest *epReq, \
+                   boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header, \
+                   boost::shared_ptr<std::string>& payload) mutable { \
+        RPC_CB_INTERNAL(func, PayloadT, epReq, header, payload); \
+    }
+
+#define FAILOVER_RPC_CB(func, PayloadT, ...) \
+    [__VA_ARGS__] (FailoverRpcRequest *failoverReq, \
+                   boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header, \
+                   boost::shared_ptr<std::string>& payload) mutable { \
+        RPC_CB_INTERNAL(func, PayloadT, failoverReq, header, payload); \
+    }
+
+#define QUORUM_RPC_CB(func, PayloadT, ...) \
+    [__VA_ARGS__] (QuorumRpcRequest *quorumReq, \
+                   boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header, \
+                   boost::shared_ptr<std::string>& payload) mutable { \
+        RPC_CB_INTERNAL(func, PayloadT, quorumReq, header, payload); \
+    }
 /**
  * @see CREATE_RPC() macro.  
  * Use this macro for creating an rpc for sending network messages

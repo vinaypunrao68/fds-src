@@ -27,6 +27,37 @@ struct DomainID {
 }
 
 /*
+ * List of all FDSP message types that passed between fds services.  Typically all these
+ * types are for async messages.
+ *
+ * Process for adding new type:
+ * 1. DON'T CHANGE THE ORDER.  ONLY APPEND.
+ * 2. Add the type enum in appropriate service section.  Naming convection is
+ *    Message type + "TypeId".  For example PutObjectMsg is PutObjectMsgTypeId.
+ *    This helps us to use macros in c++.
+ * 3. Add the type defition in the appropriate service .thrift file
+ * 4. Register the serializer/deserializer in the appropriate service (.cpp/source) files
+ */
+enum  FDSPMsgTypeId {
+    UnknownMsgTypeId = 0,
+    /* Common Service Types */
+
+    /* SM Types */
+    GetObjectMsgTypeId = 10000, 
+    GetObjectRespTypeId,
+    PutObjectMsgTypeId, 
+    PutObjectRspMsgTypeId,
+
+    /* DM TypeIds */
+    QueryCatalogMsgTypeId = 20000,
+    QueryCatalogRspMsgTypeId,
+    UpdateCatalogMsgTypeId,
+    UpdateCatalogRspMsgTypeId,
+    SetBlobMetaDataMsgTypeId,
+    SetBlobMetaDataRspMsgTypeId
+}
+
+/*
  * Generic response message format.
  */
  // TODO(Rao): Not sure if it's needed..Remove
@@ -41,10 +72,11 @@ struct RespHdr {
  */
 struct AsyncHdr {
     1: required i32           	msg_chksum;
-    2: required i32           	msg_src_id;
-    3: required SvcUuid       	msg_src_uuid;
-    4: required SvcUuid       	msg_dst_uuid;
-    5: required i32           	msg_code;
+    2: required FDSPMsgTypeId 	msg_type_id;
+    3: required i32           	msg_src_id;
+    4: required SvcUuid       	msg_src_uuid;
+    5: required SvcUuid       	msg_dst_uuid;
+    6: required i32           	msg_code;
 }
 
 
@@ -220,6 +252,12 @@ struct QueryCatalogMsg {
    8: FDSP.FDSP_MetaDataList 	meta_list;		/* sequence of arbitrary key/value pairs */
    9: i32      			dm_transaction_id;   	/* Transaction id */
    10: i32      		dm_operation;        	/* Transaction type = OPEN, COMMIT, CANCEL */
+}
+
+// TODO(Rao): Use QueryCatalogRspMsg.  In current implementation we are using QueryCatalogMsg
+// for response as well
+/* Query catalog request message */
+struct QueryCatalogRspMsg {
 }
 
 /* Update catalog request message */

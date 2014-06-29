@@ -24,25 +24,6 @@ BaseAsyncSvcHandler::~BaseAsyncSvcHandler() {
 }
 
 /**
- *
- * @param header
- */
-void BaseAsyncSvcHandler::asyncReqt(const FDS_ProtocolInterface::AsyncHdr& header,
-                                    const std::string& payload)
-{
-}
-
-/**
- *
- * @param header
- */
-void BaseAsyncSvcHandler::asyncReqt(
-        boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
-        boost::shared_ptr<std::string>& payload)
-{
-}
-
-/**
 * @brief 
 *
 * @param _return
@@ -62,6 +43,31 @@ void BaseAsyncSvcHandler::uuidBind(FDS_ProtocolInterface::RespHdr& _return,
 void BaseAsyncSvcHandler::uuidBind(FDS_ProtocolInterface::RespHdr& _return,
                         boost::shared_ptr<FDS_ProtocolInterface::UuidBindMsg>& msg)
 {
+}
+
+void BaseAsyncSvcHandler::asyncReqt(const FDS_ProtocolInterface::AsyncHdr& header,
+                                    const std::string& payload)
+{
+}
+
+/**
+* @brief Invokes registered request handler
+*
+* @param header
+* @param payload
+*/
+void BaseAsyncSvcHandler::asyncReqt(boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
+                                    boost::shared_ptr<std::string>& payload)
+{
+    try {
+        /* Deserialize the message and invoke the handler.  Deserialization is performed
+         * by BaseAsyncSvcHandler::deserializeFdspMsg().
+         * For detaails see macro REGISTER_FDSP_MSG_HANDLER()
+         */
+        asyncReqHandlers_[header->msg_type_id](header, payload);
+    } catch(std::out_of_range &e) {
+        LOGWARN << "Unknown message type: " << static_cast<int32_t>(header->msg_type_id);
+    }
 }
 
 /**
