@@ -34,7 +34,7 @@ FdsCli::FdsCli(int argc, char *argv[],
 {
     cli_log = g_fdslog;
     cli_log->setSeverityFilter(
-        (fds_log::severity_level)conf_helper_.get<int>("log_severity"));
+        fds_log::getLevelFromName(conf_helper_.get<std::string>("log_severity")));
     LOGNORMAL << "Constructing the CLI";
 }
 

@@ -336,7 +336,8 @@ ObjectStorMgr::ObjectStorMgr(int argc, char *argv[],
      */
     // Init  the log infra
 
-    GetLog()->setSeverityFilter((fds_log::severity_level) conf_helper_.get<int>("log_severity"));
+    GetLog()->setSeverityFilter(fds_log::getLevelFromName(
+        conf_helper_.get<std::string>("log_severity")));
     LOGDEBUG << "Constructing the Object Storage Manager";
     objStorMutex = new fds_mutex("Object Store Mutex");
 
