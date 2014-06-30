@@ -9,6 +9,7 @@
 #include <fds_module.h>
 #include <blob/BlobTypes.h>
 #include <lib/Catalog.h>
+#include <util/Log.h>
 
 namespace fds {
 
@@ -35,7 +36,7 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
      * On return, if successful, the transaction is ensured
      * to recover following a crash.
      */
-    Error startBlobTx(const std::string blobName,
+    Error startBlobTx(const std::string &blobName,
                       BlobTxId::const_ptr txDesc);
 
     int  mod_init(SysParams const *const param);

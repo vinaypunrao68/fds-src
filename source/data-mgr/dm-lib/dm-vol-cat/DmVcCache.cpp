@@ -1,7 +1,7 @@
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
-#include <DmVcCache.h>
+#include <dm-vol-cat/DmVcCache.h>
 
 namespace fds {
 

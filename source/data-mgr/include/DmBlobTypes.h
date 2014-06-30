@@ -13,14 +13,29 @@
 #include <map>
 #include <fds_types.h>
 #include <fds_volume.h>
+#include <blob/BlobTypes.h>
 
 namespace fds {
 
-/**
- * Needs review: why MetaList in VolumeMeta is a vector
- * of std::pair<string, string>?
- */
-typedef std::map<std::string, std::string> MetadataList;
+struct BlobObjList
+        : std::unordered_map<fds_uint64_t, ObjectID> {
+    typedef boost::shared_ptr<BlobObjList> ptr;
+    typedef boost::shared_ptr<const BlobObjList> const_ptr;
+    typedef std::unordered_map<
+            fds_uint64_t,
+            ObjectID>::const_iterator const_it;
+
+    /**
+     * Constructs the BlobObjList object with empty list
+     */
+    BlobObjList();
+    /**
+     * Constructs the object from FDSP object list type
+     */
+    explicit BlobObjList(const fpi::FDSP_BlobObjectList& blob_obj_list);
+    virtual ~BlobObjList();
+};
+
 
 /**
  * Metadata that describes the blob, not including the
@@ -31,7 +46,7 @@ struct BlobMetaDesc {
     fds_volid_t vol_id;
     blob_version_t version;
     fds_uint64_t blob_size;
-    MetadataList meta_list;
+    BlobKeyValue meta_list;
 
     typedef boost::shared_ptr<BlobMetaDesc> ptr;
     typedef boost::shared_ptr<const BlobMetaDesc> const_ptr;
@@ -42,7 +57,17 @@ struct BlobMetaDesc {
      */
     BlobMetaDesc();
     virtual ~BlobMetaDesc();
+
+    void mkFDSPMetaDataList(fpi::FDSP_MetaDataList& mlist) const;
 };
+
+namespace BlobUtil {
+    void toFDSPQueryCatalogMsg(const BlobMetaDesc::const_ptr& blob_meta_desc,
+                               const BlobObjList::const_ptr& blob_obj_list,
+                               fds_uint32_t max_obj_size_bytes,
+                               fpi::FDSP_QueryCatalogTypePtr& query_msg);
+}  // namespace BlobUtil
+
 
 }  // namespace fds
 
