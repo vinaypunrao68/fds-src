@@ -1258,7 +1258,7 @@ DataMgr::updateCatalogProcess(const dmCatReq  *updCatReq, BlobNode **bnode) {
  * @return The result of the processing
  */
 Error
-DataMgr::updateCatalogProcess2(DmIoUpdateCat *updCatReq, BlobNode **bnode) {
+DataMgr::updateCatalogProcessSvc(DmIoUpdateCat *updCatReq, BlobNode **bnode) {
     Error err(ERR_OK);
     LOGNORMAL << updCatReq->log_string();
 
@@ -1317,13 +1317,13 @@ DataMgr::updateCatalogProcess2(DmIoUpdateCat *updCatReq, BlobNode **bnode) {
 }
 
 void
-DataMgr::updateCatalogBackend2(void * _io)
+DataMgr::updateCatalogBackendSvc(void * _io)
 {
     Error err(ERR_OK);
     DmIoUpdateCat *updCatReq= static_cast<DmIoUpdateCat*>(_io);
 
     BlobNode *bnode = NULL;
-    err = updateCatalogProcess2(updCatReq, &bnode);
+    err = updateCatalogProcessSvc(updCatReq, &bnode);
     if (bnode) {
         delete bnode;
     }
@@ -1868,7 +1868,13 @@ DataMgr::queryCatalogProcess(const dmCatReq  *qryCatReq, BlobNode **bnode) {
 }
 
 void
-DataMgr::queryCatalogBackend2(void * _io)
+DataMgr::scheduleStartBlobTxSvc(void * _io)
+{
+    Error err(ERR_OK);
+}
+
+void
+DataMgr::queryCatalogBackendSvc(void * _io)
 {
     Error err(ERR_OK);
     DmIoQueryCat *qryCatReq = static_cast<DmIoQueryCat*>(_io);

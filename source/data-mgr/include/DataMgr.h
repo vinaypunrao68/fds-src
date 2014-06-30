@@ -123,20 +123,23 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
                 case FDS_DM_FWD_CAT_UPD:
                     threadPool->schedule(scheduleUpdateCatalog, io);
                     break;
-                case FDS_CAT_UPD2:
-                    threadPool->schedule(&DataMgr::updateCatalogBackend2, dataMgr, io);
+                case FDS_CAT_UPD_SVC:
+                    threadPool->schedule(&DataMgr::updateCatalogBackendSvc, dataMgr, io);
                     break;
                 case FDS_CAT_QRY:
                     threadPool->schedule(scheduleQueryCatalog, io);
                     break;
-                case FDS_CAT_QRY2:
-                    threadPool->schedule(&DataMgr::queryCatalogBackend2, dataMgr, io);
+                case FDS_CAT_QRY_SVC:
+                    threadPool->schedule(&DataMgr::queryCatalogBackendSvc, dataMgr, io);
                     break;
                 case FDS_STAT_BLOB:
                     threadPool->schedule(scheduleStatBlob, io);
                     break;
                 case FDS_START_BLOB_TX:
                     threadPool->schedule(scheduleStartBlobTx, io);
+                    break;
+                case FDS_START_BLOB_TX_SVC:
+                    threadPool->schedule(&DataMgr::scheduleStartBlobTxSvc, dataMgr, io);
                     break;
                 case FDS_DELETE_BLOB:
                     threadPool->schedule(scheduleDeleteCatObj, io);
@@ -327,17 +330,18 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
     }
 
     void updateCatalogBackend(dmCatReq  *updCatReq);
-    void updateCatalogBackend2(void * _io);
+    void updateCatalogBackendSvc(void * _io);
     Error updateCatalogProcess(const dmCatReq  *updCatReq, BlobNode **bnode);
-    Error updateCatalogProcess2(DmIoUpdateCat *updCatReq, BlobNode **bnode);
+    Error updateCatalogProcessSvc(DmIoUpdateCat *updCatReq, BlobNode **bnode);
     void queryCatalogBackend(dmCatReq  *qryCatReq);
-    void queryCatalogBackend2(void * _io);
+    void queryCatalogBackendSvc(void * _io);
     Error queryCatalogProcess(const dmCatReq  *qryCatReq, BlobNode **bnode);
     void deleteCatObjBackend(dmCatReq  *delCatReq);
     Error deleteBlobProcess(const dmCatReq  *delCatReq, BlobNode **bnode);
     void blobListBackend(dmCatReq *listBlobReq);
     void statBlobBackend(const dmCatReq *statBlobReq);
     void startBlobTxBackend(const dmCatReq *startBlobTxReq);
+    void scheduleStartBlobTxSvc(void * _io);
     void getBlobMetaDataBackend(const dmCatReq *request);
     void setBlobMetaDataBackend(const dmCatReq *request);
     void getVolumeMetaDataBackend(const dmCatReq *request);

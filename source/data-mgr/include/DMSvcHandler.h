@@ -25,7 +25,15 @@ class DMSvcHandler : virtual public DMSvcIf, public PlatNetSvcHandler {
                        const fpi::UpdateCatalogMsg& updcatMsg) {
         // Don't do anything here. This stub is just to keep cpp compiler happy
     }
+    void startBlobTx(const fpi::AsyncHdr& asyncHdr,
+                       const fpi::StartBlobTxMsg& startBlob) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
 
+    void startBlobTx(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                       boost::shared_ptr<fpi::StartBlobTxMsg>& startBlob);
+    void startBlobTxCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                         const Error &e, DmIoStartBlobTx *req);
 
     void queryCatalogObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                             boost::shared_ptr<fpi::QueryCatalogMsg>& queryMsg);

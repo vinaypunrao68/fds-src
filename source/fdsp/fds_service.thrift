@@ -242,6 +242,15 @@ struct SetBlobMetaDataMsg {
    3: FDSP.FDSP_MetaDataList 	metaDataList;
 }
 
+/* Start Blob  Transaction  request message */
+struct StartBlobTxMsg {
+   1: i64    			volume_id;
+   2: string 			volume_name;
+   3: string 			blob_name;
+   4: i64 			blob_version;
+   5: FDSP.TxDescriptor 	txId;
+}
+
 /* Set blob metadata request message */
 struct SetBlobMetaDataRspMsg {
 }
@@ -250,6 +259,7 @@ struct SetBlobMetaDataRspMsg {
 service DMSvc extends BaseAsyncSvc {
     oneway void queryCatalogObject(1: AsyncHdr asyncHdr, 2:QueryCatalogMsg queryMsg);
     oneway void updateCatalog(1: AsyncHdr asyncHdr, 2:UpdateCatalogMsg updCatMsg);
+    oneway void startBlobTx(1: AsyncHdr asyncHdr, 2:StartBlobTxMsg stBlbTxMsg);
 }
 
 service AMSvc extends BaseAsyncSvc {

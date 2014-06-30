@@ -237,6 +237,29 @@ namespace fds {
 /**
  * Request to query catalog
  */
+class DmIoStartBlobTx: public dmCatReq {
+  public:
+    typedef std::function<void (const Error &e, DmIoStartBlobTx *blobTx)> CbType;
+  public:
+    DmIoStartBlobTx(const fds_volid_t  &_volId,
+                    const std::string &_blobName,
+                    const blob_version_t &_blob_version)
+            : dmCatReq(_volId, _blobName, _blob_version, FDS_START_BLOB_TX_SVC) {
+    }
+
+    virtual std::string log_string() const override {
+        std::stringstream ret;
+        ret << "DmIoStartBlobTx vol "
+            << std::hex << volId << std::dec;
+        return ret.str();
+    }
+
+    /* response callback */
+    CbType dmio_start_blob_tx_resp_cb;
+};
+/**
+ * Request to query catalog
+ */
 class DmIoQueryCat: public dmCatReq {
  public:
     typedef std::function<void (const Error &e, DmIoQueryCat *req,
@@ -245,7 +268,7 @@ class DmIoQueryCat: public dmCatReq {
     DmIoQueryCat(const fds_volid_t  &_volId,
                  const std::string &_blobName,
                  const blob_version_t &_blob_version)
-            : dmCatReq(_volId, _blobName, _blob_version, FDS_CAT_QRY2) {
+            : dmCatReq(_volId, _blobName, _blob_version, FDS_CAT_QRY_SVC) {
     }
 
     virtual std::string log_string() const override {
@@ -269,7 +292,7 @@ class DmIoUpdateCat: public dmCatReq {
     DmIoUpdateCat(const fds_volid_t  &_volId,
                   const std::string &_blobName,
                   const blob_version_t &_blob_version)
-            : dmCatReq(_volId, _blobName, _blob_version, FDS_CAT_UPD2) {
+            : dmCatReq(_volId, _blobName, _blob_version, FDS_CAT_UPD_SVC) {
     }
 
     virtual std::string log_string() const override {

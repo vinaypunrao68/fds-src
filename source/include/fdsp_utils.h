@@ -21,6 +21,7 @@ namespace FDS_ProtocolInterface {
     class PutObjectRspMsg;
     class UpdateCatalogMsg;
     class UpdateCatalogRspMsg;
+    class StartBlobTxMsg;
 }  // namespace FDS_ProtocolInterface
 
 namespace fds {
@@ -44,5 +45,6 @@ std::string logString(const FDS_ProtocolInterface::PutObjectMsg& putObj);
 std::string logString(const FDS_ProtocolInterface::PutObjectRspMsg& putObj);
 std::string logString(const FDS_ProtocolInterface::UpdateCatalogMsg& updCat);
 std::string logString(const FDS_ProtocolInterface::UpdateCatalogRspMsg& updCat);
+std::string logString(const FDS_ProtocolInterface::StartBlobTxMsg& stBlobTx);
 }  // namespace fds
 #endif  // SOURCE_INCLUDE_FDSP_UTILS_H_

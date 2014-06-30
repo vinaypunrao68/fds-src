@@ -16,6 +16,42 @@ DMSvcHandler::DMSvcHandler()
 {
 }
 
+
+void DMSvcHandler::startBlobTx(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                               boost::shared_ptr<fpi::StartBlobTxMsg>& startBlbTx)
+{
+    DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*startBlbTx));
+
+    /*
+     * allocate a new  Blob transaction  class and  queue  to per volume queue.
+     */
+    auto dmBlobTxReq = new DmIoStartBlobTx(startBlbTx->volume_id,
+                                           startBlbTx->blob_name,
+                                           startBlbTx->blob_version);
+    dmBlobTxReq->dmio_start_blob_tx_resp_cb =
+        std::bind(&DMSvcHandler::startBlobTxCb, this,
+                  asyncHdr,
+                  std::placeholders::_1, std::placeholders::_2);
+
+    Error err = dataMgr->qosCtrl->enqueueIO(dmBlobTxReq->getVolId(),
+                                            static_cast<FDS_IOType*>(dmBlobTxReq));
+    if (err != ERR_OK) {
+        LOGWARN << "Unable to enqueue  start blob tx  request "
+            << logString(*asyncHdr) << logString(*startBlbTx);
+        dmBlobTxReq->dmio_start_blob_tx_resp_cb(err, dmBlobTxReq);
+    }
+}
+
+void DMSvcHandler::startBlobTxCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                                   const Error &e, DmIoStartBlobTx *req)
+{
+    DBG(GLOGDEBUG << logString(*asyncHdr));
+    // fpi::UpdateCatalogRspMsg updcatRspMsg;
+    // net::ep_send_async_resp(*asyncHdr, updcatRspMsg);
+
+    delete req;
+}
+
 void DMSvcHandler::queryCatalogObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                       boost::shared_ptr<fpi::QueryCatalogMsg>& queryMsg)
 {

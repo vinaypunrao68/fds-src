@@ -88,4 +88,11 @@ std::string logString(const FDS_ProtocolInterface::UpdateCatalogRspMsg& updCat)
     oss < " UpdateCatalogRspMsg";
     return oss.str();
 }
+
+std::string logString(const FDS_ProtocolInterface::StartBlobTxMsg& stBlobTx)
+{
+    std::ostringstream oss;
+    oss < " StartBlobTxMs";
+    return oss.str();
+}
 }  // namespace fds

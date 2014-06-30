@@ -293,7 +293,7 @@ std::ostream& operator<<(std::ostream& os, const fds_io_op_t& opType) {
         ENUMCASEOS(FDS_IO_OFFSET_WRITE           , os);
         ENUMCASEOS(FDS_CAT_UPD                   , os);
         ENUMCASEOS(FDS_CAT_QRY                   , os);
-        ENUMCASEOS(FDS_CAT_QRY2                   , os);
+        ENUMCASEOS(FDS_CAT_QRY_SVC               , os);
         ENUMCASEOS(FDS_START_BLOB_TX             , os);
         ENUMCASEOS(FDS_ABORT_BLOB_TX, os);
         ENUMCASEOS(FDS_COMMIT_BLOB_TX, os);
