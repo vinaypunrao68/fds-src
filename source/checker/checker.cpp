@@ -785,7 +785,7 @@ FdsCheckerProc::FdsCheckerProc(int argc, char *argv[],
     reinterpret_cast<DirBasedChecker *>(platform)->set_cfg_accessor(conf_helper_);
     checker_ = reinterpret_cast<DirBasedChecker *>(platform);
     g_fdslog->setSeverityFilter(
-            (fds_log::severity_level) conf_helper_.get<int>("log_severity"));
+        fds_log::getLevelFromName(conf_helper_.get<std::string>("log_severity")));
 }
 
 FdsCheckerProc::~FdsCheckerProc()

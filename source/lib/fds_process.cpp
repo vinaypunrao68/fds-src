@@ -100,7 +100,7 @@ FdsProcess::FdsProcess(int argc, char *argv[],
     }
     /* Set the logger level */
     g_fdslog->setSeverityFilter(
-        (fds_log::severity_level) conf_helper_.get<int>("log_severity"));
+        fds_log::getLevelFromName(conf_helper_.get<std::string>("log_severity")));
 }
 
 FdsProcess::~FdsProcess()

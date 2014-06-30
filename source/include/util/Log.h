@@ -40,8 +40,8 @@
 #define LOGGERPTR  GetLog()
 // For static functions
 #define GLOGGERPTR  fds::GetLog()
-//incase your current logger is different fom GetLog(), 
-//redefine macro [LOGGERPTR] at the top of your cpp file
+// incase your current logger is different fom GetLog(),
+// redefine macro [LOGGERPTR] at the top of your cpp file
 #ifndef DONTLOGLINE
 #define _ATLINE_ <<"[" __FILE__ << ":" << __LINE__ << ":" << __FUNCTION__ << "] - "
 #else
@@ -55,7 +55,7 @@
 #define LOGDEBUG    LEVELCHECK(debug)        FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::debug)        _ATLINE_
 #define LOGNORMAL   LEVELCHECK(normal)       FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::normal)       _ATLINE_
 #define LOGNOTIFY   LEVELCHECK(notification) FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::notification) _ATLINE_
-#define LOGWARN	    LEVELCHECK(warning)      FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::warning)      _ATLINE_
+#define LOGWARN     LEVELCHECK(warning)      FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::warning)      _ATLINE_
 #define LOGERROR    LEVELCHECK(error)        FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::error)        _ATLINE_
 #define LOGCRITICAL LEVELCHECK(critical)     FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::critical)     _ATLINE_
 
@@ -71,32 +71,32 @@
 
 namespace fds {
 
-  class fds_log {
- public:
+class fds_log {
+  public:
     enum severity_level {
-      trace,
-      debug,
-      normal,
-      notification,
-      warning,
-      error,
-      critical
+        trace,
+        debug,
+        normal,
+        notification,
+        warning,
+        error,
+        critical
     };
-    
+
     enum log_options {
-      record,
-      pid,
-      pname,
-      tid
+        record,
+        pid,
+        pname,
+        tid
     };
-    
- private:
+
+  private:
     typedef boost::log::sinks::synchronous_sink< boost::log::sinks::text_ostream_backend > text_sink;
     typedef boost::log::sinks::synchronous_sink< boost::log::sinks::text_file_backend > file_sink;
-    
+
     boost::shared_ptr< file_sink > sink;
     boost::log::sources::severity_logger_mt< severity_level > slg;
-    
+
     void init(const std::string& logfile,
               const std::string& logloc,
               bool timestamp,
@@ -106,8 +106,8 @@ namespace fds {
               bool pid,
               bool tid,
               bool record);
-    
- public:
+
+  public:
     /*
      * New log with all defaults.
      */
@@ -126,35 +126,37 @@ namespace fds {
      * Constructs new log in specific location.
      */
     fds_log(const std::string& logfile,
-                     const std::string& logloc,
-                     severity_level level);
-    
+            const std::string& logloc,
+            severity_level level);
+
     ~fds_log();
-    
+
+    static severity_level getLevelFromName(std::string level);
+
     void setSeverityFilter(const severity_level &level);
     inline severity_level getSeverityLevel() { return severityLevel; }
     boost::log::sources::severity_logger_mt<severity_level>& get_slog() { return slg; }
 
-    void flush() { sink->flush() ; }
+    void flush() { sink->flush(); }
 
-private :
+  private :
     severity_level severityLevel = normal;
-  };
+};
 
-  struct HasLogger {
-      // get the class logger
-      fds_log* GetLog() const;
+struct HasLogger {
+    // get the class logger
+    fds_log* GetLog() const;
 
-      // set a new logger & return the old one.
-      fds_log* SetLog(fds_log* logptr) const ;
-    protected:
-      mutable fds_log* logptr=NULL;
-  };
+    // set a new logger & return the old one.
+    fds_log* SetLog(fds_log* logptr) const;
+  protected:
+    mutable fds_log* logptr= NULL;
+};
 
-  // get the global logger;
-  fds_log* GetLog();
+// get the global logger;
+fds_log* GetLog();
 
-  typedef boost::shared_ptr<fds_log> fds_logPtr;
+typedef boost::shared_ptr<fds_log> fds_logPtr;
 
 }  // namespace fds
 

@@ -10,6 +10,7 @@ user_fds_ar_libs  := \
 	fds-plat-lib \
 	fds-lib \
         fds-dsk-mgnt \
+	fds-net-svc \
 	fds-util \
 	fds-fdsp \
 	fds-umod \
@@ -23,7 +24,7 @@ user_non_fds_libs := \
 	boost_thread \
 	boost_date_time \
 	boost_program_options \
-	leveldb thrift  config++ hiredis
+	leveldb thrift  config++ hiredis rt
 
 user_cpp          := blobnode_unit_test.cpp
 
