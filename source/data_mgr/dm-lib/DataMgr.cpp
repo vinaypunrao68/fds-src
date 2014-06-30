@@ -793,7 +793,7 @@ void DataMgr::proc_pre_startup()
     use_om = !(conf_helper_.get_abs<bool>("fds.dm.no_om", false));
     useTestMode = conf_helper_.get_abs<bool>("fds.dm.testing.test_mode", false);
     int sev_level = fds_log::getLevelFromName(
-        conf_helper_.get<std::string>("fds.dm.log_severity", 0));
+        conf_helper_.get<std::string>("fds.dm.log_severity", "NORMAL"));
 
     GetLog()->setSeverityFilter((fds_log::severity_level)sev_level);
     if (useTestMode == true) {
