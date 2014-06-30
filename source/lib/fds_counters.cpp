@@ -72,8 +72,16 @@ std::string FdsCountersMgr::export_as_graphite()
     for (auto counters : exp_counters_) {
         std::string counters_id = counters->id();
         for (auto c : counters->exp_counters_) {
-            oss << id_ << "." << counters_id << "." << c->id() << " " << c->value()
-                << " " << ts << std::endl;
+            bool lat = typeid(*c) == typeid(LatencyCounter);
+            std::string strId = lat ? c->id() + ".latency" : c->id();
+            oss << id_ << "." << counters_id << "." << strId << " " << c->value() << " "
+                    << ts << std::endl;
+            if (lat) {
+                strId = c->id() + ".count";
+                oss << id_ << "." << counters_id << "." << strId << " " <<
+                    dynamic_cast<LatencyCounter*>(c)->count()
+                        << " " << ts << std::endl;
+            }
         }
     }
     return oss.str();
@@ -90,8 +98,15 @@ void FdsCountersMgr::export_to_ostream(std::ostream &stream)  // NOLINT
     for (auto counters : exp_counters_) {
         std::string counters_id = counters->id();
         for (auto c : counters->exp_counters_) {
-            stream << id_ << "." << counters_id << "." << c->id() << ":\t\t" << c->value()
+            bool lat = typeid(*c) == typeid(LatencyCounter);
+            std::string strId = lat ? c->id() + ".latency" : c->id();
+            stream << id_ << "." << counters_id << "." << strId << ":\t\t" << c->value()
                     << std::endl;
+            if (lat) {
+                strId = c->id() + ".count";
+                stream << id_ << "." << counters_id << "." << strId << ":\t\t" <<
+                        dynamic_cast<LatencyCounter*>(c)->count() << std::endl;
+            }
         }
     }
 }
@@ -107,7 +122,14 @@ void FdsCountersMgr::toMap(std::map<std::string, int64_t>& m)
     for (auto counters : exp_counters_) {
         std::string counters_id = counters->id();
         for (auto c : counters->exp_counters_) {
-            m[c->id()] = static_cast<int64_t>(c->value());
+            bool lat = typeid(*c) == typeid(LatencyCounter);
+            std::string strId = lat ? c->id() + ".latency" : c->id();
+            m[strId] = static_cast<int64_t>(c->value());
+            if (lat) {
+                strId = c->id() + ".count";
+                m[strId] = static_cast<int64_t>(
+                        dynamic_cast<LatencyCounter*>(c)->count());
+            }
         }
     }
 }
@@ -152,7 +174,14 @@ std::string FdsCounters::toString()
 {
     std::ostringstream oss;
     for (auto c : exp_counters_) {
-        oss << id_ << "." << "." << c->id() << " = " << c->value() << "; ";
+        bool lat = typeid(*c) == typeid(LatencyCounter);
+        std::string strId = lat ? c->id() + ".latency" : c->id();
+        oss << id_ << "." << "." << strId << " = " << c->value() << "; ";
+        if (lat) {
+            strId = c->id() + ".count";
+            oss << id_ << "." << "." << strId << " = " <<
+                dynamic_cast<LatencyCounter*>(c)->count() << "; ";
+        }
     }
     return oss.str();
 }
@@ -164,7 +193,14 @@ std::string FdsCounters::toString()
 void FdsCounters::toMap(std::map<std::string, int64_t>& m) const  // NOLINT
 {
     for (auto c : exp_counters_) {
-        m[c->id()] = static_cast<int64_t>(c->value());
+        bool lat = typeid(*c) == typeid(LatencyCounter);
+        std::string strId = lat ? c->id() + ".latency" : c->id();
+        m[strId] = static_cast<int64_t>(c->value());
+        if (lat) {
+            strId = c->id() + ".count";
+            m[strId] = static_cast<int64_t>(
+                    dynamic_cast<LatencyCounter*>(c)->count());
+        }
     }
 }
 
