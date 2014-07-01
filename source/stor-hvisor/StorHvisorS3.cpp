@@ -1199,10 +1199,16 @@ void StorHvCtrl::issueQueryCatalog(const std::string& blobName,
     queryMsg->obj_list.clear();
     queryMsg->meta_list.clear();
 
+#ifdef RPC_BASED_ASYNC_COMM
     auto asyncQueryReq = gRpcRequestPool->newFailoverRpcRequest(
         boost::make_shared<DmtVolumeIdEpProvider>(om_client->getDMTNodesForVolume(volId)));
     asyncQueryReq->setRpcFunc(
         CREATE_RPC(fpi::DMSvcClient, queryCatalogObject, queryMsg));
+#else 
+    auto asyncQueryReq = gRpcRequestPool->newFailoverNetRequest(
+        boost::make_shared<DmtVolumeIdEpProvider>(om_client->getDMTNodesForVolume(volId)));
+    asyncQueryReq->setPayload(FDSP_MSG_TYPEID(fpi::QueryCatalogMsg), queryMsg);
+#endif
     asyncQueryReq->setTimeoutMs(500);
     asyncQueryReq->onResponseCb(respCb);
     asyncQueryReq->invoke();
@@ -1219,10 +1225,16 @@ void StorHvCtrl::issueGetObject(const fds_volid_t& volId,
     getObjMsg->data_obj_id.digest = std::string((const char *)objId.GetId(),
                                                 (size_t)objId.GetLen());
 
+#ifdef RPC_BASED_ASYNC_COMM
     auto asyncGetReq = gRpcRequestPool->newFailoverRpcRequest(
         boost::make_shared<DltObjectIdEpProvider>(om_client->getDLTNodesForDoidKey(objId)));
     asyncGetReq->setRpcFunc(
         CREATE_RPC(fpi::SMSvcClient, getObject, getObjMsg));
+#else 
+    auto asyncGetReq = gRpcRequestPool->newFailoverNetRequest(
+        boost::make_shared<DltObjectIdEpProvider>(om_client->getDLTNodesForDoidKey(objId)));
+    asyncGetReq->setPayload(FDSP_MSG_TYPEID(fpi::GetObjectMsg), getObjMsg);
+#endif
     asyncGetReq->setTimeoutMs(500);
     asyncGetReq->onResponseCb(respCb);
     asyncGetReq->invoke();
@@ -1444,10 +1456,16 @@ void StorHvCtrl::issuePutObjectMsg(const ObjectID &objId,
     putObjMsg->data_obj_len = len;
     putObjMsg->data_obj_id.digest = std::string((const char *)objId.GetId(), (size_t)objId.GetLen());
 
+#ifdef RPC_BASED_ASYNC_COMM
     auto asyncPutReq = gRpcRequestPool->newQuorumRpcRequest(
         boost::make_shared<DltObjectIdEpProvider>(om_client->getDLTNodesForDoidKey(objId)));
     asyncPutReq->setRpcFunc(
         CREATE_RPC(fpi::SMSvcClient, putObject, putObjMsg));
+#else
+    auto asyncPutReq = gRpcRequestPool->newQuorumNetRequest(
+        boost::make_shared<DltObjectIdEpProvider>(om_client->getDLTNodesForDoidKey(objId)));
+    asyncPutReq->setPayload(FDSP_MSG_TYPEID(fpi::PutObjectMsg), putObjMsg);
+#endif
     asyncPutReq->setTimeoutMs(500);
     asyncPutReq->onResponseCb(respCb);
     asyncPutReq->invoke();
@@ -1482,10 +1500,16 @@ void StorHvCtrl::issueUpdateCatalogMsg(const ObjectID &objId,
     // Add the offset info to the DM message
     updCatMsg->obj_list.push_back(updBlobInfo);
 
+#ifdef RPC_BASED_ASYNC_COMM
     auto asyncUpdateCatReq = gRpcRequestPool->newQuorumRpcRequest(
         boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(volId)));
     asyncUpdateCatReq->setRpcFunc(
         CREATE_RPC(fpi::DMSvcClient, updateCatalog, updCatMsg));
+#else
+    auto asyncUpdateCatReq = gRpcRequestPool->newQuorumNetRequest(
+        boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(volId)));
+    asyncUpdateCatReq->setPayload(FDSP_MSG_TYPEID(fpi::UpdateCatalogMsg), updCatMsg);
+#endif
     asyncUpdateCatReq->setTimeoutMs(500);
     asyncUpdateCatReq->onResponseCb(respCb);
     asyncUpdateCatReq->invoke();

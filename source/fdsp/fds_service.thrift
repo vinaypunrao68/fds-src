@@ -41,14 +41,15 @@ struct DomainID {
 enum  FDSPMsgTypeId {
     UnknownMsgTypeId = 0,
     /* Common Service Types */
+    NullMsgTypeId = 10,
 
-    /* SM Types */
+    /* SM Type Ids*/
     GetObjectMsgTypeId = 10000, 
     GetObjectRespTypeId,
     PutObjectMsgTypeId, 
     PutObjectRspMsgTypeId,
 
-    /* DM TypeIds */
+    /* DM Type Ids */
     QueryCatalogMsgTypeId = 20000,
     QueryCatalogRspMsgTypeId,
     UpdateCatalogMsgTypeId,
