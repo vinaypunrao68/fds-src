@@ -1547,8 +1547,6 @@ ObjectStorMgr::putObjectInternal2(SmIoPutObjectReq *putReq) {
     fds_assert(objId != NullObjectID);
     fds_assert(putReq->origin_timestamp != 0);
 
-    PerfTracer::tracePointBegin(putReq->opLatencyCtx);
-
 #ifdef OBJCACHE_ENABLE
     objBufPtr = objCache->object_retrieve(volId, objId);
     if (objBufPtr != NULL) {
@@ -1626,9 +1624,13 @@ ObjectStorMgr::putObjectInternal2(SmIoPutObjectReq *putReq) {
         /*
          * Write the object and record which tier it went to
          */
+        
+        SCOPED_PERF_TRACEPOINT_CTX(putReq->opLatencyCtx);
+
         err = writeObject(opCtx, objId, *objBufPtr, volId, tierUsed);
 
         if (err != fds::ERR_OK) {
+            PerfTracer::incr(putReq->opReqFailedPerfEventType,putReq->perfNameStr);
             objCache->object_release(volId, objId, objBufPtr);
             objCache->object_delete(volId, objId);
             objCache->object_release(volId, objId, objBufPtr);
@@ -1684,10 +1686,11 @@ ObjectStorMgr::putObjectInternal2(SmIoPutObjectReq *putReq) {
 
           err = ERR_OK;
         } else {
-
+         SCOPED_PERF_TRACEPOINT_CTX(putReq->opLatencyCtx);
          err = writeObject(opCtx, objId, *objBufPtr, volId, tierUsed);
 
           if (err != fds::ERR_OK) {
+              PerfTracer::incr(putReq->opReqFailedPerfEventType,putReq->perfNameStr);
               LOGDEBUG << "Successfully put object " << objId;
               /* if we successfully put to flash -- notify ranking engine */
               if (tierUsed == diskio::flashTier) {
@@ -1696,7 +1699,6 @@ ObjectStorMgr::putObjectInternal2(SmIoPutObjectReq *putReq) {
                   rankEngine->rankAndInsertObject(objId, *(vol->voldesc));
               }
          }
- 
        }
        objCache->object_release(volId, objId, objBufPtr);
        objCache->object_delete(volId, objId);
@@ -1707,9 +1709,8 @@ ObjectStorMgr::putObjectInternal2(SmIoPutObjectReq *putReq) {
     qosCtrl->markIODone(*putReq,
                         tierUsed);
 
-    PerfTracer::tracePointEnd(putReq->opLatencyCtx);
     PerfTracer::tracePointEnd(putReq->opReqLatencyCtx);
-
+    
     omJrnl->release_transaction(putReq->getTransId());
 
     putReq->response_cb(err, putReq);
