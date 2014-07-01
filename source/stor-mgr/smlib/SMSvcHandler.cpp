@@ -15,6 +15,8 @@ extern ObjectStorMgr *objStorMgr;
 
 SMSvcHandler::SMSvcHandler()
 {
+    REGISTER_FDSP_MSG_HANDLER(fpi::GetObjectMsg, getObject);
+    REGISTER_FDSP_MSG_HANDLER(fpi::PutObjectMsg, putObject);
 }
 
 void SMSvcHandler::getObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
@@ -31,6 +33,19 @@ void SMSvcHandler::getObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     read_req->setVolId(getObjMsg->volume_id);
     read_req->setObjId(ObjectID(getObjMsg->data_obj_id.digest));
     read_req->obj_data.obj_id = getObjMsg->data_obj_id;
+    // perf-trace related data
+    read_req->perfNameStr = "volume:" + std::to_string(getObjMsg->volume_id);
+    read_req->opReqFailedPerfEventType = GET_OBJ_REQ_ERR;
+    read_req->opReqLatencyCtx.type = GET_OBJ_REQ;
+    read_req->opReqLatencyCtx.name = read_req->perfNameStr;
+    read_req->opLatencyCtx.type = GET_IO;
+    read_req->opLatencyCtx.name = read_req->perfNameStr;
+    read_req->opTransactionWaitCtx.type = GET_TRANS_QUEUE_WAIT;
+    read_req->opTransactionWaitCtx.name = read_req->perfNameStr;
+    read_req->opQoSWaitCtx.type = GET_QOS_QUEUE_WAIT;
+    read_req->opQoSWaitCtx.name = read_req->perfNameStr;
+
+
     read_req->smio_readdata_resp_cb = std::bind(
             &SMSvcHandler::getObjectCb, this,
             asyncHdr,
@@ -55,7 +70,7 @@ void SMSvcHandler::getObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
     resp->data_obj_len = read_req->obj_data.data.size();
     resp->data_obj = read_req->obj_data.data;
-    net::ep_send_async_resp(*asyncHdr, *resp);
+    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::GetObjectResp), *resp);
 
     delete read_req;
 }
@@ -75,6 +90,18 @@ void SMSvcHandler::putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     put_req->origin_timestamp = putObjMsg->origin_timestamp;
     put_req->setObjId(ObjectID(putObjMsg->data_obj_id.digest));
     put_req->data_obj = std::move(putObjMsg->data_obj);
+    // perf-trace related data
+    put_req->perfNameStr = "volume:" + std::to_string(putObjMsg->volume_id);
+    put_req->opReqFailedPerfEventType = PUT_OBJ_REQ_ERR;
+    put_req->opReqLatencyCtx.type = PUT_OBJ_REQ;
+    put_req->opReqLatencyCtx.name = put_req->perfNameStr;
+    put_req->opLatencyCtx.type = PUT_IO;
+    put_req->opLatencyCtx.name = put_req->perfNameStr;
+    put_req->opTransactionWaitCtx.type = PUT_TRANS_QUEUE_WAIT;
+    put_req->opTransactionWaitCtx.name = put_req->perfNameStr;
+    put_req->opQoSWaitCtx.type = PUT_QOS_QUEUE_WAIT;
+    put_req->opQoSWaitCtx.name = put_req->perfNameStr;
+
     putObjMsg->data_obj.clear();
     put_req->response_cb= std::bind(
             &SMSvcHandler::putObjectCb, this,
@@ -98,7 +125,7 @@ void SMSvcHandler::putObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
     auto resp = boost::make_shared<fpi::PutObjectRspMsg>();
     asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
-    net::ep_send_async_resp(*asyncHdr, *resp);
+    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::PutObjectRspMsg), *resp);
 
     delete put_req;
 }

@@ -6,6 +6,7 @@
 #include <thread>
 #include <functional>
 
+#include "PerfTrace.h"
 #include "ObjMeta.h"
 #include "SmObjDb.h"
 #include <policy_rpc.h>
@@ -335,7 +336,8 @@ ObjectStorMgr::ObjectStorMgr(int argc, char *argv[],
      */
     // Init  the log infra
 
-    GetLog()->setSeverityFilter((fds_log::severity_level) conf_helper_.get<int>("log_severity"));
+    GetLog()->setSeverityFilter(fds_log::getLevelFromName(
+        conf_helper_.get<std::string>("log_severity")));
     LOGDEBUG << "Constructing the Object Storage Manager";
     objStorMutex = new fds_mutex("Object Store Mutex");
 
@@ -1545,15 +1547,21 @@ ObjectStorMgr::putObjectInternal2(SmIoPutObjectReq *putReq) {
     fds_assert(objId != NullObjectID);
     fds_assert(putReq->origin_timestamp != 0);
 
+    PerfTracer::tracePointBegin(putReq->opLatencyCtx);
+
 #ifdef OBJCACHE_ENABLE
     objBufPtr = objCache->object_retrieve(volId, objId);
     if (objBufPtr != NULL) {
         fds_verify(!(objCache->is_object_io_in_progress(volId, objId, objBufPtr)));
 
+        PerfTracer::incr(PUT_CACHE_HIT, putReq->perfNameStr);
+
         // Now check for dedup here.
         if (objBufPtr->data == putReq->data_obj) {
+            PerfTracer::incr(DUPLICATE_OBJ, putReq->perfNameStr);
             err = ERR_DUPLICATE;
         } else {
+            PerfTracer::incr(HASH_COLLISION, putReq->perfNameStr);
             /*
              * Handle hash-collision - insert the next collision-id+obj-id
              */
@@ -1698,6 +1706,10 @@ ObjectStorMgr::putObjectInternal2(SmIoPutObjectReq *putReq) {
 
     qosCtrl->markIODone(*putReq,
                         tierUsed);
+
+    PerfTracer::tracePointEnd(putReq->opLatencyCtx);
+    PerfTracer::tracePointEnd(putReq->opReqLatencyCtx);
+
     omJrnl->release_transaction(putReq->getTransId());
 
     putReq->response_cb(err, putReq);
@@ -1722,6 +1734,8 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
     OpCtx opCtx(OpCtx::PUT, msgHdr->origin_timestamp);
     bool new_buff_allocated = false, added_cache = false;
 
+    PerfTracer::tracePointBegin(putReq->opLatencyCtx);
+
     ObjMetaData objMap;
     //objStorMutex->lock();
 
@@ -1730,8 +1744,11 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
     if (objBufPtr != NULL) {
         fds_verify(!(objCache->is_object_io_in_progress(volId, objId, objBufPtr)));
 
+        PerfTracer::incr(PUT_CACHE_HIT, putReq->perfNameStr);
+
         // Now check for dedup here.
         if (objBufPtr->data == putObjReq->data_obj) {
+            PerfTracer::incr(DUPLICATE_OBJ, putReq->perfNameStr);
             err = ERR_DUPLICATE;
         } else {
             /*
@@ -1878,6 +1895,9 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
     qosCtrl->markIODone(*putReq,
                         tierUsed);
 
+    PerfTracer::tracePointEnd(putReq->opLatencyCtx);
+    PerfTracer::tracePointEnd(putReq->opReqLatencyCtx);
+
     /*
      * Prepare a response to send back.
      */
@@ -1890,6 +1910,7 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
         msgHdr->result = FDS_ProtocolInterface::FDSP_ERR_OK;
         msgHdr->err_code = err.getFdspErr();
     } else {
+        PerfTracer::incr(putReq->opReqFailedPerfEventType, putReq->perfNameStr);
         msgHdr->result = FDS_ProtocolInterface::FDSP_ERR_FAILED;
         msgHdr->err_code = err.getFdspErr();
     }
@@ -1932,21 +1953,31 @@ ObjectStorMgr::enqTransactionIo(FDSP_MsgHdrTypePtr msgHdr,
                                 const ObjectID& obj_id,
                                 SmIoReq *ioReq, TransJournalId &trans_id)
 {
+
+    PerfTracer::tracePointBegin(ioReq->opReqLatencyCtx);
+
     // TODO(Rao): Refactor create_transaction so that it just takes key and cb as
     // params
     Error err = omJrnl->create_transaction(obj_id,
                                            static_cast<FDS_IOType *>(ioReq), trans_id,
                                            std::bind(&ObjectStorMgr::create_transaction_cb, this,
                                                      msgHdr, ioReq, std::placeholders::_1));
-    if (err != ERR_OK &&
-        err != ERR_TRANS_JOURNAL_REQUEST_QUEUED) {
+    if (err != ERR_OK && err != ERR_TRANS_JOURNAL_REQUEST_QUEUED) {
+        PerfTracer::tracePointEnd(ioReq->opReqLatencyCtx);
+        PerfTracer::incr(ioReq->opReqFailedPerfEventType, ioReq->perfNameStr);
+
         return err;
     }
 
     if (err == ERR_TRANS_JOURNAL_REQUEST_QUEUED) {
         return ERR_OK;
     }
-    err = qosCtrl->enqueueIO(ioReq->getVolId(), static_cast<FDS_IOType*>(ioReq));
+
+    err = qosCtrl->enqueueIO(ioReq->getVolId(), ioReq);
+    if (err != ERR_OK) {
+        PerfTracer::tracePointEnd(ioReq->opReqLatencyCtx);
+        PerfTracer::incr(ioReq->opReqFailedPerfEventType, ioReq->perfNameStr);
+    }
     return err;
 }
 
@@ -1992,7 +2023,6 @@ ObjectStorMgr::enqPutObjectReq(FDSP_MsgHdrTypePtr msgHdr,
                                      volId,
                                      FDS_IO_WRITE,
                                      am_transId);
-
         err = enqTransactionIo(msgHdr, obj_id, ioReq, trans_id);
         if (err != ERR_OK) {
             /*
@@ -2164,6 +2194,8 @@ ObjectStorMgr::getObjectInternal2(SmIoReadObjectdata *getReq) {
     fds_assert(volId != 0);
     fds_assert(objId != NullObjectID);
 
+    PerfTracer::tracePointBegin(getReq->opLatencyCtx);
+
     /*
      * We need to fix this once diskmanager keeps track of object size
      * and allocates buffer automatically.
@@ -2201,12 +2233,14 @@ ObjectStorMgr::getObjectInternal2(SmIoReadObjectdata *getReq) {
             }
         }
     } else {
+        PerfTracer::incr(GET_CACHE_HIT, getReq->perfNameStr);
         fds_verify(!(objCache->is_object_io_in_progress(volId, objId, objBufPtr)));
     }
 
     //objStorMutex->unlock();
 
     if (err != fds::ERR_OK) {
+        PerfTracer::incr(getReq->opReqFailedPerfEventType, getReq->perfNameStr);
         LOGERROR << "Failed to get object " << objId
                  << " with error " << err;
         getReq->obj_data.data.clear();
@@ -2219,6 +2253,9 @@ ObjectStorMgr::getObjectInternal2(SmIoReadObjectdata *getReq) {
     }
 
     qosCtrl->markIODone(*getReq, tierUsed);
+
+    PerfTracer::tracePointEnd(getReq->opLatencyCtx);
+    PerfTracer::tracePointEnd(getReq->opReqLatencyCtx);
 
     /*
      * Prepare a response to send back.
@@ -2248,6 +2285,8 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
     const FDSP_GetObjTypePtr& getObjReq = getReq->getGetObjReq();
     ObjBufPtrType objBufPtr = NULL;
 
+    PerfTracer::tracePointBegin(getReq->opLatencyCtx);
+
     /*
      * We need to fix this once diskmanager keeps track of object size
      * and allocates buffer automatically.
@@ -2285,12 +2324,14 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
             }
         }
     } else {
+        PerfTracer::incr(GET_CACHE_HIT, getReq->perfNameStr);
         fds_verify(!(objCache->is_object_io_in_progress(volId, objId, objBufPtr)));
     }
 
     //objStorMutex->unlock();
 
     if (err != fds::ERR_OK) {
+        PerfTracer::incr(getReq->opReqFailedPerfEventType, getReq->perfNameStr);
         LOGERROR << "Failed to get object " << objId
                  << " with error " << err;
         /*
@@ -2304,6 +2345,9 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
     }
 
     qosCtrl->markIODone(*getReq, tierUsed);
+
+    PerfTracer::tracePointEnd(getReq->opLatencyCtx);
+    PerfTracer::tracePointEnd(getReq->opReqLatencyCtx);
 
     /*
      * Prepare a response to send back.
@@ -3024,6 +3068,8 @@ void delObjectExt(SmIoReq* putReq) {
 Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
     Error err(ERR_OK);
     SmIoReq *io = static_cast<SmIoReq*>(_io);
+
+    PerfTracer::tracePointEnd(io->opQoSWaitCtx);
 
     switch (io->io_type) {
         case FDS_IO_READ:

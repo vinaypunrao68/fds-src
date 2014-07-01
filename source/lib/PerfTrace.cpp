@@ -93,15 +93,30 @@ const std::string PERF_COUNTERS_NAME("perf");
 const unsigned PERF_CONTEXT_TIMEOUT = 1800; // in seconds (30 mins)
 
 const char * eventTypeToStr[] = {
-        "trace", //generic event
+        "trace", // generic event
+        "trace_err",
 
-        "qos",
+        "put_io",
+        "put_obj_req",
+        "put_obj_req_err",
+        "put_trans_queue_wait",
+        "put_qos_queue_wait",
+        "put_cache_hit",
+
+        "duplicate_obj",
+        "hash_collision",
+
+        "get_io",
+        "get_obj_req",
+        "get_obj_req_err",
+        "get_trans_queue_wait",
+        "get_qos_queue_wait",
+        "get_cache_hit",
+
         "murmur3_hash",
         "dlt_lkup",
         "dmt_lkup",
-        "put_obj",
-        "get_obj",
-    
+
         "put_obj_dedupe_chk",
         "persist_disk_write",
         "put_obj_loc_indx_update",
@@ -213,8 +228,8 @@ void PerfTracer::reconfig() {
     enable_ = tmpEnable;
 }
 
-void PerfTracer::updateCounter(PerfContext & ctx, const fds_uint64_t & val,
-        const fds_uint64_t cnt) {
+void PerfTracer::updateCounter(PerfContext & ctx, const uint64_t & val,
+        const uint64_t cnt) {
     GLOGNORMAL << "Updating performance counter for type='" << ctx.type
             << "' val='" << val << "' count='" << cnt << "' name='"
             << ctx.name << "'";
@@ -233,7 +248,7 @@ void PerfTracer::updateCounter(PerfContext & ctx, const fds_uint64_t & val,
     }
 }
 
-void PerfTracer::upsert(const PerfEventType & type, fds_uint64_t val, fds_uint64_t cnt,
+void PerfTracer::upsert(const PerfEventType & type, uint64_t val, uint64_t cnt,
             const std::string & name) {
     PerfContext * ctx = 0;
 
@@ -267,8 +282,8 @@ void PerfTracer::incr(const PerfEventType & type, std::string name /* = "" */) {
     PerfTracer::incr(type, 1, 0, name);
 }
 
-void PerfTracer::incr(const PerfEventType & type, fds_uint64_t val,
-        fds_uint64_t cnt /* = 0 */, std::string name /* = "" */) {
+void PerfTracer::incr(const PerfEventType & type, uint64_t val,
+        uint64_t cnt /* = 0 */, std::string name /* = "" */) {
     fds_assert(type < MAX_EVENT_TYPE);
 
     // check if performance data collection is enabled

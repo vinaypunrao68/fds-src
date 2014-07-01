@@ -24,6 +24,7 @@
 #include <shared/fds_types.h>
 #include <serialize.h>
 #include <fds_assert.h>
+#include <PerfTrace.h>
 
 #include <boost/bind.hpp>
 #include <boost/function.hpp>
@@ -273,6 +274,16 @@ class FDS_IOType {
     void *vbd;
     void *vbd_req;
     blkdev_complete_req_cb_t comp_req;
+
+    // performance data collection related structures
+    std::string perfNameStr;
+    PerfEventType opReqFailedPerfEventType;
+    PerfContext opReqLatencyCtx;
+    PerfContext opLatencyCtx;
+
+    PerfContext opTransactionWaitCtx;
+
+    PerfContext opQoSWaitCtx;
 };
 }  // namespace fds
 

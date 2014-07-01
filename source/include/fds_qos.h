@@ -224,6 +224,8 @@ namespace fds {
           return Error(ERR_VOL_NOT_FOUND);
       }
 
+      PerfTracer::tracePointBegin(io->opQoSWaitCtx);
+
       FDS_VolumeQueue *que = queue_map[queue_id];      
       que->enqueueIO(io);
       
