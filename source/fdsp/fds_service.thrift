@@ -44,18 +44,18 @@ enum  FDSPMsgTypeId {
     NullMsgTypeId = 10,
 
     /* SM Type Ids*/
-    GetObjectMsgTypeId = 10000, 
-    GetObjectRespTypeId,
-    PutObjectMsgTypeId, 
-    PutObjectRspMsgTypeId,
+    GetObjectMsgTypeId 		= 10000, 
+    GetObjectRespTypeId 	= 10001,
+    PutObjectMsgTypeId		= 10002, 
+    PutObjectRspMsgTypeId	= 10003,
 
     /* DM Type Ids */
-    QueryCatalogMsgTypeId = 20000,
-    QueryCatalogRspMsgTypeId,
-    UpdateCatalogMsgTypeId,
-    UpdateCatalogRspMsgTypeId,
-    SetBlobMetaDataMsgTypeId,
-    SetBlobMetaDataRspMsgTypeId
+    QueryCatalogMsgTypeId 	= 20000,
+    QueryCatalogRspMsgTypeId	= 20001,
+    UpdateCatalogMsgTypeId	= 20002,
+    UpdateCatalogRspMsgTypeId	= 20003,
+    SetBlobMetaDataMsgTypeId	= 20004,
+    SetBlobMetaDataRspMsgTypeId = 20005
 }
 
 /*

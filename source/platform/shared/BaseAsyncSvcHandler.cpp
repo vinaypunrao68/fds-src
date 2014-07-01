@@ -66,7 +66,7 @@ void BaseAsyncSvcHandler::asyncReqt(boost::shared_ptr<FDS_ProtocolInterface::Asy
          * For detaails see macro REGISTER_FDSP_MSG_HANDLER()
          */
         fds_assert(header->msg_type_id != fpi::UnknownMsgTypeId);
-        asyncReqHandlers_[header->msg_type_id](header, payload);
+        asyncReqHandlers_.at(header->msg_type_id)(header, payload);
     } catch(std::out_of_range &e) {
         fds_assert(!"Unregistered fdsp message type");
         LOGWARN << "Unknown message type: " << static_cast<int32_t>(header->msg_type_id)
