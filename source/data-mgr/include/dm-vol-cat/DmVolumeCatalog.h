@@ -6,10 +6,12 @@
 
 #include <string>
 #include <list>
+#include <set>
 #include <util/Log.h>
 #include <fds_error.h>
 #include <fds_module.h>
 #include <DmBlobTypes.h>
+#include <VcQueryIface.h>
 
 namespace fds {
 
@@ -20,7 +22,8 @@ namespace fds {
  * that keeps per-volume catalogs in persistent storage and volume
  * catalog cache that sits on top of persistent layer.
  */
-class DmVolumeCatalog: public Module, public HasLogger {
+    class DmVolumeCatalog:
+    public Module, public HasLogger, public VolumeCatalogQueryIface {
   public:
         explicit DmVolumeCatalog(char const *const name);
         ~DmVolumeCatalog();
@@ -31,6 +34,11 @@ class DmVolumeCatalog: public Module, public HasLogger {
         virtual int mod_init(SysParams const *const param);
         virtual void mod_startup();
         virtual void mod_shutdown();
+
+        /**
+         * VolumeCatalogQueryIface methods. This interface is used by DM
+         * processing payer to query for committed blob metadata.
+         */
 
         /**
          * Add catalog for a new volume described in 'voldesc'
@@ -63,37 +71,87 @@ class DmVolumeCatalog: public Module, public HasLogger {
         fds_bool_t isVolumeEmpty() const;
 
         /**
-         * Synchronous versions of updating committed blob in the Volume Catalog.
-         * The methods return when blob update is written to persistent storage.
+         * Retrieves blob meta for the given blob_name and volume 'volume_id'
+         * @param[in] volume_id volume uuid
+         * @param[in] blob_name name of the blob
+         * @param[in,out] blob_version version of the blob to retrieve, if not
+         * set, the most recent version is retrieved. When the method returns,
+         * blob_version is set to actual version that is retrieved
+         * @param[out] blob_size size of blob in bytes
+         * @param[out] meta_list list of metadata key-value pairs
+         */
+        Error getBlobMeta(fds_volid_t volume_id,
+                          const std::string& blob_name,
+                          blob_version_t* blob_version,
+                          fds_uint64_t* blob_size,
+                          fpi::FDSP_MetaDataList* meta_list);
+
+
+        /**
+         * Retrieves blob meta for the given blob_name and volume 'volume_id'
+         * @param[in] volume_id volume uuid
+         * @param[in] blob_name name of the blob
+         * @param[in,out] blob_version version of the blob to retrieve, if not
+         * set, the most recent version is retrieved. When the method returns,
+         * blob_version is set to actual version that is retrieved
+         * @param[out] obj_list list of offset to object id mappings
+         */
+        Error getAllBlobObjects(fds_volid_t volume_id,
+                                const std::string& blob_name,
+                                blob_version_t* blob_version,
+                                fpi::FDSP_BlobObjectList* obj_list);
+
+        /**
+         * Returns the list of blobs in the volume with basic blob info
+         * @param[in] max_ret_blobs maximum number of blobs to return; if
+         * total number of blobs in the volume exceeds max_ret_blobs, returns
+         * max_ret_blobs blobs
+         * @param[in,out] iterator_cookie keeps the blob number to start with,
+         * when method returns iterator_cookie is updated with cookie to use
+         * in the next function call to continue with next set of blobs
+         * @param[out] binfo_list list of blobs
+         * @return ERR_END_OF_LIST if there are no more blobs to return
+         */
+        Error listBlobs(fds_volid_t volume_id,
+                        fds_uint32_t max_ret_blobs,
+                        fds_uint64_t* iterator_cookie,
+                        fpi::BlobInfoListType* binfo_list);
+
+
+        /**
+         * Remaining methods are used by TVC only
+         */
+
+        /**
+         * Updates committed blob in the Volume Catalog.
+         * The method does not guarantee that on method return, the blob meta is
+         * persisted. When the update is persisted, Volume Catalog will call
+         * the callback to notify TVC that commit is persisted.
          * Each method contains meta list and (optionally) object list that
          * needs to be updated (not necesserily all the metadata and objects of
          * the blob).
          */
-        Error putBlobMetaSync(const BlobMetaDesc::const_ptr& blob_meta);
-        Error putBlobSync(const BlobMetaDesc::const_ptr& blob_meta,
-                          const BlobObjList::const_ptr& blob_obj_list);
+        Error putBlobMeta(const BlobMetaDesc::const_ptr& blob_meta);
+        Error putBlob(const BlobMetaDesc::const_ptr& blob_meta,
+                      const BlobObjList::const_ptr& blob_obj_list);
 
         /**
-         * Retrieves blob meta descriptor for the given blob_name in volume
-         * 'volume_id'
+         * Flushes given blob to the persistent storage. Blocking method, will
+         * return when whole blob is flushed to persistent storage.
+         */
+        Error flushBlob(fds_volid_t volume_id,
+                        const std::string& blob_name);
+
+        /**
+         * TODO(Anna) is this a good data stuct to return?
          */
         BlobMetaDesc::const_ptr getBlobMeta(fds_volid_t volume_id,
                                             const std::string& blob_name,
                                             Error& result);
-        BlobObjList::const_ptr getAllBlobObjects(fds_volid_t volume_id,
-                                                 const std::string& blob_name,
-                                                 Error& result);
-        // TODO(xxx) what data struct is used in tvc for list of offsets?
         BlobObjList::const_ptr getBlobObjects(fds_volid_t volume_id,
                                               const std::string& blob_name,
+                                              const std::set<fds_uint64_t>& offset_list,
                                               Error& result);
-
-        /**
-         * Returns the list of blobs in the volume, where each entry in the list
-         * is a blob metadata descriptor
-         */
-        Error listBlobs(fds_volid_t volume_id,
-                        std::list<BlobMetaDesc>& bmeta_list);
 
         /**
          * Deletes the blob 'blob_name' verison 'blob_version'.
