@@ -38,10 +38,12 @@ DmTimeVolCatalog::mod_shutdown() {
 
 Error
 DmTimeVolCatalog::startBlobTx(const std::string &blobName,
-                                 BlobTxId::const_ptr txDesc) {
+                              BlobTxId::const_ptr txDesc) {
     LOGDEBUG << "Starting " << blobName
              << "transaction " << *txDesc;
     return ERR_OK;
 }
+
+DmTimeVolCatalog gl_DmTvcMod("Global DM TVC");
 
 }  // namespace fds

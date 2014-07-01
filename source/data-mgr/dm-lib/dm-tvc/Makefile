@@ -11,6 +11,6 @@ user_cpp          := \
 	TimeVolumeCatalog.cpp
 
 user_ar_libs      := fds-dm-lib
-fds-dm-lib     := $(user_cpp)
+fds-dm-lib        := $(user_cpp)
 
 include $(topdir)/Makefile.incl
