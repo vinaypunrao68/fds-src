@@ -29,14 +29,9 @@ class ProbeTestAM_RPC : virtual public fpi::ProbeServiceAMIf,
 
     void am_probe_put_resp(const fpi::ProbeGetMsgResp &resp) {
         GLOGDEBUG;
-        auto r = resp;
-        net::ep_send_async_resp(resp.hdr, r);
     }
     void am_probe_put_resp(boost::shared_ptr<fpi::ProbeGetMsgResp> &resp) {
         GLOGDEBUG;
-        auto r = *resp;
-        net::ep_send_async_resp(resp->hdr, r);
-        std::cout << __FUNCTION__ << __LINE__;
     }
 
     void foo(const FDS_ProtocolInterface::ProbeFoo& arg)
