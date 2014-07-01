@@ -15,6 +15,8 @@ extern ObjectStorMgr *objStorMgr;
 
 SMSvcHandler::SMSvcHandler()
 {
+    REGISTER_FDSP_MSG_HANDLER(fpi::GetObjectMsg, getObject);
+    REGISTER_FDSP_MSG_HANDLER(fpi::PutObjectMsg, putObject);
 }
 
 void SMSvcHandler::getObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
@@ -55,7 +57,7 @@ void SMSvcHandler::getObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
     resp->data_obj_len = read_req->obj_data.data.size();
     resp->data_obj = read_req->obj_data.data;
-    net::ep_send_async_resp(*asyncHdr, *resp);
+    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::GetObjectResp), *resp);
 
     delete read_req;
 }
@@ -98,7 +100,7 @@ void SMSvcHandler::putObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
     auto resp = boost::make_shared<fpi::PutObjectRspMsg>();
     asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
-    net::ep_send_async_resp(*asyncHdr, *resp);
+    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::PutObjectRspMsg), *resp);
 
     delete put_req;
 }

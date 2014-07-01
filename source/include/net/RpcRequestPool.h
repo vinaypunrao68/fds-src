@@ -7,6 +7,7 @@
 
 #include <concurrency/Mutex.h>
 #include <net/RpcRequest.h>
+#include <net/NetRequest.h>
 #include <net/AsyncRpcRequestTracker.h>
 
 namespace fds {
@@ -27,8 +28,10 @@ class RpcRequestPool {
         const std::vector<fpi::SvcUuid>& peerEpIds);
 
     FailoverRpcRequestPtr newFailoverRpcRequest(const EpIdProviderPtr epProvider);
-
     QuorumRpcRequestPtr newQuorumRpcRequest(const EpIdProviderPtr epProvider);
+
+    FailoverNetRequestPtr newFailoverNetRequest(const EpIdProviderPtr epProvider);
+    QuorumNetRequestPtr newQuorumNetRequest(const EpIdProviderPtr epProvider);
 
     static fpi::AsyncHdr newAsyncHeader(const AsyncRpcRequestId& reqId,
             const fpi::SvcUuid &srcUuid, const fpi::SvcUuid &dstUuid);

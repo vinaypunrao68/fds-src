@@ -166,4 +166,31 @@ QuorumRpcRequestPtr RpcRequestPool::newQuorumRpcRequest(const EpIdProviderPtr ep
 
     return req;
 }
+
+FailoverNetRequestPtr RpcRequestPool::newFailoverNetRequest(
+    const EpIdProviderPtr epProvider)
+{
+    auto reqId = nextAsyncReqId_++;
+
+    fpi::SvcUuid myEpId;
+    fds::assign(myEpId, *Platform::plf_get_my_svc_uuid());
+
+    FailoverNetRequestPtr req(new FailoverNetRequest(reqId, myEpId, epProvider));
+    asyncRpcInitCommon_(req);
+
+    return req;
+}
+
+QuorumNetRequestPtr RpcRequestPool::newQuorumNetRequest(const EpIdProviderPtr epProvider)
+{
+    auto reqId = nextAsyncReqId_++;
+
+    fpi::SvcUuid myEpId;
+    fds::assign(myEpId, *Platform::plf_get_my_svc_uuid());
+
+    QuorumNetRequestPtr req(new QuorumNetRequest(reqId, myEpId, epProvider));
+    asyncRpcInitCommon_(req);
+
+    return req;
+}
 }  // namespace fds

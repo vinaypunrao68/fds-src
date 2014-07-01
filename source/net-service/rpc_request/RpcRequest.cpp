@@ -181,6 +181,7 @@ void AsyncRpcRequestIf::postError(boost::shared_ptr<fpi::AsyncHdr> header)
 
     /* Simulate an error for remote endpoint */
     boost::shared_ptr<std::string> payload;
+    header->msg_type_id = fpi::NullMsgTypeId;
     NetMgr::ep_mgr_singleton()->ep_mgr_thrpool()->schedule(
         &BaseAsyncSvcHandler::asyncRespHandler, header, payload);
 }
