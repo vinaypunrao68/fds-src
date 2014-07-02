@@ -77,11 +77,16 @@ uint32_t MetaDataList::read(serialize::Deserializer* d) {
 }
 
 std::ostream& operator<<(std::ostream& out, const MetaDataList& metaList) {
-    out << "Metadata: \n";
+    out << "Metadata: ";
+    if (metaList.size() == 0) {
+        out << "[empty]\n";
+        return out;
+    }
+
     for (MetaDataList::const_iter cit = metaList.cbegin();
          cit != metaList.cend();
          ++cit) {
-        out << cit->first << ":" << cit->second << "\n";
+        out << "[" << cit->first << ":" << cit->second << "]";
     }
     return out;
 }
@@ -126,9 +131,9 @@ uint32_t BlobMetaDesc::read(serialize::Deserializer* d) {
 std::ostream& operator<<(std::ostream& out, const BlobMetaDesc& blobMetaDesc) {
     out << "BlobMeta: "
         << "name " << blobMetaDesc.blob_name
-        << "volume id " << std::hex << blobMetaDesc.vol_id << std::dec
-        << "version " << blobMetaDesc.version
-        << "size " << blobMetaDesc.blob_size << " bytes ";
+        << ", volume id " << std::hex << blobMetaDesc.vol_id << std::dec
+        << ", version " << blobMetaDesc.version
+        << ", size " << blobMetaDesc.blob_size << " bytes; ";
     out << blobMetaDesc.meta_list;
     return out;
 }
@@ -155,12 +160,39 @@ void BlobObjList::updateObject(fds_uint64_t offset, const ObjectID& oid) {
     (*this)[offset] = oid;
 }
 
+uint32_t BlobObjList::write(serialize::Serializer* s) const {
+    uint32_t bytes = 0;
+    bytes += s->writeI32(size());
+    for (const_iter cit = cbegin();
+         cit != cend();
+         ++cit) {
+        bytes += s->writeI64(cit->first);
+        bytes += (cit->second).write(s);
+    }
+    return bytes;
+}
+
+uint32_t BlobObjList::read(serialize::Deserializer* d) {
+    uint32_t bytes = 0;
+    uint32_t sz = 0;
+    clear();
+    bytes += d->readI32(sz);
+    for (fds_uint32_t i = 0; i < sz; ++i) {
+        fds_uint64_t offset;
+        ObjectID oid;
+        bytes += d->readI64(offset);
+        bytes += oid.read(d);
+        (*this)[offset] = oid;
+    }
+    return bytes;
+}
+
 std::ostream& operator<<(std::ostream& out, const BlobObjList& obj_list) {
-    out << "Object list: \n";
+    out << "Object list \n";
     for (BlobObjList::const_iter cit = obj_list.cbegin();
          cit != obj_list.cend();
          ++cit) {
-        out << cit->first << ":" << cit->second << "\n";
+        out << "[offset " << cit->first << " -> " << cit->second << "]\n";
     }
     return out;
 }

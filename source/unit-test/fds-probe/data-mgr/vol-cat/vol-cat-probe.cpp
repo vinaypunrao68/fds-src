@@ -6,6 +6,7 @@
 #include <vol-cat-probe.h>
 #include <string>
 #include <list>
+#include <set>
 #include <utest-types.h>
 
 namespace fds {
@@ -61,6 +62,38 @@ VolCatProbe::pr_put(ProbeRequest *probe) {
 }
 
 void
+VolCatProbe::addCatalog(const OpParams &volParams) {
+    Error err(ERR_OK);
+    std::string name = "vol" + std::to_string(volParams.vol_id);
+    VolumeDesc voldesc(name, volParams.vol_id);
+    err = gl_DmVolCatMod.addCatalog(voldesc);
+    fds_verify(err.ok());
+
+    // also activate right away for now
+    err = gl_DmVolCatMod.activateCatalog(volParams.vol_id);
+    fds_verify(err.ok());
+}
+
+void
+VolCatProbe::rmCatalog(const OpParams& volParams) {
+    Error err(ERR_OK);
+    err = gl_DmVolCatMod.removeVolumeMeta(volParams.vol_id);
+    fds_verify(err.ok());
+}
+
+void
+VolCatProbe::checkVolEmpty(const OpParams &volParams) {
+    fds_bool_t bret = gl_DmVolCatMod.isVolumeEmpty(
+        volParams.vol_id);
+    std::cout << "Volume " << std::hex << volParams.vol_id
+              << std::dec << " empty? " << bret;
+}
+
+void
+VolCatProbe::listBlobs(const OpParams& volParams) {
+}
+
+void
 VolCatProbe::getBlobMeta(const OpParams &getParams) {
     Error err(ERR_OK);
     BlobMetaDesc::const_ptr bmeta_desc =
@@ -72,8 +105,42 @@ VolCatProbe::getBlobMeta(const OpParams &getParams) {
 }
 
 void
-VolCatProbe::putBlobMeta(const OpParams&putParams) {
+VolCatProbe::getBlob(const OpParams& getParams) {
     Error err(ERR_OK);
+    std::set<fds_uint64_t> offsets;
+    for (BlobObjList::const_iter cit = getParams.obj_list.cbegin();
+         cit != getParams.obj_list.cend();
+         ++cit) {
+        offsets.insert(cit->first);
+    }
+
+    std::cout << "Will call getBlobMeta..." << std::endl;
+    BlobMetaDesc::const_ptr bmeta_desc =
+            gl_DmVolCatMod.getBlobMeta(getParams.vol_id,
+                                       getParams.blob_name,
+                                       err);
+    fds_verify(err.ok());
+    std::cout << *bmeta_desc;
+
+    // if getParams includes offsets, also get offset to oids
+    if (offsets.size() > 0) {
+        std::cout << "Will call getBlobObjects..." << std::endl;
+        BlobObjList::const_ptr obj_list =
+                gl_DmVolCatMod.getBlobObjects(getParams.vol_id,
+                                              getParams.blob_name,
+                                              offsets,
+                                              err);
+        fds_verify(err.ok());
+        std::cout << *obj_list;
+    }
+}
+
+void
+VolCatProbe::putBlob(const OpParams &putParams) {
+    Error err(ERR_OK);
+    // must must have blob name!
+    fds_verify(putParams.blob_name.size() > 0);
+
     BlobMetaDesc::ptr bmeta_desc(new BlobMetaDesc());
     bmeta_desc->blob_name = putParams.blob_name;
     bmeta_desc->vol_id = putParams.vol_id;
@@ -86,25 +153,13 @@ VolCatProbe::putBlobMeta(const OpParams&putParams) {
          ++cit) {
         (bmeta_desc->meta_list).updateMetaDataPair(cit->first, cit->second);
     }
-    std::cout << "Will call putBlobMeta for " << *bmeta_desc;
-    err = gl_DmVolCatMod.putBlobMeta(bmeta_desc);
-    fds_verify(err.ok());
-}
 
-void
-VolCatProbe::putBlob(const OpParams &putParams) {
-    Error err(ERR_OK);
-    BlobMetaDesc::ptr bmeta_desc(new BlobMetaDesc());
-    bmeta_desc->blob_name = putParams.blob_name;
-    bmeta_desc->vol_id = putParams.vol_id;
-    bmeta_desc->version = blob_version_invalid;
-    bmeta_desc->blob_size = 0;
-
-    // copy metadata list
-    for (MetaDataList::const_iter cit = putParams.meta_list.cbegin();
-         cit != putParams.meta_list.cend();
-         ++cit) {
-        (bmeta_desc->meta_list).updateMetaDataPair(cit->first, cit->second);
+    if (putParams.obj_list.size() == 0) {
+        // no offset to object id list, use putBlobMeta
+        std::cout << "Will call putBlobMeta for " << *bmeta_desc << std::endl;
+        err = gl_DmVolCatMod.putBlobMeta(bmeta_desc);
+        fds_verify(err.ok());
+        return;
     }
 
     // create blob object list
@@ -114,12 +169,19 @@ VolCatProbe::putBlob(const OpParams &putParams) {
          ++cit) {
         obj_list->updateObject(cit->first, cit->second);
     }
-
     std::cout << "Will call putBlob for " << *bmeta_desc
               << "; " << *obj_list;
 
     err = gl_DmVolCatMod.putBlob(bmeta_desc, obj_list);
     fds_verify(err.ok());
+}
+
+void
+VolCatProbe::flushBlob(const OpParams &flushParams) {
+}
+
+void
+VolCatProbe::deleteBlob(const OpParams &delParams) {
 }
 
 // pr_get
@@ -198,10 +260,18 @@ VolCatObjectOp::js_exec_obj(JsObject *parent,
         std::cout << "Doing a " << info->op << " for blob "
                   << info->blob_name << std::endl;
 
-        if (info->op == "putMeta") {
-            gl_VolCatProbe.putBlobMeta(*info);
-        } else if (info->op == "putBlob") {
+        if (info->op == "volcrt") {
+            gl_VolCatProbe.addCatalog(*info);
+        } else if (info->op == "put") {
             gl_VolCatProbe.putBlob(*info);
+        } else if (info->op == "flush") {
+            gl_VolCatProbe.flushBlob(*info);
+        } else if (info->op == "get") {
+            gl_VolCatProbe.getBlob(*info);
+        } else if (info->op == "getMeta") {
+            gl_VolCatProbe.getBlobMeta(*info);
+        } else if (info->op == "delete") {
+            gl_VolCatProbe.deleteBlob(*info);
         }
     }
 

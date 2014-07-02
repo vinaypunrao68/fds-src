@@ -40,6 +40,8 @@ void DmVolumeCatalog::mod_shutdown()
 Error DmVolumeCatalog::addCatalog(const VolumeDesc& voldesc)
 {
     Error err(ERR_OK);
+    LOGTRACE << "Will add Catalog for volume " << voldesc.name
+             << ":" << std::hex << voldesc.volUUID << std::dec;
     return err;
 }
 
@@ -50,6 +52,8 @@ Error DmVolumeCatalog::addCatalog(const VolumeDesc& voldesc)
 Error DmVolumeCatalog::activateCatalog(fds_volid_t volume_id)
 {
     Error err(ERR_OK);
+    LOGTRACE << "Will activate catalog for volume " << std::hex
+             << volume_id << std::dec;
     return err;
 }
 
@@ -66,7 +70,7 @@ Error DmVolumeCatalog::removeVolumeMeta(fds_volid_t volume_id)
 // Returns true if the volume does not contain any valid blobs.
 // A valid blob is a non-deleted blob version.
 //
-fds_bool_t DmVolumeCatalog::isVolumeEmpty() const
+fds_bool_t DmVolumeCatalog::isVolumeEmpty(fds_volid_t volume_id) const
 {
     return false;
 }
@@ -117,6 +121,8 @@ DmVolumeCatalog::getBlobMeta(fds_volid_t volume_id,
                              const std::string& blob_name,
                              Error& result)
 {
+    LOGTRACE << "Will retrieve blob meta for blob " << blob_name
+             << " volid " << std::hex << volume_id << std::dec;
     return NULL;
 }
 
@@ -126,10 +132,12 @@ DmVolumeCatalog::getBlobMeta(fds_volid_t volume_id,
 //
 BlobObjList::const_ptr
 DmVolumeCatalog::getBlobObjects(fds_volid_t volume_id,
-                                   const std::string& blob_name,
-                                   const std::set<fds_uint64_t>& offset_list,
-                                   Error& result)
+                                const std::string& blob_name,
+                                const std::set<fds_uint64_t>& offset_list,
+                                Error& result)
 {
+    LOGTRACE << "Will retrieve blob objects for blob " << blob_name
+             << " volid " << std::hex << volume_id << std::dec;
     return NULL;
 }
 
