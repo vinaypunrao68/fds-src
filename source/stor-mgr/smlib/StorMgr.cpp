@@ -1735,8 +1735,6 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
     OpCtx opCtx(OpCtx::PUT, msgHdr->origin_timestamp);
     bool new_buff_allocated = false, added_cache = false;
 
-    PerfTracer::tracePointBegin(putReq->opLatencyCtx);
-
     ObjMetaData objMap;
     //objStorMutex->lock();
 
@@ -1815,6 +1813,9 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
         /*
          * Write the object and record which tier it went to
          */
+        
+        SCOPED_PERF_TRACEPOINT_CTX(putReq->opLatencyCtx);
+        
         err = writeObject(opCtx, objId, *objBufPtr, volId, tierUsed);
 
         if (err != fds::ERR_OK) {
@@ -1874,6 +1875,7 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
           err = ERR_OK;
         } else {
 
+         SCOPED_PERF_TRACEPOINT_CTX(putReq->opLatencyCtx);
          err = writeObject(opCtx, objId, *objBufPtr, volId, tierUsed);
 
           if (err != fds::ERR_OK) {
@@ -1896,7 +1898,6 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
     qosCtrl->markIODone(*putReq,
                         tierUsed);
 
-    PerfTracer::tracePointEnd(putReq->opLatencyCtx);
     PerfTracer::tracePointEnd(putReq->opReqLatencyCtx);
 
     /*
