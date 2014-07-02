@@ -2,6 +2,7 @@
  * Copyright 2014 Formation Data Systems, Inc.
  */
 #include <list>
+#include <set>
 #include <string>
 #include <dm-vol-cat/DmVolumeCatalog.h>
 
@@ -71,24 +72,37 @@ fds_bool_t DmVolumeCatalog::isVolumeEmpty() const
 }
 
 //
-// Synchronous version of updating committed blob in the Volume Catalog.
+// Updates committed blob in the Volume Catalog.
 // Updates blob exluding list of offset to object id mappings.
 //
 Error
-DmVolumeCatalog::putBlobMetaSync(const BlobMetaDesc::const_ptr& blob_meta)
+DmVolumeCatalog::putBlobMeta(const BlobMetaDesc::const_ptr& blob_meta)
 {
     Error err(ERR_OK);
+    LOGTRACE << "Will commit meta for " << *blob_meta;
     return err;
 }
 
 //
-// Synchronous version of updating committed blob in the Volume Catalog.
+// Updates committed blob in the Volume Catalog.
 // Updates blob metadata and a given list of offset to object id mappings
 // (not necessarily the whole blob).
 //
 Error
-DmVolumeCatalog::putBlobSync(const BlobMetaDesc::const_ptr& blob_meta,
-                             const BlobObjList::const_ptr& blob_obj_list)
+DmVolumeCatalog::putBlob(const BlobMetaDesc::const_ptr& blob_meta,
+                         const BlobObjList::const_ptr& blob_obj_list)
+{
+    Error err(ERR_OK);
+    LOGTRACE << "Will commit blob " << *blob_meta << ";" << *blob_obj_list;
+    return err;
+}
+
+//
+// Flush blob to persistent storage. Will flush all blob extents.
+//
+Error
+DmVolumeCatalog::flushBlob(fds_volid_t volume_id,
+                           const std::string& blob_name)
 {
     Error err(ERR_OK);
     return err;
@@ -107,26 +121,14 @@ DmVolumeCatalog::getBlobMeta(fds_volid_t volume_id,
 }
 
 //
-// Returns list of all offset to object id mappings for the given
-// blob 'blob_name' in the given volume
-//
-BlobObjList::const_ptr
-DmVolumeCatalog::getAllBlobObjects(fds_volid_t volume_id,
-                                   const std::string& blob_name,
-                                   Error& result)
-{
-    return NULL;
-}
-
-//
-// Returns list of offset to object id mappings for the given
-// list of offsets (to be added) for blob 'blob name' and volume
-// 'volume_id
+// Returns list of offset to object id mapping for the given
+// blob 'blob_name' in the given volume and for the given list of offsets
 //
 BlobObjList::const_ptr
 DmVolumeCatalog::getBlobObjects(fds_volid_t volume_id,
-                                      const std::string& blob_name,
-                                      Error& result)
+                                   const std::string& blob_name,
+                                   const std::set<fds_uint64_t>& offset_list,
+                                   Error& result)
 {
     return NULL;
 }
@@ -135,7 +137,28 @@ DmVolumeCatalog::getBlobObjects(fds_volid_t volume_id,
 // Returns list of blobs in the volume 'volume_id'
 //
 Error DmVolumeCatalog::listBlobs(fds_volid_t volume_id,
-                                 std::list<BlobMetaDesc>& bmeta_list)
+                                 fds_uint32_t max_ret_blobs,
+                                 fds_uint64_t* iterator_cookie,
+                                 fpi::BlobInfoListType* bmeta_list)
+{
+    Error err(ERR_OK);
+    return err;
+}
+
+Error DmVolumeCatalog::getBlobMeta(fds_volid_t volume_id,
+                                   const std::string& blob_name,
+                                   blob_version_t* blob_version,
+                                   fds_uint64_t* blob_size,
+                                   fpi::FDSP_MetaDataList* meta_list)
+{
+    Error err(ERR_OK);
+    return err;
+}
+
+Error DmVolumeCatalog::getAllBlobObjects(fds_volid_t volume_id,
+                                         const std::string& blob_name,
+                                         blob_version_t* blob_version,
+                                         fpi::FDSP_BlobObjectList* obj_list)
 {
     Error err(ERR_OK);
     return err;
@@ -152,5 +175,7 @@ Error DmVolumeCatalog::deleteBlob(fds_volid_t volume_id,
     Error err(ERR_OK);
     return err;
 }
+
+DmVolumeCatalog gl_DmVolCatMod("Global DM Volume Catalog");
 
 }  // namespace fds

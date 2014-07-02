@@ -41,6 +41,7 @@ user_no_style    := \
     PerfStats.cpp        \
     jsoncpp.cpp          \
     serialize.cpp        \
+    fds_counters.cpp     \
     $(wildcard *.h)
 
 # TODO: should change this directory and this lib to something more

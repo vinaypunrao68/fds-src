@@ -153,6 +153,8 @@ create_transaction(const KeyT& key, FDS_IOType *io, TransJournalId &trans_id,
       LOGDEBUG << "New transaction.  key: " << key.ToString() << " id: " << trans_id
               << " active: " << _active_cnt << " pending: " << _pending_cnt;
   } else {
+      PerfTracer::tracePointBegin(io->opTransactionWaitCtx);
+
       _rwlog_tbl[trans_id].set_active(false);
       _pending_cnt++;
       LOGDEBUG << "Queued transaction.  key: " << key.ToString() << " id: " << trans_id
@@ -211,6 +213,9 @@ release_transaction(const TransJournalId &trans_id)
                 io != nullptr &&
                 new_trans_id != INVALID_TRANS_ID &&
                 !_rwlog_tbl[new_trans_id].is_active());
+
+        PerfTracer::tracePointEnd(io->opTransactionWaitCtx);
+
         _active_cnt++;
         _rwlog_tbl[new_trans_id].set_active(true);
         _pending_cnt--;
@@ -227,6 +232,9 @@ release_transaction(const TransJournalId &trans_id)
             /* NOTE: Here we are unable to reply back to the caller.  We expect
              * the caller time out
              */
+            PerfTracer::tracePointEnd(io->opReqLatencyCtx);
+            PerfTracer::incr(io->opReqFailedPerfEventType, io->perfNameStr);
+
             LOGERROR << "Failed to enque io.  Type: " << io->io_type
                     << " Req Id: " << io->io_req_id;
             fds_assert(!"Failed to enqueue io");

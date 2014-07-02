@@ -18,23 +18,29 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/noncopyable.hpp>
 
-#include "fds_types.h"
 #include "fds_counters.h"
 #include "fds_config.hpp"
 #include "util/Log.h"
 #include "concurrency/Mutex.h"
 
-#define SCOPED_TRACE_POINT(id, type, name) \
-        struct ScopedTracePoint_ { \
-            ScopedTracePoint_() { fds::PerfTracer::tracePointBegin(id, type, name); } \
-            ~ScopedTracePoint_() { fds::PerfTracer::tracePointEnd(id); } \
-        } tpVal_;
+#define SCOPED_PERF_TRACEPOINT(id, type, name) fds::ScopedTracePoint stp_(id, type, name)
+#define SCOPED_PERF_TRACEPOINT_CTX(ctx) fds::ScopedTracePointCtx stpctx_(ctx)
 
-#define SCOPED_TRACE_POINT_CTX(ctx) \
-        struct ScopedTracePointCtx_ { \
-            ScopedTracePointCtx_() { fds::PerfTracer::tracePointBegin(ctx); } \
-            ~ScopedTracePointCtx_() { fds::PerfTracer::tracePointEnd(ctx); } \
-        } tpcVal_;
+#ifdef DEBUG
+
+#define PERF_TRACEPOINT_INCR(type, name) fds::PerfTracer::incr(type, name)
+#define PERF_TRACEPOINT_BEGIN(id, type, name) fds::PerfTracer::tracePointBegin(id, type, name)
+#define PERF_TRACEPOINT_BEGIN_CTX(ctx) fds::PerfTracer::tracePointBegin(ctx)
+#define PERF_TRACEPOINT_END(idOrCtx) fds::PerfTracer::tracePointEnd(idOrCtx)
+
+#else
+
+#define PERF_TRACEPOINT_INCR(type, name)
+#define PERF_TRACEPOINT_BEGIN(id, type, name)
+#define PERF_TRACEPOINT_BEGIN_CTX(ctx)
+#define PERF_TRACEPOINT_END(idOrCtx)
+
+#endif /* DEBUG */
 
 namespace fds { 
 
@@ -46,14 +52,29 @@ extern const unsigned PERF_CONTEXT_TIMEOUT;
 extern const char * eventTypeToStr[];
 typedef enum {
     TRACE, // generic event
+    TRACE_ERR,
 
-    QOS,
+    PUT_IO,
+    PUT_OBJ_REQ,
+    PUT_OBJ_REQ_ERR,
+    PUT_TRANS_QUEUE_WAIT,
+    PUT_QOS_QUEUE_WAIT,
+    PUT_CACHE_HIT,
+
+    DUPLICATE_OBJ,
+    HASH_COLLISION,
+
+    GET_IO,
+    GET_OBJ_REQ,
+    GET_OBJ_REQ_ERR,
+    GET_TRANS_QUEUE_WAIT,
+    GET_QOS_QUEUE_WAIT,
+    GET_CACHE_HIT,
+
     MURMUR3_HASH,
     DLT_LKUP,
     DMT_LKUP,
-    PUT_OBJ,
-    GET_OBJ,
-    
+
     PUT_OBJ_DEDUPE_CHK,
     PERSIST_DISK_WRITE,
     PUT_OBJ_LOC_INDX_UPDATE,
@@ -92,9 +113,9 @@ typedef struct PerfContext_ {
     PerfEventType type;
     std::string name;
     bool enabled;
-    fds_uint64_t timeout;
-    fds_uint64_t start_cycle;
-    fds_uint64_t end_cycle;
+    uint64_t timeout;
+    uint64_t start_cycle;
+    uint64_t end_cycle;
     boost::shared_ptr<FdsBaseCounter> data;
     boost::shared_ptr<std::once_flag> once;
 } PerfContext;
@@ -112,8 +133,8 @@ public:
     static void incr(const PerfEventType & type, std::string name = "");
 
     // Increment counter value by val and (for LatencyCounter, count by cnt)
-    static void incr(const PerfEventType & type, fds_uint64_t val,
-            fds_uint64_t cnt = 0, std::string name = "");
+    static void incr(const PerfEventType & type, uint64_t val,
+            uint64_t cnt = 0, std::string name = "");
 
     // For LatencyCounters
     /**
@@ -192,14 +213,41 @@ private:
 
     void reconfig();
 
-    void updateCounter(PerfContext & ctx, const fds_uint64_t & val, const fds_uint64_t cnt);
+    void updateCounter(PerfContext & ctx, const uint64_t & val, const uint64_t cnt);
 
     // update & insert (if counter is not present)
-    void upsert(const PerfEventType & type, fds_uint64_t val, fds_uint64_t cnt,
+    void upsert(const PerfEventType & type, uint64_t val, uint64_t cnt,
             const std::string & name);
 
     static inline PerfTracer & instance();
 };
+
+typedef struct ScopedTracePoint_ {
+    ScopedTracePoint_(const std::string & id, const PerfEventType & type,
+            const std::string & name) : id_(id), type_(type), name_(name) {
+        fds::PerfTracer::tracePointBegin(id_, type_, name_);
+    }
+
+    ~ScopedTracePoint_() {
+        fds::PerfTracer::tracePointEnd(id_);
+    }
+private:
+    const std::string & id_;
+    const PerfEventType & type_;
+    const std::string & name_;
+} ScopedTracePoint;
+
+typedef struct ScopedTracePointCtx_ {
+    ScopedTracePointCtx_(PerfContext & ctx) : ctx_(ctx) {
+        fds::PerfTracer::tracePointBegin(ctx_);
+    }
+
+    ~ScopedTracePointCtx_() {
+        fds::PerfTracer::tracePointEnd(ctx_);
+    }
+private:
+    PerfContext & ctx_;
+} ScopedTracePointCtx;
 
 } /* namespace fds */
 

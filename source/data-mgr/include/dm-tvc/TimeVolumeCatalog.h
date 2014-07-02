@@ -44,6 +44,8 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
     void mod_shutdown();
 };
 
+extern DmTimeVolCatalog gl_DmTvcMod;
+
 }  // namespace fds
 
 #endif  // SOURCE_DATA_MGR_INCLUDE_DM_TVC_TIMEVOLUMECATALOG_H_

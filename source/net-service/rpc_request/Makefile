@@ -6,7 +6,8 @@ user_incl_dir    := $(topdir) . ../include
 user_cpp         := \
 	AsyncRpcRequestTracker.cpp \
 	RpcRequestPool.cpp \
-	RpcRequest.cpp
+	RpcRequest.cpp \
+	NetRequest.cpp
 
 
 user_ar_libs     := fds-rpc-request

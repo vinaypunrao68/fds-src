@@ -130,26 +130,6 @@ struct DmtVolumeIdEpProvider : EpIdProvider {
     std::vector<fpi::SvcUuid> epIds_;
 };
 
-
-/**
-* @brief For serializing over the wire payloads
-*
-* @tparam PayloadT
-* @param payload
-* @param payloadBuf
-*/
-template<class PayloadT>
-void serializePayload(const PayloadT &payload, std::string &payloadBuf)
-{
-    #if 0
-    bo::shared_ptr<tt::TMemoryBuffer> buffer(new tt::TMemoryBuffer());
-    bo::shared_ptr<tp::TProtocol> binary_buf(new tp::TBinaryProtocol(buffer));
-    auto written = payload.write(binary_buf.get());
-    fds_verify(written > 0);
-    payloadBuf = buffer->getBufferAsString();
-    #endif
-}
-
 /**
  * Base class for async rpc requests
  */

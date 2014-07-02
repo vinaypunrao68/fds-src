@@ -34,8 +34,9 @@ assign(FDS_ProtocolInterface::SvcUuid& lhs, const ResourceUUID& rhs)
 std::string logString(const FDS_ProtocolInterface::AsyncHdr &header)
 {
     std::ostringstream oss;
-    oss << " Req Id: " << header.msg_src_id << " From: " << header.msg_src_uuid.svc_uuid
-            << " To: " << header.msg_dst_uuid.svc_uuid << " error: " << header.msg_code;
+    oss << " Req Id: " << header.msg_src_id << " Type: " << header.msg_type_id
+        << " From: " << header.msg_src_uuid.svc_uuid
+        << " To: " << header.msg_dst_uuid.svc_uuid << " error: " << header.msg_code;
     return oss.str();
 }
 

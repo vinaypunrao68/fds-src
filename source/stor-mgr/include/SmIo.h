@@ -68,6 +68,22 @@ class SmIoReq : public FDS_IOType {
         this->putObjReq = putObjReq;
         getObjReq = NULL;
         delObjReq = NULL;
+
+        // perf-trace related data
+        perfNameStr = "volume:" + std::to_string(_volUuid);
+        opReqFailedPerfEventType = PUT_OBJ_REQ_ERR;
+
+        opReqLatencyCtx.type = PUT_OBJ_REQ;
+        opReqLatencyCtx.name = perfNameStr;
+
+        opLatencyCtx.type = PUT_IO;
+        opLatencyCtx.name = perfNameStr;
+
+        opTransactionWaitCtx.type = PUT_TRANS_QUEUE_WAIT;
+        opTransactionWaitCtx.name = perfNameStr;
+
+        opQoSWaitCtx.type = PUT_QOS_QUEUE_WAIT;
+        opQoSWaitCtx.name = perfNameStr;
     }
 
     /*
@@ -93,6 +109,22 @@ class SmIoReq : public FDS_IOType {
         this->getObjReq = getObjReq;
         putObjReq = NULL;
         delObjReq = NULL;
+
+        // perf-trace related data
+        perfNameStr = "volume:" + std::to_string(_volUuid);
+        opReqFailedPerfEventType = GET_OBJ_REQ_ERR;
+
+        opReqLatencyCtx.type = GET_OBJ_REQ;
+        opReqLatencyCtx.name = perfNameStr;
+
+        opLatencyCtx.type = GET_IO;
+        opLatencyCtx.name = perfNameStr;
+
+        opTransactionWaitCtx.type = GET_TRANS_QUEUE_WAIT;
+        opTransactionWaitCtx.name = perfNameStr;
+
+        opQoSWaitCtx.type = GET_QOS_QUEUE_WAIT;
+        opQoSWaitCtx.name = perfNameStr;
     }
 
     SmIoReq() {

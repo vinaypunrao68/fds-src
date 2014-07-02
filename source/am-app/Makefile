@@ -41,6 +41,7 @@ user_non_fds_libs :=  \
     boost_date_time \
     boost_program_options \
     boost_filesystem \
+    boost_regex \
     thrift \
     jansson \
     config++ \

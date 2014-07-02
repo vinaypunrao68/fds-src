@@ -1,0 +1,20 @@
+{
+    "Run-Input": {
+        "volcat-workload": {
+            "volcat-ops": [
+                {
+		    "blob-op":   "putMeta",
+		    "volume-id": 3,
+                    "blob-name": "blob-a",
+                    "meta-key": "ctime",
+                    "meta-val": "jul1"
+                },
+		{
+		    "blob-op":   "putBlob",
+		    "volume-id": 3,
+                    "blob-name": "blob-b"
+                }
+            ]
+        }
+    }
+}

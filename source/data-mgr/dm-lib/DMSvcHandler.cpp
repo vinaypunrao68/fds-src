@@ -14,6 +14,8 @@ extern DataMgr *dataMgr;
 
 DMSvcHandler::DMSvcHandler()
 {
+    REGISTER_FDSP_MSG_HANDLER(fpi::QueryCatalogMsg, queryCatalogObject);
+    REGISTER_FDSP_MSG_HANDLER(fpi::UpdateCatalogMsg, updateCatalog);
 }
 
 
@@ -104,7 +106,7 @@ void DMSvcHandler::queryCatalogObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncH
         delete bnode;
     }
 
-    net::ep_send_async_resp(*asyncHdr, *queryMsg);
+    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::QueryCatalogMsg), *queryMsg);
 
     delete req;
 }
@@ -141,7 +143,7 @@ void DMSvcHandler::updateCatalogCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 {
     DBG(GLOGDEBUG << logString(*asyncHdr));
     fpi::UpdateCatalogRspMsg updcatRspMsg;
-    net::ep_send_async_resp(*asyncHdr, updcatRspMsg);
+    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::UpdateCatalogRspMsg), updcatRspMsg);
 
     delete req;
 }

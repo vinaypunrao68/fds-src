@@ -383,47 +383,6 @@ svc_get_handle(const fpi::SvcUuid   &peer,
     svc_get_handle<SendIf>(NullSvcUuid, peer, out, maj, min);
 }
 
-/**
- * Common send async response method.
- */
-template<class PayloadT> void
-ep_send_async_resp(const fpi::AsyncHdr& req_hdr, const PayloadT& payload)
-{
-    GLOGDEBUG;
-    auto resp_hdr = NetMgr::ep_swap_header(req_hdr);
-
-    bo::shared_ptr<tt::TMemoryBuffer> buffer(new tt::TMemoryBuffer());
-    bo::shared_ptr<tp::TProtocol> binary_buf(new tp::TBinaryProtocol(buffer));
-
-    auto written = payload.write(binary_buf.get());
-    fds_verify(written > 0);
-
-    EpSvcHandle::pointer ep;
-    net::svc_get_handle<fpi::BaseAsyncSvcClient>(resp_hdr.msg_dst_uuid, &ep, 0 , 0);
-
-    if (ep == nullptr) {
-        fds_assert(!"This shouldn't happen");
-        GLOGERROR << "Null destination endpoint: " << resp_hdr.msg_dst_uuid.svc_uuid;
-        return;
-    }
-
-    auto client = ep->svc_rpc<fpi::BaseAsyncSvcClient>();
-    if (client == nullptr) {
-        GLOGERROR << "Null destination client: " << resp_hdr.msg_dst_uuid.svc_uuid;
-        return;
-    }
-
-    // TODO(Rao): Enable this code instead of the try..catch.  I was getting
-    // a compiler error when I enabled the following code.
-    // NET_SVC_RPC_CALL(ep, client, fpi::BaseAsyncSvcClient::asyncResp,
-                     // resp_hdr, buffer->getBufferAsString());
-    try {
-        client->asyncResp(resp_hdr, buffer->getBufferAsString());
-    } catch(...) {
-        ep->ep_handle_net_error();
-    }
-}
-
 template<class PayloadT> boost::shared_ptr<PayloadT>
 ep_deserialize(Error &e, boost::shared_ptr<std::string> payload)
 {

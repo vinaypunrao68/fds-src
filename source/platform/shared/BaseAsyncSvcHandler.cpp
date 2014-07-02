@@ -24,25 +24,6 @@ BaseAsyncSvcHandler::~BaseAsyncSvcHandler() {
 }
 
 /**
- *
- * @param header
- */
-void BaseAsyncSvcHandler::asyncReqt(const FDS_ProtocolInterface::AsyncHdr& header,
-                                    const std::string& payload)
-{
-}
-
-/**
- *
- * @param header
- */
-void BaseAsyncSvcHandler::asyncReqt(
-        boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
-        boost::shared_ptr<std::string>& payload)
-{
-}
-
-/**
 * @brief 
 *
 * @param _return
@@ -62,6 +43,35 @@ void BaseAsyncSvcHandler::uuidBind(FDS_ProtocolInterface::RespHdr& _return,
 void BaseAsyncSvcHandler::uuidBind(FDS_ProtocolInterface::RespHdr& _return,
                         boost::shared_ptr<FDS_ProtocolInterface::UuidBindMsg>& msg)
 {
+}
+
+void BaseAsyncSvcHandler::asyncReqt(const FDS_ProtocolInterface::AsyncHdr& header,
+                                    const std::string& payload)
+{
+}
+
+/**
+* @brief Invokes registered request handler
+*
+* @param header
+* @param payload
+*/
+void BaseAsyncSvcHandler::asyncReqt(boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
+                                    boost::shared_ptr<std::string>& payload)
+{
+    GLOGDEBUG << logString(*header);
+    try {
+        /* Deserialize the message and invoke the handler.  Deserialization is performed
+         * by deserializeFdspMsg().
+         * For detaails see macro REGISTER_FDSP_MSG_HANDLER()
+         */
+        fds_assert(header->msg_type_id != fpi::UnknownMsgTypeId);
+        asyncReqHandlers_[header->msg_type_id](header, payload);
+    } catch(std::out_of_range &e) {
+        fds_assert(!"Unregistered fdsp message type");
+        LOGWARN << "Unknown message type: " << static_cast<int32_t>(header->msg_type_id)
+            << " Ignoring";
+    }
 }
 
 /**
@@ -101,7 +111,9 @@ void BaseAsyncSvcHandler::asyncRespHandler(
     static SynchronizedTaskExecutor<uint64_t>* taskExecutor =
         NetMgr::ep_mgr_singleton()->ep_get_task_executor();
 
-    GLOGDEBUG;
+    GLOGDEBUG << logString(*header);
+
+    fds_assert(header->msg_type_id != fpi::UnknownMsgTypeId);
 
     auto asyncReq = gAsyncRpcTracker->\
             getAsyncRpcRequest(static_cast<AsyncRpcRequestId>(header->msg_src_id));

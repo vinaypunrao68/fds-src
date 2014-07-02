@@ -80,7 +80,7 @@ void OrchMgr::proc_pre_startup()
     }
 
     GetLog()->setSeverityFilter(
-        (fds_log::severity_level) (conf_helper_.get<int>("log_severity")));
+        fds_log::getLevelFromName(conf_helper_.get<std::string>("log_severity")));
 
     my_node_name = stor_prefix + std::string("OrchMgr");
 

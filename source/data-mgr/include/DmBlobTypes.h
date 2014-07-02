@@ -10,64 +10,113 @@
 #define SOURCE_DATA_MGR_INCLUDE_DMBLOBTYPES_H_
 
 #include <string>
-#include <map>
+#include <unordered_map>
 #include <fds_types.h>
 #include <fds_volume.h>
-#include <blob/BlobTypes.h>
 
 namespace fds {
 
-struct BlobObjList
-        : std::unordered_map<fds_uint64_t, ObjectID> {
-    typedef boost::shared_ptr<BlobObjList> ptr;
-    typedef boost::shared_ptr<const BlobObjList> const_ptr;
-    typedef std::unordered_map<
-            fds_uint64_t,
-            ObjectID>::const_iterator const_it;
+    /**
+     * List of metadata key-value pairs
+     * Implemented as a map so we can easily search for particular key
+     */
+    struct MetaDataList :
+            std::unordered_map<std::string, std::string>,
+            serialize::Serializable {
+        typedef std::unordered_map<
+                std::string,
+                std::string>::const_iterator const_iter;
+
+        /**
+         * Constructs empty metadata list
+         */
+        MetaDataList();
+        /**
+         * Constructs metadata list from FDSP metadata message
+         */
+        explicit MetaDataList(const fpi::FDSP_MetaDataList& mlist);
+        virtual ~MetaDataList();
+
+        /**
+         * Add metadata key-value pair to the list if key it does not
+         * exist yet, or update existing key-value pair
+         */
+        void updateMetaDataPair(const std::string& key, const std::string& value);
+        /**
+         * Copies metadata list to FDSP metadata list message; if there is any
+         * data in mlist, it will be cleared first;
+         */
+        void toFdspPayload(fpi::FDSP_MetaDataList& mlist) const;
+
+        uint32_t write(serialize::Serializer* s) const;
+        uint32_t read(serialize::Deserializer* d);
+    };
+
 
     /**
-     * Constructs the BlobObjList object with empty list
+     * A list of offset to Object ID mappings
      */
-    BlobObjList();
+    struct BlobObjList
+            : std::unordered_map<fds_uint64_t, ObjectID> {
+        typedef boost::shared_ptr<BlobObjList> ptr;
+        typedef boost::shared_ptr<const BlobObjList> const_ptr;
+        typedef std::unordered_map<
+                fds_uint64_t,
+                ObjectID>::const_iterator const_iter;
+
+        /**
+         * Constructs the BlobObjList object with empty list
+         */
+        BlobObjList();
+        /**
+         * Constructs the object from FDSP object list type
+         */
+        explicit BlobObjList(const fpi::FDSP_BlobObjectList& blob_obj_list);
+        virtual ~BlobObjList();
+
+        /**
+         * Update offset to object id mapping, if offset does not exit,
+         * adds as new offset to object id mapping
+         */
+        void updateObject(fds_uint64_t offset, const ObjectID& oid);
+    };
+
+
     /**
-     * Constructs the object from FDSP object list type
+     * Metadata that describes the blob, not including the
+     * the offset to object id mappings list of the metadata
      */
-    explicit BlobObjList(const fpi::FDSP_BlobObjectList& blob_obj_list);
-    virtual ~BlobObjList();
-};
+    struct BlobMetaDesc: serialize::Serializable {
+        std::string blob_name;
+        fds_volid_t vol_id;
+        blob_version_t version;
+        fds_uint64_t blob_size;
+        MetaDataList meta_list;
 
+        typedef boost::shared_ptr<BlobMetaDesc> ptr;
+        typedef boost::shared_ptr<const BlobMetaDesc> const_ptr;
 
-/**
- * Metadata that describes the blob, not including the
- * the offset to object id mappings list of the metadata
- */
-struct BlobMetaDesc {
-    std::string blob_name;
-    fds_volid_t vol_id;
-    blob_version_t version;
-    fds_uint64_t blob_size;
-    BlobKeyValue meta_list;
+        /**
+         * Constructs invalid BlobMetaDesc object, must initialize
+         * to valid fields after the constructor.
+         */
+        BlobMetaDesc();
+        virtual ~BlobMetaDesc();
 
-    typedef boost::shared_ptr<BlobMetaDesc> ptr;
-    typedef boost::shared_ptr<const BlobMetaDesc> const_ptr;
+        uint32_t write(serialize::Serializer* s) const;
+        uint32_t read(serialize::Deserializer* d);
+    };
 
-    /**
-     * Constructs invalid BlobMetaDesc object, must initialize
-     * to valid fields after the constructor.
-     */
-    BlobMetaDesc();
-    virtual ~BlobMetaDesc();
+    std::ostream& operator<<(std::ostream& out, const MetaDataList& metaList);
+    std::ostream& operator<<(std::ostream& out, const BlobMetaDesc& blobMetaDesc);
+    std::ostream& operator<<(std::ostream& out, const BlobObjList& obj_list);
 
-    void mkFDSPMetaDataList(fpi::FDSP_MetaDataList& mlist) const;
-};
-
-namespace BlobUtil {
-    void toFDSPQueryCatalogMsg(const BlobMetaDesc::const_ptr& blob_meta_desc,
-                               const BlobObjList::const_ptr& blob_obj_list,
-                               fds_uint32_t max_obj_size_bytes,
-                               fpi::FDSP_QueryCatalogTypePtr& query_msg);
-}  // namespace BlobUtil
-
+    namespace BlobUtil {
+        void toFDSPQueryCatalogMsg(const BlobMetaDesc::const_ptr& blob_meta_desc,
+                                   const BlobObjList::const_ptr& blob_obj_list,
+                                   fds_uint32_t max_obj_size_bytes,
+                                   fpi::FDSP_QueryCatalogTypePtr& query_msg);
+    }  // namespace BlobUtil
 
 }  // namespace fds
 

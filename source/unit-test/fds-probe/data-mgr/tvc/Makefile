@@ -1,13 +1,12 @@
-probe_topdir      := ..
+probe_topdir      := ../..
 local_topdir      := $(probe_topdir)/../..
 
 user_install_loc  := test
 user_install      :=
 
-user_build_dir    := tvc vol-cat
-
 user_incl_dir     := \
     $(local_topdir)/data-mgr/include \
+    $(local_topdir)/am-app/include \
     $(local_topdir) \
     $(local_topdir)/lib
 
@@ -16,7 +15,7 @@ user_fds_so_libs  :=
 user_fds_ar_libs  := \
     fds-dm-lib       \
     fds-am-engine    \
-    fds-dm-plat      \
+    fds-am-plat      \
     fds-dm-lib       \
     fds-plat-lib     \
     fds-lib          \
@@ -31,9 +30,9 @@ user_hh           := $(wildcard *.h)
 user_cc           := ngx_modules.c
 user_cpp          := \
     mod-main.cpp \
-    dm-probe.cpp
+    tvc-probe.cpp
 
-user_bin_exe      := dm-probe
-dm-probe          := $(user_cpp) $(user_cc)
+user_bin_exe      := tvc-probe
+tvc-probe         := $(user_cpp) $(user_cc)
 
 include $(probe_topdir)/Makefile.s3
