@@ -57,6 +57,9 @@ namespace fds {
         ERR_DMT_EQUAL            = 35,
         ERR_DMT_FORWARD          = 36,
 
+        ERR_DM_TX_ALREADY_STARTED = 37,
+        ERR_DM_TX_NOT_STARTED     = 38,
+
         /* I/O error range */
         ERR_IO_DLT_MISMATCH      = 100,
 

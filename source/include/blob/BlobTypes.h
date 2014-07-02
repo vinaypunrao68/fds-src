@@ -105,4 +105,13 @@ class BlobTxList : public std::list<BlobTxId::const_ptr> {
 
 }  // namespace fds
 
+namespace std {
+template<>
+struct hash<fds::BlobTxId> {
+    std::size_t operator()(const fds::BlobTxId & key) const {
+        return std::hash<fds_uint64_t>()(key.getValue());
+    }
+};
+} /* namespace std */
+
 #endif  // SOURCE_INCLUDE_BLOB_BLOBTYPES_H_

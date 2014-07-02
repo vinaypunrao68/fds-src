@@ -11,11 +11,11 @@ user_cpp          := \
 	DataMgr.cpp \
 	VolumeMeta.cpp \
 	qos_ctrl.cpp   \
+	DmBlobTypes.cpp \
 	CommitLog.cpp \
 	DMSvcHandler.cpp \
-        CatalogSync.cpp \
-        CatalogSyncRecv.cpp \
-        DmBlobTypes.cpp
+	CatalogSync.cpp \
+	CatalogSyncRecv.cpp
 
 user_ar_libs      := fds-dm-lib
 fds-dm-lib        := $(user_cpp)
