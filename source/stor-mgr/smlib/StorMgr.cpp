@@ -1392,13 +1392,14 @@ ObjectStorMgr::writeObjectToTier(const OpCtx &opCtx,
 
     /* Disk write */
     disk_req = new SmPlReq(vio, oid, (ObjectBuf *)&objData, true, tier); // blocking call
-    err = dio_mgr.disk_write(disk_req);
+    err = dio_mgr.disk_write(disk_req); //TODO(Matteo) inside or around this function, it could be non blocking
     if (err != ERR_OK) {
         LOGDEBUG << " 1. Disk Write Err: " << err; 
         delete disk_req;
         return err;
     }
     
+    //TODO(Matteo): look inside. This is for metadata. Initially we probably want just leveldb get and put
     err = writeObjectMetaData(opCtx, objId, objData.data.length(),
                 disk_req->req_get_phy_loc(), false, diskTier, &vio);
 
@@ -1556,7 +1557,6 @@ ObjectStorMgr::putObjectInternal2(SmIoPutObjectReq *putReq) {
 
         // Now check for dedup here.
         if (objBufPtr->data == putReq->data_obj) {
-            PerfTracer::incr(DUPLICATE_OBJ, putReq->perfNameStr);
             err = ERR_DUPLICATE;
         } else {
             PerfTracer::incr(HASH_COLLISION, putReq->perfNameStr);
@@ -1582,6 +1582,7 @@ ObjectStorMgr::putObjectInternal2(SmIoPutObjectReq *putReq) {
     }
 
     if (err == ERR_DUPLICATE) {
+        PerfTracer::incr(DUPLICATE_OBJ, putReq->perfNameStr);
         if (new_buff_allocated) {
             added_cache = true;
             objCache->object_add(volId, objId, objBufPtr, false);
