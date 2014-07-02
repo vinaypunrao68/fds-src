@@ -79,6 +79,7 @@ Error
 DmVolumeCatalog::putBlobMeta(const BlobMetaDesc::const_ptr& blob_meta)
 {
     Error err(ERR_OK);
+    LOGTRACE << "Will commit meta for " << *blob_meta;
     return err;
 }
 
@@ -92,6 +93,7 @@ DmVolumeCatalog::putBlob(const BlobMetaDesc::const_ptr& blob_meta,
                          const BlobObjList::const_ptr& blob_obj_list)
 {
     Error err(ERR_OK);
+    LOGTRACE << "Will commit blob " << *blob_meta << ";" << *blob_obj_list;
     return err;
 }
 
@@ -173,5 +175,7 @@ Error DmVolumeCatalog::deleteBlob(fds_volid_t volume_id,
     Error err(ERR_OK);
     return err;
 }
+
+DmVolumeCatalog gl_DmVolCatMod("Global DM Volume Catalog");
 
 }  // namespace fds

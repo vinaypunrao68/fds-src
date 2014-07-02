@@ -151,6 +151,21 @@ BlobObjList::BlobObjList(const fpi::FDSP_BlobObjectList& blob_obj_list) {
 BlobObjList::~BlobObjList() {
 }
 
+void BlobObjList::updateObject(fds_uint64_t offset, const ObjectID& oid) {
+    (*this)[offset] = oid;
+}
+
+std::ostream& operator<<(std::ostream& out, const BlobObjList& obj_list) {
+    out << "Object list: \n";
+    for (BlobObjList::const_iter cit = obj_list.cbegin();
+         cit != obj_list.cend();
+         ++cit) {
+        out << cit->first << ":" << cit->second << "\n";
+    }
+    return out;
+}
+
+
 //---------------- BlobUtil methods -----------------------------------------//
 
 void BlobUtil::toFDSPQueryCatalogMsg(const BlobMetaDesc::const_ptr& blob_meta_desc,
@@ -164,7 +179,7 @@ void BlobUtil::toFDSPQueryCatalogMsg(const BlobMetaDesc::const_ptr& blob_meta_de
 
     // fill in blob_obj_list
     (query_msg->obj_list).clear();
-    for (BlobObjList::const_it cit = blob_obj_list->cbegin();
+    for (BlobObjList::const_iter cit = blob_obj_list->cbegin();
          cit != blob_obj_list->cend();
          ++cit) {
         fpi::FDSP_BlobObjectInfo obj_info;

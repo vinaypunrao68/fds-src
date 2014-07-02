@@ -62,7 +62,7 @@ namespace fds {
         typedef boost::shared_ptr<const BlobObjList> const_ptr;
         typedef std::unordered_map<
                 fds_uint64_t,
-                ObjectID>::const_iterator const_it;
+                ObjectID>::const_iterator const_iter;
 
         /**
          * Constructs the BlobObjList object with empty list
@@ -73,6 +73,12 @@ namespace fds {
          */
         explicit BlobObjList(const fpi::FDSP_BlobObjectList& blob_obj_list);
         virtual ~BlobObjList();
+
+        /**
+         * Update offset to object id mapping, if offset does not exit,
+         * adds as new offset to object id mapping
+         */
+        void updateObject(fds_uint64_t offset, const ObjectID& oid);
     };
 
 
@@ -103,6 +109,7 @@ namespace fds {
 
     std::ostream& operator<<(std::ostream& out, const MetaDataList& metaList);
     std::ostream& operator<<(std::ostream& out, const BlobMetaDesc& blobMetaDesc);
+    std::ostream& operator<<(std::ostream& out, const BlobObjList& obj_list);
 
     namespace BlobUtil {
         void toFDSPQueryCatalogMsg(const BlobMetaDesc::const_ptr& blob_meta_desc,

@@ -1,0 +1,133 @@
+/*
+ * Copyright 2014 Formation Data Systems, Inc.
+ */
+#ifndef SOURCE_UNIT_TEST_FDS_PROBE_DATA_MGR_VOL_CAT_VOL_CAT_PROBE_H_
+#define SOURCE_UNIT_TEST_FDS_PROBE_DATA_MGR_VOL_CAT_VOL_CAT_PROBE_H_
+
+/*
+ * Header file for DM Volume Catalog probe
+ */
+#include <string>
+#include <list>
+#include <fds-probe/fds_probe.h>
+#include <utest-types.h>
+#include <fds_types.h>
+#include <dm-vol-cat/DmVolumeCatalog.h>
+
+namespace fds {
+
+    /**
+     * Class that acts as unit test interface to DM Volume Catalog
+     * Provides implementation of JSON interface to
+     * DM Volume Catalog API requests.
+     */
+    class VolCatProbe : public ProbeMod {
+  public:
+        VolCatProbe(const std::string &name,
+                    probe_mod_param_t *param,
+                    Module *owner);
+        virtual ~VolCatProbe();
+        typedef boost::shared_ptr<VolCatProbe> ptr;
+
+        // Module related methods
+        int  mod_init(SysParams const *const param);
+        void mod_startup();
+        void mod_shutdown();
+
+        // Probe related methods
+        ProbeMod *pr_new_instance();
+        void pr_intercept_request(ProbeRequest *req);
+        void pr_put(ProbeRequest *req);
+        void pr_get(ProbeRequest *req);
+        void pr_delete(ProbeRequest *req);
+        void pr_verify_request(ProbeRequest *req);
+        void pr_gen_report(std::string *out);
+
+        class OpParams {
+      public:
+            std::string    op;
+            fds_volid_t    vol_id;
+            std::string    blob_name;
+            MetaDataList   meta_list;
+            BlobObjList    obj_list;
+        };
+        void getBlobMeta(const OpParams &getParams);
+        void putBlobMeta(const OpParams &putParams);
+        void putBlob(const OpParams &putParams);
+};
+
+// ----------------------------------------------------------------------------
+
+/**
+ * Unit test operation object
+ */
+class VolCatObjectOp : public JsObject
+{
+  public:
+    virtual JsObject *js_exec_obj(JsObject *array,
+                                  JsObjTemplate *templ,
+                                  JsObjOutput *out);
+
+    inline VolCatProbe::OpParams *volcat_ops() {
+        return static_cast<VolCatProbe::OpParams *>(js_pod_object());
+    }
+};
+
+/**
+ * Unit test workload specification
+ */
+class VolCatOpTemplate : public JsObjTemplate
+{
+  public:
+    virtual ~VolCatOpTemplate() {}
+    explicit VolCatOpTemplate(JsObjManager *mgr)
+            : JsObjTemplate("volcat-ops", mgr) {}
+
+    virtual JsObject *js_new(json_t *in) {
+        VolCatProbe::OpParams *p = new VolCatProbe::OpParams();
+        char *op;
+        char *name;
+        char* meta_key;
+        char* meta_val;
+        if (json_unpack(in, "{s:s, s:i, s:s}",
+                        "blob-op", &op,
+                        "volume-id", &p->vol_id,
+                        "blob-name", &name)) {
+            fds_panic("Malformed json!");
+        }
+        p->op = op;
+        p->blob_name = name;
+
+        json_unpack(in, "{s:s, s:s}",
+                    "meta-key", &meta_key,
+                    "meta-val", &meta_val);
+        (p->meta_list).updateMetaDataPair(meta_key, meta_val);
+
+        // json_unpack(in, "{s:i}", "blob-off", &p->blobOffset);
+
+        return js_parse(new VolCatObjectOp(), in, p);
+    }
+};
+
+/**
+ * Unit test mapping for json structure
+ */
+class VolCatWorkloadTemplate : public JsObjTemplate
+{
+  public:
+    explicit VolCatWorkloadTemplate(JsObjManager *mgr)
+            : JsObjTemplate("volcat-workload", mgr)
+    {
+        js_decode["volcat-ops"] = new VolCatOpTemplate(mgr);
+    }
+    virtual JsObject *js_new(json_t *in) {
+        return js_parse(new JsObject(), in, NULL);
+    }
+};
+
+/// Adapter class
+extern VolCatProbe           gl_VolCatProbe;
+
+}  // namespace fds
+
+#endif  // SOURCE_UNIT_TEST_FDS_PROBE_DATA_MGR_VOL_CAT_VOL_CAT_PROBE_H_

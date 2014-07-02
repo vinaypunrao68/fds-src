@@ -15,13 +15,13 @@
 
 namespace fds {
 
-/**
- * This is the module that manages committed blob metadata
- * for all volumes managed by this DM. This module internally
- * manages two sub-modules: persistent layer of Volume catalog
- * that keeps per-volume catalogs in persistent storage and volume
- * catalog cache that sits on top of persistent layer.
- */
+    /**
+     * This is the module that manages committed blob metadata
+     * for all volumes managed by this DM. This module internally
+     * manages two sub-modules: persistent layer of Volume catalog
+     * that keeps per-volume catalogs in persistent storage and volume
+     * catalog cache that sits on top of persistent layer.
+     */
     class DmVolumeCatalog:
     public Module, public HasLogger, public VolumeCatalogQueryIface {
   public:
@@ -162,7 +162,9 @@ namespace fds {
                          blob_version_t blob_version);
 
   private:
-};
+    };
+
+    extern DmVolumeCatalog gl_DmVolCatMod;
 
 }  // namespace fds
 
