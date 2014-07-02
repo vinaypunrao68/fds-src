@@ -55,7 +55,9 @@ enum  FDSPMsgTypeId {
     UpdateCatalogMsgTypeId,
     UpdateCatalogRspMsgTypeId,
     SetBlobMetaDataMsgTypeId,
-    SetBlobMetaDataRspMsgTypeId
+    SetBlobMetaDataRspMsgTypeId,
+    StartBlobTxMsgTypeId,
+    StartBlobTxMsgRespTypeId
 }
 
 /*
@@ -277,7 +279,6 @@ struct UpdateCatalogRspMsg {
 /* Start Blob  Transaction  request message */
 struct StartBlobTxMsg {
    1: i64    			volume_id;
-   2: string 			volume_name;
    3: string 			blob_name;
    4: i64 			blob_version;
    5: i64                   	txId;
@@ -286,7 +287,6 @@ struct StartBlobTxMsg {
 /* delete catalog object Transaction  request message */
 struct DeleteCatalogObjectMsg {
    1: i64    			volume_id;
-   2: string 			volume_name;
    3: string 			blob_name;
    4: i64 			blob_version;
 }
@@ -301,7 +301,6 @@ struct GetVolumeBlobListMsg {
 /* get the list of blobs in volume Transaction  request message */
 struct SetBlobMetaDataMsg {
    1: i64    			volume_id;
-   2: string 			volume_name;
    3: string 			blob_name;
    4: i64 			blob_version;
    5: FDSP.FDSP_MetaDataList    metaDataList; 

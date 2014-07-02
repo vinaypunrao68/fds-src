@@ -359,29 +359,19 @@ public:
     };
 
     fds::Error getBlob2(fds::AmQosReq *qosReq);
+    fds::Error putBlob2(fds::AmQosReq *qosReq);
+    fds::Error startBlobTxSvc(AmQosReq *qosReq);
 
     void issueQueryCatalog(const std::string& blobName,
                            const fds_uint64_t& blobOffset,
                            const fds_volid_t& volId,
                            FailoverRpcRespCb respCb);
-
     void issueGetObject(const fds_volid_t& volId, const ObjectID& objId,
                         FailoverRpcRespCb respCb);
-
-    void getBlobQueryCatalogResp(fds::AmQosReq* qosReq,
-                                 FailoverRpcRequest* rpcReq,
-                                 const Error& error,
-                                 boost::shared_ptr<std::string> payload);
-
-    void getBlobGetObjectResp(fds::AmQosReq* qosReq,
-                              FailoverRpcRequest* rpcReq,
-                              const Error& error,
-                              boost::shared_ptr<std::string> payload);
-
-    fds::Error updateCatalogCache(GetBlobReq *blobReq,
-                                  FDS_ProtocolInterface::FDSP_BlobObjectList& blobOffList);
-
-    fds::Error putBlob2(fds::AmQosReq *qosReq);
+    void issueStartBlobTxMsg(const std::string& blobName,
+                             const fds_volid_t& volId,
+                             const fds_uint64_t& txId,
+                             QuorumRpcRespCb respCb);
     void issuePutObjectMsg(const ObjectID &objId,
                            const char* dataBuf,
                            const fds_uint64_t &len,
@@ -394,6 +384,20 @@ public:
                                const bool &lastBuf,
                                const fds_volid_t& volId,
                                QuorumRpcRespCb respCb);
+
+
+    void getBlobQueryCatalogResp(fds::AmQosReq* qosReq,
+                                 FailoverRpcRequest* rpcReq,
+                                 const Error& error,
+                                 boost::shared_ptr<std::string> payload);
+    void getBlobGetObjectResp(fds::AmQosReq* qosReq,
+                              FailoverRpcRequest* rpcReq,
+                              const Error& error,
+                              boost::shared_ptr<std::string> payload);
+    void startBlobTxMsgResp(fds::AmQosReq* qosReq,
+                            QuorumRpcRequest* rpcReq,
+                            const Error& error,
+                            boost::shared_ptr<std::string> payload);
     void putBlobUpdateCatalogMsgResp(fds::AmQosReq* qosReq,
                                      QuorumRpcRequest* rpcReq,
                                      const Error& error,
@@ -403,6 +407,9 @@ public:
                                  QuorumRpcRequest* rpcReq,
                                  const Error& error,
                                  boost::shared_ptr<std::string> payload);
+
+    fds::Error updateCatalogCache(GetBlobReq *blobReq,
+                                  FDS_ProtocolInterface::FDSP_BlobObjectList& blobOffList);
     inline AMCounters& getCounters()
     {
         return counters_;
