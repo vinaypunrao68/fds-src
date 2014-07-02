@@ -97,7 +97,7 @@ class MyShell(cmd.Cmd):
             pass
         return None
 
-def main(ip='127.0.0.1', port=7020):
+def main(ip='127.0.0.1', port=7020, command_line=None):
     """
     Main entry point. Creates the argument parser, shell, and svc map objects
     ip - ip of service that provides the svc map
@@ -114,7 +114,10 @@ def main(ip='127.0.0.1', port=7020):
                          printflag,
                          exit])
     svc_map = SvcMap(ip, port)
-    MyShell().cmdloop()
+    if command_line is not None:
+	MyShell().onecmd(command_line)
+    else:
+        MyShell().cmdloop()
 
 if __name__ == '__main__':
     log = ProcessUtils.setup_logger(file = 'console.log')
