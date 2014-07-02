@@ -17,6 +17,10 @@ class DMSvcHandler : virtual public DMSvcIf, public PlatNetSvcHandler {
  public:
     DMSvcHandler();
 
+    void startBlobTx(const fpi::AsyncHdr& asyncHdr,
+                       const fpi::StartBlobTxMsg& startBlob) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
     void queryCatalogObject(const fpi::AsyncHdr& asyncHdr,
                             const fpi::QueryCatalogMsg& queryMsg) {
         // Don't do anything here. This stub is just to keep cpp compiler happy
@@ -25,10 +29,13 @@ class DMSvcHandler : virtual public DMSvcIf, public PlatNetSvcHandler {
                        const fpi::UpdateCatalogMsg& updcatMsg) {
         // Don't do anything here. This stub is just to keep cpp compiler happy
     }
-    void startBlobTx(const fpi::AsyncHdr& asyncHdr,
-                       const fpi::StartBlobTxMsg& startBlob) {
+
+#if 0
+    void deleteCatalogObject(const fpi::AsyncHdr& asyncHdr,
+                             const fpi::DeleteCatalogObjectMsg& delcatMsg) {
         // Don't do anything here. This stub is just to keep cpp compiler happy
     }
+#endif
 
     void startBlobTx(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                        boost::shared_ptr<fpi::StartBlobTxMsg>& startBlob);
@@ -45,6 +52,13 @@ class DMSvcHandler : virtual public DMSvcIf, public PlatNetSvcHandler {
                        boost::shared_ptr<fpi::UpdateCatalogMsg>& updcatMsg);
     void updateCatalogCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                          const Error &e, DmIoUpdateCat *req);
+
+#if 0
+    void deleteCatalogObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                       boost::shared_ptr<fpi::DeleteCatalogObjectMsg>& delcatMsg);
+    void deleteCatalogObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                         const Error &e, DmIoUpdateCat *req);
+#endif
 };
 
 }  // namespace fds

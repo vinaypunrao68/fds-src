@@ -22,9 +22,6 @@ void DMSvcHandler::startBlobTx(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 {
     DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*startBlbTx));
 
-    /*
-     * allocate a new  Blob transaction  class and  queue  to per volume queue.
-     */
     auto dmBlobTxReq = new DmIoStartBlobTx(startBlbTx->volume_id,
                                            startBlbTx->blob_name,
                                            startBlbTx->blob_version);
@@ -35,6 +32,10 @@ void DMSvcHandler::startBlobTx(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
     Error err = dataMgr->qosCtrl->enqueueIO(dmBlobTxReq->getVolId(),
                                             static_cast<FDS_IOType*>(dmBlobTxReq));
+    /*
+     * allocate a new  Blob transaction  class and  queue  to per volume queue.
+     */
+    dmBlobTxReq->ioBlobTxDesc = BlobTxId::ptr(new BlobTxId(startBlbTx->txId));
     if (err != ERR_OK) {
         LOGWARN << "Unable to enqueue  start blob tx  request "
             << logString(*asyncHdr) << logString(*startBlbTx);
@@ -144,5 +145,42 @@ void DMSvcHandler::updateCatalogCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
     delete req;
 }
+
+#if 0
+void DMSvcHandler::deleteCatalogObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                                       boost::shared_ptr<fpi::DeleteCatalogObjectMsg>& delcatMsg)
+{
+    DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*delcatMsg));
+    /*
+     * allocate a new query cat log  class and  queue  to per volume queue.
+     */
+    auto dmDelCatReq = new DmIoDeleteCat(delcatMsg->volume_id,
+                                         delcatMsg->blob_name,
+                                         delcatMsg->blob_version);
+    dmDelCatReq->dmio_deletecat_resp_cb =
+        std::bind(&DMSvcHandler::deleteCatalogObjectCb, this,
+                  asyncHdr,
+                  std::placeholders::_1, std::placeholders::_2);
+
+    Error err = dataMgr->qosCtrl->enqueueIO(dmDelCatReq->getVolId(),
+                                            static_cast<FDS_IOType*>(dmDelCatReq));
+    if (err != ERR_OK) {
+        LOGWARN << "Unable to enqueue Delete Catalog request "
+            << logString(*asyncHdr) << logString(*delcatMsg);
+        dmUpdCatReq->dmio_deletecat_resp_cb(err, dmDelCatReq);
+    }
+}
+
+void DMSvcHandler::deleteCatalogCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                                   const Error &e, DmIoDeleteCat *req)
+{
+    DBG(GLOGDEBUG << logString(*asyncHdr));
+    // fpi::DeleteCatalogRspMsg updcatRspMsg;
+    // net::ep_send_async_resp(*asyncHdr, updcatRspMsg);
+
+    delete req;
+}
+
+#endif
 
 }  // namespace fds

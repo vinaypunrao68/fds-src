@@ -235,20 +235,37 @@ struct UpdateCatalogMsg {
 struct UpdateCatalogRspMsg {
 }
 
-/* Set blob metadata request message */
-struct SetBlobMetaDataMsg {
-   1: string 			volumeName;
-   2: string 			blobName;
-   3: FDSP.FDSP_MetaDataList 	metaDataList;
-}
-
 /* Start Blob  Transaction  request message */
 struct StartBlobTxMsg {
    1: i64    			volume_id;
    2: string 			volume_name;
    3: string 			blob_name;
    4: i64 			blob_version;
-   5: FDSP.TxDescriptor 	txId;
+   5: i64                   	txId;
+}
+
+/* delete catalog object Transaction  request message */
+struct DeleteCatalogObjectMsg {
+   1: i64    			volume_id;
+   2: string 			volume_name;
+   3: string 			blob_name;
+   4: i64 			blob_version;
+}
+
+/* get the list of blobs in volume Transaction  request message */
+struct GetVolumeBlobListMsg {
+   1: i64    			volume_id;
+   2: string 			volume_name;
+   3: i32                       num_blobs;         /* num blobs to extract */
+}
+
+/* get the list of blobs in volume Transaction  request message */
+struct SetBlobMetaDataMsg {
+   1: i64    			volume_id;
+   2: string 			volume_name;
+   3: string 			blob_name;
+   4: i64 			blob_version;
+   5: FDSP.FDSP_MetaDataList    metaDataList; 
 }
 
 /* Set blob metadata request message */
@@ -257,9 +274,18 @@ struct SetBlobMetaDataRspMsg {
 
 /* DM Service */
 service DMSvc extends BaseAsyncSvc {
+    oneway void startBlobTx(1: AsyncHdr asyncHdr, 2:StartBlobTxMsg stBlbTxMsg);
     oneway void queryCatalogObject(1: AsyncHdr asyncHdr, 2:QueryCatalogMsg queryMsg);
     oneway void updateCatalog(1: AsyncHdr asyncHdr, 2:UpdateCatalogMsg updCatMsg);
-    oneway void startBlobTx(1: AsyncHdr asyncHdr, 2:StartBlobTxMsg stBlbTxMsg);
+    /*
+    oneway void deleteCatalogObject(1:AsyncHdr asyncHdr, 2:DeleteCatalogObjectMsg delCatObj);
+    oneway void getVolumeBlobList(1:AsyncHdr asyncHdr, 2:GetVolumeBlobListMsg getVolBlob);
+
+    oneway void statBlob(1:AsyncHdr asyncHdr, 2:string volumeName, 3:string blobName);
+    oneway void setBlobMetaData(1:AsyncHdr asyncHdr, 2:SetBlobMetaDataMsg blobMeta);
+    oneway void getBlobMetaData(1:AsyncHdr asyncHdr, 2:string volumeName, 3:string blobName);
+    oneway void getVolumeMetaData(1:AsyncHdr asyncHdr, 2:string volumeName);
+    */
 }
 
 service AMSvc extends BaseAsyncSvc {

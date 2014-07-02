@@ -1646,6 +1646,10 @@ void DataMgr::ReqHandler::UpdateCatalogObject(FDS_ProtocolInterface::
     }
 }
 
+
+
+
+
 void
 DataMgr::startBlobTxBackend(const dmCatReq *startBlobTxReq) {
     LOGDEBUG << "Got blob tx backend for volume "
@@ -1871,6 +1875,14 @@ void
 DataMgr::scheduleStartBlobTxSvc(void * _io)
 {
     Error err(ERR_OK);
+    DmIoStartBlobTx *startBlobTx = static_cast<DmIoStartBlobTx*>(_io);
+
+    BlobTxId::const_ptr blobTxId = startBlobTx->ioBlobTxDesc;
+    fds_verify(*blobTxId != blobTxIdInvalid);
+    err = commitLog->openTrans(blobTxId);
+
+    qosCtrl->markIODone(*startBlobTx);
+    startBlobTx->dmio_start_blob_tx_resp_cb(err, startBlobTx);
 }
 
 void

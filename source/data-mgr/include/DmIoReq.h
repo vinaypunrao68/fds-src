@@ -254,6 +254,7 @@ class DmIoStartBlobTx: public dmCatReq {
         return ret.str();
     }
 
+    BlobTxId::const_ptr ioBlobTxDesc;
     /* response callback */
     CbType dmio_start_blob_tx_resp_cb;
 };
@@ -305,6 +306,30 @@ class DmIoUpdateCat: public dmCatReq {
     FDSP_BlobObjectList obj_list;
     /* response callback */
     CbType dmio_updatecat_resp_cb;
+};
+
+/**
+ * Request to delete catalog
+ */
+class DmIoDeleteCat: public dmCatReq {
+  public:
+    typedef std::function<void (const Error &e, DmIoDeleteCat *req)> CbType;
+  public:
+    DmIoDeleteCat(const fds_volid_t  &_volId,
+                  const std::string &_blobName,
+                  const blob_version_t &_blob_version)
+            : dmCatReq(_volId, _blobName, _blob_version, FDS_DELETE_BLOB_SVC) {
+    }
+
+    virtual std::string log_string() const override {
+        std::stringstream ret;
+        ret << "DmIoDeleteCat vol "
+            << std::hex << volId << std::dec;
+        return ret.str();
+    }
+
+    /* response callback */
+    CbType dmio_deletecat_resp_cb;
 };
 
 }  // namespace fds
