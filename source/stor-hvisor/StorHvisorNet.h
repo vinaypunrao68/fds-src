@@ -358,8 +358,8 @@ public:
         fds::Error processRequest();
     };
 
-    fds::Error getBlob2(fds::AmQosReq *qosReq);
-    fds::Error putBlob2(fds::AmQosReq *qosReq);
+    fds::Error getBlobSvc(fds::AmQosReq *qosReq);
+    fds::Error putBlobSvc(fds::AmQosReq *qosReq);
     fds::Error startBlobTxSvc(AmQosReq *qosReq);
 
     void issueQueryCatalog(const std::string& blobName,
