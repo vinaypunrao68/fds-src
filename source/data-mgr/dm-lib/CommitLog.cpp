@@ -48,27 +48,69 @@ DmCommitLog::mod_shutdown() {
 // start transaction
 Error DmCommitLog::startTx(BlobTxId::const_ptr & txDesc, const std::string & blobName) {
     fds_assert(txDesc);
-    LOGDEBUG << "Starting blob transaction " << *txDesc << " for " << blobName;
-    return ERR_OK;
+    fds_assert(cmtLogger_);
+
+    const BlobTxId & txId = *txDesc;
+
+    LOGDEBUG << "Starting blob transaction (" << txId << ") for (" << blobName << ")";
+
+    TxMap::const_iterator iter = txMap_.find(txId);
+    if (txMap_.end() != iter) {
+        LOGWARN << "Blob transaction already exists";
+        return ERR_DM_TX_EXISTS;
+    }
+
+    txMap_[txId].txDesc = txDesc;
+    txMap_[txId].blobName = blobName;
+
+    fds_uint64_t id = 0;
+    Error rc = ERR_OK;  // TODO(umesh): cmtLogger_->startTx(txDesc, blobName, id);
+    if (!rc.ok()) {
+        LOGERROR << "Failed to save blob transaction error=(" << rc << ")";
+        return rc;
+    }
+
+    txMap_[txId].entries.push_back(id);
+    txMap_[txId].started = true;
+
+    return rc;
 }
 
-// update blob obj list
-Error DmCommitLog::updateTx(BlobTxId::const_ptr & txDesc, BlobObjList::const_ptr & blobObjList) {
+// update blob data (T can be BlobObjList or BlobMetaDesc)
+template<typename T>
+Error DmCommitLog::updateTx(BlobTxId::const_ptr & txDesc, boost::shared_ptr<const T> & blobData) {
     fds_assert(txDesc);
-    LOGDEBUG << "Update blob for transaction " << *txDesc;
-    return ERR_OK;
-}
+    fds_assert(blobData);
+    fds_assert(cmtLogger_);
 
-// update blob meta data
-Error DmCommitLog::updateTx(BlobTxId::const_ptr & txDesc, BlobMetaDesc::const_ptr & blobMetaDesc) {
-    fds_assert(txDesc);
-    LOGDEBUG << "Update blob meta data for transaction " << *txDesc;
+    const BlobTxId & txId = *txDesc;
+
+    LOGDEBUG << "Update blob for transaction (" << txId << ")";
+
+    Error rc = validateSubsequentTx(txId);
+    if (!rc.ok()) {
+        return rc;
+    }
+
+    fds_uint64_t id = 0;
+    rc = ERR_OK;  // TODO(umesh): cmtLogger_->updateTx(txDesc, blobData, id);
+    if (!rc.ok()) {
+        LOGERROR << "Failed to save blob transaction error=(" << rc << ")";
+        return rc;
+    }
+
+    // TODO(umesh): upsert blobData
+
     return ERR_OK;
 }
 
 // commit transaction
 Error DmCommitLog::commitTx(BlobTxId::const_ptr & txDesc) {
     fds_assert(txDesc);
+    fds_assert(cmtLogger_);
+
+    const BlobTxId & txId = *txDesc;
+
     LOGDEBUG << "Commiting blob transaction " << *txDesc;
     return ERR_OK;
 }
@@ -76,6 +118,10 @@ Error DmCommitLog::commitTx(BlobTxId::const_ptr & txDesc) {
 // rollback transaction
 Error DmCommitLog::rollbackTx(BlobTxId::const_ptr & txDesc) {
     fds_assert(txDesc);
+    fds_assert(cmtLogger_);
+
+    const BlobTxId & txId = *txDesc;
+
     LOGDEBUG << "Rollback blob transaction " << *txDesc;
     return ERR_OK;
 }
@@ -83,19 +129,46 @@ Error DmCommitLog::rollbackTx(BlobTxId::const_ptr & txDesc) {
 // purge transaction
 Error DmCommitLog::purgeTx(BlobTxId::const_ptr  & txDesc) {
     fds_assert(txDesc);
+    fds_assert(cmtLogger_);
+
+    const BlobTxId & txId = *txDesc;
+
     LOGDEBUG << "Purge blob transaction " << *txDesc;
     return ERR_OK;
 }
 
 // get transaction
-Error DmCommitLog::getTx(BlobTxId::const_ptr * txDesc) {
+Error DmCommitLog::getTx(BlobTxId::const_ptr & txDesc) {
     fds_assert(txDesc);
+    fds_assert(cmtLogger_);
+
+    const BlobTxId & txId = *txDesc;
+
     LOGDEBUG << "Get blob transaction " << txDesc;
     return ERR_OK;
 }
 
+Error DmCommitLog::validateSubsequentTx(const BlobTxId & txId) {
+    TxMap::iterator iter = txMap_.find(txId);
+    if (txMap_.end() == iter) {
+        LOGERROR << "Blob transaction not started";
+        return ERR_DM_TX_NOT_STARTED;
+    }
+    fds_assert(txId == *(iter->second.txDesc));
+
+    if (iter->second.rolledback) {
+        LOGERROR << "Blob transaction already rolled back";
+        return ERR_DM_TX_ROLLEDBACK;
+    } else if (iter->second.commited) {
+        LOGERROR << "Blob transaction already commited";
+        return ERR_DM_TX_COMMITED;
+    }
+
+    return ERR_OK;
+}
+
 DmCommitLogEntry::DmCommitLogEntry(CommitLogEntryType type_, const BlobTxId & txDesc)
-        : stale(0), type(type_), id(0), txId(txDesc.getValue()), prev(0), next(0) {}
+        : stale(0), type(type_), id(0), txId(txDesc.getValue()), prev(0) {}
 
 DmCommitLogStartEntry::DmCommitLogStartEntry(const BlobTxId & txDesc, const std::string & blobName)
         : DmCommitLogEntry(TX_START, txDesc) {
