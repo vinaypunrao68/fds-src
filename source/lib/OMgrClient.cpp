@@ -417,9 +417,9 @@ int OMgrClient::pushPerfstatsToOM(const std::string& start_ts,
     perf_stats_msg->slot_len_sec = stat_slot_len;
     perf_stats_msg->vol_hist_list = hist_list;  
 
-    LOGNORMAL << "OMClient pushing perfstats to OM at "
-            << omIpStr << ":" << omConfigPort
-            << " start ts " << start_ts;
+    LOGDEBUG << "OMClient pushing perfstats to OM at "
+             << omIpStr << ":" << omConfigPort
+             << " start ts " << start_ts;
 
     om_client_prx->NotifyPerfstats(msg_hdr, perf_stats_msg);
 
@@ -1041,8 +1041,8 @@ int OMgrClient::recvSetThrottleLevel(const float throttle_level) {
 int OMgrClient::recvBucketStats(const FDSP_MsgHdrTypePtr& msg_hdr, 
 				const FDSP_BucketStatsRespTypePtr& stats_msg)
 {
-  LOGNOTIFY << "OMClient received buckets' stats with timestamp  "
-          << stats_msg->timestamp;
+  LOGDEBUG << "OMClient received buckets' stats with timestamp  "
+           << stats_msg->timestamp;
 
   if (bucket_stats_cmd_hdlr) {
     bucket_stats_cmd_hdlr(msg_hdr, stats_msg);
