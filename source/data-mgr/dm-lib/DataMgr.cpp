@@ -1659,7 +1659,7 @@ DataMgr::startBlobTxBackend(const dmCatReq *startBlobTxReq) {
 
     BlobTxId::const_ptr blobTxId = startBlobTxReq->getBlobTxId();
     fds_verify(*blobTxId != blobTxIdInvalid);
-    Error err = commitLog->openTrans(blobTxId);
+    Error err = commitLog->startTx(blobTxId, startBlobTxReq->blob_name);
 
     FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr(new FDSP_MsgHdrType());
     InitMsgHdr(msgHdr);
@@ -1880,7 +1880,7 @@ DataMgr::scheduleStartBlobTxSvc(void * _io)
 
     BlobTxId::const_ptr blobTxId = startBlobTx->ioBlobTxDesc;
     fds_verify(*blobTxId != blobTxIdInvalid);
-    err = commitLog->openTrans(blobTxId);
+    err = commitLog->startTx(blobTxId, startBlobTx->blob_name);
 
     qosCtrl->markIODone(*startBlobTx);
     startBlobTx->dmio_start_blob_tx_resp_cb(err, startBlobTx);
