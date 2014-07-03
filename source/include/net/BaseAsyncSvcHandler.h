@@ -26,6 +26,18 @@
         func(header, payload); \
     }
 
+#define BIND_MSG_CALLBACK2(func, header , ...) \
+    std::bind(&func, this, header, ##__VA_ARGS__ , std::placeholders::_1, \
+              std::placeholders::_2);
+
+#define BIND_MSG_CALLBACK3(func, header , ...) \
+    std::bind(&func, this, header, ##__VA_ARGS__ , std::placeholders::_1, \
+              std::placeholders::_2, std::placeholders::_3);
+
+#define BIND_MSG_CALLBACK4(func, header , ...) \
+    std::bind(&func, this, header, ##__VA_ARGS__ , std::placeholders::_1, \
+              std::placeholders::_2, std::placeholders::_3, std::placeholders::_4);
+
 namespace fpi = FDS_ProtocolInterface;
 
 namespace fds {
