@@ -80,7 +80,8 @@ fds_bool_t DmVolumeCatalog::isVolumeEmpty(fds_volid_t volume_id) const
 // Updates blob exluding list of offset to object id mappings.
 //
 Error
-DmVolumeCatalog::putBlobMeta(const BlobMetaDesc::const_ptr& blob_meta)
+DmVolumeCatalog::putBlobMeta(const BlobMetaDesc::const_ptr& blob_meta,
+                             const BlobTxId::const_ptr& tx_id)
 {
     Error err(ERR_OK);
     LOGTRACE << "Will commit meta for " << *blob_meta;
@@ -94,7 +95,8 @@ DmVolumeCatalog::putBlobMeta(const BlobMetaDesc::const_ptr& blob_meta)
 //
 Error
 DmVolumeCatalog::putBlob(const BlobMetaDesc::const_ptr& blob_meta,
-                         const BlobObjList::const_ptr& blob_obj_list)
+                         const BlobObjList::const_ptr& blob_obj_list,
+                         const BlobTxId::const_ptr& tx_id)
 {
     Error err(ERR_OK);
     LOGTRACE << "Will commit blob " << *blob_meta << ";" << *blob_obj_list;
@@ -145,8 +147,6 @@ DmVolumeCatalog::getBlobObjects(fds_volid_t volume_id,
 // Returns list of blobs in the volume 'volume_id'
 //
 Error DmVolumeCatalog::listBlobs(fds_volid_t volume_id,
-                                 fds_uint32_t max_ret_blobs,
-                                 fds_uint64_t* iterator_cookie,
                                  fpi::BlobInfoListType* bmeta_list)
 {
     Error err(ERR_OK);
