@@ -23,7 +23,7 @@ DMSvcHandler::DMSvcHandler()
 void DMSvcHandler::startBlobTx(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                boost::shared_ptr<fpi::StartBlobTxMsg>& startBlbTx)
 {
-    DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*startBlbTx));
+    LOGDEBUG << logString(*asyncHdr) << logString(*startBlbTx);
 
     auto dmBlobTxReq = new DmIoStartBlobTx(startBlbTx->volume_id,
                                            startBlbTx->blob_name,
@@ -58,10 +58,11 @@ void DMSvcHandler::startBlobTxCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
      * TODO(sanjay)- we will have to add  call to  send the response without payload 
      * static response
      */
-    DBG(GLOGDEBUG << logString(*asyncHdr));
+    LOGDEBUG << logString(*asyncHdr);
     asyncHdr->msg_code = static_cast<int32_t>(e.GetErrno());
     // TODO(sanjay) - we will have to revisit  this call
-    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(StartBlobTxRspMsg), *asyncHdr);
+    fpi::StartBlobTxRspMsg stBlobTxRsp;
+    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(StartBlobTxRspMsg), stBlobTxRsp);
 
     delete req;
 }
