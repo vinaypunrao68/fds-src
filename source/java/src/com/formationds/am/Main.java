@@ -9,7 +9,9 @@ import com.formationds.fdsp.LegacyClientFactory;
 import com.formationds.security.Authenticator;
 import com.formationds.security.JaasAuthenticator;
 import com.formationds.spike.nbd.FdsServerOperations;
+import com.formationds.spike.nbd.LoggingOperationsWrapper;
 import com.formationds.spike.nbd.NbdHost;
+import com.formationds.spike.nbd.NbdServerOperations;
 import com.formationds.util.Configuration;
 import com.formationds.util.libconfig.ParsedConfig;
 import com.formationds.xdi.CachingConfigurationService;
@@ -59,8 +61,12 @@ public class Main {
             ConfigurationService.Iface config = new CachingConfigurationService(clientFactory.remoteOmService(omHost, omConfigPort));
 
             int nbdPort = amParsedConfig.lookup("fds.am.nbd_server_port").intValue();
+            boolean nbdLoggingEnabled = amParsedConfig.lookup("fds.am.enable_nbd_log").booleanValue();
             ForkJoinPool fjp = new ForkJoinPool(50);
-            NbdHost nbdHost = new NbdHost(nbdPort, new FdsServerOperations(am, config, fjp));
+            NbdServerOperations ops = new FdsServerOperations(am, config, fjp);
+            if(nbdLoggingEnabled)
+                ops = new LoggingOperationsWrapper(ops, "/fds/var/logs/nbd");
+            NbdHost nbdHost = new NbdHost(nbdPort, ops);
             
             new Thread(() -> nbdHost.run()).start();
 
