@@ -57,9 +57,7 @@ enum  FDSPMsgTypeId {
     UpdateCatalogMsgTypeId,
     UpdateCatalogRspMsgTypeId,
     SetBlobMetaDataMsgTypeId,
-    SetBlobMetaDataRspMsgTypeId,
-    StartBlobTxMsgTypeId,
-    StartBlobTxRspMsgTypeId
+    SetBlobMetaDataRspMsgTypeId
 }
 
 /*
