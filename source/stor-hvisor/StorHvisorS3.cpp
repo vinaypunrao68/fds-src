@@ -1468,6 +1468,7 @@ fds::Error StorHvCtrl::getObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
 Error
 StorHvCtrl::startBlobTx(AmQosReq *qosReq) {
     fds_verify(qosReq != NULL);
+    return startBlobTxSvc(qosReq);
 
     Error err(ERR_OK);
     StartBlobTxReq *blobReq = static_cast<StartBlobTxReq *>(qosReq->getBlobReqPtr());

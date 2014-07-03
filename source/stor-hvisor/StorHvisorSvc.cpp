@@ -100,9 +100,16 @@ void StorHvCtrl::startBlobTxMsgResp(fds::AmQosReq* qosReq,
                                     const Error& error,
                                     boost::shared_ptr<std::string> payload)
 {
+    fds_verify(qosReq != NULL);
+    StartBlobTxReq *blobReq = static_cast<StartBlobTxReq *>(qosReq->getBlobReqPtr());
+    fds_verify(blobReq != NULL);
+    fds_verify(blobReq->getIoType() == FDS_START_BLOB_TX);
 
-
-
+    StartBlobTxCallback::ptr cb = SHARED_DYN_CAST(StartBlobTxCallback,
+                                                      blobReq->cb);
+    qos_ctrl->markIODone(qosReq);
+    cb->call(ERR_OK);
+    delete blobReq;
 }
 
 
@@ -486,6 +493,3 @@ void StorHvCtrl::getBlobGetObjectResp(fds::AmQosReq* qosReq,
     blobReq->cbWithResult(ERR_OK);
     delete blobReq;
 }
-
-
-

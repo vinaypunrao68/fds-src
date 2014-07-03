@@ -48,9 +48,16 @@ void DMSvcHandler::startBlobTx(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 void DMSvcHandler::startBlobTxCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                    const Error &e, DmIoStartBlobTx *req)
 {
+    /*
+     * we are not sending any response  message  in this call, instead we 
+     * will send the status  on async header
+     * TODO(sanjay)- we will have to add  call to  send the response without payload 
+     * static response
+     */
     DBG(GLOGDEBUG << logString(*asyncHdr));
-    // fpi::UpdateCatalogRspMsg updcatRspMsg;
-    // net::ep_send_async_resp(*asyncHdr, updcatRspMsg);
+    asyncHdr->msg_code = static_cast<int32_t>(e.GetErrno());
+    // TODO(sanjay) - we will have to revisit  this call
+    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(StartBlobTxRspMsg), *asyncHdr);
 
     delete req;
 }
