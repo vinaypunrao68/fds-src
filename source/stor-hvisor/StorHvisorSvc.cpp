@@ -54,7 +54,7 @@ StorHvCtrl::startBlobTxSvc(AmQosReq *qosReq) {
     issueStartBlobTxMsg(blobReq->getBlobName(),
                         volId,
                         txId.getValue(),
-                        std::bind(&StorHvCtrl::putBlobUpdateCatalogMsgResp,
+                        std::bind(&StorHvCtrl::startBlobTxMsgResp,
                                   this, qosReq,
                                   std::placeholders::_1,
                                   std::placeholders::_2,std::placeholders::_3));
