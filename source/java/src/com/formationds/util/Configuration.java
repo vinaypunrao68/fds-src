@@ -29,7 +29,7 @@ public class Configuration {
             "FATAL"
     };
 
-    public Configuration(String commandName, String[] commandLineArgs) throws Exception {
+    public Configuration(String commandName, String[] commandLineArgs) {
         OptionParser parser = new OptionParser();
         parser.allowsUnrecognizedOptions();
         parser.accepts("fds-root").withRequiredArg();
@@ -78,10 +78,14 @@ public class Configuration {
         PropertyConfigurator.configure(properties);
     }
 
-    private void initJaas(File fdsRoot) throws Exception {
-        Path jaasConfig = Paths.get(fdsRoot.getCanonicalPath(), "etc", "auth.conf");
-        URL configUrl = jaasConfig.toFile().toURL();
-        System.setProperty("java.security.auth.login.config", configUrl.toExternalForm());
+    private void initJaas(File fdsRoot) {
+        try {
+            Path jaasConfig = Paths.get(fdsRoot.getCanonicalPath(), "etc", "auth.conf");
+            URL configUrl = jaasConfig.toFile().toURL();
+            System.setProperty("java.security.auth.login.config", configUrl.toExternalForm());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public boolean enforceRestAuth() {
