@@ -87,6 +87,13 @@ Error DmCommitLog::purgeTx(BlobTxId::const_ptr  & txDesc) {
     return ERR_OK;
 }
 
+// get transaction
+Error DmCommitLog::getTx(BlobTxId::const_ptr * txDesc) {
+    fds_assert(txDesc);
+    LOGDEBUG << "Get blob transaction " << txDesc;
+    return ERR_OK;
+}
+
 DmCommitLogEntry::DmCommitLogEntry(CommitLogEntryType type_, const BlobTxId & txDesc)
         : stale(0), type(type_), id(0), txId(txDesc.getValue()), prev(0), next(0) {}
 
@@ -113,7 +120,7 @@ std::string DmCommitLogStartEntry::blobName() const {
 DmCommitLogUpdateObjListEntry::DmCommitLogUpdateObjListEntry(const BlobTxId & txDesc,
         const BlobObjList::ptr & blobObjList) : DmCommitLogEntry(TX_UPDATE_OBJLIST, txDesc) {
     boost::scoped_ptr<serialize::Serializer> s(serialize::getMemSerializer(DETAILS_BUFFER_SIZE));
-    blobObjList->write(s);
+    blobObjList->write(s.get());
     const std::string & str = s->getBufferAsString();
     uint32_t b = str.size();
     fds_assert(b < DETAILS_BUFFER_SIZE);
@@ -126,7 +133,7 @@ DmCommitLogUpdateObjMetaEntry::DmCommitLogUpdateObjMetaEntry(const BlobTxId & tx
         const BlobMetaDesc::ptr & meta) : DmCommitLogEntry(TX_UPDATE_OBJMETA, txDesc) {
     boost::scoped_ptr<serialize::Serializer> s(
             serialize::getMemSerializer(DETAILS_BUFFER_SIZE));
-    meta->write(s);
+    meta->write(s.get());
     const std::string & str = s->getBufferAsString();
     uint32_t b = str.size();
     fds_assert(b < DETAILS_BUFFER_SIZE);

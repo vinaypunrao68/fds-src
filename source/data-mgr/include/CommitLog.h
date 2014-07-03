@@ -86,6 +86,9 @@ class DmCommitLog : public Module {
     // purge transaction
     Error purgeTx(BlobTxId::const_ptr & txDesc);
 
+    // get transaction
+    Error getTx(BlobTxId::const_ptr * txDesc);
+
   private:
     TxMap txMap_;    // in-memory state
 
