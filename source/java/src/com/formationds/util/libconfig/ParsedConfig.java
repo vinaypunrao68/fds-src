@@ -111,4 +111,12 @@ public class ParsedConfig {
             return defaultValue;
         }
     }
+
+    public String defaultString(String s, String defaultValue) {
+        try {
+            return lookup(s).stringValue();
+        } catch (Exception e) {
+            return defaultValue;
+        }
+    }
 }
