@@ -52,6 +52,8 @@ enum  FDSPMsgTypeId {
     /* DM Type Ids */
     QueryCatalogMsgTypeId = 20000,
     QueryCatalogRspMsgTypeId,
+    StartBlobTxMsgTypeId,
+    StartBlobTxRspMsgTypeId,
     UpdateCatalogMsgTypeId,
     UpdateCatalogRspMsgTypeId,
     SetBlobMetaDataMsgTypeId,
