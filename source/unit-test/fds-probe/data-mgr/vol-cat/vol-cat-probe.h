@@ -51,9 +51,15 @@ namespace fds {
             MetaDataList   meta_list;
             BlobObjList    obj_list;
         };
+        void addCatalog(const OpParams &volParams);
+        void rmCatalog(const OpParams& volParams);
+        void checkVolEmpty(const OpParams &volParams);
+        void listBlobs(const OpParams& volParams);
         void getBlobMeta(const OpParams &getParams);
-        void putBlobMeta(const OpParams &putParams);
+        void getBlob(const OpParams &getParams);
         void putBlob(const OpParams &putParams);
+        void flushBlob(const OpParams &flushParams);
+        void deleteBlob(const OpParams &delParams);
 };
 
 // ----------------------------------------------------------------------------
@@ -89,21 +95,51 @@ class VolCatOpTemplate : public JsObjTemplate
         char *name;
         char* meta_key;
         char* meta_val;
-        if (json_unpack(in, "{s:s, s:i, s:s}",
-                        "blob-op", &op,
-                        "volume-id", &p->vol_id,
-                        "blob-name", &name)) {
+        if (json_unpack(in, "{s:s, s:i}",
+                        "volcat-op", &op,
+                        "volume-id", &p->vol_id)) {
             fds_panic("Malformed json!");
         }
         p->op = op;
-        p->blob_name = name;
+        p->blob_name = "";
+        if (!json_unpack(in, "{ s:s}",
+                         "blob-name", &name)) {
+            p->blob_name = name;
+        }
+        // we will ensure that blob-name specified for all blob
+        // operations when we execute blob operations
 
-        json_unpack(in, "{s:s, s:s}",
-                    "meta-key", &meta_key,
-                    "meta-val", &meta_val);
-        (p->meta_list).updateMetaDataPair(meta_key, meta_val);
+        (p->meta_list).clear();
+        json_t *meta;
+        if (!json_unpack(in, "{s:o}",
+                        "metadata", &meta)) {
+            for (fds_uint32_t i = 0; i < json_array_size(meta); ++i) {
+                std::string meta_pair = json_string_value(json_array_get(meta, i));
+                std::size_t k = meta_pair.find_first_of("-");
+                fds_verify(k != std::string::npos);  // must separate key-value with "-"
+                std::string meta_key = meta_pair.substr(0, k);
+                std::string meta_val = meta_pair.substr(k+1);
+                (p->meta_list).updateMetaDataPair(meta_key, meta_val);
+            }
+        }
 
-        // json_unpack(in, "{s:i}", "blob-off", &p->blobOffset);
+        // read object list
+        (p->obj_list).clear();
+        json_t* objlist;
+        ObjectID oid;
+        if (!json_unpack(in, "{s:o}",
+                        "objects", &objlist)) {
+            for (fds_uint32_t i = 0; i < json_array_size(objlist); ++i) {
+                std::string offset_obj = json_string_value(json_array_get(objlist, i));
+                std::size_t k = offset_obj.find_first_of("-");
+                fds_verify(k != std::string::npos);  // must separate key-value with "-"
+                std::string offset_str = offset_obj.substr(0, k);
+                std::string oid_hexstr = offset_obj.substr(k+1);
+                fds_uint64_t offset = stoull(offset_str);
+                oid = oid_hexstr;
+                (p->obj_list).updateObject(offset, oid);
+            }
+        }
 
         return js_parse(new VolCatObjectOp(), in, p);
     }

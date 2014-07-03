@@ -56,8 +56,9 @@ namespace fds {
     /**
      * A list of offset to Object ID mappings
      */
-    struct BlobObjList
-            : std::unordered_map<fds_uint64_t, ObjectID> {
+    struct BlobObjList :
+            std::unordered_map<fds_uint64_t, ObjectID>,
+            serialize::Serializable {
         typedef boost::shared_ptr<BlobObjList> ptr;
         typedef boost::shared_ptr<const BlobObjList> const_ptr;
         typedef std::unordered_map<
@@ -79,6 +80,9 @@ namespace fds {
          * adds as new offset to object id mapping
          */
         void updateObject(fds_uint64_t offset, const ObjectID& oid);
+
+        uint32_t write(serialize::Serializer* s) const;
+        uint32_t read(serialize::Deserializer* d);
     };
 
 
