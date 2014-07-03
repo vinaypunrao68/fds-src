@@ -6,6 +6,10 @@
 
 namespace fds {
 
+void
+DmTimeVolCatalog::notifyVolCatalogSync(BlobTxList::const_ptr sycndTxList) {
+}
+
 DmTimeVolCatalog::DmTimeVolCatalog(const std::string &name)
         : Module(name.c_str()) {
 }
@@ -41,6 +45,29 @@ DmTimeVolCatalog::startBlobTx(const std::string &blobName,
                               BlobTxId::const_ptr txDesc) {
     LOGDEBUG << "Starting " << blobName
              << "transaction " << *txDesc;
+    return ERR_OK;
+}
+
+Error
+DmTimeVolCatalog::updateBlobTx(const BlobTxId::const_ptr txDesc,
+                               const fpi::FDSP_BlobObjectList &objList) {
+    LOGDEBUG << "Updating transaction " << *txDesc;
+    return ERR_OK;
+}
+
+Error
+DmTimeVolCatalog::updateBlobTx(const BlobTxId::const_ptr txDesc,
+                               const fpi::FDSP_MetaDataList &metaList) {
+    return ERR_OK;
+}
+
+Error
+DmTimeVolCatalog::commitBlobTx(const BlobTxId::const_ptr txDesc) {
+    return ERR_OK;
+}
+
+Error
+DmTimeVolCatalog::abortBlobTx(const BlobTxId::const_ptr txDesc) {
     return ERR_OK;
 }
 
