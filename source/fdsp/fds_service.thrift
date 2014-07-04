@@ -60,6 +60,12 @@ enum  FDSPMsgTypeId {
     SetBlobMetaDataRspMsgTypeId,
     DeleteCatalogObjectMsgTypeId,
     DeleteCatalogObjectRspMsgTypeId,
+    GetBlobMetaDataMsgTypeId,
+    GetBlobMetaDataRspMsgTypeId
+    SetVolumeMetaDataMsgTypeId,
+    SetVolumeMetaDataRspMsgTypeId,
+    GetVolumeMetaDataMsgTypeId,
+    GetVolumeMetaDataRspMsgTypeId
 }
 
 /*
@@ -314,6 +320,12 @@ struct SetBlobMetaDataMsg {
 
 /* Set blob metadata request message */
 struct SetBlobMetaDataRspMsg {
+}
+
+struct GetBlobMetaDataRspMsg {
+}
+
+struct GetVolumeMetaDataRspMsg {
 }
 
 /* DM Service */
