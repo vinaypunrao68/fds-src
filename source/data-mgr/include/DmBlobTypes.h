@@ -11,6 +11,7 @@
 
 #include <string>
 #include <unordered_map>
+#include <map>
 #include <fds_types.h>
 #include <fds_volume.h>
 
@@ -52,18 +53,23 @@ namespace fds {
         uint32_t read(serialize::Deserializer* d);
     };
 
+    /**
+     * typedef BlobObjInfo so that we can make BlobObjInfo into struct later
+     * if we need to have more fields in object info than just ObjectID without
+     * changes in API
+     */
+    typedef ObjectID BlobObjInfo;
 
     /**
-     * A list of offset to Object ID mappings
+     * A list of offset to Object info mappings
+     * Object info is just an object ID
      */
     struct BlobObjList :
-            std::unordered_map<fds_uint64_t, ObjectID>,
+            std::map<fds_uint64_t, BlobObjInfo>,
             serialize::Serializable {
         typedef boost::shared_ptr<BlobObjList> ptr;
         typedef boost::shared_ptr<const BlobObjList> const_ptr;
-        typedef std::unordered_map<
-                fds_uint64_t,
-                ObjectID>::const_iterator const_iter;
+        typedef std::map<fds_uint64_t, BlobObjInfo>::const_iterator const_iter;
 
         /**
          * Constructs the BlobObjList object with empty list
@@ -76,10 +82,18 @@ namespace fds {
         virtual ~BlobObjList();
 
         /**
-         * Update offset to object id mapping, if offset does not exit,
-         * adds as new offset to object id mapping
+         * Update offset to object info mapping, if offset does not exit,
+         * adds as new offset to object info mapping
          */
-        void updateObject(fds_uint64_t offset, const ObjectID& oid);
+        void updateObject(fds_uint64_t offset, const BlobObjInfo& obj_info);
+
+        /**
+         * Merges itself with another BlobObjList list and returns itself
+         * If newer_blist contains an offset which already exists in this
+         * list, it will over-write this offset's object info with object
+         * info from newer_list
+         */
+        BlobObjList& merge(const BlobObjList& newer_blist);
 
         uint32_t write(serialize::Serializer* s) const;
         uint32_t read(serialize::Deserializer* d);
