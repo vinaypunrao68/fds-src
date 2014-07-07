@@ -76,19 +76,10 @@ namespace fds {
                                         fpi::FDSP_BlobObjectList* obj_list) = 0;
 
         /**
-         * Returns the list of blobs in the volume with basic blob info
-         * @param[in] max_ret_blobs maximum number of blobs to return; if
-         * total number of blobs in the volume exceeds max_ret_blobs, returns
-         * max_ret_blobs blobs
-         * @param[in,out] iterator_cookie keeps the blob number to start with,
-         * when method returns iterator_cookie is updated with cookie to use
-         * in the next function call to continue with next set of blobs
+         * Returns the list of all blobs in the volume with basic blob info
          * @param[out] binfo_list list of blobs
-         * @return ERR_END_OF_LIST if there are no more blobs to return
          */
         virtual Error listBlobs(fds_volid_t volume_id,
-                                fds_uint32_t max_ret_blobs,
-                                fds_uint64_t* iterator_cookie,
                                 fpi::BlobInfoListType* binfo_list) = 0;
 };
 

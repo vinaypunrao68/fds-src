@@ -145,19 +145,32 @@ BlobObjList::BlobObjList() {
 
 BlobObjList::BlobObjList(const fpi::FDSP_BlobObjectList& blob_obj_list) {
     for (fds_uint32_t i = 0; i < blob_obj_list.size(); ++i) {
-        ObjectID oid;
+        BlobObjInfo obj_info;
         fds_uint64_t offset = blob_obj_list[i].offset;
-        oid.SetId((const char*)blob_obj_list[i].data_obj_id.digest.c_str(),
-                  blob_obj_list[i].data_obj_id.digest.length());
-        (*this)[offset] = oid;
+        obj_info.SetId((const char*)blob_obj_list[i].data_obj_id.digest.c_str(),
+                       blob_obj_list[i].data_obj_id.digest.length());
+        (*this)[offset] = obj_info;
     }
 }
 
 BlobObjList::~BlobObjList() {
 }
 
-void BlobObjList::updateObject(fds_uint64_t offset, const ObjectID& oid) {
-    (*this)[offset] = oid;
+void BlobObjList::updateObject(fds_uint64_t offset, const BlobObjInfo& obj_info) {
+    (*this)[offset] = obj_info;
+}
+
+//
+// Merge itself with another blob object list and return itself
+//
+BlobObjList& BlobObjList::merge(const BlobObjList& newer_blist) {
+    for (const_iter cit = newer_blist.cbegin();
+         cit != newer_blist.cend();
+         ++cit) {
+        // entry in newer_blist overwrites existing entry if that exists
+        (*this)[cit->first] = cit->second;
+    }
+    return *this;
 }
 
 uint32_t BlobObjList::write(serialize::Serializer* s) const {
@@ -179,10 +192,10 @@ uint32_t BlobObjList::read(serialize::Deserializer* d) {
     bytes += d->readI32(sz);
     for (fds_uint32_t i = 0; i < sz; ++i) {
         fds_uint64_t offset;
-        ObjectID oid;
+        BlobObjInfo obj_info;
         bytes += d->readI64(offset);
-        bytes += oid.read(d);
-        (*this)[offset] = oid;
+        bytes += obj_info.read(d);
+        (*this)[offset] = obj_info;
     }
     return bytes;
 }

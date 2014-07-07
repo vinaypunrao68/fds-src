@@ -20,9 +20,10 @@ namespace fds {
 
 // commit log transaction details
 struct CommitLogTx {
-    BlobTxId::ptr txDesc;
+    BlobTxId::const_ptr txDesc;
     std::string blobName;
 
+    bool started;
     bool commited;
     bool rolledback;
 
@@ -31,8 +32,8 @@ struct CommitLogTx {
     BlobObjList::ptr blobObjList;
     BlobMetaDesc::ptr blobMetaDesc;
 
-    explicit CommitLogTx(const BlobTxId::ptr & txDesc_) : txDesc(txDesc_),
-            blobObjList(new BlobObjList()), blobMetaDesc(new BlobMetaDesc()) {}
+    CommitLogTx() : txDesc(0), started(false), commited(false), rolledback(false),
+            blobObjList(0), blobMetaDesc(0) {}
 };
 
 typedef std::unordered_map<BlobTxId, CommitLogTx> TxMap;
@@ -71,11 +72,9 @@ class DmCommitLog : public Module {
     // start transaction
     Error startTx(BlobTxId::const_ptr & txDesc, const std::string & blobName);
 
-    // update blob obj list
-    Error updateTx(BlobTxId::const_ptr & txDesc, BlobObjList::const_ptr & blobObjList);
-
-    // update blob meta data
-    Error updateTx(BlobTxId::const_ptr & txDesc, BlobMetaDesc::const_ptr & blobMetaDesc);
+    // update blob data (T can be BlobObjList or BlobMetaDesc)
+    template<typename T>
+    Error updateTx(BlobTxId::const_ptr & txDesc, boost::shared_ptr<const T> & blobData);
 
     // commit transaction
     Error commitTx(BlobTxId::const_ptr & txDesc);
@@ -87,13 +86,16 @@ class DmCommitLog : public Module {
     Error purgeTx(BlobTxId::const_ptr & txDesc);
 
     // get transaction
-    Error getTx(BlobTxId::const_ptr * txDesc);
+    Error getTx(BlobTxId::const_ptr & txDesc);
 
   private:
     TxMap txMap_;    // in-memory state
 
     PersistenceType persist_;
     boost::shared_ptr<DmCommitLogger> cmtLogger_;
+
+    // Methods
+    Error validateSubsequentTx(const BlobTxId & txId);
 };
 
 
@@ -118,7 +120,6 @@ struct DmCommitLogEntry {
     fds_uint64_t id;
     fds_uint64_t txId;
     fds_uint64_t prev;
-    fds_uint64_t next;
 
     char details[DETAILS_BUFFER_SIZE];
 

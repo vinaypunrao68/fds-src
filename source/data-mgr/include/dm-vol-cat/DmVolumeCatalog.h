@@ -11,6 +11,7 @@
 #include <fds_error.h>
 #include <fds_module.h>
 #include <DmBlobTypes.h>
+#include <blob/BlobTypes.h>
 #include <VcQueryIface.h>
 
 namespace fds {
@@ -103,18 +104,9 @@ namespace fds {
 
         /**
          * Returns the list of blobs in the volume with basic blob info
-         * @param[in] max_ret_blobs maximum number of blobs to return; if
-         * total number of blobs in the volume exceeds max_ret_blobs, returns
-         * max_ret_blobs blobs
-         * @param[in,out] iterator_cookie keeps the blob number to start with,
-         * when method returns iterator_cookie is updated with cookie to use
-         * in the next function call to continue with next set of blobs
          * @param[out] binfo_list list of blobs
-         * @return ERR_END_OF_LIST if there are no more blobs to return
          */
         Error listBlobs(fds_volid_t volume_id,
-                        fds_uint32_t max_ret_blobs,
-                        fds_uint64_t* iterator_cookie,
                         fpi::BlobInfoListType* binfo_list);
 
 
@@ -130,10 +122,14 @@ namespace fds {
          * Each method contains meta list and (optionally) object list that
          * needs to be updated (not necesserily all the metadata and objects of
          * the blob).
+         * @param[in] tx_id transaction id to be returned with callback when
+         * Volume Catalog flushes the blob.
          */
-        Error putBlobMeta(const BlobMetaDesc::const_ptr& blob_meta);
+        Error putBlobMeta(const BlobMetaDesc::const_ptr& blob_meta,
+                          const BlobTxId::const_ptr& tx_id);
         Error putBlob(const BlobMetaDesc::const_ptr& blob_meta,
-                      const BlobObjList::const_ptr& blob_obj_list);
+                      const BlobObjList::const_ptr& blob_obj_list,
+                      const BlobTxId::const_ptr& tx_id);
 
         /**
          * Flushes given blob to the persistent storage. Blocking method, will

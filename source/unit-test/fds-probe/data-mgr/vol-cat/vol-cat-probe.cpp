@@ -141,6 +141,7 @@ VolCatProbe::putBlob(const OpParams &putParams) {
     // must must have blob name!
     fds_verify(putParams.blob_name.size() > 0);
 
+    BlobTxId::ptr tx_id(new BlobTxId(1));
     BlobMetaDesc::ptr bmeta_desc(new BlobMetaDesc());
     bmeta_desc->blob_name = putParams.blob_name;
     bmeta_desc->vol_id = putParams.vol_id;
@@ -157,7 +158,7 @@ VolCatProbe::putBlob(const OpParams &putParams) {
     if (putParams.obj_list.size() == 0) {
         // no offset to object id list, use putBlobMeta
         std::cout << "Will call putBlobMeta for " << *bmeta_desc << std::endl;
-        err = gl_DmVolCatMod.putBlobMeta(bmeta_desc);
+        err = gl_DmVolCatMod.putBlobMeta(bmeta_desc, tx_id);
         fds_verify(err.ok());
         return;
     }
@@ -172,7 +173,7 @@ VolCatProbe::putBlob(const OpParams &putParams) {
     std::cout << "Will call putBlob for " << *bmeta_desc
               << "; " << *obj_list;
 
-    err = gl_DmVolCatMod.putBlob(bmeta_desc, obj_list);
+    err = gl_DmVolCatMod.putBlob(bmeta_desc, obj_list, tx_id);
     fds_verify(err.ok());
 }
 
