@@ -44,7 +44,7 @@ namespace fds {
          * @return extent id that contains given offset in bytes
          */
         fds_extent_id getExtentId(fds_volid_t volume_id,
-                                  fds_uint64_t offset_bytes);
+                                  fds_uint64_t offset_bytes) const;
 
         /**
          * Update or add extent 0 to the persistent volume catalog
@@ -98,6 +98,8 @@ namespace fds {
                            const std::string& blob_name,
                            fds_extent_id extent_id);
     };
+
+    extern DmPersistVolCatalog gl_DmVolCatPlMod;
 
 }  // namespace fds
 
