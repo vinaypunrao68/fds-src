@@ -1854,7 +1854,11 @@ StorHvCtrl::attachVolume(AmQosReq *qosReq) {
 /*****************************************************************************
 
  *****************************************************************************/
+
 fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
+
+    return deleteBlobSvc(qosReq);
+
     netSession *endPoint = NULL;
     unsigned int node_ip = 0;
     fds_uint32_t node_port = 0;

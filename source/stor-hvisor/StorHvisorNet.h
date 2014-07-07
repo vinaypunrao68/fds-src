@@ -361,6 +361,12 @@ public:
     fds::Error getBlobSvc(fds::AmQosReq *qosReq);
     fds::Error putBlobSvc(fds::AmQosReq *qosReq);
     fds::Error startBlobTxSvc(AmQosReq *qosReq);
+    fds::Error deleteBlobSvc(fds::AmQosReq *qosReq);
+
+    void issueDeleteObject(const ObjectID& obj_id,
+                           const fds_int32_t& obj_len,
+                           FailoverRpcRespCb respCb);
+    void issueDeleteBlobCatalog();
 
     void issueQueryCatalog(const std::string& blobName,
                            const fds_uint64_t& blobOffset,
@@ -385,7 +391,10 @@ public:
                                const fds_volid_t& volId,
                                QuorumRpcRespCb respCb);
 
-
+    void deleteBlobDeleteObjectMsgResp(fds::AmQosReq* qosReq,
+                                       FailoverRpcRequest* rpcReq,
+                                       const Error& error,
+                                       boost::shared_ptr<std::string> payload);
     void getBlobQueryCatalogResp(fds::AmQosReq* qosReq,
                                  FailoverRpcRequest* rpcReq,
                                  const Error& error,
