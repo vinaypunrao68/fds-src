@@ -2355,6 +2355,126 @@ DataMgr::expungeBlob(const BlobNode *bnode) {
     return err;
 }
 
+
+/**
+ * "Deletes" a blob in a volume. Deleting may be a lazy or soft
+ * delete or a hard delete, depending on the volume's paramters
+ * and the blob's version.
+ *
+ * @param[in]  The DM delete request struct
+ * @param[out] The blob node deleted or which represents the delete.
+ * The pointer is only valid if err is OK.
+ * @return The result of the delete
+ */
+Error
+DataMgr::deleteBlobProcessSvc(DmIoDeleteCat *delCatReq, BlobNode **bnode) {
+    Error err(ERR_OK);
+
+    // Check if this blob exists already and what its current version is
+    // TODO(Andrew): The query should eventually manage multiple volumes
+    // rather than overwriting. The key can be blob name and version.
+    *bnode = NULL;
+    err = _process_query(delCatReq->volId,
+                         delCatReq->blob_name,
+                         *bnode);
+    if (err == ERR_CAT_ENTRY_NOT_FOUND) {
+        // If this blob doesn't already exist, allocate a new one
+        LOGWARN << "No blob found with name " << delCatReq->blob_name
+                << ", so nothing to delete";
+        err = ERR_BLOB_NOT_FOUND;
+        return err;
+    } else {
+        fds_verify(*bnode != NULL);
+        LOGDEBUG << "Located existing blob " << (*bnode)->blob_name
+                 << " with version " << (*bnode)->version;
+        fds_verify((*bnode)->version != blob_version_invalid);
+
+        // The current version is a delete marker, it's
+        // already deleted so return not found.
+        if ((*bnode)->version == blob_version_deleted) {
+            err = ERR_BLOB_NOT_FOUND;
+            return err;
+        }
+    }
+    fds_verify(err == ERR_OK);
+
+    bool fSizeZero = ((*bnode)->blob_size == 0);
+    if (fSizeZero) {
+        LOGDEBUG << "zero size blob:" << (*bnode)->blob_name;
+    }
+
+    LOGDEBUG << "about to delete blob: " << *bnode;
+    if (delCatReq->blob_version == blob_version_invalid) {
+        // Allocate a delete marker blob node. The
+        // marker is just a place holder marking the
+        // blob is deleted. It doesn't actually point
+        // to any offsets or object ids.
+        // Blobs with delete markers may have older versions
+        // garbage collected after some time.
+        BlobNode *deleteMarker = new BlobNode(delCatReq->volId,
+                                              delCatReq->blob_name);
+        fds_verify(deleteMarker != NULL);
+        deleteMarker->version   = blob_version_deleted;
+
+        // TODO(Andrew): For now, just write the marker bnode
+        // to disk. We'll eventually need open/commit if we're
+        // going to use a 2-phase commit, like puts().
+        err = _process_open((fds_volid_t)delCatReq->volId,
+                            delCatReq->blob_name,
+                            delCatReq->transId,
+                            deleteMarker);
+        fds_verify(err == ERR_OK);
+
+        // Only need to expunge if this DM is the primary
+        // for the volume
+        if (amIPrimary(delCatReq->volId) == true) {
+            if (fSizeZero) {
+                LOGWARN << "zero size blob:" << (*bnode)->blob_name
+                        << " - not expunging from SM";
+            } else {
+                err = expungeBlob((*bnode));
+                fds_verify(err == ERR_OK);
+            }
+        }
+
+        // We can delete the bnode we received from our
+        // query since we're going to create new blob
+        // node to represent to delete marker and return that
+        delete (*bnode);
+        (*bnode) = deleteMarker;
+    } else if (delCatReq->blob_version == (*bnode)->version) {
+        // We're explicity deleting this version.
+        // We don't use a delete marker and instead
+        // just delete this particular version
+
+        // Only need to expunge if this DM is the primary
+        // for the volume
+        if (amIPrimary(delCatReq->volId) == true) {
+            // We dereference count the objects in the blob here
+            // prior to freeing the structure.
+            // TODO(Andrew): We should persistently mark the blob
+            // as being deleted so that we know to clean it up
+            // after a crash. We may also need to persist deref
+            // state so we don't double dereference an object.
+            if (fSizeZero) {
+                LOGWARN << "zero size blob:" << (*bnode)->blob_name
+                        << " - not expunging from SM";
+            } else {
+                err = expungeBlob((*bnode));
+                fds_verify(err == ERR_OK);
+            }
+        }
+
+        // Remove the blob node structure
+        err = _process_delete(delCatReq->volId,
+                              delCatReq->blob_name);
+        fds_verify(err == ERR_OK);
+    }
+
+    return err;
+}
+
+
 /**
  * "Deletes" a blob in a volume. Deleting may be a lazy or soft
  * delete or a hard delete, depending on the volume's paramters
@@ -2477,6 +2597,21 @@ DataMgr::deleteBlobProcess(const dmCatReq  *delCatReq, BlobNode **bnode) {
     }
 
     return err;
+}
+
+void
+DataMgr::scheduleDeleteCatObjSvc(void * _io)
+{
+    Error err(ERR_OK);
+    DmIoDeleteCat *delCatObj = static_cast<DmIoDeleteCat*>(_io);
+
+    BlobNode *bnode = NULL;
+    // Process the delete blob. The deleted or modified
+    // bnode will be allocated and returned on success
+    err = deleteBlobProcessSvc(delCatObj, &bnode);
+
+    qosCtrl->markIODone(*delCatObj);
+    delCatObj->dmio_deletecat_resp_cb(err, delCatObj);
 }
 
 void

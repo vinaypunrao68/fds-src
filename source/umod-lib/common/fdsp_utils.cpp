@@ -96,4 +96,11 @@ std::string logString(const FDS_ProtocolInterface::StartBlobTxMsg& stBlobTx)
     oss < " StartBlobTxMs";
     return oss.str();
 }
+
+std::string logString(const FDS_ProtocolInterface::DeleteCatalogObjectMsg& delcatMsg)
+{
+    std::ostringstream oss;
+    oss < " StartBlobTxMs";
+    return oss.str();
+}
 }  // namespace fds

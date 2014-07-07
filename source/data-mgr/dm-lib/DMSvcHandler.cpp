@@ -17,6 +17,7 @@ DMSvcHandler::DMSvcHandler()
     REGISTER_FDSP_MSG_HANDLER(fpi::QueryCatalogMsg, queryCatalogObject);
     REGISTER_FDSP_MSG_HANDLER(fpi::UpdateCatalogMsg, updateCatalog);
     REGISTER_FDSP_MSG_HANDLER(fpi::StartBlobTxMsg, startBlobTx);
+    REGISTER_FDSP_MSG_HANDLER(fpi::DeleteCatalogObjectMsg, deleteCatalogObject);
 }
 
 
@@ -165,7 +166,7 @@ void DMSvcHandler::updateCatalogCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
     delete req;
 }
-#if 0
+#if 1
 void DMSvcHandler::deleteCatalogObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                        boost::shared_ptr<fpi::DeleteCatalogObjectMsg>& delcatMsg)
 {
@@ -188,11 +189,11 @@ void DMSvcHandler::deleteCatalogObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHd
     if (err != ERR_OK) {
         LOGWARN << "Unable to enqueue Delete Catalog request "
             << logString(*asyncHdr) << logString(*delcatMsg);
-        dmUpdCatReq->dmio_deletecat_resp_cb(err, dmDelCatReq);
+        dmDelCatReq->dmio_deletecat_resp_cb(err, dmDelCatReq);
     }
 }
 
-void DMSvcHandler::deleteCatalogCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+void DMSvcHandler::deleteCatalogObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                    const Error &e, DmIoDeleteCat *req)
 {
     DBG(GLOGDEBUG << logString(*asyncHdr));

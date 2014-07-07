@@ -57,7 +57,15 @@ enum  FDSPMsgTypeId {
     UpdateCatalogMsgTypeId,
     UpdateCatalogRspMsgTypeId,
     SetBlobMetaDataMsgTypeId,
-    SetBlobMetaDataRspMsgTypeId
+    SetBlobMetaDataRspMsgTypeId,
+    DeleteCatalogObjectMsgTypeId,
+    DeleteCatalogObjectRspMsgTypeId,
+    GetBlobMetaDataMsgTypeId,
+    GetBlobMetaDataRspMsgTypeId
+    SetVolumeMetaDataMsgTypeId,
+    SetVolumeMetaDataRspMsgTypeId,
+    GetVolumeMetaDataMsgTypeId,
+    GetVolumeMetaDataRspMsgTypeId
 }
 
 /*
@@ -294,6 +302,9 @@ struct DeleteCatalogObjectMsg {
    4: i64 			blob_version;
 }
 
+struct DeleteCatalogObjectRspMsg {
+}
+
 /* get the list of blobs in volume Transaction  request message */
 struct GetVolumeBlobListMsg {
    1: i64    			volume_id;
@@ -311,13 +322,19 @@ struct SetBlobMetaDataMsg {
 struct SetBlobMetaDataRspMsg {
 }
 
+struct GetBlobMetaDataRspMsg {
+}
+
+struct GetVolumeMetaDataRspMsg {
+}
+
 /* DM Service */
 service DMSvc extends BaseAsyncSvc {
     oneway void startBlobTx(1: AsyncHdr asyncHdr, 2:StartBlobTxMsg stBlbTxMsg);
     oneway void queryCatalogObject(1: AsyncHdr asyncHdr, 2:QueryCatalogMsg queryMsg);
     oneway void updateCatalog(1: AsyncHdr asyncHdr, 2:UpdateCatalogMsg updCatMsg);
-    /*
     oneway void deleteCatalogObject(1:AsyncHdr asyncHdr, 2:DeleteCatalogObjectMsg delCatObj);
+    /*
     oneway void getVolumeBlobList(1:AsyncHdr asyncHdr, 2:GetVolumeBlobListMsg getVolBlob);
 
     oneway void statBlob(1:AsyncHdr asyncHdr, 2:string volumeName, 3:string blobName);

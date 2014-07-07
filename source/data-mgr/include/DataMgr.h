@@ -144,6 +144,9 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
                 case FDS_DELETE_BLOB:
                     threadPool->schedule(scheduleDeleteCatObj, io);
                     break;
+                case FDS_DELETE_BLOB_SVC:
+                    threadPool->schedule(&DataMgr::scheduleDeleteCatObjSvc, dataMgr, io);
+                    break;
                 case FDS_LIST_BLOB:
                     threadPool->schedule(scheduleBlobList, io);
                     break;
@@ -337,7 +340,9 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
     void queryCatalogBackendSvc(void * _io);
     Error queryCatalogProcess(const dmCatReq  *qryCatReq, BlobNode **bnode);
     void deleteCatObjBackend(dmCatReq  *delCatReq);
+    void scheduleDeleteCatObjSvc(void * _io);
     Error deleteBlobProcess(const dmCatReq  *delCatReq, BlobNode **bnode);
+    Error deleteBlobProcessSvc(DmIoDeleteCat *delCatObj, BlobNode **bnode);
     void blobListBackend(dmCatReq *listBlobReq);
     void statBlobBackend(const dmCatReq *statBlobReq);
     void startBlobTxBackend(const dmCatReq *startBlobTxReq);
