@@ -45,15 +45,18 @@ class TvcProbe : public ProbeMod {
 
     class OpParams {
   public:
-        std::string    op;
-        fds_volid_t    volId;
-        BlobTxId::ptr  txId;
-        std::string    blobName;
-        fds_uint64_t   blobOffset;
-        ObjectID       objectId;  // TODO(Andrew): Make a list
+        std::string              op;
+        fds_volid_t              volId;
+        BlobTxId::ptr            txId;
+        std::string              blobName;
+        fpi::FDSP_MetaDataList   metaList;
+        fpi::FDSP_BlobObjectList objList;
     };
     void startTx(const OpParams &startParams);
+    void updateTx(const OpParams &updateParams);
+    void updateMetaTx(const OpParams &updateParams);
     void commitTx(const OpParams &commitParams);
+    void abortTx(const OpParams &abortParams);
 };
 
 // ----------------------------------------------------------------------------
@@ -88,9 +91,8 @@ class TvcOpTemplate : public JsObjTemplate
         char *op;
         char *name;
         fds_uint32_t txId;
-        if (json_unpack(in, "{s:s, s:i, s:i, s:s}",
+        if (json_unpack(in, "{s:s, s:i, s:s}",
                         "blob-op", &op,
-                        "volume-id", &p->volId,
                         "tx-id", &txId,
                         "blob-name", &name)) {
             fds_panic("Malformed json!");
@@ -99,7 +101,7 @@ class TvcOpTemplate : public JsObjTemplate
         p->txId = BlobTxId::ptr(new BlobTxId(txId));
         p->blobName = name;
 
-        json_unpack(in, "{s:i}", "blob-off", &p->blobOffset);
+        // json_unpack(in, "{s:i}", "blob-off", &p->blobOffset);
 
         // char *objectId;
         // json_unpack(in, "{s:s}", "object-id", &objectId);

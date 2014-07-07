@@ -60,13 +60,6 @@ void
 TvcProbe::pr_put(ProbeRequest *probe) {
 }
 
-void
-TvcProbe::startTx(const OpParams &startParams) {
-    Error err = gl_DmTvcMod.startBlobTx(startParams.blobName,
-                                        startParams.txId);
-    fds_verify(err == ERR_OK);
-}
-
 // pr_get
 // ------
 //
@@ -75,7 +68,36 @@ TvcProbe::pr_get(ProbeRequest *req) {
 }
 
 void
+TvcProbe::startTx(const OpParams &startParams) {
+    Error err = gl_DmTvcMod.startBlobTx(startParams.blobName,
+                                        startParams.txId);
+    fds_verify(err == ERR_OK);
+}
+
+void
+TvcProbe::updateTx(const OpParams &updateParams) {
+    Error err = gl_DmTvcMod.updateBlobTx(updateParams.txId,
+                                         updateParams.objList);
+    fds_verify(err == ERR_OK);
+}
+
+void
+TvcProbe::updateMetaTx(const OpParams &updateParams) {
+    Error err = gl_DmTvcMod.updateBlobTx(updateParams.txId,
+                                         updateParams.metaList);
+    fds_verify(err == ERR_OK);
+}
+
+void
 TvcProbe::commitTx(const OpParams &commitParams) {
+    Error err = gl_DmTvcMod.commitBlobTx(commitParams.txId);
+    fds_verify(err == ERR_OK);
+}
+
+void
+TvcProbe::abortTx(const OpParams &abortParams) {
+    Error err = gl_DmTvcMod.abortBlobTx(abortParams.txId);
+    fds_verify(err == ERR_OK);
 }
 
 // pr_delete
@@ -148,8 +170,16 @@ TvcObjectOp::js_exec_obj(JsObject *parent,
 
         if (info->op == "startTx") {
             gl_TvcProbe.startTx(*info);
+        } else if (info->op == "updateTx") {
+            gl_TvcProbe.updateTx(*info);
+        } else if (info->op == "updateMetaTx") {
+            gl_TvcProbe.updateMetaTx(*info);
         } else if (info->op == "commitTx") {
             gl_TvcProbe.commitTx(*info);
+        } else if (info->op == "abortTx") {
+            gl_TvcProbe.abortTx(*info);
+        } else {
+            fds_panic("Unknown operation %s!", info->op.c_str());
         }
     }
 

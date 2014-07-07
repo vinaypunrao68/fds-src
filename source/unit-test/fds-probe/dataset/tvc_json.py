@@ -5,7 +5,7 @@
 import optparse
 
 def printHeader():
-    print "{\n    \"Run-Input\": {\n        \"am-workload\": {\n            \"am-ops\": ["
+    print "{\n    \"Run-Input\": {\n        \"tvc-workload\": {\n            \"tvc-ops\": ["
 
 def printFooter():
     print "            ]\n        }\n    }\n}"
