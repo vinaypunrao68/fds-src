@@ -2094,6 +2094,8 @@ ObjectStorMgr::deleteObjectInternal(SmIoReq* delReq) {
     qosCtrl->markIODone(*delReq,
                         diskio::diskTier);
 
+    PerfTracer::tracePointEnd(delReq->opReqLatencyCtx);
+
     /*
      * Prepare a response to send back.
      */
