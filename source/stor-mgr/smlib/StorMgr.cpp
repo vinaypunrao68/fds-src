@@ -1957,6 +1957,7 @@ ObjectStorMgr::enqTransactionIo(FDSP_MsgHdrTypePtr msgHdr,
                                 SmIoReq *ioReq, TransJournalId &trans_id)
 {
 
+    GLOGDEBUG << "enqTransactionIo " << ioReq->getTransId() << endl;
     PerfTracer::tracePointBegin(ioReq->opReqLatencyCtx);
 
     // TODO(Rao): Refactor create_transaction so that it just takes key and cb as
@@ -2068,7 +2069,10 @@ ObjectStorMgr::deleteObjectInternal(SmIoReq* delReq) {
     /*
      * Delete the object, decrement refcnt of the assoc entry & overall refcnt
      */
-    err = deleteObjectMetaData(opCtx, objId, volId, objMetadata);
+    {
+        SCOPED_PERF_TRACEPOINT_CTX(delReq->opLatencyCtx);
+        err = deleteObjectMetaData(opCtx, objId, volId, objMetadata);
+    }
     if (err.ok()) {
         LOGDEBUG << "Successfully delete object " << objId
                  << " refcnt = " << objMetadata.getRefCnt();

@@ -32,7 +32,7 @@ template <typename T>
 void initializeCounter(fds::PerfContext * ctx, fds::FdsCounters * parent) {
     fds_assert(ctx);
     fds_assert(0 == ctx->data.get());
-    GLOGDEBUG << "Creating performance counter for type='" << ctx->type
+    GLOGDEBUG << "Creating performance counter for type='" << fds::eventTypeToStr[ctx->type]
             << "' name='" << ctx->name << "'";
 
     std::string counterName = fds::eventTypeToStr[ctx->type];
@@ -112,6 +112,13 @@ const char * eventTypeToStr[] = {
         "get_trans_queue_wait",
         "get_qos_queue_wait",
         "get_cache_hit",
+
+        "delete_io",
+        "delete_obj_req",
+        "delete_obj_req_err",
+        "delete_trans_queue_wait",
+        "delete_qos_queue_wait",
+        "delete_cache_hit",
 
         "murmur3_hash",
         "dlt_lkup",
@@ -230,7 +237,7 @@ void PerfTracer::reconfig() {
 
 void PerfTracer::updateCounter(PerfContext & ctx, const uint64_t & val,
         const uint64_t cnt) {
-    GLOGNORMAL << "Updating performance counter for type='" << ctx.type
+    GLOGNORMAL << "Updating performance counter for type='" << eventTypeToStr[ctx.type]
             << "' val='" << val << "' count='" << cnt << "' name='"
             << ctx.name << "'";
     FdsCounters * counterParent = ctx.enabled ? exportedCounters.get() : 0;
@@ -312,7 +319,7 @@ void PerfTracer::incr(const PerfEventType & type, uint64_t val,
 void PerfTracer::tracePointBegin(const std::string & id, const PerfEventType & type,
             std::string name /* = "" */) {
     GLOGDEBUG << "Received tracePointBegin() for id='" << id << "' type='" <<
-            type << "' name='" << name << "'";
+            eventTypeToStr[type] << "' name='" << name << "'";
     PerfContext * ctx = new PerfContext(type, name);
     tracePointBegin(*ctx);
 
@@ -331,7 +338,7 @@ void PerfTracer::tracePointBegin(const std::string & id, const PerfEventType & t
 }
 
 void PerfTracer::tracePointBegin(PerfContext & ctx) {
-    GLOGDEBUG << "Starting perf trace for type='" << ctx.type << "' name='" <<
+    GLOGDEBUG << "Starting perf trace for type='" << eventTypeToStr[ctx.type] << "' name='" <<
             ctx.name << "'";
 #ifdef USE_RDTSC_TIME
     ctx.start_cycle = util::getNanosFromTicks(util::getClockTicks());
@@ -360,7 +367,7 @@ boost::shared_ptr<PerfContext> PerfTracer::tracePointEnd(const std::string & id)
 }
 
 void PerfTracer::tracePointEnd(PerfContext & ctx) {
-    GLOGDEBUG << "Ending perf trace for type='" << ctx.type << "' name='" <<
+    GLOGDEBUG << "Ending perf trace for type='" << eventTypeToStr[ctx.type] << "' name='" <<
             ctx.name << "'";
 #ifdef USE_RDTSC_TIME
     ctx.end_cycle = util::getNanosFromTicks(util::getClockTicks());
