@@ -1,4 +1,4 @@
-package com.formationds.spike.nbd;/*
+package com.formationds.nbd;/*
  * Copyright 2014 Formation Data Systems, Inc.
  */
 

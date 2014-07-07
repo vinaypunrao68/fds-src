@@ -1,4 +1,4 @@
-package com.formationds.om;
+package com.formationds.om.rest;
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */

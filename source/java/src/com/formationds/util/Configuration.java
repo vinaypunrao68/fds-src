@@ -14,22 +14,27 @@ import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Properties;
 
 public class Configuration {
     Properties properties = new Properties();
     private File fdsRoot;
-    private static final String[] LOGLEVELS = new String[] {
-            "TRACE",
-            "DEBUG",
-            "INFO",
-            "WARN",
-            "ERROR",
-            "FATAL",
-            "FATAL"
-    };
+    private static final Map<String, String> LOGLEVELS = new HashMap<>();
 
-    public Configuration(String commandName, String[] commandLineArgs) throws Exception {
+    //trace/debug/normal/info/notify/notification/crit/critical,warn/warning/error
+    static {
+        LOGLEVELS.put("trace", "TRACE");
+        LOGLEVELS.put("debug", "DEBUG");
+        LOGLEVELS.put("normal", "INFO");
+        LOGLEVELS.put("notification", "INFO");
+        LOGLEVELS.put("warning", "WARN");
+        LOGLEVELS.put("error", "ERROR");
+        LOGLEVELS.put("critical", "FATAL");
+    }
+
+    public Configuration(String commandName, String[] commandLineArgs) {
         OptionParser parser = new OptionParser();
         parser.allowsUnrecognizedOptions();
         parser.accepts("fds-root").withRequiredArg();
@@ -41,15 +46,12 @@ public class Configuration {
             fdsRoot = new File("/fds");
         }
 
-        int logLevel = 0;
-        try {
-            logLevel = getPlatformConfig().defaultInt("fds.plat.log_severity", 0);
-        } catch (Exception e) {}
+        String logLevel = getPlatformConfig().defaultString("fds.plat.log_severity", "normal").toLowerCase();
 
         if (options.has("console")) {
-            initConsoleLogging(LOGLEVELS[logLevel]);
+            initConsoleLogging(LOGLEVELS.getOrDefault(logLevel, "INFO"));
         } else {
-            initFileLogging(commandName, fdsRoot, LOGLEVELS[logLevel]);
+            initFileLogging(commandName, fdsRoot, LOGLEVELS.getOrDefault(logLevel, "INFO"));
         }
 
         initJaas(fdsRoot);
@@ -78,10 +80,14 @@ public class Configuration {
         PropertyConfigurator.configure(properties);
     }
 
-    private void initJaas(File fdsRoot) throws Exception {
-        Path jaasConfig = Paths.get(fdsRoot.getCanonicalPath(), "etc", "auth.conf");
-        URL configUrl = jaasConfig.toFile().toURL();
-        System.setProperty("java.security.auth.login.config", configUrl.toExternalForm());
+    private void initJaas(File fdsRoot) {
+        try {
+            Path jaasConfig = Paths.get(fdsRoot.getCanonicalPath(), "etc", "auth.conf");
+            URL configUrl = jaasConfig.toFile().toURL();
+            System.setProperty("java.security.auth.login.config", configUrl.toExternalForm());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public boolean enforceRestAuth() {

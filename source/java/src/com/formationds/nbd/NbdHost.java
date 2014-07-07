@@ -1,4 +1,4 @@
-package com.formationds.spike.nbd;
+package com.formationds.nbd;
 
 /*
  * Copyright 2014 Formation Data Systems, Inc.
@@ -17,7 +17,6 @@ import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 
 import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.ThreadPoolExecutor;
 
 public class NbdHost {
     private int port;
