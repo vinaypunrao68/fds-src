@@ -166,7 +166,7 @@ void DMSvcHandler::updateCatalogCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
     delete req;
 }
-#if 1
+
 void DMSvcHandler::deleteCatalogObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                        boost::shared_ptr<fpi::DeleteCatalogObjectMsg>& delcatMsg)
 {
@@ -196,11 +196,13 @@ void DMSvcHandler::deleteCatalogObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHd
 void DMSvcHandler::deleteCatalogObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                    const Error &e, DmIoDeleteCat *req)
 {
-    DBG(GLOGDEBUG << logString(*asyncHdr));
-    // fpi::DeleteCatalogRspMsg updcatRspMsg;
-    // net::ep_send_async_resp(*asyncHdr, updcatRspMsg);
+    LOGDEBUG << logString(*asyncHdr);
+    asyncHdr->msg_code = static_cast<int32_t>(e.GetErrno());
+    // TODO(sanjay) - we will have to revisit  this call
+    fpi::DeleteCatalogObjectRspMsg delcatRspMsg;
+    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(DeleteCatalogObjectRspMsg), delcatRspMsg);
 
     delete req;
 }
-#endif
+
 }  // namespace fds
