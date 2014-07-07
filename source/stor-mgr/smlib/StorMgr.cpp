@@ -2062,6 +2062,7 @@ ObjectStorMgr::deleteObjectInternal(SmIoReq* delReq) {
 
     objBufPtr = objCache->object_retrieve(volId, objId);
     if (objBufPtr != NULL) {
+        PerfTracer::incr(DELETE_CACHE_HIT, delReq->perfNameStr);
         objCache->object_release(volId, objId, objBufPtr);
         objCache->object_delete(volId, objId);
     }
