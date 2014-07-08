@@ -62,6 +62,8 @@ namespace fds {
         ERR_DM_TX_COMMITED        = 39,
         ERR_DM_TX_ROLLEDBACK      = 40,
         ERR_DM_OFFSET_OUT_RANGE   = 41,
+        ERR_DM_TX_ACTIVE          = 42,
+        ERR_DM_MAX_CL_ENTRIES     = 43,
 
         /* I/O error range */
         ERR_IO_DLT_MISMATCH      = 100,

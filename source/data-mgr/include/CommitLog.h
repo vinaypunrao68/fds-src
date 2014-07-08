@@ -5,9 +5,11 @@
 #define SOURCE_DATA_MGR_INCLUDE_COMMITLOG_H_
 
 #include <unistd.h>
+#include <string.h>
 
 #include <string>
 #include <vector>
+#include <deque>
 #include <unordered_map>
 
 #include <fds_error.h>
@@ -15,8 +17,11 @@
 #include <serialize.h>
 #include <blob/BlobTypes.h>
 #include <DmBlobTypes.h>
+#include <FdsCrypto.h>
 
 namespace fds {
+
+const unsigned DEFAULT_COMMIT_LOG_FILE_SIZE = 20 * 1024 * 1024;
 
 // commit log transaction details
 struct CommitLogTx {
@@ -58,7 +63,9 @@ class DmCommitLog : public Module {
     typedef boost::shared_ptr<const DmCommitLog> const_ptr;
 
     // ctor & dtor
-    explicit DmCommitLog(const std::string &modName, PersistenceType persist = IN_FILE);
+    explicit DmCommitLog(const std::string &modName, const std::string & filename,
+            fds_uint32_t filesize = DEFAULT_COMMIT_LOG_FILE_SIZE,
+            PersistenceType persist = IN_MEMORY);
     ~DmCommitLog();
 
     // module overrides
@@ -91,17 +98,15 @@ class DmCommitLog : public Module {
   private:
     TxMap txMap_;    // in-memory state
 
+    std::string filename_;
+    fds_uint32_t filesize_;
     PersistenceType persist_;
+    bool started_;
     boost::shared_ptr<DmCommitLogger> cmtLogger_;
 
     // Methods
     Error validateSubsequentTx(const BlobTxId & txId);
 };
-
-
-const unsigned DETAILS_BUFFER_SIZE = 4000;
-
-const unsigned MAX_COMMIT_LOG_ENTRIES = 5000;
 
 typedef enum {
     TX_UNKNOWN,
@@ -115,63 +120,199 @@ typedef enum {
 
 // base struct for commit log entry
 struct DmCommitLogEntry {
-    fds_uint8_t stale;
     CommitLogEntryType type;
     fds_uint64_t id;
     fds_uint64_t txId;
-    fds_uint64_t prev;
+    fds_uint32_t next;
 
-    char details[DETAILS_BUFFER_SIZE];
+    char payload[];     // should be last data member of structure
 
-    DmCommitLogEntry(CommitLogEntryType type_, const BlobTxId & txDesc);
+    DmCommitLogEntry(CommitLogEntryType type_, const BlobTxId & txDesc, fds_uint64_t id_,
+            const char * payload_ = 0) : type(type_), id(id_), txId(txDesc.getValue()), next(0) {
+        if (payload_) {
+            strcpy(payload, payload_);  //NOLINT
+        } else {
+            *payload = 0;
+        }
+    }
+
+    inline fds_uint32_t length() const {
+        return sizeof(DmCommitLogEntry) + strlen(payload) + 1;
+    }
 
     template<typename T>
+    static const std::string createPayload(boost::shared_ptr<const T> val);
+
+  protected:
+    template<typename T>
     boost::shared_ptr<T> getDetails() const {
-        boost::scoped_ptr<serialize::Deserializer> d(serialize::getMemDeserializer(details));
+        boost::scoped_ptr<serialize::Deserializer> d(serialize::getMemDeserializer(payload));
         boost::shared_ptr<T> ret(new T());
-        ret->read(d);
+        ret->read(d.get());
         return ret;
     }
 };
 
 // start transaction
 struct DmCommitLogStartEntry : public DmCommitLogEntry {
-    DmCommitLogStartEntry(const BlobTxId & txDesc, const std::string & blobName);
-    std::string blobName() const;
+    DmCommitLogStartEntry(const BlobTxId & txDesc, fds_uint64_t id, const std::string & blobName) :
+            DmCommitLogEntry(TX_START, txDesc, id, blobName.c_str()) {}
+
+    const char * blobName() const {
+        fds_assert(TX_START == type);
+        return payload;
+    }
 };
 
 // commit transaction
 struct DmCommitLogCommitEntry : public DmCommitLogEntry {
-    explicit DmCommitLogCommitEntry(const BlobTxId & txDesc) :
-            DmCommitLogEntry(TX_COMMIT, txDesc) {}
+    explicit DmCommitLogCommitEntry(const BlobTxId & txDesc, fds_uint64_t id) :
+            DmCommitLogEntry(TX_COMMIT, txDesc, id) {}
 };
 
 // rollback transaction
 struct DmCommitLogRollbackEntry : public DmCommitLogEntry {
-    explicit DmCommitLogRollbackEntry(const BlobTxId & txDesc) :
-            DmCommitLogEntry(TX_ROLLBACK, txDesc) {}
+    explicit DmCommitLogRollbackEntry(const BlobTxId & txDesc, fds_uint64_t id) :
+            DmCommitLogEntry(TX_ROLLBACK, txDesc, id) {}
 };
 
 // purge transaction, read for compaction/ gc
 struct DmCommitLogPurgeEntry : public DmCommitLogEntry {
-    explicit DmCommitLogPurgeEntry(const BlobTxId & txDesc) :
-            DmCommitLogEntry(TX_PURGE, txDesc) {}
+    explicit DmCommitLogPurgeEntry(const BlobTxId & txDesc, fds_uint64_t id) :
+            DmCommitLogEntry(TX_PURGE, txDesc, id) {}
 };
 
 // update blob object list
 struct DmCommitLogUpdateObjListEntry : public DmCommitLogEntry {
-    DmCommitLogUpdateObjListEntry(const BlobTxId & txDesc, const BlobObjList::ptr & blobObjList);
+    DmCommitLogUpdateObjListEntry(const BlobTxId & txDesc, fds_uint64_t id,
+            const std::string & blobObjList) : DmCommitLogEntry(TX_UPDATE_OBJLIST, txDesc, id,
+            blobObjList.c_str()) {}
+
+    inline boost::shared_ptr<BlobObjList> blobObjList() const {
+        fds_assert(TX_UPDATE_OBJLIST == type);
+        return getDetails<BlobObjList>();
+    }
 };
 
 // update blob object meta data
 struct DmCommitLogUpdateObjMetaEntry : public DmCommitLogEntry {
-    DmCommitLogUpdateObjMetaEntry(const BlobTxId & txDesc, const BlobMetaDesc::ptr & meta);
+    DmCommitLogUpdateObjMetaEntry(const BlobTxId & txDesc, fds_uint64_t id,
+            const std::string & blobMetaDesc) : DmCommitLogEntry(TX_UPDATE_OBJMETA, txDesc, id,
+            blobMetaDesc.c_str()) {}
+
+    inline boost::shared_ptr<BlobMetaDesc> blobMetaDesc() const {
+        fds_assert(TX_UPDATE_OBJMETA == type);
+        return getDetails<BlobMetaDesc>();
+    }
 };
 
 class DmCommitLogger {
   public:
     typedef boost::shared_ptr<DmCommitLogger> ptr;
     typedef boost::shared_ptr<const DmCommitLogger> const_ptr;
+
+    virtual Error startTx(const BlobTxId & txDesc, const std::string & blobName,
+            fds_uint64_t & id) = 0;
+
+    virtual Error updateTx(const BlobTxId * txDesc, BlobObjList::const_ptr blobObjList,
+            fds_uint64_t & id) = 0;
+
+    virtual Error updateTx(const BlobTxId & txDesc, BlobMetaDesc::const_ptr blobMetaDesc,
+            fds_uint64_t & id) = 0;
+
+    virtual Error commitTx(const BlobTxId & txDesc, fds_uint64_t & id) = 0;
+
+    virtual Error rollbackTx(const BlobTxId & txDesc, fds_uint64_t & id) = 0;
+
+    virtual Error purgeTx(const BlobTxId & txDesc, fds_uint64_t & id) = 0;
+
+    virtual const DmCommitLogEntry * getFirst() = 0;
+
+    virtual const DmCommitLogEntry * getLast() = 0;
+
+    virtual const DmCommitLogEntry * getNext(const DmCommitLogEntry * rhs) = 0;
+
+    virtual const DmCommitLogEntry * getEntry(const fds_uint64_t id) = 0;
+};
+
+class FileCommitLogger : public DmCommitLogger {
+  public:
+    struct EntriesHeader {
+        fds_uint32_t count;
+        fds_uint32_t first;
+        fds_uint32_t last;
+        byte digest[hash::Sha1::numDigestBytes];
+    };
+
+    FileCommitLogger(const std::string & filename, fds_uint32_t filesize);
+    virtual ~FileCommitLogger();
+
+    virtual Error startTx(const BlobTxId & txDesc, const std::string & blobName,
+            fds_uint64_t & id) override;
+
+    virtual Error updateTx(const BlobTxId * txDesc, BlobObjList::const_ptr blobObjList,
+            fds_uint64_t & id) override;
+
+    virtual Error updateTx(const BlobTxId & txDesc, BlobMetaDesc::const_ptr blobMetaDesc,
+            fds_uint64_t & id) override;
+
+    virtual Error commitTx(const BlobTxId & txDesc, fds_uint64_t & id) override;
+
+    virtual Error rollbackTx(const BlobTxId & txDesc, fds_uint64_t & id) override;
+
+    virtual Error purgeTx(const BlobTxId & txDesc, fds_uint64_t & id) override;
+
+    virtual const DmCommitLogEntry * getFirst() override {
+        return header()->count ? first() : 0;
+    }
+
+    virtual const DmCommitLogEntry * getLast() override {
+        return header()->count ? last() : 0;
+    }
+
+    virtual const DmCommitLogEntry * getNext(const DmCommitLogEntry * rhs) override;
+
+    virtual const DmCommitLogEntry * getEntry(const fds_uint64_t id) override;
+
+  protected:
+    inline EntriesHeader * header() {
+        return reinterpret_cast<EntriesHeader *>(addr_);
+    }
+
+    inline char * data() {
+        return addr_ + sizeof(EntriesHeader);
+    }
+
+    inline fds_uint32_t entryOffset(DmCommitLogEntry * rhs) {
+        return reinterpret_cast<char *>(rhs) - addr_;
+    }
+
+    inline DmCommitLogEntry * first() {
+        return reinterpret_cast<DmCommitLogEntry *>(addr_ + header()->first);
+    }
+
+    inline DmCommitLogEntry * last() {
+        return reinterpret_cast<DmCommitLogEntry *>(addr_ + header()->last);
+    }
+
+    char * commitLogAlloc(const size_t sz);
+
+    void addEntryToHeader(DmCommitLogEntry * entry);
+
+  private:
+    const std::string filename_;
+    const fds_uint32_t filesize_;
+    int fd_;
+    int prot_;
+    int flags_;
+
+    char * addr_;
+};
+
+class MemoryCommitLogger : public FileCommitLogger {
+  public:
+    MemoryCommitLogger() : FileCommitLogger("", DEFAULT_COMMIT_LOG_FILE_SIZE) {}
+    virtual ~MemoryCommitLogger() {}
 };
 
 }  /* namespace fds */

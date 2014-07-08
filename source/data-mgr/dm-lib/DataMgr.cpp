@@ -817,7 +817,7 @@ void DataMgr::proc_pre_startup()
 
     // Init the commit log. TODO(Andrew): We should be loading
     // from the previous commit log on disk.
-    commitLog = DmCommitLog::ptr(new DmCommitLog("DM Trans Commit Log"));
+    commitLog = DmCommitLog::ptr(new DmCommitLog("DM Trans Commit Log", "/fds/var/commit.log"));
 
     setup_metadatapath_server(myIp);
 
