@@ -149,11 +149,14 @@ class FDSISCSIDriver(driver.ISCSIDriver):
         with self._get_services() as fds:
             fds.cs.createVolume(self.fds_domain, volume['name'], VolumeSettings(4096, VolumeType.BLOCK, volume['size'] * (1024 ** 3)))
 
-
     def delete_volume(self, volume):
         with self._get_services() as fds:
             self._detach_fds_block_dev(volume['name'])
-            fds.cs.deleteVolume(self.fds_domain, volume['name'])
+            try:
+                fds.cs.deleteVolume(self.fds_domain, volume['name'])
+            except ApiException as ex:
+                if ex.errorCode != 1:
+                    raise
 
 
     def _attach_fds_block_dev(self, name):
