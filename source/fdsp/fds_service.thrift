@@ -48,9 +48,7 @@ enum  FDSPMsgTypeId {
     GetObjectRespTypeId,
     PutObjectMsgTypeId, 
     PutObjectRspMsgTypeId,
-	DeleteObjectMsgTypeId,
-	DeleteObjectRpsMsgTypeId,
-
+	
     /* DM Type Ids */
     QueryCatalogMsgTypeId = 20000,
     QueryCatalogRspMsgTypeId,

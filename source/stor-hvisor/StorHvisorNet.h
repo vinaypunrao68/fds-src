@@ -363,11 +363,9 @@ public:
     fds::Error startBlobTxSvc(AmQosReq *qosReq);
     fds::Error deleteBlobSvc(fds::AmQosReq *qosReq);
 
-    void issueDeleteObject(const ObjectID& obj_id,
-                           const fds_int32_t& obj_len,
-                           FailoverRpcRespCb respCb);
-    void issueDeleteBlobCatalog();
-
+    void issueDeleteCatalogObject(const fds_uint64_t& vol_id,
+                                  const std::string& blob_name,
+                                  QuorumRpcRespCb respCb);
     void issueQueryCatalog(const std::string& blobName,
                            const fds_uint64_t& blobOffset,
                            const fds_volid_t& volId,
@@ -390,11 +388,6 @@ public:
                                const bool &lastBuf,
                                const fds_volid_t& volId,
                                QuorumRpcRespCb respCb);
-
-    void deleteBlobDeleteObjectMsgResp(fds::AmQosReq* qosReq,
-                                       FailoverRpcRequest* rpcReq,
-                                       const Error& error,
-                                       boost::shared_ptr<std::string> payload);
     void getBlobQueryCatalogResp(fds::AmQosReq* qosReq,
                                  FailoverRpcRequest* rpcReq,
                                  const Error& error,
@@ -411,11 +404,15 @@ public:
                                      QuorumRpcRequest* rpcReq,
                                      const Error& error,
                                      boost::shared_ptr<std::string> payload);
-
     void putBlobPutObjectMsgResp(fds::AmQosReq* qosReq,
                                  QuorumRpcRequest* rpcReq,
                                  const Error& error,
                                  boost::shared_ptr<std::string> payload);
+    void deleteObjectMsgResp(fds::AmQosReq* qosReq,
+                             QuorumRpcRequest* rpcReq,
+                             const Error& error,
+                             boost::shared_ptr<std::string> payload);
+ 
 
     fds::Error updateCatalogCache(GetBlobReq *blobReq,
                                   FDS_ProtocolInterface::FDSP_BlobObjectList& blobOffList);

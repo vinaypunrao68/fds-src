@@ -509,120 +509,63 @@ StorHvCtrl::deleteBlobSvc(fds::AmQosReq *qosReq)
     // Get blob name
     std::string blob_name = blobReq->getBlobName();
 
-    // TODO(brian): Do we actually need this? Andrew thinks no.
     StorHvVolume *shVol = storHvisor->vol_table->getLockedVolume(vol_id);
-    if ((shVol == NULL) || (shVol->isValidLocked() == false)) {
-        shVol->readUnlock();
-        LOGCRITICAL << "deleteBlob failed to get volume for vol 0x"
-                    << std::hex << vol_id << std::dec;
-        qos_ctrl->markIODone(qosReq);
-        blobReq->cbWithResult(ERR_INVALID);
-        delete blobReq;
-        err = ERR_DISK_WRITE_FAILED;
-        return err;
-    }
-    // Check for outstanding tx with this block offset
-    bool trans_in_progress = false;
-    fds_uint32_t transId =
-            shVol->journal_tbl->get_trans_id_for_blob(blob_name,
-                                                      blobReq->getBlobOffset(),
-                                                      trans_in_progress);
-    StorHvJournalEntry *journEntry = shVol->journal_tbl->get_journal_entry(transId);
-    StorHvJournalEntryLock je_lock(journEntry);
+    fds_verify(shVol != NULL);
+    fds_verify(shVol->isValidLocked() == true);
 
-    if (trans_in_progress || (journEntry->isActive())) {
-        shVol->readUnlock();
-
-        LOGNOTIFY << " StorHvisorTx: " << "IO-XID: " << transId
-                  << " - Transaction is already in ACTIVE state, completing request "
-                  << transId << " with ERROR(-2)";
-
-        blobReq->cbWithResult(-2);
-        err = ERR_NOT_IMPLEMENTED;
-        delete qosReq;
-        return err;
-    }
-    journEntry->setActive();
-
-    // Make the new style request
-    // Send to the SM
-    // TODO(brian): Verify that blobReq->getDataLen returns len of object
-
-    issueDeleteObject(blobReq->getObjId(),
-                      blobReq->getDataLen(),
-                      std::bind(&StorHvCtrl::deleteBlobDeleteObjectMsgResp,
-                                this, qosReq,
-                                std::placeholders::_1,
-                                std::placeholders::_2,
-                                std::placeholders::_3));
     // Send to the DM
-    //issueDeleteBlobCatalog();
-    
+    issueDeleteCatalogObject(vol_id, blob_name,
+                             std::bind(&StorHvCtrl::deleteObjectMsgResp,
+                                       this, qosReq,
+                                       std::placeholders::_1,
+                                       std::placeholders::_2,
+                                       std::placeholders::_3));
     return err;
 }
 
 void
-StorHvCtrl::issueDeleteObject(const ObjectID& obj_id,
-                              const fds_int32_t& len,
-                              FailoverRpcRespCb respCb)
+StorHvCtrl::issueDeleteCatalogObject(const fds_uint64_t& vol_id,
+                                     const std::string& blob_name,
+                                     QuorumRpcRespCb respCb)
 {
-    fpi::DeleteObjectMsgPtr
-            deleteObjMsg(boost::make_shared<fpi::DeleteObjectMsg>());
+    DeleteCatalogObjectMsgPtr delMsg(new DeleteCatalogObjectMsg());
+    delMsg->blob_name = blob_name;
+    delMsg->blob_version = blob_version_invalid;
+    delMsg->volume_id = vol_id;
 
-    // Set object id
-    deleteObjMsg->data_obj_id.digest = std::string((const char *)obj_id.GetId(),
-                                                   (size_t)obj_id.GetLen());
-    // Set object length
-    deleteObjMsg->data_obj_len = len;
-
-    // Get DLT node list from dlt
-    DltTokenGroupPtr dltPtr;
-    dltPtr = dataPlacementTbl->getDLTNodesForDoidKey(obj_id);
-    fds_verify(dltPtr != NULL);
-    fds_verify(dltPtr->getLength() > 0);
-    
-    deleteObjMsg->dlt_version = om_client->getDltVersion();
-    fds_verify(deleteObjMsg->dlt_version != DLT_VER_INVALID);
-
-    deleteObjMsg->dlt_data = om_client->getLatestDlt(deleteObjMsg->dlt_data);
     
 #ifdef RPC_BASED_ASYNC_COMM
-    auto asyncDeleteReq = gRpcRequestPool->newFailoverNetRequest(
-        boost::make_shared<DltObjectIdEpProvider>(om_client->getDLTNodesForDoidKey(obj_id)));
-    asyncDeleteReq->setRpcFunc(
-        CREATE_RPC(fpi::SMSvcClient, deleteObject, deleteObjMsg));
+    auto asyncDeleteCatReq = gRpcRequestPool->newQuorumRpcRequest(
+        boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(vol_id)));
+    asyncDeleteCatReq->setRpcFunc(
+        CREATE_RPC(fpi::DMSvcClient, deleteCatalogObject, delMsg));
 #else
-    auto asyncDeleteReq = gRpcRequestPool->newFailoverNetRequest(
-        boost::make_shared<DltObjectIdEpProvider>(om_client->getDLTNodesForDoidKey(obj_id)));
-    asyncDeleteReq->setPayload(FDSP_MSG_TYPEID(fpi::DeleteObjectMsg), deleteObjMsg);
+    auto asyncDeleteCatReq = gRpcRequestPool->newQuorumNetRequest(
+        boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(vol_id)));
+    asyncDeleteCatReq->setPayload(FDSP_MSG_TYPEID(fpi::DeleteCatalogObjectMsg), delMsg);
 #endif
-    asyncDeleteReq->setTimeoutMs(500);
-    asyncDeleteReq->onResponseCb(respCb);
-    asyncDeleteReq->invoke();
+    asyncDeleteCatReq->setTimeoutMs(500);
+    asyncDeleteCatReq->onResponseCb(respCb);
+    asyncDeleteCatReq->invoke();
 
-    //LOGDEBUG << asyncDeleteReq->logString() << fds::logString(*deleteObjMsg);
+    LOGDEBUG << asyncDeleteCatReq->logString() << fds::logString(*delMsg);
 }
 
-void
-StorHvCtrl::deleteBlobDeleteObjectMsgResp(fds::AmQosReq* qosReq,
-                                         FailoverRpcRequest* rpcReq,
-                                         const Error& error,
-                                         boost::shared_ptr<std::string> payload)
+void StorHvCtrl::deleteObjectMsgResp(fds::AmQosReq* qosReq,
+                                      QuorumRpcRequest* rpcReq,
+                                      const Error& error,
+                                      boost::shared_ptr<std::string> payload)
 {
     DeleteBlobReq *blobReq = static_cast<fds::DeleteBlobReq*>(qosReq->getBlobReqPtr());
-    fpi::DeleteObjectRspMsgPtr deleteObjRsp =
-        net::ep_deserialize<fpi::DeleteObjectRspMsg>(const_cast<Error&>(error), payload);
+    fpi::DeleteCatalogObjectRspMsgPtr delCatRsp =
+        net::ep_deserialize<fpi::DeleteCatalogObjectRspMsg>(const_cast<Error&>(error), payload);
 
     if (error != ERR_OK) {
-        LOGERROR << "Obj ID: " << blobReq->getObjId()
-            << " blob name: " << blobReq->getBlobName()
+        LOGERROR << " blob name: " << blobReq->getBlobName()
             << " offset: " << blobReq->getBlobOffset() << " Error: " << error; 
     } else {
-        //LOGDEBUG << rpcReq->logString() << fds::logString(*deleteObjRsp);
+        //LOGDEBUG << rpcReq->logString() << fds::logString(*delCatRsp);
     }
-
-    // TODO(brian): Is this correct? I'm not sure what this needs to do
-    qos_ctrl->markIODone(qosReq);
     blobReq->cbWithResult(ERR_OK);
     delete blobReq;
 }
