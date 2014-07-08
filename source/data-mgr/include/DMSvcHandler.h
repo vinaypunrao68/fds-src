@@ -35,6 +35,16 @@ class DMSvcHandler : virtual public DMSvcIf, public PlatNetSvcHandler {
         // Don't do anything here. This stub is just to keep cpp compiler happy
     }
 
+    void commitBlobTx(const fpi::AsyncHdr& asyncHdr,
+                             const fpi::CommitBlobTxMsg& commitBlbMsg) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+
+    void abortBlobTx(const fpi::AsyncHdr& asyncHdr,
+                             const fpi::AbortBlobTxMsg& abortBlbMsg) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+
     void startBlobTx(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                        boost::shared_ptr<fpi::StartBlobTxMsg>& startBlob);
     void startBlobTxCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
@@ -55,6 +65,16 @@ class DMSvcHandler : virtual public DMSvcIf, public PlatNetSvcHandler {
                        boost::shared_ptr<fpi::DeleteCatalogObjectMsg>& delcatMsg);
     void deleteCatalogObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                          const Error &e, DmIoDeleteCat *req);
+
+    void commitBlobTx(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                       boost::shared_ptr<fpi::CommitBlobTxMsg>& commitBlbTx);
+    void commitBlobTxCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                         const Error &e, DmIoCommitBlobTx *req);
+
+    void abortBlobTx(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                       boost::shared_ptr<fpi::AbortBlobTxMsg>& abortBlbTx);
+    void abortBlobTxCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                         const Error &e, DmIoAbortBlobTx *req);
 };
 
 }  // namespace fds

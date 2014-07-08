@@ -235,7 +235,57 @@ namespace fds {
     };
 
 /**
- * Request to query catalog
+ * Request to Commit Blob Tx
+ */
+class DmIoCommitBlobTx: public dmCatReq {
+  public:
+    typedef std::function<void (const Error &e, DmIoCommitBlobTx *blobTx)> CbType;
+  public:
+    DmIoCommitBlobTx(const fds_volid_t  &_volId,
+                    const std::string &_blobName,
+                    const blob_version_t &_blob_version)
+            : dmCatReq(_volId, _blobName, _blob_version, FDS_COMMIT_BLOB_TX) {
+    }
+
+    virtual std::string log_string() const override {
+        std::stringstream ret;
+        ret << "DmIoCommitBlobTx vol "
+            << std::hex << volId << std::dec;
+        return ret.str();
+    }
+
+    BlobTxId::const_ptr ioBlobTxDesc;
+    /* response callback */
+    CbType dmio_commit_blob_tx_resp_cb;
+};
+
+/**
+ * Request to Abort Blob Tx
+ */
+class DmIoAbortBlobTx: public dmCatReq {
+  public:
+    typedef std::function<void (const Error &e, DmIoAbortBlobTx *blobTx)> CbType;
+  public:
+    DmIoAbortBlobTx(const fds_volid_t  &_volId,
+                    const std::string &_blobName,
+                    const blob_version_t &_blob_version)
+            : dmCatReq(_volId, _blobName, _blob_version, FDS_ABORT_BLOB_TX) {
+    }
+
+    virtual std::string log_string() const override {
+        std::stringstream ret;
+        ret << "DmIoAbortBlobTx vol "
+            << std::hex << volId << std::dec;
+        return ret.str();
+    }
+
+    BlobTxId::const_ptr ioBlobTxDesc;
+    /* response callback */
+    CbType dmio_abort_blob_tx_resp_cb;
+};
+
+/**
+ * Request to Start Blob Tx
  */
 class DmIoStartBlobTx: public dmCatReq {
   public:

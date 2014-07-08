@@ -65,7 +65,11 @@ enum  FDSPMsgTypeId {
     SetVolumeMetaDataMsgTypeId,
     SetVolumeMetaDataRspMsgTypeId,
     GetVolumeMetaDataMsgTypeId,
-    GetVolumeMetaDataRspMsgTypeId
+    GetVolumeMetaDataRspMsgTypeId,
+    CommitBlobTxMsgTypeId,
+    CommitBlobTxRspMsgTypeId,
+    AbortBlobTxMsgTypeId,
+    AbortBlobTxRspMsgTypeId
 }
 
 /*
@@ -287,19 +291,43 @@ struct UpdateCatalogRspMsg {
 /* Start Blob  Transaction  request message */
 struct StartBlobTxMsg {
    1: i64    			volume_id;
-   3: string 			blob_name;
-   4: i64 			blob_version;
-   5: i64                   	txId;
+   2: string 			blob_name;
+   3: i64 			blob_version;
+   4: i64                   	txId;
 }
 
-/* Put object response message */
+/* start Blob traction response message */
 struct StartBlobTxRspMsg {
+}
+
+/* Commit Blob  Transaction  request message */
+struct CommitBlobTxMsg {
+   1: i64    			volume_id;
+   2: string 			blob_name;
+   3: i64 			blob_version;
+   4: i64                   	txId;
+}
+
+/* Commit Blob traction response message */
+struct CommitBlobTxRspMsg {
+}
+
+/* Abort Blob  Transaction  request message */
+struct AbortBlobTxMsg {
+   1: i64    			volume_id;
+   2: string 			blob_name;
+   3: i64 			blob_version;
+   4: i64                   	txId;
+}
+
+/* Abort Blob traction response message */
+struct AbortBlobTxRspMsg {
 }
 /* delete catalog object Transaction  request message */
 struct DeleteCatalogObjectMsg {
    1: i64    			volume_id;
-   3: string 			blob_name;
-   4: i64 			blob_version;
+   2: string 			blob_name;
+   3: i64 			blob_version;
 }
 
 struct DeleteCatalogObjectRspMsg {
@@ -313,9 +341,9 @@ struct GetVolumeBlobListMsg {
 /* get the list of blobs in volume Transaction  request message */
 struct SetBlobMetaDataMsg {
    1: i64    			volume_id;
-   3: string 			blob_name;
-   4: i64 			blob_version;
-   5: FDSP.FDSP_MetaDataList    metaDataList; 
+   2: string 			blob_name;
+   3: i64 			blob_version;
+   4: FDSP.FDSP_MetaDataList    metaDataList; 
 }
 
 /* Set blob metadata request message */
