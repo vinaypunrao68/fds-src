@@ -43,26 +43,28 @@ DmTimeVolCatalog::mod_shutdown() {
 Error
 DmTimeVolCatalog::startBlobTx(const std::string &blobName,
                               BlobTxId::const_ptr txDesc) {
-    LOGDEBUG << "Starting " << blobName
-             << "transaction " << *txDesc;
+    LOGDEBUG << "Starting transaction " << *txDesc
+             << " for blob " << blobName;
     return ERR_OK;
 }
 
 Error
 DmTimeVolCatalog::updateBlobTx(const BlobTxId::const_ptr txDesc,
                                const fpi::FDSP_BlobObjectList &objList) {
-    LOGDEBUG << "Updating transaction " << *txDesc;
+    LOGDEBUG << "Updating offsets for transaction " << *txDesc;
     return ERR_OK;
 }
 
 Error
 DmTimeVolCatalog::updateBlobTx(const BlobTxId::const_ptr txDesc,
                                const fpi::FDSP_MetaDataList &metaList) {
+    LOGDEBUG << "Updating metadata for transaction " << *txDesc;
     return ERR_OK;
 }
 
 Error
 DmTimeVolCatalog::commitBlobTx(const BlobTxId::const_ptr txDesc) {
+    LOGDEBUG << "Committing transaction " << *txDesc;
     return ERR_OK;
 }
 
