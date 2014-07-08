@@ -100,7 +100,21 @@ std::string logString(const FDS_ProtocolInterface::StartBlobTxMsg& stBlobTx)
 std::string logString(const FDS_ProtocolInterface::DeleteCatalogObjectMsg& delcatMsg)
 {
     std::ostringstream oss;
-    oss < " StartBlobTxMs";
+    oss < " DeleteBlobTxMs";
+    return oss.str();
+}
+
+std::string logString(const FDS_ProtocolInterface::CommitBlobTxMsg& commitBlbTx)
+{
+    std::ostringstream oss;
+    oss < " CommitBlobTxMs";
+    return oss.str();
+}
+
+std::string logString(const FDS_ProtocolInterface::AbortBlobTxMsg& abortBlbTx)
+{
+    std::ostringstream oss;
+    oss < " AbortBlobTxMs";
     return oss.str();
 }
 }  // namespace fds

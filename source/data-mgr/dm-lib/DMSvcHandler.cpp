@@ -26,11 +26,96 @@ DMSvcHandler::DMSvcHandler()
 void DMSvcHandler::commitBlobTx(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                boost::shared_ptr<fpi::CommitBlobTxMsg>& commitBlbTx)
 {
+    LOGDEBUG << logString(*asyncHdr) << logString(*commitBlbTx);
+
+    auto dmBlobTxReq = new DmIoCommitBlobTx(commitBlbTx->volume_id,
+                                           commitBlbTx->blob_name,
+                                           commitBlbTx->blob_version);
+    dmBlobTxReq->dmio_commit_blob_tx_resp_cb =
+            BIND_MSG_CALLBACK2(DMSvcHandler::commitBlobTxCb, asyncHdr);
+            /*
+        std::bind(&DMSvcHandler::startBlobTxCb, this,
+                  asyncHdr,
+                  std::placeholders::_1, std::placeholders::_2);
+            */
+
+    Error err = dataMgr->qosCtrl->enqueueIO(dmBlobTxReq->getVolId(),
+                                            static_cast<FDS_IOType*>(dmBlobTxReq));
+    /*
+     * allocate a new  Blob transaction  class and  queue  to per volume queue.
+     */
+    dmBlobTxReq->ioBlobTxDesc = BlobTxId::ptr(new BlobTxId(commitBlbTx->txId));
+    if (err != ERR_OK) {
+        LOGWARN << "Unable to enqueue  commit blob tx  request "
+            << logString(*asyncHdr) << logString(*commitBlbTx);
+        dmBlobTxReq->dmio_commit_blob_tx_resp_cb(err, dmBlobTxReq);
+    }
 }
+
+void DMSvcHandler::commitBlobTxCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                                   const Error &e, DmIoCommitBlobTx *req)
+{
+    /*
+     * we are not sending any response  message  in this call, instead we 
+     * will send the status  on async header
+     * TODO(sanjay)- we will have to add  call to  send the response without payload 
+     * static response
+     */
+    LOGDEBUG << logString(*asyncHdr);
+    asyncHdr->msg_code = static_cast<int32_t>(e.GetErrno());
+    // TODO(sanjay) - we will have to revisit  this call
+    fpi::CommitBlobTxRspMsg stBlobTxRsp;
+    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(CommitBlobTxRspMsg), stBlobTxRsp);
+
+    delete req;
+}
+
 
 void DMSvcHandler::abortBlobTx(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                boost::shared_ptr<fpi::AbortBlobTxMsg>& abortBlbTx)
 {
+    LOGDEBUG << logString(*asyncHdr) << logString(*abortBlbTx);
+
+    auto dmBlobTxReq = new DmIoAbortBlobTx(abortBlbTx->volume_id,
+                                           abortBlbTx->blob_name,
+                                           abortBlbTx->blob_version);
+    dmBlobTxReq->dmio_abort_blob_tx_resp_cb =
+            BIND_MSG_CALLBACK2(DMSvcHandler::abortBlobTxCb, asyncHdr);
+            /*
+        std::bind(&DMSvcHandler::startBlobTxCb, this,
+                  asyncHdr,
+                  std::placeholders::_1, std::placeholders::_2);
+            */
+
+    Error err = dataMgr->qosCtrl->enqueueIO(dmBlobTxReq->getVolId(),
+                                            static_cast<FDS_IOType*>(dmBlobTxReq));
+    /*
+     * allocate a new  Blob transaction  class and  queue  to per volume queue.
+     */
+    dmBlobTxReq->ioBlobTxDesc = BlobTxId::ptr(new BlobTxId(abortBlbTx->txId));
+    if (err != ERR_OK) {
+        LOGWARN << "Unable to enqueue  abort blob tx  request "
+            << logString(*asyncHdr) << logString(*abortBlbTx);
+        dmBlobTxReq->dmio_abort_blob_tx_resp_cb(err, dmBlobTxReq);
+    }
+}
+
+void DMSvcHandler::abortBlobTxCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                                   const Error &e, DmIoAbortBlobTx *req)
+{
+    /*
+     * we are not sending any response  message  in this call, instead we 
+     * will send the status  on async header
+     * TODO(sanjay)- we will have to add  call to  send the response without payload 
+     * static response
+     */
+    LOGDEBUG << logString(*asyncHdr);
+    asyncHdr->msg_code = static_cast<int32_t>(e.GetErrno());
+    // TODO(sanjay) - we will have to revisit  this call
+    fpi::AbortBlobTxRspMsg stBlobTxRsp;
+    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(AbortBlobTxRspMsg), stBlobTxRsp);
+
+    delete req;
 }
 
 void DMSvcHandler::startBlobTx(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,

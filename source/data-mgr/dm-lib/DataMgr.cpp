@@ -1876,6 +1876,38 @@ DataMgr::queryCatalogProcess(const dmCatReq  *qryCatReq, BlobNode **bnode) {
 }
 
 void
+DataMgr::scheduleCommitBlobTxSvc(void * _io)
+{
+    Error err(ERR_OK);
+    DmIoCommitBlobTx *commitBlobTx = static_cast<DmIoCommitBlobTx*>(_io);
+
+    BlobTxId::const_ptr blobTxId = commitBlobTx->ioBlobTxDesc;
+    fds_verify(*blobTxId != blobTxIdInvalid);
+    /*
+     * TODO(sanjay) we will have  intergrate this with TVC  API's
+     */
+
+    qosCtrl->markIODone(*commitBlobTx);
+    commitBlobTx->dmio_commit_blob_tx_resp_cb(err, commitBlobTx);
+}
+
+void
+DataMgr::scheduleAbortBlobTxSvc(void * _io)
+{
+    Error err(ERR_OK);
+    DmIoAbortBlobTx *abortBlobTx = static_cast<DmIoAbortBlobTx*>(_io);
+
+    BlobTxId::const_ptr blobTxId = abortBlobTx->ioBlobTxDesc;
+    fds_verify(*blobTxId != blobTxIdInvalid);
+    /*
+     * TODO(sanjay) we will have  intergrate this with TVC  API's
+     */
+
+    qosCtrl->markIODone(*abortBlobTx);
+    abortBlobTx->dmio_abort_blob_tx_resp_cb(err, abortBlobTx);
+}
+
+void
 DataMgr::scheduleStartBlobTxSvc(void * _io)
 {
     Error err(ERR_OK);
@@ -1886,7 +1918,6 @@ DataMgr::scheduleStartBlobTxSvc(void * _io)
     /*
      * TODO(sanjay) we will have  intergrate this with TVC  API's
      */
-    // Error err = commitLog->startTx(blobTxId, startBlobTxReq->blob_name);
     // err = commitLog->startTx(blobTxId, startBlobTx->blob_name);
 
     qosCtrl->markIODone(*startBlobTx);

@@ -167,6 +167,12 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
                 case FDS_GET_VOLUME_METADATA:
                     threadPool->schedule(scheduleGetVolumeMetaData, io);
                     break;
+                case FDS_COMMIT_BLOB_TX:
+                    threadPool->schedule(&DataMgr::scheduleCommitBlobTxSvc, dataMgr, io);
+                    break;
+                case FDS_ABORT_BLOB_TX:
+                    threadPool->schedule(&DataMgr::scheduleAbortBlobTxSvc, dataMgr, io);
+                    break;
                 default:
                     FDS_PLOG(FDS_QoSControl::qos_log) << "Unknown IO Type received";
                     assert(0);
@@ -347,6 +353,8 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
     void statBlobBackend(const dmCatReq *statBlobReq);
     void startBlobTxBackend(const dmCatReq *startBlobTxReq);
     void scheduleStartBlobTxSvc(void * _io);
+    void scheduleCommitBlobTxSvc(void * _io);
+    void scheduleAbortBlobTxSvc(void * _io);
     void getBlobMetaDataBackend(const dmCatReq *request);
     void setBlobMetaDataBackend(const dmCatReq *request);
     void getVolumeMetaDataBackend(const dmCatReq *request);
