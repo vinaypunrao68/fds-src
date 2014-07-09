@@ -362,7 +362,11 @@ struct SetBlobMetaDataMsg {
 struct SetBlobMetaDataRspMsg {
 }
 
-struct GetBlobMetaDataRspMsg {
+struct GetBlobMetaDataMsg {
+  1: i64                       volume_id;
+  2: string                    blob_name;
+  3: i64                       blob_version;
+  4: FDSP.FDSP_MetaDataList    metaDataList;
 }
 
 struct GetVolumeMetaDataRspMsg {
