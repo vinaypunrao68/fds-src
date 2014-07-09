@@ -41,35 +41,58 @@ DmTimeVolCatalog::mod_shutdown() {
 }
 
 Error
-DmTimeVolCatalog::startBlobTx(const std::string &blobName,
+DmTimeVolCatalog::addVolume(const VolumeDesc& voldesc) {
+    LOGDEBUG << "Will prepare commit log for new volume "
+             << std::hex << voldesc.volUUID << std::dec;
+    return ERR_OK;
+}
+
+Error
+DmTimeVolCatalog::activateVolume(fds_volid_t volId) {
+    LOGDEBUG << "Will activate commit log for volume "
+             << std::hex << volId << std::dec;
+    return ERR_OK;
+}
+
+Error
+DmTimeVolCatalog::startBlobTx(fds_volid_t volId,
+                              const std::string &blobName,
                               BlobTxId::const_ptr txDesc) {
     LOGDEBUG << "Starting transaction " << *txDesc
-             << " for blob " << blobName;
+             << " for blob " << blobName << " volume "
+             << std::hex << volId << std::dec;
     return ERR_OK;
 }
 
 Error
-DmTimeVolCatalog::updateBlobTx(const BlobTxId::const_ptr txDesc,
+DmTimeVolCatalog::updateBlobTx(fds_volid_t volId,
+                               const BlobTxId::const_ptr txDesc,
                                const fpi::FDSP_BlobObjectList &objList) {
-    LOGDEBUG << "Updating offsets for transaction " << *txDesc;
+    LOGDEBUG << "Updating offsets for transaction " << *txDesc
+             << " volume " << std::hex << volId << std::dec;
     return ERR_OK;
 }
 
 Error
-DmTimeVolCatalog::updateBlobTx(const BlobTxId::const_ptr txDesc,
+DmTimeVolCatalog::updateBlobTx(fds_volid_t volId,
+                               const BlobTxId::const_ptr txDesc,
                                const fpi::FDSP_MetaDataList &metaList) {
-    LOGDEBUG << "Updating metadata for transaction " << *txDesc;
+    LOGDEBUG << "Updating metadata for transaction " << *txDesc
+             << " volume " << std::hex << volId << std::dec;
     return ERR_OK;
 }
 
 Error
-DmTimeVolCatalog::commitBlobTx(const BlobTxId::const_ptr txDesc) {
-    LOGDEBUG << "Committing transaction " << *txDesc;
+DmTimeVolCatalog::commitBlobTx(fds_volid_t volId,
+                               const BlobTxId::const_ptr txDesc) {
+    LOGDEBUG << "Committing transaction " << *txDesc << " for volume "
+             << std::hex << volId << std::dec;
     return ERR_OK;
 }
 
 Error
-DmTimeVolCatalog::abortBlobTx(const BlobTxId::const_ptr txDesc) {
+DmTimeVolCatalog::abortBlobTx(fds_volid_t volId,
+                              const BlobTxId::const_ptr txDesc) {
     return ERR_OK;
 }
 

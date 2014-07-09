@@ -69,34 +69,34 @@ TvcProbe::pr_get(ProbeRequest *req) {
 
 void
 TvcProbe::startTx(const OpParams &startParams) {
-    Error err = gl_DmTvcMod.startBlobTx(startParams.blobName,
+    Error err = gl_DmTvcMod.startBlobTx(1, startParams.blobName,
                                         startParams.txId);
     fds_verify(err == ERR_OK);
 }
 
 void
 TvcProbe::updateTx(const OpParams &updateParams) {
-    Error err = gl_DmTvcMod.updateBlobTx(updateParams.txId,
+    Error err = gl_DmTvcMod.updateBlobTx(1, updateParams.txId,
                                          updateParams.objList);
     fds_verify(err == ERR_OK);
 }
 
 void
 TvcProbe::updateMetaTx(const OpParams &updateParams) {
-    Error err = gl_DmTvcMod.updateBlobTx(updateParams.txId,
+    Error err = gl_DmTvcMod.updateBlobTx(1, updateParams.txId,
                                          updateParams.metaList);
     fds_verify(err == ERR_OK);
 }
 
 void
 TvcProbe::commitTx(const OpParams &commitParams) {
-    Error err = gl_DmTvcMod.commitBlobTx(commitParams.txId);
+    Error err = gl_DmTvcMod.commitBlobTx(1, commitParams.txId);
     fds_verify(err == ERR_OK);
 }
 
 void
 TvcProbe::abortTx(const OpParams &abortParams) {
-    Error err = gl_DmTvcMod.abortBlobTx(abortParams.txId);
+    Error err = gl_DmTvcMod.abortBlobTx(1, abortParams.txId);
     fds_verify(err == ERR_OK);
 }
 
@@ -162,6 +162,15 @@ TvcObjectOp::js_exec_obj(JsObject *parent,
     fds_uint32_t numOps = parent->js_array_size();
     TvcObjectOp *node;
     TvcProbe::OpParams *info;
+
+    // create volume with id 1
+    VolumeDesc voldesc("volume", 1);
+    voldesc.maxObjSizeInBytes = 4096;
+    Error err = gl_DmTvcMod.addVolume(voldesc);
+    fds_verify(err.ok());
+    err = gl_DmTvcMod.activateVolume(1);
+    fds_verify(err.ok());
+
     for (fds_uint32_t i = 0; i < numOps; i++) {
         node = static_cast<TvcObjectOp *>((*parent)[i]);
         info = node->tvc_ops();
