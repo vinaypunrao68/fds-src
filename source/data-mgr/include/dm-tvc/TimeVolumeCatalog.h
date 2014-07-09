@@ -54,55 +54,84 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
     friend class DmVolumeCatalog;
 
     /**
+     * Notification about new volume managed by this DM.
+     * This could be either completely new volume or volume
+     * that was previously managed by other DMs. When this method
+     * returns, TVC is not ready to accept requests for the volume
+     * untill activateVolume() is called.
+     * @param[in] voldesc descriptor of new volume
+     * @return ERR_OK if TVC and Volume Catalog is ready
+     * for volume activate
+     */
+    Error addVolume(const VolumeDesc& voldesc);
+
+    /**
+     * Prepare TVC and Volume Catalog to accept requests for
+     * this volume
+     * @param[in] volId volume ID
+     */
+    Error activateVolume(fds_volid_t volId);
+
+    /**
      * Starts a new transaction for blob
+     * @param[in] volId volume ID
      * @param[in] blobName Name of blob
      * @param[in] txDesc   Transaction ID
      *
      * @return ERR_OK if the transaction was successfully
      * started
      */
-    Error startBlobTx(const std::string &blobName,
+    Error startBlobTx(fds_volid_t volId,
+                      const std::string &blobName,
                       BlobTxId::const_ptr txDesc);
     /**
      * Applies a new offset update to an existing transaction
+     * @param[in] volId volume ID
      * @param[in] txDesc  Transaction ID
      * @param[in] objList List of blob offsets being updated
      *
      * @return ERR_OK if the update was successfully applied
      * to the transaction
      */
-    Error updateBlobTx(const BlobTxId::const_ptr txDesc,
+    Error updateBlobTx(fds_volid_t volId,
+                       const BlobTxId::const_ptr txDesc,
                        const fpi::FDSP_BlobObjectList &objList);
 
     /**
      * Applies a new medatadata update to an
      * existing transaction
+     * @param[in] volId volume ID
      * @param[in] txDesc  Transaction ID
      * @param[in] objList List of blob offsets being updated
      *
      * @return ERR_OK if the update was successfully applied
      * to the transaction
      */
-    Error updateBlobTx(const BlobTxId::const_ptr txDesc,
+    Error updateBlobTx(fds_volid_t volId,
+                       const BlobTxId::const_ptr txDesc,
                        const fpi::FDSP_MetaDataList &metaList);
 
 
     /**
      * Commits the updates associated with an existing transaction
+     * @param[in] volId volume ID
      * @param[in] txDesc Transaction ID
      *
      * @return ERR_OK if the commit was successfully applied
      */
-    Error commitBlobTx(const BlobTxId::const_ptr txDesc);
+    Error commitBlobTx(fds_volid_t volId,
+                       const BlobTxId::const_ptr txDesc);
 
     /**
      * Aborts an existing transaction. All pending updates
      * associated with the transaction are discarded.
+     * @param[in] volId volumeID
      * @param[in] txDesc Transaction ID
      *
      * @return ERR_OK if the abort was successfully applied
      */
-    Error abortBlobTx(const BlobTxId::const_ptr txDesc);
+    Error abortBlobTx(fds_volid_t volId,
+                      const BlobTxId::const_ptr txDesc);
 
     int  mod_init(SysParams const *const param);
     void mod_startup();

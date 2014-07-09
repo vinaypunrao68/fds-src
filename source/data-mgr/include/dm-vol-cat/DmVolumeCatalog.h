@@ -37,11 +37,6 @@ namespace fds {
         virtual void mod_shutdown();
 
         /**
-         * VolumeCatalogQueryIface methods. This interface is used by DM
-         * processing payer to query for committed blob metadata.
-         */
-
-        /**
          * Add catalog for a new volume described in 'voldesc'
          * When the function returns, the volume catalog for this volume
          * is inactive until activateCatalog() is called. For just added
@@ -60,10 +55,11 @@ namespace fds {
          */
         Error activateCatalog(fds_volid_t volume_id);
 
+
         /**
-         * Deletes each blob in the volume and marks volume as deleted.
+         * VolumeCatalogQueryIface methods. This interface is used by DM
+         * processing payer to query for committed blob metadata.
          */
-        Error removeVolumeMeta(fds_volid_t volume_id);
 
         /**
          * Returns true if the volume does not contain any valid blobs.
@@ -148,6 +144,11 @@ namespace fds {
                                               const std::string& blob_name,
                                               const std::set<fds_uint64_t>& offset_list,
                                               Error& result);
+
+        /**
+         * Deletes each blob in the volume and marks volume as deleted.
+         */
+        Error removeVolumeMeta(fds_volid_t volume_id);
 
         /**
          * Deletes the blob 'blob_name' verison 'blob_version'.

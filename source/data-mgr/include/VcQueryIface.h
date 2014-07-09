@@ -9,35 +9,13 @@
 
 namespace fds {
 
-/**
- * Interface to Volume Catalog for querying commited versions of
- * blob metadata in volume catalogs. Includes methods for creating
- * volume catalogs 
- */
+    /**
+     * Interface to Volume Catalog for querying commited versions of
+     * blob metadata in volume catalogs.
+     */
     class VolumeCatalogQueryIface {
   public:
         virtual ~VolumeCatalogQueryIface() {}
-
-        /**
-         * Add catalog for a new volume described in 'voldesc'
-         * When the function returns, the volume catalog for this volume
-         * is inactive, i.e. queries to volume catalog wwill fail.
-         * DM processing layer will need to call activateCatalog() to actually
-         * activate catalog for new volumes. For already existing volumes, for
-         * which DM takes a new responsibility, the volume catalog remains inactive
-         * while volume catalog sync is in progress; in that case, migration
-         * module will activate volume catalog when volume catalog is ready for
-         * access.
-         * @param voldesc is a volume descriptor, which contains volume id, name
-         * and other information about the volume
-         */
-        virtual Error addCatalog(const VolumeDesc& voldesc) = 0;
-
-        /**
-         * Activate catalog for the given volume 'volume_id'. After this call
-         * Volume Catalog will accept queries for this volume
-         */
-        virtual Error activateCatalog(fds_volid_t volume_id) = 0;
 
         /**
          * Returns true if the volume does not contain any valid blobs.
