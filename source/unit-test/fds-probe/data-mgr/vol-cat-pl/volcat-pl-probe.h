@@ -16,10 +16,10 @@
 
 namespace fds {
 
-    // for now this is hardcoded to match consts in vol cat
+    // NOTE!!! for now this is hardcoded to match consts in vol cat
     // persistent layer, make sure they match
-    static const fds_uint32_t probe_extent0_obj_entries = 10;
-    static const fds_uint32_t probe_extent_obj_entries = 20;
+    static const fds_uint32_t probe_extent0_obj_entries = 1024;
+    static const fds_uint32_t probe_extent_obj_entries = 2048;
 
     /**
      * Class that acts as unit test interface to DM Volume Catalog
@@ -111,7 +111,7 @@ class VolCatPlOpTemplate : public JsObjTemplate
         p->op = op;
         p->blob_name = "";
         p->extent_id = 0;
-        p->max_obj_size = 0;
+        p->max_obj_size = 4096;
 
         if (p->op == "volcrt") {
             return js_parse(new VolCatPlObjectOp(), in, p);
