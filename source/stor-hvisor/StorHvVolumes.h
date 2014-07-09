@@ -294,7 +294,7 @@ class StatBlobReq : public FdsBlobReq {
      * are not actually needed...the base blob
      * request class just expects them.
      */
-    StatBlobReq(fds_volid_t          _volid,
+     StatBlobReq(fds_volid_t          _volid,
                 const std::string   &_vol_name,
                 const std::string   &_blob_name,
                 fds_uint64_t         _blob_offset,
@@ -305,6 +305,16 @@ class StatBlobReq : public FdsBlobReq {
                        _data_len, _data_buf, cb),
                     volumeName(_vol_name) {
     }
+
+    StatBlobReq(fds_volid_t          _volid,
+                const std::string   &_vol_name,
+                const std::string   &_blob_name,
+                CallbackPtr cb) :
+            FdsBlobReq(FDS_STAT_BLOB, _volid, _blob_name, 0,
+                       0, NULL, cb),
+                    volumeName(_vol_name) {
+    }
+
     ~StatBlobReq() {
     }
 
@@ -331,8 +341,18 @@ struct GetVolumeMetaDataReq : FdsBlobReq {
     GetVolumeMetaDataReq(fds_volid_t volId, const std::string & volumeName, CallbackPtr cb) :
             FdsBlobReq(FDS_GET_VOLUME_METADATA, volId, "" , 0, 0, NULL, cb),
             volumeName(volumeName) {
-}
+    }
 };
+
+struct GetBlobMetaDataReq : FdsBlobReq {
+    std::string volumeName;
+    GetBlobMetaDataReq(fds_volid_t volId, const std::string & volumeName,
+                       const std::string &_blob_name, CallbackPtr cb) :
+            FdsBlobReq(FDS_GET_BLOB_METADATA, volId, _blob_name , 0, 0, NULL, cb),
+            volumeName(volumeName) {
+    }
+};
+
 
 /**
  * AM request to locally attach a volume.

@@ -63,6 +63,31 @@ StorHvCtrl::TxnResponseHelper::~TxnResponseHelper() {
     delete vol_lock;
 }
 
+StorHvCtrl::ResponseHelper::ResponseHelper(StorHvCtrl* storHvisor,
+                                           AmQosReq *qosReq)
+        : storHvisor(storHvisor), qosReq(qosReq) {
+    fds_verify(qosReq != NULL);
+    blobReq = qosReq->getBlobReqPtr();
+    fds_verify(blobReq != NULL);
+
+    volId = blobReq->getVolId();
+    vol = storHvisor->vol_table->getVolume(volId);
+    vol_lock = new StorHvVolumeLock(vol);
+
+    blobReq->cb->status = ERR_OK;
+}
+
+void StorHvCtrl::ResponseHelper::setStatus(FDSN_Status  status) {
+    blobReq->cb->status = status;
+}
+
+StorHvCtrl::ResponseHelper::~ResponseHelper() {
+    storHvisor->qos_ctrl->markIODone(qosReq);
+    blobReq->cb->call();
+    delete blobReq;
+    delete vol_lock;
+}
+
 
 StorHvCtrl::TxnRequestHelper::TxnRequestHelper(StorHvCtrl* storHvisor,
                                                AmQosReq *qosReq)
@@ -137,6 +162,41 @@ StorHvCtrl::TxnRequestHelper::~TxnRequestHelper() {
         //delete blobReq;
     } else {
         scheduleTimer();
+    }
+}
+
+StorHvCtrl::RequestHelper::RequestHelper(StorHvCtrl* storHvisor,
+                                         AmQosReq *qosReq)
+        : storHvisor(storHvisor), qosReq(qosReq) {
+    blobReq = qosReq->getBlobReqPtr();
+    volId = blobReq->getVolId();
+    shVol = storHvisor->vol_table->getLockedVolume(volId);
+    blobReq->setQueuedUsec(shVol->journal_tbl->microsecSinceCtime(
+        boost::posix_time::microsec_clock::universal_time()));
+}
+
+bool StorHvCtrl::RequestHelper::isValidVolume() {
+    return ((shVol != NULL) && (shVol->isValidLocked()));
+}
+
+void StorHvCtrl::RequestHelper::setStatus(FDSN_Status status) {
+    this->status = status;
+}
+
+bool StorHvCtrl::RequestHelper::hasError() {
+    return ((status != ERR_OK) && (status != FDSN_StatusNOTSET));
+}
+
+StorHvCtrl::RequestHelper::~RequestHelper() {
+    if (shVol) shVol->readUnlock();
+
+    if (hasError()) {
+        if (blobReq->cb.get() != NULL) {
+            GLOGDEBUG << "doing callback";
+            blobReq->cb->call(status);
+        }
+        delete qosReq;
+        //delete blobReq;
     }
 }
 
@@ -1486,7 +1546,7 @@ StorHvCtrl::startBlobTx(AmQosReq *qosReq) {
     fds_uint32_t transId = shVol->journal_tbl->get_trans_id_for_blob(blobReq->getBlobName(),
                                                                      blobReq->getBlobOffset(),
                                                                      txInProgress);
-    StorHvJournalEntry *journEntry = shVol->journal_tbl->get_journal_entry(transId);  
+    StorHvJournalEntry *journEntry = shVol->journal_tbl->get_journal_entry(transId);
     StorHvJournalEntryLock je_lock(journEntry);
 
     // Just bail out if there's an outstanding request

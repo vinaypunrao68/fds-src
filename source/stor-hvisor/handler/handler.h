@@ -12,7 +12,8 @@
 #include <fdsp/FDSP_MetaDataPathReq.h>
 #include <fdsp/FDSP_MetaDataPathResp.h>
 #include "../StorHvVolumes.h"
-
+#include <net/NetRequest.h>
+#include <net/RpcRequestPool.h>
 class StorHvCtrl;
 namespace fds {
 /**
@@ -38,6 +39,18 @@ struct GetVolumeMetaDataHandler : Handler {
     fds::Error handleRequest(const std::string& volumeName, CallbackPtr cb);
     fds::Error handleResponse(fpi::FDSP_MsgHdrTypePtr& header,
                               fpi::FDSP_VolumeMetaDataPtr& volumeMeta);
+    fds::Error handleQueueItem(AmQosReq *qosReq);
+};
+
+struct StatBlobHandler : Handler {
+    explicit StatBlobHandler(StorHvCtrl* storHvisor) : Handler(storHvisor) {}
+    fds::Error handleRequest(const std::string& volumeName,
+                             const std::string& blobName,
+                             CallbackPtr cb);
+    fds::Error handleResponse(AmQosReq *qosReq,
+                              FailoverRpcRequest* rpcReq,
+                              const Error& error,
+                              boost::shared_ptr<std::string> payload);
     fds::Error handleQueueItem(AmQosReq *qosReq);
 };
 

@@ -302,6 +302,7 @@ StorHvCtrl::~StorHvCtrl()
 
 void StorHvCtrl::initHandlers() {
     handlerGetVolumeMetaData = new GetVolumeMetaDataHandler(this);
+    handlerStatBlob = new StatBlobHandler(this);
 }
 
 SysParams* StorHvCtrl::getSysParams() {
