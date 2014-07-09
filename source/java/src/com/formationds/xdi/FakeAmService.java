@@ -33,13 +33,13 @@ public class FakeAmService implements AmService.Iface {
     }
 
     @Override
-    public void commitBlobTx(TxDescriptor txDesc) throws ApiException, TException {
-
+    public TxDescriptor commitBlobTx(String domainName, String volumeName, String blobName) throws ApiException, TException {
+        return new TxDescriptor();
     }
 
     @Override
-    public void abortBlobTx(TxDescriptor txDesc) throws ApiException, TException {
-
+    public TxDescriptor abortBlobTx(String domainName, String volumeName, String blobName) throws ApiException, TException {
+        return new TxDescriptor();
     }
 
     @Override
