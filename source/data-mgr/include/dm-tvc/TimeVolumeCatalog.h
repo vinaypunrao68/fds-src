@@ -8,7 +8,7 @@
 #include <fds_error.h>
 #include <fds_module.h>
 #include <DmBlobTypes.h>
-#include <CommitLog.h>
+#include <dm-tvc/CommitLog.h>
 #include <dm-vol-cat/DmVolumeCatalog.h>
 #include <util/Log.h>
 

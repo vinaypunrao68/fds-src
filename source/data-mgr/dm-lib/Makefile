@@ -12,7 +12,6 @@ user_cpp          := \
 	VolumeMeta.cpp \
 	qos_ctrl.cpp   \
 	DmBlobTypes.cpp \
-	CommitLog.cpp \
 	DMSvcHandler.cpp \
 	CatalogSync.cpp \
 	CatalogSyncRecv.cpp

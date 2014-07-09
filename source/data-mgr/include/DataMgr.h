@@ -36,7 +36,7 @@
 #include <CatalogSync.h>
 #include <CatalogSyncRecv.h>
 
-#include <CommitLog.h>
+#include <dm-tvc/CommitLog.h>
 
 #include <blob/BlobTypes.h>
 #include <fdsp/DMSvc.h>

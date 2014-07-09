@@ -121,6 +121,8 @@ namespace fds {
         BlobMetaDesc();
         virtual ~BlobMetaDesc();
 
+        BlobMetaDesc & merge(const BlobMetaDesc & rhs);
+
         uint32_t write(serialize::Serializer* s) const;
         uint32_t read(serialize::Deserializer* d);
     };

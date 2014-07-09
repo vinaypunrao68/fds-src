@@ -4,24 +4,24 @@
 #include <unistd.h>
 #include <sys/mman.h>
 #include <errno.h>
+#include <stdint.h>
 
 #include <system_error>
 #include <string>
 #include <limits>
 #include <deque>
 
-#include <CommitLog.h>
+#include <dm-tvc/CommitLog.h>
 
-/*
-#define FDS_PAGE_START_ADDR(x) (reinterpret_cast<unsigned *>(x) & \
-        reinterpret_cast<unsigned *>(~(FDS_PAGE_SIZE - 1)))
-*/
+#define FDS_PAGE_START_ADDR(x) (reinterpret_cast<uintptr_t>(x) & ~(FDS_PAGE_SIZE - 1))
+
+#define FDS_PAGE_OFFSET(x) (reinterpret_cast<uintptr_t>(x) & (FDS_PAGE_SIZE - 1))
 
 namespace {
 
 std::atomic<fds_uint64_t> clEpoch(0);
 
-const unsigned FDS_PAGE_SIZE = sysconf(_SC_PAGESIZE);
+const fds_uint64_t FDS_PAGE_SIZE = sysconf(_SC_PAGESIZE);
 
 } /* anonymous namespace */
 
@@ -56,6 +56,7 @@ DmCommitLog::mod_init(SysParams const *const p) {
  */
 void
 DmCommitLog::mod_startup() {
+    Module::mod_startup();
     started_ = true;
 }
 
@@ -64,6 +65,7 @@ DmCommitLog::mod_startup() {
  */
 void
 DmCommitLog::mod_shutdown() {
+    Module::mod_shutdown();
     started_ = false;
 }
 
@@ -87,16 +89,17 @@ Error DmCommitLog::startTx(BlobTxId::const_ptr & txDesc, const std::string & blo
     }
 
     fds_uint64_t id = 0;
-    Error rc = ERR_OK;  // TODO(umesh): cmtLogger_->startTx(txDesc, blobName, id);
+    Error rc = cmtLogger_->startTx(txDesc, blobName, id);
     if (!rc.ok()) {
         LOGERROR << "Failed to save blob transaction error=(" << rc << ")";
         return rc;
     }
 
-    txMap_[txId].txDesc = txDesc;
-    txMap_[txId].blobName = blobName;
-    txMap_[txId].entries.push_back(id);
-    txMap_[txId].started = true;
+    txMap_[txId].reset(new CommitLogTx());
+    txMap_[txId]->txDesc = txDesc;
+    txMap_[txId]->blobName = blobName;
+    txMap_[txId]->entries.push_back(id);
+    txMap_[txId]->started = true;
 
     return rc;
 }
@@ -118,49 +121,45 @@ Error DmCommitLog::updateTx(BlobTxId::const_ptr & txDesc, boost::shared_ptr<cons
         return rc;
     }
 
-    fds_uint64_t preId = txMap_[txId].entries.back();
-
     fds_uint64_t id = 0;
-    rc = ERR_OK;  // TODO(umesh): cmtLogger_->updateTx(txDesc, prevId, blobData, id);
+    rc = cmtLogger_->updateTx(txDesc, blobData, id);
     if (!rc.ok()) {
         LOGERROR << "Failed to save blob transaction error=(" << rc << ")";
         return rc;
     }
 
-    txMap_[txId].entries.push_back(id);
+    txMap_[txId]->entries.push_back(id);
 
-    // TODO(umesh): upsert blobData
+    upsertBlobData(*txMap_[txId], blobData);
 
     return ERR_OK;
 }
 
 // commit transaction
-Error DmCommitLog::commitTx(BlobTxId::const_ptr & txDesc) {
+CommitLogTx::const_ptr DmCommitLog::commitTx(BlobTxId::const_ptr & txDesc, Error & status) {
     fds_assert(txDesc);
     fds_assert(cmtLogger_);
     fds_verify(started_);
 
     const BlobTxId & txId = *txDesc;
 
-    LOGDEBUG << "Commiting blob transaction " << *txDesc;
+    LOGDEBUG << "Commiting blob transaction " << txId;
 
-    Error rc = validateSubsequentTx(txId);
-    if (!rc.ok()) {
-        return rc;
+    status = validateSubsequentTx(txId);
+    if (!status.ok()) {
+        return 0;
     }
-
-    fds_uint64_t preId = txMap_[txId].entries.back();
 
     fds_uint64_t id = 0;
-    rc = ERR_OK;  // TODO(umesh): cmtLogger_->commitTx(txDesc, prevId, id);
-    if (!rc.ok()) {
-        LOGERROR << "Failed to save blob transaction error=(" << rc << ")";
-        return rc;
+    status = cmtLogger_->commitTx(txDesc, id);
+    if (!status.ok()) {
+        LOGERROR << "Failed to save blob transaction error=(" << status << ")";
+        return 0;
     }
-    txMap_[txId].entries.push_back(id);
-    txMap_[txId].commited = true;
+    txMap_[txId]->entries.push_back(id);
+    txMap_[txId]->commited = true;
 
-    return rc;
+    return txMap_[txId];
 }
 
 // rollback transaction
@@ -171,23 +170,21 @@ Error DmCommitLog::rollbackTx(BlobTxId::const_ptr & txDesc) {
 
     const BlobTxId & txId = *txDesc;
 
-    LOGDEBUG << "Rollback blob transaction " << *txDesc;
+    LOGDEBUG << "Rollback blob transaction " << txId;
 
     Error rc = validateSubsequentTx(txId);
     if (!rc.ok()) {
         return rc;
     }
 
-    fds_uint64_t preId = txMap_[txId].entries.back();
-
     fds_uint64_t id = 0;
-    rc = ERR_OK;  // TODO(umesh): cmtLogger_->rollbackTx(txDesc, prevId, id);
+    rc = cmtLogger_->rollbackTx(txDesc, id);
     if (!rc.ok()) {
         LOGERROR << "Failed to save blob transaction error=(" << rc << ")";
         return rc;
     }
-    txMap_[txId].entries.push_back(id);
-    txMap_[txId].rolledback = true;
+    txMap_[txId]->entries.push_back(id);
+    txMap_[txId]->rolledback = true;
 
     // TODO(umesh): possibly erase from map and notify GC
 
@@ -202,30 +199,28 @@ Error DmCommitLog::purgeTx(BlobTxId::const_ptr  & txDesc) {
 
     const BlobTxId & txId = *txDesc;
 
-    LOGDEBUG << "Purge blob transaction " << *txDesc;
+    LOGDEBUG << "Purge blob transaction " << txId;
 
     TxMap::iterator iter = txMap_.find(txId);
     if (txMap_.end() == iter) {
         LOGERROR << "Blob transaction not started";
         return ERR_DM_TX_NOT_STARTED;
     }
-    fds_assert(txId == *(iter->second.txDesc));
+    fds_assert(txId == *(iter->second->txDesc));
 
-    if (!iter->second.rolledback && !iter->second.commited) {
+    if (!iter->second->rolledback && !iter->second->commited) {
         LOGERROR << "Blob transaction active, can not be purged";
         return ERR_DM_TX_ACTIVE;
     }
 
-    fds_uint64_t preId = txMap_[txId].entries.back();
-
     fds_uint64_t id = 0;
-    Error rc = ERR_OK;  // TODO(umesh): cmtLogger_->purgeTx(txDesc, prevId, id);
+    Error rc = cmtLogger_->purgeTx(txDesc, id);
     if (!rc.ok()) {
         LOGERROR << "Failed to save blob transaction error=(" << rc << ")";
         return rc;
     }
 
-    txMap_[txId].entries.push_back(id);
+    txMap_[txId]->entries.push_back(id);
 
     // TODO(umesh): erase from map and possibly notify GC
 
@@ -233,15 +228,21 @@ Error DmCommitLog::purgeTx(BlobTxId::const_ptr  & txDesc) {
 }
 
 // get transaction
-Error DmCommitLog::getTx(BlobTxId::const_ptr & txDesc) {
+CommitLogTx::const_ptr DmCommitLog::getTx(BlobTxId::const_ptr & txDesc) {
     fds_assert(txDesc);
     fds_assert(cmtLogger_);
     fds_verify(started_);
 
     const BlobTxId & txId = *txDesc;
 
-    LOGDEBUG << "Get blob transaction " << txDesc;
-    return ERR_OK;
+    LOGDEBUG << "Get blob transaction " << txId;
+
+    TxMap::const_iterator iter = txMap_.find(txId);
+    if (txMap_.end() != iter) {
+        return iter->second;
+    }
+
+    return 0;
 }
 
 Error DmCommitLog::validateSubsequentTx(const BlobTxId & txId) {
@@ -250,12 +251,12 @@ Error DmCommitLog::validateSubsequentTx(const BlobTxId & txId) {
         LOGERROR << "Blob transaction not started";
         return ERR_DM_TX_NOT_STARTED;
     }
-    fds_assert(txId == *(iter->second.txDesc));
+    fds_assert(txId == *(iter->second->txDesc));
 
-    if (iter->second.rolledback) {
+    if (iter->second->rolledback) {
         LOGERROR << "Blob transaction already rolled back";
         return ERR_DM_TX_ROLLEDBACK;
-    } else if (iter->second.commited) {
+    } else if (iter->second->commited) {
         LOGERROR << "Blob transaction already commited";
         return ERR_DM_TX_COMMITED;
     }
@@ -276,7 +277,8 @@ void FileCommitLogger::addEntryToHeader(DmCommitLogEntry * entry) {
     header()->last = offset;
     ++(header()->count);
 
-    if (0 != msync(addr_, sizeof(EntriesHeader), MS_ASYNC /* MS_SYNC */)) {
+    if (0 != msync(reinterpret_cast<void *>(FDS_PAGE_START_ADDR(header())), sizeof(EntriesHeader),
+            MS_ASYNC /* MS_SYNC */)) {
         LOGWARN << "Failed to write commit log header";
     }
 }
@@ -334,7 +336,7 @@ char * FileCommitLogger::commitLogAlloc(const size_t sz) {
     return ret;
 }
 
-Error FileCommitLogger::startTx(const BlobTxId & txDesc, const std::string & blobName,
+Error FileCommitLogger::startTx(BlobTxId::const_ptr & txDesc, const std::string & blobName,
         fds_uint64_t & id) {
     size_t sz = sizeof(DmCommitLogEntry) + blobName.length() + 1;
     char * clp = commitLogAlloc(sz);
@@ -346,24 +348,57 @@ Error FileCommitLogger::startTx(const BlobTxId & txDesc, const std::string & blo
     DmCommitLogStartEntry * entry = new(clp) DmCommitLogStartEntry(txDesc, id, blobName);
     addEntryToHeader(entry);
 
-    if (0 != msync(clp, entry->length(), MS_ASYNC /* MS_SYNC */)) {
+    if (0 != msync(reinterpret_cast<void *>(FDS_PAGE_START_ADDR(entry)), FDS_PAGE_OFFSET(entry) +
+            entry->length(), MS_ASYNC /* MS_SYNC */)) {
         LOGWARN << "Failed to write commit log entry";
     }
 
     return ERR_OK;
 }
 
-Error FileCommitLogger::updateTx(const BlobTxId * txDesc, BlobObjList::const_ptr blobObjList,
+Error FileCommitLogger::updateTx(BlobTxId::const_ptr & txDesc, BlobObjList::const_ptr blobObjList,
         fds_uint64_t & id) {
+    const std::string & str = DmCommitLogEntry::createPayload(blobObjList);
+    size_t sz = sizeof(DmCommitLogEntry) + str.length() + 1;
+    char * clp = commitLogAlloc(sz);
+    if (!clp) {
+        return ERR_DM_MAX_CL_ENTRIES;
+    }
+
+    id = clEpoch++;
+    DmCommitLogUpdateObjListEntry * entry = new(clp) DmCommitLogUpdateObjListEntry(txDesc, id, str);
+    addEntryToHeader(entry);
+
+    if (0 != msync(reinterpret_cast<void *>(FDS_PAGE_START_ADDR(entry)), FDS_PAGE_OFFSET(entry) +
+            entry->length(), MS_ASYNC /* MS_SYNC */)) {
+        LOGWARN << "Failed to write commit log entry";
+    }
+
     return ERR_OK;
 }
 
-Error FileCommitLogger::updateTx(const BlobTxId & txDesc, BlobMetaDesc::const_ptr blobMetaDesc,
+Error FileCommitLogger::updateTx(BlobTxId::const_ptr & txDesc, BlobMetaDesc::const_ptr blobMetaDesc,
         fds_uint64_t & id) {
+    const std::string & str = DmCommitLogEntry::createPayload(blobMetaDesc);
+    size_t sz = sizeof(DmCommitLogEntry) + str.length() + 1;
+    char * clp = commitLogAlloc(sz);
+    if (!clp) {
+        return ERR_DM_MAX_CL_ENTRIES;
+    }
+
+    id = clEpoch++;
+    DmCommitLogUpdateObjMetaEntry * entry = new(clp) DmCommitLogUpdateObjMetaEntry(txDesc, id, str);
+    addEntryToHeader(entry);
+
+    if (0 != msync(reinterpret_cast<void *>(FDS_PAGE_START_ADDR(entry)), FDS_PAGE_OFFSET(entry) +
+            entry->length(), MS_ASYNC /* MS_SYNC */)) {
+        LOGWARN << "Failed to write commit log entry";
+    }
+
     return ERR_OK;
 }
 
-Error FileCommitLogger::commitTx(const BlobTxId & txDesc, fds_uint64_t & id) {
+Error FileCommitLogger::commitTx(BlobTxId::const_ptr & txDesc, fds_uint64_t & id) {
     size_t sz = sizeof(DmCommitLogEntry) + 1;
     char * clp = commitLogAlloc(sz);
     if (!clp) {
@@ -374,14 +409,15 @@ Error FileCommitLogger::commitTx(const BlobTxId & txDesc, fds_uint64_t & id) {
     DmCommitLogCommitEntry * entry = new(clp) DmCommitLogCommitEntry(txDesc, id);
     addEntryToHeader(entry);
 
-    if (0 != msync(clp, entry->length(), MS_ASYNC /* MS_SYNC */)) {
+    if (0 != msync(reinterpret_cast<void *>(FDS_PAGE_START_ADDR(entry)), FDS_PAGE_OFFSET(entry) +
+            entry->length(), MS_ASYNC /* MS_SYNC */)) {
         LOGWARN << "Failed to write commit log entry";
     }
 
     return ERR_OK;
 }
 
-Error FileCommitLogger::rollbackTx(const BlobTxId & txDesc, fds_uint64_t & id) {
+Error FileCommitLogger::rollbackTx(BlobTxId::const_ptr & txDesc, fds_uint64_t & id) {
     size_t sz = sizeof(DmCommitLogEntry) + 1;
     char * clp = commitLogAlloc(sz);
     if (!clp) {
@@ -392,14 +428,15 @@ Error FileCommitLogger::rollbackTx(const BlobTxId & txDesc, fds_uint64_t & id) {
     DmCommitLogRollbackEntry * entry = new(clp) DmCommitLogRollbackEntry(txDesc, id);
     addEntryToHeader(entry);
 
-    if (0 != msync(clp, entry->length(), MS_ASYNC /* MS_SYNC */)) {
+    if (0 != msync(reinterpret_cast<void *>(FDS_PAGE_START_ADDR(entry)), FDS_PAGE_OFFSET(entry) +
+            entry->length(), MS_ASYNC /* MS_SYNC */)) {
         LOGWARN << "Failed to write commit log entry";
     }
 
     return ERR_OK;
 }
 
-Error FileCommitLogger::purgeTx(const BlobTxId & txDesc, fds_uint64_t & id) {
+Error FileCommitLogger::purgeTx(BlobTxId::const_ptr & txDesc, fds_uint64_t & id) {
     size_t sz = sizeof(DmCommitLogEntry) + 1;
     char * clp = commitLogAlloc(sz);
     if (!clp) {
@@ -410,7 +447,8 @@ Error FileCommitLogger::purgeTx(const BlobTxId & txDesc, fds_uint64_t & id) {
     DmCommitLogPurgeEntry * entry = new(clp) DmCommitLogPurgeEntry(txDesc, id);
     addEntryToHeader(entry);
 
-    if (0 != msync(clp, entry->length(), MS_ASYNC /* MS_SYNC */)) {
+    if (0 != msync(reinterpret_cast<void *>(FDS_PAGE_START_ADDR(entry)), FDS_PAGE_OFFSET(entry) +
+            entry->length(), MS_ASYNC /* MS_SYNC */)) {
         LOGWARN << "Failed to write commit log entry";
     }
 
