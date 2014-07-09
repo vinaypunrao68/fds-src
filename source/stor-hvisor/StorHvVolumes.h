@@ -201,6 +201,62 @@ class StorHvVolumeTable : public HasLogger {
     StorHvCtrl *parent_sh;
 };
 
+class AbortBlobTxReq : public FdsBlobReq {
+  public:
+    std::string volumeName;
+
+    /**
+     * Request constructor. Some of the fields
+     * are not actually needed...the base blob
+     * request class just expects them.
+     */
+    AbortBlobTxReq(fds_volid_t        _volid,
+                   const std::string &_vol_name,
+                   const std::string &_blob_name,
+                   fds_uint64_t       _blob_offset,
+                   fds_uint64_t       _data_len,
+                   char              *_data_buf,
+                   CallbackPtr        _cb) :
+            FdsBlobReq(FDS_ABORT_BLOB_TX, _volid, _blob_name, _blob_offset,
+                       _data_len, _data_buf, _cb),
+            volumeName(_vol_name) {
+    }
+    ~AbortBlobTxReq() {
+    }
+
+    const std::string& getVolumeName() const {
+        return volumeName;
+    }
+};
+
+class CommitBlobTxReq : public FdsBlobReq {
+  public:
+    std::string volumeName;
+
+    /**
+     * Request constructor. Some of the fields
+     * are not actually needed...the base blob
+     * request class just expects them.
+     */
+    CommitBlobTxReq(fds_volid_t        _volid,
+                   const std::string &_vol_name,
+                   const std::string &_blob_name,
+                   fds_uint64_t       _blob_offset,
+                   fds_uint64_t       _data_len,
+                   char              *_data_buf,
+                   CallbackPtr        _cb) :
+            FdsBlobReq(FDS_COMMIT_BLOB_TX, _volid, _blob_name, _blob_offset,
+                       _data_len, _data_buf, _cb),
+            volumeName(_vol_name) {
+    }
+    ~CommitBlobTxReq() {
+    }
+
+    const std::string& getVolumeName() const {
+        return volumeName;
+    }
+};
+
 class StartBlobTxReq : public FdsBlobReq {
   public:
     std::string volumeName;

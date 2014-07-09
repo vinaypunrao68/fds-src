@@ -592,6 +592,82 @@ Error FDS_NativeAPI::sendTestBucketToOM(const std::string& bucket_name,
     return storHvisor->sendTestBucketToOM(bucket_name, access_key_id, secret_access_key);
 }
 
+
+void
+FDS_NativeAPI::AbortBlobTx(const std::string& volumeName,
+                           const std::string& blobName,
+                           CallbackPtr cb) {
+    fds_volid_t volId = invalid_vol_id;
+    LOGDEBUG << "Abort blob tx for volume " << volumeName
+             << ", blobName " << blobName;
+
+    // check if bucket is attached to this AM
+    if (storHvisor->vol_table->volumeExists(volumeName)) {
+        volId = storHvisor->vol_table->getVolumeUUID(volumeName);
+        fds_verify(volId != invalid_vol_id);
+    }
+
+    FdsBlobReq *blobReq = NULL;
+    blobReq = new AbortBlobTxReq(volId,
+                                 volumeName,
+                                 blobName,
+                                 0,  // No blob offset
+                                 0,  // No data length
+                                 NULL,  // No buffer
+                                 cb);
+    fds_verify(blobReq != NULL);
+
+    // Push the request if we have the vol already
+    if (volId != invalid_vol_id) {
+        storHvisor->pushBlobReq(blobReq);
+        return;
+    } else {
+        // If we don't have the volume, queue up the request
+        // until we get it
+        // TODO(Andrew): Will this time out? What if it fails?
+        storHvisor->vol_table->addBlobToWaitQueue(volumeName, blobReq);
+    }
+
+}
+
+
+void
+FDS_NativeAPI::CommitBlobTx(const std::string& volumeName,
+                           const std::string& blobName,
+                           CallbackPtr cb) {
+    fds_volid_t volId = invalid_vol_id;
+    LOGDEBUG << "Commit blob tx for volume " << volumeName
+             << ", blobName " << blobName;
+
+    // check if bucket is attached to this AM
+    if (storHvisor->vol_table->volumeExists(volumeName)) {
+        volId = storHvisor->vol_table->getVolumeUUID(volumeName);
+        fds_verify(volId != invalid_vol_id);
+    }
+
+    FdsBlobReq *blobReq = NULL;
+    blobReq = new CommitBlobTxReq(volId,
+                                 volumeName,
+                                 blobName,
+                                 0,  // No blob offset
+                                 0,  // No data length
+                                 NULL,  // No buffer
+                                 cb);
+    fds_verify(blobReq != NULL);
+
+    // Push the request if we have the vol already
+    if (volId != invalid_vol_id) {
+        storHvisor->pushBlobReq(blobReq);
+        return;
+    } else {
+        // If we don't have the volume, queue up the request
+        // until we get it
+        // TODO(Andrew): Will this time out? What if it fails?
+        storHvisor->vol_table->addBlobToWaitQueue(volumeName, blobReq);
+    }
+
+}
+
 void
 FDS_NativeAPI::StartBlobTx(const std::string& volumeName,
                            const std::string& blobName,
