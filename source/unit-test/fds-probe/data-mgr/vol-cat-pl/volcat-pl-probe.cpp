@@ -65,9 +65,14 @@ VolCatPlProbe::pr_put(ProbeRequest *probe) {
 void
 VolCatPlProbe::createCatalog(const OpParams &volParams) {
     Error err(ERR_OK);
+    std::cout << "Will create catalog for volume "
+              << std::hex << volParams.vol_id << std::dec;
     std::string name = "vol" + std::to_string(volParams.vol_id);
     VolumeDesc voldesc(name, volParams.vol_id);
+    voldesc.maxObjSizeInBytes = volParams.max_obj_size;
     err = gl_DmVolCatPlMod.createCatalog(voldesc);
+    fds_verify(err.ok());
+    err = gl_DmVolCatPlMod.openCatalog(volParams.vol_id);
     fds_verify(err.ok());
 }
 
@@ -80,8 +85,9 @@ VolCatPlProbe::getExtent(const OpParams& getParams) {
                 gl_DmVolCatPlMod.getMetaExtent(getParams.vol_id,
                                                getParams.blob_name,
                                                err);
-        fds_verify(err.ok());
-        std::cout << *bext;
+        if (err.ok()) {
+            std::cout << *bext << std::endl;
+        }
     } else {
         std::cout << "Will call getExtent..." << std::endl;
         BlobExtent::ptr bext =
@@ -89,11 +95,24 @@ VolCatPlProbe::getExtent(const OpParams& getParams) {
                                            getParams.blob_name,
                                            getParams.extent_id,
                                            err);
-        fds_verify(err.ok());
-        std::cout << *bext;
+        if (err.ok()) {
+            std::cout << *bext << std::endl;
+        }
     }
+
+    if (err == ERR_CAT_ENTRY_NOT_FOUND) {
+        std::cout << "Extent not found for " << std::hex
+                  << getParams.vol_id << std::dec << ","
+                  << getParams.blob_name << ","
+                  << getParams.extent_id << std::endl;
+        return;
+    }
+    fds_verify(err.ok());
 }
 
+//
+// over-writes extent with new data
+//
 void
 VolCatPlProbe::putExtent(const OpParams &putParams) {
     Error err(ERR_OK);
@@ -109,14 +128,15 @@ VolCatPlProbe::putExtent(const OpParams &putParams) {
         for (BlobObjList::const_iter cit = putParams.obj_list.cbegin();
              cit != putParams.obj_list.cend();
              ++cit) {
-            bext->updateOffset(cit->first, cit->second);
+            err = bext->updateOffset(cit->first, cit->second);
+            fds_verify(err.ok());
         }
 
-        std::cout << "Will call putExtent for " << *bext;
-        gl_DmVolCatPlMod.putExtent(putParams.vol_id,
-                                   putParams.blob_name,
-                                   putParams.extent_id,
-                                   bext);
+        std::cout << "Will call putExtent for " << *bext << std::endl;
+        err = gl_DmVolCatPlMod.putExtent(putParams.vol_id,
+                                         putParams.blob_name,
+                                         putParams.extent_id,
+                                         bext);
         fds_verify(err.ok());
     } else {
         BlobExtent0::ptr bext(new BlobExtent0(putParams.blob_name,
@@ -125,24 +145,25 @@ VolCatPlProbe::putExtent(const OpParams &putParams) {
                                               putParams.first_offset,
                                               putParams.num_offsets));
 
+        // since we are testing persistent layer, we don't care if
+        // blob_version or blob size is set correctly, so we will just keep
+        // default (zero) values for these
+
         // copy metadata list
-        for (MetaDataList::const_iter cit = putParams.meta_list.cbegin();
-             cit != putParams.meta_list.cend();
-             ++cit) {
-            // TODO(xxx) add metadata
-        }
+        bext->updateMetaData(putParams.meta_list);
 
         // copy blob object list
         for (BlobObjList::const_iter cit = putParams.obj_list.cbegin();
              cit != putParams.obj_list.cend();
              ++cit) {
-            bext->updateOffset(cit->first, cit->second);
+            err = bext->updateOffset(cit->first, cit->second);
+            fds_verify(err.ok());
         }
 
-        std::cout << "Will call putExtentMeta for " << *bext;
-        gl_DmVolCatPlMod.putMetaExtent(putParams.vol_id,
-                                       putParams.blob_name,
-                                       bext);
+        std::cout << "Will call putExtentMeta for " << *bext << std::endl;
+        err = gl_DmVolCatPlMod.putMetaExtent(putParams.vol_id,
+                                             putParams.blob_name,
+                                             bext);
         fds_verify(err.ok());
     }
 }
@@ -156,11 +177,63 @@ VolCatPlProbe::updateExtent(const OpParams &putParams) {
     Error err(ERR_OK);
     // must have blob name!
     fds_verify(putParams.blob_name.size() > 0);
+    std::cout << "Will update extent " << putParams.extent_id
+              << " for " << putParams.blob_name << std::endl;
+
     if (putParams.extent_id > 0) {
-        std::cout << "Will update extent "
-                  << putParams.extent_id << std::endl;
+        BlobExtent::ptr bext =
+                gl_DmVolCatPlMod.getExtent(putParams.vol_id,
+                                           putParams.blob_name,
+                                           putParams.extent_id,
+                                           err);
+        fds_verify(err.ok() || (err == ERR_CAT_ENTRY_NOT_FOUND));
+        if (err.ok()) {
+            std::cout << "Extent before update--  " << *bext << std::endl;
+        } else if (err == ERR_CAT_ENTRY_NOT_FOUND) {
+            std::cout << "Extent before update--  [none]" << std::endl;
+        }
+
+        // update blob object list
+        for (BlobObjList::const_iter cit = putParams.obj_list.cbegin();
+             cit != putParams.obj_list.cend();
+             ++cit) {
+            err = bext->updateOffset(cit->first, cit->second);
+            fds_verify(err.ok());
+        }
+
+        std::cout << "Extent after update--  " << *bext << std::endl;
+        err = gl_DmVolCatPlMod.putExtent(putParams.vol_id,
+                                         putParams.blob_name,
+                                         putParams.extent_id,
+                                         bext);
         fds_verify(err.ok());
     } else {
+        BlobExtent0::ptr bext =
+                gl_DmVolCatPlMod.getMetaExtent(putParams.vol_id,
+                                               putParams.blob_name,
+                                               err);
+        fds_verify(err.ok() || (err == ERR_CAT_ENTRY_NOT_FOUND));
+        if (err.ok()) {
+            std::cout << "Extent before update--  " << *bext << std::endl;
+        } else if (err == ERR_CAT_ENTRY_NOT_FOUND) {
+            std::cout << "Extent before update--  [none]" << std::endl;
+        }
+
+        // update meta part of extent 0
+        bext->updateMetaData(putParams.meta_list);
+
+        // update blob object list
+        for (BlobObjList::const_iter cit = putParams.obj_list.cbegin();
+             cit != putParams.obj_list.cend();
+             ++cit) {
+            err = bext->updateOffset(cit->first, cit->second);
+            fds_verify(err.ok());
+        }
+
+        std::cout << "Extent after update--  " << *bext << std::endl;
+        err = gl_DmVolCatPlMod.putMetaExtent(putParams.vol_id,
+                                             putParams.blob_name,
+                                             bext);
         fds_verify(err.ok());
     }
 }
@@ -168,6 +241,16 @@ VolCatPlProbe::updateExtent(const OpParams &putParams) {
 
 void
 VolCatPlProbe::deleteExtent(const OpParams &delParams) {
+    Error err(ERR_OK);
+    // must have blob name!
+    fds_verify(delParams.blob_name.size() > 0);
+    std::cout << "Will delete extent " << delParams.extent_id
+              << " for " << delParams.blob_name << std::endl;
+
+    err = gl_DmVolCatPlMod.deleteExtent(delParams.vol_id,
+                                        delParams.blob_name,
+                                        delParams.extent_id);
+    fds_verify(err.ok());
 }
 
 // pr_get

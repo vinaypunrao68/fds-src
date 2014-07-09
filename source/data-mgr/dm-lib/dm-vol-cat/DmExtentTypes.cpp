@@ -131,6 +131,14 @@ BlobExtent0::BlobExtent0(const std::string& blob_name,
 BlobExtent0::~BlobExtent0() {
 }
 
+void BlobExtent0::updateMetaData(const MetaDataList& meta_list) {
+    for (MetaDataList::const_iter cit = meta_list.cbegin();
+         cit != meta_list.cend();
+         ++cit) {
+        blob_meta.meta_list.updateMetaDataPair(cit->first, cit->second);
+    }
+}
+
 uint32_t BlobExtent0::write(serialize::Serializer* s) const {
     uint32_t bytes = 0;
     // first write meta part

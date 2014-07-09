@@ -8,12 +8,20 @@
 #include <util/Log.h>
 #include <fds_error.h>
 #include <fds_module.h>
+#include <concurrency/RwLock.h>
 #include <dm-vol-cat/DmExtentTypes.h>
 
 namespace fds {
 
+    class PersistVolumeMeta;
+    typedef std::shared_ptr<PersistVolumeMeta> PersistVolumeMetaPtr;
+
     /**
      * Volume Catalog persistent layer
+     * Provides access to blob metadata in terms of extents. Each
+     * blob is devided into one or more extents, where each extent
+     * contains configurable range of offsets (offset to object info).
+     * This is a per-volume configuration in persistent layer.
      */
     class DmPersistVolCatalog: public Module, public HasLogger {
   public:
@@ -34,6 +42,13 @@ namespace fds {
         Error createCatalog(const VolumeDesc& vol_desc);
 
         /**
+         * Opens catalog for volume 'volume_id'. When this method
+         * returns, persistent layer accepts operations on persistent
+         * catalog such as put/get/delete
+         */
+        Error openCatalog(fds_volid_t volume_id);
+
+        /**
          * Maps offset in bytes to extent id for a given volume id.
          * Volume id is required because the mapping depends on volume
          * specific policy such as max object size, and also volume
@@ -44,7 +59,7 @@ namespace fds {
          * @return extent id that contains given offset in bytes
          */
         fds_extent_id getExtentId(fds_volid_t volume_id,
-                                  fds_uint64_t offset_bytes) const;
+                                  fds_uint64_t offset_bytes);
 
         /**
          * Update or add extent 0 to the persistent volume catalog
@@ -63,10 +78,13 @@ namespace fds {
                         fds_extent_id extent_id,
                         const BlobExtent::const_ptr& extent);
 
+
         /**
          * Retrieves extent 0 from the persistent layer for given
-         * volume id, blob_name.
-         * @param[out] error will contain ERR_OK on success; ERR_NOT_FOUND
+         * volume id, blob_name. If extent is not found, returns allocated
+         * BlobExtent0 containing correct extent configuration such as first offset,
+         * max offset entries, etc.
+         * @param[out] error will contain ERR_OK on success; ERR_CAT_ENTRY_NOT_FOUND
          * if extent0 does not exist in the persistent layer; or other error.
          * @return BlobExtent0 containing extent from persistent layer; If
          * err is ERR_NOT_FOUND, BlobExtent0 is allocated but not filled in;
@@ -78,7 +96,9 @@ namespace fds {
 
         /**
          * Retrieves extent with id 'extent_id' from the persistent layer for given
-         * volume id, blob_name.
+         * volume id, blob_name. If extent is not found, returns allocated BlobExtent
+         * containing corrent extent configuration such as first offset, max offset
+         * entries, etc.
          * @param[out] error will contain ERR_OK on success; ERR_NOT_FOUND
          * if extent0 does not exist in the persistent layer; or other error.
          * @return BlobExtent containing extent from persistent layer; If
@@ -97,6 +117,28 @@ namespace fds {
         Error deleteExtent(fds_volid_t volume_id,
                            const std::string& blob_name,
                            fds_extent_id extent_id);
+
+        // TODO(Anna) we need methods for taking snapshot and iterating
+        // over leveldb for a volume (e.g. for listBlobs and isEmpty
+        // functionality)
+
+  private:  // methods
+        /**
+         * returns shared pointer to volume meta for 'volume_id'
+         */
+        PersistVolumeMetaPtr getVolumeMeta(fds_volid_t volume_id);
+
+        /**
+         * Updates volume catalog with serialized extent data
+         */
+        Error putExtent(fds_volid_t volume_id,
+                        const std::string& blob_name,
+                        fds_extent_id extent_id,
+                        const std::string& extent_data);
+
+  private:
+        std::unordered_map<fds_volid_t, PersistVolumeMetaPtr> vol_map;
+        fds_rwlock vol_map_lock;
     };
 
     extern DmPersistVolCatalog gl_DmVolCatPlMod;
