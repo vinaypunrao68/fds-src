@@ -117,4 +117,10 @@ std::string logString(const FDS_ProtocolInterface::AbortBlobTxMsg& abortBlbTx)
     oss < " AbortBlobTxMs";
     return oss.str();
 }
+
+std::string logString(const FDS_ProtocolInterface::GetBlobMetaDataMsg& message)
+{
+    return "GetBlobMetaDataMsg";
+}
+
 }  // namespace fds
