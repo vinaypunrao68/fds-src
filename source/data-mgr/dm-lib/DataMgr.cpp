@@ -2707,6 +2707,42 @@ DataMgr::deleteCatObjBackend(dmCatReq  *delCatReq) {
     delete delCatReq;
 }
 
+void DataMgr::scheduleGetBlobMetaDataSvc(void *io) {
+    Error err(ERR_OK);
+    DmIoGetBlobMetaData *request = static_cast<DmIoGetBlobMetaData*>(io);
+    err = getBlobMetaDataSvc(request);
+    qosCtrl->markIODone(*request);
+    request->cb(err, request);
+}
+
+Error DataMgr::getBlobMetaDataSvc(const DmIoGetBlobMetaData* request) {
+    Error err(ERR_OK);
+    if (!volExists(request->volId)) {
+        err = ERR_VOL_NOT_FOUND;
+        LOGWARN << "volume not found: " << request->volId;
+    } else {
+        BlobNode* bNode;
+        synchronized(big_fat_lock) {
+            // get the current metadata
+            err = _process_query(request->volId, request->blob_name, bNode);
+            if (err == ERR_OK) {
+                fpi::FDSP_MetaDataPair metapair;
+                for (auto& meta : bNode->meta_list) {
+                    metapair.key = meta.key;
+                    metapair.value = meta.value;
+                    request->message->metaDataList.push_back(metapair);
+                }
+            } else {
+                LOGWARN << " error getting blob data: "
+                        << " vol: " << request->volId
+                        << " blob: " << request->blob_name
+                        << " err: " << err;
+            }
+        }
+    }
+    return err;
+}
+
 void DataMgr::getBlobMetaDataBackend(const dmCatReq *request) {
     Error err(ERR_OK);
     std::unique_ptr<dmCatReq> reqPtr(const_cast<dmCatReq*>(request));

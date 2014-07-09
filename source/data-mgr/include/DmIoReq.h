@@ -16,6 +16,7 @@
 #include <fdsp/FDSP_types.h>
 #include <fds_typedefs.h>
 #include <blob/BlobTypes.h>
+#include <fdsp/fds_service_types.h>
 
 #define FdsDmSysTaskId      0x8fffffff
 #define FdsDmSysTaskPrio    5
@@ -381,6 +382,30 @@ class DmIoDeleteCat: public dmCatReq {
     /* response callback */
     CbType dmio_deletecat_resp_cb;
 };
+
+
+class DmIoGetBlobMetaData: public dmCatReq {
+  public:
+    typedef std::function<void (const Error &e, DmIoGetBlobMetaData *req)> CbType;
+  public:
+    DmIoGetBlobMetaData(const fds_volid_t  &_volId,
+                        const std::string &_blobName,
+                        const blob_version_t &_blob_version,
+                        boost::shared_ptr<fpi::GetBlobMetaDataMsg> message)
+            : message(message), dmCatReq(_volId, _blobName, _blob_version, FDS_GET_BLOB_METADATA) {
+    }
+
+    virtual std::string log_string() const override {
+        std::stringstream ret;
+        ret << "DmIoGetBlobMetaData vol "
+            << std::hex << volId << std::dec;
+        return ret.str();
+    }
+    boost::shared_ptr<fpi::GetBlobMetaDataMsg> message;
+    /* response callback */
+    CbType cb;
+};
+
 
 }  // namespace fds
 

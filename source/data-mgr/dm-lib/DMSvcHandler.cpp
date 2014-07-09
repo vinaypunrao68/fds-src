@@ -302,4 +302,38 @@ void DMSvcHandler::deleteCatalogObjectCb(boost::shared_ptr<fpi::AsyncHdr>& async
     delete req;
 }
 
+void DMSvcHandler::getBlobMetaData(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                                   boost::shared_ptr<fpi::GetBlobMetaDataMsg>& message) {
+    DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*message));
+
+    auto dmReq = new DmIoGetBlobMetaData(message->volume_id,
+                                         message->blob_name,
+                                         message->blob_version,
+                                         message);
+    dmReq->setBlobVersion(message->blob_version);
+    dmReq->cb = BIND_MSG_CALLBACK2(DMSvcHandler::getBlobMetaDataCb, asyncHdr, message);
+
+    Error err = dataMgr->qosCtrl->enqueueIO(dmReq->getVolId(),
+                                      static_cast<FDS_IOType*>(dmReq));
+    if (err != ERR_OK) {
+        LOGWARN << "Unable to enqueue request "
+                << logString(*asyncHdr) << ":" << logString(*message);
+        dmReq->cb(err, dmReq);
+    }
+}
+
+// TODO(Rao): Refactor dmCatReq to contain BlobNode information? Check with Andrew.
+void DMSvcHandler::getBlobMetaDataCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                                     boost::shared_ptr<fpi::GetBlobMetaDataMsg>& message,
+                                     const Error &e, DmIoGetBlobMetaData *req) {
+    DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*message));
+
+    // TODO(Rao): We should have a seperate response message for QueryCatalogMsg for
+    // consistency
+    asyncHdr->msg_code = static_cast<int32_t>(e.GetErrno());
+    sendAsyncResp(asyncHdr, fpi::GetBlobMetaDataMsgTypeId, message);
+
+    delete req;
+}
+
 }  // namespace fds

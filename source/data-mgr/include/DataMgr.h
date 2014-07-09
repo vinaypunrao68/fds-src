@@ -159,7 +159,7 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
                     threadPool->schedule(schedulePushDeltaVolCat, io);
                     break;
                 case FDS_GET_BLOB_METADATA:
-                    threadPool->schedule(scheduleGetBlobMetaData, io);
+                    threadPool->schedule(&DataMgr::scheduleGetBlobMetaDataSvc, dataMgr, io);
                     break;
                 case FDS_SET_BLOB_METADATA:
                     threadPool->schedule(scheduleSetBlobMetaData, io);
@@ -363,6 +363,9 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
     Error forwardUpdateCatalogRequest(dmCatReq  *updCatReq);
     void sendUpdateCatalogResp(dmCatReq  *updCatReq, BlobNode *bnode);
     void deleteVolumeDb();
+
+    void scheduleGetBlobMetaDataSvc(void *io);
+    Error getBlobMetaDataSvc(const DmIoGetBlobMetaData* request);
 
     /**
      * Callback from volume meta receiver that volume meta is received
