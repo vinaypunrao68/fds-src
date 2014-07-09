@@ -39,6 +39,10 @@ typedef std::function<void(FailoverRpcRequest*,
 typedef std::function<void(QuorumRpcRequest*,
                            const Error&, boost::shared_ptr<std::string>)> QuorumRpcRespCb;
 
+#define RESPONSE_MSG_HANDLER(func, ...) \
+    std::bind(&func, this, ##__VA_ARGS__ , std::placeholders::_1, \
+              std::placeholders::_2, std::placeholders::_3);
+
 /* Async rpc request states */
 enum AsyncRpcState {
     PRIOR_INVOCATION,
