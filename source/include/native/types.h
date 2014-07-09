@@ -301,6 +301,16 @@ namespace fds {
                                            BlobTxId txId,
                                            void *callbackData);
 
+    typedef void (*fdsCommitBlobTxHandler)(FDSN_Status status,
+                                           const ErrorDetails *errorDetails,
+                                           BlobTxId txId,
+                                           void *callbackData);
+
+    typedef void (*fdsnAbortBlobTxHandler)(FDSN_Status status,
+                                           const ErrorDetails *errorDetails,
+                                           BlobTxId txId,
+                                           void *callbackData);
+
     typedef void (*fdsnResponseHandler)(FDSN_Status status,
                                         const ErrorDetails *errorDetails,
                                         void *callbackData);
@@ -478,6 +488,18 @@ namespace fds {
 
     struct StartBlobTxCallback : virtual Callback {
         typedef boost::shared_ptr<StartBlobTxCallback> ptr;
+        /// The blob trans ID to fill in
+        BlobTxId      blobTxId;
+    };
+
+    struct CommitBlobTxCallback : virtual Callback {
+        typedef boost::shared_ptr<CommitBlobTxCallback> ptr;
+        /// The blob trans ID to fill in
+        BlobTxId      blobTxId;
+    };
+
+    struct AbortBlobTxCallback : virtual Callback {
+        typedef boost::shared_ptr<AbortBlobTxCallback> ptr;
         /// The blob trans ID to fill in
         BlobTxId      blobTxId;
     };

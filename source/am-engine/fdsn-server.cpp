@@ -37,6 +37,10 @@ class FdsnIf : public apis::AmServiceIf {
     fds_bool_t testUturnUpdateBlob;
     /// Uturn test update metadata API
     fds_bool_t testUturnUpdateMeta;
+    /// Uturn test commit tx API
+    fds_bool_t testUturnCommitTx;
+    /// Uturn test abort tx API
+    fds_bool_t testUturnAbortTx;
 
   public:
     explicit FdsnIf(FDS_NativeAPI::ptr api)
@@ -164,16 +168,52 @@ class FdsnIf : public apis::AmServiceIf {
         handler->process();
     }
 
-    void commitBlobTx(const apis::TxDescriptor& txDesc) {
+    void commitBlobTx(apis::TxDescriptor& _return,
+                  const std::string& domainName,
+                  const std::string& volumeName,
+                  const std::string& blobName) {
     }
 
-    void commitBlobTx(boost::shared_ptr<apis::TxDescriptor>& txDesc) {
+    void commitBlobTx(apis::TxDescriptor& _return,
+                     boost::shared_ptr<std::string>& domainName,
+                     boost::shared_ptr<std::string>& volumeName,
+                     boost::shared_ptr<std::string>& blobName) {
+        if ((testUturnAll == true) ||
+            (testUturnCommitTx == true)) {
+            LOGDEBUG << "Uturn testing start blob tx";
+            return;
+        }
+        CommitBlobTxResponseHandler::ptr handler(
+            new CommitBlobTxResponseHandler(_return));
+
+        am_api->CommitBlobTx(*volumeName, *blobName, SHARED_DYN_CAST(Callback, handler));
+
+        handler->wait();
+        handler->process();
     }
 
-    void abortBlobTx(const apis::TxDescriptor& txDesc) {
+    void abortBlobTx(apis::TxDescriptor& _return,
+                  const std::string& domainName,
+                  const std::string& volumeName,
+                  const std::string& blobName) {
     }
 
-    void abortBlobTx(boost::shared_ptr<apis::TxDescriptor>& txDesc) {
+    void abortBlobTx(apis::TxDescriptor& _return,
+                     boost::shared_ptr<std::string>& domainName,
+                     boost::shared_ptr<std::string>& volumeName,
+                     boost::shared_ptr<std::string>& blobName) {
+        if ((testUturnAll == true) ||
+            (testUturnAbortTx == true)) {
+            LOGDEBUG << "Uturn testing start blob tx";
+            return;
+        }
+        AbortBlobTxResponseHandler::ptr handler(
+            new AbortBlobTxResponseHandler(_return));
+
+        am_api->AbortBlobTx(*volumeName, *blobName, SHARED_DYN_CAST(Callback, handler));
+
+        handler->wait();
+        handler->process();
     }
 
     void getBlob(std::string& _return,
