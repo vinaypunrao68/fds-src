@@ -90,3 +90,5 @@ tmppkg*/
 
 *.iml
 .idea/*
+
+ycm.flags
