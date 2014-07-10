@@ -2726,6 +2726,7 @@ Error DataMgr::getBlobMetaDataSvc(const DmIoGetBlobMetaData* request) {
             // get the current metadata
             err = _process_query(request->volId, request->blob_name, bNode);
             if (err == ERR_OK) {
+                request->message->byteCount = bNode->blob_size;
                 fpi::FDSP_MetaDataPair metapair;
                 for (auto& meta : bNode->meta_list) {
                     metapair.key = meta.key;

@@ -13,7 +13,6 @@ Error StatBlobHandler::handleRequest(const std::string& volumeName,
     StorHvCtrl::BlobRequestHelper helper(storHvisor, volumeName);
     LOGDEBUG << "volume: " << volumeName;
 
-    helper.setupVolumeInfo();
     helper.blobReq = new StatBlobReq(helper.volId,
                                      volumeName,
                                      blobName,
@@ -36,14 +35,13 @@ Error StatBlobHandler::handleResponse(AmQosReq *qosReq,
     }
 
     // using the same structure for input and output
-    fpi::GetBlobMetaDataMsgPtr resp =
-            net::ep_deserialize<fpi::GetBlobMetaDataMsg>(const_cast<Error&>(error), payload);
+    auto response = MSG_DESERIALIZE(GetBlobMetaDataMsg, error, payload);
 
     StatBlobCallback::ptr cb = SHARED_DYN_CAST(StatBlobCallback, helper.blobReq->cb);
     // Fill in the data here
     cb->blobDesc.setBlobName(helper.blobReq->getBlobName());
-    cb->blobDesc.setBlobSize(0);  // TODO(prem) : fill this
-    for (const auto& meta : resp->metaDataList) {
+    cb->blobDesc.setBlobSize(response->byteCount);
+    for (const auto& meta : response->metaDataList) {
         cb->blobDesc.addKvMeta(meta.key,  meta.value);
     }
     return err;
@@ -65,6 +63,7 @@ Error StatBlobHandler::handleQueueItem(AmQosReq *qosReq) {
     auto asyncReq = gRpcRequestPool->newFailoverNetRequest(
         boost::make_shared<DmtVolumeIdEpProvider>(
             storHvisor->om_client->getDMTNodesForVolume(helper.volId)));
+
     asyncReq->setPayload(fpi::QueryCatalogMsgTypeId, message);
 
     auto cb = RESPONSE_MSG_HANDLER(StatBlobHandler::handleResponse, qosReq);
