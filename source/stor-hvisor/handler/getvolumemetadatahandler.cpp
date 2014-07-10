@@ -11,11 +11,9 @@ Error GetVolumeMetaDataHandler::handleRequest(const std::string& volumeName, Cal
     StorHvCtrl::BlobRequestHelper helper(storHvisor, volumeName);
     LOGDEBUG << "volume: " << volumeName;
 
-    helper.setupVolumeInfo();
     helper.blobReq = new GetVolumeMetaDataReq(helper.volId,
                                               volumeName,
                                               cb);
-
     return helper.processRequest();
 }
 

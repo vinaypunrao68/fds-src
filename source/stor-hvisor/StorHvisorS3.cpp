@@ -212,7 +212,9 @@ void StorHvCtrl::BlobRequestHelper::setupVolumeInfo() {
 }
 
 fds::Error StorHvCtrl::BlobRequestHelper::processRequest() {
+    setupVolumeInfo();
     if (volId != invalid_vol_id) {
+        blobReq->setVolId(volId);
         storHvisor->pushBlobReq(blobReq);
         return ERR_OK;
     } else {
