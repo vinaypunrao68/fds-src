@@ -90,6 +90,18 @@ typedef enum {
     GET_OBJ_LKUP_LOC_INDX,
     GET_OBJ_PL_READ_DISK,
 
+    GET_METADATA_READ,
+    GET_DISK_READ,
+    PUT_METADATA_WRITE,
+    PUT_DISK_WRITE,
+    DELETE_METADATA_,
+    DELETE_DISK_,
+
+    PUT_ODB,
+    GET_ODB,
+    DISK_WRITE,
+    DISK_READ,
+
     // XXX: add new entries before this entry
     MAX_EVENT_TYPE // this should be the last entry in the enum
 } PerfEventType;

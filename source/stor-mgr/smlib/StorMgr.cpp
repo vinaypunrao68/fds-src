@@ -1219,7 +1219,11 @@ ObjectStorMgr::readObject(const SmObjDb::View& view,
     /*
      * Read all of the object's locations
      */
-    err = readObjMetaData(objId, objMetadata);
+    { 
+        PerfContext tmp_pctx(GET_METADATA_READ,"volume:" + std::to_string(vio.vol_uuid));
+        SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
+        err = readObjMetaData(objId, objMetadata);
+    }
     if (err == ERR_OK) {
         /*
          * Read obj from flash if we can
@@ -1243,7 +1247,12 @@ ObjectStorMgr::readObject(const SmObjDb::View& view,
         objData.size = objMetadata.getObjSize();
         objData.data.resize(objData.size, 0);
         // Now Read the object buffer from the disk
-        err = dio_mgr.disk_read(disk_req);
+        
+        {
+            PerfContext tmp_pctx(GET_DISK_READ,"volume:" + std::to_string(vio.vol_uuid));
+            SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
+            err = dio_mgr.disk_read(disk_req);
+        }
         if ( err != ERR_OK) {
             LOGDEBUG << " Disk Read Err: " << err; 
             delete disk_req;
@@ -1392,17 +1401,24 @@ ObjectStorMgr::writeObjectToTier(const OpCtx &opCtx,
 
     /* Disk write */
     disk_req = new SmPlReq(vio, oid, (ObjectBuf *)&objData, true, tier); // blocking call
-    err = dio_mgr.disk_write(disk_req); //TODO(Matteo) inside or around this function, it could be non blocking
+    {   
+        PerfContext tmp_pctx(PUT_DISK_WRITE, "volume:" + std::to_string(vio.vol_uuid)); //TODO(matteo): move ctx in disk_req
+        SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
+        err = dio_mgr.disk_write(disk_req); //TODO(Matteo) inside or around this function, it could be non blocking
+    }
     if (err != ERR_OK) {
         LOGDEBUG << " 1. Disk Write Err: " << err; 
         delete disk_req;
         return err;
     }
-    
-    //TODO(Matteo): look inside. This is for metadata. Initially we probably want just leveldb get and put
-    err = writeObjectMetaData(opCtx, objId, objData.data.length(),
-                disk_req->req_get_phy_loc(), false, diskTier, &vio);
+    {
+        //TODO(Matteo): look inside. This is for metadata. Initially we probably want just leveldb get and put
 
+        PerfContext tmp_pctx(PUT_METADATA_WRITE,"volume:" + std::to_string(vio.vol_uuid));
+        SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
+        err = writeObjectMetaData(opCtx, objId, objData.data.length(),
+                disk_req->req_get_phy_loc(), false, diskTier, &vio);
+    }
     StorMgrVolume *vol = volTbl->getVolume(volId);
     if ((err == ERR_OK) &&
         (tier == diskio::flashTier)) {
