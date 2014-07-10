@@ -215,10 +215,12 @@ fds::Error StorHvCtrl::BlobRequestHelper::processRequest() {
     setupVolumeInfo();
     if (volId != invalid_vol_id) {
         blobReq->setVolId(volId);
+        GLOGDEBUG << "volid:" << blobReq->getVolId();
         storHvisor->pushBlobReq(blobReq);
         return ERR_OK;
     } else {
         // If we don't have the volume, queue up the request
+        GLOGDEBUG << "volume id not found:" << volumeName;
         storHvisor->vol_table->addBlobToWaitQueue(volumeName, blobReq);
     }
 
