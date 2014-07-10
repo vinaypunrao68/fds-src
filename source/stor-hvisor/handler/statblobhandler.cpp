@@ -11,7 +11,8 @@ Error StatBlobHandler::handleRequest(const std::string& volumeName,
                                      const std::string& blobName,
                                      CallbackPtr cb) {
     StorHvCtrl::BlobRequestHelper helper(storHvisor, volumeName);
-    LOGDEBUG << "volume: " << volumeName;
+    LOGDEBUG << " volume:" << volumeName
+             <<" blob:" << blobName;
 
     helper.blobReq = new StatBlobReq(helper.volId,
                                      volumeName,
@@ -49,8 +50,9 @@ Error StatBlobHandler::handleResponse(AmQosReq *qosReq,
 
 Error StatBlobHandler::handleQueueItem(AmQosReq *qosReq) {
     Error err(ERR_OK);
-
     StorHvCtrl::RequestHelper helper(storHvisor, qosReq);
+    LOGDEBUG << "volume:" << helper.blobReq->getVolId()
+             <<" blob:" << helper.blobReq->getBlobName();
 
     if (!helper.isValidVolume()) {
         LOGCRITICAL << "unable to get volume info for vol: " << helper.volId;
@@ -59,6 +61,8 @@ Error StatBlobHandler::handleQueueItem(AmQosReq *qosReq) {
     }
 
     GetBlobMetaDataMsgPtr message(new GetBlobMetaDataMsg());
+    message->volume_id = helper.blobReq->getVolId();
+    message->blob_name = helper.blobReq->getBlobName();
 
     auto asyncReq = gRpcRequestPool->newFailoverNetRequest(
         boost::make_shared<DmtVolumeIdEpProvider>(
@@ -70,6 +74,7 @@ Error StatBlobHandler::handleQueueItem(AmQosReq *qosReq) {
 
     asyncReq->setTimeoutMs(500);
     asyncReq->onResponseCb(cb);
+    LOGDEBUG << "invoke";
     asyncReq->invoke();
     return err;
 }
