@@ -195,6 +195,37 @@ StartBlobTxResponseHandler::process() {
 StartBlobTxResponseHandler::~StartBlobTxResponseHandler() {
 }
 
+
+CommitBlobTxResponseHandler::CommitBlobTxResponseHandler(
+    apis::TxDescriptor& retVal) : retTxDesc(retVal) {
+}
+
+void
+CommitBlobTxResponseHandler::process() {
+    XCHECKSTATUS(status);
+
+    retTxDesc.txId = blobTxId.getValue();
+}
+
+CommitBlobTxResponseHandler::~CommitBlobTxResponseHandler() {
+}
+
+
+AbortBlobTxResponseHandler::AbortBlobTxResponseHandler(
+    apis::TxDescriptor& retVal) : retTxDesc(retVal) {
+}
+
+void
+AbortBlobTxResponseHandler::process() {
+    XCHECKSTATUS(status);
+
+    retTxDesc.txId = blobTxId.getValue();
+}
+
+AbortBlobTxResponseHandler::~AbortBlobTxResponseHandler() {
+}
+
+
 AttachVolumeResponseHandler::AttachVolumeResponseHandler() {
 }
 

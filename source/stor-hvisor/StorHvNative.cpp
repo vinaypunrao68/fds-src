@@ -628,6 +628,11 @@ FDS_NativeAPI::AbortBlobTx(const std::string& volumeName,
         storHvisor->vol_table->addBlobToWaitQueue(volumeName, blobReq);
     }
 
+    // if we are here, bucket is not attached to this AM, send test bucket msg to OM
+    Error err = sendTestBucketToOM(volumeName,
+                                   "",  // The access key isn't used
+                                   ""); // The secret key isn't used
+    fds_verify(err == ERR_OK);
 }
 
 
@@ -636,7 +641,7 @@ FDS_NativeAPI::CommitBlobTx(const std::string& volumeName,
                            const std::string& blobName,
                            CallbackPtr cb) {
     fds_volid_t volId = invalid_vol_id;
-    LOGDEBUG << "Commit blob tx for volume " << volumeName
+    LOGDEBUG << "COMMIT blob tx for volume " << volumeName
              << ", blobName " << blobName;
 
     // check if bucket is attached to this AM
@@ -666,6 +671,11 @@ FDS_NativeAPI::CommitBlobTx(const std::string& volumeName,
         storHvisor->vol_table->addBlobToWaitQueue(volumeName, blobReq);
     }
 
+    // if we are here, bucket is not attached to this AM, send test bucket msg to OM
+    Error err = sendTestBucketToOM(volumeName,
+                                   "",  // The access key isn't used
+                                   ""); // The secret key isn't used
+    fds_verify(err == ERR_OK);
 }
 
 void

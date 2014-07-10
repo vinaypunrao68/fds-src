@@ -42,6 +42,32 @@ void fn_StartBlobTxHandler(FDSN_Status status,
     handler->ready();
 }
 
+void fn_CommitBlobTxHandler(FDSN_Status status,
+                           const ErrorDetails *errorDetails,
+                           BlobTxId blobTxId,
+                           void *callbackData) {
+    CommitBlobTxResponseHandler* handler =
+            reinterpret_cast<CommitBlobTxResponseHandler*>(callbackData); //NOLINT
+    handler->status = status;
+    handler->errorDetails = errorDetails;
+    handler->blobTxId = blobTxId;
+
+    handler->ready();
+}
+
+void fn_AbortBlobTxHandler(FDSN_Status status,
+                           const ErrorDetails *errorDetails,
+                           BlobTxId blobTxId,
+                           void *callbackData) {
+    AbortBlobTxResponseHandler* handler =
+            reinterpret_cast<AbortBlobTxResponseHandler*>(callbackData); //NOLINT
+    handler->status = status;
+    handler->errorDetails = errorDetails;
+    handler->blobTxId = blobTxId;
+
+    handler->ready();
+}
+
 FDSN_Status fn_GetObjectHandler(BucketContextPtr bucket_ctx,
                                 void *reqContext,
                                 fds_uint64_t bufferSize,

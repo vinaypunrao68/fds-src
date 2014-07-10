@@ -361,6 +361,8 @@ public:
     fds::Error getBlobSvc(fds::AmQosReq *qosReq);
     fds::Error putBlobSvc(fds::AmQosReq *qosReq);
     fds::Error startBlobTxSvc(AmQosReq *qosReq);
+    fds::Error commitBlobTxSvc(AmQosReq *qosReq);
+    fds::Error abortBlobTxSvc(AmQosReq *qosReq);
     fds::Error deleteBlobSvc(fds::AmQosReq *qosReq);
 
     void issueDeleteCatalogObject(const fds_uint64_t& vol_id,
@@ -373,6 +375,14 @@ public:
     void issueGetObject(const fds_volid_t& volId, const ObjectID& objId,
                         FailoverRpcRespCb respCb);
     void issueStartBlobTxMsg(const std::string& blobName,
+                             const fds_volid_t& volId,
+                             const fds_uint64_t& txId,
+                             QuorumRpcRespCb respCb);
+    void issueCommitBlobTxMsg(const std::string& blobName,
+                             const fds_volid_t& volId,
+                             const fds_uint64_t& txId,
+                             QuorumRpcRespCb respCb);
+    void issueAbortBlobTxMsg(const std::string& blobName,
                              const fds_volid_t& volId,
                              const fds_uint64_t& txId,
                              QuorumRpcRespCb respCb);
@@ -397,6 +407,14 @@ public:
                               const Error& error,
                               boost::shared_ptr<std::string> payload);
     void startBlobTxMsgResp(fds::AmQosReq* qosReq,
+                            QuorumRpcRequest* rpcReq,
+                            const Error& error,
+                            boost::shared_ptr<std::string> payload);
+    void commitBlobTxMsgResp(fds::AmQosReq* qosReq,
+                            QuorumRpcRequest* rpcReq,
+                            const Error& error,
+                            boost::shared_ptr<std::string> payload);
+    void abortBlobTxMsgResp(fds::AmQosReq* qosReq,
                             QuorumRpcRequest* rpcReq,
                             const Error& error,
                             boost::shared_ptr<std::string> payload);
@@ -448,6 +466,14 @@ static void processBlobReq(AmQosReq *qosReq) {
     switch (qosReq->io_type) {
         case fds::FDS_START_BLOB_TX:
             err = storHvisor->startBlobTx(qosReq);
+            break;
+
+        case fds::FDS_COMMIT_BLOB_TX:
+            err = storHvisor->commitBlobTxSvc(qosReq);
+            break;
+
+        case fds::FDS_ABORT_BLOB_TX:
+            err = storHvisor->abortBlobTxSvc(qosReq);
             break;
 
         case fds::FDS_ATTACH_VOL:

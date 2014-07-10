@@ -180,9 +180,10 @@ class FdsnIf : public apis::AmServiceIf {
                      boost::shared_ptr<std::string>& blobName) {
         if ((testUturnAll == true) ||
             (testUturnCommitTx == true)) {
-            LOGDEBUG << "Uturn testing start blob tx";
+            LOGDEBUG << "Uturn testing commit blob tx";
             return;
         }
+        LOGDEBUG << "COMMIT: testing commit blob tx";
         CommitBlobTxResponseHandler::ptr handler(
             new CommitBlobTxResponseHandler(_return));
 
@@ -204,7 +205,7 @@ class FdsnIf : public apis::AmServiceIf {
                      boost::shared_ptr<std::string>& blobName) {
         if ((testUturnAll == true) ||
             (testUturnAbortTx == true)) {
-            LOGDEBUG << "Uturn testing start blob tx";
+            LOGDEBUG << "Uturn testing abort blob tx";
             return;
         }
         AbortBlobTxResponseHandler::ptr handler(

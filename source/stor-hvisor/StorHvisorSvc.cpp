@@ -27,6 +27,178 @@ using namespace std;
 using namespace FDS_ProtocolInterface;
 typedef fds::hash::Sha1 GeneratorHash;
 
+
+Error
+StorHvCtrl::abortBlobTxSvc(AmQosReq *qosReq) {
+    fds_verify(qosReq != NULL);
+
+    Error err(ERR_OK);
+    AbortBlobTxReq *blobReq = static_cast<AbortBlobTxReq *>(qosReq->getBlobReqPtr());
+    fds_verify(blobReq != NULL);
+    fds_verify(blobReq->magicInUse() == true);
+    fds_verify(blobReq->getIoType() == FDS_ABORT_BLOB_TX);
+
+    fds_volid_t   volId = blobReq->getVolId();
+    StorHvVolume *shVol = storHvisor->vol_table->getLockedVolume(volId);
+    fds_verify(shVol != NULL);
+    fds_verify(shVol->isValidLocked() == true);
+   
+    // Generate a random transaction ID to use
+    // Note: construction, generates a random ID
+    BlobTxId txId(storHvisor->randNumGen->genNum());
+    // Stash the newly created ID in the callback for later
+    AbortBlobTxCallback::ptr cb = SHARED_DYN_CAST(AbortBlobTxCallback,
+                                                  blobReq->cb);
+    cb->blobTxId = txId;
+
+    issueAbortBlobTxMsg(blobReq->getBlobName(),
+                        volId,
+                        txId.getValue(),
+                        std::bind(&StorHvCtrl::abortBlobTxMsgResp,
+                                  this, qosReq,
+                                  std::placeholders::_1,
+                                  std::placeholders::_2,std::placeholders::_3));
+    return err;
+}
+
+
+void StorHvCtrl::issueAbortBlobTxMsg(const std::string& blobName,
+                                     const fds_volid_t& volId,
+                                     const fds_uint64_t& txId,
+                                      QuorumRpcRespCb respCb)
+{
+
+    AbortBlobTxMsgPtr stBlobTxMsg(new AbortBlobTxMsg());
+    stBlobTxMsg->blob_name   = blobName;
+    stBlobTxMsg->blob_version = blob_version_invalid;
+    stBlobTxMsg->volume_id = volId;
+
+
+    stBlobTxMsg->txId = txId;
+
+#ifdef RPC_BASED_ASYNC_COMM
+    auto asyncAbortBlobTxReq = gRpcRequestPool->newQuorumRpcRequest(
+        boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(volId)));
+    asyncAbortBlobTxReq->setRpcFunc(
+        CREATE_RPC(fpi::DMSvcClient, abortBlobTx, stBlobTxMsg));
+#else
+    auto asyncAbortBlobTxReq = gRpcRequestPool->newQuorumNetRequest(
+        boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(volId)));
+    asyncAbortBlobTxReq->setPayload(FDSP_MSG_TYPEID(fpi::AbortBlobTxMsg), stBlobTxMsg);
+#endif
+    asyncAbortBlobTxReq->setTimeoutMs(500);
+    asyncAbortBlobTxReq->onResponseCb(respCb);
+    asyncAbortBlobTxReq->invoke();
+
+    LOGDEBUG << asyncAbortBlobTxReq->logString() << fds::logString(*stBlobTxMsg);
+
+}
+
+
+void StorHvCtrl::abortBlobTxMsgResp(fds::AmQosReq* qosReq,
+                                    QuorumRpcRequest* rpcReq,
+                                    const Error& error,
+                                    boost::shared_ptr<std::string> payload)
+{
+    fds_verify(qosReq != NULL);
+    AbortBlobTxReq *blobReq = static_cast<AbortBlobTxReq *>(qosReq->getBlobReqPtr());
+    fds_verify(blobReq != NULL);
+    fds_verify(blobReq->getIoType() == FDS_ABORT_BLOB_TX);
+
+    AbortBlobTxCallback::ptr cb = SHARED_DYN_CAST(AbortBlobTxCallback,
+                                                      blobReq->cb);
+    qos_ctrl->markIODone(qosReq);
+    cb->call(ERR_OK);
+    delete blobReq;
+}
+
+
+Error
+StorHvCtrl::commitBlobTxSvc(AmQosReq *qosReq) {
+    fds_verify(qosReq != NULL);
+
+    Error err(ERR_OK);
+    CommitBlobTxReq *blobReq = static_cast<CommitBlobTxReq *>(qosReq->getBlobReqPtr());
+    fds_verify(blobReq != NULL);
+    fds_verify(blobReq->magicInUse() == true);
+    fds_verify(blobReq->getIoType() == FDS_COMMIT_BLOB_TX);
+
+    fds_volid_t   volId = blobReq->getVolId();
+    StorHvVolume *shVol = storHvisor->vol_table->getLockedVolume(volId);
+    fds_verify(shVol != NULL);
+    fds_verify(shVol->isValidLocked() == true);
+   
+    // Generate a random transaction ID to use
+    // Note: construction, generates a random ID
+    BlobTxId txId(storHvisor->randNumGen->genNum());
+    // Stash the newly created ID in the callback for later
+    CommitBlobTxCallback::ptr cb = SHARED_DYN_CAST(CommitBlobTxCallback,
+                                                  blobReq->cb);
+    cb->blobTxId = txId;
+
+    issueCommitBlobTxMsg(blobReq->getBlobName(),
+                        volId,
+                        txId.getValue(),
+                        std::bind(&StorHvCtrl::commitBlobTxMsgResp,
+                                  this, qosReq,
+                                  std::placeholders::_1,
+                                  std::placeholders::_2,std::placeholders::_3));
+    return err;
+}
+
+
+void StorHvCtrl::issueCommitBlobTxMsg(const std::string& blobName,
+                                     const fds_volid_t& volId,
+                                     const fds_uint64_t& txId,
+                                      QuorumRpcRespCb respCb)
+{
+
+    CommitBlobTxMsgPtr stBlobTxMsg(new CommitBlobTxMsg());
+    stBlobTxMsg->blob_name   = blobName;
+    stBlobTxMsg->blob_version = blob_version_invalid;
+    stBlobTxMsg->volume_id = volId;
+
+
+    stBlobTxMsg->txId = txId;
+
+#ifdef RPC_BASED_ASYNC_COMM
+    auto asyncCommitBlobTxReq = gRpcRequestPool->newQuorumRpcRequest(
+        boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(volId)));
+    asyncCommitBlobTxReq->setRpcFunc(
+        CREATE_RPC(fpi::DMSvcClient, commitBlobTx, stBlobTxMsg));
+#else
+    auto asyncCommitBlobTxReq = gRpcRequestPool->newQuorumNetRequest(
+        boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(volId)));
+    asyncCommitBlobTxReq->setPayload(FDSP_MSG_TYPEID(fpi::CommitBlobTxMsg), stBlobTxMsg);
+#endif
+    asyncCommitBlobTxReq->setTimeoutMs(500);
+    asyncCommitBlobTxReq->onResponseCb(respCb);
+    asyncCommitBlobTxReq->invoke();
+
+    LOGDEBUG << asyncCommitBlobTxReq->logString() << fds::logString(*stBlobTxMsg);
+
+}
+
+
+void StorHvCtrl::commitBlobTxMsgResp(fds::AmQosReq* qosReq,
+                                    QuorumRpcRequest* rpcReq,
+                                    const Error& error,
+                                    boost::shared_ptr<std::string> payload)
+{
+    fds_verify(qosReq != NULL);
+    CommitBlobTxReq *blobReq = static_cast<CommitBlobTxReq *>(qosReq->getBlobReqPtr());
+    fds_verify(blobReq != NULL);
+    fds_verify(blobReq->getIoType() == FDS_COMMIT_BLOB_TX);
+
+    CommitBlobTxCallback::ptr cb = SHARED_DYN_CAST(CommitBlobTxCallback,
+                                                      blobReq->cb);
+    qos_ctrl->markIODone(qosReq);
+    cb->call(ERR_OK);
+    delete blobReq;
+}
+
+
+
 Error
 StorHvCtrl::startBlobTxSvc(AmQosReq *qosReq) {
     fds_verify(qosReq != NULL);
