@@ -72,12 +72,20 @@ DmCommitLog::DmCommitLog(const std::string &modName, const std::string & filenam
                 case TX_ROLLBACK:
                     iter->second->rolledback = true;
                     break;
-                case TX_UPDATE_OBJLIST:
-                    // TODO(umesh): implement this
+                case TX_UPDATE_OBJLIST: {
+                    boost::shared_ptr<const BlobObjList> dataPtr =
+                            reinterpret_cast<const DmCommitLogUpdateObjListEntry *>\
+                            (entry)->blobObjList();
+                    upsertBlobData(*(txMap_[txId]), dataPtr);
                     break;
-                case TX_UPDATE_OBJMETA:
-                    // TODO(umesh): implement this
+                }
+                case TX_UPDATE_OBJMETA: {
+                    boost::shared_ptr<const MetaDataList> dataPtr =
+                            reinterpret_cast<const DmCommitLogUpdateObjMetaEntry *>\
+                            (entry)->metaDataList();
+                    upsertBlobData(*(txMap_[txId]), dataPtr);
                     break;
+                }
                 default:
                     break;
             }
