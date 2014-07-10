@@ -39,10 +39,10 @@ struct CommitLogTx {
     std::vector<fds_uint64_t> entries;
 
     BlobObjList::ptr blobObjList;
-    BlobMetaDesc::ptr blobMetaDesc;
+    MetaDataList::ptr metaDataList;
 
     CommitLogTx() : txDesc(0), started(false), commited(false), rolledback(false),
-            blobObjList(0), blobMetaDesc(0) {}
+            blobObjList(0), metaDataList(0) {}
 };
 
 typedef std::unordered_map<BlobTxId, CommitLogTx::ptr> TxMap;
@@ -83,7 +83,7 @@ class DmCommitLog : public Module {
     // start transaction
     Error startTx(BlobTxId::const_ptr & txDesc, const std::string & blobName);
 
-    // update blob data (T can be BlobObjList or BlobMetaDesc)
+    // update blob data (T can be BlobObjList or MetaDataList)
     template<typename T>
     Error updateTx(BlobTxId::const_ptr & txDesc, boost::shared_ptr<const T> & blobData);
 
@@ -120,11 +120,11 @@ class DmCommitLog : public Module {
         }
     }
 
-    void upsertBlobData(CommitLogTx & tx, boost::shared_ptr<const BlobMetaDesc> & data) {
-        if (tx.blobMetaDesc) {
-            tx.blobMetaDesc->merge(*data);
+    void upsertBlobData(CommitLogTx & tx, boost::shared_ptr<const MetaDataList> & data) {
+        if (tx.metaDataList) {
+            tx.metaDataList->merge(*data);
         } else {
-            tx.blobMetaDesc.reset(new BlobMetaDesc(*data));
+            tx.metaDataList.reset(new MetaDataList(*data));
         }
     }
 };
@@ -219,12 +219,12 @@ struct DmCommitLogUpdateObjListEntry : DmCommitLogEntry {
 // update blob object meta data
 struct DmCommitLogUpdateObjMetaEntry : DmCommitLogEntry {
     DmCommitLogUpdateObjMetaEntry(BlobTxId::const_ptr & txDesc, fds_uint64_t id,
-            const std::string & blobMetaDesc) : DmCommitLogEntry(TX_UPDATE_OBJMETA, txDesc, id,
-            blobMetaDesc.c_str()) {}
+            const std::string & metaDataList) : DmCommitLogEntry(TX_UPDATE_OBJMETA, txDesc, id,
+            metaDataList.c_str()) {}
 
-    inline boost::shared_ptr<const BlobMetaDesc> blobMetaDesc() const {
+    inline boost::shared_ptr<const MetaDataList> metaDataList() const {
         fds_assert(TX_UPDATE_OBJMETA == type);
-        return getDetails<BlobMetaDesc>();
+        return getDetails<MetaDataList>();
     }
 };
 
@@ -239,7 +239,7 @@ class DmCommitLogger {
     virtual Error updateTx(BlobTxId::const_ptr & txDesc, BlobObjList::const_ptr blobObjList,
             fds_uint64_t & id) = 0;
 
-    virtual Error updateTx(BlobTxId::const_ptr & txDesc, BlobMetaDesc::const_ptr blobMetaDesc,
+    virtual Error updateTx(BlobTxId::const_ptr & txDesc, MetaDataList::const_ptr metaDataList,
             fds_uint64_t & id) = 0;
 
     virtual Error commitTx(BlobTxId::const_ptr & txDesc, fds_uint64_t & id) = 0;
@@ -275,7 +275,7 @@ class FileCommitLogger : public DmCommitLogger {
     virtual Error updateTx(BlobTxId::const_ptr & txDesc, BlobObjList::const_ptr blobObjList,
             fds_uint64_t & id) override;
 
-    virtual Error updateTx(BlobTxId::const_ptr & txDesc, BlobMetaDesc::const_ptr blobMetaDesc,
+    virtual Error updateTx(BlobTxId::const_ptr & txDesc, MetaDataList::const_ptr metaDataList,
             fds_uint64_t & id) override;
 
     virtual Error commitTx(BlobTxId::const_ptr & txDesc, fds_uint64_t & id) override;

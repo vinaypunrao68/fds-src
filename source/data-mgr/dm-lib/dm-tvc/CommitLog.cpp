@@ -155,7 +155,7 @@ Error DmCommitLog::startTx(BlobTxId::const_ptr & txDesc, const std::string & blo
     return rc;
 }
 
-// update blob data (T can be BlobObjList or BlobMetaDesc)
+// update blob data (T can be BlobObjList or MetaDataList)
 template<typename T>
 Error DmCommitLog::updateTx(BlobTxId::const_ptr & txDesc, boost::shared_ptr<const T> & blobData) {
     fds_assert(txDesc);
@@ -473,9 +473,9 @@ Error FileCommitLogger::updateTx(BlobTxId::const_ptr & txDesc, BlobObjList::cons
     return ERR_OK;
 }
 
-Error FileCommitLogger::updateTx(BlobTxId::const_ptr & txDesc, BlobMetaDesc::const_ptr blobMetaDesc,
+Error FileCommitLogger::updateTx(BlobTxId::const_ptr & txDesc, MetaDataList::const_ptr metaDataList,
         fds_uint64_t & id) {
-    const std::string & str = DmCommitLogEntry::createPayload(blobMetaDesc);
+    const std::string & str = DmCommitLogEntry::createPayload(metaDataList);
     size_t sz = sizeof(DmCommitLogEntry) + str.length() + 1;
 
     FDSGUARD(lockLogFile_);
