@@ -10,6 +10,7 @@
 #define SOURCE_DATA_MGR_INCLUDE_DATAMGR_H_
 
 #include <list>
+#include <vector>
 #include <fds_error.h>
 #include <fds_types.h>
 #include <fds_volume.h>
@@ -278,6 +279,8 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
                           BlobNode *bnode);
     Error expungeBlob(const BlobNode *bnode);
     Error expungeObject(fds_volid_t volId, const ObjectID &objId);
+    Error expungeObjectsIfPrimary(fds_volid_t volid,
+                                  const std::vector<ObjectID>& oids);
 
     fds_bool_t volExistsLocked(fds_volid_t vol_uuid) const;
 

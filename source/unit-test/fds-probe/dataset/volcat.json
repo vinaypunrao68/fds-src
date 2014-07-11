@@ -4,7 +4,8 @@
             "volcat-ops": [
 		{
 		    "volcat-op": "volcrt",
-		    "volume-id": 2
+		    "volume-id": 2,
+		    "max-obj-size": 4096
                 },
                 {
 		    "volcat-op": "put",
@@ -14,8 +15,26 @@
                     	       "dddd-time", "aaa-val"
                     ],
                     "objects": [
-                               "0-0xdeadbeefc94fcfb415dbe95f408b9ce9deadbeef",
-                               "4096-0xdeadbeefc94fcfb415dbe95f408b9ce9deadaaaa"
+                               "0-0xdeadbeefc94fcfb415dbe95f408b9ce9deadbeef-4096",
+                               "4096-0xdeadbeefc94fcfb415dbe95f408b9ce9deadaaaa-4096"
+                    ]
+                },
+		{
+		    "volcat-op": "put",
+		    "volume-id": 2,
+                    "blob-name": "blob-a",
+                    "objects": [
+                               "8192-0x1234beefc94fcfb415dbe95f408b9ce9deadbbbb-4096",
+                               "12288-0x1234beefc94fcfb415dbe95f408b9ce9deadcccc-4096"
+                    ]
+                },
+		{
+		    "volcat-op": "put",
+		    "volume-id": 2,
+                    "blob-name": "blob-a",
+                    "objects": [
+                               "8192-0x1234beefc94fcfb415dbe95f408b9ce9deaddddd-4096",
+                               "12288-0x1234beefc94fcfb415dbe95f408b9ce9deadeeee-4096"
                     ]
                 },
 		{
@@ -23,8 +42,8 @@
 		    "volume-id": 2,
                     "blob-name": "blob-b",
                     "objects": [
-                               "0-0x1234beefc94fcfb415dbe95f408b9ce9deadbeef",
-                               "4096-0x1234beefc94fcfb415dbe95f408b9ce9deadaaaa"
+                               "0-0x1234beefc94fcfb415dbe95f408b9ce9deadbeef-4096",
+                               "4096-0x1234beefc94fcfb415dbe95f408b9ce9deadaaaa-4096"
                     ]
                 }
             ]

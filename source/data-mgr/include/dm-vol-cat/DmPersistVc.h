@@ -141,8 +141,6 @@ namespace fds {
         fds_rwlock vol_map_lock;
     };
 
-    extern DmPersistVolCatalog gl_DmVolCatPlMod;
-
 }  // namespace fds
 
 #endif  // SOURCE_DATA_MGR_INCLUDE_DM_VOL_CAT_DMPERSISTVC_H_

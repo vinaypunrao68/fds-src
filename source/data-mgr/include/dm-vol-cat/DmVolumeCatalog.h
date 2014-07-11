@@ -13,8 +13,12 @@
 #include <DmBlobTypes.h>
 #include <blob/BlobTypes.h>
 #include <VcQueryIface.h>
+#include <dm-vol-cat/DmExtentTypes.h>
 
 namespace fds {
+
+    // forward declarations
+    class DmPersistVolCatalog;
 
     /**
      * This is the module that manages committed blob metadata
@@ -60,6 +64,11 @@ namespace fds {
          * VolumeCatalogQueryIface methods. This interface is used by DM
          * processing payer to query for committed blob metadata.
          */
+
+        /**
+         * Callback to expunge a list of objects from a volume
+         */
+        void registerExpungeObjectsCb(expunge_objs_cb_t cb);
 
         /**
          * Returns true if the volume does not contain any valid blobs.
@@ -158,10 +167,33 @@ namespace fds {
                          const std::string& blob_name,
                          blob_version_t blob_version);
 
+  private:  // methods
+        /**
+         * Persist extent 'extent' if this is not a extent 0 and return extent
+         * that contains offset 'next_offset'
+         * @param[in,out] extent_id id of the extent 'extent' that we need to persist
+         * and it is updated to the id of the extent containing offset 'next_offset'
+         * @param[out] error ERR_OK on success, ERR_CAT_ENTRY_NOT_FOUND if extent
+         * containing offset 'next_offset' does not exist or other error
+         */
+        BlobExtent::ptr persistIfNonMetaAndGetNext(fds_volid_t volid,
+                                                   const std::string& blob_name,
+                                                   const BlobExtent::const_ptr& extent,
+                                                   fds_uint64_t next_offset,
+                                                   fds_extent_id& extent_id,
+                                                   Error& error);
   private:
-    };
+        /**
+         * Volume Catalog Persistent Layer module
+         */
+        DmPersistVolCatalog* persistCat;
 
-    extern DmVolumeCatalog gl_DmVolCatMod;
+        /**
+         * Callback to expunge a list of objects when they
+         * are dereferenced by a blob
+         */
+        expunge_objs_cb_t expunge_cb;
+    };
 
 }  // namespace fds
 
