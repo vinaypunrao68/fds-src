@@ -397,6 +397,7 @@ public:
                                const fds_uint64_t &len,
                                const bool &lastBuf,
                                const fds_volid_t& volId,
+                               const fds_uint64_t& txId,
                                QuorumRpcRespCb respCb);
     void getBlobQueryCatalogResp(fds::AmQosReq* qosReq,
                                  FailoverRpcRequest* rpcReq,

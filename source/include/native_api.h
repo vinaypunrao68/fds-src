@@ -126,10 +126,12 @@ class FDS_NativeAPI {
                      CallbackPtr cb);
     void CommitBlobTx(const std::string& volumeName,
                      const std::string& blobName,
+                     BlobTxId::ptr txDesc,
                      CallbackPtr cb);
 
     void AbortBlobTx(const std::string& volumeName,
                      const std::string& blobName,
+                     BlobTxId::ptr txDesc,
                      CallbackPtr cb);
 
     void attachVolume(const std::string& volumeName,

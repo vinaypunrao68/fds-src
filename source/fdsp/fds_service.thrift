@@ -292,7 +292,7 @@ struct UpdateCatalogMsg {
    1: i64    			volume_id;
    2: string 			blob_name; 	/* User visible name of the blob */
    3: i64                       blob_version; 	/* Version of the blob */
-   4: FDSP.TxDescriptor 	txDlsc; 	/* Transaction ID...can supersede other tx fields */
+   4: i64                   	txId;
    5: FDSP.FDSP_BlobObjectList 	obj_list; 	/* List of object ids of the objects that this blob is being mapped to */
 }
 
