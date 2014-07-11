@@ -74,6 +74,7 @@ namespace fds {
 
         BlobObjInfo();
         explicit BlobObjInfo(const fpi::FDSP_BlobObjectInfo& obj_info);
+        BlobObjInfo(const ObjectID& obj_id, fds_uint64_t sz);
         ~BlobObjInfo();
 
         BlobObjInfo& operator= (const BlobObjInfo &rhs);

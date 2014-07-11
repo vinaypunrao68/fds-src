@@ -74,15 +74,14 @@ Error BlobExtent::getObjectInfo(fds_uint64_t offset,
 }
 
 //
-// Removes all objects with offset > last_offset
+// Removes all objects with offset > after_offset
 //
-fds_uint32_t BlobExtent::truncate(fds_uint64_t last_offset,
-                                  fds_uint64_t* last_off_removed,
+fds_uint32_t BlobExtent::truncate(fds_uint64_t after_offset,
                                   std::vector<ObjectID>* ret_rm_list) {
     fds_verify(ret_rm_list);
     std::map<fds_uint32_t, ObjectID>::iterator it, rm_it;
     fds_bool_t found = false;
-    fds_uint32_t last_off_units = toOffsetUnits(last_offset);
+    fds_uint32_t last_off_units = toOffsetUnits(after_offset);
     fds_uint32_t num_objs_truncated = 0;
 
     for (it = blob_obj_list.begin();
@@ -93,8 +92,10 @@ fds_uint32_t BlobExtent::truncate(fds_uint64_t last_offset,
                 rm_it = it;
                 found = true;
             }
+            // is it possible to non-first obj be null obj?
+            // if so, need to take that into account
+            fds_verify(it->second != NullObjectID);
             (*ret_rm_list).push_back(it->second);
-            *last_off_removed = it->first;
             num_objs_truncated++;
         }
     }

@@ -9,6 +9,7 @@
  */
 #include <string>
 #include <list>
+#include <vector>
 #include <fds-probe/fds_probe.h>
 #include <utest-types.h>
 #include <fds_types.h>
@@ -47,9 +48,9 @@ namespace fds {
       public:
             std::string    op;
             fds_volid_t    vol_id;
+            fds_uint32_t max_obj_size;  // only used by vol ops
             std::string    blob_name;
             fds_uint64_t   blob_size;
-            fds_uint32_t   max_obj_size;
             MetaDataList   meta_list;
             BlobObjList::ptr obj_list;
 
@@ -66,6 +67,9 @@ namespace fds {
         void putBlob(const OpParams &putParams);
         void flushBlob(const OpParams &flushParams);
         void deleteBlob(const OpParams &delParams);
+
+        Error expungeObjects(fds_volid_t volid,
+                             const std::vector<ObjectID>& oids);
 };
 
 // ----------------------------------------------------------------------------
@@ -109,6 +113,15 @@ class VolCatOpTemplate : public JsObjTemplate
         p->op = op;
         p->blob_name = "";
         p->max_obj_size = 4096;  // hardcoded for now
+
+        if (!json_unpack(in, "{s:i}",
+                         "max-obj-size", &p->max_obj_size)) {
+            fds_verify(p->max_obj_size > 0);
+        }
+        if (p->op == "volcrt") {
+            return js_parse(new VolCatObjectOp(), in, p);
+        }
+
         if (!json_unpack(in, "{ s:s}",
                          "blob-name", &name)) {
             p->blob_name = name;
@@ -142,11 +155,16 @@ class VolCatOpTemplate : public JsObjTemplate
                 std::size_t k = offset_obj.find_first_of("-");
                 fds_verify(k != std::string::npos);  // must separate key-value with "-"
                 std::string offset_str = offset_obj.substr(0, k);
-                std::string oid_hexstr = offset_obj.substr(k+1);
+                std::string objinfo_str = offset_obj.substr(k+1);
+                k = objinfo_str.find_first_of("-");
+                fds_verify(k != std::string::npos);  // must separate key-value with "-"
+                std::string oid_hexstr = objinfo_str.substr(0, k);
+                std::string size_str = objinfo_str.substr(k+1);
                 fds_uint64_t offset = stoull(offset_str);
+                fds_uint64_t size = stoull(size_str);
                 oid = oid_hexstr;
-                (p->obj_list)->updateObject(offset, oid, p->max_obj_size);
-                p->blob_size += p->max_obj_size;
+                (p->obj_list)->updateObject(offset, oid, size);
+                p->blob_size += size;
             }
         }
 
@@ -172,6 +190,7 @@ class VolCatWorkloadTemplate : public JsObjTemplate
 
 /// Adapter class
 extern VolCatProbe           gl_VolCatProbe;
+extern DmVolumeCatalog       gl_DmVolCatMod;
 
 }  // namespace fds
 

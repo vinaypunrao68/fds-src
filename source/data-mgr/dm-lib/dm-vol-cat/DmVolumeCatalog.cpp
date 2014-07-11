@@ -11,7 +11,7 @@
 namespace fds {
 
 DmVolumeCatalog::DmVolumeCatalog(char const *const name)
-        : Module(name)
+        : Module(name), expunge_cb(NULL)
 {
     persistCat = new DmPersistVolCatalog("DM Vol Cat Persistent Layer");
     static Module* om_mods[] = {
@@ -37,6 +37,10 @@ void DmVolumeCatalog::mod_startup()
 
 void DmVolumeCatalog::mod_shutdown()
 {
+}
+
+void DmVolumeCatalog::registerExpungeObjectsCb(expunge_objs_cb_t cb) {
+    expunge_cb = cb;
 }
 
 //
@@ -145,6 +149,36 @@ DmVolumeCatalog::putBlobMeta(const BlobMetaDesc::const_ptr& blob_meta,
 }
 
 //
+// Persist extent 'extent' if this is extent with non-zero extent id
+// and returns extent that contains offset next_offset
+//
+BlobExtent::ptr
+DmVolumeCatalog::persistIfNonMetaAndGetNext(fds_volid_t volid,
+                                            const std::string& blob_name,
+                                            const BlobExtent::const_ptr& extent,
+                                            fds_uint64_t next_offset,
+                                            fds_extent_id& extent_id,
+                                            Error& error) {
+    if (extent_id > 0) {
+        error = persistCat->putExtent(volid, blob_name, extent_id, extent);
+        // TODO(xxx) if we fail writing extent, we may already
+        // have written other extents of this blob
+        // need to deal with partial extent updates
+        fds_verify(error.ok());
+    }
+    // move to next extent
+    extent_id = persistCat->getExtentId(volid, next_offset);
+    BlobExtent::ptr next_extent = persistCat->getExtent(volid, blob_name, extent_id, error);
+
+    if (!error.ok() && (error != ERR_CAT_ENTRY_NOT_FOUND)) {
+        LOGERROR << "Failed to retrieve all extents for " << blob_name
+                 << " in volume " << std::hex << volid << std::dec << " err " << error;
+    }
+    return next_extent;
+}
+
+
+//
 // Updates committed blob in the Volume Catalog.
 // Updates blob metadata and a given list of offset to object id mappings
 // (not necessarily the whole blob).
@@ -194,25 +228,13 @@ DmVolumeCatalog::putBlob(const BlobMetaDesc::const_ptr& blob_meta,
         if (!extent->offsetInRange(cit->first)) {
             // we are done with previous extent, if this is not extent0
             // write extent to persistent storage (for now)
-            if (extent_id > 0) {
-                err = persistCat->putExtent(blob_meta->vol_id,
-                                            blob_meta->blob_name,
-                                            extent_id, extent);
-                // TODO(xxx) if we fail writing extent, we may already
-                // have written other extents of this blob
-                // need to deal with partial extent updates
-                fds_verify(err.ok());
-            }
-            // move to next extent
-            extent_id = persistCat->getExtentId(blob_meta->vol_id,
-                                                cit->first);
-            extent = persistCat->getExtent(blob_meta->vol_id,
-                                           blob_meta->blob_name,
-                                           extent_id,
-                                           err);
+            extent = persistIfNonMetaAndGetNext(blob_meta->vol_id,
+                                                blob_meta->blob_name,
+                                                extent, cit->first,
+                                                extent_id, err);
 
             if (!err.ok() && (err != ERR_CAT_ENTRY_NOT_FOUND)) {
-                LOGERROR << "Failed to retrieve all extents for " << *blob_meta;
+                // TODO(xxx) but we may have already wrote some extents!!!
                 return err;
             }
         }
@@ -224,16 +246,22 @@ DmVolumeCatalog::putBlob(const BlobMetaDesc::const_ptr& blob_meta,
         fds_verify(err.ok() || (err == ERR_NOT_FOUND));
         if (err.ok()) {
             // we will modify existing object, add to expunge list
-            // TODO(xxx) check if null object id?
-            expunge_list.push_back(old_obj);
+            if (old_obj != NullObjectID) {
+                // null obj does not physically exist
+                expunge_list.push_back(old_obj);
+            }
 
             // if we are updating last offset, adjust blob size
-            fds_verify(blob_size > 0);
-            if (cit->first == extent0->lastOffset()) {
+            if (cit->first == extent0->lastBlobOffset()) {
                 // modifying existing last offset, update size
-                blob_size -= last_obj_size;
+                if (old_obj != NullObjectID) {
+                    fds_verify(blob_size >= last_obj_size);
+                    blob_size -= last_obj_size;
+                }
                 blob_size += (cit->second).size;
             } else if (cit->first == new_last_offset) {
+                fds_verify(old_obj != NullObjectID);  // is this possible?
+                fds_verify(blob_size >= extent0->maxObjSizeBytes());
                 blob_size -= extent0->maxObjSizeBytes();
                 blob_size += (cit->second).size;
             }
@@ -256,13 +284,41 @@ DmVolumeCatalog::putBlob(const BlobMetaDesc::const_ptr& blob_meta,
     if (blob_obj_list->endOfBlob()) {
         // we are changing the last offset of the blob, unless
         // these last offsets are the same
-        if (new_last_offset < extent0->lastOffset()) {
+        if (new_last_offset < extent0->lastBlobOffset()) {
             // truncating the blob!!!
-            fds_verify(false);  // TODO(xxx) implement
+            fds_uint32_t num_objs_rm = 0;
+            fds_uint64_t trunc_size = 0;
+            fds_uint64_t last_trunc_offset = new_last_offset;
+            fds_bool_t done = false;
 
-        } else if (new_last_offset > extent0->lastOffset()) {
+            while (!done) {
+                num_objs_rm = extent->truncate(last_trunc_offset, &expunge_list);
+                if (extent0->lastBlobOffset() < extent->lastOffsetInRange()) {
+                    // more objects to expunge
+                    trunc_size = num_objs_rm * extent0->maxObjSizeBytes();
+                } else {
+                    // that was last extent
+                    fds_verify(num_objs_rm > 0);
+                    trunc_size = last_obj_size + (num_objs_rm - 1) * extent0->maxObjSizeBytes();
+                    done = true;
+                }
+                fds_verify(blob_size >= trunc_size);
+                blob_size -= trunc_size;
+                if (!done) {
+                    last_trunc_offset = extent->lastOffsetInRange();
+                    extent = persistIfNonMetaAndGetNext(
+                        blob_meta->vol_id, blob_meta->blob_name, extent,
+                        last_trunc_offset + extent0->maxObjSizeBytes(),
+                        extent_id, err);
+                    // TODO(xxx) we may have gaps between extents ???
+                    fds_verify(err == ERR_CAT_ENTRY_NOT_FOUND);
+                    fds_verify(!err.ok());  // partial write, implement with crash recovery
+                }
+            }
+            extent0->setLastBlobOffset(new_last_offset);
+        } else if (new_last_offset > extent0->lastBlobOffset()) {
             // just update extent0 with new last offset
-            extent0->setLastOffset(new_last_offset);
+            extent0->setLastBlobOffset(new_last_offset);
         }
     }
 
@@ -276,7 +332,10 @@ DmVolumeCatalog::putBlob(const BlobMetaDesc::const_ptr& blob_meta,
                                     blob_meta->blob_name, extent0);
     fds_verify(err.ok() || (extent_id == 0));  // TODO(xxx) partial write!
 
-    // TODO(xxx) call DM methods to expunge objects we have in the list
+    // actually expunge objects that were dereferenced by the blob
+    // TODO(xxx) later that should become part of GC and done in background
+    fds_verify(expunge_cb);
+    err = expunge_cb(blob_meta->vol_id, expunge_list);
 
     return err;
 }
@@ -361,7 +420,5 @@ Error DmVolumeCatalog::deleteBlob(fds_volid_t volume_id,
     Error err(ERR_OK);
     return err;
 }
-
-DmVolumeCatalog gl_DmVolCatMod("Global DM Volume Catalog");
 
 }  // namespace fds

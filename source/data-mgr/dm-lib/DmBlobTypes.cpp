@@ -154,6 +154,10 @@ BlobObjInfo::BlobObjInfo()
         : size(0) {
 }
 
+BlobObjInfo::BlobObjInfo(const ObjectID& obj_id, fds_uint64_t sz)
+        : oid(obj_id), size(sz) {
+}
+
 BlobObjInfo::BlobObjInfo(const fpi::FDSP_BlobObjectInfo& obj_info) {
     oid.SetId((const char*)obj_info.data_obj_id.digest.c_str(),
               obj_info.data_obj_id.digest.length());
@@ -193,8 +197,13 @@ BlobObjList::BlobObjList() {
 BlobObjList::BlobObjList(const fpi::FDSP_BlobObjectList& blob_obj_list) {
     end_of_blob = false;
     for (fds_uint32_t i = 0; i < blob_obj_list.size(); ++i) {
-        BlobObjInfo obj_info(blob_obj_list[i]);
-        (*this)[blob_obj_list[i].offset] = obj_info;
+        if (blob_obj_list[i].size == 0) {
+            BlobObjInfo obj_info(NullObjectID, 0);
+            (*this)[blob_obj_list[i].offset] = obj_info;
+        } else {
+            BlobObjInfo obj_info(blob_obj_list[i]);
+            (*this)[blob_obj_list[i].offset] = obj_info;
+        }
     }
 }
 
@@ -236,9 +245,7 @@ fds_uint64_t BlobObjList::lastOffset() const {
 void BlobObjList::updateObject(fds_uint64_t offset,
                                const ObjectID& oid,
                                fds_uint64_t size) {
-    BlobObjInfo obj_info;
-    obj_info.oid = oid;
-    obj_info.size = size;
+    BlobObjInfo obj_info(oid, size);
     (*this)[offset] = obj_info;
 }
 

@@ -4,6 +4,7 @@
 
 #include <string>
 #include <list>
+#include <vector>
 #include <fds_timestamp.h>
 #include <fdsp_utils.h>
 #include <DataMgr.h>
@@ -2301,6 +2302,26 @@ DataMgr::initSmMsgHdr(FDSP_MsgHdrTypePtr msgHdr) {
 
     msgHdr->err_code = ERR_OK;
     msgHdr->result   = FDSP_ERR_OK;
+}
+
+/**
+ * Issues delete calls for a set of objects in 'oids' list
+ * if DM is primary for volume 'volid'
+ */
+Error
+DataMgr::expungeObjectsIfPrimary(fds_volid_t volid,
+                                 const std::vector<ObjectID>& oids) {
+    Error err(ERR_OK);
+    if (runMode == TEST_MODE) return err;  // no SMs, noone to notify
+    if (amIPrimary(volid) == false) return err;  // not primary
+
+    for (std::vector<ObjectID>::const_iterator cit = oids.cbegin();
+         cit != oids.cend();
+         ++cit) {
+        err = expungeObject(volid, *cit);
+        fds_verify(err == ERR_OK);
+    }
+    return err;
 }
 
 /**

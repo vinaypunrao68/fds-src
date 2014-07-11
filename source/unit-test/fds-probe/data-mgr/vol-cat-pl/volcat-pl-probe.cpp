@@ -165,7 +165,7 @@ VolCatPlProbe::putExtent(const OpParams &putParams) {
             blob_size += (cit->second).size;
             fds_verify(err.ok());
         }
-        bext->setLastOffset(last_offset);
+        bext->setLastBlobOffset(last_offset);
 
         std::cout << "Will call putExtentMeta for " << *bext << std::endl;
         err = gl_DmVolCatPlMod.putMetaExtent(putParams.vol_id,
