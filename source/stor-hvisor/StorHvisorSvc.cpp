@@ -698,3 +698,90 @@ void StorHvCtrl::deleteObjectMsgResp(fds::AmQosReq* qosReq,
     blobReq->cbWithResult(ERR_OK);
     delete blobReq;
 }
+
+fds::Error
+StorHvCtrl::setBlobMetaDataSvc(fds::AmQosReq* qosReq)
+{
+    fds_verify(qosReq != NULL);
+    LOGDEBUG << "processing SetBlobMetaData for vol:" << qosReq->io_vol_id;
+    Error err(ERR_OK);
+    SetBlobMetaDataReq *blobReq = static_cast<SetBlobMetaDataReq *>(qosReq->getBlobReqPtr());
+    fds_verify(blobReq != NULL);
+    fds_verify(blobReq->magicInUse() == true);
+
+    fds_volid_t   vol_id = blobReq->getVolId();
+    StorHvVolume *shVol = storHvisor->vol_table->getLockedVolume(vol_id);
+    fds_verify(shVol != NULL);
+    fds_verify(shVol->isValidLocked() == true);
+
+    // vol_id, blob_name, blob_version, and metadata_list
+    std::string blob_name = blobReq->getBlobName();
+ 
+    // Blob version = blob_version_invalid (most recent)
+    issueSetBlobMetaData(vol_id, blob_name, blob_version_invalid, blobReq->getMetaDataListPtr(),
+                         std::bind(&StorHvCtrl::setBlobMetaDataMsgResp,
+                                   this, qosReq,
+                                   std::placeholders::_1,
+                                   std::placeholders::_2,
+                                   std::placeholders::_3));
+    return err;
+}
+
+void
+StorHvCtrl::issueSetBlobMetaData(const fds_volid_t& vol_id,
+                                 const std::string& blob_name,
+                                 const blob_version_t& blob_version,
+                                 const boost::shared_ptr<FDSP_MetaDataList>& md_list,
+                                 QuorumRpcRespCb respCb)
+{
+    SetBlobMetaDataMsgPtr setMDMsg(new SetBlobMetaDataMsg());
+    setMDMsg->blob_name = blob_name;
+    setMDMsg->blob_version = blob_version;
+    setMDMsg->volume_id = vol_id;
+    setMDMsg->metaDataList.clear();
+
+    fds_verify(md_list != nullptr);
+    
+    // Manually copy the MD entries over to the new list
+    // TODO(brian): Find a more elegant way to do this
+    for (auto kv : *md_list) {
+        setMDMsg->metaDataList.push_back(kv);
+    }
+    
+    fds_assert(setMDMsg->metaDataList.size() > 0);
+
+#ifdef RPC_BASED_ASYNC_COMM
+    auto asyncSetMDReq = gRpcRequestPool->newQuorumRpcRequest(
+        boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(vol_id)));
+    asyncSetMDReq->setRpcFunc(
+        CREATE_RPC(fpi::DMSvcClient, setBlobMetaData, setMDMsg));
+#else
+    auto asyncSetMDReq = gRpcRequestPool->newQuorumNetRequest(
+        boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(vol_id)));
+    asyncSetMDReq->setPayload(FDSP_MSG_TYPEID(fpi::SetBlobMetaDataMsg), setMDMsg);
+#endif
+    asyncSetMDReq->setTimeoutMs(500);
+    asyncSetMDReq->onResponseCb(respCb);
+    asyncSetMDReq->invoke();
+
+    // LOGDEBUG << asyncSetMDReq->logString() << fds::logString(*setMDMsg);
+}
+
+void
+StorHvCtrl::setBlobMetaDataMsgResp(fds::AmQosReq* qosReq,
+                                   QuorumRpcRequest* rpcReq,
+                                   const Error& error,
+                                   boost::shared_ptr<std::string> payload)
+{
+    SetBlobMetaDataReq *blobReq = static_cast<fds::SetBlobMetaDataReq*>(qosReq->getBlobReqPtr());
+    fpi::SetBlobMetaDataRspMsgPtr setMDRsp =
+        net::ep_deserialize<fpi::SetBlobMetaDataRspMsg>(const_cast<Error&>(error), payload);
+
+    if (error != ERR_OK) {
+        LOGERROR << "Set metadata blob name: " << blobReq->getBlobName() << " Error: " << error; 
+    } else {
+        //LOGDEBUG << rpcReq->logString() << fds::logString(*delCatRsp);
+    }
+    blobReq->cbWithResult(error.GetErrno());
+    delete blobReq;
+}

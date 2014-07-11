@@ -362,6 +362,33 @@ class DmIoUpdateCat: public dmCatReq {
 };
 
 /**
+ * Request to set blob metadata
+ */
+class DmIoSetBlobMetaData: public dmCatReq {
+  public:
+    typedef std::function<void (const Error &e, DmIoSetBlobMetaData *req)> CbType;
+
+  public:
+    DmIoSetBlobMetaData(const fds_volid_t  &_volId,
+                        const std::string &_blobName,
+                        const blob_version_t &_blob_version,
+                        const FDSP_MetaDataList &_md_list)
+            : dmCatReq(_volId, _blobName, _blob_version, FDS_SET_BLOB_METADATA)
+    {
+        this->metadataList = boost::make_shared<fpi::FDSP_MetaDataList>(_md_list);
+    }
+
+    virtual std::string log_string() const override {
+        std::stringstream ret;
+        ret << "DmIoSetBlobMetaData vol "
+            << std::hex << volId << std::dec;
+        return ret.str();
+    }
+    /* response callback */
+    CbType dmio_setmd_resp_cb;
+};
+
+/**
  * Request to delete catalog
  */
 class DmIoDeleteCat: public dmCatReq {

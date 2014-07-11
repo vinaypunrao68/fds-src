@@ -2882,7 +2882,10 @@ void DataMgr::getBlobMetaDataBackend(const dmCatReq *request) {
 
 void DataMgr::setBlobMetaDataBackend(const dmCatReq *request) {
     Error err(ERR_OK);
-    std::unique_ptr<dmCatReq> reqPtr(const_cast<dmCatReq *>(request));
+    dmCatReq *unconst_request = const_cast<dmCatReq *>(request);
+    DmIoSetBlobMetaData* reqPtr = static_cast<DmIoSetBlobMetaData *>(unconst_request);
+
+
     fpi::FDSP_MsgHdrTypePtr msgHeader(new FDSP_MsgHdrType);
 
     InitMsgHdr(msgHeader);
@@ -2913,6 +2916,8 @@ void DataMgr::setBlobMetaDataBackend(const dmCatReq *request) {
             }
 
             // add the new metadata
+            fds_assert((request->metadataList)->size() > 0);
+            fds_assert(request->metadataList != nullptr);
             for (auto& meta : *(request->metadataList)) {
                 bNode->updateMetadata(meta.key, meta.value);
                 LOGDEBUG << "meta update [" << meta.key <<":" << meta.value << "]";
@@ -2931,8 +2936,7 @@ void DataMgr::setBlobMetaDataBackend(const dmCatReq *request) {
     read_synchronized(dataMgr->respMapMtx) {
         try {
             LOGDEBUG << "sending reponse to SetBlobMetaDataResp";
-            respHandleCli(request->session_uuid)->SetBlobMetaDataResp(*msgHeader,
-                                                                      request->blob_name);
+            reqPtr->dmio_setmd_resp_cb(err, reqPtr);
         } catch(att::TTransportException& e) {
             GLOGERROR << "error during network call : " << e.what();
         }

@@ -394,7 +394,13 @@ public:
     fds::Error commitBlobTxSvc(AmQosReq *qosReq);
     fds::Error abortBlobTxSvc(AmQosReq *qosReq);
     fds::Error deleteBlobSvc(fds::AmQosReq *qosReq);
+    fds::Error setBlobMetaDataSvc(fds::AmQosReq *qosReq);
 
+    void issueSetBlobMetaData(const fds_volid_t& vol_id,
+                              const std::string& blob_name,
+                              const blob_version_t& blob_version,
+                              const boost::shared_ptr<FDSP_MetaDataList>& md_list,
+                              QuorumRpcRespCb respCb);
     void issueDeleteCatalogObject(const fds_uint64_t& vol_id,
                                   const std::string& blob_name,
                                   QuorumRpcRespCb respCb);
@@ -459,7 +465,10 @@ public:
                              QuorumRpcRequest* rpcReq,
                              const Error& error,
                              boost::shared_ptr<std::string> payload);
- 
+    void setBlobMetaDataMsgResp(fds::AmQosReq* qosReq,
+                                QuorumRpcRequest* rpcReq,
+                                const Error& error,
+                                boost::shared_ptr<std::string> payload);
 
     fds::Error updateCatalogCache(GetBlobReq *blobReq,
                                   FDS_ProtocolInterface::FDSP_BlobObjectList& blobOffList);

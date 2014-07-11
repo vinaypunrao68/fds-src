@@ -334,8 +334,11 @@ struct SetBlobMetaDataReq : FdsBlobReq {
                        boost::shared_ptr<FDSP_MetaDataList> metaDataList,
                        CallbackPtr cb) :
             FdsBlobReq(FDS_SET_BLOB_METADATA, _volid, _blob_name, 0, 0, NULL, cb),
-            volumeName(_vol_name), metaDataList(metaDataList) {
-    }
+            volumeName(_vol_name), metaDataList(metaDataList) {}
+
+            inline boost::shared_ptr<FDSP_MetaDataList> getMetaDataListPtr()
+                    const { return metaDataList; }
+            
 };
 
 struct GetVolumeMetaDataReq : FdsBlobReq {

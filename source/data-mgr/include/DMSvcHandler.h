@@ -80,6 +80,10 @@ class DMSvcHandler : virtual public DMSvcIf, public PlatNetSvcHandler {
     void getBlobMetaDataCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                            boost::shared_ptr<fpi::GetBlobMetaDataMsg>& message,
                            const Error &e, DmIoGetBlobMetaData *req);
+    void setBlobMetaData(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                         boost::shared_ptr<fpi::SetBlobMetaDataMsg>& setBlobMD);
+    void setBlobMetaDataCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                           const Error &e, DmIoSetBlobMetaData *req);
 };
 
 }  // namespace fds

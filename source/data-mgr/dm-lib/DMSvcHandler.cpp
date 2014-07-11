@@ -20,6 +20,7 @@ DMSvcHandler::DMSvcHandler()
     REGISTER_FDSP_MSG_HANDLER(fpi::DeleteCatalogObjectMsg, deleteCatalogObject);
     REGISTER_FDSP_MSG_HANDLER(fpi::CommitBlobTxMsg, commitBlobTx);
     REGISTER_FDSP_MSG_HANDLER(fpi::AbortBlobTxMsg, abortBlobTx);
+    REGISTER_FDSP_MSG_HANDLER(fpi::SetBlobMetaDataMsg, setBlobMetaData);
 }
 
 
@@ -303,4 +304,39 @@ void DMSvcHandler::getBlobMetaDataCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     delete req;
 }
 
+void
+DMSvcHandler::setBlobMetaData(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                              boost::shared_ptr<fpi::SetBlobMetaDataMsg>& setMDMsg)
+{
+    DBG(GLOGDEBUG << logString(*asyncHdr));  // << logString(*setMDMsg));
+
+    auto dmSetMDReq = new DmIoSetBlobMetaData(setMDMsg->volume_id,
+                                              setMDMsg->blob_name,
+                                              setMDMsg->blob_version,
+                                              setMDMsg->metaDataList);
+    dmSetMDReq->dmio_setmd_resp_cb =
+            BIND_MSG_CALLBACK2(DMSvcHandler::setBlobMetaDataCb, asyncHdr);
+
+    Error err = dataMgr->qosCtrl->enqueueIO(dmSetMDReq->getVolId(),
+                                            static_cast<FDS_IOType*>(dmSetMDReq));
+    if (err != ERR_OK) {
+        LOGWARN << "Unable to enqueue set metadata request "
+                << logString(*asyncHdr);  // << logString(*setMDMsg);
+        dmSetMDReq->dmio_setmd_resp_cb(err, dmSetMDReq);
+    }
+}
+
+void
+DMSvcHandler::setBlobMetaDataCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                                const Error &e, DmIoSetBlobMetaData *req)
+{
+    LOGDEBUG << logString(*asyncHdr);
+    asyncHdr->msg_code = static_cast<int32_t>(e.GetErrno());
+    // TODO(sanjay) - we will have to revisit  this call
+    fpi::SetBlobMetaDataRspMsg setBlobMetaDataRspMsg;
+    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(SetBlobMetaDataRspMsg),
+                  setBlobMetaDataRspMsg);
+
+    delete req;
+}
 }  // namespace fds

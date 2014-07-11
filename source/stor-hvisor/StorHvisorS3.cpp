@@ -1773,6 +1773,9 @@ StorHvCtrl::StatBlob(fds::AmQosReq *qosReq) {
 }
 
 Error StorHvCtrl::SetBlobMetaData(fds::AmQosReq *qosReq) {
+
+    return setBlobMetaDataSvc(qosReq);
+
     fds_verify(qosReq != NULL);
     LOGDEBUG << "processing SetBlobMetaData for vol:" << qosReq->io_vol_id;
     Error err(ERR_OK);
