@@ -59,11 +59,14 @@ class Dm_ProbeMod : public ProbeMod
         std::string    op;
         fds_volid_t    volId;
         std::string    blobName;
-        fds_uint64_t   blobOffset;
+        fds_uint64_t   blobSize;
         blob_version_t blobVersion;
         fds_uint64_t   txId;
         MetaDataList   meta_list;
-        BlobObjList    obj_list;
+        BlobObjList::ptr   obj_list;
+        OpParams()
+                : obj_list(new BlobObjList()) {
+        }
         bool           endBuf;
     };
     void sendUpdate(const OpParams &updateParams);
@@ -117,11 +120,10 @@ class UT_DmOpTemplate : public JsObjTemplate
         Dm_ProbeMod::OpParams *p = new Dm_ProbeMod::OpParams();
         char *op;
         char *name;
-        if (json_unpack(in, "{s:s, s:i, s:s, s:i, s:i, s:i, s:b}",
+        if (json_unpack(in, "{s:s, s:i, s:s, s:i, s:i, s:b}",
                         "blob-op", &op,
                         "volume-id", &p->volId,
                         "blob-name", &name,
-                        "blob-off", &p->blobOffset,
                         "blob-ver", &p->blobVersion,
                         "blob-txId", &p->txId,
                         "blob-end", &p->endBuf)) {
@@ -145,8 +147,9 @@ class UT_DmOpTemplate : public JsObjTemplate
             }
         }
 
-        // read object list
-        (p->obj_list).clear();
+       // read object list
+        (p->obj_list)->clear();
+        p->blobSize = 0;
         json_t* objlist;
         ObjectID oid;
         if (!json_unpack(in, "{s:o}",
@@ -156,10 +159,16 @@ class UT_DmOpTemplate : public JsObjTemplate
                 std::size_t k = offset_obj.find_first_of("-");
                 fds_verify(k != std::string::npos);  // must separate key-value with "-"
                 std::string offset_str = offset_obj.substr(0, k);
-                std::string oid_hexstr = offset_obj.substr(k+1);
+                std::string objinfo_str = offset_obj.substr(k+1);
+                k = objinfo_str.find_first_of("-");
+                fds_verify(k != std::string::npos);  // must separate key-value with "-"
+                std::string oid_hexstr = objinfo_str.substr(0, k);
+                std::string size_str = objinfo_str.substr(k+1);
                 fds_uint64_t offset = stoull(offset_str);
+                fds_uint64_t size = stoull(size_str);
                 oid = oid_hexstr;
-                (p->obj_list).updateObject(offset, oid);
+                (p->obj_list)->updateObject(offset, oid, size);
+                p->blobSize += size;
             }
         }
 
