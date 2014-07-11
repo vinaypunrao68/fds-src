@@ -178,7 +178,7 @@ class VolCatPlOpTemplate : public JsObjTemplate
                 fds_verify((offset >= first_offset) &&
                            (offset <= last_offset));
                 fds_uint64_t offset_bytes = offset * p->max_obj_size;
-                (p->obj_list).updateObject(offset_bytes, oid);
+                (p->obj_list).updateObject(offset_bytes, oid, p->max_obj_size);
             }
         }
 
@@ -204,6 +204,7 @@ class VolCatPlWorkloadTemplate : public JsObjTemplate
 
 /// Adapter class
 extern VolCatPlProbe           gl_VolCatPlProbe;
+extern DmPersistVolCatalog     gl_DmVolCatPlMod;
 
 }  // namespace fds
 

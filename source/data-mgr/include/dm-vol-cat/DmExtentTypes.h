@@ -15,6 +15,7 @@
 
 #include <string>
 #include <map>
+#include <vector>
 #include <DmBlobTypes.h>
 
 namespace fds {
@@ -51,16 +52,29 @@ namespace fds {
         inline fds_extent_id getExtentId() const {
             return extent_id;
         }
+        inline fds_uint32_t maxObjSizeBytes() const {
+            return offset_unit_bytes;
+        }
+        inline fds_uint64_t lastOffsetInRange() const {
+            fds_uint64_t off_unit = offset_unit_bytes;
+            fds_uint64_t last_off = last_offset;
+            return off_unit * last_off;
+        }
+
+        /**
+         * Returns true if offset is in range for this extent
+         */
+        fds_bool_t offsetInRange(fds_uint64_t offset) const;
 
         /**
          * Updates offset to object info mapping, or adds it
          * if offset does not exist
          * 
-         * @return ERR_OK if successfully updated/added offset to
-         * object info mapping; ERR_DM_OFFSET_OUT_RANGE if this offset
-         * is outside of offset range of this extent
+         * @return ERR_OK if successfully updated/added
+         * offset to object info mapping; ERR_DM_OFFSET_OUT_RANGE if
+         * this offset is outside of offset range of this extent
          */
-        Error updateOffset(fds_uint64_t offset, const BlobObjInfo& obj_info);
+        Error updateOffset(fds_uint64_t offset, const ObjectID& obj_info);
 
        /**
          * Retrieves object info at the given offset into 'obj_info'
@@ -70,23 +84,45 @@ namespace fds {
          * ERR_DM_OFFSET_OUTSIDE_RANGE is this offset is outside of
          * offset range of this extent
          */
-        Error getObjectInfo(fds_uint64_t offset, BlobObjInfo* obj_info) const;
+        Error getObjectInfo(fds_uint64_t offset, ObjectID* obj_info) const;
+
+        /**
+         * Truncates extent. All objects with offset > after_offset are removed
+         * and object ids returned in the rm_list
+         * @param[in,out] ret_rm_list list of objects that were removed, the
+         * list gets updated, not cleared first
+         * @return number of objects removed from the list
+         */
+        fds_uint32_t truncate(fds_uint64_t after_offset,
+                              std::vector<ObjectID>* ret_rm_list);
 
         virtual uint32_t write(serialize::Serializer* s) const;
         virtual uint32_t read(serialize::Deserializer* d);
 
         friend std::ostream& operator<<(std::ostream& out, const BlobExtent& extent);
 
+  private:  // methods
+        inline fds_uint32_t toOffsetUnits(fds_uint64_t offset) const {
+            fds_uint32_t off_units = offset / offset_unit_bytes;
+            // must be max obj size aligned (until we add support for
+            // unaligned offsets in DM)
+            fds_verify((offset % offset_unit_bytes) == 0);
+            return off_units;
+        }
+
   protected:
         fds_extent_id extent_id;
         /**
          * offset in units of 'offset_unit_bytes' to object info map
          */
-        std::map<fds_uint32_t, BlobObjInfo> blob_obj_list;
+        std::map<fds_uint32_t, ObjectID> blob_obj_list;
 
         fds_uint32_t offset_unit_bytes;
         fds_uint32_t first_offset;
         fds_uint32_t last_offset;
+
+        // TODO(xxx) consider managing total obj size inside this
+        // data struct (size of part of the blob)
     };
 
     /**
@@ -123,12 +159,35 @@ namespace fds {
         inline fds_uint64_t blobSize() const {
             return blob_meta.blob_size;
         }
+        inline fds_uint64_t lastBlobOffset() const {
+            return last_blob_offset;
+        }
+        inline fds_uint64_t lastObjSize() const {
+            if (blob_meta.blob_size == 0) return 0;
+            fds_uint64_t size = blob_meta.blob_size % maxObjSizeBytes();
+            // TODO(xxx) do we have a case when blob has multiple
+            // objects and at least one obj has size zero?
+            // this method is not correct if last objs is Null obj
+            if (size == 0) size = maxObjSizeBytes();
+            fds_verify(blob_meta.blob_size >= size);
+            return size;
+        }
 
         /**
          * Sets size of the blob
          */
         inline void setBlobSize(fds_uint64_t blob_size) {
             blob_meta.blob_size = blob_size;
+        }
+        inline void incrementBlobVersion() {
+            if (blob_meta.version == blob_version_deleted) {
+                blob_meta.version = blob_version_initial;
+            } else {
+                blob_meta.version += 1;
+            }
+        }
+        inline void setLastBlobOffset(fds_uint64_t offset) {
+            last_blob_offset = offset;
         }
 
         /**
@@ -144,6 +203,15 @@ namespace fds {
 
   protected:
         BlobMetaDesc blob_meta;
+        /**
+         * Last offset of the blob.
+         * Since for now we assume all obj are max obj size
+         * except last obj variable size, we need to remember the last
+         * offset to correctly keep track of size. Plus, last offset
+         * also helps for deleting the whole blob (to find out which
+         * extent id is last extent)
+         */
+        fds_uint64_t last_blob_offset;
     };
 
 }  // namespace fds

@@ -7,6 +7,7 @@
 #include <string>
 #include <list>
 #include <set>
+#include <vector>
 #include <utest-types.h>
 
 namespace fds {
@@ -23,6 +24,8 @@ probe_mod_param_t volcat_probe_param =
 VolCatProbe gl_VolCatProbe("Volume Catalog Probe Adapter",
                      &volcat_probe_param,
                      nullptr);
+
+DmVolumeCatalog gl_DmVolCatMod("Global Unit Test DM Volume Catalog");
 
 VolCatProbe::VolCatProbe(const std::string &name,
                          probe_mod_param_t *param,
@@ -61,11 +64,32 @@ void
 VolCatProbe::pr_put(ProbeRequest *probe) {
 }
 
+Error
+VolCatProbe::expungeObjects(fds_volid_t volid,
+                            const std::vector<ObjectID>& oids) {
+    Error err(ERR_OK);
+    for (std::vector<ObjectID>::const_iterator cit = oids.cbegin();
+         cit != oids.cend();
+         ++cit) {
+        std::cout << "Pretend expunging object " << *cit << std::endl;
+    }
+    return err;
+}
+
+
 void
 VolCatProbe::addCatalog(const OpParams &volParams) {
     Error err(ERR_OK);
+
+    gl_DmVolCatMod.registerExpungeObjectsCb(std::bind(
+        &VolCatProbe::expungeObjects, this,
+        std::placeholders::_1, std::placeholders::_2));
+
     std::string name = "vol" + std::to_string(volParams.vol_id);
     VolumeDesc voldesc(name, volParams.vol_id);
+    voldesc.maxObjSizeInBytes = volParams.max_obj_size;
+
+    std::cout << "Will add Catalog for volume " << name << std::endl;
     err = gl_DmVolCatMod.addCatalog(voldesc);
     fds_verify(err.ok());
 
@@ -108,8 +132,8 @@ void
 VolCatProbe::getBlob(const OpParams& getParams) {
     Error err(ERR_OK);
     std::set<fds_uint64_t> offsets;
-    for (BlobObjList::const_iter cit = getParams.obj_list.cbegin();
-         cit != getParams.obj_list.cend();
+    for (BlobObjList::const_iter cit = (getParams.obj_list)->cbegin();
+         cit != (getParams.obj_list)->cend();
          ++cit) {
         offsets.insert(cit->first);
     }
@@ -146,7 +170,7 @@ VolCatProbe::putBlob(const OpParams &putParams) {
     bmeta_desc->blob_name = putParams.blob_name;
     bmeta_desc->vol_id = putParams.vol_id;
     bmeta_desc->version = blob_version_invalid;
-    bmeta_desc->blob_size = 0;
+    bmeta_desc->blob_size = putParams.blob_size;
 
     // copy metadata list
     for (MetaDataList::const_iter cit = putParams.meta_list.cbegin();
@@ -155,7 +179,7 @@ VolCatProbe::putBlob(const OpParams &putParams) {
         (bmeta_desc->meta_list).updateMetaDataPair(cit->first, cit->second);
     }
 
-    if (putParams.obj_list.size() == 0) {
+    if ((putParams.obj_list)->size() == 0) {
         // no offset to object id list, use putBlobMeta
         std::cout << "Will call putBlobMeta for " << *bmeta_desc << std::endl;
         err = gl_DmVolCatMod.putBlobMeta(bmeta_desc, tx_id);
@@ -163,17 +187,9 @@ VolCatProbe::putBlob(const OpParams &putParams) {
         return;
     }
 
-    // create blob object list
-    BlobObjList::ptr obj_list(new BlobObjList());
-    for (BlobObjList::const_iter cit = putParams.obj_list.cbegin();
-         cit != putParams.obj_list.cend();
-         ++cit) {
-        obj_list->updateObject(cit->first, cit->second);
-    }
     std::cout << "Will call putBlob for " << *bmeta_desc
-              << "; " << *obj_list;
-
-    err = gl_DmVolCatMod.putBlob(bmeta_desc, obj_list, tx_id);
+              << "; " << *(putParams.obj_list);
+    err = gl_DmVolCatMod.putBlob(bmeta_desc, putParams.obj_list, tx_id);
     fds_verify(err.ok());
 }
 
@@ -255,6 +271,7 @@ VolCatObjectOp::js_exec_obj(JsObject *parent,
     fds_uint32_t numOps = parent->js_array_size();
     VolCatObjectOp *node;
     VolCatProbe::OpParams *info;
+
     for (fds_uint32_t i = 0; i < numOps; i++) {
         node = static_cast<VolCatObjectOp *>((*parent)[i]);
         info = node->volcat_ops();

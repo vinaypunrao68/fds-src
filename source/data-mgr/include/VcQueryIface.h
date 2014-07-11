@@ -5,9 +5,16 @@
 #define SOURCE_DATA_MGR_INCLUDE_VCQUERYIFACE_H_
 
 #include <string>
+#include <vector>
 #include <fds_error.h>
 
 namespace fds {
+
+    /**
+     * Callback type to expunge a list of objects
+     */
+    typedef std::function<Error (fds_volid_t volid,
+                                 const std::vector<ObjectID>& oids)> expunge_objs_cb_t;
 
     /**
      * Interface to Volume Catalog for querying commited versions of
@@ -16,6 +23,11 @@ namespace fds {
     class VolumeCatalogQueryIface {
   public:
         virtual ~VolumeCatalogQueryIface() {}
+
+        /**
+         * Callback to expunge a list of objects from a volume
+         */
+        virtual void registerExpungeObjectsCb(expunge_objs_cb_t cb) = 0;
 
         /**
          * Returns true if the volume does not contain any valid blobs.

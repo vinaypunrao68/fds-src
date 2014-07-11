@@ -3,9 +3,16 @@
         "dm-workload": {
             "dm-ops": [
                 {
+		    "blob-op":   "start",
+		    "volume-id": 3,
+                    "blob-name": "blob-a",
+		    "blob-txId": 3
+                },
+                {
 		    "blob-op":   "update",
 		    "volume-id": 2,
                     "blob-name": "blob-a",
+		    "blob-txId": 3,
 		    "blob-off":  0,
                     "object-id": "0x2aae6c35c94fcfb415dbe95f408b9ce91ee846ed",
 		    "object-len": 2097152

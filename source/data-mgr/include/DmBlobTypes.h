@@ -59,11 +59,29 @@ namespace fds {
     };
 
     /**
-     * typedef BlobObjInfo so that we can make BlobObjInfo into struct later
-     * if we need to have more fields in object info than just ObjectID without
-     * changes in API
+     * Object info we keep in the offset to object info list in the blob
+     * At the moment we still have object size field here. Currently all
+     * objects in the blob are max obj size except the last one. However, that
+     * can change + we still need to be able to verify that this assumption
+     * still holds. So, in the Vol Cat we maintain this assumption and keep
+     * smaller datastucts there. But not in TVC layer. We need to do more work on
+     * DM service layer API and agree on all the limits/requirements for the
+     * object sizes, and then possibly improve space usage for blob info.
      */
-    typedef ObjectID BlobObjInfo;
+    struct BlobObjInfo : serialize::Serializable {
+        ObjectID oid;
+        fds_uint64_t size;
+
+        BlobObjInfo();
+        explicit BlobObjInfo(const fpi::FDSP_BlobObjectInfo& obj_info);
+        BlobObjInfo(const ObjectID& obj_id, fds_uint64_t sz);
+        ~BlobObjInfo();
+
+        BlobObjInfo& operator= (const BlobObjInfo &rhs);
+
+        uint32_t write(serialize::Serializer* s) const;
+        uint32_t read(serialize::Deserializer* d);
+    };
 
     /**
      * A list of offset to Object info mappings
@@ -87,10 +105,27 @@ namespace fds {
         virtual ~BlobObjList();
 
         /**
-         * Update offset to object info mapping, if offset does not exit,
-         * adds as new offset to object info mapping
+         * Sets the last offset in this obj list to be last offset of the blob.
+         * This must be the last call that changes object list (if we need to
+         * set end of blob). After that call, merge will assert.
          */
-        void updateObject(fds_uint64_t offset, const BlobObjInfo& obj_info);
+        inline void setEndOfBlob() {
+            end_of_blob = true;
+        }
+
+        /**
+         * Returns true if the last offset of this obj list is also a
+         * last offset of the blob
+         */
+        inline fds_bool_t endOfBlob() const {
+            return end_of_blob;
+        }
+
+        /**
+         * Returns last offset of the blob if endOfBlob() is true, otherwise
+         * returns max uint64 value
+         */
+        fds_uint64_t lastOffset() const;
 
         /**
          * Merges itself with another BlobObjList list and returns itself
@@ -100,8 +135,35 @@ namespace fds {
          */
         BlobObjList& merge(const BlobObjList& newer_blist);
 
+        /**
+         * Update offset to object info mapping, if offset does not exit,
+         * adds as new offset to object info mapping
+         */
+        void updateObject(fds_uint64_t offset,
+                          const ObjectID& oid,
+                          fds_uint64_t size);
+
+        /**
+         * This is for current implementation -- we expect that every
+         * obj size is max obj size, unless this is the last object of the blob.
+         * We also expect that each offset is max_obj_size aligned
+         *
+         * If we remove any of these assumptions, we will 
+         * the last object of the blob; Once that assumption is not true,
+         * we need to make some modifications in Volume Catalog to
+         * remove these assumptions
+         */
+        void verify(fds_uint32_t max_obj_size) const;
+
         uint32_t write(serialize::Serializer* s) const;
         uint32_t read(serialize::Deserializer* d);
+
+  private:
+        /**
+         * If true, the highest offset in the map
+         * is the last offset (e.g. if truncating the blob)
+         */
+        fds_bool_t end_of_blob;
     };
 
 

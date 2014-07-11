@@ -188,7 +188,6 @@ class FdsnIf : public apis::AmServiceIf {
         // Setup the transcation descriptor
         BlobTxId::ptr blobTxDesc(new BlobTxId(
             txDesc->txId));
-        LOGDEBUG << "COMMIT: testing commit blob tx";
 
         SimpleResponseHandler::ptr handler(new SimpleResponseHandler(__func__));
 

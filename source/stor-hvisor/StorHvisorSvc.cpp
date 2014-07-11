@@ -176,7 +176,6 @@ void StorHvCtrl::commitBlobTxMsgResp(fds::AmQosReq* qosReq,
 
     qos_ctrl->markIODone(qosReq);
     blobReq->cb->call(ERR_OK);
-    LOGDEBUG << "Commit Call back called"; 
     delete blobReq;
 }
 

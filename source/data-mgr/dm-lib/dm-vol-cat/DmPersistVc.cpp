@@ -409,6 +409,4 @@ Error DmPersistVolCatalog::deleteExtent(fds_volid_t volume_id,
     return err;
 }
 
-DmPersistVolCatalog gl_DmVolCatPlMod("Global DM Volume Catalog Persistent Layer");
-
 }  // namespace fds

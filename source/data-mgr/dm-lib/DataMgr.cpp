@@ -4,6 +4,7 @@
 
 #include <string>
 #include <list>
+#include <vector>
 #include <fds_timestamp.h>
 #include <fdsp_utils.h>
 #include <DataMgr.h>
@@ -717,6 +718,8 @@ DataMgr::DataMgr(int argc, char *argv[], Platform *platform, Module **vec)
     qosCtrl->runScheduler();
 
     LOGNORMAL << "Constructing the Data Manager";
+
+    timeVolCat = new DmTimeVolCatalog("DM Time Volume Catalog", *qosCtrl->threadPool);
 }
 
 DataMgr::~DataMgr()
@@ -740,6 +743,7 @@ DataMgr::~DataMgr()
     delete big_fat_lock;
     delete vol_map_mtx;
     delete qosCtrl;
+    delete timeVolCat;
 }
 
 int DataMgr::run()
@@ -885,6 +889,14 @@ void DataMgr::proc_pre_startup()
     }
 
     setup_metasync_service();
+
+    // finish setting up time volume catalog
+    timeVolCat->mod_startup();
+
+    // register expunge callback
+    timeVolCat->queryIface()->registerExpungeObjectsCb(std::bind(
+        &DataMgr::expungeObjectsIfPrimary, this,
+        std::placeholders::_1, std::placeholders::_2));
 }
 
 void DataMgr::setup_metasync_service()
@@ -944,6 +956,7 @@ void DataMgr::interrupt_cb(int signum) {
     LOGNORMAL << " Received signal "
               << signum << ". Shutting down communicator";
     catSyncMgr->mod_shutdown();
+    timeVolCat->mod_shutdown();
     exit(0);
 }
 
@@ -2301,6 +2314,26 @@ DataMgr::initSmMsgHdr(FDSP_MsgHdrTypePtr msgHdr) {
 
     msgHdr->err_code = ERR_OK;
     msgHdr->result   = FDSP_ERR_OK;
+}
+
+/**
+ * Issues delete calls for a set of objects in 'oids' list
+ * if DM is primary for volume 'volid'
+ */
+Error
+DataMgr::expungeObjectsIfPrimary(fds_volid_t volid,
+                                 const std::vector<ObjectID>& oids) {
+    Error err(ERR_OK);
+    if (runMode == TEST_MODE) return err;  // no SMs, noone to notify
+    if (amIPrimary(volid) == false) return err;  // not primary
+
+    for (std::vector<ObjectID>::const_iterator cit = oids.cbegin();
+         cit != oids.cend();
+         ++cit) {
+        err = expungeObject(volid, *cit);
+        fds_verify(err == ERR_OK);
+    }
+    return err;
 }
 
 /**

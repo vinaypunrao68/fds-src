@@ -10,6 +10,7 @@
 #define SOURCE_DATA_MGR_INCLUDE_DATAMGR_H_
 
 #include <list>
+#include <vector>
 #include <fds_error.h>
 #include <fds_types.h>
 #include <fds_volume.h>
@@ -41,6 +42,8 @@
 #include <blob/BlobTypes.h>
 #include <fdsp/DMSvc.h>
 #include <functional>
+
+#include <dm-tvc/TimeVolumeCatalog.h>
 
 /* if defined, puts complete as soon as they
  * arrive to DM (not for gets right now)
@@ -99,6 +102,11 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
      */
     FdsTimerPtr closedmt_timer;
     FdsTimerTaskPtr closedmt_timer_task;
+
+    /**
+     * Time Volume Catalog that provides access to volume catalog
+     */
+    DmTimeVolCatalog* timeVolCat;
 
     class dmQosCtrl : public FDS_QoSControl {
       public:
@@ -278,6 +286,8 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
                           BlobNode *bnode);
     Error expungeBlob(const BlobNode *bnode);
     Error expungeObject(fds_volid_t volId, const ObjectID &objId);
+    Error expungeObjectsIfPrimary(fds_volid_t volid,
+                                  const std::vector<ObjectID>& oids);
 
     fds_bool_t volExistsLocked(fds_volid_t vol_uuid) const;
 
