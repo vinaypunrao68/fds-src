@@ -53,34 +53,6 @@ Dm_ProbeMod::pr_intercept_request(ProbeRequest *req)
 {
 }
 
-void
-Dm_ProbeMod::InitDmMsgHdr(const fdspi::FDSP_MsgHdrTypePtr& msg_hdr)
-{
-    msg_hdr->msg_code = FDSP_MSG_UPDATE_CAT_OBJ_REQ;
-    msg_hdr->msg_id =  1;
-
-    msg_hdr->major_ver = 0xa5;
-    msg_hdr->minor_ver = 0x5a;
-
-    msg_hdr->num_objects = 1;
-    msg_hdr->frag_len = 0;
-    msg_hdr->frag_num = 0;
-
-    msg_hdr->tennant_id = 0;
-    msg_hdr->local_domain_id = 0;
-
-    msg_hdr->src_id = FDSP_STOR_HVISOR;
-    msg_hdr->dst_id = FDSP_DATA_MGR;
-
-    msg_hdr->src_node_name = myName;
-
-    msg_hdr->err_code = ERR_OK;
-    msg_hdr->result = FDSP_ERR_OK;
-
-    msg_hdr->req_cookie = transId;
-    transId++;
-}
-
 // pr_put
 // ------
 //
@@ -89,55 +61,76 @@ Dm_ProbeMod::pr_put(ProbeRequest *probe)
 {
 }
 
+
+void
+Dm_ProbeMod::sendStartTx(const OpParams &updateParams)
+{
+    std::cout << "Doing Start Tx" << std::endl;
+
+    auto dmBlobTxReq = new DmIoStartBlobTx(updateParams.volId,
+                                           updateParams.blobName,
+                                           updateParams.blobVersion);
+    dmBlobTxReq->ioBlobTxDesc =
+         BlobTxId::ptr(new BlobTxId(updateParams.txId));
+    dataMgr->scheduleStartBlobTxSvc(dmBlobTxReq);
+}
+
+void
+Dm_ProbeMod::sendCommitTx(const OpParams &updateParams)
+{
+    std::cout << "Doing Commit Tx" << std::endl;
+
+    auto dmBlobTxReq = new DmIoCommitBlobTx(updateParams.volId,
+                                            updateParams.blobName,
+                                            updateParams.blobVersion);
+    dmBlobTxReq->ioBlobTxDesc =
+         BlobTxId::ptr(new BlobTxId(updateParams.txId));
+    dataMgr->scheduleCommitBlobTxSvc(dmBlobTxReq);
+}
+
+void
+Dm_ProbeMod::sendAbortTx(const OpParams &updateParams)
+{
+    std::cout << "Doing Abort Tx" << std::endl;
+
+
+    auto dmBlobTxReq = new DmIoAbortBlobTx(updateParams.volId,
+                                          updateParams.blobName,
+                                          updateParams.blobVersion);
+    dmBlobTxReq->ioBlobTxDesc =
+         BlobTxId::ptr(new BlobTxId(updateParams.txId));
+    dataMgr->scheduleAbortBlobTxSvc(dmBlobTxReq);
+}
+
 void
 Dm_ProbeMod::sendUpdate(const OpParams &updateParams)
 {
     std::cout << "Doing an update" << std::endl;
-    fdspi::FDSP_MsgHdrTypePtr msgHdr(new fdspi::FDSP_MsgHdrType);
-    InitDmMsgHdr(msgHdr);
-    msgHdr->glob_volume_id = updateParams.volId;
-    msgHdr->msg_code       = fdspi::FDSP_MSG_UPDATE_CAT_OBJ_REQ;
 
-    fdspi::FDSP_UpdateCatalogTypePtr upCatReq(new FDSP_UpdateCatalogType);
-    upCatReq->blob_name = updateParams.blobName;
-    upCatReq->obj_list.clear();
-    upCatReq->dm_transaction_id = 1;
-    upCatReq->dm_operation      = FDS_DMGR_TXN_STATUS_OPEN;
-    // TODO(Andrew): Actually set this...
-    upCatReq->txDesc.txId       = 0;
+    // blobObjInfo.offset = updateParams.blobOffset;
+    // blobObjInfo.blob_end = updateParams.endBuf;
+    // blobObjInfo.data_obj_id.digest = std::string(
+    //     (const char *)updateParams.objectId.GetId(),
+    //     (size_t)updateParams.objectId.GetLen());
 
-    fdspi::FDSP_BlobObjectInfo blobObjInfo;
-    blobObjInfo.offset = updateParams.blobOffset;
-    blobObjInfo.size = updateParams.objectLen;
-    blobObjInfo.data_obj_id.digest = std::string(
-        (const char *)updateParams.objectId.GetId(),
-        (size_t)updateParams.objectId.GetLen());
+    // create blob object list
+    BlobObjList::ptr obj_list(new BlobObjList());
+    for (BlobObjList::const_iter cit = updateParams.obj_list.cbegin();
+         cit != updateParams.obj_list.cend();
+         ++cit) {
+        obj_list->updateObject(cit->first, cit->second);
+    }
+    std::cout << "Will call putBlob for "  << *obj_list;
 
-    upCatReq->obj_list.push_back(blobObjInfo);
-    upCatReq->meta_list.clear();
-
-    // Allocate a dm request using the fdsp message
-    dmCatReq *dmUpdReq = new dmCatReq(
-        updateParams.volId,
-        upCatReq->blob_name,
-        upCatReq->dm_transaction_id,
-        upCatReq->dm_operation,
-        0,  // Source IP is 0
-        0,  // Dst IP is 0
-        0,  // Source port is 0
-        0,  // Dst port is 0
-        "0",  // Session UUID is 0
-        msgHdr->req_cookie,
-        FDS_CAT_UPD,
-        upCatReq);
+    auto dmUpdCatReq = new DmIoUpdateCat(updateParams.volId,
+                                         updateParams.blobName,
+                                         updateParams.blobVersion);
+    // dmUpdCatReq->obj_list.push_back(blobObjInfo);
 
     BlobNode *bnode = NULL;
-    Error err = dataMgr->updateCatalogProcess(dmUpdReq, &bnode);
+    Error err = dataMgr->updateCatalogProcessSvc(dmUpdCatReq, &bnode);
     fds_verify(err == ERR_OK);
     fds_verify(bnode != NULL);
-
-    delete bnode;
-    delete dmUpdReq;
 }
 
 // pr_get
@@ -153,31 +146,19 @@ Dm_ProbeMod::sendQuery(const OpParams &queryParams)
 {
     std::cout << "Doing a query" << std::endl;
 
-    // Allocate a dm request using the fdsp message
-    dmCatReq *dmQueryReq = new dmCatReq(
-        queryParams.volId,
-        queryParams.blobName,
-        0,  // Dm trans id is 0
-        0,  // Dm op id is 0
-        0,  // Source IP is 0
-        0,  // Dst IP is 0
-        0,  // Source port is 0
-        0,  // Dst port is 0
-        "0",  // Session UUID is 0
-        0,  // Request cookie is 0
-        FDS_CAT_QRY,
-        NULL);
-    dmQueryReq->setBlobVersion(queryParams.blobVersion);
+    auto dmQryReq = new DmIoQueryCat(queryParams.volId,
+                                     queryParams.blobName,
+                                     queryParams.blobVersion);
 
     BlobNode *bnode = NULL;
-    Error err = dataMgr->queryCatalogProcess(dmQueryReq, &bnode);
+    Error err =dataMgr-> queryCatalogProcess(dmQryReq, &bnode);
     if (err == ERR_BLOB_NOT_FOUND) {
-        std::cout << "Blob " << dmQueryReq->blob_name
+        std::cout << "Blob " << dmQryReq->blob_name
                   << " was NOT found" << std::endl;
     } else {
         fds_verify(err == ERR_OK);
         fds_verify(bnode != NULL);
-        std::cout << "Queried blob " << dmQueryReq->blob_name
+        std::cout << "Queried blob " << dmQryReq->blob_name
                   << " OK with size " << bnode->blob_size
                   << " and " << bnode->obj_list.size()
                   << " entries" << std::endl;
@@ -186,7 +167,7 @@ Dm_ProbeMod::sendQuery(const OpParams &queryParams)
     if (bnode != NULL) {
         delete bnode;
     }
-    delete dmQueryReq;
+    delete dmQryReq;
 }
 
 // pr_delete
@@ -202,29 +183,20 @@ Dm_ProbeMod::sendDelete(const OpParams &deleteParams)
 {
     std::cout << "Doing a delete" << std::endl;
 
-    // Allocate a dm request using the fdsp message
-    dmCatReq *dmDelReq = new dmCatReq(
-        deleteParams.volId,
-        deleteParams.blobName,
-        0,  // Dm trans id is 0
-        0,  // Dm op id is 0
-        0,  // Source IP is 0
-        0,  // Dst IP is 0
-        0,  // Source port is 0
-        0,  // Dst port is 0
-        "0",  // Session UUID is 0
-        0,  // Request cookie is 0
-        FDS_DELETE_BLOB,
-        NULL);
-    dmDelReq->setBlobVersion(deleteParams.blobVersion);
+    auto dmDelCatReq = new DmIoDeleteCat(deleteParams.volId,
+                                         deleteParams.blobName,
+                                         deleteParams.blobVersion);
 
     BlobNode *bnode = NULL;
-    Error err = dataMgr->deleteBlobProcess(dmDelReq, &bnode);
+    // Process the delete blob. The deleted or modified
+    // bnode will be allocated and returned on success
+    Error err = dataMgr->deleteBlobProcessSvc(dmDelCatReq, &bnode);
+
     fds_verify(err == ERR_OK);
     fds_verify(bnode != NULL);
 
     delete bnode;
-    delete dmDelReq;
+    delete dmDelCatReq;
 }
 
 // pr_verify_request
@@ -300,6 +272,12 @@ UT_ObjectOp::js_exec_obj(JsObject *parent,
             gl_Dm_ProbeMod.sendDelete(*info);
         } else if (info->op == "query") {
             gl_Dm_ProbeMod.sendQuery(*info);
+        } else if (info->op == "start") {
+            gl_Dm_ProbeMod.sendStartTx(*info);
+        } else if (info->op == "commit") {
+            gl_Dm_ProbeMod.sendCommitTx(*info);
+        } else if (info->op == "abort") {
+            gl_Dm_ProbeMod.sendAbortTx(*info);
         }
     }
 

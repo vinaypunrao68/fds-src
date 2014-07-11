@@ -33,11 +33,6 @@ void DMSvcHandler::commitBlobTx(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                            commitBlbTx->blob_version);
     dmBlobTxReq->dmio_commit_blob_tx_resp_cb =
             BIND_MSG_CALLBACK2(DMSvcHandler::commitBlobTxCb, asyncHdr);
-            /*
-        std::bind(&DMSvcHandler::startBlobTxCb, this,
-                  asyncHdr,
-                  std::placeholders::_1, std::placeholders::_2);
-            */
 
     Error err = dataMgr->qosCtrl->enqueueIO(dmBlobTxReq->getVolId(),
                                             static_cast<FDS_IOType*>(dmBlobTxReq));
@@ -81,11 +76,6 @@ void DMSvcHandler::abortBlobTx(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                            abortBlbTx->blob_version);
     dmBlobTxReq->dmio_abort_blob_tx_resp_cb =
             BIND_MSG_CALLBACK2(DMSvcHandler::abortBlobTxCb, asyncHdr);
-            /*
-        std::bind(&DMSvcHandler::startBlobTxCb, this,
-                  asyncHdr,
-                  std::placeholders::_1, std::placeholders::_2);
-            */
 
     Error err = dataMgr->qosCtrl->enqueueIO(dmBlobTxReq->getVolId(),
                                             static_cast<FDS_IOType*>(dmBlobTxReq));
@@ -128,11 +118,6 @@ void DMSvcHandler::startBlobTx(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                            startBlbTx->blob_version);
     dmBlobTxReq->dmio_start_blob_tx_resp_cb =
             BIND_MSG_CALLBACK2(DMSvcHandler::startBlobTxCb, asyncHdr);
-            /*
-        std::bind(&DMSvcHandler::startBlobTxCb, this,
-                  asyncHdr,
-                  std::placeholders::_1, std::placeholders::_2);
-            */
 
     Error err = dataMgr->qosCtrl->enqueueIO(dmBlobTxReq->getVolId(),
                                             static_cast<FDS_IOType*>(dmBlobTxReq));
@@ -178,19 +163,8 @@ void DMSvcHandler::queryCatalogObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr
     auto dmQryReq = new DmIoQueryCat(queryMsg->volume_id,
                                      queryMsg->blob_name,
                                      queryMsg->blob_version);
-    // Set the version
-    // TODO(Andrew): Have a better constructor so that I can
-    // set it that way.
-    dmQryReq->setBlobVersion(queryMsg->blob_version);
     dmQryReq->dmio_querycat_resp_cb =
             BIND_MSG_CALLBACK3(DMSvcHandler::queryCatalogObjectCb, asyncHdr, queryMsg);
-    /*
-        std::bind(&DMSvcHandler::queryCatalogObjectCb, this,
-                  asyncHdr,
-                  queryMsg,
-                  std::placeholders::_1, std::placeholders::_2,
-                  std::placeholders::_3);
-    */
 
     Error err = dataMgr->qosCtrl->enqueueIO(dmQryReq->getVolId(),
                                       static_cast<FDS_IOType*>(dmQryReq));
@@ -239,11 +213,6 @@ void DMSvcHandler::updateCatalog(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     dmUpdCatReq->obj_list = std::move(updcatMsg->obj_list);
     dmUpdCatReq->dmio_updatecat_resp_cb =
             BIND_MSG_CALLBACK2(DMSvcHandler::updateCatalogCb, asyncHdr);
-    /*
-        std::bind(&DMSvcHandler::updateCatalogCb, this,
-                  asyncHdr,
-                  std::placeholders::_1, std::placeholders::_2);
-    */
 
     Error err = dataMgr->qosCtrl->enqueueIO(dmUpdCatReq->getVolId(),
                                             static_cast<FDS_IOType*>(dmUpdCatReq));
@@ -276,11 +245,7 @@ void DMSvcHandler::deleteCatalogObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHd
                                          delcatMsg->blob_version);
     dmDelCatReq->dmio_deletecat_resp_cb =
             BIND_MSG_CALLBACK2(DMSvcHandler::deleteCatalogObjectCb, asyncHdr);
-    /*
-        std::bind(&DMSvcHandler::deleteCatalogObjectCb, this,
-                  asyncHdr,
-                  std::placeholders::_1, std::placeholders::_2);
-    */
+
     Error err = dataMgr->qosCtrl->enqueueIO(dmDelCatReq->getVolId(),
                                             static_cast<FDS_IOType*>(dmDelCatReq));
     if (err != ERR_OK) {
