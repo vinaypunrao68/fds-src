@@ -120,30 +120,23 @@ StorHvCtrl::commitBlobTxSvc(AmQosReq *qosReq) {
     fds_verify(shVol != NULL);
     fds_verify(shVol->isValidLocked() == true);
    
-    issueCommitBlobTxMsg(blobReq->getBlobName(),
-                        volId,
-                        blobReq->getTxId()->getValue(),
-                        std::bind(&StorHvCtrl::commitBlobTxMsgResp,
-                                  this, qosReq,
-                                  std::placeholders::_1,
-                                  std::placeholders::_2,std::placeholders::_3));
+    issueCommitBlobTxMsg(blobReq,
+                         RESPONSE_MSG_HANDLER(StorHvCtrl::commitBlobTxMsgResp, qosReq));
     return err;
 }
 
 
-void StorHvCtrl::issueCommitBlobTxMsg(const std::string& blobName,
-                                     const fds_volid_t& volId,
-                                     const fds_uint64_t& txId,
+void StorHvCtrl::issueCommitBlobTxMsg(CommitBlobTxReq *blobReq,
                                       QuorumRpcRespCb respCb)
 {
 
     CommitBlobTxMsgPtr stBlobTxMsg(new CommitBlobTxMsg());
-    stBlobTxMsg->blob_name   = blobName;
+    stBlobTxMsg->blob_name   = blobReq->getBlobName();
     stBlobTxMsg->blob_version = blob_version_invalid;
-    stBlobTxMsg->volume_id = volId;
+    stBlobTxMsg->volume_id = blobReq->getVolId();
 
-
-    stBlobTxMsg->txId = txId;
+    fds_volid_t volId = blobReq->getVolId();
+    stBlobTxMsg->txId = blobReq->getTxId()->getValue();
 
 #ifdef RPC_BASED_ASYNC_COMM
     auto asyncCommitBlobTxReq = gRpcRequestPool->newQuorumRpcRequest(

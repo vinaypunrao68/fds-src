@@ -408,9 +408,7 @@ public:
                              const fds_volid_t& volId,
                              const fds_uint64_t& txId,
                              QuorumRpcRespCb respCb);
-    void issueCommitBlobTxMsg(const std::string& blobName,
-                             const fds_volid_t& volId,
-                             const fds_uint64_t& txId,
+    void issueCommitBlobTxMsg(CommitBlobTxReq *blobReq,
                              QuorumRpcRespCb respCb);
     void issueAbortBlobTxMsg(const std::string& blobName,
                              const fds_volid_t& volId,

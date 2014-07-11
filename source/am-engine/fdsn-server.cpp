@@ -172,13 +172,15 @@ class FdsnIf : public apis::AmServiceIf {
     void commitBlobTx(const std::string& domainName,
                   const std::string& volumeName,
                   const std::string& blobName,
-                  const apis::TxDescriptor& txDesc) {
+                  const apis::TxDescriptor& txDesc,
+                  const bool blobEnd) {
     }
 
     void commitBlobTx(boost::shared_ptr<std::string>& domainName,
                      boost::shared_ptr<std::string>& volumeName,
                      boost::shared_ptr<std::string>& blobName,
-                     boost::shared_ptr<apis::TxDescriptor>& txDesc) {
+                     boost::shared_ptr<apis::TxDescriptor>& txDesc,
+                     boost::shared_ptr<bool>& blobEnd) {
         if ((testUturnAll == true) ||
             (testUturnCommitTx == true)) {
             LOGDEBUG << "Uturn testing commit blob tx";
@@ -191,7 +193,7 @@ class FdsnIf : public apis::AmServiceIf {
 
         SimpleResponseHandler::ptr handler(new SimpleResponseHandler(__func__));
 
-        am_api->CommitBlobTx(*volumeName, *blobName, blobTxDesc,
+        am_api->CommitBlobTx(*volumeName, *blobName, blobTxDesc, *blobEnd,
                           SHARED_DYN_CAST(Callback, handler));
 
         handler->wait();

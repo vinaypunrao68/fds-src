@@ -127,6 +127,7 @@ class FDS_NativeAPI {
     void CommitBlobTx(const std::string& volumeName,
                      const std::string& blobName,
                      BlobTxId::ptr txDesc,
+                     bool blobEnd,
                      CallbackPtr cb);
 
     void AbortBlobTx(const std::string& volumeName,
