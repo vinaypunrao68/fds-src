@@ -86,6 +86,7 @@ typedef fds_mutex::scoped_lock fds_scoped_lock;
  * a spinlock.  
  */
 typedef fds_mutex fds_spinlock;
+typedef fds_spinlock::scoped_lock fds_scoped_spinlock;
 
 struct sync_helper {
     fds_scoped_lock fsl;

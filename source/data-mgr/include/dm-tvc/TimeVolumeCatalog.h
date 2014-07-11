@@ -5,12 +5,14 @@
 #define SOURCE_DATA_MGR_INCLUDE_DM_TVC_TIMEVOLUMECATALOG_H_
 
 #include <string>
+#include <functional>
 #include <fds_error.h>
 #include <fds_module.h>
 #include <DmBlobTypes.h>
 #include <dm-tvc/CommitLog.h>
 #include <dm-vol-cat/DmVolumeCatalog.h>
 #include <util/Log.h>
+#include <concurrency/SynchronizedTaskExecutor.hpp>
 
 namespace fds {
 
@@ -22,11 +24,20 @@ namespace fds {
  */
 class DmTimeVolCatalog : public Module, boost::noncopyable {
   private:
+    /* Lock around commit log */
+    fds_spinlock commitLogLock_;
+
     /**
      * Log the manages recent and currently active
      * blob transactions
      */
-    DmCommitLog::ptr commitLog;
+    std::unordered_map<fds_volid_t, DmCommitLog::ptr> commitLogs_;
+
+    /**
+     * For executing certain blob operatins (commit, delete) in a
+     * synchronized manner
+     */
+    SynchronizedTaskExecutor<std::string> opSynchronizer_;
 
     // TODO(Andrew): Add a history log eventually...
 
@@ -44,11 +55,12 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
     /**
      * Constructs the TVC object but does not init
      */
-    explicit DmTimeVolCatalog(const std::string &modName);
+    DmTimeVolCatalog(const std::string &modName, fds_threadpool &tp);
     ~DmTimeVolCatalog();
 
     typedef boost::shared_ptr<DmTimeVolCatalog> ptr;
     typedef boost::shared_ptr<const DmTimeVolCatalog> const_ptr;
+    typedef std::function<void (const Error &)> CommitCb;
 
     /// Allow sync related interface to volume catalog
     friend class DmVolumeCatalog;
@@ -94,7 +106,7 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
      * to the transaction
      */
     Error updateBlobTx(fds_volid_t volId,
-                       const BlobTxId::const_ptr txDesc,
+                       BlobTxId::const_ptr txDesc,
                        const fpi::FDSP_BlobObjectList &objList);
 
     /**
@@ -108,19 +120,23 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
      * to the transaction
      */
     Error updateBlobTx(fds_volid_t volId,
-                       const BlobTxId::const_ptr txDesc,
+                       BlobTxId::const_ptr txDesc,
                        const fpi::FDSP_MetaDataList &metaList);
 
 
     /**
      * Commits the updates associated with an existing transaction
      * @param[in] volId volume ID
+     * @param[in] blobName Name of blob
      * @param[in] txDesc Transaction ID
+     * @param[in] commitCb commit callback
      *
      * @return ERR_OK if the commit was successfully applied
      */
     Error commitBlobTx(fds_volid_t volId,
-                       const BlobTxId::const_ptr txDesc);
+                       const std::string &blobName,
+                       BlobTxId::const_ptr txDesc,
+                       const DmTimeVolCatalog::CommitCb &commitCb);
 
     /**
      * Aborts an existing transaction. All pending updates
@@ -131,7 +147,11 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
      * @return ERR_OK if the abort was successfully applied
      */
     Error abortBlobTx(fds_volid_t volId,
-                      const BlobTxId::const_ptr txDesc);
+                      BlobTxId::const_ptr txDesc);
+
+    void commitBlobTxWork(DmCommitLog::ptr &commitLog,
+                          BlobTxId::const_ptr txDesc,
+                          const DmTimeVolCatalog::CommitCb &cb);
 
     int  mod_init(SysParams const *const param);
     void mod_startup();

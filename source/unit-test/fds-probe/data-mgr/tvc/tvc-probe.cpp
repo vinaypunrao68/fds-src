@@ -76,22 +76,25 @@ TvcProbe::startTx(const OpParams &startParams) {
 
 void
 TvcProbe::updateTx(const OpParams &updateParams) {
-    Error err = gl_DmTvcMod.updateBlobTx(1, updateParams.txId,
-                                         updateParams.objList);
-    fds_verify(err == ERR_OK);
+    // TODO(Rao): Fix it
+    // Error err = gl_DmTvcMod.updateBlobTx(1, updateParams.txId,
+    //                                     updateParams.objList);
+    // fds_verify(err == ERR_OK);
 }
 
 void
 TvcProbe::updateMetaTx(const OpParams &updateParams) {
-    Error err = gl_DmTvcMod.updateBlobTx(1, updateParams.txId,
-                                         updateParams.metaList);
-    fds_verify(err == ERR_OK);
+    // TODO(Rao): Fix it
+    // Error err = gl_DmTvcMod.updateBlobTx(1, updateParams.txId,
+    //                                     updateParams.metaList);
+    // fds_verify(err == ERR_OK);
 }
 
 void
 TvcProbe::commitTx(const OpParams &commitParams) {
-    Error err = gl_DmTvcMod.commitBlobTx(1, commitParams.txId);
-    fds_verify(err == ERR_OK);
+    // TODO(Rao): Fix it
+    // Error err = gl_DmTvcMod.commitBlobTx(1, commitParams.txId);
+    // fds_verify(err == ERR_OK);
 }
 
 void
