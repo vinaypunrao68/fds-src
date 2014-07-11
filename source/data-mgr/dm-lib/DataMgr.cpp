@@ -718,6 +718,8 @@ DataMgr::DataMgr(int argc, char *argv[], Platform *platform, Module **vec)
     qosCtrl->runScheduler();
 
     LOGNORMAL << "Constructing the Data Manager";
+
+    timeVolCat = new DmTimeVolCatalog("DM Time Volume Catalog", *qosCtrl->threadPool);
 }
 
 DataMgr::~DataMgr()
@@ -741,6 +743,7 @@ DataMgr::~DataMgr()
     delete big_fat_lock;
     delete vol_map_mtx;
     delete qosCtrl;
+    delete timeVolCat;
 }
 
 int DataMgr::run()
@@ -886,6 +889,14 @@ void DataMgr::proc_pre_startup()
     }
 
     setup_metasync_service();
+
+    // finish setting up time volume catalog
+    timeVolCat->mod_startup();
+
+    // register expunge callback
+    timeVolCat->queryIface()->registerExpungeObjectsCb(std::bind(
+        &DataMgr::expungeObjectsIfPrimary, this,
+        std::placeholders::_1, std::placeholders::_2));
 }
 
 void DataMgr::setup_metasync_service()
@@ -945,6 +956,7 @@ void DataMgr::interrupt_cb(int signum) {
     LOGNORMAL << " Received signal "
               << signum << ". Shutting down communicator";
     catSyncMgr->mod_shutdown();
+    timeVolCat->mod_shutdown();
     exit(0);
 }
 
