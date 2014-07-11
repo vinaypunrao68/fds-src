@@ -25,9 +25,15 @@ DmTimeVolCatalog::DmTimeVolCatalog(const std::string &name, fds_threadpool &tp)
         : Module(name.c_str()),
         opSynchronizer_(tp)
 {
+    volcat = new DmVolumeCatalog("DM Volume Catalog");
+    static Module* om_mods[] = {
+        volcat,
+        NULL
+    };
 }
 
 DmTimeVolCatalog::~DmTimeVolCatalog() {
+    delete volcat;
 }
 
 /**
@@ -91,7 +97,7 @@ DmTimeVolCatalog::updateBlobTx(fds_volid_t volId,
 
     DmCommitLog::ptr commitLog;
     COMMITLOG_GET(volId, commitLog);
-    return commitLog->updateTx<const BlobObjList>(txDesc, boList);
+    return commitLog->updateTx(txDesc, boList);
 }
 
 Error
@@ -104,7 +110,7 @@ DmTimeVolCatalog::updateBlobTx(fds_volid_t volId,
     auto mdList = boost::make_shared<const MetaDataList>(metaList);
     DmCommitLog::ptr commitLog;
     COMMITLOG_GET(volId, commitLog);
-    return commitLog->updateTx<const MetaDataList>(txDesc, mdList);
+    return commitLog->updateTx(txDesc, mdList);
 }
 
 Error

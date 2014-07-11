@@ -41,6 +41,8 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
 
     // TODO(Andrew): Add a history log eventually...
 
+    DmVolumeCatalog* volcat;
+
     /**
      * Notifies TVC of transactions that have been persisted
      * in the volume catalog. The notification allows the TVC
@@ -152,6 +154,13 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
     void commitBlobTxWork(DmCommitLog::ptr &commitLog,
                           BlobTxId::const_ptr txDesc,
                           const DmTimeVolCatalog::CommitCb &cb);
+
+    /**
+     * Returns query interface to volume catalog
+     */
+    inline VolumeCatalogQueryIface* queryIface() {
+        return volcat;
+    }
 
     int  mod_init(SysParams const *const param);
     void mod_startup();

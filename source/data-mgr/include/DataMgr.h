@@ -43,6 +43,8 @@
 #include <fdsp/DMSvc.h>
 #include <functional>
 
+#include <dm-tvc/TimeVolumeCatalog.h>
+
 /* if defined, puts complete as soon as they
  * arrive to DM (not for gets right now)
  */
@@ -100,6 +102,11 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
      */
     FdsTimerPtr closedmt_timer;
     FdsTimerTaskPtr closedmt_timer_task;
+
+    /**
+     * Time Volume Catalog that provides access to volume catalog
+     */
+    DmTimeVolCatalog* timeVolCat;
 
     class dmQosCtrl : public FDS_QoSControl {
       public:

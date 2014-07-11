@@ -30,6 +30,11 @@ const fds_uint64_t FDS_PAGE_SIZE = sysconf(_SC_PAGESIZE);
 
 namespace fds {
 
+template Error DmCommitLog::updateTx(BlobTxId::const_ptr & txDesc,
+                        boost::shared_ptr<const MetaDataList> & blobData);
+template Error DmCommitLog::updateTx(BlobTxId::const_ptr & txDesc,
+                        boost::shared_ptr<const BlobObjList> & blobData);
+
 DmCommitLog::DmCommitLog(const std::string &modName, const std::string & filename,
         fds_uint32_t filesize /* = DEFAULT_COMMIT_LOG_FILE_SIZE */,
         PersistenceType persist /* = IN_MEMORY */) : Module(modName.c_str()), filename_(filename),
