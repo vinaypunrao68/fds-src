@@ -43,17 +43,9 @@ StorHvCtrl::abortBlobTxSvc(AmQosReq *qosReq) {
     fds_verify(shVol != NULL);
     fds_verify(shVol->isValidLocked() == true);
    
-    // Generate a random transaction ID to use
-    // Note: construction, generates a random ID
-    BlobTxId txId(storHvisor->randNumGen->genNum());
-    // Stash the newly created ID in the callback for later
-    AbortBlobTxCallback::ptr cb = SHARED_DYN_CAST(AbortBlobTxCallback,
-                                                  blobReq->cb);
-    cb->blobTxId = txId;
-
     issueAbortBlobTxMsg(blobReq->getBlobName(),
                         volId,
-                        txId.getValue(),
+                        blobReq->getTxId()->getValue(),
                         std::bind(&StorHvCtrl::abortBlobTxMsgResp,
                                   this, qosReq,
                                   std::placeholders::_1,
@@ -128,17 +120,9 @@ StorHvCtrl::commitBlobTxSvc(AmQosReq *qosReq) {
     fds_verify(shVol != NULL);
     fds_verify(shVol->isValidLocked() == true);
    
-    // Generate a random transaction ID to use
-    // Note: construction, generates a random ID
-    BlobTxId txId(storHvisor->randNumGen->genNum());
-    // Stash the newly created ID in the callback for later
-    CommitBlobTxCallback::ptr cb = SHARED_DYN_CAST(CommitBlobTxCallback,
-                                                  blobReq->cb);
-    cb->blobTxId = txId;
-
     issueCommitBlobTxMsg(blobReq->getBlobName(),
                         volId,
-                        txId.getValue(),
+                        blobReq->getTxId()->getValue(),
                         std::bind(&StorHvCtrl::commitBlobTxMsgResp,
                                   this, qosReq,
                                   std::placeholders::_1,
@@ -190,10 +174,9 @@ void StorHvCtrl::commitBlobTxMsgResp(fds::AmQosReq* qosReq,
     fds_verify(blobReq != NULL);
     fds_verify(blobReq->getIoType() == FDS_COMMIT_BLOB_TX);
 
-    CommitBlobTxCallback::ptr cb = SHARED_DYN_CAST(CommitBlobTxCallback,
-                                                      blobReq->cb);
     qos_ctrl->markIODone(qosReq);
-    cb->call(ERR_OK);
+    blobReq->cb->call(ERR_OK);
+    LOGDEBUG << "Commit Call back called"; 
     delete blobReq;
 }
 
@@ -335,12 +318,14 @@ Error StorHvCtrl::putBlobSvc(fds::AmQosReq *qosReq)
                                 std::placeholders::_1,
                                 std::placeholders::_2,std::placeholders::_3));
 
+    // updCatReq->txDesc.txId = putBlobReq->getTxId()->getValue();
     issueUpdateCatalogMsg(blobReq->getObjId(),
                           blobReq->getBlobName(),
                           blobReq->getBlobOffset(),
                           blobReq->getDataLen(),
                           blobReq->isLastBuf(),
                           volId,
+                          blobReq->getTxId()->getValue(),
                           std::bind(&StorHvCtrl::putBlobUpdateCatalogMsgResp,
                                     this, qosReq,
                                     std::placeholders::_1,
@@ -392,6 +377,7 @@ void StorHvCtrl::issueUpdateCatalogMsg(const ObjectID &objId,
                                        const fds_uint64_t &len,
                                        const bool &lastBuf,
                                        const fds_volid_t& volId,
+                                       const fds_uint64_t& txId,
                                        QuorumRpcRespCb respCb)
 {
     UpdateCatalogMsgPtr updCatMsg(new UpdateCatalogMsg());
@@ -412,6 +398,7 @@ void StorHvCtrl::issueUpdateCatalogMsg(const ObjectID &objId,
             std::string((const char *)objId.GetId(), (size_t)objId.GetLen());
     // Add the offset info to the DM message
     updCatMsg->obj_list.push_back(updBlobInfo);
+    updCatMsg->txId = txId;
 
 #ifdef RPC_BASED_ASYNC_COMM
     auto asyncUpdateCatReq = gRpcRequestPool->newQuorumRpcRequest(

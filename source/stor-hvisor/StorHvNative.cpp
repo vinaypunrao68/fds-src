@@ -596,6 +596,7 @@ Error FDS_NativeAPI::sendTestBucketToOM(const std::string& bucket_name,
 void
 FDS_NativeAPI::AbortBlobTx(const std::string& volumeName,
                            const std::string& blobName,
+                           BlobTxId::ptr txDesc,
                            CallbackPtr cb) {
     fds_volid_t volId = invalid_vol_id;
     LOGDEBUG << "Abort blob tx for volume " << volumeName
@@ -611,9 +612,7 @@ FDS_NativeAPI::AbortBlobTx(const std::string& volumeName,
     blobReq = new AbortBlobTxReq(volId,
                                  volumeName,
                                  blobName,
-                                 0,  // No blob offset
-                                 0,  // No data length
-                                 NULL,  // No buffer
+                                 txDesc,
                                  cb);
     fds_verify(blobReq != NULL);
 
@@ -639,6 +638,7 @@ FDS_NativeAPI::AbortBlobTx(const std::string& volumeName,
 void
 FDS_NativeAPI::CommitBlobTx(const std::string& volumeName,
                            const std::string& blobName,
+                           BlobTxId::ptr txDesc,
                            CallbackPtr cb) {
     fds_volid_t volId = invalid_vol_id;
     LOGDEBUG << "COMMIT blob tx for volume " << volumeName
@@ -654,9 +654,7 @@ FDS_NativeAPI::CommitBlobTx(const std::string& volumeName,
     blobReq = new CommitBlobTxReq(volId,
                                  volumeName,
                                  blobName,
-                                 0,  // No blob offset
-                                 0,  // No data length
-                                 NULL,  // No buffer
+                                 txDesc,
                                  cb);
     fds_verify(blobReq != NULL);
 
@@ -696,9 +694,6 @@ FDS_NativeAPI::StartBlobTx(const std::string& volumeName,
     blobReq = new StartBlobTxReq(volId,
                                  volumeName,
                                  blobName,
-                                 0,  // No blob offset
-                                 0,  // No data length
-                                 NULL,  // No buffer
                                  cb);
     fds_verify(blobReq != NULL);
 

@@ -159,6 +159,7 @@ class FdsnIf : public apis::AmServiceIf {
             LOGDEBUG << "Uturn testing start blob tx";
             return;
         }
+
         StartBlobTxResponseHandler::ptr handler(
             new StartBlobTxResponseHandler(_return));
 
@@ -168,50 +169,60 @@ class FdsnIf : public apis::AmServiceIf {
         handler->process();
     }
 
-    void commitBlobTx(apis::TxDescriptor& _return,
-                  const std::string& domainName,
+    void commitBlobTx(const std::string& domainName,
                   const std::string& volumeName,
-                  const std::string& blobName) {
+                  const std::string& blobName,
+                  const apis::TxDescriptor& txDesc) {
     }
 
-    void commitBlobTx(apis::TxDescriptor& _return,
-                     boost::shared_ptr<std::string>& domainName,
+    void commitBlobTx(boost::shared_ptr<std::string>& domainName,
                      boost::shared_ptr<std::string>& volumeName,
-                     boost::shared_ptr<std::string>& blobName) {
+                     boost::shared_ptr<std::string>& blobName,
+                     boost::shared_ptr<apis::TxDescriptor>& txDesc) {
         if ((testUturnAll == true) ||
             (testUturnCommitTx == true)) {
             LOGDEBUG << "Uturn testing commit blob tx";
             return;
         }
-        LOGDEBUG << "COMMIT: testing commit blob tx";
-        CommitBlobTxResponseHandler::ptr handler(
-            new CommitBlobTxResponseHandler(_return));
 
-        am_api->CommitBlobTx(*volumeName, *blobName, SHARED_DYN_CAST(Callback, handler));
+        // Setup the transcation descriptor
+        BlobTxId::ptr blobTxDesc(new BlobTxId(
+            txDesc->txId));
+        LOGDEBUG << "COMMIT: testing commit blob tx";
+
+        SimpleResponseHandler::ptr handler(new SimpleResponseHandler(__func__));
+
+        am_api->CommitBlobTx(*volumeName, *blobName, blobTxDesc,
+                          SHARED_DYN_CAST(Callback, handler));
 
         handler->wait();
         handler->process();
     }
 
-    void abortBlobTx(apis::TxDescriptor& _return,
-                  const std::string& domainName,
+    void abortBlobTx(const std::string& domainName,
                   const std::string& volumeName,
-                  const std::string& blobName) {
+                  const std::string& blobName,
+                  const apis::TxDescriptor& txDesc) {
     }
 
-    void abortBlobTx(apis::TxDescriptor& _return,
-                     boost::shared_ptr<std::string>& domainName,
+    void abortBlobTx(boost::shared_ptr<std::string>& domainName,
                      boost::shared_ptr<std::string>& volumeName,
-                     boost::shared_ptr<std::string>& blobName) {
+                     boost::shared_ptr<std::string>& blobName,
+                     boost::shared_ptr<apis::TxDescriptor>& txDesc) {
         if ((testUturnAll == true) ||
             (testUturnAbortTx == true)) {
             LOGDEBUG << "Uturn testing abort blob tx";
             return;
         }
-        AbortBlobTxResponseHandler::ptr handler(
-            new AbortBlobTxResponseHandler(_return));
 
-        am_api->AbortBlobTx(*volumeName, *blobName, SHARED_DYN_CAST(Callback, handler));
+        SimpleResponseHandler::ptr handler(new SimpleResponseHandler(__func__));
+
+        // Setup the transcation descriptor
+        BlobTxId::ptr blobTxDesc(new BlobTxId(
+            txDesc->txId));
+
+        am_api->AbortBlobTx(*volumeName, *blobName, blobTxDesc,
+                              SHARED_DYN_CAST(Callback, handler));
 
         handler->wait();
         handler->process();

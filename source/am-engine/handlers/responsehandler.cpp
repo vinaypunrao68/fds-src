@@ -196,6 +196,7 @@ StartBlobTxResponseHandler::~StartBlobTxResponseHandler() {
 }
 
 
+#if 0
 CommitBlobTxResponseHandler::CommitBlobTxResponseHandler(
     apis::TxDescriptor& retVal) : retTxDesc(retVal) {
 }
@@ -224,6 +225,7 @@ AbortBlobTxResponseHandler::process() {
 
 AbortBlobTxResponseHandler::~AbortBlobTxResponseHandler() {
 }
+#endif
 
 
 AttachVolumeResponseHandler::AttachVolumeResponseHandler() {

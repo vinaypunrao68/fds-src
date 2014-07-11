@@ -59,7 +59,7 @@ public class StreamWriter {
         metadata.put("etag", Hex.encodeHexString(digest));
 
         am.updateMetadata(domainName, volumeName, blobName, tx, metadata);
-        am.commitBlobTx(domainName, volumeName, blobName);
+        am.commitBlobTx(domainName, volumeName, blobName, tx);
         return digest;
     }
 

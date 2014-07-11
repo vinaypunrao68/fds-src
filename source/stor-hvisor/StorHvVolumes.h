@@ -204,6 +204,7 @@ class StorHvVolumeTable : public HasLogger {
 class AbortBlobTxReq : public FdsBlobReq {
   public:
     std::string volumeName;
+    BlobTxId::ptr txDesc;
 
     /**
      * Request constructor. Some of the fields
@@ -213,13 +214,11 @@ class AbortBlobTxReq : public FdsBlobReq {
     AbortBlobTxReq(fds_volid_t        _volid,
                    const std::string &_vol_name,
                    const std::string &_blob_name,
-                   fds_uint64_t       _blob_offset,
-                   fds_uint64_t       _data_len,
-                   char              *_data_buf,
+                   BlobTxId::ptr _txDesc,
                    CallbackPtr        _cb) :
-            FdsBlobReq(FDS_ABORT_BLOB_TX, _volid, _blob_name, _blob_offset,
-                       _data_len, _data_buf, _cb),
-            volumeName(_vol_name) {
+            FdsBlobReq(FDS_ABORT_BLOB_TX, _volid, _blob_name, 0, 0, 0, _cb),
+            volumeName(_vol_name),
+            txDesc(_txDesc) {
     }
     ~AbortBlobTxReq() {
     }
@@ -227,11 +226,16 @@ class AbortBlobTxReq : public FdsBlobReq {
     const std::string& getVolumeName() const {
         return volumeName;
     }
+
+    BlobTxId::const_ptr getTxId() const {
+        return txDesc;
+    }
 };
 
 class CommitBlobTxReq : public FdsBlobReq {
   public:
     std::string volumeName;
+    BlobTxId::ptr txDesc;
 
     /**
      * Request constructor. Some of the fields
@@ -241,19 +245,21 @@ class CommitBlobTxReq : public FdsBlobReq {
     CommitBlobTxReq(fds_volid_t        _volid,
                    const std::string &_vol_name,
                    const std::string &_blob_name,
-                   fds_uint64_t       _blob_offset,
-                   fds_uint64_t       _data_len,
-                   char              *_data_buf,
+                   BlobTxId::ptr _txDesc,
                    CallbackPtr        _cb) :
-            FdsBlobReq(FDS_COMMIT_BLOB_TX, _volid, _blob_name, _blob_offset,
-                       _data_len, _data_buf, _cb),
-            volumeName(_vol_name) {
+            FdsBlobReq(FDS_COMMIT_BLOB_TX, _volid, _blob_name, 0, 0, 0, _cb),
+            volumeName(_vol_name),
+            txDesc(_txDesc) {
     }
     ~CommitBlobTxReq() {
     }
 
     const std::string& getVolumeName() const {
         return volumeName;
+    }
+
+    BlobTxId::const_ptr getTxId() const {
+        return txDesc;
     }
 };
 
@@ -269,12 +275,8 @@ class StartBlobTxReq : public FdsBlobReq {
     StartBlobTxReq(fds_volid_t        _volid,
                    const std::string &_vol_name,
                    const std::string &_blob_name,
-                   fds_uint64_t       _blob_offset,
-                   fds_uint64_t       _data_len,
-                   char              *_data_buf,
                    CallbackPtr        _cb) :
-            FdsBlobReq(FDS_START_BLOB_TX, _volid, _blob_name, _blob_offset,
-                       _data_len, _data_buf, _cb),
+            FdsBlobReq(FDS_START_BLOB_TX, _volid, _blob_name, 0, 0, 0, _cb),
             volumeName(_vol_name) {
     }
     ~StartBlobTxReq() {
