@@ -38,6 +38,7 @@
     std::bind(&func, this, header, ##__VA_ARGS__ , std::placeholders::_1, \
               std::placeholders::_2, std::placeholders::_3, std::placeholders::_4);
 
+
 namespace fpi = FDS_ProtocolInterface;
 
 namespace fds {
@@ -78,6 +79,13 @@ class BaseAsyncSvcHandler : virtual public FDS_ProtocolInterface::BaseAsyncSvcIf
     * @param msgTypeId - FDSP message id.  Use macro FDSP_MSG_TYPEID()
     * @param payload - payload to send
     */
+    template<class PayloadT>
+    static void sendAsyncResp(boost::shared_ptr<fpi::AsyncHdr>& req_hdr,
+                              const fpi::FDSPMsgTypeId &msgTypeId,
+                              boost::shared_ptr<PayloadT>& payload) {
+        sendAsyncResp(*req_hdr, msgTypeId, *payload);
+    }
+
     template<class PayloadT>
     static void sendAsyncResp(const fpi::AsyncHdr& req_hdr,
                               const fpi::FDSPMsgTypeId &msgTypeId,

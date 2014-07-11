@@ -224,6 +224,7 @@ public:
     hv_delete_blkdev del_blkdev;
     void initHandlers();
     GetVolumeMetaDataHandler *handlerGetVolumeMetaData;
+    StatBlobHandler  *handlerStatBlob;
     //imcremental checksum  for header and payload 
     checksum_calc   *chksumPtr;
   
@@ -345,6 +346,35 @@ public:
         void setStatus(FDSN_Status  status);
         void scheduleTimer();
         ~TxnRequestHelper();
+    };
+
+    struct ResponseHelper {
+        StorHvCtrl* storHvisor = NULL;
+        fds_volid_t  volId = 0;
+        StorHvVolumeLock *vol_lock = NULL;
+        StorHvVolume* vol = NULL;
+        fds::FdsBlobReq* blobReq = NULL;
+        AmQosReq *qosReq;
+        ResponseHelper(StorHvCtrl* storHvisor, AmQosReq *qosReq);
+        void setStatus(FDSN_Status  status);
+        ~ResponseHelper();
+    };
+
+    struct RequestHelper {
+        StorHvCtrl* storHvisor = NULL;
+        fds_volid_t  volId = 0;
+        FDSN_Status  status = FDSN_StatusNOTSET;
+        StorHvVolume *shVol = NULL;
+        StorHvVolume* vol = NULL;
+        AmQosReq *qosReq;
+        fds::FdsBlobReq* blobReq = NULL;
+
+        RequestHelper(StorHvCtrl* storHvisor, AmQosReq *qosReq);
+
+        bool isValidVolume();
+        bool hasError();
+        void setStatus(FDSN_Status  status);
+        ~RequestHelper();
     };
 
     struct BlobRequestHelper {
@@ -496,7 +526,8 @@ static void processBlobReq(AmQosReq *qosReq) {
             break;
 
         case fds::FDS_STAT_BLOB:
-            err = storHvisor->StatBlob(qosReq);
+            err = storHvisor->handlerStatBlob->handleQueueItem(qosReq);
+            // err = storHvisor->StatBlob(qosReq);
             break;
 
         case fds::FDS_LIST_BUCKET:

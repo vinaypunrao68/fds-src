@@ -14,6 +14,7 @@
 
 #include <fds_error.h>
 #include <fds_module.h>
+#include <concurrency/RwLock.h>
 #include <serialize.h>
 #include <blob/BlobTypes.h>
 #include <DmBlobTypes.h>
@@ -21,7 +22,7 @@
 
 namespace fds {
 
-const unsigned DEFAULT_COMMIT_LOG_FILE_SIZE = 20 * 1024 * 1024;
+const unsigned DEFAULT_COMMIT_LOG_FILE_SIZE = 5 * 1024 * 1024;
 
 // commit log transaction details
 struct CommitLogTx {
@@ -38,10 +39,10 @@ struct CommitLogTx {
     std::vector<fds_uint64_t> entries;
 
     BlobObjList::ptr blobObjList;
-    BlobMetaDesc::ptr blobMetaDesc;
+    MetaDataList::ptr metaDataList;
 
     CommitLogTx() : txDesc(0), started(false), commited(false), rolledback(false),
-            blobObjList(0), blobMetaDesc(0) {}
+            blobObjList(0), metaDataList(0) {}
 };
 
 typedef std::unordered_map<BlobTxId, CommitLogTx::ptr> TxMap;
@@ -82,7 +83,7 @@ class DmCommitLog : public Module {
     // start transaction
     Error startTx(BlobTxId::const_ptr & txDesc, const std::string & blobName);
 
-    // update blob data (T can be BlobObjList or BlobMetaDesc)
+    // update blob data (T can be BlobObjList or MetaDataList)
     template<typename T>
     Error updateTx(BlobTxId::const_ptr & txDesc, boost::shared_ptr<const T> & blobData);
 
@@ -100,6 +101,7 @@ class DmCommitLog : public Module {
 
   private:
     TxMap txMap_;    // in-memory state
+    fds_rwlock lockTxMap_;
 
     std::string filename_;
     fds_uint32_t filesize_;
@@ -118,11 +120,11 @@ class DmCommitLog : public Module {
         }
     }
 
-    void upsertBlobData(CommitLogTx & tx, boost::shared_ptr<const BlobMetaDesc> & data) {
-        if (tx.blobMetaDesc) {
-            tx.blobMetaDesc->merge(*data);
+    void upsertBlobData(CommitLogTx & tx, boost::shared_ptr<const MetaDataList> & data) {
+        if (tx.metaDataList) {
+            tx.metaDataList->merge(*data);
         } else {
-            tx.blobMetaDesc.reset(new BlobMetaDesc(*data));
+            tx.metaDataList.reset(new MetaDataList(*data));
         }
     }
 };
@@ -164,7 +166,7 @@ struct DmCommitLogEntry {
 
   protected:
     template<typename T>
-    boost::shared_ptr<T> getDetails() const {
+    boost::shared_ptr<const T> getDetails() const {
         boost::scoped_ptr<serialize::Deserializer> d(serialize::getMemDeserializer(payload));
         boost::shared_ptr<T> ret(new T());
         ret->read(d.get());
@@ -208,7 +210,7 @@ struct DmCommitLogUpdateObjListEntry : DmCommitLogEntry {
             const std::string & blobObjList) : DmCommitLogEntry(TX_UPDATE_OBJLIST, txDesc, id,
             blobObjList.c_str()) {}
 
-    inline boost::shared_ptr<BlobObjList> blobObjList() const {
+    inline boost::shared_ptr<const BlobObjList> blobObjList() const {
         fds_assert(TX_UPDATE_OBJLIST == type);
         return getDetails<BlobObjList>();
     }
@@ -217,12 +219,12 @@ struct DmCommitLogUpdateObjListEntry : DmCommitLogEntry {
 // update blob object meta data
 struct DmCommitLogUpdateObjMetaEntry : DmCommitLogEntry {
     DmCommitLogUpdateObjMetaEntry(BlobTxId::const_ptr & txDesc, fds_uint64_t id,
-            const std::string & blobMetaDesc) : DmCommitLogEntry(TX_UPDATE_OBJMETA, txDesc, id,
-            blobMetaDesc.c_str()) {}
+            const std::string & metaDataList) : DmCommitLogEntry(TX_UPDATE_OBJMETA, txDesc, id,
+            metaDataList.c_str()) {}
 
-    inline boost::shared_ptr<BlobMetaDesc> blobMetaDesc() const {
+    inline boost::shared_ptr<const MetaDataList> metaDataList() const {
         fds_assert(TX_UPDATE_OBJMETA == type);
-        return getDetails<BlobMetaDesc>();
+        return getDetails<MetaDataList>();
     }
 };
 
@@ -237,7 +239,7 @@ class DmCommitLogger {
     virtual Error updateTx(BlobTxId::const_ptr & txDesc, BlobObjList::const_ptr blobObjList,
             fds_uint64_t & id) = 0;
 
-    virtual Error updateTx(BlobTxId::const_ptr & txDesc, BlobMetaDesc::const_ptr blobMetaDesc,
+    virtual Error updateTx(BlobTxId::const_ptr & txDesc, MetaDataList::const_ptr metaDataList,
             fds_uint64_t & id) = 0;
 
     virtual Error commitTx(BlobTxId::const_ptr & txDesc, fds_uint64_t & id) = 0;
@@ -273,7 +275,7 @@ class FileCommitLogger : public DmCommitLogger {
     virtual Error updateTx(BlobTxId::const_ptr & txDesc, BlobObjList::const_ptr blobObjList,
             fds_uint64_t & id) override;
 
-    virtual Error updateTx(BlobTxId::const_ptr & txDesc, BlobMetaDesc::const_ptr blobMetaDesc,
+    virtual Error updateTx(BlobTxId::const_ptr & txDesc, MetaDataList::const_ptr metaDataList,
             fds_uint64_t & id) override;
 
     virtual Error commitTx(BlobTxId::const_ptr & txDesc, fds_uint64_t & id) override;
@@ -283,14 +285,19 @@ class FileCommitLogger : public DmCommitLogger {
     virtual Error purgeTx(BlobTxId::const_ptr & txDesc, fds_uint64_t & id) override;
 
     virtual const DmCommitLogEntry * getFirst() override {
-        return header()->count ? first() : 0;
+        FDSGUARD(lockLogFile_);
+        return getFirstInternal();
     }
 
     virtual const DmCommitLogEntry * getLast() override {
-        return header()->count ? last() : 0;
+        FDSGUARD(lockLogFile_);
+        return getLastInternal();
     }
 
-    virtual const DmCommitLogEntry * getNext(const DmCommitLogEntry * rhs) override;
+    virtual const DmCommitLogEntry * getNext(const DmCommitLogEntry * rhs) override {
+        FDSGUARD(lockLogFile_);
+        return getNextInternal(rhs);
+    }
 
     virtual const DmCommitLogEntry * getEntry(const fds_uint64_t id) override;
 
@@ -319,6 +326,16 @@ class FileCommitLogger : public DmCommitLogger {
 
     void addEntryToHeader(DmCommitLogEntry * entry);
 
+    inline const DmCommitLogEntry * getFirstInternal() {
+        return header()->count ? first() : 0;
+    }
+
+    inline const DmCommitLogEntry * getLastInternal() {
+        return header()->count ? last() : 0;
+    }
+
+    const DmCommitLogEntry * getNextInternal(const DmCommitLogEntry * rhs);
+
   private:
     const std::string filename_;
     const fds_uint32_t filesize_;
@@ -327,6 +344,7 @@ class FileCommitLogger : public DmCommitLogger {
     int flags_;
 
     char * addr_;
+    fds_mutex lockLogFile_;
 };
 
 class MemoryCommitLogger : public FileCommitLogger {

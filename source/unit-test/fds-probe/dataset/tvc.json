@@ -1,7 +1,7 @@
 {
     "Run-Input": {
-        "tvc-workload": {
-            "tvc-ops": [
+        "commit-log-workload": {
+            "commit-log-ops": [
                 {
                     "blob-op": "startTx",
                     "tx-id": 0,

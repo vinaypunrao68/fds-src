@@ -718,6 +718,11 @@ FDS_NativeAPI::StartBlobTx(const std::string& volumeName,
 void FDS_NativeAPI::StatBlob(const std::string& volumeName,
                              const std::string& blobName,
                              CallbackPtr cb) {
+    Error err;
+    err = storHvisor->handlerStatBlob->handleRequest(volumeName, blobName, cb);
+    fds_verify(err.ok());
+    return;
+    // TODO(prem) : remove the below code
     fds_volid_t volId = invalid_vol_id;
     LOGDEBUG << "AM service stating volume: " << volumeName
               << ", blob: " << blobName;
@@ -750,7 +755,7 @@ void FDS_NativeAPI::StatBlob(const std::string& volumeName,
     }
 
     // if we are here, bucket is not attached to this AM, send test bucket msg to OM
-    Error err = sendTestBucketToOM(volumeName,
+    err = sendTestBucketToOM(volumeName,
                                    "",  // The access key isn't used
                                    "");  // The secret key isn't used
     fds_verify(err == ERR_OK);

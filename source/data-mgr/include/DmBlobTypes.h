@@ -24,9 +24,9 @@ namespace fds {
     struct MetaDataList :
             std::unordered_map<std::string, std::string>,
             serialize::Serializable {
-        typedef std::unordered_map<
-                std::string,
-                std::string>::const_iterator const_iter;
+        typedef boost::shared_ptr<MetaDataList> ptr;
+        typedef boost::shared_ptr<const MetaDataList> const_ptr;
+        typedef std::unordered_map<std::string, std::string>::const_iterator const_iter;
 
         /**
          * Constructs empty metadata list
@@ -48,6 +48,11 @@ namespace fds {
          * data in mlist, it will be cleared first;
          */
         void toFdspPayload(fpi::FDSP_MetaDataList& mlist) const;
+
+        /**
+         * Merge name-value pairs from rhs into this and return reference to this
+         */
+        MetaDataList & merge(const MetaDataList & rhs);
 
         uint32_t write(serialize::Serializer* s) const;
         uint32_t read(serialize::Deserializer* d);
@@ -120,8 +125,6 @@ namespace fds {
          */
         BlobMetaDesc();
         virtual ~BlobMetaDesc();
-
-        BlobMetaDesc & merge(const BlobMetaDesc & rhs);
 
         uint32_t write(serialize::Serializer* s) const;
         uint32_t read(serialize::Deserializer* d);

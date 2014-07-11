@@ -48,6 +48,14 @@ void MetaDataList::toFdspPayload(fpi::FDSP_MetaDataList& mlist) const {
     }
 }
 
+MetaDataList & MetaDataList::merge(const MetaDataList & rhs) {
+    for (auto elem : rhs) {
+        (*this)[elem.first] = elem.second;
+    }
+
+    return *this;
+}
+
 uint32_t MetaDataList::write(serialize::Serializer* s) const {
     uint32_t bytes = 0;
     uint32_t size = (*this).size();
@@ -105,19 +113,6 @@ BlobMetaDesc::BlobMetaDesc() {
 }
 
 BlobMetaDesc::~BlobMetaDesc() {
-}
-
-BlobMetaDesc & BlobMetaDesc::merge(const BlobMetaDesc & rhs) {
-    blob_name = rhs.blob_name;
-    vol_id = rhs.vol_id;
-    version = rhs.version;
-    blob_size = rhs.blob_size;
-
-    for (auto elem : rhs.meta_list) {
-        meta_list[elem.first] = elem.second;
-    }
-
-    return *this;
 }
 
 uint32_t BlobMetaDesc::write(serialize::Serializer* s) const {

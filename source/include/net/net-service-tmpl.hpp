@@ -383,6 +383,9 @@ svc_get_handle(const fpi::SvcUuid   &peer,
     svc_get_handle<SendIf>(NullSvcUuid, peer, out, maj, min);
 }
 
+#define MSG_DESERIALIZE(msgtype, error, payload) \
+    net::ep_deserialize<fpi::msgtype>(const_cast<Error&>(error), payload)
+
 template<class PayloadT> boost::shared_ptr<PayloadT>
 ep_deserialize(Error &e, boost::shared_ptr<std::string> payload)
 {
