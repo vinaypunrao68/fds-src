@@ -130,9 +130,13 @@ namespace fds {
          * @param[in] tx_id transaction id to be returned with callback when
          * Volume Catalog flushes the blob.
          */
-        Error putBlobMeta(const BlobMetaDesc::const_ptr& blob_meta,
+        Error putBlobMeta(fds_volid_t volume_id,
+                          const std::string& blob_name,
+                          const MetaDataList::const_ptr& meta_list,
                           const BlobTxId::const_ptr& tx_id);
-        Error putBlob(const BlobMetaDesc::const_ptr& blob_meta,
+        Error putBlob(fds_volid_t volume_id,
+                      const std::string& blob_name,
+                      const MetaDataList::const_ptr& meta_list,
                       const BlobObjList::const_ptr& blob_obj_list,
                       const BlobTxId::const_ptr& tx_id);
 

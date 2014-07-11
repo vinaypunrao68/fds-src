@@ -58,8 +58,11 @@ namespace fds {
             fds_uint32_t   first_offset;  // in max_obj_size units
             fds_uint32_t   num_offsets;
             std::string    blob_name;
-            MetaDataList   meta_list;  // empty for non-zero extents
+            MetaDataList::ptr   meta_list;  // empty for non-zero extents
             BlobObjList    obj_list;   // offsets are in bytes
+            OpParams()
+                    : meta_list(new MetaDataList()) {
+            }
         };
         void createCatalog(const OpParams &volParams);
         void getExtent(const OpParams &getParams);
@@ -141,7 +144,7 @@ class VolCatPlOpTemplate : public JsObjTemplate
         }
         p->first_offset = first_offset;
 
-        (p->meta_list).clear();
+        (p->meta_list)->clear();
         json_t *meta;
         if (!json_unpack(in, "{s:o}",
                         "metadata", &meta)) {
@@ -153,7 +156,7 @@ class VolCatPlOpTemplate : public JsObjTemplate
                 fds_verify(k != std::string::npos);  // must separate key-value with "-"
                 std::string meta_key = meta_pair.substr(0, k);
                 std::string meta_val = meta_pair.substr(k+1);
-                (p->meta_list).updateMetaDataPair(meta_key, meta_val);
+                (p->meta_list)->updateMetaDataPair(meta_key, meta_val);
             }
         }
 

@@ -107,26 +107,29 @@ fds_bool_t DmVolumeCatalog::isVolumeEmpty(fds_volid_t volume_id) const
 // Updates blob exluding list of offset to object id mappings.
 //
 Error
-DmVolumeCatalog::putBlobMeta(const BlobMetaDesc::const_ptr& blob_meta,
+DmVolumeCatalog::putBlobMeta(fds_volid_t volume_id,
+                             const std::string& blob_name,
+                             const MetaDataList::const_ptr& meta_list,
                              const BlobTxId::const_ptr& tx_id)
 {
     Error err(ERR_OK);
-    LOGTRACE << "Will commit meta for " << *blob_meta;
+    LOGTRACE << "Will commit meta for " << std::hex << volume_id
+             << std::dec << "," << blob_name << " " << *meta_list;
 
     // TODO(xxx) when we incorporate cache, we should add private
     // methods to get extent which will read from cache first and
     // then from persistent layer if not found
 
     // blob meta is in extent 0, so retrieve extent 0
-    BlobExtent0::ptr extent0 = persistCat->getMetaExtent(blob_meta->vol_id,
-                                                         blob_meta->blob_name,
+    BlobExtent0::ptr extent0 = persistCat->getMetaExtent(volume_id,
+                                                         blob_name,
                                                          err);
 
     // even if not found, we get an allocated extent0 which we will
     // fill in
     if (err.ok() || (err == ERR_CAT_ENTRY_NOT_FOUND)) {
         LOGTRACE << "Retrieved extent 0 for volume " << std::hex
-                 << blob_meta->vol_id << std::dec << " " << *extent0
+                 << volume_id << std::dec << " " << *extent0
                  << " error " << err;
 
         fds_verify((err == ERR_CAT_ENTRY_NOT_FOUND) ||
@@ -135,15 +138,15 @@ DmVolumeCatalog::putBlobMeta(const BlobMetaDesc::const_ptr& blob_meta,
         // TODO(xxx) do we update the version?
 
         // apply meta-data updates
-        extent0->updateMetaData(blob_meta->meta_list);
+        extent0->updateMetaData(meta_list);
 
         LOGTRACE << "Applied metadata update to extent 0 -- " << *extent0;
-        err = persistCat->putMetaExtent(blob_meta->vol_id,
-                                        blob_meta->blob_name, extent0);
+        err = persistCat->putMetaExtent(volume_id, blob_name, extent0);
     }
 
     if (!err.ok()) {
-        LOGERROR << "Failed to update blob meta for " << *blob_meta;
+        LOGERROR << "Failed to update blob meta for " << std::hex << volume_id
+                 << std::dec << "," << blob_name << " " << *meta_list;
     }
     return err;
 }
@@ -184,13 +187,16 @@ DmVolumeCatalog::persistIfNonMetaAndGetNext(fds_volid_t volid,
 // (not necessarily the whole blob).
 //
 Error
-DmVolumeCatalog::putBlob(const BlobMetaDesc::const_ptr& blob_meta,
+DmVolumeCatalog::putBlob(fds_volid_t volume_id,
+                         const std::string& blob_name,
+                         const MetaDataList::const_ptr& meta_list,
                          const BlobObjList::const_ptr& blob_obj_list,
                          const BlobTxId::const_ptr& tx_id)
 {
     Error err(ERR_OK);
     std::vector<ObjectID> expunge_list;
-    LOGTRACE << "Will commit blob " << *blob_meta << ";" << *blob_obj_list;
+    LOGTRACE << "Will commit blob " << blob_name << ";" << *meta_list
+             << ";" << *blob_obj_list;
 
     // do not use this method if blob_obj_list is empty
     fds_verify(blob_obj_list->size() > 0);
@@ -199,17 +205,18 @@ DmVolumeCatalog::putBlob(const BlobMetaDesc::const_ptr& blob_meta,
     // objects in 'blob_obj_list'
 
     // we need extent0 in any case, to update total blob size, etc
-    BlobExtent0::ptr extent0 = persistCat->getMetaExtent(blob_meta->vol_id,
-                                                         blob_meta->blob_name,
+    BlobExtent0::ptr extent0 = persistCat->getMetaExtent(volume_id,
+                                                         blob_name,
                                                          err);
 
     if (!err.ok() && (err != ERR_CAT_ENTRY_NOT_FOUND)) {
-        LOGERROR << "Failed to retrieve extent 0 for " << *blob_meta;
+        LOGERROR << "Failed to retrieve extent 0 for " << std::hex
+                 << volume_id << std::dec << "," << blob_name;
         return err;
     }
 
     // apply meta-data updates
-    extent0->updateMetaData(blob_meta->meta_list);
+    extent0->updateMetaData(meta_list);
 
     // verify Vol Cat assumptions about obj sizes holds
     blob_obj_list->verify(extent0->maxObjSizeBytes());
@@ -228,8 +235,7 @@ DmVolumeCatalog::putBlob(const BlobMetaDesc::const_ptr& blob_meta,
         if (!extent->offsetInRange(cit->first)) {
             // we are done with previous extent, if this is not extent0
             // write extent to persistent storage (for now)
-            extent = persistIfNonMetaAndGetNext(blob_meta->vol_id,
-                                                blob_meta->blob_name,
+            extent = persistIfNonMetaAndGetNext(volume_id, blob_name,
                                                 extent, cit->first,
                                                 extent_id, err);
 
@@ -307,7 +313,7 @@ DmVolumeCatalog::putBlob(const BlobMetaDesc::const_ptr& blob_meta,
                 if (!done) {
                     last_trunc_offset = extent->lastOffsetInRange();
                     extent = persistIfNonMetaAndGetNext(
-                        blob_meta->vol_id, blob_meta->blob_name, extent,
+                        volume_id, blob_name, extent,
                         last_trunc_offset + extent0->maxObjSizeBytes(),
                         extent_id, err);
                     // TODO(xxx) we may have gaps between extents ???
@@ -323,19 +329,17 @@ DmVolumeCatalog::putBlob(const BlobMetaDesc::const_ptr& blob_meta,
     }
 
     if (extent_id > 0) {
-        err = persistCat->putExtent(blob_meta->vol_id,
-                                    blob_meta->blob_name,
+        err = persistCat->putExtent(volume_id, blob_name,
                                     extent_id, extent);
         fds_verify(err.ok());  // TODO(xxx) partial write!
     }
-    err = persistCat->putMetaExtent(blob_meta->vol_id,
-                                    blob_meta->blob_name, extent0);
+    err = persistCat->putMetaExtent(volume_id, blob_name, extent0);
     fds_verify(err.ok() || (extent_id == 0));  // TODO(xxx) partial write!
 
     // actually expunge objects that were dereferenced by the blob
     // TODO(xxx) later that should become part of GC and done in background
     fds_verify(expunge_cb);
-    err = expunge_cb(blob_meta->vol_id, expunge_list);
+    err = expunge_cb(volume_id, expunge_list);
 
     return err;
 }
