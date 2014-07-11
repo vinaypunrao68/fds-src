@@ -24,6 +24,8 @@ VolCatPlProbe gl_VolCatPlProbe("Volume Catalog Persistent Layer Probe Adapter",
                                &volcat_pl_probe_param,
                                nullptr);
 
+DmPersistVolCatalog gl_DmVolCatPlMod("Global Unit test DM Volume Catalog Persistent Layer");
+
 VolCatPlProbe::VolCatPlProbe(const std::string &name,
                              probe_mod_param_t *param,
                              Module *owner)
@@ -128,7 +130,7 @@ VolCatPlProbe::putExtent(const OpParams &putParams) {
         for (BlobObjList::const_iter cit = putParams.obj_list.cbegin();
              cit != putParams.obj_list.cend();
              ++cit) {
-            err = bext->updateOffset(cit->first, cit->second);
+            err = bext->updateOffset(cit->first, (cit->second).oid);
             fds_verify(err.ok());
         }
 
@@ -153,12 +155,17 @@ VolCatPlProbe::putExtent(const OpParams &putParams) {
         bext->updateMetaData(putParams.meta_list);
 
         // copy blob object list
+        fds_uint64_t last_offset = 0;
+        fds_uint64_t blob_size = 0;
         for (BlobObjList::const_iter cit = putParams.obj_list.cbegin();
              cit != putParams.obj_list.cend();
              ++cit) {
-            err = bext->updateOffset(cit->first, cit->second);
+            err = bext->updateOffset(cit->first, (cit->second).oid);
+            last_offset = cit->first;
+            blob_size += (cit->second).size;
             fds_verify(err.ok());
         }
+        bext->setLastOffset(last_offset);
 
         std::cout << "Will call putExtentMeta for " << *bext << std::endl;
         err = gl_DmVolCatPlMod.putMetaExtent(putParams.vol_id,
@@ -197,7 +204,7 @@ VolCatPlProbe::updateExtent(const OpParams &putParams) {
         for (BlobObjList::const_iter cit = putParams.obj_list.cbegin();
              cit != putParams.obj_list.cend();
              ++cit) {
-            err = bext->updateOffset(cit->first, cit->second);
+            err = bext->updateOffset(cit->first, (cit->second).oid);
             fds_verify(err.ok());
         }
 
@@ -223,12 +230,20 @@ VolCatPlProbe::updateExtent(const OpParams &putParams) {
         bext->updateMetaData(putParams.meta_list);
 
         // update blob object list
+        fds_uint64_t blob_size = bext->blobSize();
         for (BlobObjList::const_iter cit = putParams.obj_list.cbegin();
              cit != putParams.obj_list.cend();
              ++cit) {
-            err = bext->updateOffset(cit->first, cit->second);
+            ObjectID oid;
+            err = bext->getObjectInfo(cit->first, &oid);
+            if (err == ERR_NOT_FOUND) {
+                // for now we are testing with const size obj sizes
+                blob_size += (cit->second).size;
+            }
+            err = bext->updateOffset(cit->first, (cit->second).oid);
             fds_verify(err.ok());
         }
+        bext->setBlobSize(blob_size);
 
         std::cout << "Extent after update--  " << *bext << std::endl;
         err = gl_DmVolCatPlMod.putMetaExtent(putParams.vol_id,

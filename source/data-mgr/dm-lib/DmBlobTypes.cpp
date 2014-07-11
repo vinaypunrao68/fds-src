@@ -2,6 +2,8 @@
  * Copyright 2014 Formation Data Systems, Inc.
  */
 #include <string>
+#include <map>
+#include <limits>
 #include <DmBlobTypes.h>
 
 namespace fds {
@@ -146,43 +148,123 @@ std::ostream& operator<<(std::ostream& out, const BlobMetaDesc& blobMetaDesc) {
     return out;
 }
 
+//----------- BlobObjInfo implementation ---------------//
+
+BlobObjInfo::BlobObjInfo()
+        : size(0) {
+}
+
+BlobObjInfo::BlobObjInfo(const fpi::FDSP_BlobObjectInfo& obj_info) {
+    oid.SetId((const char*)obj_info.data_obj_id.digest.c_str(),
+              obj_info.data_obj_id.digest.length());
+    size = obj_info.size;
+}
+
+BlobObjInfo::~BlobObjInfo() {
+}
+
+BlobObjInfo& BlobObjInfo::operator= (const BlobObjInfo &rhs) {
+    oid = rhs.oid;
+    size = rhs.size;
+    return *this;
+}
+
+uint32_t BlobObjInfo::write(serialize::Serializer* s) const {
+    uint32_t bytes = 0;
+    bytes += oid.write(s);
+    bytes += s->writeI64(size);
+    return bytes;
+}
+
+uint32_t BlobObjInfo::read(serialize::Deserializer* d) {
+    uint32_t bytes = 0;
+    bytes += oid.read(d);
+    bytes += d->readI64(size);
+    return bytes;
+}
+
+
 //----------- BlobObjList implementation ---------------//
 
 BlobObjList::BlobObjList() {
+    end_of_blob = false;
 }
 
 BlobObjList::BlobObjList(const fpi::FDSP_BlobObjectList& blob_obj_list) {
+    end_of_blob = false;
     for (fds_uint32_t i = 0; i < blob_obj_list.size(); ++i) {
-        BlobObjInfo obj_info;
-        fds_uint64_t offset = blob_obj_list[i].offset;
-        obj_info.SetId((const char*)blob_obj_list[i].data_obj_id.digest.c_str(),
-                       blob_obj_list[i].data_obj_id.digest.length());
-        (*this)[offset] = obj_info;
+        BlobObjInfo obj_info(blob_obj_list[i]);
+        (*this)[blob_obj_list[i].offset] = obj_info;
     }
 }
 
 BlobObjList::~BlobObjList() {
 }
 
-void BlobObjList::updateObject(fds_uint64_t offset, const BlobObjInfo& obj_info) {
-    (*this)[offset] = obj_info;
-}
-
 //
 // Merge itself with another blob object list and return itself
 //
-BlobObjList& BlobObjList::merge(const BlobObjList& newer_blist) {
+BlobObjList& BlobObjList::merge(const BlobObjList& newer_blist){
+    // once end_of_blob is set, do not allow merges
+    fds_verify(end_of_blob == false);
     for (const_iter cit = newer_blist.cbegin();
          cit != newer_blist.cend();
          ++cit) {
-        // entry in newer_blist overwrites existing entry if that exists
         (*this)[cit->first] = cit->second;
     }
     return *this;
 }
 
+//
+// Returns last offset in the obj list if end_of_blob is set
+// and there is at least on object in the list;
+// otherwise returns max uint64 value
+//
+fds_uint64_t BlobObjList::lastOffset() const {
+    std::map<fds_uint64_t, BlobObjInfo>::const_reverse_iterator crit;
+    if (!end_of_blob || size() == 0)
+        return std::numeric_limits<fds_uint64_t>::max();
+
+    crit = crbegin();
+    fds_verify(crit != crend());
+    return crit->first;
+}
+
+//
+// Merge itself with one object
+//
+void BlobObjList::updateObject(fds_uint64_t offset,
+                               const ObjectID& oid,
+                               fds_uint64_t size) {
+    BlobObjInfo obj_info;
+    obj_info.oid = oid;
+    obj_info.size = size;
+    (*this)[offset] = obj_info;
+}
+
+//
+// Verifies each obj is max size; if end_of_blob is set
+// last object can be less than max size; also that each offset
+// is aligned.
+//
+void BlobObjList::verify(fds_uint32_t max_obj_size) const {
+    std::map<fds_uint64_t, BlobObjInfo>::const_reverse_iterator crit;
+    crit = crbegin();
+    if (crit == crend()) return;
+
+    fds_verify(end_of_blob || (crit->second).size == max_obj_size);
+    fds_verify((crit->first % max_obj_size) == 0);
+    ++crit;
+    while (crit != crend()) {
+        fds_verify((crit->second).size == max_obj_size);
+        fds_verify((crit->first % max_obj_size) == 0);
+        ++crit;
+    }
+}
+
 uint32_t BlobObjList::write(serialize::Serializer* s) const {
     uint32_t bytes = 0;
+    bytes += s->writeI32(end_of_blob);
     bytes += s->writeI32(size());
     for (const_iter cit = cbegin();
          cit != cend();
@@ -197,6 +279,7 @@ uint32_t BlobObjList::read(serialize::Deserializer* d) {
     uint32_t bytes = 0;
     uint32_t sz = 0;
     clear();
+    bytes += d->readI32(reinterpret_cast<int32_t&>(end_of_blob));
     bytes += d->readI32(sz);
     for (fds_uint32_t i = 0; i < sz; ++i) {
         fds_uint64_t offset;
@@ -213,8 +296,10 @@ std::ostream& operator<<(std::ostream& out, const BlobObjList& obj_list) {
     for (BlobObjList::const_iter cit = obj_list.cbegin();
          cit != obj_list.cend();
          ++cit) {
-        out << "[offset " << cit->first << " -> " << cit->second << "]\n";
+        out << "[offset " << cit->first << " -> " << (cit->second).oid
+            << "," << (cit->second).size << "]\n";
     }
+    out << " End of blob? " << obj_list.endOfBlob() << "\n";
     return out;
 }
 
@@ -238,8 +323,8 @@ void BlobUtil::toFDSPQueryCatalogMsg(const BlobMetaDesc::const_ptr& blob_meta_de
         fpi::FDSP_BlobObjectInfo obj_info;
         obj_info.offset = cit->first;
         obj_info.data_obj_id.digest =
-                std::string((const char *)(cit->second.GetId()),
-                            (size_t)cit->second.GetLen());
+                std::string((const char *)((cit->second).oid.GetId()),
+                            (size_t)(cit->second).oid.GetLen());
         obj_info.size = max_obj_size_bytes;
         if ((query_msg->obj_list).size() == (blob_obj_list->size() - 1)) {
             // this is the last object, object size = blob size % max obj size

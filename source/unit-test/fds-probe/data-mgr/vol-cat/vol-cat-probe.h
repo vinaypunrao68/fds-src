@@ -48,8 +48,14 @@ namespace fds {
             std::string    op;
             fds_volid_t    vol_id;
             std::string    blob_name;
+            fds_uint64_t   blob_size;
+            fds_uint32_t   max_obj_size;
             MetaDataList   meta_list;
-            BlobObjList    obj_list;
+            BlobObjList::ptr obj_list;
+
+            OpParams()
+                    : obj_list(new BlobObjList()){
+            }
         };
         void addCatalog(const OpParams &volParams);
         void rmCatalog(const OpParams& volParams);
@@ -102,6 +108,7 @@ class VolCatOpTemplate : public JsObjTemplate
         }
         p->op = op;
         p->blob_name = "";
+        p->max_obj_size = 4096;  // hardcoded for now
         if (!json_unpack(in, "{ s:s}",
                          "blob-name", &name)) {
             p->blob_name = name;
@@ -124,7 +131,8 @@ class VolCatOpTemplate : public JsObjTemplate
         }
 
         // read object list
-        (p->obj_list).clear();
+        (p->obj_list)->clear();
+        p->blob_size = 0;
         json_t* objlist;
         ObjectID oid;
         if (!json_unpack(in, "{s:o}",
@@ -137,7 +145,8 @@ class VolCatOpTemplate : public JsObjTemplate
                 std::string oid_hexstr = offset_obj.substr(k+1);
                 fds_uint64_t offset = stoull(offset_str);
                 oid = oid_hexstr;
-                (p->obj_list).updateObject(offset, oid);
+                (p->obj_list)->updateObject(offset, oid, p->max_obj_size);
+                p->blob_size += p->max_obj_size;
             }
         }
 

@@ -66,6 +66,7 @@ VolCatProbe::addCatalog(const OpParams &volParams) {
     Error err(ERR_OK);
     std::string name = "vol" + std::to_string(volParams.vol_id);
     VolumeDesc voldesc(name, volParams.vol_id);
+    voldesc.maxObjSizeInBytes = volParams.max_obj_size;
     err = gl_DmVolCatMod.addCatalog(voldesc);
     fds_verify(err.ok());
 
@@ -108,8 +109,8 @@ void
 VolCatProbe::getBlob(const OpParams& getParams) {
     Error err(ERR_OK);
     std::set<fds_uint64_t> offsets;
-    for (BlobObjList::const_iter cit = getParams.obj_list.cbegin();
-         cit != getParams.obj_list.cend();
+    for (BlobObjList::const_iter cit = (getParams.obj_list)->cbegin();
+         cit != (getParams.obj_list)->cend();
          ++cit) {
         offsets.insert(cit->first);
     }
@@ -146,7 +147,7 @@ VolCatProbe::putBlob(const OpParams &putParams) {
     bmeta_desc->blob_name = putParams.blob_name;
     bmeta_desc->vol_id = putParams.vol_id;
     bmeta_desc->version = blob_version_invalid;
-    bmeta_desc->blob_size = 0;
+    bmeta_desc->blob_size = putParams.blob_size;
 
     // copy metadata list
     for (MetaDataList::const_iter cit = putParams.meta_list.cbegin();
@@ -155,7 +156,7 @@ VolCatProbe::putBlob(const OpParams &putParams) {
         (bmeta_desc->meta_list).updateMetaDataPair(cit->first, cit->second);
     }
 
-    if (putParams.obj_list.size() == 0) {
+    if ((putParams.obj_list)->size() == 0) {
         // no offset to object id list, use putBlobMeta
         std::cout << "Will call putBlobMeta for " << *bmeta_desc << std::endl;
         err = gl_DmVolCatMod.putBlobMeta(bmeta_desc, tx_id);
@@ -163,17 +164,9 @@ VolCatProbe::putBlob(const OpParams &putParams) {
         return;
     }
 
-    // create blob object list
-    BlobObjList::ptr obj_list(new BlobObjList());
-    for (BlobObjList::const_iter cit = putParams.obj_list.cbegin();
-         cit != putParams.obj_list.cend();
-         ++cit) {
-        obj_list->updateObject(cit->first, cit->second);
-    }
     std::cout << "Will call putBlob for " << *bmeta_desc
-              << "; " << *obj_list;
-
-    err = gl_DmVolCatMod.putBlob(bmeta_desc, obj_list, tx_id);
+              << "; " << *(putParams.obj_list);
+    err = gl_DmVolCatMod.putBlob(bmeta_desc, putParams.obj_list, tx_id);
     fds_verify(err.ok());
 }
 

@@ -16,6 +16,9 @@
 
 namespace fds {
 
+    // forward declarations
+    class DmPersistVolCatalog;
+
     /**
      * This is the module that manages committed blob metadata
      * for all volumes managed by this DM. This module internally
@@ -159,6 +162,10 @@ namespace fds {
                          blob_version_t blob_version);
 
   private:
+        /**
+         * Volume Catalog Persistent Layer module
+         */
+        DmPersistVolCatalog* persistCat;
     };
 
     extern DmVolumeCatalog gl_DmVolCatMod;
