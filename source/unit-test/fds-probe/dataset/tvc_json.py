@@ -2,6 +2,8 @@
 #
 # Copyright 2014 Formation Data Systems, Inc.
 
+import os
+import sha
 import optparse
 from random import randint
 
@@ -42,6 +44,7 @@ def printUpdateTxBody():
     for i in range(startId, startId + numOps):
         numUpdates = randint(1, 5);
         for j in range(0, numUpdates):
+            objId = "0x" + sha.new(os.tmpnam()).hexdigest()
             offset = randint(0, 1 * 1024 * 1024)
             length = randint(512, 1 * 1024 * 1024)
             body += "                {\n" +\
@@ -49,6 +52,7 @@ def printUpdateTxBody():
                     "                    \"tx-id\": " + str(i) + ",\n" +\
                     "                    \"obj-list\": {\n" +\
                     "                         \"offset\": " + str(offset) + ",\n" +\
+                    "                         \"obj-id\": \"" + objId + "\",\n" +\
                     "                         \"length\": " + str(length) + "\n" +\
                     "                     }\n" +\
                     "                },\n"
@@ -61,10 +65,11 @@ def printCloseBody():
         opStr = "abortTx" if (randint(0, 99) < percentAbort) else "commitTx"
         body += "                {\n" +\
                 "                    \"blob-op\": \"" + opStr + "\",\n" +\
+                "                    \"blob-name\": \"blob-" + str(i) + "\",\n" +\
                 "                    \"tx-id\": " + str(i) + "\n" +\
                 "                }"
 
-        if opStr == "commitTx":
+        if options.commit_log and opStr == "commitTx":
             body += ",\n" +\
                     "                {\n" +\
                     "                    \"blob-op\": \"purgeTx\",\n" +\
@@ -94,8 +99,8 @@ def printGetBody():
 def printJson():
     printHeader()
     printStartTxBody()
-    printUpdateMetaTxBody()
     printUpdateTxBody()
+    printUpdateMetaTxBody()
     printCloseBody()
 
     #printGetBody(5000)

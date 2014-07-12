@@ -13,6 +13,7 @@
 #include <fds-probe/fds_probe.h>
 #include <utest-types.h>
 #include <fds_types.h>
+#include <fdsp_utils.h>
 #include <dm-tvc/CommitLog.h>
 
 namespace fds {
@@ -89,6 +90,7 @@ class CommitLogOpTemplate : public JsObjTemplate
             : JsObjTemplate("commit-log-ops", mgr) {}
 
     virtual JsObject *js_new(json_t *in) {
+        using FDS_ProtocolInterface::FDS_ObjectIdType;
         using FDS_ProtocolInterface::FDSP_BlobObjectInfo;
         using FDS_ProtocolInterface::FDSP_MetaDataPair;
 
@@ -118,9 +120,13 @@ class CommitLogOpTemplate : public JsObjTemplate
                 json_t * jsonObjList = json_object_get(in, "obj-list");
                 fds_verify(jsonObjList);
 
+                FDS_ObjectIdType objId = strToObjectIdType(json_string_value(
+                            json_object_get(jsonObjList, "obj-id")));
+
                 FDSP_BlobObjectInfo objInfo;
                 objInfo.__set_offset(json_integer_value(json_object_get(jsonObjList, "offset")));
                 objInfo.__set_size(json_integer_value(json_object_get(jsonObjList, "length")));
+                objInfo.__set_data_obj_id(objId);
                 p->objList.push_back(objInfo);
             } else if ("updateMetaTx" == p->op) {
                 json_t * jsonMetaData = json_object_get(in, "meta-data");

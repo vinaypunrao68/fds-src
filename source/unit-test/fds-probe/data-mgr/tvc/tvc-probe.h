@@ -12,6 +12,7 @@
 #include <fds-probe/fds_probe.h>
 #include <utest-types.h>
 #include <fds_types.h>
+#include <fdsp_utils.h>
 #include <dm-tvc/TimeVolumeCatalog.h>
 
 namespace fds {
@@ -87,27 +88,62 @@ class TvcOpTemplate : public JsObjTemplate
             : JsObjTemplate("tvc-ops", mgr) {}
 
     virtual JsObject *js_new(json_t *in) {
+        using FDS_ProtocolInterface::FDS_ObjectIdType;
+        using FDS_ProtocolInterface::FDSP_BlobObjectInfo;
+        using FDS_ProtocolInterface::FDSP_MetaDataPair;
+
         TvcProbe::OpParams *p = new TvcProbe::OpParams();
-        char *op;
-        char *name;
         fds_uint32_t txId;
-        if (json_unpack(in, "{s:s, s:i, s:s}",
-                        "blob-op", &op,
-                        "tx-id", &txId,
-                        "blob-name", &name)) {
-            fds_panic("Malformed json!");
-        }
-        p->op = op;
+
+        const json_t * jsonOp = json_object_get(in, "blob-op");
+        fds_verify(jsonOp);
+
+        p->op = json_string_value(jsonOp);
+        fds_verify(!p->op.empty());
+
+        const json_t * jsonTxId = json_object_get(in, "tx-id");
+        fds_verify(jsonTxId);
+        fds_verify(json_is_number(jsonTxId));
+        txId = json_integer_value(jsonTxId);
+
         p->txId = BlobTxId::ptr(new BlobTxId(txId));
-        p->blobName = name;
 
-        // json_unpack(in, "{s:i}", "blob-off", &p->blobOffset);
+        if ("abortTx" != p->op && "purgeTx" != p->op) {
+            if ("startTx" == p->op || "commitTx" == p->op) {
+                const json_t * jsonName = json_object_get(in, "blob-name");
+                fds_verify(jsonName);
+                p->blobName = json_string_value(jsonName);
+                fds_verify(!p->blobName.empty());
+            } else if ("updateTx" == p->op) {
+                json_t * jsonObjList = json_object_get(in, "obj-list");
+                fds_verify(jsonObjList);
 
-        // char *objectId;
-        // json_unpack(in, "{s:s}", "object-id", &objectId);
-        // p->objectId = objectId;
-        // p->objectId = NULL;
+                FDS_ObjectIdType objId = strToObjectIdType(json_string_value(
+                        json_object_get(jsonObjList, "obj-id")));
 
+                FDSP_BlobObjectInfo objInfo;
+                objInfo.__set_offset(json_integer_value(json_object_get(jsonObjList, "offset")));
+                objInfo.__set_size(json_integer_value(json_object_get(jsonObjList, "length")));
+                objInfo.__set_data_obj_id(objId);
+
+                p->objList.push_back(objInfo);
+            } else if ("updateMetaTx" == p->op) {
+                json_t * jsonMetaData = json_object_get(in, "meta-data");
+                fds_verify(jsonMetaData);
+
+                for (void * iter = json_object_iter(jsonMetaData); NULL != iter;
+                    iter = json_object_iter_next(jsonMetaData, iter)) {
+                    std::string keyStr = json_object_iter_key(iter);
+                    std::string valStr = json_string_value(json_object_iter_value(iter));
+
+                    FDSP_MetaDataPair metaData;
+                    metaData.__set_key(keyStr);
+                    metaData.__set_value(valStr);
+
+                    p->metaList.push_back(metaData);
+                }
+            }
+        }
         return js_parse(new TvcObjectOp(), in, p);
     }
 };

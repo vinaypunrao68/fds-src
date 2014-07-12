@@ -29,8 +29,8 @@ user_non_fds_libs := \
 user_hh           := $(wildcard *.h)
 user_cc           := ngx_modules.c
 user_cpp          := \
-#    mod-main.cpp \
-#    tvc-probe.cpp
+    mod-main.cpp \
+    tvc-probe.cpp
 
 user_bin_exe      := tvc-probe
 tvc-probe         := $(user_cpp) $(user_cc)

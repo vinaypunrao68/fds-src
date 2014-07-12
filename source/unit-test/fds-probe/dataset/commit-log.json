@@ -138,209 +138,308 @@
                     "blob-op": "updateTx",
                     "tx-id": 0,
                     "obj-list": {
-                         "offset": 709820,
-                         "length": 586132
+                         "offset": 481146,
+                         "obj-id": "0xd6651f2591b50b92c7e94a164e21c4cc4f4bbf75",
+                         "length": 451059
                      }
                 },
                 {
                     "blob-op": "updateTx",
                     "tx-id": 1,
                     "obj-list": {
-                         "offset": 103758,
-                         "length": 950397
+                         "offset": 589569,
+                         "obj-id": "0xea302e2c218ed2fc8358ca8ca43ef852536dc2ac",
+                         "length": 682192
                      }
                 },
                 {
                     "blob-op": "updateTx",
                     "tx-id": 1,
                     "obj-list": {
-                         "offset": 578244,
-                         "length": 910095
-                     }
-                },
-                {
-                    "blob-op": "updateTx",
-                    "tx-id": 1,
-                    "obj-list": {
-                         "offset": 769358,
-                         "length": 291481
-                     }
-                },
-                {
-                    "blob-op": "updateTx",
-                    "tx-id": 1,
-                    "obj-list": {
-                         "offset": 805927,
-                         "length": 421129
-                     }
-                },
-                {
-                    "blob-op": "updateTx",
-                    "tx-id": 1,
-                    "obj-list": {
-                         "offset": 783626,
-                         "length": 1034448
+                         "offset": 696987,
+                         "obj-id": "0x9e04141b211b5128ffb42acae0be0c1cdb47a546",
+                         "length": 86794
                      }
                 },
                 {
                     "blob-op": "updateTx",
                     "tx-id": 2,
                     "obj-list": {
-                         "offset": 369597,
-                         "length": 220734
+                         "offset": 102271,
+                         "obj-id": "0xf7d71f83ea9b0d01aea71ec5031ab5e4f5661c58",
+                         "length": 398273
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 2,
+                    "obj-list": {
+                         "offset": 440901,
+                         "obj-id": "0x13386fb69d1957f28152edae1b719108a510f178",
+                         "length": 280975
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 2,
+                    "obj-list": {
+                         "offset": 218396,
+                         "obj-id": "0x587012ec567dcdc88cb745ed5f9e04482ac1eebf",
+                         "length": 733422
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 2,
+                    "obj-list": {
+                         "offset": 383586,
+                         "obj-id": "0xf704829076519968037b090399c90b55048ab04a",
+                         "length": 423816
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 2,
+                    "obj-list": {
+                         "offset": 548472,
+                         "obj-id": "0xc5f716b878d1e5e502927555bea8a3578fb62057",
+                         "length": 980050
                      }
                 },
                 {
                     "blob-op": "updateTx",
                     "tx-id": 3,
                     "obj-list": {
-                         "offset": 416950,
-                         "length": 430899
+                         "offset": 657665,
+                         "obj-id": "0xef6cfe2b4e86e5dab135a3be461db1edaa1e97a0",
+                         "length": 66453
                      }
                 },
                 {
                     "blob-op": "updateTx",
                     "tx-id": 3,
                     "obj-list": {
-                         "offset": 544834,
-                         "length": 793181
+                         "offset": 830939,
+                         "obj-id": "0xce093e32d0fb2294687edb0a71be97fa6d19aedd",
+                         "length": 714236
                      }
                 },
                 {
                     "blob-op": "updateTx",
                     "tx-id": 3,
                     "obj-list": {
-                         "offset": 486066,
-                         "length": 161796
+                         "offset": 924509,
+                         "obj-id": "0x032f88792f154e1e8d016a8b8ee489701107dc79",
+                         "length": 571589
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 3,
+                    "obj-list": {
+                         "offset": 654720,
+                         "obj-id": "0xd29310cb53e4c35ef3603e91c80a584101991bdb",
+                         "length": 489283
                      }
                 },
                 {
                     "blob-op": "updateTx",
                     "tx-id": 4,
                     "obj-list": {
-                         "offset": 580565,
-                         "length": 773927
+                         "offset": 850088,
+                         "obj-id": "0xbe363a8e26a7a2ad61308f7c8ee412d52e2bc10e",
+                         "length": 945752
                      }
                 },
                 {
                     "blob-op": "updateTx",
                     "tx-id": 4,
                     "obj-list": {
-                         "offset": 277255,
-                         "length": 345707
+                         "offset": 461190,
+                         "obj-id": "0x48edce187995f726d0d6616a90b10f0bbd7897bf",
+                         "length": 858002
                      }
                 },
                 {
                     "blob-op": "updateTx",
                     "tx-id": 4,
                     "obj-list": {
-                         "offset": 523223,
-                         "length": 851943
+                         "offset": 294194,
+                         "obj-id": "0xd7eb16aae6fa17566537cb203cd93770b7eed007",
+                         "length": 815303
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 4,
+                    "obj-list": {
+                         "offset": 720328,
+                         "obj-id": "0xea575542ba8a2d64d27ed8a5386d8df10d5f7262",
+                         "length": 67093
                      }
                 },
                 {
                     "blob-op": "updateTx",
                     "tx-id": 5,
                     "obj-list": {
-                         "offset": 701589,
-                         "length": 447160
+                         "offset": 914466,
+                         "obj-id": "0x8828590c6eda86d634b1a629560293d4dce30b0d",
+                         "length": 674087
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 5,
+                    "obj-list": {
+                         "offset": 98921,
+                         "obj-id": "0x0a058507a36f29aa4082dd8e768b1024375d765d",
+                         "length": 56696
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 5,
+                    "obj-list": {
+                         "offset": 1033949,
+                         "obj-id": "0x5fc057cb307de18becab3b3f269643a58d9d33eb",
+                         "length": 212080
                      }
                 },
                 {
                     "blob-op": "updateTx",
                     "tx-id": 6,
                     "obj-list": {
-                         "offset": 351494,
-                         "length": 491873
+                         "offset": 842251,
+                         "obj-id": "0x821fccfd36f17b01933f4c5d2975031229ee0c71",
+                         "length": 485941
                      }
                 },
                 {
                     "blob-op": "updateTx",
                     "tx-id": 6,
                     "obj-list": {
-                         "offset": 204998,
-                         "length": 312402
+                         "offset": 151611,
+                         "obj-id": "0x22dc0a8d08b4a0a4fd53f3473f69ceae25d97d38",
+                         "length": 13778
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 6,
+                    "obj-list": {
+                         "offset": 979513,
+                         "obj-id": "0x51b4873d479c1336e18e617e20699919ab6a8c9f",
+                         "length": 45169
                      }
                 },
                 {
                     "blob-op": "updateTx",
                     "tx-id": 7,
                     "obj-list": {
-                         "offset": 600165,
-                         "length": 203081
+                         "offset": 922988,
+                         "obj-id": "0x9f565f0701988c3ea540d6388d482e5f111ca708",
+                         "length": 195409
                      }
                 },
                 {
                     "blob-op": "updateTx",
                     "tx-id": 7,
                     "obj-list": {
-                         "offset": 1045313,
-                         "length": 20504
+                         "offset": 779561,
+                         "obj-id": "0xf2e5efac7332111981768cc2968c359609a80479",
+                         "length": 278705
                      }
                 },
                 {
                     "blob-op": "updateTx",
                     "tx-id": 8,
                     "obj-list": {
-                         "offset": 256768,
-                         "length": 162835
+                         "offset": 656559,
+                         "obj-id": "0xa817553b566e8f3d65b3bd99335d7a51287f775b",
+                         "length": 336291
                      }
                 },
                 {
                     "blob-op": "updateTx",
                     "tx-id": 8,
                     "obj-list": {
-                         "offset": 742682,
-                         "length": 1042765
+                         "offset": 672804,
+                         "obj-id": "0x88320f7f40a098250f83479a4ede0dcbd5bcad40",
+                         "length": 581956
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 8,
+                    "obj-list": {
+                         "offset": 818181,
+                         "obj-id": "0xd6c112da8e0f409f25cee93b55d81bbb756f8922",
+                         "length": 60090
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 8,
+                    "obj-list": {
+                         "offset": 131554,
+                         "obj-id": "0xc1ada289244b91e4c375bd5d07a4114a6337a3f3",
+                         "length": 746293
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 8,
+                    "obj-list": {
+                         "offset": 1045405,
+                         "obj-id": "0xc9f0fe3ab00ffb6b1c639b9e2f78d54b68091147",
+                         "length": 998213
                      }
                 },
                 {
                     "blob-op": "updateTx",
                     "tx-id": 9,
                     "obj-list": {
-                         "offset": 66141,
-                         "length": 316253
+                         "offset": 6406,
+                         "obj-id": "0xe3e3f41be4fa5669a67d3dada7fe71679899e63f",
+                         "length": 904375
                      }
                 },
                 {
                     "blob-op": "updateTx",
                     "tx-id": 9,
                     "obj-list": {
-                         "offset": 568102,
-                         "length": 725940
+                         "offset": 810572,
+                         "obj-id": "0xbfc85ed962f5106bd4eb8ddafb46719fc20b734e",
+                         "length": 974427
                      }
                 },
                 {
                     "blob-op": "updateTx",
                     "tx-id": 9,
                     "obj-list": {
-                         "offset": 856326,
-                         "length": 615214
+                         "offset": 283795,
+                         "obj-id": "0xdcb599d57009545f3ac6f880d70a837dd3f6cfe3",
+                         "length": 16289
                      }
                 },
                 {
                     "blob-op": "updateTx",
                     "tx-id": 9,
                     "obj-list": {
-                         "offset": 871660,
-                         "length": 542023
-                     }
-                },
-                {
-                    "blob-op": "updateTx",
-                    "tx-id": 9,
-                    "obj-list": {
-                         "offset": 933054,
-                         "length": 364865
+                         "offset": 901111,
+                         "obj-id": "0x73671453dc937d26c61b8877fa7c14f516ce4c3b",
+                         "length": 688176
                      }
                 },
 
                 {
                     "blob-op": "abortTx",
+                    "blob-name": "blob-0",
                     "tx-id": 0
                 },
                 {
                     "blob-op": "commitTx",
+                    "blob-name": "blob-1",
                     "tx-id": 1
                 },
                 {
@@ -349,6 +448,7 @@
                 },
                 {
                     "blob-op": "commitTx",
+                    "blob-name": "blob-2",
                     "tx-id": 2
                 },
                 {
@@ -357,38 +457,44 @@
                 },
                 {
                     "blob-op": "abortTx",
+                    "blob-name": "blob-3",
                     "tx-id": 3
                 },
                 {
                     "blob-op": "commitTx",
+                    "blob-name": "blob-4",
                     "tx-id": 4
                 },
                 {
                     "blob-op": "purgeTx",
                     "tx-id": 4
-                },
-                {
-                    "blob-op": "commitTx",
-                    "tx-id": 5
-                },
-                {
-                    "blob-op": "purgeTx",
-                    "tx-id": 5
-                },
-                {
-                    "blob-op": "commitTx",
-                    "tx-id": 6
-                },
-                {
-                    "blob-op": "purgeTx",
-                    "tx-id": 6
                 },
                 {
                     "blob-op": "abortTx",
+                    "blob-name": "blob-5",
+                    "tx-id": 5
+                },
+                {
+                    "blob-op": "commitTx",
+                    "blob-name": "blob-6",
+                    "tx-id": 6
+                },
+                {
+                    "blob-op": "purgeTx",
+                    "tx-id": 6
+                },
+                {
+                    "blob-op": "commitTx",
+                    "blob-name": "blob-7",
+                    "tx-id": 7
+                },
+                {
+                    "blob-op": "purgeTx",
                     "tx-id": 7
                 },
                 {
                     "blob-op": "commitTx",
+                    "blob-name": "blob-8",
                     "tx-id": 8
                 },
                 {
@@ -397,6 +503,7 @@
                 },
                 {
                     "blob-op": "commitTx",
+                    "blob-name": "blob-9",
                     "tx-id": 9
                 },
                 {

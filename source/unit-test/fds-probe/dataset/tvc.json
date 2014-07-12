@@ -1,7 +1,7 @@
 {
     "Run-Input": {
-        "commit-log-workload": {
-            "commit-log-ops": [
+        "tvc-workload": {
+            "tvc-ops": [
                 {
                     "blob-op": "startTx",
                     "tx-id": 0,
@@ -51,6 +51,382 @@
                     "blob-op": "startTx",
                     "tx-id": 9,
                     "blob-name": "blob-9"
+                },
+
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 0,
+                    "obj-list": {
+                         "offset": 24660,
+                         "obj-id": "0x4686dc8f4d37e95854173e85eaee381abe31766b",
+                         "length": 33446
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 1,
+                    "obj-list": {
+                         "offset": 630624,
+                         "obj-id": "0xc19294f006f5f1619aa2cf4d4c2e67f6ae23352c",
+                         "length": 3029
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 1,
+                    "obj-list": {
+                         "offset": 874843,
+                         "obj-id": "0x76a3b25f82f0e08b1d80d24e14e6f54e7ce860f4",
+                         "length": 280493
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 2,
+                    "obj-list": {
+                         "offset": 1213,
+                         "obj-id": "0xf905ae424097366651dadcdf4c319ee7b308984d",
+                         "length": 247260
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 2,
+                    "obj-list": {
+                         "offset": 981373,
+                         "obj-id": "0xe97572d6d27a6231ed3b04d1834a914a188bd79b",
+                         "length": 228066
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 2,
+                    "obj-list": {
+                         "offset": 744862,
+                         "obj-id": "0x94d7272517bc7b813e7a8e00b566c927e4facc3f",
+                         "length": 973831
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 2,
+                    "obj-list": {
+                         "offset": 35478,
+                         "obj-id": "0xaa87d2d095afb8e43ddf866d95fcfd646d019957",
+                         "length": 533367
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 2,
+                    "obj-list": {
+                         "offset": 256858,
+                         "obj-id": "0x305696cd501bee005b15fd967bfe496f38d4356b",
+                         "length": 48048
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 3,
+                    "obj-list": {
+                         "offset": 582362,
+                         "obj-id": "0xfa083a3ab3335af33daca7e7257ef28377e92817",
+                         "length": 574781
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 3,
+                    "obj-list": {
+                         "offset": 73863,
+                         "obj-id": "0x1893d6a36b04af49962f708e5e54f385b662da5c",
+                         "length": 536702
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 3,
+                    "obj-list": {
+                         "offset": 814551,
+                         "obj-id": "0x44e4c31fdab46c11d739c7bdb94a85aecabade8d",
+                         "length": 841041
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 3,
+                    "obj-list": {
+                         "offset": 963029,
+                         "obj-id": "0x6d3f3d84118bc0505797ccbe31b05f74be4e36e1",
+                         "length": 880159
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 3,
+                    "obj-list": {
+                         "offset": 869896,
+                         "obj-id": "0xdc94e0ed4e5ccfd6b92349fe40733726238d0f65",
+                         "length": 795997
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 4,
+                    "obj-list": {
+                         "offset": 873432,
+                         "obj-id": "0x10105a2c0ac4b42afaeb4f5fc4f1c03629def09e",
+                         "length": 623524
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 4,
+                    "obj-list": {
+                         "offset": 228815,
+                         "obj-id": "0x776fbaec04ffeda1772b3a344e656ef67fab5cf6",
+                         "length": 12791
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 5,
+                    "obj-list": {
+                         "offset": 26360,
+                         "obj-id": "0x0cb094c3f53952c294bfed2ce3c0c594e814452f",
+                         "length": 322364
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 5,
+                    "obj-list": {
+                         "offset": 206903,
+                         "obj-id": "0xaf6adfd9e0aa8c230faf246ac95cf07f7c0b6109",
+                         "length": 310142
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 5,
+                    "obj-list": {
+                         "offset": 388841,
+                         "obj-id": "0xfc7941d8ff401d73f157e871ef2002f4bb1195dd",
+                         "length": 145186
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 6,
+                    "obj-list": {
+                         "offset": 759250,
+                         "obj-id": "0xe6df2788c13aab56bb75ec3f20b56137f978f105",
+                         "length": 415177
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 6,
+                    "obj-list": {
+                         "offset": 459934,
+                         "obj-id": "0x096eb7bc2d8f6268eeb3e623d7740d193f608b30",
+                         "length": 847399
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 6,
+                    "obj-list": {
+                         "offset": 1027125,
+                         "obj-id": "0xdac051aced5ece08dbda540fa32c3bfbfa66ab5b",
+                         "length": 306169
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 7,
+                    "obj-list": {
+                         "offset": 891507,
+                         "obj-id": "0x65373f1f035957d1624fd3e7f834183d398b5432",
+                         "length": 485053
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 8,
+                    "obj-list": {
+                         "offset": 626299,
+                         "obj-id": "0x9596a76e17da0110ea8f5652ad75b44e66b0818c",
+                         "length": 880387
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 8,
+                    "obj-list": {
+                         "offset": 731698,
+                         "obj-id": "0xeda05c1e21ee3f9ae1eeb4e83460bbfe54de06d7",
+                         "length": 814029
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 8,
+                    "obj-list": {
+                         "offset": 469167,
+                         "obj-id": "0x35b57e9e32dc8f7ec1ae41b90abe1d19c44f3ca4",
+                         "length": 363742
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 8,
+                    "obj-list": {
+                         "offset": 898194,
+                         "obj-id": "0xc1cc0b945f647dbc48472ad9992a5bce32f33ad6",
+                         "length": 185136
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 9,
+                    "obj-list": {
+                         "offset": 926884,
+                         "obj-id": "0x295251f4ac1db20f7e62dd7d8344eb7f0987b58c",
+                         "length": 407430
+                     }
+                },
+
+                {
+                    "blob-op": "updateMetaTx",
+                    "tx-id": 0,
+                    "meta-data": {
+                         "descr": "Favorite movie blob-0",
+                         "tags": "Horror, Alien"
+                     }
+                },
+                {
+                    "blob-op": "updateMetaTx",
+                    "tx-id": 1,
+                    "meta-data": {
+                         "descr": "Favorite movie blob-1",
+                         "tags": "Horror, Alien"
+                     }
+                },
+                {
+                    "blob-op": "updateMetaTx",
+                    "tx-id": 2,
+                    "meta-data": {
+                         "descr": "Favorite movie blob-2",
+                         "tags": "Horror, Alien"
+                     }
+                },
+                {
+                    "blob-op": "updateMetaTx",
+                    "tx-id": 3,
+                    "meta-data": {
+                         "descr": "Favorite movie blob-3",
+                         "tags": "Horror, Alien"
+                     }
+                },
+                {
+                    "blob-op": "updateMetaTx",
+                    "tx-id": 4,
+                    "meta-data": {
+                         "descr": "Favorite movie blob-4",
+                         "tags": "Horror, Alien"
+                     }
+                },
+                {
+                    "blob-op": "updateMetaTx",
+                    "tx-id": 5,
+                    "meta-data": {
+                         "descr": "Favorite movie blob-5",
+                         "tags": "Horror, Alien"
+                     }
+                },
+                {
+                    "blob-op": "updateMetaTx",
+                    "tx-id": 6,
+                    "meta-data": {
+                         "descr": "Favorite movie blob-6",
+                         "tags": "Horror, Alien"
+                     }
+                },
+                {
+                    "blob-op": "updateMetaTx",
+                    "tx-id": 7,
+                    "meta-data": {
+                         "descr": "Favorite movie blob-7",
+                         "tags": "Horror, Alien"
+                     }
+                },
+                {
+                    "blob-op": "updateMetaTx",
+                    "tx-id": 8,
+                    "meta-data": {
+                         "descr": "Favorite movie blob-8",
+                         "tags": "Horror, Alien"
+                     }
+                },
+                {
+                    "blob-op": "updateMetaTx",
+                    "tx-id": 9,
+                    "meta-data": {
+                         "descr": "Favorite movie blob-9",
+                         "tags": "Horror, Alien"
+                     }
+                },
+
+                {
+                    "blob-op": "commitTx",
+                    "blob-name": "blob-0",
+                    "tx-id": 0
+                },
+                {
+                    "blob-op": "abortTx",
+                    "blob-name": "blob-1",
+                    "tx-id": 1
+                },
+                {
+                    "blob-op": "commitTx",
+                    "blob-name": "blob-2",
+                    "tx-id": 2
+                },
+                {
+                    "blob-op": "commitTx",
+                    "blob-name": "blob-3",
+                    "tx-id": 3
+                },
+                {
+                    "blob-op": "commitTx",
+                    "blob-name": "blob-4",
+                    "tx-id": 4
+                },
+                {
+                    "blob-op": "commitTx",
+                    "blob-name": "blob-5",
+                    "tx-id": 5
+                },
+                {
+                    "blob-op": "commitTx",
+                    "blob-name": "blob-6",
+                    "tx-id": 6
+                },
+                {
+                    "blob-op": "commitTx",
+                    "blob-name": "blob-7",
+                    "tx-id": 7
+                },
+                {
+                    "blob-op": "commitTx",
+                    "blob-name": "blob-8",
+                    "tx-id": 8
+                },
+                {
+                    "blob-op": "commitTx",
+                    "blob-name": "blob-9",
+                    "tx-id": 9
                 }
             ]
         }

@@ -24,6 +24,23 @@ assign(FDS_ProtocolInterface::FDS_ObjectIdType& lhs, const meta_obj_id_t& rhs)
     return lhs;
 }
 
+FDS_ProtocolInterface::FDS_ObjectIdType strToObjectIdType(const std::string & rhs) {
+    fds_verify(rhs.compare(0, 2, "0x") == 0);  // Require 0x prefix
+    fds_verify(rhs.size() == (40 + 2));  // Account for 0x
+
+    FDS_ProtocolInterface::FDS_ObjectIdType objId;
+    char a, b;
+    uint j = 0;
+    // Start the offset at 2 to account of 0x
+    for (uint i = 2; i < rhs.length(); i += 2, j++) {
+        a = rhs[i];   if (a > 57) a -= 87; else a -= 48; // NOLINT
+        b = rhs[i+1]; if (b > 57) b -= 87; else b -= 48; // NOLINT
+        objId.digest += (a << 4 & 0xF0) + b;
+    }
+
+    return objId;
+}
+
 FDS_ProtocolInterface::SvcUuid&
 assign(FDS_ProtocolInterface::SvcUuid& lhs, const ResourceUUID& rhs)
 {

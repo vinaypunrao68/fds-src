@@ -62,6 +62,8 @@ assign(FDS_ProtocolInterface::FDS_ObjectIdType& lhs, const ObjectID& rhs);
 FDS_ProtocolInterface::FDS_ObjectIdType&
 assign(FDS_ProtocolInterface::FDS_ObjectIdType& lhs, const meta_obj_id_t& rhs);
 
+FDS_ProtocolInterface::FDS_ObjectIdType strToObjectIdType(const std::string & rhs);
+
 FDS_ProtocolInterface::SvcUuid&
 assign(FDS_ProtocolInterface::SvcUuid& lhs, const ResourceUUID& rhs);
 

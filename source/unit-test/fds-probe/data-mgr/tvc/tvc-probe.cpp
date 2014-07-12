@@ -69,32 +69,26 @@ TvcProbe::pr_get(ProbeRequest *req) {
 
 void
 TvcProbe::startTx(const OpParams &startParams) {
-    Error err = gl_DmTvcMod.startBlobTx(1, startParams.blobName,
-                                        startParams.txId);
+    Error err = gl_DmTvcMod.startBlobTx(1, startParams.blobName, startParams.txId);
     fds_verify(err == ERR_OK);
 }
 
 void
 TvcProbe::updateTx(const OpParams &updateParams) {
-    // TODO(Rao): Fix it
-    // Error err = gl_DmTvcMod.updateBlobTx(1, updateParams.txId,
-    //                                     updateParams.objList);
-    // fds_verify(err == ERR_OK);
+    Error err = gl_DmTvcMod.updateBlobTx(1, updateParams.txId, updateParams.objList);
+    fds_verify(err == ERR_OK);
 }
 
 void
 TvcProbe::updateMetaTx(const OpParams &updateParams) {
-    // TODO(Rao): Fix it
-    // Error err = gl_DmTvcMod.updateBlobTx(1, updateParams.txId,
-    //                                     updateParams.metaList);
-    // fds_verify(err == ERR_OK);
+    Error err = gl_DmTvcMod.updateBlobTx(1, updateParams.txId, updateParams.metaList);
+    fds_verify(err == ERR_OK);
 }
 
 void
 TvcProbe::commitTx(const OpParams &commitParams) {
-    // TODO(Rao): Fix it
-    // Error err = gl_DmTvcMod.commitBlobTx(1, commitParams.txId);
-    // fds_verify(err == ERR_OK);
+    Error err = gl_DmTvcMod.commitBlobTx(1, commitParams.blobName, commitParams.txId, 0);
+    fds_verify(err == ERR_OK);
 }
 
 void
