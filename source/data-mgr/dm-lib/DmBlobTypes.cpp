@@ -280,9 +280,9 @@ void BlobObjList::toFdspPayload(fpi::FDSP_BlobObjectList& blob_obj_list) const {
         fpi::FDSP_BlobObjectInfo obj_info;
         obj_info.offset = cit->first;
         obj_info.size = (cit->second).size;
-        obj_info.data_obj_id.digest = std::string((const char *)((cit->second).data_obj_id.GetId()),
-                                                  (size_t)(cit->second).data_obj_id.GetLen());
-        ob_info.blob_end = false;  // assume we are not using it in resp
+        obj_info.data_obj_id.digest = std::string((const char *)((cit->second).oid.GetId()),
+                                                  (size_t)(cit->second).oid.GetLen());
+        obj_info.blob_end = false;  // assume we are not using it in resp
         blob_obj_list.push_back(obj_info);
     }
 }
