@@ -1,13 +1,16 @@
 #!/usr/bin/python
+from contextlib import contextmanager
 
 import os
 import subprocess
 import sys
 import argparse
 import traceback
+import fcntl
 import psutil
 import time
 
+lock_file = "/tmp/nbdadm_lock"
 
 def get_parser():
     parser = argparse.ArgumentParser()
@@ -24,9 +27,19 @@ def get_parser():
     subparsers.add_parser("list", help='list attached volumes')
     return parser
 
+@contextmanager
+def lock():
+    if lock_file is not None:
+        lockfd = os.open(lock_file, os.O_CREAT)
+        fcntl.flock(lockfd, fcntl.LOCK_EX)
+        yield None
+        fcntl.flock(lockfd, fcntl.LOCK_UN)
+    else:
+        yield None
+
 def device_paths():
     for dev in os.listdir('/dev'):
-        if dev.startswith('nbd'):
+        if dev.startswith('nbd') and dev[3:].isdigit():
             yield "/dev/" + dev
 
 def consume_arg(args, arg, hasValue = False):
@@ -63,7 +76,7 @@ def nbd_connections():
                 consume_arg(args, 'nbd-client')
 
                 # this isn't an nbd invocation we care about
-                if len(args) < 2:
+                if len(args) < 2 or consume_arg(args, '-d') or volume_name is None:
                     continue
 
                 nbd_host = args[0]
@@ -99,7 +112,7 @@ def attach(args):
         sys.stderr.write('you must be root to attach\n')
         return 1
 
-    # add lockfile
+
     (host, port) = split_host(args.nbd_host)
 
     devs = device_paths()
@@ -136,17 +149,31 @@ def attach(args):
     sys.stderr.write('no eligible nbd devices found\n')
     return 4
 
+@staticmethod
+def safekill(process):
+    try:
+        process.kill()
+    except psutil.NoSuchProcess as e:
+        pass
+
+
 def disconnect(dev, process):
-    subprocess.call('nbd-client -d %s' % dev, shell=True)
-    for i in xrange(0, 20):
+    try:
+        dproc = psutil.Popen('nbd-client -d %s' % dev, shell=True)
+        dproc.wait(3)
+    except psutil.TimeoutExpired as e:
+        safekill(dproc)
+
+    for i in xrange(0, 100):
         if not process.is_running():
             break
-        time.sleep(0.05)
-    if process.is_running():
+
         try:
             process.kill()
         except psutil.NoSuchProcess:
             pass
+
+        time.sleep(0.05)
 
 
 def detach(args):
@@ -154,7 +181,6 @@ def detach(args):
         sys.stderr.write('you must be root to detach\n')
         return 2
 
-    # lockfile
     retval = 0
     attempted_detach = False
     for c in nbd_connections():
@@ -182,9 +208,11 @@ def main(argv = sys.argv):
         if result.command == 'list':
             return list_conn(result)
         elif result.command == 'attach':
-            return attach(result)
+            with lock():
+                return attach(result)
         elif result.command == 'detach':
-            return detach(result)
+            with lock():
+                return detach(result)
     except Exception as e:
         sys.stderr.write(e.message + '\n')
         tb = traceback.format_exec()
