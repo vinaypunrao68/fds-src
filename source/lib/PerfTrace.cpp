@@ -123,7 +123,9 @@ const char * eventTypeToStr[] = {
 
         "get_obj_cache_lkup",
         "get_obj_lkup_loc_indx",
-        "get_obj_pl_read_disk"
+        "get_obj_pl_read_disk",
+
+        "commit_log_write"
 };
 
 PerfTracer::PerfTracer() : aggregateCounters_(fds::MAX_EVENT_TYPE),

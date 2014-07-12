@@ -38,13 +38,19 @@ template Error DmCommitLog::updateTx(BlobTxId::const_ptr & txDesc,
 DmCommitLog::DmCommitLog(const std::string &modName, const std::string & filename,
         fds_uint32_t filesize /* = DEFAULT_COMMIT_LOG_FILE_SIZE */,
         PersistenceType persist /* = IN_MEMORY */) : Module(modName.c_str()), filename_(filename),
-        filesize_(filesize), persist_(persist), started_(false) {
+        filesize_(filesize), persist_(persist), started_(false),
+        logCtx(COMMIT_LOG_WRITE, filename) {
     if (IN_FILE == persist_) {
         cmtLogger_.reset(new FileCommitLogger(filename_, filesize_));
     } else if (IN_MEMORY == persist_) {
         cmtLogger_.reset(new MemoryCommitLogger());
     } else {
         // TODO(umesh): instantiate leveldb based cmtLogger_
+    }
+
+    const DmCommitLogEntry * entry = cmtLogger_->getLast();
+    if (entry) {
+        clEpoch = entry->id;
     }
 
     // populate txMap_
@@ -150,6 +156,8 @@ Error DmCommitLog::startTx(BlobTxId::const_ptr & txDesc, const std::string & blo
         }
     }
 
+    SCOPED_PERF_TRACEPOINT_CTX_DEBUG(logCtx);
+
     fds_uint64_t id = 0;
     Error rc = cmtLogger_->startTx(txDesc, blobName, id);
     if (!rc.ok()) {
@@ -185,6 +193,8 @@ Error DmCommitLog::updateTx(BlobTxId::const_ptr & txDesc, boost::shared_ptr<cons
         return rc;
     }
 
+    SCOPED_PERF_TRACEPOINT_CTX_DEBUG(logCtx);
+
     fds_uint64_t id = 0;
     rc = cmtLogger_->updateTx(txDesc, blobData, id);
     if (!rc.ok()) {
@@ -216,6 +226,8 @@ CommitLogTx::const_ptr DmCommitLog::commitTx(BlobTxId::const_ptr & txDesc, Error
         return 0;
     }
 
+    SCOPED_PERF_TRACEPOINT_CTX_DEBUG(logCtx);
+
     fds_uint64_t id = 0;
     status = cmtLogger_->commitTx(txDesc, id);
     if (!status.ok()) {
@@ -245,6 +257,8 @@ Error DmCommitLog::rollbackTx(BlobTxId::const_ptr & txDesc) {
     if (!rc.ok()) {
         return rc;
     }
+
+    SCOPED_PERF_TRACEPOINT_CTX_DEBUG(logCtx);
 
     fds_uint64_t id = 0;
     rc = cmtLogger_->rollbackTx(txDesc, id);
@@ -288,6 +302,8 @@ Error DmCommitLog::purgeTx(BlobTxId::const_ptr  & txDesc) {
             return ERR_DM_TX_ACTIVE;
         }
     }
+
+    SCOPED_PERF_TRACEPOINT_CTX_DEBUG(logCtx);
 
     fds_uint64_t id = 0;
     Error rc = cmtLogger_->purgeTx(txDesc, id);
