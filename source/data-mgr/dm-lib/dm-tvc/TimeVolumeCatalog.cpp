@@ -74,7 +74,7 @@ DmTimeVolCatalog::addVolume(const VolumeDesc& voldesc) {
     /* NOTE: Here the lock can be expensive.  We may want to provide an init() api
      * on DmCommitLog so that initialization can happen outside the lock
      */
-    commitLogs[voldesc.volUUID] = make_shared<DmCommitLog>("DM", oss.str());
+    commitLogs_[voldesc.volUUID] = boost::make_shared<DmCommitLog>("DM", oss.str());
 
     return ERR_OK;
 }

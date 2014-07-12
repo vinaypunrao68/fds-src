@@ -210,6 +210,7 @@ void DMSvcHandler::updateCatalog(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     auto dmUpdCatReq = new DmIoUpdateCat(updcatMsg->volume_id,
                                          updcatMsg->blob_name,
                                          updcatMsg->blob_version);
+    dmUpdCatReq->ioBlobTxDesc = boost::make_shared<const BlobTxId>(updcatMsg->txId);
     dmUpdCatReq->obj_list = std::move(updcatMsg->obj_list);
     dmUpdCatReq->dmio_updatecat_resp_cb =
             BIND_MSG_CALLBACK2(DMSvcHandler::updateCatalogCb, asyncHdr);
