@@ -155,6 +155,12 @@ namespace fds {
          */
         void verify(fds_uint32_t max_obj_size) const;
 
+        /**
+         * Copies obj info list to FDSP obj list message; if there is any
+         * data in blob_obj_list, it will be cleared first;
+         */
+        void toFdspPayload(fpi::FDSP_BlobObjectList& blob_obj_list) const;
+
         uint32_t write(serialize::Serializer* s) const;
         uint32_t read(serialize::Deserializer* d);
 

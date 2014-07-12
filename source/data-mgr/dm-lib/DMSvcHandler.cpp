@@ -30,7 +30,8 @@ void DMSvcHandler::commitBlobTx(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
     auto dmBlobTxReq = new DmIoCommitBlobTx(commitBlbTx->volume_id,
                                            commitBlbTx->blob_name,
-                                           commitBlbTx->blob_version);
+                                           commitBlbTx->blob_version,
+                                           commitBlbTx->blobEnd);
     dmBlobTxReq->dmio_commit_blob_tx_resp_cb =
             BIND_MSG_CALLBACK2(DMSvcHandler::commitBlobTxCb, asyncHdr);
 

@@ -107,25 +107,11 @@ Dm_ProbeMod::sendUpdate(const OpParams &updateParams)
 {
     std::cout << "Doing an update" << std::endl;
 
-    // blobObjInfo.offset = updateParams.blobOffset;
-    // blobObjInfo.blob_end = updateParams.endBuf;
-    // blobObjInfo.data_obj_id.digest = std::string(
-    //     (const char *)updateParams.objectId.GetId(),
-    //     (size_t)updateParams.objectId.GetLen());
-
-    // create blob object list
-    BlobObjList::ptr obj_list(new BlobObjList());
-    for (BlobObjList::const_iter cit = updateParams.obj_list.cbegin();
-         cit != updateParams.obj_list.cend();
-         ++cit) {
-        obj_list->updateObject(cit->first, cit->second);
-    }
-    std::cout << "Will call putBlob for "  << *obj_list;
 
     auto dmUpdCatReq = new DmIoUpdateCat(updateParams.volId,
                                          updateParams.blobName,
                                          updateParams.blobVersion);
-    // dmUpdCatReq->obj_list.push_back(blobObjInfo);
+    // dmUpdCatReq->obj_list = std::move(updateParams.obj_list);
 
     BlobNode *bnode = NULL;
     Error err = dataMgr->updateCatalogProcessSvc(dmUpdCatReq, &bnode);

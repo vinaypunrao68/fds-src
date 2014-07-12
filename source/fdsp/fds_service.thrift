@@ -318,6 +318,7 @@ struct CommitBlobTxMsg {
    2: string 			blob_name;
    3: i64 			blob_version;
    4: i64                   	txId;
+   5: bool                      blobEnd;
 }
 
 /* Commit Blob traction response message */

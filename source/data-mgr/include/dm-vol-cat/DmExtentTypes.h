@@ -194,7 +194,7 @@ namespace fds {
          * Update key-value metadata list, if entry already exists
          * in the current metadata list, it is updated with a new value
          */
-        void updateMetaData(const MetaDataList& meta_list);
+        void updateMetaData(const MetaDataList::const_ptr& meta_list);
 
         uint32_t write(serialize::Serializer* s) const;
         uint32_t read(serialize::Deserializer* d);

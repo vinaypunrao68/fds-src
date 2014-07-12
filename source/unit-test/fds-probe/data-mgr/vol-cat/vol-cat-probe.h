@@ -51,11 +51,12 @@ namespace fds {
             fds_uint32_t max_obj_size;  // only used by vol ops
             std::string    blob_name;
             fds_uint64_t   blob_size;
-            MetaDataList   meta_list;
-            BlobObjList::ptr obj_list;
+            MetaDataList::ptr   meta_list;
+            BlobObjList::ptr    obj_list;
 
             OpParams()
-                    : obj_list(new BlobObjList()){
+                    : meta_list(new MetaDataList()),
+                    obj_list(new BlobObjList()){
             }
         };
         void addCatalog(const OpParams &volParams);
@@ -105,6 +106,7 @@ class VolCatOpTemplate : public JsObjTemplate
         char *name;
         char* meta_key;
         char* meta_val;
+        p->vol_id = 0;
         if (json_unpack(in, "{s:s, s:i}",
                         "volcat-op", &op,
                         "volume-id", &p->vol_id)) {
@@ -129,7 +131,7 @@ class VolCatOpTemplate : public JsObjTemplate
         // we will ensure that blob-name specified for all blob
         // operations when we execute blob operations
 
-        (p->meta_list).clear();
+        (p->meta_list)->clear();
         json_t *meta;
         if (!json_unpack(in, "{s:o}",
                         "metadata", &meta)) {
@@ -139,7 +141,7 @@ class VolCatOpTemplate : public JsObjTemplate
                 fds_verify(k != std::string::npos);  // must separate key-value with "-"
                 std::string meta_key = meta_pair.substr(0, k);
                 std::string meta_val = meta_pair.substr(k+1);
-                (p->meta_list).updateMetaDataPair(meta_key, meta_val);
+                (p->meta_list)->updateMetaDataPair(meta_key, meta_val);
             }
         }
 

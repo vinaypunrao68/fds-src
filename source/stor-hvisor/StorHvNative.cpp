@@ -639,6 +639,7 @@ void
 FDS_NativeAPI::CommitBlobTx(const std::string& volumeName,
                            const std::string& blobName,
                            BlobTxId::ptr txDesc,
+                           bool blobEnd,
                            CallbackPtr cb) {
     fds_volid_t volId = invalid_vol_id;
     LOGDEBUG << "COMMIT blob tx for volume " << volumeName
@@ -655,6 +656,7 @@ FDS_NativeAPI::CommitBlobTx(const std::string& volumeName,
                                  volumeName,
                                  blobName,
                                  txDesc,
+                                  blobEnd,
                                  cb);
     fds_verify(blobReq != NULL);
 

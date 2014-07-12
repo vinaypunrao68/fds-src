@@ -269,6 +269,24 @@ void BlobObjList::verify(fds_uint32_t max_obj_size) const {
     }
 }
 
+//
+// fills in blob_obj_list
+//
+void BlobObjList::toFdspPayload(fpi::FDSP_BlobObjectList& blob_obj_list) const {
+    blob_obj_list.clear();
+    for (const_iter cit = cbegin();
+         cit != cend();
+         ++cit) {
+        fpi::FDSP_BlobObjectInfo obj_info;
+        obj_info.offset = cit->first;
+        obj_info.size = (cit->second).size;
+        obj_info.data_obj_id.digest = std::string((const char *)((cit->second).oid.GetId()),
+                                                  (size_t)(cit->second).oid.GetLen());
+        obj_info.blob_end = false;  // assume we are not using it in resp
+        blob_obj_list.push_back(obj_info);
+    }
+}
+
 uint32_t BlobObjList::write(serialize::Serializer* s) const {
     uint32_t bytes = 0;
     bytes += s->writeI32(end_of_blob);

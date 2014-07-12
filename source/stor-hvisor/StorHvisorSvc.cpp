@@ -46,10 +46,7 @@ StorHvCtrl::abortBlobTxSvc(AmQosReq *qosReq) {
     issueAbortBlobTxMsg(blobReq->getBlobName(),
                         volId,
                         blobReq->getTxId()->getValue(),
-                        std::bind(&StorHvCtrl::abortBlobTxMsgResp,
-                                  this, qosReq,
-                                  std::placeholders::_1,
-                                  std::placeholders::_2,std::placeholders::_3));
+                        RESPONSE_MSG_HANDLER(StorHvCtrl::abortBlobTxMsgResp, qosReq));
     return err;
 }
 
@@ -120,30 +117,23 @@ StorHvCtrl::commitBlobTxSvc(AmQosReq *qosReq) {
     fds_verify(shVol != NULL);
     fds_verify(shVol->isValidLocked() == true);
    
-    issueCommitBlobTxMsg(blobReq->getBlobName(),
-                        volId,
-                        blobReq->getTxId()->getValue(),
-                        std::bind(&StorHvCtrl::commitBlobTxMsgResp,
-                                  this, qosReq,
-                                  std::placeholders::_1,
-                                  std::placeholders::_2,std::placeholders::_3));
+    issueCommitBlobTxMsg(blobReq,
+                         RESPONSE_MSG_HANDLER(StorHvCtrl::commitBlobTxMsgResp, qosReq));
     return err;
 }
 
 
-void StorHvCtrl::issueCommitBlobTxMsg(const std::string& blobName,
-                                     const fds_volid_t& volId,
-                                     const fds_uint64_t& txId,
+void StorHvCtrl::issueCommitBlobTxMsg(CommitBlobTxReq *blobReq,
                                       QuorumRpcRespCb respCb)
 {
 
     CommitBlobTxMsgPtr stBlobTxMsg(new CommitBlobTxMsg());
-    stBlobTxMsg->blob_name   = blobName;
+    stBlobTxMsg->blob_name   = blobReq->getBlobName();
     stBlobTxMsg->blob_version = blob_version_invalid;
-    stBlobTxMsg->volume_id = volId;
+    stBlobTxMsg->volume_id = blobReq->getVolId();
 
-
-    stBlobTxMsg->txId = txId;
+    fds_volid_t volId = blobReq->getVolId();
+    stBlobTxMsg->txId = blobReq->getTxId()->getValue();
 
 #ifdef RPC_BASED_ASYNC_COMM
     auto asyncCommitBlobTxReq = gRpcRequestPool->newQuorumRpcRequest(
@@ -207,11 +197,8 @@ StorHvCtrl::startBlobTxSvc(AmQosReq *qosReq) {
     issueStartBlobTxMsg(blobReq->getBlobName(),
                         volId,
                         txId.getValue(),
-                        std::bind(&StorHvCtrl::startBlobTxMsgResp,
-                                  this, qosReq,
-                                  std::placeholders::_1,
-                                  std::placeholders::_2,std::placeholders::_3));
-    return err;
+                        RESPONSE_MSG_HANDLER(StorHvCtrl::startBlobTxMsgResp, qosReq));
+     return err;
 }
 
 
@@ -312,10 +299,7 @@ Error StorHvCtrl::putBlobSvc(fds::AmQosReq *qosReq)
                       blobReq->getDataBuf(),
                       blobReq->getDataLen(),
                       volId,
-                      std::bind(&StorHvCtrl::putBlobPutObjectMsgResp,
-                                this, qosReq,
-                                std::placeholders::_1,
-                                std::placeholders::_2,std::placeholders::_3));
+                      RESPONSE_MSG_HANDLER(StorHvCtrl::putBlobPutObjectMsgResp, qosReq));
 
     // updCatReq->txDesc.txId = putBlobReq->getTxId()->getValue();
     issueUpdateCatalogMsg(blobReq->getObjId(),
@@ -325,10 +309,7 @@ Error StorHvCtrl::putBlobSvc(fds::AmQosReq *qosReq)
                           blobReq->isLastBuf(),
                           volId,
                           blobReq->getTxId()->getValue(),
-                          std::bind(&StorHvCtrl::putBlobUpdateCatalogMsgResp,
-                                    this, qosReq,
-                                    std::placeholders::_1,
-                                    std::placeholders::_2,std::placeholders::_3));
+                          RESPONSE_MSG_HANDLER(StorHvCtrl::putBlobUpdateCatalogMsgResp, qosReq));
     // TODO(Rao): Check with andrew if this is the right place to unlock or
     // can we unlock before
     // TODO(Rao): Check if we can use scoped lock here
@@ -489,15 +470,11 @@ Error StorHvCtrl::getBlobSvc(fds::AmQosReq *qosReq)
         issueQueryCatalog(blobReq->getBlobName(),
                           blobReq->getBlobOffset(),
                           volId,
-                          std::bind(&StorHvCtrl::getBlobQueryCatalogResp, this, qosReq,
-                                    std::placeholders::_1, std::placeholders::_2,
-                                    std::placeholders::_3));
+                          RESPONSE_MSG_HANDLER(StorHvCtrl::getBlobQueryCatalogResp, qosReq));
     } else {
         fds_verify(objId != NullObjectID);
         issueGetObject(volId, objId,
-                       std::bind(&StorHvCtrl::getBlobGetObjectResp, this, qosReq,
-                                 std::placeholders::_1, std::placeholders::_2,
-                                 std::placeholders::_3));
+                       RESPONSE_MSG_HANDLER(StorHvCtrl::getBlobGetObjectResp, qosReq));
     }
     return err;
 }
@@ -604,9 +581,7 @@ void StorHvCtrl::getBlobQueryCatalogResp(fds::AmQosReq* qosReq,
     fds_verify(objId != NullObjectID);
 
     issueGetObject(blobReq->getVolId(), objId,
-                   std::bind(&StorHvCtrl::getBlobGetObjectResp, this, qosReq,
-                             std::placeholders::_1, std::placeholders::_2,
-                             std::placeholders::_3));
+                   RESPONSE_MSG_HANDLER(StorHvCtrl::getBlobGetObjectResp, qosReq));
 }
 
 void StorHvCtrl::getBlobGetObjectResp(fds::AmQosReq* qosReq,
@@ -673,11 +648,7 @@ StorHvCtrl::deleteBlobSvc(fds::AmQosReq *qosReq)
 
     // Send to the DM
     issueDeleteCatalogObject(vol_id, blob_name,
-                             std::bind(&StorHvCtrl::deleteObjectMsgResp,
-                                       this, qosReq,
-                                       std::placeholders::_1,
-                                       std::placeholders::_2,
-                                       std::placeholders::_3));
+                             RESPONSE_MSG_HANDLER(StorHvCtrl::deleteObjectMsgResp, qosReq));
     return err;
 }
 

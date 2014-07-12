@@ -236,7 +236,7 @@ class CommitBlobTxReq : public FdsBlobReq {
   public:
     std::string volumeName;
     BlobTxId::ptr txDesc;
-
+    bool blobEnd;
     /**
      * Request constructor. Some of the fields
      * are not actually needed...the base blob
@@ -246,10 +246,10 @@ class CommitBlobTxReq : public FdsBlobReq {
                    const std::string &_vol_name,
                    const std::string &_blob_name,
                    BlobTxId::ptr _txDesc,
+                    bool blobEnd,
                    CallbackPtr        _cb) :
             FdsBlobReq(FDS_COMMIT_BLOB_TX, _volid, _blob_name, 0, 0, 0, _cb),
-            volumeName(_vol_name),
-            txDesc(_txDesc) {
+            volumeName(_vol_name), txDesc(_txDesc), blobEnd(blobEnd){
     }
     ~CommitBlobTxReq() {
     }
