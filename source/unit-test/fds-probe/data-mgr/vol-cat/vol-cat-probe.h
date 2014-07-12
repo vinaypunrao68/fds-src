@@ -106,6 +106,7 @@ class VolCatOpTemplate : public JsObjTemplate
         char *name;
         char* meta_key;
         char* meta_val;
+        p->vol_id = 0;
         if (json_unpack(in, "{s:s, s:i}",
                         "volcat-op", &op,
                         "volume-id", &p->vol_id)) {

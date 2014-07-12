@@ -89,7 +89,8 @@ VolCatProbe::addCatalog(const OpParams &volParams) {
     VolumeDesc voldesc(name, volParams.vol_id);
     voldesc.maxObjSizeInBytes = volParams.max_obj_size;
 
-    std::cout << "Will add Catalog for volume " << name << std::endl;
+    std::cout << "Will add Catalog for volume " << name << std::hex
+              << ":" << volParams.vol_id << std::dec << std::endl;
     err = gl_DmVolCatMod.addCatalog(voldesc);
     fds_verify(err.ok());
 
@@ -169,8 +170,8 @@ VolCatProbe::putBlob(const OpParams &putParams) {
     if ((putParams.obj_list)->size() == 0) {
         // no offset to object id list, use putBlobMeta
         std::cout << "Will call putBlobMeta for " << std::hex
-                  << putParams.vol_id << std::dec << ","
-                  << putParams.blob_name << std::endl;
+                  << putParams.vol_id << std::dec << "," << putParams.blob_name
+                  << "; " << *putParams.meta_list << std::endl;
         err = gl_DmVolCatMod.putBlobMeta(putParams.vol_id, putParams.blob_name,
                                          putParams.meta_list, tx_id);
         fds_verify(err.ok());
@@ -179,6 +180,7 @@ VolCatProbe::putBlob(const OpParams &putParams) {
 
     std::cout << "Will call putBlob for " << std::hex << putParams.vol_id
               << std::dec << "," << putParams.blob_name << ";"
+              << *putParams.meta_list << "; "
               << *(putParams.obj_list) << std::endl;
     err = gl_DmVolCatMod.putBlob(putParams.vol_id, putParams.blob_name,
                                  putParams.meta_list, putParams.obj_list, tx_id);
