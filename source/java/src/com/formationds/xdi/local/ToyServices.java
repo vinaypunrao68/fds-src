@@ -125,7 +125,7 @@ public class ToyServices implements AmService.Iface, ConfigurationService.Iface 
     }
 
     @Override
-    public void  commitBlobTx(String domainName, String volumeName, String blobName, TxDescriptor txDesc) throws ApiException, TException {        
+    public void  commitBlobTx(String domainName, String volumeName, String blobName, TxDescriptor txDesc, boolean blobEnd) throws ApiException, TException {        
     }
 
     @Override
