@@ -82,7 +82,8 @@ Dm_ProbeMod::sendCommitTx(const OpParams &updateParams)
 
     auto dmBlobTxReq = new DmIoCommitBlobTx(updateParams.volId,
                                             updateParams.blobName,
-                                            updateParams.blobVersion);
+                                            updateParams.blobVersion,
+                                            updateParams.endBuf);
     dmBlobTxReq->ioBlobTxDesc =
          BlobTxId::ptr(new BlobTxId(updateParams.txId));
     dataMgr->scheduleCommitBlobTxSvc(dmBlobTxReq);
