@@ -106,7 +106,7 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
     /**
      * Time Volume Catalog that provides access to volume catalog
      */
-    DmTimeVolCatalog* timeVolCat;
+    DmTimeVolCatalog* timeVolCat_;
 
     class dmQosCtrl : public FDS_QoSControl {
       public:
@@ -127,12 +127,20 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
             dmCatReq *io = static_cast<dmCatReq*>(_io);
             GLOGDEBUG << "processing : " << io->io_type;
             switch (io->io_type){
+                /* TODO(Rao): Add the new refactored DM messages types here */
+                case FDS_START_BLOB_TX:
+                    threadPool->schedule(&DataMgr::startBlobTx, dataMgr, io);
+                    break;
                 case FDS_CAT_UPD:
+                    threadPool->schedule(&DataMgr::updateCatalog, dataMgr, io);
+                    break;
+                case FDS_COMMIT_BLOB_TX:
+                    threadPool->schedule(&DataMgr::commitBlobTx, dataMgr, io);
+                    break;
+                /* End of new refactored DM message types */
+
                 case FDS_DM_FWD_CAT_UPD:
                     threadPool->schedule(scheduleUpdateCatalog, io);
-                    break;
-                case FDS_CAT_UPD_SVC:
-                    threadPool->schedule(&DataMgr::updateCatalogBackendSvc, dataMgr, io);
                     break;
                 case FDS_CAT_QRY:
                     threadPool->schedule(scheduleQueryCatalog, io);
@@ -142,12 +150,6 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
                     break;
                 case FDS_STAT_BLOB:
                     threadPool->schedule(scheduleStatBlob, io);
-                    break;
-                case FDS_START_BLOB_TX:
-                    threadPool->schedule(scheduleStartBlobTx, io);
-                    break;
-                case FDS_START_BLOB_TX_SVC:
-                    threadPool->schedule(&DataMgr::scheduleStartBlobTxSvc, dataMgr, io);
                     break;
                 case FDS_DELETE_BLOB:
                     threadPool->schedule(scheduleDeleteCatObj, io);
@@ -174,9 +176,6 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
                     break;
                 case FDS_GET_VOLUME_METADATA:
                     threadPool->schedule(scheduleGetVolumeMetaData, io);
-                    break;
-                case FDS_COMMIT_BLOB_TX:
-                    threadPool->schedule(&DataMgr::scheduleCommitBlobTxSvc, dataMgr, io);
                     break;
                 case FDS_ABORT_BLOB_TX:
                     threadPool->schedule(&DataMgr::scheduleAbortBlobTxSvc, dataMgr, io);
@@ -347,6 +346,13 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
     inline RespHandlerPrx respHandleCli(const string& session_uuid) {
         return metadatapath_session->getRespClient(session_uuid);
     }
+
+    /* TODO(Rao): Add the new refactored DM messages handlers here */
+    void startBlobTx(dmCatReq *io);
+    void updateCatalog(dmCatReq *io);
+    void commitBlobTx(dmCatReq *io);
+    void commitBlobTxCb(const Error &err, DmIoCommitBlobTx *commitBlobReq);
+    /* End of new refactored DM message handlers */
 
     void updateCatalogBackend(dmCatReq  *updCatReq);
     void updateCatalogBackendSvc(void * _io);

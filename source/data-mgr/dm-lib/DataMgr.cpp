@@ -719,7 +719,7 @@ DataMgr::DataMgr(int argc, char *argv[], Platform *platform, Module **vec)
 
     LOGNORMAL << "Constructing the Data Manager";
 
-    timeVolCat = new DmTimeVolCatalog("DM Time Volume Catalog", *qosCtrl->threadPool);
+    timeVolCat_ = new DmTimeVolCatalog("DM Time Volume Catalog", *qosCtrl->threadPool);
 }
 
 DataMgr::~DataMgr()
@@ -743,7 +743,7 @@ DataMgr::~DataMgr()
     delete big_fat_lock;
     delete vol_map_mtx;
     delete qosCtrl;
-    delete timeVolCat;
+    delete timeVolCat_;
 }
 
 int DataMgr::run()
@@ -891,10 +891,10 @@ void DataMgr::proc_pre_startup()
     setup_metasync_service();
 
     // finish setting up time volume catalog
-    timeVolCat->mod_startup();
+    timeVolCat_->mod_startup();
 
     // register expunge callback
-    timeVolCat->queryIface()->registerExpungeObjectsCb(std::bind(
+    timeVolCat_->queryIface()->registerExpungeObjectsCb(std::bind(
         &DataMgr::expungeObjectsIfPrimary, this,
         std::placeholders::_1, std::placeholders::_2));
 }
@@ -956,7 +956,7 @@ void DataMgr::interrupt_cb(int signum) {
     LOGNORMAL << " Received signal "
               << signum << ". Shutting down communicator";
     catSyncMgr->mod_shutdown();
-    timeVolCat->mod_shutdown();
+    timeVolCat_->mod_shutdown();
     exit(0);
 }
 
@@ -1152,6 +1152,51 @@ DataMgr::applyBlobUpdate(fds_volid_t volUuid,
             blob_version_initial : (bnode->version + 1);
 
     return err;
+}
+
+
+void DataMgr::startBlobTx(dmCatReq *io)
+{
+    Error err;
+    DmIoStartBlobTx *startBlobReq= static_cast<DmIoStartBlobTx*>(io);
+    err = timeVolCat_->startBlobTx(startBlobReq->volId,
+                                    startBlobReq->blob_name,
+                                    startBlobReq->ioBlobTxDesc);
+    qosCtrl->markIODone(*startBlobReq);
+    startBlobReq->dmio_start_blob_tx_resp_cb(err, startBlobReq);
+}
+
+void DataMgr::updateCatalog(dmCatReq *io)
+{
+    Error err;
+    DmIoUpdateCat *updCatReq= static_cast<DmIoUpdateCat*>(io);
+    err = timeVolCat_->updateBlobTx(updCatReq->volId,
+                                    updCatReq->ioBlobTxDesc,
+                                    updCatReq->obj_list);
+    qosCtrl->markIODone(*updCatReq);
+    updCatReq->dmio_updatecat_resp_cb(err, updCatReq);
+}
+
+void DataMgr::commitBlobTx(dmCatReq *io)
+{
+    Error err;
+    DmIoCommitBlobTx *commitBlobReq = static_cast<DmIoCommitBlobTx*>(io);
+    err = timeVolCat_->commitBlobTx(commitBlobReq->volId,
+                                    commitBlobReq->blob_name,
+                                    commitBlobReq->ioBlobTxDesc,
+                                    // TODO(Rao): We should use a static commit callback
+                                    std::bind(&DataMgr::commitBlobTxCb, this,
+                                              std::placeholders::_1, commitBlobReq));
+    if (err != ERR_OK) {
+        qosCtrl->markIODone(*commitBlobReq);
+        commitBlobReq->dmio_commit_blob_tx_resp_cb(err, commitBlobReq);
+    }
+}
+
+void DataMgr::commitBlobTxCb(const Error &err, DmIoCommitBlobTx *commitBlobReq)
+{
+    qosCtrl->markIODone(*commitBlobReq);
+    commitBlobReq->dmio_commit_blob_tx_resp_cb(err, commitBlobReq);
 }
 
 /**

@@ -63,7 +63,19 @@ Error
 DmTimeVolCatalog::addVolume(const VolumeDesc& voldesc) {
     LOGDEBUG << "Will prepare commit log for new volume "
              << std::hex << voldesc.volUUID << std::dec;
-    // TODO(Rao): Fix it
+
+    fds_scoped_spinlock l(commitLogLock_);
+    if (commitLogs_.find(voldesc.volUUID) != commitLogs_.end()) {
+        return ERR_VOL_DUPLICATE;
+    }
+
+    std::ostringstream oss;
+    oss << "Volume_" << voldesc.volUUID;
+    /* NOTE: Here the lock can be expensive.  We may want to provide an init() api
+     * on DmCommitLog so that initialization can happen outside the lock
+     */
+    commitLogs_[voldesc.volUUID] = boost::make_shared<DmCommitLog>("DM", oss.str());
+
     return ERR_OK;
 }
 

@@ -296,7 +296,7 @@ class DmIoStartBlobTx: public dmCatReq {
     DmIoStartBlobTx(const fds_volid_t  &_volId,
                     const std::string &_blobName,
                     const blob_version_t &_blob_version)
-            : dmCatReq(_volId, _blobName, _blob_version, FDS_START_BLOB_TX_SVC) {
+            : dmCatReq(_volId, _blobName, _blob_version, FDS_START_BLOB_TX) {
     }
 
     virtual std::string log_string() const override {
@@ -345,7 +345,7 @@ class DmIoUpdateCat: public dmCatReq {
     DmIoUpdateCat(const fds_volid_t  &_volId,
                   const std::string &_blobName,
                   const blob_version_t &_blob_version)
-            : dmCatReq(_volId, _blobName, _blob_version, FDS_CAT_UPD_SVC) {
+            : dmCatReq(_volId, _blobName, _blob_version, FDS_CAT_UPD) {
     }
 
     virtual std::string log_string() const override {
@@ -355,6 +355,7 @@ class DmIoUpdateCat: public dmCatReq {
         return ret.str();
     }
 
+    BlobTxId::const_ptr ioBlobTxDesc;
     FDSP_BlobObjectList obj_list;
     /* response callback */
     CbType dmio_updatecat_resp_cb;
