@@ -76,15 +76,16 @@ DmTimeVolCatalog::addVolume(const VolumeDesc& voldesc) {
      */
     commitLogs_[voldesc.volUUID] = boost::make_shared<DmCommitLog>("DM", oss.str());
 
-    return ERR_OK;
+    return volcat->addCatalog(voldesc);
 }
 
 Error
 DmTimeVolCatalog::activateVolume(fds_volid_t volId) {
     LOGDEBUG << "Will activate commit log for volume "
              << std::hex << volId << std::dec;
-    // TODO(Rao): Fix it
-    return ERR_OK;
+    // TODO(Anna): revisit if we need to do anything with commit log
+    // when integrating meta sync (multi-dm)
+    return volcat->activateCatalog(volId);
 }
 
 Error
@@ -130,22 +131,35 @@ DmTimeVolCatalog::commitBlobTx(fds_volid_t volId,
                                const std::string &blobName,
                                BlobTxId::const_ptr txDesc,
                                const DmTimeVolCatalog::CommitCb &cb) {
-    LOGDEBUG << "Committing transaction " << *txDesc << " for volume "
+    LOGDEBUG << "Will commit transaction " << *txDesc << " for volume "
              << std::hex << volId << std::dec;
     DmCommitLog::ptr commitLog;
     COMMITLOG_GET(volId, commitLog);
     opSynchronizer_.schedule(blobName,
                              std::bind(&DmTimeVolCatalog::commitBlobTxWork,
-                                       this, commitLog, txDesc, cb));
+                                       this, volId, commitLog, txDesc, cb));
     return ERR_OK;
 }
 
 void
-DmTimeVolCatalog::commitBlobTxWork(DmCommitLog::ptr &commitLog,
-                               BlobTxId::const_ptr txDesc,
-                               const DmTimeVolCatalog::CommitCb &cb) {
+DmTimeVolCatalog::commitBlobTxWork(fds_volid_t volid,
+                                   DmCommitLog::ptr &commitLog,
+                                   BlobTxId::const_ptr txDesc,
+                                   const DmTimeVolCatalog::CommitCb &cb) {
     Error e;
-    (void) commitLog->commitTx(txDesc, e);
+    LOGDEBUG << "Committing transaction " << *txDesc << " for volume "
+             << std::hex << volid << std::dec;
+    CommitLogTx::const_ptr commit_data = commitLog->commitTx(txDesc, e);
+    if (e.ok()) {
+        if (commit_data->blobObjList &&
+            (commit_data->blobObjList->size() > 0)) {
+            e = volcat->putBlobMeta(volid, commit_data->blobName,
+                                    commit_data->metaDataList, txDesc);
+        } else {
+            e = volcat->putBlob(volid, commit_data->blobName, commit_data->metaDataList,
+                                commit_data->blobObjList, txDesc);
+        }
+    }
     cb(e);
 }
 

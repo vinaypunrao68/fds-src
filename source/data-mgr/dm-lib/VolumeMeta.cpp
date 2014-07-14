@@ -332,10 +332,14 @@ VolumeMeta::VolumeMeta(const std::string& _name,
     dmCopyVolumeDesc(vol_desc, desc);
 
     root->fds_mkdir(root->dir_user_repo_dm().c_str());
+    // dm-trans integration -- we are creating volume catalogs in Volume Catalog
+    // persistent layer, not here
+    /*
     if (crt_catalogs) {
         vcat = new VolumeCatalog(root->dir_user_repo_dm() + _name + "_vcat.ldb", crt_catalogs);
         tcat = new TimeCatalog(root->dir_user_repo_dm() + _name + "_tcat.ldb", crt_catalogs);
     }
+    */
 }
 
 VolumeMeta::VolumeMeta(const std::string& _name,

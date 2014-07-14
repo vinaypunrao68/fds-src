@@ -145,6 +145,7 @@ Error PersistVolumeMeta::init() {
     const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
     const std::string cat_name = root->dir_user_repo_dm() + vol_name + "_vcat.ldb";
     fds_verify(catalog == NULL);
+    root->fds_mkdir(root->dir_user_repo_dm().c_str());
     catalog = new(std::nothrow) Catalog(cat_name);
     if (!catalog) {
         LOGERROR << "Failed to create catalog for volume "

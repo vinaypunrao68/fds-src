@@ -230,6 +230,19 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
                                VolumeDesc *vdesc,
                                fds_bool_t vol_will_sync) {
     Error err(ERR_OK);
+
+    // create vol catalogs, etc first
+    err = timeVolCat_->addVolume(*vdesc);
+    if (err.ok() && !vol_will_sync) {
+        // not going to sync this volume, activate volume
+        // so that we can do get/put/del cat ops to this volume
+        err = timeVolCat_->activateVolume(vol_uuid);
+    }
+    if (!err.ok()) {
+        LOGERROR << "Failed to add volume " << std::hex << vol_uuid << std::dec;
+        return err;
+    }
+
     VolumeMeta *volmeta = new(std::nothrow) VolumeMeta(vol_name,
                                                        vol_uuid,
                                                        GetLog(),

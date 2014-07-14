@@ -151,7 +151,8 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
     Error abortBlobTx(fds_volid_t volId,
                       BlobTxId::const_ptr txDesc);
 
-    void commitBlobTxWork(DmCommitLog::ptr &commitLog,
+    void commitBlobTxWork(fds_volid_t volid,
+                          DmCommitLog::ptr &commitLog,
                           BlobTxId::const_ptr txDesc,
                           const DmTimeVolCatalog::CommitCb &cb);
 
