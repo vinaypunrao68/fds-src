@@ -158,11 +158,13 @@ def safekill(process):
 
 
 def disconnect(dev, process):
+    dproc = None
     try:
-        dproc = psutil.Popen('nbd-client -d %s' % dev, shell=True)
+        dproc = psutil.Popen('nbd-client -d %s' % dev, shell=True, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
         dproc.wait(3)
     except psutil.TimeoutExpired as e:
-        safekill(dproc)
+        if dproc is not None:
+            safekill(dproc)
 
     for i in xrange(0, 100):
         if not process.is_running():
