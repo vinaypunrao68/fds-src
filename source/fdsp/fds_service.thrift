@@ -194,6 +194,7 @@ service PlatNetSvc extends BaseAsyncSvc {
 
     ServiceStatus getStatus(1: i32 nullarg);
     map<string, i64> getCounters(1: string id);
+    void resetCounters(1: string id);
     void setConfigVal(1:string id, 2:i64 value);
     void setFlag(1:string id, 2:i64 value);
     i64 getFlag(1:string id);

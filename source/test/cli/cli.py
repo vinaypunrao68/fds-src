@@ -3,6 +3,7 @@ import os
 import logging
 sys.path.append('../../test')
 sys.path.append('../fdslib/pyfdsp')
+sys.path.append('../fdslib')
 
 from argh import *
 import cmd
@@ -12,7 +13,7 @@ from tabulate import tabulate
 import time
 from multiprocessing import Process
 
-from fdslib.SvcHandle import *
+from SvcHandle import *
 import struct
 import socket
 from FDS_ProtocolInterface.ttypes import *
@@ -39,6 +40,13 @@ def counters(nodeid, svc):
     cntrs = svc_map.client(nodeid, svc).getCounters('*')
     return tabulate([(k,v) for k,v in cntrs.iteritems()],
                     headers=['counter', 'value'])
+
+@arg('nodeid', type=long)
+def reset_counters(nodeid, svc):
+    cntrs = svc_map.client(nodeid, svc).resetCounters('*')
+    print "Reset all counters"
+    #return tabulate([(k,v) for k,v in cntrs.iteritems()],
+    #                headers=['counter', 'value'])
 
 @arg('nodeid', type=long)
 def setflag(nodeid, svc, id, val):
@@ -80,7 +88,7 @@ class MyShell(cmd.Cmd):
     """
     def __init__(self):
         self.parser = argh.ArghParser()
-        self.parser.add_commands([add_node, counters, setflag, printflag])
+        self.parser.add_commands([add_node, counters, reset_counters, setflag, printflag])
         """
 
     def onecmd(self, line):
@@ -109,6 +117,7 @@ def main(ip='127.0.0.1', port=7020, command_line=None):
     parser.add_commands([refresh,
                          add_node,
                          counters,
+                         reset_counters,
                          svclist,
                          setflag,
                          printflag,

@@ -135,6 +135,16 @@ void FdsCountersMgr::toMap(std::map<std::string, int64_t>& m)
 }
 
 /**
+ * reset counters
+ */
+void FdsCountersMgr::reset()
+{
+    fds_mutex::scoped_lock lock(lock_);
+    for (auto counters : exp_counters_)
+        counters->reset();
+}
+
+/**
  * Constructor
  * @param id
  * @param mgr
@@ -201,6 +211,17 @@ void FdsCounters::toMap(std::map<std::string, int64_t>& m) const  // NOLINT
             m[strId] = static_cast<int64_t>(
                     dynamic_cast<LatencyCounter*>(c)->count());
         }
+    }
+}
+
+/**
+ * Reset counters
+ */
+void FdsCounters::reset()  // NOLINT
+{
+    for (auto c : exp_counters_) {
+	std::cout << "counter: " << c->id() << std::endl;    
+	c->reset();
     }
 }
 
@@ -281,6 +302,14 @@ uint64_t NumericCounter::value() const
 {
     return val_.load();
 }
+
+/**
+ * reset counter
+ */
+void NumericCounter::reset()
+{
+    val_ = 0;
+}
 /**
  *
  */
@@ -327,6 +356,18 @@ uint64_t LatencyCounter::value() const
     }
     return total_latency() / cnt;
 }
+
+/**
+ * reset counter
+ */
+void LatencyCounter::reset()
+{
+    total_latency_ = 0;
+    cnt_ = 0;
+    min_latency_ = std::numeric_limits<uint64_t>::max();
+    max_latency_ = 0;
+}
+
 /**
  *
  * @param val
