@@ -454,7 +454,7 @@ Error StorHvCtrl::getBlobSvc(fds::AmQosReq *qosReq)
         LOGCRITICAL << "getBlob failed to get volume for vol "
                     << volId;    
         qos_ctrl->markIODone(qosReq);
-        blobReq->cbWithResult(ERR_INVALID);
+        blobReq->cb->call(ERR_INVALID);
         delete blobReq;
         err = ERR_DISK_WRITE_FAILED;
         return err;
@@ -557,7 +557,7 @@ void StorHvCtrl::getBlobQueryCatalogResp(fds::AmQosReq* qosReq,
         LOGERROR << "blob name: " << blobReq->getBlobName() << "offset: "
             << blobReq->getBlobOffset() << " Error: " << error; 
         qos_ctrl->markIODone(qosReq);
-        blobReq->cbWithResult(ERR_INVALID);
+        blobReq->cb->call(ERR_INVALID);
         delete blobReq;
         return;
     }
@@ -570,7 +570,7 @@ void StorHvCtrl::getBlobQueryCatalogResp(fds::AmQosReq* qosReq,
         LOGERROR << "blob name: " << blobReq->getBlobName() << "offset: "
             << blobReq->getBlobOffset() << " Error: " << e; 
         qos_ctrl->markIODone(qosReq);
-        blobReq->cbWithResult(e.GetErrno());
+        blobReq->cb->call(e.GetErrno());
         delete blobReq;
         return;
     }
@@ -597,7 +597,7 @@ void StorHvCtrl::getBlobGetObjectResp(fds::AmQosReq* qosReq,
         LOGERROR << "blob name: " << blobReq->getBlobName() << "offset: "
             << blobReq->getBlobOffset() << " Error: " << error; 
         qos_ctrl->markIODone(qosReq);
-        blobReq->cbWithResult(ERR_INVALID);
+        blobReq->cb->call(ERR_INVALID);
         delete blobReq;
         return;
     }
@@ -622,7 +622,7 @@ void StorHvCtrl::getBlobGetObjectResp(fds::AmQosReq* qosReq,
     }
     blobReq->setDataLen(getObjRsp->data_obj_len);    
     blobReq->setDataBuf(getObjRsp->data_obj.c_str());
-    blobReq->cbWithResult(ERR_OK);
+    blobReq->cb->call(ERR_OK);
     delete blobReq;
 }
 
@@ -695,7 +695,9 @@ void StorHvCtrl::deleteObjectMsgResp(fds::AmQosReq* qosReq,
     } else {
         //LOGDEBUG << rpcReq->logString() << fds::logString(*delCatRsp);
     }
-    blobReq->cbWithResult(ERR_OK);
+    
+    qos_ctrl->markIODone(qosReq);
+    blobReq->cb->call(error.GetErrno());
     delete blobReq;
 }
 
@@ -707,6 +709,7 @@ StorHvCtrl::setBlobMetaDataSvc(fds::AmQosReq* qosReq)
     Error err(ERR_OK);
     SetBlobMetaDataReq *blobReq = static_cast<SetBlobMetaDataReq *>(qosReq->getBlobReqPtr());
     fds_verify(blobReq != NULL);
+    fds_verify(blobReq->cb);
     fds_verify(blobReq->magicInUse() == true);
 
     fds_volid_t   vol_id = blobReq->getVolId();
@@ -741,8 +744,9 @@ StorHvCtrl::issueSetBlobMetaData(const fds_volid_t& vol_id,
     setMDMsg->metaDataList.clear();
 
     fds_verify(md_list != nullptr);
+    fds_verify(respCb != nullptr);
     
-    // Manually copy the MD entries over to the new list
+    // Manually copy the MD entri[es over to the new list
     // TODO(brian): Find a more elegant way to do this
     for (auto kv : *md_list) {
         setMDMsg->metaDataList.push_back(kv);
@@ -782,6 +786,7 @@ StorHvCtrl::setBlobMetaDataMsgResp(fds::AmQosReq* qosReq,
     } else {
         //LOGDEBUG << rpcReq->logString() << fds::logString(*delCatRsp);
     }
-    blobReq->cbWithResult(error.GetErrno());
+    qos_ctrl->markIODone(qosReq);
+    blobReq->cb->call(error.GetErrno());
     delete blobReq;
 }
