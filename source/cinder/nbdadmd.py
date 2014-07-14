@@ -15,7 +15,7 @@ class NbdRequestHandler(BaseHTTPRequestHandler):
         return os.path.join(os.path.dirname(sys.argv[0]), "nbdadm.py")
 
     def run(self, cmd):
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
         (stdout, stderr) = proc.communicate()
         return (proc.returncode, stdout, stderr)
 
