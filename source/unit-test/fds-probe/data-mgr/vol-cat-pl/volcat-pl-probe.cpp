@@ -135,10 +135,12 @@ VolCatPlProbe::putExtent(const OpParams &putParams) {
         }
 
         std::cout << "Will call putExtent for " << *bext << std::endl;
+        /*
         err = gl_DmVolCatPlMod.putExtent(putParams.vol_id,
                                          putParams.blob_name,
                                          putParams.extent_id,
                                          bext);
+        */
         fds_verify(err.ok());
     } else {
         BlobExtent0::ptr bext(new BlobExtent0(putParams.blob_name,
@@ -209,10 +211,12 @@ VolCatPlProbe::updateExtent(const OpParams &putParams) {
         }
 
         std::cout << "Extent after update--  " << *bext << std::endl;
+        /*
         err = gl_DmVolCatPlMod.putExtent(putParams.vol_id,
                                          putParams.blob_name,
                                          putParams.extent_id,
                                          bext);
+        */
         fds_verify(err.ok());
     } else {
         BlobExtent0::ptr bext =

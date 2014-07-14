@@ -51,6 +51,7 @@ namespace fds {
             fds_uint32_t max_obj_size;  // only used by vol ops
             std::string    blob_name;
             fds_uint64_t   blob_size;
+            fds_bool_t     end_of_blob;
             MetaDataList::ptr   meta_list;
             BlobObjList::ptr    obj_list;
 
@@ -114,7 +115,8 @@ class VolCatOpTemplate : public JsObjTemplate
         }
         p->op = op;
         p->blob_name = "";
-        p->max_obj_size = 4096;  // hardcoded for now
+        p->max_obj_size = 4096;
+        p->end_of_blob = false;
 
         if (!json_unpack(in, "{s:i}",
                          "max-obj-size", &p->max_obj_size)) {
@@ -124,10 +126,17 @@ class VolCatOpTemplate : public JsObjTemplate
             return js_parse(new VolCatObjectOp(), in, p);
         }
 
+        // blob name
         if (!json_unpack(in, "{ s:s}",
                          "blob-name", &name)) {
             p->blob_name = name;
         }
+
+        // end of blob
+        if (!json_unpack(in, "{s:i}",
+                         "blob-end", &p->end_of_blob)) {
+        }
+
         // we will ensure that blob-name specified for all blob
         // operations when we execute blob operations
 
@@ -167,6 +176,9 @@ class VolCatOpTemplate : public JsObjTemplate
                 oid = oid_hexstr;
                 (p->obj_list)->updateObject(offset, oid, size);
                 p->blob_size += size;
+            }
+            if (p->end_of_blob > 0) {
+                (p->obj_list)->setEndOfBlob();
             }
         }
 

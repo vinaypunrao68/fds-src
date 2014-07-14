@@ -52,18 +52,22 @@ namespace fds {
                                   fpi::FDSP_MetaDataList* meta_list) = 0;
 
         /**
-         * Retrieves blob meta for the given blob_name and volume 'volume_id'
+         * Retrieves all info about the blob with given blob_name and volume 'volume_id'
          * @param[in] volume_id volume uuid
          * @param[in] blob_name name of the blob
          * @param[in,out] blob_version version of the blob to retrieve, if not
          * set, the most recent version is retrieved. When the method returns,
          * blob_version is set to actual version that is retrieved
+         * @param[out] blob_size size of blob in bytes
+         * @param[out] meta_list list of metadata key-value pairs
          * @param[out] obj_list list of offset to object id mappings
          */
-        virtual Error getAllBlobObjects(fds_volid_t volume_id,
-                                        const std::string& blob_name,
-                                        blob_version_t* blob_version,
-                                        fpi::FDSP_BlobObjectList* obj_list) = 0;
+        Error getBlob(fds_volid_t volume_id,
+                      const std::string& blob_name,
+                      blob_version_t* blob_version,
+                      fds_uint64_t* blob_size,
+                      fpi::FDSP_MetaDataList* meta_list,
+                      fpi::FDSP_BlobObjectList* obj_list);
 
         /**
          * Returns the list of all blobs in the volume with basic blob info

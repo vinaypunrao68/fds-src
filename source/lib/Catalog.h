@@ -12,6 +12,7 @@
 #include <fds_error.h>
 #include <leveldb/db.h>
 #include <leveldb/env.h>
+#include "leveldb/write_batch.h"
 
 namespace fds {
 
@@ -20,6 +21,7 @@ namespace fds {
  * own class in the future.
  */
 typedef leveldb::Slice Record;
+typedef leveldb::WriteBatch CatWriteBatch;
 
 /**
  * Generic catalog super class.
@@ -70,6 +72,7 @@ class Catalog {
     catalog_iterator_t *NewIterator() { return db->NewIterator(read_options); }
 
     fds::Error Update(const Record& key, const Record& val);
+    fds::Error Update(CatWriteBatch* batch);
     fds::Error Query(const Record& key, std::string* val);
     fds::Error Delete(const Record& key);
     bool DbEmpty();

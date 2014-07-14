@@ -5,6 +5,7 @@
 #define SOURCE_DATA_MGR_INCLUDE_DM_VOL_CAT_DMPERSISTVC_H_
 
 #include <string>
+#include <vector>
 #include <util/Log.h>
 #include <fds_error.h>
 #include <fds_module.h>
@@ -70,13 +71,17 @@ namespace fds {
                             const BlobExtent0::const_ptr& meta_extent);
 
         /**
-         * Update or add extent to the persistent volume catalog
-         * for given volume_id,blob_name
+         * Updates extent 0 and a set of non-0 extents in the persistent
+         * volume catalog for given volume id, blob name.
+         * This update is atomic -- either all updates are applied or none.
+         * If extent 0 or any other extens do not exist, they are added to the DB
+         * If any non-zero extent contains no offset to object info mappings, this
+         * extent is deleted from the DB.
          */
-        Error putExtent(fds_volid_t volume_id,
-                        const std::string& blob_name,
-                        fds_extent_id extent_id,
-                        const BlobExtent::const_ptr& extent);
+        Error putExtents(fds_volid_t volume_id,
+                         const std::string& blob_name,
+                         const BlobExtent0::const_ptr& meta_extent,
+                         const std::vector<BlobExtent::const_ptr>& extents);
 
 
         /**
@@ -127,14 +132,6 @@ namespace fds {
          * returns shared pointer to volume meta for 'volume_id'
          */
         PersistVolumeMetaPtr getVolumeMeta(fds_volid_t volume_id);
-
-        /**
-         * Updates volume catalog with serialized extent data
-         */
-        Error putExtent(fds_volid_t volume_id,
-                        const std::string& blob_name,
-                        fds_extent_id extent_id,
-                        const std::string& extent_data);
 
   private:
         std::unordered_map<fds_volid_t, PersistVolumeMetaPtr> vol_map;

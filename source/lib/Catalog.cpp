@@ -59,6 +59,18 @@ Catalog::Update(const Record& key, const Record& val) {
     return err;
 }
 
+Error
+Catalog::Update(CatWriteBatch* batch) {
+    Error err(ERR_OK);
+
+    leveldb::Status status = db->Write(write_options, batch);
+    if (!status.ok()) {
+        err = Error(ERR_DISK_WRITE_FAILED);
+    }
+
+    return err;
+}
+
 /** Queries the catalog
  * @param[in]  key   the key to write to
  * @param[out] value the data found

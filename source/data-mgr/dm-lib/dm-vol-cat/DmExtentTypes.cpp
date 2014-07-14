@@ -99,8 +99,47 @@ fds_uint32_t BlobExtent::truncate(fds_uint64_t after_offset,
             num_objs_truncated++;
         }
     }
-    blob_obj_list.erase(rm_it, blob_obj_list.end());
+    if (found) {
+        blob_obj_list.erase(rm_it, blob_obj_list.end());
+    }
     return num_objs_truncated;
+}
+
+//
+// clears the list, and returns all obj ids that were deleted
+// null obj ids are not included in ret_rm_list
+//
+void BlobExtent::deleteAllObjects(std::vector<ObjectID>* ret_rm_list) {
+    fds_verify(ret_rm_list);
+    std::map<fds_uint32_t, ObjectID>::iterator it;
+    for (it = blob_obj_list.begin();
+         it != blob_obj_list.end();
+         ++it) {
+        if (it->second != NullObjectID) {
+            (*ret_rm_list).push_back(it->second);
+        }
+    }
+    blob_obj_list.clear();
+}
+
+void BlobExtent::addToFdspPayload(fpi::FDSP_BlobObjectList& olist,
+                                  fds_uint64_t last_blob_off,
+                                  fds_uint64_t last_obj_size) const {
+    std::map<fds_uint32_t, ObjectID>::const_iterator cit;
+    for (cit = blob_obj_list.cbegin();
+         cit != blob_obj_list.cend();
+         ++cit) {
+        fpi::FDSP_BlobObjectInfo obj_info;
+        obj_info.offset = cit->first * offset_unit_bytes;
+        obj_info.size = offset_unit_bytes;
+        if (cit->first == last_blob_off) {
+            obj_info.size = last_obj_size;
+        }
+        obj_info.data_obj_id.digest = std::string((const char *)((cit->second).GetId()),
+                                                  (size_t)(cit->second).GetLen());
+        obj_info.blob_end = false;  // assume we are not using it in resp
+        olist.push_back(obj_info);
+    }
 }
 
 //
@@ -162,9 +201,21 @@ BlobExtent0::BlobExtent0(const std::string& blob_name,
 : BlobExtent(fds_extentid_meta, max_obj_size, first_off, num_offsets) {
     blob_meta.blob_name = blob_name;
     blob_meta.vol_id = volume_id;
+    last_blob_offset = 0;  // should not be used if blob size = 0
 }
 
 BlobExtent0::~BlobExtent0() {
+}
+
+//
+// delete meta
+//
+void BlobExtent0::markDeleted() {
+    blob_meta.version = blob_version_deleted;
+    blob_meta.blob_size = 0;
+    last_blob_offset = 0;
+    blob_meta.meta_list.clear();
+    blob_obj_list.clear();
 }
 
 void BlobExtent0::updateMetaData(const MetaDataList::const_ptr& meta_list) {
@@ -179,6 +230,7 @@ uint32_t BlobExtent0::write(serialize::Serializer* s) const {
     uint32_t bytes = 0;
     // first write meta part
     bytes += blob_meta.write(s);
+    bytes += s->writeI64(last_blob_offset);
     // then offsets -> obj info entries
     bytes += BlobExtent::write(s);
     return bytes;
@@ -188,6 +240,7 @@ uint32_t BlobExtent0::read(serialize::Deserializer* d) {
     uint32_t bytes = 0;
     // first read meta part
     bytes += blob_meta.read(d);
+    bytes += d->readI64(last_blob_offset);
     // then read offset -> obj info entries
     bytes += BlobExtent::read(d);
     return bytes;
@@ -202,6 +255,7 @@ std::ostream& operator<<(std::ostream& out, const BlobExtent0& extent0) {
         fds_uint64_t offset = cit->first * extent0.offset_unit_bytes;
         out << "[offset " << offset << " -> " << cit->second << "]\n";
     }
+    out << " Last blob offset " << extent0.last_blob_offset << "\n";
     return out;
 }
 

@@ -122,8 +122,8 @@ namespace fds {
         }
 
         /**
-         * Returns last offset of the blob if endOfBlob() is true, otherwise
-         * returns max uint64 value
+         * Returns last offset in the blob object list;
+         * If object list empty, returns max uint64
          */
         fds_uint64_t lastOffset() const;
 

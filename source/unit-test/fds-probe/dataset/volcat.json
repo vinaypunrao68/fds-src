@@ -11,6 +11,7 @@
 		    "volcat-op": "put",
 		    "volume-id": 2,
                     "blob-name": "blob-a",
+                    "blob-end": 1,
 		    "metadata": [
                     	       "dddd-time", "aaa-val"
                     ],
@@ -23,27 +24,49 @@
 		    "volcat-op": "put",
 		    "volume-id": 2,
                     "blob-name": "blob-a",
+                    "blob-end": 1,
                     "objects": [
                                "8192-0x1234beefc94fcfb415dbe95f408b9ce9deadbbbb-4096",
-                               "12288-0x1234beefc94fcfb415dbe95f408b9ce9deadcccc-4096"
+                               "12288-0x1234beefc94fcfb415dbe95f408b9ce9deadcccc-4096",
+                               "16384-0x1234beefc94fcfb415dbe95f408b9ce9deadcccc-4096"
                     ]
                 },
 		{
 		    "volcat-op": "put",
 		    "volume-id": 2,
                     "blob-name": "blob-a",
+                    "blob-end": 1,
                     "objects": [
-                               "8192-0x1234beefc94fcfb415dbe95f408b9ce9deaddddd-4096",
-                               "12288-0x1234beefc94fcfb415dbe95f408b9ce9deadeeee-4096"
+                               "8192-0x1234beefc94fcfb415dbe95f408b9ce9deaddddd-4096"
                     ]
+                },
+		{
+		    "volcat-op": "getMeta",
+		    "volume-id": 2,
+                    "blob-name": "blob-a",
+                    "blob-end": 1
+                },
+		{
+		    "volcat-op": "get",
+		    "volume-id": 2,
+                    "blob-name": "blob-a",
+                    "blob-end": 1
+                },
+		{
+		    "volcat-op": "delete",
+		    "volume-id": 2,
+                    "blob-name": "blob-a",
+                    "blob-end": 1
                 },
 		{
 		    "volcat-op": "put",
 		    "volume-id": 2,
                     "blob-name": "blob-b",
+                    "blob-end": 1,
                     "objects": [
                                "0-0x1234beefc94fcfb415dbe95f408b9ce9deadbeef-4096",
-                               "4096-0x1234beefc94fcfb415dbe95f408b9ce9deadaaaa-4096"
+                               "4096-0x1234beefc94fcfb415dbe95f408b9ce9deadaaaa-4096",
+                               "8192-0x1234beefc94fcfb415dbe95f408b9ce9deadaaaf-4096"
                     ]
                 }
             ]

@@ -152,36 +152,6 @@ DmVolumeCatalog::putBlobMeta(fds_volid_t volume_id,
 }
 
 //
-// Persist extent 'extent' if this is extent with non-zero extent id
-// and returns extent that contains offset next_offset
-//
-BlobExtent::ptr
-DmVolumeCatalog::persistIfNonMetaAndGetNext(fds_volid_t volid,
-                                            const std::string& blob_name,
-                                            const BlobExtent::const_ptr& extent,
-                                            fds_uint64_t next_offset,
-                                            fds_extent_id& extent_id,
-                                            Error& error) {
-    if (extent_id > 0) {
-        error = persistCat->putExtent(volid, blob_name, extent_id, extent);
-        // TODO(xxx) if we fail writing extent, we may already
-        // have written other extents of this blob
-        // need to deal with partial extent updates
-        fds_verify(error.ok());
-    }
-    // move to next extent
-    extent_id = persistCat->getExtentId(volid, next_offset);
-    BlobExtent::ptr next_extent = persistCat->getExtent(volid, blob_name, extent_id, error);
-
-    if (!error.ok() && (error != ERR_CAT_ENTRY_NOT_FOUND)) {
-        LOGERROR << "Failed to retrieve all extents for " << blob_name
-                 << " in volume " << std::hex << volid << std::dec << " err " << error;
-    }
-    return next_extent;
-}
-
-
-//
 // Updates committed blob in the Volume Catalog.
 // Updates blob metadata and a given list of offset to object id mappings
 // (not necessarily the whole blob).
@@ -194,6 +164,7 @@ DmVolumeCatalog::putBlob(fds_volid_t volume_id,
                          const BlobTxId::const_ptr& tx_id)
 {
     Error err(ERR_OK);
+    std::vector<BlobExtent::const_ptr> extent_list;
     std::vector<ObjectID> expunge_list;
     LOGTRACE << "Will commit blob " << blob_name << ";" << *meta_list
              << ";" << *blob_obj_list;
@@ -234,14 +205,17 @@ DmVolumeCatalog::putBlob(fds_volid_t volume_id,
         // if offset not in this extent, get extent containing this offset
         if (!extent->offsetInRange(cit->first)) {
             // we are done with previous extent, if this is not extent0
-            // write extent to persistent storage (for now)
-            extent = persistIfNonMetaAndGetNext(volume_id, blob_name,
-                                                extent, cit->first,
-                                                extent_id, err);
-
+            // add to extent list. We will persist all extents that we
+            // updates as one atomic operation at the end
+            if (extent_id > 0) {
+                extent_list.push_back(extent);
+            }
+            extent_id = persistCat->getExtentId(volume_id, cit->first);
+            extent = persistCat->getExtent(volume_id, blob_name, extent_id, err);
             if (!err.ok() && (err != ERR_CAT_ENTRY_NOT_FOUND)) {
-                // TODO(xxx) but we may have already wrote some extents!!!
-                return err;
+                LOGERROR << "Failed to retrieve all extents for " << blob_name
+                         << " in vol " << std::hex << volume_id << std::dec << " " << err;
+                return err;  // we did not make any changes to the DB
             }
         }
 
@@ -282,59 +256,68 @@ DmVolumeCatalog::putBlob(fds_volid_t volume_id,
         fds_verify(err.ok());  // we already checked range
     }
 
+    // update last offset of the blob and truncate blob if needed
+    if ((extent0->blobSize() == 0) ||
+        (new_last_offset > extent0->lastBlobOffset())) {
+        // increasing blob size, set last offset
+        LOGDEBUG << "Updating last blob offset for blob " << blob_name
+                 << " to" << new_last_offset;
+        extent0->setLastBlobOffset(new_last_offset);
+    } else if ((blob_obj_list->endOfBlob()) &&
+               (new_last_offset < extent0->lastBlobOffset())) {
+        // truncating the blob!!!
+        fds_uint32_t num_objs_rm = 0;
+        fds_uint64_t trunc_size = 0;
+        fds_uint64_t last_trunc_offset = new_last_offset;
+        fds_bool_t done = false;
+
+        while (!done) {
+            num_objs_rm = extent->truncate(last_trunc_offset, &expunge_list);
+            if (extent0->lastBlobOffset() > extent->lastOffsetInRange()) {
+                // more objects to expunge
+                trunc_size = num_objs_rm * extent0->maxObjSizeBytes();
+            } else {
+                // that was last extent
+                fds_verify(num_objs_rm > 0);
+                trunc_size = last_obj_size + (num_objs_rm - 1) * extent0->maxObjSizeBytes();
+                done = true;
+            }
+            fds_verify(blob_size >= trunc_size);
+            blob_size -= trunc_size;
+            if (!done) {
+                last_trunc_offset = extent->lastOffsetInRange();
+                if (extent_id > 0) {
+                    extent_list.push_back(extent);
+                }
+                extent_id = persistCat->getExtentId(volume_id,
+                                                    last_trunc_offset + extent0->maxObjSizeBytes());
+                extent = persistCat->getExtent(volume_id, blob_name, extent_id, err);
+                // even if we have gaps between extents and getExtent returns empty extent
+                // this will result in delete op for this extent, which is ok
+                if (!err.ok() && (err != ERR_CAT_ENTRY_NOT_FOUND)) {
+                    LOGERROR << "Failed to retrieve all extents for " << blob_name
+                             << " in vol " << std::hex << volume_id << std::dec << " " << err;
+                    return err;  // we did not make any changes to the DB yet
+                }
+            }
+        }
+        extent0->setLastBlobOffset(new_last_offset);
+    }
+
     // actually update blob size and version
     extent0->setBlobSize(blob_size);
     extent0->incrementBlobVersion();
 
-    // update last offset of the blob and trancate blob if needed
-    if (blob_obj_list->endOfBlob()) {
-        // we are changing the last offset of the blob, unless
-        // these last offsets are the same
-        if (new_last_offset < extent0->lastBlobOffset()) {
-            // truncating the blob!!!
-            fds_uint32_t num_objs_rm = 0;
-            fds_uint64_t trunc_size = 0;
-            fds_uint64_t last_trunc_offset = new_last_offset;
-            fds_bool_t done = false;
-
-            while (!done) {
-                num_objs_rm = extent->truncate(last_trunc_offset, &expunge_list);
-                if (extent0->lastBlobOffset() < extent->lastOffsetInRange()) {
-                    // more objects to expunge
-                    trunc_size = num_objs_rm * extent0->maxObjSizeBytes();
-                } else {
-                    // that was last extent
-                    fds_verify(num_objs_rm > 0);
-                    trunc_size = last_obj_size + (num_objs_rm - 1) * extent0->maxObjSizeBytes();
-                    done = true;
-                }
-                fds_verify(blob_size >= trunc_size);
-                blob_size -= trunc_size;
-                if (!done) {
-                    last_trunc_offset = extent->lastOffsetInRange();
-                    extent = persistIfNonMetaAndGetNext(
-                        volume_id, blob_name, extent,
-                        last_trunc_offset + extent0->maxObjSizeBytes(),
-                        extent_id, err);
-                    // TODO(xxx) we may have gaps between extents ???
-                    fds_verify(err == ERR_CAT_ENTRY_NOT_FOUND);
-                    fds_verify(!err.ok());  // partial write, implement with crash recovery
-                }
-            }
-            extent0->setLastBlobOffset(new_last_offset);
-        } else if (new_last_offset > extent0->lastBlobOffset()) {
-            // just update extent0 with new last offset
-            extent0->setLastBlobOffset(new_last_offset);
-        }
-    }
-
     if (extent_id > 0) {
-        err = persistCat->putExtent(volume_id, blob_name,
-                                    extent_id, extent);
-        fds_verify(err.ok());  // TODO(xxx) partial write!
+        extent_list.push_back(extent);
     }
-    err = persistCat->putMetaExtent(volume_id, blob_name, extent0);
-    fds_verify(err.ok() || (extent_id == 0));  // TODO(xxx) partial write!
+    err = persistCat->putExtents(volume_id, blob_name, extent0, extent_list);
+    if (!err.ok()) {
+        LOGERROR << "Failed to write update to persistent volume catalog for "
+                 << std::hex << volume_id << std::dec << "," << blob_name
+                 << " " << err;
+        return err;
+    }
 
     // actually expunge objects that were dereferenced by the blob
     // TODO(xxx) later that should become part of GC and done in background
@@ -356,35 +339,6 @@ DmVolumeCatalog::flushBlob(fds_volid_t volume_id,
 }
 
 //
-// Returns blob metadata descriptor for the given blob 'blob_name'
-// and volume 'volume_id'
-//
-BlobMetaDesc::const_ptr
-DmVolumeCatalog::getBlobMeta(fds_volid_t volume_id,
-                             const std::string& blob_name,
-                             Error& result)
-{
-    LOGDEBUG << "Will retrieve blob meta for blob " << blob_name
-             << " volid " << std::hex << volume_id << std::dec;
-    return NULL;
-}
-
-//
-// Returns list of offset to object id mapping for the given
-// blob 'blob_name' in the given volume and for the given list of offsets
-//
-BlobObjList::const_ptr
-DmVolumeCatalog::getBlobObjects(fds_volid_t volume_id,
-                                const std::string& blob_name,
-                                const std::set<fds_uint64_t>& offset_list,
-                                Error& result)
-{
-    LOGTRACE << "Will retrieve blob objects for blob " << blob_name
-             << " volid " << std::hex << volume_id << std::dec;
-    return NULL;
-}
-
-//
 // Returns list of blobs in the volume 'volume_id'
 //
 Error DmVolumeCatalog::listBlobs(fds_volid_t volume_id,
@@ -394,6 +348,9 @@ Error DmVolumeCatalog::listBlobs(fds_volid_t volume_id,
     return err;
 }
 
+//
+// Retrieves metadata part of the blob
+//
 Error DmVolumeCatalog::getBlobMeta(fds_volid_t volume_id,
                                    const std::string& blob_name,
                                    blob_version_t* blob_version,
@@ -401,15 +358,81 @@ Error DmVolumeCatalog::getBlobMeta(fds_volid_t volume_id,
                                    fpi::FDSP_MetaDataList* meta_list)
 {
     Error err(ERR_OK);
+    LOGDEBUG << "Will retrieve blob meta for blob " << blob_name
+             << " volid " << std::hex << volume_id << std::dec;
+
+    // blob meta is in extent 0
+    BlobExtent0::ptr extent0 = persistCat->getMetaExtent(volume_id,
+                                                         blob_name,
+                                                         err);
+
+    if (err.ok()) {
+        // we got blob meta, fill in version, size, and meta list
+        *blob_version = extent0->blobVersion();
+        *blob_size = extent0->blobSize();
+        extent0->toMetaFdspPayload(*meta_list);
+    }
+
     return err;
 }
 
-Error DmVolumeCatalog::getAllBlobObjects(fds_volid_t volume_id,
-                                         const std::string& blob_name,
-                                         blob_version_t* blob_version,
-                                         fpi::FDSP_BlobObjectList* obj_list)
+//
+// Retrieves info for the whole blob (all extents)
+//
+Error DmVolumeCatalog::getBlob(fds_volid_t volume_id,
+                               const std::string& blob_name,
+                               blob_version_t* blob_version,
+                               fds_uint64_t* blob_size,
+                               fpi::FDSP_MetaDataList* meta_list,
+                               fpi::FDSP_BlobObjectList* obj_list)
 {
     Error err(ERR_OK);
+    LOGDEBUG << "Will retrieve blob " << blob_name << " volid "
+             << std::hex << volume_id << std::dec;
+
+    // get extent 0
+    BlobExtent0::ptr extent0 = persistCat->getMetaExtent(volume_id,
+                                                         blob_name,
+                                                         err);
+    if (!err.ok()) {
+        LOGNOTIFY << "Failed to retrieve blob " << blob_name
+                  << " volid " << std::hex << volume_id << std::dec
+                  << " err " << err;
+        return err;
+    }
+
+    // we got blob meta, fill in version, size, and meta list
+    *blob_version = extent0->blobVersion();
+    *blob_size = extent0->blobSize();
+    extent0->toMetaFdspPayload(*meta_list);
+
+    // find out number of extents we need to read to get the whole
+    // blob, and read all the extents to get all objects
+    BlobExtent::ptr extent = extent0;
+    fds_extent_id last_extent = 0;
+    if (extent0->blobSize() > 0) {
+        last_extent = persistCat->getExtentId(volume_id,
+                                              extent0->lastBlobOffset());
+    }
+    fds_uint64_t last_obj_sz = extent0->lastObjSize();
+    extent->addToFdspPayload(*obj_list,
+                             extent0->lastBlobOffset(), last_obj_sz);
+    for (fds_extent_id ext_id = 1; ext_id <= last_extent; ++ext_id) {
+        // get next extent
+        extent = persistCat->getExtent(volume_id, blob_name, ext_id, err);
+        // note that even if extent not in db, we get empty extent and
+        // addToFdspPayload method will not add any objs to the list
+        if (!err.ok() && (err != ERR_CAT_ENTRY_NOT_FOUND)) {
+            LOGERROR << "Failed to retrieve all extents to retrieve blob "
+                     << blob_name << " volid " << std::hex << volume_id
+                     << std::dec << " err " << err;
+            return err;
+        }
+        // note that even if extent not in db, we get empty extent and
+        // addToFdspPayload method will not add any objs to the list
+        extent->addToFdspPayload(*obj_list, extent0->lastBlobOffset(), last_obj_sz);
+    }
+
     return err;
 }
 
@@ -422,6 +445,81 @@ Error DmVolumeCatalog::deleteBlob(fds_volid_t volume_id,
                                   blob_version_t blob_version)
 {
     Error err(ERR_OK);
+    std::vector<ObjectID> expunge_list;
+    LOGDEBUG << "Will delete blob " << blob_name << " volid " << std::hex
+             << volume_id << std::dec << " ver " << blob_version;
+
+    // get extent 0
+    BlobExtent0::ptr extent0 = persistCat->getMetaExtent(volume_id,
+                                                         blob_name,
+                                                         err);
+    if (err == ERR_CAT_ENTRY_NOT_FOUND) {
+        LOGWARN << "No blob found with name " << blob_name << " for vol "
+                << std::hex << volume_id << std::dec << ", so nothing to delete";
+        err = ERR_BLOB_NOT_FOUND;
+        return err;
+    } else if (!err.ok()) {
+        LOGERROR << "Failed to retrieve extent0 for blob " << blob_name;
+        return err;
+    }
+
+    LOGDEBUG << "Located existing blob " << blob_name << " vol " << std::hex
+             << volume_id << std::dec << " with version " << extent0->blobVersion()
+             << " size " << extent0->blobSize();
+    fds_verify(extent0->blobVersion() != blob_version_invalid);
+
+    // If the current version is a delete marker, it's
+    // already deleted so return not found.
+    if (extent0->blobVersion() == blob_version_deleted) {
+        err = ERR_BLOB_NOT_FOUND;
+        return err;
+    }
+
+    // get the last extent of this blob
+    fds_extent_id last_extent = 0;
+    if (extent0->blobSize() > 0) {
+        last_extent = persistCat->getExtentId(volume_id,
+                                              extent0->lastBlobOffset());
+    }
+    // update/delete extent 0 first
+    if (extent0->blobSize() > 0) {
+        extent0->deleteAllObjects(&expunge_list);  // get objs to expunge
+    }
+    if (blob_version == extent0->blobVersion()) {
+        // delete extent 0
+        err = persistCat->deleteExtent(volume_id, blob_name, 0);
+    } else if (blob_version == blob_version_invalid) {
+        // clear meta list, set blob size to 0 and set version deleted
+        // and write back to persist catalog -- a delete marker
+        extent0->markDeleted();
+        LOGDEBUG << "Writing extent 0 delete marker for blob " << blob_name;
+        err = persistCat->putMetaExtent(volume_id, blob_name, extent0);
+    }
+    if (!err.ok()) {
+        // if we failed to delete/update extent 0, we can still return error
+        // -- extent is not changed in persistent vol cat
+        LOGERROR << "Failed to delete blob " << blob_name << " vol cat stil "
+                 << "has blob unchanged";
+        return err;
+    }
+
+    // delete all remaining extents from persistent vol cat
+    for (fds_extent_id ext_id = 1; ext_id <= last_extent; ++ext_id) {
+        // we read extents so we know which objects to expunge
+        // TODO(xxx) we can probably do that in background later, but
+        // make sure that if blob written again, we don't have extents
+        // from the prev version still in persistent vol cat !
+        BlobExtent::ptr extent =
+                persistCat->getExtent(volume_id, blob_name, ext_id, err);
+        if (err.ok()) {
+            extent->deleteAllObjects(&expunge_list);
+            err = persistCat->deleteExtent(volume_id, blob_name, ext_id);
+        }
+        fds_verify(err.ok() || (err == ERR_CAT_ENTRY_NOT_FOUND));
+    }
+
+    fds_verify(expunge_cb);
+    err = expunge_cb(volume_id, expunge_list);
     return err;
 }
 

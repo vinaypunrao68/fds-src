@@ -225,13 +225,11 @@ BlobObjList& BlobObjList::merge(const BlobObjList& newer_blist){
 }
 
 //
-// Returns last offset in the obj list if end_of_blob is set
-// and there is at least on object in the list;
-// otherwise returns max uint64 value
+// Returns last offset in the obj list
 //
 fds_uint64_t BlobObjList::lastOffset() const {
     std::map<fds_uint64_t, BlobObjInfo>::const_reverse_iterator crit;
-    if (!end_of_blob || size() == 0)
+    if (size() == 0)
         return std::numeric_limits<fds_uint64_t>::max();
 
     crit = crbegin();

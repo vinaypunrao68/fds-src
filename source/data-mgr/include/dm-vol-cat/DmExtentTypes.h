@@ -60,6 +60,9 @@ namespace fds {
             fds_uint64_t last_off = last_offset;
             return off_unit * last_off;
         }
+        inline fds_bool_t containsNoObjects() const {
+            return (blob_obj_list.size() == 0);
+        }
 
         /**
          * Returns true if offset is in range for this extent
@@ -95,6 +98,21 @@ namespace fds {
          */
         fds_uint32_t truncate(fds_uint64_t after_offset,
                               std::vector<ObjectID>* ret_rm_list);
+
+        /**
+         * Removes all objects from this extents; non-null objects that are
+         * remoces are returned in the rm_list
+         * @param[in,out] ret_rm_list list of non-null objects that were removed,
+         * the list gets updated, not cleared first
+         */
+        void deleteAllObjects(std::vector<ObjectID>* ret_rm_list);
+
+        /**
+         * Appends offset to object mappings from this extent to blob_obj_list
+         */
+        void addToFdspPayload(fpi::FDSP_BlobObjectList& olist,
+                              fds_uint64_t last_blob_off,
+                              fds_uint64_t last_obj_size) const;
 
         virtual uint32_t write(serialize::Serializer* s) const;
         virtual uint32_t read(serialize::Deserializer* d);
@@ -191,10 +209,22 @@ namespace fds {
         }
 
         /**
+         * Mark object as deleted
+         */
+        void markDeleted();
+
+        /**
          * Update key-value metadata list, if entry already exists
          * in the current metadata list, it is updated with a new value
          */
         void updateMetaData(const MetaDataList::const_ptr& meta_list);
+
+        /**
+         * fills in fdsp metadata list from metadata list in extent0
+         */
+        inline void toMetaFdspPayload(fpi::FDSP_MetaDataList& mlist) const {
+            blob_meta.meta_list.toFdspPayload(mlist);
+        }
 
         uint32_t write(serialize::Serializer* s) const;
         uint32_t read(serialize::Deserializer* d);

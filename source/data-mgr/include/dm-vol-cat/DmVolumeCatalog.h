@@ -94,18 +94,21 @@ namespace fds {
 
 
         /**
-         * Retrieves blob meta for the given blob_name and volume 'volume_id'
+         * Retrieves all info about the blob with given blob_name and volume 'volume_id'
          * @param[in] volume_id volume uuid
          * @param[in] blob_name name of the blob
          * @param[in,out] blob_version version of the blob to retrieve, if not
          * set, the most recent version is retrieved. When the method returns,
          * blob_version is set to actual version that is retrieved
+         * @param[out] meta_list list of metadata key-value pairs
          * @param[out] obj_list list of offset to object id mappings
          */
-        Error getAllBlobObjects(fds_volid_t volume_id,
-                                const std::string& blob_name,
-                                blob_version_t* blob_version,
-                                fpi::FDSP_BlobObjectList* obj_list);
+        Error getBlob(fds_volid_t volume_id,
+                      const std::string& blob_name,
+                      blob_version_t* blob_version,
+                      fds_uint64_t* blob_size,
+                      fpi::FDSP_MetaDataList* meta_list,
+                      fpi::FDSP_BlobObjectList* obj_list);
 
         /**
          * Returns the list of blobs in the volume with basic blob info
@@ -148,17 +151,6 @@ namespace fds {
                         const std::string& blob_name);
 
         /**
-         * TODO(Anna) is this a good data stuct to return?
-         */
-        BlobMetaDesc::const_ptr getBlobMeta(fds_volid_t volume_id,
-                                            const std::string& blob_name,
-                                            Error& result);
-        BlobObjList::const_ptr getBlobObjects(fds_volid_t volume_id,
-                                              const std::string& blob_name,
-                                              const std::set<fds_uint64_t>& offset_list,
-                                              Error& result);
-
-        /**
          * Deletes each blob in the volume and marks volume as deleted.
          */
         Error removeVolumeMeta(fds_volid_t volume_id);
@@ -171,21 +163,6 @@ namespace fds {
                          const std::string& blob_name,
                          blob_version_t blob_version);
 
-  private:  // methods
-        /**
-         * Persist extent 'extent' if this is not a extent 0 and return extent
-         * that contains offset 'next_offset'
-         * @param[in,out] extent_id id of the extent 'extent' that we need to persist
-         * and it is updated to the id of the extent containing offset 'next_offset'
-         * @param[out] error ERR_OK on success, ERR_CAT_ENTRY_NOT_FOUND if extent
-         * containing offset 'next_offset' does not exist or other error
-         */
-        BlobExtent::ptr persistIfNonMetaAndGetNext(fds_volid_t volid,
-                                                   const std::string& blob_name,
-                                                   const BlobExtent::const_ptr& extent,
-                                                   fds_uint64_t next_offset,
-                                                   fds_extent_id& extent_id,
-                                                   Error& error);
   private:
         /**
          * Volume Catalog Persistent Layer module

@@ -121,17 +121,31 @@ VolCatProbe::listBlobs(const OpParams& volParams) {
 void
 VolCatProbe::getBlobMeta(const OpParams &getParams) {
     Error err(ERR_OK);
-    BlobMetaDesc::const_ptr bmeta_desc =
-            gl_DmVolCatMod.getBlobMeta(getParams.vol_id,
-                                       getParams.blob_name,
-                                       err);
+    fpi::FDSP_MetaDataList meta_list;
+    blob_version_t blob_version = blob_version_invalid;
+    fds_uint64_t blob_size = 0;
+
+    err = gl_DmVolCatMod.getBlobMeta(getParams.vol_id,
+                                     getParams.blob_name,
+                                     &blob_version,
+                                     &blob_size,
+                                     &meta_list);
     fds_verify(err.ok());
-    std::cout << *bmeta_desc;
+    MetaDataList mlist(meta_list);  // for easy printing
+    std::cout << "Retrieved blob for volid " << std::hex
+              << getParams.vol_id << std::dec << " blob name "
+              << getParams.blob_name << " version " << blob_version
+              << " blob size " << blob_size << " " << mlist << std::endl;
 }
 
 void
 VolCatProbe::getBlob(const OpParams& getParams) {
     Error err(ERR_OK);
+    fpi::FDSP_MetaDataList meta_list;
+    fpi::FDSP_BlobObjectList obj_list;
+    blob_version_t blob_version = blob_version_invalid;
+    fds_uint64_t blob_size = 0;
+
     std::set<fds_uint64_t> offsets;
     for (BlobObjList::const_iter cit = (getParams.obj_list)->cbegin();
          cit != (getParams.obj_list)->cend();
@@ -139,25 +153,21 @@ VolCatProbe::getBlob(const OpParams& getParams) {
         offsets.insert(cit->first);
     }
 
-    std::cout << "Will call getBlobMeta..." << std::endl;
-    BlobMetaDesc::const_ptr bmeta_desc =
-            gl_DmVolCatMod.getBlobMeta(getParams.vol_id,
-                                       getParams.blob_name,
-                                       err);
-    fds_verify(err.ok());
-    std::cout << *bmeta_desc;
+    std::cout << "Will call getBlob for " << getParams.blob_name << std::endl;
+    err = gl_DmVolCatMod.getBlob(getParams.vol_id,
+                                 getParams.blob_name,
+                                 &blob_version,
+                                 &blob_size,
+                                 &meta_list, &obj_list);
 
-    // if getParams includes offsets, also get offset to oids
-    if (offsets.size() > 0) {
-        std::cout << "Will call getBlobObjects..." << std::endl;
-        BlobObjList::const_ptr obj_list =
-                gl_DmVolCatMod.getBlobObjects(getParams.vol_id,
-                                              getParams.blob_name,
-                                              offsets,
-                                              err);
-        fds_verify(err.ok());
-        std::cout << *obj_list;
-    }
+    fds_verify(err.ok());
+    MetaDataList mlist(meta_list);  // for easy printing
+    BlobObjList olist(obj_list);
+    std::cout << "Retrieved blob for volid " << std::hex
+              << getParams.vol_id << std::dec << " blob name "
+              << getParams.blob_name << " version " << blob_version
+              << " blob size " << blob_size << " " << mlist << " "
+              << olist << std::endl;
 }
 
 void
@@ -193,6 +203,17 @@ VolCatProbe::flushBlob(const OpParams &flushParams) {
 
 void
 VolCatProbe::deleteBlob(const OpParams &delParams) {
+    Error err(ERR_OK);
+    // must have blob name!
+    fds_verify(delParams.blob_name.size() > 0);
+
+    std::cout << "Will call deleteBlob for " << std::hex << delParams.vol_id
+              << std::dec << "," << delParams.blob_name << std::endl;
+
+    err = gl_DmVolCatMod.deleteBlob(delParams.vol_id, delParams.blob_name,
+                                    blob_version_invalid);
+    std::cout << "Delete blob result " << err << std::endl;
+    fds_verify(err.ok() || err == ERR_BLOB_NOT_FOUND);
 }
 
 // pr_get
