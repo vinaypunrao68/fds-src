@@ -55,7 +55,7 @@ public class BlockExclusionWrapper implements NbdServerOperations {
         }
         Set<CompletableFuture<Void>> pendingOps = outstandingOperations.keySet();
         if(!pendingOps.isEmpty()) {
-            CompletableFuture<Void>[] pendingOpsArray = pendingOps.toArray(new CompletableFuture[pendingOps.size()]);
+            CompletableFuture[] pendingOpsArray = pendingOps.toArray(new CompletableFuture[pendingOps.size()]);
             return CompletableFuture.allOf(pendingOpsArray);
         } else {
             return CompletableFuture.completedFuture(null);
