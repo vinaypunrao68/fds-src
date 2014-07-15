@@ -43,6 +43,8 @@ namespace FDS_ProtocolInterface {
     class AbortBlobTxMsg;
     class GetBlobMetaDataMsg;
     class SetBlobMetaDataMsg;
+    class SetBlobMetaDataRspMsg;
+    class DeleteCatalogObjectRspMsg;
 }  // namespace FDS_ProtocolInterface
 
 namespace fpi = FDS_ProtocolInterface;
@@ -73,10 +75,12 @@ std::string logString(const FDS_ProtocolInterface::UpdateCatalogMsg& updCat);
 std::string logString(const FDS_ProtocolInterface::UpdateCatalogRspMsg& updCat);
 std::string logString(const FDS_ProtocolInterface::StartBlobTxMsg& stBlobTx);
 std::string logString(const FDS_ProtocolInterface::DeleteCatalogObjectMsg& delObjCat);
+std::string logString(const FDS_ProtocolInterface::DeleteCatalogObjectRspMsg& delObjRsp);
 std::string logString(const FDS_ProtocolInterface::CommitBlobTxMsg& commitBlobTx);
 std::string logString(const FDS_ProtocolInterface::AbortBlobTxMsg& abortBlobTx);
 std::string logString(const FDS_ProtocolInterface::GetBlobMetaDataMsg& message);
 std::string logString(const FDS_ProtocolInterface::SetBlobMetaDataMsg& message);
+std::string logString(const FDS_ProtocolInterface::SetBlobMetaDataRspMsg& msg);
 /**
 * @brief For serializing FDSP messages
 *
