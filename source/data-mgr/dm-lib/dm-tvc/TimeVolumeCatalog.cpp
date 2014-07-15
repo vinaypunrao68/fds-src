@@ -133,30 +133,39 @@ DmTimeVolCatalog::updateBlobTx(fds_volid_t volId,
 Error
 DmTimeVolCatalog::commitBlobTx(fds_volid_t volId,
                                const std::string &blobName,
+                               fds_bool_t blobEnd,
                                BlobTxId::const_ptr txDesc,
                                const DmTimeVolCatalog::CommitCb &cb) {
     LOGDEBUG << "Will commit transaction " << *txDesc << " for volume "
-             << std::hex << volId << std::dec;
+             << std::hex << volId << std::dec << " blob " << blobName
+             << " end of blob? " << blobEnd;
     DmCommitLog::ptr commitLog;
     COMMITLOG_GET(volId, commitLog);
     opSynchronizer_.schedule(blobName,
                              std::bind(&DmTimeVolCatalog::commitBlobTxWork,
-                                       this, volId, commitLog, txDesc, cb));
+                                       this, volId, blobEnd, commitLog, txDesc, cb));
     return ERR_OK;
 }
 
 void
 DmTimeVolCatalog::commitBlobTxWork(fds_volid_t volid,
+                                   fds_bool_t blobEnd,
                                    DmCommitLog::ptr &commitLog,
                                    BlobTxId::const_ptr txDesc,
                                    const DmTimeVolCatalog::CommitCb &cb) {
     Error e;
     LOGDEBUG << "Committing transaction " << *txDesc << " for volume "
              << std::hex << volid << std::dec;
+    // TODO(Umesh) we probably need to pass end of blob to commit log,
+    // so that is it also part of the log
     CommitLogTx::const_ptr commit_data = commitLog->commitTx(txDesc, e);
     if (e.ok()) {
         if (commit_data->blobObjList &&
             (commit_data->blobObjList->size() > 0)) {
+            // TEMP -- setting end of blob directly here
+            if (blobEnd) {
+                commit_data->blobObjList->setEndOfBlob();
+            }
             e = volcat->putBlob(volid, commit_data->blobName, commit_data->metaDataList,
                                 commit_data->blobObjList, txDesc);
         } else {
