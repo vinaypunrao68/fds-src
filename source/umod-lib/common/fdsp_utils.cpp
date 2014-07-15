@@ -143,9 +143,4 @@ std::string logString(const FDS_ProtocolInterface::GetBlobMetaDataMsg& message)
     return "GetBlobMetaDataMsg";
 }
 
-std::string logString(const FDS_ProtocolInterface::SetBlobMetaDataMsg& message)
-{
-    return "SetBlobMetaDataMsg";
-}
-
 }  // namespace fds
