@@ -693,7 +693,7 @@ void StorHvCtrl::deleteObjectMsgResp(fds::AmQosReq* qosReq,
         LOGERROR << " blob name: " << blobReq->getBlobName()
             << " offset: " << blobReq->getBlobOffset() << " Error: " << error; 
     } else {
-        //LOGDEBUG << rpcReq->logString() << fds::logString(*delCatRsp);
+        LOGDEBUG << rpcReq->logString() << fds::logString(*delCatRsp);
     }
     
     qos_ctrl->markIODone(qosReq);
@@ -788,7 +788,7 @@ StorHvCtrl::setBlobMetaDataMsgResp(fds::AmQosReq* qosReq,
     if (error != ERR_OK) {
         LOGERROR << "Set metadata blob name: " << blobReq->getBlobName() << " Error: " << error; 
     } else {
-        //LOGDEBUG << rpcReq->logString() << fds::logString(*delCatRsp);
+        LOGDEBUG << rpcReq->logString() << fds::logString(*setMDRsp);
     }
     qos_ctrl->markIODone(qosReq);
     blobReq->cb->call(error.GetErrno());
