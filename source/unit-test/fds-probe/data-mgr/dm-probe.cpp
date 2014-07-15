@@ -108,7 +108,6 @@ Dm_ProbeMod::sendUpdate(const OpParams &updateParams)
 {
     std::cout << "Doing an update" << std::endl;
 
-
     auto dmUpdCatReq = new DmIoUpdateCat(updateParams.volId,
                                          updateParams.blobName,
                                          updateParams.blobVersion);
@@ -133,6 +132,7 @@ Dm_ProbeMod::sendQuery(const OpParams &queryParams)
 {
     std::cout << "Doing a query" << std::endl;
 
+    /*
     auto dmQryReq = new DmIoQueryCat(queryParams.volId,
                                      queryParams.blobName,
                                      queryParams.blobVersion);
@@ -155,6 +155,7 @@ Dm_ProbeMod::sendQuery(const OpParams &queryParams)
         delete bnode;
     }
     delete dmQryReq;
+    */
 }
 
 // pr_delete

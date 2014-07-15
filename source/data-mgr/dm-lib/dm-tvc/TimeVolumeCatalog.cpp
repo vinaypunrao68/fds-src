@@ -25,15 +25,17 @@ DmTimeVolCatalog::DmTimeVolCatalog(const std::string &name, fds_threadpool &tp)
         : Module(name.c_str()),
         opSynchronizer_(tp)
 {
-    volcat = new DmVolumeCatalog("DM Volume Catalog");
-    static Module* om_mods[] = {
-        volcat,
+    volcat = DmVolumeCatalog::ptr(new DmVolumeCatalog("DM Volume Catalog"));
+    // TODO(Andrew): The module vector should be able to take smart pointers.
+    // To get around this for now, we're extracting the raw pointer and
+    // expecting that any reference to are done once this returns...
+    static Module* tvcMods[] = {
+        static_cast<Module *>(volcat.get()),
         NULL
     };
 }
 
 DmTimeVolCatalog::~DmTimeVolCatalog() {
-    delete volcat;
 }
 
 /**

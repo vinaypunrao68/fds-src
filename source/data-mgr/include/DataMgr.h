@@ -104,9 +104,10 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
     FdsTimerTaskPtr closedmt_timer_task;
 
     /**
-     * Time Volume Catalog that provides access to volume catalog
+     * Time Volume Catalog that provides update and query access
+     * to volume catalog
      */
-    DmTimeVolCatalog* timeVolCat_;
+    DmTimeVolCatalog::ptr timeVolCat_;
 
     class dmQosCtrl : public FDS_QoSControl {
       public:
@@ -137,6 +138,9 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
                 case FDS_COMMIT_BLOB_TX:
                     threadPool->schedule(&DataMgr::commitBlobTx, dataMgr, io);
                     break;
+                case FDS_CAT_QRY_SVC:
+                    threadPool->schedule(&DataMgr::queryCatalogBackendSvc, dataMgr, io);
+                    break;
                 /* End of new refactored DM message types */
 
                 case FDS_DM_FWD_CAT_UPD:
@@ -144,9 +148,6 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
                     break;
                 case FDS_CAT_QRY:
                     threadPool->schedule(scheduleQueryCatalog, io);
-                    break;
-                case FDS_CAT_QRY_SVC:
-                    threadPool->schedule(&DataMgr::queryCatalogBackendSvc, dataMgr, io);
                     break;
                 case FDS_STAT_BLOB:
                     threadPool->schedule(scheduleStatBlob, io);
@@ -228,11 +229,6 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
      * Used to protect access to vol_meta_map.
      */
     fds_mutex *vol_map_mtx;
-
-    /**
-     * Manages pending 2-phase commit updates
-     */
-    DmCommitLog::ptr commitLog;
 
     /**
      * Giant, slow, big hammer lock.

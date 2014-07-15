@@ -730,9 +730,11 @@ DataMgr::DataMgr(int argc, char *argv[], Platform *platform, Module **vec)
     qosCtrl = new dmQosCtrl(this, 20, FDS_QoSControl::FDS_DISPATCH_WFQ, GetLog());
     qosCtrl->runScheduler();
 
-    LOGNORMAL << "Constructing the Data Manager";
+    timeVolCat_ = DmTimeVolCatalog::ptr(new
+                                        DmTimeVolCatalog("DM Time Volume Catalog",
+                                                         *qosCtrl->threadPool));
 
-    timeVolCat_ = new DmTimeVolCatalog("DM Time Volume Catalog", *qosCtrl->threadPool);
+    LOGNORMAL << "Constructed the Data Manager";
 }
 
 DataMgr::~DataMgr()
@@ -756,7 +758,6 @@ DataMgr::~DataMgr()
     delete big_fat_lock;
     delete vol_map_mtx;
     delete qosCtrl;
-    delete timeVolCat_;
 }
 
 int DataMgr::run()
@@ -832,10 +833,6 @@ void DataMgr::proc_pre_startup()
     LOGNORMAL << "Data Manager using IP:"
               << myIp << " and node name " << node_name;
 
-    // Init the commit log. TODO(Andrew): We should be loading
-    // from the previous commit log on disk.
-    commitLog = DmCommitLog::ptr(new DmCommitLog("DM Trans Commit Log", "/fds/var/commit.log"));
-
     setup_metadatapath_server(myIp);
 
     // Create a queue for system (background) tasks
@@ -907,6 +904,8 @@ void DataMgr::proc_pre_startup()
     timeVolCat_->mod_startup();
 
     // register expunge callback
+    // TODO(Andrew): Move the expunge work down to the volume
+    // catalog so this callback isn't needed
     timeVolCat_->queryIface()->registerExpungeObjectsCb(std::bind(
         &DataMgr::expungeObjectsIfPrimary, this,
         std::placeholders::_1, std::placeholders::_2));
@@ -2000,12 +1999,19 @@ DataMgr::queryCatalogBackendSvc(void * _io)
 {
     Error err(ERR_OK);
     DmIoQueryCat *qryCatReq = static_cast<DmIoQueryCat*>(_io);
-    ObjectID obj_id;
 
-    BlobNode *bnode = NULL;
-    err = queryCatalogProcess(qryCatReq, &bnode);
+    // TODO(Andrew): We're not using the size...we can remove it
+    fds_uint64_t blobSize;
+    err = timeVolCat_->queryIface()->getBlob(qryCatReq->volId,
+                                             qryCatReq->blob_name,
+                                             &(qryCatReq->blob_version),
+                                             &(blobSize),
+                                             &(qryCatReq->queryMsg->meta_list),
+                                             &(qryCatReq->queryMsg->obj_list));
     qosCtrl->markIODone(*qryCatReq);
-    qryCatReq->dmio_querycat_resp_cb(err, qryCatReq, bnode);
+    // TODO(Andrew): Note the cat request gets freed
+    // by the callback
+    qryCatReq->dmio_querycat_resp_cb(err, qryCatReq);
 }
 
 void

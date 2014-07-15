@@ -153,8 +153,7 @@ void DMSvcHandler::startBlobTxCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 }
 
 void DMSvcHandler::queryCatalogObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                                      boost::shared_ptr<fpi::QueryCatalogMsg>& queryMsg)
-{
+                                      boost::shared_ptr<fpi::QueryCatalogMsg>& queryMsg) {
     DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*queryMsg));
 
     DBG(FLAG_CHECK_RETURN_VOID(common_drop_async_resp > 0));
@@ -162,27 +161,24 @@ void DMSvcHandler::queryCatalogObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr
     /*
      * allocate a new query cat log  class and  queue  to per volume queue.
      */
-    auto dmQryReq = new DmIoQueryCat(queryMsg->volume_id,
-                                     queryMsg->blob_name,
-                                     queryMsg->blob_version);
+    auto dmQryReq = new DmIoQueryCat(queryMsg);
     dmQryReq->dmio_querycat_resp_cb =
-            BIND_MSG_CALLBACK3(DMSvcHandler::queryCatalogObjectCb, asyncHdr, queryMsg);
+            BIND_MSG_CALLBACK2(DMSvcHandler::queryCatalogObjectCb, asyncHdr, queryMsg);
 
     Error err = dataMgr->qosCtrl->enqueueIO(dmQryReq->getVolId(),
-                                      static_cast<FDS_IOType*>(dmQryReq));
+                                            static_cast<FDS_IOType*>(dmQryReq));
     if (err != ERR_OK) {
         LOGWARN << "Unable to enqueue Query Catalog request "
                   << logString(*asyncHdr) << logString(*queryMsg);
-        dmQryReq->dmio_querycat_resp_cb(err, dmQryReq, nullptr);
+        dmQryReq->dmio_querycat_resp_cb(err, dmQryReq);
     }
 }
 
 // TODO(Rao): Refactor dmCatReq to contain BlobNode information? Check with Andrew.
 void DMSvcHandler::queryCatalogObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                         boost::shared_ptr<fpi::QueryCatalogMsg>& queryMsg,
-                                        const Error &e, dmCatReq *req,
-                                        BlobNode *bnode)
-{
+                                        const Error &e,
+                                        dmCatReq *req) {
     DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*queryMsg));
 
     // TODO(Rao): We should have a seperate response message for QueryCatalogMsg for
@@ -190,10 +186,6 @@ void DMSvcHandler::queryCatalogObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncH
     queryMsg->obj_list.clear();
     queryMsg->meta_list.clear();
     asyncHdr->msg_code = static_cast<int32_t>(e.GetErrno());
-    if (bnode) {
-        bnode->ToFdspPayload(queryMsg);
-        delete bnode;
-    }
 
     sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::QueryCatalogMsg), *queryMsg);
 
