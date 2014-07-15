@@ -156,7 +156,7 @@ Error DmCommitLog::startTx(BlobTxId::const_ptr & txDesc, const std::string & blo
         }
     }
 
-    SCOPED_PERF_TRACEPOINT_CTX_DEBUG(logCtx);
+    // SCOPED_PERF_TRACEPOINT_CTX_DEBUG(logCtx);
 
     fds_uint64_t id = 0;
     Error rc = cmtLogger_->startTx(txDesc, blobName, id);
@@ -193,7 +193,7 @@ Error DmCommitLog::updateTx(BlobTxId::const_ptr & txDesc, boost::shared_ptr<cons
         return rc;
     }
 
-    SCOPED_PERF_TRACEPOINT_CTX_DEBUG(logCtx);
+    // SCOPED_PERF_TRACEPOINT_CTX_DEBUG(logCtx);
 
     fds_uint64_t id = 0;
     rc = cmtLogger_->updateTx(txDesc, blobData, id);
@@ -226,7 +226,7 @@ CommitLogTx::const_ptr DmCommitLog::commitTx(BlobTxId::const_ptr & txDesc, Error
         return 0;
     }
 
-    SCOPED_PERF_TRACEPOINT_CTX_DEBUG(logCtx);
+    // SCOPED_PERF_TRACEPOINT_CTX_DEBUG(logCtx);
 
     fds_uint64_t id = 0;
     status = cmtLogger_->commitTx(txDesc, id);
@@ -258,7 +258,7 @@ Error DmCommitLog::rollbackTx(BlobTxId::const_ptr & txDesc) {
         return rc;
     }
 
-    SCOPED_PERF_TRACEPOINT_CTX_DEBUG(logCtx);
+    // SCOPED_PERF_TRACEPOINT_CTX_DEBUG(logCtx);
 
     fds_uint64_t id = 0;
     rc = cmtLogger_->rollbackTx(txDesc, id);
@@ -303,7 +303,7 @@ Error DmCommitLog::purgeTx(BlobTxId::const_ptr  & txDesc) {
         }
     }
 
-    SCOPED_PERF_TRACEPOINT_CTX_DEBUG(logCtx);
+    // SCOPED_PERF_TRACEPOINT_CTX_DEBUG(logCtx);
 
     fds_uint64_t id = 0;
     Error rc = cmtLogger_->purgeTx(txDesc, id);

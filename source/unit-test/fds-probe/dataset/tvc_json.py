@@ -45,8 +45,8 @@ def printUpdateTxBody():
         numUpdates = randint(1, 5);
         for j in range(0, numUpdates):
             objId = "0x" + sha.new(os.tmpnam()).hexdigest()
-            offset = randint(0, 1 * 1024 * 1024)
-            length = randint(512, 1 * 1024 * 1024)
+            offset = randint(0, 1000) * 4096 # randint(0, 1 * 1024 * 1024)
+            length = 4096 #randint(512, 1 * 1024 * 1024)
             body += "                {\n" +\
                     "                    \"blob-op\": \"updateTx\",\n" +\
                     "                    \"tx-id\": " + str(i) + ",\n" +\

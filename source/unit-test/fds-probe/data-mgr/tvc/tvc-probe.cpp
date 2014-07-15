@@ -3,12 +3,21 @@
  *
  * TVC workload probe adapter.
  */
+
+#include <vector>
 #include <tvc-probe.h>
 #include <string>
 #include <list>
 #include <utest-types.h>
+#include <fds_types.h>
 
 namespace fds {
+
+void commitCallback(const fds::Error & err) {}
+
+Error expungeObjects(fds_volid_t volId, const std::vector<ObjectID>& objs) {
+    return ERR_OK;
+}
 
 probe_mod_param_t tvc_probe_param =
 {
@@ -87,7 +96,8 @@ TvcProbe::updateMetaTx(const OpParams &updateParams) {
 
 void
 TvcProbe::commitTx(const OpParams &commitParams) {
-    Error err = gl_DmTvcMod.commitBlobTx(1, commitParams.blobName, true, commitParams.txId, 0);
+    Error err = gl_DmTvcMod.commitBlobTx(1, commitParams.blobName, true,
+            commitParams.txId, commitCallback);
     fds_verify(err == ERR_OK);
 }
 
@@ -167,6 +177,7 @@ TvcObjectOp::js_exec_obj(JsObject *parent,
     fds_verify(err.ok());
     err = gl_DmTvcMod.activateVolume(1);
     fds_verify(err.ok());
+    gl_DmTvcMod.queryIface()->registerExpungeObjectsCb(expungeObjects);
 
     for (fds_uint32_t i = 0; i < numOps; i++) {
         node = static_cast<TvcObjectOp *>((*parent)[i]);
