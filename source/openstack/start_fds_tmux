@@ -3,6 +3,7 @@ controller=10.1.10.44
 compute=10.1.10.45
 block=10.1.10.46
 private_key=./fds_id_rsa
+egrep_pattern="egrep -e \"ERROR|FDS_DRIVER\""
 
 function add_ssh_key()
 {
@@ -45,16 +46,16 @@ function tmux_tail_controller()
     window=$1
 
     tmux send-keys -t FDS-tmux:$window.1 "cd /var/log/nova" Enter
-    tmux send-keys -t FDS-tmux:$window.1 "tail -f *.log | grep ERROR" Enter
+    tmux send-keys -t FDS-tmux:$window.1 "tail -f *.log | $egrep_pattern" Enter
 
     tmux send-keys -t FDS-tmux:$window.2 "cd /var/log/cinder" Enter
-    tmux send-keys -t FDS-tmux:$window.2 "tail -f *.log | grep ERROR" Enter
+    tmux send-keys -t FDS-tmux:$window.2 "tail -f *.log | $egrep_pattern" Enter
 
     tmux send-keys -t FDS-tmux:$window.3 "cd /var/log/glance" Enter
-    tmux send-keys -t FDS-tmux:$window.3 "tail -f *.log | grep ERROR" Enter
+    tmux send-keys -t FDS-tmux:$window.3 "tail -f *.log | $egrep_pattern" Enter
 
     tmux send-keys -t FDS-tmux:$window.4 "cd /var/log/keystone" Enter
-    tmux send-keys -t FDS-tmux:$window.4 "tail -f *.log | grep ERROR" Enter
+    tmux send-keys -t FDS-tmux:$window.4 "tail -f *.log | $egrep_pattern" Enter
 }
 
 function tmux_tail_compute()
@@ -62,7 +63,7 @@ function tmux_tail_compute()
      window=$1
 
     tmux send-keys -t FDS-tmux:$window.1 "cd /var/log/nova" Enter
-    tmux send-keys -t FDS-tmux:$window.1 "tail -f *.log | grep ERROR" Enter
+    tmux send-keys -t FDS-tmux:$window.1 "tail -f *.log | $egrep_pattern" Enter
 
     tmux send-keys -t FDS-tmux:$window.2 "cd /var/log/" Enter
     tmux send-keys -t FDS-tmux:$window.3 "cd /var/log/" Enter
@@ -74,7 +75,7 @@ function tmux_tail_block()
     window=$1
 
     tmux send-keys -t FDS-tmux:$window.1 "cd /var/log/cinder" Enter
-    tmux send-keys -t FDS-tmux:$window.1 "tail -f *.log | grep ERROR" Enter
+    tmux send-keys -t FDS-tmux:$window.1 "tail -f *.log | $egrep_pattern" Enter
 
     tmux send-keys -t FDS-tmux:$window.2 "cd /var/log/" Enter
     tmux send-keys -t FDS-tmux:$window.3 "cd /var/log/" Enter
