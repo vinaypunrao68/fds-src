@@ -2806,6 +2806,16 @@ void DataMgr::scheduleGetBlobMetaDataSvc(void *io) {
     request->cb(err, request);
 }
 
+void DataMgr::setBlobMetaDataSvc(void *io) {
+    Error err;
+    DmIoSetBlobMetaData *setBlbMetaReq = static_cast<DmIoSetBlobMetaData*>(io);
+    err = timeVolCat_->updateBlobTx(setBlbMetaReq->volId,
+                                    setBlbMetaReq->ioBlobTxDesc,
+                                    setBlbMetaReq->md_list);
+    qosCtrl->markIODone(*setBlbMetaReq);
+    setBlbMetaReq->dmio_setmd_resp_cb(err, setBlbMetaReq);
+}
+
 Error DataMgr::getBlobMetaDataSvc(const DmIoGetBlobMetaData* request) {
     Error err(ERR_OK);
     if (!volExists(request->volId)) {
