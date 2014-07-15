@@ -2,6 +2,7 @@
 # All Rights Reserved.
 
 from oslo.config import cfg
+import traceback
 import paramiko
 
 from cinder import context
@@ -77,32 +78,53 @@ class FDSNBDDriver(driver.VolumeDriver):
         pass
 
     def create_volume(self, volume):
-        LOG.warning('FDS_DRIVER: create volume %s' % volume['name'])
-        with self._get_services() as fds:
-            fds.create_volume(self.fds_domain, volume)
+        LOG.warning('FDS_DRIVER: create volume %s begin' % volume['name'])
+        try:
+            with self._get_services() as fds:
+                fds.create_volume(self.fds_domain, volume)
+                LOG.warning('FDS_DRIVER: create volume %s success' % volume['name'])
+        except Exception as e:
+            LOG.warning('FDS_DRIVER: create volume %s failed with exception %s' % (volume['name'], traceback.format_exc()))
+            raise
 
     def delete_volume(self, volume):
-        LOG.warning('FDS_DRIVER: delete volume %s' % volume['name'])
-        with self._get_services() as fds:
-            fds.delete_volume(self.fds_domain, volume)
+        LOG.warning('FDS_DRIVER: delete volume %s begin' % volume['name'])
+        try:
+            with self._get_services() as fds:
+                fds.delete_volume(self.fds_domain, volume)
+                LOG.warning('FDS_DRIVER: delete volume %s success' % volume['name'])
+        except Exception as e:
+            LOG.warning('FDS_DRIVER: delete volume %s failed with exception %s' % (volume['name'], traceback.format_exc()))
+            raise
 
     @staticmethod
     def host_to_nbdd_url(host):
         return "http://%s:10511" % host
 
     def initialize_connection(self, volume, connector):
-        LOG.warning('FDS_DRIVER: attach volume %s' % volume['name'])
-        url = self.host_to_nbdd_url(connector['ip'])
-        device = self.nbd.attach_nbd_remote(url, self.configuration.fds_nbd_server, volume['name'])
-        return {
-            'driver_volume_type': 'local',
-            'data': {'device_path': device }
-        }
+        LOG.warning('FDS_DRIVER: attach volume %s to %s begin' % (volume['name'], connector['ip']))
+        try:
+            url = self.host_to_nbdd_url(connector['ip'])
+            device = self.nbd.attach_nbd_remote(url, self.configuration.fds_nbd_server, volume['name'])
+            LOG.warning('FDS_DRIVER: attach volume %s to %s success' % (volume['name'], connector['ip']))
+            return {
+                'driver_volume_type': 'local',
+                'data': {'device_path': device }
+            }
+
+        except Exception as e:
+            LOG.warning('FDS_DRIVER: attach volume %s to %s failed with exception %s' % (volume['name'], connector['ip'], traceback.format_exc()))
+            raise
 
     def terminate_connection(self, volume, connector, **kwargs):
-        LOG.warning('FDS_DRIVER: detach volume %s' % volume['name'])
-        url = self.host_to_nbdd_url(connector['ip'])
-        self.nbd.detach_nbd_remote(url, self.configuration.fds_nbd_server, volume['name'])
+        LOG.warning('FDS_DRIVER: detach volume %s to %s begin' % (volume['name'], connector['ip']))
+        try:
+            url = self.host_to_nbdd_url(connector['ip'])
+            self.nbd.detach_nbd_remote(url, self.configuration.fds_nbd_server, volume['name'])
+            LOG.warning('FDS_DRIVER: detach volume %s to %s success' % (volume['name'], connector['ip']))
+        except Exception as e:
+            LOG.warning('FDS_DRIVER: detach volume %s to %s failed with exception %s' % (volume['name'], connector['ip'], traceback.format_exc()))
+            raise
 
     def get_volume_stats(self, refresh=False):
         # FIXME: real stats
