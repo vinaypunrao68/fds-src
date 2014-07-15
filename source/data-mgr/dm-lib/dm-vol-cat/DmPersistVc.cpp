@@ -96,6 +96,19 @@ class PersistVolumeMeta {
         return catalog->Delete(key);
     }
 
+    inline Catalog::catalog_iterator_t*
+    getSnapshotIter(Catalog::catalog_roptions_t& opts) {
+        catalog->GetSnapshot(opts);
+        return catalog->NewIterator(opts);
+    }
+
+    inline void
+    releaseSnapshotIter(Catalog::catalog_roptions_t opts,
+                        Catalog::catalog_iterator_t* it) {
+        delete it;
+        catalog->ReleaseSnapshot(opts);
+    }
+
   private:
     /**
      * Configurable parameters
@@ -116,6 +129,37 @@ class PersistVolumeMeta {
     Catalog *catalog;
 };
 
+
+/**
+ * Describes key in the Volume Catalog database
+ */
+struct ExtentKey: public serialize::Serializable {
+    std::string blob_name;
+    fds_extent_id extent_id;
+
+    ExtentKey() : extent_id(0) {}
+    ExtentKey(std::string bname, fds_extent_id eid)
+            : blob_name(bname), extent_id(eid) {}
+    ~ExtentKey() {}
+
+    virtual uint32_t write(serialize::Serializer* s) const {
+        uint32_t bytes = 0;
+        bytes += s->writeI32(extent_id);
+        bytes += s->writeString(blob_name);
+        return bytes;
+    }
+    virtual uint32_t read(serialize::Deserializer* d) {
+        uint32_t bytes = 0;
+        bytes += d->readI32(extent_id);
+        bytes += d->readString(blob_name);
+        return bytes;
+    }
+};
+
+std::ostream& operator<<(std::ostream& out, const ExtentKey& key) {
+    out << "blob name " << key.blob_name << " extent " << key.extent_id;
+    return out;
+}
 
 //
 // does not initialize catalog yet
@@ -193,8 +237,8 @@ Error DmPersistVolCatalog::createCatalog(const VolumeDesc& vol_desc){
     PersistVolumeMetaPtr volmeta(
         new(std::nothrow) PersistVolumeMeta(vol_desc.volUUID,
                                             vol_desc.maxObjSizeInBytes,
-                                            1024,
-                                            2048));
+                                            1,
+                                            2));
     if (!volmeta) {
         LOGERROR << "Failed to allocate persistent layer vol meta for vol"
                  << std::hex << vol_desc.volUUID << std::dec;
@@ -258,14 +302,17 @@ DmPersistVolCatalog::putMetaExtent(fds_volid_t volume_id,
                                    const BlobExtent0::const_ptr& meta_extent) {
     Error err(ERR_OK);
     std::string serialized_data;
+    std::string serialized_key;
 
     LOGTRACE << "Will update extent 0 for " << std::hex << volume_id << std::dec
              << "," << blob_name << " extent " << *meta_extent;
 
+    err = getKeyString(blob_name, 0, serialized_key);
+    fds_verify(err.ok());
+
     err = meta_extent->getSerialized(serialized_data);
     if (err.ok()) {
-        std::string key = blob_name + std::to_string(0);
-        err = getVolumeMeta(volume_id)->updateEntry(key, serialized_data);
+        err = getVolumeMeta(volume_id)->updateEntry(serialized_key, serialized_data);
         if (!err.ok()) {
             LOGERROR << "Failed to update extent 0 for volume " << std::hex
                      << volume_id << std::dec << " blob " << blob_name << " " << err;
@@ -283,47 +330,56 @@ Error DmPersistVolCatalog::putExtents(fds_volid_t volume_id,
                                       const std::vector<BlobExtent::const_ptr>& extents) {
     Error err(ERR_OK);
     std::string serialized_meta;
+    std::string serialized_key;
     CatWriteBatch batch;
-    fds_extent_id extent_id = 0;
+    ExtentKey extent_key(blob_name, 0);
 
     LOGTRACE << "Will update extents for " << std::hex << volume_id
              << std::dec << "," << blob_name << " meta extent " << *meta_extent;
 
+    err = extent_key.getSerialized(serialized_key);
+    if (!err.ok()) {
+        LOGERROR << "Failed to serialize extent key for " << extent_key;
+        return err;
+    }
+
     err = meta_extent->getSerialized(serialized_meta);
     if (err.ok()) {
-        batch.Put(blob_name + std::to_string(0), serialized_meta);
+        batch.Put(serialized_key, serialized_meta);
 
         // add non-meta  extents
         for (std::vector<BlobExtent::const_ptr>::const_iterator cit = extents.cbegin();
              cit != extents.cend();
              ++cit) {
-            extent_id = (*cit)->getExtentId();
-            std::string key = blob_name + std::to_string(extent_id);
-            std::string serialized_data;
+            std::string skey;
+            std::string sdata;
+            extent_key.extent_id = (*cit)->getExtentId();
+            err = extent_key.getSerialized(skey);
+            if (!err.ok()) break;
             if ((*cit)->containsNoObjects()) {
-                LOGTRACE << "Will delete extent " << extent_id << " in vol" << std::hex
-                         << volume_id << std::dec << "," << blob_name << " extent " << *(*cit);
-                batch.Delete(key);
+                LOGTRACE << "Will delete " << extent_key << " in vol " << std::hex
+                         << volume_id << std::dec << " extent " << *(*cit);
+                batch.Delete(skey);
             } else {
-                LOGTRACE << "Will update extent " << extent_id << " for " << std::hex
-                     << volume_id << std::dec << "," << blob_name << " extent " << *(*cit);
-                err = (*cit)->getSerialized(serialized_data);
+                LOGTRACE << "Will update " << extent_key << " for vol " << std::hex
+                         << volume_id << std::dec << " extent " << *(*cit);
+                err = (*cit)->getSerialized(sdata);
                 if (!err.ok()) break;
-                batch.Put(key, serialized_data);
+                batch.Put(skey, sdata);
             }
         }
     }
 
     if (!err.ok()) {
-        LOGERROR << "Failed to serialize extent " << extent_id
-                 << " for blob " << blob_name << " " << err;
+        LOGERROR << "Failed to serialize extents for blob " << blob_name
+                 << " volume " << std::hex << volume_id << std::dec << " " << err;
         return err;
     }
 
     // do atomic update to the database
     err = getVolumeMeta(volume_id)->updateBatch(&batch);
     if (!err.ok()) {
-        LOGERROR << "Failed to update batch of extents " << " for volume "
+        LOGERROR << "Failed to update batch of extents for volume "
                  << std::hex << volume_id << std::dec << " " << err;
     }
     return err;
@@ -341,13 +397,17 @@ BlobExtent0::ptr DmPersistVolCatalog::getMetaExtent(fds_volid_t volume_id,
                                                     const std::string& blob_name,
                                                     Error& error) {
     Error err(ERR_OK);
+    std::string serialized_key;
     std::string extent_data;
     PersistVolumeMetaPtr volmeta = getVolumeMeta(volume_id);
 
     LOGTRACE << "Will get extent 0 for " << std::hex << volume_id << std::dec
              << "," << blob_name;
 
-    err = volmeta->queryEntry(blob_name + std::to_string(0), &extent_data);
+    err = getKeyString(blob_name, 0, serialized_key);
+    fds_verify(err.ok());
+
+    err = volmeta->queryEntry(serialized_key, &extent_data);
     if (err.ok() || err == ERR_CAT_ENTRY_NOT_FOUND) {
         BlobExtent0::ptr extent0(new(std::nothrow) BlobExtent0(blob_name, volume_id,
                                                                volmeta->maxObjSizeBytes(),
@@ -390,12 +450,16 @@ BlobExtent::ptr DmPersistVolCatalog::getExtent(fds_volid_t volume_id,
                                                Error& error) {
     Error err(ERR_OK);
     std::string extent_data;
+    std::string serialized_key;
     PersistVolumeMetaPtr volmeta = getVolumeMeta(volume_id);
 
-    LOGTRACE << "Will get extent " << extent_id << " for " << std::hex << volume_id
-             << std::dec << "," << blob_name;
+    LOGTRACE << "Will get extent " << extent_id << " for "
+             << std::hex << volume_id << std::dec << "," << blob_name;
 
-    err = volmeta->queryEntry(blob_name + std::to_string(extent_id), &extent_data);
+    err = getKeyString(blob_name, extent_id, serialized_key);
+    fds_verify(err.ok());
+
+    err = volmeta->queryEntry(serialized_key, &extent_data);
     if (err.ok() || err == ERR_CAT_ENTRY_NOT_FOUND) {
         BlobExtent::ptr extent(new(std::nothrow) BlobExtent(extent_id,
                                                             volmeta->maxObjSizeBytes(),
@@ -414,8 +478,8 @@ BlobExtent::ptr DmPersistVolCatalog::getExtent(fds_volid_t volume_id,
         err = ERR_OUT_OF_MEMORY;
     }
 
-    LOGERROR << "Failed to query extent " << extent_id <<
-            " for blob " << blob_name << " err " << err;
+    LOGERROR << "Failed to query extent " << extent_id << " for blob "
+             << blob_name << " " << err;
     error = err;
     return BlobExtent::ptr();
 }
@@ -428,15 +492,66 @@ Error DmPersistVolCatalog::deleteExtent(fds_volid_t volume_id,
                                         const std::string& blob_name,
                                         fds_extent_id extent_id) {
     Error err(ERR_OK);
+    std::string key;
     PersistVolumeMetaPtr volmeta = getVolumeMeta(volume_id);
 
     LOGTRACE << "Will delete extent " << extent_id << " for " << std::hex
              << volume_id << std::dec << "," << blob_name;
 
-    err = volmeta->deleteEntry(blob_name + std::to_string(extent_id));
+    err = getKeyString(blob_name, extent_id, key);
+    fds_verify(err.ok());
+
+    err = volmeta->deleteEntry(key);
     if (!err.ok()) {
-        LOGERROR << "Failed to delete extent " << extent_id <<
-                " for blob " << blob_name << " err " << err;
+        LOGERROR << "Failed to delete extent " << extent_id
+                 << " for blob " << blob_name << " " << err;
+    }
+    return err;
+}
+
+Error DmPersistVolCatalog::getMetaDescList(fds_volid_t volume_id,
+                                           std::vector<BlobExtent0Desc>& desc_list) {
+    Error err(ERR_OK);
+    Catalog::catalog_roptions_t options;
+    Catalog::catalog_iterator_t* dbIt;
+    PersistVolumeMetaPtr volmeta = getVolumeMeta(volume_id);
+
+    LOGDEBUG << "Will get extents 0 for volume " << std::hex
+             << volume_id << std::dec;
+
+    dbIt = volmeta->getSnapshotIter(options);
+    for (dbIt->SeekToFirst(); dbIt->Valid(); dbIt->Next()) {
+        Record db_key = dbIt->key();
+        ExtentKey extent_key;
+        fds_verify(extent_key.loadSerialized(dbIt->key().ToString()) == ERR_OK);
+        // ignore non-0 extents
+        if (extent_key.extent_id > 0) {
+            LOGTRACE << "Will ignore non-0 extent " << extent_key << " vol "
+                     << std::hex << volume_id << std::dec;
+            continue;
+        }
+
+        BlobExtent0Desc extdesc;
+        fds_verify(extdesc.loadSerialized(dbIt->value().ToString()) == ERR_OK);
+        LOGDEBUG << "Found extent 0" << extent_key << " vol "
+                 << std::hex << volume_id << std::dec << " " << extdesc;
+        if (extdesc.version != blob_version_deleted) {
+            desc_list.push_back(extdesc);
+        }
+    }
+
+    volmeta->releaseSnapshotIter(options, dbIt);
+    return err;
+}
+
+Error DmPersistVolCatalog::getKeyString(const std::string &blob_name,
+                                        fds_extent_id extent_id,
+                                        std::string& serialized_key) {
+    Error err(ERR_OK);
+    ExtentKey extent_key(blob_name, extent_id);
+    err = extent_key.getSerialized(serialized_key);
+    if (!err.ok()) {
+        LOGERROR << "Failed to serialize extent key for " << extent_key;
     }
     return err;
 }

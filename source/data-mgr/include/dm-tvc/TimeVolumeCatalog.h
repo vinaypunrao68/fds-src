@@ -141,6 +141,7 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
      */
     Error commitBlobTx(fds_volid_t volId,
                        const std::string &blobName,
+                       fds_bool_t blobEnd,
                        BlobTxId::const_ptr txDesc,
                        const DmTimeVolCatalog::CommitCb &commitCb);
 
@@ -156,6 +157,7 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
                       BlobTxId::const_ptr txDesc);
 
     void commitBlobTxWork(fds_volid_t volid,
+                          fds_bool_t blobEnd,
                           DmCommitLog::ptr &commitLog,
                           BlobTxId::const_ptr txDesc,
                           const DmTimeVolCatalog::CommitCb &cb);

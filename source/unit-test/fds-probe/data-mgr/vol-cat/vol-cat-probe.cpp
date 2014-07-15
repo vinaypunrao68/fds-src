@@ -116,6 +116,17 @@ VolCatProbe::checkVolEmpty(const OpParams &volParams) {
 
 void
 VolCatProbe::listBlobs(const OpParams& volParams) {
+    Error err(ERR_OK);
+    fpi::BlobInfoListType blob_list;
+    err = gl_DmVolCatMod.listBlobs(volParams.vol_id,
+                                   &blob_list);
+    fds_verify(err.ok());
+    std::cout << "List of blobs for volume " << std::hex
+              << volParams.vol_id << std::dec << std::endl;
+    for (auto binfo : blob_list) {
+        std::cout << "Blob " << binfo.blob_name
+                  << " size " << binfo.blob_size << std::endl;
+    }
 }
 
 void
@@ -305,6 +316,8 @@ VolCatObjectOp::js_exec_obj(JsObject *parent,
             gl_VolCatProbe.getBlobMeta(*info);
         } else if (info->op == "delete") {
             gl_VolCatProbe.deleteBlob(*info);
+        } else if (info->op == "list") {
+            gl_VolCatProbe.listBlobs(*info);
         }
     }
 

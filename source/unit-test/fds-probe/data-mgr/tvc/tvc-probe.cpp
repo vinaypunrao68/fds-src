@@ -87,7 +87,7 @@ TvcProbe::updateMetaTx(const OpParams &updateParams) {
 
 void
 TvcProbe::commitTx(const OpParams &commitParams) {
-    Error err = gl_DmTvcMod.commitBlobTx(1, commitParams.blobName, commitParams.txId, 0);
+    Error err = gl_DmTvcMod.commitBlobTx(1, commitParams.blobName, true, commitParams.txId, 0);
     fds_verify(err == ERR_OK);
 }
 

@@ -116,6 +116,13 @@ namespace fds {
                                   Error& error);
 
         /**
+         * Retrieves list of basic metadata info for all the blobs in
+         * volume 'volume_id'
+         */
+        Error getMetaDescList(fds_volid_t volume_id,
+                              std::vector<BlobExtent0Desc>& desc_list);
+
+        /**
          * Deletes extent 'extent id' of blob 'blob_name' in volume
          * catalog of volume 'volume_id'
          */
@@ -123,15 +130,20 @@ namespace fds {
                            const std::string& blob_name,
                            fds_extent_id extent_id);
 
-        // TODO(Anna) we need methods for taking snapshot and iterating
-        // over leveldb for a volume (e.g. for listBlobs and isEmpty
-        // functionality)
 
   private:  // methods
         /**
          * returns shared pointer to volume meta for 'volume_id'
          */
         PersistVolumeMetaPtr getVolumeMeta(fds_volid_t volume_id);
+
+        /**
+         * @param[out] serialized_key key to volume catalog db for
+         * given blob_name and extent_id
+         */
+        Error getKeyString(const std::string &blob_name,
+                           fds_extent_id extent_id,
+                           std::string& serialized_key);
 
   private:
         std::unordered_map<fds_volid_t, PersistVolumeMetaPtr> vol_map;

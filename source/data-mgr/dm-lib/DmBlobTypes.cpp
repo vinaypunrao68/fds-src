@@ -101,6 +101,45 @@ std::ostream& operator<<(std::ostream& out, const MetaDataList& metaList) {
     return out;
 }
 
+//---------- BasicBlobMeta implementation  -------------//
+
+BasicBlobMeta::BasicBlobMeta() {
+    version = blob_version_invalid;
+    vol_id = invalid_vol_id;
+    blob_size = 0;
+}
+
+BasicBlobMeta::~BasicBlobMeta() {
+}
+
+uint32_t BasicBlobMeta::write(serialize::Serializer* s) const {
+    uint32_t bytes = 0;
+    bytes += s->writeString(blob_name);
+    bytes += s->writeI64(vol_id);
+    bytes += s->writeI64(version);
+    bytes += s->writeI64(blob_size);
+    return bytes;
+}
+
+uint32_t BasicBlobMeta::read(serialize::Deserializer* d) {
+    uint32_t bytes = 0;
+    blob_name.clear();
+    bytes += d->readString(blob_name);
+    bytes += d->readI64(reinterpret_cast<int64_t&>(vol_id));
+    bytes += d->readI64(version);
+    bytes += d->readI64(blob_size);
+    return bytes;
+}
+
+std::ostream& operator<<(std::ostream& out, const BasicBlobMeta& desc) {
+    out << "BasicBlobMeta: "
+        << "name " << desc.blob_name
+        << ", volume id " << std::hex << desc.vol_id << std::dec
+        << ", version " << desc.version
+        << ", size " << desc.blob_size << " bytes; ";
+    return out;
+}
+
 //---------   BlobMetaDesc implementation   -----------//
 
 
@@ -108,10 +147,8 @@ std::ostream& operator<<(std::ostream& out, const MetaDataList& metaList) {
  * Constructs invalid version of a blob meta
  * until someone else actually assigns valid data
  */
-BlobMetaDesc::BlobMetaDesc() {
-    version = blob_version_invalid;
-    vol_id = invalid_vol_id;
-    blob_size = 0;
+BlobMetaDesc::BlobMetaDesc()
+        : desc(), meta_list() {
 }
 
 BlobMetaDesc::~BlobMetaDesc() {
@@ -119,31 +156,21 @@ BlobMetaDesc::~BlobMetaDesc() {
 
 uint32_t BlobMetaDesc::write(serialize::Serializer* s) const {
     uint32_t bytes = 0;
-    bytes += s->writeString(blob_name);
-    bytes += s->writeI64(vol_id);
-    bytes += s->writeI64(version);
-    bytes += s->writeI64(blob_size);
+    bytes += desc.write(s);
     bytes += meta_list.write(s);
     return bytes;
 }
 
 uint32_t BlobMetaDesc::read(serialize::Deserializer* d) {
     uint32_t bytes = 0;
-    blob_name.clear();
-    bytes += d->readString(blob_name);
-    bytes += d->readI64(reinterpret_cast<int64_t&>(vol_id));
-    bytes += d->readI64(version);
-    bytes += d->readI64(blob_size);
+    bytes += desc.read(d);
     bytes += meta_list.read(d);
     return bytes;
 }
 
 std::ostream& operator<<(std::ostream& out, const BlobMetaDesc& blobMetaDesc) {
-    out << "BlobMeta: "
-        << "name " << blobMetaDesc.blob_name
-        << ", volume id " << std::hex << blobMetaDesc.vol_id << std::dec
-        << ", version " << blobMetaDesc.version
-        << ", size " << blobMetaDesc.blob_size << " bytes; ";
+    out << "BlobMeta: ";
+    out << blobMetaDesc.desc;
     out << blobMetaDesc.meta_list;
     return out;
 }
@@ -324,37 +351,6 @@ std::ostream& operator<<(std::ostream& out, const BlobObjList& obj_list) {
     }
     out << " End of blob? " << obj_list.endOfBlob() << "\n";
     return out;
-}
-
-
-//---------------- BlobUtil methods -----------------------------------------//
-
-void BlobUtil::toFDSPQueryCatalogMsg(const BlobMetaDesc::const_ptr& blob_meta_desc,
-                                     const BlobObjList::const_ptr& blob_obj_list,
-                                     fds_uint32_t max_obj_size_bytes,
-                                     fpi::FDSP_QueryCatalogTypePtr& query_msg) {
-    query_msg->blob_name = blob_meta_desc->blob_name;
-    query_msg->blob_size = blob_meta_desc->blob_size;
-    query_msg->blob_version = blob_meta_desc->version;
-    (blob_meta_desc->meta_list).toFdspPayload(query_msg->meta_list);
-
-    // fill in blob_obj_list
-    (query_msg->obj_list).clear();
-    for (BlobObjList::const_iter cit = blob_obj_list->cbegin();
-         cit != blob_obj_list->cend();
-         ++cit) {
-        fpi::FDSP_BlobObjectInfo obj_info;
-        obj_info.offset = cit->first;
-        obj_info.data_obj_id.digest =
-                std::string((const char *)((cit->second).oid.GetId()),
-                            (size_t)(cit->second).oid.GetLen());
-        obj_info.size = max_obj_size_bytes;
-        if ((query_msg->obj_list).size() == (blob_obj_list->size() - 1)) {
-            // this is the last object, object size = blob size % max obj size
-            obj_info.size = blob_meta_desc->blob_size % max_obj_size_bytes;
-        }
-        (query_msg->obj_list).push_back(obj_info);
-    }
 }
 
 }  // namespace fds

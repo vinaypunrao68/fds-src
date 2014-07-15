@@ -1189,8 +1189,12 @@ void DataMgr::commitBlobTx(dmCatReq *io)
 {
     Error err;
     DmIoCommitBlobTx *commitBlobReq = static_cast<DmIoCommitBlobTx*>(io);
+
+    LOGTRACE << "Will commit blob " << commitBlobReq->blob_name
+             << " to tvc; blob end? " << commitBlobReq->blobEnd;
     err = timeVolCat_->commitBlobTx(commitBlobReq->volId,
                                     commitBlobReq->blob_name,
+                                    commitBlobReq->blobEnd,
                                     commitBlobReq->ioBlobTxDesc,
                                     // TODO(Rao): We should use a static commit callback
                                     std::bind(&DataMgr::commitBlobTxCb, this,

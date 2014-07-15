@@ -172,17 +172,30 @@ namespace fds {
         fds_bool_t end_of_blob;
     };
 
+    /**
+     * Basic blob metadata 
+     */
+    struct BasicBlobMeta: serialize::Serializable {
+        std::string blob_name;
+        fds_volid_t vol_id;
+        blob_version_t version;
+        fds_uint64_t blob_size;
+
+        BasicBlobMeta();
+        virtual ~BasicBlobMeta();
+
+        uint32_t write(serialize::Serializer* s) const;
+        uint32_t read(serialize::Deserializer* d);
+    };
+
 
     /**
      * Metadata that describes the blob, not including the
      * the offset to object id mappings list of the metadata
      */
     struct BlobMetaDesc: serialize::Serializable {
-        std::string blob_name;
-        fds_volid_t vol_id;
-        blob_version_t version;
-        fds_uint64_t blob_size;
-        MetaDataList meta_list;
+        BasicBlobMeta desc;  // basic blob meta descriptor
+        MetaDataList  meta_list;  // key-value metadata
 
         typedef boost::shared_ptr<BlobMetaDesc> ptr;
         typedef boost::shared_ptr<const BlobMetaDesc> const_ptr;
@@ -198,16 +211,10 @@ namespace fds {
         uint32_t read(serialize::Deserializer* d);
     };
 
+    std::ostream& operator<<(std::ostream& out, const BasicBlobMeta& bdesc);
     std::ostream& operator<<(std::ostream& out, const MetaDataList& metaList);
     std::ostream& operator<<(std::ostream& out, const BlobMetaDesc& blobMetaDesc);
     std::ostream& operator<<(std::ostream& out, const BlobObjList& obj_list);
-
-    namespace BlobUtil {
-        void toFDSPQueryCatalogMsg(const BlobMetaDesc::const_ptr& blob_meta_desc,
-                                   const BlobObjList::const_ptr& blob_obj_list,
-                                   fds_uint32_t max_obj_size_bytes,
-                                   fpi::FDSP_QueryCatalogTypePtr& query_msg);
-    }  // namespace BlobUtil
 
 }  // namespace fds
 
