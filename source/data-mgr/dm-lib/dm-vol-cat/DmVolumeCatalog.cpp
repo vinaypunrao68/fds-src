@@ -135,10 +135,11 @@ DmVolumeCatalog::putBlobMeta(fds_volid_t volume_id,
         fds_verify((err == ERR_CAT_ENTRY_NOT_FOUND) ||
                    (extent0->blobVersion() != blob_version_invalid));
 
-        // TODO(xxx) do we update the version?
-
         // apply meta-data updates
         extent0->updateMetaData(meta_list);
+
+        // update version
+        extent0->incrementBlobVersion();
 
         LOGTRACE << "Applied metadata update to extent 0 -- " << *extent0;
         err = persistCat->putMetaExtent(volume_id, blob_name, extent0);
