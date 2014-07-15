@@ -68,7 +68,7 @@ Error StatBlobHandler::handleQueueItem(AmQosReq *qosReq) {
         boost::make_shared<DmtVolumeIdEpProvider>(
             storHvisor->om_client->getDMTNodesForVolume(helper.volId)));
 
-    asyncReq->setPayload(fpi::QueryCatalogMsgTypeId, message);
+    asyncReq->setPayload(fpi::GetBlobMetaDataMsgTypeId, message);
 
     auto cb = RESPONSE_MSG_HANDLER(StatBlobHandler::handleResponse, qosReq);
 
