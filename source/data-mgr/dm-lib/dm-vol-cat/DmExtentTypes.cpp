@@ -199,8 +199,8 @@ BlobExtent0::BlobExtent0(const std::string& blob_name,
                          fds_uint32_t first_off,
                          fds_uint32_t num_offsets)
 : BlobExtent(fds_extentid_meta, max_obj_size, first_off, num_offsets) {
-    blob_meta.blob_name = blob_name;
-    blob_meta.vol_id = volume_id;
+    blob_meta.desc.blob_name = blob_name;
+    blob_meta.desc.vol_id = volume_id;
     last_blob_offset = 0;  // should not be used if blob size = 0
 }
 
@@ -211,8 +211,8 @@ BlobExtent0::~BlobExtent0() {
 // delete meta
 //
 void BlobExtent0::markDeleted() {
-    blob_meta.version = blob_version_deleted;
-    blob_meta.blob_size = 0;
+    blob_meta.desc.version = blob_version_deleted;
+    blob_meta.desc.blob_size = 0;
     last_blob_offset = 0;
     blob_meta.meta_list.clear();
     blob_obj_list.clear();

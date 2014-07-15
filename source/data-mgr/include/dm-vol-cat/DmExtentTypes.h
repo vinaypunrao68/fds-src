@@ -166,28 +166,28 @@ namespace fds {
         virtual ~BlobExtent0();
 
         inline const std::string& blobName() const {
-            return blob_meta.blob_name;
+            return blob_meta.desc.blob_name;
         }
         inline fds_volid_t volumeId() const {
-            return blob_meta.vol_id;
+            return blob_meta.desc.vol_id;
         }
         inline blob_version_t blobVersion() const {
-            return blob_meta.version;
+            return blob_meta.desc.version;
         }
         inline fds_uint64_t blobSize() const {
-            return blob_meta.blob_size;
+            return blob_meta.desc.blob_size;
         }
         inline fds_uint64_t lastBlobOffset() const {
             return last_blob_offset;
         }
         inline fds_uint64_t lastObjSize() const {
-            if (blob_meta.blob_size == 0) return 0;
-            fds_uint64_t size = blob_meta.blob_size % maxObjSizeBytes();
+            if (blob_meta.desc.blob_size == 0) return 0;
+            fds_uint64_t size = blob_meta.desc.blob_size % maxObjSizeBytes();
             // TODO(xxx) do we have a case when blob has multiple
             // objects and at least one obj has size zero?
             // this method is not correct if last objs is Null obj
             if (size == 0) size = maxObjSizeBytes();
-            fds_verify(blob_meta.blob_size >= size);
+            fds_verify(blob_meta.desc.blob_size >= size);
             return size;
         }
 
@@ -195,13 +195,13 @@ namespace fds {
          * Sets size of the blob
          */
         inline void setBlobSize(fds_uint64_t blob_size) {
-            blob_meta.blob_size = blob_size;
+            blob_meta.desc.blob_size = blob_size;
         }
         inline void incrementBlobVersion() {
-            if (blob_meta.version == blob_version_deleted) {
-                blob_meta.version = blob_version_initial;
+            if (blob_meta.desc.version == blob_version_deleted) {
+                blob_meta.desc.version = blob_version_initial;
             } else {
-                blob_meta.version += 1;
+                blob_meta.desc.version += 1;
             }
         }
         inline void setLastBlobOffset(fds_uint64_t offset) {
@@ -243,6 +243,11 @@ namespace fds {
          */
         fds_uint64_t last_blob_offset;
     };
+
+    /**
+     * This is for partial serialization of extent 0
+     */
+    typedef BasicBlobMeta BlobExtent0Desc;
 
 }  // namespace fds
 

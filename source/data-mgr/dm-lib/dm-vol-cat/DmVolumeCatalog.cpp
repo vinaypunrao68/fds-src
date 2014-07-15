@@ -345,6 +345,23 @@ Error DmVolumeCatalog::listBlobs(fds_volid_t volume_id,
                                  fpi::BlobInfoListType* bmeta_list)
 {
     Error err(ERR_OK);
+    std::vector<BlobExtent0Desc> desc_list;
+    std::vector<BlobExtent0Desc>::const_iterator cit;
+
+    LOGDEBUG << "Will retrieve list of blobs for volume "
+             << std::hex << volume_id << std::dec;
+
+    err = persistCat->getMetaDescList(volume_id, desc_list);
+    if (err.ok()) {
+        for (cit = desc_list.cbegin(); cit != desc_list.cend(); ++cit) {
+            fpi::FDSP_BlobInfoType binfo;
+            binfo.blob_name = (*cit).blob_name;
+            binfo.blob_size = (*cit).blob_size;
+            fds_verify((*cit).vol_id == volume_id);
+            (*bmeta_list).push_back(binfo);
+        }
+    }
+
     return err;
 }
 

@@ -122,7 +122,7 @@ class VolCatOpTemplate : public JsObjTemplate
                          "max-obj-size", &p->max_obj_size)) {
             fds_verify(p->max_obj_size > 0);
         }
-        if (p->op == "volcrt") {
+        if ((p->op == "volcrt") || (p->op == "list")) {
             return js_parse(new VolCatObjectOp(), in, p);
         }
 

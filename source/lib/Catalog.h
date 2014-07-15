@@ -71,10 +71,26 @@ class Catalog {
      */
     catalog_iterator_t *NewIterator() { return db->NewIterator(read_options); }
 
+    typedef leveldb::ReadOptions catalog_roptions_t;
+
     fds::Error Update(const Record& key, const Record& val);
     fds::Error Update(CatWriteBatch* batch);
     fds::Error Query(const Record& key, std::string* val);
     fds::Error Delete(const Record& key);
+
+    /**
+     * Wrapper for leveldb::GetSnapshot(), ReleaseSnapshot()
+     */
+    void GetSnapshot(catalog_roptions_t& opts) {
+        opts.snapshot = db->GetSnapshot();
+    }
+    void ReleaseSnapshot(catalog_roptions_t opts) {
+        db->ReleaseSnapshot(opts.snapshot);
+    }
+    catalog_iterator_t *NewIterator(catalog_roptions_t opts) {
+        return db->NewIterator(opts);
+    }
+
     bool DbEmpty();
     bool DbDelete();
     fds::Error DbSnap(const std::string& _file);

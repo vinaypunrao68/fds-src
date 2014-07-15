@@ -53,6 +53,19 @@
                     "blob-end": 1
                 },
 		{
+		    "volcat-op": "put",
+		    "volume-id": 2,
+                    "blob-name": "blob-c",
+                    "blob-end": 1,
+                    "objects": [
+                               "0-0x1234beefc94fcfb415dbe95f408b9ce9deaddddd-4096"
+                    ]
+                },
+		{
+		    "volcat-op": "list",
+		    "volume-id": 2
+                },
+		{
 		    "volcat-op": "delete",
 		    "volume-id": 2,
                     "blob-name": "blob-a",
