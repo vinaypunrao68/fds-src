@@ -237,8 +237,8 @@ Error DmPersistVolCatalog::createCatalog(const VolumeDesc& vol_desc){
     PersistVolumeMetaPtr volmeta(
         new(std::nothrow) PersistVolumeMeta(vol_desc.volUUID,
                                             vol_desc.maxObjSizeInBytes,
-                                            1,
-                                            2));
+                                            1024,
+                                            2048));
     if (!volmeta) {
         LOGERROR << "Failed to allocate persistent layer vol meta for vol"
                  << std::hex << vol_desc.volUUID << std::dec;

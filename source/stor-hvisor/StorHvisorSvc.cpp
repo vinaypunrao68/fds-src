@@ -131,6 +131,7 @@ void StorHvCtrl::issueCommitBlobTxMsg(CommitBlobTxReq *blobReq,
     stBlobTxMsg->blob_name   = blobReq->getBlobName();
     stBlobTxMsg->blob_version = blob_version_invalid;
     stBlobTxMsg->volume_id = blobReq->getVolId();
+    stBlobTxMsg->blobEnd = blobReq->blobEnd;
 
     fds_volid_t volId = blobReq->getVolId();
     stBlobTxMsg->txId = blobReq->getTxId()->getValue();
