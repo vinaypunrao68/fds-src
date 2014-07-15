@@ -61,27 +61,40 @@ void CommitLogProbe::startTx(const OpParams &startParams) {
 }
 
 void CommitLogProbe::updateTx(const OpParams &updateParams) {
-    // Error err = gl_DmCommitLogMod.updateBlobTx(1, updateParams.txId, updateParams.objList);
-    // fds_verify(err == ERR_OK);
+    BlobTxId::const_ptr id = updateParams.txId;
+    BlobObjList::const_ptr objList(new BlobObjList(updateParams.objList));
+    Error err = gl_DmCommitLogMod.updateTx(id, objList);
+    fds_verify(err == ERR_OK);
 }
 
 void CommitLogProbe::updateMetaTx(const OpParams &updateParams) {
-    // Error err = gl_DmCommitLogMod.updateBlobTx(1, updateParams.txId, updateParams.metaList);
-    // fds_verify(err == ERR_OK);
+    BlobTxId::const_ptr id = updateParams.txId;
+    MetaDataList::const_ptr metaList(new MetaDataList(updateParams.metaList));
+    Error err = gl_DmCommitLogMod.updateTx(id, metaList);
+    fds_verify(err == ERR_OK);
 }
 
 void CommitLogProbe::commitTx(const OpParams &commitParams) {
-    // Error err = gl_DmCommitLogMod.commitBlobTx(1, commitParams.txId);
-    // fds_verify(err == ERR_OK);
+    Error err;
+    BlobTxId::const_ptr id = commitParams.txId;
+    CommitLogTx::const_ptr clTx = gl_DmCommitLogMod.commitTx(id, err);
+
+    fds_verify(err == ERR_OK);
+    fds_verify(*clTx->txDesc == *id);
+
+    // TODO(umesh): additional verifications on updates
 }
 
 void CommitLogProbe::abortTx(const OpParams &abortParams) {
-    // Error err = gl_DmCommitLogMod.abortBlobTx(1, abortParams.txId);
-    // fds_verify(err == ERR_OK);
+    BlobTxId::const_ptr id = abortParams.txId;
+    Error err = gl_DmCommitLogMod.rollbackTx(id);
+    fds_verify(err == ERR_OK);
 }
 
 void CommitLogProbe::purgeTx(const OpParams &purgeParams) {
-    // TODO(umesh): implement this
+    BlobTxId::const_ptr id = purgeParams.txId;
+    Error err = gl_DmCommitLogMod.purgeTx(id);
+    fds_verify(err == ERR_OK);
 }
 
 // pr_delete
@@ -104,6 +117,7 @@ void CommitLogProbe::pr_gen_report(std::string *out) {}
 //
 int CommitLogProbe::mod_init(SysParams const *const param) {
     Module::mod_init(param);
+    gl_DmCommitLogMod.mod_init(param);
     return 0;
 }
 
@@ -119,6 +133,7 @@ void CommitLogProbe::mod_startup() {
         svc = mgr->js_get_template("Run-Input");
         svc->js_register_template(new CommitLogWorkloadTemplate(mgr));
     }
+    gl_DmCommitLogMod.mod_startup();
 }
 
 // mod_shutdown
@@ -126,6 +141,7 @@ void CommitLogProbe::mod_startup() {
 //
 void
 CommitLogProbe::mod_shutdown() {
+    gl_DmCommitLogMod.mod_shutdown();
 }
 
 /**
@@ -138,14 +154,6 @@ CommitLogObjectOp::js_exec_obj(JsObject *parent,
     fds_uint32_t numOps = parent->js_array_size();
     CommitLogObjectOp *node;
     CommitLogProbe::OpParams *info;
-
-    // create volume with id 1
-    VolumeDesc voldesc("volume", 1);
-    voldesc.maxObjSizeInBytes = 4096;
-    // Error err = gl_DmCommitLogMod.addVolume(voldesc);
-    // fds_verify(err.ok());
-    // err = gl_DmCommitLogMod.activateVolume(1);
-    // fds_verify(err.ok());
 
     for (fds_uint32_t i = 0; i < numOps; i++) {
         node = static_cast<CommitLogObjectOp *>((*parent)[i]);

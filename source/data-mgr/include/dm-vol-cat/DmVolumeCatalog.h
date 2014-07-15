@@ -32,6 +32,8 @@ namespace fds {
   public:
         explicit DmVolumeCatalog(char const *const name);
         ~DmVolumeCatalog();
+        typedef boost::shared_ptr<DmVolumeCatalog> ptr;
+        typedef boost::shared_ptr<const DmVolumeCatalog> const_ptr;
 
         /**
          * Module methods

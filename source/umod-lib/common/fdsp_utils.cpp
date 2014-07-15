@@ -97,17 +97,37 @@ std::string logString(const FDS_ProtocolInterface::StartBlobTxMsg& stBlobTx)
     return oss.str();
 }
 
-std::string logString(const FDS_ProtocolInterface::DeleteCatalogObjectMsg& delcatMsg)
-{
-    std::ostringstream oss;
-    oss < " DeleteBlobTxMs";
-    return oss.str();
-}
-
 std::string logString(const FDS_ProtocolInterface::CommitBlobTxMsg& commitBlbTx)
 {
     std::ostringstream oss;
     oss < " CommitBlobTxMs";
+    return oss.str();
+}
+std::string logString(const FDS_ProtocolInterface::DeleteCatalogObjectMsg& delcatMsg)
+{
+    std::ostringstream oss;
+    oss < " DeleteCatalogObjectMsg";
+    return oss.str();
+}
+
+std::string logString(const FDS_ProtocolInterface::DeleteCatalogObjectRspMsg& delcatRspMsg)
+{
+    std::ostringstream oss;
+    oss < " DeleteCatalogObjectRspMsg";
+    return oss.str();
+}
+
+std::string logString(const FDS_ProtocolInterface::SetBlobMetaDataMsg& setMDMsg)
+{
+    std::ostringstream oss;
+    oss < " SetBlobMetaDataMsg";
+    return oss.str();
+}
+
+std::string logString(const FDS_ProtocolInterface::SetBlobMetaDataRspMsg& setMDRspMsg)
+{
+    std::ostringstream oss;
+    oss < " SetBlobMetaDataRspMsg";
     return oss.str();
 }
 

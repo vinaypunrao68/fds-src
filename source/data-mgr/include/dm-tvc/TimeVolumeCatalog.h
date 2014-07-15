@@ -41,7 +41,11 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
 
     // TODO(Andrew): Add a history log eventually...
 
-    DmVolumeCatalog* volcat;
+    /**
+     * Internal volume catalog pointer. The actual catalog is owned by
+     * the TVC and only a query interface is exposed
+     */
+    DmVolumeCatalog::ptr volcat;
 
     /**
      * Notifies TVC of transactions that have been persisted
@@ -157,9 +161,11 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
                           const DmTimeVolCatalog::CommitCb &cb);
 
     /**
-     * Returns query interface to volume catalog
+     * Returns query interface to volume catalog. Provides
+     * abstraction of volume catalog objects and management
+     * from caller.
      */
-    inline VolumeCatalogQueryIface* queryIface() {
+    inline VolumeCatalogQueryIface::ptr queryIface() {
         return volcat;
     }
 

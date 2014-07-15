@@ -19,6 +19,7 @@
 #include <blob/BlobTypes.h>
 #include <DmBlobTypes.h>
 #include <FdsCrypto.h>
+#include <PerfTrace.h>
 
 namespace fds {
 
@@ -107,6 +108,7 @@ class DmCommitLog : public Module {
     fds_uint32_t filesize_;
     PersistenceType persist_;
     bool started_;
+    PerfContext logCtx;
     boost::shared_ptr<DmCommitLogger> cmtLogger_;
 
     // Methods

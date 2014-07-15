@@ -1,0 +1,409 @@
+{
+    "Run-Input": {
+        "commit-log-workload": {
+            "commit-log-ops": [
+                {
+                    "blob-op": "startTx",
+                    "tx-id": 0,
+                    "blob-name": "blob-0"
+                },
+                {
+                    "blob-op": "startTx",
+                    "tx-id": 1,
+                    "blob-name": "blob-1"
+                },
+                {
+                    "blob-op": "startTx",
+                    "tx-id": 2,
+                    "blob-name": "blob-2"
+                },
+                {
+                    "blob-op": "startTx",
+                    "tx-id": 3,
+                    "blob-name": "blob-3"
+                },
+                {
+                    "blob-op": "startTx",
+                    "tx-id": 4,
+                    "blob-name": "blob-4"
+                },
+                {
+                    "blob-op": "startTx",
+                    "tx-id": 5,
+                    "blob-name": "blob-5"
+                },
+                {
+                    "blob-op": "startTx",
+                    "tx-id": 6,
+                    "blob-name": "blob-6"
+                },
+                {
+                    "blob-op": "startTx",
+                    "tx-id": 7,
+                    "blob-name": "blob-7"
+                },
+                {
+                    "blob-op": "startTx",
+                    "tx-id": 8,
+                    "blob-name": "blob-8"
+                },
+                {
+                    "blob-op": "startTx",
+                    "tx-id": 9,
+                    "blob-name": "blob-9"
+                },
+
+                {
+                    "blob-op": "updateMetaTx",
+                    "tx-id": 0,
+                    "meta-data": {
+                         "descr": "Favorite movie blob-0",
+                         "tags": "Horror, Alien"
+                     }
+                },
+                {
+                    "blob-op": "updateMetaTx",
+                    "tx-id": 1,
+                    "meta-data": {
+                         "descr": "Favorite movie blob-1",
+                         "tags": "Horror, Alien"
+                     }
+                },
+                {
+                    "blob-op": "updateMetaTx",
+                    "tx-id": 2,
+                    "meta-data": {
+                         "descr": "Favorite movie blob-2",
+                         "tags": "Horror, Alien"
+                     }
+                },
+                {
+                    "blob-op": "updateMetaTx",
+                    "tx-id": 3,
+                    "meta-data": {
+                         "descr": "Favorite movie blob-3",
+                         "tags": "Horror, Alien"
+                     }
+                },
+                {
+                    "blob-op": "updateMetaTx",
+                    "tx-id": 4,
+                    "meta-data": {
+                         "descr": "Favorite movie blob-4",
+                         "tags": "Horror, Alien"
+                     }
+                },
+                {
+                    "blob-op": "updateMetaTx",
+                    "tx-id": 5,
+                    "meta-data": {
+                         "descr": "Favorite movie blob-5",
+                         "tags": "Horror, Alien"
+                     }
+                },
+                {
+                    "blob-op": "updateMetaTx",
+                    "tx-id": 6,
+                    "meta-data": {
+                         "descr": "Favorite movie blob-6",
+                         "tags": "Horror, Alien"
+                     }
+                },
+                {
+                    "blob-op": "updateMetaTx",
+                    "tx-id": 7,
+                    "meta-data": {
+                         "descr": "Favorite movie blob-7",
+                         "tags": "Horror, Alien"
+                     }
+                },
+                {
+                    "blob-op": "updateMetaTx",
+                    "tx-id": 8,
+                    "meta-data": {
+                         "descr": "Favorite movie blob-8",
+                         "tags": "Horror, Alien"
+                     }
+                },
+                {
+                    "blob-op": "updateMetaTx",
+                    "tx-id": 9,
+                    "meta-data": {
+                         "descr": "Favorite movie blob-9",
+                         "tags": "Horror, Alien"
+                     }
+                },
+
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 0,
+                    "obj-list": {
+                         "offset": 709820,
+                         "length": 586132
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 1,
+                    "obj-list": {
+                         "offset": 103758,
+                         "length": 950397
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 1,
+                    "obj-list": {
+                         "offset": 578244,
+                         "length": 910095
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 1,
+                    "obj-list": {
+                         "offset": 769358,
+                         "length": 291481
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 1,
+                    "obj-list": {
+                         "offset": 805927,
+                         "length": 421129
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 1,
+                    "obj-list": {
+                         "offset": 783626,
+                         "length": 1034448
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 2,
+                    "obj-list": {
+                         "offset": 369597,
+                         "length": 220734
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 3,
+                    "obj-list": {
+                         "offset": 416950,
+                         "length": 430899
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 3,
+                    "obj-list": {
+                         "offset": 544834,
+                         "length": 793181
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 3,
+                    "obj-list": {
+                         "offset": 486066,
+                         "length": 161796
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 4,
+                    "obj-list": {
+                         "offset": 580565,
+                         "length": 773927
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 4,
+                    "obj-list": {
+                         "offset": 277255,
+                         "length": 345707
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 4,
+                    "obj-list": {
+                         "offset": 523223,
+                         "length": 851943
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 5,
+                    "obj-list": {
+                         "offset": 701589,
+                         "length": 447160
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 6,
+                    "obj-list": {
+                         "offset": 351494,
+                         "length": 491873
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 6,
+                    "obj-list": {
+                         "offset": 204998,
+                         "length": 312402
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 7,
+                    "obj-list": {
+                         "offset": 600165,
+                         "length": 203081
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 7,
+                    "obj-list": {
+                         "offset": 1045313,
+                         "length": 20504
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 8,
+                    "obj-list": {
+                         "offset": 256768,
+                         "length": 162835
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 8,
+                    "obj-list": {
+                         "offset": 742682,
+                         "length": 1042765
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 9,
+                    "obj-list": {
+                         "offset": 66141,
+                         "length": 316253
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 9,
+                    "obj-list": {
+                         "offset": 568102,
+                         "length": 725940
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 9,
+                    "obj-list": {
+                         "offset": 856326,
+                         "length": 615214
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 9,
+                    "obj-list": {
+                         "offset": 871660,
+                         "length": 542023
+                     }
+                },
+                {
+                    "blob-op": "updateTx",
+                    "tx-id": 9,
+                    "obj-list": {
+                         "offset": 933054,
+                         "length": 364865
+                     }
+                },
+
+                {
+                    "blob-op": "abortTx",
+                    "tx-id": 0
+                },
+                {
+                    "blob-op": "commitTx",
+                    "tx-id": 1
+                },
+                {
+                    "blob-op": "purgeTx",
+                    "tx-id": 1
+                },
+                {
+                    "blob-op": "commitTx",
+                    "tx-id": 2
+                },
+                {
+                    "blob-op": "purgeTx",
+                    "tx-id": 2
+                },
+                {
+                    "blob-op": "abortTx",
+                    "tx-id": 3
+                },
+                {
+                    "blob-op": "commitTx",
+                    "tx-id": 4
+                },
+                {
+                    "blob-op": "purgeTx",
+                    "tx-id": 4
+                },
+                {
+                    "blob-op": "commitTx",
+                    "tx-id": 5
+                },
+                {
+                    "blob-op": "purgeTx",
+                    "tx-id": 5
+                },
+                {
+                    "blob-op": "commitTx",
+                    "tx-id": 6
+                },
+                {
+                    "blob-op": "purgeTx",
+                    "tx-id": 6
+                },
+                {
+                    "blob-op": "abortTx",
+                    "tx-id": 7
+                },
+                {
+                    "blob-op": "commitTx",
+                    "tx-id": 8
+                },
+                {
+                    "blob-op": "purgeTx",
+                    "tx-id": 8
+                },
+                {
+                    "blob-op": "commitTx",
+                    "tx-id": 9
+                },
+                {
+                    "blob-op": "purgeTx",
+                    "tx-id": 9
+                }
+            ]
+        }
+    }
+}

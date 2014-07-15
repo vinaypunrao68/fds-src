@@ -54,7 +54,7 @@ class DMSvcHandler : virtual public DMSvcIf, public PlatNetSvcHandler {
                             boost::shared_ptr<fpi::QueryCatalogMsg>& queryMsg);
     void queryCatalogObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                               boost::shared_ptr<fpi::QueryCatalogMsg>& queryMsg,
-                              const Error &e, dmCatReq *req, BlobNode *bnode);
+                              const Error &e, dmCatReq *req);
 
     void updateCatalog(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                        boost::shared_ptr<fpi::UpdateCatalogMsg>& updcatMsg);

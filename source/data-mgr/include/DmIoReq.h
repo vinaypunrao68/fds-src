@@ -310,23 +310,26 @@ class DmIoStartBlobTx: public dmCatReq {
     /* response callback */
     CbType dmio_start_blob_tx_resp_cb;
 };
+
 /**
  * Request to query catalog
  */
 class DmIoQueryCat: public dmCatReq {
  public:
-    typedef std::function<void (const Error &e, DmIoQueryCat *req,
-                                BlobNode *bnode)> CbType;
+    typedef std::function<void (const Error &e, DmIoQueryCat *req)> CbType;
+    boost::shared_ptr<fpi::QueryCatalogMsg> queryMsg;
+
   public:
-    DmIoQueryCat(const fds_volid_t  &_volId,
-                 const std::string &_blobName,
-                 const blob_version_t &_blob_version)
-            : dmCatReq(_volId, _blobName, _blob_version, FDS_CAT_QRY_SVC) {
+    explicit DmIoQueryCat(boost::shared_ptr<fpi::QueryCatalogMsg>& queryMsg)
+            : dmCatReq(queryMsg->volume_id,
+                       queryMsg->blob_name,
+                       queryMsg->blob_version,
+                       FDS_CAT_QRY_SVC) {
     }
 
     virtual std::string log_string() const override {
         std::stringstream ret;
-        ret << "DmIoQueryCat"
+        ret << "DmIoQueryCat "
             << std::hex << volId << std::dec;
         return ret.str();
     }
