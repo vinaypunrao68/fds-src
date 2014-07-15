@@ -5,6 +5,19 @@ block=10.1.10.46
 private_key=./fds_id_rsa
 egrep_pattern="egrep -e \"ERROR|FDS_DRIVER\""
 
+function cgrep()
+{
+    find -name '*.[hc]' | xargs grep -n "$1" 2> /dev/null
+    find -name '*.cpp' | xargs grep -n "$1" 2> /dev/null
+}
+
+function agrep()
+{
+    find . | xargs grep -n "$1" 2> /dev/null | \
+    grep -v "Binary file" | grep -v "No such file or directory"
+    #   find . | xargs grep -n "$1" 2> /dev/null
+}
+
 function add_ssh_key()
 {
     node=$1
