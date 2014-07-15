@@ -77,10 +77,12 @@ class FDSNBDDriver(driver.VolumeDriver):
         pass
 
     def create_volume(self, volume):
+        LOG.warning('FDS_DRIVER: create volume %s' % volume['name'])
         with self._get_services() as fds:
             fds.create_volume(self.fds_domain, volume)
 
     def delete_volume(self, volume):
+        LOG.warning('FDS_DRIVER: delete volume %s' % volume['name'])
         with self._get_services() as fds:
             fds.delete_volume(self.fds_domain, volume)
 
@@ -89,6 +91,7 @@ class FDSNBDDriver(driver.VolumeDriver):
         return "http://%s:10511" % host
 
     def initialize_connection(self, volume, connector):
+        LOG.warning('FDS_DRIVER: attach volume %s' % volume['name'])
         url = self.host_to_nbdd_url(connector['ip'])
         device = self.nbd.attach_nbd_remote(url, self.configuration.fds_nbd_server, volume['name'])
         return {
@@ -97,6 +100,7 @@ class FDSNBDDriver(driver.VolumeDriver):
         }
 
     def terminate_connection(self, volume, connector, **kwargs):
+        LOG.warning('FDS_DRIVER: detach volume %s' % volume['name'])
         url = self.host_to_nbdd_url(connector['ip'])
         self.nbd.detach_nbd_remote(url, self.configuration.fds_nbd_server, volume['name'])
 
