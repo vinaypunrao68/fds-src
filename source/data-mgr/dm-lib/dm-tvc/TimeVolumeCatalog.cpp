@@ -163,9 +163,9 @@ DmTimeVolCatalog::commitBlobTxWork(fds_volid_t volid,
         if (commit_data->blobObjList &&
             (commit_data->blobObjList->size() > 0)) {
             // TEMP -- setting end of blob directly here
-            if (blobEnd) {
-                commit_data->blobObjList->setEndOfBlob();
-            }
+            // if (blobEnd) {
+            commit_data->blobObjList->setEndOfBlob();
+            // }
             e = volcat->putBlob(volid, commit_data->blobName, commit_data->metaDataList,
                                 commit_data->blobObjList, txDesc);
         } else {
