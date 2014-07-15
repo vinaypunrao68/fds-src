@@ -427,6 +427,9 @@ class DmIoGetBlobMetaData: public dmCatReq {
             : message(message), dmCatReq(_volId, _blobName, _blob_version, FDS_GET_BLOB_METADATA) {
     }
 
+    ~DmIoGetBlobMetaData() {
+     }
+
     virtual std::string log_string() const override {
         std::stringstream ret;
         ret << "DmIoGetBlobMetaData vol "
@@ -435,9 +438,8 @@ class DmIoGetBlobMetaData: public dmCatReq {
     }
     boost::shared_ptr<fpi::GetBlobMetaDataMsg> message;
     /* response callback */
-    CbType cb;
+    CbType dmio_getmd_resp_cb;
 };
-
 
 }  // namespace fds
 

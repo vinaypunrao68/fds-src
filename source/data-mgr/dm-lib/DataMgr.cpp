@@ -2800,12 +2800,23 @@ DataMgr::deleteCatObjBackend(dmCatReq  *delCatReq) {
     delete delCatReq;
 }
 
-void DataMgr::scheduleGetBlobMetaDataSvc(void *io) {
+void DataMgr::scheduleGetBlobMetaDataSvc(void *_io) {
     Error err(ERR_OK);
-    DmIoGetBlobMetaData *request = static_cast<DmIoGetBlobMetaData*>(io);
-    err = getBlobMetaDataSvc(request);
-    qosCtrl->markIODone(*request);
-    request->cb(err, request);
+    DmIoGetBlobMetaData *getBlbMeta = static_cast<DmIoGetBlobMetaData*>(_io);
+
+    // TODO(Andrew): We're not using the size...we can remove it
+    fds_uint64_t blobSize;
+    err = timeVolCat_->queryIface()->getBlobMeta(getBlbMeta->volId,
+                                             getBlbMeta->blob_name,
+                                             &(getBlbMeta->blob_version),
+                                             &(blobSize),
+                                             &(getBlbMeta->message->metaDataList));
+
+    getBlbMeta->message->byteCount = blobSize;
+    qosCtrl->markIODone(*getBlbMeta);
+    // TODO(Andrew): Note the cat request gets freed
+    // by the callback
+    getBlbMeta->dmio_getmd_resp_cb(err, getBlbMeta);
 }
 
 void DataMgr::setBlobMetaDataSvc(void *io) {

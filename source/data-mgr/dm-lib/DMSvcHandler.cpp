@@ -21,6 +21,7 @@ DMSvcHandler::DMSvcHandler()
     REGISTER_FDSP_MSG_HANDLER(fpi::CommitBlobTxMsg, commitBlobTx);
     REGISTER_FDSP_MSG_HANDLER(fpi::AbortBlobTxMsg, abortBlobTx);
     REGISTER_FDSP_MSG_HANDLER(fpi::SetBlobMetaDataMsg, setBlobMetaData);
+    REGISTER_FDSP_MSG_HANDLER(fpi::GetBlobMetaDataMsg, getBlobMetaData);
 }
 
 
@@ -260,22 +261,22 @@ void DMSvcHandler::deleteCatalogObjectCb(boost::shared_ptr<fpi::AsyncHdr>& async
 }
 
 void DMSvcHandler::getBlobMetaData(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                                   boost::shared_ptr<fpi::GetBlobMetaDataMsg>& message) {
-    DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*message));
+                                   boost::shared_ptr<fpi::GetBlobMetaDataMsg>& getBlbMeta) {
+    DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*getBlbMeta));
 
-    auto dmReq = new DmIoGetBlobMetaData(message->volume_id,
-                                         message->blob_name,
-                                         message->blob_version,
-                                         message);
-    dmReq->setBlobVersion(message->blob_version);
-    dmReq->cb = BIND_MSG_CALLBACK2(DMSvcHandler::getBlobMetaDataCb, asyncHdr, message);
+    auto dmReq = new DmIoGetBlobMetaData(getBlbMeta->volume_id,
+                                         getBlbMeta->blob_name,
+                                         getBlbMeta->blob_version,
+                                         getBlbMeta);
+    dmReq->dmio_getmd_resp_cb =
+                    BIND_MSG_CALLBACK2(DMSvcHandler::getBlobMetaDataCb, asyncHdr, getBlbMeta);
 
     Error err = dataMgr->qosCtrl->enqueueIO(dmReq->getVolId(),
                                       static_cast<FDS_IOType*>(dmReq));
     if (err != ERR_OK) {
         LOGWARN << "Unable to enqueue request "
-                << logString(*asyncHdr) << ":" << logString(*message);
-        dmReq->cb(err, dmReq);
+                << logString(*asyncHdr) << ":" << logString(*getBlbMeta);
+        dmReq->dmio_getmd_resp_cb(err, dmReq);
     }
 }
 
