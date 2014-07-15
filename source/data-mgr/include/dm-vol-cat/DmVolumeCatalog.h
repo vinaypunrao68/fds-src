@@ -28,7 +28,7 @@ namespace fds {
      * catalog cache that sits on top of persistent layer.
      */
     class DmVolumeCatalog:
-    public Module, public HasLogger, public VolumeCatalogQueryIface {
+    public Module, public VolumeCatalogQueryIface {
   public:
         explicit DmVolumeCatalog(char const *const name);
         ~DmVolumeCatalog();
