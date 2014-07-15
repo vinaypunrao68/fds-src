@@ -1,0 +1,130 @@
+#!/bin/bash
+controller=10.1.10.44
+compute=10.1.10.45
+block=10.1.10.46
+private_key=./fds_id_rsa
+
+function add_ssh_key()
+{
+    node=$1
+
+    scp -i $private_key root@$node:/root/.ssh/authorized_keys ./tmp_key
+    found=`cat ./tmp_key | grep -c root@fds-ubuntu-dev-fds`
+    if [ $found -ne 0 ]; then
+        echo "Already exist"
+        return
+    fi
+
+    cat ./fds_id_rsa.pub  >> ./tmp_key
+    scp -i $private_key ./tmp_key root@$node:/root/.ssh/authorized_keys
+
+    rm -f ./tmp_key
+}
+
+function tmux_split_panes()
+{
+    window=$1
+    tmux split-window -v -t FDS-tmux:$window.1
+    tmux split-window -h -t FDS-tmux:$window.1
+    tmux split-window -h -t FDS-tmux:$window.2
+}
+
+function tmux_ssh_panes()
+{
+    window=$1
+    host=$2
+
+    tmux send-keys -t FDS-tmux:$window.1 "ssh -i $private_key root@$host" Enter
+    tmux send-keys -t FDS-tmux:$window.2 "ssh -i $private_key root@$host" Enter
+    tmux send-keys -t FDS-tmux:$window.3 "ssh -i $private_key root@$host" Enter
+    tmux send-keys -t FDS-tmux:$window.4 "ssh -i $private_key root@$host" Enter
+}
+
+function tmux_tail_controller()
+{
+    window=$1
+
+    tmux send-keys -t FDS-tmux:$window.1 "cd /var/log/nova" Enter
+    tmux send-keys -t FDS-tmux:$window.1 "tail -f *.log | grep ERROR" Enter
+
+    tmux send-keys -t FDS-tmux:$window.2 "cd /var/log/cinder" Enter
+    tmux send-keys -t FDS-tmux:$window.2 "tail -f *.log | grep ERROR" Enter
+
+    tmux send-keys -t FDS-tmux:$window.3 "cd /var/log/glance" Enter
+    tmux send-keys -t FDS-tmux:$window.3 "tail -f *.log | grep ERROR" Enter
+
+    tmux send-keys -t FDS-tmux:$window.4 "cd /var/log/keystone" Enter
+    tmux send-keys -t FDS-tmux:$window.4 "tail -f *.log | grep ERROR" Enter
+}
+
+function tmux_tail_compute()
+{
+     window=$1
+
+    tmux send-keys -t FDS-tmux:$window.1 "cd /var/log/nova" Enter
+    tmux send-keys -t FDS-tmux:$window.1 "tail -f *.log | grep ERROR" Enter
+
+    tmux send-keys -t FDS-tmux:$window.2 "cd /var/log/" Enter
+    tmux send-keys -t FDS-tmux:$window.3 "cd /var/log/" Enter
+    tmux send-keys -t FDS-tmux:$window.4 "cd /var/log/" Enter
+}
+
+function tmux_tail_block()
+{
+    window=$1
+
+    tmux send-keys -t FDS-tmux:$window.1 "cd /var/log/cinder" Enter
+    tmux send-keys -t FDS-tmux:$window.1 "tail -f *.log | grep ERROR" Enter
+
+    tmux send-keys -t FDS-tmux:$window.2 "cd /var/log/" Enter
+    tmux send-keys -t FDS-tmux:$window.3 "cd /var/log/" Enter
+    tmux send-keys -t FDS-tmux:$window.4 "cd /var/log/" Enter
+}
+
+function tmux_start_nbdd()
+{
+    window=$1
+
+    tmux send-keys -t FDS-tmux:$window.1 "nbdadmd.py" Enter
+}
+
+function start_tmux()
+{
+    session=$1
+    tmux -f ./tmux_fds.conf new-session -d -s $session
+
+    if [ $? -eq 0 ]; then
+        tmux new-window -t $session:1 -n $2
+        tmux new-window -t $session:2 -n $3
+        tmux new-window -t $session:3 -n $4
+        tmux new-window -t $session:4 -n $5
+        tmux new-window -t $session:5 -n $6
+    fi
+    tmux_split_panes 1
+    tmux_ssh_panes 1 $compute
+
+    tmux_split_panes 2
+    tmux_ssh_panes 2 $controller
+
+    tmux_split_panes 3
+    tmux_ssh_panes 3 $compute
+
+    tmux_split_panes 4
+    tmux_ssh_panes 4 $block
+
+    sleep 4
+    tmux_tail_controller 2
+    tmux_tail_compute 3
+    tmux_tail_block 4
+
+    sleep 4
+    tmux_start_nbdd 1
+
+
+    tmux -f ./tmux_fds.conf attach-session -t $session
+}
+
+add_ssh_key $controller
+add_ssh_key $compute
+add_ssh_key $block
+start_tmux FDS-tmux comp-nbdadmd controller compute block all
