@@ -172,7 +172,7 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
                     threadPool->schedule(&DataMgr::scheduleGetBlobMetaDataSvc, dataMgr, io);
                     break;
                 case FDS_SET_BLOB_METADATA:
-                    threadPool->schedule(scheduleSetBlobMetaData, io);
+                    threadPool->schedule(&DataMgr::setBlobMetaDataSvc, dataMgr, io);
                     break;
                 case FDS_GET_VOLUME_METADATA:
                     threadPool->schedule(scheduleGetVolumeMetaData, io);
@@ -354,6 +354,7 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
     void commitBlobTxCb(const Error &err, DmIoCommitBlobTx *commitBlobReq);
     /* End of new refactored DM message handlers */
 
+    void setBlobMetaDataSvc(void *io);
     void updateCatalogBackend(dmCatReq  *updCatReq);
     void updateCatalogBackendSvc(void * _io);
     Error updateCatalogProcess(const dmCatReq  *updCatReq, BlobNode **bnode);

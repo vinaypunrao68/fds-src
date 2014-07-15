@@ -326,18 +326,28 @@ class StatBlobReq : public FdsBlobReq {
 };
 
 struct SetBlobMetaDataReq : FdsBlobReq {
+  public:
     std::string volumeName;
+    BlobTxId::ptr txDesc;
     boost::shared_ptr<FDSP_MetaDataList> metaDataList;
     SetBlobMetaDataReq(fds_volid_t _volid,
                        const std::string   &_vol_name,
                        const std::string   &_blob_name,
-                       boost::shared_ptr<FDSP_MetaDataList> metaDataList,
+                       BlobTxId::ptr _txDesc,
+                       boost::shared_ptr<FDSP_MetaDataList> _metaDataList,
                        CallbackPtr cb) :
             FdsBlobReq(FDS_SET_BLOB_METADATA, _volid, _blob_name, 0, 0, NULL, cb),
-            volumeName(_vol_name), metaDataList(metaDataList) {}
+            volumeName(_vol_name), txDesc(_txDesc),  metaDataList(_metaDataList) {}
 
-            inline boost::shared_ptr<FDSP_MetaDataList> getMetaDataListPtr()
+    ~SetBlobMetaDataReq() {
+     }
+
+    boost::shared_ptr<FDSP_MetaDataList> getMetaDataListPtr()
                     const { return metaDataList; }
+
+    BlobTxId::const_ptr getTxId() const {
+        return txDesc;
+    }
             
 };
 

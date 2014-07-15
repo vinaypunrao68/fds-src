@@ -140,6 +140,7 @@ class FDS_NativeAPI {
 
     void setBlobMetaData(const std::string& volumeName,
                          const std::string& blobName,
+                         BlobTxId::ptr txDesc,
                          boost::shared_ptr<fpi::FDSP_MetaDataList>& metaDataList,
                          CallbackPtr cb);
 

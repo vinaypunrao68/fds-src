@@ -312,8 +312,11 @@ DMSvcHandler::setBlobMetaData(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
     auto dmSetMDReq = new DmIoSetBlobMetaData(setMDMsg->volume_id,
                                               setMDMsg->blob_name,
-                                              setMDMsg->blob_version,
-                                              setMDMsg->metaDataList);
+                                              setMDMsg->blob_version);
+
+    dmSetMDReq->md_list = std::move(setMDMsg->metaDataList);
+    dmSetMDReq->ioBlobTxDesc = boost::make_shared<const BlobTxId>(setMDMsg->txId);
+
     dmSetMDReq->dmio_setmd_resp_cb =
             BIND_MSG_CALLBACK2(DMSvcHandler::setBlobMetaDataCb, asyncHdr);
 

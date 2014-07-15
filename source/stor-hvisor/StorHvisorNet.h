@@ -400,6 +400,7 @@ public:
                               const std::string& blob_name,
                               const blob_version_t& blob_version,
                               const boost::shared_ptr<FDSP_MetaDataList>& md_list,
+                              const fds_uint64_t& txId,
                               QuorumRpcRespCb respCb);
     void issueDeleteCatalogObject(const fds_uint64_t& vol_id,
                                   const std::string& blob_name,

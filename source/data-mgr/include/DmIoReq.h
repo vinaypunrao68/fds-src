@@ -371,11 +371,8 @@ class DmIoSetBlobMetaData: public dmCatReq {
   public:
     DmIoSetBlobMetaData(const fds_volid_t  &_volId,
                         const std::string &_blobName,
-                        const blob_version_t &_blob_version,
-                        const FDSP_MetaDataList &_md_list)
-            : dmCatReq(_volId, _blobName, _blob_version, FDS_SET_BLOB_METADATA)
-    {
-        this->metadataList = boost::make_shared<fpi::FDSP_MetaDataList>(_md_list);
+                        const blob_version_t &_blob_version)
+            : dmCatReq(_volId, _blobName, _blob_version, FDS_SET_BLOB_METADATA) {
     }
 
     virtual std::string log_string() const override {
@@ -384,6 +381,8 @@ class DmIoSetBlobMetaData: public dmCatReq {
             << std::hex << volId << std::dec;
         return ret.str();
     }
+    BlobTxId::const_ptr ioBlobTxDesc;
+    FDSP_MetaDataList md_list;
     /* response callback */
     CbType dmio_setmd_resp_cb;
 };

@@ -317,8 +317,11 @@ class FdsnIf : public apis::AmServiceIf {
             metaPair.value = meta.second;
             metaDataList->push_back(metaPair);
         }
+        // Setup the transcation descriptor
+        BlobTxId::ptr blobTxDesc(new BlobTxId(
+            txDesc->txId));
 
-        am_api->setBlobMetaData(*volumeName, *blobName, metaDataList,
+        am_api->setBlobMetaData(*volumeName, *blobName, blobTxDesc, metaDataList,
                                 SHARED_DYN_CAST(Callback, handler));
         handler->wait();
         LOGDEBUG << "set meta data returned";

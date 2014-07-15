@@ -765,6 +765,7 @@ void FDS_NativeAPI::StatBlob(const std::string& volumeName,
 
 void FDS_NativeAPI::setBlobMetaData(const std::string& volumeName,
                                     const std::string& blobName,
+                                    BlobTxId::ptr txDesc,
                                     boost::shared_ptr<fpi::FDSP_MetaDataList>& metaDataList,
                                     CallbackPtr cb) {
     fds_volid_t volId = invalid_vol_id;
@@ -786,6 +787,7 @@ void FDS_NativeAPI::setBlobMetaData(const std::string& volumeName,
     blobReq = new SetBlobMetaDataReq(volId,
                                      volumeName,
                                      blobName,
+                                     txDesc,
                                      metaDataList,
                                      cb);
 

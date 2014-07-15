@@ -717,16 +717,12 @@ StorHvCtrl::setBlobMetaDataSvc(fds::AmQosReq* qosReq)
     fds_verify(shVol != NULL);
     fds_verify(shVol->isValidLocked() == true);
 
-    // vol_id, blob_name, blob_version, and metadata_list
     std::string blob_name = blobReq->getBlobName();
  
-    // Blob version = blob_version_invalid (most recent)
+    LOGDEBUG << " Invoking issueSetBlobMetaData";
     issueSetBlobMetaData(vol_id, blob_name, blob_version_invalid, blobReq->getMetaDataListPtr(),
-                         std::bind(&StorHvCtrl::setBlobMetaDataMsgResp,
-                                   this, qosReq,
-                                   std::placeholders::_1,
-                                   std::placeholders::_2,
-                                   std::placeholders::_3));
+                          blobReq->getTxId()->getValue(),
+                          RESPONSE_MSG_HANDLER(StorHvCtrl::setBlobMetaDataMsgResp, qosReq));
     return err;
 }
 
@@ -735,17 +731,23 @@ StorHvCtrl::issueSetBlobMetaData(const fds_volid_t& vol_id,
                                  const std::string& blob_name,
                                  const blob_version_t& blob_version,
                                  const boost::shared_ptr<FDSP_MetaDataList>& md_list,
+                                 const fds_uint64_t& txId,
                                  QuorumRpcRespCb respCb)
 {
+    LOGDEBUG << " inside issueSetBlobMetaData";
     SetBlobMetaDataMsgPtr setMDMsg(new SetBlobMetaDataMsg());
     setMDMsg->blob_name = blob_name;
     setMDMsg->blob_version = blob_version;
     setMDMsg->volume_id = vol_id;
+    setMDMsg->txId = txId;
     setMDMsg->metaDataList.clear();
 
     fds_verify(md_list != nullptr);
     fds_verify(respCb != nullptr);
     
+    setMDMsg->metaDataList = std::move(*md_list);
+
+#if 0
     // Manually copy the MD entri[es over to the new list
     // TODO(brian): Find a more elegant way to do this
     for (auto kv : *md_list) {
@@ -753,7 +755,9 @@ StorHvCtrl::issueSetBlobMetaData(const fds_volid_t& vol_id,
     }
     
     fds_assert(setMDMsg->metaDataList.size() > 0);
+#endif
 
+    LOGDEBUG << " Invoking  Message Interface";
 #ifdef RPC_BASED_ASYNC_COMM
     auto asyncSetMDReq = gRpcRequestPool->newQuorumRpcRequest(
         boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(vol_id)));
@@ -768,7 +772,7 @@ StorHvCtrl::issueSetBlobMetaData(const fds_volid_t& vol_id,
     asyncSetMDReq->onResponseCb(respCb);
     asyncSetMDReq->invoke();
 
-    // LOGDEBUG << asyncSetMDReq->logString() << fds::logString(*setMDMsg);
+     // LOGDEBUG << asyncSetMDReq->logString() << fds::logString(*setMDMsg);
 }
 
 void

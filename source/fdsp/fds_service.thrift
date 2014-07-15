@@ -357,6 +357,7 @@ struct SetBlobMetaDataMsg {
    2: string 			blob_name;
    3: i64 			blob_version;
    4: FDSP.FDSP_MetaDataList    metaDataList; 
+   5: i64                   	txId;
 }
 
 /* Set blob metadata request message */
