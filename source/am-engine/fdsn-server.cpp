@@ -62,6 +62,14 @@ class FdsnIf : public apis::AmServiceIf {
         if (testUturnUpdateMeta == true) {
             LOGDEBUG << "Enabling uturn testing for AM service update metadata API";
         }
+        testUturnCommitTx = conf.get_abs<bool>("fds.am.testing.uturn_amserv_committx");
+        if (testUturnCommitTx == true) {
+            LOGDEBUG << "Enabling uturn testing for AM service commit tx API";
+        }
+        testUturnAbortTx = conf.get_abs<bool>("fds.am.testing.uturn_amserv_aborttx");
+        if (testUturnAbortTx == true) {
+            LOGDEBUG << "Enabling uturn testing for AM service abort tx API";
+        }
     }
 
     typedef boost::shared_ptr<FdsnIf> ptr;

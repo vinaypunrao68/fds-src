@@ -320,11 +320,12 @@ class DmIoQueryCat: public dmCatReq {
     boost::shared_ptr<fpi::QueryCatalogMsg> queryMsg;
 
   public:
-    explicit DmIoQueryCat(boost::shared_ptr<fpi::QueryCatalogMsg>& queryMsg)
-            : dmCatReq(queryMsg->volume_id,
-                       queryMsg->blob_name,
-                       queryMsg->blob_version,
-                       FDS_CAT_QRY_SVC) {
+    explicit DmIoQueryCat(boost::shared_ptr<fpi::QueryCatalogMsg>& qMsg)
+            : dmCatReq(qMsg->volume_id,
+                       qMsg->blob_name,
+                       qMsg->blob_version,
+                       FDS_CAT_QRY_SVC),
+              queryMsg(qMsg) {
     }
 
     virtual std::string log_string() const override {

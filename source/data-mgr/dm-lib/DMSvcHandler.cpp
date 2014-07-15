@@ -174,19 +174,16 @@ void DMSvcHandler::queryCatalogObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr
     }
 }
 
-// TODO(Rao): Refactor dmCatReq to contain BlobNode information? Check with Andrew.
 void DMSvcHandler::queryCatalogObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                         boost::shared_ptr<fpi::QueryCatalogMsg>& queryMsg,
                                         const Error &e,
                                         dmCatReq *req) {
     DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*queryMsg));
 
-    // TODO(Rao): We should have a seperate response message for QueryCatalogMsg for
-    // consistency
-    queryMsg->obj_list.clear();
-    queryMsg->meta_list.clear();
     asyncHdr->msg_code = static_cast<int32_t>(e.GetErrno());
 
+    // TODO(Rao): We should have a seperate response message for QueryCatalogMsg for
+    // consistency
     sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::QueryCatalogMsg), *queryMsg);
 
     delete req;

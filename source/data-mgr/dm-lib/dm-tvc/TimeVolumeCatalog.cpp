@@ -157,11 +157,11 @@ DmTimeVolCatalog::commitBlobTxWork(fds_volid_t volid,
     if (e.ok()) {
         if (commit_data->blobObjList &&
             (commit_data->blobObjList->size() > 0)) {
-            e = volcat->putBlobMeta(volid, commit_data->blobName,
-                                    commit_data->metaDataList, txDesc);
-        } else {
             e = volcat->putBlob(volid, commit_data->blobName, commit_data->metaDataList,
                                 commit_data->blobObjList, txDesc);
+        } else {
+            e = volcat->putBlobMeta(volid, commit_data->blobName,
+                                    commit_data->metaDataList, txDesc);
         }
     }
     cb(e);
