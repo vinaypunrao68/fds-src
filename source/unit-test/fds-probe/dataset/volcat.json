@@ -17,7 +17,7 @@
                     ],
                     "objects": [
                                "0-0xdeadbeefc94fcfb415dbe95f408b9ce9deadbeef-4096",
-                               "4096-0xdeadbeefc94fcfb415dbe95f408b9ce9deadaaaa-4096"
+                               "409600-0xdeadbeefc94fcfb415dbe95f408b9ce9deadaaaa-4096"
                     ]
                 },
 		{
@@ -58,7 +58,16 @@
                     "blob-name": "blob-c",
                     "blob-end": 1,
                     "objects": [
-                               "0-0x1234beefc94fcfb415dbe95f408b9ce9deaddddd-4096"
+                               "40960-0x1234beefc94fcfb415dbe95f408b9ce9deadbbbb-4096"
+                    ]
+                },
+		{
+		    "volcat-op": "put",
+		    "volume-id": 2,
+                    "blob-name": "blob-c",
+                    "blob-end": 1,
+                    "objects": [
+                               "40960-0x1234beefc94fcfb415dbe95f408b9ce9deaddddd-4096"
                     ]
                 },
 		{
