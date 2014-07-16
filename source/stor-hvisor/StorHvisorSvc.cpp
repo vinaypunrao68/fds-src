@@ -576,13 +576,25 @@ void StorHvCtrl::getBlobQueryCatalogResp(fds::AmQosReq* qosReq,
         return;
     }
 
-    /* NOTE: For now making the assumption that there is only one object id */
-    fds_verify(qryCatRsp->obj_list.size() == 1);
-    ObjectID objId(qryCatRsp->obj_list[0].data_obj_id.digest);
-    fds_verify(objId != NullObjectID);
+    // TODO(xxx) should be able to have multiple object id + implement range
+    // queries in DM
+    for (fpi::FDSP_BlobObjectList::const_iterator it = qryCatRsp->obj_list.cbegin();
+         it != qryCatRsp->obj_list.cend();
+         it++) {
+        if ((fds_uint64_t)(*it).offset == blobReq->getBlobOffset()) {
+            // found offset!!!
+            ObjectID objId((*it).data_obj_id.digest);
+            fds_verify(objId != NullObjectID);
 
-    issueGetObject(blobReq->getVolId(), objId,
-                   RESPONSE_MSG_HANDLER(StorHvCtrl::getBlobGetObjectResp, qosReq));
+            issueGetObject(blobReq->getVolId(), objId,
+                           RESPONSE_MSG_HANDLER(StorHvCtrl::getBlobGetObjectResp, qosReq));
+
+            return;
+        }
+    }
+
+    // if we are here, we did not get response for offset we needed!
+    fds_panic("DM did not return offset we asked for!");
 }
 
 void StorHvCtrl::getBlobGetObjectResp(fds::AmQosReq* qosReq,
