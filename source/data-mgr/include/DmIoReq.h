@@ -65,6 +65,7 @@ namespace fds {
         fpi::FDSP_UpdateCatalogTypePtr fdspUpdCatReqPtr;
         boost::shared_ptr<fpi::FDSP_MetaDataList> metadataList;
         std::string session_cache;
+        std::function<void(const Error &e, dmCatReq *dmRequest)> cb = NULL;
 
         dmCatReq(fds_volid_t  _volId,
                  fds_uint32_t _srcIp,
@@ -439,6 +440,12 @@ class DmIoGetBlobMetaData: public dmCatReq {
     boost::shared_ptr<fpi::GetBlobMetaDataMsg> message;
     /* response callback */
     CbType dmio_getmd_resp_cb;
+};
+
+struct DmIoGetBucket : dmCatReq {
+    boost::shared_ptr<fpi::GetBucketMsg> message;
+    explicit DmIoGetBucket(boost::shared_ptr<fpi::GetBucketMsg> message)
+            : message(message) , dmCatReq(message->volume_id, "", 0, FDS_LIST_BLOB) {}
 };
 
 }  // namespace fds
