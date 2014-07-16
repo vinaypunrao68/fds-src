@@ -6,6 +6,7 @@
 
 #include <random>
 #include <fds_types.h>
+#include <concurrency/Mutex.h>
 
 namespace fds {
 
@@ -17,6 +18,7 @@ class RandNumGenerator {
     typedef std::mt19937_64 mte;
 
     mte generator;
+    fds_spinlock rngLock;
 
   public:
     explicit RandNumGenerator(fds_uint64_t seed);
@@ -30,6 +32,8 @@ class RandNumGenerator {
     static fds_uint64_t getRandSeed();
 
     fds_uint64_t genNum();
+    /// Thread safe number generation
+    fds_uint64_t genNumSafe();
 };
 
 }  // namespace fds
