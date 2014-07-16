@@ -42,7 +42,7 @@ class DefaultConfig:
     '''
     min_mem = 32 # Mem size in GB
     num_disks = 6 # 6 disks
-    disk_size = 1000 #2TB in GB
+    disk_size = 500 # in GB
     net_connect = False
     os_version = "Ubuntu 13.10"
     wipe = False
