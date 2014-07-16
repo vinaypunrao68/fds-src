@@ -99,6 +99,13 @@ void serializeFdspMsg(const PayloadT &payload, bo::shared_ptr<std::string> &payl
     try {
         auto written = payload.write(binary_buf.get());
         fds_verify(written > 0);
+    } catch (std::exception &e) {
+        /* This is to ensure we assert on any serialization exceptions in debug
+         * builds.  We then rethrow the exception
+         */
+        GLOGDEBUG << "Excpetion in serializing: " << e.what();
+        fds_assert(!"Exception serializing.  Most likely due to fdsp msg id mismatch");
+        throw;
     } catch(...) {
         /* This is to ensure we assert on any serialization exceptions in debug
          * builds.  We then rethrow the exception
@@ -138,6 +145,14 @@ void deserializeFdspMsg(const bo::shared_ptr<std::string> &payloadBuf,
     try {
         auto read = payload->read(binary_buf.get());
         fds_verify(read > 0);
+    } catch (std::exception &e) {
+        /* This is to ensure we assert on any serialization exceptions in debug
+         * builds.  We then rethrow the exception
+         */
+        GLOGDEBUG << "Excpetion in deserializing: " << e.what();
+        DBG(std::exception_ptr eptr = std::current_exception());
+        fds_assert(!"Exception deserializing.  Most likely due to fdsp msg id mismatch");
+        throw;
     } catch(...) {
         /* This is to ensure we assert on any serialization exceptions in debug
          * builds.  We then rethrow the exception
