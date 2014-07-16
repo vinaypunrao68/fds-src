@@ -189,7 +189,7 @@ StorHvCtrl::startBlobTxSvc(AmQosReq *qosReq) {
    
     // Generate a random transaction ID to use
     // Note: construction, generates a random ID
-    BlobTxId txId(storHvisor->randNumGen->genNum());
+    BlobTxId txId(storHvisor->randNumGen->genNumSafe());
     // Stash the newly created ID in the callback for later
     StartBlobTxCallback::ptr cb = SHARED_DYN_CAST(StartBlobTxCallback,
                                                   blobReq->cb);
@@ -345,7 +345,9 @@ void StorHvCtrl::issuePutObjectMsg(const ObjectID &objId,
         boost::make_shared<DltObjectIdEpProvider>(om_client->getDLTNodesForDoidKey(objId)));
     asyncPutReq->setPayload(FDSP_MSG_TYPEID(fpi::PutObjectMsg), putObjMsg);
 #endif
-    asyncPutReq->setTimeoutMs(500);
+    // TODO(Andrew): Bump this down. It was increased because we were
+    // seeing latency spikes from SM
+    asyncPutReq->setTimeoutMs(5000);
     asyncPutReq->onResponseCb(respCb);
     asyncPutReq->invoke();
 
