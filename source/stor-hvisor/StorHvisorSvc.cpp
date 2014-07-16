@@ -623,7 +623,10 @@ void StorHvCtrl::getBlobGetObjectResp(fds::AmQosReq* qosReq,
     }
     blobReq->setDataLen(getObjRsp->data_obj_len);    
     blobReq->setDataBuf(getObjRsp->data_obj.c_str());
-    blobReq->cb->call(ERR_OK);
+
+    // TODO(Andrew): Move back to the new callback mechanism
+    // blobReq->cb->call(ERR_OK);
+    blobReq->cbWithResult(ERR_OK);
     delete blobReq;
 }
 
