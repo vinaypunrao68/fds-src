@@ -508,5 +508,16 @@ namespace fds {
         TYPE_SHAREDPTR(GetVolumeMetaDataCallback);
         fpi::FDSP_VolumeMetaData volumeMetaData;
     };
+
+    struct GetBucketCallback : virtual Callback {
+        TYPE_SHAREDPTR(GetBucketCallback);
+        int isTruncated = 0;
+        const char *nextMarker = NULL;
+        int contentsCount = 0;
+        const ListBucketContents *contents = NULL;
+        int commonPrefixesCount = 0;
+        const char **commonPrefixes = NULL;
+    };
+
 }  // namespace fds
 #endif  // SOURCE_INCLUDE_NATIVE_TYPES_H_

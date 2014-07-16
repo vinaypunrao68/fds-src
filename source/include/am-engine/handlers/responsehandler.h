@@ -8,7 +8,7 @@
 #include <native/types.h>
 #include <string>
 #include <apis/apis_types.h>
-
+#include <vector>
 namespace fds {
 /**
  * HandlerType:
@@ -164,17 +164,10 @@ struct GetObjectBlkResponseHandler : GetObjectResponseHandler {
     typedef boost::shared_ptr<GetObjectBlkResponseHandler> ptr;
 };
 
-struct ListBucketResponseHandler : ResponseHandler {
+struct ListBucketResponseHandler : ResponseHandler, GetBucketCallback {
     ListBucketResponseHandler(std::vector<apis::BlobDescriptor> & vecBlobs);
 
     std::vector<apis::BlobDescriptor> & vecBlobs;
-    int isTruncated = 0;
-    const char *nextMarker = NULL;
-    int contentsCount = 0;
-    const ListBucketContents *contents = NULL;
-    int commonPrefixesCount = 0;
-    const char **commonPrefixes = NULL;
-
     virtual void process();
     virtual ~ListBucketResponseHandler();
 };
