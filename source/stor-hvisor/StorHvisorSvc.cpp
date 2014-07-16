@@ -366,7 +366,6 @@ void StorHvCtrl::issueUpdateCatalogMsg(const ObjectID &objId,
     updCatMsg->blob_version = blob_version_invalid;
     updCatMsg->volume_id = volId;
 
-
     // Setup blob offset updates
     // TODO(Andrew): Today we only expect one offset update
     // TODO(Andrew): Remove lastBuf when we have real transactions
@@ -460,6 +459,12 @@ Error StorHvCtrl::getBlobSvc(fds::AmQosReq *qosReq)
         err = ERR_DISK_WRITE_FAILED;
         return err;
     }
+
+    // TODO(Anna) We are doing update catalog using absolute
+    // offsets, so we need to be consistent in query catalog
+    // Review this in the next sprint!
+    fds_uint32_t maxObjSize = shVol->voldesc->maxObjSizeInBytes;
+    blobReq->setBlobOffset(blobReq->getBlobOffset() * maxObjSize);
 
     // TODO(Rao): Do we need to make sure other get reqs aren't in progress
 
