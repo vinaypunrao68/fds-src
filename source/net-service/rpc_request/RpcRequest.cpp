@@ -154,6 +154,8 @@ void AsyncRpcRequestIf::invokeCommon_(const fpi::SvcUuid &peerEpId)
         respHdr->msg_code = ERR_RPC_INVOCATION;
         GLOGERROR << logString() << " Error: " << respHdr->msg_code;
         postError(respHdr);
+        DBG(std::exception_ptr eptr = std::current_exception());
+        fds_panic("Get me outta here!");
     }
 }
 

@@ -249,7 +249,7 @@ void StorHvCtrl::startBlobTxMsgResp(fds::AmQosReq* qosReq,
     StartBlobTxCallback::ptr cb = SHARED_DYN_CAST(StartBlobTxCallback,
                                                       blobReq->cb);
     qos_ctrl->markIODone(qosReq);
-    cb->call(ERR_OK);
+    cb->call(e.GetErrno());
     delete blobReq;
 }
 
