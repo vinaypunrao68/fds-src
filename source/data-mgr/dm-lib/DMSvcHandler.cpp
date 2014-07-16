@@ -37,12 +37,13 @@ void DMSvcHandler::commitBlobTx(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     dmBlobTxReq->dmio_commit_blob_tx_resp_cb =
             BIND_MSG_CALLBACK2(DMSvcHandler::commitBlobTxCb, asyncHdr);
 
-    Error err = dataMgr->qosCtrl->enqueueIO(dmBlobTxReq->getVolId(),
-                                            static_cast<FDS_IOType*>(dmBlobTxReq));
     /*
      * allocate a new  Blob transaction  class and  queue  to per volume queue.
      */
     dmBlobTxReq->ioBlobTxDesc = BlobTxId::ptr(new BlobTxId(commitBlbTx->txId));
+
+    Error err = dataMgr->qosCtrl->enqueueIO(dmBlobTxReq->getVolId(),
+                                            static_cast<FDS_IOType*>(dmBlobTxReq));
     if (err != ERR_OK) {
         LOGWARN << "Unable to enqueue  commit blob tx  request "
             << logString(*asyncHdr) << logString(*commitBlbTx);
@@ -80,12 +81,13 @@ void DMSvcHandler::abortBlobTx(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     dmBlobTxReq->dmio_abort_blob_tx_resp_cb =
             BIND_MSG_CALLBACK2(DMSvcHandler::abortBlobTxCb, asyncHdr);
 
-    Error err = dataMgr->qosCtrl->enqueueIO(dmBlobTxReq->getVolId(),
-                                            static_cast<FDS_IOType*>(dmBlobTxReq));
     /*
      * allocate a new  Blob transaction  class and  queue  to per volume queue.
      */
     dmBlobTxReq->ioBlobTxDesc = BlobTxId::ptr(new BlobTxId(abortBlbTx->txId));
+
+    Error err = dataMgr->qosCtrl->enqueueIO(dmBlobTxReq->getVolId(),
+                                            static_cast<FDS_IOType*>(dmBlobTxReq));
     if (err != ERR_OK) {
         LOGWARN << "Unable to enqueue  abort blob tx  request "
             << logString(*asyncHdr) << logString(*abortBlbTx);
@@ -122,12 +124,14 @@ void DMSvcHandler::startBlobTx(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     dmBlobTxReq->dmio_start_blob_tx_resp_cb =
             BIND_MSG_CALLBACK2(DMSvcHandler::startBlobTxCb, asyncHdr);
 
-    Error err = dataMgr->qosCtrl->enqueueIO(dmBlobTxReq->getVolId(),
-                                            static_cast<FDS_IOType*>(dmBlobTxReq));
     /*
      * allocate a new  Blob transaction  class and  queue  to per volume queue.
      */
     dmBlobTxReq->ioBlobTxDesc = BlobTxId::ptr(new BlobTxId(startBlbTx->txId));
+
+
+    Error err = dataMgr->qosCtrl->enqueueIO(dmBlobTxReq->getVolId(),
+                                            static_cast<FDS_IOType*>(dmBlobTxReq));
     if (err != ERR_OK) {
         LOGWARN << "Unable to enqueue  start blob tx  request "
             << logString(*asyncHdr) << logString(*startBlbTx);
