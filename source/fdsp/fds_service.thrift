@@ -44,10 +44,10 @@ enum  FDSPMsgTypeId {
     NullMsgTypeId = 10,
 
     /* SM Type Ids*/
-    GetObjectMsgTypeId = 10000, 
-    GetObjectRespTypeId,
-    PutObjectMsgTypeId, 
-    PutObjectRspMsgTypeId,
+    GetObjectMsgTypeId 		= 10000, 
+    GetObjectRespTypeId 	= 10001,
+    PutObjectMsgTypeId		= 10002, 
+    PutObjectRspMsgTypeId	= 10003,
 	
     /* DM Type Ids */
     QueryCatalogMsgTypeId = 20000,
@@ -208,6 +208,7 @@ service PlatNetSvc extends BaseAsyncSvc {
 
     ServiceStatus getStatus(1: i32 nullarg);
     map<string, i64> getCounters(1: string id);
+    void resetCounters(1: string id);
     void setConfigVal(1:string id, 2:i64 value);
     void setFlag(1:string id, 2:i64 value);
     i64 getFlag(1:string id);

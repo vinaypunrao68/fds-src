@@ -7,6 +7,7 @@
 
 #include <string>
 #include <unistd.h>
+#include <exception>
 #include <arpa/inet.h>
 #include <thrift/transport/TSocket.h>
 #include <thrift/transport/TBufferTransports.h>
@@ -95,8 +96,17 @@ void serializeFdspMsg(const PayloadT &payload, bo::shared_ptr<std::string> &payl
 {
     bo::shared_ptr<tt::TMemoryBuffer> buffer(new tt::TMemoryBuffer());
     bo::shared_ptr<tp::TProtocol> binary_buf(new tp::TBinaryProtocol(buffer));
-    auto written = payload.write(binary_buf.get());
-    fds_verify(written > 0);
+    try {
+        auto written = payload.write(binary_buf.get());
+        fds_verify(written > 0);
+    } catch(...) {
+        /* This is to ensure we assert on any serialization exceptions in debug
+         * builds.  We then rethrow the exception
+         */
+        DBG(std::exception_ptr eptr = std::current_exception());
+        fds_assert(!"Exception serializing.  Most likely due to fdsp msg id mismatch");
+        throw;
+    }
     payloadBuf = bo::make_shared<std::string>();
     *payloadBuf = buffer->getBufferAsString();
 }
@@ -125,8 +135,17 @@ void deserializeFdspMsg(const bo::shared_ptr<std::string> &payloadBuf,
     bo::shared_ptr<tp::TProtocol> binary_buf(new tp::TBinaryProtocol(memory_buf));
 
     payload = bo::make_shared<PayloadT>();
-    auto read = payload->read(binary_buf.get());
-    fds_verify(read > 0);
+    try {
+        auto read = payload->read(binary_buf.get());
+        fds_verify(read > 0);
+    } catch(...) {
+        /* This is to ensure we assert on any serialization exceptions in debug
+         * builds.  We then rethrow the exception
+         */
+        DBG(std::exception_ptr eptr = std::current_exception());
+        fds_assert(!"Exception deserializing.  Most likely due to fdsp msg id mismatch");
+        throw;
+    }
 }
 }  // namespace fds
 #endif  // SOURCE_INCLUDE_FDSP_UTILS_H_

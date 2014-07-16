@@ -1219,7 +1219,11 @@ ObjectStorMgr::readObject(const SmObjDb::View& view,
     /*
      * Read all of the object's locations
      */
-    err = readObjMetaData(objId, objMetadata);
+    { 
+        PerfContext tmp_pctx(GET_METADATA_READ,"volume:" + std::to_string(vio.vol_uuid));
+        SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
+        err = readObjMetaData(objId, objMetadata);
+    }
     if (err == ERR_OK) {
         /*
          * Read obj from flash if we can
@@ -1243,7 +1247,12 @@ ObjectStorMgr::readObject(const SmObjDb::View& view,
         objData.size = objMetadata.getObjSize();
         objData.data.resize(objData.size, 0);
         // Now Read the object buffer from the disk
-        err = dio_mgr.disk_read(disk_req);
+        
+        {
+            PerfContext tmp_pctx(GET_DISK_READ,"volume:" + std::to_string(vio.vol_uuid));
+            SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
+            err = dio_mgr.disk_read(disk_req);
+        }
         if ( err != ERR_OK) {
             LOGDEBUG << " Disk Read Err: " << err; 
             delete disk_req;
@@ -1392,16 +1401,24 @@ ObjectStorMgr::writeObjectToTier(const OpCtx &opCtx,
 
     /* Disk write */
     disk_req = new SmPlReq(vio, oid, (ObjectBuf *)&objData, true, tier); // blocking call
-    err = dio_mgr.disk_write(disk_req);
+    {   
+        PerfContext tmp_pctx(PUT_DISK_WRITE, "volume:" + std::to_string(vio.vol_uuid)); //TODO(matteo): move ctx in disk_req
+        SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
+        err = dio_mgr.disk_write(disk_req); //TODO(Matteo) inside or around this function, it could be non blocking
+    }
     if (err != ERR_OK) {
         LOGDEBUG << " 1. Disk Write Err: " << err; 
         delete disk_req;
         return err;
     }
-    
-    err = writeObjectMetaData(opCtx, objId, objData.data.length(),
-                disk_req->req_get_phy_loc(), false, diskTier, &vio);
+    {
+        //TODO(Matteo): look inside. This is for metadata. Initially we probably want just leveldb get and put
 
+        PerfContext tmp_pctx(PUT_METADATA_WRITE,"volume:" + std::to_string(vio.vol_uuid));
+        SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
+        err = writeObjectMetaData(opCtx, objId, objData.data.length(),
+                disk_req->req_get_phy_loc(), false, diskTier, &vio);
+    }
     StorMgrVolume *vol = volTbl->getVolume(volId);
     if ((err == ERR_OK) &&
         (tier == diskio::flashTier)) {
@@ -1547,8 +1564,6 @@ ObjectStorMgr::putObjectInternal2(SmIoPutObjectReq *putReq) {
     fds_assert(objId != NullObjectID);
     fds_assert(putReq->origin_timestamp != 0);
 
-    PerfTracer::tracePointBegin(putReq->opLatencyCtx);
-
 #ifdef OBJCACHE_ENABLE
     objBufPtr = objCache->object_retrieve(volId, objId);
     if (objBufPtr != NULL) {
@@ -1558,7 +1573,6 @@ ObjectStorMgr::putObjectInternal2(SmIoPutObjectReq *putReq) {
 
         // Now check for dedup here.
         if (objBufPtr->data == putReq->data_obj) {
-            PerfTracer::incr(DUPLICATE_OBJ, putReq->perfNameStr);
             err = ERR_DUPLICATE;
         } else {
             PerfTracer::incr(HASH_COLLISION, putReq->perfNameStr);
@@ -1584,6 +1598,7 @@ ObjectStorMgr::putObjectInternal2(SmIoPutObjectReq *putReq) {
     }
 
     if (err == ERR_DUPLICATE) {
+        PerfTracer::incr(DUPLICATE_OBJ, putReq->perfNameStr);
         if (new_buff_allocated) {
             added_cache = true;
             objCache->object_add(volId, objId, objBufPtr, false);
@@ -1626,9 +1641,13 @@ ObjectStorMgr::putObjectInternal2(SmIoPutObjectReq *putReq) {
         /*
          * Write the object and record which tier it went to
          */
+        
+        SCOPED_PERF_TRACEPOINT_CTX(putReq->opLatencyCtx);
+
         err = writeObject(opCtx, objId, *objBufPtr, volId, tierUsed);
 
         if (err != fds::ERR_OK) {
+            PerfTracer::incr(putReq->opReqFailedPerfEventType,putReq->perfNameStr);
             objCache->object_release(volId, objId, objBufPtr);
             objCache->object_delete(volId, objId);
             objCache->object_release(volId, objId, objBufPtr);
@@ -1684,10 +1703,11 @@ ObjectStorMgr::putObjectInternal2(SmIoPutObjectReq *putReq) {
 
           err = ERR_OK;
         } else {
-
+         SCOPED_PERF_TRACEPOINT_CTX(putReq->opLatencyCtx);
          err = writeObject(opCtx, objId, *objBufPtr, volId, tierUsed);
 
           if (err != fds::ERR_OK) {
+              PerfTracer::incr(putReq->opReqFailedPerfEventType,putReq->perfNameStr);
               LOGDEBUG << "Successfully put object " << objId;
               /* if we successfully put to flash -- notify ranking engine */
               if (tierUsed == diskio::flashTier) {
@@ -1696,7 +1716,6 @@ ObjectStorMgr::putObjectInternal2(SmIoPutObjectReq *putReq) {
                   rankEngine->rankAndInsertObject(objId, *(vol->voldesc));
               }
          }
- 
        }
        objCache->object_release(volId, objId, objBufPtr);
        objCache->object_delete(volId, objId);
@@ -1707,9 +1726,8 @@ ObjectStorMgr::putObjectInternal2(SmIoPutObjectReq *putReq) {
     qosCtrl->markIODone(*putReq,
                         tierUsed);
 
-    PerfTracer::tracePointEnd(putReq->opLatencyCtx);
     PerfTracer::tracePointEnd(putReq->opReqLatencyCtx);
-
+    
     omJrnl->release_transaction(putReq->getTransId());
 
     putReq->response_cb(err, putReq);
@@ -1733,8 +1751,6 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
     FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr = jrnlEntry->getMsgHdr();
     OpCtx opCtx(OpCtx::PUT, msgHdr->origin_timestamp);
     bool new_buff_allocated = false, added_cache = false;
-
-    PerfTracer::tracePointBegin(putReq->opLatencyCtx);
 
     ObjMetaData objMap;
     //objStorMutex->lock();
@@ -1814,6 +1830,9 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
         /*
          * Write the object and record which tier it went to
          */
+        
+        SCOPED_PERF_TRACEPOINT_CTX(putReq->opLatencyCtx);
+        
         err = writeObject(opCtx, objId, *objBufPtr, volId, tierUsed);
 
         if (err != fds::ERR_OK) {
@@ -1873,6 +1892,7 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
           err = ERR_OK;
         } else {
 
+         SCOPED_PERF_TRACEPOINT_CTX(putReq->opLatencyCtx);
          err = writeObject(opCtx, objId, *objBufPtr, volId, tierUsed);
 
           if (err != fds::ERR_OK) {
@@ -1895,7 +1915,6 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
     qosCtrl->markIODone(*putReq,
                         tierUsed);
 
-    PerfTracer::tracePointEnd(putReq->opLatencyCtx);
     PerfTracer::tracePointEnd(putReq->opReqLatencyCtx);
 
     /*
@@ -1954,6 +1973,7 @@ ObjectStorMgr::enqTransactionIo(FDSP_MsgHdrTypePtr msgHdr,
                                 SmIoReq *ioReq, TransJournalId &trans_id)
 {
 
+    GLOGDEBUG << "enqTransactionIo " << ioReq->getTransId() << endl;
     PerfTracer::tracePointBegin(ioReq->opReqLatencyCtx);
 
     // TODO(Rao): Refactor create_transaction so that it just takes key and cb as
@@ -2058,14 +2078,20 @@ ObjectStorMgr::deleteObjectInternal(SmIoReq* delReq) {
 
     objBufPtr = objCache->object_retrieve(volId, objId);
     if (objBufPtr != NULL) {
+        PerfTracer::incr(DELETE_CACHE_HIT, delReq->perfNameStr);
         objCache->object_release(volId, objId, objBufPtr);
         objCache->object_delete(volId, objId);
     }
 
+    PerfTracer::tracePointBegin(delReq->opLatencyCtx);
     /*
      * Delete the object, decrement refcnt of the assoc entry & overall refcnt
      */
-    err = deleteObjectMetaData(opCtx, objId, volId, objMetadata);
+    {
+        PerfContext tmp_pctx(DELETE_METADATA_,"volume:" + std::to_string(volId));
+        SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
+        err = deleteObjectMetaData(opCtx, objId, volId, objMetadata);
+    }
     if (err.ok()) {
         LOGDEBUG << "Successfully delete object " << objId
                  << " refcnt = " << objMetadata.getRefCnt();
@@ -2074,6 +2100,8 @@ ObjectStorMgr::deleteObjectInternal(SmIoReq* delReq) {
             // tell persistent layer we deleted the object so that garbage collection
             // knows how much disk space we need to clean
             memcpy(oid.metaDigest, objId.GetId(), objId.GetLen());
+            PerfContext tmp_pctx(DELETE_DISK_,"volume:" + std::to_string(volId));
+            SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
             if (objMetadata.onTier(diskio::diskTier)) {
                 dio_mgr.disk_delete_obj(&oid, objMetadata.getObjSize(), objMetadata.getObjPhyLoc(diskTier));
             } else if (objMetadata.onTier(diskio::flashTier)) {
@@ -2086,6 +2114,9 @@ ObjectStorMgr::deleteObjectInternal(SmIoReq* delReq) {
 
     qosCtrl->markIODone(*delReq,
                         diskio::diskTier);
+
+    PerfTracer::tracePointEnd(delReq->opLatencyCtx);
+    PerfTracer::tracePointEnd(delReq->opReqLatencyCtx);
 
     /*
      * Prepare a response to send back.

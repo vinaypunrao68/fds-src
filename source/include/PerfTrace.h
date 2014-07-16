@@ -60,22 +60,29 @@ typedef enum {
     TRACE, // generic event
     TRACE_ERR,
 
-    PUT_IO,
-    PUT_OBJ_REQ,
+    PUT_IO, 
+    PUT_OBJ_REQ, 
     PUT_OBJ_REQ_ERR,
-    PUT_TRANS_QUEUE_WAIT,
+    PUT_TRANS_QUEUE_WAIT, 
     PUT_QOS_QUEUE_WAIT,
-    PUT_CACHE_HIT,
+    PUT_CACHE_HIT, 
 
-    DUPLICATE_OBJ,
-    HASH_COLLISION,
+    DUPLICATE_OBJ, 
+    HASH_COLLISION, 
 
-    GET_IO,
-    GET_OBJ_REQ,
-    GET_OBJ_REQ_ERR,
+    GET_IO, 
+    GET_OBJ_REQ, 
+    GET_OBJ_REQ_ERR, 
     GET_TRANS_QUEUE_WAIT,
     GET_QOS_QUEUE_WAIT,
-    GET_CACHE_HIT,
+    GET_CACHE_HIT, 
+
+    DELETE_IO,  
+    DELETE_OBJ_REQ, 
+    DELETE_OBJ_REQ_ERR, 
+    DELETE_TRANS_QUEUE_WAIT, 
+    DELETE_QOS_QUEUE_WAIT, 
+    DELETE_CACHE_HIT,
 
     MURMUR3_HASH,
     DLT_LKUP,
@@ -90,6 +97,17 @@ typedef enum {
     GET_OBJ_PL_READ_DISK,
 
     COMMIT_LOG_WRITE,
+    GET_METADATA_READ,
+    GET_DISK_READ,
+    PUT_METADATA_WRITE,
+    PUT_DISK_WRITE,
+    DELETE_METADATA_,
+    DELETE_DISK_,
+
+    PUT_ODB,
+    GET_ODB,
+    DISK_WRITE,
+    DISK_READ,
 
     // XXX: add new entries before this entry
     MAX_EVENT_TYPE // this should be the last entry in the enum

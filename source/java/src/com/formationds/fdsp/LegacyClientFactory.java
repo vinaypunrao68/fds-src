@@ -14,6 +14,10 @@ import org.apache.thrift.transport.TFramedTransport;
 import org.apache.thrift.transport.TSocket;
 
 public class LegacyClientFactory {
+    public static void main(String[] args) throws Exception {
+        new LegacyClientFactory().configPathClient("localhost", 8903).AssociateRespCallback(42);
+    }
+
     public FDSP_ConfigPathReq.Iface configPathClient(String host, int port) {
         return new FDSP_ConfigPathReq.Client(handshake(host, port));
     }

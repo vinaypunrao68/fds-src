@@ -38,6 +38,8 @@ public:
 
     void toMap(std::map<std::string, int64_t>& m);
 
+    void reset();
+
 protected:
     std::string id_;
     /* Counter objects that are exported out */
@@ -62,6 +64,8 @@ public:
     std::string toString();
 
     void toMap(std::map<std::string, int64_t>& m) const;
+
+    void reset();
 
 protected:
     void add_for_export(FdsBaseCounter* cp);
@@ -90,6 +94,7 @@ public:
 
     virtual uint64_t value() const = 0;
     virtual std::string id() const;
+    virtual void reset() = 0;
 
 private:
     std::string id_;
@@ -107,6 +112,8 @@ public:
     NumericCounter();
 
     virtual uint64_t value() const override;
+
+    virtual void reset() override;
 
     void incr();
     void incr(const uint64_t v);
@@ -127,6 +134,8 @@ public:
     LatencyCounter();
 
     virtual uint64_t value() const override;
+
+    virtual void reset() override;
 
     void update(const uint64_t &val, uint64_t cnt = 1);
 

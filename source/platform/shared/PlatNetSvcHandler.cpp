@@ -79,6 +79,10 @@ void PlatNetSvcHandler::getCounters(std::map<std::string, int64_t> & _return,   
 {
 }
 
+void PlatNetSvcHandler::resetCounters(const std::string& id) // NOLINT
+{
+}
+
 void PlatNetSvcHandler::getFlags(std::map<std::string, int64_t> & _return,
                                  const int32_t nullarg)  // NOLINT
 {
@@ -131,6 +135,19 @@ void PlatNetSvcHandler::getCounters(std::map<std::string, int64_t> & _return,
     cntrs->toMap(_return);
 }
 
+/**
+ * Reset counters identified by id
+ * @param id
+ */
+void PlatNetSvcHandler::resetCounters(boost::shared_ptr<std::string>& id)
+{
+    if (!g_fdsprocess) return;
+
+    if (*id == "*") {
+        /* Request to return all counters */
+        g_fdsprocess->get_cntrs_mgr()->reset();
+    }
+}
 /**
  * For setting a flag dynamically
  * @param id

@@ -1,15 +1,10 @@
-package com.formationds.spike.nbd;/*
+package com.formationds.nbd;/*
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.spike.nbd.NbdServerOperations;
-import com.formationds.spike.nbd.RamOperations;
-import com.sun.javafx.image.ByteToBytePixelConverter;
 import io.netty.buffer.ByteBuf;
 
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 public class OracleVerifyOperationsWrapper implements NbdServerOperations {

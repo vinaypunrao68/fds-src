@@ -120,8 +120,8 @@ fds_token_id DLT::getToken(const ObjectID& objId) const {
     fds_uint64_t token_bitmask = ((1 << numBitsForToken) - 1);
 //    fds_uint64_t bit_offset =
 //        (sizeof(objId.getTokenBits(numBitsForToken))*8 - numBitsForToken);
-    LOGNORMAL << "token bits:" << objId.getTokenBits(numBitsForToken)
-                      << " numBits: " << numBitsForToken;
+    LOGDEBUG << "token bits:" << objId.getTokenBits(numBitsForToken)
+             << " numBits: " << numBitsForToken;
     return
      (fds_token_id)(token_bitmask & (objId.getTokenBits(numBitsForToken)));
 #if 0
@@ -190,7 +190,7 @@ void DLT::setNodes(fds_token_id token, const DltTokenGroup& nodes) {
 }
 
 void DLT::generateNodeTokenMap() const {
-    LOGNORMAL << "generating node-token map";
+    LOGDEBUG << "generating node-token map";
     std::vector<DltTokenGroupPtr>::const_iterator iter;
     mapNodeTokens->clear();
     uint i;
@@ -354,7 +354,7 @@ std::ostream& operator<< (std::ostream &oss, const DLT& dlt) {
 }
 
 uint32_t DLT::write(serialize::Serializer*  s) const {
-    LOGNORMAL << "serializing dlt";
+    LOGDEBUG << "serializing dlt";
     uint32_t b = 0;
 
     b += s->writeI64(version);
@@ -409,7 +409,7 @@ uint32_t DLT::write(serialize::Serializer*  s) const {
 }
 
 uint32_t DLT::read(serialize::Deserializer* d) {
-    LOGNORMAL << "de serializing dlt";
+    LOGDEBUG << "de serializing dlt";
     uint32_t b = 0;
     int64_t i64;
     b += d->readI64(version);

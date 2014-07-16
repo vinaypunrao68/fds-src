@@ -135,7 +135,7 @@ class SmIoReq : public FDS_IOType {
 
     /*
      * This constructor is generally used for
-     * write since it accepts a deleteObjReq Ptr.
+     * delete since it accepts a deleteObjReq Ptr.
      */
     // TODO(Rao): Deprecate this constructor
     SmIoReq(const std::string& objID,
@@ -155,6 +155,22 @@ class SmIoReq : public FDS_IOType {
         this->delObjReq = delObjReq;
         getObjReq = NULL;
         putObjReq = NULL;
+
+        // perf-trace related data
+        perfNameStr = "volume:" + std::to_string(_volUuid);
+        opReqFailedPerfEventType = DELETE_OBJ_REQ_ERR;
+
+        opReqLatencyCtx.type = DELETE_OBJ_REQ;
+        opReqLatencyCtx.name = perfNameStr;
+
+        opLatencyCtx.type = DELETE_IO;
+        opLatencyCtx.name = perfNameStr;
+
+        opTransactionWaitCtx.type = DELETE_TRANS_QUEUE_WAIT;
+        opTransactionWaitCtx.name = perfNameStr;
+
+        opQoSWaitCtx.type = DELETE_QOS_QUEUE_WAIT;
+        opQoSWaitCtx.name = perfNameStr;
     }
     void setObjId(const ObjectID &id) {
         objId = id;

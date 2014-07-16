@@ -3,6 +3,7 @@ package com.formationds.om;
 import com.formationds.apis.AmService;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.fdsp.LegacyClientFactory;
+import com.formationds.om.rest.*;
 import com.formationds.security.Authenticator;
 import com.formationds.security.AuthorizationToken;
 import com.formationds.util.Configuration;
