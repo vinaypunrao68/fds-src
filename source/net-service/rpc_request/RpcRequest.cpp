@@ -148,7 +148,7 @@ void AsyncRpcRequestIf::invokeCommon_(const fpi::SvcUuid &peerEpId)
                       schedule(timer_, std::chrono::milliseconds(timeoutMs_));
            fds_assert(ret == true);
        }
-    } catch (std::exception &e) {
+    } catch(std::exception &e) {
         fds_assert(!"Unknown exception");
         auto respHdr = RpcRequestPool::newAsyncHeaderPtr(id_, peerEpId, myEpId_);
         respHdr->msg_code = ERR_RPC_INVOCATION;
