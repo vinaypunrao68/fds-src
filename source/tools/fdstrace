@@ -10,33 +10,12 @@ import os
 Helper module around ngrep
 '''
 class FDSTrace:
-    FDSP_PLATFORM       = 0x0
-    FDSP_STOR_MGR       = 0x1
-    FDSP_DATA_MGR       = 0x2,
-    FDSP_STOR_HVISOR    = 0x3,
-    FDSP_ORCH_MGR       = 0x4,
-    FDSP_CLI_MGR        = 0x5,
-    FDSP_OMCLIENT_MGR   = 0x6,
-    FDSP_MIGRATION_MGR  = 0x7,
-    FDSP_PLATFORM_SVC   = 0x8,
-    FDSP_METASYNC_MGR   = 0x9,
-    FDSP_TEST_APP       = 0xa
-
-    NET_SVC_CTRL        = 1;
-    NET_SVC_CONFIG      = 2;
-    NET_SVC_DATA        = 3;
-    NET_SVC_MIGRATION   = 4;
-    NET_SVC_META_SYNC   = 5;
-
     def __init__(self):
         self.apps={}
         self.apps["om"]="orchMgr"
         self.apps["am"]="AMAgent"
         self.apps["sm"]="StorMgr"
         self.apps["dm"]="DataMgr"
-
-        
-
         #T 127.0.0.1:49917 -> 127.0.0.1:8904 [AP]
         self.infoLine = re.compile("T [0-9\.:]+:\d+ -> [0-9\.:]+:\d+ \[\w+\]")
         self.ports={}
@@ -75,21 +54,7 @@ class FDSTrace:
         del ps[0]
         if len(ps) == 0:
             return ''
-        psname = self.getName(ps[0].split()[3])
-        if psname == 'java':
-            return self.getJavaClassName(pid)
-            
-        return psname
-
-    def getJavaClassName(self,pid):
-        cmd=['cat','/proc/' + str(pid) + '/cmdline']
-        cmdline=self.getCmdOutput(cmd)[0]
-        cmdline = cmdline.split('\x00')
-        for param in cmdline:
-            if param.startswith('com.formationds'):
-                return param.split('.')[2]
-
-        return cmdline[0]
+        return self.getName(ps[0].split()[3])
 
     def getPortOwner(self,port):
         cmd=['lsof','-i','TCP:' + str(port)]
@@ -179,11 +144,7 @@ class FDSTrace:
         for port in self.ports.values():
             if len(portstr)>0:
                 portstr += " or "
-            port = str(port)
-            if '-' in port:
-                portstr += "portrange " + port
-            else:
-                portstr += "port " + port
+            portstr += "port " + str(port)
 
         if len(portstr) == 0:
             print 'error: no ports to listen on !!!'
@@ -227,7 +188,7 @@ class FDSTrace:
         
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Trace fds network calls. Just do "sudo ./fdstrace"',formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('--pmport',default=7000 ,help='pm port' , type=int, nargs='?')
+    parser.add_argument('--omport',default=8904 ,help='om port' , type=int, nargs='?')
     parser.add_argument('--omctrlport',default=8903 ,help='om ctrl port' , type=int, nargs='?')
     parser.add_argument('--amport',default=8000 ,help='am port' , type=int, nargs='?')
     parser.add_argument('--dmport',default=6902 ,help='dm port' , type=int, nargs='?')
@@ -256,7 +217,7 @@ if __name__ == "__main__":
     parser.add_argument('--nodefaults',dest='nodefaults',action='store_true',help='disable default ports')
     parser.set_defaults(nodefaults=False)
 
-    parser.add_argument('ports', nargs=argparse.REMAINDER ,type=str ,help="other ports to be monitored")
+    parser.add_argument('ports', nargs=argparse.REMAINDER ,type=int ,help="other ports to be monitored")
 
     args = parser.parse_args()
     #print args
