@@ -64,6 +64,14 @@ const std::string& FdsBlobReq::getBlobName() const {
     return blobName;
 }
 
+const std::string& FdsBlobReq::getVolumeName() const {
+    return volumeName;
+}
+
+void FdsBlobReq::setVolumeName(const std::string& volumeName) {
+    this->volumeName = volumeName;
+}
+
 fds_uint64_t FdsBlobReq::getBlobOffset() const {
     return blobOffset;
 }

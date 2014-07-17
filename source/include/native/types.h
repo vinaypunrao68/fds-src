@@ -389,6 +389,7 @@ namespace fds {
          */
         std::string  blobName;
         fds_uint64_t blobOffset;
+        std::string volumeName;
 
         /*
          * Object members
@@ -459,6 +460,8 @@ namespace fds {
         void setVolId(fds_volid_t vol_id);
         void cbWithResult(int result);
         const std::string& getBlobName() const;
+        const std::string& getVolumeName() const;
+        void setVolumeName(const std::string& volumeName);
         fds_uint64_t getBlobOffset() const;
         void setBlobOffset(fds_uint64_t offset);
         const char *getDataBuf() const;
