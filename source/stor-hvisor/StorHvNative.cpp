@@ -721,7 +721,8 @@ void FDS_NativeAPI::StatBlob(const std::string& volumeName,
                              const std::string& blobName,
                              CallbackPtr cb) {
     Error err;
-    err = storHvisor->handlerStatBlob->handleRequest(volumeName, blobName, cb);
+    err = STORHANDLER(StatBlobHandler,
+                      FDS_STAT_BLOB)->handleRequest(volumeName, blobName, cb);
     fds_verify(err.ok());
     return;
     // TODO(prem) : remove the below code
@@ -808,7 +809,8 @@ void FDS_NativeAPI::setBlobMetaData(const std::string& volumeName,
 }
 
 void FDS_NativeAPI::GetVolumeMetaData(const std::string& volumeName, CallbackPtr cb) {
-    Error err = storHvisor->handlerGetVolumeMetaData->handleRequest(volumeName, cb);
+    Error err = STORHANDLER(GetVolumeMetaDataHandler,
+                            fds::FDS_GET_VOLUME_METADATA)->handleRequest(volumeName, cb);
     fds_verify(err.ok());
 }
 }  // namespace fds

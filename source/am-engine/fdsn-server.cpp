@@ -14,6 +14,7 @@
 #include <am-engine/fdsn-server.h>
 #include <am-engine/handlers/handlermappings.h>
 #include <am-engine/handlers/responsehandler.h>
+#include <StorHvisorNet.h>
 
 namespace fds {
 
@@ -121,14 +122,19 @@ class FdsnIf : public apis::AmServiceIf {
                                                        *volumeName,
                                                        "accessid",
                                                        "secretkey");
-        ListBucketResponseHandler handler(_return);
-
+        ListBucketResponseHandler::ptr handler(new ListBucketResponseHandler(_return));
+        STORHANDLER(GetBucketHandler, fds::FDS_LIST_BUCKET)->
+                handleRequest(bucket_ctxt,
+                              *offset, *count,
+                              SHARED_DYN_CAST(Callback, handler));
+        /*
         am_api->GetBucket(bucket_ctxt,
                           "", "", "", *count,
                           NULL,
                           fn_ListBucketHandler, &handler);
-        handler.wait();
-        handler.process();
+        */
+        handler->wait();
+        handler->process();
     }
 
     void statBlob(apis::BlobDescriptor& _return,

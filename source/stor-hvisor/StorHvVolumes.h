@@ -570,7 +570,7 @@ class ListBucketReq: public FdsBlobReq {
   void *request_context;
   fdsnListBucketHandler handler;
   void *callback_data;
-  fds_long_t iter_cookie;
+  fds_long_t iter_cookie = 0;
 
   /* sets bucket name to blob name in the base class,
    * which is used to get trans id in journal table, and
@@ -598,7 +598,14 @@ class ListBucketReq: public FdsBlobReq {
     iter_cookie(0) {
     }
 
-  ~ListBucketReq() { };
+    ListBucketReq(fds_volid_t _volid,
+                  BucketContext *_bucket_ctxt,
+                  fds_uint32_t _max_keys,
+                  CallbackPtr cb)
+            : FdsBlobReq(FDS_LIST_BUCKET, _volid, _bucket_ctxt->bucketName, 0, 0, NULL, cb), bucket_ctxt(_bucket_ctxt) {
+    }
+
+    ~ListBucketReq() { };
 
   void DoCallback(int isTruncated, 
 		  const char* next_marker, 

@@ -15,6 +15,8 @@
 #include <net/NetRequest.h>
 #include <net/RpcRequestPool.h>
 class StorHvCtrl;
+#define STORHANDLER(CLASS, IOTYPE) \
+    static_cast<CLASS*>(storHvisor->handlers.at(IOTYPE))
 namespace fds {
 /**
  * ------ NOTE :: IMPORTANT ---
@@ -53,6 +55,20 @@ struct StatBlobHandler : Handler {
                               boost::shared_ptr<std::string> payload);
     fds::Error handleQueueItem(AmQosReq *qosReq);
 };
+
+struct GetBucketHandler : Handler {
+    explicit GetBucketHandler(StorHvCtrl* storHvisor) : Handler(storHvisor) {}
+    fds::Error handleRequest(BucketContext* bucket_context,
+                             fds_uint32_t start,
+                             fds_uint32_t maxkeys,
+                             CallbackPtr cb);
+    fds::Error handleResponse(AmQosReq *qosReq,
+                              FailoverRpcRequest* rpcReq,
+                              const Error& error,
+                              boost::shared_ptr<std::string> payload);
+    fds::Error handleQueueItem(AmQosReq *qosReq);
+};
+
 
 }  // namespace fds
 #endif  // SOURCE_STOR_HVISOR_HANDLER_HANDLER_H_

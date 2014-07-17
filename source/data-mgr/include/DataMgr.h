@@ -11,6 +11,7 @@
 
 #include <list>
 #include <vector>
+#include <map>
 #include <fds_error.h>
 #include <fds_types.h>
 #include <fds_volume.h>
@@ -34,6 +35,7 @@
 #include <lib/qos_min_prio.h>
 #include <NetSession.h>
 #include <DmIoReq.h>
+#include <dmhandler.h>
 #include <CatalogSync.h>
 #include <CatalogSyncRecv.h>
 
@@ -87,6 +89,7 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
      */
     CatalogSyncMgrPtr catSyncMgr;  // sending vol meta
     CatSyncReceiverPtr catSyncRecv;  // receiving vol meta
+    void initHandlers();
 
  private:
     typedef enum {
@@ -159,7 +162,9 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
                     threadPool->schedule(&DataMgr::scheduleDeleteCatObjSvc, dataMgr, io);
                     break;
                 case FDS_LIST_BLOB:
-                    threadPool->schedule(scheduleBlobList, io);
+                    // threadPool->schedule(scheduleBlobList, io);
+                    threadPool->schedule(&dm::Handler::handleQueueItem,
+                                         dataMgr->handlers.at(FDS_LIST_BLOB), io);
                     break;
                 case FDS_DM_SNAP_VOLCAT:
                     GLOGDEBUG << "Processing snapshot catalog request";
@@ -209,8 +214,6 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
     // std::unordered_map<std::string, RespHandlerPrx> respHandleCli;
 
     fds_rwlock respMapMtx;
-
-    dmQosCtrl   *qosCtrl;
 
     FDS_VolumeQueue*  sysTaskQueue;
 
@@ -321,7 +324,8 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
   public:
     DataMgr(int argc, char *argv[], Platform *platform, Module **mod_vec);
     ~DataMgr();
-
+    std::map<fds_io_op_t, dm::Handler*> handlers;
+    dmQosCtrl   *qosCtrl;
     // Test related members
     fds_bool_t testUturnAll;
     fds_bool_t testUturnUpdateCat;
@@ -528,6 +532,7 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
     };
 
     friend class DMSvcHandler;
+    friend class dm::GetBucketHandler;
 };
 
 class CloseDMTTimerTask : public FdsTimerTask {

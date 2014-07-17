@@ -26,6 +26,21 @@
         func(header, payload); \
     }
 
+#define REGISTER_FDSP_MSG_HANDLER_GENERIC(platsvc, FDSPMsgT, func)  \
+    platsvc->asyncReqHandlers_[FDSP_MSG_TYPEID(FDSPMsgT)] = \
+    [this] (boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header, \
+        boost::shared_ptr<std::string>& payloadBuf) \
+    { \
+        boost::shared_ptr<FDSPMsgT> payload; \
+        fds::deserializeFdspMsg(payloadBuf, payload); \
+        func(header, payload); \
+    }
+
+// note : CALLBACK & CALLBACK2 are same
+#define BIND_MSG_CALLBACK(func, header , ...) \
+    std::bind(&func, this, header, ##__VA_ARGS__ , std::placeholders::_1, \
+              std::placeholders::_2);
+
 #define BIND_MSG_CALLBACK2(func, header , ...) \
     std::bind(&func, this, header, ##__VA_ARGS__ , std::placeholders::_1, \
               std::placeholders::_2);
@@ -33,10 +48,6 @@
 #define BIND_MSG_CALLBACK3(func, header , ...) \
     std::bind(&func, this, header, ##__VA_ARGS__ , std::placeholders::_1, \
               std::placeholders::_2, std::placeholders::_3);
-
-#define BIND_MSG_CALLBACK4(func, header , ...) \
-    std::bind(&func, this, header, ##__VA_ARGS__ , std::placeholders::_1, \
-              std::placeholders::_2, std::placeholders::_3, std::placeholders::_4);
 
 
 namespace fpi = FDS_ProtocolInterface;
@@ -133,7 +144,7 @@ class BaseAsyncSvcHandler : virtual public FDS_ProtocolInterface::BaseAsyncSvcIf
         }
     }
 
- protected:
+    // protected:
     std::unordered_map<fpi::FDSPMsgTypeId, FdspMsgHandler, std::hash<int>> asyncReqHandlers_;
 };
 }  // namespace fds

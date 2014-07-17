@@ -723,7 +723,6 @@ DataMgr::DataMgr(int argc, char *argv[], Platform *platform, Module **vec)
      * Comm with OM will be setup during run()
      */
     omClient = NULL;
-
     /*
      *  init Data Manager  QOS class.
      */
@@ -735,6 +734,10 @@ DataMgr::DataMgr(int argc, char *argv[], Platform *platform, Module **vec)
                                                          *qosCtrl->threadPool));
 
     LOGNORMAL << "Constructed the Data Manager";
+}
+
+void DataMgr::initHandlers() {
+    handlers[FDS_LIST_BLOB] = new dm::GetBucketHandler();
 }
 
 DataMgr::~DataMgr()
@@ -762,6 +765,7 @@ DataMgr::~DataMgr()
 
 int DataMgr::run()
 {
+    initHandlers();
     try {
         nstable->listenServer(metadatapath_session);
     }

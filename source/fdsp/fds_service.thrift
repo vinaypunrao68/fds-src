@@ -61,7 +61,7 @@ enum  FDSPMsgTypeId {
     DeleteCatalogObjectMsgTypeId,
     DeleteCatalogObjectRspMsgTypeId,
     GetBlobMetaDataMsgTypeId,
-    GetBlobMetaDataRspMsgTypeId
+    GetBlobMetaDataRspMsgTypeId,
     SetVolumeMetaDataMsgTypeId,
     SetVolumeMetaDataRspMsgTypeId,
     GetVolumeMetaDataMsgTypeId,
@@ -69,7 +69,9 @@ enum  FDSPMsgTypeId {
     CommitBlobTxMsgTypeId,
     CommitBlobTxRspMsgTypeId,
     AbortBlobTxMsgTypeId,
-    AbortBlobTxRspMsgTypeId
+    AbortBlobTxRspMsgTypeId,
+    GetBucketMsgTypeId,
+    GetBucketRspMsgTypeId
 }
 
 /*
@@ -371,6 +373,15 @@ struct GetBlobMetaDataMsg {
   3: i64                       blob_version;
   4: i64                       byteCount;
   5: FDSP.FDSP_MetaDataList    metaDataList;
+}
+
+struct GetBucketMsg {
+  //request
+  1: i64                       volume_id;
+  2: i64                       startPos;  
+  3: i64                       maxKeys;
+  //response
+  4: FDSP.BlobInfoListType     blob_info_list;
 }
 
 struct GetVolumeMetaDataRspMsg {

@@ -511,5 +511,6 @@ void FDSP_MetaDataPathRespCbackI::GetVolumeBlobListResp(
 
 void FDSP_MetaDataPathRespCbackI::GetVolumeMetaDataResp(fpi::FDSP_MsgHdrTypePtr& header,
                                                         fpi::FDSP_VolumeMetaDataPtr& volumeMeta) {
-    storHvisor->handlerGetVolumeMetaData->handleResponse(header, volumeMeta);
+    STORHANDLER(GetVolumeMetaDataHandler,
+                fds::FDS_GET_VOLUME_METADATA)->handleResponse(header, volumeMeta);
 }

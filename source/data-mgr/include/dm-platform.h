@@ -76,6 +76,7 @@ class DmPlatform : public Platform
     virtual void mod_startup() override;
     virtual void mod_enable_service() override;
     virtual void mod_shutdown() override;
+    bo::shared_ptr<DMSvcHandler>  dm_recv;
 
   protected:
     virtual PlatRpcReqt *plat_creat_reqt_disp();
@@ -85,7 +86,6 @@ class DmPlatform : public Platform
     void registerFlags();
 
     DMEpPlugin::pointer           dm_plugin;
-    bo::shared_ptr<DMSvcHandler>  dm_recv;
     EndPoint<FDS_ProtocolInterface::DMSvcClient, FDS_ProtocolInterface::DMSvcProcessor> *dm_ep;
 };
 

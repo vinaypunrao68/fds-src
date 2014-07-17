@@ -209,7 +209,7 @@ public:
         NORMAL,        /* Normal, non-test mode */
         MAX
     } sh_comm_modes;
-  
+
     StorHvCtrl(int argc, char *argv[], SysParams *params);
     StorHvCtrl(int argc, char *argv[], SysParams *params,
                sh_comm_modes _mode);
@@ -223,11 +223,10 @@ public:
     hv_create_blkdev cr_blkdev;
     hv_delete_blkdev del_blkdev;
     void initHandlers();
-    GetVolumeMetaDataHandler *handlerGetVolumeMetaData;
-    StatBlobHandler  *handlerStatBlob;
+    std::map<fds_io_op_t, fds::Handler*> handlers;
     //imcremental checksum  for header and payload 
     checksum_calc   *chksumPtr;
-  
+
     // Data Members
     StorHvDataPlacement        *dataPlacementTbl;
     boost::shared_ptr<netSessionTbl> rpcSessionTbl; // RPC calls Switch Table
@@ -533,15 +532,6 @@ static void processBlobReq(AmQosReq *qosReq) {
             err = storHvisor->deleteBlob(qosReq);
             break;
 
-        case fds::FDS_STAT_BLOB:
-            err = storHvisor->handlerStatBlob->handleQueueItem(qosReq);
-            // err = storHvisor->StatBlob(qosReq);
-            break;
-
-        case fds::FDS_LIST_BUCKET:
-            err = storHvisor->listBucket(qosReq);
-            break;
-
         case fds::FDS_BUCKET_STATS:
             err = storHvisor->getBucketStats(qosReq);
             break;
@@ -550,8 +540,11 @@ static void processBlobReq(AmQosReq *qosReq) {
             err = storHvisor->SetBlobMetaData(qosReq);
             break;
 
+        // new handlers
+        case fds::FDS_LIST_BUCKET:
+        case fds::FDS_STAT_BLOB:
         case fds::FDS_GET_VOLUME_METADATA:
-            err = storHvisor->handlerGetVolumeMetaData->handleQueueItem(qosReq);
+            err = storHvisor->handlers.at(qosReq->io_type)->handleQueueItem(qosReq);
             break;
 
         default :
