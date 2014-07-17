@@ -38,16 +38,17 @@ Error GetBucketHandler::handleResponse(AmQosReq *qosReq,
     auto response = MSG_DESERIALIZE(GetBucketMsg, error, payload);
 
     GetBucketCallback::ptr cb = SHARED_DYN_CAST(GetBucketCallback, helper.blobReq->cb);
-    ListBucketContents* contents = new ListBucketContents[response->blob_info_list.size()];
-    fds_verify(contents != NULL);
-    for (uint i = 0; i < response->blob_info_list.size(); ++i)
-    {
-        contents[i].set(response->blob_info_list[i].blob_name,
-                        0,  // last modified
-                        "",  // eTag
-                        response->blob_info_list[i].blob_size,
-                        "",  // ownerId
-                        "");
+    cb->contentsCount = response->blob_info_list.size();
+    cb->contents = new ListBucketContents[cb->contentsCount];
+    LOGDEBUG << " volid: " << response->volume_id
+             << " numBlobs: " << response->blob_info_list.size();
+    for (int i = 0; i < cb->contentsCount; ++i) {
+        const_cast<ListBucketContents*>(cb->contents)[i].set(response->blob_info_list[i].blob_name,
+                            0,  // last modified
+                            "",  // eTag
+                            response->blob_info_list[i].blob_size,
+                            "",  // ownerId
+                            "");
     }
 
     return err;
