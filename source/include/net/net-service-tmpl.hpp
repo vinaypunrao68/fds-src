@@ -369,6 +369,9 @@ svc_get_handle(const fpi::SvcUuid   &mine,
         }
         if (ep != NULL) {
             *out = ep->ep_send_handle();
+            // TODO(Andrew/Rao): Figure out if this is the
+            // correct register call/location.
+            net->ep_handler_register(*out);
             return;
         }
         // TODO(Vy): must suppy default values here.
