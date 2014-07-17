@@ -166,7 +166,7 @@ struct GetObjectBlkResponseHandler : GetObjectResponseHandler {
 
 struct ListBucketResponseHandler : ResponseHandler, GetBucketCallback {
     ListBucketResponseHandler(std::vector<apis::BlobDescriptor> & vecBlobs);
-
+    TYPE_SHAREDPTR(ListBucketResponseHandler);
     std::vector<apis::BlobDescriptor> & vecBlobs;
     virtual void process();
     virtual ~ListBucketResponseHandler();
