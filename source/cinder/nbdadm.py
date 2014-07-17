@@ -217,7 +217,7 @@ def main(argv = sys.argv):
                 return detach(result)
     except Exception as e:
         sys.stderr.write(e.message + '\n')
-        tb = traceback.format_exec()
+        tb = traceback.format_exc()
         sys.stderr.write(tb + '\n')
         return 255
 
