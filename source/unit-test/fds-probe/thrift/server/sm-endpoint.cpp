@@ -33,14 +33,14 @@ void
 ProbeTestServer::server_get(boost::shared_ptr<fpi::AsyncHdr>     &hdr,
                             boost::shared_ptr<fpi::GetObjectMsg> &msg)
 {
-    std::cout << "server get" << std::endl;
+    // std::cout << "server get" << std::endl;
 }
 
 void
 ProbeTestServer::server_put(boost::shared_ptr<fpi::AsyncHdr>     &hdr,
                             boost::shared_ptr<fpi::PutObjectMsg> &msg)
 {
-    std::cout << "server put" << std::endl;
+    // std::cout << "server put" << std::endl;
 }
 
 ProbeEpTestSM                 gl_ProbeTestSM("Probe SM EP");

@@ -62,10 +62,12 @@ Thrift_ProbeMod::pr_put(ProbeRequest *req)
 
     io  = static_cast<ProbeIORequest *>(req);
     peer.svc_uuid = 0xabcdef;
-    auto rpc = gRpcRequestPool->newEPAsyncRpcRequest(NullSvcUuid, peer);
+    // auto rpc = gRpcRequestPool->newEPAsyncRpcRequest(NullSvcUuid, peer);
+    auto rpc = gRpcRequestPool->newFailoverNetRequest(
+            bo::shared_ptr<UuidEpProvider>(new UuidEpProvider(0xabcdef)));
 
     put.reset(new fpi::PutObjectMsg());
-    // rpc->setPayload(FDSP_MSG_TYPEID(fpi::PutObjectMsg), put);
+    rpc->setPayload(FDSP_MSG_TYPEID(fpi::PutObjectMsg), put);
     rpc->invoke();
 }
 
@@ -81,10 +83,12 @@ Thrift_ProbeMod::pr_get(ProbeRequest *req)
 
     io = static_cast<ProbeIORequest *>(req);
     peer.svc_uuid = 0xabcdef;
-    auto rpc = gRpcRequestPool->newEPAsyncRpcRequest(NullSvcUuid, peer);
+    // auto rpc = gRpcRequestPool->newEPAsyncRpcRequest(NullSvcUuid, peer);
+    auto rpc = gRpcRequestPool->newFailoverNetRequest(
+            bo::shared_ptr<UuidEpProvider>(new UuidEpProvider(0xabcdef)));
 
     get.reset(new fpi::GetObjectMsg());
-    // rpc->setPayload(FDSP_MSG_TYPEID(fpi::GetObjectMsg), get);
+    rpc->setPayload(FDSP_MSG_TYPEID(fpi::GetObjectMsg), get);
     rpc->invoke();
 }
 
@@ -169,9 +173,18 @@ ProbeAmFoo::js_exec_obj(JsObject *parent, JsObjTemplate *tmpl, JsObjOutput *out)
 JsObject *
 ProbeAmGetReqt::js_exec_obj(JsObject *parent, JsObjTemplate *tmpl, JsObjOutput *out)
 {
-    am_getmsg_reqt_t*p = am_getmsg_reqt();
+    fpi::SvcUuid      peer;
+    am_getmsg_reqt_t *p = am_getmsg_reqt();
+    boost::shared_ptr<fpi::GetObjectMsg>  get;
 
-    std::cout << "In GetReqt func " << p->am_func << std::endl;
+    peer.svc_uuid = 0xabcdef;
+    // auto rpc = gRpcRequestPool->newEPAsyncRpcRequest(NullSvcUuid, peer);
+    auto rpc = gRpcRequestPool->newFailoverNetRequest(
+            bo::shared_ptr<UuidEpProvider>(new UuidEpProvider(0xabcdef)));
+
+    get.reset(new fpi::GetObjectMsg());
+    rpc->setPayload(FDSP_MSG_TYPEID(fpi::GetObjectMsg), get);
+    rpc->invoke();
     return this;
 }
 
