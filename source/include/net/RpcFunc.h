@@ -71,6 +71,7 @@
     [this] (const fpi::AsyncHdr &hdr) mutable { \
         const_cast<fpi::AsyncHdr&>(hdr).msg_type_id = msgTypeId_; \
         INVOKE_RPC_INTERNAL(fpi::BaseAsyncSvcClient, asyncReqt, hdr, *payloadBuf_); \
+        GLOGDEBUG << fds::logString(hdr) << " sent payload size: " << payloadBuf_->size(); \
     }
 
 namespace fds {

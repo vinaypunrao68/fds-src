@@ -122,6 +122,10 @@ class BaseAsyncSvcHandler : virtual public FDS_ProtocolInterface::BaseAsyncSvcIf
         // resp_hdr, buffer->getBufferAsString());
         try {
             client->asyncResp(resp_hdr, buffer->getBufferAsString());
+        } catch(std::exception &e) {
+            GLOGERROR << logString(resp_hdr) << " exception: " << e.what();
+            ep->ep_handle_net_error();
+            fds_panic("uh oh");
         } catch(...) {
             ep->ep_handle_net_error();
             DBG(std::exception_ptr eptr = std::current_exception());

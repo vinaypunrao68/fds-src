@@ -82,7 +82,7 @@ std::string logString(const FDS_ProtocolInterface::QueryCatalogMsg& qryCat)
 std::string logString(const FDS_ProtocolInterface::PutObjectMsg& putObj)
 {
     std::ostringstream oss;
-    oss << " PutObjectMsg";
+    oss << " PutObjectMsg for object " << ObjectID(putObj.data_obj_id.digest);
     return oss.str();
 }
 

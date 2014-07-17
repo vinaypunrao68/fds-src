@@ -149,18 +149,18 @@ void AsyncRpcRequestIf::invokeCommon_(const fpi::SvcUuid &peerEpId)
            fds_assert(ret == true);
        }
     } catch(std::exception &e) {
-        fds_assert(!"Unknown exception");
         auto respHdr = RpcRequestPool::newAsyncHeaderPtr(id_, peerEpId, myEpId_);
         respHdr->msg_code = ERR_RPC_INVOCATION;
         GLOGERROR << logString() << " Error: " << respHdr->msg_code
             << " exception: " << e.what();
         postError(respHdr);
-    } catch(...) {
         fds_assert(!"Unknown exception");
+    } catch(...) {
         auto respHdr = RpcRequestPool::newAsyncHeaderPtr(id_, peerEpId, myEpId_);
         respHdr->msg_code = ERR_RPC_INVOCATION;
         GLOGERROR << logString() << " Error: " << respHdr->msg_code;
         postError(respHdr);
+        fds_assert(!"Unknown exception");
     }
 }
 
