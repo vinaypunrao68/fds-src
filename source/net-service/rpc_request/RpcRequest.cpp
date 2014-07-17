@@ -116,15 +116,12 @@ void AsyncRpcRequestIf::setCompletionCb(RpcRequestCompletionCb &completionCb)
  */
 void AsyncRpcRequestIf::invoke()
 {
-    invokeWork_();
-#if 0
     static SynchronizedTaskExecutor<uint64_t>* taskExecutor =
         NetMgr::ep_mgr_singleton()->ep_get_task_executor();
     /* Execute on synchronized task exector so that invocation and response
      * handling is synchronized.
      */
     taskExecutor->schedule(id_, std::bind(&AsyncRpcRequestIf::invokeWork_, this));
-#endif
 }
 
 
