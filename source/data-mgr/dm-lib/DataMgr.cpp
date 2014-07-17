@@ -723,7 +723,6 @@ DataMgr::DataMgr(int argc, char *argv[], Platform *platform, Module **vec)
      * Comm with OM will be setup during run()
      */
     omClient = NULL;
-    initHandlers();
     /*
      *  init Data Manager  QOS class.
      */
@@ -766,6 +765,7 @@ DataMgr::~DataMgr()
 
 int DataMgr::run()
 {
+    initHandlers();
     try {
         nstable->listenServer(metadatapath_session);
     }

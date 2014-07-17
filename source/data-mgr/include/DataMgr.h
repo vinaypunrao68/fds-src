@@ -532,6 +532,7 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
     };
 
     friend class DMSvcHandler;
+    friend class dm::GetBucketHandler;
 };
 
 class CloseDMTTimerTask : public FdsTimerTask {

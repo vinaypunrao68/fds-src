@@ -19,6 +19,8 @@
 #define REGISTER_DM_MSG_HANDLER(FDSPMsgT, func) \
     REGISTER_FDSP_MSG_HANDLER_GENERIC(gl_DmPlatform.dm_recv, FDSPMsgT, func)
 
+#define DM_SEND_ASYNC_RESP(...) gl_DmPlatform.dm_recv->sendAsyncResp(__VA_ARGS__)
+
 namespace fds { namespace dm {
 /**
  * ------ NOTE :: IMPORTANT ---
@@ -42,8 +44,9 @@ struct QueueHelper {
 struct Handler: HasLogger {
     // providing a default empty implmentation to support requests that
     // do not need queuing
-    virtual void handleQueueItem(void *io) {}
-    virtual ~Handler() {}
+    virtual void handleQueueItem(dmCatReq *dmRequest);
+    virtual void addToQueue(dmCatReq *dmRequest);
+    virtual ~Handler();
 };
 
 struct GetBucketHandler : Handler {
