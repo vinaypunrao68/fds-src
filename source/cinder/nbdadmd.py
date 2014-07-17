@@ -7,7 +7,6 @@ import subprocess
 import urlparse
 import sys
 import json
-from daemon import DaemonContext
 
 
 class NbdRequestHandler(BaseHTTPRequestHandler):
