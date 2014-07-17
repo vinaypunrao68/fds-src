@@ -167,6 +167,20 @@ QuorumRpcRequestPtr RpcRequestPool::newQuorumRpcRequest(const EpIdProviderPtr ep
     return req;
 }
 
+EPNetRequestPtr
+RpcRequestPool::newEPNetRequest(const fpi::SvcUuid &peerEpId)
+{
+    auto reqId = nextAsyncReqId_++;
+
+    fpi::SvcUuid myEpId;
+    fds::assign(myEpId, *Platform::plf_get_my_svc_uuid());
+
+    EPNetRequestPtr req(new EPNetRequest(reqId, myEpId, peerEpId));
+    asyncRpcInitCommon_(req);
+
+    return req;
+}
+
 FailoverNetRequestPtr RpcRequestPool::newFailoverNetRequest(
     const EpIdProviderPtr epProvider)
 {

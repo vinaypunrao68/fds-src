@@ -38,6 +38,19 @@ struct NetRequest
 };
 
 /**
+* @brief EP style message based network request
+*/
+struct EPNetRequest : EPAsyncRpcRequest, NetRequest
+{
+    EPNetRequest(const AsyncRpcRequestId& id,
+                       const fpi::SvcUuid &myEpId,
+                       const fpi::SvcUuid &peerEpId);
+    void setRpcFunc(RpcFunc rpc) = delete;
+    virtual void invoke() override;
+};
+typedef boost::shared_ptr<EPNetRequest> EPNetRequestPtr;
+
+/**
 * @brief Failover style message based network request
 */
 struct FailoverNetRequest : FailoverRpcRequest, NetRequest

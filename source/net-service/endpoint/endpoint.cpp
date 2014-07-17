@@ -107,9 +107,11 @@ EpSvcHandle::~EpSvcHandle()
 {
     LOGDEBUG << "EpHandle peer " << ep_peer_id.svc_uuid
         << " destruct@" << ep_sock->getHost() << ":" << ep_sock->getPort();
+#if 0
     if (ep_trans != NULL) {
         ep_trans->close();
     }
+#endif
 }
 
 // ep_reconnect

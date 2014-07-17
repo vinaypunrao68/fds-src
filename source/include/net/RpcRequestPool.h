@@ -22,6 +22,7 @@ class RpcRequestPool {
 
     EPAsyncRpcRequestPtr newEPAsyncRpcRequest(const fpi::SvcUuid &myEpId,
                                               const fpi::SvcUuid &peerEpId);
+    EPNetRequestPtr newEPNetRequest(const fpi::SvcUuid &peerEpId);
 
     FailoverRpcRequestPtr newFailoverRpcRequest(
         const fpi::SvcUuid& myEpId,

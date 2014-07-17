@@ -21,6 +21,20 @@ void NetRequest::setPayloadBuf(const fpi::FDSPMsgTypeId &msgTypeId,
     payloadBuf_ = buf;
 }
 
+EPNetRequest::EPNetRequest(const AsyncRpcRequestId& id,
+                           const fpi::SvcUuid &myEpId,
+                           const fpi::SvcUuid &peerEpId)
+: EPAsyncRpcRequest(id, myEpId, peerEpId)
+{
+}
+
+void EPNetRequest::invoke()
+{
+    fds_assert(payloadBuf_);
+    EPAsyncRpcRequest::setRpcFunc(CREATE_NET_REQUEST_RPC());
+    EPAsyncRpcRequest::invoke();
+}
+
 FailoverNetRequest::FailoverNetRequest(const AsyncRpcRequestId& id,
                                              const fpi::SvcUuid &myEpId,
                                              const EpIdProviderPtr epProvider)
