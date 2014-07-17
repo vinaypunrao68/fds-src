@@ -70,7 +70,7 @@ class DmCommitLog : public Module {
     // ctor & dtor
     explicit DmCommitLog(const std::string &modName, const std::string & filename,
             fds_uint32_t filesize = DEFAULT_COMMIT_LOG_FILE_SIZE,
-            PersistenceType persist = IN_MEMORY);
+            PersistenceType persist = IN_FILE);
     ~DmCommitLog();
 
     // module overrides
@@ -148,19 +148,19 @@ struct DmCommitLogEntry {
     fds_uint64_t txId;
     fds_uint32_t next;
 
+    fds_uint32_t len;
     char payload[];     // should be last data member of structure
 
     DmCommitLogEntry(CommitLogEntryType type_, BlobTxId::const_ptr & txDesc, fds_uint64_t id_,
-            const char * payload_ = 0) : type(type_), id(id_), txId(txDesc->getValue()), next(0) {
-        if (payload_) {
-            strcpy(payload, payload_);  //NOLINT
-        } else {
-            *payload = 0;
+            fds_uint32_t len_ = 0, const char * payload_ = 0) :
+            type(type_), id(id_), txId(txDesc->getValue()), next(0), len(len_) {
+        if (len && payload_) {
+            memcpy(payload, payload_, len);
         }
     }
 
     inline fds_uint32_t length() const {
-        return sizeof(DmCommitLogEntry) + strlen(payload) + 1;
+        return sizeof(DmCommitLogEntry) + len;
     }
 
     template<typename T>
@@ -169,7 +169,8 @@ struct DmCommitLogEntry {
   protected:
     template<typename T>
     boost::shared_ptr<const T> getDetails() const {
-        boost::scoped_ptr<serialize::Deserializer> d(serialize::getMemDeserializer(payload));
+        const std::string str(payload, len + 1);
+        boost::scoped_ptr<serialize::Deserializer> d(serialize::getMemDeserializer(str));
         boost::shared_ptr<T> ret(new T());
         ret->read(d.get());
         return ret;
@@ -180,7 +181,7 @@ struct DmCommitLogEntry {
 struct DmCommitLogStartEntry : DmCommitLogEntry {
     DmCommitLogStartEntry(BlobTxId::const_ptr & txDesc, fds_uint64_t id,
             const std::string & blobName)
-            : DmCommitLogEntry(TX_START, txDesc, id, blobName.c_str()) {}
+            : DmCommitLogEntry(TX_START, txDesc, id, blobName.length() + 1, blobName.c_str()) {}
 
     const char * blobName() const {
         fds_assert(TX_START == type);
@@ -210,7 +211,7 @@ struct DmCommitLogPurgeEntry : DmCommitLogEntry {
 struct DmCommitLogUpdateObjListEntry : DmCommitLogEntry {
     DmCommitLogUpdateObjListEntry(BlobTxId::const_ptr & txDesc, fds_uint64_t id,
             const std::string & blobObjList) : DmCommitLogEntry(TX_UPDATE_OBJLIST, txDesc, id,
-            blobObjList.c_str()) {}
+            blobObjList.length() + 1, blobObjList.c_str()) {}
 
     inline boost::shared_ptr<const BlobObjList> blobObjList() const {
         fds_assert(TX_UPDATE_OBJLIST == type);
@@ -222,7 +223,7 @@ struct DmCommitLogUpdateObjListEntry : DmCommitLogEntry {
 struct DmCommitLogUpdateObjMetaEntry : DmCommitLogEntry {
     DmCommitLogUpdateObjMetaEntry(BlobTxId::const_ptr & txDesc, fds_uint64_t id,
             const std::string & metaDataList) : DmCommitLogEntry(TX_UPDATE_OBJMETA, txDesc, id,
-            metaDataList.c_str()) {}
+            metaDataList.length() + 1, metaDataList.c_str()) {}
 
     inline boost::shared_ptr<const MetaDataList> metaDataList() const {
         fds_assert(TX_UPDATE_OBJMETA == type);

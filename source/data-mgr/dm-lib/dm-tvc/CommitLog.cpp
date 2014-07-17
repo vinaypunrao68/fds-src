@@ -71,8 +71,6 @@ DmCommitLog::DmCommitLog(const std::string &modName, const std::string & filenam
             txMap_[txId]->started = true;
         } else {
             fds_verify(iter->second->started);
-            fds_verify(!iter->second->commited);
-            fds_verify(!iter->second->rolledback);
 
             iter->second->entries.push_back(entry->id);
 
@@ -527,7 +525,7 @@ Error FileCommitLogger::updateTx(BlobTxId::const_ptr & txDesc, MetaDataList::con
 }
 
 Error FileCommitLogger::commitTx(BlobTxId::const_ptr & txDesc, fds_uint64_t & id) {
-    size_t sz = sizeof(DmCommitLogEntry) + 1;
+    size_t sz = sizeof(DmCommitLogEntry);
 
     FDSGUARD(lockLogFile_);
 
@@ -549,7 +547,7 @@ Error FileCommitLogger::commitTx(BlobTxId::const_ptr & txDesc, fds_uint64_t & id
 }
 
 Error FileCommitLogger::rollbackTx(BlobTxId::const_ptr & txDesc, fds_uint64_t & id) {
-    size_t sz = sizeof(DmCommitLogEntry) + 1;
+    size_t sz = sizeof(DmCommitLogEntry);
 
     FDSGUARD(lockLogFile_);
 
@@ -571,7 +569,7 @@ Error FileCommitLogger::rollbackTx(BlobTxId::const_ptr & txDesc, fds_uint64_t & 
 }
 
 Error FileCommitLogger::purgeTx(BlobTxId::const_ptr & txDesc, fds_uint64_t & id) {
-    size_t sz = sizeof(DmCommitLogEntry) + 1;
+    size_t sz = sizeof(DmCommitLogEntry);
 
     FDSGUARD(lockLogFile_);
 
