@@ -10,7 +10,7 @@
 #include <fds_typedefs.h>
 #include <endpoint-test.h>
 #include <net/RpcRequestPool.h>
-#include <ProbeServiceSM.h>
+#include <fdsp/fds_service_types.h>
 #include <util/Log.h>
 
 using namespace ::fpi;                 // NOLINT
@@ -56,9 +56,17 @@ Thrift_ProbeMod::pr_intercept_request(ProbeRequest *req)
 void
 Thrift_ProbeMod::pr_put(ProbeRequest *req)
 {
-    ProbeIORequest *io;
+    ProbeIORequest    *io;
+    fpi::SvcUuid       peer;
+    boost::shared_ptr<fpi::PutObjectMsg>  put;
 
-    io = static_cast<ProbeIORequest *>(req);
+    io  = static_cast<ProbeIORequest *>(req);
+    peer.svc_uuid = 0xabcdef;
+    auto rpc = gRpcRequestPool->newEPAsyncRpcRequest(NullSvcUuid, peer);
+
+    put.reset(new fpi::PutObjectMsg());
+    // rpc->setPayload(FDSP_MSG_TYPEID(fpi::PutObjectMsg), put);
+    rpc->invoke();
 }
 
 // pr_get
@@ -67,9 +75,17 @@ Thrift_ProbeMod::pr_put(ProbeRequest *req)
 void
 Thrift_ProbeMod::pr_get(ProbeRequest *req)
 {
-    ProbeIORequest  *io;
+    ProbeIORequest    *io;
+    fpi::SvcUuid       peer;
+    boost::shared_ptr<fpi::GetObjectMsg>  get;
 
     io = static_cast<ProbeIORequest *>(req);
+    peer.svc_uuid = 0xabcdef;
+    auto rpc = gRpcRequestPool->newEPAsyncRpcRequest(NullSvcUuid, peer);
+
+    get.reset(new fpi::GetObjectMsg());
+    // rpc->setPayload(FDSP_MSG_TYPEID(fpi::GetObjectMsg), get);
+    rpc->invoke();
 }
 
 // pr_delete

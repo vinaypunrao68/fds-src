@@ -7,6 +7,7 @@
 #include <net/net-service-tmpl.hpp>
 #include <ProbeServiceSM.h>
 #include <ProbeServiceAM.h>
+#include <net-plat-shared.h>
 #include <net/BaseAsyncSvcHandler.h>
 
 namespace fds {
@@ -55,19 +56,6 @@ class ProbeByeSvc : public EpSvc
     void svc_receive_msg(const fpi::AsyncHdr &msg);
 };
 
-class ProbePokeSvc : public EpSvc
-{
-  public:
-    virtual ~ProbePokeSvc() {}
-    ProbePokeSvc(const ResourceUUID &m, fds_uint32_t maj, fds_uint32_t min)
-        : EpSvc(m, maj, min) {}
-
-    void svc_receive_msg(const fpi::AsyncHdr &msg);
-};
-
-class ProbeTestSM_RPC;
-class ProbeTestAM_RPC;
-
 /**
  * The same probe EP but make it behaves like endpoint of an AM.
  */
@@ -83,18 +71,7 @@ class ProbeEpTestAM : public Module
     void mod_enable_service() override;
     void mod_shutdown() override;
 
-    void ep_serve() { probe_ep->ep_run_server(); }
-
   protected:
-    // One endpoint bound to a physical port of the local node.  Full duplex with
-    // its peer.
-    //
-    EpSvcHandle::pointer am_clnt;
-    EndPoint<fpi::ProbeServiceAMClient, fpi::ProbeServiceAMProcessor>::pointer probe_ep;
-
-    EpSvcHandle::pointer am_clnt_ret;
-    EndPoint<fpi::ProbeServiceAMClient,
-        fpi::ProbeServiceAMProcessor>::pointer ret_probe_ep;
 };
 
 /**
@@ -112,12 +89,9 @@ class ProbeEpSvcTestAM : public Module
     void mod_shutdown() override;
 
   protected:
-    // Handle to a service used to pass message to it.
-    //
-    EpSvcHandle::pointer     am_hello;
-    EpSvcHandle::pointer     am_bye;
-    EpSvcHandle::pointer     am_poke;
 };
+
+class ProbeTestServer;
 
 /**
  * Probe Unit test EP, make it behaves like endpoint of an SM.
@@ -130,22 +104,17 @@ class ProbeEpTestSM : public Module
 
     // Module methods.
     int  mod_init(SysParams const *const p);
-    void mod_startup();
-    void mod_shutdown();
-
-    void ep_serve() { probe_ep->ep_run_server(); }
+    void mod_startup() override;
+    void mod_shutdown() override;
+    void mod_enable_service() override;
 
   protected:
-    // Many services built on top of the endpoint.
-    //
-    ProbeHelloSvc            *svc_hello;
-    ProbeByeSvc              *svc_bye;
-    ProbePokeSvc             *svc_poke;
-
     // One endpoint bound to a physical port of the local node.  Full duplex with
     // its peer.
     //
-    EndPoint<fpi::ProbeServiceAMClient, fpi::ProbeServiceSMProcessor>::pointer probe_ep;
+    PlatNetEpPtr                        svc_ep;
+    ProbeEpPlugin::pointer              svc_plugin;
+    boost::shared_ptr<ProbeTestServer>  svc_recv;
 };
 
 extern ProbeEpTestSM         gl_ProbeTestSM;

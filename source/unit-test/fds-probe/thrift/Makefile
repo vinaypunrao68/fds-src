@@ -2,10 +2,11 @@ probe_topdir      := ..
 loc_thrift_gen    := $(probe_topdir)/../../include/fdsp
 loc_thrift_incl   := $(probe_topdir)/../../fdsp
 user_thrift_loc   := thrift-gen
-user_build_dir    := $(user_thrift_loc)
+user_build_dir    := $(user_thrift_loc) server
 user_incl_dir     := \
 	$(user_thrift_loc) \
 	$(loc_thrift_gen) \
+    $(probe_topdir)/../../net-service/include \
 	$(probe_topdir)/../../am-app/include
 
 user_cpp_flags    :=
@@ -13,7 +14,7 @@ user_fds_so_libs  :=
 user_fds_ar_libs  :=       \
     fds-rpc-request \
     fds-net-svc \
-    fds-am-engine          \
+    fds-am-engine  \
     fds-probe-thrift-utest
 
 user_non_fds_libs :=
@@ -32,20 +33,8 @@ local_probe_clnt  := \
     s3-thrift.cpp \
     $(user_cc)
 
-local_server      := \
-    endpoint-test.cpp \
-    sm-endpoint.cpp \
-    thrf-server.cpp \
-    $(user_cc)
-
-user_cpp          := \
-    endpoint-test.cpp \
-    sm-endpoint.cpp \
-    $(local_server) \
-    $(local_probe_clnt)
-
-user_bin_exe      := thrift-probe thrift-server
+user_cpp          := $(local_probe_clnt)
+user_bin_exe      := thrift-probe
 thrift-probe      := $(local_probe_clnt)
-thrift-server     := $(local_server)
 
 include $(probe_topdir)/Makefile.s3
