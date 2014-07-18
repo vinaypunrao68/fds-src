@@ -59,6 +59,17 @@ struct GetBucketHandler : Handler {
                         const Error &e, dmCatReq *dmRequest);
 };
 
+struct DeleteBlobHandler : Handler {
+    DeleteBlobHandler();
+    void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                       boost::shared_ptr<fpi::DeleteBlobMsg>& message);
+    void handleQueueItem(dmCatReq *dmRequest);
+    void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        boost::shared_ptr<fpi::DeleteBlobMsg>& message,
+                        const Error &e, dmCatReq *dmRequest);
+};
+
+
 }  // namespace dm
 }  // namespace fds
 #endif  // SOURCE_DATA_MGR_INCLUDE_DMHANDLER_H_

@@ -448,6 +448,16 @@ struct DmIoGetBucket : dmCatReq {
             : message(message) , dmCatReq(message->volume_id, "", 0, FDS_LIST_BLOB) {}
 };
 
+struct DmIoDeleteBlob: dmCatReq {
+    boost::shared_ptr<fpi::DeleteBlobMsg> message;
+    explicit DmIoDeleteBlob(boost::shared_ptr<fpi::DeleteBlobMsg> message)
+            : message(message) , dmCatReq(message->volume_id,
+                                          message->blob_name,
+                                          message->blob_version,
+                                          FDS_DELETE_BLOB) {
+    }
+};
+
 }  // namespace fds
 
 #endif  // SOURCE_DATA_MGR_INCLUDE_DMIOREQ_H_

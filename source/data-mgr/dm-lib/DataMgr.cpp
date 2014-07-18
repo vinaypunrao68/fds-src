@@ -737,7 +737,8 @@ DataMgr::DataMgr(int argc, char *argv[], Platform *platform, Module **vec)
 }
 
 void DataMgr::initHandlers() {
-    handlers[FDS_LIST_BLOB] = new dm::GetBucketHandler();
+    handlers[FDS_LIST_BLOB]   = new dm::GetBucketHandler();
+    handlers[FDS_DELETE_BLOB] = new dm::DeleteBlobHandler();
 }
 
 DataMgr::~DataMgr()

@@ -155,16 +155,8 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
                 case FDS_STAT_BLOB:
                     threadPool->schedule(scheduleStatBlob, io);
                     break;
-                case FDS_DELETE_BLOB:
-                    threadPool->schedule(scheduleDeleteCatObj, io);
-                    break;
                 case FDS_DELETE_BLOB_SVC:
                     threadPool->schedule(&DataMgr::scheduleDeleteCatObjSvc, dataMgr, io);
-                    break;
-                case FDS_LIST_BLOB:
-                    // threadPool->schedule(scheduleBlobList, io);
-                    threadPool->schedule(&dm::Handler::handleQueueItem,
-                                         dataMgr->handlers.at(FDS_LIST_BLOB), io);
                     break;
                 case FDS_DM_SNAP_VOLCAT:
                     GLOGDEBUG << "Processing snapshot catalog request";
@@ -186,6 +178,15 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
                 case FDS_ABORT_BLOB_TX:
                     threadPool->schedule(&DataMgr::scheduleAbortBlobTxSvc, dataMgr, io);
                     break;
+
+                    // new handlers
+                case FDS_DELETE_BLOB:
+                case FDS_LIST_BLOB:
+                    // threadPool->schedule(scheduleBlobList, io);
+                    threadPool->schedule(&dm::Handler::handleQueueItem,
+                                         dataMgr->handlers.at(io->io_type), io);
+                    break;
+
                 default:
                     FDS_PLOG(FDS_QoSControl::qos_log) << "Unknown IO Type received";
                     assert(0);
@@ -533,6 +534,7 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
 
     friend class DMSvcHandler;
     friend class dm::GetBucketHandler;
+    friend class dm::DeleteBlobHandler;
 };
 
 class CloseDMTTimerTask : public FdsTimerTask {
