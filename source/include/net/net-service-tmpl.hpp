@@ -40,6 +40,74 @@ template <class SendIf, class RecvIf> class EndPoint;
  */
 extern void endpoint_retry_connect(EpSvcHandle::pointer ptr);
 
+// TODO(Rao):
+// 1. Remove 2 from both classes below.  2 is there b/c might conflict with
+// netsession version
+// 2. Add more socket lifecycle managment stuff than just logs
+/**
+ * TProcessor event handler.  Override this class if you want to peform
+ * actions around functions executed by TProcessor.  This class just
+ * overrides handlerError() to catch any exceptions thrown by functions
+ * executed by TProcessor
+ */
+class FdsTProcessorEventHandler2 : public apache::thrift::TProcessorEventHandler {
+public:
+    FdsTProcessorEventHandler2()
+    {
+    }
+    virtual void handlerError(void* ctx, const char* fn_name) override
+    {
+        LOGCRITICAL << "TProcessor error at: " << fn_name;
+        fds_assert(!"TProcessor error");
+    }
+};
+/**
+ * @brief Listener for events from Thrift Server
+ */
+class ServerEventHandler2 : public apache::thrift::server::TServerEventHandler
+{
+ public:
+  ServerEventHandler2()
+  {
+  }
+  static std::string getTransportKey(
+      boost::shared_ptr<apache::thrift::transport::TTransport> transport)
+  {
+      std::stringstream ret;
+      /* What we get is TFramedTransport.  We will extract TSocket from it */
+      boost::shared_ptr<apache::thrift::transport::TFramedTransport> buf_transport =
+          boost::static_pointer_cast<apache::thrift::transport::TFramedTransport>(transport);
+
+      boost::shared_ptr<apache::thrift::transport::TSocket> sock =
+          boost::static_pointer_cast<apache::thrift::transport::TSocket>\
+          (buf_transport->getUnderlyingTransport());
+
+      ret << sock->getPeerAddress() << ":" << sock->getPeerPort();
+      return ret.str();
+  }
+  /**
+   * Called when a new client has connected and is about to being processing.
+   */
+  virtual void* createContext(
+      boost::shared_ptr<apache::thrift::protocol::TProtocol> input,
+      boost::shared_ptr<apache::thrift::protocol::TProtocol> output) override
+  {
+      /* Add the new connection */
+      LOGDEBUG << "New connection: " << getTransportKey(input->getTransport());
+      return NULL;
+  }
+  /**
+   * Called when a client has finished request-handling to delete server
+   * context.
+   */
+  virtual void deleteContext(void* serverContext,
+                             boost::shared_ptr<apache::thrift::protocol::TProtocol>input,
+                             boost::shared_ptr<apache::thrift::protocol::TProtocol>output)
+  {
+      LOGDEBUG << "Removing connection: " << getTransportKey(input->getTransport());
+  }
+};
+
 /**
  * Endpoint implementation class.
  */
@@ -192,7 +260,14 @@ class EndPoint : public EpSvcImpl
 
         ep_server = bo::shared_ptr<ts::TThreadedServer>(
                 new ts::TThreadedServer(ep_rpc_recv, trans, tfact, proto));
+
+        /* Set up listeners for processor and server events */
+        ep_rpc_recv->setEventHandler(
+                boost::shared_ptr<FdsTProcessorEventHandler2>(new FdsTProcessorEventHandler2()));
+        ep_server->setServerEventHandler(
+                boost::shared_ptr<ServerEventHandler2>(new ServerEventHandler2()));
     }
+
     void ep_activate()
     {
         ep_setup_server();

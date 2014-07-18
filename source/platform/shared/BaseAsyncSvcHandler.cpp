@@ -93,7 +93,18 @@ void BaseAsyncSvcHandler::asyncResp(
         boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
         boost::shared_ptr<std::string>& payload)
 {
-    asyncRespHandler(header, payload);
+    static SynchronizedTaskExecutor<uint64_t>* taskExecutor =
+        NetMgr::ep_mgr_singleton()->ep_get_task_executor();
+
+    GLOGDEBUG << logString(*header);
+
+    fds_assert(header->msg_type_id != fpi::UnknownMsgTypeId);
+
+    /* Execute on synchronized task exector so that handling for requests
+     * with same id gets serialized
+     */
+    taskExecutor->schedule(header->msg_src_id,
+        std::bind(&BaseAsyncSvcHandler::asyncRespHandler, header, payload));
 }
 
 
@@ -108,28 +119,13 @@ void BaseAsyncSvcHandler::asyncRespHandler(
         boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
         boost::shared_ptr<std::string>& payload)
 {
-    static SynchronizedTaskExecutor<uint64_t>* taskExecutor =
-        NetMgr::ep_mgr_singleton()->ep_get_task_executor();
-
-    GLOGDEBUG << logString(*header);
-
-    fds_assert(header->msg_type_id != fpi::UnknownMsgTypeId);
-
     auto asyncReq = gAsyncRpcTracker->\
             getAsyncRpcRequest(static_cast<AsyncRpcRequestId>(header->msg_src_id));
     if (!asyncReq) {
-        GLOGWARN << "Request " << header->msg_src_id << " doesn't exist";
+        GLOGWARN << logString(*header) << " Request doesn't exist";
         return;
     }
-
-    /* Execute on synchronized task exector so that handling for requests
-     * with same id gets serialized
-     */
-    taskExecutor->schedule(header->msg_src_id,
-                           std::bind(&AsyncRpcRequestIf::handleResponse,
-                                     asyncReq.get(), header, payload));
-
-    // asyncReq->handleResponse(header, payload);
+    asyncReq->handleResponse(header, payload);
 }
 
 }  // namespace fds
