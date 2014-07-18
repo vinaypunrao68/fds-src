@@ -201,6 +201,14 @@ class StorHvVolumeTable : public HasLogger {
     StorHvCtrl *parent_sh;
 };
 
+struct TxnRequest {
+    BlobTxId::ptr txDesc;
+
+    void setBlobTxId(BlobTxId::ptr txDesc) {
+        this->txDesc = txDesc;
+    }
+};
+
 class AbortBlobTxReq : public FdsBlobReq {
   public:
     std::string volumeName;
