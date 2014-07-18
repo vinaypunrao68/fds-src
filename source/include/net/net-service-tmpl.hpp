@@ -430,13 +430,13 @@ svc_get_handle(const fpi::SvcUuid   &mine,
 {
     NetMgr         *net;
     EpSvc::pointer  ep;
-    static std::vector<EpSvcHandle::pointer> ep_list;
+    // static std::vector<EpSvcHandle::pointer> ep_list;
 
     net  = NetMgr::ep_mgr_singleton();
     // TODO(Andrew/Rao): Make the correct lookup call when
     // we know what that is...
-    // *out = net->svc_handler_lookup(peer, maj, min);
     *out = NULL;
+    *out = net->svc_handler_lookup(peer, maj, min);
     if (*out == NULL) {
         if (mine == NullSvcUuid) {
             ep = net->endpoint_lookup(peer);
@@ -445,7 +445,7 @@ svc_get_handle(const fpi::SvcUuid   &mine,
         }
         if (ep != NULL) {
             *out = ep->ep_send_handle();
-            ep_list.push_back(*out);
+            // ep_list.push_back(*out);
             // TODO(Andrew/Rao): Figure out if this is the
             // correct register call/location.
             net->ep_handler_register(*out);
@@ -453,7 +453,7 @@ svc_get_handle(const fpi::SvcUuid   &mine,
         }
         // TODO(Vy): must suppy default values here.
         *out = new EpSvcHandle(peer, NULL, maj, min);
-        ep_list.push_back(*out);
+        // ep_list.push_back(*out);
         endpoint_connect_handle<SendIf>(*out);
 
         // TODO(Andrew/Rao): Figure out if this is the

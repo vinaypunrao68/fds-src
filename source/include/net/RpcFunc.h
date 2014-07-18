@@ -47,6 +47,7 @@
     } \
     GLOGDEBUG << ep.get(); \
     fds_verify(hdr.msg_type_id != fpi::UnknownMsgTypeId); \
+    GLOGDEBUG << ep.get(); \
     client->func(hdr, __VA_ARGS__)
 
 /**

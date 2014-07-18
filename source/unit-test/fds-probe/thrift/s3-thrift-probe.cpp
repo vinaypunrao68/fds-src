@@ -59,17 +59,14 @@ Thrift_ProbeMod::pr_put(ProbeRequest *req)
     ProbeIORequest    *io;
     fpi::SvcUuid       peer;
     boost::shared_ptr<fpi::PutObjectMsg>  put;
-#if 0
+
     io  = static_cast<ProbeIORequest *>(req);
     peer.svc_uuid = 0xabcdef;
-    // auto rpc = gRpcRequestPool->newEPAsyncRpcRequest(NullSvcUuid, peer);
-    auto rpc = gRpcRequestPool->newFailoverNetRequest(
-            bo::shared_ptr<UuidEpProvider>(new UuidEpProvider(0xabcdef)));
+    auto rpc = gRpcRequestPool->newEPNetRequest(peer);
 
     put.reset(new fpi::PutObjectMsg());
     rpc->setPayload(FDSP_MSG_TYPEID(fpi::PutObjectMsg), put);
     rpc->invoke();
-#endif
 }
 
 // pr_get
@@ -84,15 +81,11 @@ Thrift_ProbeMod::pr_get(ProbeRequest *req)
 
     io = static_cast<ProbeIORequest *>(req);
     peer.svc_uuid = 0xabcdef;
-#if 0
-    // auto rpc = gRpcRequestPool->newEPAsyncRpcRequest(NullSvcUuid, peer);
-    auto rpc = gRpcRequestPool->newFailoverNetRequest(
-            bo::shared_ptr<UuidEpProvider>(new UuidEpProvider(0xabcdef)));
+    auto rpc = gRpcRequestPool->newEPNetRequest(peer);
 
     get.reset(new fpi::GetObjectMsg());
     rpc->setPayload(FDSP_MSG_TYPEID(fpi::GetObjectMsg), get);
     rpc->invoke();
-#endif
 }
 
 // pr_delete
@@ -179,16 +172,13 @@ ProbeAmGetReqt::js_exec_obj(JsObject *parent, JsObjTemplate *tmpl, JsObjOutput *
     fpi::SvcUuid      peer;
     am_getmsg_reqt_t *p = am_getmsg_reqt();
     boost::shared_ptr<fpi::GetObjectMsg>  get;
-#if 0
+
     peer.svc_uuid = 0xabcdef;
-    // auto rpc = gRpcRequestPool->newEPAsyncRpcRequest(NullSvcUuid, peer);
-    auto rpc = gRpcRequestPool->newFailoverNetRequest(
-            bo::shared_ptr<UuidEpProvider>(new UuidEpProvider(0xabcdef)));
+    auto rpc = gRpcRequestPool->newEPNetRequest(peer);
 
     get.reset(new fpi::GetObjectMsg());
     rpc->setPayload(FDSP_MSG_TYPEID(fpi::GetObjectMsg), get);
     rpc->invoke();
-#endif
     return this;
 }
 
@@ -197,16 +187,29 @@ ProbeAmBar::js_exec_obj(JsObject *parent, JsObjTemplate *tmpl, JsObjOutput *out)
 {
     am_bar_arg_t *p = am_probe_bar();
 
-    std::cout << "In Bar func " << p->am_func << std::endl;
     return this;
 }
 
 JsObject *
 ProbeAmPutMsg::js_exec_obj(JsObject *parent, JsObjTemplate *tmpl, JsObjOutput *out)
 {
-    am_putmsg_arg_t *p = am_probe_putmsg();
+    fpi::SvcUuid      peer;
+    am_putmsg_arg_t  *p = am_probe_putmsg();
+    boost::shared_ptr<fpi::PutObjectMsg>  put;
 
-    std::cout << "In PutMsg func " << p->am_func << std::endl;
+    peer.svc_uuid = 0xabcdef;
+    auto rpc = gRpcRequestPool->newEPNetRequest(peer);
+
+    put.reset(new fpi::PutObjectMsg());
+    put->data_obj.reserve(p->msg_len);
+    put->data_obj.resize(p->msg_len);
+    put->origin_timestamp = 0xdeaddeadbeefbeef;
+    put->data_obj_len     = p->msg_len;
+    put->volume_id        = 0xcafeefac;
+
+    rpc->setPayload(FDSP_MSG_TYPEID(fpi::PutObjectMsg), put);
+    rpc->invoke();
+
     return this;
 }
 

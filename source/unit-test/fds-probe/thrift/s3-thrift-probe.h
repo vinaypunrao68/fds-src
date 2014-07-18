@@ -189,12 +189,14 @@ class ProbeAmBarTmpl : public JsObjTemplate
  * Decoder for:
  * "oProbePutMsg": {
  *     "func": "probe_put",
+ *     "msg_len": 123,
  *     "msg_data": "This is data from a put request through probe interface"
  * }
  */
 typedef struct am_putmsg_arg am_putmsg_arg_t;
 struct am_putmsg_arg
 {
+    fds_uint32_t    msg_len;
     const char     *msg_data;
     const char     *am_func;
 };
@@ -217,8 +219,9 @@ class ProbeAmPutTmpl : public JsObjTemplate
     virtual JsObject *js_new(json_t *in)
     {
         am_putmsg_arg_t *p = new am_putmsg_arg_t;
-        if (json_unpack(in, "{s:s s:s}",
+        if (json_unpack(in, "{s:s s:i s:s}",
                         "msg_data", &p->msg_data,
+                        "msg_len", &p->msg_len,
                         "func", &p->am_func)) {
             delete p;
             return NULL;
