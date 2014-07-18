@@ -116,6 +116,9 @@ void AsyncRpcRequestIf::setCompletionCb(RpcRequestCompletionCb &completionCb)
  */
 void AsyncRpcRequestIf::invoke()
 {
+#if 0
+    invokeWork_();
+#endif
     static SynchronizedTaskExecutor<uint64_t>* taskExecutor =
         NetMgr::ep_mgr_singleton()->ep_get_task_executor();
     /* Execute on synchronized task exector so that invocation and response

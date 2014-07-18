@@ -46,6 +46,7 @@
         throw std::runtime_error("Null client"); \
     } \
     fds_verify(hdr.msg_type_id != fpi::UnknownMsgTypeId); \
+    GLOGDEBUG << ep.get(); \
     client->func(hdr, __VA_ARGS__)
 
 /**
