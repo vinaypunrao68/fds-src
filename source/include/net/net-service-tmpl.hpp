@@ -449,12 +449,14 @@ svc_get_handle(const fpi::SvcUuid   &mine,
             // TODO(Andrew/Rao): Figure out if this is the
             // correct register call/location.
             net->ep_handler_register(*out);
+            fds_assert((*out)->ep_get_socket()->isOpen());
             return;
         }
         // TODO(Vy): must suppy default values here.
         *out = new EpSvcHandle(peer, NULL, maj, min);
         // ep_list.push_back(*out);
         endpoint_connect_handle<SendIf>(*out);
+        fds_assert((*out)->ep_get_socket()->isOpen());
 
         // TODO(Andrew/Rao): Figure out if this is the
         // correct register call/location.

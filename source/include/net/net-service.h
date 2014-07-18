@@ -329,6 +329,8 @@ class EpSvcHandle
     void ep_my_uuid(fpi::SvcUuid &uuid)    { ep_owner->ep_my_uuid(uuid); }
     void ep_peer_uuid(fpi::SvcUuid &uuid)  { uuid = ep_peer_id; }
 
+    bo::shared_ptr<tt::TSocket> ep_get_socket() { return ep_sock; }
+
   protected:
     friend class NetMgr;
     friend class EpSvcImpl;
