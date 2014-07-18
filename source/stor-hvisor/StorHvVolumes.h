@@ -211,7 +211,6 @@ struct TxnRequest {
 
 class AbortBlobTxReq : public FdsBlobReq {
   public:
-    std::string volumeName;
     BlobTxId::ptr txDesc;
 
     /**
@@ -225,14 +224,10 @@ class AbortBlobTxReq : public FdsBlobReq {
                    BlobTxId::ptr _txDesc,
                    CallbackPtr        _cb) :
             FdsBlobReq(FDS_ABORT_BLOB_TX, _volid, _blob_name, 0, 0, 0, _cb),
-            volumeName(_vol_name),
             txDesc(_txDesc) {
+        setVolumeName(_vol_name);
     }
     ~AbortBlobTxReq() {
-    }
-
-    const std::string& getVolumeName() const {
-        return volumeName;
     }
 
     BlobTxId::const_ptr getTxId() const {
@@ -242,7 +237,6 @@ class AbortBlobTxReq : public FdsBlobReq {
 
 class CommitBlobTxReq : public FdsBlobReq {
   public:
-    std::string volumeName;
     BlobTxId::ptr txDesc;
     bool blobEnd;
     /**
@@ -257,13 +251,11 @@ class CommitBlobTxReq : public FdsBlobReq {
                     bool blobEnd,
                     CallbackPtr        _cb) :
             FdsBlobReq(FDS_COMMIT_BLOB_TX, _volid, _blob_name, 0, 0, 0, _cb),
-            volumeName(_vol_name), txDesc(_txDesc), blobEnd(blobEnd){
-    }
-    ~CommitBlobTxReq() {
+            txDesc(_txDesc), blobEnd(blobEnd){
+        setVolumeName(_vol_name);
     }
 
-    const std::string& getVolumeName() const {
-        return volumeName;
+    ~CommitBlobTxReq() {
     }
 
     BlobTxId::const_ptr getTxId() const {
@@ -273,8 +265,6 @@ class CommitBlobTxReq : public FdsBlobReq {
 
 class StartBlobTxReq : public FdsBlobReq {
   public:
-    std::string volumeName;
-
     /**
      * Request constructor. Some of the fields
      * are not actually needed...the base blob
@@ -284,21 +274,16 @@ class StartBlobTxReq : public FdsBlobReq {
                    const std::string &_vol_name,
                    const std::string &_blob_name,
                    CallbackPtr        _cb) :
-            FdsBlobReq(FDS_START_BLOB_TX, _volid, _blob_name, 0, 0, 0, _cb),
-            volumeName(_vol_name) {
-    }
-    ~StartBlobTxReq() {
+            FdsBlobReq(FDS_START_BLOB_TX, _volid, _blob_name, 0, 0, 0, _cb){
+        setVolumeName(_vol_name);
     }
 
-    const std::string& getVolumeName() const {
-        return volumeName;
+    ~StartBlobTxReq() {
     }
 };
 
 class StatBlobReq : public FdsBlobReq {
   public:
-    std::string volumeName;
-
     /**
      * Request constructor. Some of the fields
      * are not actually needed...the base blob
@@ -312,8 +297,8 @@ class StatBlobReq : public FdsBlobReq {
                 char                *_data_buf,
                 CallbackPtr cb) :
             FdsBlobReq(FDS_STAT_BLOB, _volid, _blob_name, _blob_offset,
-                       _data_len, _data_buf, cb),
-            volumeName(_vol_name) {
+                       _data_len, _data_buf, cb) {
+        setVolumeName(_vol_name);
     }
 
     StatBlobReq(fds_volid_t          _volid,
@@ -321,21 +306,16 @@ class StatBlobReq : public FdsBlobReq {
                 const std::string   &_blob_name,
                 CallbackPtr cb) :
             FdsBlobReq(FDS_STAT_BLOB, _volid, _blob_name, 0,
-                       0, NULL, cb),
-            volumeName(_vol_name) {
+                       0, NULL, cb) {
+        setVolumeName(_vol_name);
     }
 
     ~StatBlobReq() {
-    }
-
-    const std::string& getVolumeName() const {
-        return volumeName;
     }
 };
 
 struct SetBlobMetaDataReq : FdsBlobReq {
   public:
-    std::string volumeName;
     BlobTxId::ptr txDesc;
     boost::shared_ptr<FDSP_MetaDataList> metaDataList;
     SetBlobMetaDataReq(fds_volid_t _volid,
@@ -345,7 +325,9 @@ struct SetBlobMetaDataReq : FdsBlobReq {
                        boost::shared_ptr<FDSP_MetaDataList> _metaDataList,
                        CallbackPtr cb) :
             FdsBlobReq(FDS_SET_BLOB_METADATA, _volid, _blob_name, 0, 0, NULL, cb),
-            volumeName(_vol_name), txDesc(_txDesc),  metaDataList(_metaDataList) {}
+            txDesc(_txDesc),  metaDataList(_metaDataList) {
+        setVolumeName(_vol_name);
+    }
 
     ~SetBlobMetaDataReq() {
     }
@@ -359,19 +341,17 @@ struct SetBlobMetaDataReq : FdsBlobReq {
 };
 
 struct GetVolumeMetaDataReq : FdsBlobReq {
-    std::string volumeName;
     GetVolumeMetaDataReq(fds_volid_t volId, const std::string & volumeName, CallbackPtr cb) :
-            FdsBlobReq(FDS_GET_VOLUME_METADATA, volId, "" , 0, 0, NULL, cb),
-            volumeName(volumeName) {
+            FdsBlobReq(FDS_GET_VOLUME_METADATA, volId, "" , 0, 0, NULL, cb) {
+        setVolumeName(volumeName);
     }
 };
 
 struct GetBlobMetaDataReq : FdsBlobReq {
-    std::string volumeName;
     GetBlobMetaDataReq(fds_volid_t volId, const std::string & volumeName,
                        const std::string &_blob_name, CallbackPtr cb) :
-            FdsBlobReq(FDS_GET_BLOB_METADATA, volId, _blob_name , 0, 0, NULL, cb),
-            volumeName(volumeName) {
+            FdsBlobReq(FDS_GET_BLOB_METADATA, volId, _blob_name , 0, 0, NULL, cb) {
+        setVolumeName(volumeName);
     }
 };
 
@@ -385,8 +365,6 @@ struct GetBlobMetaDataReq : FdsBlobReq {
  */
 class AttachVolBlobReq : public FdsBlobReq {
   public:
-    std::string volumeName;
-
     /**
      * Request constructor. Some of the fields
      * are not actually needed...the base blob
@@ -400,14 +378,10 @@ class AttachVolBlobReq : public FdsBlobReq {
                      char                *_data_buf,
                      CallbackPtr cb) :
             FdsBlobReq(FDS_ATTACH_VOL, _volid, _blob_name, _blob_offset,
-                       _data_len, _data_buf, cb),
-            volumeName(_vol_name) {
+                       _data_len, _data_buf, cb) {
+        setVolumeName(_vol_name);
     }
     ~AttachVolBlobReq() {
-    }
-
-    const std::string& getVolumeName() const {
-        return volumeName;
     }
 };
 
