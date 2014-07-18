@@ -42,8 +42,13 @@ enum  FDSPMsgTypeId {
     UnknownMsgTypeId = 0,
     /* Common Service Types */
     NullMsgTypeId = 10,
-
-    /* SM Type Ids*/
+     /*
+      For cases where there is no data to be returned,
+      use EmptyMsg...
+      */
+    EmptyMsgTypeId,
+    
+     /* SM Type Ids*/
     GetObjectMsgTypeId 		= 10000, 
     GetObjectRespTypeId 	= 10001,
     PutObjectMsgTypeId		= 10002, 
@@ -71,7 +76,12 @@ enum  FDSPMsgTypeId {
     AbortBlobTxMsgTypeId,
     AbortBlobTxRspMsgTypeId,
     GetBucketMsgTypeId,
-    GetBucketRspMsgTypeId
+    GetBucketRspMsgTypeId,
+    DeleteBlobMsgTypeId,
+    DeleteBlobRspMsgTypeId,
+}
+
+struct EmptyMsg {
 }
 
 /*
@@ -385,6 +395,13 @@ struct GetBucketMsg {
 }
 
 struct GetVolumeMetaDataRspMsg {
+}
+
+struct DeleteBlobMsg {
+  1: i64                       txId;
+  2: i64                       volume_id;
+  3: string                    blob_name;
+  4: i64                       blob_version;
 }
 
 /* DM Service */
