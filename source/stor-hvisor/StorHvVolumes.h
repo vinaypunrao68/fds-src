@@ -477,8 +477,7 @@ class PutBlobReq: public FdsBlobReq {
 };
 
 
-class DeleteBlobReq: public FdsBlobReq {
-  public:
+struct DeleteBlobReq: FdsBlobReq, TxnRequest {
     BucketContext *bucket_ctxt;
     std::string ObjKey;
     void *req_context;
@@ -498,6 +497,15 @@ class DeleteBlobReq: public FdsBlobReq {
               req_context(_req_context),
         responseCallback(_resp_handler),
         callback_data(_callback_data) {
+    }
+
+    DeleteBlobReq(fds_volid_t _volid,
+                  const std::string& _blob_name,
+                  const std::string& volumeName,
+                  CallbackPtr cb)
+            : FdsBlobReq(FDS_DELETE_BLOB, _volid,
+                         _blob_name, 0, 0, NULL, cb) {
+        setVolumeName(volumeName);
     }
 
     ~DeleteBlobReq() {}

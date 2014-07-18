@@ -414,11 +414,30 @@ class FdsnIf : public apis::AmServiceIf {
     void deleteBlob(boost::shared_ptr<std::string>& domainName,
                     boost::shared_ptr<std::string>& volumeName,
                     boost::shared_ptr<std::string>& blobName) {
-        BucketContext bucket_ctx("host", *volumeName, "accessid", "secretkey");
-        SimpleResponseHandler handler(__func__);
-        am_api->DeleteObject(&bucket_ctx, *blobName, NULL, fn_ResponseHandler, &handler);
-        handler.wait();
-        handler.process();
+        apis::TxDescriptor txnId;
+
+        startBlobTx(txnId, domainName, volumeName, blobName);
+        BlobTxId::ptr blobTxId(new BlobTxId(txnId.txId));
+
+        SimpleResponseHandler::ptr handler(new SimpleResponseHandler(__func__));
+        STORHANDLER(DeleteBlobHandler, fds::FDS_DELETE_BLOB)->
+                handleRequest(*volumeName, *blobName, blobTxId,
+                              SHARED_DYN_CAST(Callback, handler));
+        handler->wait();
+        boost::shared_ptr<apis::TxDescriptor> txnPtr(&txnId);
+        try {
+            handler->process();
+        } catch(apis::ApiException& e) {
+            LOGDEBUG << "delete failed with exception : " << e.what();
+            try {
+                abortBlobTx(domainName, volumeName, blobName, txnPtr);
+            } catch(apis::ApiException& e) {
+                LOGERROR << "exception @ abortBlobTx : " << e.what();
+            }
+            throw e;
+        }
+        boost::shared_ptr<bool> blobEnd(new bool(true));
+        commitBlobTx(domainName, volumeName, blobName, txnPtr, blobEnd);
     }
 };
 

@@ -528,10 +528,6 @@ static void processBlobReq(AmQosReq *qosReq) {
             err = storHvisor->putBlob(qosReq);
             break;
 
-        case fds::FDS_DELETE_BLOB:
-            err = storHvisor->deleteBlob(qosReq);
-            break;
-
         case fds::FDS_BUCKET_STATS:
             err = storHvisor->getBucketStats(qosReq);
             break;
@@ -541,6 +537,7 @@ static void processBlobReq(AmQosReq *qosReq) {
             break;
 
         // new handlers
+        case fds::FDS_DELETE_BLOB:
         case fds::FDS_LIST_BUCKET:
         case fds::FDS_STAT_BLOB:
         case fds::FDS_GET_VOLUME_METADATA:
