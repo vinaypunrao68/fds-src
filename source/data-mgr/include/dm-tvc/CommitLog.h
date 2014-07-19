@@ -32,6 +32,7 @@ struct CommitLogTx {
 
     BlobTxId::const_ptr txDesc;
     std::string blobName;
+    fds_int32_t blobMode;
 
     bool started;
     bool commited;
@@ -42,7 +43,7 @@ struct CommitLogTx {
     BlobObjList::ptr blobObjList;
     MetaDataList::ptr metaDataList;
 
-    CommitLogTx() : txDesc(0), started(false), commited(false), rolledback(false),
+    CommitLogTx() : txDesc(0), blobMode(0), started(false), commited(false), rolledback(false),
             blobObjList(0), metaDataList(0) {}
 };
 
@@ -82,11 +83,15 @@ class DmCommitLog : public Module {
      * operations
      */
     // start transaction
-    Error startTx(BlobTxId::const_ptr & txDesc, const std::string & blobName);
+    Error startTx(BlobTxId::const_ptr & txDesc, const std::string & blobName,
+            fds_int32_t blobMode);
 
     // update blob data (T can be BlobObjList or MetaDataList)
     template<typename T>
     Error updateTx(BlobTxId::const_ptr & txDesc, boost::shared_ptr<const T> & blobData);
+
+    // delete blob
+    Error deleteBlob(BlobTxId::const_ptr & txDesc);
 
     // commit transaction
     CommitLogTx::const_ptr commitTx(BlobTxId::const_ptr & txDesc, Error & status);
@@ -136,6 +141,7 @@ typedef enum {
     TX_START,
     TX_UPDATE_OBJLIST,
     TX_UPDATE_OBJMETA,
+    TX_DELETE_BLOB,
     TX_ROLLBACK,
     TX_COMMIT,
     TX_PURGE
@@ -177,34 +183,64 @@ struct DmCommitLogEntry {
     }
 };
 
+struct StartTxDetails : serialize::Serializable {
+    typedef boost::shared_ptr<StartTxDetails> ptr;
+    typedef boost::shared_ptr<const StartTxDetails> const_ptr;
+
+    fds_int32_t blobMode;
+    std::string blobName;
+
+    StartTxDetails() : blobMode(0) {}
+    StartTxDetails(fds_int32_t blobMode_, const std::string & blobName_) : blobMode(blobMode_),
+            blobName(blobName_) {}
+
+    uint32_t virtual write(serialize::Serializer*  s) const;
+    uint32_t virtual read(serialize::Deserializer* d);
+};
+
 // start transaction
 struct DmCommitLogStartEntry : DmCommitLogEntry {
     DmCommitLogStartEntry(BlobTxId::const_ptr & txDesc, fds_uint64_t id,
-            const std::string & blobName)
-            : DmCommitLogEntry(TX_START, txDesc, id, blobName.length() + 1, blobName.c_str()) {}
+            const std::string & blobDetails)
+            : DmCommitLogEntry(TX_START, txDesc, id, blobDetails.length() + 1,
+            blobDetails.c_str()) {}
 
-    const char * blobName() const {
+    inline std::string blobName() const {
+        return getStartTxDetails()->blobName;
+    }
+
+    inline fds_int32_t blobMode() const {
+        return getStartTxDetails()->blobMode;
+    }
+
+    inline StartTxDetails::const_ptr getStartTxDetails() const {
         fds_assert(TX_START == type);
-        return payload;
+        return getDetails<StartTxDetails>();
     }
 };
 
 // commit transaction
 struct DmCommitLogCommitEntry : DmCommitLogEntry {
-    explicit DmCommitLogCommitEntry(BlobTxId::const_ptr & txDesc, fds_uint64_t id) :
+    DmCommitLogCommitEntry(BlobTxId::const_ptr & txDesc, fds_uint64_t id) :
             DmCommitLogEntry(TX_COMMIT, txDesc, id) {}
 };
 
 // rollback transaction
 struct DmCommitLogRollbackEntry : DmCommitLogEntry {
-    explicit DmCommitLogRollbackEntry(BlobTxId::const_ptr & txDesc, fds_uint64_t id) :
+    DmCommitLogRollbackEntry(BlobTxId::const_ptr & txDesc, fds_uint64_t id) :
             DmCommitLogEntry(TX_ROLLBACK, txDesc, id) {}
 };
 
 // purge transaction, read for compaction/ gc
 struct DmCommitLogPurgeEntry : DmCommitLogEntry {
-    explicit DmCommitLogPurgeEntry(BlobTxId::const_ptr & txDesc, fds_uint64_t id) :
+    DmCommitLogPurgeEntry(BlobTxId::const_ptr & txDesc, fds_uint64_t id) :
             DmCommitLogEntry(TX_PURGE, txDesc, id) {}
+};
+
+// delete blob
+struct DmCommitLogDeleteBlobEntry : DmCommitLogEntry {
+    DmCommitLogDeleteBlobEntry(BlobTxId::const_ptr & txDesc, fds_uint64_t id) :
+        DmCommitLogEntry(TX_DELETE_BLOB, txDesc, id) {}
 };
 
 // update blob object list
@@ -236,7 +272,7 @@ class DmCommitLogger {
     typedef boost::shared_ptr<DmCommitLogger> ptr;
     typedef boost::shared_ptr<const DmCommitLogger> const_ptr;
 
-    virtual Error startTx(BlobTxId::const_ptr & txDesc, const std::string & blobName,
+    virtual Error startTx(BlobTxId::const_ptr & txDesc, StartTxDetails::const_ptr & details,
             fds_uint64_t & id) = 0;
 
     virtual Error updateTx(BlobTxId::const_ptr & txDesc, BlobObjList::const_ptr blobObjList,
@@ -244,6 +280,8 @@ class DmCommitLogger {
 
     virtual Error updateTx(BlobTxId::const_ptr & txDesc, MetaDataList::const_ptr metaDataList,
             fds_uint64_t & id) = 0;
+
+    virtual Error deleteBlob(BlobTxId::const_ptr & txDesc, fds_uint64_t & id) = 0;
 
     virtual Error commitTx(BlobTxId::const_ptr & txDesc, fds_uint64_t & id) = 0;
 
@@ -272,7 +310,7 @@ class FileCommitLogger : public DmCommitLogger {
     FileCommitLogger(const std::string & filename, fds_uint32_t filesize);
     virtual ~FileCommitLogger();
 
-    virtual Error startTx(BlobTxId::const_ptr & txDesc, const std::string & blobName,
+    virtual Error startTx(BlobTxId::const_ptr & txDesc, StartTxDetails::const_ptr & details,
             fds_uint64_t & id) override;
 
     virtual Error updateTx(BlobTxId::const_ptr & txDesc, BlobObjList::const_ptr blobObjList,
@@ -280,6 +318,8 @@ class FileCommitLogger : public DmCommitLogger {
 
     virtual Error updateTx(BlobTxId::const_ptr & txDesc, MetaDataList::const_ptr metaDataList,
             fds_uint64_t & id) override;
+
+    virtual Error deleteBlob(BlobTxId::const_ptr & txDesc, fds_uint64_t & id) override;
 
     virtual Error commitTx(BlobTxId::const_ptr & txDesc, fds_uint64_t & id) override;
 

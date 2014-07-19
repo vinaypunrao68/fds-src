@@ -318,7 +318,8 @@ struct StartBlobTxMsg {
    1: i64    			volume_id;
    2: string 			blob_name;
    3: i64 			blob_version;
-   4: i64                   	txId;
+   4: i32 			blob_mode;
+   5: i64 			txId;
 }
 
 /* start Blob traction response message */
@@ -330,8 +331,7 @@ struct CommitBlobTxMsg {
    1: i64    			volume_id;
    2: string 			blob_name;
    3: i64 			blob_version;
-   4: i64                   	txId;
-   5: bool                      blobEnd;
+   4: i64 			txId;
 }
 
 /* Commit Blob traction response message */
@@ -343,7 +343,7 @@ struct AbortBlobTxMsg {
    1: i64    			volume_id;
    2: string 			blob_name;
    3: i64 			blob_version;
-   4: i64                   	txId;
+   5: i64			txId;
 }
 
 /* Abort Blob traction response message */

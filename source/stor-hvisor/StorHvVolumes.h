@@ -238,23 +238,20 @@ class AbortBlobTxReq : public FdsBlobReq {
 class CommitBlobTxReq : public FdsBlobReq {
   public:
     BlobTxId::ptr txDesc;
-    bool blobEnd;
     /**
      * Request constructor. Some of the fields
      * are not actually needed...the base blob
      * request class just expects them.
      */
     CommitBlobTxReq(fds_volid_t        _volid,
-                    const std::string &_vol_name,
-                    const std::string &_blob_name,
-                    BlobTxId::ptr _txDesc,
-                    bool blobEnd,
-                    CallbackPtr        _cb) :
+                   const std::string &_vol_name,
+                   const std::string &_blob_name,
+                   BlobTxId::ptr _txDesc,
+                   CallbackPtr        _cb) :
             FdsBlobReq(FDS_COMMIT_BLOB_TX, _volid, _blob_name, 0, 0, 0, _cb),
-            txDesc(_txDesc), blobEnd(blobEnd){
+            volumeName(_vol_name), txDesc(_txDesc) {
         setVolumeName(_vol_name);
     }
-
     ~CommitBlobTxReq() {
     }
 
@@ -265,6 +262,9 @@ class CommitBlobTxReq : public FdsBlobReq {
 
 class StartBlobTxReq : public FdsBlobReq {
   public:
+    std::string volumeName;
+    fds_int32_t blobMode;
+
     /**
      * Request constructor. Some of the fields
      * are not actually needed...the base blob
@@ -273,12 +273,18 @@ class StartBlobTxReq : public FdsBlobReq {
     StartBlobTxReq(fds_volid_t        _volid,
                    const std::string &_vol_name,
                    const std::string &_blob_name,
+                   const int32_t _blob_mode,
                    CallbackPtr        _cb) :
-            FdsBlobReq(FDS_START_BLOB_TX, _volid, _blob_name, 0, 0, 0, _cb){
+            FdsBlobReq(FDS_START_BLOB_TX, _volid, _blob_name, 0, 0, 0, _cb),
+            volumeName(_vol_name), blobMode(_blob_mode) {
         setVolumeName(_vol_name);
     }
 
     ~StartBlobTxReq() {
+    }
+
+    fds_int32_t getBlobMode() const {
+        return blobMode;
     }
 };
 

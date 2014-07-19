@@ -61,10 +61,10 @@ service AmService {
         BlobDescriptor statBlob(1: string domainName, 2:string volumeName, 3:string blobName)
              throws (1: ApiException e),
 
-        TxDescriptor startBlobTx(1:string domainName, 2:string volumeName, 3:string blobName)
+        TxDescriptor startBlobTx(1:string domainName, 2:string volumeName, 3:string blobName, 4:i32 blobMode)
 	    throws (1: ApiException e),
 
-        void commitBlobTx(1:string domainName, 2:string volumeName, 3:string blobName, 4:TxDescriptor txDesc, 5:bool blobEnd)
+        void commitBlobTx(1:string domainName, 2:string volumeName, 3:string blobName, 4:TxDescriptor txDesc)
 	    throws (1: ApiException e),
 
         void abortBlobTx(1:string domainName, 2:string volumeName, 3:string blobName, 4:TxDescriptor txDesc)

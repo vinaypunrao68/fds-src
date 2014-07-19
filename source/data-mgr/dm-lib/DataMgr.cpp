@@ -1172,8 +1172,12 @@ void DataMgr::startBlobTx(dmCatReq *io)
 {
     Error err;
     DmIoStartBlobTx *startBlobReq= static_cast<DmIoStartBlobTx*>(io);
+
+    LOGTRACE << "Will start transaction for blob " << startBlobReq->blob_name <<
+            " in tvc; blob mode " << startBlobReq->blob_mode;
     err = timeVolCat_->startBlobTx(startBlobReq->volId,
                                     startBlobReq->blob_name,
+                                    startBlobReq->blob_mode,
                                     startBlobReq->ioBlobTxDesc);
     qosCtrl->markIODone(*startBlobReq);
     startBlobReq->dmio_start_blob_tx_resp_cb(err, startBlobReq);
@@ -1195,11 +1199,9 @@ void DataMgr::commitBlobTx(dmCatReq *io)
     Error err;
     DmIoCommitBlobTx *commitBlobReq = static_cast<DmIoCommitBlobTx*>(io);
 
-    LOGTRACE << "Will commit blob " << commitBlobReq->blob_name
-             << " to tvc; blob end? " << commitBlobReq->blobEnd;
+    LOGTRACE << "Will commit blob " << commitBlobReq->blob_name << " to tvc";
     err = timeVolCat_->commitBlobTx(commitBlobReq->volId,
                                     commitBlobReq->blob_name,
-                                    commitBlobReq->blobEnd,
                                     commitBlobReq->ioBlobTxDesc,
                                     // TODO(Rao): We should use a static commit callback
                                     std::bind(&DataMgr::commitBlobTxCb, this,

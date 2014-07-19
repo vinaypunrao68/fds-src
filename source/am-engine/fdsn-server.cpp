@@ -161,13 +161,15 @@ class FdsnIf : public apis::AmServiceIf {
     void startBlobTx(apis::TxDescriptor& _return,
                   const std::string& domainName,
                   const std::string& volumeName,
-                  const std::string& blobName) {
+                  const std::string& blobName,
+                  const fds_int32_t blobMode) {
     }
 
     void startBlobTx(apis::TxDescriptor& _return,
                      boost::shared_ptr<std::string>& domainName,
                      boost::shared_ptr<std::string>& volumeName,
-                     boost::shared_ptr<std::string>& blobName) {
+                     boost::shared_ptr<std::string>& blobName,
+                     boost::shared_ptr<fds_int32_t>& blobMode) {
         if ((testUturnAll == true) ||
             (testUturnStartTx == true)) {
             LOGDEBUG << "Uturn testing start blob tx";
@@ -177,7 +179,7 @@ class FdsnIf : public apis::AmServiceIf {
         StartBlobTxResponseHandler::ptr handler(
             new StartBlobTxResponseHandler(_return));
 
-        am_api->StartBlobTx(*volumeName, *blobName, SHARED_DYN_CAST(Callback, handler));
+        am_api->StartBlobTx(*volumeName, *blobName, *blobMode, SHARED_DYN_CAST(Callback, handler));
 
         handler->wait();
         handler->process();
@@ -186,15 +188,13 @@ class FdsnIf : public apis::AmServiceIf {
     void commitBlobTx(const std::string& domainName,
                   const std::string& volumeName,
                   const std::string& blobName,
-                  const apis::TxDescriptor& txDesc,
-                  const bool blobEnd) {
+                  const apis::TxDescriptor& txDesc) {
     }
 
     void commitBlobTx(boost::shared_ptr<std::string>& domainName,
                      boost::shared_ptr<std::string>& volumeName,
                      boost::shared_ptr<std::string>& blobName,
-                     boost::shared_ptr<apis::TxDescriptor>& txDesc,
-                     boost::shared_ptr<bool>& blobEnd) {
+                     boost::shared_ptr<apis::TxDescriptor>& txDesc) {
         if ((testUturnAll == true) ||
             (testUturnCommitTx == true)) {
             LOGDEBUG << "Uturn testing commit blob tx";
@@ -207,8 +207,8 @@ class FdsnIf : public apis::AmServiceIf {
 
         SimpleResponseHandler::ptr handler(new SimpleResponseHandler(__func__));
 
-        am_api->CommitBlobTx(*volumeName, *blobName, blobTxDesc, *blobEnd,
-                          SHARED_DYN_CAST(Callback, handler));
+        am_api->CommitBlobTx(*volumeName, *blobName, blobTxDesc,
+                SHARED_DYN_CAST(Callback, handler));
 
         handler->wait();
         handler->process();

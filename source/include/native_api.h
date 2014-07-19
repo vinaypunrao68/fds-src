@@ -123,11 +123,11 @@ class FDS_NativeAPI {
 
     void StartBlobTx(const std::string& volumeName,
                      const std::string& blobName,
+                     const fds_int32_t blobMode,
                      CallbackPtr cb);
     void CommitBlobTx(const std::string& volumeName,
                      const std::string& blobName,
                      BlobTxId::ptr txDesc,
-                     bool blobEnd,
                      CallbackPtr cb);
 
     void AbortBlobTx(const std::string& volumeName,

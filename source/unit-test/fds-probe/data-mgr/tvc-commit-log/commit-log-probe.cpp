@@ -7,6 +7,7 @@
 #include <string>
 #include <list>
 #include <utest-types.h>
+#include <fds_types.h>
 
 namespace fds {
 
@@ -56,7 +57,7 @@ void CommitLogProbe::pr_get(ProbeRequest *req) {}
 
 void CommitLogProbe::startTx(const OpParams &startParams) {
     BlobTxId::const_ptr id = startParams.txId;
-    Error err = gl_DmCommitLogMod.startTx(id, startParams.blobName);
+    Error err = gl_DmCommitLogMod.startTx(id, startParams.blobName, blob::TRUNCATE);
     fds_verify(err == ERR_OK);
 }
 

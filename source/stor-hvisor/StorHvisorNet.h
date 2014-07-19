@@ -412,6 +412,7 @@ public:
                         FailoverRpcRespCb respCb);
     void issueStartBlobTxMsg(const std::string& blobName,
                              const fds_volid_t& volId,
+                             const fds_int32_t blobMode,
                              const fds_uint64_t& txId,
                              QuorumRpcRespCb respCb);
     void issueCommitBlobTxMsg(CommitBlobTxReq *blobReq,

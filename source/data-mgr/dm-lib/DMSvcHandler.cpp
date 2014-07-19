@@ -32,8 +32,7 @@ void DMSvcHandler::commitBlobTx(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
     auto dmBlobTxReq = new DmIoCommitBlobTx(commitBlbTx->volume_id,
                                            commitBlbTx->blob_name,
-                                           commitBlbTx->blob_version,
-                                           commitBlbTx->blobEnd);
+                                           commitBlbTx->blob_version);
     dmBlobTxReq->dmio_commit_blob_tx_resp_cb =
             BIND_MSG_CALLBACK2(DMSvcHandler::commitBlobTxCb, asyncHdr);
 
@@ -120,7 +119,8 @@ void DMSvcHandler::startBlobTx(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
     auto dmBlobTxReq = new DmIoStartBlobTx(startBlbTx->volume_id,
                                            startBlbTx->blob_name,
-                                           startBlbTx->blob_version);
+                                           startBlbTx->blob_version,
+                                           startBlbTx->blob_mode);
     dmBlobTxReq->dmio_start_blob_tx_resp_cb =
             BIND_MSG_CALLBACK2(DMSvcHandler::startBlobTxCb, asyncHdr);
 

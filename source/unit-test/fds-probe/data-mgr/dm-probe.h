@@ -67,7 +67,7 @@ class Dm_ProbeMod : public ProbeMod
         OpParams()
                 : obj_list(new BlobObjList()) {
         }
-        bool           endBuf;
+        fds_int32_t        blobMode;
     };
     void sendUpdate(const OpParams &updateParams);
     void sendQuery(const OpParams &queryParams);
@@ -126,7 +126,7 @@ class UT_DmOpTemplate : public JsObjTemplate
                         "blob-name", &name,
                         "blob-ver", &p->blobVersion,
                         "blob-txId", &p->txId,
-                        "blob-end", &p->endBuf)) {
+                        "blob-end", &p->blobMode)) {
             delete p;
             return NULL;
         }
