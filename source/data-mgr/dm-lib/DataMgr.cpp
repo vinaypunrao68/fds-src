@@ -2308,20 +2308,22 @@ void DataMgr::ReqHandler::QueryCatalogObject(FDS_ProtocolInterface::
  * CatalogSync.
  */
 void
-DataMgr::snapVolCat(DmIoSnapVolCat* snapReq) {
+DataMgr::snapVolCat(dmCatReq *io) {
     Error err(ERR_OK);
+    fds_verify(io != NULL);
+
+    DmIoSnapVolCat *snapReq = static_cast<DmIoSnapVolCat*>(io);
     fds_verify(snapReq != NULL);
 
-    VolumeMeta *vm = vol_meta_map[snapReq->volId];
-    err = vm->syncVolCat(snapReq->volId, snapReq->node_uuid);
-    LOGDEBUG << "Finished rsync, calling catsync callback";
+    LOGDEBUG << "Will do first or second rsync for volume "
+             << std::hex << snapReq->volId << " to node "
+             << (snapReq->node_uuid).uuid_get_val() << std::dec;
 
-    // TODO(xxx) snapshot volume catalog here or could do in
-    // CatalogSync::snapDoneCb() which we call below
+    // sync the catalog
+    err = timeVolCat_->queryIface()->syncCatalog(snapReq->volId,
+                                                 snapReq->node_uuid);
 
-
-    // TODO(xxx) call CatalogSync callback which will do RSync
-    // TODO(xxx) add and pass other required params to do rsync
+    // notify sync mgr that we did rsync
     snapReq->dmio_snap_vcat_cb(snapReq->volId, err);
 
     // mark this request as complete
@@ -3234,13 +3236,6 @@ int scheduleSetBlobMetaData(void* io) {
 int scheduleGetVolumeMetaData(void* io) {
     dataMgr->getVolumeMetaDataBackend(
         static_cast<dmCatReq*>(io));
-    return 0;
-}
-
-int scheduleSnapVolCat(void * _io) {
-    DmIoSnapVolCat *io = static_cast<DmIoSnapVolCat*>(_io);
-
-    dataMgr->snapVolCat(io);
     return 0;
 }
 

@@ -130,6 +130,11 @@ namespace fds {
                            const std::string& blob_name,
                            fds_extent_id extent_id);
 
+        /**
+         * Sync volume catalog to destination DM 'dm_uuid'
+         */
+        Error syncCatalog(fds_volid_t volume_id,
+                          const NodeUuid& dm_uuid);
 
   private:  // methods
         /**

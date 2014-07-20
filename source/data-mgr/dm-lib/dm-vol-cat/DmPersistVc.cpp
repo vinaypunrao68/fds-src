@@ -4,6 +4,8 @@
 #include <string>
 #include <vector>
 #include <fds_process.h>
+#include <net/net-service.h>
+#include <dm-platform.h>
 #include <lib/Catalog.h>
 #include <dm-vol-cat/DmPersistVc.h>
 
@@ -36,6 +38,9 @@ class PersistVolumeMeta {
     }
     inline fds_uint32_t maxObjSizeBytes() const {
         return max_obj_size_bytes;
+    }
+    inline const std::string volumeIdStr() const {
+        return std::to_string(volume_id);
     }
 
     /**
@@ -71,14 +76,16 @@ class PersistVolumeMeta {
      */
     inline Error updateEntry(const std::string& key,
                              const std::string& value) {
-        return catalog->Update(key, value);
+        SCOPEDREAD(snap_lock_);
+        return catalog_->Update(key, value);
     }
 
     /**
      * Atomically applies a set of updates in 'batch'
      */
     inline Error updateBatch(CatWriteBatch* batch) {
-        return catalog->Update(batch);
+        SCOPEDREAD(snap_lock_);
+        return catalog_->Update(batch);
     }
 
     /**
@@ -86,28 +93,34 @@ class PersistVolumeMeta {
      */
     inline Error queryEntry(const std::string& key,
                             std::string* value) {
-        return catalog->Query(key, value);
+        return catalog_->Query(key, value);
     }
 
     /**
      * Deletes entry with key 'key' from the DB
      */
     inline Error deleteEntry(const std::string& key) {
-        return catalog->Delete(key);
+        SCOPEDREAD(snap_lock_);
+        return catalog_->Delete(key);
     }
 
     inline Catalog::catalog_iterator_t*
     getSnapshotIter(Catalog::catalog_roptions_t& opts) {
-        catalog->GetSnapshot(opts);
-        return catalog->NewIterator(opts);
+        catalog_->GetSnapshot(opts);
+        return catalog_->NewIterator(opts);
     }
 
     inline void
     releaseSnapshotIter(Catalog::catalog_roptions_t opts,
                         Catalog::catalog_iterator_t* it) {
         delete it;
-        catalog->ReleaseSnapshot(opts);
+        catalog_->ReleaseSnapshot(opts);
     }
+
+    /**
+     * Sync the catalog to the DM with uuid 'dm_uuid'
+     */
+    Error syncToDM(NodeUuid dm_uuid);
 
   private:
     /**
@@ -126,7 +139,13 @@ class PersistVolumeMeta {
     /**
      * Catalog that stores volume's extents
      */
-    Catalog *catalog;
+    Catalog *catalog_;
+
+    /**
+     * Protects from writing to the catalog while taking
+     * a snapshot for rsync (cp -r kind of snapshot)
+     */
+    fds_rwlock snap_lock_;
 };
 
 
@@ -172,30 +191,90 @@ PersistVolumeMeta::PersistVolumeMeta(fds_volid_t volid,
           max_obj_size_bytes(max_obj_size),
           extent0_obj_entries(extent0_objs),
           extent_obj_entries(extent_objs),
-          catalog(NULL) {
+          catalog_(NULL) {
     fds_verify(extent0_obj_entries > 0);
     fds_verify(extent_obj_entries > 0);
 }
 
 PersistVolumeMeta::~PersistVolumeMeta() {
-    if (catalog) {
-        delete catalog;
+    if (catalog_) {
+        delete catalog_;
     }
 }
 
 Error PersistVolumeMeta::init() {
     Error err(ERR_OK);
-    const std::string vol_name = std::to_string(volume_id);
     const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
-    const std::string cat_name = root->dir_user_repo_dm() + vol_name + "_vcat.ldb";
-    fds_verify(catalog == NULL);
+    const std::string cat_name = root->dir_user_repo_dm() + volumeIdStr() + "_vcat.ldb";
+    fds_verify(catalog_ == NULL);
     root->fds_mkdir(root->dir_user_repo_dm().c_str());
-    catalog = new(std::nothrow) Catalog(cat_name);
-    if (!catalog) {
+    catalog_ = new(std::nothrow) Catalog(cat_name);
+    if (!catalog_) {
         LOGERROR << "Failed to create catalog for volume "
                  << std::hex << volume_id << std::dec;
         return ERR_OUT_OF_MEMORY;
     }
+    return err;
+}
+
+//
+// RSync catalog to DM 'dm_uuid'
+//
+Error PersistVolumeMeta::syncToDM(NodeUuid dm_uuid) {
+    Error err(ERR_OK);
+    fds_uint64_t start_t, end_t;
+    int retcode = 0;
+    const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
+    const std::string loc_src_db = root->dir_user_repo_dm() + volumeIdStr() + "_vcat.ldb";
+    const std::string loc_snap_dir = root->dir_user_repo_snap()
+            + std::to_string(dm_uuid.uuid_get_val()) + std::string("/");
+    const std::string loc_snap_db = loc_snap_dir + volumeIdStr() + "_vcat.ldb";
+    NodeAgent::pointer node = Platform::plf_dm_nodes()->agent_info(dm_uuid);
+    DmAgent::pointer dm = agt_cast_ptr<DmAgent>(node);
+    const std::string dst_node = dm->get_node_root() + "user-repo/dm-names/";
+    std::string dst_ip;
+
+    if (NetMgr::ep_mgr_singleton()->ep_uuid_binding(dm_uuid.toSvcUuid(), 0, 0, &dst_ip) < 0) {
+        LOGERROR << "Failed to sync catalog: Failed to get IP address for destination DM "
+                 << std::hex << dm_uuid.uuid_get_val() << std::dec;
+        return ERR_NOT_FOUND;
+    }
+
+    LOGDEBUG << "Will Sync volume catalog of volume " << volume_id
+             << " to DM " << std::hex << dm_uuid.uuid_get_val() << std::dec;
+
+    const std::string copy_cmd = "cp -r "+ loc_src_db + "*  " + loc_snap_dir + " ";
+    const std::string rm_cmd = "rm -rf  " + loc_snap_db;
+    const std::string rsync_cmd = "sshpass -p passwd rsync -r "
+            + loc_snap_db + "  root@" + dst_ip + ":" + dst_node + "";
+
+    LOGTRACE << " rsync: local copy  " << copy_cmd;
+    LOGTRACE << " rsync:  " << rsync_cmd;
+
+    write_synchronized(snap_lock_) {
+        retcode = std::system((const char *)rm_cmd.c_str());
+        if (retcode == 0) {
+            retcode = std::system((const char *)copy_cmd.c_str());
+        }
+    }
+
+    if (retcode != 0) {
+        LOGERROR << "Copy command failed: " << copy_cmd << " ; code " << retcode;
+        return ERR_DM_RSYNC_FAILED;
+    }
+
+    start_t = fds::util::rdtsc();
+    retcode = std::system((const char *)rsync_cmd.c_str());
+    end_t = fds::util::rdtsc();
+    if ((end_t - start_t) > 0) {
+        LOGDEBUG << "Rsync time: " << ((end_t - start_t) / fds::util::getClockTicks());
+    }
+
+    if (retcode != 0) {
+        LOGERROR << "Rsync command failed: " << rsync_cmd << " ; code " << retcode;
+        err = ERR_DM_RSYNC_FAILED;
+    }
+
     return err;
 }
 
@@ -268,6 +347,14 @@ Error DmPersistVolCatalog::openCatalog(fds_volid_t volume_id) {
                  << volume_id << std::dec << " error " << err;
     }
     return err;
+}
+
+//
+// Rsync volume catalog
+//
+Error DmPersistVolCatalog::syncCatalog(fds_volid_t volume_id,
+                                       const NodeUuid& dm_uuid) {
+    return getVolumeMeta(volume_id)->syncToDM(dm_uuid);
 }
 
 //

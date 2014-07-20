@@ -9,6 +9,8 @@
 #include <set>
 #include <vector>
 #include <utest-types.h>
+#include <fds_resource.h>
+#include <fds_typedefs.h>
 
 namespace fds {
 
@@ -75,7 +77,6 @@ VolCatProbe::expungeObjects(fds_volid_t volid,
     }
     return err;
 }
-
 
 void
 VolCatProbe::addCatalog(const OpParams &volParams) {

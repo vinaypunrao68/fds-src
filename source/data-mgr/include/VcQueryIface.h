@@ -77,6 +77,12 @@ class VolumeCatalogQueryIface {
      */
     virtual Error listBlobs(fds_volid_t volume_id,
                             fpi::BlobInfoListType* binfo_list) = 0;
+
+    /**
+     * Sync snapshot of volume catalog to dm 'dm_uuid'
+     */
+    virtual Error syncCatalog(fds_volid_t volume_id,
+                              const NodeUuid& dm_uuid) = 0;
 };
 
 }  // namespace fds
