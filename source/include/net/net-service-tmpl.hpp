@@ -481,29 +481,11 @@ svc_get_handle(const fpi::SvcUuid   &mine,
     *out = NULL;
     *out = net->svc_handler_lookup(peer, maj, min);
     if (*out == NULL) {
-        if (mine == NullSvcUuid) {
-            ep = net->endpoint_lookup(peer);
-        } else {
-            ep = net->endpoint_lookup(mine, peer);
-        }
-        if (ep != NULL) {
-            *out = ep->ep_send_handle();
-            // ep_list.push_back(*out);
-            // TODO(Andrew/Rao): Figure out if this is the
-            // correct register call/location.
-            net->ep_handler_register(*out);
-            fds_assert((*out)->ep_get_socket()->isOpen());
-            return;
-        }
         // TODO(Vy): must suppy default values here.
         *out = new EpSvcHandle(peer, NULL, maj, min);
         // ep_list.push_back(*out);
         endpoint_connect_handle<SendIf>(*out);
         fds_assert((*out)->ep_get_socket()->isOpen());
-
-        // TODO(Andrew/Rao): Figure out if this is the
-        // correct register call/location.
-        net->ep_handler_register(*out);
     }
 }
 

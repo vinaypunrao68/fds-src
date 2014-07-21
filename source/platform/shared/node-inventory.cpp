@@ -544,17 +544,20 @@ NodeAgent::node_agent_down()
 boost::shared_ptr<fpi::FDSP_ControlPathReqClient>
 NodeAgent::node_ctrl_rpc(EpSvcHandle::pointer *handle)
 {
+    NetMgr              *net;
     fpi::SvcUuid         peer;
+    EpSvcHandle::pointer eph;
 
     if (nd_ctrl_eph != NULL) {
         goto out;
     }
     peer.svc_uuid = rs_uuid.uuid_get_val();
-    net::svc_get_handle<fpi::FDSP_ControlPathReqClient>(
-            peer, &nd_ctrl_eph, 0, NET_SVC_CTRL);
+    net = NetMgr::ep_mgr_singleton();
+    eph = net->svc_get_handle<fpi::FDSP_ControlPathReqClient>(peer, 0, NET_SVC_CTRL);
 
     /* TODO(Vy): wire up the common event plugin to handle error. */
-    if (nd_ctrl_eph != NULL) {
+    if (eph != NULL) {
+        nd_ctrl_eph = eph;
  out:
         *handle     = nd_ctrl_eph;
         nd_ctrl_rpc = nd_ctrl_eph->svc_rpc<fpi::FDSP_ControlPathReqClient>();
@@ -573,16 +576,18 @@ NodeAgent::node_svc_rpc(EpSvcHandle::pointer *handle)
 {
     NetMgr              *net;
     fpi::SvcUuid         peer;
+    EpSvcHandle::pointer eph;
 
     if (nd_eph != NULL) {
         goto out;
     }
-    net = NetMgr::ep_mgr_singleton();
     peer.svc_uuid = rs_uuid.uuid_get_val();
-    net::svc_get_handle<fpi::PlatNetSvcClient>(peer, &nd_eph, 0, 0);
+    net = NetMgr::ep_mgr_singleton();
+    eph = net->svc_get_handle<fpi::PlatNetSvcClient>(peer, 0, 0);
 
     /* TODO(Vy): wire up the common event plugin to handle error. */
-    if (nd_eph != NULL) {
+    if (eph != NULL) {
+        nd_eph     = eph;
  out:
         *handle    = nd_eph;
         nd_svc_rpc = nd_eph->svc_rpc<fpi::PlatNetSvcClient>();
