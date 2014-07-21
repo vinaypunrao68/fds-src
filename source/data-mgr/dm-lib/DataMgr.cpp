@@ -1998,12 +1998,9 @@ DataMgr::queryCatalogBackendSvc(void * _io)
     Error err(ERR_OK);
     DmIoQueryCat *qryCatReq = static_cast<DmIoQueryCat*>(_io);
 
-    // TODO(Andrew): We're not using the size...we can remove it
-    fds_uint64_t blobSize;
     err = timeVolCat_->queryIface()->getBlob(qryCatReq->volId,
                                              qryCatReq->blob_name,
                                              &(qryCatReq->blob_version),
-                                             &(blobSize),
                                              &(qryCatReq->queryMsg->meta_list),
                                              &(qryCatReq->queryMsg->obj_list));
     qosCtrl->markIODone(*qryCatReq);
