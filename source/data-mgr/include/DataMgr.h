@@ -63,7 +63,6 @@ int scheduleBlobList(void * _io);
 int scheduleGetBlobMetaData(void* io);
 int scheduleSetBlobMetaData(void* io);
 int scheduleGetVolumeMetaData(void* io);
-int schedulePushDeltaVolCat(void* _io);
 
 class DataMgr;
 class DMSvcHandler;
@@ -372,7 +371,6 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
     void setBlobMetaDataBackend(const dmCatReq *request);
     void getVolumeMetaDataBackend(const dmCatReq *request);
     void snapVolCat(dmCatReq *io);
-    void pushDeltaVolCat(DmIoSnapVolCat* snapReq);
     Error forwardUpdateCatalogRequest(dmCatReq  *updCatReq);
     void sendUpdateCatalogResp(dmCatReq  *updCatReq, BlobNode *bnode);
     void deleteVolumeDb();

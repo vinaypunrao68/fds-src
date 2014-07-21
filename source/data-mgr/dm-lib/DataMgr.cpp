@@ -2307,6 +2307,11 @@ DataMgr::snapVolCat(dmCatReq *io) {
              << std::hex << snapReq->volId << " to node "
              << (snapReq->node_uuid).uuid_get_val() << std::dec;
 
+    if (io->io_type == FDS_DM_SNAPDELTA_VOLCAT) {
+        // we are doing second rsync
+        // TODO(Anna) set state to VFORWARD_STATE_INPROG
+    }
+
     // sync the catalog
     err = timeVolCat_->queryIface()->syncCatalog(snapReq->volId,
                                                  snapReq->node_uuid);
@@ -2318,33 +2323,6 @@ DataMgr::snapVolCat(dmCatReq *io) {
     qosCtrl->markIODone(*snapReq);
     delete snapReq;
 }
-
-/**
- * Do second rsync for the given volume to the given node
- * (in snapReq msg).
- */
-void
-DataMgr::pushDeltaVolCat(DmIoSnapVolCat* snapReq) {
-    Error err(ERR_OK);
-    fds_verify(snapReq != NULL);
-
-    LOGDEBUG << "Will do second rsync for volume " << std::hex
-             << snapReq->volId << " to node "
-             << (snapReq->node_uuid).uuid_get_val() << std::dec;
-
-    VolumeMeta *vm = vol_meta_map[snapReq->volId];
-    //  do second rsync here or in CatalogSync::deltaDoneCb
-    err = vm->deltaSyncVolCat(snapReq->volId, snapReq->node_uuid);
-    LOGDEBUG << "Finished delta rsync, calling catsync callback";
-
-    // call CatalogSync update to record rsync progress
-    snapReq->dmio_snap_vcat_cb(snapReq->volId, err);
-
-    // mark this request as complete
-    qosCtrl->markIODone(*snapReq);
-    delete snapReq;
-}
-
 
 /**
  * Populates an fdsp message header with stock fields.
@@ -3224,13 +3202,6 @@ int scheduleSetBlobMetaData(void* io) {
 int scheduleGetVolumeMetaData(void* io) {
     dataMgr->getVolumeMetaDataBackend(
         static_cast<dmCatReq*>(io));
-    return 0;
-}
-
-int schedulePushDeltaVolCat(void * _io) {
-    DmIoSnapVolCat *io = static_cast<DmIoSnapVolCat*>(_io);
-
-    dataMgr->pushDeltaVolCat(io);
     return 0;
 }
 
