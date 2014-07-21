@@ -97,6 +97,10 @@ DmCommitLog::DmCommitLog(const std::string &modName, const std::string & filenam
                     upsertBlobData(*(txMap_[txId]), dataPtr);
                     break;
                 }
+                case TX_DELETE_BLOB: {
+                    iter->second->blobDelete = true;
+                    break;
+                }
                 default:
                     break;
             }
@@ -172,6 +176,7 @@ Error DmCommitLog::startTx(BlobTxId::const_ptr & txDesc, const std::string & blo
     txMap_[txId].reset(new CommitLogTx());
     txMap_[txId]->txDesc = txDesc;
     txMap_[txId]->blobName = blobName;
+    txMap_[txId]->blobMode = blobMode;
     txMap_[txId]->entries.push_back(id);
     txMap_[txId]->started = true;
 
@@ -240,6 +245,7 @@ Error DmCommitLog::deleteBlob(BlobTxId::const_ptr & txDesc) {
     SCOPEDWRITE(lockTxMap_);
 
     txMap_[txId]->entries.push_back(id);
+    txMap_[txId]->blobDelete = true;
 
     return ERR_OK;
 }

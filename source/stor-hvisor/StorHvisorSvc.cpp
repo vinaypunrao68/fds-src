@@ -214,6 +214,7 @@ void StorHvCtrl::issueStartBlobTxMsg(const std::string& blobName,
     stBlobTxMsg->blob_name   = blobName;
     stBlobTxMsg->blob_version = blob_version_invalid;
     stBlobTxMsg->volume_id = volId;
+    stBlobTxMsg->blob_mode = blobMode;
 
 
     stBlobTxMsg->txId = txId;
