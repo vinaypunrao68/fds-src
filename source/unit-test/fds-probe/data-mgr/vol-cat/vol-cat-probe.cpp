@@ -156,7 +156,6 @@ VolCatProbe::getBlob(const OpParams& getParams) {
     fpi::FDSP_MetaDataList meta_list;
     fpi::FDSP_BlobObjectList obj_list;
     blob_version_t blob_version = blob_version_invalid;
-    fds_uint64_t blob_size = 0;
 
     std::set<fds_uint64_t> offsets;
     for (BlobObjList::const_iter cit = (getParams.obj_list)->cbegin();
@@ -169,7 +168,6 @@ VolCatProbe::getBlob(const OpParams& getParams) {
     err = gl_DmVolCatMod.getBlob(getParams.vol_id,
                                  getParams.blob_name,
                                  &blob_version,
-                                 &blob_size,
                                  &meta_list, &obj_list);
 
     fds_verify(err.ok());
@@ -178,8 +176,7 @@ VolCatProbe::getBlob(const OpParams& getParams) {
     std::cout << "Retrieved blob for volid " << std::hex
               << getParams.vol_id << std::dec << " blob name "
               << getParams.blob_name << " version " << blob_version
-              << " blob size " << blob_size << " " << mlist << " "
-              << olist << std::endl;
+              << " " << mlist << " " << olist << std::endl;
 }
 
 void

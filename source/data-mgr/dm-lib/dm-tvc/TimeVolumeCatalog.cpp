@@ -165,7 +165,9 @@ DmTimeVolCatalog::commitBlobTxWork(fds_volid_t volid,
              << std::hex << volid << std::dec;
     CommitLogTx::const_ptr commit_data = commitLog->commitTx(txDesc, e);
     if (e.ok()) {
-        if (commit_data->blobObjList && (commit_data->blobObjList->size() > 0)) {
+        if (commit_data->blobDelete) {
+            // TODO(umesh): delete blob here
+        } else if (commit_data->blobObjList && (commit_data->blobObjList->size() > 0)) {
             if (commit_data->blobMode & blob::TRUNCATE) {
                 commit_data->blobObjList->setEndOfBlob();
             }
@@ -184,11 +186,5 @@ DmTimeVolCatalog::abortBlobTx(fds_volid_t volId,
                               BlobTxId::const_ptr txDesc) {
     return ERR_OK;
 }
-
-// TODO(Rao):
-// 1. Probably shouldn't be a global.
-// 2. Get the threadpool from DM
-static fds_threadpool s_threadpool;
-DmTimeVolCatalog gl_DmTvcMod("Global DM TVC", s_threadpool);
 
 }  // namespace fds
