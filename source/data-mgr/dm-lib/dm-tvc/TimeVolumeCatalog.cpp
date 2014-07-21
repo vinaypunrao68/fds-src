@@ -187,10 +187,4 @@ DmTimeVolCatalog::abortBlobTx(fds_volid_t volId,
     return ERR_OK;
 }
 
-// TODO(Rao):
-// 1. Probably shouldn't be a global.
-// 2. Get the threadpool from DM
-static fds_threadpool s_threadpool;
-DmTimeVolCatalog gl_DmTvcMod("Global DM TVC", s_threadpool);
-
 }  // namespace fds

@@ -10,6 +10,12 @@
 #include <list>
 #include <utest-types.h>
 #include <fds_types.h>
+#include <concurrency/ThreadPool.h>
+
+namespace {
+fds::fds_threadpool s_threadpool;
+fds::DmTimeVolCatalog gl_DmTvcMod("Global DM TVC", s_threadpool);
+}
 
 namespace fds {
 
