@@ -269,10 +269,11 @@ struct  DeleteObjectMsg {
 struct DeleteObjectRspMsg {
 }
 
-/* SM service */
+/**
+ * SM Service.  Only put sync rpc calls in here.  Async RPC calls use
+ * message passing provided by BaseAsyncSvc
+ */
 service SMSvc extends PlatNetSvc {
-    oneway void getObject(1: AsyncHdr asyncHdr, 2: GetObjectMsg getObjMsg);
-    oneway void putObject(1: AsyncHdr asyncHdr, 2: PutObjectMsg putObjMsg);
 }
 
 /*
@@ -404,21 +405,16 @@ struct DeleteBlobMsg {
   4: i64                       blob_version;
 }
 
-/* DM Service */
+/**
+ * DM Service.  Only put sync rpc calls in here.  Async RPC calls use
+ * message passing provided by BaseAsyncSvc
+ */
 service DMSvc extends BaseAsyncSvc {
-    oneway void startBlobTx(1: AsyncHdr asyncHdr, 2:StartBlobTxMsg stBlbTxMsg);
-    oneway void queryCatalogObject(1: AsyncHdr asyncHdr, 2:QueryCatalogMsg queryMsg);
-    oneway void updateCatalog(1: AsyncHdr asyncHdr, 2:UpdateCatalogMsg updCatMsg);
-    oneway void deleteCatalogObject(1:AsyncHdr asyncHdr, 2:DeleteCatalogObjectMsg delCatObj);
-    /*
-    oneway void getVolumeBlobList(1:AsyncHdr asyncHdr, 2:GetVolumeBlobListMsg getVolBlob);
-
-    oneway void statBlob(1:AsyncHdr asyncHdr, 2:string volumeName, 3:string blobName);
-    oneway void setBlobMetaData(1:AsyncHdr asyncHdr, 2:SetBlobMetaDataMsg blobMeta);
-    oneway void getBlobMetaData(1:AsyncHdr asyncHdr, 2:string volumeName, 3:string blobName);
-    oneway void getVolumeMetaData(1:AsyncHdr asyncHdr, 2:string volumeName);
-    */
 }
 
+/**
+ * AM Service.  Only put sync rpc calls in here.  Async RPC calls use
+ * message passing provided by BaseAsyncSvc
+ */
 service AMSvc extends BaseAsyncSvc {
 }
