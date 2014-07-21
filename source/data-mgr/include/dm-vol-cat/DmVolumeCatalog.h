@@ -76,7 +76,7 @@ namespace fds {
          * Returns true if the volume does not contain any valid blobs.
          * A valid blob is a non-deleted blob version
          */
-        fds_bool_t isVolumeEmpty(fds_volid_t volume_id) const;
+        fds_bool_t isVolumeEmpty(fds_volid_t volume_id);
 
         /**
          * Retrieves blob meta for the given blob_name and volume 'volume_id'

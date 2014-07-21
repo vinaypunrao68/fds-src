@@ -682,9 +682,12 @@ FDSP_MetaSyncRpc::MetaSyncDone(fpi::FDSP_MsgHdrTypePtr& fdsp_msg,
               << " forward done? " << vol_meta->forward_done;
     if (!vol_meta->forward_done) {
         // open catalogs so we can start processing updates
+        // TODO(Anna) call VC activateCatalog()
+        /*
         fds_verify(dataMgr->vol_meta_map.count(vol_meta->vol_uuid) > 0);
         VolumeMeta *vm = dataMgr->vol_meta_map[vol_meta->vol_uuid];
         vm->openCatalogs(vol_meta->vol_uuid);
+        */
         // start processing forwarded updates
         dataMgr->catSyncRecv->startProcessFwdUpdates(vol_meta->vol_uuid);
     } else {

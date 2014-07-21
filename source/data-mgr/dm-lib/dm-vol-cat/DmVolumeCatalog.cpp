@@ -105,10 +105,10 @@ Error DmVolumeCatalog::removeVolumeMeta(fds_volid_t volume_id)
 // Returns true if the volume does not contain any valid blobs.
 // A valid blob is a non-deleted blob version.
 //
-fds_bool_t DmVolumeCatalog::isVolumeEmpty(fds_volid_t volume_id) const
+fds_bool_t DmVolumeCatalog::isVolumeEmpty(fds_volid_t volume_id)
 {
-    // TODO(xxx) implement
-    return false;
+    // TODO(xxx) do we need to do anything if we have async VC cache?
+    return persistCat->isVolumeEmpty(volume_id);
 }
 
 //

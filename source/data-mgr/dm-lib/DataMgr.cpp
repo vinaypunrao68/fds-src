@@ -246,8 +246,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
     VolumeMeta *volmeta = new(std::nothrow) VolumeMeta(vol_name,
                                                        vol_uuid,
                                                        GetLog(),
-                                                       vdesc,
-                                                       !vol_will_sync);
+                                                       vdesc);
     if (!volmeta) {
         LOGERROR << "Failed to allocate VolumeMeta for volume "
                  << std::hex << vol_uuid << std::dec;
@@ -398,7 +397,7 @@ Error DataMgr::_process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only) {
     }
     vol_map_mtx->unlock();
 
-    fds_bool_t isEmpty = _process_isEmpty(vol_uuid);
+    fds_bool_t isEmpty = timeVolCat_->queryIface()->isVolumeEmpty(vol_uuid);
     if (isEmpty == false) {
         LOGERROR << "Volume is NOT Empty:"
                  << std::hex << vol_uuid << std::dec;
@@ -520,7 +519,8 @@ Error DataMgr::_process_open(fds_volid_t vol_uuid,
         return err;
     }
 
-    err = vol_meta->OpenTransaction(blob_name, bnode, vol_meta->vol_desc);
+    // err = vol_meta->OpenTransaction(blob_name, bnode, vol_meta->vol_desc);
+    fds_panic("must not get here!");
 
     if (err.ok()) {
         LOGDEBUG << "Opened transaction for volume "
@@ -566,17 +566,6 @@ Error DataMgr::_process_abort() {
     return err;
 }
 
-fds_bool_t
-DataMgr::_process_isEmpty(fds_volid_t volId) {
-    // Get a local reference to the vol meta.
-    vol_map_mtx->lock();
-    VolumeMeta *vol_meta = vol_meta_map[volId];
-    vol_map_mtx->unlock();
-    fds_verify(vol_meta != NULL);
-
-    return vol_meta->isEmpty();
-}
-
 Error DataMgr::_process_list(fds_volid_t volId,
                              std::list<BlobNode>& bNodeList) {
     Error err(ERR_OK);
@@ -605,7 +594,7 @@ Error DataMgr::_process_list(fds_volid_t volId,
         return err;
     }
 
-    err = vol_meta->listBlobs(bNodeList);
+    // err = vol_meta->listBlobs(bNodeList);
     if (err.ok()) {
         LOGDEBUG << "Vol meta list blobs for volume "
                  << volId << " returned " << bNodeList.size()
@@ -647,7 +636,8 @@ Error DataMgr::_process_query(fds_volid_t vol_uuid,
     }
 
 
-    err = vol_meta->QueryVcat(blob_name, bnode);
+    // err = vol_meta->QueryVcat(blob_name, bnode);
+    fds_panic("Must not get here");
 
     if (err.ok()) {
         LOGDEBUG << "Vol meta query for volume "
@@ -671,7 +661,8 @@ Error DataMgr::_process_delete(fds_volid_t vol_uuid,
     VolumeMeta *vol_meta = vol_meta_map[vol_uuid];
     vol_map_mtx->unlock();
 
-    err = vol_meta->DeleteVcat(blob_name);
+    // err = vol_meta->DeleteVcat(blob_name);
+    fds_panic("must not get here");
 
     if (err.ok()) {
         LOGNORMAL << "Vol meta Delete for volume "

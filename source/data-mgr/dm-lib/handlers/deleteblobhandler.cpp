@@ -34,7 +34,7 @@ void DeleteBlobHandler::handleQueueItem(dmCatReq *dmRequest) {
     // do processing and set the error
 
     BlobTxId::const_ptr ioBlobTxDesc = boost::make_shared<const BlobTxId>(request->message->txId);
-    // TODO(prem) : helper.err =
+    helper.err = dataMgr->timeVolCat_->deleteBlob(request->volId, ioBlobTxDesc);
 
     LOGDEBUG << " volid:" << request->volId
              << " blob:" << request->message->blob_name;

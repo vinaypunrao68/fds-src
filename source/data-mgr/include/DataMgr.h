@@ -269,7 +269,6 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
                          BlobNode*& bnode);
     Error _process_delete(fds_volid_t vol_uuid,
                          std::string blob_name);
-    fds_bool_t _process_isEmpty(fds_volid_t volId);
     Error _process_list(fds_volid_t volId,
                         std::list<BlobNode>& bNodeList);
 

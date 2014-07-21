@@ -33,6 +33,9 @@ class PersistVolumeMeta {
      */
     Error init();
 
+    inline fds_bool_t isInitialized() const {
+        return (catalog_ != NULL);
+    }
     inline fds_volid_t volumeId() const {
         return volume_id;
     }
@@ -347,6 +350,51 @@ Error DmPersistVolCatalog::openCatalog(fds_volid_t volume_id) {
                  << volume_id << std::dec << " error " << err;
     }
     return err;
+}
+
+//
+// Returns true if the volume does not contain any valid blobs.
+//
+fds_bool_t DmPersistVolCatalog::isVolumeEmpty(fds_volid_t volume_id) {
+    Catalog::catalog_roptions_t options;
+    Catalog::catalog_iterator_t* dbIt;
+    PersistVolumeMetaPtr volmeta = getVolumeMeta(volume_id);
+    fds_bool_t bret = true;
+
+    // it's possible that catalog not open yet, if we just starting
+    // to push meta for this volume from another DM -- in that
+    // case return TRUE for isEmpty (if it's not empty on
+    // other DMs, they will return false
+    if (!volmeta->isInitialized()) {
+        LOGNOTIFY << "Catalog not open for volume " << std::hex
+                  << volume_id << std::dec << " returning true";
+        return true;
+    }
+
+    dbIt = volmeta->getSnapshotIter(options);
+    for (dbIt->SeekToFirst(); dbIt->Valid(); dbIt->Next()) {
+        Record db_key = dbIt->key();
+        ExtentKey extent_key;
+        fds_verify(extent_key.loadSerialized(dbIt->key().ToString()) == ERR_OK);
+        // ignore non-0 extents
+        if (extent_key.extent_id > 0) {
+            LOGTRACE << "Will ignore non-0 extent " << extent_key << " vol "
+                     << std::hex << volume_id << std::dec;
+            continue;
+        }
+
+        BlobExtent0Desc extdesc;
+        fds_verify(extdesc.loadSerialized(dbIt->value().ToString()) == ERR_OK);
+        LOGDEBUG << "Found extent 0" << extent_key << " vol "
+                 << std::hex << volume_id << std::dec << " " << extdesc;
+        if (extdesc.version != blob_version_deleted) {
+            bret = false;
+            break;
+        }
+    }
+
+    volmeta->releaseSnapshotIter(options, dbIt);
+    return bret;
 }
 
 //

@@ -314,15 +314,10 @@ void BlobNode::ToFdspPayload(fpi::QueryCatalogMsgPtr& query_msg) const {
 
 // ==========================================================
 
-VolumeCatalog* VolumeMeta::getVcat() {
-    return vcat;
-}
-
 VolumeMeta::VolumeMeta(const std::string& _name,
                        fds_int64_t _uuid,
-                       VolumeDesc* desc,
-                       fds_bool_t crt_catalogs)
-              : vcat(NULL), tcat(NULL), fwd_state(VFORWARD_STATE_NONE),
+                       VolumeDesc* desc)
+              : fwd_state(VFORWARD_STATE_NONE),
                 dmtclose_time(boost::posix_time::min_date_time)
 {
     const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
@@ -332,179 +327,18 @@ VolumeMeta::VolumeMeta(const std::string& _name,
     dmCopyVolumeDesc(vol_desc, desc);
 
     root->fds_mkdir(root->dir_user_repo_dm().c_str());
-    // dm-trans integration -- we are creating volume catalogs in Volume Catalog
-    // persistent layer, not here
-    /*
-    if (crt_catalogs) {
-        vcat = new VolumeCatalog(root->dir_user_repo_dm() + _name + "_vcat.ldb", crt_catalogs);
-        tcat = new TimeCatalog(root->dir_user_repo_dm() + _name + "_tcat.ldb", crt_catalogs);
-    }
-    */
 }
 
 VolumeMeta::VolumeMeta(const std::string& _name,
                        fds_int64_t _uuid,
                        fds_log* _dm_log,
-                       VolumeDesc* _desc,
-                       fds_bool_t crt_catalogs)
-        : VolumeMeta(_name, _uuid, _desc, crt_catalogs) {
+                       VolumeDesc* _desc)
+        : VolumeMeta(_name, _uuid, _desc) {
 }
 
 VolumeMeta::~VolumeMeta() {
-    if (vcat) {
-        delete vcat;
-    }
-    if (tcat) {
-        delete tcat;
-    }
     delete vol_desc;
     delete vol_mtx;
-}
-
-/**
- * If this volume's catalogs were pushed from other DM, this method
- * is called when pusing volume's catalogs is done so they can be
- * now opened and ready for transactions
- */
-void VolumeMeta::openCatalogs(fds_volid_t volid)
-{
-    const std::string vol_name =  dataMgr->getPrefix() +
-                              std::to_string(volid);
-    const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
-    fds_verify((vcat == NULL) && (tcat == NULL));
-    vcat = new VolumeCatalog(root->dir_user_repo_dm() + vol_name + "_vcat.ldb", true);
-    tcat = new TimeCatalog(root->dir_user_repo_dm() + vol_name + "_tcat.ldb", true);
-}
-
-Error VolumeMeta::OpenTransaction(const std::string blob_name,
-                                  const BlobNode*& bnode, VolumeDesc* desc) {
-    Error err(ERR_OK);
-
-    /*
-     * TODO: Just put it in the vcat for now.
-     */
-
-
-    Record key(blob_name);
-
-    std::string serializedData;
-    LOGDEBUG << "storing bnode";
-    bnode->getSerialized(serializedData);
-
-    Record val(serializedData);
-
-    vol_mtx->lock();
-    err = vcat->Update(key, val);
-    vol_mtx->unlock();
-
-    return err;
-}
-
-/**
- * Returns true of the volume does not contain any
- * valid blobs. A valid blob is a non-deleted blob version.
- */
-fds_bool_t VolumeMeta::isEmpty() const {
-    // Lock the entire DB for now since levelDB's iterator
-    // isn't thread-safe
-    vol_mtx->lock();
-
-    // it's possible that vcat is NULL, if we just starting
-    // to push meta for this volume from another DM -- in that
-    // case return TRUE for isEmpty (if it's not empty on
-    // other DMs, they will return false)
-    if (!vcat) {
-        vol_mtx->unlock();
-        return true;
-    }
-
-    Catalog::catalog_iterator_t *dbIt = vcat->NewIterator();
-    for (dbIt->SeekToFirst(); dbIt->Valid(); dbIt->Next()) {
-        Record key = dbIt->key();
-        BlobNode bnode;
-        LOGDEBUG << "loading bnode";
-        fds_verify(bnode.loadSerialized(dbIt->value().ToString()) == ERR_OK);
-        if (bnode.version != blob_version_deleted) {
-            // Found a non-deleted blob in the volume
-            return false;
-        }
-    }
-    vol_mtx->unlock();
-
-    return true;
-}
-
-Error VolumeMeta::listBlobs(std::list<BlobNode>& bNodeList) {
-    Error err(ERR_OK);
-
-    /*
-     * Lock the entire DB for now since levelDB's iterator
-     * isn't thread-safe
-     */
-    vol_mtx->lock();
-    Catalog::catalog_iterator_t *dbIt = vcat->NewIterator();
-    for (dbIt->SeekToFirst(); dbIt->Valid(); dbIt->Next()) {
-        Record key = dbIt->key();
-        BlobNode bnode;
-        fds_verify(bnode.loadSerialized(dbIt->value().ToString()) == ERR_OK);
-        if (bnode.version != blob_version_deleted) {
-            bNodeList.push_back(bnode);
-        }
-    }
-    vol_mtx->unlock();
-
-    return err;
-}
-
-Error VolumeMeta::QueryVcat(const std::string blob_name, BlobNode*& bnode) {
-    Error err(ERR_OK);
-
-    bnode = NULL;
-
-    Record key(blob_name);
-
-    /*
-     * The query will allocate the record.
-     * TODO: Don't have the query allocate
-     * anything. That's not safe.
-     */
-    std::string val = "";
-
-    vol_mtx->lock();
-    err = vcat->Query(key, &val);
-    vol_mtx->unlock();
-
-    if (!err.ok()) {
-        LOGDEBUG << "Failed to query for vol " << *vol_desc
-                 << " blob " << blob_name << " with err "
-                 << err;
-        return err;
-    }
-
-    bnode = new BlobNode();
-    fds_verify(bnode->loadSerialized(val) == ERR_OK);
-
-    return err;
-}
-
-Error VolumeMeta::DeleteVcat(const std::string blob_name) {
-    Error err(ERR_OK);
-
-
-    Record key(blob_name);
-
-    vol_mtx->lock();
-    err = vcat->Delete(key);
-    vol_mtx->unlock();
-
-    if (!err.ok()) {
-        LOGERROR << "Failed to delete vol " << *vol_desc
-                 << " blob " << blob_name << " with err "
-                 << err;
-        return err;
-    }
-
-    return err;
 }
 
 Error
