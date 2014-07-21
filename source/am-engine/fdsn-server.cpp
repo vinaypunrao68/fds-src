@@ -415,8 +415,8 @@ class FdsnIf : public apis::AmServiceIf {
                     boost::shared_ptr<std::string>& volumeName,
                     boost::shared_ptr<std::string>& blobName) {
         apis::TxDescriptor txnId;
-
-        startBlobTx(txnId, domainName, volumeName, blobName);
+        boost::shared_ptr<fds_int32_t> bmode(new fds_int32_t(0));
+        startBlobTx(txnId, domainName, volumeName, blobName, bmode);
         BlobTxId::ptr blobTxId(new BlobTxId(txnId.txId));
 
         SimpleResponseHandler::ptr handler(new SimpleResponseHandler(__func__));
@@ -436,8 +436,7 @@ class FdsnIf : public apis::AmServiceIf {
             }
             throw e;
         }
-        boost::shared_ptr<bool> blobEnd(new bool(true));
-        commitBlobTx(domainName, volumeName, blobName, txnPtr, blobEnd);
+        commitBlobTx(domainName, volumeName, blobName, txnPtr);
     }
 };
 

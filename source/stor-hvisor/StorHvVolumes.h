@@ -249,7 +249,7 @@ class CommitBlobTxReq : public FdsBlobReq {
                    BlobTxId::ptr _txDesc,
                    CallbackPtr        _cb) :
             FdsBlobReq(FDS_COMMIT_BLOB_TX, _volid, _blob_name, 0, 0, 0, _cb),
-            volumeName(_vol_name), txDesc(_txDesc) {
+            txDesc(_txDesc) {
         setVolumeName(_vol_name);
     }
     ~CommitBlobTxReq() {
