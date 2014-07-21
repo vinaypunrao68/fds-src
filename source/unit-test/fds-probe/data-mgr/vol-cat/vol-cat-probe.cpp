@@ -9,6 +9,8 @@
 #include <set>
 #include <vector>
 #include <utest-types.h>
+#include <fds_resource.h>
+#include <fds_typedefs.h>
 
 namespace fds {
 
@@ -76,7 +78,6 @@ VolCatProbe::expungeObjects(fds_volid_t volid,
     return err;
 }
 
-
 void
 VolCatProbe::addCatalog(const OpParams &volParams) {
     Error err(ERR_OK);
@@ -111,7 +112,7 @@ VolCatProbe::checkVolEmpty(const OpParams &volParams) {
     fds_bool_t bret = gl_DmVolCatMod.isVolumeEmpty(
         volParams.vol_id);
     std::cout << "Volume " << std::hex << volParams.vol_id
-              << std::dec << " empty? " << bret;
+              << std::dec << " empty? " << bret << std::endl;
 }
 
 void
@@ -306,6 +307,8 @@ VolCatObjectOp::js_exec_obj(JsObject *parent,
 
         if (info->op == "volcrt") {
             gl_VolCatProbe.addCatalog(*info);
+        } else if (info->op == "volchk") {
+            gl_VolCatProbe.checkVolEmpty(*info);
         } else if (info->op == "put") {
             gl_VolCatProbe.putBlob(*info);
         } else if (info->op == "flush") {

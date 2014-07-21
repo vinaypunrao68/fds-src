@@ -45,8 +45,8 @@ public class GetObject implements RequestHandler {
         }
 
         String contentType = blobDescriptor.getMetadata().getOrDefault("Content-Type", "application/octet-stream");
-        InputStream stream = xdi.readStream(S3Endpoint.FDS_S3, bucketName, objectName);
-        return new StreamResource(stream, contentType)
-            .withHeader("ETag", etag);
+        InputStream stream = xdi.readStream(S3Endpoint.FDS_S3, bucketName, objectName,
+                0, blobDescriptor.getByteCount());
+        return new StreamResource(stream, contentType).withHeader("ETag", etag);
     }
 }

@@ -131,7 +131,6 @@ void StorHvCtrl::issueCommitBlobTxMsg(CommitBlobTxReq *blobReq,
     stBlobTxMsg->blob_name   = blobReq->getBlobName();
     stBlobTxMsg->blob_version = blob_version_invalid;
     stBlobTxMsg->volume_id = blobReq->getVolId();
-    stBlobTxMsg->blobEnd = blobReq->blobEnd;
 
     fds_volid_t volId = blobReq->getVolId();
     stBlobTxMsg->txId = blobReq->getTxId()->getValue();
@@ -197,6 +196,7 @@ StorHvCtrl::startBlobTxSvc(AmQosReq *qosReq) {
 
     issueStartBlobTxMsg(blobReq->getBlobName(),
                         volId,
+                        blobReq->getBlobMode(),
                         txId.getValue(),
                         RESPONSE_MSG_HANDLER(StorHvCtrl::startBlobTxMsgResp, qosReq));
      return err;
@@ -205,6 +205,7 @@ StorHvCtrl::startBlobTxSvc(AmQosReq *qosReq) {
 
 void StorHvCtrl::issueStartBlobTxMsg(const std::string& blobName,
                                      const fds_volid_t& volId,
+                                     const fds_int32_t blobMode,
                                      const fds_uint64_t& txId,
                                       QuorumRpcRespCb respCb)
 {

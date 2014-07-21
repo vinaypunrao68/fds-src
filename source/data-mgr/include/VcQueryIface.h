@@ -35,7 +35,7 @@ class VolumeCatalogQueryIface {
      * Returns true if the volume does not contain any valid blobs.
      * A valid blob is a non-deleted blob version
      */
-    virtual fds_bool_t isVolumeEmpty(fds_volid_t volume_id) const = 0;
+    virtual fds_bool_t isVolumeEmpty(fds_volid_t volume_id) = 0;
 
     /**
      * Retrieves blob meta for the given blob_name and volume 'volume_id'
@@ -77,6 +77,12 @@ class VolumeCatalogQueryIface {
      */
     virtual Error listBlobs(fds_volid_t volume_id,
                             fpi::BlobInfoListType* binfo_list) = 0;
+
+    /**
+     * Sync snapshot of volume catalog to dm 'dm_uuid'
+     */
+    virtual Error syncCatalog(fds_volid_t volume_id,
+                              const NodeUuid& dm_uuid) = 0;
 };
 
 }  // namespace fds

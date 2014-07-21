@@ -254,12 +254,14 @@ AmProbe::incResp() {
  */
 void
 AmProbe::doAsyncStartTx(const std::string &volumeName,
-                        const std::string &blobName) {
+                        const std::string &blobName,
+                        const fds_int32_t blobMode) {
     apis::TxDescriptor *retVal = new apis::TxDescriptor();
     ProbeStartBlobTxResponseHandler::ptr handler(
         new ProbeStartBlobTxResponseHandler(*retVal));
 
-    gl_AmProbe.am_api->StartBlobTx(volumeName, blobName, SHARED_DYN_CAST(Callback, handler));
+    gl_AmProbe.am_api->StartBlobTx(volumeName, blobName, blobMode,
+            SHARED_DYN_CAST(Callback, handler));
 }
 
 /**
@@ -333,10 +335,12 @@ AmProbe::AmProbeOp::js_exec_obj(JsObject *parent,
         LOGDEBUG << "Doing a " << info->op << " for blob "
                  << info->blobName;
 
+        fds_int32_t blobMode = 0;
         if (info->op == "startBlobTx") {
             gl_AmProbe.threadPool->schedule(AmProbe::doAsyncStartTx,
                                             info->volumeName,
-                                            info->blobName);
+                                            info->blobName,
+                                            blobMode);
         } else if (info->op == "updateBlob") {
             gl_AmProbe.threadPool->schedule(AmProbe::doAsyncUpdateBlob,
                                             info->volumeName,

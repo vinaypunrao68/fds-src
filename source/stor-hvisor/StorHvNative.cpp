@@ -639,7 +639,6 @@ void
 FDS_NativeAPI::CommitBlobTx(const std::string& volumeName,
                            const std::string& blobName,
                            BlobTxId::ptr txDesc,
-                           bool blobEnd,
                            CallbackPtr cb) {
     fds_volid_t volId = invalid_vol_id;
     LOGDEBUG << "COMMIT blob tx for volume " << volumeName
@@ -652,12 +651,7 @@ FDS_NativeAPI::CommitBlobTx(const std::string& volumeName,
     }
 
     FdsBlobReq *blobReq = NULL;
-    blobReq = new CommitBlobTxReq(volId,
-                                 volumeName,
-                                 blobName,
-                                 txDesc,
-                                  blobEnd,
-                                 cb);
+    blobReq = new CommitBlobTxReq(volId, volumeName, blobName, txDesc, cb);
     fds_verify(blobReq != NULL);
 
     // Push the request if we have the vol already
@@ -681,10 +675,11 @@ FDS_NativeAPI::CommitBlobTx(const std::string& volumeName,
 void
 FDS_NativeAPI::StartBlobTx(const std::string& volumeName,
                            const std::string& blobName,
+                           const fds_int32_t blobMode,
                            CallbackPtr cb) {
     fds_volid_t volId = invalid_vol_id;
     LOGDEBUG << "Start blob tx for volume " << volumeName
-             << ", blobName " << blobName;
+             << ", blobName " << blobName << " blob mode " << blobMode;
 
     // check if bucket is attached to this AM
     if (storHvisor->vol_table->volumeExists(volumeName)) {
@@ -693,10 +688,7 @@ FDS_NativeAPI::StartBlobTx(const std::string& volumeName,
     }
 
     FdsBlobReq *blobReq = NULL;
-    blobReq = new StartBlobTxReq(volId,
-                                 volumeName,
-                                 blobName,
-                                 cb);
+    blobReq = new StartBlobTxReq(volId, volumeName, blobName, blobMode, cb);
     fds_verify(blobReq != NULL);
 
     // Push the request if we have the vol already

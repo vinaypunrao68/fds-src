@@ -371,7 +371,7 @@ namespace fds {
          * TODO: Resolve this with what's needed by the object-based callbacks.
          */
         typedef boost::function<void(fds_int32_t)> callbackBind;
-
+        std::string volumeName;
   protected:
         /*
          * Common request header members
@@ -389,7 +389,6 @@ namespace fds {
          */
         std::string  blobName;
         fds_uint64_t blobOffset;
-
         /*
          * Object members
          */
@@ -459,6 +458,8 @@ namespace fds {
         void setVolId(fds_volid_t vol_id);
         void cbWithResult(int result);
         const std::string& getBlobName() const;
+        const std::string& getVolumeName() const;
+        void setVolumeName(const std::string& volumeName);
         fds_uint64_t getBlobOffset() const;
         void setBlobOffset(fds_uint64_t offset);
         const char *getDataBuf() const;

@@ -50,6 +50,7 @@ class TvcProbe : public ProbeMod {
         fds_volid_t              volId;
         BlobTxId::ptr            txId;
         std::string              blobName;
+        fds_int32_t              blobMode;
         fpi::FDSP_MetaDataList   metaList;
         fpi::FDSP_BlobObjectList objList;
     };

@@ -78,7 +78,8 @@ TvcProbe::pr_get(ProbeRequest *req) {
 
 void
 TvcProbe::startTx(const OpParams &startParams) {
-    Error err = gl_DmTvcMod.startBlobTx(1, startParams.blobName, startParams.txId);
+    Error err = gl_DmTvcMod.startBlobTx(1, startParams.blobName,
+            startParams.blobMode, startParams.txId);
     fds_verify(err == ERR_OK);
 }
 
@@ -96,7 +97,7 @@ TvcProbe::updateMetaTx(const OpParams &updateParams) {
 
 void
 TvcProbe::commitTx(const OpParams &commitParams) {
-    Error err = gl_DmTvcMod.commitBlobTx(1, commitParams.blobName, true,
+    Error err = gl_DmTvcMod.commitBlobTx(1, commitParams.blobName,
             commitParams.txId, commitCallback);
     fds_verify(err == ERR_OK);
 }

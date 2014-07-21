@@ -3,6 +3,7 @@ package com.formationds.xdi;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+import com.formationds.util.blob.Mode;
 import com.formationds.apis.AmService;
 import com.formationds.apis.ObjectOffset;
 import com.formationds.apis.TxDescriptor;
@@ -31,7 +32,7 @@ public class StreamWriter {
         MessageDigest md = MessageDigest.getInstance("MD5");
         byte[] digest = new byte[0];
 
-        TxDescriptor tx = am.startBlobTx(domainName, volumeName, blobName);
+        TxDescriptor tx = am.startBlobTx(domainName, volumeName, blobName, Mode.TRUNCATE.getValue());
 
         if (localBytes.get() == null || localBytes.get().length != objectSize) {
             localBytes.set(new byte[objectSize]);
@@ -48,18 +49,11 @@ public class StreamWriter {
             objectOffset++;
         }
 
-        // do this until we have proper transactions
-        if (lastBufSize != 0) {
-            am.updateBlob(domainName, volumeName, blobName, tx,
-                    ByteBuffer.wrap(buf), lastBufSize,
-                    new ObjectOffset(objectOffset - 1), true);
-        }
-
         digest = md.digest();
         metadata.put("etag", Hex.encodeHexString(digest));
 
         am.updateMetadata(domainName, volumeName, blobName, tx, metadata);
-        am.commitBlobTx(domainName, volumeName, blobName, tx, true);
+        am.commitBlobTx(domainName, volumeName, blobName, tx);
         return digest;
     }
 

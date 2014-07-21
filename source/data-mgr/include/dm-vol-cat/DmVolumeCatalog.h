@@ -28,7 +28,7 @@ namespace fds {
      * catalog cache that sits on top of persistent layer.
      */
     class DmVolumeCatalog:
-    public Module, public VolumeCatalogQueryIface {
+    public Module, public HasLogger, public VolumeCatalogQueryIface {
   public:
         explicit DmVolumeCatalog(char const *const name);
         ~DmVolumeCatalog();
@@ -76,7 +76,7 @@ namespace fds {
          * Returns true if the volume does not contain any valid blobs.
          * A valid blob is a non-deleted blob version
          */
-        fds_bool_t isVolumeEmpty(fds_volid_t volume_id) const;
+        fds_bool_t isVolumeEmpty(fds_volid_t volume_id);
 
         /**
          * Retrieves blob meta for the given blob_name and volume 'volume_id'
@@ -164,6 +164,12 @@ namespace fds {
         Error deleteBlob(fds_volid_t volume_id,
                          const std::string& blob_name,
                          blob_version_t blob_version);
+
+        /**
+         * Sync volume catalog to DM 'dm_uuid'
+         */
+        Error syncCatalog(fds_volid_t volume_id,
+                          const NodeUuid& dm_uuid);
 
   private:
         /**

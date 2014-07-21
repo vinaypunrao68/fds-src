@@ -246,8 +246,7 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
     VolumeMeta *volmeta = new(std::nothrow) VolumeMeta(vol_name,
                                                        vol_uuid,
                                                        GetLog(),
-                                                       vdesc,
-                                                       !vol_will_sync);
+                                                       vdesc);
     if (!volmeta) {
         LOGERROR << "Failed to allocate VolumeMeta for volume "
                  << std::hex << vol_uuid << std::dec;
@@ -398,7 +397,7 @@ Error DataMgr::_process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only) {
     }
     vol_map_mtx->unlock();
 
-    fds_bool_t isEmpty = _process_isEmpty(vol_uuid);
+    fds_bool_t isEmpty = timeVolCat_->queryIface()->isVolumeEmpty(vol_uuid);
     if (isEmpty == false) {
         LOGERROR << "Volume is NOT Empty:"
                  << std::hex << vol_uuid << std::dec;
@@ -520,7 +519,8 @@ Error DataMgr::_process_open(fds_volid_t vol_uuid,
         return err;
     }
 
-    err = vol_meta->OpenTransaction(blob_name, bnode, vol_meta->vol_desc);
+    // err = vol_meta->OpenTransaction(blob_name, bnode, vol_meta->vol_desc);
+    fds_panic("must not get here!");
 
     if (err.ok()) {
         LOGDEBUG << "Opened transaction for volume "
@@ -566,17 +566,6 @@ Error DataMgr::_process_abort() {
     return err;
 }
 
-fds_bool_t
-DataMgr::_process_isEmpty(fds_volid_t volId) {
-    // Get a local reference to the vol meta.
-    vol_map_mtx->lock();
-    VolumeMeta *vol_meta = vol_meta_map[volId];
-    vol_map_mtx->unlock();
-    fds_verify(vol_meta != NULL);
-
-    return vol_meta->isEmpty();
-}
-
 Error DataMgr::_process_list(fds_volid_t volId,
                              std::list<BlobNode>& bNodeList) {
     Error err(ERR_OK);
@@ -605,7 +594,7 @@ Error DataMgr::_process_list(fds_volid_t volId,
         return err;
     }
 
-    err = vol_meta->listBlobs(bNodeList);
+    // err = vol_meta->listBlobs(bNodeList);
     if (err.ok()) {
         LOGDEBUG << "Vol meta list blobs for volume "
                  << volId << " returned " << bNodeList.size()
@@ -647,7 +636,8 @@ Error DataMgr::_process_query(fds_volid_t vol_uuid,
     }
 
 
-    err = vol_meta->QueryVcat(blob_name, bnode);
+    // err = vol_meta->QueryVcat(blob_name, bnode);
+    fds_panic("Must not get here");
 
     if (err.ok()) {
         LOGDEBUG << "Vol meta query for volume "
@@ -671,7 +661,8 @@ Error DataMgr::_process_delete(fds_volid_t vol_uuid,
     VolumeMeta *vol_meta = vol_meta_map[vol_uuid];
     vol_map_mtx->unlock();
 
-    err = vol_meta->DeleteVcat(blob_name);
+    // err = vol_meta->DeleteVcat(blob_name);
+    fds_panic("must not get here");
 
     if (err.ok()) {
         LOGNORMAL << "Vol meta Delete for volume "
@@ -737,7 +728,8 @@ DataMgr::DataMgr(int argc, char *argv[], Platform *platform, Module **vec)
 }
 
 void DataMgr::initHandlers() {
-    handlers[FDS_LIST_BLOB] = new dm::GetBucketHandler();
+    handlers[FDS_LIST_BLOB]   = new dm::GetBucketHandler();
+    handlers[FDS_DELETE_BLOB] = new dm::DeleteBlobHandler();
 }
 
 DataMgr::~DataMgr()
@@ -1171,8 +1163,12 @@ void DataMgr::startBlobTx(dmCatReq *io)
 {
     Error err;
     DmIoStartBlobTx *startBlobReq= static_cast<DmIoStartBlobTx*>(io);
+
+    LOGTRACE << "Will start transaction for blob " << startBlobReq->blob_name <<
+            " in tvc; blob mode " << startBlobReq->blob_mode;
     err = timeVolCat_->startBlobTx(startBlobReq->volId,
                                     startBlobReq->blob_name,
+                                    startBlobReq->blob_mode,
                                     startBlobReq->ioBlobTxDesc);
     qosCtrl->markIODone(*startBlobReq);
     startBlobReq->dmio_start_blob_tx_resp_cb(err, startBlobReq);
@@ -1194,11 +1190,9 @@ void DataMgr::commitBlobTx(dmCatReq *io)
     Error err;
     DmIoCommitBlobTx *commitBlobReq = static_cast<DmIoCommitBlobTx*>(io);
 
-    LOGTRACE << "Will commit blob " << commitBlobReq->blob_name
-             << " to tvc; blob end? " << commitBlobReq->blobEnd;
+    LOGTRACE << "Will commit blob " << commitBlobReq->blob_name << " to tvc";
     err = timeVolCat_->commitBlobTx(commitBlobReq->volId,
                                     commitBlobReq->blob_name,
-                                    commitBlobReq->blobEnd,
                                     commitBlobReq->ioBlobTxDesc,
                                     // TODO(Rao): We should use a static commit callback
                                     std::bind(&DataMgr::commitBlobTxCb, this,
@@ -2305,20 +2299,22 @@ void DataMgr::ReqHandler::QueryCatalogObject(FDS_ProtocolInterface::
  * CatalogSync.
  */
 void
-DataMgr::snapVolCat(DmIoSnapVolCat* snapReq) {
+DataMgr::snapVolCat(dmCatReq *io) {
     Error err(ERR_OK);
+    fds_verify(io != NULL);
+
+    DmIoSnapVolCat *snapReq = static_cast<DmIoSnapVolCat*>(io);
     fds_verify(snapReq != NULL);
 
-    VolumeMeta *vm = vol_meta_map[snapReq->volId];
-    err = vm->syncVolCat(snapReq->volId, snapReq->node_uuid);
-    LOGDEBUG << "Finished rsync, calling catsync callback";
+    LOGDEBUG << "Will do first or second rsync for volume "
+             << std::hex << snapReq->volId << " to node "
+             << (snapReq->node_uuid).uuid_get_val() << std::dec;
 
-    // TODO(xxx) snapshot volume catalog here or could do in
-    // CatalogSync::snapDoneCb() which we call below
+    // sync the catalog
+    err = timeVolCat_->queryIface()->syncCatalog(snapReq->volId,
+                                                 snapReq->node_uuid);
 
-
-    // TODO(xxx) call CatalogSync callback which will do RSync
-    // TODO(xxx) add and pass other required params to do rsync
+    // notify sync mgr that we did rsync
     snapReq->dmio_snap_vcat_cb(snapReq->volId, err);
 
     // mark this request as complete
@@ -3231,13 +3227,6 @@ int scheduleSetBlobMetaData(void* io) {
 int scheduleGetVolumeMetaData(void* io) {
     dataMgr->getVolumeMetaDataBackend(
         static_cast<dmCatReq*>(io));
-    return 0;
-}
-
-int scheduleSnapVolCat(void * _io) {
-    DmIoSnapVolCat *io = static_cast<DmIoSnapVolCat*>(_io);
-
-    dataMgr->snapVolCat(io);
     return 0;
 }
 

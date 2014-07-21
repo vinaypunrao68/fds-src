@@ -94,6 +94,7 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
      * Starts a new transaction for blob
      * @param[in] volId volume ID
      * @param[in] blobName Name of blob
+     * @param[in] blobMode  Blob mode
      * @param[in] txDesc   Transaction ID
      *
      * @return ERR_OK if the transaction was successfully
@@ -101,6 +102,7 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
      */
     Error startBlobTx(fds_volid_t volId,
                       const std::string &blobName,
+                      fds_int32_t blobMode,
                       BlobTxId::const_ptr txDesc);
     /**
      * Applies a new offset update to an existing transaction
@@ -131,6 +133,15 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
 
 
     /**
+     * Deletes blob in a transaction
+     * @param[in] volId Volume ID
+     * @param[in] txDesc Transaction ID
+     *
+     * @return ERR_OK on success
+     */
+    Error deleteBlob(fds_volid_t volId, BlobTxId::const_ptr txDesc);
+
+    /**
      * Commits the updates associated with an existing transaction
      * @param[in] volId volume ID
      * @param[in] blobName Name of blob
@@ -141,7 +152,6 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
      */
     Error commitBlobTx(fds_volid_t volId,
                        const std::string &blobName,
-                       fds_bool_t blobEnd,
                        BlobTxId::const_ptr txDesc,
                        const DmTimeVolCatalog::CommitCb &commitCb);
 
@@ -157,7 +167,6 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
                       BlobTxId::const_ptr txDesc);
 
     void commitBlobTxWork(fds_volid_t volid,
-                          fds_bool_t blobEnd,
                           DmCommitLog::ptr &commitLog,
                           BlobTxId::const_ptr txDesc,
                           const DmTimeVolCatalog::CommitCb &cb);

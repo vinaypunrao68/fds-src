@@ -63,7 +63,6 @@ int scheduleBlobList(void * _io);
 int scheduleGetBlobMetaData(void* io);
 int scheduleSetBlobMetaData(void* io);
 int scheduleGetVolumeMetaData(void* io);
-int scheduleSnapVolCat(void* _io);
 int schedulePushDeltaVolCat(void* _io);
 
 class DataMgr;
@@ -144,6 +143,11 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
                 case FDS_CAT_QRY_SVC:
                     threadPool->schedule(&DataMgr::queryCatalogBackendSvc, dataMgr, io);
                     break;
+                case FDS_DM_SNAP_VOLCAT:
+                case FDS_DM_SNAPDELTA_VOLCAT:
+                    threadPool->schedule(&DataMgr::snapVolCat, dataMgr, io);
+                    break;
+
                 /* End of new refactored DM message types */
 
                 case FDS_DM_FWD_CAT_UPD:
@@ -155,24 +159,8 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
                 case FDS_STAT_BLOB:
                     threadPool->schedule(scheduleStatBlob, io);
                     break;
-                case FDS_DELETE_BLOB:
-                    threadPool->schedule(scheduleDeleteCatObj, io);
-                    break;
                 case FDS_DELETE_BLOB_SVC:
                     threadPool->schedule(&DataMgr::scheduleDeleteCatObjSvc, dataMgr, io);
-                    break;
-                case FDS_LIST_BLOB:
-                    // threadPool->schedule(scheduleBlobList, io);
-                    threadPool->schedule(&dm::Handler::handleQueueItem,
-                                         dataMgr->handlers.at(FDS_LIST_BLOB), io);
-                    break;
-                case FDS_DM_SNAP_VOLCAT:
-                    GLOGDEBUG << "Processing snapshot catalog request";
-                    threadPool->schedule(scheduleSnapVolCat, io);
-                    break;
-                case FDS_DM_SNAPDELTA_VOLCAT:
-                    GLOGDEBUG << "Processing push delta catalog snap request";
-                    threadPool->schedule(schedulePushDeltaVolCat, io);
                     break;
                 case FDS_GET_BLOB_METADATA:
                     threadPool->schedule(&DataMgr::scheduleGetBlobMetaDataSvc, dataMgr, io);
@@ -186,6 +174,15 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
                 case FDS_ABORT_BLOB_TX:
                     threadPool->schedule(&DataMgr::scheduleAbortBlobTxSvc, dataMgr, io);
                     break;
+
+                    // new handlers
+                case FDS_DELETE_BLOB:
+                case FDS_LIST_BLOB:
+                    // threadPool->schedule(scheduleBlobList, io);
+                    threadPool->schedule(&dm::Handler::handleQueueItem,
+                                         dataMgr->handlers.at(io->io_type), io);
+                    break;
+
                 default:
                     FDS_PLOG(FDS_QoSControl::qos_log) << "Unknown IO Type received";
                     assert(0);
@@ -272,7 +269,6 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
                          BlobNode*& bnode);
     Error _process_delete(fds_volid_t vol_uuid,
                          std::string blob_name);
-    fds_bool_t _process_isEmpty(fds_volid_t volId);
     Error _process_list(fds_volid_t volId,
                         std::list<BlobNode>& bNodeList);
 
@@ -375,7 +371,7 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
     void getBlobMetaDataBackend(const dmCatReq *request);
     void setBlobMetaDataBackend(const dmCatReq *request);
     void getVolumeMetaDataBackend(const dmCatReq *request);
-    void snapVolCat(DmIoSnapVolCat* snapReq);
+    void snapVolCat(dmCatReq *io);
     void pushDeltaVolCat(DmIoSnapVolCat* snapReq);
     Error forwardUpdateCatalogRequest(dmCatReq  *updCatReq);
     void sendUpdateCatalogResp(dmCatReq  *updCatReq, BlobNode *bnode);
@@ -533,6 +529,7 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
 
     friend class DMSvcHandler;
     friend class dm::GetBucketHandler;
+    friend class dm::DeleteBlobHandler;
 };
 
 class CloseDMTTimerTask : public FdsTimerTask {

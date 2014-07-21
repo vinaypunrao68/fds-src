@@ -412,6 +412,7 @@ public:
                         FailoverRpcRespCb respCb);
     void issueStartBlobTxMsg(const std::string& blobName,
                              const fds_volid_t& volId,
+                             const fds_int32_t blobMode,
                              const fds_uint64_t& txId,
                              QuorumRpcRespCb respCb);
     void issueCommitBlobTxMsg(CommitBlobTxReq *blobReq,
@@ -528,10 +529,6 @@ static void processBlobReq(AmQosReq *qosReq) {
             err = storHvisor->putBlob(qosReq);
             break;
 
-        case fds::FDS_DELETE_BLOB:
-            err = storHvisor->deleteBlob(qosReq);
-            break;
-
         case fds::FDS_BUCKET_STATS:
             err = storHvisor->getBucketStats(qosReq);
             break;
@@ -541,6 +538,7 @@ static void processBlobReq(AmQosReq *qosReq) {
             break;
 
         // new handlers
+        case fds::FDS_DELETE_BLOB:
         case fds::FDS_LIST_BUCKET:
         case fds::FDS_STAT_BLOB:
         case fds::FDS_GET_VOLUME_METADATA:

@@ -34,7 +34,7 @@ public class ToyServicesTest {
         assertEquals(1, shim.listVolumes(domainName).size());
         assertEquals(8, shim.statVolume(domainName, volumeName).getPolicy().getMaxObjectSizeInBytes());
 
-        TxDescriptor txDesc = shim.startBlobTx(domainName, volumeName, blobName);
+        TxDescriptor txDesc = shim.startBlobTx(domainName, volumeName, blobName, 0);
         ByteBuffer buffer = ByteBuffer.wrap(new byte[]{1, 2, 3, 4, 5});
         shim.updateBlob(domainName, volumeName, blobName, txDesc,
                         buffer, 4, new ObjectOffset(0), false);

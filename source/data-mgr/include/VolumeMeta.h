@@ -166,18 +166,6 @@ class VolumeMeta : public HasLogger {
      */
     void finishForwarding();
 
-    /*
-     * The volume catalog maintains mappings from
-     * vol/blob/offset to object id.
-     */
-    VolumeCatalog *vcat;
-    /*
-     * The time catalog maintains pending changes to
-     * the volume catalog.
-     */
-    TimeCatalog *tcat;
-
-    VolumeCatalog *getVcat();
     VolumeDesc *vol_desc;
     /*
      * Default constructor should NOT be called
@@ -187,21 +175,12 @@ class VolumeMeta : public HasLogger {
     VolumeMeta();
     VolumeMeta(const std::string& _name,
                fds_volid_t _uuid,
-               VolumeDesc *v_desc,
-               fds_bool_t crt_catalogs);
+               VolumeDesc *v_desc);
     VolumeMeta(const std::string& _name,
                fds_volid_t _uuid,
                fds_log* _dm_log,
-               VolumeDesc *v_desc,
-               fds_bool_t crt_catalogs);
+               VolumeDesc *v_desc);
     ~VolumeMeta();
-
-    /**
-     * If this volume's catalogs were pushed from other DM, this method
-     * is called when pusing volume's catalogs is done so they can be
-     * now opened and ready for transactions
-     */
-    void openCatalogs(fds_volid_t volId);
 
     void dmCopyVolumeDesc(VolumeDesc *v_desc, VolumeDesc *pVol);
     /*
@@ -209,14 +188,6 @@ class VolumeMeta : public HasLogger {
      */
     FDS_VolumeQueue*  dmVolQueue;
 
-
-    Error OpenTransaction(const std::string blob_name,
-                          const BlobNode*& bnode, VolumeDesc *pVol);
-    Error QueryVcat(const std::string blob_name,
-                    BlobNode*& bnode);
-    Error DeleteVcat(const std::string blob_name);
-    fds_bool_t isEmpty() const;
-    Error listBlobs(std::list<BlobNode>& bNodeList);
     Error syncVolCat(fds_volid_t volId, NodeUuid node_uuid);
     Error deltaSyncVolCat(fds_volid_t volId, NodeUuid node_uuid);
 };

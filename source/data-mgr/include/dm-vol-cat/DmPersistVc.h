@@ -50,6 +50,12 @@ namespace fds {
         Error openCatalog(fds_volid_t volume_id);
 
         /**
+         * Returns true if the volume does not contain any valid blobs.
+         * A valid blob is a non-deleted blob version
+         */
+        fds_bool_t isVolumeEmpty(fds_volid_t volume_id);
+
+        /**
          * Maps offset in bytes to extent id for a given volume id.
          * Volume id is required because the mapping depends on volume
          * specific policy such as max object size, and also volume
@@ -130,6 +136,11 @@ namespace fds {
                            const std::string& blob_name,
                            fds_extent_id extent_id);
 
+        /**
+         * Sync volume catalog to destination DM 'dm_uuid'
+         */
+        Error syncCatalog(fds_volid_t volume_id,
+                          const NodeUuid& dm_uuid);
 
   private:  // methods
         /**

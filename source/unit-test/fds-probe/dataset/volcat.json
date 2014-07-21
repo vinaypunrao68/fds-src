@@ -75,10 +75,24 @@
 		    "volume-id": 2
                 },
 		{
+		    "volcat-op": "volchk",
+		    "volume-id": 2
+                },
+		{
 		    "volcat-op": "delete",
 		    "volume-id": 2,
                     "blob-name": "blob-a",
                     "blob-end": 1
+                },
+		{
+		    "volcat-op": "delete",
+		    "volume-id": 2,
+                    "blob-name": "blob-c",
+                    "blob-end": 1
+                },
+		{
+		    "volcat-op": "volchk",
+		    "volume-id": 2
                 },
 		{
 		    "volcat-op": "put",

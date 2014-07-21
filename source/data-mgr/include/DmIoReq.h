@@ -243,11 +243,10 @@ class DmIoCommitBlobTx: public dmCatReq {
   public:
     typedef std::function<void (const Error &e, DmIoCommitBlobTx *blobTx)> CbType;
   public:
-    bool blobEnd = false;
     DmIoCommitBlobTx(const fds_volid_t  &_volId,
                     const std::string &_blobName,
-                     const blob_version_t &_blob_version, bool blobEnd)
-            : dmCatReq(_volId, _blobName, _blob_version, FDS_COMMIT_BLOB_TX), blobEnd(blobEnd) {
+                     const blob_version_t &_blob_version)
+            : dmCatReq(_volId, _blobName, _blob_version, FDS_COMMIT_BLOB_TX) {
     }
 
     virtual std::string log_string() const override {
@@ -294,10 +293,12 @@ class DmIoStartBlobTx: public dmCatReq {
   public:
     typedef std::function<void (const Error &e, DmIoStartBlobTx *blobTx)> CbType;
   public:
+    fds_int32_t blob_mode = 0;
     DmIoStartBlobTx(const fds_volid_t  &_volId,
                     const std::string &_blobName,
-                    const blob_version_t &_blob_version)
-            : dmCatReq(_volId, _blobName, _blob_version, FDS_START_BLOB_TX) {
+                    const blob_version_t &_blob_version,
+                    const fds_int32_t _blob_mode)
+            : dmCatReq(_volId, _blobName, _blob_version, FDS_START_BLOB_TX), blob_mode(_blob_mode) {
     }
 
     virtual std::string log_string() const override {
@@ -446,6 +447,16 @@ struct DmIoGetBucket : dmCatReq {
     boost::shared_ptr<fpi::GetBucketMsg> message;
     explicit DmIoGetBucket(boost::shared_ptr<fpi::GetBucketMsg> message)
             : message(message) , dmCatReq(message->volume_id, "", 0, FDS_LIST_BLOB) {}
+};
+
+struct DmIoDeleteBlob: dmCatReq {
+    boost::shared_ptr<fpi::DeleteBlobMsg> message;
+    explicit DmIoDeleteBlob(boost::shared_ptr<fpi::DeleteBlobMsg> message)
+            : message(message) , dmCatReq(message->volume_id,
+                                          message->blob_name,
+                                          message->blob_version,
+                                          FDS_DELETE_BLOB) {
+    }
 };
 
 }  // namespace fds

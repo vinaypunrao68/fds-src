@@ -286,6 +286,15 @@ class FDS_IOType {
 
     PerfContext opQoSWaitCtx;
 };
+
+namespace blob {
+
+typedef enum {
+    TRUNCATE = 1
+} fds_blob_mode_t;
+
+}  // namespace blob
+
 }  // namespace fds
 
 namespace std {

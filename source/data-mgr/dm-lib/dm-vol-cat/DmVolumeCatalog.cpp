@@ -80,6 +80,15 @@ Error DmVolumeCatalog::activateCatalog(fds_volid_t volume_id)
 }
 
 //
+// Sync catalog of volume 'volume_id'
+//
+Error DmVolumeCatalog::syncCatalog(fds_volid_t volume_id,
+                                   const NodeUuid& dm_uuid) {
+    // TODO(xxx) when we have cache, flush data first???
+    return persistCat->syncCatalog(volume_id, dm_uuid);
+}
+
+//
 // Deletes each blob in the volume 'volume_id' and marks volume as deleted
 //
 Error DmVolumeCatalog::removeVolumeMeta(fds_volid_t volume_id)
@@ -96,10 +105,10 @@ Error DmVolumeCatalog::removeVolumeMeta(fds_volid_t volume_id)
 // Returns true if the volume does not contain any valid blobs.
 // A valid blob is a non-deleted blob version.
 //
-fds_bool_t DmVolumeCatalog::isVolumeEmpty(fds_volid_t volume_id) const
+fds_bool_t DmVolumeCatalog::isVolumeEmpty(fds_volid_t volume_id)
 {
-    // TODO(xxx) implement
-    return false;
+    // TODO(xxx) do we need to do anything if we have async VC cache?
+    return persistCat->isVolumeEmpty(volume_id);
 }
 
 //

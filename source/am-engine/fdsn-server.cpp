@@ -161,13 +161,15 @@ class FdsnIf : public apis::AmServiceIf {
     void startBlobTx(apis::TxDescriptor& _return,
                   const std::string& domainName,
                   const std::string& volumeName,
-                  const std::string& blobName) {
+                  const std::string& blobName,
+                  const fds_int32_t blobMode) {
     }
 
     void startBlobTx(apis::TxDescriptor& _return,
                      boost::shared_ptr<std::string>& domainName,
                      boost::shared_ptr<std::string>& volumeName,
-                     boost::shared_ptr<std::string>& blobName) {
+                     boost::shared_ptr<std::string>& blobName,
+                     boost::shared_ptr<fds_int32_t>& blobMode) {
         if ((testUturnAll == true) ||
             (testUturnStartTx == true)) {
             LOGDEBUG << "Uturn testing start blob tx";
@@ -177,7 +179,7 @@ class FdsnIf : public apis::AmServiceIf {
         StartBlobTxResponseHandler::ptr handler(
             new StartBlobTxResponseHandler(_return));
 
-        am_api->StartBlobTx(*volumeName, *blobName, SHARED_DYN_CAST(Callback, handler));
+        am_api->StartBlobTx(*volumeName, *blobName, *blobMode, SHARED_DYN_CAST(Callback, handler));
 
         handler->wait();
         handler->process();
@@ -186,15 +188,13 @@ class FdsnIf : public apis::AmServiceIf {
     void commitBlobTx(const std::string& domainName,
                   const std::string& volumeName,
                   const std::string& blobName,
-                  const apis::TxDescriptor& txDesc,
-                  const bool blobEnd) {
+                  const apis::TxDescriptor& txDesc) {
     }
 
     void commitBlobTx(boost::shared_ptr<std::string>& domainName,
                      boost::shared_ptr<std::string>& volumeName,
                      boost::shared_ptr<std::string>& blobName,
-                     boost::shared_ptr<apis::TxDescriptor>& txDesc,
-                     boost::shared_ptr<bool>& blobEnd) {
+                     boost::shared_ptr<apis::TxDescriptor>& txDesc) {
         if ((testUturnAll == true) ||
             (testUturnCommitTx == true)) {
             LOGDEBUG << "Uturn testing commit blob tx";
@@ -207,8 +207,8 @@ class FdsnIf : public apis::AmServiceIf {
 
         SimpleResponseHandler::ptr handler(new SimpleResponseHandler(__func__));
 
-        am_api->CommitBlobTx(*volumeName, *blobName, blobTxDesc, *blobEnd,
-                          SHARED_DYN_CAST(Callback, handler));
+        am_api->CommitBlobTx(*volumeName, *blobName, blobTxDesc,
+                SHARED_DYN_CAST(Callback, handler));
 
         handler->wait();
         handler->process();
@@ -414,11 +414,29 @@ class FdsnIf : public apis::AmServiceIf {
     void deleteBlob(boost::shared_ptr<std::string>& domainName,
                     boost::shared_ptr<std::string>& volumeName,
                     boost::shared_ptr<std::string>& blobName) {
-        BucketContext bucket_ctx("host", *volumeName, "accessid", "secretkey");
-        SimpleResponseHandler handler(__func__);
-        am_api->DeleteObject(&bucket_ctx, *blobName, NULL, fn_ResponseHandler, &handler);
-        handler.wait();
-        handler.process();
+        apis::TxDescriptor txnId;
+        boost::shared_ptr<fds_int32_t> bmode(new fds_int32_t(0));
+        startBlobTx(txnId, domainName, volumeName, blobName, bmode);
+        BlobTxId::ptr blobTxId(new BlobTxId(txnId.txId));
+
+        SimpleResponseHandler::ptr handler(new SimpleResponseHandler(__func__));
+        STORHANDLER(DeleteBlobHandler, fds::FDS_DELETE_BLOB)->
+                handleRequest(*volumeName, *blobName, blobTxId,
+                              SHARED_DYN_CAST(Callback, handler));
+        handler->wait();
+        boost::shared_ptr<apis::TxDescriptor> txnPtr(&txnId);
+        try {
+            handler->process();
+        } catch(apis::ApiException& e) {
+            LOGDEBUG << "delete failed with exception : " << e.what();
+            try {
+                abortBlobTx(domainName, volumeName, blobName, txnPtr);
+            } catch(apis::ApiException& e) {
+                LOGERROR << "exception @ abortBlobTx : " << e.what();
+            }
+            throw e;
+        }
+        commitBlobTx(domainName, volumeName, blobName, txnPtr);
     }
 };
 
