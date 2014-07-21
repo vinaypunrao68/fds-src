@@ -165,7 +165,9 @@ DmTimeVolCatalog::commitBlobTxWork(fds_volid_t volid,
              << std::hex << volid << std::dec;
     CommitLogTx::const_ptr commit_data = commitLog->commitTx(txDesc, e);
     if (e.ok()) {
-        if (commit_data->blobObjList && (commit_data->blobObjList->size() > 0)) {
+        if (commit_data->blobDelete) {
+            // TODO(umesh): delete blob here
+        } else if (commit_data->blobObjList && (commit_data->blobObjList->size() > 0)) {
             if (commit_data->blobMode & blob::TRUNCATE) {
                 commit_data->blobObjList->setEndOfBlob();
             }

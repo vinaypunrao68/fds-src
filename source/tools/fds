@@ -300,6 +300,7 @@ function cleanBinDirs() {
                 rm -f ocache_stats.dat
                 rm -f *.out
                 rm -f core*
+                rm -f Volume_* 2>/dev/null
             )
         fi
     done

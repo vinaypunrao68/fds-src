@@ -37,6 +37,7 @@ struct CommitLogTx {
     bool started;
     bool commited;
     bool rolledback;
+    bool blobDelete;
 
     std::vector<fds_uint64_t> entries;
 
@@ -44,7 +45,7 @@ struct CommitLogTx {
     MetaDataList::ptr metaDataList;
 
     CommitLogTx() : txDesc(0), blobMode(0), started(false), commited(false), rolledback(false),
-            blobObjList(0), metaDataList(0) {}
+            blobDelete(false), blobObjList(0), metaDataList(0) {}
 };
 
 typedef std::unordered_map<BlobTxId, CommitLogTx::ptr> TxMap;
