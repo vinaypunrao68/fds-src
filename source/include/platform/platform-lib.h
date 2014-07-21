@@ -13,6 +13,7 @@
 #include <kvstore/platformdb.h>
 #include <platform/node-inventory.h>
 #include <platform/fds_flags.h>
+#include <net/BaseAsyncSvcHandler.h>
 
 namespace fds {
 
@@ -336,6 +337,8 @@ class Platform : public Module
     inline std::string const *const plf_node_fdsroot() const { return &pIf_node_fdsroot; }
 
     inline FlagsMap& plf_get_flags_map() { return plf_flags_map; }
+
+    virtual boost::shared_ptr<BaseAsyncSvcHandler> getBaseAsyncSvcHandler() { return nullptr; }
 
   protected:
     friend class PlatRpcReqt;

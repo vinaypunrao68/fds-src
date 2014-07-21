@@ -182,6 +182,12 @@ SmPlatform::plat_creat_dpath_resp()
     return NULL;
 }
 
+boost::shared_ptr<BaseAsyncSvcHandler>
+SmPlatform::getBaseAsyncSvcHandler()
+{
+    return sm_recv;
+}
+
 /**
 * @brief Register sm flags
 */

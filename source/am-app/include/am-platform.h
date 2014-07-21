@@ -9,6 +9,7 @@
 
 /* Forward declarations */
 namespace FDS_ProtocolInterface {
+class BaseAsyncSvcHandler;
 class PlatNetSvcClient;
 class PlatNetSvcProcessor;
 }
@@ -68,6 +69,8 @@ class AmPlatform : public Platform
     virtual void mod_startup() override;
     virtual void mod_enable_service() override;
     virtual void mod_shutdown() override;
+
+    virtual boost::shared_ptr<BaseAsyncSvcHandler> getBaseAsyncSvcHandler();
 
   protected:
     virtual PlatRpcReqt *plat_creat_reqt_disp();

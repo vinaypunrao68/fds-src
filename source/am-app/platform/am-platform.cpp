@@ -154,6 +154,12 @@ AmPlatform::plat_creat_resp_disp()
     return new PlatRpcResp(this);
 }
 
+boost::shared_ptr<BaseAsyncSvcHandler>
+AmPlatform::getBaseAsyncSvcHandler()
+{
+    return am_recv;
+}
+
 /**
 * @brief Register am flags
 */

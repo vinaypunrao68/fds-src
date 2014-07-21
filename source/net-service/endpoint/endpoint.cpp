@@ -142,9 +142,14 @@ EpSvcHandle::ep_reconnect()
             ep_trans->open();
             ep_state = EP_ST_CONNECTED;
             ep_notify_plugin();
+        } catch(std::exception &e) {
+            LOGWARN << "Failed to open socket " << logString() << " exception: " << e.what();
+            ep_state = EP_ST_DISCONNECTED;
         } catch(...) {
+            LOGWARN << "Failed to open socket " << logString() << " unknown exception";
             ep_state = EP_ST_DISCONNECTED;
         }
+        fds_assert(ep_state == EP_ST_CONNECTED);
     } else {
         mtx->unlock();
     }

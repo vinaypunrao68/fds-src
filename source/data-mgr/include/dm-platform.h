@@ -76,6 +76,9 @@ class DmPlatform : public Platform
     virtual void mod_startup() override;
     virtual void mod_enable_service() override;
     virtual void mod_shutdown() override;
+
+    virtual boost::shared_ptr<BaseAsyncSvcHandler> getBaseAsyncSvcHandler();
+
     bo::shared_ptr<DMSvcHandler>  dm_recv;
 
   protected:

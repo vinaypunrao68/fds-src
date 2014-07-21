@@ -18,6 +18,7 @@
 #include <fdsp/BaseAsyncSvc.h>
 #include <fds_typedefs.h>
 #include <util/hash-util.h>
+#include <net/fdssocket.h>
 
 // Forward declarations
 namespace apache { namespace thrift { namespace transport {
@@ -29,6 +30,7 @@ namespace FDS_ProtocolInterface {
     class UuidBindMsg;
     class NodeInfoMsg;
     class PlatNetSvcClient;
+    typedef boost::shared_ptr<BaseAsyncSvcClient> BaseAsyncSvcClientPtr;
 }  // namespace FDS_ProtocolInterface
 
 namespace fpi = FDS_ProtocolInterface;
@@ -292,7 +294,7 @@ bo::intrusive_ptr<T> ep_cast_ptr(EpSvc::pointer ep) {
  * concurrent clients in the domain.  This service handle object governs the life
  * cycle of the handler at the client side.
  */
-class EpSvcHandle
+class EpSvcHandle : public net::SocketEventHandler
 {
   public:
     typedef bo::intrusive_ptr<EpSvcHandle> pointer;
@@ -308,6 +310,28 @@ class EpSvcHandle
 
     ep_state_e ep_reconnect();
     ep_state_e ep_get_status()  { return ep_state; }
+
+    std::string logString()
+    {
+        std::ostringstream oss;
+        oss << " peer uuid: " << std::hex << ep_peer_id.svc_uuid << std::dec << " ";
+        if (ep_sock) {
+            oss << ep_sock->getPeerAddress() << ":" << ep_sock->getPeerPort();
+        }
+        return oss.str();
+    }
+    virtual void onSocketConnect() override
+    {
+        LOGDEBUG << logString();
+    }
+    virtual void onSocketDisconnect() override
+    {
+        LOGDEBUG << logString();
+    }
+    virtual void onSocketClose() override
+    {
+        LOGDEBUG << logString();
+    }
 
     template <class SendIf>
     bo::shared_ptr<SendIf> svc_rpc() {
@@ -367,6 +391,7 @@ typedef std::unordered_map<fds_uint64_t, EpSvcList>            UuidEpMap;
 typedef std::unordered_map<fds_uint64_t, EpSvc::pointer>       UuidSvcMap;
 typedef std::unordered_map<UuidIntKey, int, UuidIntKeyHash>    UuidShmMap;
 typedef std::unordered_map<UuidIntKey, EpSvcHandle::pointer, UuidIntKeyHash> EpHandleMap;
+typedef std::unordered_map<UuidIntKey, fpi::BaseAsyncSvcClientPtr, UuidIntKeyHash> EpClientMap;
 
 /**
  * Singleton module manages all endpoints.
@@ -428,6 +453,11 @@ class NetMgr : public Module
     virtual EpSvcHandle::pointer
     svc_handler_lookup(const fpi::SvcUuid &uuid, fds_uint32_t maj, fds_uint32_t min);
 
+    template <class SendIf>
+    EpSvcHandle::pointer svc_get_handle(const fpi::SvcUuid   &peer,
+                                        fds_uint32_t          maj,
+                                        fds_uint32_t          min);
+
     /**
      * Returns true if error e is actionable on the endpoint
      * @param e
@@ -480,6 +510,10 @@ class NetMgr : public Module
 
     // Hook with with node/domain state machine events.
     //
+
+    fds_mutex                      ep_client_map_mtx;
+    EpClientMap                    ep_client_map;
+
   protected:
     static const int               ep_mtx_arr = 16;
 
@@ -493,6 +527,7 @@ class NetMgr : public Module
     UuidSvcMap                     ep_svc_map;
     UuidShmMap                     ep_uuid_map;
     EpHandleMap                    ep_handle_map;
+    fds_mutex                      ep_handle_map_mtx;
     fds_mutex                      ep_mtx;
     fds_mutex                      ep_obj_mtx[ep_mtx_arr];
 

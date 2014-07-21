@@ -17,6 +17,17 @@ struct UuidIntKey
     fds_uint32_t             h_int1;
     fds_uint32_t             h_int2;
 
+    UuidIntKey()
+        : UuidIntKey(0, 0, 0)
+    {
+    }
+
+    UuidIntKey(fds_uint64_t k, fds_uint32_t i1, fds_uint32_t i2) {
+        h_key = k;
+        h_int1 = i1;
+        h_int2 = i2;
+    }
+
     bool operator == (const UuidIntKey &rhs) const {
         return ((this->h_key == rhs.h_key) &&
                 (this->h_int1 == rhs.h_int1) && (this->h_int2 == rhs.h_int2));

@@ -189,6 +189,12 @@ DmPlatform::plat_creat_dpath_resp()
     return new PlatDataPathResp(this);
 }
 
+boost::shared_ptr<BaseAsyncSvcHandler>
+DmPlatform::getBaseAsyncSvcHandler()
+{
+    return dm_recv;
+}
+
 /**
 * @brief Register dm flags
 */

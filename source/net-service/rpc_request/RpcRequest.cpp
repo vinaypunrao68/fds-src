@@ -31,7 +31,7 @@ AsyncRpcTimer::AsyncRpcTimer(const AsyncRpcRequestId &id,
 void AsyncRpcTimer::runTimerTask()
 {
     GLOGWARN << "Timeout: " << fds::logString(*header_);
-    AsyncRpcRequestIf::postError(header_);
+    gRpcRequestPool->postError(header_);
 }
 
 AsyncRpcRequestIf::AsyncRpcRequestIf()
@@ -156,51 +156,24 @@ void AsyncRpcRequestIf::invokeCommon_(const fpi::SvcUuid &peerEpId)
         respHdr->msg_code = ERR_RPC_INVOCATION;
         GLOGERROR << logString() << " Error: " << respHdr->msg_code
             << " exception: " << e.what();
-        postError(respHdr);
+        gRpcRequestPool->postError(respHdr);
         fds_assert(!"Unknown exception");
     } catch(...) {
         auto respHdr = RpcRequestPool::newAsyncHeaderPtr(id_, peerEpId, myEpId_);
         respHdr->msg_code = ERR_RPC_INVOCATION;
         GLOGERROR << logString() << " Error: " << respHdr->msg_code;
-        postError(respHdr);
+        gRpcRequestPool->postError(respHdr);
         fds_assert(!"Unknown exception");
     }
 }
 
-
-/**
-* @brief Common method for posting errors typically encountered in invocation code paths
-* for all async rpc requests.  Here the we simulate as if the error is coming from 
-* the endpoint.  Error is posted to a threadpool.
-*
-* @param header
-*/
-void AsyncRpcRequestIf::postError(boost::shared_ptr<fpi::AsyncHdr> header)
-{
-    fds_assert(header->msg_code != ERR_OK);
-
-    /* Counter adjustment */
-    switch (header->msg_code) {
-    case ERR_RPC_INVOCATION:
-        gAsyncRpcCntrs->invokeerrors.incr();
-        break;
-    case ERR_RPC_TIMEOUT:
-        gAsyncRpcCntrs->timedout.incr();
-        break;
-    }
-
-    /* Simulate an error for remote endpoint */
-    boost::shared_ptr<std::string> payload;
-    header->msg_type_id = fpi::NullMsgTypeId;
-    NetMgr::ep_mgr_singleton()->ep_mgr_thrpool()->schedule(
-        &BaseAsyncSvcHandler::asyncRespHandler, header, payload);
-}
-
-
 std::stringstream& AsyncRpcRequestIf::logRpcReqCommon_(std::stringstream &oss,
                                                        const std::string &type)
 {
-    oss << " " << type << " Req Id: " << id_ << " From: " << myEpId_.svc_uuid;
+    oss << " " << type << " Req Id: " << id_
+        << std::hex
+        << " From: " << myEpId_.svc_uuid
+        << std::dec;
     return oss;
 }
 
@@ -239,7 +212,7 @@ void EPAsyncRpcRequest::invokeWork_()
         GLOGERROR << logString() << " No healthy endpoints left";
         auto respHdr = RpcRequestPool::newAsyncHeaderPtr(id_, peerEpId_, myEpId_);
         respHdr->msg_code = ERR_RPC_INVOCATION;
-        postError(respHdr);
+        gRpcRequestPool->postError(respHdr);
     }
 }
 
@@ -250,7 +223,6 @@ void EPAsyncRpcRequest::invokeWork_()
  * @param payload
  * NOTE this function is exectued on NetMgr::ep_task_executor for synchronization
  */
-// TODO(Rao): logging, invoking cb, error for each endpoint
 void EPAsyncRpcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
         boost::shared_ptr<std::string>& payload)
 {
@@ -269,10 +241,21 @@ void EPAsyncRpcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
         NetMgr::ep_mgr_singleton()->ep_handle_error(
             header->msg_src_uuid, header->msg_code);
     }
+
+    /* Invoke response callback */
     if (respCb_) {
         respCb_(this, header->msg_code, payload);
     }
-    complete(ERR_OK);
+
+    /* adjust counters */
+    if (header->msg_code == ERR_OK) {
+        gAsyncRpcCntrs->appsuccess.incr();
+    } else {
+        gAsyncRpcCntrs->apperrors.incr();
+    }
+
+    /* Complete the request */
+    complete(header->msg_code);
 }
 
 /**
@@ -283,7 +266,9 @@ void EPAsyncRpcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
 std::string EPAsyncRpcRequest::logString()
 {
     std::stringstream oss;
-    logRpcReqCommon_(oss, "EPAsyncRpcRequest") << " To: " << peerEpId_.svc_uuid;
+    logRpcReqCommon_(oss, "EPAsyncRpcRequest")
+        << std::hex << " To: " << peerEpId_.svc_uuid
+        << std::dec;
     return oss.str();
 }
 
@@ -440,7 +425,7 @@ void FailoverRpcRequest::invokeWork_()
                                                      epReqs_[curEpIdx_]->peerEpId_,
                                                      myEpId_);
         respHdr->msg_code = ERR_RPC_INVOCATION;
-        postError(respHdr);
+        gRpcRequestPool->postError(respHdr);
     }
 }
 

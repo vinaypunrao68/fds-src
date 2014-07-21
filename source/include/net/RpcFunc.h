@@ -36,19 +36,12 @@
 * @return 
 */
 #define INVOKE_RPC_INTERNAL(ServiceT, func, hdr, ...) \
-    EpSvcHandle::pointer ep; \
-    net::svc_get_handle<ServiceT>(hdr.msg_dst_uuid, &ep, 0 , 0); \
-    if (ep == nullptr) { \
-        throw std::runtime_error("Null endpoint"); \
-    } \
-    auto client = ep->svc_rpc<ServiceT>(); \
-    if (!client) { \
+    auto ep = NetMgr::ep_mgr_singleton()->svc_get_handle<ServiceT>(hdr.msg_dst_uuid, 0 , 0); \
+    if (!ep) { \
         throw std::runtime_error("Null client"); \
     } \
-    GLOGDEBUG << ep.get(); \
     fds_verify(hdr.msg_type_id != fpi::UnknownMsgTypeId); \
-    GLOGDEBUG << ep.get(); \
-    client->func(hdr, __VA_ARGS__)
+    ep->svc_rpc<ServiceT>()->func(hdr, __VA_ARGS__)
 
 /**
 * @brief Wrapper macro for creating service layer rpc function

@@ -9,6 +9,7 @@
 #include <platform/platform-lib.h>
 #include <fdsp_utils.h>
 #include <fds_process.h>
+#include <net/BaseAsyncSvcHandler.h>
 
 namespace fds {
 
@@ -207,4 +208,33 @@ QuorumNetRequestPtr RpcRequestPool::newQuorumNetRequest(const EpIdProviderPtr ep
 
     return req;
 }
+
+
+/**
+* @brief Common method for posting errors typically encountered in invocation code paths
+* for all async rpc requests.  Here the we simulate as if the error is coming from 
+* the endpoint.  Error is posted to a threadpool.
+*
+* @param header
+*/
+void RpcRequestPool::postError(boost::shared_ptr<fpi::AsyncHdr> &header)
+{
+    fds_assert(header->msg_code != ERR_OK);
+
+    /* Counter adjustment */
+    switch (header->msg_code) {
+    case ERR_RPC_INVOCATION:
+        gAsyncRpcCntrs->invokeerrors.incr();
+        break;
+    case ERR_RPC_TIMEOUT:
+        gAsyncRpcCntrs->timedout.incr();
+        break;
+    }
+
+    /* Simulate an error for remote endpoint */
+    boost::shared_ptr<std::string> payload;
+    header->msg_type_id = fpi::NullMsgTypeId;
+    Platform::platf_singleton()->getBaseAsyncSvcHandler()->asyncResp(header, payload);
+}
+
 }  // namespace fds

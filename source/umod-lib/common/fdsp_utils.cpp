@@ -52,8 +52,11 @@ std::string logString(const FDS_ProtocolInterface::AsyncHdr &header)
 {
     std::ostringstream oss;
     oss << " Req Id: " << header.msg_src_id << " Type: " << header.msg_type_id
+        << std::hex
         << " From: " << header.msg_src_uuid.svc_uuid
-        << " To: " << header.msg_dst_uuid.svc_uuid << " error: " << header.msg_code;
+        << " To: " << header.msg_dst_uuid.svc_uuid
+        << std::dec
+        << " error: " << header.msg_code;
     return oss.str();
 }
 

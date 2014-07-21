@@ -112,17 +112,9 @@ class BaseAsyncSvcHandler : virtual public FDS_ProtocolInterface::BaseAsyncSvcIf
         auto written = payload.write(binary_buf.get());
         fds_verify(written > 0);
 
-        EpSvcHandle::pointer ep;
-        net::svc_get_handle<fpi::BaseAsyncSvcClient>(resp_hdr.msg_dst_uuid, &ep, 0 , 0);
-
+        auto ep = NetMgr::ep_mgr_singleton()->\
+                  svc_get_handle<fpi::BaseAsyncSvcClient>(resp_hdr.msg_dst_uuid, 0 , 0);
         if (ep == nullptr) {
-            fds_assert(!"This shouldn't happen");
-            GLOGERROR << "Null destination endpoint: " << resp_hdr.msg_dst_uuid.svc_uuid;
-            return;
-        }
-
-        auto client = ep->svc_rpc<fpi::BaseAsyncSvcClient>();
-        if (client == nullptr) {
             GLOGERROR << "Null destination client: " << resp_hdr.msg_dst_uuid.svc_uuid;
             return;
         }
@@ -132,7 +124,8 @@ class BaseAsyncSvcHandler : virtual public FDS_ProtocolInterface::BaseAsyncSvcIf
         // NET_SVC_RPC_CALL(ep, client, fpi::BaseAsyncSvcClient::asyncResp,
         // resp_hdr, buffer->getBufferAsString());
         try {
-            client->asyncResp(resp_hdr, buffer->getBufferAsString());
+            ep->svc_rpc<fpi::BaseAsyncSvcClient>()->\
+                asyncResp(resp_hdr, buffer->getBufferAsString());
         } catch(std::exception &e) {
             GLOGERROR << logString(resp_hdr) << " exception: " << e.what();
             ep->ep_handle_net_error();

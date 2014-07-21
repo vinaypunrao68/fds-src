@@ -34,6 +34,8 @@ class RpcRequestPool {
     FailoverNetRequestPtr newFailoverNetRequest(const EpIdProviderPtr epProvider);
     QuorumNetRequestPtr newQuorumNetRequest(const EpIdProviderPtr epProvider);
 
+    void postError(boost::shared_ptr<fpi::AsyncHdr> &header);
+
     static fpi::AsyncHdr newAsyncHeader(const AsyncRpcRequestId& reqId,
             const fpi::SvcUuid &srcUuid, const fpi::SvcUuid &dstUuid);
 
