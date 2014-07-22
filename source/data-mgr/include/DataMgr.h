@@ -305,7 +305,7 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
     void getVolumeMetaData(dmCatReq *io);
     void snapVolCat(dmCatReq *io);
     Error forwardUpdateCatalogRequest(dmCatReq  *updCatReq);
-    void sendUpdateCatalogResp(dmCatReq  *updCatReq, BlobNode *bnode);
+    // void sendUpdateCatalogResp(dmCatReq  *updCatReq, BlobNode *bnode);
 
     void scheduleGetBlobMetaDataSvc(void *io);
 

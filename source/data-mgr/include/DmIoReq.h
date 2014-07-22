@@ -22,8 +22,6 @@
 #define FdsDmSysTaskPrio    5
 
 namespace fds {
-    /* Forward declarations */
-    class BlobNode;
 
     struct RequestHeader {
         fds_volid_t volId;
