@@ -14,7 +14,7 @@ user_fds_ar_libs  :=  \
     fds-am-plat \
     fds-plat-lib \
     fds-net-svc \
-    fds-rpc-request \
+    fds-svc-request \
     fds-umod \
     fds-lib \
     fds-util \

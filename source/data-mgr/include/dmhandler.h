@@ -9,7 +9,6 @@
 #include <fds_types.h>
 #include <util/Log.h>
 #include <net/PlatNetSvcHandler.h>
-#include <net/NetRequest.h>
 #include <net/SvcRequestPool.h>
 #include <DmIoReq.h>
 #include <dm-platform.h>

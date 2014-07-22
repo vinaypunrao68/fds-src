@@ -405,9 +405,9 @@ public:
     void issueQueryCatalog(const std::string& blobName,
                            const fds_uint64_t& blobOffset,
                            const fds_volid_t& volId,
-                           FailoverSvcRequestCb respCb);
+                           FailoverSvcRequestRespCb respCb);
     void issueGetObject(const fds_volid_t& volId, const ObjectID& objId,
-                        FailoverSvcRequestCb respCb);
+                        FailoverSvcRequestRespCb respCb);
     void issueStartBlobTxMsg(const std::string& blobName,
                              const fds_volid_t& volId,
                              const fds_int32_t blobMode,

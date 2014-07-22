@@ -72,7 +72,6 @@ Error StatBlobHandler::handleQueueItem(AmQosReq *qosReq) {
 
     auto cb = RESPONSE_MSG_HANDLER(StatBlobHandler::handleResponse, qosReq);
 
-    asyncReq->setTimeoutMs(500);
     asyncReq->onResponseCb(cb);
     LOGDEBUG << "invoke";
     asyncReq->invoke();

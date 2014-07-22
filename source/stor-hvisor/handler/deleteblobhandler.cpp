@@ -69,7 +69,6 @@ Error DeleteBlobHandler::handleQueueItem(AmQosReq *qosReq) {
     asyncReq->setPayload(fpi::DeleteBlobMsgTypeId, message);
     auto cb = RESPONSE_MSG_HANDLER(DeleteBlobHandler::handleResponse, qosReq);
 
-    asyncReq->setTimeoutMs(500);
     asyncReq->onResponseCb(cb);
     LOGDEBUG << "invoke";
     asyncReq->invoke();

@@ -79,7 +79,6 @@ Error GetBucketHandler::handleQueueItem(AmQosReq *qosReq) {
     asyncReq->setPayload(fpi::GetBucketMsgTypeId, message);
     auto cb = RESPONSE_MSG_HANDLER(GetBucketHandler::handleResponse, qosReq);
 
-    asyncReq->setTimeoutMs(500);
     asyncReq->onResponseCb(cb);
     LOGDEBUG << "invoke";
     asyncReq->invoke();

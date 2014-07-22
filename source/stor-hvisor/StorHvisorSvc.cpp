@@ -54,7 +54,7 @@ StorHvCtrl::abortBlobTxSvc(AmQosReq *qosReq) {
 void StorHvCtrl::issueAbortBlobTxMsg(const std::string& blobName,
                                      const fds_volid_t& volId,
                                      const fds_uint64_t& txId,
-                                      QuorumRpcRespCb respCb)
+                                      QuorumSvcRequestRespCb respCb)
 {
 
     AbortBlobTxMsgPtr stBlobTxMsg(new AbortBlobTxMsg());
@@ -116,7 +116,7 @@ StorHvCtrl::commitBlobTxSvc(AmQosReq *qosReq) {
 
 
 void StorHvCtrl::issueCommitBlobTxMsg(CommitBlobTxReq *blobReq,
-                                      QuorumRpcRespCb respCb)
+                                      QuorumSvcRequestRespCb respCb)
 {
 
     CommitBlobTxMsgPtr stBlobTxMsg(new CommitBlobTxMsg());
@@ -191,7 +191,7 @@ void StorHvCtrl::issueStartBlobTxMsg(const std::string& blobName,
                                      const fds_volid_t& volId,
                                      const fds_int32_t blobMode,
                                      const fds_uint64_t& txId,
-                                      QuorumRpcRespCb respCb)
+                                      QuorumSvcRequestRespCb respCb)
 {
 
     StartBlobTxMsgPtr stBlobTxMsg(new StartBlobTxMsg());
@@ -300,7 +300,7 @@ void StorHvCtrl::issuePutObjectMsg(const ObjectID &objId,
                                    const char* dataBuf,
                                    const fds_uint64_t &len,
                                    const fds_volid_t& volId,
-                                   QuorumRpcRespCb respCb)
+                                   QuorumSvcRequestRespCb respCb)
 {
     if (len == 0) {
         fds_verify(!"Not impl");
@@ -329,7 +329,7 @@ void StorHvCtrl::issueUpdateCatalogMsg(const ObjectID &objId,
                                        const bool &lastBuf,
                                        const fds_volid_t& volId,
                                        const fds_uint64_t& txId,
-                                       QuorumRpcRespCb respCb)
+                                       QuorumSvcRequestRespCb respCb)
 {
     UpdateCatalogMsgPtr updCatMsg(new UpdateCatalogMsg());
     updCatMsg->blob_name   = blobName;
@@ -450,7 +450,7 @@ Error StorHvCtrl::getBlobSvc(fds::AmQosReq *qosReq)
 void StorHvCtrl::issueQueryCatalog(const std::string& blobName,
                        const fds_uint64_t& blobOffset,
                        const fds_volid_t& volId,
-                       FailoverRpcRespCb respCb)
+                       FailoverSvcRequestRespCb respCb)
 {
     LOGDEBUG << "blob name: " << blobName << " offset: " << blobOffset << " volid: " << volId;
     /*
@@ -476,7 +476,7 @@ void StorHvCtrl::issueQueryCatalog(const std::string& blobName,
 
 void StorHvCtrl::issueGetObject(const fds_volid_t& volId,
                                 const ObjectID& objId,
-                                FailoverRpcRespCb respCb)
+                                FailoverSvcRequestRespCb respCb)
 {
     fpi::GetObjectMsgPtr getObjMsg(boost::make_shared<fpi::GetObjectMsg>());
     getObjMsg->volume_id = volId;
@@ -618,7 +618,7 @@ StorHvCtrl::deleteBlobSvc(fds::AmQosReq *qosReq)
 void
 StorHvCtrl::issueDeleteCatalogObject(const fds_uint64_t& vol_id,
                                      const std::string& blob_name,
-                                     QuorumRpcRespCb respCb)
+                                     QuorumSvcRequestRespCb respCb)
 {
     DeleteCatalogObjectMsgPtr delMsg(new DeleteCatalogObjectMsg());
     delMsg->blob_name = blob_name;
@@ -687,7 +687,7 @@ StorHvCtrl::issueSetBlobMetaData(const fds_volid_t& vol_id,
                                  const blob_version_t& blob_version,
                                  const boost::shared_ptr<FDSP_MetaDataList>& md_list,
                                  const fds_uint64_t& txId,
-                                 QuorumRpcRespCb respCb)
+                                 QuorumSvcRequestRespCb respCb)
 {
     LOGDEBUG << " inside issueSetBlobMetaData";
     SetBlobMetaDataMsgPtr setMDMsg(new SetBlobMetaDataMsg());
