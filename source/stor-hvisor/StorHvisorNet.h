@@ -247,13 +247,11 @@ public:
     void initVolInfo(FDSP_VolumeInfoTypePtr vol_info,
                      const std::string& bucket_name);
 
-    Error startBlobTx(AmQosReq *qosReq);
     void attachVolume(AmQosReq *qosReq);
     fds::Error pushBlobReq(FdsBlobReq *blobReq);
     fds::Error putBlob(AmQosReq *qosReq);
     fds::Error getBlob(AmQosReq *qosReq);
     fds::Error deleteBlob(AmQosReq *qosReq);
-    Error StatBlob(AmQosReq *qosReq);
     Error SetBlobMetaData(AmQosReq *qosReq);
 
     // Stuff for pending offset operations
@@ -504,7 +502,7 @@ static void processBlobReq(AmQosReq *qosReq) {
     fds::Error err(ERR_OK);
     switch (qosReq->io_type) {
         case fds::FDS_START_BLOB_TX:
-            err = storHvisor->startBlobTx(qosReq);
+            err = storHvisor->startBlobTxSvc(qosReq);
             break;
 
         case fds::FDS_COMMIT_BLOB_TX:
