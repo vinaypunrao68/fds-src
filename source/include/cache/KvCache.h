@@ -140,6 +140,10 @@ class KvCache : public Module, boost::noncopyable {
     }
 };
 
+/**
+ * An LRU eviction based key-value cache. Implements
+ * the generic key-value interface.
+ */
 template <class K, class V>
 class LruKvCache : public KvCache<K, V> {
   private:
@@ -168,7 +172,6 @@ class LruKvCache : public KvCache<K, V> {
     LruKvCache(const std::string &modName,
                fds_uint32_t _maxEntries)
             : KvCache<K, V>(modName, _maxEntries) {
-              // KvCache<K, V>::evictionType(LRU) {
         KvCache<K, V>::evictionType = LRU;
         evictionList = std::unique_ptr<KvEvictionList>(
             new KvEvictionList());
@@ -178,7 +181,7 @@ class LruKvCache : public KvCache<K, V> {
     ~LruKvCache() {
     }
 
-    void remove(const K &key) {
+    void remove(const K &key) override {
         // Locate the key in the map
         KvMapIterator mapIt = cacheMap->find(key);
         if (mapIt != cacheMap->end()) {
@@ -195,7 +198,7 @@ class LruKvCache : public KvCache<K, V> {
         }
     }
 
-    std::unique_ptr<V> add(const K &key, V* value) {
+    std::unique_ptr<V> add(const K &key, V* value) override {
         GLOGTRACE << "Adding key " << key << " and value "
                   << *value;
         // Remove any exiting entry from cache
@@ -206,7 +209,6 @@ class LruKvCache : public KvCache<K, V> {
         KvPair entry(key, value);
         evictionList->push_front(entry);
         (*cacheMap)[key] = evictionList->begin();
-        // KvCache<K, V>::numEntries++;
         this->numEntries++;
 
         // Check if anything needs to be evicted
@@ -230,7 +232,7 @@ class LruKvCache : public KvCache<K, V> {
         return std::unique_ptr<V>();
     }
 
-    void clear() {
+    void clear() override {
         // Iterator the eviction list and free the entries
         for (KvMapEntry entry = evictionList->begin();
              entry != evictionList->end();
@@ -246,7 +248,7 @@ class LruKvCache : public KvCache<K, V> {
 
     Error get(const K &key,
               V **valueOut,
-              fds_bool_t doTouch = true) {
+              fds_bool_t doTouch = true) override {
         KvMapIterator mapIt = cacheMap->find(key);
         if (mapIt == cacheMap->end()) {
             return ERR_NOT_FOUND;
@@ -267,7 +269,7 @@ class LruKvCache : public KvCache<K, V> {
         return ERR_OK;
     }
 
-    Error touch(const K &key) {
+    Error touch(const K &key) override {
         KvMapIterator mapIt = cacheMap->find(key);
         if (mapIt == cacheMap->end()) {
             return ERR_NOT_FOUND;
@@ -289,7 +291,7 @@ class LruKvCache : public KvCache<K, V> {
         return ERR_OK;
     }
 
-    fds_bool_t exists(const K &key) const {
+    fds_bool_t exists(const K &key) const override {
         return (cacheMap->count(key) > 0);
     }
 

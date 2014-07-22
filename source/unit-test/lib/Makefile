@@ -5,7 +5,8 @@ user_rtime_env    := user
 user_install_loc  := test
 
 user_fds_so_libs  :=
-user_fds_ar_libs  :=
+user_fds_ar_libs  := \
+    fds-am-engine
 
 user_non_fds_libs := \
     gmock boost_thread-mt
