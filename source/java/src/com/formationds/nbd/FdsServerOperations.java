@@ -147,8 +147,8 @@ public class FdsServerOperations implements NbdServerOperations {
                     am_bytes_written += i_len;
 
                     //am.commitBlobTx(txId);
-                    result.complete(null);
                 }
+                result.complete(null);
             } catch (TException e) {
                 LOG.error("error writing bytes", e);
                 result.completeExceptionally(e);
