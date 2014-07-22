@@ -131,9 +131,11 @@ DmTimeVolCatalog::updateBlobTx(fds_volid_t volId,
 }
 
 Error
-DmTimeVolCatalog::deleteBlob(fds_volid_t volId, BlobTxId::const_ptr txDesc) {
+DmTimeVolCatalog::deleteBlob(fds_volid_t volId,
+                             BlobTxId::const_ptr txDesc,
+                             blob_version_t blob_version) {
     LOGDEBUG << "Deleting Blob for transaction " << *txDesc << ", volume " <<
-            std::hex << volId << std::dec;
+            std::hex << volId << std::dec << " version " << blob_version;
 
     DmCommitLog::ptr commitLog;
     COMMITLOG_GET(volId, commitLog);
@@ -166,7 +168,8 @@ DmTimeVolCatalog::commitBlobTxWork(fds_volid_t volid,
     CommitLogTx::const_ptr commit_data = commitLog->commitTx(txDesc, e);
     if (e.ok()) {
         if (commit_data->blobDelete) {
-            // TODO(umesh): delete blob here
+            // TODO(Anna) use the version from the commit log!!!
+            e = volcat->deleteBlob(volid, commit_data->blobName, blob_version_invalid);
         } else if (commit_data->blobObjList && (commit_data->blobObjList->size() > 0)) {
             if (commit_data->blobMode & blob::TRUNCATE) {
                 commit_data->blobObjList->setEndOfBlob();
