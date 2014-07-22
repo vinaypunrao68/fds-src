@@ -21,7 +21,7 @@ Error GetBucketHandler::handleRequest(BucketContext* bucket_context,
 }
 
 Error GetBucketHandler::handleResponse(AmQosReq *qosReq,
-                                       FailoverRpcRequest* rpcReq,
+                                       FailoverSvcRequest* svcReq,
                                        const Error& error,
                                        boost::shared_ptr<std::string> payload) {
     Error err(ERR_OK);
@@ -72,7 +72,7 @@ Error GetBucketHandler::handleQueueItem(AmQosReq *qosReq) {
     message->startPos  = 0;
     message->maxKeys   = blobReq->maxkeys;
 
-    auto asyncReq = gRpcRequestPool->newFailoverNetRequest(
+    auto asyncReq = gSvcRequestPool->newFailoverSvcRequest(
         boost::make_shared<DmtVolumeIdEpProvider>(
             storHvisor->om_client->getDMTNodesForVolume(helper.volId)));
 

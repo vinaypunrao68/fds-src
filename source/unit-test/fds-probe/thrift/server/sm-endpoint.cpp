@@ -3,7 +3,7 @@
  */
 #include <endpoint-test.h>
 #include <fdsp/fds_service_types.h>
-#include <net/RpcRequestPool.h>
+#include <net/SvcRequestPool.h>
 #include <net/PlatNetSvcHandler.h>
 
 namespace fds {

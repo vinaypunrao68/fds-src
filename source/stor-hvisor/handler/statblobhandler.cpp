@@ -22,7 +22,7 @@ Error StatBlobHandler::handleRequest(const std::string& volumeName,
 }
 
 Error StatBlobHandler::handleResponse(AmQosReq *qosReq,
-                                      FailoverRpcRequest* rpcReq,
+                                      FailoverSvcRequest* svcReq,
                                       const Error& error,
                                       boost::shared_ptr<std::string> payload) {
     Error err(ERR_OK);
@@ -64,7 +64,7 @@ Error StatBlobHandler::handleQueueItem(AmQosReq *qosReq) {
     message->volume_id = helper.blobReq->getVolId();
     message->blob_name = helper.blobReq->getBlobName();
 
-    auto asyncReq = gRpcRequestPool->newFailoverNetRequest(
+    auto asyncReq = gSvcRequestPool->newFailoverSvcRequest(
         boost::make_shared<DmtVolumeIdEpProvider>(
             storHvisor->om_client->getDMTNodesForVolume(helper.volId)));
 

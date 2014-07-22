@@ -91,11 +91,11 @@ namespace fds {
         /* Endpoint doesn't exist */
         ERR_EP_NON_EXISTANT,
 
-        /* RPC Request realted */
-        ERR_RPC_FAILED = 4000,
-        ERR_RPC_INVOCATION,
-        ERR_RPC_USER_INTERRUPTED,
-        ERR_RPC_TIMEOUT,
+        /* SVC Request realted */
+        ERR_SVC_REQUEST_FAILED = 4000,
+        ERR_SVC_REQUEST_INVOCATION,
+        ERR_SVC_REQUEST_USER_INTERRUPTED,
+        ERR_SVC_REQUEST_TIMEOUT,
 
         /* FDSN status errors */
         // TODO(Rao): Change FDSN_Status prefix to ERR_ prefix

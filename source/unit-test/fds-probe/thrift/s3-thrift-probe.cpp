@@ -9,7 +9,7 @@
 #include <fds_assert.h>
 #include <fds_typedefs.h>
 #include <endpoint-test.h>
-#include <net/RpcRequestPool.h>
+#include <net/SvcRequestPool.h>
 #include <fdsp/fds_service_types.h>
 #include <util/Log.h>
 
@@ -62,7 +62,7 @@ Thrift_ProbeMod::pr_put(ProbeRequest *req)
 
     io  = static_cast<ProbeIORequest *>(req);
     peer.svc_uuid = 0xabcdef;
-    auto rpc = gRpcRequestPool->newEPNetRequest(peer);
+    auto rpc = gSvcRequestPool->newEPSvcRequest(peer);
 
     put.reset(new fpi::PutObjectMsg());
     rpc->setPayload(FDSP_MSG_TYPEID(fpi::PutObjectMsg), put);
@@ -81,7 +81,7 @@ Thrift_ProbeMod::pr_get(ProbeRequest *req)
 
     io = static_cast<ProbeIORequest *>(req);
     peer.svc_uuid = 0xabcdef;
-    auto rpc = gRpcRequestPool->newEPNetRequest(peer);
+    auto rpc = gSvcRequestPool->newEPSvcRequest(peer);
 
     get.reset(new fpi::GetObjectMsg());
     rpc->setPayload(FDSP_MSG_TYPEID(fpi::GetObjectMsg), get);
@@ -174,7 +174,7 @@ ProbeAmGetReqt::js_exec_obj(JsObject *parent, JsObjTemplate *tmpl, JsObjOutput *
     boost::shared_ptr<fpi::GetObjectMsg>  get;
 
     peer.svc_uuid = 0xabcdef;
-    auto rpc = gRpcRequestPool->newEPNetRequest(peer);
+    auto rpc = gSvcRequestPool->newEPSvcRequest(peer);
 
     get.reset(new fpi::GetObjectMsg());
     rpc->setPayload(FDSP_MSG_TYPEID(fpi::GetObjectMsg), get);
@@ -198,7 +198,7 @@ ProbeAmPutMsg::js_exec_obj(JsObject *parent, JsObjTemplate *tmpl, JsObjOutput *o
     boost::shared_ptr<fpi::PutObjectMsg>  put;
 
     peer.svc_uuid = 0xabcdef;
-    auto rpc = gRpcRequestPool->newEPNetRequest(peer);
+    auto rpc = gSvcRequestPool->newEPSvcRequest(peer);
 
     put.reset(new fpi::PutObjectMsg());
     put->data_obj.reserve(p->msg_len);

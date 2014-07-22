@@ -17,7 +17,7 @@
 #include <ObjectId.h>
 #include <net/net-service.h>
 #include <net/net-service-tmpl.hpp>
-#include <net/RpcRequestPool.h>
+#include <net/SvcRequestPool.h>
 #include <fdsp/DMSvc.h>
 #include <fdsp/SMSvc.h>
 #include <fdsp_utils.h>
@@ -65,17 +65,9 @@ void StorHvCtrl::issueAbortBlobTxMsg(const std::string& blobName,
 
     stBlobTxMsg->txId = txId;
 
-#ifdef RPC_BASED_ASYNC_COMM
-    auto asyncAbortBlobTxReq = gRpcRequestPool->newQuorumRpcRequest(
-        boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(volId)));
-    asyncAbortBlobTxReq->setRpcFunc(
-        CREATE_RPC(fpi::DMSvcClient, abortBlobTx, stBlobTxMsg));
-#else
-    auto asyncAbortBlobTxReq = gRpcRequestPool->newQuorumNetRequest(
+    auto asyncAbortBlobTxReq = gSvcRequestPool->newQuorumSvcRequest(
         boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(volId)));
     asyncAbortBlobTxReq->setPayload(FDSP_MSG_TYPEID(fpi::AbortBlobTxMsg), stBlobTxMsg);
-#endif
-    asyncAbortBlobTxReq->setTimeoutMs(500);
     asyncAbortBlobTxReq->onResponseCb(respCb);
     asyncAbortBlobTxReq->invoke();
 
@@ -85,7 +77,7 @@ void StorHvCtrl::issueAbortBlobTxMsg(const std::string& blobName,
 
 
 void StorHvCtrl::abortBlobTxMsgResp(fds::AmQosReq* qosReq,
-                                    QuorumRpcRequest* rpcReq,
+                                    QuorumSvcRequest* svcReq,
                                     const Error& error,
                                     boost::shared_ptr<std::string> payload)
 {
@@ -135,17 +127,9 @@ void StorHvCtrl::issueCommitBlobTxMsg(CommitBlobTxReq *blobReq,
     fds_volid_t volId = blobReq->getVolId();
     stBlobTxMsg->txId = blobReq->getTxId()->getValue();
 
-#ifdef RPC_BASED_ASYNC_COMM
-    auto asyncCommitBlobTxReq = gRpcRequestPool->newQuorumRpcRequest(
-        boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(volId)));
-    asyncCommitBlobTxReq->setRpcFunc(
-        CREATE_RPC(fpi::DMSvcClient, commitBlobTx, stBlobTxMsg));
-#else
-    auto asyncCommitBlobTxReq = gRpcRequestPool->newQuorumNetRequest(
+    auto asyncCommitBlobTxReq = gSvcRequestPool->newQuorumSvcRequest(
         boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(volId)));
     asyncCommitBlobTxReq->setPayload(FDSP_MSG_TYPEID(fpi::CommitBlobTxMsg), stBlobTxMsg);
-#endif
-    asyncCommitBlobTxReq->setTimeoutMs(500);
     asyncCommitBlobTxReq->onResponseCb(respCb);
     asyncCommitBlobTxReq->invoke();
 
@@ -155,7 +139,7 @@ void StorHvCtrl::issueCommitBlobTxMsg(CommitBlobTxReq *blobReq,
 
 
 void StorHvCtrl::commitBlobTxMsgResp(fds::AmQosReq* qosReq,
-                                    QuorumRpcRequest* rpcReq,
+                                    QuorumSvcRequest* svcReq,
                                     const Error& error,
                                     boost::shared_ptr<std::string> payload)
 {
@@ -219,17 +203,9 @@ void StorHvCtrl::issueStartBlobTxMsg(const std::string& blobName,
 
     stBlobTxMsg->txId = txId;
 
-#ifdef RPC_BASED_ASYNC_COMM
-    auto asyncStartBlobTxReq = gRpcRequestPool->newQuorumRpcRequest(
-        boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(volId)));
-    asyncStartBlobTxReq->setRpcFunc(
-        CREATE_RPC(fpi::DMSvcClient, startBlobTx, stBlobTxMsg));
-#else
-    auto asyncStartBlobTxReq = gRpcRequestPool->newQuorumNetRequest(
+    auto asyncStartBlobTxReq = gSvcRequestPool->newQuorumSvcRequest(
         boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(volId)));
     asyncStartBlobTxReq->setPayload(FDSP_MSG_TYPEID(fpi::StartBlobTxMsg), stBlobTxMsg);
-#endif
-    asyncStartBlobTxReq->setTimeoutMs(500);
     asyncStartBlobTxReq->onResponseCb(respCb);
     asyncStartBlobTxReq->invoke();
 
@@ -239,7 +215,7 @@ void StorHvCtrl::issueStartBlobTxMsg(const std::string& blobName,
 
 
 void StorHvCtrl::startBlobTxMsgResp(fds::AmQosReq* qosReq,
-                                    QuorumRpcRequest* rpcReq,
+                                    QuorumSvcRequest* svcReq,
                                     const Error& error,
                                     boost::shared_ptr<std::string> payload)
 {
@@ -337,19 +313,9 @@ void StorHvCtrl::issuePutObjectMsg(const ObjectID &objId,
     putObjMsg->data_obj_len = len;
     putObjMsg->data_obj_id.digest = std::string((const char *)objId.GetId(), (size_t)objId.GetLen());
 
-#ifdef RPC_BASED_ASYNC_COMM
-    auto asyncPutReq = gRpcRequestPool->newQuorumRpcRequest(
-        boost::make_shared<DltObjectIdEpProvider>(om_client->getDLTNodesForDoidKey(objId)));
-    asyncPutReq->setRpcFunc(
-        CREATE_RPC(fpi::SMSvcClient, putObject, putObjMsg));
-#else
-    auto asyncPutReq = gRpcRequestPool->newQuorumNetRequest(
+    auto asyncPutReq = gSvcRequestPool->newQuorumSvcRequest(
         boost::make_shared<DltObjectIdEpProvider>(om_client->getDLTNodesForDoidKey(objId)));
     asyncPutReq->setPayload(FDSP_MSG_TYPEID(fpi::PutObjectMsg), putObjMsg);
-#endif
-    // TODO(Andrew): Bump this down. It was increased because we were
-    // seeing latency spikes from SM
-    asyncPutReq->setTimeoutMs(5000);
     asyncPutReq->onResponseCb(respCb);
     asyncPutReq->invoke();
 
@@ -384,17 +350,9 @@ void StorHvCtrl::issueUpdateCatalogMsg(const ObjectID &objId,
     updCatMsg->obj_list.push_back(updBlobInfo);
     updCatMsg->txId = txId;
 
-#ifdef RPC_BASED_ASYNC_COMM
-    auto asyncUpdateCatReq = gRpcRequestPool->newQuorumRpcRequest(
-        boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(volId)));
-    asyncUpdateCatReq->setRpcFunc(
-        CREATE_RPC(fpi::DMSvcClient, updateCatalog, updCatMsg));
-#else
-    auto asyncUpdateCatReq = gRpcRequestPool->newQuorumNetRequest(
+    auto asyncUpdateCatReq = gSvcRequestPool->newQuorumSvcRequest(
         boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(volId)));
     asyncUpdateCatReq->setPayload(FDSP_MSG_TYPEID(fpi::UpdateCatalogMsg), updCatMsg);
-#endif
-    asyncUpdateCatReq->setTimeoutMs(500);
     asyncUpdateCatReq->onResponseCb(respCb);
     asyncUpdateCatReq->invoke();
 
@@ -402,7 +360,7 @@ void StorHvCtrl::issueUpdateCatalogMsg(const ObjectID &objId,
 }
 
 void StorHvCtrl::putBlobPutObjectMsgResp(fds::AmQosReq* qosReq,
-                                         QuorumRpcRequest* rpcReq,
+                                         QuorumSvcRequest* svcReq,
                                          const Error& error,
                                          boost::shared_ptr<std::string> payload)
 {
@@ -415,13 +373,13 @@ void StorHvCtrl::putBlobPutObjectMsgResp(fds::AmQosReq* qosReq,
             << " blob name: " << blobReq->getBlobName()
             << " offset: " << blobReq->getBlobOffset() << " Error: " << error; 
     } else {
-        LOGDEBUG << rpcReq->logString() << fds::logString(*putObjRsp);
+        LOGDEBUG << svcReq->logString() << fds::logString(*putObjRsp);
     }
     blobReq->notifyResponse(qos_ctrl, qosReq, error);
 }
 
 void StorHvCtrl::putBlobUpdateCatalogMsgResp(fds::AmQosReq* qosReq,
-                                             QuorumRpcRequest* rpcReq,
+                                             QuorumSvcRequest* svcReq,
                                              const Error& error,
                                              boost::shared_ptr<std::string> payload)
 {
@@ -434,7 +392,7 @@ void StorHvCtrl::putBlobUpdateCatalogMsgResp(fds::AmQosReq* qosReq,
             << " blob name: " << blobReq->getBlobName()
             << " offset: " << blobReq->getBlobOffset() << " Error: " << error; 
     } else {
-        LOGDEBUG << rpcReq->logString() << fds::logString(*updCatRsp);
+        LOGDEBUG << svcReq->logString() << fds::logString(*updCatRsp);
     }
     blobReq->notifyResponse(qos_ctrl, qosReq, error);
 }
@@ -511,17 +469,9 @@ void StorHvCtrl::issueQueryCatalog(const std::string& blobName,
     queryMsg->obj_list.clear();
     queryMsg->meta_list.clear();
 
-#ifdef RPC_BASED_ASYNC_COMM
-    auto asyncQueryReq = gRpcRequestPool->newFailoverRpcRequest(
-        boost::make_shared<DmtVolumeIdEpProvider>(om_client->getDMTNodesForVolume(volId)));
-    asyncQueryReq->setRpcFunc(
-        CREATE_RPC(fpi::DMSvcClient, queryCatalogObject, queryMsg));
-#else 
-    auto asyncQueryReq = gRpcRequestPool->newFailoverNetRequest(
+    auto asyncQueryReq = gSvcRequestPool->newFailoverSvcRequest(
         boost::make_shared<DmtVolumeIdEpProvider>(om_client->getDMTNodesForVolume(volId)));
     asyncQueryReq->setPayload(FDSP_MSG_TYPEID(fpi::QueryCatalogMsg), queryMsg);
-#endif
-    asyncQueryReq->setTimeoutMs(500);
     asyncQueryReq->onResponseCb(respCb);
     asyncQueryReq->invoke();
 
@@ -537,17 +487,9 @@ void StorHvCtrl::issueGetObject(const fds_volid_t& volId,
     getObjMsg->data_obj_id.digest = std::string((const char *)objId.GetId(),
                                                 (size_t)objId.GetLen());
 
-#ifdef RPC_BASED_ASYNC_COMM
-    auto asyncGetReq = gRpcRequestPool->newFailoverRpcRequest(
-        boost::make_shared<DltObjectIdEpProvider>(om_client->getDLTNodesForDoidKey(objId)));
-    asyncGetReq->setRpcFunc(
-        CREATE_RPC(fpi::SMSvcClient, getObject, getObjMsg));
-#else 
-    auto asyncGetReq = gRpcRequestPool->newFailoverNetRequest(
+    auto asyncGetReq = gSvcRequestPool->newFailoverSvcRequest(
         boost::make_shared<DltObjectIdEpProvider>(om_client->getDLTNodesForDoidKey(objId)));
     asyncGetReq->setPayload(FDSP_MSG_TYPEID(fpi::GetObjectMsg), getObjMsg);
-#endif
-    asyncGetReq->setTimeoutMs(500);
     asyncGetReq->onResponseCb(respCb);
     asyncGetReq->invoke();
 
@@ -555,7 +497,7 @@ void StorHvCtrl::issueGetObject(const fds_volid_t& volId,
 }
 
 void StorHvCtrl::getBlobQueryCatalogResp(fds::AmQosReq* qosReq,
-                                         FailoverRpcRequest* rpcReq,
+                                         FailoverSvcRequest* svcReq,
                                          const Error& error,
                                          boost::shared_ptr<std::string> payload)
 {
@@ -572,7 +514,7 @@ void StorHvCtrl::getBlobQueryCatalogResp(fds::AmQosReq* qosReq,
         return;
     }
 
-    LOGDEBUG << rpcReq->logString() << fds::logString(*qryCatRsp);
+    LOGDEBUG << svcReq->logString() << fds::logString(*qryCatRsp);
 
     Error e = updateCatalogCache(blobReq,
                                  qryCatRsp->obj_list);
@@ -607,7 +549,7 @@ void StorHvCtrl::getBlobQueryCatalogResp(fds::AmQosReq* qosReq,
 }
 
 void StorHvCtrl::getBlobGetObjectResp(fds::AmQosReq* qosReq,
-                                      FailoverRpcRequest* rpcReq,
+                                      FailoverSvcRequest* svcReq,
                                       const Error& error,
                                       boost::shared_ptr<std::string> payload)
 {
@@ -624,7 +566,7 @@ void StorHvCtrl::getBlobGetObjectResp(fds::AmQosReq* qosReq,
         return;
     }
 
-    LOGDEBUG << rpcReq->logString() << fds::logString(*getObjRsp);
+    LOGDEBUG << svcReq->logString() << fds::logString(*getObjRsp);
 
     qos_ctrl->markIODone(qosReq);
 
@@ -688,17 +630,9 @@ StorHvCtrl::issueDeleteCatalogObject(const fds_uint64_t& vol_id,
     delMsg->volume_id = vol_id;
 
     
-#ifdef RPC_BASED_ASYNC_COMM
-    auto asyncDeleteCatReq = gRpcRequestPool->newQuorumRpcRequest(
-        boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(vol_id)));
-    asyncDeleteCatReq->setRpcFunc(
-        CREATE_RPC(fpi::DMSvcClient, deleteCatalogObject, delMsg));
-#else
-    auto asyncDeleteCatReq = gRpcRequestPool->newQuorumNetRequest(
+    auto asyncDeleteCatReq = gSvcRequestPool->newQuorumSvcRequest(
         boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(vol_id)));
     asyncDeleteCatReq->setPayload(FDSP_MSG_TYPEID(fpi::DeleteCatalogObjectMsg), delMsg);
-#endif
-    asyncDeleteCatReq->setTimeoutMs(500);
     asyncDeleteCatReq->onResponseCb(respCb);
     asyncDeleteCatReq->invoke();
 
@@ -706,7 +640,7 @@ StorHvCtrl::issueDeleteCatalogObject(const fds_uint64_t& vol_id,
 }
 
 void StorHvCtrl::deleteObjectMsgResp(fds::AmQosReq* qosReq,
-                                      QuorumRpcRequest* rpcReq,
+                                      QuorumSvcRequest* svcReq,
                                       const Error& error,
                                       boost::shared_ptr<std::string> payload)
 {
@@ -718,7 +652,7 @@ void StorHvCtrl::deleteObjectMsgResp(fds::AmQosReq* qosReq,
         LOGERROR << " blob name: " << blobReq->getBlobName()
             << " offset: " << blobReq->getBlobOffset() << " Error: " << error; 
     } else {
-        LOGDEBUG << rpcReq->logString() << fds::logString(*delCatRsp);
+        LOGDEBUG << svcReq->logString() << fds::logString(*delCatRsp);
     }
     
     qos_ctrl->markIODone(qosReq);
@@ -783,17 +717,9 @@ StorHvCtrl::issueSetBlobMetaData(const fds_volid_t& vol_id,
 #endif
 
     LOGDEBUG << " Invoking  Message Interface";
-#ifdef RPC_BASED_ASYNC_COMM
-    auto asyncSetMDReq = gRpcRequestPool->newQuorumRpcRequest(
-        boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(vol_id)));
-    asyncSetMDReq->setRpcFunc(
-        CREATE_RPC(fpi::DMSvcClient, setBlobMetaData, setMDMsg));
-#else
-    auto asyncSetMDReq = gRpcRequestPool->newQuorumNetRequest(
+    auto asyncSetMDReq = gSvcRequestPool->newQuorumSvcRequest(
         boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(vol_id)));
     asyncSetMDReq->setPayload(FDSP_MSG_TYPEID(fpi::SetBlobMetaDataMsg), setMDMsg);
-#endif
-    asyncSetMDReq->setTimeoutMs(500);
     asyncSetMDReq->onResponseCb(respCb);
     asyncSetMDReq->invoke();
 
@@ -802,7 +728,7 @@ StorHvCtrl::issueSetBlobMetaData(const fds_volid_t& vol_id,
 
 void
 StorHvCtrl::setBlobMetaDataMsgResp(fds::AmQosReq* qosReq,
-                                   QuorumRpcRequest* rpcReq,
+                                   QuorumSvcRequest* svcReq,
                                    const Error& error,
                                    boost::shared_ptr<std::string> payload)
 {
@@ -813,7 +739,7 @@ StorHvCtrl::setBlobMetaDataMsgResp(fds::AmQosReq* qosReq,
     if (error != ERR_OK) {
         LOGERROR << "Set metadata blob name: " << blobReq->getBlobName() << " Error: " << error; 
     } else {
-        LOGDEBUG << rpcReq->logString() << fds::logString(*setMDRsp);
+        LOGDEBUG << svcReq->logString() << fds::logString(*setMDRsp);
     }
     qos_ctrl->markIODone(qosReq);
     blobReq->cb->call(error.GetErrno());

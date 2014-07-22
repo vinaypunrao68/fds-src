@@ -12,8 +12,7 @@
 #include <fdsp/FDSP_MetaDataPathReq.h>
 #include <fdsp/FDSP_MetaDataPathResp.h>
 #include "../StorHvVolumes.h"
-#include <net/NetRequest.h>
-#include <net/RpcRequestPool.h>
+#include <net/SvcRequestPool.h>
 class StorHvCtrl;
 #define STORHANDLER(CLASS, IOTYPE) \
     static_cast<CLASS*>(storHvisor->handlers.at(IOTYPE))
@@ -50,7 +49,7 @@ struct StatBlobHandler : Handler {
                              const std::string& blobName,
                              CallbackPtr cb);
     fds::Error handleResponse(AmQosReq *qosReq,
-                              FailoverRpcRequest* rpcReq,
+                              FailoverSvcRequest* svcReq,
                               const Error& error,
                               boost::shared_ptr<std::string> payload);
     fds::Error handleQueueItem(AmQosReq *qosReq);
@@ -63,7 +62,7 @@ struct GetBucketHandler : Handler {
                              fds_uint32_t maxkeys,
                              CallbackPtr cb);
     fds::Error handleResponse(AmQosReq *qosReq,
-                              FailoverRpcRequest* rpcReq,
+                              FailoverSvcRequest* svcReq,
                               const Error& error,
                               boost::shared_ptr<std::string> payload);
     fds::Error handleQueueItem(AmQosReq *qosReq);
@@ -76,7 +75,7 @@ struct DeleteBlobHandler : Handler {
                              BlobTxId::ptr blobTxId,
                              CallbackPtr cb);
     fds::Error handleResponse(AmQosReq *qosReq,
-                              QuorumRpcRequest* rpcReq,
+                              QuorumSvcRequest* svcReq,
                               const Error& error,
                               boost::shared_ptr<std::string> payload);
     fds::Error handleQueueItem(AmQosReq *qosReq);

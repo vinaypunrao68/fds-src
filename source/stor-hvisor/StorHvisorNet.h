@@ -34,7 +34,7 @@
 #include <fdsp/FDSP_ControlPathReq.h>
 #include <fdsp/FDSP_ControlPathResp.h>
 #include <fdsp/FDSP_ConfigPathReq.h>
-#include <net/RpcRequest.h>
+#include <net/SvcRequest.h>
 
 
 #include "NetSession.h"
@@ -400,32 +400,32 @@ public:
                               const blob_version_t& blob_version,
                               const boost::shared_ptr<FDSP_MetaDataList>& md_list,
                               const fds_uint64_t& txId,
-                              QuorumRpcRespCb respCb);
+                              QuorumSvcRequestRespCb respCb);
     void issueDeleteCatalogObject(const fds_uint64_t& vol_id,
                                   const std::string& blob_name,
-                                  QuorumRpcRespCb respCb);
+                                  QuorumSvcRequestRespCb respCb);
     void issueQueryCatalog(const std::string& blobName,
                            const fds_uint64_t& blobOffset,
                            const fds_volid_t& volId,
-                           FailoverRpcRespCb respCb);
+                           FailoverSvcRequestCb respCb);
     void issueGetObject(const fds_volid_t& volId, const ObjectID& objId,
-                        FailoverRpcRespCb respCb);
+                        FailoverSvcRequestCb respCb);
     void issueStartBlobTxMsg(const std::string& blobName,
                              const fds_volid_t& volId,
                              const fds_int32_t blobMode,
                              const fds_uint64_t& txId,
-                             QuorumRpcRespCb respCb);
+                             QuorumSvcRequestRespCb respCb);
     void issueCommitBlobTxMsg(CommitBlobTxReq *blobReq,
-                             QuorumRpcRespCb respCb);
+                             QuorumSvcRequestRespCb respCb);
     void issueAbortBlobTxMsg(const std::string& blobName,
                              const fds_volid_t& volId,
                              const fds_uint64_t& txId,
-                             QuorumRpcRespCb respCb);
+                             QuorumSvcRequestRespCb respCb);
     void issuePutObjectMsg(const ObjectID &objId,
                            const char* dataBuf,
                            const fds_uint64_t &len,
                            const fds_volid_t& volId,
-                           QuorumRpcRespCb respCb);
+                           QuorumSvcRequestRespCb respCb);
     void issueUpdateCatalogMsg(const ObjectID &objId,
                                const std::string& blobName,
                                const fds_uint64_t& blobOffset,
@@ -433,41 +433,41 @@ public:
                                const bool &lastBuf,
                                const fds_volid_t& volId,
                                const fds_uint64_t& txId,
-                               QuorumRpcRespCb respCb);
+                               QuorumSvcRequestRespCb respCb);
     void getBlobQueryCatalogResp(fds::AmQosReq* qosReq,
-                                 FailoverRpcRequest* rpcReq,
+                                 FailoverSvcRequest* svcReq,
                                  const Error& error,
                                  boost::shared_ptr<std::string> payload);
     void getBlobGetObjectResp(fds::AmQosReq* qosReq,
-                              FailoverRpcRequest* rpcReq,
+                              FailoverSvcRequest* svcReq,
                               const Error& error,
                               boost::shared_ptr<std::string> payload);
     void startBlobTxMsgResp(fds::AmQosReq* qosReq,
-                            QuorumRpcRequest* rpcReq,
+                            QuorumSvcRequest* svcReq,
                             const Error& error,
                             boost::shared_ptr<std::string> payload);
     void commitBlobTxMsgResp(fds::AmQosReq* qosReq,
-                            QuorumRpcRequest* rpcReq,
+                            QuorumSvcRequest* svcReq,
                             const Error& error,
                             boost::shared_ptr<std::string> payload);
     void abortBlobTxMsgResp(fds::AmQosReq* qosReq,
-                            QuorumRpcRequest* rpcReq,
+                            QuorumSvcRequest* svcReq,
                             const Error& error,
                             boost::shared_ptr<std::string> payload);
     void putBlobUpdateCatalogMsgResp(fds::AmQosReq* qosReq,
-                                     QuorumRpcRequest* rpcReq,
+                                     QuorumSvcRequest* svcReq,
                                      const Error& error,
                                      boost::shared_ptr<std::string> payload);
     void putBlobPutObjectMsgResp(fds::AmQosReq* qosReq,
-                                 QuorumRpcRequest* rpcReq,
+                                 QuorumSvcRequest* svcReq,
                                  const Error& error,
                                  boost::shared_ptr<std::string> payload);
     void deleteObjectMsgResp(fds::AmQosReq* qosReq,
-                             QuorumRpcRequest* rpcReq,
+                             QuorumSvcRequest* svcReq,
                              const Error& error,
                              boost::shared_ptr<std::string> payload);
     void setBlobMetaDataMsgResp(fds::AmQosReq* qosReq,
-                                QuorumRpcRequest* rpcReq,
+                                QuorumSvcRequest* svcReq,
                                 const Error& error,
                                 boost::shared_ptr<std::string> payload);
 

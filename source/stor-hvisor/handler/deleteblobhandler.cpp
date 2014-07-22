@@ -24,7 +24,7 @@ Error DeleteBlobHandler::handleRequest(const std::string& volumeName,
 }
 
 Error DeleteBlobHandler::handleResponse(AmQosReq *qosReq,
-                                        QuorumRpcRequest* rpcReq,
+                                        QuorumSvcRequest* svcReq,
                                         const Error& error,
                                         boost::shared_ptr<std::string> payload) {
     StorHvCtrl::ResponseHelper helper(storHvisor, qosReq);
@@ -62,7 +62,7 @@ Error DeleteBlobHandler::handleQueueItem(AmQosReq *qosReq) {
     message->blob_version = blob_version_invalid;
     message->txId = blobReq->txDesc->getValue();
 
-    auto asyncReq = gRpcRequestPool->newQuorumNetRequest(
+    auto asyncReq = gSvcRequestPool->newQuorumSvcRequest(
         boost::make_shared<DltObjectIdEpProvider>(
             storHvisor->om_client->getDMTNodesForVolume(helper.volId)));
 

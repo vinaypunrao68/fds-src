@@ -12,7 +12,7 @@
 #include <fdsp/DMSvc.h>
 #include <DMSvcHandler.h>
 #include <net/net-service-tmpl.hpp>
-#include <net/RpcRequestPool.h>
+#include <net/SvcRequestPool.h>
 #include <platform/platform-lib.h>
 
 namespace fds {
@@ -120,7 +120,7 @@ DmPlatform::mod_startup()
 {
     Platform::mod_startup();
     registerFlags();
-    gRpcRequestPool = new RpcRequestPool();
+    gSvcRequestPool = new SvcRequestPool();
 
     dm_recv   = bo::shared_ptr<DMSvcHandler>(new DMSvcHandler());
     dm_plugin = new DMEpPlugin(this);

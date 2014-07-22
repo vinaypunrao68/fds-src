@@ -5,7 +5,7 @@
 #include <am-platform.h>
 #include <net/PlatNetSvcHandler.h>
 #include <net/net-service-tmpl.hpp>
-#include <net/RpcRequestPool.h>
+#include <net/SvcRequestPool.h>
 
 namespace fds {
 
@@ -112,7 +112,7 @@ AmPlatform::mod_startup()
 {
     Platform::mod_startup();
     registerFlags();
-    gRpcRequestPool = new RpcRequestPool();
+    gSvcRequestPool = new SvcRequestPool();
 
     am_recv   = bo::shared_ptr<PlatNetSvcHandler>(new PlatNetSvcHandler());
     am_plugin = new AMEpPlugin(this);

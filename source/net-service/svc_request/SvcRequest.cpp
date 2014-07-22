@@ -2,44 +2,44 @@
 
 #include <string>
 #include <vector>
+#include <thread>
 
 #include <concurrency/ThreadPool.h>
 #include <net/net-service.h>
-#include <net/RpcRequest.h>
-#include <net/RpcRequestPool.h>
 #include <net/BaseAsyncSvcHandler.h>
 #include <util/Log.h>
 #include <fdsp_utils.h>
-#include <thread>
+#include <net/SvcRequest.h>
+#include <net/SvcRequestPool.h>
 
 namespace fds {
 
-AsyncRpcTimer::AsyncRpcTimer(const AsyncRpcRequestId &id,
+SvcRequestTimer::SvcRequestTimer(const SvcRequestId &id,
                              const fpi::SvcUuid &myEpId,
                              const fpi::SvcUuid &peerEpId)
     : FdsTimerTask(*NetMgr::ep_mgr_singleton()->ep_mgr_singleton()->ep_get_timer())
 {
     header_.reset(new fpi::AsyncHdr());
-    *header_ = gRpcRequestPool->newAsyncHeader(id, peerEpId, myEpId);
-    header_->msg_code = ERR_RPC_TIMEOUT;
+    *header_ = gSvcRequestPool->newSvcRequestHeader(id, peerEpId, myEpId);
+    header_->msg_code = ERR_SVC_REQUEST_TIMEOUT;
 }
 
 /**
 * @brief Sends a timeout error BaseAsyncSvcHandler.  Note this call is executed
 * on a threadpool
 */
-void AsyncRpcTimer::runTimerTask()
+void SvcRequestTimer::runTimerTask()
 {
     GLOGWARN << "Timeout: " << fds::logString(*header_);
-    gRpcRequestPool->postError(header_);
+    gSvcRequestPool->postError(header_);
 }
 
-AsyncRpcRequestIf::AsyncRpcRequestIf()
-    : AsyncRpcRequestIf(0, fpi::SvcUuid())
+SvcRequestIf::SvcRequestIf()
+    : SvcRequestIf(0, fpi::SvcUuid())
 {
 }
 
-AsyncRpcRequestIf::AsyncRpcRequestIf(const AsyncRpcRequestId &id,
+SvcRequestIf::SvcRequestIf(const SvcRequestId &id,
                                      const fpi::SvcUuid &myEpId)
     : id_(id),
       myEpId_(myEpId),
@@ -48,20 +48,28 @@ AsyncRpcRequestIf::AsyncRpcRequestIf(const AsyncRpcRequestId &id,
 {
 }
 
-AsyncRpcRequestIf::~AsyncRpcRequestIf()
+SvcRequestIf::~SvcRequestIf()
 {
 }
 
 
+void SvcRequestIf::setPayloadBuf(const fpi::FDSPMsgTypeId &msgTypeId,
+                                      boost::shared_ptr<std::string> &buf)
+{
+    fds_assert(!payloadBuf_);
+    msgTypeId_ = msgTypeId;
+    payloadBuf_ = buf;
+}
+
 /**
- * Marks the rpc request as complete and invokes the completion callback
+ * Marks the svc request as complete and invokes the completion callback
  * @param error
  */
-void AsyncRpcRequestIf::complete(const Error& error) {
+void SvcRequestIf::complete(const Error& error) {
     DBG(GLOGDEBUG << logString() << error);
 
-    fds_assert(state_ != RPC_COMPLETE);
-    state_ = RPC_COMPLETE;
+    fds_assert(state_ != SVC_REQUEST_COMPLETE);
+    state_ = SVC_REQUEST_COMPLETE;
     error_ = error;
 
     if (timer_) {
@@ -76,35 +84,31 @@ void AsyncRpcRequestIf::complete(const Error& error) {
 
 /**
  *
- * @return True if rpc request is in complete state
+ * @return True if svc request is in complete state
  */
-bool AsyncRpcRequestIf::isComplete()
+bool SvcRequestIf::isComplete()
 {
-    return state_ == RPC_COMPLETE;
+    return state_ == SVC_REQUEST_COMPLETE;
 }
 
 
-void AsyncRpcRequestIf::setRpcFunc(RpcFunc rpc) {
-    rpc_ = rpc;
-}
-
-void AsyncRpcRequestIf::setTimeoutMs(const uint32_t &timeout_ms) {
+void SvcRequestIf::setTimeoutMs(const uint32_t &timeout_ms) {
     timeoutMs_ = timeout_ms;
 }
 
-uint32_t AsyncRpcRequestIf::getTimeout() {
+uint32_t SvcRequestIf::getTimeout() {
     return timeoutMs_;
 }
 
-AsyncRpcRequestId AsyncRpcRequestIf::getRequestId() {
+SvcRequestId SvcRequestIf::getRequestId() {
     return id_;
 }
 
-void AsyncRpcRequestIf::setRequestId(const AsyncRpcRequestId &id) {
+void SvcRequestIf::setRequestId(const SvcRequestId &id) {
     id_ = id;
 }
 
-void AsyncRpcRequestIf::setCompletionCb(RpcRequestCompletionCb &completionCb)
+void SvcRequestIf::setCompletionCb(SvcRequestCompletionCb &completionCb)
 {
     completionCb_ = completionCb;
 }
@@ -114,60 +118,65 @@ void AsyncRpcRequestIf::setCompletionCb(RpcRequestCompletionCb &completionCb)
  * In order to synchronize invocation and response handling  we use
  * NetMgr::ep_task_executor to schedule request specific invocatio work here.
  */
-void AsyncRpcRequestIf::invoke()
+void SvcRequestIf::invoke()
 {
-#if 0
-    invokeWork_();
-#endif
     static SynchronizedTaskExecutor<uint64_t>* taskExecutor =
         NetMgr::ep_mgr_singleton()->ep_get_task_executor();
     /* Execute on synchronized task exector so that invocation and response
      * handling is synchronized.
      */
-    taskExecutor->schedule(id_, std::bind(&AsyncRpcRequestIf::invokeWork_, this));
+    taskExecutor->schedule(id_, std::bind(&SvcRequestIf::invokeWork_, this));
 }
 
 
 /**
- * Common invocation handler across all async requests
- * Make sure access to this function is synchronized.  Invocation and handling
+ * Common send handler across all async requests
+ * Make sure access to this function is synchronized.  Sending and handling
  * of the response SHOULDN'T happen simultaneously.  Currently we ensure this by
  * using NetMgr::ep_task_executor 
  * @param epId
  */
-void AsyncRpcRequestIf::invokeCommon_(const fpi::SvcUuid &peerEpId)
+void SvcRequestIf::sendPayload_(const fpi::SvcUuid &peerEpId)
 {
-    auto header = RpcRequestPool::newAsyncHeader(id_, myEpId_, peerEpId);
+    auto header = SvcRequestPool::newSvcRequestHeader(id_, myEpId_, peerEpId);
+    header.msg_type_id = msgTypeId_;
 
     DBG(GLOGDEBUG << fds::logString(header));
 
     try {
-        /* Invoke rpc */
-        rpc_(header);
+        /* send the payload */
+        auto ep = NetMgr::ep_mgr_singleton()->\
+                  svc_get_handle<fpi::BaseAsyncSvcClient>(header.msg_dst_uuid, 0 , 0);
+        if (!ep) {
+            throw std::runtime_error("Null client");
+        }
+        ep->svc_rpc<fpi::BaseAsyncSvcClient>()->asyncReqt(header, *payloadBuf_);
+        GLOGDEBUG << fds::logString(header) << " sent payload size: " << payloadBuf_->size();
+
        /* start the timer */
        if (timeoutMs_) {
-           timer_.reset(new AsyncRpcTimer(id_, myEpId_, peerEpId));
+           timer_.reset(new SvcRequestTimer(id_, myEpId_, peerEpId));
            bool ret = NetMgr::ep_mgr_singleton()->ep_get_timer()->\
                       schedule(timer_, std::chrono::milliseconds(timeoutMs_));
            fds_assert(ret == true);
        }
     } catch(std::exception &e) {
-        auto respHdr = RpcRequestPool::newAsyncHeaderPtr(id_, peerEpId, myEpId_);
-        respHdr->msg_code = ERR_RPC_INVOCATION;
+        auto respHdr = SvcRequestPool::newSvcRequestHeaderPtr(id_, peerEpId, myEpId_);
+        respHdr->msg_code = ERR_SVC_REQUEST_INVOCATION;
         GLOGERROR << logString() << " Error: " << respHdr->msg_code
             << " exception: " << e.what();
-        gRpcRequestPool->postError(respHdr);
+        gSvcRequestPool->postError(respHdr);
         fds_assert(!"Unknown exception");
     } catch(...) {
-        auto respHdr = RpcRequestPool::newAsyncHeaderPtr(id_, peerEpId, myEpId_);
-        respHdr->msg_code = ERR_RPC_INVOCATION;
+        auto respHdr = SvcRequestPool::newSvcRequestHeaderPtr(id_, peerEpId, myEpId_);
+        respHdr->msg_code = ERR_SVC_REQUEST_INVOCATION;
         GLOGERROR << logString() << " Error: " << respHdr->msg_code;
-        gRpcRequestPool->postError(respHdr);
+        gSvcRequestPool->postError(respHdr);
         fds_assert(!"Unknown exception");
     }
 }
 
-std::stringstream& AsyncRpcRequestIf::logRpcReqCommon_(std::stringstream &oss,
+std::stringstream& SvcRequestIf::logSvcReqCommon_(std::stringstream &oss,
                                                        const std::string &type)
 {
     oss << " " << type << " Req Id: " << id_
@@ -177,20 +186,20 @@ std::stringstream& AsyncRpcRequestIf::logRpcReqCommon_(std::stringstream &oss,
     return oss;
 }
 
-EPAsyncRpcRequest::EPAsyncRpcRequest()
-    : EPAsyncRpcRequest(0, fpi::SvcUuid(), fpi::SvcUuid())
+EPSvcRequest::EPSvcRequest()
+    : EPSvcRequest(0, fpi::SvcUuid(), fpi::SvcUuid())
 {
 }
 
-EPAsyncRpcRequest::EPAsyncRpcRequest(const AsyncRpcRequestId &id,
+EPSvcRequest::EPSvcRequest(const SvcRequestId &id,
                                      const fpi::SvcUuid &myEpId,
                                      const fpi::SvcUuid &peerEpId)
-    : AsyncRpcRequestIf(id, myEpId)
+    : SvcRequestIf(id, myEpId)
 {
     peerEpId_ = peerEpId;
 }
 
-EPAsyncRpcRequest::~EPAsyncRpcRequest()
+EPSvcRequest::~EPSvcRequest()
 {
 }
 
@@ -198,7 +207,7 @@ EPAsyncRpcRequest::~EPAsyncRpcRequest()
 * @brief Worker function for doing the invocation work
 * NOTE this function is exectued on NetMgr::ep_task_executor for synchronization
 */
-void EPAsyncRpcRequest::invokeWork_()
+void EPSvcRequest::invokeWork_()
 {
     fds_verify(error_ == ERR_OK);
     fds_verify(state_ == PRIOR_INVOCATION);
@@ -207,12 +216,12 @@ void EPAsyncRpcRequest::invokeWork_()
     bool epHealthy = true;
     state_ = INVOCATION_PROGRESS;
     if (epHealthy) {
-       invokeCommon_(peerEpId_);
+       sendPayload_(peerEpId_);
     } else {
         GLOGERROR << logString() << " No healthy endpoints left";
-        auto respHdr = RpcRequestPool::newAsyncHeaderPtr(id_, peerEpId_, myEpId_);
-        respHdr->msg_code = ERR_RPC_INVOCATION;
-        gRpcRequestPool->postError(respHdr);
+        auto respHdr = SvcRequestPool::newSvcRequestHeaderPtr(id_, peerEpId_, myEpId_);
+        respHdr->msg_code = ERR_SVC_REQUEST_INVOCATION;
+        gSvcRequestPool->postError(respHdr);
     }
 }
 
@@ -223,7 +232,7 @@ void EPAsyncRpcRequest::invokeWork_()
  * @param payload
  * NOTE this function is exectued on NetMgr::ep_task_executor for synchronization
  */
-void EPAsyncRpcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
+void EPSvcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
         boost::shared_ptr<std::string>& payload)
 {
     DBG(GLOGDEBUG << logString());
@@ -249,9 +258,9 @@ void EPAsyncRpcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
 
     /* adjust counters */
     if (header->msg_code == ERR_OK) {
-        gAsyncRpcCntrs->appsuccess.incr();
+        gSvcRequestCntrs->appsuccess.incr();
     } else {
-        gAsyncRpcCntrs->apperrors.incr();
+        gSvcRequestCntrs->apperrors.incr();
     }
 
     /* Complete the request */
@@ -263,10 +272,10 @@ void EPAsyncRpcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
 *
 * @return 
 */
-std::string EPAsyncRpcRequest::logString()
+std::string EPSvcRequest::logString()
 {
     std::stringstream oss;
-    logRpcReqCommon_(oss, "EPAsyncRpcRequest")
+    logSvcReqCommon_(oss, "EPSvcRequest")
         << std::hex << " To: " << peerEpId_.svc_uuid
         << std::dec;
     return oss.str();
@@ -277,7 +286,7 @@ std::string EPAsyncRpcRequest::logString()
 *
 * @param cb
 */
-void EPAsyncRpcRequest::onResponseCb(EPAsyncRpcRespCb cb)
+void EPSvcRequest::onResponseCb(EPSvcRequestRespCb cb)
 {
     respCb_ = cb;
 }
@@ -287,7 +296,7 @@ void EPAsyncRpcRequest::onResponseCb(EPAsyncRpcRespCb cb)
 *
 * @return 
 */
-fpi::SvcUuid EPAsyncRpcRequest::getPeerEpId() const
+fpi::SvcUuid EPSvcRequest::getPeerEpId() const
 {
     return peerEpId_;
 }
@@ -295,8 +304,8 @@ fpi::SvcUuid EPAsyncRpcRequest::getPeerEpId() const
 /**
 * @brief 
 */
-MultiEpAsyncRpcRequest::MultiEpAsyncRpcRequest()
-    : MultiEpAsyncRpcRequest(0, fpi::SvcUuid(), std::vector<fpi::SvcUuid>())
+MultiEpSvcRequest::MultiEpSvcRequest()
+    : MultiEpSvcRequest(0, fpi::SvcUuid(), std::vector<fpi::SvcUuid>())
 {
 }
 
@@ -307,10 +316,10 @@ MultiEpAsyncRpcRequest::MultiEpAsyncRpcRequest()
 * @param myEpId
 * @param peerEpIds
 */
-MultiEpAsyncRpcRequest::MultiEpAsyncRpcRequest(const AsyncRpcRequestId& id,
+MultiEpSvcRequest::MultiEpSvcRequest(const SvcRequestId& id,
             const fpi::SvcUuid &myEpId,
             const std::vector<fpi::SvcUuid>& peerEpIds)
-    : AsyncRpcRequestIf(id, myEpId)
+    : SvcRequestIf(id, myEpId)
 {
     for (auto uuid : peerEpIds) {
         addEndpoint(uuid);
@@ -323,10 +332,10 @@ MultiEpAsyncRpcRequest::MultiEpAsyncRpcRequest(const AsyncRpcRequestId& id,
  * the request is in progress
  * @param uuid
  */
-void MultiEpAsyncRpcRequest::addEndpoint(const fpi::SvcUuid& peerEpId)
+void MultiEpSvcRequest::addEndpoint(const fpi::SvcUuid& peerEpId)
 {
-    epReqs_.push_back(EPAsyncRpcRequestPtr(
-            new EPAsyncRpcRequest(id_, myEpId_, peerEpId)));
+    epReqs_.push_back(EPSvcRequestPtr(
+            new EPSvcRequest(id_, myEpId_, peerEpId)));
 }
 
 /**
@@ -334,7 +343,7 @@ void MultiEpAsyncRpcRequest::addEndpoint(const fpi::SvcUuid& peerEpId)
  * the request is in progress
  * @param cb
  */
-void MultiEpAsyncRpcRequest::onEPAppStatusCb(EPAppStatusCb cb)
+void MultiEpSvcRequest::onEPAppStatusCb(EPAppStatusCb cb)
 {
     epAppStatusCb_ = cb;
 }
@@ -347,7 +356,7 @@ void MultiEpAsyncRpcRequest::onEPAppStatusCb(EPAppStatusCb cb)
 *
 * @return 
 */
-EPAsyncRpcRequestPtr MultiEpAsyncRpcRequest::getEpReq_(fpi::SvcUuid &peerEpId)
+EPSvcRequestPtr MultiEpSvcRequest::getEpReq_(fpi::SvcUuid &peerEpId)
 {
     for (auto ep : epReqs_) {
         if (ep->getPeerEpId() == peerEpId) {
@@ -360,8 +369,8 @@ EPAsyncRpcRequestPtr MultiEpAsyncRpcRequest::getEpReq_(fpi::SvcUuid &peerEpId)
 /**
  *
  */
-FailoverRpcRequest::FailoverRpcRequest()
-: FailoverRpcRequest(0, fpi::SvcUuid(), std::vector<fpi::SvcUuid>())
+FailoverSvcRequest::FailoverSvcRequest()
+: FailoverSvcRequest(0, fpi::SvcUuid(), std::vector<fpi::SvcUuid>())
 {
 }
 
@@ -373,10 +382,10 @@ FailoverRpcRequest::FailoverRpcRequest()
 * @param myEpId
 * @param peerEpIds
 */
-FailoverRpcRequest::FailoverRpcRequest(const AsyncRpcRequestId& id,
+FailoverSvcRequest::FailoverSvcRequest(const SvcRequestId& id,
                                        const fpi::SvcUuid &myEpId,
                                        const std::vector<fpi::SvcUuid>& peerEpIds)
-    : MultiEpAsyncRpcRequest(id, myEpId, peerEpIds),
+    : MultiEpSvcRequest(id, myEpId, peerEpIds),
       curEpIdx_(0)
 {
 }
@@ -391,14 +400,14 @@ FailoverRpcRequest::FailoverRpcRequest(const AsyncRpcRequestId& id,
 // TODO(Rao): Need to store epProvider.  So that we iterate endpoint
 // Ids when needes as opposed to using getEps(), like we are doing
 // now.
-FailoverRpcRequest::FailoverRpcRequest(const AsyncRpcRequestId& id,
+FailoverSvcRequest::FailoverSvcRequest(const SvcRequestId& id,
                                        const fpi::SvcUuid &myEpId,
                                        const EpIdProviderPtr epProvider)
-    : FailoverRpcRequest(id, myEpId, epProvider->getEps())
+    : FailoverSvcRequest(id, myEpId, epProvider->getEps())
 {
 }
 
-FailoverRpcRequest::~FailoverRpcRequest()
+FailoverSvcRequest::~FailoverSvcRequest()
 {
 }
 
@@ -408,7 +417,7 @@ FailoverRpcRequest::~FailoverRpcRequest()
  * Invocation work function
  * NOTE this function is exectued on NetMgr::ep_task_executor for synchronization
  */
-void FailoverRpcRequest::invokeWork_()
+void FailoverSvcRequest::invokeWork_()
 {
     bool healthyEpExists = moveToNextHealthyEndpoint_();
     state_ = INVOCATION_PROGRESS;
@@ -421,11 +430,11 @@ void FailoverRpcRequest::invokeWork_()
         /* No healthy endpoints left.  Lets post an error.  This error
          * We will simulate as if the error is from last endpoint
          */
-        auto respHdr = RpcRequestPool::newAsyncHeaderPtr(id_,
+        auto respHdr = SvcRequestPool::newSvcRequestHeaderPtr(id_,
                                                      epReqs_[curEpIdx_]->peerEpId_,
                                                      myEpId_);
-        respHdr->msg_code = ERR_RPC_INVOCATION;
-        gRpcRequestPool->postError(respHdr);
+        respHdr->msg_code = ERR_SVC_REQUEST_INVOCATION;
+        gSvcRequestPool->postError(respHdr);
     }
 }
 
@@ -436,12 +445,12 @@ void FailoverRpcRequest::invokeWork_()
  * 2. Local where we simulate an error.  This can happen when invocation fails
  * immediately
  * NOTE: We make the assumption that response always comes on a different thread
- * than rpc invocation thread.
+ * than message send thread
  *
  * Success case handling: Invoke the registered response cb
  *
  * Error case handling: Invoke application error handler (Only for application errors)
- * if one is registered.  Move on to the next healthy endpont and invoke rpc. If
+ * if one is registered.  Move on to the next healthy endpont and send the message. If
  * we don't have healthy endpoints, then invoke response cb with error.
  *
  * @param header
@@ -449,7 +458,7 @@ void FailoverRpcRequest::invokeWork_()
  * NOTE this function is exectued on NetMgr::ep_task_executor for synchronization
  */
 // TODO(Rao): logging, invoking cb, error for each endpoint
-void FailoverRpcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
+void FailoverSvcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
         boost::shared_ptr<std::string>& payload)
 {
     DBG(GLOGDEBUG << fds::logString(*header));
@@ -496,7 +505,7 @@ void FailoverRpcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header
             respCb_(this, ERR_OK, payload);
         }
         complete(ERR_OK);
-        gAsyncRpcCntrs->appsuccess.incr();
+        gSvcRequestCntrs->appsuccess.incr();
         return;
     }
 
@@ -507,8 +516,8 @@ void FailoverRpcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header
             /* NOTE: We are using last failure code in this case */
             respCb_(this, header->msg_code, payload);
         }
-        complete(ERR_RPC_FAILED);
-        gAsyncRpcCntrs->apperrors.incr();
+        complete(ERR_SVC_REQUEST_FAILED);
+        gSvcRequestCntrs->apperrors.incr();
         return;
     }
 
@@ -521,10 +530,10 @@ void FailoverRpcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header
 *
 * @return 
 */
-std::string FailoverRpcRequest::logString()
+std::string FailoverSvcRequest::logString()
 {
     std::stringstream oss;
-    logRpcReqCommon_(oss, "FailoverRpcRequest")
+    logSvcReqCommon_(oss, "FailoverSvcRequest")
         << " curEpIdx: " << static_cast<uint32_t>(curEpIdx_);
     return oss.str();
 }
@@ -533,7 +542,7 @@ std::string FailoverRpcRequest::logString()
  * Moves to the next healyth endpoint in the sequence start from curEpIdx_
  * @return True if healthy endpoint is found in the sequence.  False otherwise
  */
-bool FailoverRpcRequest::moveToNextHealthyEndpoint_()
+bool FailoverSvcRequest::moveToNextHealthyEndpoint_()
 {
     if (state_ == PRIOR_INVOCATION) {
         curEpIdx_ = 0;
@@ -542,7 +551,7 @@ bool FailoverRpcRequest::moveToNextHealthyEndpoint_()
     }
 
     for (; curEpIdx_ < epReqs_.size(); curEpIdx_++) {
-        // TODO(Rao): Pass the right rpc version id
+        // TODO(Rao): Pass the right message version id
         auto ep = NetMgr::ep_mgr_singleton()->\
                     endpoint_lookup(epReqs_[curEpIdx_]->peerEpId_);
         Error epStatus = ERR_OK;
@@ -557,7 +566,7 @@ bool FailoverRpcRequest::moveToNextHealthyEndpoint_()
         #endif
 
         if (epStatus == ERR_OK) {
-            epReqs_[curEpIdx_]->rpc_ = rpc_;
+            epReqs_[curEpIdx_]->setPayloadBuf(msgTypeId_, payloadBuf_);
             epReqs_[curEpIdx_]->setTimeoutMs(timeoutMs_);
             DBG(GLOGDEBUG << logString() << " Healthy endpoint: "
                 << epReqs_[curEpIdx_]->peerEpId_.svc_uuid << " idx: " << curEpIdx_);
@@ -591,7 +600,7 @@ bool FailoverRpcRequest::moveToNextHealthyEndpoint_()
 *
 * @param cb
 */
-void FailoverRpcRequest::onResponseCb(FailoverRpcRespCb cb)
+void FailoverSvcRequest::onResponseCb(FailoverSvcRequestRespCb cb)
 {
     respCb_ = cb;
 }
@@ -599,8 +608,8 @@ void FailoverRpcRequest::onResponseCb(FailoverRpcRespCb cb)
 /**
 * @brief 
 */
-QuorumRpcRequest::QuorumRpcRequest()
-    : QuorumRpcRequest(0, fpi::SvcUuid(), std::vector<fpi::SvcUuid>())
+QuorumSvcRequest::QuorumSvcRequest()
+    : QuorumSvcRequest(0, fpi::SvcUuid(), std::vector<fpi::SvcUuid>())
 {
 }
 
@@ -611,10 +620,10 @@ QuorumRpcRequest::QuorumRpcRequest()
 * @param myEpId
 * @param peerEpIds
 */
-QuorumRpcRequest::QuorumRpcRequest(const AsyncRpcRequestId& id,
+QuorumSvcRequest::QuorumSvcRequest(const SvcRequestId& id,
                                    const fpi::SvcUuid &myEpId,
                                    const std::vector<fpi::SvcUuid>& peerEpIds)
-    : MultiEpAsyncRpcRequest(id, myEpId, peerEpIds)
+    : MultiEpSvcRequest(id, myEpId, peerEpIds)
 {
     successAckd_ = 0;
     errorAckd_ = 0;
@@ -631,16 +640,16 @@ QuorumRpcRequest::QuorumRpcRequest(const AsyncRpcRequestId& id,
 // TODO(Rao): Need to store epProvider.  So that we iterate endpoint
 // Ids when needes as opposed to using getEps(), like we are doing
 // now.
-QuorumRpcRequest::QuorumRpcRequest(const AsyncRpcRequestId& id,
+QuorumSvcRequest::QuorumSvcRequest(const SvcRequestId& id,
                                    const fpi::SvcUuid &myEpId,
                                    const EpIdProviderPtr epProvider)
-: QuorumRpcRequest(id, myEpId, epProvider->getEps())
+: QuorumSvcRequest(id, myEpId, epProvider->getEps())
 {
 }
 /**
 * @brief 
 */
-QuorumRpcRequest::~QuorumRpcRequest()
+QuorumSvcRequest::~QuorumSvcRequest()
 {
 }
 
@@ -649,7 +658,7 @@ QuorumRpcRequest::~QuorumRpcRequest()
 *
 * @param cnt
 */
-void QuorumRpcRequest::setQuorumCnt(const uint32_t cnt)
+void QuorumSvcRequest::setQuorumCnt(const uint32_t cnt)
 {
     quorumCnt_ = cnt;
 }
@@ -658,10 +667,10 @@ void QuorumRpcRequest::setQuorumCnt(const uint32_t cnt)
 * @brief Inovcation work function
 * NOTE this function is exectued on NetMgr::ep_task_executor for synchronization
 */
-void QuorumRpcRequest::invokeWork_()
+void QuorumSvcRequest::invokeWork_()
 {
     for (auto ep : epReqs_) {
-        ep->setRpcFunc(rpc_);
+        ep->setPayloadBuf(msgTypeId_, payloadBuf_);
         ep->setTimeoutMs(timeoutMs_);
         ep->invokeWork_();
     }
@@ -674,7 +683,7 @@ void QuorumRpcRequest::invokeWork_()
 * @param payload
 * NOTE this function is exectued on NetMgr::ep_task_executor for synchronization
 */
-void QuorumRpcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
+void QuorumSvcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
                                       boost::shared_ptr<std::string>& payload)
 {
     DBG(GLOGDEBUG << logString());
@@ -723,14 +732,14 @@ void QuorumRpcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
             respCb_(this, ERR_OK, payload);
         }
         complete(ERR_OK);
-        gAsyncRpcCntrs->appsuccess.incr();
+        gSvcRequestCntrs->appsuccess.incr();
     } else if (errorAckd_ > (epReqs_.size() - quorumCnt_)) {
         if (respCb_) {
             /* NOTE: We are using last failure code in this case */
             respCb_(this, header->msg_code, payload);
         }
-        complete(ERR_RPC_FAILED);
-        gAsyncRpcCntrs->apperrors.incr();
+        complete(ERR_SVC_REQUEST_FAILED);
+        gSvcRequestCntrs->apperrors.incr();
         return;
     }
 }
@@ -740,14 +749,14 @@ void QuorumRpcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
 *
 * @return 
 */
-std::string QuorumRpcRequest::logString()
+std::string QuorumSvcRequest::logString()
 {
     std::stringstream oss;
-    logRpcReqCommon_(oss, "QuorumRpcRequest");
+    logSvcReqCommon_(oss, "QuorumSvcRequest");
     return oss.str();
 }
 
-void QuorumRpcRequest::onResponseCb(QuorumRpcRespCb cb)
+void QuorumSvcRequest::onResponseCb(QuorumSvcRequestRespCb cb)
 {
     respCb_ = cb;
 }

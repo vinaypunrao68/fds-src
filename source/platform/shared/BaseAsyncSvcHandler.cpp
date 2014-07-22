@@ -4,8 +4,8 @@
 
 #include <net/BaseAsyncSvcHandler.h>
 #include <util/Log.h>
-#include <net/RpcRequest.h>
-#include <net/AsyncRpcRequestTracker.h>
+#include <net/SvcRequest.h>
+#include <net/SvcRequestTracker.h>
 #include <concurrency/SynchronizedTaskExecutor.hpp>
 
 namespace fds {
@@ -119,8 +119,8 @@ void BaseAsyncSvcHandler::asyncRespHandler(
         boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
         boost::shared_ptr<std::string>& payload)
 {
-    auto asyncReq = gAsyncRpcTracker->\
-            getAsyncRpcRequest(static_cast<AsyncRpcRequestId>(header->msg_src_id));
+    auto asyncReq = gSvcRequestTracker->\
+            getSvcRequest(static_cast<SvcRequestId>(header->msg_src_id));
     if (!asyncReq) {
         GLOGWARN << logString(*header) << " Request doesn't exist";
         return;
