@@ -326,7 +326,7 @@ class DmIoQueryCat: public dmCatReq {
             : dmCatReq(qMsg->volume_id,
                        qMsg->blob_name,
                        qMsg->blob_version,
-                       FDS_CAT_QRY_SVC),
+                       FDS_CAT_QRY),
               queryMsg(qMsg) {
     }
 

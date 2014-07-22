@@ -117,6 +117,13 @@ void DMSvcHandler::startBlobTx(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 {
     LOGDEBUG << logString(*asyncHdr) << logString(*startBlbTx);
 
+    // TODO(xxx) implement uturn
+    if ((dataMgr->testUturnAll == true) ||
+        (dataMgr->testUturnStartTx == true)) {
+        LOGNOTIFY << "Uturn testing start blob tx";
+        fds_panic("not implemented");
+    }
+
     auto dmBlobTxReq = new DmIoStartBlobTx(startBlbTx->volume_id,
                                            startBlbTx->blob_name,
                                            startBlbTx->blob_version,
@@ -200,6 +207,14 @@ void DMSvcHandler::updateCatalog(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*updcatMsg));
     DBG(FLAG_CHECK_RETURN_VOID(common_drop_async_resp > 0));
     DBG(FLAG_CHECK_RETURN_VOID(dm_drop_cat_updates > 0));
+
+    // TODO(xxx) implement uturn
+    if ((dataMgr->testUturnAll == true) ||
+        (dataMgr->testUturnUpdateCat == true)) {
+        GLOGNOTIFY << "Uturn testing update catalog";
+        fds_panic("not implemented");
+    }
+
     /*
      * allocate a new query cat log  class and  queue  to per volume queue.
      */
@@ -303,6 +318,13 @@ DMSvcHandler::setBlobMetaData(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                               boost::shared_ptr<fpi::SetBlobMetaDataMsg>& setMDMsg)
 {
     DBG(GLOGDEBUG << logString(*asyncHdr));  // << logString(*setMDMsg));
+
+    // TODO(xxx) implement uturn
+    if ((dataMgr->testUturnAll == true) ||
+        (dataMgr->testUturnSetMeta == true)) {
+        GLOGNOTIFY << "Uturn testing set metadata";
+        fds_panic("not implemented");
+    }
 
     auto dmSetMDReq = new DmIoSetBlobMetaData(setMDMsg->volume_id,
                                               setMDMsg->blob_name,
