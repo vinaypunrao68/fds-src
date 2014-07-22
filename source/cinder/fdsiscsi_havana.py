@@ -27,6 +27,7 @@ from thrift.protocol import TBinaryProtocol
 from apis.AmService import Client as AmClient
 from apis.ConfigurationService import Client as CsClient
 import os
+import uuid
 
 from contextlib import contextmanager
 
@@ -146,13 +147,20 @@ class FDSISCSIDriver(driver.ISCSIDriver):
 
     def create_volume(self, volume):
         with self._get_services() as fds:
-            fds.cs.createVolume(self.fds_domain, volume['name'], VolumeSettings(4096, VolumeType.BLOCK, volume['size'] * (1024 ** 3)))
-
+            try:
+                fds.cs.createVolume(self.fds_domain, volume['name'], VolumeSettings(4096, VolumeType.BLOCK, volume['size'] * (1024 ** 3)))
+            except ApiException as ex:
+                if ex.errorCode != 3:
+                    raise
 
     def delete_volume(self, volume):
         with self._get_services() as fds:
             self._detach_fds_block_dev(volume['name'])
-            fds.cs.deleteVolume(self.fds_domain, volume['name'])
+            try:
+                fds.cs.deleteVolume(self.fds_domain, volume['name'])
+            except ApiException as ex:
+                if ex.errorCode != 1:
+                    raise
 
 
     def _attach_fds_block_dev(self, name):
@@ -171,13 +179,15 @@ class FDSISCSIDriver(driver.ISCSIDriver):
 
     def copy_image_to_volume(self, context, volume, image_service, image_id):
         with self._use_block_device(volume["name"]) as dev:
+            LOG.warning('Copy image to volume: %s %s' % (dev, volume["size"]))
+            tempfilename="/tmp/fds_vol_" + str(uuid.uuid4())
             image_utils.fetch_to_raw(
                 context,
                 image_service,
                 image_id,
-                dev,
-                self.configuration.volume_dd_blocksize,
+                tempfilename,
                 size=volume["size"])
+            self._execute('dd', 'if=' + tempfilename, 'of=' + dev, 'bs=4096', run_as_root=True)
 
     def copy_volume_to_image(self, context, volume, image_service, image_meta):
         with self._use_block_device( volume["name"]) as dev:

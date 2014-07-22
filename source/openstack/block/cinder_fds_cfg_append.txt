@@ -1,0 +1,20 @@
+
+#
+## FDS appened config for cinder.conf
+
+[fds]
+## IP/hostname of AM
+fds_nbd_server=10.1.10.15
+
+## have no effect
+fds_domain=test
+
+fds_am_host=10.1.10.15
+fds_am_port=9988
+
+## IP/hostname of OM
+fds_cs_host=10.1.10.15
+fds_cs_port=9090
+
+volume_driver=cinder.volume.drivers.fds.fdsnbdd.FDSNBDDriver
+volume_backend_name=FDS
