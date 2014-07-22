@@ -9,7 +9,7 @@ user_fds_ar_libs  := \
     fds-am-engine
 
 user_non_fds_libs := \
-    gmock boost_thread-mt
+    gmock
 
 user_incl_dir     := \
     $(topdir)        \
