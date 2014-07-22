@@ -462,10 +462,6 @@ void StorHvCtrl::issueQueryCatalog(const std::string& blobName,
     queryMsg->blob_name             = blobName;
     // We don't currently specify a version
     queryMsg->blob_version          = blob_version_invalid;
-    // TODO(rao): Figure out where this is used
-    queryMsg->dm_transaction_id     = 1;
-    queryMsg->dm_operation          =
-        FDS_ProtocolInterface::FDS_DMGR_TXN_STATUS_OPEN;
     queryMsg->obj_list.clear();
     queryMsg->meta_list.clear();
 

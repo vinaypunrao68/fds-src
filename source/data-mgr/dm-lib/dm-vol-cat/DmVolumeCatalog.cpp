@@ -409,7 +409,6 @@ Error DmVolumeCatalog::getBlobMeta(fds_volid_t volume_id,
 Error DmVolumeCatalog::getBlob(fds_volid_t volume_id,
                                const std::string& blob_name,
                                blob_version_t* blob_version,
-                               fds_uint64_t* blob_size,
                                fpi::FDSP_MetaDataList* meta_list,
                                fpi::FDSP_BlobObjectList* obj_list)
 {
@@ -430,7 +429,6 @@ Error DmVolumeCatalog::getBlob(fds_volid_t volume_id,
 
     // we got blob meta, fill in version, size, and meta list
     *blob_version = extent0->blobVersion();
-    *blob_size = extent0->blobSize();
     extent0->toMetaFdspPayload(*meta_list);
 
     // find out number of extents we need to read to get the whole
