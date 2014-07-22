@@ -134,12 +134,16 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
 
     /**
      * Deletes blob in a transaction
+     * If the blob version is invalid, deletes the most recent blob version.
      * @param[in] volId Volume ID
      * @param[in] txDesc Transaction ID
+     * @param[in] blob_version blob version of blob_version_invalid to
+     * delete the most recent blob version
      *
      * @return ERR_OK on success
      */
-    Error deleteBlob(fds_volid_t volId, BlobTxId::const_ptr txDesc);
+    Error deleteBlob(fds_volid_t volId, BlobTxId::const_ptr txDesc,
+                     blob_version_t blob_version);
 
     /**
      * Commits the updates associated with an existing transaction

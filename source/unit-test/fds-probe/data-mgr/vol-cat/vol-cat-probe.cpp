@@ -115,6 +115,18 @@ VolCatProbe::checkVolEmpty(const OpParams &volParams) {
               << std::dec << " empty? " << bret << std::endl;
 }
 
+void VolCatProbe::getVolumeMeta(const OpParams& volParams) {
+    Error err(ERR_OK);
+    fds_uint64_t size = 0;
+    fds_uint64_t blob_count = 0;
+    err = gl_DmVolCatMod.getVolumeMeta(volParams.vol_id, &size,
+                                       &blob_count);
+    fds_verify(err.ok());
+    std::cout << "Volume " << std::hex << volParams.vol_id
+              << std::dec << " size " << size
+              << " blob_count " << blob_count << std::endl;
+}
+
 void
 VolCatProbe::listBlobs(const OpParams& volParams) {
     Error err(ERR_OK);
@@ -306,6 +318,8 @@ VolCatObjectOp::js_exec_obj(JsObject *parent,
             gl_VolCatProbe.addCatalog(*info);
         } else if (info->op == "volchk") {
             gl_VolCatProbe.checkVolEmpty(*info);
+        } else if (info->op == "volget") {
+            gl_VolCatProbe.getVolumeMeta(*info);
         } else if (info->op == "put") {
             gl_VolCatProbe.putBlob(*info);
         } else if (info->op == "flush") {
