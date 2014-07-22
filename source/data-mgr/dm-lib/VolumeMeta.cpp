@@ -306,7 +306,6 @@ void BlobNode::ToFdspPayload(fpi::FDSP_QueryCatalogTypePtr& query_msg) const {
 
 void BlobNode::ToFdspPayload(fpi::QueryCatalogMsgPtr& query_msg) const {
     query_msg->blob_name = blob_name;
-    query_msg->blob_size = blob_size;
     query_msg->blob_version = version;
     metaListToFDSPMetaList(query_msg->meta_list);
     obj_list.ToFDSPObjList(query_msg->obj_list);
