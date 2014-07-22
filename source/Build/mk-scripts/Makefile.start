@@ -117,12 +117,18 @@ main_ar_flags   := -rcs
 main_ld_flags   := -Bstatic
 main_lint_flags :=
 
+ifdef CCACHE
+ccache := ccache
+else
+ccache :=
+endif
+
 # Tool chain variables
 #
 main_tool_dir   := /usr/bin
-cc              := $(main_tool_dir)/gcc
+cc              := $(ccache) $(main_tool_dir)/gcc
 cc_dep          := $(main_tool_dir)/gcc
-cpp             := $(main_tool_dir)/g++
+cpp             := $(ccache) $(main_tool_dir)/g++
 cpp_dep         := $(main_tool_dir)/g++
 ld              := $(main_tool_dir)/ld
 ar              := $(main_tool_dir)/ar

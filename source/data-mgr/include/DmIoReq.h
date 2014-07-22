@@ -346,11 +346,10 @@ class DmIoUpdateCat: public dmCatReq {
   public:
     typedef std::function<void (const Error &e, DmIoUpdateCat *req)> CbType;
   public:
-    DmIoUpdateCat(const fds_volid_t  &_volId,
-                  const std::string &_blobName,
-                  const blob_version_t &_blob_version)
-            : dmCatReq(_volId, _blobName, _blob_version, FDS_CAT_UPD) {
-    }
+    explicit DmIoUpdateCat(boost::shared_ptr<fpi::UpdateCatalogMsg>& _updcatMsg)
+            : dmCatReq(_updcatMsg->volume_id, _updcatMsg->blob_name, _updcatMsg->blob_version,
+            FDS_CAT_UPD), ioBlobTxDesc(new BlobTxId(_updcatMsg->txId)),
+            obj_list(_updcatMsg->obj_list), updcatMsg(_updcatMsg) {}
 
     virtual std::string log_string() const override {
         std::stringstream ret;
@@ -360,7 +359,9 @@ class DmIoUpdateCat: public dmCatReq {
     }
 
     BlobTxId::const_ptr ioBlobTxDesc;
-    FDSP_BlobObjectList obj_list;
+    const FDSP_BlobObjectList & obj_list;
+    boost::shared_ptr<fpi::UpdateCatalogMsg> updcatMsg;
+
     /* response callback */
     CbType dmio_updatecat_resp_cb;
 };
@@ -373,11 +374,10 @@ class DmIoSetBlobMetaData: public dmCatReq {
     typedef std::function<void (const Error &e, DmIoSetBlobMetaData *req)> CbType;
 
   public:
-    DmIoSetBlobMetaData(const fds_volid_t  &_volId,
-                        const std::string &_blobName,
-                        const blob_version_t &_blob_version)
-            : dmCatReq(_volId, _blobName, _blob_version, FDS_SET_BLOB_METADATA) {
-    }
+    explicit DmIoSetBlobMetaData(boost::shared_ptr<fpi::SetBlobMetaDataMsg> & _setMDMsg)
+            : dmCatReq(_setMDMsg->volume_id, _setMDMsg->blob_name, _setMDMsg->blob_version,
+            FDS_SET_BLOB_METADATA), ioBlobTxDesc(new BlobTxId(_setMDMsg->txId)),
+            md_list(_setMDMsg->metaDataList), setMDMsg(_setMDMsg) {}
 
     virtual std::string log_string() const override {
         std::stringstream ret;
@@ -386,7 +386,8 @@ class DmIoSetBlobMetaData: public dmCatReq {
         return ret.str();
     }
     BlobTxId::const_ptr ioBlobTxDesc;
-    FDSP_MetaDataList md_list;
+    const FDSP_MetaDataList & md_list;
+    boost::shared_ptr<const fpi::SetBlobMetaDataMsg> setMDMsg;  // keep the reference
     /* response callback */
     CbType dmio_setmd_resp_cb;
 };

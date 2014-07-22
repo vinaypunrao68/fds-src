@@ -218,11 +218,8 @@ void DMSvcHandler::updateCatalog(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     /*
      * allocate a new query cat log  class and  queue  to per volume queue.
      */
-    auto dmUpdCatReq = new DmIoUpdateCat(updcatMsg->volume_id,
-                                         updcatMsg->blob_name,
-                                         updcatMsg->blob_version);
-    dmUpdCatReq->ioBlobTxDesc = boost::make_shared<const BlobTxId>(updcatMsg->txId);
-    dmUpdCatReq->obj_list = std::move(updcatMsg->obj_list);
+    auto dmUpdCatReq = new DmIoUpdateCat(updcatMsg);
+
     dmUpdCatReq->dmio_updatecat_resp_cb =
             BIND_MSG_CALLBACK2(DMSvcHandler::updateCatalogCb, asyncHdr);
 
@@ -326,12 +323,7 @@ DMSvcHandler::setBlobMetaData(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
         fds_panic("not implemented");
     }
 
-    auto dmSetMDReq = new DmIoSetBlobMetaData(setMDMsg->volume_id,
-                                              setMDMsg->blob_name,
-                                              setMDMsg->blob_version);
-
-    dmSetMDReq->md_list = std::move(setMDMsg->metaDataList);
-    dmSetMDReq->ioBlobTxDesc = boost::make_shared<const BlobTxId>(setMDMsg->txId);
+    auto dmSetMDReq = new DmIoSetBlobMetaData(setMDMsg);
 
     dmSetMDReq->dmio_setmd_resp_cb =
             BIND_MSG_CALLBACK2(DMSvcHandler::setBlobMetaDataCb, asyncHdr);

@@ -108,9 +108,12 @@ Dm_ProbeMod::sendUpdate(const OpParams &updateParams)
 {
     std::cout << "Doing an update" << std::endl;
 
-    auto dmUpdCatReq = new DmIoUpdateCat(updateParams.volId,
-                                         updateParams.blobName,
-                                         updateParams.blobVersion);
+    boost::shared_ptr<fpi::UpdateCatalogMsg> msg(new fpi::UpdateCatalogMsg());
+    msg->__set_volume_id(updateParams.volId);
+    msg->__set_blob_name(updateParams.blobName);
+    msg->__set_blob_version(updateParams.blobVersion);
+
+    auto dmUpdCatReq = new DmIoUpdateCat(msg);
     // dmUpdCatReq->obj_list = std::move(updateParams.obj_list);
 
     dataMgr->updateCatalog(dmUpdCatReq);
