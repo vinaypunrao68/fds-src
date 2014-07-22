@@ -46,7 +46,7 @@ fds_disk_block_to_byte(fds_blk_t blk)
 #define DISK_ALPHA_COUNT_SSD           (2)
 #define DISK_ALPHA_COUNT_HDD           (12)
 #define DISK_ALPHA_COUNT_HDD_MIN       (4)
-#define DISK_ALPHA_CAPACITY_GB         (1000)
+#define DISK_ALPHA_CAPACITY_GB         (500)
 
 /**
  * -----------------------------------------------------------------------------------

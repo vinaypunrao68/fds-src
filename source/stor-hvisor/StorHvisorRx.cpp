@@ -384,10 +384,6 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
 
     // Return err to callback if DM query failed
     if (fdsp_msg_hdr->result != FDS_ProtocolInterface::FDSP_ERR_OK) {
-        LOGERROR << "Query response for trans " << trans_id << " for volume 0x"
-                 << std::hex << vol_id << std::dec
-                 << " journal entry  " << journEntry->trans_id
-                 << " returned error " << fdsp_msg_hdr->result;
 
         storHvisor->qos_ctrl->markIODone(journEntry->io);
         journEntry->trans_state = FDS_TRANS_EMPTY;
@@ -397,6 +393,11 @@ void FDSP_MetaDataPathRespCbackI::QueryCatalogObjectResp(
         if (fdsp_msg_hdr->result == FDS_ProtocolInterface::FDSP_ERR_BLOB_NOT_FOUND) {
             // Set the error code accordingly if the blob wasn't found
             result = FDSN_StatusEntityDoesNotExist;
+        } else {
+            LOGERROR << "Query response for trans " << trans_id << " for volume 0x"
+                     << std::hex << vol_id << std::dec
+                     << " journal entry  " << journEntry->trans_id
+                     << " returned error " << fdsp_msg_hdr->result;
         }
         journEntry->reset();
         shvol->journal_tbl->releaseTransId(trans_id);

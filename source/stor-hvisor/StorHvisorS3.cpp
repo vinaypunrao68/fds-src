@@ -1607,7 +1607,8 @@ fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq)
 
     StorHvJournalEntry *journEntry = shVol->journal_tbl->get_journal_entry(transId);
     fds_verify(journEntry != NULL);
-    StorHvJournalEntryLock jeLock(journEntry);
+    journEntry->lock();
+    // StorHvJournalEntryLock jeLock(journEntry);
 
     /*
      * Check if the entry is already active.
@@ -1618,6 +1619,25 @@ fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq)
          * Queue this up for later processing.
          */
 
+       transId = shVol->journal_tbl->get_trans_id_for_blob(blobReq->getBlobName() + std::to_string(rand() % 100),
+                                                                     blobReq->getBlobOffset(),
+                                                                     trans_in_progress);
+
+
+        journEntry->unlock();
+
+        journEntry = shVol->journal_tbl->get_journal_entry(transId);
+        fds_verify(journEntry != NULL);
+        journEntry->lock();
+
+        fds_verify(trans_in_progress == false && journEntry->isActive() == false);
+
+        LOGNORMAL << "Creating hacking transID for blob "  << blobReq->getBlobName()
+                  << ", new transid " << transId << " to get request";
+
+
+#if 0
+
         // TODO: For now, just return error :-(
         LOGCRITICAL << "Transaction " << transId << " is already ACTIVE"
                     << ", just give up and return error.";
@@ -1625,6 +1645,7 @@ fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq)
         err = ERR_NOT_IMPLEMENTED;
         delete qosReq;
         return err;
+#endif
     }
     journEntry->setActive();
 
@@ -1686,6 +1707,7 @@ fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq)
                   << " with err " << err;
         journEntry->trans_state = FDS_TRANS_VCAT_QUERY_PENDING;
         err = ERR_OK;
+        journEntry->unlock();
         return err;
     }
 
@@ -1720,6 +1742,7 @@ fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq)
         // Schedule a timer here to track the responses and the original request
         shVol->journal_tbl->schedule(journEntry->ioTimerTask, std::chrono::seconds(FDS_IO_LONG_TIME));
     }
+    journEntry->unlock();
     /*
      * Note je_lock destructor will unlock the journal entry automatically
      */
