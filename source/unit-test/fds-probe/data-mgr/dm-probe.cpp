@@ -113,8 +113,7 @@ Dm_ProbeMod::sendUpdate(const OpParams &updateParams)
                                          updateParams.blobVersion);
     // dmUpdCatReq->obj_list = std::move(updateParams.obj_list);
 
-    Error err = dataMgr->updateCatalog(dmUpdCatReq);
-    fds_verify(err == ERR_OK);
+    dataMgr->updateCatalog(dmUpdCatReq);
 }
 
 // pr_get
