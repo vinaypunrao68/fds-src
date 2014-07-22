@@ -59,6 +59,7 @@ class FdsnServer : public Module {
 
     boost::shared_ptr<boost::thread> listen_thread;
 
+
   public:
     explicit FdsnServer(const std::string &name);
     virtual ~FdsnServer() {

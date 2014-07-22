@@ -43,9 +43,14 @@ class FdsnIf : public apis::AmServiceIf {
     /// Uturn test abort tx API
     fds_bool_t testUturnAbortTx;
 
+    std::atomic_ullong      io_log_counter;
+    fds_uint64_t            io_log_interval;
+
   public:
     explicit FdsnIf(FDS_NativeAPI::ptr api)
-            : am_api(api) {
+            : am_api(api),
+              io_log_counter(0),
+              io_log_interval(10) {
         FdsConfigAccessor conf(g_fdsprocess->get_conf_helper());
         testUturnAll = conf.get_abs<bool>("fds.am.testing.uturn_amserv_all");
         if (testUturnAll == true) {
@@ -396,6 +401,12 @@ class FdsnIf : public apis::AmServiceIf {
         // Wait for a signal from the callback thread
         putHandler.wait();
 
+        io_log_counter++;
+        if ((io_log_counter % io_log_interval) == 0) {
+            LOGNORMAL << "Finishing updateBlob for blob " << *blobName
+                      << " at object offset " << objectOffset->value
+                      << ", log_counter = " << io_log_counter;
+        }
         LOGDEBUG << "Finishing updateBlob for blob " << *blobName
                  << " at object offset " << objectOffset->value;
 

@@ -12,6 +12,7 @@ import com.formationds.nbd.NbdHost;
 import com.formationds.nbd.NbdServerOperations;
 import com.formationds.security.Authenticator;
 import com.formationds.security.JaasAuthenticator;
+import com.formationds.spike.nbd.*;
 import com.formationds.util.Configuration;
 import com.formationds.util.libconfig.ParsedConfig;
 import com.formationds.xdi.CachingConfigurationService;
@@ -25,6 +26,7 @@ import org.apache.thrift.server.TServer;
 import org.apache.thrift.server.TThreadPoolServer;
 import org.apache.thrift.transport.TServerSocket;
 
+import javax.xml.parsers.ParserConfigurationException;
 import java.util.concurrent.ForkJoinPool;
 
 class FakeAmServer {
@@ -38,6 +40,14 @@ class FakeAmServer {
 
 public class Main {
     private static Logger LOG = Logger.getLogger(Main.class);
+
+    private static boolean defaultBooleanSetting(ParsedConfig config, String key, boolean def) {
+        try {
+            return config.lookup(key).booleanValue();
+        } catch(Exception e) {
+            return def;
+        }
+    }
 
     public static void main(String[] args) throws Exception {
         Configuration configuration = new Configuration("xdi", args);
@@ -61,11 +71,14 @@ public class Main {
             ConfigurationService.Iface config = new CachingConfigurationService(clientFactory.remoteOmService(omHost, omConfigPort));
 
             int nbdPort = amParsedConfig.lookup("fds.am.nbd_server_port").intValue();
-            boolean nbdLoggingEnabled = amParsedConfig.lookup("fds.am.enable_nbd_log").booleanValue();
+            boolean nbdLoggingEnabled =  defaultBooleanSetting(amParsedConfig, "fds.am.enable_nbd_log", false);
+            boolean nbdBlockExclusionEnabled = defaultBooleanSetting(amParsedConfig, "fds.am.enable_nbd_block_exclusion", true);
             ForkJoinPool fjp = new ForkJoinPool(50);
             NbdServerOperations ops = new FdsServerOperations(am, config, fjp);
             if(nbdLoggingEnabled)
                 ops = new LoggingOperationsWrapper(ops, "/fds/var/logs/nbd");
+            if(nbdBlockExclusionEnabled)
+                ops = new BlockExclusionWrapper(ops, 4096);
             NbdHost nbdHost = new NbdHost(nbdPort, ops);
             
             new Thread(() -> nbdHost.run()).start();
