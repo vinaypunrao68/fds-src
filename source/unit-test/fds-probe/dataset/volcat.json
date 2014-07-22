@@ -75,6 +75,10 @@
 		    "volume-id": 2
                 },
 		{
+		    "volcat-op": "volget",
+		    "volume-id": 2
+                },
+		{
 		    "volcat-op": "volchk",
 		    "volume-id": 2
                 },

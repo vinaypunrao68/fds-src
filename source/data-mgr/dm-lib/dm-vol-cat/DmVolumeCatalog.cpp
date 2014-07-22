@@ -111,6 +111,38 @@ fds_bool_t DmVolumeCatalog::isVolumeEmpty(fds_volid_t volume_id)
     return persistCat->isVolumeEmpty(volume_id);
 }
 
+Error DmVolumeCatalog::getVolumeMeta(fds_volid_t volume_id,
+                                     fds_uint64_t* size,
+                                     fds_uint64_t* blob_count) {
+    Error err(ERR_OK);
+    std::vector<BlobExtent0Desc> desc_list;
+    std::vector<BlobExtent0Desc>::const_iterator cit;
+    fds_uint64_t volume_size = 0;
+
+    // retrieve list of extent 0
+    err = persistCat->getMetaDescList(volume_id, desc_list);
+    if (!err.ok()) {
+        LOGERROR << "Failed to retrieve volume meta for volume " << std::hex
+                 << volume_id << std::hex << " " << err;
+        return err;
+    }
+
+    // calculate size of volume
+    for (cit = desc_list.cbegin(); cit != desc_list.cend(); ++cit) {
+        volume_size += (*cit).blob_size;
+        fds_verify((*cit).vol_id == volume_id);
+    }
+
+    // return size and blob count
+    *blob_count = desc_list.size();
+    *size = volume_size;
+
+    LOGDEBUG << "Volume " << std::hex << volume_id << std::dec
+             << " size " << volume_size << " blobs " << *blob_count;
+
+    return err;
+}
+
 //
 // Updates committed blob in the Volume Catalog.
 // Updates blob exluding list of offset to object id mappings.

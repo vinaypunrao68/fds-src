@@ -54,14 +54,8 @@
 
 namespace fds {
 
-int scheduleUpdateCatalog(void * _io);
 int scheduleQueryCatalog(void * _io);
 int scheduleStatBlob(void * _io);
-int scheduleStartBlobTx(void * _io);
-int scheduleDeleteCatObj(void * _io);
-int scheduleBlobList(void * _io);
-int scheduleGetBlobMetaData(void* io);
-int scheduleSetBlobMetaData(void* io);
 int scheduleGetVolumeMetaData(void* io);
 
 class DataMgr;
@@ -146,20 +140,17 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
                 case FDS_DM_SNAPDELTA_VOLCAT:
                     threadPool->schedule(&DataMgr::snapVolCat, dataMgr, io);
                     break;
+                case FDS_DM_FWD_CAT_UPD:
+                    threadPool->schedule(&DataMgr::fwdUpdateCatalog, dataMgr, io);
+                    break;
 
                 /* End of new refactored DM message types */
 
-                case FDS_DM_FWD_CAT_UPD:
-                    threadPool->schedule(scheduleUpdateCatalog, io);
-                    break;
                 case FDS_CAT_QRY:
                     threadPool->schedule(scheduleQueryCatalog, io);
                     break;
                 case FDS_STAT_BLOB:
                     threadPool->schedule(scheduleStatBlob, io);
-                    break;
-                case FDS_DELETE_BLOB_SVC:
-                    threadPool->schedule(&DataMgr::scheduleDeleteCatObjSvc, dataMgr, io);
                     break;
                 case FDS_GET_BLOB_METADATA:
                     threadPool->schedule(&DataMgr::scheduleGetBlobMetaDataSvc, dataMgr, io);
@@ -177,7 +168,6 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
                     // new handlers
                 case FDS_DELETE_BLOB:
                 case FDS_LIST_BLOB:
-                    // threadPool->schedule(scheduleBlobList, io);
                     threadPool->schedule(&dm::Handler::handleQueueItem,
                                          dataMgr->handlers.at(io->io_type), io);
                     break;
@@ -257,26 +247,17 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
                         std::string blob_name,
                         fds_uint32_t trans_id,
                         const BlobNode* bnode);
-    Error _process_commit(fds_volid_t vol_uuid,
-                          std::string blob_name,
-                          fds_uint32_t trans_id,
-                          const BlobNode* bnode);
     Error _process_abort();
 
     Error _process_query(fds_volid_t vol_uuid,
                          std::string blob_name,
                          BlobNode*& bnode);
-    Error _process_delete(fds_volid_t vol_uuid,
-                         std::string blob_name);
     Error _process_list(fds_volid_t volId,
                         std::list<BlobNode>& bNodeList);
 
     void initSmMsgHdr(FDSP_MsgHdrTypePtr msgHdr);
 
     fds_bool_t amIPrimary(fds_volid_t volUuid);
-    Error applyBlobUpdate(fds_volid_t volUuid,
-                          const BlobObjectList &offsetList,
-                          BlobNode *bnode);
     Error expungeBlob(const BlobNode *bnode);
     Error expungeObject(fds_volid_t volId, const ObjectID &objId);
     Error expungeObjectsIfPrimary(fds_volid_t volid,
@@ -347,27 +328,18 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
     void updateCatalog(dmCatReq *io);
     void commitBlobTx(dmCatReq *io);
     void commitBlobTxCb(const Error &err, DmIoCommitBlobTx *commitBlobReq);
+    void fwdUpdateCatalog(dmCatReq *io);
     /* End of new refactored DM message handlers */
 
     void setBlobMetaDataSvc(void *io);
-    void updateCatalogBackend(dmCatReq  *updCatReq);
-    void updateCatalogBackendSvc(void * _io);
-    Error updateCatalogProcess(const dmCatReq  *updCatReq, BlobNode **bnode);
-    Error updateCatalogProcessSvc(DmIoUpdateCat *updCatReq, BlobNode **bnode);
     void queryCatalogBackend(dmCatReq  *qryCatReq);
     void queryCatalogBackendSvc(void * _io);
     Error queryCatalogProcess(const dmCatReq  *qryCatReq, BlobNode **bnode);
-    void deleteCatObjBackend(dmCatReq  *delCatReq);
     void scheduleDeleteCatObjSvc(void * _io);
-    Error deleteBlobProcess(const dmCatReq  *delCatReq, BlobNode **bnode);
-    Error deleteBlobProcessSvc(DmIoDeleteCat *delCatObj, BlobNode **bnode);
-    void blobListBackend(dmCatReq *listBlobReq);
     void statBlobBackend(const dmCatReq *statBlobReq);
-    void startBlobTxBackend(const dmCatReq *startBlobTxReq);
     void scheduleStartBlobTxSvc(void * _io);
     void scheduleCommitBlobTxSvc(void * _io);
     void scheduleAbortBlobTxSvc(void * _io);
-    void getBlobMetaDataBackend(const dmCatReq *request);
     void setBlobMetaDataBackend(const dmCatReq *request);
     void getVolumeMetaDataBackend(const dmCatReq *request);
     void snapVolCat(dmCatReq *io);

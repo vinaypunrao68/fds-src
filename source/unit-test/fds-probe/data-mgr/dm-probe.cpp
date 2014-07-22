@@ -113,10 +113,8 @@ Dm_ProbeMod::sendUpdate(const OpParams &updateParams)
                                          updateParams.blobVersion);
     // dmUpdCatReq->obj_list = std::move(updateParams.obj_list);
 
-    BlobNode *bnode = NULL;
-    Error err = dataMgr->updateCatalogProcessSvc(dmUpdCatReq, &bnode);
+    Error err = dataMgr->updateCatalog(dmUpdCatReq);
     fds_verify(err == ERR_OK);
-    fds_verify(bnode != NULL);
 }
 
 // pr_get
@@ -175,6 +173,7 @@ Dm_ProbeMod::sendDelete(const OpParams &deleteParams)
                                          deleteParams.blobName,
                                          deleteParams.blobVersion);
 
+    /*
     BlobNode *bnode = NULL;
     // Process the delete blob. The deleted or modified
     // bnode will be allocated and returned on success
@@ -184,6 +183,8 @@ Dm_ProbeMod::sendDelete(const OpParams &deleteParams)
     fds_verify(bnode != NULL);
 
     delete bnode;
+    */
+    fds_verify(false);  // TODO(xxx) port to new DM architecture
     delete dmDelCatReq;
 }
 

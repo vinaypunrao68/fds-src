@@ -62,6 +62,7 @@ namespace fds {
         };
         void addCatalog(const OpParams &volParams);
         void rmCatalog(const OpParams& volParams);
+        void getVolumeMeta(const OpParams& volParams);
         void checkVolEmpty(const OpParams &volParams);
         void listBlobs(const OpParams& volParams);
         void getBlobMeta(const OpParams &getParams);

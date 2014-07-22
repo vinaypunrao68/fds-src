@@ -38,6 +38,17 @@ class VolumeCatalogQueryIface {
     virtual fds_bool_t isVolumeEmpty(fds_volid_t volume_id) = 0;
 
     /**
+     * Returns size of volume and number of blob in the volume 'volume_id'
+     * @param[out] size size of volume in bytes
+     * @param[in] blob_count number of blobs in the volume
+     * @return ERR_OK on success; ERR_VOL_NOT_FOUND is volume is not known
+     * to volume catalog
+     */
+    virtual Error getVolumeMeta(fds_volid_t volume_id,
+                                fds_uint64_t* size,
+                                fds_uint64_t* blob_count) = 0;
+
+    /**
      * Retrieves blob meta for the given blob_name and volume 'volume_id'
      * @param[in] volume_id volume uuid
      * @param[in] blob_name name of the blob
@@ -46,6 +57,8 @@ class VolumeCatalogQueryIface {
      * blob_version is set to actual version that is retrieved
      * @param[out] blob_size size of blob in bytes
      * @param[out] meta_list list of metadata key-value pairs
+     * @return ERR_OK on success; ERR_VOL_NOT_FOUND is volume is not known
+     * to volume catalog
      */
     virtual Error getBlobMeta(fds_volid_t volume_id,
                               const std::string& blob_name,
@@ -62,6 +75,8 @@ class VolumeCatalogQueryIface {
      * blob_version is set to actual version that is retrieved
      * @param[out] meta_list list of metadata key-value pairs
      * @param[out] obj_list list of offset to object id mappings
+     * @return ERR_OK on success; ERR_VOL_NOT_FOUND is volume is not known
+     * to volume catalog
      */
     virtual Error getBlob(fds_volid_t volume_id,
                           const std::string& blob_name,
@@ -72,6 +87,8 @@ class VolumeCatalogQueryIface {
     /**
      * Returns the list of all blobs in the volume with basic blob info
      * @param[out] binfo_list list of blobs
+     * @return ERR_OK on success; ERR_VOL_NOT_FOUND is volume is not known
+     * to volume catalog
      */
     virtual Error listBlobs(fds_volid_t volume_id,
                             fpi::BlobInfoListType* binfo_list) = 0;

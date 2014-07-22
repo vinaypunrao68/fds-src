@@ -488,73 +488,6 @@ Error DataMgr::getVolObjSize(fds_volid_t volId,
     return err;
 }
 
-Error DataMgr::_process_open(fds_volid_t vol_uuid,
-                             std::string blob_name,
-                             fds_uint32_t trans_id,
-                             const BlobNode* bnode) {
-    Error err(ERR_OK);
-
-    /*
-     * Get a local reference to the vol meta.
-     */
-    vol_map_mtx->lock();
-    VolumeMeta *vol_meta = vol_meta_map[vol_uuid];
-    vol_map_mtx->unlock();
-
-    /*
-     * Check the map to see if we know about the volume
-     * and just add it if we don't.
-     * TODO: We should not implicitly create the volume here!
-     * We should only be creating the volume on OM volume create
-     * requests.
-     * TODO: Just hack the name as the offset for now.
-     */
-    err = _add_if_no_vol(stor_prefix +
-                         std::to_string(vol_uuid),
-                         vol_uuid, vol_meta->vol_desc);
-    if (!err.ok()) {
-        LOGNORMAL << "Failed to add vol during open "
-                  << "transaction for volume " << vol_uuid;
-
-        return err;
-    }
-
-    // err = vol_meta->OpenTransaction(blob_name, bnode, vol_meta->vol_desc);
-    fds_panic("must not get here!");
-
-    if (err.ok()) {
-        LOGDEBUG << "Opened transaction for volume "
-                 << vol_uuid << ",  blob "
-                 << blob_name;
-    } else {
-        LOGERROR << "Failed to open transaction for volume "
-                 << vol_uuid;
-    }
-
-    return err;
-}
-
-Error DataMgr::_process_commit(fds_volid_t vol_uuid,
-                               std::string blob_name,
-                               fds_uint32_t trans_id,
-                               const BlobNode* bnode) {
-    Error err(ERR_OK);
-
-    /*
-     * Here we should be updating the TVC to reflect the commit
-     * and adding back to the VVC. The TVC can be an in-memory
-     * update.
-     * For now, we don't need to do anything because it was put
-     * into the VVC on open.
-     */
-    LOGDEBUG << "Committed transaction for volume "
-             << vol_uuid << " , blob "
-             << blob_name << " with transaction id "
-             << trans_id;
-
-    return err;
-}
-
 Error DataMgr::_process_abort() {
     Error err(ERR_OK);
 
@@ -562,47 +495,6 @@ Error DataMgr::_process_abort() {
      * TODO: Here we should be determining the state of the
      * transaction and removing the entry from the TVC.
      */
-
-    return err;
-}
-
-Error DataMgr::_process_list(fds_volid_t volId,
-                             std::list<BlobNode>& bNodeList) {
-    Error err(ERR_OK);
-
-    /*
-     * Get a local reference to the vol meta.
-     */
-    vol_map_mtx->lock();
-    VolumeMeta *vol_meta = vol_meta_map[volId];
-    vol_map_mtx->unlock();
-    fds_verify(vol_meta != NULL);
-
-    /*
-     * Check the map to see if we know about the volume
-     * and just add it if we don't.
-     * TODO: We should not implicitly create the volume here!
-     * We should only be creating the volume on OM volume create
-     * requests.
-     * TODO: Just hack the name as the offset for now.
-     */
-    err = _add_if_no_vol(stor_prefix +
-                         std::to_string(volId),
-                         volId, vol_meta->vol_desc);
-    if (!err.ok()) {
-        LOGNORMAL << "Failed to add vol during list blob for volume " << volId;
-        return err;
-    }
-
-    // err = vol_meta->listBlobs(bNodeList);
-    if (err.ok()) {
-        LOGDEBUG << "Vol meta list blobs for volume "
-                 << volId << " returned " << bNodeList.size()
-                 << " blobs";
-    } else {
-        LOGERROR << "Vol meta list blobs FAILED for volume "
-                 << volId;
-    }
 
     return err;
 }
@@ -646,31 +538,6 @@ Error DataMgr::_process_query(fds_volid_t vol_uuid,
     } else {
         LOGERROR << "Vol meta query FAILED for volume "
                  << vol_uuid;
-    }
-
-    return err;
-}
-
-Error DataMgr::_process_delete(fds_volid_t vol_uuid,
-                               std::string blob_name) {
-    Error err(ERR_OK);
-    /*
-     * Get a local reference to the vol meta.
-     */
-    vol_map_mtx->lock();
-    VolumeMeta *vol_meta = vol_meta_map[vol_uuid];
-    vol_map_mtx->unlock();
-
-    // err = vol_meta->DeleteVcat(blob_name);
-    fds_panic("must not get here");
-
-    if (err.ok()) {
-        LOGNORMAL << "Vol meta Delete for volume "
-                  << vol_uuid << " , blob "
-                  << blob_name;
-    } else {
-        LOGNORMAL << "Vol meta delete FAILED for volume "
-                  << vol_uuid;
     }
 
     return err;
@@ -1020,145 +887,6 @@ DataMgr::amIPrimary(fds_volid_t volUuid) {
     return (*mySvcUuid == nodes->get(0));
 }
 
-/**
- * Applies a list of offset/objectId changes to an existing blob.
- * This checks that the change either modifies existing offsets
- * or appends to the blob. No sparse blobs allowed yet.
- * It also ensures that each object size, with the exception of
- * the last object, is the same.
- *
- * @param[in]  The volume the blob is in
- * @param[in]  List of modified offsets
- * @param[out] The blob node to modify
- * @return The result of the application
- */
-Error
-DataMgr::applyBlobUpdate(fds_volid_t volUuid,
-                         const BlobObjectList &offsetList,
-                         BlobNode *bnode) {
-    Error err(ERR_OK);
-    fds_verify(offsetList.size() != 0);
-
-    fds_uint32_t maxObjSize;
-    err = getVolObjSize(volUuid, &maxObjSize);
-    fds_verify(err == ERR_OK);
-
-    // Iterate over each offset.
-    // For now, we're requiring that the offset list
-    // be sorted
-    for (const auto& item : offsetList) {
-        fds_uint64_t offset = item.first;
-        const BlobObjectInfo& blob = item.second;
-        // TODO(Andrew): Expect only updates to aligned offsets
-        // Need to handle unaligned updates in the future
-        fds_verify((offset % maxObjSize) == 0);
-
-        fds_uint64_t size = blob.size;
-
-        LOGDEBUG << "Applying update to offset " << offset
-                 << " with object id " << blob.data_obj_id
-                 << " and size " << size;
-
-        // fds_verify(size > 0);
-        fds_verify(size <= maxObjSize);
-
-        // Update the blob size to reflect new object size
-        bnode->blob_size += blob.size;
-
-        // Check if we're modifying a new or old offset
-        if (bnode->obj_list.hasObjectAtOffset(offset)) {
-            // We're modifying an existing offset
-            BlobObjectInfo& oldBlobObj = bnode->obj_list[offset];
-            LOGDEBUG << "Overwriting offset:" << offset
-                     << " new size:" << size
-                     << " existing size:"
-                     << oldBlobObj.size;
-
-            bnode->blob_size -= oldBlobObj.size;
-
-            if (size < oldBlobObj.size) {
-                // If we're shrinking the size of the entry
-                // it should be because this entry is going to
-                // be the new end of the blob. Otherwise, we'd
-                // expect it to be at max object size
-                // TODO(Andrew): The verify is commented out
-                // so that we can support our hacky transactions
-                // for a little while longer. XDI will write
-                // the last offset twice, with the first having
-                // blob_end = false and the second to true. So
-                // We ignore for now so that the first write
-                // will succeed.
-
-                // fds_verify(blob.blob_end == true);
-            }
-
-            // Expunge the old object id
-            // TODO(Andrew): We shouldn't actually expunge until the
-            // a specific version is garbage collected or if there is
-            // no versioning for the volume. For now we expunge since
-            // there's no GC and don't want to leak the object.
-            if (oldBlobObj.sparse == false) {
-                // We check if the entry is sparse because sparse
-                // entries don't actually needed to be expunged
-                // because there wasn't a real corresponding object id.
-                if (runMode != TEST_MODE) {
-                    // Only need to expunge if this DM is the primary
-                    // for the volume
-                    if (amIPrimary(volUuid) == true) {
-                        err = expungeObject(bnode->vol_id, oldBlobObj.data_obj_id);
-                        fds_verify(err == ERR_OK);
-                    }
-                }
-            }
-
-            // If this offset ends the blob, expunge whatever entries
-            // were after it in the previous version
-            if (blob.blob_end == true) {
-                auto iter = bnode->obj_list.find(offset);
-                fds_verify(iter != bnode->obj_list.end());
-                ++iter;
-                while (iter != bnode->obj_list.end()) {
-                    auto thisIter = iter;
-                    iter++;
-                    // Pop the last blob entry from the bnode
-                    BlobObjectInfo truncBlobObj = thisIter->second;
-                    LOGDEBUG << "Truncating entry from blob " << bnode->blob_name
-                             << " of size " << bnode->blob_size
-                             << " with offset " << truncBlobObj.offset
-                             << " and size " << truncBlobObj.size
-                             << " and sparse is " << std::boolalpha
-                             << truncBlobObj.sparse;
-                    bnode->blob_size -= truncBlobObj.size;
-
-                    // Expunge the entry
-                    if (truncBlobObj.sparse == false) {
-                        // We check if the entry is sparse because sparse
-                        // entries don't actually needed to be expunged
-                        // because there wasn't a real corresponding object id.
-                        if (runMode != TEST_MODE) {
-                            // Only need to expunge if this DM is the primary
-                            // for the volume
-                            if (amIPrimary(volUuid) == true) {
-                                err = expungeObject(bnode->vol_id, truncBlobObj.data_obj_id);
-                                fds_verify(err == ERR_OK);
-                            }
-                        }
-                    }
-                    bnode->obj_list.erase(thisIter);
-                }  // while
-            }  // if blob.blob_end
-        }
-
-        bnode->obj_list[offset] = blob;
-    }  // for
-
-    bnode->version =  (bnode->version == blob_version_deleted) ?
-            blob_version_initial : (bnode->version + 1);
-
-    return err;
-}
-
-
 void DataMgr::startBlobTx(dmCatReq *io)
 {
     Error err;
@@ -1209,203 +937,24 @@ void DataMgr::commitBlobTxCb(const Error &err, DmIoCommitBlobTx *commitBlobReq)
     commitBlobReq->dmio_commit_blob_tx_resp_cb(err, commitBlobReq);
 }
 
-/**
- * Processes a catalog update.
- * The blob node is allocated inside of this function and returned
- * to the caller via a parameter. The bnode is only expected to be
- * allocated if ERR_OK is returned.
- *
- * @param[in]  updCatReq catalog update request
- * @param[out] bnode the blob node that was processed
- * @return The result of the processing
- */
-Error
-DataMgr::updateCatalogProcess(const dmCatReq  *updCatReq, BlobNode **bnode) {
-    Error err(ERR_OK);
-
-    LOGDEBUG << "Processing update catalog request with "
-             << "volume id: " << updCatReq->volId
-             << ", blob name: "
-             << updCatReq->blob_name
-             << ", Trans ID "
-             << updCatReq->transId
-             << ", OP ID " << updCatReq->transOp
-             << ", journ TXID " << updCatReq->reqCookie
-             << ", dmt_version " << updCatReq->fdspUpdCatReqPtr->dmt_version;
-
-    // Grab a big lock around the entire operation so that
-    // all updates to the same blob get serialized from disk
-    // read, in-memory update, and disk write
-    big_fat_lock->lock();
-
-    // Check if this blob exists already and what its current version is.
-    *bnode = NULL;
-    err = _process_query(updCatReq->volId,
-                         updCatReq->blob_name,
-                         *bnode);
-    if (err == ERR_CAT_ENTRY_NOT_FOUND) {
-        // If this blob doesn't already exist, allocate a new one
-        LOGDEBUG << "No blob found with name " << updCatReq->blob_name
-                 << ", so allocating a new one";
-        *bnode = new BlobNode(updCatReq->volId,
-                              updCatReq->blob_name);
-        fds_verify(bnode != NULL);
-        err = ERR_OK;
-    } else {
-        LOGDEBUG << "Located existing blob " << updCatReq->blob_name;
-        fds_verify(*bnode != NULL);
-        fds_verify((*bnode)->version != blob_version_invalid);
-    }
-    fds_verify(err == ERR_OK);
-
-    /*
-     * For now, just treat this as an open
-     */
-    if (updCatReq->transOp ==
-        FDS_ProtocolInterface::FDS_DMGR_TXN_STATUS_OPEN) {
-        // Apply the updates to the blob
-        BlobObjectList offsetList(updCatReq->fdspUpdCatReqPtr->obj_list);
-
-        // check for zero size objects and assign default objectid
-        for ( auto iter : offsetList ) {
-            if ( 0 == iter.second.size ) {
-                LOGWARN << "obj size is zero. setting id to nullobjectid"
-                        << " ["<< iter.first <<"] : " << iter.second.data_obj_id;
-                iter.second.data_obj_id = NullObjectID;
-            }
-        }
-
-        err = applyBlobUpdate(updCatReq->volId,
-                              offsetList,
-                              (*bnode));
-
-        fds_verify(err == ERR_OK);
-        LOGDEBUG << "Updated blob " << (*bnode)->blob_name
-                 << " to size " << (*bnode)->blob_size;
-
-        // Apply any associated blob metadata updates
-        for (fds_uint32_t i = 0;
-             i < updCatReq->fdspUpdCatReqPtr->meta_list.size();
-             i++) {
-            LOGDEBUG << "Received and applying metadata update pair key="
-                     << updCatReq->fdspUpdCatReqPtr->meta_list[i].key
-                     << " value="
-                     << updCatReq->fdspUpdCatReqPtr->meta_list[i].value;
-
-            (*bnode)->updateMetadata(updCatReq->fdspUpdCatReqPtr->meta_list[i].key,
-                                     updCatReq->fdspUpdCatReqPtr->meta_list[i].value);
-        }
-
-        // Currently, this processes the entire blob at once.
-        // Any modifications to it need to be made before hand.
-        err = dataMgr->_process_open((fds_volid_t)updCatReq->volId,
-                                     updCatReq->blob_name,
-                                     updCatReq->transId,
-                                     (*bnode));
-    } else if (updCatReq->transOp ==
-               FDS_ProtocolInterface::FDS_DMGR_TXN_STATUS_COMMITED) {
-        err = dataMgr->_process_commit(updCatReq->volId,
-                                       updCatReq->blob_name,
-                                       updCatReq->transId,
-                                       (*bnode));
-    } else {
-        fds_panic("Unknown catalog operation!");
-    }
-
-    big_fat_lock->unlock();
-    return err;
-}
-
-/**
- * Processes a catalog update.
- * The blob node is allocated inside of this function and returned
- * to the caller via a parameter. The bnode is only expected to be
- * allocated if ERR_OK is returned.
- *
- * @param[in]  updCatReq catalog update request
- * @param[out] bnode the blob node that was processed
- * @return The result of the processing
- */
-Error
-DataMgr::updateCatalogProcessSvc(DmIoUpdateCat *updCatReq, BlobNode **bnode) {
-    Error err(ERR_OK);
-    LOGNORMAL << updCatReq->log_string();
-
-    // Grab a big lock around the entire operation so that
-    // all updates to the same blob get serialized from disk
-    // read, in-memory update, and disk write
-    fds_scoped_lock l(*big_fat_lock);
-
-    // Check if this blob exists already and what its current version is.
-    *bnode = NULL;
-    err = _process_query(updCatReq->volId,
-                         updCatReq->blob_name,
-                         *bnode);
-    if (err == ERR_CAT_ENTRY_NOT_FOUND) {
-        // If this blob doesn't already exist, allocate a new one
-        LOGDEBUG << "No blob found with name " << updCatReq->blob_name
-                 << ", so allocating a new one";
-        *bnode = new BlobNode(updCatReq->volId,
-                              updCatReq->blob_name);
-        err = ERR_OK;
-    } else {
-        LOGDEBUG << "Located existing blob " << updCatReq->blob_name;
-        fds_verify(*bnode != NULL);
-        fds_verify((*bnode)->version != blob_version_invalid);
-    }
-    fds_verify(err == ERR_OK);
-
-    // Apply the updates to the blob
-    BlobObjectList offsetList(updCatReq->obj_list);
-
-    // check for zero size objects and assign default objectid
-    for ( auto iter : offsetList ) {
-        if ( 0 == iter.second.size ) {
-            LOGWARN << "obj size is zero. setting id to nullobjectid"
-                << " ["<< iter.first <<"] : " << iter.second.data_obj_id;
-            iter.second.data_obj_id = NullObjectID;
-        }
-    }
-
-    err = applyBlobUpdate(updCatReq->volId,
-                          offsetList,
-                          (*bnode));
-    if (err == ERR_OK) {
-        LOGDEBUG << "Updated blob " << (*bnode)->blob_name
-            << " to size " << (*bnode)->blob_size;
-
-        // Currently, this processes the entire blob at once.
-        // Any modifications to it need to be made before hand.
-        err = dataMgr->_process_open((fds_volid_t)updCatReq->volId,
-                                     updCatReq->blob_name,
-                                     0, /* TODO(Rao): Not used, remove */
-                                     (*bnode));
-    }
-
-    return err;
-}
-
-void
-DataMgr::updateCatalogBackendSvc(void * _io)
+//
+// Handle forwarded (committed) catalog update from another DM
+//
+void DataMgr::fwdUpdateCatalog(dmCatReq *io)
 {
-    Error err(ERR_OK);
-    DmIoUpdateCat *updCatReq= static_cast<DmIoUpdateCat*>(_io);
-
-    BlobNode *bnode = NULL;
-    err = updateCatalogProcessSvc(updCatReq, &bnode);
-    if (bnode) {
-        delete bnode;
-    }
-    qosCtrl->markIODone(*updCatReq);
-    updCatReq->dmio_updatecat_resp_cb(err, updCatReq);
+    fds_panic("Not implemented!!!");
 }
+
+/*
+    // TODO(Anna) DO NOT REMOVE THIS METHOD YET!!!!
+    // NEED TO PORT FWD CATALOG!!!
 
 void
 DataMgr::updateCatalogBackend(dmCatReq  *updCatReq) {
     Error err(ERR_OK);
 
     BlobNode *bnode = NULL;
-    err = updateCatalogProcess(updCatReq, &bnode);
+    // err = updateCatalogProcess(updCatReq, &bnode);
     if (err == ERR_OK) {
         fds_verify(bnode != NULL);
     }
@@ -1434,6 +983,7 @@ DataMgr::updateCatalogBackend(dmCatReq  *updCatReq) {
     qosCtrl->markIODone(*updCatReq);
     delete updCatReq;
 }
+*/
 
 void
 DataMgr::sendUpdateCatalogResp(dmCatReq  *updCatReq, BlobNode *bnode) {
@@ -1715,47 +1265,6 @@ void DataMgr::ReqHandler::UpdateCatalogObject(FDS_ProtocolInterface::
     }
 }
 
-
-
-
-
-void
-DataMgr::startBlobTxBackend(const dmCatReq *startBlobTxReq) {
-    LOGDEBUG << "Got blob tx backend for volume "
-             << startBlobTxReq->getVolId() << " and blob "
-             << startBlobTxReq->blob_name;
-
-    BlobTxId::const_ptr blobTxId = startBlobTxReq->getBlobTxId();
-    fds_verify(*blobTxId != blobTxIdInvalid);
-    /*
-     * TODO(sanjay) we will have  intergrate this with TVC  API's
-     */
-    // Error err = commitLog->startTx(blobTxId, startBlobTxReq->blob_name);
-
-    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr(new FDSP_MsgHdrType());
-    InitMsgHdr(msgHdr);
-    msgHdr->result         = FDS_ProtocolInterface::FDSP_ERR_OK;
-    msgHdr->err_msg        = "Dude, you're good to go!";
-    msgHdr->msg_code       = FDS_ProtocolInterface::FDSP_START_BLOB_TX;
-    msgHdr->src_ip_lo_addr = startBlobTxReq->dstIp;
-    msgHdr->dst_ip_lo_addr = startBlobTxReq->srcIp;
-    msgHdr->src_port       = startBlobTxReq->dstPort;
-    msgHdr->dst_port       = startBlobTxReq->srcPort;
-    msgHdr->glob_volume_id = startBlobTxReq->volId;
-    msgHdr->req_cookie     = startBlobTxReq->reqCookie;
-    msgHdr->err_code       = ERR_OK;
-
-    respMapMtx.read_lock();
-    respHandleCli(startBlobTxReq->session_uuid)->StartBlobTxResp(msgHdr);
-    respMapMtx.read_unlock();
-    LOGDEBUG << "Sending start blob tx response with "
-             << "volume " << startBlobTxReq->volId
-             << " and blob " << startBlobTxReq->blob_name;
-
-    qosCtrl->markIODone(*startBlobTxReq);
-    delete startBlobTxReq;
-}
-
 void
 DataMgr::statBlobBackend(const dmCatReq *statBlobReq) {
     Error err(ERR_OK);
@@ -1814,63 +1323,6 @@ DataMgr::statBlobBackend(const dmCatReq *statBlobReq) {
 
     qosCtrl->markIODone(*statBlobReq);
     delete statBlobReq;
-}
-
-void
-DataMgr::blobListBackend(dmCatReq *listBlobReq) {
-    Error err(ERR_OK);
-
-    std::list<BlobNode> bNodeList;
-    err = _process_list(listBlobReq->volId, bNodeList);
-
-    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType());
-    FDSP_GetVolumeBlobListRespTypePtr
-            blobListResp(new FDSP_GetVolumeBlobListRespType());
-    DataMgr::InitMsgHdr(msg_hdr);
-    if (err.ok()) {
-        msg_hdr->result  = FDS_ProtocolInterface::FDSP_ERR_OK;
-        msg_hdr->err_msg = "Dude, you're good to go!";
-    } else {
-        msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_FAILED;
-        msg_hdr->err_msg  = "Something hit the fan...";
-        msg_hdr->err_code = err.GetErrno();
-    }
-
-    msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_GET_VOL_BLOB_LIST_RSP;
-    msg_hdr->src_ip_lo_addr = listBlobReq->dstIp;
-    msg_hdr->dst_ip_lo_addr = listBlobReq->srcIp;
-    msg_hdr->src_port       = listBlobReq->dstPort;
-    msg_hdr->dst_port       = listBlobReq->srcPort;
-    msg_hdr->glob_volume_id = listBlobReq->volId;
-    msg_hdr->req_cookie     = listBlobReq->reqCookie;
-
-    blobListResp->num_blobs_in_resp = bNodeList.size();
-    blobListResp->end_of_list       = true;  // TODO(Andrew): For now, returning entire list
-    blobListResp->iterator_cookie   = 0;
-    for (std::list<BlobNode>::iterator it = bNodeList.begin();
-         it != bNodeList.end();
-         it++) {
-        FDSP_BlobInfoType bInfo;
-        bInfo.blob_name = (*it).blob_name;
-        bInfo.blob_size = (*it).blob_size;
-        bInfo.mime_type = (*it).blob_mime_type;
-        blobListResp->blob_info_list.push_back(bInfo);
-    }
-    respMapMtx.read_lock();
-    try {
-        respHandleCli(listBlobReq->session_uuid)->GetVolumeBlobListResp(*msg_hdr, *blobListResp);
-    } catch(att::TTransportException& e) {
-            GLOGERROR << "error during network call : " << e.what();
-    }
-
-    respMapMtx.read_unlock();
-    LOGDEBUG << "Sending async blob list response with "
-             << "volume id: " << msg_hdr->glob_volume_id
-             << " and " << blobListResp->num_blobs_in_resp
-              << " blobs";
-
-    qosCtrl->markIODone(*listBlobReq);
-    delete listBlobReq;
 }
 
 /**
@@ -2465,320 +1917,6 @@ DataMgr::expungeBlob(const BlobNode *bnode) {
     return err;
 }
 
-
-/**
- * "Deletes" a blob in a volume. Deleting may be a lazy or soft
- * delete or a hard delete, depending on the volume's paramters
- * and the blob's version.
- *
- * @param[in]  The DM delete request struct
- * @param[out] The blob node deleted or which represents the delete.
- * The pointer is only valid if err is OK.
- * @return The result of the delete
- */
-Error
-DataMgr::deleteBlobProcessSvc(DmIoDeleteCat *delCatReq, BlobNode **bnode) {
-    Error err(ERR_OK);
-
-    // Check if this blob exists already and what its current version is
-    // TODO(Andrew): The query should eventually manage multiple volumes
-    // rather than overwriting. The key can be blob name and version.
-    *bnode = NULL;
-    err = _process_query(delCatReq->volId,
-                         delCatReq->blob_name,
-                         *bnode);
-    if (err == ERR_CAT_ENTRY_NOT_FOUND) {
-        // If this blob doesn't already exist, allocate a new one
-        LOGWARN << "No blob found with name " << delCatReq->blob_name
-                << ", so nothing to delete";
-        err = ERR_BLOB_NOT_FOUND;
-        return err;
-    } else {
-        fds_verify(*bnode != NULL);
-        LOGDEBUG << "Located existing blob " << (*bnode)->blob_name
-                 << " with version " << (*bnode)->version;
-        fds_verify((*bnode)->version != blob_version_invalid);
-
-        // The current version is a delete marker, it's
-        // already deleted so return not found.
-        if ((*bnode)->version == blob_version_deleted) {
-            err = ERR_BLOB_NOT_FOUND;
-            return err;
-        }
-    }
-    fds_verify(err == ERR_OK);
-
-    bool fSizeZero = ((*bnode)->blob_size == 0);
-    if (fSizeZero) {
-        LOGDEBUG << "zero size blob:" << (*bnode)->blob_name;
-    }
-
-    LOGDEBUG << "about to delete blob: " << *bnode;
-    if (delCatReq->blob_version == blob_version_invalid) {
-        // Allocate a delete marker blob node. The
-        // marker is just a place holder marking the
-        // blob is deleted. It doesn't actually point
-        // to any offsets or object ids.
-        // Blobs with delete markers may have older versions
-        // garbage collected after some time.
-        BlobNode *deleteMarker = new BlobNode(delCatReq->volId,
-                                              delCatReq->blob_name);
-        fds_verify(deleteMarker != NULL);
-        deleteMarker->version   = blob_version_deleted;
-
-        // TODO(Andrew): For now, just write the marker bnode
-        // to disk. We'll eventually need open/commit if we're
-        // going to use a 2-phase commit, like puts().
-        err = _process_open((fds_volid_t)delCatReq->volId,
-                            delCatReq->blob_name,
-                            delCatReq->transId,
-                            deleteMarker);
-        fds_verify(err == ERR_OK);
-
-        // Only need to expunge if this DM is the primary
-        // for the volume
-        if (amIPrimary(delCatReq->volId) == true) {
-            if (fSizeZero) {
-                LOGWARN << "zero size blob:" << (*bnode)->blob_name
-                        << " - not expunging from SM";
-            } else {
-                err = expungeBlob((*bnode));
-                fds_verify(err == ERR_OK);
-            }
-        }
-
-        // We can delete the bnode we received from our
-        // query since we're going to create new blob
-        // node to represent to delete marker and return that
-        delete (*bnode);
-        (*bnode) = deleteMarker;
-    } else if (delCatReq->blob_version == (*bnode)->version) {
-        // We're explicity deleting this version.
-        // We don't use a delete marker and instead
-        // just delete this particular version
-
-        // Only need to expunge if this DM is the primary
-        // for the volume
-        if (amIPrimary(delCatReq->volId) == true) {
-            // We dereference count the objects in the blob here
-            // prior to freeing the structure.
-            // TODO(Andrew): We should persistently mark the blob
-            // as being deleted so that we know to clean it up
-            // after a crash. We may also need to persist deref
-            // state so we don't double dereference an object.
-            if (fSizeZero) {
-                LOGWARN << "zero size blob:" << (*bnode)->blob_name
-                        << " - not expunging from SM";
-            } else {
-                err = expungeBlob((*bnode));
-                fds_verify(err == ERR_OK);
-            }
-        }
-
-        // Remove the blob node structure
-        err = _process_delete(delCatReq->volId,
-                              delCatReq->blob_name);
-        fds_verify(err == ERR_OK);
-    }
-
-    return err;
-}
-
-
-/**
- * "Deletes" a blob in a volume. Deleting may be a lazy or soft
- * delete or a hard delete, depending on the volume's paramters
- * and the blob's version.
- *
- * @param[in]  The DM delete request struct
- * @param[out] The blob node deleted or which represents the delete.
- * The pointer is only valid if err is OK.
- * @return The result of the delete
- */
-Error
-DataMgr::deleteBlobProcess(const dmCatReq  *delCatReq, BlobNode **bnode) {
-    Error err(ERR_OK);
-    LOGNORMAL << "Processing delete request with "
-              << "volid:" << delCatReq->volId
-              << ", blob name:" << delCatReq->blob_name
-              << ", txnid:" << delCatReq->transId
-              << ", opid:" << delCatReq->transOp
-              << ", journTXID:" << delCatReq->reqCookie;
-
-    // Check if this blob exists already and what its current version is
-    // TODO(Andrew): The query should eventually manage multiple volumes
-    // rather than overwriting. The key can be blob name and version.
-    *bnode = NULL;
-    err = _process_query(delCatReq->volId,
-                         delCatReq->blob_name,
-                         *bnode);
-    if (err == ERR_CAT_ENTRY_NOT_FOUND) {
-        // If this blob doesn't already exist, allocate a new one
-        LOGWARN << "No blob found with name " << delCatReq->blob_name
-                << ", so nothing to delete";
-        err = ERR_BLOB_NOT_FOUND;
-        return err;
-    } else {
-        fds_verify(*bnode != NULL);
-        LOGDEBUG << "Located existing blob " << (*bnode)->blob_name
-                 << " with version " << (*bnode)->version;
-        fds_verify((*bnode)->version != blob_version_invalid);
-
-        // The current version is a delete marker, it's
-        // already deleted so return not found.
-        if ((*bnode)->version == blob_version_deleted) {
-            err = ERR_BLOB_NOT_FOUND;
-            return err;
-        }
-    }
-    fds_verify(err == ERR_OK);
-
-    bool fSizeZero = ((*bnode)->blob_size == 0);
-    if (fSizeZero) {
-        LOGDEBUG << "zero size blob:" << (*bnode)->blob_name;
-    }
-
-    LOGDEBUG << "about to delete blob: " << *bnode;
-    if (delCatReq->blob_version == blob_version_invalid) {
-        // Allocate a delete marker blob node. The
-        // marker is just a place holder marking the
-        // blob is deleted. It doesn't actually point
-        // to any offsets or object ids.
-        // Blobs with delete markers may have older versions
-        // garbage collected after some time.
-        BlobNode *deleteMarker = new BlobNode(delCatReq->volId,
-                                              delCatReq->blob_name);
-        fds_verify(deleteMarker != NULL);
-        deleteMarker->version   = blob_version_deleted;
-
-        // TODO(Andrew): For now, just write the marker bnode
-        // to disk. We'll eventually need open/commit if we're
-        // going to use a 2-phase commit, like puts().
-        err = _process_open((fds_volid_t)delCatReq->volId,
-                            delCatReq->blob_name,
-                            delCatReq->transId,
-                            deleteMarker);
-        fds_verify(err == ERR_OK);
-
-        // Only need to expunge if this DM is the primary
-        // for the volume
-        if (amIPrimary(delCatReq->volId) == true) {
-            if (fSizeZero) {
-                LOGWARN << "zero size blob:" << (*bnode)->blob_name
-                        << " - not expunging from SM";
-            } else {
-                err = expungeBlob((*bnode));
-                fds_verify(err == ERR_OK);
-            }
-        }
-
-        // We can delete the bnode we received from our
-        // query since we're going to create new blob
-        // node to represent to delete marker and return that
-        delete (*bnode);
-        (*bnode) = deleteMarker;
-    } else if (delCatReq->blob_version == (*bnode)->version) {
-        // We're explicity deleting this version.
-        // We don't use a delete marker and instead
-        // just delete this particular version
-
-        // Only need to expunge if this DM is the primary
-        // for the volume
-        if (amIPrimary(delCatReq->volId) == true) {
-            // We dereference count the objects in the blob here
-            // prior to freeing the structure.
-            // TODO(Andrew): We should persistently mark the blob
-            // as being deleted so that we know to clean it up
-            // after a crash. We may also need to persist deref
-            // state so we don't double dereference an object.
-            if (fSizeZero) {
-                LOGWARN << "zero size blob:" << (*bnode)->blob_name
-                        << " - not expunging from SM";
-            } else {
-                err = expungeBlob((*bnode));
-                fds_verify(err == ERR_OK);
-            }
-        }
-
-        // Remove the blob node structure
-        err = _process_delete(delCatReq->volId,
-                              delCatReq->blob_name);
-        fds_verify(err == ERR_OK);
-    }
-
-    return err;
-}
-
-void
-DataMgr::scheduleDeleteCatObjSvc(void * _io)
-{
-    Error err(ERR_OK);
-    DmIoDeleteCat *delCatObj = static_cast<DmIoDeleteCat*>(_io);
-
-    BlobNode *bnode = NULL;
-    // Process the delete blob. The deleted or modified
-    // bnode will be allocated and returned on success
-    err = deleteBlobProcessSvc(delCatObj, &bnode);
-
-    qosCtrl->markIODone(*delCatObj);
-    delCatObj->dmio_deletecat_resp_cb(err, delCatObj);
-}
-
-void
-DataMgr::deleteCatObjBackend(dmCatReq  *delCatReq) {
-    Error err(ERR_OK);
-
-    BlobNode *bnode = NULL;
-    // Process the delete blob. The deleted or modified
-    // bnode will be allocated and returned on success
-    err = deleteBlobProcess(delCatReq, &bnode);
-
-    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
-    FDS_ProtocolInterface::FDSP_DeleteCatalogTypePtr delete_catalog(new FDSP_DeleteCatalogType);
-    DataMgr::InitMsgHdr(msg_hdr);
-
-    if (err.ok()) {
-        msg_hdr->result  = FDS_ProtocolInterface::FDSP_ERR_OK;
-        msg_hdr->err_msg = "Dude, you're good to go!";
-    } else {
-        msg_hdr->result   = FDS_ProtocolInterface::FDSP_ERR_FAILED;
-        msg_hdr->err_msg  = "Something hit the fan...";
-        msg_hdr->err_code = err.GetErrno();
-    }
-
-    if (bnode) {
-        delete bnode;
-    }
-
-    msg_hdr->src_ip_lo_addr =  delCatReq->dstIp;
-    msg_hdr->dst_ip_lo_addr =  delCatReq->srcIp;
-    msg_hdr->src_port =  delCatReq->dstPort;
-    msg_hdr->dst_port =  delCatReq->srcPort;
-    msg_hdr->glob_volume_id =  delCatReq->volId;
-    msg_hdr->req_cookie =  delCatReq->reqCookie;
-    msg_hdr->msg_code = FDS_ProtocolInterface::FDSP_MSG_DELETE_BLOB_RSP;
-
-    delete_catalog->blob_name = delCatReq->blob_name;
-
-    dataMgr->respMapMtx.read_lock();
-    try {
-        dataMgr->respHandleCli(
-            delCatReq->session_uuid)->DeleteCatalogObjectResp(*msg_hdr,
-                                                              *delete_catalog);
-    } catch(att::TTransportException& e) {
-        GLOGERROR << "error during network call : " << e.what();
-    }
-
-    dataMgr->respMapMtx.read_unlock();
-    LOGDEBUG << "Sending async delete catalog obj response with "
-             << "volume id: " << msg_hdr->glob_volume_id
-             << ", blob name: "
-             << delete_catalog->blob_name;
-
-    qosCtrl->markIODone(*delCatReq);
-    delete delCatReq;
-}
-
 void DataMgr::scheduleGetBlobMetaDataSvc(void *_io) {
     Error err(ERR_OK);
     DmIoGetBlobMetaData *getBlbMeta = static_cast<DmIoGetBlobMetaData*>(_io);
@@ -2837,115 +1975,6 @@ Error DataMgr::getBlobMetaDataSvc(const DmIoGetBlobMetaData* request) {
     return err;
 }
 
-void DataMgr::getBlobMetaDataBackend(const dmCatReq *request) {
-    Error err(ERR_OK);
-    std::unique_ptr<dmCatReq> reqPtr(const_cast<dmCatReq*>(request));
-    fpi::FDSP_MsgHdrTypePtr msgHeader(new FDSP_MsgHdrType);
-    boost::shared_ptr<fpi::FDSP_MetaDataList> metaDataList(new fpi::FDSP_MetaDataList());
-    InitMsgHdr(msgHeader);
-    request->fillResponseHeader(msgHeader);
-    if (!volExists(request->volId)) {
-        err = ERR_VOL_NOT_FOUND;
-        LOGWARN << "volume not found: " << request->volId;
-    } else {
-        BlobNode* bNode;
-        synchronized(big_fat_lock) {
-            // get the current metadata
-            err = _process_query(request->volId, request->blob_name, bNode);
-            if (err == ERR_OK) {
-                fpi::FDSP_MetaDataPair metapair;
-                for (auto& meta : bNode->meta_list) {
-                    metapair.key = meta.key;
-                    metapair.value = meta.value;
-                    metaDataList->push_back(metapair);
-                }
-            } else {
-                LOGWARN << " error getting blob data: "
-                        << " vol: " << request->volId
-                        << " blob: " << request->blob_name
-                        << " err: " << err;
-            }
-        }
-    }
-
-    // send the response
-    setResponseError(msgHeader, err);
-    read_synchronized(dataMgr->respMapMtx) {
-        try {
-            respHandleCli(request->session_uuid)->GetBlobMetaDataResp(*msgHeader,
-                                                                      request->blob_name,
-                                                                      *metaDataList);
-        } catch(att::TTransportException& e) {
-            GLOGERROR << "error during network call : " << e.what();
-        }
-    }
-    qosCtrl->markIODone(*request);
-}
-
-void DataMgr::setBlobMetaDataBackend(const dmCatReq *request) {
-    Error err(ERR_OK);
-    dmCatReq *unconst_request = const_cast<dmCatReq *>(request);
-    DmIoSetBlobMetaData* reqPtr = static_cast<DmIoSetBlobMetaData *>(unconst_request);
-
-
-    fpi::FDSP_MsgHdrTypePtr msgHeader(new FDSP_MsgHdrType);
-
-    InitMsgHdr(msgHeader);
-    request->fillResponseHeader(msgHeader);
-    if (!volExists(request->volId)) {
-        err = ERR_VOL_NOT_FOUND;
-        GLOGWARN << "volume not found: " << request->volId;
-    } else {
-        BlobNode* bNode;
-        synchronized(big_fat_lock) {
-            // get the current metadata
-            LOGDEBUG << "updating the meta for blob: " << request->blob_name;
-            err = _process_query(request->volId, request->blob_name, bNode);
-            if (err == ERR_CAT_ENTRY_NOT_FOUND) {
-                // If this blob doesn't already exist, allocate a new one
-                LOGDEBUG << "No blob found with name " << request->blob_name
-                         << ", so allocating a new one";
-                bNode = new BlobNode(request->volId,
-                                     request->blob_name);
-                // Set an initial version
-                bNode->version++;
-                err = ERR_OK;
-            } else if (err != ERR_OK) {
-                LOGERROR << "Error getting blob data: "
-                         << " vol: " << request->volId
-                         << " blob: " << request->blob_name
-                         << " err: " << err;
-            }
-
-            // add the new metadata
-            fds_assert((request->metadataList)->size() > 0);
-            fds_assert(request->metadataList != nullptr);
-            for (auto& meta : *(request->metadataList)) {
-                bNode->updateMetadata(meta.key, meta.value);
-                LOGDEBUG << "meta update [" << meta.key <<":" << meta.value << "]";
-            }
-            // write back the metadata
-            err = _process_open(request->volId,
-                                request->blob_name,
-                                1,
-                                bNode);
-            fds_verify(err == ERR_OK);
-        }
-    }
-
-    // send the response
-    setResponseError(msgHeader, err);
-    read_synchronized(dataMgr->respMapMtx) {
-        try {
-            LOGDEBUG << "sending reponse to SetBlobMetaDataResp";
-            reqPtr->dmio_setmd_resp_cb(err, reqPtr);
-        } catch(att::TTransportException& e) {
-            GLOGERROR << "error during network call : " << e.what();
-        }
-    }
-    qosCtrl->markIODone(*request);
-}
-
 void DataMgr::getVolumeMetaDataBackend(const dmCatReq *request) {
     Error err(ERR_OK);
     std::unique_ptr<dmCatReq> reqPtr(const_cast<dmCatReq *>(request));
@@ -2964,7 +1993,8 @@ void DataMgr::getVolumeMetaDataBackend(const dmCatReq *request) {
         synchronized(big_fat_lock) {
             // get the current metadata
             std::list<BlobNode> bNodeList;
-            err = _process_list(request->volId, bNodeList);
+            // err = _process_list(request->volId, bNodeList);
+            fds_panic("implement this!");
             volumeMetaData->blobCount = bNodeList.size();
             volumeMetaData->size = 0;
 
@@ -3145,13 +2175,6 @@ void DataMgr::ReqHandler::GetVolumeMetaData(boost::shared_ptr<FDSP_MsgHdrType>& 
     fds_verify(err == ERR_OK);
 }
 
-int scheduleUpdateCatalog(void * _io) {
-    dmCatReq *io = static_cast<dmCatReq*>(_io);
-
-    dataMgr->updateCatalogBackend(io);
-    return 0;
-}
-
 int scheduleQueryCatalog(void * _io) {
     dmCatReq *io = static_cast<dmCatReq*>(_io);
 
@@ -3159,43 +2182,10 @@ int scheduleQueryCatalog(void * _io) {
     return 0;
 }
 
-int scheduleStartBlobTx(void * _io) {
-    dmCatReq *io = static_cast<dmCatReq*>(_io);
-
-    dataMgr->startBlobTxBackend(io);
-    return 0;
-}
-
 int scheduleStatBlob(void * _io) {
     dmCatReq *io = static_cast<dmCatReq*>(_io);
 
     dataMgr->statBlobBackend(io);
-    return 0;
-}
-
-int scheduleDeleteCatObj(void * _io) {
-    dmCatReq *io = static_cast<dmCatReq*>(_io);
-
-    dataMgr->deleteCatObjBackend(io);
-    return 0;
-}
-
-int scheduleBlobList(void * _io) {
-    dmCatReq *io = static_cast<dmCatReq*>(_io);
-
-    dataMgr->blobListBackend(io);
-    return 0;
-}
-
-int scheduleGetBlobMetaData(void* io) {
-    dataMgr->getBlobMetaDataBackend(
-        static_cast<dmCatReq*>(io));
-    return 0;
-}
-
-int scheduleSetBlobMetaData(void* io) {
-    dataMgr->setBlobMetaDataBackend(
-        static_cast<dmCatReq*>(io));
     return 0;
 }
 
