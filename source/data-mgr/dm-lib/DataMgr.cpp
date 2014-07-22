@@ -972,22 +972,6 @@ void DataMgr::ReqHandler::UpdateCatalogObject(FDS_ProtocolInterface::
 }
 
 void
-DataMgr::scheduleCommitBlobTxSvc(void * _io)
-{
-    Error err(ERR_OK);
-    DmIoCommitBlobTx *commitBlobTx = static_cast<DmIoCommitBlobTx*>(_io);
-
-    BlobTxId::const_ptr blobTxId = commitBlobTx->ioBlobTxDesc;
-    fds_verify(*blobTxId != blobTxIdInvalid);
-    /*
-     * TODO(sanjay) we will have  intergrate this with TVC  API's
-     */
-
-    qosCtrl->markIODone(*commitBlobTx);
-    commitBlobTx->dmio_commit_blob_tx_resp_cb(err, commitBlobTx);
-}
-
-void
 DataMgr::scheduleAbortBlobTxSvc(void * _io)
 {
     Error err(ERR_OK);
@@ -1001,23 +985,6 @@ DataMgr::scheduleAbortBlobTxSvc(void * _io)
 
     qosCtrl->markIODone(*abortBlobTx);
     abortBlobTx->dmio_abort_blob_tx_resp_cb(err, abortBlobTx);
-}
-
-void
-DataMgr::scheduleStartBlobTxSvc(void * _io)
-{
-    Error err(ERR_OK);
-    DmIoStartBlobTx *startBlobTx = static_cast<DmIoStartBlobTx*>(_io);
-
-    BlobTxId::const_ptr blobTxId = startBlobTx->ioBlobTxDesc;
-    fds_verify(*blobTxId != blobTxIdInvalid);
-    /*
-     * TODO(sanjay) we will have  intergrate this with TVC  API's
-     */
-    // err = commitLog->startTx(blobTxId, startBlobTx->blob_name);
-
-    qosCtrl->markIODone(*startBlobTx);
-    startBlobTx->dmio_start_blob_tx_resp_cb(err, startBlobTx);
 }
 
 void
@@ -1187,40 +1154,6 @@ DataMgr::expungeObject(fds_volid_t volId, const ObjectID &objId) {
     return err;
 }
 
-/**
- * Permanetly deletes a blob and the objects that
- * it refers to.
- * Expunge differs from delete in that it's a hard delete
- * that frees resources permanently and is not recoverable.
- *
- * @paramp[in] The blob node to expunge
- * @return The result of the expunge
- */
-Error
-DataMgr::expungeBlob(const BlobNode *bnode) {
-    Error err(ERR_OK);
-
-    // Grab some kind of lock on the blob?
-
-    // Iterate the entries in the blob list
-    for (const auto iter : bnode->obj_list) {
-        ObjectID objId = iter.second.data_obj_id;
-
-        if (use_om) {
-            err = expungeObject(bnode->vol_id, objId);
-            fds_verify(err == ERR_OK);
-        } else {
-            // No OM means no DLT, which means
-            // no way to contact SMs. Just keep going.
-            continue;
-        }
-    }
-
-    // Wait for delete object responses
-
-    return err;
-}
-
 void DataMgr::scheduleGetBlobMetaDataSvc(void *_io) {
     Error err(ERR_OK);
     DmIoGetBlobMetaData *getBlbMeta = static_cast<DmIoGetBlobMetaData*>(_io);
@@ -1270,64 +1203,17 @@ void DataMgr::ReqHandler::SetBlobMetaData(boost::shared_ptr<FDSP_MsgHdrType>& ms
                                           boost::shared_ptr<std::string>& volumeName,
                                           boost::shared_ptr<std::string>& blobName,
                                           boost::shared_ptr<FDSP_MetaDataList>& metaDataList) {
-    Error err(ERR_OK);
-
     GLOGDEBUG << " Set metadata for volume:" << *volumeName
               << " blob:" << *blobName;
-
-    if ((dataMgr->testUturnAll == true) ||
-        (dataMgr->testUturnSetMeta == true)) {
-        GLOGNOTIFY << "Uturn testing set metadata";
-        // The msg_code isnt used for this call so it doesnt
-        // matter that its wrong here.
-        msgHeader->msg_code = FDS_ProtocolInterface::FDSP_MSG_UPDATE_CAT_OBJ_RSP;
-        msgHeader->result   = FDS_ProtocolInterface::FDSP_ERR_OK;
-        dataMgr->swapMgrId(msgHeader);
-        dataMgr->respMapMtx.read_lock();
-        try {
-            dataMgr->respHandleCli(msgHeader->session_uuid)->SetBlobMetaDataResp(
-                *msgHeader, *blobName);
-        } catch(att::TTransportException& e) {
-            GLOGERROR << "error during network call : " << e.what();
-        }
-
-        dataMgr->respMapMtx.read_unlock();
-        return;
-    }
-
-    RequestHeader reqHeader(msgHeader);
-    GLOGDEBUG << "header: "
-              << " vol: " << reqHeader.volId
-              << " cookie: " << reqHeader.reqCookie
-              << " session: " << reqHeader.session_uuid;
-
-    dmCatReq* request = new dmCatReq(reqHeader, FDS_SET_BLOB_METADATA);
-
-    for (auto& meta : *metaDataList) {
-        GLOGDEBUG << "received meta  [" << meta.key <<":" << meta.value << "]";
-    }
-    GLOGDEBUG << "received some meta to be updated..";
-
-    request->metadataList = metaDataList;
-    request->blob_name = *blobName;
-    err = dataMgr->qosCtrl->enqueueIO(request->volId, request);
-
-    fds_verify(err == ERR_OK);
+    fds_panic("must not get here");
 }
 
 void DataMgr::ReqHandler::GetBlobMetaData(boost::shared_ptr<FDSP_MsgHdrType>& msgHeader,
                                           boost::shared_ptr<std::string>& volumeName,
                                           boost::shared_ptr<std::string>& blobName) {
-    Error err(ERR_OK);
     GLOGDEBUG << " volume:" << *volumeName
              << " blob:" << *blobName;
-
-    RequestHeader reqHeader(msgHeader);
-    dmCatReq* request = new dmCatReq(reqHeader, FDS_GET_BLOB_METADATA);
-    request->blob_name = *blobName;
-    err = dataMgr->qosCtrl->enqueueIO(request->volId, request);
-
-    fds_verify(err == ERR_OK);
+    fds_panic("must not get here");
 }
 
 void DataMgr::ReqHandler::GetVolumeMetaData(boost::shared_ptr<FDSP_MsgHdrType>& header,

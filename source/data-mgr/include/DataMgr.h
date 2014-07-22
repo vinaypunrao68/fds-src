@@ -222,14 +222,9 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
     Error _process_mod_vol(fds_volid_t vol_uuid,
                            const VolumeDesc& voldesc);
 
-    Error _process_query(fds_volid_t vol_uuid,
-                         std::string blob_name,
-                         BlobNode*& bnode);
-
     void initSmMsgHdr(FDSP_MsgHdrTypePtr msgHdr);
 
     fds_bool_t amIPrimary(fds_volid_t volUuid);
-    Error expungeBlob(const BlobNode *bnode);
     Error expungeObject(fds_volid_t volId, const ObjectID &objId);
     Error expungeObjectsIfPrimary(fds_volid_t volid,
                                   const std::vector<ObjectID>& oids);
@@ -305,8 +300,6 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
     void setBlobMetaDataSvc(void *io);
     void queryCatalogBackendSvc(void * _io);
     void scheduleDeleteCatObjSvc(void * _io);
-    void scheduleStartBlobTxSvc(void * _io);
-    void scheduleCommitBlobTxSvc(void * _io);
     void scheduleAbortBlobTxSvc(void * _io);
     void setBlobMetaDataBackend(const dmCatReq *request);
     void getVolumeMetaData(dmCatReq *io);
