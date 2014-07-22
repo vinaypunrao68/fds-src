@@ -73,7 +73,7 @@ Dm_ProbeMod::sendStartTx(const OpParams &updateParams)
                                            updateParams.blobMode);
     dmBlobTxReq->ioBlobTxDesc =
          BlobTxId::ptr(new BlobTxId(updateParams.txId));
-    dataMgr->scheduleStartBlobTxSvc(dmBlobTxReq);
+    //    dataMgr->scheduleStartBlobTxSvc(dmBlobTxReq);
 }
 
 void
@@ -86,7 +86,7 @@ Dm_ProbeMod::sendCommitTx(const OpParams &updateParams)
                                             updateParams.blobVersion);
     dmBlobTxReq->ioBlobTxDesc =
          BlobTxId::ptr(new BlobTxId(updateParams.txId));
-    dataMgr->scheduleCommitBlobTxSvc(dmBlobTxReq);
+    // dataMgr->scheduleCommitBlobTxSvc(dmBlobTxReq);
 }
 
 void
