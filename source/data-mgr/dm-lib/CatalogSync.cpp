@@ -654,10 +654,12 @@ FDSP_MetaSyncRpc::PushMetaSyncResp(fpi::FDSP_MsgHdrTypePtr& fdsp_msg,
     Error err(ERR_OK);
     LOGDEBUG << "Received PushMetaSyncResp for volume "
              << std::hex << fdsp_msg->glob_volume_id << std::dec;
+    // TODO(xxx) use new service layer for response
+    // We need to send response for the original commit from AM
+    /**
     dmCatReq *metaUpdResp = new(std::nothrow) dmCatReq(fdsp_msg->glob_volume_id,
                                                       meta_resp->blob_name,
                                                       meta_resp->dm_transaction_id,
-                                                       /*meta_resp->dm_operation,*/
                                                        fpi::FDS_DMGR_TXN_STATUS_COMMITED,
                                                       fdsp_msg->src_ip_lo_addr,
                                                       fdsp_msg->dst_ip_lo_addr,
@@ -673,6 +675,7 @@ FDSP_MetaSyncRpc::PushMetaSyncResp(fpi::FDSP_MsgHdrTypePtr& fdsp_msg,
         LOGCRITICAL << "Failed to send the  metaUpdResp";
         err = ERR_OUT_OF_MEMORY;
     }
+    */
 }
 
 void

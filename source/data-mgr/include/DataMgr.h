@@ -54,8 +54,6 @@
 
 namespace fds {
 
-int scheduleQueryCatalog(void * _io);
-int scheduleStatBlob(void * _io);
 int scheduleGetVolumeMetaData(void* io);
 
 class DataMgr;
@@ -147,10 +145,8 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
                 /* End of new refactored DM message types */
 
                 case FDS_CAT_QRY:
-                    threadPool->schedule(scheduleQueryCatalog, io);
-                    break;
-                case FDS_STAT_BLOB:
-                    threadPool->schedule(scheduleStatBlob, io);
+                    // TODO(xxx) use FDS_CAT_QRY type instead of FDS_CAT_QRY_SVC
+                    fds_panic("we moved to FDS_CAT_QRY_SVC");
                     break;
                 case FDS_GET_BLOB_METADATA:
                     threadPool->schedule(&DataMgr::scheduleGetBlobMetaDataSvc, dataMgr, io);
@@ -243,17 +239,9 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
     Error _process_mod_vol(fds_volid_t vol_uuid,
                            const VolumeDesc& voldesc);
 
-    Error _process_open(fds_volid_t vol_uuid,
-                        std::string blob_name,
-                        fds_uint32_t trans_id,
-                        const BlobNode* bnode);
-    Error _process_abort();
-
     Error _process_query(fds_volid_t vol_uuid,
                          std::string blob_name,
                          BlobNode*& bnode);
-    Error _process_list(fds_volid_t volId,
-                        std::list<BlobNode>& bNodeList);
 
     void initSmMsgHdr(FDSP_MsgHdrTypePtr msgHdr);
 
@@ -332,11 +320,8 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
     /* End of new refactored DM message handlers */
 
     void setBlobMetaDataSvc(void *io);
-    void queryCatalogBackend(dmCatReq  *qryCatReq);
     void queryCatalogBackendSvc(void * _io);
-    Error queryCatalogProcess(const dmCatReq  *qryCatReq, BlobNode **bnode);
     void scheduleDeleteCatObjSvc(void * _io);
-    void statBlobBackend(const dmCatReq *statBlobReq);
     void scheduleStartBlobTxSvc(void * _io);
     void scheduleCommitBlobTxSvc(void * _io);
     void scheduleAbortBlobTxSvc(void * _io);
@@ -345,10 +330,8 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
     void snapVolCat(dmCatReq *io);
     Error forwardUpdateCatalogRequest(dmCatReq  *updCatReq);
     void sendUpdateCatalogResp(dmCatReq  *updCatReq, BlobNode *bnode);
-    void deleteVolumeDb();
 
     void scheduleGetBlobMetaDataSvc(void *io);
-    Error getBlobMetaDataSvc(const DmIoGetBlobMetaData* request);
 
     /**
      * Callback from volume meta receiver that volume meta is received
