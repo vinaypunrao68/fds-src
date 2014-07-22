@@ -250,9 +250,7 @@ public:
     void attachVolume(AmQosReq *qosReq);
     fds::Error pushBlobReq(FdsBlobReq *blobReq);
     fds::Error putBlob(AmQosReq *qosReq);
-    fds::Error getBlob(AmQosReq *qosReq);
     fds::Error deleteBlob(AmQosReq *qosReq);
-    Error SetBlobMetaData(AmQosReq *qosReq);
 
     // Stuff for pending offset operations
     // TODO(Andrew): Reconcile with dispatchSm...
@@ -276,8 +274,6 @@ public:
     void startBlobTxResp(const FDSP_MsgHdrTypePtr rxMsg);
     fds::Error deleteCatResp(const FDSP_MsgHdrTypePtr& rxMsg,
                              const FDSP_DeleteCatalogTypePtr& delCatRsp);
-    fds::Error getObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
-                          const FDSP_GetObjTypePtr& getObjRsp);
     fds::Error deleteObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
                              const FDSP_DeleteObjTypePtr& cat_obj_req);
     fds::Error getBucketResp(const FDSP_MsgHdrTypePtr& rxMsg,
@@ -287,8 +283,6 @@ public:
                                        const FDSP_BucketStatsRespTypePtr& buck_stats);
     void getBucketStatsResp(const FDSP_MsgHdrTypePtr& rx_msg,
                             const FDSP_BucketStatsRespTypePtr& buck_stats);
-
-    void handleSetBlobMetaDataResp(const FDSP_MsgHdrTypePtr rxMsg);
 
     void InitDmMsgHdr(const FDSP_MsgHdrTypePtr &msg_hdr);
     void InitSmMsgHdr(const FDSP_MsgHdrTypePtr &msg_hdr);
@@ -519,7 +513,7 @@ static void processBlobReq(AmQosReq *qosReq) {
 
         case fds::FDS_IO_READ:
         case fds::FDS_GET_BLOB:
-            err = storHvisor->getBlob(qosReq);
+            err = storHvisor->getBlobSvc(qosReq);
             break;
 
         case fds::FDS_IO_WRITE:
@@ -532,7 +526,7 @@ static void processBlobReq(AmQosReq *qosReq) {
             break;
 
         case fds::FDS_SET_BLOB_METADATA:
-            err = storHvisor->SetBlobMetaData(qosReq);
+            err = storHvisor->setBlobMetaDataSvc(qosReq);
             break;
 
         // new handlers

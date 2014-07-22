@@ -184,8 +184,7 @@ int StorHvCtrl::fds_move_wr_req_state_machine(const FDSP_MsgHdrTypePtr& rxMsg) {
 void FDSP_DataPathRespCbackI::GetObjectResp(FDSP_MsgHdrTypePtr& msghdr,
                                             FDSP_GetObjTypePtr& get_obj) {
     LOGDEBUG << " StorHvisorRx:" << "IO-XID:" << msghdr->req_cookie << " - Received get obj response for txn  " <<  msghdr->req_cookie; 
-    fds::Error err = storHvisor->getObjResp(msghdr, get_obj);
-    fds_verify(err == ERR_OK);
+    fds_panic("You shouldn't be here");
 }
 
 void FDSP_DataPathRespCbackI::PutObjectResp(FDSP_MsgHdrTypePtr& msghdr,
@@ -222,8 +221,7 @@ FDSP_MetaDataPathRespCbackI::StatBlobResp(boost::shared_ptr<FDSP_MsgHdrType> &ms
 
 void FDSP_MetaDataPathRespCbackI::SetBlobMetaDataResp(boost::shared_ptr<FDSP_MsgHdrType>& header,
                                                       boost::shared_ptr<std::string>& blobName) {
-    LOGDEBUG << "received response for txn: "<< header->req_cookie;
-    storHvisor->handleSetBlobMetaDataResp(header);
+    fds_panic("You shouldn't be here");
 }
 
 void FDSP_MetaDataPathRespCbackI::GetBlobMetaDataResp(boost::shared_ptr<FDSP_MsgHdrType>& header,
