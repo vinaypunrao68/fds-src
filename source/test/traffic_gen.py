@@ -1,10 +1,11 @@
 #!/usr/bin/python
 import os,sys,re
 import time
-import threading as th
+#import threading as th
+from multiprocessing import Process, Queue
 from optparse import OptionParser
 import tempfile
-from Queue import *
+#from Queue import *
 import httplib
 import requests
 import random
@@ -12,20 +13,22 @@ import random
 #HTTP_LIB = "requests"
 HTTP_LIB = "httplib"
 
-stats = {"reqs" : 0,
-     "fails" : 0,
-     "elapsed_time" : 0.0,
-     "tot_latency" : 0.0,
-     "min_latency" : 1.0e10,
-     "max_latency" : 0.0,
-     "latency_cnt" : 0
-}
+def init_stats():
+    stats = {"reqs" : 0,
+         "fails" : 0,
+         "elapsed_time" : 0.0,
+         "tot_latency" : 0.0,
+         "min_latency" : 1.0e10,
+         "max_latency" : 0.0,
+         "latency_cnt" : 0
+    }
+    return stats
 
 def clear_stats():
     for e in stats:
         e.second = 0
 
-def update_latency_stats(start, end):
+def update_latency_stats(stats, start, end):
     elapsed = end - start
     stats["latency_cnt"] +=1
     stats["tot_latency"] += elapsed
@@ -72,7 +75,7 @@ def do_delete(conn, target):
         e = requests.delete("http://localhost:8000" + target)
     return e    
 
-def task(task_id, n_reqs, req_type, files):
+def task(task_id, n_reqs, req_type, files, stats, queue):
     if HTTP_LIB == "httplib":
         conn = httplib.HTTPConnection("localhost:8000")
     else:
@@ -92,7 +95,7 @@ def task(task_id, n_reqs, req_type, files):
             r1 = conn.getresponse()
             r1.read()
         time_end = time.time()
-        update_latency_stats(time_start, time_end)
+        update_latency_stats(stats, time_start, time_end)
         stats["reqs"] += 1
         if HTTP_LIB == "httplib":
             if r1.status != 200:
@@ -109,19 +112,29 @@ def task(task_id, n_reqs, req_type, files):
     #body.close()
     if HTTP_LIB == "httplib":
         conn.close()
+    queue.put(stats)
+
 
 def main(options,files):
     #body = create_random_file(options.file_size)
     #body = open(body.name,"r")
     #text = body.read()
+    queue = Queue()
+    stats = init_stats()
     tids = []
     for i in range(0,options.threads):
-        task_args = [i, options.n_reqs, options.req_type, files]
-        t = th.Thread(None,task,"task-"+str(i), task_args)
+        task_args = (i, options.n_reqs, options.req_type, files, stats, queue)
+        #t = th.Thread(None,task,"task-"+str(i), task_args)
+        t = Process(target=task, args=task_args)
         t.start()
         tids.append(t)
     for t in tids:
         t.join()
+    while not queue.empty():
+        e = queue.get()
+        for k,v in e.items():
+            stats[k] += v
+    return stats
 
 if __name__ == "__main__":
     parser = OptionParser()
@@ -139,7 +152,7 @@ if __name__ == "__main__":
         files = Queue()
     print "Starting"
     time_start = time.time()
-    main(options,files)
+    stats = main(options,files)
     time_end = time.time()
     stats["elapsed_time"] = time_end - time_start
     print "Summary - threads:", options.threads, "n_reqs:", options.n_reqs, "req_type:", options.req_type, "elapsed time:", (time_end - time_start), "reqs/sec:", stats['reqs'] / stats['elapsed_time'], "avg_latency[ms]:",stats["tot_latency"]/stats["latency_cnt"]*1e3, "failures:", stats['fails'], "requests:", stats["reqs"]
