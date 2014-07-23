@@ -82,15 +82,13 @@ class FDS_NativeAPI {
 
     /// After this call returns bucketctx, get_cond are no longer valid.
     void GetObject(BucketContextPtr bucketctxt,
-                   std::string ObjKey,
+                   const std::string &blobName,
                    GetConditions *get_cond,
                    fds_uint64_t startByte,
                    fds_uint64_t byteCount,
                    char *buffer,
                    fds_uint64_t buflen,
-                   void *reqcontext,
-                   fdsnGetObjectHandler getObjCallback,
-                   void *callbackdata);
+                   CallbackPtr cb);
 
     void PutBlob(BucketContext *bucket_ctxt,
                  std::string ObjKey,
@@ -123,6 +121,16 @@ class FDS_NativeAPI {
 
     void StartBlobTx(const std::string& volumeName,
                      const std::string& blobName,
+                     const fds_int32_t blobMode,
+                     CallbackPtr cb);
+    void CommitBlobTx(const std::string& volumeName,
+                     const std::string& blobName,
+                     BlobTxId::ptr txDesc,
+                     CallbackPtr cb);
+
+    void AbortBlobTx(const std::string& volumeName,
+                     const std::string& blobName,
+                     BlobTxId::ptr txDesc,
                      CallbackPtr cb);
 
     void attachVolume(const std::string& volumeName,
@@ -130,6 +138,7 @@ class FDS_NativeAPI {
 
     void setBlobMetaData(const std::string& volumeName,
                          const std::string& blobName,
+                         BlobTxId::ptr txDesc,
                          boost::shared_ptr<fpi::FDSP_MetaDataList>& metaDataList,
                          CallbackPtr cb);
 

@@ -138,6 +138,12 @@ OmPlatform::mod_shutdown()
     Platform::mod_shutdown();
 }
 
+boost::shared_ptr<BaseAsyncSvcHandler>
+OmPlatform::getBaseAsyncSvcHandler()
+{
+    // TODO(Rao):  Uncomments once om_plat_rcv object is concrete
+    return nullptr;
+}
 
 // Factory methods required for OM RPC.
 //

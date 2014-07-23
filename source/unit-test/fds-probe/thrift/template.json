@@ -20,6 +20,7 @@
         },
         "ProbePutMsg": {
             "func": "probe_put",
+            "msg_len": 1024000,
             "msg_data": "This is data from a put request through probe interface"
         },
         "ProbeGetMsgReqt": {

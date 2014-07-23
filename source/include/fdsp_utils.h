@@ -38,6 +38,14 @@ namespace FDS_ProtocolInterface {
     class PutObjectRspMsg;
     class UpdateCatalogMsg;
     class UpdateCatalogRspMsg;
+    class StartBlobTxMsg;
+    class DeleteCatalogObjectMsg;
+    class CommitBlobTxMsg;
+    class AbortBlobTxMsg;
+    class GetBlobMetaDataMsg;
+    class SetBlobMetaDataMsg;
+    class SetBlobMetaDataRspMsg;
+    class DeleteCatalogObjectRspMsg;
 }  // namespace FDS_ProtocolInterface
 
 namespace fpi = FDS_ProtocolInterface;
@@ -55,6 +63,8 @@ assign(FDS_ProtocolInterface::FDS_ObjectIdType& lhs, const ObjectID& rhs);
 FDS_ProtocolInterface::FDS_ObjectIdType&
 assign(FDS_ProtocolInterface::FDS_ObjectIdType& lhs, const meta_obj_id_t& rhs);
 
+FDS_ProtocolInterface::FDS_ObjectIdType strToObjectIdType(const std::string & rhs);
+
 FDS_ProtocolInterface::SvcUuid&
 assign(FDS_ProtocolInterface::SvcUuid& lhs, const ResourceUUID& rhs);
 
@@ -66,8 +76,14 @@ std::string logString(const FDS_ProtocolInterface::PutObjectMsg& putObj);
 std::string logString(const FDS_ProtocolInterface::PutObjectRspMsg& putObj);
 std::string logString(const FDS_ProtocolInterface::UpdateCatalogMsg& updCat);
 std::string logString(const FDS_ProtocolInterface::UpdateCatalogRspMsg& updCat);
-
-
+std::string logString(const FDS_ProtocolInterface::StartBlobTxMsg& stBlobTx);
+std::string logString(const FDS_ProtocolInterface::DeleteCatalogObjectMsg& delObjCat);
+std::string logString(const FDS_ProtocolInterface::DeleteCatalogObjectRspMsg& delObjRsp);
+std::string logString(const FDS_ProtocolInterface::CommitBlobTxMsg& commitBlobTx);
+std::string logString(const FDS_ProtocolInterface::AbortBlobTxMsg& abortBlobTx);
+std::string logString(const FDS_ProtocolInterface::GetBlobMetaDataMsg& message);
+std::string logString(const FDS_ProtocolInterface::SetBlobMetaDataMsg& message);
+std::string logString(const FDS_ProtocolInterface::SetBlobMetaDataRspMsg& msg);
 /**
 * @brief For serializing FDSP messages
 *
@@ -83,6 +99,13 @@ void serializeFdspMsg(const PayloadT &payload, bo::shared_ptr<std::string> &payl
     try {
         auto written = payload.write(binary_buf.get());
         fds_verify(written > 0);
+    } catch(std::exception &e) {
+        /* This is to ensure we assert on any serialization exceptions in debug
+         * builds.  We then rethrow the exception
+         */
+        GLOGDEBUG << "Excpetion in serializing: " << e.what();
+        fds_assert(!"Exception serializing.  Most likely due to fdsp msg id mismatch");
+        throw;
     } catch(...) {
         /* This is to ensure we assert on any serialization exceptions in debug
          * builds.  We then rethrow the exception
@@ -122,6 +145,14 @@ void deserializeFdspMsg(const bo::shared_ptr<std::string> &payloadBuf,
     try {
         auto read = payload->read(binary_buf.get());
         fds_verify(read > 0);
+    } catch(std::exception &e) {
+        /* This is to ensure we assert on any serialization exceptions in debug
+         * builds.  We then rethrow the exception
+         */
+        GLOGDEBUG << "Excpetion in deserializing: " << e.what();
+        DBG(std::exception_ptr eptr = std::current_exception());
+        fds_assert(!"Exception deserializing.  Most likely due to fdsp msg id mismatch");
+        throw;
     } catch(...) {
         /* This is to ensure we assert on any serialization exceptions in debug
          * builds.  We then rethrow the exception

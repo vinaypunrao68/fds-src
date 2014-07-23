@@ -62,18 +62,16 @@ public class StreamWriterTest {
         }
 
         @Override
-        public TxDescriptor startBlobTx(String domainName, String volumeName, String blobName) throws ApiException, TException {
+        public TxDescriptor startBlobTx(String domainName, String volumeName, String blobName, int blobMode) throws ApiException, TException {
             return null;
         }
 
         @Override
-        public void commitBlobTx(TxDescriptor txDesc) throws ApiException, TException {
-            isCommitted = true;
+        public void commitBlobTx(String domainName, String volumeName, String blobName, TxDescriptor txDesc) throws ApiException, TException {
         }
 
         @Override
-        public void abortBlobTx(TxDescriptor txDesc) throws ApiException, TException {
-
+        public void abortBlobTx(String domainName, String volumeName, String blobName, TxDescriptor txDesc) throws ApiException, TException {
         }
 
         @Override

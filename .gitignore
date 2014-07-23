@@ -93,5 +93,7 @@ tmppkg*/
 #youcompleteme related
 ycm.flags
 .idea/*
+source/java/.idea
+source/java/${build.dir}/
 
 ycm.flags

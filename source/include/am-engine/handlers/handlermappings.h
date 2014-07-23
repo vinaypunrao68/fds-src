@@ -23,24 +23,6 @@ fn_StartBlobTxHandler(FDSN_Status status,
                       BlobTxId blobTxId,
                       void *callbackData);
 
-FDSN_Status fn_GetObjectHandler(BucketContextPtr bucket_ctx,
-                                void *reqContext,
-                                fds_uint64_t bufferSize,
-                                fds_off_t offset,
-                                const char *buffer,
-                                void *callbackData,
-                                FDSN_Status status,
-                                ErrorDetails *errDetails);
-
-FDSN_Status fn_GetObjectBlkHandler(BucketContextPtr bucket_ctx,
-                                   void *reqContext,
-                                   fds_uint64_t bufferSize,
-                                   fds_off_t offset,
-                                   const char *buffer,
-                                   void *callbackData,
-                                   FDSN_Status status,
-                                   ErrorDetails *errDetails);
-
 void fn_ListBucketHandler(int isTruncated,
                           const char *nextMarker,
                           int contentsCount,
@@ -65,13 +47,5 @@ int fn_PutObjectHandler(void *reqContext,
                         void *callbackData,
                         FDSN_Status status,
                         ErrorDetails* errDetails);
-
-int fn_PutObjectBlkHandler(void *reqContext,
-                           fds_uint64_t bufferSize,
-                           fds_off_t offset,
-                           char *buffer,
-                           void *callbackData,
-                           FDSN_Status status,
-                           ErrorDetails* errDetails);
 }  // namespace fds
 #endif  // SOURCE_INCLUDE_AM_ENGINE_HANDLERS_HANDLERMAPPINGS_H_

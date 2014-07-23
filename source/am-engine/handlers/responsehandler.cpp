@@ -70,45 +70,14 @@ PutObjectResponseHandler::~PutObjectResponseHandler() {
 }
 //================================================================================
 
-void PutObjectBlkResponseHandler::process() {
-    if (status == ERR_OK) {
-        ubdCallback(0);
-    } else {
-        // TODO(Andrew): For now, just pass -1 when something
-        // went wrong
-        ubdCallback(-1);
-    }
+GetObjectResponseHandler::GetObjectResponseHandler(char *buf) {
+    returnBuffer = buf;
 }
-
-PutObjectBlkResponseHandler::~PutObjectBlkResponseHandler() {
-}
-//================================================================================
 
 void GetObjectResponseHandler::process() {
 }
 
 GetObjectResponseHandler::~GetObjectResponseHandler() {
-}
-//================================================================================
-
-void GetObjectBlkResponseHandler::process() {
-    if (status == ERR_OK) {
-        ubdCallback(0);
-    } else if (status == FDSN_StatusEntityDoesNotExist) {
-        // For unwritten block offsets, return success and
-        // zeros
-        LOGDEBUG << "Returning zeros for unwritten block device offset "
-                 << offset;
-        std::memset(const_cast<char *>(buffer), 0x00, bufferSize);
-        ubdCallback(0);
-    } else {
-        // TODO(Andrew): For now, just pass -1 when something
-        // went wrong
-        ubdCallback(-1);
-    }
-}
-
-GetObjectBlkResponseHandler::~GetObjectBlkResponseHandler() {
 }
 //================================================================================
 

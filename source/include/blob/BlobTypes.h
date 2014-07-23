@@ -6,6 +6,7 @@
 
 #include <fds_types.h>
 #include <string>
+#include <list>
 #include <unordered_map>
 
 namespace fds {
@@ -92,6 +93,25 @@ class BlobTxId {
 static const BlobTxId blobTxIdInvalid(BlobTxId::txIdInvalid);
 
 std::ostream& operator<<(std::ostream& out, const BlobTxId& txId);
+
+/**
+ * List structure containing const blob transaction ID ptrs
+ */
+class BlobTxList : public std::list<BlobTxId::const_ptr> {
+  public:
+    typedef boost::shared_ptr<BlobTxList> ptr;
+    typedef boost::shared_ptr<const BlobTxList> const_ptr;
+};
+
 }  // namespace fds
+
+namespace std {
+template<>
+struct hash<fds::BlobTxId> {
+    std::size_t operator()(const fds::BlobTxId & key) const {
+        return std::hash<fds_uint64_t>()(key.getValue());
+    }
+};
+} /* namespace std */
 
 #endif  // SOURCE_INCLUDE_BLOB_BLOBTYPES_H_

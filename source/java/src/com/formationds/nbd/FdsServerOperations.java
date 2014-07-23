@@ -4,6 +4,7 @@ package com.formationds.nbd;/*
 
 import com.formationds.apis.*;
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 import org.apache.log4j.Logger;
 import org.apache.thrift.TException;
 
@@ -64,11 +65,20 @@ public class FdsServerOperations implements NbdServerOperations {
         // FIXME: better exception path?
         try {
              List<VolumeDescriptor> volumes = config.listVolumes(FDS);
-            return volumes.stream().anyMatch(vd -> vd.getName().equals(exportName));
-        } catch(TException exception) {
+            boolean volumeExists = volumes.stream().anyMatch(vd -> vd.getName().equals(exportName));
+            if(!volumeExists)
+                return false;
+
+            boolean blobExists = am.volumeContents(FDS, exportName, 1, 0).stream().anyMatch(bd -> bd.getName().equals(BLOCK_DEV_NAME));
+            // do an initial write to create the blob in FDS
+            if(!blobExists) {
+                ByteBuf buf = Unpooled.buffer(4096);
+                write(exportName, buf, 0, 4096).join();
+            }
+            return true;
+        } catch(Exception exception) {
             return false;
         }
-
     }
 
     @Override
@@ -124,9 +134,11 @@ public class FdsServerOperations implements NbdServerOperations {
         getExecutor().execute(() -> {
             int objectSize = getMaxObjectSize(exportName);
 
+            TxDescriptor txId = null;
             try {
                 int am_bytes_written = 0;
 
+                txId = am.startBlobTx(FDS, exportName, BLOCK_DEV_NAME, 0);
                 while (am_bytes_written < len) {
                     long cur = offset + am_bytes_written;
                     long o_off = cur / objectSize;
@@ -134,23 +146,26 @@ public class FdsServerOperations implements NbdServerOperations {
                     int i_len = Math.min(len - am_bytes_written, objectSize - i_off);
                     ObjectOffset objectOffset = new ObjectOffset(o_off);
 
-                    //TxDescriptor txId = am.startBlobTx(FDS, exportName, exportName);
-
                     ByteBuffer readBuf = null;
                     if (i_off != 0 || i_len != objectSize)
                         readBuf = guardedRead(exportName, objectSize, objectOffset);
                     else
                         readBuf = ByteBuffer.allocate(objectSize);
                     System.arraycopy(source.array(), am_bytes_written, readBuf.array(), i_off, i_len);
-                    //am.updateBlob(FDS, exportName, BLOCK_DEV_NAME, txId, readBuf, objectSize, objectOffset, false);
-                    am.updateBlob(FDS, exportName, BLOCK_DEV_NAME + Long.toString(o_off), new TxDescriptor(0), readBuf, objectSize, new ObjectOffset(0), false);
+                    am.updateBlob(FDS, exportName, BLOCK_DEV_NAME, txId, readBuf, objectSize, objectOffset, false);
                     am_bytes_written += i_len;
-
-                    //am.commitBlobTx(txId);
                 }
+                am.commitBlobTx(FDS, exportName, BLOCK_DEV_NAME, txId);
                 result.complete(null);
             } catch (TException e) {
                 LOG.error("error writing bytes", e);
+                if(txId != null) {
+                    try {
+                        am.abortBlobTx(FDS, exportName, BLOCK_DEV_NAME, txId);
+                    } catch (TException ex) {
+                        // do nothing for now
+                    }
+                }
                 result.completeExceptionally(e);
             }
         });
@@ -159,8 +174,7 @@ public class FdsServerOperations implements NbdServerOperations {
 
     private ByteBuffer guardedRead(String exportName, int objectSize, ObjectOffset objectOffset) throws TException {
         try {
-            //return am.getBlob(FDS, exportName, BLOCK_DEV_NAME, objectSize, objectOffset);
-            return am.getBlob(FDS, exportName, BLOCK_DEV_NAME + Long.toString(objectOffset.getValue()), objectSize, new ObjectOffset(0));
+            return am.getBlob(FDS, exportName, BLOCK_DEV_NAME, objectSize, objectOffset);
         } catch(ApiException e) {
             if(e.getErrorCode() == ErrorCode.MISSING_RESOURCE)
                 return ByteBuffer.allocate(objectSize);

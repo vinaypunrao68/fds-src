@@ -139,7 +139,8 @@ class AmProbe : public ProbeMod {
     // Workload related methods
     void incResp();
     static void doAsyncStartTx(const std::string &volumeName,
-                               const std::string &blobName);
+                               const std::string &blobName,
+                               const fds_int32_t blobMode);
     static void doAsyncUpdateBlob(const std::string &volumeName,
                                   const std::string &blobName,
                                   fds_uint64_t blobOffset,

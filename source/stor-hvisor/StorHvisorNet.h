@@ -34,7 +34,7 @@
 #include <fdsp/FDSP_ControlPathReq.h>
 #include <fdsp/FDSP_ControlPathResp.h>
 #include <fdsp/FDSP_ConfigPathReq.h>
-#include <net/RpcRequest.h>
+#include <net/SvcRequest.h>
 
 
 #include "NetSession.h"
@@ -209,7 +209,7 @@ public:
         NORMAL,        /* Normal, non-test mode */
         MAX
     } sh_comm_modes;
-  
+
     StorHvCtrl(int argc, char *argv[], SysParams *params);
     StorHvCtrl(int argc, char *argv[], SysParams *params,
                sh_comm_modes _mode);
@@ -223,10 +223,10 @@ public:
     hv_create_blkdev cr_blkdev;
     hv_delete_blkdev del_blkdev;
     void initHandlers();
-    GetVolumeMetaDataHandler *handlerGetVolumeMetaData;
+    std::map<fds_io_op_t, fds::Handler*> handlers;
     //imcremental checksum  for header and payload 
     checksum_calc   *chksumPtr;
-  
+
     // Data Members
     StorHvDataPlacement        *dataPlacementTbl;
     boost::shared_ptr<netSessionTbl> rpcSessionTbl; // RPC calls Switch Table
@@ -247,14 +247,10 @@ public:
     void initVolInfo(FDSP_VolumeInfoTypePtr vol_info,
                      const std::string& bucket_name);
 
-    Error startBlobTx(AmQosReq *qosReq);
     void attachVolume(AmQosReq *qosReq);
     fds::Error pushBlobReq(FdsBlobReq *blobReq);
     fds::Error putBlob(AmQosReq *qosReq);
-    fds::Error getBlob(AmQosReq *qosReq);
     fds::Error deleteBlob(AmQosReq *qosReq);
-    Error StatBlob(AmQosReq *qosReq);
-    Error SetBlobMetaData(AmQosReq *qosReq);
 
     // Stuff for pending offset operations
     // TODO(Andrew): Reconcile with dispatchSm...
@@ -278,8 +274,6 @@ public:
     void startBlobTxResp(const FDSP_MsgHdrTypePtr rxMsg);
     fds::Error deleteCatResp(const FDSP_MsgHdrTypePtr& rxMsg,
                              const FDSP_DeleteCatalogTypePtr& delCatRsp);
-    fds::Error getObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
-                          const FDSP_GetObjTypePtr& getObjRsp);
     fds::Error deleteObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
                              const FDSP_DeleteObjTypePtr& cat_obj_req);
     fds::Error getBucketResp(const FDSP_MsgHdrTypePtr& rxMsg,
@@ -289,8 +283,6 @@ public:
                                        const FDSP_BucketStatsRespTypePtr& buck_stats);
     void getBucketStatsResp(const FDSP_MsgHdrTypePtr& rx_msg,
                             const FDSP_BucketStatsRespTypePtr& buck_stats);
-
-    void handleSetBlobMetaDataResp(const FDSP_MsgHdrTypePtr rxMsg);
 
     void InitDmMsgHdr(const FDSP_MsgHdrTypePtr &msg_hdr);
     void InitSmMsgHdr(const FDSP_MsgHdrTypePtr &msg_hdr);
@@ -347,6 +339,35 @@ public:
         ~TxnRequestHelper();
     };
 
+    struct ResponseHelper {
+        StorHvCtrl* storHvisor = NULL;
+        fds_volid_t  volId = 0;
+        StorHvVolumeLock *vol_lock = NULL;
+        StorHvVolume* vol = NULL;
+        fds::FdsBlobReq* blobReq = NULL;
+        AmQosReq *qosReq;
+        ResponseHelper(StorHvCtrl* storHvisor, AmQosReq *qosReq);
+        void setStatus(FDSN_Status  status);
+        ~ResponseHelper();
+    };
+
+    struct RequestHelper {
+        StorHvCtrl* storHvisor = NULL;
+        fds_volid_t  volId = 0;
+        FDSN_Status  status = FDSN_StatusNOTSET;
+        StorHvVolume *shVol = NULL;
+        StorHvVolume* vol = NULL;
+        AmQosReq *qosReq;
+        fds::FdsBlobReq* blobReq = NULL;
+
+        RequestHelper(StorHvCtrl* storHvisor, AmQosReq *qosReq);
+
+        bool isValidVolume();
+        bool hasError();
+        void setStatus(FDSN_Status  status);
+        ~RequestHelper();
+    };
+
     struct BlobRequestHelper {
         StorHvCtrl* storHvisor = NULL;
         fds_volid_t volId = invalid_vol_id;
@@ -358,51 +379,92 @@ public:
         fds::Error processRequest();
     };
 
-    fds::Error getBlob2(fds::AmQosReq *qosReq);
+    fds::Error getBlobSvc(fds::AmQosReq *qosReq);
+    fds::Error putBlobSvc(fds::AmQosReq *qosReq);
+    fds::Error startBlobTxSvc(AmQosReq *qosReq);
+    fds::Error commitBlobTxSvc(AmQosReq *qosReq);
+    fds::Error abortBlobTxSvc(AmQosReq *qosReq);
+    fds::Error deleteBlobSvc(fds::AmQosReq *qosReq);
+    fds::Error setBlobMetaDataSvc(fds::AmQosReq *qosReq);
 
+    void issueSetBlobMetaData(const fds_volid_t& vol_id,
+                              const std::string& blob_name,
+                              const blob_version_t& blob_version,
+                              const boost::shared_ptr<FDSP_MetaDataList>& md_list,
+                              const fds_uint64_t& txId,
+                              QuorumSvcRequestRespCb respCb);
+    void issueDeleteCatalogObject(const fds_uint64_t& vol_id,
+                                  const std::string& blob_name,
+                                  QuorumSvcRequestRespCb respCb);
     void issueQueryCatalog(const std::string& blobName,
                            const fds_uint64_t& blobOffset,
                            const fds_volid_t& volId,
-                           FailoverRpcRespCb respCb);
-
+                           FailoverSvcRequestRespCb respCb);
     void issueGetObject(const fds_volid_t& volId, const ObjectID& objId,
-                        FailoverRpcRespCb respCb);
-
-    void getBlobQueryCatalogResp(fds::AmQosReq* qosReq,
-                                 FailoverRpcRequest* rpcReq,
-                                 const Error& error,
-                                 boost::shared_ptr<std::string> payload);
-
-    void getBlobGetObjectResp(fds::AmQosReq* qosReq,
-                              FailoverRpcRequest* rpcReq,
-                              const Error& error,
-                              boost::shared_ptr<std::string> payload);
-
-    fds::Error updateCatalogCache(GetBlobReq *blobReq,
-                                  FDS_ProtocolInterface::FDSP_BlobObjectList& blobOffList);
-
-    fds::Error putBlob2(fds::AmQosReq *qosReq);
+                        FailoverSvcRequestRespCb respCb);
+    void issueStartBlobTxMsg(const std::string& blobName,
+                             const fds_volid_t& volId,
+                             const fds_int32_t blobMode,
+                             const fds_uint64_t& txId,
+                             QuorumSvcRequestRespCb respCb);
+    void issueCommitBlobTxMsg(CommitBlobTxReq *blobReq,
+                             QuorumSvcRequestRespCb respCb);
+    void issueAbortBlobTxMsg(const std::string& blobName,
+                             const fds_volid_t& volId,
+                             const fds_uint64_t& txId,
+                             QuorumSvcRequestRespCb respCb);
     void issuePutObjectMsg(const ObjectID &objId,
                            const char* dataBuf,
                            const fds_uint64_t &len,
                            const fds_volid_t& volId,
-                           QuorumRpcRespCb respCb);
+                           QuorumSvcRequestRespCb respCb);
     void issueUpdateCatalogMsg(const ObjectID &objId,
                                const std::string& blobName,
                                const fds_uint64_t& blobOffset,
                                const fds_uint64_t &len,
                                const bool &lastBuf,
                                const fds_volid_t& volId,
-                               QuorumRpcRespCb respCb);
-    void putBlobUpdateCatalogMsgResp(fds::AmQosReq* qosReq,
-                                     QuorumRpcRequest* rpcReq,
-                                     const Error& error,
-                                     boost::shared_ptr<std::string> payload);
-
-    void putBlobPutObjectMsgResp(fds::AmQosReq* qosReq,
-                                 QuorumRpcRequest* rpcReq,
+                               const fds_uint64_t& txId,
+                               QuorumSvcRequestRespCb respCb);
+    void getBlobQueryCatalogResp(fds::AmQosReq* qosReq,
+                                 FailoverSvcRequest* svcReq,
                                  const Error& error,
                                  boost::shared_ptr<std::string> payload);
+    void getBlobGetObjectResp(fds::AmQosReq* qosReq,
+                              FailoverSvcRequest* svcReq,
+                              const Error& error,
+                              boost::shared_ptr<std::string> payload);
+    void startBlobTxMsgResp(fds::AmQosReq* qosReq,
+                            QuorumSvcRequest* svcReq,
+                            const Error& error,
+                            boost::shared_ptr<std::string> payload);
+    void commitBlobTxMsgResp(fds::AmQosReq* qosReq,
+                            QuorumSvcRequest* svcReq,
+                            const Error& error,
+                            boost::shared_ptr<std::string> payload);
+    void abortBlobTxMsgResp(fds::AmQosReq* qosReq,
+                            QuorumSvcRequest* svcReq,
+                            const Error& error,
+                            boost::shared_ptr<std::string> payload);
+    void putBlobUpdateCatalogMsgResp(fds::AmQosReq* qosReq,
+                                     QuorumSvcRequest* svcReq,
+                                     const Error& error,
+                                     boost::shared_ptr<std::string> payload);
+    void putBlobPutObjectMsgResp(fds::AmQosReq* qosReq,
+                                 QuorumSvcRequest* svcReq,
+                                 const Error& error,
+                                 boost::shared_ptr<std::string> payload);
+    void deleteObjectMsgResp(fds::AmQosReq* qosReq,
+                             QuorumSvcRequest* svcReq,
+                             const Error& error,
+                             boost::shared_ptr<std::string> payload);
+    void setBlobMetaDataMsgResp(fds::AmQosReq* qosReq,
+                                QuorumSvcRequest* svcReq,
+                                const Error& error,
+                                boost::shared_ptr<std::string> payload);
+
+    fds::Error updateCatalogCache(GetBlobReq *blobReq,
+                                  FDS_ProtocolInterface::FDSP_BlobObjectList& blobOffList);
     inline AMCounters& getCounters()
     {
         return counters_;
@@ -434,7 +496,15 @@ static void processBlobReq(AmQosReq *qosReq) {
     fds::Error err(ERR_OK);
     switch (qosReq->io_type) {
         case fds::FDS_START_BLOB_TX:
-            err = storHvisor->startBlobTx(qosReq);
+            err = storHvisor->startBlobTxSvc(qosReq);
+            break;
+
+        case fds::FDS_COMMIT_BLOB_TX:
+            err = storHvisor->commitBlobTxSvc(qosReq);
+            break;
+
+        case fds::FDS_ABORT_BLOB_TX:
+            err = storHvisor->abortBlobTxSvc(qosReq);
             break;
 
         case fds::FDS_ATTACH_VOL:
@@ -443,7 +513,7 @@ static void processBlobReq(AmQosReq *qosReq) {
 
         case fds::FDS_IO_READ:
         case fds::FDS_GET_BLOB:
-            err = storHvisor->getBlob(qosReq);
+            err = storHvisor->getBlobSvc(qosReq);
             break;
 
         case fds::FDS_IO_WRITE:
@@ -451,28 +521,20 @@ static void processBlobReq(AmQosReq *qosReq) {
             err = storHvisor->putBlob(qosReq);
             break;
 
-        case fds::FDS_DELETE_BLOB:
-            err = storHvisor->deleteBlob(qosReq);
-            break;
-
-        case fds::FDS_STAT_BLOB:
-            err = storHvisor->StatBlob(qosReq);
-            break;
-
-        case fds::FDS_LIST_BUCKET:
-            err = storHvisor->listBucket(qosReq);
-            break;
-
         case fds::FDS_BUCKET_STATS:
             err = storHvisor->getBucketStats(qosReq);
             break;
 
         case fds::FDS_SET_BLOB_METADATA:
-            err = storHvisor->SetBlobMetaData(qosReq);
+            err = storHvisor->setBlobMetaDataSvc(qosReq);
             break;
 
+        // new handlers
+        case fds::FDS_DELETE_BLOB:
+        case fds::FDS_LIST_BUCKET:
+        case fds::FDS_STAT_BLOB:
         case fds::FDS_GET_VOLUME_METADATA:
-            err = storHvisor->handlerGetVolumeMetaData->handleQueueItem(qosReq);
+            err = storHvisor->handlers.at(qosReq->io_type)->handleQueueItem(qosReq);
             break;
 
         default :

@@ -36,17 +36,12 @@
 * @return 
 */
 #define INVOKE_RPC_INTERNAL(ServiceT, func, hdr, ...) \
-    EpSvcHandle::pointer ep; \
-    net::svc_get_handle<ServiceT>(hdr.msg_dst_uuid, &ep, 0 , 0); \
-    if (ep == nullptr) { \
-        throw std::runtime_error("Null endpoint"); \
-    } \
-    auto client = ep->svc_rpc<ServiceT>(); \
-    if (!client) { \
+    auto ep = NetMgr::ep_mgr_singleton()->svc_get_handle<ServiceT>(hdr.msg_dst_uuid, 0 , 0); \
+    if (!ep) { \
         throw std::runtime_error("Null client"); \
     } \
     fds_verify(hdr.msg_type_id != fpi::UnknownMsgTypeId); \
-    client->func(hdr, __VA_ARGS__)
+    ep->svc_rpc<ServiceT>()->func(hdr, __VA_ARGS__)
 
 /**
 * @brief Wrapper macro for creating service layer rpc function
@@ -71,6 +66,7 @@
     [this] (const fpi::AsyncHdr &hdr) mutable { \
         const_cast<fpi::AsyncHdr&>(hdr).msg_type_id = msgTypeId_; \
         INVOKE_RPC_INTERNAL(fpi::BaseAsyncSvcClient, asyncReqt, hdr, *payloadBuf_); \
+        GLOGDEBUG << fds::logString(hdr) << " sent payload size: " << payloadBuf_->size(); \
     }
 
 namespace fds {

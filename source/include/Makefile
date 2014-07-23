@@ -14,7 +14,8 @@ user_build_dir := \
     persistent_layer \
     shared \
     orch-mgr \
-    util
+    util \
+    cache
 
 user_hh        := $(wildcard *.h)
 user_hpp       := $(wildcard *.h)

@@ -9,9 +9,6 @@ import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.StaticFileHandler;
 import com.formationds.web.toolkit.StreamResource;
 import com.formationds.xdi.Xdi;
-import com.google.common.collect.LinkedListMultimap;
-import com.google.common.collect.Multimap;
-import org.apache.commons.codec.binary.Hex;
 import org.eclipse.jetty.server.Request;
 import org.joda.time.DateTime;
 
@@ -44,7 +41,7 @@ public class GetObject implements RequestHandler {
 
         InputStream objStream = null;
         if(ranges.size() == 0) {
-            objStream = xdi.readStream(domain, volume, object);
+            objStream = xdi.readStream(domain, volume, object, 0, stat.getByteCount());
         } else if(ranges.size() == 1) {
             objStream = readStreamForRange(xdi, domain, volume, object, ranges.get(0), stat.byteCount);
         } else {

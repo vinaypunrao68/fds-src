@@ -42,52 +42,30 @@ void fn_StartBlobTxHandler(FDSN_Status status,
     handler->ready();
 }
 
-FDSN_Status fn_GetObjectHandler(BucketContextPtr bucket_ctx,
-                                void *reqContext,
-                                fds_uint64_t bufferSize,
-                                fds_off_t offset,
-                                const char *buffer,
-                                void *callbackData,
-                                FDSN_Status status,
-                                ErrorDetails *errorDetails) {
-    GetObjectResponseHandler* handler= reinterpret_cast<GetObjectResponseHandler*>(callbackData); //NOLINT
+void fn_CommitBlobTxHandler(FDSN_Status status,
+                           const ErrorDetails *errorDetails,
+                           BlobTxId blobTxId,
+                           void *callbackData) {
+    CommitBlobTxResponseHandler* handler =
+            reinterpret_cast<CommitBlobTxResponseHandler*>(callbackData); //NOLINT
     handler->status = status;
     handler->errorDetails = errorDetails;
-
-    handler->bucket_ctx = bucket_ctx;
-    handler->reqContext = reqContext;
-    handler->bufferSize = bufferSize;
-    handler->offset = offset;
-    handler->buffer = buffer;
+    handler->blobTxId = blobTxId;
 
     handler->ready();
-    return ERR_OK;
 }
 
-FDSN_Status
-fn_GetObjectBlkHandler(BucketContextPtr bucket_ctx,
-                       void *reqContext,
-                       fds_uint64_t bufferSize,
-                       fds_off_t offset,
-                       const char *buffer,
-                       void *callbackData,
-                       FDSN_Status status,
-                       ErrorDetails *errorDetails) {
-    GetObjectBlkResponseHandler* handler =
-            reinterpret_cast<GetObjectBlkResponseHandler*>(callbackData); //NOLINT
+void fn_AbortBlobTxHandler(FDSN_Status status,
+                           const ErrorDetails *errorDetails,
+                           BlobTxId blobTxId,
+                           void *callbackData) {
+    AbortBlobTxResponseHandler* handler =
+            reinterpret_cast<AbortBlobTxResponseHandler*>(callbackData); //NOLINT
     handler->status = status;
     handler->errorDetails = errorDetails;
+    handler->blobTxId = blobTxId;
 
-    handler->bucket_ctx = bucket_ctx;
-    handler->reqContext = reqContext;
-    handler->bufferSize = bufferSize;
-    handler->offset = offset;
-    handler->buffer = buffer;
-
-    handler->call();
-
-    delete handler;
-    return status;
+    handler->ready();
 }
 
 void fn_ListBucketHandler(int isTruncated,
@@ -141,24 +119,6 @@ int fn_PutObjectHandler(void *reqContext,
     handler->errorDetails = errorDetails;
 
     handler->ready();
-    return 0;
-}
-
-int fn_PutObjectBlkHandler(void *reqContext,
-                           fds_uint64_t bufferSize,
-                           fds_off_t offset,
-                           char *buffer,
-                           void *callbackData,
-                           FDSN_Status status,
-                           ErrorDetails* errorDetails) {
-    PutObjectBlkResponseHandler* handler =
-            reinterpret_cast<PutObjectBlkResponseHandler*>(callbackData); //NOLINT
-    handler->status = status;
-    handler->errorDetails = errorDetails;
-
-    handler->call();
-
-    delete handler;
     return 0;
 }
 

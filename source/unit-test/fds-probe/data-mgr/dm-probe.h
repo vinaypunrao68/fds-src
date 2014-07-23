@@ -25,7 +25,7 @@ extern std::unordered_map<ObjectID, std::string, ObjectHash> writtenObjs;
 extern fds_mutex objMapLock;
 
 /**
- * SM probe that acts as an SM client.
+ * DM probe that acts as an SM client.
  * Provides implementation of JSON interface to
  * SM requests.
  */
@@ -41,8 +41,7 @@ class Dm_ProbeMod : public ProbeMod
               numVols(1),
               numObjs(10),
               randData(false),
-              verify(true),
-              transId(0) {
+              verify(true) {
     }
     virtual ~Dm_ProbeMod() {
     }
@@ -60,28 +59,32 @@ class Dm_ProbeMod : public ProbeMod
         std::string    op;
         fds_volid_t    volId;
         std::string    blobName;
-        fds_uint64_t   blobOffset;
+        fds_uint64_t   blobSize;
         blob_version_t blobVersion;
-        ObjectID       objectId;  // TODO(Andrew): Make a list
-        fds_uint32_t   objectLen;  // Also make a list
+        fds_uint64_t   txId;
+        MetaDataList   meta_list;
+        BlobObjList::ptr   obj_list;
+        OpParams()
+                : obj_list(new BlobObjList()) {
+        }
+        fds_int32_t        blobMode;
     };
     void sendUpdate(const OpParams &updateParams);
     void sendQuery(const OpParams &queryParams);
     void sendDelete(const OpParams &deleteParams);
+    void sendStartTx(const OpParams &deleteParams);
+    void sendCommitTx(const OpParams &deleteParams);
+    void sendAbortTx(const OpParams &deleteParams);
 
     int  mod_init(SysParams const *const param);
     void mod_startup();
     void mod_shutdown();
 
   private:
-    void InitDmMsgHdr(const fdspi::FDSP_MsgHdrTypePtr& msg_hdr);
-
     std::string smIp; /**< Remote SM's IP */
     std::string myIp; /**< This client's IP */
     std::string myName;  /**< This client's name */
     fds_uint32_t numChannels;  /**< Number of channels per session*/
-    std::string sessionId;  /**< UUID for client's session */
-    fds_uint32_t transId;
 
     fds_uint32_t numVols;   /**< Number of objects to use */
     fds_uint32_t numObjs;   /**< Number of objects to use */
@@ -117,24 +120,57 @@ class UT_DmOpTemplate : public JsObjTemplate
         Dm_ProbeMod::OpParams *p = new Dm_ProbeMod::OpParams();
         char *op;
         char *name;
-        if (json_unpack(in, "{s:s, s:i, s:s, s:i}",
+        if (json_unpack(in, "{s:s, s:i, s:s, s:i, s:i, s:b}",
                         "blob-op", &op,
                         "volume-id", &p->volId,
                         "blob-name", &name,
-                        "blob-off", &p->blobOffset)) {
+                        "blob-ver", &p->blobVersion,
+                        "blob-txId", &p->txId,
+                        "blob-end", &p->blobMode)) {
             delete p;
             return NULL;
         }
         p->op = op;
         p->blobName = name;
 
-        char *objectId;
-        json_unpack(in, "{s:s}", "object-id", &objectId);
-        p->objectId = objectId;
+         (p->meta_list).clear();
+        json_t *meta;
+        if (!json_unpack(in, "{s:o}",
+                        "metadata", &meta)) {
+            for (fds_uint32_t i = 0; i < json_array_size(meta); ++i) {
+                std::string meta_pair = json_string_value(json_array_get(meta, i));
+                std::size_t k = meta_pair.find_first_of("-");
+                fds_verify(k != std::string::npos);  // must separate key-value with "-"
+                std::string meta_key = meta_pair.substr(0, k);
+                std::string meta_val = meta_pair.substr(k+1);
+                (p->meta_list).updateMetaDataPair(meta_key, meta_val);
+            }
+        }
 
-        json_unpack(in, "{s:i}", "object-len", &p->objectLen);
-
-        json_unpack(in, "{s:i}", "blob-version", &p->blobVersion);
+       // read object list
+        (p->obj_list)->clear();
+        p->blobSize = 0;
+        json_t* objlist;
+        ObjectID oid;
+        if (!json_unpack(in, "{s:o}",
+                        "objects", &objlist)) {
+            for (fds_uint32_t i = 0; i < json_array_size(objlist); ++i) {
+                std::string offset_obj = json_string_value(json_array_get(objlist, i));
+                std::size_t k = offset_obj.find_first_of("-");
+                fds_verify(k != std::string::npos);  // must separate key-value with "-"
+                std::string offset_str = offset_obj.substr(0, k);
+                std::string objinfo_str = offset_obj.substr(k+1);
+                k = objinfo_str.find_first_of("-");
+                fds_verify(k != std::string::npos);  // must separate key-value with "-"
+                std::string oid_hexstr = objinfo_str.substr(0, k);
+                std::string size_str = objinfo_str.substr(k+1);
+                fds_uint64_t offset = stoull(offset_str);
+                fds_uint64_t size = stoull(size_str);
+                oid = oid_hexstr;
+                (p->obj_list)->updateObject(offset, oid, size);
+                p->blobSize += size;
+            }
+        }
 
         return js_parse(new UT_ObjectOp(), in, p);
     }

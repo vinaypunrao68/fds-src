@@ -33,12 +33,18 @@
 #define PERF_TRACEPOINT_BEGIN_CTX(ctx) fds::PerfTracer::tracePointBegin(ctx)
 #define PERF_TRACEPOINT_END(idOrCtx) fds::PerfTracer::tracePointEnd(idOrCtx)
 
+#define SCOPED_PERF_TRACEPOINT_DEBUG(id, type, name) fds::ScopedTracePoint stp_(id, type, name)
+#define SCOPED_PERF_TRACEPOINT_CTX_DEBUG(ctx) fds::ScopedTracePointCtx stpctx_(ctx)
+
 #else
 
 #define PERF_TRACEPOINT_INCR(type, name)
 #define PERF_TRACEPOINT_BEGIN(id, type, name)
 #define PERF_TRACEPOINT_BEGIN_CTX(ctx)
 #define PERF_TRACEPOINT_END(idOrCtx)
+
+#define SCOPED_PERF_TRACEPOINT_DEBUG(id, type, name)
+#define SCOPED_PERF_TRACEPOINT_CTX_DEBUG(ctx)
 
 #endif /* DEBUG */
 
@@ -90,6 +96,7 @@ typedef enum {
     GET_OBJ_LKUP_LOC_INDX,
     GET_OBJ_PL_READ_DISK,
 
+    COMMIT_LOG_WRITE,
     GET_METADATA_READ,
     GET_DISK_READ,
     PUT_METADATA_WRITE,

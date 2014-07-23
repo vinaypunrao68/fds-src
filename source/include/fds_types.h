@@ -199,10 +199,11 @@ typedef enum {
     FDS_IO_REDIR_READ,
     FDS_IO_OFFSET_WRITE,
     FDS_CAT_UPD,
-    FDS_CAT_UPD2,
+    FDS_CAT_UPD_SVC,
     FDS_CAT_QRY,
-    FDS_CAT_QRY2,
+    FDS_CAT_QRY_SVC,
     FDS_START_BLOB_TX,
+    FDS_START_BLOB_TX_SVC,
     FDS_ABORT_BLOB_TX,
     FDS_COMMIT_BLOB_TX,
     FDS_ATTACH_VOL,
@@ -214,6 +215,7 @@ typedef enum {
     FDS_SET_BLOB_METADATA,
     FDS_GET_VOLUME_METADATA,
     FDS_DELETE_BLOB,
+    FDS_DELETE_BLOB_SVC,
     FDS_LIST_BUCKET,
     FDS_BUCKET_STATS,
     FDS_SM_GET_OBJECT,
@@ -284,6 +286,15 @@ class FDS_IOType {
 
     PerfContext opQoSWaitCtx;
 };
+
+namespace blob {
+
+typedef enum {
+    TRUNCATE = 1
+} fds_blob_mode_t;
+
+}  // namespace blob
+
 }  // namespace fds
 
 namespace std {

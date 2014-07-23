@@ -18,7 +18,7 @@ user_fds_so_libs  :=
 user_fds_ar_libs  :=                   \
     fds-smlib \
     fds-migrations \
-    fds-rpc-request \
+    fds-svc-request \
     fds-net-svc \
     fds-am-engine \
     fds-odb \

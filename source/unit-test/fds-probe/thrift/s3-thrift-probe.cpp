@@ -9,8 +9,8 @@
 #include <fds_assert.h>
 #include <fds_typedefs.h>
 #include <endpoint-test.h>
-#include <net/RpcRequestPool.h>
-#include <ProbeServiceSM.h>
+#include <net/SvcRequestPool.h>
+#include <fdsp/fds_service_types.h>
 #include <util/Log.h>
 
 using namespace ::fpi;                 // NOLINT
@@ -56,9 +56,17 @@ Thrift_ProbeMod::pr_intercept_request(ProbeRequest *req)
 void
 Thrift_ProbeMod::pr_put(ProbeRequest *req)
 {
-    ProbeIORequest *io;
+    ProbeIORequest    *io;
+    fpi::SvcUuid       peer;
+    boost::shared_ptr<fpi::PutObjectMsg>  put;
 
-    io = static_cast<ProbeIORequest *>(req);
+    io  = static_cast<ProbeIORequest *>(req);
+    peer.svc_uuid = 0xabcdef;
+    auto rpc = gSvcRequestPool->newEPSvcRequest(peer);
+
+    put.reset(new fpi::PutObjectMsg());
+    rpc->setPayload(FDSP_MSG_TYPEID(fpi::PutObjectMsg), put);
+    rpc->invoke();
 }
 
 // pr_get
@@ -67,9 +75,17 @@ Thrift_ProbeMod::pr_put(ProbeRequest *req)
 void
 Thrift_ProbeMod::pr_get(ProbeRequest *req)
 {
-    ProbeIORequest  *io;
+    ProbeIORequest    *io;
+    fpi::SvcUuid       peer;
+    boost::shared_ptr<fpi::GetObjectMsg>  get;
 
     io = static_cast<ProbeIORequest *>(req);
+    peer.svc_uuid = 0xabcdef;
+    auto rpc = gSvcRequestPool->newEPSvcRequest(peer);
+
+    get.reset(new fpi::GetObjectMsg());
+    rpc->setPayload(FDSP_MSG_TYPEID(fpi::GetObjectMsg), get);
+    rpc->invoke();
 }
 
 // pr_delete
@@ -153,9 +169,16 @@ ProbeAmFoo::js_exec_obj(JsObject *parent, JsObjTemplate *tmpl, JsObjOutput *out)
 JsObject *
 ProbeAmGetReqt::js_exec_obj(JsObject *parent, JsObjTemplate *tmpl, JsObjOutput *out)
 {
-    am_getmsg_reqt_t*p = am_getmsg_reqt();
+    fpi::SvcUuid      peer;
+    am_getmsg_reqt_t *p = am_getmsg_reqt();
+    boost::shared_ptr<fpi::GetObjectMsg>  get;
 
-    std::cout << "In GetReqt func " << p->am_func << std::endl;
+    peer.svc_uuid = 0xabcdef;
+    auto rpc = gSvcRequestPool->newEPSvcRequest(peer);
+
+    get.reset(new fpi::GetObjectMsg());
+    rpc->setPayload(FDSP_MSG_TYPEID(fpi::GetObjectMsg), get);
+    rpc->invoke();
     return this;
 }
 
@@ -164,16 +187,29 @@ ProbeAmBar::js_exec_obj(JsObject *parent, JsObjTemplate *tmpl, JsObjOutput *out)
 {
     am_bar_arg_t *p = am_probe_bar();
 
-    std::cout << "In Bar func " << p->am_func << std::endl;
     return this;
 }
 
 JsObject *
 ProbeAmPutMsg::js_exec_obj(JsObject *parent, JsObjTemplate *tmpl, JsObjOutput *out)
 {
-    am_putmsg_arg_t *p = am_probe_putmsg();
+    fpi::SvcUuid      peer;
+    am_putmsg_arg_t  *p = am_probe_putmsg();
+    boost::shared_ptr<fpi::PutObjectMsg>  put;
 
-    std::cout << "In PutMsg func " << p->am_func << std::endl;
+    peer.svc_uuid = 0xabcdef;
+    auto rpc = gSvcRequestPool->newEPSvcRequest(peer);
+
+    put.reset(new fpi::PutObjectMsg());
+    put->data_obj.reserve(p->msg_len);
+    put->data_obj.resize(p->msg_len);
+    put->origin_timestamp = 0xdeaddeadbeefbeef;
+    put->data_obj_len     = p->msg_len;
+    put->volume_id        = 0xcafeefac;
+
+    rpc->setPayload(FDSP_MSG_TYPEID(fpi::PutObjectMsg), put);
+    rpc->invoke();
+
     return this;
 }
 

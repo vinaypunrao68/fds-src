@@ -59,7 +59,7 @@ public class SmokeTest {
         List<VolumeDescriptor> volumeDescriptors = config.listVolumes(DOMAIN_NAME);
         System.out.println("Found " + volumeDescriptors.size() + " volumes");
 
-        TxDescriptor txDesc = am.startBlobTx(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME);
+        TxDescriptor txDesc = am.startBlobTx(DOMAIN_NAME, VOLUME_NAME, BLOB_NAME, 0);
         System.out.println("Started transaction " + txDesc.txId);
 
         int length = volumePolicy.getMaxObjectSizeInBytes();

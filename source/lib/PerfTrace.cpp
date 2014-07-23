@@ -132,6 +132,7 @@ const char * eventTypeToStr[] = {
         "get_obj_lkup_loc_indx",
         "get_obj_pl_read_disk",
 
+        "commit_log_write",
         "get_metadata_read",
         "get_disk_read",
         "put_metadata_write",

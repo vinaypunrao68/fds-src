@@ -12,7 +12,7 @@ import com.formationds.nbd.NbdHost;
 import com.formationds.nbd.NbdServerOperations;
 import com.formationds.security.Authenticator;
 import com.formationds.security.JaasAuthenticator;
-import com.formationds.spike.nbd.*;
+import com.formationds.nbd.*;
 import com.formationds.util.Configuration;
 import com.formationds.util.libconfig.ParsedConfig;
 import com.formationds.xdi.CachingConfigurationService;

@@ -3,83 +3,39 @@
         "dm-workload": {
             "dm-ops": [
                 {
-		    "blob-op":   "update",
-		    "volume-id": 2,
+		    "blob-op":   "start",
+		    "volume-id": 3,
                     "blob-name": "blob-a",
-		    "blob-off":  0,
-                    "object-id": "0x2aae6c35c94fcfb415dbe95f408b9ce91ee846ed",
-		    "object-len": 2097152
+		    "blob-txId": 3
                 },
                 {
-		    "blob-op":   "query",
-		    "volume-id": 2,
-                    "blob-name": "blob-a",
-    		    "blob-off":  0,
-		    "blob-version": 0
-                },
-		{
 		    "blob-op":   "update",
-		    "volume-id": 2,
+		    "volume-id": 3,
                     "blob-name": "blob-a",
+		    "blob-txId": 3,
 		    "blob-off":  0,
-                    "object-id": "0xdeadbeefc94fcfb415dbe95f408b9ce9deadbeef",
-		    "object-len": 2097152
+		    "metadata": [
+                    	       "dddd-time", "aaa-val"
+                    ],
+                    "objects": [
+                               "0-0xdeadbeefc94fcfb415dbe95f408b9ce9deadbeef-4096",
+                               "4096-0xdeadbeefc94fcfb415dbe95f408b9ce9deadaaaa-4096"
+                    ]
                 },
-		{
+                {
 		    "blob-op":   "update",
-		    "volume-id": 2,
+		    "volume-id": 3,
                     "blob-name": "blob-a",
-		    "blob-off":  2097152,
-                    "object-id": "0xbeefdeadc94fcfb415dbe95f408b9ce9beefdead",
-		    "object-len": 3072
-                },
-		{
-		    "blob-op":   "update",
-		    "volume-id": 2,
-                    "blob-name": "blob-a",
-		    "blob-off":  2097152,
-                    "object-id": "0xffffdeadc94fcfb415dbe95f408b9ce9beefffff",
-		    "object-len": 2097152
-                },
-		{
-		    "blob-op":   "update",
-		    "volume-id": 2,
-                    "blob-name": "blob-a",
-		    "blob-off":  4194304,
-                    "object-id": "0xaaaadeadc94fcfb415dbe95f408b9ce9beefaaaa",
-		    "object-len": 2097152
-                },
-		{
-		    "blob-op":   "query",
-		    "volume-id": 2,
-                    "blob-name": "blob-a",
-    		    "blob-off":  0,
-		    "blob-version": 0
-                },
-		{
-		    "blob-op":   "update",
-		    "volume-id": 2,
-                    "blob-name": "blob-a",
-		    "blob-off":  8388608,
-                    "object-id": "0xaaaadeadc94fcfb415dbe95f408b9ce9beefaaaa",
-		    "object-len": 2097152
-                },
-		{
-		    "blob-op":   "delete",
-		    "volume-id": 2,
-                    "blob-name": "blob-a",
+		    "blob-txId": 3,
 		    "blob-off":  0,
-		    "blob-version": 0,
-                    "object-id": "0xaaaadeadc94fcfb415dbe95f408b9ce9beefaaaa",
-		    "object-len": 2097152
+		    "metadata": [
+                    	       "dddd-time", "aaa-val"
+                    ],
+                    "objects": [
+                               "8192-0x1234beefc94fcfb415dbe95f408b9ce9deadbbbb-4096",
+                               "12288-0x1234beefc94fcfb415dbe95f408b9ce9deadcccc-4096"
+                    ]
                 },
-		{
-		    "blob-op":   "query",
-		    "volume-id": 2,
-                    "blob-name": "blob-a",
-    		    "blob-off":  0,
-		    "blob-version":  0
-                }
             ]
         }
     }

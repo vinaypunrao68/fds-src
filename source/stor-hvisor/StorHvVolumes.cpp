@@ -657,22 +657,10 @@ GetBlobReq::GetBlobReq(fds_volid_t _volid,
                        fds_uint64_t _blob_offset,
                        fds_uint64_t _data_len,
                        char* _data_buf,
-                       fds_uint64_t _byte_count, 
-                       BucketContextPtr _bucket_ctxt,
-                       GetConditions* _get_conds,
-                       void* _req_context,
-                       fdsnGetObjectHandler _get_obj_handler,
-                       void* _callback_data)
+                       fds_uint64_t _byte_count,
+                       CallbackPtr cb)
     : FdsBlobReq(FDS_GET_BLOB, _volid, _blob_name, _blob_offset,
-                 _data_len, _data_buf, FDS_NativeAPI::DoCallback, this, Error(ERR_OK), 0),
-    bucket_ctxt(_bucket_ctxt),
-    ObjKey(_blob_name),
-    get_cond(_get_conds),
-    byteCount(_byte_count),
-    req_context(_req_context),
-    getObjCallback(_get_obj_handler),
-    callback_data(_callback_data)
-{
+                 _data_len, _data_buf, cb) {
     stopWatch.start();
 }
 

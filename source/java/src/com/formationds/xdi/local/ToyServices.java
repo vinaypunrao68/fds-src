@@ -120,19 +120,18 @@ public class ToyServices implements AmService.Iface, ConfigurationService.Iface 
     }
 
     @Override
-    public TxDescriptor startBlobTx(String domainName, String volumeName, String blobName) throws ApiException, TException {        
+    public TxDescriptor startBlobTx(String domainName, String volumeName, String blobName, int blobMode) throws ApiException, TException {
         return new TxDescriptor(0);
     }
 
     @Override
-    public void commitBlobTx(TxDescriptor txDesc) throws ApiException, TException {
+    public void  commitBlobTx(String domainName, String volumeName, String blobName, TxDescriptor txDesc) throws ApiException, TException {
     }
 
     @Override
-    public void abortBlobTx(TxDescriptor txDesc) throws ApiException, TException {
+    public void abortBlobTx(String domainName, String volumeName, String blobName, TxDescriptor txDesc) throws ApiException, TException {        
     }
 
-    @Override
     public void attachVolume(String domainName, String volumeName) throws ApiException, TException {
     }
 

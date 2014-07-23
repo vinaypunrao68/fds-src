@@ -21,20 +21,21 @@ FdsBlobReq::FdsBlobReq(fds_io_op_t      _op,
           dataBuf(_dataBuf) {
 }
 
-FdsBlobReq::FdsBlobReq(fds_io_op_t      _op,
+FdsBlobReq::FdsBlobReq(fds_io_op_t       _op,
                        fds_volid_t        _volId,
                        const std::string &_blobName,
                        fds_uint64_t       _blobOffset,
                        fds_uint64_t       _dataLen,
                        char              *_dataBuf,
-                       CallbackPtr cb)
+                       CallbackPtr        _cb)
         : magic(FDS_SH_IO_MAGIC_IN_USE),
           ioType(_op),
           volId(_volId),
           blobName(_blobName),
           blobOffset(_blobOffset),
           dataLen(_dataLen),
-          dataBuf(_dataBuf), cb(cb){
+          dataBuf(_dataBuf),
+          cb(_cb) {
 }
 
 FdsBlobReq::~FdsBlobReq() {
@@ -62,6 +63,14 @@ void FdsBlobReq::cbWithResult(int result) {
 
 const std::string& FdsBlobReq::getBlobName() const {
     return blobName;
+}
+
+const std::string& FdsBlobReq::getVolumeName() const {
+    return volumeName;
+}
+
+void FdsBlobReq::setVolumeName(const std::string& volumeName) {
+    this->volumeName = volumeName;
 }
 
 fds_uint64_t FdsBlobReq::getBlobOffset() const {
@@ -180,7 +189,6 @@ void BucketStatsContent::set(const std::string& _name,
     }
 }
 
-
 Callback::~Callback() {
     if (errorDetails) delete errorDetails;
 }
@@ -191,6 +199,11 @@ void Callback::operator()(FDSN_Status status) {
 
 void Callback::call(FDSN_Status status) {
     this->status = status;
+    call();
+}
+
+void Callback::call(Error err) {
+    this->error = err;
     call();
 }
 

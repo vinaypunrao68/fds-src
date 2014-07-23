@@ -18,6 +18,7 @@ StorHvisor_cpp    :=                   \
     StorHvisorNet.cpp                  \
     StorHvisorTest.cpp                  \
     StorHvisorS3.cpp                  \
+    StorHvisorSvc.cpp                  \
     StorHvisorTx.cpp                   \
     StorHvisorTbl.cpp                  \
     StorHvisorRx.cpp                   \
@@ -45,6 +46,7 @@ user_no_style     := $(user_cc) \
     StorHvisorNet.cpp \
     StorHvisorTest.cpp \
     StorHvisorS3.cpp \
+    StorHvisorSvc.cpp \
     StorHvisorTx.cpp \
     StorHvisorTbl.cpp \
     StorHvisorRx.cpp \

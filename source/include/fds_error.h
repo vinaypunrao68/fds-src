@@ -50,12 +50,22 @@ namespace fds {
         ERR_NO_BYTES_WRITTEN     = 28,
         ERR_NO_BYTES_READ        = 29,
         ERR_VOL_NOT_FOUND        = 30,
-        ERR_NETWORK_CORRUPT      = 31,
-        ERR_ONDISK_DATA_CORRUPT  = 32,
-        ERR_INVALID_DMT          = 33,
-        ERR_CATSYNC_NOT_PROGRESS = 34,
-        ERR_DMT_EQUAL            = 35,
-        ERR_DMT_FORWARD          = 36,
+        ERR_VOL_DUPLICATE        = 31,
+        ERR_NETWORK_CORRUPT      = 32,
+        ERR_ONDISK_DATA_CORRUPT  = 33,
+        ERR_INVALID_DMT          = 34,
+        ERR_CATSYNC_NOT_PROGRESS = 35,
+        ERR_DMT_EQUAL            = 36,
+        ERR_DMT_FORWARD          = 37,
+
+        ERR_DM_TX_EXISTS          = 38,
+        ERR_DM_TX_NOT_STARTED     = 39,
+        ERR_DM_TX_COMMITED        = 40,
+        ERR_DM_TX_ROLLEDBACK      = 41,
+        ERR_DM_OFFSET_OUT_RANGE   = 42,
+        ERR_DM_TX_ACTIVE          = 43,
+        ERR_DM_MAX_CL_ENTRIES     = 44,
+        ERR_DM_RSYNC_FAILED       = 45,
 
         /* I/O error range */
         ERR_IO_DLT_MISMATCH      = 100,
@@ -81,11 +91,11 @@ namespace fds {
         /* Endpoint doesn't exist */
         ERR_EP_NON_EXISTANT,
 
-        /* RPC Request realted */
-        ERR_RPC_FAILED = 4000,
-        ERR_RPC_INVOCATION,
-        ERR_RPC_USER_INTERRUPTED,
-        ERR_RPC_TIMEOUT,
+        /* SVC Request realted */
+        ERR_SVC_REQUEST_FAILED = 4000,
+        ERR_SVC_REQUEST_INVOCATION,
+        ERR_SVC_REQUEST_USER_INTERRUPTED,
+        ERR_SVC_REQUEST_TIMEOUT,
 
         /* FDSN status errors */
         // TODO(Rao): Change FDSN_Status prefix to ERR_ prefix

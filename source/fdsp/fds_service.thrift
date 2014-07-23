@@ -42,20 +42,50 @@ enum  FDSPMsgTypeId {
     UnknownMsgTypeId = 0,
     /* Common Service Types */
     NullMsgTypeId = 10,
-
-    /* SM Type Ids*/
+     /*
+      For cases where there is no data to be returned,
+      use EmptyMsg...
+      */
+    EmptyMsgTypeId,
+    
+     /* SM Type Ids*/
     GetObjectMsgTypeId 		= 10000, 
     GetObjectRespTypeId 	= 10001,
     PutObjectMsgTypeId		= 10002, 
     PutObjectRspMsgTypeId	= 10003,
-
+	
     /* DM Type Ids */
-    QueryCatalogMsgTypeId 	= 20000,
-    QueryCatalogRspMsgTypeId	= 20001,
-    UpdateCatalogMsgTypeId	= 20002,
-    UpdateCatalogRspMsgTypeId	= 20003,
-    SetBlobMetaDataMsgTypeId	= 20004,
-    SetBlobMetaDataRspMsgTypeId = 20005
+    QueryCatalogMsgTypeId = 20000,
+    QueryCatalogRspMsgTypeId,
+    StartBlobTxMsgTypeId,
+    StartBlobTxRspMsgTypeId,
+    UpdateCatalogMsgTypeId,
+    UpdateCatalogRspMsgTypeId,
+    SetBlobMetaDataMsgTypeId,
+    SetBlobMetaDataRspMsgTypeId,
+    DeleteCatalogObjectMsgTypeId,
+    DeleteCatalogObjectRspMsgTypeId,
+    GetBlobMetaDataMsgTypeId,
+    GetBlobMetaDataRspMsgTypeId,
+    SetVolumeMetaDataMsgTypeId,
+    SetVolumeMetaDataRspMsgTypeId,
+    GetVolumeMetaDataMsgTypeId,
+    GetVolumeMetaDataRspMsgTypeId,
+    CommitBlobTxMsgTypeId,
+    CommitBlobTxRspMsgTypeId,
+    AbortBlobTxMsgTypeId,
+    AbortBlobTxRspMsgTypeId,
+    GetBucketMsgTypeId,
+    GetBucketRspMsgTypeId,
+    DeleteBlobMsgTypeId,
+    DeleteBlobRspMsgTypeId,
+    ForwardCatalogMsgTypeId,
+    ForwardCatalogRspMsgTypeId,
+    VolSyncStateMsgTypeId,
+    VolSyncStateRspMsgTypeId,
+}
+
+struct EmptyMsg {
 }
 
 /*
@@ -231,10 +261,23 @@ struct PutObjectMsg {
 struct PutObjectRspMsg {
 }
 
-/* SM service */
+/* Delete object request message */
+struct  DeleteObjectMsg { 
+ 1: FDSP.FDS_ObjectIdType data_obj_id,
+ 2: i32              dlt_version,
+ 3: i32              data_obj_len,
+ 4: binary           dlt_data,
+}
+
+/* Delete object response message */
+struct DeleteObjectRspMsg {
+}
+
+/**
+ * SM Service.  Only put sync rpc calls in here.  Async RPC calls use
+ * message passing provided by BaseAsyncSvc
+ */
 service SMSvc extends PlatNetSvc {
-    oneway void getObject(1: AsyncHdr asyncHdr, 2: GetObjectMsg getObjMsg);
-    oneway void putObject(1: AsyncHdr asyncHdr, 2: PutObjectMsg putObjMsg);
 }
 
 /*
@@ -247,13 +290,8 @@ struct QueryCatalogMsg {
    1: i64    			volume_id;
    2: string   			blob_name;		/* User visible name of the blob*/
    3: i64 			blob_version;        	/* Version of the blob to query */
-   4: i64 			blob_size;
-   5: i32 			blob_mime_type;
-   6: FDSP.FDSP_BlobDigestType 	digest;
    7: FDSP.FDSP_BlobObjectList 	obj_list; 		/* List of object ids of the objects that this blob is being mapped to */
    8: FDSP.FDSP_MetaDataList 	meta_list;		/* sequence of arbitrary key/value pairs */
-   9: i32      			dm_transaction_id;   	/* Transaction id */
-   10: i32      		dm_operation;        	/* Transaction type = OPEN, COMMIT, CANCEL */
 }
 
 // TODO(Rao): Use QueryCatalogRspMsg.  In current implementation we are using QueryCatalogMsg
@@ -267,7 +305,7 @@ struct UpdateCatalogMsg {
    1: i64    			volume_id;
    2: string 			blob_name; 	/* User visible name of the blob */
    3: i64                       blob_version; 	/* Version of the blob */
-   4: FDSP.TxDescriptor 	txDlsc; 	/* Transaction ID...can supersede other tx fields */
+   4: i64                   	txId;
    5: FDSP.FDSP_BlobObjectList 	obj_list; 	/* List of object ids of the objects that this blob is being mapped to */
 }
 
@@ -275,22 +313,130 @@ struct UpdateCatalogMsg {
 struct UpdateCatalogRspMsg {
 }
 
-/* Set blob metadata request message */
+/* Forward catalog update request message */
+struct ForwardCatalogMsg {
+   1: i64    			volume_id;
+   2: string 			blob_name; 	/* User visible name of the blob */
+   3: i64                       blob_version; 	/* Version of the blob */
+   4: FDSP.FDSP_BlobObjectList 	obj_list; 	/* List of object ids of the objects that this blob is being mapped to */
+   5: FDSP.FDSP_MetaDataList 	meta_list;      /* sequence of arbitrary key/value pairs */
+}
+
+/* Forward catalog update response message */
+struct ForwardCatalogRspMsg {
+}
+
+/* Start Blob  Transaction  request message */
+struct StartBlobTxMsg {
+   1: i64    			volume_id;
+   2: string 			blob_name;
+   3: i64 			blob_version;
+   4: i32 			blob_mode;
+   5: i64 			txId;
+}
+
+/* start Blob traction response message */
+struct StartBlobTxRspMsg {
+}
+
+/* Commit Blob  Transaction  request message */
+struct CommitBlobTxMsg {
+   1: i64    			volume_id;
+   2: string 			blob_name;
+   3: i64 			blob_version;
+   4: i64 			txId;
+}
+
+/* Commit Blob traction response message */
+struct CommitBlobTxRspMsg {
+}
+
+/* Abort Blob  Transaction  request message */
+struct AbortBlobTxMsg {
+   1: i64    			volume_id;
+   2: string 			blob_name;
+   3: i64 			blob_version;
+   5: i64			txId;
+}
+
+/* Abort Blob traction response message */
+struct AbortBlobTxRspMsg {
+}
+/* delete catalog object Transaction  request message */
+struct DeleteCatalogObjectMsg {
+   1: i64    			volume_id;
+   2: string 			blob_name;
+   3: i64 			blob_version;
+}
+
+struct DeleteCatalogObjectRspMsg {
+}
+
+/* get the list of blobs in volume Transaction  request message */
+struct GetVolumeBlobListMsg {
+   1: i64    			volume_id;
+}
+
+/* get the list of blobs in volume Transaction  request message */
 struct SetBlobMetaDataMsg {
-   1: string 			volumeName;
-   2: string 			blobName;
-   3: FDSP.FDSP_MetaDataList 	metaDataList;
+   1: i64    			volume_id;
+   2: string 			blob_name;
+   3: i64 			blob_version;
+   4: FDSP.FDSP_MetaDataList    metaDataList; 
+   5: i64                   	txId;
 }
 
 /* Set blob metadata request message */
 struct SetBlobMetaDataRspMsg {
 }
 
-/* DM Service */
-service DMSvc extends BaseAsyncSvc {
-    oneway void queryCatalogObject(1: AsyncHdr asyncHdr, 2:QueryCatalogMsg queryMsg);
-    oneway void updateCatalog(1: AsyncHdr asyncHdr, 2:UpdateCatalogMsg updCatMsg);
+struct GetBlobMetaDataMsg {
+  1: i64                       volume_id;
+  2: string                    blob_name;
+  3: i64                       blob_version;
+  4: i64                       byteCount;
+  5: FDSP.FDSP_MetaDataList    metaDataList;
 }
 
+struct GetBucketMsg {
+  //request
+  1: i64                       volume_id;
+  2: i64                       startPos;  
+  3: i64                       maxKeys;
+  //response
+  4: FDSP.BlobInfoListType     blob_info_list;
+}
+
+struct GetVolumeMetaDataRspMsg {
+}
+
+struct DeleteBlobMsg {
+  1: i64                       txId;
+  2: i64                       volume_id;
+  3: string                    blob_name;
+  4: i64                       blob_version;
+}
+
+/* Volume sync state msg sent from source to destination DM */
+struct VolSyncStateMsg
+{
+    1: i64        volume_id;
+    2: bool       forward_done;   /* true = forwarding done, false = second rsync done */
+}
+
+struct VolSyncStateRspMsg {
+}
+
+/**
+ * DM Service.  Only put sync rpc calls in here.  Async RPC calls use
+ * message passing provided by BaseAsyncSvc
+ */
+service DMSvc extends BaseAsyncSvc {
+}
+
+/**
+ * AM Service.  Only put sync rpc calls in here.  Async RPC calls use
+ * message passing provided by BaseAsyncSvc
+ */
 service AMSvc extends BaseAsyncSvc {
 }

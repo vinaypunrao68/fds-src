@@ -17,7 +17,6 @@
 #include <ObjectId.h>
 #include <net/net-service.h>
 #include <net/net-service-tmpl.hpp>
-#include <net/RpcRequestPool.h>
 #include <fdsp/DMSvc.h>
 #include <fdsp/SMSvc.h>
 #include <fdsp_utils.h>
@@ -60,6 +59,31 @@ StorHvCtrl::TxnResponseHelper::~TxnResponseHelper() {
     blobReq->cb->call();
     delete blobReq;
     delete je_lock;
+    delete vol_lock;
+}
+
+StorHvCtrl::ResponseHelper::ResponseHelper(StorHvCtrl* storHvisor,
+                                           AmQosReq *qosReq)
+        : storHvisor(storHvisor), qosReq(qosReq) {
+    fds_verify(qosReq != NULL);
+    blobReq = qosReq->getBlobReqPtr();
+    fds_verify(blobReq != NULL);
+
+    volId = blobReq->getVolId();
+    vol = storHvisor->vol_table->getVolume(volId);
+    vol_lock = new StorHvVolumeLock(vol);
+
+    blobReq->cb->status = ERR_OK;
+}
+
+void StorHvCtrl::ResponseHelper::setStatus(FDSN_Status  status) {
+    blobReq->cb->status = status;
+}
+
+StorHvCtrl::ResponseHelper::~ResponseHelper() {
+    storHvisor->qos_ctrl->markIODone(qosReq);
+    blobReq->cb->call();
+    delete blobReq;
     delete vol_lock;
 }
 
@@ -140,6 +164,41 @@ StorHvCtrl::TxnRequestHelper::~TxnRequestHelper() {
     }
 }
 
+StorHvCtrl::RequestHelper::RequestHelper(StorHvCtrl* storHvisor,
+                                         AmQosReq *qosReq)
+        : storHvisor(storHvisor), qosReq(qosReq) {
+    blobReq = qosReq->getBlobReqPtr();
+    volId = blobReq->getVolId();
+    shVol = storHvisor->vol_table->getLockedVolume(volId);
+    blobReq->setQueuedUsec(shVol->journal_tbl->microsecSinceCtime(
+        boost::posix_time::microsec_clock::universal_time()));
+}
+
+bool StorHvCtrl::RequestHelper::isValidVolume() {
+    return ((shVol != NULL) && (shVol->isValidLocked()));
+}
+
+void StorHvCtrl::RequestHelper::setStatus(FDSN_Status status) {
+    this->status = status;
+}
+
+bool StorHvCtrl::RequestHelper::hasError() {
+    return ((status != ERR_OK) && (status != FDSN_StatusNOTSET));
+}
+
+StorHvCtrl::RequestHelper::~RequestHelper() {
+    if (shVol) shVol->readUnlock();
+
+    if (hasError()) {
+        if (blobReq->cb.get() != NULL) {
+            GLOGDEBUG << "doing callback";
+            blobReq->cb->call(status);
+        }
+        delete qosReq;
+        //delete blobReq;
+    }
+}
+
 StorHvCtrl::BlobRequestHelper::BlobRequestHelper(StorHvCtrl* storHvisor,
                                                  const std::string& volumeName)
         : storHvisor(storHvisor), volumeName(volumeName) {}
@@ -152,11 +211,15 @@ void StorHvCtrl::BlobRequestHelper::setupVolumeInfo() {
 }
 
 fds::Error StorHvCtrl::BlobRequestHelper::processRequest() {
+    setupVolumeInfo();
     if (volId != invalid_vol_id) {
+        blobReq->setVolId(volId);
+        GLOGDEBUG << "volid:" << blobReq->getVolId();
         storHvisor->pushBlobReq(blobReq);
         return ERR_OK;
     } else {
         // If we don't have the volume, queue up the request
+        GLOGDEBUG << "volume id not found:" << volumeName;
         storHvisor->vol_table->addBlobToWaitQueue(volumeName, blobReq);
     }
 
@@ -618,7 +681,7 @@ StorHvCtrl::resumePutBlob(StorHvJournalEntry *journEntry) {
 fds::Error
 StorHvCtrl::putBlob(fds::AmQosReq *qosReq) {
     fds::Error err(ERR_OK);
-    return putBlob2(qosReq);
+    return putBlobSvc(qosReq);
     
     // Pull out the blob request     
     PutBlobReq *blobReq = static_cast<PutBlobReq *>(qosReq->getBlobReqPtr());
@@ -960,59 +1023,6 @@ StorHvCtrl::statBlobResp(const FDSP_MsgHdrTypePtr rxMsg,
     delete blobReq;
 }
 
-void StorHvCtrl::handleSetBlobMetaDataResp(const FDSP_MsgHdrTypePtr rxMsg) {
-    Error err(ERR_OK);
-
-    fds_uint32_t transId = rxMsg->req_cookie;
-    fds_volid_t  volId   = rxMsg->glob_volume_id;
-
-    StorHvVolume* vol = vol_table->getVolume(volId);
-    fds_verify(vol != NULL);  // Should not receive resp for non existant vol
-
-    StorHvVolumeLock vol_lock(vol);
-    fds_verify(vol->isValidLocked() == true);
-
-    StorHvJournalEntry *txn = vol->journal_tbl->get_journal_entry(transId);
-    fds_verify(txn != NULL);
-
-    StorHvJournalEntryLock je_lock(txn);
-    fds_verify(txn->isActive() == true);
-
-    // Get request from transaction
-    fds::AmQosReq   *qosReq  = static_cast<fds::AmQosReq *>(txn->io);
-    fds_verify(qosReq != NULL);
-    fds::SetBlobMetaDataReq *blobReq = static_cast<fds::SetBlobMetaDataReq *>(
-        qosReq->getBlobReqPtr());
-    fds_verify(blobReq != NULL);
-    fds_verify(blobReq->getIoType() == FDS_SET_BLOB_METADATA);
-
-    // Return if err
-    if (rxMsg->result != FDSP_ERR_OK) {
-        vol->journal_tbl->releaseTransId(transId);
-        txn->reset();
-        qos_ctrl->markIODone(txn->io);
-        blobReq->cb->call(FDSN_StatusErrorUnknown);
-        return;
-    }
-    // Increment the ack status
-    fds_int32_t result = txn->fds_set_dmack_status(rxMsg->src_ip_lo_addr,
-                                                   rxMsg->src_port);
-    LOGDEBUG << "txn: " << transId
-             << " rcvd DM response ip:"
-             << rxMsg->src_ip_lo_addr
-             << " port:" << rxMsg->src_port;
-
-    result = fds_move_wr_req_state_machine(rxMsg);
-    if (1 == result) {
-        txn->reset();
-        vol->journal_tbl->releaseTransId(transId);
-        qos_ctrl->markIODone(txn->io);
-        blobReq->cb->call(ERR_OK);
-    } else {
-        fds_verify(result == 0);
-    }
-}
-
 fds::Error StorHvCtrl::upCatResp(const FDSP_MsgHdrTypePtr& rxMsg,
                                  const FDSP_UpdateCatalogTypePtr& catObjRsp) {
     fds::Error  err(ERR_OK);
@@ -1129,203 +1139,6 @@ fds::Error StorHvCtrl::deleteCatResp(const FDSP_MsgHdrTypePtr& rxMsg,
     return err;
 }
 
-
-Error StorHvCtrl::getBlob2(fds::AmQosReq *qosReq)
-{
-    counters_.get_reqs.incr();
-
-    /*
-     * Pull out the blob request
-     */
-    Error err = ERR_OK;
-    fds::GetBlobReq *blobReq = static_cast<fds::GetBlobReq *>(
-        qosReq->getBlobReqPtr());
-    fds_verify(blobReq->magicInUse() == true);
-
-    fds_volid_t   volId = blobReq->getVolId();
-    StorHvVolume *shVol = vol_table->getVolume(volId);
-    if ((shVol == NULL) || (shVol->isValidLocked() == false)) {
-        LOGCRITICAL << "getBlob failed to get volume for vol "
-                    << volId;    
-        qos_ctrl->markIODone(qosReq);
-        blobReq->cbWithResult(ERR_INVALID);
-        delete blobReq;
-        err = ERR_DISK_WRITE_FAILED;
-        return err;
-    }
-
-    // TODO(Rao): Do we need to make sure other get reqs aren't in progress
-
-    ObjectID objId;
-    bool inCache = shVol->vol_catalog_cache->LookupObjectId(blobReq->getBlobName(),
-                                          blobReq->getBlobOffset(),
-                                          objId);
-    if (true || !inCache) {
-        issueQueryCatalog(blobReq->getBlobName(),
-                          blobReq->getBlobOffset(),
-                          volId,
-                          std::bind(&StorHvCtrl::getBlobQueryCatalogResp, this, qosReq,
-                                    std::placeholders::_1, std::placeholders::_2,
-                                    std::placeholders::_3));
-    } else {
-        fds_verify(objId != NullObjectID);
-        issueGetObject(volId, objId,
-                       std::bind(&StorHvCtrl::getBlobGetObjectResp, this, qosReq,
-                                 std::placeholders::_1, std::placeholders::_2,
-                                 std::placeholders::_3));
-    }
-    return err;
-}
-
-void StorHvCtrl::issueQueryCatalog(const std::string& blobName,
-                       const fds_uint64_t& blobOffset,
-                       const fds_volid_t& volId,
-                       FailoverRpcRespCb respCb)
-{
-    LOGDEBUG << "blob name: " << blobName << " offset: " << blobOffset << " volid: " << volId;
-    /*
-     * TODO(Andrew): We should eventually specify the offset in the blob
-     * we want...all objects won't work well for large blobs.
-     */
-    fpi::QueryCatalogMsgPtr queryMsg(new fpi::QueryCatalogMsg());
-    queryMsg->volume_id = volId;
-    queryMsg->blob_name             = blobName;
-    // We don't currently specify a version
-    queryMsg->blob_version          = blob_version_invalid;
-    // TODO(rao): Figure out where this is used
-    queryMsg->dm_transaction_id     = 1;
-    queryMsg->dm_operation          =
-        FDS_ProtocolInterface::FDS_DMGR_TXN_STATUS_OPEN;
-    queryMsg->obj_list.clear();
-    queryMsg->meta_list.clear();
-
-#ifdef RPC_BASED_ASYNC_COMM
-    auto asyncQueryReq = gRpcRequestPool->newFailoverRpcRequest(
-        boost::make_shared<DmtVolumeIdEpProvider>(om_client->getDMTNodesForVolume(volId)));
-    asyncQueryReq->setRpcFunc(
-        CREATE_RPC(fpi::DMSvcClient, queryCatalogObject, queryMsg));
-#else 
-    auto asyncQueryReq = gRpcRequestPool->newFailoverNetRequest(
-        boost::make_shared<DmtVolumeIdEpProvider>(om_client->getDMTNodesForVolume(volId)));
-    asyncQueryReq->setPayload(FDSP_MSG_TYPEID(fpi::QueryCatalogMsg), queryMsg);
-#endif
-    asyncQueryReq->setTimeoutMs(500);
-    asyncQueryReq->onResponseCb(respCb);
-    asyncQueryReq->invoke();
-
-    LOGDEBUG << asyncQueryReq->logString() << fds::logString(*queryMsg);
-}
-
-void StorHvCtrl::issueGetObject(const fds_volid_t& volId,
-                                const ObjectID& objId,
-                                FailoverRpcRespCb respCb)
-{
-    fpi::GetObjectMsgPtr getObjMsg(boost::make_shared<fpi::GetObjectMsg>());
-    getObjMsg->volume_id = volId;
-    getObjMsg->data_obj_id.digest = std::string((const char *)objId.GetId(),
-                                                (size_t)objId.GetLen());
-
-#ifdef RPC_BASED_ASYNC_COMM
-    auto asyncGetReq = gRpcRequestPool->newFailoverRpcRequest(
-        boost::make_shared<DltObjectIdEpProvider>(om_client->getDLTNodesForDoidKey(objId)));
-    asyncGetReq->setRpcFunc(
-        CREATE_RPC(fpi::SMSvcClient, getObject, getObjMsg));
-#else 
-    auto asyncGetReq = gRpcRequestPool->newFailoverNetRequest(
-        boost::make_shared<DltObjectIdEpProvider>(om_client->getDLTNodesForDoidKey(objId)));
-    asyncGetReq->setPayload(FDSP_MSG_TYPEID(fpi::GetObjectMsg), getObjMsg);
-#endif
-    asyncGetReq->setTimeoutMs(500);
-    asyncGetReq->onResponseCb(respCb);
-    asyncGetReq->invoke();
-
-    LOGDEBUG << asyncGetReq->logString() << fds::logString(*getObjMsg);
-}
-
-void StorHvCtrl::getBlobQueryCatalogResp(fds::AmQosReq* qosReq,
-                                         FailoverRpcRequest* rpcReq,
-                                         const Error& error,
-                                         boost::shared_ptr<std::string> payload)
-{
-    fds::GetBlobReq *blobReq = static_cast<fds::GetBlobReq *>(qosReq->getBlobReqPtr());
-    fpi::QueryCatalogMsgPtr qryCatRsp =
-        net::ep_deserialize<fpi::QueryCatalogMsg>(const_cast<Error&>(error), payload);
-
-    if (error != ERR_OK) {
-        LOGERROR << "blob name: " << blobReq->getBlobName() << "offset: "
-            << blobReq->getBlobOffset() << " Error: " << error; 
-        qos_ctrl->markIODone(qosReq);
-        blobReq->cbWithResult(ERR_INVALID);
-        delete blobReq;
-        return;
-    }
-
-    LOGDEBUG << rpcReq->logString() << fds::logString(*qryCatRsp);
-
-    Error e = updateCatalogCache(blobReq,
-                                 qryCatRsp->obj_list);
-    if (e != ERR_OK) {
-        LOGERROR << "blob name: " << blobReq->getBlobName() << "offset: "
-            << blobReq->getBlobOffset() << " Error: " << e; 
-        qos_ctrl->markIODone(qosReq);
-        blobReq->cbWithResult(e.GetErrno());
-        delete blobReq;
-        return;
-    }
-
-    /* NOTE: For now making the assumption that there is only one object id */
-    fds_verify(qryCatRsp->obj_list.size() == 1);
-    ObjectID objId(qryCatRsp->obj_list[0].data_obj_id.digest);
-    fds_verify(objId != NullObjectID);
-
-    issueGetObject(blobReq->getVolId(), objId,
-                   std::bind(&StorHvCtrl::getBlobGetObjectResp, this, qosReq,
-                             std::placeholders::_1, std::placeholders::_2,
-                             std::placeholders::_3));
-}
-
-void StorHvCtrl::getBlobGetObjectResp(fds::AmQosReq* qosReq,
-                                      FailoverRpcRequest* rpcReq,
-                                      const Error& error,
-                                      boost::shared_ptr<std::string> payload)
-{
-    fds::GetBlobReq *blobReq = static_cast<fds::GetBlobReq *>(qosReq->getBlobReqPtr());
-    fpi::GetObjectRespPtr getObjRsp =
-        net::ep_deserialize<fpi::GetObjectResp>(const_cast<Error&>(error), payload);
-
-    if (error != ERR_OK) {
-        LOGERROR << "blob name: " << blobReq->getBlobName() << "offset: "
-            << blobReq->getBlobOffset() << " Error: " << error; 
-        qos_ctrl->markIODone(qosReq);
-        blobReq->cbWithResult(ERR_INVALID);
-        delete blobReq;
-        return;
-    }
-
-    LOGDEBUG << rpcReq->logString() << fds::logString(*getObjRsp);
-
-    qos_ctrl->markIODone(qosReq);
-
-    /* NOTE: we are currently supporting only getting the whole blob
-     * so the requester does not know about the blob length, 
-     * we get the blob length in response from SM;
-     * will need to revisit when we also support (don't ignore) byteCount in native api.
-     * For now, just verify the existing buffer is big enough to hold
-     * the data.
-     */
-    if (blobReq->getDataLen() >= (4 * 1024)) {
-        // Check that we didn't get too much data
-        // Since 4K is our min, it's OK to get more
-        // when less than 4K is requested
-        // TODO(Andrew): Revisit for unaligned IO
-        fds_verify((uint)(getObjRsp->data_obj_len) <= (blobReq->getDataLen()));
-    }
-    blobReq->setDataLen(getObjRsp->data_obj_len);    
-    blobReq->setDataBuf(getObjRsp->data_obj.c_str());
-    blobReq->cbWithResult(ERR_OK);
-    delete blobReq;
-}
-
 fds::Error StorHvCtrl::updateCatalogCache(GetBlobReq *blobReq,
                                           FDS_ProtocolInterface::FDSP_BlobObjectList& blobOffList )
 {
@@ -1366,872 +1179,9 @@ fds::Error StorHvCtrl::updateCatalogCache(GetBlobReq *blobReq,
     }
 
     if (offsetFound == false) {
-        return FDSN_StatusEntityDoesNotExist;
+        return ERR_BLOB_OFFSET_INVALID;
     }
     return ERR_OK;
-}
-
-Error StorHvCtrl::putBlob2(fds::AmQosReq *qosReq)
-{
-    counters_.put_reqs.incr();
-
-    fds::Error err(ERR_OK);
-
-    
-    // Pull out the blob request     
-    PutBlobReq *blobReq = static_cast<PutBlobReq *>(qosReq->getBlobReqPtr());
-    ObjectID objId;
-    bool fZeroSize = (blobReq->getDataLen() == 0);
-    fds_verify(blobReq->magicInUse() == true);
-
-    // Get the volume context structure
-    fds_volid_t   volId = blobReq->getVolId();
-    StorHvVolume *shVol = storHvisor->vol_table->getLockedVolume(volId);
-    fds_verify(shVol != NULL);
-    fds_verify(shVol->isValidLocked() == true);
-
-    // TODO(Andrew): Here we're turning the offset aligned
-    // blobOffset back into an absolute blob offset (i.e.,
-    // not aligned to the maximum object size). This allows
-    // the rest of the putBlob routines to still expect an
-    // absolute offset in case we need it
-    fds_uint32_t maxObjSize = shVol->voldesc->maxObjSizeInBytes;
-    blobReq->setBlobOffset(blobReq->getBlobOffset() * maxObjSize);
-
-    // Track how long the request was queued before put() dispatch
-    // TODO(Andrew): Consider moving to the QoS request
-    blobReq->setQueuedUsec(shVol->journal_tbl->microsecSinceCtime(
-        boost::posix_time::microsec_clock::universal_time()));
-
-    if (fZeroSize) {
-        LOGWARN << "zero size object - "
-                << " [objkey:" << blobReq->ObjKey <<"]";
-    } else {
-        objId = ObjIdGen::genObjectId(blobReq->getDataBuf(),
-                                      blobReq->getDataLen());
-    }
-    blobReq->setObjId(objId);
-
-    // Send put request to SM
-    issuePutObjectMsg(blobReq->getObjId(),
-                      blobReq->getDataBuf(),
-                      blobReq->getDataLen(),
-                      volId,
-                      std::bind(&StorHvCtrl::putBlobPutObjectMsgResp,
-                                this, qosReq,
-                                std::placeholders::_1,
-                                std::placeholders::_2,std::placeholders::_3));
-
-    issueUpdateCatalogMsg(blobReq->getObjId(),
-                          blobReq->getBlobName(),
-                          blobReq->getBlobOffset(),
-                          blobReq->getDataLen(),
-                          blobReq->isLastBuf(),
-                          volId,
-                          std::bind(&StorHvCtrl::putBlobUpdateCatalogMsgResp,
-                                    this, qosReq,
-                                    std::placeholders::_1,
-                                    std::placeholders::_2,std::placeholders::_3));
-    // TODO(Rao): Check with andrew if this is the right place to unlock or
-    // can we unlock before
-    // TODO(Rao): Check if we can use scoped lock here
-    shVol->readUnlock();
-    return err;
-}
-
-void StorHvCtrl::issuePutObjectMsg(const ObjectID &objId,
-                                   const char* dataBuf,
-                                   const fds_uint64_t &len,
-                                   const fds_volid_t& volId,
-                                   QuorumRpcRespCb respCb)
-{
-    if (len == 0) {
-        fds_verify(!"Not impl");
-        // TODO(Rao): Shortcut SM.  Issue a call back to indicate put successed
-    }
-    PutObjectMsgPtr putObjMsg(new PutObjectMsg);
-    putObjMsg->volume_id = volId;
-    putObjMsg->origin_timestamp = fds::util::getTimeStampMillis();
-    putObjMsg->data_obj = std::string(dataBuf, len);
-    putObjMsg->data_obj_len = len;
-    putObjMsg->data_obj_id.digest = std::string((const char *)objId.GetId(), (size_t)objId.GetLen());
-
-#ifdef RPC_BASED_ASYNC_COMM
-    auto asyncPutReq = gRpcRequestPool->newQuorumRpcRequest(
-        boost::make_shared<DltObjectIdEpProvider>(om_client->getDLTNodesForDoidKey(objId)));
-    asyncPutReq->setRpcFunc(
-        CREATE_RPC(fpi::SMSvcClient, putObject, putObjMsg));
-#else
-    auto asyncPutReq = gRpcRequestPool->newQuorumNetRequest(
-        boost::make_shared<DltObjectIdEpProvider>(om_client->getDLTNodesForDoidKey(objId)));
-    asyncPutReq->setPayload(FDSP_MSG_TYPEID(fpi::PutObjectMsg), putObjMsg);
-#endif
-    asyncPutReq->setTimeoutMs(500);
-    asyncPutReq->onResponseCb(respCb);
-    asyncPutReq->invoke();
-
-    LOGDEBUG << asyncPutReq->logString() << fds::logString(*putObjMsg);
-}
-
-void StorHvCtrl::issueUpdateCatalogMsg(const ObjectID &objId,
-                                       const std::string& blobName,
-                                       const fds_uint64_t& blobOffset,
-                                       const fds_uint64_t &len,
-                                       const bool &lastBuf,
-                                       const fds_volid_t& volId,
-                                       QuorumRpcRespCb respCb)
-{
-    UpdateCatalogMsgPtr updCatMsg(new UpdateCatalogMsg());
-    updCatMsg->blob_name   = blobName;
-    updCatMsg->blob_version = blob_version_invalid;
-    updCatMsg->volume_id = volId;
-
-
-    // Setup blob offset updates
-    // TODO(Andrew): Today we only expect one offset update
-    // TODO(Andrew): Remove lastBuf when we have real transactions
-    updCatMsg->obj_list.clear();
-    FDS_ProtocolInterface::FDSP_BlobObjectInfo updBlobInfo;
-    updBlobInfo.offset   = blobOffset;
-    updBlobInfo.size     = len;
-    updBlobInfo.blob_end = lastBuf;
-    updBlobInfo.data_obj_id.digest =
-            std::string((const char *)objId.GetId(), (size_t)objId.GetLen());
-    // Add the offset info to the DM message
-    updCatMsg->obj_list.push_back(updBlobInfo);
-
-#ifdef RPC_BASED_ASYNC_COMM
-    auto asyncUpdateCatReq = gRpcRequestPool->newQuorumRpcRequest(
-        boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(volId)));
-    asyncUpdateCatReq->setRpcFunc(
-        CREATE_RPC(fpi::DMSvcClient, updateCatalog, updCatMsg));
-#else
-    auto asyncUpdateCatReq = gRpcRequestPool->newQuorumNetRequest(
-        boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(volId)));
-    asyncUpdateCatReq->setPayload(FDSP_MSG_TYPEID(fpi::UpdateCatalogMsg), updCatMsg);
-#endif
-    asyncUpdateCatReq->setTimeoutMs(500);
-    asyncUpdateCatReq->onResponseCb(respCb);
-    asyncUpdateCatReq->invoke();
-
-    LOGDEBUG << asyncUpdateCatReq->logString() << fds::logString(*updCatMsg);
-}
-
-void StorHvCtrl::putBlobPutObjectMsgResp(fds::AmQosReq* qosReq,
-                                         QuorumRpcRequest* rpcReq,
-                                         const Error& error,
-                                         boost::shared_ptr<std::string> payload)
-{
-    PutBlobReq *blobReq = static_cast<fds::PutBlobReq*>(qosReq->getBlobReqPtr());
-    fpi::PutObjectRspMsgPtr putObjRsp =
-        net::ep_deserialize<fpi::PutObjectRspMsg>(const_cast<Error&>(error), payload);
-
-    if (error != ERR_OK) {
-        LOGERROR << "Obj ID: " << blobReq->getObjId()
-            << " blob name: " << blobReq->getBlobName()
-            << " offset: " << blobReq->getBlobOffset() << " Error: " << error; 
-    } else {
-        LOGDEBUG << rpcReq->logString() << fds::logString(*putObjRsp);
-    }
-    blobReq->notifyResponse(qos_ctrl, qosReq, error);
-}
-
-void StorHvCtrl::putBlobUpdateCatalogMsgResp(fds::AmQosReq* qosReq,
-                                             QuorumRpcRequest* rpcReq,
-                                             const Error& error,
-                                             boost::shared_ptr<std::string> payload)
-{
-    PutBlobReq *blobReq = static_cast<fds::PutBlobReq*>(qosReq->getBlobReqPtr());
-    fpi::UpdateCatalogRspMsgPtr updCatRsp =
-        net::ep_deserialize<fpi::UpdateCatalogRspMsg>(const_cast<Error&>(error), payload);
-
-    if (error != ERR_OK) {
-        LOGERROR << "Obj ID: " << blobReq->getObjId()
-            << " blob name: " << blobReq->getBlobName()
-            << " offset: " << blobReq->getBlobOffset() << " Error: " << error; 
-    } else {
-        LOGDEBUG << rpcReq->logString() << fds::logString(*updCatRsp);
-    }
-    blobReq->notifyResponse(qos_ctrl, qosReq, error);
-}
-
-fds::Error StorHvCtrl::getBlob(fds::AmQosReq *qosReq)
-{
-    fds::Error err(ERR_OK);
-    return getBlob2(qosReq);
-
-    LOGDEBUG << "Doing a get blob operation!";
-
-    /*
-     * Pull out the blob request
-     */
-    FdsBlobReq *blobReq = qosReq->getBlobReqPtr();
-    fds_verify(blobReq->magicInUse() == true);
-
-    fds_volid_t   volId = blobReq->getVolId();
-    StorHvVolume *shVol = vol_table->getVolume(volId);
-    if ((shVol == NULL) || (shVol->isValidLocked() == false)) {
-        LOGCRITICAL << "getBlob failed to get volume for vol "
-                    << volId;    
-        blobReq->cbWithResult(-1);
-        err = ERR_DISK_WRITE_FAILED;
-        delete qosReq;
-        return err;
-    }
-
-    // TODO(Andrew): Here we're turning the offset aligned
-    // blobOffset back into an absolute blob offset (i.e.,
-    // not aligned to the maximum object size). This allows
-    // the rest of the getBlob routines to still expect an
-    // absolute offset in case we need it
-    fds_uint32_t maxObjSize = shVol->voldesc->maxObjSizeInBytes;
-    blobReq->setBlobOffset(blobReq->getBlobOffset() * maxObjSize);
-
-    /*
-     * Track how long the request was queued before get() dispatch
-     * TODO: Consider moving to the QoS request
-     */
-    blobReq->setQueuedUsec(shVol->journal_tbl->microsecSinceCtime(
-        boost::posix_time::microsec_clock::universal_time()));
-
-    /*
-     * Get/lock a journal entry for the request.
-     */
-    bool trans_in_progress = false;
-    fds_uint32_t transId = shVol->journal_tbl->get_trans_id_for_blob(blobReq->getBlobName(),
-                                                                     blobReq->getBlobOffset(),
-                                                                     trans_in_progress);
-
-    LOGDEBUG << "Assigning transaction ID " << transId
-              << " to get request";
-
-    StorHvJournalEntry *journEntry = shVol->journal_tbl->get_journal_entry(transId);
-    fds_verify(journEntry != NULL);
-    journEntry->lock();
-    // StorHvJournalEntryLock jeLock(journEntry);
-
-    /*
-     * Check if the entry is already active.
-     */
-    if ((trans_in_progress) || (journEntry->isActive() == true)) {
-        /*
-         * There is an on-going transaction for this offset
-         * Queue this up for later processing.
-         */
-
-       transId = shVol->journal_tbl->get_trans_id_for_blob(blobReq->getBlobName() + std::to_string(rand() % 100),
-                                                                     blobReq->getBlobOffset(),
-                                                                     trans_in_progress);
-
-
-        journEntry->unlock();
-
-        journEntry = shVol->journal_tbl->get_journal_entry(transId);
-        fds_verify(journEntry != NULL);
-        journEntry->lock();
-
-        fds_verify(trans_in_progress == false && journEntry->isActive() == false);
-
-        LOGNORMAL << "Creating hacking transID for blob "  << blobReq->getBlobName()
-                  << ", new transid " << transId << " to get request";
-
-
-#if 0
-
-        // TODO: For now, just return error :-(
-        LOGCRITICAL << "Transaction " << transId << " is already ACTIVE"
-                    << ", just give up and return error.";
-        blobReq->cbWithResult(-2);
-        err = ERR_NOT_IMPLEMENTED;
-        delete qosReq;
-        return err;
-#endif
-    }
-    journEntry->setActive();
-
-    /*
-     * Setup msg header
-     */
-    //  FDSP_MsgHdrTypePtr msgHdr = new FDSP_MsgHdrType;
-    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr(new FDSP_MsgHdrType);
-    InitSmMsgHdr(msgHdr);
-    msgHdr->msg_code       = FDSP_MSG_GET_OBJ_REQ;
-    msgHdr->msg_id         =  1;
-    msgHdr->req_cookie     = transId;
-    msgHdr->glob_volume_id = volId;
-    msgHdr->src_ip_lo_addr = SRC_IP;
-    msgHdr->src_port       = 0;
-    //  msgHdr->src_node_name  = my_node_name;
-    msgHdr->src_node_name = storHvisor->myIp;
-
-    /*
-     * Setup journal entry
-     */
-    journEntry->trans_state = FDS_TRANS_OPEN;
-    // journEntry->write_ctx = (void *)req;
-    // journEntry->comp_req = comp_req;
-    // journEntry->comp_arg1 = arg1; // vbd
-    // journEntry->comp_arg2 = arg2; //vreq
-    journEntry->sm_msg = msgHdr; 
-    journEntry->dm_msg = NULL;
-    journEntry->sm_ack_cnt = 0;
-    journEntry->dm_ack_cnt = 0;
-    // TODO(Andrew): Depricate FDS_IO_READ in favor
-    // of FDS_GET_BLOB
-    journEntry->op = FDS_IO_READ;
-    journEntry->data_obj_id.digest.clear(); 
-    journEntry->data_obj_len = blobReq->getDataLen();
-    journEntry->io = qosReq;
-    journEntry->trans_state = FDS_TRANS_GET_OBJ;
-
-    FDSP_GetObjTypePtr get_obj_req(new FDSP_GetObjType);
-    journEntry->getMsg = get_obj_req;
-
-    /*
-     * Get the object ID from vcc and add it to journal entry and get msg
-     */
-    if (disableVcc == true) {
-        shVol->vol_catalog_cache->Clear();
-    }
-    // TODO(Andrew): Here we need to check if the offset is aligned or handle
-    // unaligned offsets by returning multiple object ids and a desired length
-    ObjectID objId;
-    err = shVol->vol_catalog_cache->Query(blobReq->getBlobName(),
-                                          blobReq->getBlobOffset(),
-                                          transId,
-                                          &objId);
-    if (err == ERR_PENDING_RESP) {
-        LOGNOTIFY << "Vol catalog cache query pending: "
-                  << " for blob " << blobReq->getBlobName()
-                  << " and offset " << blobReq->getBlobOffset()
-                  << " with err " << err;
-        journEntry->trans_state = FDS_TRANS_VCAT_QUERY_PENDING;
-        err = ERR_OK;
-        journEntry->unlock();
-        return err;
-    }
-
-    bool fSizeZero = (objId == NullObjectID);
-
-    fds_verify(err == ERR_OK);
-    journEntry->data_obj_id.digest = std::string((const char *)objId.GetId(), (size_t)objId.GetLen());
-
-    get_obj_req->data_obj_id.digest = std::string((const char *)objId.GetId(), (size_t)objId.GetLen());
-    get_obj_req->data_obj_len = blobReq->getDataLen();
-    if (fSizeZero) {
-        LOGWARN << "zero size object - not sending get request to sm -"
-                << " name:" << blobReq->getBlobName()
-                << " txnid:" << transId;
-        
-        storHvisor->qos_ctrl->markIODone(journEntry->io);
-        journEntry->trans_state = FDS_TRANS_DONE;
-
-        blobReq->setDataLen(0);
-        journEntry->reset();
-        shVol->journal_tbl->releaseTransId(transId);
-        blobReq->cbWithResult(FDSN_StatusEntityEmpty);
-    } else {
-        journEntry->trans_state = FDS_TRANS_GET_OBJ;
-        LOGDEBUG << "Getting object " << objId << " for blob "
-                  << blobReq->getBlobName() << " and offset "
-                  << blobReq->getBlobOffset() << " in trans "
-                  << transId;
-        journEntry->nodeSeq = 0; // Primary node
-        err = dispatchSmGetMsg(journEntry);
-        fds_verify(err == ERR_OK);
-        // Schedule a timer here to track the responses and the original request
-        shVol->journal_tbl->schedule(journEntry->ioTimerTask, std::chrono::seconds(FDS_IO_LONG_TIME));
-    }
-    journEntry->unlock();
-    /*
-     * Note je_lock destructor will unlock the journal entry automatically
-     */
-    return err;
-}
-
-fds::Error StorHvCtrl::getObjResp(const FDSP_MsgHdrTypePtr& rxMsg,
-                                  const FDSP_GetObjTypePtr& getObjRsp) {
-    fds::Error err(ERR_OK);
-    fds_verify(rxMsg->msg_code == FDSP_MSG_GET_OBJ_RSP);
-
-    fds_uint32_t transId = rxMsg->req_cookie;
-    fds_volid_t volId    = rxMsg->glob_volume_id;
-
-    StorHvVolume* vol = vol_table->getVolume(volId);
-    fds_verify(vol != NULL);  // Should not receive resp for non existant vol
-
-    StorHvVolumeLock vol_lock(vol);
-    fds_verify(vol->isValidLocked() == true);
-
-    StorHvJournalEntry *txn = vol->journal_tbl->get_journal_entry(transId);
-    fds_verify(txn != NULL);
-
-    StorHvJournalEntryLock je_lock(txn);
-    fds_verify(txn->isActive() == true);  // Should not receive resp for inactive txn
-    // Check response code
-    Error msgRespErr(rxMsg->err_code);
-    if (msgRespErr == ERR_IO_DLT_MISMATCH) {
-        // Note: We're expecting the server to specify the version
-        // expected in the response field.
-        LOGERROR << "For transaction " << transId
-                 << " received DLT version mismatch, have "
-                 << om_client->getDltVersion()
-                 << ", but SM service expected "
-                 << getObjRsp->dlt_version;
-        //handleDltMismatch(vol, txn);
-
-        // response message  has the  latest  DLT , update the local copy 
-        // and update the DLT version 
-        storHvisor->om_client->updateDlt(true, getObjRsp->dlt_data);
-
-        txn->nodeSeq = 0; // Primary node
-        // resend the IO with latest DLT
-        storHvisor->dispatchSmGetMsg(txn);
-        // Return here since we haven't received successful acks to
-        // move the state machine forward.
-        return err;
-    }
-
-    fds_verify(rxMsg->result == FDS_ProtocolInterface::FDSP_ERR_OK);
-    fds_verify(txn->trans_state == FDS_TRANS_GET_OBJ);
-
-    /*
-     * how to handle the length miss-match (requested  length and  recived legth from SM differ)?
-     * We will have to handle sending more data due to length difference
-     */
-
-    /*
-     * Data ready, respond to callback
-     */
-    fds::AmQosReq   *qosReq  = static_cast<fds::AmQosReq *>(txn->io);
-    fds_verify(qosReq != NULL);
-    fds::GetBlobReq *blobReq = static_cast<fds::GetBlobReq *>(
-        qosReq->getBlobReqPtr());
-    fds_verify(blobReq != NULL);
-
-    LOGDEBUG << "Responding to getBlob trans " << transId
-              <<" for blob " << blobReq->getBlobName()
-              << " and offset " << blobReq->getBlobOffset()
-              << " length " << getObjRsp->data_obj_len
-              << " with result " << rxMsg->result;
-    /*
-     * Mark the IO complete, clean up txn, and callback
-     */
-    qos_ctrl->markIODone(txn->io);
-    if (rxMsg->result == FDSP_ERR_OK) {
-        fds_verify(blobReq->getIoType() == FDS_GET_BLOB);
-        /* NOTE: we are currently supporting only getting the whole blob
-         * so the requester does not know about the blob length, 
-         * we get the blob length in response from SM;
-         * will need to revisit when we also support (don't ignore) byteCount in native api.
-         * For now, just verify the existing buffer is big enough to hold
-         * the data.
-         */
-        if (blobReq->getDataLen() >= (4 * 1024)) {
-            // Check that we didn't get too much data
-            // Since 4K is our min, it's OK to get more
-            // when less than 4K is requested
-            // TODO(Andrew): Revisit for unaligned IO
-            fds_verify((uint)(getObjRsp->data_obj_len) <= (blobReq->getDataLen()));
-        }
-        blobReq->setDataLen(getObjRsp->data_obj_len);
-        blobReq->setDataBuf(getObjRsp->data_obj.c_str());
-        txn->reset();
-        vol->journal_tbl->releaseTransId(transId);
-        blobReq->cbWithResult(ERR_OK);
-    } else {
-        /*
-         * We received an error from SM. check the Error. If the Obj Not found 
-         * send a get object request to secondary SM
-         */
-        if (txn->nodeSeq < (txn->num_sm_nodes-1)) { 
-           txn->nodeSeq += 1; // secondary node 
-           err = dispatchSmGetMsg(txn);
-           fds_verify(err == ERR_OK);
- 
-       }
-       else {
-        vol->journal_tbl->releaseTransId(transId);
-        txn->reset();
-        blobReq->cbWithResult(-1);        
-        delete blobReq;
-        blobReq = NULL;
-       }
-    }
-
-    /*
-     * TODO: We're deleting the request structure. This assumes
-     * that the caller got everything they needed when the callback
-     * was invoked.
-     */
-    delete blobReq;
-
-    return err;
-}
-
-Error
-StorHvCtrl::startBlobTx(AmQosReq *qosReq) {
-    fds_verify(qosReq != NULL);
-
-    Error err(ERR_OK);
-    StartBlobTxReq *blobReq = static_cast<StartBlobTxReq *>(qosReq->getBlobReqPtr());
-    fds_verify(blobReq != NULL);
-    fds_verify(blobReq->magicInUse() == true);
-    fds_verify(blobReq->getIoType() == FDS_START_BLOB_TX);
-
-    fds_volid_t   volId = blobReq->getVolId();
-    StorHvVolume *shVol = storHvisor->vol_table->getLockedVolume(volId);
-    fds_verify(shVol != NULL);
-    fds_verify(shVol->isValidLocked() == true);
-
-    // Get a journal entry
-    bool txInProgress;
-    fds_uint32_t transId = shVol->journal_tbl->get_trans_id_for_blob(blobReq->getBlobName(),
-                                                                     blobReq->getBlobOffset(),
-                                                                     txInProgress);
-    StorHvJournalEntry *journEntry = shVol->journal_tbl->get_journal_entry(transId);  
-    StorHvJournalEntryLock je_lock(journEntry);
-
-    // Just bail out if there's an outstanding request
-    if ((txInProgress == true) ||
-        (journEntry->isActive())) {
-        shVol->readUnlock();
-
-        LOGWARN << "Transaction " << transId << " is already in ACTIVE state, giving up...";
-        // There is an ongoing transaciton for this offset.
-        // We should queue this up for later processing once that completes.
-        // For now, return an error.
-        // shVol->journal_tbl->releaseTransId(transId);
-        // journEntry->reset();
-        blobReq->cb->call(FDSN_StatusTxnInProgress);
-        err = ERR_NOT_IMPLEMENTED;
-        delete blobReq;
-        return err;
-    }
-
-    // Activate the journal entry
-    journEntry->setActive();
-
-    // Setup journal state
-    journEntry->sm_msg     = NULL; 
-    journEntry->dm_msg     = NULL;
-    journEntry->sm_ack_cnt = 0;
-    journEntry->dm_ack_cnt = 0;
-    journEntry->op         = FDS_START_BLOB_TX;
-    journEntry->io         = qosReq;
-    // journEntry->delMsg      = del_obj_req;
-    journEntry->trans_state = FDS_TRANS_BLOB_START;
-
-    // Generate a random transaction ID to use
-    // Note: construction, generates a random ID
-    BlobTxId txId(storHvisor->randNumGen->genNum());
-    LOGDEBUG << "Starting blob transaction " << txId << " for blob "
-             << blobReq->getBlobName() << " in journal trans "
-             << transId << " and vol 0x" << std::hex << volId << std::dec;
-
-    // Stash the newly created ID in the callback for later
-    StartBlobTxCallback::ptr cb = SHARED_DYN_CAST(StartBlobTxCallback,
-                                                  blobReq->cb);
-    cb->blobTxId = txId;
-
-    // Setup RPC request to DM
-    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr(new FDSP_MsgHdrType);
-    storHvisor->InitDmMsgHdr(msgHdr);
-    // Set vol and trans IDs
-    msgHdr->glob_volume_id = volId;
-    msgHdr->req_cookie = transId;
-    // TODO(Andrew): These fields really aren't useful...
-    msgHdr->msg_code       = FDSP_START_BLOB_TX;
-    msgHdr->src_ip_lo_addr = 0;
-    msgHdr->src_node_name  = "";
-    msgHdr->src_port       = 0;
-    msgHdr->dst_port       = 0;
-
-    // Set up the FDSP trans request
-    FDS_ProtocolInterface::TxDescriptorPtr fdspTxId(new TxDescriptor);
-    fdspTxId->txId = txId.getValue();
-    boost::shared_ptr<std::string> volNamePtr(
-        new std::string(blobReq->getVolumeName()));
-    boost::shared_ptr<std::string> blobNamePtr(
-        new std::string(blobReq->getBlobName()));
-
-    // Get the DM nodes info to query
-    DmtColumnPtr nodeIds = dataPlacementTbl->getDMTNodesForVolume(volId);
-    fds_verify(nodeIds->getLength() > 0);
-    journEntry->num_dm_nodes = nodeIds->getLength();
-
-    for (fds_uint32_t i = 0; i < nodeIds->getLength(); i++) {
-        fds_uint32_t node_ip;
-        fds_uint32_t node_port;
-        fds_int32_t  node_state;
-        storHvisor->dataPlacementTbl->getNodeInfo(nodeIds->get(i).uuid_get_val(),
-                                                  &node_ip,
-                                                  &node_port,
-                                                  &node_state);
-        // Get the DM endpoint to query
-        netMetaDataPathClientSession *sessionCtx =
-                storHvisor->rpcSessionTbl->                             \
-                getClientSession<netMetaDataPathClientSession>(node_ip, node_port);
-        fds_verify(sessionCtx != NULL);
-        boost::shared_ptr<FDSP_MetaDataPathReqClient> client =
-                sessionCtx->getClient();
-        msgHdr->session_uuid = sessionCtx->getSessionId();
-
-        // TODO(Andrew): Do I need to do this?...
-        journEntry->dm_ack[i].ipAddr        = node_ip;
-        journEntry->dm_ack[i].port          = node_port;
-        journEntry->dm_ack[i].ack_status    = FDS_CLS_ACK;
-        journEntry->dm_ack[i].commit_status = FDS_CLS_ACK;
-
-        // TODO(Andrew): We can remove this when we get a new session layer
-        msgHdr->dst_ip_lo_addr = node_ip;
-        msgHdr->dst_port       = node_port;
-
-        // Send async RPC request
-        try {
-            client->StartBlobTx(msgHdr,
-                                volNamePtr,
-                                blobNamePtr,
-                                fdspTxId);
-        } catch (att::TTransportException &e) {
-            LOGERROR << "error during network call: " << e.what();
-        }
-    }
-
-    shVol->readUnlock();
-    // je_lock destructor will unlock the journal entry
-
-    return err;
-}
-
-Error
-StorHvCtrl::StatBlob(fds::AmQosReq *qosReq) {
-    fds_verify(qosReq != NULL);
-
-    Error err(ERR_OK);
-    StatBlobReq *blobReq = static_cast<StatBlobReq *>(qosReq->getBlobReqPtr());
-    fds_verify(blobReq != NULL);
-    fds_verify(blobReq->magicInUse() == true);
-
-    fds_volid_t   volId = blobReq->getVolId();
-    StorHvVolume *shVol = storHvisor->vol_table->getLockedVolume(volId);
-    fds_verify(shVol != NULL);
-    fds_verify(shVol->isValidLocked() == true);
-
-    // Get a journal entry
-    bool txInProgress;
-    fds_uint32_t transId = shVol->journal_tbl->get_trans_id_for_blob(blobReq->getBlobName(),
-                                                                     blobReq->getBlobOffset(),
-                                                                     txInProgress);
-    StorHvJournalEntry *journEntry = shVol->journal_tbl->get_journal_entry(transId);  
-    StorHvJournalEntryLock je_lock(journEntry);
-
-    // Just bail out if there's an outstanding request
-    if ((txInProgress == true) ||
-        (journEntry->isActive())) {
-        shVol->readUnlock();
-
-        LOGWARN << "Transaction " << transId << " is already in ACTIVE state, giving up...";
-        // There is an ongoing transaction for this offset.
-        // We should queue this up for later processing once that completes.
-        // For now, return an error.
-        blobReq->cb->call();
-        err = ERR_NOT_IMPLEMENTED;
-        delete blobReq;
-        delete qosReq;
-        return err;
-    }
-
-    // Activate the journal entry
-    journEntry->setActive();
-
-    // Setup journal state
-    journEntry->sm_msg      = NULL; 
-    journEntry->dm_msg      = NULL;
-    journEntry->sm_ack_cnt  = 0;
-    journEntry->dm_ack_cnt  = 0;
-    journEntry->op          = FDS_STAT_BLOB;
-    journEntry->io          = qosReq;
-    // journEntry->delMsg      = del_obj_req;
-    // journEntry->trans_state = FDS_TRANS_DEL_OBJ;
-
-    LOGDEBUG << "Stating blob " << blobReq->getBlobName() << " in trans "
-              << transId << " and vol 0x" << std::hex << volId << std::dec;
-
-    // Setup RPC request to DM
-    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr(new FDSP_MsgHdrType);
-    storHvisor->InitDmMsgHdr(msgHdr);
-    // Set vol and trans IDs
-    msgHdr->glob_volume_id = volId;
-    msgHdr->req_cookie = transId;
-    // TODO(Andrew): These fields really aren't useful...
-    msgHdr->msg_code       = FDSP_STAT_BLOB;
-    msgHdr->src_ip_lo_addr = 0;
-    msgHdr->src_node_name  = "";
-    msgHdr->src_port       = 0;
-    msgHdr->dst_port       = 0;
-
-    // Get the DM node info to query
-    DmtColumnPtr nodeIds = dataPlacementTbl->getDMTNodesForVolume(volId);
-    fds_verify(nodeIds->getLength() > 0);
-
-    fds_uint32_t node_ip;
-    fds_uint32_t node_port;
-    fds_int32_t  node_state;
-    storHvisor->dataPlacementTbl->getNodeInfo(nodeIds->get(0).uuid_get_val(),
-                                              &node_ip,
-                                              &node_port,
-                                              &node_state);
-    // Get the DM endpoint to query
-    netMetaDataPathClientSession *sessionCtx =
-            storHvisor->rpcSessionTbl->                                 \
-            getClientSession<netMetaDataPathClientSession>(node_ip, node_port);
-    fds_verify(sessionCtx != NULL);
-    boost::shared_ptr<FDSP_MetaDataPathReqClient> client =
-            sessionCtx->getClient();
-    msgHdr->session_uuid = sessionCtx->getSessionId();
-
-    boost::shared_ptr<std::string> volNamePtr(
-        new std::string(blobReq->getVolumeName()));
-    boost::shared_ptr<std::string> blobNamePtr(
-        new std::string(blobReq->getBlobName()));
-
-    // Send async RPC request
-    try {
-        client->StatBlob(msgHdr,
-                         volNamePtr,
-                         blobNamePtr);
-    } catch (att::TTransportException &e) {
-            LOGERROR << "error during network call: " << e.what();
-    }
-
-    shVol->readUnlock();
-    // je_lock destructor will unlock the journal entry
-
-    return err;
-}
-
-Error StorHvCtrl::SetBlobMetaData(fds::AmQosReq *qosReq) {
-    fds_verify(qosReq != NULL);
-    LOGDEBUG << "processing SetBlobMetaData for vol:" << qosReq->io_vol_id;
-    Error err(ERR_OK);
-    SetBlobMetaDataReq *blobReq = static_cast<SetBlobMetaDataReq *>(qosReq->getBlobReqPtr());
-    fds_verify(blobReq != NULL);
-    fds_verify(blobReq->magicInUse() == true);
-
-    fds_volid_t   volId = blobReq->getVolId();
-    StorHvVolume *shVol = storHvisor->vol_table->getLockedVolume(volId);
-    fds_verify(shVol != NULL);
-    fds_verify(shVol->isValidLocked() == true);
-
-    // Get a journal entry
-    bool txInProgress;
-    fds_uint32_t transId = shVol->journal_tbl->get_trans_id_for_blob(blobReq->getBlobName(),
-                                                                     blobReq->getBlobOffset(),
-                                                                     txInProgress);
-    StorHvJournalEntry *journEntry = shVol->journal_tbl->get_journal_entry(transId);
-    StorHvJournalEntryLock je_lock(journEntry);
-
-    // Just bail out if there's an outstanding request
-    if ((txInProgress == true) ||
-        (journEntry->isActive())) {
-        shVol->readUnlock();
-
-        LOGWARN << "Transaction " << transId << " is already in ACTIVE state, giving up...";
-        // There is an ongoing transaction for this offset.
-        // We should queue this up for later processing once that completes.
-        // For now, return an error.
-        blobReq->cb->call();
-        err = ERR_NOT_IMPLEMENTED;
-        delete blobReq;
-        delete qosReq;
-        return err;
-    }
-    journEntry->trans_state = FDS_TRANS_MULTIDM;
-
-    // Activate the journal entry
-    journEntry->setActive();
-
-    // Setup journal state
-    journEntry->sm_msg      = NULL;
-    journEntry->dm_msg      = NULL;
-    journEntry->sm_ack_cnt  = 0;
-    journEntry->dm_ack_cnt  = 0;
-    journEntry->op          = FDS_SET_BLOB_METADATA;
-    journEntry->io          = qosReq;
-    // journEntry->delMsg      = del_obj_req;
-    // journEntry->trans_state = FDS_TRANS_DEL_OBJ;
-
-    LOGDEBUG << " setting  meta for blob: " << blobReq->getBlobName()
-             << " rxnid: " << transId
-             << " volume: 0x" << std::hex << volId << std::dec;
-
-    // Setup RPC request to DM
-    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msgHdr(new FDSP_MsgHdrType);
-    storHvisor->InitDmMsgHdr(msgHdr);
-    // Set vol and trans IDs
-    msgHdr->glob_volume_id = volId;
-    msgHdr->req_cookie = transId;
-    // TODO(Andrew): These fields really aren't useful...
-    msgHdr->msg_code       = FDSP_STAT_BLOB;
-    msgHdr->src_ip_lo_addr = 0;
-    msgHdr->src_node_name  = "";
-    msgHdr->src_port       = 0;
-    msgHdr->dst_port       = 0;
-    InitDmMsgHdr(msgHdr);
-
-    // Get DMT node list from dmt
-    DmtColumnPtr nodeIds = dataPlacementTbl->getDMTNodesForVolume(volId);
-    fds_verify(nodeIds->getLength() > 0);
-
-    boost::shared_ptr<std::string> volNamePtr(
-        new std::string(blobReq->volumeName));
-    boost::shared_ptr<std::string> blobNamePtr(
-        new std::string(blobReq->getBlobName()));
-
-    uint errcount = 0;
-    for (fds_uint32_t i = 0; i < nodeIds->getLength(); i++) {
-        fds_uint32_t node_ip   = 0;
-        fds_uint32_t node_port = 0;
-        fds_int32_t node_state = -1;
-        dataPlacementTbl->getNodeInfo(nodeIds->get(i).uuid_get_val(),
-                                      &node_ip,
-                                      &node_port,
-                                      &node_state);
-        journEntry->dm_ack[i].ipAddr        = node_ip;
-        journEntry->dm_ack[i].port          = node_port;
-        msgHdr->dst_ip_lo_addr              = node_ip;
-        msgHdr->dst_port                    = node_port;
-        journEntry->dm_ack[i].ack_status    = FDS_CLS_ACK;
-        journEntry->dm_ack[i].commit_status = FDS_CLS_ACK;
-        journEntry->num_dm_nodes            = nodeIds->getLength();
-
-        // Call Update Catalog RPC call to DM
-        try {
-            netMetaDataPathClientSession *sessionCtx = storHvisor->rpcSessionTbl->\
-                    getClientSession<netMetaDataPathClientSession>(node_ip, node_port);
-            fds_verify(sessionCtx != NULL);
-
-            boost::shared_ptr<FDSP_MetaDataPathReqClient> client = sessionCtx->getClient();
-            msgHdr->session_uuid = sessionCtx->getSessionId();
-            journEntry->session_uuid = msgHdr->session_uuid;
-
-            client->SetBlobMetaData(msgHdr, volNamePtr, blobNamePtr, blobReq->metaDataList);
-
-
-            LOGDEBUG << "For transaction " << transId
-                      << " sent async UP_CAT_REQ to DM ip "
-                      << node_ip << " port " << node_port;
-        } catch (att::TTransportException& e) {
-            LOGERROR << "error during network call : " << e.what() ;
-            errcount++;
-        }
-    }
-
-    shVol->readUnlock();
-    // je_lock destructor will unlock the journal entry
-
-    return err;
 }
 
 /**
@@ -2257,7 +1207,11 @@ StorHvCtrl::attachVolume(AmQosReq *qosReq) {
 /*****************************************************************************
 
  *****************************************************************************/
+
 fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
+
+    return deleteBlobSvc(qosReq);
+
     netSession *endPoint = NULL;
     unsigned int node_ip = 0;
     fds_uint32_t node_port = 0;

@@ -26,6 +26,30 @@
         func(header, payload); \
     }
 
+#define REGISTER_FDSP_MSG_HANDLER_GENERIC(platsvc, FDSPMsgT, func)  \
+    platsvc->asyncReqHandlers_[FDSP_MSG_TYPEID(FDSPMsgT)] = \
+    [this] (boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header, \
+        boost::shared_ptr<std::string>& payloadBuf) \
+    { \
+        boost::shared_ptr<FDSPMsgT> payload; \
+        fds::deserializeFdspMsg(payloadBuf, payload); \
+        func(header, payload); \
+    }
+
+// note : CALLBACK & CALLBACK2 are same
+#define BIND_MSG_CALLBACK(func, header , ...) \
+    std::bind(&func, this, header, ##__VA_ARGS__ , std::placeholders::_1, \
+              std::placeholders::_2);
+
+#define BIND_MSG_CALLBACK2(func, header , ...) \
+    std::bind(&func, this, header, ##__VA_ARGS__ , std::placeholders::_1, \
+              std::placeholders::_2);
+
+#define BIND_MSG_CALLBACK3(func, header , ...) \
+    std::bind(&func, this, header, ##__VA_ARGS__ , std::placeholders::_1, \
+              std::placeholders::_2, std::placeholders::_3);
+
+
 namespace fpi = FDS_ProtocolInterface;
 
 namespace fds {
@@ -67,6 +91,13 @@ class BaseAsyncSvcHandler : virtual public FDS_ProtocolInterface::BaseAsyncSvcIf
     * @param payload - payload to send
     */
     template<class PayloadT>
+    static void sendAsyncResp(boost::shared_ptr<fpi::AsyncHdr>& req_hdr,
+                              const fpi::FDSPMsgTypeId &msgTypeId,
+                              boost::shared_ptr<PayloadT>& payload) {
+        sendAsyncResp(*req_hdr, msgTypeId, *payload);
+    }
+
+    template<class PayloadT>
     static void sendAsyncResp(const fpi::AsyncHdr& req_hdr,
                               const fpi::FDSPMsgTypeId &msgTypeId,
                               const PayloadT& payload)
@@ -81,17 +112,9 @@ class BaseAsyncSvcHandler : virtual public FDS_ProtocolInterface::BaseAsyncSvcIf
         auto written = payload.write(binary_buf.get());
         fds_verify(written > 0);
 
-        EpSvcHandle::pointer ep;
-        net::svc_get_handle<fpi::BaseAsyncSvcClient>(resp_hdr.msg_dst_uuid, &ep, 0 , 0);
-
+        auto ep = NetMgr::ep_mgr_singleton()->\
+                  svc_get_handle<fpi::BaseAsyncSvcClient>(resp_hdr.msg_dst_uuid, 0 , 0);
         if (ep == nullptr) {
-            fds_assert(!"This shouldn't happen");
-            GLOGERROR << "Null destination endpoint: " << resp_hdr.msg_dst_uuid.svc_uuid;
-            return;
-        }
-
-        auto client = ep->svc_rpc<fpi::BaseAsyncSvcClient>();
-        if (client == nullptr) {
             GLOGERROR << "Null destination client: " << resp_hdr.msg_dst_uuid.svc_uuid;
             return;
         }
@@ -101,13 +124,20 @@ class BaseAsyncSvcHandler : virtual public FDS_ProtocolInterface::BaseAsyncSvcIf
         // NET_SVC_RPC_CALL(ep, client, fpi::BaseAsyncSvcClient::asyncResp,
         // resp_hdr, buffer->getBufferAsString());
         try {
-            client->asyncResp(resp_hdr, buffer->getBufferAsString());
+            ep->svc_rpc<fpi::BaseAsyncSvcClient>()->\
+                asyncResp(resp_hdr, buffer->getBufferAsString());
+        } catch(std::exception &e) {
+            GLOGERROR << logString(resp_hdr) << " exception: " << e.what();
+            ep->ep_handle_net_error();
+            fds_panic("uh oh");
         } catch(...) {
             ep->ep_handle_net_error();
+            DBG(std::exception_ptr eptr = std::current_exception());
+            fds_panic("uh oh");
         }
     }
 
- protected:
+    // protected:
     std::unordered_map<fpi::FDSPMsgTypeId, FdspMsgHandler, std::hash<int>> asyncReqHandlers_;
 };
 }  // namespace fds

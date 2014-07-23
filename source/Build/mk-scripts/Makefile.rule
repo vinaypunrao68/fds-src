@@ -50,7 +50,7 @@ local_chk_files     := \
 # Dependency file
 #
 ifdef comm_dir_objs
-	local_dep_file := $(comm_dir_objs)/Makedep
+	local_dep_files := $(comm_dir_objs)/$(*F)
 endif
 
 # Common scripts for rules.
@@ -62,7 +62,7 @@ include $(incl_scripts)/Makefile.scpt
 #
 .PHONY: all
 all: setupfdsrepo devsetup $(user_predep) devenv base_predepend $(user_postdep) \
-     $(user_predepend) base_depend $(user_postdepend)                           \
+     $(user_predepend) $(user_postdepend)                           \
 	 $(user_preall) base_dirs base_style base_objs base_all $(user_postall)     \
 	 $(user_tool) $(user_scripts) base_postmake                                 \
      $(user_preinstall) base_install $(user_postinstall)
@@ -77,12 +77,6 @@ base_predepend: base_rpc base_ragel base_thrift
 .PHONY: devenv
 devenv:
 	@echo $(local_cpp_flags) > ycm.flags
-
-# -----------------------------------------------------------------------------
-# The main auto depend rule.
-#
-.PHONY: base_depend
-base_depend: $(local_dep_file)
 
 # -----------------------------------------------------------------------------
 # The main rule to compile rpcgen/ragel/thrift.
@@ -215,6 +209,9 @@ ifdef user_build_dir
 		fi                                                                    \
 	done
 endif
+ifdef CCACHE
+	@ccache -C
+endif
 
 .PHONY: clobber
 clobber: clean $(user_clobber)
@@ -271,54 +268,38 @@ endif
 #
 $(comm_dir_objs)/%.o : %.c
 ifdef VERBOSE
-	$(cc) $(local_cc_flags) -c $< -o $@
+	$(cc) -MMD $(local_cc_flags) -c $< -o $@
 else
 	@echo "    [CC]          $<"
-	@$(cc) $(local_cc_flags) -c $< -o $@
+	@$(cc) -MMD $(local_cc_flags) -c $< -o $@
 endif
+	@mv $(local_dep_files)$*.d $(local_dep_files)$*.P
 
 # -----------------------------------------------------------------------------
 # Rule to compile .cpp file.
 #
 $(comm_dir_objs)/%.o : %.cpp
 ifdef VERBOSE
-	$(cpp) $(local_cpp_flags) -c $< -o $@
+	$(cpp) -MMD $(local_cpp_flags) -c $< -o $@
 else
 	@echo "    [CPP]         $<"
-	@$(cpp) $(local_cpp_flags) -c $< -o $@
+	@$(cpp) -MMD $(local_cpp_flags) -c $< -o $@
 endif
+	@mv $(local_dep_files)$*.d $(local_dep_files)$*.P
 
 $(comm_dir_objs)/%.o : %.cc
 ifdef VERBOSE
-	$(cpp) $(local_cpp_flags) -c $< -o $@
+	$(cpp) -MMD $(local_cpp_flags) -c $< -o $@
 else
 	@echo "    [CPP]         $<"
-	@$(cpp) $(local_cpp_flags) -c $< -o $@
+	@$(cpp) -MMD $(local_cpp_flags) -c $< -o $@
 endif
-
-# -----------------------------------------------------------------------------
-# Generate auto dependency file.
-#
-ifdef local_dep_file
-$(local_dep_file): $(local_src_files)
-	@[ -f $@ ] && rm $@;                                                      \
-	for f in $(local_cc_files); do                                            \
-		echo "    [DEP]         $$f";                                         \
-		obj=$${f%.*}.o;                                                       \
-        $(cc_dep) -MM -MT $(comm_dir_objs)/$${f%.*}.o $(local_cc_flags) $$f >> $@;\
-	done;                                                                     \
-	for f in $(local_cpp_files); do                                           \
-		echo "    [DEP]         $$f";                                         \
-        $(cpp_dep) -MM -MT $(comm_dir_objs)/$${f%.*}.o $(local_cpp_flags) $$f >> $@;\
-    done;         
-endif
+	@mv $(local_dep_files)$*.d $(local_dep_files)$*.P
 
 # -----------------------------------------------------------------------------
 # Include the Dependencies file if it has been generated.
 #
-ifneq ($(wildcard $(comm_dir_objs)/Makedep),)
-   include $(comm_dir_objs)/Makedep
-endif
+-include $(wildcard $(comm_dir_objs)/*.P)
 
 # -----------------------------------------------------------------------------
 # Make all runtime targets

@@ -14,6 +14,7 @@
 #include <am-engine/fdsn-server.h>
 #include <am-engine/handlers/handlermappings.h>
 #include <am-engine/handlers/responsehandler.h>
+#include <StorHvisorNet.h>
 
 namespace fds {
 
@@ -37,6 +38,10 @@ class FdsnIf : public apis::AmServiceIf {
     fds_bool_t testUturnUpdateBlob;
     /// Uturn test update metadata API
     fds_bool_t testUturnUpdateMeta;
+    /// Uturn test commit tx API
+    fds_bool_t testUturnCommitTx;
+    /// Uturn test abort tx API
+    fds_bool_t testUturnAbortTx;
 
     std::atomic_ullong      io_log_counter;
     fds_uint64_t            io_log_interval;
@@ -62,6 +67,14 @@ class FdsnIf : public apis::AmServiceIf {
         testUturnUpdateMeta = conf.get_abs<bool>("fds.am.testing.uturn_amserv_updatemeta");
         if (testUturnUpdateMeta == true) {
             LOGDEBUG << "Enabling uturn testing for AM service update metadata API";
+        }
+        testUturnCommitTx = conf.get_abs<bool>("fds.am.testing.uturn_amserv_committx");
+        if (testUturnCommitTx == true) {
+            LOGDEBUG << "Enabling uturn testing for AM service commit tx API";
+        }
+        testUturnAbortTx = conf.get_abs<bool>("fds.am.testing.uturn_amserv_aborttx");
+        if (testUturnAbortTx == true) {
+            LOGDEBUG << "Enabling uturn testing for AM service abort tx API";
         }
     }
 
@@ -114,14 +127,19 @@ class FdsnIf : public apis::AmServiceIf {
                                                        *volumeName,
                                                        "accessid",
                                                        "secretkey");
-        ListBucketResponseHandler handler(_return);
-
+        ListBucketResponseHandler::ptr handler(new ListBucketResponseHandler(_return));
+        STORHANDLER(GetBucketHandler, fds::FDS_LIST_BUCKET)->
+                handleRequest(bucket_ctxt,
+                              *offset, *count,
+                              SHARED_DYN_CAST(Callback, handler));
+        /*
         am_api->GetBucket(bucket_ctxt,
                           "", "", "", *count,
                           NULL,
                           fn_ListBucketHandler, &handler);
-        handler.wait();
-        handler.process();
+        */
+        handler->wait();
+        handler->process();
     }
 
     void statBlob(apis::BlobDescriptor& _return,
@@ -148,37 +166,86 @@ class FdsnIf : public apis::AmServiceIf {
     void startBlobTx(apis::TxDescriptor& _return,
                   const std::string& domainName,
                   const std::string& volumeName,
-                  const std::string& blobName) {
+                  const std::string& blobName,
+                  const fds_int32_t blobMode) {
     }
 
     void startBlobTx(apis::TxDescriptor& _return,
                      boost::shared_ptr<std::string>& domainName,
                      boost::shared_ptr<std::string>& volumeName,
-                     boost::shared_ptr<std::string>& blobName) {
+                     boost::shared_ptr<std::string>& blobName,
+                     boost::shared_ptr<fds_int32_t>& blobMode) {
         if ((testUturnAll == true) ||
             (testUturnStartTx == true)) {
             LOGDEBUG << "Uturn testing start blob tx";
             return;
         }
+
         StartBlobTxResponseHandler::ptr handler(
             new StartBlobTxResponseHandler(_return));
 
-        am_api->StartBlobTx(*volumeName, *blobName, SHARED_DYN_CAST(Callback, handler));
+        am_api->StartBlobTx(*volumeName, *blobName, *blobMode, SHARED_DYN_CAST(Callback, handler));
 
         handler->wait();
         handler->process();
     }
 
-    void commitBlobTx(const apis::TxDescriptor& txDesc) {
+    void commitBlobTx(const std::string& domainName,
+                  const std::string& volumeName,
+                  const std::string& blobName,
+                  const apis::TxDescriptor& txDesc) {
     }
 
-    void commitBlobTx(boost::shared_ptr<apis::TxDescriptor>& txDesc) {
+    void commitBlobTx(boost::shared_ptr<std::string>& domainName,
+                     boost::shared_ptr<std::string>& volumeName,
+                     boost::shared_ptr<std::string>& blobName,
+                     boost::shared_ptr<apis::TxDescriptor>& txDesc) {
+        if ((testUturnAll == true) ||
+            (testUturnCommitTx == true)) {
+            LOGDEBUG << "Uturn testing commit blob tx";
+            return;
+        }
+
+        // Setup the transcation descriptor
+        BlobTxId::ptr blobTxDesc(new BlobTxId(
+            txDesc->txId));
+
+        SimpleResponseHandler::ptr handler(new SimpleResponseHandler(__func__));
+
+        am_api->CommitBlobTx(*volumeName, *blobName, blobTxDesc,
+                SHARED_DYN_CAST(Callback, handler));
+
+        handler->wait();
+        handler->process();
     }
 
-    void abortBlobTx(const apis::TxDescriptor& txDesc) {
+    void abortBlobTx(const std::string& domainName,
+                  const std::string& volumeName,
+                  const std::string& blobName,
+                  const apis::TxDescriptor& txDesc) {
     }
 
-    void abortBlobTx(boost::shared_ptr<apis::TxDescriptor>& txDesc) {
+    void abortBlobTx(boost::shared_ptr<std::string>& domainName,
+                     boost::shared_ptr<std::string>& volumeName,
+                     boost::shared_ptr<std::string>& blobName,
+                     boost::shared_ptr<apis::TxDescriptor>& txDesc) {
+        if ((testUturnAll == true) ||
+            (testUturnAbortTx == true)) {
+            LOGDEBUG << "Uturn testing abort blob tx";
+            return;
+        }
+
+        SimpleResponseHandler::ptr handler(new SimpleResponseHandler(__func__));
+
+        // Setup the transcation descriptor
+        BlobTxId::ptr blobTxDesc(new BlobTxId(
+            txDesc->txId));
+
+        am_api->AbortBlobTx(*volumeName, *blobName, blobTxDesc,
+                              SHARED_DYN_CAST(Callback, handler));
+
+        handler->wait();
+        handler->process();
     }
 
     void getBlob(std::string& _return,
@@ -204,11 +271,16 @@ class FdsnIf : public apis::AmServiceIf {
         // Get a buffer of the requested size
         // TODO(Andrew): This should be a shared pointer
         // as we pass it around a lot
+        // TODO(Andrew): We should just resize the return string
+        // rather than doing a reassign at the end
         char *buf = new char[*length];
         fds_verify(buf != NULL);
 
         // Create request context
-        GetObjectResponseHandler getHandler;
+        // Set the pointer we want filled in the handler
+        // TODO(Andrew): Get the correctly sized pointer directly
+        // from the return string so we can avoid one extra copy.
+        GetObjectResponseHandler::ptr getHandler(new GetObjectResponseHandler(buf));
 
         // Do async getobject
         // TODO(Andrew): The error path callback maybe called
@@ -221,23 +293,22 @@ class FdsnIf : public apis::AmServiceIf {
                           *length,
                           buf,
                           *length,  // We always allocate buf of the requested size
-                          NULL,  // Not passing a context right now
-                          fn_GetObjectHandler,
-                          static_cast<void *>(&getHandler));
+                          SHARED_DYN_CAST(Callback, getHandler));
 
         // Wait for a signal from the callback thread
-        getHandler.wait();
+        getHandler->wait();
 
-        if (getHandler.status != ERR_OK) {
+        if (getHandler->error != ERR_OK) {
             apis::ApiException fdsE;
-            if (getHandler.status == FDSN_StatusEntityDoesNotExist) {
+            if (getHandler->error == ERR_BLOB_OFFSET_INVALID) {
                 fdsE.errorCode = apis::MISSING_RESOURCE;
             } else {
                 fdsE.errorCode = apis::BAD_REQUEST;
             }
             throw fdsE;
         }
-        _return.assign(buf, *length);
+        _return.assign(getHandler->returnBuffer,
+                       getHandler->returnSize);
 
         delete[] buf;
     }
@@ -269,8 +340,11 @@ class FdsnIf : public apis::AmServiceIf {
             metaPair.value = meta.second;
             metaDataList->push_back(metaPair);
         }
+        // Setup the transcation descriptor
+        BlobTxId::ptr blobTxDesc(new BlobTxId(
+            txDesc->txId));
 
-        am_api->setBlobMetaData(*volumeName, *blobName, metaDataList,
+        am_api->setBlobMetaData(*volumeName, *blobName, blobTxDesc, metaDataList,
                                 SHARED_DYN_CAST(Callback, handler));
         handler->wait();
         LOGDEBUG << "set meta data returned";
@@ -355,11 +429,30 @@ class FdsnIf : public apis::AmServiceIf {
     void deleteBlob(boost::shared_ptr<std::string>& domainName,
                     boost::shared_ptr<std::string>& volumeName,
                     boost::shared_ptr<std::string>& blobName) {
-        BucketContext bucket_ctx("host", *volumeName, "accessid", "secretkey");
-        SimpleResponseHandler handler(__func__);
-        am_api->DeleteObject(&bucket_ctx, *blobName, NULL, fn_ResponseHandler, &handler);
-        handler.wait();
-        handler.process();
+        apis::TxDescriptor txnId;
+        boost::shared_ptr<fds_int32_t> bmode(new fds_int32_t(0));
+        startBlobTx(txnId, domainName, volumeName, blobName, bmode);
+        BlobTxId::ptr blobTxId(new BlobTxId(txnId.txId));
+
+        SimpleResponseHandler::ptr handler(new SimpleResponseHandler(__func__));
+        STORHANDLER(DeleteBlobHandler, fds::FDS_DELETE_BLOB)->
+                handleRequest(*volumeName, *blobName, blobTxId,
+                              SHARED_DYN_CAST(Callback, handler));
+        handler->wait();
+        boost::shared_ptr<apis::TxDescriptor> txnPtr(new apis::TxDescriptor());
+        txnPtr->txId = txnId.txId;
+        try {
+            handler->process();
+        } catch(apis::ApiException& e) {
+            LOGDEBUG << "delete failed with exception : " << e.what();
+            try {
+                abortBlobTx(domainName, volumeName, blobName, txnPtr);
+            } catch(apis::ApiException& e) {
+                LOGERROR << "exception @ abortBlobTx : " << e.what();
+            }
+            throw e;
+        }
+        commitBlobTx(domainName, volumeName, blobName, txnPtr);
     }
 };
 

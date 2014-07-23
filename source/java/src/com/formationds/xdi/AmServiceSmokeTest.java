@@ -38,7 +38,7 @@ public class AmServiceSmokeTest {
         String blobName = BLOB_NAME + totalPuts;
 
         long start = System.currentTimeMillis();
-        TxDescriptor txDesc = am.startBlobTx(DOMAIN_NAME, VOLUME_NAME, blobName);
+        TxDescriptor txDesc = am.startBlobTx(DOMAIN_NAME, VOLUME_NAME, blobName, 0);
         long end = System.currentTimeMillis();
         totalStartBlobTx += end - start;
 

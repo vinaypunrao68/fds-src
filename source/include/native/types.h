@@ -301,6 +301,16 @@ namespace fds {
                                            BlobTxId txId,
                                            void *callbackData);
 
+    typedef void (*fdsCommitBlobTxHandler)(FDSN_Status status,
+                                           const ErrorDetails *errorDetails,
+                                           BlobTxId txId,
+                                           void *callbackData);
+
+    typedef void (*fdsnAbortBlobTxHandler)(FDSN_Status status,
+                                           const ErrorDetails *errorDetails,
+                                           BlobTxId txId,
+                                           void *callbackData);
+
     typedef void (*fdsnResponseHandler)(FDSN_Status status,
                                         const ErrorDetails *errorDetails,
                                         void *callbackData);
@@ -345,6 +355,7 @@ namespace fds {
 
         void operator()(FDSN_Status status = FDSN_StatusErrorUnknown);
         void call(FDSN_Status status);
+        void call(Error err);
         bool isStatusSet();
         bool isErrorSet();
 
@@ -361,7 +372,7 @@ namespace fds {
          * TODO: Resolve this with what's needed by the object-based callbacks.
          */
         typedef boost::function<void(fds_int32_t)> callbackBind;
-
+        std::string volumeName;
   protected:
         /*
          * Common request header members
@@ -379,7 +390,6 @@ namespace fds {
          */
         std::string  blobName;
         fds_uint64_t blobOffset;
-
         /*
          * Object members
          */
@@ -412,14 +422,13 @@ namespace fds {
                    fds_uint64_t       _dataLen,
                    char              *_dataBuf);
 
-        FdsBlobReq(fds_io_op_t      _op,
+        FdsBlobReq(fds_io_op_t        _op,
                    fds_volid_t        _volId,
                    const std::string &_blobName,
                    fds_uint64_t       _blobOffset,
                    fds_uint64_t       _dataLen,
                    char              *_dataBuf,
-                   CallbackPtr cb
-                   );
+                   CallbackPtr        _cb);
         template<typename F, typename A, typename B, typename C>
         FdsBlobReq(fds_io_op_t      _op,
                    fds_volid_t        _volId,
@@ -449,6 +458,8 @@ namespace fds {
         void setVolId(fds_volid_t vol_id);
         void cbWithResult(int result);
         const std::string& getBlobName() const;
+        const std::string& getVolumeName() const;
+        void setVolumeName(const std::string& volumeName);
         fds_uint64_t getBlobOffset() const;
         void setBlobOffset(fds_uint64_t offset);
         const char *getDataBuf() const;
@@ -461,30 +472,59 @@ namespace fds {
     };
 
 
-    // RAII model.
-    // NOTE: use this cautiously!!!
-    // at the end of scope the cb will be called!!
-    struct ScopedCallBack {
-        CallbackPtr cb;
-        explicit ScopedCallBack(CallbackPtr cb);
-        ~ScopedCallBack();
-    };
+// RAII model.
+// NOTE: use this cautiously!!!
+// at the end of scope the cb will be called!!
+struct ScopedCallBack {
+    CallbackPtr cb;
+    explicit ScopedCallBack(CallbackPtr cb);
+    ~ScopedCallBack();
+};
 
-    struct StatBlobCallback : virtual Callback {
-        typedef boost::shared_ptr<StatBlobCallback> ptr;
-        /// The blob descriptor to fill in
-        BlobDescriptor      blobDesc;
-    };
+struct StatBlobCallback : virtual Callback {
+    typedef boost::shared_ptr<StatBlobCallback> ptr;
+    /// The blob descriptor to fill in
+    BlobDescriptor      blobDesc;
+};
 
-    struct StartBlobTxCallback : virtual Callback {
-        typedef boost::shared_ptr<StartBlobTxCallback> ptr;
-        /// The blob trans ID to fill in
-        BlobTxId      blobTxId;
-    };
+struct StartBlobTxCallback : virtual Callback {
+    typedef boost::shared_ptr<StartBlobTxCallback> ptr;
+    /// The blob trans ID to fill in
+    BlobTxId      blobTxId;
+};
 
-    struct GetVolumeMetaDataCallback : virtual Callback {
-        TYPE_SHAREDPTR(GetVolumeMetaDataCallback);
-        fpi::FDSP_VolumeMetaData volumeMetaData;
-    };
+struct GetObjectCallback : virtual Callback {
+    typedef boost::shared_ptr<GetObjectCallback> ptr;
+    char *returnBuffer;
+    fds_uint32_t returnSize;
+};
+
+struct CommitBlobTxCallback : virtual Callback {
+    typedef boost::shared_ptr<CommitBlobTxCallback> ptr;
+    /// The blob trans ID to fill in
+    BlobTxId      blobTxId;
+};
+
+struct AbortBlobTxCallback : virtual Callback {
+    typedef boost::shared_ptr<AbortBlobTxCallback> ptr;
+    /// The blob trans ID to fill in
+    BlobTxId      blobTxId;
+};
+
+struct GetVolumeMetaDataCallback : virtual Callback {
+    TYPE_SHAREDPTR(GetVolumeMetaDataCallback);
+    fpi::FDSP_VolumeMetaData volumeMetaData;
+};
+
+struct GetBucketCallback : virtual Callback {
+    TYPE_SHAREDPTR(GetBucketCallback);
+    int isTruncated = 0;
+    const char *nextMarker = NULL;
+    int contentsCount = 0;
+    const ListBucketContents *contents = NULL;
+    int commonPrefixesCount = 0;
+    const char **commonPrefixes = NULL;
+};
+
 }  // namespace fds
 #endif  // SOURCE_INCLUDE_NATIVE_TYPES_H_
