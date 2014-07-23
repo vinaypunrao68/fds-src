@@ -31,22 +31,46 @@ def plot_series(options, series, title = None, ylabel = None, xlabel = "Time [ms
     plt.show()
 
 def get_avglat(options):
-    if options.ab_enable:
-        cmd = "grep 'Time per request' %s/out.%s |head -1| awk '{print $4}'" % (options.directory, options.name)
-    elif options.block_enable:
-        return None
-    else:
-        cmd = "cat %s/out.%s | grep Summary |awk '{print $15}'" % (options.directory, options.name)
-    return float(os.popen(cmd).read().rstrip('\n'))
+    outfiles = get_outfiles(options)
+    lats = []
+    for of in outfiles:        
+        if options.ab_enable:
+            cmd = "grep 'Time per request' %s |head -1| awk '{print $4}'" % (of)
+        elif options.block_enable:
+            return None
+        else:
+            cmd = "cat %s | grep Summary |awk '{print $15}'" % (of)
+        lat = float(os.popen(cmd).read().rstrip('\n'))
+        lats.append(lat)
+    return sum(lats)/len(lat)
+
+
+def get_outfiles(options):
+    outfiles = ["%s/out.%s" % (options.directory, options.name)]
+    if not os.path.exists(outfiles[0]):
+        outfiles.pop()
+        i = 1
+        candidate = "%s/out.%d.%s" % (options.directory, i, options.name)
+        while os.path.exists(candidate) == True: 
+            outfiles.append(candidate)
+            i += 1
+            candidate = "%s/out.%d.%s" % (options.directory, i, options.name)
+    return outfiles
+
 
 def get_avgth(options):
-    if options.ab_enable:
-        cmd = "grep 'Requests per second' %s/out.%s | awk '{print $4}'" % (options.directory, options.name)
-    elif options.block_enable:
-        cmd = "cat %s/out.%s | grep 'Experiment result' | awk '{print $11}'" % (options.directory, options.name)
-    else:        
-        cmd = "cat %s/out.%s | grep Summary |awk '{print $13}'" % (options.directory, options.name)
-    return float(os.popen(cmd).read().rstrip('\n'))
+    outfiles = get_outfiles(options)
+    ths = []
+    for of in outfiles:        
+        if options.ab_enable:
+            cmd = "grep 'Requests per second' %s | awk '{print $4}'" % (of)
+        elif options.block_enable:
+            cmd = "cat %s | grep 'Experiment result' | awk '{print $11}'" % (of)
+        else:        
+            cmd = "cat %s | grep Summary |awk '{print $13}'" % (of)
+        th = float(os.popen(cmd).read().rstrip('\n'))
+        ths.append(th)
+    return sum(ths)/len(ths)    
 
 def exist_exp(options):
     if os.path.exists("%s/map.%s" % (options.directory, options.name)):

@@ -51,7 +51,7 @@ function run_stat_collectors {
         PIDS="$PIDS""p$_PID,"
     done
     #collectl  -sZ -i1:1 --procfilt $PIDS > $RESULTS/collectl.procs.$NAME &
-    iostat -d 1 -k  > $RESULTS/iostat.$NAME &
+    iostat -p -d 1 -k  > $RESULTS/iostat.$NAME &
     top -p `echo $PIDS | sed 's/p//g'| sed 's/,$//'` -b > $RESULTS/top.$NAME &
 }
 
@@ -91,39 +91,39 @@ function exp {
     rm -fr /tmp/fdstrgen*
 }
 
-f_num=10000
-
-for v in 10
-do
-    for t in "PUT"
-    do
-    	for th in 1 
-    	do
-    		for n in 100000
-    		do
-    		echo "Experiment: $t $th $n $f_num 1 $v"
-    		exp $t $th $n $f_num 1 $v
-    		sleep 1		
-    		done
-    	done
-    done
-done
-
-for v in 1 2 3 4 5 10
-do
-    for t in "GET" 
-    do
-    	for th in 1 2 3 4 5 6 7 8 9 10 15
-    	do
-    		for n in 10000
-    		do
-    		echo "Experiment: $t $th $n $f_num 1 $v"
-    		exp $t $th $n $f_num 1 $v
-    		sleep 1		
-    		done
-    	done
-    done
-done
+# f_num=10000
+# 
+# for v in 10
+# do
+#     for t in "PUT"
+#     do
+#     	for th in 1 
+#     	do
+#     		for n in 100000
+#     		do
+#     		echo "Experiment: $t $th $n $f_num 1 $v"
+#     		exp $t $th $n $f_num 1 $v
+#     		sleep 1		
+#     		done
+#     	done
+#     done
+# done
+# 
+# for v in 1 2 3 4 5 10
+# do
+#     for t in "GET" 
+#     do
+#     	for th in 1 2 3 4 5 6 7 8 9 10 15
+#     	do
+#     		for n in 10000
+#     		do
+#     		echo "Experiment: $t $th $n $f_num 1 $v"
+#     		exp $t $th $n $f_num 1 $v
+#     		sleep 1		
+#     		done
+#     	done
+#     done
+# done
 
 # for t in "7030" 
 # do
@@ -209,17 +209,26 @@ function do_block {
     TYPE=$1
     N=$2
     C=$3
-	NAME="$TYPE:$N:$C"
+    NVOLS=$4
+	NAME="$TYPE:$N:$C:$NVOLS"
     run_stat_collectors $NAME
 	sleep 1
     ###### Workload
     pushd $BLOCK_DIR
-    if [ $TYPE == "PUT" ] 
-    then
-        ./run-delay-workloads.sh -p "poc-demo-write" -w "sample_workloads/seq_write.sh:/dev/nbd0" 2>&1 | tee $RESULTS/out.$NAME
-    else
-        ./run-delay-workloads.sh -p "poc-demo-read" -w "sample_workloads/seq_read.sh:/dev/nbd0" 2>&1 | tee $RESULTS/out.$NAME
-    fi    
+    pids=""
+    for i in `seq 1 $NVOLS`
+    do
+        let j=$i-1
+        if [ $TYPE == "PUT" ] 
+        then
+            ./run-delay-workloads.sh -p "poc-demo-write" -w "sample_workloads/seq_write.sh:/dev/nbd$j" 2>&1 | tee $RESULTS/out.$i.$NAME &
+        else
+            ./run-delay-workloads.sh -p "poc-demo-read" -w "sample_workloads/seq_read.sh:/dev/nbd$j" 2>&1 | tee $RESULTS/out.$i.$NAME &
+        fi
+        pids="$pids $!"
+    done    
+    echo "---> Waiting on $pids"
+    wait $pids
     popd
     ###### --------
 	#sleep 1
@@ -234,17 +243,20 @@ function do_block {
     shutdown_stat_collectors
 }
 
-for t in "GET" 
+for t in "PUT" "GET"
 do
-	for th in 1
+	for v in 1 
 	do
-		for n in 1
-		do
-		echo "Experiment: $t $n $th"
-        do_block $t $n $th
-		sleep 1		
-		done
-	done
+	    for th in 1
+	    do
+	    	for n in 1
+	    	do
+	    	echo "Experiment: $t $n $th $v"
+            do_block $t $n $th $v
+	    	sleep 1		
+	    	done
+	    done
+   done
 done
 
 
