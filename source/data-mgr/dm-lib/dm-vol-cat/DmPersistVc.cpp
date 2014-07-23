@@ -340,9 +340,12 @@ Error DmPersistVolCatalog::createCatalog(const VolumeDesc& vol_desc){
 Error DmPersistVolCatalog::openCatalog(fds_volid_t volume_id) {
     Error err(ERR_OK);
     PersistVolumeMetaPtr volmeta = getVolumeMeta(volume_id);
+    if (!volmeta) {
+        LOGWARN << "Vol " << std::hex << volume_id << std::dec << " does not exist";
+        return ERR_VOL_NOT_FOUND;
+    }
 
-    LOGTRACE << "Will open Catalog for volume "
-             << std::hex << volume_id << std::dec;
+    LOGDEBUG << "Will open Catalog for vol " << std::hex << volume_id << std::dec;
 
     err = volmeta->init();
     if (!err.ok()) {
@@ -360,6 +363,11 @@ fds_bool_t DmPersistVolCatalog::isVolumeEmpty(fds_volid_t volume_id) {
     Catalog::catalog_iterator_t* dbIt;
     PersistVolumeMetaPtr volmeta = getVolumeMeta(volume_id);
     fds_bool_t bret = true;
+
+    if (!volmeta) {
+        LOGWARN << "Vol " << std::hex << volume_id << std::dec << " does not exist";
+        return true;
+    }
 
     // it's possible that catalog not open yet, if we just starting
     // to push meta for this volume from another DM -- in that
@@ -410,8 +418,9 @@ Error DmPersistVolCatalog::syncCatalog(fds_volid_t volume_id,
 //
 PersistVolumeMetaPtr DmPersistVolCatalog::getVolumeMeta(fds_volid_t volume_id) {
     read_synchronized(vol_map_lock) {
-        fds_verify(vol_map.count(volume_id) > 0);
-        return vol_map[volume_id];
+        if (vol_map.count(volume_id) > 0) {
+            return vol_map[volume_id];
+        }
     }
     return PersistVolumeMetaPtr();
 }
@@ -539,6 +548,13 @@ BlobExtent0::ptr DmPersistVolCatalog::getMetaExtent(fds_volid_t volume_id,
     LOGTRACE << "Will get extent 0 for " << std::hex << volume_id << std::dec
              << "," << blob_name;
 
+    if (!volmeta) {
+        LOGWARN << "Volume " << std::hex << volume_id << std::dec
+                << " does not exist";
+        error = ERR_VOL_NOT_FOUND;
+        return BlobExtent0::ptr();
+    }
+
     err = getKeyString(blob_name, 0, serialized_key);
     fds_verify(err.ok());
 
@@ -591,6 +607,13 @@ BlobExtent::ptr DmPersistVolCatalog::getExtent(fds_volid_t volume_id,
     LOGTRACE << "Will get extent " << extent_id << " for "
              << std::hex << volume_id << std::dec << "," << blob_name;
 
+    if (!volmeta) {
+        LOGWARN << "Volume " << std::hex << volume_id << std::dec
+                << " does not exist for blob " << blob_name;
+        error = ERR_VOL_NOT_FOUND;
+        return BlobExtent::ptr();
+    }
+
     err = getKeyString(blob_name, extent_id, serialized_key);
     fds_verify(err.ok());
 
@@ -633,6 +656,11 @@ Error DmPersistVolCatalog::deleteExtent(fds_volid_t volume_id,
     LOGTRACE << "Will delete extent " << extent_id << " for " << std::hex
              << volume_id << std::dec << "," << blob_name;
 
+    if (!volmeta) {
+        LOGWARN << "Vol " << std::hex << volume_id << std::dec << " does not exist";
+        return ERR_VOL_NOT_FOUND;
+    }
+
     err = getKeyString(blob_name, extent_id, key);
     fds_verify(err.ok());
 
@@ -651,8 +679,12 @@ Error DmPersistVolCatalog::getMetaDescList(fds_volid_t volume_id,
     Catalog::catalog_iterator_t* dbIt;
     PersistVolumeMetaPtr volmeta = getVolumeMeta(volume_id);
 
-    LOGDEBUG << "Will get extents 0 for volume " << std::hex
-             << volume_id << std::dec;
+    if (!volmeta) {
+        LOGWARN << "Vol " << std::hex << volume_id << std::dec << " does not exist";
+        return ERR_VOL_NOT_FOUND;
+    }
+
+    LOGDEBUG << "Will get extents 0 for vol " << std::hex << volume_id << std::dec;
 
     dbIt = volmeta->getSnapshotIter(options);
     for (dbIt->SeekToFirst(); dbIt->Valid(); dbIt->Next()) {

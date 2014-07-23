@@ -11,20 +11,15 @@
 #define SOURCE_DATA_MGR_INCLUDE_VOLUMEMETA_H_
 
 #include <string>
-#include <list>
-#include <vector>
 #include <map>
 #include <fds_types.h>
 #include <fds_error.h>
 #include <dm-platform.h>
 #include <util/Log.h>
 
-#include <lib/VolumeCatalog.h>
 #include <concurrency/Mutex.h>
 #include <fds_volume.h>
-#include <ObjectId.h>
 #include <fdsp/fds_service_types.h>
-#include <serialize.h>
 
 namespace fds {
 
