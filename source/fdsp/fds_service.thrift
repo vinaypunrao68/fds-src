@@ -79,6 +79,10 @@ enum  FDSPMsgTypeId {
     GetBucketRspMsgTypeId,
     DeleteBlobMsgTypeId,
     DeleteBlobRspMsgTypeId,
+    ForwardCatalogMsgTypeId,
+    ForwardCatalogRspMsgTypeId,
+    VolSyncStateMsgTypeId,
+    VolSyncStateRspMsgTypeId,
 }
 
 struct EmptyMsg {
@@ -309,6 +313,19 @@ struct UpdateCatalogMsg {
 struct UpdateCatalogRspMsg {
 }
 
+/* Forward catalog update request message */
+struct ForwardCatalogMsg {
+   1: i64    			volume_id;
+   2: string 			blob_name; 	/* User visible name of the blob */
+   3: i64                       blob_version; 	/* Version of the blob */
+   4: FDSP.FDSP_BlobObjectList 	obj_list; 	/* List of object ids of the objects that this blob is being mapped to */
+   5: FDSP.FDSP_MetaDataList 	meta_list;      /* sequence of arbitrary key/value pairs */
+}
+
+/* Forward catalog update response message */
+struct ForwardCatalogRspMsg {
+}
+
 /* Start Blob  Transaction  request message */
 struct StartBlobTxMsg {
    1: i64    			volume_id;
@@ -398,6 +415,16 @@ struct DeleteBlobMsg {
   2: i64                       volume_id;
   3: string                    blob_name;
   4: i64                       blob_version;
+}
+
+/* Volume sync state msg sent from source to destination DM */
+struct VolSyncStateMsg
+{
+    1: i64        volume_id;
+    2: bool       forward_done;   /* true = forwarding done, false = second rsync done */
+}
+
+struct VolSyncStateRspMsg {
 }
 
 /**
