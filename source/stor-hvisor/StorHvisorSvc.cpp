@@ -505,7 +505,7 @@ void StorHvCtrl::getBlobQueryCatalogResp(fds::AmQosReq* qosReq,
         LOGERROR << "blob name: " << blobReq->getBlobName() << "offset: "
             << blobReq->getBlobOffset() << " Error: " << error; 
         qos_ctrl->markIODone(qosReq);
-        blobReq->cb->call(ERR_INVALID);
+        blobReq->cbWithResult(error.GetErrno());
         delete blobReq;
         return;
     }

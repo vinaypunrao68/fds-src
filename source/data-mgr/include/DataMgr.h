@@ -39,8 +39,6 @@
 #include <CatalogSync.h>
 #include <CatalogSyncRecv.h>
 
-#include <dm-tvc/CommitLog.h>
-
 #include <blob/BlobTypes.h>
 #include <fdsp/DMSvc.h>
 #include <functional>
@@ -53,8 +51,6 @@
 #undef FDS_TEST_DM_NOOP
 
 namespace fds {
-
-int scheduleGetVolumeMetaData(void* io);
 
 class DataMgr;
 class DMSvcHandler;
@@ -102,8 +98,8 @@ class DataMgr : public Module, public DmIoReqHandler {
      */
     DmTimeVolCatalog::ptr timeVolCat_;
 
-    /* Platform module provider */
-    PlatProcessModuleProviderIf *platProvider_;
+    /* Common module provider */
+    CommonModuleProviderIf *modProvider_;
 
     class dmQosCtrl : public FDS_QoSControl {
       public:
@@ -134,7 +130,7 @@ class DataMgr : public Module, public DmIoReqHandler {
                 case FDS_COMMIT_BLOB_TX:
                     threadPool->schedule(&DataMgr::commitBlobTx, dataMgr, io);
                     break;
-                case FDS_CAT_QRY_SVC:
+                case FDS_CAT_QRY:
                     threadPool->schedule(&DataMgr::queryCatalogBackendSvc, dataMgr, io);
                     break;
                 case FDS_DM_SNAP_VOLCAT:
@@ -147,10 +143,6 @@ class DataMgr : public Module, public DmIoReqHandler {
 
                 /* End of new refactored DM message types */
 
-                case FDS_CAT_QRY:
-                    // TODO(xxx) use FDS_CAT_QRY type instead of FDS_CAT_QRY_SVC
-                    fds_panic("we moved to FDS_CAT_QRY_SVC");
-                    break;
                 case FDS_GET_BLOB_METADATA:
                     threadPool->schedule(&DataMgr::scheduleGetBlobMetaDataSvc, dataMgr, io);
                     break;
@@ -158,7 +150,7 @@ class DataMgr : public Module, public DmIoReqHandler {
                     threadPool->schedule(&DataMgr::setBlobMetaDataSvc, dataMgr, io);
                     break;
                 case FDS_GET_VOLUME_METADATA:
-                    threadPool->schedule(scheduleGetVolumeMetaData, io);
+                    threadPool->schedule(&DataMgr::getVolumeMetaData, dataMgr, io);
                     break;
                 case FDS_ABORT_BLOB_TX:
                     threadPool->schedule(&DataMgr::scheduleAbortBlobTxSvc, dataMgr, io);
@@ -218,15 +210,6 @@ class DataMgr : public Module, public DmIoReqHandler {
      */
     fds_mutex *vol_map_mtx;
 
-    /**
-     * Giant, slow, big hammer lock.
-     * TODO(Andrew): Remove this! It's needed to provide
-     * serialization of update catalog requests to the same
-     * blob. There's a much better solution than this that
-     * needs to be added. It's just more code...
-     */
-    fds_mutex *big_fat_lock;
-
     Error getVolObjSize(fds_volid_t volId,
                         fds_uint32_t *maxObjSize);
 
@@ -242,14 +225,9 @@ class DataMgr : public Module, public DmIoReqHandler {
     Error _process_mod_vol(fds_volid_t vol_uuid,
                            const VolumeDesc& voldesc);
 
-    Error _process_query(fds_volid_t vol_uuid,
-                         std::string blob_name,
-                         BlobNode*& bnode);
-
     void initSmMsgHdr(FDSP_MsgHdrTypePtr msgHdr);
 
     fds_bool_t amIPrimary(fds_volid_t volUuid);
-    Error expungeBlob(const BlobNode *bnode);
     Error expungeObject(fds_volid_t volId, const ObjectID &objId);
     Error expungeObjectsIfPrimary(fds_volid_t volid,
                                   const std::vector<ObjectID>& oids);
@@ -289,7 +267,7 @@ class DataMgr : public Module, public DmIoReqHandler {
     void setup_metasync_service();
 
   public:
-    explicit DataMgr(PlatProcessModuleProviderIf *platProvider);
+    explicit DataMgr(CommonModuleProviderIf *modProvider);
     ~DataMgr();
     std::map<fds_io_op_t, dm::Handler*> handlers;
     dmQosCtrl   *qosCtrl;
@@ -327,14 +305,12 @@ class DataMgr : public Module, public DmIoReqHandler {
     void setBlobMetaDataSvc(void *io);
     void queryCatalogBackendSvc(void * _io);
     void scheduleDeleteCatObjSvc(void * _io);
-    void scheduleStartBlobTxSvc(void * _io);
-    void scheduleCommitBlobTxSvc(void * _io);
     void scheduleAbortBlobTxSvc(void * _io);
     void setBlobMetaDataBackend(const dmCatReq *request);
-    void getVolumeMetaDataBackend(const dmCatReq *request);
+    void getVolumeMetaData(dmCatReq *io);
     void snapVolCat(dmCatReq *io);
     Error forwardUpdateCatalogRequest(dmCatReq  *updCatReq);
-    void sendUpdateCatalogResp(dmCatReq  *updCatReq, BlobNode *bnode);
+    // void sendUpdateCatalogResp(dmCatReq  *updCatReq, BlobNode *bnode);
 
     void scheduleGetBlobMetaDataSvc(void *io);
 
@@ -357,42 +333,6 @@ class DataMgr : public Module, public DmIoReqHandler {
                                 fds_uint32_t dstIp, fds_uint32_t srcPort,
                                 fds_uint32_t dstPort, std::string session_uuid,
                                 fds_uint32_t reqCookie, std::string session_cache);
-    Error queryCatalogInternal(FDSP_QueryCatalogTypePtr qryCatReq,
-                               fds_volid_t volId, fds_uint32_t srcIp,
-                               fds_uint32_t dstIp, fds_uint32_t srcPort,
-                               fds_uint32_t dstPort, std::string session_uuid,
-                               fds_uint32_t reqCookie);
-    Error deleteCatObjInternal(FDSP_DeleteCatalogTypePtr delCatReq,
-                               fds_volid_t volId, fds_uint32_t srcIp,
-                               fds_uint32_t dstIp, fds_uint32_t srcPort,
-                               fds_uint32_t dstPort, std::string session_uuid,
-                               fds_uint32_t reqCookie);
-    Error blobListInternal(const FDSP_GetVolumeBlobListReqTypePtr& blob_list_req,
-                           fds_volid_t volId, fds_uint32_t srcIp,
-                           fds_uint32_t dstIp, fds_uint32_t srcPort,
-                           fds_uint32_t dstPort, std::string session_uuid,
-                           fds_uint32_t reqCookie);
-    Error statBlobInternal(const std::string volumeName, const std::string &blobName,
-                           fds_volid_t volId, fds_uint32_t srcIp,
-                           fds_uint32_t dstIp, fds_uint32_t srcPort,
-                           fds_uint32_t dstPort, std::string session_uuid,
-                           fds_uint32_t reqCookie);
-    void startBlobTxInternal(const std::string volumeName, const std::string &blobName,
-                             BlobTxId::const_ptr blobTxId,
-                             fds_volid_t volId, fds_uint32_t srcIp,
-                             fds_uint32_t dstIp, fds_uint32_t srcPort,
-                             fds_uint32_t dstPort, std::string session_uuid,
-                             fds_uint32_t reqCookie);
-    void commitBlobTxInternal(BlobTxId::const_ptr blobTxId,
-                              fds_volid_t volId, fds_uint32_t srcIp,
-                              fds_uint32_t dstIp, fds_uint32_t srcPort,
-                              fds_uint32_t dstPort, std::string session_uuid,
-                              fds_uint32_t reqCookie);
-    void abortBlobTxInternal(BlobTxId::const_ptr blobTxId,
-                             fds_volid_t volId, fds_uint32_t srcIp,
-                             fds_uint32_t dstIp, fds_uint32_t srcPort,
-                             fds_uint32_t dstPort, std::string session_uuid,
-                             fds_uint32_t reqCookie);
 
     /*
      * Nested class that manages the server interface.

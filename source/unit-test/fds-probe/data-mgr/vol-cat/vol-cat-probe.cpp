@@ -133,9 +133,9 @@ VolCatProbe::listBlobs(const OpParams& volParams) {
     fpi::BlobInfoListType blob_list;
     err = gl_DmVolCatMod.listBlobs(volParams.vol_id,
                                    &blob_list);
-    fds_verify(err.ok());
+    fds_verify(err.ok() || (err == ERR_VOL_NOT_FOUND));
     std::cout << "List of blobs for volume " << std::hex
-              << volParams.vol_id << std::dec << std::endl;
+              << volParams.vol_id << std::dec << " " << err << std::endl;
     for (auto binfo : blob_list) {
         std::cout << "Blob " << binfo.blob_name
                   << " size " << binfo.blob_size << std::endl;
@@ -154,12 +154,13 @@ VolCatProbe::getBlobMeta(const OpParams &getParams) {
                                      &blob_version,
                                      &blob_size,
                                      &meta_list);
-    fds_verify(err.ok());
+    fds_verify(err.ok() || (err == ERR_VOL_NOT_FOUND));
     MetaDataList mlist(meta_list);  // for easy printing
     std::cout << "Retrieved blob for volid " << std::hex
               << getParams.vol_id << std::dec << " blob name "
               << getParams.blob_name << " version " << blob_version
-              << " blob size " << blob_size << " " << mlist << std::endl;
+              << " blob size " << blob_size << " " << mlist
+              << " " << err << std::endl;
 }
 
 void
@@ -182,13 +183,13 @@ VolCatProbe::getBlob(const OpParams& getParams) {
                                  &blob_version,
                                  &meta_list, &obj_list);
 
-    fds_verify(err.ok());
+    fds_verify(err.ok() || (err == ERR_VOL_NOT_FOUND));
     MetaDataList mlist(meta_list);  // for easy printing
     BlobObjList olist(obj_list);
     std::cout << "Retrieved blob for volid " << std::hex
               << getParams.vol_id << std::dec << " blob name "
               << getParams.blob_name << " version " << blob_version
-              << " " << mlist << " " << olist << std::endl;
+              << " " << mlist << " " << olist << " " << err << std::endl;
 }
 
 void

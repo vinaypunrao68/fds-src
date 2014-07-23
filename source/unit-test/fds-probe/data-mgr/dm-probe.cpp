@@ -73,7 +73,7 @@ Dm_ProbeMod::sendStartTx(const OpParams &updateParams)
                                            updateParams.blobMode);
     dmBlobTxReq->ioBlobTxDesc =
          BlobTxId::ptr(new BlobTxId(updateParams.txId));
-    dataMgr->scheduleStartBlobTxSvc(dmBlobTxReq);
+    //    dataMgr->scheduleStartBlobTxSvc(dmBlobTxReq);
 }
 
 void
@@ -86,7 +86,7 @@ Dm_ProbeMod::sendCommitTx(const OpParams &updateParams)
                                             updateParams.blobVersion);
     dmBlobTxReq->ioBlobTxDesc =
          BlobTxId::ptr(new BlobTxId(updateParams.txId));
-    dataMgr->scheduleCommitBlobTxSvc(dmBlobTxReq);
+    // dataMgr->scheduleCommitBlobTxSvc(dmBlobTxReq);
 }
 
 void
@@ -108,9 +108,12 @@ Dm_ProbeMod::sendUpdate(const OpParams &updateParams)
 {
     std::cout << "Doing an update" << std::endl;
 
-    auto dmUpdCatReq = new DmIoUpdateCat(updateParams.volId,
-                                         updateParams.blobName,
-                                         updateParams.blobVersion);
+    boost::shared_ptr<fpi::UpdateCatalogMsg> msg(new fpi::UpdateCatalogMsg());
+    msg->__set_volume_id(updateParams.volId);
+    msg->__set_blob_name(updateParams.blobName);
+    msg->__set_blob_version(updateParams.blobVersion);
+
+    auto dmUpdCatReq = new DmIoUpdateCat(msg);
     // dmUpdCatReq->obj_list = std::move(updateParams.obj_list);
 
     dataMgr->updateCatalog(dmUpdCatReq);

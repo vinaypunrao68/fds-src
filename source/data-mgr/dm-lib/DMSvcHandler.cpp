@@ -117,6 +117,13 @@ void DMSvcHandler::startBlobTx(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 {
     LOGDEBUG << logString(*asyncHdr) << logString(*startBlbTx);
 
+    // TODO(xxx) implement uturn
+    if ((dataMgr->testUturnAll == true) ||
+        (dataMgr->testUturnStartTx == true)) {
+        LOGNOTIFY << "Uturn testing start blob tx";
+        fds_panic("not implemented");
+    }
+
     auto dmBlobTxReq = new DmIoStartBlobTx(startBlbTx->volume_id,
                                            startBlbTx->blob_name,
                                            startBlbTx->blob_version,
@@ -200,14 +207,19 @@ void DMSvcHandler::updateCatalog(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*updcatMsg));
     DBG(FLAG_CHECK_RETURN_VOID(common_drop_async_resp > 0));
     DBG(FLAG_CHECK_RETURN_VOID(dm_drop_cat_updates > 0));
+
+    // TODO(xxx) implement uturn
+    if ((dataMgr->testUturnAll == true) ||
+        (dataMgr->testUturnUpdateCat == true)) {
+        GLOGNOTIFY << "Uturn testing update catalog";
+        fds_panic("not implemented");
+    }
+
     /*
      * allocate a new query cat log  class and  queue  to per volume queue.
      */
-    auto dmUpdCatReq = new DmIoUpdateCat(updcatMsg->volume_id,
-                                         updcatMsg->blob_name,
-                                         updcatMsg->blob_version);
-    dmUpdCatReq->ioBlobTxDesc = boost::make_shared<const BlobTxId>(updcatMsg->txId);
-    dmUpdCatReq->obj_list = std::move(updcatMsg->obj_list);
+    auto dmUpdCatReq = new DmIoUpdateCat(updcatMsg);
+
     dmUpdCatReq->dmio_updatecat_resp_cb =
             BIND_MSG_CALLBACK2(DMSvcHandler::updateCatalogCb, asyncHdr);
 
@@ -304,12 +316,14 @@ DMSvcHandler::setBlobMetaData(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 {
     DBG(GLOGDEBUG << logString(*asyncHdr));  // << logString(*setMDMsg));
 
-    auto dmSetMDReq = new DmIoSetBlobMetaData(setMDMsg->volume_id,
-                                              setMDMsg->blob_name,
-                                              setMDMsg->blob_version);
+    // TODO(xxx) implement uturn
+    if ((dataMgr->testUturnAll == true) ||
+        (dataMgr->testUturnSetMeta == true)) {
+        GLOGNOTIFY << "Uturn testing set metadata";
+        fds_panic("not implemented");
+    }
 
-    dmSetMDReq->md_list = std::move(setMDMsg->metaDataList);
-    dmSetMDReq->ioBlobTxDesc = boost::make_shared<const BlobTxId>(setMDMsg->txId);
+    auto dmSetMDReq = new DmIoSetBlobMetaData(setMDMsg);
 
     dmSetMDReq->dmio_setmd_resp_cb =
             BIND_MSG_CALLBACK2(DMSvcHandler::setBlobMetaDataCb, asyncHdr);

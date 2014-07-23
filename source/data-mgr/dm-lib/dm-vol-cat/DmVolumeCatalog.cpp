@@ -208,7 +208,7 @@ DmVolumeCatalog::putBlob(fds_volid_t volume_id,
     Error err(ERR_OK);
     std::vector<BlobExtent::const_ptr> extent_list;
     std::vector<ObjectID> expunge_list;
-    LOGTRACE << "Will commit blob " << blob_name << ";" << *meta_list
+    LOGTRACE << "Will commit blob " << blob_name << ";"
              << ";" << *blob_obj_list;
 
     // do not use this method if blob_obj_list is empty
@@ -229,7 +229,9 @@ DmVolumeCatalog::putBlob(fds_volid_t volume_id,
     }
 
     // apply meta-data updates
-    extent0->updateMetaData(meta_list);
+    if (meta_list) {
+        extent0->updateMetaData(meta_list);
+    }
 
     // verify Vol Cat assumptions about obj sizes holds
     blob_obj_list->verify(extent0->maxObjSizeBytes());
