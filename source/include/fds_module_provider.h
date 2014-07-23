@@ -30,7 +30,7 @@ class Platform;
 // TODO(Rao):
 // 1. Make all the returns below implement Module interface
 // 2. Have a consistent method naming
-class ProcessModuleProviderIf {
+class CommonModuleProviderIf {
  public:
     virtual FdsConfigAccessor get_conf_helper() const { return FdsConfigAccessor(); }
 
@@ -43,10 +43,7 @@ class ProcessModuleProviderIf {
     virtual const FdsRootDir *proc_fdsroot() const  { return nullptr; }
 
     virtual fds_threadpool *proc_thrpool() const { return nullptr; }
-};
 
-class PlatProcessModuleProviderIf : virtual public ProcessModuleProviderIf {
- public:
     virtual Platform* get_plf_manager() { return nullptr; }
 };
 

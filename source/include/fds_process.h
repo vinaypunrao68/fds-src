@@ -46,7 +46,7 @@ void init_process_globals(fds_log *log);
  */
 class FdsProcess : public boost::noncopyable,
                    public HasLogger,
-                   virtual public ProcessModuleProviderIf {
+                   virtual public CommonModuleProviderIf {
  public:
     FdsProcess();
     FdsProcess(int argc, char *argv[],

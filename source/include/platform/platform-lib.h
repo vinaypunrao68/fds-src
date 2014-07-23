@@ -395,9 +395,7 @@ class Platform : public Module
 /**
  * FDS Platform daemon process.
  */
-class PlatformProcess :
-    public FdsProcess,
-    virtual public PlatProcessModuleProviderIf
+class PlatformProcess : public FdsProcess
 {
   public:
     virtual ~PlatformProcess();
@@ -414,7 +412,7 @@ class PlatformProcess :
 
     virtual void proc_pre_startup() override;
 
-    /* Override from PlatProcessModuleProviderIf */
+    /* Override from CommonModuleProviderIf */
     virtual Platform* get_plf_manager() override { return plf_mgr; }
 
     /**
