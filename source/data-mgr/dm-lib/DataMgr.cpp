@@ -464,35 +464,45 @@ Error DataMgr::getVolObjSize(fds_volid_t volId,
     return err;
 }
 
-DataMgr::DataMgr(int argc, char *argv[], Platform *platform, Module **vec)
-        : PlatformProcess(argc, argv, "fds.dm.", "dm.log", platform, vec),
-          omConfigPort(0),
-          use_om(true),
-          numTestVols(10),
-          runMode(NORMAL_MODE),
-          scheduleRate(4000),
-          catSyncRecv(new CatSyncReceiver(this,
-                                          std::bind(&DataMgr::volmetaRecvd,
-                                                    this,
-                                                    std::placeholders::_1,
-                                                    std::placeholders::_2))),
-                     closedmt_timer(new FdsTimer()),
-                     closedmt_timer_task(new CloseDMTTimerTask(*closedmt_timer,
-                                                               std::bind(&DataMgr::finishCloseDMT,
-                                                                         this))) {
+DataMgr::DataMgr(PlatProcessModuleProviderIf *platProvider)
+    : Module("dm"),
+    platProvider_(platProvider)
+{
+    // NOTE: Don't put much stuff in the constuctor.  Move any construction
+    // into mod_init()
+}
+
+int DataMgr::mod_init(SysParams const *const param)
+{
+    Error err(ERR_OK);
+
+    omConfigPort = 0;
+    use_om = true;
+    numTestVols = 10;
+    scheduleRate = 4000;
+
+    catSyncRecv = boost::make_shared<CatSyncReceiver>(this,
+                                                      std::bind(&DataMgr::volmetaRecvd,
+                                                                this,
+                                                                std::placeholders::_1,
+                                                                std::placeholders::_2));
+    closedmt_timer = boost::make_shared<FdsTimer>();
+    closedmt_timer_task = boost::make_shared<CloseDMTTimerTask>(*closedmt_timer,
+                                                                std::bind(&DataMgr::finishCloseDMT,
+                                                                          this));
     // If we're in test mode, don't daemonize.
     // TODO(Andrew): We probably want another config field and
     // not to override test_mode
-    fds_bool_t noDaemon = conf_helper_.get_abs<bool>("fds.dm.testing.test_mode", false);
-    if (noDaemon == false) {
-        daemonize();
-    }
 
     // Set testing related members
-    testUturnAll       = conf_helper_.get_abs<bool>("fds.dm.testing.uturn_all", false);
-    testUturnStartTx = conf_helper_.get_abs<bool>("fds.dm.testing.uturn_starttx", false);
-    testUturnUpdateCat = conf_helper_.get_abs<bool>("fds.dm.testing.uturn_updatecat", false);
-    testUturnSetMeta   = conf_helper_.get_abs<bool>("fds.dm.testing.uturn_setmeta", false);
+    testUturnAll = platProvider_->get_fds_config()->\
+                   get<bool>("fds.dm.testing.uturn_all", false);
+    testUturnStartTx = platProvider_->get_fds_config()->\
+                       get<bool>("fds.dm.testing.uturn_starttx", false);
+    testUturnUpdateCat = platProvider_->get_fds_config()->\
+                         get<bool>("fds.dm.testing.uturn_updatecat", false);
+    testUturnSetMeta   = platProvider_->get_fds_config()->\
+                         get<bool>("fds.dm.testing.uturn_setmeta", false);
 
     vol_map_mtx = new fds_mutex("Volume map mutex");
 
@@ -511,72 +521,13 @@ DataMgr::DataMgr(int argc, char *argv[], Platform *platform, Module **vec)
     timeVolCat_ = DmTimeVolCatalog::ptr(new
                                         DmTimeVolCatalog("DM Time Volume Catalog",
                                                          *qosCtrl->threadPool));
-
-    LOGNORMAL << "Constructed the Data Manager";
-}
-
-void DataMgr::initHandlers() {
-    handlers[FDS_LIST_BLOB]   = new dm::GetBucketHandler();
-    handlers[FDS_DELETE_BLOB] = new dm::DeleteBlobHandler();
-}
-
-DataMgr::~DataMgr()
-{
-    LOGNORMAL << "Destructing the Data Manager";
-
-    closedmt_timer->destroy();
-
-    for (std::unordered_map<fds_uint64_t, VolumeMeta*>::iterator
-                 it = vol_meta_map.begin();
-         it != vol_meta_map.end();
-         it++) {
-        delete it->second;
-    }
-    vol_meta_map.clear();
-
-    qosCtrl->deregisterVolume(FdsDmSysTaskId);
-    delete sysTaskQueue;
-
-    delete omClient;
-    delete big_fat_lock;
-    delete vol_map_mtx;
-    delete qosCtrl;
-}
-
-int DataMgr::run()
-{
-    initHandlers();
-    try {
-        nstable->listenServer(metadatapath_session);
-    }
-    catch(...){
-        std::cout << "starting server threw an exception" << std::endl;
-    }
+    LOGNORMAL << "Completed";
     return 0;
 }
 
-void DataMgr::setup_metadatapath_server(const std::string &ip)
+void DataMgr::mod_startup()
 {
-    metadatapath_handler.reset(new ReqHandler());
-
-    int myIpInt = netSession::ipString2Addr(ip);
-    std::string node_name = "_DM_" + ip;
-    // TODO(Andrew): Ideally createServerSession should take a shared pointer
-    // for datapath_handler.  Make sure that happens.  Otherwise you
-    // end up with a pointer leak.
-    // TODO(Andrew): Figure out who cleans up datapath_session_
-    metadatapath_session = nstable->\
-            createServerSession<netMetaDataPathServerSession>(
-                myIpInt,
-                plf_mgr->plf_get_my_data_port(),
-                node_name,
-                FDSP_STOR_HVISOR,
-                metadatapath_handler);
-}
-
-void DataMgr::proc_pre_startup()
-{
-    Error err(ERR_OK);
+    Error err;
     fds::DmDiskInfo     *info;
     fds::DmDiskQuery     in;
     fds::DmDiskQueryOut  out;
@@ -584,25 +535,18 @@ void DataMgr::proc_pre_startup()
 
     runMode = NORMAL_MODE;
 
-   /*
-    LOGNORMAL << "before running system command rsync ";
-    std::system((const char *)("sshpass -p passwd rsync -r /tmp/logs  root@10.1.10.216:/tmp"));
-    LOGNORMAL << "After running system command rsync ";
-   */
-
-    PlatformProcess::proc_pre_startup();
-
     // Get config values from that platform lib.
     //
-    omConfigPort = plf_mgr->plf_get_om_ctrl_port();
-    omIpStr      = *plf_mgr->plf_get_om_ip();
+    omConfigPort = platProvider_->get_plf_manager()->plf_get_om_ctrl_port();
+    omIpStr      = *platProvider_->get_plf_manager()->plf_get_om_ip();
 
-    use_om = !(conf_helper_.get_abs<bool>("fds.dm.no_om", false));
-    useTestMode = conf_helper_.get_abs<bool>("fds.dm.testing.test_mode", false);
+    use_om = !(platProvider_->get_fds_config()->get<bool>("fds.dm.no_om", false));
+    useTestMode = platProvider_->get_fds_config()->get<bool>("fds.dm.testing.test_mode", false);
     if (useTestMode == true) {
         runMode = TEST_MODE;
     }
-    LOGNORMAL << "Data Manager using control port " << plf_mgr->plf_get_my_ctrl_port();
+    LOGNORMAL << "Data Manager using control port "
+        << platProvider_->get_plf_manager()->plf_get_my_ctrl_port();
 
     /* Set up FDSP RPC endpoints */
     nstable = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_DATA_MGR));
@@ -611,7 +555,7 @@ void DataMgr::proc_pre_startup()
     std::string node_name = "_DM_" + myIp;
 
     LOGNORMAL << "Data Manager using IP:"
-              << myIp << " and node name " << node_name;
+        << myIp << " and node name " << node_name;
 
     setup_metadatapath_server(myIp);
 
@@ -632,7 +576,8 @@ void DataMgr::proc_pre_startup()
                                   omConfigPort,
                                   node_name,
                                   GetLog(),
-                                  nstable, plf_mgr);
+                                  nstable,
+                                  platProvider_->get_plf_manager());
         omClient->initialize();
         omClient->registerEventHandlerForNodeEvents(node_handler);
         omClient->registerEventHandlerForVolEvents(vol_handler);
@@ -648,7 +593,7 @@ void DataMgr::proc_pre_startup()
          * Registers the DM with the OM. Uses OM for bootstrapping
          * on start. Requires the OM to be up and running prior.
          */
-        omClient->registerNodeWithOM(plf_mgr);
+        omClient->registerNodeWithOM(platProvider_->get_plf_manager());
     }
 
     if (runMode == TEST_MODE) {
@@ -687,8 +632,77 @@ void DataMgr::proc_pre_startup()
     // TODO(Andrew): Move the expunge work down to the volume
     // catalog so this callback isn't needed
     timeVolCat_->queryIface()->registerExpungeObjectsCb(std::bind(
-        &DataMgr::expungeObjectsIfPrimary, this,
-        std::placeholders::_1, std::placeholders::_2));
+            &DataMgr::expungeObjectsIfPrimary, this,
+            std::placeholders::_1, std::placeholders::_2));
+    LOGNORMAL;
+}
+
+void DataMgr::mod_shutdown()
+{
+    LOGNORMAL;
+    catSyncMgr->mod_shutdown();
+    timeVolCat_->mod_shutdown();
+}
+
+void DataMgr::initHandlers() {
+    handlers[FDS_LIST_BLOB]   = new dm::GetBucketHandler();
+    handlers[FDS_DELETE_BLOB] = new dm::DeleteBlobHandler();
+}
+
+DataMgr::~DataMgr()
+{
+    // TODO(Rao): Move this code into mod_shutdown
+    LOGNORMAL << "Destructing the Data Manager";
+
+    closedmt_timer->destroy();
+
+    for (std::unordered_map<fds_uint64_t, VolumeMeta*>::iterator
+                 it = vol_meta_map.begin();
+         it != vol_meta_map.end();
+         it++) {
+        delete it->second;
+    }
+    vol_meta_map.clear();
+
+    qosCtrl->deregisterVolume(FdsDmSysTaskId);
+    delete sysTaskQueue;
+
+    delete omClient;
+    delete big_fat_lock;
+    delete vol_map_mtx;
+    delete qosCtrl;
+}
+
+int DataMgr::run()
+{
+    // TODO(Rao): Move this into module init
+    initHandlers();
+    try {
+        nstable->listenServer(metadatapath_session);
+    }
+    catch(...){
+        std::cout << "starting server threw an exception" << std::endl;
+    }
+    return 0;
+}
+
+void DataMgr::setup_metadatapath_server(const std::string &ip)
+{
+    metadatapath_handler.reset(new ReqHandler());
+
+    int myIpInt = netSession::ipString2Addr(ip);
+    std::string node_name = "_DM_" + ip;
+    // TODO(Andrew): Ideally createServerSession should take a shared pointer
+    // for datapath_handler.  Make sure that happens.  Otherwise you
+    // end up with a pointer leak.
+    // TODO(Andrew): Figure out who cleans up datapath_session_
+    metadatapath_session = nstable->\
+            createServerSession<netMetaDataPathServerSession>(
+                myIpInt,
+                platProvider_->get_plf_manager()->plf_get_my_data_port(),
+                node_name,
+                FDSP_STOR_HVISOR,
+                metadatapath_handler);
 }
 
 void DataMgr::setup_metasync_service()
@@ -697,7 +711,6 @@ void DataMgr::setup_metasync_service()
     // TODO(xxx) should we start catalog sync manager when no OM?
     catSyncMgr->mod_startup();
 }
-
 
 void DataMgr::swapMgrId(const FDS_ProtocolInterface::
                         FDSP_MsgHdrTypePtr& fdsp_msg) {
@@ -742,14 +755,6 @@ fds_bool_t DataMgr::volExists(fds_volid_t vol_uuid) const {
     vol_map_mtx->unlock();
 
     return result;
-}
-
-void DataMgr::interrupt_cb(int signum) {
-    LOGNORMAL << " Received signal "
-              << signum << ". Shutting down communicator";
-    catSyncMgr->mod_shutdown();
-    timeVolCat_->mod_shutdown();
-    exit(0);
 }
 
 DataMgr::ReqHandler::ReqHandler() {
@@ -804,7 +809,7 @@ DataMgr::amIPrimary(fds_volid_t volUuid) {
     DmtColumnPtr nodes = omClient->getDMTNodesForVolume(volUuid);
     fds_verify(nodes->getLength() > 0);
 
-    const NodeUuid *mySvcUuid = plf_mgr->plf_get_my_svc_uuid();
+    const NodeUuid *mySvcUuid = platProvider_->get_plf_manager()->plf_get_my_svc_uuid();
     return (*mySvcUuid == nodes->get(0));
 }
 
@@ -1439,7 +1444,7 @@ DataMgr::initSmMsgHdr(FDSP_MsgHdrTypePtr msgHdr) {
     msgHdr->src_id = FDSP_DATA_MGR;
     msgHdr->dst_id = FDSP_STOR_MGR;
 
-    msgHdr->src_node_name = *(plf_mgr->plf_get_my_name());
+    msgHdr->src_node_name = *(platProvider_->get_plf_manager()->plf_get_my_name());
 
     msgHdr->origin_timestamp = fds::get_fds_timestamp_ms();
 
@@ -1501,7 +1506,7 @@ DataMgr::expungeObject(fds_volid_t volId, const ObjectID &objId) {
         try {
             NodeUuid uuid = tokenGroup->get(i);
             // NodeAgent::pointer node = Platform::plf_dm_nodes()->agent_info(uuid);
-            NodeAgent::pointer node = plf_mgr->plf_node_inventory()->
+            NodeAgent::pointer node = platProvider_->get_plf_manager()->plf_node_inventory()->\
                     dc_get_sm_nodes()->agent_info(uuid);
             SmAgent::pointer sm = agt_cast_ptr<SmAgent>(node);
             NodeAgentDpClientPtr smClient = sm->get_sm_client();

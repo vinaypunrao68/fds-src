@@ -60,7 +60,7 @@ class DataMgr;
 class DMSvcHandler;
 extern DataMgr *dataMgr;
 
-class DataMgr : public PlatformProcess, public DmIoReqHandler {
+class DataMgr : public Module, public DmIoReqHandler {
   public:
     static void InitMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr);
 
@@ -101,6 +101,9 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
      * to volume catalog
      */
     DmTimeVolCatalog::ptr timeVolCat_;
+
+    /* Platform module provider */
+    PlatProcessModuleProviderIf *platProvider_;
 
     class dmQosCtrl : public FDS_QoSControl {
       public:
@@ -286,7 +289,7 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
     void setup_metasync_service();
 
   public:
-    DataMgr(int argc, char *argv[], Platform *platform, Module **mod_vec);
+    explicit DataMgr(PlatProcessModuleProviderIf *platProvider);
     ~DataMgr();
     std::map<fds_io_op_t, dm::Handler*> handlers;
     dmQosCtrl   *qosCtrl;
@@ -296,10 +299,12 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
     fds_bool_t testUturnStartTx;
     fds_bool_t testUturnSetMeta;
 
-    /* From FdsProcess */
-    virtual void proc_pre_startup() override;
-    virtual int  run() override;
-    virtual void interrupt_cb(int signum) override;
+    /* Overrides from Module */
+    virtual int  mod_init(SysParams const *const param) override;
+    virtual void mod_startup() override;
+    virtual void mod_shutdown() override;
+
+    int run();
 
     void swapMgrId(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg);
     void setResponseError(fpi::FDSP_MsgHdrTypePtr& msg_hdr, const Error& err);

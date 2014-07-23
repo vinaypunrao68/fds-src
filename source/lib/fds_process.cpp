@@ -33,14 +33,60 @@ void init_process_globals(fds_log *log)
     g_cntrs_mgr.reset(new FdsCountersMgr(net::get_my_hostname()+".unknown"));
 }
 
+/**
+* @brief Constructor.  Keep it as bare shell.  Do the initialization work
+* in init()
+*/
+FdsProcess::FdsProcess()
+{
+}
+
+/**
+* @brief Constructor.  Keep it as bare shell.  Do the initialization work
+* in init()
+*
+* @param argc
+* @param argv[]
+* @param def_cfg_file
+* @param base_path
+* @param mod_vec
+*/
+FdsProcess::FdsProcess(int argc, char *argv[],
+                       const std::string &def_cfg_file,
+                       const std::string &base_path, Module **mod_vec)
+    : FdsProcess(argc, argv, def_cfg_file, base_path, "", mod_vec)
+{
+}
+
+/**
+* @brief Constructor.  Keep it as bare shell.  Do the initialization work
+* in init()
+*
+* @param argc
+* @param argv[]
+* @param def_cfg_file
+* @param base_path
+* @param def_log_file
+* @param mod_vec
+*/
 FdsProcess::FdsProcess(int argc, char *argv[],
                        const std::string &def_cfg_file,
                        const std::string &base_path,
                        const std::string &def_log_file, fds::Module **mod_vec)
 {
+    init(argc, argv, def_cfg_file, base_path, def_log_file, mod_vec);
+}
+
+void FdsProcess::init(int argc, char *argv[],
+                      const std::string &def_cfg_file,
+                      const std::string &base_path,
+                      const std::string &def_log_file, fds::Module **mod_vec)
+{
     std::string  fdsroot, cfgfile;
 
     fds_verify(g_fdsprocess == NULL);
+
+    mod_shutdown_invoked_  = false;
 
     /* Initialize process wide globals */
     g_fdsprocess = this;
@@ -152,10 +198,13 @@ int FdsProcess::main()
     /* Run the main loop. */
     ret = run();
 
-    /* Do FDS shutdown sequence. */
-    mod_vectors_->mod_stop_services();
-    mod_vectors_->mod_shutdown_locksteps();
-    mod_vectors_->mod_shutdown();
+    /* Only do module shutdown once.  Module shutdown can happen in interrupt_cb() */
+    if (!mod_shutdown_invoked_) {
+        /* Do FDS shutdown sequence. */
+        mod_vectors_->mod_stop_services();
+        mod_vectors_->mod_shutdown_locksteps();
+        mod_vectors_->mod_shutdown();
+    }
     return ret;
 }
 
@@ -271,7 +320,11 @@ void FdsProcess::setup_graphite()
 
 void FdsProcess::interrupt_cb(int signum)
 {
-    exit(signum);
+    mod_shutdown_invoked_ = true;
+    /* Do FDS shutdown sequence. */
+    mod_vectors_->mod_stop_services();
+    mod_vectors_->mod_shutdown_locksteps();
+    mod_vectors_->mod_shutdown();
 }
 
 void FdsProcess::daemonize() {

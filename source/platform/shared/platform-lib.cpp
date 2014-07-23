@@ -50,15 +50,57 @@ PlatEvent::PlatEvent(char const *const          name,
 // Table of keys used to access the persistent storage DB.
 //
 
+/**
+* @brief Constructor.  Keep it as bare shell.  Do the initialization work
+* in init()
+*/
+PlatformProcess::PlatformProcess()
+{
+}
+
+/**
+* @brief Constructor.  Keep it as bare shell.  Do the initialization work
+*
+* @param argc
+* @param argv
+* @param cfg
+* @param log
+* @param platform
+* @param vec
+*
+* @return 
+*/
 PlatformProcess::PlatformProcess(int argc, char **argv,
                                  const std::string  &cfg,
                                  const std::string  &log,
                                  Platform           *platform,
                                  Module            **vec)
-    : FdsProcess(argc, argv, "platform.conf", cfg, log, vec),
-      plf_mgr(platform), plf_db(NULL),
-      plf_test_mode(false), plf_stand_alone(false)
 {
+    init(argc, argv, cfg, log, platform, vec);
+}
+
+/**
+* @brief Common method for constructing Platform process object
+*
+* @param argc
+* @param argv
+* @param cfg
+* @param log
+* @param platform
+* @param vec
+*/
+void PlatformProcess::init(int argc, char **argv,
+                           const std::string  &cfg,
+                           const std::string  &log,
+                           Platform           *platform,
+                           Module            **vec)
+{
+    FdsProcess::init(argc, argv, "platform.conf", cfg, log, vec);
+    plf_mgr = platform;
+    plf_db = NULL;
+    plf_test_mode = false;
+    plf_stand_alone = false;
+
     memset(&plf_node_data, 0, sizeof(plf_node_data));
     plf_db_key = proc_root->dir_fdsroot() + "node-root";
     // TODO(Bao): daemonize();  make each platform process a daemon to get core.
