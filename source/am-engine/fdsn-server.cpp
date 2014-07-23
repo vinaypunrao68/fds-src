@@ -439,7 +439,8 @@ class FdsnIf : public apis::AmServiceIf {
                 handleRequest(*volumeName, *blobName, blobTxId,
                               SHARED_DYN_CAST(Callback, handler));
         handler->wait();
-        boost::shared_ptr<apis::TxDescriptor> txnPtr(&txnId);
+        boost::shared_ptr<apis::TxDescriptor> txnPtr(new apis::TxDescriptor());
+        txnPtr->txId = txnId.txId;
         try {
             handler->process();
         } catch(apis::ApiException& e) {
