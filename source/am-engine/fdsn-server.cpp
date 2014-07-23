@@ -271,11 +271,16 @@ class FdsnIf : public apis::AmServiceIf {
         // Get a buffer of the requested size
         // TODO(Andrew): This should be a shared pointer
         // as we pass it around a lot
+        // TODO(Andrew): We should just resize the return string
+        // rather than doing a reassign at the end
         char *buf = new char[*length];
         fds_verify(buf != NULL);
 
         // Create request context
-        GetObjectResponseHandler getHandler;
+        // Set the pointer we want filled in the handler
+        // TODO(Andrew): Get the correctly sized pointer directly
+        // from the return string so we can avoid one extra copy.
+        GetObjectResponseHandler::ptr getHandler(new GetObjectResponseHandler(buf));
 
         // Do async getobject
         // TODO(Andrew): The error path callback maybe called
@@ -288,23 +293,22 @@ class FdsnIf : public apis::AmServiceIf {
                           *length,
                           buf,
                           *length,  // We always allocate buf of the requested size
-                          NULL,  // Not passing a context right now
-                          fn_GetObjectHandler,
-                          static_cast<void *>(&getHandler));
+                          SHARED_DYN_CAST(Callback, getHandler));
 
         // Wait for a signal from the callback thread
-        getHandler.wait();
+        getHandler->wait();
 
-        if (getHandler.status != ERR_OK) {
+        if (getHandler->error != ERR_OK) {
             apis::ApiException fdsE;
-            if (getHandler.status == FDSN_StatusEntityDoesNotExist) {
+            if (getHandler->error == ERR_BLOB_OFFSET_INVALID) {
                 fdsE.errorCode = apis::MISSING_RESOURCE;
             } else {
                 fdsE.errorCode = apis::BAD_REQUEST;
             }
             throw fdsE;
         }
-        _return.assign(buf, *length);
+        _return.assign(getHandler->returnBuffer,
+                       getHandler->returnSize);
 
         delete[] buf;
     }
@@ -435,7 +439,8 @@ class FdsnIf : public apis::AmServiceIf {
                 handleRequest(*volumeName, *blobName, blobTxId,
                               SHARED_DYN_CAST(Callback, handler));
         handler->wait();
-        boost::shared_ptr<apis::TxDescriptor> txnPtr(&txnId);
+        boost::shared_ptr<apis::TxDescriptor> txnPtr(new apis::TxDescriptor());
+        txnPtr->txId = txnId.txId;
         try {
             handler->process();
         } catch(apis::ApiException& e) {

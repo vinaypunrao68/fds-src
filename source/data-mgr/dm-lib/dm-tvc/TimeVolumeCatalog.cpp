@@ -139,7 +139,7 @@ DmTimeVolCatalog::deleteBlob(fds_volid_t volId,
 
     DmCommitLog::ptr commitLog;
     COMMITLOG_GET(volId, commitLog);
-    return commitLog->deleteBlob(txDesc);
+    return commitLog->deleteBlob(txDesc, blob_version);
 }
 
 Error
@@ -168,8 +168,7 @@ DmTimeVolCatalog::commitBlobTxWork(fds_volid_t volid,
     CommitLogTx::const_ptr commit_data = commitLog->commitTx(txDesc, e);
     if (e.ok()) {
         if (commit_data->blobDelete) {
-            // TODO(Anna) use the version from the commit log!!!
-            e = volcat->deleteBlob(volid, commit_data->blobName, blob_version_invalid);
+            e = volcat->deleteBlob(volid, commit_data->blobName, commit_data->blobVersion);
         } else if (commit_data->blobObjList && (commit_data->blobObjList->size() > 0)) {
             if (commit_data->blobMode & blob::TRUNCATE) {
                 commit_data->blobObjList->setEndOfBlob();

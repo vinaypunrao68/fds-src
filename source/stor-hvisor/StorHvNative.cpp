@@ -274,21 +274,19 @@ void FDS_NativeAPI::GetBucketStats(void *req_ctxt,
 
 void
 FDS_NativeAPI::GetObject(BucketContextPtr bucket_ctxt,
-                         std::string ObjKey,
+                         const std::string &blobName,
                          GetConditions *get_cond,
                          fds_uint64_t startByte,
                          fds_uint64_t byteCount,
                          char* buffer,
                          fds_uint64_t buflen,
-                         void *req_context,
-                         fdsnGetObjectHandler getObjCallback,
-                         void *callback_data) {
+                         CallbackPtr cb) {
     Error err(ERR_OK);
     fds_volid_t volid = invalid_vol_id;
     fds_uint64_t start, end;
     FdsBlobReq *blob_req = NULL;
     LOGDEBUG << "FDS_NativeAPI::GetObject for volume " << bucket_ctxt->bucketName
-              << ", blob " << ObjKey << " of size " << byteCount << " at offset "
+              << ", blob " << blobName << " of size " << byteCount << " at offset "
               << startByte;
 
     /* check if bucket is attached to this AM */
@@ -307,26 +305,13 @@ FDS_NativeAPI::GetObject(BucketContextPtr bucket_ctxt,
     /* create request */
     start = end;
     blob_req = new GetBlobReq(volid,
-                              ObjKey,
+                              blobName,
                               startByte,
                               buflen,
                               buffer,
                               byteCount,
-                              bucket_ctxt,
-                              get_cond,
-                              req_context,
-                              getObjCallback,
-                              callback_data);
+                              cb);
 
-    if (!blob_req) {
-        (getObjCallback)(bucket_ctxt, req_context, 0, startByte, NULL,
-                         callback_data, FDSN_StatusOutOfMemory, NULL);
-        LOGERROR << "FDS_NativeAPI::GetObject bucket "
-                 << bucket_ctxt->bucketName
-                 << " objKey " << ObjKey
-                 << " -- failed to allocate GetBlobReq";
-        return;
-    }
     end = fds::util::getClockTicks();
     fds_stat_record(STAT_FDSN, FDSN_GO_ALLOC_BLOB_REQ, start, end);
 
@@ -351,7 +336,7 @@ FDS_NativeAPI::GetObject(BucketContextPtr bucket_ctxt,
     if (!err.ok()) {
         /* we failed to send query to OM */
         LOGERROR << "FDS_NativeAPI::GetObject bucket " << bucket_ctxt->bucketName
-                 << " objKey " << ObjKey
+                 << " blob " << blobName
                  << " -- could't find out from OM if bucket exists";
         // remove blob from wait queue (this will also call the callback)
         storHvisor->vol_table->completeWaitBlobsWithError(bucket_ctxt->bucketName, err);

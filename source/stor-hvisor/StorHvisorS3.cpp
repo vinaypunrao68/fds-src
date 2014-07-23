@@ -1179,7 +1179,7 @@ fds::Error StorHvCtrl::updateCatalogCache(GetBlobReq *blobReq,
     }
 
     if (offsetFound == false) {
-        return FDSN_StatusEntityDoesNotExist;
+        return ERR_BLOB_OFFSET_INVALID;
     }
     return ERR_OK;
 }

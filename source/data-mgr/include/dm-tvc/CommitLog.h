@@ -44,8 +44,11 @@ struct CommitLogTx {
     BlobObjList::ptr blobObjList;
     MetaDataList::ptr metaDataList;
 
+    blob_version_t blobVersion;
+
     CommitLogTx() : txDesc(0), blobMode(0), started(false), commited(false), rolledback(false),
-            blobDelete(false), blobObjList(0), metaDataList(0) {}
+            blobDelete(false), blobObjList(0), metaDataList(0),
+            blobVersion(blob_version_invalid) {}
 };
 
 typedef std::unordered_map<BlobTxId, CommitLogTx::ptr> TxMap;
@@ -92,7 +95,7 @@ class DmCommitLog : public Module {
     Error updateTx(BlobTxId::const_ptr & txDesc, boost::shared_ptr<const T> & blobData);
 
     // delete blob
-    Error deleteBlob(BlobTxId::const_ptr & txDesc);
+    Error deleteBlob(BlobTxId::const_ptr & txDesc, const blob_version_t blobVersion);
 
     // commit transaction
     CommitLogTx::const_ptr commitTx(BlobTxId::const_ptr & txDesc, Error & status);
@@ -199,6 +202,19 @@ struct StartTxDetails : serialize::Serializable {
     uint32_t virtual read(serialize::Deserializer* d);
 };
 
+struct DeleteBlobDetails : serialize::Serializable {
+    typedef boost::shared_ptr<DeleteBlobDetails> ptr;
+    typedef boost::shared_ptr<const DeleteBlobDetails> const_ptr;
+
+    blob_version_t blobVersion;
+
+    DeleteBlobDetails() : blobVersion(blob_version_invalid) {}
+    explicit DeleteBlobDetails(blob_version_t ver) : blobVersion(ver) {}
+
+    uint32_t virtual write(serialize::Serializer*  s) const;
+    uint32_t virtual read(serialize::Deserializer* d);
+};
+
 // start transaction
 struct DmCommitLogStartEntry : DmCommitLogEntry {
     DmCommitLogStartEntry(BlobTxId::const_ptr & txDesc, fds_uint64_t id,
@@ -240,8 +256,18 @@ struct DmCommitLogPurgeEntry : DmCommitLogEntry {
 
 // delete blob
 struct DmCommitLogDeleteBlobEntry : DmCommitLogEntry {
-    DmCommitLogDeleteBlobEntry(BlobTxId::const_ptr & txDesc, fds_uint64_t id) :
+    DmCommitLogDeleteBlobEntry(BlobTxId::const_ptr & txDesc, fds_uint64_t id,
+            const std::string & blobDetails) :
         DmCommitLogEntry(TX_DELETE_BLOB, txDesc, id) {}
+
+    inline blob_version_t blobVersion() const {
+        return getDeleteBlobDetails()->blobVersion;
+    }
+
+    inline DeleteBlobDetails::const_ptr getDeleteBlobDetails() const {
+        fds_assert(TX_DELETE_BLOB == type);
+        return getDetails<DeleteBlobDetails>();
+    }
 };
 
 // update blob object list
@@ -282,7 +308,8 @@ class DmCommitLogger {
     virtual Error updateTx(BlobTxId::const_ptr & txDesc, MetaDataList::const_ptr metaDataList,
             fds_uint64_t & id) = 0;
 
-    virtual Error deleteBlob(BlobTxId::const_ptr & txDesc, fds_uint64_t & id) = 0;
+    virtual Error deleteBlob(BlobTxId::const_ptr & txDesc, DeleteBlobDetails::const_ptr & details,
+            fds_uint64_t & id) = 0;
 
     virtual Error commitTx(BlobTxId::const_ptr & txDesc, fds_uint64_t & id) = 0;
 
@@ -320,7 +347,8 @@ class FileCommitLogger : public DmCommitLogger {
     virtual Error updateTx(BlobTxId::const_ptr & txDesc, MetaDataList::const_ptr metaDataList,
             fds_uint64_t & id) override;
 
-    virtual Error deleteBlob(BlobTxId::const_ptr & txDesc, fds_uint64_t & id) override;
+    virtual Error deleteBlob(BlobTxId::const_ptr & txDesc, DeleteBlobDetails::const_ptr & details,
+            fds_uint64_t & id) override;
 
     virtual Error commitTx(BlobTxId::const_ptr & txDesc, fds_uint64_t & id) override;
 

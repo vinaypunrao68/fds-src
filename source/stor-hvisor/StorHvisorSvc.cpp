@@ -505,7 +505,7 @@ void StorHvCtrl::getBlobQueryCatalogResp(fds::AmQosReq* qosReq,
         LOGERROR << "blob name: " << blobReq->getBlobName() << "offset: "
             << blobReq->getBlobOffset() << " Error: " << error; 
         qos_ctrl->markIODone(qosReq);
-        blobReq->cbWithResult(error.GetErrno());
+        blobReq->cb->call(error);
         delete blobReq;
         return;
     }
@@ -518,7 +518,7 @@ void StorHvCtrl::getBlobQueryCatalogResp(fds::AmQosReq* qosReq,
         LOGERROR << "blob name: " << blobReq->getBlobName() << "offset: "
             << blobReq->getBlobOffset() << " Error: " << e; 
         qos_ctrl->markIODone(qosReq);
-        blobReq->cb->call(e.GetErrno());
+        blobReq->cb->call(e);
         delete blobReq;
         return;
     }
@@ -557,7 +557,7 @@ void StorHvCtrl::getBlobGetObjectResp(fds::AmQosReq* qosReq,
         LOGERROR << "blob name: " << blobReq->getBlobName() << "offset: "
             << blobReq->getBlobOffset() << " Error: " << error; 
         qos_ctrl->markIODone(qosReq);
-        blobReq->cb->call(ERR_INVALID);
+        blobReq->cb->call(error);
         delete blobReq;
         return;
     }
@@ -580,12 +580,14 @@ void StorHvCtrl::getBlobGetObjectResp(fds::AmQosReq* qosReq,
         // TODO(Andrew): Revisit for unaligned IO
         fds_verify((uint)(getObjRsp->data_obj_len) <= (blobReq->getDataLen()));
     }
-    blobReq->setDataLen(getObjRsp->data_obj_len);    
-    blobReq->setDataBuf(getObjRsp->data_obj.c_str());
+    GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback,
+                                                blobReq->cb);
+    cb->returnSize = getObjRsp->data_obj_len;
+    memcpy(cb->returnBuffer,
+           getObjRsp->data_obj.c_str(),
+           cb->returnSize);
 
-    // TODO(Andrew): Move back to the new callback mechanism
-    // blobReq->cb->call(ERR_OK);
-    blobReq->cbWithResult(ERR_OK);
+    cb->call(error);
     delete blobReq;
 }
 

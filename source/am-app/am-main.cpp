@@ -5,7 +5,6 @@
 #include <am-engine/s3connector.h>
 #include <am-engine/atmos-connector.h>
 #include <am-engine/fdsn-server.h>
-#include <am-engine/am-ubd-connect.h>
 #include <am-engine/am-probe.h>
 #include <fds-probe/s3-probe.h>
 #include <util/fds_stat.h>
@@ -36,7 +35,6 @@ class AM_Process : public PlatformProcess
 
         FDS_NativeAPI::ptr api(new FDS_NativeAPI(FDS_NativeAPI::FDSN_AWS_S3));
         gl_FdsnServer.init_server(api);
-        gl_AmUbdConnect.init_server(api);
         if (conf_helper_.get<bool>("testing.enable_probe") == true) {
             // Add the AM probe to the S3 connector probe
             gl_probeS3Eng.probe_add_adapter(&gl_AmProbe);
@@ -67,7 +65,6 @@ int main(int argc, char **argv)
         &fds::gl_AmPlatform,
         &fds::gl_NetService,
         &fds::gl_FdsnServer,
-        &fds::gl_AmUbdConnect,
         &fds::gl_probeS3Eng,
         &fds::gl_AmProbe,
         nullptr

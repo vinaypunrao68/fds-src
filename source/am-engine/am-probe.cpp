@@ -176,7 +176,8 @@ struct ProbeUpdateBlobResponseHandler : public PutObjectResponseHandler {
 };
 
 struct ProbeGetBlobResponseHandler : public GetObjectResponseHandler {
-    explicit ProbeGetBlobResponseHandler() {
+    explicit ProbeGetBlobResponseHandler(char *retBuffer)
+            : GetObjectResponseHandler(retBuffer) {
         type = HandlerType::IMMEDIATE;
     }
     virtual ~ProbeGetBlobResponseHandler() {
@@ -205,33 +206,6 @@ probeUpdateBlobHandler(void *reqContext,
 
     delete handler;
     return 0;
-}
-
-FDSN_Status
-probeGetBlobHandler(BucketContextPtr bucket_ctx,
-                    void *reqContext,
-                    fds_uint64_t bufferSize,
-                    fds_off_t offset,
-                    const char *buffer,
-                    void *callbackData,
-                    FDSN_Status status,
-                    ErrorDetails *errorDetails) {
-    ProbeGetBlobResponseHandler* handler =
-            reinterpret_cast<ProbeGetBlobResponseHandler*>(callbackData); //NOLINT
-    handler->status = status;
-    handler->errorDetails = errorDetails;
-
-    handler->bucket_ctx = bucket_ctx;
-    handler->reqContext = reqContext;
-    handler->bufferSize = bufferSize;
-    handler->offset = offset;
-    handler->buffer = buffer;
-
-    handler->call();
-
-    delete handler;
-    delete buffer;
-    return status;
 }
 
 void
@@ -302,10 +276,10 @@ AmProbe::doAsyncGetBlob(const std::string &volumeName,
      BucketContextPtr bucket_ctx(
             new BucketContext("host", volumeName, "accessid", "secretkey"));
 
-     ProbeGetBlobResponseHandler *handler =
-             new ProbeGetBlobResponseHandler();
-
      char *buf = new char[dataLength];
+
+     ProbeGetBlobResponseHandler::ptr handler(
+                 new ProbeGetBlobResponseHandler(buf));
 
      gl_AmProbe.am_api->GetObject(bucket_ctx,
                                   blobName,
@@ -314,9 +288,7 @@ AmProbe::doAsyncGetBlob(const std::string &volumeName,
                                   dataLength,
                                   buf,
                                   dataLength,
-                                  NULL,  // Not passing a context right now
-                                  probeGetBlobHandler,
-                                  static_cast<void *>(handler));
+                                  SHARED_DYN_CAST(Callback, handler));
 }
 
 JsObject *

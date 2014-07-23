@@ -99,6 +99,9 @@ DmCommitLog::DmCommitLog(const std::string &modName, const std::string & filenam
                 }
                 case TX_DELETE_BLOB: {
                     iter->second->blobDelete = true;
+                    iter->second->blobVersion =
+                            reinterpret_cast<const DmCommitLogDeleteBlobEntry *>\
+                            (entry)->blobVersion();
                     break;
                 }
                 default:
@@ -219,7 +222,7 @@ Error DmCommitLog::updateTx(BlobTxId::const_ptr & txDesc, boost::shared_ptr<cons
 }
 
 // delete blob
-Error DmCommitLog::deleteBlob(BlobTxId::const_ptr & txDesc) {
+Error DmCommitLog::deleteBlob(BlobTxId::const_ptr & txDesc, const blob_version_t blobVersion) {
     fds_assert(txDesc);
     fds_assert(cmtLogger_);
     fds_verify(started_);
@@ -235,8 +238,9 @@ Error DmCommitLog::deleteBlob(BlobTxId::const_ptr & txDesc) {
 
     SCOPED_PERF_TRACEPOINT_CTX_DEBUG(logCtx);
 
+    DeleteBlobDetails::const_ptr details(new DeleteBlobDetails(blobVersion));
     fds_uint64_t id = 0;
-    rc = cmtLogger_->deleteBlob(txDesc, id);
+    rc = cmtLogger_->deleteBlob(txDesc, details, id);
     if (!rc.ok()) {
         LOGERROR << "Failed to save blob transaction error=(" << rc << ")";
         return rc;
@@ -246,6 +250,7 @@ Error DmCommitLog::deleteBlob(BlobTxId::const_ptr & txDesc) {
 
     txMap_[txId]->entries.push_back(id);
     txMap_[txId]->blobDelete = true;
+    txMap_[txId]->blobVersion = blobVersion;
 
     return ERR_OK;
 }
@@ -422,6 +427,16 @@ uint32_t StartTxDetails::read(serialize::Deserializer* d) {
     return sz;
 }
 
+uint32_t DeleteBlobDetails::write(serialize::Serializer* s) const {
+    fds_assert(s);
+    return s->writeI64(blobVersion);
+}
+
+uint32_t DeleteBlobDetails::read(serialize::Deserializer* d) {
+    fds_assert(d);
+    return d->readI64(blobVersion);
+}
+
 void FileCommitLogger::addEntryToHeader(DmCommitLogEntry * entry) {
     fds_uint32_t offset = entryOffset(entry);
     last()->next = offset;
@@ -580,8 +595,10 @@ Error FileCommitLogger::updateTx(BlobTxId::const_ptr & txDesc, MetaDataList::con
     return ERR_OK;
 }
 
-Error FileCommitLogger::deleteBlob(BlobTxId::const_ptr & txDesc, fds_uint64_t & id) {
-    size_t sz = sizeof(DmCommitLogEntry);
+Error FileCommitLogger::deleteBlob(BlobTxId::const_ptr & txDesc,
+        DeleteBlobDetails::const_ptr &details, fds_uint64_t & id) {
+    const std::string & str = DmCommitLogEntry::createPayload(details);
+    size_t sz = sizeof(DmCommitLogEntry) + str.length() + 1;
 
     FDSGUARD(lockLogFile_);
 
@@ -591,7 +608,7 @@ Error FileCommitLogger::deleteBlob(BlobTxId::const_ptr & txDesc, fds_uint64_t & 
     }
 
     id = clEpoch++;
-    DmCommitLogDeleteBlobEntry * entry = new(clp) DmCommitLogDeleteBlobEntry(txDesc, id);
+    DmCommitLogDeleteBlobEntry * entry = new(clp) DmCommitLogDeleteBlobEntry(txDesc, id, str);
     addEntryToHeader(entry);
 
     if (0 != msync(reinterpret_cast<void *>(FDS_PAGE_START_ADDR(entry)), FDS_PAGE_OFFSET(entry) +

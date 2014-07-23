@@ -101,67 +101,13 @@ struct PutObjectResponseHandler : ResponseHandler {
     virtual ~PutObjectResponseHandler();
 };
 
-/**
- * Response handler for native putObject() calls done
- * for block-specific requests.
- * A specific handler is needed because an additional
- * callback to UBD is needed to notify the kernel that
- * a request has been processed.
- */
-struct PutObjectBlkResponseHandler : PutObjectResponseHandler {
-    typedef boost::function<void(fds_int32_t)> blkCallback;
-    blkCallback ubdCallback;
+struct GetObjectResponseHandler : ResponseHandler, GetObjectCallback {
+    GetObjectResponseHandler(char *buf);
 
-    template<typename F, typename A, typename B, typename C>
-    PutObjectBlkResponseHandler(F f,
-                                A a,
-                                B b,
-                                C c)
-            : ubdCallback(boost::bind(f, a, b, c, _1)) {
-        type = HandlerType::IMMEDIATE;
-    }
-    virtual void process();
-    virtual ~PutObjectBlkResponseHandler();
-
-    typedef boost::shared_ptr<PutObjectBlkResponseHandler> ptr;
-};
-
-struct GetObjectResponseHandler : ResponseHandler {
-    BucketContextPtr bucket_ctx;
-    void *reqContext = NULL;
-    fds_uint64_t bufferSize = 0;
-    fds_off_t offset = 0;
-    const char *buffer = NULL;
-    fds_uint64_t blobSize = 0;
-    std::string blobEtag;
+    typedef boost::shared_ptr<GetObjectResponseHandler> ptr;
 
     virtual void process();
     virtual ~GetObjectResponseHandler();
-};
-
-/**
- * Response handler for native getObject() calls done
- * for block-specific requests.
- * A specific handler is needed because an additional
- * callback to UBD is needed to notify the kernel that
- * a request has been processed.
- */
-struct GetObjectBlkResponseHandler : GetObjectResponseHandler {
-    typedef boost::function<void(fds_int32_t)> blkCallback;
-    blkCallback ubdCallback;
-
-    template<typename F, typename A, typename B, typename C>
-    GetObjectBlkResponseHandler(F f,
-                                A a,
-                                B b,
-                                C c)
-            : ubdCallback(boost::bind(f, a, b, c, _1)) {
-        type = HandlerType::IMMEDIATE;
-    }
-    virtual void process();
-    virtual ~GetObjectBlkResponseHandler();
-
-    typedef boost::shared_ptr<GetObjectBlkResponseHandler> ptr;
 };
 
 struct ListBucketResponseHandler : ResponseHandler, GetBucketCallback {

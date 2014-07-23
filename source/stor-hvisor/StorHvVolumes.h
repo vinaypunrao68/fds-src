@@ -393,32 +393,18 @@ class AttachVolBlobReq : public FdsBlobReq {
 
 class GetBlobReq: public FdsBlobReq {
   public:
-    BucketContextPtr bucket_ctxt;
-    std::string ObjKey;
-    GetConditions *get_cond;
-    fds_uint64_t byteCount;
-    void *req_context;
-    fdsnGetObjectHandler getObjCallback;
-    void *callback_data;
-
     GetBlobReq(fds_volid_t _volid,
                const std::string& _blob_name, //same as objKey
                fds_uint64_t _blob_offset,
                fds_uint64_t _data_len,
                char* _data_buf,
                fds_uint64_t _byte_count,
-               BucketContextPtr _bucket_ctxt,
-               GetConditions* _get_conds,
-               void* _req_context,
-               fdsnGetObjectHandler _get_obj_handler,
-               void* _callback_data);
+               CallbackPtr cb);
 
     ~GetBlobReq();
 
     void DoCallback(FDSN_Status status, ErrorDetails* errDetails) {
-        (getObjCallback)(bucket_ctxt,
-                         req_context, dataLen, blobOffset, dataBuf,
-                         callback_data, status, errDetails);
+        fds_panic("Depricated. You shouldn't be here!");
     }
 };
 
