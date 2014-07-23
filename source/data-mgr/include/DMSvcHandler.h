@@ -92,6 +92,12 @@ class DMSvcHandler : virtual public DMSvcIf, public PlatNetSvcHandler {
                          boost::shared_ptr<fpi::SetBlobMetaDataMsg>& setBlobMD);
     void setBlobMetaDataCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                            const Error &e, DmIoSetBlobMetaData *req);
+
+    void getVolumeMetaData(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                           boost::shared_ptr<fpi::GetVolumeMetaDataMsg>& message);
+    void getVolumeMetaDataCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                           boost::shared_ptr<fpi::GetVolumeMetaDataMsg>& message,
+                           const Error &e, DmIoGetVolumeMetaData *req);
 };
 
 }  // namespace fds

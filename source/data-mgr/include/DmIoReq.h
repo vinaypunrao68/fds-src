@@ -442,6 +442,17 @@ class DmIoGetBlobMetaData: public dmCatReq {
     CbType dmio_getmd_resp_cb;
 };
 
+struct DmIoGetVolumeMetaData : dmCatReq {
+    typedef std::function<void (const Error &e, DmIoGetVolumeMetaData *req)> CbType;
+
+    explicit DmIoGetVolumeMetaData(boost::shared_ptr<fpi::GetVolumeMetaDataMsg> message)
+            : dmCatReq(message->volume_id, "", 0, FDS_GET_VOLUME_METADATA), msg(message) {}
+
+    boost::shared_ptr<fpi::GetVolumeMetaDataMsg> msg;
+    // response callback
+    CbType dmio_get_volmd_resp_cb;
+};
+
 struct DmIoGetBucket : dmCatReq {
     boost::shared_ptr<fpi::GetBucketMsg> message;
     explicit DmIoGetBucket(boost::shared_ptr<fpi::GetBucketMsg> message)

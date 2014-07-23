@@ -140,6 +140,9 @@ class DataMgr : public Module, public DmIoReqHandler {
                 case FDS_DM_FWD_CAT_UPD:
                     threadPool->schedule(&DataMgr::fwdUpdateCatalog, dataMgr, io);
                     break;
+                case FDS_GET_VOLUME_METADATA:
+                    threadPool->schedule(&DataMgr::getVolumeMetaData, dataMgr, io);
+                    break;
 
                 /* End of new refactored DM message types */
 
@@ -148,9 +151,6 @@ class DataMgr : public Module, public DmIoReqHandler {
                     break;
                 case FDS_SET_BLOB_METADATA:
                     threadPool->schedule(&DataMgr::setBlobMetaDataSvc, dataMgr, io);
-                    break;
-                case FDS_GET_VOLUME_METADATA:
-                    threadPool->schedule(&DataMgr::getVolumeMetaData, dataMgr, io);
                     break;
                 case FDS_ABORT_BLOB_TX:
                     threadPool->schedule(&DataMgr::scheduleAbortBlobTxSvc, dataMgr, io);

@@ -22,7 +22,7 @@ DMSvcHandler::DMSvcHandler()
     REGISTER_FDSP_MSG_HANDLER(fpi::AbortBlobTxMsg, abortBlobTx);
     REGISTER_FDSP_MSG_HANDLER(fpi::SetBlobMetaDataMsg, setBlobMetaData);
     REGISTER_FDSP_MSG_HANDLER(fpi::GetBlobMetaDataMsg, getBlobMetaData);
-
+    REGISTER_FDSP_MSG_HANDLER(fpi::GetVolumeMetaDataMsg, getVolumeMetaData);
     /* DM to DM service messages */
     REGISTER_FDSP_MSG_HANDLER(fpi::VolSyncStateMsg, volSyncState);
 }
@@ -372,4 +372,34 @@ void DMSvcHandler::volSyncState(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
     // TODO(Brian) send a response here
 }
+
+void
+DMSvcHandler::getVolumeMetaData(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                           boost::shared_ptr<fpi::GetVolumeMetaDataMsg>& message) {
+    DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*message));
+
+    auto dmReq = new DmIoGetVolumeMetaData(message);
+    dmReq->dmio_get_volmd_resp_cb =
+                    BIND_MSG_CALLBACK2(DMSvcHandler::getVolumeMetaDataCb, asyncHdr, message);
+
+    Error err = dataMgr->qosCtrl->enqueueIO(dmReq->getVolId(),
+                                      static_cast<FDS_IOType*>(dmReq));
+    if (err != ERR_OK) {
+        LOGWARN << "Unable to enqueue request "
+                << logString(*asyncHdr) << ":" << logString(*message);
+        dmReq->dmio_get_volmd_resp_cb(err, dmReq);
+    }
+}
+
+void
+DMSvcHandler::getVolumeMetaDataCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                    boost::shared_ptr<fpi::GetVolumeMetaDataMsg>& message,
+                    const Error &e, DmIoGetVolumeMetaData *req) {
+    DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*message));
+
+    asyncHdr->msg_code = static_cast<int32_t>(e.GetErrno());
+    sendAsyncResp(asyncHdr, fpi::GetVolumeMetaDataMsgTypeId, message);
+    delete req;
+}
+
 }  // namespace fds

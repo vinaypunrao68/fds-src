@@ -659,6 +659,59 @@ void StorHvCtrl::deleteObjectMsgResp(fds::AmQosReq* qosReq,
 }
 
 fds::Error
+StorHvCtrl::getVolumeMetaDataSvc(fds::AmQosReq* qosReq) {
+    StorHvCtrl::TxnRequestHelper helper(storHvisor, qosReq);
+
+    if (!helper.isValidVolume()) {
+        LOGCRITICAL << "unable to get volume info for vol: " << helper.volId;
+        helper.setStatus(FDSN_StatusErrorUnknown);
+        return ERR_DISK_READ_FAILED;
+    }
+
+    GetVolumeMetaDataReq* volMDReq = TO_DERIVED(GetVolumeMetaDataReq, helper.blobReq);
+    fds_assert(volMDReq && volMDReq->magicInUse());
+
+    fpi::GetVolumeMetaDataMsgPtr volMDMsg(new fpi::GetVolumeMetaDataMsg());
+    volMDMsg->volume_id = helper.volId;
+
+    auto asyncQueryReq = gSvcRequestPool->newFailoverSvcRequest(
+            boost::make_shared<DmtVolumeIdEpProvider>(
+            om_client->getDMTNodesForVolume(helper.volId)));
+    asyncQueryReq->setPayload(FDSP_MSG_TYPEID(fpi::GetVolumeMetaDataMsg), volMDMsg);
+    FailoverSvcRequestRespCb respCb =
+            RESPONSE_MSG_HANDLER(StorHvCtrl::getVolumeMetaDataMsgResp, qosReq);
+    asyncQueryReq->onResponseCb(respCb);
+    asyncQueryReq->invoke();
+
+    return ERR_OK;
+}
+
+void StorHvCtrl::getVolumeMetaDataMsgResp(fds::AmQosReq* qosReq,
+                                          FailoverSvcRequest* svcReq,
+                                          const Error& error,
+                                          boost::shared_ptr<std::string> payload) {
+    GetVolumeMetaDataReq * volMDReq =
+            static_cast<fds::GetVolumeMetaDataReq*>(qosReq->getBlobReqPtr());
+    fpi::GetVolumeMetaDataMsgPtr volMDMsg =
+        net::ep_deserialize<fpi::GetVolumeMetaDataMsg>(const_cast<Error&>(error), payload);
+
+    if (error != ERR_OK) {
+        LOGERROR << "Get metadata volume name: " << volMDReq->getVolumeName()
+                << " Error: " << error;
+        qos_ctrl->markIODone(qosReq);
+        volMDReq->cb->call(error);
+        delete volMDReq;
+    }
+
+    GetVolumeMetaDataCallback::ptr cb =
+            SHARED_DYN_CAST(GetVolumeMetaDataCallback, volMDReq->cb);
+    cb->volumeMetaData = volMDMsg->volume_meta_data;
+    cb->call(error);
+    qos_ctrl->markIODone(qosReq);
+    delete volMDReq;
+}
+
+fds::Error
 StorHvCtrl::setBlobMetaDataSvc(fds::AmQosReq* qosReq)
 {
     fds_verify(qosReq != NULL);

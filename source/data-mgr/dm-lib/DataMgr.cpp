@@ -1211,9 +1211,12 @@ void DataMgr::setBlobMetaDataSvc(void *io) {
 
 void DataMgr::getVolumeMetaData(dmCatReq *io) {
     Error err(ERR_OK);
-    // TODO(xxx) implement using new vol cat methods
-    // and new svc layer
-    fds_panic("not implemented");
+    DmIoGetVolumeMetaData * getVolMDReq = static_cast<DmIoGetVolumeMetaData *>(io);
+    err = timeVolCat_->queryIface()->getVolumeMeta(getVolMDReq->getVolId(),
+            reinterpret_cast<fds_uint64_t *>(&getVolMDReq->msg->volume_meta_data.size),
+            reinterpret_cast<fds_uint64_t *>(&getVolMDReq->msg->volume_meta_data.blobCount));
+    qosCtrl->markIODone(*getVolMDReq);
+    getVolMDReq->dmio_get_volmd_resp_cb(err, getVolMDReq);
 }
 
 void DataMgr::ReqHandler::DeleteCatalogObject(FDS_ProtocolInterface::
