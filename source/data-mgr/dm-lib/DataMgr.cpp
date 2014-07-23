@@ -1116,45 +1116,67 @@ Error
 DataMgr::expungeObject(fds_volid_t volId, const ObjectID &objId) {
     Error err(ERR_OK);
 
-    // Locate the SMs holding this blob
-    DltTokenGroupPtr tokenGroup =
-            omClient->getDLTNodesForDoidKey(objId);
+    // Create message
+    DeleteObjectMsgPtr expReq(new DeleteObjectMsg());
 
-    FDSP_MsgHdrTypePtr msgHdr(new FDSP_MsgHdrType);
-    initSmMsgHdr(msgHdr);
-    msgHdr->msg_code       = FDSP_MSG_DELETE_OBJ_REQ;
-    msgHdr->glob_volume_id = volId;
-    msgHdr->req_cookie     = 1;
-    FDSP_DeleteObjTypePtr delReq(new FDSP_DeleteObjType);
-    delReq->data_obj_id.digest.assign((const char *)objId.GetId(),
-                                      (size_t)objId.GetLen());
-    delReq->dlt_version = omClient->getDltVersion();
-    delReq->data_obj_len = 0;  // What is this...?
+    // Set message parameters
+    expReq->volId = volId;
+    fds::assign(expReq->objId, objId);
+    expReq->origin_timestamp = fds::get_fds_timestamp_ms();
 
-    // Issue async delete object calls to each SM
-    uint errorCount = 0;
-    for (fds_uint32_t i = 0; i < tokenGroup->getLength(); i++) {
-        try {
-            NodeUuid uuid = tokenGroup->get(i);
-            // NodeAgent::pointer node = Platform::plf_dm_nodes()->agent_info(uuid);
-            NodeAgent::pointer node = modProvider_->get_plf_manager()->plf_node_inventory()->\
-                    dc_get_sm_nodes()->agent_info(uuid);
-            SmAgent::pointer sm = agt_cast_ptr<SmAgent>(node);
-            NodeAgentDpClientPtr smClient = sm->get_sm_client();
+    // Make RPC call
 
-            msgHdr->session_uuid = sm->get_sm_sess_id();
-            smClient->DeleteObject(msgHdr, delReq);
-        } catch(const att::TTransportException& e) {
-            errorCount++;
-            GLOGERROR << "[" << errorCount << "] error during network call : " << e.what();
+    auto asyncExpReq = gSvcRequestPool->newQuorumSvcRequest(
+        boost::make_shared<DltObjectIdEpProvider>(omClient->getDLTNodesForDoidKey(objId)));
+    asyncExpReq->setPayload(FDSP_MSG_TYPEID(fpi::DeleteObjectMsg), expReq);
+    asyncExpReq->setTimeoutMs(5000);
+    // TODO(brian): How to do cb?
+    // asyncExpReq->onResponseCb(NULL);  // in other areas respcb is a parameter
+    asyncExpReq->invoke();
+    // Return any errors
+    return err;
+}
+
+/**
+ * Callback for expungeObject call
+ */
+void
+DataMgr::expungeObjectCb(QuorumSvcRequest* svcReq,
+                         const Error& error,
+                         boost::shared_ptr<std::string> payload) {
+    DBG(GLOGDEBUG << "Expunge cb called");
+}
+
+/**
+ * Permanetly deletes a blob and the objects that
+ * it refers to.
+ * Expunge differs from delete in that it's a hard delete
+ * that frees resources permanently and is not recoverable.
+ *
+ * @paramp[in] The blob node to expunge
+ * @return The result of the expunge
+ */
+Error
+DataMgr::expungeBlob(const BlobNode *bnode) {
+    Error err(ERR_OK);
+
+    // Grab some kind of lock on the blob?
+
+    // Iterate the entries in the blob list
+    for (const auto iter : bnode->obj_list) {
+        ObjectID objId = iter.second.data_obj_id;
+
+        if (use_om) {
+            err = expungeObject(bnode->vol_id, objId);
+            fds_verify(err == ERR_OK);
+        } else {
+            // No OM means no DLT, which means
+            // no way to contact SMs. Just keep going.
+            continue;
         }
     }
 
-    if (errorCount >= static_cast<int>(ceil(tokenGroup->getLength()*0.5))) {
-        LOGCRITICAL << "too many network errors ["
-                    << errorCount << "/" <<tokenGroup->getLength() <<"]";
-        return ERR_NETWORK_TRANSPORT;
-    }
+    // Wait for delete object responses
 
     return err;
 }

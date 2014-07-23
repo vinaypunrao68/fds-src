@@ -498,6 +498,7 @@ class ObjectStorMgr :
     Error putObjectInternal(SmIoReq* putReq);
     Error putObjectInternal2(SmIoPutObjectReq* putReq);
     Error deleteObjectInternal(SmIoReq* delReq);
+    Error deleteObjectInternal2(SmIoDeleteObjectReq* delReq);
     void putTokenObjectsInternal(SmIoReq* ioReq);
     void getTokenObjectsInternal(SmIoReq* ioReq);
     void snapshotTokenInternal(SmIoReq* ioReq);

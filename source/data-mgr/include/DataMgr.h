@@ -229,6 +229,9 @@ class DataMgr : public Module, public DmIoReqHandler {
 
     fds_bool_t amIPrimary(fds_volid_t volUuid);
     Error expungeObject(fds_volid_t volId, const ObjectID &objId);
+    void  expungeObjectCb(QuorumSvcRequest* svcReq,
+                         const Error& error,
+                         boost::shared_ptr<std::string> payload);
     Error expungeObjectsIfPrimary(fds_volid_t volid,
                                   const std::vector<ObjectID>& oids);
 

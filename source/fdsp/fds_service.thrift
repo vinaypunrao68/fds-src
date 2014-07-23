@@ -53,7 +53,9 @@ enum  FDSPMsgTypeId {
     GetObjectRespTypeId 	= 10001,
     PutObjectMsgTypeId		= 10002, 
     PutObjectRspMsgTypeId	= 10003,
-	
+	DeleteObjectMsgTypeId,
+	DeleteObjectRspMsgTypeId,
+
     /* DM Type Ids */
     QueryCatalogMsgTypeId = 20000,
     QueryCatalogRspMsgTypeId,
@@ -262,11 +264,10 @@ struct PutObjectRspMsg {
 }
 
 /* Delete object request message */
-struct  DeleteObjectMsg { 
- 1: FDSP.FDS_ObjectIdType data_obj_id,
- 2: i32              dlt_version,
- 3: i32              data_obj_len,
- 4: binary           dlt_data,
+struct  DeleteObjectMsg {
+ 1: i64 volId,
+ 2: FDSP.FDS_ObjectIdType objId, 
+ 3: i64 origin_timestamp,  
 }
 
 /* Delete object response message */

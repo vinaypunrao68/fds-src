@@ -2154,6 +2154,68 @@ ObjectStorMgr::deleteObjectInternal(SmIoReq* delReq) {
     return err;
 }
 
+Error
+ObjectStorMgr::deleteObjectInternal2(SmIoDeleteObjectReq* delReq) {
+    Error err(ERR_OK);
+    const ObjectID&  objId    = delReq->getObjId();
+    fds_volid_t volId         = delReq->getVolId();
+    ObjBufPtrType objBufPtr = NULL;
+    const FDSP_DeleteObjTypePtr& delObjReq = delReq->getDeleteObjReq();
+    ObjectIdJrnlEntry* jrnlEntry =  omJrnl->get_transaction(delReq->getTransId());
+    OpCtx opCtx(OpCtx::DELETE, delReq->origin_timestamp);
+
+    diskio::DataIO& dio_mgr = diskio::DataIO::disk_singleton();
+    ObjMetaData objMetadata;
+    meta_obj_id_t   oid;
+
+    objBufPtr = objCache->object_retrieve(volId, objId);
+    if (objBufPtr != NULL) {
+        PerfTracer::incr(DELETE_CACHE_HIT, delReq->perfNameStr);
+        objCache->object_release(volId, objId, objBufPtr);
+        objCache->object_delete(volId, objId);
+    }
+
+    PerfTracer::tracePointBegin(delReq->opLatencyCtx);
+    /*
+     * Delete the object, decrement refcnt of the assoc entry & overall refcnt
+     */
+    {
+        PerfContext tmp_pctx(DELETE_METADATA_,"volume:" + std::to_string(volId));
+        SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
+        err = deleteObjectMetaData(opCtx, objId, volId, objMetadata);
+    }
+    if (err.ok()) {
+        LOGDEBUG << "Successfully delete object " << objId
+                 << " refcnt = " << objMetadata.getRefCnt();
+
+        if (objMetadata.getRefCnt() < 1) {
+            // tell persistent layer we deleted the object so that garbage collection
+            // knows how much disk space we need to clean
+            memcpy(oid.metaDigest, objId.GetId(), objId.GetLen());
+            PerfContext tmp_pctx(DELETE_DISK_,"volume:" + std::to_string(volId));
+            SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
+            if (objMetadata.onTier(diskio::diskTier)) {
+                dio_mgr.disk_delete_obj(&oid, objMetadata.getObjSize(),
+                                        objMetadata.getObjPhyLoc(diskTier));
+            } else if (objMetadata.onTier(diskio::flashTier)) {
+                dio_mgr.disk_delete_obj(&oid, objMetadata.getObjSize(),
+                                        objMetadata.getObjPhyLoc(flashTier));
+            }
+        }
+    } else {
+        LOGERROR << "Failed to delete object " << objId << ", " << err;
+    }
+    qosCtrl->markIODone(*delReq, diskio::diskTier);
+
+    PerfTracer::tracePointEnd(delReq->opLatencyCtx);
+    PerfTracer::tracePointEnd(delReq->opReqLatencyCtx);
+
+    omJrnl->release_transaction(delReq->getTransId());
+    delReq->response_cb(err, delReq);
+
+    return err;
+}
+
 void
 ObjectStorMgr::PutObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
                          const FDSP_PutObjTypePtr& put_obj_req) {
@@ -2647,6 +2709,13 @@ Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
                 LOGERROR << "Failed to enqueue msg: " << ioReq->log_string();
             }
             break;
+        case FDS_SM_DELETE_OBJECT:
+            objectId = static_cast<SmIoDeleteObjectReq*>(ioReq)->getObjId();
+            err = enqTransactionIo(nullptr, objectId, ioReq, trans_id);
+            if (err != fds::ERR_OK) {
+                LOGERROR << "Failed to enqueue msg: " << ioReq->log_string();
+            }
+            break;
         case FDS_SM_SYNC_APPLY_METADATA:
             objectId.SetId(static_cast<SmIoApplySyncMetadata*>(ioReq)->md.object_id.digest);
             err =  enqTransactionIo(nullptr, objectId, ioReq, trans_id);
@@ -3111,9 +3180,10 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
             FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a put request";
             threadPool->schedule(putObjectExt,io);
             break;
-        case FDS_DELETE_BLOB:
+        case FDS_SM_DELETE_OBJECT:
             FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a Delete request";
-            threadPool->schedule(delObjectExt,io);
+            threadPool->schedule(&ObjectStorMgr::deleteObjectInternal2,
+                                 objStorMgr, static_cast<SmIoDeleteObjectReq*>(io));
             break;
         case FDS_SM_GET_OBJECT:
             FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a get request";
