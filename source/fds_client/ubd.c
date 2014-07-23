@@ -593,7 +593,7 @@ void hvisor_queue_read(td_vbd_t *vbd,
            vbd, vbd->uuid, vreq, p_new_req);
 
     /* queue the  request  to the per volume queue */
-    rc = amUbdGetBlob(p_new_req);
+    // rc = amUbdGetBlob(p_new_req);
     if (rc) {
         hvisor_complete_td_request((void *)vbd, (void *)vreq, p_new_req, rc);
     }
@@ -650,7 +650,7 @@ void hvisor_queue_write(td_vbd_t *vbd, td_vbd_request_t *vreq, td_request_t treq
 	       vbd, vbd->uuid, vreq, p_new_req);
 
 	/* queue the  request  to the per volume queue */
-        rc = amUbdPutBlob(p_new_req);
+        // rc = amUbdPutBlob(p_new_req);
 	if (rc) {
 	  hvisor_complete_td_request((void *)vbd, (void *)vreq, p_new_req, rc);
 	}

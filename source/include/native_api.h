@@ -82,15 +82,13 @@ class FDS_NativeAPI {
 
     /// After this call returns bucketctx, get_cond are no longer valid.
     void GetObject(BucketContextPtr bucketctxt,
-                   std::string ObjKey,
+                   const std::string &blobName,
                    GetConditions *get_cond,
                    fds_uint64_t startByte,
                    fds_uint64_t byteCount,
                    char *buffer,
                    fds_uint64_t buflen,
-                   void *reqcontext,
-                   fdsnGetObjectHandler getObjCallback,
-                   void *callbackdata);
+                   CallbackPtr cb);
 
     void PutBlob(BucketContext *bucket_ctxt,
                  std::string ObjKey,
