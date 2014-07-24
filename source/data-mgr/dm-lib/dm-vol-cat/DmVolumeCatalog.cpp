@@ -7,14 +7,20 @@
 #include <string>
 #include <dm-vol-cat/DmVolumeCatalog.h>
 #include <dm-vol-cat/DmPersistVc.h>
+#include <dm-vol-cat/DmVcCache.h>
 
 namespace fds {
 
 DmVolumeCatalog::DmVolumeCatalog(char const *const name)
         : Module(name), expunge_cb(NULL)
 {
+    cacheCat = std::unique_ptr<DmCacheVolCatalog>(
+        new DmCacheVolCatalog("DM Vol Cat Cache Layer"));
+
     persistCat = new DmPersistVolCatalog("DM Vol Cat Persistent Layer");
+    // TODO(Andrew): The Module array should be able to take unique ptrs
     static Module* om_mods[] = {
+        cacheCat.get(),
         persistCat,
         NULL
     };
@@ -55,10 +61,13 @@ Error DmVolumeCatalog::addCatalog(const VolumeDesc& voldesc)
     LOGDEBUG << "Will add Catalog for volume " << voldesc.name
              << ":" << std::hex << voldesc.volUUID << std::dec;
 
-    // TODO(xxx) allocate caches space for volume, etc.
-
     // create volume catalog in VC persistent layer
     err = persistCat->createCatalog(voldesc);
+
+    if (err == ERR_OK) {
+        // Create volume catalog cache
+        err = cacheCat->createCache(voldesc);
+    }
     return err;
 }
 
