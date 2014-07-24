@@ -89,7 +89,6 @@ class VolumeMeta : public HasLogger {
      */
     FDS_VolumeQueue*  dmVolQueue;
 
-    Error syncVolCat(fds_volid_t volId, NodeUuid node_uuid);
     Error deltaSyncVolCat(fds_volid_t volId, NodeUuid node_uuid);
 };
 
