@@ -175,7 +175,7 @@ void CatalogSync::deltaDoneCb(fds_volid_t volid,
     // Send msg to DM that we finished syncing this volume
     // this means that we are not going to do any rsync for this
     // volume anymore, only forward updates
-    Error err = sendMetaSyncDone(volid, false);
+    Error err = issueVolSyncStateMsg(volid, false);
     if (!err.ok()) {
         // TODO(xxx) how should we handle this? for now ignoring
     }
@@ -212,7 +212,7 @@ fds_uint32_t CatalogSync::recordVolSyncDone(csStateType expected_state) {
 
 Error CatalogSync::handleVolumeDone(fds_volid_t volid) {
     fds_verify(sync_volumes.count(volid) > 0);
-    Error err = sendMetaSyncDone(volid, true);
+    Error err = issueVolSyncStateMsg(volid, true);
     // TODO(xxx) we should properly handle this error, how?
     // probably reply to DMT close with error?
     // in any case, finishing syncing for this volume in any case
@@ -298,32 +298,6 @@ Error CatalogSync::forwardCatalogUpdate(dmCatReq  *updCatReq) {
         LOGERROR << "Unable to send PushMetaSyncReq to DM";
         err = ERR_NETWORK_TRANSPORT;
     }
-    return err;
-}
-
-Error CatalogSync::sendMetaSyncDone(fds_volid_t volid,
-                                    fds_bool_t forward_done) {
-    Error err(ERR_OK);
-    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
-    FDS_ProtocolInterface::FDSP_VolMetaStatePtr vol_meta(new FDSP_VolMetaState);
-
-    DataMgr::InitMsgHdr(msg_hdr);  // init the  message  header
-    msg_hdr->dst_id = FDSP_DATA_MGR;
-
-    vol_meta->vol_uuid = volid;
-    vol_meta->forward_done = forward_done;
-
-    LOGDEBUG << "Will send MetaSyncDone msg for vol " << std::hex
-             << volid << std::dec << " fwd done? " << forward_done;
-
-    try {
-        meta_client->getClient()->MetaSyncDone(msg_hdr, vol_meta);
-        LOGNORMAL << "Send MetaSyncDone Rpc message : " << meta_client;
-    } catch(...) {
-        LOGERROR << "Unable to send MetaSyncDone to DM";
-        err = ERR_NETWORK_TRANSPORT;
-    }
-
     return err;
 }
 
@@ -612,6 +586,10 @@ void CatalogSyncMgr::syncDoneCb(catsync_notify_evt_t event,
     }
 }
 
+/**
+ * This is for the receiving side
+ */
+
 void
 FDSP_MetaSyncRpc::PushMetaSyncReq(fpi::FDSP_MsgHdrTypePtr& fdsp_msg,
                          fpi::FDSP_UpdateCatalogTypePtr& meta_req)
@@ -669,6 +647,37 @@ FDSP_MetaSyncRpc::PushMetaSyncResp(fpi::FDSP_MsgHdrTypePtr& fdsp_msg,
     */
 }
 
+/**
+ * Send message that rsync has finished. From Master DM to new
+ * DM. Uses VolSyncStateMsg.
+ *  
+ * @param[in] volId volume ID of catalog volume
+ * @param[in] forward_complete boolean specifying whether forwarding is
+ * complete (true = forwarding complete; false = second rsync
+ * complete)
+ *
+ * @return Error code
+ */
+Error CatalogSync::issueVolSyncStateMsg(fds_volid_t volId,
+                                        fds_bool_t forward_complete)
+{
+    Error err(ERR_OK);
+    VolSyncStateMsgPtr fwdMsg(new VolSyncStateMsg());
+
+    fwdMsg->volume_id = volId;
+    fwdMsg->forward_complete = forward_complete;
+
+    LOGDEBUG << "Sending VolSyncStateMsg: " << std::hex
+             << volId << std::dec << " fwd_complete: " << forward_complete;
+
+    auto asyncFwdReq = gSvcRequestPool->newEPSvcRequest(this->node_uuid.toSvcUuid());
+    asyncFwdReq->setPayload(FDSP_MSG_TYPEID(fpi::VolSyncStateMsg), fwdMsg);
+    asyncFwdReq->setTimeoutMs(5000);
+    // TODO(brian): Set callback and do error management here
+    asyncFwdReq->invoke();
+
+    return err;
+}
 void
 FDSP_MetaSyncRpc::MetaSyncDone(fpi::FDSP_MsgHdrTypePtr& fdsp_msg,
                                fpi::FDSP_VolMetaStatePtr& vol_meta) {
@@ -688,5 +697,4 @@ FDSP_MetaSyncRpc::MetaSyncDone(fpi::FDSP_MsgHdrTypePtr& fdsp_msg,
         dataMgr->catSyncRecv->handleFwdDone(vol_meta->vol_uuid);
     }
 }
-
 }  // namespace fds

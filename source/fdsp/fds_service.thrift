@@ -422,7 +422,7 @@ struct DeleteBlobMsg {
 struct VolSyncStateMsg
 {
     1: i64        volume_id;
-    2: bool       forward_done;   /* true = forwarding done, false = second rsync done */
+    2: bool       forward_complete;   /* true = forwarding done, false = second rsync done */
 }
 
 struct VolSyncStateRspMsg {

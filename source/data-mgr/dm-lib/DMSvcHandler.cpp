@@ -22,6 +22,9 @@ DMSvcHandler::DMSvcHandler()
     REGISTER_FDSP_MSG_HANDLER(fpi::AbortBlobTxMsg, abortBlobTx);
     REGISTER_FDSP_MSG_HANDLER(fpi::SetBlobMetaDataMsg, setBlobMetaData);
     REGISTER_FDSP_MSG_HANDLER(fpi::GetBlobMetaDataMsg, getBlobMetaData);
+
+    /* DM to DM service messages */
+    REGISTER_FDSP_MSG_HANDLER(fpi::VolSyncStateMsg, volSyncState);
 }
 
 
@@ -349,5 +352,32 @@ DMSvcHandler::setBlobMetaDataCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                   setBlobMetaDataRspMsg);
 
     delete req;
+}
+
+/**
+ * Destination handler for receiving a message that the rsync has finished.
+ *
+ * @param[in] asyncHdr the async header sent with svc layer request
+ * @param[in] fwdMsg the VolSyncState message
+ * 
+ */
+void DMSvcHandler::volSyncState(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                                boost::shared_ptr<fpi::VolSyncStateMsg>& syncStateMsg)
+{
+    LOGNORMAL << "Received VolSyncState Rpc message "
+              << " forward done? " << syncStateMsg->forward_complete;
+    if (!syncStateMsg->forward_complete) {
+        // open catalogs so we can start processing updates
+        // TODO(Anna) call VC activateCatalog()
+        /*
+        fds_verify(dataMgr->vol_meta_map.count(vol_meta->vol_uuid) > 0);
+        VolumeMeta *vm = dataMgr->vol_meta_map[vol_meta->vol_uuid];
+        vm->openCatalogs(vol_meta->vol_uuid);
+        */
+        // start processing forwarded updates
+        dataMgr->catSyncRecv->startProcessFwdUpdates(syncStateMsg->volume_id);
+    } else {
+        dataMgr->catSyncRecv->handleFwdDone(syncStateMsg->volume_id);
+    }
 }
 }  // namespace fds

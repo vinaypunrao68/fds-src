@@ -107,7 +107,11 @@ namespace fds {
          * CatalogSync must be in CSSTATE_FORWARDING state
          * @return ERR_OK on success; or networks error
          */
+
         Error forwardCatalogUpdate(dmCatReq  *updCatReq);
+
+        Error issueVolSyncStateMsg(fds_volid_t volId,
+                                   fds_bool_t foward_complete);
 
         /**
          * @return true if catalog sync is finished
@@ -165,6 +169,7 @@ namespace fds {
         fds_uint32_t recordVolSyncDone(csStateType expected_state);
 
   private:
+        SvcUuid svc_uuid;
         NodeUuid node_uuid;  // destination node
 
         std::atomic<csStateType> state;  // current state
@@ -324,6 +329,7 @@ namespace fds {
         std::string log_string() {
             return "FDSP_MigrationPathRpc";
         }
+
         void PushMetaSyncReq(const fpi::FDSP_MsgHdrType& fdsp_msg,
                              const fpi::FDSP_UpdateCatalogType& push_meta_req) {
             // Don't do anything here. This stub is just to keep cpp compiler happy
