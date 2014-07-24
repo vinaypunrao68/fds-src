@@ -36,13 +36,13 @@
 #include <fdsp/FDSP_ConfigPathReq.h>
 #include <net/SvcRequest.h>
 
-
 #include "NetSession.h"
 
 #include <map>
 // #include "util/concurrency/Thread.h"
 #include <concurrency/Synchronization.h>
 #include <fds_counters.h>
+#include "PerfTrace.h"
 
 
 #undef  FDS_TEST_SH_NOOP              /* IO returns (filled with 0s for read) as soon as SH receives it from ubd */
@@ -490,6 +490,9 @@ extern StorHvCtrl *storHvisor;
  * Static function for process IO via a threadpool
  */
 static void processBlobReq(AmQosReq *qosReq) {
+    FdsBlobReq *blobReq = qosReq->getBlobReqPtr();
+    fds::PerfTracer::tracePointEnd(blobReq->qosPerfCtx); 
+
     fds_verify(qosReq->io_module == FDS_IOType::STOR_HV_IO);
     fds_verify(qosReq->magicInUse() == true);
 

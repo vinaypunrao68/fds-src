@@ -10,6 +10,7 @@
 #include <StorHvisorNet.h>
 #include <StorHvJournal.h>
 #include <fds_defines.h>
+#include "PerfTrace.h" //NOLINT
 
 extern StorHvCtrl *storHvisor;
 
@@ -476,6 +477,7 @@ StorHvJournalEntry::fbd_process_req_timeout() {
                         << " offset " << blobReq->getBlobOffset() << " trans_id " << trans_id;
             fds_panic("Timed out accessing all SMs!");
 
+            // fds::PerfTracer::tracePointEnd(blobReq->e2eReqPerfCtx);
             storHvisor->qos_ctrl->markIODone(io);
             vol->journal_tbl->releaseTransId(trans_id);
             blobReq->cbWithResult(-1);

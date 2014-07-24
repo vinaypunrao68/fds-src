@@ -96,6 +96,7 @@ const char * eventTypeToStr[] = {
         "trace", // generic event
         "trace_err",
 
+        // Store Manager
         "put_io",
         "put_obj_req",
         "put_obj_req_err",
@@ -137,13 +138,32 @@ const char * eventTypeToStr[] = {
         "get_disk_read",
         "put_metadata_write",
         "put_disk_write",
-        "delete_metadata_",
-        "delete_disk_",
+        "delete_metadata",
+        "delete_disk",
 
         "put_odb",
         "get_odb",
         "disk_write",
-        "disk_read"
+        "disk_read",
+
+        // Access Manager
+        "am_put_obj_req",
+        "am_put_qos",
+        "am_put_hash",
+        "am_put_sm",
+        "am_put_dm",
+
+        "am_get_obj_req",
+        "am_get_qos",
+        "am_get_hash",
+        "am_get_sm",
+        "am_get_dm",
+
+        "am_delete_obj_req",
+        "am_delete_qos",
+        "am_delete_hash",
+        "am_delete_sm",
+        "am_delete_dm"
 };
 
 PerfTracer::PerfTracer() : aggregateCounters_(fds::MAX_EVENT_TYPE),
@@ -387,9 +407,15 @@ void PerfTracer::tracePointEnd(PerfContext & ctx) {
 #else
     ctx.end_cycle = util::getTimeStampNanos();
 #endif
-    createLatencyCounter(ctx);
-    LatencyCounter * plc = dynamic_cast<LatencyCounter *>(ctx.data.get());
-    incr(ctx.type, plc->total_latency(), plc->count(), ctx.name);
+    // Avoid creating a counter if counter has not been properly initialized. Print warning instead
+    // TODO(matteo): do this for numeric counters as well?
+    if (ctx.name != "" && ctx.type != TRACE) {
+        createLatencyCounter(ctx);
+        LatencyCounter * plc = dynamic_cast<LatencyCounter *>(ctx.data.get());
+        incr(ctx.type, plc->total_latency(), plc->count(), ctx.name);
+    } else {
+        GLOGDEBUG << "Counter wothout a name or type -  name: " << ctx.name << " type: " << eventTypeToStr[ctx.type];
+    }
 }
 
 void PerfTracer::setEnabled(bool val /* = true */) {

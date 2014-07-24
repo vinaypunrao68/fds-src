@@ -10,6 +10,8 @@
 #include "StorHvisorCPP.h"
 #include "StorHvQosCtrl.h"
 
+#include "PerfTrace.h"
+
 #include <atomic>
 
 extern StorHvCtrl *storHvisor;
@@ -662,10 +664,22 @@ GetBlobReq::GetBlobReq(fds_volid_t _volid,
     : FdsBlobReq(FDS_GET_BLOB, _volid, _blob_name, _blob_offset,
                  _data_len, _data_buf, cb) {
     stopWatch.start();
+    
+    e2eReqPerfCtx.type = AM_GET_OBJ_REQ;
+    e2eReqPerfCtx.name = "volume:" + std::to_string(volId);
+    qosPerfCtx.type = AM_GET_QOS;
+    qosPerfCtx.name = "volume:" + std::to_string(volId);
+    hashPerfCtx.type = AM_GET_HASH;
+    hashPerfCtx.name = "volume:" + std::to_string(volId);
+    dmPerfCtx.type = AM_GET_SM;
+    dmPerfCtx.name = "volume:" + std::to_string(volId);
+    smPerfCtx.type = AM_GET_DM;
+    smPerfCtx.name = "volume:" + std::to_string(volId);
 }
 
 GetBlobReq::~GetBlobReq()
 {
+    fds::PerfTracer::tracePointEnd(e2eReqPerfCtx); 
     storHvisor->getCounters().gets_latency.update(stopWatch.getElapsedNanos());
 }
 
@@ -696,10 +710,21 @@ PutBlobReq::PutBlobReq(fds_volid_t _volid,
     retStatus(ERR_OK)
 {
     stopWatch.start();
+    e2eReqPerfCtx.type = AM_PUT_OBJ_REQ;
+    e2eReqPerfCtx.name = "volume:" + std::to_string(volId);
+    qosPerfCtx.type = AM_PUT_QOS;
+    qosPerfCtx.name = "volume:" + std::to_string(volId);
+    hashPerfCtx.type = AM_PUT_HASH;
+    hashPerfCtx.name = "volume:" + std::to_string(volId);
+    dmPerfCtx.type = AM_PUT_SM;
+    dmPerfCtx.name = "volume:" + std::to_string(volId);
+    smPerfCtx.type = AM_PUT_DM;
+    smPerfCtx.name = "volume:" + std::to_string(volId);
 }
 
 PutBlobReq::~PutBlobReq()
 {
+    fds::PerfTracer::tracePointEnd(e2eReqPerfCtx); 
     storHvisor->getCounters().puts_latency.update(stopWatch.getElapsedNanos());
 }
 

@@ -268,12 +268,14 @@ Error StorHvCtrl::putBlobSvc(fds::AmQosReq *qosReq)
         LOGWARN << "zero size object - "
                 << " [objkey:" << blobReq->ObjKey <<"]";
     } else {
+        SCOPED_PERF_TRACEPOINT_CTX(blobReq->hashPerfCtx);
         objId = ObjIdGen::genObjectId(blobReq->getDataBuf(),
                                       blobReq->getDataLen());
     }
     blobReq->setObjId(objId);
 
     // Send put request to SM
+    fds::PerfTracer::tracePointBegin(blobReq->smPerfCtx); 
     issuePutObjectMsg(blobReq->getObjId(),
                       blobReq->getDataBuf(),
                       blobReq->getDataLen(),
@@ -281,6 +283,8 @@ Error StorHvCtrl::putBlobSvc(fds::AmQosReq *qosReq)
                       RESPONSE_MSG_HANDLER(StorHvCtrl::putBlobPutObjectMsgResp, qosReq));
 
     // updCatReq->txDesc.txId = putBlobReq->getTxId()->getValue();
+    //TODO(matteo): maybe check other issueUpdateC...
+    fds::PerfTracer::tracePointBegin(blobReq->dmPerfCtx); 
     issueUpdateCatalogMsg(blobReq->getObjId(),
                           blobReq->getBlobName(),
                           blobReq->getBlobOffset(),
@@ -365,6 +369,7 @@ void StorHvCtrl::putBlobPutObjectMsgResp(fds::AmQosReq* qosReq,
                                          boost::shared_ptr<std::string> payload)
 {
     PutBlobReq *blobReq = static_cast<fds::PutBlobReq*>(qosReq->getBlobReqPtr());
+    fds::PerfTracer::tracePointEnd(blobReq->smPerfCtx); 
     fpi::PutObjectRspMsgPtr putObjRsp =
         net::ep_deserialize<fpi::PutObjectRspMsg>(const_cast<Error&>(error), payload);
 
@@ -384,6 +389,7 @@ void StorHvCtrl::putBlobUpdateCatalogMsgResp(fds::AmQosReq* qosReq,
                                              boost::shared_ptr<std::string> payload)
 {
     PutBlobReq *blobReq = static_cast<fds::PutBlobReq*>(qosReq->getBlobReqPtr());
+    fds::PerfTracer::tracePointEnd(blobReq->dmPerfCtx); 
     fpi::UpdateCatalogRspMsgPtr updCatRsp =
         net::ep_deserialize<fpi::UpdateCatalogRspMsg>(const_cast<Error&>(error), payload);
 
@@ -435,12 +441,14 @@ Error StorHvCtrl::getBlobSvc(fds::AmQosReq *qosReq)
                                           blobReq->getBlobOffset(),
                                           objId);
     if (true || !inCache) {
+        fds::PerfTracer::tracePointBegin(blobReq->dmPerfCtx); 
         issueQueryCatalog(blobReq->getBlobName(),
                           blobReq->getBlobOffset(),
                           volId,
                           RESPONSE_MSG_HANDLER(StorHvCtrl::getBlobQueryCatalogResp, qosReq));
     } else {
         fds_verify(objId != NullObjectID);
+        fds::PerfTracer::tracePointBegin(blobReq->smPerfCtx); 
         issueGetObject(volId, objId,
                        RESPONSE_MSG_HANDLER(StorHvCtrl::getBlobGetObjectResp, qosReq));
     }
@@ -501,6 +509,8 @@ void StorHvCtrl::getBlobQueryCatalogResp(fds::AmQosReq* qosReq,
     fpi::QueryCatalogMsgPtr qryCatRsp =
         net::ep_deserialize<fpi::QueryCatalogMsg>(const_cast<Error&>(error), payload);
 
+    fds::PerfTracer::tracePointEnd(blobReq->dmPerfCtx); 
+
     if (error != ERR_OK) {
         LOGERROR << "blob name: " << blobReq->getBlobName() << "offset: "
             << blobReq->getBlobOffset() << " Error: " << error; 
@@ -533,6 +543,8 @@ void StorHvCtrl::getBlobQueryCatalogResp(fds::AmQosReq* qosReq,
             ObjectID objId((*it).data_obj_id.digest);
             fds_verify(objId != NullObjectID);
 
+            
+            fds::PerfTracer::tracePointBegin(blobReq->smPerfCtx); 
             issueGetObject(blobReq->getVolId(), objId,
                            RESPONSE_MSG_HANDLER(StorHvCtrl::getBlobGetObjectResp, qosReq));
 
@@ -552,6 +564,7 @@ void StorHvCtrl::getBlobGetObjectResp(fds::AmQosReq* qosReq,
     fds::GetBlobReq *blobReq = static_cast<fds::GetBlobReq *>(qosReq->getBlobReqPtr());
     fpi::GetObjectRespPtr getObjRsp =
         net::ep_deserialize<fpi::GetObjectResp>(const_cast<Error&>(error), payload);
+    fds::PerfTracer::tracePointEnd(blobReq->smPerfCtx); 
 
     if (error != ERR_OK) {
         LOGERROR << "blob name: " << blobReq->getBlobName() << "offset: "
@@ -612,6 +625,7 @@ StorHvCtrl::deleteBlobSvc(fds::AmQosReq *qosReq)
     fds_verify(shVol->isValidLocked() == true);
 
     // Send to the DM
+    fds::PerfTracer::tracePointBegin(blobReq->dmPerfCtx); 
     issueDeleteCatalogObject(vol_id, blob_name,
                              RESPONSE_MSG_HANDLER(StorHvCtrl::deleteObjectMsgResp, qosReq));
     return err;
@@ -643,6 +657,7 @@ void StorHvCtrl::deleteObjectMsgResp(fds::AmQosReq* qosReq,
                                       boost::shared_ptr<std::string> payload)
 {
     DeleteBlobReq *blobReq = static_cast<fds::DeleteBlobReq*>(qosReq->getBlobReqPtr());
+    fds::PerfTracer::tracePointEnd(blobReq->dmPerfCtx); 
     fpi::DeleteCatalogObjectRspMsgPtr delCatRsp =
         net::ep_deserialize<fpi::DeleteCatalogObjectRspMsg>(const_cast<Error&>(error), payload);
 
