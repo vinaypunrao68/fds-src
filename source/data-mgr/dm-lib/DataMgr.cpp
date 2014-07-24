@@ -1147,40 +1147,6 @@ DataMgr::expungeObjectCb(QuorumSvcRequest* svcReq,
     DBG(GLOGDEBUG << "Expunge cb called");
 }
 
-/**
- * Permanetly deletes a blob and the objects that
- * it refers to.
- * Expunge differs from delete in that it's a hard delete
- * that frees resources permanently and is not recoverable.
- *
- * @paramp[in] The blob node to expunge
- * @return The result of the expunge
- */
-Error
-DataMgr::expungeBlob(const BlobNode *bnode) {
-    Error err(ERR_OK);
-
-    // Grab some kind of lock on the blob?
-
-    // Iterate the entries in the blob list
-    for (const auto iter : bnode->obj_list) {
-        ObjectID objId = iter.second.data_obj_id;
-
-        if (use_om) {
-            err = expungeObject(bnode->vol_id, objId);
-            fds_verify(err == ERR_OK);
-        } else {
-            // No OM means no DLT, which means
-            // no way to contact SMs. Just keep going.
-            continue;
-        }
-    }
-
-    // Wait for delete object responses
-
-    return err;
-}
-
 void DataMgr::scheduleGetBlobMetaDataSvc(void *_io) {
     Error err(ERR_OK);
     DmIoGetBlobMetaData *getBlbMeta = static_cast<DmIoGetBlobMetaData*>(_io);
