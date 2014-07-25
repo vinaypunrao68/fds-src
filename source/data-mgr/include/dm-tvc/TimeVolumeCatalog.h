@@ -66,7 +66,10 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
 
     typedef boost::shared_ptr<DmTimeVolCatalog> ptr;
     typedef boost::shared_ptr<const DmTimeVolCatalog> const_ptr;
-    typedef std::function<void (const Error &)> CommitCb;
+    typedef std::function<void (const Error &,
+                                blob_version_t,
+                                const BlobObjList::const_ptr&,
+                                const MetaDataList::const_ptr&)> CommitCb;
 
     /// Allow sync related interface to volume catalog
     friend class DmVolumeCatalog;

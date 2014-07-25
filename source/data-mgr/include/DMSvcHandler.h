@@ -45,6 +45,14 @@ class DMSvcHandler : virtual public DMSvcIf, public PlatNetSvcHandler {
         // Don't do anything here. This stub is just to keep cpp compiler happy
     }
 
+    void volSyncState(const fpi::AsyncHdr& asyncHdr,
+                      const fpi::VolSyncStateMsg& syncMsg) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+
+    void volSyncState(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                      boost::shared_ptr<fpi::VolSyncStateMsg>& syncMsg);
+
     void startBlobTx(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                        boost::shared_ptr<fpi::StartBlobTxMsg>& startBlob);
     void startBlobTxCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
@@ -84,6 +92,12 @@ class DMSvcHandler : virtual public DMSvcIf, public PlatNetSvcHandler {
                          boost::shared_ptr<fpi::SetBlobMetaDataMsg>& setBlobMD);
     void setBlobMetaDataCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                            const Error &e, DmIoSetBlobMetaData *req);
+
+    void getVolumeMetaData(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                           boost::shared_ptr<fpi::GetVolumeMetaDataMsg>& message);
+    void getVolumeMetaDataCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                           boost::shared_ptr<fpi::GetVolumeMetaDataMsg>& message,
+                           const Error &e, DmIoGetVolumeMetaData *req);
 };
 
 }  // namespace fds

@@ -22,6 +22,9 @@ DMSvcHandler::DMSvcHandler()
     REGISTER_FDSP_MSG_HANDLER(fpi::AbortBlobTxMsg, abortBlobTx);
     REGISTER_FDSP_MSG_HANDLER(fpi::SetBlobMetaDataMsg, setBlobMetaData);
     REGISTER_FDSP_MSG_HANDLER(fpi::GetBlobMetaDataMsg, getBlobMetaData);
+    REGISTER_FDSP_MSG_HANDLER(fpi::GetVolumeMetaDataMsg, getVolumeMetaData);
+    /* DM to DM service messages */
+    REGISTER_FDSP_MSG_HANDLER(fpi::VolSyncStateMsg, volSyncState);
 }
 
 
@@ -350,4 +353,53 @@ DMSvcHandler::setBlobMetaDataCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
     delete req;
 }
+
+/**
+ * Destination handler for receiving a message that the rsync has finished.
+ *
+ * @param[in] asyncHdr the async header sent with svc layer request
+ * @param[in] fwdMsg the VolSyncState message
+ * 
+ */
+void DMSvcHandler::volSyncState(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                                boost::shared_ptr<fpi::VolSyncStateMsg>& syncStateMsg)
+{
+    Error err(ERR_OK);
+
+    // synchronous call to process the volume sync state
+    err = dataMgr->processVolSyncState(syncStateMsg->volume_id,
+                                       syncStateMsg->forward_complete);
+
+    // TODO(Brian) send a response here
+}
+
+void
+DMSvcHandler::getVolumeMetaData(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                           boost::shared_ptr<fpi::GetVolumeMetaDataMsg>& message) {
+    DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*message));
+
+    auto dmReq = new DmIoGetVolumeMetaData(message);
+    dmReq->dmio_get_volmd_resp_cb =
+                    BIND_MSG_CALLBACK2(DMSvcHandler::getVolumeMetaDataCb, asyncHdr, message);
+
+    Error err = dataMgr->qosCtrl->enqueueIO(dmReq->getVolId(),
+                                      static_cast<FDS_IOType*>(dmReq));
+    if (err != ERR_OK) {
+        LOGWARN << "Unable to enqueue request "
+                << logString(*asyncHdr) << ":" << logString(*message);
+        dmReq->dmio_get_volmd_resp_cb(err, dmReq);
+    }
+}
+
+void
+DMSvcHandler::getVolumeMetaDataCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                    boost::shared_ptr<fpi::GetVolumeMetaDataMsg>& message,
+                    const Error &e, DmIoGetVolumeMetaData *req) {
+    DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*message));
+
+    asyncHdr->msg_code = static_cast<int32_t>(e.GetErrno());
+    sendAsyncResp(asyncHdr, fpi::GetVolumeMetaDataMsgTypeId, message);
+    delete req;
+}
+
 }  // namespace fds

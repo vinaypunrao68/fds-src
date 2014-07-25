@@ -22,11 +22,11 @@ namespace fds {
  * and deleting caches and provides thread safe interfaces
  * for per-volume cache access.
  */
-template <class K, class V>
+template <class K, class V, class _Hash = std::hash<K>>
 class VolumeCacheManager : public Module, boost::noncopyable {
   private:
     /// Associated cache and synchronization structure
-    typedef std::pair<fds_rwlock*, KvCache<K, V >*> CachePair;
+    typedef std::pair<fds_rwlock*, KvCache<K, V, _Hash>*> CachePair;
 
     /**
      * Structure for multiplexing many volumes with volume ID
@@ -66,13 +66,13 @@ class VolumeCacheManager : public Module, boost::noncopyable {
             return ERR_VOL_DUPLICATE;
         }
 
-        KvCache<K, V> *cache;
+        KvCache<K, V, _Hash> *cache;
         fds_rwlock *rwlock = new fds_rwlock();
         std::string cacheModName = "Cache module for ";
         cacheModName += std::to_string(volId);
         switch (evictionType) {
             case LRU:
-                cache = new LruKvCache<K, V>(cacheModName, maxEntries);
+                cache = new LruKvCache<K, V, _Hash>(cacheModName, maxEntries);
                 break;
             default:
                 fds_panic("Unknown eviction type specified!");

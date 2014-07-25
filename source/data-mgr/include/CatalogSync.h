@@ -23,6 +23,7 @@
 #include <fdsp/FDSP_types.h>
 #include <DmIoReq.h>
 #include <NetSession.h>
+#include <DmBlobTypes.h>
 
 namespace fpi = FDS_ProtocolInterface;
 
@@ -107,7 +108,13 @@ namespace fds {
          * CatalogSync must be in CSSTATE_FORWARDING state
          * @return ERR_OK on success; or networks error
          */
-        Error forwardCatalogUpdate(dmCatReq  *updCatReq);
+        Error forwardCatalogUpdate(DmIoCommitBlobTx *commitBlobReq,
+                                   blob_version_t blob_version,
+                                   const BlobObjList::const_ptr& blob_obj_list,
+                                   const MetaDataList::const_ptr& meta_list);
+
+        Error issueVolSyncStateMsg(fds_volid_t volId,
+                                   fds_bool_t foward_complete);
 
         /**
          * @return true if catalog sync is finished
@@ -165,6 +172,7 @@ namespace fds {
         fds_uint32_t recordVolSyncDone(csStateType expected_state);
 
   private:
+        SvcUuid svc_uuid;
         NodeUuid node_uuid;  // destination node
 
         std::atomic<csStateType> state;  // current state
@@ -245,7 +253,10 @@ namespace fds {
          * corresponding volume.
          * Must be called only for volumes for which sync is in progress
          */
-        Error forwardCatalogUpdate(dmCatReq  *updCatReq);
+        Error forwardCatalogUpdate(DmIoCommitBlobTx *commitBlobReq,
+                                   blob_version_t blob_version,
+                                   const BlobObjList::const_ptr& blob_obj_list,
+                                   const MetaDataList::const_ptr& meta_list);
 
         /**
          * Called when forwarding can be finished for volume 'volid'
@@ -324,6 +335,7 @@ namespace fds {
         std::string log_string() {
             return "FDSP_MigrationPathRpc";
         }
+
         void PushMetaSyncReq(const fpi::FDSP_MsgHdrType& fdsp_msg,
                              const fpi::FDSP_UpdateCatalogType& push_meta_req) {
             // Don't do anything here. This stub is just to keep cpp compiler happy

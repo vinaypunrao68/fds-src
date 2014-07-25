@@ -19,7 +19,10 @@ fds::DmTimeVolCatalog gl_DmTvcMod("Global DM TVC", s_threadpool);
 
 namespace fds {
 
-void commitCallback(const fds::Error & err) {}
+void commitCallback(const fds::Error & err,
+                    blob_version_t,
+                    const BlobObjList::const_ptr&,
+                    const MetaDataList::const_ptr&) {}
 
 Error expungeObjects(fds_volid_t volId, const std::vector<ObjectID>& objs) {
     return ERR_OK;

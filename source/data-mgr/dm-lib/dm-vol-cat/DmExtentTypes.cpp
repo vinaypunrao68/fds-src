@@ -259,4 +259,14 @@ std::ostream& operator<<(std::ostream& out, const BlobExtent0& extent0) {
     return out;
 }
 
+bool ExtentKey::operator==(const ExtentKey& rhs) const {
+    return ((this->blob_name == rhs.blob_name) &&
+            (this->extent_id == rhs.extent_id));
+}
+
+std::ostream& operator<<(std::ostream& out, const ExtentKey& key) {
+    out << "blob name " << key.blob_name << " extent " << key.extent_id;
+    return out;
+}
+
 }  // namespace fds

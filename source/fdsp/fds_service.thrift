@@ -408,7 +408,10 @@ struct GetBucketMsg {
   4: FDSP.BlobInfoListType     blob_info_list;
 }
 
-struct GetVolumeMetaDataRspMsg {
+struct GetVolumeMetaDataMsg {
+  1: i64                        volume_id;
+  //response
+  2: FDSP.FDSP_VolumeMetaData   volume_meta_data;
 }
 
 struct DeleteBlobMsg {
@@ -422,7 +425,7 @@ struct DeleteBlobMsg {
 struct VolSyncStateMsg
 {
     1: i64        volume_id;
-    2: bool       forward_done;   /* true = forwarding done, false = second rsync done */
+    2: bool       forward_complete;   /* true = forwarding done, false = second rsync done */
 }
 
 struct VolSyncStateRspMsg {
