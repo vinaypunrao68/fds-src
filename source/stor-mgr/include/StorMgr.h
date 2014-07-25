@@ -165,8 +165,8 @@ class SMCounters : public FdsCounters
 
 
 class ObjectStorMgr :
-            public PlatformProcess,
-            public SmIoReqHandler
+    public Module,
+    public SmIoReqHandler
 {
   protected:
     typedef enum {
@@ -175,6 +175,7 @@ class ObjectStorMgr :
         MAX
     } SmRunModes;
 
+    CommonModuleProviderIf *modProvider_;
     /*
      * OM/boostrap related members
      */
@@ -212,7 +213,7 @@ class ObjectStorMgr :
     kvstore::TokenStateDBPtr tokenStateDb_;
 
     /** Counters */
-    SMCounters counters_;
+    std::unique_ptr<SMCounters> counters_;
 
     /* For caching dlt close response information */
     std::pair<std::string, FDSP_DltCloseTypePtr> cached_dlt_close_;
@@ -423,10 +424,11 @@ class ObjectStorMgr :
 
  public:
 
-    ObjectStorMgr(int argc, char *argv[],
-                  Platform *platform, Module **mod_vec);
+    ObjectStorMgr(CommonModuleProviderIf *modProvider);
     /* This constructor is exposed for mock testing */
-    ObjectStorMgr() {
+    ObjectStorMgr()
+    : Module("sm")
+    {
         smObjDb = nullptr;
         perfStats = nullptr;
         qosCtrl = nullptr;
@@ -442,10 +444,12 @@ class ObjectStorMgr :
 
     ~ObjectStorMgr();
 
-    /* From FdsProcess */
-    virtual void proc_pre_startup() override;
-    virtual int  run() override;
-    virtual void interrupt_cb(int signum) override;
+    /* Overrides from Module */
+    virtual int  mod_init(SysParams const *const param) override;
+    virtual void mod_startup() override;
+    virtual void mod_shutdown() override;
+
+    int run();
 
     TierEngine     *tierEngine;
     ScavControl     *scavenger;
@@ -455,6 +459,7 @@ class ObjectStorMgr :
      * stats  class 
      */
     ObjStatsTracker   *objStats;
+    
 
 
     fds_bool_t isShuttingDown() const {
@@ -545,7 +550,7 @@ class ObjectStorMgr :
     void unitTest();
 
     const std::string getStorPrefix() {
-        return conf_helper_.get<std::string>("prefix");
+        return modProvider_->get_fds_config()->get<std::string>("fds.sm.prefix");
     }
 
     FdsObjectCache *getObjCache() {
@@ -561,7 +566,7 @@ class ObjectStorMgr :
     fds_uint32_t getTotalNumTokens() const;
 
     SMCounters* getCounters() {
-        return &counters_;
+        return counters_.get();
     }
 
     virtual std::string log_string()
