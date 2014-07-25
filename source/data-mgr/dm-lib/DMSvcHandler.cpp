@@ -364,20 +364,12 @@ DMSvcHandler::setBlobMetaDataCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 void DMSvcHandler::volSyncState(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                 boost::shared_ptr<fpi::VolSyncStateMsg>& syncStateMsg)
 {
-    LOGNORMAL << "Received VolSyncState Rpc message "
-              << " forward done? " << syncStateMsg->forward_complete;
-    if (!syncStateMsg->forward_complete) {
-        // open catalogs so we can start processing updates
-        // TODO(Anna) call VC activateCatalog()
-        /*
-        fds_verify(dataMgr->vol_meta_map.count(vol_meta->vol_uuid) > 0);
-        VolumeMeta *vm = dataMgr->vol_meta_map[vol_meta->vol_uuid];
-        vm->openCatalogs(vol_meta->vol_uuid);
-        */
-        // start processing forwarded updates
-        dataMgr->catSyncRecv->startProcessFwdUpdates(syncStateMsg->volume_id);
-    } else {
-        dataMgr->catSyncRecv->handleFwdDone(syncStateMsg->volume_id);
-    }
+    Error err(ERR_OK);
+
+    // synchronous call to process the volume sync state
+    err = dataMgr->processVolSyncState(syncStateMsg->volume_id,
+                                       syncStateMsg->forward_complete);
+
+    // TODO(Brian) send a response here
 }
 }  // namespace fds

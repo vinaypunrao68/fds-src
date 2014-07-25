@@ -58,7 +58,9 @@ class VolumeMeta : public HasLogger {
     fds_bool_t isForwardFinish() const {
         return (fwd_state == VFORWARD_STATE_FINISHING);
     }
-
+    void setForwardInProgress() {
+        fwd_state = VFORWARD_STATE_INPROG;
+    }
     void setForwardFinish() {
         fwd_state = VFORWARD_STATE_NONE;
     }
@@ -88,8 +90,6 @@ class VolumeMeta : public HasLogger {
      * per volume queue
      */
     FDS_VolumeQueue*  dmVolQueue;
-
-    Error deltaSyncVolCat(fds_volid_t volId, NodeUuid node_uuid);
 };
 
 }  // namespace fds

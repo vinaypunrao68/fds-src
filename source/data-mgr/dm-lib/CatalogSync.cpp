@@ -236,24 +236,31 @@ fds_bool_t CatalogSync::isDeltaSyncDone() const {
             (cur_state != CSSTATE_DELTA_SYNC));
 }
 
-Error CatalogSync::forwardCatalogUpdate(dmCatReq  *updCatReq) {
+Error CatalogSync::forwardCatalogUpdate(DmIoCommitBlobTx *commitBlobReq,
+                                        blob_version_t blob_version,
+                                        const BlobObjList::const_ptr& blob_obj_list,
+                                        const MetaDataList::const_ptr& meta_list) {
     Error err(ERR_OK);
     csStateType cur_state = std::atomic_load(&state);
     fds_verify(hasVolume(updCatReq->volId));
     fds_verify((cur_state == CSSTATE_DELTA_SYNC) ||
                (cur_state == CSSTATE_FORWARD_ONLY));
 
-    LOGNORMAL << "DMT VERSION: " << updCatReq->fdspUpdCatReqPtr->dmt_version
-              << ":" << dataMgr->omClient->getDMTVersion();
-    if ((uint)updCatReq->fdspUpdCatReqPtr->dmt_version ==
-                     dataMgr->omClient->getDMTVersion()) {
-        LOGDEBUG << " DMT version matches , Do not  forward  the  request ";
-        return ERR_DMT_EQUAL;
-    }
+    LOGDEBUG << "Forwarding cat update for vol " << std::hex << commitBlobReq->volId
+             << std::dec << " blob " << commitBlobReq->blob_name;
 
-    LOGDEBUG << "Will forward catalog update for volume "
-             << std::hex << updCatReq->volId << std::dec;
+    ForwardCatalogMsgPtr fwdMsg(new ForwardCatalogMsg());
+    fwdMsg->volume_id = commitBlobReq->volId;
+    fwdMsg->blob_name = commitBlobReq->blob_name;
+    fwdMsg->blob_version = blob_version;
+    blob_obj_list->toFdspPayload(fwdMsg->obj_list);
+    meta_list->toFdspPayload(fwdMsg->meta_list);
 
+    // TODO(Brian) We should be able to attach commitBlobReq with callback
+    // we are telling to service layer, so on response we get commitBlobReq
+    // back and we can call it's callback that will send response to AM, right?
+
+    // start of old code
     FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
     FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr
             updCatalog(new FDSP_UpdateCatalogType);
@@ -469,7 +476,10 @@ CatalogSyncMgr::startCatalogSyncDelta(const std::string& context) {
     return err;
 }
 
-Error CatalogSyncMgr::forwardCatalogUpdate(dmCatReq  *updCatReq) {
+Error CatalogSyncMgr::forwardCatalogUpdate(DmIoCommitBlobTx *commitBlobReq,
+                                           blob_version_t blob_version,
+                                           const BlobObjList::const_ptr& blob_obj_list,
+                                           const MetaDataList::const_ptr& meta_list) {
     Error err(ERR_OK);
     fds_bool_t found_volume = false;
 
@@ -483,10 +493,11 @@ Error CatalogSyncMgr::forwardCatalogUpdate(dmCatReq  *updCatReq) {
     for (CatSyncMap::const_iterator cit = cat_sync_map.cbegin();
          cit != cat_sync_map.cend();
          ++cit) {
-        if ((cit->second)->hasVolume(updCatReq->volId)) {
+        if ((cit->second)->hasVolume(commitBlobReq->volId)) {
             LOGDEBUG << "FORWARD:sync catalog update for volume "
-                     << std::hex << updCatReq->volId << std::dec;
-            err = (cit->second)->forwardCatalogUpdate(updCatReq);
+                     << std::hex << commitBlobReq->volId << std::dec;
+            err = (cit->second)->forwardCatalogUpdate(commitBlobReq, blob_version,
+                                                      blob_obj_list, meta_list);
             found_volume = true;
             break;
         }

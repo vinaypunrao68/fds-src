@@ -23,6 +23,7 @@
 #include <fdsp/FDSP_types.h>
 #include <DmIoReq.h>
 #include <NetSession.h>
+#include <DmBlobTypes.h>
 
 namespace fpi = FDS_ProtocolInterface;
 
@@ -107,8 +108,10 @@ namespace fds {
          * CatalogSync must be in CSSTATE_FORWARDING state
          * @return ERR_OK on success; or networks error
          */
-
-        Error forwardCatalogUpdate(dmCatReq  *updCatReq);
+        Error forwardCatalogUpdate(DmIoCommitBlobTx *commitBlobReq,
+                                   blob_version_t blob_version,
+                                   const BlobObjList::const_ptr& blob_obj_list,
+                                   const MetaDataList::const_ptr& meta_list);
 
         Error issueVolSyncStateMsg(fds_volid_t volId,
                                    fds_bool_t foward_complete);
@@ -250,7 +253,10 @@ namespace fds {
          * corresponding volume.
          * Must be called only for volumes for which sync is in progress
          */
-        Error forwardCatalogUpdate(dmCatReq  *updCatReq);
+        Error forwardCatalogUpdate(DmIoCommitBlobTx *commitBlobReq,
+                                   blob_version_t blob_version,
+                                   const BlobObjList::const_ptr& blob_obj_list,
+                                   const MetaDataList::const_ptr& meta_list);
 
         /**
          * Called when forwarding can be finished for volume 'volid'

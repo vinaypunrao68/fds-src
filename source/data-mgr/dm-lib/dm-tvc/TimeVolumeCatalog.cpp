@@ -163,12 +163,14 @@ DmTimeVolCatalog::commitBlobTxWork(fds_volid_t volid,
                                    BlobTxId::const_ptr txDesc,
                                    const DmTimeVolCatalog::CommitCb &cb) {
     Error e;
+    blob_version_t blob_version = blob_version_invalid;
     LOGDEBUG << "Committing transaction " << *txDesc << " for volume "
              << std::hex << volid << std::dec;
     CommitLogTx::const_ptr commit_data = commitLog->commitTx(txDesc, e);
     if (e.ok()) {
         if (commit_data->blobDelete) {
             e = volcat->deleteBlob(volid, commit_data->blobName, commit_data->blobVersion);
+            blob_version = commit_data->blobVersion;
         } else if (commit_data->blobObjList && (commit_data->blobObjList->size() > 0)) {
             if (commit_data->blobMode & blob::TRUNCATE) {
                 commit_data->blobObjList->setEndOfBlob();
@@ -180,7 +182,7 @@ DmTimeVolCatalog::commitBlobTxWork(fds_volid_t volid,
                                     commit_data->metaDataList, txDesc);
         }
     }
-    cb(e);
+    cb(e, blob_version, commit_data->blobObjList, commit_data->metaDataList);
 }
 
 Error

@@ -301,7 +301,19 @@ class DataMgr : public Module, public DmIoReqHandler {
     void startBlobTx(dmCatReq *io);
     void updateCatalog(dmCatReq *io);
     void commitBlobTx(dmCatReq *io);
-    void commitBlobTxCb(const Error &err, DmIoCommitBlobTx *commitBlobReq);
+    /**
+     * Callback from volume catalog when transaction is commited
+     * @param[in] version of blob that was committed
+     * @param[in] blob_obj_list list of offset to object mapping that
+     * was committed or NULL
+     * @param[in] meta_list list of metadata k-v pairs that was
+     * committed or NULL
+     */
+    void commitBlobTxCb(const Error &err,
+                        blob_version_t blob_version,
+                        const BlobObjList::const_ptr& blob_obj_list,
+                        const MetaDataList::const_ptr& meta_list,
+                        DmIoCommitBlobTx *commitBlobReq);
     void fwdUpdateCatalog(dmCatReq *io);
     /* End of new refactored DM message handlers */
 
@@ -312,10 +324,10 @@ class DataMgr : public Module, public DmIoReqHandler {
     void setBlobMetaDataBackend(const dmCatReq *request);
     void getVolumeMetaData(dmCatReq *io);
     void snapVolCat(dmCatReq *io);
-    Error forwardUpdateCatalogRequest(dmCatReq  *updCatReq);
     // void sendUpdateCatalogResp(dmCatReq  *updCatReq, BlobNode *bnode);
 
     void scheduleGetBlobMetaDataSvc(void *io);
+    Error processVolSyncState(fds_volid_t volume_id, fds_bool_t fwd_complete);
 
     /**
      * Callback from volume meta receiver that volume meta is received

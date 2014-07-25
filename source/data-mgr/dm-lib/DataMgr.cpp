@@ -89,6 +89,37 @@ DataMgr::volmetaRecvd(fds_volid_t volid, const Error& error) {
 }
 
 /**
+ * Receiver DM processing of volume sync state.
+ * @param[in] fdw_complete false if rsync is completed = start processing
+ * forwarded updates (activate shadow queue); true if forwarding updates
+ * is completed (activate volume queue)
+ */
+Error
+DataMgr::processVolSyncState(fds_volid_t volume_id, fds_bool_t fwd_complete) {
+    Error err(ERR_OK);
+    LOGNORMAL << "DM received volume sync state for volume " << std::hex
+              << volume_id << std::dec << " forward complete? " << fwd_complete;
+
+    if (!fwd_complete) {
+        // open catalogs so we can start processing updates
+        err = timeVolCat_->activateVolume(volume_id);
+        if (err.ok()) {
+            // start processing forwarded updates
+            catSyncRecv->startProcessFwdUpdates(volume_id);
+        }
+    } else {
+        err = catSyncRecv->handleFwdDone(volume_id);
+    }
+
+    if (!err.ok()) {
+        LOGERROR << "DM failed to process vol sync state for volume " << std::hex
+                 << volume_id << " fwd complete? " << fwd_complete << " " << err;
+    }
+
+    return err;
+}
+
+/**
  * Is called on timer to finish forwarding for all volumes that
  * are still forwarding, send DMT close ack, and remove vcat/tcat
  * of volumes that do not longer this DM responsibility
@@ -816,17 +847,88 @@ void DataMgr::commitBlobTx(dmCatReq *io)
                                     commitBlobReq->ioBlobTxDesc,
                                     // TODO(Rao): We should use a static commit callback
                                     std::bind(&DataMgr::commitBlobTxCb, this,
-                                              std::placeholders::_1, commitBlobReq));
+                                              std::placeholders::_1, std::placeholders::_2,
+                                              std::placeholders::_3, std::placeholders::_4,
+                                              commitBlobReq));
     if (err != ERR_OK) {
         qosCtrl->markIODone(*commitBlobReq);
         commitBlobReq->dmio_commit_blob_tx_resp_cb(err, commitBlobReq);
     }
 }
 
-void DataMgr::commitBlobTxCb(const Error &err, DmIoCommitBlobTx *commitBlobReq)
+/**
+ * Callback from volume catalog when transaction is commited
+ * @param[in] version of blob that was committed or in case of deletion,
+ * a version that was deleted
+ * @param[in] blob_obj_list list of offset to object mapping that
+ * was committed or NULL
+ * @param[in] meta_list list of metadata k-v pairs that was committed or NULL
+ */
+void DataMgr::commitBlobTxCb(const Error &err,
+                             blob_version_t blob_version,
+                             const BlobObjList::const_ptr& blob_obj_list,
+                             const MetaDataList::const_ptr& meta_list,
+                             DmIoCommitBlobTx *commitBlobReq)
 {
+    Error error(err);
+
+    // TODO(Anna) have to check DMT version.. should we do it only
+    // on request arrival???
+    /*
+    LOGNORMAL << "DMT VERSION: " << updCatReq->fdspUpdCatReqPtr->dmt_version
+              << ":" << dataMgr->omClient->getDMTVersion();
+    if ((uint)updCatReq->fdspUpdCatReqPtr->dmt_version ==
+        dataMgr->omClient->getDMTVersion()) {
+        LOGDEBUG << " DMT version matches , Do not  forward  the  request ";
+    }
+    */
+
+    // 'finish this io' for qos accounting purposes, if we are
+    // forwarding, the main time goes to waiting for response
+    // from another DM, which is not really consuming local
+    // DM resources
     qosCtrl->markIODone(*commitBlobReq);
-    commitBlobReq->dmio_commit_blob_tx_resp_cb(err, commitBlobReq);
+
+    // do forwarding if needed and commit was successfull
+    if (error.ok()) {
+        VolumeMeta* vol_meta = NULL;
+        fds_bool_t state_forward = false;
+        fds_bool_t state_finish = false;
+
+        // check if we need to forward this commit to receiving
+        // DM if we are in progress of migrating volume catalog
+        vol_map_mtx->lock();
+        fds_verify(vol_meta_map.count(commitBlobReq->volId) > 0);
+        vol_meta = vol_meta_map[commitBlobReq->volId];
+        state_forward = vol_meta->isForwarding();
+        state_finish  = vol_meta->isForwardFinish();
+        vol_map_mtx->unlock();
+
+        // move the state, once we drain  planned queue contents
+        LOGTRACE << "DMT close Time:  " << vol_meta->dmtclose_time
+                 << " Enqueue Time: " << commitBlobReq->enqueue_time;
+
+        // forward request if needed
+        if ((state_forward) ||
+            (vol_meta->dmtclose_time > commitBlobReq->enqueue_time)) {
+            // TODO(Anna) DMT version must not match in order to forward the update!!!
+            error = catSyncMgr->forwardCatalogUpdate(commitBlobReq, blob_version,
+                                                     blob_obj_list, meta_list);
+            if (error.ok()) {
+                // we forwarded the request!!!
+                // TODO(Brian) return here once we implement handling response
+                // for forwarded update
+            }
+        } else if ((vol_meta->dmtclose_time <= commitBlobReq->enqueue_time) &&
+                   (state_finish)) {
+            vol_meta->setForwardFinish();
+            // remove the volume from sync_volume list
+            LOGNORMAL << "Finish forwarding for volume " << commitBlobReq->volId;
+            catSyncMgr->finishedForwardVolmeta(commitBlobReq->volId);
+        }
+    }
+
+    commitBlobReq->dmio_commit_blob_tx_resp_cb(error, commitBlobReq);
 }
 
 //
@@ -836,87 +938,6 @@ void DataMgr::fwdUpdateCatalog(dmCatReq *io)
 {
     fds_panic("Not implemented!!!");
 }
-
-/*
-    // TODO(Anna) DO NOT REMOVE THIS METHOD YET!!!!
-    // NEED TO PORT FWD CATALOG!!!
-
-void
-DataMgr::updateCatalogBackend(dmCatReq  *updCatReq) {
-    Error err(ERR_OK);
-
-    BlobNode *bnode = NULL;
-    // err = updateCatalogProcess(updCatReq, &bnode);
-    if (err == ERR_OK) {
-        fds_verify(bnode != NULL);
-    }
-    if (updCatReq->io_type == FDS_DM_FWD_CAT_UPD) {
-        // we got this update forwarded from other DM
-        // so do not reply to AM, but notify cat sync receiver
-        // which will do all required post processing
-        catSyncRecv->fwdUpdateReqDone(updCatReq, bnode->version, err,
-                                      catSyncMgr->respCli(updCatReq->session_uuid));
-        qosCtrl->markIODone(*updCatReq);
-        delete updCatReq;
-        return;
-    }
-
-    err = forwardUpdateCatalogRequest(updCatReq);
-    if (!err.ok()) {
-        // if  the update request  is not forwarded, send the response.
-        sendUpdateCatalogResp(updCatReq, bnode);
-    }
-
-    // cleanup in any case (forwarded or respond to AM)
-    if (bnode != NULL) {
-        delete bnode;
-    }
-
-    qosCtrl->markIODone(*updCatReq);
-    delete updCatReq;
-}
-*/
-
-Error  DataMgr::forwardUpdateCatalogRequest(dmCatReq  *updCatReq) {
-    Error err(ERR_OK);
-    /*
-     * we have updated the local Meta Db successfully, if the forwarding flag is set, 
-     * forward the  request to the respective node 
-     */
-    if (updCatReq->transOp == fpi::FDS_DMGR_TXN_STATUS_COMMITED) {
-        fds_bool_t do_forward = false;
-        fds_bool_t do_finish = false;
-        vol_map_mtx->lock();
-        fds_verify(vol_meta_map.count(updCatReq->volId) > 0);
-        VolumeMeta *vol_meta = vol_meta_map[updCatReq->volId];
-        do_forward = vol_meta->isForwarding();
-        do_finish  = vol_meta->isForwardFinish();
-        vol_map_mtx->unlock();
-
-        if ((do_forward) || (vol_meta->dmtclose_time > updCatReq->enqueue_time)) {
-            err = catSyncMgr->forwardCatalogUpdate(updCatReq);
-        } else {
-            err = ERR_DMT_FORWARD;
-        }
-
-        // move the state, once we drain  planned queue contents
-        LOGNORMAL << "DMT close Time:  " << vol_meta->dmtclose_time
-                  << " Enqueue Time: " << updCatReq->enqueue_time;
-
-        if ((vol_meta->dmtclose_time <= updCatReq->enqueue_time) && (do_finish)) {
-            vol_meta->setForwardFinish();
-            // remove the volume from sync_volume list
-            LOGNORMAL << "CleanUP: remove Volume " << updCatReq->volId;
-            catSyncMgr->finishedForwardVolmeta(updCatReq->volId);
-        }
-    } else {
-        err = ERR_DMT_FORWARD;
-    }
-
-    return err;
-}
-
-
 
 Error
 DataMgr::updateCatalogInternal(FDSP_UpdateCatalogTypePtr updCatReq,
@@ -1036,8 +1057,20 @@ DataMgr::snapVolCat(dmCatReq *io) {
              << (snapReq->node_uuid).uuid_get_val() << std::dec;
 
     if (io->io_type == FDS_DM_SNAPDELTA_VOLCAT) {
-        // we are doing second rsync
-        // TODO(Anna) set state to VFORWARD_STATE_INPROG
+        // we are doing second rsync, set volume state to forward
+        // We are doing this before we do catalog rsync, so some
+        // updates that will make it to the persistent volume catalog
+        // will also be sent to the destination node; this is ok
+        // because we are serializing the updates to the same blob.
+        // so they will also make it in order (assuming that sending
+        // update A before update B will also cause receiving DM to receive
+        // udpdate A before update B -- otherwise we will have a race
+        // which will also happen with other forwarded updates).
+        vol_map_mtx->lock();
+        fds_verify(vol_meta_map.count(snapReq->volId) > 0);
+        VolumeMeta *vol_meta = vol_meta_map[snapReq->volId];
+        vol_meta->setForwardInProgress();
+        vol_map_mtx->unlock();
     }
 
     // sync the catalog
