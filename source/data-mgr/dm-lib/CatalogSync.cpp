@@ -242,7 +242,7 @@ Error CatalogSync::forwardCatalogUpdate(DmIoCommitBlobTx *commitBlobReq,
                                         const MetaDataList::const_ptr& meta_list) {
     Error err(ERR_OK);
     csStateType cur_state = std::atomic_load(&state);
-    fds_verify(hasVolume(updCatReq->volId));
+    fds_verify(hasVolume(commitBlobReq->volId));
     fds_verify((cur_state == CSSTATE_DELTA_SYNC) ||
                (cur_state == CSSTATE_FORWARD_ONLY));
 
@@ -261,6 +261,7 @@ Error CatalogSync::forwardCatalogUpdate(DmIoCommitBlobTx *commitBlobReq,
     // back and we can call it's callback that will send response to AM, right?
 
     // start of old code
+    /*
     FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
     FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr
             updCatalog(new FDSP_UpdateCatalogType);
@@ -280,9 +281,6 @@ Error CatalogSync::forwardCatalogUpdate(DmIoCommitBlobTx *commitBlobReq,
     msg_hdr->src_port =  updCatReq->srcPort;
     msg_hdr->dst_port =  updCatReq->dstPort;
 
-    /*
-     * init the update  catalog  structu
-     */
     updCatalog->blob_name = updCatReq->blob_name;
     updCatalog->blob_version = updCatReq->blob_version;
     updCatalog->blob_size = updCatReq->fdspUpdCatReqPtr->blob_size;
@@ -295,9 +293,6 @@ Error CatalogSync::forwardCatalogUpdate(DmIoCommitBlobTx *commitBlobReq,
         updCatalog->meta_list.push_back(updCatReq->fdspUpdCatReqPtr->meta_list[i]);
     updCatalog->dm_operation = FDS_DMGR_TXN_STATUS_OPEN;
 
-    /*
-     * send the update catalog to new node
-     */
     try {
         meta_client->getClient()->PushMetaSyncReq(msg_hdr, updCatalog);
         LOGNORMAL << "Sent PushMetaSyncReq Rpc message : " << meta_client;
@@ -305,6 +300,7 @@ Error CatalogSync::forwardCatalogUpdate(DmIoCommitBlobTx *commitBlobReq,
         LOGERROR << "Unable to send PushMetaSyncReq to DM";
         err = ERR_NETWORK_TRANSPORT;
     }
+    */
     return err;
 }
 
