@@ -49,6 +49,14 @@ void DmVolumeCatalog::registerExpungeObjectsCb(expunge_objs_cb_t cb) {
     expunge_cb = cb;
 }
 
+BlobExtent0::ptr
+DmVolumeCatalog::getMetaExtent(fds_volid_t volume_id,
+                               const std::string& blob_name,
+                               Error& error) {
+    // Check check for blob extent 0
+    return NULL;
+}
+
 //
 // Allocates volume's specific datastrucs. Does not create
 // persistent volume catalog file, because it could be potentially synced
@@ -106,6 +114,9 @@ Error DmVolumeCatalog::removeVolumeMeta(fds_volid_t volume_id)
     LOGDEBUG << "Will remove volume meta for volune " << std::hex
              << volume_id << std::dec;
 
+    // Delete the volume's catalog cache
+    // cacheCat->removeCache(volume_id);
+
     // TODO(xxx) implement
     return err;
 }
@@ -116,7 +127,10 @@ Error DmVolumeCatalog::removeVolumeMeta(fds_volid_t volume_id)
 //
 fds_bool_t DmVolumeCatalog::isVolumeEmpty(fds_volid_t volume_id)
 {
-    // TODO(xxx) do we need to do anything if we have async VC cache?
+    // TODO(Andrew): For now, ignore the cache since it never holds
+    // any dirty data (i.e., nothing that's not already in the persistent
+    // catalog). Once we add dirty entries, we need to revisit.
+
     return persistCat->isVolumeEmpty(volume_id);
 }
 
@@ -128,6 +142,9 @@ Error DmVolumeCatalog::getVolumeMeta(fds_volid_t volume_id,
     std::vector<BlobExtent0Desc>::const_iterator cit;
     fds_uint64_t volume_size = 0;
 
+    // TODO(Andrew): Go directly to the persistent catalog since we have
+    // to iterate it anyways. No point in going through the cache until
+    // we have the possibility of dirty entries.
     // retrieve list of extent 0
     err = persistCat->getMetaDescList(volume_id, desc_list);
     if (!err.ok()) {

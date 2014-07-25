@@ -188,6 +188,14 @@ class DmVolumeCatalog : public Module,
 
   private:
     /**
+     * Internal function to get a blob's metadata extent, whether
+     * it is in the cache or not.
+     */
+    BlobExtent0::ptr getMetaExtent(fds_volid_t volume_id,
+                                   const std::string& blob_name,
+                                   Error& error);
+
+    /**
      * Volume catalog cache layer module
      */
     std::unique_ptr<DmCacheVolCatalog> cacheCat;

@@ -37,4 +37,11 @@ DmCacheVolCatalog::createCache(const VolumeDesc& volDesc) {
                                     evictionType);
 }
 
+Error
+DmCacheVolCatalog::putMetaExtent(fds_volid_t volume_id,
+                                 const std::string& blob_name,
+                                 const BlobExtent0::const_ptr& meta_extent) {
+    return ERR_OK;
+}
+
 }  // namespace fds
