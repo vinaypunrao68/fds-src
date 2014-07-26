@@ -332,7 +332,7 @@ void SmObjDb::iterRetrieveObjects(const fds_token_id &token,
                 obj_list.push_back(mig_obj);
                 tot_msg_len += objData.size;
 
-                objStorMgr->counters_.get_tok_objs.incr();
+                objStorMgr->counters_->get_tok_objs.incr();
                 DBG(obj_itr_cnt++);
             } else {
                 DBG(LOGDEBUG << "token: " << token <<  " dbId: " << GetSmObjDbId(token)

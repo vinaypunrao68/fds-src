@@ -15,7 +15,7 @@ namespace fds {
 /**
  * A generic multi-volume cache manager. The cache
  * manager maintains per-volume cache structures, allows
- * parameters (e.g, size, evition policy, etc...) to be
+ * parameters (e.g, size, eviction policy, etc...) to be
  * set per-volume. The manager also provides an interface
  * that allows cache update/query for each volume.
  * The cache manager provides thread safety for creating
