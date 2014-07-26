@@ -11,6 +11,7 @@
 #include <CatalogSync.h>
 #include <DataMgr.h>
 #include <VolumeMeta.h>
+#include <DMSvcHandler.h>
 
 namespace fds {
     extern DataMgr *dataMgr;
@@ -260,47 +261,13 @@ Error CatalogSync::forwardCatalogUpdate(DmIoCommitBlobTx *commitBlobReq,
     // we are telling to service layer, so on response we get commitBlobReq
     // back and we can call it's callback that will send response to AM, right?
 
-    // start of old code
-    /*
-    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
-    FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr
-            updCatalog(new FDSP_UpdateCatalogType);
+    auto asyncCatUpdReq = gSvcRequestPool->newEPSvcRequest(this->node_uuid.toSvcUuid());
+    asyncCatUpdReq->setPayload(FDSP_MSG_TYPEID(fpi::ForwardCatalogMsg), fwdMsg);
+    asyncCatUpdReq->setTimeoutMs(5000);
+    // auto cbFn = BIND_MSG_CALLBACK2(DMSvcHandler::fwdCatalogUpdateMsgResp, commitBlobReq);
+    // asyncCatUpdReq->onResponseCb(cbFn);
+    asyncCatUpdReq->invoke();
 
-    DataMgr::InitMsgHdr(msg_hdr);  // init the  message  header
-    msg_hdr->dst_id = FDSP_DATA_MGR;
-    msg_hdr->glob_volume_id = updCatReq->volId;
-    msg_hdr->session_uuid = meta_client->getSessionId();
-    msg_hdr->session_cache = updCatReq->session_uuid;
-    msg_hdr->req_cookie = updCatReq->reqCookie;
-    // these are not used on destination DM, but destination DM
-    // will assign same fields back so that this DM can respond
-    // to AM with properly set port and IP which it uses to
-    // increment dm commit acks
-    msg_hdr->src_ip_lo_addr =  updCatReq->srcIp;
-    msg_hdr->dst_ip_lo_addr =  updCatReq->dstIp;
-    msg_hdr->src_port =  updCatReq->srcPort;
-    msg_hdr->dst_port =  updCatReq->dstPort;
-
-    updCatalog->blob_name = updCatReq->blob_name;
-    updCatalog->blob_version = updCatReq->blob_version;
-    updCatalog->blob_size = updCatReq->fdspUpdCatReqPtr->blob_size;
-    updCatalog->blob_mime_type = updCatReq->fdspUpdCatReqPtr->blob_mime_type;
-    updCatalog->obj_list.clear();
-    for (uint i = 0; i < updCatReq->fdspUpdCatReqPtr->obj_list.size(); i++)
-        updCatalog->obj_list.push_back(updCatReq->fdspUpdCatReqPtr->obj_list[i]);
-    updCatalog->meta_list.clear();
-    for (uint i = 0; i < updCatReq->fdspUpdCatReqPtr->meta_list.size(); i++)
-        updCatalog->meta_list.push_back(updCatReq->fdspUpdCatReqPtr->meta_list[i]);
-    updCatalog->dm_operation = FDS_DMGR_TXN_STATUS_OPEN;
-
-    try {
-        meta_client->getClient()->PushMetaSyncReq(msg_hdr, updCatalog);
-        LOGNORMAL << "Sent PushMetaSyncReq Rpc message : " << meta_client;
-    } catch(...) {
-        LOGERROR << "Unable to send PushMetaSyncReq to DM";
-        err = ERR_NETWORK_TRANSPORT;
-    }
-    */
     return err;
 }
 

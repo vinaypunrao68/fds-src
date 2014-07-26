@@ -25,6 +25,7 @@ DMSvcHandler::DMSvcHandler()
     REGISTER_FDSP_MSG_HANDLER(fpi::GetVolumeMetaDataMsg, getVolumeMetaData);
     /* DM to DM service messages */
     REGISTER_FDSP_MSG_HANDLER(fpi::VolSyncStateMsg, volSyncState);
+    REGISTER_FDSP_MSG_HANDLER(fpi::ForwardCatalogMsg, fwdCatalogUpdateMsg);
 }
 
 
@@ -355,7 +356,7 @@ DMSvcHandler::setBlobMetaDataCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 }
 
 /**
- * Destination handler for receiving a message that the rsync has finished.
+ * Destination handler for receiving a VolsyncStateMsg (rsync has finished).
  *
  * @param[in] asyncHdr the async header sent with svc layer request
  * @param[in] fwdMsg the VolSyncState message
@@ -370,13 +371,76 @@ void DMSvcHandler::volSyncState(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     err = dataMgr->processVolSyncState(syncStateMsg->volume_id,
                                        syncStateMsg->forward_complete);
 
-    // TODO(Brian) send a response here
+    asyncHdr->msg_code = err.GetErrno();
+    fpi::VolSyncStateRspMsg volSyncStateRspMsg;
+    // TODO(Brian): send a response here, make sure we've set the cb properly in the caller first
+    // sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(VolSyncStateRspMsg), VolSyncStateRspMsg);
+}
+
+/**
+ * Destination handler for receiving a ForwardCatalogMsg.
+ *
+ * @param[in] asyncHdr shared pointer reference to the async header
+ * sent with svc layer requests 
+ * @param[in] syncStateMsg shared pointer reference to the
+ * ForwardCatalogMsg
+ *
+ */
+void DMSvcHandler::fwdCatalogUpdateMsg(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                                       boost::shared_ptr<fpi::ForwardCatalogMsg>& fwdCatMsg)
+{
+    Error err(ERR_OK);
+
+    // Update catalog qos requeset but w/ different type
+    auto dmFwdReq = new DmIoFwdCat(fwdCatMsg);
+    // Bind CB
+    dmFwdReq->dmio_fwdcat_resp_cb = BIND_MSG_CALLBACK2(DMSvcHandler::fwdCatalogUpdateCb,
+                                                       asyncHdr, fwdCatMsg);
+    // Enqueue
+    // TODO(anna): Uncomment when enqueue code is ready to go
+    // asyncHdr->msg_code = dataMgr->catSyncRecv->enqueueFwdUpdate(fwdCatMsg);
+    // Callback
+    dmFwdReq->dmio_fwdcat_resp_cb(err, dmFwdReq);
+}
+
+/**
+ * Callback for DmIoFwdCat request in fwdCatalogUpdate.
+ *
+ * @param[in] asyncHdr shared pointer reference to the async header
+ * sent with svc layer requests 
+ * @param[in] syncStateMsg shared pointer reference to the
+ * ForwardCatalogMsg
+ * @param[in] err Error code
+ * @param[in] req The DmIoFwdCat request created by the caller
+ *
+ */
+void DMSvcHandler::fwdCatalogUpdateCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                                      boost::shared_ptr<fpi::ForwardCatalogMsg>& fwdCatMsg,
+                                      const Error &err, DmIoFwdCat *req)
+{
+    // DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*fwdCatMsg));
+    // Set error value
+    asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
+    // Send forwardCatalogUpdateRspMsg
+    sendAsyncResp(asyncHdr,
+                  FDSP_MSG_TYPEID(ForwardCatalogRspMsg),
+                  fwdCatMsg);
+
+    delete req;
+}
+
+void DMSvcHandler::fwdCatalogUpdateMsgResp(DmIoCommitBlobTx *commitReq,
+                                           EPSvcRequest* req,
+                                           const Error &err,
+                                           boost::shared_ptr<std::string> payload) // NOLINT
+{
+    commitReq->dmio_commit_blob_tx_resp_cb(err.GetErrno(), commitReq);
 }
 
 void
 DMSvcHandler::getVolumeMetaData(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                           boost::shared_ptr<fpi::GetVolumeMetaDataMsg>& message) {
-    DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*message));
+                                boost::shared_ptr<fpi::GetVolumeMetaDataMsg>& message) {
+    // DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*message));
 
     auto dmReq = new DmIoGetVolumeMetaData(message);
     dmReq->dmio_get_volmd_resp_cb =
