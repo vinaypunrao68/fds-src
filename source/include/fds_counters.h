@@ -11,12 +11,20 @@
 #include <boost/noncopyable.hpp>
 #include <fds_assert.h>
 #include <concurrency/Mutex.h>
+#include <fds_timer.h>
 
 namespace fds {
 /* Forward declarations */
 class FdsCounters;
 class FdsBaseCounter;
 class FdsCountersMgr;
+
+class SamplerTask : public FdsTimerTask {
+    public:
+    SamplerTask(FdsTimer &fds_timer) : 
+        FdsTimerTask(fds_timer) {}
+    void runTimerTask() override {}
+};
 
 /**
  * @brief Counter manager.  Mananges the job of exporting registered
@@ -46,6 +54,11 @@ protected:
     std::vector<FdsCounters*> exp_counters_;
     /* Lock for this object */
     fds_mutex lock_;
+    /* Timer */
+    FdsTimer timer;
+    /* Sampler timer task*/
+    SamplerTask sampler;
+
 };
 
 /**

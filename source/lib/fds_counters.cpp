@@ -9,7 +9,9 @@ namespace fds {
 
 FdsCountersMgr::FdsCountersMgr(const std::string &id)
     : id_(id),
-      lock_("Counters mutex")
+      lock_("Counters mutex"),
+      timer(),
+      sampler(timer)
 {
 }
 /**
