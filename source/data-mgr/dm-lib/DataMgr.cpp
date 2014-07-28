@@ -996,6 +996,9 @@ void DataMgr::updateFwdBlobCb(const Error &err, DmIoFwdCat *fwdCatReq)
     LOGTRACE << "Committed fwd blob " << *fwdCatReq;
     qosCtrl->markIODone(*fwdCatReq);
     fwdCatReq->dmio_fwdcat_resp_cb(err, fwdCatReq);
+
+    // notify catalog receiver so we can activate qos queues when ready
+    catSyncRecv->fwdUpdateReqDone(fwdCatReq->volId);
 }
 
 Error

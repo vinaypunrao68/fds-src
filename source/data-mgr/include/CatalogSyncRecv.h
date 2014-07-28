@@ -82,10 +82,7 @@ namespace fds {
          * If this is the last forwarded update, volume meta
          * syncing process is done -- will call vmeta_recv_done callback
          */
-        void fwdUpdateReqDone(dmCatReq* updCatReq,
-                              blob_version_t blob_version,
-                              const Error& error,
-                              MetaSyncRespHandlerPrx respCli);
+        void fwdUpdateReqDone(fds_volid_t volume_id);
 
         /**
          * WARNING: when this code was written, volume uuid only used low 63 bits,
