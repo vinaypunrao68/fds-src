@@ -98,22 +98,20 @@ Error CatSyncReceiver::handleFwdDone(fds_volid_t volid) {
 //
 // Enqueue forwarded update into volume's shadow queue
 //
-Error CatSyncReceiver::enqueueFwdUpdate(dmCatReq* updReq) {
+Error CatSyncReceiver::enqueueFwdUpdate(DmIoFwdCat* fwdReq) {
     Error err(ERR_OK);
-
-    LOGDEBUG << "Will queue cat update to shadow queue of vol "
-             << std::hex << updReq->volId <<std::dec;
+    LOGDEBUG << "Will queue fwd cat update to shadow queue: " << *fwdReq;
 
     fds_mutex::scoped_lock l(cat_recv_lock);
 
     // we must have receiver created for this volume
-    fds_verify(vol_recv_map.count(updReq->volId) > 0);
-    VolReceiverPtr volrecv = vol_recv_map[updReq->volId];
+    fds_verify(vol_recv_map.count(fwdReq->volId) > 0);
+    VolReceiverPtr volrecv = vol_recv_map[fwdReq->volId];
     // fwd update can arrive in any state, even before we unblock
     // shadow queeu and set state to FWD_INPROG
 
     // enqueue request into shadow queue
-    err = dm_req_handler->enqueueMsg(shadowVolUuid(updReq->volId), updReq);
+    err = dm_req_handler->enqueueMsg(shadowVolUuid(fwdReq->volId), fwdReq);
     if (err.ok()) {
         volrecv->pending++;
     }

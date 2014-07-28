@@ -249,18 +249,25 @@ Error CatalogSync::forwardCatalogUpdate(DmIoCommitBlobTx *commitBlobReq,
     blob_obj_list->toFdspPayload(fwdMsg->obj_list);
     meta_list->toFdspPayload(fwdMsg->meta_list);
 
-    // TODO(Brian) We should be able to attach commitBlobReq with callback
-    // we are telling to service layer, so on response we get commitBlobReq
-    // back and we can call it's callback that will send response to AM, right?
-
+    // send forward cat update, and pass commitBlobReq as context so we can
+    // reply to AM on fwd cat update response
     auto asyncCatUpdReq = gSvcRequestPool->newEPSvcRequest(this->node_uuid.toSvcUuid());
     asyncCatUpdReq->setPayload(FDSP_MSG_TYPEID(fpi::ForwardCatalogMsg), fwdMsg);
     asyncCatUpdReq->setTimeoutMs(5000);
-    // auto cbFn = BIND_MSG_CALLBACK2(DMSvcHandler::fwdCatalogUpdateMsgResp, commitBlobReq);
-    // asyncCatUpdReq->onResponseCb(cbFn);
+    asyncCatUpdReq->onResponseCb(RESPONSE_MSG_HANDLER(CatalogSync::fwdCatalogUpdateMsgResp,
+                                                      commitBlobReq));
     asyncCatUpdReq->invoke();
 
     return err;
+}
+
+void CatalogSync::fwdCatalogUpdateMsgResp(DmIoCommitBlobTx *commitReq,
+                                          EPSvcRequest* req,
+                                          const Error& error,
+                                          boost::shared_ptr<std::string> payload) // NOLINT                                                                                      
+{
+    LOGDEBUG << "Received fwd cat update response" << *commitReq << " " << error;
+    commitReq->dmio_commit_blob_tx_resp_cb(error, commitReq);
 }
 
 /***** CatalogSyncManager implementation ******/
@@ -574,57 +581,13 @@ void
 FDSP_MetaSyncRpc::PushMetaSyncReq(fpi::FDSP_MsgHdrTypePtr& fdsp_msg,
                          fpi::FDSP_UpdateCatalogTypePtr& meta_req)
 {
-    Error err(ERR_OK);
-    LOGNORMAL << "Received PushMetaSyncReq Rpc message for vol 0x"
-              << std::hex  << fdsp_msg->glob_volume_id << std::dec;
-    dmCatReq *metaUpdReq = new(std::nothrow) dmCatReq(fdsp_msg->glob_volume_id,
-                                                      meta_req->blob_name,
-                                                      meta_req->dm_transaction_id,
-                                                      meta_req->dm_operation,
-                                                      fdsp_msg->src_ip_lo_addr,
-                                                      fdsp_msg->dst_ip_lo_addr,
-                                                      fdsp_msg->src_port, fdsp_msg->dst_port,
-                                                      fdsp_msg->session_uuid, fdsp_msg->req_cookie,
-                                                      FDS_DM_FWD_CAT_UPD, meta_req);
-    metaUpdReq->session_cache = fdsp_msg->session_cache;
-    if (metaUpdReq) {
-        err = dataMgr->catSyncRecv->enqueueFwdUpdate(metaUpdReq);
-    } else {
-        LOGCRITICAL << "Failed to allocate metaUpdReq";
-        err = ERR_OUT_OF_MEMORY;
-    }
-
-    // TODO(xxx) handle the error!
+    fds_panic("must not get here!");
 }
 
 void
 FDSP_MetaSyncRpc::PushMetaSyncResp(fpi::FDSP_MsgHdrTypePtr& fdsp_msg,
                                    fpi::FDSP_UpdateCatalogTypePtr& meta_resp) {
-    Error err(ERR_OK);
-    LOGDEBUG << "Received PushMetaSyncResp for volume "
-             << std::hex << fdsp_msg->glob_volume_id << std::dec;
-    // TODO(xxx) use new service layer for response
-    // We need to send response for the original commit from AM
-    /**
-    dmCatReq *metaUpdResp = new(std::nothrow) dmCatReq(fdsp_msg->glob_volume_id,
-                                                      meta_resp->blob_name,
-                                                      meta_resp->dm_transaction_id,
-                                                       fpi::FDS_DMGR_TXN_STATUS_COMMITED,
-                                                      fdsp_msg->src_ip_lo_addr,
-                                                      fdsp_msg->dst_ip_lo_addr,
-                                                      fdsp_msg->src_port, fdsp_msg->dst_port,
-                                                      fdsp_msg->session_uuid, fdsp_msg->req_cookie,
-                                                      FDS_DM_FWD_CAT_UPD, meta_resp);
-    metaUpdResp->session_uuid = fdsp_msg->session_cache;
-    if (metaUpdResp) {
-        BlobNode *bnode = NULL;
-        dataMgr->sendUpdateCatalogResp(metaUpdResp, bnode);
-        delete metaUpdResp;
-    } else {
-        LOGCRITICAL << "Failed to send the  metaUpdResp";
-        err = ERR_OUT_OF_MEMORY;
-    }
-    */
+    fds_panic("must not get here!");
 }
 
 /**
@@ -663,18 +626,6 @@ FDSP_MetaSyncRpc::MetaSyncDone(fpi::FDSP_MsgHdrTypePtr& fdsp_msg,
                                fpi::FDSP_VolMetaStatePtr& vol_meta) {
     LOGNORMAL << "Received MetaSyncDone Rpc message "
               << " forward done? " << vol_meta->forward_done;
-    if (!vol_meta->forward_done) {
-        // open catalogs so we can start processing updates
-        // TODO(Anna) call VC activateCatalog()
-        /*
-        fds_verify(dataMgr->vol_meta_map.count(vol_meta->vol_uuid) > 0);
-        VolumeMeta *vm = dataMgr->vol_meta_map[vol_meta->vol_uuid];
-        vm->openCatalogs(vol_meta->vol_uuid);
-        */
-        // start processing forwarded updates
-        dataMgr->catSyncRecv->startProcessFwdUpdates(vol_meta->vol_uuid);
-    } else {
-        dataMgr->catSyncRecv->handleFwdDone(vol_meta->vol_uuid);
-    }
+    fds_panic("must not get here!");
 }
 }  // namespace fds

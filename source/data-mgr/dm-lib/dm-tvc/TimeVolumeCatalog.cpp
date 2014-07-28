@@ -163,7 +163,7 @@ DmTimeVolCatalog::updateFwdCommittedBlob(fds_volid_t volId,
                                          blob_version_t blobVersion,
                                          const fpi::FDSP_BlobObjectList &objList,
                                          const fpi::FDSP_MetaDataList &metaList,
-                                         const DmTimeVolCatalog::FdwCommitCb &fwdCommitCb) {
+                                         const DmTimeVolCatalog::FwdCommitCb &fwdCommitCb) {
     LOGDEBUG << "Will apply committed blob update from another DM for volume "
              << std::hex << volId << std::dec << " blob " << blobName;
 
@@ -209,7 +209,7 @@ void DmTimeVolCatalog::updateFwdBlobWork(fds_volid_t volid,
                                          blob_version_t blobVersion,
                                          const fpi::FDSP_BlobObjectList &objList,
                                          const fpi::FDSP_MetaDataList &metaList,
-                                         const DmTimeVolCatalog::FdwCommitCb &fwdCommitCb) {
+                                         const DmTimeVolCatalog::FwdCommitCb &fwdCommitCb) {
     Error err(ERR_OK);
     // TODO(xxx): use blob mode to tell if that's a deletion
     if (blobVersion == blob_version_deleted) {

@@ -322,7 +322,7 @@ class DataMgr : public Module, public DmIoReqHandler {
      * Callback from volume catalog when forwarded blob update is
      * committed to volume catalog
      */
-    void updateFwdBlobCb(const Error &err, DmIoCommitBlobTx *fwdBlobReq);
+    void updateFwdBlobCb(const Error &err, DmIoFwdCat *fwdCatReq);
     /* End of new refactored DM message handlers */
 
     void setBlobMetaDataSvc(void *io);

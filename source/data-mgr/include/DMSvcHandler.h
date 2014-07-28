@@ -65,11 +65,6 @@ class DMSvcHandler : virtual public DMSvcIf, public PlatNetSvcHandler {
                              boost::shared_ptr<fpi::ForwardCatalogMsg>& fwdCatMsg,
                              const Error &err, DmIoFwdCat* req);
 
-    void fwdCatalogUpdateMsgResp(DmIoCommitBlobTx *commitReq,
-                                 EPSvcRequest* req,
-                                 const Error &err,
-                                 boost::shared_ptr<std::string> payload); // NOLINT
-
     void fwdCatalogUpdateCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                             boost::shared_ptr<fpi::ForwardCatalogMsg>& fwdCatMsg,
                             const Error &err, DmIoFwdCat *req);

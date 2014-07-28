@@ -263,6 +263,7 @@ class DmIoPushMetaDone: public dmCatReq {
 class DmIoCommitBlobTx: public dmCatReq {
   public:
     typedef std::function<void (const Error &e, DmIoCommitBlobTx *blobTx)> CbType;
+
   public:
     DmIoCommitBlobTx(const fds_volid_t  &_volId,
                      const std::string &_blobName,
@@ -277,6 +278,12 @@ class DmIoCommitBlobTx: public dmCatReq {
         ret << "DmIoCommitBlobTx vol "
             << std::hex << volId << std::dec;
         return ret.str();
+    }
+
+    friend std::ostream& operator<<(std::ostream& out, const DmIoCommitBlobTx& io) {
+        return out << "DmIoCommitBlobTx vol " << std::hex << io.volId << std::dec
+                   << " blob " << io.blob_name
+                   << ", dmt_version " << io.dmt_version << " TX " << *(io.ioBlobTxDesc);
     }
 
     BlobTxId::const_ptr ioBlobTxDesc;
@@ -328,13 +335,13 @@ class DmIoStartBlobTx: public dmCatReq {
 
     virtual std::string log_string() const override {
         std::stringstream ret;
-        ret << "DmIoStartBlobTx vol " << std::hex << volId << std::hex
+        ret << "DmIoStartBlobTx vol " << std::hex << volId << std::dec
             << ", dmt_version " << dmt_version << " TX " << *ioBlobTxDesc;
         return ret.str();
     }
 
     friend std::ostream& operator<<(std::ostream& out, const DmIoStartBlobTx& io) {
-        return out << "DmIoStartBlobTx vol " << std::hex << io.volId << std::hex
+        return out << "DmIoStartBlobTx vol " << std::hex << io.volId << std::dec
                    << " blob " << io.blob_name << " blob mode " << io.blob_mode
                    << ", dmt_version " << io.dmt_version << " TX " << *(io.ioBlobTxDesc);
     }
@@ -389,6 +396,12 @@ class DmIoFwdCat : public dmCatReq {
         ret << "DmIoFwdCat vol " << std::hex << volId << std::dec;
         return ret.str();
     }
+
+    friend std::ostream& operator<<(std::ostream& out, const DmIoFwdCat& io) {
+        return out << "DmIoFwdCat vol " << std::hex << io.volId << std::dec
+                   << " blob " << io.blob_name << " blob version " << io.blob_version;
+    }
+
     boost::shared_ptr<fpi::ForwardCatalogMsg> fwdCatMsg;
     CbType dmio_fwdcat_resp_cb;
 };

@@ -49,6 +49,7 @@ namespace FDS_ProtocolInterface {
     class DeleteCatalogObjectRspMsg;
     class DeleteObjectMsg;
     class DeleteObjectRspMsg;
+    class ForwardCatalogRspMsg;
 }  // namespace FDS_ProtocolInterface
 
 namespace fpi = FDS_ProtocolInterface;
@@ -90,6 +91,7 @@ std::string logString(const FDS_ProtocolInterface::SetBlobMetaDataRspMsg& msg);
 std::string logString(const FDS_ProtocolInterface::DeleteObjectMsg& msg);
 std::string logString(const FDS_ProtocolInterface::DeleteObjectRspMsg& msg);
 std::string logString(const FDS_ProtocolInterface::GetVolumeMetaDataMsg& msg);
+
 /**
 * @brief For serializing FDSP messages
 *

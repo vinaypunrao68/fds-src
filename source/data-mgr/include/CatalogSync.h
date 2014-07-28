@@ -24,6 +24,10 @@
 #include <DmIoReq.h>
 #include <NetSession.h>
 #include <DmBlobTypes.h>
+#include <fdsp/fds_service_types.h>
+#include <net/PlatNetSvcHandler.h>
+#include <net/SvcRequest.h>
+#include <fdsp/DMSvc.h>
 
 namespace fpi = FDS_ProtocolInterface;
 
@@ -112,6 +116,11 @@ namespace fds {
                                    blob_version_t blob_version,
                                    const BlobObjList::const_ptr& blob_obj_list,
                                    const MetaDataList::const_ptr& meta_list);
+
+        void fwdCatalogUpdateMsgResp(DmIoCommitBlobTx *commitReq,
+                                     EPSvcRequest* req,
+                                     const Error& error,
+                                     boost::shared_ptr<std::string> payload);
 
         Error issueVolSyncStateMsg(fds_volid_t volId,
                                    fds_bool_t foward_complete);

@@ -955,9 +955,8 @@ void DataMgr::commitBlobTxCb(const Error &err,
                                                          blob_obj_list, meta_list);
                 if (error.ok()) {
                     // we forwarded the request!!!
-                    // TODO(Anna) for now replying to AM, but should reply to AM
-                    // when response to forwarded update arrives
-                    commitBlobReq->dmio_commit_blob_tx_resp_cb(error, commitBlobReq);
+                    // do not reply to AM yet, will reply when we receive response
+                    // for fwd cat update from destination DM
                     return;
                 }
             }
@@ -975,13 +974,28 @@ void DataMgr::commitBlobTxCb(const Error &err,
 //
 void DataMgr::fwdUpdateCatalog(dmCatReq *io)
 {
-    fds_panic("Not implemented!!!");
+    Error err(ERR_OK);
+    DmIoFwdCat *fwdCatReq = static_cast<DmIoFwdCat*>(io);
+
+    LOGTRACE << "Will commit fwd blob " << *fwdCatReq << " to tvc";
+    err = timeVolCat_->updateFwdCommittedBlob(fwdCatReq->volId,
+                                              fwdCatReq->blob_name,
+                                              fwdCatReq->blob_version,
+                                              fwdCatReq->fwdCatMsg->obj_list,
+                                              fwdCatReq->fwdCatMsg->meta_list,
+                                              std::bind(&DataMgr::updateFwdBlobCb, this,
+                                                        std::placeholders::_1, fwdCatReq));
+    if (!err.ok()) {
+        qosCtrl->markIODone(*fwdCatReq);
+        fwdCatReq->dmio_fwdcat_resp_cb(err, fwdCatReq);
+    }
 }
 
-void DataMgr::updateFwdBlobCb(const Error &err, DmIoCommitBlobTx *fwdBlobReq)
+void DataMgr::updateFwdBlobCb(const Error &err, DmIoFwdCat *fwdCatReq)
 {
-    qosCtrl->markIODone(*fwdBlobReq);
-    // fwdBlobReq->dmio_commit_blob_tx_resp_cb(err, fwdBlobReq);
+    LOGTRACE << "Committed fwd blob " << *fwdCatReq;
+    qosCtrl->markIODone(*fwdCatReq);
+    fwdCatReq->dmio_fwdcat_resp_cb(err, fwdCatReq);
 }
 
 Error

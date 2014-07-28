@@ -73,7 +73,7 @@ namespace fds {
         /**
          * Enqueue forwarded update into volume's shadow queue
          */
-        Error enqueueFwdUpdate(dmCatReq* updReq);
+        Error enqueueFwdUpdate(DmIoFwdCat* fwdReq);
 
         /**
          * Called when finished processing forwarded update.

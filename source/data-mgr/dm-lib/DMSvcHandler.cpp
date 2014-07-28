@@ -399,11 +399,13 @@ void DMSvcHandler::fwdCatalogUpdateMsg(boost::shared_ptr<fpi::AsyncHdr>& asyncHd
     // Bind CB
     dmFwdReq->dmio_fwdcat_resp_cb = BIND_MSG_CALLBACK2(DMSvcHandler::fwdCatalogUpdateCb,
                                                        asyncHdr, fwdCatMsg);
-    // Enqueue
-    // TODO(anna): Uncomment when enqueue code is ready to go
-    // asyncHdr->msg_code = dataMgr->catSyncRecv->enqueueFwdUpdate(fwdCatMsg);
-    // Callback
-    dmFwdReq->dmio_fwdcat_resp_cb(err, dmFwdReq);
+    // Enqueue to shadow queue
+    err = dataMgr->catSyncRecv->enqueueFwdUpdate(dmFwdReq);
+    if (!err.ok()) {
+        LOGWARN << "Unable to enqueue Forward Update Catalog request "
+                << logString(*asyncHdr) << " " << *dmFwdReq;
+        dmFwdReq->dmio_fwdcat_resp_cb(err, dmFwdReq);
+    }
 }
 
 /**
@@ -421,23 +423,17 @@ void DMSvcHandler::fwdCatalogUpdateCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr
                                       boost::shared_ptr<fpi::ForwardCatalogMsg>& fwdCatMsg,
                                       const Error &err, DmIoFwdCat *req)
 {
-    // DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*fwdCatMsg));
+    DBG(GLOGDEBUG << logString(*asyncHdr) << " " << *req);
     // Set error value
     asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
+
     // Send forwardCatalogUpdateRspMsg
+    fpi::ForwardCatalogRspMsg fwdCatRspMsg;
     sendAsyncResp(asyncHdr,
-                  FDSP_MSG_TYPEID(ForwardCatalogRspMsg),
+                  FDSP_MSG_TYPEID(fpi::ForwardCatalogRspMsg),
                   fwdCatMsg);
 
     delete req;
-}
-
-void DMSvcHandler::fwdCatalogUpdateMsgResp(DmIoCommitBlobTx *commitReq,
-                                           EPSvcRequest* req,
-                                           const Error &err,
-                                           boost::shared_ptr<std::string> payload) // NOLINT
-{
-    commitReq->dmio_commit_blob_tx_resp_cb(err.GetErrno(), commitReq);
 }
 
 void

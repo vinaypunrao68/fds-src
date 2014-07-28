@@ -70,7 +70,7 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
                                 blob_version_t,
                                 const BlobObjList::const_ptr&,
                                 const MetaDataList::const_ptr&)> CommitCb;
-    typedef std::function<void (const Error &)> FdwCommitCb;
+    typedef std::function<void (const Error &)> FwdCommitCb;
 
     /// Allow sync related interface to volume catalog
     friend class DmVolumeCatalog;
@@ -192,7 +192,7 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
                                  blob_version_t blobVersion,
                                  const fpi::FDSP_BlobObjectList &objList,
                                  const fpi::FDSP_MetaDataList &metaList,
-                                 const DmTimeVolCatalog::FdwCommitCb &fwdCommitCb);
+                                 const DmTimeVolCatalog::FwdCommitCb &fwdCommitCb);
 
 
     void commitBlobTxWork(fds_volid_t volid,
@@ -205,7 +205,7 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
                            blob_version_t blobVersion,
                            const fpi::FDSP_BlobObjectList &objList,
                            const fpi::FDSP_MetaDataList &metaList,
-                           const DmTimeVolCatalog::FdwCommitCb &fwdCommitCb);
+                           const DmTimeVolCatalog::FwdCommitCb &fwdCommitCb);
 
     /**
      * Returns query interface to volume catalog. Provides
