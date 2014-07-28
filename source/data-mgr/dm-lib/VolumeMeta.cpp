@@ -13,8 +13,7 @@ namespace fds {
 VolumeMeta::VolumeMeta(const std::string& _name,
                        fds_int64_t _uuid,
                        VolumeDesc* desc)
-              : fwd_state(VFORWARD_STATE_NONE),
-                dmtclose_time(boost::posix_time::min_date_time)
+              : fwd_state(VFORWARD_STATE_NONE)
 {
     const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
 
@@ -42,21 +41,20 @@ VolumeMeta::~VolumeMeta() {
 // is not empty
 //
 void VolumeMeta::finishForwarding() {
-    LOGNORMAL << "finishForwarding for volume " << *vol_desc
-              << ", state " << fwd_state;
-
     vol_mtx->lock();
     if (fwd_state == VFORWARD_STATE_INPROG) {
-        // set close time to now + small(ish) time interval, so that we also include
-        // IO that are in fligt (sent from AM but did not reach DM's qos queue)
-        dmtclose_time = boost::posix_time::microsec_clock::universal_time() +
-                boost::posix_time::milliseconds(1600);
+        // set close time to now + small(ish) time interval to include IOs that
+        // being queued right now
+        // dmtclose_time = boost::posix_time::microsec_clock::universal_time() +
+        //        boost::posix_time::milliseconds(10);
         fwd_state = VFORWARD_STATE_FINISHING;
-        LOGDEBUG << "finishForwarding:  close time: " << dmtclose_time;
     } else {
         fwd_state = VFORWARD_STATE_NONE;
     }
     vol_mtx->unlock();
+
+    LOGNORMAL << "finishForwarding for volume " << *vol_desc
+              << ", state " << fwd_state;
 }
 
 void VolumeMeta::dmCopyVolumeDesc(VolumeDesc *v_desc, VolumeDesc *pVol) {

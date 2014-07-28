@@ -235,6 +235,29 @@ namespace fds {
     };
 
 /**
+ * Request that marks close DMT for a volume
+ * Will send PushMeta done msg to destination DM
+ */
+class DmIoPushMetaDone: public dmCatReq {
+  public:
+    explicit DmIoPushMetaDone(fds_volid_t _volId)
+            : dmCatReq(_volId, "", blob_version_invalid,
+                       FDS_DM_PUSH_META_DONE) {
+    }
+
+    // Why is this not a ostream operator?
+    virtual std::string log_string() const override {
+        std::stringstream ret;
+        ret << "dmIoPushMetaDone for vol "
+            << std::hex << volId << std::dec;
+        return ret.str();
+    }
+
+    // volume is part of base class: use getVolId()
+};
+
+
+/**
  * Request to Commit Blob Tx
  */
 class DmIoCommitBlobTx: public dmCatReq {
@@ -242,9 +265,11 @@ class DmIoCommitBlobTx: public dmCatReq {
     typedef std::function<void (const Error &e, DmIoCommitBlobTx *blobTx)> CbType;
   public:
     DmIoCommitBlobTx(const fds_volid_t  &_volId,
-                    const std::string &_blobName,
-                     const blob_version_t &_blob_version)
+                     const std::string &_blobName,
+                     const blob_version_t &_blob_version,
+                     fds_uint64_t _dmt_version)
             : dmCatReq(_volId, _blobName, _blob_version, FDS_COMMIT_BLOB_TX) {
+        dmt_version = _dmt_version;
     }
 
     virtual std::string log_string() const override {
@@ -255,6 +280,7 @@ class DmIoCommitBlobTx: public dmCatReq {
     }
 
     BlobTxId::const_ptr ioBlobTxDesc;
+    fds_uint64_t dmt_version;
     /* response callback */
     CbType dmio_commit_blob_tx_resp_cb;
 };
@@ -290,23 +316,32 @@ class DmIoAbortBlobTx: public dmCatReq {
 class DmIoStartBlobTx: public dmCatReq {
   public:
     typedef std::function<void (const Error &e, DmIoStartBlobTx *blobTx)> CbType;
-  public:
-    fds_int32_t blob_mode = 0;
+
     DmIoStartBlobTx(const fds_volid_t  &_volId,
                     const std::string &_blobName,
                     const blob_version_t &_blob_version,
-                    const fds_int32_t _blob_mode)
-            : dmCatReq(_volId, _blobName, _blob_version, FDS_START_BLOB_TX), blob_mode(_blob_mode) {
+                    const fds_int32_t _blob_mode,
+                    const fds_uint64_t _dmt_ver)
+            : dmCatReq(_volId, _blobName, _blob_version, FDS_START_BLOB_TX), blob_mode(_blob_mode),
+            dmt_version(_dmt_ver) {
     }
 
     virtual std::string log_string() const override {
         std::stringstream ret;
-        ret << "DmIoStartBlobTx vol "
-            << std::hex << volId << std::dec;
+        ret << "DmIoStartBlobTx vol " << std::hex << volId << std::hex
+            << ", dmt_version " << dmt_version << " TX " << *ioBlobTxDesc;
         return ret.str();
     }
 
+    friend std::ostream& operator<<(std::ostream& out, const DmIoStartBlobTx& io) {
+        return out << "DmIoStartBlobTx vol " << std::hex << io.volId << std::hex
+                   << " blob " << io.blob_name << " blob mode " << io.blob_mode
+                   << ", dmt_version " << io.dmt_version << " TX " << *(io.ioBlobTxDesc);
+    }
+
     BlobTxId::const_ptr ioBlobTxDesc;
+    fds_uint64_t dmt_version;
+    fds_int32_t blob_mode;
     /* response callback */
     CbType dmio_start_blob_tx_resp_cb;
 };

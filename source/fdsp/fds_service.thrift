@@ -334,6 +334,7 @@ struct StartBlobTxMsg {
    3: i64 			blob_version;
    4: i32 			blob_mode;
    5: i64 			txId;
+   6: i64                       dmt_version;
 }
 
 /* start Blob traction response message */
@@ -346,6 +347,7 @@ struct CommitBlobTxMsg {
    2: string 			blob_name;
    3: i64 			blob_version;
    4: i64 			txId;
+   5: i64                       dmt_version,
 }
 
 /* Commit Blob traction response message */

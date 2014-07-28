@@ -407,9 +407,11 @@ public:
                              const fds_volid_t& volId,
                              const fds_int32_t blobMode,
                              const fds_uint64_t& txId,
+                             const fds_uint64_t dmtVer,
                              QuorumSvcRequestRespCb respCb);
     void issueCommitBlobTxMsg(CommitBlobTxReq *blobReq,
-                             QuorumSvcRequestRespCb respCb);
+                              fds_uint64_t dmtVersion,
+                              QuorumSvcRequestRespCb respCb);
     void issueAbortBlobTxMsg(const std::string& blobName,
                              const fds_volid_t& volId,
                              const fds_uint64_t& txId,
@@ -426,6 +428,7 @@ public:
                                const bool &lastBuf,
                                const fds_volid_t& volId,
                                const fds_uint64_t& txId,
+                               const fds_uint64_t& dmt_version,
                                QuorumSvcRequestRespCb respCb);
     void getBlobQueryCatalogResp(fds::AmQosReq* qosReq,
                                  FailoverSvcRequest* svcReq,

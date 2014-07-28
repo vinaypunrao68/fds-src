@@ -157,6 +157,25 @@ DmTimeVolCatalog::commitBlobTx(fds_volid_t volId,
     return ERR_OK;
 }
 
+Error
+DmTimeVolCatalog::updateFwdCommittedBlob(fds_volid_t volId,
+                                         const std::string &blobName,
+                                         blob_version_t blobVersion,
+                                         const fpi::FDSP_BlobObjectList &objList,
+                                         const fpi::FDSP_MetaDataList &metaList,
+                                         const DmTimeVolCatalog::FdwCommitCb &fwdCommitCb) {
+    LOGDEBUG << "Will apply committed blob update from another DM for volume "
+             << std::hex << volId << std::dec << " blob " << blobName;
+
+    // we don't go through commit log, but we need to serialized fwd updates
+    opSynchronizer_.schedule(blobName,
+                             std::bind(&DmTimeVolCatalog::updateFwdBlobWork,
+                                       this, volId, blobName, blobVersion,
+                                       objList, metaList, fwdCommitCb));
+
+    return ERR_OK;
+}
+
 void
 DmTimeVolCatalog::commitBlobTxWork(fds_volid_t volid,
                                    DmCommitLog::ptr &commitLog,
@@ -183,6 +202,45 @@ DmTimeVolCatalog::commitBlobTxWork(fds_volid_t volid,
         }
     }
     cb(e, blob_version, commit_data->blobObjList, commit_data->metaDataList);
+}
+
+void DmTimeVolCatalog::updateFwdBlobWork(fds_volid_t volid,
+                                         const std::string &blobName,
+                                         blob_version_t blobVersion,
+                                         const fpi::FDSP_BlobObjectList &objList,
+                                         const fpi::FDSP_MetaDataList &metaList,
+                                         const DmTimeVolCatalog::FdwCommitCb &fwdCommitCb) {
+    Error err(ERR_OK);
+    // TODO(xxx): use blob mode to tell if that's a deletion
+    if (blobVersion == blob_version_deleted) {
+        LOGDEBUG << "Applying committed forwarded delete for blob " << blobName
+                 << " volume " << std::hex << volid << std::dec;
+        fds_panic("not implemented!");
+        // err = volcat->deleteBlob(volid, blobName, blobVersion);
+    } else {
+        LOGDEBUG << "Applying committed forwarded update for blob " << blobName
+                 << " volume " << std::hex << volid << std::dec;
+
+        if (objList.size() > 0) {
+            BlobObjList::ptr olist(new(std::nothrow) BlobObjList(objList));
+            // TODO(anna) pass truncate op, for now always truncate
+            olist->setEndOfBlob();
+
+            if (metaList.size() > 0) {
+                MetaDataList::ptr mlist(new(std::nothrow) MetaDataList(metaList));
+                err = volcat->putBlob(volid, blobName, mlist, olist, BlobTxId::ptr());
+            } else {
+                err = volcat->putBlob(volid, blobName, MetaDataList::ptr(),
+                                      olist, BlobTxId::ptr());
+            }
+        } else {
+            fds_verify(metaList.size() > 0);
+            MetaDataList::ptr mlist(new(std::nothrow) MetaDataList(metaList));
+            err = volcat->putBlobMeta(volid, blobName, mlist, BlobTxId::ptr());
+        }
+    }
+
+    fwdCommitCb(err);
 }
 
 Error

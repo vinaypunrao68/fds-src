@@ -34,8 +34,9 @@ void DMSvcHandler::commitBlobTx(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     LOGDEBUG << logString(*asyncHdr) << logString(*commitBlbTx);
 
     auto dmBlobTxReq = new DmIoCommitBlobTx(commitBlbTx->volume_id,
-                                           commitBlbTx->blob_name,
-                                           commitBlbTx->blob_version);
+                                            commitBlbTx->blob_name,
+                                            commitBlbTx->blob_version,
+                                            commitBlbTx->dmt_version);
     dmBlobTxReq->dmio_commit_blob_tx_resp_cb =
             BIND_MSG_CALLBACK2(DMSvcHandler::commitBlobTxCb, asyncHdr);
 
@@ -130,7 +131,8 @@ void DMSvcHandler::startBlobTx(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     auto dmBlobTxReq = new DmIoStartBlobTx(startBlbTx->volume_id,
                                            startBlbTx->blob_name,
                                            startBlbTx->blob_version,
-                                           startBlbTx->blob_mode);
+                                           startBlbTx->blob_mode,
+                                           startBlbTx->dmt_version);
     dmBlobTxReq->dmio_start_blob_tx_resp_cb =
             BIND_MSG_CALLBACK2(DMSvcHandler::startBlobTxCb, asyncHdr);
 
@@ -158,8 +160,9 @@ void DMSvcHandler::startBlobTxCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
      * TODO(sanjay)- we will have to add  call to  send the response without payload 
      * static response
      */
-    LOGDEBUG << logString(*asyncHdr);
     asyncHdr->msg_code = static_cast<int32_t>(e.GetErrno());
+    LOGDEBUG << "startBlobTx completed " << e << " " << logString(*asyncHdr);
+
     // TODO(sanjay) - we will have to revisit  this call
     fpi::StartBlobTxRspMsg stBlobTxRsp;
     sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(StartBlobTxRspMsg), stBlobTxRsp);

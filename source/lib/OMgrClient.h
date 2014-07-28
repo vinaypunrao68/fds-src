@@ -200,7 +200,14 @@ namespace fds {
                               fds_int32_t *node_ids,
                               fds_int32_t *n_nodes);
 #endif
+    /**
+     * Returns nodes from currently committed DMT
+     */
     DmtColumnPtr getDMTNodesForVolume(fds_volid_t vol_id);
+    /**
+     * Returns nodes from specific DMT version 'dmt_version'
+     */
+    DmtColumnPtr getDMTNodesForVolume(fds_volid_t vol_id, fds_uint64_t dmt_version);
     fds_uint64_t getDMTVersion() const;
     int pushPerfstatsToOM(const std::string& start_ts,
 			  int stat_slot_len, 

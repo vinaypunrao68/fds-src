@@ -108,14 +108,20 @@ StorHvCtrl::commitBlobTxSvc(AmQosReq *qosReq) {
     StorHvVolume *shVol = storHvisor->vol_table->getLockedVolume(volId);
     fds_verify(shVol != NULL);
     fds_verify(shVol->isValidLocked() == true);
-   
-    issueCommitBlobTxMsg(blobReq,
+
+    // use DMT version as of start of blob tx
+    // TODO(Anna) keeping DMT version should be moved to new tx table
+    fds_verify((shVol->tx_to_dmt).count(blobReq->getTxId()->getValue()) > 0);
+    fds_uint64_t dmt_version = (shVol->tx_to_dmt)[blobReq->getTxId()->getValue()];
+
+    issueCommitBlobTxMsg(blobReq, dmt_version,
                          RESPONSE_MSG_HANDLER(StorHvCtrl::commitBlobTxMsgResp, qosReq));
     return err;
 }
 
 
 void StorHvCtrl::issueCommitBlobTxMsg(CommitBlobTxReq *blobReq,
+                                      fds_uint64_t dmtVersion,
                                       QuorumSvcRequestRespCb respCb)
 {
 
@@ -123,12 +129,14 @@ void StorHvCtrl::issueCommitBlobTxMsg(CommitBlobTxReq *blobReq,
     stBlobTxMsg->blob_name   = blobReq->getBlobName();
     stBlobTxMsg->blob_version = blob_version_invalid;
     stBlobTxMsg->volume_id = blobReq->getVolId();
+    stBlobTxMsg->dmt_version = dmtVersion;
 
     fds_volid_t volId = blobReq->getVolId();
     stBlobTxMsg->txId = blobReq->getTxId()->getValue();
 
     auto asyncCommitBlobTxReq = gSvcRequestPool->newQuorumSvcRequest(
-        boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(volId)));
+        boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(volId,
+                                                                                  dmtVersion)));
     asyncCommitBlobTxReq->setPayload(FDSP_MSG_TYPEID(fpi::CommitBlobTxMsg), stBlobTxMsg);
     asyncCommitBlobTxReq->onResponseCb(respCb);
     asyncCommitBlobTxReq->invoke();
@@ -177,11 +185,18 @@ StorHvCtrl::startBlobTxSvc(AmQosReq *qosReq) {
     StartBlobTxCallback::ptr cb = SHARED_DYN_CAST(StartBlobTxCallback,
                                                   blobReq->cb);
     cb->blobTxId = txId;
+    fds_uint64_t dmt_version = om_client->getDMTVersion();
+
+    // TODO(Anna) save DMT version in temp trans to dmt map
+    // should be moved to AM's trans state manager
+    fds_verify((shVol->tx_to_dmt).count(txId.getValue()) == 0);
+    (shVol->tx_to_dmt)[txId.getValue()] = dmt_version;
 
     issueStartBlobTxMsg(blobReq->getBlobName(),
                         volId,
                         blobReq->getBlobMode(),
                         txId.getValue(),
+                        dmt_version,
                         RESPONSE_MSG_HANDLER(StorHvCtrl::startBlobTxMsgResp, qosReq));
      return err;
 }
@@ -191,7 +206,8 @@ void StorHvCtrl::issueStartBlobTxMsg(const std::string& blobName,
                                      const fds_volid_t& volId,
                                      const fds_int32_t blobMode,
                                      const fds_uint64_t& txId,
-                                      QuorumSvcRequestRespCb respCb)
+                                     const fds_uint64_t dmtVer,
+                                     QuorumSvcRequestRespCb respCb)
 {
 
     StartBlobTxMsgPtr stBlobTxMsg(new StartBlobTxMsg());
@@ -199,9 +215,8 @@ void StorHvCtrl::issueStartBlobTxMsg(const std::string& blobName,
     stBlobTxMsg->blob_version = blob_version_invalid;
     stBlobTxMsg->volume_id = volId;
     stBlobTxMsg->blob_mode = blobMode;
-
-
     stBlobTxMsg->txId = txId;
+    stBlobTxMsg->dmt_version = dmtVer;
 
     auto asyncStartBlobTxReq = gSvcRequestPool->newQuorumSvcRequest(
         boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(volId)));
@@ -281,6 +296,8 @@ Error StorHvCtrl::putBlobSvc(fds::AmQosReq *qosReq)
                       RESPONSE_MSG_HANDLER(StorHvCtrl::putBlobPutObjectMsgResp, qosReq));
 
     // updCatReq->txDesc.txId = putBlobReq->getTxId()->getValue();
+    fds_verify((shVol->tx_to_dmt).count(blobReq->getTxId()->getValue()) > 0);
+    fds_uint64_t dmt_version = (shVol->tx_to_dmt)[blobReq->getTxId()->getValue()];
     issueUpdateCatalogMsg(blobReq->getObjId(),
                           blobReq->getBlobName(),
                           blobReq->getBlobOffset(),
@@ -288,6 +305,7 @@ Error StorHvCtrl::putBlobSvc(fds::AmQosReq *qosReq)
                           blobReq->isLastBuf(),
                           volId,
                           blobReq->getTxId()->getValue(),
+                          dmt_version,
                           RESPONSE_MSG_HANDLER(StorHvCtrl::putBlobUpdateCatalogMsgResp, qosReq));
     // TODO(Rao): Check with andrew if this is the right place to unlock or
     // can we unlock before
@@ -329,6 +347,7 @@ void StorHvCtrl::issueUpdateCatalogMsg(const ObjectID &objId,
                                        const bool &lastBuf,
                                        const fds_volid_t& volId,
                                        const fds_uint64_t& txId,
+                                       const fds_uint64_t& dmt_version,
                                        QuorumSvcRequestRespCb respCb)
 {
     UpdateCatalogMsgPtr updCatMsg(new UpdateCatalogMsg());
@@ -351,7 +370,8 @@ void StorHvCtrl::issueUpdateCatalogMsg(const ObjectID &objId,
     updCatMsg->txId = txId;
 
     auto asyncUpdateCatReq = gSvcRequestPool->newQuorumSvcRequest(
-        boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(volId)));
+        boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(volId,
+                                                                                  dmt_version)));
     asyncUpdateCatReq->setPayload(FDSP_MSG_TYPEID(fpi::UpdateCatalogMsg), updCatMsg);
     asyncUpdateCatReq->onResponseCb(respCb);
     asyncUpdateCatReq->invoke();

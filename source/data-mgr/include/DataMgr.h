@@ -143,6 +143,9 @@ class DataMgr : public Module, public DmIoReqHandler {
                 case FDS_GET_VOLUME_METADATA:
                     threadPool->schedule(&DataMgr::getVolumeMetaData, dataMgr, io);
                     break;
+                case FDS_DM_PUSH_META_DONE:
+                    threadPool->schedule(&DataMgr::handleDMTClose, dataMgr, io);
+                    break;
 
                 /* End of new refactored DM message types */
 
@@ -242,7 +245,7 @@ class DataMgr : public Module, public DmIoReqHandler {
      * finish forwarding state -- forwarding will actually end when
      * all updates that are currently queued are processed.
      */
-    Error  notifyStopForwardUpdates();
+    Error notifyDMTClose();
 
     /**
      * DmIoReqHandler method implementation
@@ -315,6 +318,11 @@ class DataMgr : public Module, public DmIoReqHandler {
                         const MetaDataList::const_ptr& meta_list,
                         DmIoCommitBlobTx *commitBlobReq);
     void fwdUpdateCatalog(dmCatReq *io);
+    /**
+     * Callback from volume catalog when forwarded blob update is
+     * committed to volume catalog
+     */
+    void updateFwdBlobCb(const Error &err, DmIoCommitBlobTx *fwdBlobReq);
     /* End of new refactored DM message handlers */
 
     void setBlobMetaDataSvc(void *io);
@@ -324,6 +332,7 @@ class DataMgr : public Module, public DmIoReqHandler {
     void setBlobMetaDataBackend(const dmCatReq *request);
     void getVolumeMetaData(dmCatReq *io);
     void snapVolCat(dmCatReq *io);
+    void handleDMTClose(dmCatReq *io);
     // void sendUpdateCatalogResp(dmCatReq  *updCatReq, BlobNode *bnode);
 
     void scheduleGetBlobMetaDataSvc(void *io);

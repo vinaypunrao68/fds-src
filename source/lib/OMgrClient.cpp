@@ -206,7 +206,7 @@ OMgrClient::OMgrClient(FDSP_MgrIdType node_type,
                        fds_log *parent_log,
                        boost::shared_ptr<netSessionTbl> nst,
                        Platform *plf)
-        : dmtMgr(new DMTManager()) {
+        : dmtMgr(new DMTManager(1)) {
   fds_verify(_omPort != 0);
   my_node_type = node_type;
   omIpStr      = _omIpStr;
@@ -1140,6 +1140,11 @@ DltTokenGroupPtr OMgrClient::getDLTNodesForDoidKey(const ObjectID &objId) {
 
 DmtColumnPtr OMgrClient::getDMTNodesForVolume(fds_volid_t vol_id) {
     return dmtMgr->getCommittedNodeGroup(vol_id);  // thread-safe, do not hold lock
+}
+
+DmtColumnPtr OMgrClient::getDMTNodesForVolume(fds_volid_t vol_id,
+                                              fds_uint64_t dmt_version) {
+    return dmtMgr->getVersionNodeGroup(vol_id, dmt_version);  // thread-safe, do not hold lock
 }
 
 fds_uint64_t OMgrClient::getDMTVersion() const {

@@ -143,10 +143,9 @@ namespace fds {
 
         /**
          * Notification that we finished sync/forwarding for
-         * volume 'volid', will send MetaSyncDone and remove vol
-         * from list
+         * volume 'volid', will remove vol from list
          */
-        Error handleVolumeDone(fds_volid_t volid);
+        void handleVolumeDone(fds_volid_t volid);
 
         /**
          * @return true if CatalogSync is reponsible for syncing
@@ -259,6 +258,11 @@ namespace fds {
                                    const MetaDataList::const_ptr& meta_list);
 
         /**
+         * Notifies destination DM to start servicing IO for volume 'volid'
+         */
+        Error issueServiceVolumeMsg(fds_volid_t volid);
+
+        /**
          * Called when forwarding can be finished for volume 'volid'
          * so volume-related datastucts can be freed
          * @return true if all volumes finished forwarding metadata
@@ -312,6 +316,11 @@ namespace fds {
         std::string cat_sync_context;  // to return when sync is done
         CatSyncMap cat_sync_map;
         fds_mutex cat_sync_lock;  // protects catSyncMap and sync_in_progress
+
+        /**
+         * Timestamp when DM received DMT close
+         */
+        boost::posix_time::ptime dmtclose_time;
 
         /* Net session  handlers */
         netSessionTblPtr netSessionTbl;

@@ -65,7 +65,7 @@ DataMgr::volcat_evt_handler(fds_catalog_action_t catalog_action,
     } else if (catalog_action == fds_catalog_dmt_close) {
         // will finish forwarding when all queued updates are processed
         GLOGNORMAL << "Received DMT Close";
-        err = dataMgr->notifyStopForwardUpdates();
+        err = dataMgr->notifyDMTClose();
     } else {
         fds_assert(!"Unknown catalog command");
     }
@@ -142,7 +142,7 @@ DataMgr::finishCloseDMT() {
          ++vol_it) {
         fds_volid_t volid = vol_it->first;
         VolumeMeta *vol_meta = vol_it->second;
-        if (vol_meta->isForwardFinish()) {
+        if (vol_meta->isForwarding()) {
             vol_meta->setForwardFinish();
             done_vols.insert(volid);
         }
@@ -168,8 +168,8 @@ DataMgr::finishCloseDMT() {
     // either in this method or when we called finishedForwardVolume for the last
     // volume to finish forwarding
 
+    LOGDEBUG << "Will cleanup catalogs for volumes DM is not responsible anymore";
     // TODO(Anna) remove volume catalog for volumes we finished forwarding
-    // we probably want to do this after close, if we will continue forwarding ???
 }
 
 /**
@@ -187,6 +187,7 @@ Error DataMgr::enqueueMsg(fds_volid_t volId,
         case FDS_DM_SNAP_VOLCAT:
         case FDS_DM_SNAPDELTA_VOLCAT:
         case FDS_DM_FWD_CAT_UPD:
+        case FDS_DM_PUSH_META_DONE:
             err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
             break;
         default:
@@ -446,31 +447,59 @@ Error DataMgr::_process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only) {
  * For all volumes that are in forwarding state, move them to
  * finish forwarding state.
  */
-Error DataMgr::notifyStopForwardUpdates() {
+Error DataMgr::notifyDMTClose() {
     std::unordered_map<fds_uint64_t, VolumeMeta*>::iterator vol_it;
     Error err(ERR_OK);
+    DmIoPushMetaDone* pushMetaDoneIo = NULL;
 
     if (!catSyncMgr->isSyncInProgress()) {
         err = ERR_CATSYNC_NOT_PROGRESS;
         return err;
     }
 
+    // set every volume's state to 'finish forwarding
+    // and enqueue DMT close marker to qos queues of volumes
+    // that are in 'finish forwarding' state
     vol_map_mtx->lock();
     for (vol_it = vol_meta_map.begin();
          vol_it != vol_meta_map.end();
          ++vol_it) {
         VolumeMeta *vol_meta = vol_it->second;
         vol_meta->finishForwarding();
+        pushMetaDoneIo = new DmIoPushMetaDone(vol_it->first);
+        err = enqueueMsg(vol_it->first, pushMetaDoneIo);
+        fds_verify(err.ok());
     }
     vol_map_mtx->unlock();
 
+    return err;
+}
+
+//
+// Handle DMT close for the volume in io req -- sends
+// push meta done to destination DM
+//
+void DataMgr::handleDMTClose(dmCatReq *io) {
+    DmIoPushMetaDone *pushMetaDoneReq = static_cast<DmIoPushMetaDone*>(io);
+
+    LOGDEBUG << "Processed all commits that arrived before DMT close "
+             << "will now notify dst DM to open up volume queues";
+
+    Error err = catSyncMgr->issueServiceVolumeMsg(pushMetaDoneReq->volId);
+    // TODO(Anna) if err, send DMT close ack with error???
+    fds_verify(err.ok());
+
+    // TODO(xxx) before we implement asking commit log for
+    // open trans before DMT close time, lets just send dmt close
+    // ack on timer
+
     // start timer where we will stop forwarding volumes that are
     // still in 'finishing forwarding' state
+    closedmt_timer->cancel(closedmt_timer_task);
     if (!closedmt_timer->schedule(closedmt_timer_task, std::chrono::seconds(2))) {
         // TODO(xxx) how do we handle this?
         fds_panic("Failed to schedule closedmt timer!");
     }
-    return err;
 }
 
  /*
@@ -812,15 +841,31 @@ DataMgr::amIPrimary(fds_volid_t volUuid) {
 
 void DataMgr::startBlobTx(dmCatReq *io)
 {
-    Error err;
+    Error err(ERR_OK);
     DmIoStartBlobTx *startBlobReq= static_cast<DmIoStartBlobTx*>(io);
 
-    LOGTRACE << "Will start transaction for blob " << startBlobReq->blob_name <<
-            " in tvc; blob mode " << startBlobReq->blob_mode;
-    err = timeVolCat_->startBlobTx(startBlobReq->volId,
-                                    startBlobReq->blob_name,
-                                    startBlobReq->blob_mode,
-                                    startBlobReq->ioBlobTxDesc);
+    LOGTRACE << "Will start transaction " << *startBlobReq;
+
+    // TODO(Anna) If this DM is not forwarding for this io's volume anymore
+    // we reject start TX on DMT mismatch
+    vol_map_mtx->lock();
+    if (vol_meta_map.count(startBlobReq->volId) > 0) {
+        VolumeMeta* vol_meta = vol_meta_map[startBlobReq->volId];
+        if ((!vol_meta->isForwarding() || vol_meta->isForwardFinishing()) &&
+            (startBlobReq->dmt_version != omClient->getDMTVersion())) {
+            err = ERR_IO_DMT_MISMATCH;
+        }
+    } else {
+        err = ERR_VOL_NOT_FOUND;
+    }
+    vol_map_mtx->unlock();
+
+    if (err.ok()) {
+        err = timeVolCat_->startBlobTx(startBlobReq->volId,
+                                       startBlobReq->blob_name,
+                                       startBlobReq->blob_mode,
+                                       startBlobReq->ioBlobTxDesc);
+    }
     qosCtrl->markIODone(*startBlobReq);
     startBlobReq->dmio_start_blob_tx_resp_cb(err, startBlobReq);
 }
@@ -874,14 +919,10 @@ void DataMgr::commitBlobTxCb(const Error &err,
 
     // TODO(Anna) have to check DMT version.. should we do it only
     // on request arrival???
-    /*
-    LOGNORMAL << "DMT VERSION: " << updCatReq->fdspUpdCatReqPtr->dmt_version
-              << ":" << dataMgr->omClient->getDMTVersion();
-    if ((uint)updCatReq->fdspUpdCatReqPtr->dmt_version ==
-        dataMgr->omClient->getDMTVersion()) {
-        LOGDEBUG << " DMT version matches , Do not  forward  the  request ";
-    }
-    */
+    LOGDEBUG << "Dmt version: " << commitBlobReq->dmt_version << " blob "
+             << commitBlobReq->blob_name << " vol " << std::hex
+             << commitBlobReq->volId << std::dec << " ; current DMT version "
+             << omClient->getDMTVersion();
 
     // 'finish this io' for qos accounting purposes, if we are
     // forwarding, the main time goes to waiting for response
@@ -890,41 +931,39 @@ void DataMgr::commitBlobTxCb(const Error &err,
     qosCtrl->markIODone(*commitBlobReq);
 
     // do forwarding if needed and commit was successfull
-    if (error.ok()) {
+    if (error.ok() &&
+        (commitBlobReq->dmt_version != dataMgr->omClient->getDMTVersion())) {
         VolumeMeta* vol_meta = NULL;
-        fds_bool_t state_forward = false;
-        fds_bool_t state_finish = false;
+        fds_bool_t is_forwarding = false;
 
         // check if we need to forward this commit to receiving
         // DM if we are in progress of migrating volume catalog
         vol_map_mtx->lock();
         fds_verify(vol_meta_map.count(commitBlobReq->volId) > 0);
         vol_meta = vol_meta_map[commitBlobReq->volId];
-        state_forward = vol_meta->isForwarding();
-        state_finish  = vol_meta->isForwardFinish();
+        is_forwarding = vol_meta->isForwarding();
         vol_map_mtx->unlock();
 
         // move the state, once we drain  planned queue contents
-        LOGTRACE << "DMT close Time:  " << vol_meta->dmtclose_time
-                 << " Enqueue Time: " << commitBlobReq->enqueue_time;
+        LOGTRACE << "is_forwarding ? " << is_forwarding << " req DMT ver "
+                 << commitBlobReq->dmt_version << " DMT ver " << omClient->getDMTVersion();
 
-        // forward request if needed
-        if ((state_forward) ||
-            (vol_meta->dmtclose_time > commitBlobReq->enqueue_time)) {
-            // TODO(Anna) DMT version must not match in order to forward the update!!!
-            error = catSyncMgr->forwardCatalogUpdate(commitBlobReq, blob_version,
-                                                     blob_obj_list, meta_list);
-            if (error.ok()) {
-                // we forwarded the request!!!
-                // TODO(Brian) return here once we implement handling response
-                // for forwarded update
+        if (is_forwarding) {
+            // DMT version must not match in order to forward the update!!!
+            if (commitBlobReq->dmt_version != omClient->getDMTVersion()) {
+                error = catSyncMgr->forwardCatalogUpdate(commitBlobReq, blob_version,
+                                                         blob_obj_list, meta_list);
+                if (error.ok()) {
+                    // we forwarded the request!!!
+                    // TODO(Anna) for now replying to AM, but should reply to AM
+                    // when response to forwarded update arrives
+                    commitBlobReq->dmio_commit_blob_tx_resp_cb(error, commitBlobReq);
+                    return;
+                }
             }
-        } else if ((vol_meta->dmtclose_time <= commitBlobReq->enqueue_time) &&
-                   (state_finish)) {
-            vol_meta->setForwardFinish();
-            // remove the volume from sync_volume list
-            LOGNORMAL << "Finish forwarding for volume " << commitBlobReq->volId;
-            catSyncMgr->finishedForwardVolmeta(commitBlobReq->volId);
+        } else {
+            // DMT mismatch must not happen if volume is in 'not forwarding' state
+            fds_verify(commitBlobReq->dmt_version != omClient->getDMTVersion());
         }
     }
 
@@ -937,6 +976,12 @@ void DataMgr::commitBlobTxCb(const Error &err,
 void DataMgr::fwdUpdateCatalog(dmCatReq *io)
 {
     fds_panic("Not implemented!!!");
+}
+
+void DataMgr::updateFwdBlobCb(const Error &err, DmIoCommitBlobTx *fwdBlobReq)
+{
+    qosCtrl->markIODone(*fwdBlobReq);
+    // fwdBlobReq->dmio_commit_blob_tx_resp_cb(err, fwdBlobReq);
 }
 
 Error

@@ -210,17 +210,9 @@ fds_uint32_t CatalogSync::recordVolSyncDone(csStateType expected_state) {
     return total_done;
 }
 
-Error CatalogSync::handleVolumeDone(fds_volid_t volid) {
+void CatalogSync::handleVolumeDone(fds_volid_t volid) {
     fds_verify(sync_volumes.count(volid) > 0);
-    Error err = issueVolSyncStateMsg(volid, true);
-    // TODO(xxx) we should properly handle this error, how?
-    // probably reply to DMT close with error?
-    // in any case, finishing syncing for this volume in any case
-    if (!err.ok()) {
-        LOGERROR << "Error while sending Meta Sync Done";
-    }
     sync_volumes.erase(volid);
-    return err;
 }
 
 fds_bool_t CatalogSync::isInitialSyncDone() const {
@@ -314,7 +306,8 @@ CatalogSyncMgr::CatalogSyncMgr(fds_uint32_t max_jobs,
           max_sync_inprogress(max_jobs),
           dm_req_handler(dm_req_hdlr),
           netSessionTbl(netSession),
-          cat_sync_lock("Catalog Sync lock") {
+          cat_sync_lock("Catalog Sync lock"),
+          dmtclose_time(boost::posix_time::min_date_time) {
     LOGNORMAL << "Constructing CatalogSyncMgr";
 }
 
@@ -507,11 +500,29 @@ Error CatalogSyncMgr::forwardCatalogUpdate(DmIoCommitBlobTx *commitBlobReq,
 }
 
 //
+// Sends msg to dst DM that push meta finished, so that DM can open
+// up volume 'volid' qos queue
+//
+Error CatalogSyncMgr::issueServiceVolumeMsg(fds_volid_t volid) {
+    Error err(ERR_OK);
+    fds_mutex::scoped_lock l(cat_sync_lock);
+    fds_verify(sync_in_progress);
+    for (CatSyncMap::const_iterator cit = cat_sync_map.cbegin();
+         cit != cat_sync_map.cend();
+         ++cit) {
+        if ((cit->second)->hasVolume(volid)) {
+            err = (cit->second)->issueVolSyncStateMsg(volid, true);
+            if (!err.ok()) return err;
+        }
+    }
+    return err;
+}
+
+//
 // returns true if CatalogSync finished forwarding meta for all volumes
 // and sent DMT close ack
 //
 fds_bool_t CatalogSyncMgr::finishedForwardVolmeta(fds_volid_t volid) {
-    Error err(ERR_OK);
     fds_bool_t send_dmt_close_ack = false;
 
     {  // begin scoped lock
@@ -523,23 +534,18 @@ fds_bool_t CatalogSyncMgr::finishedForwardVolmeta(fds_volid_t volid) {
             if ((cit->second)->hasVolume(volid)) {
                 LOGDEBUG << "DEL-VOL: Map Clean up "
                          << std::hex << volid << std::dec;
-                err = (cit->second)->handleVolumeDone(volid);
+                (cit->second)->handleVolumeDone(volid);
                 if (((cit->second)->emptyVolume())) {
                     cat_sync_map.erase(cit);
-                    LOGDEBUG << "cat sync map erase:";
+                    LOGDEBUG << "cat sync map erase: " << std::hex
+                             << volid << std::dec;
                 }
-                break;
             }
         }
         send_dmt_close_ack = cat_sync_map.empty();
-         LOGDEBUG << "send_dmt_close_ack :  " << send_dmt_close_ack;
+        LOGDEBUG << "send_dmt_close_ack :  " << send_dmt_close_ack;
         sync_in_progress = !send_dmt_close_ack;
     }  // end of scoped lock
-
-    // TODO(xxx) if error, means we couldn't send meta sync done
-    // notification to destination DM, so destination DM will not
-    // move to the right state of processing requests from AM
-    // we should retry? or/and send error to OM?
 
     if (send_dmt_close_ack) {
         fpi::FDSP_DmtCloseTypePtr dmtCloseAck(new FDSP_DmtCloseType);
