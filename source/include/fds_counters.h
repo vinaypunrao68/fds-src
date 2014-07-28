@@ -19,11 +19,20 @@ class FdsCounters;
 class FdsBaseCounter;
 class FdsCountersMgr;
 
+/* Class SamplerTask: performs snapshotting and sampling. Operates on data 
+   structures in couter manager */
 class SamplerTask : public FdsTimerTask {
     public:
-    SamplerTask(FdsTimer &fds_timer) : 
-        FdsTimerTask(fds_timer) {}
-    void runTimerTask() override {}
+    SamplerTask(FdsTimer &fds_timer, const std::vector<FdsCounters*> &counters,  std::vector<FdsCounters*> &snapshot_counters) : 
+        FdsTimerTask(fds_timer), counters_ref_(counters), snapshot_counters_(snapshot_counters) {}
+    void runTimerTask() override;
+    void snapshot_counters() {};
+
+    protected:
+    /* Reference to counter manager's exported counters (read only) */
+    const std::vector<FdsCounters*>& counters_ref_;
+    /* Reference to counter manager's snapshot counters */
+    std::vector<FdsCounters*>& snapshot_counters_;
 };
 
 /**
@@ -55,10 +64,16 @@ protected:
     /* Lock for this object */
     fds_mutex lock_;
     /* Timer */
-    FdsTimer timer;
+    FdsTimer timer_;
     /* Sampler timer task*/
-    SamplerTask sampler;
-
+    //SamplerTask sampler;
+    //typedef boost::shared_ptr<FdsTimerTask> FdsTimerTaskPtr;
+    //boost::shared_ptr<SamplerTask> samplerPtr_;
+    //FdsTimerTaskPtr samplerPtr;
+    /* Sampler task */
+    boost::shared_ptr<FdsTimerTask> sampler_ptr_;
+    /* Snapshot */
+    std::vector<FdsCounters*> snapshot_counters_;
 };
 
 /**
@@ -68,6 +83,7 @@ protected:
 class FdsCounters : public boost::noncopyable { 
 public:
     FdsCounters(const std::string &id, FdsCountersMgr *mgr);
+    FdsCounters(const FdsCounters& counters);
     /* Exposed for mock testing */
     FdsCounters();
     virtual ~FdsCounters();
@@ -101,6 +117,7 @@ protected:
 class FdsBaseCounter : public boost::noncopyable {
 public:
     FdsBaseCounter(const std::string &id, FdsCounters *export_parent);
+    FdsBaseCounter(const FdsBaseCounter& c);
     /* Exposed for testing */
     FdsBaseCounter();
     virtual ~FdsBaseCounter();
@@ -121,6 +138,7 @@ class NumericCounter : public FdsBaseCounter
 {
 public:
     NumericCounter(const std::string &id, FdsCounters *export_parent);
+    NumericCounter(const NumericCounter &c);
     /* Exposed for testing */
     NumericCounter();
 
@@ -142,6 +160,7 @@ class LatencyCounter : public FdsBaseCounter
 {
 public:
     LatencyCounter(const std::string &id, FdsCounters *export_parent);
+    LatencyCounter(const LatencyCounter &c);
 
     /* Exposed for testing */
     LatencyCounter();

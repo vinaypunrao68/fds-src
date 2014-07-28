@@ -5,15 +5,38 @@
 #include <sstream>
 #include <fds_counters.h>
 #include <ctime>
+#include <chrono>
+
 namespace fds {
+
+//void SamplerTask::register_counters(const std::vector<FdsCounters*>& counters)
+//{
+//    counters_ref_ = counters;
+//}
+
+
+/* Snapshot all exported counters to snapshot_counters_*/
+void SamplerTask::runTimerTask()
+{
+    fds_mutex::scoped_lock lock(lock_);
+    GLOGNORMAL << "Hello! I'm a timer"; 
+    for (auto counters : counters_ref_) {
+        GLOGNORMAL << "Counters -> " << counters->id();
+        GLOGNORMAL << counters->toString(); 
+        snapshot_counters_.push_back(new FdsCounters(*counters));
+    }
+}
 
 FdsCountersMgr::FdsCountersMgr(const std::string &id)
     : id_(id),
       lock_("Counters mutex"),
-      timer(),
-      sampler(timer)
+      timer_()
 {
+    sampler_ptr_ = boost::shared_ptr<FdsTimerTask>(new SamplerTask(timer_, exp_counters_, snapshot_counters_));
+    bool ret = timer_.scheduleRepeated(sampler_ptr_, std::chrono::milliseconds(1000));
+
 }
+
 /**
  * @brief Adds FdsCounters object for export.  
  *
@@ -160,6 +183,22 @@ FdsCounters::FdsCounters(const std::string &id, FdsCountersMgr *mgr)
 }
 
 /**
+ * Copy constructor
+ */
+FdsCounters::FdsCounters(const FdsCounters& counters) : id_(counters.id_)
+{
+    //TODO(matteo): maybe the shapshot should use non atomic counters for performance
+    for (auto c : counters.exp_counters_) {
+        bool lat = typeid(*c) == typeid(LatencyCounter);
+        if (lat) {
+            exp_counters_.push_back(new LatencyCounter(dynamic_cast<LatencyCounter&>(*c)));
+        } else {
+            exp_counters_.push_back(new NumericCounter(dynamic_cast<NumericCounter&>(*c)));
+        }
+    }
+}
+
+/**
  * Exposed for mock testing
  */
 FdsCounters::FdsCounters() {}
@@ -261,6 +300,15 @@ FdsBaseCounter::FdsBaseCounter(const std::string &id, FdsCounters *export_parent
         export_parent->add_for_export(this);
     }
 }
+
+/**
+ * Copy Constructor
+ */
+FdsBaseCounter::FdsBaseCounter(const FdsBaseCounter &c)
+: id_(c.id_)
+{
+}
+
 /**
  * Exposed for mock testing
  */
@@ -292,6 +340,16 @@ NumericCounter::NumericCounter(const std::string &id, FdsCounters *export_parent
 {
     val_ = 0;
 }
+
+/**
+ * Copy Constructor
+ */
+NumericCounter::NumericCounter(const NumericCounter& c)
+: FdsBaseCounter(c)
+{
+    val_ = c.val_.load();
+}
+
 /**
  *  Exposed for testing
  */
@@ -337,6 +395,18 @@ LatencyCounter::LatencyCounter(const std::string &id, FdsCounters *export_parent
         cnt_(0),
         min_latency_(std::numeric_limits<uint64_t>::max()),
         max_latency_(0) {}
+
+/**
+ * Copy Constructor
+ */
+LatencyCounter::LatencyCounter(const LatencyCounter &c)
+    :   FdsBaseCounter(c),
+        total_latency_(c.total_latency_.load()),
+        cnt_(c.cnt_.load()),
+        min_latency_(c.min_latency_.load()),
+        max_latency_(c.max_latency_.load()) {}
+
+
 /**
  * Exposed for testing
  */
