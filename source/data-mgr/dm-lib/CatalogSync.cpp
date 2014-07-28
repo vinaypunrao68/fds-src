@@ -511,6 +511,7 @@ fds_bool_t CatalogSyncMgr::finishedForwardVolmeta(fds_volid_t volid) {
                 (cit->second)->handleVolumeDone(volid);
                 if (((cit->second)->emptyVolume())) {
                     cat_sync_map.erase(cit);
+                    cit = cat_sync_map.cbegin();
                     LOGDEBUG << "cat sync map erase: " << std::hex
                              << volid << std::dec;
                 }
