@@ -196,6 +196,15 @@ class DmVolumeCatalog : public Module,
                                    Error& error);
 
     /**
+     * Internal function to get an extent for a blob, whether
+     * it is in the cache or not.
+     */
+    BlobExtent::ptr getExtent(fds_volid_t volume_id,
+                              const std::string& blob_name,
+                              fds_extent_id extent_id,
+                              Error& error);
+
+    /**
      * Volume catalog cache layer module
      */
     std::unique_ptr<DmCacheVolCatalog> cacheCat;

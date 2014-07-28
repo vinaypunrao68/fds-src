@@ -6,6 +6,7 @@
 
 #include <string>
 #include <utility>
+#include <list>
 #include <unordered_map>
 #include <cache/KvCache.h>
 #include <concurrency/RwLock.h>
@@ -100,7 +101,7 @@ class VolumeCacheManager : public Module, boost::noncopyable {
         // Free the entire cache structure
         CachePair cacheEntry = mapIt->second;
         fds_rwlock *rwlock = cacheEntry.first;
-        KvCache<K, V> *cache = cacheEntry.second;
+        KvCache<K, V, _Hash> *cache = cacheEntry.second;
         delete cache;
         delete rwlock;
 
@@ -128,8 +129,46 @@ class VolumeCacheManager : public Module, boost::noncopyable {
 
         // Update the cache structure and return
         // whatever was evicted
-        KvCache<K, V> *cache = cacheEntry.second;
+        KvCache<K, V, _Hash> *cache = cacheEntry.second;
         return cache->add(key, value);
+    }
+
+    /**
+     * Adds a key-value pair to a volume's cache.
+     */
+    std::list<std::unique_ptr<V>> addBatch(fds_volid_t volId,
+                                           const K &key,
+                                           const std::list<V*> &valueList) {
+        std::list<std::unique_ptr<V>> evictList;
+
+        SCOPEDREAD(cacheMapRwlock);
+        VolCacheMapIt mapIt = volCacheMap->find(volId);
+        // TODO(Andrew): For now just panic if the volume
+        // isn't in the manager. Fix later, but the interface
+        // needs a bit of change then since we need to return
+        // an error code
+        fds_verify(mapIt != volCacheMap->end());
+
+        // Write lock the cache for add
+        CachePair cacheEntry = mapIt->second;
+        fds_rwlock *cacheRwlock = cacheEntry.first;
+        SCOPEDWRITE(*cacheRwlock);
+        KvCache<K, V, _Hash> *cache = cacheEntry.second;
+
+        // Iterate and update the cache structure and return
+        // whatever was evicted
+        std::unique_ptr<V> evictPtr;
+        for (typename std::list<V*>::const_iterator cit = valueList.begin();
+             cit != valueList.end();
+             cit++) {
+            evictPtr = cache->add(key, *cit);
+            if (evictPtr != NULL) {
+                // Transfer ptr ownership to the list
+                evictList.push_back(evictPtr.release());
+            }
+        }
+
+        return evictList;
     }
 
     Error clear(fds_volid_t volId) {
@@ -145,7 +184,7 @@ class VolumeCacheManager : public Module, boost::noncopyable {
         SCOPEDWRITE(*cacheRwlock);
 
         // Clear the entire cache structure
-        KvCache<K, V> *cache = cacheEntry.second;
+        KvCache<K, V, _Hash> *cache = cacheEntry.second;
         cache->clear();
         return ERR_OK;
     }
@@ -167,7 +206,7 @@ class VolumeCacheManager : public Module, boost::noncopyable {
         SCOPEDWRITE(*cacheRwlock);
 
         // Get from the cache
-        KvCache<K, V> *cache = cacheEntry.second;
+        KvCache<K, V, _Hash> *cache = cacheEntry.second;
         return cache->get(key, valueOut);
     }
 
@@ -185,7 +224,7 @@ class VolumeCacheManager : public Module, boost::noncopyable {
         SCOPEDWRITE(*cacheRwlock);
 
         // Remove from the cache structure
-        KvCache<K, V> *cache = cacheEntry.second;
+        KvCache<K, V, _Hash> *cache = cacheEntry.second;
         return cache->remove(key);
     }
 

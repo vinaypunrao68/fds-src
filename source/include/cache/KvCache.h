@@ -49,7 +49,8 @@ class KvCache : public Module, boost::noncopyable {
     KvCache(const std::string &modName,
             fds_uint32_t _maxEntries)
             : Module(modName.c_str()),
-              maxEntries(_maxEntries) {
+              maxEntries(_maxEntries),
+              numEntries(0) {
     }
     ~KvCache() {
     }

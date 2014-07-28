@@ -44,6 +44,7 @@ class BlobExtent: public serialize::Serializable {
                fds_uint32_t max_obj_size,
                fds_uint32_t first_off,
                fds_uint32_t num_off);
+    BlobExtent(const BlobExtent& rhs);
     virtual ~BlobExtent();
 
     /**
@@ -117,6 +118,8 @@ class BlobExtent: public serialize::Serializable {
     virtual uint32_t write(serialize::Serializer* s) const;
     virtual uint32_t read(serialize::Deserializer* d);
 
+    BlobExtent& operator=(const BlobExtent& rhs);
+
     friend std::ostream& operator<<(std::ostream& out, const BlobExtent& extent);
 
   private:  // methods
@@ -163,6 +166,7 @@ class BlobExtent0 : public BlobExtent {
                 fds_uint32_t max_obj_size,
                 fds_uint32_t first_off,
                 fds_uint32_t num_offsets);
+    BlobExtent0(const BlobExtent0& rhs);
     virtual ~BlobExtent0();
 
     inline const std::string& blobName() const {
@@ -228,6 +232,8 @@ class BlobExtent0 : public BlobExtent {
 
     uint32_t write(serialize::Serializer* s) const;
     uint32_t read(serialize::Deserializer* d);
+
+    BlobExtent0& operator=(const BlobExtent0& rhs);
 
     friend std::ostream& operator<<(std::ostream& out, const BlobExtent0& extent0);
 

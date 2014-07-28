@@ -33,20 +33,40 @@ class DmCacheVolCatalog : public Module, boost::noncopyable {
     Error createCache(const VolumeDesc& volDesc);
 
     /**
-     * Update or add extent 0 to the volume catalog cache
-     * for given volume_id,blob_name
+     * Removes volume cache for volume.
+     * Any dirty entries must be flushed back to persistent
+     * storage prior to removal, otherwise they will be lost.
      */
-    Error putMetaExtent(fds_volid_t volume_id,
-                        const std::string& blob_name,
-                        const BlobExtent0::const_ptr& meta_extent);
+    Error removeCache(fds_volid_t volId);
 
     /**
-     * Updates extent 0 and a set of non-0 extents in the volume catalog
-     * cache for given volume id, blob name.
+     * Retrieves extent from the cache layer for given
+     * volume id, blob_name. If extent is not found, returns error.
+     * The cache returns a COPY of the cached entry that the caller
+     * can use. The original copy remains owned by the cache. Once
+     * the cache can properly pin/refcnt elements, we can consider
+     * returning a direct pointer to the cache's memory.
+     * If the extent ID queried is 0, an BlobExtent0 object will be
+     * allocated. Otherwise a BlobExtent object is allocated. Since the
+     * base BlobExtent is returned, it is up to the caller to cast to BlobExtent0.
+     * @param[out] error will contain ERR_OK on success; ERR_CAT_ENTRY_NOT_FOUND
+     * if extent0 does not exist in the cache layer; or other error.
+     * @return BlobExtent0 containing extent from persistent layer; If
+     * err is ERR_NOT_FOUND, BlobExtent0 is allocated but not filled in;
+     * returns null pointer in other cases.
+     */
+    BlobExtent::ptr getExtent(fds_volid_t volume_id,
+                               const std::string& blob_name,
+                               fds_extent_id extent_id,
+                               Error& error);
+
+    /**
+     * Updates extent 0 and a set of non-0 extents in the cache
+     * for given volume id, blob name.
      * This update is atomic -- either all updates are applied or none.
-     * If extent 0 or any other extens do not exist, they are added to the DB
-     * If any non-zero extent contains no offset to object info mappings, this
-     * extent is deleted from the DB.
+     * Any previously existing extents will be overwritten. If any extents
+     * have been invalidated by an updated, those extents need to be removed
+     * manually. The cache will remove entries related to truncate or overwrite.
      */
     Error putExtents(fds_volid_t volume_id,
                      const std::string& blob_name,

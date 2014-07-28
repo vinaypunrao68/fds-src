@@ -56,6 +56,8 @@ namespace fds {
 
         uint32_t write(serialize::Serializer* s) const;
         uint32_t read(serialize::Deserializer* d);
+
+        MetaDataList& operator=(const MetaDataList &rhs);
     };
 
     /**
@@ -77,10 +79,10 @@ namespace fds {
         BlobObjInfo(const ObjectID& obj_id, fds_uint64_t sz);
         ~BlobObjInfo();
 
-        BlobObjInfo& operator= (const BlobObjInfo &rhs);
-
         uint32_t write(serialize::Serializer* s) const;
         uint32_t read(serialize::Deserializer* d);
+
+        BlobObjInfo& operator=(const BlobObjInfo &rhs);
     };
 
     /**
@@ -186,6 +188,8 @@ namespace fds {
 
         uint32_t write(serialize::Serializer* s) const;
         uint32_t read(serialize::Deserializer* d);
+
+        BasicBlobMeta& operator=(const BasicBlobMeta& rhs);
     };
 
 
@@ -209,6 +213,8 @@ namespace fds {
 
         uint32_t write(serialize::Serializer* s) const;
         uint32_t read(serialize::Deserializer* d);
+
+        BlobMetaDesc& operator=(const BlobMetaDesc& rhs);
     };
 
     std::ostream& operator<<(std::ostream& out, const BasicBlobMeta& bdesc);
