@@ -375,6 +375,26 @@ class DmIoQueryCat: public dmCatReq {
 };
 
 /**
+ * New request to update catalog
+ */
+class DmIoFwdCat : public dmCatReq {
+  public:
+    typedef std::function<void (const Error &e, DmIoFwdCat *req)> CbType;
+    explicit DmIoFwdCat(boost::shared_ptr<fpi::ForwardCatalogMsg>& fwdMsg)
+            : dmCatReq(fwdMsg->volume_id, fwdMsg->blob_name, fwdMsg->blob_version,
+                       FDS_DM_FWD_CAT_UPD), fwdCatMsg(fwdMsg) {}
+
+    virtual std::string log_string() const override {
+        std::stringstream ret;
+        ret << "DmIoFwdCat vol " << std::hex << volId << std::dec;
+        return ret.str();
+    }
+    boost::shared_ptr<fpi::ForwardCatalogMsg> fwdCatMsg;
+    CbType dmio_fwdcat_resp_cb;
+};
+
+
+/**
  * Request to update catalog
  */
 class DmIoUpdateCat: public dmCatReq {
