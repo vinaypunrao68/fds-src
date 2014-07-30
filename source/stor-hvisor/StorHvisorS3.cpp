@@ -160,7 +160,7 @@ StorHvCtrl::TxnRequestHelper::~TxnRequestHelper() {
         delete qosReq;
         //delete blobReq;
     } else {
-        scheduleTimer();
+        // scheduleTimer();
     }
 }
 
