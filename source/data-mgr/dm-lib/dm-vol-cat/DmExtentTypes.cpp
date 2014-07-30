@@ -232,7 +232,8 @@ BlobExtent0::BlobExtent0(const BlobExtent0& rhs)
         : BlobExtent(rhs) {
     // TODO(Andrew): Should use the BlobMetaDesc copy constructor
     // instead to avoid an extra initialization
-    blob_meta = rhs.blob_meta;
+    blob_meta        = rhs.blob_meta;
+    last_blob_offset = rhs.last_blob_offset;
 }
 
 BlobExtent0::~BlobExtent0() {

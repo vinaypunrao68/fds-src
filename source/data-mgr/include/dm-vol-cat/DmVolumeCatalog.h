@@ -7,6 +7,7 @@
 #include <string>
 #include <list>
 #include <set>
+#include <vector>
 #include <util/Log.h>
 #include <fds_error.h>
 #include <fds_module.h>
@@ -196,6 +197,14 @@ class DmVolumeCatalog : public Module,
                                    Error& error);
 
     /**
+     * Internal function to update or add a new metadata extent
+     * for a given volume and blob.
+     */
+    Error putMetaExtent(fds_volid_t volume_id,
+                        const std::string& blob_name,
+                        const BlobExtent0::const_ptr& meta_extent);
+
+    /**
      * Internal function to get an extent for a blob, whether
      * it is in the cache or not.
      */
@@ -203,6 +212,16 @@ class DmVolumeCatalog : public Module,
                               const std::string& blob_name,
                               fds_extent_id extent_id,
                               Error& error);
+
+    /**
+     * Internal function to update extent 0 and a set of
+     * non-0 extents in the volume catalog cache for given
+     * volume id, blob name.
+     */
+    Error putExtents(fds_volid_t volume_id,
+                     const std::string& blob_name,
+                     const BlobExtent0::const_ptr& meta_extent,
+                     const std::vector<BlobExtent::const_ptr>& extents);
 
     /**
      * Volume catalog cache layer module

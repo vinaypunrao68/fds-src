@@ -61,17 +61,32 @@ class DmCacheVolCatalog : public Module, boost::noncopyable {
                                Error& error);
 
     /**
+     * Updates an single extent in the cache for given volume id, blob name.
+     * Any previously existing extent will be overwritten.
+     */
+    Error putExtent(fds_volid_t volume_id,
+                    const std::string& blob_name,
+                    const BlobExtent::const_ptr& extent);
+
+    /**
      * Updates extent 0 and a set of non-0 extents in the cache
      * for given volume id, blob name.
      * This update is atomic -- either all updates are applied or none.
      * Any previously existing extents will be overwritten. If any extents
      * have been invalidated by an updated, those extents need to be removed
-     * manually. The cache will remove entries related to truncate or overwrite.
+     * manually. The cache will not remove entries related to truncate or overwrite.
      */
     Error putExtents(fds_volid_t volume_id,
                      const std::string& blob_name,
                      const BlobExtent0::const_ptr& meta_extent,
                      const std::vector<BlobExtent::const_ptr>& extents);
+
+    /**
+     * Removes an extent from the cache.
+     */
+    Error removeExtent(fds_volid_t volume_id,
+                       const std::string& blob_name,
+                       fds_extent_id extent_id);
 
   private:
     // TODO(Andrew): Have a structure to track dirty cache entries
