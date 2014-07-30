@@ -202,6 +202,7 @@ DmTimeVolCatalog::commitBlobTxWork(fds_volid_t volid,
         }
     }
     cb(e, blob_version, commit_data->blobObjList, commit_data->metaDataList);
+    commitLog->purgeTx(txDesc);
 }
 
 void DmTimeVolCatalog::updateFwdBlobWork(fds_volid_t volid,

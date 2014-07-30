@@ -6,6 +6,7 @@
 
 #include <unistd.h>
 #include <string.h>
+#include <set>
 
 #include <string>
 #include <vector>
@@ -14,6 +15,7 @@
 
 #include <fds_error.h>
 #include <fds_module.h>
+#include <util/timeutils.h>
 #include <concurrency/RwLock.h>
 #include <serialize.h>
 #include <blob/BlobTypes.h>
@@ -24,6 +26,8 @@
 namespace fds {
 
 const unsigned DEFAULT_COMMIT_LOG_FILE_SIZE = 5 * 1024 * 1024;
+
+struct DmCommitLogEntry;    // forward declaration
 
 // commit log transaction details
 struct CommitLogTx {
@@ -38,8 +42,9 @@ struct CommitLogTx {
     bool commited;
     bool rolledback;
     bool blobDelete;
+    bool purged;
 
-    std::vector<fds_uint64_t> entries;
+    std::vector<const DmCommitLogEntry *> entries;
 
     BlobObjList::ptr blobObjList;
     MetaDataList::ptr metaDataList;
@@ -47,7 +52,7 @@ struct CommitLogTx {
     blob_version_t blobVersion;
 
     CommitLogTx() : txDesc(0), blobMode(0), started(false), commited(false), rolledback(false),
-            blobDelete(false), blobObjList(0), metaDataList(0),
+            blobDelete(false), purged(false), blobObjList(0), metaDataList(0),
             blobVersion(blob_version_invalid) {}
 };
 
@@ -82,6 +87,8 @@ class DmCommitLog : public Module {
     int  mod_init(SysParams const *const param) override;
     void mod_startup() override;
     void mod_shutdown() override;
+
+    void compactLog();
 
     /*
      * operations
@@ -118,6 +125,7 @@ class DmCommitLog : public Module {
     PersistenceType persist_;
     bool started_;
     boost::shared_ptr<DmCommitLogger> cmtLogger_;
+    std::atomic_bool compacting_;
 
     // Methods
     Error validateSubsequentTx(const BlobTxId & txId);
@@ -155,14 +163,15 @@ struct DmCommitLogEntry {
     CommitLogEntryType type;
     fds_uint64_t id;
     fds_uint64_t txId;
+    fds_uint64_t timestamp;
     fds_uint32_t next;
 
     fds_uint32_t len;
     char payload[];     // should be last data member of structure
 
     DmCommitLogEntry(CommitLogEntryType type_, BlobTxId::const_ptr & txDesc, fds_uint64_t id_,
-            fds_uint32_t len_ = 0, const char * payload_ = 0) :
-            type(type_), id(id_), txId(txDesc->getValue()), next(0), len(len_) {
+            fds_uint32_t len_ = 0, const char * payload_ = 0) : type(type_), id(id_),
+            txId(txDesc->getValue()), timestamp(util::getTimeStampNanos()), next(0), len(len_) {
         if (len && payload_) {
             memcpy(payload, payload_, len);
         }
@@ -299,22 +308,22 @@ class DmCommitLogger {
     typedef boost::shared_ptr<const DmCommitLogger> const_ptr;
 
     virtual Error startTx(BlobTxId::const_ptr & txDesc, StartTxDetails::const_ptr & details,
-            fds_uint64_t & id) = 0;
+            DmCommitLogEntry* & entry) = 0;
 
     virtual Error updateTx(BlobTxId::const_ptr & txDesc, BlobObjList::const_ptr blobObjList,
-            fds_uint64_t & id) = 0;
+            DmCommitLogEntry* & entry) = 0;
 
     virtual Error updateTx(BlobTxId::const_ptr & txDesc, MetaDataList::const_ptr metaDataList,
-            fds_uint64_t & id) = 0;
+            DmCommitLogEntry* & entry) = 0;
 
     virtual Error deleteBlob(BlobTxId::const_ptr & txDesc, DeleteBlobDetails::const_ptr & details,
-            fds_uint64_t & id) = 0;
+            DmCommitLogEntry* & entry) = 0;
 
-    virtual Error commitTx(BlobTxId::const_ptr & txDesc, fds_uint64_t & id) = 0;
+    virtual Error commitTx(BlobTxId::const_ptr & txDesc, DmCommitLogEntry* & entry) = 0;
 
-    virtual Error rollbackTx(BlobTxId::const_ptr & txDesc, fds_uint64_t & id) = 0;
+    virtual Error rollbackTx(BlobTxId::const_ptr & txDesc, DmCommitLogEntry* & entry) = 0;
 
-    virtual Error purgeTx(BlobTxId::const_ptr & txDesc, fds_uint64_t & id) = 0;
+    virtual Error purgeTx(BlobTxId::const_ptr & txDesc, DmCommitLogEntry* & entry) = 0;
 
     virtual const DmCommitLogEntry * getFirst() = 0;
 
@@ -323,6 +332,10 @@ class DmCommitLogger {
     virtual const DmCommitLogEntry * getNext(const DmCommitLogEntry * rhs) = 0;
 
     virtual const DmCommitLogEntry * getEntry(const fds_uint64_t id) = 0;
+
+    virtual const std::set<fds_uint64_t> compactLog(const std::set<fds_uint64_t> & candidates) = 0;
+
+    virtual bool hasReachedSizeThreshold() = 0;
 };
 
 class FileCommitLogger : public DmCommitLogger {
@@ -334,26 +347,28 @@ class FileCommitLogger : public DmCommitLogger {
         byte digest[hash::Sha1::numDigestBytes];
     };
 
+    static const fds_uint32_t PERCENT_SIZE_THRESHOLD = 70;
+
     FileCommitLogger(const std::string & filename, fds_uint32_t filesize);
     virtual ~FileCommitLogger();
 
     virtual Error startTx(BlobTxId::const_ptr & txDesc, StartTxDetails::const_ptr & details,
-            fds_uint64_t & id) override;
+            DmCommitLogEntry* & entry) override;
 
     virtual Error updateTx(BlobTxId::const_ptr & txDesc, BlobObjList::const_ptr blobObjList,
-            fds_uint64_t & id) override;
+            DmCommitLogEntry* & entry) override;
 
     virtual Error updateTx(BlobTxId::const_ptr & txDesc, MetaDataList::const_ptr metaDataList,
-            fds_uint64_t & id) override;
+            DmCommitLogEntry* & entry) override;
 
     virtual Error deleteBlob(BlobTxId::const_ptr & txDesc, DeleteBlobDetails::const_ptr & details,
-            fds_uint64_t & id) override;
+            DmCommitLogEntry* & entry) override;
 
-    virtual Error commitTx(BlobTxId::const_ptr & txDesc, fds_uint64_t & id) override;
+    virtual Error commitTx(BlobTxId::const_ptr & txDesc, DmCommitLogEntry* & entry) override;
 
-    virtual Error rollbackTx(BlobTxId::const_ptr & txDesc, fds_uint64_t & id) override;
+    virtual Error rollbackTx(BlobTxId::const_ptr & txDesc, DmCommitLogEntry* & entry) override;
 
-    virtual Error purgeTx(BlobTxId::const_ptr & txDesc, fds_uint64_t & id) override;
+    virtual Error purgeTx(BlobTxId::const_ptr & txDesc, DmCommitLogEntry* & entry) override;
 
     virtual const DmCommitLogEntry * getFirst() override {
         FDSGUARD(lockLogFile_);
@@ -372,6 +387,11 @@ class FileCommitLogger : public DmCommitLogger {
 
     virtual const DmCommitLogEntry * getEntry(const fds_uint64_t id) override;
 
+    virtual const std::set<fds_uint64_t> compactLog(const std::set<fds_uint64_t> &
+            candidates) override;
+
+    virtual bool hasReachedSizeThreshold() override;
+
   protected:
     inline EntriesHeader * header() {
         return reinterpret_cast<EntriesHeader *>(addr_);
@@ -381,8 +401,8 @@ class FileCommitLogger : public DmCommitLogger {
         return addr_ + sizeof(EntriesHeader);
     }
 
-    inline fds_uint32_t entryOffset(DmCommitLogEntry * rhs) {
-        return reinterpret_cast<char *>(rhs) - addr_;
+    inline fds_uint32_t entryOffset(const DmCommitLogEntry * rhs) {
+        return reinterpret_cast<const char *>(rhs) - addr_;
     }
 
     inline DmCommitLogEntry * first() {
@@ -395,7 +415,9 @@ class FileCommitLogger : public DmCommitLogger {
 
     char * commitLogAlloc(const size_t sz);
 
-    void addEntryToHeader(DmCommitLogEntry * entry);
+    void addEntryToHeader(DmCommitLogEntry * entry, bool sync = true);
+
+    void removeEntry(bool sync = true);  // removes first entry
 
     inline const DmCommitLogEntry * getFirstInternal() {
         return header()->count ? first() : 0;
@@ -404,6 +426,8 @@ class FileCommitLogger : public DmCommitLogger {
     inline const DmCommitLogEntry * getLastInternal() {
         return header()->count ? last() : 0;
     }
+
+    void syncHeader();
 
     const DmCommitLogEntry * getNextInternal(const DmCommitLogEntry * rhs);
 
