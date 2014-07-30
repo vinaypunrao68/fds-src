@@ -199,6 +199,7 @@ void Callback::operator()(FDSN_Status status) {
 
 void Callback::call(FDSN_Status status) {
     this->status = status;
+    this->error  = status;
     call();
 }
 

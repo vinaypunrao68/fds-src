@@ -137,8 +137,7 @@ class VolumeCacheManager : public Module, boost::noncopyable {
      * Adds a key-value pair to a volume's cache.
      */
     std::list<std::unique_ptr<V>> addBatch(fds_volid_t volId,
-                                           const K &key,
-                                           const std::list<V*> &valueList) {
+                                           const std::list<std::pair<K, V*>> pairList) {
         std::list<std::unique_ptr<V>> evictList;
 
         SCOPEDREAD(cacheMapRwlock);
@@ -158,13 +157,14 @@ class VolumeCacheManager : public Module, boost::noncopyable {
         // Iterate and update the cache structure and return
         // whatever was evicted
         std::unique_ptr<V> evictPtr;
-        for (typename std::list<V*>::const_iterator cit = valueList.begin();
-             cit != valueList.end();
+        for (typename std::list<std::pair<K, V*>>::const_iterator cit = pairList.begin();
+             cit != pairList.end();
              cit++) {
-            evictPtr = cache->add(key, *cit);
+            evictPtr = cache->add((*cit).first, (*cit).second);
             if (evictPtr != NULL) {
                 // Transfer ptr ownership to the list
-                evictList.push_back(evictPtr.release());
+                evictList.push_back(
+                    std::unique_ptr<V>(evictPtr.release()));
             }
         }
 
@@ -225,7 +225,8 @@ class VolumeCacheManager : public Module, boost::noncopyable {
 
         // Remove from the cache structure
         KvCache<K, V, _Hash> *cache = cacheEntry.second;
-        return cache->remove(key);
+        cache->remove(key);
+        return ERR_OK;
     }
 
     /// Init module
