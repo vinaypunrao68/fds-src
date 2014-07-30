@@ -30,7 +30,10 @@ Error CatSyncReceiver::startRecvVolmeta(fds_volid_t volid,
 
     fds_mutex::scoped_lock l(cat_recv_lock);
 
-    // we must not have receiver created for this volume
+    // make sure we don't have previous receiver
+    if (vol_recv_map.count(volid) > 0) {
+        vol_recv_map.erase(volid);
+    }
     fds_verify(vol_recv_map.count(volid) == 0);
 
     // create receiver for this volume
@@ -86,10 +89,10 @@ Error CatSyncReceiver::handleFwdDone(fds_volid_t volid) {
     fds_verify(volrecv->state == VSYNC_RECV_FWD_INPROG);
     volrecv->state = VSYNC_RECV_FWD_FINISHING;
 
-    if (volrecv->pending == 0) {
+    // if (volrecv->pending == 0) {
         // we are done, notify DataMgr that will activate qos queue
         recvdVolMetaLocked(volid);
-    }
+        // }
     // do not access volrecv after this point!
 
     return err;
@@ -151,7 +154,7 @@ void CatSyncReceiver::recvdVolMetaLocked(fds_volid_t volid) {
     fds_verify(done_evt_handler);
     done_evt_handler(volid, ERR_OK);
     // cleanup receiver
-    vol_recv_map.erase(volid);
+    // vol_recv_map.erase(volid);
 }
 
 CatSyncReceiver::VolReceiver::VolReceiver(fds_volid_t volid,

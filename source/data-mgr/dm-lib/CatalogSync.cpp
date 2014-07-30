@@ -24,7 +24,6 @@ CatalogSync::CatalogSync(const NodeUuid& uuid,
         : node_uuid(uuid),
           state(CSSTATE_READY),
           om_client(omclient),
-          meta_client(NULL),
           dm_req_handler(dm_req_hdlr) {
     state = ATOMIC_VAR_INIT(CSSTATE_READY);
     vols_done = ATOMIC_VAR_INIT(0);
@@ -37,7 +36,6 @@ CatalogSync::~CatalogSync() {
  * On return, set 'volumes' will be empty
  */
 Error CatalogSync::startSync(std::set<fds_volid_t>* volumes,
-                             netMetaSyncClientSession* client,
                              catsync_done_handler_t done_evt_hdlr) {
     Error err(ERR_OK);
     csStateType expect = CSSTATE_READY;
@@ -51,7 +49,6 @@ Error CatalogSync::startSync(std::set<fds_volid_t>* volumes,
               << std::hex << node_uuid.uuid_get_val() << std::dec;
 
     // set callback to notify when sync job is done
-    meta_client = client;
     done_evt_handler = done_evt_hdlr;
     sync_volumes.swap(*volumes);
     fds_uint32_t counter_zero = 0;
@@ -93,7 +90,6 @@ void CatalogSync::doDeltaSync() {
               << std::hex << node_uuid.uuid_get_val() << std::dec;
 
     // at this point, we must have meta client and done evt handler
-    fds_verify(meta_client != NULL);
     fds_verify(done_evt_handler != NULL);
 
     // reset vols_done so we can also use it
@@ -273,13 +269,11 @@ void CatalogSync::fwdCatalogUpdateMsgResp(DmIoCommitBlobTx *commitReq,
 /***** CatalogSyncManager implementation ******/
 
 CatalogSyncMgr::CatalogSyncMgr(fds_uint32_t max_jobs,
-                               DmIoReqHandler* dm_req_hdlr,
-                               netSessionTblPtr netSession)
+                               DmIoReqHandler* dm_req_hdlr)
         : Module("CatalogSyncMgr"),
           sync_in_progress(false),
           max_sync_inprogress(max_jobs),
           dm_req_handler(dm_req_hdlr),
-          netSessionTbl(netSession),
           cat_sync_lock("Catalog Sync lock"),
           dmtclose_time(boost::posix_time::min_date_time) {
     LOGNORMAL << "Constructing CatalogSyncMgr";
@@ -293,63 +287,13 @@ CatalogSyncMgr::~CatalogSyncMgr() {
  */
 void CatalogSyncMgr::mod_startup()
 {
-    meta_handler.reset(new FDSP_MetaSyncRpc(*this, GetLog()));
-
-    std::string ip = netSession::getLocalIp();
-    int port = PlatformProcess::plf_manager()->plf_get_my_metasync_port();
-    int myIpInt = netSession::ipString2Addr(ip);
-    std::string node_name = "localhost-meta";
-    meta_session = netSessionTbl->createServerSession<netMetaSyncServerSession>(
-        myIpInt,
-        port,
-        node_name,
-        FDSP_METASYNC_MGR,
-        meta_handler);
-
-    LOGNORMAL << "Meta sync path server setup ip: "
-              << ip << " port: " << port;
-
-    meta_session->listenServerNb();
 }
-
-/// create client session
-netMetaSyncClientSession*
-CatalogSyncMgr::create_metaSync_client(const NodeUuid& node_uuid, OMgrClient* omclient)
-{
-    fds_uint32_t node_ip   = 0;
-    fds_uint32_t node_port = 0;
-    fds_int32_t node_state = -1;
-    fds_uint32_t sync_port = 0;
-
-    omclient->getNodeInfo(node_uuid.uuid_get_val(), &node_ip, &node_port, &node_state);
-    std::string dest_ip = netSessionTbl::ipAddr2String(node_ip);
-    sync_port = omclient->getNodeMetaSyncPort(node_uuid);
-    LOGDEBUG << "Dest node " << std::hex << node_uuid.uuid_get_val() << std::dec
-             << "  = dest IP:" << dest_ip  << " port : " << sync_port;
-
-    /* Create a client rpc session from src to dst */
-    netMetaSyncClientSession* meta_client_session =
-            netSessionTbl->startSession<netMetaSyncClientSession>(
-                    dest_ip,
-                    sync_port,
-                    FDSP_METASYNC_MGR,
-                    1, /* number of channels */
-                    meta_handler);
-
-    LOGNORMAL << "Meta sync path Client setup ip: "
-              << dest_ip << " port: " << sync_port <<
-              "client_session:" << meta_client_session;
-    return meta_client_session;
-}
-
 
 /**
  * Module shutdown code
  */
 void CatalogSyncMgr::mod_shutdown()
 {
-    LOGNORMAL << "Ending metadata path sessions";
-    netSessionTbl->endSession(meta_session->getSessionTblKey());
 }
 
 /**
@@ -392,12 +336,9 @@ CatalogSyncMgr::startCatalogSync(const FDS_ProtocolInterface::FDSP_metaDataList&
             vols.insert(vol);
         }
 
-        // create client talking to node 'uuid' and pass it to CatalogSync
-        netMetaSyncClientSession* meta_client = create_metaSync_client(uuid, omclient);
-
         // Tell CatalogSync to start the sync process
         // TODO(xxx) only start max_syn_inprogress syncs, but for now starting all
-        catsync->startSync(&vols, meta_client,
+        catsync->startSync(&vols,
                            std::bind(&CatalogSyncMgr::syncDoneCb, this,
                                      std::placeholders::_1,
                                      std::placeholders::_2,
@@ -577,23 +518,6 @@ void CatalogSyncMgr::syncDoneCb(catsync_notify_evt_t event,
 }
 
 /**
- * This is for the receiving side
- */
-
-void
-FDSP_MetaSyncRpc::PushMetaSyncReq(fpi::FDSP_MsgHdrTypePtr& fdsp_msg,
-                         fpi::FDSP_UpdateCatalogTypePtr& meta_req)
-{
-    fds_panic("must not get here!");
-}
-
-void
-FDSP_MetaSyncRpc::PushMetaSyncResp(fpi::FDSP_MsgHdrTypePtr& fdsp_msg,
-                                   fpi::FDSP_UpdateCatalogTypePtr& meta_resp) {
-    fds_panic("must not get here!");
-}
-
-/**
  * Send message that rsync has finished. From Master DM to new
  * DM. Uses VolSyncStateMsg.
  *  
@@ -624,11 +548,5 @@ Error CatalogSync::issueVolSyncStateMsg(fds_volid_t volId,
 
     return err;
 }
-void
-FDSP_MetaSyncRpc::MetaSyncDone(fpi::FDSP_MsgHdrTypePtr& fdsp_msg,
-                               fpi::FDSP_VolMetaStatePtr& vol_meta) {
-    LOGNORMAL << "Received MetaSyncDone Rpc message "
-              << " forward done? " << vol_meta->forward_done;
-    fds_panic("must not get here!");
-}
+
 }  // namespace fds

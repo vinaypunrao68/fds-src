@@ -14,7 +14,6 @@
 #include <util/Log.h>
 #include <fds_process.h>
 #include <concurrency/Mutex.h>
-#include <NetSession.h>
 #include <DmIoReq.h>
 
 namespace fpi = FDS_ProtocolInterface;

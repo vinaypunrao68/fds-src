@@ -483,7 +483,8 @@ void DataMgr::handleDMTClose(dmCatReq *io) {
     DmIoPushMetaDone *pushMetaDoneReq = static_cast<DmIoPushMetaDone*>(io);
 
     LOGDEBUG << "Processed all commits that arrived before DMT close "
-             << "will now notify dst DM to open up volume queues";
+             << "will now notify dst DM to open up volume queues: vol "
+             << std::hex << pushMetaDoneReq->volId << std::dec;
 
     Error err = catSyncMgr->issueServiceVolumeMsg(pushMetaDoneReq->volId);
     // TODO(Anna) if err, send DMT close ack with error???
@@ -495,10 +496,11 @@ void DataMgr::handleDMTClose(dmCatReq *io) {
 
     // start timer where we will stop forwarding volumes that are
     // still in 'finishing forwarding' state
-    closedmt_timer->cancel(closedmt_timer_task);
-    if (!closedmt_timer->schedule(closedmt_timer_task, std::chrono::seconds(2))) {
+    // closedmt_timer->cancel(closedmt_timer_task);
+    if (!closedmt_timer->schedule(closedmt_timer_task, std::chrono::seconds(30))) {
         // TODO(xxx) how do we handle this?
-        fds_panic("Failed to schedule closedmt timer!");
+        // fds_panic("Failed to schedule closedmt timer!");
+        LOGWARN << "Failed to schedule close dmt timer task";
     }
 }
 
@@ -764,7 +766,7 @@ void DataMgr::setup_metadatapath_server(const std::string &ip)
 
 void DataMgr::setup_metasync_service()
 {
-    catSyncMgr.reset(new CatalogSyncMgr(1, this, nstable));
+    catSyncMgr.reset(new CatalogSyncMgr(1, this));
     // TODO(xxx) should we start catalog sync manager when no OM?
     catSyncMgr->mod_startup();
 }
