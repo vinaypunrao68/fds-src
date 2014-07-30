@@ -763,11 +763,13 @@ StorHvCtrl::setBlobMetaDataSvc(fds::AmQosReq* qosReq)
     fds_verify(shVol->isValidLocked() == true);
 
     std::string blob_name = blobReq->getBlobName();
+    fds_verify((shVol->tx_to_dmt).count(blobReq->getTxId()->getValue()) > 0);
+    fds_uint64_t dmt_version = (shVol->tx_to_dmt)[blobReq->getTxId()->getValue()];
  
     LOGDEBUG << " Invoking issueSetBlobMetaData";
     issueSetBlobMetaData(vol_id, blob_name, blob_version_invalid, blobReq->getMetaDataListPtr(),
-                          blobReq->getTxId()->getValue(),
-                          RESPONSE_MSG_HANDLER(StorHvCtrl::setBlobMetaDataMsgResp, qosReq));
+                         blobReq->getTxId()->getValue(), dmt_version,
+                         RESPONSE_MSG_HANDLER(StorHvCtrl::setBlobMetaDataMsgResp, qosReq));
     return err;
 }
 
@@ -777,6 +779,7 @@ StorHvCtrl::issueSetBlobMetaData(const fds_volid_t& vol_id,
                                  const blob_version_t& blob_version,
                                  const boost::shared_ptr<FDSP_MetaDataList>& md_list,
                                  const fds_uint64_t& txId,
+                                 fds_uint64_t dmt_version,
                                  QuorumSvcRequestRespCb respCb)
 {
     LOGDEBUG << " inside issueSetBlobMetaData";
@@ -804,7 +807,8 @@ StorHvCtrl::issueSetBlobMetaData(const fds_volid_t& vol_id,
 
     LOGDEBUG << " Invoking  Message Interface";
     auto asyncSetMDReq = gSvcRequestPool->newQuorumSvcRequest(
-        boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(vol_id)));
+        boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(vol_id,
+                                                                                  dmt_version)));
     asyncSetMDReq->setPayload(FDSP_MSG_TYPEID(fpi::SetBlobMetaDataMsg), setMDMsg);
     asyncSetMDReq->onResponseCb(respCb);
     asyncSetMDReq->invoke();

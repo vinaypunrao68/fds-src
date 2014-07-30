@@ -17,12 +17,9 @@
 #include <fds_config.hpp>
 #include <fds_counters.h>
 #include <fds_process.h>
-#include <fdsp/FDSP_MetaSyncReq.h>
-#include <fdsp/FDSP_MetaSyncResp.h>
 #include <concurrency/Mutex.h>
 #include <fdsp/FDSP_types.h>
 #include <DmIoReq.h>
-#include <NetSession.h>
 #include <DmBlobTypes.h>
 #include <fdsp/fds_service_types.h>
 #include <net/PlatNetSvcHandler.h>
@@ -33,8 +30,6 @@ namespace fpi = FDS_ProtocolInterface;
 
 namespace fds {
 
-
-     class FDSP_MetaSyncRpc;  // forward declaration
      class OMgrClient;
      class CatalogSyncMgr;
 
@@ -96,7 +91,6 @@ namespace fds {
          * will need to sync; on function return, the set will be empty
          */
         Error startSync(std::set<fds_volid_t>* volumes,
-                        netMetaSyncClientSession* client,
                         catsync_done_handler_t done_evt_hdlr);
 
         /**
@@ -221,7 +215,6 @@ namespace fds {
 
     typedef boost::shared_ptr<CatalogSync> CatalogSyncPtr;
     typedef std::unordered_map<NodeUuid, CatalogSyncPtr, UuidHash> CatSyncMap;
-    typedef boost::shared_ptr<fpi::FDSP_MetaSyncRespClient> MetaSyncRespHandlerPrx;
 
     /**
      * Manages Catalog sync process
@@ -229,8 +222,7 @@ namespace fds {
     class CatalogSyncMgr: public Module {
   public:
         CatalogSyncMgr(fds_uint32_t max_jobs,
-                       DmIoReqHandler* dm_req_hdlr,
-                       netSessionTblPtr netSession);
+                       DmIoReqHandler* dm_req_hdlr);
         virtual ~CatalogSyncMgr();
 
         /* Overrides from Module */
@@ -293,17 +285,6 @@ namespace fds {
                         OMgrClient* omclient,
                         const Error& error);
 
-        /**
-         * response client for meta sync responses
-         */
-        inline MetaSyncRespHandlerPrx respCli(const string& session_uuid) {
-            return meta_session->getRespClient(session_uuid);
-        }
-
-  private:  // methods
-        netMetaSyncClientSession*
-                create_metaSync_client(const NodeUuid& node_uuid, OMgrClient* omclient);
-
   private:
         fds_bool_t sync_in_progress;
         /**
@@ -330,60 +311,10 @@ namespace fds {
          * Timestamp when DM received DMT close
          */
         boost::posix_time::ptime dmtclose_time;
-
-        /* Net session  handlers */
-        netSessionTblPtr netSessionTbl;
-        boost::shared_ptr<FDSP_MetaSyncRpc> meta_handler;
-        netMetaSyncServerSession *meta_session;
     };
 
     typedef boost::shared_ptr<CatalogSyncMgr> CatalogSyncMgrPtr;
 
-
-    class FDSP_MetaSyncRpc : virtual public fpi::FDSP_MetaSyncReqIf,
-            virtual public fpi::FDSP_MetaSyncRespIf, public HasLogger
-    {
-   public:
-        FDSP_MetaSyncRpc(CatalogSyncMgr &meta_sync_, fds_log *log)
-            : metaSyncMgr(meta_sync_) {
-            SetLog(log);
-        }
-        ~FDSP_MetaSyncRpc() {}
-
-        std::string log_string() {
-            return "FDSP_MigrationPathRpc";
-        }
-
-        void PushMetaSyncReq(const fpi::FDSP_MsgHdrType& fdsp_msg,
-                             const fpi::FDSP_UpdateCatalogType& push_meta_req) {
-            // Don't do anything here. This stub is just to keep cpp compiler happy
-        }
-        void PushMetaSyncReq(fpi::FDSP_MsgHdrTypePtr& fdsp_msg,
-                             fpi::FDSP_UpdateCatalogTypePtr& push_meta_req);
-
-        void MetaSyncDone(const fpi::FDSP_MsgHdrType& fdsp_msg,
-                          const fpi::FDSP_VolMetaState& vol_meta) {
-            // Don't do anything here. This stub is just to keep cpp compiler happy
-        }
-        void MetaSyncDone(fpi::FDSP_MsgHdrTypePtr& fdsp_msg,
-                          fpi::FDSP_VolMetaStatePtr& vol_meta);
-
-        void PushMetaSyncResp(const fpi::FDSP_MsgHdrType& fdsp_msg,
-                              const fpi::FDSP_UpdateCatalogType& push_meta_resp) {
-            // Don't do anything here. This stub is just to keep cpp compiler happy
-        }
-        void PushMetaSyncResp(fpi::FDSP_MsgHdrTypePtr& fdsp_msg,
-                              fpi::FDSP_UpdateCatalogTypePtr& push_meta_resp);
-        void MetaSyncDoneResp(const fpi::FDSP_MsgHdrType& fdsp_msg,
-                              const fpi::FDSP_VolMetaState& vol_meta) {
-            // Don't do anything here. This stub is just to keep cpp compiler happy
-        }
-        void MetaSyncDoneResp(fpi::FDSP_MsgHdrTypePtr& fdsp_msg,
-                              fpi::FDSP_VolMetaStatePtr& vol_meta) {
-        }
-  protected:
-        CatalogSyncMgr  &metaSyncMgr;
-    };
 }  // namespace fds
 
 #endif  // SOURCE_DATA_MGR_INCLUDE_CATALOGSYNC_H_
