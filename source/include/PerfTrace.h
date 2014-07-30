@@ -22,18 +22,20 @@
 #include "fds_config.hpp"
 #include "util/Log.h"
 #include "concurrency/Mutex.h"
+#include "PerfTypes.h"
 
-#define SCOPED_PERF_TRACEPOINT(id, type, name) fds::ScopedTracePoint stp_(id, type, name)
+#define SCOPED_PERF_TRACEPOINT(id, type, volid, name) fds::ScopedTracePoint stp_(id, type, volid, name)
 #define SCOPED_PERF_TRACEPOINT_CTX(ctx) fds::ScopedTracePointCtx stpctx_(ctx)
 
 #ifdef DEBUG
 
-#define PERF_TRACEPOINT_INCR(type, name) fds::PerfTracer::incr(type, name)
-#define PERF_TRACEPOINT_BEGIN(id, type, name) fds::PerfTracer::tracePointBegin(id, type, name)
+#define PERF_TRACEPOINT_INCR(type, volid, name) fds::PerfTracer::incr(type, volid, name)
+#define PERF_TRACEPOINT_BEGIN(id, type, volid, name) fds::PerfTracer::tracePointBegin(id, type, volid, name)
 #define PERF_TRACEPOINT_BEGIN_CTX(ctx) fds::PerfTracer::tracePointBegin(ctx)
-#define PERF_TRACEPOINT_END(idOrCtx) fds::PerfTracer::tracePointEnd(idOrCtx)
+#define PERF_TRACEPOINT_END_CTX(ctx) fds::PerfTracer::tracePointEnd(ctx)
+#define PERF_TRACEPOINT_END(id, volid) fds::PerfTracer::tracePointEnd(id, volid)
 
-#define SCOPED_PERF_TRACEPOINT_DEBUG(id, type, name) fds::ScopedTracePoint stp_(id, type, name)
+#define SCOPED_PERF_TRACEPOINT_DEBUG(id, type, volid, name) fds::ScopedTracePoint stp_(id, type, volid, name)
 #define SCOPED_PERF_TRACEPOINT_CTX_DEBUG(ctx) fds::ScopedTracePointCtx stpctx_(ctx)
 
 #else
@@ -52,119 +54,9 @@ namespace fds {
 
 extern const std::string PERF_COUNTERS_NAME;
 
-extern const unsigned PERF_CONTEXT_TIMEOUT;
 
 // XXX: update eventTypeToStr[] for each event added
 extern const char * eventTypeToStr[];
-typedef enum {
-    TRACE, // generic event
-    TRACE_ERR,
-
-    // Store Manager
-    PUT_IO, 
-    PUT_OBJ_REQ, 
-    PUT_OBJ_REQ_ERR,
-    PUT_TRANS_QUEUE_WAIT, 
-    PUT_QOS_QUEUE_WAIT,
-    PUT_CACHE_HIT, 
-
-    DUPLICATE_OBJ, 
-    HASH_COLLISION, 
-
-    GET_IO, 
-    GET_OBJ_REQ, 
-    GET_OBJ_REQ_ERR, 
-    GET_TRANS_QUEUE_WAIT,
-    GET_QOS_QUEUE_WAIT,
-    GET_CACHE_HIT, 
-
-    DELETE_IO,  
-    DELETE_OBJ_REQ, 
-    DELETE_OBJ_REQ_ERR, 
-    DELETE_TRANS_QUEUE_WAIT, 
-    DELETE_QOS_QUEUE_WAIT, 
-    DELETE_CACHE_HIT,
-
-    MURMUR3_HASH,
-    DLT_LKUP,
-    DMT_LKUP,
-
-    PUT_OBJ_DEDUPE_CHK,
-    PERSIST_DISK_WRITE,
-    PUT_OBJ_LOC_INDX_UPDATE,
-
-    GET_OBJ_CACHE_LKUP,
-    GET_OBJ_LKUP_LOC_INDX,
-    GET_OBJ_PL_READ_DISK,
-
-    COMMIT_LOG_WRITE,
-    GET_METADATA_READ,
-    GET_DISK_READ,
-    PUT_METADATA_WRITE,
-    PUT_DISK_WRITE,
-    DELETE_METADATA,
-    DELETE_DISK,
-
-    PUT_ODB,
-    GET_ODB,
-    DISK_WRITE,
-    DISK_READ,
-
-    //Access Manager
-    AM_PUT_OBJ_REQ,
-    AM_PUT_QOS,
-    AM_PUT_HASH,
-    AM_PUT_SM,
-    AM_PUT_DM,
-
-    AM_GET_OBJ_REQ,
-    AM_GET_QOS,
-    AM_GET_HASH,
-    AM_GET_SM,
-    AM_GET_DM,
-
-    AM_DELETE_OBJ_REQ,
-    AM_DELETE_QOS,
-    AM_DELETE_HASH,
-    AM_DELETE_SM,
-    AM_DELETE_DM,
-
-    // XXX: add new entries before this entry
-    MAX_EVENT_TYPE // this should be the last entry in the enum
-} PerfEventType;
-
-typedef struct PerfContext_ {
-    PerfContext_() :
-            type(TRACE),
-            name(""),
-            enabled(true),
-            timeout(PERF_CONTEXT_TIMEOUT),
-            start_cycle(0),
-            end_cycle(0),
-            data(0),
-            once(new std::once_flag()) {}
-
-    PerfContext_(PerfEventType type_, std::string name_ = "") :
-            type(type_),
-            name(name_),
-            enabled(true),
-            timeout(PERF_CONTEXT_TIMEOUT),
-            start_cycle(0),
-            end_cycle(0),
-            data(0),
-            once(new std::once_flag()) {
-        fds_assert(type < MAX_EVENT_TYPE);
-    }
-
-    PerfEventType type;
-    std::string name;
-    bool enabled;
-    uint64_t timeout;
-    uint64_t start_cycle;
-    uint64_t end_cycle;
-    boost::shared_ptr<FdsBaseCounter> data;
-    boost::shared_ptr<std::once_flag> once;
-} PerfContext;
 
 /**
  * Per module (SM/DM/SH) performance tracer
@@ -176,10 +68,10 @@ class PerfTracer : public boost::noncopyable {
 public:
 
     // Increment NumericCounter by 1
-    static void incr(const PerfEventType & type, std::string name = "");
+    static void incr(const PerfEventType & type, fds_volid_t volid, std::string name = "");
 
     // Increment counter value by val and (for LatencyCounter, count by cnt)
-    static void incr(const PerfEventType & type, uint64_t val,
+    static void incr(const PerfEventType & type, fds_volid_t volid, uint64_t val,
             uint64_t cnt = 0, std::string name = "");
 
     // For LatencyCounters
@@ -197,7 +89,7 @@ public:
      */
     // update begin timestamp for identified event
     static void tracePointBegin(const std::string & id, const PerfEventType & type,
-            std::string name = "");
+            fds_volid_t volid, std::string name = "");
     /**
      * Begins trace point for calculating latency.
      *
@@ -206,7 +98,8 @@ public:
     static void tracePointBegin(PerfContext & ctx);
 
     // update end timestamp for identified context and updates latency
-    static boost::shared_ptr<PerfContext> tracePointEnd(const std::string & id);
+    static boost::shared_ptr<PerfContext> tracePointEnd(const std::string & id, 
+                            fds_volid_t volid);
     static void tracePointEnd(PerfContext & ctx);
 
     // enable/ disable performance data collection
@@ -219,18 +112,19 @@ public:
 private:
 
     typedef std::unordered_map<std::string, PerfContext *> PerfContextMap;
-
-    // map maintaining LatencyCounters for tracePointBegin()/ tracePointEnd()
     PerfContextMap latencyMap_;
     fds_mutex latency_map_mutex_; //only for latencyMap_
 
     // all the counters
     boost::shared_ptr<FdsCounters> exportedCounters;
 
-    std::vector<PerfContext> aggregateCounters_;
+    std::vector<std::unordered_map<fds_volid_t, PerfContext>> aggregateCounters_;
+    fds_mutex ptrace_mutex_aggregate_;   // only for aggregate
 
-    std::vector<PerfContextMap> namedCounters_;
-    fds_mutex ptrace_mutex_; // only for namedCounters_
+    std::vector<std::unordered_map<fds_volid_t, PerfContextMap>> namedCounters_;
+    fds_mutex ptrace_mutex_named_; // only for namedCounters_
+
+    fds_mutex ptrace_mutex_; 
 
     /*
      * configuration
@@ -259,27 +153,31 @@ private:
 
     void reconfig();
 
-    void updateCounter(PerfContext & ctx, const uint64_t & val, const uint64_t cnt);
+    void updateCounter(PerfContext & ctx, const PerfEventType & type, 
+                const uint64_t & val, const uint64_t cnt,  const fds_volid_t volid, 
+                const std::string name);
 
     // update & insert (if counter is not present)
-    void upsert(const PerfEventType & type, uint64_t val, uint64_t cnt,
-            const std::string & name);
+    void upsert(const PerfEventType & type, fds_volid_t volid, uint64_t val, 
+            uint64_t cnt, const std::string & name);
 
     static inline PerfTracer & instance();
 };
 
 typedef struct ScopedTracePoint_ {
-    ScopedTracePoint_(const std::string & id, const PerfEventType & type,
-            const std::string & name) : id_(id), type_(type), name_(name) {
-        fds::PerfTracer::tracePointBegin(id_, type_, name_);
+    ScopedTracePoint_(const std::string & id, const PerfEventType & type, 
+            fds_volid_t volid, const std::string & name) : id_(id), 
+            type_(type), volid_(volid), name_(name) {
+        fds::PerfTracer::tracePointBegin(id_, type_, volid_, name_);
     }
 
     ~ScopedTracePoint_() {
-        fds::PerfTracer::tracePointEnd(id_);
+        fds::PerfTracer::tracePointEnd(id_, volid_);
     }
 private:
     const std::string & id_;
     const PerfEventType & type_;
+    const fds_volid_t & volid_;
     const std::string & name_;
 } ScopedTracePoint;
 

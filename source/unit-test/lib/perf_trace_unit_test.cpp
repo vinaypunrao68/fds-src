@@ -10,9 +10,10 @@
 
 #include "fds_process.h"
 #include "PerfTrace.h"
+//#include "PerfTypes.h"
 
 // XXX: uncomment to run single threaded
-//#define RUN_IN_SINGLE_THREAD
+// #define RUN_IN_SINGLE_THREAD
 
 // XXX: modify this to run with fixed sleep
 const int TASK_SLEEP_TIME = -1;
@@ -30,13 +31,14 @@ const int TASK_SLEEP_TIME = -1;
 
 using namespace fds;
 
-const unsigned NUM_SIM_JOBS = 20;
-const unsigned MAX_PERF_JOBS = 1000;
+const unsigned NUM_SIM_JOBS = 20;  // 20
+const unsigned MAX_PERF_JOBS = 1000;  // 1000
 
 const char * PREFIX[] = {"perf-ut-", "trace-ut", "test-ut-"};
 
 typedef struct JobDetails_ {
     PerfEventType type;
+    fds_volid_t volid;
     unsigned delay;
     std::string id;
     PerfContext ctx;
@@ -62,11 +64,13 @@ private:
 
 int PerfTraceUTProc::run() {
     for (unsigned i = 0; i < MAX_PERF_JOBS; ++i) {
-        jobs_[i].type = static_cast<PerfEventType>(rand() % MAX_EVENT_TYPE);
+        jobs_[i].type = static_cast<PerfEventType>( rand() % (MAX_EVENT_TYPE - 2) + 2);
+        jobs_[i].volid = static_cast<fds_volid_t>(rand());
         jobs_[i].delay = TASK_SLEEP_TIME < 0 ? (rand() % 31) + 1 : TASK_SLEEP_TIME;
         jobs_[i].id = PREFIX[rand() % 3] + boost::lexical_cast<std::string>(i);
         jobs_[i].ctx.type = jobs_[i].type;
         jobs_[i].ctx.name = jobs_[i].id;
+        jobs_[i].ctx.reset_volid(jobs_[i].volid);
 
 #ifdef RUN_IN_SINGLE_THREAD
         task(i);
@@ -98,6 +102,10 @@ void PerfTraceUTProc::task(int id) {
     // begin perf trace
     unsigned x = jobs_[id].type % 2;
     unsigned y = jobs_[id].type % 4;
+
+    std::cout << "begin - task=" << jobs_[id].id << " type=" << eventTypeToStr[jobs_[id].type] <<
+        " volid=" << jobs_[id].volid <<
+        " delay=" << jobs_[id].delay << std::endl;
     if (!x) {
         // all even numbered events use LatencyCounter
         if (!y) {
@@ -105,11 +113,11 @@ void PerfTraceUTProc::task(int id) {
             PerfTracer::tracePointBegin(jobs_[id].ctx);
         } else {
             // use dynamic PerfContext
-            PerfTracer::tracePointBegin(jobs_[id].id, jobs_[id].type, jobs_[id].id);
+            PerfTracer::tracePointBegin(jobs_[id].id, jobs_[id].type, jobs_[id].volid, jobs_[id].id);
         }
     } else {
         // all odd numbered event use Numeric counter
-        PerfTracer::incr(jobs_[id].type, jobs_[id].id);
+        PerfTracer::incr(jobs_[id].type, jobs_[id].volid, jobs_[id].id);
     }
 
     // task is executed here
@@ -121,10 +129,11 @@ void PerfTraceUTProc::task(int id) {
         if (!y) {
             PerfTracer::tracePointEnd(jobs_[id].ctx);
         } else {
-            pc = PerfTracer::tracePointEnd(jobs_[id].id);
+            pc = PerfTracer::tracePointEnd(jobs_[id].id, jobs_[id].volid);
         }
 
-        std::cout << "task=" << jobs_[id].id << " type=" << jobs_[id].type <<
+        std::cout << "end - task=" << jobs_[id].id << " type=" << eventTypeToStr[jobs_[id].type] <<
+            " volid=" << jobs_[id].volid <<
             " delay=" << jobs_[id].delay << " latency=";
         LatencyCounter * plc = dynamic_cast<LatencyCounter *>(pc ? pc->data.get() :
                 jobs_[id].ctx.data.get());

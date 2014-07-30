@@ -10,6 +10,7 @@
 #include <condition_variable> 
 #include <atomic>
 #include "qos_ctrl.h"
+#include "PerfTrace.h"
 
 
 namespace fds {

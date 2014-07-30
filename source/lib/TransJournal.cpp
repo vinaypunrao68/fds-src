@@ -6,7 +6,7 @@
 #include <fds_types.h>
 #include <fds_assert.h>
 #include <TransJournal.h>
-
+#include "PerfTrace.h"
 
 namespace fds {
 
@@ -233,7 +233,7 @@ release_transaction(const TransJournalId &trans_id)
              * the caller time out
              */
             PerfTracer::tracePointEnd(io->opReqLatencyCtx);
-            PerfTracer::incr(io->opReqFailedPerfEventType, io->perfNameStr);
+            PerfTracer::incr(io->opReqFailedPerfEventType, io->io_vol_id, io->perfNameStr);
 
             LOGERROR << "Failed to enque io.  Type: " << io->io_type
                     << " Req Id: " << io->io_req_id;

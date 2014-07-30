@@ -39,7 +39,8 @@ DmCommitLog::DmCommitLog(const std::string &modName, const std::string & filenam
         fds_uint32_t filesize /* = DEFAULT_COMMIT_LOG_FILE_SIZE */,
         PersistenceType persist /* = IN_MEMORY */) : Module(modName.c_str()), filename_(filename),
         filesize_(filesize), persist_(persist), started_(false),
-        logCtx(COMMIT_LOG_WRITE, filename) {
+        logCtx(COMMIT_LOG_WRITE, 0, filename) {  // FIXME(matteo): it shoudl have a
+                                                 // valid volumeid!!!!
     if (IN_FILE == persist_) {
         cmtLogger_.reset(new FileCommitLogger(filename_, filesize_));
     } else if (IN_MEMORY == persist_) {

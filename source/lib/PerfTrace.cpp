@@ -1,11 +1,11 @@
-#include <stdexcept>
+#include "PerfTrace.h"
 
+#include <stdexcept>
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
 
 #include "util/timeutils.h"
 #include "fds_process.h"
-#include "PerfTrace.h"
 
 // XXX: uncomment if name space for context is limited
 //#define CACHE_REGEX_MATCH_RESULTS
@@ -15,6 +15,8 @@
 
 namespace {
 
+typedef fds_int64_t fds_volid_t; // FIXME(matteo): ugly
+
 // start garbage collection for PerfContext if entries in latencyMap_
 // reaches this number
 const unsigned MAX_PENDING_PERF_CONTEXTS = 25000;
@@ -23,24 +25,30 @@ void createLatencyCounter(fds::PerfContext & ctx) {
     fds_assert(ctx.start_cycle);
     fds_assert(ctx.start_cycle <= ctx.end_cycle);
 
-    fds::LatencyCounter * plc = new fds::LatencyCounter(ctx.name, 0);
+    fds::LatencyCounter * plc = new fds::LatencyCounter(ctx.name, ctx.volid, 0);
     plc->update(ctx.end_cycle - ctx.start_cycle);
     ctx.data.reset(plc);
 }
-
+// FIXME(matteo): ctx may be useless here
 template <typename T>
-void initializeCounter(fds::PerfContext * ctx, fds::FdsCounters * parent) {
+void initializeCounter(fds::PerfContext * ctx, fds::FdsCounters * parent, 
+                    const fds::PerfEventType & type, const fds::fds_volid_t volid,
+                    std::string name) {
     fds_assert(ctx);
     fds_assert(0 == ctx->data.get());
     GLOGDEBUG << "Creating performance counter for type='" << fds::eventTypeToStr[ctx->type]
-            << "' name='" << ctx->name << "'";
+            << "' volid='" << ctx->volid
+            << "' name='" << ctx->name
+            << "' from type='" << fds::eventTypeToStr[type]
+            << "' volid='" << volid
+            << "' name='" << name << "' ";
 
-    std::string counterName = fds::eventTypeToStr[ctx->type];
-    if (!ctx->name.empty()) {
-        counterName += "." + ctx->name;
+    std::string counterName = fds::eventTypeToStr[type];
+    if (!name.empty()) {
+        counterName += "." + name;
     }
 
-    ctx->data.reset(new T(counterName, parent));
+    ctx->data.reset(new T(counterName, volid, parent));
 }
 
 void stringToEventsFilter(const std::string & str, std::bitset<fds::MAX_EVENT_TYPE> & filter) {
@@ -177,10 +185,6 @@ PerfTracer::PerfTracer() : aggregateCounters_(fds::MAX_EVENT_TYPE),
     fds_assert(g_fdslog);
 
     GLOGDEBUG << "Instantiating PerfTracer";
-    for (unsigned i = 0; i < MAX_EVENT_TYPE; ++i) {
-        aggregateCounters_[i].type = static_cast<PerfEventType>(i);
-        aggregateCounters_[i].name = "";
-    }
 
     exportedCounters.reset(new FdsCounters(PERF_COUNTERS_NAME, g_cntrs_mgr.get()));
 
@@ -194,12 +198,15 @@ PerfTracer::~PerfTracer() {
     }
     latencyMap_.clear();
 
-    for (PerfContextMap & m : namedCounters_) {
-        for (auto& kv : m) {
-            //TODO: exportedCounters->remove_from_export(kv.second.data);
-            delete kv.second;
+    for (auto & e : namedCounters_) {
+        for (auto& kv : e) { 
+            for (auto& kvv : kv.second) {
+                //TODO: exportedCounters->remove_from_export(kv.second.data);
+                delete kvv.second;
+            }
+            kv.second.clear();
         }
-        m.clear();
+        e.clear();
     }
     namedCounters_.clear();
 }
@@ -268,41 +275,42 @@ void PerfTracer::reconfig() {
     enable_ = tmpEnable;
 }
 
-void PerfTracer::updateCounter(PerfContext & ctx, const uint64_t & val,
-        const uint64_t cnt) {
+void PerfTracer::updateCounter(PerfContext & ctx, const PerfEventType & type, 
+        const uint64_t & val,  const uint64_t cnt, const fds_volid_t volid,
+        const std::string name) {
     GLOGNORMAL << "Updating performance counter for type='" << eventTypeToStr[ctx.type]
             << "' val='" << val << "' count='" << cnt << "' name='"
             << ctx.name << "'";
     FdsCounters * counterParent = ctx.enabled ? exportedCounters.get() : 0;
     // update counter
     if (cnt) {
-        std::call_once(*ctx.once, initializeCounter<LatencyCounter>, &ctx, counterParent);
+        std::call_once(*ctx.once, initializeCounter<LatencyCounter>, &ctx, counterParent, type, volid, name);
         LatencyCounter * plc = dynamic_cast<LatencyCounter *>(ctx.data.get());
         fds_assert(plc || !"Counter type mismatch between tracepoints!")
         plc->update(val, cnt);
     } else {
-        std::call_once(*ctx.once, initializeCounter<NumericCounter>, &ctx, counterParent);
+        std::call_once(*ctx.once, initializeCounter<NumericCounter>, &ctx, counterParent, type, volid, name);
         NumericCounter * pnc = dynamic_cast<NumericCounter *>(ctx.data.get());
         fds_assert(pnc || !"Counter type mismatch between tracepoints!")
         pnc->incr(val);
-    }
+    } 
 }
 
-void PerfTracer::upsert(const PerfEventType & type, uint64_t val, uint64_t cnt,
-            const std::string & name) {
+void PerfTracer::upsert(const PerfEventType & type, fds_volid_t volid, 
+            uint64_t val, uint64_t cnt, const std::string & name) {
     PerfContext * ctx = 0;
 
-    FDSGUARD(ptrace_mutex_);
+    FDSGUARD(ptrace_mutex_named_);
 
-    PerfContextMap::iterator pos = namedCounters_[type].find(name);
-    if (namedCounters_[type].end() != pos) {
+    PerfContextMap::iterator pos = namedCounters_[type][volid].find(name);
+    if (namedCounters_[type][volid].end() != pos) {
         if (!pos->second->enabled) {
             return; // disabled for this name
         }
 
         ctx = pos->second;
     } else {
-        ctx = new PerfContext(type, name);
+        ctx = new PerfContext(type, volid, name);
         if (!name.empty()) {
 #ifdef CACHE_REGEX_MATCH_RESULTS
             if (!regex_match(name, nameFilter_)) {
@@ -311,19 +319,19 @@ void PerfTracer::upsert(const PerfEventType & type, uint64_t val, uint64_t cnt,
 #endif
         }
 
-        namedCounters_[type][name] = ctx;
+        namedCounters_[type][volid][name] = ctx;
     }
 
     // update counter
-    updateCounter(*ctx, val, cnt);
+    updateCounter(*ctx, type, val, cnt, volid, name);
 }
 
-void PerfTracer::incr(const PerfEventType & type, std::string name /* = "" */) {
-    PerfTracer::incr(type, 1, 0, name);
+void PerfTracer::incr(const PerfEventType & type, fds_volid_t volid, std::string name /* = "" */) {
+    PerfTracer::incr(type, volid, 1, 0, name);
 }
 
-void PerfTracer::incr(const PerfEventType & type, uint64_t val,
-        uint64_t cnt /* = 0 */, std::string name /* = "" */) {
+void PerfTracer::incr(const PerfEventType & type, fds_volid_t volid, 
+        uint64_t val, uint64_t cnt /* = 0 */, std::string name /* = "" */) {
     fds_assert(type < MAX_EVENT_TYPE);
 
     // check if performance data collection is enabled
@@ -336,24 +344,27 @@ void PerfTracer::incr(const PerfEventType & type, uint64_t val,
     }
 
     // update aggregate counter first
-    instance().updateCounter(instance().aggregateCounters_[type], val, cnt);
-
+    {
+        FDSGUARD(instance().ptrace_mutex_aggregate_);
+        instance().updateCounter(instance().aggregateCounters_[type][volid], type, val, cnt, volid, name);
+    }
     if (!name.empty() && instance().useNameFilter_) {
 #ifndef CACHE_REGEX_MATCH_RESULTS
         if (regex_match(name, instance().nameFilter_)) {
 #endif
-            instance().upsert(type, val, cnt, name);
+            instance().upsert(type, volid, val, cnt, name);
 #ifndef CACHE_REGEX_MATCH_RESULTS
         }
 #endif
     }
 }
 
-void PerfTracer::tracePointBegin(const std::string & id, const PerfEventType & type,
-            std::string name /* = "" */) {
+void PerfTracer::tracePointBegin(const std::string & id, 
+        const PerfEventType & type, fds_volid_t volid, 
+        std::string name /* = "" */) {
     GLOGDEBUG << "Received tracePointBegin() for id='" << id << "' type='" <<
-            eventTypeToStr[type] << "' name='" << name << "'";
-    PerfContext * ctx = new PerfContext(type, name);
+            eventTypeToStr[type] << "' name='" << name << "'  volid='" << volid << "'";
+    PerfContext * ctx = new PerfContext(type, volid, name);
     tracePointBegin(*ctx);
 
     size_t sz = instance().latencyMap_.size();
@@ -380,10 +391,12 @@ void PerfTracer::tracePointBegin(PerfContext & ctx) {
 #endif
 }
 
-boost::shared_ptr<PerfContext> PerfTracer::tracePointEnd(const std::string & id) {
+boost::shared_ptr<PerfContext> PerfTracer::tracePointEnd(const std::string & id, 
+                                                        fds_volid_t volid) {
     PerfContext * ppc = 0;
 
-    GLOGDEBUG << "Received tracePointEnd() for id='" << id << "'";
+    GLOGDEBUG << "Received tracePointEnd() for id='" << id << "'" 
+                                        << "'volid='" << volid << "'";
     {
         FDSGUARD(instance().latency_map_mutex_);
 
@@ -408,11 +421,10 @@ void PerfTracer::tracePointEnd(PerfContext & ctx) {
     ctx.end_cycle = util::getTimeStampNanos();
 #endif
     // Avoid creating a counter if counter has not been properly initialized. Print warning instead
-    // TODO(matteo): do this for numeric counters as well?
     if (ctx.name != "" && ctx.type != TRACE) {
         createLatencyCounter(ctx);
         LatencyCounter * plc = dynamic_cast<LatencyCounter *>(ctx.data.get());
-        incr(ctx.type, plc->total_latency(), plc->count(), ctx.name);
+        incr(ctx.type, ctx.volid, plc->total_latency(), plc->count(), ctx.name);
     } else {
         GLOGDEBUG << "Counter wothout a name or type -  name: " << ctx.name << " type: " << eventTypeToStr[ctx.type];
     }

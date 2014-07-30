@@ -24,11 +24,15 @@
 #include <shared/fds_types.h>
 #include <serialize.h>
 #include <fds_assert.h>
-#include <PerfTrace.h>
+#include "PerfTypes.h" //NOLINT
 
 #include <boost/bind.hpp>
 #include <boost/function.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
+
+#include <util/Log.h>
+
+// struct PerfContext;
 
 /*
  * Consider encapsulating in the global

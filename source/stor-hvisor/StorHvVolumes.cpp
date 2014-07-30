@@ -667,14 +667,19 @@ GetBlobReq::GetBlobReq(fds_volid_t _volid,
     
     e2eReqPerfCtx.type = AM_GET_OBJ_REQ;
     e2eReqPerfCtx.name = "volume:" + std::to_string(volId);
+    e2eReqPerfCtx.reset_volid(volId);
     qosPerfCtx.type = AM_GET_QOS;
     qosPerfCtx.name = "volume:" + std::to_string(volId);
+    qosPerfCtx.reset_volid(volId);
     hashPerfCtx.type = AM_GET_HASH;
     hashPerfCtx.name = "volume:" + std::to_string(volId);
+    hashPerfCtx.reset_volid(volId);
     dmPerfCtx.type = AM_GET_SM;
     dmPerfCtx.name = "volume:" + std::to_string(volId);
+    dmPerfCtx.type = AM_DELETE_DM;
     smPerfCtx.type = AM_GET_DM;
     smPerfCtx.name = "volume:" + std::to_string(volId);
+    smPerfCtx.reset_volid(volId);
 }
 
 GetBlobReq::~GetBlobReq()
@@ -712,14 +717,19 @@ PutBlobReq::PutBlobReq(fds_volid_t _volid,
     stopWatch.start();
     e2eReqPerfCtx.type = AM_PUT_OBJ_REQ;
     e2eReqPerfCtx.name = "volume:" + std::to_string(volId);
+    e2eReqPerfCtx.reset_volid(volId);
     qosPerfCtx.type = AM_PUT_QOS;
     qosPerfCtx.name = "volume:" + std::to_string(volId);
+    qosPerfCtx.reset_volid(volId);
     hashPerfCtx.type = AM_PUT_HASH;
     hashPerfCtx.name = "volume:" + std::to_string(volId);
+    hashPerfCtx.reset_volid(volId);
     dmPerfCtx.type = AM_PUT_SM;
     dmPerfCtx.name = "volume:" + std::to_string(volId);
+    dmPerfCtx.type = AM_DELETE_DM;
     smPerfCtx.type = AM_PUT_DM;
     smPerfCtx.name = "volume:" + std::to_string(volId);
+    smPerfCtx.reset_volid(volId);
 }
 
 PutBlobReq::~PutBlobReq()

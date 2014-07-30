@@ -71,19 +71,24 @@ class SmIoReq : public FDS_IOType {
 
         // perf-trace related data
         perfNameStr = "volume:" + std::to_string(_volUuid);
-        opReqFailedPerfEventType = PUT_OBJ_REQ_ERR;
+        opReqFailedPerfEventType = PUT_OBJ_REQ_ERR;  // FIXME(matteo): what is this?
+
 
         opReqLatencyCtx.type = PUT_OBJ_REQ;
         opReqLatencyCtx.name = perfNameStr;
+        opReqLatencyCtx.reset_volid(_volUuid);
 
         opLatencyCtx.type = PUT_IO;
         opLatencyCtx.name = perfNameStr;
+        opLatencyCtx.reset_volid(_volUuid);
 
         opTransactionWaitCtx.type = PUT_TRANS_QUEUE_WAIT;
         opTransactionWaitCtx.name = perfNameStr;
+        opTransactionWaitCtx.reset_volid(_volUuid);
 
         opQoSWaitCtx.type = PUT_QOS_QUEUE_WAIT;
         opQoSWaitCtx.name = perfNameStr;
+        opQoSWaitCtx.reset_volid(_volUuid);
     }
 
     /*
@@ -112,19 +117,23 @@ class SmIoReq : public FDS_IOType {
 
         // perf-trace related data
         perfNameStr = "volume:" + std::to_string(_volUuid);
-        opReqFailedPerfEventType = GET_OBJ_REQ_ERR;
+        opReqFailedPerfEventType = GET_OBJ_REQ_ERR;  // FIXME(matteo): what is this?
 
         opReqLatencyCtx.type = GET_OBJ_REQ;
         opReqLatencyCtx.name = perfNameStr;
+        opReqLatencyCtx.reset_volid(_volUuid);
 
         opLatencyCtx.type = GET_IO;
         opLatencyCtx.name = perfNameStr;
+        opLatencyCtx.reset_volid(_volUuid);
 
         opTransactionWaitCtx.type = GET_TRANS_QUEUE_WAIT;
         opTransactionWaitCtx.name = perfNameStr;
+        opTransactionWaitCtx.reset_volid(_volUuid);
 
         opQoSWaitCtx.type = GET_QOS_QUEUE_WAIT;
         opQoSWaitCtx.name = perfNameStr;
+        opQoSWaitCtx.reset_volid(_volUuid);
     }
 
     SmIoReq() {
@@ -158,19 +167,23 @@ class SmIoReq : public FDS_IOType {
 
         // perf-trace related data
         perfNameStr = "volume:" + std::to_string(_volUuid);
-        opReqFailedPerfEventType = DELETE_OBJ_REQ_ERR;
+        opReqFailedPerfEventType = DELETE_OBJ_REQ_ERR;  // FIXME(matteo): what is this?
 
         opReqLatencyCtx.type = DELETE_OBJ_REQ;
         opReqLatencyCtx.name = perfNameStr;
+        opReqLatencyCtx.reset_volid(_volUuid);
 
         opLatencyCtx.type = DELETE_IO;
         opLatencyCtx.name = perfNameStr;
+        opLatencyCtx.reset_volid(_volUuid);
 
         opTransactionWaitCtx.type = DELETE_TRANS_QUEUE_WAIT;
         opTransactionWaitCtx.name = perfNameStr;
+        opTransactionWaitCtx.reset_volid(_volUuid);
 
         opQoSWaitCtx.type = DELETE_QOS_QUEUE_WAIT;
         opQoSWaitCtx.name = perfNameStr;
+        opQoSWaitCtx.reset_volid(_volUuid);
     }
     void setObjId(const ObjectID &id) {
         objId = id;
