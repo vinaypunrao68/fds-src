@@ -73,6 +73,14 @@ class StorHvVolume : public FDS_Volume , public HasLogger
      */
     FDS_VolumeQueue*  volQueue;
 
+    /**
+     * TODO(Anna) temp before we implement AM trans state/table
+     * Keep a map of TxId to DMT version, so that each update
+     * and commit for the same transaction uses the same DMT as
+     * when transaction started
+     */
+    std::map<fds_uint64_t, fds_uint64_t> tx_to_dmt;
+
   private:
     /* lock to prevent volume destruction while accessing volume data */
     fds_rwlock rwlock;

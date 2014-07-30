@@ -70,7 +70,7 @@ Dm_ProbeMod::sendStartTx(const OpParams &updateParams)
     auto dmBlobTxReq = new DmIoStartBlobTx(updateParams.volId,
                                            updateParams.blobName,
                                            updateParams.blobVersion,
-                                           updateParams.blobMode);
+                                           updateParams.blobMode, 1);
     dmBlobTxReq->ioBlobTxDesc =
          BlobTxId::ptr(new BlobTxId(updateParams.txId));
     //    dataMgr->scheduleStartBlobTxSvc(dmBlobTxReq);
@@ -83,7 +83,7 @@ Dm_ProbeMod::sendCommitTx(const OpParams &updateParams)
 
     auto dmBlobTxReq = new DmIoCommitBlobTx(updateParams.volId,
                                             updateParams.blobName,
-                                            updateParams.blobVersion);
+                                            updateParams.blobVersion, 1);
     dmBlobTxReq->ioBlobTxDesc =
          BlobTxId::ptr(new BlobTxId(updateParams.txId));
     // dataMgr->scheduleCommitBlobTxSvc(dmBlobTxReq);

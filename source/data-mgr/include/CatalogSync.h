@@ -23,6 +23,11 @@
 #include <fdsp/FDSP_types.h>
 #include <DmIoReq.h>
 #include <NetSession.h>
+#include <DmBlobTypes.h>
+#include <fdsp/fds_service_types.h>
+#include <net/PlatNetSvcHandler.h>
+#include <net/SvcRequest.h>
+#include <fdsp/DMSvc.h>
 
 namespace fpi = FDS_ProtocolInterface;
 
@@ -107,7 +112,18 @@ namespace fds {
          * CatalogSync must be in CSSTATE_FORWARDING state
          * @return ERR_OK on success; or networks error
          */
-        Error forwardCatalogUpdate(dmCatReq  *updCatReq);
+        Error forwardCatalogUpdate(DmIoCommitBlobTx *commitBlobReq,
+                                   blob_version_t blob_version,
+                                   const BlobObjList::const_ptr& blob_obj_list,
+                                   const MetaDataList::const_ptr& meta_list);
+
+        void fwdCatalogUpdateMsgResp(DmIoCommitBlobTx *commitReq,
+                                     EPSvcRequest* req,
+                                     const Error& error,
+                                     boost::shared_ptr<std::string> payload);
+
+        Error issueVolSyncStateMsg(fds_volid_t volId,
+                                   fds_bool_t foward_complete);
 
         /**
          * @return true if catalog sync is finished
@@ -136,10 +152,9 @@ namespace fds {
 
         /**
          * Notification that we finished sync/forwarding for
-         * volume 'volid', will send MetaSyncDone and remove vol
-         * from list
+         * volume 'volid', will remove vol from list
          */
-        Error handleVolumeDone(fds_volid_t volid);
+        void handleVolumeDone(fds_volid_t volid);
 
         /**
          * @return true if CatalogSync is reponsible for syncing
@@ -165,6 +180,7 @@ namespace fds {
         fds_uint32_t recordVolSyncDone(csStateType expected_state);
 
   private:
+        SvcUuid svc_uuid;
         NodeUuid node_uuid;  // destination node
 
         std::atomic<csStateType> state;  // current state
@@ -245,7 +261,15 @@ namespace fds {
          * corresponding volume.
          * Must be called only for volumes for which sync is in progress
          */
-        Error forwardCatalogUpdate(dmCatReq  *updCatReq);
+        Error forwardCatalogUpdate(DmIoCommitBlobTx *commitBlobReq,
+                                   blob_version_t blob_version,
+                                   const BlobObjList::const_ptr& blob_obj_list,
+                                   const MetaDataList::const_ptr& meta_list);
+
+        /**
+         * Notifies destination DM to start servicing IO for volume 'volid'
+         */
+        Error issueServiceVolumeMsg(fds_volid_t volid);
 
         /**
          * Called when forwarding can be finished for volume 'volid'
@@ -302,6 +326,11 @@ namespace fds {
         CatSyncMap cat_sync_map;
         fds_mutex cat_sync_lock;  // protects catSyncMap and sync_in_progress
 
+        /**
+         * Timestamp when DM received DMT close
+         */
+        boost::posix_time::ptime dmtclose_time;
+
         /* Net session  handlers */
         netSessionTblPtr netSessionTbl;
         boost::shared_ptr<FDSP_MetaSyncRpc> meta_handler;
@@ -324,6 +353,7 @@ namespace fds {
         std::string log_string() {
             return "FDSP_MigrationPathRpc";
         }
+
         void PushMetaSyncReq(const fpi::FDSP_MsgHdrType& fdsp_msg,
                              const fpi::FDSP_UpdateCatalogType& push_meta_req) {
             // Don't do anything here. This stub is just to keep cpp compiler happy

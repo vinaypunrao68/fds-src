@@ -7,14 +7,20 @@
 #include <string>
 #include <dm-vol-cat/DmVolumeCatalog.h>
 #include <dm-vol-cat/DmPersistVc.h>
+#include <dm-vol-cat/DmVcCache.h>
 
 namespace fds {
 
 DmVolumeCatalog::DmVolumeCatalog(char const *const name)
         : Module(name), expunge_cb(NULL)
 {
+    cacheCat = std::unique_ptr<DmCacheVolCatalog>(
+        new DmCacheVolCatalog("DM Vol Cat Cache Layer"));
+
     persistCat = new DmPersistVolCatalog("DM Vol Cat Persistent Layer");
+    // TODO(Andrew): The Module array should be able to take unique ptrs
     static Module* om_mods[] = {
+        cacheCat.get(),
         persistCat,
         NULL
     };
@@ -43,6 +49,101 @@ void DmVolumeCatalog::registerExpungeObjectsCb(expunge_objs_cb_t cb) {
     expunge_cb = cb;
 }
 
+BlobExtent0::ptr
+DmVolumeCatalog::getMetaExtent(fds_volid_t volume_id,
+                               const std::string& blob_name,
+                               Error& error) {
+    // Check cache for blob extent 0
+    BlobExtent0::ptr extentZero = boost::dynamic_pointer_cast<BlobExtent0>(
+        cacheCat->getExtent(volume_id,
+                            blob_name,
+                            0,
+                            error));
+    if (error != ERR_OK) {
+        // Couldn't find the extent in cache, check persistent layer
+        LOGTRACE << "Did not find cache meta extent for " << blob_name
+                 << ", checking persistent layer";
+
+        // Read from persistent layer. The persistent layer will
+        // create an entry if it didn't exist already.
+        extentZero = persistCat->getMetaExtent(volume_id,
+                                               blob_name,
+                                               error);
+
+        // Place the entry in the cache if we found a valid entry
+        if (error != ERR_CAT_ENTRY_NOT_FOUND) {
+            cacheCat->putExtent(volume_id, blob_name, extentZero);
+        }
+    }
+
+    return extentZero;
+}
+
+BlobExtent::ptr
+DmVolumeCatalog::getExtent(fds_volid_t volume_id,
+                           const std::string& blob_name,
+                           fds_extent_id extent_id,
+                           Error& error) {
+    // TODO(Andrew): Combine the catalog and persistent layer
+    // getExtent and getMetaExtent functions into one. Then
+    // we can get ride of this check.
+    fds_verify(extent_id != 0);
+
+    // Check cache for blob extent
+    BlobExtent::ptr extent = cacheCat->getExtent(volume_id,
+                                                 blob_name,
+                                                 extent_id,
+                                                 error);
+    if (error != ERR_OK) {
+        // Couldn't find the extent in cache, check persistent layer
+        LOGTRACE << "Did not find cache meta extent for " << blob_name
+                 << ", checking persistent layer";
+
+        // Read from persistent layer. The persistent layer will
+        // create an entry if it didn't exist already.
+        extent = persistCat->getExtent(volume_id,
+                                       blob_name,
+                                       extent_id,
+                                       error);
+
+        // Place the entry in the cache if we found a valid entry
+        if (error != ERR_CAT_ENTRY_NOT_FOUND) {
+            cacheCat->putExtent(volume_id, blob_name, extent);
+        }
+    }
+
+    return extent;
+}
+
+Error DmVolumeCatalog::putMetaExtent(fds_volid_t volume_id,
+                                     const std::string& blob_name,
+                                     const BlobExtent0::const_ptr& meta_extent) {
+    // Persist the meta extent
+    Error err = persistCat->putMetaExtent(volume_id, blob_name, meta_extent);
+
+    // Drop a copy in the cache
+    if (err == ERR_OK) {
+        err = cacheCat->putExtent(volume_id, blob_name, meta_extent);
+    }
+
+    return err;
+}
+
+Error DmVolumeCatalog::putExtents(fds_volid_t volume_id,
+                                  const std::string& blob_name,
+                                  const BlobExtent0::const_ptr& meta_extent,
+                                  const std::vector<BlobExtent::const_ptr>& extents) {
+    // Persist the extents
+    Error err = persistCat->putExtents(volume_id, blob_name, meta_extent, extents);
+
+    // Drop a copy in the cache
+    if (err == ERR_OK) {
+        err = cacheCat->putExtents(volume_id, blob_name, meta_extent, extents);
+    }
+
+    return err;
+}
+
 //
 // Allocates volume's specific datastrucs. Does not create
 // persistent volume catalog file, because it could be potentially synced
@@ -55,10 +156,13 @@ Error DmVolumeCatalog::addCatalog(const VolumeDesc& voldesc)
     LOGDEBUG << "Will add Catalog for volume " << voldesc.name
              << ":" << std::hex << voldesc.volUUID << std::dec;
 
-    // TODO(xxx) allocate caches space for volume, etc.
-
     // create volume catalog in VC persistent layer
     err = persistCat->createCatalog(voldesc);
+
+    if (err == ERR_OK) {
+        // Create volume catalog cache
+        err = cacheCat->createCache(voldesc);
+    }
     return err;
 }
 
@@ -72,8 +176,7 @@ Error DmVolumeCatalog::activateCatalog(fds_volid_t volume_id)
     LOGDEBUG << "Will activate catalog for volume " << std::hex
              << volume_id << std::dec;
 
-    // TODO(xxx) activate cache?
-
+    // The cache has been created already...warm?
     // initialized VC in persistent layer
     err = persistCat->openCatalog(volume_id);
     return err;
@@ -97,6 +200,9 @@ Error DmVolumeCatalog::removeVolumeMeta(fds_volid_t volume_id)
     LOGDEBUG << "Will remove volume meta for volune " << std::hex
              << volume_id << std::dec;
 
+    // Delete the volume's catalog cache
+    cacheCat->removeCache(volume_id);
+
     // TODO(xxx) implement
     return err;
 }
@@ -107,7 +213,10 @@ Error DmVolumeCatalog::removeVolumeMeta(fds_volid_t volume_id)
 //
 fds_bool_t DmVolumeCatalog::isVolumeEmpty(fds_volid_t volume_id)
 {
-    // TODO(xxx) do we need to do anything if we have async VC cache?
+    // TODO(Andrew): For now, ignore the cache since it never holds
+    // any dirty data (i.e., nothing that's not already in the persistent
+    // catalog). Once we add dirty entries, we need to revisit.
+
     return persistCat->isVolumeEmpty(volume_id);
 }
 
@@ -119,6 +228,9 @@ Error DmVolumeCatalog::getVolumeMeta(fds_volid_t volume_id,
     std::vector<BlobExtent0Desc>::const_iterator cit;
     fds_uint64_t volume_size = 0;
 
+    // TODO(Andrew): Go directly to the persistent catalog since we have
+    // to iterate it anyways. No point in going through the cache until
+    // we have the possibility of dirty entries.
     // retrieve list of extent 0
     err = persistCat->getMetaDescList(volume_id, desc_list);
     if (!err.ok()) {
@@ -157,14 +269,10 @@ DmVolumeCatalog::putBlobMeta(fds_volid_t volume_id,
     LOGTRACE << "Will commit meta for " << std::hex << volume_id
              << std::dec << "," << blob_name << " " << *meta_list;
 
-    // TODO(xxx) when we incorporate cache, we should add private
-    // methods to get extent which will read from cache first and
-    // then from persistent layer if not found
-
     // blob meta is in extent 0, so retrieve extent 0
-    BlobExtent0::ptr extent0 = persistCat->getMetaExtent(volume_id,
-                                                         blob_name,
-                                                         err);
+    BlobExtent0::ptr extent0 = getMetaExtent(volume_id,
+                                             blob_name,
+                                             err);
 
     // even if not found, we get an allocated extent0 which we will
     // fill in
@@ -183,7 +291,7 @@ DmVolumeCatalog::putBlobMeta(fds_volid_t volume_id,
         extent0->incrementBlobVersion();
 
         LOGTRACE << "Applied metadata update to extent 0 -- " << *extent0;
-        err = persistCat->putMetaExtent(volume_id, blob_name, extent0);
+        err = putMetaExtent(volume_id, blob_name, extent0);
     }
 
     if (!err.ok()) {
@@ -208,8 +316,8 @@ DmVolumeCatalog::putBlob(fds_volid_t volume_id,
     Error err(ERR_OK);
     std::vector<BlobExtent::const_ptr> extent_list;
     std::vector<ObjectID> expunge_list;
-    LOGTRACE << "Will commit blob " << blob_name << ";"
-             << ";" << *blob_obj_list;
+    LOGTRACE << "Will commit blob " << blob_name
+             << "; " << *blob_obj_list;
 
     // do not use this method if blob_obj_list is empty
     fds_verify(blob_obj_list->size() > 0);
@@ -218,9 +326,9 @@ DmVolumeCatalog::putBlob(fds_volid_t volume_id,
     // objects in 'blob_obj_list'
 
     // we need extent0 in any case, to update total blob size, etc
-    BlobExtent0::ptr extent0 = persistCat->getMetaExtent(volume_id,
-                                                         blob_name,
-                                                         err);
+    BlobExtent0::ptr extent0 = getMetaExtent(volume_id,
+                                             blob_name,
+                                             err);
 
     if (!err.ok() && (err != ERR_CAT_ENTRY_NOT_FOUND)) {
         LOGERROR << "Failed to retrieve extent 0 for " << std::hex
@@ -255,7 +363,7 @@ DmVolumeCatalog::putBlob(fds_volid_t volume_id,
                 extent_list.push_back(extent);
             }
             extent_id = persistCat->getExtentId(volume_id, cit->first);
-            extent = persistCat->getExtent(volume_id, blob_name, extent_id, err);
+            extent = getExtent(volume_id, blob_name, extent_id, err);
             if (!err.ok() && (err != ERR_CAT_ENTRY_NOT_FOUND)) {
                 LOGERROR << "Failed to retrieve all extents for " << blob_name
                          << " in vol " << std::hex << volume_id << std::dec << " " << err;
@@ -335,7 +443,7 @@ DmVolumeCatalog::putBlob(fds_volid_t volume_id,
                 }
                 extent_id = persistCat->getExtentId(volume_id,
                                                     last_trunc_offset + extent0->maxObjSizeBytes());
-                extent = persistCat->getExtent(volume_id, blob_name, extent_id, err);
+                extent = getExtent(volume_id, blob_name, extent_id, err);
                 // even if we have gaps between extents and getExtent returns empty extent
                 // this will result in delete op for this extent, which is ok
                 if (!err.ok() && (err != ERR_CAT_ENTRY_NOT_FOUND)) {
@@ -355,7 +463,7 @@ DmVolumeCatalog::putBlob(fds_volid_t volume_id,
     if (extent_id > 0) {
         extent_list.push_back(extent);
     }
-    err = persistCat->putExtents(volume_id, blob_name, extent0, extent_list);
+    err = putExtents(volume_id, blob_name, extent0, extent_list);
     if (!err.ok()) {
         LOGERROR << "Failed to write update to persistent volume catalog for "
                  << std::hex << volume_id << std::dec << "," << blob_name
@@ -395,6 +503,8 @@ Error DmVolumeCatalog::listBlobs(fds_volid_t volume_id,
     LOGDEBUG << "Will retrieve list of blobs for volume "
              << std::hex << volume_id << std::dec;
 
+    // Query directly from the persistent catalog, since the
+    // cache is unlikely to have everything anyways.
     err = persistCat->getMetaDescList(volume_id, desc_list);
     if (err.ok()) {
         for (cit = desc_list.cbegin(); cit != desc_list.cend(); ++cit) {
@@ -423,9 +533,9 @@ Error DmVolumeCatalog::getBlobMeta(fds_volid_t volume_id,
              << " volid " << std::hex << volume_id << std::dec;
 
     // blob meta is in extent 0
-    BlobExtent0::ptr extent0 = persistCat->getMetaExtent(volume_id,
-                                                         blob_name,
-                                                         err);
+    BlobExtent0::ptr extent0 = getMetaExtent(volume_id,
+                                             blob_name,
+                                             err);
 
     if (err.ok()) {
         // we got blob meta, fill in version, size, and meta list
@@ -451,9 +561,9 @@ Error DmVolumeCatalog::getBlob(fds_volid_t volume_id,
              << std::hex << volume_id << std::dec;
 
     // get extent 0
-    BlobExtent0::ptr extent0 = persistCat->getMetaExtent(volume_id,
-                                                         blob_name,
-                                                         err);
+    BlobExtent0::ptr extent0 = getMetaExtent(volume_id,
+                                             blob_name,
+                                             err);
     if (!err.ok()) {
         LOGNOTIFY << "Failed to retrieve blob " << blob_name
                   << " volid " << std::hex << volume_id << std::dec
@@ -478,7 +588,7 @@ Error DmVolumeCatalog::getBlob(fds_volid_t volume_id,
                              extent0->lastBlobOffset(), last_obj_sz);
     for (fds_extent_id ext_id = 1; ext_id <= last_extent; ++ext_id) {
         // get next extent
-        extent = persistCat->getExtent(volume_id, blob_name, ext_id, err);
+        extent = getExtent(volume_id, blob_name, ext_id, err);
         // note that even if extent not in db, we get empty extent and
         // addToFdspPayload method will not add any objs to the list
         if (!err.ok() && (err != ERR_CAT_ENTRY_NOT_FOUND)) {
@@ -509,9 +619,9 @@ Error DmVolumeCatalog::deleteBlob(fds_volid_t volume_id,
              << volume_id << std::dec << " ver " << blob_version;
 
     // get extent 0
-    BlobExtent0::ptr extent0 = persistCat->getMetaExtent(volume_id,
-                                                         blob_name,
-                                                         err);
+    BlobExtent0::ptr extent0 = getMetaExtent(volume_id,
+                                             blob_name,
+                                             err);
     if (err == ERR_CAT_ENTRY_NOT_FOUND) {
         LOGWARN << "No blob found with name " << blob_name << " for vol "
                 << std::hex << volume_id << std::dec << ", so nothing to delete";
@@ -545,14 +655,17 @@ Error DmVolumeCatalog::deleteBlob(fds_volid_t volume_id,
         extent0->deleteAllObjects(&expunge_list);  // get objs to expunge
     }
     if (blob_version == extent0->blobVersion()) {
-        // delete extent 0
+        // Remove extent 0 from the cache
+        err = cacheCat->removeExtent(volume_id, blob_name, 0);
+        fds_verify(err == ERR_OK);
+        // delete persistent extent 0
         err = persistCat->deleteExtent(volume_id, blob_name, 0);
     } else if (blob_version == blob_version_invalid) {
         // clear meta list, set blob size to 0 and set version deleted
         // and write back to persist catalog -- a delete marker
         extent0->markDeleted();
         LOGDEBUG << "Writing extent 0 delete marker for blob " << blob_name;
-        err = persistCat->putMetaExtent(volume_id, blob_name, extent0);
+        err = putMetaExtent(volume_id, blob_name, extent0);
     }
     if (!err.ok()) {
         // if we failed to delete/update extent 0, we can still return error
@@ -572,6 +685,9 @@ Error DmVolumeCatalog::deleteBlob(fds_volid_t volume_id,
                 persistCat->getExtent(volume_id, blob_name, ext_id, err);
         if (err.ok()) {
             extent->deleteAllObjects(&expunge_list);
+            // Remove extent 0 from the cache
+            err = cacheCat->removeExtent(volume_id, blob_name, 0);
+            fds_verify(err == ERR_OK);
             err = persistCat->deleteExtent(volume_id, blob_name, ext_id);
         }
         fds_verify(err.ok() || (err == ERR_CAT_ENTRY_NOT_FOUND));

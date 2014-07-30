@@ -56,7 +56,7 @@ class DataMgr;
 class DMSvcHandler;
 extern DataMgr *dataMgr;
 
-class DataMgr : public PlatformProcess, public DmIoReqHandler {
+class DataMgr : public Module, public DmIoReqHandler {
   public:
     static void InitMsgHdr(const FDSP_MsgHdrTypePtr& msg_hdr);
 
@@ -98,6 +98,9 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
      */
     DmTimeVolCatalog::ptr timeVolCat_;
 
+    /* Common module provider */
+    CommonModuleProviderIf *modProvider_;
+
     class dmQosCtrl : public FDS_QoSControl {
       public:
         DataMgr *parentDm;
@@ -137,6 +140,12 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
                 case FDS_DM_FWD_CAT_UPD:
                     threadPool->schedule(&DataMgr::fwdUpdateCatalog, dataMgr, io);
                     break;
+                case FDS_GET_VOLUME_METADATA:
+                    threadPool->schedule(&DataMgr::getVolumeMetaData, dataMgr, io);
+                    break;
+                case FDS_DM_PUSH_META_DONE:
+                    threadPool->schedule(&DataMgr::handleDMTClose, dataMgr, io);
+                    break;
 
                 /* End of new refactored DM message types */
 
@@ -145,9 +154,6 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
                     break;
                 case FDS_SET_BLOB_METADATA:
                     threadPool->schedule(&DataMgr::setBlobMetaDataSvc, dataMgr, io);
-                    break;
-                case FDS_GET_VOLUME_METADATA:
-                    threadPool->schedule(&DataMgr::getVolumeMetaData, dataMgr, io);
                     break;
                 case FDS_ABORT_BLOB_TX:
                     threadPool->schedule(&DataMgr::scheduleAbortBlobTxSvc, dataMgr, io);
@@ -226,6 +232,9 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
 
     fds_bool_t amIPrimary(fds_volid_t volUuid);
     Error expungeObject(fds_volid_t volId, const ObjectID &objId);
+    void  expungeObjectCb(QuorumSvcRequest* svcReq,
+                         const Error& error,
+                         boost::shared_ptr<std::string> payload);
     Error expungeObjectsIfPrimary(fds_volid_t volid,
                                   const std::vector<ObjectID>& oids);
 
@@ -236,7 +245,7 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
      * finish forwarding state -- forwarding will actually end when
      * all updates that are currently queued are processed.
      */
-    Error  notifyStopForwardUpdates();
+    Error notifyDMTClose();
 
     /**
      * DmIoReqHandler method implementation
@@ -264,7 +273,7 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
     void setup_metasync_service();
 
   public:
-    DataMgr(int argc, char *argv[], Platform *platform, Module **mod_vec);
+    explicit DataMgr(CommonModuleProviderIf *modProvider);
     ~DataMgr();
     std::map<fds_io_op_t, dm::Handler*> handlers;
     dmQosCtrl   *qosCtrl;
@@ -274,10 +283,12 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
     fds_bool_t testUturnStartTx;
     fds_bool_t testUturnSetMeta;
 
-    /* From FdsProcess */
-    virtual void proc_pre_startup() override;
-    virtual int  run() override;
-    virtual void interrupt_cb(int signum) override;
+    /* Overrides from Module */
+    virtual int  mod_init(SysParams const *const param) override;
+    virtual void mod_startup() override;
+    virtual void mod_shutdown() override;
+
+    int run();
 
     void swapMgrId(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& fdsp_msg);
     void setResponseError(fpi::FDSP_MsgHdrTypePtr& msg_hdr, const Error& err);
@@ -293,8 +304,25 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
     void startBlobTx(dmCatReq *io);
     void updateCatalog(dmCatReq *io);
     void commitBlobTx(dmCatReq *io);
-    void commitBlobTxCb(const Error &err, DmIoCommitBlobTx *commitBlobReq);
+    /**
+     * Callback from volume catalog when transaction is commited
+     * @param[in] version of blob that was committed
+     * @param[in] blob_obj_list list of offset to object mapping that
+     * was committed or NULL
+     * @param[in] meta_list list of metadata k-v pairs that was
+     * committed or NULL
+     */
+    void commitBlobTxCb(const Error &err,
+                        blob_version_t blob_version,
+                        const BlobObjList::const_ptr& blob_obj_list,
+                        const MetaDataList::const_ptr& meta_list,
+                        DmIoCommitBlobTx *commitBlobReq);
     void fwdUpdateCatalog(dmCatReq *io);
+    /**
+     * Callback from volume catalog when forwarded blob update is
+     * committed to volume catalog
+     */
+    void updateFwdBlobCb(const Error &err, DmIoFwdCat *fwdCatReq);
     /* End of new refactored DM message handlers */
 
     void setBlobMetaDataSvc(void *io);
@@ -304,10 +332,11 @@ class DataMgr : public PlatformProcess, public DmIoReqHandler {
     void setBlobMetaDataBackend(const dmCatReq *request);
     void getVolumeMetaData(dmCatReq *io);
     void snapVolCat(dmCatReq *io);
-    Error forwardUpdateCatalogRequest(dmCatReq  *updCatReq);
+    void handleDMTClose(dmCatReq *io);
     // void sendUpdateCatalogResp(dmCatReq  *updCatReq, BlobNode *bnode);
 
     void scheduleGetBlobMetaDataSvc(void *io);
+    Error processVolSyncState(fds_volid_t volume_id, fds_bool_t fwd_complete);
 
     /**
      * Callback from volume meta receiver that volume meta is received

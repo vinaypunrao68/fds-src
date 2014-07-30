@@ -14,6 +14,7 @@
 #include <thrift/protocol/TBinaryProtocol.h>
 #include <fds_types.h>
 #include <fdsp/FDSP_types.h>
+#include <fdsp/fds_service_types.h>
 #include <persistent_layer/dm_metadata.h>
 #include <boost/make_shared.hpp>
 
@@ -46,6 +47,9 @@ namespace FDS_ProtocolInterface {
     class SetBlobMetaDataMsg;
     class SetBlobMetaDataRspMsg;
     class DeleteCatalogObjectRspMsg;
+    class DeleteObjectMsg;
+    class DeleteObjectRspMsg;
+    class ForwardCatalogRspMsg;
 }  // namespace FDS_ProtocolInterface
 
 namespace fpi = FDS_ProtocolInterface;
@@ -84,6 +88,10 @@ std::string logString(const FDS_ProtocolInterface::AbortBlobTxMsg& abortBlobTx);
 std::string logString(const FDS_ProtocolInterface::GetBlobMetaDataMsg& message);
 std::string logString(const FDS_ProtocolInterface::SetBlobMetaDataMsg& message);
 std::string logString(const FDS_ProtocolInterface::SetBlobMetaDataRspMsg& msg);
+std::string logString(const FDS_ProtocolInterface::DeleteObjectMsg& msg);
+std::string logString(const FDS_ProtocolInterface::DeleteObjectRspMsg& msg);
+std::string logString(const FDS_ProtocolInterface::GetVolumeMetaDataMsg& msg);
+
 /**
 * @brief For serializing FDSP messages
 *

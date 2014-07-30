@@ -117,7 +117,6 @@ class DmCommitLog : public Module {
     fds_uint32_t filesize_;
     PersistenceType persist_;
     bool started_;
-    PerfContext logCtx;
     boost::shared_ptr<DmCommitLogger> cmtLogger_;
 
     // Methods
@@ -417,6 +416,7 @@ class FileCommitLogger : public DmCommitLogger {
 
     char * addr_;
     fds_mutex lockLogFile_;
+    PerfContext logCtx;
 };
 
 class MemoryCommitLogger : public FileCommitLogger {

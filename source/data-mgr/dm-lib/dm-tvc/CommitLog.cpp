@@ -38,8 +38,7 @@ template Error DmCommitLog::updateTx(BlobTxId::const_ptr & txDesc,
 DmCommitLog::DmCommitLog(const std::string &modName, const std::string & filename,
         fds_uint32_t filesize /* = DEFAULT_COMMIT_LOG_FILE_SIZE */,
         PersistenceType persist /* = IN_MEMORY */) : Module(modName.c_str()), filename_(filename),
-        filesize_(filesize), persist_(persist), started_(false),
-        logCtx(COMMIT_LOG_WRITE, filename) {
+        filesize_(filesize), persist_(persist), started_(false) {
     if (IN_FILE == persist_) {
         cmtLogger_.reset(new FileCommitLogger(filename_, filesize_));
     } else if (IN_MEMORY == persist_) {
@@ -164,8 +163,6 @@ Error DmCommitLog::startTx(BlobTxId::const_ptr & txDesc, const std::string & blo
         }
     }
 
-    SCOPED_PERF_TRACEPOINT_CTX_DEBUG(logCtx);
-
     StartTxDetails::const_ptr details(new StartTxDetails(blobMode, blobName));
     fds_uint64_t id = 0;
     Error rc = cmtLogger_->startTx(txDesc, details, id);
@@ -203,8 +200,6 @@ Error DmCommitLog::updateTx(BlobTxId::const_ptr & txDesc, boost::shared_ptr<cons
         return rc;
     }
 
-    SCOPED_PERF_TRACEPOINT_CTX_DEBUG(logCtx);
-
     fds_uint64_t id = 0;
     rc = cmtLogger_->updateTx(txDesc, blobData, id);
     if (!rc.ok()) {
@@ -235,8 +230,6 @@ Error DmCommitLog::deleteBlob(BlobTxId::const_ptr & txDesc, const blob_version_t
     if (!rc.ok()) {
         return rc;
     }
-
-    SCOPED_PERF_TRACEPOINT_CTX_DEBUG(logCtx);
 
     DeleteBlobDetails::const_ptr details(new DeleteBlobDetails(blobVersion));
     fds_uint64_t id = 0;
@@ -270,8 +263,6 @@ CommitLogTx::const_ptr DmCommitLog::commitTx(BlobTxId::const_ptr & txDesc, Error
         return 0;
     }
 
-    SCOPED_PERF_TRACEPOINT_CTX_DEBUG(logCtx);
-
     fds_uint64_t id = 0;
     status = cmtLogger_->commitTx(txDesc, id);
     if (!status.ok()) {
@@ -301,8 +292,6 @@ Error DmCommitLog::rollbackTx(BlobTxId::const_ptr & txDesc) {
     if (!rc.ok()) {
         return rc;
     }
-
-    SCOPED_PERF_TRACEPOINT_CTX_DEBUG(logCtx);
 
     fds_uint64_t id = 0;
     rc = cmtLogger_->rollbackTx(txDesc, id);
@@ -346,8 +335,6 @@ Error DmCommitLog::purgeTx(BlobTxId::const_ptr  & txDesc) {
             return ERR_DM_TX_ACTIVE;
         }
     }
-
-    SCOPED_PERF_TRACEPOINT_CTX_DEBUG(logCtx);
 
     fds_uint64_t id = 0;
     Error rc = cmtLogger_->purgeTx(txDesc, id);
@@ -451,7 +438,8 @@ void FileCommitLogger::addEntryToHeader(DmCommitLogEntry * entry) {
 
 FileCommitLogger::FileCommitLogger(const std::string & filename, fds_uint32_t filesize)
         : filename_(filename), filesize_(filesize), fd_(-1), prot_(PROT_READ | PROT_WRITE),
-        flags_(MAP_PRIVATE | MAP_ANONYMOUS), addr_(0), lockLogFile_("commit log file lock") {
+        flags_(MAP_PRIVATE | MAP_ANONYMOUS), addr_(0), lockLogFile_("commit log file lock"),
+        logCtx(COMMIT_LOG_WRITE, filename) {
     bool create = true;
 
     if (!filename.empty()) {
@@ -529,6 +517,8 @@ Error FileCommitLogger::startTx(BlobTxId::const_ptr & txDesc, StartTxDetails::co
 
     FDSGUARD(lockLogFile_);
 
+    SCOPED_PERF_TRACEPOINT_CTX_DEBUG(logCtx);
+
     char * clp = commitLogAlloc(sz);
     if (!clp) {
         return ERR_DM_MAX_CL_ENTRIES;
@@ -554,6 +544,8 @@ Error FileCommitLogger::updateTx(BlobTxId::const_ptr & txDesc, BlobObjList::cons
 
     FDSGUARD(lockLogFile_);
 
+    SCOPED_PERF_TRACEPOINT_CTX_DEBUG(logCtx);
+
     char * clp = commitLogAlloc(sz);
     if (!clp) {
         return ERR_DM_MAX_CL_ENTRIES;
@@ -577,6 +569,8 @@ Error FileCommitLogger::updateTx(BlobTxId::const_ptr & txDesc, MetaDataList::con
     size_t sz = sizeof(DmCommitLogEntry) + str.length() + 1;
 
     FDSGUARD(lockLogFile_);
+
+    SCOPED_PERF_TRACEPOINT_CTX_DEBUG(logCtx);
 
     char * clp = commitLogAlloc(sz);
     if (!clp) {
@@ -602,6 +596,8 @@ Error FileCommitLogger::deleteBlob(BlobTxId::const_ptr & txDesc,
 
     FDSGUARD(lockLogFile_);
 
+    SCOPED_PERF_TRACEPOINT_CTX_DEBUG(logCtx);
+
     char * clp = commitLogAlloc(sz);
     if (!clp) {
         return ERR_DM_MAX_CL_ENTRIES;
@@ -623,6 +619,8 @@ Error FileCommitLogger::commitTx(BlobTxId::const_ptr & txDesc, fds_uint64_t & id
     size_t sz = sizeof(DmCommitLogEntry);
 
     FDSGUARD(lockLogFile_);
+
+    SCOPED_PERF_TRACEPOINT_CTX_DEBUG(logCtx);
 
     char * clp = commitLogAlloc(sz);
     if (!clp) {
@@ -646,6 +644,8 @@ Error FileCommitLogger::rollbackTx(BlobTxId::const_ptr & txDesc, fds_uint64_t & 
 
     FDSGUARD(lockLogFile_);
 
+    SCOPED_PERF_TRACEPOINT_CTX_DEBUG(logCtx);
+
     char * clp = commitLogAlloc(sz);
     if (!clp) {
         return ERR_DM_MAX_CL_ENTRIES;
@@ -667,6 +667,8 @@ Error FileCommitLogger::purgeTx(BlobTxId::const_ptr & txDesc, fds_uint64_t & id)
     size_t sz = sizeof(DmCommitLogEntry);
 
     FDSGUARD(lockLogFile_);
+
+    SCOPED_PERF_TRACEPOINT_CTX_DEBUG(logCtx);
 
     char * clp = commitLogAlloc(sz);
     if (!clp) {

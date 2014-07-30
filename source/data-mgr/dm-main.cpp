@@ -7,24 +7,56 @@
 #include <util/fds_stat.h>
 
 namespace fds {
+// TODO(Rao): Get rid of this singleton
 DataMgr *dataMgr;
 }  // namespace fds
 
 int gdb_stop = 0;
 
+class DMMain : public PlatformProcess
+{
+ public:
+    DMMain(int argc, char *argv[]) {
+        /* Construct all the modules */
+        dm = new fds::DataMgr(this);
+        // TODO(Rao): Get rid of this singleton
+        dataMgr = dm;
+
+        /* Create the dependency vector */
+        static fds::Module *dmVec[] = {
+            &fds::gl_fds_stat,
+            &gl_DmPlatform,
+            &gl_NetService,
+            dm,
+            NULL
+        };
+
+        /* Init platform process */
+        init(argc, argv, "fds.dm.", "dm.log", &gl_DmPlatform, dmVec);
+
+        /* Daemonize */
+        fds_bool_t noDaemon = get_fds_config()->get<bool>("fds.dm.testing.test_mode", false);
+        if (noDaemon == false) {
+            daemonize();
+        }
+    }
+
+    virtual ~DMMain() {
+        /* Destruct created module objects */
+        delete dm;
+    }
+
+    virtual int run() {
+        return dm->run();
+    }
+
+    fds::DataMgr* dm;
+};
+
 int main(int argc, char *argv[])
 {
-    fds::Module *dmVec[] = {
-        &fds::gl_fds_stat,
-        &gl_DmPlatform,
-        &gl_NetService,
-        NULL
-    };
-    // while (gdb_stop == 0) {
-    //    sleep(1);
-    // }
-    fds::dataMgr = new fds::DataMgr(argc, argv, &gl_DmPlatform, dmVec);
-    int ret = fds::dataMgr->main();
-    delete fds::dataMgr;
+    auto dmMain = new DMMain(argc, argv);
+    auto ret = dmMain->main();
+    delete dmMain;
     return ret;
 }

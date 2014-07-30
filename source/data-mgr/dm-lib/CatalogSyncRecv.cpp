@@ -98,22 +98,20 @@ Error CatSyncReceiver::handleFwdDone(fds_volid_t volid) {
 //
 // Enqueue forwarded update into volume's shadow queue
 //
-Error CatSyncReceiver::enqueueFwdUpdate(dmCatReq* updReq) {
+Error CatSyncReceiver::enqueueFwdUpdate(DmIoFwdCat* fwdReq) {
     Error err(ERR_OK);
-
-    LOGDEBUG << "Will queue cat update to shadow queue of vol "
-             << std::hex << updReq->volId <<std::dec;
+    LOGDEBUG << "Will queue fwd cat update to shadow queue: " << *fwdReq;
 
     fds_mutex::scoped_lock l(cat_recv_lock);
 
     // we must have receiver created for this volume
-    fds_verify(vol_recv_map.count(updReq->volId) > 0);
-    VolReceiverPtr volrecv = vol_recv_map[updReq->volId];
+    fds_verify(vol_recv_map.count(fwdReq->volId) > 0);
+    VolReceiverPtr volrecv = vol_recv_map[fwdReq->volId];
     // fwd update can arrive in any state, even before we unblock
     // shadow queeu and set state to FWD_INPROG
 
     // enqueue request into shadow queue
-    err = dm_req_handler->enqueueMsg(shadowVolUuid(updReq->volId), updReq);
+    err = dm_req_handler->enqueueMsg(shadowVolUuid(fwdReq->volId), fwdReq);
     if (err.ok()) {
         volrecv->pending++;
     }
@@ -121,77 +119,29 @@ Error CatSyncReceiver::enqueueFwdUpdate(dmCatReq* updReq) {
 }
 
 void
-CatSyncReceiver::fwdUpdateReqDone(dmCatReq* updCatReq,
-                                  blob_version_t blob_version,
-                                  const Error& error,
-                                  MetaSyncRespHandlerPrx respCli) {
+CatSyncReceiver::fwdUpdateReqDone(fds_volid_t volume_id) {
     Error err(ERR_OK);
     LOGTRACE << "commited forwarded update for vol " << std::hex
-             << updCatReq->volId << std::dec << " " << error;
+             << volume_id << std::dec;
 
     {  // scoped lock
         fds_mutex::scoped_lock l(cat_recv_lock);
 
         // we must have receiver create for this volume
-        fds_verify(vol_recv_map.count(updCatReq->volId) > 0);
-        VolReceiverPtr volrecv = vol_recv_map[updCatReq->volId];
+        fds_verify(vol_recv_map.count(volume_id) > 0);
+        VolReceiverPtr volrecv = vol_recv_map[volume_id];
         fds_verify(volrecv->pending > 0);
         volrecv->pending--;
 
         if (volrecv->state == VSYNC_RECV_FWD_FINISHING) {
             // shadow queue is empty, we finished getting vol meta for volid
-            LOGDEBUG << "FWD_FINISHING vol " << std::hex << updCatReq->volId
+            LOGDEBUG << "FWD_FINISHING vol " << std::hex << volume_id
                      << std::dec << " pending " << volrecv->pending;
             if (volrecv->pending == 0) {
-                recvdVolMetaLocked(updCatReq->volId);
+                recvdVolMetaLocked(volume_id);
             }
         }
     }  // end of scoped lock
-
-    // reply back to source DM
-    FDS_ProtocolInterface::FDSP_MsgHdrTypePtr msg_hdr(new FDSP_MsgHdrType);
-    FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr
-            update_catalog(new FDSP_UpdateCatalogType);
-    DataMgr::InitMsgHdr(msg_hdr);
-    update_catalog->obj_list.clear();
-    update_catalog->meta_list.clear();
-
-    if (error.ok()) {
-        msg_hdr->result  = fpi::FDSP_ERR_OK;
-        msg_hdr->err_msg = "Dude, you're good to go!";
-    } else {
-        msg_hdr->result   = fpi::FDSP_ERR_FAILED;
-        msg_hdr->err_msg  = "Something hit the fan...";
-        msg_hdr->err_code = error.GetErrno();
-        update_catalog->blob_version = blob_version_invalid;
-    }
-    msg_hdr->msg_code = fpi::FDSP_MSG_UPDATE_CAT_OBJ_RSP;
-    msg_hdr->glob_volume_id =  updCatReq->volId;
-    msg_hdr->req_cookie =  updCatReq->reqCookie;
-    msg_hdr->session_cache =  updCatReq->session_cache;
-    // we just copy (carry) those from original msg header from AM
-    // because AM will use ip and port to update dm commit ack count
-    msg_hdr->src_ip_lo_addr =  updCatReq->srcIp;
-    msg_hdr->dst_ip_lo_addr =  updCatReq->dstIp;
-    msg_hdr->src_port =  updCatReq->srcPort;
-    msg_hdr->dst_port =  updCatReq->dstPort;
-
-    update_catalog->blob_name = updCatReq->blob_name;
-    update_catalog->blob_version = blob_version;
-
-    update_catalog->dm_transaction_id = updCatReq->transId;
-    update_catalog->dm_operation = updCatReq->transOp;
-
-    try {
-        respCli->PushMetaSyncResp(msg_hdr, update_catalog);
-        LOGNORMAL << "Sent PushMetaSyncResp Rpc message";
-    } catch(...) {
-        LOGERROR << "Unable to send PushMetaSyncResp to DM";
-        err = ERR_NETWORK_TRANSPORT;
-    }
-
-    // TODO(xxx) what do we do with network error? would this
-    // be handled inside our session layer? for now ignoring
 }
 
 void CatSyncReceiver::recvdVolMetaLocked(fds_volid_t volid) {

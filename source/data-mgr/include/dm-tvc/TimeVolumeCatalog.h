@@ -66,7 +66,11 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
 
     typedef boost::shared_ptr<DmTimeVolCatalog> ptr;
     typedef boost::shared_ptr<const DmTimeVolCatalog> const_ptr;
-    typedef std::function<void (const Error &)> CommitCb;
+    typedef std::function<void (const Error &,
+                                blob_version_t,
+                                const BlobObjList::const_ptr&,
+                                const MetaDataList::const_ptr&)> CommitCb;
+    typedef std::function<void (const Error &)> FwdCommitCb;
 
     /// Allow sync related interface to volume catalog
     friend class DmVolumeCatalog;
@@ -170,10 +174,38 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
     Error abortBlobTx(fds_volid_t volId,
                       BlobTxId::const_ptr txDesc);
 
+    /**
+     * Updates forwarded committed blob from remote DM; This is
+     * an update that was already committed on DM that is migrating
+     * volume catalog to this DM, so the update is serialized and
+     * directly committed to volume catalog without going through
+     * commit log.
+     * @param[in] volId volume ID
+     * @param[in] blobName name of the blob
+     * @param[in] blobVersion version of the blob or blob_version_deleted
+     * if this is a forwarded committed blob delete
+     * @param[in] objList list of offset to object mappings or NULL
+     * @param[in] metaList list of meta k-v pairs if any, or NULL
+     */
+    Error updateFwdCommittedBlob(fds_volid_t volId,
+                                 const std::string &blobName,
+                                 blob_version_t blobVersion,
+                                 const fpi::FDSP_BlobObjectList &objList,
+                                 const fpi::FDSP_MetaDataList &metaList,
+                                 const DmTimeVolCatalog::FwdCommitCb &fwdCommitCb);
+
+
     void commitBlobTxWork(fds_volid_t volid,
                           DmCommitLog::ptr &commitLog,
                           BlobTxId::const_ptr txDesc,
                           const DmTimeVolCatalog::CommitCb &cb);
+
+    void updateFwdBlobWork(fds_volid_t volId,
+                           const std::string &blobName,
+                           blob_version_t blobVersion,
+                           const fpi::FDSP_BlobObjectList &objList,
+                           const fpi::FDSP_MetaDataList &metaList,
+                           const DmTimeVolCatalog::FwdCommitCb &fwdCommitCb);
 
     /**
      * Returns query interface to volume catalog. Provides

@@ -53,7 +53,9 @@ enum  FDSPMsgTypeId {
     GetObjectRespTypeId 	= 10001,
     PutObjectMsgTypeId		= 10002, 
     PutObjectRspMsgTypeId	= 10003,
-	
+	DeleteObjectMsgTypeId,
+	DeleteObjectRspMsgTypeId,
+
     /* DM Type Ids */
     QueryCatalogMsgTypeId = 20000,
     QueryCatalogRspMsgTypeId,
@@ -262,11 +264,10 @@ struct PutObjectRspMsg {
 }
 
 /* Delete object request message */
-struct  DeleteObjectMsg { 
- 1: FDSP.FDS_ObjectIdType data_obj_id,
- 2: i32              dlt_version,
- 3: i32              data_obj_len,
- 4: binary           dlt_data,
+struct  DeleteObjectMsg {
+ 1: i64 volId,
+ 2: FDSP.FDS_ObjectIdType objId, 
+ 3: i64 origin_timestamp,  
 }
 
 /* Delete object response message */
@@ -333,6 +334,7 @@ struct StartBlobTxMsg {
    3: i64 			blob_version;
    4: i32 			blob_mode;
    5: i64 			txId;
+   6: i64                       dmt_version;
 }
 
 /* start Blob traction response message */
@@ -345,6 +347,7 @@ struct CommitBlobTxMsg {
    2: string 			blob_name;
    3: i64 			blob_version;
    4: i64 			txId;
+   5: i64                       dmt_version,
 }
 
 /* Commit Blob traction response message */
@@ -407,7 +410,10 @@ struct GetBucketMsg {
   4: FDSP.BlobInfoListType     blob_info_list;
 }
 
-struct GetVolumeMetaDataRspMsg {
+struct GetVolumeMetaDataMsg {
+  1: i64                        volume_id;
+  //response
+  2: FDSP.FDSP_VolumeMetaData   volume_meta_data;
 }
 
 struct DeleteBlobMsg {
@@ -421,7 +427,7 @@ struct DeleteBlobMsg {
 struct VolSyncStateMsg
 {
     1: i64        volume_id;
-    2: bool       forward_done;   /* true = forwarding done, false = second rsync done */
+    2: bool       forward_complete;   /* true = forwarding done, false = second rsync done */
 }
 
 struct VolSyncStateRspMsg {

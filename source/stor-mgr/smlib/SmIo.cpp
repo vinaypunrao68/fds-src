@@ -11,4 +11,10 @@ std::string SmIoPutObjectReq::log_string()
     ret << " SmIoPutObjectReq";
     return ret.str();
 }
+std::string SmIoDeleteObjectReq::log_string()
+{
+    std::stringstream ret;
+    ret << " SmIoDeleteObjectReq";
+    return ret.str();
+}
 }  // namespace fds

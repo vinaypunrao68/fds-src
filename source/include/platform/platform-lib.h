@@ -399,14 +399,21 @@ class PlatformProcess : public FdsProcess
 {
   public:
     virtual ~PlatformProcess();
+    PlatformProcess();
     PlatformProcess(int argc, char *argv[],
                     const std::string &cfg_path,
                     const std::string &log_file,
                     Platform *platform, Module **vec);
-    /* Exposed for mock testing */
-    PlatformProcess() {}
+    void init(int argc, char **argv,
+              const std::string  &cfg,
+              const std::string  &log,
+              Platform           *platform,
+              Module            **vec);
 
     virtual void proc_pre_startup() override;
+
+    /* Override from CommonModuleProviderIf */
+    virtual Platform* get_plf_manager() override { return plf_mgr; }
 
     /**
      * Return platform manager from the global singleton.
