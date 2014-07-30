@@ -695,7 +695,7 @@ void StorHvCtrl::deleteObjectMsgResp(fds::AmQosReq* qosReq,
 
 fds::Error
 StorHvCtrl::getVolumeMetaDataSvc(fds::AmQosReq* qosReq) {
-    StorHvCtrl::TxnRequestHelper helper(storHvisor, qosReq);
+    StorHvCtrl::RequestHelper helper(storHvisor, qosReq);
 
     if (!helper.isValidVolume()) {
         LOGCRITICAL << "unable to get volume info for vol: " << helper.volId;
