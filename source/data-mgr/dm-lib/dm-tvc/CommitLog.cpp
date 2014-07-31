@@ -455,6 +455,10 @@ Error DmCommitLog::validateSubsequentTx(const BlobTxId & txId) {
     return ERR_OK;
 }
 
+fds_bool_t DmCommitLog::isPendingTx(fds_uint64_t tsNano) {
+    return false;
+}
+
 template<typename T>
 const std::string DmCommitLogEntry::createPayload(boost::shared_ptr<const T> val) {
     boost::scoped_ptr<serialize::Serializer> s(serialize::getMemSerializer());

@@ -116,6 +116,9 @@ class DmCommitLog : public Module {
     // get transaction
     CommitLogTx::const_ptr getTx(BlobTxId::const_ptr & txDesc);
 
+    // check if any transaction is pending from before the given time
+    fds_bool_t isPendingTx(fds_uint64_t tsNano);
+
   private:
     TxMap txMap_;    // in-memory state
     fds_rwlock lockTxMap_;
