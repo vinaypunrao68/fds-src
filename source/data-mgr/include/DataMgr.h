@@ -38,6 +38,7 @@
 #include <dmhandler.h>
 #include <CatalogSync.h>
 #include <CatalogSyncRecv.h>
+#include <dm-tvc/CommitLog.h>
 
 #include <blob/BlobTypes.h>
 #include <fdsp/DMSvc.h>
@@ -76,6 +77,11 @@ class DataMgr : public Module, public DmIoReqHandler {
     CatalogSyncMgrPtr catSyncMgr;  // sending vol meta
     CatSyncReceiverPtr catSyncRecv;  // receiving vol meta
     void initHandlers();
+
+    /**
+     * DmIoReqHandler method implementation
+     */
+    virtual Error enqueueMsg(fds_volid_t volId, dmCatReq* ioReq) override;
 
  private:
     typedef enum {
@@ -145,6 +151,9 @@ class DataMgr : public Module, public DmIoReqHandler {
                     break;
                 case FDS_DM_PUSH_META_DONE:
                     threadPool->schedule(&DataMgr::handleDMTClose, dataMgr, io);
+                    break;
+                case FDS_DM_PURGE_COMMIT_LOG:
+                    threadPool->schedule(io->proc, io);
                     break;
 
                 /* End of new refactored DM message types */
@@ -246,11 +255,6 @@ class DataMgr : public Module, public DmIoReqHandler {
      * all updates that are currently queued are processed.
      */
     Error notifyDMTClose();
-
-    /**
-     * DmIoReqHandler method implementation
-     */
-    virtual Error enqueueMsg(fds_volid_t volId, dmCatReq* ioReq);
 
     static Error vol_handler(fds_volid_t vol_uuid,
                              VolumeDesc* desc,

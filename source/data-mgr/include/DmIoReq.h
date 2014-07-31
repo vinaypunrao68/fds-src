@@ -13,6 +13,7 @@
 #include <fds_error.h>
 #include <fds_types.h>
 #include <fds_volume.h>
+#include <fds_resource.h>
 #include <fdsp/FDSP_types.h>
 #include <fds_typedefs.h>
 #include <blob/BlobTypes.h>
@@ -32,7 +33,7 @@ namespace fds {
         std::string session_uuid;
         fds_uint32_t reqCookie;
 
-        explicit RequestHeader(const FDSP_MsgHdrTypePtr &hdr) {
+        explicit RequestHeader(const fpi::FDSP_MsgHdrTypePtr &hdr) {
             volId = hdr->glob_volume_id;
             srcIp = hdr->src_ip_lo_addr;
             dstIp = hdr->dst_ip_lo_addr;
@@ -64,6 +65,7 @@ namespace fds {
         boost::shared_ptr<fpi::FDSP_MetaDataList> metadataList;
         std::string session_cache;
         std::function<void(const Error &e, dmCatReq *dmRequest)> cb = NULL;
+        std::function<void(dmCatReq * req)> proc = NULL;
 
         dmCatReq(fds_volid_t  _volId,
                  fds_uint32_t _srcIp,
@@ -427,7 +429,7 @@ class DmIoUpdateCat: public dmCatReq {
     }
 
     BlobTxId::const_ptr ioBlobTxDesc;
-    const FDSP_BlobObjectList & obj_list;
+    const fpi::FDSP_BlobObjectList & obj_list;
     boost::shared_ptr<fpi::UpdateCatalogMsg> updcatMsg;
 
     /* response callback */
@@ -454,7 +456,7 @@ class DmIoSetBlobMetaData: public dmCatReq {
         return ret.str();
     }
     BlobTxId::const_ptr ioBlobTxDesc;
-    const FDSP_MetaDataList & md_list;
+    const fpi::FDSP_MetaDataList & md_list;
     boost::shared_ptr<const fpi::SetBlobMetaDataMsg> setMDMsg;  // keep the reference
     /* response callback */
     CbType dmio_setmd_resp_cb;
