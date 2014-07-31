@@ -218,6 +218,11 @@ class BlobExtent0 : public BlobExtent {
     void markDeleted();
 
     /**
+     * Checks if the blob is marked as deleted
+     */
+    fds_bool_t isDeleted() const;
+
+    /**
      * Update key-value metadata list, if entry already exists
      * in the current metadata list, it is updated with a new value
      */

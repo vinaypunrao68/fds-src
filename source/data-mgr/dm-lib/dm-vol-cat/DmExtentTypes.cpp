@@ -250,6 +250,10 @@ void BlobExtent0::markDeleted() {
     blob_obj_list.clear();
 }
 
+fds_bool_t BlobExtent0::isDeleted() const {
+    return (blob_meta.desc.version == blob_version_deleted);
+}
+
 void BlobExtent0::updateMetaData(const MetaDataList::const_ptr& meta_list) {
     for (MetaDataList::const_iter cit = meta_list->cbegin();
          cit != meta_list->cend();

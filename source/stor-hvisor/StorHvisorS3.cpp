@@ -78,6 +78,7 @@ StorHvCtrl::ResponseHelper::ResponseHelper(StorHvCtrl* storHvisor,
 
 void StorHvCtrl::ResponseHelper::setStatus(FDSN_Status  status) {
     blobReq->cb->status = status;
+    blobReq->cb->error  = status;
 }
 
 StorHvCtrl::ResponseHelper::~ResponseHelper() {

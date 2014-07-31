@@ -135,6 +135,11 @@ StatBlobResponseHandler::StatBlobResponseHandler(
 
 
 void StatBlobResponseHandler::process() {
+    if (error == ERR_CAT_ENTRY_NOT_FOUND) {
+        apis::ApiException fdsE;
+        fdsE.errorCode = apis::MISSING_RESOURCE;
+        throw fdsE;
+    }
     XCHECKSTATUS(status);
 
     retBlobDesc.name      = blobDesc.getBlobName();

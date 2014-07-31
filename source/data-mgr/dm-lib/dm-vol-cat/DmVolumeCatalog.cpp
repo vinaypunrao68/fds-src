@@ -538,10 +538,15 @@ Error DmVolumeCatalog::getBlobMeta(fds_volid_t volume_id,
                                              err);
 
     if (err.ok()) {
-        // we got blob meta, fill in version, size, and meta list
-        *blob_version = extent0->blobVersion();
-        *blob_size = extent0->blobSize();
-        extent0->toMetaFdspPayload(*meta_list);
+        // Return not found if blob is marked for deleteion
+        if (extent0->isDeleted() == true) {
+            err = ERR_CAT_ENTRY_NOT_FOUND;
+        } else {
+            // we got blob meta, fill in version, size, and meta list
+            *blob_version = extent0->blobVersion();
+            *blob_size = extent0->blobSize();
+            extent0->toMetaFdspPayload(*meta_list);
+        }
     }
 
     return err;
