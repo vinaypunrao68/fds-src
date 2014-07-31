@@ -57,15 +57,11 @@ DmCacheVolCatalog::getExtent(fds_volid_t volume_id,
                              eKey,
                              &extentPtr);
     if (error == ERR_OK) {
-        // Make sure we read back the correct extent
-        fds_verify(extentPtr->getExtentId() == 0);
-
         // Copy the extent into a object we can safely
         // return to the caller.
         // TODO(Andrew): Avoid this copy when we can instead
         // pin the element in the cache until the caller is done
         // with it
-
         BlobExtent::ptr extent;
         if (extent_id == 0) {
             extent.reset(new BlobExtent0(
