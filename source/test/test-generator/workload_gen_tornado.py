@@ -2,7 +2,6 @@
 import sys
 import os
 import time
-import copy
 sys.path.append('../../test')
 sys.path.append('../fdslib/pyfdsp')
 
@@ -14,14 +13,14 @@ import json
 import jsonpickle
 import copy
 import random
-from requests_futures.sessions import FuturesSession
-import requests
 from tabulate import tabulate
-import hashlib
+from tornado.httpclient import *
+import tornado.web
+import tornado.ioloop
 
+NUMBER_OF_OPS = 3
 MAGIC_WORD = 'magic_word'
 HEADER_SIZE = 4000
-MAX_CONCURRENCY_PUT = 9999
 DEBUG_TIMEOUT = 5
 
 operation_list=[]
@@ -66,11 +65,13 @@ class Processor(object):
             elif operation == 'delete':
                 pass
 
+    def handle_request(self, response):
+        print response.effective_url, response.code, response.body
+
     def toHTTP(self, fds_url='http://localhost:8000/bucket1/'):
         """ Handles sending async HTTP requests to AM. """
         data_list = []
-        session = FuturesSession(max_workers=MAX_CONCURRENCY_PUT)
-        futures = []
+        http_client = AsyncHTTPClient()
 
         _get_counter=0
         _del_counter=0
@@ -79,64 +80,80 @@ class Processor(object):
         _fake_get_obj='fake1'
         _fake_get_ctr=1
 
-        start=time.clock()
         # Send HTTP requests asynchronously
         for operation in self.list_:
             if operation == 'put':
                 _data = self.readData()
                 data_list.append((_data[0], _data[1]))  # (obj id, dedup ratio)
-                futures.append((
-                    session.put(fds_url+_data[0], data=_data[2], timeout=DEBUG_TIMEOUT),
-                    _data[0],
-                    'put'))
+                http_client.fetch(
+                        HTTPRequest(fds_url+_data[0],
+                            method='PUT',
+                            body=_data[2]),
+                        callback=self.handle_request)
+                #futures.append((
+                #    session.put(fds_url+_data[0], data=_data[2], timeout=DEBUG_TIMEOUT),
+                #    _data[0],
+                #    'put'))
             elif operation == 'get':
                 try:
-                    futures.append((
-                        session.get(fds_url+data_list[_get_counter][0], timeout=DEBUG_TIMEOUT),
-                        data_list[_get_counter][0],
-                        'get'))
+                    http_client.fetch(
+                            HTTPRequest(fds_url+data_list[_get_counter][0],
+                                method='GET'),
+                            callback=self.handle_request)
+                    #futures.append((
+                    #    session.get(fds_url+data_list[_get_counter][0], timeout=DEBUG_TIMEOUT),
+                    #    data_list[_get_counter][0],
+                    #    'get'))
                 except IndexError as y:
-                    futures.append((
-                        session.get(fds_url+_fake_get_obj, timeout=DEBUG_TIMEOUT),
-                        _fake_get_obj,
-                        'get'))
+                    http_client.fetch(
+                            HTTPRequest(fds_url+_fake_get_obj,
+                                method='GET'),
+                            callback=self.handle_request)
+                    #futures.append((
+                    #    session.get(fds_url+_fake_get_obj, timeout=DEBUG_TIMEOUT),
+                    #    _fake_get_obj,
+                    #    'get'))
                     _fake_get_ctr += 1
                     _fake_get_obj = 'fake'+str(_fake_get_ctr)
                 else:
                     _get_counter += 1
             elif operation == 'delete':
-                # If trying to delete more than it has put, attempt to delete a fake object (simulating deleting something before it's been written)
                 try:
-                    futures.append((
-                        session.delete(fds_url+data_list[_del_counter][0], timeout=DEBUG_TIMEOUT),
-                        data_list[_del_counter][0],
-                        'del'))
+                    http_client.fetch(
+                            HTTPRequest(fds_url+data_list[_del_counter][0],
+                                method='DELETE'),
+                            callback=self.handle_request)
+                    #futures.append((
+                    #    session.delete(fds_url+data_list[_del_counter][0], timeout=DEBUG_TIMEOUT),
+                    #    data_list[_del_counter][0],
+                    #    'del'))
                 except IndexError as y:
-                    futures.append((
-                        session.delete(fds_url+_fake_del_obj, timeout=DEBUG_TIMEOUT),
-                        _fake_del_obj,
-                        'del'))
+                    http_client.fetch(
+                            HTTPRequest(fds_url+_fake_del_obj,
+                                method='DELETE'),
+                            callback=self.handle_request)
+                    #futures.append((
+                    #    session.delete(fds_url+_fake_del_obj, timeout=DEBUG_TIMEOUT),
+                    #    _fake_del_obj,
+                    #    'del'))
                     _fake_del_ctr += 1
                     _fake_del_obj = 'fake'+str(_fake_del_ctr)
                 else:
                     _del_counter += 1
-        elapsed=time.clock()-start
 
         # Process the responses.  This is blocking
         _tab = []
         _header = ['Obj Name','Op','HTTP Error Code','Error Text']
-        time.sleep(1)
-
-        for future in futures:
-            try:
-                _tmp = [future[1],future[2],str(future[0].result()),str(future[0].result().text)]
-                _tab.append(_tmp)
-            except requests.RequestException as e:
-                _tmp = [future[1],future[2],str(e)]
-                _tab.append(_tmp)
-
+        #for future in futures:
+        #    try:
+        #        _tmp = [future[1],future[2],str(future[0].result()),str(future[0].result().text)]
+        #        _tab.append(_tmp)
+        #    except requests.RequestException as e:
+        #        _tmp = [future[1],future[2],str(e)]
+        #        _tab.append(_tmp)
         print tabulate(_tab, _header)
-        print elapsed
+        #tornado.ioloop.IOLoop.instance().start()
+
         return data_list
 
     def toAB(self):
@@ -206,7 +223,6 @@ class Workload(object):
         _spec.__dict__.update(self.spec.__dict__)
         _repeat=False
         _list=list(_spec.order)
-        _NUMBER_OF_OPS=len(self.spec.order)
 
         if self.spec.rand_seed != 0:
             random.shuffle(_list)
@@ -224,8 +240,8 @@ class Workload(object):
 
             # If there are no ops left proceed to the next op and reset _spec
             if _repeat is False:
-                _order = (_order + 1) % _NUMBER_OF_OPS
-                if _order is _NUMBER_OF_OPS-1:
+                _order = (_order + 1) % NUMBER_OF_OPS
+                if _order is NUMBER_OF_OPS-1:
                     _spec.__dict__.update(self.spec.__dict__)
                     random.shuffle(_list)
                     _spec.order = ''.join(_list)
@@ -244,12 +260,14 @@ def main():
     w.generate()
     print w.load
     p = Processor(w.load)
-    print p.toHTTP()
 
     #try:
     #    print requests.delete('http://localhost:8000/bucket1')
     #except Exception as e:
     #    print 'Bucket delete failed!'
 
+    #import timeit
+    #print(timeit.timeit('p.toHTTP()', setup='gc.enable();from __main__ import Processor, Workload; w = Workload("spec.json"); w.generate(); p = Processor(w.load)', number=1))
+
 if __name__ == '__main__':
-    main()
+    tornado.ioloop.IOLoop.instance().run_sync(main())
