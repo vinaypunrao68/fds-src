@@ -1,0 +1,8 @@
+{
+    "put" : 1,
+    "get" : 1,
+    "del" : 0,
+    "rand_seed" : 0,
+    "total_io" : 20,
+    "order" : "pg"
+}

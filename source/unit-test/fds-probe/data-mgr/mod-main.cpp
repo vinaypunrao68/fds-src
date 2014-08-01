@@ -19,13 +19,17 @@ static void run_dm_server(DataMgr *inst)
     inst->run();  //  not return
 }
 
+// TODO(Rao):  DM is converted to a module.  Below code is invalid.  Fix
+// the code below so that this probe is functional
 class DM_Probe : public DataMgr
 {
   public:
     virtual ~DM_Probe() {}
     DM_Probe(int argc, char **argv, Platform *platform, Module **mod_vec)
-        : DataMgr(argc, argv, platform, mod_vec) {}
+    : DataMgr(nullptr)
+    {}
 
+#if 0
     void proc_pre_startup() override
     {
         // Add your probe adapter(s) to S3 connector.
@@ -46,6 +50,7 @@ class DM_Probe : public DataMgr
         gl_probeS3Eng.run_server(api);
         return 0;
     }
+#endif
 };
 }  // namespace fds
 
@@ -58,8 +63,11 @@ int main(int argc, char **argv)
         &fds::gl_Dm_ProbeMod,
         NULL
     };
+#if 0
     fds::dataMgr = new fds::DM_Probe(argc, argv, &fds::gl_DmPlatform, probe_vec);
     int ret = fds::dataMgr->main();
     delete dataMgr;
     return ret;
+#endif
+    return 0;
 }

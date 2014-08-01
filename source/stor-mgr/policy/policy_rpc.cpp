@@ -69,8 +69,8 @@ SM_VolPolicyServ::serv_recvTierPolicyReq(const fdp::FDSP_TierPolicyPtr &tier)
     if (vol == nullptr) {
         // TODO: No way to return the result back to caller.
         //
-        FDS_PLOG(objStorMgr->GetLog()) << "Could not find volume uuid "
-                                       << tier->tier_vol_uuid;
+        GLOGERROR << "Could not find volume uuid "
+            << tier->tier_vol_uuid;
         return;
     }
     VolumeDesc *desc = vol->voldesc;

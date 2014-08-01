@@ -31,7 +31,7 @@ Error StatBlobHandler::handleResponse(AmQosReq *qosReq,
     // Return if err
     if (error != ERR_OK) {
         LOGWARN << "error in response: " << error;
-        helper.setStatus(FDSN_StatusErrorUnknown);
+        helper.setStatus(error.GetErrno());
         return error;
     }
 

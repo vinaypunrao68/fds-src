@@ -217,6 +217,12 @@ class FdsnIf : public apis::AmServiceIf {
 
         handler->wait();
         handler->process();
+
+        if (handler->error != ERR_OK) {
+            apis::ApiException fdsE;
+            fdsE.errorCode = apis::BAD_REQUEST;
+            throw fdsE;
+        }
     }
 
     void abortBlobTx(const std::string& domainName,

@@ -22,6 +22,10 @@ DMSvcHandler::DMSvcHandler()
     REGISTER_FDSP_MSG_HANDLER(fpi::AbortBlobTxMsg, abortBlobTx);
     REGISTER_FDSP_MSG_HANDLER(fpi::SetBlobMetaDataMsg, setBlobMetaData);
     REGISTER_FDSP_MSG_HANDLER(fpi::GetBlobMetaDataMsg, getBlobMetaData);
+    REGISTER_FDSP_MSG_HANDLER(fpi::GetVolumeMetaDataMsg, getVolumeMetaData);
+    /* DM to DM service messages */
+    REGISTER_FDSP_MSG_HANDLER(fpi::VolSyncStateMsg, volSyncState);
+    REGISTER_FDSP_MSG_HANDLER(fpi::ForwardCatalogMsg, fwdCatalogUpdateMsg);
 }
 
 
@@ -31,8 +35,9 @@ void DMSvcHandler::commitBlobTx(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     LOGDEBUG << logString(*asyncHdr) << logString(*commitBlbTx);
 
     auto dmBlobTxReq = new DmIoCommitBlobTx(commitBlbTx->volume_id,
-                                           commitBlbTx->blob_name,
-                                           commitBlbTx->blob_version);
+                                            commitBlbTx->blob_name,
+                                            commitBlbTx->blob_version,
+                                            commitBlbTx->dmt_version);
     dmBlobTxReq->dmio_commit_blob_tx_resp_cb =
             BIND_MSG_CALLBACK2(DMSvcHandler::commitBlobTxCb, asyncHdr);
 
@@ -127,7 +132,8 @@ void DMSvcHandler::startBlobTx(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     auto dmBlobTxReq = new DmIoStartBlobTx(startBlbTx->volume_id,
                                            startBlbTx->blob_name,
                                            startBlbTx->blob_version,
-                                           startBlbTx->blob_mode);
+                                           startBlbTx->blob_mode,
+                                           startBlbTx->dmt_version);
     dmBlobTxReq->dmio_start_blob_tx_resp_cb =
             BIND_MSG_CALLBACK2(DMSvcHandler::startBlobTxCb, asyncHdr);
 
@@ -155,8 +161,9 @@ void DMSvcHandler::startBlobTxCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
      * TODO(sanjay)- we will have to add  call to  send the response without payload 
      * static response
      */
-    LOGDEBUG << logString(*asyncHdr);
     asyncHdr->msg_code = static_cast<int32_t>(e.GetErrno());
+    LOGDEBUG << "startBlobTx completed " << e << " " << logString(*asyncHdr);
+
     // TODO(sanjay) - we will have to revisit  this call
     fpi::StartBlobTxRspMsg stBlobTxRsp;
     sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(StartBlobTxRspMsg), stBlobTxRsp);
@@ -350,4 +357,112 @@ DMSvcHandler::setBlobMetaDataCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
     delete req;
 }
+
+/**
+ * Destination handler for receiving a VolsyncStateMsg (rsync has finished).
+ *
+ * @param[in] asyncHdr the async header sent with svc layer request
+ * @param[in] fwdMsg the VolSyncState message
+ * 
+ */
+void DMSvcHandler::volSyncState(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                                boost::shared_ptr<fpi::VolSyncStateMsg>& syncStateMsg)
+{
+    Error err(ERR_OK);
+
+    // synchronous call to process the volume sync state
+    err = dataMgr->processVolSyncState(syncStateMsg->volume_id,
+                                       syncStateMsg->forward_complete);
+
+    asyncHdr->msg_code = err.GetErrno();
+    fpi::VolSyncStateRspMsg volSyncStateRspMsg;
+    // TODO(Brian): send a response here, make sure we've set the cb properly in the caller first
+    // sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(VolSyncStateRspMsg), VolSyncStateRspMsg);
+}
+
+/**
+ * Destination handler for receiving a ForwardCatalogMsg.
+ *
+ * @param[in] asyncHdr shared pointer reference to the async header
+ * sent with svc layer requests 
+ * @param[in] syncStateMsg shared pointer reference to the
+ * ForwardCatalogMsg
+ *
+ */
+void DMSvcHandler::fwdCatalogUpdateMsg(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                                       boost::shared_ptr<fpi::ForwardCatalogMsg>& fwdCatMsg)
+{
+    Error err(ERR_OK);
+
+    // Update catalog qos requeset but w/ different type
+    auto dmFwdReq = new DmIoFwdCat(fwdCatMsg);
+    // Bind CB
+    dmFwdReq->dmio_fwdcat_resp_cb = BIND_MSG_CALLBACK2(DMSvcHandler::fwdCatalogUpdateCb,
+                                                       asyncHdr, fwdCatMsg);
+    // Enqueue to shadow queue
+    err = dataMgr->catSyncRecv->enqueueFwdUpdate(dmFwdReq);
+    if (!err.ok()) {
+        LOGWARN << "Unable to enqueue Forward Update Catalog request "
+                << logString(*asyncHdr) << " " << *dmFwdReq;
+        dmFwdReq->dmio_fwdcat_resp_cb(err, dmFwdReq);
+    }
+}
+
+/**
+ * Callback for DmIoFwdCat request in fwdCatalogUpdate.
+ *
+ * @param[in] asyncHdr shared pointer reference to the async header
+ * sent with svc layer requests 
+ * @param[in] syncStateMsg shared pointer reference to the
+ * ForwardCatalogMsg
+ * @param[in] err Error code
+ * @param[in] req The DmIoFwdCat request created by the caller
+ *
+ */
+void DMSvcHandler::fwdCatalogUpdateCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                                      boost::shared_ptr<fpi::ForwardCatalogMsg>& fwdCatMsg,
+                                      const Error &err, DmIoFwdCat *req)
+{
+    DBG(GLOGDEBUG << logString(*asyncHdr) << " " << *req);
+    // Set error value
+    asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
+
+    // Send forwardCatalogUpdateRspMsg
+    fpi::ForwardCatalogRspMsg fwdCatRspMsg;
+    sendAsyncResp(asyncHdr,
+                  FDSP_MSG_TYPEID(fpi::ForwardCatalogRspMsg),
+                  fwdCatMsg);
+
+    delete req;
+}
+
+void
+DMSvcHandler::getVolumeMetaData(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                                boost::shared_ptr<fpi::GetVolumeMetaDataMsg>& message) {
+    // DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*message));
+
+    auto dmReq = new DmIoGetVolumeMetaData(message);
+    dmReq->dmio_get_volmd_resp_cb =
+                    BIND_MSG_CALLBACK2(DMSvcHandler::getVolumeMetaDataCb, asyncHdr, message);
+
+    Error err = dataMgr->qosCtrl->enqueueIO(dmReq->getVolId(),
+                                      static_cast<FDS_IOType*>(dmReq));
+    if (err != ERR_OK) {
+        LOGWARN << "Unable to enqueue request "
+                << logString(*asyncHdr) << ":" << logString(*message);
+        dmReq->dmio_get_volmd_resp_cb(err, dmReq);
+    }
+}
+
+void
+DMSvcHandler::getVolumeMetaDataCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                    boost::shared_ptr<fpi::GetVolumeMetaDataMsg>& message,
+                    const Error &e, DmIoGetVolumeMetaData *req) {
+    DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*message));
+
+    asyncHdr->msg_code = static_cast<int32_t>(e.GetErrno());
+    sendAsyncResp(asyncHdr, fpi::GetVolumeMetaDataMsgTypeId, message);
+    delete req;
+}
+
 }  // namespace fds

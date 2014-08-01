@@ -237,6 +237,7 @@ typedef enum {
     FDS_DM_SNAP_VOLCAT,
     FDS_DM_SNAPDELTA_VOLCAT,
     FDS_DM_FWD_CAT_UPD,
+    FDS_DM_PUSH_META_DONE,
     FDS_OP_INVALID
 } fds_io_op_t;
 

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 #
 # Copyright 2014 by Formation Data Systems, Inc.
 #
@@ -6,11 +6,24 @@ import os, sys
 import inspect
 import argparse
 import subprocess
-from multiprocessing import Process
+from multiprocessing import Process, Array
 import ServiceMgr
 import ServiceConfig
 import pdb
 import time
+import requests
+
+###
+# Enumerations
+#
+class IOSTAT:
+    PUT, GET, DEL = range(0,3)
+
+class HTTPERROR:
+    OK = 200
+    NOT_FOUND = 404
+
+##########################################################
 
 ###
 # Fds test environment
@@ -21,7 +34,7 @@ class FdsEnv:
         self.srcdir          = ''
         self.env_root        = _root
         self.env_exit_on_err = True
-        
+
         # assuming that this script is located in the test dir
         self.testdir  = os.path.dirname(
                             os.path.abspath(inspect.getfile(inspect.currentframe())))
@@ -57,12 +70,13 @@ class FdsSetupNode:
 #
 class FdsDataSet:
     def __init__(self, am_ip='localhost', bucket='abc', data_dir='',
-                 dest_dir='/tmp', file_ext='*'):
+                 dest_dir='/tmp', file_ext='*', log_level=0):
         self.ds_am_ip    = am_ip
         self.ds_bucket   = bucket
         self.ds_data_dir = data_dir
         self.ds_file_ext = file_ext
         self.ds_dest_dir = dest_dir
+        self.ds_log_level = log_level
 
         if not self.ds_data_dir or self.ds_data_dir == '':
             self.ds_data_dir = os.getcwd()
@@ -75,14 +89,15 @@ class FdsDataSet:
 # test runner parameters
 #
 class FdsTestArgs:
-    def __init__(self, volume_name, data_set_dir, result_dir, loop_cnt, async, am_ip):
+    def __init__(self, volume_name, data_set_dir, result_dir, loop_cnt, async, am_ip, log_level):
         self.args_volume_name  = volume_name
         self.args_data_set_dir = data_set_dir
         self.args_result_dir   = result_dir
         self.args_loop_cnt     = loop_cnt
         self.args_async_io     = async
         self.args_am_ip        = am_ip
- 
+        self.log_level         = log_level
+
 ###
 # global test stats
 #
@@ -109,6 +124,8 @@ class CopyS3Dir:
         self.perr_cnt   = 0
         self.gerr_cnt   = 0
         self.gerr_chk   = 0
+        self.log        = int(dataset.ds_log_level)
+
         self.obj_prefix = str(CopyS3Dir.global_obj_prefix)
         CopyS3Dir.global_obj_prefix += 1
         self.bucket_url = 'http://' + dataset.ds_am_ip + ':8000/' + self.bucket
@@ -140,18 +157,35 @@ class CopyS3Dir:
             cnt += burst_cnt
 
     def create_bucket(self):
-        time.sleep(10)
-        ret = subprocess.call(['curl', '-X' 'PUT', self.bucket_url])
-        if ret != 0:
-            print "Bucket create failed %d" % ret
-            sys.exit(1)
-        subprocess.call(['sleep', '3'])
+        # Check to make sure the bucket doesn't already exist
+        try:
+            r = requests.get(self.bucket_url)
+            if r.status_code == HTTPERROR.OK:
+                return 0
+        except requests.ConnectionError as e:
+            pass
+
+        time.sleep(3)
+
+        if int(self.log) < 2:
+            print 'Attempting to create bucket:', self.bucket
+        try:
+            r = requests.put(self.bucket_url)
+            if r.status_code != HTTPERROR.OK:
+                print "Bucket (", self.bucket,") create failed: error", r.status_code, r.content
+                sys.exit(1)
+        except requests.ConnectionError as e:
+            print e
+        time.sleep(3)
 
     def delete_bucket(self):
-        ret = subprocess.call(['curl', '-X' 'DELETE', self.bucket_url])
-        if ret != 0:
-            print "Bucket delete failed"
-            sys.exit(1)
+        try:
+            r = requests.delete(self.bucket_url)
+            if r.status_code != HTTPERROR.OK:
+                print "Bucket delete failed: error", r.status_code, r.content
+                sys.exit(1)
+        except requests.ConnectionError as e:
+            print e
         subprocess.call(['sleep', '3'])
 
     def print_debug(self, message="INFO: "):
@@ -159,7 +193,7 @@ class CopyS3Dir:
             print message
 
     def put_test(self, burst=0):
-        global stat
+        global ioStats
         os.chdir(self.ds.ds_data_dir)
         cnt = 0
         err = 0
@@ -169,26 +203,35 @@ class CopyS3Dir:
             cnt = cnt + 1
             obj = self.obj_prefix + put.replace("/", "_")
             self.print_debug("curl PUT: " + put + " -> " + obj)
-            ret = subprocess.call(['curl', '-X', 'PUT', '--data-binary',
-                                   '@' + put, self.bucket_url + '/' + obj])
-            if ret != 0:
+            fput = open(put, 'r')
+            try:
+                r = requests.put(self.bucket_url + '/' + obj, data=fput)
+            except requests.ConnectionError as e:
+                print e
+            fput.close()
+
+            #ret = subprocess.call(['curl', '-X', 'PUT', '--data-binary',
+            #                       '@' + put, self.bucket_url + '/' + obj])
+            if r.status_code != HTTPERROR.OK:
                 err = err + 1
-                print "curl error PUT: " + put + ": " + obj
+                print "HTTP error PUT: " + put + ": " + obj
+                print 'Error: ', r.status_code, r.content
                 if self.exit_on_err == True:
                     sys.exit(1)
 
-            if (cnt % 10) == 0:
+            if (cnt % 10) == 0 and int(self.log) < 2:
                 print "Put ", cnt + self.cur_put , " objects... errors: [", err, "]"
             if cnt == burst:
                 break
 
-        print "Put ", cnt + self.cur_put, " objects... errors: [", err, "]"
+        if self.log < 2:
+            print "Put ", cnt + self.cur_put, " objects... errors: [", err, "]"
         self.cur_put  += cnt
         self.perr_cnt += err
-        stat.total_puts += cnt
+        ioStats[IOSTAT.PUT] += cnt;
 
     def get_test(self, burst=0):
-        global stat
+        global ioStats
         os.chdir(self.ds.ds_data_dir)
         cnt = 0
         err = 0
@@ -199,36 +242,46 @@ class CopyS3Dir:
             cnt = cnt + 1
             obj = self.obj_prefix + get.replace("/", "_");
             tmp = self.ds.ds_dest_dir + '/' + obj
+            ftmp = open(tmp, 'w')
             self.print_debug("curl GET: " + obj + " -> " + tmp)
-            ret = subprocess.call(['curl', '-s' '1' ,
-                                   self.bucket_url + '/' + obj, '-o', tmp])
-            if ret != 0:
+            try:
+                r = requests.get(self.bucket_url + '/' + obj)
+            except requests.ConnectionError as e:
+                print e
+            ftmp.write(r.content)
+            ftmp.close()
+            #ret = subprocess.call(['curl', '-s' '1' ,
+            #                       self.bucket_url + '/' + obj, '-o', tmp])
+            if r.status_code != HTTPERROR.OK:
                 err = err + 1
-                print "curl error GET: " + get + ": " + obj + " -> " + tmp
+                print "HTTP error GET: " + get + ": " + obj
+                print 'error: ', r.status_code
                 if self.exit_on_err == True:
                     sys.exit(1)
 
             ret = subprocess.call(['diff', get, tmp])
             if ret != 0:
                 chk = chk + 1
-                print "Get ", get, " -> ", tmp, ": ", cnt,  \
-                      " objects... errors: [", err, "], verify failed [", chk, "]"
+                if self.log < 2:
+                    print "Get ", get, " -> ", tmp, ": ", cnt,  \
+                          " objects... errors: [", err, "], verify failed [", chk, "]"
                 if self.exit_on_err == True:
                     sys.exit(1)
             else:
                 subprocess.call(['rm', tmp])
-            if (cnt % 10) == 0:
+            if (cnt % 10) == 0 and self.log < 2:
                 print "Get ", cnt + self.cur_get, \
                       " objects... errors: [", err, "], verify failed [", chk, "]"
             if cnt == burst:
                 break
 
-        print "Get ", cnt + self.cur_get, " objects... errors: [", err, \
-              "], verify failed [", chk, "]"
+        if self.log < 2:
+            print "Get ", cnt + self.cur_get, " objects... errors: [", err, \
+                  "], verify failed [", chk, "]"
         self.cur_get    += cnt
         self.gerr_cnt   += err
         self.gerr_chk   += chk
-        stat.total_gets += cnt
+        ioStats[IOSTAT.GET] += cnt;
 
     def exit_on_error(self):
         if self.perr_cnt != 0 or self.gerr_cnt != 0 or self.gerr_chk != 0:
@@ -274,6 +327,7 @@ class CopyS3Dir_Overwrite(CopyS3Dir):
         self.get_test()
 
     def put_test(self, burst=0):
+        global ioStats
         os.chdir(self.ds.ds_data_dir)
         cnt = 0
         err = 0
@@ -282,23 +336,32 @@ class CopyS3Dir_Overwrite(CopyS3Dir):
                 cnt = cnt + 1
                 obj = self.obj_prefix + put.replace("/", "_")
                 self.print_debug("curl PUT: " + put + " -> " + obj)
-                ret = subprocess.call(['curl', '-X', 'PUT', '--data-binary',
-                        '@' + wr_file, self.bucket_url + '/' + obj])
-                if ret != 0:
+                wr_file_obj = open(wr_file, 'r')
+                try:
+                    r = requests.put(self.bucket_url + '/' + obj, data=wr_file_obj)
+                except requests.ConnectionError as e:
+                    print e
+                wr_file_obj.close()
+                #ret = subprocess.call(['curl', '-X', 'PUT', '--data-binary',
+                #        '@' + wr_file, self.bucket_url + '/' + obj])
+                if r.status_code != HTTPERROR.OK:
                     err = err + 1
-                    print "curl error PUT: " + put + ": " + obj
+                    print "HTTP error PUT: " + put
+                    print 'error: ', r.status_code
                     if self.exit_on_err == True:
                         sys.exit(1)
 
-                if (cnt % 10) == 0:
+                if (cnt % 10) == 0 and self.log < 2:
                     print "Put ", cnt + self.cur_put , " objects... errors: [", err, "]"
 
-            print "Put ", cnt + self.cur_put, " objects... errors: [", err, "]"
+            if self.log < 2:
+                print "Put ", cnt + self.cur_put, " objects... errors: [", err, "]"
             self.cur_put  += cnt
             self.perr_cnt += err
+        ioStats[IOSTAT.PUT] += cnt
 
     def get_test(self, burst=0):
-        global stat
+        global ioStats
         os.chdir(self.ds.ds_data_dir)
         cnt = 0
         err = 0
@@ -310,35 +373,45 @@ class CopyS3Dir_Overwrite(CopyS3Dir):
             obj = self.obj_prefix + get.replace("/", "_");
             tmp = self.ds.ds_dest_dir + '/' + obj
             self.print_debug("curl GET: " + obj + " -> " + tmp)
-            ret = subprocess.call(['curl', '-s' '1' ,
-                                   self.bucket_url + '/' + obj, '-o', tmp])
-            if ret != 0:
+            try:
+                r = requests.get(self.bucket_url + '/' + obj)
+            except requests.ConnectionError as e:
+                print e
+            ftmp = open(tmp, 'wb')
+            ftmp.write(r.content)
+            ftmp.close()
+            #ret = subprocess.call(['curl', '-s' '1' ,
+             #                      self.bucket_url + '/' + obj, '-o', tmp])
+            if r.status_code != HTTPERROR.OK:
                 err = err + 1
-                print "curl error GET: " + get + ": " + obj + " -> " + tmp
+                print "HTTP error GET: " + get + ": " + obj + " -> " + tmp
+                print 'error ', r.status_code
                 if self.exit_on_err == True:
                     sys.exit(1)
 
             ret = subprocess.call(['diff', rd_file, tmp])
             if ret != 0:
                 chk = chk + 1
-                print "Get ", get, " -> ", tmp, ": ", cnt,  \
-                      " objects... errors: [", err, "], verify failed [", chk, "]"
+                if self.log < 2:
+                    print "Get ", get, " -> ", tmp, ": ", cnt,  \
+                          " objects... errors: [", err, "], verify failed [", chk, "]"
                 if self.exit_on_err == True:
                     sys.exit(1)
             else:
                 subprocess.call(['rm', tmp])
-            if (cnt % 10) == 0:
+            if (cnt % 10) == 0 and self.log < 2:
                 print "Get ", cnt + self.cur_get, \
                       " objects... errors: [", err, "], verify failed [", chk, "]"
             if cnt == burst:
                 break
 
-        print "Get ", cnt + self.cur_get, " objects... errors: [", err, \
-              "], verify failed [", chk, "]"
+        if self.log < 2:
+            print "Get ", cnt + self.cur_get, " objects... errors: [", err, \
+                  "], verify failed [", chk, "]"
         self.cur_get    += cnt
         self.gerr_cnt   += err
         self.gerr_chk   += chk
-        stat.total_gets += cnt
+        ioStats[IOSTAT.GET] += cnt
 
 ###
 # put a directory, get, then delete
@@ -365,7 +438,7 @@ class DelS3Dir(CopyS3Dir):
             cnt += burst_cnt
 
     def del_test(self, burst=0):
-        global stat
+        global ioStats
         os.chdir(self.ds.ds_data_dir)
         cnt = 0
         err = 0
@@ -375,31 +448,39 @@ class DelS3Dir(CopyS3Dir):
             cnt = cnt + 1
             obj = self.obj_prefix + delete.replace("/", "_")
             self.print_debug("curl DEL: " + delete + " -> " + obj)
-            ret = subprocess.call(['curl', '-X', 'DELETE', self.bucket_url + '/' + obj])
-            if ret != 0:
+            try:
+                r = requests.delete(self.bucket_url + '/' + obj)
+            except requests.ConnectionError as e:
+                print e
+            #ret = subprocess.call(['curl', '-X', 'DELETE', self.bucket_url + '/' + obj])
+            if r.status_code != HTTPERROR.OK:
                 err = err + 1
-                print "curl error DEL: " + delete + ": " + obj
+                print "HTTP error DEL: " + delete + ": " + obj
+                print 'error: ', r.status_code
                 if self.exit_on_err == True:
                     sys.exit(1)
 
-            tmp = self.ds.ds_dest_dir + '/' + obj
-            ret = subprocess.call(['curl', '-s' '1' ,
-                                   self.bucket_url + '/' + obj, '-o', tmp])
-            if ret != 0:
+            try:
+                r = requests.get(self.bucket_url + '/' + obj)
+            except requests.ConnectionError as e:
+                pass
+            if r.status_code != HTTPERROR.NOT_FOUND:
                 err = err + 1
-                print "curl error DEL-GET: " + get + ": " + obj + " -> " + tmp
+                print 'error: ', r.status_code
+                print 'Expected HTTP code', HTTPERROR.NOT_FOUND, 'does not match',r.status_code
                 if self.exit_on_err == True:
                     sys.exit(1)
 
-            if (cnt % 10) == 0:
+            if (cnt % 10) == 0 and self.log < 2:
                 print "Del ", cnt + self.cur_del , " objects... errors: [", err, "]"
             if cnt == burst:
                 break
 
-        print "Del ", cnt + self.cur_del, " objects... errors: [", err, "]"
+        if self.log < 2:
+            print "Del ", cnt + self.cur_del, " objects... errors: [", err, "]"
         self.cur_del    += cnt
         self.perr_cnt   += err
-        stat.total_dels += cnt
+        ioStats[IOSTAT.DEL] += cnt
 
 #########################################################################################
 ###
@@ -410,7 +491,7 @@ def bringup_cluster(env, verbose, debug):
     root1 = env.env_root
     print "\nSetting up private fds-root in " + root1
     FdsSetupNode(env.srcdir, root1)
-    
+
     os.chdir(env.srcdir + '/Build/linux-x86_64.debug/bin')
 
     print "\n\nStarting fds on ", root1
@@ -421,11 +502,13 @@ def bringup_cluster(env, verbose, debug):
 # exit the test, shutdown if requested
 #
 def exit_test(env, shutdown):
-    global stat
-    print "Total PUTs: ", stat.total_puts
-    print "Total GETs: ", stat.total_gets
-    print "Total DELs: ", stat.total_dels
+    global ioStats
+
+    print "Total PUTs: ", ioStats[IOSTAT.PUT]
+    print "Total GETs: ", ioStats[IOSTAT.GET]
+    print "Total DELs: ", ioStats[IOSTAT.DEL]
     print "Test Passed, cleaning up..."
+
     if shutdown:
         env.cleanup()
     sys.exit(0)
@@ -439,7 +522,8 @@ def testsuite_pre_commit(test_a):
                            test_a.args_volume_name,
                            test_a.args_data_set_dir,
                            test_a.args_result_dir,
-                           '*.cpp')
+                           '*.cpp',
+                           test_a.log_level)
 
     smoke0 = CopyS3Dir(smoke_ds0)
     smoke0.run_test()
@@ -451,7 +535,8 @@ def testsuite_pre_commit(test_a):
                            test_a.args_volume_name,
                            test_a.args_data_set_dir,
                            test_a.args_result_dir,
-                           '*.cpp')
+                           '*.cpp',
+                           test_a.log_level)
 #smoke1 = CopyS3Dir_Overwrite(smoke_ds1)
 #    smoke1.run_test()
 #    smoke1.exit_on_error()
@@ -472,12 +557,12 @@ def testsuite_stress_io(test_a):
                            test_a.args_volume_name,
                            test_a.args_data_set_dir,
                            test_a.args_result_dir,
-                           '*')
+                           '*',
+                           test_a.log_level)
     smoke1 = DelS3Dir(smoke_ds1)
 
     smoke1.run_test()
     smoke1.reset_test()
-
     smoke1.exit_on_error()
 
     # write from in burst of 10
@@ -485,7 +570,8 @@ def testsuite_stress_io(test_a):
                            test_a.args_volume_name,
                            test_a.args_data_set_dir,
                            test_a.args_result_dir,
-                           '*')
+                           '*',
+                           test_a.log_level)
     smoke2 = DelS3Dir(smoke_ds2)
     smoke2.run_test(10)
     smoke2.exit_on_error()
@@ -495,7 +581,8 @@ def testsuite_stress_io(test_a):
                            test_a.args_volume_name,
                            test_a.args_data_set_dir,
                            test_a.args_result_dir,
-                           '*')
+                           '*',
+                           test_a.log_level)
     smoke3 = CopyS3Dir_Pattern(smoke_ds3)
     smoke3.run_test(10, 5)
     smoke3.exit_on_error()
@@ -505,7 +592,8 @@ def testsuite_stress_io(test_a):
                            test_a.args_volume_name,
                            test_a.args_data_set_dir,
                            test_a.args_result_dir,
-                           '*')
+                           '*',
+                           test_a.log_level)
     smoke4 = CopyS3Dir_Pattern(smoke_ds4)
     smoke4.run_test(10, 3)
     smoke4.exit_on_error()
@@ -515,7 +603,8 @@ def testsuite_stress_io(test_a):
                            test_a.args_volume_name,
                            test_a.args_data_set_dir,
                            test_a.args_result_dir,
-                           '*')
+                           '*',
+                           test_a.log_level)
     smoke5 = CopyS3Dir_Pattern(smoke_ds5)
     smoke5.run_test(1, 1)
     smoke5.exit_on_error()
@@ -530,7 +619,8 @@ def testsuite_blob_overwrite(test_a):
                            test_a.args_volume_name,
                            test_a.args_data_set_dir,
                            test_a.args_result_dir,
-                           '*')
+                           '*',
+                           test_a.log_level)
     smoke1 = CopyS3Dir_Overwrite(smoke_ds1)
     smoke1.run_test()
     smoke1.exit_on_error()
@@ -559,10 +649,12 @@ def start_io_helper(test_a):
         i += 1
 
 ###
-#  spawn process for I/O
+#  spawn process forI/O
 #
 def start_io_helper_thrd(test_a):
-    sys.stdout = open('/tmp/smoke_io-' + str(os.getpid()) + ".out", "w")
+    global std_output
+    if std_output == 'no':
+        sys.stdout = open('/tmp/smoke_io-' + str(os.getpid()) + ".out", "w")
     start_io_helper(test_a)
 
 ###
@@ -593,9 +685,11 @@ def wait_io_done(p):
 
 #########################################################################################
 
-global stat
-stat = FdsStats()
 data_set_dir = None
+
+# Create a threadsafe object for processes to share IO stats data through
+global ioStats
+ioStats = Array('i', range(3))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Start FDS Processes...')
@@ -625,6 +719,10 @@ if __name__ == "__main__":
                         help='Print verbose [false]')
     parser.add_argument('--debug', default='false',
                         help ='pdb debug on [false]')
+    parser.add_argument('--log_level', default=0,
+                        help ='Sets verbosity of output.  Most verbose is 0, least verbose is 2')
+    parser.add_argument('--std_output', default='no',
+                        help='Whether or not the script should print to stdout or to log files [no]')
     args = parser.parse_args()
 
     cfgFile      = args.cfg_file
@@ -638,6 +736,11 @@ if __name__ == "__main__":
     thread_cnt   = args.thread
     loop_cnt     = args.loop_cnt
     am_ip        = args.am_ip
+    log_level    = args.log_level
+
+    global std_output
+    std_output   = args.std_output;
+
     if args.async == 'true':
         async_io = True
     else:
@@ -681,7 +784,8 @@ if __name__ == "__main__":
                            '/tmp/pre_commit',                   # result dir
                            1,                                   # loop count
                            False,                               # async-ip
-                           am_ip)                               # am ip address
+                           am_ip,                               # am ip address
+                           log_level)
 
         testsuite_pre_commit(args)
         exit_test(env, shutdown)
@@ -692,16 +796,18 @@ if __name__ == "__main__":
     thr = 0
     assert(thread_cnt >= 0)
     process_list = []
-    while thr < thread_cnt:
+    while thr < int(thread_cnt):
         args = FdsTestArgs(vol_prefix + '_volume' + str(thr),   # vol name
                            data_set_dir,                        # data set dir
                            '/tmp/res' + str(thr),               # result dir
                            loop_cnt,                            # loop count
                            async_io,                            # async-io
-                           am_ip)                               # am ip address
+                           am_ip,                               # am ip address
+                           log_level)
         p1 = start_io_main(args)
         process_list.append(p1)
         thr += 1
+        time.sleep(10)
 
     ###
     # bring up more node/delete node test

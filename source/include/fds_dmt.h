@@ -149,6 +149,8 @@ namespace fds {
          */
         DmtColumnPtr getCommittedNodeGroup(fds_volid_t volume_id);
         DmtColumnPtr getTargetNodeGroup(fds_volid_t volume_id);
+        DmtColumnPtr getVersionNodeGroup(fds_volid_t volume_id,
+                                         fds_uint64_t version);
 
         /**
          * Returns DMT of given type, type must be either commited

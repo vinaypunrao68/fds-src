@@ -86,6 +86,12 @@ uint32_t MetaDataList::read(serialize::Deserializer* d) {
     return bytes;
 }
 
+MetaDataList& MetaDataList::operator=(const MetaDataList &rhs) {
+    // Base map assignment
+    std::unordered_map<std::string, std::string>::operator=(rhs);
+    return *this;
+}
+
 std::ostream& operator<<(std::ostream& out, const MetaDataList& metaList) {
     out << "Metadata: ";
     if (metaList.size() == 0) {
@@ -131,6 +137,14 @@ uint32_t BasicBlobMeta::read(serialize::Deserializer* d) {
     return bytes;
 }
 
+BasicBlobMeta& BasicBlobMeta::operator=(const BasicBlobMeta &rhs) {
+    blob_name = rhs.blob_name;
+    vol_id    = rhs.vol_id;
+    version   = rhs.version;
+    blob_size = rhs.blob_size;
+    return *this;
+}
+
 std::ostream& operator<<(std::ostream& out, const BasicBlobMeta& desc) {
     out << "BasicBlobMeta: "
         << "name " << desc.blob_name
@@ -166,6 +180,12 @@ uint32_t BlobMetaDesc::read(serialize::Deserializer* d) {
     bytes += desc.read(d);
     bytes += meta_list.read(d);
     return bytes;
+}
+
+BlobMetaDesc& BlobMetaDesc::operator=(const BlobMetaDesc &rhs) {
+    desc      = rhs.desc;
+    meta_list = rhs.meta_list;
+    return *this;
 }
 
 std::ostream& operator<<(std::ostream& out, const BlobMetaDesc& blobMetaDesc) {

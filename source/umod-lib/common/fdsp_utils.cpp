@@ -151,6 +151,21 @@ std::string logString(const FDS_ProtocolInterface::SetBlobMetaDataRspMsg& setMDR
     return oss.str();
 }
 
+std::string logString(const FDS_ProtocolInterface::DeleteObjectMsg& delMsg)
+{
+    std::ostringstream oss;
+    oss < " DeleteObjectMsg";
+    return oss.str();
+}
+
+std::string logString(const FDS_ProtocolInterface::DeleteObjectRspMsg& delRspMsg)
+{
+    std::ostringstream oss;
+    oss < " DeleteObjectRspMsg";
+    return oss.str();
+}
+
+
 std::string logString(const FDS_ProtocolInterface::AbortBlobTxMsg& abortBlbTx)
 {
     std::ostringstream oss;
@@ -161,6 +176,10 @@ std::string logString(const FDS_ProtocolInterface::AbortBlobTxMsg& abortBlbTx)
 std::string logString(const FDS_ProtocolInterface::GetBlobMetaDataMsg& message)
 {
     return "GetBlobMetaDataMsg";
+}
+
+std::string logString(const FDS_ProtocolInterface::GetVolumeMetaDataMsg& msg) {
+    return "GetVolumeMetaDataMsg";
 }
 
 }  // namespace fds

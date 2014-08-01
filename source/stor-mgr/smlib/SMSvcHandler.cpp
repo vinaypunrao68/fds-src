@@ -17,6 +17,7 @@ SMSvcHandler::SMSvcHandler()
 {
     REGISTER_FDSP_MSG_HANDLER(fpi::GetObjectMsg, getObject);
     REGISTER_FDSP_MSG_HANDLER(fpi::PutObjectMsg, putObject);
+    REGISTER_FDSP_MSG_HANDLER(fpi::DeleteObjectMsg, deleteObject);
 }
 
 void SMSvcHandler::getObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
@@ -136,5 +137,58 @@ void SMSvcHandler::putObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::PutObjectRspMsg), *resp);
 
     delete put_req;
+}
+
+void SMSvcHandler::deleteObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                                boost::shared_ptr<fpi::DeleteObjectMsg>& expObjMsg)
+{
+    DBG(GLOGDEBUG << fds::logString(*asyncHdr) << fds::logString(*expObjMsg));
+    Error err(ERR_OK);
+
+    auto delReq = new SmIoDeleteObjectReq();
+
+    // Set delReq stuffs
+    delReq->io_type = FDS_SM_DELETE_OBJECT;
+
+    delReq->setVolId(expObjMsg->volId);
+    delReq->origin_timestamp = expObjMsg->origin_timestamp;
+    delReq->setObjId(ObjectID(expObjMsg->objId.digest));
+    // perf-trace related data
+    delReq->perfNameStr = "volume:" + std::to_string(expObjMsg->volId);
+    delReq->opReqFailedPerfEventType = DELETE_OBJ_REQ_ERR;
+    delReq->opReqLatencyCtx.type = DELETE_OBJ_REQ;
+    delReq->opReqLatencyCtx.name = delReq->perfNameStr;
+    delReq->opLatencyCtx.type = DELETE_IO;
+    delReq->opLatencyCtx.name = delReq->perfNameStr;
+    delReq->opTransactionWaitCtx.type = DELETE_TRANS_QUEUE_WAIT;
+    delReq->opTransactionWaitCtx.name = delReq->perfNameStr;
+    delReq->opQoSWaitCtx.type = DELETE_QOS_QUEUE_WAIT;
+    delReq->opQoSWaitCtx.name = delReq->perfNameStr;
+
+    delReq->response_cb = std::bind(
+        &SMSvcHandler::deleteObjectCb, this,
+        asyncHdr,
+        std::placeholders::_1, std::placeholders::_2);
+
+    err = objStorMgr->enqueueMsg(delReq->getVolId(), delReq);
+    if (err != fds::ERR_OK) {
+        fds_assert(!"Hit an error in enqueing");
+        LOGERROR << "Failed to enqueue to SmIoDeleteObjectReq to StorMgr.  Error: "
+                 << err;
+        deleteObjectCb(asyncHdr, err, delReq);
+    }
+}
+
+void SMSvcHandler::deleteObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                                  const Error &err,
+                                  SmIoDeleteObjectReq* del_req)
+{
+    DBG(GLOGDEBUG << fds::logString(*asyncHdr));
+
+    auto resp = boost::make_shared<fpi::DeleteObjectRspMsg>();
+    asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
+    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::DeleteObjectRspMsg), *resp);
+
+    delete del_req;
 }
 }  // namespace fds

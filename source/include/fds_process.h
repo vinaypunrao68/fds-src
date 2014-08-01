@@ -11,6 +11,7 @@
 #include <string>
 #include <boost/utility.hpp>
 #include <boost/shared_ptr.hpp>
+#include <fds_module_provider.h>
 #include <fds_globals.h>
 #include <fds_module.h>
 #include <fds_config.hpp>
@@ -45,8 +46,20 @@ void init_process_globals(fds_log *log);
  * 3. Module vector based initialization
  * 4. Main function to co-ordinate the init, setup and run methods.
  */
-class FdsProcess : public boost::noncopyable, public HasLogger {
+class FdsProcess : public boost::noncopyable,
+                   public HasLogger,
+                   virtual public CommonModuleProviderIf {
  public:
+    FdsProcess();
+    FdsProcess(int argc, char *argv[],
+               const std::string &def_cfg_file,
+               const std::string &base_path, Module **mod_vec);
+    FdsProcess(int argc, char *argv[],
+               const std::string &def_cfg_file,
+               const std::string &base_path,
+               const std::string &def_log_file,  Module **mod_vec);
+
+    /* Constructs FdsProcess object */
     /**
      * @param argc
      * @param argv
@@ -55,16 +68,10 @@ class FdsProcess : public boost::noncopyable, public HasLogger {
      * @param def_log_file - default log file path
      * @param mod_vec - module vectors for the process.
      */
-    FdsProcess(int argc, char *argv[],
-               const std::string &def_cfg_file,
-               const std::string &base_path,
-               const std::string &def_log_file,  Module **mod_vec);
-    FdsProcess(int argc, char *argv[],
-               const std::string &def_cfg_file,
-               const std::string &base_path, Module **mod_vec)
-        : FdsProcess(argc, argv, def_cfg_file, base_path, "", mod_vec) {}
-    /* Exposed for mock testing */
-    FdsProcess() {}
+    void init(int argc, char *argv[],
+              const std::string &def_cfg_file,
+              const std::string &base_path,
+              const std::string &def_log_file,  Module **mod_vec);
 
     virtual ~FdsProcess();
 
@@ -99,6 +106,8 @@ class FdsProcess : public boost::noncopyable, public HasLogger {
      */
     virtual int main();
 
+    void daemonize();
+
     /**
      * Handler function for Ctrl+c like signals.  Default implementation
      * just calls exit(0).
@@ -106,37 +115,44 @@ class FdsProcess : public boost::noncopyable, public HasLogger {
      */
     virtual void interrupt_cb(int signum);
 
+    /* Moduel provider overrides */
     /**
      * Returns the global fds config helper object
      */
-    FdsConfigAccessor get_conf_helper() const;
+    virtual FdsConfigAccessor get_conf_helper() const override;
 
     /**
      * Returns config object
      * @return
      */
-    boost::shared_ptr<FdsConfig> get_fds_config() const;
+    virtual boost::shared_ptr<FdsConfig> get_fds_config() const override;
 
     /**
     * @brief Returns process wide timer
     *
     * @return 
     */
-    FdsTimerPtr getTimer() const;
+    virtual FdsTimerPtr getTimer() const override;
 
     /**
      * Return global counter manager
      * @return
      */
-    boost::shared_ptr<FdsCountersMgr> get_cntrs_mgr() const;
+    virtual boost::shared_ptr<FdsCountersMgr> get_cntrs_mgr() const override;
 
     /**
      * Return the fds root directory obj.
      */
-    inline const FdsRootDir *proc_fdsroot() const { return proc_root; }
-    inline fds_threadpool *proc_thrpool() { return proc_thrp; }
+    virtual const FdsRootDir *proc_fdsroot() const  override
+    {
+        return proc_root;
+    }
 
-    void daemonize();
+    virtual fds_threadpool *proc_thrpool() const override
+    {
+        return proc_thrp;
+    }
+
 
  protected:
     // static members/methods
@@ -173,6 +189,9 @@ class FdsProcess : public boost::noncopyable, public HasLogger {
 
     /* Module vectors. */
     ModuleVector *mod_vectors_;
+
+    /* Flag to indicate whether modulue shutdown has been invoked or not */
+    std::atomic<bool>mod_shutdown_invoked_;
 
     /* FdsRootDir globals. */
     FdsRootDir   *proc_root;
