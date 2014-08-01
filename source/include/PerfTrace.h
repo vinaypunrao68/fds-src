@@ -60,6 +60,7 @@ typedef enum {
     TRACE, // generic event
     TRACE_ERR,
 
+    // Store Manager
     PUT_IO, 
     PUT_OBJ_REQ, 
     PUT_OBJ_REQ_ERR,
@@ -101,13 +102,32 @@ typedef enum {
     GET_DISK_READ,
     PUT_METADATA_WRITE,
     PUT_DISK_WRITE,
-    DELETE_METADATA_,
-    DELETE_DISK_,
+    DELETE_METADATA,
+    DELETE_DISK,
 
     PUT_ODB,
     GET_ODB,
     DISK_WRITE,
     DISK_READ,
+
+    //Access Manager
+    AM_PUT_OBJ_REQ,
+    AM_PUT_QOS,
+    AM_PUT_HASH,
+    AM_PUT_SM,
+    AM_PUT_DM,
+
+    AM_GET_OBJ_REQ,
+    AM_GET_QOS,
+    AM_GET_HASH,
+    AM_GET_SM,
+    AM_GET_DM,
+
+    AM_DELETE_OBJ_REQ,
+    AM_DELETE_QOS,
+    AM_DELETE_HASH,
+    AM_DELETE_SM,
+    AM_DELETE_DM,
 
     // XXX: add new entries before this entry
     MAX_EVENT_TYPE // this should be the last entry in the enum

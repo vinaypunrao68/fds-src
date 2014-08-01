@@ -322,6 +322,16 @@ DmtColumnPtr DMTManager::getTargetNodeGroup(fds_volid_t vol_id) {
     return col;
 }
 
+DmtColumnPtr DMTManager::getVersionNodeGroup(fds_volid_t volume_id,
+                                             fds_uint64_t version) {
+    dmt_lock.read_lock();
+    fds_verify(version != DMT_VER_INVALID);
+    fds_verify(dmt_map.count(version) > 0);
+    DmtColumnPtr col = (dmt_map[version])->getNodeGroup(volume_id);
+    dmt_lock.read_unlock();
+    return col;
+}
+
 DMTPtr DMTManager::getDMT(fds_uint64_t version) {
     dmt_lock.read_lock();
     if (dmt_map.count(version) > 0) {

@@ -36,13 +36,13 @@
 #include <fdsp/FDSP_ConfigPathReq.h>
 #include <net/SvcRequest.h>
 
-
 #include "NetSession.h"
 
 #include <map>
 // #include "util/concurrency/Thread.h"
 #include <concurrency/Synchronization.h>
 #include <fds_counters.h>
+#include "PerfTrace.h"
 
 
 #undef  FDS_TEST_SH_NOOP              /* IO returns (filled with 0s for read) as soon as SH receives it from ubd */
@@ -386,12 +386,14 @@ public:
     fds::Error abortBlobTxSvc(AmQosReq *qosReq);
     fds::Error deleteBlobSvc(fds::AmQosReq *qosReq);
     fds::Error setBlobMetaDataSvc(fds::AmQosReq *qosReq);
+    fds::Error getVolumeMetaDataSvc(fds::AmQosReq* qosReq);
 
     void issueSetBlobMetaData(const fds_volid_t& vol_id,
                               const std::string& blob_name,
                               const blob_version_t& blob_version,
                               const boost::shared_ptr<FDSP_MetaDataList>& md_list,
                               const fds_uint64_t& txId,
+                              fds_uint64_t dmt_version,
                               QuorumSvcRequestRespCb respCb);
     void issueDeleteCatalogObject(const fds_uint64_t& vol_id,
                                   const std::string& blob_name,
@@ -406,9 +408,11 @@ public:
                              const fds_volid_t& volId,
                              const fds_int32_t blobMode,
                              const fds_uint64_t& txId,
+                             const fds_uint64_t dmtVer,
                              QuorumSvcRequestRespCb respCb);
     void issueCommitBlobTxMsg(CommitBlobTxReq *blobReq,
-                             QuorumSvcRequestRespCb respCb);
+                              fds_uint64_t dmtVersion,
+                              QuorumSvcRequestRespCb respCb);
     void issueAbortBlobTxMsg(const std::string& blobName,
                              const fds_volid_t& volId,
                              const fds_uint64_t& txId,
@@ -425,6 +429,7 @@ public:
                                const bool &lastBuf,
                                const fds_volid_t& volId,
                                const fds_uint64_t& txId,
+                               const fds_uint64_t& dmt_version,
                                QuorumSvcRequestRespCb respCb);
     void getBlobQueryCatalogResp(fds::AmQosReq* qosReq,
                                  FailoverSvcRequest* svcReq,
@@ -462,6 +467,10 @@ public:
                                 QuorumSvcRequest* svcReq,
                                 const Error& error,
                                 boost::shared_ptr<std::string> payload);
+    void getVolumeMetaDataMsgResp(fds::AmQosReq* qosReq,
+                               FailoverSvcRequest* svcReq,
+                               const Error& error,
+                               boost::shared_ptr<std::string> payload);
 
     fds::Error updateCatalogCache(GetBlobReq *blobReq,
                                   FDS_ProtocolInterface::FDSP_BlobObjectList& blobOffList);
@@ -490,6 +499,9 @@ extern StorHvCtrl *storHvisor;
  * Static function for process IO via a threadpool
  */
 static void processBlobReq(AmQosReq *qosReq) {
+    FdsBlobReq *blobReq = qosReq->getBlobReqPtr();
+    fds::PerfTracer::tracePointEnd(blobReq->qosPerfCtx); 
+
     fds_verify(qosReq->io_module == FDS_IOType::STOR_HV_IO);
     fds_verify(qosReq->magicInUse() == true);
 
@@ -528,12 +540,14 @@ static void processBlobReq(AmQosReq *qosReq) {
         case fds::FDS_SET_BLOB_METADATA:
             err = storHvisor->setBlobMetaDataSvc(qosReq);
             break;
+        case fds::FDS_GET_VOLUME_METADATA:
+            err = storHvisor->getVolumeMetaDataSvc(qosReq);
+            break;
 
         // new handlers
         case fds::FDS_DELETE_BLOB:
         case fds::FDS_LIST_BUCKET:
         case fds::FDS_STAT_BLOB:
-        case fds::FDS_GET_VOLUME_METADATA:
             err = storHvisor->handlers.at(qosReq->io_type)->handleQueueItem(qosReq);
             break;
 

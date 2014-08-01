@@ -13,6 +13,7 @@ namespace fds {
 /* Forward declarations */
 class SmIoReadObjectdata;
 class SmIoPutObjectReq;
+class SmIoDeleteObjectReq;
 
 class SMSvcHandler : virtual public SMSvcIf, public PlatNetSvcHandler {
  public:
@@ -39,6 +40,12 @@ class SMSvcHandler : virtual public SMSvcIf, public PlatNetSvcHandler {
     void putObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                      const Error &err,
                      SmIoPutObjectReq* put_req);
+
+    void deleteObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                      boost::shared_ptr<fpi::DeleteObjectMsg>& expObjMsg);
+    void deleteObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        const Error &err,
+                        SmIoDeleteObjectReq* del_req);
 };
 
 }  // namespace fds

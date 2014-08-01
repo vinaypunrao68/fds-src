@@ -55,7 +55,7 @@ namespace fds {
         ERR_ONDISK_DATA_CORRUPT  = 33,
         ERR_INVALID_DMT          = 34,
         ERR_CATSYNC_NOT_PROGRESS = 35,
-        ERR_DMT_EQUAL            = 36,
+        ERR_DM_RSYNC_FAILED       = 36,
         ERR_DMT_FORWARD          = 37,
 
         ERR_DM_TX_EXISTS          = 38,
@@ -65,10 +65,10 @@ namespace fds {
         ERR_DM_OFFSET_OUT_RANGE   = 42,
         ERR_DM_TX_ACTIVE          = 43,
         ERR_DM_MAX_CL_ENTRIES     = 44,
-        ERR_DM_RSYNC_FAILED       = 45,
 
         /* I/O error range */
         ERR_IO_DLT_MISMATCH      = 100,
+        ERR_IO_DMT_MISMATCH      = 101,
 
         /* Metadata error range */
         ERR_BLOB_OFFSET_INVALID  = 500,

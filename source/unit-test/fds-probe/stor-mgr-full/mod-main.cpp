@@ -19,6 +19,8 @@ static void run_sm_server(ObjectStorMgr *inst)
     inst->run();  //  not return
 }
 
+// TODO(Rao): Fix me
+#if 0
 class SM_Probe : public ObjectStorMgr
 {
   public:
@@ -47,11 +49,14 @@ class SM_Probe : public ObjectStorMgr
         return 0;
     }
 };
+#endif
 
 }  // namespace fds
 
 int main(int argc, char **argv)
 {
+// TODO(Rao): Fix me
+#if 0
     fds::Module *probe_vec[] = {
         &fds::gl_fds_stat,
         &fds::gl_probeS3Eng,
@@ -67,4 +72,6 @@ int main(int argc, char **argv)
     delete fds::objStorMgr;
 
     return ret;
+#endif
+    return 0;
 }

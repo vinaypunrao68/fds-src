@@ -78,6 +78,7 @@ StorHvCtrl::ResponseHelper::ResponseHelper(StorHvCtrl* storHvisor,
 
 void StorHvCtrl::ResponseHelper::setStatus(FDSN_Status  status) {
     blobReq->cb->status = status;
+    blobReq->cb->error  = status;
 }
 
 StorHvCtrl::ResponseHelper::~ResponseHelper() {
@@ -160,7 +161,7 @@ StorHvCtrl::TxnRequestHelper::~TxnRequestHelper() {
         delete qosReq;
         //delete blobReq;
     } else {
-        scheduleTimer();
+        // scheduleTimer();
     }
 }
 
@@ -231,6 +232,8 @@ fds::Error StorHvCtrl::pushBlobReq(fds::FdsBlobReq *blobReq) {
     fds_verify(blobReq->magicInUse() == true);
     fds::Error err(ERR_OK);
 
+    fds::PerfTracer::tracePointBegin(blobReq->e2eReqPerfCtx); 
+    fds::PerfTracer::tracePointBegin(blobReq->qosPerfCtx); 
     /*
      * Pack the blobReq in to a qosReq to pass to QoS
      */
@@ -244,6 +247,7 @@ fds::Error StorHvCtrl::pushBlobReq(fds::FdsBlobReq *blobReq) {
             shVol->readUnlock();
         LOGERROR << "Volume and queueus are NOT setup for volume " << volId;
         err = fds::ERR_INVALID_ARG;
+        fds::PerfTracer::tracePointEnd(blobReq->qosPerfCtx); 
         delete qosReq;
         return err;
     }

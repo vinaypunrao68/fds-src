@@ -320,16 +320,61 @@ void ObjectStorMgrI::GetTokenMigrationStats(FDSP_TokenMigrationStats& _return,
  * are being hard coded in the initializer
  * list below.
  */
-ObjectStorMgr::ObjectStorMgr(int argc, char *argv[],
-                             Platform *platform, Module **mod_vec)
-    : PlatformProcess(argc, argv, "fds.sm.", "sm.log", platform, mod_vec),
-    totalRate(6000),
-    qosThrds(100),
-    shuttingDown(false),
-    numWBThreads(1),
-    maxDirtyObjs(10000),
-    counters_("SM", cntrs_mgrPtr_.get())
+ObjectStorMgr::ObjectStorMgr(CommonModuleProviderIf *modProvider)
+    : Module("sm"),
+    modProvider_(modProvider)
 {
+    // NOTE: Don't put much stuff in the constuctor.  Move any construction
+    // into mod_init()
+}
+
+ObjectStorMgr::~ObjectStorMgr() {
+    LOGDEBUG << " Destructing  the Storage  manager";
+    shuttingDown = true;
+
+    delete smObjDb;
+    /*
+     * Clean up the QoS system. Need to wait for I/Os to
+     * complete and deregister each volume. The volume info
+     * is freed when the table is deleted.
+     * TODO: We should prevent further volume registration and
+     * accepting network I/Os while shutting down.
+     */
+    if (volTbl) {
+        std::list<fds_volid_t> volIds = volTbl->getVolList();
+        for (std::list<fds_volid_t>::iterator vit = volIds.begin();
+             vit != volIds.end();
+             vit++) {
+            qosCtrl->quieseceIOs((*vit));
+            qosCtrl->deregisterVolume((*vit));
+        }
+    }
+    delete perfStats;
+
+    /*
+     * TODO: Assert that the waiting req map is empty.
+     */
+
+    delete qosCtrl;
+
+    delete writeBackThreads;
+    delete dirtyFlashObjs;
+    delete tierEngine;
+    delete rankEngine;
+
+    delete volTbl;
+    delete objStorMutex;
+    delete omJrnl;
+}
+
+int  ObjectStorMgr::mod_init(SysParams const *const param)
+{
+    totalRate = 6000;
+    qosThrds = 100;
+    shuttingDown = false;
+    numWBThreads = 1;
+    maxDirtyObjs = 10000;
+    counters_.reset(new SMCounters("SM", modProvider_->get_cntrs_mgr().get()));
     /*
      * TODO: Fix the totalRate above to not
      * be hard coded.
@@ -337,7 +382,7 @@ ObjectStorMgr::ObjectStorMgr(int argc, char *argv[],
     // Init  the log infra
 
     GetLog()->setSeverityFilter(fds_log::getLevelFromName(
-        conf_helper_.get<std::string>("log_severity")));
+        modProvider_->get_fds_config()->get<std::string>("fds.sm.log_severity")));
     LOGDEBUG << "Constructing the Object Storage Manager";
     objStorMutex = new fds_mutex("Object Store Mutex");
 
@@ -381,60 +426,22 @@ ObjectStorMgr::ObjectStorMgr(int argc, char *argv[],
     perfStats = new PerfStats("migratorSmStats");
     err = perfStats->enable();
     fds_verify(err == ERR_OK);
+    return 0;
 }
 
-ObjectStorMgr::~ObjectStorMgr() {
-    LOGDEBUG << " Destructing  the Storage  manager";
-    shuttingDown = true;
-
-    delete smObjDb;
-    /*
-     * Clean up the QoS system. Need to wait for I/Os to
-     * complete and deregister each volume. The volume info
-     * is freed when the table is deleted.
-     * TODO: We should prevent further volume registration and
-     * accepting network I/Os while shutting down.
-     */
-    if (volTbl) {
-        std::list<fds_volid_t> volIds = volTbl->getVolList();
-        for (std::list<fds_volid_t>::iterator vit = volIds.begin();
-             vit != volIds.end();
-             vit++) {
-            qosCtrl->quieseceIOs((*vit));
-            qosCtrl->deregisterVolume((*vit));
-        }
-    }
-    delete perfStats;
-
-    /*
-     * TODO: Assert that the waiting req map is empty.
-     */
-
-    delete qosCtrl;
-
-    delete writeBackThreads;
-    delete dirtyFlashObjs;
-    delete tierEngine;
-    delete rankEngine;
-
-    delete volTbl;
-    delete objStorMutex;
-    delete omJrnl;
-}
-
-void ObjectStorMgr::proc_pre_startup()
+void ObjectStorMgr::mod_startup()
 {
     // todo: clean up the code below.  It's doing too many things here.
     // Refactor into functions or make it part of module vector
 
     std::string     myIp;
 
-    PlatformProcess::proc_pre_startup();
-    proc_root->fds_mkdir(proc_root->dir_user_repo_objs().c_str());
-    std::string obj_dir = proc_root->dir_user_repo_objs();
+    modProvider_->proc_fdsroot()->\
+        fds_mkdir(modProvider_->proc_fdsroot()->dir_user_repo_objs().c_str());
+    std::string obj_dir = modProvider_->proc_fdsroot()->dir_user_repo_objs();
 
     // Create leveldb
-    smObjDb = new  SmObjDb(this, obj_dir, objStorMgr->GetLog());
+    smObjDb = new  SmObjDb(this, obj_dir, g_fdslog);
     // init the checksum verification class
     chksumPtr =  new checksum_calc();
 
@@ -455,11 +462,11 @@ void ObjectStorMgr::proc_pre_startup()
      * Register this node with OM.
      */
     omClient = new OMgrClient(FDSP_STOR_MGR,
-                              *plf_mgr->plf_get_om_ip(),
-                              plf_mgr->plf_get_om_ctrl_port(),
+                              *modProvider_->get_plf_manager()->plf_get_om_ip(),
+                              modProvider_->get_plf_manager()->plf_get_om_ctrl_port(),
                               "localhost-sm",
                               GetLog(),
-                              nst_, plf_mgr);
+                              nst_, modProvider_->get_plf_manager());
 
     /*
      * Create local volume table. Create after omClient
@@ -470,16 +477,16 @@ void ObjectStorMgr::proc_pre_startup()
     volTbl = new StorMgrVolumeTable(this, GetLog());
 
     /* Create tier related classes -- has to be after volTbl is created */
-    FdsRootDir::fds_mkdir(proc_root->dir_fds_var_stats().c_str());
-    std::string obj_stats_dir = proc_root->dir_fds_var_stats();
+    FdsRootDir::fds_mkdir(modProvider_->proc_fdsroot()->dir_fds_var_stats().c_str());
+    std::string obj_stats_dir = modProvider_->proc_fdsroot()->dir_fds_var_stats();
     rankEngine = new ObjectRankEngine(obj_stats_dir, 100000, volTbl,
-                                      objStats, objStorMgr->GetLog());
+                                      objStats, g_fdslog);
     tierEngine = new TierEngine(TierEngine::FDS_TIER_PUT_ALGO_BASIC_RANK,
-                                volTbl, rankEngine, objStorMgr->GetLog());
+                                volTbl, rankEngine, g_fdslog);
     objCache = new FdsObjectCache(1024 * 1024 * 256,
                                   slab_allocator_type_default,
                                   eviction_policy_type_default,
-                                  objStorMgr->GetLog());
+                                  g_fdslog);
     scavenger = new ScavControl(2);
 
     // TODO: join this thread
@@ -509,23 +516,24 @@ void ObjectStorMgr::proc_pre_startup()
     omClient->registerScavengerEventHandler((scavenger_event_handler_t) scavengerEventHandler);
     omClient->omc_srv_pol = &sg_SMVolPolicyServ;
     omClient->startAcceptingControlMessages();
-    omClient->registerNodeWithOM(plf_mgr);
+    omClient->registerNodeWithOM(modProvider_->get_plf_manager());
 
     clust_comm_mgr_.reset(new ClusterCommMgr(omClient));
 
-    testUturnAll    = conf_helper_.get<bool>("testing.uturn_all");
-    testUturnPutObj = conf_helper_.get<bool>("testing.uturn_putobj");
+    testUturnAll    = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.uturn_all");
+    testUturnPutObj = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.uturn_putobj");
 
     /*
      * Create local variables for test mode
      */
-    if (conf_helper_.get<bool>("testing.test_mode") == true) {
+    if (modProvider_->get_fds_config()->get<bool>("fds.sm.testing.test_mode") == true) {
         /*
          * Create test volumes.
          */
         VolumeDesc*  testVdb;
         std::string testVolName;
-        int numTestVols = conf_helper_.get<int>("testing.test_volume_cnt");
+        int numTestVols = modProvider_->get_fds_config()->\
+                          get<int>("fds.sm.testing.test_volume_cnt");
         for (fds_int32_t testVolId = 1; testVolId < numTestVols + 1; testVolId++) {
             testVolName = "testVol" + std::to_string(testVolId);
             /*
@@ -566,6 +574,13 @@ void ObjectStorMgr::proc_pre_startup()
     setup_migration_svc(obj_dir);
 }
 
+void ObjectStorMgr::mod_shutdown()
+{
+    migrationSvc_->mod_shutdown();
+    nst_->endAllSessions();
+    nst_.reset(); 
+}
+
 void ObjectStorMgr::setup_datapath_server(const std::string &ip)
 {
     ObjectStorMgrI *osmi = new ObjectStorMgrI(); 
@@ -579,7 +594,7 @@ void ObjectStorMgr::setup_datapath_server(const std::string &ip)
     // TODO: Figure out who cleans up datapath_session_
     datapath_session_ = nst_->createServerSession<netDataPathServerSession>(
         myIpInt,
-        plf_mgr->plf_get_my_data_port(),
+        modProvider_->get_plf_manager()->plf_get_my_data_port(),
         node_name,
         FDSP_STOR_HVISOR,
         datapath_handler_);
@@ -588,8 +603,8 @@ void ObjectStorMgr::setup_datapath_server(const std::string &ip)
 void ObjectStorMgr::setup_migration_svc(const std::string& obj_dir)
 {
     migrationSvc_.reset(new FdsMigrationSvc(this,
-                                            FdsConfigAccessor(conf_helper_.get_fds_config(),
-                                                              conf_helper_.get_base_path() + "migration."),
+                                            FdsConfigAccessor(modProvider_->get_fds_config(),
+                                                              "fds.sm.migration."),
                                             obj_dir,
                                             GetLog(),
                                             nst_,
@@ -622,14 +637,6 @@ ObjectStorMgr::getSvcSess(const NodeUuid &svcUuid) {
     svcSessLock.read_unlock();
 
     return sessId;
-}
-
-void ObjectStorMgr::interrupt_cb(int signum)
-{
-    migrationSvc_->mod_shutdown();
-    nst_->endAllSessions();
-    nst_.reset(); 
-    exit(0);
 }
 
 const TokenList&
@@ -760,7 +767,7 @@ void ObjectStorMgr::migrationSvcResponseCb(const Error& err,
     } else if (status == MIGRATION_OP_COMPLETE) {
         LOGNORMAL << "Token migration complete";
         LOGNORMAL << migrationSvc_->mig_cntrs.toString();
-        LOGNORMAL << counters_.toString();
+        LOGNORMAL << counters_->toString();
 
         /* Notify OM */
         // TODO(Rao): We are notifying OM that sync is complete by responding
@@ -2088,7 +2095,7 @@ ObjectStorMgr::deleteObjectInternal(SmIoReq* delReq) {
      * Delete the object, decrement refcnt of the assoc entry & overall refcnt
      */
     {
-        PerfContext tmp_pctx(DELETE_METADATA_,"volume:" + std::to_string(volId));
+        PerfContext tmp_pctx(DELETE_METADATA,"volume:" + std::to_string(volId));
         SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
         err = deleteObjectMetaData(opCtx, objId, volId, objMetadata);
     }
@@ -2100,7 +2107,7 @@ ObjectStorMgr::deleteObjectInternal(SmIoReq* delReq) {
             // tell persistent layer we deleted the object so that garbage collection
             // knows how much disk space we need to clean
             memcpy(oid.metaDigest, objId.GetId(), objId.GetLen());
-            PerfContext tmp_pctx(DELETE_DISK_,"volume:" + std::to_string(volId));
+            PerfContext tmp_pctx(DELETE_DISK,"volume:" + std::to_string(volId));
             SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
             if (objMetadata.onTier(diskio::diskTier)) {
                 dio_mgr.disk_delete_obj(&oid, objMetadata.getObjSize(), objMetadata.getObjPhyLoc(diskTier));
@@ -2154,6 +2161,68 @@ ObjectStorMgr::deleteObjectInternal(SmIoReq* delReq) {
     return err;
 }
 
+Error
+ObjectStorMgr::deleteObjectInternal2(SmIoDeleteObjectReq* delReq) {
+    Error err(ERR_OK);
+    const ObjectID&  objId    = delReq->getObjId();
+    fds_volid_t volId         = delReq->getVolId();
+    ObjBufPtrType objBufPtr = NULL;
+    const FDSP_DeleteObjTypePtr& delObjReq = delReq->getDeleteObjReq();
+    ObjectIdJrnlEntry* jrnlEntry =  omJrnl->get_transaction(delReq->getTransId());
+    OpCtx opCtx(OpCtx::DELETE, delReq->origin_timestamp);
+
+    diskio::DataIO& dio_mgr = diskio::DataIO::disk_singleton();
+    ObjMetaData objMetadata;
+    meta_obj_id_t   oid;
+
+    objBufPtr = objCache->object_retrieve(volId, objId);
+    if (objBufPtr != NULL) {
+        PerfTracer::incr(DELETE_CACHE_HIT, delReq->perfNameStr);
+        objCache->object_release(volId, objId, objBufPtr);
+        objCache->object_delete(volId, objId);
+    }
+
+    PerfTracer::tracePointBegin(delReq->opLatencyCtx);
+    /*
+     * Delete the object, decrement refcnt of the assoc entry & overall refcnt
+     */
+    {
+        PerfContext tmp_pctx(DELETE_METADATA,"volume:" + std::to_string(volId));
+        SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
+        err = deleteObjectMetaData(opCtx, objId, volId, objMetadata);
+    }
+    if (err.ok()) {
+        LOGDEBUG << "Successfully delete object " << objId
+                 << " refcnt = " << objMetadata.getRefCnt();
+
+        if (objMetadata.getRefCnt() < 1) {
+            // tell persistent layer we deleted the object so that garbage collection
+            // knows how much disk space we need to clean
+            memcpy(oid.metaDigest, objId.GetId(), objId.GetLen());
+            PerfContext tmp_pctx(DELETE_DISK,"volume:" + std::to_string(volId));
+            SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
+            if (objMetadata.onTier(diskio::diskTier)) {
+                dio_mgr.disk_delete_obj(&oid, objMetadata.getObjSize(),
+                                        objMetadata.getObjPhyLoc(diskTier));
+            } else if (objMetadata.onTier(diskio::flashTier)) {
+                dio_mgr.disk_delete_obj(&oid, objMetadata.getObjSize(),
+                                        objMetadata.getObjPhyLoc(flashTier));
+            }
+        }
+    } else {
+        LOGERROR << "Failed to delete object " << objId << ", " << err;
+    }
+    qosCtrl->markIODone(*delReq, diskio::diskTier);
+
+    PerfTracer::tracePointEnd(delReq->opLatencyCtx);
+    PerfTracer::tracePointEnd(delReq->opReqLatencyCtx);
+
+    omJrnl->release_transaction(delReq->getTransId());
+    delReq->response_cb(err, delReq);
+
+    return err;
+}
+
 void
 ObjectStorMgr::PutObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
                          const FDSP_PutObjTypePtr& put_obj_req) {
@@ -2181,7 +2250,7 @@ ObjectStorMgr::PutObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
         fdsp_msg->err_code = err.getFdspErr();
     }
 
-    counters_.put_reqs.incr();
+    counters_->put_reqs.incr();
 }
 
 
@@ -2211,7 +2280,7 @@ ObjectStorMgr::DeleteObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
         fdsp_msg->err_code = err.getFdspErr();
     }
 
-    counters_.del_reqs.incr();
+    counters_->del_reqs.incr();
 }
 
 Error
@@ -2502,7 +2571,7 @@ ObjectStorMgr::getProxyClient(ObjectID& oid,
     LOGDEBUG << "proxying request to " << uuid;
     fds_int32_t node_state = -1;
 
-    NodeAgent::pointer node = plf_mgr->plf_node_inventory()->
+    NodeAgent::pointer node = modProvider_->get_plf_manager()->plf_node_inventory()->
             dc_get_sm_nodes()->agent_info(uuid);
     SmAgent::pointer sm = agt_cast_ptr<SmAgent>(node);
     NodeAgentDpClientPtr smClient = sm->get_sm_client();
@@ -2544,7 +2613,7 @@ ObjectStorMgr::GetObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
         fds_verify(client != NULL);
         client->GetObject(*fdsp_msg, *get_obj_req);
 
-        counters_.proxy_gets.incr();
+        counters_->proxy_gets.incr();
         return;
     }
 
@@ -2560,7 +2629,7 @@ ObjectStorMgr::GetObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
         fdsp_msg->err_code = err.getFdspErr();
     }
     
-    counters_.get_reqs.incr();
+    counters_->get_reqs.incr();
 }
 
 Error
@@ -2643,6 +2712,13 @@ Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
         case FDS_SM_PUT_OBJECT:
             objectId = static_cast<SmIoPutObjectReq*>(ioReq)->getObjId();
             err =  enqTransactionIo(nullptr, objectId, ioReq, trans_id);
+            if (err != fds::ERR_OK) {
+                LOGERROR << "Failed to enqueue msg: " << ioReq->log_string();
+            }
+            break;
+        case FDS_SM_DELETE_OBJECT:
+            objectId = static_cast<SmIoDeleteObjectReq*>(ioReq)->getObjId();
+            err = enqTransactionIo(nullptr, objectId, ioReq, trans_id);
             if (err != fds::ERR_OK) {
                 LOGERROR << "Failed to enqueue msg: " << ioReq->log_string();
             }
@@ -2753,7 +2829,7 @@ ObjectStorMgr::putTokenObjectsInternal(SmIoReq* ioReq)
         /* write the metadata */
         objMetadata.updatePhysLocation(&phys_loc);
         smObjDb->put(OpCtx(OpCtx::COPY), objId, objMetadata);
-        counters_.put_tok_objs.incr();
+        counters_->put_tok_objs.incr();
     }
 
     /* Mark the request as complete */
@@ -3111,9 +3187,10 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
             FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a put request";
             threadPool->schedule(putObjectExt,io);
             break;
-        case FDS_DELETE_BLOB:
+        case FDS_SM_DELETE_OBJECT:
             FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a Delete request";
-            threadPool->schedule(delObjectExt,io);
+            threadPool->schedule(&ObjectStorMgr::deleteObjectInternal2,
+                                 objStorMgr, static_cast<SmIoDeleteObjectReq*>(io));
             break;
         case FDS_SM_GET_OBJECT:
             FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a get request";

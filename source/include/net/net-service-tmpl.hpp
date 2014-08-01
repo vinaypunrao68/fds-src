@@ -425,14 +425,15 @@ EpSvcHandle::pointer NetMgr::svc_get_handle(const fpi::SvcUuid   &peer,
 {
     UuidIntKey key(peer.svc_uuid, maj, min);
 
-    /* TODO(Rao): This lock is expensive when we need to create a new client
-     * We need to have finer locking between lookup and creation
-     */
-    fds_scoped_lock l(ep_handle_map_mtx);
     try {
+        fds_scoped_lock l(ep_handle_map_mtx);
         auto ep = ep_handle_map.at(key);
         return ep;
     } catch(const std::out_of_range &e) {
+        /* Create the endpoint client
+         * NOTE: We let go off lock here because socket connection
+         * is expensive.  We reaquire the lock when adding to map below
+         */
         std::string ip;
         auto port = ep_uuid_binding(peer, maj, min, &ip);
         LOGDEBUG <<  "New svc client.  peer: " << peer.svc_uuid
@@ -445,8 +446,19 @@ EpSvcHandle::pointer NetMgr::svc_get_handle(const fpi::SvcUuid   &peer,
         ep->ep_rpc = bo::make_shared<SendIf>(proto);
         try {
             ep->ep_sock->open();
-            ep_handle_map[key] = ep;
-            return ep;
+            {
+                fds_scoped_lock l(ep_handle_map_mtx);
+                /* Look up again.  ep may hanve been added while we weren't under lock */
+                auto ret_ep_itr = ep_handle_map.find(key);
+                if (ret_ep_itr == ep_handle_map.end()) {
+                    ep_handle_map[key] = ep;
+                    return ep;
+                } else {
+                    LOGDEBUG <<  "Ignoring extra endpoint.  peer: " << peer.svc_uuid
+                        << " ip:port: " << ip << ":" << port;
+                    return ret_ep_itr->second;
+                }
+            }
         } catch(std::exception &open_e) {
             LOGERROR <<  "Exception opening socket: " << e.what()
                 << " peer: " << peer.svc_uuid

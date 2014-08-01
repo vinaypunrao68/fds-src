@@ -108,14 +108,20 @@ StorHvCtrl::commitBlobTxSvc(AmQosReq *qosReq) {
     StorHvVolume *shVol = storHvisor->vol_table->getLockedVolume(volId);
     fds_verify(shVol != NULL);
     fds_verify(shVol->isValidLocked() == true);
-   
-    issueCommitBlobTxMsg(blobReq,
+
+    // use DMT version as of start of blob tx
+    // TODO(Anna) keeping DMT version should be moved to new tx table
+    fds_verify((shVol->tx_to_dmt).count(blobReq->getTxId()->getValue()) > 0);
+    fds_uint64_t dmt_version = (shVol->tx_to_dmt)[blobReq->getTxId()->getValue()];
+
+    issueCommitBlobTxMsg(blobReq, dmt_version,
                          RESPONSE_MSG_HANDLER(StorHvCtrl::commitBlobTxMsgResp, qosReq));
     return err;
 }
 
 
 void StorHvCtrl::issueCommitBlobTxMsg(CommitBlobTxReq *blobReq,
+                                      fds_uint64_t dmtVersion,
                                       QuorumSvcRequestRespCb respCb)
 {
 
@@ -123,12 +129,14 @@ void StorHvCtrl::issueCommitBlobTxMsg(CommitBlobTxReq *blobReq,
     stBlobTxMsg->blob_name   = blobReq->getBlobName();
     stBlobTxMsg->blob_version = blob_version_invalid;
     stBlobTxMsg->volume_id = blobReq->getVolId();
+    stBlobTxMsg->dmt_version = dmtVersion;
 
     fds_volid_t volId = blobReq->getVolId();
     stBlobTxMsg->txId = blobReq->getTxId()->getValue();
 
     auto asyncCommitBlobTxReq = gSvcRequestPool->newQuorumSvcRequest(
-        boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(volId)));
+        boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(volId,
+                                                                                  dmtVersion)));
     asyncCommitBlobTxReq->setPayload(FDSP_MSG_TYPEID(fpi::CommitBlobTxMsg), stBlobTxMsg);
     asyncCommitBlobTxReq->onResponseCb(respCb);
     asyncCommitBlobTxReq->invoke();
@@ -177,11 +185,18 @@ StorHvCtrl::startBlobTxSvc(AmQosReq *qosReq) {
     StartBlobTxCallback::ptr cb = SHARED_DYN_CAST(StartBlobTxCallback,
                                                   blobReq->cb);
     cb->blobTxId = txId;
+    fds_uint64_t dmt_version = om_client->getDMTVersion();
+
+    // TODO(Anna) save DMT version in temp trans to dmt map
+    // should be moved to AM's trans state manager
+    fds_verify((shVol->tx_to_dmt).count(txId.getValue()) == 0);
+    (shVol->tx_to_dmt)[txId.getValue()] = dmt_version;
 
     issueStartBlobTxMsg(blobReq->getBlobName(),
                         volId,
                         blobReq->getBlobMode(),
                         txId.getValue(),
+                        dmt_version,
                         RESPONSE_MSG_HANDLER(StorHvCtrl::startBlobTxMsgResp, qosReq));
      return err;
 }
@@ -191,7 +206,8 @@ void StorHvCtrl::issueStartBlobTxMsg(const std::string& blobName,
                                      const fds_volid_t& volId,
                                      const fds_int32_t blobMode,
                                      const fds_uint64_t& txId,
-                                      QuorumSvcRequestRespCb respCb)
+                                     const fds_uint64_t dmtVer,
+                                     QuorumSvcRequestRespCb respCb)
 {
 
     StartBlobTxMsgPtr stBlobTxMsg(new StartBlobTxMsg());
@@ -199,9 +215,8 @@ void StorHvCtrl::issueStartBlobTxMsg(const std::string& blobName,
     stBlobTxMsg->blob_version = blob_version_invalid;
     stBlobTxMsg->volume_id = volId;
     stBlobTxMsg->blob_mode = blobMode;
-
-
     stBlobTxMsg->txId = txId;
+    stBlobTxMsg->dmt_version = dmtVer;
 
     auto asyncStartBlobTxReq = gSvcRequestPool->newQuorumSvcRequest(
         boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(volId)));
@@ -268,12 +283,14 @@ Error StorHvCtrl::putBlobSvc(fds::AmQosReq *qosReq)
         LOGWARN << "zero size object - "
                 << " [objkey:" << blobReq->ObjKey <<"]";
     } else {
+        SCOPED_PERF_TRACEPOINT_CTX(blobReq->hashPerfCtx);
         objId = ObjIdGen::genObjectId(blobReq->getDataBuf(),
                                       blobReq->getDataLen());
     }
     blobReq->setObjId(objId);
 
     // Send put request to SM
+    fds::PerfTracer::tracePointBegin(blobReq->smPerfCtx); 
     issuePutObjectMsg(blobReq->getObjId(),
                       blobReq->getDataBuf(),
                       blobReq->getDataLen(),
@@ -281,6 +298,10 @@ Error StorHvCtrl::putBlobSvc(fds::AmQosReq *qosReq)
                       RESPONSE_MSG_HANDLER(StorHvCtrl::putBlobPutObjectMsgResp, qosReq));
 
     // updCatReq->txDesc.txId = putBlobReq->getTxId()->getValue();
+    //TODO(matteo): maybe check other issueUpdateC...
+    fds::PerfTracer::tracePointBegin(blobReq->dmPerfCtx); 
+    fds_verify((shVol->tx_to_dmt).count(blobReq->getTxId()->getValue()) > 0);
+    fds_uint64_t dmt_version = (shVol->tx_to_dmt)[blobReq->getTxId()->getValue()];
     issueUpdateCatalogMsg(blobReq->getObjId(),
                           blobReq->getBlobName(),
                           blobReq->getBlobOffset(),
@@ -288,6 +309,7 @@ Error StorHvCtrl::putBlobSvc(fds::AmQosReq *qosReq)
                           blobReq->isLastBuf(),
                           volId,
                           blobReq->getTxId()->getValue(),
+                          dmt_version,
                           RESPONSE_MSG_HANDLER(StorHvCtrl::putBlobUpdateCatalogMsgResp, qosReq));
     // TODO(Rao): Check with andrew if this is the right place to unlock or
     // can we unlock before
@@ -329,6 +351,7 @@ void StorHvCtrl::issueUpdateCatalogMsg(const ObjectID &objId,
                                        const bool &lastBuf,
                                        const fds_volid_t& volId,
                                        const fds_uint64_t& txId,
+                                       const fds_uint64_t& dmt_version,
                                        QuorumSvcRequestRespCb respCb)
 {
     UpdateCatalogMsgPtr updCatMsg(new UpdateCatalogMsg());
@@ -351,7 +374,8 @@ void StorHvCtrl::issueUpdateCatalogMsg(const ObjectID &objId,
     updCatMsg->txId = txId;
 
     auto asyncUpdateCatReq = gSvcRequestPool->newQuorumSvcRequest(
-        boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(volId)));
+        boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(volId,
+                                                                                  dmt_version)));
     asyncUpdateCatReq->setPayload(FDSP_MSG_TYPEID(fpi::UpdateCatalogMsg), updCatMsg);
     asyncUpdateCatReq->onResponseCb(respCb);
     asyncUpdateCatReq->invoke();
@@ -365,6 +389,7 @@ void StorHvCtrl::putBlobPutObjectMsgResp(fds::AmQosReq* qosReq,
                                          boost::shared_ptr<std::string> payload)
 {
     PutBlobReq *blobReq = static_cast<fds::PutBlobReq*>(qosReq->getBlobReqPtr());
+    fds::PerfTracer::tracePointEnd(blobReq->smPerfCtx); 
     fpi::PutObjectRspMsgPtr putObjRsp =
         net::ep_deserialize<fpi::PutObjectRspMsg>(const_cast<Error&>(error), payload);
 
@@ -384,6 +409,7 @@ void StorHvCtrl::putBlobUpdateCatalogMsgResp(fds::AmQosReq* qosReq,
                                              boost::shared_ptr<std::string> payload)
 {
     PutBlobReq *blobReq = static_cast<fds::PutBlobReq*>(qosReq->getBlobReqPtr());
+    fds::PerfTracer::tracePointEnd(blobReq->dmPerfCtx); 
     fpi::UpdateCatalogRspMsgPtr updCatRsp =
         net::ep_deserialize<fpi::UpdateCatalogRspMsg>(const_cast<Error&>(error), payload);
 
@@ -435,12 +461,14 @@ Error StorHvCtrl::getBlobSvc(fds::AmQosReq *qosReq)
                                           blobReq->getBlobOffset(),
                                           objId);
     if (true || !inCache) {
+        fds::PerfTracer::tracePointBegin(blobReq->dmPerfCtx); 
         issueQueryCatalog(blobReq->getBlobName(),
                           blobReq->getBlobOffset(),
                           volId,
                           RESPONSE_MSG_HANDLER(StorHvCtrl::getBlobQueryCatalogResp, qosReq));
     } else {
         fds_verify(objId != NullObjectID);
+        fds::PerfTracer::tracePointBegin(blobReq->smPerfCtx); 
         issueGetObject(volId, objId,
                        RESPONSE_MSG_HANDLER(StorHvCtrl::getBlobGetObjectResp, qosReq));
     }
@@ -501,6 +529,8 @@ void StorHvCtrl::getBlobQueryCatalogResp(fds::AmQosReq* qosReq,
     fpi::QueryCatalogMsgPtr qryCatRsp =
         net::ep_deserialize<fpi::QueryCatalogMsg>(const_cast<Error&>(error), payload);
 
+    fds::PerfTracer::tracePointEnd(blobReq->dmPerfCtx); 
+
     if (error != ERR_OK) {
         LOGERROR << "blob name: " << blobReq->getBlobName() << "offset: "
             << blobReq->getBlobOffset() << " Error: " << error; 
@@ -533,6 +563,8 @@ void StorHvCtrl::getBlobQueryCatalogResp(fds::AmQosReq* qosReq,
             ObjectID objId((*it).data_obj_id.digest);
             fds_verify(objId != NullObjectID);
 
+            
+            fds::PerfTracer::tracePointBegin(blobReq->smPerfCtx); 
             issueGetObject(blobReq->getVolId(), objId,
                            RESPONSE_MSG_HANDLER(StorHvCtrl::getBlobGetObjectResp, qosReq));
 
@@ -552,6 +584,7 @@ void StorHvCtrl::getBlobGetObjectResp(fds::AmQosReq* qosReq,
     fds::GetBlobReq *blobReq = static_cast<fds::GetBlobReq *>(qosReq->getBlobReqPtr());
     fpi::GetObjectRespPtr getObjRsp =
         net::ep_deserialize<fpi::GetObjectResp>(const_cast<Error&>(error), payload);
+    fds::PerfTracer::tracePointEnd(blobReq->smPerfCtx); 
 
     if (error != ERR_OK) {
         LOGERROR << "blob name: " << blobReq->getBlobName() << "offset: "
@@ -612,6 +645,7 @@ StorHvCtrl::deleteBlobSvc(fds::AmQosReq *qosReq)
     fds_verify(shVol->isValidLocked() == true);
 
     // Send to the DM
+    fds::PerfTracer::tracePointBegin(blobReq->dmPerfCtx); 
     issueDeleteCatalogObject(vol_id, blob_name,
                              RESPONSE_MSG_HANDLER(StorHvCtrl::deleteObjectMsgResp, qosReq));
     return err;
@@ -643,6 +677,7 @@ void StorHvCtrl::deleteObjectMsgResp(fds::AmQosReq* qosReq,
                                       boost::shared_ptr<std::string> payload)
 {
     DeleteBlobReq *blobReq = static_cast<fds::DeleteBlobReq*>(qosReq->getBlobReqPtr());
+    fds::PerfTracer::tracePointEnd(blobReq->dmPerfCtx); 
     fpi::DeleteCatalogObjectRspMsgPtr delCatRsp =
         net::ep_deserialize<fpi::DeleteCatalogObjectRspMsg>(const_cast<Error&>(error), payload);
 
@@ -656,6 +691,59 @@ void StorHvCtrl::deleteObjectMsgResp(fds::AmQosReq* qosReq,
     qos_ctrl->markIODone(qosReq);
     blobReq->cb->call(error.GetErrno());
     delete blobReq;
+}
+
+fds::Error
+StorHvCtrl::getVolumeMetaDataSvc(fds::AmQosReq* qosReq) {
+    StorHvCtrl::RequestHelper helper(storHvisor, qosReq);
+
+    if (!helper.isValidVolume()) {
+        LOGCRITICAL << "unable to get volume info for vol: " << helper.volId;
+        helper.setStatus(FDSN_StatusErrorUnknown);
+        return ERR_DISK_READ_FAILED;
+    }
+
+    GetVolumeMetaDataReq* volMDReq = TO_DERIVED(GetVolumeMetaDataReq, helper.blobReq);
+    fds_assert(volMDReq && volMDReq->magicInUse());
+
+    fpi::GetVolumeMetaDataMsgPtr volMDMsg(new fpi::GetVolumeMetaDataMsg());
+    volMDMsg->volume_id = helper.volId;
+
+    auto asyncQueryReq = gSvcRequestPool->newFailoverSvcRequest(
+            boost::make_shared<DmtVolumeIdEpProvider>(
+            om_client->getDMTNodesForVolume(helper.volId)));
+    asyncQueryReq->setPayload(FDSP_MSG_TYPEID(fpi::GetVolumeMetaDataMsg), volMDMsg);
+    FailoverSvcRequestRespCb respCb =
+            RESPONSE_MSG_HANDLER(StorHvCtrl::getVolumeMetaDataMsgResp, qosReq);
+    asyncQueryReq->onResponseCb(respCb);
+    asyncQueryReq->invoke();
+
+    return ERR_OK;
+}
+
+void StorHvCtrl::getVolumeMetaDataMsgResp(fds::AmQosReq* qosReq,
+                                          FailoverSvcRequest* svcReq,
+                                          const Error& error,
+                                          boost::shared_ptr<std::string> payload) {
+    GetVolumeMetaDataReq * volMDReq =
+            static_cast<fds::GetVolumeMetaDataReq*>(qosReq->getBlobReqPtr());
+    fpi::GetVolumeMetaDataMsgPtr volMDMsg =
+        net::ep_deserialize<fpi::GetVolumeMetaDataMsg>(const_cast<Error&>(error), payload);
+
+    if (error != ERR_OK) {
+        LOGERROR << "Get metadata volume name: " << volMDReq->getVolumeName()
+                << " Error: " << error;
+        qos_ctrl->markIODone(qosReq);
+        volMDReq->cb->call(error);
+        delete volMDReq;
+    }
+
+    GetVolumeMetaDataCallback::ptr cb =
+            SHARED_DYN_CAST(GetVolumeMetaDataCallback, volMDReq->cb);
+    cb->volumeMetaData = volMDMsg->volume_meta_data;
+    cb->call(error);
+    qos_ctrl->markIODone(qosReq);
+    delete volMDReq;
 }
 
 fds::Error
@@ -675,11 +763,13 @@ StorHvCtrl::setBlobMetaDataSvc(fds::AmQosReq* qosReq)
     fds_verify(shVol->isValidLocked() == true);
 
     std::string blob_name = blobReq->getBlobName();
+    fds_verify((shVol->tx_to_dmt).count(blobReq->getTxId()->getValue()) > 0);
+    fds_uint64_t dmt_version = (shVol->tx_to_dmt)[blobReq->getTxId()->getValue()];
  
     LOGDEBUG << " Invoking issueSetBlobMetaData";
     issueSetBlobMetaData(vol_id, blob_name, blob_version_invalid, blobReq->getMetaDataListPtr(),
-                          blobReq->getTxId()->getValue(),
-                          RESPONSE_MSG_HANDLER(StorHvCtrl::setBlobMetaDataMsgResp, qosReq));
+                         blobReq->getTxId()->getValue(), dmt_version,
+                         RESPONSE_MSG_HANDLER(StorHvCtrl::setBlobMetaDataMsgResp, qosReq));
     return err;
 }
 
@@ -689,6 +779,7 @@ StorHvCtrl::issueSetBlobMetaData(const fds_volid_t& vol_id,
                                  const blob_version_t& blob_version,
                                  const boost::shared_ptr<FDSP_MetaDataList>& md_list,
                                  const fds_uint64_t& txId,
+                                 fds_uint64_t dmt_version,
                                  QuorumSvcRequestRespCb respCb)
 {
     LOGDEBUG << " inside issueSetBlobMetaData";
@@ -716,7 +807,8 @@ StorHvCtrl::issueSetBlobMetaData(const fds_volid_t& vol_id,
 
     LOGDEBUG << " Invoking  Message Interface";
     auto asyncSetMDReq = gSvcRequestPool->newQuorumSvcRequest(
-        boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(vol_id)));
+        boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(vol_id,
+                                                                                  dmt_version)));
     asyncSetMDReq->setPayload(FDSP_MSG_TYPEID(fpi::SetBlobMetaDataMsg), setMDMsg);
     asyncSetMDReq->onResponseCb(respCb);
     asyncSetMDReq->invoke();

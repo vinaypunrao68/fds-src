@@ -14,7 +14,6 @@
 #include <util/Log.h>
 #include <fds_process.h>
 #include <concurrency/Mutex.h>
-#include <NetSession.h>
 #include <DmIoReq.h>
 
 namespace fpi = FDS_ProtocolInterface;
@@ -73,7 +72,7 @@ namespace fds {
         /**
          * Enqueue forwarded update into volume's shadow queue
          */
-        Error enqueueFwdUpdate(dmCatReq* updReq);
+        Error enqueueFwdUpdate(DmIoFwdCat* fwdReq);
 
         /**
          * Called when finished processing forwarded update.
@@ -82,10 +81,7 @@ namespace fds {
          * If this is the last forwarded update, volume meta
          * syncing process is done -- will call vmeta_recv_done callback
          */
-        void fwdUpdateReqDone(dmCatReq* updCatReq,
-                              blob_version_t blob_version,
-                              const Error& error,
-                              MetaSyncRespHandlerPrx respCli);
+        void fwdUpdateReqDone(fds_volid_t volume_id);
 
         /**
          * WARNING: when this code was written, volume uuid only used low 63 bits,

@@ -24,6 +24,14 @@ BlobExtent::BlobExtent(fds_extent_id ext_id,
     last_offset = first_offset + num_off - 1;
 }
 
+BlobExtent::BlobExtent(const BlobExtent& rhs)
+        : extent_id(rhs.extent_id),
+          offset_unit_bytes(rhs.offset_unit_bytes),
+          first_offset(rhs.first_offset),
+          last_offset(rhs.last_offset),
+          blob_obj_list(rhs.blob_obj_list) {
+}
+
 BlobExtent::~BlobExtent() {
 }
 
@@ -142,6 +150,22 @@ void BlobExtent::addToFdspPayload(fpi::FDSP_BlobObjectList& olist,
     }
 }
 
+BlobExtent&
+BlobExtent::operator=(const BlobExtent& rhs) {
+    // TODO(Andrew): Consider check equality first? Maybe faster...
+
+    // Copy member extent info
+    extent_id         = rhs.extent_id;
+    offset_unit_bytes = rhs.offset_unit_bytes;
+    first_offset      = rhs.first_offset;
+    last_offset       = rhs.last_offset;
+
+    // Copy extent mappings
+    blob_obj_list.clear();
+    blob_obj_list = rhs.blob_obj_list;
+    return *this;
+}
+
 //
 // We serialize offsets into as offsets in max_obj_size units
 //
@@ -204,6 +228,14 @@ BlobExtent0::BlobExtent0(const std::string& blob_name,
     last_blob_offset = 0;  // should not be used if blob size = 0
 }
 
+BlobExtent0::BlobExtent0(const BlobExtent0& rhs)
+        : BlobExtent(rhs) {
+    // TODO(Andrew): Should use the BlobMetaDesc copy constructor
+    // instead to avoid an extra initialization
+    blob_meta        = rhs.blob_meta;
+    last_blob_offset = rhs.last_blob_offset;
+}
+
 BlobExtent0::~BlobExtent0() {
 }
 
@@ -216,6 +248,10 @@ void BlobExtent0::markDeleted() {
     last_blob_offset = 0;
     blob_meta.meta_list.clear();
     blob_obj_list.clear();
+}
+
+fds_bool_t BlobExtent0::isDeleted() const {
+    return (blob_meta.desc.version == blob_version_deleted);
 }
 
 void BlobExtent0::updateMetaData(const MetaDataList::const_ptr& meta_list) {
@@ -246,6 +282,22 @@ uint32_t BlobExtent0::read(serialize::Deserializer* d) {
     return bytes;
 }
 
+BlobExtent0&
+BlobExtent0::operator=(const BlobExtent0& rhs) {
+    // TODO(Andrew): Consider check equality first? Maybe faster...
+
+    // Copy base members
+    BlobExtent::operator=(rhs);
+
+    // Copy member extent info
+    last_blob_offset  = rhs.last_blob_offset;
+
+    // Copy extent mappings
+    blob_obj_list.clear();
+    blob_obj_list = rhs.blob_obj_list;
+    return *this;
+}
+
 std::ostream& operator<<(std::ostream& out, const BlobExtent0& extent0) {
     std::map<fds_uint32_t, ObjectID>::const_iterator cit;
     out << "Extent 0 for " << extent0.blob_meta << "; Object List \n";
@@ -256,6 +308,16 @@ std::ostream& operator<<(std::ostream& out, const BlobExtent0& extent0) {
         out << "[offset " << offset << " -> " << cit->second << "]\n";
     }
     out << " Last blob offset " << extent0.last_blob_offset << "\n";
+    return out;
+}
+
+bool ExtentKey::operator==(const ExtentKey& rhs) const {
+    return ((this->blob_name == rhs.blob_name) &&
+            (this->extent_id == rhs.extent_id));
+}
+
+std::ostream& operator<<(std::ostream& out, const ExtentKey& key) {
+    out << "blob name " << key.blob_name << " extent " << key.extent_id;
     return out;
 }
 

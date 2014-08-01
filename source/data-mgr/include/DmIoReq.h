@@ -235,16 +235,42 @@ namespace fds {
     };
 
 /**
+ * Request that marks close DMT for a volume
+ * Will send PushMeta done msg to destination DM
+ */
+class DmIoPushMetaDone: public dmCatReq {
+  public:
+    explicit DmIoPushMetaDone(fds_volid_t _volId)
+            : dmCatReq(_volId, "", blob_version_invalid,
+                       FDS_DM_PUSH_META_DONE) {
+    }
+
+    // Why is this not a ostream operator?
+    virtual std::string log_string() const override {
+        std::stringstream ret;
+        ret << "dmIoPushMetaDone for vol "
+            << std::hex << volId << std::dec;
+        return ret.str();
+    }
+
+    // volume is part of base class: use getVolId()
+};
+
+
+/**
  * Request to Commit Blob Tx
  */
 class DmIoCommitBlobTx: public dmCatReq {
   public:
     typedef std::function<void (const Error &e, DmIoCommitBlobTx *blobTx)> CbType;
+
   public:
     DmIoCommitBlobTx(const fds_volid_t  &_volId,
-                    const std::string &_blobName,
-                     const blob_version_t &_blob_version)
+                     const std::string &_blobName,
+                     const blob_version_t &_blob_version,
+                     fds_uint64_t _dmt_version)
             : dmCatReq(_volId, _blobName, _blob_version, FDS_COMMIT_BLOB_TX) {
+        dmt_version = _dmt_version;
     }
 
     virtual std::string log_string() const override {
@@ -254,7 +280,14 @@ class DmIoCommitBlobTx: public dmCatReq {
         return ret.str();
     }
 
+    friend std::ostream& operator<<(std::ostream& out, const DmIoCommitBlobTx& io) {
+        return out << "DmIoCommitBlobTx vol " << std::hex << io.volId << std::dec
+                   << " blob " << io.blob_name
+                   << ", dmt_version " << io.dmt_version << " TX " << *(io.ioBlobTxDesc);
+    }
+
     BlobTxId::const_ptr ioBlobTxDesc;
+    fds_uint64_t dmt_version;
     /* response callback */
     CbType dmio_commit_blob_tx_resp_cb;
 };
@@ -290,23 +323,32 @@ class DmIoAbortBlobTx: public dmCatReq {
 class DmIoStartBlobTx: public dmCatReq {
   public:
     typedef std::function<void (const Error &e, DmIoStartBlobTx *blobTx)> CbType;
-  public:
-    fds_int32_t blob_mode = 0;
+
     DmIoStartBlobTx(const fds_volid_t  &_volId,
                     const std::string &_blobName,
                     const blob_version_t &_blob_version,
-                    const fds_int32_t _blob_mode)
-            : dmCatReq(_volId, _blobName, _blob_version, FDS_START_BLOB_TX), blob_mode(_blob_mode) {
+                    const fds_int32_t _blob_mode,
+                    const fds_uint64_t _dmt_ver)
+            : dmCatReq(_volId, _blobName, _blob_version, FDS_START_BLOB_TX), blob_mode(_blob_mode),
+            dmt_version(_dmt_ver) {
     }
 
     virtual std::string log_string() const override {
         std::stringstream ret;
-        ret << "DmIoStartBlobTx vol "
-            << std::hex << volId << std::dec;
+        ret << "DmIoStartBlobTx vol " << std::hex << volId << std::dec
+            << ", dmt_version " << dmt_version << " TX " << *ioBlobTxDesc;
         return ret.str();
     }
 
+    friend std::ostream& operator<<(std::ostream& out, const DmIoStartBlobTx& io) {
+        return out << "DmIoStartBlobTx vol " << std::hex << io.volId << std::dec
+                   << " blob " << io.blob_name << " blob mode " << io.blob_mode
+                   << ", dmt_version " << io.dmt_version << " TX " << *(io.ioBlobTxDesc);
+    }
+
     BlobTxId::const_ptr ioBlobTxDesc;
+    fds_uint64_t dmt_version;
+    fds_int32_t blob_mode;
     /* response callback */
     CbType dmio_start_blob_tx_resp_cb;
 };
@@ -338,6 +380,32 @@ class DmIoQueryCat: public dmCatReq {
     /* response callback */
     CbType dmio_querycat_resp_cb;
 };
+
+/**
+ * New request to update catalog
+ */
+class DmIoFwdCat : public dmCatReq {
+  public:
+    typedef std::function<void (const Error &e, DmIoFwdCat *req)> CbType;
+    explicit DmIoFwdCat(boost::shared_ptr<fpi::ForwardCatalogMsg>& fwdMsg)
+            : dmCatReq(fwdMsg->volume_id, fwdMsg->blob_name, fwdMsg->blob_version,
+                       FDS_DM_FWD_CAT_UPD), fwdCatMsg(fwdMsg) {}
+
+    virtual std::string log_string() const override {
+        std::stringstream ret;
+        ret << "DmIoFwdCat vol " << std::hex << volId << std::dec;
+        return ret.str();
+    }
+
+    friend std::ostream& operator<<(std::ostream& out, const DmIoFwdCat& io) {
+        return out << "DmIoFwdCat vol " << std::hex << io.volId << std::dec
+                   << " blob " << io.blob_name << " blob version " << io.blob_version;
+    }
+
+    boost::shared_ptr<fpi::ForwardCatalogMsg> fwdCatMsg;
+    CbType dmio_fwdcat_resp_cb;
+};
+
 
 /**
  * Request to update catalog
@@ -440,6 +508,17 @@ class DmIoGetBlobMetaData: public dmCatReq {
     boost::shared_ptr<fpi::GetBlobMetaDataMsg> message;
     /* response callback */
     CbType dmio_getmd_resp_cb;
+};
+
+struct DmIoGetVolumeMetaData : dmCatReq {
+    typedef std::function<void (const Error &e, DmIoGetVolumeMetaData *req)> CbType;
+
+    explicit DmIoGetVolumeMetaData(boost::shared_ptr<fpi::GetVolumeMetaDataMsg> message)
+            : dmCatReq(message->volume_id, "", 0, FDS_GET_VOLUME_METADATA), msg(message) {}
+
+    boost::shared_ptr<fpi::GetVolumeMetaDataMsg> msg;
+    // response callback
+    CbType dmio_get_volmd_resp_cb;
 };
 
 struct DmIoGetBucket : dmCatReq {

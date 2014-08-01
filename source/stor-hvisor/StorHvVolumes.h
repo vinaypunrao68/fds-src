@@ -27,6 +27,7 @@
 #include "./VolumeCatalogCache.h"
 #include "./StorHvJournal.h"
 #include <native_api.h>
+#include "PerfTrace.h"
 
 
 /* defaults */
@@ -71,6 +72,14 @@ class StorHvVolume : public FDS_Volume , public HasLogger
      * per volume queue
      */
     FDS_VolumeQueue*  volQueue;
+
+    /**
+     * TODO(Anna) temp before we implement AM trans state/table
+     * Keep a map of TxId to DMT version, so that each update
+     * and commit for the same transaction uses the same DMT as
+     * when transaction started
+     */
+    std::map<fds_uint64_t, fds_uint64_t> tx_to_dmt;
 
   private:
     /* lock to prevent volume destruction while accessing volume data */
@@ -487,8 +496,18 @@ struct DeleteBlobReq: FdsBlobReq, TxnRequest {
               bucket_ctxt(_bucket_ctxt),
               ObjKey(_blob_name),
               req_context(_req_context),
-        responseCallback(_resp_handler),
-        callback_data(_callback_data) {
+              responseCallback(_resp_handler),
+              callback_data(_callback_data) {
+        e2eReqPerfCtx.type = AM_DELETE_OBJ_REQ;
+        e2eReqPerfCtx.name = "volume:" + std::to_string(volId);
+        qosPerfCtx.type = AM_DELETE_QOS;
+        qosPerfCtx.name = "volume:" + std::to_string(volId);
+        hashPerfCtx.type = AM_DELETE_HASH;
+        hashPerfCtx.name = "volume:" + std::to_string(volId);
+        dmPerfCtx.type = AM_DELETE_SM;
+        dmPerfCtx.name = "volume:" + std::to_string(volId);
+        smPerfCtx.type = AM_DELETE_DM;
+        smPerfCtx.name = "volume:" + std::to_string(volId);
     }
 
     DeleteBlobReq(fds_volid_t _volid,
@@ -498,9 +517,22 @@ struct DeleteBlobReq: FdsBlobReq, TxnRequest {
             : FdsBlobReq(FDS_DELETE_BLOB, _volid,
                          _blob_name, 0, 0, NULL, cb) {
         setVolumeName(volumeName);
+
+        e2eReqPerfCtx.type = AM_DELETE_OBJ_REQ;
+        e2eReqPerfCtx.name = "volume:" + std::to_string(volId);
+        qosPerfCtx.type = AM_DELETE_QOS;
+        qosPerfCtx.name = "volume:" + std::to_string(volId);
+        hashPerfCtx.type = AM_DELETE_HASH;
+        hashPerfCtx.name = "volume:" + std::to_string(volId);
+        dmPerfCtx.type = AM_DELETE_SM;
+        dmPerfCtx.name = "volume:" + std::to_string(volId);
+        smPerfCtx.type = AM_DELETE_DM;
+        smPerfCtx.name = "volume:" + std::to_string(volId);
     }
 
-    ~DeleteBlobReq() {}
+    ~DeleteBlobReq() {
+        fds::PerfTracer::tracePointEnd(e2eReqPerfCtx); 
+    }
 
     void DoCallback(FDSN_Status status, ErrorDetails* errDetails) {
         (responseCallback)(status, errDetails, callback_data);

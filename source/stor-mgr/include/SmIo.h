@@ -223,6 +223,16 @@ class SmIoReqHandler {
     virtual Error enqueueMsg(fds_volid_t volId, SmIoReq* ioReq) = 0;
 };
 
+class SmIoDeleteObjectReq : public SmIoReq {
+  public:
+    typedef std::function<void (const Error&, SmIoDeleteObjectReq *resp)> CbType;
+    virtual std::string log_string() override;
+
+    int64_t origin_timestamp;
+
+    CbType response_cb;
+};
+
 class SmIoPutObjectReq : public SmIoReq {
  public:
     typedef std::function<void (const Error&, SmIoPutObjectReq *resp)> CbType;

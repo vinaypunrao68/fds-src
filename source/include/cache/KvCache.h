@@ -24,7 +24,7 @@ enum EvictionType {
  * caches elements using a specified evication algorithm.
  * The cache itself is NOT thread safe.
  */
-template<class A, class B>
+template<class A, class B, class _HashBase = std::hash<A>>
 class KvCache : public Module, boost::noncopyable {
     protected:
     /// Maximum number of entries in the cache
@@ -49,7 +49,8 @@ class KvCache : public Module, boost::noncopyable {
     KvCache(const std::string &modName,
             fds_uint32_t _maxEntries)
             : Module(modName.c_str()),
-              maxEntries(_maxEntries) {
+              maxEntries(_maxEntries),
+              numEntries(0) {
     }
     ~KvCache() {
     }
@@ -144,8 +145,8 @@ class KvCache : public Module, boost::noncopyable {
  * An LRU eviction based key-value cache. Implements
  * the generic key-value interface.
  */
-template <class K, class V>
-class LruKvCache : public KvCache<K, V> {
+template <class K, class V, class _Hash = std::hash<K>>
+        class LruKvCache : public KvCache<K, V, _Hash> {
   private:
     /**
      * Internal key/value_ptr pairing
@@ -164,15 +165,15 @@ class LruKvCache : public KvCache<K, V> {
      * Backing data structure that implements key to value
      * associated lookup.
      */
-    typedef typename std::unordered_map<K, KvMapEntry> KvCacheMap;
+    typedef typename std::unordered_map<K, KvMapEntry, _Hash> KvCacheMap;
     typedef typename KvCacheMap::const_iterator KvMapIterator;
     std::unique_ptr<KvCacheMap> cacheMap;
 
   public:
     LruKvCache(const std::string &modName,
                fds_uint32_t _maxEntries)
-            : KvCache<K, V>(modName, _maxEntries) {
-        KvCache<K, V>::evictionType = LRU;
+            : KvCache<K, V, _Hash>(modName, _maxEntries) {
+        KvCache<K, V, _Hash>::evictionType = LRU;
         evictionList = std::unique_ptr<KvEvictionList>(
             new KvEvictionList());
         cacheMap = std::unique_ptr<KvCacheMap>(

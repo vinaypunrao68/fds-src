@@ -151,38 +151,6 @@ class PersistVolumeMeta {
     fds_rwlock snap_lock_;
 };
 
-
-/**
- * Describes key in the Volume Catalog database
- */
-struct ExtentKey: public serialize::Serializable {
-    std::string blob_name;
-    fds_extent_id extent_id;
-
-    ExtentKey() : extent_id(0) {}
-    ExtentKey(std::string bname, fds_extent_id eid)
-            : blob_name(bname), extent_id(eid) {}
-    ~ExtentKey() {}
-
-    virtual uint32_t write(serialize::Serializer* s) const {
-        uint32_t bytes = 0;
-        bytes += s->writeI32(extent_id);
-        bytes += s->writeString(blob_name);
-        return bytes;
-    }
-    virtual uint32_t read(serialize::Deserializer* d) {
-        uint32_t bytes = 0;
-        bytes += d->readI32(extent_id);
-        bytes += d->readString(blob_name);
-        return bytes;
-    }
-};
-
-std::ostream& operator<<(std::ostream& out, const ExtentKey& key) {
-    out << "blob name " << key.blob_name << " extent " << key.extent_id;
-    return out;
-}
-
 //
 // does not initialize catalog yet
 //
@@ -236,6 +204,9 @@ Error PersistVolumeMeta::syncToDM(NodeUuid dm_uuid) {
     DmAgent::pointer dm = agt_cast_ptr<DmAgent>(node);
     const std::string dst_node = dm->get_node_root() + "user-repo/dm-names/";
     std::string dst_ip;
+
+    // make dir if it does not exist yet
+    std::system((const char *)("mkdir -p "+loc_snap_dir+" ").c_str());
 
     if (NetMgr::ep_mgr_singleton()->ep_uuid_binding(dm_uuid.toSvcUuid(), 0, 0, &dst_ip) < 0) {
         LOGERROR << "Failed to sync catalog: Failed to get IP address for destination DM "

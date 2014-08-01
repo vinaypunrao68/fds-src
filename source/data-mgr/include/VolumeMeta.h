@@ -25,14 +25,13 @@ namespace fds {
 
 class VolumeMeta : public HasLogger {
  public:
-    boost::posix_time::ptime dmtclose_time;  // timestamp when dmt_close  arrived
     /**
      * volume  meta forwarding state
      */
     typedef enum {
-        VFORWARD_STATE_NONE,      // not fowarding
-        VFORWARD_STATE_INPROG,    // forwarding
-        VFORWARD_STATE_FINISHING  // forwarding queued updates before finish
+        VFORWARD_STATE_NONE,           // not fowarding
+        VFORWARD_STATE_INPROG,         // forwarding
+        VFORWARD_STATE_FINISHING       // forwarding commits of open trans
     } fwdStateType;
 
   private:
@@ -51,14 +50,24 @@ class VolumeMeta : public HasLogger {
     VolumeMeta& operator= (const VolumeMeta rhs);
 
  public:
+    /**
+     * Returns true if DM is forwarding this volume's
+     * committed updates
+     */
     fds_bool_t isForwarding() const {
         return (fwd_state != VFORWARD_STATE_NONE);
     }
-
-    fds_bool_t isForwardFinish() const {
+    /**
+     * Returns true if DM is forwarding this volume's
+     * committed updates after DMT close -- those are commits
+     * of transactions that were open at the time of DMT close
+     */
+    fds_bool_t isForwardFinishing() const {
         return (fwd_state == VFORWARD_STATE_FINISHING);
     }
-
+    void setForwardInProgress() {
+        fwd_state = VFORWARD_STATE_INPROG;
+    }
     void setForwardFinish() {
         fwd_state = VFORWARD_STATE_NONE;
     }
@@ -88,9 +97,6 @@ class VolumeMeta : public HasLogger {
      * per volume queue
      */
     FDS_VolumeQueue*  dmVolQueue;
-
-    Error syncVolCat(fds_volid_t volId, NodeUuid node_uuid);
-    Error deltaSyncVolCat(fds_volid_t volId, NodeUuid node_uuid);
 };
 
 }  // namespace fds

@@ -12,6 +12,7 @@
 #include <fds_defines.h>
 #include <fds_typedefs.h>
 #include <util/timeutils.h>
+#include "PerfTrace.h"
 #define FDSN_QOS_PERF_NORMALIZER 20
 
 namespace fds {
@@ -469,6 +470,14 @@ namespace fds {
         ObjectID getObjId() const;
         void setObjId(const ObjectID& _oid);
         void setQueuedUsec(fds_uint64_t _usec);
+
+  public:
+        // Performance
+        PerfContext e2eReqPerfCtx;
+        PerfContext qosPerfCtx;
+        PerfContext hashPerfCtx;
+        PerfContext dmPerfCtx;
+        PerfContext smPerfCtx;
     };
 
 
