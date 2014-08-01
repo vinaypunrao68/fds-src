@@ -72,22 +72,6 @@ DataMgr::volcat_evt_handler(fds_catalog_action_t catalog_action,
 }
 
 /**
- * Callback from vol meta receiver that receiving vol meta is done
- * for volume 'volid'. This method activates volume's QoS queue
- * so this DM starts processing requests from AM for this volume
- */
-void
-DataMgr::volmetaRecvd(fds_volid_t volid, const Error& error) {
-    LOGDEBUG << "Will unblock qos queue for volume "
-             << std::hex << volid << std::dec;
-    vol_map_mtx->lock();
-    fds_verify(vol_meta_map.count(volid) > 0);
-    VolumeMeta *vol_meta = vol_meta_map[volid];
-    vol_meta->dmVolQueue->activate();
-    vol_map_mtx->unlock();
-}
-
-/**
  * Receiver DM processing of volume sync state.
  * @param[in] fdw_complete false if rsync is completed = start processing
  * forwarded updates (activate shadow queue); true if forwarding updates
@@ -107,7 +91,9 @@ DataMgr::processVolSyncState(fds_volid_t volume_id, fds_bool_t fwd_complete) {
             catSyncRecv->startProcessFwdUpdates(volume_id);
         }
     } else {
-        err = catSyncRecv->handleFwdDone(volume_id);
+        DmIoMetaRecvd* metaRecvdIo = new(std::nothrow) DmIoMetaRecvd(volume_id);
+        err = enqueueMsg(volume_id, metaRecvdIo);
+        fds_verify(err.ok());
     }
 
     if (!err.ok()) {
@@ -116,6 +102,23 @@ DataMgr::processVolSyncState(fds_volid_t volume_id, fds_bool_t fwd_complete) {
     }
 
     return err;
+}
+
+//
+// receiving DM notified that forward is complete and ok to open
+// qos queue. Some updates may still be forwarded, but they are ok to
+// go in parallel with updates from AM
+//
+void DataMgr::handleForwardComplete(dmCatReq *io) {
+    LOGNORMAL << "Will open up QoS queue for volume " << std::hex
+              << io->volId << std::dec;
+    catSyncRecv->handleFwdDone(io->volId);
+
+    vol_map_mtx->lock();
+    fds_verify(vol_meta_map.count(io->volId) > 0);
+    VolumeMeta *vol_meta = vol_meta_map[io->volId];
+    vol_meta->dmVolQueue->activate();
+    vol_map_mtx->unlock();
 }
 
 /**
@@ -188,6 +191,9 @@ void DataMgr::finishForwarding(fds_volid_t volid) {
     if (catSyncMgr->finishedForwardVolmeta(volid)) {
         all_finished = true;
     }
+
+    // at this point we expect that all volumes are done
+    fds_verify(all_finished || !catSyncMgr->isSyncInProgress())
 }
 
 /**
@@ -207,6 +213,7 @@ Error DataMgr::enqueueMsg(fds_volid_t volId,
         case FDS_DM_SNAPDELTA_VOLCAT:
         case FDS_DM_FWD_CAT_UPD:
         case FDS_DM_PUSH_META_DONE:
+        case FDS_DM_META_RECVD:
             err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
             break;
         default:
@@ -566,11 +573,7 @@ int DataMgr::mod_init(SysParams const *const param)
     numTestVols = 10;
     scheduleRate = 4000;
 
-    catSyncRecv = boost::make_shared<CatSyncReceiver>(this,
-                                                      std::bind(&DataMgr::volmetaRecvd,
-                                                                this,
-                                                                std::placeholders::_1,
-                                                                std::placeholders::_2));
+    catSyncRecv = boost::make_shared<CatSyncReceiver>(this);
     closedmt_timer = boost::make_shared<FdsTimer>();
     closedmt_timer_task = boost::make_shared<CloseDMTTimerTask>(*closedmt_timer,
                                                                 std::bind(&DataMgr::finishCloseDMT,
@@ -1034,39 +1037,6 @@ void DataMgr::updateFwdBlobCb(const Error &err, DmIoFwdCat *fwdCatReq)
     LOGTRACE << "Committed fwd blob " << *fwdCatReq;
     qosCtrl->markIODone(*fwdCatReq);
     fwdCatReq->dmio_fwdcat_resp_cb(err, fwdCatReq);
-
-    // notify catalog receiver so we can activate qos queues when ready
-    catSyncRecv->fwdUpdateReqDone(fwdCatReq->volId);
-}
-
-Error
-DataMgr::updateCatalogInternal(FDSP_UpdateCatalogTypePtr updCatReq,
-                               fds_volid_t volId, fds_uint32_t srcIp,
-                               fds_uint32_t dstIp, fds_uint32_t srcPort,
-                               fds_uint32_t dstPort, std::string session_uuid,
-                               fds_uint32_t reqCookie, std::string session_cache) {
-    fds::Error err(fds::ERR_OK);
-
-    /*
-     * allocate a new update cat log  class and  queue  to per volume queue.
-     */
-    dmCatReq *dmUpdReq = new dmCatReq(volId, updCatReq->blob_name,
-                                      updCatReq->dm_transaction_id, updCatReq->dm_operation, srcIp,
-                                      dstIp, srcPort, dstPort, session_uuid, reqCookie, FDS_CAT_UPD,
-                                      updCatReq);
-
-    dmUpdReq->session_cache = session_cache;
-    err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(dmUpdReq));
-    if (err != ERR_OK) {
-        LOGERROR << "Unable to enqueue Update Catalog request "
-                 << reqCookie << " error " << err.GetErrstr();
-        return err;
-    } else {
-        LOGDEBUG << "Successfully enqueued   update Catalog  request "
-                 << reqCookie;
-    }
-
-    return err;
 }
 
 void
