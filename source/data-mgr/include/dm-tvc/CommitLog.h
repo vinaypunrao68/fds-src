@@ -17,11 +17,13 @@
 #include <fds_module.h>
 #include <util/timeutils.h>
 #include <concurrency/RwLock.h>
+#include <concurrency/Mutex.h>
 #include <serialize.h>
 #include <blob/BlobTypes.h>
 #include <DmBlobTypes.h>
 #include <FdsCrypto.h>
-#include <PerfTrace.h>
+#include <PerfTypes.h>
+#include <boost/scoped_ptr.hpp>
 
 namespace fds {
 

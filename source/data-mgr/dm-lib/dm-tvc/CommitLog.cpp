@@ -17,6 +17,8 @@
 
 #include <dm-tvc/CommitLog.h>
 
+#include <PerfTrace.h>
+
 #define FDS_PAGE_START_ADDR(x) (reinterpret_cast<uintptr_t>(x) & ~(FDS_PAGE_SIZE - 1))
 
 #define FDS_PAGE_OFFSET(x) (reinterpret_cast<uintptr_t>(x) & (FDS_PAGE_SIZE - 1))
@@ -39,8 +41,7 @@ template Error DmCommitLog::updateTx(BlobTxId::const_ptr & txDesc,
 DmCommitLog::DmCommitLog(const std::string &modName, const std::string & filename,
         fds_uint32_t filesize /* = DEFAULT_COMMIT_LOG_FILE_SIZE */,
         PersistenceType persist /* = IN_MEMORY */) : Module(modName.c_str()), filename_(filename),
-        filesize_(filesize), persist_(persist), started_(false),
-        logCtx(COMMIT_LOG_WRITE, 0, filename) { 
+        filesize_(filesize), persist_(persist), started_(false) {
     if (IN_FILE == persist_) {
         cmtLogger_.reset(new FileCommitLogger(filename_, filesize_));
     } else if (IN_MEMORY == persist_) {
@@ -527,7 +528,7 @@ void FileCommitLogger::removeEntry(bool sync /* = true */) {
 FileCommitLogger::FileCommitLogger(const std::string & filename, fds_uint32_t filesize)
         : filename_(filename), filesize_(filesize), fd_(-1), prot_(PROT_READ | PROT_WRITE),
         flags_(MAP_PRIVATE | MAP_ANONYMOUS), addr_(0), lockLogFile_("commit log file lock"),
-        logCtx(COMMIT_LOG_WRITE, filename) {
+        logCtx(COMMIT_LOG_WRITE, 0, filename) {
     bool create = true;
 
     if (!filename.empty()) {
