@@ -21,7 +21,7 @@ probe_mod_param_t Dm_probe_param =
 Dm_ProbeMod gl_Dm_ProbeMod("Data Manager Client Probe Adapter",
                            &Dm_probe_param, nullptr);
 
-extern DataMgr *dataMgr;
+// extern DataMgr *dataMgr;
 
 /**
  * Global map of written objects used for verification.
@@ -38,11 +38,128 @@ fds_mutex objMapLock("Written object map lock");
 ProbeMod *
 Dm_ProbeMod::pr_new_instance()
 {
-    Dm_ProbeMod *spm = new Dm_ProbeMod("Sm Client Inst", &Dm_probe_param, NULL);
+    Dm_ProbeMod *spm = new Dm_ProbeMod("Dm probe Client Inst", &Dm_probe_param, NULL);
     spm->mod_init(mod_params);
     spm->mod_startup();
 
     return spm;
+}
+
+void Dm_ProbeMod::schedule(const OpParams &info)
+{
+    Platform::plf_get_my_dm_svc_uuid(&dm_uuid);
+
+    if (info.op == "update") {
+        sendUpdate(info);
+    } else if (info.op == "delete") {
+        sendDelete(info);
+    } else if (info.op == "query") {
+        sendQuery(info);
+    } else if (info.op == "start") {
+        sendStartTx(info);
+    } else if (info.op == "commit") {
+        sendCommitTx(info);
+    } else if (info.op == "abort") {
+        sendAbortTx(info);
+    }
+}
+
+void
+Dm_ProbeMod::sendStartTx(const OpParams &updateParams)
+{
+    std::cout << "Doing Start Tx" << std::endl;
+    StartBlobTxMsgPtr stTxMsg(new StartBlobTxMsg());
+    stTxMsg->volume_id = updateParams.volId;
+    stTxMsg->blob_name = updateParams.blobName;
+    stTxMsg->blob_version = updateParams.blobVersion;
+    stTxMsg->blob_mode = updateParams.blobMode;
+    stTxMsg->txId = updateParams.txId;
+    stTxMsg->dmt_version = 1;
+
+    auto asyncStartTxReq = gSvcRequestPool->newEPSvcRequest(dm_uuid);
+    asyncStartTxReq->setPayload(FDSP_MSG_TYPEID(fpi::StartBlobTxMsg), stTxMsg);
+    asyncStartTxReq->invoke();
+}
+
+void
+Dm_ProbeMod::sendCommitTx(const OpParams &updateParams)
+{
+    std::cout << "Doing Commit Tx" << std::endl;
+
+    CommitBlobTxMsgPtr stCommitMsg(new CommitBlobTxMsg());
+    stCommitMsg->volume_id = updateParams.volId;
+    stCommitMsg->blob_name = updateParams.blobName;
+    stCommitMsg->blob_version = updateParams.blobVersion;
+    stCommitMsg->txId = updateParams.txId;
+    stCommitMsg->dmt_version = 1;
+}
+
+void
+Dm_ProbeMod::sendAbortTx(const OpParams &updateParams)
+{
+    std::cout << "Doing Abort Tx" << std::endl;
+
+    AbortBlobTxMsgPtr stBlobTxMsg(new AbortBlobTxMsg());
+    stBlobTxMsg->blob_name = updateParams.blobName;
+    stBlobTxMsg->blob_version = updateParams.blobVersion;
+    stBlobTxMsg->volume_id = updateParams.volId;
+    stBlobTxMsg->txId = updateParams.txId;
+
+    auto asyncAbortBlobTxReq = gSvcRequestPool->newEPSvcRequest(dm_uuid);
+
+    asyncAbortBlobTxReq->setPayload(FDSP_MSG_TYPEID(fpi::AbortBlobTxMsg), stBlobTxMsg);
+    // CB?
+    asyncAbortBlobTxReq->invoke();
+}
+
+void
+Dm_ProbeMod::sendUpdate(const OpParams &updateParams)
+{
+    std::cout << "Doing an update" << std::endl;
+
+    UpdateCatalogMsgPtr stUpdateMsg(new UpdateCatalogMsg());
+    stUpdateMsg->volume_id = updateParams.volId;
+    stUpdateMsg->blob_name = updateParams.blobName;
+    stUpdateMsg->blob_version = updateParams.blobVersion;
+    stUpdateMsg->txId = updateParams.txId;
+    updateParams.obj_list->toFdspPayload(stUpdateMsg->obj_list);
+
+    auto asyncUpdateCatReq = gSvcRequestPool->newEPSvcRequest(dm_uuid);
+    asyncUpdateCatReq->setPayload(FDSP_MSG_TYPEID(fpi::UpdateCatalogMsg), stUpdateMsg);
+    asyncUpdateCatReq->invoke();
+}
+
+void
+Dm_ProbeMod::sendQuery(const OpParams &queryParams)
+{
+    std::cout << "Doing a query" << std::endl;
+
+    QueryCatalogMsgPtr stQueryMsg(new QueryCatalogMsg());
+    stQueryMsg->volume_id = queryParams.volId;
+    stQueryMsg->blob_name = queryParams.blobName;
+    stQueryMsg->blob_version = queryParams.blobVersion;
+    queryParams.obj_list->toFdspPayload(stQueryMsg->obj_list);
+    queryParams.meta_list.toFdspPayload(stQueryMsg->meta_list);
+
+    auto asyncQueryCatReq = gSvcRequestPool->newEPSvcRequest(dm_uuid);
+    asyncQueryCatReq->setPayload(FDSP_MSG_TYPEID(fpi::QueryCatalogMsg), stQueryMsg);
+    asyncQueryCatReq->invoke();
+}
+
+void
+Dm_ProbeMod::sendDelete(const OpParams &queryParams)
+{
+    std::cout << "Doing a delete" << std::endl;
+
+    DeleteBlobMsgPtr stDelMsg(new DeleteBlobMsg());
+    stDelMsg->txId = queryParams.txId;
+    stDelMsg->volume_id = queryParams.volId;
+    stDelMsg->blob_name = queryParams.blobName;
+    stDelMsg->blob_version = queryParams.blobVersion;
+
+    auto asyncDelReq = gSvcRequestPool->newEPSvcRequest(dm_uuid);
+    asyncDelReq->setPayload(FDSP_MSG_TYPEID(fpi::DeleteBlobMsg), stDelMsg);
+    asyncDelReq->invoke();
 }
 
 // pr_intercept_request
@@ -61,64 +178,6 @@ Dm_ProbeMod::pr_put(ProbeRequest *probe)
 {
 }
 
-
-void
-Dm_ProbeMod::sendStartTx(const OpParams &updateParams)
-{
-    std::cout << "Doing Start Tx" << std::endl;
-
-    auto dmBlobTxReq = new DmIoStartBlobTx(updateParams.volId,
-                                           updateParams.blobName,
-                                           updateParams.blobVersion,
-                                           updateParams.blobMode, 1);
-    dmBlobTxReq->ioBlobTxDesc =
-         BlobTxId::ptr(new BlobTxId(updateParams.txId));
-    //    dataMgr->scheduleStartBlobTxSvc(dmBlobTxReq);
-}
-
-void
-Dm_ProbeMod::sendCommitTx(const OpParams &updateParams)
-{
-    std::cout << "Doing Commit Tx" << std::endl;
-
-    auto dmBlobTxReq = new DmIoCommitBlobTx(updateParams.volId,
-                                            updateParams.blobName,
-                                            updateParams.blobVersion, 1);
-    dmBlobTxReq->ioBlobTxDesc =
-         BlobTxId::ptr(new BlobTxId(updateParams.txId));
-    // dataMgr->scheduleCommitBlobTxSvc(dmBlobTxReq);
-}
-
-void
-Dm_ProbeMod::sendAbortTx(const OpParams &updateParams)
-{
-    std::cout << "Doing Abort Tx" << std::endl;
-
-
-    auto dmBlobTxReq = new DmIoAbortBlobTx(updateParams.volId,
-                                          updateParams.blobName,
-                                          updateParams.blobVersion);
-    dmBlobTxReq->ioBlobTxDesc =
-         BlobTxId::ptr(new BlobTxId(updateParams.txId));
-    dataMgr->scheduleAbortBlobTxSvc(dmBlobTxReq);
-}
-
-void
-Dm_ProbeMod::sendUpdate(const OpParams &updateParams)
-{
-    std::cout << "Doing an update" << std::endl;
-
-    boost::shared_ptr<fpi::UpdateCatalogMsg> msg(new fpi::UpdateCatalogMsg());
-    msg->__set_volume_id(updateParams.volId);
-    msg->__set_blob_name(updateParams.blobName);
-    msg->__set_blob_version(updateParams.blobVersion);
-
-    auto dmUpdCatReq = new DmIoUpdateCat(msg);
-    // dmUpdCatReq->obj_list = std::move(updateParams.obj_list);
-
-    dataMgr->updateCatalog(dmUpdCatReq);
-}
-
 // pr_get
 // ------
 //
@@ -127,67 +186,12 @@ Dm_ProbeMod::pr_get(ProbeRequest *req)
 {
 }
 
-void
-Dm_ProbeMod::sendQuery(const OpParams &queryParams)
-{
-    std::cout << "Doing a query" << std::endl;
-
-    /*
-    auto dmQryReq = new DmIoQueryCat(queryParams.volId,
-                                     queryParams.blobName,
-                                     queryParams.blobVersion);
-
-    BlobNode *bnode = NULL;
-    Error err =dataMgr-> queryCatalogProcess(dmQryReq, &bnode);
-    if (err == ERR_BLOB_NOT_FOUND) {
-        std::cout << "Blob " << dmQryReq->blob_name
-                  << " was NOT found" << std::endl;
-    } else {
-        fds_verify(err == ERR_OK);
-        fds_verify(bnode != NULL);
-        std::cout << "Queried blob " << dmQryReq->blob_name
-                  << " OK with size " << bnode->blob_size
-                  << " and " << bnode->obj_list.size()
-                  << " entries" << std::endl;
-    }
-
-    if (bnode != NULL) {
-        delete bnode;
-    }
-    delete dmQryReq;
-    */
-}
-
 // pr_delete
 // ---------
 //
 void
 Dm_ProbeMod::pr_delete(ProbeRequest *req)
 {
-}
-
-void
-Dm_ProbeMod::sendDelete(const OpParams &deleteParams)
-{
-    std::cout << "Doing a delete" << std::endl;
-
-    auto dmDelCatReq = new DmIoDeleteCat(deleteParams.volId,
-                                         deleteParams.blobName,
-                                         deleteParams.blobVersion);
-
-    /*
-    BlobNode *bnode = NULL;
-    // Process the delete blob. The deleted or modified
-    // bnode will be allocated and returned on success
-    Error err = dataMgr->deleteBlobProcessSvc(dmDelCatReq, &bnode);
-
-    fds_verify(err == ERR_OK);
-    fds_verify(bnode != NULL);
-
-    delete bnode;
-    */
-    fds_verify(false);  // TODO(xxx) port to new DM architecture
-    delete dmDelCatReq;
 }
 
 // pr_verify_request
@@ -225,6 +229,8 @@ Dm_ProbeMod::mod_startup()
     JsObjManager  *mgr;
     JsObjTemplate *svc;
 
+    std::cout << "mod_startup called" << std::endl;
+
     if (pr_parent != NULL) {
         mgr = pr_parent->pr_get_obj_mgr();
         svc = mgr->js_get_template("Run-Input");
@@ -257,21 +263,8 @@ UT_ObjectOp::js_exec_obj(JsObject *parent,
         std::cout << "Doing a " << info->op << " for blob "
                   << info->blobName << std::endl;
 
-        if (info->op == "update") {
-            gl_Dm_ProbeMod.sendUpdate(*info);
-        } else if (info->op == "delete") {
-            gl_Dm_ProbeMod.sendDelete(*info);
-        } else if (info->op == "query") {
-            gl_Dm_ProbeMod.sendQuery(*info);
-        } else if (info->op == "start") {
-            gl_Dm_ProbeMod.sendStartTx(*info);
-        } else if (info->op == "commit") {
-            gl_Dm_ProbeMod.sendCommitTx(*info);
-        } else if (info->op == "abort") {
-            gl_Dm_ProbeMod.sendAbortTx(*info);
-        }
+        fds::gl_Dm_ProbeMod.schedule(*info);
     }
-
     return this;
 }
 
