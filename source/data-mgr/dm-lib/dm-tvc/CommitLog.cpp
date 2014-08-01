@@ -455,8 +455,18 @@ Error DmCommitLog::validateSubsequentTx(const BlobTxId & txId) {
     return ERR_OK;
 }
 
-fds_bool_t DmCommitLog::isPendingTx(fds_uint64_t tsNano) {
-    return false;
+fds_bool_t DmCommitLog::isPendingTx(const fds_uint64_t tsNano /* = util::getTimeStampNanos() */) {
+    fds_bool_t ret = false;
+    SCOPEDREAD(lockTxMap_);
+    for (auto it : txMap_) {
+        if (it.second->started && (!it.second->rolledback && !it.second->commited)) {
+            if (it.second->entries[0]->timestamp <= tsNano) {
+                ret = true;
+            }
+        }
+    }
+
+    return ret;
 }
 
 void DmCommitLog::scheduleCompaction() {
