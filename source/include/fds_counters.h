@@ -30,6 +30,7 @@ class SamplerTask : public FdsTimerTask {
     void snapshot_counters() {};
 
     protected:
+    fds_mutex lock_;
     /* Reference to counter manager's exported counters (read only) */
     const std::vector<FdsCounters*>& counters_ref_;
     /* Reference to counter manager's snapshot counters */
