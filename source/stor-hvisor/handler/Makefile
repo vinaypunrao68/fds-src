@@ -8,7 +8,8 @@ user_incl_dir     := \
     $(topdir) \
     $(topdir)/fds_client/include \
     $(topdir)/lib \
-    $(topdir)/am-app/include
+    $(topdir)/am-app/include \
+    $(topdir)/am-engine/include
 user_cpp          := $(wildcard *.cpp)
 user_hh           := $(wildcard *.h)
 user_no_style     := 

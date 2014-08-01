@@ -109,10 +109,9 @@ StorHvCtrl::commitBlobTxSvc(AmQosReq *qosReq) {
     fds_verify(shVol != NULL);
     fds_verify(shVol->isValidLocked() == true);
 
-    // use DMT version as of start of blob tx
-    // TODO(Anna) keeping DMT version should be moved to new tx table
-    fds_verify((shVol->tx_to_dmt).count(blobReq->getTxId()->getValue()) > 0);
-    fds_uint64_t dmt_version = (shVol->tx_to_dmt)[blobReq->getTxId()->getValue()];
+    fds_uint64_t dmt_version;
+    err = amTxMgr->getTxDmtVersion(*(blobReq->getTxId()), &dmt_version);
+    fds_verify(err == ERR_OK);
 
     issueCommitBlobTxMsg(blobReq, dmt_version,
                          RESPONSE_MSG_HANDLER(StorHvCtrl::commitBlobTxMsgResp, qosReq));
@@ -158,6 +157,9 @@ void StorHvCtrl::commitBlobTxMsgResp(fds::AmQosReq* qosReq,
 
     qos_ctrl->markIODone(qosReq);
     blobReq->cb->call(ERR_OK);
+
+    // Remove the transaction for the manager
+    fds_verify(amTxMgr->removeTx(*(blobReq->getTxId())) == ERR_OK);
     delete blobReq;
 }
 
@@ -187,10 +189,10 @@ StorHvCtrl::startBlobTxSvc(AmQosReq *qosReq) {
     cb->blobTxId = txId;
     fds_uint64_t dmt_version = om_client->getDMTVersion();
 
-    // TODO(Anna) save DMT version in temp trans to dmt map
-    // should be moved to AM's trans state manager
-    fds_verify((shVol->tx_to_dmt).count(txId.getValue()) == 0);
-    (shVol->tx_to_dmt)[txId.getValue()] = dmt_version;
+    // Track the transaction we're starting. If the DM
+    // request fails, we'll drop this entry from the mgr.
+    err = amTxMgr->addTx(txId, dmt_version, blobReq->getBlobName());
+    fds_verify(err == ERR_OK);
 
     issueStartBlobTxMsg(blobReq->getBlobName(),
                         volId,
@@ -300,8 +302,10 @@ Error StorHvCtrl::putBlobSvc(fds::AmQosReq *qosReq)
     // updCatReq->txDesc.txId = putBlobReq->getTxId()->getValue();
     //TODO(matteo): maybe check other issueUpdateC...
     fds::PerfTracer::tracePointBegin(blobReq->dmPerfCtx); 
-    fds_verify((shVol->tx_to_dmt).count(blobReq->getTxId()->getValue()) > 0);
-    fds_uint64_t dmt_version = (shVol->tx_to_dmt)[blobReq->getTxId()->getValue()];
+
+    fds_uint64_t dmt_version;
+    err = amTxMgr->getTxDmtVersion(*(blobReq->getTxId()), &dmt_version);
+    fds_verify(err == ERR_OK);
     issueUpdateCatalogMsg(blobReq->getObjId(),
                           blobReq->getBlobName(),
                           blobReq->getBlobOffset(),
@@ -763,8 +767,9 @@ StorHvCtrl::setBlobMetaDataSvc(fds::AmQosReq* qosReq)
     fds_verify(shVol->isValidLocked() == true);
 
     std::string blob_name = blobReq->getBlobName();
-    fds_verify((shVol->tx_to_dmt).count(blobReq->getTxId()->getValue()) > 0);
-    fds_uint64_t dmt_version = (shVol->tx_to_dmt)[blobReq->getTxId()->getValue()];
+    fds_uint64_t dmt_version;
+    err = amTxMgr->getTxDmtVersion(*(blobReq->getTxId()), &dmt_version);
+    fds_verify(err == ERR_OK);
  
     LOGDEBUG << " Invoking issueSetBlobMetaData";
     issueSetBlobMetaData(vol_id, blob_name, blob_version_invalid, blobReq->getMetaDataListPtr(),

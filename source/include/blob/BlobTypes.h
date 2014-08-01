@@ -90,6 +90,21 @@ class BlobTxId {
     fds_uint64_t getValue() const;
 };
 
+/// Provides hashing function for trans id
+class BlobTxIdHash {
+  public:
+    size_t operator()(const BlobTxId &id) const {
+        return std::hash<fds_uint64_t>()(id.getValue());
+    }
+};
+
+class BlobTxIdPtrHash {
+  public:
+    size_t operator()(const BlobTxId::ptr id) const {
+        return BlobTxIdHash()(*id);
+    }
+};
+
 static const BlobTxId blobTxIdInvalid(BlobTxId::txIdInvalid);
 
 std::ostream& operator<<(std::ostream& out, const BlobTxId& txId);

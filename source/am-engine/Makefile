@@ -1,8 +1,8 @@
 topdir           := ..
 user_target      := lib
 user_rtime_env   := user
-user_build_dir   := handlers
-user_incl_dir    := $(topdir)/stor-hvisor $(topdir)/fds_client $(topdir)/fds_client/include $(topdir)
+user_build_dir   := include handlers amlib
+user_incl_dir    := include $(topdir)/stor-hvisor $(topdir)/fds_client $(topdir)/fds_client/include $(topdir)
 user_ragel       := am-urls.rl
 user_clean       := am-urls.cpp
 user_cpp         :=               \

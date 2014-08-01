@@ -1,0 +1,79 @@
+/*
+ * Copyright 2014 Formation Data Systems, Inc.
+ */
+#ifndef SOURCE_AM_ENGINE_INCLUDE_AM_TX_MGR_H_
+#define SOURCE_AM_ENGINE_INCLUDE_AM_TX_MGR_H_
+
+#include <string>
+#include <fds_module.h>
+#include <fds_error.h>
+#include <unordered_map>
+#include <blob/BlobTypes.h>
+#include <concurrency/RwLock.h>
+
+namespace fds {
+
+/**
+ * Descriptor for an AM blob transaction.
+ */
+class AmTxDescriptor {
+  public:
+    /// Blob trans ID
+    BlobTxId txId;
+    /// DMT version when transaction started
+    fds_uint64_t originDmtVersion;
+    /// Blob being mutated
+    std::string blobName;
+
+    AmTxDescriptor(const BlobTxId &id, fds_uint64_t dmtVer, const std::string &name);
+    ~AmTxDescriptor();
+    typedef boost::shared_ptr<AmTxDescriptor> ptr;
+};
+
+/**
+ * Manages outstanding AM transactions. The transaction manager tracks which
+ * are in progress, how long they have been in progress, and coordintates
+ * completion (i.e., commit) of transactions.
+ * TODO(Andrew): Add volume and blob name associativity into the interface
+ * and indexing.
+ */
+class AmTxManager : public Module, public boost::noncopyable {
+  private:
+    /// Maps a TxId with its descriptor
+    typedef std::unordered_map<BlobTxId, AmTxDescriptor::ptr, BlobTxIdHash> TxMap;
+    TxMap txMap;
+
+    /// RW lock to protect the map
+    mutable fds_rwlock txMapLock;
+
+  public:
+    explicit AmTxManager(const std::string &modName);
+    ~AmTxManager();
+    typedef std::unique_ptr<AmTxManager> unique_ptr;
+
+    int  mod_init(SysParams const *const param);
+    void mod_startup();
+    void mod_shutdown();
+
+    /**
+     * Adds a new transaction to the manager. An error is returned
+     * if the transaction ID exists already.
+     */
+    Error addTx(const BlobTxId &txId, fds_uint64_t dmtVer, const std::string &name);
+
+    /**
+     * Removes an existing transaction from the manager. An error is
+     * returned if the transaction ID does not already exist.
+     */
+    Error removeTx(const BlobTxId &txId);
+
+    /**
+     * Gets the DMT version for a given transaction ID. Returns an
+     * error if the transaction ID does not already exist.
+     */
+    Error getTxDmtVersion(const BlobTxId &txId, fds_uint64_t *dmtVer) const;
+};
+
+}  // namespace fds
+
+#endif  // SOURCE_AM_ENGINE_INCLUDE_AM_TX_MGR_H_
