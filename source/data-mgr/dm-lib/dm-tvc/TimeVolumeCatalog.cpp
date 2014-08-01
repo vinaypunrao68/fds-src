@@ -250,4 +250,11 @@ DmTimeVolCatalog::abortBlobTx(fds_volid_t volId,
     return ERR_OK;
 }
 
+fds_bool_t
+DmTimeVolCatalog::isPendingTx(fds_volid_t volId, fds_uint64_t timeNano) {
+    DmCommitLog::ptr commitLog;
+    COMMITLOG_GET(volId, commitLog);
+    return commitLog->isPendingTx(timeNano);
+}
+
 }  // namespace fds

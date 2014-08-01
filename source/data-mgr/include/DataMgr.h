@@ -255,6 +255,7 @@ class DataMgr : public Module, public DmIoReqHandler {
      * all updates that are currently queued are processed.
      */
     Error notifyDMTClose();
+    void finishForwarding(fds_volid_t volid);
 
     static Error vol_handler(fds_volid_t vol_uuid,
                              VolumeDesc* desc,

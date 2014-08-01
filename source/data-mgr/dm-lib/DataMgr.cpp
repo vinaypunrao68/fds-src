@@ -171,6 +171,25 @@ DataMgr::finishCloseDMT() {
     // TODO(Anna) remove volume catalog for volumes we finished forwarding
 }
 
+//
+// handle finish forward for volume 'volid'
+//
+void DataMgr::finishForwarding(fds_volid_t volid) {
+    fds_bool_t all_finished = false;
+
+    // set the state
+    vol_map_mtx->lock();
+    VolumeMeta *vol_meta = vol_meta_map[volid];
+    fds_verify(vol_meta->isForwarding());
+    vol_meta->setForwardFinish();
+    vol_map_mtx->unlock();
+
+    // notify cat sync mgr
+    if (catSyncMgr->finishedForwardVolmeta(volid)) {
+        all_finished = true;
+    }
+}
+
 /**
  * Note that volId may not necessarily match volume id in ioReq
  * Example when it will not match: if we enqueue request for volumeA
@@ -457,6 +476,9 @@ Error DataMgr::notifyDMTClose() {
         return err;
     }
 
+    // set DMT close time in catalog sync mgr
+    catSyncMgr->setDmtCloseNow();
+
     // set every volume's state to 'finish forwarding
     // and enqueue DMT close marker to qos queues of volumes
     // that are in 'finish forwarding' state
@@ -472,6 +494,14 @@ Error DataMgr::notifyDMTClose() {
     }
     vol_map_mtx->unlock();
 
+    // we will stop forwarding for each volume when all transactions
+    // open before time we received dmt close get committed or aborted
+    // but we timeout to ensure we send DMT close ack
+    if (!closedmt_timer->schedule(closedmt_timer_task, std::chrono::seconds(60))) {
+        // TODO(xxx) how do we handle this?
+        // fds_panic("Failed to schedule closedmt timer!");
+        LOGWARN << "Failed to schedule close dmt timer task";
+    }
     return err;
 }
 
@@ -490,17 +520,10 @@ void DataMgr::handleDMTClose(dmCatReq *io) {
     // TODO(Anna) if err, send DMT close ack with error???
     fds_verify(err.ok());
 
-    // TODO(xxx) before we implement asking commit log for
-    // open trans before DMT close time, lets just send dmt close
-    // ack on timer
-
-    // start timer where we will stop forwarding volumes that are
-    // still in 'finishing forwarding' state
-    // closedmt_timer->cancel(closedmt_timer_task);
-    if (!closedmt_timer->schedule(closedmt_timer_task, std::chrono::seconds(30))) {
-        // TODO(xxx) how do we handle this?
-        // fds_panic("Failed to schedule closedmt timer!");
-        LOGWARN << "Failed to schedule close dmt timer task";
+    // If there are no open transactions that started before we got
+    // DMT close, we can finish forwarding right now
+    if (!timeVolCat_->isPendingTx(pushMetaDoneReq->volId, catSyncMgr->dmtCloseTs())) {
+        finishForwarding(pushMetaDoneReq->volId);
     }
 }
 
@@ -918,9 +941,6 @@ void DataMgr::commitBlobTxCb(const Error &err,
                              DmIoCommitBlobTx *commitBlobReq)
 {
     Error error(err);
-
-    // TODO(Anna) have to check DMT version.. should we do it only
-    // on request arrival???
     LOGDEBUG << "Dmt version: " << commitBlobReq->dmt_version << " blob "
              << commitBlobReq->blob_name << " vol " << std::hex
              << commitBlobReq->volId << std::dec << " ; current DMT version "
@@ -965,6 +985,22 @@ void DataMgr::commitBlobTxCb(const Error &err,
         } else {
             // DMT mismatch must not happen if volume is in 'not forwarding' state
             fds_verify(commitBlobReq->dmt_version != omClient->getDMTVersion());
+        }
+    }
+
+    // check if we can finish forwarding if volume still forwards cat commits
+    if (catSyncMgr->isSyncInProgress()) {
+        fds_bool_t is_finish_forward = false;
+        VolumeMeta* vol_meta = NULL;
+        vol_map_mtx->lock();
+        fds_verify(vol_meta_map.count(commitBlobReq->volId) > 0);
+        vol_meta = vol_meta_map[commitBlobReq->volId];
+        is_finish_forward = vol_meta->isForwardFinishing();
+        vol_map_mtx->unlock();
+        if (is_finish_forward) {
+            if (!timeVolCat_->isPendingTx(commitBlobReq->volId, catSyncMgr->dmtCloseTs())) {
+                finishForwarding(commitBlobReq->volId);
+            }
         }
     }
 
