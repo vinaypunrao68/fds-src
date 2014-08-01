@@ -2187,7 +2187,7 @@ ObjectStorMgr::deleteObjectInternal2(SmIoDeleteObjectReq* delReq) {
      * Delete the object, decrement refcnt of the assoc entry & overall refcnt
      */
     {
-        PerfContext tmp_pctx(DELETE_METADATA,"volume:" + std::to_string(volId));
+        PerfContext tmp_pctx(DELETE_METADATA, volId, "volume:" + std::to_string(volId));
         SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
         err = deleteObjectMetaData(opCtx, objId, volId, objMetadata);
     }
