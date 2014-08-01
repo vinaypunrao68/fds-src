@@ -12,6 +12,7 @@ from tabulate import tabulate
 
 import time
 from multiprocessing import Process
+import json
 
 from SvcHandle import *
 import struct
@@ -20,6 +21,7 @@ from FDS_ProtocolInterface.ttypes import *
 
 from fdslib import ProcessUtils
 from fdslib import IOGen
+from fdslib import thrift_json
 
 """
 Cli exit exception
@@ -31,6 +33,7 @@ class CliExitException(Exception):
 log = None
 parser = None
 svc_map = None
+src_id_counter = 0
 
 def add_node(id):
     cluster.add_node(id)
@@ -77,6 +80,41 @@ def svclist():
 def refresh():
     svc_map.refresh()
 
+def dumpjson(th_type, file_name):
+    thismodule = sys.modules[__name__]
+    d = thrift_json.th_obj_to_dict(getattr(thismodule, th_type))
+    with open(file_name, 'w') as json_file:
+        json.dump(d, json_file)
+    return 'Success'
+
+@arg('nodeid', type=long)
+def sendjson(nodeid, svc, th_type, file_name):
+    global src_id_counter
+    with open(file_name, 'r') as json_file:
+        thismodule = sys.modules[__name__]
+        th_obj = thrift_json.dict_to_th_obj(getattr(thismodule, th_type),
+                                            json.load(json_file))
+        th_obj.validate()
+        transportOut = TTransport.TMemoryBuffer()
+        protocolOut = TBinaryProtocol.TBinaryProtocol(transportOut)
+        th_obj.write(protocolOut)
+
+        # AsyncHdr setup and actual sending of object
+        th_type_id = th_type + 'TypeId'
+        header = AsyncHdr(
+            msg_chksum      =   123456,  # dummy file
+            msg_code        =   123456, # more dummy
+            msg_type_id     =   FDSPMsgTypeId._NAMES_TO_VALUES[th_type_id],
+            msg_src_id      =   src_id_counter,
+            msg_src_uuid    =   SvcUuid(int('cac0', 16)),
+            msg_dst_uuid    =   SvcUuid(nodeid)  # later implement actual serviceid
+            )
+
+        client = svc_map.client(nodeid, svc)
+        client.asyncReqt(header, transportOut.getvalue())
+        src_id_counter += 1
+    return 'Succesfully sent json'
+
 def exit():
     # We could do sys.exit here.  But any invalid command also raises
     # sys.exit and we ignoring those for now.  To cleanly exit we use
@@ -98,6 +136,7 @@ class MyShell(cmd.Cmd):
             print 'Goodbye!'
             sys.exit(0)
         except Exception, e:
+            print 'Failed'
             log.warn('cmd: {} exception: {}'.format(line, sys.exc_info()[0]))
             log.exception(e)
             pass
@@ -121,6 +160,8 @@ def main(ip='127.0.0.1', port=7020, command_line=None):
                          svclist,
                          setflag,
                          printflag,
+                         dumpjson,
+                         sendjson,
                          exit])
     svc_map = SvcMap(ip, port)
     if command_line is not None:
