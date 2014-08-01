@@ -12,7 +12,6 @@
 #include <net/net-service-tmpl.hpp>
 
 namespace fds {
-extern DataMgr *dataMgr;
 
 Error DataMgr::vol_handler(fds_volid_t vol_uuid,
                            VolumeDesc *desc,
@@ -184,6 +183,7 @@ Error DataMgr::enqueueMsg(fds_volid_t volId,
     Error err(ERR_OK);
 
     switch (ioReq->io_type) {
+        case FDS_DM_PURGE_COMMIT_LOG:
         case FDS_DM_SNAP_VOLCAT:
         case FDS_DM_SNAPDELTA_VOLCAT:
         case FDS_DM_FWD_CAT_UPD:

@@ -14,7 +14,6 @@
 #include <DMSvcHandler.h>
 
 namespace fds {
-    extern DataMgr *dataMgr;
 
 /****** CatalogSync implementation ******/
 

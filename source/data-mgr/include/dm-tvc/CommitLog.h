@@ -12,6 +12,7 @@
 #include <vector>
 #include <deque>
 #include <unordered_map>
+#include <atomic>
 
 #include <fds_error.h>
 #include <fds_module.h>
@@ -22,6 +23,7 @@
 #include <DmBlobTypes.h>
 #include <FdsCrypto.h>
 #include <PerfTrace.h>
+#include <DmIoReq.h>
 
 namespace fds {
 
@@ -88,7 +90,7 @@ class DmCommitLog : public Module {
     void mod_startup() override;
     void mod_shutdown() override;
 
-    void compactLog();
+    void compactLog(dmCatReq * req);
 
     /*
      * operations
@@ -128,10 +130,12 @@ class DmCommitLog : public Module {
     PersistenceType persist_;
     bool started_;
     boost::shared_ptr<DmCommitLogger> cmtLogger_;
-    std::atomic_bool compacting_;
+    std::atomic_flag compacting_;
 
     // Methods
     Error validateSubsequentTx(const BlobTxId & txId);
+
+    void scheduleCompaction();
 
     void upsertBlobData(CommitLogTx & tx, boost::shared_ptr<const BlobObjList> & data) {
         if (tx.blobObjList) {

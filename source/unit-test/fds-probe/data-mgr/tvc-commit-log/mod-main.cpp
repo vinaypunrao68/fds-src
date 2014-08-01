@@ -9,8 +9,10 @@
 #include <util/fds_stat.h>
 #include <fds-probe/s3-probe.h>
 #include <platform/platform-lib.h>
+#include <DataMgr.h>
 
 namespace fds {
+DataMgr * dataMgr = NULL;
 
 class CommitLogProbeTest : public FdsProcess {
   public:
