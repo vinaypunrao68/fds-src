@@ -47,12 +47,20 @@ class Processor(object):
 
             # start parsing once magic word is detected
             if line == MAGIC_WORD:
+                # TODO: keep the data structure the same across the modules/functions
+                # 1: object ID
+                # 2: object size
+                # 3: object dedup ratio
+                # 4: the data
+                # return the size in the tuple as well, in this order.
                 _dedup_ratio = int(input_.readline())
                 _size = int(input_.readline())
                 _obj_id = input_.readline().rstrip()
                 break
 
         # Return the tuple of data id, dedup ratio, and actual data
+        # TODO: assert object id, dup ratio, and data read are sane before returning.
+        # TODO: instead of a tuple, return a class object?
         return (_obj_id, _dedup_ratio, input_.read(_size))
 
     def toJson(self):
@@ -72,18 +80,20 @@ class Processor(object):
         session = FuturesSession(max_workers=MAX_CONCURRENCY_PUT)
         futures = []
 
-        _get_counter=0
-        _del_counter=0
-        _fake_del_obj='fake1'
-        _fake_del_ctr=1
-        _fake_get_obj='fake1'
-        _fake_get_ctr=1
+        _get_counter = 0
+        _del_counter = 0
+        _fake_del_obj = 'fake1'
+        _fake_del_ctr = 1
+        _fake_get_obj = 'fake1'
+        _fake_get_ctr = 1
 
         start=time.clock()
         # Send HTTP requests asynchronously
         for operation in self.list_:
             if operation == 'put':
                 _data = self.readData()
+                # TODO: Instead of 0 and 1, use enum (OBJECT_ID, DEDUP_RATIO, etc)
+                # TODO: or an object.  This is for readability.
                 data_list.append((_data[0], _data[1]))  # (obj id, dedup ratio)
                 futures.append((
                     session.put(fds_url+_data[0], data=_data[2], timeout=DEBUG_TIMEOUT),
@@ -105,7 +115,8 @@ class Processor(object):
                 else:
                     _get_counter += 1
             elif operation == 'delete':
-                # If trying to delete more than it has put, attempt to delete a fake object (simulating deleting something before it's been written)
+                # If trying to delete more than it has put, attempt to delete a fake object
+                # (simulating deleting something before it's been written)
                 try:
                     futures.append((
                         session.delete(fds_url+data_list[_del_counter][0], timeout=DEBUG_TIMEOUT),
@@ -151,12 +162,12 @@ class Processor(object):
 
 class Spec(object):
     """ Encapsulates the order in which operations should occur."""
-    put=0
-    get=0
-    delete=0
-    io=0
-    rand_seed=0
-    order=''
+    put = 0
+    get = 0
+    delete = 0
+    io = 0
+    rand_seed = 0
+    order = ''
 
 class Workload(object):
     """ Handles loading and creation of test workloads."""
@@ -199,14 +210,14 @@ class Workload(object):
 
     def generate(self):
         """ Generates list of commands to be executed in order."""
-        self.load=[]
+        self.load = []
         random.seed(self.spec.rand_seed)
-        _order=0
-        _spec=Spec()
+        _order = 0
+        _spec = Spec()
         _spec.__dict__.update(self.spec.__dict__)
-        _repeat=False
-        _list=list(_spec.order)
-        _NUMBER_OF_OPS=len(self.spec.order)
+        _repeat = False
+        _list = list(_spec.order)
+        _NUMBER_OF_OPS = len(self.spec.order)
 
         if self.spec.rand_seed != 0:
             random.shuffle(_list)
