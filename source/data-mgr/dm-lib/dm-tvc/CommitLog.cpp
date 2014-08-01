@@ -16,6 +16,7 @@
 #include <set>
 
 #include <dm-tvc/CommitLog.h>
+#include <DataMgr.h>
 
 #include <PerfTrace.h>
 
@@ -41,7 +42,7 @@ template Error DmCommitLog::updateTx(BlobTxId::const_ptr & txDesc,
 DmCommitLog::DmCommitLog(const std::string &modName, const std::string & filename,
         fds_uint32_t filesize /* = DEFAULT_COMMIT_LOG_FILE_SIZE */,
         PersistenceType persist /* = IN_MEMORY */) : Module(modName.c_str()), filename_(filename),
-        filesize_(filesize), persist_(persist), started_(false) {
+        filesize_(filesize), persist_(persist), started_(false), compacting_(ATOMIC_FLAG_INIT) {
     if (IN_FILE == persist_) {
         cmtLogger_.reset(new FileCommitLogger(filename_, filesize_));
     } else if (IN_MEMORY == persist_) {
@@ -154,12 +155,10 @@ DmCommitLog::mod_shutdown() {
     started_ = false;
 }
 
-void DmCommitLog::compactLog() {
+void DmCommitLog::compactLog(dmCatReq * req) {
     std::set<fds_uint64_t> txIds;
 
-    compacting_ = true;
-
-    LOGNORMAL << "Compacting commit log '" << filename_ << "'";
+    GLOGNORMAL << "Compacting commit log '" << filename_ << "'";
 
     {
         SCOPEDREAD(lockTxMap_);
@@ -179,7 +178,8 @@ void DmCommitLog::compactLog() {
         }
     }
 
-    compacting_ = false;
+    compacting_.clear();
+    delete req;
 }
 
 /*
@@ -194,14 +194,14 @@ Error DmCommitLog::startTx(BlobTxId::const_ptr & txDesc, const std::string & blo
 
     const BlobTxId & txId = *txDesc;
 
-    LOGDEBUG << "Starting blob transaction (" << txId << ") for (" << blobName << ")";
+    GLOGDEBUG << "Starting blob transaction (" << txId << ") for (" << blobName << ")";
 
     {
         SCOPEDREAD(lockTxMap_);
 
         TxMap::const_iterator iter = txMap_.find(txId);
         if (txMap_.end() != iter) {
-            LOGWARN << "Blob transaction already exists";
+            GLOGWARN << "Blob transaction already exists";
             return ERR_DM_TX_EXISTS;
         }
     }
@@ -210,12 +210,12 @@ Error DmCommitLog::startTx(BlobTxId::const_ptr & txDesc, const std::string & blo
     DmCommitLogEntry * entry = 0;
     Error rc = cmtLogger_->startTx(txDesc, details, entry);
     if (!rc.ok()) {
-        LOGERROR << "Failed to save blob transaction error=(" << rc << ")";
+        GLOGERROR << "Failed to save blob transaction error=(" << rc << ")";
         return rc;
     }
 
-    if (!compacting_ && cmtLogger_->hasReachedSizeThreshold()) {
-        // TODO(umesh): trigger compaction
+    if (cmtLogger_->hasReachedSizeThreshold() && !compacting_.test_and_set()) {
+        scheduleCompaction();
     }
 
     SCOPEDWRITE(lockTxMap_);
@@ -240,7 +240,7 @@ Error DmCommitLog::updateTx(BlobTxId::const_ptr & txDesc, boost::shared_ptr<cons
 
     const BlobTxId & txId = *txDesc;
 
-    LOGDEBUG << "Update blob for transaction (" << txId << ")";
+    GLOGDEBUG << "Update blob for transaction (" << txId << ")";
 
     Error rc = validateSubsequentTx(txId);
     if (!rc.ok()) {
@@ -250,12 +250,12 @@ Error DmCommitLog::updateTx(BlobTxId::const_ptr & txDesc, boost::shared_ptr<cons
     DmCommitLogEntry* entry = 0;
     rc = cmtLogger_->updateTx(txDesc, blobData, entry);
     if (!rc.ok()) {
-        LOGERROR << "Failed to save blob transaction error=(" << rc << ")";
+        GLOGERROR << "Failed to save blob transaction error=(" << rc << ")";
         return rc;
     }
 
-    if (!compacting_ && cmtLogger_->hasReachedSizeThreshold()) {
-        // TODO(umesh): trigger compaction
+    if (cmtLogger_->hasReachedSizeThreshold() && !compacting_.test_and_set()) {
+        scheduleCompaction();
     }
 
     SCOPEDWRITE(lockTxMap_);
@@ -275,7 +275,7 @@ Error DmCommitLog::deleteBlob(BlobTxId::const_ptr & txDesc, const blob_version_t
 
     const BlobTxId & txId = *txDesc;
 
-    LOGDEBUG << "Delete blob in transaction (" << txId << ")";
+    GLOGDEBUG << "Delete blob in transaction (" << txId << ")";
 
     Error rc = validateSubsequentTx(txId);
     if (!rc.ok()) {
@@ -286,12 +286,12 @@ Error DmCommitLog::deleteBlob(BlobTxId::const_ptr & txDesc, const blob_version_t
     DmCommitLogEntry * entry = 0;
     rc = cmtLogger_->deleteBlob(txDesc, details, entry);
     if (!rc.ok()) {
-        LOGERROR << "Failed to save blob transaction error=(" << rc << ")";
+        GLOGERROR << "Failed to save blob transaction error=(" << rc << ")";
         return rc;
     }
 
-    if (!compacting_ && cmtLogger_->hasReachedSizeThreshold()) {
-        // TODO(umesh): trigger compaction
+    if (cmtLogger_->hasReachedSizeThreshold() && !compacting_.test_and_set()) {
+        scheduleCompaction();
     }
 
     SCOPEDWRITE(lockTxMap_);
@@ -311,7 +311,7 @@ CommitLogTx::const_ptr DmCommitLog::commitTx(BlobTxId::const_ptr & txDesc, Error
 
     const BlobTxId & txId = *txDesc;
 
-    LOGDEBUG << "Commiting blob transaction " << txId;
+    GLOGDEBUG << "Commiting blob transaction " << txId;
 
     status = validateSubsequentTx(txId);
     if (!status.ok()) {
@@ -321,12 +321,12 @@ CommitLogTx::const_ptr DmCommitLog::commitTx(BlobTxId::const_ptr & txDesc, Error
     DmCommitLogEntry * entry = 0;
     status = cmtLogger_->commitTx(txDesc, entry);
     if (!status.ok()) {
-        LOGERROR << "Failed to save blob transaction error=(" << status << ")";
+        GLOGERROR << "Failed to save blob transaction error=(" << status << ")";
         return 0;
     }
 
-    if (!compacting_ && cmtLogger_->hasReachedSizeThreshold()) {
-        // TODO(umesh): trigger compaction
+    if (cmtLogger_->hasReachedSizeThreshold() && !compacting_.test_and_set()) {
+        scheduleCompaction();
     }
 
     SCOPEDWRITE(lockTxMap_);
@@ -345,7 +345,7 @@ Error DmCommitLog::rollbackTx(BlobTxId::const_ptr & txDesc) {
 
     const BlobTxId & txId = *txDesc;
 
-    LOGDEBUG << "Rollback blob transaction " << txId;
+    GLOGDEBUG << "Rollback blob transaction " << txId;
 
     Error rc = validateSubsequentTx(txId);
     if (!rc.ok()) {
@@ -355,12 +355,12 @@ Error DmCommitLog::rollbackTx(BlobTxId::const_ptr & txDesc) {
     DmCommitLogEntry * entry = 0;
     rc = cmtLogger_->rollbackTx(txDesc, entry);
     if (!rc.ok()) {
-        LOGERROR << "Failed to save blob transaction error=(" << rc << ")";
+        GLOGERROR << "Failed to save blob transaction error=(" << rc << ")";
         return rc;
     }
 
-    if (!compacting_ && cmtLogger_->hasReachedSizeThreshold()) {
-        // TODO(umesh): trigger compaction
+    if (cmtLogger_->hasReachedSizeThreshold() && !compacting_.test_and_set()) {
+        scheduleCompaction();
     }
 
     SCOPEDWRITE(lockTxMap_);
@@ -379,20 +379,20 @@ Error DmCommitLog::purgeTx(BlobTxId::const_ptr  & txDesc) {
 
     const BlobTxId & txId = *txDesc;
 
-    LOGDEBUG << "Purge blob transaction " << txId;
+    GLOGDEBUG << "Purge blob transaction " << txId;
 
     {
         SCOPEDREAD(lockTxMap_);
 
         TxMap::iterator iter = txMap_.find(txId);
         if (txMap_.end() == iter) {
-            LOGERROR << "Blob transaction not started";
+            GLOGERROR << "Blob transaction not started";
             return ERR_DM_TX_NOT_STARTED;
         }
         fds_assert(txId == *(iter->second->txDesc));
 
         if (!iter->second->rolledback && !iter->second->commited) {
-            LOGERROR << "Blob transaction active, can not be purged";
+            GLOGERROR << "Blob transaction active, can not be purged";
             return ERR_DM_TX_ACTIVE;
         }
     }
@@ -400,12 +400,12 @@ Error DmCommitLog::purgeTx(BlobTxId::const_ptr  & txDesc) {
     DmCommitLogEntry * entry = 0;
     Error rc = cmtLogger_->purgeTx(txDesc, entry);
     if (!rc.ok()) {
-        LOGERROR << "Failed to save blob transaction error=(" << rc << ")";
+        GLOGERROR << "Failed to save blob transaction error=(" << rc << ")";
         return rc;
     }
 
-    if (!compacting_ && cmtLogger_->hasReachedSizeThreshold()) {
-        // TODO(umesh): trigger compaction
+    if (cmtLogger_->hasReachedSizeThreshold() && !compacting_.test_and_set()) {
+        scheduleCompaction();
     }
 
     SCOPEDWRITE(lockTxMap_);
@@ -424,7 +424,7 @@ CommitLogTx::const_ptr DmCommitLog::getTx(BlobTxId::const_ptr & txDesc) {
 
     const BlobTxId & txId = *txDesc;
 
-    LOGDEBUG << "Get blob transaction " << txId;
+    GLOGDEBUG << "Get blob transaction " << txId;
 
     SCOPEDREAD(lockTxMap_);
 
@@ -441,24 +441,43 @@ Error DmCommitLog::validateSubsequentTx(const BlobTxId & txId) {
 
     TxMap::iterator iter = txMap_.find(txId);
     if (txMap_.end() == iter) {
-        LOGERROR << "Blob transaction not started";
+        GLOGERROR << "Blob transaction not started";
         return ERR_DM_TX_NOT_STARTED;
     }
     fds_assert(txId == *(iter->second->txDesc));
 
     if (iter->second->rolledback) {
-        LOGERROR << "Blob transaction already rolled back";
+        GLOGERROR << "Blob transaction already rolled back";
         return ERR_DM_TX_ROLLEDBACK;
     } else if (iter->second->commited) {
-        LOGERROR << "Blob transaction already commited";
+        GLOGERROR << "Blob transaction already commited";
         return ERR_DM_TX_COMMITED;
     }
 
     return ERR_OK;
 }
 
-fds_bool_t DmCommitLog::isPendingTx(fds_uint64_t tsNano) {
-    return false;
+fds_bool_t DmCommitLog::isPendingTx(const fds_uint64_t tsNano /* = util::getTimeStampNanos() */) {
+    fds_bool_t ret = false;
+    SCOPEDREAD(lockTxMap_);
+    for (auto it : txMap_) {
+        if (it.second->started && (!it.second->rolledback && !it.second->commited)) {
+            if (it.second->entries[0]->timestamp <= tsNano) {
+                ret = true;
+            }
+        }
+    }
+
+    return ret;
+}
+
+void DmCommitLog::scheduleCompaction() {
+    dmCatReq * compactReq = new dmCatReq();
+    compactReq->io_type = FDS_DM_PURGE_COMMIT_LOG;
+    compactReq->proc = std::bind(&DmCommitLog::compactLog, this, std::placeholders::_1);
+    if (dataMgr) {
+        dataMgr->enqueueMsg(FdsDmSysTaskId, compactReq);
+    }
 }
 
 template<typename T>
@@ -495,7 +514,7 @@ uint32_t DeleteBlobDetails::read(serialize::Deserializer* d) {
 void FileCommitLogger::syncHeader() {
     if (0 != msync(reinterpret_cast<void *>(FDS_PAGE_START_ADDR(header())),
             sizeof(EntriesHeader), MS_SYNC /* MS_ASYNC */)) {
-        LOGWARN << "Failed to write commit log header";
+        GLOGWARN << "Failed to write commit log header";
     }
 }
 
@@ -532,7 +551,7 @@ FileCommitLogger::FileCommitLogger(const std::string & filename, fds_uint32_t fi
     bool create = true;
 
     if (!filename.empty()) {
-        LOGNORMAL << "Writing commit log to file '" << filename << "'";
+        GLOGNORMAL << "Writing commit log to file '" << filename << "'";
 
         flags_ = MAP_SHARED;
         fd_ = open(filename.c_str(), O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP);
@@ -618,7 +637,7 @@ Error FileCommitLogger::startTx(BlobTxId::const_ptr & txDesc, StartTxDetails::co
 
     if (0 != msync(reinterpret_cast<void *>(FDS_PAGE_START_ADDR(entry)), FDS_PAGE_OFFSET(entry) +
             entry->length(), MS_SYNC /* MS_ASYNC */)) {
-        LOGWARN << "Failed to write commit log entry";
+        GLOGWARN << "Failed to write commit log entry";
     }
 
     return ERR_OK;
@@ -643,7 +662,7 @@ Error FileCommitLogger::updateTx(BlobTxId::const_ptr & txDesc, BlobObjList::cons
 
     if (0 != msync(reinterpret_cast<void *>(FDS_PAGE_START_ADDR(entry)), FDS_PAGE_OFFSET(entry) +
             entry->length(), MS_SYNC /* MS_ASYNC */)) {
-        LOGWARN << "Failed to write commit log entry";
+        GLOGWARN << "Failed to write commit log entry";
     }
 
     return ERR_OK;
@@ -668,7 +687,7 @@ Error FileCommitLogger::updateTx(BlobTxId::const_ptr & txDesc, MetaDataList::con
 
     if (0 != msync(reinterpret_cast<void *>(FDS_PAGE_START_ADDR(entry)), FDS_PAGE_OFFSET(entry) +
             entry->length(), MS_SYNC /* MS_ASYNC */)) {
-        LOGWARN << "Failed to write commit log entry";
+        GLOGWARN << "Failed to write commit log entry";
     }
 
     return ERR_OK;
@@ -693,7 +712,7 @@ Error FileCommitLogger::deleteBlob(BlobTxId::const_ptr & txDesc,
 
     if (0 != msync(reinterpret_cast<void *>(FDS_PAGE_START_ADDR(entry)), FDS_PAGE_OFFSET(entry) +
             entry->length(), MS_SYNC /* MS_ASYNC */)) {
-        LOGWARN << "Failed to write commit log entry";
+        GLOGWARN << "Failed to write commit log entry";
     }
 
     return ERR_OK;
@@ -716,7 +735,7 @@ Error FileCommitLogger::commitTx(BlobTxId::const_ptr & txDesc, DmCommitLogEntry*
 
     if (0 != msync(reinterpret_cast<void *>(FDS_PAGE_START_ADDR(entry)), FDS_PAGE_OFFSET(entry) +
             entry->length(), MS_SYNC /* MS_ASYNC */)) {
-        LOGWARN << "Failed to write commit log entry";
+        GLOGWARN << "Failed to write commit log entry";
     }
 
     return ERR_OK;
@@ -739,7 +758,7 @@ Error FileCommitLogger::rollbackTx(BlobTxId::const_ptr & txDesc, DmCommitLogEntr
 
     if (0 != msync(reinterpret_cast<void *>(FDS_PAGE_START_ADDR(entry)), FDS_PAGE_OFFSET(entry) +
             entry->length(), MS_SYNC /* MS_ASYNC */)) {
-        LOGWARN << "Failed to write commit log entry";
+        GLOGWARN << "Failed to write commit log entry";
     }
 
     return ERR_OK;
@@ -762,7 +781,7 @@ Error FileCommitLogger::purgeTx(BlobTxId::const_ptr & txDesc, DmCommitLogEntry* 
 
     if (0 != msync(reinterpret_cast<void *>(FDS_PAGE_START_ADDR(entry)), FDS_PAGE_OFFSET(entry) +
             entry->length(), MS_SYNC /* MS_ASYNC */)) {
-        LOGWARN << "Failed to write commit log entry";
+        GLOGWARN << "Failed to write commit log entry";
     }
 
     return ERR_OK;
@@ -794,20 +813,20 @@ const std::set<fds_uint64_t>
 FileCommitLogger::compactLog(const std::set<fds_uint64_t> & candidates) {
     std::set<fds_uint64_t> ret;
 
-    FDSGUARD(lockLogFile_);
-
-    SCOPED_PERF_TRACEPOINT_CTX_DEBUG(logCtx);
-
     while (ret.size() < candidates.size()) {
+        FDSGUARD(lockLogFile_);
+
+        SCOPED_PERF_TRACEPOINT_CTX_DEBUG(logCtx);
+
         const DmCommitLogEntry * entry = getFirstInternal();
         if (!entry) {
-            LOGDEBUG << "Compacted all entries. Commit log is now empty";
+            GLOGDEBUG << "Compacted all entries. Commit log is now empty";
             break;
         }
 
-        std::set<fds_uint64_t>::const_iterator pos = candidates.find(entry->id);
+        std::set<fds_uint64_t>::const_iterator pos = candidates.find(entry->txId);
         if (candidates.end() == pos) {
-            LOGNORMAL << "Found active transaction with id '" << entry->id << "'";
+            GLOGNORMAL << "Found active with id '" << entry->id << "'";
             break;
         }
 

@@ -12,6 +12,7 @@
 #include <vector>
 #include <deque>
 #include <unordered_map>
+#include <atomic>
 
 #include <fds_error.h>
 #include <fds_module.h>
@@ -24,6 +25,7 @@
 #include <FdsCrypto.h>
 #include <PerfTypes.h>
 #include <boost/scoped_ptr.hpp>
+#include <DmIoReq.h>
 
 namespace fds {
 
@@ -90,7 +92,7 @@ class DmCommitLog : public Module {
     void mod_startup() override;
     void mod_shutdown() override;
 
-    void compactLog();
+    void compactLog(dmCatReq * req);
 
     /*
      * operations
@@ -119,7 +121,7 @@ class DmCommitLog : public Module {
     CommitLogTx::const_ptr getTx(BlobTxId::const_ptr & txDesc);
 
     // check if any transaction is pending from before the given time
-    fds_bool_t isPendingTx(fds_uint64_t tsNano);
+    fds_bool_t isPendingTx(const fds_uint64_t tsNano = util::getTimeStampNanos());
 
   private:
     TxMap txMap_;    // in-memory state
@@ -130,10 +132,12 @@ class DmCommitLog : public Module {
     PersistenceType persist_;
     bool started_;
     boost::shared_ptr<DmCommitLogger> cmtLogger_;
-    std::atomic_bool compacting_;
+    std::atomic_flag compacting_;
 
     // Methods
     Error validateSubsequentTx(const BlobTxId & txId);
+
+    void scheduleCompaction();
 
     void upsertBlobData(CommitLogTx & tx, boost::shared_ptr<const BlobObjList> & data) {
         if (tx.blobObjList) {

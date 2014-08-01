@@ -10,8 +10,6 @@
 
 namespace fds {
 
-extern DataMgr *dataMgr;
-
 DMSvcHandler::DMSvcHandler()
 {
     REGISTER_FDSP_MSG_HANDLER(fpi::QueryCatalogMsg, queryCatalogObject);
