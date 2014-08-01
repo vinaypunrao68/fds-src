@@ -4,6 +4,161 @@
 #ifndef SOURCE_INCLUDE_FDS_TIMER_H_
 #define SOURCE_INCLUDE_FDS_TIMER_H_
 
+#ifndef USE_BOOSTBASED_TIMER
+
+#include <atomic>
+#include <chrono>
+#include <set>
+#include <functional>
+#include <boost/shared_ptr.hpp>
+#include <thread>
+#include <fds_assert.h>
+#include <concurrency/Mutex.h>
+
+namespace fds
+{
+/* Forward declarations */
+class FdsTimer;
+typedef boost::shared_ptr<FdsTimer> FdsTimerPtr;
+
+enum TimerTaskState {
+    TASK_STATE_UNINIT = 0,
+    TASK_STATE_SCHEDULED_ONCE,
+    TASK_STATE_SCHEDULED_REPEAT,
+    TASK_STATE_CANCELLED,
+    /* Only valid for schedule once task */
+    TASK_STATE_COMPLETE
+};
+
+class FdsTimerTask
+{
+public:
+    FdsTimerTask(FdsTimer &fds_timer);
+
+    virtual ~FdsTimerTask();
+
+    virtual void runTimerTask() = 0;
+
+    void setExpiryTime(const std::chrono::system_clock::time_point &t);
+
+    std::chrono::system_clock::time_point getExpiryTime() const;
+protected:
+    /* Expiration time */
+    std::chrono::system_clock::time_point expTime_;
+    std::chrono::milliseconds durationMs_;
+    /* Task state */
+    TimerTaskState state_;
+    friend class FdsTimer;
+};
+
+typedef boost::shared_ptr<FdsTimerTask> FdsTimerTaskPtr;
+
+struct LessFdsTimerTaskPtr {
+    bool operator()(const FdsTimerTaskPtr& lhs, const FdsTimerTaskPtr& rhs) {
+        if (lhs->getExpiryTime() == rhs->getExpiryTime()) {
+            return lhs.get() < rhs.get();
+        }
+        return lhs->getExpiryTime() < rhs->getExpiryTime();
+    }
+};
+
+/**
+ * The timer class is used to schedule tasks for one-time execution or
+ * repeated execution. Tasks are executed by the dedicated timer thread
+ * sequentially.
+ * IMPORTANT: Firing of the timer tasks isn't very accurate.  It's better to schedule
+ * timer tasks in the granularity of seconds.
+ */
+class FdsTimer
+{
+public:
+
+    /**
+     * Constructor
+     */
+    FdsTimer();
+
+    /**
+     * Destroy the timer service 
+     */
+    void destroy();
+
+    /**
+     * Schedule a task for execution after a given delay.
+     * It's safe to re-use the same task either after runTimerTask() has been
+     * invoked or the task object is cancelled.
+     * @param task - task to execute
+     * @param time - duration in micro, milli, sec, etc.
+     * @return true if task is scheduled fasle otherwise
+     */
+    template<typename Rep, typename Period>
+    bool schedule(FdsTimerTaskPtr& task,
+            const std::chrono::duration<Rep, Period>& time)
+    {
+        return scheduleInternal_(task, time, false);
+    }
+
+    /**
+     * Schedule a task for repeated execution with the given delay
+     * between each execution.
+     * @param task - task to execute
+     * @param time - duration in micro, milli, sec, etc.
+     * @return true if task is scheduled fasle otherwise
+     */
+    template<typename Rep, typename Period>
+    bool scheduleRepeated(FdsTimerTaskPtr& task,
+            const std::chrono::duration<Rep, Period>& time)
+    {
+        return scheduleInternal_(task, time, true);
+    }
+
+    /**
+     * Cancel a task. 
+     * @return true if task was succsfully cancelled.  Note, false
+     * returned when task wasn't scheduled to begin with.
+     */
+    bool cancel(const FdsTimerTaskPtr& task);
+
+    virtual std::string log_string();
+
+private:
+    template<typename Rep, typename Period>
+    bool scheduleInternal_(FdsTimerTaskPtr& task,
+            const std::chrono::duration<Rep, Period>& time,
+            const bool &repeated)
+    {
+        fds_assert(time >= std::chrono::seconds(1))
+
+        lock_.lock();
+        task->durationMs_ = std::chrono::duration_cast<std::chrono::milliseconds>(time);
+        task->expTime_ = std::chrono::system_clock::now() + task->durationMs_;
+        pendingTasks_.insert(task);
+        if (repeated) {
+            task->state_ = TASK_STATE_SCHEDULED_REPEAT;
+        } else {
+            task->state_ = TASK_STATE_SCHEDULED_ONCE;
+        }
+        lock_.unlock();
+        return true;
+    }
+
+    void runTimerThread_();
+
+    /* Lock for protecting scheduled variable */
+    fds_spinlock lock_;
+    /* Pending timer objects */
+    std::set<FdsTimerTaskPtr, LessFdsTimerTaskPtr> pendingTasks_;
+    /* Whether timer thread should abort or not */
+    std::atomic<bool> aborted_;
+    /* Timer thread sleep time */
+    int timerThreadSleepMs_;
+    /* Timer thread */
+    std::thread timerThread_;
+};
+}  // namespace fds
+
+#else  // USE_BOOSTBASED_TIMER
+
 #include <chrono>
 #include <boost/shared_ptr.hpp>
 #include <boost/asio.hpp>
@@ -174,5 +329,8 @@ private:
 };
 }
 
-#endif
+
+#endif  // USE_BOOSTBASED_TIMER
+
+#endif  // SOURCE_INCLUDE_FDS_TIMER_H_
 

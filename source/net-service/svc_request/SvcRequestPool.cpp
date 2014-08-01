@@ -104,7 +104,7 @@ void SvcRequestPool::asyncSvcRequestInitCommon_(SvcRequestIfPtr req)
     gSvcRequestTracker->addForTracking(req->getRequestId(), req);
     req->setCompletionCb(finishTrackingCb_);
     // TODO(Rao): Get this from config
-    req->setTimeoutMs(500);
+    req->setTimeoutMs(5000);
 }
 
 EPSvcRequestPtr
