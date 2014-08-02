@@ -326,8 +326,28 @@ void PerfTracer::upsert(const PerfEventType & type, fds_volid_t volid,
     updateCounter(*ctx, type, val, cnt, volid, name);
 }
 
+void PerfTracer::decrement(const PerfEventType & type, fds_volid_t volid, 
+            uint64_t val, const std::string & name) {
+    FDSGUARD(ptrace_mutex_named_);
+
+    PerfContextMap::iterator pos = namedCounters_[type][volid].find(name);
+    fds_assert(pos != namedCounters_[type][volid].end())
+    if (!pos->second->enabled) {
+        return; // disabled for this name
+    }
+    PerfContext * ctx = pos->second;
+    // update counter
+    NumericCounter * pnc = dynamic_cast<NumericCounter *>(ctx->data.get());
+    fds_assert(pnc || !"Counter type mismatch between tracepoints!")
+    pnc->decr(val);
+}
+
 void PerfTracer::incr(const PerfEventType & type, fds_volid_t volid, std::string name /* = "" */) {
     PerfTracer::incr(type, volid, 1, 0, name);
+}
+
+void PerfTracer::decr(const PerfEventType & type, fds_volid_t volid, std::string name /* = "" */) {
+    PerfTracer::decr(type, volid, 1, name);
 }
 
 void PerfTracer::incr(const PerfEventType & type, fds_volid_t volid, 
@@ -359,6 +379,38 @@ void PerfTracer::incr(const PerfEventType & type, fds_volid_t volid,
     }
 }
 
+void PerfTracer::decr(const PerfEventType & type, fds_volid_t volid, 
+        uint64_t val, std::string name /* = "" */) {
+    fds_assert(type < MAX_EVENT_TYPE);
+
+    // check if performance data collection is enabled
+    if (!instance().enable_) {
+        return;
+    }
+
+    if (instance().useEventsFilter_  && !instance().eventsFilter_[type]) {
+        return;
+    }
+
+    // update aggregate counter first
+    {
+        FDSGUARD(instance().ptrace_mutex_aggregate_);
+        PerfContext & ctx = instance().aggregateCounters_[type][volid];
+        NumericCounter * pnc = dynamic_cast<NumericCounter *>(ctx.data.get());
+        fds_assert(pnc || !"Counter type mismatch between tracepoints!")
+        pnc->decr(val);
+        
+    }
+    if (!name.empty() && instance().useNameFilter_) {
+#ifndef CACHE_REGEX_MATCH_RESULTS
+        if (regex_match(name, instance().nameFilter_)) {
+#endif
+            instance().decrement(type, volid, val, name);
+#ifndef CACHE_REGEX_MATCH_RESULTS
+        }
+#endif
+    }
+}
 void PerfTracer::tracePointBegin(const std::string & id, 
         const PerfEventType & type, fds_volid_t volid, 
         std::string name /* = "" */) {

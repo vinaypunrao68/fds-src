@@ -157,8 +157,22 @@ public:
     void incr();
     void incr(const uint64_t v);
 
+    void decr();
+    void decr(const uint64_t v);
+
+    inline uint64_t min_value() const {
+        return min_value_.load();
+    }
+
+    inline uint64_t max_value() const {
+        return max_value_.load();
+    }
+
+
 private:
     std::atomic<uint64_t> val_;
+    std::atomic<uint64_t> min_value_;
+    std::atomic<uint64_t> max_value_;
 };
 
 /**

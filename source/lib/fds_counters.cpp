@@ -14,7 +14,6 @@ namespace fds {
 void SamplerTask::runTimerTask()
 {
     fds_mutex::scoped_lock lock(lock_);
-    GLOGNORMAL << "Hello! I'm a timer"; 
     for (auto counters : counters_ref_) {
         GLOGNORMAL << "Counters -> " << counters->id();
         GLOGNORMAL << counters->toString(); 
@@ -384,15 +383,19 @@ void FdsBaseCounter::set_volid(fds_volid_t volid)
  */
 NumericCounter::NumericCounter(const std::string &id, fds_volid_t volid, 
                                 FdsCounters *export_parent)
-: FdsBaseCounter(id, volid, export_parent)
+:   FdsBaseCounter(id, volid, export_parent)
 {
     val_ = 0;
+    min_value_ = std::numeric_limits<uint64_t>::max();
+    max_value_ = 0;
 }
 
 NumericCounter::NumericCounter(const std::string &id, FdsCounters *export_parent)
 : FdsBaseCounter(id, export_parent)
 {
     val_ = 0;
+    min_value_ = std::numeric_limits<uint64_t>::max();
+    max_value_ = 0;
 }
 /**
  * Copy Constructor
@@ -401,6 +404,8 @@ NumericCounter::NumericCounter(const NumericCounter& c)
 : FdsBaseCounter(c)
 {
     val_ = c.val_.load();
+    min_value_ = c.min_value_.load();
+    max_value_ = c.max_value_.load();
 }
 
 /**
@@ -422,12 +427,19 @@ uint64_t NumericCounter::value() const
 void NumericCounter::reset()
 {
     val_ = 0;
+    min_value_ = std::numeric_limits<uint64_t>::max();
+    max_value_ = 0;
 }
 /**
  *
  */
 void NumericCounter::incr() {
     val_++;
+    uint64_t val = val_.load();
+    uint64_t max = max_value_.load();
+    /* min_ stays the same*/
+    if (val > max)
+        max_value_ = val;
 }
 
 /**
@@ -436,7 +448,38 @@ void NumericCounter::incr() {
  */
 void NumericCounter::incr(const uint64_t v) {
     val_ += v;
+    uint64_t val = val_.load();
+    uint64_t max = max_value_.load();
+    /* min_ stays the same*/
+    if (val > max)
+        max_value_ = val;
 }
+
+/**
+ *
+ */
+void NumericCounter::decr() {
+    val_--;
+    uint64_t val = val_.load();
+    uint64_t min = min_value_.load();
+    /* max_ stays the same*/
+    if (val < min)
+        min_value_ = val;
+}
+
+/**
+ *
+ * @param v
+ */
+void NumericCounter::decr(const uint64_t v) {
+    val_ -= v;
+    uint64_t val = val_.load();
+    uint64_t min = min_value_.load();
+    /* max_ stays the same*/
+    if (val < min)
+        min_value_ = val;
+}
+
 /**
  *
  * @param id

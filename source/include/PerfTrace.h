@@ -74,6 +74,14 @@ public:
     static void incr(const PerfEventType & type, fds_volid_t volid, uint64_t val,
             uint64_t cnt = 0, std::string name = "");
 
+    // Decrement NumericCounter by 1
+    static void decr(const PerfEventType & type, fds_volid_t volid, std::string name = "");
+
+    // Decrement NumericCounter value by val
+    static void decr(const PerfEventType & type, fds_volid_t volid, uint64_t val,
+            std::string name = "");
+
+
     // For LatencyCounters
     /**
      * Begins trace point for calculating latency.
@@ -161,6 +169,8 @@ private:
     void upsert(const PerfEventType & type, fds_volid_t volid, uint64_t val, 
             uint64_t cnt, const std::string & name);
 
+    void decrement(const PerfEventType & type, fds_volid_t volid, 
+            uint64_t val, const std::string & name);
     static inline PerfTracer & instance();
 };
 
