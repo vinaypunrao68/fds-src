@@ -61,6 +61,10 @@ class Dm_ProbeMod : public ProbeMod
         }
         fds_int32_t        blobMode;
     };
+
+    void genericResp(EPSvcRequest* svcReq,
+                     const Error& error,
+                     boost::shared_ptr<std::string> payload);
     void schedule(const OpParams &updateParams);
     void sendUpdate(const OpParams &updateParams);
     void sendQuery(const OpParams &queryParams);
@@ -68,7 +72,6 @@ class Dm_ProbeMod : public ProbeMod
     void sendStartTx(const OpParams &deleteParams);
     void sendCommitTx(const OpParams &deleteParams);
     void sendAbortTx(const OpParams &deleteParams);
-
     int  mod_init(SysParams const *const param);
     void mod_startup();
     void mod_shutdown();

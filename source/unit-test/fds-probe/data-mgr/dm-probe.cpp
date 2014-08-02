@@ -47,7 +47,10 @@ Dm_ProbeMod::pr_new_instance()
 
 void Dm_ProbeMod::schedule(const OpParams &info)
 {
-    Platform::plf_get_my_dm_svc_uuid(&dm_uuid);
+    if (dm_uuid.svc_uuid == 0) {
+        std::cout << "Dm uuid = " << dm_uuid.svc_uuid << std::endl;
+        Platform::plf_get_my_dm_svc_uuid(&dm_uuid);
+    }
 
     if (info.op == "update") {
         sendUpdate(info);
@@ -78,7 +81,17 @@ Dm_ProbeMod::sendStartTx(const OpParams &updateParams)
 
     auto asyncStartTxReq = gSvcRequestPool->newEPSvcRequest(dm_uuid);
     asyncStartTxReq->setPayload(FDSP_MSG_TYPEID(fpi::StartBlobTxMsg), stTxMsg);
+    asyncStartTxReq->onResponseCb(RESPONSE_MSG_HANDLER(Dm_ProbeMod::genericResp));
     asyncStartTxReq->invoke();
+}
+
+void
+Dm_ProbeMod::genericResp(EPSvcRequest* svcReq,
+                         const Error& error,
+                         boost::shared_ptr<std::string> payload)
+{
+    LOGDEBUG << "genericTxResp - RECEIVED RESPONSE: " << svcReq->logString()
+             << " Error code: " << error.GetErrno() << std::endl;
 }
 
 void
@@ -108,7 +121,7 @@ Dm_ProbeMod::sendAbortTx(const OpParams &updateParams)
     auto asyncAbortBlobTxReq = gSvcRequestPool->newEPSvcRequest(dm_uuid);
 
     asyncAbortBlobTxReq->setPayload(FDSP_MSG_TYPEID(fpi::AbortBlobTxMsg), stBlobTxMsg);
-    // CB?
+    asyncAbortBlobTxReq->onResponseCb(RESPONSE_MSG_HANDLER(Dm_ProbeMod::genericResp));
     asyncAbortBlobTxReq->invoke();
 }
 
@@ -126,6 +139,7 @@ Dm_ProbeMod::sendUpdate(const OpParams &updateParams)
 
     auto asyncUpdateCatReq = gSvcRequestPool->newEPSvcRequest(dm_uuid);
     asyncUpdateCatReq->setPayload(FDSP_MSG_TYPEID(fpi::UpdateCatalogMsg), stUpdateMsg);
+    asyncUpdateCatReq->onResponseCb(RESPONSE_MSG_HANDLER(Dm_ProbeMod::genericResp));
     asyncUpdateCatReq->invoke();
 }
 
