@@ -91,8 +91,10 @@ DataMgr::processVolSyncState(fds_volid_t volume_id, fds_bool_t fwd_complete) {
             catSyncRecv->startProcessFwdUpdates(volume_id);
         }
     } else {
+        LOGDEBUG << "Will queue DmIoMetaRecvd message "
+                 << std::hex << volume_id << std::dec;
         DmIoMetaRecvd* metaRecvdIo = new(std::nothrow) DmIoMetaRecvd(volume_id);
-        err = enqueueMsg(volume_id, metaRecvdIo);
+        err = enqueueMsg(catSyncRecv->shadowVolUuid(volume_id), metaRecvdIo);
         fds_verify(err.ok());
     }
 
@@ -119,6 +121,9 @@ void DataMgr::handleForwardComplete(dmCatReq *io) {
     VolumeMeta *vol_meta = vol_meta_map[io->volId];
     vol_meta->dmVolQueue->activate();
     vol_map_mtx->unlock();
+
+    qosCtrl->markIODone(*io);
+    delete io;
 }
 
 /**
@@ -191,9 +196,6 @@ void DataMgr::finishForwarding(fds_volid_t volid) {
     if (catSyncMgr->finishedForwardVolmeta(volid)) {
         all_finished = true;
     }
-
-    // at this point we expect that all volumes are done
-    fds_verify(all_finished || !catSyncMgr->isSyncInProgress())
 }
 
 /**
@@ -532,6 +534,9 @@ void DataMgr::handleDMTClose(dmCatReq *io) {
     if (!timeVolCat_->isPendingTx(pushMetaDoneReq->volId, catSyncMgr->dmtCloseTs())) {
         finishForwarding(pushMetaDoneReq->volId);
     }
+
+    qosCtrl->markIODone(*pushMetaDoneReq);
+    delete pushMetaDoneReq;
 }
 
  /*
@@ -944,6 +949,7 @@ void DataMgr::commitBlobTxCb(const Error &err,
                              DmIoCommitBlobTx *commitBlobReq)
 {
     Error error(err);
+    fds_bool_t forwarded_commit = false;
     LOGDEBUG << "Dmt version: " << commitBlobReq->dmt_version << " blob "
              << commitBlobReq->blob_name << " vol " << std::hex
              << commitBlobReq->volId << std::dec << " ; current DMT version "
@@ -980,9 +986,7 @@ void DataMgr::commitBlobTxCb(const Error &err,
                                                          blob_obj_list, meta_list);
                 if (error.ok()) {
                     // we forwarded the request!!!
-                    // do not reply to AM yet, will reply when we receive response
-                    // for fwd cat update from destination DM
-                    return;
+                    forwarded_commit = true;
                 }
             }
         } else {
@@ -1007,7 +1011,11 @@ void DataMgr::commitBlobTxCb(const Error &err,
         }
     }
 
-    commitBlobReq->dmio_commit_blob_tx_resp_cb(error, commitBlobReq);
+    // if forwarding -- do not reply to AM yet, will reply when we receive response
+    // for fwd cat update from destination DM
+    if (!forwarded_commit) {
+        commitBlobReq->dmio_commit_blob_tx_resp_cb(error, commitBlobReq);
+    }
 }
 
 //
