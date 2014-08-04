@@ -196,6 +196,9 @@ StorHvCtrl::StorHvCtrl(int argc,
     // and make AM extend from platform process
     randNumGen = RandNumGenerator::ptr(new RandNumGenerator(RandNumGenerator::getRandSeed()));
 
+    // Init the AM transaction manager
+    amTxMgr = AmTxManager::unique_ptr(new AmTxManager("AM Transaction Manager Module"));
+
     /* TODO: for now StorHvVolumeTable constructor will create
      * volume 1, revisit this soon when we add multi-volume support
      * in other parts of the system */

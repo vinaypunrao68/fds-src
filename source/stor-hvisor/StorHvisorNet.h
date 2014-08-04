@@ -35,6 +35,7 @@
 #include <fdsp/FDSP_ControlPathResp.h>
 #include <fdsp/FDSP_ConfigPathReq.h>
 #include <net/SvcRequest.h>
+#include <am-tx-mgr.h>
 
 #include "NetSession.h"
 
@@ -239,6 +240,7 @@ public:
     std::string                 my_node_name;
 
     RandNumGenerator::ptr randNumGen;
+    AmTxManager::unique_ptr amTxMgr;
 
     Error sendTestBucketToOM(const std::string& bucket_name,
                              const std::string& access_key_id = "",

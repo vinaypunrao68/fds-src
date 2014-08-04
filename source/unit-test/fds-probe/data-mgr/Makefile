@@ -8,20 +8,25 @@ user_build_dir    := tvc tvc-commit-log vol-cat vol-cat-pl
 
 user_incl_dir     := \
     $(local_topdir)/data-mgr/include \
+	$(local_topdir)/am-app/include \
     $(local_topdir) \
     $(local_topdir)/lib
 
 user_cpp_flags    :=
 user_fds_so_libs  :=
+# user_fds_ar_libs  := \
+#     fds-dm-lib       \
+#     fds-am-engine    \
+#     fds-dm-plat      \
+#     fds-dm-lib       \
+#     fds-plat-lib     \
+#     fds-lib          \
+#     fds-dsk-mgnt     \
+#     fds-dsk-io
 user_fds_ar_libs  := \
-    fds-dm-lib       \
-    fds-am-engine    \
-    fds-dm-plat      \
-    fds-dm-lib       \
-    fds-plat-lib     \
-    fds-lib          \
-    fds-dsk-mgnt     \
-    fds-dsk-io
+	 fds-dm-lib      \
+	 fds-net-svc     \
+     fds-am-engine   \
 
 user_non_fds_libs := \
     leveldb \

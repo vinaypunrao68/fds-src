@@ -155,6 +155,9 @@ class DataMgr : public Module, public DmIoReqHandler {
                 case FDS_DM_PURGE_COMMIT_LOG:
                     threadPool->schedule(io->proc, io);
                     break;
+                case FDS_DM_META_RECVD:
+                    threadPool->schedule(&DataMgr::handleForwardComplete, dataMgr, io);
+                    break;
 
                 /* End of new refactored DM message types */
 
@@ -255,6 +258,7 @@ class DataMgr : public Module, public DmIoReqHandler {
      * all updates that are currently queued are processed.
      */
     Error notifyDMTClose();
+    void finishForwarding(fds_volid_t volid);
 
     static Error vol_handler(fds_volid_t vol_uuid,
                              VolumeDesc* desc,
@@ -337,30 +341,17 @@ class DataMgr : public Module, public DmIoReqHandler {
     void getVolumeMetaData(dmCatReq *io);
     void snapVolCat(dmCatReq *io);
     void handleDMTClose(dmCatReq *io);
+    void handleForwardComplete(dmCatReq *io);
     // void sendUpdateCatalogResp(dmCatReq  *updCatReq, BlobNode *bnode);
 
     void scheduleGetBlobMetaDataSvc(void *io);
     Error processVolSyncState(fds_volid_t volume_id, fds_bool_t fwd_complete);
 
     /**
-     * Callback from volume meta receiver that volume meta is received
-     * for volume 'volid', so we can start process AMs' requests for this volume
-     */
-    void volmetaRecvd(fds_volid_t volid, const Error& error);
-    /**
      * Timeout to send DMT close ack if not sent yet and stop forwarding
      * cat updates for volumes that are still in 'finishing forwarding' state
      */
     void finishCloseDMT();
-
-    /* 
-     * FDS protocol processing proto types 
-     */
-    Error updateCatalogInternal(FDSP_UpdateCatalogTypePtr updCatReq,
-                                fds_volid_t volId, fds_uint32_t srcIp,
-                                fds_uint32_t dstIp, fds_uint32_t srcPort,
-                                fds_uint32_t dstPort, std::string session_uuid,
-                                fds_uint32_t reqCookie, std::string session_cache);
 
     /*
      * Nested class that manages the server interface.

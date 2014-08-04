@@ -278,6 +278,12 @@ namespace fds {
         inline fds_bool_t isSyncInProgress() const { return sync_in_progress; }
 
         /**
+         * Sets time when DM received DMT close from OM to now
+         */
+        void setDmtCloseNow();
+        inline fds_uint64_t dmtCloseTs() const { return dmtclose_ts; }
+
+        /**
          * Callback from CatalogSync that sync is finished for given volume
          */
         void syncDoneCb(catsync_notify_evt_t event,
@@ -310,7 +316,7 @@ namespace fds {
         /**
          * Timestamp when DM received DMT close
          */
-        boost::posix_time::ptime dmtclose_time;
+        fds_uint64_t dmtclose_ts;
     };
 
     typedef boost::shared_ptr<CatalogSyncMgr> CatalogSyncMgrPtr;

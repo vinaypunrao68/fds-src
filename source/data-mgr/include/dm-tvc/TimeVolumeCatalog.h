@@ -194,6 +194,12 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
                                  const fpi::FDSP_MetaDataList &metaList,
                                  const DmTimeVolCatalog::FwdCommitCb &fwdCommitCb);
 
+    /**
+     * Returns true if there are any pending transactions that started
+     * before given time
+     * @param[in] timeNano time in nanoseconds
+     */
+    fds_bool_t isPendingTx(fds_volid_t volId, fds_uint64_t timeNano);
 
     void commitBlobTxWork(fds_volid_t volid,
                           DmCommitLog::ptr &commitLog,

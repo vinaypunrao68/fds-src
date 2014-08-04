@@ -8,10 +8,8 @@
 
 namespace fds {
 
-CatSyncReceiver::CatSyncReceiver(DmIoReqHandler* dm_req_hdlr,
-                                 vmeta_recv_done_handler_t done_evt_hdlr)
+CatSyncReceiver::CatSyncReceiver(DmIoReqHandler* dm_req_hdlr)
         : dm_req_handler(dm_req_hdlr),
-          done_evt_handler(done_evt_hdlr),
           cat_recv_lock("Catalog Sync Receiver") {
     LOGNORMAL << "Constructing CatSyncReceiver";
 }
@@ -74,8 +72,7 @@ void CatSyncReceiver::startProcessFwdUpdates(fds_volid_t volid) {
 // shadow qos queue is drained, we will activate volume's qos queue
 // If shadow queue is already empty, we activate volume's queue right away.
 //
-Error CatSyncReceiver::handleFwdDone(fds_volid_t volid) {
-    Error err(ERR_OK);
+void CatSyncReceiver::handleFwdDone(fds_volid_t volid) {
     LOGDEBUG << "Wait until all updates are drained for shadow queue "
              << "of volume " << std::hex << volid << std::dec;
 
@@ -89,13 +86,8 @@ Error CatSyncReceiver::handleFwdDone(fds_volid_t volid) {
     fds_verify(volrecv->state == VSYNC_RECV_FWD_INPROG);
     volrecv->state = VSYNC_RECV_FWD_FINISHING;
 
-    // if (volrecv->pending == 0) {
-        // we are done, notify DataMgr that will activate qos queue
-        recvdVolMetaLocked(volid);
-        // }
-    // do not access volrecv after this point!
-
-    return err;
+    LOGNORMAL << "Finished receiving vol meta for volume "
+              << std::hex << volid << std::dec;
 }
 
 //
@@ -119,42 +111,6 @@ Error CatSyncReceiver::enqueueFwdUpdate(DmIoFwdCat* fwdReq) {
         volrecv->pending++;
     }
     return err;
-}
-
-void
-CatSyncReceiver::fwdUpdateReqDone(fds_volid_t volume_id) {
-    Error err(ERR_OK);
-    LOGTRACE << "commited forwarded update for vol " << std::hex
-             << volume_id << std::dec;
-
-    {  // scoped lock
-        fds_mutex::scoped_lock l(cat_recv_lock);
-
-        // we must have receiver create for this volume
-        fds_verify(vol_recv_map.count(volume_id) > 0);
-        VolReceiverPtr volrecv = vol_recv_map[volume_id];
-        fds_verify(volrecv->pending > 0);
-        volrecv->pending--;
-
-        if (volrecv->state == VSYNC_RECV_FWD_FINISHING) {
-            // shadow queue is empty, we finished getting vol meta for volid
-            LOGDEBUG << "FWD_FINISHING vol " << std::hex << volume_id
-                     << std::dec << " pending " << volrecv->pending;
-            if (volrecv->pending == 0) {
-                recvdVolMetaLocked(volume_id);
-            }
-        }
-    }  // end of scoped lock
-}
-
-void CatSyncReceiver::recvdVolMetaLocked(fds_volid_t volid) {
-    LOGNORMAL << "Finished receiving vol meta for volume "
-              << std::hex << volid << std::dec;
-
-    fds_verify(done_evt_handler);
-    done_evt_handler(volid, ERR_OK);
-    // cleanup receiver
-    // vol_recv_map.erase(volid);
 }
 
 CatSyncReceiver::VolReceiver::VolReceiver(fds_volid_t volid,

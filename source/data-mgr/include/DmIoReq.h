@@ -63,7 +63,6 @@ namespace fds {
         BlobTxId::const_ptr blobTxId;
         fpi::FDSP_UpdateCatalogTypePtr fdspUpdCatReqPtr;
         boost::shared_ptr<fpi::FDSP_MetaDataList> metadataList;
-        std::string session_cache;
         std::function<void(const Error &e, dmCatReq *dmRequest)> cb = NULL;
         std::function<void(dmCatReq * req)> proc = NULL;
 
@@ -257,6 +256,22 @@ class DmIoPushMetaDone: public dmCatReq {
 
     // volume is part of base class: use getVolId()
 };
+
+/**
+ * Request that marks push meta done on receiving side
+ */
+class DmIoMetaRecvd: public dmCatReq {
+  public:
+    explicit DmIoMetaRecvd(fds_volid_t _volId)
+            : dmCatReq(_volId, "", blob_version_invalid,
+                       FDS_DM_META_RECVD) {
+    }
+    friend std::ostream& operator<<(std::ostream& out, const DmIoMetaRecvd& io) {
+        return out << "DmIoMetaRecvd vol " << std::hex << io.volId << std::dec;
+    }
+    // volume is part of base class: use getVolId()
+};
+
 
 
 /**

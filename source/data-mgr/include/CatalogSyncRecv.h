@@ -20,23 +20,13 @@ namespace fpi = FDS_ProtocolInterface;
 
 namespace fds {
 
-    typedef boost::shared_ptr<fpi::FDSP_MetaSyncRespClient> MetaSyncRespHandlerPrx;
-
-    /**
-     * Callback type to notify that volume meta sync is finished (including
-     * forwarded updates), so that DM can start processing requests from AMs
-     */
-    typedef std::function<void (fds_volid_t volid,
-                                const Error& error)> vmeta_recv_done_handler_t;
-
     /**
      * Responsible for receiving forwarded catalog updates from source
      * DM and managing volume and shadow QoS queues when in sync state
      */
     class CatSyncReceiver {
   public:
-        CatSyncReceiver(DmIoReqHandler* dm_req_hdlr,
-                        vmeta_recv_done_handler_t done_evt_hdlr);
+        explicit CatSyncReceiver(DmIoReqHandler* dm_req_hdlr);
         ~CatSyncReceiver();
 
         /**
@@ -67,21 +57,12 @@ namespace fds {
          * Called when source DM notifies us that it finished forwarding
          * updates
          */
-        Error handleFwdDone(fds_volid_t volid);
+        void handleFwdDone(fds_volid_t volid);
 
         /**
          * Enqueue forwarded update into volume's shadow queue
          */
         Error enqueueFwdUpdate(DmIoFwdCat* fwdReq);
-
-        /**
-         * Called when finished processing forwarded update.
-         * If volume 'volid' in RECV_FWD_FINISHING state and shadow queue
-         * is empty, the volume's shadow queue is removed.
-         * If this is the last forwarded update, volume meta
-         * syncing process is done -- will call vmeta_recv_done callback
-         */
-        void fwdUpdateReqDone(fds_volid_t volume_id);
 
         /**
          * WARNING: when this code was written, volume uuid only used low 63 bits,
@@ -106,8 +87,6 @@ namespace fds {
         typedef boost::shared_ptr<VolReceiver> VolReceiverPtr;
         typedef std::unordered_map<fds_volid_t, VolReceiverPtr> VolToReceiverTable;
 
-        void recvdVolMetaLocked(fds_volid_t volid);
-
   private:  // members
         /**
          * Map of per-volume receivers that holds states and shadow qos queues
@@ -122,12 +101,6 @@ namespace fds {
          * shadow volume QoS queues; passed in constructor; does not own.
          */
         DmIoReqHandler *dm_req_handler;
-
-        /**
-         * This callback is passed in constructor and called each time
-         * syncing volume meta is finished for a volume
-         */
-        vmeta_recv_done_handler_t done_evt_handler;
     };
 
     typedef boost::shared_ptr<CatSyncReceiver> CatSyncReceiverPtr;
