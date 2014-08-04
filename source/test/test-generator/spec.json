@@ -1,8 +1,40 @@
 {
-    "put" : 1,
-    "get" : 1,
-    "del" : 0,
-    "rand_seed" : 0,
-    "total_io" : 20,
-    "order" : "pg"
+    "nodes" : [
+    {
+        "node": 1,
+        "put" : 1,
+        "get" : 1,
+        "del" : 0,
+        "rand_seed" : 0,
+        "total_io" : 10,
+        "order" : "pg"
+    },
+    {
+        "node": 2,
+        "put" : 1,
+        "get" : 1,
+        "del" : 1,
+        "rand_seed" : 0,
+        "total_io" : 10,
+        "order" : "pgd"
+    },
+    {
+        "node": 3,
+        "put" : 1,
+        "get" : 0,
+        "del" : 1,
+        "rand_seed" : 0,
+        "total_io" : 10,
+        "order" : "pd"
+    },
+    {
+        "node": 4,
+        "put" : 1,
+        "get" : 1,
+        "del" : 0,
+        "rand_seed" : 0,
+        "total_io" : 20,
+        "order" : "pg"
+    }
+    ]
 }
