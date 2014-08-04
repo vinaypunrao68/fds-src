@@ -21,7 +21,8 @@ public interface FDSStreaming {
      * @param buckets List of buckets for which data will be collected and sent
      * @param dataPointNames List of data-points
      */
-    void register(int tenantId, String ipAddress, int port, int samplingFrequency, int duration, Vector<String> buckets, Vector<String> dataPointNames);
+    void register(int tenantId, String ipAddress, int port, int samplingFrequency, int duration,
+                  Vector<String> buckets, Vector<String> dataPointNames);
 
     /**
      * Deregister streaming of data for listed buckets.
