@@ -84,7 +84,7 @@ class DmCommitLog : public Module {
     // ctor & dtor
     explicit DmCommitLog(const std::string &modName, const std::string & filename,
             fds_uint32_t filesize = DEFAULT_COMMIT_LOG_FILE_SIZE,
-            PersistenceType persist = IN_FILE);
+            PersistenceType persist = IN_MEMORY);
     ~DmCommitLog();
 
     // module overrides
