@@ -12,22 +12,21 @@ import java.util.Vector;
 public interface FDSStreaming {
     /**
      * Subscribes for streaming of data listed by names. The data is sent per bucket.
-     *
-     * @param tenantId Tenant Identifier
+     * TODO(xxx) later add tenantId and dataPointNames to parameters
      * @param ipAddress IP Address of the machine to send data
      * @param port Port number to send data
-     * @param samplingFrequency Frequency in minutes for sampling data
+     * @param samplingFrequency Frequency in seconds for sampling data. Currently valid
+     * values are 60 (1 min) and 3600 (1 hour)
      * @param duration Samples will be sent every specified duration
      * @param buckets List of buckets for which data will be collected and sent
-     * @param dataPointNames List of data-points
      */
-    void register(int tenantId, String ipAddress, int port, int samplingFrequency, int duration,
-                  Vector<String> buckets, Vector<String> dataPointNames);
+    void register(String ipAddress, int port, int samplingFrequency, int duration,
+                  Vector<String> buckets);
 
     /**
      * Deregister streaming of data for listed buckets.
      * @param tenantId Tenant Identifier
      * @param buckets List of buckets
      */
-    void deregister(int tenantId, Vector<String> buckets);
+    void deregister(Vector<String> buckets);
 }
