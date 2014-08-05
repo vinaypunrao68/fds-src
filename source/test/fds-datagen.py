@@ -74,7 +74,6 @@ class BlockGen():
             m = hashlib.sha256()
             m.update(block)
             print "Digest size : ", m.digest_size
-            print "Block size  : ", m.block_size
             print "Hex digest  : ", m.hexdigest()
             print "Data size   : ", len(block)
 
@@ -120,6 +119,7 @@ class DataGen():
         assert(isinstance(file_size, int) and file_size > 0)
         assert(isinstance(dup_ratio, int) and dup_ratio >= 0)
         assert(isinstance(sel_policy, str))
+        sel_policy = sel_policy.lower()
         assert(sel_policy == "fifo" or sel_policy == "random")
         assert(isinstance(random_blocks, list))
         assert(isinstance(dup_blocks, list))
@@ -133,7 +133,6 @@ class DataGen():
         self.dg_debug           = debug
         self.dg_dup_bytes       = 0
         self.dg_rand_bytes      = 0
-
 
     def generate_data(self):
         """Generate a new data set and feed it to the feeder."""
@@ -156,6 +155,8 @@ class DataGen():
             else:
                 self.dg_rand_bytes += block_len
             assert(cur_wr_off <= total_size)
+            # TODO: keep track of % of dup/random completed, then finish the data set with the rest of non-completed.
+
         assert(cur_wr_off == total_size)
 
         if self.dg_debug is True:
@@ -163,7 +164,6 @@ class DataGen():
             m = hashlib.sha256()
             m.update(res_block)
             print "Digest size : ", m.digest_size
-            print "Block size  : ", m.block_size
             print "Hex digest  : ", m.hexdigest()
             print "Data size   : ", len(res_block)
             print "Dup bytes   : ", self.dg_dup_bytes
@@ -174,6 +174,14 @@ class DataGen():
         return res_block
 
     def __get_next_blockgen(self):
+        if self.dg_sel_policy == "fifo":
+            return self.__get_next_blockgen_fifo()
+        else:
+            assert(self.dg_sel_policy == "random")
+            return self.__get_next_blockgen_random()
+
+
+    def __get_next_blockgen_fifo(self):
         rand = self.dg_rand_list
         self.dg_rand_list = not rand
         if rand is True:
@@ -190,8 +198,9 @@ class DataGen():
         assert(isinstance(block, BlockGen))
         return block
 
-
-
+    def __get_next_blockgen_random(self):
+        # TODO: Add random select policy
+        assert(False and "Feature not implemented")
 
 def __test_bg():
     print "Unit test for Block Generator"
@@ -217,6 +226,11 @@ def __test_dg():
         data = dg.generate_data()
         assert(len(data) == fs)
 
+def __run_ut():
+    __test_bg()
+    __test_dg()
+    sys.exit(0)
+
 def create_blockgens_from_cfg(block_names, block_cfg):
     blockgen_list = []
     for blk_name in block_names:
@@ -237,9 +251,6 @@ def create_blockgens_from_cfg(block_names, block_cfg):
     return blockgen_list
 
 if __name__ == "__main__":
-    # __test_bg()
-    # __test_dg()
-
     parser = optparse.OptionParser("usage: %prog [options]")
     parser.add_option('-f', '--file', dest='config_file',
                       help='configuration file (e.g. cfg/datagen_io.cfg)', metavar='FILE')
@@ -247,6 +258,8 @@ if __name__ == "__main__":
                       help='enable verbosity')
     parser.add_option('-r', '--dryrun', action='store_true', dest='dryrun',
                       help='dry run, print commands only')
+    parser.add_option('-U', '--unittest', action='store_true', dest='unittest',
+                      help='Run the unit test and exit.')
     # TODO: fds-root is not needed for datagen, only for the FdsConfigRun environment
     #       Fix this dependency.
     parser.add_option('-R', '--fds-root', dest='fds_root', default='/fds',
@@ -257,6 +270,9 @@ if __name__ == "__main__":
     if options.config_file is None:
         print "You need to pass config file"
         sys.exit(1)
+
+    if options.unittest is True:
+        __run_ut()
 
     cfg = fdscfg.FdsConfigRun(None, options)
 
