@@ -6,13 +6,11 @@ package com.formationds.am;
 import com.formationds.apis.AmService;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.fdsp.LegacyClientFactory;
-import com.formationds.nbd.FdsServerOperations;
-import com.formationds.nbd.LoggingOperationsWrapper;
-import com.formationds.nbd.NbdHost;
-import com.formationds.nbd.NbdServerOperations;
+import com.formationds.nbd.*;
 import com.formationds.security.Authenticator;
 import com.formationds.security.JaasAuthenticator;
-import com.formationds.nbd.*;
+import com.formationds.streaming.Streaming;
+import com.formationds.streaming.StreamingConfiguration;
 import com.formationds.util.Configuration;
 import com.formationds.util.libconfig.ParsedConfig;
 import com.formationds.xdi.CachingConfigurationService;
@@ -22,11 +20,13 @@ import com.formationds.xdi.XdiClientFactory;
 import com.formationds.xdi.s3.S3Endpoint;
 import com.formationds.xdi.swift.SwiftEndpoint;
 import org.apache.log4j.Logger;
+import org.apache.thrift.server.TNonblockingServer;
 import org.apache.thrift.server.TServer;
 import org.apache.thrift.server.TThreadPoolServer;
+import org.apache.thrift.transport.TNonblockingServerSocket;
 import org.apache.thrift.transport.TServerSocket;
+import org.apache.thrift.transport.TTransportException;
 
-import javax.xml.parsers.ParserConfigurationException;
 import java.util.concurrent.ForkJoinPool;
 
 class FakeAmServer {
@@ -90,6 +90,8 @@ public class Main {
             int s3Port = amParsedConfig.lookup("fds.am.s3_port").intValue();
             new Thread(() -> new S3Endpoint(xdi, enforceAuthorization).start(s3Port)).start();
 
+            startStreamingServer(8999);
+
             int swiftPort = amParsedConfig.lookup("fds.am.swift_port").intValue();
             new SwiftEndpoint(xdi, enforceAuthorization).start(swiftPort);
         } catch (Throwable throwable) {
@@ -98,6 +100,25 @@ public class Main {
             System.out.flush();
             System.exit(-1);
         }
+    }
+
+    private static void startStreamingServer(final int port) {
+        StreamingConfiguration.Iface configClient = new StubStreamingConfiguration();
+        StreamingHandler streamingHandler = new StreamingHandler(configClient);
+
+        Runnable runnable = () -> {
+            try {
+                TNonblockingServerSocket transport = new TNonblockingServerSocket(port);
+                TNonblockingServer.Args args = new TNonblockingServer.Args(transport)
+                        .processor(new Streaming.Processor<Streaming.Iface>(streamingHandler));
+                TNonblockingServer server = new TNonblockingServer(args);
+                server.serve();
+            } catch (TTransportException e) {
+                throw new RuntimeException(e);
+            }
+        };
+
+        new Thread(runnable).start();
     }
 
 }
