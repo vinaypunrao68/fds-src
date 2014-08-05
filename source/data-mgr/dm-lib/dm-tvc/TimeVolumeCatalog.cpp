@@ -247,7 +247,9 @@ void DmTimeVolCatalog::updateFwdBlobWork(fds_volid_t volid,
 Error
 DmTimeVolCatalog::abortBlobTx(fds_volid_t volId,
                               BlobTxId::const_ptr txDesc) {
-    return ERR_OK;
+    DmCommitLog::ptr commitLog;
+    COMMITLOG_GET(volId, commitLog);
+    return commitLog->rollbackTx(txDesc);
 }
 
 fds_bool_t

@@ -54,7 +54,7 @@ StorHvCtrl::abortBlobTxSvc(AmQosReq *qosReq) {
 void StorHvCtrl::issueAbortBlobTxMsg(const std::string& blobName,
                                      const fds_volid_t& volId,
                                      const fds_uint64_t& txId,
-                                      QuorumSvcRequestRespCb respCb)
+                                     QuorumSvcRequestRespCb respCb)
 {
 
     AbortBlobTxMsgPtr stBlobTxMsg(new AbortBlobTxMsg());
@@ -86,10 +86,12 @@ void StorHvCtrl::abortBlobTxMsgResp(fds::AmQosReq* qosReq,
     fds_verify(blobReq != NULL);
     fds_verify(blobReq->getIoType() == FDS_ABORT_BLOB_TX);
 
-    AbortBlobTxCallback::ptr cb = SHARED_DYN_CAST(AbortBlobTxCallback,
-                                                      blobReq->cb);
+    // AbortBlobTxCallback::ptr cb = SHARED_DYN_CAST(AbortBlobTxCallback,
+    //                                              blobReq->cb);
     qos_ctrl->markIODone(qosReq);
-    cb->call(ERR_OK);
+    blobReq->cb->call(error.GetErrno());
+
+    fds_verify(amTxMgr->removeTx(*(blobReq->getTxId())) == ERR_OK);
     delete blobReq;
 }
 

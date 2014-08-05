@@ -1112,9 +1112,9 @@ DataMgr::scheduleAbortBlobTxSvc(void * _io)
 
     BlobTxId::const_ptr blobTxId = abortBlobTx->ioBlobTxDesc;
     fds_verify(*blobTxId != blobTxIdInvalid);
-    /*
-     * TODO(sanjay) we will have  intergrate this with TVC  API's
-     */
+
+    // Call TVC abortTx
+    timeVolCat_->abortBlobTx(abortBlobTx->volId, blobTxId);
 
     if (!err.ok()) {
         PerfTracer::incr(abortBlobTx->opReqFailedPerfEventType, abortBlobTx->getVolId(),
