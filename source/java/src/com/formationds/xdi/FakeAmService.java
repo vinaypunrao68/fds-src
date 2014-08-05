@@ -56,6 +56,11 @@ public class FakeAmService implements AmService.Iface {
     }
 
     @Override
+    public void updateBlobOnce(String domainName, String volumeName, String blobName, int blobMode, ByteBuffer bytes, int length, ObjectOffset objectOffset, Map<String, String> metadata) throws ApiException, TException {
+
+    }
+
+    @Override
     public void deleteBlob(String domainName, String volumeName, String blobName) throws ApiException, TException {
 
     }
