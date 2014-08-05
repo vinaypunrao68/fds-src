@@ -319,6 +319,8 @@ class DmIoCommitBlobTx: public dmCatReq {
         opQoSWaitCtx.name = perfNameStr;
         opQoSWaitCtx.reset_volid(_volId);
     }
+    virtual ~DmIoCommitBlobTx() {
+    }
 
     virtual std::string log_string() const override {
         std::stringstream ret;
@@ -337,6 +339,20 @@ class DmIoCommitBlobTx: public dmCatReq {
     fds_uint64_t dmt_version;
     /* response callback */
     CbType dmio_commit_blob_tx_resp_cb;
+};
+
+// Forward declaration. Defined further down.
+class DmIoUpdateCatOnce;
+class DmIoCommitBlobOnce : public  DmIoCommitBlobTx {
+  public:
+    DmIoCommitBlobOnce(const fds_volid_t  &_volId,
+                       const std::string &_blobName,
+                       const blob_version_t &_blob_version,
+                       fds_uint64_t _dmt_version)
+            : DmIoCommitBlobTx(_volId, _blobName, _blob_version, _dmt_version) {
+    }
+
+    DmIoUpdateCatOnce *parent;
 };
 
 /**
@@ -537,6 +553,38 @@ class DmIoUpdateCat: public dmCatReq {
     boost::shared_ptr<fpi::UpdateCatalogMsg> updcatMsg;
 
     /* response callback */
+    CbType dmio_updatecat_resp_cb;
+};
+
+/**
+ * Request to update catalog in a single request.
+ */
+class DmIoUpdateCatOnce : public dmCatReq {
+  public:
+    explicit DmIoUpdateCatOnce(
+        boost::shared_ptr<fpi::UpdateCatalogOnceMsg>& _updcatMsg,
+        DmIoCommitBlobTx *_commitReq)
+            : dmCatReq(_updcatMsg->volume_id,
+                       _updcatMsg->blob_name,
+                       _updcatMsg->blob_version,
+                       FDS_CAT_UPD_ONCE),
+              ioBlobTxDesc(new BlobTxId(_updcatMsg->txId)),
+              commitBlobReq(_commitReq),
+              updcatMsg(_updcatMsg) {}
+
+    std::string log_string() const override {
+        std::stringstream ret;
+        ret << "DmIoUpdateCat vol "
+            << std::hex << volId << std::dec;
+        return ret.str();
+    }
+
+    BlobTxId::const_ptr ioBlobTxDesc;
+    DmIoCommitBlobTx *commitBlobReq;
+    boost::shared_ptr<fpi::UpdateCatalogOnceMsg> updcatMsg;
+
+    // response callback
+    typedef std::function<void (const Error &e, DmIoUpdateCatOnce *req)> CbType;
     CbType dmio_updatecat_resp_cb;
 };
 

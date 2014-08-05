@@ -14,6 +14,7 @@ DMSvcHandler::DMSvcHandler()
 {
     REGISTER_FDSP_MSG_HANDLER(fpi::QueryCatalogMsg, queryCatalogObject);
     REGISTER_FDSP_MSG_HANDLER(fpi::UpdateCatalogMsg, updateCatalog);
+    REGISTER_FDSP_MSG_HANDLER(fpi::UpdateCatalogOnceMsg, updateCatalogOnce);
     REGISTER_FDSP_MSG_HANDLER(fpi::StartBlobTxMsg, startBlobTx);
     REGISTER_FDSP_MSG_HANDLER(fpi::DeleteCatalogObjectMsg, deleteCatalogObject);
     REGISTER_FDSP_MSG_HANDLER(fpi::CommitBlobTxMsg, commitBlobTx);
@@ -226,6 +227,42 @@ void DMSvcHandler::queryCatalogObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncH
     delete req;
 }
 
+void
+DMSvcHandler::updateCatalogOnce(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                                boost::shared_ptr<fpi::UpdateCatalogOnceMsg>& updcatMsg)
+{
+    DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*updcatMsg));
+    DBG(FLAG_CHECK_RETURN_VOID(common_drop_async_resp > 0));
+    DBG(FLAG_CHECK_RETURN_VOID(dm_drop_cat_updates > 0));
+
+    // TODO(xxx) implement uturn
+    if ((dataMgr->testUturnAll == true) ||
+        (dataMgr->testUturnUpdateCat == true)) {
+        GLOGNOTIFY << "Uturn testing update catalog once";
+        fds_panic("not implemented");
+    }
+
+    // Allocate a commit request structure because it is needed by the
+    // commit call that will be executed during update processing.
+    auto dmCommitBlobOnceReq = new DmIoCommitBlobOnce(updcatMsg->volume_id,
+                                                      updcatMsg->blob_name,
+                                                      updcatMsg->blob_version,
+                                                      updcatMsg->dmt_version);
+    dmCommitBlobOnceReq->dmio_commit_blob_tx_resp_cb =
+            BIND_MSG_CALLBACK2(DMSvcHandler::commitBlobOnceCb, asyncHdr);
+
+    // allocate a new query cat log  class and  queue  to per volume queue.
+    auto dmUpdCatReq = new DmIoUpdateCatOnce(updcatMsg, dmCommitBlobOnceReq);
+    dmUpdCatReq->dmio_updatecat_resp_cb =
+            BIND_MSG_CALLBACK2(DMSvcHandler::updateCatalogOnceCb, asyncHdr);
+    dmCommitBlobOnceReq->parent = dmUpdCatReq;
+
+    Error err = dataMgr->qosCtrl->enqueueIO(
+        dmUpdCatReq->getVolId(),
+        static_cast<FDS_IOType*>(dmUpdCatReq));
+    fds_verify(err == ERR_OK);
+}
+
 void DMSvcHandler::updateCatalog(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                  boost::shared_ptr<fpi::UpdateCatalogMsg>& updcatMsg)
 {
@@ -270,6 +307,29 @@ void DMSvcHandler::updateCatalogCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     fpi::UpdateCatalogRspMsg updcatRspMsg;
     sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::UpdateCatalogRspMsg), updcatRspMsg);
 
+    delete req;
+}
+
+void
+DMSvcHandler::commitBlobOnceCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                               const Error &e,
+                               DmIoCommitBlobTx *req) {
+    DmIoCommitBlobOnce *commitOnceReq = static_cast<DmIoCommitBlobOnce*>(req);
+    DmIoUpdateCatOnce *parent = commitOnceReq->parent;
+    delete commitOnceReq;
+    updateCatalogOnceCb(asyncHdr, e, parent);
+}
+
+void
+DMSvcHandler::updateCatalogOnceCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                                  const Error &e,
+                                  DmIoUpdateCatOnce *req) {
+    DBG(GLOGDEBUG << logString(*asyncHdr));
+    asyncHdr->msg_code = static_cast<int32_t>(e.GetErrno());
+    fpi::UpdateCatalogOnceRspMsg updcatRspMsg;
+    sendAsyncResp(*asyncHdr,
+                  FDSP_MSG_TYPEID(fpi::UpdateCatalogOnceRspMsg),
+                  updcatRspMsg);
     delete req;
 }
 

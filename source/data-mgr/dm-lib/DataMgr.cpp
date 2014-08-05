@@ -931,6 +931,57 @@ void DataMgr::updateCatalog(dmCatReq *io)
     updCatReq->dmio_updatecat_resp_cb(err, updCatReq);
 }
 
+void
+DataMgr::updateCatalogOnce(dmCatReq *io) {
+    DmIoUpdateCatOnce *updCatReq= static_cast<DmIoUpdateCatOnce*>(io);
+    // Start the transaction
+    Error err = timeVolCat_->startBlobTx(updCatReq->volId,
+                                         updCatReq->blob_name,
+                                         updCatReq->updcatMsg->blob_mode,
+                                         updCatReq->ioBlobTxDesc);
+    if (err != ERR_OK) {
+        qosCtrl->markIODone(*updCatReq);
+        updCatReq->dmio_updatecat_resp_cb(err, updCatReq);
+        return;
+    }
+
+    // Apply the offset updates
+    err = timeVolCat_->updateBlobTx(updCatReq->volId,
+                                    updCatReq->ioBlobTxDesc,
+                                    updCatReq->updcatMsg->obj_list);
+    if (err != ERR_OK) {
+        qosCtrl->markIODone(*updCatReq);
+        updCatReq->dmio_updatecat_resp_cb(err, updCatReq);
+        return;
+    }
+
+    // Apply the metadata updates
+    err = timeVolCat_->updateBlobTx(updCatReq->volId,
+                                    updCatReq->ioBlobTxDesc,
+                                    updCatReq->updcatMsg->meta_list);
+    if (err != ERR_OK) {
+        qosCtrl->markIODone(*updCatReq);
+        updCatReq->dmio_updatecat_resp_cb(err, updCatReq);
+        return;
+    }
+
+    // Commit the metadata updates
+    // The commit callback we pass in will actually call the
+    // final service callback
+    err = timeVolCat_->commitBlobTx(updCatReq->volId,
+                                    updCatReq->blob_name,
+                                    updCatReq->ioBlobTxDesc,
+                                    std::bind(&DataMgr::commitBlobTxCb, this,
+                                              std::placeholders::_1, std::placeholders::_2,
+                                              std::placeholders::_3, std::placeholders::_4,
+                                              updCatReq->commitBlobReq));
+    if (err != ERR_OK) {
+        qosCtrl->markIODone(*updCatReq);
+        updCatReq->dmio_updatecat_resp_cb(err, updCatReq);
+        return;
+    }
+}
+
 void DataMgr::commitBlobTx(dmCatReq *io)
 {
     Error err;

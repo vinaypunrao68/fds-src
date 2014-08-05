@@ -63,6 +63,8 @@ enum  FDSPMsgTypeId {
     StartBlobTxRspMsgTypeId,
     UpdateCatalogMsgTypeId,
     UpdateCatalogRspMsgTypeId,
+    UpdateCatalogOnceMsgTypeId,
+    UpdateCatalogOnceRspMsgTypeId,
     SetBlobMetaDataMsgTypeId,
     SetBlobMetaDataRspMsgTypeId,
     DeleteCatalogObjectMsgTypeId,
@@ -312,6 +314,22 @@ struct UpdateCatalogMsg {
 
 /* Update catalog response message */
 struct UpdateCatalogRspMsg {
+}
+
+/* Update catalog once request message */
+struct UpdateCatalogOnceMsg {
+   1: i64    			volume_id;
+   2: string 			blob_name; 	/* User visible name of the blob */
+   3: i64                       blob_version; 	/* Version of the blob */
+   4: i32 			blob_mode;
+   5: i64                       dmt_version;
+   6: i64                   	txId;
+   7: FDSP.FDSP_BlobObjectList 	obj_list; 	/* List of object ids of the objects that this blob is being mapped to */
+   8: FDSP.FDSP_MetaDataList 	meta_list;	/* sequence of arbitrary key/value pairs */
+}
+
+/* Update catalog once response message */
+struct UpdateCatalogOnceRspMsg {
 }
 
 /* Forward catalog update request message */

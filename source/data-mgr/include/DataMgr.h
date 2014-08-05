@@ -142,6 +142,11 @@ class DataMgr : public Module, public DmIoReqHandler {
                 case FDS_CAT_UPD:
                     threadPool->schedule(&DataMgr::updateCatalog, dataMgr, io);
                     break;
+                case FDS_CAT_UPD_ONCE:
+                    threadPool->schedule(&DataMgr::updateCatalogOnce,
+                                         dataMgr,
+                                         io);
+                    break;
                 case FDS_COMMIT_BLOB_TX:
                     threadPool->schedule(&DataMgr::commitBlobTx, dataMgr, io);
                     break;
@@ -323,6 +328,7 @@ class DataMgr : public Module, public DmIoReqHandler {
     /* TODO(Rao): Add the new refactored DM messages handlers here */
     void startBlobTx(dmCatReq *io);
     void updateCatalog(dmCatReq *io);
+    void updateCatalogOnce(dmCatReq *io);
     void commitBlobTx(dmCatReq *io);
     /**
      * Callback from volume catalog when transaction is commited
