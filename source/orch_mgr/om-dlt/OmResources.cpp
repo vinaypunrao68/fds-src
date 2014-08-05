@@ -66,8 +66,12 @@ struct NodeDomainFSM: public msm::front::state_machine_def<NodeDomainFSM>
         template <class Evt, class Fsm, class State>
         void operator()(Evt const &, Fsm &, State &) {}
 
-        template <class Event, class FSM> void on_entry(Event const &, FSM &) {}
-        template <class Event, class FSM> void on_exit(Event const &, FSM &) {}
+        template <class Event, class FSM> void on_entry(Event const &e, FSM &f) {
+            LOGDEBUG << "DST_Start. Evt: " << e.logString();
+        }
+        template <class Event, class FSM> void on_exit(Event const &e, FSM &f) {
+            LOGDEBUG << "DST_Start. Evt: " << e.logString();
+        }
     };
     struct DST_Wait : public msm::front::state<>
     {
@@ -81,8 +85,12 @@ struct NodeDomainFSM: public msm::front::state_machine_def<NodeDomainFSM>
         template <class Evt, class Fsm, class State>
         void operator()(Evt const &, Fsm &, State &) {}
 
-        template <class Event, class FSM> void on_entry(Event const &, FSM &) {}
-        template <class Event, class FSM> void on_exit(Event const &, FSM &) {}
+        template <class Event, class FSM> void on_entry(Event const &e, FSM &f) {
+            LOGDEBUG << "DST_Wait. Evt: " << e.logString();
+        }
+        template <class Event, class FSM> void on_exit(Event const &e, FSM &f) {
+            LOGDEBUG << "DST_Wait. Evt: " << e.logString();
+        }
 
         /**
          * timer to come out of this state
@@ -102,8 +110,12 @@ struct NodeDomainFSM: public msm::front::state_machine_def<NodeDomainFSM>
         template <class Evt, class Fsm, class State>
         void operator()(Evt const &, Fsm &, State &) {}
 
-        template <class Event, class FSM> void on_entry(Event const &, FSM &) {}
-        template <class Event, class FSM> void on_exit(Event const &, FSM &) {}
+        template <class Event, class FSM> void on_entry(Event const &e, FSM &f) {
+            LOGDEBUG << "DST_WaitNds. Evt: " << e.logString();
+        }
+        template <class Event, class FSM> void on_exit(Event const &e, FSM &f) {
+            LOGDEBUG << "DST_WaitNds. Evt: " << e.logString();
+        }
 
         NodeUuidSet sm_services;  // services we are waiting to come up
         NodeUuidSet sm_up;  // services that are already up
@@ -119,8 +131,12 @@ struct NodeDomainFSM: public msm::front::state_machine_def<NodeDomainFSM>
         template <class Evt, class Fsm, class State>
         void operator()(Evt const &, Fsm &, State &) {}
 
-        template <class Event, class FSM> void on_entry(Event const &, FSM &) {}
-        template <class Event, class FSM> void on_exit(Event const &, FSM &) {}
+        template <class Event, class FSM> void on_entry(Event const &e, FSM &f) {
+            LOGDEBUG << "DST_WaitDlt. Evt: " << e.logString();
+        }
+        template <class Event, class FSM> void on_exit(Event const &e, FSM &f) {
+            LOGDEBUG << "DST_WaitDlt. Evt: " << e.logString();
+        }
     };
     struct DST_DomainUp : public msm::front::state<>
     {
@@ -129,14 +145,24 @@ struct NodeDomainFSM: public msm::front::state_machine_def<NodeDomainFSM>
         template <class Evt, class Fsm, class State>
         void operator()(Evt const &, Fsm &, State &) {}
 
-        template <class Event, class FSM> void on_entry(Event const &, FSM &) {}
-        template <class Event, class FSM> void on_exit(Event const &, FSM &) {}
+        template <class Event, class FSM> void on_entry(Event const &e, FSM &f) {
+            LOGDEBUG << "DST_DomainUp. Evt: " << e.logString();
+        }
+        template <class Event, class FSM> void on_exit(Event const &e, FSM &f) {
+            LOGDEBUG << "DST_DomainUp. Evt: " << e.logString();
+        }
     };
 
     /**
      * Define the initial state.
      */
     typedef DST_Start initial_state;
+    struct MyInitEvent {
+        std::string logString() const {
+            return "MyInitEvent";
+        }
+    };
+    typedef MyInitEvent initial_event;
 
     /**
      * Transition actions.
@@ -235,7 +261,7 @@ void NodeDomainFSM::on_exit(Event const &evt, Fsm &fsm)
 template <class Event, class Fsm>
 void NodeDomainFSM::no_transition(Event const &evt, Fsm &fsm, int state)
 {
-    LOGDEBUG << "NodeDomainFSM no transition";
+    LOGDEBUG << "Evt: " << evt.logString() << " NodeDomainFSM no transition";
 }
 
 /**
@@ -567,7 +593,7 @@ OM_NodeDomainMod::om_local_domain()
 fds_bool_t
 OM_NodeDomainMod::om_local_domain_up()
 {
-    return true;
+    // return true;
     return om_local_domain()->domain_fsm->is_flag_active<LocalDomainUp>();
 }
 
@@ -817,6 +843,7 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
         }
 
         // Send the DMT to DMs.
+        // TODO(Rao): Move this piece of code under om_local_domain_up()
         if (msg->node_type == fpi::FDSP_DATA_MGR) {
             om_dmt_update_cluster();
         } else {

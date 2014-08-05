@@ -5,6 +5,7 @@
 #define SOURCE_ORCH_MGR_INCLUDE_OMDEPLOY_H_
 
 #include <vector>
+#include <string>
 #include <boost/msm/back/state_machine.hpp>
 #include <OmResources.h>
 #include <OmDataPlacement.h>
@@ -22,12 +23,18 @@ class DltComputeEvt
 {
   public:
     DltComputeEvt() {}
+    std::string logString() const {
+        return "DltComputeEvt";
+    }
 };
 
 class DltLoadedDbEvt
 {
   public:
     DltLoadedDbEvt() {}
+    std::string logString() const {
+        return "DltLoadedDbEvt";
+    }
 };
 
 class DltRebalOkEvt
@@ -35,6 +42,9 @@ class DltRebalOkEvt
   public:
     DltRebalOkEvt(ClusterMap *cm, DataPlacement *d)
         : ode_clusmap(cm), ode_dp(d) {}
+    std::string logString() const {
+        return "DltRebalOkEvt";
+    }
 
     ClusterMap            *ode_clusmap;
     DataPlacement         *ode_dp;
@@ -47,6 +57,9 @@ class DltCommitOkEvt
                    const NodeUuid& uuid)
             : dlt_version(dlt_ver),
             sm_uuid(uuid) {}
+    std::string logString() const {
+        return "DltCommitOkEvt";
+    }
 
     fds_uint64_t    dlt_version;
     NodeUuid        sm_uuid;
@@ -56,6 +69,9 @@ class DltCloseOkEvt
 {
   public:
     DltCloseOkEvt() {}
+    std::string logString() const {
+        return "DltCloseOkEvt";
+    }
 };
 
 /**

@@ -87,6 +87,7 @@ bool ConfigDB::addVolume(const VolumeDesc& vol) {
                               " capacity %.3f"
                               " quota.max %.2f"
                               " replica.count %d"
+                              " objsize.max %d"
                               " write.quorum %d"
                               " read.quorum %d"
                               " conistency.protocol %d"
@@ -108,6 +109,7 @@ bool ConfigDB::addVolume(const VolumeDesc& vol) {
                               vol.capacity,
                               vol.maxQuota,
                               vol.replicaCnt,
+                              vol.maxObjSizeInBytes,
                               vol.writeQuorum,
                               vol.readQuorum,
                               vol.consisProtocol,

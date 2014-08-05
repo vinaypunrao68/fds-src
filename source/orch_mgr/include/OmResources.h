@@ -481,6 +481,9 @@ class WaitNdsEvt
  public:
     explicit WaitNdsEvt(const NodeUuidSet& sms)
             : sm_services(sms.begin(), sms.end()) {}
+    std::string logString() const {
+        return "WaitNdsEvt";
+    }
 
     NodeUuidSet sm_services;
 };
@@ -489,12 +492,18 @@ class NoPersistEvt
 {
  public:
     NoPersistEvt() {}
+    std::string logString() const {
+        return "NoPersistEvt";
+    }
 };
 
 class LoadVolsEvt
 {
  public:
     LoadVolsEvt() {}
+    std::string logString() const {
+        return "LoadVolsEvt";
+    }
 };
 
 class RegNodeEvt
@@ -503,6 +512,9 @@ class RegNodeEvt
     RegNodeEvt(const NodeUuid& uuid,
                fpi::FDSP_MgrIdType type)
             : svc_uuid(uuid), svc_type(type) {}
+    std::string logString() const {
+        return "RegNodeEvt";
+    }
 
     NodeUuid svc_uuid;
     fpi::FDSP_MgrIdType svc_type;
@@ -512,12 +524,18 @@ class TimeoutEvt
 {
  public:
     TimeoutEvt() {}
+    std::string logString() const {
+        return "TimeoutEvt";
+    }
 };
 
 class DltUpEvt
 {
  public:
     DltUpEvt() {}
+    std::string logString() const {
+        return "DltUpEvt";
+    }
 };
 
 class OM_NodeDomainMod : public Module
