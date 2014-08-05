@@ -97,6 +97,13 @@ typedef enum {
     MAX_EVENT_TYPE  // this should be the last entry in the enum
 } PerfEventType;
 
+class PerfEventHash {
+  public:
+    fds_uint32_t operator()(PerfEventType evt) const {
+        return static_cast<fds_uint32_t>(evt);
+    }
+};
+
 extern const unsigned PERF_CONTEXT_TIMEOUT;
 
 typedef struct PerfContext_ {
