@@ -171,7 +171,25 @@ const char * eventTypeToStr[] = {
         "am_delete_qos",
         "am_delete_hash",
         "am_delete_sm",
-        "am_delete_dm"
+        "am_delete_dm",
+
+        // Data Manager
+        "dm_tx_op",
+        "dm_tx_op_err",
+        "dm_tx_op_req",
+        "DM_TX_OP_REQ_ERR",
+
+        "dm_tx_commit_req",
+        "dm_tx_commit_req_err",
+        "dm_vol_cat_write",
+        "dm_tx_qos_wait",
+
+        "dm_query_req",
+        "dm_query_req_err",
+        "dm_vol_cat_read",
+        "dm_query_qos_wait",
+
+        "dm_cache_hit"
 };
 
 PerfTracer::PerfTracer() : aggregateCounters_(fds::MAX_EVENT_TYPE),
@@ -443,12 +461,10 @@ void PerfTracer::tracePointBegin(PerfContext & ctx) {
 #endif
 }
 
-boost::shared_ptr<PerfContext> PerfTracer::tracePointEnd(const std::string & id, 
-                                                        fds_volid_t volid) {
+boost::shared_ptr<PerfContext> PerfTracer::tracePointEnd(const std::string & id) {
     PerfContext * ppc = 0;
 
-    GLOGDEBUG << "Received tracePointEnd() for id='" << id << "'" 
-                                        << "'volid='" << volid << "'";
+    GLOGDEBUG << "Received tracePointEnd() for id='" << id << "'";
     {
         FDSGUARD(instance().latency_map_mutex_);
 

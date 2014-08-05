@@ -93,6 +93,24 @@ typedef enum {
     AM_DELETE_SM,
     AM_DELETE_DM,
 
+    // Data Manager
+    DM_TX_OP,
+    DM_TX_OP_ERR,
+    DM_TX_OP_REQ,
+    DM_TX_OP_REQ_ERR,
+
+    DM_TX_COMMIT_REQ,
+    DM_TX_COMMIT_REQ_ERR,
+    DM_VOL_CAT_WRITE,
+    DM_TX_QOS_WAIT,
+
+    DM_QUERY_REQ,
+    DM_QUERY_REQ_ERR,
+    DM_VOL_CAT_READ,
+    DM_QUERY_QOS_WAIT,
+
+    DM_CACHE_HIT,
+
     // XXX: add new entries before this entry
     MAX_EVENT_TYPE  // this should be the last entry in the enum
 } PerfEventType;

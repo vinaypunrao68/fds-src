@@ -39,6 +39,8 @@ void DMSvcHandler::commitBlobTx(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     dmBlobTxReq->dmio_commit_blob_tx_resp_cb =
             BIND_MSG_CALLBACK2(DMSvcHandler::commitBlobTxCb, asyncHdr);
 
+    PerfTracer::tracePointBegin(dmBlobTxReq->opReqLatencyCtx);
+
     /*
      * allocate a new  Blob transaction  class and  queue  to per volume queue.
      */
@@ -49,6 +51,9 @@ void DMSvcHandler::commitBlobTx(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     if (err != ERR_OK) {
         LOGWARN << "Unable to enqueue  commit blob tx  request "
             << logString(*asyncHdr) << logString(*commitBlbTx);
+        PerfTracer::tracePointEnd(dmBlobTxReq->opReqLatencyCtx);
+        PerfTracer::incr(dmBlobTxReq->opReqFailedPerfEventType, dmBlobTxReq->getVolId(),
+                dmBlobTxReq->perfNameStr);
         dmBlobTxReq->dmio_commit_blob_tx_resp_cb(err, dmBlobTxReq);
     }
 }
@@ -83,6 +88,8 @@ void DMSvcHandler::abortBlobTx(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     dmBlobTxReq->dmio_abort_blob_tx_resp_cb =
             BIND_MSG_CALLBACK2(DMSvcHandler::abortBlobTxCb, asyncHdr);
 
+    PerfTracer::tracePointBegin(dmBlobTxReq->opReqLatencyCtx);
+
     /*
      * allocate a new  Blob transaction  class and  queue  to per volume queue.
      */
@@ -93,6 +100,9 @@ void DMSvcHandler::abortBlobTx(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     if (err != ERR_OK) {
         LOGWARN << "Unable to enqueue  abort blob tx  request "
             << logString(*asyncHdr) << logString(*abortBlbTx);
+        PerfTracer::tracePointEnd(dmBlobTxReq->opReqLatencyCtx);
+        PerfTracer::incr(dmBlobTxReq->opReqFailedPerfEventType, dmBlobTxReq->getVolId(),
+                dmBlobTxReq->perfNameStr);
         dmBlobTxReq->dmio_abort_blob_tx_resp_cb(err, dmBlobTxReq);
     }
 }
@@ -135,6 +145,7 @@ void DMSvcHandler::startBlobTx(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     dmBlobTxReq->dmio_start_blob_tx_resp_cb =
             BIND_MSG_CALLBACK2(DMSvcHandler::startBlobTxCb, asyncHdr);
 
+    PerfTracer::tracePointBegin(dmBlobTxReq->opReqLatencyCtx);
     /*
      * allocate a new  Blob transaction  class and  queue  to per volume queue.
      */
@@ -144,8 +155,11 @@ void DMSvcHandler::startBlobTx(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     Error err = dataMgr->qosCtrl->enqueueIO(dmBlobTxReq->getVolId(),
                                             static_cast<FDS_IOType*>(dmBlobTxReq));
     if (err != ERR_OK) {
-        LOGWARN << "Unable to enqueue  start blob tx  request "
+        LOGWARN << "Unable to enqueue start blob tx  request "
             << logString(*asyncHdr) << logString(*startBlbTx);
+        PerfTracer::incr(dmBlobTxReq->opReqFailedPerfEventType, dmBlobTxReq->getVolId(),
+                dmBlobTxReq->perfNameStr);
+        PerfTracer::tracePointEnd(dmBlobTxReq->opReqLatencyCtx);
         dmBlobTxReq->dmio_start_blob_tx_resp_cb(err, dmBlobTxReq);
     }
 }
@@ -182,11 +196,17 @@ void DMSvcHandler::queryCatalogObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr
     dmQryReq->dmio_querycat_resp_cb =
             BIND_MSG_CALLBACK2(DMSvcHandler::queryCatalogObjectCb, asyncHdr, queryMsg);
 
+    PerfTracer::tracePointBegin(dmQryReq->opReqLatencyCtx);
+
     Error err = dataMgr->qosCtrl->enqueueIO(dmQryReq->getVolId(),
                                             static_cast<FDS_IOType*>(dmQryReq));
+
     if (err != ERR_OK) {
         LOGWARN << "Unable to enqueue Query Catalog request "
                   << logString(*asyncHdr) << logString(*queryMsg);
+        PerfTracer::tracePointEnd(dmQryReq->opReqLatencyCtx);
+        PerfTracer::incr(dmQryReq->opReqFailedPerfEventType, dmQryReq->getVolId(),
+                dmQryReq->perfNameStr);
         dmQryReq->dmio_querycat_resp_cb(err, dmQryReq);
     }
 }
@@ -228,11 +248,17 @@ void DMSvcHandler::updateCatalog(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     dmUpdCatReq->dmio_updatecat_resp_cb =
             BIND_MSG_CALLBACK2(DMSvcHandler::updateCatalogCb, asyncHdr);
 
+    PerfTracer::tracePointBegin(dmUpdCatReq->opReqLatencyCtx);
+
     Error err = dataMgr->qosCtrl->enqueueIO(dmUpdCatReq->getVolId(),
                                             static_cast<FDS_IOType*>(dmUpdCatReq));
+
     if (err != ERR_OK) {
         LOGWARN << "Unable to enqueue Update Catalog request "
             << logString(*asyncHdr) << logString(*updcatMsg);
+        PerfTracer::tracePointEnd(dmUpdCatReq->opReqLatencyCtx);
+        PerfTracer::incr(dmUpdCatReq->opReqFailedPerfEventType, dmUpdCatReq->getVolId(),
+                dmUpdCatReq->perfNameStr);
         dmUpdCatReq->dmio_updatecat_resp_cb(err, dmUpdCatReq);
     }
 }
@@ -292,11 +318,17 @@ void DMSvcHandler::getBlobMetaData(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     dmReq->dmio_getmd_resp_cb =
                     BIND_MSG_CALLBACK2(DMSvcHandler::getBlobMetaDataCb, asyncHdr, getBlbMeta);
 
+    PerfTracer::tracePointBegin(dmReq->opReqLatencyCtx);
+
     Error err = dataMgr->qosCtrl->enqueueIO(dmReq->getVolId(),
                                       static_cast<FDS_IOType*>(dmReq));
+
     if (err != ERR_OK) {
         LOGWARN << "Unable to enqueue request "
                 << logString(*asyncHdr) << ":" << logString(*getBlbMeta);
+        PerfTracer::tracePointEnd(dmReq->opReqLatencyCtx);
+        PerfTracer::incr(dmReq->opReqFailedPerfEventType, dmReq->getVolId(),
+                dmReq->perfNameStr);
         dmReq->dmio_getmd_resp_cb(err, dmReq);
     }
 }
@@ -333,11 +365,16 @@ DMSvcHandler::setBlobMetaData(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     dmSetMDReq->dmio_setmd_resp_cb =
             BIND_MSG_CALLBACK2(DMSvcHandler::setBlobMetaDataCb, asyncHdr);
 
+    PerfTracer::tracePointBegin(dmSetMDReq->opReqLatencyCtx);
+
     Error err = dataMgr->qosCtrl->enqueueIO(dmSetMDReq->getVolId(),
                                             static_cast<FDS_IOType*>(dmSetMDReq));
     if (err != ERR_OK) {
         LOGWARN << "Unable to enqueue set metadata request "
                 << logString(*asyncHdr);  // << logString(*setMDMsg);
+        PerfTracer::tracePointEnd(dmSetMDReq->opReqLatencyCtx);
+        PerfTracer::incr(dmSetMDReq->opReqFailedPerfEventType, dmSetMDReq->getVolId(),
+                dmSetMDReq->perfNameStr);
         dmSetMDReq->dmio_setmd_resp_cb(err, dmSetMDReq);
     }
 }
@@ -443,11 +480,17 @@ DMSvcHandler::getVolumeMetaData(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     dmReq->dmio_get_volmd_resp_cb =
                     BIND_MSG_CALLBACK2(DMSvcHandler::getVolumeMetaDataCb, asyncHdr, message);
 
+    PerfTracer::tracePointBegin(dmReq->opReqLatencyCtx);
+
     Error err = dataMgr->qosCtrl->enqueueIO(dmReq->getVolId(),
                                       static_cast<FDS_IOType*>(dmReq));
+
     if (err != ERR_OK) {
         LOGWARN << "Unable to enqueue request "
                 << logString(*asyncHdr) << ":" << logString(*message);
+        PerfTracer::tracePointEnd(dmReq->opReqLatencyCtx);
+        PerfTracer::incr(dmReq->opReqFailedPerfEventType, dmReq->getVolId(),
+                dmReq->perfNameStr);
         dmReq->dmio_get_volmd_resp_cb(err, dmReq);
     }
 }
