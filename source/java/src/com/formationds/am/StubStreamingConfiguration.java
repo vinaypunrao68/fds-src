@@ -11,7 +11,7 @@ import java.util.List;
 
 public class StubStreamingConfiguration implements StreamingConfiguration.Iface {
     @Override
-    public registration registerStream(String ip_address, int port, List<String> volume_names, int sample_freq_seconds, int duration_seconds) throws TException {
+    public registration registerStream(String url, String http_method, List<String> volume_names, int sample_freq_seconds, int duration_seconds) throws TException {
         return null;
     }
 
