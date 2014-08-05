@@ -31,7 +31,7 @@ def mkdir_p(path):
 
 # --------------------------------------------------------------------------------------
 ###
-# FDS environment data derrived from the closet FDS source tree or FDS Root run time.
+# FDS environment data derived from the closet FDS source tree or FDS Root run time.
 #
 class FdsEnv(object):
     def __init__(self, _root):
