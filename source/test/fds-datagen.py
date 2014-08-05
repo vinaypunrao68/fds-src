@@ -2,6 +2,8 @@
 #
 # Copyright 2014 by Formation Data Systems, Inc.
 #
+
+# Import python stdlib and modules
 import os
 import sys
 import argparse
@@ -11,8 +13,11 @@ import time
 import random
 import hashlib
 import optparse
-import fdslib.BringUpCfg as fdscfg
 from multiprocessing import Process, Array
+
+# Import FDS specific libs
+import fdslib.BringUpCfg as fdscfg
+#import fdslib.workload_gen as workload_gen
 
 class RandBytes():
     def __init__(self, srand):
@@ -87,22 +92,33 @@ class BlockGen():
             assert (len(self.bg_last_chunk) == self.bg_chunk_size)
 
         chunks_cnt = random.randint(self.bg_min_chunks, self.bg_max_chunks)
-
-        # TODO: allocate byte array with size, then copy the data in, instead of extend.
-        block = bytearray()
+        chunk_size = self.bg_chunk_size
+        total_size = chunks_cnt * chunk_size
+        wr_off     = 0
+        block      = bytearray(total_size)
         for i in xrange(0, chunks_cnt):
-            block.extend(self.bg_last_chunk)
+            # block.extend(self.bg_last_chunk)
+            block[wr_off:(wr_off + chunk_size)] = self.bg_last_chunk
+            wr_off += chunk_size
+        assert(wr_off == total_size)
         self.bg_last_chcnt = chunks_cnt
         self.bg_last_block = block
         return block
 
     def __get_rand_block(self):
-        block = bytearray()
         chunks_cnt = random.randint(self.bg_min_chunks, self.bg_max_chunks)
+        chunk_size = self.bg_chunk_size
+        total_size = chunks_cnt * chunk_size
+        wr_off     = 0
+        block      = bytearray(total_size)
         for i in xrange(0, chunks_cnt):
             self.bg_last_chunk = self.bg_rand_bytes.get_rand_bytes(self.bg_chunk_size)
-            assert (len(self.bg_last_chunk) == self.bg_chunk_size)
-            block.extend(self.bg_last_chunk)
+            assert (len(self.bg_last_chunk) == chunk_size)
+            # block.extend(self.bg_last_chunk)
+            block[wr_off:(wr_off + chunk_size)] = self.bg_last_chunk
+            wr_off += chunk_size
+        assert(wr_off == total_size)
+
         self.bg_last_chcnt = chunks_cnt
         self.bg_last_block = block
         return block
@@ -117,7 +133,7 @@ class DataGen():
                  debug=False):
         """Initialize new DataGen object to feed data to a feeder."""
         assert(isinstance(file_size, int) and file_size > 0)
-        assert(isinstance(dup_ratio, int) and dup_ratio >= 0)
+        assert(isinstance(dup_ratio, int) and dup_ratio >= 0 and dup_ratio <= 100)
         assert(isinstance(sel_policy, str))
         sel_policy = sel_policy.lower()
         assert(sel_policy == "fifo" or sel_policy == "random")
@@ -155,7 +171,6 @@ class DataGen():
             else:
                 self.dg_rand_bytes += block_len
             assert(cur_wr_off <= total_size)
-            # TODO: keep track of % of dup/random completed, then finish the data set with the rest of non-completed.
 
         assert(cur_wr_off == total_size)
 
@@ -180,17 +195,22 @@ class DataGen():
             assert(self.dg_sel_policy == "random")
             return self.__get_next_blockgen_random()
 
-
     def __get_next_blockgen_fifo(self):
         rand = self.dg_rand_list
         self.dg_rand_list = not rand
         if rand is True:
             if len(self.dg_random_blocks) == 0:
                 return self.__get_next_blockgen()
+            elif self.__rand_ratio_met():
+                assert(not self.__dup_ratio_met())
+                return self.__get_next_blockgen()
             block = self.dg_random_blocks.pop(0)
             self.dg_random_blocks.append(block)
         else:
             if len(self.dg_dup_blocks) == 0:
+                return self.__get_next_blockgen()
+            elif self.__dup_ratio_met():
+                assert(not self.__rand_ratio_met())
                 return self.__get_next_blockgen()
             block = self.dg_dup_blocks.pop(0)
             self.dg_dup_blocks.append(block)
@@ -201,6 +221,18 @@ class DataGen():
     def __get_next_blockgen_random(self):
         # TODO: Add random select policy
         assert(False and "Feature not implemented")
+
+    def __ratio_met(self, ratio, bytes):
+        met_ratio = float(bytes) / float(self.dg_file_size)
+        if met_ratio >= float(ratio) / 100.0:
+            return True
+        return False
+
+    def __rand_ratio_met(self):
+        return self.__ratio_met(100 - self.dg_dup_ratio, self.dg_rand_bytes)
+
+    def __dup_ratio_met(self):
+        return self.__ratio_met(self.dg_dup_ratio, self.dg_dup_bytes)
 
 def __test_bg():
     print "Unit test for Block Generator"
@@ -298,3 +330,23 @@ if __name__ == "__main__":
                           dup_blocks,
                           options.verbose)
         datagen.generate_data()
+
+        # TODO: create a DataObject to feed into Processor class.  Replace readData method()
+
+            # Create a test volume
+        """
+        try:
+            print requests.put('http://localhost:8000/bucket1')
+        except Exception as e:
+            print 'Bucket create failed!'
+
+        # TODO: add a json spec path to config above.
+        # TODO: for file_count, generate that many files.  Write a function to be use as readData() below.
+        w = workload_gen.Workload("/tmp/foobar"])
+        w.generate()
+        w.print_spec()
+        print w.load
+        p = workload_gen.Processor(w.load, None)
+        print tabulate(p.toHTTP())
+        """
+
