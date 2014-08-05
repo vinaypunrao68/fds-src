@@ -129,7 +129,7 @@ void PerfTraceUTProc::task(int id) {
         if (!y) {
             PerfTracer::tracePointEnd(jobs_[id].ctx);
         } else {
-            pc = PerfTracer::tracePointEnd(jobs_[id].id, jobs_[id].volid);
+            pc = PerfTracer::tracePointEnd(jobs_[id].id);
         }
 
         std::cout << "end - task=" << jobs_[id].id << " type=" << eventTypeToStr[jobs_[id].type] <<

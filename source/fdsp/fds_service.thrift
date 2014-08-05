@@ -437,7 +437,7 @@ struct VolSyncStateRspMsg {
  * DM Service.  Only put sync rpc calls in here.  Async RPC calls use
  * message passing provided by BaseAsyncSvc
  */
-service DMSvc extends BaseAsyncSvc {
+service DMSvc extends PlatNetSvc {
 }
 
 /**

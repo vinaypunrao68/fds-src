@@ -8,6 +8,7 @@
 #include <dm-vol-cat/DmVolumeCatalog.h>
 #include <dm-vol-cat/DmPersistVc.h>
 #include <dm-vol-cat/DmVcCache.h>
+#include <PerfTrace.h>
 
 namespace fds {
 
@@ -74,6 +75,8 @@ DmVolumeCatalog::getMetaExtent(fds_volid_t volume_id,
         if (error != ERR_CAT_ENTRY_NOT_FOUND) {
             cacheCat->putExtent(volume_id, blob_name, extentZero);
         }
+    } else {
+        PerfTracer::incr(DM_CACHE_HIT, volume_id, blob_name);
     }
 
     return extentZero;
@@ -110,6 +113,8 @@ DmVolumeCatalog::getExtent(fds_volid_t volume_id,
         if (error != ERR_CAT_ENTRY_NOT_FOUND) {
             cacheCat->putExtent(volume_id, blob_name, extent);
         }
+    } else {
+        PerfTracer::incr(DM_CACHE_HIT, volume_id, blob_name);
     }
 
     return extent;

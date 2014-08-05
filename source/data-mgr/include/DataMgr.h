@@ -83,6 +83,10 @@ class DataMgr : public Module, public DmIoReqHandler {
      */
     virtual Error enqueueMsg(fds_volid_t volId, dmCatReq* ioReq) override;
 
+    FdsCounters * getCounters() {
+        return counters_.get();
+    }
+
  private:
     typedef enum {
       NORMAL_MODE = 0,
@@ -123,8 +127,13 @@ class DataMgr : public Module, public DmIoReqHandler {
 
         Error processIO(FDS_IOType* _io) {
             Error err(ERR_OK);
+
             dmCatReq *io = static_cast<dmCatReq*>(_io);
             GLOGDEBUG << "processing : " << io->io_type;
+
+            PerfTracer::tracePointEnd(io->opQoSWaitCtx);
+            PerfTracer::tracePointBegin(io->opLatencyCtx);
+
             switch (io->io_type){
                 /* TODO(Rao): Add the new refactored DM messages types here */
                 case FDS_START_BLOB_TX:
@@ -224,6 +233,9 @@ class DataMgr : public Module, public DmIoReqHandler {
      * Used to protect access to vol_meta_map.
      */
     fds_mutex *vol_map_mtx;
+
+    /* Counters */
+    std::unique_ptr<FdsCounters> counters_;
 
     Error getVolObjSize(fds_volid_t volId,
                         fds_uint32_t *maxObjSize);
