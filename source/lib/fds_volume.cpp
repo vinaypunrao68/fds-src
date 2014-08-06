@@ -318,7 +318,8 @@ FDS_VolumeQueue::FDS_VolumeQueue(fds_uint32_t q_capacity,
                                  fds_uint32_t prio) :
         iops_max(_iops_max),
         iops_min(_iops_min),
-        priority(prio) {
+        priority(prio),
+        count_(0) {
     volQueue = new boost::lockfree::queue<FDS_IOType *> (q_capacity);
     volQState = FDS_VOL_Q_INACTIVE;
 }
@@ -361,6 +362,7 @@ void   FDS_VolumeQueue::resumeIO() {
 void FDS_VolumeQueue::enqueueIO(FDS_IOType *io) {
     if (volQState == FDS_VOL_Q_ACTIVE || volQState == FDS_VOL_Q_STOP_DEQUEUE) {
         while (!volQueue->push(io)){}
+        ++count_;
     }
 }
 
@@ -371,6 +373,7 @@ FDS_IOType   *FDS_VolumeQueue::dequeueIO() {
         if (volQState == FDS_VOL_Q_QUIESCING && volQueue->empty())  {
             volQState = FDS_VOL_Q_SUSPENDED;
         }
+        --count_;
         return io;
     }
     return NULL;

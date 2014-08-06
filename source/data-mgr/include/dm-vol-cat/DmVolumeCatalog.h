@@ -8,6 +8,9 @@
 #include <list>
 #include <set>
 #include <vector>
+#include <unordered_map>
+#include <atomic>
+
 #include <util/Log.h>
 #include <fds_error.h>
 #include <fds_module.h>
@@ -15,12 +18,27 @@
 #include <blob/BlobTypes.h>
 #include <VcQueryIface.h>
 #include <dm-vol-cat/DmExtentTypes.h>
+#include <concurrency/RwLock.h>
 
 namespace fds {
 
 // forward declarations
 class DmPersistVolCatalog;
 class DmCacheVolCatalog;
+
+struct DmVolumeDetails {
+    typedef boost::shared_ptr<DmVolumeDetails> ptr;
+    typedef boost::shared_ptr<const DmVolumeDetails> const_ptr;
+
+    fds_volid_t volId;
+    std::atomic<fds_uint64_t> size;
+    std::atomic<fds_uint64_t> blobCount;
+
+    DmVolumeDetails(fds_volid_t volId_, fds_uint64_t size_, fds_uint64_t count_)
+            : volId(volId_), size(size_), blobCount(count_) {}
+};
+
+typedef std::unordered_map<fds_volid_t, DmVolumeDetails::ptr> DmVolumeDetailsMap_t;
 
 /**
  * This is the module that manages committed blob metadata
@@ -224,6 +242,12 @@ class DmVolumeCatalog : public Module,
                      const std::vector<BlobExtent::const_ptr>& extents);
 
     /**
+     * Internal function to get blob count and size of the volume
+     */
+    Error getVolumeMetaInternal(fds_volid_t volume_id,
+                        fds_uint64_t* size,
+                        fds_uint64_t* blob_count);
+    /**
      * Volume catalog cache layer module
      */
     std::unique_ptr<DmCacheVolCatalog> cacheCat;
@@ -238,6 +262,9 @@ class DmVolumeCatalog : public Module,
      * are dereferenced by a blob
      */
     expunge_objs_cb_t expunge_cb;
+
+    DmVolumeDetailsMap_t volDetailsMap_;
+    fds_rwlock lockVolDetailsMap_;
 };
 }  // namespace fds
 

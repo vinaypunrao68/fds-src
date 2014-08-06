@@ -12,6 +12,7 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 
 #include <string>
+#include <atomic>
 
 #include <fds_types.h>
 #include <fds_error.h>
@@ -237,9 +238,15 @@ class FDS_VolumeQueue {
 
         void   resumeIO();
 
+        inline fds_uint32_t count() const {
+            return count_;
+        }
+
         void   enqueueIO(FDS_IOType *io);
         FDS_IOType   *dequeueIO();
-    };
 
+  private:
+        std::atomic<fds_uint32_t> count_;
+    };
 }  // namespace fds
 #endif  // SOURCE_INCLUDE_FDS_VOLUME_H_
