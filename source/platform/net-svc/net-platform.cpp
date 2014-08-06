@@ -295,7 +295,12 @@ PlatAgent::agent_bind_svc(EpPlatformdMod *map, node_data_t *ninfo, fpi::FDSP_Mgr
             << rec.rmp_major << ":" << rec.rmp_minor << " idx " << idx;
 
         rec.rmp_minor = Platform::plat_svc_types[i];
-        ep_map_set_port_info(&rec, base_port + rec.rmp_minor);
+        if ((t == fpi::FDSP_STOR_HVISOR) && (rec.rmp_minor == NET_SVC_CONFIG)) {
+            /* Hard-coded to bind to Java endpoint in AM. */
+            ep_map_set_port_info(&rec, 8999);
+        } else {
+            ep_map_set_port_info(&rec, base_port + rec.rmp_minor);
+        }
     }
     /* Restore everything back to ninfo for the next loop */
     ninfo->nd_base_port = saved_port;

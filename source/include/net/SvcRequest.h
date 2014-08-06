@@ -153,7 +153,6 @@ struct SvcRequestIf {
         fds::serializeFdspMsg(*payload, buf);
         setPayloadBuf(msgTypeId, buf);
     }
-
     void setPayloadBuf(const fpi::FDSPMsgTypeId &msgTypeId,
                        boost::shared_ptr<std::string> &buf);
 
@@ -207,6 +206,23 @@ struct SvcRequestIf {
 };
 typedef boost::shared_ptr<SvcRequestIf> SvcRequestIfPtr;
 
+#define EpInvokeRpc(SendIfT, func, svc_uuid, maj, min, ...)                     \
+    do {                                                                        \
+        auto net = NetMgr::ep_mgr_singleton();                                  \
+        auto eph = net->svc_get_handle<SendIfT>(svc_uuid, maj, min);            \
+        fds_verify(eph != NULL);                                                \
+        fds_verify(hdr.msg_type_id != fpi::UnknownMsgTypeId);                   \
+        try {                                                                   \
+            eph->svc_rpc<SendIfT>()->func(__VA_ARGS__);                         \
+            GLOGDEBUG << "[Svc] sent RPC "                                      \
+                << std::hex << svc_uuid.svc_uuid << std::dec;                   \
+        } catch(std::exception &e) {                                            \
+            GLOGDEBUG << "[Svc] RPC error " << e.what();                        \
+        } catch(...) {                                                          \
+            GLOGDEBUG << "[Svc] Unknown RPC error " << e.what();                \
+            fds_assert(!"Unknown exception");                                   \
+        }                                                                       \
+    } while (0)
 
 /**
  * Wrapper around asynchronous svc request
