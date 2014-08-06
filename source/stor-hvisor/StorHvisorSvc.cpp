@@ -550,7 +550,7 @@ Error StorHvCtrl::getBlobSvc(fds::AmQosReq *qosReq)
     bool inCache = shVol->vol_catalog_cache->LookupObjectId(blobReq->getBlobName(),
                                           blobReq->getBlobOffset(),
                                           objId);
-    if (true || !inCache) {
+    if ((disableVcc == true) || (inCache == false)) {
         fds::PerfTracer::tracePointBegin(blobReq->dmPerfCtx); 
         issueQueryCatalog(blobReq->getBlobName(),
                           blobReq->getBlobOffset(),
