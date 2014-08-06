@@ -994,6 +994,7 @@ DataMgr::updateCatalogOnce(dmCatReq *io) {
     // Commit the metadata updates
     // The commit callback we pass in will actually call the
     // final service callback
+    PerfTracer::tracePointBegin(updCatReq->commitBlobReq->opLatencyCtx);
     err = timeVolCat_->commitBlobTx(updCatReq->volId,
                                     updCatReq->blob_name,
                                     updCatReq->ioBlobTxDesc,

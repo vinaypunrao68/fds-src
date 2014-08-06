@@ -473,6 +473,8 @@ void StorHvVolumeTable::moveWaitBlobsToQosQueue(fds_volid_t vol_uuid,
                 AmQosReq* req = blobs[i];
                 fds_verify(req != NULL);
                 req->setVolId(vol_uuid);
+                fds::PerfTracer::tracePointBegin(req->getBlobReqPtr()->e2eReqPerfCtx);
+                fds::PerfTracer::tracePointBegin(req->getBlobReqPtr()->qosPerfCtx);
                 storHvisor->qos_ctrl->enqueueIO(vol_uuid, req);
             }
             blobs.clear();
