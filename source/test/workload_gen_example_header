@@ -1,0 +1,7 @@
+magic_word      # Magic word starts header
+50              # Dedup ratio
+4               # Data size in bytes
+test_obj_1      # Data identifier (name, ID, etc)
+data            # Actual data serialized to string
+
+# Data is delimitered by newlines.  There must be no newlines in data

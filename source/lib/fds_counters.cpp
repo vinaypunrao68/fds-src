@@ -15,8 +15,6 @@ void SamplerTask::runTimerTask()
 {
     fds_mutex::scoped_lock lock(lock_);
     for (auto counters : counters_ref_) {
-        GLOGNORMAL << "Counters -> " << counters->id();
-        GLOGNORMAL << counters->toString(); 
         snapshot_counters_.push_back(new FdsCounters(*counters));
     }
 }
@@ -92,11 +90,12 @@ std::string FdsCountersMgr::export_as_graphite()
         std::string counters_id = counters->id();
         for (auto c : counters->exp_counters_) {
             bool lat = typeid(*c) == typeid(LatencyCounter);
-            std::string strId = lat ? c->id() + ".latency" : c->id();
+            std::string strId = lat ? c->id() + ":volume=" + std::to_string(c->volid()) + 
+                    ".latency" : c->id() + ":volume=" + std::to_string(c->volid());
             oss << id_ << "." << counters_id << "." << strId << " " << c->value() << " "
                     << ts << std::endl;
             if (lat) {
-                strId = c->id() + ".count";
+                strId = c->id() + ":volume=" + std::to_string(c->volid()) + ".count";
                 oss << id_ << "." << counters_id << "." << strId << " " <<
                     dynamic_cast<LatencyCounter*>(c)->count()
                         << " " << ts << std::endl;

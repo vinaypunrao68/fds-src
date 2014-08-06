@@ -6,6 +6,7 @@
 
 #include <fds_types.h>
 #include <fds_error.h>
+#include <map>
 #include <list>
 #include <native/types.h>
 #include <string>
@@ -101,6 +102,22 @@ class FDS_NativeAPI {
                  fds_bool_t lastBuf,
                  fdsnPutObjectHandler putObjHandler,
                  void *callbackData);
+
+    /**
+     * Performs a putBlob operation in a single call. No
+     * prior transaction context or commit request is needed.
+     * If success if returned, the update has been made and
+     * committed to the blob.
+     */
+    void PutBlobOnce(const std::string& volumeName,
+                     const std::string& blobName,
+                     char *buffer,
+                     fds_uint64_t startByte,
+                     fds_uint64_t buflen,
+                     fds_int32_t blobMode,
+                     boost::shared_ptr< std::map<std::string, std::string> >& metadata,
+                     fdsnPutObjectHandler putObjHandler,
+                     void *callbackData);
 
     void DeleteObject(BucketContext *bucket_ctxt,
                       std::string ObjKey,

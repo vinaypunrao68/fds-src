@@ -428,6 +428,15 @@ public:
                                const std::string& blobName,
                                const fds_uint64_t& blobOffset,
                                const fds_uint64_t &len,
+                               const fds_int32_t &blobMode,
+                               boost::shared_ptr< std::map<std::string, std::string> > metadata,
+                               const fds_volid_t& volId,
+                               const fds_uint64_t& txId,
+                               QuorumSvcRequestRespCb respCb);
+    void issueUpdateCatalogMsg(const ObjectID &objId,
+                               const std::string& blobName,
+                               const fds_uint64_t& blobOffset,
+                               const fds_uint64_t &len,
                                const bool &lastBuf,
                                const fds_volid_t& volId,
                                const fds_uint64_t& txId,
@@ -457,6 +466,10 @@ public:
                                      QuorumSvcRequest* svcReq,
                                      const Error& error,
                                      boost::shared_ptr<std::string> payload);
+    void putBlobUpdateCatalogOnceMsgResp(fds::AmQosReq* qosReq,
+                                         QuorumSvcRequest* svcReq,
+                                         const Error& error,
+                                         boost::shared_ptr<std::string> payload);
     void putBlobPutObjectMsgResp(fds::AmQosReq* qosReq,
                                  QuorumSvcRequest* svcReq,
                                  const Error& error,
@@ -531,8 +544,9 @@ static void processBlobReq(AmQosReq *qosReq) {
             break;
 
         case fds::FDS_IO_WRITE:
+        case fds::FDS_PUT_BLOB_ONCE:  
         case fds::FDS_PUT_BLOB:
-            err = storHvisor->putBlob(qosReq);
+            err = storHvisor->putBlobSvc(qosReq);
             break;
 
         case fds::FDS_BUCKET_STATS:

@@ -301,6 +301,7 @@ std::ostream& operator<<(std::ostream& os, const fds_io_op_t& opType) {
         ENUMCASEOS(FDS_ATTACH_VOL, os);
         ENUMCASEOS(FDS_LIST_BLOB                 , os);
         ENUMCASEOS(FDS_PUT_BLOB                  , os);
+        ENUMCASEOS(FDS_PUT_BLOB_ONCE             , os);
         ENUMCASEOS(FDS_GET_BLOB                  , os);
         ENUMCASEOS(FDS_STAT_BLOB                 , os);
         ENUMCASEOS(FDS_GET_BLOB_METADATA, os);

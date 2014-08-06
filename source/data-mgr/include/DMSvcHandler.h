@@ -82,8 +82,17 @@ class DMSvcHandler : virtual public DMSvcIf, public PlatNetSvcHandler {
 
     void updateCatalog(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                        boost::shared_ptr<fpi::UpdateCatalogMsg>& updcatMsg);
+    void updateCatalogOnce(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                           boost::shared_ptr<
+                           fpi::UpdateCatalogOnceMsg>& updcatMsg);
     void updateCatalogCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                          const Error &e, DmIoUpdateCat *req);
+    void updateCatalogOnceCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                             const Error &e,
+                             DmIoUpdateCatOnce *req);
+    void commitBlobOnceCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                          const Error &e,
+                          DmIoCommitBlobTx *req);
 
     void deleteCatalogObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                        boost::shared_ptr<fpi::DeleteCatalogObjectMsg>& delcatMsg);

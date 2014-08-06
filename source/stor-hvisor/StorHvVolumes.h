@@ -425,11 +425,16 @@ class PutBlobReq: public FdsBlobReq {
     // Needed fields
     BlobTxId::ptr txDesc;
 
+    /// Used for putBlobOnce scenarios.
+    boost::shared_ptr< std::map<std::string, std::string> > metadata;
+    fds_int32_t blobMode;
+
     /* ack cnt for responses, decremented when response from SM and DM come back */
     std::atomic<int> respAcks;
     /* Return status for completion callback */
     Error retStatus;
 
+    /// Constructor used on regular putBlob requests.
     PutBlobReq(fds_volid_t _volid,
                const std::string& _blob_name, //same as objKey
                fds_uint64_t _blob_offset,
@@ -442,6 +447,17 @@ class PutBlobReq: public FdsBlobReq {
                void* _req_context,
                fdsnPutObjectHandler _put_obj_handler,
                void* _callback_data);
+
+    /// Constructor used on putBlobOnce requests.
+    PutBlobReq(fds_volid_t          _volid,
+               const std::string&   _blob_name, //same as objKey
+               fds_uint64_t         _blob_offset,
+               fds_uint64_t         _data_len,
+               char*                _data_buf,
+               fds_int32_t          _blobMode,
+               boost::shared_ptr< std::map<std::string, std::string> >& _metadata,
+               fdsnPutObjectHandler _put_obj_handler,
+               void*                _callback_data);
 
     fds_bool_t isLastBuf() const {
         return lastBuf;

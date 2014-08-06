@@ -584,6 +584,8 @@ int DataMgr::mod_init(SysParams const *const param)
     numTestVols = 10;
     scheduleRate = 4000;
 
+    counters_.reset(new FdsCounters("DM", modProvider_->get_cntrs_mgr().get()));
+
     catSyncRecv = boost::make_shared<CatSyncReceiver>(this);
     closedmt_timer = boost::make_shared<FdsTimer>();
     closedmt_timer_task = boost::make_shared<CloseDMTTimerTask>(*closedmt_timer,
@@ -900,9 +902,13 @@ void DataMgr::startBlobTx(dmCatReq *io)
         VolumeMeta* vol_meta = vol_meta_map[startBlobReq->volId];
         if ((!vol_meta->isForwarding() || vol_meta->isForwardFinishing()) &&
             (startBlobReq->dmt_version != omClient->getDMTVersion())) {
+            PerfTracer::incr(startBlobReq->opReqFailedPerfEventType, startBlobReq->getVolId(),
+                    startBlobReq->perfNameStr);
             err = ERR_IO_DMT_MISMATCH;
         }
     } else {
+        PerfTracer::incr(startBlobReq->opReqFailedPerfEventType, startBlobReq->getVolId(),
+                startBlobReq->perfNameStr);
         err = ERR_VOL_NOT_FOUND;
     }
     vol_map_mtx->unlock();
@@ -912,20 +918,98 @@ void DataMgr::startBlobTx(dmCatReq *io)
                                        startBlobReq->blob_name,
                                        startBlobReq->blob_mode,
                                        startBlobReq->ioBlobTxDesc);
+        if (!err.ok()) {
+            PerfTracer::incr(startBlobReq->opReqFailedPerfEventType, startBlobReq->getVolId(),
+                    startBlobReq->perfNameStr);
+        }
     }
     qosCtrl->markIODone(*startBlobReq);
+    PerfTracer::tracePointEnd(startBlobReq->opLatencyCtx);
+    PerfTracer::tracePointEnd(startBlobReq->opReqLatencyCtx);
     startBlobReq->dmio_start_blob_tx_resp_cb(err, startBlobReq);
 }
 
 void DataMgr::updateCatalog(dmCatReq *io)
 {
-    Error err;
     DmIoUpdateCat *updCatReq= static_cast<DmIoUpdateCat*>(io);
-    err = timeVolCat_->updateBlobTx(updCatReq->volId,
+    Error err = timeVolCat_->updateBlobTx(updCatReq->volId,
                                     updCatReq->ioBlobTxDesc,
                                     updCatReq->obj_list);
+    if (!err.ok()) {
+        PerfTracer::incr(updCatReq->opReqFailedPerfEventType, updCatReq->getVolId(),
+                updCatReq->perfNameStr);
+    }
     qosCtrl->markIODone(*updCatReq);
+    PerfTracer::tracePointEnd(updCatReq->opLatencyCtx);
+    PerfTracer::tracePointEnd(updCatReq->opReqLatencyCtx);
     updCatReq->dmio_updatecat_resp_cb(err, updCatReq);
+}
+
+void
+DataMgr::updateCatalogOnce(dmCatReq *io) {
+    DmIoUpdateCatOnce *updCatReq= static_cast<DmIoUpdateCatOnce*>(io);
+    // Start the transaction
+    Error err = timeVolCat_->startBlobTx(updCatReq->volId,
+                                         updCatReq->blob_name,
+                                         updCatReq->updcatMsg->blob_mode,
+                                         updCatReq->ioBlobTxDesc);
+    if (err != ERR_OK) {
+        qosCtrl->markIODone(*updCatReq);
+        PerfTracer::incr(updCatReq->opReqFailedPerfEventType, updCatReq->getVolId(),
+                         updCatReq->perfNameStr);
+        PerfTracer::tracePointEnd(updCatReq->opLatencyCtx);
+        PerfTracer::tracePointEnd(updCatReq->opReqLatencyCtx);
+        updCatReq->dmio_updatecat_resp_cb(err, updCatReq);
+        return;
+    }
+
+    // Apply the offset updates
+    err = timeVolCat_->updateBlobTx(updCatReq->volId,
+                                    updCatReq->ioBlobTxDesc,
+                                    updCatReq->updcatMsg->obj_list);
+    if (err != ERR_OK) {
+        qosCtrl->markIODone(*updCatReq);
+        PerfTracer::incr(updCatReq->opReqFailedPerfEventType, updCatReq->getVolId(),
+                         updCatReq->perfNameStr);
+        PerfTracer::tracePointEnd(updCatReq->opLatencyCtx);
+        PerfTracer::tracePointEnd(updCatReq->opReqLatencyCtx);
+        updCatReq->dmio_updatecat_resp_cb(err, updCatReq);
+        return;
+    }
+
+    // Apply the metadata updates
+    err = timeVolCat_->updateBlobTx(updCatReq->volId,
+                                    updCatReq->ioBlobTxDesc,
+                                    updCatReq->updcatMsg->meta_list);
+    if (err != ERR_OK) {
+        qosCtrl->markIODone(*updCatReq);
+        PerfTracer::incr(updCatReq->opReqFailedPerfEventType, updCatReq->getVolId(),
+                         updCatReq->perfNameStr);
+        PerfTracer::tracePointEnd(updCatReq->opLatencyCtx);
+        PerfTracer::tracePointEnd(updCatReq->opReqLatencyCtx);
+        updCatReq->dmio_updatecat_resp_cb(err, updCatReq);
+        return;
+    }
+
+    // Commit the metadata updates
+    // The commit callback we pass in will actually call the
+    // final service callback
+    err = timeVolCat_->commitBlobTx(updCatReq->volId,
+                                    updCatReq->blob_name,
+                                    updCatReq->ioBlobTxDesc,
+                                    std::bind(&DataMgr::commitBlobTxCb, this,
+                                              std::placeholders::_1, std::placeholders::_2,
+                                              std::placeholders::_3, std::placeholders::_4,
+                                              updCatReq->commitBlobReq));
+    if (err != ERR_OK) {
+        qosCtrl->markIODone(*updCatReq);
+        PerfTracer::incr(updCatReq->opReqFailedPerfEventType, updCatReq->getVolId(),
+                         updCatReq->perfNameStr);
+        PerfTracer::tracePointEnd(updCatReq->opLatencyCtx);
+        PerfTracer::tracePointEnd(updCatReq->opReqLatencyCtx);
+        updCatReq->dmio_updatecat_resp_cb(err, updCatReq);
+        return;
+    }
 }
 
 void DataMgr::commitBlobTx(dmCatReq *io)
@@ -943,7 +1027,11 @@ void DataMgr::commitBlobTx(dmCatReq *io)
                                               std::placeholders::_3, std::placeholders::_4,
                                               commitBlobReq));
     if (err != ERR_OK) {
+        PerfTracer::incr(commitBlobReq->opReqFailedPerfEventType, commitBlobReq->getVolId(),
+                commitBlobReq->perfNameStr);
         qosCtrl->markIODone(*commitBlobReq);
+        PerfTracer::tracePointEnd(io->opLatencyCtx);
+        PerfTracer::tracePointEnd(io->opReqLatencyCtx);
         commitBlobReq->dmio_commit_blob_tx_resp_cb(err, commitBlobReq);
     }
 }
@@ -974,6 +1062,14 @@ void DataMgr::commitBlobTxCb(const Error &err,
     // from another DM, which is not really consuming local
     // DM resources
     qosCtrl->markIODone(*commitBlobReq);
+
+    PerfTracer::tracePointEnd(commitBlobReq->opLatencyCtx);
+    PerfTracer::tracePointEnd(commitBlobReq->opReqLatencyCtx);
+
+    if (!err.ok()) {
+        PerfTracer::incr(commitBlobReq->opReqFailedPerfEventType, commitBlobReq->getVolId(),
+                commitBlobReq->perfNameStr);
+    }
 
     // do forwarding if needed and commit was successfull
     if (error.ok() &&
@@ -1097,11 +1193,17 @@ DataMgr::scheduleAbortBlobTxSvc(void * _io)
 
     BlobTxId::const_ptr blobTxId = abortBlobTx->ioBlobTxDesc;
     fds_verify(*blobTxId != blobTxIdInvalid);
-    /*
-     * TODO(sanjay) we will have  intergrate this with TVC  API's
-     */
 
+    // Call TVC abortTx
+    timeVolCat_->abortBlobTx(abortBlobTx->volId, blobTxId);
+
+    if (!err.ok()) {
+        PerfTracer::incr(abortBlobTx->opReqFailedPerfEventType, abortBlobTx->getVolId(),
+                abortBlobTx->perfNameStr);
+    }
     qosCtrl->markIODone(*abortBlobTx);
+    PerfTracer::tracePointEnd(abortBlobTx->opLatencyCtx);
+    PerfTracer::tracePointEnd(abortBlobTx->opReqLatencyCtx);
     abortBlobTx->dmio_abort_blob_tx_resp_cb(err, abortBlobTx);
 }
 
@@ -1116,9 +1218,16 @@ DataMgr::queryCatalogBackendSvc(void * _io)
                                              &(qryCatReq->blob_version),
                                              &(qryCatReq->queryMsg->meta_list),
                                              &(qryCatReq->queryMsg->obj_list));
+    if (!err.ok()) {
+        PerfTracer::incr(qryCatReq->opReqFailedPerfEventType, qryCatReq->getVolId(),
+                qryCatReq->perfNameStr);
+    }
+
     qosCtrl->markIODone(*qryCatReq);
     // TODO(Andrew): Note the cat request gets freed
     // by the callback
+    PerfTracer::tracePointEnd(qryCatReq->opLatencyCtx);
+    PerfTracer::tracePointEnd(qryCatReq->opReqLatencyCtx);
     qryCatReq->dmio_querycat_resp_cb(err, qryCatReq);
 }
 
@@ -1283,9 +1392,14 @@ void DataMgr::scheduleGetBlobMetaDataSvc(void *_io) {
                                              &(getBlbMeta->blob_version),
                                              &(blobSize),
                                              &(getBlbMeta->message->metaDataList));
-
+    if (!err.ok()) {
+        PerfTracer::incr(getBlbMeta->opReqFailedPerfEventType, getBlbMeta->getVolId(),
+                getBlbMeta->perfNameStr);
+    }
     getBlbMeta->message->byteCount = blobSize;
     qosCtrl->markIODone(*getBlbMeta);
+    PerfTracer::tracePointEnd(getBlbMeta->opLatencyCtx);
+    PerfTracer::tracePointEnd(getBlbMeta->opReqLatencyCtx);
     // TODO(Andrew): Note the cat request gets freed
     // by the callback
     getBlbMeta->dmio_getmd_resp_cb(err, getBlbMeta);
@@ -1297,7 +1411,13 @@ void DataMgr::setBlobMetaDataSvc(void *io) {
     err = timeVolCat_->updateBlobTx(setBlbMetaReq->volId,
                                     setBlbMetaReq->ioBlobTxDesc,
                                     setBlbMetaReq->md_list);
+    if (!err.ok()) {
+        PerfTracer::incr(setBlbMetaReq->opReqFailedPerfEventType, setBlbMetaReq->getVolId(),
+                setBlbMetaReq->perfNameStr);
+    }
     qosCtrl->markIODone(*setBlbMetaReq);
+    PerfTracer::tracePointEnd(setBlbMetaReq->opLatencyCtx);
+    PerfTracer::tracePointEnd(setBlbMetaReq->opReqLatencyCtx);
     setBlbMetaReq->dmio_setmd_resp_cb(err, setBlbMetaReq);
 }
 
@@ -1307,7 +1427,13 @@ void DataMgr::getVolumeMetaData(dmCatReq *io) {
     err = timeVolCat_->queryIface()->getVolumeMeta(getVolMDReq->getVolId(),
             reinterpret_cast<fds_uint64_t *>(&getVolMDReq->msg->volume_meta_data.size),
             reinterpret_cast<fds_uint64_t *>(&getVolMDReq->msg->volume_meta_data.blobCount));
+    if (!err.ok()) {
+        PerfTracer::incr(getVolMDReq->opReqFailedPerfEventType, getVolMDReq->getVolId(),
+                getVolMDReq->perfNameStr);
+    }
     qosCtrl->markIODone(*getVolMDReq);
+    PerfTracer::tracePointEnd(getVolMDReq->opLatencyCtx);
+    PerfTracer::tracePointEnd(getVolMDReq->opReqLatencyCtx);
     getVolMDReq->dmio_get_volmd_resp_cb(err, getVolMDReq);
 }
 

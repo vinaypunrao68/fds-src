@@ -383,6 +383,53 @@ FDS_NativeAPI::attachVolume(const std::string& volumeName,
 }
 
 void
+FDS_NativeAPI::PutBlobOnce(const std::string& volumeName,
+                           const std::string& blobName,
+                           char *buffer,
+                           fds_uint64_t startByte,
+                           fds_uint64_t buflen,
+                           fds_int32_t blobMode,
+                           boost::shared_ptr< std::map<std::string, std::string> >& metadata,
+                           fdsnPutObjectHandler putObjHandler,
+                           void *callbackData) {
+    LOGDEBUG << "Start putBlobOnce for volume " << volumeName
+             << " blob " << blobName
+             << " offset " << startByte
+             << " length " << buflen;
+    for (auto& meta : *metadata) {
+        LOGDEBUG << "will send meta  [" << meta.first <<":" << meta.second << "]";
+    }
+
+    // check if bucket is attached to this AM
+    fds_volid_t volid = invalid_vol_id;
+    if (storHvisor->vol_table->volumeExists(volumeName)) {
+        volid = storHvisor->vol_table->getVolumeUUID(volumeName);
+        fds_verify(volid != invalid_vol_id);
+    }
+
+    FdsBlobReq *blob_req = new PutBlobReq(volid,
+                                          blobName,
+                                          startByte,
+                                          buflen,
+                                          buffer,
+                                          blobMode,
+                                          metadata,
+                                          putObjHandler,
+                                          callbackData);
+
+    if (volid != invalid_vol_id) {
+        /* bucket is already attached to this AM, enqueue IO */
+        storHvisor->pushBlobReq(blob_req);
+        return;  // we are done
+    } else {
+        /* we are waiting for OM to tell us if bucket exists */
+        storHvisor->vol_table->addBlobToWaitQueue(volumeName, blob_req);
+    }
+
+    fds_verify(sendTestBucketToOM(volumeName, "", "") == ERR_OK);
+}
+
+void
 FDS_NativeAPI::PutBlob(BucketContext *bucket_ctxt,
                        std::string ObjKey,
                        PutPropertiesPtr put_properties,
@@ -541,6 +588,7 @@ void FDS_NativeAPI::DoCallback(FdsBlobReq  *blob_req,
     }
 
     switch (blob_req->getIoType()) {
+        case FDS_PUT_BLOB_ONCE:
         case FDS_PUT_BLOB:
             static_cast<PutBlobReq*>(blob_req)->DoCallback(status, NULL);
             break;
