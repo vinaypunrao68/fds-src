@@ -110,6 +110,20 @@ std::string logString(const FDS_ProtocolInterface::UpdateCatalogRspMsg& updCat)
     return oss.str();
 }
 
+std::string logString(const FDS_ProtocolInterface::UpdateCatalogOnceMsg& updCat)
+{
+    std::ostringstream oss;
+    oss << " UpdateCatalogOnceMsg";
+    return oss.str();
+}
+
+std::string logString(const FDS_ProtocolInterface::UpdateCatalogOnceRspMsg& updCat)
+{
+    std::ostringstream oss;
+    oss < " UpdateCatalogOnceRspMsg";
+    return oss.str();
+}
+
 std::string logString(const FDS_ProtocolInterface::StartBlobTxMsg& stBlobTx)
 {
     std::ostringstream oss;

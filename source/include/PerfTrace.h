@@ -106,8 +106,8 @@ public:
     static void tracePointBegin(PerfContext & ctx);
 
     // update end timestamp for identified context and updates latency
-    static boost::shared_ptr<PerfContext> tracePointEnd(const std::string & id, 
-                            fds_volid_t volid);
+    static boost::shared_ptr<PerfContext> tracePointEnd(const std::string & id);
+
     static void tracePointEnd(PerfContext & ctx);
 
     // enable/ disable performance data collection
@@ -182,7 +182,7 @@ typedef struct ScopedTracePoint_ {
     }
 
     ~ScopedTracePoint_() {
-        fds::PerfTracer::tracePointEnd(id_, volid_);
+        fds::PerfTracer::tracePointEnd(id_);
     }
 private:
     const std::string & id_;

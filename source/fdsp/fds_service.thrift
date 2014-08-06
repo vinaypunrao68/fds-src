@@ -63,6 +63,8 @@ enum  FDSPMsgTypeId {
     StartBlobTxRspMsgTypeId,
     UpdateCatalogMsgTypeId,
     UpdateCatalogRspMsgTypeId,
+    UpdateCatalogOnceMsgTypeId,
+    UpdateCatalogOnceRspMsgTypeId,
     SetBlobMetaDataMsgTypeId,
     SetBlobMetaDataRspMsgTypeId,
     DeleteCatalogObjectMsgTypeId,
@@ -314,6 +316,22 @@ struct UpdateCatalogMsg {
 struct UpdateCatalogRspMsg {
 }
 
+/* Update catalog once request message */
+struct UpdateCatalogOnceMsg {
+   1: i64    			volume_id;
+   2: string 			blob_name; 	/* User visible name of the blob */
+   3: i64                       blob_version; 	/* Version of the blob */
+   4: i32 			blob_mode;
+   5: i64                       dmt_version;
+   6: i64                   	txId;
+   7: FDSP.FDSP_BlobObjectList 	obj_list; 	/* List of object ids of the objects that this blob is being mapped to */
+   8: FDSP.FDSP_MetaDataList 	meta_list;	/* sequence of arbitrary key/value pairs */
+}
+
+/* Update catalog once response message */
+struct UpdateCatalogOnceRspMsg {
+}
+
 /* Forward catalog update request message */
 struct ForwardCatalogMsg {
    1: i64    			volume_id;
@@ -434,10 +452,26 @@ struct VolSyncStateRspMsg {
 }
 
 /**
+ * Volume's time-series of stats
+ */
+struct VolStatList {
+    1: i64             volume_id;
+    2: list<binary>    statlist;  // list of time slots (each slot is binary)
+}
+
+/**
+ * Stats from a service to DM for aggregation
+ */
+struct StatStreamMsg {
+    1: i64                    start_timestamp;
+    2: list<VolStatList>      volstats;
+}
+
+/**
  * DM Service.  Only put sync rpc calls in here.  Async RPC calls use
  * message passing provided by BaseAsyncSvc
  */
-service DMSvc extends BaseAsyncSvc {
+service DMSvc extends PlatNetSvc {
 }
 
 /**

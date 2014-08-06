@@ -3,10 +3,12 @@
 # Copyright 2014 by Formations Data Systems, Inc.
 #
 import ConfigParser
-import FdsSetup as inst
-import re, sys
+import re
+import sys
 import subprocess
-import pdb, time
+import time
+import pdb
+import FdsSetup as inst
 
 ###
 # Base config class, which is key/value dictionary.
@@ -417,6 +419,23 @@ class FdsScenarioConfig(FdsConfig):
         self.cfg_sect_cli     = cli
         self.cfg_om           = om
 
+class FdsIOBlockConfig(FdsConfig):
+    def __init__(self, name, items, verbose):
+        super(FdsIOBlockConfig, self).__init__(items, verbose)
+        self.nd_conf_dict['io-block-name'] = name
+
+class FdsDatagenConfig(FdsConfig):
+    def __init__(self, name, items, verbose):
+        super(FdsDatagenConfig, self).__init__(items, verbose)
+        self.nd_conf_dict['datagen-name'] = name
+
+    def dg_parse_blocks(self):
+        blocks = self.nd_conf_dict['rand_blocks']
+        self.nd_conf_dict['rand_blocks'] = re.split(',', blocks)
+
+        blocks = self.nd_conf_dict['dup_blocks']
+        self.nd_conf_dict['dup_blocks'] = re.split(',', blocks)
+
 ###
 # Handle fds bring up config parsing
 #
@@ -431,6 +450,8 @@ class FdsConfigFile(object):
         self.cfg_volumes   = []
         self.cfg_vol_pol   = []
         self.cfg_scenarios = []
+        self.cfg_io_blocks = []
+        self.cfg_datagen   = []
         self.cfg_cli       = None
         self.cfg_om        = None
         self.cfg_parser    = ConfigParser.ConfigParser()
@@ -471,6 +492,10 @@ class FdsConfigFile(object):
                 self.cfg_volumes.append(FdsVolConfig(section, items, verbose))
             elif re.match('scenario', section)!= None:
                 self.cfg_scenarios.append(FdsScenarioConfig(section, items, verbose))
+            elif re.match('io_block', section) != None:
+                self.cfg_io_blocks.append(FdsIOBlockConfig(section, items, verbose))
+            elif re.match('datagen', section) != None:
+                self.cfg_datagen.append(FdsDatagenConfig(section, items, verbose))
             else:
                 print "Unknown section", section
 
@@ -489,6 +514,9 @@ class FdsConfigFile(object):
                                   self.cfg_am, self.cfg_vol_pol,
                                   self.cfg_volumes, [self.cfg_cli],
                                   self.cfg_om)
+
+        for dg in self.cfg_datagen:
+            dg.dg_parse_blocks()
 
         self.cfg_scenarios.sort()
 

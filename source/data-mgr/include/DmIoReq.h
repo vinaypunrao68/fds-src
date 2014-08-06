@@ -80,6 +80,9 @@ namespace fds {
             io_type = _ioType;
             io_vol_id = _volId;
             blob_version = blob_version_invalid;
+
+            // perf-trace related data
+            perfNameStr = "volume:" + std::to_string(_volId);
         }
 
         dmCatReq(fds_volid_t  _volId,
@@ -97,6 +100,9 @@ namespace fds {
             io_type = _ioType;
             io_vol_id = _volId;
             blob_version = blob_version_invalid;
+
+            // perf-trace related data
+            perfNameStr = "volume:" + std::to_string(_volId);
         }
 
         dmCatReq(const RequestHeader& hdr,
@@ -107,6 +113,9 @@ namespace fds {
                   blob_version(blob_version_invalid) {
             io_type = ioType;
             io_vol_id = hdr.volId;
+
+            // perf-trace related data
+            perfNameStr = "volume:" + std::to_string(hdr.volId);
         }
 
         dmCatReq(fds_volid_t        _volId,
@@ -138,6 +147,9 @@ namespace fds {
             if ((_ioType != FDS_CAT_UPD) && (_ioType != FDS_DM_FWD_CAT_UPD)) {
                 fds_verify(_updCatReq == (FDS_ProtocolInterface::FDSP_UpdateCatalogTypePtr)NULL);
             }
+
+            // perf-trace related data
+            perfNameStr = "volume:" + std::to_string(_volId);
         }
 
         dmCatReq(const fds_volid_t  &_volId,
@@ -156,6 +168,9 @@ namespace fds {
                  _ioType)
         {
             blob_version = _blob_version;
+
+            // perf-trace related data
+            perfNameStr = "volume:" + std::to_string(_volId);
         }
 
         // TODO(Andrew): Remove this...
@@ -288,6 +303,23 @@ class DmIoCommitBlobTx: public dmCatReq {
                      fds_uint64_t _dmt_version)
             : dmCatReq(_volId, _blobName, _blob_version, FDS_COMMIT_BLOB_TX) {
         dmt_version = _dmt_version;
+
+        // perf-trace related data
+        opReqFailedPerfEventType = DM_TX_COMMIT_REQ_ERR;
+
+        opReqLatencyCtx.type = DM_TX_COMMIT_REQ;
+        opReqLatencyCtx.name = perfNameStr;
+        opReqLatencyCtx.reset_volid(_volId);
+
+        opLatencyCtx.type = DM_VOL_CAT_WRITE;
+        opLatencyCtx.name = perfNameStr;
+        opLatencyCtx.reset_volid(_volId);
+
+        opQoSWaitCtx.type = DM_TX_QOS_WAIT;
+        opQoSWaitCtx.name = perfNameStr;
+        opQoSWaitCtx.reset_volid(_volId);
+    }
+    virtual ~DmIoCommitBlobTx() {
     }
 
     virtual std::string log_string() const override {
@@ -309,17 +341,46 @@ class DmIoCommitBlobTx: public dmCatReq {
     CbType dmio_commit_blob_tx_resp_cb;
 };
 
+// Forward declaration. Defined further down.
+class DmIoUpdateCatOnce;
+class DmIoCommitBlobOnce : public  DmIoCommitBlobTx {
+  public:
+    DmIoCommitBlobOnce(const fds_volid_t  &_volId,
+                       const std::string &_blobName,
+                       const blob_version_t &_blob_version,
+                       fds_uint64_t _dmt_version)
+            : DmIoCommitBlobTx(_volId, _blobName, _blob_version, _dmt_version) {
+    }
+
+    DmIoUpdateCatOnce *parent;
+};
+
 /**
  * Request to Abort Blob Tx
  */
 class DmIoAbortBlobTx: public dmCatReq {
   public:
     typedef std::function<void (const Error &e, DmIoAbortBlobTx *blobTx)> CbType;
+
   public:
     DmIoAbortBlobTx(const fds_volid_t  &_volId,
                     const std::string &_blobName,
                     const blob_version_t &_blob_version)
             : dmCatReq(_volId, _blobName, _blob_version, FDS_ABORT_BLOB_TX) {
+        // perf-trace related data
+        opReqFailedPerfEventType = DM_TX_OP_REQ_ERR;
+
+        opReqLatencyCtx.type = DM_TX_OP_REQ;
+        opReqLatencyCtx.name = perfNameStr;
+        opReqLatencyCtx.reset_volid(_volId);
+
+        opLatencyCtx.type = DM_TX_OP;
+        opLatencyCtx.name = perfNameStr;
+        opLatencyCtx.reset_volid(_volId);
+
+        opQoSWaitCtx.type = DM_TX_QOS_WAIT;
+        opQoSWaitCtx.name = perfNameStr;
+        opQoSWaitCtx.reset_volid(_volId);
     }
 
     virtual std::string log_string() const override {
@@ -348,6 +409,20 @@ class DmIoStartBlobTx: public dmCatReq {
                     const fds_uint64_t _dmt_ver)
             : dmCatReq(_volId, _blobName, _blob_version, FDS_START_BLOB_TX), blob_mode(_blob_mode),
             dmt_version(_dmt_ver) {
+        // perf-trace related data
+        opReqFailedPerfEventType = DM_TX_OP_REQ_ERR;
+
+        opReqLatencyCtx.type = DM_TX_OP_REQ;
+        opReqLatencyCtx.name = perfNameStr;
+        opReqLatencyCtx.reset_volid(_volId);
+
+        opLatencyCtx.type = DM_TX_OP;
+        opLatencyCtx.name = perfNameStr;
+        opLatencyCtx.reset_volid(_volId);
+
+        opQoSWaitCtx.type = DM_TX_QOS_WAIT;
+        opQoSWaitCtx.name = perfNameStr;
+        opQoSWaitCtx.reset_volid(_volId);
     }
 
     virtual std::string log_string() const override {
@@ -385,6 +460,20 @@ class DmIoQueryCat: public dmCatReq {
                        qMsg->blob_version,
                        FDS_CAT_QRY),
               queryMsg(qMsg) {
+        // perf-trace related data
+        opReqFailedPerfEventType = DM_QUERY_REQ_ERR;
+
+        opReqLatencyCtx.type = DM_QUERY_REQ;
+        opReqLatencyCtx.name = perfNameStr;
+        opReqLatencyCtx.reset_volid(qMsg->volume_id);
+
+        opLatencyCtx.type = DM_VOL_CAT_READ;
+        opLatencyCtx.name = perfNameStr;
+        opLatencyCtx.reset_volid(qMsg->volume_id);
+
+        opQoSWaitCtx.type = DM_QUERY_QOS_WAIT;
+        opQoSWaitCtx.name = perfNameStr;
+        opQoSWaitCtx.reset_volid(qMsg->volume_id);
     }
 
     virtual std::string log_string() const override {
@@ -430,11 +519,27 @@ class DmIoFwdCat : public dmCatReq {
 class DmIoUpdateCat: public dmCatReq {
   public:
     typedef std::function<void (const Error &e, DmIoUpdateCat *req)> CbType;
+
   public:
     explicit DmIoUpdateCat(boost::shared_ptr<fpi::UpdateCatalogMsg>& _updcatMsg)
             : dmCatReq(_updcatMsg->volume_id, _updcatMsg->blob_name, _updcatMsg->blob_version,
             FDS_CAT_UPD), ioBlobTxDesc(new BlobTxId(_updcatMsg->txId)),
-            obj_list(_updcatMsg->obj_list), updcatMsg(_updcatMsg) {}
+            obj_list(_updcatMsg->obj_list), updcatMsg(_updcatMsg) {
+        // perf-trace related data
+        opReqFailedPerfEventType = DM_TX_OP_REQ_ERR;
+
+        opReqLatencyCtx.type = DM_TX_OP_REQ;
+        opReqLatencyCtx.name = perfNameStr;
+        opReqLatencyCtx.reset_volid(_updcatMsg->volume_id);
+
+        opLatencyCtx.type = DM_TX_OP;
+        opLatencyCtx.name = perfNameStr;
+        opLatencyCtx.reset_volid(_updcatMsg->volume_id);
+
+        opQoSWaitCtx.type = DM_TX_QOS_WAIT;
+        opQoSWaitCtx.name = perfNameStr;
+        opQoSWaitCtx.reset_volid(_updcatMsg->volume_id);
+    }
 
     virtual std::string log_string() const override {
         std::stringstream ret;
@@ -452,6 +557,53 @@ class DmIoUpdateCat: public dmCatReq {
 };
 
 /**
+ * Request to update catalog in a single request.
+ */
+class DmIoUpdateCatOnce : public dmCatReq {
+  public:
+    explicit DmIoUpdateCatOnce(
+        boost::shared_ptr<fpi::UpdateCatalogOnceMsg>& _updcatMsg,
+        DmIoCommitBlobTx *_commitReq)
+            : dmCatReq(_updcatMsg->volume_id,
+                       _updcatMsg->blob_name,
+                       _updcatMsg->blob_version,
+                       FDS_CAT_UPD_ONCE),
+              ioBlobTxDesc(new BlobTxId(_updcatMsg->txId)),
+              commitBlobReq(_commitReq),
+              updcatMsg(_updcatMsg) {
+        // perf-trace related data
+        opReqFailedPerfEventType = DM_TX_COMMIT_REQ_ERR;
+
+        opReqLatencyCtx.type = DM_TX_COMMIT_REQ;
+        opReqLatencyCtx.name = perfNameStr;
+        opReqLatencyCtx.reset_volid(volId);
+
+        opLatencyCtx.type = DM_VOL_CAT_WRITE;
+        opLatencyCtx.name = perfNameStr;
+        opLatencyCtx.reset_volid(volId);
+
+        opQoSWaitCtx.type = DM_TX_QOS_WAIT;
+        opQoSWaitCtx.name = perfNameStr;
+        opQoSWaitCtx.reset_volid(volId);
+    }
+
+    std::string log_string() const override {
+        std::stringstream ret;
+        ret << "DmIoUpdateCat vol "
+            << std::hex << volId << std::dec;
+        return ret.str();
+    }
+
+    BlobTxId::const_ptr ioBlobTxDesc;
+    DmIoCommitBlobTx *commitBlobReq;
+    boost::shared_ptr<fpi::UpdateCatalogOnceMsg> updcatMsg;
+
+    // response callback
+    typedef std::function<void (const Error &e, DmIoUpdateCatOnce *req)> CbType;
+    CbType dmio_updatecat_resp_cb;
+};
+
+/**
  * Request to set blob metadata
  */
 class DmIoSetBlobMetaData: public dmCatReq {
@@ -462,7 +614,22 @@ class DmIoSetBlobMetaData: public dmCatReq {
     explicit DmIoSetBlobMetaData(boost::shared_ptr<fpi::SetBlobMetaDataMsg> & _setMDMsg)
             : dmCatReq(_setMDMsg->volume_id, _setMDMsg->blob_name, _setMDMsg->blob_version,
             FDS_SET_BLOB_METADATA), ioBlobTxDesc(new BlobTxId(_setMDMsg->txId)),
-            md_list(_setMDMsg->metaDataList), setMDMsg(_setMDMsg) {}
+            md_list(_setMDMsg->metaDataList), setMDMsg(_setMDMsg) {
+        // perf-trace related data
+        opReqFailedPerfEventType = DM_TX_OP_REQ_ERR;
+
+        opReqLatencyCtx.type = DM_TX_OP_REQ;
+        opReqLatencyCtx.name = perfNameStr;
+        opReqLatencyCtx.reset_volid(_setMDMsg->volume_id);
+
+        opLatencyCtx.type = DM_TX_OP;
+        opLatencyCtx.name = perfNameStr;
+        opLatencyCtx.reset_volid(_setMDMsg->volume_id);
+
+        opQoSWaitCtx.type = DM_TX_QOS_WAIT;
+        opQoSWaitCtx.name = perfNameStr;
+        opQoSWaitCtx.reset_volid(_setMDMsg->volume_id);
+    }
 
     virtual std::string log_string() const override {
         std::stringstream ret;
@@ -505,12 +672,27 @@ class DmIoDeleteCat: public dmCatReq {
 class DmIoGetBlobMetaData: public dmCatReq {
   public:
     typedef std::function<void (const Error &e, DmIoGetBlobMetaData *req)> CbType;
+
   public:
     DmIoGetBlobMetaData(const fds_volid_t  &_volId,
                         const std::string &_blobName,
                         const blob_version_t &_blob_version,
                         boost::shared_ptr<fpi::GetBlobMetaDataMsg> message)
             : message(message), dmCatReq(_volId, _blobName, _blob_version, FDS_GET_BLOB_METADATA) {
+        // perf-trace related data
+        opReqFailedPerfEventType = DM_QUERY_REQ_ERR;
+
+        opReqLatencyCtx.type = DM_QUERY_REQ;
+        opReqLatencyCtx.name = perfNameStr;
+        opReqLatencyCtx.reset_volid(_volId);
+
+        opLatencyCtx.type = DM_VOL_CAT_READ;
+        opLatencyCtx.name = perfNameStr;
+        opLatencyCtx.reset_volid(_volId);
+
+        opQoSWaitCtx.type = DM_QUERY_QOS_WAIT;
+        opQoSWaitCtx.name = perfNameStr;
+        opQoSWaitCtx.reset_volid(_volId);
     }
 
     ~DmIoGetBlobMetaData() {
@@ -531,7 +713,22 @@ struct DmIoGetVolumeMetaData : dmCatReq {
     typedef std::function<void (const Error &e, DmIoGetVolumeMetaData *req)> CbType;
 
     explicit DmIoGetVolumeMetaData(boost::shared_ptr<fpi::GetVolumeMetaDataMsg> message)
-            : dmCatReq(message->volume_id, "", 0, FDS_GET_VOLUME_METADATA), msg(message) {}
+            : dmCatReq(message->volume_id, "", 0, FDS_GET_VOLUME_METADATA), msg(message) {
+        // perf-trace related data
+        opReqFailedPerfEventType = DM_QUERY_REQ_ERR;
+
+        opReqLatencyCtx.type = DM_QUERY_REQ;
+        opReqLatencyCtx.name = perfNameStr;
+        opReqLatencyCtx.reset_volid(message->volume_id);
+
+        opLatencyCtx.type = DM_VOL_CAT_READ;
+        opLatencyCtx.name = perfNameStr;
+        opLatencyCtx.reset_volid(message->volume_id);
+
+        opQoSWaitCtx.type = DM_QUERY_QOS_WAIT;
+        opQoSWaitCtx.name = perfNameStr;
+        opQoSWaitCtx.reset_volid(message->volume_id);
+    }
 
     boost::shared_ptr<fpi::GetVolumeMetaDataMsg> msg;
     // response callback

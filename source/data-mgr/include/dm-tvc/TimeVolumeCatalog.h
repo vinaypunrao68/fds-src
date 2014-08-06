@@ -8,6 +8,7 @@
 #include <functional>
 #include <fds_error.h>
 #include <fds_module.h>
+#include <fds_config.hpp>
 #include <DmBlobTypes.h>
 #include <dm-tvc/CommitLog.h>
 #include <dm-vol-cat/DmVolumeCatalog.h>
@@ -56,6 +57,9 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
      * @return none
      */
     void notifyVolCatalogSync(BlobTxList::const_ptr sycndTxList);
+
+    // as the configuration will not be refreshed frequently, we can read it without lock
+    FdsConfigAccessor config_helper_;
 
   public:
     /**

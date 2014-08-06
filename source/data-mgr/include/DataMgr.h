@@ -45,6 +45,7 @@
 #include <functional>
 
 #include <dm-tvc/TimeVolumeCatalog.h>
+#include <StatStreamAggregator.h>
 
 /* if defined, puts complete as soon as they
  * arrive to DM (not for gets right now)
@@ -83,6 +84,10 @@ class DataMgr : public Module, public DmIoReqHandler {
      */
     virtual Error enqueueMsg(fds_volid_t volId, dmCatReq* ioReq) override;
 
+    FdsCounters * getCounters() {
+        return counters_.get();
+    }
+
  private:
     typedef enum {
       NORMAL_MODE = 0,
@@ -104,6 +109,11 @@ class DataMgr : public Module, public DmIoReqHandler {
      */
     DmTimeVolCatalog::ptr timeVolCat_;
 
+    /**
+     * Aggregator of volume stats streams
+     */
+    StatStreamAggregator::ptr statStreamAggr_;
+
     /* Common module provider */
     CommonModuleProviderIf *modProvider_;
 
@@ -123,8 +133,13 @@ class DataMgr : public Module, public DmIoReqHandler {
 
         Error processIO(FDS_IOType* _io) {
             Error err(ERR_OK);
+
             dmCatReq *io = static_cast<dmCatReq*>(_io);
             GLOGDEBUG << "processing : " << io->io_type;
+
+            PerfTracer::tracePointEnd(io->opQoSWaitCtx);
+            PerfTracer::tracePointBegin(io->opLatencyCtx);
+
             switch (io->io_type){
                 /* TODO(Rao): Add the new refactored DM messages types here */
                 case FDS_START_BLOB_TX:
@@ -132,6 +147,11 @@ class DataMgr : public Module, public DmIoReqHandler {
                     break;
                 case FDS_CAT_UPD:
                     threadPool->schedule(&DataMgr::updateCatalog, dataMgr, io);
+                    break;
+                case FDS_CAT_UPD_ONCE:
+                    threadPool->schedule(&DataMgr::updateCatalogOnce,
+                                         dataMgr,
+                                         io);
                     break;
                 case FDS_COMMIT_BLOB_TX:
                     threadPool->schedule(&DataMgr::commitBlobTx, dataMgr, io);
@@ -225,6 +245,9 @@ class DataMgr : public Module, public DmIoReqHandler {
      */
     fds_mutex *vol_map_mtx;
 
+    /* Counters */
+    std::unique_ptr<FdsCounters> counters_;
+
     Error getVolObjSize(fds_volid_t volId,
                         fds_uint32_t *maxObjSize);
 
@@ -311,6 +334,7 @@ class DataMgr : public Module, public DmIoReqHandler {
     /* TODO(Rao): Add the new refactored DM messages handlers here */
     void startBlobTx(dmCatReq *io);
     void updateCatalog(dmCatReq *io);
+    void updateCatalogOnce(dmCatReq *io);
     void commitBlobTx(dmCatReq *io);
     /**
      * Callback from volume catalog when transaction is commited

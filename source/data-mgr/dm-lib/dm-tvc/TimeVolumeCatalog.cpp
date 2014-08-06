@@ -4,6 +4,7 @@
 #include <string>
 #include <boost/make_shared.hpp>
 #include <dm-tvc/TimeVolumeCatalog.h>
+#include <fds_process.h>
 
 #define COMMITLOG_GET(_volId_, _commitLog_) \
     do { \
@@ -15,6 +16,8 @@
         } \
     } while (false)
 
+static const std::string COMMIT_LOG_SZ_STR("commit_log_size");
+
 namespace fds {
 
 void
@@ -22,8 +25,8 @@ DmTimeVolCatalog::notifyVolCatalogSync(BlobTxList::const_ptr sycndTxList) {
 }
 
 DmTimeVolCatalog::DmTimeVolCatalog(const std::string &name, fds_threadpool &tp)
-        : Module(name.c_str()),
-        opSynchronizer_(tp)
+        : Module(name.c_str()), opSynchronizer_(tp),
+        config_helper_(g_fdsprocess->get_conf_helper())
 {
     volcat = DmVolumeCatalog::ptr(new DmVolumeCatalog("DM Volume Catalog"));
     // TODO(Andrew): The module vector should be able to take smart pointers.
@@ -72,11 +75,16 @@ DmTimeVolCatalog::addVolume(const VolumeDesc& voldesc) {
     }
 
     std::ostringstream oss;
-    oss << "Volume_" << voldesc.volUUID;
+    const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
+    oss << root->dir_user_repo_dm() << "commit_" << voldesc.volUUID << ".log";
+
+    fds_uint32_t logSize =  config_helper_.get<fds_uint32_t>(COMMIT_LOG_SZ_STR,
+            DEFAULT_COMMIT_LOG_FILE_SIZE);
+
     /* NOTE: Here the lock can be expensive.  We may want to provide an init() api
      * on DmCommitLog so that initialization can happen outside the lock
      */
-    commitLogs_[voldesc.volUUID] = boost::make_shared<DmCommitLog>("DM", oss.str());
+    commitLogs_[voldesc.volUUID] = boost::make_shared<DmCommitLog>("DM", oss.str(), logSize);
     commitLogs_[voldesc.volUUID]->mod_init(mod_params);
     commitLogs_[voldesc.volUUID]->mod_startup();
 
@@ -247,7 +255,9 @@ void DmTimeVolCatalog::updateFwdBlobWork(fds_volid_t volid,
 Error
 DmTimeVolCatalog::abortBlobTx(fds_volid_t volId,
                               BlobTxId::const_ptr txDesc) {
-    return ERR_OK;
+    DmCommitLog::ptr commitLog;
+    COMMITLOG_GET(volId, commitLog);
+    return commitLog->rollbackTx(txDesc);
 }
 
 fds_bool_t
@@ -256,5 +266,4 @@ DmTimeVolCatalog::isPendingTx(fds_volid_t volId, fds_uint64_t timeNano) {
     COMMITLOG_GET(volId, commitLog);
     return commitLog->isPendingTx(timeNano);
 }
-
 }  // namespace fds

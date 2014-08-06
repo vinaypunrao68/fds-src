@@ -32,17 +32,17 @@ def update_latency_stats(stats, start, end):
     elapsed = end - start
     stats["latency_cnt"] +=1
     stats["tot_latency"] += elapsed
-    if elapsed < stats["min_latency"]: 
+    if elapsed < stats["min_latency"]:
         stats["min_latency"] = elapsed
-    if elapsed > stats["max_latency"]: 
+    if elapsed > stats["max_latency"]:
         stats["max_latency"] = elapsed
 
 def create_random_file(size):
     fout, fname = tempfile.mkstemp(prefix="fdstrgen")
-    #fout  = open('output_file', 'wb') 
+    #fout  = open('output_file', 'wb')
     os.write(fout, os.urandom(size))
     os.close(fout)
-    return fname 
+    return fname
 
 def create_file_queue(n,size):
     files = []
@@ -57,7 +57,7 @@ def do_put(conn, target, fname):
         conn.request("PUT", target, body)
     elif HTTP_LIB == "requests":
         e = requests.put("http://localhost:8000" + target, data = body)
-    return e    
+    return e
 
 def do_get(conn, target):
     e = None
@@ -65,7 +65,7 @@ def do_get(conn, target):
         conn.request("GET", target)
     elif HTTP_LIB == "requests":
         e = requests.get("http://localhost:8000" + target)
-    return e    
+    return e
 
 def do_delete(conn, target):
     e = None
@@ -73,7 +73,7 @@ def do_delete(conn, target):
         conn.request("DELETE", target)
     elif HTTP_LIB == "requests":
         e = requests.delete("http://localhost:8000" + target)
-    return e    
+    return e
 
 def task(task_id, n_reqs, req_type, nvols, files, stats, queue):
     if HTTP_LIB == "httplib":
@@ -83,18 +83,18 @@ def task(task_id, n_reqs, req_type, nvols, files, stats, queue):
     for i in range(0,n_reqs):
         vol = random.randint(0, nvols - 1)
         time_start = time.time()
-        file_idx = random.randint(0, options.num_files - 1) #FIXME: global??
+        file_idx = random.randint(0, options.num_files - 1)
         if req_type == "PUT":
-            e = do_put(conn, "/volume%d/file%d" % (vol, file_idx), files[file_idx])
+            e = do_put(conn, "/volume/file%d" % (file_idx), files[file_idx])
             #files.task_done()
         elif req_type == "GET":
-            e = do_get(conn, "/volume%d/file%d" % (vol, file_idx))
+            e = do_get(conn, "/volume/file%d" % (file_idx))
         elif req_type == "DELETE":
             e = do_delete(conn, "/volume%d/file%d" % (vol, file_idx))
         elif req_type == "7030":
             if random.randint(1,100) < 70:
                 e = do_get(conn, "/volume%d/file%d" % (vol, file_idx))
-            else: 
+            else:
                 e = do_put(conn, "/volume%d/file%d" % (vol, file_idx), files[file_idx])
         if HTTP_LIB == "httplib":
             r1 = conn.getresponse()
@@ -106,7 +106,7 @@ def task(task_id, n_reqs, req_type, nvols, files, stats, queue):
             if r1.status != 200:
                 stats["fails"] += 1
         elif HTTP_LIB == "requests":
-            if e.status_code != 200:        
+            if e.status_code != 200:
                 stats["fails"] += 1
     if HTTP_LIB == "httplib":
         conn.close()

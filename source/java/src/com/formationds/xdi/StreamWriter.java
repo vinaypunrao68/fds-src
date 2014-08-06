@@ -33,28 +33,32 @@ public class StreamWriter {
         byte[] digest = new byte[0];
 
         TxDescriptor tx = am.startBlobTx(domainName, volumeName, blobName, Mode.TRUNCATE.getValue());
+        try {
+            if (localBytes.get() == null || localBytes.get().length != objectSize) {
+                localBytes.set(new byte[objectSize]);
+            }
 
-        if (localBytes.get() == null || localBytes.get().length != objectSize) {
-            localBytes.set(new byte[objectSize]);
+            byte[] buf = localBytes.get();
+
+            for (int read = readFully(input, buf); read != -1; read = readFully(input, buf)) {
+                md.update(buf, 0, read);
+                am.updateBlob(domainName, volumeName, blobName, tx,
+                              ByteBuffer.wrap(buf, 0, read), read,
+                              new ObjectOffset(objectOffset), false);
+                lastBufSize = read;
+                objectOffset++;
+            }
+
+            digest = md.digest();
+            metadata.put("etag", Hex.encodeHexString(digest));
+
+            am.updateMetadata(domainName, volumeName, blobName, tx, metadata);
+            am.commitBlobTx(domainName, volumeName, blobName, tx);
+            return digest;
+        } catch (Exception e) {
+            am.abortBlobTx(domainName, volumeName, blobName, tx);
+            throw e;
         }
-
-        byte[] buf = localBytes.get();
-
-        for (int read = readFully(input, buf); read != -1; read = readFully(input, buf)) {
-            md.update(buf, 0, read);
-            am.updateBlob(domainName, volumeName, blobName, tx,
-                    ByteBuffer.wrap(buf, 0, read), read,
-                    new ObjectOffset(objectOffset), false);
-            lastBufSize = read;
-            objectOffset++;
-        }
-
-        digest = md.digest();
-        metadata.put("etag", Hex.encodeHexString(digest));
-
-        am.updateMetadata(domainName, volumeName, blobName, tx, metadata);
-        am.commitBlobTx(domainName, volumeName, blobName, tx);
-        return digest;
     }
 
     public int readFully(InputStream inputStream, byte[] buf) throws IOException {
