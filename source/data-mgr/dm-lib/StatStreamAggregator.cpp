@@ -58,7 +58,7 @@ Error StatStreamAggregator::deregisterStream(fds_uint32_t reg_id) {
 }
 
 Error
-StatStreamAggregator::handleModuleStatStream(const StatStreamMsgPtr& stream_msg) {
+StatStreamAggregator::handleModuleStatStream(const fpi::StatStreamMsgPtr& stream_msg) {
     Error err(ERR_OK);
     LOGDEBUG << "Handling stats";
     return err;

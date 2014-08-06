@@ -73,7 +73,7 @@ class StatStreamAggregator : public Module {
      * @param[in] stream_msg thrift data struct that contains a list
      * of histories for one of more volumes
      */
-    Error handleModuleStatStream(const StatStreamMsgPtr& stream_msg);
+    Error handleModuleStatStream(const fpi::StatStreamMsgPtr& stream_msg);
 
   private:
     /**

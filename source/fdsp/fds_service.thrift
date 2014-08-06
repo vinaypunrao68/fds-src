@@ -452,6 +452,22 @@ struct VolSyncStateRspMsg {
 }
 
 /**
+ * Volume's time-series of stats
+ */
+struct VolStatList {
+    1: i64             volume_id;
+    2: list<binary>    statlist;  // list of time slots (each slot is binary)
+}
+
+/**
+ * Stats from a service to DM for aggregation
+ */
+struct StatStreamMsg {
+    1: i64                    start_timestamp;
+    2: list<VolStatList>      volstats;
+}
+
+/**
  * DM Service.  Only put sync rpc calls in here.  Async RPC calls use
  * message passing provided by BaseAsyncSvc
  */
