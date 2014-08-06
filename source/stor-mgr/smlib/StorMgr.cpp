@@ -2107,7 +2107,7 @@ ObjectStorMgr::deleteObjectInternal(SmIoReq* delReq) {
             // tell persistent layer we deleted the object so that garbage collection
             // knows how much disk space we need to clean
             memcpy(oid.metaDigest, objId.GetId(), objId.GetLen());
-            PerfContext tmp_pctx(DELETE_DISK, volId,"volume:" + std::to_string(volId));
+            PerfContext tmp_pctx(DELETE_DISK, volId, "volume:" + std::to_string(volId));
             SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
             if (objMetadata.onTier(diskio::diskTier)) {
                 dio_mgr.disk_delete_obj(&oid, objMetadata.getObjSize(), objMetadata.getObjPhyLoc(diskTier));
@@ -2199,7 +2199,7 @@ ObjectStorMgr::deleteObjectInternal2(SmIoDeleteObjectReq* delReq) {
             // tell persistent layer we deleted the object so that garbage collection
             // knows how much disk space we need to clean
             memcpy(oid.metaDigest, objId.GetId(), objId.GetLen());
-            PerfContext tmp_pctx(DELETE_DISK,"volume:" + std::to_string(volId));
+            PerfContext tmp_pctx(DELETE_DISK,volId,"volume:" + std::to_string(volId));
             SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
             if (objMetadata.onTier(diskio::diskTier)) {
                 dio_mgr.disk_delete_obj(&oid, objMetadata.getObjSize(),
