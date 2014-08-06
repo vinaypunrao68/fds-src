@@ -941,6 +941,10 @@ DataMgr::updateCatalogOnce(dmCatReq *io) {
                                          updCatReq->ioBlobTxDesc);
     if (err != ERR_OK) {
         qosCtrl->markIODone(*updCatReq);
+        PerfTracer::incr(updCatReq->opReqFailedPerfEventType, updCatReq->getVolId(),
+                         updCatReq->perfNameStr);
+        PerfTracer::tracePointEnd(updCatReq->opLatencyCtx);
+        PerfTracer::tracePointEnd(updCatReq->opReqLatencyCtx);
         updCatReq->dmio_updatecat_resp_cb(err, updCatReq);
         return;
     }
@@ -951,6 +955,10 @@ DataMgr::updateCatalogOnce(dmCatReq *io) {
                                     updCatReq->updcatMsg->obj_list);
     if (err != ERR_OK) {
         qosCtrl->markIODone(*updCatReq);
+        PerfTracer::incr(updCatReq->opReqFailedPerfEventType, updCatReq->getVolId(),
+                         updCatReq->perfNameStr);
+        PerfTracer::tracePointEnd(updCatReq->opLatencyCtx);
+        PerfTracer::tracePointEnd(updCatReq->opReqLatencyCtx);
         updCatReq->dmio_updatecat_resp_cb(err, updCatReq);
         return;
     }
@@ -961,6 +969,10 @@ DataMgr::updateCatalogOnce(dmCatReq *io) {
                                     updCatReq->updcatMsg->meta_list);
     if (err != ERR_OK) {
         qosCtrl->markIODone(*updCatReq);
+        PerfTracer::incr(updCatReq->opReqFailedPerfEventType, updCatReq->getVolId(),
+                         updCatReq->perfNameStr);
+        PerfTracer::tracePointEnd(updCatReq->opLatencyCtx);
+        PerfTracer::tracePointEnd(updCatReq->opReqLatencyCtx);
         updCatReq->dmio_updatecat_resp_cb(err, updCatReq);
         return;
     }
@@ -977,6 +989,10 @@ DataMgr::updateCatalogOnce(dmCatReq *io) {
                                               updCatReq->commitBlobReq));
     if (err != ERR_OK) {
         qosCtrl->markIODone(*updCatReq);
+        PerfTracer::incr(updCatReq->opReqFailedPerfEventType, updCatReq->getVolId(),
+                         updCatReq->perfNameStr);
+        PerfTracer::tracePointEnd(updCatReq->opLatencyCtx);
+        PerfTracer::tracePointEnd(updCatReq->opReqLatencyCtx);
         updCatReq->dmio_updatecat_resp_cb(err, updCatReq);
         return;
     }

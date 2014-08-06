@@ -570,7 +570,22 @@ class DmIoUpdateCatOnce : public dmCatReq {
                        FDS_CAT_UPD_ONCE),
               ioBlobTxDesc(new BlobTxId(_updcatMsg->txId)),
               commitBlobReq(_commitReq),
-              updcatMsg(_updcatMsg) {}
+              updcatMsg(_updcatMsg) {
+        // perf-trace related data
+        opReqFailedPerfEventType = DM_TX_COMMIT_REQ_ERR;
+
+        opReqLatencyCtx.type = DM_TX_COMMIT_REQ;
+        opReqLatencyCtx.name = perfNameStr;
+        opReqLatencyCtx.reset_volid(volId);
+
+        opLatencyCtx.type = DM_VOL_CAT_WRITE;
+        opLatencyCtx.name = perfNameStr;
+        opLatencyCtx.reset_volid(volId);
+
+        opQoSWaitCtx.type = DM_TX_QOS_WAIT;
+        opQoSWaitCtx.name = perfNameStr;
+        opQoSWaitCtx.reset_volid(volId);
+    }
 
     std::string log_string() const override {
         std::stringstream ret;

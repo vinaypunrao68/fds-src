@@ -257,6 +257,7 @@ DMSvcHandler::updateCatalogOnce(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
             BIND_MSG_CALLBACK2(DMSvcHandler::updateCatalogOnceCb, asyncHdr);
     dmCommitBlobOnceReq->parent = dmUpdCatReq;
 
+    PerfTracer::tracePointBegin(dmUpdCatReq->opReqLatencyCtx);
     Error err = dataMgr->qosCtrl->enqueueIO(
         dmUpdCatReq->getVolId(),
         static_cast<FDS_IOType*>(dmUpdCatReq));
