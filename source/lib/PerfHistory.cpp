@@ -212,7 +212,7 @@ uint32_t StatSlot::read(serialize::Deserializer* d) {
 std::ostream& operator<< (std::ostream &out,
                           const StatSlot& slot) {
     out << "Slot ts " << slot.rel_ts_sec
-        << " interval " << slot.interval_sec << " ";
+        << "/" << slot.interval_sec << " ";
     if (slot.stat_map.size() == 0) {
         out << "[empty]";
         return out;
@@ -221,7 +221,7 @@ std::ostream& operator<< (std::ostream &out,
     for (counter_map_t::const_iterator cit = slot.stat_map.cbegin();
          cit != slot.stat_map.cend();
          ++cit) {
-        out << "[" << cit->first << " : " << cit->second << "]";
+        out << "<" << cit->first << " : " << cit->second << "> ";
     }
     return out;
 }
@@ -253,8 +253,7 @@ VolumePerfHistory::~VolumePerfHistory() {
 void VolumePerfHistory::recordPerfCounter(fds_uint64_t ts,
                                           PerfEventType counter_type,
                                           const GenericCounter& counter) {
-    fds_verify(ts >= start_nano_);
-    fds_uint64_t rel_seconds = ts - start_nano_;
+    fds_uint64_t rel_seconds = tsToRelativeSec(ts);
     fds_uint32_t index = useSlot(rel_seconds);
     if ((index >= 0) && (index < nslots_)) {
         stat_slots_[index].add(counter_type, counter);
@@ -366,7 +365,7 @@ std::ostream& operator<< (std::ostream &out,
     out << "Perf History: volume " << std::hex << hist.volid_
         << std::dec << "\n";
     while (ix != endix) {
-        out << "[" << hist.stat_slots_[ix] << "]";
+        out << hist.stat_slots_[ix] << "\n";
         ix = (ix + 1) % hist.nslots_;
     }
     return out;

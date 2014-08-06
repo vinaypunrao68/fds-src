@@ -45,6 +45,7 @@
 #include <functional>
 
 #include <dm-tvc/TimeVolumeCatalog.h>
+#include <StatStreamAggregator.h>
 
 /* if defined, puts complete as soon as they
  * arrive to DM (not for gets right now)
@@ -103,6 +104,11 @@ class DataMgr : public Module, public DmIoReqHandler {
      * to volume catalog
      */
     DmTimeVolCatalog::ptr timeVolCat_;
+
+    /**
+     * Aggregator of volume stats streams
+     */
+    StatStreamAggregator::ptr statStreamAggr_;
 
     /* Common module provider */
     CommonModuleProviderIf *modProvider_;

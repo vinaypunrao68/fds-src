@@ -14,7 +14,8 @@ user_cpp          := \
 	DmBlobTypes.cpp \
 	DMSvcHandler.cpp \
 	CatalogSync.cpp \
-	CatalogSyncRecv.cpp
+	CatalogSyncRecv.cpp \
+        StatStreamAggregator.cpp
 
 user_ar_libs      := fds-dm-lib
 fds-dm-lib        := $(user_cpp)

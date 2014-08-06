@@ -362,6 +362,11 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
         delete volmeta;
     }
 
+    if (err.ok() && amIPrimary(vol_uuid)) {
+        // will aggregate stats for this volume and log them
+        statStreamAggr_->attachVolume(vol_uuid);
+    }
+
     return err;
 }
 
@@ -458,6 +463,7 @@ Error DataMgr::_process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only) {
         dataMgr->qosCtrl->deregisterVolume(vol_uuid);
         delete vol_meta->dmVolQueue;
         delete vol_meta;
+        statStreamAggr_->detachVolume(vol_uuid);
         LOGNORMAL << "Removed vol meta for vol uuid "
                   << vol_uuid;
     } else {
@@ -612,6 +618,10 @@ int DataMgr::mod_init(SysParams const *const param)
     timeVolCat_ = DmTimeVolCatalog::ptr(new
                                         DmTimeVolCatalog("DM Time Volume Catalog",
                                                          *qosCtrl->threadPool));
+
+    statStreamAggr_ = StatStreamAggregator::ptr(
+        new StatStreamAggregator("DM Stat Stream Aggregator"));
+
     LOGNORMAL << "Completed";
     return 0;
 }
@@ -766,6 +776,9 @@ void DataMgr::mod_startup()
     timeVolCat_->queryIface()->registerExpungeObjectsCb(std::bind(
             &DataMgr::expungeObjectsIfPrimary, this,
             std::placeholders::_1, std::placeholders::_2));
+
+    statStreamAggr_->mod_startup();
+
     LOGNORMAL;
 }
 
@@ -774,6 +787,7 @@ void DataMgr::mod_shutdown()
     LOGNORMAL;
     catSyncMgr->mod_shutdown();
     timeVolCat_->mod_shutdown();
+    statStreamAggr_->mod_shutdown();
 }
 
 void DataMgr::setup_metadatapath_server(const std::string &ip)
