@@ -318,8 +318,8 @@ DMSvcHandler::commitBlobOnceCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                DmIoCommitBlobTx *req) {
     DmIoCommitBlobOnce *commitOnceReq = static_cast<DmIoCommitBlobOnce*>(req);
     DmIoUpdateCatOnce *parent = commitOnceReq->parent;
-    delete commitOnceReq;
     updateCatalogOnceCb(asyncHdr, e, parent);
+    delete commitOnceReq;
 }
 
 void

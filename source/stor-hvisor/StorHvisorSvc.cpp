@@ -655,7 +655,7 @@ void StorHvCtrl::getBlobQueryCatalogResp(fds::AmQosReq* qosReq,
     Error e = updateCatalogCache(blobReq,
                                  qryCatRsp->obj_list);
     if (e != ERR_OK) {
-        LOGERROR << "blob name: " << blobReq->getBlobName() << "offset: "
+        LOGERROR << "blob name: " << blobReq->getBlobName() << " offset: "
             << blobReq->getBlobOffset() << " Error: " << e; 
         qos_ctrl->markIODone(qosReq);
         blobReq->cb->call(e);
