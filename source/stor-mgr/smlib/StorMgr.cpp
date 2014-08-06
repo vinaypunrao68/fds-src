@@ -275,6 +275,7 @@ void ObjectStorMgrI::GetObjectMetadata(
         LOGERROR << "Failed to enqueue to SmIoReadObjectMetadata to StorMgr.  Error: "
                 << err;
         sm_req->smio_readmd_resp_cb(err, sm_req);
+        delete sm_req;
     }
 }
 void ObjectStorMgrI::GetObjectMetadataCb(const Error &err,
@@ -2060,6 +2061,7 @@ ObjectStorMgr::enqPutObjectReq(FDSP_MsgHdrTypePtr msgHdr,
              */
             LOGERROR << "Unable to enqueue putObject request "
                      << am_transId << ":" << trans_id;
+            delete ioReq;
             return err;
         }
         LOGDEBUG << "Successfully enqueued putObject request "
@@ -2540,6 +2542,7 @@ ObjectStorMgr::enqDeleteObjectReq(FDSP_MsgHdrTypePtr msgHdr,
     if (err != fds::ERR_OK) {
         LOGERROR << "Unable to enqueue delObject request "
                  << am_transId << ":" << trans_id;
+        delete ioReq;
         return err;
     }
     LOGDEBUG << "Successfully enqueued delObject request "
@@ -2660,6 +2663,7 @@ ObjectStorMgr::enqGetObjectReq(FDSP_MsgHdrTypePtr msgHdr,
                  << am_transId << ":" << trans_id;
         getObjReq->data_obj_len = 0;
         getObjReq->data_obj.assign("");
+        delete ioReq;
         return err;
     }
     LOGDEBUG << "Successfully enqueued getObject request "

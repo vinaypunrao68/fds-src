@@ -250,14 +250,15 @@ DMSvcHandler::updateCatalogOnce(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                                       updcatMsg->dmt_version);
     dmCommitBlobOnceReq->dmio_commit_blob_tx_resp_cb =
             BIND_MSG_CALLBACK2(DMSvcHandler::commitBlobOnceCb, asyncHdr);
+    PerfTracer::tracePointBegin(dmCommitBlobOnceReq->opReqLatencyCtx);
 
     // allocate a new query cat log  class and  queue  to per volume queue.
     auto dmUpdCatReq = new DmIoUpdateCatOnce(updcatMsg, dmCommitBlobOnceReq);
     dmUpdCatReq->dmio_updatecat_resp_cb =
             BIND_MSG_CALLBACK2(DMSvcHandler::updateCatalogOnceCb, asyncHdr);
     dmCommitBlobOnceReq->parent = dmUpdCatReq;
-
     PerfTracer::tracePointBegin(dmUpdCatReq->opReqLatencyCtx);
+
     Error err = dataMgr->qosCtrl->enqueueIO(
         dmUpdCatReq->getVolId(),
         static_cast<FDS_IOType*>(dmUpdCatReq));

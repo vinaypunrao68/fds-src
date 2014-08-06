@@ -142,7 +142,7 @@ StorHvCtrl::StorHvCtrl(int argc,
 
     sysParams = params;
 
-    disableVcc =  config.get_abs<bool>("fds.am.testing.disable_vcc", true);
+    disableVcc =  config.get_abs<bool>("fds.am.testing.disable_vcc");
 
     LOGNORMAL << "StorHvisorNet - Constructing the Storage Hvisor";
 

@@ -1143,7 +1143,7 @@ fds::Error StorHvCtrl::deleteCatResp(const FDSP_MsgHdrTypePtr& rxMsg,
     return err;
 }
 
-fds::Error StorHvCtrl::updateCatalogCache(GetBlobReq *blobReq,
+fds::Error StorHvCtrl::updateCatalogCache(FdsBlobReq *blobReq,
                                           FDS_ProtocolInterface::FDSP_BlobObjectList& blobOffList )
 {
     // Get the volume specific to the request
