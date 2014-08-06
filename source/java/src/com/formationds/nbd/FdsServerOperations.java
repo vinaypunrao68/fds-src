@@ -9,6 +9,8 @@ import org.apache.log4j.Logger;
 import org.apache.thrift.TException;
 
 import java.nio.ByteBuffer;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -138,7 +140,6 @@ public class FdsServerOperations implements NbdServerOperations {
             try {
                 int am_bytes_written = 0;
 
-                txId = am.startBlobTx(FDS, exportName, BLOCK_DEV_NAME, 0);
                 while (am_bytes_written < len) {
                     long cur = offset + am_bytes_written;
                     long o_off = cur / objectSize;
@@ -152,10 +153,22 @@ public class FdsServerOperations implements NbdServerOperations {
                     else
                         readBuf = ByteBuffer.allocate(objectSize);
                     System.arraycopy(source.array(), am_bytes_written, readBuf.array(), i_off, i_len);
+
+                    if(am_bytes_written == 0) {
+                        if(len == i_len) {
+                            am.updateBlobOnce(FDS, exportName, BLOCK_DEV_NAME, 0, readBuf, objectSize, objectOffset, Collections.<String, String>emptyMap());
+                            break;
+                        } else {
+                            txId = am.startBlobTx(FDS, exportName, BLOCK_DEV_NAME, 0);
+                        }
+                    }
+
                     am.updateBlob(FDS, exportName, BLOCK_DEV_NAME, txId, readBuf, objectSize, objectOffset, false);
                     am_bytes_written += i_len;
                 }
-                am.commitBlobTx(FDS, exportName, BLOCK_DEV_NAME, txId);
+
+                if(txId != null)
+                    am.commitBlobTx(FDS, exportName, BLOCK_DEV_NAME, txId);
                 result.complete(null);
             } catch (TException e) {
                 LOG.error("error writing bytes", e);

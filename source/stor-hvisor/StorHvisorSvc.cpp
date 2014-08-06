@@ -488,6 +488,16 @@ void StorHvCtrl::putBlobUpdateCatalogMsgResp(fds::AmQosReq* qosReq,
             << " blob name: " << blobReq->getBlobName()
             << " offset: " << blobReq->getBlobOffset() << " Error: " << error; 
     } else {
+        FDS_ProtocolInterface::FDSP_BlobObjectInfo blobObjInfo;
+        blobObjInfo.offset = blobReq->getBlobOffset();
+        blobObjInfo.size   = blobReq->getDataLen();
+        blobObjInfo.data_obj_id.digest =
+                std::string((const char *)blobReq->getObjId().GetId(),
+                            (size_t)blobReq->getObjId().GetLen());
+        FDS_ProtocolInterface::FDSP_BlobObjectList blobOffList;
+        blobOffList.push_back(blobObjInfo);
+        Error e = updateCatalogCache(blobReq, blobOffList);
+        fds_verify(e == ERR_OK);
         LOGDEBUG << svcReq->logString() << fds::logString(*updCatRsp);
     }
     blobReq->notifyResponse(qos_ctrl, qosReq, error);
@@ -508,6 +518,16 @@ StorHvCtrl::putBlobUpdateCatalogOnceMsgResp(fds::AmQosReq* qosReq,
             << " blob name: " << blobReq->getBlobName()
             << " offset: " << blobReq->getBlobOffset() << " Error: " << error; 
     } else {
+        FDS_ProtocolInterface::FDSP_BlobObjectInfo blobObjInfo;
+        blobObjInfo.offset = blobReq->getBlobOffset();
+        blobObjInfo.size   = blobReq->getDataLen();
+        blobObjInfo.data_obj_id.digest =
+                std::string((const char *)blobReq->getObjId().GetId(),
+                            (size_t)blobReq->getObjId().GetLen());
+        FDS_ProtocolInterface::FDSP_BlobObjectList blobOffList;
+        blobOffList.push_back(blobObjInfo);
+        Error e = updateCatalogCache(blobReq, blobOffList);
+        fds_verify(e == ERR_OK);
         LOGDEBUG << svcReq->logString() << fds::logString(*updCatRsp);
     }
     blobReq->notifyResponse(qos_ctrl, qosReq, error);

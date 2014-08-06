@@ -27,7 +27,7 @@ public class ChunkingInputStream extends InputStream {
 
     @Override
     public int read(byte[] b, int off, int len) throws IOException {
-        return stream.read(b, off, size);
+        return stream.read(b, off, Math.min(size, len));
     }
 
     @Override

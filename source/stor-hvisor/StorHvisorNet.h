@@ -487,7 +487,7 @@ public:
                                const Error& error,
                                boost::shared_ptr<std::string> payload);
 
-    fds::Error updateCatalogCache(GetBlobReq *blobReq,
+    fds::Error updateCatalogCache(FdsBlobReq *blobReq,
                                   FDS_ProtocolInterface::FDSP_BlobObjectList& blobOffList);
     inline AMCounters& getCounters()
     {

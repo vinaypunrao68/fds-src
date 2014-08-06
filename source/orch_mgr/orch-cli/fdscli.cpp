@@ -263,6 +263,12 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
                 stringToVolType(vm.count("vol-type") ?
                                 vm["vol-type"].as<std::string>() : "");
 
+        if (fpi::FDSP_VOL_S3_TYPE == volData.vol_info.volType) {
+            volData.vol_info.maxObjSizeInBytes = 2097152;  // 2 MiB
+        } else {
+            volData.vol_info.maxObjSizeInBytes = 4096;  // 4k
+        }
+
         volData.vol_info.defReplicaCnt = 0;
         volData.vol_info.defWriteQuorum = 0;
         volData.vol_info.defReadQuorum = 0;
@@ -317,6 +323,12 @@ int FdsCli::fdsCliParser(int argc, char* argv[])
         volData.vol_desc.volType =
                 stringToVolType(vm.count("vol-type") ?
                                 vm["vol-type"].as<std::string>() : "");
+
+        if (fpi::FDSP_VOL_S3_TYPE == volData.vol_desc.volType) {
+            volData.vol_desc.maxObjSizeInBytes = 2097152;  // 2 MiB
+        } else {
+            volData.vol_desc.maxObjSizeInBytes = 4096;  // 4k
+        }
 
         volData.vol_desc.defConsisProtocol =
                 FDS_ProtocolInterface::FDSP_CONS_PROTO_STRONG;
