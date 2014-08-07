@@ -40,13 +40,15 @@ class VolumeCatalogQueryIface {
     /**
      * Returns size of volume and number of blob in the volume 'volume_id'
      * @param[out] size size of volume in bytes
-     * @param[in] blob_count number of blobs in the volume
+     * @param[out] blob_count number of blobs in the volume
+     * @param[out] object_count number of objects in the volume
      * @return ERR_OK on success; ERR_VOL_NOT_FOUND is volume is not known
      * to volume catalog
      */
     virtual Error getVolumeMeta(fds_volid_t volume_id,
                                 fds_uint64_t* size,
-                                fds_uint64_t* blob_count) = 0;
+                                fds_uint64_t* blob_count,
+                                fds_uint64_t* object_count) = 0;
 
     /**
      * Retrieves blob meta for the given blob_name and volume 'volume_id'
