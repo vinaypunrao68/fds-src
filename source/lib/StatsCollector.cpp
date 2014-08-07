@@ -8,6 +8,8 @@
 
 namespace fds {
 
+StatsCollector glStatsCollector(60, 10, 1);
+
 StatsCollector::StatsCollector(fds_uint32_t push_sec,
                                fds_uint32_t stat_sampling_freq,
                                fds_uint32_t qos_sampling_freq)
@@ -66,6 +68,10 @@ StatsCollector::~StatsCollector() {
     stat_hist_map_.clear();
 }
 
+StatsCollector* StatsCollector::statsCollectSingleton() {
+    return &glStatsCollector;
+}
+
 void StatsCollector::registerOmClient(OMgrClient* omclient) {
     om_client_ = omclient;
 }
@@ -122,11 +128,11 @@ fds_bool_t StatsCollector::isQosStatsEnabled() const {
 
 void StatsCollector::recordEvent(fds_volid_t volume_id,
                                  fds_uint64_t timestamp,
-                                 PerfEventType event_type,
+                                 FdsStatType event_type,
                                  fds_uint64_t value) {
     switch (event_type) {
-        case AM_PUT_OBJ_REQ:  // end-to-end put in AM
-        case AM_GET_OBJ_REQ:  // end-to-end get in AM
+        case STAT_AM_PUT_OBJ:  // end-to-end put in AM
+        case STAT_AM_GET_OBJ:  // end-to-end get in AM
             if (isQosStatsEnabled()) {
                 getQosHistory(volume_id)->recordEvent(timestamp,
                                                       event_type, value);

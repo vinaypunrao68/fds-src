@@ -13,7 +13,7 @@
 #include <fds_error.h>
 #include <fds_typedefs.h>
 #include <fdsp/fds_service_types.h>
-#include <PerfTypes.h>
+#include <StatTypes.h>
 
 namespace fds {
 
@@ -63,7 +63,7 @@ class GenericCounter: public serialize::Serializable {
     fds_uint64_t max_;
 };
 
-typedef std::unordered_map<PerfEventType, GenericCounter, PerfEventHash> counter_map_t;
+typedef std::unordered_map<FdsStatType, GenericCounter, FdsStatHash> counter_map_t;
 
 /**
  * This class describes one slot in the volume performance history
@@ -86,9 +86,9 @@ class StatSlot: public serialize::Serializable {
     /**
      * Add counter of type 'counter_type' to this slot
      */
-    void add(PerfEventType counter_type,
+    void add(FdsStatType stat_type,
              const GenericCounter& counter);
-    void add(PerfEventType counter_type,
+    void add(FdsStatType stat_type,
              fds_uint64_t value);
 
     /**
@@ -103,19 +103,19 @@ class StatSlot: public serialize::Serializable {
     /**
      * count / time interval of this slot in seconds
      */
-    double getEventsPerSec(PerfEventType type) const;
+    double getEventsPerSec(FdsStatType type) const;
     /**
      * total value of event 'type'
      */
-    fds_uint64_t getTotal(PerfEventType type) const;
+    fds_uint64_t getTotal(FdsStatType type) const;
     /**
      * total / count for event 'type'
      */
-    double getAverage(PerfEventType type) const;
+    double getAverage(FdsStatType type) const;
     /**
      * Get counter of a given type
      */
-    void getCounter(PerfEventType type,
+    void getCounter(FdsStatType type,
                     GenericCounter* out_counter) const;
 
     /*
@@ -156,30 +156,30 @@ class VolumePerfHistory {
      * @param[in] counter is the counter to record
      */
     void recordPerfCounter(fds_uint64_t ts,
-                           PerfEventType counter_type,
+                           FdsStatType stat_type,
                            const GenericCounter& counter);
 
     /**
      * Record one event into the history
      * @param[in] ts (not relative!) timestamp in nanos of the counter
-     * @param[in] counter_type type of the counter
-     * @param[in] value is the value of the event
+     * @param[in] stat_type type of the counter
+     * @param[in] value is the value of the stat
      */
     void recordEvent(fds_uint64_t ts,
-                     PerfEventType counter_type,
+                     FdsStatType stat_type,
                      fds_uint64_t value);
 
     /**
-     * Returns simple moving average of a given perf event type
+     * Returns simple moving average of a given stat type
      * The last timeslot is not counted in the moving average, because
      * it may not be fully filled in
-     * @param event_type perf event for which we calculate SMA
+     * @param stat_type stat for which we calculate SMA
      * @param end_ts last timestamp to consider for the SMA, 0 if consider
      * the timestamp of the last fully filled timeslot
      * @param interval_sec interval in seconds for which calculate SMA, 0
      * if calculate for the whole history
      */
-    double getSMA(PerfEventType event_type,
+    double getSMA(FdsStatType stat_type,
                   fds_uint64_t end_ts = 0,
                   fds_uint32_t interval_sec = 0);
 

@@ -40,7 +40,7 @@ class StatsCollector : public boost::noncopyable {
                    fds_uint32_t qos_sampling_freq = 1);
     ~StatsCollector();
 
-    static StatsCollector* statsCollector();
+    static StatsCollector* statsCollectSingleton();
 
     /**
      * This is temporary until service layer can provide us
@@ -73,7 +73,7 @@ class StatsCollector : public boost::noncopyable {
      */
     void recordEvent(fds_volid_t volume_id,
                      fds_uint64_t timestamp,
-                     PerfEventType event_type,
+                     FdsStatType event_type,
                      fds_uint64_t value);
 
     void print();
@@ -164,6 +164,7 @@ class StatTimerTask : public FdsTimerTask {
     virtual void runTimerTask() override;
 };
 
+extern StatsCollector* g_statsCollector;
 
 }  // namespace fds
 

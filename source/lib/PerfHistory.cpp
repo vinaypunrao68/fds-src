@@ -141,14 +141,14 @@ fds_bool_t StatSlot::isEmpty() const {
     return (stat_map.size() == 0);
 }
 
-void StatSlot::add(PerfEventType counter_type,
+void StatSlot::add(FdsStatType stat_type,
                    const GenericCounter& counter) {
-    stat_map[counter_type] += counter;
+    stat_map[stat_type] += counter;
 }
 
-void StatSlot::add(PerfEventType counter_type,
+void StatSlot::add(FdsStatType stat_type,
                    fds_uint64_t value) {
-    stat_map[counter_type] += value;
+    stat_map[stat_type] += value;
 }
 
 StatSlot& StatSlot::operator +=(const StatSlot & rhs) {
@@ -180,7 +180,7 @@ StatSlot& StatSlot::operator =(const StatSlot & rhs) {
 //
 // returns count / time interval of this slot for event 'type'
 //
-double StatSlot::getEventsPerSec(PerfEventType type) const {
+double StatSlot::getEventsPerSec(FdsStatType type) const {
     fds_verify(interval_sec > 0);
     if (stat_map.count(type) > 0) {
         return stat_map.at(type).countPerSec(interval_sec);
@@ -188,7 +188,7 @@ double StatSlot::getEventsPerSec(PerfEventType type) const {
     return 0;
 }
 
-fds_uint64_t StatSlot::getTotal(PerfEventType type) const {
+fds_uint64_t StatSlot::getTotal(FdsStatType type) const {
     if (stat_map.count(type) > 0) {
         return stat_map.at(type).total();
     }
@@ -198,14 +198,14 @@ fds_uint64_t StatSlot::getTotal(PerfEventType type) const {
 //
 // returns total / count for event 'type'
 //
-double StatSlot::getAverage(PerfEventType type) const {
+double StatSlot::getAverage(FdsStatType type) const {
     if (stat_map.count(type) > 0) {
         return stat_map.at(type).average();
     }
     return 0;
 }
 
-void StatSlot::getCounter(PerfEventType type,
+void StatSlot::getCounter(FdsStatType type,
                           GenericCounter* out_counter) const {
     fds_verify(out_counter != NULL);
     GenericCounter counter;
@@ -239,7 +239,7 @@ uint32_t StatSlot::read(serialize::Deserializer* d) {
     bytes += d->readI32(interval_sec);
     bytes += d->readI32(size);
     for (fds_uint32_t i = 0; i < size; ++i) {
-        PerfEventType type;
+        FdsStatType type;
         GenericCounter counter;
         bytes += d->readI32(reinterpret_cast<int32_t&>(type));
         bytes += counter.read(d);
@@ -292,22 +292,22 @@ VolumePerfHistory::~VolumePerfHistory() {
 }
 
 void VolumePerfHistory::recordPerfCounter(fds_uint64_t ts,
-                                          PerfEventType counter_type,
+                                          FdsStatType stat_type,
                                           const GenericCounter& counter) {
     fds_uint64_t rel_seconds = tsToRelativeSec(ts);
     fds_uint32_t index = useSlot(rel_seconds);
     if ((index >= 0) && (index < nslots_)) {
-        stat_slots_[index].add(counter_type, counter);
+        stat_slots_[index].add(stat_type, counter);
     }
 }
 
 void VolumePerfHistory::recordEvent(fds_uint64_t ts,
-                                    PerfEventType counter_type,
+                                    FdsStatType stat_type,
                                     fds_uint64_t value) {
     fds_uint64_t rel_seconds = tsToRelativeSec(ts);
     fds_uint32_t index = useSlot(rel_seconds);
     if ((index >= 0) && (index < nslots_)) {
-        stat_slots_[index].add(counter_type, value);
+        stat_slots_[index].add(stat_type, value);
     }
 }
 
@@ -352,7 +352,7 @@ Error VolumePerfHistory::mergeSlots(const fpi::VolStatList& fdsp_volstats,
     return err;
 }
 
-double VolumePerfHistory::getSMA(PerfEventType event_type,
+double VolumePerfHistory::getSMA(FdsStatType stat_type,
                                  fds_uint64_t end_ts,
                                  fds_uint32_t interval_sec) {
     double sma = 0;
@@ -370,7 +370,7 @@ double VolumePerfHistory::getSMA(PerfEventType event_type,
     while (ix != endix) {
         fds_uint64_t ts = stat_slots_[ix].getTimestamp();
         if ((ts >= rel_start_sec) && (ts < rel_end_sec)) {
-            sma += stat_slots_[ix].getEventsPerSec(event_type);
+            sma += stat_slots_[ix].getEventsPerSec(stat_type);
             ++slot_count;
         }
         ix = (ix + 1) % nslots_;
@@ -489,8 +489,8 @@ fds_uint64_t VolumePerfHistory::print(std::ofstream& dumpFile,
             // Aggregate PUT_IO and GET_IO counters
             GenericCounter put_counter, io_counter;
             fds_uint32_t slot_len = stat_slots_[ix].slotLengthSec();
-            stat_slots_[ix].getCounter(PUT_IO, &put_counter);
-            stat_slots_[ix].getCounter(GET_IO, &io_counter);
+            stat_slots_[ix].getCounter(STAT_AM_PUT_OBJ, &put_counter);
+            stat_slots_[ix].getCounter(STAT_AM_GET_OBJ, &io_counter);
             io_counter += put_counter;
 
             dumpFile << "[" << cur_ts << "],"
@@ -500,8 +500,8 @@ fds_uint64_t VolumePerfHistory::print(std::ofstream& dumpFile,
                      << io_counter.average() << ","               // ave latency
                      << io_counter.min() << ","                   // min latency
                      << io_counter.max() << ","                  // max latency
-                     << stat_slots_[ix].getEventsPerSec(GET_IO) << ","
-                     << stat_slots_[ix].getEventsPerSec(PUT_IO) << std::endl;
+                     << stat_slots_[ix].getEventsPerSec(STAT_AM_GET_OBJ) << ","
+                     << stat_slots_[ix].getEventsPerSec(STAT_AM_PUT_OBJ) << std::endl;
 
             if (latest_ts < ts) {
                 latest_ts = ts;
