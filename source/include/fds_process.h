@@ -15,12 +15,14 @@
 #include <fds_globals.h>
 #include <fds_module.h>
 #include <fds_config.hpp>
-#include <fds_counters.h>
+// #include <fds_counters.h>
 #include <graphite_client.h>
 #include <util/Log.h>
 #include <concurrency/ThreadPool.h>
 
 namespace fds {
+
+class FdsCountersMgr;
 
 /* Forward declarations */
 class FlagsMap;

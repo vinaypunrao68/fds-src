@@ -5,6 +5,7 @@
 #include <string>
 #include <set>
 #include <util/Log.h>
+#include <util/timeutils.h>
 #include <fds_assert.h>
 #include <fds_typedefs.h>
 #include <lib/OMgrClient.h>
@@ -274,7 +275,7 @@ CatalogSyncMgr::CatalogSyncMgr(fds_uint32_t max_jobs,
           max_sync_inprogress(max_jobs),
           dm_req_handler(dm_req_hdlr),
           cat_sync_lock("Catalog Sync lock"),
-          dmtclose_time(boost::posix_time::min_date_time) {
+          dmtclose_ts(util::getTimeStampNanos()) {
     LOGNORMAL << "Constructing CatalogSyncMgr";
 }
 
@@ -514,6 +515,11 @@ void CatalogSyncMgr::syncDoneCb(catsync_notify_evt_t event,
         LOGNORMAL << "Delta sync finished for all volumes, sending commit ack";
         omclient->sendDMTCommitAck(error, cat_sync_context);
     }
+}
+
+// sets dmt close time to now
+void CatalogSyncMgr::setDmtCloseNow() {
+    dmtclose_ts = util::getTimeStampNanos();
 }
 
 /**

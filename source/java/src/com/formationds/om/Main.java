@@ -39,7 +39,7 @@ public class Main {
         ConfigurationService.Iface configApi = clientFactory.remoteOmService("localhost", 9090);
         AmService.Iface amService = clientFactory.remoteAmService("localhost", 9988);
 
-        String omHost = omParsedConfig.lookup("fds.om.ip_address").stringValue();
+        String omHost = "localhost";
         int omPort = omParsedConfig.lookup("fds.om.config_port").intValue();
         String webDir = omParsedConfig.lookup("fds.om.web_dir").stringValue();
 

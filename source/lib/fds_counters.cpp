@@ -1,17 +1,34 @@
 /* Copyright 2013 Formation Data Systems, Inc.
  */
+#include "fds_counters.h"
+
 #include <limits>
-#include <string>
 #include <sstream>
-#include <fds_counters.h>
 #include <ctime>
+#include <chrono>
+
+
 namespace fds {
+
+/* Snapshot all exported counters to snapshot_counters_*/
+void SamplerTask::runTimerTask()
+{
+    fds_mutex::scoped_lock lock(lock_);
+    for (auto counters : counters_ref_) {
+        snapshot_counters_.push_back(new FdsCounters(*counters));
+    }
+}
 
 FdsCountersMgr::FdsCountersMgr(const std::string &id)
     : id_(id),
-      lock_("Counters mutex")
+      lock_("Counters mutex"),
+      timer_()
 {
+    sampler_ptr_ = boost::shared_ptr<FdsTimerTask>(new SamplerTask(timer_, exp_counters_, snapshot_counters_));
+    bool ret = timer_.scheduleRepeated(sampler_ptr_, std::chrono::milliseconds(1000));
+
 }
+
 /**
  * @brief Adds FdsCounters object for export.  
  *
@@ -73,11 +90,12 @@ std::string FdsCountersMgr::export_as_graphite()
         std::string counters_id = counters->id();
         for (auto c : counters->exp_counters_) {
             bool lat = typeid(*c) == typeid(LatencyCounter);
-            std::string strId = lat ? c->id() + ".latency" : c->id();
+            std::string strId = lat ? c->id() + ":volume=" + std::to_string(c->volid()) + 
+                    ".latency" : c->id() + ":volume=" + std::to_string(c->volid());
             oss << id_ << "." << counters_id << "." << strId << " " << c->value() << " "
                     << ts << std::endl;
             if (lat) {
-                strId = c->id() + ".count";
+                strId = c->id() + ":volume=" + std::to_string(c->volid()) + ".count";
                 oss << id_ << "." << counters_id << "." << strId << " " <<
                     dynamic_cast<LatencyCounter*>(c)->count()
                         << " " << ts << std::endl;
@@ -99,11 +117,12 @@ void FdsCountersMgr::export_to_ostream(std::ostream &stream)  // NOLINT
         std::string counters_id = counters->id();
         for (auto c : counters->exp_counters_) {
             bool lat = typeid(*c) == typeid(LatencyCounter);
-            std::string strId = lat ? c->id() + ".latency" : c->id();
+            std::string strId = lat ? c->id() + ":volume=" + std::to_string(c->volid()) + 
+                    ".latency" : c->id() + ":volume=" + std::to_string(c->volid());
             stream << id_ << "." << counters_id << "." << strId << ":\t\t" << c->value()
                     << std::endl;
             if (lat) {
-                strId = c->id() + ".count";
+                strId = c->id() + ":volume=" + std::to_string(c->volid()) + ".count";
                 stream << id_ << "." << counters_id << "." << strId << ":\t\t" <<
                         dynamic_cast<LatencyCounter*>(c)->count() << std::endl;
             }
@@ -123,10 +142,11 @@ void FdsCountersMgr::toMap(std::map<std::string, int64_t>& m)
         std::string counters_id = counters->id();
         for (auto c : counters->exp_counters_) {
             bool lat = typeid(*c) == typeid(LatencyCounter);
-            std::string strId = lat ? c->id() + ".latency" : c->id();
+            std::string strId = lat ? c->id() + ":volume=" + std::to_string(c->volid()) + 
+                    ".latency" : c->id() + ":volume=" + std::to_string(c->volid());
             m[strId] = static_cast<int64_t>(c->value());
             if (lat) {
-                strId = c->id() + ".count";
+                strId = c->id() + ":volume=" + std::to_string(c->volid()) + ".count";
                 m[strId] = static_cast<int64_t>(
                         dynamic_cast<LatencyCounter*>(c)->count());
             }
@@ -154,6 +174,21 @@ FdsCounters::FdsCounters(const std::string &id, FdsCountersMgr *mgr)
 {
     if (mgr) {
         mgr->add_for_export(this);
+    }
+}
+
+/**
+ * Copy constructor
+ */
+FdsCounters::FdsCounters(const FdsCounters& counters) : id_(counters.id_)
+{
+    for (auto c : counters.exp_counters_) {
+        bool lat = typeid(*c) == typeid(LatencyCounter);
+        if (lat) {
+            exp_counters_.push_back(new LatencyCounter(dynamic_cast<LatencyCounter&>(*c)));
+        } else {
+            exp_counters_.push_back(new NumericCounter(dynamic_cast<NumericCounter&>(*c)));
+        }
     }
 }
 
@@ -247,18 +282,42 @@ void FdsCounters::remove_from_export(FdsBaseCounter* cp)
  * @brief  Base counter constructor.  Enables a counter to
  * be exported with an identifier.  If export_parent is NULL
  * counter will not be exported.
+ * 
+ * Providing constructor with volume id enabled and without
  *
  * @param id - id to use when exporting the counter
+ * @vol id - volume id (used for export)
  * @param export_parent - Pointer to the parent.  If null counter
  * is not exported.
  */
-FdsBaseCounter::FdsBaseCounter(const std::string &id, FdsCounters *export_parent)
-: id_(id)
+
+FdsBaseCounter::FdsBaseCounter(const std::string &id, 
+                                FdsCounters *export_parent)
+: id_(id), volid_enable_(false), volid_(0) 
 {
     if (export_parent) {
         export_parent->add_for_export(this);
     }
 }
+
+
+FdsBaseCounter::FdsBaseCounter(const std::string &id, fds_volid_t volid, 
+                                FdsCounters *export_parent)
+: id_(id), volid_enable_(true), volid_(volid) 
+{
+    if (export_parent) {
+        export_parent->add_for_export(this);
+    }
+}
+
+/**
+ * Copy Constructor
+ */
+FdsBaseCounter::FdsBaseCounter(const FdsBaseCounter &c)
+: id_(c.id_), volid_enable_(c.volid_enable_), volid_(c.volid_)
+{
+}
+
 /**
  * Exposed for mock testing
  */
@@ -281,15 +340,73 @@ std::string FdsBaseCounter::id() const
 }
 
 /**
+ * Sets id
+ * @param id
+ */
+void FdsBaseCounter::set_id(std::string id)
+{
+    id_ = id;
+}
+
+/**
+ * Returns volid
+ * @return
+ */
+fds_volid_t FdsBaseCounter::volid() const
+{
+    return volid_;
+}
+
+/**
+ * Returns volid_enable
+ * @return
+ */
+bool FdsBaseCounter::volid_enable() const
+{
+    return volid_enable_;
+}
+
+/**
+ * Sets volid_
+ */
+void FdsBaseCounter::set_volid(fds_volid_t volid)
+{
+    volid_ = volid;
+}
+
+
+/**
  * Constructor
  * @param id
  * @param export_parent
  */
+NumericCounter::NumericCounter(const std::string &id, fds_volid_t volid, 
+                                FdsCounters *export_parent)
+:   FdsBaseCounter(id, volid, export_parent)
+{
+    val_ = 0;
+    min_value_ = std::numeric_limits<uint64_t>::max();
+    max_value_ = 0;
+}
+
 NumericCounter::NumericCounter(const std::string &id, FdsCounters *export_parent)
 : FdsBaseCounter(id, export_parent)
 {
     val_ = 0;
+    min_value_ = std::numeric_limits<uint64_t>::max();
+    max_value_ = 0;
 }
+/**
+ * Copy Constructor
+ */
+NumericCounter::NumericCounter(const NumericCounter& c)
+: FdsBaseCounter(c)
+{
+    val_ = c.val_.load();
+    min_value_ = c.min_value_.load();
+    max_value_ = c.max_value_.load();
+}
+
 /**
  *  Exposed for testing
  */
@@ -309,12 +426,19 @@ uint64_t NumericCounter::value() const
 void NumericCounter::reset()
 {
     val_ = 0;
+    min_value_ = std::numeric_limits<uint64_t>::max();
+    max_value_ = 0;
 }
 /**
  *
  */
 void NumericCounter::incr() {
     val_++;
+    uint64_t val = val_.load();
+    uint64_t max = max_value_.load();
+    /* min_ stays the same*/
+    if (val > max)
+        max_value_ = val;
 }
 
 /**
@@ -323,18 +447,70 @@ void NumericCounter::incr() {
  */
 void NumericCounter::incr(const uint64_t v) {
     val_ += v;
+    uint64_t val = val_.load();
+    uint64_t max = max_value_.load();
+    /* min_ stays the same*/
+    if (val > max)
+        max_value_ = val;
 }
+
+/**
+ *
+ */
+void NumericCounter::decr() {
+    val_--;
+    uint64_t val = val_.load();
+    uint64_t min = min_value_.load();
+    /* max_ stays the same*/
+    if (val < min)
+        min_value_ = val;
+}
+
+/**
+ *
+ * @param v
+ */
+void NumericCounter::decr(const uint64_t v) {
+    val_ -= v;
+    uint64_t val = val_.load();
+    uint64_t min = min_value_.load();
+    /* max_ stays the same*/
+    if (val < min)
+        min_value_ = val;
+}
+
 /**
  *
  * @param id
  * @param export_parent
  */
+LatencyCounter::LatencyCounter(const std::string &id, fds_volid_t volid, 
+                                FdsCounters *export_parent)
+    :   FdsBaseCounter(id, volid, export_parent),
+        total_latency_(0),
+        cnt_(0),
+        min_latency_(std::numeric_limits<uint64_t>::max()),
+        max_latency_(0) {}
+
 LatencyCounter::LatencyCounter(const std::string &id, FdsCounters *export_parent)
     :   FdsBaseCounter(id, export_parent),
         total_latency_(0),
         cnt_(0),
         min_latency_(std::numeric_limits<uint64_t>::max()),
         max_latency_(0) {}
+
+
+/**
+ * Copy Constructor
+ */
+LatencyCounter::LatencyCounter(const LatencyCounter &c)
+    :   FdsBaseCounter(c),
+        total_latency_(c.total_latency_.load()),
+        cnt_(c.cnt_.load()),
+        min_latency_(c.min_latency_.load()),
+        max_latency_(c.max_latency_.load()) {}
+
+
 /**
  * Exposed for testing
  */

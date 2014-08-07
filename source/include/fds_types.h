@@ -24,11 +24,15 @@
 #include <shared/fds_types.h>
 #include <serialize.h>
 #include <fds_assert.h>
-#include <PerfTrace.h>
+#include "PerfTypes.h" //NOLINT
 
 #include <boost/bind.hpp>
 #include <boost/function.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
+
+#include <util/Log.h>
+
+// struct PerfContext;
 
 /*
  * Consider encapsulating in the global
@@ -199,6 +203,7 @@ typedef enum {
     FDS_IO_REDIR_READ,
     FDS_IO_OFFSET_WRITE,
     FDS_CAT_UPD,
+    FDS_CAT_UPD_ONCE,
     FDS_CAT_UPD_SVC,
     FDS_CAT_QRY,
     FDS_CAT_QRY_SVC,
@@ -209,6 +214,7 @@ typedef enum {
     FDS_ATTACH_VOL,
     FDS_LIST_BLOB,
     FDS_PUT_BLOB,
+    FDS_PUT_BLOB_ONCE,
     FDS_GET_BLOB,
     FDS_STAT_BLOB,
     FDS_GET_BLOB_METADATA,
@@ -234,6 +240,7 @@ typedef enum {
     FDS_DM_SNAPDELTA_VOLCAT,
     FDS_DM_FWD_CAT_UPD,
     FDS_DM_PUSH_META_DONE,
+    FDS_DM_META_RECVD,
     FDS_DM_PURGE_COMMIT_LOG,
     FDS_OP_INVALID
 } fds_io_op_t;

@@ -73,14 +73,6 @@ class StorHvVolume : public FDS_Volume , public HasLogger
      */
     FDS_VolumeQueue*  volQueue;
 
-    /**
-     * TODO(Anna) temp before we implement AM trans state/table
-     * Keep a map of TxId to DMT version, so that each update
-     * and commit for the same transaction uses the same DMT as
-     * when transaction started
-     */
-    std::map<fds_uint64_t, fds_uint64_t> tx_to_dmt;
-
   private:
     /* lock to prevent volume destruction while accessing volume data */
     fds_rwlock rwlock;
@@ -433,11 +425,16 @@ class PutBlobReq: public FdsBlobReq {
     // Needed fields
     BlobTxId::ptr txDesc;
 
+    /// Used for putBlobOnce scenarios.
+    boost::shared_ptr< std::map<std::string, std::string> > metadata;
+    fds_int32_t blobMode;
+
     /* ack cnt for responses, decremented when response from SM and DM come back */
     std::atomic<int> respAcks;
     /* Return status for completion callback */
     Error retStatus;
 
+    /// Constructor used on regular putBlob requests.
     PutBlobReq(fds_volid_t _volid,
                const std::string& _blob_name, //same as objKey
                fds_uint64_t _blob_offset,
@@ -450,6 +447,17 @@ class PutBlobReq: public FdsBlobReq {
                void* _req_context,
                fdsnPutObjectHandler _put_obj_handler,
                void* _callback_data);
+
+    /// Constructor used on putBlobOnce requests.
+    PutBlobReq(fds_volid_t          _volid,
+               const std::string&   _blob_name, //same as objKey
+               fds_uint64_t         _blob_offset,
+               fds_uint64_t         _data_len,
+               char*                _data_buf,
+               fds_int32_t          _blobMode,
+               boost::shared_ptr< std::map<std::string, std::string> >& _metadata,
+               fdsnPutObjectHandler _put_obj_handler,
+               void*                _callback_data);
 
     fds_bool_t isLastBuf() const {
         return lastBuf;
@@ -500,14 +508,19 @@ struct DeleteBlobReq: FdsBlobReq, TxnRequest {
               callback_data(_callback_data) {
         e2eReqPerfCtx.type = AM_DELETE_OBJ_REQ;
         e2eReqPerfCtx.name = "volume:" + std::to_string(volId);
+        e2eReqPerfCtx.reset_volid(volId);
         qosPerfCtx.type = AM_DELETE_QOS;
         qosPerfCtx.name = "volume:" + std::to_string(volId);
+        qosPerfCtx.reset_volid(volId);
         hashPerfCtx.type = AM_DELETE_HASH;
         hashPerfCtx.name = "volume:" + std::to_string(volId);
+        hashPerfCtx.reset_volid(volId);
         dmPerfCtx.type = AM_DELETE_SM;
         dmPerfCtx.name = "volume:" + std::to_string(volId);
+        dmPerfCtx.reset_volid(volId);
         smPerfCtx.type = AM_DELETE_DM;
         smPerfCtx.name = "volume:" + std::to_string(volId);
+        smPerfCtx.reset_volid(volId);
     }
 
     DeleteBlobReq(fds_volid_t _volid,

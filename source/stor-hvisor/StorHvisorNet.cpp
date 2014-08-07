@@ -142,7 +142,7 @@ StorHvCtrl::StorHvCtrl(int argc,
 
     sysParams = params;
 
-    disableVcc =  config.get_abs<bool>("fds.am.testing.disable_vcc", true);
+    disableVcc =  config.get_abs<bool>("fds.am.testing.disable_vcc");
 
     LOGNORMAL << "StorHvisorNet - Constructing the Storage Hvisor";
 
@@ -195,6 +195,9 @@ StorHvCtrl::StorHvCtrl(int argc,
     // TODO(Andrew): Move this to platform process so everyone gets it
     // and make AM extend from platform process
     randNumGen = RandNumGenerator::ptr(new RandNumGenerator(RandNumGenerator::getRandSeed()));
+
+    // Init the AM transaction manager
+    amTxMgr = AmTxManager::unique_ptr(new AmTxManager("AM Transaction Manager Module"));
 
     /* TODO: for now StorHvVolumeTable constructor will create
      * volume 1, revisit this soon when we add multi-volume support

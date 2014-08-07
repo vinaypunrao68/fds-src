@@ -39,12 +39,16 @@ void SMSvcHandler::getObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     read_req->opReqFailedPerfEventType = GET_OBJ_REQ_ERR;
     read_req->opReqLatencyCtx.type = GET_OBJ_REQ;
     read_req->opReqLatencyCtx.name = read_req->perfNameStr;
+    read_req->opReqLatencyCtx.reset_volid(getObjMsg->volume_id);
     read_req->opLatencyCtx.type = GET_IO;
     read_req->opLatencyCtx.name = read_req->perfNameStr;
+    read_req->opLatencyCtx.reset_volid(getObjMsg->volume_id);
     read_req->opTransactionWaitCtx.type = GET_TRANS_QUEUE_WAIT;
     read_req->opTransactionWaitCtx.name = read_req->perfNameStr;
+    read_req->opTransactionWaitCtx.reset_volid(getObjMsg->volume_id);
     read_req->opQoSWaitCtx.type = GET_QOS_QUEUE_WAIT;
     read_req->opQoSWaitCtx.name = read_req->perfNameStr;
+    read_req->opQoSWaitCtx.reset_volid(getObjMsg->volume_id);
 
 
     read_req->smio_readdata_resp_cb = std::bind(
@@ -96,12 +100,16 @@ void SMSvcHandler::putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     put_req->opReqFailedPerfEventType = PUT_OBJ_REQ_ERR;
     put_req->opReqLatencyCtx.type = PUT_OBJ_REQ;
     put_req->opReqLatencyCtx.name = put_req->perfNameStr;
+    put_req->opReqLatencyCtx.reset_volid(putObjMsg->volume_id);
     put_req->opLatencyCtx.type = PUT_IO;
     put_req->opLatencyCtx.name = put_req->perfNameStr;
+    put_req->opLatencyCtx.reset_volid(putObjMsg->volume_id);
     put_req->opTransactionWaitCtx.type = PUT_TRANS_QUEUE_WAIT;
     put_req->opTransactionWaitCtx.name = put_req->perfNameStr;
+    put_req->opTransactionWaitCtx.reset_volid(putObjMsg->volume_id);
     put_req->opQoSWaitCtx.type = PUT_QOS_QUEUE_WAIT;
     put_req->opQoSWaitCtx.name = put_req->perfNameStr;
+    put_req->opQoSWaitCtx.reset_volid(putObjMsg->volume_id);
 
     putObjMsg->data_obj.clear();
     put_req->response_cb= std::bind(

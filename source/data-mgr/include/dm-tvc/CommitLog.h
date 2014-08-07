@@ -18,11 +18,13 @@
 #include <fds_module.h>
 #include <util/timeutils.h>
 #include <concurrency/RwLock.h>
+#include <concurrency/Mutex.h>
 #include <serialize.h>
 #include <blob/BlobTypes.h>
 #include <DmBlobTypes.h>
 #include <FdsCrypto.h>
-#include <PerfTrace.h>
+#include <PerfTypes.h>
+#include <boost/scoped_ptr.hpp>
 #include <DmIoReq.h>
 
 namespace fds {
@@ -82,7 +84,7 @@ class DmCommitLog : public Module {
     // ctor & dtor
     explicit DmCommitLog(const std::string &modName, const std::string & filename,
             fds_uint32_t filesize = DEFAULT_COMMIT_LOG_FILE_SIZE,
-            PersistenceType persist = IN_FILE);
+            PersistenceType persist = IN_MEMORY);
     ~DmCommitLog();
 
     // module overrides

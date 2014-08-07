@@ -45,6 +45,7 @@
 #include <functional>
 
 #include <dm-tvc/TimeVolumeCatalog.h>
+#include <StatStreamAggregator.h>
 
 /* if defined, puts complete as soon as they
  * arrive to DM (not for gets right now)
@@ -83,6 +84,10 @@ class DataMgr : public Module, public DmIoReqHandler {
      */
     virtual Error enqueueMsg(fds_volid_t volId, dmCatReq* ioReq) override;
 
+    FdsCounters * getCounters() {
+        return counters_.get();
+    }
+
  private:
     typedef enum {
       NORMAL_MODE = 0,
@@ -104,6 +109,11 @@ class DataMgr : public Module, public DmIoReqHandler {
      */
     DmTimeVolCatalog::ptr timeVolCat_;
 
+    /**
+     * Aggregator of volume stats streams
+     */
+    StatStreamAggregator::ptr statStreamAggr_;
+
     /* Common module provider */
     CommonModuleProviderIf *modProvider_;
 
@@ -123,8 +133,13 @@ class DataMgr : public Module, public DmIoReqHandler {
 
         Error processIO(FDS_IOType* _io) {
             Error err(ERR_OK);
+
             dmCatReq *io = static_cast<dmCatReq*>(_io);
             GLOGDEBUG << "processing : " << io->io_type;
+
+            PerfTracer::tracePointEnd(io->opQoSWaitCtx);
+            PerfTracer::tracePointBegin(io->opLatencyCtx);
+
             switch (io->io_type){
                 /* TODO(Rao): Add the new refactored DM messages types here */
                 case FDS_START_BLOB_TX:
@@ -132,6 +147,11 @@ class DataMgr : public Module, public DmIoReqHandler {
                     break;
                 case FDS_CAT_UPD:
                     threadPool->schedule(&DataMgr::updateCatalog, dataMgr, io);
+                    break;
+                case FDS_CAT_UPD_ONCE:
+                    threadPool->schedule(&DataMgr::updateCatalogOnce,
+                                         dataMgr,
+                                         io);
                     break;
                 case FDS_COMMIT_BLOB_TX:
                     threadPool->schedule(&DataMgr::commitBlobTx, dataMgr, io);
@@ -154,6 +174,9 @@ class DataMgr : public Module, public DmIoReqHandler {
                     break;
                 case FDS_DM_PURGE_COMMIT_LOG:
                     threadPool->schedule(io->proc, io);
+                    break;
+                case FDS_DM_META_RECVD:
+                    threadPool->schedule(&DataMgr::handleForwardComplete, dataMgr, io);
                     break;
 
                 /* End of new refactored DM message types */
@@ -222,6 +245,9 @@ class DataMgr : public Module, public DmIoReqHandler {
      */
     fds_mutex *vol_map_mtx;
 
+    /* Counters */
+    std::unique_ptr<FdsCounters> counters_;
+
     Error getVolObjSize(fds_volid_t volId,
                         fds_uint32_t *maxObjSize);
 
@@ -255,6 +281,7 @@ class DataMgr : public Module, public DmIoReqHandler {
      * all updates that are currently queued are processed.
      */
     Error notifyDMTClose();
+    void finishForwarding(fds_volid_t volid);
 
     static Error vol_handler(fds_volid_t vol_uuid,
                              VolumeDesc* desc,
@@ -307,6 +334,7 @@ class DataMgr : public Module, public DmIoReqHandler {
     /* TODO(Rao): Add the new refactored DM messages handlers here */
     void startBlobTx(dmCatReq *io);
     void updateCatalog(dmCatReq *io);
+    void updateCatalogOnce(dmCatReq *io);
     void commitBlobTx(dmCatReq *io);
     /**
      * Callback from volume catalog when transaction is commited
@@ -337,30 +365,17 @@ class DataMgr : public Module, public DmIoReqHandler {
     void getVolumeMetaData(dmCatReq *io);
     void snapVolCat(dmCatReq *io);
     void handleDMTClose(dmCatReq *io);
+    void handleForwardComplete(dmCatReq *io);
     // void sendUpdateCatalogResp(dmCatReq  *updCatReq, BlobNode *bnode);
 
     void scheduleGetBlobMetaDataSvc(void *io);
     Error processVolSyncState(fds_volid_t volume_id, fds_bool_t fwd_complete);
 
     /**
-     * Callback from volume meta receiver that volume meta is received
-     * for volume 'volid', so we can start process AMs' requests for this volume
-     */
-    void volmetaRecvd(fds_volid_t volid, const Error& error);
-    /**
      * Timeout to send DMT close ack if not sent yet and stop forwarding
      * cat updates for volumes that are still in 'finishing forwarding' state
      */
     void finishCloseDMT();
-
-    /* 
-     * FDS protocol processing proto types 
-     */
-    Error updateCatalogInternal(FDSP_UpdateCatalogTypePtr updCatReq,
-                                fds_volid_t volId, fds_uint32_t srcIp,
-                                fds_uint32_t dstIp, fds_uint32_t srcPort,
-                                fds_uint32_t dstPort, std::string session_uuid,
-                                fds_uint32_t reqCookie, std::string session_cache);
 
     /*
      * Nested class that manages the server interface.

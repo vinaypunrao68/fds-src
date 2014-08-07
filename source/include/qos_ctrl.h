@@ -67,6 +67,8 @@ class FDS_QoSControl {
    virtual Error   enqueueIO(fds_volid_t volUUID, FDS_IOType *io);
    void quieseceIOs(fds_volid_t volUUID);
 
+   virtual fds_uint32_t queueSize(fds_volid_t volId);
+
    /* will register OM client with perfstats that will enable pushing
     * perfstats to OM periodically, note that perfstats have to be enabled for that  */
    void registerOmClient(OMgrClient* om_client);

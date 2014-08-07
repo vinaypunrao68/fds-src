@@ -33,15 +33,7 @@ class Dm_ProbeMod : public ProbeMod
 {
   public:
     Dm_ProbeMod(char const *const name, probe_mod_param_t *param, Module *owner)
-            : ProbeMod(name, param, owner),
-              smIp("127.0.0.1"),
-              myIp("127.0.0.1"),
-              myName("DM probe client"),
-              numChannels(1),
-              numVols(1),
-              numObjs(10),
-              randData(false),
-              verify(true) {
+            : ProbeMod(name, param, owner) {
     }
     virtual ~Dm_ProbeMod() {
     }
@@ -69,27 +61,23 @@ class Dm_ProbeMod : public ProbeMod
         }
         fds_int32_t        blobMode;
     };
+
+    void genericResp(EPSvcRequest* svcReq,
+                     const Error& error,
+                     boost::shared_ptr<std::string> payload);
+    void schedule(const OpParams &updateParams);
     void sendUpdate(const OpParams &updateParams);
     void sendQuery(const OpParams &queryParams);
     void sendDelete(const OpParams &deleteParams);
     void sendStartTx(const OpParams &deleteParams);
     void sendCommitTx(const OpParams &deleteParams);
     void sendAbortTx(const OpParams &deleteParams);
-
     int  mod_init(SysParams const *const param);
     void mod_startup();
     void mod_shutdown();
 
   private:
-    std::string smIp; /**< Remote SM's IP */
-    std::string myIp; /**< This client's IP */
-    std::string myName;  /**< This client's name */
-    fds_uint32_t numChannels;  /**< Number of channels per session*/
-
-    fds_uint32_t numVols;   /**< Number of objects to use */
-    fds_uint32_t numObjs;   /**< Number of objects to use */
-    fds_bool_t   randData;  /**< Use random data or not */
-    fds_bool_t   verify;    /**< Verify data or not */
+    fpi::SvcUuid dm_uuid;
 };
 
 // ----------------------------------------------------------------------------
@@ -117,10 +105,11 @@ class UT_DmOpTemplate : public JsObjTemplate
             : JsObjTemplate("dm-ops", mgr) {}
 
     virtual JsObject *js_new(json_t *in) {
+        std::cout << " Unpacking ops" << std::endl;
         Dm_ProbeMod::OpParams *p = new Dm_ProbeMod::OpParams();
         char *op;
         char *name;
-        if (json_unpack(in, "{s:s, s:i, s:s, s:i, s:i, s:b}",
+        if (!json_unpack(in, "{s:s, s:i, s:s, s:i, s:i, s:b}",
                         "blob-op", &op,
                         "volume-id", &p->volId,
                         "blob-name", &name,
@@ -133,7 +122,7 @@ class UT_DmOpTemplate : public JsObjTemplate
         p->op = op;
         p->blobName = name;
 
-         (p->meta_list).clear();
+        (p->meta_list).clear();
         json_t *meta;
         if (!json_unpack(in, "{s:o}",
                         "metadata", &meta)) {

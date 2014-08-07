@@ -216,11 +216,14 @@ class FdsnIf : public apis::AmServiceIf {
                 SHARED_DYN_CAST(Callback, handler));
 
         handler->wait();
-        handler->process();
 
         if (handler->error != ERR_OK) {
             apis::ApiException fdsE;
-            fdsE.errorCode = apis::BAD_REQUEST;
+            if (handler->error == ERR_BLOB_NOT_FOUND) {
+                fdsE.errorCode = apis::MISSING_RESOURCE;
+            } else {
+                fdsE.errorCode = apis::BAD_REQUEST;
+            }
             throw fdsE;
         }
     }
@@ -355,6 +358,68 @@ class FdsnIf : public apis::AmServiceIf {
         handler->wait();
         LOGDEBUG << "set meta data returned";
         handler->process();
+    }
+
+    void updateBlobOnce(const std::string& domainName,
+                        const std::string& volumeName,
+                        const std::string& blobName,
+                        const fds_int32_t blobMode,
+                        const std::string& bytes,
+                        const int32_t length,
+                        const apis::ObjectOffset& objectOffset,
+                        const std::map<std::string, std::string>& metadata) {
+    }
+
+    void updateBlobOnce(boost::shared_ptr<std::string>& domainName,
+                        boost::shared_ptr<std::string>& volumeName,
+                        boost::shared_ptr<std::string>& blobName,
+                        boost::shared_ptr<fds_int32_t>& blobMode,
+                        boost::shared_ptr<std::string>& bytes,
+                        boost::shared_ptr<int32_t>& length,
+                        boost::shared_ptr<apis::ObjectOffset>& objectOffset,
+                        boost::shared_ptr< std::map<std::string, std::string> >& metadata) {
+        if ((testUturnAll == true) ||
+            (testUturnUpdateBlob == true)) {
+            LOGDEBUG << "Uturn testing update blob";
+            return;
+        }
+
+        fds_verify(*length >= 0);
+        fds_verify(objectOffset->value >= 0);
+
+        // Create context handler
+        PutObjectResponseHandler putHandler;
+
+        // Do async putobject
+        // TODO(Andrew): The error path callback maybe called
+        // in THIS thread's context...need to fix or handle that.
+        am_api->PutBlobOnce(*volumeName,
+                            *blobName,
+                            const_cast<char *>(bytes->c_str()),
+                            static_cast<fds_uint64_t>(objectOffset->value),
+                            *length,
+                            *blobMode,
+                            metadata,
+                            fn_PutObjectHandler,
+                            static_cast<void *>(&putHandler));
+
+        // Wait for a signal from the callback thread
+        putHandler.wait();
+
+        io_log_counter++;
+        if ((io_log_counter % io_log_interval) == 0) {
+            LOGNORMAL << "Finishing updateBlobOnce for blob " << *blobName
+                      << " at object offset " << objectOffset->value
+                      << ", log_counter = " << io_log_counter;
+        }
+        LOGDEBUG << "Finishing updateBlobOnce for blob " << *blobName
+                 << " at object offset " << objectOffset->value;
+
+        // Throw an exception if we didn't get an OK response
+        if (putHandler.status != ERR_OK) {
+            apis::ApiException fdsE;
+            throw fdsE;
+        }
     }
 
     void updateBlob(const std::string& domainName,

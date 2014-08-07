@@ -18,6 +18,8 @@
 #include <dm-tvc/CommitLog.h>
 #include <DataMgr.h>
 
+#include <PerfTrace.h>
+
 #define FDS_PAGE_START_ADDR(x) (reinterpret_cast<uintptr_t>(x) & ~(FDS_PAGE_SIZE - 1))
 
 #define FDS_PAGE_OFFSET(x) (reinterpret_cast<uintptr_t>(x) & (FDS_PAGE_SIZE - 1))
@@ -545,7 +547,7 @@ void FileCommitLogger::removeEntry(bool sync /* = true */) {
 FileCommitLogger::FileCommitLogger(const std::string & filename, fds_uint32_t filesize)
         : filename_(filename), filesize_(filesize), fd_(-1), prot_(PROT_READ | PROT_WRITE),
         flags_(MAP_PRIVATE | MAP_ANONYMOUS), addr_(0), lockLogFile_("commit log file lock"),
-        logCtx(COMMIT_LOG_WRITE, filename) {
+        logCtx(COMMIT_LOG_WRITE, 0, filename) {
     bool create = true;
 
     if (!filename.empty()) {

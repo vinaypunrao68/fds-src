@@ -275,6 +275,7 @@ void ObjectStorMgrI::GetObjectMetadata(
         LOGERROR << "Failed to enqueue to SmIoReadObjectMetadata to StorMgr.  Error: "
                 << err;
         sm_req->smio_readmd_resp_cb(err, sm_req);
+        delete sm_req;
     }
 }
 void ObjectStorMgrI::GetObjectMetadataCb(const Error &err,
@@ -1227,7 +1228,7 @@ ObjectStorMgr::readObject(const SmObjDb::View& view,
      * Read all of the object's locations
      */
     { 
-        PerfContext tmp_pctx(GET_METADATA_READ,"volume:" + std::to_string(vio.vol_uuid));
+        PerfContext tmp_pctx(GET_METADATA_READ, vio.vol_uuid,"volume:" + std::to_string(vio.vol_uuid));
         SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
         err = readObjMetaData(objId, objMetadata);
     }
@@ -1256,7 +1257,7 @@ ObjectStorMgr::readObject(const SmObjDb::View& view,
         // Now Read the object buffer from the disk
         
         {
-            PerfContext tmp_pctx(GET_DISK_READ,"volume:" + std::to_string(vio.vol_uuid));
+            PerfContext tmp_pctx(GET_DISK_READ, vio.vol_uuid,"volume:" + std::to_string(vio.vol_uuid));
             SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
             err = dio_mgr.disk_read(disk_req);
         }
@@ -1409,7 +1410,7 @@ ObjectStorMgr::writeObjectToTier(const OpCtx &opCtx,
     /* Disk write */
     disk_req = new SmPlReq(vio, oid, (ObjectBuf *)&objData, true, tier); // blocking call
     {   
-        PerfContext tmp_pctx(PUT_DISK_WRITE, "volume:" + std::to_string(vio.vol_uuid)); //TODO(matteo): move ctx in disk_req
+        PerfContext tmp_pctx(PUT_DISK_WRITE, vio.vol_uuid, "volume:" + std::to_string(vio.vol_uuid)); //TODO(matteo): move ctx in disk_req
         SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
         err = dio_mgr.disk_write(disk_req); //TODO(Matteo) inside or around this function, it could be non blocking
     }
@@ -1421,7 +1422,7 @@ ObjectStorMgr::writeObjectToTier(const OpCtx &opCtx,
     {
         //TODO(Matteo): look inside. This is for metadata. Initially we probably want just leveldb get and put
 
-        PerfContext tmp_pctx(PUT_METADATA_WRITE,"volume:" + std::to_string(vio.vol_uuid));
+        PerfContext tmp_pctx(PUT_METADATA_WRITE, vio.vol_uuid,"volume:" + std::to_string(vio.vol_uuid));
         SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
         err = writeObjectMetaData(opCtx, objId, objData.data.length(),
                 disk_req->req_get_phy_loc(), false, diskTier, &vio);
@@ -1576,13 +1577,13 @@ ObjectStorMgr::putObjectInternal2(SmIoPutObjectReq *putReq) {
     if (objBufPtr != NULL) {
         fds_verify(!(objCache->is_object_io_in_progress(volId, objId, objBufPtr)));
 
-        PerfTracer::incr(PUT_CACHE_HIT, putReq->perfNameStr);
+        PerfTracer::incr(PUT_CACHE_HIT, volId, putReq->perfNameStr);
 
         // Now check for dedup here.
         if (objBufPtr->data == putReq->data_obj) {
             err = ERR_DUPLICATE;
         } else {
-            PerfTracer::incr(HASH_COLLISION, putReq->perfNameStr);
+            PerfTracer::incr(HASH_COLLISION, volId, putReq->perfNameStr);
             /*
              * Handle hash-collision - insert the next collision-id+obj-id
              */
@@ -1605,7 +1606,7 @@ ObjectStorMgr::putObjectInternal2(SmIoPutObjectReq *putReq) {
     }
 
     if (err == ERR_DUPLICATE) {
-        PerfTracer::incr(DUPLICATE_OBJ, putReq->perfNameStr);
+        PerfTracer::incr(DUPLICATE_OBJ, volId, putReq->perfNameStr);
         if (new_buff_allocated) {
             added_cache = true;
             objCache->object_add(volId, objId, objBufPtr, false);
@@ -1654,7 +1655,7 @@ ObjectStorMgr::putObjectInternal2(SmIoPutObjectReq *putReq) {
         err = writeObject(opCtx, objId, *objBufPtr, volId, tierUsed);
 
         if (err != fds::ERR_OK) {
-            PerfTracer::incr(putReq->opReqFailedPerfEventType,putReq->perfNameStr);
+            PerfTracer::incr(putReq->opReqFailedPerfEventType, volId, putReq->perfNameStr);
             objCache->object_release(volId, objId, objBufPtr);
             objCache->object_delete(volId, objId);
             objCache->object_release(volId, objId, objBufPtr);
@@ -1714,7 +1715,7 @@ ObjectStorMgr::putObjectInternal2(SmIoPutObjectReq *putReq) {
          err = writeObject(opCtx, objId, *objBufPtr, volId, tierUsed);
 
           if (err != fds::ERR_OK) {
-              PerfTracer::incr(putReq->opReqFailedPerfEventType,putReq->perfNameStr);
+              PerfTracer::incr(putReq->opReqFailedPerfEventType, volId, putReq->perfNameStr);
               LOGDEBUG << "Successfully put object " << objId;
               /* if we successfully put to flash -- notify ranking engine */
               if (tierUsed == diskio::flashTier) {
@@ -1767,11 +1768,11 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
     if (objBufPtr != NULL) {
         fds_verify(!(objCache->is_object_io_in_progress(volId, objId, objBufPtr)));
 
-        PerfTracer::incr(PUT_CACHE_HIT, putReq->perfNameStr);
+        PerfTracer::incr(PUT_CACHE_HIT, volId, putReq->perfNameStr);
 
         // Now check for dedup here.
         if (objBufPtr->data == putObjReq->data_obj) {
-            PerfTracer::incr(DUPLICATE_OBJ, putReq->perfNameStr);
+            PerfTracer::incr(DUPLICATE_OBJ, volId, putReq->perfNameStr);
             err = ERR_DUPLICATE;
         } else {
             /*
@@ -1936,7 +1937,7 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
         msgHdr->result = FDS_ProtocolInterface::FDSP_ERR_OK;
         msgHdr->err_code = err.getFdspErr();
     } else {
-        PerfTracer::incr(putReq->opReqFailedPerfEventType, putReq->perfNameStr);
+        PerfTracer::incr(putReq->opReqFailedPerfEventType, volId, putReq->perfNameStr);
         msgHdr->result = FDS_ProtocolInterface::FDSP_ERR_FAILED;
         msgHdr->err_code = err.getFdspErr();
     }
@@ -1991,7 +1992,7 @@ ObjectStorMgr::enqTransactionIo(FDSP_MsgHdrTypePtr msgHdr,
                                                      msgHdr, ioReq, std::placeholders::_1));
     if (err != ERR_OK && err != ERR_TRANS_JOURNAL_REQUEST_QUEUED) {
         PerfTracer::tracePointEnd(ioReq->opReqLatencyCtx);
-        PerfTracer::incr(ioReq->opReqFailedPerfEventType, ioReq->perfNameStr);
+        PerfTracer::incr(ioReq->opReqFailedPerfEventType, ioReq->getVolId(), ioReq->perfNameStr);
 
         return err;
     }
@@ -2003,7 +2004,7 @@ ObjectStorMgr::enqTransactionIo(FDSP_MsgHdrTypePtr msgHdr,
     err = qosCtrl->enqueueIO(ioReq->getVolId(), ioReq);
     if (err != ERR_OK) {
         PerfTracer::tracePointEnd(ioReq->opReqLatencyCtx);
-        PerfTracer::incr(ioReq->opReqFailedPerfEventType, ioReq->perfNameStr);
+        PerfTracer::incr(ioReq->opReqFailedPerfEventType, ioReq->getVolId(), ioReq->perfNameStr);
     }
     return err;
 }
@@ -2060,6 +2061,7 @@ ObjectStorMgr::enqPutObjectReq(FDSP_MsgHdrTypePtr msgHdr,
              */
             LOGERROR << "Unable to enqueue putObject request "
                      << am_transId << ":" << trans_id;
+            delete ioReq;
             return err;
         }
         LOGDEBUG << "Successfully enqueued putObject request "
@@ -2085,7 +2087,7 @@ ObjectStorMgr::deleteObjectInternal(SmIoReq* delReq) {
 
     objBufPtr = objCache->object_retrieve(volId, objId);
     if (objBufPtr != NULL) {
-        PerfTracer::incr(DELETE_CACHE_HIT, delReq->perfNameStr);
+        PerfTracer::incr(DELETE_CACHE_HIT, volId, delReq->perfNameStr);
         objCache->object_release(volId, objId, objBufPtr);
         objCache->object_delete(volId, objId);
     }
@@ -2095,7 +2097,7 @@ ObjectStorMgr::deleteObjectInternal(SmIoReq* delReq) {
      * Delete the object, decrement refcnt of the assoc entry & overall refcnt
      */
     {
-        PerfContext tmp_pctx(DELETE_METADATA,"volume:" + std::to_string(volId));
+        PerfContext tmp_pctx(DELETE_METADATA, volId,"volume:" + std::to_string(volId));
         SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
         err = deleteObjectMetaData(opCtx, objId, volId, objMetadata);
     }
@@ -2107,7 +2109,7 @@ ObjectStorMgr::deleteObjectInternal(SmIoReq* delReq) {
             // tell persistent layer we deleted the object so that garbage collection
             // knows how much disk space we need to clean
             memcpy(oid.metaDigest, objId.GetId(), objId.GetLen());
-            PerfContext tmp_pctx(DELETE_DISK,"volume:" + std::to_string(volId));
+            PerfContext tmp_pctx(DELETE_DISK, volId, "volume:" + std::to_string(volId));
             SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
             if (objMetadata.onTier(diskio::diskTier)) {
                 dio_mgr.disk_delete_obj(&oid, objMetadata.getObjSize(), objMetadata.getObjPhyLoc(diskTier));
@@ -2177,7 +2179,7 @@ ObjectStorMgr::deleteObjectInternal2(SmIoDeleteObjectReq* delReq) {
 
     objBufPtr = objCache->object_retrieve(volId, objId);
     if (objBufPtr != NULL) {
-        PerfTracer::incr(DELETE_CACHE_HIT, delReq->perfNameStr);
+        PerfTracer::incr(DELETE_CACHE_HIT, volId, delReq->perfNameStr);
         objCache->object_release(volId, objId, objBufPtr);
         objCache->object_delete(volId, objId);
     }
@@ -2187,7 +2189,7 @@ ObjectStorMgr::deleteObjectInternal2(SmIoDeleteObjectReq* delReq) {
      * Delete the object, decrement refcnt of the assoc entry & overall refcnt
      */
     {
-        PerfContext tmp_pctx(DELETE_METADATA,"volume:" + std::to_string(volId));
+        PerfContext tmp_pctx(DELETE_METADATA, volId, "volume:" + std::to_string(volId));
         SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
         err = deleteObjectMetaData(opCtx, objId, volId, objMetadata);
     }
@@ -2199,7 +2201,7 @@ ObjectStorMgr::deleteObjectInternal2(SmIoDeleteObjectReq* delReq) {
             // tell persistent layer we deleted the object so that garbage collection
             // knows how much disk space we need to clean
             memcpy(oid.metaDigest, objId.GetId(), objId.GetLen());
-            PerfContext tmp_pctx(DELETE_DISK,"volume:" + std::to_string(volId));
+            PerfContext tmp_pctx(DELETE_DISK,volId,"volume:" + std::to_string(volId));
             SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
             if (objMetadata.onTier(diskio::diskTier)) {
                 dio_mgr.disk_delete_obj(&oid, objMetadata.getObjSize(),
@@ -2333,14 +2335,14 @@ ObjectStorMgr::getObjectInternal2(SmIoReadObjectdata *getReq) {
             }
         }
     } else {
-        PerfTracer::incr(GET_CACHE_HIT, getReq->perfNameStr);
+        PerfTracer::incr(GET_CACHE_HIT, volId, getReq->perfNameStr);
         fds_verify(!(objCache->is_object_io_in_progress(volId, objId, objBufPtr)));
     }
 
     //objStorMutex->unlock();
 
     if (err != fds::ERR_OK) {
-        PerfTracer::incr(getReq->opReqFailedPerfEventType, getReq->perfNameStr);
+        PerfTracer::incr(getReq->opReqFailedPerfEventType, volId, getReq->perfNameStr);
         LOGERROR << "Failed to get object " << objId
                  << " with error " << err;
         getReq->obj_data.data.clear();
@@ -2424,14 +2426,14 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
             }
         }
     } else {
-        PerfTracer::incr(GET_CACHE_HIT, getReq->perfNameStr);
+        PerfTracer::incr(GET_CACHE_HIT, volId, getReq->perfNameStr);
         fds_verify(!(objCache->is_object_io_in_progress(volId, objId, objBufPtr)));
     }
 
     //objStorMutex->unlock();
 
     if (err != fds::ERR_OK) {
-        PerfTracer::incr(getReq->opReqFailedPerfEventType, getReq->perfNameStr);
+        PerfTracer::incr(getReq->opReqFailedPerfEventType, volId, getReq->perfNameStr);
         LOGERROR << "Failed to get object " << objId
                  << " with error " << err;
         /*
@@ -2540,6 +2542,7 @@ ObjectStorMgr::enqDeleteObjectReq(FDSP_MsgHdrTypePtr msgHdr,
     if (err != fds::ERR_OK) {
         LOGERROR << "Unable to enqueue delObject request "
                  << am_transId << ":" << trans_id;
+        delete ioReq;
         return err;
     }
     LOGDEBUG << "Successfully enqueued delObject request "
@@ -2660,6 +2663,7 @@ ObjectStorMgr::enqGetObjectReq(FDSP_MsgHdrTypePtr msgHdr,
                  << am_transId << ":" << trans_id;
         getObjReq->data_obj_len = 0;
         getObjReq->data_obj.assign("");
+        delete ioReq;
         return err;
     }
     LOGDEBUG << "Successfully enqueued getObject request "

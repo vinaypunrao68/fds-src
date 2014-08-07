@@ -473,6 +473,8 @@ void StorHvVolumeTable::moveWaitBlobsToQosQueue(fds_volid_t vol_uuid,
                 AmQosReq* req = blobs[i];
                 fds_verify(req != NULL);
                 req->setVolId(vol_uuid);
+                fds::PerfTracer::tracePointBegin(req->getBlobReqPtr()->e2eReqPerfCtx);
+                fds::PerfTracer::tracePointBegin(req->getBlobReqPtr()->qosPerfCtx);
                 storHvisor->qos_ctrl->enqueueIO(vol_uuid, req);
             }
             blobs.clear();
@@ -667,14 +669,19 @@ GetBlobReq::GetBlobReq(fds_volid_t _volid,
     
     e2eReqPerfCtx.type = AM_GET_OBJ_REQ;
     e2eReqPerfCtx.name = "volume:" + std::to_string(volId);
+    e2eReqPerfCtx.reset_volid(volId);
     qosPerfCtx.type = AM_GET_QOS;
     qosPerfCtx.name = "volume:" + std::to_string(volId);
+    qosPerfCtx.reset_volid(volId);
     hashPerfCtx.type = AM_GET_HASH;
     hashPerfCtx.name = "volume:" + std::to_string(volId);
+    hashPerfCtx.reset_volid(volId);
     dmPerfCtx.type = AM_GET_SM;
     dmPerfCtx.name = "volume:" + std::to_string(volId);
+    dmPerfCtx.type = AM_DELETE_DM;
     smPerfCtx.type = AM_GET_DM;
     smPerfCtx.name = "volume:" + std::to_string(volId);
+    smPerfCtx.reset_volid(volId);
 }
 
 GetBlobReq::~GetBlobReq()
@@ -712,14 +719,56 @@ PutBlobReq::PutBlobReq(fds_volid_t _volid,
     stopWatch.start();
     e2eReqPerfCtx.type = AM_PUT_OBJ_REQ;
     e2eReqPerfCtx.name = "volume:" + std::to_string(volId);
+    e2eReqPerfCtx.reset_volid(volId);
     qosPerfCtx.type = AM_PUT_QOS;
     qosPerfCtx.name = "volume:" + std::to_string(volId);
+    qosPerfCtx.reset_volid(volId);
     hashPerfCtx.type = AM_PUT_HASH;
     hashPerfCtx.name = "volume:" + std::to_string(volId);
+    hashPerfCtx.reset_volid(volId);
     dmPerfCtx.type = AM_PUT_SM;
     dmPerfCtx.name = "volume:" + std::to_string(volId);
+    dmPerfCtx.type = AM_DELETE_DM;
     smPerfCtx.type = AM_PUT_DM;
     smPerfCtx.name = "volume:" + std::to_string(volId);
+    smPerfCtx.reset_volid(volId);
+}
+
+PutBlobReq::PutBlobReq(fds_volid_t          _volid,
+                       const std::string&   _blob_name, //same as objKey
+                       fds_uint64_t         _blob_offset,
+                       fds_uint64_t         _data_len,
+                       char*                _data_buf,
+                       fds_int32_t          _blobMode,
+                       boost::shared_ptr< std::map<std::string, std::string> >& _metadata,
+                       fdsnPutObjectHandler _put_obj_handler,
+                       void*                _callback_data)
+        : FdsBlobReq(FDS_PUT_BLOB_ONCE, _volid, _blob_name, _blob_offset,
+                     _data_len, _data_buf, FDS_NativeAPI::DoCallback,
+                     this, Error(ERR_OK), 0),
+                ObjKey(_blob_name),
+                blobMode(_blobMode),
+                metadata(_metadata),
+                putObjCallback(_put_obj_handler),
+                callback_data(_callback_data),
+                respAcks(2),
+                retStatus(ERR_OK) {
+    stopWatch.start();
+    e2eReqPerfCtx.type = AM_PUT_OBJ_REQ;
+    e2eReqPerfCtx.name = "volume:" + std::to_string(volId);
+    e2eReqPerfCtx.reset_volid(volId);
+    qosPerfCtx.type = AM_PUT_QOS;
+    qosPerfCtx.name = "volume:" + std::to_string(volId);
+    qosPerfCtx.reset_volid(volId);
+    hashPerfCtx.type = AM_PUT_HASH;
+    hashPerfCtx.name = "volume:" + std::to_string(volId);
+    hashPerfCtx.reset_volid(volId);
+    dmPerfCtx.type = AM_PUT_SM;
+    dmPerfCtx.name = "volume:" + std::to_string(volId);
+    dmPerfCtx.type = AM_DELETE_DM;
+    smPerfCtx.type = AM_PUT_DM;
+    smPerfCtx.name = "volume:" + std::to_string(volId);
+    smPerfCtx.reset_volid(volId);
 }
 
 PutBlobReq::~PutBlobReq()

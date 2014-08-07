@@ -28,39 +28,83 @@ public class StreamWriter {
 
     public byte[] write(String domainName, String volumeName, String blobName, InputStream input, Map<String, String> metadata) throws Exception {
         long objectOffset = 0;
-        int lastBufSize = 0;
         MessageDigest md = MessageDigest.getInstance("MD5");
         byte[] digest = new byte[0];
 
-        TxDescriptor tx = am.startBlobTx(domainName, volumeName, blobName, Mode.TRUNCATE.getValue());
+        TxDescriptor tx = null;
+        try {
+            if (localBytes.get() == null || localBytes.get().length != objectSize) {
+                localBytes.set(new byte[objectSize]);
+            }
 
-        if (localBytes.get() == null || localBytes.get().length != objectSize) {
-            localBytes.set(new byte[objectSize]);
+            byte[] buf = localBytes.get();
+
+            int firstReadCount = readFully(input, buf);
+            if(firstReadCount != -1) {
+                int nextByte = input.read();
+                md.update(buf, 0, firstReadCount);
+
+                if(nextByte == -1) {
+                    // single object case
+                    digest = md.digest();
+                    metadata.put("etag", Hex.encodeHexString(digest));
+                    am.updateBlobOnce(domainName, volumeName, blobName,
+                                      Mode.TRUNCATE.getValue(), ByteBuffer.wrap(buf, 0, firstReadCount),
+                                      firstReadCount, new ObjectOffset(0), metadata);
+                    return digest;
+                } else {
+                    // multi object case
+                    tx = am.startBlobTx(domainName, volumeName, blobName, Mode.TRUNCATE.getValue());
+
+                    // push first read to FDS
+                    am.updateBlob(domainName, volumeName, blobName, tx,
+                            ByteBuffer.wrap(buf, 0, firstReadCount), firstReadCount,
+                            new ObjectOffset(objectOffset), false);
+                    objectOffset++;
+
+                    // reassemble second read and push to FDS
+                    int secondReadCount = Math.max(readFully(input, buf, 1), 0) + 1;
+                    buf[0] = (byte) nextByte;
+                    md.update(buf, 0, secondReadCount);
+                    am.updateBlob(domainName, volumeName, blobName, tx,
+                            ByteBuffer.wrap(buf, 0, secondReadCount), secondReadCount,
+                            new ObjectOffset(objectOffset), false);
+                    objectOffset++;
+
+                    // read remaining
+                    for (int read = readFully(input, buf); read != -1; read = readFully(input, buf)) {
+                        md.update(buf, 0, read);
+                        am.updateBlob(domainName, volumeName, blobName, tx,
+                                ByteBuffer.wrap(buf, 0, read), read,
+                                new ObjectOffset(objectOffset), false);
+                        objectOffset++;
+                    }
+                }
+            }
+
+            digest = md.digest();
+            metadata.put("etag", Hex.encodeHexString(digest));
+
+            am.updateMetadata(domainName, volumeName, blobName, tx, metadata);
+            if(tx != null)
+                am.commitBlobTx(domainName, volumeName, blobName, tx);
+            return digest;
+        } catch (Exception e) {
+            if(tx != null)
+                am.abortBlobTx(domainName, volumeName, blobName, tx);
+            throw e;
         }
-
-        byte[] buf = localBytes.get();
-
-        for (int read = readFully(input, buf); read != -1; read = readFully(input, buf)) {
-            md.update(buf, 0, read);
-            am.updateBlob(domainName, volumeName, blobName, tx,
-                    ByteBuffer.wrap(buf, 0, read), read,
-                    new ObjectOffset(objectOffset), false);
-            lastBufSize = read;
-            objectOffset++;
-        }
-
-        digest = md.digest();
-        metadata.put("etag", Hex.encodeHexString(digest));
-
-        am.updateMetadata(domainName, volumeName, blobName, tx, metadata);
-        am.commitBlobTx(domainName, volumeName, blobName, tx);
-        return digest;
     }
 
     public int readFully(InputStream inputStream, byte[] buf) throws IOException {
+        return readFully(inputStream, buf, 0);
+    }
+
+    public int readFully(InputStream inputStream, byte[] buf, int initialOffset) throws IOException {
         int bytesRead = 0;
-        while (bytesRead < buf.length) {
-            int read = inputStream.read(buf, bytesRead, buf.length - bytesRead);
+        int fillLength = buf.length - initialOffset;
+        while (bytesRead < fillLength) {
+            int read = inputStream.read(buf, bytesRead + initialOffset, fillLength - bytesRead);
             if (read == -1) break;
             bytesRead += read;
         }

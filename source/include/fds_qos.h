@@ -10,6 +10,7 @@
 #include <condition_variable> 
 #include <atomic>
 #include "qos_ctrl.h"
+#include "PerfTrace.h"
 
 
 namespace fds {
@@ -210,6 +211,12 @@ namespace fds {
       assert((throttle_level >= -10) && (throttle_level <= 10));
       current_throttle_level = throttle_level;
       FDS_PLOG(qda_log) << "Dispatcher adjusting current throttle level to " << throttle_level;
+    }
+
+    virtual fds_uint32_t count(fds_qid_t queue_id) {
+        SCOPEDREAD(qda_lock);
+        queue_map_t::iterator iter = queue_map.find(queue_id);
+        return queue_map.end() != iter ?  iter->second->count() : 0;
     }
 
     virtual Error enqueueIO(fds_qid_t queue_id, FDS_IOType *io) {

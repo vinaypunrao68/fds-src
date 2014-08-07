@@ -11,6 +11,7 @@ import org.junit.Test;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
+import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -23,7 +24,8 @@ public class StreamWriterTest {
 
     @Test
     public void testWriteStream() throws Exception {
-        ByteArrayInputStream bytes = new ByteArrayInputStream(new byte[]{0, 1, 2, 3, 4, 5, 6, 7});
+        byte[] input = new byte[]{0, 1, 2, 3, 4, 5, 6, 7};
+        ByteArrayInputStream bytes = new ByteArrayInputStream(input);
         InputStream in = new ChunkingInputStream(bytes, 2);
 
         String domainName = "domain";
@@ -34,12 +36,16 @@ public class StreamWriterTest {
         StubAm am = new StubAm();
 
         byte[] result = new StreamWriter(4, am).write(domainName, volumeName, blobName, in, metadata);
-        assertEquals(3, am.objectsWritten.size());
+        assertEquals(2, am.objectsWritten.size());
         assertArrayEquals(new byte[]{0, 1, 2, 3}, am.objectsWritten.get(0));
         assertArrayEquals(new byte[]{4, 5, 6, 7}, am.objectsWritten.get(1));
-        assertArrayEquals(new byte[]{4, 5, 6, 7}, am.objectsWritten.get(2));
-        assertArrayEquals(new byte[]{54, 119, 80, -105, 81, -52, -10, 21, 57, 23, 77, 43, -106, 53, -89, -65}, result);
-        assertTrue(am.isCommitted);
+
+        MessageDigest md = MessageDigest.getInstance("MD5");
+        md.update(new byte[]{0, 1, 2, 3});
+        md.update(new byte[]{4, 5, 6, 7});
+        byte[] controlDigest = md.digest();
+
+        assertArrayEquals(controlDigest, result);
     }
 
     private class StubAm implements AmService.Iface {
@@ -89,6 +95,11 @@ public class StreamWriterTest {
             byte[] buf = new byte[length];
             System.arraycopy(bytes.array(), 0, buf, 0, length);
             objectsWritten.add(buf);
+        }
+
+        @Override
+        public void updateBlobOnce(String domainName, String volumeName, String blobName, int blobMode, ByteBuffer bytes, int length, ObjectOffset objectOffset, Map<String,String> metadata) throws ApiException, TException {
+
         }
 
         @Override

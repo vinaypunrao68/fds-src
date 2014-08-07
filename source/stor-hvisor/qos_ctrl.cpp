@@ -85,6 +85,10 @@ Error FDS_QoSControl::enqueueIO(fds_volid_t volUUID, FDS_IOType *io) {
   return err;
 }
 
+fds_uint32_t FDS_QoSControl::queueSize(fds_volid_t volId) {
+    return dispatcher->count(volId);
+}
+
 void FDS_QoSControl::quieseceIOs(fds_volid_t volUUID) {
   dispatcher->quiesceIOs(volUUID);
 }

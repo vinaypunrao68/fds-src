@@ -80,6 +80,8 @@ std::string logString(const FDS_ProtocolInterface::PutObjectMsg& putObj);
 std::string logString(const FDS_ProtocolInterface::PutObjectRspMsg& putObj);
 std::string logString(const FDS_ProtocolInterface::UpdateCatalogMsg& updCat);
 std::string logString(const FDS_ProtocolInterface::UpdateCatalogRspMsg& updCat);
+std::string logString(const FDS_ProtocolInterface::UpdateCatalogOnceMsg& updCat);
+std::string logString(const FDS_ProtocolInterface::UpdateCatalogOnceRspMsg& updCat);
 std::string logString(const FDS_ProtocolInterface::StartBlobTxMsg& stBlobTx);
 std::string logString(const FDS_ProtocolInterface::DeleteCatalogObjectMsg& delObjCat);
 std::string logString(const FDS_ProtocolInterface::DeleteCatalogObjectRspMsg& delObjRsp);
