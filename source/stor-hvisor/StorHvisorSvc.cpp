@@ -725,7 +725,14 @@ void StorHvCtrl::getBlobGetObjectResp(fds::AmQosReq* qosReq,
     }
     GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback,
                                                 blobReq->cb);
-    cb->returnSize = getObjRsp->data_obj_len;
+    // Set the return size based on what was requested
+    if (blobReq->getDataLen() < static_cast<fds_uint64_t>(getObjRsp->data_obj_len)) {
+        LOGDEBUG  << "Returning " << blobReq->getDataLen() << " byte subset of "
+                  << getObjRsp->data_obj_len << " bytes of data";
+        cb->returnSize = blobReq->getDataLen();
+    } else {
+        cb->returnSize = getObjRsp->data_obj_len;
+    }
     memcpy(cb->returnBuffer,
            getObjRsp->data_obj.c_str(),
            cb->returnSize);
