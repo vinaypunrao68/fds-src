@@ -219,6 +219,7 @@ typedef list <FDSP_MetaDataPair> FDSP_MetaDataList
 struct FDSP_VolumeMetaData {
   1: i64 blobCount;
   2: i64 size; // in bytes
+  3: i64 objectCount;
 //  3: FDSP_MetaDataList metaData;
 }
 

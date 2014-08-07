@@ -15,6 +15,11 @@
 #include <fds_types.h>
 #include <fds_volume.h>
 
+#define APPROX_BLOB_NAME_SIZE 256
+#define METADATA_SIZE(blobCount, objectCount) \
+        (blobCount * (APPROX_BLOB_NAME_SIZE + sizeof(BasicBlobMeta)) + \
+        objectCount * (OBJECTID_DIGESTLEN + sizeof(fds_volid_t)))
+
 namespace fds {
 
     /**
