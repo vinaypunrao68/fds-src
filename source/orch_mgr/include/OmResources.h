@@ -479,22 +479,34 @@ class OM_NodeContainer : public DomainContainer
 class WaitNdsEvt
 {
  public:
-    explicit WaitNdsEvt(const NodeUuidSet& sms)
-            : sm_services(sms.begin(), sms.end()) {}
+    explicit WaitNdsEvt(const NodeUuidSet& sms, const NodeUuidSet& dms)
+            : sm_services(sms.begin(), sms.end()),
+            dm_services(dms.begin(), dms.end())
+            {}
+    std::string logString() const {
+        return "WaitNdsEvt";
+    }
 
     NodeUuidSet sm_services;
+    NodeUuidSet dm_services;
 };
 
 class NoPersistEvt
 {
  public:
     NoPersistEvt() {}
+    std::string logString() const {
+        return "NoPersistEvt";
+    }
 };
 
 class LoadVolsEvt
 {
  public:
     LoadVolsEvt() {}
+    std::string logString() const {
+        return "LoadVolsEvt";
+    }
 };
 
 class RegNodeEvt
@@ -503,6 +515,9 @@ class RegNodeEvt
     RegNodeEvt(const NodeUuid& uuid,
                fpi::FDSP_MgrIdType type)
             : svc_uuid(uuid), svc_type(type) {}
+    std::string logString() const {
+        return "RegNodeEvt";
+    }
 
     NodeUuid svc_uuid;
     fpi::FDSP_MgrIdType svc_type;
@@ -512,12 +527,22 @@ class TimeoutEvt
 {
  public:
     TimeoutEvt() {}
+    std::string logString() const {
+        return "TimeoutEvt";
+    }
 };
 
-class DltUpEvt
+class DltDmtUpEvt
 {
  public:
-    DltUpEvt() {}
+    explicit DltDmtUpEvt(fpi::FDSP_MgrIdType type) {
+        svc_type = type;
+    }
+    std::string logString() const {
+        return "DltDmtUpEvt";
+    }
+
+    fpi::FDSP_MgrIdType svc_type;
 };
 
 class OM_NodeDomainMod : public Module
@@ -662,7 +687,7 @@ class OM_NodeDomainMod : public Module
      * Apply an event to domain state machine
      */
     void local_domain_event(WaitNdsEvt const &evt);
-    void local_domain_event(DltUpEvt const &evt);
+    void local_domain_event(DltDmtUpEvt const &evt);
     void local_domain_event(RegNodeEvt const &evt);
     void local_domain_event(TimeoutEvt const &evt);
     void local_domain_event(NoPersistEvt const &evt);

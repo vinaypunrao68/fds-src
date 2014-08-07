@@ -1066,7 +1066,7 @@ DomainContainer::dc_register_node(const NodeUuid       &uuid,
 {
     AgentContainer::pointer nodes;
 
-    FDS_PLOG(g_fdslog) << "Domain register uuid " << std::hex
+    LOGDEBUG << "Domain register uuid " << std::hex
         << uuid.uuid_get_val() << ", svc uuid " << msg->service_uuid.uuid
         << ", node type " << std::dec << msg->node_type;
 

@@ -8,6 +8,7 @@
 #include <platform/node-inventory.h>
 #include <fds_volume.h>
 #include <dlt.h>
+#include <fds_dmt.h>
 
 namespace fds {
     namespace kvstore {        
@@ -42,6 +43,14 @@ namespace fds {
             bool getDlt(DLT& dlt, fds_uint64_t version, int localDomain = 0);
             bool loadDlts (DLTManager& dltMgr, int localDomain = 0);
             bool storeDlts(DLTManager& dltMgr, int localDomain = 0);
+
+            // dmt
+            // to store different types of dmt [committed, target]
+            fds_uint64_t getDmtVersionForType(const std::string type, int localDomain = 0);
+            bool setDmtType(fds_uint64_t version, const std::string type, int localDomain = 0);
+
+            bool storeDmt(const DMT& dmt, const std::string type = "" , int localDomain = 0);
+            bool getDmt(DMT& dmt, fds_uint64_t version, int localDomain = 0);
 
             // nodes
             bool addNode(const NodeInvData& node);

@@ -23,7 +23,7 @@ OM_Module *OM_Module::om_singleton()
 
 }  // namespace fds
 
-int om_gdb = 1;
+int om_gdb = 0;
 
 int main(int argc, char *argv[])
 {
@@ -33,7 +33,7 @@ int main(int argc, char *argv[])
         &fds::gl_OMModule,
         NULL
     };
-    while (om_gdb == 0) { sleep(1); }
+    while (om_gdb == 1) { sleep(1); }
 
     fds::orchMgr = new fds::OrchMgr(argc, argv, &fds::gl_OmPlatform, omVec);
     fds::gl_orch_mgr = fds::orchMgr;

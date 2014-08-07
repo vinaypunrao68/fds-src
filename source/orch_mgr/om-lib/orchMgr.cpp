@@ -13,6 +13,7 @@
 #include <map>
 #include <util/Log.h>
 #include <OmDataPlacement.h>
+#include <OmVolumePlacement.h>
 #include <orch-mgr/om-service.h>
 
 namespace fds {
@@ -157,7 +158,10 @@ void OrchMgr::proc_pre_startup()
 
     cfgserver_thread.reset(new std::thread(&OrchMgr::start_cfgpath_server, this));
     om_policy_srv = new Orch_VolPolicyServ();
+}
 
+void OrchMgr::proc_pre_service()
+{
     fds_bool_t config_db_up = loadFromConfigDB();
     // load persistent state to local domain
     OM_NodeDomainMod* local_domain = OM_NodeDomainMod::om_local_domain();
@@ -424,6 +428,8 @@ bool OrchMgr::loadFromConfigDB() {
     // keep the pointer in data placement module
     DataPlacement *dp = OM_Module::om_singleton()->om_dataplace_mod();
     dp->setConfigDB(configDB);
+
+    OM_Module::om_singleton()->om_volplace_mod()->setConfigDB(configDB);
 
     return true;
 }
