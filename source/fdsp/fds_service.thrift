@@ -47,6 +47,7 @@ enum  FDSPMsgTypeId {
       use EmptyMsg...
       */
     EmptyMsgTypeId,
+    StatStreamMsgTypeId,
     
      /* SM Type Ids*/
     GetObjectMsgTypeId 		= 10000, 
@@ -452,11 +453,19 @@ struct VolSyncStateRspMsg {
 }
 
 /**
+ * time slot containing volume stats
+ */
+struct VolStatSlot {
+    1: i64    rel_seconds;    // timestamp in seconds relative to start_timestamp
+    2: binary slot_data;      // represents time slot of stats
+}
+
+/**
  * Volume's time-series of stats
  */
 struct VolStatList {
-    1: i64             volume_id;
-    2: list<binary>    statlist;  // list of time slots (each slot is binary)
+    1: i64                  volume_id;  // volume id
+    2: list<VolStatSlot>    statlist;   // list of time slots
 }
 
 /**
