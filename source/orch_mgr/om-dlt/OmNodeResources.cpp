@@ -585,14 +585,17 @@ OM_PmAgent::handle_register_service(FDS_ProtocolInterface::FDSP_MgrIdType svc_ty
         case FDS_ProtocolInterface::FDSP_STOR_MGR:
             activeSmAgent = OM_SmAgent::agt_cast_ptr(svc_agent);
             services.sm = svc_agent->get_uuid();
+            LOGDEBUG << " sm: " <<  std::hex << services.sm.uuid_get_val() << std::dec;
             break;
         case FDS_ProtocolInterface::FDSP_DATA_MGR:
             activeDmAgent = OM_DmAgent::agt_cast_ptr(svc_agent);
             services.dm = svc_agent->get_uuid();
+            LOGDEBUG << " dm: " <<  std::hex << services.dm.uuid_get_val() << std::dec;
             break;
         case FDS_ProtocolInterface::FDSP_STOR_HVISOR:
             activeAmAgent = OM_AmAgent::agt_cast_ptr(svc_agent);
             services.am = svc_agent->get_uuid();
+            LOGDEBUG << " am: " <<  std::hex << services.am.uuid_get_val() << std::dec;
             break;
         default:
             fds_verify(false);
@@ -675,6 +678,7 @@ OM_PmAgent::send_activate_services(fds_bool_t activate_sm,
     // 'node up' state
     if ((node_state() != FDS_ProtocolInterface::FDS_Node_Discovered) &&
         (node_state() != FDS_ProtocolInterface::FDS_Node_Up)) {
+        LOGERROR << "Invalid state";
         return Error(ERR_INVALID_ARG);
     }
     LOGNORMAL << "OM_PmAgent: will send node activate message to " << get_node_name()

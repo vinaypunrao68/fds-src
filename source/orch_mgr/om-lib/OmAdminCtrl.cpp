@@ -116,7 +116,7 @@ void FdsAdminCtrl::updateAdminControlParams(VolumeDesc  *pVolDesc)
     // but disk and ssd capacity is in GB
     double vol_capacity_GB = pVolDesc->capacity / 1024;
 
-    LOGERROR << "desc iops_min: " << pVolDesc->iops_min
+    LOGNOTIFY<< "desc iops_min: " << pVolDesc->iops_min
              << "desc iops_max: " << pVolDesc->iops_max
              << "desc capacity (MB): " << pVolDesc->capacity
              << "total iops min : " << total_vol_iops_min

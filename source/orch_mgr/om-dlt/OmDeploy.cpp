@@ -626,7 +626,8 @@ DltDplyFSM::DACT_Close::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
 
     // in case we are in domain bring up state, notify domain that current
     // DLT is up (we got quorum number of acks for DLT commit)
-    domain->local_domain_event(DltUpEvt());
+    LOGDEBUG << "Sending dlt up event";
+    domain->local_domain_event(DltDmtUpEvt(fpi::FDSP_STOR_MGR));
 }
 
 // GRD_DltClose

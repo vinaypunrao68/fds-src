@@ -13,6 +13,7 @@
 #include <map>
 #include <util/Log.h>
 #include <OmDataPlacement.h>
+#include <OmVolumePlacement.h>
 #include <orch-mgr/om-service.h>
 
 namespace fds {
@@ -427,6 +428,8 @@ bool OrchMgr::loadFromConfigDB() {
     // keep the pointer in data placement module
     DataPlacement *dp = OM_Module::om_singleton()->om_dataplace_mod();
     dp->setConfigDB(configDB);
+
+    OM_Module::om_singleton()->om_volplace_mod()->setConfigDB(configDB);
 
     return true;
 }

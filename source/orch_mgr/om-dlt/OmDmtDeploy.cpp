@@ -246,7 +246,7 @@ struct DmtDplyFSM : public msm::front::state_machine_def<DmtDplyFSM>
     // | Start            | Event          | Next        | Action        | Guard        |
     // +------------------+----------------+-------------+---------------+--------------+
     msf::Row< DST_Idle    , DmtDeployEvt   , DST_Compute , DACT_Start   , GRD_DplyStart >,
-    msf::Row< DST_Idle    , DmtLoadedDbEvt , DST_Commit  , DACT_ComputeDb,  msf::none  >,
+    msf::Row< DST_Idle    , DmtLoadedDbEvt , DST_BcastAM , DACT_Commit  ,  msf::none  >,
     // +------------------+----------------+-------------+---------------+--------------+
     msf::Row< DST_Compute , DmtVolAckEvt   , DST_Commit  , DACT_Compute, GRD_DmtCompute >,
     // +------------------+----------------+-------------+---------------+--------------+
@@ -696,6 +696,7 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 void
 DmtDplyFSM::DACT_Close::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
+    OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
     OM_NodeContainer* loc_domain = OM_NodeDomainMod::om_loc_domain_ctrl();
     OM_Module* om = OM_Module::om_singleton();
     VolumePlacement* vp = om->om_volplace_mod();
@@ -718,6 +719,9 @@ DmtDplyFSM::DACT_Close::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
     if (dst.close_acks_to_wait < 1) {
         fsm.process_event(DmtCloseOkEvt(committed_ver));
     }
+
+    LOGDEBUG << "Sending dmt up event";
+    domain->local_domain_event(DltDmtUpEvt(fpi::FDSP_DATA_MGR));
 
     LOGDEBUG << "Will wait for " << dst.close_acks_to_wait << " DMT close acks";
 }
