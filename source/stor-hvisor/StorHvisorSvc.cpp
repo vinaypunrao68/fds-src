@@ -158,7 +158,7 @@ void StorHvCtrl::commitBlobTxMsgResp(fds::AmQosReq* qosReq,
     fds_verify(blobReq->getIoType() == FDS_COMMIT_BLOB_TX);
 
     qos_ctrl->markIODone(qosReq);
-    blobReq->cb->call(ERR_OK);
+    blobReq->cb->call(error);
 
     // Remove the transaction for the manager
     fds_verify(amTxMgr->removeTx(*(blobReq->getTxId())) == ERR_OK);
