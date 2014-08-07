@@ -1427,7 +1427,8 @@ void DataMgr::getVolumeMetaData(dmCatReq *io) {
     DmIoGetVolumeMetaData * getVolMDReq = static_cast<DmIoGetVolumeMetaData *>(io);
     err = timeVolCat_->queryIface()->getVolumeMeta(getVolMDReq->getVolId(),
             reinterpret_cast<fds_uint64_t *>(&getVolMDReq->msg->volume_meta_data.size),
-            reinterpret_cast<fds_uint64_t *>(&getVolMDReq->msg->volume_meta_data.blobCount));
+            reinterpret_cast<fds_uint64_t *>(&getVolMDReq->msg->volume_meta_data.blobCount),
+            reinterpret_cast<fds_uint64_t *>(&getVolMDReq->msg->volume_meta_data.objectCount));
     if (!err.ok()) {
         PerfTracer::incr(getVolMDReq->opReqFailedPerfEventType, getVolMDReq->getVolId(),
                 getVolMDReq->perfNameStr);

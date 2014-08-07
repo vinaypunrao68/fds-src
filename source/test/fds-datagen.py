@@ -6,6 +6,7 @@
 # Import python stdlib and modules
 import os
 import sys
+sys.path.append('./fdslib/pyfdsp')
 import argparse
 import subprocess
 import pdb
@@ -13,11 +14,15 @@ import time
 import random
 import hashlib
 import optparse
+import requests
+from tabulate import tabulate
 from multiprocessing import Process, Array
 
 # Import FDS specific libs
 import fdslib.BringUpCfg as fdscfg
-#import fdslib.workload_gen as workload_gen
+import fdslib.workload_gen as workload_gen
+
+OBJ_COUNTER = 1
 
 class RandBytes():
     def __init__(self, srand):
@@ -154,6 +159,8 @@ class DataGen():
         """Generate a new data set and feed it to the feeder."""
         cur_wr_off = 0
         total_size = self.dg_file_size
+        self.dg_dup_bytes = 0
+        self.dg_rand_bytes = 0
         res_block  = bytearray(total_size)
         while cur_wr_off < total_size:
             # generate the data.
@@ -282,6 +289,17 @@ def create_blockgens_from_cfg(block_names, block_cfg):
         blockgen_list.append(blockgen)
     return blockgen_list
 
+def _read_data(datagen):
+    global OBJ_COUNTER
+    data_obj = workload_gen.DataObject()
+    data_obj.data = datagen.generate_data()
+    data_obj.dedup = datagen.dg_dup_ratio
+    data_obj.size = datagen.dg_file_size
+    data_obj.objId = 'obj'+str(OBJ_COUNTER)
+    OBJ_COUNTER += 1
+
+    return data_obj
+
 if __name__ == "__main__":
     parser = optparse.OptionParser("usage: %prog [options]")
     parser.add_option('-f', '--file', dest='config_file',
@@ -329,24 +347,18 @@ if __name__ == "__main__":
                           rand_blocks,
                           dup_blocks,
                           options.verbose)
-        datagen.generate_data()
 
-        # TODO: create a DataObject to feed into Processor class.  Replace readData method()
+    try:
+        print requests.put('http://localhost:8000/bucket1')
+    except Exception as e:
+        print 'Bucket create failed!'
+        print e
 
-            # Create a test volume
-        """
-        try:
-            print requests.put('http://localhost:8000/bucket1')
-        except Exception as e:
-            print 'Bucket create failed!'
-
-        # TODO: add a json spec path to config above.
-        # TODO: for file_count, generate that many files.  Write a function to be use as readData() below.
-        w = workload_gen.Workload("/tmp/foobar"])
-        w.generate()
-        w.print_spec()
-        print w.load
-        p = workload_gen.Processor(w.load, None)
-        print tabulate(p.toHTTP())
-        """
-
+    # TODO: add a json spec path to config above.
+    # TODO: for file_count, generate that many files.  Write a function to be use as readData() below.
+    w = workload_gen.Workload("workload_gen_spec.json")
+    w.generate()
+    w.print_spec()
+    print w.load
+    p = workload_gen.Processor(w.load, _read_data, datagen)
+    print tabulate(p.toHTTP())

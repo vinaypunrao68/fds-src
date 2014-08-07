@@ -33,9 +33,11 @@ struct DmVolumeDetails {
     fds_volid_t volId;
     std::atomic<fds_uint64_t> size;
     std::atomic<fds_uint64_t> blobCount;
+    std::atomic<fds_uint64_t> objectCount;
 
-    DmVolumeDetails(fds_volid_t volId_, fds_uint64_t size_, fds_uint64_t count_)
-            : volId(volId_), size(size_), blobCount(count_) {}
+    DmVolumeDetails(fds_volid_t volId_, fds_uint64_t size_, fds_uint64_t blobCount_,
+            fds_uint64_t objectCount_) : volId(volId_), size(size_), blobCount(blobCount_),
+            objectCount(objectCount_) {}
 };
 
 typedef std::unordered_map<fds_volid_t, DmVolumeDetails::ptr> DmVolumeDetailsMap_t;
@@ -101,12 +103,14 @@ class DmVolumeCatalog : public Module,
      * Returns size of volume and number of blob in the volume 'volume_id'
      * @param[out] size size of volume in bytes
      * @param[in] blob_count number of blobs in the volume
+     * @param[out] object_count object count per volume
      * @return ERR_OK on success, ERR_VOL_NOT_FOUND if volume is not known
      * to volume catalog
      */
     Error getVolumeMeta(fds_volid_t volume_id,
                         fds_uint64_t* size,
-                        fds_uint64_t* blob_count);
+                        fds_uint64_t* blob_count,
+                        fds_uint64_t* object_count);
 
     /**
      * Retrieves blob meta for the given blob_name and volume 'volume_id'
@@ -246,7 +250,8 @@ class DmVolumeCatalog : public Module,
      */
     Error getVolumeMetaInternal(fds_volid_t volume_id,
                         fds_uint64_t* size,
-                        fds_uint64_t* blob_count);
+                        fds_uint64_t* blob_count,
+                        fds_uint64_t* object_count);
     /**
      * Volume catalog cache layer module
      */
