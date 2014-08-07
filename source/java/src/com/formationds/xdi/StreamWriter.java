@@ -51,8 +51,8 @@ public class StreamWriter {
                 digest = md.digest();
                 metadata.put("etag", Hex.encodeHexString(digest));
                 am.updateBlobOnce(domainName, volumeName, blobName,
-                                  Mode.TRUNCATE.getValue(), ByteBuffer.wrap(buf, 0, firstReadCount),
-                                  firstReadCount, new ObjectOffset(0), metadata);
+                                  Mode.TRUNCATE.getValue(), ByteBuffer.wrap(buf, 0, Math.max(0, firstReadCount)),
+                                  Math.max(0, firstReadCount), new ObjectOffset(0), metadata);
                 return digest;
             } else {
                 // multi object case
