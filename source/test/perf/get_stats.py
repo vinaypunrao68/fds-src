@@ -18,8 +18,13 @@ g_drives = [ "sdg ",
 "nb0", 
 "nb16" ]
 
+nodes = {
+    #"node1" : "10.1.10.16",
+    "node2" : "10.1.10.17",
+    #"node3" : "10.1.10.18"
+}
 
-def plot_series(options, series, title = None, ylabel = None, xlabel = "Time [ms]"):
+def plot_series(series, title = None, ylabel = None, xlabel = "Time [ms]"):
     data = np.asarray(series)
     plt.plot(data)
     if title:
@@ -30,8 +35,8 @@ def plot_series(options, series, title = None, ylabel = None, xlabel = "Time [ms
         plt.xlabel(xlabel)
     plt.show()
 
-def get_avglat(options):
-    outfiles = get_outfiles(options)
+def get_avglat():
+    outfiles = get_outfiles()
     lats = []
     for of in outfiles:        
         if options.ab_enable:
@@ -45,7 +50,7 @@ def get_avglat(options):
     return sum(lats)/len(lats)
 
 
-def get_outfiles(options):
+def get_outfiles():
     outfiles = ["%s/test.out" % (options.directory)]
     if not os.path.exists(outfiles[0]):
         outfiles.pop()
@@ -58,8 +63,8 @@ def get_outfiles(options):
     return outfiles
 
 
-def get_avgth(options):
-    outfiles = get_outfiles(options)
+def get_avgth():
+    outfiles = get_outfiles()
     ths = []
     for of in outfiles:        
         if options.ab_enable:
@@ -72,16 +77,16 @@ def get_avgth(options):
         ths.append(th)
     return sum(ths)/len(ths)    
 
-def exist_exp(options):
-    if os.path.exists("%s/map.%s" % (options.directory, options.name)):
+def exist_exp():
+    if os.path.exists("%s/test.out" % (options.directory)):
         return True
     else:
         return False
 
-def compute_pidmap(options):
-    file = open("%s/map.%s" % (options.directory, options.name),"r")
+def compute_pidmap():
+    file = open("%s/pidmap" % (options.directory),"r")
     for l in file:
-        m = re.search("Map: (am|om|dm|sm|) --> (\d+)",l)
+        m = re.search("Map: (am|om|dm|sm|)\s*:\s*(\d+)",l)
         if m is not None:
             agent = m.group(1)
             pid = int(m.group(2))
@@ -95,18 +100,18 @@ def convert_mb(x):
     else:
         return float(x)    
 
-def get_mem(options, agent, pid):
-    cmd = "egrep '^[ ]*%d' %s/top.%s | awk '{print $6}'" % (pid, options.directory, options.name)
+def get_mem(node, agent, pid):
+    cmd = "egrep '^[ ]*%d' %s/%s/top/stdout | awk '{print $6}'" % (pid, options.directory, node)
     series = os.popen(cmd).read().split()
     return [convert_mb(x)/1024 for x in series]
 
-def get_cpu(options, agent, pid):
-    cmd = "egrep '^[ ]*%d' %s/top.%s | awk '{print $9}'" % (pid, options.directory, options.name)
+def get_cpu(agent, node, pid):
+    cmd = "egrep '^[ ]*%d' %s/%s/top/stdout | awk '{print $9}'" % (pid, options.directory, node)
     series = os.popen(cmd).read().split()
     return [float(x) for x in series]
 
-def get_idle(options):
-    cmd = "cat %s/top.%s |grep Cpu | awk '{print $8}'" % (options.directory, options.name)
+def get_idle(node):
+    cmd = "cat %s/%s/top/stdout |grep Cpu | awk '{print $8}'" % (options.directory, node)
     series = os.popen(cmd).read().split()
     return [float(x) for x in series]
 
@@ -135,10 +140,10 @@ def getavg(series, window = 5, skipbeg = 2, skipend = 2):
     return sum(_ma)/len(_ma)
 
 #g_drives
-def get_iops(options): 
+def get_iops(node):
     iops_map = {}
     iops_series = []
-    _file = open("%s/iostat.%s" % (options.directory, options.name),"r")
+    _file = open("%s/%s/ios/stdout" % (options.directory, node),"r")
     for l in _file:
         tokens = l.split()
         if len(tokens) >= 2:
@@ -162,26 +167,27 @@ def get_test_parms():
     #results_2014-08-05_nvols\:1.threads\:1.type\:GET.nfiles\:10000.test_type\:tgen.fsize\:4096.nreqs\:100000.test
     m = re.match("(\w+)_(\d+-)_nvols:(\d+).threads:(\d+).type:(\w+).nfiles:(\d+).test_type:(\w+).fsize:(\d+).nreqs:(\d+).test", options.directory)
 
-def main(options):
-    #compute_pidmap(options)
+def main():
+    #compute_pidmap() # FIXME
     print options.name,",",
     time.sleep(1)
-    print "th,", get_avgth(options),",",
-    print "lat,", get_avglat(options),",",
-    # for agent,pid in g_pidmap.items():
-    #     print "Agent,",agent,",",
+    print "th,", get_avgth(),",",
+    print "lat,", get_avglat(),",",
+    # for node in nodes.keys():
+    #     for agent,pid in g_pidmap[node].items():
+    #         print "Agent,",agent,",",
+    #         if options.plot_enable:
+    #             plot_series(get_mem(node, agent, pid), "Memory - " + agent + " - " + options.name, "megabatyes")
+    #             plot_series(get_cpu(node, agent, pid), "CPU - " + agent + " - " + options.name, "CPU utilization [%]")
+    #         else:
+    #             print "maxmem,",getmax(get_mem(node, agent, pid)),",",
+    #             print "maxcpu,",getmax(get_cpu(node, agent, pid)),",",
     #     if options.plot_enable:
-    #         plot_series(options, get_mem(options,agent, pid), "Memory - " + agent + " - " + options.name, "megabatyes")
-    #         plot_series(options, get_cpu(options,agent, pid), "CPU - " + agent + " - " + options.name, "CPU utilization [%]")
+    #         plot_series(get_iops(node), "IOPS - " + options.name, "IOPS (disk)")
+    #         plot_series(get_idle(node), "Avg Idle - " + options.name, "Idle CPU Time [%]")
     #     else:
-    #         print "maxmem,",getmax(get_mem(options,agent, pid)),",",
-    #         print "maxcpu,",getmax(get_cpu(options,agent, pid)),",",
-    # if options.plot_enable:
-    #     plot_series(options, get_iops(options), "IOPS - " + options.name, "IOPS (disk)")
-    #     plot_series(options, get_idle(options), "Avg Idle - " + options.name, "Idle CPU Time [%]")
-    # else:
-    #     print "maxiops,",getmax(get_iops(options)),",",
-    #     print "avgidle,",getavg(get_idle(options)),",",
+    #         print "maxiops,",getmax(get_iops(node)),",",
+    #         print "avgidle,",getavg(get_idle(node)),",",
     print "" 
 
 if __name__ == "__main__":
@@ -193,4 +199,4 @@ if __name__ == "__main__":
     parser.add_option("-A", "--ab-enable", dest = "ab_enable", action = "store_true", default = False, help = "AB mode")
     parser.add_option("-B", "--block-enable", dest = "block_enable", action = "store_true", default = False, help = "Block mode")
     (options, args) = parser.parse_args()
-    main(options)
+    main()
