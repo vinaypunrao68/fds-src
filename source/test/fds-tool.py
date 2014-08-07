@@ -115,6 +115,9 @@ if __name__ == '__main__':
         om.nd_start_om()
 	time.sleep(8)
 
+    # activa nodes activates all services in the domain. Only
+    # need to call it once
+    """
     for n in nodes:
         if n.nd_conf_dict['node-name'] == 'node1':
             cli.run_cli('--activate-nodes abc -k 1 -e sm,dm')
@@ -122,8 +125,12 @@ if __name__ == '__main__':
             cli.run_cli('--activate-nodes abc -k 1 -e sm,dm')
         print "Waiting for node %s to come up" % n.nd_rmt_host
     	time.sleep(3)
+    """
+    
+    cli.run_cli('--activate-nodes abc -k 1 -e sm,dm')
+    print "Waiting for services to come up"
+    time.sleep(8)
 
-    time.sleep(4)
     for am in ams:
         am.am_start_service()
     print "Waiting for all commands to complete before existing"
