@@ -15,6 +15,44 @@ namespace fds {
 
 
 /**
+ * Per-volume stat histories, logging, etc.
+ */
+class VolumeStats {
+  public:
+    explicit VolumeStats(fds_volid_t volume_id,
+                         fds_uint64_t start_time,
+                         fds_uint32_t finestat_slots,
+                         fds_uint32_t finestat_slotsec);
+    ~VolumeStats();
+
+    typedef boost::shared_ptr<VolumeStats> ptr;
+    typedef boost::shared_ptr<const VolumeStats> const_ptr;
+
+    /**
+     * Fine-grain (cached) volume's history of stats
+     * that are streamed out (we will log these)
+     * This will be set per-minute for now
+     */
+    VolumePerfHistory::ptr finegrain_hist_;
+
+    /**
+     * Per-hour volumes history of stats that are streamed
+     * out (this is a cache of per-hour stats that we also log)
+     * TODO(xxx) add stat history
+     */
+
+    /**
+     * Per-day volumes history of bytes added for firebreak
+     * TODO(xxx) add stat history
+     */
+
+    /**
+     * TODO(xxx) add log file here, and timer to
+     * log stat history for this volume
+     */
+};
+
+/**
  * This is the module that keeps aggregated volumes' stats,
  * which could be pushed to AMs for streaming metadata API or queried
  * for any aggregated volume statistics.
@@ -35,7 +73,7 @@ class StatStreamAggregator : public Module {
 
     typedef boost::shared_ptr<StatStreamAggregator> ptr;
     typedef boost::shared_ptr<const StatStreamAggregator> const_ptr;
-    typedef std::unordered_map<fds_volid_t, VolumePerfHistory::ptr> hist_map_t;
+    typedef std::unordered_map<fds_volid_t, VolumeStats::ptr> volstats_map_t;
 
     /**
      * Module methods
@@ -79,29 +117,30 @@ class StatStreamAggregator : public Module {
     Error handleModuleStatStream(const fpi::StatStreamMsgPtr& stream_msg);
 
   private:  // methods
-    VolumePerfHistory::ptr getFineGrainHistory(fds_volid_t volid);
+    VolumeStats::ptr getVolumeStats(fds_volid_t volid);
 
   private:  // members
     /**
-     * Fine-grain (cached) per-volume history of stats
-     * that are streamed out (we will log these)
+     * Config for fine-grain (cached) per-volume history of stats
      * This will be set per-minute for now
      */
-    fds_uint32_t finestat_slotsec_;  // granularity of fine grain stats
-    fds_uint32_t finestat_slots_;   // number of slots of fine grain stats we cache
-    hist_map_t finestats_map_;
-    fds_rwlock fh_lock_;   // lock protecting finestats_map_
+    fds_uint32_t finestat_slotsec_;  // granularity of fine grain stats for all vols
+    fds_uint32_t finestat_slots_;   // number of slots of fine grain stats for all vols
+    /**
+     * Config for coarser-grain (cached) per-volume history of stats
+     * These will be set per-hour for now
+     * TODO(xxx) add config
+     */
+
+    /**
+     * Volume id to VolumeStats struct map; VolumeStats struct contains all
+     * histores we cache for the volume and takes care of logging pre-volume
+     * stats to a file
+     */
+    volstats_map_t volstats_map_;
+    fds_rwlock volstats_lock_;   // lock protecting volstats map
 
     fds_uint64_t start_time_;  // timestamps in histories are relative to this time
-
-    /**
-     * Per-hour per-volume history of stats that are streamed
-     * out (this is a cache of per-hour stats that we also log)
-     */
-
-    /**
-     * Per-day per-volume history of bytes added for firebreak
-     */
 };
 }  // namespace fds
 
