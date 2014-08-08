@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.ArrayList;
 
 public class ToyServices implements AmService.Iface, ConfigurationService.Iface {
 
@@ -87,6 +88,24 @@ public class ToyServices implements AmService.Iface, ConfigurationService.Iface 
                                                                 VolumeType.OBJECT, 0)))
                 .collect(Collectors.toList());
     }
+
+    @Override
+    public com.formationds.streaming.registration registerStream(String url, String http_method, List<String> volume_names, int sample_freq_seconds, int duration_seconds) throws org.apache.thrift.TException {
+        com.formationds.streaming.registration reg = new com.formationds.streaming.registration();
+        return reg;
+    }
+
+    @Override
+    public List<com.formationds.streaming.registration> getStreamRegistrations(int count) throws org.apache.thrift.TException {
+        List<com.formationds.streaming.registration> regList = new ArrayList<com.formationds.streaming.registration>();
+        return regList;
+    }
+
+    @Override
+    public void deregisterStream(int registration_id) throws org.apache.thrift.TException {
+        
+    }
+
 
 
     @Override

@@ -48,11 +48,16 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         }
     }
 
-    // Don't do anything here. This stub is just to keep cpp compiler happy
+    // stubs to keep cpp compiler happy - BEGIN
     void createVolume(const std::string& domainName, const std::string& volumeName, const VolumeSettings& volumeSettings) {}  //NOLINT
     void deleteVolume(const std::string& domainName, const std::string& volumeName) {}  //NOLINT
     void statVolume(VolumeDescriptor& _return, const std::string& domainName, const std::string& volumeName) {}  //NOLINT
     void listVolumes(std::vector<VolumeDescriptor> & _return, const std::string& domainName) {}  //NOLINT
+    void registerStream(fpi::registration& _return, const std::string& url, const std::string& http_method, const std::vector<std::string> & volume_names, const int32_t sample_freq_seconds, const int32_t duration_seconds) {} //NOLINT
+    void getStreamRegistrations(std::vector<fpi::registration> & _return, const int32_t thrift_sucks) {} //NOLINT
+    void deregisterStream(const int32_t registration_id) {}
+
+    // stubs to keep cpp compiler happy - END
 
     void createVolume(boost::shared_ptr<std::string>& domainName,
                       boost::shared_ptr<std::string>& volumeName,
@@ -117,6 +122,20 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
                 convert::getVolumeDescriptor(volDescriptor, vol);
                 vec.push_back(volDescriptor);
             });
+    }
+
+    void registerStream(fpi::registration& _return,
+                      boost::shared_ptr<std::string>& url,
+                      boost::shared_ptr<std::string>& http_method,
+                      boost::shared_ptr<std::vector<std::string> >& volume_names,
+                      boost::shared_ptr<int32_t>& sample_freq_seconds,
+                      boost::shared_ptr<int32_t>& duration_seconds) {
+    }
+
+    void getStreamRegistrations(std::vector<fpi::registration> & _return, boost::shared_ptr<int32_t>& thrift_sucks) { //NOLINT
+    }
+
+    void deregisterStream(boost::shared_ptr<int32_t>& registration_id) {
     }
 };
 
