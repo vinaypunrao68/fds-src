@@ -235,6 +235,25 @@ service PlatNetSvc extends BaseAsyncSvc {
     map<string, i64> getFlags(1: i32 nullarg);
 }
 
+/* Registration for streaming stats */
+struct StreamingRegistrationMsg {
+   1:i32 id;
+   2:string url;
+   4:list<string> volume_names;
+   5:i32 sample_freq_seconds;
+   6:i32 duration_seconds;
+}
+
+struct StreamingRegistrationRspMsg {
+}
+
+struct StreamingDeregistrationMsg {
+    1: i32 id;
+}
+
+struct StreamingDeregistrationRspMsg {
+}
+
 /*
  * --------------------------------------------------------------------------------
  * SM service specific messages
@@ -480,3 +499,4 @@ service DMSvc extends PlatNetSvc {
  */
 service AMSvc extends BaseAsyncSvc {
 }
+
