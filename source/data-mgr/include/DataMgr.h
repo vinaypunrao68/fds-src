@@ -178,6 +178,9 @@ class DataMgr : public Module, public DmIoReqHandler {
                 case FDS_DM_META_RECVD:
                     threadPool->schedule(&DataMgr::handleForwardComplete, dataMgr, io);
                     break;
+                case FDS_DM_STAT_STREAM:
+                    threadPool->schedule(&DataMgr::handleStatStream, dataMgr, io);
+                    break;
 
                 /* End of new refactored DM message types */
 
@@ -366,6 +369,7 @@ class DataMgr : public Module, public DmIoReqHandler {
     void snapVolCat(dmCatReq *io);
     void handleDMTClose(dmCatReq *io);
     void handleForwardComplete(dmCatReq *io);
+    void handleStatStream(dmCatReq *io);
     // void sendUpdateCatalogResp(dmCatReq  *updCatReq, BlobNode *bnode);
 
     void scheduleGetBlobMetaDataSvc(void *io);

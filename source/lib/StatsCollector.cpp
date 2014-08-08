@@ -8,7 +8,26 @@
 
 namespace fds {
 
-StatsCollector glStatsCollector(60, 10, 1);
+StatsCollector glStatsCollector(120, 60, 1);
+
+
+class CollectorTimerTask : public FdsTimerTask {
+  public:
+    StatsCollector* collector_;
+    fds_bool_t b_push;
+
+    CollectorTimerTask(FdsTimer &timer,
+                       StatsCollector* collector,
+                       fds_bool_t push)
+            : FdsTimerTask(timer)
+    {
+        collector_ = collector;
+        b_push = push;
+    }
+    ~CollectorTimerTask() {}
+
+    virtual void runTimerTask() override;
+};
 
 StatsCollector::StatsCollector(fds_uint32_t push_sec,
                                fds_uint32_t stat_sampling_freq,
@@ -18,10 +37,29 @@ StatsCollector::StatsCollector(fds_uint32_t push_sec,
           slots_qos_(7),
           slotsec_stat_(stat_sampling_freq),
           pushTimer(new FdsTimer()),
-          pushTimerTask(new StatTimerTask(*pushTimer, this, true)),
+          pushTimerTask(new CollectorTimerTask(*pushTimer, this, true)),
           qosTimer(new FdsTimer()),
-          qosTimerTask(new StatTimerTask(*qosTimer, this, false))
+          qosTimerTask(new CollectorTimerTask(*qosTimer, this, false))
 {
+    // stats are disabled by default
+    qos_enabled_ = ATOMIC_VAR_INIT(false);
+    stream_enabled_ = ATOMIC_VAR_INIT(false);
+
+    // start time must be aligned to highest sampling frequency
+    start_time_ = util::getTimeStampNanos();
+    fds_uint64_t freq_nanos = stat_sampling_freq * 1000000000;
+    start_time_ = start_time_ / freq_nanos;
+    start_time_ = start_time_ * freq_nanos;
+
+    fds_verify(slotsec_stat_ > 0);
+    slots_stat_ = static_cast<double>(push_interval_) / slotsec_stat_ + 2;
+
+    om_client_ = NULL;
+}
+
+void StatsCollector::openQosFile() {
+    fds_verify(!statfile_.is_open());
+
     // we will add timestamp to the name of file
     boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
     std::string nowstr = to_simple_string(now);
@@ -37,25 +75,11 @@ StatsCollector::StatsCollector(fds_uint32_t push_sec,
     }
 
     const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
-    std::string dirname(root->dir_fds_var_stats());
+    std::string dirname(root->dir_fds_var_stats() + "stats-data");
     root->fds_mkdir(dirname.c_str());
 
     std::string fname = dirname + std::string("//") + ts_str + std::string(".stat");
     statfile_.open(fname.c_str(), std::ios::out | std::ios::app);
-
-    // stats are disabled by default
-    qos_enabled_ = ATOMIC_VAR_INIT(false);
-    stream_enabled_ = ATOMIC_VAR_INIT(false);
-
-    // start time must be aligned to highest sampling frequency
-    start_time_ = util::getTimeStampNanos();
-    fds_uint64_t freq_nanos = stat_sampling_freq * 1000000000;
-    start_time_ = start_time_ / freq_nanos;
-    start_time_ = start_time_ * freq_nanos;
-
-    LOGDEBUG << "Start time " << start_time_;
-
-    om_client_ = NULL;
 }
 
 StatsCollector::~StatsCollector() {
@@ -104,6 +128,9 @@ fds_bool_t StatsCollector::isStreaming() const {
 void StatsCollector::enableQosStats() {
     fds_bool_t was_enabled = atomic_exchange(&qos_enabled_, true);
     if (!was_enabled) {
+        LOGDEBUG << "Enabled Qos stats output: Start time " << start_time_;
+        openQosFile();
+
         // start periodic timer to push stats to primary DM
         fds_bool_t ret = qosTimer->scheduleRepeated(qosTimerTask,
                              std::chrono::seconds(slotsec_qos_ * (slots_qos_ - 2)));
@@ -119,6 +146,10 @@ void StatsCollector::disableQosStats() {
         qosTimer->cancel(qosTimerTask);
         // print stats we gathered but have not yet printed yet
         print();
+        // close stats file
+        if (statfile_.is_open()){
+            statfile_.close();
+        }
     }
 }
 
@@ -131,8 +162,10 @@ void StatsCollector::recordEvent(fds_volid_t volume_id,
                                  FdsStatType event_type,
                                  fds_uint64_t value) {
     switch (event_type) {
-        case STAT_AM_PUT_OBJ:  // end-to-end put in AM
-        case STAT_AM_GET_OBJ:  // end-to-end get in AM
+        case STAT_AM_PUT_OBJ:       // end-to-end put in AM in usec
+        case STAT_AM_GET_OBJ:       // end-to-end get in AM in usec
+        case STAT_AM_QUEUE_WAIT:    // wait time in queue in usec
+        case STAT_AM_QUEUE_FULL:    // que size (recorded when que size > threshold)
             if (isQosStatsEnabled()) {
                 getQosHistory(volume_id)->recordEvent(timestamp,
                                                       event_type, value);
@@ -210,13 +243,13 @@ void StatsCollector::print()
     }
 
     // print
-    fds_uint64_t now = util::getTimeStampNanos();
+    boost::posix_time::ptime now_local = boost::posix_time::microsec_clock::local_time();
     for (cit = snap_map.cbegin(); cit != snap_map.cend(); ++cit) {
         if (last_ts_qmap_.count(cit->first) == 0) {
             last_ts_qmap_[cit->first] = 0;
         }
         fds_uint64_t last_rel_sec = last_ts_qmap_[cit->first];
-        last_rel_sec = cit->second->print(statfile_, now, last_rel_sec);
+        last_rel_sec = cit->second->print(statfile_, now_local, last_rel_sec);
         last_ts_qmap_[cit->first] = last_rel_sec;
     }
 }
@@ -257,7 +290,7 @@ void StatsCollector::sendStatStream() {
         last_ts_smap_[cit->first] = last_rel_sec;
 
         LOGTRACE << "Sending stats to DM " << std::hex
-                 << (msg_cit->first).uuid_get_val() << std::dec
+                 << dm_uuid.uuid_get_val() << std::dec
                  << " " << *(cit->second);
     }
 
@@ -270,7 +303,7 @@ void StatsCollector::sendStatStream() {
     }
 }
 
-void StatTimerTask::runTimerTask()
+void CollectorTimerTask::runTimerTask()
 {
     if (b_push) {
         collector_->sendStatStream();

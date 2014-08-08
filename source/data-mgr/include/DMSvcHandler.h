@@ -123,6 +123,12 @@ class DMSvcHandler : virtual public DMSvcIf, public PlatNetSvcHandler {
     void getVolumeMetaDataCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                            boost::shared_ptr<fpi::GetVolumeMetaDataMsg>& message,
                            const Error &e, DmIoGetVolumeMetaData *req);
+
+    void handleStatStream(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                          boost::shared_ptr<fpi::StatStreamMsg>& message);
+    void handleStatStreamCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                            boost::shared_ptr<fpi::StatStreamMsg>& message,
+                            const Error &e, DmIoStatStream *req);
 };
 
 }  // namespace fds

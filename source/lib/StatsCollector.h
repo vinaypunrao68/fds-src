@@ -86,6 +86,7 @@ class StatsCollector : public boost::noncopyable {
   private:  // methods
     VolumePerfHistory::ptr getQosHistory(fds_volid_t volid);
     VolumePerfHistory::ptr getStatHistory(fds_volid_t volid);
+    void openQosFile();
 
   private:
     std::atomic<bool> qos_enabled_;
@@ -142,26 +143,6 @@ class StatsCollector : public boost::noncopyable {
      * does not own, gets passed via registerOmCLient
      */
     OMgrClient* om_client_;
-};
-
-
-/**
- * Timer task for stats collector
- */
-class StatTimerTask : public FdsTimerTask {
-  public:
-    StatsCollector* collector_;
-    fds_bool_t b_push;
-
-    StatTimerTask(FdsTimer &timer, StatsCollector* collector, fds_bool_t push)
-            : FdsTimerTask(timer)
-    {
-        collector_ = collector;
-        b_push = push;
-    }
-    ~StatTimerTask() {}
-
-    virtual void runTimerTask() override;
 };
 
 extern StatsCollector* g_statsCollector;
