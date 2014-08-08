@@ -179,6 +179,8 @@ class DataGen():
                 self.dg_rand_bytes += block_len
             assert(cur_wr_off <= total_size)
 
+            #print 'in generate_data cur_wr_off is', cur_wr_off
+
         assert(cur_wr_off == total_size)
 
         if self.dg_debug is True:
@@ -300,7 +302,8 @@ def _read_data(datagen):
 
     return data_obj
 
-if __name__ == "__main__":
+
+def main():
     parser = optparse.OptionParser("usage: %prog [options]")
     parser.add_option('-f', '--file', dest='config_file',
                       help='configuration file (e.g. cfg/datagen_io.cfg)', metavar='FILE')
@@ -361,4 +364,11 @@ if __name__ == "__main__":
     w.print_spec()
     print w.load
     p = workload_gen.Processor(w.load, _read_data, datagen)
-    print tabulate(p.toHTTP())
+    result = p.toHTTP()
+    if result > 0:
+        sys.exit(result)
+    else:
+        sys.exit(0)
+
+if __name__ == "__main__":
+    main()
