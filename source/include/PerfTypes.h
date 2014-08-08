@@ -33,7 +33,6 @@ typedef enum {
     PUT_CACHE_HIT,
     PUT_SSD_OBJ,
     PUT_HDD_OBJ,
-    DEDUPE_OBJ,
 
     DUPLICATE_OBJ,
     HASH_COLLISION,

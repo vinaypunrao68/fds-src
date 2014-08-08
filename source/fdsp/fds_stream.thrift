@@ -24,26 +24,25 @@ struct volumeDataPoints {
    3: list<DataPointPair>    meta_list;
 }
 
-struct registration {
+struct StreamingRegistrationMsg {
    1:i32 id,
-   2:string ip_address,
-   3:i32 port,
-   4:list<string> volume_names,
-   5:i32 sample_freq_seconds,
-   6:i32 duration_seconds,
+   2:string url,
+   3:list<string> volume_names,
+   4:i32 sample_freq_seconds,
+   5:i32 duration_seconds,
 }
 
 
 // OM serves this
 service StreamingConfiguration {
-   registration registerStream(
+   i32 registerStream(
         1:string url,
         2:string http_method,
         3:list<string> volume_names,
         4:i32 sample_freq_seconds,
         5:i32 duration_seconds),
 
-   list<registration> list_registrations(1:i32 thrift_sucks),
+   list<StreamingRegistrationMsg> list_registrations(1:i32 thrift_sucks),
    void deregisterStream(1:i32 registration_id),
 }
 

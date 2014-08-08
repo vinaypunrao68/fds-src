@@ -5,6 +5,7 @@
 #define SOURCE_DATA_MGR_INCLUDE_DMSVCHANDLER_H_
 
 #include <fdsp/fds_service_types.h>
+#include <fdsp/fds_stream_types.h>
 #include <net/PlatNetSvcHandler.h>
 #include <fdsp/DMSvc.h>
 // TODO(Rao): Don't include DataMgr here.  The only reason we include now is
@@ -52,6 +53,16 @@ class DMSvcHandler : virtual public DMSvcIf, public PlatNetSvcHandler {
 
     void fwdCatalogUpdateMsg(const fpi::AsyncHdr& AsyncHdr,
                              const fpi::ForwardCatalogMsg& fwdMsg) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+
+    void registerStreaming(const fpi::AsyncHdr& asyncHdr,
+                           const fpi::StreamingRegistrationMsg & streamRegstrMsg) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+
+    void deregisterStreaming(const fpi::AsyncHdr& asyncHdr,
+                           const fpi::StreamingDeregistrationMsg & streamDeregstrMsg) {
         // Don't do anything here. This stub is just to keep cpp compiler happy
     }
 
@@ -129,6 +140,18 @@ class DMSvcHandler : virtual public DMSvcIf, public PlatNetSvcHandler {
     void handleStatStreamCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                             boost::shared_ptr<fpi::StatStreamMsg>& message,
                             const Error &e, DmIoStatStream *req);
+
+    void registerStreaming(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                           boost::shared_ptr<fpi::StreamingRegistrationMsg>& streamRegstrMsg);
+    void registerStreamingCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                             fpi::StreamingRegistrationMsgPtr & message,
+                             const Error &e, DmIoStreamingRegstr * req);
+
+    void deregisterStreaming(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        boost::shared_ptr<fpi::StreamingDeregistrationMsg>& streamDeregstrMsg);
+    void deregisterStreamingCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                               fpi::StreamingDeregistrationMsgPtr & message,
+                               const Error &e, DmIoStreamingDeregstr * req);
 };
 
 }  // namespace fds

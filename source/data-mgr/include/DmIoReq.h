@@ -18,6 +18,7 @@
 #include <fds_typedefs.h>
 #include <blob/BlobTypes.h>
 #include <fdsp/fds_service_types.h>
+#include <fdsp/fds_stream_types.h>
 
 #define FdsDmSysTaskId      0x8fffffff
 #define FdsDmSysTaskPrio    5
@@ -770,6 +771,21 @@ struct DmIoDeleteBlob: dmCatReq {
     }
 };
 
+struct DmIoStreamingRegstr : dmCatReq {
+    fpi::StreamingRegistrationMsgPtr msg;
+    explicit DmIoStreamingRegstr(fpi::StreamingRegistrationMsgPtr message)
+            : msg(message) {
+        io_type = FDS_STREAMING_REGSTR;
+    }
+};
+
+struct DmIoStreamingDeregstr : dmCatReq {
+    fpi::StreamingDeregistrationMsgPtr msg;
+    explicit DmIoStreamingDeregstr(fpi::StreamingDeregistrationMsgPtr message)
+            : msg(message) {
+        io_type = FDS_STREAMING_DEREGSTR;
+    }
+};
 }  // namespace fds
 
 #endif  // SOURCE_DATA_MGR_INCLUDE_DMIOREQ_H_

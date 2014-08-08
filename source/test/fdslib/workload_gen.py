@@ -7,7 +7,7 @@ sys.path.append('pyfdsp')
 
 from fds_service import ttypes
 from thrift import TSerialization
-from thrift.protocol import TJSONProtocol
+#from thrift.protocol import TJSONProtocol
 
 import json
 import jsonpickle

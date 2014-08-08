@@ -111,6 +111,8 @@ const char * eventTypeToStr[] = {
         "put_trans_queue_wait",
         "put_qos_queue_wait",
         "put_cache_hit",
+        "put_ssd_obj",
+        "put_hdd_obj",
 
         "duplicate_obj",
         "hash_collision",
