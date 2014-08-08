@@ -10,7 +10,10 @@
 
 #include <fds_types.h>
 #include <serialize.h>
-#include <PerfTypes.h>
+#include <fds_error.h>
+#include <fds_typedefs.h>
+#include <fdsp/fds_service_types.h>
+#include <StatTypes.h>
 
 namespace fds {
 
@@ -39,6 +42,10 @@ class GenericCounter: public serialize::Serializable {
         if (count_ == 0) return 0;
         return static_cast<double>(total_) / count_;
     }
+    inline double countPerSec(fds_uint32_t interval_sec) const {
+        fds_verify(interval_sec > 0);
+        return static_cast<double>(count_) / interval_sec;
+    }
 
     /*
      * For serializing and de-serializing
@@ -56,7 +63,7 @@ class GenericCounter: public serialize::Serializable {
     fds_uint64_t max_;
 };
 
-typedef std::unordered_map<PerfEventType, GenericCounter, PerfEventHash> counter_map_t;
+typedef std::unordered_map<FdsStatType, GenericCounter, FdsStatHash> counter_map_t;
 
 /**
  * This class describes one slot in the volume performance history
@@ -79,24 +86,37 @@ class StatSlot: public serialize::Serializable {
     /**
      * Add counter of type 'counter_type' to this slot
      */
-    void add(PerfEventType counter_type,
+    void add(FdsStatType stat_type,
              const GenericCounter& counter);
-    void add(PerfEventType counter_type,
+    void add(FdsStatType stat_type,
              fds_uint64_t value);
 
+    /**
+     * slot length must match, but ignores the timestamp of rhs
+     */
+    StatSlot& operator +=(const StatSlot & rhs);
+    StatSlot& operator =(const StatSlot & rhs);
+
     inline fds_uint64_t getTimestamp() const { return rel_ts_sec; }
+    inline fds_uint32_t slotLengthSec() const { return interval_sec; }
+    fds_bool_t isEmpty() const;
     /**
      * count / time interval of this slot in seconds
      */
-    double getEventsPerSec(PerfEventType type) const;
+    double getEventsPerSec(FdsStatType type) const;
     /**
      * total value of event 'type'
      */
-    fds_uint64_t getTotal(PerfEventType type) const;
+    fds_uint64_t getTotal(FdsStatType type) const;
     /**
      * total / count for event 'type'
      */
-    double getAverage(PerfEventType type) const;
+    double getAverage(FdsStatType type) const;
+    /**
+     * Get counter of a given type
+     */
+    void getCounter(FdsStatType type,
+                    GenericCounter* out_counter) const;
 
     /*
      * For serializing and de-serializing
@@ -136,52 +156,68 @@ class VolumePerfHistory {
      * @param[in] counter is the counter to record
      */
     void recordPerfCounter(fds_uint64_t ts,
-                           PerfEventType counter_type,
+                           FdsStatType stat_type,
                            const GenericCounter& counter);
 
     /**
      * Record one event into the history
      * @param[in] ts (not relative!) timestamp in nanos of the counter
-     * @param[in] counter_type type of the counter
-     * @param[in] value is the value of the event
+     * @param[in] stat_type type of the counter
+     * @param[in] value is the value of the stat
      */
     void recordEvent(fds_uint64_t ts,
-                     PerfEventType counter_type,
+                     FdsStatType stat_type,
                      fds_uint64_t value);
 
     /**
-     * Returns simple moving average of a given perf event type
+     * Returns simple moving average of a given stat type
      * The last timeslot is not counted in the moving average, because
      * it may not be fully filled in
-     * @param event_type perf event for which we calculate SMA
+     * @param stat_type stat for which we calculate SMA
      * @param end_ts last timestamp to consider for the SMA, 0 if consider
      * the timestamp of the last fully filled timeslot
      * @param interval_sec interval in seconds for which calculate SMA, 0
      * if calculate for the whole history
      */
-    double getSMA(PerfEventType event_type,
+    double getSMA(FdsStatType stat_type,
                   fds_uint64_t end_ts = 0,
                   fds_uint32_t interval_sec = 0);
 
     /**
-     * Merge history 'rsh' with this history; if some timestamps are outside
-     * of range of this history, these timestamps are ignored.
-     * Given history 'rhs' must have the same volume id. Slot lenth of 'rhs'
-     * must be equal or smaller than slot length of this history.
-     * The caller must make sure that we merge any perf counter once (eg. calling
-     * merge with same history twice will resut in 2x counters). Use begin_ts
-     * to tell the merge method to ignore slots in history that were already merged.
-     * @param[in] rhs volume performance history that needs to be merged with
-     * this history
-     * @param[in] begin_ts only merge timestamps from 'rhs' that are >= begin_ts
-     * If begin_ts is 0, then consider all timestamps in 'rhs'
+     * Add slots from fdsp message to this history
+     * It is up to the caller that we don't add the same slot more than once
+     * @param[in] fdsp_start_ts is remote start timestamp; all relative timestamps
+     * in fdsp message are relative to fdsp_start_ts
      */
-    void merge(const VolumePerfHistory& rhs,
-               fds_uint64_t begin_ts);
+    Error mergeSlots(const fpi::VolStatList& fdsp_volstats,
+                     fds_uint64_t fdsp_start_ts);
 
+    /**
+     * Copies history into FDSP volume stat list; only timestamps that are
+     * greater than last_rel_sec are copied
+     * @param[in] last_rel_sec is a relative timestamp in seconds
+     * @return last timestamp copied into FDSP volume stat list
+     */
+    fds_uint64_t toFdspPayload(fpi::VolStatList& fdsp_volstats,
+                               fds_uint64_t last_rel_sec) const;
 
     friend std::ostream& operator<< (std::ostream &out,
                                      const VolumePerfHistory& hist);
+
+    /**
+     * For now to maintain same file format when printing fine-grain qos stats
+     * so that our gnuplot printing scripts works
+     * Format:
+     * [curts],volid,seconds_since_beginning_of_history,iops,ave_lat,min_lat,max_lat
+     * @param[in] cur_ts timestamp that will be printed
+     * @param[in] last_rel_sec will print relative timestamps in seconds > last_rel_sec
+     * @return last timestamp printed
+     */
+    fds_uint64_t print(std::ofstream& dumpFile,
+                       fds_uint64_t cur_ts,
+                       fds_uint64_t last_rel_sec) const;
+
+    VolumePerfHistory::ptr getSnapshot() const;
 
   private:  /* methods */
     fds_uint32_t useSlot(fds_uint64_t rel_seconds);
@@ -189,6 +225,12 @@ class VolumePerfHistory {
         fds_verify(tsnano >= start_nano_);
         return (tsnano - start_nano_) / 1000000000;
     }
+    inline fds_uint64_t timestamp(fds_uint64_t start_nano,
+                                  fds_uint64_t rel_sec) const {
+        return (start_nano + rel_sec * 1000000000);
+    }
+    fds_uint64_t getLocalRelativeSec(fds_uint64_t remote_rel_sec,
+                                     fds_uint64_t remote_start_ts);
 
   private:
     /**
