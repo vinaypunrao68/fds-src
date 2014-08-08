@@ -18,6 +18,7 @@
 #include <fds_typedefs.h>
 #include <blob/BlobTypes.h>
 #include <fdsp/fds_service_types.h>
+#include <fdsp/fds_stream_types.h>
 
 #define FdsDmSysTaskId      0x8fffffff
 #define FdsDmSysTaskPrio    5

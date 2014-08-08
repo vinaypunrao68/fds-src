@@ -5,6 +5,7 @@
 #define SOURCE_DATA_MGR_INCLUDE_DMSVCHANDLER_H_
 
 #include <fdsp/fds_service_types.h>
+#include <fdsp/fds_stream_types.h>
 #include <net/PlatNetSvcHandler.h>
 #include <fdsp/DMSvc.h>
 // TODO(Rao): Don't include DataMgr here.  The only reason we include now is
