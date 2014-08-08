@@ -20,8 +20,9 @@ g_drives = [ "sdg ",
 
 nodes = {
     #"node1" : "10.1.10.16",
-    "node2" : "10.1.10.17",
-    #"node3" : "10.1.10.18"
+    #"node2" : "10.1.10.17",
+    #"node3" : "10.1.10.18",
+    "tiefighter" : "10.1.10.102",
 }
 
 def plot_series(series, title = None, ylabel = None, xlabel = "Time [ms]"):
@@ -83,14 +84,16 @@ def exist_exp():
     else:
         return False
 
-def compute_pidmap():
+def compute_pidmap(node):
     file = open("%s/pidmap" % (options.directory),"r")
     for l in file:
-        m = re.search("Map: (am|om|dm|sm|)\s*:\s*(\d+)",l)
+        m = re.search("(am|om|dm|sm)\s*:\s*(\d+)",l)
         if m is not None:
             agent = m.group(1)
             pid = int(m.group(2))
-            g_pidmap[agent] = pid
+            if not node in g_pidmap:
+                g_pidmap[node] = {}
+            g_pidmap[node][agent] = pid
                 
 def convert_mb(x):
     if x[len(x) - 1] == "m":
@@ -105,7 +108,7 @@ def get_mem(node, agent, pid):
     series = os.popen(cmd).read().split()
     return [convert_mb(x)/1024 for x in series]
 
-def get_cpu(agent, node, pid):
+def get_cpu(node, agent, pid):
     cmd = "egrep '^[ ]*%d' %s/%s/top/stdout | awk '{print $9}'" % (pid, options.directory, node)
     series = os.popen(cmd).read().split()
     return [float(x) for x in series]
@@ -168,26 +171,27 @@ def get_test_parms():
     m = re.match("(\w+)_(\d+-)_nvols:(\d+).threads:(\d+).type:(\w+).nfiles:(\d+).test_type:(\w+).fsize:(\d+).nreqs:(\d+).test", options.directory)
 
 def main():
-    #compute_pidmap() # FIXME
+    compute_pidmap("tiefighter")
+    print g_pidmap
     print options.name,",",
     time.sleep(1)
     print "th,", get_avgth(),",",
     print "lat,", get_avglat(),",",
-    # for node in nodes.keys():
-    #     for agent,pid in g_pidmap[node].items():
-    #         print "Agent,",agent,",",
-    #         if options.plot_enable:
-    #             plot_series(get_mem(node, agent, pid), "Memory - " + agent + " - " + options.name, "megabatyes")
-    #             plot_series(get_cpu(node, agent, pid), "CPU - " + agent + " - " + options.name, "CPU utilization [%]")
-    #         else:
-    #             print "maxmem,",getmax(get_mem(node, agent, pid)),",",
-    #             print "maxcpu,",getmax(get_cpu(node, agent, pid)),",",
-    #     if options.plot_enable:
-    #         plot_series(get_iops(node), "IOPS - " + options.name, "IOPS (disk)")
-    #         plot_series(get_idle(node), "Avg Idle - " + options.name, "Idle CPU Time [%]")
-    #     else:
-    #         print "maxiops,",getmax(get_iops(node)),",",
-    #         print "avgidle,",getavg(get_idle(node)),",",
+    for node in nodes.keys():
+        for agent,pid in g_pidmap[node].items():
+            print "Agent,",agent,",",
+            if options.plot_enable:
+                plot_series(get_mem(node, agent, pid), "Memory - " + agent + " - " + options.name, "megabatyes")
+                plot_series(get_cpu(node, agent, pid), "CPU - " + agent + " - " + options.name, "CPU utilization [%]")
+            else:
+                print "maxmem,",getmax(get_mem(node, agent, pid)),",",
+                print "maxcpu,",getmax(get_cpu(node, agent, pid)),",",
+        if options.plot_enable:
+            plot_series(get_iops(node), "IOPS - " + options.name, "IOPS (disk)")
+            plot_series(get_idle(node), "Avg Idle - " + options.name, "Idle CPU Time [%]")
+        else:
+            print "maxiops,",getmax(get_iops(node)),",",
+            print "avgidle,",getavg(get_idle(node)),",",
     print "" 
 
 if __name__ == "__main__":

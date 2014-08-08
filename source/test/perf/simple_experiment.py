@@ -12,13 +12,16 @@ def create_tests():
         "fsize" : 4096,
         "nfiles" : 1000
         }
+
+    ###########################
+
     tests = []
-    size = 4096
+    size = 4096 * 1024   # 4096
     test = dict(template)
     test["type"] = "PUT"
-    test["nreqs"] = 1000000
-    test["nfiles"] = 10000
-    test["nvols"] = 4
+    test["nreqs"] = 100  # 100000
+    test["nfiles"] = 100 # 10000
+    test["nvols"] = 1 # 4
     test["threads"] = 1
     test["fsize"] = size
     tests.append(test)
@@ -31,12 +34,12 @@ def create_tests():
     #         test["nvols"] = nvols
     #         test["threads"] = th
     #         tests.append(test)
-    for nvols in [1, 2, 3, 4]:
-        for th in [1, 2, 5, 10, 15]:
+    for nvols in [1]: # [1, 2, 3, 4]:
+        for th in [1, 5, 10]: #[1, 2, 5, 10, 15]:
             test = dict(template)
             test["type"] = "GET"
-            test["nreqs"] = 100000
-            test["nfiles"] = 10000
+            test["nreqs"] = 1000 # 100000
+            test["nfiles"] = 100 # 10000
             test["nvols"] = nvols
             test["threads"] = th
             test["fsize"] = size
@@ -49,16 +52,7 @@ def create_tests():
     test["nvols"] = 4
     test["threads"] = 1
     test["fsize"] = size
-    tests.append(test)
-    # for nvols in [1, 2, 3, 4]:
-    #     for th in [1, 2, 5, 10, 15]:
-    #         test = dict(template)
-    #         test["type"] = "PUT"
-    #         test["nreqs"] = 10000
-    #         test["nfiles"] = 10000
-    #         test["nvols"] = nvols
-    #         test["threads"] = th
-    #         tests.append(test)
+    #tests.append(test)
     for nvols in [1, 2, 3, 4]:
         for th in [1, 2, 5, 10, 15]:
             test = dict(template)
@@ -68,7 +62,7 @@ def create_tests():
             test["nvols"] = nvols
             test["threads"] = th
             test["fsize"] = size
-            tests.append(test)
+            #tests.append(test)
 
     return tests
 

@@ -203,7 +203,7 @@ class CounterServer:
         shutil.copyfile(datafname, directory + "/counters.dat")    
         #os.close(datafile)
 
-class AgentsPidMap:
+class AgentsPidMap:   # FIXME: this needs to be per node!!!
     def __init__(self):
         self.pid_map = None
     def compute_pid_map(self, text):
@@ -294,7 +294,7 @@ class FdsCluster():
         print output
         return output
     def _run_tgen(self, test_args):
-        cmd = "python /root/traffic_gen.py -t %d -n %d -T %s -s %d -F %d -v %d" % (test_args["threads"],
+        cmd = "python /root/traffic_gen.py -t %d -n %d -T %s -s %d -F %d -v %d -u" % (test_args["threads"],
                                                                                    test_args["nreqs"],
                                                                                    test_args["type"],
                                                                                    test_args["fsize"],

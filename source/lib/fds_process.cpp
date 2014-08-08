@@ -314,7 +314,7 @@ void FdsProcess::setup_graphite()
 
     graphitePtr_.reset(new GraphiteClient(ip, port,
                                           timer_servicePtr_, cntrs_mgrPtr_));
-    graphitePtr_->start(1 /* seconds */);
+    graphitePtr_->start(5 /* seconds */);
     FDS_PLOG(g_fdslog) << "Set up graphite.  ip: " << ip << " port: " << port;
 }
 

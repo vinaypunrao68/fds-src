@@ -9,6 +9,7 @@ import tempfile
 import httplib
 import requests
 import random
+import pickle
 
 # HTTP_LIB = "requests"
 HTTP_LIB = "httplib"
@@ -76,7 +77,8 @@ def do_delete(conn, target):
         e = requests.delete("http://localhost:8000" + target)
     return e
 
-def task(task_id, n_reqs, req_type, nvols, files, stats, queue):
+def task(task_id, n_reqs, req_type, nvols, files, stats, queue, prev_uploaded):
+    uploaded = set()
     if HTTP_LIB == "httplib":
         conn = httplib.HTTPConnection("localhost:8000")
     else:
@@ -84,18 +86,31 @@ def task(task_id, n_reqs, req_type, nvols, files, stats, queue):
     for i in range(0,n_reqs):
         vol = random.randint(0, nvols - 1)
         time_start = time.time()
-        file_idx = random.randint(0, options.num_files - 1)
         if req_type == "PUT":
+            file_idx = random.randint(0, options.num_files - 1)
+            uploaded.add(file_idx)
+            # print "PUT", file_idx
             e = do_put(conn, "/volume%d/file%d" % (vol, file_idx), files[file_idx])
             #files.task_done()
         elif req_type == "GET":
+            if len(prev_uploaded) > 0:
+                file_idx = random.sample(prev_uploaded, 1)[0]
+            else:
+                file_idx = random.randint(0, options.num_files - 1)
+            # print "GET", file_idx
             e = do_get(conn, "/volume%d/file%d" % (vol, file_idx))
         elif req_type == "DELETE":
+            if len(prev_uploaded) > 0:
+                file_idx = random.sample(prev_uploaded, 1)[0]  # FIXME: this works only once, then uploaded should be cleared/updated
+            else:
+                file_idx = random.randint(0, options.num_files - 1)
             e = do_delete(conn, "/volume%d/file%d" % (vol, file_idx))
-        elif req_type == "7030":
+        elif req_type == "7030":  # TODO: this does not work with get_reuse
             if random.randint(1,100) < 70:
+                file_idx = random.randint(0, options.num_files - 1)
                 e = do_get(conn, "/volume%d/file%d" % (vol, file_idx))
             else:
+                file_idx = random.randint(0, options.num_files - 1)
                 e = do_put(conn, "/volume%d/file%d" % (vol, file_idx), files[file_idx])
         elif req_type == "NOP":
             time.sleep(.008)
@@ -113,28 +128,53 @@ def task(task_id, n_reqs, req_type, nvols, files, stats, queue):
                 stats["fails"] += 1
     if HTTP_LIB == "httplib":
         conn.close()
-    queue.put(stats)
+    queue.put((stats, uploaded))
 
 
 def main(options,files):
     #body = create_random_file(options.file_size)
     #body = open(body.name,"r")
     #text = body.read()
+    # unpickle uploaded files
+    prev_uploaded = None
+    part_prev_uploaded = (set(),) * options.threads
+    if os.path.exists(".uploaded.pickle") and options.get_reuse == True and options.req_type != "PUT":
+        prev_uploaded_file = open(".uploaded.pickle", "r")
+        upk = pickle.Unpickler(prev_uploaded_file)
+        prev_uploaded = upk.load()
+        print prev_uploaded
+        assert len(prev_uploaded) > options.threads
+        i = 0
+        while len(prev_uploaded) > 0:
+            e = prev_uploaded.pop()
+            part_prev_uploaded[i].add(e)
+            i = (i + 1) % options.threads
+    print part_prev_uploaded
     queue = Queue()
     stats = init_stats()
     tids = []
     for i in range(0,options.threads):
-        task_args = (i, options.n_reqs, options.req_type, options.num_volumes, files, stats, queue)
+        task_args = (i, options.n_reqs, options.req_type, options.num_volumes, files, stats, queue, part_prev_uploaded[i])
         #t = th.Thread(None,task,"task-"+str(i), task_args)
         t = Process(target=task, args=task_args)
         t.start()
         tids.append(t)
     for t in tids:
         t.join()
+    uploaded = set()
     while not queue.empty():
-        e = queue.get()
-        for k,v in e.items():
+        st, up = queue.get()
+        for k,v in st.items():
             stats[k] += v
+        uploaded.update(up)
+    # FIXME: move this code after time has been taken
+    # FIXME: volumes    
+    if options.get_reuse == True and options.req_type == "PUT":
+        # pickle uploaded files
+        uploaded_file = open(".uploaded.pickle", "w")
+        pk = pickle.Pickler(uploaded_file)
+        pk.dump(uploaded)
+        uploaded_file.close()
     return stats
 
 if __name__ == "__main__":
@@ -145,6 +185,8 @@ if __name__ == "__main__":
     parser.add_option("-s", "--file-size", dest = "file_size", type = "int", default = 4096, help = "File size in bytes")
     parser.add_option("-F", "--num-files", dest = "num_files", type = "int", default = 10000, help = "File size in bytes")
     parser.add_option("-v", "--num-volumes", dest = "num_volumes", type = "int", default = 1, help = "Number of volumes")
+    parser.add_option("-u", "--get-reuse", dest = "get_reuse", default = False, action = "store_true", help = "Do gets on file previously uploaded with put")
+
     (options, args) = parser.parse_args()
     if options.req_type == "PUT" or options.req_type == "7030":
         print "Creating files"
@@ -157,5 +199,6 @@ if __name__ == "__main__":
     stats = main(options,files)
     time_end = time.time()
     stats["elapsed_time"] = time_end - time_start
-    print "Summary - threads:", options.threads, "n_reqs:", options.n_reqs, "req_type:", options.req_type, "elapsed time:", (time_end - time_start), "reqs/sec:", stats['reqs'] / stats['elapsed_time'], "avg_latency[ms]:",stats["tot_latency"]/stats["latency_cnt"]*1e3, "failures:", stats['fails'], "requests:", stats["reqs"]
     print "Options:", options,"Stats:", stats
+    print "Summary - threads:", options.threads, "n_reqs:", options.n_reqs, "req_type:", options.req_type, "elapsed time:", (time_end - time_start), "reqs/sec:", stats['reqs'] / stats['elapsed_time'], "avg_latency[ms]:",stats["tot_latency"]/stats["latency_cnt"]*1e3, "failures:", stats['fails'], "requests:", stats["reqs"]
+
