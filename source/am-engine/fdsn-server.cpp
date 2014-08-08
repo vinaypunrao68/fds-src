@@ -42,6 +42,10 @@ class FdsnIf : public apis::AmServiceIf {
     fds_bool_t testUturnCommitTx;
     /// Uturn test abort tx API
     fds_bool_t testUturnAbortTx;
+    /// Uturn test stat blob API
+    fds_bool_t testUturnStatBlob;
+    /// Uturn test get blob API
+    fds_bool_t testUturnGetBlob;
 
     std::atomic_ullong      io_log_counter;
     fds_uint64_t            io_log_interval;
@@ -75,6 +79,14 @@ class FdsnIf : public apis::AmServiceIf {
         testUturnAbortTx = conf.get_abs<bool>("fds.am.testing.uturn_amserv_aborttx");
         if (testUturnAbortTx == true) {
             LOGDEBUG << "Enabling uturn testing for AM service abort tx API";
+        }
+        testUturnStatBlob = conf.get_abs<bool>("fds.am.testing.uturn_amserv_statblob");
+        if (testUturnStatBlob == true) {
+            LOGDEBUG << "Enabling uturn testing for AM service stat blob API";
+        }
+        testUturnGetBlob = conf.get_abs<bool>("fds.am.testing.uturn_amserv_getblob");
+        if (testUturnGetBlob == true) {
+            LOGDEBUG << "Enabling uturn testing for AM service get blob API";
         }
     }
 
@@ -152,6 +164,14 @@ class FdsnIf : public apis::AmServiceIf {
                   boost::shared_ptr<std::string>& domainName,
                   boost::shared_ptr<std::string>& volumeName,
                   boost::shared_ptr<std::string>& blobName) {
+        if ((testUturnAll == true) ||
+            (testUturnStatBlob == true)) {
+            LOGDEBUG << "Uturn testing stat blob";
+            _return.name = blobName;
+            _return.byteCount = 0;
+            return;
+        }
+
         StatBlobResponseHandler::ptr handler(
             new StatBlobResponseHandler(_return));
 
@@ -271,6 +291,12 @@ class FdsnIf : public apis::AmServiceIf {
                  boost::shared_ptr<std::string>& blobName,
                  boost::shared_ptr<int32_t>& length,
                  boost::shared_ptr<apis::ObjectOffset>& objectOffset) {
+        if ((testUturnAll == true) ||
+            (testUturnGetBlob == true)) {
+            LOGDEBUG << "Uturn testing get blob";
+            return;
+        }
+
         BucketContextPtr bucket_ctx(
             new BucketContext("host", *volumeName, "accessid", "secretkey"));
 
