@@ -181,6 +181,12 @@ class ObjectStorMgr :
      */
     OMgrClient         *omClient;
 
+     /*
+      * glocal dedupe  stats  counter 
+      */ 
+
+     std::atomic<fds_uint64_t> dedupeByteCnt;
+
     /*
      * Local storage members
      */
