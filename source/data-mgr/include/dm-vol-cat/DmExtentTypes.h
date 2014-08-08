@@ -64,6 +64,9 @@ class BlobExtent: public serialize::Serializable {
     inline fds_bool_t containsNoObjects() const {
         return (blob_obj_list.size() == 0);
     }
+    inline fds_uint64_t objectCount() const {
+        return blob_obj_list.size();
+    }
 
     /**
      * Returns true if offset is in range for this extent

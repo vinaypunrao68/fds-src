@@ -145,7 +145,6 @@ class FdsNodeConfig(FdsConfig):
         self.nd_rmt_agent.ssh_exec('pkill -9 AMAgent', wait_compl=True)
         self.nd_rmt_agent.ssh_exec('pkill -9 platformd', wait_compl=True)
         self.nd_rmt_agent.ssh_exec('pkill -9 -f com.formationds.om.Main', wait_compl=True)
-        self.nd_rmt_agent.ssh_exec('rm /dev/shm/0x*', wait_compl=True)
         time.sleep(2)
 
     def nd_cleanup_daemons_with_fdsroot(self, fds_root):

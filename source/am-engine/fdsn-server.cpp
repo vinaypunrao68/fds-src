@@ -216,11 +216,14 @@ class FdsnIf : public apis::AmServiceIf {
                 SHARED_DYN_CAST(Callback, handler));
 
         handler->wait();
-        handler->process();
 
         if (handler->error != ERR_OK) {
             apis::ApiException fdsE;
-            fdsE.errorCode = apis::BAD_REQUEST;
+            if (handler->error == ERR_BLOB_NOT_FOUND) {
+                fdsE.errorCode = apis::MISSING_RESOURCE;
+            } else {
+                fdsE.errorCode = apis::BAD_REQUEST;
+            }
             throw fdsE;
         }
     }

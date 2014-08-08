@@ -91,6 +91,12 @@ namespace fds {
  public:
 
      /*
+      * perf stats 
+      */
+     std::atomic<fds_uint64_t> ssdByteCnt;
+     std::atomic<fds_uint64_t> hddByteCnt;
+
+     /*
       *  per volume stats 
       */
     CounterHist8bit  objStats;

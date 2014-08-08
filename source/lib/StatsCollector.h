@@ -27,16 +27,20 @@ class StatsCollector : public boost::noncopyable {
      * @param[in] push_sec is the interval in seconds, every push_sec
      * stats are pushed to the aggregator module
      * Stats are kept just a bit longer than push_sec interval
+     * @param[in] meta_sampling_freq interval in seconds each stat is
+     * sampled for stats streaming
+     * @param[in] qos_sampling_freq interval in seconds in stat is
+     * is sampled for logging qos stats
      * TODO(Anna) this is the default for all volumes; we should allow
      * override this interval for each volume if needed, so that we
      * can push stats for different volume with different frequency
      */
     StatsCollector(fds_uint32_t push_sec,
-                   fds_uint32_t meta_sampling_freq = 60,
+                   fds_uint32_t stat_sampling_freq = 60,
                    fds_uint32_t qos_sampling_freq = 1);
     ~StatsCollector();
 
-    static StatsCollector* statsCollector();
+    static StatsCollector* statsCollectSingleton();
 
     /**
      * This is temporary until service layer can provide us
@@ -46,28 +50,19 @@ class StatsCollector : public boost::noncopyable {
     void registerOmClient(OMgrClient* omclient);
 
     /**
-     * Start collecting systems stats for volumes that have stats collection
-     * enabled
+     * Start and stop collecting systems stats and pushing them to
+     * aggregator module
      */
-    void startCollecting();
-    /**
-     * Enables systems stats collection for a given volume
-     */
-    void enable(fds_volid_t volume_id);
+    void startStreaming();
+    void stopStreaming();
+    fds_bool_t isStreaming() const;
 
     /**
-     * Stop collecting any stats
+     * Start and stop collecting and printing fine-grained qos stats
      */
-    void stopCollection();
-    /**
-     * Explicitly disable system stats collection for a specific volume
-     * We may want to disable stats collection for volumes in DM
-     * where DM is not primary.
-     */
-    void disable(fds_volid_t volume_id);
-
-    fds_bool_t isCollectingStats();
-    fds_bool_t isEnabled(fds_volid_t volume_id);
+    void enableQosStats();
+    void disableQosStats();
+    fds_bool_t isQosStatsEnabled() const;
 
     /**
      * Record one event for volume 'volume_id'
@@ -78,22 +73,30 @@ class StatsCollector : public boost::noncopyable {
      */
     void recordEvent(fds_volid_t volume_id,
                      fds_uint64_t timestamp,
-                     PerfEventType event_type,
+                     FdsStatType event_type,
                      fds_uint64_t value);
 
+    void print();
     /**
-     * Record one event for volume 'volume_id' with timestamp now
-     * @param[in] volume_id volume ID
-     * @param[in] event_type type of the event
-     * @param[in] value is value of the event
+     * Called on timer periodically to push stat history to
+     * primary DMs
      */
-    void recordEventNow(fds_volid_t volume_id,
-                        PerfEventType event_type,
-                        fds_uint64_t value);
+    void sendStatStream();
+
+  private:  // methods
+    VolumePerfHistory::ptr getQosHistory(fds_volid_t volid);
+    VolumePerfHistory::ptr getStatHistory(fds_volid_t volid);
+    void openQosFile();
 
   private:
-    std::atomic<bool> enabled_;
-    fds_uint32_t default_push_freq;  // push frequency in seconds
+    std::atomic<bool> qos_enabled_;
+    std::atomic<bool> stream_enabled_;
+
+    fds_uint32_t push_interval_;  // push meta interval in seconds
+    fds_uint32_t slotsec_qos_;   // length of slot in seconds for qos history
+    fds_uint32_t slots_qos_;     // number of slots in qos history
+    fds_uint32_t slotsec_stat_;  // length of slot in seconds for stat history
+    fds_uint32_t slots_stat_;    // number of slots in stat history
 
     /**
      * Fine-grained short-time histories of few specific stats for
@@ -102,7 +105,8 @@ class StatsCollector : public boost::noncopyable {
      * Those are filled by recordEvent() and recordEventNow()
      */
     std::unordered_map<fds_volid_t, VolumePerfHistory::ptr> qos_hist_map_;
-    fds_rwlock qh_lock;  // lock protecting volume history map
+    fds_rwlock qh_lock_;  // lock protecting volume history map
+    std::unordered_map<fds_volid_t, fds_uint64_t> last_ts_qmap_;
 
     /**
      * Coarse-graned history of all volumes we are collecting stats
@@ -111,15 +115,28 @@ class StatsCollector : public boost::noncopyable {
      * Those are either filled directly by recordEvent() and recordEventNow()
      * or on timer sampling of stats from performance framework.
      */
-    std::unordered_map<fds_volid_t, VolumePerfHistory::ptr> meta_hist_map_;
-    fds_rwlock mh_lock_;  // lock protecting volume history map
+    std::unordered_map<fds_volid_t, VolumePerfHistory::ptr> stat_hist_map_;
+    fds_rwlock sh_lock_;  // lock protecting volume history map
+    std::unordered_map<fds_volid_t, fds_uint64_t> last_ts_smap_;
 
-    fds_uint64_t start_time;  // history timestamps are relative to this time
+    fds_uint64_t start_time_;  // history timestamps are relative to this time
 
     /**
-     * timer to push volumes' stats to DMs
+     * File we log fine-grained qos stats
      */
-    // TODO(Anna)
+    std::ofstream statfile_;
+
+    /**
+     * timer to push volumes' stats to primary DMs
+     */
+    FdsTimerPtr pushTimer;
+    FdsTimerTaskPtr pushTimerTask;
+
+    /**
+     * Timer to print qos stats
+     */
+    FdsTimerPtr qosTimer;
+    FdsTimerTaskPtr qosTimerTask;
 
     /**
      * OMclient so we can get DMT
@@ -128,6 +145,7 @@ class StatsCollector : public boost::noncopyable {
     OMgrClient* om_client_;
 };
 
+extern StatsCollector* g_statsCollector;
 
 }  // namespace fds
 

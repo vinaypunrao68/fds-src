@@ -4,6 +4,7 @@
 #include <string>
 #include <new>
 #include <map>
+#include <set>
 #include <OmClusterMap.h>
 #include <OmVolumePlacement.h>
 
@@ -63,6 +64,11 @@ void
 VolumePlacement::mod_shutdown() {
 }
 
+void VolumePlacement::setConfigDB(kvstore::ConfigDB* configDB)
+{
+    this->configDB = configDB;
+}
+
 void
 VolumePlacement::setAlgorithm(VolPlacementAlgorithm::AlgorithmTypes type)
 {
@@ -119,6 +125,15 @@ VolumePlacement::computeDMT(const ClusterMap* cmap)
     err = dmtMgr->add(newDmt, DMT_TARGET);
     fds_verify(err.ok());
 
+    // TODO(Rao): Check with Anna if a lock is required
+    // store the dmt to config db
+    fds_verify(configDB != NULL);
+    if (!configDB->storeDmt(*newDmt, "target")) {
+        GLOGWARN << "unable to store dmt to config db "
+                << "[" << newDmt->getVersion() << "]";
+    }
+
+    LOGNORMAL << "Version: " << newDmt->getVersion();
     LOGDEBUG << "Computed new DMT: " << *newDmt;
 }
 
@@ -312,8 +327,77 @@ void VolumePlacement::notifyEndOfRebalancing() {
 void
 VolumePlacement::commitDMT() {
     dmtMgr->commitDMT();
+    // both the new & the old dlts should already be in the config db
+    // just set their types
+    if (!configDB->setDmtType(dmtMgr->getCommittedVersion(), "committed")) {
+        LOGWARN << "unable to store committed dmt type to config db "
+                << "[" << dmtMgr->getCommittedVersion() << "]";
+    }
+
+    if (!configDB->setDmtType(0, "target")) {
+        LOGWARN << "unable to store target dmt type to config db";
+    }
+    LOGNORMAL << "version: " << dmtMgr->getCommittedVersion();
     LOGDEBUG << *dmtMgr;
 }
 
+Error VolumePlacement::loadDmtsFromConfigDB(const NodeUuidSet& dm_services)
+{
+    Error err(ERR_OK);
+    // NOTE: Copy paste code from DLT.  May need different handling
+    // in the future
+
+    // this function should be called only during init..
+    fds_verify(dmtMgr->hasTargetDMT() == false);
+    fds_verify(dmtMgr->hasCommittedDMT() == false);
+
+    // if there are no nodes, we are not going to load any dmts
+    if (dm_services.size() == 0) {
+        LOGNOTIFY << "Not loading DMTs from configDB since there are "
+                  << "no persisted DMs";
+        return err;
+    }
+
+    fds_uint64_t committedVersion = configDB->getDmtVersionForType("committed");
+    fds_uint64_t targetVersion = configDB->getDmtVersionForType("target");
+    // We only support graceful restart.  We shouldn't have any cruft.
+    fds_verify(targetVersion == 0);
+
+    if (committedVersion > 0) {
+        DMT* dmt = new DMT(0, 0, 0, false);
+        if (!configDB->getDmt(*dmt, committedVersion)) {
+            LOGCRITICAL << "unable to load (committed) dmt version "
+                        <<"["<< committedVersion << "] from configDB";
+            err = Error(ERR_PERSIST_STATE_MISMATCH);
+        } else {
+            // check if DMT is valid with respect to nodes
+            // i.e. only contains node uuis that are in nodes' set
+            // does not contain any zeroes, etc.
+            std::set<fds_uint64_t> uniqueNodes;
+            dmt->getUniqueNodes(&uniqueNodes);
+            fds_verify(dm_services.size() == uniqueNodes.size())
+            for (auto dm_uuid : dm_services) {
+                fds_verify(uniqueNodes.count(dm_uuid.uuid_get_val()) == 1);
+            }
+            // we will set as target and distribute this dmt around
+            dmtMgr->add(dmt, DMT_TARGET);
+            LOGNOTIFY << "Loaded DMT version: " << committedVersion << ".  Setting as target";
+        }
+
+        if (!err.ok()) {
+            delete dmt;
+            return err;
+        }
+    } else {
+        // we got > 0 nodes from configDB but there is no DMT
+        // going to throw away persistent state, because there is a mismatch
+        LOGWARN << "No current DMT even though we persisted "
+                << dm_services.size() << " nodes";
+        fds_verify(!"No persisted dmt");
+        return Error(ERR_PERSIST_STATE_MISMATCH);
+    }
+
+    return err;
+}
 
 }  // namespace fds

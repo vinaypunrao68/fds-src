@@ -126,6 +126,15 @@ void DataMgr::handleForwardComplete(dmCatReq *io) {
     delete io;
 }
 
+void DataMgr::handleStatStream(dmCatReq *io) {
+    DmIoStatStream *statStreamReq = static_cast<DmIoStatStream*>(io);
+
+    Error err = statStreamAggr_->handleModuleStatStream(statStreamReq->statStreamMsg);
+
+    qosCtrl->markIODone(*io);
+    statStreamReq->dmio_statstream_resp_cb(err, statStreamReq);
+}
+
 /**
  * Is called on timer to finish forwarding for all volumes that
  * are still forwarding, send DMT close ack, and remove vcat/tcat
@@ -1427,7 +1436,8 @@ void DataMgr::getVolumeMetaData(dmCatReq *io) {
     DmIoGetVolumeMetaData * getVolMDReq = static_cast<DmIoGetVolumeMetaData *>(io);
     err = timeVolCat_->queryIface()->getVolumeMeta(getVolMDReq->getVolId(),
             reinterpret_cast<fds_uint64_t *>(&getVolMDReq->msg->volume_meta_data.size),
-            reinterpret_cast<fds_uint64_t *>(&getVolMDReq->msg->volume_meta_data.blobCount));
+            reinterpret_cast<fds_uint64_t *>(&getVolMDReq->msg->volume_meta_data.blobCount),
+            reinterpret_cast<fds_uint64_t *>(&getVolMDReq->msg->volume_meta_data.objectCount));
     if (!err.ok()) {
         PerfTracer::incr(getVolMDReq->opReqFailedPerfEventType, getVolMDReq->getVolId(),
                 getVolMDReq->perfNameStr);

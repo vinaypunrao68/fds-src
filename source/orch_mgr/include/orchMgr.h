@@ -80,6 +80,7 @@ class OrchMgr: public PlatformProcess {
 
     /**** From FdsProcess ****/
     virtual void proc_pre_startup() override;
+    virtual void proc_pre_service() override;
     /*
      * Runs the orch manager server.
      * Does not return until the server is no longer running

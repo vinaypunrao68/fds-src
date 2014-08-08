@@ -40,45 +40,46 @@ public class StreamWriter {
             byte[] buf = localBytes.get();
 
             int firstReadCount = readFully(input, buf);
+            int nextByte = 0;
             if(firstReadCount != -1) {
-                int nextByte = input.read();
+                nextByte = input.read();
                 md.update(buf, 0, firstReadCount);
+            }
 
-                if(nextByte == -1) {
-                    // single object case
-                    digest = md.digest();
-                    metadata.put("etag", Hex.encodeHexString(digest));
-                    am.updateBlobOnce(domainName, volumeName, blobName,
-                                      Mode.TRUNCATE.getValue(), ByteBuffer.wrap(buf, 0, firstReadCount),
-                                      firstReadCount, new ObjectOffset(0), metadata);
-                    return digest;
-                } else {
-                    // multi object case
-                    tx = am.startBlobTx(domainName, volumeName, blobName, Mode.TRUNCATE.getValue());
+            if(firstReadCount == -1 || nextByte == -1) {
+                // single object case
+                digest = md.digest();
+                metadata.put("etag", Hex.encodeHexString(digest));
+                am.updateBlobOnce(domainName, volumeName, blobName,
+                                  Mode.TRUNCATE.getValue(), ByteBuffer.wrap(buf, 0, Math.max(0, firstReadCount)),
+                                  Math.max(0, firstReadCount), new ObjectOffset(0), metadata);
+                return digest;
+            } else {
+                // multi object case
+                tx = am.startBlobTx(domainName, volumeName, blobName, Mode.TRUNCATE.getValue());
 
-                    // push first read to FDS
+                // push first read to FDS
+                am.updateBlob(domainName, volumeName, blobName, tx,
+                        ByteBuffer.wrap(buf, 0, firstReadCount), firstReadCount,
+                        new ObjectOffset(objectOffset), false);
+                objectOffset++;
+
+                // reassemble second read and push to FDS
+                int secondReadCount = Math.max(readFully(input, buf, 1), 0) + 1;
+                buf[0] = (byte) nextByte;
+                md.update(buf, 0, secondReadCount);
+                am.updateBlob(domainName, volumeName, blobName, tx,
+                        ByteBuffer.wrap(buf, 0, secondReadCount), secondReadCount,
+                        new ObjectOffset(objectOffset), false);
+                objectOffset++;
+
+                // read remaining
+                for (int read = readFully(input, buf); read != -1; read = readFully(input, buf)) {
+                    md.update(buf, 0, read);
                     am.updateBlob(domainName, volumeName, blobName, tx,
-                            ByteBuffer.wrap(buf, 0, firstReadCount), firstReadCount,
+                            ByteBuffer.wrap(buf, 0, read), read,
                             new ObjectOffset(objectOffset), false);
                     objectOffset++;
-
-                    // reassemble second read and push to FDS
-                    int secondReadCount = Math.max(readFully(input, buf, 1), 0) + 1;
-                    buf[0] = (byte) nextByte;
-                    md.update(buf, 0, secondReadCount);
-                    am.updateBlob(domainName, volumeName, blobName, tx,
-                            ByteBuffer.wrap(buf, 0, secondReadCount), secondReadCount,
-                            new ObjectOffset(objectOffset), false);
-                    objectOffset++;
-
-                    // read remaining
-                    for (int read = readFully(input, buf); read != -1; read = readFully(input, buf)) {
-                        md.update(buf, 0, read);
-                        am.updateBlob(domainName, volumeName, blobName, tx,
-                                ByteBuffer.wrap(buf, 0, read), read,
-                                new ObjectOffset(objectOffset), false);
-                        objectOffset++;
-                    }
                 }
             }
 

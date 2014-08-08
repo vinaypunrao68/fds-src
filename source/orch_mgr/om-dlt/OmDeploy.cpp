@@ -2,6 +2,7 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 #include <iostream>
+#include <string>
 #include <vector>
 #include <atomic>
 #include <boost/msm/front/state_machine_def.hpp>
@@ -23,8 +24,8 @@ namespace msf = msm::front;
  */
 struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
 {
-    template <class Event, class FSM> void on_entry(Event const &, FSM &);
-    template <class Event, class FSM> void on_exit(Event const &, FSM &);
+    template <class Event, class FSM> void on_entry(Event const &e, FSM &f);
+    template <class Event, class FSM> void on_exit(Event const &e, FSM &f);
 
     /**
      * Timer task to retry re-compute DLT again if computation was locked
@@ -54,8 +55,12 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
         template <class Evt, class Fsm, class State>
         void operator()(Evt const &, Fsm &, State &) {}
 
-        template <class Event, class FSM> void on_entry(Event const &, FSM &) {}
-        template <class Event, class FSM> void on_exit(Event const &, FSM &) {}
+        template <class Event, class FSM> void on_entry(Event const &e, FSM &f) {
+            LOGDEBUG << "DST_Idle. Evt: " << e.logString();
+        }
+        template <class Event, class FSM> void on_exit(Event const &e, FSM &f) {
+            LOGDEBUG << "DST_Idle. Evt: " << e.logString();
+        }
 
         /**
          * timer to retry re-compute DLT
@@ -70,8 +75,16 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
         template <class Evt, class Fsm, class State>
         void operator()(Evt const &, Fsm &, State &) {}
 
-        template <class Event, class FSM> void on_entry(Event const &, FSM &) {}
-        template <class Event, class FSM> void on_exit(Event const &, FSM &) {}
+        template <class Event, class FSM> void on_entry(Event const &e, FSM &f) {
+            LOGDEBUG << "DST_SendDlts. Evt: " << e.logString();
+        }
+        template <class Fsm> void on_exit(const struct boost::msm::front::none &evt,
+                                          Fsm &fsm) {
+            LOGDEBUG << "DST_SendDlts. Evt: None";
+        }
+        template <class Event, class FSM> void on_exit(Event const &e, FSM &f) {
+            LOGDEBUG << "DST_SendDlts. Evt: " << e.logString();
+        }
 
         std::atomic_flag lock = ATOMIC_FLAG_INIT;
     };
@@ -80,8 +93,16 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
         template <class Evt, class Fsm, class State>
         void operator()(Evt const &, Fsm &, State &) {}
 
-        template <class Event, class FSM> void on_entry(Event const &, FSM &) {}
-        template <class Event, class FSM> void on_exit(Event const &, FSM &) {}
+        template <class Fsm> void on_entry(const struct boost::msm::front::none &evt,
+                                          Fsm &fsm) {
+            LOGDEBUG << "DST_WaitSync. Evt: None";
+        }
+        template <class Event, class FSM> void on_entry(Event const &e, FSM &f) {
+            LOGDEBUG << "DST_WaitSync. Evt: " << e.logString();
+        }
+        template <class Event, class FSM> void on_exit(Event const &e, FSM &f) {
+            LOGDEBUG << "DST_WaitSync. Evt: " << e.logString();
+        }
 
         NodeUuidSet sm_to_wait;  // set of sms we are waiting to respond
     };
@@ -90,8 +111,12 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
         template <class Evt, class Fsm, class State>
         void operator()(Evt const &, Fsm &, State &) {}
 
-        template <class Event, class FSM> void on_entry(Event const &, FSM &) {}
-        template <class Event, class FSM> void on_exit(Event const &, FSM &) {}
+        template <class Event, class FSM> void on_entry(Event const &e, FSM &f) {
+            LOGDEBUG << "DST_Rebal. Evt: " << e.logString();
+        }
+        template <class Event, class FSM> void on_exit(Event const &e, FSM &f) {
+            LOGDEBUG << "DST_Rebal. Evt: " << e.logString();
+        }
     };
     struct DST_Commit : public msm::front::state<>
     {
@@ -108,8 +133,12 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
         template <class Evt, class Fsm, class State>
         void operator()(Evt const &, Fsm &, State &) {}
 
-        template <class Event, class FSM> void on_entry(Event const &, FSM &) {}
-        template <class Event, class FSM> void on_exit(Event const &, FSM &) {}
+        template <class Event, class FSM> void on_entry(Event const &e, FSM &f) {
+            LOGDEBUG << "DST_Commit. Evt: " << e.logString();
+        }
+        template <class Event, class FSM> void on_exit(Event const &e, FSM &f) {
+            LOGDEBUG << "DST_Commit. Evt: " << e.logString();
+        }
 
         fds_uint32_t acks_to_wait;
     };
@@ -128,8 +157,12 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
         template <class Evt, class Fsm, class State>
         void operator()(Evt const &, Fsm &, State &) {}
 
-        template <class Event, class FSM> void on_entry(Event const &, FSM &) {}
-        template <class Event, class FSM> void on_exit(Event const &, FSM &) {}
+        template <class Event, class FSM> void on_entry(Event const &e, FSM &f) {
+            LOGDEBUG << "DST_Close. Evt: " << e.logString();
+        }
+        template <class Event, class FSM> void on_exit(Event const &e, FSM &f) {
+            LOGDEBUG << "DST_Close. Evt: " << e.logString();
+        }
 
         fds_uint32_t acks_to_wait;
 
@@ -145,6 +178,12 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
      * Define the initial state.
      */
     typedef DST_Idle initial_state;
+    struct MyInitEvent {
+        std::string logString() const {
+            return "MyInitEvent";
+        }
+    };
+    typedef MyInitEvent initial_event;
 
     /**
      * Transition actions.
@@ -230,7 +269,9 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
     // +------------------+----------------+-------------+---------------+--------------+
     >{};  // NOLINT
 
-    template <class Event, class FSM> void no_transition(Event const &, FSM &, int);
+    template <class Fsm> void no_transition(const struct boost::msm::front::none &evt,
+                                            Fsm &fsm, int state);
+    template <class Event, class FSM> void no_transition(Event const &e, FSM &f, int);
 };
 
 // ------------------------------------------------------------------------------------
@@ -324,24 +365,30 @@ template <class Evt, class Fsm>
 void
 DltDplyFSM::on_entry(Evt const &evt, Fsm &fsm)
 {
-    FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "DltDplyFSM on entry";
+    LOGDEBUG << "DltDplyFSM on entry";
 }
 
 template <class Evt, class Fsm>
 void
 DltDplyFSM::on_exit(Evt const &evt, Fsm &fsm)
 {
-    FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "DltDplyFSM on exit";
+    LOGDEBUG << "DltDplyFSM on exit";
 }
 
 // no_transition
 // -------------
 //
+template <class Fsm>
+void
+DltDplyFSM::no_transition(const struct boost::msm::front::none &evt, Fsm &fsm, int state)
+{
+    LOGDEBUG << "Evt: None  DltDplyFSM no transition";
+}
 template <class Evt, class Fsm>
 void
 DltDplyFSM::no_transition(Evt const &evt, Fsm &fsm, int state)
 {
-    FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "DltDplyFSM no trans";
+    LOGDEBUG << "Evt: " << evt.logString() << " DltDplyFSM no transition";
 }
 
 void DltDplyFSM::RetryTimerTask::runTimerTask()
@@ -422,7 +469,7 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 void
 DltDplyFSM::DACT_Compute::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "FSM DACT_Compute";
+    LOGDEBUG << "FSM DACT_Compute";
     OM_Module *om = OM_Module::om_singleton();
     DataPlacement *dp = om->om_dataplace_mod();
     ClusterMap* cm = om->om_clusmap_mod();
@@ -443,7 +490,7 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 void
 DltDplyFSM::DACT_SendDlts::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "FSM DACT_SendDlts";
+    LOGDEBUG << "FSM DACT_SendDlts";
     OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
     OM_Module *om = OM_Module::om_singleton();
     DataPlacement *dp = om->om_dataplace_mod();
@@ -507,7 +554,7 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 void
 DltDplyFSM::DACT_Rebalance::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "FSM DACT_Rebalance";
+    LOGDEBUG << "FSM DACT_Rebalance";
     OM_Module *om = OM_Module::om_singleton();
     DataPlacement *dp = om->om_dataplace_mod();
 
@@ -522,7 +569,7 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 void
 DltDplyFSM::DACT_Commit::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "FSM DACT_Commit";
+    LOGDEBUG << "FSM DACT_Commit";
     OM_Module *om = OM_Module::om_singleton();
     OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
     OM_NodeContainer* dom_ctrl = domain->om_loc_domain_ctrl();
@@ -557,7 +604,7 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 void
 DltDplyFSM::DACT_Close::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    FDS_PLOG_SEV(g_fdslog, fds_log::debug) << "FSM DACT_Close";
+    LOGDEBUG << "FSM DACT_Close";
     OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
     OM_NodeContainer* dom_ctrl = domain->om_loc_domain_ctrl();
     OM_Module *om = OM_Module::om_singleton();
@@ -579,7 +626,8 @@ DltDplyFSM::DACT_Close::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
 
     // in case we are in domain bring up state, notify domain that current
     // DLT is up (we got quorum number of acks for DLT commit)
-    domain->local_domain_event(DltUpEvt());
+    LOGDEBUG << "Sending dlt up event";
+    domain->local_domain_event(DltDmtUpEvt(fpi::FDSP_STOR_MGR));
 }
 
 // GRD_DltClose
@@ -645,8 +693,7 @@ DltDplyFSM::GRD_DltRebal::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
          ++cit) {
         NodeAgent::pointer agent = domain->om_sm_agent(*cit);
         fds_verify(agent != NULL);
-        FDS_PLOG_SEV(g_fdslog, fds_log::debug)
-                << "GRD_DltRebal: Node " << agent->get_node_name()
+        LOGDEBUG << "GRD_DltRebal: Node " << agent->get_node_name()
                 << " state " << agent->node_state();
         if (agent->node_state() != FDS_ProtocolInterface::FDS_Node_Up) {
             all_up = false;
@@ -654,8 +701,7 @@ DltDplyFSM::GRD_DltRebal::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
         }
     }
 
-    FDS_PLOG_SEV(g_fdslog, fds_log::debug)
-            << "FSM GRD_DltRebal: was/is waiting for rebalance ok from "
+    LOGDEBUG << "FSM GRD_DltRebal: was/is waiting for rebalance ok from "
             << rebalNodes.size() << " node(s), current result: " << all_up;
 
     return all_up;

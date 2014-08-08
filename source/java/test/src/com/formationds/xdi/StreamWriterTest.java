@@ -98,7 +98,7 @@ public class StreamWriterTest {
         }
 
         @Override
-        public void updateBlobOnce(String domainName, String volumeName, String blobName, int blobMode, ByteBuffer bytes, int length, ObjectOffset objectOffset, Map<String, String> metadata) throws ApiException, TException {
+        public void updateBlobOnce(String domainName, String volumeName, String blobName, int blobMode, ByteBuffer bytes, int length, ObjectOffset objectOffset, Map<String,String> metadata) throws ApiException, TException {
 
         }
 

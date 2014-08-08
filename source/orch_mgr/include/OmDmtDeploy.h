@@ -5,6 +5,7 @@
 #define SOURCE_ORCH_MGR_INCLUDE_OMDMTDEPLOY_H_
 
 #include <vector>
+#include <string>
 #include <boost/msm/back/state_machine.hpp>
 #include <OmResources.h>
 #include <OmDataPlacement.h>
@@ -22,12 +23,18 @@ class DmtDeployEvt
 {
   public:
     DmtDeployEvt() {}
+    std::string logString() const {
+        return "DmtDeployEvt";
+    }
 };
 
 class DmtLoadedDbEvt
 {
   public:
     DmtLoadedDbEvt() {}
+    std::string logString() const {
+        return "DmtLoadedDbEvt";
+    }
 };
 
 class DmtPushMetaAckEvt
@@ -35,6 +42,9 @@ class DmtPushMetaAckEvt
   public:
     explicit DmtPushMetaAckEvt(const NodeUuid& uuid)
       : dm_uuid(uuid) {}
+    std::string logString() const {
+        return "DmtPushMetaAckEvt";
+    }
 
     NodeUuid dm_uuid;
 };
@@ -46,6 +56,9 @@ class DmtCommitAckEvt
                              fpi::FDSP_MgrIdType type)
             : dmt_version(dmt_ver),
             svc_type(type) {}
+    std::string logString() const {
+        return "DmtCommitAckEvt";
+    }
 
     fds_uint64_t dmt_version;
     fpi::FDSP_MgrIdType svc_type;
@@ -56,6 +69,9 @@ class DmtCloseOkEvt
   public:
     explicit DmtCloseOkEvt(fds_uint64_t dmt_ver)
             : dmt_version(dmt_ver) {}
+    std::string logString() const {
+        return "DmtCloseOkEvt";
+    }
 
     fds_uint64_t dmt_version;
 };
@@ -65,6 +81,9 @@ class DmtVolAckEvt
   public:
     explicit DmtVolAckEvt(const NodeUuid& uuid)
             : dm_uuid(uuid) {}
+    std::string logString() const {
+        return "DDmtVolAckEvt";
+    }
 
     NodeUuid dm_uuid;
 };

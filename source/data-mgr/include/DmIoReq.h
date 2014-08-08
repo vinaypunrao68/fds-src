@@ -735,6 +735,25 @@ struct DmIoGetVolumeMetaData : dmCatReq {
     CbType dmio_get_volmd_resp_cb;
 };
 
+/**
+ * stat from a single module for volume(s)
+ */
+class DmIoStatStream : public dmCatReq {
+  public:
+    typedef std::function<void (const Error &e, DmIoStatStream *req)> CbType;
+    DmIoStatStream(fds_volid_t volid, boost::shared_ptr<fpi::StatStreamMsg>& statMsg)
+            : dmCatReq(volid, "", 1,
+                       FDS_DM_STAT_STREAM), statStreamMsg(statMsg) {}
+
+    friend std::ostream& operator<<(std::ostream& out, const DmIoStatStream& io) {
+        return out << "DmIoStatStream timestamp " << (io.statStreamMsg)->start_timestamp;
+    }
+
+    boost::shared_ptr<fpi::StatStreamMsg> statStreamMsg;
+    CbType dmio_statstream_resp_cb;
+};
+
+
 struct DmIoGetBucket : dmCatReq {
     boost::shared_ptr<fpi::GetBucketMsg> message;
     explicit DmIoGetBucket(boost::shared_ptr<fpi::GetBucketMsg> message)

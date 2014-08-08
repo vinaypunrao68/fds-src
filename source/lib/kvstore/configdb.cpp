@@ -87,6 +87,7 @@ bool ConfigDB::addVolume(const VolumeDesc& vol) {
                               " capacity %.3f"
                               " quota.max %.2f"
                               " replica.count %d"
+                              " objsize.max %d"
                               " write.quorum %d"
                               " read.quorum %d"
                               " conistency.protocol %d"
@@ -108,6 +109,7 @@ bool ConfigDB::addVolume(const VolumeDesc& vol) {
                               vol.capacity,
                               vol.maxQuota,
                               vol.replicaCnt,
+                              vol.maxObjSizeInBytes,
                               vol.writeQuorum,
                               vol.readQuorum,
                               vol.consisProtocol,
@@ -233,6 +235,7 @@ bool ConfigDB::getVolume(fds_volid_t volumeId, VolumeDesc& vol) {
             else if (key == "capacity") { vol.capacity = strtod (value.c_str(),NULL);}
             else if (key == "quota.max") { vol.maxQuota = strtod (value.c_str(),NULL);}
             else if (key == "replica.count") {vol.replicaCnt = atoi(value.c_str());}
+            else if (key == "objsize.max") {vol.maxObjSizeInBytes = atoi(value.c_str());}
             else if (key == "write.quorum") {vol.writeQuorum = atoi(value.c_str());}
             else if (key == "read.quorum") {vol.readQuorum = atoi(value.c_str());}
             else if (key == "conistency.protocol") {vol.consisProtocol = (fpi::FDSP_ConsisProtoType)atoi(value.c_str());}
@@ -247,6 +250,7 @@ bool ConfigDB::getVolume(fds_volid_t volumeId, VolumeDesc& vol) {
             else if (key == "relative.priority") {vol.relativePrio = atoi(value.c_str());}
             else {
                 LOGWARN << "unknown key for volume [" << volumeId <<"] - " << key;
+                fds_assert(!"unknown key");
             }
         }
         return true;
@@ -367,6 +371,78 @@ bool ConfigDB::storeDlts(DLTManager& dltMgr, int localDomain) {
     return false;
 }
 
+// dmt
+fds_uint64_t ConfigDB::getDmtVersionForType(const std::string type, int localDomain) {
+    try {
+        Reply reply = r.sendCommand("get %d:dmt:%s", localDomain, type.c_str());
+        if (!reply.isNil()) {
+            return reply.getLong();
+        } else {
+            LOGNORMAL << "no dmt set for type:" << type;
+        }
+    } catch (const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+    }
+    return 0;
+}
+
+bool ConfigDB::setDmtType(fds_uint64_t version, const std::string type, int localDomain) {
+    try {
+        Reply reply = r.sendCommand("set %d:dmt:%s %ld", localDomain, type.c_str(), version);
+        return reply.isOk();
+    } catch (const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+    }
+    return false;
+}
+
+bool ConfigDB::storeDmt(const DMT& dmt, const std::string type, int localDomain) {
+    try {
+        //fds_uint64_t version dmt.getVersion();
+        Reply reply = r.sendCommand("sadd %d:dmts %ld",localDomain,dmt.getVersion());
+        if (!reply.wasModified()) {
+            LOGWARN << "dmt [" << dmt.getVersion() << "] is already in for domain [" << localDomain << "]";
+        }
+
+        std::string serializedData, hexCoded;
+        const_cast<DMT&>(dmt).getSerialized(serializedData);
+        r.encodeHex(serializedData,hexCoded);
+
+        reply = r.sendCommand("set %d:dmt:%ld %s", localDomain, dmt.getVersion(), hexCoded.c_str());
+        bool fSuccess = reply.isOk();
+
+        if (fSuccess && !type.empty()) {
+            reply = r.sendCommand("set %d:dmt:%s %ld", localDomain, type.c_str(), dmt.getVersion());
+            if (!reply.isOk()) {
+                LOGWARN << "error setting type " << dmt.getVersion() << ":" << type;
+            }
+        }
+        return fSuccess;
+
+    } catch (const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+    }
+    return false;
+}
+
+bool ConfigDB::getDmt(DMT& dmt, fds_uint64_t version, int localDomain) {
+    try {
+        Reply reply = r.sendCommand("get %d:dmt:%ld", localDomain, version);
+        std::string serializedData, hexCoded(reply.getString());
+        if (hexCoded.length() < 10) {
+            LOGERROR << "very less data for dmt : [" << version << "] : size = " << hexCoded.length();
+            return false;
+        }
+        LOGDEBUG << "dmt : [" << version << "] : size = " << hexCoded.length();
+        r.decodeHex(hexCoded,serializedData);
+        dmt.loadSerialized(serializedData);
+        return true;
+    } catch (const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+    }
+    return false;
+}
+
 // nodes
 bool ConfigDB::addNode(const NodeInvData& node) {    
     // add the volume to the volume list for the domain
@@ -464,7 +540,7 @@ bool ConfigDB::getNode(const NodeUuid& uuid, NodeInvData& node) {
         reply.toVector(strings);
 
         if (strings.empty()) {
-            LOGWARN << "unable to find node [" << uuid <<"]";
+            LOGWARN << "unable to find node [" << std::hex << uuid << std::dec << "]";
             return false;
         }
 

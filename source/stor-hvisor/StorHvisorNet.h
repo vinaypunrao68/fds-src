@@ -24,6 +24,7 @@
 #include "qos_ctrl.h" 
 #include "fds_qos.h" 
 #include "StorHvQosCtrl.h" 
+#include <lib/StatsCollector.h>
 #include <hash/md5.h>
 #include <FdsRandom.h>
 #include "./handler/handler.h"

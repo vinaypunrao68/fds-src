@@ -1430,13 +1430,20 @@ ObjectStorMgr::writeObjectToTier(const OpCtx &opCtx,
     StorMgrVolume *vol = volTbl->getVolume(volId);
     if ((err == ERR_OK) &&
         (tier == diskio::flashTier)) {
-        if (vol->voldesc->mediaPolicy != FDSP_MEDIA_POLICY_SSD) {  
+         vol->ssdByteCnt += objId.GetLen(); 
+         PerfTracer::incr(PUT_SSD_OBJ, volId, "volume:" + std::to_string(vio.vol_uuid));
+         if (vol->voldesc->mediaPolicy != FDSP_MEDIA_POLICY_SSD) {  
            /*
             * If written to flash, add to dirty flash list
             */
            pushOk = dirtyFlashObjs->push(new ObjectID(objId));
            fds_verify(pushOk == true);
         }
+    }
+    else if ((err == ERR_OK) &&
+        (tier == diskio::diskTier)) {
+         PerfTracer::incr(PUT_HDD_OBJ, volId, "volume:" + std::to_string(vio.vol_uuid));
+         vol->hddByteCnt += objId.GetLen(); 
     }
 
     delete disk_req;
@@ -1622,6 +1629,7 @@ ObjectStorMgr::putObjectInternal2(SmIoPutObjectReq *putReq) {
             objMap.updateAssocEntry(objId, volId);
             err = smObjDb->put(opCtx, objId, objMap);
             if (err == ERR_OK) {
+                dedupeByteCnt += objId.GetLen(); 
                 LOGDEBUG << "Dedupe object Assoc Entry for object "
                          << objId << " to " << objMap;
             } else {

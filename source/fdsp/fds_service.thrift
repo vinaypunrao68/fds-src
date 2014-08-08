@@ -47,6 +47,7 @@ enum  FDSPMsgTypeId {
       use EmptyMsg...
       */
     EmptyMsgTypeId,
+    StatStreamMsgTypeId,
     
      /* SM Type Ids*/
     GetObjectMsgTypeId 		= 10000, 
@@ -233,6 +234,25 @@ service PlatNetSvc extends BaseAsyncSvc {
     void setFlag(1:string id, 2:i64 value);
     i64 getFlag(1:string id);
     map<string, i64> getFlags(1: i32 nullarg);
+}
+
+/* Registration for streaming stats */
+struct StreamingRegistrationMsg {
+   1:i32 id;
+   2:string url;
+   4:list<string> volume_names;
+   5:i32 sample_freq_seconds;
+   6:i32 duration_seconds;
+}
+
+struct StreamingRegistrationRspMsg {
+}
+
+struct StreamingDeregistrationMsg {
+    1: i32 id;
+}
+
+struct StreamingDeregistrationRspMsg {
 }
 
 /*
@@ -452,11 +472,19 @@ struct VolSyncStateRspMsg {
 }
 
 /**
+ * time slot containing volume stats
+ */
+struct VolStatSlot {
+    1: i64    rel_seconds;    // timestamp in seconds relative to start_timestamp
+    2: binary slot_data;      // represents time slot of stats
+}
+
+/**
  * Volume's time-series of stats
  */
 struct VolStatList {
-    1: i64             volume_id;
-    2: list<binary>    statlist;  // list of time slots (each slot is binary)
+    1: i64                  volume_id;  // volume id
+    2: list<VolStatSlot>    statlist;   // list of time slots
 }
 
 /**
@@ -480,3 +508,4 @@ service DMSvc extends PlatNetSvc {
  */
 service AMSvc extends BaseAsyncSvc {
 }
+

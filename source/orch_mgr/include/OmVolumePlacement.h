@@ -15,6 +15,7 @@
 #include <fds_module.h>
 #include <concurrency/Mutex.h>
 #include <fds_dmt.h>
+#include <kvstore/configdb.h>
 
 
 namespace fds {
@@ -112,6 +113,11 @@ namespace fds {
         void mod_shutdown();
 
         /**
+         * set the config db from orchmgr
+         */
+        void setConfigDB(kvstore::ConfigDB* configDB);
+
+        /**
          * Changes the algorithm being used to compute DMTs
          */
         void setAlgorithm(VolPlacementAlgorithm::AlgorithmTypes type);
@@ -163,7 +169,14 @@ namespace fds {
          */
         void notifyEndOfRebalancing();
 
+        Error loadDmtsFromConfigDB(const NodeUuidSet& dm_services);
+
   private:
+        /**
+         * Config db object
+         */
+        kvstore::ConfigDB* configDB = NULL;
+
         /**
          * Keeps committed DMT and target DMT copy, and possibly a bit
          * longer history of DMT (if set).

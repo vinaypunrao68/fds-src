@@ -26,7 +26,9 @@ user_cpp         :=      \
     fds_volume.cpp       \
     TransJournal.cpp     \
     dmt.cpp              \
-    fds_error.cpp
+    fds_error.cpp        \
+    PerfHistory.cpp      \
+    StatsCollector.cpp
 
 user_incl_dir    := $(topdir)
 user_no_style    := \

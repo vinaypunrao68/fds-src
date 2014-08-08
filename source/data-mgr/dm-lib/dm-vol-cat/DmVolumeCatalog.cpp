@@ -227,7 +227,32 @@ fds_bool_t DmVolumeCatalog::isVolumeEmpty(fds_volid_t volume_id)
 
 Error DmVolumeCatalog::getVolumeMeta(fds_volid_t volume_id,
                                      fds_uint64_t* size,
-                                     fds_uint64_t* blob_count) {
+                                     fds_uint64_t* blob_count,
+                                     fds_uint64_t* object_count) {
+    Error err(ERR_OK);
+    {
+        SCOPEDREAD(lockVolDetailsMap_);
+        DmVolumeDetailsMap_t::const_iterator iter = volDetailsMap_.find(volume_id);
+        if (volDetailsMap_.end() != iter) {
+            *size = iter->second->size;
+            *blob_count = iter->second->blobCount;
+            return err;
+        }
+    }
+
+    err = getVolumeMetaInternal(volume_id, size, blob_count, object_count);
+
+    SCOPEDWRITE(lockVolDetailsMap_);
+    volDetailsMap_[volume_id].reset(new DmVolumeDetails(volume_id, *size,
+            *blob_count, *object_count));
+
+    return err;
+}
+
+Error DmVolumeCatalog::getVolumeMetaInternal(fds_volid_t volume_id,
+                                     fds_uint64_t* size,
+                                     fds_uint64_t* blob_count,
+                                     fds_uint64_t* object_count) {
     Error err(ERR_OK);
     std::vector<BlobExtent0Desc> desc_list;
     std::vector<BlobExtent0Desc>::const_iterator cit;
@@ -246,8 +271,30 @@ Error DmVolumeCatalog::getVolumeMeta(fds_volid_t volume_id,
 
     // calculate size of volume
     for (cit = desc_list.cbegin(); cit != desc_list.cend(); ++cit) {
-        volume_size += (*cit).blob_size;
         fds_verify((*cit).vol_id == volume_id);
+        volume_size += (*cit).blob_size;
+
+        // get object count for the blob
+        // get extent 0
+        BlobExtent0::ptr extent0 = getMetaExtent(volume_id, cit->blob_name, err);
+        if (!err.ok()) {
+            LOGERROR << "Failed to retrieve extent0 for blob '" << cit->blob_name << "'";
+            return err;
+        }
+        fds_verify(extent0->blobVersion() != blob_version_invalid);
+        *object_count += extent0->objectCount();
+
+        if (extent0->blobSize() > 0) {
+            fds_extent_id last_extent = persistCat->getExtentId(volume_id,
+                    extent0->lastBlobOffset());
+            for (fds_extent_id ext_id = 1; ext_id <= last_extent; ++ext_id) {
+                // get next extent
+                BlobExtent::ptr extent = getExtent(volume_id, cit->blob_name, ext_id, err);
+                if (err.ok()) {
+                    *object_count += extent->objectCount();
+                }
+            }
+        }
     }
 
     // return size and blob count
@@ -335,10 +382,15 @@ DmVolumeCatalog::putBlob(fds_volid_t volume_id,
                                              blob_name,
                                              err);
 
-    if (!err.ok() && (err != ERR_CAT_ENTRY_NOT_FOUND)) {
-        LOGERROR << "Failed to retrieve extent 0 for " << std::hex
-                 << volume_id << std::dec << "," << blob_name;
-        return err;
+    bool new_blob = false;
+    if (!err.ok()) {
+        if (err != ERR_CAT_ENTRY_NOT_FOUND) {
+            LOGERROR << "Failed to retrieve extent 0 for " << std::hex
+                     << volume_id << std::dec << "," << blob_name;
+            return err;
+        } else {
+            new_blob = true;
+        }
     }
 
     // apply meta-data updates
@@ -354,6 +406,7 @@ DmVolumeCatalog::putBlob(fds_volid_t volume_id,
     BlobExtent::ptr extent = extent0;
     fds_extent_id extent_id = 0;   // we start with extent 0
     fds_uint64_t blob_size = extent0->blobSize();
+    fds_uint64_t old_blob_size = blob_size;
     fds_uint64_t last_obj_size = extent0->lastObjSize();
     fds_uint64_t new_last_offset = blob_obj_list->lastOffset();
     for (BlobObjList::const_iter cit = blob_obj_list->cbegin();
@@ -406,6 +459,12 @@ DmVolumeCatalog::putBlob(fds_volid_t volume_id,
         } else {
             // new offset, update blob size
             blob_size += (cit->second).size;
+
+            SCOPEDWRITE(lockVolDetailsMap_);
+            DmVolumeDetailsMap_t::iterator iter = volDetailsMap_.find(volume_id);
+            if (volDetailsMap_.end() != iter) {
+                iter->second->objectCount.fetch_add(1);
+            }
         }
 
         // update offset in extent
@@ -457,6 +516,14 @@ DmVolumeCatalog::putBlob(fds_volid_t volume_id,
                     return err;  // we did not make any changes to the DB yet
                 }
             }
+
+            if (num_objs_rm > 0) {
+                SCOPEDWRITE(lockVolDetailsMap_);
+                DmVolumeDetailsMap_t::iterator iter = volDetailsMap_.find(volume_id);
+                if (volDetailsMap_.end() != iter) {
+                    iter->second->objectCount.fetch_sub(num_objs_rm);
+                }
+            }
         }
         extent0->setLastBlobOffset(new_last_offset);
     }
@@ -464,6 +531,17 @@ DmVolumeCatalog::putBlob(fds_volid_t volume_id,
     // actually update blob size and version
     extent0->setBlobSize(blob_size);
     extent0->incrementBlobVersion();
+
+    {
+        SCOPEDWRITE(lockVolDetailsMap_);
+        DmVolumeDetailsMap_t::iterator iter = volDetailsMap_.find(volume_id);
+        if (volDetailsMap_.end() != iter) {
+            iter->second->size.fetch_add(blob_size - old_blob_size);
+            if (new_blob) {
+                iter->second->blobCount.fetch_add(1);
+            }
+        }
+    }
 
     if (extent_id > 0) {
         extent_list.push_back(extent);
@@ -660,10 +738,23 @@ Error DmVolumeCatalog::deleteBlob(fds_volid_t volume_id,
         last_extent = persistCat->getExtentId(volume_id,
                                               extent0->lastBlobOffset());
     }
+
     // update/delete extent 0 first
     if (extent0->blobSize() > 0) {
+        {
+            // Decrement the cached volume details
+            SCOPEDWRITE(lockVolDetailsMap_);
+            DmVolumeDetailsMap_t::iterator iter = volDetailsMap_.find(volume_id);
+            if (volDetailsMap_.end() != iter) {
+                iter->second->blobCount.fetch_sub(-1);
+                iter->second->size.fetch_sub(extent0->blobSize());
+                iter->second->objectCount.fetch_sub(extent0->objectCount());
+            }
+        }
+
         extent0->deleteAllObjects(&expunge_list);  // get objs to expunge
     }
+
     if (blob_version == extent0->blobVersion()) {
         // Remove extent 0 from the cache
         err = cacheCat->removeExtent(volume_id, blob_name, 0);
@@ -694,6 +785,13 @@ Error DmVolumeCatalog::deleteBlob(fds_volid_t volume_id,
         BlobExtent::ptr extent =
                 persistCat->getExtent(volume_id, blob_name, ext_id, err);
         if (err.ok()) {
+            {
+                SCOPEDWRITE(lockVolDetailsMap_);
+                DmVolumeDetailsMap_t::iterator iter = volDetailsMap_.find(volume_id);
+                if (volDetailsMap_.end() != iter) {
+                    iter->second->objectCount.fetch_sub(extent->objectCount());
+                }
+            }
             extent->deleteAllObjects(&expunge_list);
             // Remove extent 0 from the cache
             err = cacheCat->removeExtent(volume_id, blob_name, 0);

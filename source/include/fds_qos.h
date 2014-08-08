@@ -9,6 +9,7 @@
 #include <mutex> // std::mutex, std::unique_lock
 #include <condition_variable> 
 #include <atomic>
+#include <util/timeutils.h>
 #include "qos_ctrl.h"
 #include "PerfTrace.h"
 
@@ -213,11 +214,17 @@ namespace fds {
       FDS_PLOG(qda_log) << "Dispatcher adjusting current throttle level to " << throttle_level;
     }
 
+    virtual fds_uint32_t count(fds_qid_t queue_id) {
+        SCOPEDREAD(qda_lock);
+        queue_map_t::iterator iter = queue_map.find(queue_id);
+        return queue_map.end() != iter ?  iter->second->count() : 0;
+    }
+
     virtual Error enqueueIO(fds_qid_t queue_id, FDS_IOType *io) {
 
       Error err(ERR_OK);
 
-      io->enqueue_time = boost::posix_time::microsec_clock::universal_time();
+      io->enqueue_ts = util::getTimeStampNanos();
 
       qda_lock.read_lock();
       if (queue_map.count(queue_id) == 0) {
@@ -340,7 +347,7 @@ namespace fds {
 
 	qda_lock.read_unlock();
 
-	io->dispatch_time = boost::posix_time::microsec_clock::universal_time();
+        io->dispatch_ts = util::getTimeStampNanos();
 
 	n_pios = 0;
 	n_pios = atomic_fetch_sub(&(num_pending_ios), (unsigned int)1);
@@ -419,24 +426,24 @@ namespace fds {
         fds_verify(n_oios < 2 * max_outstanding_ios);
       }
 
-      io->io_done_time = boost::posix_time::microsec_clock::universal_time();
+      io->io_done_ts = util::getTimeStampNanos();
+      fds_uint64_t wait_nano = io->dispatch_ts - io->enqueue_ts;
+      fds_uint64_t service_nano = io->io_done_ts - io->dispatch_ts;
+      fds_uint64_t total_nano = io->io_done_ts - io->enqueue_ts;
 
-      boost::posix_time::time_duration wait_duration = io->dispatch_time - io->enqueue_time;
-      boost::posix_time::time_duration service_duration = io->io_done_time - io->dispatch_time;
-      boost::posix_time::time_duration total_duration = io->io_done_time - io->enqueue_time;
-
-      io->io_wait_time = wait_duration.total_microseconds();
-      io->io_service_time = service_duration.total_microseconds();
-      io->io_total_time = total_duration.total_microseconds();
+      io->io_wait_time = static_cast<double>(wait_nano) / 1000.0;
+      io->io_service_time = static_cast<double>(service_nano) / 1000.0;
+      io->io_total_time = static_cast<double>(total_nano) / 1000.0;
 
       FDS_PLOG(qda_log) << "Dispatcher: IO Request " << io->io_req_id 
 			<< " for vol id 0x" << std::hex << io->io_vol_id << std::dec
 			<< " completed in " << io->io_service_time
 			<< " usecs with a wait time of " << io->io_wait_time
-			<< " usecs. # of outstanding ios = " << n_oios-1;
+                        << " usecs with total io time of " << io->io_total_time
+			<< " usecs. # of outstanding ios = " << n_oios-1
+                        << " queue size " << count(io->io_vol_id);
 
-      updateIoStats(io);
-
+      // updateIoStats(io);
       return err;
     }
     

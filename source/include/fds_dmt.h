@@ -87,7 +87,6 @@ namespace fds {
          */
         Error verify() const;
 
-  private:  // methods
         /**
          * Returns a set of nodes in DMT
          */

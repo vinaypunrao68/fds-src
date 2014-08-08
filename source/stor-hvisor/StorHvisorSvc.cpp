@@ -158,7 +158,7 @@ void StorHvCtrl::commitBlobTxMsgResp(fds::AmQosReq* qosReq,
     fds_verify(blobReq->getIoType() == FDS_COMMIT_BLOB_TX);
 
     qos_ctrl->markIODone(qosReq);
-    blobReq->cb->call(ERR_OK);
+    blobReq->cb->call(error);
 
     // Remove the transaction for the manager
     fds_verify(amTxMgr->removeTx(*(blobReq->getTxId())) == ERR_OK);
@@ -488,16 +488,6 @@ void StorHvCtrl::putBlobUpdateCatalogMsgResp(fds::AmQosReq* qosReq,
             << " blob name: " << blobReq->getBlobName()
             << " offset: " << blobReq->getBlobOffset() << " Error: " << error; 
     } else {
-        FDS_ProtocolInterface::FDSP_BlobObjectInfo blobObjInfo;
-        blobObjInfo.offset = blobReq->getBlobOffset();
-        blobObjInfo.size   = blobReq->getDataLen();
-        blobObjInfo.data_obj_id.digest =
-                std::string((const char *)blobReq->getObjId().GetId(),
-                            (size_t)blobReq->getObjId().GetLen());
-        FDS_ProtocolInterface::FDSP_BlobObjectList blobOffList;
-        blobOffList.push_back(blobObjInfo);
-        Error e = updateCatalogCache(blobReq, blobOffList);
-        fds_verify(e == ERR_OK);
         LOGDEBUG << svcReq->logString() << fds::logString(*updCatRsp);
     }
     blobReq->notifyResponse(qos_ctrl, qosReq, error);
@@ -518,16 +508,6 @@ StorHvCtrl::putBlobUpdateCatalogOnceMsgResp(fds::AmQosReq* qosReq,
             << " blob name: " << blobReq->getBlobName()
             << " offset: " << blobReq->getBlobOffset() << " Error: " << error; 
     } else {
-        FDS_ProtocolInterface::FDSP_BlobObjectInfo blobObjInfo;
-        blobObjInfo.offset = blobReq->getBlobOffset();
-        blobObjInfo.size   = blobReq->getDataLen();
-        blobObjInfo.data_obj_id.digest =
-                std::string((const char *)blobReq->getObjId().GetId(),
-                            (size_t)blobReq->getObjId().GetLen());
-        FDS_ProtocolInterface::FDSP_BlobObjectList blobOffList;
-        blobOffList.push_back(blobObjInfo);
-        Error e = updateCatalogCache(blobReq, blobOffList);
-        fds_verify(e == ERR_OK);
         LOGDEBUG << svcReq->logString() << fds::logString(*updCatRsp);
     }
     blobReq->notifyResponse(qos_ctrl, qosReq, error);
@@ -655,7 +635,7 @@ void StorHvCtrl::getBlobQueryCatalogResp(fds::AmQosReq* qosReq,
     Error e = updateCatalogCache(blobReq,
                                  qryCatRsp->obj_list);
     if (e != ERR_OK) {
-        LOGERROR << "blob name: " << blobReq->getBlobName() << "offset: "
+        LOGERROR << "blob name: " << blobReq->getBlobName() << " offset: "
             << blobReq->getBlobOffset() << " Error: " << e; 
         qos_ctrl->markIODone(qosReq);
         blobReq->cb->call(e);
@@ -725,7 +705,14 @@ void StorHvCtrl::getBlobGetObjectResp(fds::AmQosReq* qosReq,
     }
     GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback,
                                                 blobReq->cb);
-    cb->returnSize = getObjRsp->data_obj_len;
+    // Set the return size based on what was requested
+    if (blobReq->getDataLen() < static_cast<fds_uint64_t>(getObjRsp->data_obj_len)) {
+        LOGDEBUG  << "Returning " << blobReq->getDataLen() << " byte subset of "
+                  << getObjRsp->data_obj_len << " bytes of data";
+        cb->returnSize = blobReq->getDataLen();
+    } else {
+        cb->returnSize = getObjRsp->data_obj_len;
+    }
     memcpy(cb->returnBuffer,
            getObjRsp->data_obj.c_str(),
            cb->returnSize);

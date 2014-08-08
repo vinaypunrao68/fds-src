@@ -15,6 +15,8 @@ if __name__ == '__main__':
                       help = 'enable verbosity')
     parser.add_option('-u', '--up', action = 'store_true', dest = 'clus_up',
                       help = 'bring up cluster')
+    parser.add_option('--reboot', action = 'store_true', dest = 'reboot',
+                      help = 'reboot cluster')
     parser.add_option('-d', '--down', action = 'store_true', dest = 'clus_down',
                       help = 'bring down cluster')
     parser.add_option('-s', '--status', action = 'store_true', dest = 'clus_status',
@@ -82,6 +84,19 @@ if __name__ == '__main__':
             print '\n'
         sys.exit(0)
 
+    if options.reboot:
+        om = cfg.rt_om_node
+        om_ip = om.nd_conf_dict['ip']
+
+        for n in nodes:
+            n.nd_start_platform(om_ip)
+
+        if start_om:
+            print "Start OM on IP", om_ip
+            om.nd_start_om()
+        time.sleep(30) # Do not remove this sleep
+        sys.exit(0)
+
     if options.clus_up is None:
         sys.exit(0)
 
@@ -98,8 +113,11 @@ if __name__ == '__main__':
     if start_om:
         print "Start OM on IP", om_ip
         om.nd_start_om()
-	time.sleep(2)
+	time.sleep(8)
 
+    # activa nodes activates all services in the domain. Only
+    # need to call it once
+    """
     for n in nodes:
         if n.nd_conf_dict['node-name'] == 'node1':
             cli.run_cli('--activate-nodes abc -k 1 -e sm,dm')
@@ -107,8 +125,12 @@ if __name__ == '__main__':
             cli.run_cli('--activate-nodes abc -k 1 -e sm,dm')
         print "Waiting for node %s to come up" % n.nd_rmt_host
     	time.sleep(3)
+    """
+    
+    cli.run_cli('--activate-nodes abc -k 1 -e sm,dm')
+    print "Waiting for services to come up"
+    time.sleep(8)
 
-    time.sleep(4)
     for am in ams:
         am.am_start_service()
     print "Waiting for all commands to complete before existing"

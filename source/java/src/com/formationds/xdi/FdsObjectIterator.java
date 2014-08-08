@@ -33,49 +33,31 @@ public class FdsObjectIterator {
         return read(domainName, volumeName, blobName, startOffset, length, fdsObjectSize);
     }
 
-    private Iterator<byte[]> read(String domainName, String volumeName, String blobName, long requestBytesOffset, long requestBytesLength, long fdsObjectSize) {
-
-        long totalObjects = (long) Math.ceil(requestBytesLength / (double) fdsObjectSize) + Math.min(1, requestBytesOffset % fdsObjectSize);
-
+    private Iterator<byte[]> read(String domainName, String volumeName, String blobName, long requestBytesOffset, long requestBytesLength, int fdsObjectSize) {
+        FdsObjectFrame.FrameIterator frameIterator = new FdsObjectFrame.FrameIterator(requestBytesOffset, requestBytesLength, fdsObjectSize);
         return new Iterator<byte[]>() {
-
-            long numObjectsRead = 0;
-
             @Override
             public boolean hasNext() {
-                return numObjectsRead < totalObjects;
+                return frameIterator.hasNext();
             }
 
             @Override
             public byte[] next() {
-                // TODO: add transaction handling for totalObjects > 1
-                long startObjectOffset = requestBytesOffset / fdsObjectSize;
-                ObjectOffset objectOffset = new ObjectOffset(startObjectOffset + numObjectsRead);
-                long readLength = fdsObjectSize;
-                // For the last object, only read as many bytes as we care about
-                if(numObjectsRead == totalObjects - 1)
-                    readLength = (requestBytesLength - requestBytesOffset) % fdsObjectSize;
-
-                byte[] object = null;
+                FdsObjectFrame frame = frameIterator.next();
+                byte[] object;
                 try {
-                    object = am.getBlob(domainName, volumeName, blobName, (int) readLength, new ObjectOffset(objectOffset)).array();
+                    object = am.getBlob(domainName, volumeName, blobName, fdsObjectSize, new ObjectOffset(frame.objectOffset)).array();
                 } catch (TException e) {
                     throw new RuntimeException(e);
                 }
 
-                numObjectsRead++;
-
-                // For the first object, truncate the first part if it does not lie on an object boundary
-                if(objectOffset.getValue() == startObjectOffset && requestBytesOffset % fdsObjectSize != 0) {
-                    long chunkOffset = requestBytesOffset % fdsObjectSize;
-                    long chunkLength = fdsObjectSize - chunkOffset;
-
-                    byte[] objectChunk = new byte[(int)chunkLength];
-                    System.arraycopy(object, (int)chunkOffset, objectChunk, 0, (int)chunkLength);
-                    return objectChunk;
+                if(frame.internalLength != fdsObjectSize) {
+                    byte[] result = new byte[frame.internalLength];
+                    System.arraycopy(object, frame.internalOffset, result, 0, frame.internalLength);
+                    return result;
+                } else {
+                    return object;
                 }
-
-                return  object;
             }
         };
     }
