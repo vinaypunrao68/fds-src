@@ -17,6 +17,7 @@ OBJ_NAME = 'obj1'
 DATA_NAME= 'rand_data_'
 DATA_PATH= 'cfg/'
 NUM_PROC = 5
+TIMEOUT  = 30
 
 class Worker(Process):
     """ Runs PUT operation and gets result in the background."""
@@ -31,7 +32,7 @@ class Worker(Process):
     def run(self):
         with open(DATA_PATH+self.data, 'rb') as data_file:
             _data = data_file.read()
-            self.r = requests.put(BASE_URL+BUCKET+OBJ_NAME, data=_data)
+            self.r = requests.put(BASE_URL+BUCKET+OBJ_NAME, data=_data, timeout=TIMEOUT)
             self.timestamp.value = time.clock()
             print self.r, self.hash_before.value, self.timestamp.value
 

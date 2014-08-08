@@ -8,6 +8,19 @@
 
 namespace fds {
 
+VolumeStats::VolumeStats(fds_volid_t volume_id,
+                         fds_uint64_t start_time,
+                         fds_uint32_t finestat_slots,
+                         fds_uint32_t finestat_slotsec)
+        : finegrain_hist_(new VolumePerfHistory(volume_id,
+                                                start_time,
+                                                finestat_slots,
+                                                finestat_slotsec)) {
+}
+
+VolumeStats::~VolumeStats() {
+}
+
 StatStreamAggregator::StatStreamAggregator(char const *const name)
         : Module(name),
           finestat_slotsec_(60),
@@ -41,41 +54,56 @@ Error StatStreamAggregator::attachVolume(fds_volid_t volume_id) {
     LOGDEBUG << "Will monitor stats for vol " << std::hex
              << volume_id << std::dec;
 
-    // we will create histories when we get any stats for the volume
+    // create Volume Stats struct and add it to the map
+    read_synchronized(volstats_lock_) {
+        volstats_map_t::iterator it  = volstats_map_.find(volume_id);
+        if (volstats_map_.end() != it) {
+            fds_assert(it->second);
+            // for now return an error, but prob it's ok if we
+            // try to attach volume we already keeping stats for
+            // just continue using them?
+            return ERR_VOL_DUPLICATE;
+        }
+    }
+    // actually create volume stats struct
+    VolumeStats::ptr new_hist(new VolumeStats(volume_id,
+                                              start_time_,
+                                              finestat_slots_,
+                                              finestat_slotsec_));
+    write_synchronized(volstats_lock_) {
+        if (volstats_map_.count(volume_id) == 0) {
+            volstats_map_[volume_id] = new_hist;
+        }
+    }
 
-    // TODO(xxx) open file where we are going to log stats
-    // for this volume
     return err;
 }
 
-//
-// returns fine-grained history for a given volume, if history does not exist
-// creates one
-//
-VolumePerfHistory::ptr
-StatStreamAggregator::getFineGrainHistory(fds_volid_t volid) {
-    read_synchronized(fh_lock_) {
-        hist_map_t::iterator it  = finestats_map_.find(volid);
-        if (finestats_map_.end() != it) {
+VolumeStats::ptr StatStreamAggregator::getVolumeStats(fds_volid_t volid) {
+    read_synchronized(volstats_lock_) {
+        volstats_map_t::iterator it  = volstats_map_.find(volid);
+        if (volstats_map_.end() != it) {
             fds_assert(it->second);
             return it->second;
         }
     }
-    // history not found, create one
-    VolumePerfHistory::ptr new_hist(new VolumePerfHistory(volid,
-                                                          start_time_,
-                                                          finestat_slots_,
-                                                          finestat_slotsec_));
-    write_synchronized(fh_lock_) {
-        finestats_map_[volid] = new_hist;
-    }
-    return new_hist;
+    fds_verify(false);
+    return VolumeStats::ptr();
 }
+
 
 Error StatStreamAggregator::detachVolume(fds_volid_t volume_id) {
     Error err(ERR_OK);
     LOGDEBUG << "Will stop monitoring stats for vol " << std::hex
              << volume_id << std::dec;
+
+    // remove volstats struct from the map, the destructor should
+    // close log file, etc.
+    write_synchronized(volstats_lock_) {
+        if (volstats_map_.count(volume_id) > 0) {
+            volstats_map_.erase(volume_id);
+        }
+    }
     return err;
 }
 
@@ -99,10 +127,10 @@ StatStreamAggregator::handleModuleStatStream(const fpi::StatStreamMsgPtr& stream
         fpi::VolStatList & vstats = (stream_msg->volstats)[i];
         LOGDEBUG << "Received stats for volume " << std::hex << vstats.volume_id
                  << std::dec << " timestamp " << remote_start_ts;
-        VolumePerfHistory::ptr hist = getFineGrainHistory(vstats.volume_id);
-        err = hist->mergeSlots(vstats, remote_start_ts);
+        VolumeStats::ptr volstats = getVolumeStats(vstats.volume_id);
+        err = (volstats->finegrain_hist_)->mergeSlots(vstats, remote_start_ts);
         fds_verify(err.ok());  // if err, prob de-serialize issue
-        LOGTRACE << *hist;
+        LOGTRACE << *(volstats->finegrain_hist_);
     }
     return err;
 }

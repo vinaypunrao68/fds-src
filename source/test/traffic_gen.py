@@ -10,8 +10,9 @@ import httplib
 import requests
 import random
 
-#HTTP_LIB = "requests"
+# HTTP_LIB = "requests"
 HTTP_LIB = "httplib"
+# HTTP_LIB = "none"
 
 def init_stats():
     stats = {"reqs" : 0,
@@ -85,10 +86,10 @@ def task(task_id, n_reqs, req_type, nvols, files, stats, queue):
         time_start = time.time()
         file_idx = random.randint(0, options.num_files - 1)
         if req_type == "PUT":
-            e = do_put(conn, "/volume/file%d" % (file_idx), files[file_idx])
+            e = do_put(conn, "/volume%d/file%d" % (vol, file_idx), files[file_idx])
             #files.task_done()
         elif req_type == "GET":
-            e = do_get(conn, "/volume/file%d" % (file_idx))
+            e = do_get(conn, "/volume%d/file%d" % (vol, file_idx))
         elif req_type == "DELETE":
             e = do_delete(conn, "/volume%d/file%d" % (vol, file_idx))
         elif req_type == "7030":
@@ -96,6 +97,8 @@ def task(task_id, n_reqs, req_type, nvols, files, stats, queue):
                 e = do_get(conn, "/volume%d/file%d" % (vol, file_idx))
             else:
                 e = do_put(conn, "/volume%d/file%d" % (vol, file_idx), files[file_idx])
+        elif req_type == "NOP":
+            time.sleep(.008)
         if HTTP_LIB == "httplib":
             r1 = conn.getresponse()
             r1.read()
