@@ -32,7 +32,7 @@ class Counters:
                     tstamp = float(m.group(1))
             elif tstamp is not None:
                 #am_put_dm.volume:6944500478244898626:volume=6944500478244898626
-                m = re.match("(\w+)\.(\w+)\.perf\.(\w+)\.volume:\d+:volume=(\d+)\.(\w+)\s+(\d+)\s+(\d+)\s*", line)
+                m = re.match("([\w-]+)\.(\w+)\.perf\.(\w+)\.volume:\d+:volume=(\d+)\.(\w+)\s+(\d+)\s+(\d+)\s*", line)
                 if m is not None:
                     node = m.group(1)
                     agent = m.group(2)
@@ -102,15 +102,23 @@ def plot_series_all_volumes(series, title = None, ylabel = None, xlabel = "Time 
 if __name__ == "__main__":
     c = Counters()
     f = open(sys.argv[1],"r")
+    agent = sys.argv[2]
+    counter = sys.argv[3]
     c.parse(f.read())
     f.close()
     #c.print_cntr("am_put_obj_req", "latency")
-    series = c.get_cntr("node2", "AMAgent","am_put_obj_req", "count")
-    plot_series_all_volumes(series,"IOPS - PUT", "req/s", latency = False, name = "iops-put")
-    series = c.get_cntr("node2", "AMAgent","am_get_obj_req", "count")
-    plot_series_all_volumes(series,"IOPS - GET", "req/s", latency = False, name  = "iops-get")
-    series = c.get_cntr("node2", "AMAgent","am_put_obj_req", "latency")
-    plot_series_all_volumes(series,"Latency - PUT", "ns", latency = True, name = "latency-put")
-    series = c.get_cntr("node2", "AMAgent","am_get_obj_req", "latency")
-    plot_series_all_volumes(series,"Latency - GET", "ms", latency = True, name = "latency-get")
+    node = "tie-fighter"
+    # series = c.get_cntr(node, "AMAgent","am_put_obj_req", "count")
+    # plot_series_all_volumes(series,"IOPS - PUT", "req/s", latency = False, name = "iops-put")
+    # series = c.get_cntr(node, "AMAgent","am_get_obj_req", "count")
+    # plot_series_all_volumes(series,"IOPS - GET", "req/s", latency = False, name  = "iops-get")
+    # series = c.get_cntr(node, "AMAgent","am_put_obj_req", "latency")
+    # plot_series_all_volumes(series,"Latency - PUT", "ns", latency = True, name = "latency-put")
+    # series = c.get_cntr(node, "AMAgent","am_get_obj_req", "latency")
+    # plot_series_all_volumes(series,"Latency - GET", "ms", latency = True, name = "latency-get")
+
+    series = c.get_cntr(node, agent, counter, "count")
+    plot_series_all_volumes(series,agent + " " + counter, "req/s", latency = False, name  = agent + "_" + counter)
+    series = c.get_cntr(node, agent, counter, "latency")
+    plot_series_all_volumes(series,agent + " " + counter, "ms", latency = True, name  = agent + "_" + counter)
 

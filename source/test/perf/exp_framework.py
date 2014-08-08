@@ -17,16 +17,15 @@ import simple_experiment
 #import threading as th
 #from Queue import *
 
+# TODO: better configuration
+# remote and local directory in FdsCluster
+
 nodes = {
     #"node1" : "10.1.10.16",
     #"node2" : "10.1.10.17",
     #"node3" : "10.1.10.18"
     "tiefighter" : "10.1.10.102"
 }
-
-def unescape_string(input):
-    ansi_escape = re.compile(r'\x1b[^m]*m')
-    return ansi_escape.sub('', input)
 
 def test_to_str(test):
     test_str = ""

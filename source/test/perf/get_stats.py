@@ -172,7 +172,6 @@ def get_test_parms():
 
 def main():
     compute_pidmap("tiefighter")
-    print g_pidmap
     print options.name,",",
     time.sleep(1)
     print "th,", get_avgth(),",",

@@ -2,7 +2,12 @@
 import os, sys, re
 from exp_framework import *
 
+# FIXME: import only what you use
+# TODO: better configuration
+# FdsCluster, get_results_dir (maybe move this), CuonterServer, Monitor, nodes (configuration!)
+
 def create_tests():
+    # test template
     template = {
         "test_type" : "tgen",
         "nvols" : 4,
@@ -13,7 +18,7 @@ def create_tests():
         "nfiles" : 1000
         }
 
-    ###########################
+    ############### Test definition ############
 
     tests = []
     size = 4096 * 1024   # 4096
@@ -110,6 +115,7 @@ def main():
         print t
         results_dir = get_results_dir("results", t)
         fds.init_test(t["test_type"], results_dir, t)
+        # FIXME: need to reset counters!
         # start stats collection
         counter_server = CounterServer(results_dir)
         #cmds = ["iostat -d 1", "collectl"]

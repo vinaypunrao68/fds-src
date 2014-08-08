@@ -84,6 +84,8 @@ def task(task_id, n_reqs, req_type, nvols, files, stats, queue, prev_uploaded):
     else:
         conn = None
     for i in range(0,n_reqs):
+        if options.heartbeat > 0 and  i % options.hearbeat == 0:
+            print "heartbeat for", task_id, "i:", i
         vol = random.randint(0, nvols - 1)
         time_start = time.time()
         if req_type == "PUT":
@@ -138,18 +140,17 @@ def main(options,files):
     # unpickle uploaded files
     prev_uploaded = None
     part_prev_uploaded = (set(),) * options.threads
+    # TODO: make a function
     if os.path.exists(".uploaded.pickle") and options.get_reuse == True and options.req_type != "PUT":
         prev_uploaded_file = open(".uploaded.pickle", "r")
         upk = pickle.Unpickler(prev_uploaded_file)
         prev_uploaded = upk.load()
-        print prev_uploaded
         assert len(prev_uploaded) > options.threads
         i = 0
         while len(prev_uploaded) > 0:
             e = prev_uploaded.pop()
             part_prev_uploaded[i].add(e)
             i = (i + 1) % options.threads
-    print part_prev_uploaded
     queue = Queue()
     stats = init_stats()
     tids = []
@@ -168,7 +169,7 @@ def main(options,files):
             stats[k] += v
         uploaded.update(up)
     # FIXME: move this code after time has been taken
-    # FIXME: volumes    
+    # FIXME: volumes
     if options.get_reuse == True and options.req_type == "PUT":
         # pickle uploaded files
         uploaded_file = open(".uploaded.pickle", "w")
@@ -183,9 +184,10 @@ if __name__ == "__main__":
     parser.add_option("-n", "--num-requests", dest = "n_reqs", type = "int", default = 1, help = "Number of requests per thread")
     parser.add_option("-T", "--type", dest = "req_type", default = "PUT", help = "PUT/GET/DELETE")
     parser.add_option("-s", "--file-size", dest = "file_size", type = "int", default = 4096, help = "File size in bytes")
-    parser.add_option("-F", "--num-files", dest = "num_files", type = "int", default = 10000, help = "File size in bytes")
+    parser.add_option("-F", "--num-files", dest = "num_files", type = "int", default = 10000, help = "Number of files")
     parser.add_option("-v", "--num-volumes", dest = "num_volumes", type = "int", default = 1, help = "Number of volumes")
     parser.add_option("-u", "--get-reuse", dest = "get_reuse", default = False, action = "store_true", help = "Do gets on file previously uploaded with put")
+    parser.add_option("-h", "--heartbeat", dest = "heartbeat", type = "int", default = 0, help = "Heartbeat. Default is no hearbeat (0)")
 
     (options, args) = parser.parse_args()
     if options.req_type == "PUT" or options.req_type == "7030":
