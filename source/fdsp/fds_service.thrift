@@ -88,6 +88,10 @@ enum  FDSPMsgTypeId {
     ForwardCatalogRspMsgTypeId,
     VolSyncStateMsgTypeId,
     VolSyncStateRspMsgTypeId,
+    StreamingRegistrationMsgTypeId,
+    StreamingRegistrationRspMsgTypeId,
+    StreamingDeregistrationMsgTypeId,
+    StreamingDeregistrationRspMsgTypeId
 }
 
 struct EmptyMsg {

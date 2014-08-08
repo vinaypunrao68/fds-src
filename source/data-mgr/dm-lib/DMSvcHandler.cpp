@@ -7,6 +7,7 @@
 #include <DMSvcHandler.h>
 #include <platform/fds_flags.h>
 #include <dm-platform.h>
+#include <statStreamAggregator.h>
 
 namespace fds {
 
@@ -23,6 +24,8 @@ DMSvcHandler::DMSvcHandler()
     REGISTER_FDSP_MSG_HANDLER(fpi::GetBlobMetaDataMsg, getBlobMetaData);
     REGISTER_FDSP_MSG_HANDLER(fpi::GetVolumeMetaDataMsg, getVolumeMetaData);
     REGISTER_FDSP_MSG_HANDLER(fpi::StatStreamMsg, handleStatStream);
+    REGISTER_FDSP_MSG_HANDLER(fpi::StreamingRegistrationMsg, registerStreaming);
+    REGISTER_FDSP_MSG_HANDLER(fpi::StreamingDeregistrationMsg, deregisterStreaming);
     /* DM to DM service messages */
     REGISTER_FDSP_MSG_HANDLER(fpi::VolSyncStateMsg, volSyncState);
     REGISTER_FDSP_MSG_HANDLER(fpi::ForwardCatalogMsg, fwdCatalogUpdateMsg);
@@ -600,5 +603,37 @@ DMSvcHandler::handleStatStreamCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     delete req;
 }
 
+void
+DMSvcHandler::registerStreaming(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        boost::shared_ptr<fpi::StreamingRegistrationMsg>& streamRegstrMsg) {
+    StatStreamAggregator::ptr statAggr = dataMgr->statStreamAggregator();
+    fds_assert(statAggr);
+
+    auto dmReq = new DmIoStreamingRegstr(streamRegstrMsg);
+
+    // TODO(umesh): implement this
+}
+
+void
+DMSvcHandler::registerStreamingCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                                  fpi::StreamingRegistrationMsgPtr & message,
+                                  const Error &e, DmIoStreamingRegstr * req) {
+    // TODO(umesh): implement this
+}
+
+void
+DMSvcHandler::deregisterStreaming(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        boost::shared_ptr<fpi::StreamingDeregistrationMsg>& streamDeregstrMsg) {
+    auto dmReq = new DmIoStreamingDeregstr(streamDeregstrMsg);
+
+    // TODO(umesh): implement this
+}
+
+void
+DMSvcHandler::deregisterStreamingCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                                    fpi::StreamingDeregistrationMsgPtr & message,
+                                    const Error &e, DmIoStreamingDeregstr * req) {
+    // TODO(umesh): implement this
+}
 
 }  // namespace fds

@@ -88,6 +88,10 @@ class DataMgr : public Module, public DmIoReqHandler {
         return counters_.get();
     }
 
+    inline StatStreamAggregator::ptr statStreamAggregator() {
+        return statStreamAggr_;
+    }
+
  private:
     typedef enum {
       NORMAL_MODE = 0,
