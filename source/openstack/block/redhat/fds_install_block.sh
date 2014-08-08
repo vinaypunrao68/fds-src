@@ -1,32 +1,11 @@
 #!/bin/bash
-if [ $# -eq 1 ]; then
-    PIP_PROXY="--proxy=$1"
-else
-    PIP_PROXY=""
-fi
-echo apt-get -y install install python-pip
-apt-get -y install install python-pip
+echo "yum -y install install python-pip thrift python-cinderclient nbd python-pip \
+      python-devel.x86_x64 psutil"
+yum -y install install python-pip thrift python-cinderclient nbd python-pip \
+       python-devel.x86_x64 psutil
 
-echo apt-get -y install thrift
-apt-get -y install thrift
-
-echo apt-get -y install python-cinderclient
-apt-get -y install python-cinderclient
-
-echo apt-get -y install nbd-client
-apt-get -y install nbd-client
-
-echo apt-get -y install python-pip
-apt-get -y install python-pip
-
-echo apt-get -y install gcc python-dev
-apt-get -y install gcc python-dev
-
-echo pip $PIP_PROXY install psutil
-pip $PIP_PROXY install psutil
-
-echo pip $PIP_PROXY install thrift
-pip $PIP_PROXY install thrift
+echo cp ./nbd.ko /lib/modules/$(uname -r)/kernel/drivers/block/
+cp ./nbd.ko /lib/modules/$(uname -r)/kernel/drivers/block/
 
 modprobe nbd
 nbd_found=`lsmod | grep -c nbd`
@@ -35,9 +14,10 @@ if [ $nbd_found -ne 1 ]; then
     exit 1
 fi
 
-CINDER_DRIVER_DIR=/usr/lib/python2.7/dist-packages/cinder/volume/drivers
+CINDER_DRIVER_DIR=/usr/lib/python2.6/site-packages/cinder/volume/drivers
 DRIVER=./fds_driver.tar.gz
 DRIVER_DIR=./fds
+BIN_DIR=/usr/local/bin
 
 # copy thrift binding and fds-cinder driver to cinder driver dir.
 if [ ! -d "$CINDER_DRIVER_DIR" ]; then
@@ -52,13 +32,13 @@ if [ ! -e $DRIVER_DIR/nbdadm.py ]; then
     echo "nbdadm.py not exist"
     exit 1
 fi
-cp $DRIVER_DIR/nbdadm.py /usr/bin/
+cp $DRIVER_DIR/nbdadm.py $BIN_DIR/
 
 
 mkdir -p $CINDER_DRIVER_DIR
 cp -rf $DRIVER_DIR $CINDER_DRIVER_DIR
 
-VOLUME_FILTERS=/etc/cinder/rootwrap.d/volume.filters
+VOLUME_FILTERS=/usr/share/cinder/rootwrap/volume.filters
 if [ -e $VOLUME_FILTERS ]; then
     found=`cat $VOLUME_FILTERS | grep -c "nbdadm.py"`
     if [ $found -eq 0 ]; then
@@ -83,7 +63,7 @@ else
     cp -f /tmp/cinder.conf /etc/cinder/cinder.conf
 fi
 
-service cinder-volume restart
+service openstack-cinder-volume restart
 source openrc.sh
 
 cinder --os-username admin --os-tenant-name admin type-create fds

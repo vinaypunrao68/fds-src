@@ -95,7 +95,7 @@ Error DataMgr::_add_if_no_vol(const std::string& vol_name,
      */
     vol_map_mtx->lock();
     if (volExistsLocked(vol_uuid) == true) {
-        LOGNORMAL << "Received add request for existing vol uuid "
+        GLOGDEBUG << "Received add request for existing vol uuid "
                   << vol_uuid << ", so ignoring.";
         vol_map_mtx->unlock();
         return err;

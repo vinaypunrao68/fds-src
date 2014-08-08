@@ -205,7 +205,6 @@ class FdsnIf : public apis::AmServiceIf {
         // TODO(Andrew): This should be a shared pointer
         // as we pass it around a lot
         char *buf = new char[*length];
-        fds_verify(buf != NULL);
 
         // Create request context
         GetObjectResponseHandler getHandler;
@@ -235,6 +234,7 @@ class FdsnIf : public apis::AmServiceIf {
             } else {
                 fdsE.errorCode = apis::BAD_REQUEST;
             }
+            delete[] buf;
             throw fdsE;
         }
         _return.assign(buf, *length);
