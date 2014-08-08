@@ -167,7 +167,7 @@ class FdsnIf : public apis::AmServiceIf {
         if ((testUturnAll == true) ||
             (testUturnStatBlob == true)) {
             LOGDEBUG << "Uturn testing stat blob";
-            _return.name = blobName;
+            _return.name = *blobName;
             _return.byteCount = 0;
             return;
         }
