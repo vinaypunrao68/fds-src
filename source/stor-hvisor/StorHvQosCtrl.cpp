@@ -1,5 +1,6 @@
 #include "StorHvQosCtrl.h"
 #include <StorHvVolumes.h>
+#include <lib/StatsCollector.h>
 #include <StorHvisorNet.h>
 
 namespace fds {
@@ -51,11 +52,43 @@ void StorHvQosCtrl::runScheduler() {
 
 Error StorHvQosCtrl::markIODone(FDS_IOType *io) {
   Error err(ERR_OK);
-  /* TODO: also record latency (now passign 0) */
   assert(io->io_magic == FDS_SH_IO_MAGIC_IN_USE);
   io->io_magic = FDS_SH_IO_MAGIC_NOT_IN_USE;
+  // TODO(Anna) remove recordIO
   stats->recordIO(io->io_vol_id, 0);
   htb_dispatcher->markIODone(io);
+
+  switch (io->io_type) {
+      case fds::FDS_IO_WRITE:
+      case fds::FDS_PUT_BLOB_ONCE:
+      case fds::FDS_PUT_BLOB:
+          StatsCollector::statsCollectSingleton()->recordEvent(io->io_vol_id,
+                                                               io->io_done_ts,
+                                                               STAT_AM_GET_OBJ,
+                                                               io->io_total_time);
+          break;
+      case fds::FDS_IO_READ:
+      case fds::FDS_GET_BLOB:
+          StatsCollector::statsCollectSingleton()->recordEvent(io->io_vol_id,
+                                                               io->io_done_ts,
+                                                               STAT_AM_PUT_OBJ,
+                                                               io->io_total_time);
+          break;
+      default:
+          ;;
+  };
+  fds_uint32_t queue_size = htb_dispatcher->count(io->io_vol_id);
+  if (queue_size > 1) {
+      StatsCollector::statsCollectSingleton()->recordEvent(io->io_vol_id,
+                                                           io->io_done_ts,
+                                                           STAT_AM_QUEUE_FULL,
+                                                           queue_size);
+  }
+  StatsCollector::statsCollectSingleton()->recordEvent(io->io_vol_id,
+                                                       io->io_done_ts,
+                                                       STAT_AM_QUEUE_WAIT,
+                                                       io->io_wait_time);
+
   delete io;
   return err;
 }

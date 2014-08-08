@@ -19,7 +19,7 @@ import hashlib
 
 class GlobalStats(object):
     CALC_HASHES = True
-    DEBUG_TIMEOUT = 60
+    DEBUG_TIMEOUT = 240
     MAX_CONCURRENCY_PUT = 999
     MAGIC_WORD = 'magic_word'
 
@@ -179,7 +179,7 @@ class Processor(object):
             try:
                 if GlobalStats.CALC_HASHES:
                     # Check to see if hashes match for real get ops
-                    _hash = hashlib.sha1(future[0].result().text).hexdigest()
+                    _hash = hashlib.sha1(future[0].result().content).hexdigest()
                     _matches = 'n/a'
                     if future[2] == 'get':
                         # Find matching PUT
@@ -197,14 +197,14 @@ class Processor(object):
                     _tmp = [future[1],
                             future[2],
                             str(future[0].result()),
-                            str(future[0].result().text),
+                            #str(future[0].result().text),
                             str(_hash),
                             _matches]
                 else:
                     _tmp = [future[1],
                             future[2],
                             str(future[0].result()),
-                            str(future[0].result().text),
+                            #str(future[0].result().text),
                             '',
                             _matches]
 
@@ -215,7 +215,8 @@ class Processor(object):
         print tabulate(_tab, _header)
         print 'Elapsed time:', elapsed*1000, 'ms'
         print 'Failed hashes:', _failed_hashes
-        return data_list
+        print tabulate(data_list)
+        return _failed_hashes
 
 class Spec(object):
     """ Encapsulates the order in which operations should occur."""

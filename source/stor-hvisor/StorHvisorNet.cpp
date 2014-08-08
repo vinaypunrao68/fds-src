@@ -212,6 +212,13 @@ StorHvCtrl::StorHvCtrl(int argc,
 
     LOGNORMAL << "StorHvisorNet - StorHvCtrl basic infra init successfull ";
 
+    StatsCollector::statsCollectSingleton()->registerOmClient(om_client);
+    fds_bool_t print_qos_stats = config.get_abs<bool>("fds.am.testing.print_qos_stats");
+    if (print_qos_stats) {
+        StatsCollector::statsCollectSingleton()->enableQosStats();
+    }
+    // StatsCollector::statsCollectSingleton()->startStreaming();
+
     /*
      * Parse options out of config file
      */

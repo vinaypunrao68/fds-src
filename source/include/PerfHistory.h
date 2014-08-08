@@ -112,6 +112,8 @@ class StatSlot: public serialize::Serializable {
      * total / count for event 'type'
      */
     double getAverage(FdsStatType type) const;
+    double getMin(FdsStatType type) const;
+    double getMax(FdsStatType type) const;
     /**
      * Get counter of a given type
      */
@@ -214,7 +216,7 @@ class VolumePerfHistory {
      * @return last timestamp printed
      */
     fds_uint64_t print(std::ofstream& dumpFile,
-                       fds_uint64_t cur_ts,
+                       boost::posix_time::ptime curts,
                        fds_uint64_t last_rel_sec) const;
 
     VolumePerfHistory::ptr getSnapshot() const;

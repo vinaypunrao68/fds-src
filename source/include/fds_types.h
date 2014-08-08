@@ -242,6 +242,7 @@ typedef enum {
     FDS_DM_PUSH_META_DONE,
     FDS_DM_META_RECVD,
     FDS_DM_PURGE_COMMIT_LOG,
+    FDS_DM_STAT_STREAM,
     FDS_OP_INVALID
 } fds_io_op_t;
 
@@ -271,9 +272,9 @@ class FDS_IOType {
     fds_uint32_t io_wait_time;  // usecs
     fds_uint32_t io_total_time;  // usecs
     ioModule io_module;  // IO belongs to which module for Qos proc
-    boost::posix_time::ptime enqueue_time;
-    boost::posix_time::ptime dispatch_time;
-    boost::posix_time::ptime io_done_time;
+    fds_uint64_t enqueue_ts;
+    fds_uint64_t dispatch_ts;
+    fds_uint64_t io_done_ts;
 
     /*
      * TODO: Blkdev specific fields that can be REMOVED.

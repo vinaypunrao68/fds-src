@@ -7,7 +7,9 @@
 #include <string>
 #include <util/Log.h>
 #include <fds_error.h>
+#include <concurrency/RwLock.h>
 #include <fds_module.h>
+#include <PerfHistory.h>
 
 namespace fds {
 
@@ -33,6 +35,7 @@ class StatStreamAggregator : public Module {
 
     typedef boost::shared_ptr<StatStreamAggregator> ptr;
     typedef boost::shared_ptr<const StatStreamAggregator> const_ptr;
+    typedef std::unordered_map<fds_volid_t, VolumePerfHistory::ptr> hist_map_t;
 
     /**
      * Module methods
@@ -75,12 +78,21 @@ class StatStreamAggregator : public Module {
      */
     Error handleModuleStatStream(const fpi::StatStreamMsgPtr& stream_msg);
 
-  private:
+  private:  // methods
+    VolumePerfHistory::ptr getFineGrainHistory(fds_volid_t volid);
+
+  private:  // members
     /**
-     * Per-minute (cached) per-volume history of stats
-     * that are streamed out (this is a cache of per-minute
-     * stats that we also log
+     * Fine-grain (cached) per-volume history of stats
+     * that are streamed out (we will log these)
+     * This will be set per-minute for now
      */
+    fds_uint32_t finestat_slotsec_;  // granularity of fine grain stats
+    fds_uint32_t finestat_slots_;   // number of slots of fine grain stats we cache
+    hist_map_t finestats_map_;
+    fds_rwlock fh_lock_;   // lock protecting finestats_map_
+
+    fds_uint64_t start_time_;  // timestamps in histories are relative to this time
 
     /**
      * Per-hour per-volume history of stats that are streamed

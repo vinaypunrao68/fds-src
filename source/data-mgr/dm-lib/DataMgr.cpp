@@ -126,6 +126,15 @@ void DataMgr::handleForwardComplete(dmCatReq *io) {
     delete io;
 }
 
+void DataMgr::handleStatStream(dmCatReq *io) {
+    DmIoStatStream *statStreamReq = static_cast<DmIoStatStream*>(io);
+
+    Error err = statStreamAggr_->handleModuleStatStream(statStreamReq->statStreamMsg);
+
+    qosCtrl->markIODone(*io);
+    statStreamReq->dmio_statstream_resp_cb(err, statStreamReq);
+}
+
 /**
  * Is called on timer to finish forwarding for all volumes that
  * are still forwarding, send DMT close ack, and remove vcat/tcat

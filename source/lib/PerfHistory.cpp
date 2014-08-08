@@ -205,6 +205,20 @@ double StatSlot::getAverage(FdsStatType type) const {
     return 0;
 }
 
+double StatSlot::getMin(FdsStatType type) const {
+    if (stat_map.count(type) > 0) {
+        return stat_map.at(type).min();
+    }
+    return 0;
+}
+
+double StatSlot::getMax(FdsStatType type) const {
+    if (stat_map.count(type) > 0) {
+        return stat_map.at(type).max();
+    }
+    return 0;
+}
+
 void StatSlot::getCounter(FdsStatType type,
                           GenericCounter* out_counter) const {
     fds_verify(out_counter != NULL);
@@ -474,13 +488,13 @@ fds_uint64_t VolumePerfHistory::toFdspPayload(fpi::VolStatList& fdsp_volstat,
 // print IOPS to file
 //
 fds_uint64_t VolumePerfHistory::print(std::ofstream& dumpFile,
-                                      fds_uint64_t cur_ts,
+                                      boost::posix_time::ptime curts,
                                       fds_uint64_t last_rel_sec) const {
     fds_uint32_t endix = last_slot_num_ % nslots_;
     fds_uint32_t startix = (endix + 1) % nslots_;  // ind of oldest slot
     fds_uint32_t ix = startix;
     fds_uint64_t latest_ts = 0;
-    fds_uint64_t last_printed_ts = 0;
+    fds_uint64_t last_printed_ts = last_rel_sec;
 
     // we will skip the last timeslot, because it may not be fully filled in
     while (ix != endix) {
@@ -493,15 +507,23 @@ fds_uint64_t VolumePerfHistory::print(std::ofstream& dumpFile,
             stat_slots_[ix].getCounter(STAT_AM_GET_OBJ, &io_counter);
             io_counter += put_counter;
 
-            dumpFile << "[" << cur_ts << "],"
+            dumpFile << "[" << to_simple_string(curts) << "],"
                      << volid_ << ","
                      << stat_slots_[ix].getTimestamp() << ","
                      << io_counter.countPerSec(slot_len) << ","   // iops
                      << io_counter.average() << ","               // ave latency
                      << io_counter.min() << ","                   // min latency
                      << io_counter.max() << ","                  // max latency
+                     << stat_slots_[ix].getAverage(STAT_AM_QUEUE_WAIT) << ","  // ave wait time
+                     << stat_slots_[ix].getMin(STAT_AM_QUEUE_WAIT) << ","      // min wait time
+                     << stat_slots_[ix].getMax(STAT_AM_QUEUE_WAIT) << ","      // max wait time
+                     << stat_slots_[ix].getAverage(STAT_AM_QUEUE_FULL) << ","
+                     << stat_slots_[ix].getMin(STAT_AM_QUEUE_FULL) << ","
+                     << stat_slots_[ix].getMax(STAT_AM_QUEUE_FULL) << ","
                      << stat_slots_[ix].getEventsPerSec(STAT_AM_GET_OBJ) << ","
-                     << stat_slots_[ix].getEventsPerSec(STAT_AM_PUT_OBJ) << std::endl;
+                     << stat_slots_[ix].getAverage(STAT_AM_GET_OBJ) << ","
+                     << stat_slots_[ix].getEventsPerSec(STAT_AM_PUT_OBJ) << ","
+                     << stat_slots_[ix].getAverage(STAT_AM_PUT_OBJ) << std::endl;
 
             if (latest_ts < ts) {
                 latest_ts = ts;

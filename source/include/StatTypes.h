@@ -14,6 +14,14 @@ namespace fds {
 typedef enum {
     STAT_AM_GET_OBJ,
     STAT_AM_PUT_OBJ,
+    STAT_AM_QUEUE_FULL,
+    STAT_AM_QUEUE_WAIT,
+
+    STAT_SM_GET_HDD,
+    STAT_SM_PUT_HDD,
+    STAT_SM_GET_SSD,
+    STAT_SM_PUT_SSD,
+    STAT_SM_CUR_DEDUP_BYTES,
 
     STAT_MAX_TYPE  // last entry in the enum
 } FdsStatType;
