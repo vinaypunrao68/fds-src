@@ -2,6 +2,8 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 include "FDSP.thrift"
+#include "fds_stream.thrift"
+
 namespace cpp FDS_ProtocolInterface
 
 /*
@@ -241,14 +243,6 @@ service PlatNetSvc extends BaseAsyncSvc {
 }
 
 /* Registration for streaming stats */
-struct StreamingRegistrationMsg {
-   1:i32 id;
-   2:string url;
-   4:list<string> volume_names;
-   5:i32 sample_freq_seconds;
-   6:i32 duration_seconds;
-}
-
 struct StreamingRegistrationRspMsg {
 }
 

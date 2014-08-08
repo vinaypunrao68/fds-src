@@ -24,7 +24,7 @@ struct volumeDataPoints {
    3: list<DataPointPair>    meta_list;
 }
 
-struct registration {
+struct StreamingRegistrationMsg {
    1:i32 id,
    2:string url,
    3:list<string> volume_names,
@@ -42,7 +42,7 @@ service StreamingConfiguration {
         4:i32 sample_freq_seconds,
         5:i32 duration_seconds),
 
-   list<registration> list_registrations(1:i32 thrift_sucks),
+   list<StreamingRegistrationMsg> list_registrations(1:i32 thrift_sucks),
    void deregisterStream(1:i32 registration_id),
 }
 
