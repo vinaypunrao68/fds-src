@@ -154,6 +154,7 @@ def main(options,files):
     queue = Queue()
     stats = init_stats()
     tids = []
+    time_start = time.time()
     for i in range(0,options.threads):
         task_args = (i, options.n_reqs, options.req_type, options.num_volumes, files, stats, queue, part_prev_uploaded[i])
         #t = th.Thread(None,task,"task-"+str(i), task_args)
@@ -162,6 +163,8 @@ def main(options,files):
         tids.append(t)
     for t in tids:
         t.join()
+    time_end = time.time()
+    stats["elapsed_time"] = time_end - time_start
     uploaded = set()
     while not queue.empty():
         st, up = queue.get()
@@ -176,7 +179,9 @@ def main(options,files):
         pk = pickle.Pickler(uploaded_file)
         pk.dump(uploaded)
         uploaded_file.close()
-    return stats
+    print "Options:", options,"Stats:", stats
+    print "Summary - threads:", options.threads, "n_reqs:", options.n_reqs, "req_type:", options.req_type, "elapsed time:", (time_end - time_start), "reqs/sec:", stats['reqs'] / stats['elapsed_time'], "avg_latency[ms]:",stats["tot_latency"]/stats["latency_cnt"]*1e3, "failures:", stats['fails'], "requests:", stats["reqs"]
+
 
 if __name__ == "__main__":
     parser = OptionParser()
@@ -187,7 +192,7 @@ if __name__ == "__main__":
     parser.add_option("-F", "--num-files", dest = "num_files", type = "int", default = 10000, help = "Number of files")
     parser.add_option("-v", "--num-volumes", dest = "num_volumes", type = "int", default = 1, help = "Number of volumes")
     parser.add_option("-u", "--get-reuse", dest = "get_reuse", default = False, action = "store_true", help = "Do gets on file previously uploaded with put")
-    parser.add_option("-h", "--heartbeat", dest = "heartbeat", type = "int", default = 0, help = "Heartbeat. Default is no hearbeat (0)")
+    parser.add_option("-b", "--heartbeat", dest = "heartbeat", type = "int", default = 0, help = "Heartbeat. Default is no hearbeat (0)")
 
     (options, args) = parser.parse_args()
     if options.req_type == "PUT" or options.req_type == "7030":
@@ -197,10 +202,5 @@ if __name__ == "__main__":
     else:
         files = Queue()
     print "Starting"
-    time_start = time.time()
-    stats = main(options,files)
-    time_end = time.time()
-    stats["elapsed_time"] = time_end - time_start
-    print "Options:", options,"Stats:", stats
-    print "Summary - threads:", options.threads, "n_reqs:", options.n_reqs, "req_type:", options.req_type, "elapsed time:", (time_end - time_start), "reqs/sec:", stats['reqs'] / stats['elapsed_time'], "avg_latency[ms]:",stats["tot_latency"]/stats["latency_cnt"]*1e3, "failures:", stats['fails'], "requests:", stats["reqs"]
+    main(options,files)
 
