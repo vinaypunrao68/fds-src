@@ -143,15 +143,9 @@ class DMSvcHandler : virtual public DMSvcIf, public PlatNetSvcHandler {
 
     void registerStreaming(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                            boost::shared_ptr<fpi::StreamingRegistrationMsg>& streamRegstrMsg);
-    void registerStreamingCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                             fpi::StreamingRegistrationMsgPtr & message,
-                             const Error &e, DmIoStreamingRegstr * req);
 
     void deregisterStreaming(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                         boost::shared_ptr<fpi::StreamingDeregistrationMsg>& streamDeregstrMsg);
-    void deregisterStreamingCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                               fpi::StreamingDeregistrationMsgPtr & message,
-                               const Error &e, DmIoStreamingDeregstr * req);
 };
 
 }  // namespace fds

@@ -5,11 +5,14 @@
 #define SOURCE_DATA_MGR_INCLUDE_STATSTREAMAGGREGATOR_H_
 
 #include <string>
+#include <unordered_map>
+
 #include <util/Log.h>
 #include <fds_error.h>
 #include <concurrency/RwLock.h>
 #include <fds_module.h>
 #include <PerfHistory.h>
+#include <fdsp/fds_stream_types.h>
 
 namespace fds {
 
@@ -68,6 +71,9 @@ class VolumeStats {
  */
 class StatStreamAggregator : public Module {
   public:
+    typedef std::unordered_map<fds_uint32_t, fpi::StreamingRegistrationMsgPtr>
+            StreamingRegistrationMap_t;
+
     explicit StatStreamAggregator(char const *const name);
     ~StatStreamAggregator();
 
@@ -98,10 +104,9 @@ class StatStreamAggregator : public Module {
     /**
      * Starts pushing of stats for a given set of volumes, with given
      * frequency
-     * TODO(xxx) add parameters, probably thrift data struct
-     * @param[in] reg_id registration id
+     * @param[in] registration Streaming registration
      */
-    Error registerStream(fds_uint32_t reg_id);
+    Error registerStream(fpi::StreamingRegistrationMsgPtr registration);
 
     /**
      * Stop pushing stats for stat stream 'reg_id'
@@ -141,6 +146,9 @@ class StatStreamAggregator : public Module {
     fds_rwlock volstats_lock_;   // lock protecting volstats map
 
     fds_uint64_t start_time_;  // timestamps in histories are relative to this time
+
+    StreamingRegistrationMap_t streamingRegistrations_;
+    fds_rwlock lockStreamingRegsMap;
 };
 }  // namespace fds
 

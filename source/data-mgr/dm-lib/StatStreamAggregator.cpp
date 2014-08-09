@@ -91,7 +91,6 @@ VolumeStats::ptr StatStreamAggregator::getVolumeStats(fds_volid_t volid) {
     return VolumeStats::ptr();
 }
 
-
 Error StatStreamAggregator::detachVolume(fds_volid_t volume_id) {
     Error err(ERR_OK);
     LOGDEBUG << "Will stop monitoring stats for vol " << std::hex
@@ -107,15 +106,21 @@ Error StatStreamAggregator::detachVolume(fds_volid_t volume_id) {
     return err;
 }
 
-Error StatStreamAggregator::registerStream(fds_uint32_t reg_id) {
+Error StatStreamAggregator::registerStream(fpi::StreamingRegistrationMsgPtr registration) {
     Error err(ERR_OK);
-    LOGDEBUG << "Will start streaming stats: reg id " << reg_id;
+    LOGDEBUG << "Adding streaming registration with id " << registration->id;
+
+    SCOPEDWRITE(lockStreamingRegsMap);
+    streamingRegistrations_[registration->id] = registration;
     return err;
 }
 
 Error StatStreamAggregator::deregisterStream(fds_uint32_t reg_id) {
     Error err(ERR_OK);
-    LOGDEBUG << "Will stop streaming stats: reg id " << reg_id;
+    LOGDEBUG << "Removing streaming registration with id " << reg_id;
+
+    SCOPEDWRITE(lockStreamingRegsMap);
+    streamingRegistrations_.erase(reg_id);
     return err;
 }
 

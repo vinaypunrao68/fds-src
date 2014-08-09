@@ -7,7 +7,7 @@
 #include <DMSvcHandler.h>
 #include <platform/fds_flags.h>
 #include <dm-platform.h>
-#include <statStreamAggregator.h>
+#include <StatStreamAggregator.h>
 
 namespace fds {
 
@@ -608,32 +608,27 @@ DMSvcHandler::registerStreaming(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                         boost::shared_ptr<fpi::StreamingRegistrationMsg>& streamRegstrMsg) {
     StatStreamAggregator::ptr statAggr = dataMgr->statStreamAggregator();
     fds_assert(statAggr);
+    fds_assert(streamRegstrMsg);
 
-    auto dmReq = new DmIoStreamingRegstr(streamRegstrMsg);
+    Error err = statAggr->registerStream(streamRegstrMsg);
 
-    // TODO(umesh): implement this
-}
-
-void
-DMSvcHandler::registerStreamingCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                                  fpi::StreamingRegistrationMsgPtr & message,
-                                  const Error &e, DmIoStreamingRegstr * req) {
-    // TODO(umesh): implement this
+    asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
+    fpi::StreamingRegistrationRspMsg resp;
+    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(StreamingRegistrationRspMsg), resp);
 }
 
 void
 DMSvcHandler::deregisterStreaming(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                         boost::shared_ptr<fpi::StreamingDeregistrationMsg>& streamDeregstrMsg) {
-    auto dmReq = new DmIoStreamingDeregstr(streamDeregstrMsg);
+    StatStreamAggregator::ptr statAggr = dataMgr->statStreamAggregator();
+    fds_assert(statAggr);
+    fds_assert(streamDeregstrMsg);
 
-    // TODO(umesh): implement this
-}
+    Error err = statAggr->deregisterStream(streamDeregstrMsg->id);
 
-void
-DMSvcHandler::deregisterStreamingCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                                    fpi::StreamingDeregistrationMsgPtr & message,
-                                    const Error &e, DmIoStreamingDeregstr * req) {
-    // TODO(umesh): implement this
+    asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
+    fpi::StreamingDeregistrationRspMsg resp;
+    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(StreamingDeregistrationRspMsg), resp);
 }
 
 }  // namespace fds
