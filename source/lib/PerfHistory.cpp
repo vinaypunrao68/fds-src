@@ -404,7 +404,8 @@ double VolumePerfHistory::getSMA(FdsStatType stat_type,
 //
 fds_uint32_t VolumePerfHistory::useSlot(fds_uint64_t rel_seconds) {
     fds_uint64_t slot_num = rel_seconds / slotsec_;
-    fds_uint64_t slot_start_sec = rel_seconds;
+    fds_uint32_t remainder = rel_seconds % slotsec_;
+    fds_uint64_t slot_start_sec = rel_seconds - remainder;
     fds_uint32_t index = slot_num % nslots_;
 
     // common case -- we will use already existing slot

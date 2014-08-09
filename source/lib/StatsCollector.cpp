@@ -8,7 +8,7 @@
 
 namespace fds {
 
-StatsCollector glStatsCollector(120, 60, 1);
+StatsCollector glStatsCollector(180, 60, 4);
 
 
 class CollectorTimerTask : public FdsTimerTask {
@@ -47,7 +47,8 @@ StatsCollector::StatsCollector(fds_uint32_t push_sec,
 
     // start time must be aligned to highest sampling frequency
     start_time_ = util::getTimeStampNanos();
-    fds_uint64_t freq_nanos = stat_sampling_freq * 1000000000;
+    fds_uint64_t stat_sampling_freq64 = stat_sampling_freq;
+    fds_uint64_t freq_nanos = stat_sampling_freq64 * 1000000000;
     start_time_ = start_time_ / freq_nanos;
     start_time_ = start_time_ * freq_nanos;
 
