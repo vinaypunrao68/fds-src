@@ -21,12 +21,12 @@ def create_tests():
     ############### Test definition ############
 
     tests = []
-    size = 4096 * 1024   # 4096
+    size = 4096   # 4096
     test = dict(template)
     test["type"] = "PUT"
-    test["nreqs"] = 100  # 100000
-    test["nfiles"] = 100 # 10000
-    test["nvols"] = 1 # 4
+    test["nreqs"] = 10000  # 100000
+    test["nfiles"] = 10000 # 10000
+    test["nvols"] = 2
     test["threads"] = 1
     test["fsize"] = size
     tests.append(test)
@@ -39,12 +39,12 @@ def create_tests():
     #         test["nvols"] = nvols
     #         test["threads"] = th
     #         tests.append(test)
-    for nvols in [1]: # [1, 2, 3, 4]:
-        for th in [1, 5, 10]: #[1, 2, 5, 10, 15]:
+    for nvols in [1, 2]: # [1, 2, 3, 4]:
+        for th in [1, 5, 10, 15, 20, 25, 30]: #[1, 2, 5, 10, 15]:
             test = dict(template)
             test["type"] = "GET"
-            test["nreqs"] = 1000 # 100000
-            test["nfiles"] = 100 # 10000
+            test["nreqs"] = 10000 # 100000
+            test["nfiles"] = 10000 # 10000
             test["nvols"] = nvols
             test["threads"] = th
             test["fsize"] = size
@@ -52,22 +52,22 @@ def create_tests():
     size = 4096 * 1024
     test = dict(template)
     test["type"] = "PUT"
-    test["nreqs"] = 1000000
+    test["nreqs"] = 10000
     test["nfiles"] = 100
-    test["nvols"] = 4
+    test["nvols"] = 2
     test["threads"] = 1
     test["fsize"] = size
-    #tests.append(test)
-    for nvols in [1, 2, 3, 4]:
-        for th in [1, 2, 5, 10, 15]:
+    tests.append(test)
+    for nvols in [1, 2]:
+        for th in [1, 2, 5, 10, 15, 20, 25, 30]:
             test = dict(template)
             test["type"] = "GET"
-            test["nreqs"] = 100000
+            test["nreqs"] = 10000
             test["nfiles"] = 100
             test["nvols"] = nvols
             test["threads"] = th
             test["fsize"] = size
-            #tests.append(test)
+            tests.append(test)
 
     return tests
 
@@ -86,30 +86,14 @@ def main():
 
     # start FDS
 
-    test_put = {
-        "test_type" : "tgen",
-        "nvols" : 4,
-        "threads" : 1,
-        "nreqs" : 100000,
-        "type" : "PUT",
-        "fsize" : 4096,
-        "nfiles" : 1000
-        }
-    test_get = {
-        "test_type" : "tgen",
-        "nvols" : 4,
-        "threads" : 15,
-        "nreqs" : 100000,
-        "type" : "GET",
-        "fsize" : 4096,
-        "nfiles" : 1000
-        }
-    #tests = [test_put, test_get]
     tests = create_tests()
     fds = FdsCluster("tiefighter", options)
     fds.start()
 
-    print "tests -->", tests
+    print "--- Number of tests to run", len(tests), "---"
+    for t in tests:
+        print "test -->", t
+    print "--- . ---"
 
     for t in tests:
         print t
