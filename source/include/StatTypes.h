@@ -14,6 +14,8 @@ namespace fds {
 typedef enum {
     STAT_AM_GET_OBJ,
     STAT_AM_PUT_OBJ,
+    STAT_AM_GET_BMETA,
+    STAT_AM_PUT_BMETA,
     STAT_AM_QUEUE_FULL,
     STAT_AM_QUEUE_WAIT,
 

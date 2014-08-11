@@ -8,21 +8,27 @@
 
 namespace fds {
 
-StatsCollector glStatsCollector(180, 60, 4);
+StatsCollector glStatsCollector(180, 60, 1);
 
 
 class CollectorTimerTask : public FdsTimerTask {
   public:
+    typedef enum {
+        TM_PUSH_STATS,
+        TM_SAMPLE_STATS,
+        TM_PRINT_QOS
+    } collector_timer_t;
+
     StatsCollector* collector_;
-    fds_bool_t b_push;
+    collector_timer_t timer_type_;
 
     CollectorTimerTask(FdsTimer &timer,
                        StatsCollector* collector,
-                       fds_bool_t push)
+                       collector_timer_t type)
             : FdsTimerTask(timer)
     {
         collector_ = collector;
-        b_push = push;
+        timer_type_ = type;
     }
     ~CollectorTimerTask() {}
 
@@ -37,9 +43,14 @@ StatsCollector::StatsCollector(fds_uint32_t push_sec,
           slots_qos_(7),
           slotsec_stat_(stat_sampling_freq),
           pushTimer(new FdsTimer()),
-          pushTimerTask(new CollectorTimerTask(*pushTimer, this, true)),
+          pushTimerTask(new CollectorTimerTask(*pushTimer, this,
+                                               CollectorTimerTask::TM_PUSH_STATS)),
           qosTimer(new FdsTimer()),
-          qosTimerTask(new CollectorTimerTask(*qosTimer, this, false))
+          qosTimerTask(new CollectorTimerTask(*qosTimer, this,
+                                              CollectorTimerTask::TM_PRINT_QOS)),
+          sampleTimer(new FdsTimer()),
+          sampleTimerTask(new CollectorTimerTask(*sampleTimer, this,
+                                                 CollectorTimerTask::TM_SAMPLE_STATS))
 {
     // stats are disabled by default
     qos_enabled_ = ATOMIC_VAR_INIT(false);
@@ -56,10 +67,12 @@ StatsCollector::StatsCollector(fds_uint32_t push_sec,
     slots_stat_ = static_cast<double>(push_interval_) / slotsec_stat_ + 2;
 
     om_client_ = NULL;
+    record_stats_cb_ = NULL;
 }
 
-void StatsCollector::openQosFile() {
+void StatsCollector::openQosFile(const std::string& name) {
     fds_verify(!statfile_.is_open());
+    std::string dirname;
 
     // we will add timestamp to the name of file
     boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
@@ -75,17 +88,24 @@ void StatsCollector::openQosFile() {
         }
     }
 
-    const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
-    std::string dirname(root->dir_fds_var_stats() + "stats-data");
-    root->fds_mkdir(dirname.c_str());
+    if (g_fdsprocess) {
+        const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
+        dirname = root->dir_fds_var_stats() + "stats-data";
+        root->fds_mkdir(dirname.c_str());
+    } else {
+        // for testing
+        dirname = ".";
+    }
 
-    std::string fname = dirname + std::string("//") + ts_str + std::string(".stat");
+    std::string fname = dirname + std::string("//") + name + std::string("-")
+            + ts_str + std::string(".stat");
     statfile_.open(fname.c_str(), std::ios::out | std::ios::app);
 }
 
 StatsCollector::~StatsCollector() {
     pushTimer->destroy();
     qosTimer->destroy();
+    sampleTimer->destroy();
     if (statfile_.is_open()){
         statfile_.close();
     }
@@ -101,9 +121,11 @@ void StatsCollector::registerOmClient(OMgrClient* omclient) {
     om_client_ = omclient;
 }
 
-void StatsCollector::startStreaming() {
+void StatsCollector::startStreaming(record_svc_stats_t record_stats_cb) {
     fds_bool_t was_enabled = atomic_exchange(&stream_enabled_, true);
     if (!was_enabled) {
+        LOGDEBUG << "Start pushing stats to DMs: Start time " << start_time_;
+
         // start periodic timer to push stats to primary DM
         fds_bool_t ret = pushTimer->scheduleRepeated(pushTimerTask,
                                                      std::chrono::seconds(push_interval_));
@@ -112,6 +134,18 @@ void StatsCollector::startStreaming() {
                      << " streaming metadata; will not include this module "
                      << " stats to the streaming metadata";
         }
+
+        // if callback is provided, start timer to sample stats
+        if (record_stats_cb) {
+            record_stats_cb_ = record_stats_cb;
+            last_sample_ts_ = util::getTimeStampNanos();
+            fds_bool_t ret = sampleTimer->scheduleRepeated(sampleTimerTask,
+                                                 std::chrono::seconds(slotsec_stat_));
+            if (!ret) {
+                LOGERROR << "Failed to schedule timer to sample stats; "
+                         << " some stats may not be included for streaming metadata";
+            }
+        }
     }
 }
 
@@ -119,6 +153,10 @@ void StatsCollector::stopStreaming() {
     fds_bool_t was_enabled = atomic_exchange(&stream_enabled_, false);
     if (was_enabled) {
         pushTimer->cancel(pushTimerTask);
+        if (record_stats_cb_) {
+            sampleTimer->cancel(sampleTimerTask);
+            record_stats_cb_ = NULL;
+        }
     }
 }
 
@@ -126,11 +164,11 @@ fds_bool_t StatsCollector::isStreaming() const {
     return std::atomic_load(&stream_enabled_);
 }
 
-void StatsCollector::enableQosStats() {
+void StatsCollector::enableQosStats(const std::string& name) {
     fds_bool_t was_enabled = atomic_exchange(&qos_enabled_, true);
     if (!was_enabled) {
         LOGDEBUG << "Enabled Qos stats output: Start time " << start_time_;
-        openQosFile();
+        openQosFile(name);
 
         // start periodic timer to push stats to primary DM
         fds_bool_t ret = qosTimer->scheduleRepeated(qosTimerTask,
@@ -165,7 +203,6 @@ void StatsCollector::recordEvent(fds_volid_t volume_id,
     switch (event_type) {
         case STAT_AM_PUT_OBJ:       // end-to-end put in AM in usec
         case STAT_AM_GET_OBJ:       // end-to-end get in AM in usec
-        case STAT_AM_QUEUE_WAIT:    // wait time in queue in usec
         case STAT_AM_QUEUE_FULL:    // que size (recorded when que size > threshold)
             if (isQosStatsEnabled()) {
                 getQosHistory(volume_id)->recordEvent(timestamp,
@@ -174,6 +211,15 @@ void StatsCollector::recordEvent(fds_volid_t volume_id,
             if (isStreaming()) {
                 getStatHistory(volume_id)->recordEvent(timestamp,
                                                        event_type, value);
+            }
+            break;
+
+        case STAT_AM_QUEUE_WAIT:    // wait time in queue in usec
+        case STAT_AM_GET_BMETA:
+        case STAT_AM_PUT_BMETA:
+            if (isQosStatsEnabled()) {
+                getQosHistory(volume_id)->recordEvent(timestamp,
+                                                      event_type, value);
             }
             break;
         default:
@@ -256,6 +302,30 @@ void StatsCollector::print()
 }
 
 //
+// will call callback provided by a service, so that service can
+// record service-specific stats
+//
+void StatsCollector::sampleStats() {
+    fds_uint64_t now = util::getTimeStampNanos();
+    fds_uint64_t stat_slot_nanos = slotsec_stat_;
+    stat_slot_nanos *= 1000000000;
+    last_sample_ts_ += stat_slot_nanos;
+    fds_uint64_t diff = 0;
+    if (now > last_sample_ts_) {
+        diff = now - last_sample_ts_;
+    } else {
+        diff = last_sample_ts_ - now;
+    }
+    if (diff > stat_slot_nanos) {
+        LOGERROR << "Timer is off from what we expected; implement "
+                 << " adjusting last_sample_ts_";
+    }
+    if (last_sample_ts_) {
+        record_stats_cb_(last_sample_ts_);
+    }
+}
+
+//
 // send stats for each volume to DM primary for the volume
 //
 void StatsCollector::sendStatStream() {
@@ -306,10 +376,13 @@ void StatsCollector::sendStatStream() {
 
 void CollectorTimerTask::runTimerTask()
 {
-    if (b_push) {
+    if (timer_type_ == TM_PUSH_STATS) {
         collector_->sendStatStream();
-    } else {
+    } else if (timer_type_ == TM_PRINT_QOS) {
         collector_->print();
+    } else {
+        fds_verify(timer_type_ == TM_SAMPLE_STATS);
+        collector_->sampleStats();
     }
 }
 

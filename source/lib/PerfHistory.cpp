@@ -3,6 +3,7 @@
  */
 
 #include <limits>
+#include <vector>
 #include <PerfHistory.h>
 
 namespace fds {
@@ -123,6 +124,16 @@ std::ostream& operator<< (std::ostream &out,
 StatSlot::StatSlot()
         : rel_ts_sec(0),
           interval_sec(1) {
+}
+
+StatSlot::StatSlot(const StatSlot& slot)
+        : rel_ts_sec(slot.rel_ts_sec),
+          interval_sec(slot.interval_sec) {
+    for (counter_map_t::const_iterator cit = slot.stat_map.cbegin();
+         cit != slot.stat_map.cend();
+         ++cit) {
+        stat_map[cit->first] = cit->second;
+    }
 }
 
 StatSlot::~StatSlot() {
@@ -366,6 +377,19 @@ Error VolumePerfHistory::mergeSlots(const fpi::VolStatList& fdsp_volstats,
     return err;
 }
 
+//
+// add slots from list of slots
+//
+void VolumePerfHistory::mergeSlots(const std::vector<StatSlot>& stat_list) {
+    for (fds_uint32_t i = 0; i < stat_list.size(); ++i) {
+        fds_uint64_t rel_seconds = stat_list[i].getTimestamp();
+        fds_uint32_t index = useSlot(rel_seconds);
+        if ((index >= 0) && (index < nslots_)) {
+            stat_slots_[index] += stat_list[i];
+        }
+    }
+}
+
 double VolumePerfHistory::getSMA(FdsStatType stat_type,
                                  fds_uint64_t end_ts,
                                  fds_uint32_t interval_sec) {
@@ -453,6 +477,33 @@ fds_uint32_t VolumePerfHistory::useSlot(fds_uint64_t rel_seconds) {
     return index;
 }
 
+fds_uint64_t VolumePerfHistory::toSlotList(std::vector<StatSlot>& stat_list,
+                                           fds_uint64_t last_rel_sec) const {
+    fds_uint32_t endix = last_slot_num_ % nslots_;
+    fds_uint32_t startix = (endix + 1) % nslots_;  // index of oldest slot
+    fds_uint32_t ix = startix;
+    fds_uint64_t latest_ts = 0;
+    fds_uint64_t last_added_ts = 0;
+
+    stat_list.clear();
+    while (ix != endix) {
+        fds_uint64_t ts = stat_slots_[ix].getTimestamp();
+        if (ts > last_rel_sec) {
+            stat_list.push_back(stat_slots_[ix]);
+            if (latest_ts < ts) {
+                latest_ts = ts;
+            }
+        }
+        ix = (ix + 1) % nslots_;
+    }
+
+    if (latest_ts != 0) {
+        last_added_ts = latest_ts;
+    }
+
+    return last_added_ts;
+}
+
 fds_uint64_t VolumePerfHistory::toFdspPayload(fpi::VolStatList& fdsp_volstat,
                                               fds_uint64_t last_rel_sec) const {
     fds_uint32_t endix = last_slot_num_ % nslots_;
@@ -502,17 +553,23 @@ fds_uint64_t VolumePerfHistory::print(std::ofstream& dumpFile,
         fds_uint64_t ts = stat_slots_[ix].getTimestamp();
         if (ts > last_rel_sec) {
             // Aggregate PUT_IO and GET_IO counters
-            GenericCounter put_counter, io_counter;
+            GenericCounter put_counter, io_counter, tot_counter, m_counter;
             fds_uint32_t slot_len = stat_slots_[ix].slotLengthSec();
             stat_slots_[ix].getCounter(STAT_AM_PUT_OBJ, &put_counter);
             stat_slots_[ix].getCounter(STAT_AM_GET_OBJ, &io_counter);
             io_counter += put_counter;
 
+            stat_slots_[ix].getCounter(STAT_AM_GET_BMETA, &tot_counter);
+            stat_slots_[ix].getCounter(STAT_AM_PUT_BMETA, &m_counter);
+            tot_counter += m_counter;
+            tot_counter += io_counter;
+
             dumpFile << "[" << to_simple_string(curts) << "],"
                      << volid_ << ","
                      << stat_slots_[ix].getTimestamp() << ","
-                     << io_counter.countPerSec(slot_len) << ","   // iops
-                     << io_counter.average() << ","               // ave latency
+                     << static_cast<fds_uint32_t>(tot_counter.countPerSec(slot_len)) << ","
+                     << static_cast<fds_uint32_t>(io_counter.countPerSec(slot_len)) << ","  // iops
+                     << static_cast<fds_uint32_t>(io_counter.average())  << ","    // ave latency
                      << io_counter.min() << ","                   // min latency
                      << io_counter.max() << ","                  // max latency
                      << stat_slots_[ix].getAverage(STAT_AM_QUEUE_WAIT) << ","  // ave wait time
@@ -523,8 +580,12 @@ fds_uint64_t VolumePerfHistory::print(std::ofstream& dumpFile,
                      << stat_slots_[ix].getMax(STAT_AM_QUEUE_FULL) << ","
                      << stat_slots_[ix].getEventsPerSec(STAT_AM_GET_OBJ) << ","
                      << stat_slots_[ix].getAverage(STAT_AM_GET_OBJ) << ","
+                     << stat_slots_[ix].getEventsPerSec(STAT_AM_GET_BMETA) << ","
+                     << stat_slots_[ix].getAverage(STAT_AM_GET_BMETA) << ","
                      << stat_slots_[ix].getEventsPerSec(STAT_AM_PUT_OBJ) << ","
-                     << stat_slots_[ix].getAverage(STAT_AM_PUT_OBJ) << std::endl;
+                     << stat_slots_[ix].getAverage(STAT_AM_PUT_OBJ) << ","
+                     << stat_slots_[ix].getEventsPerSec(STAT_AM_PUT_BMETA) << ","
+                     << stat_slots_[ix].getAverage(STAT_AM_PUT_BMETA) << std::endl;
 
             if (latest_ts < ts) {
                 latest_ts = ts;

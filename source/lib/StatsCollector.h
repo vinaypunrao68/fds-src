@@ -11,6 +11,14 @@
 namespace fds {
 
 /**
+ * A callback to a service (DM/SM/AM) that will be called periodically
+ * to add sampled stats to the stats collector
+ * @param[in] timestamp is timestamp to pass to StatsCollector::recordEvent()
+ */
+typedef std::function<void (fds_uint64_t timestamp)> record_svc_stats_t;
+
+
+/**
  * Per-module collector of systems stats (that are always collected),
  * which is a combination of high-level performance stats and capacity
  * stats and possibly other dynamic systems stats.
@@ -52,15 +60,19 @@ class StatsCollector : public boost::noncopyable {
     /**
      * Start and stop collecting systems stats and pushing them to
      * aggregator module
+     * @param[in] record_stats_cb is a callback to a service (SM/DM/AM)that
+     * will be called periodically to sample service specific system stats;
+     * such as deduped bytes per volume in SM. If a service does not do any
+     * service specific sampling, pass NULL.
      */
-    void startStreaming();
+    void startStreaming(record_svc_stats_t record_stats_cb);
     void stopStreaming();
     fds_bool_t isStreaming() const;
 
     /**
      * Start and stop collecting and printing fine-grained qos stats
      */
-    void enableQosStats();
+    void enableQosStats(const std::string& name);
     void disableQosStats();
     fds_bool_t isQosStatsEnabled() const;
 
@@ -82,11 +94,15 @@ class StatsCollector : public boost::noncopyable {
      * primary DMs
      */
     void sendStatStream();
+    /**
+     * Called on timer periodically to sample stats
+     */
+    void sampleStats();
 
   private:  // methods
     VolumePerfHistory::ptr getQosHistory(fds_volid_t volid);
     VolumePerfHistory::ptr getStatHistory(fds_volid_t volid);
-    void openQosFile();
+    void openQosFile(const std::string& name);
 
   private:
     std::atomic<bool> qos_enabled_;
@@ -131,6 +147,15 @@ class StatsCollector : public boost::noncopyable {
      */
     FdsTimerPtr pushTimer;
     FdsTimerTaskPtr pushTimerTask;
+
+    /**
+     * Timer and callback for a service to do any
+     * service-specific sampling of stats
+     */
+    record_svc_stats_t record_stats_cb_;
+    FdsTimerPtr sampleTimer;
+    FdsTimerTaskPtr sampleTimerTask;
+    fds_uint64_t last_sample_ts_;
 
     /**
      * Timer to print qos stats

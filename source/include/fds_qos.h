@@ -35,15 +35,6 @@ namespace fds {
     std::atomic<unsigned int> num_pending_ios;
     std::atomic<unsigned int> num_outstanding_ios;
 
-    fds_uint32_t max_svc_time = 0;
-    fds_uint32_t min_svc_time = 0;
-    fds_uint64_t total_svc_time = 0;
-
-    fds_uint32_t max_wait_time = 0;
-    fds_uint32_t min_wait_time = 0;
-    fds_uint64_t total_wait_time = 0;
-
-    fds_mutex *stats_mutex;
     fds_uint64_t num_ios_completed = 0;
     fds_uint64_t num_ios_dispatched = 0;
 
@@ -65,7 +56,6 @@ namespace fds {
       max_outstanding_ios = 0;
       num_pending_ios = ATOMIC_VAR_INIT(0);
       num_outstanding_ios = ATOMIC_VAR_INIT(0);
-      stats_mutex = new fds_mutex("QoSDispatcherMutex");
     }
     ~FDS_QoSDispatcher() {
       shuttingDown = true;
@@ -369,49 +359,6 @@ namespace fds {
       return err;
     }
 
-    void updateIoStats(FDS_IOType *io) {
-
-	stats_mutex->lock();
-	num_ios_completed ++;
-	if (io->io_service_time > max_svc_time) {
-		max_svc_time = io->io_service_time;
-	}
-
-	if ((io->io_service_time < min_svc_time) || (min_svc_time == 0)){
-		min_svc_time = io->io_service_time;
-	}
-
-	total_svc_time += io->io_service_time;
-
-	if (io->io_wait_time > max_wait_time) {
-		max_wait_time = io->io_wait_time;
-	}
-
-	if ((io->io_wait_time < min_wait_time) || (min_wait_time == 0)){
-		min_wait_time = io->io_wait_time;
-	}
-
-	total_wait_time += io->io_wait_time;
-
-	if (num_ios_completed % 50 == 0) {
-	  FDS_PLOG(qda_log) << "Dispatcher: IO svc time stats: (min-"
-			    << min_svc_time << ", max-" << max_svc_time
-			    << ", avg-" << (total_svc_time/50)
-			    << "): IO wait time stats: (min-"
-			    << min_wait_time << ", max-" << max_wait_time
-			    << ", avg-" << (total_wait_time/50) << ")";
-	  min_svc_time = max_svc_time = 0;
-	  total_svc_time = 0;
-	  min_wait_time = max_wait_time = 0;
-	  total_wait_time = 0;
-
-	}
-
-	stats_mutex->unlock();
-
-    }
-
-
     virtual Error markIODone(FDS_IOType *io) {
       Error err(ERR_OK);
 
@@ -443,7 +390,6 @@ namespace fds {
 			<< " usecs. # of outstanding ios = " << n_oios-1
                         << " queue size " << count(io->io_vol_id);
 
-      // updateIoStats(io);
       return err;
     }
     

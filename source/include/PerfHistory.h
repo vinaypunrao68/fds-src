@@ -6,6 +6,7 @@
 #define SOURCE_INCLUDE_PERFHISTORY_H_
 
 #include <string>
+#include <vector>
 #include <unordered_map>
 
 #include <fds_types.h>
@@ -71,6 +72,7 @@ typedef std::unordered_map<FdsStatType, GenericCounter, FdsStatHash> counter_map
 class StatSlot: public serialize::Serializable {
   public:
     StatSlot();
+    StatSlot(const StatSlot& slot);
     ~StatSlot();
 
     /**
@@ -193,6 +195,7 @@ class VolumePerfHistory {
      */
     Error mergeSlots(const fpi::VolStatList& fdsp_volstats,
                      fds_uint64_t fdsp_start_ts);
+    void mergeSlots(const std::vector<StatSlot>& stat_list);
 
     /**
      * Copies history into FDSP volume stat list; only timestamps that are
@@ -202,6 +205,16 @@ class VolumePerfHistory {
      */
     fds_uint64_t toFdspPayload(fpi::VolStatList& fdsp_volstats,
                                fds_uint64_t last_rel_sec) const;
+
+    /**
+     * Copies history in StatSlot array, where index 0 constains the
+     * earliest timestamp copied. Only timestamps that are greater than
+     * last_rel_sec are copied
+     * @param[in] last_rel_sec is a relative timestamp in seconds
+     * @return last timestamp copied into stat_list
+     */
+    fds_uint64_t toSlotList(std::vector<StatSlot>& stat_list,
+                            fds_uint64_t last_rel_sec) const;
 
     friend std::ostream& operator<< (std::ostream &out,
                                      const VolumePerfHistory& hist);

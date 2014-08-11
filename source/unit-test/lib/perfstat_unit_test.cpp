@@ -3,21 +3,26 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <PerfStats.h>
+#include <fds_typedefs.h>
+#include <fdsp/fds_service_types.h>
+#include <util/timeutils.h>
+#include <fds_process.h>
+#include <PerfHistory.h>
+#include <lib/StatsCollector.h>
 
 namespace fds {
 
-boost::posix_time::ptime wait_next_io(const boost::posix_time::ptime& now, 
-                                      const boost::posix_time::ptime& next_io, long iotime)
+//
+// all times are in nanoseconds
+//
+fds_uint64_t wait_next_io(fds_uint64_t now, fds_uint64_t next_io, long iotime)
 {
-  boost::posix_time::ptime  ret_next_io;
-  boost::posix_time::time_duration delay = next_io - now;
-  long long delay_microsec = delay.total_microseconds();
-  if (delay_microsec > 0) {
-      boost::this_thread::sleep(boost::posix_time::microseconds(delay_microsec));
-  }  
-  ret_next_io = next_io + boost::posix_time::microseconds(iotime);
-  return ret_next_io;    
+    fds_uint64_t delay_micro = 0;
+    if (next_io > now) delay_micro = (next_io - now) / 1000;
+    if (delay_micro > 0) {
+        boost::this_thread::sleep(boost::posix_time::microseconds(delay_micro));
+    }
+    return (next_io + iotime*1000);
 }
 
 
@@ -25,72 +30,114 @@ int runMultivolTest(int slots, int sec_in_slot)
 {
   Error err(ERR_OK);
   long iotime;
-  boost::posix_time::ptime next_io;
+  fds_uint64_t next_io;
+  fds_uint64_t nanos_in_sec = 1000000000;
+  fds_uint64_t nanos_in_micro = 1000;
 
-  PerfStats* stats = new PerfStats(std::string("perf_test"), sec_in_slot);
-  if (!stats) {
-    std::cout << "Failed to create PerfStats object" << std::endl;
-    return -1;
-  }
+  StatsCollector* stats = StatsCollector::statsCollectSingleton();
+  stats->enableQosStats("AM");
 
-  err = stats->enable();
-  if (!err.ok()) {
-    std::cout << "Failed to enable PerfStats" << std::endl;
-    return -1;
-  }
-  /* enabling stats second time should not fail */
-  err = stats->enable();
-  if (!err.ok()) {
-    std::cout << "Error (" << err.GetErrstr() <<")  when enabling perf stats second time" << std::endl;
-    return -1;
-  }
-
-  std::cout << "Next 10 seconds, volume 1 =  500 IOPS " << std::endl;
-  boost::posix_time::ptime now = boost::posix_time::microsec_clock::universal_time();
-  boost::posix_time::ptime end_time = now + boost::posix_time::seconds(10);
+  std::cout << "Next 10 seconds, volume 1 =  200 IOPS " << std::endl;
+  fds_uint64_t now = util::getTimeStampNanos();
+  fds_uint64_t end_time = now + 10 * nanos_in_sec;
   iotime = 2000;
-  next_io = now + boost::posix_time::microseconds(iotime);
+  next_io = now + iotime * nanos_in_micro;
   while (now < end_time) {
-      stats->recordIO(1, 50);
+      stats->recordEvent(1, now, STAT_AM_PUT_OBJ, 50);
       next_io = wait_next_io(now, next_io, iotime);
-      now = boost::posix_time::microsec_clock::universal_time();
+      now = util::getTimeStampNanos();
  }
 
   std::cout << "Next 10 seconds, volume 2 = 200IOPS" << std::endl;
-  now = boost::posix_time::microsec_clock::universal_time();
-  end_time = now + boost::posix_time::seconds(10);
+  now = util::getTimeStampNanos();
+  end_time = now + 10 * nanos_in_sec;
   iotime = 5000;
-  next_io = now + boost::posix_time::microseconds(iotime);
+  next_io = now + iotime * nanos_in_micro;
   while (now < end_time) {
-      stats->recordIO(2, 20);
+      stats->recordEvent(2, now, STAT_AM_PUT_OBJ, 20);
       next_io = wait_next_io(now, next_io, iotime);
-      now = boost::posix_time::microsec_clock::universal_time();
+      now = util::getTimeStampNanos();
   }
 
   std::cout << "Next 10 seconds, volumes 1 and 2  doing 1000 IOPS" << std::endl;
-  now = boost::posix_time::microsec_clock::universal_time();
-  end_time = now + boost::posix_time::seconds(10);
+  now = util::getTimeStampNanos();
+  end_time = now + 10 * nanos_in_sec;
   iotime = 1000;
-  next_io = now + boost::posix_time::microseconds(iotime);
+  next_io = now + iotime * nanos_in_micro;
   while (now < end_time) {
-      stats->recordIO(1, 33);
-      stats->recordIO(2, 55);
+      stats->recordEvent(1, now, STAT_AM_PUT_OBJ, 33);
+      stats->recordEvent(2, now, STAT_AM_PUT_OBJ, 55);
       next_io = wait_next_io(now, next_io, iotime);
-      now = boost::posix_time::microsec_clock::universal_time();
+      now = util::getTimeStampNanos();
   }
 
   std::cout << "100 volumes, each doing iops with no sleep" << std::endl;
-  now = boost::posix_time::microsec_clock::universal_time();
-  end_time = now + boost::posix_time::seconds(10);
+  now = util::getTimeStampNanos();
+  end_time = now + 10 * nanos_in_sec;
   while (now < end_time) {
      for (int i = 0; i < 1000; i++) {
-        stats->recordIO(100+i, 10);
+         stats->recordEvent(100+i, now, STAT_AM_PUT_OBJ, 10);
      }
-     now = boost::posix_time::microsec_clock::universal_time();
+     now = util::getTimeStampNanos();
   } 
 
   return 0;
 } 
+
+
+void printSlot(const std::string& name,
+               FdsStatType evt,
+               const StatSlot& slot) {
+    std::cout << name << " Ev/sec " << slot.getEventsPerSec(evt) << " total "
+              << slot.getTotal(evt) << " average " << slot.getAverage(evt)
+              << std::endl;
+}
+
+int statSlotTest(int sec_in_slot)
+{
+    fds_uint64_t rel_sec = 0;
+    StatSlot slot;
+    slot.reset(rel_sec, sec_in_slot);
+
+    // add couple of counters
+    GenericCounter c1, c2;
+    fds_uint32_t cnt = 10;
+    for (fds_uint32_t i = 0; i < cnt; ++i) {
+        c1.add(5);
+        c2.add(i+1);
+    }
+
+    std::cout << "Reading counters directly "
+              << "c1: " << c1 << " average = " << c1.average()
+              << "; c2: " << c2 << " average = " << c2.average() << std::endl;
+
+    // add to slot
+    slot.add(STAT_AM_PUT_OBJ, c1);
+    slot.add(STAT_AM_GET_OBJ, c2);
+
+    std::cout << slot << std::endl;
+    printSlot("PUT_IO", STAT_AM_PUT_OBJ, slot);
+    printSlot("GET_IO", STAT_AM_GET_OBJ, slot);
+
+    // new slot
+    StatSlot newslot;
+    newslot.reset(rel_sec, sec_in_slot);
+    for (fds_uint32_t i = 0; i < cnt; ++i) {
+        newslot.add(STAT_AM_PUT_OBJ, 5);
+        newslot.add(STAT_AM_GET_OBJ, i+1);
+    }
+    std::cout << newslot << std::endl;
+    printSlot("PUT_IO", STAT_AM_PUT_OBJ, newslot);
+    printSlot("GET_IO", STAT_AM_GET_OBJ, newslot);
+
+    // add old and new slot
+    newslot += slot;
+    std::cout << "Sum of old and new slot " << newslot << std::endl;
+    printSlot("PUT_IO", STAT_AM_PUT_OBJ, newslot);
+    printSlot("GET_IO", STAT_AM_GET_OBJ, newslot);
+
+    return 0;
+}
 
 int runUnitTest(int slots, int sec_in_slot)
 {
@@ -101,102 +148,163 @@ int runUnitTest(int slots, int sec_in_slot)
     return -1;
   }
 
-  StatHistory *hist = new StatHistory(0, slots, sec_in_slot);
+  fds_uint64_t start_time = util::getTimeStampNanos();
+  fds_uint64_t sec_in_slot64 = sec_in_slot;
+  fds_uint64_t nanos_in_slot = sec_in_slot64 * 1000000000;
+  VolumePerfHistory *hist = new VolumePerfHistory(1, start_time,
+                                                  slots, sec_in_slot);
   if (!hist) {
-    std::cout << "Failed to create StatHistory" << std::endl;
+    std::cout << "Failed to create VolumePerfHistory" << std::endl;
     return -1;
   }  
-  boost::posix_time::ptime start_time = boost::posix_time::second_clock::universal_time();
   long rel_seconds = 0;
-  statfile << "Using history with " << slots << " slots, each slot is " << sec_in_slot << " second(s)";
+  statfile << "Using history with " << slots << " slots, each slot is "
+           << sec_in_slot << " second(s)" << std::endl;
 
-  /* test 1 -- fill 1 I/O per slot */
-  int delta = sec_in_slot;
+  // test 1 -- fill 1 I/O per slot
+  fds_uint64_t ts = start_time;
+  fds_uint64_t delta = nanos_in_slot;
   for (int i = 0; i < slots; ++i)
     {
-      hist->addIo(rel_seconds, 200);
-      rel_seconds += delta;
+        hist->recordEvent(ts, STAT_AM_PUT_OBJ, 200);
+        ts += delta;
     }
 
-  statfile <<"Expecting " << slots-1 << " stats, each 1 IOPS and 200microsec latency" << std::endl;
-  hist->print(statfile, boost::posix_time::microsec_clock::local_time());
+  statfile << "Expecting " << slots-1
+           << " stats, each 1 IOPS and 200 microsec latency" << std::endl;
+  statfile << *hist << std::endl;
 
   /* test 2 -- fill every other slot, 2 IOs per slot */
-  rel_seconds += sec_in_slot; //offset 
-  delta = 2*sec_in_slot;
+  ts += nanos_in_slot;
+  delta = 2 * nanos_in_slot;
   for (int i = 0; i < slots; ++i)
     {
-      hist->addIo(rel_seconds, 400);
-      hist->addIo(rel_seconds, 200);
-      rel_seconds += delta;
+        hist->recordEvent(ts, STAT_AM_PUT_OBJ, 400);
+        hist->recordEvent(ts, STAT_AM_PUT_OBJ, 200);
+        ts += delta;
     }
 
-  statfile << "Expecting " << slots-1 << " stats, every other slot is filled with 2 IOs and 300 microsec lat" << std::endl;
-  hist->print(statfile, boost::posix_time::microsec_clock::local_time());
+  statfile << "Expecting " << slots-1
+           << " stats, every other slot is filled with 2 IOs and 300 micros lat"
+           << std::endl;
+  statfile << *hist << std::endl;
 
   /* test 3 -- fill slots with time intervals longer than history */
-  rel_seconds += sec_in_slot;
-  delta = (slots-2)*sec_in_slot;
+  ts += nanos_in_slot;
+  delta = (slots-2) * nanos_in_slot;
   for (int i = 0; i < 5; ++i)
     {
-      hist->addIo(rel_seconds, 999);
-      rel_seconds += delta;
+        hist->recordEvent(ts, STAT_AM_PUT_OBJ, 999);
+        ts += delta;
     }
-  rel_seconds += sec_in_slot;
-  hist->addIo(rel_seconds, 888); // this io will be discarded, since last slot is discarded
+  ts += nanos_in_slot;
+  hist->recordEvent(ts, STAT_AM_PUT_OBJ, 888);   // this last slot will be discarded
 
-  statfile << "Expecting " << slots-1 << " stats, one slot is filled with 1 IO, lat = 999 microsec" << std::endl;
-  hist->print(statfile, boost::posix_time::microsec_clock::local_time());
+  statfile << "Expecting " << slots-1
+           << " stats, one slot is filled with 1 IO, lat = 999 microsec"
+           << std::endl;
+  statfile << *hist << std::endl;
 
   /* test 4 -- add IOs out of order */
-  rel_seconds += sec_in_slot;
-  delta = sec_in_slot;
-  int delta2 = slots*sec_in_slot;
+  ts += nanos_in_slot;
+  delta = nanos_in_slot;
+  int delta2 = slots * nanos_in_slot;
 
-  rel_seconds += delta;
-  rel_seconds += delta;
-  hist->addIo(rel_seconds, 500);
-  rel_seconds -= delta;
+  ts += delta;
+  ts += delta;
+  hist->recordEvent(ts, STAT_AM_PUT_OBJ, 500);
+  ts -= delta;
 
   /* add io too far in the past */
-  rel_seconds -= delta2;
-  hist->addIo(rel_seconds, 789);
-  rel_seconds += delta2;
+  ts -= delta2;
+  hist->recordEvent(ts, STAT_AM_PUT_OBJ, 789);
+  ts += delta2;
 
   /* continue adding to current history */
-  hist->addIo(rel_seconds, 300);
-  rel_seconds += delta;
-  hist->addIo(rel_seconds, 200);
-  rel_seconds += delta;
-  hist->addIo(rel_seconds, 999);
-  rel_seconds -= delta;
-  hist->addIo(rel_seconds, 300);
-  rel_seconds -= delta;
-  hist->addIo(rel_seconds, 1);
-  rel_seconds += 5*delta;
-  hist->addIo(rel_seconds, 5);
-  rel_seconds+= delta;
-  hist->addIo(rel_seconds, 6); //this will be discarded
-  statfile << "Expecting 8 stats. A portion of stats should include:" << std::endl ;
+  hist->recordEvent(ts, STAT_AM_PUT_OBJ, 300);
+  ts += delta;
+  hist->recordEvent(ts, STAT_AM_PUT_OBJ, 200);
+  ts += delta;
+  hist->recordEvent(ts, STAT_AM_PUT_OBJ, 999);
+  ts -= delta;
+  hist->recordEvent(ts, STAT_AM_PUT_OBJ, 300);
+  ts -= delta;
+  hist->recordEvent(ts, STAT_AM_PUT_OBJ, 1);
+  ts += 5*delta;
+  hist->recordEvent(ts, STAT_AM_PUT_OBJ, 5);
+  ts += delta;
+  hist->recordEvent(ts, STAT_AM_PUT_OBJ, 6);  // will be discarded
+
+  statfile << "Expecting 8 stats. A portion of stats should include:"
+           << std::endl ;
   statfile << "2 IOs, lat=150.5;  3 IOs, lat=333.33; 1 IO, lat=999" 
 	   << " then 0; 0; 1 IO, lat=5" << std::endl;
-  hist->print(statfile, boost::posix_time::microsec_clock::local_time());
+  statfile << *hist;
 
   /* test 5 -- fill in 4 IOs per second  */
-  rel_seconds += sec_in_slot;
-  delta = 1;
+  ts += nanos_in_slot;
+  delta = 1000000000;
 
   for (int i = 0; i < (slots*sec_in_slot); ++i)
     {
-      for (int k = 0; k < 4; ++k) {
-	hist->addIo(rel_seconds, 100);
+      for (int k = 0; k < 10; ++k) {
+          hist->recordEvent(ts, STAT_AM_PUT_OBJ, 100);
       }
-      rel_seconds += delta;
+      for (int k = 0; k < 40; ++k) {
+          hist->recordEvent(ts, STAT_AM_GET_OBJ, 5);
+      }
+      ts += delta;
     }
 
   statfile << "Expecting " << slots-1 << " stats, every slot is filled with "
-	   << 4*sec_in_slot << " IOs, " << "IOPS=4 lat=100" << std::endl;
-  hist->print(statfile, boost::posix_time::microsec_clock::local_time());
+	   << 4*sec_in_slot << " IOs, " << "IOPS=10 lat=100" << std::endl;
+  statfile << *hist << std::endl;
+
+  boost::posix_time::ptime now = boost::posix_time::microsec_clock::local_time();
+  hist->print(statfile, now, 0);
+
+  std::cout << "Testing converting to FDSP and back" << std::endl;
+  fpi::VolStatList fdsp_stats;
+  fds_uint64_t rel_sec = hist->toFdspPayload(fdsp_stats, 0);
+
+  fds_uint64_t recv_start_time = start_time + nanos_in_slot;
+  VolumePerfHistory *recv_hist = new VolumePerfHistory(1, recv_start_time,
+                                                       slots, sec_in_slot);
+  if (!hist) {
+    std::cout << "Failed to create VolumePerfHistory" << std::endl;
+    return -1;
+  }
+
+  Error err = recv_hist->mergeSlots(fdsp_stats, start_time);
+  statfile << "Sent history: " << *hist << std::endl;
+  statfile << "Received history: " << *recv_hist << " " << err << std::endl;
+  statfile << "Sent another history" << std::endl;
+  err = recv_hist->mergeSlots(fdsp_stats, start_time);
+  statfile << "Merged history: " << *recv_hist << " " << err << std::endl;
+
+  VolumePerfHistory::ptr snap = hist->getSnapshot();
+  statfile << "Snap history: " << *snap;
+
+
+  std::cout << "Testing converting to list of slots and back" << std::endl;
+  std::vector<StatSlot> slot_list;
+  rel_sec = hist->toSlotList(slot_list, 0);
+
+  recv_start_time = start_time + nanos_in_slot;
+  VolumePerfHistory *other_hist = new VolumePerfHistory(1, recv_start_time,
+                                                       slots, sec_in_slot);
+  if (!hist) {
+    std::cout << "Failed to create VolumePerfHistory" << std::endl;
+    return -1;
+  }
+
+  other_hist->mergeSlots(slot_list);
+  statfile << "Source history: " << *hist << std::endl;
+  statfile << "Destination history: " << *other_hist << std::endl;
+  statfile << "Add source history again" << std::endl;
+  other_hist->mergeSlots(slot_list);
+  statfile << "Merged history: " << *other_hist << std::endl;
+
 
   return 0;
 }
@@ -229,9 +337,11 @@ int main(int argc, char* argv[])
       }
     }
 
+  rc = fds::statSlotTest(sec_in_slot);
+  std::cout << "runUnitTest" << std::endl;
   rc = fds::runUnitTest(slots, sec_in_slot);
   if (rc == 0) {
-    rc = fds::runMultivolTest(slots, sec_in_slot);
+      rc = fds::runMultivolTest(slots, sec_in_slot);
   }
   if (rc == 0) {
     std::cout << "Perstat unit test PASSED" << std::endl;

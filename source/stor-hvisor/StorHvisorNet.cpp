@@ -215,9 +215,9 @@ StorHvCtrl::StorHvCtrl(int argc,
     StatsCollector::statsCollectSingleton()->registerOmClient(om_client);
     fds_bool_t print_qos_stats = config.get_abs<bool>("fds.am.testing.print_qos_stats");
     if (print_qos_stats) {
-        StatsCollector::statsCollectSingleton()->enableQosStats();
+        StatsCollector::statsCollectSingleton()->enableQosStats("AM");
     }
-    // StatsCollector::statsCollectSingleton()->startStreaming();
+    StatsCollector::statsCollectSingleton()->startStreaming(NULL);
 
     /*
      * Parse options out of config file
