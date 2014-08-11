@@ -53,8 +53,8 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     void deleteVolume(const std::string& domainName, const std::string& volumeName) {}  //NOLINT
     void statVolume(VolumeDescriptor& _return, const std::string& domainName, const std::string& volumeName) {}  //NOLINT
     void listVolumes(std::vector<VolumeDescriptor> & _return, const std::string& domainName) {}  //NOLINT
-    void registerStream(fpi::registration& _return, const std::string& url, const std::string& http_method, const std::vector<std::string> & volume_names, const int32_t sample_freq_seconds, const int32_t duration_seconds) {} //NOLINT
-    void getStreamRegistrations(std::vector<fpi::registration> & _return, const int32_t thrift_sucks) {} //NOLINT
+    int32_t registerStream(const std::string& url, const std::string& http_method, const std::vector<std::string> & volume_names, const int32_t sample_freq_seconds, const int32_t duration_seconds) { return 0;} //NOLINT
+    void getStreamRegistrations(std::vector<StreamingRegistrationMsg> & _return, const int32_t ignore) {} //NOLINT
     void deregisterStream(const int32_t registration_id) {}
 
     // stubs to keep cpp compiler happy - END
@@ -124,15 +124,16 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
             });
     }
 
-    void registerStream(fpi::registration& _return,
-                      boost::shared_ptr<std::string>& url,
-                      boost::shared_ptr<std::string>& http_method,
-                      boost::shared_ptr<std::vector<std::string> >& volume_names,
-                      boost::shared_ptr<int32_t>& sample_freq_seconds,
-                      boost::shared_ptr<int32_t>& duration_seconds) {
+    int32_t registerStream(boost::shared_ptr<std::string>& url,
+                           boost::shared_ptr<std::string>& http_method,
+                           boost::shared_ptr<std::vector<std::string> >& volume_names,
+                           boost::shared_ptr<int32_t>& sample_freq_seconds,
+                           boost::shared_ptr<int32_t>& duration_seconds) {
+        return 0;
     }
 
-    void getStreamRegistrations(std::vector<fpi::registration> & _return, boost::shared_ptr<int32_t>& thrift_sucks) { //NOLINT
+    void getStreamRegistrations(std::vector<fpi::StreamingRegistrationMsg> & _return,
+                                boost::shared_ptr<int32_t>& ignore) { //NOLINT
     }
 
     void deregisterStream(boost::shared_ptr<int32_t>& registration_id) {
