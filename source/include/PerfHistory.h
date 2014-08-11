@@ -237,7 +237,7 @@ class VolumePerfHistory {
      */
     fds_uint64_t print(std::ofstream& dumpFile,
                        boost::posix_time::ptime curts,
-                       fds_uint64_t last_rel_sec) const;
+                       fds_uint64_t last_rel_sec);
 
     VolumePerfHistory::ptr getSnapshot();
     inline fds_uint64_t getTimestamp(fds_uint64_t rel_seconds) const {

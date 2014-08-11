@@ -497,6 +497,14 @@ fds_uint32_t VolumePerfHistory::useSlotLockHeld(fds_uint64_t rel_seconds) {
 fds_uint64_t VolumePerfHistory::toSlotList(std::vector<StatSlot>& stat_list,
                                            fds_uint64_t last_rel_sec,
                                            fds_uint32_t last_seconds_to_ignore) {
+    // ensure last_slot_num_ is up to date
+    // important because if IO stopped and history was not updated
+    // the last slot before idle period will be lost
+    fds_uint64_t rel_seconds = tsToRelativeSec(util::getTimeStampNanos());
+    write_synchronized(stat_lock_) {
+        fds_uint32_t index = useSlotLockHeld(rel_seconds);
+    }
+
     SCOPEDREAD(stat_lock_);
     fds_uint32_t endix = last_slot_num_ % nslots_;
     fds_uint32_t startix = (endix + 1) % nslots_;  // index of oldest slot
@@ -534,6 +542,14 @@ fds_uint64_t VolumePerfHistory::toSlotList(std::vector<StatSlot>& stat_list,
 
 fds_uint64_t VolumePerfHistory::toFdspPayload(fpi::VolStatList& fdsp_volstat,
                                               fds_uint64_t last_rel_sec) {
+    // ensure last_slot_num_ is up to date
+    // important because if IO stopped and history was not updated
+    // the last slot before idle period will be lost
+    fds_uint64_t rel_seconds = tsToRelativeSec(util::getTimeStampNanos());
+    write_synchronized(stat_lock_) {
+        fds_uint32_t index = useSlotLockHeld(rel_seconds);
+    }
+
     SCOPEDREAD(stat_lock_);
     fds_uint32_t endix = last_slot_num_ % nslots_;
     fds_uint32_t startix = (endix + 1) % nslots_;  // index of oldest slot
@@ -570,7 +586,15 @@ fds_uint64_t VolumePerfHistory::toFdspPayload(fpi::VolStatList& fdsp_volstat,
 //
 fds_uint64_t VolumePerfHistory::print(std::ofstream& dumpFile,
                                       boost::posix_time::ptime curts,
-                                      fds_uint64_t last_rel_sec) const {
+                                      fds_uint64_t last_rel_sec) {
+    // ensure last_slot_num_ is up to date
+    // important because if IO stopped and history was not updated
+    // the last slot before idle period will never printed
+    fds_uint64_t rel_seconds = tsToRelativeSec(util::getTimeStampNanos());
+    write_synchronized(stat_lock_) {
+        fds_uint32_t index = useSlotLockHeld(rel_seconds);
+    }
+
     fds_uint32_t endix = last_slot_num_ % nslots_;
     fds_uint32_t startix = (endix + 1) % nslots_;  // ind of oldest slot
     fds_uint32_t ix = startix;
