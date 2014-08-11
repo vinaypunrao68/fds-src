@@ -172,12 +172,12 @@ Error StatStreamAggregator::detachVolume(fds_volid_t volume_id) {
     return err;
 }
 
-Error StatStreamAggregator::registerStream(fpi::StreamingRegistrationMsgPtr registration) {
+Error StatStreamAggregator::registerStream(fpi::StatStreamRegistrationMsgPtr registration) {
     Error err(ERR_OK);
     LOGDEBUG << "Adding streaming registration with id " << registration->id;
 
-    SCOPEDWRITE(lockStreamingRegsMap);
-    streamingRegistrations_[registration->id] = registration;
+    SCOPEDWRITE(lockStatStreamRegsMap);
+    statStreamRegistrations_[registration->id] = registration;
     return err;
 }
 
@@ -185,8 +185,8 @@ Error StatStreamAggregator::deregisterStream(fds_uint32_t reg_id) {
     Error err(ERR_OK);
     LOGDEBUG << "Removing streaming registration with id " << reg_id;
 
-    SCOPEDWRITE(lockStreamingRegsMap);
-    streamingRegistrations_.erase(reg_id);
+    SCOPEDWRITE(lockStatStreamRegsMap);
+    statStreamRegistrations_.erase(reg_id);
     return err;
 }
 

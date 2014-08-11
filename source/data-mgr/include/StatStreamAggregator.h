@@ -101,8 +101,8 @@ class StatHelper {
  */
 class StatStreamAggregator : public Module {
   public:
-    typedef std::unordered_map<fds_uint32_t, fpi::StreamingRegistrationMsgPtr>
-            StreamingRegistrationMap_t;
+    typedef std::unordered_map<fds_uint32_t, fpi::StatStreamRegistrationMsgPtr>
+            StatStreamRegistrationMap_t;
 
     explicit StatStreamAggregator(char const *const name);
     ~StatStreamAggregator();
@@ -134,9 +134,9 @@ class StatStreamAggregator : public Module {
     /**
      * Starts pushing of stats for a given set of volumes, with given
      * frequency
-     * @param[in] registration Streaming registration
+     * @param[in] Streaming registration
      */
-    Error registerStream(fpi::StreamingRegistrationMsgPtr registration);
+    Error registerStream(fpi::StatStreamRegistrationMsgPtr registration);
 
     /**
      * Stop pushing stats for stat stream 'reg_id'
@@ -188,8 +188,8 @@ class StatStreamAggregator : public Module {
 
     fds_uint64_t start_time_;  // timestamps in histories are relative to this time
 
-    StreamingRegistrationMap_t streamingRegistrations_;
-    fds_rwlock lockStreamingRegsMap;
+    StatStreamRegistrationMap_t statStreamRegistrations_;
+    fds_rwlock lockStatStreamRegsMap;
 };
 }  // namespace fds
 
