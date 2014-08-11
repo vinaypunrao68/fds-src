@@ -32,11 +32,11 @@ needed_packages=(
     ragel
     ccache
 
-    libboost-log1.54-dev
-    libboost-program-options1.54-dev
-    libboost-timer1.54-dev
-    libboost-thread1.54-dev
-    libboost-regex1.54-dev
+    libboost-log1.55-dev
+    libboost-program-options1.55-dev
+    libboost-timer1.55-dev
+    libboost-thread1.55-dev
+    libboost-regex1.55-dev
 
     fds-pkghelper
     fds-pkg
