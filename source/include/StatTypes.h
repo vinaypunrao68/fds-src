@@ -11,6 +11,14 @@
 
 namespace fds {
 
+/**
+ * Defaults (later could be configurable) for
+ * sampling and pushing stats from individual modules to
+ * an aggregator.
+ */
+#define FdsStatPeriodSec         60
+#define FdsStatPushPeriodSec     180
+
 typedef enum {
     STAT_AM_GET_OBJ,
     STAT_AM_PUT_OBJ,
@@ -24,6 +32,12 @@ typedef enum {
     STAT_SM_GET_SSD,
     STAT_SM_PUT_SSD,
     STAT_SM_CUR_DEDUP_BYTES,
+
+    STAT_DM_BYTES_ADDED,
+    STAT_DM_BYTES_REMOVED,
+    STAT_DM_CUR_TOTAL_BYTES,
+    STAT_DM_CUR_TOTAL_OBJECTS,
+    STAT_DM_CUR_TOTAL_BLOBS,
 
     STAT_MAX_TYPE  // last entry in the enum
 } FdsStatType;

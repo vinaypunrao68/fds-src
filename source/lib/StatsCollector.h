@@ -17,6 +17,13 @@ namespace fds {
  */
 typedef std::function<void (fds_uint64_t timestamp)> record_svc_stats_t;
 
+/**
+ * A callback that will stream stats to an aggregator which is local to
+ * this module (instead of sending thrift message over network)
+ */
+typedef std::function<void (fds_uint64_t start_timestamp,
+                            fds_volid_t volume_id,
+                            const std::vector<StatSlot>& slots)> stream_svc_stats_t;
 
 /**
  * Per-module collector of systems stats (that are always collected),
@@ -48,7 +55,7 @@ class StatsCollector : public boost::noncopyable {
                    fds_uint32_t qos_sampling_freq = 1);
     ~StatsCollector();
 
-    static StatsCollector* statsCollectSingleton();
+    static StatsCollector* singleton();
 
     /**
      * This is temporary until service layer can provide us
@@ -65,7 +72,8 @@ class StatsCollector : public boost::noncopyable {
      * such as deduped bytes per volume in SM. If a service does not do any
      * service specific sampling, pass NULL.
      */
-    void startStreaming(record_svc_stats_t record_stats_cb);
+    void startStreaming(record_svc_stats_t record_stats_cb,
+                        stream_svc_stats_t stream_stats_cb);
     void stopStreaming();
     fds_bool_t isStreaming() const;
 
@@ -147,6 +155,7 @@ class StatsCollector : public boost::noncopyable {
      */
     FdsTimerPtr pushTimer;
     FdsTimerTaskPtr pushTimerTask;
+    stream_svc_stats_t stream_stats_cb_;  // if streaming to same module
 
     /**
      * Timer and callback for a service to do any

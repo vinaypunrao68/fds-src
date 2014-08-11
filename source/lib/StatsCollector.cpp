@@ -3,13 +3,14 @@
  */
 
 #include <string>
+#include <vector>
 #include <net/SvcRequestPool.h>
 #include <StatsCollector.h>
 
 namespace fds {
 
-StatsCollector glStatsCollector(180, 60, 1);
-
+StatsCollector glStatsCollector(FdsStatPushPeriodSec,
+                                FdsStatPeriodSec, 1);
 
 class CollectorTimerTask : public FdsTimerTask {
   public:
@@ -68,6 +69,7 @@ StatsCollector::StatsCollector(fds_uint32_t push_sec,
 
     om_client_ = NULL;
     record_stats_cb_ = NULL;
+    stream_stats_cb_ = NULL;
 }
 
 void StatsCollector::openQosFile(const std::string& name) {
@@ -113,7 +115,7 @@ StatsCollector::~StatsCollector() {
     stat_hist_map_.clear();
 }
 
-StatsCollector* StatsCollector::statsCollectSingleton() {
+StatsCollector* StatsCollector::singleton() {
     return &glStatsCollector;
 }
 
@@ -121,11 +123,12 @@ void StatsCollector::registerOmClient(OMgrClient* omclient) {
     om_client_ = omclient;
 }
 
-void StatsCollector::startStreaming(record_svc_stats_t record_stats_cb) {
+void StatsCollector::startStreaming(record_svc_stats_t record_stats_cb,
+                                    stream_svc_stats_t stream_stats_cb) {
     fds_bool_t was_enabled = atomic_exchange(&stream_enabled_, true);
     if (!was_enabled) {
         LOGDEBUG << "Start pushing stats to DMs: Start time " << start_time_;
-
+        stream_stats_cb_ = stream_stats_cb;
         // start periodic timer to push stats to primary DM
         fds_bool_t ret = pushTimer->scheduleRepeated(pushTimerTask,
                                                      std::chrono::seconds(push_interval_));
@@ -156,6 +159,7 @@ void StatsCollector::stopStreaming() {
         if (record_stats_cb_) {
             sampleTimer->cancel(sampleTimerTask);
             record_stats_cb_ = NULL;
+            stream_stats_cb_ = NULL;
         }
     }
 }
@@ -220,6 +224,14 @@ void StatsCollector::recordEvent(fds_volid_t volume_id,
             if (isQosStatsEnabled()) {
                 getQosHistory(volume_id)->recordEvent(timestamp,
                                                       event_type, value);
+            }
+            break;
+        case STAT_DM_CUR_TOTAL_BYTES:
+        case STAT_DM_CUR_TOTAL_OBJECTS:
+        case STAT_DM_CUR_TOTAL_BLOBS:
+            if (isStreaming()) {
+                getStatHistory(volume_id)->recordEvent(timestamp,
+                                                       event_type, value);
             }
             break;
         default:
@@ -337,6 +349,27 @@ void StatsCollector::sendStatStream() {
         for (cit = stat_hist_map_.cbegin(); cit != stat_hist_map_.cend(); ++cit) {
             snap_map[cit->first] = (cit->second)->getSnapshot();
         }
+    }
+
+    // if stream_stats_cb_ callback is provided, then this is a primary DM
+    // and we will stream directly using the callback
+    // TODO(Anna) the assumption here is that DM only collect stats that
+    // needs to be collected on primary DM, so streaming is also to a local
+    // module. If we need to collect any stats on secondary DMs as well, this
+    // method needs to be extended to stream to both local and remote DM
+    if (stream_stats_cb_) {
+        for (cit = snap_map.cbegin(); cit != snap_map.cend(); ++cit) {
+            if (last_ts_smap_.count(cit->first) == 0) {
+                last_ts_smap_[cit->first] = 0;
+            }
+            fds_uint64_t last_rel_sec = last_ts_smap_[cit->first];
+            std::vector<StatSlot> slot_list;
+            last_rel_sec = cit->second->toSlotList(slot_list, last_rel_sec);
+            last_ts_smap_[cit->first] = last_rel_sec;
+            // send to local stats aggregator
+            stream_stats_cb_(start_time_, cit->first, slot_list);
+        }
+        return;
     }
 
     // send to primary DMs

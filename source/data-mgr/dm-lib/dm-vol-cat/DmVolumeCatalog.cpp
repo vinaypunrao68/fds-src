@@ -236,6 +236,7 @@ Error DmVolumeCatalog::getVolumeMeta(fds_volid_t volume_id,
         if (volDetailsMap_.end() != iter) {
             *size = iter->second->size;
             *blob_count = iter->second->blobCount;
+            *object_count = iter->second->objectCount;
             return err;
         }
     }

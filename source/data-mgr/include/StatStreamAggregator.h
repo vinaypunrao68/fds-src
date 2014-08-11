@@ -5,6 +5,7 @@
 #define SOURCE_DATA_MGR_INCLUDE_STATSTREAMAGGREGATOR_H_
 
 #include <string>
+#include <vector>
 #include <unordered_map>
 
 #include <util/Log.h>
@@ -53,6 +54,35 @@ class VolumeStats {
      * TODO(xxx) add log file here, and timer to
      * log stat history for this volume
      */
+
+    /**
+     * Called periodically to process fine-grain stats:
+     *  -- log to 1-min file
+     *  -- add stats to coarse grain history
+     *  -- log to 1-hour file if 1-hour worth of stats are ready
+     */
+    void processStats();
+
+  private:
+    fds_volid_t volid_;  // volume id
+    /**
+     * Timer to process fine-grain stats
+     */
+    FdsTimerPtr process_tm_;
+    FdsTimerTaskPtr process_tm_task_;
+    fds_uint32_t tmperiod_sec_;
+    fds_uint64_t last_print_ts_;
+};
+
+class StatHelper {
+  public:
+    static fds_uint64_t getTotalPuts(const StatSlot& slot);
+    static fds_uint64_t getTotalGets(const StatSlot& slot);
+    static fds_uint64_t getTotalLogicalBytes(const StatSlot& slot);
+    static fds_uint64_t getTotalBlobs(const StatSlot& slot);
+    static fds_uint64_t getTotalObjects(const StatSlot& slot);
+    static double getAverageBytesInBlob(const StatSlot& slot);
+    static double getAverageObjectsInBlob(const StatSlot& slot);
 };
 
 /**
@@ -120,6 +150,17 @@ class StatStreamAggregator : public Module {
      * of histories for one of more volumes
      */
     Error handleModuleStatStream(const fpi::StatStreamMsgPtr& stream_msg);
+
+    /**
+     * Handle stat stream of a given volume from a local module
+     * @param[in] start_timestamp is the timestamp of this volume's stream
+     * all timestamps in slots vector are relative to start_timestamp
+     * @param[in] volume_id volume id
+     * @param[in] slots is a stat history of this volume
+     */
+    void handleModuleStatStream(fds_uint64_t start_timestamp,
+                                fds_volid_t volume_id,
+                                const std::vector<StatSlot>& slots);
 
   private:  // methods
     VolumeStats::ptr getVolumeStats(fds_volid_t volid);

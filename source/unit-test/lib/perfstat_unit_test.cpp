@@ -34,7 +34,7 @@ int runMultivolTest(int slots, int sec_in_slot)
   fds_uint64_t nanos_in_sec = 1000000000;
   fds_uint64_t nanos_in_micro = 1000;
 
-  StatsCollector* stats = StatsCollector::statsCollectSingleton();
+  StatsCollector* stats = StatsCollector::singleton();
   stats->enableQosStats("AM");
 
   std::cout << "Next 10 seconds, volume 1 =  200 IOPS " << std::endl;
@@ -298,11 +298,11 @@ int runUnitTest(int slots, int sec_in_slot)
     return -1;
   }
 
-  other_hist->mergeSlots(slot_list);
+  other_hist->mergeSlots(slot_list, start_time);
   statfile << "Source history: " << *hist << std::endl;
   statfile << "Destination history: " << *other_hist << std::endl;
   statfile << "Add source history again" << std::endl;
-  other_hist->mergeSlots(slot_list);
+  other_hist->mergeSlots(slot_list, start_time);
   statfile << "Merged history: " << *other_hist << std::endl;
 
 

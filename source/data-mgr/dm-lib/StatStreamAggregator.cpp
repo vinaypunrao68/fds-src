@@ -2,29 +2,95 @@
  * Copyright 2014 Formation Data Systems, Inc.
  */
 #include <string>
+#include <vector>
 #include <fds_process.h>
 #include <net/net-service.h>
 #include <StatStreamAggregator.h>
 
 namespace fds {
 
+class VolStatsTimerTask : public FdsTimerTask {
+  public:
+    VolumeStats* volstats_;
+
+    VolStatsTimerTask(FdsTimer &timer,
+                      VolumeStats* volstats)
+            : FdsTimerTask(timer)
+    {
+        volstats_ = volstats;
+    }
+    ~VolStatsTimerTask() {}
+
+    virtual void runTimerTask() override;
+};
+
+
 VolumeStats::VolumeStats(fds_volid_t volume_id,
                          fds_uint64_t start_time,
                          fds_uint32_t finestat_slots,
                          fds_uint32_t finestat_slotsec)
-        : finegrain_hist_(new VolumePerfHistory(volume_id,
+        : volid_(volume_id),
+          finegrain_hist_(new VolumePerfHistory(volume_id,
                                                 start_time,
                                                 finestat_slots,
-                                                finestat_slotsec)) {
+                                                finestat_slotsec)),
+          process_tm_(new FdsTimer()),
+          process_tm_task_(new VolStatsTimerTask(*process_tm_, this)) {
+    // this is how often we process 1-min stats
+    // setting short interval for now, so we can see logging more often
+    // for debugging/demo;
+    fds_uint32_t max_tmperiod_sec = (finestat_slots - 1) * finestat_slotsec;
+    tmperiod_sec_ = 60 * 5;  // every 5 min
+    if (tmperiod_sec_ > max_tmperiod_sec) {
+        tmperiod_sec_ = max_tmperiod_sec;
+    }
+    last_print_ts_ = 0;
+
+    // start the timer
+    fds_bool_t ret = process_tm_->scheduleRepeated(process_tm_task_,
+                                                   std::chrono::seconds(tmperiod_sec_));
+    if (!ret) {
+        LOGERROR << "Failed to schedule timer for logging volume stats!";
+    }
 }
 
 VolumeStats::~VolumeStats() {
+    process_tm_->destroy();
+}
+
+void VolumeStats::processStats() {
+    LOGDEBUG << "Will log 1-min stats to file";
+    std::vector<StatSlot> slots;
+
+    // note that we are passing time interval modules push stats to the aggregator
+    // -- this is time interval back from current time that will be not included into
+    // the list of slots returned, because these slots may not be fully filled yet, eg.
+    // aggregator will receive stats from some modules but maybe not from all modules yet.
+    last_print_ts_ = finegrain_hist_->toSlotList(slots, last_print_ts_, FdsStatPushPeriodSec);
+    for (std::vector<StatSlot>::const_iterator cit = slots.cbegin();
+         cit != slots.cend();
+         ++cit) {
+        // TODO(Anna) add slot to 1 hour history
+        // debugging for now, remove when we start printing this to file
+        LOGNOTIFY << "[" << finegrain_hist_->getTimestamp((*cit).getTimestamp()) << "], "
+                  << "Volume " << std::hex << volid_ << std::dec << ", "
+                  << "Puts " << StatHelper::getTotalPuts(*cit) << ", "
+                  << "Gets " << StatHelper::getTotalGets(*cit) << ", "
+                  << "Logical bytes " << StatHelper::getTotalLogicalBytes(*cit) << ", "
+                  << "Blobs " << StatHelper::getTotalBlobs(*cit) << ", "
+                  << "Objects " << StatHelper::getTotalObjects(*cit) << ", "
+                  << "Ave blob size " << StatHelper::getAverageBytesInBlob(*cit) << " bytes, "
+                  << "Ave objects in blobs " << StatHelper::getAverageObjectsInBlob(*cit);
+    }
+
+    // log to 1-minute file
+    // if enough time passed, also log to 1hour file
 }
 
 StatStreamAggregator::StatStreamAggregator(char const *const name)
         : Module(name),
-          finestat_slotsec_(60),
-          finestat_slots_(16) {
+          finestat_slotsec_(FdsStatPeriodSec),
+          finestat_slots_(65) {
     // align timestamp to the length of finestat slot
     start_time_ = util::getTimeStampNanos();
     fds_uint64_t freq_nanos = finestat_slotsec_ * 1000000000;
@@ -135,9 +201,65 @@ StatStreamAggregator::handleModuleStatStream(const fpi::StatStreamMsgPtr& stream
         VolumeStats::ptr volstats = getVolumeStats(vstats.volume_id);
         err = (volstats->finegrain_hist_)->mergeSlots(vstats, remote_start_ts);
         fds_verify(err.ok());  // if err, prob de-serialize issue
-        LOGTRACE << *(volstats->finegrain_hist_);
+        LOGDEBUG << *(volstats->finegrain_hist_);
     }
     return err;
+}
+
+
+//
+// merge local stats for a given volume
+//
+void
+StatStreamAggregator::handleModuleStatStream(fds_uint64_t start_timestamp,
+                                             fds_volid_t volume_id,
+                                             const std::vector<StatSlot>& slots) {
+    fds_uint64_t remote_start_ts = start_timestamp;
+
+    LOGDEBUG << "Received stats for volume " << std::hex << volume_id
+             << std::dec << " timestamp " << remote_start_ts;
+
+    VolumeStats::ptr volstats = getVolumeStats(volume_id);
+    (volstats->finegrain_hist_)->mergeSlots(slots, remote_start_ts);
+    LOGDEBUG << *(volstats->finegrain_hist_);
+}
+
+fds_uint64_t StatHelper::getTotalPuts(const StatSlot& slot) {
+    return slot.getCount(STAT_AM_PUT_OBJ);
+}
+
+fds_uint64_t StatHelper::getTotalGets(const StatSlot& slot) {
+    return slot.getCount(STAT_AM_GET_OBJ);
+}
+
+fds_uint64_t StatHelper::getTotalLogicalBytes(const StatSlot& slot) {
+    return slot.getTotal(STAT_DM_CUR_TOTAL_BYTES);
+}
+
+fds_uint64_t StatHelper::getTotalBlobs(const StatSlot& slot) {
+    return slot.getTotal(STAT_DM_CUR_TOTAL_BLOBS);
+}
+
+fds_uint64_t StatHelper::getTotalObjects(const StatSlot& slot) {
+    return slot.getTotal(STAT_DM_CUR_TOTAL_OBJECTS);
+}
+
+double StatHelper::getAverageBytesInBlob(const StatSlot& slot) {
+    double tot_bytes = slot.getTotal(STAT_DM_CUR_TOTAL_BYTES);
+    double tot_blobs = slot.getTotal(STAT_DM_CUR_TOTAL_BLOBS);
+    if (tot_blobs == 0) return 0;
+    return tot_bytes / tot_blobs;
+}
+
+double StatHelper::getAverageObjectsInBlob(const StatSlot& slot) {
+    double tot_objects = slot.getTotal(STAT_DM_CUR_TOTAL_OBJECTS);
+    double tot_blobs = slot.getTotal(STAT_DM_CUR_TOTAL_BLOBS);
+    if (tot_blobs == 0) return 0;
+    return tot_objects / tot_blobs;
+}
+
+void VolStatsTimerTask::runTimerTask() {
+    volstats_->processStats();
 }
 
 }  // namespace fds
