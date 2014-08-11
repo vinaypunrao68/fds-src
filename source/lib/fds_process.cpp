@@ -315,7 +315,9 @@ void FdsProcess::setup_graphite()
     graphitePtr_.reset(new GraphiteClient(ip, port,
                                           timer_servicePtr_, cntrs_mgrPtr_));
     int period = conf_helper_.get<int>("graphite.period");
-    FDS_PLOG(g_fdslog) << "Set up graphite.  ip: " << ip << " port: " << port;
+    graphitePtr_->start(period);
+    FDS_PLOG(g_fdslog) << "Set up graphite.  ip: " << ip << " port: " << port 
+        << " period: " << period;
 }
 
 void FdsProcess::interrupt_cb(int signum)
