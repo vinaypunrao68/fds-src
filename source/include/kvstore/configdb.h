@@ -4,6 +4,10 @@
 #ifndef SOURCE_INCLUDE_KVSTORE_CONFIGDB_H_
 #define SOURCE_INCLUDE_KVSTORE_CONFIGDB_H_
 #include <unordered_set>
+#include <map>
+#include <string>
+#include <vector>
+
 #include <kvstore/kvstore.h>
 #include <platform/node-inventory.h>
 #include <fds_volume.h>
@@ -11,19 +15,18 @@
 #include <fds_dmt.h>
 
 namespace fds {
-    namespace kvstore {        
+    namespace kvstore {
         using PolicyInfo = fpi::FDSP_PolicyInfoType;
-        
         struct ConfigDB : KVStore {
             ConfigDB(const std::string& host = "localhost", uint port = 6379, uint poolsize = 10);
             virtual ~ConfigDB();
-            
+
             // domains
             std::string getGlobalDomain();
             bool setGlobalDomain(ConstString globalDomain="fds");
-            bool addLocalDomain (ConstString name="local", int localDomain = 0, int globalDomain = 0);
-            bool getLocalDomains(std::map<int,std::string>& mapDomains, int globalDomain = 0);
-            
+            bool addLocalDomain (ConstString name="local", int localDomain = 0, int globalDomain = 0); //NOLINT
+            bool getLocalDomains(std::map<int, std::string>& mapDomains, int globalDomain = 0);
+
             // volumes
             bool addVolume(const VolumeDesc& volumeDesc);
             bool updateVolume(const VolumeDesc& volumeDesc);
@@ -41,7 +44,7 @@ namespace fds {
 
             bool storeDlt(const DLT& dlt, const std::string type = "" , int localDomain = 0);
             bool getDlt(DLT& dlt, fds_uint64_t version, int localDomain = 0);
-            bool loadDlts (DLTManager& dltMgr, int localDomain = 0);
+            bool loadDlts(DLTManager& dltMgr, int localDomain = 0);
             bool storeDlts(DLTManager& dltMgr, int localDomain = 0);
 
             // dmt
@@ -62,17 +65,16 @@ namespace fds {
             bool getAllNodes(std::vector<NodeInvData>& nodes, int localDomain = 0);
             std::string getNodeName(const NodeUuid& uuid);
 
-            bool getNodeServices(const NodeUuid& uuid, NodeServices& services); 
-            bool setNodeServices(const NodeUuid& uuid, const NodeServices& services); 
+            bool getNodeServices(const NodeUuid& uuid, NodeServices& services);
+            bool setNodeServices(const NodeUuid& uuid, const NodeServices& services);
             uint getNodeNameCounter();
-            
-            // volume policies            
+
+            // volume policies
             bool getPolicy(fds_uint32_t volPolicyId, FDS_VolumePolicy& volumePolicy, int localDomain = 0); //NOLINT
             bool addPolicy(const FDS_VolumePolicy& volumePolicy, int localDomain = 0);
             bool updatePolicy(const FDS_VolumePolicy& volumePolicy, int localDomain = 0);
             bool deletePolicy(fds_uint32_t volPolicyId, int localDomain = 0);
             bool getPolicies(std::vector<FDS_VolumePolicy>& policies, int localDomain = 0);
-            
         };
     }  // namespace kvstore
 
