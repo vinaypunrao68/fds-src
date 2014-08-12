@@ -12,6 +12,9 @@ import java.util.function.Supplier;
 
 public class S3Endpoint {
     public static final String FDS_S3 = "FDS_S3";
+    public static final String FDS_S3_SYSTEM = "FDS_S3_SYSTEM";
+    public static final String FDS_S3_SYSTEM_BUCKET_NAME = FDS_S3_SYSTEM;
+
     private Xdi xdi;
     private boolean enforceAuth;
     private final WebApp webApp;
@@ -30,7 +33,8 @@ public class S3Endpoint {
         authorize(HttpMethod.HEAD, "/:bucket", () -> new HeadBucket(xdi));
 
         authorize(HttpMethod.PUT, "/:bucket/:object", () -> new PutObject(xdi));
-        authorize(HttpMethod.POST, "/:bucket", () -> new PostUploadOrDeleteMultipleObjects(xdi));
+        authorize(HttpMethod.POST, "/:bucket", () -> new PostObject(xdi));
+        authorize(HttpMethod.POST, "/:bucket/:object", () -> new PostObject(xdi));
         authorize(HttpMethod.GET, "/:bucket/:object", () -> new GetObject(xdi));
         authorize(HttpMethod.DELETE, "/:bucket/:object", () -> new DeleteObject(xdi));
 
