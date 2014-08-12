@@ -32,7 +32,6 @@ struct StreamingRegistrationMsg {
    5:i32 duration_seconds,
 }
 
-
 // OM serves this
 service StreamingConfiguration {
    i32 registerStream(

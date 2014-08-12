@@ -36,12 +36,12 @@ void initializeCounter(fds::PerfContext * ctx, fds::FdsCounters * parent,
                     std::string name) {
     fds_assert(ctx);
     fds_assert(0 == ctx->data.get());
-    GLOGDEBUG << "Creating performance counter for type='" << fds::eventTypeToStr[ctx->type]
-            << "' volid='" << ctx->volid
-            << "' name='" << ctx->name
-            << "' from type='" << fds::eventTypeToStr[type]
-            << "' volid='" << volid
-            << "' name='" << name << "' ";
+    GLOGTRACE << "Creating performance counter for type='" << fds::eventTypeToStr[ctx->type]
+              << "' volid='" << ctx->volid
+              << "' name='" << ctx->name
+              << "' from type='" << fds::eventTypeToStr[type]
+              << "' volid='" << volid
+              << "' name='" << name << "' ";
 
     std::string counterName = fds::eventTypeToStr[type];
     if (!name.empty()) {
@@ -298,9 +298,9 @@ void PerfTracer::reconfig() {
 void PerfTracer::updateCounter(PerfContext & ctx, const PerfEventType & type, 
         const uint64_t & val,  const uint64_t cnt, const fds_volid_t volid,
         const std::string name) {
-    GLOGNORMAL << "Updating performance counter for type='" << eventTypeToStr[ctx.type]
-            << "' val='" << val << "' count='" << cnt << "' name='"
-            << ctx.name << "'";
+    GLOGTRACE << "Updating performance counter for type='" << eventTypeToStr[ctx.type]
+              << "' val='" << val << "' count='" << cnt << "' name='"
+              << ctx.name << "'";
     FdsCounters * counterParent = ctx.enabled ? exportedCounters.get() : 0;
     // update counter
     if (cnt) {
@@ -434,7 +434,7 @@ void PerfTracer::decr(const PerfEventType & type, fds_volid_t volid,
 void PerfTracer::tracePointBegin(const std::string & id, 
         const PerfEventType & type, fds_volid_t volid, 
         std::string name /* = "" */) {
-    GLOGDEBUG << "Received tracePointBegin() for id='" << id << "' type='" <<
+    GLOGTRACE << "Received tracePointBegin() for id='" << id << "' type='" <<
             eventTypeToStr[type] << "' name='" << name << "'  volid='" << volid << "'";
     PerfContext * ctx = new PerfContext(type, volid, name);
     tracePointBegin(*ctx);
@@ -454,7 +454,7 @@ void PerfTracer::tracePointBegin(const std::string & id,
 }
 
 void PerfTracer::tracePointBegin(PerfContext & ctx) {
-    GLOGDEBUG << "Starting perf trace for type='" << eventTypeToStr[ctx.type] << "' name='" <<
+    GLOGTRACE << "Starting perf trace for type='" << eventTypeToStr[ctx.type] << "' name='" <<
             ctx.name << "'";
 #ifdef USE_RDTSC_TIME
     ctx.start_cycle = util::getNanosFromTicks(util::getClockTicks());
@@ -466,7 +466,7 @@ void PerfTracer::tracePointBegin(PerfContext & ctx) {
 boost::shared_ptr<PerfContext> PerfTracer::tracePointEnd(const std::string & id) {
     PerfContext * ppc = 0;
 
-    GLOGDEBUG << "Received tracePointEnd() for id='" << id << "'";
+    GLOGTRACE << "Received tracePointEnd() for id='" << id << "'";
     {
         FDSGUARD(instance().latency_map_mutex_);
 
@@ -483,7 +483,7 @@ boost::shared_ptr<PerfContext> PerfTracer::tracePointEnd(const std::string & id)
 }
 
 void PerfTracer::tracePointEnd(PerfContext & ctx) {
-    GLOGDEBUG << "Ending perf trace for type='" << eventTypeToStr[ctx.type] << "' name='" <<
+    GLOGTRACE << "Ending perf trace for type='" << eventTypeToStr[ctx.type] << "' name='" <<
             ctx.name << "'";
 #ifdef USE_RDTSC_TIME
     ctx.end_cycle = util::getNanosFromTicks(util::getClockTicks());

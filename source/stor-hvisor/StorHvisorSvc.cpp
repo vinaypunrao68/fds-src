@@ -293,14 +293,19 @@ Error StorHvCtrl::putBlobSvc(fds::AmQosReq *qosReq)
     blobReq->setObjId(objId);
 
     // Send put request to SM
-    fds::PerfTracer::tracePointBegin(blobReq->smPerfCtx); 
-    issuePutObjectMsg(blobReq->getObjId(),
-                      blobReq->getDataBuf(),
-                      blobReq->getDataLen(),
-                      volId,
-                      RESPONSE_MSG_HANDLER(StorHvCtrl::putBlobPutObjectMsgResp, qosReq));
+    fds::PerfTracer::tracePointBegin(blobReq->smPerfCtx);
+    if (fZeroSize) {
+        // If there's not object data to write, just update the
+        // SM's response ack count
+        blobReq->notifyResponse(qos_ctrl, qosReq, err);
+    } else {
+        issuePutObjectMsg(blobReq->getObjId(),
+                          blobReq->getDataBuf(),
+                          blobReq->getDataLen(),
+                          volId,
+                          RESPONSE_MSG_HANDLER(StorHvCtrl::putBlobPutObjectMsgResp, qosReq));
+    }
 
-    // updCatReq->txDesc.txId = putBlobReq->getTxId()->getValue();
     //TODO(matteo): maybe check other issueUpdateC...
     fds::PerfTracer::tracePointBegin(blobReq->dmPerfCtx);
 

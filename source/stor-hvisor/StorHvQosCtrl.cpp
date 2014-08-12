@@ -19,16 +19,11 @@ StorHvQosCtrl::StorHvQosCtrl(uint32_t max_thrds, dispatchAlgoType algo, fds_log 
         htb_dispatcher = new QoSHTBDispatcher(this, qos_log, total_rate);
      }
      storHvQosCtrl = this;
-
-     /* base class created stats, but it is disabled by default */
-     stats->enable();
 }
 
 StorHvQosCtrl::~StorHvQosCtrl() {
   htb_dispatcher->stop();
   delete htb_dispatcher;
-  if (stats)
-    stats->disable();
 }
 
 
@@ -54,40 +49,50 @@ Error StorHvQosCtrl::markIODone(FDS_IOType *io) {
   Error err(ERR_OK);
   assert(io->io_magic == FDS_SH_IO_MAGIC_IN_USE);
   io->io_magic = FDS_SH_IO_MAGIC_NOT_IN_USE;
-  // TODO(Anna) remove recordIO
-  stats->recordIO(io->io_vol_id, 0);
   htb_dispatcher->markIODone(io);
 
   switch (io->io_type) {
       case fds::FDS_IO_WRITE:
       case fds::FDS_PUT_BLOB_ONCE:
       case fds::FDS_PUT_BLOB:
-          StatsCollector::statsCollectSingleton()->recordEvent(io->io_vol_id,
-                                                               io->io_done_ts,
-                                                               STAT_AM_GET_OBJ,
-                                                               io->io_total_time);
+          StatsCollector::singleton()->recordEvent(io->io_vol_id,
+                                                   io->io_done_ts,
+                                                   STAT_AM_PUT_OBJ,
+                                                   io->io_total_time);
           break;
       case fds::FDS_IO_READ:
       case fds::FDS_GET_BLOB:
-          StatsCollector::statsCollectSingleton()->recordEvent(io->io_vol_id,
-                                                               io->io_done_ts,
-                                                               STAT_AM_PUT_OBJ,
-                                                               io->io_total_time);
+          StatsCollector::singleton()->recordEvent(io->io_vol_id,
+                                                   io->io_done_ts,
+                                                   STAT_AM_GET_OBJ,
+                                                   io->io_total_time);
+          break;
+      case fds::FDS_STAT_BLOB:
+          StatsCollector::singleton()->recordEvent(io->io_vol_id,
+                                                   io->io_done_ts,
+                                                   STAT_AM_GET_BMETA,
+                                                   io->io_total_time);
+          break;
+      case fds::FDS_SET_BLOB_METADATA:
+          StatsCollector::singleton()->recordEvent(io->io_vol_id,
+                                                   io->io_done_ts,
+                                                   STAT_AM_PUT_BMETA,
+                                                   io->io_total_time);
           break;
       default:
           ;;
   };
   fds_uint32_t queue_size = htb_dispatcher->count(io->io_vol_id);
-  if (queue_size > 1) {
-      StatsCollector::statsCollectSingleton()->recordEvent(io->io_vol_id,
-                                                           io->io_done_ts,
-                                                           STAT_AM_QUEUE_FULL,
-                                                           queue_size);
+  if (queue_size > 0) {
+      StatsCollector::singleton()->recordEvent(io->io_vol_id,
+                                               io->io_done_ts,
+                                               STAT_AM_QUEUE_FULL,
+                                               queue_size);
   }
-  StatsCollector::statsCollectSingleton()->recordEvent(io->io_vol_id,
-                                                       io->io_done_ts,
-                                                       STAT_AM_QUEUE_WAIT,
-                                                       io->io_wait_time);
+  StatsCollector::singleton()->recordEvent(io->io_vol_id,
+                                           io->io_done_ts,
+                                           STAT_AM_QUEUE_WAIT,
+                                           io->io_wait_time);
 
   delete io;
   return err;

@@ -7,6 +7,7 @@
 #include <vector>
 #include <fds_timestamp.h>
 #include <fdsp_utils.h>
+#include <lib/StatsCollector.h>
 #include <DataMgr.h>
 #include <net/net-service.h>
 #include <net/net-service-tmpl.hpp>
@@ -133,6 +134,72 @@ void DataMgr::handleStatStream(dmCatReq *io) {
 
     qosCtrl->markIODone(*io);
     statStreamReq->dmio_statstream_resp_cb(err, statStreamReq);
+}
+
+//
+// Called by stats collector to sample DM specific stats
+//
+void DataMgr::sampleDMStats(fds_uint64_t timestamp) {
+    LOGTRACE << "Sampling DM stats";
+    Error err(ERR_OK);
+    std::unordered_set<fds_volid_t> prim_vols;
+    std::unordered_set<fds_volid_t>::const_iterator cit;
+    std::unordered_map<fds_uint64_t, VolumeMeta*>::iterator vol_it;
+    fds_uint64_t total_bytes = 0;
+    fds_uint64_t total_blobs = 0;
+    fds_uint64_t total_objects = 0;
+    const NodeUuid *mySvcUuid = modProvider_->get_plf_manager()->plf_get_my_svc_uuid();
+
+    // find all volumes for which this DM is primary (we only need
+    // to collect capacity stats from DMs that are primary).
+    vol_map_mtx->lock();
+    for (vol_it = vol_meta_map.begin();
+         vol_it != vol_meta_map.end();
+         ++vol_it) {
+        DmtColumnPtr nodes = omClient->getDMTNodesForVolume(vol_it->first);
+        fds_verify(nodes->getLength() > 0);
+        if (*mySvcUuid == nodes->get(0)) {
+            prim_vols.insert(vol_it->first);
+        }
+    }
+    vol_map_mtx->unlock();
+
+    // collect capacity stats for volumes for which this DM is primary
+    for (cit = prim_vols.cbegin(); cit != prim_vols.cend(); ++cit) {
+        err = timeVolCat_->queryIface()->getVolumeMeta(*cit,
+                                                       &total_bytes,
+                                                       &total_blobs,
+                                                       &total_objects);
+        if (!err.ok()) {
+            LOGERROR << "Failed to get volume meta for vol " << std::hex
+                     << *cit << std::dec << " " << err;
+            continue;  // try other volumes
+        }
+        LOGDEBUG << "volume " << std::hex << *cit << std::dec
+                 << " bytes " << total_bytes << " blobs "
+                 << total_blobs << " objects " << total_objects;
+        StatsCollector::singleton()->recordEvent(*cit,
+                                                 timestamp,
+                                                 STAT_DM_CUR_TOTAL_BYTES,
+                                                 total_bytes);
+        StatsCollector::singleton()->recordEvent(*cit,
+                                                 timestamp,
+                                                 STAT_DM_CUR_TOTAL_BLOBS,
+                                                 total_blobs);
+        StatsCollector::singleton()->recordEvent(*cit,
+                                                 timestamp,
+                                                 STAT_DM_CUR_TOTAL_OBJECTS,
+                                                 total_objects);
+    }
+}
+
+void DataMgr::handleLocalStatStream(fds_uint64_t start_timestamp,
+                                    fds_volid_t volume_id,
+                                    const std::vector<StatSlot>& slots) {
+    LOGTRACE << "Streaming local stats to stats aggregator";
+    statStreamAggr_->handleModuleStatStream(start_timestamp,
+                                            volume_id,
+                                            slots);
 }
 
 /**
@@ -630,8 +697,19 @@ int DataMgr::mod_init(SysParams const *const param)
                                         DmTimeVolCatalog("DM Time Volume Catalog",
                                                          *qosCtrl->threadPool));
 
+    // create stats aggregator that aggregates stats for vols for which
+    // this DM is primary
     statStreamAggr_ = StatStreamAggregator::ptr(
         new StatStreamAggregator("DM Stat Stream Aggregator"));
+
+    // enable collection of local stats in DM
+    StatsCollector::singleton()->registerOmClient(omClient);
+    // since aggregator is in the same module, for stats that need to go to
+    // local aggregator, we just directly stream to aggregator (not over network)
+    StatsCollector::singleton()->startStreaming(
+        std::bind(&DataMgr::sampleDMStats, this, std::placeholders::_1),
+        std::bind(&DataMgr::handleLocalStatStream, this,
+                  std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 
     LOGNORMAL << "Completed";
     return 0;

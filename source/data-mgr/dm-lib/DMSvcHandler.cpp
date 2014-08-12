@@ -7,7 +7,7 @@
 #include <DMSvcHandler.h>
 #include <platform/fds_flags.h>
 #include <dm-platform.h>
-#include <statStreamAggregator.h>
+#include <StatStreamAggregator.h>
 
 namespace fds {
 
@@ -24,8 +24,8 @@ DMSvcHandler::DMSvcHandler()
     REGISTER_FDSP_MSG_HANDLER(fpi::GetBlobMetaDataMsg, getBlobMetaData);
     REGISTER_FDSP_MSG_HANDLER(fpi::GetVolumeMetaDataMsg, getVolumeMetaData);
     REGISTER_FDSP_MSG_HANDLER(fpi::StatStreamMsg, handleStatStream);
-    REGISTER_FDSP_MSG_HANDLER(fpi::StreamingRegistrationMsg, registerStreaming);
-    REGISTER_FDSP_MSG_HANDLER(fpi::StreamingDeregistrationMsg, deregisterStreaming);
+    REGISTER_FDSP_MSG_HANDLER(fpi::StatStreamRegistrationMsg, registerStreaming);
+    REGISTER_FDSP_MSG_HANDLER(fpi::StatStreamDeregistrationMsg, deregisterStreaming);
     /* DM to DM service messages */
     REGISTER_FDSP_MSG_HANDLER(fpi::VolSyncStateMsg, volSyncState);
     REGISTER_FDSP_MSG_HANDLER(fpi::ForwardCatalogMsg, fwdCatalogUpdateMsg);
@@ -605,35 +605,30 @@ DMSvcHandler::handleStatStreamCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
 void
 DMSvcHandler::registerStreaming(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                        boost::shared_ptr<fpi::StreamingRegistrationMsg>& streamRegstrMsg) {
+                        boost::shared_ptr<fpi::StatStreamRegistrationMsg>& streamRegstrMsg) {
     StatStreamAggregator::ptr statAggr = dataMgr->statStreamAggregator();
     fds_assert(statAggr);
+    fds_assert(streamRegstrMsg);
 
-    auto dmReq = new DmIoStreamingRegstr(streamRegstrMsg);
+    Error err = statAggr->registerStream(streamRegstrMsg);
 
-    // TODO(umesh): implement this
-}
-
-void
-DMSvcHandler::registerStreamingCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                                  fpi::StreamingRegistrationMsgPtr & message,
-                                  const Error &e, DmIoStreamingRegstr * req) {
-    // TODO(umesh): implement this
+    asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
+    fpi::StatStreamRegistrationRspMsg resp;
+    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(StatStreamRegistrationRspMsg), resp);
 }
 
 void
 DMSvcHandler::deregisterStreaming(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                        boost::shared_ptr<fpi::StreamingDeregistrationMsg>& streamDeregstrMsg) {
-    auto dmReq = new DmIoStreamingDeregstr(streamDeregstrMsg);
+                        boost::shared_ptr<fpi::StatStreamDeregistrationMsg>& streamDeregstrMsg) {
+    StatStreamAggregator::ptr statAggr = dataMgr->statStreamAggregator();
+    fds_assert(statAggr);
+    fds_assert(streamDeregstrMsg);
 
-    // TODO(umesh): implement this
-}
+    Error err = statAggr->deregisterStream(streamDeregstrMsg->id);
 
-void
-DMSvcHandler::deregisterStreamingCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                                    fpi::StreamingDeregistrationMsgPtr & message,
-                                    const Error &e, DmIoStreamingDeregstr * req) {
-    // TODO(umesh): implement this
+    asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
+    fpi::StatStreamDeregistrationRspMsg resp;
+    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(StatStreamDeregistrationRspMsg), resp);
 }
 
 }  // namespace fds

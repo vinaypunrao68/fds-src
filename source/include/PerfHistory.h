@@ -6,12 +6,14 @@
 #define SOURCE_INCLUDE_PERFHISTORY_H_
 
 #include <string>
+#include <vector>
 #include <unordered_map>
 
 #include <fds_types.h>
 #include <serialize.h>
 #include <fds_error.h>
 #include <fds_typedefs.h>
+#include <concurrency/RwLock.h>
 #include <fdsp/fds_service_types.h>
 #include <StatTypes.h>
 
@@ -71,6 +73,7 @@ typedef std::unordered_map<FdsStatType, GenericCounter, FdsStatHash> counter_map
 class StatSlot: public serialize::Serializable {
   public:
     StatSlot();
+    StatSlot(const StatSlot& slot);
     ~StatSlot();
 
     /**
@@ -108,6 +111,7 @@ class StatSlot: public serialize::Serializable {
      * total value of event 'type'
      */
     fds_uint64_t getTotal(FdsStatType type) const;
+    fds_uint64_t getCount(FdsStatType type) const;
     /**
      * total / count for event 'type'
      */
@@ -193,6 +197,8 @@ class VolumePerfHistory {
      */
     Error mergeSlots(const fpi::VolStatList& fdsp_volstats,
                      fds_uint64_t fdsp_start_ts);
+    void mergeSlots(const std::vector<StatSlot>& stat_list,
+                    fds_uint64_t remote_start_ts);
 
     /**
      * Copies history into FDSP volume stat list; only timestamps that are
@@ -201,7 +207,21 @@ class VolumePerfHistory {
      * @return last timestamp copied into FDSP volume stat list
      */
     fds_uint64_t toFdspPayload(fpi::VolStatList& fdsp_volstats,
-                               fds_uint64_t last_rel_sec) const;
+                               fds_uint64_t last_rel_sec);
+
+    /**
+     * Copies history in StatSlot array, where index 0 constains the
+     * earliest timestamp copied. Only timestamps that are greater than
+     * last_rel_sec are copied
+     * @param[in] last_rel_sec is a relative timestamp in seconds
+     * @param[in] last_seconds_to_ignore number of most recent seconds
+     * that will not be copied into the list; 0 means copy all most recent
+     * history
+     * @return last timestamp copied into stat_list
+     */
+    fds_uint64_t toSlotList(std::vector<StatSlot>& stat_list,
+                            fds_uint64_t last_rel_sec,
+                            fds_uint32_t last_seconds_to_ignore = 0);
 
     friend std::ostream& operator<< (std::ostream &out,
                                      const VolumePerfHistory& hist);
@@ -217,12 +237,15 @@ class VolumePerfHistory {
      */
     fds_uint64_t print(std::ofstream& dumpFile,
                        boost::posix_time::ptime curts,
-                       fds_uint64_t last_rel_sec) const;
+                       fds_uint64_t last_rel_sec);
 
-    VolumePerfHistory::ptr getSnapshot() const;
+    VolumePerfHistory::ptr getSnapshot();
+    inline fds_uint64_t getTimestamp(fds_uint64_t rel_seconds) const {
+        return (start_nano_ + rel_seconds * 1000000000);
+    }
 
   private:  /* methods */
-    fds_uint32_t useSlot(fds_uint64_t rel_seconds);
+    fds_uint32_t useSlotLockHeld(fds_uint64_t rel_seconds);
     inline fds_uint64_t tsToRelativeSec(fds_uint64_t tsnano) const {
         fds_verify(tsnano >= start_nano_);
         return (tsnano - start_nano_) / 1000000000;
@@ -251,6 +274,7 @@ class VolumePerfHistory {
      */
     StatSlot* stat_slots_;
     fds_uint64_t last_slot_num_;  /**< sequence number of the last slot */
+    fds_rwlock stat_lock_;  // protects stat_slots and last_slot_num
 };
 
 }  // namespace fds

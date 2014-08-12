@@ -215,8 +215,6 @@ namespace fds {
       num_pending_ios = ATOMIC_VAR_INIT(0);
       num_outstanding_ios = ATOMIC_VAR_INIT(0);
 
-      stats_mutex = new fds_mutex("QoSDispatcherMutex");
-
       num_ios_dispatched = 0;
       num_rate_based_slots_serviced = 0;
       last_reset_time = boost::posix_time::microsec_clock::universal_time();

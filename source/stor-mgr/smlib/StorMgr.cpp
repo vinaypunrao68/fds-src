@@ -1562,7 +1562,7 @@ ObjectStorMgr::relocateObject(const ObjectID &objId,
  * @return any associated error
  */
 Error
-ObjectStorMgr::putObjectInternal2(SmIoPutObjectReq *putReq) {
+ObjectStorMgr::putObjectInternalSvc(SmIoPutObjectReq *putReq) {
     Error err(ERR_OK);
     const ObjectID&  objId    = putReq->getObjId();
     fds_volid_t volId         = putReq->getVolId();
@@ -2172,7 +2172,7 @@ ObjectStorMgr::deleteObjectInternal(SmIoReq* delReq) {
 }
 
 Error
-ObjectStorMgr::deleteObjectInternal2(SmIoDeleteObjectReq* delReq) {
+ObjectStorMgr::deleteObjectInternalSvc(SmIoDeleteObjectReq* delReq) {
     Error err(ERR_OK);
     const ObjectID&  objId    = delReq->getObjId();
     fds_volid_t volId         = delReq->getVolId();
@@ -2294,7 +2294,7 @@ ObjectStorMgr::DeleteObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
 }
 
 Error
-ObjectStorMgr::getObjectInternal2(SmIoReadObjectdata *getReq) {
+ObjectStorMgr::getObjectInternalSvc(SmIoReadObjectdata *getReq) {
     Error            err(ERR_OK);
     const ObjectID  &objId = getReq->getObjId();
     fds_volid_t volId      = getReq->getVolId();
@@ -3201,17 +3201,17 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
             break;
         case FDS_SM_DELETE_OBJECT:
             FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a Delete request";
-            threadPool->schedule(&ObjectStorMgr::deleteObjectInternal2,
+            threadPool->schedule(&ObjectStorMgr::deleteObjectInternalSvc,
                                  objStorMgr, static_cast<SmIoDeleteObjectReq*>(io));
             break;
         case FDS_SM_GET_OBJECT:
             FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a get request";
-            threadPool->schedule(&ObjectStorMgr::getObjectInternal2,
+            threadPool->schedule(&ObjectStorMgr::getObjectInternalSvc,
                                  objStorMgr, static_cast<SmIoReadObjectdata*>(io));
             break;
         case FDS_SM_PUT_OBJECT:
             FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a put request";
-            threadPool->schedule(&ObjectStorMgr::putObjectInternal2,
+            threadPool->schedule(&ObjectStorMgr::putObjectInternalSvc,
                                  objStorMgr, static_cast<SmIoPutObjectReq*>(io));
             break;
         case FDS_SM_WRITE_TOKEN_OBJECTS:

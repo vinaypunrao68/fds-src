@@ -62,7 +62,7 @@ DmVolumeCatalog::getMetaExtent(fds_volid_t volume_id,
                             error));
     if (error != ERR_OK) {
         // Couldn't find the extent in cache, check persistent layer
-        LOGTRACE << "Did not find cache meta extent for " << blob_name
+        LOGDEBUG << "Did not find cache meta extent for " << blob_name
                  << ", checking persistent layer";
 
         // Read from persistent layer. The persistent layer will
@@ -99,7 +99,7 @@ DmVolumeCatalog::getExtent(fds_volid_t volume_id,
                                                  error);
     if (error != ERR_OK) {
         // Couldn't find the extent in cache, check persistent layer
-        LOGTRACE << "Did not find cache meta extent for " << blob_name
+        LOGDEBUG << "Did not find cache meta extent for " << blob_name
                  << ", checking persistent layer";
 
         // Read from persistent layer. The persistent layer will
@@ -236,6 +236,7 @@ Error DmVolumeCatalog::getVolumeMeta(fds_volid_t volume_id,
         if (volDetailsMap_.end() != iter) {
             *size = iter->second->size;
             *blob_count = iter->second->blobCount;
+            *object_count = iter->second->objectCount;
             return err;
         }
     }
@@ -318,7 +319,7 @@ DmVolumeCatalog::putBlobMeta(fds_volid_t volume_id,
                              const BlobTxId::const_ptr& tx_id)
 {
     Error err(ERR_OK);
-    LOGTRACE << "Will commit meta for " << std::hex << volume_id
+    LOGDEBUG << "Will commit meta for " << std::hex << volume_id
              << std::dec << "," << blob_name << " " << *meta_list;
 
     // blob meta is in extent 0, so retrieve extent 0
@@ -329,7 +330,7 @@ DmVolumeCatalog::putBlobMeta(fds_volid_t volume_id,
     // even if not found, we get an allocated extent0 which we will
     // fill in
     if (err.ok() || (err == ERR_CAT_ENTRY_NOT_FOUND)) {
-        LOGTRACE << "Retrieved extent 0 for volume " << std::hex
+        LOGDEBUG << "Retrieved extent 0 for volume " << std::hex
                  << volume_id << std::dec << " " << *extent0
                  << " error " << err;
 
@@ -342,7 +343,7 @@ DmVolumeCatalog::putBlobMeta(fds_volid_t volume_id,
         // update version
         extent0->incrementBlobVersion();
 
-        LOGTRACE << "Applied metadata update to extent 0 -- " << *extent0;
+        LOGDEBUG << "Applied metadata update to extent 0 -- " << *extent0;
         err = putMetaExtent(volume_id, blob_name, extent0);
     }
 
@@ -368,7 +369,7 @@ DmVolumeCatalog::putBlob(fds_volid_t volume_id,
     Error err(ERR_OK);
     std::vector<BlobExtent::const_ptr> extent_list;
     std::vector<ObjectID> expunge_list;
-    LOGTRACE << "Will commit blob " << blob_name
+    LOGDEBUG << "Will commit blob " << blob_name
              << "; " << *blob_obj_list;
 
     // do not use this method if blob_obj_list is empty

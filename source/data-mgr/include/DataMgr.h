@@ -306,6 +306,20 @@ class DataMgr : public Module, public DmIoReqHandler {
                                     const fpi::FDSP_PushMetaPtr& push_meta,
                                     const std::string& session_uuid);
 
+
+    /**
+     * A callback from stats collector to sample DM-specific stats
+     */
+    void sampleDMStats(fds_uint64_t timestamp);
+
+    /**
+     * A callback from stats collector with stats for a given volume
+     * to add to the aggregator
+     */
+    void handleLocalStatStream(fds_uint64_t start_timestamp,
+                               fds_volid_t volume_id,
+                               const std::vector<StatSlot>& slots);
+
   protected:
     void setup_metadatapath_server(const std::string &ip);
     void setup_metasync_service();
