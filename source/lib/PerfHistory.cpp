@@ -496,6 +496,7 @@ fds_uint32_t VolumePerfHistory::useSlotLockHeld(fds_uint64_t rel_seconds) {
 
 fds_uint64_t VolumePerfHistory::toSlotList(std::vector<StatSlot>& stat_list,
                                            fds_uint64_t last_rel_sec,
+                                           fds_uint32_t max_slots,
                                            fds_uint32_t last_seconds_to_ignore) {
     // ensure last_slot_num_ is up to date
     // important because if IO stopped and history was not updated
@@ -510,7 +511,8 @@ fds_uint64_t VolumePerfHistory::toSlotList(std::vector<StatSlot>& stat_list,
     fds_uint32_t startix = (endix + 1) % nslots_;  // index of oldest slot
     fds_uint32_t ix = startix;
     fds_uint64_t latest_ts = 0;
-    fds_uint64_t last_added_ts = 0;
+    fds_uint64_t last_added_ts = last_rel_sec;
+    fds_uint32_t slots_copied = 0;
     fds_uint32_t slots_ignore = last_seconds_to_ignore / slotsec_;
     fds_verify(slots_ignore < (nslots_ - 1));
     for (fds_uint32_t i = 0; i < slots_ignore; ++i) {
@@ -526,10 +528,12 @@ fds_uint64_t VolumePerfHistory::toSlotList(std::vector<StatSlot>& stat_list,
         fds_uint64_t ts = stat_slots_[ix].getTimestamp();
         if (ts > last_rel_sec) {
             stat_list.push_back(stat_slots_[ix]);
+            ++slots_copied;
             if (latest_ts < ts) {
                 latest_ts = ts;
             }
         }
+        if ((max_slots > 0) && (slots_copied >= max_slots)) break;
         ix = (ix + 1) % nslots_;
     }
 
@@ -555,7 +559,7 @@ fds_uint64_t VolumePerfHistory::toFdspPayload(fpi::VolStatList& fdsp_volstat,
     fds_uint32_t startix = (endix + 1) % nslots_;  // index of oldest slot
     fds_uint32_t ix = startix;
     fds_uint64_t latest_ts = 0;
-    fds_uint64_t last_added_ts = 0;
+    fds_uint64_t last_added_ts = last_rel_sec;
 
     fdsp_volstat.statlist.clear();
     fdsp_volstat.volume_id = volid_;

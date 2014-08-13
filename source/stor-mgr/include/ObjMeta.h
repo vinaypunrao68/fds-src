@@ -126,6 +126,8 @@ public:
 
     fds_bool_t isVolumeAssociated(fds_volid_t vol_id);
 
+    void getVolsRefcnt(std::map<fds_volid_t, fds_uint32_t>& vol_refcnt);
+
     // Tiering/Physical Location update routines
     fds_bool_t onFlashTier() const;
     fds_bool_t onTier(diskio::DataTier tier) const;

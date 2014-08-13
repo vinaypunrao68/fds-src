@@ -352,6 +352,19 @@ void ObjMetaData::deleteAssocEntry(ObjectID objId, fds_volid_t vol_id, fds_uint6
     // If Volume did not put this objId then it delete is a noop
 }
 
+void ObjMetaData::getVolsRefcnt(std::map<fds_volid_t, fds_uint32_t>& vol_refcnt) {
+    vol_refcnt.clear();
+    fds_assert(obj_map.obj_num_assoc_entry == assoc_entry.size());
+    for(int i = 0; i < obj_map.obj_num_assoc_entry; i++) {
+        if (assoc_entry[i].ref_cnt > 0) {
+            if (vol_refcnt.count(assoc_entry[i].vol_uuid) == 0) {
+                vol_refcnt[assoc_entry[i].vol_uuid] = 0;
+            }
+            vol_refcnt[assoc_entry[i].vol_uuid] += assoc_entry[i].ref_cnt;
+        }
+    }
+}
+
 /**
  * Checks if an association entry exists for volume
  * @param vol_id
