@@ -42,13 +42,13 @@ class VolumeStats {
     /**
      * Per-hour volumes history of stats that are streamed
      * out (this is a cache of per-hour stats that we also log)
-     * TODO(xxx) add stat history
      */
+    VolumePerfHistory::ptr coarsegrain_hist_;
 
     /**
      * Per-day volumes history of bytes added for firebreak
-     * TODO(xxx) add stat history
      */
+    VolumePerfHistory::ptr longterm_hist_;
 
     /**
      * TODO(xxx) add log file here, and timer to

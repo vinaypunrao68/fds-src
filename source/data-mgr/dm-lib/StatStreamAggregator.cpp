@@ -36,6 +36,14 @@ VolumeStats::VolumeStats(fds_volid_t volume_id,
                                                 start_time,
                                                 finestat_slots,
                                                 finestat_slotsec)),
+          coarsegrain_hist_(new VolumePerfHistory(volume_id,
+                                                  start_time,
+                                                  25,  // 24 1-hour slots + slot
+                                                  5*60)),  // 1-hour, but temp 5-min
+          longterm_hist_(new VolumePerfHistory(volume_id,
+                                               start_time,
+                                               31,  // 30 1-day slots + slot
+                                               60*60)),  // 1 day, but temp 1 h
           process_tm_(new FdsTimer()),
           process_tm_task_(new VolStatsTimerTask(*process_tm_, this)) {
     // this is how often we process 1-min stats
@@ -71,7 +79,18 @@ void VolumeStats::processStats() {
     // -- this is time interval back from current time that will be not included into
     // the list of slots returned, because these slots may not be fully filled yet, eg.
     // aggregator will receive stats from some modules but maybe not from all modules yet.
-    last_print_ts_ = finegrain_hist_->toSlotList(slots, last_print_ts_, FdsStatPushPeriodSec);
+    last_print_ts_ = finegrain_hist_->toSlotList(slots, last_print_ts_, 0, FdsStatPushPeriodSec);
+    // first add the slots to coarse grain stat history (we do it here rather than on
+    // receiving remote stats because it's more efficient
+    if (slots.size() > 0) {
+        coarsegrain_hist_->mergeSlots(slots,
+                                      finegrain_hist_->getStartTime());
+        LOGDEBUG << "Updated coarse-grain stats: " << *coarsegrain_hist_;
+        longterm_hist_->mergeSlots(slots,
+                                   finegrain_hist_->getStartTime());
+        LOGDEBUG << "Updated long-term stats: " << *longterm_hist_;
+    }
+
     for (std::vector<StatSlot>::const_iterator cit = slots.cbegin();
          cit != slots.cend();
          ++cit) {
