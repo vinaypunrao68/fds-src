@@ -2,15 +2,16 @@ package com.formationds.xdi;
     /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
-import com.formationds.streaming.*;
+
 import com.formationds.apis.ApiException;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.VolumeDescriptor;
 import com.formationds.apis.VolumeSettings;
+import com.formationds.streaming.StreamingRegistrationMsg;
 import org.apache.thrift.TException;
 
-import java.util.List;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class CachingConfigurationService implements ConfigurationService.Iface {
@@ -56,9 +57,8 @@ public class CachingConfigurationService implements ConfigurationService.Iface {
     }
 
     @Override
-    public StreamingRegistrationMsg registerStream(String url, String http_method, List<String> volume_names, int sample_freq_seconds, int duration_seconds) throws org.apache.thrift.TException {
-        StreamingRegistrationMsg reg = new StreamingRegistrationMsg();
-        return reg;
+    public int registerStream(String url, String http_method, List<String> volume_names, int sample_freq_seconds, int duration_seconds) throws org.apache.thrift.TException {
+        return 0;
     }
 
     @Override
