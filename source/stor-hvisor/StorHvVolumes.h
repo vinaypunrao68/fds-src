@@ -315,9 +315,13 @@ class StatBlobReq : public FdsBlobReq {
             FdsBlobReq(FDS_STAT_BLOB, _volid, _blob_name, 0,
                        0, NULL, cb) {
         setVolumeName(_vol_name);
+        e2eReqPerfCtx.type = AM_STAT_BLOB_OBJ_REQ;
+        e2eReqPerfCtx.name = "volume:" + std::to_string(volId);
+        e2eReqPerfCtx.reset_volid(volId);
     }
 
-    ~StatBlobReq() {
+    virtual ~StatBlobReq() {
+        fds::PerfTracer::tracePointEnd(e2eReqPerfCtx); 
     }
 };
 
@@ -334,9 +338,13 @@ struct SetBlobMetaDataReq : FdsBlobReq {
             FdsBlobReq(FDS_SET_BLOB_METADATA, _volid, _blob_name, 0, 0, NULL, cb),
             txDesc(_txDesc),  metaDataList(_metaDataList) {
         setVolumeName(_vol_name);
+        e2eReqPerfCtx.type = AM_SET_BLOB_META_OBJ_REQ;
+        e2eReqPerfCtx.name = "volume:" + std::to_string(volId);
+        e2eReqPerfCtx.reset_volid(volId);
     }
 
-    ~SetBlobMetaDataReq() {
+    virtual ~SetBlobMetaDataReq() {
+        fds::PerfTracer::tracePointEnd(e2eReqPerfCtx); 
     }
 
     boost::shared_ptr<FDSP_MetaDataList> getMetaDataListPtr()
@@ -351,6 +359,13 @@ struct GetVolumeMetaDataReq : FdsBlobReq {
     GetVolumeMetaDataReq(fds_volid_t volId, const std::string & volumeName, CallbackPtr cb) :
             FdsBlobReq(FDS_GET_VOLUME_METADATA, volId, "" , 0, 0, NULL, cb) {
         setVolumeName(volumeName);
+        e2eReqPerfCtx.type = AM_GET_VOLUME_META_OBJ_REQ;
+        e2eReqPerfCtx.name = "volume:" + std::to_string(volId);
+        e2eReqPerfCtx.reset_volid(volId);
+    }
+
+    virtual ~GetVolumeMetaDataReq() {
+        fds::PerfTracer::tracePointEnd(e2eReqPerfCtx); 
     }
 };
 
@@ -359,6 +374,13 @@ struct GetBlobMetaDataReq : FdsBlobReq {
                        const std::string &_blob_name, CallbackPtr cb) :
             FdsBlobReq(FDS_GET_BLOB_METADATA, volId, _blob_name , 0, 0, NULL, cb) {
         setVolumeName(volumeName);
+        e2eReqPerfCtx.type = AM_GET_BLOB_META_OBJ_REQ;
+        e2eReqPerfCtx.name = "volume:" + std::to_string(volId);
+        e2eReqPerfCtx.reset_volid(volId);
+    }
+
+    virtual ~GetBlobMetaDataReq() {
+        fds::PerfTracer::tracePointEnd(e2eReqPerfCtx); 
     }
 };
 

@@ -175,6 +175,11 @@ const char * eventTypeToStr[] = {
         "am_delete_sm",
         "am_delete_dm",
 
+        "am_stat_blob_obj_req",
+        "am_set_blob_meta_obj_req",
+        "am_get_volume_meta_obj_req",
+        "am_get_blob_meta_obj_req",
+
         // Data Manager
         "dm_tx_op",
         "dm_tx_op_err",

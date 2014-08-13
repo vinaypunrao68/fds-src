@@ -95,6 +95,11 @@ typedef enum {
     AM_DELETE_SM,
     AM_DELETE_DM,
 
+    AM_STAT_BLOB_OBJ_REQ,
+    AM_SET_BLOB_META_OBJ_REQ,
+    AM_GET_VOLUME_META_OBJ_REQ,
+    AM_GET_BLOB_META_OBJ_REQ,
+
     // Data Manager
     DM_TX_OP,
     DM_TX_OP_ERR,
