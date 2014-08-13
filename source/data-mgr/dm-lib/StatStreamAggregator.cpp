@@ -76,11 +76,15 @@ void VolumeStats::processStats() {
                   << "Volume " << std::hex << volid_ << std::dec << ", "
                   << "Puts " << StatHelper::getTotalPuts(*cit) << ", "
                   << "Gets " << StatHelper::getTotalGets(*cit) << ", "
+                  << "Queue full " << StatHelper::getQueueFull(*cit) << ", "
                   << "Logical bytes " << StatHelper::getTotalLogicalBytes(*cit) << ", "
+                  << "Physical bytes " << StatHelper::getTotalPhysicalBytes(*cit) << ", "
+                  << "Metadata bytes " << StatHelper::getTotalMetadataBytes(*cit) << ", "
                   << "Blobs " << StatHelper::getTotalBlobs(*cit) << ", "
                   << "Objects " << StatHelper::getTotalObjects(*cit) << ", "
                   << "Ave blob size " << StatHelper::getAverageBytesInBlob(*cit) << " bytes, "
-                  << "Ave objects in blobs " << StatHelper::getAverageObjectsInBlob(*cit);
+                  << "Ave objects in blobs " << StatHelper::getAverageObjectsInBlob(*cit) << ", "
+                  << "% of ssd accesses " << StatHelper::getPercentSsdAccesses(*cit);
     }
 
     // log to 1-minute file
@@ -236,6 +240,27 @@ fds_uint64_t StatHelper::getTotalLogicalBytes(const StatSlot& slot) {
     return slot.getTotal(STAT_DM_CUR_TOTAL_BYTES);
 }
 
+fds_uint64_t StatHelper::getTotalPhysicalBytes(const StatSlot& slot) {
+    fds_uint64_t logical_bytes = slot.getTotal(STAT_DM_CUR_TOTAL_BYTES);
+    fds_uint64_t deduped_bytes =  slot.getTotal(STAT_SM_CUR_DEDUP_BYTES);
+    if (logical_bytes < deduped_bytes) {
+        // we did not measure something properly, for now ignoring
+        LOGWARN << "logical bytes " << logical_bytes << " < deduped bytes "
+                << deduped_bytes;
+        return 0;
+    }
+    return (logical_bytes - deduped_bytes);
+}
+
+// we do not include user-defined metadata
+fds_uint64_t StatHelper::getTotalMetadataBytes(const StatSlot& slot) {
+    fds_uint64_t tot_objs = slot.getTotal(STAT_DM_CUR_TOTAL_OBJECTS);
+    fds_uint64_t tot_blobs = slot.getTotal(STAT_DM_CUR_TOTAL_BLOBS);
+    // approx -- asume 20 bytes for blob name
+    fds_uint64_t header_bytes = 20 + 8*3 + 4;
+    return (tot_blobs * header_bytes + tot_objs * 24);
+}
+
 fds_uint64_t StatHelper::getTotalBlobs(const StatSlot& slot) {
     return slot.getTotal(STAT_DM_CUR_TOTAL_BLOBS);
 }
@@ -256,6 +281,17 @@ double StatHelper::getAverageObjectsInBlob(const StatSlot& slot) {
     double tot_blobs = slot.getTotal(STAT_DM_CUR_TOTAL_BLOBS);
     if (tot_blobs == 0) return 0;
     return tot_objects / tot_blobs;
+}
+
+double StatHelper::getPercentSsdAccesses(const StatSlot& slot) {
+    double ssd_ops = slot.getCount(STAT_SM_OP_SSD);
+    double hdd_ops = slot.getCount(STAT_SM_OP_HDD);
+    if (hdd_ops == 0) return 0;
+    return (100.0 * ssd_ops / (ssd_ops + hdd_ops));
+}
+
+fds_bool_t StatHelper::getQueueFull(const StatSlot& slot) {
+    return (slot.getMin(STAT_AM_QUEUE_FULL) > 4);  // random constant
 }
 
 void VolStatsTimerTask::runTimerTask() {

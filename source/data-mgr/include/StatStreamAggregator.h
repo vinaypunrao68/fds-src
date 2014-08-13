@@ -78,11 +78,15 @@ class StatHelper {
   public:
     static fds_uint64_t getTotalPuts(const StatSlot& slot);
     static fds_uint64_t getTotalGets(const StatSlot& slot);
+    static fds_bool_t getQueueFull(const StatSlot& slot);
     static fds_uint64_t getTotalLogicalBytes(const StatSlot& slot);
     static fds_uint64_t getTotalBlobs(const StatSlot& slot);
     static fds_uint64_t getTotalObjects(const StatSlot& slot);
+    static fds_uint64_t getTotalMetadataBytes(const StatSlot& slot);
     static double getAverageBytesInBlob(const StatSlot& slot);
     static double getAverageObjectsInBlob(const StatSlot& slot);
+    static double getPercentSsdAccesses(const StatSlot& slot);
+    static fds_uint64_t getTotalPhysicalBytes(const StatSlot& slot);
 };
 
 /**

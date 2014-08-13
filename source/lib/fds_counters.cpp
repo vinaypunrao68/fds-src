@@ -25,8 +25,7 @@ FdsCountersMgr::FdsCountersMgr(const std::string &id)
       timer_()
 {
     sampler_ptr_ = boost::shared_ptr<FdsTimerTask>(new SamplerTask(timer_, exp_counters_, snapshot_counters_));
-    bool ret = timer_.scheduleRepeated(sampler_ptr_, std::chrono::milliseconds(1000));
-
+    // bool ret = timer_.scheduleRepeated(sampler_ptr_, std::chrono::milliseconds(1000));
 }
 
 /**

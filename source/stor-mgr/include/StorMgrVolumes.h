@@ -95,6 +95,12 @@ namespace fds {
       */
      std::atomic<fds_uint64_t> ssdByteCnt;
      std::atomic<fds_uint64_t> hddByteCnt;
+     /**
+      * Bytes deduped since the service was started
+      * TODO(xxx) make it actual deduped bytes for this volume
+      * -- need to load from DB
+      */
+     double dedupBytes_;
 
      /*
       *  per volume stats 
@@ -124,6 +130,17 @@ namespace fds {
                               fds_uint64_t vol_offset,
                               FDS_ObjectIdType objId);
 
+    void updateDedupBytes(double dedup_bytes_added) {
+        dedupBytes_ += dedup_bytes_added;
+    }
+    // at the moment, dedup bytes could be < 0 because
+    // we may have SM coming from persistent state we are
+    // not loading yet
+    fds_uint64_t getDedupBytes() const {
+        if (dedupBytes_ < 0) return 0;
+        return dedupBytes_;
+    }
+
     osm::ObjectDB  *volumeIndexDB;
     // VolumeObjectCache *vol_obj_cache;
   };
@@ -139,6 +156,11 @@ namespace fds {
     ~StorMgrVolumeTable();
     Error updateVolStats(fds_volid_t vol_uuid);
     fds_uint32_t getVolAccessStats(fds_volid_t vol_uuid);
+    void updateDupObj(fds_volid_t volid,
+                      fds_uint32_t obj_size,
+                      fds_bool_t incr,
+                      std::map<fds_volid_t, fds_uint32_t>& vol_refcnt);
+    double getDedupBytes(fds_volid_t volid);
 
     Error registerVolume(const VolumeDesc& vdb);
     Error deregisterVolume(fds_volid_t vol_uuid);

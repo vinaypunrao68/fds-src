@@ -350,7 +350,7 @@ ObjectStorMgr::~ObjectStorMgr() {
             qosCtrl->deregisterVolume((*vit));
         }
     }
-    delete perfStats;
+    // delete perfStats;
 
     /*
      * TODO: Assert that the waiting req map is empty.
@@ -423,10 +423,14 @@ int  ObjectStorMgr::mod_init(SysParams const *const param)
      * The prefix isn't parsed until later.
      * We should fix that.
      */
-    Error err;
-    perfStats = new PerfStats("migratorSmStats");
-    err = perfStats->enable();
-    fds_verify(err == ERR_OK);
+    /**
+     * TODO(xxx) use our new perf counters for this
+     */
+    // Error err;
+    // perfStats = new PerfStats("migratorSmStats");
+    // err = perfStats->enable();
+    // fds_verify(err == ERR_OK);
+
     return 0;
 }
 
@@ -523,6 +527,11 @@ void ObjectStorMgr::mod_startup()
 
     testUturnAll    = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.uturn_all");
     testUturnPutObj = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.uturn_putobj");
+
+    // Enable stats collection in SM for stats streaming
+    StatsCollector::singleton()->registerOmClient(omClient);
+    StatsCollector::singleton()->startStreaming(
+        std::bind(&ObjectStorMgr::sampleSMStats, this, std::placeholders::_1), NULL);
 
     /*
      * Create local variables for test mode
@@ -666,6 +675,13 @@ ObjectStorMgr::getUuid() const {
 
 const DLT* ObjectStorMgr::getDLT() {
     return omClient->getCurrentDLT();
+}
+
+fds_bool_t ObjectStorMgr::amIPrimary(const ObjectID& objId) {
+    DltTokenGroupPtr nodes = omClient->getDLTNodesForDoidKey(objId);
+    fds_verify(nodes->getLength() > 0);
+    const NodeUuid *mySvcUuid = modProvider_->get_plf_manager()->plf_get_my_svc_uuid();
+    return (*mySvcUuid == nodes->get(0));
 }
 
 fds_token_id ObjectStorMgr::getTokenId(const ObjectID& objId) {
@@ -907,6 +923,35 @@ ObjectStorMgr::volEventOmHandler(fds_volid_t  volumeId,
     return err;
 }
 
+//
+// sample SM-specific stats to the collector
+//
+void ObjectStorMgr::sampleSMStats(fds_uint64_t timestamp) {
+    LOGDEBUG << "Sampling SM stats";
+    std::map<std::string, int64_t> counter_map;
+    /*
+    FdsCounters* counters = g_cntrs_mgr->get_counters(PERF_COUNTERS_NAME);
+    counters->toMap(counter_map);
+    for (std::map<std::string, int64_t>::const_iterator cit = counter_map.cbegin();
+         cit != counter_map.cend();
+         ++cit) {
+        LOGDEBUG << "COUNTER: " << cit->first << " : " << cit->second;
+    }
+    */
+    std::list<fds_volid_t> volIds = volTbl->getVolList();
+    for (std::list<fds_volid_t>::iterator vit = volIds.begin();
+         vit != volIds.end();
+         vit++) {
+        fds_uint64_t dedup_bytes = volTbl->getDedupBytes(*vit);
+        LOGDEBUG << "Volume " << std::hex << *vit << std::dec
+                 << " deduped bytes " << dedup_bytes;
+        StatsCollector::singleton()->recordEvent(*vit,
+                                                 timestamp,
+                                                 STAT_SM_CUR_DEDUP_BYTES,
+                                                 dedup_bytes);
+    }
+}
+
 void ObjectStorMgr::writeBackFunc(ObjectStorMgr *parent) {
     ObjectID   *objId;
     fds_bool_t  nonEmpty;
@@ -1080,6 +1125,8 @@ ObjectStorMgr::writeObjectMetaData(const OpCtx &opCtx,
      */
     objMap.updatePhysLocation(obj_phy_loc);
 
+    fds_bool_t update_dup = false;
+    std::map<fds_volid_t, fds_uint32_t> vols_refcnt;
     switch(opCtx.type) { 
       case OpCtx::RELOCATE : 
            objMap.removePhyLocation(fromTier);
@@ -1089,13 +1136,21 @@ ObjectStorMgr::writeObjectMetaData(const OpCtx &opCtx,
       case OpCtx::GC_COPY :
            break;
 
-      default : 
-           objMap.updateAssocEntry(objId, (fds_volid_t)vol->vol_uuid);
-           break;
+      default :
+          if (amIPrimary(objId)) {
+              objMap.getVolsRefcnt(vols_refcnt); 
+          }
+          update_dup = true;
+          objMap.updateAssocEntry(objId, (fds_volid_t)vol->vol_uuid);
+          break;
     }
 
     err = smObjDb->put(opCtx, objId, objMap);
     if (err == ERR_OK) {
+        if (update_dup) {
+            volTbl->updateDupObj((fds_volid_t)vol->vol_uuid, obj_size,
+                                 true, vols_refcnt);
+        }
         LOGDEBUG << "Updating object location for object "
                 << objId << " to " << objMap;
     } else {
@@ -1163,10 +1218,16 @@ ObjectStorMgr::deleteObjectMetaData(const OpCtx &opCtx,
     /*
      * Set the ref_cnt to 0, which will be the delete marker for the Garbage collector
      */
-  
+    std::map<fds_volid_t, fds_uint32_t> vols_refcnt;
+    if (amIPrimary(objId)) {
+        objMap.getVolsRefcnt(vols_refcnt);  
+    }
+
     objMap.deleteAssocEntry(objId, vol_id, fds::util::getTimeStampMillis());
     err = smObjDb->put(opCtx, objId, objMap);
     if (err == ERR_OK) {
+        volTbl->updateDupObj(vol_id, objMap.getObjSize(),
+                             false, vols_refcnt);
         LOGDEBUG << "Setting the delete marker for object "
                 << objId << " to " << objMap;
     } else {
@@ -1538,12 +1599,16 @@ ObjectStorMgr::relocateObject(const ObjectID &objId,
     err = writeObjectMetaData(opCtx, objId, objGetData.data.length(),
             disk_req->req_get_phy_loc(), true, from_tier, &vio);
 
+    // TODO(Anna) use our new perf counters for this
+    /*
     if (to_tier == diskio::diskTier) {
         perfStats->recordIO(flashToDisk, 0, diskio::diskTier, FDS_IO_WRITE);
     } else {
         fds_verify(to_tier == diskio::flashTier);
         perfStats->recordIO(diskToFlash, 0, diskio::flashTier, FDS_IO_WRITE);
     }
+    */
+
     LOGDEBUG << "relocateObject " << objId << " into the "
              << ((to_tier == diskio::diskTier) ? "disk" : "flash")
              << " tier";
@@ -1626,10 +1691,17 @@ ObjectStorMgr::putObjectInternalSvc(SmIoPutObjectReq *putReq) {
         // Update  the AssocEntry for dedupe-ing
         err = readObjMetaData(objId, objMap);
         if (err.ok()) {
+            std::map<fds_volid_t, fds_uint32_t> vols_refcnt;
+            if (amIPrimary(objId)) {
+                objMap.getVolsRefcnt(vols_refcnt);
+            }
+
             objMap.updateAssocEntry(objId, volId);
             err = smObjDb->put(opCtx, objId, objMap);
             if (err == ERR_OK) {
                 dedupeByteCnt += objId.GetLen(); 
+                volTbl->updateDupObj(volId, putReq->data_obj.size(),
+                                     true, vols_refcnt);
                 LOGDEBUG << "Dedupe object Assoc Entry for object "
                          << objId << " to " << objMap;
             } else {
@@ -1706,8 +1778,17 @@ ObjectStorMgr::putObjectInternalSvc(SmIoPutObjectReq *putReq) {
           /* At this point object metadata must exist */
           fds_verify(err == ERR_OK);
 
+          std::map<fds_volid_t, fds_uint32_t> vols_refcnt;
+          if (amIPrimary(objId)) {
+              objMap.getVolsRefcnt(vols_refcnt);
+          }
+
           objMap.updateAssocEntry(objId, volId);
           err = smObjDb->put(opCtx, objId, objMap);
+          if (err.ok()) {
+              volTbl->updateDupObj(volId, putReq->data_obj.size(),
+                                   true, vols_refcnt);
+          }
           smObjDb->unlock(objId);
           if (err == ERR_OK) {
               LOGDEBUG << "Dedupe object Assoc Entry for object "
@@ -1740,7 +1821,8 @@ ObjectStorMgr::putObjectInternalSvc(SmIoPutObjectReq *putReq) {
     //objStorMutex->unlock();
 
     qosCtrl->markIODone(*putReq,
-                        tierUsed);
+                        tierUsed,
+                        amIPrimary(objId));
 
     PerfTracer::tracePointEnd(putReq->opReqLatencyCtx);
     
@@ -1816,9 +1898,16 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
         // Update  the AssocEntry for dedupe-ing
         err = readObjMetaData(objId, objMap);
         if (err.ok()) {
+            std::map<fds_volid_t, fds_uint32_t> vols_refcnt;
+            if (amIPrimary(objId)) {
+                objMap.getVolsRefcnt(vols_refcnt);
+            }
+
             objMap.updateAssocEntry(objId, volId);
             err = smObjDb->put(opCtx, objId, objMap);
             if (err == ERR_OK) {
+                volTbl->updateDupObj(volId, putObjReq->data_obj.size(),
+                                     true, vols_refcnt);
                 LOGDEBUG << "Dedupe object Assoc Entry for object "
                          << objId << " to " << objMap;
             } else {
@@ -1894,8 +1983,17 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
           /* At this point object metadata must exist */
           fds_verify(err == ERR_OK);
 
+          std::map<fds_volid_t, fds_uint32_t> vols_refcnt;
+          if (amIPrimary(objId)) {
+              objMap.getVolsRefcnt(vols_refcnt);
+          }
+
           objMap.updateAssocEntry(objId, volId);
           err = smObjDb->put(opCtx, objId, objMap);
+          if (err.ok()) {
+              volTbl->updateDupObj(volId, putObjReq->data_obj.size(),
+                                   true, vols_refcnt);
+          }
           smObjDb->unlock(objId);
           if (err == ERR_OK) {
               LOGDEBUG << "Dedupe object Assoc Entry for object "
@@ -1929,7 +2027,8 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
     //objStorMutex->unlock();
 
     qosCtrl->markIODone(*putReq,
-                        tierUsed);
+                        tierUsed,
+                        amIPrimary(objId));
 
     PerfTracer::tracePointEnd(putReq->opReqLatencyCtx);
 
@@ -2362,7 +2461,7 @@ ObjectStorMgr::getObjectInternalSvc(SmIoReadObjectdata *getReq) {
         getReq->obj_data.data = objBufPtr->data;
     }
 
-    qosCtrl->markIODone(*getReq, tierUsed);
+    qosCtrl->markIODone(*getReq, tierUsed, amIPrimary(objId));
 
     PerfTracer::tracePointEnd(getReq->opLatencyCtx);
     PerfTracer::tracePointEnd(getReq->opReqLatencyCtx);
@@ -2454,7 +2553,7 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
                  << " for request ID " << getReq->io_req_id;
     }
 
-    qosCtrl->markIODone(*getReq, tierUsed);
+    qosCtrl->markIODone(*getReq, tierUsed, amIPrimary(objId));
 
     PerfTracer::tracePointEnd(getReq->opLatencyCtx);
     PerfTracer::tracePointEnd(getReq->opReqLatencyCtx);

@@ -39,6 +39,7 @@ StorMgrVolume::StorMgrVolume(const VolumeDesc&  vdb,
 
   volumeIndexDB  = new ObjectDB(filename);
   averageObjectsRead = 0; 
+  dedupBytes_ = 0;
 }
 
 StorMgrVolume::~StorMgrVolume() {
@@ -232,6 +233,77 @@ fds_uint32_t StorMgrVolumeTable::getVolAccessStats(fds_volid_t vol_uuid) {
   return AveNumVolObj;
 }
 
+void StorMgrVolumeTable::updateDupObj(fds_volid_t volid,
+                                      fds_uint32_t obj_size,
+                                      fds_bool_t incr,
+                                      std::map<fds_volid_t, fds_uint32_t>& vol_refcnt) {
+    fds_uint32_t total_refcnt = 0;
+    double dedup_bytes = 0;
+    if (vol_refcnt.size() == 0) {
+        // ignore this
+        return;
+    }
+    if (incr && (vol_refcnt.count(volid) == 0)) {
+      vol_refcnt[volid] = 0;
+    }
+    for (std::map<fds_volid_t, fds_uint32_t>::const_iterator cit = vol_refcnt.cbegin();
+         cit != vol_refcnt.cend();
+         ++cit) {
+        total_refcnt += cit->second;
+    }
+    fds_uint32_t new_total_refcnt = total_refcnt;
+    if (incr) {
+        ++new_total_refcnt;
+    } else {
+        fds_verify(new_total_refcnt > 0);
+        --new_total_refcnt;
+    }
+
+    // dedupe bytes = ObjSize * (total_refcnt - 1) * refcnt[volid] / total_refcnt
+
+    for (std::map<fds_volid_t, fds_uint32_t>::const_iterator cit = vol_refcnt.cbegin();
+         cit != vol_refcnt.cend();
+         ++cit) {
+        fds_uint32_t my_refcnt = cit->second;
+        double old_dedup_bytes = 0;
+        if (total_refcnt > 0) {
+            old_dedup_bytes = obj_size * my_refcnt * (total_refcnt - 1) / total_refcnt;
+        }
+        if (volid == cit->first) {
+            if (incr) {
+                ++my_refcnt;
+            } else {
+                fds_verify(my_refcnt > 0);
+                --my_refcnt;
+            }
+        }
+        double new_dedup_bytes = 0;
+        if (new_total_refcnt > 0) {
+            new_dedup_bytes = obj_size * my_refcnt * (new_total_refcnt - 1) / new_total_refcnt;
+	}
+        map_rwlock.write_lock();
+        if (volume_map.count(cit->first) > 0) {
+            StorMgrVolume *vol = volume_map[cit->first];
+            double before_dedup_bytes = vol->getDedupBytes();
+            vol->updateDedupBytes(new_dedup_bytes - old_dedup_bytes);
+            LOGTRACE << "Dedup bytes for volume " << std::hex << cit->first << std::dec
+                     << " old " << before_dedup_bytes << " new " << vol->getDedupBytes();
+
+        }
+        map_rwlock.write_unlock();
+    }
+}
+
+double StorMgrVolumeTable::getDedupBytes(fds_volid_t volid) {
+    double dedup_bytes = 0;
+    map_rwlock.read_lock();
+    if (volume_map.count(volid) > 0) {
+        StorMgrVolume *vol = volume_map[volid];
+        dedup_bytes = vol->getDedupBytes();
+    }
+    map_rwlock.read_unlock();
+    return dedup_bytes;
+}
 
 Error StorMgrVolumeTable::updateVolStats(fds_volid_t vol_uuid) {
 
