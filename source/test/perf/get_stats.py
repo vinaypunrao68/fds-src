@@ -4,6 +4,7 @@ from optparse import OptionParser
 import numpy as np
 import matplotlib.pyplot as plt
 import time
+from parse_cntrs import Counters
 
 g_pidmap = {}
 
@@ -170,8 +171,12 @@ def get_test_parms():
     #results_2014-08-05_nvols\:1.threads\:1.type\:GET.nfiles\:10000.test_type\:tgen.fsize\:4096.nreqs\:100000.test
     m = re.match("(\w+)_(\d+-)_nvols:(\d+).threads:(\d+).type:(\w+).nfiles:(\d+).test_type:(\w+).fsize:(\d+).nreqs:(\d+).test", options.directory)
 
+
 def main():
     compute_pidmap("tiefighter")
+    counters = Counters()
+    counters.parse()
+    counters.get_cntr()
     print options.name,",",
     time.sleep(1)
     print "th,", get_avgth(),",",

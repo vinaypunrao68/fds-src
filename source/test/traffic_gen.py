@@ -1,19 +1,15 @@
 #!/usr/bin/python
 import os,sys,re
 import time
-#import threading as th
+# import threading as th
 from multiprocessing import Process, Queue
 from optparse import OptionParser
 import tempfile
-#from Queue import *
+# from Queue import *
 import httplib
-import requests
+# import requests
 import random
 import pickle
-
-# HTTP_LIB = "requests"
-HTTP_LIB = "httplib"
-# HTTP_LIB = "none"
 
 def init_stats():
     stats = {"reqs" : 0,
@@ -55,34 +51,22 @@ def create_file_queue(n,size):
 def do_put(conn, target, fname):
     e = None
     body = open(fname,"r").read()
-    if HTTP_LIB == "httplib":
-        conn.request("PUT", target, body)
-    elif HTTP_LIB == "requests":
-        e = requests.put("http://localhost:8000" + target, data = body)
+    conn.request("PUT", target, body)
     return e
 
 def do_get(conn, target):
     e = None
-    if HTTP_LIB == "httplib":
-        conn.request("GET", target)
-    elif HTTP_LIB == "requests":
-        e = requests.get("http://localhost:8000" + target)
+    conn.request("GET", target)
     return e
 
 def do_delete(conn, target):
     e = None
-    if HTTP_LIB == "httplib":
-        conn.request("DELETE", target)
-    elif HTTP_LIB == "requests":
-        e = requests.delete("http://localhost:8000" + target)
+    conn.request("DELETE", target)
     return e
 
 def task(task_id, n_reqs, req_type, nvols, files, stats, queue, prev_uploaded):
     uploaded = [set() for x in range(options.num_volumes)]
-    if HTTP_LIB == "httplib":
-        conn = httplib.HTTPConnection("localhost:8000")
-    else:
-        conn = None
+    conn = httplib.HTTPConnection(options.target_node + ":" + str(options.target_port))
     for i in range(0,n_reqs):
         if options.heartbeat > 0 and  i % options.heartbeat == 0:
             print "heartbeat for", task_id, "i:", i
@@ -116,20 +100,14 @@ def task(task_id, n_reqs, req_type, nvols, files, stats, queue, prev_uploaded):
                 e = do_put(conn, "/volume%d/file%d" % (vol, file_idx), files[file_idx])
         elif req_type == "NOP":
             time.sleep(.008)
-        if HTTP_LIB == "httplib":
-            r1 = conn.getresponse()
-            r1.read()
+        r1 = conn.getresponse()
+        r1.read()
         time_end = time.time()
         update_latency_stats(stats, time_start, time_end)
         stats["reqs"] += 1
-        if HTTP_LIB == "httplib":
-            if r1.status != 200:
-                stats["fails"] += 1
-        elif HTTP_LIB == "requests":
-            if e.status_code != 200:
-                stats["fails"] += 1
-    if HTTP_LIB == "httplib":
-        conn.close()
+        if r1.status != 200:
+            stats["fails"] += 1
+    conn.close()
     queue.put((stats, uploaded))
 
 # TODO: add volumes here and ...
@@ -191,6 +169,12 @@ def main(options,files):
     print "Options:", options,"Stats:", stats
     print "Summary - threads:", options.threads, "n_reqs:", options.n_reqs, "req_type:", options.req_type, "elapsed time:", (time_end - time_start), "reqs/sec:", stats['reqs'] / stats['elapsed_time'], "avg_latency[ms]:",stats["tot_latency"]/stats["latency_cnt"]*1e3, "failures:", stats['fails'], "requests:", stats["reqs"]
 
+# TODO: reuse on put, sequential mode
+# TODO: options to create volume
+# TODO: option to reset counters
+# Delete test
+# 7030 test
+
 if __name__ == "__main__":
     parser = OptionParser()
     parser.add_option("-t", "--threads", dest = "threads", type = "int", default = 1, help = "Number of threads")
@@ -202,6 +186,8 @@ if __name__ == "__main__":
     parser.add_option("-v", "--num-volumes", dest = "num_volumes", type = "int", default = 1, help = "Number of volumes")
     parser.add_option("-u", "--get-reuse", dest = "get_reuse", default = False, action = "store_true", help = "Do gets on file previously uploaded with put")
     parser.add_option("-b", "--heartbeat", dest = "heartbeat", type = "int", default = 0, help = "Heartbeat. Default is no heartbeat (0)")
+    parser.add_option("-N", "--target-node", dest = "target_node", default = "localhost", help = "Target node (default is localhost)")
+    parser.add_option("-P", "--target-port", dest = "target_port", type = "int", default = 8000, help = "Target port (default is 8000)")
 
     (options, args) = parser.parse_args()
     if options.req_type == "PUT" or options.req_type == "7030":
