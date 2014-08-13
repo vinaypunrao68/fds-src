@@ -30,7 +30,6 @@ public class StatisticsPublisher implements Streaming.Iface {
     }
 
     private void publish(StreamingRegistrationMsg registrationMsg, List<volumeDataPoints> dataPoints) {
-
     }
 
 }
