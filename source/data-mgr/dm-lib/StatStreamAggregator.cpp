@@ -77,7 +77,7 @@ void VolumeStats::processStats() {
          ++cit) {
         fds_uint64_t timestamp = finegrain_hist_->getTimestamp((*cit).getTimestamp());
 
-        timestamp /= 1000 * 1000;
+        timestamp /= 1000 * 1000 * 1000;
 
         fpi::DataPointPair putsDP;
         putsDP.key = "Puts";
@@ -242,9 +242,6 @@ Error StatStreamAggregator::registerStream(fpi::StatStreamRegistrationMsgPtr reg
 
     SCOPEDWRITE(lockStatStreamRegsMap);
     statStreamRegistrations_[registration->id] = registration;
-    for (auto volId : registration->volumes) {
-        attachVolume(volId);
-    }
     return err;
 }
 
@@ -253,14 +250,7 @@ Error StatStreamAggregator::deregisterStream(fds_uint32_t reg_id) {
     LOGDEBUG << "Removing streaming registration with id " << reg_id;
 
     SCOPEDWRITE(lockStatStreamRegsMap);
-    StatStreamRegistrationMap_t::iterator iter = statStreamRegistrations_.find(reg_id);
-    if (statStreamRegistrations_.end() != iter) {
-        fds_verify(iter->second);
-        for (auto volId : iter->second->volumes) {
-            detachVolume(volId);
-        }
-        statStreamRegistrations_.erase(iter);
-    }
+    statStreamRegistrations_.erase(reg_id);
     return err;
 }
 
