@@ -12,28 +12,29 @@ import random
 import pickle
 
 def init_stats():
-    stats = {"reqs" : 0,
+    stats = [{"reqs" : 0,
          "fails" : 0,
          "elapsed_time" : 0.0,
          "tot_latency" : 0.0,
          "min_latency" : 1.0e10,   # FIXME: this seems broken
          "max_latency" : 0.0,
          "latency_cnt" : 0
-    }
+    } for v in range(options.num_volumes)]
     return stats
 
 def clear_stats():
-    for e in stats:
-        e.second = 0
+    for v in range(options.num_volumes):
+        for e in stats:
+            e.second = 0
 
-def update_latency_stats(stats, start, end):
+def update_latency_stats(stats, start, end, volume):
     elapsed = end - start
-    stats["latency_cnt"] +=1
-    stats["tot_latency"] += elapsed
-    if elapsed < stats["min_latency"]:
-        stats["min_latency"] = elapsed
-    if elapsed > stats["max_latency"]:
-        stats["max_latency"] = elapsed
+    stats[volume]["latency_cnt"] +=1
+    stats[volume]["tot_latency"] += elapsed
+    if elapsed < stats[volume]["min_latency"]:
+        stats[volume]["min_latency"] = elapsed
+    if elapsed > stats[volume]["max_latency"]:
+        stats[volume]["max_latency"] = elapsed
 
 def create_random_file(size):
     fout, fname = tempfile.mkstemp(prefix="fdstrgen")
@@ -91,11 +92,16 @@ def task(task_id, n_reqs, req_type, nvols, files, stats, queue, prev_uploaded):
             else:
                 file_idx = random.randint(0, options.num_files - 1)
             e = do_delete(conn, "/volume%d/file%d" % (vol, file_idx))
-        elif req_type == "7030":  # TODO: this does not work with get_reuse
+        elif req_type == "7030":
             if random.randint(1,100) < 70:
-                file_idx = random.randint(0, options.num_files - 1)
+                # Possibly read a file that been already uploaded
+                if len(prev_uploaded[vol]) > 0:
+                    file_idx = random.sample(prev_uploaded[vol], 1)[0]
+                else:
+                    file_idx = random.randint(0, options.num_files - 1)
                 e = do_get(conn, "/volume%d/file%d" % (vol, file_idx))
             else:
+                # PUT a new file
                 file_idx = random.randint(0, options.num_files - 1)
                 e = do_put(conn, "/volume%d/file%d" % (vol, file_idx), files[file_idx])
         elif req_type == "NOP":
@@ -103,10 +109,10 @@ def task(task_id, n_reqs, req_type, nvols, files, stats, queue, prev_uploaded):
         r1 = conn.getresponse()
         r1.read()
         time_end = time.time()
-        update_latency_stats(stats, time_start, time_end)
-        stats["reqs"] += 1
+        update_latency_stats(stats, time_start, time_end, vol)
+        stats[vol]["reqs"] += 1
         if r1.status != 200:
-            stats["fails"] += 1
+            stats[vol]["fails"] += 1
     conn.close()
     queue.put((stats, uploaded))
 
@@ -154,26 +160,31 @@ def main(options,files):
     for t in tids:
         t.join()
     time_end = time.time()
-    stats["elapsed_time"] = time_end - time_start
+    for v in range(options.num_volumes):
+        stats[v]["elapsed_time"] = time_end - time_start
     # FIXME: move to function
     uploaded = [set() for x in range(options.num_volumes)]
     while not queue.empty():
         st, up = queue.get()
-        for k,v in st.items():
-            stats[k] += v
-        for i in range(options.num_volumes):
-            uploaded[i].update(up[i])
+        for vol in range(options.num_volumes):
+            for k,v in st[vol].items():
+                stats[vol][k] += v
+            uploaded[vol].update(up[vol])
     # FIXME: volumes (ongoing)
     if options.get_reuse == True and options.req_type == "PUT":
         dump_uploaded(uploaded)
     print "Options:", options,"Stats:", stats
-    print "Summary - threads:", options.threads, "n_reqs:", options.n_reqs, "req_type:", options.req_type, "elapsed time:", (time_end - time_start), "reqs/sec:", stats['reqs'] / stats['elapsed_time'], "avg_latency[ms]:",stats["tot_latency"]/stats["latency_cnt"]*1e3, "failures:", stats['fails'], "requests:", stats["reqs"]
+    for vol in range(options.num_volumes):
+        print "Summary - volume:", vol, "threads:", options.threads, "n_reqs:", options.n_reqs, "req_type:", options.req_type, \
+            "elapsed time:", stats[vol]['elapsed_time'], \
+            "reqs/sec:", stats[vol]['reqs'] / stats[vol]['elapsed_time'], \
+            "avg_latency[ms]:",stats[vol]["tot_latency"]/stats[vol]["latency_cnt"]*1e3, \
+            "failures:", stats[vol]['fails'], "requests:", stats[vol]["reqs"]
 
 # TODO: reuse on put, sequential mode
 # TODO: options to create volume
 # TODO: option to reset counters
 # Delete test
-# 7030 test
 
 if __name__ == "__main__":
     parser = OptionParser()
@@ -188,6 +199,7 @@ if __name__ == "__main__":
     parser.add_option("-b", "--heartbeat", dest = "heartbeat", type = "int", default = 0, help = "Heartbeat. Default is no heartbeat (0)")
     parser.add_option("-N", "--target-node", dest = "target_node", default = "localhost", help = "Target node (default is localhost)")
     parser.add_option("-P", "--target-port", dest = "target_port", type = "int", default = 8000, help = "Target port (default is 8000)")
+    parser.add_option("-V", "--volume-stats", dest = "volume_stats",  default = False, action = "store_true", help = "Enable per volume stats")
 
     (options, args) = parser.parse_args()
     if options.req_type == "PUT" or options.req_type == "7030":
