@@ -46,7 +46,7 @@ def get_avglat():
         elif options.block_enable:
             return None
         else:
-            cmd = "cat %s | grep Summary |awk '{print $15}'" % (of)
+            cmd = "cat %s | grep Summary |awk '{print $17}'" % (of)
         lat = float(os.popen(cmd).read().rstrip('\n'))
         lats.append(lat)
     return sum(lats)/len(lats)
@@ -74,7 +74,7 @@ def get_avgth():
         elif options.block_enable:
             cmd = "cat %s | grep 'Experiment result' | awk '{print $11}'" % (of)
         else:        
-            cmd = "cat %s | grep Summary |awk '{print $13}'" % (of)
+            cmd = "cat %s | grep Summary |awk '{print $15}'" % (of)
         th = float(os.popen(cmd).read().rstrip('\n'))
         ths.append(th)
     return sum(ths)/len(ths)    
@@ -174,9 +174,9 @@ def get_test_parms():
 
 def main():
     compute_pidmap("tiefighter")
-    counters = Counters()
-    counters.parse()
-    counters.get_cntr()
+    # counters = Counters()
+    # counters.parse()
+    # counters.get_cntr()
     print options.name,",",
     time.sleep(1)
     print "th,", get_avgth(),",",

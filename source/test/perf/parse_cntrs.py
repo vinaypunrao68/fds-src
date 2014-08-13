@@ -119,7 +119,8 @@ def plot_show_and_save():
 if __name__ == "__main__":
     parser = OptionParser()
     parser.add_option("-f", "--file", dest = "filein", help = "Input file")
-    parser.add_option("-c", "--counters", dest = "counters", help = "List of agent:counter")
+    parser.add_option("-c", "--counters", dest = "counters", help = "List of agent:counter,...")
+    parser.add_option("-n", "--node", dest = "node", help = "Node")
     #parser.add_option("-c", "--column", dest = "column", help = "Column")
     (options, args) = parser.parse_args()
 
@@ -131,8 +132,7 @@ if __name__ == "__main__":
         agent, counter = name.split(":")
 
         #c.print_cntr("am_put_obj_req", "latency")
-        node = "tie-fighter"
-        node = "node3"
+        node = options.node
         # series = c.get_cntr(node, "AMAgent","am_put_obj_req", "count")
         # plot_series_all_volumes(series,"IOPS - PUT", "req/s", latency = False, name = "iops-put")
         # series = c.get_cntr(node, "AMAgent","am_get_obj_req", "count")

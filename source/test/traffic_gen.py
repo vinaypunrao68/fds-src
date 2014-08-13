@@ -184,7 +184,8 @@ def main(options,files):
 # TODO: reuse on put, sequential mode
 # TODO: options to create volume
 # TODO: option to reset counters
-# Delete test
+# TODO: use pools and async: https://docs.python.org/3/library/multiprocessing.html#using-a-pool-of-workers
+# TODO: delete
 
 if __name__ == "__main__":
     parser = OptionParser()
