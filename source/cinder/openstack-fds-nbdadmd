@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# openstack-nova-network  OpenStack Nova Network Controller
+# openstack-fds-nbdadmd OpenStack FDS REST server
 #
 # chkconfig:   - 98 02
 # description:  Start up the FDS REST server daemon to take 	       \
