@@ -8,7 +8,6 @@
 #include <DataMgr.h>
 #include <StatStreamAggregator.h>
 #include <fdsp/Streaming.h>
-#include <DataMgr.h>
 
 namespace fds {
 
@@ -158,14 +157,14 @@ StatStreamAggregator::StatStreamAggregator(char const *const name)
         : Module(name),
           finestat_slotsec_(FdsStatPeriodSec),
           finestat_slots_(65) {
-     const fpi::volumeDataPointsPtr volStatData;
+     // const fpi::volumeDataPointsPtr volStatData;
     // align timestamp to the length of finestat slot
     start_time_ = util::getTimeStampNanos();
     fds_uint64_t freq_nanos = finestat_slotsec_ * 1000000000;
     start_time_ = start_time_ / freq_nanos;
     start_time_ = start_time_ * freq_nanos;
 
-    writeStatsLog(volStatData);
+    // writeStatsLog(volStatData);
 }
 
 StatStreamAggregator::~StatStreamAggregator() {
@@ -296,11 +295,12 @@ Error StatStreamAggregator::writeStatsLog(const fpi::volumeDataPointsPtr& volSta
     fprintf(pFile, " volume: %s,", volStatData->volume_name.c_str());
     fprintf(pFile, " time: %lx,", volStatData->timestamp);
 
-    DataPointPair::iterator pos;
+    std::vector<DataPointPair>::iterator pos;
 
     for (pos = volStatData->meta_list.begin(); pos != volStatData->meta_list.end(); ++pos)
-        fprintf(pFile, " %s: %lx,", pos->first, pos->second);
+        fprintf(pFile, " %s: %f,", pos->key.c_str(), pos->value);
 
+    fprintf(pFile, " \n");
     return err;
 }
 
