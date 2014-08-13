@@ -5,6 +5,7 @@
 #include <vector>
 #include <fds_process.h>
 #include <net/net-service.h>
+#include <DataMgr.h>
 #include <StatStreamAggregator.h>
 
 namespace fds {
@@ -87,15 +88,20 @@ void VolumeStats::processStats() {
     // if enough time passed, also log to 1hour file
 }
 
+
+
 StatStreamAggregator::StatStreamAggregator(char const *const name)
         : Module(name),
           finestat_slotsec_(FdsStatPeriodSec),
           finestat_slots_(65) {
+     const fpi::volumeDataPointsPtr volStatData;
     // align timestamp to the length of finestat slot
     start_time_ = util::getTimeStampNanos();
     fds_uint64_t freq_nanos = finestat_slotsec_ * 1000000000;
     start_time_ = start_time_ / freq_nanos;
     start_time_ = start_time_ * freq_nanos;
+
+    writeStatsLog(volStatData);
 }
 
 StatStreamAggregator::~StatStreamAggregator() {
@@ -206,6 +212,23 @@ StatStreamAggregator::handleModuleStatStream(const fpi::StatStreamMsgPtr& stream
     return err;
 }
 
+Error StatStreamAggregator::writeStatsLog(const fpi::volumeDataPointsPtr& volStatData) {
+    Error err(ERR_OK);
+    const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
+    const std::string fileName = root->dir_user_repo() + "stat_hour.log";
+    FILE   *pFile;
+
+    pFile  = fopen((const char *)fileName.c_str(), "a+");
+    fprintf(pFile, " volume: %s,", volStatData->volume_name.c_str());
+    fprintf(pFile, " time: %lx,", volStatData->timestamp);
+
+    DataPointPair::iterator pos;
+
+    for (pos = volStatData->meta_list.begin(); pos != volStatData->meta_list.end(); ++pos)
+        fprintf(pFile, " %s: %lx,", pos->first, pos->second);
+
+    return err;
+}
 
 //
 // merge local stats for a given volume

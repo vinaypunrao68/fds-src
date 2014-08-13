@@ -132,6 +132,12 @@ class StatStreamAggregator : public Module {
     Error detachVolume(fds_volid_t volume_id);
 
     /**
+     * write the stats  to the log file
+     * @param[in] volumeDataPoints 
+     */
+    Error writeStatsLog(const fpi::volumeDataPointsPtr& volStatData);
+
+    /**
      * Starts pushing of stats for a given set of volumes, with given
      * frequency
      * @param[in] Streaming registration
