@@ -162,6 +162,9 @@ class StatStreamAggregator : public Module {
                                 fds_volid_t volume_id,
                                 const std::vector<StatSlot>& slots);
 
+    Error getStatStreamRegDetails(const fds_volid_t & volId, fpi::SvcUuid & amId,
+            fds_uint32_t & regId);
+
   private:  // methods
     VolumeStats::ptr getVolumeStats(fds_volid_t volid);
 
