@@ -13,7 +13,7 @@
 #include <fds_volume.h>
 #include <dlt.h>
 #include <fds_dmt.h>
-
+#include <fdsp/fds_stream_types.h>
 namespace fds {
     namespace kvstore {
         using PolicyInfo = fpi::FDSP_PolicyInfoType;
@@ -75,6 +75,13 @@ namespace fds {
             bool updatePolicy(const FDS_VolumePolicy& volumePolicy, int localDomain = 0);
             bool deletePolicy(fds_uint32_t volPolicyId, int localDomain = 0);
             bool getPolicies(std::vector<FDS_VolumePolicy>& policies, int localDomain = 0);
+
+            // stat streaming registrations
+            int32_t getNewStreamRegistrationId();
+            bool addStreamRegistration(fpi::StreamingRegistrationMsg& streamReg);
+            bool removeStreamRegistration(int regId);
+            bool getStreamRegistration(int regId, fpi::StreamingRegistrationMsg& streamReg);
+            bool getStreamRegistrations(std::vector<fpi::StreamingRegistrationMsg>& vecReg);
         };
     }  // namespace kvstore
 

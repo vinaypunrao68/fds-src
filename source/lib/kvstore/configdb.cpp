@@ -8,6 +8,7 @@
 #include <kvstore/configdb.h>
 #include <util/Log.h>
 #include <stdlib.h>
+#include <fdsp_utils.h>
 
 namespace fds { namespace kvstore {
 using redis::Reply;
@@ -764,6 +765,95 @@ bool ConfigDB::getPolicies(std::vector<FDS_VolumePolicy>& policies, int localDom
         for (uint i = 0; i < volumePolicyIds.size(); i++) {
             if (getPolicy(volumePolicyIds[i], policy, localDomain)) {
                 policies.push_back(policy);
+            }
+        }
+        return true;
+    } catch(RedisException& e) {
+        LOGERROR << e.what();
+    }
+    return false;
+}
+
+// stat streaming registrations
+int32_t ConfigDB::getNewStreamRegistrationId() {
+    try {
+        Reply reply = r.sendCommand("incr streamreg:id");
+        return reply.getLong();
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+    }
+    return -1;
+}
+
+bool ConfigDB::addStreamRegistration(fpi::StreamingRegistrationMsg& streamReg) {
+    try {
+        boost::shared_ptr<std::string> serialized;
+
+        Reply reply = r.sendCommand("sadd streamregs %d", streamReg.id);
+        if (!reply.wasModified()) {
+            LOGWARN << "unable to add streamreg [" << streamReg.id;
+        }
+
+        fds::serializeFdspMsg(streamReg, serialized);
+
+        reply = r.sendCommand("set streamreg:%d %b", streamReg.id,
+                              serialized->data(), serialized->length());
+        return reply.isOk();
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+    }
+    return false;
+}
+
+bool ConfigDB::getStreamRegistration(int regId, fpi::StreamingRegistrationMsg& streamReg) {
+    try {
+        Reply reply = r.sendCommand("get streamreg:%d", regId);
+        if (reply.isNil()) return false;
+        fds::deserializeFdspMsg(reply.getString(), streamReg);
+        return true;
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+    }
+    return false;
+}
+
+bool ConfigDB::removeStreamRegistration(int regId) {
+    try {
+        Reply reply = r.sendCommand("srem streamregs %d", regId);
+        if (!reply.wasModified()) {
+            LOGWARN << "unable to remove streamreg [" << regId << "] from set"
+                    << " mebbe it does not exist";
+        }
+
+        reply = r.sendCommand("del streamreg:%d", regId);
+        if (reply.getLong() == 0) {
+            LOGWARN << "no items deleted";
+        }
+        return true;
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+    }
+    return false;
+}
+
+bool ConfigDB::getStreamRegistrations(std::vector<fpi::StreamingRegistrationMsg>& vecReg) {
+        try {
+        std::vector<long long> regIds; //NOLINT
+
+        Reply reply = r.sendCommand("smembers streamregs");
+        reply.toVector(regIds);
+
+        if (regIds.empty()) {
+            LOGWARN << "no stream registrations found ";
+            return false;
+        }
+
+        fpi::StreamingRegistrationMsg regMsg;
+        for (uint i = 0; i < regIds.size(); i++) {
+            if (getStreamRegistration(regIds[i], regMsg)) {
+                vecReg.push_back(regMsg);
+            } else {
+                LOGWARN << "unable to get reg: " << regIds[i];
             }
         }
         return true;
