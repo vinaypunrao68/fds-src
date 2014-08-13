@@ -4,6 +4,7 @@ package com.formationds.xdi.local;
  */
 
 import com.formationds.apis.*;
+import com.formationds.streaming.*;
 import org.apache.thrift.TException;
 import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;
@@ -90,14 +91,14 @@ public class ToyServices implements AmService.Iface, ConfigurationService.Iface 
     }
 
     @Override
-    public com.formationds.streaming.registration registerStream(String url, String http_method, List<String> volume_names, int sample_freq_seconds, int duration_seconds) throws org.apache.thrift.TException {
-        com.formationds.streaming.registration reg = new com.formationds.streaming.registration();
+    public registration registerStream(String url, String http_method, List<String> volume_names, int sample_freq_seconds, int duration_seconds) throws org.apache.thrift.TException {
+        registration reg = new registration();
         return reg;
     }
 
     @Override
-    public List<com.formationds.streaming.registration> getStreamRegistrations(int count) throws org.apache.thrift.TException {
-        List<com.formationds.streaming.registration> regList = new ArrayList<com.formationds.streaming.registration>();
+    public List<registration> getStreamRegistrations(int count) throws org.apache.thrift.TException {
+        List<registration> regList = new ArrayList<registration>();
         return regList;
     }
 
@@ -105,7 +106,6 @@ public class ToyServices implements AmService.Iface, ConfigurationService.Iface 
     public void deregisterStream(int registration_id) throws org.apache.thrift.TException {
         
     }
-
 
 
     @Override

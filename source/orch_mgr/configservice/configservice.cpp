@@ -16,6 +16,7 @@
 #include <util/Log.h>
 #include <OmResources.h>
 #include <convert.h>
+#include <orchMgr.h>
 using namespace ::apache::thrift;  //NOLINT
 using namespace ::apache::thrift::protocol;  //NOLINT
 using namespace ::apache::thrift::transport;  //NOLINT
@@ -24,13 +25,15 @@ using namespace ::apache::thrift::server;  //NOLINT
 using namespace  ::apis;  //NOLINT
 
 namespace fds {
-class OrchMgr;
+// class OrchMgr;
 
 class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     OrchMgr* om;
+    kvstore::ConfigDB* configDB;
 
   public:
     explicit ConfigurationServiceHandler(OrchMgr* om) : om(om) {
+        configDB = om->getConfigDB();
     }
 
     void apiException(std::string message, ErrorCode code = INTERNAL_SERVER_ERROR) {
@@ -129,14 +132,31 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
                            boost::shared_ptr<std::vector<std::string> >& volume_names,
                            boost::shared_ptr<int32_t>& sample_freq_seconds,
                            boost::shared_ptr<int32_t>& duration_seconds) {
+        int32_t regId = configDB->getNewStreamRegistrationId();
+        fpi::StreamingRegistrationMsg regMsg;
+        regMsg.id = regId;
+        regMsg.url = *url;
+        regMsg.sample_freq_seconds = *sample_freq_seconds;
+        regMsg.duration_seconds = *duration_seconds;
+
+        regMsg.volume_names.reserve(volume_names->size());
+        for (uint i = 0; i < volume_names->size(); i++) {
+            regMsg.volume_names.push_back(volume_names->at(i));
+        }
+
+        if (configDB->addStreamRegistration(regMsg)) {
+            return regId;
+        }
         return 0;
     }
 
     void getStreamRegistrations(std::vector<fpi::StreamingRegistrationMsg> & _return,
                                 boost::shared_ptr<int32_t>& ignore) { //NOLINT
+        configDB->getStreamRegistrations(_return);
     }
 
     void deregisterStream(boost::shared_ptr<int32_t>& registration_id) {
+        configDB->removeStreamRegistration(*registration_id);
     }
 };
 
