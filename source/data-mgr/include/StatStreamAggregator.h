@@ -135,7 +135,7 @@ class StatStreamAggregator : public Module {
      * write the stats  to the log file
      * @param[in] volumeDataPoints 
      */
-    Error writeStatsLog(const fpi::volumeDataPointsPtr& volStatData);
+    Error writeStatsLog(const fpi::volumeDataPoints& volStatData);
 
     /**
      * Starts pushing of stats for a given set of volumes, with given

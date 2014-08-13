@@ -134,6 +134,7 @@ void VolumeStats::processStats() {
         volDataPoint.timestamp = dp.first;
         volDataPoint.meta_list = dp.second;
 
+        dataMgr->statStreamAggregator()->writeStatsLog(volDataPoint);
         dataPoints.push_back(volDataPoint);
     }
 
@@ -285,22 +286,25 @@ StatStreamAggregator::handleModuleStatStream(const fpi::StatStreamMsgPtr& stream
     return err;
 }
 
-Error StatStreamAggregator::writeStatsLog(const fpi::volumeDataPointsPtr& volStatData) {
+Error StatStreamAggregator::writeStatsLog(const fpi::volumeDataPoints& volStatData) {
     Error err(ERR_OK);
     const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
     const std::string fileName = root->dir_user_repo() + "stat_hour.log";
     FILE   *pFile;
 
     pFile  = fopen((const char *)fileName.c_str(), "a+");
-    fprintf(pFile, " volume: %s,", volStatData->volume_name.c_str());
-    fprintf(pFile, " time: %lx,", volStatData->timestamp);
+    fprintf(pFile, "%s,", volStatData.volume_name.c_str());
+    fprintf(pFile, "%ld,", volStatData.timestamp);
 
-    std::vector<DataPointPair>::iterator pos;
+    std::vector<DataPointPair>::const_iterator pos;
 
-    for (pos = volStatData->meta_list.begin(); pos != volStatData->meta_list.end(); ++pos)
+    fprintf(pFile, "[");
+    for (pos = volStatData.meta_list.begin(); pos != volStatData.meta_list.end(); ++pos)
         fprintf(pFile, " %s: %f,", pos->key.c_str(), pos->value);
+    fprintf(pFile, "]");
 
-    fprintf(pFile, " \n");
+    fprintf(pFile, "\n");
+    fclose(pFile);
     return err;
 }
 
