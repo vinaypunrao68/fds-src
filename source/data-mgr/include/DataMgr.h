@@ -92,6 +92,11 @@ class DataMgr : public Module, public DmIoReqHandler {
         return statStreamAggr_;
     }
 
+    inline const std::string & volumeName(fds_volid_t volId) {
+        FDSGUARD(*vol_map_mtx);
+        return vol_meta_map[volId]->vol_desc->name;
+    }
+
  private:
     typedef enum {
       NORMAL_MODE = 0,

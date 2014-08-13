@@ -7,6 +7,8 @@
 #include <net/net-service.h>
 #include <DataMgr.h>
 #include <StatStreamAggregator.h>
+#include <fdsp/Streaming.h>
+#include <DataMgr.h>
 
 namespace fds {
 
@@ -63,6 +65,9 @@ void VolumeStats::processStats() {
     LOGDEBUG << "Will log 1-min stats to file";
     std::vector<StatSlot> slots;
 
+    std::unordered_map<fds_uint64_t, std::vector<fpi::DataPointPair> > volDataPointsMap;
+    const std::string & volName = dataMgr->volumeName(volid_);
+
     // note that we are passing time interval modules push stats to the aggregator
     // -- this is time interval back from current time that will be not included into
     // the list of slots returned, because these slots may not be fully filled yet, eg.
@@ -71,6 +76,45 @@ void VolumeStats::processStats() {
     for (std::vector<StatSlot>::const_iterator cit = slots.cbegin();
          cit != slots.cend();
          ++cit) {
+        fds_uint64_t timestamp = finegrain_hist_->getTimestamp((*cit).getTimestamp());
+
+        timestamp /= 1000 * 1000;
+
+        fpi::DataPointPair putsDP;
+        putsDP.key = "Puts";
+        putsDP.value = StatHelper::getTotalPuts(*cit);
+        volDataPointsMap[timestamp].push_back(putsDP);
+
+        fpi::DataPointPair getsDP;
+        getsDP.key = "Gets";
+        getsDP.value = StatHelper::getTotalGets(*cit);
+        volDataPointsMap[timestamp].push_back(getsDP);
+
+        fpi::DataPointPair logicalBytesDP;
+        logicalBytesDP.key = "Logical Bytes";
+        logicalBytesDP.value = StatHelper::getTotalLogicalBytes(*cit);
+        volDataPointsMap[timestamp].push_back(logicalBytesDP);
+
+        fpi::DataPointPair blobsDP;
+        blobsDP.key = "Blobs";
+        blobsDP.value = StatHelper::getTotalBlobs(*cit);
+        volDataPointsMap[timestamp].push_back(blobsDP);
+
+        fpi::DataPointPair objectsDP;
+        objectsDP.key = "Objects";
+        objectsDP.value = StatHelper::getTotalObjects(*cit);
+        volDataPointsMap[timestamp].push_back(objectsDP);
+
+        fpi::DataPointPair aveBlobSizeDP;
+        aveBlobSizeDP.key = "Ave Blob Size";
+        aveBlobSizeDP.value = StatHelper::getAverageBytesInBlob(*cit);
+        volDataPointsMap[timestamp].push_back(aveBlobSizeDP);
+
+        fpi::DataPointPair aveObjectsDP;
+        aveObjectsDP.key = "Ave Objects per Blob";
+        aveObjectsDP.value = StatHelper::getAverageObjectsInBlob(*cit);
+        volDataPointsMap[timestamp].push_back(aveObjectsDP);
+
         // TODO(Anna) add slot to 1 hour history
         // debugging for now, remove when we start printing this to file
         LOGNOTIFY << "[" << finegrain_hist_->getTimestamp((*cit).getTimestamp()) << "], "
@@ -83,6 +127,26 @@ void VolumeStats::processStats() {
                   << "Ave blob size " << StatHelper::getAverageBytesInBlob(*cit) << " bytes, "
                   << "Ave objects in blobs " << StatHelper::getAverageObjectsInBlob(*cit);
     }
+
+    std::vector<fpi::volumeDataPoints> dataPoints;
+    for (auto dp : volDataPointsMap) {
+        fpi::volumeDataPoints volDataPoint;
+        volDataPoint.volume_name = volName;
+        volDataPoint.timestamp = dp.first;
+        volDataPoint.meta_list = dp.second;
+
+        dataPoints.push_back(volDataPoint);
+    }
+
+    fpi::SvcUuid dest;
+    fds_uint32_t regId;
+    Error err = dataMgr->statStreamAggregator()->getStatStreamRegDetails(volid_, dest, regId);
+    if (!err.ok()) {
+        LOGERROR << "Failed to get registration details for volume '" << volName << "'";
+        return;
+    }
+
+    EpInvokeRpc(fpi::StreamingClient, publishMetaStream, dest, 0, 2, regId, dataPoints);
 
     // log to 1-minute file
     // if enough time passed, also log to 1hour file
@@ -184,6 +248,9 @@ Error StatStreamAggregator::registerStream(fpi::StatStreamRegistrationMsgPtr reg
 
     SCOPEDWRITE(lockStatStreamRegsMap);
     statStreamRegistrations_[registration->id] = registration;
+    for (auto volId : registration->volumes) {
+        attachVolume(volId);
+    }
     return err;
 }
 
@@ -192,7 +259,14 @@ Error StatStreamAggregator::deregisterStream(fds_uint32_t reg_id) {
     LOGDEBUG << "Removing streaming registration with id " << reg_id;
 
     SCOPEDWRITE(lockStatStreamRegsMap);
-    statStreamRegistrations_.erase(reg_id);
+    StatStreamRegistrationMap_t::iterator iter = statStreamRegistrations_.find(reg_id);
+    if (statStreamRegistrations_.end() != iter) {
+        fds_verify(iter->second);
+        for (auto volId : iter->second->volumes) {
+            detachVolume(volId);
+        }
+        statStreamRegistrations_.erase(iter);
+    }
     return err;
 }
 
@@ -228,6 +302,23 @@ Error StatStreamAggregator::writeStatsLog(const fpi::volumeDataPointsPtr& volSta
         fprintf(pFile, " %s: %lx,", pos->first, pos->second);
 
     return err;
+}
+
+Error
+StatStreamAggregator::getStatStreamRegDetails(const fds_volid_t & volId,
+        fpi::SvcUuid & amId, fds_uint32_t & regId) {
+    SCOPEDREAD(lockStatStreamRegsMap);
+    for (auto entry : statStreamRegistrations_) {
+        for (auto vol : entry.second->volumes) {
+            if (volId == vol) {
+                amId = entry.second->dest;
+                regId = entry.second->id;
+                return ERR_OK;
+            }
+        }
+    }
+
+    return ERR_NOT_FOUND;
 }
 
 //
@@ -284,5 +375,4 @@ double StatHelper::getAverageObjectsInBlob(const StatSlot& slot) {
 void VolStatsTimerTask::runTimerTask() {
     volstats_->processStats();
 }
-
 }  // namespace fds

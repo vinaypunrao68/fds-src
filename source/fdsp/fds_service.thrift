@@ -245,11 +245,12 @@ service PlatNetSvc extends BaseAsyncSvc {
 struct StatStreamRegistrationMsg {
    1:i32 id,
    2:string url,
-   3:list<i64> volumes,
-   4:i32 sample_freq_seconds,
-   5:i32 duration_seconds,
+   3:string method
+   4:SvcUuid dest,
+   5:list<i64> volumes,
+   6:i32 sample_freq_seconds,
+   7:i32 duration_seconds,
 }
-
 
 struct StatStreamRegistrationRspMsg {
 }

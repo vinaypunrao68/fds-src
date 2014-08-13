@@ -142,9 +142,9 @@ do
         fi
         preinstall $pkgname
         if [[ -z $pkgversion ]] || [[ $pkgversion == "latest" ]] ; then
-            sudo apt-get install ${pkgname}
+            sudo apt-get install ${pkgname} --assume-yes
         else
-            sudo apt-get install ${pkgname}=${pkgversion}
+            sudo apt-get install ${pkgname}=${pkgversion} --assume-yes
         fi
         postinstall $pkgname
     fi
