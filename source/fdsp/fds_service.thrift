@@ -2,7 +2,6 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 include "FDSP.thrift"
-#include "fds_stream.thrift"
 
 namespace cpp FDS_ProtocolInterface
 
@@ -90,10 +89,10 @@ enum  FDSPMsgTypeId {
     ForwardCatalogRspMsgTypeId,
     VolSyncStateMsgTypeId,
     VolSyncStateRspMsgTypeId,
-    StreamingRegistrationMsgTypeId,
-    StreamingRegistrationRspMsgTypeId,
-    StreamingDeregistrationMsgTypeId,
-    StreamingDeregistrationRspMsgTypeId
+    StatStreamRegistrationMsgTypeId,
+    StatStreamRegistrationRspMsgTypeId,
+    StatStreamDeregistrationMsgTypeId,
+    StatStreamDeregistrationRspMsgTypeId
 }
 
 struct EmptyMsg {
@@ -243,14 +242,24 @@ service PlatNetSvc extends BaseAsyncSvc {
 }
 
 /* Registration for streaming stats */
-struct StreamingRegistrationRspMsg {
+struct StatStreamRegistrationMsg {
+   1:i32 id,
+   2:string url,
+   3:string method
+   4:SvcUuid dest,
+   5:list<i64> volumes,
+   6:i32 sample_freq_seconds,
+   7:i32 duration_seconds,
 }
 
-struct StreamingDeregistrationMsg {
+struct StatStreamRegistrationRspMsg {
+}
+
+struct StatStreamDeregistrationMsg {
     1: i32 id;
 }
 
-struct StreamingDeregistrationRspMsg {
+struct StatStreamDeregistrationRspMsg {
 }
 
 /*

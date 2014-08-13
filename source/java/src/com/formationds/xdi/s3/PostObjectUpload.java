@@ -20,20 +20,16 @@ import java.util.Map;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-public class PostUploadOrDeleteMultipleObjects implements RequestHandler {
+public class PostObjectUpload implements RequestHandler {
     private Xdi xdi;
 
-    public PostUploadOrDeleteMultipleObjects(Xdi xdi) {
+    public PostObjectUpload(Xdi xdi) {
         this.xdi = xdi;
     }
 
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
         String bucketName = requiredString(routeParameters, "bucket");
-
-        if (request.getParameter("delete") != null) {
-            return new DeleteMultipleObjects(xdi, bucketName).handle(request, routeParameters);
-        }
 
         if (request.getContentType() != null && request.getContentType().startsWith("multipart/form-data")) {
             request.setAttribute(Request.__MULTIPART_CONFIG_ELEMENT, MULTI_PART_CONFIG);
