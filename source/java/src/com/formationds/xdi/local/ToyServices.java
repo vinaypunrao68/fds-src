@@ -91,14 +91,14 @@ public class ToyServices implements AmService.Iface, ConfigurationService.Iface 
     }
 
     @Override
-    public registration registerStream(String url, String http_method, List<String> volume_names, int sample_freq_seconds, int duration_seconds) throws org.apache.thrift.TException {
-        registration reg = new registration();
+    public StreamingRegistrationMsg registerStream(String url, String http_method, List<String> volume_names, int sample_freq_seconds, int duration_seconds) throws org.apache.thrift.TException {
+        StreamingRegistrationMsg reg = new StreamingRegistrationMsg();
         return reg;
     }
 
     @Override
-    public List<registration> getStreamRegistrations(int count) throws org.apache.thrift.TException {
-        List<registration> regList = new ArrayList<registration>();
+    public List<StreamingRegistrationMsg> getStreamRegistrations(int count) throws org.apache.thrift.TException {
+        List<StreamingRegistrationMsg> regList = new ArrayList<StreamingRegistrationMsg>();
         return regList;
     }
 
