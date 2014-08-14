@@ -47,6 +47,7 @@ class CapacityTest(object):
         self.avg_size = avg_size
         self.std_dev = std_dev
         self.break_time = break_time
+        self.num_anoms = num_anoms
 
     def __setup(self, url):
         '''
@@ -88,8 +89,6 @@ class CapacityTest(object):
         
         # Figure out how many requests to make based on interval/break_time
         num_reqs = self.break_time / self.interval
-        print num_reqs
-
         start_time = time.clock()
 
         for i in range(num_reqs):
@@ -109,14 +108,18 @@ class CapacityTest(object):
             
         # If we've hit this point then its time for the break
         for i in range(self.num_anoms):
+            print "Putting anomalous request #" + str(i)
             rand_dev = random.randint(2, 6) # How many standard deviations from the avg
-            rand = random.randint(((-1 * rand_dev) * self.std_dev), rand_dev * self.std_dev)
+            rand = random.randint(0, rand_dev * self.std_dev)
+            rand = (rand * -1) if random.randint(0, 1) == 0 else rand
             temp_data = os.urandom(self.avg_size + rand)
             res = requests.put(os.path.join(url, TestUtil.gen_random_name(6)), data=temp_data)
             if res.status_code != 200:
                 print "An error has occurred, and an object could not be PUT!"
                 sys.exit(-1)
-
+            
+            time.sleep(self.interval)
+                
         end_time = time.clock()
 
         self.__verify(start_time, end_time)
