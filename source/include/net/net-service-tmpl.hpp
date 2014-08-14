@@ -234,7 +234,7 @@ class EndPoint : public EpSvcImpl
              EpEvtPlugin::pointer       ops,
              fds_uint32_t               major = 0,
              fds_uint32_t               minor = 0,
-             const char                *iface = "lo")
+             const char                *iface = NULL)
         : EpSvcImpl(mine, peer, EpAttr(iface, port), ops, major, minor),
           ep_rpc_recv(rcv_if) {
             ep_init_obj();
