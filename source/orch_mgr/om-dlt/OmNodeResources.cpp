@@ -488,6 +488,8 @@ OM_NodeAgent::om_send_one_stream_reg_cmd(const fpi::StreamingRegistrationMsg& re
 
     auto asyncStreamRegReq = gSvcRequestPool->newEPSvcRequest(rs_uuid.toSvcUuid());
     asyncStreamRegReq->setPayload(FDSP_MSG_TYPEID(fpi::StatStreamRegistrationMsg), reg_msg);
+    // HACK
+    asyncStreamRegReq->setTimeoutMs(0);
     asyncStreamRegReq->invoke();
 }
 
