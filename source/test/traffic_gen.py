@@ -11,6 +11,28 @@ import httplib
 import random
 import pickle
 
+class Histogram:
+    def __init__(self, N = 1, M = 0):
+        self.bins = [0,] * (N + 1) # FIXME: refactor name
+        self.N = N
+        self.M = M
+        self.intv = float(M)/N
+    def add(self, value):
+        if value < self.M:
+            index = int(value/self.intv)
+            self.bins[index] += 1
+        else:
+            self.bins[self.N] += 1
+    def get(self):
+        return self.bins
+    # def get_bins(self): # TODO
+    #    return [ x * self.intv  for x in range(self.N + 1)]
+    def update(self, histo):
+        vals = histo.get()
+        length = len(vals)
+        assert length == self.N + 1
+        self.bins = [self.bins[i] + vals[i] for i in range(length)]
+
 def init_stats():
     stats = [{"reqs" : 0,
          "fails" : 0,
@@ -18,9 +40,18 @@ def init_stats():
          "tot_latency" : 0.0,
          "min_latency" : 1.0e10,   # FIXME: this seems broken
          "max_latency" : 0.0,
-         "latency_cnt" : 0
+         "latency_cnt" : 0,
+         "lat_histo"   : Histogram(N = 10, M = 0.010)
     } for v in range(options.num_volumes)]
+    #lat_histo = [Histogram() for v in range(options.num_volumes)]
     return stats
+
+def update_stat(stats, name ,val):
+    if type(stats[name]) == type(1) or type(stats[name]) == type(1.0):
+        stats[name] += val
+    else:
+        assert type(stats[name]) == type(Histogram())
+        stats[name].update(val)
 
 def clear_stats():
     for v in range(options.num_volumes):
@@ -31,10 +62,12 @@ def update_latency_stats(stats, start, end, volume):
     elapsed = end - start
     stats[volume]["latency_cnt"] +=1
     stats[volume]["tot_latency"] += elapsed
+    # print "elapsed:",elapsed
     if elapsed < stats[volume]["min_latency"]:
         stats[volume]["min_latency"] = elapsed
     if elapsed > stats[volume]["max_latency"]:
         stats[volume]["max_latency"] = elapsed
+    stats[volume]["lat_histo"].add(elapsed)
 
 def create_random_file(size):
     fout, fname = tempfile.mkstemp(prefix="fdstrgen")
@@ -109,6 +142,7 @@ def task(task_id, n_reqs, req_type, nvols, files, stats, queue, prev_uploaded):
         r1 = conn.getresponse()
         r1.read()
         time_end = time.time()
+        # FIXME: need to skip first samples
         update_latency_stats(stats, time_start, time_end, vol)
         stats[vol]["reqs"] += 1
         if r1.status != 200:
@@ -168,7 +202,8 @@ def main(options,files):
         st, up = queue.get()
         for vol in range(options.num_volumes):
             for k,v in st[vol].items():
-                stats[vol][k] += v
+                # stats[vol][k] += v
+                update_stat(stats[vol], k, v)
             uploaded[vol].update(up[vol])
     # FIXME: volumes (ongoing)
     if options.get_reuse == True and options.req_type == "PUT":
@@ -180,13 +215,15 @@ def main(options,files):
             "reqs/sec:", stats[vol]['reqs'] / stats[vol]['elapsed_time'], \
             "avg_latency[ms]:",stats[vol]["tot_latency"]/stats[vol]["latency_cnt"]*1e3, \
             "failures:", stats[vol]['fails'], "requests:", stats[vol]["reqs"]
+        print "Latency histogram:", stats[vol]["lat_histo"].get()
 
 # TODO: reuse on put, sequential mode
 # TODO: options to create volume
 # TODO: option to reset counters
 # TODO: use pools and async: https://docs.python.org/3/library/multiprocessing.html#using-a-pool-of-workers
 # TODO: delete
-
+# FIXME: what happen if i use a different numbe rof volumes for put and get?
+# TODO: time history of latencies
 if __name__ == "__main__":
     parser = OptionParser()
     parser.add_option("-t", "--threads", dest = "threads", type = "int", default = 1, help = "Number of threads")

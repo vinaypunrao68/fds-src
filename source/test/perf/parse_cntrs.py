@@ -45,8 +45,11 @@ class Counters:
                     self._add(node, agent, name, volid, cntr_type, value, tstamp)
     def get_cntr(self, node, agent, name, cntr_type):
         series = {}
-        for volid in self.counters[name][node][agent]:
-            series[volid] = self.counters[name][node][agent][volid][cntr_type]
+        try:
+            for volid in self.counters[name][node][agent]:
+                    series[volid] = self.counters[name][node][agent][volid][cntr_type]
+        except KeyError:
+            return None
         for k in series:
             series[k] = zip(*series[k])
         return series
@@ -124,6 +127,7 @@ if __name__ == "__main__":
     #parser.add_option("-c", "--column", dest = "column", help = "Column")
     (options, args) = parser.parse_args()
 
+    # FIXME: revisit Counters interface
     c = Counters()
     f = open(options.filein,"r")
     c.parse(f.read())

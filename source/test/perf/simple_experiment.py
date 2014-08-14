@@ -26,10 +26,10 @@ def create_tests():
     test["type"] = "PUT"
     test["nreqs"] =  10000  # 100000
     test["nfiles"] = 10000 # 10000
-    test["nvols"] = 2
+    test["nvols"] = 1 #2
     test["threads"] = 1
     test["fsize"] = size
-    # tests.append(test)
+    tests.append(test)
     # for nvols in [1, 2, 3, 4]:
     #     for th in [1, 2, 5, 10, 15]:
     #         test = dict(template)
@@ -40,7 +40,7 @@ def create_tests():
     #         test["threads"] = th
     #         tests.append(test)
     for nvols in [1]:#[1, 2]: # [1, 2, 3, 4]:
-        for th in [15]:#[1, 5, 10, 15, 20, 25, 30]: #[1, 2, 5, 10, 15]:
+        for th in [10, 15, 20, 25, 30]:#[1, 5, 10, 15, 20, 25, 30]: #[1, 2, 5, 10, 15]:
             test = dict(template)
             test["type"] = "GET"
             test["nreqs"] = 10000 # 100000

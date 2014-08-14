@@ -171,11 +171,23 @@ def get_test_parms():
     #results_2014-08-05_nvols\:1.threads\:1.type\:GET.nfiles\:10000.test_type\:tgen.fsize\:4096.nreqs\:100000.test
     m = re.match("(\w+)_(\d+-)_nvols:(\d+).threads:(\d+).type:(\w+).nfiles:(\d+).test_type:(\w+).fsize:(\d+).nreqs:(\d+).test", options.directory)
 
+def print_counter(counters, agent, counter, ctype):
+    c_node = "tie-fighter" #FIXME
+    series = counters.get_cntr(c_node, agent, counter, ctype)
+    if series is not None:
+        for v in series:
+            print agent + "-" + counter + ", ", getmax(series[v][0])/1e6, ", "
+    else:
+        print agent + "-" + counter + ", ", -1, ", "
+
+# FIXME: multivolumes!
 
 def main():
     compute_pidmap("tiefighter")
-    # counters = Counters()
-    # counters.parse()
+    counters = Counters()
+    c_file = open(options.directory + "/counters.dat")
+    counters.parse(c_file.read())
+    c_file.close()
     # counters.get_cntr()
     print options.name,",",
     time.sleep(1)
@@ -188,15 +200,33 @@ def main():
                 plot_series(get_mem(node, agent, pid), "Memory - " + agent + " - " + options.name, "megabatyes")
                 plot_series(get_cpu(node, agent, pid), "CPU - " + agent + " - " + options.name, "CPU utilization [%]")
             else:
-                print "maxmem,",getmax(get_mem(node, agent, pid)),",",
-                print "maxcpu,",getmax(get_cpu(node, agent, pid)),",",
+                print "maxmem,",getmax(get_mem(node, agent, pid)),", ",
+                print "maxcpu,",getmax(get_cpu(node, agent, pid)),", ",
         if options.plot_enable:
             plot_series(get_iops(node), "IOPS - " + options.name, "IOPS (disk)")
             plot_series(get_idle(node), "Avg Idle - " + options.name, "Idle CPU Time [%]")
         else:
-            print "maxiops,",getmax(get_iops(node)),",",
-            print "avgidle,",getavg(get_idle(node)),",",
+            print "maxiops,",getmax(get_iops(node)),", ",
+            print "avgidle,",getavg(get_idle(node)),", ",
+    print_counter(counters, "AMAgent","am_get_obj_req", "latency")
+    print_counter(counters, "AMAgent","am_stat_blob_obj_req", "latency")
+    print_counter(counters, "sm","get_obj_req", "latency")
+    #print_counter("AMAgent","am_stat_blob_obj_req", "latency")
+
+    # series = counters.get_cntr(c_node,"AMAgent","am_get_obj_req", "latency")
+    # if series is not None:
+    #     for v in series:
+    #         print "am_get_latency: ", getmax(series[v][0])/1e6,
+    # else:
+    #     print "am_get_latency: ", -1,
+    # series = counters.get_cntr(c_node,"AMAgent","am_stat_blob_obj_req", "latency")
+    # if series is not None:
+    #     for v in series:
+    #         print "am_stat_blob_latency: ", getmax(series[v][0])/1e6,
+    # else:
+    #     print "am_get_latency: ", -1,
     print "" 
+
 
 if __name__ == "__main__":
     parser = OptionParser()
