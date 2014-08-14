@@ -10,29 +10,28 @@ import com.formationds.apis.VolumeSettings;
 import com.formationds.streaming.StreamingRegistrationMsg;
 import org.apache.thrift.TException;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class CachingConfigurationService implements ConfigurationService.Iface {
     private final ConfigurationService.Iface service;
-    private final ConcurrentHashMap<Key, VolumeDescriptor> map;
+    private final ConcurrentHashMap<Key, VolumeDescriptor> volumeCache;
 
     public CachingConfigurationService(ConfigurationService.Iface service) {
         this.service = service;
-        map = new ConcurrentHashMap<>();
+        volumeCache = new ConcurrentHashMap<>();
     }
 
     @Override
     public void createVolume(String domainName, String volumeName, VolumeSettings volumeSettings) throws ApiException, TException {
         service.createVolume(domainName, volumeName, volumeSettings);
-        map.clear();
+        volumeCache.clear();
     }
 
     @Override
     public void deleteVolume(String domainName, String volumeName) throws ApiException, TException {
         service.deleteVolume(domainName, volumeName);
-        map.clear();
+        volumeCache.clear();
     }
 
     @Override
@@ -42,7 +41,7 @@ public class CachingConfigurationService implements ConfigurationService.Iface {
 
     private VolumeDescriptor getFromCache(String domainName, String volumeName) {
         Key key = new Key(domainName, volumeName);
-        return map.computeIfAbsent(key, k -> {
+        return volumeCache.computeIfAbsent(key, k -> {
             try {
                 return service.statVolume(domainName, volumeName);
             } catch (TException e) {
@@ -58,18 +57,17 @@ public class CachingConfigurationService implements ConfigurationService.Iface {
 
     @Override
     public int registerStream(String url, String http_method, List<String> volume_names, int sample_freq_seconds, int duration_seconds) throws org.apache.thrift.TException {
-        return 0;
+        return service.registerStream(url, http_method, volume_names, sample_freq_seconds, duration_seconds);
     }
 
     @Override
-    public List<StreamingRegistrationMsg> getStreamRegistrations(int count) throws org.apache.thrift.TException {
-        List<StreamingRegistrationMsg> regList = new ArrayList<StreamingRegistrationMsg>();
-        return regList;
+    public List<StreamingRegistrationMsg> getStreamRegistrations(int thriftSucks) throws org.apache.thrift.TException {
+        return service.getStreamRegistrations(thriftSucks);
     }
 
     @Override
     public void deregisterStream(int registration_id) throws org.apache.thrift.TException {
-        
+        service.deregisterStream(registration_id);
     }
 
 

@@ -136,6 +136,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         fpi::StreamingRegistrationMsg regMsg;
         regMsg.id = regId;
         regMsg.url = *url;
+        regMsg.http_method = *http_method;
         regMsg.sample_freq_seconds = *sample_freq_seconds;
         regMsg.duration_seconds = *duration_seconds;
 

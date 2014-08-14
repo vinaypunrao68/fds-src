@@ -17,6 +17,24 @@
 
 namespace fds {
 
+class StatStreamAggregator;
+
+class StatStreamTimerTask : public FdsTimerTask {
+  public:
+    typedef boost::shared_ptr<StatStreamTimerTask> ptr;
+
+    StatStreamTimerTask(FdsTimer &timer, fpi::StatStreamRegistrationMsgPtr reg,
+            StatStreamAggregator & statStreamAggr) : FdsTimerTask(timer), reg_(reg),
+            statStreamAggr_(statStreamAggr), last_ts_(0) {}
+    virtual ~StatStreamTimerTask() {}
+
+    virtual void runTimerTask() override;
+
+  private:
+    fpi::StatStreamRegistrationMsgPtr reg_;
+    StatStreamAggregator & statStreamAggr_;
+    fds_uint64_t last_ts_;
+};
 
 /**
  * Per-volume stat histories, logging, etc.
@@ -51,9 +69,35 @@ class VolumeStats {
     VolumePerfHistory::ptr longterm_hist_;
 
     /**
-     * TODO(xxx) add log file here, and timer to
-     * log stat history for this volume
+     * Queries currently cached stdev for performance and capacity growth.
+     * This method may result in first updating the metrics if they are stale
+     * and then returning them.
+     * @param[out] recent_cap_stdev standard deviation of bytes added sampled
+     * every coarse time interval (default = 1 hour) for the past N time intervals
+     * (default = 24 hours)
+     * @param[out] recent_cap_wma weighted moving average of bytes added sampled
+     * every coarse time interval (default = 1 hour) for the past N time intervals
+     * (default = 24 hours)
+     * @param[out] long_cap_stdev standard deviation of bytes added / coarse time interval
+     * sampled every long time interval (default = 1 day) for the past N time intervals
+     * (default = 30 days)
+     * @param[out] recent_perf_stdev standard deviation of number of obj gets + puts
+     * sampled every coarse time interval (default = 1 hour) for the past N time
+     * intervals (default = 24 hours)
+     * @param[out] recent_perf_wma weighted moving average of number of obj gets + puts
+     * sampled every coarse time interval (default = 1 hour) for the past N time
+     * intervals (default = 24 hours)
+     * @param[out] long_perf_stdev standard deviation of obj gets + puts / coarse time
+     * interval sampled every long time interval (default = 1 day) for the past N time
+     * intervals (default = 30 days)
+     * 
      */
+    void getFirebreakMetrics(double* recent_cap_stdev,
+                             double* long_cap_stdev,
+                             double* recent_cap_wma,
+                             double* recent_perf_stdev,
+                             double* long_perf_stdev,
+                             double* recent_perf_wma);
 
     /**
      * Called periodically to process fine-grain stats:
@@ -63,8 +107,29 @@ class VolumeStats {
      */
     void processStats();
 
+  private:  // methods
+    void updateStdev(const std::vector<StatSlot>& slots,
+                     double units_in_slot,
+                     double* cap_stdev,
+                     double* perf_stdev,
+                     double* cap_wma,
+                     double* perf_wma);
+
+    void updateFirebreakMetrics();
+
   private:
     fds_volid_t volid_;  // volume id
+
+    // cached stdev for capacity and performance
+    double cap_recent_stdev_;
+    double cap_long_stdev_;
+    double cap_recent_wma_;
+    double perf_recent_stdev_;
+    double perf_long_stdev_;
+    double perf_recent_wma_;
+    fds_uint64_t long_stdev_update_ts_;
+    fds_uint64_t recent_stdev_update_ts_;
+
     /**
      * Timer to process fine-grain stats
      */
@@ -139,8 +204,8 @@ class StatStreamAggregator : public Module {
      * write the stats  to the log file
      * @param[in] volumeDataPoints 
      */
-    Error writeMinStatsLog(const fpi::volumeDataPoints& volStatData, fds_volid_t vol_id);
-    Error writeHourStatsLog(const fpi::volumeDataPoints& volStatData, fds_volid_t vol_id);
+    Error writeStatsLog(const fpi::volumeDataPoints& volStatData, fds_volid_t vol_id,
+            bool isMin = true);
 
     /**
      * Starts pushing of stats for a given set of volumes, with given
@@ -202,8 +267,13 @@ class StatStreamAggregator : public Module {
 
     fds_uint64_t start_time_;  // timestamps in histories are relative to this time
 
+    FdsTimer timer_;
+
     StatStreamRegistrationMap_t statStreamRegistrations_;
+    std::unordered_map<fds_uint32_t, FdsTimerTaskPtr> statStreamTaskMap_;
     fds_rwlock lockStatStreamRegsMap;
+
+    friend StatStreamTimerTask;
 };
 }  // namespace fds
 

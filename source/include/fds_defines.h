@@ -14,6 +14,9 @@
 #define KB 1024
 #define MB (KB*1024)
 #define GB (MB*1024)
+#define NANOS_IN_SECOND 1000000000
+#define NANOS_IN_MINUTE (NANOS_IN_SECOND * 60)
+#define NANOS_IN_HOUR   (NANOS_IN_MINUTE * 60)
 
 #define ENUMCASE(x) case x : return #x
 #define ENUMCASEOS(x, os) case x : os << #x ; break;

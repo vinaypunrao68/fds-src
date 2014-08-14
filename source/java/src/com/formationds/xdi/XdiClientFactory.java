@@ -29,7 +29,6 @@ public class XdiClientFactory {
 
         XdiClientConnectionFactory amFactory = new XdiClientConnectionFactory<AmService.Iface>(proto -> new AmService.Client(proto));
         amPool = new GenericKeyedObjectPool<ConnectionSpecification, XdiClientConnection<AmService.Iface>>(amFactory, config);
-
     }
 
     private <T> T buildRemoteProxy(Class<T> klass, KeyedObjectPool<ConnectionSpecification, XdiClientConnection<T>> pool, String host, int port) {

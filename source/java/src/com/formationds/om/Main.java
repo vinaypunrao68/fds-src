@@ -63,6 +63,9 @@ public class Main {
         authorize(HttpMethod.GET, "/api/config/globaldomain", ShowGlobalDomain::new);
         authorize(HttpMethod.GET, "/api/config/domains", ListDomains::new);
 
+        authorize(HttpMethod.POST, "/api/config/streams", () -> new RegisterStream(configApi));
+        authorize(HttpMethod.GET, "/api/config/streams", () -> new ListStreams(configApi));
+
        new Thread(() -> {
             try {
                 new com.formationds.demo.Main().start(configuration.getDemoConfig());
