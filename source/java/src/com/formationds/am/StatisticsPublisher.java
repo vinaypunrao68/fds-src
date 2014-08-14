@@ -7,6 +7,7 @@ import com.formationds.apis.ConfigurationService;
 import com.formationds.streaming.Streaming;
 import com.formationds.streaming.StreamingRegistrationMsg;
 import com.formationds.streaming.volumeDataPoints;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.client.methods.HttpRequestBase;
@@ -54,7 +55,7 @@ public class StatisticsPublisher implements Streaming.Iface {
 
     private HttpRequestBase buildRequest(String httpMethod, String url, JSONArray jsonArray) throws Exception {
         StringEntity entity = new StringEntity(jsonArray.toString(4));
-        if ("post".equals(httpMethod.toLowerCase())) {
+        if (StringUtils.isBlank(httpMethod) || "post".equals(httpMethod.toLowerCase())) {
             HttpPost post = new HttpPost(url);
             post.setEntity(entity);
             return post;
