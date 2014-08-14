@@ -42,6 +42,8 @@ public class StatisticsPublisher implements Streaming.Iface {
     }
 
     private void publish(StreamingRegistrationMsg reg, List<volumeDataPoints> dataPoints) throws Exception {
+        LOG.info(String.format("Publishing %d datapoints to %s", dataPoints.size(), reg.getUrl()));
+
         JSONArray jsonArray = new JsonStatisticsFormatter().format(dataPoints);
         String url = reg.getUrl();
         String httpMethod = reg.getHttp_method();
