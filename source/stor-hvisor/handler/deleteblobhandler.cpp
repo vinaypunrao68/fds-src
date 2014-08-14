@@ -33,6 +33,10 @@ Error DeleteBlobHandler::handleResponse(AmQosReq *qosReq,
              << " blob:" << blobReq->getBlobName()
              << " txn:" << blobReq->txDesc;
 
+    // Remove cache entry for blob.
+    fds_verify(helper.storHvisor->amCache->removeBlob(blobReq->getVolId(),
+                                                      blobReq->getBlobName()) == ERR_OK);
+
     // Return if err
     if (error != ERR_OK) {
         LOGWARN << "error in response: " << error;

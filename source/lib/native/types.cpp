@@ -205,6 +205,7 @@ void Callback::call(FDSN_Status status) {
 
 void Callback::call(Error err) {
     this->error = err;
+    this->status = err.GetErrno();
     call();
 }
 
