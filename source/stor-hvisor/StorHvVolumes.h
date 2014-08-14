@@ -318,6 +318,8 @@ class StatBlobReq : public FdsBlobReq {
         e2eReqPerfCtx.type = AM_STAT_BLOB_OBJ_REQ;
         e2eReqPerfCtx.name = "volume:" + std::to_string(volId);
         e2eReqPerfCtx.reset_volid(volId);
+
+        fds::PerfTracer::tracePointBegin(e2eReqPerfCtx);
     }
 
     virtual ~StatBlobReq() {
@@ -341,6 +343,8 @@ struct SetBlobMetaDataReq : FdsBlobReq {
         e2eReqPerfCtx.type = AM_SET_BLOB_META_OBJ_REQ;
         e2eReqPerfCtx.name = "volume:" + std::to_string(volId);
         e2eReqPerfCtx.reset_volid(volId);
+
+        fds::PerfTracer::tracePointBegin(e2eReqPerfCtx);
     }
 
     virtual ~SetBlobMetaDataReq() {
@@ -362,6 +366,8 @@ struct GetVolumeMetaDataReq : FdsBlobReq {
         e2eReqPerfCtx.type = AM_GET_VOLUME_META_OBJ_REQ;
         e2eReqPerfCtx.name = "volume:" + std::to_string(volId);
         e2eReqPerfCtx.reset_volid(volId);
+
+        fds::PerfTracer::tracePointBegin(e2eReqPerfCtx);
     }
 
     virtual ~GetVolumeMetaDataReq() {
@@ -377,6 +383,8 @@ struct GetBlobMetaDataReq : FdsBlobReq {
         e2eReqPerfCtx.type = AM_GET_BLOB_META_OBJ_REQ;
         e2eReqPerfCtx.name = "volume:" + std::to_string(volId);
         e2eReqPerfCtx.reset_volid(volId);
+
+        fds::PerfTracer::tracePointBegin(e2eReqPerfCtx);
     }
 
     virtual ~GetBlobMetaDataReq() {
@@ -543,6 +551,8 @@ struct DeleteBlobReq: FdsBlobReq, TxnRequest {
         smPerfCtx.type = AM_DELETE_DM;
         smPerfCtx.name = "volume:" + std::to_string(volId);
         smPerfCtx.reset_volid(volId);
+
+        fds::PerfTracer::tracePointBegin(e2eReqPerfCtx);
     }
 
     DeleteBlobReq(fds_volid_t _volid,
@@ -555,14 +565,21 @@ struct DeleteBlobReq: FdsBlobReq, TxnRequest {
 
         e2eReqPerfCtx.type = AM_DELETE_OBJ_REQ;
         e2eReqPerfCtx.name = "volume:" + std::to_string(volId);
+        e2eReqPerfCtx.reset_volid(volId);
         qosPerfCtx.type = AM_DELETE_QOS;
         qosPerfCtx.name = "volume:" + std::to_string(volId);
+        qosPerfCtx.reset_volid(volId);
         hashPerfCtx.type = AM_DELETE_HASH;
         hashPerfCtx.name = "volume:" + std::to_string(volId);
+        hashPerfCtx.reset_volid(volId);
         dmPerfCtx.type = AM_DELETE_SM;
         dmPerfCtx.name = "volume:" + std::to_string(volId);
+        dmPerfCtx.reset_volid(volId);
         smPerfCtx.type = AM_DELETE_DM;
         smPerfCtx.name = "volume:" + std::to_string(volId);
+        smPerfCtx.reset_volid(volId);
+
+        fds::PerfTracer::tracePointBegin(e2eReqPerfCtx);
     }
 
     ~DeleteBlobReq() {
