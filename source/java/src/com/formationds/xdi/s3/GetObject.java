@@ -24,8 +24,12 @@ public class GetObject implements RequestHandler {
 
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
+        if(request.getParameter("uploadId") != null)
+            return new MultiPartListParts(xdi).handle(request, routeParameters);
+
         String bucketName = requiredString(routeParameters, "bucket");
         String objectName = requiredString(routeParameters, "object");
+
         return handle(request, bucketName, objectName);
     }
 

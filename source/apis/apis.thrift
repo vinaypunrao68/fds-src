@@ -1,3 +1,4 @@
+include "../fdsp/fds_stream.thrift"
 namespace cpp fds.apis
 namespace java com.formationds.apis
 
@@ -102,4 +103,14 @@ service ConfigurationService {
 
         list<VolumeDescriptor> listVolumes(1:string domainName)
              throws (1: ApiException e),
+
+        i32 registerStream(
+             1:string url,
+             2:string http_method,
+             3:list<string> volume_names,
+             4:i32 sample_freq_seconds,
+             5:i32 duration_seconds),
+
+        list<fds_stream.StreamingRegistrationMsg> getStreamRegistrations(1:i32 ignore),
+        void deregisterStream(1:i32 registration_id)
 }

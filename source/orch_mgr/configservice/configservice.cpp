@@ -16,6 +16,7 @@
 #include <util/Log.h>
 #include <OmResources.h>
 #include <convert.h>
+#include <orchMgr.h>
 using namespace ::apache::thrift;  //NOLINT
 using namespace ::apache::thrift::protocol;  //NOLINT
 using namespace ::apache::thrift::transport;  //NOLINT
@@ -24,13 +25,15 @@ using namespace ::apache::thrift::server;  //NOLINT
 using namespace  ::apis;  //NOLINT
 
 namespace fds {
-class OrchMgr;
+// class OrchMgr;
 
 class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     OrchMgr* om;
+    kvstore::ConfigDB* configDB;
 
   public:
     explicit ConfigurationServiceHandler(OrchMgr* om) : om(om) {
+        configDB = om->getConfigDB();
     }
 
     void apiException(std::string message, ErrorCode code = INTERNAL_SERVER_ERROR) {
@@ -48,11 +51,16 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         }
     }
 
-    // Don't do anything here. This stub is just to keep cpp compiler happy
+    // stubs to keep cpp compiler happy - BEGIN
     void createVolume(const std::string& domainName, const std::string& volumeName, const VolumeSettings& volumeSettings) {}  //NOLINT
     void deleteVolume(const std::string& domainName, const std::string& volumeName) {}  //NOLINT
     void statVolume(VolumeDescriptor& _return, const std::string& domainName, const std::string& volumeName) {}  //NOLINT
     void listVolumes(std::vector<VolumeDescriptor> & _return, const std::string& domainName) {}  //NOLINT
+    int32_t registerStream(const std::string& url, const std::string& http_method, const std::vector<std::string> & volume_names, const int32_t sample_freq_seconds, const int32_t duration_seconds) { return 0;} //NOLINT
+    void getStreamRegistrations(std::vector<StreamingRegistrationMsg> & _return, const int32_t ignore) {} //NOLINT
+    void deregisterStream(const int32_t registration_id) {}
+
+    // stubs to keep cpp compiler happy - END
 
     void createVolume(boost::shared_ptr<std::string>& domainName,
                       boost::shared_ptr<std::string>& volumeName,
@@ -117,6 +125,38 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
                 convert::getVolumeDescriptor(volDescriptor, vol);
                 vec.push_back(volDescriptor);
             });
+    }
+
+    int32_t registerStream(boost::shared_ptr<std::string>& url,
+                           boost::shared_ptr<std::string>& http_method,
+                           boost::shared_ptr<std::vector<std::string> >& volume_names,
+                           boost::shared_ptr<int32_t>& sample_freq_seconds,
+                           boost::shared_ptr<int32_t>& duration_seconds) {
+        int32_t regId = configDB->getNewStreamRegistrationId();
+        fpi::StreamingRegistrationMsg regMsg;
+        regMsg.id = regId;
+        regMsg.url = *url;
+        regMsg.sample_freq_seconds = *sample_freq_seconds;
+        regMsg.duration_seconds = *duration_seconds;
+
+        regMsg.volume_names.reserve(volume_names->size());
+        for (uint i = 0; i < volume_names->size(); i++) {
+            regMsg.volume_names.push_back(volume_names->at(i));
+        }
+
+        if (configDB->addStreamRegistration(regMsg)) {
+            return regId;
+        }
+        return 0;
+    }
+
+    void getStreamRegistrations(std::vector<fpi::StreamingRegistrationMsg> & _return,
+                                boost::shared_ptr<int32_t>& ignore) { //NOLINT
+        configDB->getStreamRegistrations(_return);
+    }
+
+    void deregisterStream(boost::shared_ptr<int32_t>& registration_id) {
+        configDB->removeStreamRegistration(*registration_id);
     }
 };
 

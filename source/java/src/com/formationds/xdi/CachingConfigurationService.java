@@ -7,8 +7,10 @@ import com.formationds.apis.ApiException;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.VolumeDescriptor;
 import com.formationds.apis.VolumeSettings;
+import com.formationds.streaming.StreamingRegistrationMsg;
 import org.apache.thrift.TException;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -53,6 +55,23 @@ public class CachingConfigurationService implements ConfigurationService.Iface {
     public List<VolumeDescriptor> listVolumes(String domainName) throws ApiException, TException {
         return service.listVolumes(domainName);
     }
+
+    @Override
+    public int registerStream(String url, String http_method, List<String> volume_names, int sample_freq_seconds, int duration_seconds) throws org.apache.thrift.TException {
+        return 0;
+    }
+
+    @Override
+    public List<StreamingRegistrationMsg> getStreamRegistrations(int count) throws org.apache.thrift.TException {
+        List<StreamingRegistrationMsg> regList = new ArrayList<StreamingRegistrationMsg>();
+        return regList;
+    }
+
+    @Override
+    public void deregisterStream(int registration_id) throws org.apache.thrift.TException {
+        
+    }
+
 
     private class Key {
         private String domain;
