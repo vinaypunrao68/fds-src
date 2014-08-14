@@ -138,22 +138,16 @@ void serializeFdspMsg(const PayloadT &payload, bo::shared_ptr<std::string> &payl
 * @return 
 */
 template<class PayloadT>
-void deserializeFdspMsg(const bo::shared_ptr<std::string> &payloadBuf,
-                               bo::shared_ptr<PayloadT>& payload)
-{
-    if (!payloadBuf) {
-        return;
-    }
+void deserializeFdspMsg(const std::string& payloadBuf, PayloadT& payload) {
     // TODO(Rao): Do buffer managment so that the below deserialization is
     // efficient
     bo::shared_ptr<tt::TMemoryBuffer> memory_buf(
         new tt::TMemoryBuffer(reinterpret_cast<uint8_t*>(
-                const_cast<char*>(payloadBuf->c_str())), payloadBuf->size()));
+                const_cast<char*>(payloadBuf.data())), payloadBuf.size()));
     bo::shared_ptr<tp::TProtocol> binary_buf(new tp::TBinaryProtocol(memory_buf));
 
-    payload = bo::make_shared<PayloadT>();
     try {
-        auto read = payload->read(binary_buf.get());
+        auto read = payload.read(binary_buf.get());
         fds_verify(read > 0);
     } catch(std::exception &e) {
         /* This is to ensure we assert on any serialization exceptions in debug
@@ -172,5 +166,16 @@ void deserializeFdspMsg(const bo::shared_ptr<std::string> &payloadBuf,
         throw;
     }
 }
+template<class PayloadT>
+void deserializeFdspMsg(const bo::shared_ptr<std::string> &payloadBuf,
+                        bo::shared_ptr<PayloadT>& payload) {
+    if (!payloadBuf) {
+        return;
+    }
+
+    payload = bo::make_shared<PayloadT>();
+    deserializeFdspMsg(*payloadBuf, *payload);
+}
+
 }  // namespace fds
 #endif  // SOURCE_INCLUDE_FDSP_UTILS_H_

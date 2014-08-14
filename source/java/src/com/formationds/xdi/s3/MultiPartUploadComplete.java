@@ -78,31 +78,18 @@ public class MultiPartUploadComplete implements RequestHandler {
         String bucket = requiredString(routeParameters, "bucket");
         String objectName = requiredString(routeParameters, "object");
         String uploadId = request.getParameter("uploadId");
+        MultiPartOperations mops = new MultiPartOperations(xdi, uploadId);
 
+        // TODO: async
         // TODO: verify etag map
         // Map<Integer,String> etagMap = deserializeEtagMap(request.getInputStream());
 
-        // TODO: there is obviously a race here when the number of blobs in the system bucket changes
-        //       given the current API it may not be feasible to prevent it
-        int offset = 0;
-        Pattern p = Pattern.compile("^" + Pattern.quote(uploadId) + "-(\\d{5})$");
-        ArrayList<BlobDescriptor> partDescriptors = new ArrayList<>();
 
         // TODO: read this in chunks
-        List<BlobDescriptor> blobDescriptors = xdi.volumeContents(S3Endpoint.FDS_S3_SYSTEM, S3Endpoint.FDS_S3_SYSTEM_BUCKET_NAME, Integer.MAX_VALUE, 0);
-        for(BlobDescriptor bd : blobDescriptors) {
-            Matcher match = p.matcher(bd.getName());
-            if(match.matches()) {
-                partDescriptors.add(bd);
-            }
-        }
-
-        partDescriptors.sort((b1, b2) -> b1.getName().compareTo(b2.getName()));
-        long totalSize = partDescriptors.stream().collect(Collectors.summingLong(i -> i.byteCount));
-
+        List<PartInfo> partInfoList = mops.getParts();
         InputStream is = null;
-        for(BlobDescriptor bd : partDescriptors) {
-            InputStream str = xdi.readStream(S3Endpoint.FDS_S3_SYSTEM, S3Endpoint.FDS_S3_SYSTEM_BUCKET_NAME, bd.getName());
+        for(PartInfo bd : partInfoList) {
+            InputStream str = xdi.readStream(S3Endpoint.FDS_S3_SYSTEM, S3Endpoint.FDS_S3_SYSTEM_BUCKET_NAME, bd.descriptor.getName());
             if(is == null)
                 is = str;
             else
@@ -112,8 +99,8 @@ public class MultiPartUploadComplete implements RequestHandler {
         Map<String, String> metadata = new HashMap<>();
         xdi.writeStream(S3Endpoint.FDS_S3, bucket, objectName, is, metadata);
 
-        for(BlobDescriptor bd : partDescriptors)
-            xdi.deleteBlob(S3Endpoint.FDS_S3_SYSTEM, S3Endpoint.FDS_S3_SYSTEM_BUCKET_NAME, bd.getName());
+        for(PartInfo bd : partInfoList)
+            xdi.deleteBlob(S3Endpoint.FDS_S3_SYSTEM, S3Endpoint.FDS_S3_SYSTEM_BUCKET_NAME, bd.descriptor.getName());
 
         return new TextResource("");
     }

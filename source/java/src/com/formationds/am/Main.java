@@ -104,13 +104,13 @@ public class Main {
 
     private static void startStreamingServer(final int port) {
         StreamingConfiguration.Iface configClient = new StubStreamingConfiguration();
-        StreamingHandler streamingHandler = new StreamingHandler(configClient);
+        StatisticsPublisher statisticsPublisher = new StatisticsPublisher(configClient);
 
         Runnable runnable = () -> {
             try {
                 TNonblockingServerSocket transport = new TNonblockingServerSocket(port);
                 TNonblockingServer.Args args = new TNonblockingServer.Args(transport)
-                        .processor(new Streaming.Processor<Streaming.Iface>(streamingHandler));
+                        .processor(new Streaming.Processor<Streaming.Iface>(statisticsPublisher));
                 TNonblockingServer server = new TNonblockingServer(args);
                 server.serve();
             } catch (TTransportException e) {

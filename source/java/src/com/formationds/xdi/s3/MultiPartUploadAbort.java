@@ -11,21 +11,27 @@ import org.eclipse.jetty.server.Request;
 
 import java.util.Map;
 
-public class DeleteObject implements RequestHandler {
+public class MultiPartUploadAbort implements RequestHandler {
+
     private Xdi xdi;
 
-    public DeleteObject(Xdi xdi) {
+    public MultiPartUploadAbort(Xdi xdi) {
         this.xdi = xdi;
     }
 
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
-        if(request.getParameter("uploadId") != null)
-            return new MultiPartUploadAbort(xdi).handle(request, routeParameters);
-
-        String bucketName = requiredString(routeParameters, "bucket");
+        String bucket = requiredString(routeParameters, "bucket");
         String objectName = requiredString(routeParameters, "object");
-        xdi.deleteBlob(S3Endpoint.FDS_S3, bucketName, objectName);
+        String uploadId = request.getParameter("uploadId");
+        MultiPartOperations mops = new MultiPartOperations(xdi, uploadId);
+
+        for(PartInfo pi : mops.getParts()) {
+            xdi.deleteBlob(S3Endpoint.FDS_S3_SYSTEM, S3Endpoint.FDS_S3_SYSTEM_BUCKET_NAME, pi.descriptor.getName());
+        }
+
         return new TextResource("");
     }
+
+
 }

@@ -164,7 +164,7 @@ void StatSlot::add(FdsStatType stat_type,
 
 StatSlot& StatSlot::operator +=(const StatSlot & rhs) {
     if (&rhs != this) {
-        fds_verify(rhs.interval_sec == interval_sec);
+        // fds_verify(rhs.interval_sec == interval_sec);
         for (counter_map_t::const_iterator cit = rhs.stat_map.cbegin();
              cit != rhs.stat_map.cend();
              ++cit) {
