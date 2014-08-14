@@ -157,7 +157,7 @@ void VolumeStats::processStats() {
         volDataPoint.timestamp = dp.first;
         volDataPoint.meta_list = dp.second;
 
-        dataMgr->statStreamAggregator()->writeStatsLog(volDataPoint);
+        dataMgr->statStreamAggregator()->writeMinStatsLog(volDataPoint, volid_);
         dataPoints.push_back(volDataPoint);
     }
 
@@ -181,14 +181,14 @@ StatStreamAggregator::StatStreamAggregator(char const *const name)
         : Module(name),
           finestat_slotsec_(FdsStatPeriodSec),
           finestat_slots_(65) {
-     // const fpi::volumeDataPointsPtr volStatData;
+    const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
     // align timestamp to the length of finestat slot
     start_time_ = util::getTimeStampNanos();
     fds_uint64_t freq_nanos = finestat_slotsec_ * 1000000000;
     start_time_ = start_time_ / freq_nanos;
     start_time_ = start_time_ * freq_nanos;
 
-    // writeStatsLog(volStatData);
+    root->fds_mkdir(root->dir_user_repo_stats().c_str());
 }
 
 StatStreamAggregator::~StatStreamAggregator() {
@@ -246,7 +246,6 @@ VolumeStats::ptr StatStreamAggregator::getVolumeStats(fds_volid_t volid) {
             return it->second;
         }
     }
-    fds_verify(false);
     return VolumeStats::ptr();
 }
 
@@ -292,6 +291,11 @@ StatStreamAggregator::handleModuleStatStream(const fpi::StatStreamMsgPtr& stream
         LOGDEBUG << "Received stats for volume " << std::hex << vstats.volume_id
                  << std::dec << " timestamp " << remote_start_ts;
         VolumeStats::ptr volstats = getVolumeStats(vstats.volume_id);
+        if (!volstats) {
+          LOGWARN << "Volume " << std::hex << vstats.volume_id << std::dec
+               << " is not attached to the aggregator! Ignoring stats";
+          continue;
+        }
         err = (volstats->finegrain_hist_)->mergeSlots(vstats, remote_start_ts);
         fds_verify(err.ok());  // if err, prob de-serialize issue
         LOGDEBUG << *(volstats->finegrain_hist_);
@@ -299,10 +303,38 @@ StatStreamAggregator::handleModuleStatStream(const fpi::StatStreamMsgPtr& stream
     return err;
 }
 
-Error StatStreamAggregator::writeStatsLog(const fpi::volumeDataPoints& volStatData) {
+Error
+StatStreamAggregator::writeHourStatsLog(const fpi::volumeDataPoints& volStatData,
+                                                              fds_volid_t vol_id) {
     Error err(ERR_OK);
     const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
-    const std::string fileName = root->dir_user_repo() + "stat_hour.log";
+    const std::string fileName = root->dir_user_repo_stats() +
+                       std::to_string(vol_id) + std::string("/")+"stat_hour.log";
+    FILE   *pFile;
+
+    pFile  = fopen((const char *)fileName.c_str(), "a+");
+    fprintf(pFile, "%s,", volStatData.volume_name.c_str());
+    fprintf(pFile, "%ld,", volStatData.timestamp);
+
+    std::vector<DataPointPair>::const_iterator pos;
+
+    fprintf(pFile, "[");
+    for (pos = volStatData.meta_list.begin(); pos != volStatData.meta_list.end(); ++pos)
+        fprintf(pFile, " %s: %f,", pos->key.c_str(), pos->value);
+    fprintf(pFile, "]");
+
+    fprintf(pFile, "\n");
+    fclose(pFile);
+    return err;
+}
+
+Error
+StatStreamAggregator::writeMinStatsLog(const fpi::volumeDataPoints& volStatData,
+                                                            fds_volid_t vol_id) {
+    Error err(ERR_OK);
+    const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
+    const std::string fileName = root->dir_user_repo_stats() +
+                       std::to_string(vol_id) + std::string("/")+"stat_min.log";
     FILE   *pFile;
 
     pFile  = fopen((const char *)fileName.c_str(), "a+");
@@ -351,6 +383,11 @@ StatStreamAggregator::handleModuleStatStream(fds_uint64_t start_timestamp,
              << std::dec << " timestamp " << remote_start_ts;
 
     VolumeStats::ptr volstats = getVolumeStats(volume_id);
+    if (!volstats) {
+        LOGWARN << "Volume " << std::hex << volume_id << std::dec
+           << " is not attached to the aggregator! Ignoring stats";
+        return;
+    }
     (volstats->finegrain_hist_)->mergeSlots(slots, remote_start_ts);
     LOGDEBUG << *(volstats->finegrain_hist_);
 }
