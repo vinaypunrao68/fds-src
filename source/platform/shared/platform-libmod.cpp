@@ -130,8 +130,15 @@ Platform::plf_is_om_node()
     // Do simple IP compare my IP with OM ip.
     // Until we can get rid of the old endpoint using plf_my_ctrl_port, use data
     // port for net service update protocols.
+    // HACK(Vy) - we need better mechanism!
     //
-    if (/* (*plf_get_my_ip() == *plf_get_om_ip()) && */
+    if (*plf_get_om_ip() == "127.0.0.1") {
+        /* Assume same node testing, use port info. */
+        if (plf_get_om_svc_port() == plf_get_my_node_port()) {
+            return true;
+        }
+    }
+    if ((*plf_get_my_ip() == *plf_get_om_ip()) &&
         (plf_get_om_svc_port() == plf_get_my_node_port())) {
         return true;
     }

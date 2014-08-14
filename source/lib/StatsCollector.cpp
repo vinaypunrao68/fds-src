@@ -226,17 +226,11 @@ void StatsCollector::recordEvent(fds_volid_t volume_id,
                                                       event_type, value);
             }
             break;
-        case STAT_DM_CUR_TOTAL_BYTES:
-        case STAT_DM_CUR_TOTAL_OBJECTS:
-        case STAT_DM_CUR_TOTAL_BLOBS:
+        default:
             if (isStreaming()) {
                 getStatHistory(volume_id)->recordEvent(timestamp,
                                                        event_type, value);
             }
-            break;
-        default:
-            // ignore
-            fds_panic("unexpected event");
     };
 }
 

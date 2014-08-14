@@ -10,7 +10,6 @@ import com.formationds.nbd.*;
 import com.formationds.security.Authenticator;
 import com.formationds.security.JaasAuthenticator;
 import com.formationds.streaming.Streaming;
-import com.formationds.streaming.StreamingConfiguration;
 import com.formationds.util.Configuration;
 import com.formationds.util.libconfig.ParsedConfig;
 import com.formationds.xdi.CachingConfigurationService;
@@ -90,7 +89,7 @@ public class Main {
             int s3Port = amParsedConfig.lookup("fds.am.s3_port").intValue();
             new Thread(() -> new S3Endpoint(xdi, enforceAuthorization).start(s3Port)).start();
 
-            startStreamingServer(8999);
+            startStreamingServer(8999, config);
 
             int swiftPort = amParsedConfig.lookup("fds.am.swift_port").intValue();
             new SwiftEndpoint(xdi, enforceAuthorization).start(swiftPort);
@@ -102,15 +101,14 @@ public class Main {
         }
     }
 
-    private static void startStreamingServer(final int port) {
-        StreamingConfiguration.Iface configClient = new StubStreamingConfiguration();
-        StreamingHandler streamingHandler = new StreamingHandler(configClient);
+    private static void startStreamingServer(final int port, ConfigurationService.Iface configClient) {
+        StatisticsPublisher statisticsPublisher = new StatisticsPublisher(configClient);
 
         Runnable runnable = () -> {
             try {
                 TNonblockingServerSocket transport = new TNonblockingServerSocket(port);
                 TNonblockingServer.Args args = new TNonblockingServer.Args(transport)
-                        .processor(new Streaming.Processor<Streaming.Iface>(streamingHandler));
+                        .processor(new Streaming.Processor<Streaming.Iface>(statisticsPublisher));
                 TNonblockingServer server = new TNonblockingServer(args);
                 server.serve();
             } catch (TTransportException e) {

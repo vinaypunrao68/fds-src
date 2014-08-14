@@ -42,13 +42,13 @@ class VolumeStats {
     /**
      * Per-hour volumes history of stats that are streamed
      * out (this is a cache of per-hour stats that we also log)
-     * TODO(xxx) add stat history
      */
+    VolumePerfHistory::ptr coarsegrain_hist_;
 
     /**
      * Per-day volumes history of bytes added for firebreak
-     * TODO(xxx) add stat history
      */
+    VolumePerfHistory::ptr longterm_hist_;
 
     /**
      * TODO(xxx) add log file here, and timer to
@@ -78,11 +78,15 @@ class StatHelper {
   public:
     static fds_uint64_t getTotalPuts(const StatSlot& slot);
     static fds_uint64_t getTotalGets(const StatSlot& slot);
+    static fds_bool_t getQueueFull(const StatSlot& slot);
     static fds_uint64_t getTotalLogicalBytes(const StatSlot& slot);
     static fds_uint64_t getTotalBlobs(const StatSlot& slot);
     static fds_uint64_t getTotalObjects(const StatSlot& slot);
+    static fds_uint64_t getTotalMetadataBytes(const StatSlot& slot);
     static double getAverageBytesInBlob(const StatSlot& slot);
     static double getAverageObjectsInBlob(const StatSlot& slot);
+    static double getPercentSsdAccesses(const StatSlot& slot);
+    static fds_uint64_t getTotalPhysicalBytes(const StatSlot& slot);
 };
 
 /**
@@ -132,6 +136,13 @@ class StatStreamAggregator : public Module {
     Error detachVolume(fds_volid_t volume_id);
 
     /**
+     * write the stats  to the log file
+     * @param[in] volumeDataPoints 
+     */
+    Error writeMinStatsLog(const fpi::volumeDataPoints& volStatData, fds_volid_t vol_id);
+    Error writeHourStatsLog(const fpi::volumeDataPoints& volStatData, fds_volid_t vol_id);
+
+    /**
      * Starts pushing of stats for a given set of volumes, with given
      * frequency
      * @param[in] Streaming registration
@@ -161,6 +172,9 @@ class StatStreamAggregator : public Module {
     void handleModuleStatStream(fds_uint64_t start_timestamp,
                                 fds_volid_t volume_id,
                                 const std::vector<StatSlot>& slots);
+
+    Error getStatStreamRegDetails(const fds_volid_t & volId, fpi::SvcUuid & amId,
+            fds_uint32_t & regId);
 
   private:  // methods
     VolumeStats::ptr getVolumeStats(fds_volid_t volid);

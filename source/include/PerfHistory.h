@@ -214,6 +214,8 @@ class VolumePerfHistory {
      * earliest timestamp copied. Only timestamps that are greater than
      * last_rel_sec are copied
      * @param[in] last_rel_sec is a relative timestamp in seconds
+     * @param[in] max_slots maximum number of slots to return; if 0, then all
+     * slots from last_rel_sec discounting last_seconds_to_ignore;
      * @param[in] last_seconds_to_ignore number of most recent seconds
      * that will not be copied into the list; 0 means copy all most recent
      * history
@@ -221,6 +223,7 @@ class VolumePerfHistory {
      */
     fds_uint64_t toSlotList(std::vector<StatSlot>& stat_list,
                             fds_uint64_t last_rel_sec,
+                            fds_uint32_t max_slots = 0,
                             fds_uint32_t last_seconds_to_ignore = 0);
 
     friend std::ostream& operator<< (std::ostream &out,
@@ -242,6 +245,9 @@ class VolumePerfHistory {
     VolumePerfHistory::ptr getSnapshot();
     inline fds_uint64_t getTimestamp(fds_uint64_t rel_seconds) const {
         return (start_nano_ + rel_seconds * 1000000000);
+    }
+    inline fds_uint64_t getStartTime() const {
+      return start_nano_;
     }
 
   private:  /* methods */

@@ -41,6 +41,7 @@
 #include <fds_assert.h>
 #include <fds_config.hpp>
 #include <util/timeutils.h>
+#include <lib/StatsCollector.h>
 
 #include <utility>
 #include <atomic>
@@ -281,13 +282,8 @@ class ObjectStorMgr :
             //dispatcher = new QoSMinPrioDispatcher(this, log, 3000);
             dispatcher = new QoSWFQDispatcher(this, parentSm->totalRate, 10, log);
             //dispatcher = new QoSHTBDispatcher(this, log, 150);
-
-            /* base class created stats, but they are disable by default */
-            stats->enable();
         }
         virtual ~SmQosCtrl() {
-            if (stats)
-                stats->disable();
         }
 
         Error processIO(FDS_IOType* _io);
@@ -295,15 +291,28 @@ class ObjectStorMgr :
         Error markIODone(const FDS_IOType& _io) {
             Error err(ERR_OK);
             dispatcher->markIODone((FDS_IOType *)&_io);
-            stats->recordIO(_io.io_vol_id, _io.io_total_time);
             return err;
         }
 
         Error markIODone(const FDS_IOType &_io,
-                diskio::DataTier  tier) {
+                         diskio::DataTier  tier,
+                         fds_bool_t iam_primary = false) {
             Error err(ERR_OK);
             dispatcher->markIODone((FDS_IOType *)&_io);
-            stats->recordIO(_io.io_vol_id, 0, tier, _io.io_type);
+            if (iam_primary &&
+                ((_io.io_type == FDS_IO_WRITE) || (_io.io_type == FDS_IO_READ))) {
+                if (tier == diskio::diskTier) {
+                    StatsCollector::singleton()->recordEvent(_io.io_vol_id,
+                                                             _io.io_done_ts,
+                                                             STAT_SM_OP_HDD,
+                                                             _io.io_total_time);
+                } else if (tier == diskio::flashTier) {
+                    StatsCollector::singleton()->recordEvent(_io.io_vol_id,
+                                                             _io.io_done_ts,
+                                                             STAT_SM_OP_SSD,
+                                                             _io.io_total_time);
+                }
+            }
             return err;
         }
     };
@@ -498,6 +507,13 @@ class ObjectStorMgr :
         return volTbl;
     }
 
+    /**
+     * A callback from stats collector to sample SM specific stats
+     * @param timestamp is timestamp to path to every recordEvent()
+     * method to stats collector when recording SM stats
+     */
+    void sampleSMStats(fds_uint64_t timestamp);
+
     void PutObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
             const FDS_ProtocolInterface::FDSP_PutObjTypePtr& put_obj);
     void GetObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
@@ -564,6 +580,7 @@ class ObjectStorMgr :
     }
 
     NodeUuid getUuid() const;
+    fds_bool_t amIPrimary(const ObjectID& objId);
 
     const TokenList& getTokensForNode(const NodeUuid &uuid) const;
     void getTokensForNode(TokenList *tl,

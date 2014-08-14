@@ -29,25 +29,40 @@ public class PutObject implements RequestHandler {
 
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
+        String domain  = S3Endpoint.FDS_S3;
         String bucketName = requiredString(routeParameters, "bucket");
         String objectName = requiredString(routeParameters, "object");
 
         String copySource = request.getHeader("x-amz-copy-source");
 
         String contentType = StaticFileHandler.getMimeType(objectName);
+        String uploadId = request.getParameter("uploadId");
 
         HashMap<String, String> map = Maps.newHashMap();
         map.put("Content-Type", contentType);
 
+        // handle multi part upload
+        if(uploadId != null) {
+            MultiPartOperations mops = new MultiPartOperations(xdi, uploadId);
+            int partNumber = Integer.parseInt(request.getParameter("partNumber"));
+
+            if(partNumber < 0 || partNumber > 10000)
+                throw new Exception("invalid part number");
+
+            domain = S3Endpoint.FDS_S3_SYSTEM;
+            bucketName = S3Endpoint.FDS_S3_SYSTEM_BUCKET_NAME;
+            objectName = mops.getPartName(partNumber);
+        }
+
         if(copySource == null) {
-            byte[] digest = xdi.writeStream(S3Endpoint.FDS_S3, bucketName, objectName, request.getInputStream(), map);
+            byte[] digest = xdi.writeStream(domain, bucketName, objectName, request.getInputStream(), map);
             return new TextResource("").withHeader("ETag", "\"" + Hex.encodeHexString(digest) + "\"");
         } else {
-            return copy(request, bucketName, objectName, copySource, map);
+            return copy(request, domain, bucketName, objectName, copySource, map);
         }
     }
 
-    private Resource copy(Request request, String bucketName, String objectName, String copySource, HashMap<String, String> metadataMap) throws Exception {
+    private Resource copy(Request request, String targetDomain, String targetBucketName, String targetBlobName, String copySource, HashMap<String, String> metadataMap) throws Exception {
         String[] copySourceParts = copySource.split("/", 2);
         if(copySourceParts.length != 2)
             throw new Exception("invalid copy source");
@@ -75,7 +90,7 @@ public class PutObject implements RequestHandler {
         // TODO: last modified checks - x-amz-copy-source-if-unmodified-since and x-amz-copy-source-if-modified-since
 
         InputStream instr = xdi.readStream(S3Endpoint.FDS_S3, copySourceParts[0], copySourceParts[1]);
-        byte[] digest = xdi.writeStream(S3Endpoint.FDS_S3, bucketName, objectName, instr, metadataMap);
+        byte[] digest = xdi.writeStream(targetDomain, targetBucketName, targetBlobName, instr, metadataMap);
         return new TextResource("").withHeader("ETag", "\"" + Hex.encodeHexString(digest) + "\"");
     }
 

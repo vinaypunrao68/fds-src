@@ -27,24 +27,11 @@ struct volumeDataPoints {
 struct StreamingRegistrationMsg {
    1:i32 id,
    2:string url,
+   6:string http_method,
    3:list<string> volume_names,
    4:i32 sample_freq_seconds,
    5:i32 duration_seconds,
 }
-
-// OM serves this
-service StreamingConfiguration {
-   i32 registerStream(
-        1:string url,
-        2:string http_method,
-        3:list<string> volume_names,
-        4:i32 sample_freq_seconds,
-        5:i32 duration_seconds),
-
-   list<StreamingRegistrationMsg> list_registrations(1:i32 thrift_sucks),
-   void deregisterStream(1:i32 registration_id),
-}
-
 
 // AM/XDI serves this
 service Streaming {
