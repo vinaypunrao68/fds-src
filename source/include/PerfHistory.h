@@ -249,6 +249,12 @@ class VolumePerfHistory {
     inline fds_uint64_t getStartTime() const {
       return start_nano_;
     }
+    inline fds_uint32_t secondsInSlot() const {
+        return slotsec_;
+    }
+    inline fds_uint32_t numberOfSlots() const {
+        return nslots_;
+    }
 
   private:  /* methods */
     fds_uint32_t useSlotLockHeld(fds_uint64_t rel_seconds);

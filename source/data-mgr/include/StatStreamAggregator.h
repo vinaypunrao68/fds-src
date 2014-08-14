@@ -51,9 +51,30 @@ class VolumeStats {
     VolumePerfHistory::ptr longterm_hist_;
 
     /**
-     * TODO(xxx) add log file here, and timer to
-     * log stat history for this volume
+     * Will update standard deviation values and cache them for
+     * queries. Would normally be driven by some outside timer
+     * to update every 1 hour or so
      */
+    void updateFirebreakMetrics();
+
+    /**
+     * Queries currently cached stdev for performance and capacity growth
+     * Two types of standard deviation:
+     *  -- from short-term history
+     *  -- from long-term history
+     */
+    double getPerfShortTermStdev() const {
+        return cap_short_stdev_;
+    }
+    double getCapacityShortTermStdev() const {
+        return perf_short_stdev_;
+    }
+    double getPerfLongTermStdev() const {
+        return cap_long_stdev_;
+    }
+    double getCapacityLongTermStdev() const {
+        return perf_long_stdev_;
+    }
 
     /**
      * Called periodically to process fine-grain stats:
@@ -63,8 +84,22 @@ class VolumeStats {
      */
     void processStats();
 
+  private:  // methods
+    void updateStdev(const std::vector<StatSlot>& slots,
+                     double units_in_slot,
+                     double* cap_stdev,
+                     double* perf_stdev);
+
   private:
     fds_volid_t volid_;  // volume id
+
+    // cached stdev for capacity and performance
+    double cap_short_stdev_;
+    double cap_long_stdev_;
+    double perf_short_stdev_;
+    double perf_long_stdev_;
+    fds_uint64_t long_stdev_update_ts_;
+
     /**
      * Timer to process fine-grain stats
      */

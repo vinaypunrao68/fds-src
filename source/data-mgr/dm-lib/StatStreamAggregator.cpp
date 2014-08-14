@@ -5,6 +5,7 @@
 #include <vector>
 #include <fds_process.h>
 #include <net/net-service.h>
+#include <util/math-util.h>
 #include <DataMgr.h>
 #include <StatStreamAggregator.h>
 #include <fdsp/Streaming.h>
@@ -38,12 +39,17 @@ VolumeStats::VolumeStats(fds_volid_t volume_id,
                                                 finestat_slotsec)),
           coarsegrain_hist_(new VolumePerfHistory(volume_id,
                                                   start_time,
-                                                  25,  // 24 1-hour slots + slot
+                                                  26,  // 24 1-hour slots + slot
                                                   5*60)),  // 1-hour, but temp 5-min
           longterm_hist_(new VolumePerfHistory(volume_id,
                                                start_time,
                                                31,  // 30 1-day slots + slot
                                                60*60)),  // 1 day, but temp 1 h
+          long_stdev_update_ts_(0),
+          cap_short_stdev_(0),
+          cap_long_stdev_(0),
+          perf_short_stdev_(0),
+          perf_long_stdev_(0),
           process_tm_(new FdsTimer()),
           process_tm_task_(new VolStatsTimerTask(*process_tm_, this)) {
     // this is how often we process 1-min stats
@@ -90,6 +96,8 @@ void VolumeStats::processStats() {
                                    finegrain_hist_->getStartTime());
         LOGDEBUG << "Updated long-term stats: " << *longterm_hist_;
     }
+    // TODO(Anna) testing, need to move this to appropriate place
+    updateFirebreakMetrics();
 
     for (std::vector<StatSlot>::const_iterator cit = slots.cbegin();
          cit != slots.cend();
@@ -147,7 +155,11 @@ void VolumeStats::processStats() {
                   << "Objects " << StatHelper::getTotalObjects(*cit) << ", "
                   << "Ave blob size " << StatHelper::getAverageBytesInBlob(*cit) << " bytes, "
                   << "Ave objects in blobs " << StatHelper::getAverageObjectsInBlob(*cit) << ", "
-                  << "% of ssd accesses " << StatHelper::getPercentSsdAccesses(*cit);
+                  << "% of ssd accesses " << StatHelper::getPercentSsdAccesses(*cit)
+                  << "1h one day perf sigma " << getPerfShortTermStdev()
+                  << "1d one month perf sima " << getPerfLongTermStdev()
+                  << "1h one day bytes added sigma " << getCapacityShortTermStdev()
+                  << "1d one month bytes added sigma " << getPerfLongTermStdev();
     }
 
     std::vector<fpi::volumeDataPoints> dataPoints;
@@ -175,6 +187,84 @@ void VolumeStats::processStats() {
     // if enough time passed, also log to 1hour file
 }
 
+//
+// calculates stdev for performance and capacity
+//
+void VolumeStats::updateFirebreakMetrics() {
+    std::vector<StatSlot> slots;
+    std::vector<double> short_add_bytes;
+    std::vector<double> short_ops;
+
+    // get 1-h recent history
+    coarsegrain_hist_->toSlotList(slots, 0, 0, FdsStatPushPeriodSec);
+    if (slots.size() < (coarsegrain_hist_->numberOfSlots() - 1)) {
+        // we must have mostly full history to start recording stdev
+        return;
+    }
+    updateStdev(slots, 1, &cap_short_stdev_, &perf_short_stdev_);
+    LOGDEBUG << "Short term history size " << slots.size()
+             << " seconds in slot " << coarsegrain_hist_->secondsInSlot()
+             << " capacity stdev " << cap_short_stdev_
+             << " perf stdev " << perf_short_stdev_;
+
+    // check if it's time to update
+    fds_uint64_t now = util::getTimeStampNanos();
+    fds_uint64_t elapsed_nanos = 0;
+    if (now > long_stdev_update_ts_) {
+        elapsed_nanos = now - long_stdev_update_ts_;
+    }
+    if (elapsed_nanos < (NANOS_IN_SECOND * longterm_hist_->secondsInSlot())) {
+        return;  // no need to update long-term stdev
+    }
+    long_stdev_update_ts_ = now;
+
+    // get 1-day history
+    longterm_hist_->toSlotList(slots, 0, 0, FdsStatPushPeriodSec);
+    if (slots.size() < (longterm_hist_->numberOfSlots() - 1)) {
+        // to start reporting long term stdev we must have most of history
+        return;
+    }
+    fds_verify(slots.size() > 0);  // we tried to get all the slots
+    double units = longterm_hist_->secondsInSlot() / coarsegrain_hist_->secondsInSlot();
+    updateStdev(slots, 1, &cap_long_stdev_, &perf_long_stdev_);
+    LOGDEBUG << "Long term history size " << slots.size()
+             << " seconds in slot " << coarsegrain_hist_->secondsInSlot()
+             << " short slot units " << units
+             << " capacity stdev " << cap_long_stdev_
+             << " perf stdev " << perf_long_stdev_;
+}
+
+void VolumeStats::updateStdev(const std::vector<StatSlot>& slots,
+                              double units_in_slot,
+                              double* cap_stdev,
+                              double* perf_stdev) {
+    std::vector<double> add_bytes;
+    std::vector<double> ops_vec;
+    double prev_bytes = 0;
+    for (std::vector<StatSlot>::const_iterator cit = slots.cbegin();
+         cit != slots.cend();
+         ++cit) {
+        double bytes = StatHelper::getTotalPhysicalBytes(*cit);
+        if (cit == slots.cbegin()) {
+            prev_bytes = bytes;
+            continue;
+        }
+        double add_bytes_per_unit = (bytes - prev_bytes) / units_in_slot;
+        double ops = StatHelper::getTotalPuts(*cit) + StatHelper::getTotalGets(*cit);
+        double ops_per_unit = ops / units_in_slot;
+
+        LOGDEBUG << "Volume " << std::hex << volid_ << std::dec << " rel ts "
+                 << (*cit).getTimestamp() << " bytes/unit added " << (bytes - prev_bytes)
+                 << " ops/unit " << ops;
+
+        add_bytes.push_back(add_bytes_per_unit);
+        ops_vec.push_back(ops_per_unit);
+    }
+
+    // get weighted rolling average of coarse-grain (1-h) histories
+    *cap_stdev = util::fds_get_wstdev(add_bytes);
+    *perf_stdev = util::fds_get_wstdev(ops_vec);
+}
 
 
 StatStreamAggregator::StatStreamAggregator(char const *const name)
