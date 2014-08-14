@@ -246,7 +246,6 @@ VolumeStats::ptr StatStreamAggregator::getVolumeStats(fds_volid_t volid) {
             return it->second;
         }
     }
-    fds_verify(false);
     return VolumeStats::ptr();
 }
 
@@ -292,6 +291,11 @@ StatStreamAggregator::handleModuleStatStream(const fpi::StatStreamMsgPtr& stream
         LOGDEBUG << "Received stats for volume " << std::hex << vstats.volume_id
                  << std::dec << " timestamp " << remote_start_ts;
         VolumeStats::ptr volstats = getVolumeStats(vstats.volume_id);
+        if (!volstats) {
+          LOGWARN << "Volume " << std::hex << vstats.volume_id << std::dec
+               << " is not attached to the aggregator! Ignoring stats";
+          continue;
+        }
         err = (volstats->finegrain_hist_)->mergeSlots(vstats, remote_start_ts);
         fds_verify(err.ok());  // if err, prob de-serialize issue
         LOGDEBUG << *(volstats->finegrain_hist_);
@@ -351,6 +355,11 @@ StatStreamAggregator::handleModuleStatStream(fds_uint64_t start_timestamp,
              << std::dec << " timestamp " << remote_start_ts;
 
     VolumeStats::ptr volstats = getVolumeStats(volume_id);
+    if (!volstats) {
+        LOGWARN << "Volume " << std::hex << volume_id << std::dec
+           << " is not attached to the aggregator! Ignoring stats";
+        return;
+    }
     (volstats->finegrain_hist_)->mergeSlots(slots, remote_start_ts);
     LOGDEBUG << *(volstats->finegrain_hist_);
 }
