@@ -17,6 +17,7 @@
 #include <OmVolumePlacement.h>
 #include <orch-mgr/om-service.h>
 #include <fdsp/PlatNetSvc.h>
+#include <net/SvcRequestPool.h>
 
 namespace fds {
 
@@ -417,6 +418,77 @@ OM_NodeAgent::om_send_scavenger_cmd(fpi::FDSP_ScavengerCmd cmd) {
     }
     LOGNORMAL << "OM: send scavenger command: " << cmd;
     return err;
+}
+
+Error
+OM_NodeAgent::om_send_stream_reg_cmd(fds_int32_t regId,
+                                     fds_bool_t bAll) {
+    Error err(ERR_OK);
+
+    // get UUID of any AM
+    OM_NodeContainer* local = OM_NodeDomainMod::om_loc_domain_ctrl();
+    OM_AmContainer::pointer amNodes = local->om_am_nodes();
+    NodeAgent::pointer agent = amNodes->agent_info(0);
+    if (!agent) {
+        LOGERROR << "There are no AMs, cannot broadcast stream registration "
+                 << " to DMs, will do when at least one AM joins";
+        return ERR_NOT_READY;
+    }
+    NodeUuid am_uuid = agent->get_uuid();
+
+    kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
+    if (bAll == true) {
+        // send all known registrations
+        std::vector<fpi::StreamingRegistrationMsg> reg_vec;
+        fds_bool_t bret = configDB->getStreamRegistrations(reg_vec);
+        if (!bret) {
+            LOGERROR << "Failed to get stream registrations from configDB";
+            return ERR_NOT_READY;
+        }
+        LOGDEBUG << "Got " << reg_vec.size() << " stream registrations "
+                 << " from configDB";
+        for (fds_uint32_t i = 0; i < reg_vec.size(); ++i) {
+            om_send_one_stream_reg_cmd(reg_vec[i], am_uuid);
+        }
+    } else {
+        fpi::StreamingRegistrationMsg reg_msg;
+        fds_bool_t bret = configDB->getStreamRegistration(regId, reg_msg);
+        if (!bret) {
+            LOGERROR << "Failed to get stream registration "
+                     << regId << " from configDB";
+            return ERR_NOT_READY;
+        }
+        om_send_one_stream_reg_cmd(reg_msg, am_uuid);
+    }
+
+    return err;
+}
+
+void
+OM_NodeAgent::om_send_one_stream_reg_cmd(const fpi::StreamingRegistrationMsg& reg,
+                                         const NodeUuid& stream_dest_uuid) {
+    fpi::StatStreamRegistrationMsgPtr reg_msg(new fpi::StatStreamRegistrationMsg());
+    reg_msg->id = reg.id;
+    reg_msg->url = reg.url;
+    reg_msg->method = reg.http_method;
+    (reg_msg->dest).svc_uuid = stream_dest_uuid.uuid_get_val();
+    reg_msg->sample_freq_seconds = reg.sample_freq_seconds;
+    reg_msg->duration_seconds = reg.duration_seconds;
+
+    (reg_msg->volumes).reserve((reg.volume_names).size());
+    for (uint i = 0; i < (reg.volume_names).size(); i++) {
+        std::string volname = (reg.volume_names).at(i);
+        ResourceUUID uuid(fds_get_uuid64(volname));
+        (reg_msg->volumes).push_back(uuid.uuid_get_val());
+    }
+
+    LOGDEBUG << "Will send StatStreamRegistration with id " << reg.id
+             << "to DM " << std::hex << rs_uuid.uuid_get_val() << ", AM uuid is "
+             << std::hex << stream_dest_uuid.uuid_get_val() << std::dec;
+
+    auto asyncStreamRegReq = gSvcRequestPool->newEPSvcRequest(rs_uuid.toSvcUuid());
+    asyncStreamRegReq->setPayload(FDSP_MSG_TYPEID(fpi::StatStreamRegistrationMsg), reg_msg);
+    asyncStreamRegReq->invoke();
 }
 
 Error
@@ -1238,6 +1310,11 @@ OM_NodeContainer::om_bcast_vol_list(NodeAgent::pointer node)
     return cnt;
 }
 
+void
+OM_NodeContainer::om_bcast_stream_reg_list(NodeAgent::pointer node) {
+    OM_DmAgent::agt_cast_ptr(node)->om_send_stream_reg_cmd(0, true);
+}
+
 // om_send_vol_command
 // -------------------
 // Send the volume command to the node represented by the agent.
@@ -1607,4 +1684,20 @@ OM_NodeContainer::om_bcast_scavenger_cmd(FDS_ProtocolInterface::FDSP_ScavengerCm
     dc_sm_nodes->agent_foreach<FDS_ProtocolInterface::FDSP_ScavengerCmd>(
         cmd, om_send_scavenger_cmd);
 }
+
+
+static void
+om_send_stream_reg_cmd(fds_int32_t regId, fds_bool_t bAll,
+                       NodeAgent::pointer agent) {
+    OM_DmAgent::agt_cast_ptr(agent)->om_send_stream_reg_cmd(regId, bAll);
+}
+
+void
+OM_NodeContainer::om_bcast_stream_register_cmd(fds_int32_t regId,
+                                               fds_bool_t bAll)
+{
+    dc_dm_nodes->agent_foreach<fds_int32_t, fds_bool_t>(regId, bAll, om_send_stream_reg_cmd);
+}
+
+
 }  // namespace fds

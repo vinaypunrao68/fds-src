@@ -385,6 +385,10 @@ NodeDomainFSM::DACT_LoadVols::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
     LOGDEBUG << "NodeDomainFSM DACT_LoadVols";
     OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
     domain->om_load_volumes();
+
+    // also send all known stream registrations
+    OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+    local->om_bcast_stream_register_cmd(0, true);
 }
 
 
@@ -922,6 +926,8 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
                 LOGERROR << "Can not find platform agent for node uuid "
                          << std::hex << msg->node_uuid.uuid << std::dec;
             }
+        } else if (msg->node_type == fpi::FDSP_DATA_MGR) {
+            om_locDomain->om_bcast_stream_reg_list(newNode);
         }
         om_locDomain->om_update_node_list(newNode, msg);
 
