@@ -51,30 +51,35 @@ class VolumeStats {
     VolumePerfHistory::ptr longterm_hist_;
 
     /**
-     * Will update standard deviation values and cache them for
-     * queries. Would normally be driven by some outside timer
-     * to update every 1 hour or so
+     * Queries currently cached stdev for performance and capacity growth.
+     * This method may result in first updating the metrics if they are stale
+     * and then returning them.
+     * @param[out] recent_cap_stdev standard deviation of bytes added sampled
+     * every coarse time interval (default = 1 hour) for the past N time intervals
+     * (default = 24 hours)
+     * @param[out] recent_cap_wma weighted moving average of bytes added sampled
+     * every coarse time interval (default = 1 hour) for the past N time intervals
+     * (default = 24 hours)
+     * @param[out] long_cap_stdev standard deviation of bytes added / coarse time interval
+     * sampled every long time interval (default = 1 day) for the past N time intervals
+     * (default = 30 days)
+     * @param[out] recent_perf_stdev standard deviation of number of obj gets + puts
+     * sampled every coarse time interval (default = 1 hour) for the past N time
+     * intervals (default = 24 hours)
+     * @param[out] recent_perf_wma weighted moving average of number of obj gets + puts
+     * sampled every coarse time interval (default = 1 hour) for the past N time
+     * intervals (default = 24 hours)
+     * @param[out] long_perf_stdev standard deviation of obj gets + puts / coarse time
+     * interval sampled every long time interval (default = 1 day) for the past N time
+     * intervals (default = 30 days)
+     * 
      */
-    void updateFirebreakMetrics();
-
-    /**
-     * Queries currently cached stdev for performance and capacity growth
-     * Two types of standard deviation:
-     *  -- from short-term history
-     *  -- from long-term history
-     */
-    double getPerfShortTermStdev() const {
-        return cap_short_stdev_;
-    }
-    double getCapacityShortTermStdev() const {
-        return perf_short_stdev_;
-    }
-    double getPerfLongTermStdev() const {
-        return cap_long_stdev_;
-    }
-    double getCapacityLongTermStdev() const {
-        return perf_long_stdev_;
-    }
+    void getFirebreakMetrics(double* recent_cap_stdev,
+                             double* long_cap_stdev,
+                             double* recent_cap_wma,
+                             double* recent_perf_stdev,
+                             double* long_perf_stdev,
+                             double* recent_perf_wma);
 
     /**
      * Called periodically to process fine-grain stats:
@@ -88,17 +93,24 @@ class VolumeStats {
     void updateStdev(const std::vector<StatSlot>& slots,
                      double units_in_slot,
                      double* cap_stdev,
-                     double* perf_stdev);
+                     double* perf_stdev,
+                     double* cap_wma,
+                     double* perf_wma);
+
+    void updateFirebreakMetrics();
 
   private:
     fds_volid_t volid_;  // volume id
 
     // cached stdev for capacity and performance
-    double cap_short_stdev_;
+    double cap_recent_stdev_;
     double cap_long_stdev_;
-    double perf_short_stdev_;
+    double cap_recent_wma_;
+    double perf_recent_stdev_;
     double perf_long_stdev_;
+    double perf_recent_wma_;
     fds_uint64_t long_stdev_update_ts_;
+    fds_uint64_t recent_stdev_update_ts_;
 
     /**
      * Timer to process fine-grain stats

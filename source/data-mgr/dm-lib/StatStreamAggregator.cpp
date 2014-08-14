@@ -39,17 +39,20 @@ VolumeStats::VolumeStats(fds_volid_t volume_id,
                                                 finestat_slotsec)),
           coarsegrain_hist_(new VolumePerfHistory(volume_id,
                                                   start_time,
-                                                  26,  // 24 1-hour slots + slot
+                                                  5,  // 24 1-hour slots + slot
                                                   5*60)),  // 1-hour, but temp 5-min
           longterm_hist_(new VolumePerfHistory(volume_id,
                                                start_time,
-                                               31,  // 30 1-day slots + slot
-                                               60*60)),  // 1 day, but temp 1 h
+                                               3,  // 30 1-day slots + slot
+                                               10*60)),  // 1 day, but temp 1 h
           long_stdev_update_ts_(0),
-          cap_short_stdev_(0),
+          recent_stdev_update_ts_(0),
+          cap_recent_stdev_(0),
           cap_long_stdev_(0),
-          perf_short_stdev_(0),
+          cap_recent_wma_(0),
+          perf_recent_stdev_(0),
           perf_long_stdev_(0),
+          perf_recent_wma_(0),
           process_tm_(new FdsTimer()),
           process_tm_task_(new VolStatsTimerTask(*process_tm_, this)) {
     // this is how often we process 1-min stats
@@ -96,8 +99,6 @@ void VolumeStats::processStats() {
                                    finegrain_hist_->getStartTime());
         LOGDEBUG << "Updated long-term stats: " << *longterm_hist_;
     }
-    // TODO(Anna) testing, need to move this to appropriate place
-    updateFirebreakMetrics();
 
     for (std::vector<StatSlot>::const_iterator cit = slots.cbegin();
          cit != slots.cend();
@@ -155,11 +156,13 @@ void VolumeStats::processStats() {
                   << "Objects " << StatHelper::getTotalObjects(*cit) << ", "
                   << "Ave blob size " << StatHelper::getAverageBytesInBlob(*cit) << " bytes, "
                   << "Ave objects in blobs " << StatHelper::getAverageObjectsInBlob(*cit) << ", "
-                  << "% of ssd accesses " << StatHelper::getPercentSsdAccesses(*cit)
-                  << "1h one day perf sigma " << getPerfShortTermStdev()
-                  << "1d one month perf sima " << getPerfLongTermStdev()
-                  << "1h one day bytes added sigma " << getCapacityShortTermStdev()
-                  << "1d one month bytes added sigma " << getPerfLongTermStdev();
+                  << "% of ssd accesses " << StatHelper::getPercentSsdAccesses(*cit) << ", "
+                  << "1h one day perf wma " << perf_recent_wma_ << ", "
+                  << "1h one day perf sigma " << perf_recent_stdev_ << ", "
+                  << "1d one month perf sima " << perf_long_stdev_ << ", "
+                  << "1h one day bytes added sigma " << cap_recent_stdev_ << ", "
+                  << "1h one day bytes added wma " << cap_recent_wma_ << ", "
+                  << "1d one month bytes added sigma " << cap_long_stdev_;
     }
 
     std::vector<fpi::volumeDataPoints> dataPoints;
@@ -187,32 +190,59 @@ void VolumeStats::processStats() {
     // if enough time passed, also log to 1hour file
 }
 
+
+//
+// returns firebreak related metrics; may update cached metrics
+// first if they are not recent enough
+//
+void VolumeStats::getFirebreakMetrics(double* recent_cap_stdev,
+                                      double* long_cap_stdev,
+                                      double* recent_cap_wma,
+                                      double* recent_perf_stdev,
+                                      double* long_perf_stdev,
+                                      double* recent_perf_wma) {
+    // update cached metrics if they are stale
+    updateFirebreakMetrics();
+    *recent_cap_stdev = cap_recent_stdev_;
+    *long_cap_stdev = cap_long_stdev_;
+    *recent_cap_wma = cap_recent_wma_;
+    *recent_perf_stdev = perf_recent_stdev_;
+    *long_perf_stdev = perf_long_stdev_;
+    *recent_perf_wma = perf_recent_wma_;
+}
+
 //
 // calculates stdev for performance and capacity
 //
 void VolumeStats::updateFirebreakMetrics() {
     std::vector<StatSlot> slots;
-    std::vector<double> short_add_bytes;
-    std::vector<double> short_ops;
-
-    // get 1-h recent history
-    coarsegrain_hist_->toSlotList(slots, 0, 0, FdsStatPushPeriodSec);
-    if (slots.size() < (coarsegrain_hist_->numberOfSlots() - 1)) {
-        // we must have mostly full history to start recording stdev
-        return;
-    }
-    updateStdev(slots, 1, &cap_short_stdev_, &perf_short_stdev_);
-    LOGDEBUG << "Short term history size " << slots.size()
-             << " seconds in slot " << coarsegrain_hist_->secondsInSlot()
-             << " capacity stdev " << cap_short_stdev_
-             << " perf stdev " << perf_short_stdev_;
-
-    // check if it's time to update
     fds_uint64_t now = util::getTimeStampNanos();
     fds_uint64_t elapsed_nanos = 0;
     if (now > long_stdev_update_ts_) {
         elapsed_nanos = now - long_stdev_update_ts_;
     }
+    // check if it's time to update recent history stdev
+    if (elapsed_nanos < (NANOS_IN_SECOND * coarsegrain_hist_->secondsInSlot())) {
+        return;  // no need to update long-term stdev
+    }
+    recent_stdev_update_ts_ = now;
+
+    // update recent (one day / 1h slots) history stdev
+    coarsegrain_hist_->toSlotList(slots, 0, 0, FdsStatPushPeriodSec);
+    if (slots.size() < (coarsegrain_hist_->numberOfSlots() - 1)) {
+        // we must have mostly full history to start recording stdev
+        return;
+    }
+    updateStdev(slots, 1, &cap_recent_stdev_, &perf_recent_stdev_,
+                &cap_recent_wma_, &perf_recent_wma_);
+    LOGDEBUG << "Short term history size " << slots.size()
+             << " seconds in slot " << coarsegrain_hist_->secondsInSlot()
+             << " capacity wma " << cap_recent_wma_
+             << " perf wma " << perf_recent_wma_
+             << " capacity stdev " << cap_recent_stdev_
+             << " perf stdev " << perf_recent_stdev_;
+
+    // check if it's time to update long term history stdev
     if (elapsed_nanos < (NANOS_IN_SECOND * longterm_hist_->secondsInSlot())) {
         return;  // no need to update long-term stdev
     }
@@ -224,9 +254,8 @@ void VolumeStats::updateFirebreakMetrics() {
         // to start reporting long term stdev we must have most of history
         return;
     }
-    fds_verify(slots.size() > 0);  // we tried to get all the slots
     double units = longterm_hist_->secondsInSlot() / coarsegrain_hist_->secondsInSlot();
-    updateStdev(slots, 1, &cap_long_stdev_, &perf_long_stdev_);
+    updateStdev(slots, 1, &cap_long_stdev_, &perf_long_stdev_, NULL, NULL);
     LOGDEBUG << "Long term history size " << slots.size()
              << " seconds in slot " << coarsegrain_hist_->secondsInSlot()
              << " short slot units " << units
@@ -237,7 +266,9 @@ void VolumeStats::updateFirebreakMetrics() {
 void VolumeStats::updateStdev(const std::vector<StatSlot>& slots,
                               double units_in_slot,
                               double* cap_stdev,
-                              double* perf_stdev) {
+                              double* perf_stdev,
+                              double* cap_wma,
+                              double* perf_wma) {
     std::vector<double> add_bytes;
     std::vector<double> ops_vec;
     double prev_bytes = 0;
@@ -264,6 +295,14 @@ void VolumeStats::updateStdev(const std::vector<StatSlot>& slots,
     // get weighted rolling average of coarse-grain (1-h) histories
     *cap_stdev = util::fds_get_wstdev(add_bytes);
     *perf_stdev = util::fds_get_wstdev(ops_vec);
+    if (cap_wma) {
+        double wsum = 0;
+        *cap_wma = util::fds_get_wma(add_bytes, &wsum);
+    }
+    if (perf_wma) {
+        double wsum = 0;
+        *perf_wma = util::fds_get_wma(ops_vec, &wsum);
+    }
 }
 
 
