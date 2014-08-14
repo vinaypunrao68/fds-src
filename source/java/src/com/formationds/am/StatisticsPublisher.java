@@ -30,16 +30,17 @@ public class StatisticsPublisher implements Streaming.Iface {
 
     @Override
     public void publishMetaStream(int registrationId, List<volumeDataPoints> dataPoints) throws TException {
-        configClient.getStreamRegistrations(0).stream()
-                .filter(r -> r.getId() == registrationId)
-                .forEach(r -> {
-                    try {
-                        publish(r, dataPoints);
-                    } catch (Exception e) {
-                        LOG.error("Error publishing datapoints to " + r.getUrl(), e);
-                        throw new RuntimeException(e);
-                    }
-                });
+        List<StreamingRegistrationMsg> regs = configClient.getStreamRegistrations(0);
+        for (StreamingRegistrationMsg reg : regs) {
+            if (reg.getId() == registrationId) {
+                try {
+                    publish(reg, dataPoints);
+                } catch (Exception e) {
+                    LOG.error("Error publishing datapoints to " + reg.getUrl(), e);
+                    throw new RuntimeException(e);
+                }
+            }
+        }
     }
 
     private void publish(StreamingRegistrationMsg reg, List<volumeDataPoints> dataPoints) throws Exception {
