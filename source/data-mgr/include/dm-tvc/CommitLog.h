@@ -30,6 +30,8 @@
 namespace fds {
 
 const unsigned DEFAULT_COMMIT_LOG_FILE_SIZE = 5 * 1024 * 1024;
+const unsigned MIN_COMMIT_LOG_FILE_SIZE = 1 * 1024 * 1024;
+const unsigned MAX_COMMIT_LOG_FILE_SIZE = 100 * 1024 * 1024;
 
 struct DmCommitLogEntry;    // forward declaration
 
@@ -454,7 +456,8 @@ class FileCommitLogger : public DmCommitLogger {
 
 class MemoryCommitLogger : public FileCommitLogger {
   public:
-    MemoryCommitLogger() : FileCommitLogger("", DEFAULT_COMMIT_LOG_FILE_SIZE) {}
+    explicit MemoryCommitLogger(fds_uint32_t filesize = DEFAULT_COMMIT_LOG_FILE_SIZE)
+            : FileCommitLogger("", filesize) {}
     virtual ~MemoryCommitLogger() {}
 };
 
