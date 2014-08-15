@@ -2,6 +2,7 @@
 import os, re, sys, time
 import numpy as np
 import matplotlib.pyplot as plt
+from optparse import OptionParser
 
 def add2dict(mydict, indexes, value):
     if len(indexes) == 1:
@@ -44,8 +45,11 @@ class Counters:
                     self._add(node, agent, name, volid, cntr_type, value, tstamp)
     def get_cntr(self, node, agent, name, cntr_type):
         series = {}
-        for volid in self.counters[name][node][agent]:
-            series[volid] = self.counters[name][node][agent][volid][cntr_type]
+        try:
+            for volid in self.counters[name][node][agent]:
+                    series[volid] = self.counters[name][node][agent][volid][cntr_type]
+        except KeyError:
+            return None
         for k in series:
             series[k] = zip(*series[k])
         return series
@@ -77,8 +81,11 @@ def plot_series(options, series, title = None, ylabel = None, xlabel = "Time [ms
         plt.xlabel(xlabel)
     plt.show()
 
-def plot_series_all_volumes(series, title = None, ylabel = None, xlabel = "Time [s]", latency = False, name = None):
-    plt.figure()
+def new_figure(name):
+    fig = plt.figure(name)
+
+def plot_series_all_volumes(series, title = None, ylabel = None, xlabel = "Time [s]", latency = False, name = None, figname = None):
+    plt.figure(figname)
     for v, s in series.iteritems():
         values = np.asarray(s[0])
         time = np.asarray(s[1])
@@ -89,36 +96,61 @@ def plot_series_all_volumes(series, title = None, ylabel = None, xlabel = "Time 
         else:
             rate = values / 1e6
         #print rate, rate.size, count.size
-        plt.plot(time,rate)
+        plt.plot(time, rate, label = name)
     if title:
         plt.title(title)
     if ylabel:
         plt.ylabel(ylabel)
     if xlabel:
         plt.xlabel(xlabel)
+    plt.legend()
+
+def legend(figname):
+    plt.figure(figname)
+    plt.legend()
+
+def plot_show_and_save():
+    plt.legend()
     plt.savefig('%s.png' % (name))
     plt.show()
 
+# TODO: options
+# TODO: list all parsed counters
+# TODO: plot multiple
+# TODO: plot real time
+
 if __name__ == "__main__":
+    parser = OptionParser()
+    parser.add_option("-f", "--file", dest = "filein", help = "Input file")
+    parser.add_option("-c", "--counters", dest = "counters", help = "List of agent:counter,...")
+    parser.add_option("-n", "--node", dest = "node", help = "Node")
+    #parser.add_option("-c", "--column", dest = "column", help = "Column")
+    (options, args) = parser.parse_args()
+
+    # FIXME: revisit Counters interface
     c = Counters()
-    f = open(sys.argv[1],"r")
-    agent = sys.argv[2]
-    counter = sys.argv[3]
+    f = open(options.filein,"r")
     c.parse(f.read())
     f.close()
-    #c.print_cntr("am_put_obj_req", "latency")
-    node = "tie-fighter"
-    # series = c.get_cntr(node, "AMAgent","am_put_obj_req", "count")
-    # plot_series_all_volumes(series,"IOPS - PUT", "req/s", latency = False, name = "iops-put")
-    # series = c.get_cntr(node, "AMAgent","am_get_obj_req", "count")
-    # plot_series_all_volumes(series,"IOPS - GET", "req/s", latency = False, name  = "iops-get")
-    # series = c.get_cntr(node, "AMAgent","am_put_obj_req", "latency")
-    # plot_series_all_volumes(series,"Latency - PUT", "ns", latency = True, name = "latency-put")
-    # series = c.get_cntr(node, "AMAgent","am_get_obj_req", "latency")
-    # plot_series_all_volumes(series,"Latency - GET", "ms", latency = True, name = "latency-get")
+    for name in options.counters.split(","):
+        agent, counter = name.split(":")
 
-    series = c.get_cntr(node, agent, counter, "count")
-    plot_series_all_volumes(series,agent + " " + counter, "req/s", latency = False, name  = agent + "_" + counter)
-    series = c.get_cntr(node, agent, counter, "latency")
-    plot_series_all_volumes(series,agent + " " + counter, "ms", latency = True, name  = agent + "_" + counter)
+        #c.print_cntr("am_put_obj_req", "latency")
+        node = options.node
+        # series = c.get_cntr(node, "AMAgent","am_put_obj_req", "count")
+        # plot_series_all_volumes(series,"IOPS - PUT", "req/s", latency = False, name = "iops-put")
+        # series = c.get_cntr(node, "AMAgent","am_get_obj_req", "count")
+        # plot_series_all_volumes(series,"IOPS - GET", "req/s", latency = False, name  = "iops-get")
+        # series = c.get_cntr(node, "AMAgent","am_put_obj_req", "latency")
+        # plot_series_all_volumes(series,"Latency - PUT", "ns", latency = True, name = "latency-put")
+        # series = c.get_cntr(node, "AMAgent","am_get_obj_req", "latency")
+        # plot_series_all_volumes(series,"Latency - GET", "ms", latency = True, name = "latency-get")
+        new_figure("Throughput")
+        new_figure("Latency")
+
+        series = c.get_cntr(node, agent, counter, "count")
+        plot_series_all_volumes(series,"Throughput", "req/s", latency = False, name = agent + "_" + counter, figname = "Throughput")
+        series = c.get_cntr(node, agent, counter, "latency")
+        plot_series_all_volumes(series,"Latency", "ms", latency = True, name = agent + "_" + counter, figname = "Latency")
+    plot_show_and_save()
 
