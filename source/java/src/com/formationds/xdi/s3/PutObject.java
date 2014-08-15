@@ -36,6 +36,8 @@ public class PutObject implements RequestHandler {
         String copySource = request.getHeader("x-amz-copy-source");
 
         String contentType = StaticFileHandler.getMimeType(objectName);
+
+        InputStream str = request.getInputStream();
         String uploadId = request.getParameter("uploadId");
 
         HashMap<String, String> map = Maps.newHashMap();
@@ -55,7 +57,7 @@ public class PutObject implements RequestHandler {
         }
 
         if(copySource == null) {
-            byte[] digest = xdi.writeStream(domain, bucketName, objectName, request.getInputStream(), map);
+            byte[] digest = xdi.writeStream(domain, bucketName, objectName, str, map);
             return new TextResource("").withHeader("ETag", "\"" + Hex.encodeHexString(digest) + "\"");
         } else {
             return copy(request, domain, bucketName, objectName, copySource, map);

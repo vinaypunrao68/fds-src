@@ -3,6 +3,7 @@ package com.formationds.xdi.s3;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+import com.formationds.apis.BlobDescriptor;
 import com.formationds.util.XmlElement;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
@@ -66,6 +67,7 @@ public class MultiPartListParts implements RequestHandler {
 
         for(PartInfo pi : filteredList) {
             Map<String, String> md = pi.descriptor.getMetadata();
+            BlobDescriptor bd = xdi.statBlob(S3Endpoint.FDS_S3_SYSTEM, S3Endpoint.FDS_S3_SYSTEM_BUCKET_NAME, pi.descriptor.getName());
 
             elt = elt.withNest("Part", sub -> sub
                     .withValueElt("PartNumber", Integer.toString(pi.partNumber))
