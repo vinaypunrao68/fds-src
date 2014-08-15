@@ -118,11 +118,54 @@ AmTxManager::updateTxOpType(const BlobTxId &txId,
         return ERR_NOT_FOUND;
     }
     fds_verify(txId == txMapIt->second->txId);
-    // TODO(Andrew): For now, we're only expecting to chage
+    // TODO(Andrew): For now, we're only expecting to change
     // from PUT to DELETE
     fds_verify(txMapIt->second->opType == FDS_PUT_BLOB);
     fds_verify(op == FDS_DELETE_BLOB);
     txMapIt->second->opType = op;
+
+    return ERR_OK;
+}
+
+Error
+AmTxManager::updateStagedBlobOffset(const BlobTxId &txId,
+                                    const std::string &blobName,
+                                    fds_uint64_t blobOffset,
+                                    const ObjectID &objectId) {
+    SCOPEDWRITE(txMapLock);
+    TxMap::iterator txMapIt = txMap.find(txId);
+    if (txMapIt == txMap.end()) {
+        return ERR_NOT_FOUND;
+    }
+    fds_verify(txId == txMapIt->second->txId);
+    // TODO(Andrew): For now, we're only expecting to update
+    // a PUT transaction
+    fds_verify(txMapIt->second->opType == FDS_PUT_BLOB);
+
+    BlobOffsetPair offsetPair(blobName, blobOffset);
+    fds_verify(txMapIt->second->stagedBlobOffsets.count(offsetPair) == 0);
+    txMapIt->second->stagedBlobOffsets[offsetPair] = objectId;
+
+    return ERR_OK;
+}
+
+Error
+AmTxManager::updateStagedBlobObject(const BlobTxId &txId,
+                                    const ObjectID &objectId,
+                                    char *objectData,
+                                    fds_uint32_t dataLen) {
+    SCOPEDWRITE(txMapLock);
+    TxMap::iterator txMapIt = txMap.find(txId);
+    if (txMapIt == txMap.end()) {
+        return ERR_NOT_FOUND;
+    }
+    fds_verify(txId == txMapIt->second->txId);
+    // TODO(Andrew): For now, we're only expecting to update
+    // a PUT transaction
+    fds_verify(txMapIt->second->opType == FDS_PUT_BLOB);
+
+    txMapIt->second->stagedBlobObjects[objectId] =
+            new std::string(objectData, dataLen);
 
     return ERR_OK;
 }

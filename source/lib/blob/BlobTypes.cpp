@@ -3,6 +3,7 @@
  */
 #include <blob/BlobTypes.h>
 #include <string>
+#include <utility>
 #include <fds_uuid.h>
 
 namespace fds {
@@ -85,6 +86,12 @@ std::ostream&
 operator<<(std::ostream& out, const BlobDescriptor& blobDesc) {
     out << "Blob " << blobDesc.blobName << " size " << blobDesc.blobSize
         << " volume " << std::hex << blobDesc.volumeUuid << std::dec;
+    return out;
+}
+
+std::ostream&
+operator<<(std::ostream& out, const BlobOffsetPair& blobOffset) {
+    out << "Blob " << blobOffset.first << " offset " << blobOffset.second;
     return out;
 }
 

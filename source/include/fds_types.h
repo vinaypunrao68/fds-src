@@ -100,6 +100,7 @@ class ObjectID : public serialize::Serializable {
     explicit ObjectID(const std::string& oid);
     ObjectID(uint8_t  *objId, uint32_t length);
     virtual ~ObjectID();
+    typedef boost::shared_ptr<ObjectID> ptr;
 
     /*
      * Assumes the length of the data is 2 * hash size.
