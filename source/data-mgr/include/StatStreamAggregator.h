@@ -206,6 +206,7 @@ class StatStreamAggregator : public Module {
      */
     Error writeStatsLog(const fpi::volumeDataPoints& volStatData, fds_volid_t vol_id,
             bool isMin = true);
+    Error volStatSync(NodeUuid dm_uuid, fds_volid_t vol_id);
 
     /**
      * Starts pushing of stats for a given set of volumes, with given
