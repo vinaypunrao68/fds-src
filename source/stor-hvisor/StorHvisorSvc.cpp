@@ -157,15 +157,23 @@ void StorHvCtrl::commitBlobTxMsgResp(fds::AmQosReq* qosReq,
     fds_verify(blobReq != NULL);
     fds_verify(blobReq->getIoType() == FDS_COMMIT_BLOB_TX);
 
+    // Push the commited update to the cache and remove from manager
+    // TODO(Andrew): Inserting the entire tx transaction currently
+    // assumes that the tx descriptor has all of the contents needed
+    // for a blob descriptor (e.g., size, version, etc..). Today this
+    // is true for S3/Swift and doesn't get used anyways for block (so
+    // the actual cached descriptor for block will not be correct).
+    AmTxDescriptor::ptr txDesc;
+    fds_verify(amTxMgr->getTxDescriptor(*(blobReq->getTxId()),
+                                        txDesc) == ERR_OK);
+    fds_verify(amCache->putTxDescriptor(txDesc) == ERR_OK);
+    fds_verify(amTxMgr->removeTx(*(blobReq->getTxId())) == ERR_OK);
+
     qos_ctrl->markIODone(qosReq);
     blobReq->cb->call(error);
 
-    // Remove the transaction for the manager
-    fds_verify(amTxMgr->removeTx(*(blobReq->getTxId())) == ERR_OK);
     delete blobReq;
 }
-
-
 
 Error
 StorHvCtrl::startBlobTxSvc(AmQosReq *qosReq) {
@@ -193,7 +201,7 @@ StorHvCtrl::startBlobTxSvc(AmQosReq *qosReq) {
 
     // Track the transaction we're starting. If the DM
     // request fails, we'll drop this entry from the mgr.
-    err = amTxMgr->addTx(txId, dmt_version, blobReq->getBlobName());
+    err = amTxMgr->addTx(volId, txId, dmt_version, blobReq->getBlobName());
     fds_verify(err == ERR_OK);
 
     issueStartBlobTxMsg(blobReq->getBlobName(),
@@ -311,8 +319,10 @@ Error StorHvCtrl::putBlobSvc(fds::AmQosReq *qosReq)
 
     if (blobReq->getIoType() == FDS_PUT_BLOB) {
         fds_uint64_t dmt_version;
-        err = amTxMgr->getTxDmtVersion(*(blobReq->getTxId()), &dmt_version);
-        fds_verify(err == ERR_OK);
+        fds_verify(amTxMgr->getTxDmtVersion(*(blobReq->getTxId()), &dmt_version) == ERR_OK);
+        // Update the tx manager with this update
+        fds_verify(amTxMgr->updateStagedBlobDesc(*(blobReq->getTxId()),
+                                                 blobReq->getDataLen()) == ERR_OK);
         issueUpdateCatalogMsg(blobReq->getObjId(),
                               blobReq->getBlobName(),
                               blobReq->getBlobOffset(),
@@ -326,6 +336,21 @@ Error StorHvCtrl::putBlobSvc(fds::AmQosReq *qosReq)
         // Sending the update in a single request. Create transaction ID to
         // use for the single request
         BlobTxId txId(storHvisor->randNumGen->genNumSafe());
+        blobReq->setTxId(txId);
+
+        // Track the updates in the tx manager
+        fds_uint64_t dmt_version = om_client->getDMTVersion();
+        fds_verify(amTxMgr->addTx(volId,
+                                  txId,
+                                  dmt_version,
+                                  blobReq->getBlobName()) == ERR_OK);
+        // Stage the tx manager with this update's length
+        fds_verify(amTxMgr->updateStagedBlobDesc(txId,
+                                                 blobReq->getDataLen()) == ERR_OK);
+        // Stage the transaction metadata changes
+        fds_verify(amTxMgr->updateStagedBlobDesc(txId,
+                                                 blobReq->metadata) == ERR_OK);
+
         issueUpdateCatalogMsg(blobReq->getObjId(),
                               blobReq->getBlobName(),
                               blobReq->getBlobOffset(),
@@ -858,6 +883,10 @@ StorHvCtrl::setBlobMetaDataSvc(fds::AmQosReq* qosReq)
     fds_verify(blobReq != NULL);
     fds_verify(blobReq->cb);
     fds_verify(blobReq->magicInUse() == true);
+
+    // Stage the transaction metadata changes
+    fds_verify(amTxMgr->updateStagedBlobDesc(*(blobReq->getTxId()),
+                                             blobReq->getMetaDataListPtr()) == ERR_OK);
 
     fds_volid_t   vol_id = blobReq->getVolId();
     StorHvVolume *shVol = storHvisor->vol_table->getLockedVolume(vol_id);

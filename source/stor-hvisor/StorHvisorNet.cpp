@@ -198,6 +198,8 @@ StorHvCtrl::StorHvCtrl(int argc,
 
     // Init the AM transaction manager
     amTxMgr = AmTxManager::unique_ptr(new AmTxManager("AM Transaction Manager Module"));
+    // Init the AM cache manager
+    amCache = AmCache::unique_ptr(new AmCache("AM Cache Manager Module"));
 
     /* TODO: for now StorHvVolumeTable constructor will create
      * volume 1, revisit this soon when we add multi-volume support

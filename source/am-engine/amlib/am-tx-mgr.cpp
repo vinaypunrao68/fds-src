@@ -1,15 +1,30 @@
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
+#include <map>
 #include <string>
 #include <am-tx-mgr.h>
 
 namespace fds {
 
-AmTxDescriptor::AmTxDescriptor(const BlobTxId &id,
+AmTxDescriptor::AmTxDescriptor(fds_volid_t volUuid,
+                               const BlobTxId &id,
                                fds_uint64_t dmtVer,
                                const std::string &name)
-        :txId(id), originDmtVersion(dmtVer), blobName(name) {
+        : volId(volUuid),
+          txId(id),
+          originDmtVersion(dmtVer),
+          blobName(name),
+          opType(FDS_PUT_BLOB),
+          stagedBlobDesc(new BlobDescriptor()) {
+    stagedBlobDesc->setVolId(volId);
+    stagedBlobDesc->setBlobName(blobName);
+    stagedBlobDesc->setBlobSize(0);
+    // TODO(Andrew): We're leaving the blob version unset
+    // We'll need to revist when we do versioning
+    // TODO(Andrew): We default the op type to PUT, but it's
+    // conceivable to PUT and DELETE in the same transaction,
+    // so we really want to mask the op type.
 }
 
 AmTxDescriptor::~AmTxDescriptor() {
@@ -46,12 +61,15 @@ AmTxManager::mod_shutdown() {
 }
 
 Error
-AmTxManager::addTx(const BlobTxId &txId, fds_uint64_t dmtVer, const std::string &name) {
+AmTxManager::addTx(fds_volid_t volId,
+                   const BlobTxId &txId,
+                   fds_uint64_t dmtVer,
+                   const std::string &name) {
     SCOPEDWRITE(txMapLock);
     if (txMap.count(txId) > 0) {
         return ERR_DUPLICATE_UUID;
     }
-    txMap[txId] = AmTxDescriptor::ptr(new AmTxDescriptor(txId, dmtVer, name));
+    txMap[txId] = AmTxDescriptor::ptr(new AmTxDescriptor(volId, txId, dmtVer, name));
 
     return ERR_OK;
 }
@@ -69,6 +87,18 @@ AmTxManager::removeTx(const BlobTxId &txId) {
 }
 
 Error
+AmTxManager::getTxDescriptor(const BlobTxId &txId, AmTxDescriptor::ptr &desc) {
+    SCOPEDWRITE(txMapLock);
+    TxMap::iterator txMapIt = txMap.find(txId);
+    if (txMapIt == txMap.end()) {
+        return ERR_NOT_FOUND;
+    }
+    fds_verify(txId == txMapIt->second->txId);
+    desc = txMapIt->second;
+    return ERR_OK;
+}
+
+Error
 AmTxManager::getTxDmtVersion(const BlobTxId &txId, fds_uint64_t *dmtVer) const {
     SCOPEDREAD(txMapLock);
     TxMap::const_iterator txMapIt = txMap.find(txId);
@@ -76,6 +106,77 @@ AmTxManager::getTxDmtVersion(const BlobTxId &txId, fds_uint64_t *dmtVer) const {
         return ERR_NOT_FOUND;
     }
     *dmtVer = txMapIt->second->originDmtVersion;
+    return ERR_OK;
+}
+
+Error
+AmTxManager::updateTxOpType(const BlobTxId &txId,
+                            fds_io_op_t op) {
+    SCOPEDWRITE(txMapLock);
+    TxMap::iterator txMapIt = txMap.find(txId);
+    if (txMapIt == txMap.end()) {
+        return ERR_NOT_FOUND;
+    }
+    fds_verify(txId == txMapIt->second->txId);
+    // TODO(Andrew): For now, we're only expecting to chage
+    // from PUT to DELETE
+    fds_verify(txMapIt->second->opType == FDS_PUT_BLOB);
+    fds_verify(op == FDS_DELETE_BLOB);
+    txMapIt->second->opType = op;
+
+    return ERR_OK;
+}
+
+Error
+AmTxManager::updateStagedBlobDesc(const BlobTxId &txId,
+                                  boost::shared_ptr<
+                                  fpi::FDSP_MetaDataList> metaDataList) {
+    SCOPEDWRITE(txMapLock);
+    TxMap::iterator txMapIt = txMap.find(txId);
+    if (txMapIt == txMap.end()) {
+        return ERR_NOT_FOUND;
+    }
+    fds_verify(txId == txMapIt->second->txId);
+    // Verify that we're not overwriting previously staged metadata
+    fds_verify(txMapIt->second->stagedBlobDesc->kvMetaBegin() ==
+               txMapIt->second->stagedBlobDesc->kvMetaEnd());
+
+    for (auto const & meta : *metaDataList) {
+        txMapIt->second->stagedBlobDesc->addKvMeta(meta.key, meta.value);
+    }
+    return ERR_OK;
+}
+
+Error
+AmTxManager::updateStagedBlobDesc(const BlobTxId &txId,
+                                  boost::shared_ptr<
+                                  std::map<std::string, std::string>> &metadata) {
+    SCOPEDWRITE(txMapLock);
+    TxMap::iterator txMapIt = txMap.find(txId);
+    if (txMapIt == txMap.end()) {
+        return ERR_NOT_FOUND;
+    }
+    fds_verify(txId == txMapIt->second->txId);
+    // Verify that we're not overwriting previously staged metadata
+    fds_verify(txMapIt->second->stagedBlobDesc->kvMetaBegin() ==
+               txMapIt->second->stagedBlobDesc->kvMetaEnd());
+
+    for (auto const & meta : *metadata) {
+        txMapIt->second->stagedBlobDesc->addKvMeta(meta.first, meta.second);
+    }
+    return ERR_OK;
+}
+
+Error
+AmTxManager::updateStagedBlobDesc(const BlobTxId &txId,
+                                  fds_uint64_t len) {
+    SCOPEDWRITE(txMapLock);
+    TxMap::iterator txMapIt = txMap.find(txId);
+    if (txMapIt == txMap.end()) {
+        return ERR_NOT_FOUND;
+    }
+    fds_verify(txId == txMapIt->second->txId);
+    txMapIt->second->stagedBlobDesc->updateBlobSize(len);
     return ERR_OK;
 }
 

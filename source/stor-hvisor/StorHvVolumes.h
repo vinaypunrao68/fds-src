@@ -501,6 +501,12 @@ class PutBlobReq: public FdsBlobReq {
         return etag;
     }
 
+    void setTxId(const BlobTxId &txId) {
+        // We only expect to need to set this in putBlobOnce cases
+        fds_verify(txDesc == NULL);
+        txDesc = BlobTxId::ptr(new BlobTxId(txId));
+    }
+
     BlobTxId::const_ptr getTxId() const {
         return txDesc;
     }

@@ -60,6 +60,36 @@ Error StatBlobHandler::handleQueueItem(AmQosReq *qosReq) {
         return ERR_DISK_READ_FAILED;
     }
 
+    // Check cache for blob descriptor
+    BlobDescriptor::ptr cachedBlobDesc =
+            helper.storHvisor->amCache->getBlobDescriptor(
+                helper.blobReq->getVolId(),
+                helper.blobReq->getBlobName(),
+                err);
+    if (err == ERR_OK) {
+        LOGTRACE << "Found cached blob descriptor for " << std::hex
+                 << helper.blobReq->getVolId() << std::dec << " blob "
+                 << helper.blobReq->getBlobName();
+
+        StatBlobCallback::ptr cb = SHARED_DYN_CAST(StatBlobCallback, helper.blobReq->cb);
+        // Fill in the data here
+        cb->blobDesc.setBlobName(cachedBlobDesc->getBlobName());
+        cb->blobDesc.setBlobSize(cachedBlobDesc->getBlobSize());
+        for (const_kv_iterator meta = cachedBlobDesc->kvMetaBegin();
+             meta != cachedBlobDesc->kvMetaEnd();
+             meta++) {
+            cb->blobDesc.addKvMeta(meta->first,  meta->second);
+        }
+        cb->call(err);
+        // TODO(Andrew): This is what's being returned to the request
+        // dispatcher, which always expects OK. The callback was given
+        // the correct error code, this doesn't really matter.
+        return ERR_OK;
+    }
+    LOGTRACE << "Did not find cached blob descriptor for " << std::hex
+             << helper.blobReq->getVolId() << std::dec << " blob "
+             << helper.blobReq->getBlobName();
+
     GetBlobMetaDataMsgPtr message(new GetBlobMetaDataMsg());
     message->volume_id = helper.blobReq->getVolId();
     message->blob_name = helper.blobReq->getBlobName();
@@ -75,7 +105,7 @@ Error StatBlobHandler::handleQueueItem(AmQosReq *qosReq) {
     asyncReq->onResponseCb(cb);
     LOGDEBUG << "invoke";
     asyncReq->invoke();
-    return err;
+    return ERR_OK;
 }
 
 }  // namespace fds

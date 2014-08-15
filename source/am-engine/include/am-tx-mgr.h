@@ -4,6 +4,7 @@
 #ifndef SOURCE_AM_ENGINE_INCLUDE_AM_TX_MGR_H_
 #define SOURCE_AM_ENGINE_INCLUDE_AM_TX_MGR_H_
 
+#include <map>
 #include <string>
 #include <fds_module.h>
 #include <fds_error.h>
@@ -14,7 +15,8 @@
 namespace fds {
 
 /**
- * Descriptor for an AM blob transaction.
+ * Descriptor for an AM blob transaction. Contains information
+ * about the transaction and a staging area for the updates.
  */
 class AmTxDescriptor {
   public:
@@ -24,8 +26,18 @@ class AmTxDescriptor {
     fds_uint64_t originDmtVersion;
     /// Blob being mutated
     std::string blobName;
+    /// Volume context for the transaction
+    fds_volid_t volId;
 
-    AmTxDescriptor(const BlobTxId &id, fds_uint64_t dmtVer, const std::string &name);
+    /// Type of the staged transaction
+    fds_io_op_t opType;
+    /// Staged blob descriptor for the transaction
+    BlobDescriptor::ptr stagedBlobDesc;
+
+    AmTxDescriptor(fds_volid_t volUuid,
+                   const BlobTxId &id,
+                   fds_uint64_t dmtVer,
+                   const std::string &name);
     ~AmTxDescriptor();
     typedef boost::shared_ptr<AmTxDescriptor> ptr;
 };
@@ -58,8 +70,13 @@ class AmTxManager : public Module, public boost::noncopyable {
     /**
      * Adds a new transaction to the manager. An error is returned
      * if the transaction ID exists already.
+     * TODO(Andrew): Today we enforce transaction ID to be unique
+     * across volumes.
      */
-    Error addTx(const BlobTxId &txId, fds_uint64_t dmtVer, const std::string &name);
+    Error addTx(fds_volid_t volId,
+                const BlobTxId &txId,
+                fds_uint64_t dmtVer,
+                const std::string &name);
 
     /**
      * Removes an existing transaction from the manager. An error is
@@ -68,10 +85,44 @@ class AmTxManager : public Module, public boost::noncopyable {
     Error removeTx(const BlobTxId &txId);
 
     /**
+     * Returns the descriptor associated with the transaction.
+     * Note the memory returned is still owned by the manager
+     * and may still be modified or removed.
+     */
+    Error getTxDescriptor(const BlobTxId &txId, AmTxDescriptor::ptr &desc);
+
+    /**
      * Gets the DMT version for a given transaction ID. Returns an
      * error if the transaction ID does not already exist.
      */
     Error getTxDmtVersion(const BlobTxId &txId, fds_uint64_t *dmtVer) const;
+
+    /**
+     * Updates an existing transaction with a new ope
+     */
+    Error updateTxOpType(const BlobTxId &txId, fds_io_op_t op);
+
+    /**
+     * Updates an existing transactions staged metadata.
+     */
+    Error updateStagedBlobDesc(const BlobTxId &txId,
+                               boost::shared_ptr<fpi::FDSP_MetaDataList> metaDataList);
+
+    /**
+     * Updates an existing transactions staged metadata.
+     */
+    Error updateStagedBlobDesc(const BlobTxId &txId,
+                               boost::shared_ptr<
+                               std::map<std::string, std::string>> &metadata);
+
+    /**
+     * Updates an existing transactions staged update length.
+     * TODO(Andrew): This assumes that the transaction is going
+     * update the entire blob and that each offset update is unique.
+     * If this assumption is not true, the cached blob size will be incorrect.
+     */
+    Error updateStagedBlobDesc(const BlobTxId &txId,
+                               fds_uint64_t len);
 };
 
 }  // namespace fds

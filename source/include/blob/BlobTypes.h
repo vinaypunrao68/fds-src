@@ -8,6 +8,7 @@
 #include <string>
 #include <list>
 #include <unordered_map>
+#include <utility>
 
 namespace fds {
 
@@ -36,6 +37,8 @@ class BlobDescriptor {
     BlobDescriptor();
     ~BlobDescriptor();
     typedef boost::shared_ptr<BlobDescriptor> ptr;
+    explicit BlobDescriptor(const BlobDescriptor::ptr &blobDesc);
+    explicit BlobDescriptor(const BlobDescriptor &blobDesc);
 
     /**
      * Returns const iterator to key value metadata
@@ -54,14 +57,43 @@ class BlobDescriptor {
      * Returns the blob name
      */
     const std::string &getBlobName() const;
+    /**
+     * Returns the volume ID
+     */
+    fds_volid_t getVolId() const;
 
     // TODO(Andrew): May want to remove for a single
     // func to set everything from FDSP?
     void setBlobName(const std::string &name);
     void setBlobSize(fds_uint64_t size);
+    void updateBlobSize(fds_uint64_t size);
+    void setVolId(fds_volid_t volId);
     /// Adds key-value metadata, overwrite any old key
     void addKvMeta(const std::string &key,
                    const std::string &value);
+
+    friend std::ostream& operator<<(std::ostream& out,
+                                    const BlobDescriptor& blobDesc);
+};
+
+/**
+ * Describes an aligned offset with a blob.
+ */
+class BlobOffsetPair : public std::pair<std::string, fds_uint64_t> {
+  public:
+    typedef boost::shared_ptr<BlobOffsetPair> ptr;
+    typedef boost::shared_ptr<const BlobOffsetPair> const_ptr;
+
+    std::string toString() const {
+        return first + std::to_string(second);
+    }
+};
+
+class BlobOffsetPairHash {
+  public:
+    size_t operator()(const BlobOffsetPair &blobOffset) const {
+        return std::hash<std::string>()(blobOffset.toString());
+    }
 };
 
 /**
@@ -76,6 +108,7 @@ class BlobTxId {
     BlobTxId();
     /// Creates a new blob transaction with a specific value
     explicit BlobTxId(fds_uint64_t givenId);
+    explicit BlobTxId(const BlobTxId &rhs);
     ~BlobTxId();
     typedef boost::shared_ptr<BlobTxId> ptr;
     typedef boost::shared_ptr<const BlobTxId> const_ptr;

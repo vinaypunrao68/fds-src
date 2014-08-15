@@ -56,6 +56,9 @@ Error DeleteBlobHandler::handleQueueItem(AmQosReq *qosReq) {
         return ERR_DISK_READ_FAILED;
     }
 
+    // Update the tx manager with the delete op
+    storHvisor->amTxMgr->updateTxOpType(*(blobReq->txDesc), blobReq->getIoType());
+
     DeleteBlobMsgPtr message(new DeleteBlobMsg());
     message->volume_id = blobReq->getVolId();
     message->blob_name = blobReq->getBlobName();

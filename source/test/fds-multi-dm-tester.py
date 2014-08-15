@@ -12,6 +12,7 @@ from multiprocessing import Process, Value
 from tabulate import tabulate
 from requests_futures.sessions import FuturesSession
 
+SLEEP = 5
 BASE_URL = 'http://localhost:8000/'
 BUCKET   = 'bucket1/'
 OBJ_NAME = 'obj1'
@@ -84,10 +85,37 @@ class BlobReadWorker(Process):
         print 'Failed!'
         exit(1)
 
-
 def reset_fds():
     ''' Restarts FDS system.  Assumes we are in test directory!'''
-    return os.system('./../tools/fds cleanstart')
+    ret = os.system('./../tools/fds cleanstart')
+    time.sleep(SLEEP)
+    return ret
+
+def blob_write_incomplete():
+    ''' Steps: Write 1 big blob, kill the write before it completes. Loop.'''
+    ## Expected Result: No space should be taken up (memory or disk). Incomplete ##
+    # Write 50MB blob
+    rand_data_name = DATA_PATH+DATA_NAME+'5'
+    session = FuturesSession(max_workers=MAX_CONCURRENCY_PUT)
+    requests.put(BASE_URL+BUCKET)
+
+    with open(rand_data_name, 'rb') as rand_data:
+        future_put = session.put(BASE_URL+BUCKET+OBJ_NAME, data=rand_data.read(), timeout=.1)
+
+    sleep_timer = .666
+    time.sleep(sleep_timer)
+
+    # Read data.  should be length 0 or 404
+    r = requests.get(BASE_URL+BUCKET+OBJ_NAME)
+    print r
+    print r.text
+    if r.status_code == 200:
+        print sys.getsizeof(r.content)
+        if sys.getsizeof(r.content) > 0:
+            return 1
+    else:
+        return 0
+
 
 def blob_write_commit():
     ''' Writes big blob then tries to read before write completes.'''
@@ -187,15 +215,18 @@ def multi_blob_write():
 
 def main():
     reset_fds()
-    time.sleep(5)
     multi_blob_write_result = multi_blob_write()
     reset_fds()
     blob_write_commit_result = blob_write_commit()
+    reset_fds()
+    blob_write_incomplete_result=0
+    for i in range(10):
+        blob_write_incomplete_result += blob_write_incomplete()
 
     # Quit FDS
     os.system('./../tools/fds stop')
 
-    final_retcode = multi_blob_write_result + blob_write_commit_result
+    final_retcode = multi_blob_write_result + blob_write_commit_result + blob_write_incomplete_result
     return final_retcode
 
 if __name__ == '__main__':

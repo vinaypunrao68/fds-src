@@ -526,8 +526,11 @@ Error StorHvVolumeTable::volumeEventHandler(fds_volid_t vol_uuid,
                 // TODO(Anna) remove this assert when we implement response handling in AM
                 // for crete bucket, if err not ok, it is most likely QOS admission control issue
                 fds_verify(err.ok());
-            }
-            else if (result == FDS_ProtocolInterface::FDSP_ERR_VOLUME_DOES_NOT_EXIST) {
+
+                // Create cache structures for volume
+                err = storHvisor->amCache->createCache(*vdb);
+                fds_verify(err == ERR_OK);
+            } else if (result == FDS_ProtocolInterface::FDSP_ERR_VOLUME_DOES_NOT_EXIST) {
                 /* complete all requests that are waiting on bucket to attach with error */
                 if (vdb) {
                     GLOGNOTIFY << "Requested volume "
@@ -543,6 +546,11 @@ Error StorHvVolumeTable::volumeEventHandler(fds_volid_t vol_uuid,
             GLOGNOTIFY << "StorHvVolumeTable - Received volume detach event from OM"
                        << " for volume " << std::hex << vol_uuid << std::dec;
             err = storHvisor->vol_table->removeVolume(vol_uuid);
+            fds_verify(err == ERR_OK);
+
+            // Remove cache structure for volume
+            // TODO(Andrew): If the cache has dirty contents, they need to be flushed
+            err = storHvisor->amCache->removeCache(vol_uuid);
             break;
         case fds_notify_vol_mod:
             fds_verify(vdb != NULL);
@@ -751,6 +759,7 @@ PutBlobReq::PutBlobReq(fds_volid_t          _volid,
                      _data_len, _data_buf, FDS_NativeAPI::DoCallback,
                      this, Error(ERR_OK), 0),
                 ObjKey(_blob_name),
+                txDesc(NULL),
                 blobMode(_blobMode),
                 metadata(_metadata),
                 putObjCallback(_put_obj_handler),
@@ -802,6 +811,22 @@ void PutBlobReq::notifyResponse(StorHvQosCtrl *qos_ctrl,
     DBG(LOGDEBUG << "cnt: " << cnt << e);
 
     if (cnt == 0) {
+        if ((ioType == FDS_PUT_BLOB_ONCE) && (e == ERR_OK)) {
+            // Push the commited update to the cache and remove from manager
+            // We push here because we ONCE messages don't have an explicit
+            // commit and here is where we know we've actually committed
+            // to SM and DM.
+            // TODO(Andrew): Inserting the entire tx transaction currently
+            // assumes that the tx descriptor has all of the contents needed
+            // for a blob descriptor (e.g., size, version, etc..). Today this
+            // is true for S3/Swift and doesn't get used anyways for block (so
+            // the actual cached descriptor for block will not be correct).
+            AmTxDescriptor::ptr txDescriptor;
+            fds_verify(storHvisor->amTxMgr->getTxDescriptor(*txDesc,
+                                                            txDescriptor) == ERR_OK);
+            fds_verify(storHvisor->amCache->putTxDescriptor(txDescriptor) == ERR_OK);
+            fds_verify(storHvisor->amTxMgr->removeTx(*txDesc) == ERR_OK);
+        }
         qos_ctrl->markIODone(qosReq);
         cbWithResult(retStatus.GetErrno());
         delete this;
