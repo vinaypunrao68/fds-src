@@ -157,14 +157,114 @@ Version 1.1.0
 	4K; 100% Read; 100% random,NONE
 'size,% of size,% reads,% random,delay,burst,align,reply
 	4096,100,100,100,0,1,0,0
+'Access specification name,default assignment
+	dell 512K; 0% Read; 0% random,NONE
+'size,% of size,% reads,% random,delay,burst,align,reply
+	524288,100,0,0,0,1,524288,0
+'Access specification name,default assignment
+	dell 64K; 0% Read; 0% random,NONE
+'size,% of size,% reads,% random,delay,burst,align,reply
+	65536,100,0,0,0,1,65536,0
+'Access specification name,default assignment
+	dell 8K; 0% Read; 0% random,NONE
+'size,% of size,% reads,% random,delay,burst,align,reply
+	8192,100,0,0,0,1,8192,0
+'Access specification name,default assignment
+	dell 4K; 0% Read; 0% random,NONE
+'size,% of size,% reads,% random,delay,burst,align,reply
+	4096,100,0,0,0,1,4096,0
+'Access specification name,default assignment
+	dell 512B; 0% Read; 0% random,NONE
+'size,% of size,% reads,% random,delay,burst,align,reply
+	512,100,0,0,0,1,512,0
+'Access specification name,default assignment
+	dell 512K; 0% Read; 100% random,NONE
+'size,% of size,% reads,% random,delay,burst,align,reply
+	524288,100,0,100,0,1,524288,0
+'Access specification name,default assignment
+	dell 64K; 0% Read; 100% random,NONE
+'size,% of size,% reads,% random,delay,burst,align,reply
+	65536,100,0,100,0,1,65536,0
+'Access specification name,default assignment
+	dell 8K; 0% Read; 100% random,NONE
+'size,% of size,% reads,% random,delay,burst,align,reply
+	8192,100,0,100,0,1,8192,0
+'Access specification name,default assignment
+	dell 4K; 0% Read; 100% random,NONE
+'size,% of size,% reads,% random,delay,burst,align,reply
+	4096,100,0,100,0,1,4096,0
+'Access specification name,default assignment
+	dell 512B; 0% Read; 100% random,NONE
+'size,% of size,% reads,% random,delay,burst,align,reply
+	512,100,0,100,0,1,512,0
+'Access specification name,default assignment
+	dell 512K; 100% Read; 0% random,NONE
+'size,% of size,% reads,% random,delay,burst,align,reply
+	524288,100,100,0,0,1,524288,0
+'Access specification name,default assignment
+	dell 64K; 100% Read; 0% random,NONE
+'size,% of size,% reads,% random,delay,burst,align,reply
+	65536,100,100,0,0,1,65536,0
+'Access specification name,default assignment
+	dell 8K; 100% Read; 0% random,NONE
+'size,% of size,% reads,% random,delay,burst,align,reply
+	8192,100,100,0,0,1,8192,0
+'Access specification name,default assignment
+	dell 4K; 100% Read; 0% random,NONE
+'size,% of size,% reads,% random,delay,burst,align,reply
+	4096,100,100,0,0,1,4096,0
+'Access specification name,default assignment
+	dell 512B; 100% Read; 0% random,NONE
+'size,% of size,% reads,% random,delay,burst,align,reply
+	512,100,100,0,0,1,512,0
+'Access specification name,default assignment
+	dell 512K; 100% Read; 100% random,NONE
+'size,% of size,% reads,% random,delay,burst,align,reply
+	524288,100,100,100,0,1,524288,0
+'Access specification name,default assignment
+	dell 64K; 100% Read; 100% random,NONE
+'size,% of size,% reads,% random,delay,burst,align,reply
+	65536,100,100,100,0,1,65536,0
+'Access specification name,default assignment
+	dell 8K; 100% Read; 100% random,NONE
+'size,% of size,% reads,% random,delay,burst,align,reply
+	8192,100,100,100,0,1,8192,0
+'Access specification name,default assignment
+	dell 4K; 100% Read; 100% random,NONE
+'size,% of size,% reads,% random,delay,burst,align,reply
+	4096,100,100,100,0,1,4096,0
+'Access specification name,default assignment
+	dell 512B; 100% Read; 100% random,NONE
+'size,% of size,% reads,% random,delay,burst,align,reply
+	512,100,100,100,0,1,512,0
+'Access specification name,default assignment
+	dell 512K; 70% Read; 100% random,NONE
+'size,% of size,% reads,% random,delay,burst,align,reply
+	524288,100,70,100,0,1,524288,0
+'Access specification name,default assignment
+	dell 64K; 70% Read; 100% random,NONE
+'size,% of size,% reads,% random,delay,burst,align,reply
+	65536,100,70,100,0,1,65536,0
+'Access specification name,default assignment
+	dell 8K; 70% Read; 100% random,NONE
+'size,% of size,% reads,% random,delay,burst,align,reply
+	8192,100,70,100,0,1,8192,0
+'Access specification name,default assignment
+	dell 4K; 70% Read; 100% random,NONE
+'size,% of size,% reads,% random,delay,burst,align,reply
+	4096,100,70,100,0,1,4096,0
+'Access specification name,default assignment
+	dell 512B; 70% Read; 100% random,NONE
+'size,% of size,% reads,% random,delay,burst,align,reply
+	512,100,70,100,0,1,512,0
 'END access specifications
 'MANAGER LIST ==================================================================
 'Manager ID, manager name
-	1,WINSRV12-1
+	1,WINSRV12-3
 'Manager network address
 	
 'Worker
-	4k_write_rand
+	dell_four_corners
 'Worker type
 	DISK
 'Default target settings for worker
@@ -174,13 +274,37 @@ Version 1.1.0
 	0,0,0
 'End default target settings for worker
 'Assigned access specs
-	4K; 0% Read; 100% random
+	dell 512K; 0% Read; 0% random
+	dell 64K; 0% Read; 0% random
+	dell 8K; 0% Read; 0% random
+	dell 4K; 0% Read; 0% random
+	dell 512B; 0% Read; 0% random
+	dell 512K; 0% Read; 100% random
+	dell 64K; 0% Read; 100% random
+	dell 8K; 0% Read; 100% random
+	dell 4K; 0% Read; 100% random
+	dell 512B; 0% Read; 100% random
+	dell 512K; 100% Read; 0% random
+	dell 64K; 100% Read; 0% random
+	dell 8K; 100% Read; 0% random
+	dell 4K; 100% Read; 0% random
+	dell 512B; 100% Read; 0% random
+	dell 512K; 100% Read; 100% random
+	dell 64K; 100% Read; 100% random
+	dell 8K; 100% Read; 100% random
+	dell 4K; 100% Read; 100% random
+	dell 512B; 100% Read; 100% random
+	dell 512K; 70% Read; 100% random
+	dell 64K; 70% Read; 100% random
+	dell 8K; 70% Read; 100% random
+	dell 4K; 70% Read; 100% random
+	dell 512B; 70% Read; 100% random
 'End assigned access specs
 'Target assignments
 'End target assignments
 'End worker
 'Worker
-	4k_read_rand
+	512K_read_seq
 'Worker type
 	DISK
 'Default target settings for worker
@@ -190,13 +314,13 @@ Version 1.1.0
 	0,0,0
 'End default target settings for worker
 'Assigned access specs
-	4K; 100% Read; 100% random
+	dell 512K; 100% Read; 0% random
 'End assigned access specs
 'Target assignments
 'End target assignments
 'End worker
 'Worker
-	4k_write_seq
+	64K_read_seq
 'Worker type
 	DISK
 'Default target settings for worker
@@ -206,13 +330,13 @@ Version 1.1.0
 	0,0,0
 'End default target settings for worker
 'Assigned access specs
-	4K; 0% Read; 0% random
+	dell 64K; 100% Read; 0% random
 'End assigned access specs
 'Target assignments
 'End target assignments
 'End worker
 'Worker
-	4k_read_seq
+	8K_read_seq
 'Worker type
 	DISK
 'Default target settings for worker
@@ -222,13 +346,13 @@ Version 1.1.0
 	0,0,0
 'End default target settings for worker
 'Assigned access specs
-	4K; 100% Read; 0% random
+	dell 8K; 100% Read; 0% random
 'End assigned access specs
 'Target assignments
 'End target assignments
 'End worker
 'Worker
-	all_in_one
+	4K_read_seq
 'Worker type
 	DISK
 'Default target settings for worker
@@ -238,7 +362,23 @@ Version 1.1.0
 	0,0,0
 'End default target settings for worker
 'Assigned access specs
-	All in one
+	dell 4K; 100% Read; 0% random
+'End assigned access specs
+'Target assignments
+'End target assignments
+'End worker
+'Worker
+	512B_read_seq
+'Worker type
+	DISK
+'Default target settings for worker
+'Number of outstanding IOs,test connection rate,transactions per connection,use fixed seed,fixed seed value
+	1,DISABLED,1,DISABLED,0
+'Disk maximum size,starting sector,Data pattern
+	0,0,0
+'End default target settings for worker
+'Assigned access specs
+	dell 512B; 100% Read; 0% random
 'End assigned access specs
 'Target assignments
 'End target assignments
