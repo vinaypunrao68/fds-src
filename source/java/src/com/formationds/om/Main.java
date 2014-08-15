@@ -3,6 +3,10 @@ package com.formationds.om;
 import com.formationds.apis.AmService;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.fdsp.LegacyClientFactory;
+import com.formationds.om.plotter.DisplayVolumeStats;
+import com.formationds.om.plotter.ListActiveVolumes;
+import com.formationds.om.plotter.RegisterVolumeStats;
+import com.formationds.om.plotter.VolumeStatistics;
 import com.formationds.om.rest.*;
 import com.formationds.security.Authenticator;
 import com.formationds.security.AuthorizationToken;
@@ -13,6 +17,7 @@ import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.WebApp;
 import com.formationds.xdi.XdiClientFactory;
 import org.apache.log4j.Logger;
+import org.joda.time.Duration;
 
 import java.util.function.Supplier;
 
@@ -44,6 +49,7 @@ public class Main {
         String webDir = omParsedConfig.lookup("fds.om.web_dir").stringValue();
 
         LegacyClientFactory legacyClientFactory = new LegacyClientFactory();
+        VolumeStatistics volumeStatistics = new VolumeStatistics(Duration.standardMinutes(20));
 
         webApp = new WebApp(webDir);
 
@@ -65,6 +71,10 @@ public class Main {
 
         authorize(HttpMethod.POST, "/api/config/streams", () -> new RegisterStream(configApi));
         authorize(HttpMethod.GET, "/api/config/streams", () -> new ListStreams(configApi));
+
+        webApp.route(HttpMethod.GET, "/api/stats/volumes", () -> new ListActiveVolumes(volumeStatistics));
+        webApp.route(HttpMethod.POST, "/api/stats", () -> new RegisterVolumeStats(volumeStatistics));
+        webApp.route(HttpMethod.GET, "/api/stats/volumes/:volume", () -> new DisplayVolumeStats(volumeStatistics));
 
        new Thread(() -> {
             try {
