@@ -49,7 +49,7 @@ public class Main {
         String webDir = omParsedConfig.lookup("fds.om.web_dir").stringValue();
 
         LegacyClientFactory legacyClientFactory = new LegacyClientFactory();
-        VolumeStatistics volumeStatistics = new VolumeStatistics(Duration.standardMinutes(2));
+        VolumeStatistics volumeStatistics = new VolumeStatistics(Duration.standardMinutes(20));
 
         webApp = new WebApp(webDir);
 
