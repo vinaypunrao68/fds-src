@@ -134,6 +134,8 @@ class NetPlatSvc : public NetPlatform
     virtual void nplat_refresh_shm();
     virtual EpSvcHandle::pointer nplat_domain_rpc(const fpi::DomainID &id) override;
     virtual void nplat_register_node(const fpi::NodeInfoMsg *msg) override;
+
+    virtual void nplat_set_my_ep(bo::intrusive_ptr<EpSvcImpl> ep) override;
     virtual bo::intrusive_ptr<EpSvcImpl> nplat_my_ep() override;
 
     inline std::string const *const nplat_domain_master(int *port) {
