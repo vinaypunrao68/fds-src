@@ -25,6 +25,24 @@ class TestUtil(object):
     def gen_random_name(size):
         return ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(size))
 
+    @staticmethod
+    def create_volume(url):
+        '''
+        Just creates a volume to ensure that we have something to write to
+        Params:
+           url - string: a url to PUT to
+        Returns:
+           None
+        '''
+        res = requests.put(url)
+        if res.status_code != 200:
+            for line in res.iter_lines():
+                if 'BucketAlreadyExists' in line:
+                    return
+        print "An error has occurred, and a volume could not be created!"
+        sys.exit(-1)
+
+
 class CapacityTest(object):
     '''
     Class to encapsulate the configuration and execution of a capacity
@@ -47,22 +65,7 @@ class CapacityTest(object):
         self.avg_size = avg_size
         self.std_dev = std_dev
         self.break_time = break_time
-
-    def __setup(self, url):
-        '''
-        Just creates a volume to ensure that we have something to write to
-        Params:
-           url - string: a url to PUT to
-        Returns:
-           None
-        '''
-        res = requests.put(url)
-        if res.status_code != 200:
-            for line in res.iter_lines():
-                if 'BucketAlreadyExists' in line:
-                    return
-        print "An error has occurred, and a volume could not be created!"
-        sys.exit(-1)
+        self.num_anoms = num_anoms
 
     def __verify(self, start_time, end_time):
         '''
@@ -80,16 +83,14 @@ class CapacityTest(object):
         a PUT much larger than avg_size will be issued.
 
         Params:
-           url - string: a url to PUT to
+           url - string: a url to PUT to (should include bucket in URL)
         Returns:
            None
         '''
-        self.__setup(url)
+        TestUtil.create_volume(url)
         
         # Figure out how many requests to make based on interval/break_time
         num_reqs = self.break_time / self.interval
-        print num_reqs
-
         start_time = time.clock()
 
         for i in range(num_reqs):
@@ -109,14 +110,18 @@ class CapacityTest(object):
             
         # If we've hit this point then its time for the break
         for i in range(self.num_anoms):
+            print "Putting anomalous request #" + str(i)
             rand_dev = random.randint(2, 6) # How many standard deviations from the avg
-            rand = random.randint(((-1 * rand_dev) * self.std_dev), rand_dev * self.std_dev)
+            rand = random.randint(0, rand_dev * self.std_dev)
+            rand = (rand * -1) if random.randint(0, 1) == 0 else rand
             temp_data = os.urandom(self.avg_size + rand)
             res = requests.put(os.path.join(url, TestUtil.gen_random_name(6)), data=temp_data)
             if res.status_code != 200:
                 print "An error has occurred, and an object could not be PUT!"
                 sys.exit(-1)
-
+            
+            time.sleep(self.interval)
+                
         end_time = time.clock()
 
         self.__verify(start_time, end_time)
@@ -125,17 +130,105 @@ class PerfTest(object):
     '''
     Class to encapsulate the configuration and execution of a performance
     test for the firebreak system.
+    This particular test case will issue a series of PUT/GET requests at
+    a stable interval. This interval will be random within 1 standard
+    deviation of the average interval. After break_time it will issue
+    a series of PUT/GET requests that occur at a faster rate, causing
+    the firebreak.
     '''
 
-    def __init__(self, interval, avg_size, break_time):
-        pass
+    def __init__(self, avg_rate=10, std_dev=2, break_time=300, num_anoms=10):
+        '''
+        Params:
+           avg_rate - int: average 'normal' request rate in seconds
+           std_dev - int: standard deviation of normal request rate in seconds
+           break_time - int: time after which the system should issue
+                        requests at faster rate
+           num_anoms - int: number of anomalous requests to make
+        '''
+        self.avg_rate = avg_rate
+        self.std_dev = std_dev
+        self.break_time = break_time
+        self.num_anoms = num_anoms
+        self.__valid_gets = []
         
-    def run(self):
-        pass
+    def __make_random_request(self, url):
+        # Decide whether GET or PUT
+        req_type = random.choice(['GET', 'PUT'])
+        if req_type == 'GET':
+            res = requests.get(os.path.join(url, random.choice(self.__valid_gets)))
+            if res.status_code != 200:
+                print "An error has occurred, and the given object could not be GET!"
+                print req.text
+                sys.exit(-1)
+        else:
+            # Gen 512 bytes of data
+            temp_data = os.urandom(512)
+            # Make PUT request
+            rand_name = TestUtil.gen_random_name(6)
+            res = requests.put(os.path.join(url, rand_name), data=temp_data)
+            if res.status_code != 200:
+                print "An error has occurred, and the given object could not be GET!"
+                print req.text
+                sys.exit(-1)
+            self.__valid_gets.append(rand_name)
+        
+    def run(self, url):
+        '''
+        Runs a performance based firebreak test.
+        Params:
+           url - string: the base url of the system
+        Returns:
+           None
+        '''
+        TestUtil.create_volume(url)
+
+        # Do some initial setup to ensure that we've got items to request
+        for i in range(50):
+            temp_data = os.urandom(512)
+            # Make PUT request
+            name = TestUtil.gen_random_name(6)
+            req = requests.put(os.path.join(url, name), data=temp_data)
+            if req.status_code != 200:
+                print "An error has occurred, and the given object could not be PUT!"
+                print req.text
+                sys.exit(-1)
+            self.__valid_gets.append(name)
+            
+        # Figure out how many requests to make based on interval/break_time
+        num_reqs = self.break_time / self.avg_rate
+        start_time = time.clock()
+
+        # Do the requests
+        for i in range(num_reqs):
+            print "Sending request #" + str(i)
+            self.__make_random_request(url)
+            
+            # Generate a random deviation within 1 std_dev
+            rand_wait = random.randint((-1 * self.std_dev), self.std_dev)
+            time.sleep(self.avg_rate + rand_wait)
+            
+        # If we've hit this point then its time for the break
+        for i in range(self.num_anoms):
+            print "Putting anomalous request #" + str(i)
+
+            rand_dev = random.randint(2, 6) # How many standard deviations from the avg
+            interval = self.avg_rate - (self.std_dev * rand_dev)
+            if interval < 0:
+                interval = 0
+            self.__make_random_request(url)
+            time.sleep(interval)
+                
+        end_time = time.clock()
+
 
 
 if __name__ == "__main__":
 
     # Run capacity test
-    cap_test = CapacityTest()
-    cap_test.run('http://localhost:8000/abc')
+    # cap_test = CapacityTest()
+    # cap_test.run('http://localhost:8000/abc')
+
+    # Run performance test
+    perf_test = PerfTest()
+    perf_test.run('http://localhost:8000/abc')

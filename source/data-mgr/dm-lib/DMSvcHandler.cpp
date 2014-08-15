@@ -614,7 +614,8 @@ DMSvcHandler::registerStreaming(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
     asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
     fpi::StatStreamRegistrationRspMsg resp;
-    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(StatStreamRegistrationRspMsg), resp);
+    // since OM did not implement response yet, just not send response for now..
+    // sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(StatStreamRegistrationRspMsg), resp);
 }
 
 void

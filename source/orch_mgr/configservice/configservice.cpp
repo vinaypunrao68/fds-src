@@ -140,12 +140,18 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         regMsg.sample_freq_seconds = *sample_freq_seconds;
         regMsg.duration_seconds = *duration_seconds;
 
+        LOGDEBUG << "Received register stream for frequency "
+                 << regMsg.sample_freq_seconds << " seconds"
+                 << " duration " << regMsg.duration_seconds << " seconds";
+
         regMsg.volume_names.reserve(volume_names->size());
         for (uint i = 0; i < volume_names->size(); i++) {
             regMsg.volume_names.push_back(volume_names->at(i));
         }
 
         if (configDB->addStreamRegistration(regMsg)) {
+            OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+            local->om_bcast_stream_register_cmd(regId, false);
             return regId;
         }
         return 0;
