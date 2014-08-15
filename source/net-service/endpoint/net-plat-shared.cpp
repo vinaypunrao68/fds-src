@@ -174,6 +174,16 @@ NetPlatSvc::nplat_my_ep()
     return plat_ep;
 }
 
+// nplat_set_my_ep
+// ---------------
+//
+void
+NetPlatSvc::nplat_set_my_ep(EpSvcImpl::pointer ep)
+{
+    fds_verify(plat_ep == NULL);
+    plat_ep = static_cast<PlatNetEp *>(ep.get());
+}
+
 /*
  * -----------------------------------------------------------------------------------
  * Domain Agent

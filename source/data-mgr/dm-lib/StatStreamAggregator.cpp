@@ -556,13 +556,12 @@ void StatStreamTimerTask::runTimerTask() {
     for (auto volId : volumes) {
         std::vector<StatSlot> slots;
         std::unordered_map<fds_uint64_t, std::vector<fpi::DataPointPair> > volDataPointsMap;
-        const std::string & volName = dataMgr->volumeName(volId);
-
         VolumeStats::ptr volStat = statStreamAggr_.getVolumeStats(volId);
         if (!volStat) {
             GLOGWARN << "Cannot get stat volume history for id '" << volId << "'";
             continue;
         }
+        const std::string & volName = dataMgr->volumeName(volId);
 
         VolumePerfHistory::ptr & hist = 60 == reg_->sample_freq_seconds ?
                 volStat->finegrain_hist_ : volStat->coarsegrain_hist_;
@@ -655,6 +654,11 @@ void StatStreamTimerTask::runTimerTask() {
             }
             dataPoints.push_back(volDataPoint);
         }
+    }
+
+    if (dataPoints.size() == 0) {
+        // nothing to send, no attached volumes
+        return;
     }
 
     if (!logLocal) {
