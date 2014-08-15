@@ -79,8 +79,10 @@ public class XmlElement{
         if(attributes.size() > 0)
             b.append(" ");
 
+        boolean multiLine = children.size() > 0 || (value != null && value.contains("\n"));
+
         b.append(">");
-        if(children.size() > 0 || value.contains("\n"))
+        if(multiLine)
             b.append("\n");
 
 
@@ -91,7 +93,7 @@ public class XmlElement{
         if(value != null)
             b.append(value);
 
-        if(children.size() > 0 || value.contains("\n")) {
+        if(multiLine) {
             b.append("\n");
             indent(b, indentLevel);
         }

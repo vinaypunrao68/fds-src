@@ -5,10 +5,13 @@ package com.formationds.xdi.s3;
 
 import com.formationds.apis.BlobDescriptor;
 import com.formationds.apis.VolumeStatus;
+import com.formationds.util.XmlElement;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
+import com.formationds.web.toolkit.XmlResource;
 import com.formationds.xdi.Xdi;
+import org.apache.commons.codec.binary.Hex;
 import org.eclipse.jetty.server.Request;
 
 import javax.xml.stream.XMLEventReader;
@@ -64,7 +67,7 @@ public class MultiPartUploadComplete implements RequestHandler {
         String data = "";
         while(rdr.hasNext()) {
             XMLEvent e = rdr.nextEvent();
-            if(e.asEndElement().getName().equals(elt.getName()))
+            if(e.isEndElement() && e.asEndElement().getName().equals(elt.getName()))
                 return data;
 
             if(e.isCharacters())
@@ -80,13 +83,12 @@ public class MultiPartUploadComplete implements RequestHandler {
         String uploadId = request.getParameter("uploadId");
         MultiPartOperations mops = new MultiPartOperations(xdi, uploadId);
 
-        // TODO: async
-        // TODO: verify etag map
-        // Map<Integer,String> etagMap = deserializeEtagMap(request.getInputStream());
+        //TODO: verify etag map
+        Map<Integer,String> etagMap = deserializeEtagMap(request.getInputStream());
 
-
-        // TODO: read this in chunks
+        // TODO: do this read asynchronously
         List<PartInfo> partInfoList = mops.getParts();
+
         InputStream is = null;
         for(PartInfo bd : partInfoList) {
             InputStream str = xdi.readStream(S3Endpoint.FDS_S3_SYSTEM, S3Endpoint.FDS_S3_SYSTEM_BUCKET_NAME, bd.descriptor.getName());
@@ -97,11 +99,19 @@ public class MultiPartUploadComplete implements RequestHandler {
         }
 
         Map<String, String> metadata = new HashMap<>();
-        xdi.writeStream(S3Endpoint.FDS_S3, bucket, objectName, is, metadata);
+        // TODO: do this write asynchronously
+        byte[] digest = xdi.writeStream(S3Endpoint.FDS_S3, bucket, objectName, is, metadata);
 
         for(PartInfo bd : partInfoList)
             xdi.deleteBlob(S3Endpoint.FDS_S3_SYSTEM, S3Endpoint.FDS_S3_SYSTEM_BUCKET_NAME, bd.descriptor.getName());
 
-        return new TextResource("");
+        XmlElement response = new XmlElement("CompleteMultipartUploadResult")
+                .withAttr("xmlns", "http://s3.amazonaws.com/doc/2006-03-01/")
+                .withValueElt("Location", "http://" + request.getServerName() + ":8000/" + bucket + "/" + objectName) // TODO: get real URI
+                .withValueElt("Bucket", bucket)
+                .withValueElt("Key", objectName)
+                .withValueElt("ETag", "\"" + Hex.encodeHexString(digest) + "\"");
+
+        return new XmlResource(response.documentString());
     }
 }

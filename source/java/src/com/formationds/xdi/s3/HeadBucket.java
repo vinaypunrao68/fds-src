@@ -23,6 +23,9 @@ public class HeadBucket implements RequestHandler {
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
         String bucketName = requiredString(routeParameters, "bucket");
         VolumeDescriptor descriptor = xdi.volumeConfiguration(S3Endpoint.FDS_S3, bucketName);
+
+        if(descriptor == null)
+            return new TextResource(404, "");
         return new TextResource("");
     }
 }
