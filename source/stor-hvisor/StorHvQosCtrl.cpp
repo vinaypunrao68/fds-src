@@ -11,8 +11,8 @@ void StorHvQosCtrl::throttleCmdHandler(const float throttle_level) {
   storHvQosCtrl->htb_dispatcher->setThrottleLevel(throttle_level);
 }
 
-StorHvQosCtrl::StorHvQosCtrl(uint32_t max_thrds, dispatchAlgoType algo, fds_log *log) 
-  : FDS_QoSControl::FDS_QoSControl(max_thrds, algo, log, "SH") 
+StorHvQosCtrl::StorHvQosCtrl(uint32_t max_thrds, dispatchAlgoType algo, fds_log *log)
+  : FDS_QoSControl::FDS_QoSControl(max_thrds, algo, log, "SH")
 {
      total_rate = 10000;
      if ( dispatchAlgo == FDS_QoSControl::FDS_DISPATCH_HIER_TOKEN_BUCKET) {
@@ -28,7 +28,7 @@ StorHvQosCtrl::~StorHvQosCtrl() {
 
 
 Error StorHvQosCtrl::processIO(FDS_IOType *io) {
-  fds_verify(io->io_module == FDS_IOType::STOR_HV_IO);  
+  fds_verify(io->io_module == FDS_IOType::STOR_HV_IO);
   threadPool->schedule(processBlobReq, static_cast<AmQosReq*>(io));
   return ERR_OK;
 }
@@ -83,6 +83,7 @@ Error StorHvQosCtrl::markIODone(FDS_IOType *io) {
           ;;
   };
   fds_uint32_t queue_size = htb_dispatcher->count(io->io_vol_id);
+  PerfTracer::incr(AM_QOS_QUEUE_SIZE, io->io_vol_id, queue_size, 1); // Let this be a latency counter
   if (queue_size > 0) {
       StatsCollector::singleton()->recordEvent(io->io_vol_id,
                                                io->io_done_ts,
@@ -102,7 +103,7 @@ Error StorHvQosCtrl::markIODone(FDS_IOType *io) {
     dispatchAlgo = algo_type;
     if (qosDispatcher) {
       dispatcher = qosDispatcher;
-    } 
+    }
   }
 
 Error   StorHvQosCtrl::registerVolume(fds_int64_t  vol_uuid, FDS_VolumeQueue *volq) {
