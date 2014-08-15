@@ -29,6 +29,8 @@ class AmTxDescriptor {
     /// Volume context for the transaction
     fds_volid_t volId;
 
+    /// Type of the staged transaction
+    fds_io_op_t opType;
     /// Staged blob descriptor for the transaction
     BlobDescriptor::ptr stagedBlobDesc;
 
@@ -94,6 +96,11 @@ class AmTxManager : public Module, public boost::noncopyable {
      * error if the transaction ID does not already exist.
      */
     Error getTxDmtVersion(const BlobTxId &txId, fds_uint64_t *dmtVer) const;
+
+    /**
+     * Updates an existing transaction with a new ope
+     */
+    Error updateTxOpType(const BlobTxId &txId, fds_io_op_t op);
 
     /**
      * Updates an existing transactions staged metadata.

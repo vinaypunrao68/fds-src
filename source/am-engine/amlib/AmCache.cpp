@@ -65,20 +65,28 @@ Error
 AmCache::putTxDescriptor(const AmTxDescriptor::ptr &txDesc) {
     LOGTRACE << "Cache insert tx descriptor for volume " << std::hex
              << txDesc->volId << std::dec << " blob " << txDesc->blobName;
+    Error err(ERR_OK);
 
-    // Add blob descriptor from tx to descriptor cache
-    // TODO(Andrew): We copy now because the data given to cache
-    // isn't actually shared. It needs its own copy.
-    BlobDescriptor *cacheDesc = new BlobDescriptor(txDesc->stagedBlobDesc);
-    std::unique_ptr<BlobDescriptor> evictedDesc =
-            blobDescCache->add(cacheDesc->getVolId(),
-                               cacheDesc->getBlobName(),
-                               cacheDesc);
-    if (evictedDesc != NULL) {
-        LOGTRACE << "Evicted cached descriptor " << *evictedDesc;
+    // If the transaction is a delete, we want to remove the cache entry
+    if (txDesc->opType == FDS_DELETE_BLOB) {
+        // Remove from blob descriptor cache
+        err = blobDescCache->remove(txDesc->volId,
+                                    txDesc->blobName);
+    } else {
+        fds_verify(txDesc->opType == FDS_PUT_BLOB);
+        // Add blob descriptor from tx to descriptor cache
+        // TODO(Andrew): We copy now because the data given to cache
+        // isn't actually shared. It needs its own copy.
+        BlobDescriptor *cacheDesc = new BlobDescriptor(txDesc->stagedBlobDesc);
+        std::unique_ptr<BlobDescriptor> evictedDesc =
+                blobDescCache->add(cacheDesc->getVolId(),
+                                   cacheDesc->getBlobName(),
+                                   cacheDesc);
+        if (evictedDesc != NULL) {
+            LOGTRACE << "Evicted cached descriptor " << *evictedDesc;
+        }
     }
-
-    return ERR_OK;
+    return err;
 }
 
 Error

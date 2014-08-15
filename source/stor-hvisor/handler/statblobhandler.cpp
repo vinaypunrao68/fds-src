@@ -81,7 +81,10 @@ Error StatBlobHandler::handleQueueItem(AmQosReq *qosReq) {
             cb->blobDesc.addKvMeta(meta->first,  meta->second);
         }
         cb->call(err);
-        return err;
+        // TODO(Andrew): This is what's being returned to the request
+        // dispatcher, which always expects OK. The callback was given
+        // the correct error code, this doesn't really matter.
+        return ERR_OK;
     }
     LOGTRACE << "Did not find cached blob descriptor for " << std::hex
              << helper.blobReq->getVolId() << std::dec << " blob "
@@ -102,7 +105,7 @@ Error StatBlobHandler::handleQueueItem(AmQosReq *qosReq) {
     asyncReq->onResponseCb(cb);
     LOGDEBUG << "invoke";
     asyncReq->invoke();
-    return err;
+    return ERR_OK;
 }
 
 }  // namespace fds

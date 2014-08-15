@@ -33,10 +33,6 @@ Error DeleteBlobHandler::handleResponse(AmQosReq *qosReq,
              << " blob:" << blobReq->getBlobName()
              << " txn:" << blobReq->txDesc;
 
-    // Remove cache entry for blob.
-    fds_verify(helper.storHvisor->amCache->removeBlob(blobReq->getVolId(),
-                                                      blobReq->getBlobName()) == ERR_OK);
-
     // Return if err
     if (error != ERR_OK) {
         LOGWARN << "error in response: " << error;
@@ -59,6 +55,9 @@ Error DeleteBlobHandler::handleQueueItem(AmQosReq *qosReq) {
         helper.setStatus(FDSN_StatusErrorUnknown);
         return ERR_DISK_READ_FAILED;
     }
+
+    // Update the tx manager with the delete op
+    storHvisor->amTxMgr->updateTxOpType(*(blobReq->txDesc), blobReq->getIoType());
 
     DeleteBlobMsgPtr message(new DeleteBlobMsg());
     message->volume_id = blobReq->getVolId();

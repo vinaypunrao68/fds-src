@@ -15,12 +15,16 @@ AmTxDescriptor::AmTxDescriptor(fds_volid_t volUuid,
           txId(id),
           originDmtVersion(dmtVer),
           blobName(name),
+          opType(FDS_PUT_BLOB),
           stagedBlobDesc(new BlobDescriptor()) {
     stagedBlobDesc->setVolId(volId);
     stagedBlobDesc->setBlobName(blobName);
     stagedBlobDesc->setBlobSize(0);
     // TODO(Andrew): We're leaving the blob version unset
     // We'll need to revist when we do versioning
+    // TODO(Andrew): We default the op type to PUT, but it's
+    // conceivable to PUT and DELETE in the same transaction,
+    // so we really want to mask the op type.
 }
 
 AmTxDescriptor::~AmTxDescriptor() {
@@ -102,6 +106,24 @@ AmTxManager::getTxDmtVersion(const BlobTxId &txId, fds_uint64_t *dmtVer) const {
         return ERR_NOT_FOUND;
     }
     *dmtVer = txMapIt->second->originDmtVersion;
+    return ERR_OK;
+}
+
+Error
+AmTxManager::updateTxOpType(const BlobTxId &txId,
+                            fds_io_op_t op) {
+    SCOPEDWRITE(txMapLock);
+    TxMap::iterator txMapIt = txMap.find(txId);
+    if (txMapIt == txMap.end()) {
+        return ERR_NOT_FOUND;
+    }
+    fds_verify(txId == txMapIt->second->txId);
+    // TODO(Andrew): For now, we're only expecting to chage
+    // from PUT to DELETE
+    fds_verify(txMapIt->second->opType == FDS_PUT_BLOB);
+    fds_verify(op == FDS_DELETE_BLOB);
+    txMapIt->second->opType = op;
+
     return ERR_OK;
 }
 
