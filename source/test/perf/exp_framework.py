@@ -63,10 +63,9 @@ def ssh_exec(node, cmd):
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(node, username='root', password='passwd')
     (stdin, stdout, stderr) = ssh.exec_command(cmd)
+    output = stdout.read()
     ssh.close()
-    return (stdin, stdout, stderr)
-
-
+    return output
 
 def start_nameserver():
     pass
@@ -133,7 +132,6 @@ class RemoteExecutor:
         else:
             args = shlex.split(cmd)
             output = subprocess.check_output(args, stderr=subprocess.STDOUT)
-            print output
             return output
 
 class Monitors():
@@ -203,24 +201,14 @@ class CounterServer:
         #os.close(datafile)
 
 class AgentsPidMap:   # FIXME: this needs to be per node!!!
-    def __init__(self):
+    def __init__(self, options):
+        self.options = options
         self.pid_map = None
-    def compute_pid_map(self, text):
-        self.pid_map = self._get_agents_pid_map(text)
-        print self.pid_map
-    def _get_agents_pid_map(self, text):
-        # print "-->", text
-        # text = unescape_string(text)
-        # pid_map = {}
-        # for l in text:
-        #     m = re.match("(pm|om|dm|sm|am)\s*:\s*\w+\s*(\d+).*", l) #FIXME: debug this... maybe need some whitespaces at the beginning
-        #     if m is not None:
-        #         agent = m.group(1)
-        #         pid = int(m.group(2))
-        #         print agent, pid
-        #         pid_map[agent] = pid
+    def compute_pid_map(self):
+        self.pid_map = self._get_agents_pid_map()
+    def _get_agents_pid_map(self):
         pid_map = {}
-        output = subprocess.check_output("../../tools/fds status  | egrep '(pm|om|dm|sm|am)'| awk '{print $1, $4}'", shell = True)  # FIXME: path
+        output = subprocess.check_output(self.options.remote_fds_root + "/source/tools/fds status  | egrep '(pm|om|dm|sm|am)'| awk '{print $1, $4}'", shell = True)  # FIXME: path
         for l in output.split('\n'):
             if len(l.split()) > 0:
                 t1, t2 = l.split()
@@ -244,25 +232,31 @@ class FdsCluster():
         self.main_node = main_node
         self.single_node = True
         # self.remote_fds_root = "/home/monchier/FDS/dev_counters"
-        self.remote_fds_root = "/home/monchier/FDS/dev"
-        self.local_fds_root =  "/home/monchier/FDS/dev"
+        self.remote_fds_root = options.remote_fds_root
+        self.local_fds_root =  options.local_fds_root
         self.rex = RemoteExecutor(main_node, self.options)
-        self.pidmap = AgentsPidMap()
+        self.pidmap = AgentsPidMap(self.options)
     def get_pidmap(self):
         return self.pidmap.get_map()
     def start(self):
         print "starting FDS"
-        if self.single_node == True:
+        if self.options.no_fds_start:
+            #output = self.rex.execute_simple(self.remote_fds_root + "/source/tools/fds status")
+            #print output
+            self.pidmap.compute_pid_map()
+            print self.pidmap.get_map()
+            time.sleep(1)
+        elif self.single_node == True:
             output = self.rex.execute_simple(self.remote_fds_root + "/source/tools/fds cleanstart")
             print output
-            self.pidmap.compute_pid_map(output)
+            self.pidmap.compute_pid_map()
             time.sleep(10)
         else:
             output = self.rex.execute_simple("/fds/sbin/fds-tool.py -f /fds/sbin/fdstool.cfg -c -d -u")
             time.sleep(10)
             print output
             #self.pidmap.compute_pid_map(output) # FIXME: pidmap not computed!
-            time.sleep(5)
+            time.sleep(10)
     def stop(self):
         pass
     def init_test(self, test_name, outdir, test_args = None):
@@ -293,21 +287,31 @@ class FdsCluster():
         print output
         return output
     def _run_tgen(self, test_args):
-        cmd = "python /root/traffic_gen.py -t %d -n %d -T %s -s %d -F %d -v %d -u" % (test_args["threads"],
+        cmd = "python /root/traffic_gen.py -t %d -n %d -T %s -s %d -F %d -v %d -u -N %s" % (test_args["threads"],
                                                                                    test_args["nreqs"],
                                                                                    test_args["type"],
                                                                                    test_args["fsize"],
                                                                                    test_args["nfiles"],
-                                                                                   test_args["nvols"])
-        output = self.rex.execute_simple(cmd)
-        print output
+                                                                                   test_args["nvols"],
+                                                                                   self.options.local_node)
+        # FIXME: hate ssh here
+        print cmd
+        if self.options.test_node != None:
+            output = ssh_exec(self.options.test_node, cmd)#[1].read()
+        else:
+            output = self.rex.execute_simple(cmd)
         return output
     def _init_tgen(self, args):
-        if self.options.local == True:
-            shutil.copyfile(self.local_fds_root + "/source/test/traffic_gen.py", "/root/traffic_gen.py")
+        if self.options.test_node != None:
+            assert self.options.local == True
+            transfer_file(self.options.test_node, self.local_fds_root + "/source/test/traffic_gen.py", "/root/traffic_gen.py", "put")
+            ssh_exec(self.options.test_node, "rm -f /tmp/fdstrgen*")
         else:
-            transfer_file(self.main_node, self.local_fds_root + "/source/test/traffic_gen.py", "/root/traffic_gen.py", "put")
-        self.rex.execute_simple("rm -f /tmp/fdstrgen*")
+            if self.options.local == True:
+                shutil.copyfile(self.local_fds_root + "/source/test/traffic_gen.py", "/root/traffic_gen.py")
+            else:
+                transfer_file(self.main_node, self.local_fds_root + "/source/test/traffic_gen.py", "/root/traffic_gen.py", "put")
+            self.rex.execute_simple("rm -f /tmp/fdstrgen*")
         #self.rex.execute_simple("pkill 'collectl|iostat|top'")
         #output = self.rex.execute_simple("/usr/bin/curl -v -X PUT http://localhost:8000/volume")
         for i in range(args["nvols"]):

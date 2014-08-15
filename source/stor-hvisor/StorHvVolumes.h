@@ -315,9 +315,15 @@ class StatBlobReq : public FdsBlobReq {
             FdsBlobReq(FDS_STAT_BLOB, _volid, _blob_name, 0,
                        0, NULL, cb) {
         setVolumeName(_vol_name);
+        e2eReqPerfCtx.type = AM_STAT_BLOB_OBJ_REQ;
+        e2eReqPerfCtx.name = "volume:" + std::to_string(volId);
+        e2eReqPerfCtx.reset_volid(volId);
+
+        fds::PerfTracer::tracePointBegin(e2eReqPerfCtx);
     }
 
-    ~StatBlobReq() {
+    virtual ~StatBlobReq() {
+        fds::PerfTracer::tracePointEnd(e2eReqPerfCtx); 
     }
 };
 
@@ -334,9 +340,15 @@ struct SetBlobMetaDataReq : FdsBlobReq {
             FdsBlobReq(FDS_SET_BLOB_METADATA, _volid, _blob_name, 0, 0, NULL, cb),
             txDesc(_txDesc),  metaDataList(_metaDataList) {
         setVolumeName(_vol_name);
+        e2eReqPerfCtx.type = AM_SET_BLOB_META_OBJ_REQ;
+        e2eReqPerfCtx.name = "volume:" + std::to_string(volId);
+        e2eReqPerfCtx.reset_volid(volId);
+
+        fds::PerfTracer::tracePointBegin(e2eReqPerfCtx);
     }
 
-    ~SetBlobMetaDataReq() {
+    virtual ~SetBlobMetaDataReq() {
+        fds::PerfTracer::tracePointEnd(e2eReqPerfCtx); 
     }
 
     boost::shared_ptr<FDSP_MetaDataList> getMetaDataListPtr()
@@ -351,6 +363,15 @@ struct GetVolumeMetaDataReq : FdsBlobReq {
     GetVolumeMetaDataReq(fds_volid_t volId, const std::string & volumeName, CallbackPtr cb) :
             FdsBlobReq(FDS_GET_VOLUME_METADATA, volId, "" , 0, 0, NULL, cb) {
         setVolumeName(volumeName);
+        e2eReqPerfCtx.type = AM_GET_VOLUME_META_OBJ_REQ;
+        e2eReqPerfCtx.name = "volume:" + std::to_string(volId);
+        e2eReqPerfCtx.reset_volid(volId);
+
+        fds::PerfTracer::tracePointBegin(e2eReqPerfCtx);
+    }
+
+    virtual ~GetVolumeMetaDataReq() {
+        fds::PerfTracer::tracePointEnd(e2eReqPerfCtx); 
     }
 };
 
@@ -359,6 +380,15 @@ struct GetBlobMetaDataReq : FdsBlobReq {
                        const std::string &_blob_name, CallbackPtr cb) :
             FdsBlobReq(FDS_GET_BLOB_METADATA, volId, _blob_name , 0, 0, NULL, cb) {
         setVolumeName(volumeName);
+        e2eReqPerfCtx.type = AM_GET_BLOB_META_OBJ_REQ;
+        e2eReqPerfCtx.name = "volume:" + std::to_string(volId);
+        e2eReqPerfCtx.reset_volid(volId);
+
+        fds::PerfTracer::tracePointBegin(e2eReqPerfCtx);
+    }
+
+    virtual ~GetBlobMetaDataReq() {
+        fds::PerfTracer::tracePointEnd(e2eReqPerfCtx); 
     }
 };
 
@@ -521,6 +551,8 @@ struct DeleteBlobReq: FdsBlobReq, TxnRequest {
         smPerfCtx.type = AM_DELETE_DM;
         smPerfCtx.name = "volume:" + std::to_string(volId);
         smPerfCtx.reset_volid(volId);
+
+        fds::PerfTracer::tracePointBegin(e2eReqPerfCtx);
     }
 
     DeleteBlobReq(fds_volid_t _volid,
@@ -533,14 +565,21 @@ struct DeleteBlobReq: FdsBlobReq, TxnRequest {
 
         e2eReqPerfCtx.type = AM_DELETE_OBJ_REQ;
         e2eReqPerfCtx.name = "volume:" + std::to_string(volId);
+        e2eReqPerfCtx.reset_volid(volId);
         qosPerfCtx.type = AM_DELETE_QOS;
         qosPerfCtx.name = "volume:" + std::to_string(volId);
+        qosPerfCtx.reset_volid(volId);
         hashPerfCtx.type = AM_DELETE_HASH;
         hashPerfCtx.name = "volume:" + std::to_string(volId);
+        hashPerfCtx.reset_volid(volId);
         dmPerfCtx.type = AM_DELETE_SM;
         dmPerfCtx.name = "volume:" + std::to_string(volId);
+        dmPerfCtx.reset_volid(volId);
         smPerfCtx.type = AM_DELETE_DM;
         smPerfCtx.name = "volume:" + std::to_string(volId);
+        smPerfCtx.reset_volid(volId);
+
+        fds::PerfTracer::tracePointBegin(e2eReqPerfCtx);
     }
 
     ~DeleteBlobReq() {

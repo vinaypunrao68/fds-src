@@ -31,7 +31,7 @@ void createLatencyCounter(fds::PerfContext & ctx) {
 }
 // FIXME(matteo): ctx may be useless here
 template <typename T>
-void initializeCounter(fds::PerfContext * ctx, fds::FdsCounters * parent, 
+void initializeCounter(fds::PerfContext * ctx, fds::FdsCounters * parent,
                     const fds::PerfEventType & type, const fds::fds_volid_t volid,
                     std::string name) {
     fds_assert(ctx);
@@ -175,6 +175,13 @@ const char * eventTypeToStr[] = {
         "am_delete_sm",
         "am_delete_dm",
 
+        "am_stat_blob_obj_req",
+        "am_set_blob_meta_obj_req",
+        "am_get_volume_meta_obj_req",
+        "am_get_blob_meta_obj_req",
+
+        "am_qos_queue_size",
+
         // Data Manager
         "dm_tx_op",
         "dm_tx_op_err",
@@ -219,7 +226,7 @@ PerfTracer::~PerfTracer() {
     latencyMap_.clear();
 
     for (auto & e : namedCounters_) {
-        for (auto& kv : e) { 
+        for (auto& kv : e) {
             for (auto& kvv : kv.second) {
                 //TODO: exportedCounters->remove_from_export(kv.second.data);
                 delete kvv.second;
@@ -295,7 +302,7 @@ void PerfTracer::reconfig() {
     enable_ = tmpEnable;
 }
 
-void PerfTracer::updateCounter(PerfContext & ctx, const PerfEventType & type, 
+void PerfTracer::updateCounter(PerfContext & ctx, const PerfEventType & type,
         const uint64_t & val,  const uint64_t cnt, const fds_volid_t volid,
         const std::string name) {
     GLOGTRACE << "Updating performance counter for type='" << eventTypeToStr[ctx.type]
@@ -313,10 +320,10 @@ void PerfTracer::updateCounter(PerfContext & ctx, const PerfEventType & type,
         NumericCounter * pnc = dynamic_cast<NumericCounter *>(ctx.data.get());
         fds_assert(pnc || !"Counter type mismatch between tracepoints!")
         pnc->incr(val);
-    } 
+    }
 }
 
-void PerfTracer::upsert(const PerfEventType & type, fds_volid_t volid, 
+void PerfTracer::upsert(const PerfEventType & type, fds_volid_t volid,
             uint64_t val, uint64_t cnt, const std::string & name) {
     PerfContext * ctx = 0;
 
@@ -346,7 +353,7 @@ void PerfTracer::upsert(const PerfEventType & type, fds_volid_t volid,
     updateCounter(*ctx, type, val, cnt, volid, name);
 }
 
-void PerfTracer::decrement(const PerfEventType & type, fds_volid_t volid, 
+void PerfTracer::decrement(const PerfEventType & type, fds_volid_t volid,
             uint64_t val, const std::string & name) {
     FDSGUARD(ptrace_mutex_named_);
 
@@ -370,7 +377,7 @@ void PerfTracer::decr(const PerfEventType & type, fds_volid_t volid, std::string
     PerfTracer::decr(type, volid, 1, name);
 }
 
-void PerfTracer::incr(const PerfEventType & type, fds_volid_t volid, 
+void PerfTracer::incr(const PerfEventType & type, fds_volid_t volid,
         uint64_t val, uint64_t cnt /* = 0 */, std::string name /* = "" */) {
     fds_assert(type < MAX_EVENT_TYPE);
 
@@ -399,7 +406,7 @@ void PerfTracer::incr(const PerfEventType & type, fds_volid_t volid,
     }
 }
 
-void PerfTracer::decr(const PerfEventType & type, fds_volid_t volid, 
+void PerfTracer::decr(const PerfEventType & type, fds_volid_t volid,
         uint64_t val, std::string name /* = "" */) {
     fds_assert(type < MAX_EVENT_TYPE);
 
@@ -419,7 +426,7 @@ void PerfTracer::decr(const PerfEventType & type, fds_volid_t volid,
         NumericCounter * pnc = dynamic_cast<NumericCounter *>(ctx.data.get());
         fds_assert(pnc || !"Counter type mismatch between tracepoints!")
         pnc->decr(val);
-        
+
     }
     if (!name.empty() && instance().useNameFilter_) {
 #ifndef CACHE_REGEX_MATCH_RESULTS
@@ -431,8 +438,8 @@ void PerfTracer::decr(const PerfEventType & type, fds_volid_t volid,
 #endif
     }
 }
-void PerfTracer::tracePointBegin(const std::string & id, 
-        const PerfEventType & type, fds_volid_t volid, 
+void PerfTracer::tracePointBegin(const std::string & id,
+        const PerfEventType & type, fds_volid_t volid,
         std::string name /* = "" */) {
     GLOGTRACE << "Received tracePointBegin() for id='" << id << "' type='" <<
             eventTypeToStr[type] << "' name='" << name << "'  volid='" << volid << "'";
