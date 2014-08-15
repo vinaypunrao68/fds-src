@@ -4,18 +4,26 @@ package com.formationds.om.plotter;
  */
 
 import org.joda.time.DateTime;
+import org.json.JSONObject;
 
-class VolumeDatapoint implements Comparable<VolumeDatapoint> {
+public class VolumeDatapoint implements Comparable<VolumeDatapoint> {
     private DateTime dateTime;
     private String volumeName;
     private String key;
     private double value;
 
-    VolumeDatapoint(DateTime dateTime, String volumeName, String key, double value) {
+    public VolumeDatapoint(DateTime dateTime, String volumeName, String key, double value) {
         this.dateTime = dateTime;
         this.volumeName = volumeName;
         this.key = key;
         this.value = value;
+    }
+
+    public VolumeDatapoint(JSONObject object) {
+        dateTime = new DateTime(Long.parseLong(object.getString("timestamp")));
+        volumeName = object.getString("volume");
+        key = object.getString("key");
+        value = Double.parseDouble(object.getString("value"));
     }
 
     public DateTime getDateTime() {

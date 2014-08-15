@@ -28,19 +28,19 @@ public class JsonStatisticsFormatterTest {
                     "        \"volume\": \"Panda\",\n" +
                     "        \"value\": \"12.0\",\n" +
                     "        \"key\": \"size\",\n" +
-                    "        \"timestamp\": \"1969-12-31T16:00:00.042-08:00\"\n" +
+                    "        \"timestamp\": \"42\"\n" +
                     "    },\n" +
                     "    {\n" +
                     "        \"volume\": \"Panda\",\n" +
                     "        \"value\": \"14.0\",\n" +
                     "        \"key\": \"age\",\n" +
-                    "        \"timestamp\": \"1969-12-31T16:00:00.042-08:00\"\n" +
+                    "        \"timestamp\": \"42\"\n" +
                     "    },\n" +
                     "    {\n" +
                     "        \"volume\": \"Lemur\",\n" +
                     "        \"value\": \"42.0\",\n" +
                     "        \"key\": \"size\",\n" +
-                    "        \"timestamp\": \"1969-12-31T16:00:00.043-08:00\"\n" +
+                    "        \"timestamp\": \"43\"\n" +
                     "    }\n" +
                     "]";
 }

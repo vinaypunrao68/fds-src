@@ -3,22 +3,25 @@ package com.formationds.om.plotter;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+import com.google.common.collect.MinMaxPriorityQueue;
 import org.joda.time.Duration;
 
-import java.util.concurrent.ConcurrentSkipListSet;
-import java.util.stream.Stream;
+import java.util.Collection;
+import java.util.stream.Collectors;
 
 public class VolumeStatistics {
-    private final ConcurrentSkipListSet<VolumeDatapoint> window;
+    private final MinMaxPriorityQueue<VolumeDatapoint> window;
     private final Duration duration;
 
     public VolumeStatistics(Duration duration) {
         this.duration = duration;
-        window = new ConcurrentSkipListSet<>();
+        window = MinMaxPriorityQueue.create();
     }
 
     public int size() {
-        return window.size();
+        synchronized (window) {
+            return window.size();
+        }
     }
 
     public void put(VolumeDatapoint volumeDatapoint) {
@@ -31,14 +34,33 @@ public class VolumeStatistics {
         }
     }
 
-    public Stream<VolumeDatapoint> stream() {
-        return window.stream();
+    public VolumeDatapoint[] datapoints() {
+        synchronized (window) {
+            return window.toArray(new VolumeDatapoint[0]);
+        }
+    }
+
+    public VolumeDatapoint[] datapoints(String volumeName) {
+        synchronized (window) {
+            return window.stream()
+                    .filter(vdp -> volumeName.equals(vdp.getVolumeName()))
+                    .toArray(i -> new VolumeDatapoint[i]);
+        }
+    }
+    public Collection<String> volumes() {
+        synchronized (window) {
+            return window.stream()
+                    .map(v -> v.getVolumeName())
+                    .distinct()
+                    .sorted((l, r) -> l.compareTo(r))
+                    .collect(Collectors.toList());
+        }
     }
 
     private int flushOnce() {
         if (window.size() > 1) {
-            VolumeDatapoint youngest = window.first();
-            VolumeDatapoint oldest = window.last();
+            VolumeDatapoint youngest = window.peekFirst();
+            VolumeDatapoint oldest = window.peekLast();
 
             long maxAge = youngest.getDateTime().getMillis() - oldest.getDateTime().getMillis();
             if (maxAge > duration.getMillis()) {
@@ -48,4 +70,5 @@ public class VolumeStatistics {
         }
         return 0;
     }
+
 }
