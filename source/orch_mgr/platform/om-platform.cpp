@@ -11,6 +11,8 @@
 #include <OmResources.h>
 #include <orchMgr.h>
 #include <net/net-service-tmpl.hpp>
+#include <net/SvcRequestPool.h>
+
 
 namespace fds {
 
@@ -103,6 +105,7 @@ OmPlatform::mod_startup()
 {
     Platform::mod_startup();
     om_plugin = new OMEpPlugin(this);
+    gSvcRequestPool = new SvcRequestPool();
 #if 0
     om_recv   = bo::shared_ptr<OMSvcHandler>(new OMSvcHandler());
     om_ep     = new EndPoint<fpi::OMSvcClient, fpi::OMSvcProcessor>(

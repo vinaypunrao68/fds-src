@@ -10,6 +10,7 @@ import time
 import ctypes
 from multiprocessing import Process, Value
 from tabulate import tabulate
+from requests_futures.sessions import FuturesSession
 
 BASE_URL = 'http://localhost:8000/'
 BUCKET   = 'bucket1/'
@@ -18,6 +19,9 @@ DATA_NAME= 'rand_data_'
 DATA_PATH= 'cfg/'
 NUM_PROC = 5
 TIMEOUT  = 30
+MAX_CONCURRENCY_PUT = 999
+DEBUG_TIMEOUT = 30
+BLOB_WRITE_COMMIT_READ_RETRY = 100
 
 class Worker(Process):
     """ Runs PUT operation and gets result in the background."""
@@ -36,7 +40,92 @@ class Worker(Process):
             self.timestamp.value = time.clock()
             print self.r, self.hash_before.value, self.timestamp.value
 
-def main():
+class BlobReadWorker(Process):
+    ''' Runs GETs against blob being written.  checks against bool.'''
+    def __init__(self, obj_name, obj_hash):
+        super(BlobReadWorker, self).__init__()
+        self.finished_write = False
+        self.read_hash = 'No hash yet!'
+        self.obj_name = obj_name
+        self.write_hash = obj_hash
+        print self.obj_name
+
+    def run(self):
+        assert(self.write_hash != '')
+        assert(self.obj_name != '')
+        _counter=0
+
+        # Keep trying to read until write is complete.  Should not succeed
+        while self.finished_write is False:
+            _counter += 1
+            r = requests.get(BASE_URL+BUCKET+self.obj_name)
+            #print r.status_code
+            #print '[Child thread]', self.finished_write
+            assert(r.status_code == 200 or r.status_code == 404)
+            if r.status_code == 200:
+                break
+
+        print '404 Counter:', _counter
+
+        # File has now been written, error code should be 200 and hashes should match
+        for i in range(BLOB_WRITE_COMMIT_READ_RETRY):
+            print 'On GET #', i
+            r = requests.get(BASE_URL+BUCKET+self.obj_name)
+            print r
+            if r.status_code == 200:
+                print 'Length:', sys.getsizeof(r.content)
+                if hashlib.sha1(r.content).hexdigest() == self.write_hash:
+                    print 'Success!'
+                    return 0
+                else:
+                    print "Hashes don't match!"
+
+        # If function reaches this point it failed
+        print 'Failed!'
+        exit(1)
+
+
+def reset_fds():
+    ''' Restarts FDS system.  Assumes we are in test directory!'''
+    return os.system('./../tools/fds cleanstart')
+
+def blob_write_commit():
+    ''' Writes big blob then tries to read before write completes.'''
+    print '[Test] BLOB WRITE COMMIT'
+
+    # Create bucket
+    time.sleep(6)
+    requests.put(BASE_URL+BUCKET)
+
+    # Reuse multi_blob_write's random data and gen hash
+    rand_data_path = DATA_PATH+DATA_NAME+'3'
+    rand_data = open(rand_data_path, 'rb')
+    rand_data_name = 'blobWriteCommitData'
+    rand_data_hash = hashlib.sha1(rand_data.read()).hexdigest()
+    rand_data.seek(0)
+
+    # Write the blob asynchronously
+    session = FuturesSession(max_workers=MAX_CONCURRENCY_PUT)
+    future_put = session.put(BASE_URL+BUCKET+rand_data_name, data=rand_data.read(), timeout=DEBUG_TIMEOUT)
+
+    # Start read loop
+    worker = BlobReadWorker(rand_data_name, rand_data_hash)
+    worker.start()
+
+    # Check for return code on asynch PUT
+    assert(future_put.result().status_code == 200)
+    print 'Write done!'
+
+    # PUT is done, GETs should now work
+    worker.finished_write = True
+    print '[Parent thread]', worker.finished_write
+    worker.join()
+    return 0
+
+def multi_blob_write():
+    ''' Writes multiple blobs to same obj id on the server.'''
+    print '[Test] MULTI BLOB WRITE'
+
     # Create 5 random sets of data
     print 'Creating random data'
     for i in range(NUM_PROC):
@@ -93,9 +182,21 @@ def main():
         print 'FDS hash', get_hash
         #return 2
 
-    print 'Tests passed!'
-
+    print 'Multi blob test passed!'
     return 0
+
+def main():
+    reset_fds()
+    time.sleep(5)
+    multi_blob_write_result = multi_blob_write()
+    reset_fds()
+    blob_write_commit_result = blob_write_commit()
+
+    # Quit FDS
+    os.system('./../tools/fds stop')
+
+    final_retcode = multi_blob_write_result + blob_write_commit_result
+    return final_retcode
 
 if __name__ == '__main__':
     main()

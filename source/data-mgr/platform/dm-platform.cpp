@@ -118,6 +118,8 @@ DmPlatform::mod_init(SysParams const *const param)
 void
 DmPlatform::mod_startup()
 {
+    NetPlatform *net;
+
     Platform::mod_startup();
     registerFlags();
     gSvcRequestPool = new SvcRequestPool();
@@ -130,6 +132,9 @@ DmPlatform::mod_startup()
         NodeUuid(0ULL),
         bo::shared_ptr<fpi::DMSvcProcessor>(new fpi::DMSvcProcessor(dm_recv)),
         dm_plugin);
+
+    net = NetPlatform::nplat_singleton();
+    net->nplat_set_my_ep(dm_ep);
 
     LOGNORMAL << "Startup platform specific net svc, port "
               << Platform::platf_singleton()->plf_get_my_base_port();

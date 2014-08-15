@@ -107,7 +107,13 @@ class OM_NodeAgent : public NodeAgent
     virtual Error om_send_dmt_close(fds_uint64_t dmt_version);
     virtual Error om_send_scavenger_cmd(fpi::FDSP_ScavengerCmd cmd);
     virtual Error om_send_pushmeta(fpi::FDSP_PushMetaPtr& meta_msg);
+    virtual Error om_send_stream_reg_cmd(fds_int32_t regId,
+                                         fds_bool_t bAll);
     virtual void init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const;
+
+  private:
+    void om_send_one_stream_reg_cmd(const fpi::StreamingRegistrationMsg& reg,
+                                    const NodeUuid& stream_dest_uuid);
 
   protected:
     NodeAgentCpSessionPtr   ndCpSession;
@@ -429,6 +435,15 @@ class OM_NodeContainer : public DomainContainer
      * Sends scavenger command (e.g. enable, disable, start, stop) to SMs
      */
     virtual void om_bcast_scavenger_cmd(FDSP_ScavengerCmd cmd);
+    /**
+     * Sends stream registration to all DMs. If bAll is true, regId is
+     * ignored and all known registrations are broadcasted to DMs. Otherwise
+     * only registration with regId is broadcasted to DM
+     */
+    virtual void om_bcast_stream_register_cmd(fds_int32_t regId,
+                                              fds_bool_t bAll);
+    virtual void om_bcast_stream_reg_list(NodeAgent::pointer node);
+
     /**
      * conditional broadcast to platform (nodes) to
      * activate SM and DM services on those nodes, but only
