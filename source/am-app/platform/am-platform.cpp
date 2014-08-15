@@ -110,6 +110,8 @@ AmPlatform::mod_init(SysParams const *const param)
 void
 AmPlatform::mod_startup()
 {
+    NetPlatform *net;
+
     Platform::mod_startup();
     registerFlags();
     gSvcRequestPool = new SvcRequestPool();
@@ -122,6 +124,9 @@ AmPlatform::mod_startup()
         NodeUuid(0ULL),
         bo::shared_ptr<fpi::PlatNetSvcProcessor>(new fpi::PlatNetSvcProcessor(am_recv)),
         am_plugin);
+
+    net = NetPlatform::nplat_singleton();
+    net->nplat_set_my_ep(am_ep);
 
     LOGNORMAL << " my_svc_uuid: " << *Platform::platf_singleton()->plf_get_my_svc_uuid()
         << " port: " << Platform::platf_singleton()->plf_get_my_base_port();

@@ -473,7 +473,7 @@ void StorHvVolumeTable::moveWaitBlobsToQosQueue(fds_volid_t vol_uuid,
                 AmQosReq* req = blobs[i];
                 fds_verify(req != NULL);
                 req->setVolId(vol_uuid);
-                fds::PerfTracer::tracePointBegin(req->getBlobReqPtr()->e2eReqPerfCtx);
+                //fds::PerfTracer::tracePointBegin(req->getBlobReqPtr()->e2eReqPerfCtx);
                 fds::PerfTracer::tracePointBegin(req->getBlobReqPtr()->qosPerfCtx);
                 storHvisor->qos_ctrl->enqueueIO(vol_uuid, req);
             }
@@ -678,10 +678,12 @@ GetBlobReq::GetBlobReq(fds_volid_t _volid,
     hashPerfCtx.reset_volid(volId);
     dmPerfCtx.type = AM_GET_SM;
     dmPerfCtx.name = "volume:" + std::to_string(volId);
-    dmPerfCtx.type = AM_DELETE_DM;
+    dmPerfCtx.reset_volid(volId);
     smPerfCtx.type = AM_GET_DM;
     smPerfCtx.name = "volume:" + std::to_string(volId);
     smPerfCtx.reset_volid(volId);
+
+    fds::PerfTracer::tracePointBegin(e2eReqPerfCtx);
 }
 
 GetBlobReq::~GetBlobReq()
@@ -728,10 +730,12 @@ PutBlobReq::PutBlobReq(fds_volid_t _volid,
     hashPerfCtx.reset_volid(volId);
     dmPerfCtx.type = AM_PUT_SM;
     dmPerfCtx.name = "volume:" + std::to_string(volId);
-    dmPerfCtx.type = AM_DELETE_DM;
+    dmPerfCtx.reset_volid(volId);
     smPerfCtx.type = AM_PUT_DM;
     smPerfCtx.name = "volume:" + std::to_string(volId);
     smPerfCtx.reset_volid(volId);
+
+    fds::PerfTracer::tracePointBegin(e2eReqPerfCtx);
 }
 
 PutBlobReq::PutBlobReq(fds_volid_t          _volid,
@@ -765,10 +769,12 @@ PutBlobReq::PutBlobReq(fds_volid_t          _volid,
     hashPerfCtx.reset_volid(volId);
     dmPerfCtx.type = AM_PUT_SM;
     dmPerfCtx.name = "volume:" + std::to_string(volId);
-    dmPerfCtx.type = AM_DELETE_DM;
+    dmPerfCtx.reset_volid(volId);
     smPerfCtx.type = AM_PUT_DM;
     smPerfCtx.name = "volume:" + std::to_string(volId);
     smPerfCtx.reset_volid(volId);
+
+    fds::PerfTracer::tracePointBegin(e2eReqPerfCtx);
 }
 
 PutBlobReq::~PutBlobReq()

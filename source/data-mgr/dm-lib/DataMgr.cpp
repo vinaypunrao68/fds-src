@@ -662,7 +662,7 @@ int DataMgr::mod_init(SysParams const *const param)
     omConfigPort = 0;
     use_om = true;
     numTestVols = 10;
-    scheduleRate = 4000;
+    scheduleRate = 10000;
 
     counters_.reset(new FdsCounters("DM", modProvider_->get_cntrs_mgr().get()));
 

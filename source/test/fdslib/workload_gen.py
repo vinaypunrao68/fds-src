@@ -1,14 +1,16 @@
 #!/usr/bin/python
-import sys
-import os
-import time
-sys.path.append('../../test')
-sys.path.append('pyfdsp')
+try:
+    import sys
+    import os
+    import time
+    sys.path.append(os.getcwd()+'/test/fdslib/pyfdsp')
 
-from fds_service import ttypes
-from thrift import TSerialization
+    from fds_service import ttypes
+    from thrift import TSerialization
 #from thrift.protocol import TJSONProtocol
-
+except Exception as e:
+    print e
+    print 'PYTHONPATH: ', sys.path
 import json
 import jsonpickle
 import random
