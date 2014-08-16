@@ -57,6 +57,15 @@ class AmCache : public Module, public boost::noncopyable {
                                           Error &error);
 
     /**
+     * Retrieves object ID from cache for given volume, blob,
+     * and offset. If blob offset is not found, returns error.
+     */
+    ObjectID::ptr getBlobOffsetObject(fds_volid_t volId,
+                                      const std::string &blobName,
+                                      fds_uint64_t blobOffset,
+                                      Error &error);
+
+    /**
      * Updates the cache with the contents from a commited
      * transaction. Any previously existing info will be
      * overwritten.
