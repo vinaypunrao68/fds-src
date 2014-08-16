@@ -29,8 +29,10 @@ double fds_get_wma(const std::vector<double> vals,
         wsum += weight;
         weight = weight * 0.9;  // powers of 0.9
     }
-    fds_verify(weight_sum != NULL);
-    *weight_sum = wsum;
+    wma = wma / wsum;
+    if (weight_sum) {
+        *weight_sum = wsum;
+    }
     return wma;
 }
 

@@ -449,7 +449,7 @@ StatStreamAggregator::writeStatsLog(const fpi::volumeDataPoints& volStatData,
 
     fprintf(pFile, "[");
     for (pos = volStatData.meta_list.begin(); pos != volStatData.meta_list.end(); ++pos)
-        fprintf(pFile, " %s: %f,", pos->key.c_str(), pos->value);
+        fprintf(pFile, " %s: %lld,", pos->key.c_str(), static_cast<fds_int64_t>(pos->value));
     fprintf(pFile, "]");
 
     fprintf(pFile, "\n");
@@ -612,7 +612,7 @@ void StatStreamTimerTask::runTimerTask() {
 
         VolumePerfHistory::ptr & hist = 60 == reg_->sample_freq_seconds ?
                 volStat->finegrain_hist_ : volStat->coarsegrain_hist_;
-        last_ts_ = hist->toSlotList(slots, last_ts_, 0, FdsStatPushPeriodSec);
+        last_ts_ = hist->toSlotList(slots, last_ts_, 0, FdsStatPushPeriodSec + 60);
 
         for (auto slot : slots) {
             fds_uint64_t timestamp = hist->getTimestamp((slot).getTimestamp());
