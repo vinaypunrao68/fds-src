@@ -36,6 +36,16 @@ class StatStreamTimerTask : public FdsTimerTask {
     fds_uint64_t last_ts_;
 };
 
+struct StatHistoryConfig {
+    fds_uint32_t finestat_slotsec_;  // granularity of fine grain stats for all vols
+    fds_uint32_t finestat_slots_;   // number of slots of fine grain stats for all vols
+    fds_uint32_t coarsestat_slotsec_;  // granularity of coarse grain stats
+    fds_uint32_t coarsestat_slots_;   // number of slots for coarse grain stats
+    fds_uint32_t longstat_slotsec_;
+    fds_uint32_t longstat_slots_;
+};
+
+
 /**
  * Per-volume stat histories, logging, etc.
  */
@@ -43,8 +53,8 @@ class VolumeStats {
   public:
     explicit VolumeStats(fds_volid_t volume_id,
                          fds_uint64_t start_time,
-                         fds_uint32_t finestat_slots,
-                         fds_uint32_t finestat_slotsec);
+                         const StatHistoryConfig& config);
+
     ~VolumeStats();
 
     typedef boost::shared_ptr<VolumeStats> ptr;
@@ -131,11 +141,8 @@ class VolumeStats {
     fds_uint64_t recent_stdev_update_ts_;
 
     /**
-     * Timer to process fine-grain stats
+     * For processing finegrain stats
      */
-    FdsTimerPtr process_tm_;
-    FdsTimerTaskPtr process_tm_task_;
-    fds_uint32_t tmperiod_sec_;
     fds_uint64_t last_print_ts_;
 };
 
@@ -173,7 +180,8 @@ class StatStreamAggregator : public Module {
     typedef std::unordered_map<fds_uint32_t, fpi::StatStreamRegistrationMsgPtr>
             StatStreamRegistrationMap_t;
 
-    explicit StatStreamAggregator(char const *const name);
+    StatStreamAggregator(char const *const name,
+                         boost::shared_ptr<FdsConfig> fds_config);
     ~StatStreamAggregator();
 
     typedef boost::shared_ptr<StatStreamAggregator> ptr;
@@ -242,21 +250,24 @@ class StatStreamAggregator : public Module {
     Error getStatStreamRegDetails(const fds_volid_t & volId, fpi::SvcUuid & amId,
             fds_uint32_t & regId);
 
+    /**
+     * called on timer to fill in coarse grain and long term stats
+     */
+    void processStats();
+
   private:  // methods
     VolumeStats::ptr getVolumeStats(fds_volid_t volid);
 
   private:  // members
     /**
-     * Config for fine-grain (cached) per-volume history of stats
-     * This will be set per-minute for now
+     * Config for different histories we keep in terms of timescale
      */
-    fds_uint32_t finestat_slotsec_;  // granularity of fine grain stats for all vols
-    fds_uint32_t finestat_slots_;   // number of slots of fine grain stats for all vols
-    /**
-     * Config for coarser-grain (cached) per-volume history of stats
-     * These will be set per-hour for now
-     * TODO(xxx) add config
-     */
+    StatHistoryConfig hist_config;
+
+    // timer to update coarse grain and long term slots
+    FdsTimerPtr process_tm_;
+    FdsTimerTaskPtr process_tm_task_;
+    fds_uint32_t tmperiod_sec_;
 
     /**
      * Volume id to VolumeStats struct map; VolumeStats struct contains all

@@ -10,6 +10,8 @@ AmCache::AmCache(const std::string &modName)
         : Module(modName.c_str()) {
     blobDescCache = std::unique_ptr<BlobDescCacheManager>(
         new BlobDescCacheManager("AM blob descriptor cache manager"));
+    blobOffsetCache = std::unique_ptr<BlobOffsetCacheManager>(
+        new BlobOffsetCacheManager("AM blob offset cache manager"));
 }
 
 AmCache::~AmCache() {
@@ -34,12 +36,22 @@ AmCache::createCache(const VolumeDesc& volDesc) {
     Error err = blobDescCache->createCache(volDesc.volUUID,
                                            maxEntries,
                                            evictionType);
+    if (err != ERR_OK) {
+        return err;
+    }
+    err = blobOffsetCache->createCache(volDesc.volUUID,
+                                       maxEntries,
+                                       evictionType);
     return err;
 }
 
 Error
 AmCache::removeCache(fds_volid_t volId) {
     Error err = blobDescCache->deleteCache(volId);
+    if (err != ERR_OK) {
+        return err;
+    }
+    err = blobOffsetCache->deleteCache(volId);
     return err;
 }
 
@@ -57,6 +69,26 @@ AmCache::getBlobDescriptor(fds_volid_t volId,
         // return to the caller
         BlobDescriptor::ptr blobDesc(new BlobDescriptor(*blobDescPtr));
         return blobDesc;
+    }
+    return NULL;
+}
+
+ObjectID::ptr
+AmCache::getBlobOffsetObject(fds_volid_t volId,
+                             const std::string &blobName,
+                             fds_uint64_t blobOffset,
+                             Error &error) {
+    LOGTRACE << "Cache lookup for volume " << std::hex << volId << std::dec
+             << " blob " << blobName << " offset " << blobOffset;
+
+    ObjectID *blobObjectPtr = NULL;
+    BlobOffsetPair offsetPair(blobName, blobOffset);
+    error = blobOffsetCache->get(volId, offsetPair, &blobObjectPtr);
+    if (error == ERR_OK) {
+        // Copy the blob descriptor into an object we can safely
+        // return to the caller
+        ObjectID::ptr blobObjectId(new ObjectID(*blobObjectPtr));
+        return blobObjectId;
     }
     return NULL;
 }
@@ -84,6 +116,21 @@ AmCache::putTxDescriptor(const AmTxDescriptor::ptr &txDesc) {
                                    cacheDesc);
         if (evictedDesc != NULL) {
             LOGTRACE << "Evicted cached descriptor " << *evictedDesc;
+        }
+
+        // Add blob offsets from tx to offset cache
+        for (const auto &offsetPair : txDesc->stagedBlobOffsets) {
+            // TODO(Andrew): Allocate an objectId the cache can own.
+            // We should change this to just take a pointer from the
+            // transaction manager
+            ObjectID *cacheObjId = new ObjectID(offsetPair.second);
+            std::unique_ptr<ObjectID> evictedObjId =
+                    blobOffsetCache->add(txDesc->volId,
+                                         offsetPair.first,
+                                         cacheObjId);
+            if (evictedObjId != NULL) {
+                LOGTRACE << "Evicted cached object id " << *evictedObjId;
+            }
         }
     }
     return err;

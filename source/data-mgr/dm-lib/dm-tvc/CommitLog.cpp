@@ -43,10 +43,18 @@ DmCommitLog::DmCommitLog(const std::string &modName, const std::string & filenam
         fds_uint32_t filesize /* = DEFAULT_COMMIT_LOG_FILE_SIZE */,
         PersistenceType persist /* = IN_MEMORY */) : Module(modName.c_str()), filename_(filename),
         filesize_(filesize), persist_(persist), started_(false), compacting_(ATOMIC_FLAG_INIT) {
+    if (filesize_ < MIN_COMMIT_LOG_FILE_SIZE) {
+        GLOGWARN << "Commit log size can't be less than 1MB, setting it to 1MB";
+        filesize_ = MIN_COMMIT_LOG_FILE_SIZE;
+    } else if (filesize_ > MAX_COMMIT_LOG_FILE_SIZE) {
+        GLOGWARN << "Commit log size can't be more than 100MB, setting it to 100MB";
+        filesize_ = MAX_COMMIT_LOG_FILE_SIZE;
+    }
+
     if (IN_FILE == persist_) {
         cmtLogger_.reset(new FileCommitLogger(filename_, filesize_));
     } else if (IN_MEMORY == persist_) {
-        cmtLogger_.reset(new MemoryCommitLogger());
+        cmtLogger_.reset(new MemoryCommitLogger(filesize_));
     } else {
         // TODO(umesh): instantiate leveldb based cmtLogger_
     }

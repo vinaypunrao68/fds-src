@@ -704,7 +704,7 @@ int DataMgr::mod_init(SysParams const *const param)
     // create stats aggregator that aggregates stats for vols for which
     // this DM is primary
     statStreamAggr_ = StatStreamAggregator::ptr(
-        new StatStreamAggregator("DM Stat Stream Aggregator"));
+        new StatStreamAggregator("DM Stat Stream Aggregator", modProvider_->get_fds_config()));
 
     // enable collection of local stats in DM
     StatsCollector::singleton()->registerOmClient(omClient);

@@ -323,6 +323,11 @@ Error StorHvCtrl::putBlobSvc(fds::AmQosReq *qosReq)
         // Update the tx manager with this update
         fds_verify(amTxMgr->updateStagedBlobDesc(*(blobReq->getTxId()),
                                                  blobReq->getDataLen()) == ERR_OK);
+        // Update the transaction manager with the stage offset update
+        amTxMgr->updateStagedBlobOffset(*(blobReq->getTxId()),
+                                        blobReq->getBlobName(),
+                                        blobReq->getBlobOffset(),
+                                        blobReq->getObjId());
         issueUpdateCatalogMsg(blobReq->getObjId(),
                               blobReq->getBlobName(),
                               blobReq->getBlobOffset(),
@@ -350,6 +355,11 @@ Error StorHvCtrl::putBlobSvc(fds::AmQosReq *qosReq)
         // Stage the transaction metadata changes
         fds_verify(amTxMgr->updateStagedBlobDesc(txId,
                                                  blobReq->metadata) == ERR_OK);
+        // Update the transaction manager with the stage offset update
+        amTxMgr->updateStagedBlobOffset(*(blobReq->getTxId()),
+                                        blobReq->getBlobName(),
+                                        blobReq->getBlobOffset(),
+                                        blobReq->getObjId());
 
         issueUpdateCatalogMsg(blobReq->getObjId(),
                               blobReq->getBlobName(),
@@ -363,6 +373,7 @@ Error StorHvCtrl::putBlobSvc(fds::AmQosReq *qosReq)
     } else {
         fds_panic("Unknown io_type request!");
     }
+
     // TODO(Rao): Check with andrew if this is the right place to unlock or
     // can we unlock before
     // TODO(Rao): Check if we can use scoped lock here
@@ -574,25 +585,24 @@ Error StorHvCtrl::getBlobSvc(fds::AmQosReq *qosReq)
     fds_uint32_t maxObjSize = shVol->voldesc->maxObjSizeInBytes;
     blobReq->setBlobOffset(blobReq->getBlobOffset() * maxObjSize);
 
-    // TODO(Rao): Do we need to make sure other get reqs aren't in progress
-
-    ObjectID objId;
-    bool inCache = shVol->vol_catalog_cache->LookupObjectId(blobReq->getBlobName(),
-                                          blobReq->getBlobOffset(),
-                                          objId);
-    if ((disableVcc == true) || (inCache == false)) {
+    // Check cache for object ID
+    ObjectID::ptr objectId = amCache->getBlobOffsetObject(volId,
+                                                          blobReq->getBlobName(),
+                                                          blobReq->getBlobOffset(),
+                                                          err);
+    if (err != ERR_OK) {
         fds::PerfTracer::tracePointBegin(blobReq->dmPerfCtx); 
         issueQueryCatalog(blobReq->getBlobName(),
                           blobReq->getBlobOffset(),
                           volId,
                           RESPONSE_MSG_HANDLER(StorHvCtrl::getBlobQueryCatalogResp, qosReq));
     } else {
-        fds_verify(objId != NullObjectID);
+        fds_verify(*objectId != NullObjectID);
         fds::PerfTracer::tracePointBegin(blobReq->smPerfCtx); 
-        issueGetObject(volId, objId,
+        issueGetObject(volId, *objectId,
                        RESPONSE_MSG_HANDLER(StorHvCtrl::getBlobGetObjectResp, qosReq));
     }
-    return err;
+    return ERR_OK;
 }
 
 void StorHvCtrl::issueQueryCatalog(const std::string& blobName,

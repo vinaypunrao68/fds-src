@@ -33,6 +33,14 @@ class AmTxDescriptor {
     fds_io_op_t opType;
     /// Staged blob descriptor for the transaction
     BlobDescriptor::ptr stagedBlobDesc;
+    /// Staged blob offsets updates
+    typedef std::unordered_map<BlobOffsetPair, ObjectID,
+                               BlobOffsetPairHash> BlobOffsetMap;
+    BlobOffsetMap stagedBlobOffsets;
+    /// Staged blob object updates for the transaction
+    typedef std::unordered_map<ObjectID, std::string*,
+                               ObjectHash> BlobObjectMap;
+    BlobObjectMap stagedBlobObjects;
 
     AmTxDescriptor(fds_volid_t volUuid,
                    const BlobTxId &id,
@@ -101,6 +109,22 @@ class AmTxManager : public Module, public boost::noncopyable {
      * Updates an existing transaction with a new ope
      */
     Error updateTxOpType(const BlobTxId &txId, fds_io_op_t op);
+
+    /**
+     * Updates an existing transactions staged blob offsets.
+     */
+    Error updateStagedBlobOffset(const BlobTxId &txId,
+                                 const std::string &blobName,
+                                 fds_uint64_t blobOffset,
+                                 const ObjectID &objectId);
+
+    /**
+     * Updates an existing transactions staged blob objects.
+     */
+    Error updateStagedBlobObject(const BlobTxId &txId,
+                                 const ObjectID &objectId,
+                                 char *objectData,
+                                 fds_uint32_t dataLen);
 
     /**
      * Updates an existing transactions staged metadata.

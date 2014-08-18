@@ -77,16 +77,23 @@ class BlobDescriptor {
 };
 
 /**
- * Describes an aligned offset with a blob.
+ * Describes an aligned offset within a blob.
  */
 class BlobOffsetPair : public std::pair<std::string, fds_uint64_t> {
   public:
     typedef boost::shared_ptr<BlobOffsetPair> ptr;
     typedef boost::shared_ptr<const BlobOffsetPair> const_ptr;
 
+    BlobOffsetPair(const std::string &a, const fds_uint64_t &b)
+            : std::pair<std::string, fds_uint64_t>(a, b) {
+    }
+
     std::string toString() const {
         return first + std::to_string(second);
     }
+
+    friend std::ostream& operator<<(std::ostream& out,
+                                    const BlobOffsetPair& blobOffset);
 };
 
 class BlobOffsetPairHash {

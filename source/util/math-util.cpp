@@ -17,15 +17,22 @@ double fds_get_wma(const std::vector<double> vals,
     double wma = 0.0;
     double weight = 1.0;
     double wsum = 0;
+    if (vals.size() == 0) {
+        *weight_sum = 0;
+        return wma;
+    }
+
     // use highest weight for most recent value; most recent
     // value is the last value in the list
-    for (fds_uint32_t i = (vals.size() - 1); i >= 0; ++i) {
+    for (fds_int32_t i = (vals.size() - 1); i >= 0; --i) {
         wma += weight * vals[i];
         wsum += weight;
         weight = weight * 0.9;  // powers of 0.9
     }
-    fds_verify(weight_sum != NULL);
-    *weight_sum = wsum;
+    wma = wma / wsum;
+    if (weight_sum) {
+        *weight_sum = wsum;
+    }
     return wma;
 }
 
@@ -39,7 +46,7 @@ double fds_get_wstdev(const std::vector<double> vals) {
     for (fds_uint32_t i = 0; i < vals.size(); ++i) {
         stdev += (vals[i] - wma) * (vals[i] - wma);
     }
-    stdev = std::sqrt(stdev / wsum);
+    stdev = (vals.size() > 0) ? std::sqrt(stdev / wsum) : 0.0;
     return stdev;
 }
 

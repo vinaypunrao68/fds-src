@@ -537,7 +537,14 @@ DmVolumeCatalog::putBlob(fds_volid_t volume_id,
         SCOPEDWRITE(lockVolDetailsMap_);
         DmVolumeDetailsMap_t::iterator iter = volDetailsMap_.find(volume_id);
         if (volDetailsMap_.end() != iter) {
-            iter->second->size.fetch_add(blob_size - old_blob_size);
+            fds_uint64_t diff = 0;
+            if (blob_size >= old_blob_size) {
+                diff = blob_size - old_blob_size;
+                iter->second->size.fetch_add(diff);
+            } else {
+                diff = old_blob_size - blob_size;
+                iter->second->size.fetch_sub(diff);
+            }
             if (new_blob) {
                 iter->second->blobCount.fetch_add(1);
             }
@@ -747,7 +754,7 @@ Error DmVolumeCatalog::deleteBlob(fds_volid_t volume_id,
             SCOPEDWRITE(lockVolDetailsMap_);
             DmVolumeDetailsMap_t::iterator iter = volDetailsMap_.find(volume_id);
             if (volDetailsMap_.end() != iter) {
-                iter->second->blobCount.fetch_sub(-1);
+                iter->second->blobCount.fetch_sub(1);
                 iter->second->size.fetch_sub(extent0->blobSize());
                 iter->second->objectCount.fetch_sub(extent0->objectCount());
             }

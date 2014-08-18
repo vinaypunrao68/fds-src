@@ -5,7 +5,6 @@ package com.formationds.am;
 
 import com.formationds.streaming.DataPointPair;
 import com.formationds.streaming.volumeDataPoints;
-import org.joda.time.DateTime;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -25,7 +24,7 @@ public class JsonStatisticsFormatter {
     private JSONObject toJsonObject(String volumeName, long timestamp, DataPointPair dpp) {
         return new JSONObject()
                 .put("volume", volumeName)
-                .put("timestamp", new DateTime(timestamp).toString())
+                .put("timestamp", Long.toString(timestamp))
                 .put("key", dpp.getKey())
                 .put("value", Double.toString(dpp.getValue()));
     }
