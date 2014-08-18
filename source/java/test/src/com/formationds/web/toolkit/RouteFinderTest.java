@@ -68,6 +68,7 @@ public class RouteFinderTest {
         private MultiMap<String> parameters;
 
         MockRequest(String httpMethod, String requestUri, MultiMap<String> parameters) {
+            super(null, null);
             this.httpMethod = httpMethod;
             this.requestUri = requestUri;
             this.parameters = parameters;
@@ -84,7 +85,7 @@ public class RouteFinderTest {
         }
 
         @Override
-        public void setParameters(MultiMap<String> parameters) {
+        public void setQueryParameters(MultiMap<String> parameters) {
             this.parameters = parameters;
         }
 
