@@ -629,6 +629,16 @@ void StatStreamTimerTask::runTimerTask() {
             getsDP.value = StatHelper::getTotalGets(slot);
             volDataPointsMap[timestamp].push_back(getsDP);
 
+            fpi::DataPointPair qfullDP;
+            qfullDP.key = "Queue Full";
+            qfullDP.value = StatHelper::getQueueFull(slot);
+            volDataPointsMap[timestamp].push_back(qfullDP);
+
+            fpi::DataPointPair percentSSDAccessDP;
+            percentSSDAccessDP.key = "Percent of SSD Accesses";
+            percentSSDAccessDP.value = StatHelper::getPercentSsdAccesses(slot);
+            volDataPointsMap[timestamp].push_back(percentSSDAccessDP);
+
             fpi::DataPointPair logicalBytesDP;
             logicalBytesDP.key = "Logical Bytes";
             logicalBytesDP.value = StatHelper::getTotalLogicalBytes(slot);
@@ -638,6 +648,11 @@ void StatStreamTimerTask::runTimerTask() {
             physicalBytesDP.key = "Physical Bytes";
             physicalBytesDP.value = StatHelper::getTotalPhysicalBytes(slot);
             volDataPointsMap[timestamp].push_back(physicalBytesDP);
+
+            fpi::DataPointPair mdBytesDP;
+            mdBytesDP.key = "Metadata Bytes";
+            mdBytesDP.value = StatHelper::getTotalMetadataBytes(slot);
+            volDataPointsMap[timestamp].push_back(mdBytesDP);
 
             fpi::DataPointPair blobsDP;
             blobsDP.key = "Blobs";
@@ -659,28 +674,23 @@ void StatStreamTimerTask::runTimerTask() {
             aveObjectsDP.value = StatHelper::getAverageObjectsInBlob(slot);
             volDataPointsMap[timestamp].push_back(aveObjectsDP);
 
-            fpi::DataPointPair percentSSDAccessDP;
-            percentSSDAccessDP.key = "Percent of SSD Accesses";
-            percentSSDAccessDP.value = StatHelper::getPercentSsdAccesses(slot);
-            volDataPointsMap[timestamp].push_back(percentSSDAccessDP);
-
             fpi::DataPointPair recentCapStdevDP;
-            recentCapStdevDP.key = "Short term capacity sigma";
+            recentCapStdevDP.key = "Short Term Capacity Sigma";
 
             fpi::DataPointPair longCapStdevDP;
-            longCapStdevDP.key = "Long term capacity sigma";
+            longCapStdevDP.key = "Long Term Capacity Sigma";
 
             fpi::DataPointPair recentCapWmaDP;
-            recentCapWmaDP.key = "Short term capacity wma";
+            recentCapWmaDP.key = "Short Term Capacity WMA";
 
             fpi::DataPointPair recentPerfStdevDP;
-            recentPerfStdevDP.key = "Short term perf sigma";
+            recentPerfStdevDP.key = "Short Term Perf Sigma";
 
             fpi::DataPointPair longPerfStdevDP;
-            longPerfStdevDP.key = "Long term perf sigma";
+            longPerfStdevDP.key = "Long Term Perf Sigma";
 
             fpi::DataPointPair recentPerfWma;
-            recentPerfWma.key = "Short term perf wma";
+            recentPerfWma.key = "Short Term Perf WMA";
 
             volStat->getFirebreakMetrics(&recentCapStdevDP.value, &longCapStdevDP.value,
                     &recentCapWmaDP.value, &recentPerfStdevDP.value, &longPerfStdevDP.value,
