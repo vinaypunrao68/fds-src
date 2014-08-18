@@ -5,13 +5,17 @@ sys.path.append('./fdslib/pyfdsp')
 import argparse
 import requests
 import hashlib
+import threading
 import subprocess
 import time
+import fileinput
 import ctypes
 from multiprocessing import Process, Value
 from tabulate import tabulate
 from requests_futures.sessions import FuturesSession
 
+DEFAULT_COMMIT_LOG = 'commit_log_size = 5242880'
+NUM_PUTS = 10
 SLEEP = 5
 BASE_URL = 'http://localhost:8000/'
 BUCKET   = 'bucket1/'
@@ -85,11 +89,86 @@ class BlobReadWorker(Process):
         print 'Failed!'
         exit(1)
 
+class CommitProbeWorker(threading.Thread):
+    def __init__(self, worker_path):
+        self.stdout = None
+        self.stderr = None
+        self.path = worker_path
+        threading.Thread.__init__(self)
+
+    def run(self):
+        print self.path
+        os.chdir(self.path)
+        p = subprocess.Popen('./commit-log-probe',
+                shell=False,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE)
+        self.stdout, self.stderr = p.communicate()
+        self.return_code = p.returncode
+
+def get_script_path():
+    return os.path.dirname(os.path.realpath(sys.argv[0]))
+
 def reset_fds():
     ''' Restarts FDS system.  Assumes we are in test directory!'''
     ret = os.system('./../tools/fds cleanstart')
     time.sleep(SLEEP)
     return ret
+
+def fill_staging_area():
+    ''' Write many big blobs to fill up staging area. Once the staging area
+    is full, I/O should fail.'''
+    commit_log_size = 1048576
+
+    # There must be a better way to navigate to source/config/etc...
+    original_path = get_script_path()
+    conf_path = get_script_path().replace('test', '') + 'config/etc/'
+    os.chdir(conf_path)
+    print 'CWD:', os.getcwd()
+
+    # Edit config
+    for line in fileinput.input('platform.conf', inplace=1):
+        print line.replace(DEFAULT_COMMIT_LOG, 'commit_log_size = ' + str(commit_log_size)).rstrip()
+    #print 'commit_log_size = ' + str(commit_log_size)
+    print os.system('cat /fds/etc/platform.conf | grep commit_log')
+
+    # Navigate back to script's WD and reset FDS (should update with new config)
+    os.chdir(original_path)
+    reset_fds()
+
+    # Create a JSon for the dm commit log probe to parse
+    os.chdir(original_path.replace('test', '') + 'unit-test/fds-probe/dataset/')
+    # probe should crash
+    os.system('./tvc_json.py -c -n 20000 > commit-log.json')
+
+    # Bring up the probe
+    worker_path = original_path.replace('test', '') + 'Build/linux-x86_64.debug/tests/'
+    #os.chdir(original_path.replace('test', '') + 'Build/linux-x86_64.debug/tests/')
+    worker = CommitProbeWorker(worker_path)
+    worker.start()
+
+    # Curl the JSon to the probe
+    os.chdir(original_path.replace('test', '') + 'unit-test/fds-probe/dataset/')
+    os.system('curl -X PUT --data @commit-log.json http://localhost:8080/abc')
+    os.chdir(original_path.replace('test', '') + 'unit-test/fds-probe/dataset/')
+    os.system('rm commit-log.json')
+
+    # Clean up core files
+    os.chdir(original_path.replace('test', '') + 'Build/linux-x86_64.debug/tests/')
+    os.system('rm core.*')
+
+    # Reset config to original state
+    os.chdir(conf_path)
+    os.system('git checkout -f platform.conf')
+
+    # Cleanup
+    os.chdir(original_path)
+    worker.join()
+    probe_retcode = worker.return_code
+    if probe_retcode != 0:
+        return 0
+    else:
+        return 1
 
 def blob_write_incomplete():
     ''' Steps: Write 1 big blob, kill the write before it completes. Loop.'''
@@ -115,7 +194,6 @@ def blob_write_incomplete():
             return 1
     else:
         return 0
-
 
 def blob_write_commit():
     ''' Writes big blob then tries to read before write completes.'''
@@ -216,17 +294,27 @@ def multi_blob_write():
 def main():
     reset_fds()
     multi_blob_write_result = multi_blob_write()
+    if multi_blob_write_result != 0:
+        print 'multi_blob_write test failed!'
     reset_fds()
     blob_write_commit_result = blob_write_commit()
+    if blob_write_commit_result != 0:
+        print 'blob_write_commit test failed!'
     reset_fds()
     blob_write_incomplete_result=0
     for i in range(10):
         blob_write_incomplete_result += blob_write_incomplete()
+    if blob_write_incomplete_result != 0:
+        print 'blob_write_incomplete test failed!'
+    # No reset needed before this test, it's done within the function
+    fill_staging_area_result = fill_staging_area()
+    if fill_staging_area_result != 0:
+        print 'fill_staging_area test failed!'
 
     # Quit FDS
     os.system('./../tools/fds stop')
 
-    final_retcode = multi_blob_write_result + blob_write_commit_result + blob_write_incomplete_result
+    final_retcode = multi_blob_write_result + blob_write_commit_result + blob_write_incomplete_result #+ fill_staging_area_result
     return final_retcode
 
 if __name__ == '__main__':
