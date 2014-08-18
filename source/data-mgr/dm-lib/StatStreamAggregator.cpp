@@ -259,7 +259,7 @@ StatStreamAggregator::StatStreamAggregator(char const *const name,
     minLogReg->id = std::numeric_limits<fds_uint32_t>::max();
     minLogReg->method = "log-local";
     minLogReg->sample_freq_seconds = 60;
-    minLogReg->duration_seconds = 180;
+    minLogReg->duration_seconds = 120;
 
     fpi::StatStreamRegistrationMsgPtr hourLogReg(new fpi::StatStreamRegistrationMsg());
     hourLogReg->id = std::numeric_limits<fds_uint32_t>::max() - 1;
@@ -456,20 +456,19 @@ StatStreamAggregator::writeStatsLog(const fpi::volumeDataPoints& volStatData,
     fprintf(pFile, "\n");
     fclose(pFile);
 
-#if 1
     /* rsync the per volume stats */
     if (dataMgr->amIPrimary(vol_id)) {
-        LOGDEBUG << "RSYNC stats ****" << std::hex << vol_id;
         DmtColumnPtr nodes = dataMgr->omClient->getDMTNodesForVolume(vol_id);
         fds_verify(nodes->getLength() > 0);
 
         for (fds_uint32_t i = 0; i < nodes->getLength(); i++) {
-           if (*mySvcUuid != nodes->get(i))
-              LOGDEBUG << " INVOKE RSYNC  stats ****" << std::hex << vol_id;
-              volStatSync(nodes->get(i), vol_id);
+            LOGDEBUG << " rsync node id: " << (nodes->get(i)).uuid_get_val()
+                               << "myuuid" << *mySvcUuid;
+           if (*mySvcUuid != nodes->get(i).uuid_get_val()) {
+              volStatSync(nodes->get(i).uuid_get_val(), vol_id);
+           }
         }
     }
-#endif
     return err;
 }
 
@@ -478,7 +477,8 @@ Error
 StatStreamAggregator::volStatSync(NodeUuid dm_uuid, fds_volid_t vol_id) {
     Error err(ERR_OK);
     const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
-    const std::string src_dir = root->dir_user_repo_stats() + std::to_string(vol_id);
+    const std::string src_dir = root->dir_user_repo_stats() + std::to_string(vol_id) +
+                                              std::string("/");
     int retcode = 0;
 
     NodeAgent::pointer node = Platform::plf_dm_nodes()->agent_info(dm_uuid);
@@ -491,10 +491,12 @@ StatStreamAggregator::volStatSync(NodeUuid dm_uuid, fds_volid_t vol_id) {
         return ERR_NOT_FOUND;
     }
 
-    const std::string dst_node = dm->get_node_root() + "user-repo/vol-stat/" +
-                                                          std::to_string(vol_id);
+    const std::string dst_node = dm->get_node_root() + "user-repo/vol-stats/" +
+                                    std::to_string(vol_id) + std::string("/");
     const std::string rsync_cmd = "sshpass -p passwd rsync -r "
             + src_dir + "  root@" + dst_ip + ":" + dst_node + "";
+
+    LOGDEBUG << "system rsync: " <<  rsync_cmd;
 
     retcode = std::system((const char *)rsync_cmd.c_str());
     return err;
