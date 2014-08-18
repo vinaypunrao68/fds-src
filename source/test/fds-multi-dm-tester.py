@@ -122,7 +122,7 @@ def fill_staging_area():
 
     # There must be a better way to navigate to source/config/etc...
     original_path = get_script_path()
-    conf_path = get_script_path().replace('test', '') + 'config/etc/'
+    conf_path = get_script_path().replace('/test', '') + '/config/etc/'
     os.chdir(conf_path)
     print 'CWD:', os.getcwd()
 
@@ -137,24 +137,24 @@ def fill_staging_area():
     reset_fds()
 
     # Create a JSon for the dm commit log probe to parse
-    os.chdir(original_path.replace('test', '') + 'unit-test/fds-probe/dataset/')
+    os.chdir(original_path.replace('/test', '') + '/unit-test/fds-probe/dataset/')
     # probe should crash
     os.system('./tvc_json.py -c -n 20000 > commit-log.json')
 
     # Bring up the probe
-    worker_path = original_path.replace('test', '') + 'Build/linux-x86_64.debug/tests/'
+    worker_path = original_path.replace('/test', '') + '/Build/linux-x86_64.debug/tests/'
     #os.chdir(original_path.replace('test', '') + 'Build/linux-x86_64.debug/tests/')
     worker = CommitProbeWorker(worker_path)
     worker.start()
 
     # Curl the JSon to the probe
-    os.chdir(original_path.replace('test', '') + 'unit-test/fds-probe/dataset/')
+    os.chdir(original_path.replace('/test', '') + '/unit-test/fds-probe/dataset/')
     os.system('curl -X PUT --data @commit-log.json http://localhost:8080/abc')
-    os.chdir(original_path.replace('test', '') + 'unit-test/fds-probe/dataset/')
+    os.chdir(original_path.replace('/test', '') + '/unit-test/fds-probe/dataset/')
     os.system('rm commit-log.json')
 
     # Clean up core files
-    os.chdir(original_path.replace('test', '') + 'Build/linux-x86_64.debug/tests/')
+    os.chdir(original_path.replace('/test', '') + '/Build/linux-x86_64.debug/tests/')
     os.system('rm core.*')
 
     # Reset config to original state
