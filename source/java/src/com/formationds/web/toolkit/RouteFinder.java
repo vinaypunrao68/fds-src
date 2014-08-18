@@ -32,10 +32,10 @@ public class RouteFinder {
                 .replaceAll("/$", "")
                 .replaceAll("/+", "/");
         QueryResult<Supplier<RequestHandler>> result = map.find(path);
-            MultiMap<String> parameters = request.getParameters() == null ? new MultiMap<>() : request.getParameters();
+        MultiMap<String> parameters = request.getQueryParameters() == null ? new MultiMap<>() : request.getQueryParameters();
         if (result.found()) {
             result.getMatches().forEach((k, v) -> parameters.add(k, v));
-            request.setParameters(parameters);
+            request.setQueryParameters(parameters);
             return Optional.of(new Route(request, result.getMatches(), result.getValue()));
         }
 
