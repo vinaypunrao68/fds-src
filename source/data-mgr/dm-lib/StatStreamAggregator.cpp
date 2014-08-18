@@ -402,7 +402,7 @@ StatStreamAggregator::writeStatsLog(const fpi::volumeDataPoints& volStatData,
                                                             fds_volid_t vol_id,
                                                             bool isMin /* = true */) {
     Error err(ERR_OK);
-    //  const NodeUuid *mySvcUuid = dataMgr->modProvider_->get_plf_manager()->plf_get_my_svc_uuid();
+    const NodeUuid *mySvcUuid = dataMgr->modProvider_->get_plf_manager()->plf_get_my_svc_uuid();
     const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
     const std::string fileName = root->dir_user_repo_stats() + std::to_string(vol_id) +
             std::string("/") + (isMin ? "stat_min.log" : "stat_hour.log");
@@ -426,14 +426,16 @@ StatStreamAggregator::writeStatsLog(const fpi::volumeDataPoints& volStatData,
     fprintf(pFile, "\n");
     fclose(pFile);
 
-#if 0
+#if 1
     /* rsync the per volume stats */
     if (dataMgr->amIPrimary(vol_id)) {
+        LOGDEBUG << "RSYNC stats ****" << std::hex << vol_id;
         DmtColumnPtr nodes = dataMgr->omClient->getDMTNodesForVolume(vol_id);
         fds_verify(nodes->getLength() > 0);
 
-        for (i = 0; i < nodes->getLength(); i++) {
+        for (fds_uint32_t i = 0; i < nodes->getLength(); i++) {
            if (*mySvcUuid != nodes->get(i))
+              LOGDEBUG << " INVOKE RSYNC  stats ****" << std::hex << vol_id;
               volStatSync(nodes->get(i), vol_id);
         }
     }
