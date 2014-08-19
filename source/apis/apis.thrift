@@ -16,7 +16,8 @@ struct VolumeSettings {
 struct VolumeDescriptor {
        1: required string name,
        2: required i64 dateCreated,
-       3: required VolumeSettings policy
+       3: required VolumeSettings policy,
+       4: required i64 tenantId    // Added for multi-tenancy
 }
 
 struct VolumeStatus {
@@ -34,7 +35,7 @@ enum ErrorCode {
      BAD_REQUEST,
      RESOURCE_ALREADY_EXISTS,
      RESOURCE_NOT_EMPTY,
-     SERVICE_NOT_READY     
+     SERVICE_NOT_READY
 }
 
 exception ApiException {
@@ -77,12 +78,12 @@ service AmService {
         void updateMetadata(1:string domainName, 2:string volumeName, 3:string blobName, 4:TxDescriptor txDesc, 5:map<string, string> metadata)
              throws (1: ApiException e),
 
-        void updateBlob(1:string domainName, 
+        void updateBlob(1:string domainName,
           2:string volumeName, 3:string blobName, 4:TxDescriptor txDesc, 5:binary bytes, 6:i32 length, 7:ObjectOffset objectOffset, 9:bool isLast) throws (1: ApiException e),
 
-        void updateBlobOnce(1:string domainName, 
+        void updateBlobOnce(1:string domainName,
           2:string volumeName, 3:string blobName, 4:i32 blobMode, 5:binary bytes, 6:i32 length, 7:ObjectOffset objectOffset, 8:map<string, string> metadata) throws (1: ApiException e),
-          
+
           void deleteBlob(1:string domainName, 2:string volumeName, 3:string blobName)
             throws (1: ApiException e)
 
@@ -90,9 +91,50 @@ service AmService {
              throws (1: ApiException e),
 }
 
+// Added for multi-tenancy
+struct User {
+    1: i64 id,
+    2: string identifier,
+    3: binary secret,
+    4: bool isFdsAdmin
+}
+
+// Added for multi-tenancy
+struct Tenant {
+    1: i64 id,
+    2: string identifier
+}
+
 
 service ConfigurationService {
-        void createVolume(1:string domainName, 2:string volumeName, 3:VolumeSettings volumeSettings)
+        // // Added for multi-tenancy
+        i64 createTenant(1:string identifier)
+             throws (1: ApiException e),
+
+        list<Tenant> listTenants(1:i32 ignore)
+             throws (1: ApiException e),
+
+        i64 createUser(1:string identifier, 2:binary secret, 3: bool isFdsAdmin)
+             throws (1: ApiException e),
+
+        void assignUserToTenant(1:i64 userId, 2:i64 tenantId)
+             throws (1: ApiException e),
+
+        void revokeUserFromTenant(1:i64 userId, 2:i64 tenantId)
+             throws (1: ApiException e),
+
+        list<User> listUsersForTenant(1:i64 tenantId)
+             throws (1: ApiException e),
+
+        void updateUser(1: i64 userId, 2:string identifier, 3:binary secret, 4: bool isFdsAdmin)
+             throws (1: ApiException e),
+
+
+        // Added for caching
+        i64 configurationVersion(1: i64 ignore)
+             throws (1: ApiException e),
+
+        void createVolume(1:string domainName, 2:string volumeName, 3:VolumeSettings volumeSettings, 4: i64 tenantId)
              throws (1: ApiException e),
 
         void deleteVolume(1:string domainName, 2:string volumeName)
