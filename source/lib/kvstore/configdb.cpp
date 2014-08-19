@@ -61,15 +61,18 @@ std::string ConfigDB::getGlobalDomain() {
 }
 
 bool ConfigDB::setGlobalDomain(ConstString globalDomain) {
+    TRACKMOD();
     try {
         return r.set("global.domain", globalDomain).isOk();
     } catch(const RedisException& e) {
         LOGERROR << e.what();
+        NOMOD();
     }
     return false;
 }
 
 bool ConfigDB::addLocalDomain(ConstString name, int localDomain, int globalDomain) {
+    TRACKMOD();
     try {
         Reply reply = r.sendCommand("sadd %d:domains %d", globalDomain, localDomain);
         if (!reply.wasModified()) {
@@ -78,6 +81,7 @@ bool ConfigDB::addLocalDomain(ConstString name, int localDomain, int globalDomai
         return r.sendCommand("hmset domain:%d id %d name %s", localDomain, localDomain, name.c_str()).isOk(); //NOLINT
     } catch(const RedisException& e) {
         LOGERROR << e.what();
+        NOMOD();
     }
     return false;
 }
@@ -101,6 +105,7 @@ bool ConfigDB::getLocalDomains(std::map<int, std::string>& mapDomains, int globa
 
 // volumes
 bool ConfigDB::addVolume(const VolumeDesc& vol) {
+    TRACKMOD();
     // add the volume to the volume list for the domain
     try {
         Reply reply = r.sendCommand("sadd %d:volumes %ld", vol.localDomainId, vol.volUUID);
@@ -159,20 +164,24 @@ bool ConfigDB::addVolume(const VolumeDesc& vol) {
         LOGWARN << "msg: " << reply.getString();
     } catch(RedisException& e) {
         LOGERROR << e.what();
+        TRACKMOD();
     }
     return false;
 }
 
 bool ConfigDB::updateVolume(const VolumeDesc& volumeDesc) {
+    TRACKMOD();
     try {
         return addVolume(volumeDesc);
     } catch(const RedisException& e) {
         LOGERROR << e.what();
+        NOMOD();
     }
     return false;
 }
 
 bool ConfigDB::deleteVolume(fds_volid_t volumeId, int localDomainId) {
+    TRACKMOD();
     try {
         Reply reply = r.sendCommand("srem %d:volumes %ld", localDomainId, volumeId);
         if (!reply.wasModified()) {
@@ -186,6 +195,7 @@ bool ConfigDB::deleteVolume(fds_volid_t volumeId, int localDomainId) {
         return reply.isOk();
     } catch(RedisException& e) {
         LOGERROR << e.what();
+        NOMOD();
     }
     return false;
 }
@@ -312,16 +322,19 @@ fds_uint64_t ConfigDB::getDltVersionForType(const std::string type, int localDom
 }
 
 bool ConfigDB::setDltType(fds_uint64_t version, const std::string type, int localDomain) {
+    TRACKMOD();
     try {
         Reply reply = r.sendCommand("set %d:dlt:%s %ld", localDomain, type.c_str(), version);
         return reply.isOk();
     } catch(const RedisException& e) {
         LOGCRITICAL << "error with redis " << e.what();
+        NOMOD();
     }
     return false;
 }
 
 bool ConfigDB::storeDlt(const DLT& dlt, const std::string type, int localDomain) {
+    TRACKMOD();
     try {
         // fds_uint64_t version = dlt.getVersion();
         Reply reply = r.sendCommand("sadd %d:dlts %ld", localDomain, dlt.getVersion());
@@ -346,6 +359,7 @@ bool ConfigDB::storeDlt(const DLT& dlt, const std::string type, int localDomain)
         return fSuccess;
     } catch(const RedisException& e) {
         LOGCRITICAL << "error with redis " << e.what();
+        NOMOD();
     }
     return false;
 }
@@ -390,6 +404,7 @@ bool ConfigDB::loadDlts(DLTManager& dltMgr, int localDomain) {
 }
 
 bool ConfigDB::storeDlts(DLTManager& dltMgr, int localDomain) {
+    TRACKMOD();
     try {
         std::vector<fds_uint64_t> vecVersions;
         vecVersions = dltMgr.getDltVersions();
@@ -404,6 +419,7 @@ bool ConfigDB::storeDlts(DLTManager& dltMgr, int localDomain) {
         return true;
     } catch(RedisException& e) {
         LOGERROR << e.what();
+        NOMOD();
     }
     return false;
 }
@@ -424,16 +440,19 @@ fds_uint64_t ConfigDB::getDmtVersionForType(const std::string type, int localDom
 }
 
 bool ConfigDB::setDmtType(fds_uint64_t version, const std::string type, int localDomain) {
+    TRACKMOD();
     try {
         Reply reply = r.sendCommand("set %d:dmt:%s %ld", localDomain, type.c_str(), version);
         return reply.isOk();
     } catch(const RedisException& e) {
         LOGCRITICAL << "error with redis " << e.what();
+        NOMOD();
     }
     return false;
 }
 
 bool ConfigDB::storeDmt(const DMT& dmt, const std::string type, int localDomain) {
+    TRACKMOD();
     try {
         // fds_uint64_t version = dmt.getVersion();
         Reply reply = r.sendCommand("sadd %d:dmts %ld", localDomain, dmt.getVersion());
@@ -459,6 +478,7 @@ bool ConfigDB::storeDmt(const DMT& dmt, const std::string type, int localDomain)
         return fSuccess;
     } catch(const RedisException& e) {
         LOGCRITICAL << "error with redis " << e.what();
+        NOMOD();
     }
     return false;
 }
@@ -484,6 +504,7 @@ bool ConfigDB::getDmt(DMT& dmt, fds_uint64_t version, int localDomain) {
 
 // nodes
 bool ConfigDB::addNode(const NodeInvData& node) {
+    TRACKMOD();
     // add the volume to the volume list for the domain
     int domainId = 0;  // TODO(prem)
     try {
@@ -542,6 +563,7 @@ bool ConfigDB::addNode(const NodeInvData& node) {
         LOGWARN << "msg: " << reply.getString();
     } catch(const RedisException& e) {
         LOGCRITICAL << "error with redis " << e.what();
+        NOMOD();
     }
     return false;
 }
@@ -556,6 +578,7 @@ bool ConfigDB::updateNode(const NodeInvData& node) {
 }
 
 bool ConfigDB::removeNode(const NodeUuid& uuid) {
+    TRACKMOD();
     try {
         int domainId = 0;  // TODO(prem)
         Reply reply = r.sendCommand("srem %d:cluster:nodes %ld", domainId, uuid);
@@ -569,6 +592,7 @@ bool ConfigDB::removeNode(const NodeUuid& uuid) {
         return reply.isOk();
     } catch(RedisException& e) {
         LOGERROR << e.what();
+        NOMOD();
     }
     return false;
 }
@@ -740,6 +764,7 @@ bool ConfigDB::getPolicy(fds_uint32_t volPolicyId, FDS_VolumePolicy& policy, int
 }
 
 bool ConfigDB::addPolicy(const FDS_VolumePolicy& policy, int localDomain) {
+    TRACKMOD();
     try{
         std::string serialized;
 
@@ -752,25 +777,30 @@ bool ConfigDB::addPolicy(const FDS_VolumePolicy& policy, int localDomain) {
         return reply.isOk();
     } catch(const RedisException& e) {
         LOGCRITICAL << "error with redis " << e.what();
+        NOMOD();
     }
     return false;
 }
 
 bool ConfigDB::updatePolicy(const FDS_VolumePolicy& policy, int localDomain) {
+    TRACKMOD();
     try {
         return addPolicy(policy, localDomain);
     } catch(const RedisException& e) {
         LOGERROR << e.what();
+        NOMOD();
     }
     return false;
 }
 
 bool ConfigDB::deletePolicy(fds_uint32_t volPolicyId, int localDomain) {
+    TRACKMOD();
     try{
         Reply reply = r.sendCommand("del %d:volpolicy:%ld", localDomain, volPolicyId);
         return reply.wasModified();
     } catch(const RedisException& e) {
         LOGCRITICAL << "error with redis " << e.what();
+        NOMOD();
     }
     return false;
 }
@@ -812,6 +842,7 @@ int32_t ConfigDB::getNewStreamRegistrationId() {
 }
 
 bool ConfigDB::addStreamRegistration(fpi::StreamingRegistrationMsg& streamReg) {
+    TRACKMOD();
     try {
         boost::shared_ptr<std::string> serialized;
 
@@ -827,6 +858,7 @@ bool ConfigDB::addStreamRegistration(fpi::StreamingRegistrationMsg& streamReg) {
         return reply.isOk();
     } catch(const RedisException& e) {
         LOGCRITICAL << "error with redis " << e.what();
+        NOMOD();
     }
     return false;
 }
@@ -844,6 +876,7 @@ bool ConfigDB::getStreamRegistration(int regId, fpi::StreamingRegistrationMsg& s
 }
 
 bool ConfigDB::removeStreamRegistration(int regId) {
+    TRACKMOD();
     try {
         Reply reply = r.sendCommand("srem streamregs %d", regId);
         if (!reply.wasModified()) {
@@ -858,12 +891,13 @@ bool ConfigDB::removeStreamRegistration(int regId) {
         return true;
     } catch(const RedisException& e) {
         LOGCRITICAL << "error with redis " << e.what();
+        NOMOD();
     }
     return false;
 }
 
 bool ConfigDB::getStreamRegistrations(std::vector<fpi::StreamingRegistrationMsg>& vecReg) {
-        try {
+    try {
         std::vector<long long> regIds; //NOLINT
 
         Reply reply = r.sendCommand("smembers streamregs");
@@ -890,6 +924,7 @@ bool ConfigDB::getStreamRegistrations(std::vector<fpi::StreamingRegistrationMsg>
 }
 
 int64_t ConfigDB::createTenant(const std::string& identifier) {
+    TRACKMOD();
     try {
         // check if the tenant already exists
         std::string idLower = identifier;
@@ -903,10 +938,12 @@ int64_t ConfigDB::createTenant(const std::string& identifier) {
             for (const auto& tenant : tenants) {
                 if (tenant.identifier == identifier) {
                     LOGWARN << "trying to add existing tenant : " << tenant.id;
+                    NOMOD();
                     return tenant.id;
                 }
             }
             LOGWARN << "tenant info missing : " << identifier;
+            NOMOD();
             return 0;
         }
 
@@ -927,6 +964,7 @@ int64_t ConfigDB::createTenant(const std::string& identifier) {
         return tenant.id;
     } catch(const RedisException& e) {
         LOGCRITICAL << "error with redis " << e.what();
+        NOMOD();
     }
 
     return 0;
@@ -952,6 +990,7 @@ bool ConfigDB::listTenants(std::vector<fds::apis::Tenant>& tenants) {
 }
 
 int64_t ConfigDB::createUser(const std::string& identifier, const std::string& secret, bool isAdmin) { //NOLINT
+    TRACKMOD();
     try {
         // check if the user already exists
         std::string idLower = identifier;
@@ -965,10 +1004,12 @@ int64_t ConfigDB::createUser(const std::string& identifier, const std::string& s
             for (const auto& user : users) {
                 if (user.identifier == identifier) {
                     LOGWARN << "trying to add existing user : " << user.id;
+                    NOMOD();
                     return user.id;
                 }
             }
             LOGWARN << "user info missing : " << identifier;
+            NOMOD();
             return 0;
         }
 
@@ -1032,26 +1073,32 @@ bool ConfigDB::getUser(int64_t userId, fds::apis::User& user) {
 }
 
 bool ConfigDB::assignUserToTenant(int64_t userId, int64_t tenantId) {
+    TRACKMOD();
     try {
         Reply reply = r.sendCommand("sadd tenant:%ld:users %ld", tenantId, userId);
         if (!reply.wasModified()) {
             LOGWARN << "user: " << userId << " is already assigned to tenant: " << tenantId;
+            NOMOD();
         }
     } catch(const RedisException& e) {
         LOGCRITICAL << "error with redis " << e.what();
+        NOMOD();
         return false;
     }
     return true;
 }
 
 bool ConfigDB::revokeUserFromTenant(int64_t userId, int64_t tenantId) {
+    TRACKMOD();
     try {
         Reply reply = r.sendCommand("sremove tenant:%ld:users %ld", tenantId, userId);
         if (!reply.wasModified()) {
             LOGWARN << "user: " << userId << " was NOT assigned to tenant: " << tenantId;
+            NOMOD();
         }
     } catch(const RedisException& e) {
         LOGCRITICAL << "error with redis " << e.what();
+        NOMOD();
         return false;
     }
     return true;
@@ -1059,7 +1106,7 @@ bool ConfigDB::revokeUserFromTenant(int64_t userId, int64_t tenantId) {
 
 bool ConfigDB::listUsersForTenant(std::vector<fds::apis::User>& users, int64_t tenantId) {
     fds::apis::User user;
-
+    
     try {
         // get the list of users assigned to the tenant
         Reply reply = r.sendCommand("smembers tenant:%ld:users", tenantId);
@@ -1090,10 +1137,12 @@ bool ConfigDB::listUsersForTenant(std::vector<fds::apis::User>& users, int64_t t
 }
 
 bool ConfigDB::updateUser(int64_t  userId, const std::string& identifier, const std::string& secret, bool isFdsAdmin) { //NOLINT
+    TRACKMOD();
     try {
         fds::apis::User user;
         if (!getUser(userId, user)) {
             LOGWARN << "user does not exist, userid: " << userId;
+            NOMOD();
             throw ConfigException("user id is invalid");
         }
 
@@ -1105,6 +1154,7 @@ bool ConfigDB::updateUser(int64_t  userId, const std::string& identifier, const 
             Reply reply = r.sendCommand("sismember user:list %b", idLower.data(), idLower.length());
             if (reply.getLong() == 1) {
                 LOGWARN << "another user exists with identifier: " << identifier;
+                NOMOD();
                 throw ConfigException("another user exists with identifier");
             }
         }
@@ -1123,6 +1173,7 @@ bool ConfigDB::updateUser(int64_t  userId, const std::string& identifier, const 
         r.sendCommand("hset users %ld %b",user.id, serialized->data(), serialized->length()); //NOLINT
     } catch(const RedisException& e) {
         LOGCRITICAL << "error with redis " << e.what();
+        NOMOD();
         return false;
     }
     return true;

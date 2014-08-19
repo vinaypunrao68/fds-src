@@ -105,8 +105,20 @@ struct ConfigDB : KVStore {
 
   protected:
     void setModified();
+    struct ModificationTracker {
+        bool fModified = true;
+        ConfigDB* cfgDB;
+        explicit ModificationTracker(ConfigDB* cfgDB) : cfgDB(cfgDB) {}
+        ~ModificationTracker() {
+            if (fModified) {
+            cfgDB->setModified();
+            }
+        }
+    };
 };
 
+#define TRACKMOD(...) ModificationTracker modtracker(this)
+#define NOMOD(...) modtracker.fModified = false
 }  // namespace kvstore
 }  // namespace fds
 
