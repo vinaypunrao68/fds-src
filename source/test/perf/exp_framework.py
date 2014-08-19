@@ -16,6 +16,7 @@ import shlex
 #import threading as th
 #from Queue import *
 
+# FIXME: need a class for this
 def get_node_from_ip(nodes, node_ip):
     for k, v in nodes.iteritems():
         if v == node_ip:
@@ -53,6 +54,7 @@ def transfer_file(node, local_f, remote_f, mode):
     ftp.close()
     ssh.close()
 
+# TODO: change all execute_simple in ssh_exec... should work the same!
 def ssh_exec(node, cmd):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -64,6 +66,8 @@ def ssh_exec(node, cmd):
 
 def start_nameserver():
     pass
+
+# FIXME: cmd-server autostart does not really work
 
 class RemoteExecutor:
     def __init__(self, node, options):
@@ -86,6 +90,7 @@ class RemoteExecutor:
                 time.sleep(5)
         else:
             self.proc_map = {}
+
     def start_cmd_server(self, nodename):
         assert self.options.local is False
         #ssh_exec(node_ip,"ps aux|grep cmd-server.py| grep -v grep|wc -l")
@@ -146,8 +151,10 @@ class Monitors():
         self.ns_port = options.ns_port
         for n in options.nodes:
             self.cmds[n] = []
+
     def run(self):
         self.infos = self.start()
+
     def compute_monitors_cmds(self, agent_pid_map):
         print agent_pid_map
         for n, m in agent_pid_map.iteritems():
@@ -159,6 +166,7 @@ class Monitors():
             monitors.append(top_cmd)
             print monitors
             self.cmds[n] = monitors
+
     def start(self):
         infos = {}
         for s in self.options.nodes:
@@ -167,6 +175,7 @@ class Monitors():
             for cmd in self.cmds[s]:
                 infos[rex][cmd] = {"pid" : rex.execute(cmd), "node" : s, "cmd" : cmd}
         return infos
+
     def terminate(self):
         for rex, infos in self.infos.items():
             for cmd, info in infos.items(): 
@@ -185,6 +194,7 @@ class CounterServer:
         task_args = ("counter_server", self.queue)
         self.proc = multiprocessing.Process(target = self._task, args = task_args)
         self.proc.start()
+
     def _task(self, name, queue):
         print "starting udp server ", name
         datafile, datafname = tempfile.mkstemp(prefix = "counters")
@@ -193,6 +203,7 @@ class CounterServer:
         server = SocketServer.UDPServer((HOST, PORT), counter_server.FdsUDPHandler, datafile)
         server.datafile = datafile
         server.serve_forever()
+
     def terminate(self):
         # terminate udp server
         self.proc.terminate()
@@ -204,12 +215,13 @@ class CounterServer:
         shutil.copyfile(datafname, directory + "/counters.dat")    
         #os.close(datafile)
 
-class AgentsPidMap:   # FIXME: this needs to be per node!!!
+class AgentsPidMap:
     def __init__(self, options):
         self.options = options
         self.pid_map = {}
         for n in options.nodes:
             self.pid_map[n] = {}
+
     def compute_pid_map(self):
         if self.options.local == True:
             output = subprocess.check_output(self.options.remote_fds_root + "/source/tools/fds status  | egrep '(pm|om|dm|sm|am)'| awk '{print $1, $4}'", shell = True)  # FIXME: path
@@ -224,21 +236,23 @@ class AgentsPidMap:   # FIXME: this needs to be per node!!!
         else:
             cmd = self.options.local_fds_root + "/source/test/fds-tool.py -f " + self.options.local_fds_root + "/source/fdstool.cfg -s"
             output = subprocess.check_output(shlex.split(cmd))
-            print output
-            agents_strings ={ "om" : "grep com.formationds.om.Main",
-                "am" : "grep com.formationds.am.Main",
+            agents_strings ={ "om" : "com\.formationds\.om\.Main",
+                "am" : "com\.formationds\.am\.Main",
                 "pm" : "plat",
                 "sm" : "StorMgr",
                 "dm" : "DataMgr"}
             for a, s in agents_strings.iteritems():
                 match_string = "\[(\d+\.\d+\.\d+\.\d+)\]\s+\w+\s+(\d+).*" + s + ".*"
-                m = re.match(match_string, output)
-                assert m is not None
-                node_ip = m.group(1)
-                pid = int(m.group(2))
-                self.pid_map[get_node_from_ip(node_ip)][a] = pid
+                for l in output.split("\n"):
+                    m = re.match(match_string, l)
+                    if m is not None:
+                        node_ip = m.group(1)
+                        pid = int(m.group(2))
+                        self.pid_map[get_node_from_ip(self.options.nodes, node_ip)][a] = pid
+
     def get_map(self):
         return self.pid_map
+
     def dump(self, outfile):
         of = open(outfile + "/pidmap","w")
         for n, m in self.pid_map.iteritems():
@@ -249,34 +263,30 @@ class AgentsPidMap:   # FIXME: this needs to be per node!!!
 class FdsCluster():
     def __init__(self, options):
         self.options = options
-        # self.remote_fds_root = "/home/monchier/FDS/dev_counters"
         self.remote_fds_root = options.remote_fds_root
         self.local_fds_root = options.local_fds_root
-        self.rex = RemoteExecutor(self.options.main_node, self.options)
         self.pidmap = AgentsPidMap(self.options)
+
     def get_pidmap(self):
         return self.pidmap.get_map()
+
     def start(self):
         print "starting FDS"
         if self.options.no_fds_start:
-            #output = self.rex.execute_simple(self.remote_fds_root + "/source/tools/fds status")
-            #print output
             self.pidmap.compute_pid_map()
             time.sleep(1)
         elif self.options.single_node == True:
-            output = self.rex.execute_simple(self.remote_fds_root + "/source/tools/fds cleanstart")
+            output = self._rem_exec(self.remote_fds_root + "/source/tools/fds cleanstart")
             print output
             self.pidmap.compute_pid_map()
             time.sleep(10)
         else:
-            # output = self.rex.execute_simple("/fds/sbin/fds-tool.py -f /fds/sbin/fdstool.cfg -c -d -u")
             cmd = self.local_fds_root + "/source/test/fds-tool.py -f " + self.local_fds_root + "/source/fdstool.cfg -c -d -u"
-            output = subprocess.check_output(shlex.split(cmd))
+            output = self._loc_exec(cmd)
             print output
             self.pidmap.compute_pid_map()
             time.sleep(10)
-    def stop(self):
-        pass
+
     def init_test(self, test_name, outdir, test_args = None):
         print "initializing test:", test_name
         self.outdir = outdir
@@ -300,28 +310,14 @@ class FdsCluster():
         outfile = open(self.outdir + "/test.out", "w")
         outfile.write(output)
         outfile.close()
+
     def _run_smoke_test(self):
-        output = self.rex.execute_simple(self.remote_fds_root + "/source/test/fds-primitive-smoke.py --up=false --down=false")
+        output = self._rem_exec(self.remote_fds_root + "/source/test/fds-primitive-smoke.py --up=false --down=false")
         print output
         return output
-    def _run_tgen(self, test_args):
-        cmd = "python /root/traffic_gen.py -t %d -n %d -T %s -s %d -F %d -v %d -u -N %s" % (test_args["threads"],
-                                                                                   test_args["nreqs"],
-                                                                                   test_args["type"],
-                                                                                   test_args["fsize"],
-                                                                                   test_args["nfiles"],
-                                                                                   test_args["nvols"],
-                                                                                   self.options.local_node)
-        # FIXME: hate ssh here
-        print cmd
-        if self.options.test_node != None:
-            output = ssh_exec(self.options.test_node, cmd)#[1].read()
-        else:
-            output = self.rex.execute_simple(cmd)
-        return output
+
     def _init_tgen(self, args):
         if self.options.test_node != None:
-            assert self.options.local == True
             transfer_file(self.options.test_node, self.local_fds_root + "/source/test/traffic_gen.py", "/root/traffic_gen.py", "put")
             ssh_exec(self.options.test_node, "rm -f /tmp/fdstrgen*")
         else:
@@ -329,8 +325,32 @@ class FdsCluster():
                 shutil.copyfile(self.local_fds_root + "/source/test/traffic_gen.py", "/root/traffic_gen.py")
             else:
                 transfer_file(self.options.main_node, self.local_fds_root + "/source/test/traffic_gen.py", "/root/traffic_gen.py", "put")
-            self.rex.execute_simple("rm -f /tmp/fdstrgen*")
+            self._rem_exec("rm -f /tmp/fdstrgen*")
         #self.rex.execute_simple("pkill 'collectl|iostat|top'")
-        #output = self.rex.execute_simple("/usr/bin/curl -v -X PUT http://localhost:8000/volume")
         for i in range(args["nvols"]):
             requests.put("http://%s:8000/volume%d" % (self.options.nodes[self.options.main_node], i));
+
+    def _run_tgen(self, test_args):
+        cmd = "python /root/traffic_gen.py -t %d -n %d -T %s -s %d -F %d -v %d -u -N %s" % (
+                                                                            test_args["threads"],
+                                                                            test_args["nreqs"],
+                                                                            test_args["type"],
+                                                                            test_args["fsize"],
+                                                                            test_args["nfiles"],
+                                                                            test_args["nvols"],
+                                                                            self.options.nodes[self.options.main_node])
+        # FIXME: hate ssh here
+        print cmd
+        if self.options.test_node != None:
+            output = ssh_exec(self.options.test_node, cmd)#[1].read()
+        else:
+            output = self._loc_exec(cmd)
+        return output
+
+    def _rem_exec(self, cmd):
+        output = ssh_exec(self.options.main_node, cmd)
+        return output
+
+    def _loc_exec(self, cmd):
+        output = subprocess.check_output(shlex.split(cmd))
+        return output

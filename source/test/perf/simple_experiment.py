@@ -24,8 +24,8 @@ def create_tests():
     size = 4096   # 4096
     test = dict(template)
     test["type"] = "PUT"
-    test["nreqs"] =  10000  # 100000
-    test["nfiles"] = 1000 # 10000
+    test["nreqs"] =  1000# 10000  # 100000
+    test["nfiles"] = 100 #1000 # 10000
     test["nvols"] = 1 #2
     test["threads"] = 1
     test["fsize"] = size
@@ -74,29 +74,57 @@ def create_tests():
 # TODO: need to streamline the options
 def main():
     parser = OptionParser()
-    #parser.add_option("-d", "--directory", dest = "directory", help = "Directory")
-    #parser.add_option("-d", "--node-name", dest = "node_name", default = "node", help = "Node name")
+
+    # Pyro options
     parser.add_option("-n", "--name-server-ip", dest = "ns_ip", default = "10.1.10.102", help = "IP of the name server")
     parser.add_option("-p", "--name-server-port", dest = "ns_port", type = "int", default = 47672, help = "Port of the name server")
+    parser.add_option("", "--force-cmd-server", dest = "force_cmd_server", action = "store_true", default = False,
+                      help = "Force start of command server")
+
+    # Main FDS cluster configuration
     parser.add_option("-l", "--local", dest = "local", action = "store_true", default = False, help = "Run locally")
-    parser.add_option("-r", "--remote-test-node", dest = "test_node", default = None, help = "Remote test node")
-    parser.add_option("-L", "--local-node", dest = "local_node", default = "localhost", help = "Local node (default is localhost)")
-    parser.add_option("-d", "--experiment-directory", dest = "experiment_directory", default = "experiment", help = "Experiment directory (default is <experiment>)")
-    parser.add_option("-x", "--no-fds-start", dest = "no_fds_start", action = "store_true", default = False, help = "Don't start FDS")
-    parser.add_option("", "--force-cmd-server", dest = "force_cmd_server", action = "store_true", default = False, help = "Force start of command server")
-    parser.add_option("", "--single-node", dest = "single_node", action = "store_true", default = False, help = "Enable single node")
+    parser.add_option("-s", "--single-node", dest = "single_node", action = "store_true", default = False,
+                      help = "Enable single node")
+    parser.add_option("-m", "--main-node", dest = "main_node", default = "tiefighter", help = "Node AM is on")
+    parser.add_option("-M", "--mode", dest = "mode", default = None,
+                      help = "Running mode: <single/multi>-<local/remote>. Supported: single-local, multi-remote")
+
+    # Test configuration
+    parser.add_option("-t", "--test-node", dest = "test_node", default = None,
+                      help = "IP of the node the test node will run from. Default will run from local")
+
+    # Global experiment-level
+    parser.add_option("-d", "--experiment-directory", dest = "experiment_directory", default = "experiment",
+                      help = "Experiment directory (default is <experiment>)")
+
+    # FdsCluster
+    parser.add_option("-x", "--no-fds-start", dest = "no_fds_start", action = "store_true", default = False,
+                      help = "Don't start FDS")
 
     (options, args) = parser.parse_args()
-    options.remote_fds_root =  "/home/monchier/FDS/dev"
-    options.local_fds_root =  "/home/monchier/FDS/dev"
+
+    # Hardcoded options
+
+    # FDS paths
+    options.remote_fds_root = "/home/monchier/FDS/dev"
+    options.local_fds_root = "/home/monchier/FDS/dev"
+    # FDS nodes
     options.nodes = {
         #"node1" : "10.1.10.16",
-        #"node2" : "10.1.10.17",
-        #"node3" : "10.1.10.18"
-        "tiefighter" : "10.1.10.102"
+        "node2" : "10.1.10.17",
+        "node3" : "10.1.10.18"
+        # "tiefighter" : "10.1.10.102"
     }
-    options.main_node = "tiefighter"
-    # options.main_node = "node3"
+
+    if "single" in options.mode:
+        options.single_node = True
+    elif "multi" in options.mode:
+        options.single_node = False
+    if "local" in options.mode:
+        options.local = True
+    elif "remote" in options.mode:
+        options.local = False
+    print "Options:", options
 
     if not os.path.exists(options.experiment_directory):
         os.makedirs(options.experiment_directory)
@@ -108,6 +136,7 @@ def main():
     fds = FdsCluster(options)
     fds.start()
 
+    # Execute tests
 
     print "--- Number of tests to run", len(tests), "---"
     for t in tests:
