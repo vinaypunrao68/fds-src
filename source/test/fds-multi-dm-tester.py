@@ -93,21 +93,24 @@ class CommitProbeWorker(threading.Thread):
     def __init__(self, worker_path):
         self.stdout = None
         self.stderr = None
+        self.return_code = None
         self.path = worker_path
         threading.Thread.__init__(self)
 
     def run(self):
-        print self.path
+        print 'Thread started!'
         os.chdir(self.path)
         p = subprocess.Popen('./commit-log-probe',
-                shell=False,
+                shell=True,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE)
+                #stderr=subprocess.PIPE
+                )
         self.stdout, self.stderr = p.communicate()
+        print 'Thread complete!'
         self.return_code = p.returncode
 
-def get_script_path():
-    return os.path.dirname(os.path.realpath(sys.argv[0]))
+def get_root_path():
+    return os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(sys.argv[0])), '..'))
 
 def reset_fds():
     ''' Restarts FDS system.  Assumes we are in test directory!'''
@@ -120,51 +123,52 @@ def fill_staging_area():
     is full, I/O should fail.'''
     commit_log_size = 1048576
 
-    # There must be a better way to navigate to source/config/etc...
-    original_path = get_script_path()
-    conf_path = get_script_path().replace('/test', '') + '/config/etc/'
-    os.chdir(conf_path)
+    root_path = get_root_path()
+    conf_path = os.path.join(root_path, 'config/etc/')
+    print os.chdir(conf_path)
+    print os.system('git checkout -f platform.conf')
     print 'CWD:', os.getcwd()
 
     # Edit config
     for line in fileinput.input('platform.conf', inplace=1):
         print line.replace(DEFAULT_COMMIT_LOG, 'commit_log_size = ' + str(commit_log_size)).rstrip()
     #print 'commit_log_size = ' + str(commit_log_size)
-    print os.system('cat /fds/etc/platform.conf | grep commit_log')
+    print os.system('cat ' + conf_path + '/platform.conf | grep commit_log')
 
     # Navigate back to script's WD and reset FDS (should update with new config)
-    os.chdir(original_path)
+    os.chdir(os.path.join(root_path, 'tools/'))
     reset_fds()
 
     # Create a JSon for the dm commit log probe to parse
-    os.chdir(original_path.replace('/test', '') + '/unit-test/fds-probe/dataset/')
-    # probe should crash
-    os.system('./tvc_json.py -c -n 20000 > commit-log.json')
+    os.chdir(os.path.join(root_path, 'unit-test/fds-probe/dataset/'))
+    print os.system('./tvc_json.py -c -n 20000 > commit-log.json')
 
     # Bring up the probe
-    worker_path = original_path.replace('/test', '') + '/Build/linux-x86_64.debug/tests/'
-    #os.chdir(original_path.replace('test', '') + 'Build/linux-x86_64.debug/tests/')
+    worker_path = os.path.join(root_path, 'Build/linux-x86_64.debug/tests/')
+    print 'Worker path:', worker_path
     worker = CommitProbeWorker(worker_path)
     worker.start()
+    time.sleep(SLEEP)
 
     # Curl the JSon to the probe
-    os.chdir(original_path.replace('/test', '') + '/unit-test/fds-probe/dataset/')
-    os.system('curl -X PUT --data @commit-log.json http://localhost:8080/abc')
-    os.chdir(original_path.replace('/test', '') + '/unit-test/fds-probe/dataset/')
-    os.system('rm commit-log.json')
+    print os.chdir(os.path.join(root_path, 'unit-test/fds-probe/dataset/'))
+    print os.system('curl -X PUT --data @commit-log.json http://localhost:8080/abc')
+    print os.system('rm commit-log.json')
 
     # Clean up core files
-    os.chdir(original_path.replace('/test', '') + '/Build/linux-x86_64.debug/tests/')
-    os.system('rm core.*')
+    rem_path = os.path.join(root_path, 'Build/linux-x86_64.debug/tests/')
+    print rem_path
+    print os.system('rm core.*')
 
     # Reset config to original state
     os.chdir(conf_path)
     os.system('git checkout -f platform.conf')
 
     # Cleanup
-    os.chdir(original_path)
-    worker.join()
+    os.chdir(os.path.join(root_path, 'test'))
+    worker.join(10)
     probe_retcode = worker.return_code
+    assert(probe_retcode != None)
     if probe_retcode != 0:
         return 0
     else:
@@ -314,7 +318,7 @@ def main():
     # Quit FDS
     os.system('./../tools/fds stop')
 
-    final_retcode = multi_blob_write_result + blob_write_commit_result + blob_write_incomplete_result #+ fill_staging_area_result
+    final_retcode = multi_blob_write_result + blob_write_commit_result + blob_write_incomplete_result + fill_staging_area_result
     return final_retcode
 
 if __name__ == '__main__':
