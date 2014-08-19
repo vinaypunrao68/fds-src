@@ -9,7 +9,7 @@
 #include <util/Log.h>
 #include <stdlib.h>
 #include <fdsp_utils.h>
-
+#include <util/timeutils.h>
 namespace fds { namespace kvstore {
 using redis::Reply;
 using redis::RedisException;
@@ -22,6 +22,24 @@ ConfigDB::ConfigDB(const std::string& host,
 
 ConfigDB::~ConfigDB() {
     LOGNORMAL << "destroying configdb";
+}
+
+fds_uint64_t ConfigDB::getLastModTimeStamp() {
+    try {
+        return r.get("config.lastmod").getLong();
+    } catch(const RedisException& e) {
+        LOGERROR << e.what();
+    }
+
+    return 0;
+}
+
+void ConfigDB::setModified() {
+    try {
+        Reply reply = r.sendCommand("set config.lastmod %ld", fds::util::getTimeStampMillis());
+    } catch(const RedisException& e) {
+        LOGERROR << e.what();
+    }
 }
 
 // domains
@@ -862,6 +880,30 @@ bool ConfigDB::getStreamRegistrations(std::vector<fpi::StreamingRegistrationMsg>
     }
     return false;
 }
+
+int64_t ConfigDB::createTenant(const std::string& identifier) {
+    return 0;
+}
+
+void ConfigDB::listTenants(std::vector<fds::apis::Tenant>& tenants) {
+}
+
+int64_t ConfigDB::createUser(const std::string& identifier, const std::string& secret, bool isAdmin) { //NOLINT
+    return 0;
+}
+
+void ConfigDB::assignUserToTenant(int64_t userId, int64_t tenantId) {
+}
+
+void ConfigDB::revokeUserFromTenant(int64_t userId, int64_t tenantId) {
+}
+
+void ConfigDB::listUsersForTenant(std::vector<fds::apis::User>& users, int64_t tenantId) {
+}
+
+void ConfigDB::updateUser(int64_t  userId, const std::string& identifier, const std::string& secret, bool isFdsAdmin) { //NOLINT
+}
+
 
 }  // namespace kvstore
 }  // namespace fds
