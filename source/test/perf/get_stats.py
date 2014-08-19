@@ -85,13 +85,14 @@ def exist_exp():
     else:
         return False
 
-def compute_pidmap(node):
+def compute_pidmap():
     file = open("%s/pidmap" % (options.directory),"r")
     for l in file:
-        m = re.search("(am|om|dm|sm)\s*:\s*(\d+)",l)
+        m = re.search("([\w-]+):(am|om|dm|sm)\s*:\s*(\d+)",l)
         if m is not None:
-            agent = m.group(1)
-            pid = int(m.group(2))
+            node = m.group(1)
+            agent = m.group(2)
+            pid = int(m.group(3))
             if not node in g_pidmap:
                 g_pidmap[node] = {}
             g_pidmap[node][agent] = pid
@@ -128,19 +129,19 @@ def ma(v, w):
 def getmax(series, window = 5, skipbeg = 2, skipend = 2):
     _s = series[skipbeg:len(series)-skipend]
     if len(_s) == 0:
-        return None
+        return 0
     _ma = ma(_s, window)
     if len(_ma) == 0:
-        return None
+        return 0
     return max(_ma)
 
 def getavg(series, window = 5, skipbeg = 2, skipend = 2):
     _s = series[skipbeg:len(series)-skipend]
     if len(_s) == 0:
-        return None
+        return 0
     _ma = ma(_s, window)
     if len(_ma) == 0:
-        return None
+        return 0
     return sum(_ma)/len(_ma)
 
 #g_drives
@@ -176,14 +177,14 @@ def print_counter(counters, agent, counter, ctype):
     series = counters.get_cntr(c_node, agent, counter, ctype)
     if series is not None:
         for v in series:
-            print agent + "-" + counter + ", ", getmax(series[v][0])/1e6, ", "
+            print agent + "-" + counter + ", ", getmax(series[v][0])/1e6, ", ",
     else:
-        print agent + "-" + counter + ", ", -1, ", "
+        print agent + "-" + counter + ", ", 0, ", ",
 
 # FIXME: multivolumes!
 
 def main():
-    compute_pidmap("tiefighter")
+    compute_pidmap()
     counters = Counters()
     c_file = open(options.directory + "/counters.dat")
     counters.parse(c_file.read())
