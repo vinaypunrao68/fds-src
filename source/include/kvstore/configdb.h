@@ -15,8 +15,15 @@
 #include <fds_dmt.h>
 #include <fdsp/fds_stream_types.h>
 #include <apis/apis_types.h>
+#include <exception>
 namespace fds { namespace kvstore {
 using PolicyInfo = fpi::FDSP_PolicyInfoType;
+
+struct ConfigException : std::exception {
+    std::string msg;
+    explicit ConfigException(const std::string& msg);
+    virtual const char* what() const noexcept;
+};
 
 struct ConfigDB : KVStore {
     ConfigDB(const std::string& host = "localhost", uint port = 6379, uint poolsize = 10);
@@ -87,12 +94,14 @@ struct ConfigDB : KVStore {
 
     // tenant stuff
     int64_t createTenant(const std::string& identifier);
-    void listTenants(std::vector<fds::apis::Tenant>& tenants);
+    bool listTenants(std::vector<fds::apis::Tenant>& tenants);
     int64_t createUser(const std::string& identifier, const std::string& secret, bool isAdmin); //NOLINT
-    void assignUserToTenant(int64_t userId, int64_t tenantId);
-    void revokeUserFromTenant(int64_t userId, int64_t tenantId);
-    void listUsersForTenant(std::vector<fds::apis::User>& users, int64_t tenantId);
-    void updateUser(int64_t  userId, const std::string& identifier, const std::string& secret, bool isFdsAdmin); //NOLINT
+    bool getUser(int64_t userId, fds::apis::User& user);
+    bool listUsers(std::vector<fds::apis::User>& users);
+    bool assignUserToTenant(int64_t userId, int64_t tenantId);
+    bool revokeUserFromTenant(int64_t userId, int64_t tenantId);
+    bool listUsersForTenant(std::vector<fds::apis::User>& users, int64_t tenantId);
+    bool updateUser(int64_t  userId, const std::string& identifier, const std::string& secret, bool isFdsAdmin); //NOLINT
 
   protected:
     void setModified();

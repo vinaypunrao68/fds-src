@@ -10,9 +10,17 @@
 #include <stdlib.h>
 #include <fdsp_utils.h>
 #include <util/timeutils.h>
+#include <algorithm>
 namespace fds { namespace kvstore {
 using redis::Reply;
 using redis::RedisException;
+
+ConfigException::ConfigException(const std::string& msg) : msg(msg) {
+}
+
+const char* ConfigException::what() const noexcept{
+    return msg.c_str();
+}
 
 ConfigDB::ConfigDB(const std::string& host,
                    uint port,
@@ -882,28 +890,243 @@ bool ConfigDB::getStreamRegistrations(std::vector<fpi::StreamingRegistrationMsg>
 }
 
 int64_t ConfigDB::createTenant(const std::string& identifier) {
+    try {
+        // check if the tenant already exists
+        std::string idLower = identifier;
+        std::transform(idLower.begin(), idLower.end(), idLower.begin(), ::tolower);
+
+        Reply reply = r.sendCommand("sismember tenant:list %b", idLower.data(), idLower.length());
+        if (reply.getLong() == 1) {
+            // the tenant already exists
+            std::vector<fds::apis::Tenant> tenants;
+            listTenants(tenants);
+            for (const auto& tenant : tenants) {
+                if (tenant.identifier == identifier) {
+                    LOGWARN << "trying to add existing tenant : " << tenant.id;
+                    return tenant.id;
+                }
+            }
+            LOGWARN << "tenant info missing : " << identifier;
+            return 0;
+        }
+
+        // get new id
+        reply = r.sendCommand("incr tenant:nextid");
+
+        fds::apis::Tenant tenant;
+        tenant.id = reply.getLong();
+        tenant.identifier = identifier;
+
+        r.sendCommand("sadd tenant:list %b", idLower.data(), idLower.length());
+
+        // serialize
+        boost::shared_ptr<std::string> serialized;
+        fds::serializeFdspMsg(tenant, serialized);
+
+        r.sendCommand("hset tenants %ld %b",tenant.id, serialized->data(), serialized->length()); //NOLINT
+        return tenant.id;
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+    }
+
     return 0;
 }
 
-void ConfigDB::listTenants(std::vector<fds::apis::Tenant>& tenants) {
+bool ConfigDB::listTenants(std::vector<fds::apis::Tenant>& tenants) {
+    fds::apis::Tenant tenant;
+
+    try {
+        Reply reply = r.sendCommand("hvals tenants");
+        StringList strings;
+        reply.toVector(strings);
+
+        for (const auto& value : strings) {
+            fds::deserializeFdspMsg(value, tenant);
+            tenants.push_back(tenant);
+        }
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+        return false;
+    }
+    return true;
 }
 
 int64_t ConfigDB::createUser(const std::string& identifier, const std::string& secret, bool isAdmin) { //NOLINT
+    try {
+        // check if the user already exists
+        std::string idLower = identifier;
+        std::transform(idLower.begin(), idLower.end(), idLower.begin(), ::tolower);
+
+        Reply reply = r.sendCommand("sismember user:list %b", idLower.data(), idLower.length());
+        if (reply.getLong() == 1) {
+            // the user already exists
+            std::vector<fds::apis::User> users;
+            listUsers(users);
+            for (const auto& user : users) {
+                if (user.identifier == identifier) {
+                    LOGWARN << "trying to add existing user : " << user.id;
+                    return user.id;
+                }
+            }
+            LOGWARN << "user info missing : " << identifier;
+            return 0;
+        }
+
+        fds::apis::User user;
+        // get new id
+        reply = r.sendCommand("incr user:nextid");
+        user.id = reply.getLong();
+        user.identifier = identifier;
+        user.secret = secret;
+        user.isFdsAdmin = isAdmin;
+
+        r.sendCommand("sadd user:list %b", idLower.data(), idLower.length());
+
+        // serialize
+        boost::shared_ptr<std::string> serialized;
+        fds::serializeFdspMsg(user, serialized);
+
+        r.sendCommand("hset users %ld %b",user.id, serialized->data(), serialized->length()); //NOLINT
+        return user.id;
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+    }
+
     return 0;
 }
 
-void ConfigDB::assignUserToTenant(int64_t userId, int64_t tenantId) {
+bool ConfigDB::listUsers(std::vector<fds::apis::User>& users) {
+    fds::apis::User user;
+
+    try {
+        Reply reply = r.sendCommand("hvals users");
+        StringList strings;
+        reply.toVector(strings);
+
+        for (const auto& value : strings) {
+            fds::deserializeFdspMsg(value, user);
+            users.push_back(user);
+        }
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+        return false;
+    }
+    return true;
 }
 
-void ConfigDB::revokeUserFromTenant(int64_t userId, int64_t tenantId) {
+bool ConfigDB::getUser(int64_t userId, fds::apis::User& user) {
+    try {
+        Reply reply = r.sendCommand("hget users %ld", userId);
+
+        if (reply.isNil()) {
+            LOGWARN << "userinfo does not exist, userid: " << userId;
+            return false;
+        }
+
+        fds::deserializeFdspMsg(reply.getString(), user);
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+        return false;
+    }
+    return true;
 }
 
-void ConfigDB::listUsersForTenant(std::vector<fds::apis::User>& users, int64_t tenantId) {
+bool ConfigDB::assignUserToTenant(int64_t userId, int64_t tenantId) {
+    try {
+        Reply reply = r.sendCommand("sadd tenant:%ld:users %ld", tenantId, userId);
+        if (!reply.wasModified()) {
+            LOGWARN << "user: " << userId << " is already assigned to tenant: " << tenantId;
+        }
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+        return false;
+    }
+    return true;
 }
 
-void ConfigDB::updateUser(int64_t  userId, const std::string& identifier, const std::string& secret, bool isFdsAdmin) { //NOLINT
+bool ConfigDB::revokeUserFromTenant(int64_t userId, int64_t tenantId) {
+    try {
+        Reply reply = r.sendCommand("sremove tenant:%ld:users %ld", tenantId, userId);
+        if (!reply.wasModified()) {
+            LOGWARN << "user: " << userId << " was NOT assigned to tenant: " << tenantId;
+        }
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+        return false;
+    }
+    return true;
 }
 
+bool ConfigDB::listUsersForTenant(std::vector<fds::apis::User>& users, int64_t tenantId) {
+    fds::apis::User user;
+
+    try {
+        // get the list of users assigned to the tenant
+        Reply reply = r.sendCommand("smembers tenant:%ld:users", tenantId);
+        StringList strings;
+        reply.toVector(strings);
+        std::string userlist;
+        userlist.reserve(2048);
+
+        for (const auto& value : strings) {
+            userlist.append(value);
+            userlist.append(" ");
+        }
+
+        LOGDEBUG << "users for tenant:" << tenantId << " are [" << userlist << "]";
+
+        reply = r.sendCommand("hmget users %b", userlist.data(), userlist.length());
+        strings.clear();
+        reply.toVector(strings);
+        for (const auto& value : strings) {
+            fds::deserializeFdspMsg(value, user);
+            users.push_back(user);
+        }
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+        return false;
+    }
+    return true;
+}
+
+bool ConfigDB::updateUser(int64_t  userId, const std::string& identifier, const std::string& secret, bool isFdsAdmin) { //NOLINT
+    try {
+        fds::apis::User user;
+        if (!getUser(userId, user)) {
+            LOGWARN << "user does not exist, userid: " << userId;
+            throw ConfigException("user id is invalid");
+        }
+
+        std::string idLower = identifier;
+        std::transform(idLower.begin(), idLower.end(), idLower.begin(), ::tolower);
+
+        // check if the identifier is changing ..
+        if (0 != strcasecmp(identifier.c_str(), user.identifier.c_str())) {
+            Reply reply = r.sendCommand("sismember user:list %b", idLower.data(), idLower.length());
+            if (reply.getLong() == 1) {
+                LOGWARN << "another user exists with identifier: " << identifier;
+                throw ConfigException("another user exists with identifier");
+            }
+        }
+
+        // now set the new user info
+        user.identifier = identifier;
+        user.secret = secret;
+        user.isFdsAdmin = isFdsAdmin;
+
+        r.sendCommand("sadd user:list %b", idLower.data(), idLower.length());
+
+        // serialize
+        boost::shared_ptr<std::string> serialized;
+        fds::serializeFdspMsg(user, serialized);
+
+        r.sendCommand("hset users %ld %b",user.id, serialized->data(), serialized->length()); //NOLINT
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+        return false;
+    }
+    return true;
+}
 
 }  // namespace kvstore
 }  // namespace fds
