@@ -3,13 +3,11 @@ package com.formationds.xdi;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.apis.ApiException;
-import com.formationds.apis.ConfigurationService;
-import com.formationds.apis.VolumeDescriptor;
-import com.formationds.apis.VolumeSettings;
+import com.formationds.apis.*;
 import com.formationds.streaming.StreamingRegistrationMsg;
 import org.apache.thrift.TException;
 
+import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -23,9 +21,49 @@ public class CachingConfigurationService implements ConfigurationService.Iface {
     }
 
     @Override
-    public void createVolume(String domainName, String volumeName, VolumeSettings volumeSettings) throws ApiException, TException {
-        service.createVolume(domainName, volumeName, volumeSettings);
+    public void createVolume(String domainName, String volumeName, VolumeSettings volumeSettings, long tenantId) throws ApiException, TException {
+        service.createVolume(domainName, volumeName, volumeSettings, 0);
         volumeCache.clear();
+    }
+
+    @Override
+    public long createTenant(String identifier) throws ApiException, TException {
+        return 0;
+    }
+
+    @Override
+    public List<Tenant> listTenants(int ignore) throws ApiException, TException {
+        return null;
+    }
+
+    @Override
+    public long createUser(String identifier, ByteBuffer secret, boolean isFdsAdmin) throws ApiException, TException {
+        return 0;
+    }
+
+    @Override
+    public void assignUserToTenant(long userId, long tenantId) throws ApiException, TException {
+
+    }
+
+    @Override
+    public void revokeUserFromTenant(long userId, long tenantId) throws ApiException, TException {
+
+    }
+
+    @Override
+    public List<User> listUsersForTenant(long tenantId) throws ApiException, TException {
+        return null;
+    }
+
+    @Override
+    public void updateUser(long userId, String identifier, ByteBuffer secret, boolean isFdsAdmin) throws ApiException, TException {
+
+    }
+
+    @Override
+    public long configurationVersion(long ignore) throws ApiException, TException {
+        return 0;
     }
 
     @Override

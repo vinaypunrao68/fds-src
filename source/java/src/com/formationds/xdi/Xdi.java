@@ -41,7 +41,7 @@ public class Xdi {
     }
 
     public void createVolume(String domainName, String volumeName, VolumeSettings volumePolicy) throws ApiException, TException {
-        config.createVolume(domainName, volumeName, volumePolicy);
+        config.createVolume(domainName, volumeName, volumePolicy, 0);
         SetVolumeQosParams.setVolumeQos(legacyConfig, volumeName, 0, 10, 0);
     }
 
