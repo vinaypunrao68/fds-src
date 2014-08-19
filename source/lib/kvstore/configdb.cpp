@@ -322,19 +322,16 @@ fds_uint64_t ConfigDB::getDltVersionForType(const std::string type, int localDom
 }
 
 bool ConfigDB::setDltType(fds_uint64_t version, const std::string type, int localDomain) {
-    TRACKMOD();
     try {
         Reply reply = r.sendCommand("set %d:dlt:%s %ld", localDomain, type.c_str(), version);
         return reply.isOk();
     } catch(const RedisException& e) {
         LOGCRITICAL << "error with redis " << e.what();
-        NOMOD();
     }
     return false;
 }
 
 bool ConfigDB::storeDlt(const DLT& dlt, const std::string type, int localDomain) {
-    TRACKMOD();
     try {
         // fds_uint64_t version = dlt.getVersion();
         Reply reply = r.sendCommand("sadd %d:dlts %ld", localDomain, dlt.getVersion());
@@ -359,7 +356,6 @@ bool ConfigDB::storeDlt(const DLT& dlt, const std::string type, int localDomain)
         return fSuccess;
     } catch(const RedisException& e) {
         LOGCRITICAL << "error with redis " << e.what();
-        NOMOD();
     }
     return false;
 }
@@ -404,7 +400,6 @@ bool ConfigDB::loadDlts(DLTManager& dltMgr, int localDomain) {
 }
 
 bool ConfigDB::storeDlts(DLTManager& dltMgr, int localDomain) {
-    TRACKMOD();
     try {
         std::vector<fds_uint64_t> vecVersions;
         vecVersions = dltMgr.getDltVersions();
@@ -419,7 +414,6 @@ bool ConfigDB::storeDlts(DLTManager& dltMgr, int localDomain) {
         return true;
     } catch(RedisException& e) {
         LOGERROR << e.what();
-        NOMOD();
     }
     return false;
 }
@@ -440,19 +434,16 @@ fds_uint64_t ConfigDB::getDmtVersionForType(const std::string type, int localDom
 }
 
 bool ConfigDB::setDmtType(fds_uint64_t version, const std::string type, int localDomain) {
-    TRACKMOD();
     try {
         Reply reply = r.sendCommand("set %d:dmt:%s %ld", localDomain, type.c_str(), version);
         return reply.isOk();
     } catch(const RedisException& e) {
         LOGCRITICAL << "error with redis " << e.what();
-        NOMOD();
     }
     return false;
 }
 
 bool ConfigDB::storeDmt(const DMT& dmt, const std::string type, int localDomain) {
-    TRACKMOD();
     try {
         // fds_uint64_t version = dmt.getVersion();
         Reply reply = r.sendCommand("sadd %d:dmts %ld", localDomain, dmt.getVersion());
@@ -478,7 +469,6 @@ bool ConfigDB::storeDmt(const DMT& dmt, const std::string type, int localDomain)
         return fSuccess;
     } catch(const RedisException& e) {
         LOGCRITICAL << "error with redis " << e.what();
-        NOMOD();
     }
     return false;
 }
