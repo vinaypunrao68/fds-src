@@ -48,6 +48,12 @@ function make_pkg_controller()
     echo cp openrc.sh $dest_ctrl/
     cp openrc.sh $dest_ctrl/
 
+    echo cp openstack_get_config.py $dest_ctrl/
+    cp openstack_get_config.py $dest_ctrl/
+
+    echo cp openstack_status.py $dest_ctrl/
+    cp openstack_status.py $dest_ctrl/
+
     echo cp $control/fds_id_rsa $dest_ctrl/
     cp $control/fds_id_rsa $dest_ctrl/
 
