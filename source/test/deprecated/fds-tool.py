@@ -13,10 +13,6 @@ if __name__ == '__main__':
                       help = 'configuration file (e.g. sample.cfg)', metavar = 'FILE')
     parser.add_option('-v', '--verbose', action = 'store_true', dest = 'verbose',
                       help = 'enable verbosity')
-    parser.add_option('-p', '--package', action = 'store_true', dest = 'make_pkg',
-                      help = 'package fds tar ball')
-    parser.add_option('-i', '--install', action = 'store_true', dest = 'clus_inst',
-                      help = 'install fds package to remote machines')
     parser.add_option('-u', '--up', action = 'store_true', dest = 'clus_up',
                       help = 'bring up cluster')
     parser.add_option('--reboot', action = 'store_true', dest = 'reboot',
@@ -40,29 +36,13 @@ if __name__ == '__main__':
         print "You need to pass config file"
         sys.exit(1)
 
-    # Packaging
-    env = inst.FdsEnv('.')
-    pkg = inst.FdsPackage(env)
-    if options.make_pkg:
-        print "Make fds package from ", env.get_fds_source()
-        pkg.package_tar()
-        if options.config_file is None:
-            sys.exit(0)
-
     cfg = fdscfg.FdsConfigRun(None, options)
 
     # Get all the configuration
     nodes = cfg.rt_get_obj('cfg_nodes')
     ams   = cfg.rt_get_obj('cfg_am')
-    cli   = cfg.rt_get_obj('cfg_cli')
-    steps = cfg.rt_get_obj('cfg_scenarios')
+    cli = cfg.rt_get_obj('cfg_cli')
     start_om = True
-
-    # Install package
-    if options.clus_inst:
-        for n in nodes:
-            n.nd_install_rmt_pkg()
-        exit(0)
 
     # filter nodes and ams based on the target
     if options.target:
@@ -155,13 +135,3 @@ if __name__ == '__main__':
         am.am_start_service()
     print "Waiting for all commands to complete before existing"
     time.sleep(30) # Do not remove this sleep
-
-    #TODO: Add support for scenarios
-    #for p in pols:
-    #    p.policy_apply_cfg(cli)
-
-    # If we have scenarios to run steps, run them
-    #if len(steps):
-    #    for sce in steps:
-    #        sce.start_scenario()
-    #    sys.exit(0)
