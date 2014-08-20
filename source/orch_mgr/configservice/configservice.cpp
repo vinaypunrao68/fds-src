@@ -72,37 +72,42 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
 
     int64_t createTenant(boost::shared_ptr<std::string>& identifier) {
-        return 0;
+        return configDB->createTenant(*identifier);
     }
 
     void listTenants(std::vector<Tenant> & _return, boost::shared_ptr<int32_t>& ignore) {
+        configDB->listTenants(_return);
     }
 
     int64_t createUser(boost::shared_ptr<std::string>& identifier,
                        boost::shared_ptr<std::string>& secret,
                        boost::shared_ptr<bool>& isFdsAdmin) {
-        return 0;
+        return configDB->createUser(*identifier, *secret, *isFdsAdmin);
     }
 
     void assignUserToTenant(boost::shared_ptr<int64_t>& userId,
                             boost::shared_ptr<int64_t>& tenantId) {
+        configDB->assignUserToTenant(*userId, *tenantId);
     }
 
     void revokeUserFromTenant(boost::shared_ptr<int64_t>& userId,
                               boost::shared_ptr<int64_t>& tenantId) {
+        configDB->revokeUserFromTenant(*userId, *tenantId);
     }
 
     void listUsersForTenant(std::vector<User> & _return, boost::shared_ptr<int64_t>& tenantId) {
+        configDB->listUsersForTenant(_return, *tenantId);
     }
 
     void updateUser(boost::shared_ptr<int64_t>& userId,
                     boost::shared_ptr<std::string>& identifier,
                     boost::shared_ptr<std::string>& secret,
                     boost::shared_ptr<bool>& isFdsAdmin) {
+        configDB->updateUser(*userId, *identifier, *secret, *isFdsAdmin);
     }
 
     int64_t configurationVersion(boost::shared_ptr<int64_t>& ignore) {
-        return 0;
+        return configDB->getLastModTimeStamp();
     }
 
     void createVolume(boost::shared_ptr<std::string>& domainName,

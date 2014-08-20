@@ -227,8 +227,14 @@ class AbortBlobTxReq : public FdsBlobReq {
             FdsBlobReq(FDS_ABORT_BLOB_TX, _volid, _blob_name, 0, 0, 0, _cb),
             txDesc(_txDesc) {
         setVolumeName(_vol_name);
+        e2eReqPerfCtx.type = AM_ABORT_BLOB_OBJ_REQ;
+        e2eReqPerfCtx.name = "volume:" + std::to_string(_volid);
+        e2eReqPerfCtx.reset_volid(_volid);
+
+        fds::PerfTracer::tracePointBegin(e2eReqPerfCtx);
     }
     ~AbortBlobTxReq() {
+        fds::PerfTracer::tracePointEnd(e2eReqPerfCtx);
     }
 
     BlobTxId::const_ptr getTxId() const {
@@ -252,8 +258,14 @@ class CommitBlobTxReq : public FdsBlobReq {
             FdsBlobReq(FDS_COMMIT_BLOB_TX, _volid, _blob_name, 0, 0, 0, _cb),
             txDesc(_txDesc) {
         setVolumeName(_vol_name);
+        e2eReqPerfCtx.type = AM_COMMIT_BLOB_OBJ_REQ;
+        e2eReqPerfCtx.name = "volume:" + std::to_string(_volid);
+        e2eReqPerfCtx.reset_volid(_volid);
+
+        fds::PerfTracer::tracePointBegin(e2eReqPerfCtx);
     }
     ~CommitBlobTxReq() {
+        fds::PerfTracer::tracePointEnd(e2eReqPerfCtx);
     }
 
     BlobTxId::const_ptr getTxId() const {
@@ -279,9 +291,15 @@ class StartBlobTxReq : public FdsBlobReq {
             FdsBlobReq(FDS_START_BLOB_TX, _volid, _blob_name, 0, 0, 0, _cb),
             volumeName(_vol_name), blobMode(_blob_mode) {
         setVolumeName(_vol_name);
+        e2eReqPerfCtx.type = AM_START_BLOB_OBJ_REQ;
+        e2eReqPerfCtx.name = "volume:" + std::to_string(_volid);
+        e2eReqPerfCtx.reset_volid(_volid);
+
+        fds::PerfTracer::tracePointBegin(e2eReqPerfCtx);
     }
 
     ~StartBlobTxReq() {
+        fds::PerfTracer::tracePointEnd(e2eReqPerfCtx);
     }
 
     fds_int32_t getBlobMode() const {
@@ -306,6 +324,11 @@ class StatBlobReq : public FdsBlobReq {
             FdsBlobReq(FDS_STAT_BLOB, _volid, _blob_name, _blob_offset,
                        _data_len, _data_buf, cb) {
         setVolumeName(_vol_name);
+        e2eReqPerfCtx.type = AM_STAT_BLOB_OBJ_REQ;
+        e2eReqPerfCtx.name = "volume:" + std::to_string(volId);
+        e2eReqPerfCtx.reset_volid(volId);
+
+        fds::PerfTracer::tracePointBegin(e2eReqPerfCtx);
     }
 
     StatBlobReq(fds_volid_t          _volid,
@@ -323,7 +346,7 @@ class StatBlobReq : public FdsBlobReq {
     }
 
     virtual ~StatBlobReq() {
-        fds::PerfTracer::tracePointEnd(e2eReqPerfCtx); 
+        fds::PerfTracer::tracePointEnd(e2eReqPerfCtx);
     }
 };
 
@@ -348,7 +371,7 @@ struct SetBlobMetaDataReq : FdsBlobReq {
     }
 
     virtual ~SetBlobMetaDataReq() {
-        fds::PerfTracer::tracePointEnd(e2eReqPerfCtx); 
+        fds::PerfTracer::tracePointEnd(e2eReqPerfCtx);
     }
 
     boost::shared_ptr<FDSP_MetaDataList> getMetaDataListPtr()
@@ -371,7 +394,7 @@ struct GetVolumeMetaDataReq : FdsBlobReq {
     }
 
     virtual ~GetVolumeMetaDataReq() {
-        fds::PerfTracer::tracePointEnd(e2eReqPerfCtx); 
+        fds::PerfTracer::tracePointEnd(e2eReqPerfCtx);
     }
 };
 
@@ -388,7 +411,7 @@ struct GetBlobMetaDataReq : FdsBlobReq {
     }
 
     virtual ~GetBlobMetaDataReq() {
-        fds::PerfTracer::tracePointEnd(e2eReqPerfCtx); 
+        fds::PerfTracer::tracePointEnd(e2eReqPerfCtx);
     }
 };
 
@@ -589,7 +612,7 @@ struct DeleteBlobReq: FdsBlobReq, TxnRequest {
     }
 
     ~DeleteBlobReq() {
-        fds::PerfTracer::tracePointEnd(e2eReqPerfCtx); 
+        fds::PerfTracer::tracePointEnd(e2eReqPerfCtx);
     }
 
     void DoCallback(FDSN_Status status, ErrorDetails* errDetails) {
