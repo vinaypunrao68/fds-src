@@ -23,17 +23,20 @@ class StatStreamTimerTask : public FdsTimerTask {
   public:
     typedef boost::shared_ptr<StatStreamTimerTask> ptr;
 
-    StatStreamTimerTask(FdsTimer &timer, fpi::StatStreamRegistrationMsgPtr reg,
-            StatStreamAggregator & statStreamAggr) : FdsTimerTask(timer), reg_(reg),
-            statStreamAggr_(statStreamAggr), last_ts_(0) {}
+    StatStreamTimerTask(FdsTimer &timer,
+                        fpi::StatStreamRegistrationMsgPtr reg,
+                        StatStreamAggregator & statStreamAggr);
     virtual ~StatStreamTimerTask() {}
 
     virtual void runTimerTask() override;
 
   private:
+    void cleanupVolumes(const std::vector<fds_volid_t>& cur_vols);
+
+  private:
     fpi::StatStreamRegistrationMsgPtr reg_;
     StatStreamAggregator & statStreamAggr_;
-    fds_uint64_t last_ts_;
+    std::unordered_map<fds_volid_t, fds_uint64_t> vol_last_ts_;
 };
 
 struct StatHistoryConfig {
