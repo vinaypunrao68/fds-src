@@ -5,11 +5,12 @@ package com.formationds.xdi;/*
 import org.apache.commons.pool2.KeyedPooledObjectFactory;
 import org.apache.commons.pool2.PooledObject;
 import org.apache.commons.pool2.impl.DefaultPooledObject;
+import org.apache.thrift.async.TAsyncClientManager;
 import org.apache.thrift.protocol.TBinaryProtocol;
-import org.apache.thrift.transport.TSocket;
-import org.apache.thrift.transport.TTransport;
-import org.apache.thrift.transport.TTransportException;
+import org.apache.thrift.protocol.TProtocolFactory;
+import org.apache.thrift.transport.*;
 
+import java.lang.reflect.Constructor;
 import java.util.function.Function;
 
 class ConnectionSpecification {
@@ -105,6 +106,55 @@ class XdiClientConnectionFactory<T> implements KeyedPooledObjectFactory<Connecti
 
     @Override
     public void passivateObject(ConnectionSpecification cspec, PooledObject<XdiClientConnection<T>> xdiClientConnectionPooledObject) throws Exception {
+
+    }
+}
+
+class XdiAsyncClientConnectionFactory<T> implements KeyedPooledObjectFactory<ConnectionSpecification, XdiClientConnection<T>> {
+    Constructor<T> clientConstructor;
+
+    public XdiAsyncClientConnectionFactory(Class<T> klass) {
+        try {
+            clientConstructor = klass.getConstructor(TProtocolFactory.class, TAsyncClientManager.class, TNonblockingTransport.class);
+        } catch(NoSuchMethodException nsm) {
+            throw new IllegalArgumentException("Class " + klass.getName() + " is not a valid async client class - no matching constructor found", nsm);
+        }
+    }
+
+    @Override
+    public PooledObject<XdiClientConnection<T>> makeObject(ConnectionSpecification cspec) throws Exception {
+        TNonblockingTransport transport = new TNonblockingSocket(cspec.host, cspec.port);
+        TAsyncClientManager clientManager = new TAsyncClientManager();
+        TProtocolFactory protocolFactory = new TBinaryProtocol.Factory();
+//
+//        try {
+//            transport.open();
+//        } catch (TTransportException e) {
+//            throw new RuntimeException(e);
+//        }
+
+        T client = clientConstructor.newInstance(protocolFactory, clientManager, transport);
+        XdiClientConnection<T> asyncConnection = new XdiClientConnection<>(transport, client);
+        return new DefaultPooledObject<>(asyncConnection);
+    }
+
+    @Override
+    public void destroyObject(ConnectionSpecification specification, PooledObject<XdiClientConnection<T>> xdiClientConnectionPooledObject) throws Exception {
+        xdiClientConnectionPooledObject.getObject().close();
+    }
+
+    @Override
+    public boolean validateObject(ConnectionSpecification specification, PooledObject<XdiClientConnection<T>> xdiClientConnectionPooledObject) {
+        return xdiClientConnectionPooledObject.getObject().valid();
+    }
+
+    @Override
+    public void activateObject(ConnectionSpecification specification, PooledObject<XdiClientConnection<T>> xdiClientConnectionPooledObject) throws Exception {
+
+    }
+
+    @Override
+    public void passivateObject(ConnectionSpecification specification, PooledObject<XdiClientConnection<T>> xdiClientConnectionPooledObject) throws Exception {
 
     }
 }
