@@ -52,7 +52,15 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     }
 
     // stubs to keep cpp compiler happy - BEGIN
-    void createVolume(const std::string& domainName, const std::string& volumeName, const VolumeSettings& volumeSettings) {}  //NOLINT
+    int64_t createTenant(const std::string& identifier) { return 0;}
+    void listTenants(std::vector<Tenant> & _return, const int32_t ignore) {}
+    int64_t createUser(const std::string& identifier, const std::string& secret, const bool isFdsAdmin) { return 0;} //NOLINT
+    void assignUserToTenant(const int64_t userId, const int64_t tenantId) {}
+    void revokeUserFromTenant(const int64_t userId, const int64_t tenantId) {}
+    void listUsersForTenant(std::vector<User> & _return, const int64_t tenantId) {}
+    void updateUser(const int64_t userId, const std::string& identifier, const std::string& secret, const bool isFdsAdmin) {} //NOLINT
+    int64_t configurationVersion(const int64_t ignore) { return 0;}
+    void createVolume(const std::string& domainName, const std::string& volumeName, const VolumeSettings& volumeSettings, const int64_t tenantId) {}  //NOLINT
     void deleteVolume(const std::string& domainName, const std::string& volumeName) {}  //NOLINT
     void statVolume(VolumeDescriptor& _return, const std::string& domainName, const std::string& volumeName) {}  //NOLINT
     void listVolumes(std::vector<VolumeDescriptor> & _return, const std::string& domainName) {}  //NOLINT
@@ -62,11 +70,53 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
     // stubs to keep cpp compiler happy - END
 
+
+    int64_t createTenant(boost::shared_ptr<std::string>& identifier) {
+        return configDB->createTenant(*identifier);
+    }
+
+    void listTenants(std::vector<Tenant> & _return, boost::shared_ptr<int32_t>& ignore) {
+        configDB->listTenants(_return);
+    }
+
+    int64_t createUser(boost::shared_ptr<std::string>& identifier,
+                       boost::shared_ptr<std::string>& secret,
+                       boost::shared_ptr<bool>& isFdsAdmin) {
+        return configDB->createUser(*identifier, *secret, *isFdsAdmin);
+    }
+
+    void assignUserToTenant(boost::shared_ptr<int64_t>& userId,
+                            boost::shared_ptr<int64_t>& tenantId) {
+        configDB->assignUserToTenant(*userId, *tenantId);
+    }
+
+    void revokeUserFromTenant(boost::shared_ptr<int64_t>& userId,
+                              boost::shared_ptr<int64_t>& tenantId) {
+        configDB->revokeUserFromTenant(*userId, *tenantId);
+    }
+
+    void listUsersForTenant(std::vector<User> & _return, boost::shared_ptr<int64_t>& tenantId) {
+        configDB->listUsersForTenant(_return, *tenantId);
+    }
+
+    void updateUser(boost::shared_ptr<int64_t>& userId,
+                    boost::shared_ptr<std::string>& identifier,
+                    boost::shared_ptr<std::string>& secret,
+                    boost::shared_ptr<bool>& isFdsAdmin) {
+        configDB->updateUser(*userId, *identifier, *secret, *isFdsAdmin);
+    }
+
+    int64_t configurationVersion(boost::shared_ptr<int64_t>& ignore) {
+        return configDB->getLastModTimeStamp();
+    }
+
     void createVolume(boost::shared_ptr<std::string>& domainName,
                       boost::shared_ptr<std::string>& volumeName,
-                      boost::shared_ptr<VolumeSettings>& volumeSettings) {
+                      boost::shared_ptr<VolumeSettings>& volumeSettings,
+                      boost::shared_ptr<int64_t>& tenantId) {
         LOGNOTIFY << " domain: " << *domainName
-                  << " volume: " << *volumeName;
+                  << " volume: " << *volumeName
+                  << " tenant: " << *tenantId;
 
         checkDomainStatus();
 

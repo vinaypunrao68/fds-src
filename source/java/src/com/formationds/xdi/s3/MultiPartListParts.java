@@ -10,6 +10,10 @@ import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.XmlResource;
 import com.formationds.xdi.Xdi;
 import org.eclipse.jetty.server.Request;
+import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
+import org.joda.time.format.DateTimeFormat;
+import org.joda.time.format.ISODateTimeFormat;
 
 import java.util.List;
 import java.util.Map;
@@ -66,14 +70,23 @@ public class MultiPartListParts implements RequestHandler {
             elt = elt.withValueElt("NextPartNumberMarker", Integer.toString(nextPart.get().partNumber));
 
         for(PartInfo pi : filteredList) {
-            Map<String, String> md = pi.descriptor.getMetadata();
+            // TODO: remove when volumeContents is fixed - right now it does not return metadata
             BlobDescriptor bd = xdi.statBlob(S3Endpoint.FDS_S3_SYSTEM, S3Endpoint.FDS_S3_SYSTEM_BUCKET_NAME, pi.descriptor.getName());
+            Map<String, String> md = bd.getMetadata();
+            DateTime lastModifiedTemp;
+            try {
+                long instant = DateTimeZone.getDefault().convertLocalToUTC(Long.parseLong(md.get(Xdi.LAST_MODIFIED)), false);
+                lastModifiedTemp = new DateTime(instant, DateTimeZone.UTC);
+            } catch(Exception ex) {
+                lastModifiedTemp = DateTime.now(DateTimeZone.UTC);
+            }
+            final DateTime lastModified = lastModifiedTemp;
 
             elt = elt.withNest("Part", sub -> sub
-                    .withValueElt("PartNumber", Integer.toString(pi.partNumber))
-                    .withValueElt("ETag", md.get("etag"))
-                    .withValueElt("LastModified", md.get(Xdi.LAST_MODIFIED))
-                    .withValueElt("Size", Long.toString(pi.descriptor.getByteCount()))
+                            .withValueElt("PartNumber", Integer.toString(pi.partNumber))
+                            .withValueElt("ETag", md.get("etag"))
+                            .withValueElt("LastModified", lastModified.toString(ISODateTimeFormat.dateTime()))
+                            .withValueElt("Size", Long.toString(pi.descriptor.getByteCount()))
             );
         }
 

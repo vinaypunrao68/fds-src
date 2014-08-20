@@ -67,6 +67,9 @@ class DataMgr : public Module, public DmIoReqHandler {
     typedef boost::shared_ptr<ReqHandler> ReqHandlerPtr;
     typedef boost::shared_ptr<FDS_ProtocolInterface::FDSP_MetaDataPathRespClient> RespHandlerPrx;
     OMgrClient     *omClient;
+
+    /* Common module provider */
+    CommonModuleProviderIf *modProvider_;
     /*
      * TODO: Move to STD shared or unique pointers. That's
      * safer.
@@ -83,6 +86,7 @@ class DataMgr : public Module, public DmIoReqHandler {
      * DmIoReqHandler method implementation
      */
     virtual Error enqueueMsg(fds_volid_t volId, dmCatReq* ioReq) override;
+    fds_bool_t amIPrimary(fds_volid_t volUuid);
 
     FdsCounters * getCounters() {
         return counters_.get();
@@ -123,8 +127,6 @@ class DataMgr : public Module, public DmIoReqHandler {
      */
     StatStreamAggregator::ptr statStreamAggr_;
 
-    /* Common module provider */
-    CommonModuleProviderIf *modProvider_;
 
     class dmQosCtrl : public FDS_QoSControl {
       public:
@@ -277,7 +279,6 @@ class DataMgr : public Module, public DmIoReqHandler {
 
     void initSmMsgHdr(FDSP_MsgHdrTypePtr msgHdr);
 
-    fds_bool_t amIPrimary(fds_volid_t volUuid);
     Error expungeObject(fds_volid_t volId, const ObjectID &objId);
     void  expungeObjectCb(QuorumSvcRequest* svcReq,
                          const Error& error,

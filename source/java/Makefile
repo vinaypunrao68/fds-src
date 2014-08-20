@@ -22,6 +22,7 @@ include $(topdir)/Makefile.incl
 
 compile:
 	@rm -f $(comm_dir_bin)/AMAgent
+	@rm -rf $(comm_dir_lib)/java
 	@mkdir -p $(comm_dir_lib)/java/
 	@mvn -DskipTests assembly:directory -Dbuild.dir=$(comm_dir_lib)/java
 	@cp -r admin-webapp $(comm_dir_lib)

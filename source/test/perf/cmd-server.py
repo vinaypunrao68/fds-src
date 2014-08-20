@@ -50,7 +50,7 @@ def main():
     parser.add_option("-d", "--node-name", dest = "node_name", default = "node", help = "Node name")
     parser.add_option("-n", "--name-server-ip", dest = "ns_ip", default = "10.1.10.102", help = "IP of the name server")
     parser.add_option("-p", "--name-server-port", dest = "ns_port", type = "int", default = 47672, help = "Port of the name server")
-    parser.add_option("-s", "--server-ip", dest = "s_ip", default = "10.1.10.17", help = "IP of the server")
+    parser.add_option("-s", "--server-ip", dest = "s_ip", default = "10.1.10.18", help = "IP of the server")
     #parser.add_option("-c", "--column", dest = "column", help = "Column")
     #parser.add_option("-p", "--plot-enable", dest = "plot_enable", action = "store_true", default = False, help = "Plot graphs")
     #parser.add_option("-A", "--ab-enable", dest = "ab_enable", action = "store_true", default = False, help = "AB mode")
