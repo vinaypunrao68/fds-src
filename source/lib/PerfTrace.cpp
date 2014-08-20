@@ -179,6 +179,9 @@ const char * eventTypeToStr[] = {
         "am_set_blob_meta_obj_req",
         "am_get_volume_meta_obj_req",
         "am_get_blob_meta_obj_req",
+        "am_start_blob_obj_req",
+        "am_commit_blob_obj_req",
+        "am_abort_blob_obj_req",
 
         "am_qos_queue_size",
 
