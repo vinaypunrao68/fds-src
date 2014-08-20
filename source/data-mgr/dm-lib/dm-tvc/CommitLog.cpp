@@ -96,7 +96,7 @@ DmCommitLog::DmCommitLog(const std::string &modName, const std::string & filenam
                 iter->second->started = true;
             }
             case TX_COMMIT:
-                iter->second->commited = true;
+                iter->second->committed = true;
                 break;
             case TX_ROLLBACK:
                 iter->second->rolledback = true;
@@ -131,7 +131,30 @@ DmCommitLog::DmCommitLog(const std::string &modName, const std::string & filenam
         }
     }
 
-    // XXX(umesh): compactLog();
+    // this could be restart, we have to cleanup uncommitted entries from previous run
+    std::set<fds_uint64_t> txIds;
+
+    GLOGNORMAL << "Purging commit log of stale uncommitted entries from previous run";
+    {
+        SCOPEDREAD(lockTxMap_);
+        for (auto it : txMap_) {
+            if (!it.second->purged && !it.second->rolledback && !it.second->committed) {
+                txIds.insert(it.first.getValue());  // candidates
+            }
+        }
+    }
+
+    if (!txIds.empty()) {
+        const std::set<fds_uint64_t> & compacted = cmtLogger_->compactLog(txIds);
+        fds_assert(compacted.empty());
+
+        for (auto i : txIds) {
+            SCOPEDWRITE(lockTxMap_);
+            txMap_.erase(BlobTxId(i));
+        }
+    }
+
+    scheduleCompaction();
 }
 
 DmCommitLog::~DmCommitLog() {}
@@ -340,7 +363,7 @@ CommitLogTx::const_ptr DmCommitLog::commitTx(BlobTxId::const_ptr & txDesc, Error
     SCOPEDWRITE(lockTxMap_);
 
     txMap_[txId]->entries.push_back(entry);
-    txMap_[txId]->commited = true;
+    txMap_[txId]->committed = true;
 
     return txMap_[txId];
 }
@@ -399,7 +422,7 @@ Error DmCommitLog::purgeTx(BlobTxId::const_ptr  & txDesc) {
         }
         fds_assert(txId == *(iter->second->txDesc));
 
-        if (!iter->second->rolledback && !iter->second->commited) {
+        if (!iter->second->rolledback && !iter->second->committed) {
             GLOGERROR << "Blob transaction active, can not be purged";
             return ERR_DM_TX_ACTIVE;
         }
@@ -457,9 +480,9 @@ Error DmCommitLog::validateSubsequentTx(const BlobTxId & txId) {
     if (iter->second->rolledback) {
         GLOGERROR << "Blob transaction already rolled back";
         return ERR_DM_TX_ROLLEDBACK;
-    } else if (iter->second->commited) {
-        GLOGERROR << "Blob transaction already commited";
-        return ERR_DM_TX_COMMITED;
+    } else if (iter->second->committed) {
+        GLOGERROR << "Blob transaction already committed";
+        return ERR_DM_TX_COMMITTED;
     }
 
     return ERR_OK;
@@ -469,7 +492,7 @@ fds_bool_t DmCommitLog::isPendingTx(const fds_uint64_t tsNano /* = util::getTime
     fds_bool_t ret = false;
     SCOPEDREAD(lockTxMap_);
     for (auto it : txMap_) {
-        if (it.second->started && (!it.second->rolledback && !it.second->commited)) {
+        if (it.second->started && (!it.second->rolledback && !it.second->committed)) {
             if (it.second->entries[0]->timestamp <= tsNano) {
                 ret = true;
             }
@@ -841,7 +864,7 @@ FileCommitLogger::compactLog(const std::set<fds_uint64_t> & candidates) {
         removeEntry(false);
 
         if (TX_PURGE == entry->type || TX_ROLLBACK == entry->type) {
-            ret.insert(entry->id);
+            ret.insert(entry->txId);
         }
     }
 

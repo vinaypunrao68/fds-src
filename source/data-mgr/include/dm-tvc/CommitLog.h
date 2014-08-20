@@ -45,7 +45,7 @@ struct CommitLogTx {
     fds_int32_t blobMode;
 
     bool started;
-    bool commited;
+    bool committed;
     bool rolledback;
     bool blobDelete;
     bool purged;
@@ -57,7 +57,7 @@ struct CommitLogTx {
 
     blob_version_t blobVersion;
 
-    CommitLogTx() : txDesc(0), blobMode(0), started(false), commited(false), rolledback(false),
+    CommitLogTx() : txDesc(0), blobMode(0), started(false), committed(false), rolledback(false),
             blobDelete(false), purged(false), blobObjList(0), metaDataList(0),
             blobVersion(blob_version_invalid) {}
 };
