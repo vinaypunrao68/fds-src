@@ -28,42 +28,42 @@ public class CachingConfigurationService implements ConfigurationService.Iface {
 
     @Override
     public long createTenant(String identifier) throws ApiException, TException {
-        return 0;
+        return service.createTenant(identifier);
     }
 
     @Override
     public List<Tenant> listTenants(int ignore) throws ApiException, TException {
-        return null;
+        return service.listTenants(ignore);
     }
 
     @Override
     public long createUser(String identifier, ByteBuffer secret, boolean isFdsAdmin) throws ApiException, TException {
-        return 0;
+        return service.createUser(identifier, secret, isFdsAdmin);
     }
 
     @Override
     public void assignUserToTenant(long userId, long tenantId) throws ApiException, TException {
-
+        service.assignUserToTenant(userId, tenantId);
     }
 
     @Override
     public void revokeUserFromTenant(long userId, long tenantId) throws ApiException, TException {
-
+        service.revokeUserFromTenant(userId, tenantId);
     }
 
     @Override
     public List<User> listUsersForTenant(long tenantId) throws ApiException, TException {
-        return null;
+        return service.listUsersForTenant(tenantId);
     }
 
     @Override
     public void updateUser(long userId, String identifier, ByteBuffer secret, boolean isFdsAdmin) throws ApiException, TException {
-
+        service.updateUser(userId, identifier, secret, isFdsAdmin);
     }
 
     @Override
     public long configurationVersion(long ignore) throws ApiException, TException {
-        return 0;
+        return service.configurationVersion(ignore);
     }
 
     @Override

@@ -10,7 +10,6 @@ import org.junit.Test;
 import static org.mockito.Mockito.*;
 
 public class CachingConfigurationServiceTest {
-
     @Test
     public void testCreateVolume() throws Exception {
         ConfigurationService.Iface mock = mock(ConfigurationService.Iface.class);
