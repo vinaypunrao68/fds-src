@@ -681,7 +681,7 @@ void StatStreamTimerTask::runTimerTask() {
     bool logLocal = reg_->method == std::string("log-local");
     for (auto volId : volumes) {
         std::vector<StatSlot> slots;
-        std::unordered_map<fds_uint64_t, std::vector<fpi::DataPointPair> > volDataPointsMap;
+        std::map<fds_uint64_t, std::vector<fpi::DataPointPair> > volDataPointsMap;  // NOLINT
         VolumeStats::ptr volStat = statStreamAggr_.getVolumeStats(volId);
         if (!volStat) {
             GLOGWARN << "Cannot get stat volume history for id '" << volId << "'";
