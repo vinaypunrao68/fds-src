@@ -81,6 +81,9 @@ Error StatBlobHandler::handleQueueItem(AmQosReq *qosReq) {
             cb->blobDesc.addKvMeta(meta->first,  meta->second);
         }
         cb->call(err);
+        // Delete the blob request since a responsehelper doesn't
+        // do it for you
+        delete helper.blobReq;
         // TODO(Andrew): This is what's being returned to the request
         // dispatcher, which always expects OK. The callback was given
         // the correct error code, this doesn't really matter.
