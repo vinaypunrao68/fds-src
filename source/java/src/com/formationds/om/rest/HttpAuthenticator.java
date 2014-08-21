@@ -17,14 +17,14 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-public class Authenticator implements RequestHandler {
+public class HttpAuthenticator implements RequestHandler {
     public static final String FDS_TOKEN = "token";
     private Supplier<RequestHandler> supplier;
-    private Function<String, Boolean> authorizer;
+    private Function<String, Boolean> authprovider;
 
-    public Authenticator(Supplier<RequestHandler> supplier, Function<String, Boolean> authorizer) {
+    public HttpAuthenticator(Supplier<RequestHandler> supplier, Function<String, Boolean> authprovider) {
         this.supplier = supplier;
-        this.authorizer = authorizer;
+        this.authprovider = authprovider;
     }
 
 
@@ -34,7 +34,7 @@ public class Authenticator implements RequestHandler {
         Optional<Boolean> result = Arrays.stream(cookies)
                 .filter(c -> FDS_TOKEN.equals(c.getName()))
                 .findFirst()
-                .map(c -> authorizer.apply(c.getValue()));
+                .map(c -> authprovider.apply(c.getValue()));
         if (result.isPresent() && result.get()) {
             return supplier.get().handle(request, routeParameters);
         } else {

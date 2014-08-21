@@ -18,44 +18,44 @@ import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-public class AuthenticatorTest {
+public class HttpAuthenticatorTest {
     private final RequestHandler mockHandler;
 
     @Test
     public void testNoCookie() throws Exception {
         Request request = mock(Request.class);
-        Authenticator authenticator = new Authenticator(() -> mockHandler, credentials -> false);
-        assertEquals(HttpServletResponse.SC_UNAUTHORIZED, authenticator.handle(request, new HashMap<>()).getHttpStatus());
+        HttpAuthenticator httpAuthenticator = new HttpAuthenticator(() -> mockHandler, credentials -> false);
+        assertEquals(HttpServletResponse.SC_UNAUTHORIZED, httpAuthenticator.handle(request, new HashMap<>()).getHttpStatus());
     }
 
     @Test
     public void testValidCookie() throws Exception {
         Request request = mock(Request.class);
-        Cookie[] cookies = {new Cookie(Authenticator.FDS_TOKEN, "foo")};
+        Cookie[] cookies = {new Cookie(HttpAuthenticator.FDS_TOKEN, "foo")};
         when(request.getCookies()).thenReturn(cookies);
 
-        Authenticator authenticator = new Authenticator(() -> mockHandler, credentials -> {
+        HttpAuthenticator httpAuthenticator = new HttpAuthenticator(() -> mockHandler, credentials -> {
             Cookie cookie = Arrays.stream(request.getCookies())
-                    .filter(c -> Authenticator.FDS_TOKEN.equals(c.getName()))
+                    .filter(c -> HttpAuthenticator.FDS_TOKEN.equals(c.getName()))
                     .findFirst()
                     .get();
             assertEquals("foo", cookie.getValue());
             return true;
         });
-        assertEquals(HttpServletResponse.SC_OK, authenticator.handle(request, new HashMap<>()).getHttpStatus());
+        assertEquals(HttpServletResponse.SC_OK, httpAuthenticator.handle(request, new HashMap<>()).getHttpStatus());
     }
 
     @Test
     public void testInvalidCookie() throws Exception {
         Request request = mock(Request.class);
-        Cookie[] cookies = {new Cookie(Authenticator.FDS_TOKEN, "foo")};
+        Cookie[] cookies = {new Cookie(HttpAuthenticator.FDS_TOKEN, "foo")};
         when(request.getCookies()).thenReturn(cookies);
 
-        Authenticator authenticator = new Authenticator(() -> mockHandler, credentials -> false);
-        assertEquals(HttpServletResponse.SC_UNAUTHORIZED, authenticator.handle(request, new HashMap<>()).getHttpStatus());
+        HttpAuthenticator httpAuthenticator = new HttpAuthenticator(() -> mockHandler, credentials -> false);
+        assertEquals(HttpServletResponse.SC_UNAUTHORIZED, httpAuthenticator.handle(request, new HashMap<>()).getHttpStatus());
     }
 
-    public AuthenticatorTest() {
+    public HttpAuthenticatorTest() {
         mockHandler = mock(RequestHandler.class);
         try {
             when(mockHandler.handle(any(Request.class), any(HashMap.class))).thenReturn(new TextResource("foo"));

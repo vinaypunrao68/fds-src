@@ -7,20 +7,20 @@ import com.formationds.security.AuthenticationToken;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
-import com.sun.security.auth.UserPrincipal;
+import com.formationds.xdi.Xdi;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
 
-import javax.crypto.SecretKey;
+import javax.security.auth.login.LoginException;
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletResponse;
 import java.util.Map;
 
 public class IssueToken implements RequestHandler {
-    private SecretKey secretKey;
+    private Xdi xdi;
 
-    public IssueToken(SecretKey secretKey) {
-        this.secretKey = secretKey;
+    public IssueToken(Xdi xdi) {
+        this.xdi = xdi;
     }
 
     @Override
@@ -28,17 +28,17 @@ public class IssueToken implements RequestHandler {
         String login = requiredString(request, "login");
         String password = requiredString(request, "password");
 
-        if ("admin".equals(login) && "admin".equals(password)) {
-            AuthenticationToken token = new AuthenticationToken(secretKey, new UserPrincipal("admin"));
-            return new JsonResource(new JSONObject().put("token", token.getKey().toBase64())) {
+        try {
+            AuthenticationToken token = xdi.grantToken(login, password);
+            return new JsonResource(new JSONObject().put("token", token.signature())) {
                 @Override
                 public Cookie[] cookies() {
-                    Cookie cookie = new Cookie(Authenticator.FDS_TOKEN, token.toString());
+                    Cookie cookie = new Cookie(HttpAuthenticator.FDS_TOKEN, token.toString());
                     cookie.setPath("/");
                     return new Cookie[]{cookie};
                 }
             };
-        } else {
+        } catch (LoginException e) {
             JSONObject message = new JSONObject().put("message", "Invalid credentials.");
             return new JsonResource(message, HttpServletResponse.SC_UNAUTHORIZED);
         }

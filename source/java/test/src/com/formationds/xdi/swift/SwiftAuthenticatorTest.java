@@ -35,7 +35,7 @@ public class SwiftAuthenticatorTest {
     public void testMalformedAuthHeader() throws Exception {
         SwiftAuthenticator authorizer = new SwiftAuthenticator(() -> new StubHandler());
         Request request = mock(Request.class);
-        when(request.getHeader(Authenticate.X_AUTH_TOKEN)).thenReturn("poop");
+        when(request.getHeader(GrantAuthenticationToken.X_AUTH_TOKEN)).thenReturn("poop");
         Resource result = authorizer.handle(request, Maps.newHashMap());
         assertEquals(HttpServletResponse.SC_UNAUTHORIZED, result.getHttpStatus());
     }
@@ -45,8 +45,8 @@ public class SwiftAuthenticatorTest {
         SecretKey secretKey = new SecretKeySpec(new byte[]{35, -37, -53, -105, 107, -37, -14, -64, 28, -74, -98, 124, -8, -7, 68, 54}, "AES");
         Principal principal = new UserPrincipal("admin");
         Request request = mock(Request.class);
-        String token = new AuthenticationToken(secretKey, principal).getKey().toBase64();
-        when(request.getHeader(Authenticate.X_AUTH_TOKEN)).thenReturn(token);
+        String token = new AuthenticationToken(secretKey, 1, "foo").signature();
+        when(request.getHeader(GrantAuthenticationToken.X_AUTH_TOKEN)).thenReturn(token);
         SwiftAuthenticator authorizer = new SwiftAuthenticator(() -> new StubHandler());
         Resource result = authorizer.handle(request, Maps.newHashMap());
         assertEquals(HttpServletResponse.SC_OK, result.getHttpStatus());

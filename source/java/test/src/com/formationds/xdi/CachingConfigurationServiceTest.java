@@ -7,12 +7,10 @@ import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.VolumeDescriptor;
 import org.junit.Test;
 
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.*;
 import static org.mockito.Mockito.*;
 
 public class CachingConfigurationServiceTest {
@@ -23,7 +21,7 @@ public class CachingConfigurationServiceTest {
         versions.add(config.configurationVersion(0));
         long tenantId = config.createTenant("Goldman");
         versions.add(config.configurationVersion(0));
-        long userId = config.createUser("fab", ByteBuffer.wrap(new byte[]{42, 42}), false);
+        long userId = config.createUser("fab", "foobar", "secret", false);
         versions.add(config.configurationVersion(0));
         config.assignUserToTenant(userId, tenantId);
         versions.add(config.configurationVersion(0));
@@ -35,6 +33,11 @@ public class CachingConfigurationServiceTest {
             assertNotEquals(v, (long) versions.get(i));
             v = versions.get(i);
         }
+    }
+
+    @Test
+    public void testCacheUsers() {
+        fail();
     }
 
     @Test

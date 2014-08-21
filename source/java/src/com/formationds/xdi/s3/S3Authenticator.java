@@ -8,10 +8,9 @@ import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.http.HttpMethodName;
 import com.amazonaws.util.AWSRequestMetrics;
 import com.formationds.security.AuthenticationToken;
-import com.formationds.security.Authenticator;
+import com.formationds.security.LoginModule;
 import com.formationds.web.toolkit.RequestHandler;
 import com.google.common.collect.Maps;
-import com.sun.security.auth.UserPrincipal;
 import org.eclipse.jetty.server.Request;
 
 import java.io.InputStream;
@@ -198,15 +197,15 @@ public class S3Authenticator implements Supplier<RequestHandler> {
 
     private BasicAWSCredentials tryParse(String header) {
         String pattern = "AWS {0}:{1}";
-        Object[] parsed = new Object[0];
+        Object[] parsed;
+
         try {
             parsed = new MessageFormat(pattern).parse(header);
         } catch (ParseException e) {
             throw new SecurityException("invalid credentials");
         }
-        String principal = (String) parsed[0];
-        AuthenticationToken token = new AuthenticationToken(Authenticator.KEY, new UserPrincipal(principal));
 
-        return new BasicAWSCredentials(principal, token.getKey().toBase64());
+        AuthenticationToken authenticationToken = new AuthenticationToken(LoginModule.KEY, (String) parsed[1]);
+        return new BasicAWSCredentials((String) parsed[0], authenticationToken.signature());
     }
 }

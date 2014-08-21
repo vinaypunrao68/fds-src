@@ -4,14 +4,16 @@ package com.formationds.xdi;
  */
 
 import com.formationds.apis.*;
+import com.formationds.om.CachedConfiguration;
 import com.formationds.streaming.StreamingRegistrationMsg;
 import org.apache.thrift.TException;
 
-import java.nio.ByteBuffer;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
-public class CachingConfigurationService implements ConfigurationService.Iface {
+public class CachingConfigurationService implements ConfigurationService.Iface, CachedConfiguration {
     private final ConfigurationService.Iface service;
     private final ConcurrentHashMap<Key, VolumeDescriptor> volumeCache;
 
@@ -37,8 +39,8 @@ public class CachingConfigurationService implements ConfigurationService.Iface {
     }
 
     @Override
-    public long createUser(String identifier, ByteBuffer secret, boolean isFdsAdmin) throws ApiException, TException {
-        return service.createUser(identifier, secret, isFdsAdmin);
+    public long createUser(String identifier, String passwordHash, String secret, boolean isFdsAdmin) throws ApiException, TException {
+        return service.createUser(identifier, passwordHash, secret, isFdsAdmin);
     }
 
     @Override
@@ -62,8 +64,8 @@ public class CachingConfigurationService implements ConfigurationService.Iface {
     }
 
     @Override
-    public void updateUser(long userId, String identifier, ByteBuffer secret, boolean isFdsAdmin) throws ApiException, TException {
-        service.updateUser(userId, identifier, secret, isFdsAdmin);
+    public void updateUser(long userId, String identifier, String passwordHash, String secret, boolean isFdsAdmin) throws ApiException, TException {
+        service.updateUser(userId, identifier, passwordHash, secret, isFdsAdmin);
     }
 
     @Override
@@ -113,6 +115,12 @@ public class CachingConfigurationService implements ConfigurationService.Iface {
         service.deregisterStream(registration_id);
     }
 
+    @Override
+    public Map<String, User> usersByLogin() throws TException {
+        return service.allUsers(0)
+                .stream()
+                .collect(Collectors.toMap(u -> u.getIdentifier(), u -> u));
+    }
 
     private class Key {
         private String domain;

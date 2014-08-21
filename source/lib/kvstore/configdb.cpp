@@ -990,7 +990,7 @@ bool ConfigDB::listTenants(std::vector<fds::apis::Tenant>& tenants) {
     return true;
 }
 
-int64_t ConfigDB::createUser(const std::string& identifier, const std::string& secret, bool isAdmin) { //NOLINT
+int64_t ConfigDB::createUser(const std::string& identifier, const std::string& passwordHash, const std::string& secret, bool isAdmin) { //NOLINT
     TRACKMOD();
     try {
         // check if the user already exists
@@ -1019,6 +1019,7 @@ int64_t ConfigDB::createUser(const std::string& identifier, const std::string& s
         reply = r.sendCommand("incr user:nextid");
         user.id = reply.getLong();
         user.identifier = identifier;
+        user.passwordHash = passwordHash;
         user.secret = secret;
         user.isFdsAdmin = isAdmin;
 
@@ -1137,7 +1138,7 @@ bool ConfigDB::listUsersForTenant(std::vector<fds::apis::User>& users, int64_t t
     return true;
 }
 
-bool ConfigDB::updateUser(int64_t  userId, const std::string& identifier, const std::string& secret, bool isFdsAdmin) { //NOLINT
+bool ConfigDB::updateUser(int64_t  userId, const std::string& identifier, const std::string& passwordHash, const std::string& secret, bool isFdsAdmin) { //NOLINT
     TRACKMOD();
     try {
         fds::apis::User user;
@@ -1162,6 +1163,7 @@ bool ConfigDB::updateUser(int64_t  userId, const std::string& identifier, const 
 
         // now set the new user info
         user.identifier = identifier;
+        user.passwordHash = passwordHash;
         user.secret = secret;
         user.isFdsAdmin = isFdsAdmin;
 

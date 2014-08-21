@@ -7,8 +7,7 @@ import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import com.formationds.apis.*;
 import com.formationds.om.rest.SetVolumeQosParams;
 import com.formationds.security.AuthenticationToken;
-import com.formationds.security.Authenticator;
-import com.sun.security.auth.UserPrincipal;
+import com.formationds.security.LoginModule;
 import org.apache.thrift.TException;
 import org.joda.time.DateTime;
 
@@ -23,21 +22,19 @@ public class Xdi {
     private ConfigurationService.Iface config;
 
     public static final String LAST_MODIFIED = "Last-Modified";
-    private Authenticator authenticator;
+    private LoginModule loginModule;
     private FDSP_ConfigPathReq.Iface legacyConfig;
 
-    public Xdi(AmService.Iface am, ConfigurationService.Iface config, Authenticator authenticator, FDSP_ConfigPathReq.Iface legacyConfig) {
+    public Xdi(AmService.Iface am, ConfigurationService.Iface config, LoginModule loginModule, FDSP_ConfigPathReq.Iface legacyConfig) {
         this.am = am;
         this.config = config;
-        this.authenticator = authenticator;
+        this.loginModule = loginModule;
         this.legacyConfig = legacyConfig;
     }
 
-    public XdiCredentials authenticate(String login, String password) throws LoginException {
-        authenticator.login(login, password);
-        UserPrincipal principal = new UserPrincipal(login);
-        AuthenticationToken token = new AuthenticationToken(Authenticator.KEY, principal);
-        return new XdiCredentials(principal, token.getKey());
+    public AuthenticationToken grantToken(String login, String password) throws LoginException {
+        User user = loginModule.login(login, password);
+        return new AuthenticationToken(LoginModule.KEY, user.getId(), user.getSecret());
     }
 
     public void createVolume(String domainName, String volumeName, VolumeSettings volumePolicy) throws ApiException, TException {

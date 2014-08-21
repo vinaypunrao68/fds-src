@@ -22,7 +22,7 @@ public class SwiftEndpoint {
     }
 
     public void start(int httpPort) {
-        webApp.route(HttpMethod.GET, "/v1/auth", new SwiftFailureHandler(() -> new Authenticate(xdi)));
+        webApp.route(HttpMethod.GET, "/v1/auth", new SwiftFailureHandler(() -> new GrantAuthenticationToken(xdi)));
 
         authorize(HttpMethod.GET, "/v1/:account/:container", () -> new GetContainer(xdi));
         authorize(HttpMethod.PUT, "/v1/:account/:container", () -> new CreateContainer(xdi));
