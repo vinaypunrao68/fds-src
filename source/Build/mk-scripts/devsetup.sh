@@ -10,6 +10,16 @@
 # command should be specified:
 #  ---> dpkg-query -f '${Package}_${Version}' -W $pkgname 
 ###########################################################################
+REPOUPDATED=0
+DEPLOYMODE=0
+
+function progress() {
+    if isDeployMode ; then
+        echo "[deploysetup] : $*"
+    else
+        echo "[devsetup] : $*"
+    fi
+}
 
 needed_packages=(
     redis-server
@@ -57,7 +67,31 @@ python_packages=(
     PyYAML
 )
 
-REPOUPDATED=0
+function isDeployMode() {
+    [[ $DEPLOYMODE == 1 ]]
+}
+
+###########################################################################
+# returns  if the passed in pkg is a dev pkg
+###########################################################################
+function isDevPackage() {
+    local pkg="$1"
+    case "$pkg" in
+        *-dev) true ;;
+        paramiko) true ;;
+        redis) true ;; # python pkg
+        requests) true;;
+        scp) true;;
+        PyYAML) true;;
+        bison|flex|ragel|ccache) true;;
+        fds-pkgtools) true;;
+        *) false;;
+    esac
+}
+
+###########################################################################
+# update the fds repo as needed
+###########################################################################
 function updateFdsRepo() {
     if [[ $REPOUPDATED == "0" ]]; then
         sudo apt-get update -o Dir::Etc::sourcelist="sources.list.d/fds.list" -o Dir::Etc::sourceparts="-" -o APT::Get::List-Cleanup="0"
@@ -101,66 +135,89 @@ function postinstall() {
     esac
 }
 
+function installBasePkgs() {
+    progress "checking ubuntu packages...."
+
+    for pkg in ${needed_packages[@]} 
+    do 
+        if isDeployMode && isDevPackage $pkg ; then
+            progress "-- skipping dev pkg : $pkg"
+            continue
+        fi
+
+        progress "checking $pkg ..."
+
+        pkgname=${pkg%%=*}
+        if [[ $pkg == *=* ]]; then 
+            pkgversion=${pkg##*=}
+        else
+            pkgversion=""
+        fi
+
+        if [[ -z $pkgversion ]] ; then
+            pkginfo=$( dpkg-query -f '${Package}' -W $pkgname 2>/dev/null)
+        else
+            pkginfo=$( dpkg-query -f '${Package}=${Version}' -W $pkgname 2>/dev/null)
+        fi
+
+        # check the pkg state
+        if [[ -n $pkginfo ]] ; then
+            pkgstate=$(dpkg-query -f '${db:Status-Abbrev}' -W $pkgname 2>/dev/null)
+            if [[ $pkgstate != "ii " ]]; then 
+                progress "$pkgname is in unknown state [$pkgstate] - forcing install"
+                pkginfo=
+            fi
+        fi
+
+        #echo "${pkginfo} , $pkgname, $pkgversion , $pkg"
+        #exit
+        if  [[ -z $pkginfo ]] || [[ $pkginfo != $pkg ]] ; then 
+            if [[ $pkgversion == "latest" ]] ; then
+                progress "trying to install the latest version of $pkgname ..."
+            else
+                progress "$pkg is not installed, but needed .. installing."
+            fi
+            preinstall $pkgname
+            if [[ -z $pkgversion ]] || [[ $pkgversion == "latest" ]] ; then
+                sudo apt-get install ${pkgname} --assume-yes
+            else
+                sudo apt-get install ${pkgname}=${pkgversion} --assume-yes
+            fi
+            postinstall $pkgname
+        fi
+    done
+
+}
+
+function installPythonPkgs() {
+    progress "checking python packages...."
+
+    for pkg in ${python_packages[@]} 
+    do
+        if isDeployMode && isDevPackage $pkg ; then
+            progress "-- skipping dev pkg : $pkg"
+            continue
+        fi
+
+        pkgname=${pkg}
+        progress "[python] checking : $pkg"
+        name=$(pip freeze 2>/dev/null | grep ^${pkgname}= | cut -f1 -d=)
+        if  [[ -z $name ]] ; then 
+            progress "$pkg is not installed, but needed .. installing."
+            preinstall $pkg
+            sudo pip install $pkg
+            postinstall $pkg
+        fi
+    done
+}
+
+
 ###########################################################################
 # ------- MAIN PROGRAM --------
 ###########################################################################
+case $1 in
+    *deploymode) DEPLOYMODE=1 ;;
+esac
 
-echo "[devsetup] : checking ubuntu packages...."
-
-for pkg in ${needed_packages[@]} 
-do 
-    echo "[devsetup] : checking $pkg ..."
-    pkgname=${pkg%%=*}
-    if [[ $pkg == *=* ]]; then 
-        pkgversion=${pkg##*=}
-    else
-        pkgversion=""
-    fi
-
-    if [[ -z $pkgversion ]] ; then
-        pkginfo=$( dpkg-query -f '${Package}' -W $pkgname 2>/dev/null)
-    else
-        pkginfo=$( dpkg-query -f '${Package}=${Version}' -W $pkgname 2>/dev/null)
-    fi
-
-    # check the pkg state
-    if [[ -n $pkginfo ]] ; then
-        pkgstate=$(dpkg-query -f '${db:Status-Abbrev}' -W $pkgname 2>/dev/null)
-        if [[ $pkgstate != "ii " ]]; then 
-            echo "[devsetup] : $pkgname is in unknown state [$pkgstate] - forcing install"
-            pkginfo=
-        fi
-    fi
-
-    #echo "${pkginfo} , $pkgname, $pkgversion , $pkg"
-    #exit
-    if  [[ -z $pkginfo ]] || [[ $pkginfo != $pkg ]] ; then 
-        if [[ $pkgversion == "latest" ]] ; then
-            echo "[devsetup] : trying to install the latest version of $pkgname ..."
-        else
-            echo "[devsetup] : $pkg is not installed, but needed .. installing."
-        fi
-        preinstall $pkgname
-        if [[ -z $pkgversion ]] || [[ $pkgversion == "latest" ]] ; then
-            sudo apt-get install ${pkgname} --assume-yes
-        else
-            sudo apt-get install ${pkgname}=${pkgversion} --assume-yes
-        fi
-        postinstall $pkgname
-    fi
-done
-
-echo "[devsetup] : checking python packages...."
-
-for pkg in ${python_packages[@]} 
-do 
-    pkgname=${pkg}
-    echo "[devsetup] : [python] checking : $pkg"
-    name=$(pip freeze 2>/dev/null | grep ^${pkgname}= | cut -f1 -d=)
-    if  [[ -z $name ]] ; then 
-        echo "[devsetup] : $pkg is not installed, but needed .. installing."
-        preinstall $pkg
-        sudo pip install $pkg
-        postinstall $pkg
-    fi
-done
+installBasePkgs
+installPythonPkgs
