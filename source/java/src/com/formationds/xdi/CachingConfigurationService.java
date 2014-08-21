@@ -52,6 +52,11 @@ public class CachingConfigurationService implements ConfigurationService.Iface {
     }
 
     @Override
+    public List<User> allUsers(long unused) throws ApiException, TException {
+        return service.allUsers(unused);
+    }
+
+    @Override
     public List<User> listUsersForTenant(long tenantId) throws ApiException, TException {
         return service.listUsersForTenant(tenantId);
     }
