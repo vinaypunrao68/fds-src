@@ -29,6 +29,7 @@ struct ConfigDB : KVStore {
     ConfigDB(const std::string& host = "localhost", uint port = 6379, uint poolsize = 10);
     virtual ~ConfigDB();
     fds_uint64_t getLastModTimeStamp();
+    fds_uint64_t getConfigVersion();
 
     // domains
     std::string getGlobalDomain();

@@ -42,9 +42,20 @@ fds_uint64_t ConfigDB::getLastModTimeStamp() {
     return 0;
 }
 
+fds_uint64_t ConfigDB::getConfigVersion() {
+    try {
+        return r.get("config.version").getLong();
+    } catch(const RedisException& e) {
+        LOGERROR << e.what();
+    }
+
+    return 0;
+}
+
 void ConfigDB::setModified() {
     try {
-        Reply reply = r.sendCommand("set config.lastmod %ld", fds::util::getTimeStampMillis());
+        r.sendCommand("set config.lastmod %ld", fds::util::getTimeStampMillis());
+        r.incr("config.version");
     } catch(const RedisException& e) {
         LOGERROR << e.what();
     }
