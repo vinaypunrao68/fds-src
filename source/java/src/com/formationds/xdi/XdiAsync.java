@@ -5,7 +5,6 @@ package com.formationds.xdi;
 
 import com.formationds.apis.*;
 import com.formationds.util.blob.Mode;
-import com.formationds.web.toolkit.ServletOutputWrapper;
 import org.apache.thrift.TException;
 import org.apache.thrift.async.AsyncMethodCallback;
 import org.eclipse.jetty.io.ByteBufferPool;
@@ -29,16 +28,16 @@ public class XdiAsync {
         this.pool = pool;
     }
 
-    public CompletableFuture<Void> getBlobToServlet(String domain, String volume, String blob, ServletOutputStream stream) {
-        ServletOutputWrapper sow = new ServletOutputWrapper(stream);
-        return getBlobToConsumer(domain, volume, blob, bytes -> {
-                    try {
-                        return sow.outAsync(str -> str.write(bytes.array()));
-                    } catch(IOException ex) {
-                        return makeExceptionFuture(ex);
-                    }
-                });
-    }
+//    public CompletableFuture<Void> getBlobToServlet(String domain, String volume, String blob, ServletOutputStream stream) {
+//        ServletOutputWrapper sow = new ServletOutputWrapper(stream);
+//        return getBlobToConsumer(domain, volume, blob, bytes -> {
+//                    try {
+//                        return sow.outAsync(str -> str.write(bytes.array()));
+//                    } catch(IOException ex) {
+//                        return makeExceptionFuture(ex);
+//                    }
+//                });
+//    }
 
     public CompletableFuture<Void> getBlobToConsumer(String domain, String volume, String blob, Function<ByteBuffer, CompletableFuture<Void>> processor) {
         CompletableFuture<BlobDescriptor> blobDescriptorFuture = statBlob(domain, volume, blob);
