@@ -200,8 +200,7 @@ template <class K, class V, class _Hash = std::hash<K>>
     }
 
     std::unique_ptr<V> add(const K &key, V* value) override {
-        GLOGTRACE << "Adding key " << key << " and value "
-                  << *value;
+        GLOGTRACE << "Adding key " << key;
         // Remove any exiting entry from cache
         remove(key);
 
@@ -214,8 +213,7 @@ template <class K, class V, class _Hash = std::hash<K>>
 
         // Check if anything needs to be evicted
         if (this->numEntries > this->maxEntries) {
-            GLOGTRACE << "Evicting key " << evictionList->back().first
-                      << " and value " << evictionList->back().second;
+            GLOGTRACE << "Evicting key " << evictionList->back().first;
             V* entryToEvict = evictionList->back().second;
             fds_verify(entryToEvict != NULL);
 

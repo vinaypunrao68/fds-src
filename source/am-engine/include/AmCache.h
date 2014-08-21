@@ -66,6 +66,14 @@ class AmCache : public Module, public boost::noncopyable {
                                       Error &error);
 
     /**
+     * Retrieves object data from cache for given volume and object.
+     * If object is not found, returns error.
+     */
+    boost::shared_ptr<std::string> getBlobObject(fds_volid_t volId,
+                                                 const ObjectID &objectId,
+                                                 Error &error);
+
+    /**
      * Updates the cache with the contents from a commited
      * transaction. Any previously existing info will be
      * overwritten.

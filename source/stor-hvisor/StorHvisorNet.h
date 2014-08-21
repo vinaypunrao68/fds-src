@@ -407,7 +407,7 @@ public:
                            const fds_uint64_t& blobOffset,
                            const fds_volid_t& volId,
                            FailoverSvcRequestRespCb respCb);
-    void issueGetObject(const fds_volid_t& volId, const ObjectID& objId,
+    void issueGetObject(AmQosReq *qosReq,
                         FailoverSvcRequestRespCb respCb);
     void issueStartBlobTxMsg(const std::string& blobName,
                              const fds_volid_t& volId,
