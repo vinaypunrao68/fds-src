@@ -57,6 +57,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     int64_t createUser(const std::string& identifier, const std::string& secret, const bool isFdsAdmin) { return 0;} //NOLINT
     void assignUserToTenant(const int64_t userId, const int64_t tenantId) {}
     void revokeUserFromTenant(const int64_t userId, const int64_t tenantId) {}
+    void allUsers(std::vector<User>& _return, const int64_t ignore) {}
     void listUsersForTenant(std::vector<User> & _return, const int64_t tenantId) {}
     void updateUser(const int64_t userId, const std::string& identifier, const std::string& secret, const bool isFdsAdmin) {} //NOLINT
     int64_t configurationVersion(const int64_t ignore) { return 0;}
@@ -93,6 +94,10 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     void revokeUserFromTenant(boost::shared_ptr<int64_t>& userId,
                               boost::shared_ptr<int64_t>& tenantId) {
         configDB->revokeUserFromTenant(*userId, *tenantId);
+    }
+
+    void allUsers(std::vector<User> & _return, boost::shared_ptr<int64_t>& ignore) {
+        configDB->listUsers(_return);
     }
 
     void listUsersForTenant(std::vector<User> & _return, boost::shared_ptr<int64_t>& tenantId) {

@@ -123,6 +123,9 @@ service ConfigurationService {
         void revokeUserFromTenant(1:i64 userId, 2:i64 tenantId)
              throws (1: ApiException e),
 
+        list<User> allUsers(1:i64 ignore)
+             throws (1: ApiException e),
+
         list<User> listUsersForTenant(1:i64 tenantId)
              throws (1: ApiException e),
 
