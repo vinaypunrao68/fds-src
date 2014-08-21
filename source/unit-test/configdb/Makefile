@@ -8,8 +8,12 @@ user_fds_ar_libs  := \
         fds-lib \
         fds-util \
         fds-fdsp \
-        fds-umod \
-        fds-thread
+        fds-thread \
+        fds-plat-lib \
+	fds-net-svc \
+	fds-umod \
+	fds-osdep \
+	fds-xdi
 
 user_non_fds_libs :=                                                          \
     boost_log boost_system boost_thread boost_date_time boost_program_options \
