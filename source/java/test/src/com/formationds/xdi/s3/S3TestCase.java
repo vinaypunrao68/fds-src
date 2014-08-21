@@ -12,12 +12,11 @@ import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.VolumeSettings;
 import com.formationds.apis.VolumeType;
 import com.formationds.demo.Main;
-import com.formationds.security.Authenticator;
-import com.formationds.security.AuthorizationToken;
+import com.formationds.security.AuthenticationToken;
+import com.formationds.security.LoginModule;
 import com.formationds.util.Configuration;
 import com.formationds.util.Size;
 import com.formationds.util.SizeUnit;
-import com.sun.security.auth.UserPrincipal;
 import org.apache.commons.io.IOUtils;
 import org.apache.thrift.protocol.TBinaryProtocol;
 import org.apache.thrift.transport.TSocket;
@@ -177,7 +176,7 @@ public class S3TestCase {
 
     //@Test
     public void makeKey() throws Exception {
-        String key = new AuthorizationToken(Authenticator.KEY, new UserPrincipal("fabrice")).getKey().toBase64();
+        String key = new AuthenticationToken(LoginModule.KEY, 42, "foo").signature();
         System.out.println(key);
     }
 

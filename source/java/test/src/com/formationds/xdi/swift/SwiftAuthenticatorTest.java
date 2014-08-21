@@ -3,7 +3,7 @@ package com.formationds.xdi.swift;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.security.AuthorizationToken;
+import com.formationds.security.AuthenticationToken;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
@@ -22,10 +22,10 @@ import static org.junit.Assert.assertEquals;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-public class SwiftAuthorizerTest {
+public class SwiftAuthenticatorTest {
     @Test
     public void testNoHeader() throws Exception {
-        SwiftAuthorizer authorizer = new SwiftAuthorizer(() -> new StubHandler());
+        SwiftAuthenticator authorizer = new SwiftAuthenticator(() -> new StubHandler());
 
         Resource result = authorizer.handle(mock(Request.class), Maps.newHashMap());
         assertEquals(HttpServletResponse.SC_UNAUTHORIZED, result.getHttpStatus());
@@ -33,9 +33,9 @@ public class SwiftAuthorizerTest {
 
     @Test
     public void testMalformedAuthHeader() throws Exception {
-        SwiftAuthorizer authorizer = new SwiftAuthorizer(() -> new StubHandler());
+        SwiftAuthenticator authorizer = new SwiftAuthenticator(() -> new StubHandler());
         Request request = mock(Request.class);
-        when(request.getHeader(Authenticate.X_AUTH_TOKEN)).thenReturn("poop");
+        when(request.getHeader(GrantAuthenticationToken.X_AUTH_TOKEN)).thenReturn("poop");
         Resource result = authorizer.handle(request, Maps.newHashMap());
         assertEquals(HttpServletResponse.SC_UNAUTHORIZED, result.getHttpStatus());
     }
@@ -45,9 +45,9 @@ public class SwiftAuthorizerTest {
         SecretKey secretKey = new SecretKeySpec(new byte[]{35, -37, -53, -105, 107, -37, -14, -64, 28, -74, -98, 124, -8, -7, 68, 54}, "AES");
         Principal principal = new UserPrincipal("admin");
         Request request = mock(Request.class);
-        String token = new AuthorizationToken(secretKey, principal).getKey().toBase64();
-        when(request.getHeader(Authenticate.X_AUTH_TOKEN)).thenReturn(token);
-        SwiftAuthorizer authorizer = new SwiftAuthorizer(() -> new StubHandler());
+        String token = new AuthenticationToken(secretKey, 1, "foo").signature();
+        when(request.getHeader(GrantAuthenticationToken.X_AUTH_TOKEN)).thenReturn(token);
+        SwiftAuthenticator authorizer = new SwiftAuthenticator(() -> new StubHandler());
         Resource result = authorizer.handle(request, Maps.newHashMap());
         assertEquals(HttpServletResponse.SC_OK, result.getHttpStatus());
     }
