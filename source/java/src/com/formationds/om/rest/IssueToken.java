@@ -3,7 +3,7 @@ package com.formationds.om.rest;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.security.AuthorizationToken;
+import com.formationds.security.AuthenticationToken;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
@@ -29,11 +29,11 @@ public class IssueToken implements RequestHandler {
         String password = requiredString(request, "password");
 
         if ("admin".equals(login) && "admin".equals(password)) {
-            AuthorizationToken token = new AuthorizationToken(secretKey, new UserPrincipal("admin"));
+            AuthenticationToken token = new AuthenticationToken(secretKey, new UserPrincipal("admin"));
             return new JsonResource(new JSONObject().put("token", token.getKey().toBase64())) {
                 @Override
                 public Cookie[] cookies() {
-                    Cookie cookie = new Cookie(Authorizer.FDS_TOKEN, token.toString());
+                    Cookie cookie = new Cookie(Authenticator.FDS_TOKEN, token.toString());
                     cookie.setPath("/");
                     return new Cookie[]{cookie};
                 }

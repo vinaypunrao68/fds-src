@@ -6,8 +6,8 @@ package com.formationds.xdi;
 import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import com.formationds.apis.*;
 import com.formationds.om.rest.SetVolumeQosParams;
+import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authenticator;
-import com.formationds.security.AuthorizationToken;
 import com.sun.security.auth.UserPrincipal;
 import org.apache.thrift.TException;
 import org.joda.time.DateTime;
@@ -36,7 +36,7 @@ public class Xdi {
     public XdiCredentials authenticate(String login, String password) throws LoginException {
         authenticator.login(login, password);
         UserPrincipal principal = new UserPrincipal(login);
-        AuthorizationToken token = new AuthorizationToken(Authenticator.KEY, principal);
+        AuthenticationToken token = new AuthenticationToken(Authenticator.KEY, principal);
         return new XdiCredentials(principal, token.getKey());
     }
 

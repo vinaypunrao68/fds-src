@@ -8,8 +8,7 @@ import com.formationds.om.plotter.ListActiveVolumes;
 import com.formationds.om.plotter.RegisterVolumeStats;
 import com.formationds.om.plotter.VolumeStatistics;
 import com.formationds.om.rest.*;
-import com.formationds.security.Authenticator;
-import com.formationds.security.AuthorizationToken;
+import com.formationds.security.AuthenticationToken;
 import com.formationds.util.Configuration;
 import com.formationds.util.libconfig.ParsedConfig;
 import com.formationds.web.toolkit.HttpMethod;
@@ -55,8 +54,8 @@ public class Main {
 
         webApp.route(HttpMethod.GET, "", () -> new LandingPage(webDir));
 
-        webApp.route(HttpMethod.POST, "/api/auth/token", () -> new IssueToken(Authenticator.KEY));
-        webApp.route(HttpMethod.GET, "/api/auth/token", () -> new IssueToken(Authenticator.KEY));
+        webApp.route(HttpMethod.POST, "/api/auth/token", () -> new IssueToken(com.formationds.security.Authenticator.KEY));
+        webApp.route(HttpMethod.GET, "/api/auth/token", () -> new IssueToken(com.formationds.security.Authenticator.KEY));
 
         authorize(HttpMethod.GET, "/api/config/services", () -> new ListServices(legacyClientFactory.configPathClient(omHost, omPort)));
         authorize(HttpMethod.POST, "/api/config/services/:node_uuid", () -> new ActivatePlatform(legacyClientFactory.configPathClient(omHost, omPort)));
@@ -90,7 +89,7 @@ public class Main {
 
     private void authorize(HttpMethod method, String route, Supplier<RequestHandler> factory) {
         if (configuration.enforceRestAuth()) {
-            RequestHandler handler = new Authorizer(factory, s -> new AuthorizationToken(Authenticator.KEY, s).isValid());
+            RequestHandler handler = new Authenticator(factory, s -> new AuthenticationToken(com.formationds.security.Authenticator.KEY, s).isValid());
             webApp.route(method, route, () -> handler);
         } else {
             webApp.route(method, route, factory);

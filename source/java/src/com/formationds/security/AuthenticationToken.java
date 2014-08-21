@@ -11,19 +11,19 @@ import javax.crypto.SecretKey;
 import java.security.Principal;
 import java.text.MessageFormat;
 
-public class AuthorizationToken {
+public class AuthenticationToken {
     private static final String TOKEN_FORMAT = "name: {0}";
     private String name;
     private boolean isValid;
     private SecretKey secretKey;
 
-    public AuthorizationToken(SecretKey secretKey, Principal principal) {
+    public AuthenticationToken(SecretKey secretKey, Principal principal) {
         this.secretKey = secretKey;
         name = principal.getName();
         isValid = true;
     }
 
-    public AuthorizationToken(SecretKey secretKey, String encrypted) {
+    public AuthenticationToken(SecretKey secretKey, String encrypted) {
         this.secretKey = secretKey;
         try {
             String decrypted = decrypt(encrypted);

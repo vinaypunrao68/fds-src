@@ -17,12 +17,12 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-public class Authorizer implements RequestHandler {
+public class Authenticator implements RequestHandler {
     public static final String FDS_TOKEN = "token";
     private Supplier<RequestHandler> supplier;
     private Function<String, Boolean> authorizer;
 
-    public Authorizer(Supplier<RequestHandler> supplier, Function<String, Boolean> authorizer) {
+    public Authenticator(Supplier<RequestHandler> supplier, Function<String, Boolean> authorizer) {
         this.supplier = supplier;
         this.authorizer = authorizer;
     }

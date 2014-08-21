@@ -3,8 +3,8 @@ package com.formationds.xdi.s3;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authenticator;
-import com.formationds.security.AuthorizationToken;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
@@ -19,12 +19,12 @@ import java.util.Map;
 import static org.junit.Assert.assertEquals;
 import static org.mockito.Mockito.*;
 
-public class S3AuthorizerTest {
+public class S3AuthenticatorTest {
 
     //@Test
     public void testMissingHeader() throws Exception {
         RequestHandler success = mock(RequestHandler.class);
-        Resource result = new S3Authorizer(() -> success).get().handle(mock(Request.class), new HashMap<>());
+        Resource result = new S3Authenticator(() -> success).get().handle(mock(Request.class), new HashMap<>());
         assertEquals(HttpServletResponse.SC_UNAUTHORIZED, result.getHttpStatus());
         verifyZeroInteractions(success);
     }
@@ -33,10 +33,10 @@ public class S3AuthorizerTest {
     public void testAuthorizationSucceeds() throws Exception {
         Request request = mock(Request.class);
         String principalName = "joe";
-        String signature = new AuthorizationToken(Authenticator.KEY, new UserPrincipal(principalName)).getKey().toBase64();
+        String signature = new AuthenticationToken(Authenticator.KEY, new UserPrincipal(principalName)).getKey().toBase64();
         String headerValue = "AWS " + principalName + ":" + signature;
         when(request.getHeader("Authorization")).thenReturn(headerValue);
-        Resource result = new S3Authorizer(() -> new Handler()).get().handle(request, new HashMap<>());
+        Resource result = new S3Authenticator(() -> new Handler()).get().handle(request, new HashMap<>());
         assertEquals(HttpServletResponse.SC_OK, result.getHttpStatus());
     }
 
@@ -45,7 +45,7 @@ public class S3AuthorizerTest {
         Request request = mock(Request.class);
         String headerValue = "poop";
         when(request.getHeader("Authorization")).thenReturn(headerValue);
-        Resource result = new S3Authorizer(() -> new Handler()).get().handle(request, new HashMap<>());
+        Resource result = new S3Authenticator(() -> new Handler()).get().handle(request, new HashMap<>());
         assertEquals(HttpServletResponse.SC_UNAUTHORIZED, result.getHttpStatus());
     }
 
@@ -54,7 +54,7 @@ public class S3AuthorizerTest {
         Request request = mock(Request.class);
         String headerValue = "AWS joe:poop";
         when(request.getHeader("Authorization")).thenReturn(headerValue);
-        Resource result = new S3Authorizer(() -> new Handler()).get().handle(request, new HashMap<>());
+        Resource result = new S3Authenticator(() -> new Handler()).get().handle(request, new HashMap<>());
         assertEquals(HttpServletResponse.SC_UNAUTHORIZED, result.getHttpStatus());
     }
 
@@ -62,10 +62,10 @@ public class S3AuthorizerTest {
     public void testMismatchedCredentials() throws Exception {
         Request request = mock(Request.class);
         String principalName = "joe";
-        String signature = new AuthorizationToken(Authenticator.KEY, new UserPrincipal(principalName)).toString();
+        String signature = new AuthenticationToken(Authenticator.KEY, new UserPrincipal(principalName)).toString();
         String headerValue = "AWS frank:" + signature;
         when(request.getHeader("Authorization")).thenReturn(headerValue);
-        Resource result = new S3Authorizer(() -> new Handler()).get().handle(request, new HashMap<>());
+        Resource result = new S3Authenticator(() -> new Handler()).get().handle(request, new HashMap<>());
         assertEquals(HttpServletResponse.SC_UNAUTHORIZED, result.getHttpStatus());
     }
 

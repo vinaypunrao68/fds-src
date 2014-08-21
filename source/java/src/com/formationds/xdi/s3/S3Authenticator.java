@@ -7,8 +7,8 @@ import com.amazonaws.AmazonWebServiceRequest;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.http.HttpMethodName;
 import com.amazonaws.util.AWSRequestMetrics;
+import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authenticator;
-import com.formationds.security.AuthorizationToken;
 import com.formationds.web.toolkit.RequestHandler;
 import com.google.common.collect.Maps;
 import com.sun.security.auth.UserPrincipal;
@@ -24,10 +24,10 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Supplier;
 
-public class S3Authorizer implements Supplier<RequestHandler> {
+public class S3Authenticator implements Supplier<RequestHandler> {
     private Supplier<RequestHandler> supplier;
 
-    public S3Authorizer(Supplier<RequestHandler> supplier) {
+    public S3Authenticator(Supplier<RequestHandler> supplier) {
         this.supplier = supplier;
     }
 
@@ -205,7 +205,7 @@ public class S3Authorizer implements Supplier<RequestHandler> {
             throw new SecurityException("invalid credentials");
         }
         String principal = (String) parsed[0];
-        AuthorizationToken token = new AuthorizationToken(Authenticator.KEY, new UserPrincipal(principal));
+        AuthenticationToken token = new AuthenticationToken(Authenticator.KEY, new UserPrincipal(principal));
 
         return new BasicAWSCredentials(principal, token.getKey().toBase64());
     }

@@ -44,7 +44,7 @@ public class S3Endpoint {
     private void authorize(HttpMethod method, String route, Supplier<RequestHandler> s) {
         Supplier<RequestHandler> supplier = new S3FailureHandler(s);
         if (enforceAuth) {
-            webApp.route(method, route, new S3Authorizer(supplier));
+            webApp.route(method, route, new S3Authenticator(supplier));
         } else {
             webApp.route(method, route, supplier);
         }
