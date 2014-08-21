@@ -1096,7 +1096,6 @@ bool ConfigDB::revokeUserFromTenant(int64_t userId, int64_t tenantId) {
 
 bool ConfigDB::listUsersForTenant(std::vector<fds::apis::User>& users, int64_t tenantId) {
     fds::apis::User user;
-    
     try {
         // get the list of users assigned to the tenant
         Reply reply = r.sendCommand("smembers tenant:%ld:users", tenantId);
@@ -1104,15 +1103,16 @@ bool ConfigDB::listUsersForTenant(std::vector<fds::apis::User>& users, int64_t t
         reply.toVector(strings);
         std::string userlist;
         userlist.reserve(2048);
+        userlist.append("hmget users");
 
         for (const auto& value : strings) {
-            userlist.append(value);
             userlist.append(" ");
+            userlist.append(value);
         }
 
         LOGDEBUG << "users for tenant:" << tenantId << " are [" << userlist << "]";
 
-        reply = r.sendCommand("hmget users %b", userlist.data(), userlist.length());
+        reply = r.sendCommand(userlist.c_str());
         strings.clear();
         reply.toVector(strings);
         for (const auto& value : strings) {
