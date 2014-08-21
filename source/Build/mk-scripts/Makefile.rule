@@ -61,7 +61,7 @@ include $(incl_scripts)/Makefile.scpt
 # Main make rule.
 #
 .PHONY: all
-all: setupfdsrepo devsetup $(user_predep) devenv base_predepend $(user_postdep) \
+all: devsetup $(user_predep) devenv base_predepend $(user_postdep) \
      $(user_predepend) $(user_postdepend)                           \
 	 $(user_preall) base_dirs base_style base_objs base_all $(user_postall)     \
 	 $(user_tool) $(user_scripts) base_postmake                                 \
@@ -352,9 +352,9 @@ reposetupscript:=$(incl_scripts)/../../tools/setupfdsrepo.sh
 $(fdsrepofile) : $(reposetupscript)
 	@sudo $(reposetupscript)
 
-.IGNORE: setupfdsrepo
-.PHONY: setupfdsrepo
-setupfdsrepo :  $(fdsrepofile)
+.IGNORE: fdsrepo
+.PHONY: fdsrepo fdspkgs
+fdsrepo :  $(fdsrepofile)
 
 # -----------------------------------------------------------------------------
 # Check for installed packages
@@ -370,6 +370,11 @@ $(devsetup_chkfile): $(devsetup_script)
 devsetup-force: $(devsetup_script)
 	@$(devsetup_script)
 	@touch $(devsetup_chkfile)
+
+fdspkgs: fdsrepo $(devsetup_script) 
+	@$(devsetup_script) --fdspkgs
+	@touch $(devsetup_chkfile)
+
 
 .PHONY : devsetup 
 devsetup: $(devsetup_chkfile)

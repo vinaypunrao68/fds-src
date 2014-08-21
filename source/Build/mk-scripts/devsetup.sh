@@ -12,6 +12,7 @@
 ###########################################################################
 REPOUPDATED=0
 DEPLOYMODE=0
+INSTALLFDSPKGS=0
 
 function progress() {
     if isDeployMode ; then
@@ -69,6 +70,18 @@ python_packages=(
 
 function isDeployMode() {
     [[ $DEPLOYMODE == 1 ]]
+}
+
+function shouldInstallFdsPkg() {
+    [[ $INSTALLFDSPKGS == 1 ]]
+}
+
+function isFdsPkg() {
+    local pkg="$1"
+    case "$pkg" in
+        fds*) true ;;
+        *) false ;;
+    esac
 }
 
 ###########################################################################
@@ -145,6 +158,11 @@ function installBasePkgs() {
             continue
         fi
 
+        if isFdsPkg $pkg && ! shouldInstallFdsPkg ; then
+            progress "-- skipping FDS pkg : $pkg"
+            continue
+        fi
+
         progress "checking $pkg ..."
 
         pkgname=${pkg%%=*}
@@ -199,6 +217,11 @@ function installPythonPkgs() {
             continue
         fi
 
+        if isFdsPkg $pkg && ! shouldInstallFdsPkg ; then
+            progress "-- skipping FDS pkg : $pkg"
+            continue
+        fi
+
         pkgname=${pkg}
         progress "[python] checking : $pkg"
         name=$(pip freeze 2>/dev/null | grep ^${pkgname}= | cut -f1 -d=)
@@ -217,6 +240,7 @@ function installPythonPkgs() {
 ###########################################################################
 case $1 in
     *deploymode) DEPLOYMODE=1 ;;
+    *fdspkg*) INSTALLFDSPKGS=1;;
 esac
 
 installBasePkgs
