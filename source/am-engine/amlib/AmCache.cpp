@@ -4,6 +4,7 @@
 #include <string>
 #include <AmCache.h>
 #include <fds_process.h>
+#include <PerfTrace.h>
 
 namespace fds {
 
@@ -83,6 +84,7 @@ AmCache::getBlobDescriptor(fds_volid_t volId,
     BlobDescriptor *blobDescPtr = NULL;
     error = blobDescCache->get(volId, blobName, &blobDescPtr);
     if (error == ERR_OK) {
+        PerfTracer::incr(AM_DESC_CACHE_HIT, volId);
         // Copy the blob descriptor into an object we can safely
         // return to the caller
         BlobDescriptor::ptr blobDesc(new BlobDescriptor(*blobDescPtr));
@@ -103,6 +105,7 @@ AmCache::getBlobOffsetObject(fds_volid_t volId,
     BlobOffsetPair offsetPair(blobName, blobOffset);
     error = blobOffsetCache->get(volId, offsetPair, &blobObjectPtr);
     if (error == ERR_OK) {
+        PerfTracer::incr(AM_OFFSET_CACHE_HIT, volId);
         // Copy the blob descriptor into an object we can safely
         // return to the caller
         ObjectID::ptr blobObjectId(new ObjectID(*blobObjectPtr));
@@ -121,6 +124,7 @@ AmCache::getBlobObject(fds_volid_t volId,
     std::string *blobObjectPtr = NULL;
     error = blobObjectCache->get(volId, objectId, &blobObjectPtr);
     if (error == ERR_OK) {
+        PerfTracer::incr(AM_OBJECT_CACHE_HIT, volId);
         // Copy the blob descriptor into an object we can safely
         // return to the caller
         boost::shared_ptr<std::string> blobObject(new std::string(
