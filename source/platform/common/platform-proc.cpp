@@ -3,6 +3,7 @@
  */
 #include <stdlib.h>
 #include <string>
+#include <sstream>
 #include <iostream>  // NOLINT
 #include <disk.h>
 #include <platform.h>
@@ -66,25 +67,34 @@ NodePlatformProc::plf_start_node_services(const fpi::FDSP_ActivateNodeTypePtr &m
     sleep(10);
     if (auto_start == true) {
         if (msg->has_sm_service) {
+            std::stringstream argstream;
+            argstream << "--fds.sm.om_ip=" << conf.get<std::string>("om_ip")
+                << " --fds.plat.platform_port=" << conf.get<int>("platform_port")
+                << " --fds.plat.om_ip=" << conf.get<std::string>("om_ip");
             pid = fds_spawn_service("StorMgr",
-                    (std::string("--fds.sm.om_ip=") +
-                            conf.get<std::string>("om_ip")).c_str(),
+                    argstream.str().c_str(),
                     proc_root->dir_fdsroot().c_str(), true);
             LOGNOTIFY << "Spawn SM as daemon";
 
             // TODO(Vy): must fix the transport stuff!
         }
         if (msg->has_dm_service) {
+            std::stringstream argstream;
+            argstream << "--fds.dm.om_ip=" << conf.get<std::string>("om_ip")
+                << " --fds.plat.platform_port=" << conf.get<int>("platform_port")
+                << " --fds.plat.om_ip=" << conf.get<std::string>("om_ip");
             pid = fds_spawn_service("DataMgr",
-                    (std::string("--fds.dm.om_ip=") +
-                            conf.get<std::string>("om_ip")).c_str(),
+                    argstream.str().c_str(),
                     proc_root->dir_fdsroot().c_str(), true);
             LOGNOTIFY << "Spawn DM as daemon";
         }
         if (msg->has_am_service) {
+            std::stringstream argstream;
+            argstream << "--fds.am.om_ip=" << conf.get<std::string>("om_ip")
+                << " --fds.plat.platform_port=" << conf.get<int>("platform_port")
+                << " --fds.plat.om_ip=" << conf.get<std::string>("om_ip");
             pid = fds_spawn_service("AMAgent",
-                    (std::string("--fds.am.om_ip=") +
-                            conf.get<std::string>("om_ip")).c_str(),
+                    argstream.str().c_str(),
                     proc_root->dir_fdsroot().c_str(), true);
             LOGNOTIFY << "Spawn AM as daemon";
         }
