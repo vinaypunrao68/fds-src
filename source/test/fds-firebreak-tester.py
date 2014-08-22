@@ -212,9 +212,9 @@ class CapacityTest(object):
         # If we've hit this point then its time for the break
         for i in range(self.num_anoms):
             print "Putting anomalous request #" + str(i)
-            rand_dev = random.randint(2, 6) # How many standard deviations from the avg
-            rand = random.randint(0, rand_dev * self.std_dev)
-            temp_data = os.urandom(self.avg_size + rand)
+            # rand_dev = random.randint(2, 6) # How many standard deviations from the avg
+            rand_dev = 1000
+            temp_data = os.urandom(self.avg_size + (rand_dev * self.std_dev))
             res = requests.put(os.path.join(url, TestUtil.gen_random_name(6)), data=temp_data)
             if res.status_code != 200:
                 print "An error has occurred, and an object could not be PUT!"
