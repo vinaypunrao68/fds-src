@@ -629,6 +629,9 @@ DmtDplyFSM::DACT_BcastAM::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
     // broadcast DMT to AMs
     dst.commit_acks_to_wait = loc_domain->om_bcast_dmt(fpi::FDSP_STOR_HVISOR,
                                                        vp->getCommittedDMT());
+    // broadcast DMT to AMs
+    dst.commit_acks_to_wait += loc_domain->om_bcast_dmt(fpi::FDSP_STOR_MGR,
+                                                       vp->getCommittedDMT());
 
     // ok if there are not AMs to broadcast
     if (dst.commit_acks_to_wait == 0) {
@@ -654,11 +657,7 @@ DmtDplyFSM::GRD_Close::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &d
     VolumePlacement* vp = om->om_volplace_mod();
     fds_uint64_t committed_ver = vp->getCommittedDMTVersion();
 
-    /* Ignore DMT acks from SM */
-    if (evt.svc_type == fpi::FDSP_STOR_MGR) {
-        LOGNOTIFY << "DMT Ack from SM...Ignoring";
-        return false;
-    }
+    LOGNOTIFY << "DMT Ack from svc type: " << evt.svc_type;
 
     // we can possibly have a race condition, where a new non-DM service
     // gets registered while we are in the process of updating DMT
@@ -673,7 +672,7 @@ DmtDplyFSM::GRD_Close::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &d
         return false;
     }
     // otherwise the ack must be from AMs only
-    fds_verify(evt.svc_type == fpi::FDSP_STOR_HVISOR);
+    fds_verify(evt.svc_type == fpi::FDSP_STOR_HVISOR || evt.svc_type == fpi::FDSP_STOR_MGR);
 
     // for now assuming commit is always a success
     if (src.commit_acks_to_wait > 0) {
@@ -681,7 +680,7 @@ DmtDplyFSM::GRD_Close::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &d
     }
 
     bool bret = (src.commit_acks_to_wait == 0);
-    LOGDEBUG << "Commit acks to wait from AM: " << src.commit_acks_to_wait
+    LOGDEBUG << "Commit acks to wait from AM/SM: " << src.commit_acks_to_wait
              << ", returning " << bret;
 
     return bret;

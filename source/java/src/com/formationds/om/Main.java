@@ -1,20 +1,23 @@
 package com.formationds.om;
 
+import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import com.formationds.apis.AmService;
-import com.formationds.apis.ConfigurationService;
 import com.formationds.fdsp.LegacyClientFactory;
 import com.formationds.om.plotter.DisplayVolumeStats;
 import com.formationds.om.plotter.ListActiveVolumes;
 import com.formationds.om.plotter.RegisterVolumeStats;
 import com.formationds.om.plotter.VolumeStatistics;
 import com.formationds.om.rest.*;
+import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authenticator;
-import com.formationds.security.AuthorizationToken;
+import com.formationds.security.FdsAuthenticator;
 import com.formationds.util.Configuration;
 import com.formationds.util.libconfig.ParsedConfig;
 import com.formationds.web.toolkit.HttpMethod;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.WebApp;
+import com.formationds.xdi.CachingConfigurationService;
+import com.formationds.xdi.Xdi;
 import com.formationds.xdi.XdiClientFactory;
 import org.apache.log4j.Logger;
 import org.joda.time.Duration;
@@ -41,7 +44,7 @@ public class Main {
 
         ParsedConfig omParsedConfig = configuration.getOmConfig();
         XdiClientFactory clientFactory = new XdiClientFactory();
-        ConfigurationService.Iface configApi = clientFactory.remoteOmService("localhost", 9090);
+        CachingConfigurationService configApi = new CachingConfigurationService(clientFactory.remoteOmService("localhost", 9090));
         AmService.Iface amService = clientFactory.remoteAmService("localhost", 9988);
 
         String omHost = "localhost";
@@ -49,22 +52,25 @@ public class Main {
         String webDir = omParsedConfig.lookup("fds.om.web_dir").stringValue();
 
         LegacyClientFactory legacyClientFactory = new LegacyClientFactory();
+        FDSP_ConfigPathReq.Iface legacyConfigClient = legacyClientFactory.configPathClient(omHost, omPort);
         VolumeStatistics volumeStatistics = new VolumeStatistics(Duration.standardMinutes(20));
+
+        Xdi xdi = new Xdi(amService, configApi, new FdsAuthenticator(configApi), legacyConfigClient);
 
         webApp = new WebApp(webDir);
 
         webApp.route(HttpMethod.GET, "", () -> new LandingPage(webDir));
 
-        webApp.route(HttpMethod.POST, "/api/auth/token", () -> new IssueToken(Authenticator.KEY));
-        webApp.route(HttpMethod.GET, "/api/auth/token", () -> new IssueToken(Authenticator.KEY));
+        webApp.route(HttpMethod.POST, "/api/auth/token", () -> new IssueToken(xdi));
+        webApp.route(HttpMethod.GET, "/api/auth/token", () -> new IssueToken(xdi));
 
-        authorize(HttpMethod.GET, "/api/config/services", () -> new ListServices(legacyClientFactory.configPathClient(omHost, omPort)));
-        authorize(HttpMethod.POST, "/api/config/services/:node_uuid", () -> new ActivatePlatform(legacyClientFactory.configPathClient(omHost, omPort)));
+        authorize(HttpMethod.GET, "/api/config/services", () -> new ListServices(legacyConfigClient));
+        authorize(HttpMethod.POST, "/api/config/services/:node_uuid", () -> new ActivatePlatform(legacyConfigClient));
 
-        authorize(HttpMethod.GET, "/api/config/volumes", () -> new ListVolumes(configApi, amService, legacyClientFactory.configPathClient(omHost, omPort)));
-        authorize(HttpMethod.POST, "/api/config/volumes", () -> new CreateVolume(configApi, legacyClientFactory.configPathClient(omHost, omPort)));
-        authorize(HttpMethod.DELETE, "/api/config/volumes/:name", () -> new DeleteVolume(legacyClientFactory.configPathClient(omHost, omPort)));
-        authorize(HttpMethod.PUT, "/api/config/volumes/:uuid", () -> new SetVolumeQosParams(legacyClientFactory.configPathClient(omHost, omPort), configApi, amService));
+        authorize(HttpMethod.GET, "/api/config/volumes", () -> new ListVolumes(configApi, amService, legacyConfigClient));
+        authorize(HttpMethod.POST, "/api/config/volumes", () -> new CreateVolume(configApi, legacyConfigClient));
+        authorize(HttpMethod.DELETE, "/api/config/volumes/:name", () -> new DeleteVolume(legacyConfigClient));
+        authorize(HttpMethod.PUT, "/api/config/volumes/:uuid", () -> new SetVolumeQosParams(legacyConfigClient, configApi, amService));
 
         authorize(HttpMethod.GET, "/api/config/globaldomain", ShowGlobalDomain::new);
         authorize(HttpMethod.GET, "/api/config/domains", ListDomains::new);
@@ -90,7 +96,7 @@ public class Main {
 
     private void authorize(HttpMethod method, String route, Supplier<RequestHandler> factory) {
         if (configuration.enforceRestAuth()) {
-            RequestHandler handler = new Authorizer(factory, s -> new AuthorizationToken(Authenticator.KEY, s).isValid());
+            RequestHandler handler = new HttpAuthenticator(factory, s -> AuthenticationToken.isValid(Authenticator.KEY, s));
             webApp.route(method, route, () -> handler);
         } else {
             webApp.route(method, route, factory);

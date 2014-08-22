@@ -7,7 +7,6 @@ import com.formationds.apis.*;
 import com.formationds.streaming.StreamingRegistrationMsg;
 import org.apache.thrift.TException;
 
-import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -37,8 +36,8 @@ public class CachingConfigurationService implements ConfigurationService.Iface {
     }
 
     @Override
-    public long createUser(String identifier, ByteBuffer secret, boolean isFdsAdmin) throws ApiException, TException {
-        return service.createUser(identifier, secret, isFdsAdmin);
+    public long createUser(String identifier, String passwordHash, String secret, boolean isFdsAdmin) throws ApiException, TException {
+        return service.createUser(identifier, passwordHash, secret, isFdsAdmin);
     }
 
     @Override
@@ -52,13 +51,18 @@ public class CachingConfigurationService implements ConfigurationService.Iface {
     }
 
     @Override
+    public List<User> allUsers(long unused) throws ApiException, TException {
+        return service.allUsers(unused);
+    }
+
+    @Override
     public List<User> listUsersForTenant(long tenantId) throws ApiException, TException {
         return service.listUsersForTenant(tenantId);
     }
 
     @Override
-    public void updateUser(long userId, String identifier, ByteBuffer secret, boolean isFdsAdmin) throws ApiException, TException {
-        service.updateUser(userId, identifier, secret, isFdsAdmin);
+    public void updateUser(long userId, String identifier, String passwordHash, String secret, boolean isFdsAdmin) throws ApiException, TException {
+        service.updateUser(userId, identifier, passwordHash, secret, isFdsAdmin);
     }
 
     @Override
@@ -107,7 +111,6 @@ public class CachingConfigurationService implements ConfigurationService.Iface {
     public void deregisterStream(int registration_id) throws org.apache.thrift.TException {
         service.deregisterStream(registration_id);
     }
-
 
     private class Key {
         private String domain;

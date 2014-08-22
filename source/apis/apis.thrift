@@ -95,8 +95,9 @@ service AmService {
 struct User {
     1: i64 id,
     2: string identifier,
-    3: binary secret,
-    4: bool isFdsAdmin
+    3: string passwordHash,
+    4: string secret,
+    5: bool isFdsAdmin
 }
 
 // Added for multi-tenancy
@@ -114,7 +115,7 @@ service ConfigurationService {
         list<Tenant> listTenants(1:i32 ignore)
              throws (1: ApiException e),
 
-        i64 createUser(1:string identifier, 2:binary secret, 3: bool isFdsAdmin)
+        i64 createUser(1:string identifier, 2: string passwordHash, 3:string secret, 4: bool isFdsAdmin)
              throws (1: ApiException e),
 
         void assignUserToTenant(1:i64 userId, 2:i64 tenantId)
@@ -123,10 +124,13 @@ service ConfigurationService {
         void revokeUserFromTenant(1:i64 userId, 2:i64 tenantId)
              throws (1: ApiException e),
 
+        list<User> allUsers(1:i64 ignore)
+             throws (1: ApiException e),
+
         list<User> listUsersForTenant(1:i64 tenantId)
              throws (1: ApiException e),
 
-        void updateUser(1: i64 userId, 2:string identifier, 3:binary secret, 4: bool isFdsAdmin)
+        void updateUser(1: i64 userId, 2:string identifier, 3:string passwordHash, 4:string secret, 5:bool isFdsAdmin)
              throws (1: ApiException e),
 
 

@@ -22,7 +22,7 @@ public class SwiftEndpoint {
     }
 
     public void start(int httpPort) {
-        webApp.route(HttpMethod.GET, "/v1/auth", new SwiftFailureHandler(() -> new Authenticate(xdi)));
+        webApp.route(HttpMethod.GET, "/v1/auth", new SwiftFailureHandler(() -> new GrantAuthenticationToken(xdi)));
 
         authorize(HttpMethod.GET, "/v1/:account/:container", () -> new GetContainer(xdi));
         authorize(HttpMethod.PUT, "/v1/:account/:container", () -> new CreateContainer(xdi));
@@ -38,7 +38,7 @@ public class SwiftEndpoint {
     private void authorize(HttpMethod method, String route, Supplier<RequestHandler> s) {
         Supplier<RequestHandler> supplier = new SwiftFailureHandler(s);
         if (enforceAuth) {
-            webApp.route(method, route, () -> new SwiftAuthorizer(supplier));
+            webApp.route(method, route, () -> new SwiftAuthenticator(supplier));
         } else {
             webApp.route(method, route, supplier);
         }
