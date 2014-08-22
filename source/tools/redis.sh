@@ -3,31 +3,42 @@
 # setup correct dirs
 SOURCE="${BASH_SOURCE[0]}"
 # resolve $SOURCE until the file is no longer a symlink
-while [ -h "$SOURCE" ]; do
-  DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
-  SOURCE="$(readlink "$SOURCE")"
-  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+while [ -h "${SOURCE}" ]; do
+    LOCATIONDIR="$(cd -P "$(dirname "${SOURCE}")" && pwd)"
+    SOURCE="$(readlink "${SOURCE}")"
+    [[ ${SOURCE} != /* ]] && SOURCE="${LOCATIONDIR}/${SOURCE}"
 done
+LOCATIONDIR="$(cd -P "$(dirname "${SOURCE}" )" && pwd)"
 
-# If run from source dir
-TOOLSDIR="$(cd -P "$( dirname "${SOURCE}" )" && pwd )"
-SOURCEDIR="$( cd ${TOOLSDIR}/.. && pwd)"
-CONFIG_ETC=${SOURCEDIR}/config/etc
-BINDIR="${SOURCEDIR}/Build/linux-x86_64.debug/bin"
+# one level up
+TOPDIR="$(cd -P ${LOCATIONDIR}/.. && pwd)"
 FDSROOT=/fds
+REDISPORT=6379
 
-# else run from install dir
-run_from_install_dir=0
-
+# check if the script is located in the code base OR install dir
+if [[ ${LOCATIONDIR}  =~ "/source/" ]] ; then
+    # run from the code base
+    TOOLSDIR="${LOCATIONDIR}"
+    CONFIGDIR=${TOPDIR}/config/etc
+    BINDIR="${TOPDIR}/Build/linux-x86_64.debug/bin"
+else
+    # run from the install dir
+    if [[ -d ${TOPDIR}/tools ]]; then
+        TOOLSDIR=${TOPDIR}/tools
+    else
+        TOOLSDIR=${TOPDIR}/sbin
+    fi
+    CONFIGDIR=${TOPDIR}/etc    
+    BINDIR=${TOPDIR}/bin
+fi
+########################################################################
 source ${TOOLSDIR}/loghelper.sh
 init_loghelper /tmp/redis_tool.log
-########################################################################
 
-PORTS=()
 versinfo=()
 
 function usageRedis() {
-    log "usage: $(basename $0) [cmd] [instance]"
+    log "usage: $(basename $0) [cmd]"
     log " cmd : "
     log "   - start   : start the app " 
     log "   - stop    : stop  the app " 
@@ -35,7 +46,6 @@ function usageRedis() {
     log "   - status  : print status of the apps"
     log "   - clean   : remove the data"
     log ""
-    log "instance : 1-4 [default all]"
     exit 0
 }
 
@@ -55,9 +65,10 @@ function makeRedisDirs() {
 
 # load ports from configs
 function init() {
-    for instance in 1 2 3 4 ; do
-        PORTS[$instance]=$(getRedisPort ${instance})
-    done
+    local port=$(getRedisPort)
+    if [[ -n $port ]]; then
+        REDISPORT=$port
+    fi
     makeRedisDirs
 
     # get the redis version
@@ -65,25 +76,21 @@ function init() {
     #echo ${versinfo[@]}
 }
 
-
 function getRedisConfigFile() {
-    local instance="$1"
-    echo -n ${CONFIG_ETC}/redis${instance}.conf
+    echo -n ${CONFIGDIR}/redis.conf
 }
 
 function getRedisPort() {
-    local instance="$1"
-    echo -n $(grep port $(getRedisConfigFile ${instance}) | awk '{print $2}')
+    echo -n $(grep port $(getRedisConfigFile) | awk '{print $2}')
 }
 
 function getRedisPid() {
-    local instance="$1"
     local pid
-    pid=$(ps aux | grep "redis-server $(getRedisConfigFile $instance)" | grep -v grep | awk '{print $2}')
+    pid=$(ps aux | grep "redis-server $(getRedisConfigFile)" | grep -v grep | awk '{print $2}')
     if [[ -z $pid ]] ; then 
-        pid=$(ps aux | grep "redis-server.*:${PORTS[${instance}]}" | grep -v grep | awk '{print $2}')
+        pid=$(ps aux | grep "redis-server.*:${REDISPORT}" | grep -v grep | awk '{print $2}')
     fi
-    if [[ -z $pid && $instance == 1 ]] ; then 
+    if [[ -z $pid ]] ; then 
         pid=$(pgrep redis-server)
     fi
     
@@ -91,66 +98,48 @@ function getRedisPid() {
 }
 
 function isRunning() {
-    local instance="$1"
-    local pid=$(getRedisPid $instance)
-    
+    local pid=$(getRedisPid)    
     if [[ -n $pid ]] ; then return 0 ; else return 1 ; fi
 }
 
 function startRedis() {
-    local instances="$1"
-    local instance;
-    for instance in ${instances} ; do
-        local port=${PORTS[${instance}]}
-        if (isRunning ${instance}) ; then
-            local pid=$(getRedisPid ${instance})
-            logwarn "redis [${instance}:pid=$pid] is already running @ [port:${PORTS[${instance}]}]"
-        else
-            loginfo "starting redis [${instance}] @ [port:${PORTS[${instance}]}]"
-            redis-server $(getRedisConfigFile ${instance})
-        fi
-    done
+    if (isRunning) ; then
+        local pid=$(getRedisPid)
+        logwarn "redis [pid=$pid] is already running @ [port:${REDISPORT}]"
+    else
+        loginfo "starting redis @ [port:${REDISPORT}]"
+        redis-server $(getRedisConfigFile)
+    fi
+    
 }
 
 function statusRedis() {
-    local instances="$1"
-    for instance in ${instances} ; do
-        if (isRunning ${instance}) ; then
-            local port=${PORTS[${instance}]}
-            local pid=$(getRedisPid ${instance})
-            loginfo "redis [${instance}:pid=$pid] running @ [port:${PORTS[${instance}]}]"
-        else
-            logwarn "redis [${instance}] is NOT running @ [port:${PORTS[${instance}]}]"
-        fi
-    done
+    if (isRunning) ; then
+        local pid=$(getRedisPid)
+        loginfo "redis [pid=$pid] running @ [port:${REDISPORT}]"
+    else
+        logwarn "redis is NOT running @ [port:${REDISPORT}]"
+    fi
 }
 
 function stopRedis() {
-    local instances="$1"
-
-    for instance in ${instances} ; do
-        if (isRunning ${instance}) ; then            
-            local pid=$(getRedisPid ${instance})
-            loginfo "shutting down redis [${instance}:pid=$pid] @ [port:${PORTS[${instance}]}]"
-            echo "shutdown" | redis-cli -p ${PORTS[${instance}]}
-        else
-            logwarn "redis [${instance}] is NOT running @ [port:${PORTS[${instance}]}]"
-        fi
-    done
+    if (isRunning) ; then            
+        local pid=$(getRedisPid)
+        loginfo "shutting down redis [pid=$pid] @ [port:${REDISPORT}]"
+        echo "shutdown" | redis-cli -p ${REDISPORT}
+    else
+        logwarn "redis is NOT running @ [port:${REDISPORT}]"
+    fi
 }
 
 function cleanRedis() {
-    local instances="$1"
-    for instance in ${instances} ; do
-        if (isRunning ${instance}) ; then
-            local port=${PORTS[${instance}]}
-            logwarn "cleaning redis [${instance}] @ [port:${PORTS[${instance}]}]"
-            echo "FLUSHALL" | redis-cli -p $port >/dev/null
-            echo "BGREWRITEAOF" | redis-cli -p $port >/dev/null
-        else
-            logwarn "redis [${instance}] is NOT running @ [port:${PORTS[${instance}]}]"
-        fi
-    done
+    if (isRunning) ; then
+        logwarn "cleaning redis @ [port:${REDISPORT}]"
+        echo "FLUSHALL" | redis-cli -p $REDISPORT >/dev/null
+        echo "BGREWRITEAOF" | redis-cli -p $REDISPORT >/dev/null
+    else
+        logwarn "redis is NOT running @ [port:${REDISPORT}]"
+    fi
 }
 
 #################################################################################
@@ -168,7 +157,7 @@ do
             (( n++ ))
             if [[ $n -ge $# ]]; then 
                 logerror "value expected for fdsroot"
-                usage
+                usageRedis
             fi
             FDSROOT=${args[$n]}
             ;;
@@ -176,29 +165,20 @@ do
             run_from_install_dir=1
             ;;
         -h|--help)
-            usage
+            usageRedis
             ;;
         *)
             if [[ -z $CMD ]] ; then CMD=$opt
             elif [[ -z $APP ]] ; then APP=$opt
             else
                 logerror "unknown option [$opt] "
-                usage
+                usageRedis
             fi
     esac
 done
 
-# else run from install dir
-if [ $run_from_install_dir -eq 1 ]; then
-    SOURCEDIR="$( cd ${TOOLSDIR}/../.. && pwd)"
-    CONFIG_ETC=${SOURCEDIR}/etc
-    BINDIR=${SOURCEDIR}/bin
-    FDSROOT=${SOURCEDIR}
-fi
-
 # check the values
 CMD=${CMD:="status"}
-APP=${APP:="all"}
 
 case "${CMD}" in
     start) ;;
@@ -209,27 +189,15 @@ case "${CMD}" in
     *) usageRedis ;;
 esac
 
-case "${APP}" in
-    1) ;;
-    2) ;;
-    3) ;;
-    4) ;;
-    all) ;;
-    *) usageRedis ;;
-esac
-
-if [[ $APP == "all" ]]; then
-    APP="1 2 3 4"
-fi
-
 init
 
 case "${CMD}" in
-    start) startRedis "$APP" ;;
-    stop) stopRedis  "$APP";;
-    status) statusRedis "$APP" ;;
-    clean) cleanRedis "$APP";;
-    restart) stopRedis "$APP"
-        startRedis "$APP";;
+    start) startRedis;;
+    stop) stopRedis ;;
+    status) statusRedis ;;
+    clean) cleanRedis;;
+    restart) 
+        stopRedis
+        startRedis ;;
     *) usageRedis ;;
 esac
