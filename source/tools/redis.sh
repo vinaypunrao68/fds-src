@@ -32,8 +32,33 @@ else
     BINDIR=${TOPDIR}/bin
 fi
 ########################################################################
-source ${TOOLSDIR}/loghelper.sh
-init_loghelper /tmp/redis_tool.log
+if [[ -f ${TOOLSDIR}/loghelper.sh ]]; then
+    source ${TOOLSDIR}/loghelper.sh
+elif [[ -f /usr/include/pkghelper/loghelper.sh ]]; then
+    source /usr/include/pkghelper/loghelper.sh
+else
+function log() {
+    echo "$@" 
+}
+
+function logwarn() {
+    echo "[WARN] : $@"
+}
+
+function loginfo() {
+    echo "[INFO] : $@"
+}
+
+function logerror() {
+    echo "[ERROR] : $@"
+}
+logwarn "unable to locate loghelper.sh"
+
+fi
+
+if [[ -n $(declare -F init_loghelper) ]]; then
+    init_loghelper /tmp/redis_tool.log
+fi
 
 versinfo=()
 
