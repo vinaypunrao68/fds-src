@@ -7,7 +7,7 @@ import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import com.formationds.apis.*;
 import com.formationds.om.rest.SetVolumeQosParams;
 import com.formationds.security.AuthenticationToken;
-import com.formationds.security.LoginModule;
+import com.formationds.security.Authenticator;
 import org.apache.thrift.TException;
 import org.joda.time.DateTime;
 
@@ -22,19 +22,18 @@ public class Xdi {
     private ConfigurationService.Iface config;
 
     public static final String LAST_MODIFIED = "Last-Modified";
-    private LoginModule loginModule;
+    private Authenticator authenticator;
     private FDSP_ConfigPathReq.Iface legacyConfig;
 
-    public Xdi(AmService.Iface am, ConfigurationService.Iface config, LoginModule loginModule, FDSP_ConfigPathReq.Iface legacyConfig) {
+    public Xdi(AmService.Iface am, ConfigurationService.Iface config, Authenticator authenticator, FDSP_ConfigPathReq.Iface legacyConfig) {
         this.am = am;
         this.config = config;
-        this.loginModule = loginModule;
+        this.authenticator = authenticator;
         this.legacyConfig = legacyConfig;
     }
 
-    public AuthenticationToken grantToken(String login, String password) throws LoginException {
-        User user = loginModule.login(login, password);
-        return new AuthenticationToken(LoginModule.KEY, user.getId(), user.getSecret());
+    public AuthenticationToken issueToken(String login, String password) throws LoginException {
+        return authenticator.issueToken(login, password);
     }
 
     public void createVolume(String domainName, String volumeName, VolumeSettings volumePolicy) throws ApiException, TException {

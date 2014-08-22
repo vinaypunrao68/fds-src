@@ -4,7 +4,7 @@ package com.formationds.xdi.s3;
  */
 
 import com.formationds.security.AuthenticationToken;
-import com.formationds.security.LoginModule;
+import com.formationds.security.Authenticator;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
@@ -32,7 +32,7 @@ public class S3AuthenticatorTest {
     public void testAuthorizationSucceeds() throws Exception {
         Request request = mock(Request.class);
         String principalName = "joe";
-        String signature = new AuthenticationToken(LoginModule.KEY, 42, "foo").signature();
+        String signature = new AuthenticationToken(Authenticator.KEY, 42, "foo").signature();
         String headerValue = "AWS " + principalName + ":" + signature;
         when(request.getHeader("Authorization")).thenReturn(headerValue);
         Resource result = new S3Authenticator(() -> new Handler()).get().handle(request, new HashMap<>());
@@ -61,7 +61,7 @@ public class S3AuthenticatorTest {
     public void testMismatchedCredentials() throws Exception {
         Request request = mock(Request.class);
         String principalName = "joe";
-        String signature = new AuthenticationToken(LoginModule.KEY, 42, "foo").signature();
+        String signature = new AuthenticationToken(Authenticator.KEY, 42, "foo").signature();
         String headerValue = "AWS frank:" + signature;
         when(request.getHeader("Authorization")).thenReturn(headerValue);
         Resource result = new S3Authenticator(() -> new Handler()).get().handle(request, new HashMap<>());

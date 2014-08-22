@@ -29,7 +29,7 @@ public class IssueToken implements RequestHandler {
         String password = requiredString(request, "password");
 
         try {
-            AuthenticationToken token = xdi.grantToken(login, password);
+            AuthenticationToken token = xdi.issueToken(login, password);
             return new JsonResource(new JSONObject().put("token", token.signature())) {
                 @Override
                 public Cookie[] cookies() {

@@ -8,7 +8,7 @@ import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.http.HttpMethodName;
 import com.amazonaws.util.AWSRequestMetrics;
 import com.formationds.security.AuthenticationToken;
-import com.formationds.security.LoginModule;
+import com.formationds.security.Authenticator;
 import com.formationds.web.toolkit.RequestHandler;
 import com.google.common.collect.Maps;
 import org.eclipse.jetty.server.Request;
@@ -205,7 +205,7 @@ public class S3Authenticator implements Supplier<RequestHandler> {
             throw new SecurityException("invalid credentials");
         }
 
-        AuthenticationToken authenticationToken = new AuthenticationToken(LoginModule.KEY, (String) parsed[1]);
+        AuthenticationToken authenticationToken = new AuthenticationToken(Authenticator.KEY, (String) parsed[1]);
         return new BasicAWSCredentials((String) parsed[0], authenticationToken.signature());
     }
 }
