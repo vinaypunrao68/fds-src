@@ -4,16 +4,13 @@ package com.formationds.xdi;
  */
 
 import com.formationds.apis.*;
-import com.formationds.om.CachedConfiguration;
 import com.formationds.streaming.StreamingRegistrationMsg;
 import org.apache.thrift.TException;
 
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
 
-public class CachingConfigurationService implements ConfigurationService.Iface, CachedConfiguration {
+public class CachingConfigurationService implements ConfigurationService.Iface {
     private final ConfigurationService.Iface service;
     private final ConcurrentHashMap<Key, VolumeDescriptor> volumeCache;
 
@@ -113,13 +110,6 @@ public class CachingConfigurationService implements ConfigurationService.Iface, 
     @Override
     public void deregisterStream(int registration_id) throws org.apache.thrift.TException {
         service.deregisterStream(registration_id);
-    }
-
-    @Override
-    public Map<String, User> usersByLogin() throws TException {
-        return service.allUsers(0)
-                .stream()
-                .collect(Collectors.toMap(u -> u.getIdentifier(), u -> u));
     }
 
     private class Key {

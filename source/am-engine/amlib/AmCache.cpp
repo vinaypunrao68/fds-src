@@ -3,17 +3,24 @@
  */
 #include <string>
 #include <AmCache.h>
+#include <fds_process.h>
+#include <PerfTrace.h>
 
 namespace fds {
 
 AmCache::AmCache(const std::string &modName)
-        : Module(modName.c_str()) {
+        : Module(modName.c_str()),
+          maxEntries(500),
+          evictionType(LRU) {
     blobDescCache = std::unique_ptr<BlobDescCacheManager>(
         new BlobDescCacheManager("AM blob descriptor cache manager"));
     blobOffsetCache = std::unique_ptr<BlobOffsetCacheManager>(
         new BlobOffsetCacheManager("AM blob offset cache manager"));
     blobObjectCache = std::unique_ptr<BlobObjectCacheManager>(
         new BlobObjectCacheManager("AM blob object cache manager"));
+
+    FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
+    maxEntries = conf.get<fds_uint32_t>("cache.default_max_entries");
 }
 
 AmCache::~AmCache() {
@@ -77,6 +84,7 @@ AmCache::getBlobDescriptor(fds_volid_t volId,
     BlobDescriptor *blobDescPtr = NULL;
     error = blobDescCache->get(volId, blobName, &blobDescPtr);
     if (error == ERR_OK) {
+        PerfTracer::incr(AM_DESC_CACHE_HIT, volId);
         // Copy the blob descriptor into an object we can safely
         // return to the caller
         BlobDescriptor::ptr blobDesc(new BlobDescriptor(*blobDescPtr));
@@ -97,6 +105,7 @@ AmCache::getBlobOffsetObject(fds_volid_t volId,
     BlobOffsetPair offsetPair(blobName, blobOffset);
     error = blobOffsetCache->get(volId, offsetPair, &blobObjectPtr);
     if (error == ERR_OK) {
+        PerfTracer::incr(AM_OFFSET_CACHE_HIT, volId);
         // Copy the blob descriptor into an object we can safely
         // return to the caller
         ObjectID::ptr blobObjectId(new ObjectID(*blobObjectPtr));
@@ -115,6 +124,7 @@ AmCache::getBlobObject(fds_volid_t volId,
     std::string *blobObjectPtr = NULL;
     error = blobObjectCache->get(volId, objectId, &blobObjectPtr);
     if (error == ERR_OK) {
+        PerfTracer::incr(AM_OBJECT_CACHE_HIT, volId);
         // Copy the blob descriptor into an object we can safely
         // return to the caller
         boost::shared_ptr<std::string> blobObject(new std::string(
@@ -132,17 +142,9 @@ AmCache::putTxDescriptor(const AmTxDescriptor::ptr &txDesc) {
 
     // If the transaction is a delete, we want to remove the cache entry
     if (txDesc->opType == FDS_DELETE_BLOB) {
-        // Remove from blob descriptor cache
-        err = blobDescCache->remove(txDesc->volId,
-                                    txDesc->blobName);
-        // Remove from blob offset cache
-        // TODO(Andrew): Need to be able to delete from the offset cache
-        // using just blob name or using iterator
-
-        // Remove from blob object cache
-        // TODO(Andrew): Need to associate blobs to objects in the cache,
-        // though for now it's safe to leave object IDs in the cache as
-        // they won't be read if the blob offset cache is cleared on delete
+        // Remove from blob caches
+        err = removeBlob(txDesc->volId,
+                         txDesc->blobName);
     } else {
         fds_verify(txDesc->opType == FDS_PUT_BLOB);
         // Add blob descriptor from tx to descriptor cache
@@ -211,6 +213,15 @@ AmCache::removeBlob(fds_volid_t volId,
                     const std::string &blobName) {
     // Remove from blob descriptor cache
     Error err = blobDescCache->remove(volId, blobName);
+
+    // Remove from blob offset cache
+    // TODO(Andrew): Need to be able to delete from the offset cache
+    // using just blob name or using iterator
+
+    // Remove from blob object cache
+    // TODO(Andrew): Need to associate blobs to objects in the cache,
+    // though for now it's safe to leave object IDs in the cache as
+    // they won't be read if the blob offset cache is cleared on delete
     return err;
 }
 

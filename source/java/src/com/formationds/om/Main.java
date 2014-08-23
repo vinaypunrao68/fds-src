@@ -9,8 +9,8 @@ import com.formationds.om.plotter.RegisterVolumeStats;
 import com.formationds.om.plotter.VolumeStatistics;
 import com.formationds.om.rest.*;
 import com.formationds.security.AuthenticationToken;
-import com.formationds.security.FdsLoginModule;
-import com.formationds.security.LoginModule;
+import com.formationds.security.Authenticator;
+import com.formationds.security.FdsAuthenticator;
 import com.formationds.util.Configuration;
 import com.formationds.util.libconfig.ParsedConfig;
 import com.formationds.web.toolkit.HttpMethod;
@@ -55,7 +55,7 @@ public class Main {
         FDSP_ConfigPathReq.Iface legacyConfigClient = legacyClientFactory.configPathClient(omHost, omPort);
         VolumeStatistics volumeStatistics = new VolumeStatistics(Duration.standardMinutes(20));
 
-        Xdi xdi = new Xdi(amService, configApi, new FdsLoginModule(configApi), legacyConfigClient);
+        Xdi xdi = new Xdi(amService, configApi, new FdsAuthenticator(configApi), legacyConfigClient);
 
         webApp = new WebApp(webDir);
 
@@ -96,7 +96,7 @@ public class Main {
 
     private void authorize(HttpMethod method, String route, Supplier<RequestHandler> factory) {
         if (configuration.enforceRestAuth()) {
-            RequestHandler handler = new HttpAuthenticator(factory, s -> AuthenticationToken.isValid(LoginModule.KEY, s));
+            RequestHandler handler = new HttpAuthenticator(factory, s -> AuthenticationToken.isValid(Authenticator.KEY, s));
             webApp.route(method, route, () -> handler);
         } else {
             webApp.route(method, route, factory);

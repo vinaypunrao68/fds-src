@@ -13,7 +13,7 @@ import com.formationds.apis.VolumeSettings;
 import com.formationds.apis.VolumeType;
 import com.formationds.demo.Main;
 import com.formationds.security.AuthenticationToken;
-import com.formationds.security.LoginModule;
+import com.formationds.security.Authenticator;
 import com.formationds.util.Configuration;
 import com.formationds.util.Size;
 import com.formationds.util.SizeUnit;
@@ -176,7 +176,7 @@ public class S3TestCase {
 
     //@Test
     public void makeKey() throws Exception {
-        String key = new AuthenticationToken(LoginModule.KEY, 42, "foo").signature();
+        String key = new AuthenticationToken(Authenticator.KEY, 42, "foo").signature();
         System.out.println(key);
     }
 
