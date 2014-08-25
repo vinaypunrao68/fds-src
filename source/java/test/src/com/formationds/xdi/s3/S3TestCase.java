@@ -20,7 +20,6 @@ import com.formationds.util.SizeUnit;
 import org.apache.commons.io.IOUtils;
 import org.apache.thrift.protocol.TBinaryProtocol;
 import org.apache.thrift.transport.TSocket;
-import org.junit.Assert;
 import org.junit.Test;
 
 import java.io.ByteArrayInputStream;
@@ -29,6 +28,8 @@ import java.io.FileInputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+
+import static org.junit.Assert.assertEquals;
 
 public class S3TestCase {
     //  @Test
@@ -48,20 +49,20 @@ public class S3TestCase {
                 });
     }
 
-    //@Test
+    // @Test
     public void deleteMultipleObjects() throws Exception {
-        new Configuration("foo", new String[0]);
-        AmazonS3Client client = new AmazonS3Client(new BasicAWSCredentials("fabrice", "7VpLGuZy7VCKq2B/Z4yEOw=="));
+        new Configuration("foo", new String[] {"--console"});
+        AmazonS3Client client = new AmazonS3Client(new BasicAWSCredentials("admin", "yASvtWBUa8o2R+cr1jZqWEoCSmQ8kK/ofeZdC3zW4fiCKCKuToP13KoaObVMIHynMeE7BU8qCdNwkPSthgQsVw=="));
         //AmazonS3Client client = new AmazonS3Client(new BasicAWSCredentials("fabrice", "9VpLGuZy7VCKq2B/Z4yEOw=="));
         client.setS3ClientOptions(new S3ClientOptions().withPathStyleAccess(true));
-        client.setEndpoint("http://localhost:9999");
+        client.setEndpoint("http://localhost:8000");
 
-        Bucket bucket = client.createBucket("foo");
+        client.createBucket("foo");
+        client.createBucket("bar");
         ObjectMetadata metadata = new ObjectMetadata();
         //metadata.setContentType("image/jpg");
         client.putObject("foo", "foo.jpg", new FileInputStream("/home/fabrice/Downloads/cat3.jpg"), metadata);
-        DeleteObjectsResult result = client.deleteObjects(new DeleteObjectsRequest("foo").withKeys("foo.jpg", "bar.jpg"));
-        System.out.println(result);
+        client.listBuckets().forEach(b -> System.out.println(b.getName()));
     }
 
     //@Test
@@ -151,7 +152,7 @@ public class S3TestCase {
         ListPartsRequest listPartsReq = new ListPartsRequest(bucketName, key, initiateResult.getUploadId());
         PartListing pl = client.listParts(listPartsReq);
 
-        Assert.assertEquals(chunks.length, pl.getParts().size());
+        assertEquals(chunks.length, pl.getParts().size());
 
         CompleteMultipartUploadRequest completeReq = new CompleteMultipartUploadRequest(bucketName, key, initiateResult.getUploadId(), parts);
         CompleteMultipartUploadResult completeResult = client.completeMultipartUpload(completeReq);
@@ -169,7 +170,7 @@ public class S3TestCase {
         int idx = 0;
         for(byte[] chunk : chunks) {
             for(byte b : chunk) {
-                Assert.assertEquals(b, s3bytes[idx++]);
+                assertEquals(b, s3bytes[idx++]);
             }
         }
     }

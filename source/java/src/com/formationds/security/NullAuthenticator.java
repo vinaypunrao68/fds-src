@@ -17,6 +17,11 @@ public class NullAuthenticator implements Authenticator {
     }
 
     @Override
+    public AuthenticationToken currentToken(String login) throws LoginException {
+        return AuthenticationToken.ANONYMOUS;
+    }
+
+    @Override
     public AuthenticationToken reissueToken(long userId) throws LoginException {
         throw new UnsupportedOperationException();
     }
