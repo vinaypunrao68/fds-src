@@ -401,9 +401,9 @@ class FdsScenarioConfig(FdsConfig):
                 script_args = ''
             print "Running external script: ", script, script_args 
             args = script_args.split()
-            process = subprocess.Popen([script] + args)
+            p1 = subprocess.Popen([script] + args)
             if wait == 'true':
-                process.wait()
+                p1.wait()
 
         if delay > 1:
             print 'Delaying for %d seconds' % delay

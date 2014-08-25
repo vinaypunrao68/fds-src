@@ -32,10 +32,6 @@ public class Xdi {
         this.legacyConfig = legacyConfig;
     }
 
-    public AuthenticationToken issueToken(String login, String password) throws LoginException {
-        return authenticator.issueToken(login, password);
-    }
-
     public void createVolume(String domainName, String volumeName, VolumeSettings volumePolicy) throws ApiException, TException {
         config.createVolume(domainName, volumeName, volumePolicy, 0);
         SetVolumeQosParams.setVolumeQos(legacyConfig, volumeName, 0, 10, 0);
@@ -84,5 +80,13 @@ public class Xdi {
 
     public void deleteBlob(String domainName, String volumeName, String blobName) throws ApiException, TException {
         am.deleteBlob(domainName, volumeName, blobName);
+    }
+
+    public AuthenticationToken resolveToken(String signature) throws LoginException {
+        return authenticator.resolveToken(signature);
+    }
+
+    public AuthenticationToken reissueToken(String login, String password) throws LoginException {
+        return authenticator.reissueToken(login, password);
     }
 }

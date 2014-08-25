@@ -185,6 +185,10 @@ const char * eventTypeToStr[] = {
 
         "am_qos_queue_size",
 
+        "am_descriptor_cache_hit",
+        "am_offset_cache_hit",
+        "am_object_cache_hit",
+
         // Data Manager
         "dm_tx_op",
         "dm_tx_op_err",

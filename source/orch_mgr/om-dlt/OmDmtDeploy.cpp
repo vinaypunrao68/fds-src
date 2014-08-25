@@ -587,6 +587,11 @@ DmtDplyFSM::GRD_BcastAM::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST 
     VolumePlacement* vp = om->om_volplace_mod();
     fds_uint64_t committed_ver = vp->getCommittedDMTVersion();
 
+    // Ignore acks from  non-DMs
+    if (evt.svc_type != fpi::FDSP_DATA_MGR) {
+        LOGWARN << "Ignoring dmt ack from svc_type: " << evt.svc_type;
+        return false;
+    }
     // we can possibly have a race condition, where a new non-DM service
     // gets registered while we are in the process of updating DMT
     // and moving to the next DMT version. That node may receive old DMT,
@@ -599,8 +604,6 @@ DmtDplyFSM::GRD_BcastAM::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST 
                   << src.commit_acks_to_wait;
         return false;
     }
-    // otherwise the ack must be from DMs only
-    fds_verify(evt.svc_type == fpi::FDSP_DATA_MGR);
 
     // for now assuming commit is always a success
     fds_verify(src.commit_acks_to_wait > 0);

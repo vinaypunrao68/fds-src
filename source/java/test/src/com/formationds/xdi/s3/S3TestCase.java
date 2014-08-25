@@ -176,7 +176,7 @@ public class S3TestCase {
 
     //@Test
     public void makeKey() throws Exception {
-        String key = new AuthenticationToken(Authenticator.KEY, 42, "foo").signature();
+        String key = new AuthenticationToken(42, "foo").signature(Authenticator.KEY);
         System.out.println(key);
     }
 

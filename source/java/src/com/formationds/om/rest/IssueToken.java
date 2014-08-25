@@ -4,6 +4,7 @@ package com.formationds.om.rest;
  */
 
 import com.formationds.security.AuthenticationToken;
+import com.formationds.security.Authenticator;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
@@ -29,8 +30,8 @@ public class IssueToken implements RequestHandler {
         String password = requiredString(request, "password");
 
         try {
-            AuthenticationToken token = xdi.issueToken(login, password);
-            return new JsonResource(new JSONObject().put("token", token.signature())) {
+            AuthenticationToken token = xdi.reissueToken(login, password);
+            return new JsonResource(new JSONObject().put("token", token.signature(Authenticator.KEY))) {
                 @Override
                 public Cookie[] cookies() {
                     Cookie cookie = new Cookie(HttpAuthenticator.FDS_TOKEN, token.toString());

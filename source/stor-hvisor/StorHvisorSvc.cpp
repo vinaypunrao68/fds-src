@@ -25,8 +25,6 @@
 extern StorHvCtrl *storHvisor;
 using namespace std;
 using namespace FDS_ProtocolInterface;
-typedef fds::hash::Sha1 GeneratorHash;
-
 
 Error
 StorHvCtrl::abortBlobTxSvc(AmQosReq *qosReq) {
@@ -713,6 +711,8 @@ void StorHvCtrl::getBlobQueryCatalogResp(fds::AmQosReq* qosReq,
 
     LOGDEBUG << svcReq->logString() << fds::logString(*qryCatRsp);
 
+    // TODO(Andrew): Update the AM's blob offset cache here
+
     Error e = updateCatalogCache(blobReq,
                                  qryCatRsp->obj_list);
     if (e != ERR_OK) {
@@ -766,6 +766,8 @@ void StorHvCtrl::getBlobGetObjectResp(fds::AmQosReq* qosReq,
         delete blobReq;
         return;
     }
+
+    // TODO(Andrew): Update the AM's blob object cache here
 
     LOGDEBUG << svcReq->logString() << fds::logString(*getObjRsp);
 

@@ -38,7 +38,7 @@ public class SwiftEndpoint {
     private void authorize(HttpMethod method, String route, Supplier<RequestHandler> s) {
         Supplier<RequestHandler> supplier = new SwiftFailureHandler(s);
         if (enforceAuth) {
-            webApp.route(method, route, () -> new SwiftAuthenticator(supplier));
+            webApp.route(method, route, () -> new SwiftAuthenticator(supplier, xdi));
         } else {
             webApp.route(method, route, supplier);
         }

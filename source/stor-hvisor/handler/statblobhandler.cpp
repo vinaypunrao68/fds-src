@@ -35,6 +35,8 @@ Error StatBlobHandler::handleResponse(AmQosReq *qosReq,
         return error;
     }
 
+    // TODO(Andrew): Update the AM's blob descriptor cache here
+
     // using the same structure for input and output
     auto response = MSG_DESERIALIZE(GetBlobMetaDataMsg, error, payload);
 
