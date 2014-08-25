@@ -8,8 +8,6 @@ import com.formationds.om.plotter.ListActiveVolumes;
 import com.formationds.om.plotter.RegisterVolumeStats;
 import com.formationds.om.plotter.VolumeStatistics;
 import com.formationds.om.rest.*;
-import com.formationds.security.AuthenticationToken;
-import com.formationds.security.Authenticator;
 import com.formationds.security.FdsAuthenticator;
 import com.formationds.util.Configuration;
 import com.formationds.util.libconfig.ParsedConfig;
@@ -33,6 +31,7 @@ public class Main {
 
     private WebApp webApp;
     private Configuration configuration;
+    private Xdi xdi;
 
     public static void main(String[] args) throws Exception {
         new Main().start(args);
@@ -55,7 +54,7 @@ public class Main {
         FDSP_ConfigPathReq.Iface legacyConfigClient = legacyClientFactory.configPathClient(omHost, omPort);
         VolumeStatistics volumeStatistics = new VolumeStatistics(Duration.standardMinutes(20));
 
-        Xdi xdi = new Xdi(amService, configApi, new FdsAuthenticator(configApi), legacyConfigClient);
+        xdi = new Xdi(amService, configApi, new FdsAuthenticator(configApi), legacyConfigClient);
 
         webApp = new WebApp(webDir);
 
@@ -82,7 +81,7 @@ public class Main {
         webApp.route(HttpMethod.POST, "/api/stats", () -> new RegisterVolumeStats(volumeStatistics));
         webApp.route(HttpMethod.GET, "/api/stats/volumes/:volume", () -> new DisplayVolumeStats(volumeStatistics));
 
-       new Thread(() -> {
+        new Thread(() -> {
             try {
                 new com.formationds.demo.Main().start(configuration.getDemoConfig());
             } catch (Exception e) {
@@ -96,7 +95,14 @@ public class Main {
 
     private void authorize(HttpMethod method, String route, Supplier<RequestHandler> factory) {
         if (configuration.enforceRestAuth()) {
-            RequestHandler handler = new HttpAuthenticator(factory, s -> AuthenticationToken.isValid(Authenticator.KEY, s));
+            RequestHandler handler = new HttpAuthenticator(factory, s -> {
+                try {
+                    xdi.resolveToken(s);
+                    return true;
+                } catch (Exception e) {
+                    return false;
+                }
+            });
             webApp.route(method, route, () -> handler);
         } else {
             webApp.route(method, route, factory);

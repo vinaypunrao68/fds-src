@@ -23,8 +23,9 @@ public class FdsAuthenticator implements Authenticator {
         this.config = config;
     }
 
+
     @Override
-    public AuthenticationToken issueToken(String login, String password) throws LoginException {
+    public AuthenticationToken reissueToken(String login, String password) throws LoginException {
         Map<String, User> map = null;
         try {
             map = config.allUsers(0)
@@ -55,9 +56,38 @@ public class FdsAuthenticator implements Authenticator {
         try {
             String newSecret = UUID.randomUUID().toString();
             config.updateUser(user.getId(), user.getIdentifier(), user.getPasswordHash(), newSecret, user.isFdsAdmin);
-            return new AuthenticationToken(KEY, user.getId(), newSecret);
+            return new AuthenticationToken(user.getId(), newSecret);
         } catch (TException e) {
             throw new LoginException();
         }
+    }
+
+    @Override
+    public AuthenticationToken resolveToken(String signature) throws LoginException {
+        AuthenticationToken token = null;
+        try {
+            token = new TokenEncrypter().tryParse(KEY, signature);
+        } catch (SecurityException e) {
+            throw new LoginException();
+        }
+
+        long userId = token.getUserId();
+        String secret = token.getSecret();
+        long count = 0;
+        try {
+            count = config.allUsers(0).stream()
+                    .filter(u -> u.getId() == userId)
+                    .filter(u -> u.getSecret().equals(secret))
+                    .count();
+        } catch (TException e) {
+            LOG.error("Error reading configuration", e);
+            throw new LoginException();
+        }
+
+        if (count == 0) {
+            throw new LoginException();
+        }
+
+        return token;
     }
 }

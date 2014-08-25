@@ -7,9 +7,8 @@ import com.amazonaws.AmazonWebServiceRequest;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.http.HttpMethodName;
 import com.amazonaws.util.AWSRequestMetrics;
-import com.formationds.security.AuthenticationToken;
-import com.formationds.security.Authenticator;
 import com.formationds.web.toolkit.RequestHandler;
+import com.formationds.xdi.Xdi;
 import com.google.common.collect.Maps;
 import org.eclipse.jetty.server.Request;
 
@@ -17,7 +16,6 @@ import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.text.MessageFormat;
-import java.text.ParseException;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Map;
@@ -25,9 +23,11 @@ import java.util.function.Supplier;
 
 public class S3Authenticator implements Supplier<RequestHandler> {
     private Supplier<RequestHandler> supplier;
+    private Xdi xdi;
 
-    public S3Authenticator(Supplier<RequestHandler> supplier) {
+    public S3Authenticator(Supplier<RequestHandler> supplier, Xdi xdi) {
         this.supplier = supplier;
+        this.xdi = xdi;
     }
 
     @Override
@@ -201,11 +201,11 @@ public class S3Authenticator implements Supplier<RequestHandler> {
 
         try {
             parsed = new MessageFormat(pattern).parse(header);
-        } catch (ParseException e) {
+            xdi.resolveToken((String) parsed[1]);
+            return new BasicAWSCredentials((String) parsed[0], (String) parsed[1]);
+        } catch (Exception e) {
             throw new SecurityException("invalid credentials");
         }
 
-        AuthenticationToken authenticationToken = new AuthenticationToken(Authenticator.KEY, (String) parsed[1]);
-        return new BasicAWSCredentials((String) parsed[0], authenticationToken.signature());
     }
 }

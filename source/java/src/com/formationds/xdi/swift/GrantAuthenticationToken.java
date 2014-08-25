@@ -4,6 +4,7 @@ package com.formationds.xdi.swift;
  */
 
 import com.formationds.security.AuthenticationToken;
+import com.formationds.security.Authenticator;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
@@ -33,8 +34,8 @@ public class GrantAuthenticationToken implements RequestHandler {
         String password = request.getHeader(X_AUTH_KEY) == null?
                 requiredString(request, "password") : request.getHeader(X_AUTH_KEY);
         try {
-            AuthenticationToken credentials = xdi.issueToken(login, password);
-            return new TextResource(HttpServletResponse.SC_OK, "").withHeader(X_AUTH_TOKEN, credentials.signature());
+            AuthenticationToken credentials = xdi.reissueToken(login, password);
+            return new TextResource(HttpServletResponse.SC_OK, "").withHeader(X_AUTH_TOKEN, credentials.signature(Authenticator.KEY));
         } catch (LoginException exception) {
             return new TextResource(HttpServletResponse.SC_UNAUTHORIZED, "");
         }
