@@ -215,6 +215,20 @@ endif
 endef
 
 # ----------------------------------------------------------------------------
+# Script to generate .h from .json files.
+#
+define scpt_mk_json
+$(patsubst %.json,%.h, $(1)): $(1)
+	@rm -f $$@
+ifdef VERBOSE
+	$(fds_probe_gen) $$< > $$@
+else
+	@echo "    [FDS .json]   $$@"
+	@$(fds_probe_gen) $$< > $$@
+endif
+endef
+
+# ----------------------------------------------------------------------------
 # Script to do cpp, hpp style check.
 #
 define scpt_check_style

@@ -71,7 +71,7 @@ all: devsetup $(user_predep) devenv base_predepend $(user_postdep) \
 # Tasks to do before the depend rule.
 #
 .PHONY: base_predepend
-base_predepend: base_rpc base_ragel base_thrift
+base_predepend: base_rpc base_ragel base_thrift base_json
 	@$(scpt_setup_build_dir)
 
 .PHONY: devenv
@@ -79,14 +79,16 @@ devenv:
 	@echo $(local_cpp_flags) > ycm.flags
 
 # -----------------------------------------------------------------------------
-# The main rule to compile rpcgen/ragel/thrift.
+# The main rule to compile rpcgen/ragel/thrift/json.
 #
-.PHONY: base_rpc base_ragel base_thrift
+.PHONY: base_rpc base_ragel base_thrift base_json
 base_rpc: $(comm_rpc_files)
 
 base_ragel: $(comm_rl_files)
 
 base_thrift: $(comm_thrf_files)
+
+base_json: $(comm_json_files)
 
 ifdef user_rpc
 $(foreach hdr,$(user_rpc),$(eval $(call scpt_mk_rpc_hdr,$(hdr))))
@@ -106,6 +108,10 @@ ifdef user_thrift_py_flag
 $(foreach thft,$(user_thrift),$(eval $(call \
 			scpt_mk_gen_thrift,$(thft),$(user_thrift_py_loc),$(user_thrift_py_flag))))
 endif
+endif
+
+ifdef user_json
+$(foreach js,$(user_json),$(eval $(call scpt_mk_json,$(js))))
 endif
 
 # -----------------------------------------------------------------------------
