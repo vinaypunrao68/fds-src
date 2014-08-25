@@ -25,6 +25,11 @@ public class FdsAuthenticator implements Authenticator {
     }
 
     @Override
+    public boolean allowAll() {
+        return false;
+    }
+
+    @Override
     public AuthenticationToken authenticate(String login, String password) throws LoginException {
         Map<String, User> map = null;
         try {

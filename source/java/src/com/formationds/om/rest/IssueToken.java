@@ -30,7 +30,7 @@ public class IssueToken implements RequestHandler {
         String password = requiredString(request, "password");
 
         try {
-            AuthenticationToken token = xdi.authenticate(login, password);
+            AuthenticationToken token = xdi.getAuthenticator().authenticate(login, password);
             return new JsonResource(new JSONObject().put("token", token.signature(Authenticator.KEY))) {
                 @Override
                 public Cookie[] cookies() {

@@ -3,9 +3,12 @@ package com.formationds.om.rest;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+import com.formationds.security.AuthenticationToken;
+import com.formationds.security.Authenticator;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
+import org.apache.log4j.Logger;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
 
@@ -15,29 +18,40 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
-import java.util.function.Supplier;
 
 public class HttpAuthenticator implements RequestHandler {
+    private static final Logger LOG = Logger.getLogger(HttpAuthenticator.class);
     public static final String FDS_TOKEN = "token";
-    private Supplier<RequestHandler> supplier;
-    private Function<String, Boolean> authprovider;
+    private Function<AuthenticationToken, RequestHandler> f;
+    private Authenticator authenticator;
 
-    public HttpAuthenticator(Supplier<RequestHandler> supplier, Function<String, Boolean> authprovider) {
-        this.supplier = supplier;
-        this.authprovider = authprovider;
+    public HttpAuthenticator(Function<AuthenticationToken, RequestHandler> f, Authenticator authenticator) {
+        this.f = f;
+        this.authenticator = authenticator;
     }
 
 
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
-        Cookie[] cookies = request.getCookies() == null? new Cookie[0] : request.getCookies();
-        Optional<Boolean> result = Arrays.stream(cookies)
+
+        if (authenticator.allowAll()) {
+            return f.apply(AuthenticationToken.ANONYMOUS).handle(request, routeParameters);
+        }
+
+        Cookie[] cookies = request.getCookies() == null ? new Cookie[0] : request.getCookies();
+        Optional<Cookie> result = Arrays.stream(cookies)
                 .filter(c -> FDS_TOKEN.equals(c.getName()))
-                .findFirst()
-                .map(c -> authprovider.apply(c.getValue()));
-        if (result.isPresent() && result.get()) {
-            return supplier.get().handle(request, routeParameters);
-        } else {
+                .findFirst();
+
+        if (!result.isPresent()) {
+            return new JsonResource(new JSONObject().put("message", "Invalid credentials"), HttpServletResponse.SC_UNAUTHORIZED);
+        }
+
+        try {
+            AuthenticationToken token = authenticator.resolveToken(result.get().getValue());
+            return f.apply(token).handle(request, routeParameters);
+        } catch (Exception e) {
+            LOG.error("Authentication error", e);
             return new JsonResource(new JSONObject().put("message", "Invalid credentials"), HttpServletResponse.SC_UNAUTHORIZED);
         }
     }

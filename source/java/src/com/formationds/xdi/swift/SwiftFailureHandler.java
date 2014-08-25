@@ -4,23 +4,24 @@ package com.formationds.xdi.swift;
  */
 
 import com.formationds.apis.ApiException;
+import com.formationds.security.AuthenticationToken;
 import com.formationds.web.toolkit.*;
 
 import javax.servlet.http.HttpServletResponse;
-import java.util.function.Supplier;
+import java.util.function.Function;
 
-public class SwiftFailureHandler implements Supplier<RequestHandler> {
-    private Supplier<RequestHandler> supplier;
+public class SwiftFailureHandler implements Function<AuthenticationToken, RequestHandler> {
+    private Function<AuthenticationToken, RequestHandler> f;
 
-    public SwiftFailureHandler(Supplier<RequestHandler> supplier) {
-        this.supplier = supplier;
+    public SwiftFailureHandler(Function<AuthenticationToken, RequestHandler> f) {
+        this.f = f;
     }
 
     @Override
-    public RequestHandler get() {
+    public RequestHandler apply(AuthenticationToken t) {
         return (request, routeParameters) -> {
             try {
-                return supplier.get().handle(request, routeParameters);
+                return f.apply(t).handle(request, routeParameters);
             } catch (ApiException e) {
                 return SwiftUtility.swiftResource(toSwiftResource(e));
             }
