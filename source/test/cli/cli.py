@@ -35,6 +35,97 @@ parser = None
 svc_map = None
 src_id_counter = 0
 
+@arg('policy-name', help= "-snapshot policy name ")
+@arg('snap-frequency', help= "-frequency of the snapshot")
+@arg('retension-time', help= "-retension time for the snapshot")
+@arg('timeof-day', help= "-time for the  creating the snapshot")
+@arg('dayof-month', help= "-day for creating the snapshot")
+def create_snap_policy(policy_name, snap_frequency, retension_time, timeof_day, dayof_month):
+    try:
+        #svc_map.client(nodeid, svc).fdsp_expireSnap(val)
+        return 'Success'
+    except Exception, e:
+        log.exception(e)
+        return 'snapshot policy failed: {}'.format(policy_name)
+
+@arg('vol-name', help= "-volume name of the snapshot")
+@arg('policy-name', help= "-policy name for the snapshot")
+def create_snap(vol_name, policy_name):
+    try:
+        #svc_map.client(nodeid, svc).fdsp_expireSnap(val)
+        return 'Success'
+    except Exception, e:
+        log.exception(e)
+        return 'create snapshot failed: {}'.format(vol_name)
+
+@arg('snap-name', help= "-snap shot name for deleting")
+def delete_snap(snap_name):
+    try:
+        #svc_map.client(nodeid, svc).fdsp_expireSnap(val)
+        return 'Success'
+    except Exception, e:
+        log.exception(e)
+        return 'delete snapshot failed: {}'.format(snap_name)
+
+@arg('vol-name', help= "-Volume name for attaching snap policy")
+@arg('policy-name', help= "-snap shot policy name")
+def attach_snap_policy(vol_name, policy_name):
+    try:
+        #svc_map.client(nodeid, svc).fdsp_expireSnap(val)
+        return 'Success'
+    except Exception, e:
+        log.exception(e)
+        return 'attach snap policy  failed: {}'.format(vol_name)
+
+@arg('vol-name', help= "-Volume name for detaching snap policy")
+@arg('policy-name', help= "-snap shot policy name")
+def detach_snap_policy(vol_name, policy_name):
+    try:
+        #svc_map.client(nodeid, svc).fdsp_expireSnap(val)
+        return 'Success'
+    except Exception, e:
+        log.exception(e)
+        return 'detach snap policy failed: {}'.format(vol_name)
+
+@arg('vol-name', help= "-Volume name  of the clone")
+@arg('clone-name', help= "-name of  the  volume clone")
+@arg('policy-name', help= "-clone policy name")
+def create_clone(vol_name, clone_name, policy_name):
+    try:
+        #svc_map.client(nodeid, svc).fdsp_expireSnap(val)
+        return 'Success'
+    except Exception, e:
+        log.exception(e)
+        return 'create clone failed: {}'.format(vol_name)
+
+@arg('vol-name', help= "-volume name  of the clone")
+@arg('clone-name', help= "-name of  the  volume clone for delete")
+def delete_clone(vol_name, clone_name):
+    try:
+        #svc_map.client(nodeid, svc).fdsp_expireSnap(val)
+        return 'Success'
+    except Exception, e:
+        return 'delete clone  failed: {}'.format(vol_name)
+
+@arg('vol-name', help= "-volume name  of the clone")
+@arg('clone-name', help= "-name of  the  volume clone for restore")
+def restore_clone(vol_name, clone_name):
+    try:
+        #svc_map.client(nodeid, svc).fdsp_expireSnap(val)
+        return 'Success'
+    except Exception, e:
+        log.exception(e)
+        return 'restore clone failed: {}'.format(vol_name)
+
+@arg('vol-name', help= "-volume name  for listing the snap")
+def list_snap(vol_name):
+    try:
+        #svc_map.client(nodeid, svc).fdsp_expireSnap(val)
+        return 'Success'
+    except Exception, e:
+        log.exception(e)
+        return 'list snap  failed: {}'.format(vol_name)
+
 def add_node(id):
     cluster.add_node(id)
 
@@ -153,7 +244,16 @@ def main(ip='127.0.0.1', port=7020, command_line=None):
     global parser
     global svc_map
     parser = ArghParser()
-    parser.add_commands([refresh,
+    parser.add_commands([create_snap_policy,
+                         create_snap,
+                         delete_snap,
+                         attach_snap_policy,
+                         detach_snap_policy,
+                         create_clone,
+                         delete_clone,
+                         restore_clone,
+                         list_snap,
+                         refresh,
                          add_node,
                          counters,
                          reset_counters,
