@@ -12,7 +12,7 @@ Error StatBlobHandler::handleRequest(const std::string& volumeName,
                                      CallbackPtr cb) {
     StorHvCtrl::BlobRequestHelper helper(storHvisor, volumeName);
     LOGDEBUG << " volume:" << volumeName
-             <<" blob:" << blobName;
+             <<" blob:" << blobName << " helper.volId: " << helper.volId;
 
     helper.blobReq = new StatBlobReq(helper.volId,
                                      volumeName,
