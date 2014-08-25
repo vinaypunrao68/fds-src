@@ -19,10 +19,13 @@ probe_mod_param_t commit_log_probe_param =
     .pr_max_sec_tout = 0
 };
 
+// Operation log
+DmTvcOperationJournal journal(0);
+
 /// Global singleton probe module
 CommitLogProbe gl_CommitLogProbe("CommitLog Probe Adapter", &commit_log_probe_param, nullptr);
 
-DmCommitLog gl_DmCommitLogMod("Probe CommitLog", "/tmp/commit-vol-0.log");
+DmCommitLog gl_DmCommitLogMod("Probe CommitLog", "/tmp/commit-vol-0.log", journal);
 
 CommitLogProbe::CommitLogProbe(const std::string &name, probe_mod_param_t *param, Module *owner)
         : ProbeMod(name.c_str(), param, owner) {}

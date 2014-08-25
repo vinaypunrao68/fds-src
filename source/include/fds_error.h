@@ -60,11 +60,12 @@ namespace fds {
 
         ERR_DM_TX_EXISTS          = 38,
         ERR_DM_TX_NOT_STARTED     = 39,
-        ERR_DM_TX_COMMITED        = 40,
+        ERR_DM_TX_COMMITTED        = 40,
         ERR_DM_TX_ROLLEDBACK      = 41,
         ERR_DM_OFFSET_OUT_RANGE   = 42,
         ERR_DM_TX_ACTIVE          = 43,
         ERR_DM_MAX_CL_ENTRIES     = 44,
+        ERR_DM_TX_NOT_PURGED      = 45,
 
         /* I/O error range */
         ERR_IO_DLT_MISMATCH      = 100,

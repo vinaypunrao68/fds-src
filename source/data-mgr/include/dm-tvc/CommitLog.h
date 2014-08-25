@@ -26,8 +26,11 @@
 #include <PerfTypes.h>
 #include <boost/scoped_ptr.hpp>
 #include <DmIoReq.h>
+#include <dm-tvc/OperationJournal.h>
 
 namespace fds {
+
+class DmTvcOperationLog;
 
 const unsigned DEFAULT_COMMIT_LOG_FILE_SIZE = 5 * 1024 * 1024;
 const unsigned MIN_COMMIT_LOG_FILE_SIZE = 1 * 1024 * 1024;
@@ -36,19 +39,22 @@ const unsigned MAX_COMMIT_LOG_FILE_SIZE = 100 * 1024 * 1024;
 struct DmCommitLogEntry;    // forward declaration
 
 // commit log transaction details
-struct CommitLogTx {
+struct CommitLogTx : serialize::Serializable {
     typedef boost::shared_ptr<CommitLogTx> ptr;
     typedef boost::shared_ptr<const CommitLogTx> const_ptr;
 
     BlobTxId::const_ptr txDesc;
-    std::string blobName;
+    std::string name;
     fds_int32_t blobMode;
 
     bool started;
-    bool commited;
+    bool committed;     // commit issued by user, but not wriiten yet
     bool rolledback;
     bool blobDelete;
-    bool purged;
+    bool purged;    // written and now ready for purge
+    bool logged;    // written to TVC operation log
+    bool fullSnapshot;
+    bool incrSnapshot;
 
     std::vector<const DmCommitLogEntry *> entries;
 
@@ -57,9 +63,16 @@ struct CommitLogTx {
 
     blob_version_t blobVersion;
 
-    CommitLogTx() : txDesc(0), blobMode(0), started(false), commited(false), rolledback(false),
-            blobDelete(false), purged(false), blobObjList(0), metaDataList(0),
-            blobVersion(blob_version_invalid) {}
+    // purge timestamp, when transaction is pushed to VolumeCatalog
+    fds_uint64_t timestamp;
+
+    CommitLogTx() : txDesc(0), blobMode(0), started(false), committed(false), rolledback(false),
+            blobDelete(false), purged(false), logged(false), fullSnapshot(false),
+            incrSnapshot(false), blobObjList(0), metaDataList(0),
+            blobVersion(blob_version_invalid), timestamp(0) {}
+
+    virtual uint32_t write(serialize::Serializer * s) const override;
+    virtual uint32_t read(serialize::Deserializer * d) override;
 };
 
 typedef std::unordered_map<BlobTxId, CommitLogTx::ptr> TxMap;
@@ -85,6 +98,7 @@ class DmCommitLog : public Module {
 
     // ctor & dtor
     explicit DmCommitLog(const std::string &modName, const std::string & filename,
+            fds::DmTvcOperationJournal & journal,
             fds_uint32_t filesize = DEFAULT_COMMIT_LOG_FILE_SIZE,
             PersistenceType persist = IN_MEMORY);
     ~DmCommitLog();
@@ -119,11 +133,36 @@ class DmCommitLog : public Module {
     // purge transaction
     Error purgeTx(BlobTxId::const_ptr & txDesc);
 
+    // log transaction
+    Error logTx(BlobTxId::const_ptr & txDesc);
+
+    // snapshot (incremental/ full)
+    Error snapshot(BlobTxId::const_ptr & txDesc, const std::string & name, bool full = false);
+
     // get transaction
     CommitLogTx::const_ptr getTx(BlobTxId::const_ptr & txDesc);
 
     // check if any transaction is pending from before the given time
     fds_bool_t isPendingTx(const fds_uint64_t tsNano = util::getTimeStampNanos());
+
+    // get all committed entries which are not purged
+    std::vector<CommitLogTx::const_ptr> getAllBufferedEntries();
+
+    // flush to operation log
+    void scheduleCompaction();
+
+    // start/ stop buffering
+    inline void startBuffering() {
+        buffering_ = true;
+    }
+
+    inline void stopBuffering() {
+        buffering_ = false;
+    }
+
+    inline bool isBuffering() {
+        return buffering_;
+    }
 
   private:
     TxMap txMap_;    // in-memory state
@@ -136,10 +175,13 @@ class DmCommitLog : public Module {
     boost::shared_ptr<DmCommitLogger> cmtLogger_;
     std::atomic_flag compacting_;
 
+    // not thread-safe, two different threads can't start buffering simultaneously
+    bool buffering_;
+
+    fds::DmTvcOperationJournal & journal_;
+
     // Methods
     Error validateSubsequentTx(const BlobTxId & txId);
-
-    void scheduleCompaction();
 
     void upsertBlobData(CommitLogTx & tx, boost::shared_ptr<const BlobObjList> & data) {
         if (tx.blobObjList) {
@@ -156,6 +198,8 @@ class DmCommitLog : public Module {
             tx.metaDataList.reset(new MetaDataList(*data));
         }
     }
+
+    Error snapshotInsert(BlobTxId::const_ptr & txDesc, bool full);
 };
 
 typedef enum {
@@ -166,7 +210,10 @@ typedef enum {
     TX_DELETE_BLOB,
     TX_ROLLBACK,
     TX_COMMIT,
-    TX_PURGE
+    TX_PURGE,
+    TX_OP_LOG,
+    TX_INCR_SNAPSHOT,
+    TX_FULL_SNAPSHOT
 } CommitLogEntryType;
 
 // base struct for commit log entry
@@ -267,17 +314,23 @@ struct DmCommitLogRollbackEntry : DmCommitLogEntry {
             DmCommitLogEntry(TX_ROLLBACK, txDesc, id) {}
 };
 
-// purge transaction, read for compaction/ gc
+// purge transaction, read for buffering
 struct DmCommitLogPurgeEntry : DmCommitLogEntry {
     DmCommitLogPurgeEntry(BlobTxId::const_ptr & txDesc, fds_uint64_t id) :
             DmCommitLogEntry(TX_PURGE, txDesc, id) {}
 };
 
+// log transaction, read for compaction/ gc
+struct DmCommitLogOpLogEntry : DmCommitLogEntry {
+    DmCommitLogOpLogEntry(BlobTxId::const_ptr & txDesc, fds_uint64_t id) :
+            DmCommitLogEntry(TX_OP_LOG, txDesc, id) {}
+};
+
 // delete blob
 struct DmCommitLogDeleteBlobEntry : DmCommitLogEntry {
     DmCommitLogDeleteBlobEntry(BlobTxId::const_ptr & txDesc, fds_uint64_t id,
-            const std::string & blobDetails) :
-        DmCommitLogEntry(TX_DELETE_BLOB, txDesc, id) {}
+            const std::string & blobDetails) : DmCommitLogEntry(TX_DELETE_BLOB,
+            txDesc, id, blobDetails.length() + 1, blobDetails.c_str()) {}
 
     inline blob_version_t blobVersion() const {
         return getDeleteBlobDetails()->blobVersion;
@@ -313,6 +366,18 @@ struct DmCommitLogUpdateObjMetaEntry : DmCommitLogEntry {
     }
 };
 
+// incremental snapshot
+struct DmCommitLogIncrSnapshotEntry : DmCommitLogEntry {
+    DmCommitLogIncrSnapshotEntry(BlobTxId::const_ptr & txDesc, fds_uint64_t id)
+            : DmCommitLogEntry(TX_INCR_SNAPSHOT, txDesc, id) {}
+};
+
+// full snapshot
+struct DmCommitLogFullSnapshotEntry : DmCommitLogEntry {
+    DmCommitLogFullSnapshotEntry(BlobTxId::const_ptr & txDesc, fds_uint64_t id)
+            : DmCommitLogEntry(TX_FULL_SNAPSHOT, txDesc, id) {}
+};
+
 class DmCommitLogger {
   public:
     typedef boost::shared_ptr<DmCommitLogger> ptr;
@@ -335,6 +400,10 @@ class DmCommitLogger {
     virtual Error rollbackTx(BlobTxId::const_ptr & txDesc, DmCommitLogEntry* & entry) = 0;
 
     virtual Error purgeTx(BlobTxId::const_ptr & txDesc, DmCommitLogEntry* & entry) = 0;
+
+    virtual Error logTx(BlobTxId::const_ptr & txDesc, DmCommitLogEntry* & entry) = 0;
+
+    virtual Error snapshot(BlobTxId::const_ptr & txDesc, DmCommitLogEntry* & entry, bool full) = 0;
 
     virtual const DmCommitLogEntry * getFirst() = 0;
 
@@ -380,6 +449,11 @@ class FileCommitLogger : public DmCommitLogger {
     virtual Error rollbackTx(BlobTxId::const_ptr & txDesc, DmCommitLogEntry* & entry) override;
 
     virtual Error purgeTx(BlobTxId::const_ptr & txDesc, DmCommitLogEntry* & entry) override;
+
+    virtual Error logTx(BlobTxId::const_ptr & txDesc, DmCommitLogEntry* & entry) override;
+
+    virtual Error snapshot(BlobTxId::const_ptr & txDesc, DmCommitLogEntry* & entry,
+            bool full) override;
 
     virtual const DmCommitLogEntry * getFirst() override {
         FDSGUARD(lockLogFile_);

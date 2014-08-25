@@ -10,8 +10,12 @@
 #include <DataMgr.h>
 #include <StatStreamAggregator.h>
 #include <fdsp/Streaming.h>
+#include <time.h>
 
 namespace fds {
+
+#define MinLogRegId (std::numeric_limits<fds_uint32_t>::max())
+#define HourLogRegId (std::numeric_limits<fds_uint32_t>::max() - 1)
 
 class VolStatsTimerTask : public FdsTimerTask {
   public:
@@ -27,6 +31,33 @@ class VolStatsTimerTask : public FdsTimerTask {
 
     virtual void runTimerTask() override;
 };
+
+StatStreamTimerTask::StatStreamTimerTask(FdsTimer &timer,
+                                         fpi::StatStreamRegistrationMsgPtr reg,
+                                         StatStreamAggregator & statStreamAggr)
+        : FdsTimerTask(timer), reg_(reg),
+          statStreamAggr_(statStreamAggr) {
+    for (auto volId : reg_->volumes) {
+        vol_last_ts_[volId] = 0;
+    }
+}
+
+void StatStreamTimerTask::cleanupVolumes(const std::vector<fds_volid_t>& cur_vols) {
+    std::vector<fds_volid_t> rm_vols;
+    for (auto i : vol_last_ts_) {
+        fds_bool_t found = false;
+        for (auto volId : cur_vols) {
+            if (i.first == volId) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) rm_vols.push_back(i.first);
+    }
+    for (auto rmvol : rm_vols) {
+        vol_last_ts_.erase(rmvol);
+    }
+}
 
 VolumeStats::VolumeStats(fds_volid_t volume_id,
                          fds_uint64_t start_time,
@@ -256,13 +287,13 @@ StatStreamAggregator::StatStreamAggregator(char const *const name,
     root->fds_mkdir(root->dir_user_repo_stats().c_str());
 
     fpi::StatStreamRegistrationMsgPtr minLogReg(new fpi::StatStreamRegistrationMsg());
-    minLogReg->id = std::numeric_limits<fds_uint32_t>::max();
+    minLogReg->id = MinLogRegId;
     minLogReg->method = "log-local";
     minLogReg->sample_freq_seconds = 60;
     minLogReg->duration_seconds = 120;
 
     fpi::StatStreamRegistrationMsgPtr hourLogReg(new fpi::StatStreamRegistrationMsg());
-    hourLogReg->id = std::numeric_limits<fds_uint32_t>::max() - 1;
+    hourLogReg->id = HourLogRegId;
     hourLogReg->method = "log-local";
     hourLogReg->sample_freq_seconds = 3600;
     hourLogReg->duration_seconds = 7200;
@@ -432,6 +463,7 @@ StatStreamAggregator::writeStatsLog(const fpi::volumeDataPoints& volStatData,
                                                             fds_volid_t vol_id,
                                                             bool isMin /* = true */) {
     Error err(ERR_OK);
+    char buf[50];
     const NodeUuid *mySvcUuid = dataMgr->modProvider_->get_plf_manager()->plf_get_my_svc_uuid();
     const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
     const std::string fileName = root->dir_user_repo_stats() + std::to_string(vol_id) +
@@ -444,7 +476,7 @@ StatStreamAggregator::writeStatsLog(const fpi::volumeDataPoints& volStatData,
     }
 
     fprintf(pFile, "%s,", volStatData.volume_name.c_str());
-    fprintf(pFile, "%ld,", volStatData.timestamp);
+    fprintf(pFile, "%s,", ctime_r((&volStatData.timestamp), buf));
 
     std::vector<DataPointPair>::const_iterator pos;
 
@@ -639,6 +671,7 @@ void StatStreamTimerTask::runTimerTask() {
         for (auto i : statStreamAggr_.volstats_map_) {
             volumes.push_back(i.first);
         }
+        cleanupVolumes(volumes);  // cleanup in case volumes were removed
     } else {
         for (auto i : reg_->volumes) {
             volumes.push_back(i);
@@ -658,7 +691,8 @@ void StatStreamTimerTask::runTimerTask() {
 
         VolumePerfHistory::ptr & hist = 60 == reg_->sample_freq_seconds ?
                 volStat->finegrain_hist_ : volStat->coarsegrain_hist_;
-        last_ts_ = hist->toSlotList(slots, last_ts_, 0, FdsStatPushPeriodSec + 60);
+        fds_uint64_t last_ts = (vol_last_ts_.count(volId) > 0) ? vol_last_ts_[volId] : 0;
+        vol_last_ts_[volId] = hist->toSlotList(slots, last_ts, 0, FdsStatPushPeriodSec + 60);
 
         for (auto slot : slots) {
             fds_uint64_t timestamp = hist->getTimestamp((slot).getTimestamp());

@@ -16,6 +16,16 @@
         } \
     } while (false)
 
+#define OP_JOURNAL_GET(_volId_, _opJournal_) \
+    do { \
+        fds_scoped_spinlock jl(opJournalLock_); \
+        try { \
+            _opJournal_ = opJournals_.at(_volId_); \
+        } catch(const std::out_of_range &oor) { \
+            return ERR_VOL_NOT_FOUND; \
+        } \
+    } while (false)
+
 static const std::string COMMIT_LOG_SZ_STR("commit_log_size");
 
 namespace fds {
@@ -68,11 +78,18 @@ Error
 DmTimeVolCatalog::addVolume(const VolumeDesc& voldesc) {
     LOGDEBUG << "Will prepare commit log for new volume "
              << std::hex << voldesc.volUUID << std::dec;
+    DmTvcOperationJournal::ptr opJournal;
+    {
+        fds_scoped_spinlock lj(opJournalLock_);
+        if (opJournals_.find(voldesc.volUUID) != opJournals_.end()) {
+            return ERR_VOL_DUPLICATE;
+        }
+
+        opJournal.reset(new DmTvcOperationJournal(voldesc.volUUID));
+        opJournals_[voldesc.volUUID] = opJournal;
+    }
 
     fds_scoped_spinlock l(commitLogLock_);
-    if (commitLogs_.find(voldesc.volUUID) != commitLogs_.end()) {
-        return ERR_VOL_DUPLICATE;
-    }
 
     std::ostringstream oss;
     const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
@@ -84,7 +101,8 @@ DmTimeVolCatalog::addVolume(const VolumeDesc& voldesc) {
     /* NOTE: Here the lock can be expensive.  We may want to provide an init() api
      * on DmCommitLog so that initialization can happen outside the lock
      */
-    commitLogs_[voldesc.volUUID] = boost::make_shared<DmCommitLog>("DM", oss.str(), logSize);
+    commitLogs_[voldesc.volUUID] = boost::make_shared<DmCommitLog>("DM", oss.str(),
+            *opJournal, logSize);
     commitLogs_[voldesc.volUUID]->mod_init(mod_params);
     commitLogs_[voldesc.volUUID]->mod_startup();
 
@@ -194,23 +212,25 @@ DmTimeVolCatalog::commitBlobTxWork(fds_volid_t volid,
     LOGDEBUG << "Committing transaction " << *txDesc << " for volume "
              << std::hex << volid << std::dec;
     CommitLogTx::const_ptr commit_data = commitLog->commitTx(txDesc, e);
-    if (e.ok()) {
-        if (commit_data->blobDelete) {
-            e = volcat->deleteBlob(volid, commit_data->blobName, commit_data->blobVersion);
-            blob_version = commit_data->blobVersion;
-        } else if (commit_data->blobObjList && (commit_data->blobObjList->size() > 0)) {
-            if (commit_data->blobMode & blob::TRUNCATE) {
-                commit_data->blobObjList->setEndOfBlob();
+    if (!commitLog->isBuffering()) {
+        if (e.ok()) {
+            if (commit_data->blobDelete) {
+                e = volcat->deleteBlob(volid, commit_data->name, commit_data->blobVersion);
+                blob_version = commit_data->blobVersion;
+            } else if (commit_data->blobObjList && (commit_data->blobObjList->size() > 0)) {
+                if (commit_data->blobMode & blob::TRUNCATE) {
+                    commit_data->blobObjList->setEndOfBlob();
+                }
+                e = volcat->putBlob(volid, commit_data->name, commit_data->metaDataList,
+                                    commit_data->blobObjList, txDesc);
+            } else {
+                e = volcat->putBlobMeta(volid, commit_data->name,
+                                        commit_data->metaDataList, txDesc);
             }
-            e = volcat->putBlob(volid, commit_data->blobName, commit_data->metaDataList,
-                                commit_data->blobObjList, txDesc);
-        } else {
-            e = volcat->putBlobMeta(volid, commit_data->blobName,
-                                    commit_data->metaDataList, txDesc);
         }
+        commitLog->purgeTx(txDesc);
     }
     cb(e, blob_version, commit_data->blobObjList, commit_data->metaDataList);
-    commitLog->purgeTx(txDesc);
 }
 
 void DmTimeVolCatalog::updateFwdBlobWork(fds_volid_t volid,
