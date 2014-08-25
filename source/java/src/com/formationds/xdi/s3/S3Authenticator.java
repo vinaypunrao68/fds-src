@@ -7,6 +7,7 @@ import com.amazonaws.AmazonWebServiceRequest;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.http.HttpMethodName;
 import com.amazonaws.util.AWSRequestMetrics;
+import com.formationds.security.AuthenticationToken;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.xdi.Xdi;
 import com.google.common.collect.Maps;
@@ -19,20 +20,26 @@ import java.text.MessageFormat;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 public class S3Authenticator implements Supplier<RequestHandler> {
-    private Supplier<RequestHandler> supplier;
+    private Function<AuthenticationToken, RequestHandler> handler;
     private Xdi xdi;
 
-    public S3Authenticator(Supplier<RequestHandler> supplier, Xdi xdi) {
-        this.supplier = supplier;
+    public S3Authenticator(Function<AuthenticationToken, RequestHandler> handler, Xdi xdi) {
+        this.handler = handler;
         this.xdi = xdi;
     }
 
     @Override
     public RequestHandler get() {
         return (request, routeParameters) -> {
+
+            if (xdi.getAuthenticator().allowAll()) {
+                return handler.apply(AuthenticationToken.ANONYMOUS).handle(request, routeParameters);
+            }
+
             String candidateHeader = request.getHeader("Authorization");
             BasicAWSCredentials candidateCredentials = null;
             try {
@@ -41,10 +48,12 @@ public class S3Authenticator implements Supplier<RequestHandler> {
                 return new S3Failure(S3Failure.ErrorCode.AccessDenied, "Access denied", request.getRequestURI());
             }
 
+            AuthenticationToken token = xdi.getAuthenticator().resolveToken(candidateCredentials.getAWSSecretKey());
+
             String requestHash = hashRequest(request, candidateCredentials);
 
             if (candidateHeader.equals(requestHash)) {
-                return supplier.get().handle(request, routeParameters);
+                return handler.apply(token).handle(request, routeParameters);
             } else {
                 return new S3Failure(S3Failure.ErrorCode.AccessDenied, "Access denied", request.getRequestURI());
             }
@@ -201,7 +210,6 @@ public class S3Authenticator implements Supplier<RequestHandler> {
 
         try {
             parsed = new MessageFormat(pattern).parse(header);
-            xdi.resolveToken((String) parsed[1]);
             return new BasicAWSCredentials((String) parsed[0], (String) parsed[1]);
         } catch (Exception e) {
             throw new SecurityException("invalid credentials");

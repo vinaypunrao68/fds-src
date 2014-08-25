@@ -8,7 +8,10 @@ import com.formationds.om.plotter.ListActiveVolumes;
 import com.formationds.om.plotter.RegisterVolumeStats;
 import com.formationds.om.plotter.VolumeStatistics;
 import com.formationds.om.rest.*;
+import com.formationds.security.AuthenticationToken;
+import com.formationds.security.Authenticator;
 import com.formationds.security.FdsAuthenticator;
+import com.formationds.security.NullAuthenticator;
 import com.formationds.util.Configuration;
 import com.formationds.util.libconfig.ParsedConfig;
 import com.formationds.web.toolkit.HttpMethod;
@@ -20,7 +23,7 @@ import com.formationds.xdi.XdiClientFactory;
 import org.apache.log4j.Logger;
 import org.joda.time.Duration;
 
-import java.util.function.Supplier;
+import java.util.function.Function;
 
 /*
  * Copyright 2014 Formation Data Systems, Inc.
@@ -54,7 +57,9 @@ public class Main {
         FDSP_ConfigPathReq.Iface legacyConfigClient = legacyClientFactory.configPathClient(omHost, omPort);
         VolumeStatistics volumeStatistics = new VolumeStatistics(Duration.standardMinutes(20));
 
-        xdi = new Xdi(amService, configApi, new FdsAuthenticator(configApi), legacyConfigClient);
+        Authenticator authenticator = configuration.enforceRestAuth() ? new FdsAuthenticator(configApi) : new NullAuthenticator();
+
+        xdi = new Xdi(amService, configApi, authenticator, legacyConfigClient);
 
         webApp = new WebApp(webDir);
 
@@ -63,19 +68,19 @@ public class Main {
         webApp.route(HttpMethod.POST, "/api/auth/token", () -> new IssueToken(xdi));
         webApp.route(HttpMethod.GET, "/api/auth/token", () -> new IssueToken(xdi));
 
-        authorize(HttpMethod.GET, "/api/config/services", () -> new ListServices(legacyConfigClient));
-        authorize(HttpMethod.POST, "/api/config/services/:node_uuid", () -> new ActivatePlatform(legacyConfigClient));
+        authorize(HttpMethod.GET, "/api/config/services", (t) -> new ListServices(legacyConfigClient));
+        authorize(HttpMethod.POST, "/api/config/services/:node_uuid", (t) -> new ActivatePlatform(legacyConfigClient));
 
-        authorize(HttpMethod.GET, "/api/config/volumes", () -> new ListVolumes(configApi, amService, legacyConfigClient));
-        authorize(HttpMethod.POST, "/api/config/volumes", () -> new CreateVolume(configApi, legacyConfigClient));
-        authorize(HttpMethod.DELETE, "/api/config/volumes/:name", () -> new DeleteVolume(legacyConfigClient));
-        authorize(HttpMethod.PUT, "/api/config/volumes/:uuid", () -> new SetVolumeQosParams(legacyConfigClient, configApi, amService));
+        authorize(HttpMethod.GET, "/api/config/volumes", (t) -> new ListVolumes(configApi, amService, legacyConfigClient));
+        authorize(HttpMethod.POST, "/api/config/volumes", (t) -> new CreateVolume(configApi, legacyConfigClient));
+        authorize(HttpMethod.DELETE, "/api/config/volumes/:name", (t) -> new DeleteVolume(legacyConfigClient));
+        authorize(HttpMethod.PUT, "/api/config/volumes/:uuid", (t) -> new SetVolumeQosParams(legacyConfigClient, configApi, amService));
 
-        authorize(HttpMethod.GET, "/api/config/globaldomain", ShowGlobalDomain::new);
-        authorize(HttpMethod.GET, "/api/config/domains", ListDomains::new);
+        authorize(HttpMethod.GET, "/api/config/globaldomain", (t) -> new ShowGlobalDomain());
+        authorize(HttpMethod.GET, "/api/config/domains", (t) -> new ListDomains());
 
-        authorize(HttpMethod.POST, "/api/config/streams", () -> new RegisterStream(configApi));
-        authorize(HttpMethod.GET, "/api/config/streams", () -> new ListStreams(configApi));
+        authorize(HttpMethod.POST, "/api/config/streams", (t) -> new RegisterStream(configApi));
+        authorize(HttpMethod.GET, "/api/config/streams", (t) -> new ListStreams(configApi));
 
         webApp.route(HttpMethod.GET, "/api/stats/volumes", () -> new ListActiveVolumes(volumeStatistics));
         webApp.route(HttpMethod.POST, "/api/stats", () -> new RegisterVolumeStats(volumeStatistics));
@@ -93,20 +98,8 @@ public class Main {
         webApp.start(adminWebappPort);
     }
 
-    private void authorize(HttpMethod method, String route, Supplier<RequestHandler> factory) {
-        if (configuration.enforceRestAuth()) {
-            RequestHandler handler = new HttpAuthenticator(factory, s -> {
-                try {
-                    xdi.resolveToken(s);
-                    return true;
-                } catch (Exception e) {
-                    return false;
-                }
-            });
-            webApp.route(method, route, () -> handler);
-        } else {
-            webApp.route(method, route, factory);
-        }
+    private void authorize(HttpMethod method, String route, Function<AuthenticationToken, RequestHandler> f) {
+        webApp.route(method, route, () -> new HttpAuthenticator(f, xdi.getAuthenticator()));
     }
 }
 

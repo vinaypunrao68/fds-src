@@ -6,6 +6,8 @@ package com.formationds.security;
 import javax.crypto.SecretKey;
 
 public class AuthenticationToken {
+    public static final AuthenticationToken ANONYMOUS = new AuthenticationToken(-1, "");
+
     private final long userId;
     private final String secret;
 

@@ -19,7 +19,7 @@ import struct
 import socket
 from FDS_ProtocolInterface.ttypes import *
 
-from fdslib import ProcessUtils
+from fdslib import process
 from fdslib import IOGen
 from fdslib import thrift_json
 
@@ -170,7 +170,7 @@ def main(ip='127.0.0.1', port=7020, command_line=None):
         MyShell().cmdloop()
 
 if __name__ == '__main__':
-    log = ProcessUtils.setup_logger(file = 'console.log')
+    log = process.setup_logger(file = 'console.log')
     # Just for parsing arguments for main function
     argv = sys.argv
     argv[0] = 'main'

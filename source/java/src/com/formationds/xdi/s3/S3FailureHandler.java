@@ -4,24 +4,25 @@ package com.formationds.xdi.s3;
  */
 
 import com.formationds.apis.ApiException;
+import com.formationds.security.AuthenticationToken;
 import com.formationds.web.toolkit.RequestHandler;
 
-import java.util.function.Supplier;
+import java.util.function.Function;
 
-public class S3FailureHandler implements Supplier<RequestHandler> {
-    private Supplier<RequestHandler> supplier;
+public class S3FailureHandler implements Function<AuthenticationToken, RequestHandler> {
+    private Function<AuthenticationToken, RequestHandler> supplier;
 
-    public S3FailureHandler(Supplier<RequestHandler> supplier) {
+    public S3FailureHandler(Function<AuthenticationToken, RequestHandler> supplier) {
         this.supplier = supplier;
     }
 
     @Override
-    public RequestHandler get() {
+    public RequestHandler apply(AuthenticationToken authenticationToken) {
         return (request, routeParameters) -> {
             String requestedResource = request.getRequestURI();
 
             try {
-                return supplier.get().handle(request, routeParameters);
+                return supplier.apply(authenticationToken).handle(request, routeParameters);
             } catch (ApiException e) {
                 return makeS3Failure(requestedResource, e);
             }

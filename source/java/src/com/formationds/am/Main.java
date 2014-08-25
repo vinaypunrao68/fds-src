@@ -9,6 +9,7 @@ import com.formationds.fdsp.LegacyClientFactory;
 import com.formationds.nbd.*;
 import com.formationds.security.Authenticator;
 import com.formationds.security.FdsAuthenticator;
+import com.formationds.security.NullAuthenticator;
 import com.formationds.streaming.Streaming;
 import com.formationds.util.Configuration;
 import com.formationds.util.libconfig.ParsedConfig;
@@ -68,7 +69,9 @@ public class Main {
                     //clientFactory.remoteAmService("localhost", 4242);
 
             CachingConfigurationService config = new CachingConfigurationService(clientFactory.remoteOmService(omHost, omConfigPort));
-            Authenticator authenticator = new FdsAuthenticator(config);
+
+            boolean enforceAuthorization = amParsedConfig.lookup("fds.am.enforce_authorization").booleanValue();
+            Authenticator authenticator = enforceAuthorization? new FdsAuthenticator(config) : new NullAuthenticator();
 
             int nbdPort = amParsedConfig.lookup("fds.am.nbd_server_port").intValue();
             boolean nbdLoggingEnabled =  defaultBooleanSetting(amParsedConfig, "fds.am.enable_nbd_log", false);
@@ -85,14 +88,13 @@ public class Main {
 
             Xdi xdi = new Xdi(am, config, authenticator, legacyClientFactory.configPathClient(omHost, omLegacyConfigPort));
 
-            boolean enforceAuthorization = amParsedConfig.lookup("fds.am.enforce_authorization").booleanValue();
             int s3Port = amParsedConfig.lookup("fds.am.s3_port").intValue();
-            new Thread(() -> new S3Endpoint(xdi, enforceAuthorization).start(s3Port)).start();
+            new Thread(() -> new S3Endpoint(xdi).start(s3Port)).start();
 
             startStreamingServer(8999, config);
 
             int swiftPort = amParsedConfig.lookup("fds.am.swift_port").intValue();
-            new SwiftEndpoint(xdi, enforceAuthorization).start(swiftPort);
+            new SwiftEndpoint(xdi).start(swiftPort);
         } catch (Throwable throwable) {
             LOG.fatal("Error starting AM", throwable);
             System.out.println(throwable.getMessage());

@@ -4,7 +4,7 @@ from optparse import OptionParser
 from os import listdir
 from os.path import isfile, join
 import time
-import ProcessUtils
+import process
 import logging
 
 log = logging.getLogger(__name__)
@@ -64,7 +64,7 @@ class GetGenerator:
         log.info("GetGenerator completed")
 
 if __name__ == "__main__":
-    ProcessUtils.setup_logger()
+    process.setup_logger()
     usage = "usage: %prog [options]"
     parser = OptionParser(usage)
     parser.add_option("-o", dest="op", default = "put", help="[put|get]")
