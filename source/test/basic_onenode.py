@@ -5,14 +5,14 @@
 import subprocess
 import logging
 from fdslib.FdsCluster import FdsCluster
-from fdslib import ProcessUtils
+from fdslib import process
 import optparse, sys, time
 
 
 if __name__ == '__main__':
-    ProcessUtils.setup_logger()
+    process.setup_logger()
 
-    (options, args) = ProcessUtils.parse_fdscluster_args()
+    (options, args) = process.parse_fdscluster_args()
 
     cluster = FdsCluster(options.config_file)
     time.sleep(5)

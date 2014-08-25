@@ -12,14 +12,14 @@ import time
 from multiprocessing import Process
 
 from fdslib.FdsCluster import FdsCluster
-from fdslib import ProcessUtils
+from fdslib import process
 from fdslib import IOGen
 
 if __name__ == '__main__':
 
-    ProcessUtils.setup_logger()
+    process.setup_logger()
 
-    (options, args) = ProcessUtils.parse_fdscluster_args()
+    (options, args) = process.parse_fdscluster_args()
 
     cluster = FdsCluster(options.config_file)
     time.sleep(5)
