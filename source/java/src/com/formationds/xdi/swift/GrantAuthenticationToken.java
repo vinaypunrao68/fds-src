@@ -34,7 +34,7 @@ public class GrantAuthenticationToken implements RequestHandler {
         String password = request.getHeader(X_AUTH_KEY) == null?
                 requiredString(request, "password") : request.getHeader(X_AUTH_KEY);
         try {
-            AuthenticationToken credentials = xdi.reissueToken(login, password);
+            AuthenticationToken credentials = xdi.authenticate(login, password);
             return new TextResource(HttpServletResponse.SC_OK, "").withHeader(X_AUTH_TOKEN, credentials.signature(Authenticator.KEY));
         } catch (LoginException exception) {
             return new TextResource(HttpServletResponse.SC_UNAUTHORIZED, "");

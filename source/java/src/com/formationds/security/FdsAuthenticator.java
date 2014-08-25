@@ -10,6 +10,7 @@ import org.apache.log4j.Logger;
 import org.apache.thrift.TException;
 
 import javax.security.auth.login.LoginException;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -23,9 +24,8 @@ public class FdsAuthenticator implements Authenticator {
         this.config = config;
     }
 
-
     @Override
-    public AuthenticationToken reissueToken(String login, String password) throws LoginException {
+    public AuthenticationToken authenticate(String login, String password) throws LoginException {
         Map<String, User> map = null;
         try {
             map = config.allUsers(0)
@@ -53,13 +53,34 @@ public class FdsAuthenticator implements Authenticator {
         }
 
         User user = map.get(login);
+        return new AuthenticationToken(user.getId(), user.getSecret());
+    }
+
+
+    @Override
+    public AuthenticationToken reissueToken(long userId) throws LoginException {
+        List<User> users = null;
         try {
-            String newSecret = UUID.randomUUID().toString();
-            config.updateUser(user.getId(), user.getIdentifier(), user.getPasswordHash(), newSecret, user.isFdsAdmin);
-            return new AuthenticationToken(user.getId(), newSecret);
+            users = config.allUsers(0);
         } catch (TException e) {
+            LOG.error("Error reading config", e);
             throw new LoginException();
         }
+
+        return users.stream()
+                .filter(u -> u.getId() == userId)
+                .map(user -> {
+                    String newSecret = UUID.randomUUID().toString();
+                    try {
+                        config.updateUser(user.getId(), user.getIdentifier(), user.getPasswordHash(), newSecret, user.isFdsAdmin);
+                    } catch (TException e) {
+                        LOG.error("Error updating config", e);
+                        throw new RuntimeException(e);
+                    }
+                    return new AuthenticationToken(user.getId(), newSecret);
+                })
+                .findFirst()
+                .get();
     }
 
     @Override

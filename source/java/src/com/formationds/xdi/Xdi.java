@@ -86,7 +86,7 @@ public class Xdi {
         return authenticator.resolveToken(signature);
     }
 
-    public AuthenticationToken reissueToken(String login, String password) throws LoginException {
-        return authenticator.reissueToken(login, password);
+    public AuthenticationToken authenticate(String login, String password) throws LoginException {
+        return authenticator.authenticate(login, password);
     }
 }
