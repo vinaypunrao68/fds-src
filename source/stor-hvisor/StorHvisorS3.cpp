@@ -202,7 +202,9 @@ StorHvCtrl::RequestHelper::~RequestHelper() {
 
 StorHvCtrl::BlobRequestHelper::BlobRequestHelper(StorHvCtrl* storHvisor,
                                                  const std::string& volumeName)
-        : storHvisor(storHvisor), volumeName(volumeName) {}
+        : storHvisor(storHvisor), volumeName(volumeName) {
+                setupVolumeInfo();
+            }
 
 void StorHvCtrl::BlobRequestHelper::setupVolumeInfo() {
     if (storHvisor->vol_table->volumeExists(volumeName)) {
@@ -212,7 +214,6 @@ void StorHvCtrl::BlobRequestHelper::setupVolumeInfo() {
 }
 
 fds::Error StorHvCtrl::BlobRequestHelper::processRequest() {
-    setupVolumeInfo();
     if (volId != invalid_vol_id) {
         blobReq->setVolId(volId);
         GLOGDEBUG << "volid:" << blobReq->getVolId();

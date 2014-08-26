@@ -29,6 +29,7 @@ public class FdsAuthenticator implements Authenticator {
         return false;
     }
 
+
     @Override
     public AuthenticationToken authenticate(String login, String password) throws LoginException {
         Map<String, User> map = null;
@@ -58,6 +59,21 @@ public class FdsAuthenticator implements Authenticator {
         }
 
         User user = map.get(login);
+        return new AuthenticationToken(user.getId(), user.getSecret());
+    }
+
+    @Override
+    public AuthenticationToken currentToken(String login) throws LoginException {
+        User user = null;
+        try {
+            user = config.allUsers(0).stream()
+                    .filter(u -> u.getIdentifier().equals(login))
+                    .findFirst()
+                    .get();
+        } catch (Exception e) {
+            LOG.error("Error looking up user", e);
+            throw new LoginException();
+        }
         return new AuthenticationToken(user.getId(), user.getSecret());
     }
 

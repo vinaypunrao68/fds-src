@@ -3,6 +3,7 @@
  */
 #include <stdlib.h>
 #include <string>
+#include <vector>
 #include <sstream>
 #include <iostream>  // NOLINT
 #include <disk.h>
@@ -65,37 +66,68 @@ NodePlatformProc::plf_start_node_services(const fpi::FDSP_ActivateNodeTypePtr &m
                 std::string((const char *)&plf_node_data, sizeof(plf_node_data)));
 
     sleep(10);
+
     if (auto_start == true) {
         if (msg->has_sm_service) {
-            std::stringstream argstream;
-            argstream << "--fds.sm.om_ip=" << conf.get<std::string>("om_ip")
-                << " --fds.plat.platform_port=" << conf.get<int>("platform_port")
-                << " --fds.plat.om_ip=" << conf.get<std::string>("om_ip");
+            std::vector<const char*> extra_args;
+            std::stringstream arg1stream;
+            std::string arg1;
+            std::string arg2;
+            std::string arg3;
+            arg1stream << " --fds.plat.platform_port=" << conf.get<int>("platform_port");
+            arg1 = arg1stream.str();
+            extra_args.push_back(arg1.c_str());
+            arg2 = std::string(" --fds.plat.om_ip=") + conf.get<std::string>("om_ip");
+            extra_args.push_back(arg2.c_str());
+            arg3 = std::string("--fds.sm.om_ip=") + conf.get<std::string>("om_ip");
+            extra_args.push_back(arg3.c_str());
+            extra_args.push_back(NULL);
             pid = fds_spawn_service("StorMgr",
-                    argstream.str().c_str(),
-                    proc_root->dir_fdsroot().c_str(), true);
+                                    proc_root->dir_fdsroot().c_str(),
+                                    &extra_args[0],
+                                    true);
             LOGNOTIFY << "Spawn SM as daemon";
 
             // TODO(Vy): must fix the transport stuff!
         }
         if (msg->has_dm_service) {
-            std::stringstream argstream;
-            argstream << "--fds.dm.om_ip=" << conf.get<std::string>("om_ip")
-                << " --fds.plat.platform_port=" << conf.get<int>("platform_port")
-                << " --fds.plat.om_ip=" << conf.get<std::string>("om_ip");
+            std::vector<const char*> extra_args;
+            std::stringstream arg1stream;
+            std::string arg1;
+            std::string arg2;
+            std::string arg3;
+            arg1stream << " --fds.plat.platform_port=" << conf.get<int>("platform_port");
+            arg1 = arg1stream.str();
+            extra_args.push_back(arg1.c_str());
+            arg2 = std::string(" --fds.plat.om_ip=") + conf.get<std::string>("om_ip");
+            extra_args.push_back(arg2.c_str());
+            arg3 = std::string("--fds.dm.om_ip=") + conf.get<std::string>("om_ip");
+            extra_args.push_back(arg3.c_str());
+            extra_args.push_back(NULL);
             pid = fds_spawn_service("DataMgr",
-                    argstream.str().c_str(),
-                    proc_root->dir_fdsroot().c_str(), true);
+                                    proc_root->dir_fdsroot().c_str(),
+                                    &extra_args[0],
+                                    true);
             LOGNOTIFY << "Spawn DM as daemon";
         }
         if (msg->has_am_service) {
-            std::stringstream argstream;
-            argstream << "--fds.am.om_ip=" << conf.get<std::string>("om_ip")
-                << " --fds.plat.platform_port=" << conf.get<int>("platform_port")
-                << " --fds.plat.om_ip=" << conf.get<std::string>("om_ip");
+            std::vector<const char*> extra_args;
+            std::stringstream arg1stream;
+            std::string arg1;
+            std::string arg2;
+            std::string arg3;
+            arg1stream << " --fds.plat.platform_port=" << conf.get<int>("platform_port");
+            arg1 = arg1stream.str();
+            extra_args.push_back(arg1.c_str());
+            arg2 = std::string(" --fds.plat.om_ip=") + conf.get<std::string>("om_ip");
+            extra_args.push_back(arg2.c_str());
+            arg3 = std::string("--fds.am.om_ip=") + conf.get<std::string>("om_ip");
+            extra_args.push_back(arg3.c_str());
+            extra_args.push_back(NULL);
             pid = fds_spawn_service("AMAgent",
-                    argstream.str().c_str(),
-                    proc_root->dir_fdsroot().c_str(), true);
+                                    proc_root->dir_fdsroot().c_str(),
+                                    &extra_args[0],
+                                    true);
             LOGNOTIFY << "Spawn AM as daemon";
         }
     } else {
