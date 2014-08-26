@@ -54,7 +54,7 @@ bool Reply::isOk() const {
 }
 
 bool Reply::wasModified() const {
-    return (r->type == REDIS_REPLY_INTEGER) && (r->integer == 1);
+    return (r->type == REDIS_REPLY_INTEGER) && (r->integer > 0);
 }
 
 std::string Reply::getString() const {
@@ -440,6 +440,34 @@ Reply Redis::hlen(const std::string& key) {
     return Reply(redisCommand(cxn->ctx, "hlen %s", key.c_str()));
 }
 
+Reply Redis::smembers(const std::string& key) {
+    SCOPEDCXN();
+    return Reply(redisCommand(cxn->ctx, "smembers %s", key.c_str()));
+}
+
+bool Redis::sadd(const std::string& key, const std::string& value) {
+    SCOPEDCXN();
+    Reply reply = redisCommand(cxn->ctx, "sadd %s %b", key.c_str(), value.data(), value.length());
+    return reply.wasModified();
+}
+
+bool Redis::sadd(const std::string& key, const int64_t value) {
+    SCOPEDCXN();
+    Reply reply = redisCommand(cxn->ctx, "sadd %s %ld", key.c_str(), value);
+    return reply.wasModified();
+}
+
+bool Redis::srem(const std::string& key, const std::string& value) {
+    SCOPEDCXN();
+    Reply reply = redisCommand(cxn->ctx, "srem %s %b", key.c_str(), value.data(), value.length());
+    return reply.wasModified();
+}
+
+bool Redis::srem(const std::string& key, const int64_t value) {
+    SCOPEDCXN();
+    Reply reply = redisCommand(cxn->ctx, "srem %s %ld", key.c_str(), value);
+    return reply.wasModified();
+}
 
 Redis::~Redis() {
 }

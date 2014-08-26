@@ -151,6 +151,13 @@ namespace redis {
         Reply hgetall(const std::string& key);
         Reply hlen(const std::string& key);
 
+        // sets
+        Reply smembers(const std::string& key);
+        bool sadd(const std::string& key, const std::string& value);
+        bool sadd(const std::string& key, const int64_t value);
+
+        bool srem(const std::string& key, const std::string& value);
+        bool srem(const std::string& key, const int64_t value);
 
       protected:
         ConnectionPool pool;
