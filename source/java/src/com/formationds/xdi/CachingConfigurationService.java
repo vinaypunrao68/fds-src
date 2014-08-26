@@ -108,6 +108,56 @@ public class CachingConfigurationService implements ConfigurationService.Iface {
         service.deregisterStream(registration_id);
     }
 
+    @Override
+    public long createSnapshotPolicy(SnapshotPolicy policy) throws ApiException, TException {
+        return 0;
+    }
+
+    @Override
+    public List<SnapshotPolicy> listPolicies(long unused) throws ApiException, TException {
+        return null;
+    }
+
+    @Override
+    public void deleteSnapshotPolicy(long id) throws ApiException, TException {
+
+    }
+
+    @Override
+    public void attachPolicy(long volumeId, long policyId) throws ApiException, TException {
+
+    }
+
+    @Override
+    public List<SnapshotPolicy> listSnapshotPoliciesForVolume(long volumeId) throws ApiException, TException {
+        return null;
+    }
+
+    @Override
+    public void detachPolicy(long volumeId, long policyId) throws ApiException, TException {
+
+    }
+
+    @Override
+    public List<String> listVolumesForPolicy(long policyId) throws ApiException, TException {
+        return null;
+    }
+
+    @Override
+    public List<Snapshot> listSnapshots(long volumeId) throws ApiException, TException {
+        return null;
+    }
+
+    @Override
+    public void restore(long volumeId, long snapshotId) throws ApiException, TException {
+
+    }
+
+    @Override
+    public long cloneVolume(long volumeId, long fdsp_PolicyInfoId, String clonedVolumeName) throws TException {
+        return 0;
+    }
+
 
     private class Key {
         private String domain;
