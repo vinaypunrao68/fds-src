@@ -1093,7 +1093,7 @@ bool ConfigDB::assignUserToTenant(int64_t userId, int64_t tenantId) {
 bool ConfigDB::revokeUserFromTenant(int64_t userId, int64_t tenantId) {
     TRACKMOD();
     try {
-        Reply reply = r.sendCommand("sremove tenant:%ld:users %ld", tenantId, userId);
+        Reply reply = r.sendCommand("srem tenant:%ld:users %ld", tenantId, userId);
         if (!reply.wasModified()) {
             LOGWARN << "user: " << userId << " was NOT assigned to tenant: " << tenantId;
             NOMOD();
