@@ -1,3 +1,4 @@
+include "../fdsp/snapshot.thrift"
 include "../fdsp/fds_stream.thrift"
 namespace cpp fds.apis
 namespace java com.formationds.apis
@@ -154,5 +155,36 @@ service ConfigurationService {
              5:i32 duration_seconds),
 
         list<fds_stream.StreamingRegistrationMsg> getStreamRegistrations(1:i32 ignore),
-        void deregisterStream(1:i32 registration_id)
+        void deregisterStream(1:i32 registration_id),
+
+    i64 createSnapshotPolicy(1:snapshot.SnapshotPolicy policy)
+             throws (1: ApiException e),
+
+    list<snapshot.SnapshotPolicy> listPolicies(1:i64 unused)
+             throws (1: ApiException e),
+
+    void deleteSnapshotPolicy(1:i64 id)
+             throws (1: ApiException e),
+
+    void attachPolicy(1:i64 volumeId, 2:i64 policyId)
+             throws (1: ApiException e),
+
+    list<snapshot.SnapshotPolicy> listSnapshotPoliciesForVolume(1:i64 volumeId)
+             throws (1: ApiException e),
+
+    void detachPolicy(1:i64 volumeId, 2:i64 policyId)
+             throws (1: ApiException e),
+
+    list<string> listVolumesForPolicy(1:i64 policyId)
+             throws (1: ApiException e),
+
+    list<snapshot.Snapshot> listSnapshots(1:i64 volumeId)
+             throws (1: ApiException e),
+
+    void restore(1:i64 volumeId, 2:i64 snapshotId)
+             throws (1: ApiException e),
+
+    // Returns VolumeID of clone 
+    i64 cloneVolume(1:i64 volumeId, 2:i64 fdsp_PolicyInfoId, 3:string clonedVolumeName)
+
 }
