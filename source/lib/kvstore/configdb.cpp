@@ -42,9 +42,20 @@ fds_uint64_t ConfigDB::getLastModTimeStamp() {
     return 0;
 }
 
+fds_uint64_t ConfigDB::getConfigVersion() {
+    try {
+        return r.get("config.version").getLong();
+    } catch(const RedisException& e) {
+        LOGERROR << e.what();
+    }
+
+    return 0;
+}
+
 void ConfigDB::setModified() {
     try {
-        Reply reply = r.sendCommand("set config.lastmod %ld", fds::util::getTimeStampMillis());
+        r.sendCommand("set config.lastmod %ld", fds::util::getTimeStampMillis());
+        r.incr("config.version");
     } catch(const RedisException& e) {
         LOGERROR << e.what();
     }
@@ -979,7 +990,7 @@ bool ConfigDB::listTenants(std::vector<fds::apis::Tenant>& tenants) {
     return true;
 }
 
-int64_t ConfigDB::createUser(const std::string& identifier, const std::string& secret, bool isAdmin) { //NOLINT
+int64_t ConfigDB::createUser(const std::string& identifier, const std::string& passwordHash, const std::string& secret, bool isAdmin) { //NOLINT
     TRACKMOD();
     try {
         // check if the user already exists
@@ -1008,6 +1019,7 @@ int64_t ConfigDB::createUser(const std::string& identifier, const std::string& s
         reply = r.sendCommand("incr user:nextid");
         user.id = reply.getLong();
         user.identifier = identifier;
+        user.passwordHash = passwordHash;
         user.secret = secret;
         user.isFdsAdmin = isAdmin;
 
@@ -1096,7 +1108,6 @@ bool ConfigDB::revokeUserFromTenant(int64_t userId, int64_t tenantId) {
 
 bool ConfigDB::listUsersForTenant(std::vector<fds::apis::User>& users, int64_t tenantId) {
     fds::apis::User user;
-    
     try {
         // get the list of users assigned to the tenant
         Reply reply = r.sendCommand("smembers tenant:%ld:users", tenantId);
@@ -1104,15 +1115,16 @@ bool ConfigDB::listUsersForTenant(std::vector<fds::apis::User>& users, int64_t t
         reply.toVector(strings);
         std::string userlist;
         userlist.reserve(2048);
+        userlist.append("hmget users");
 
         for (const auto& value : strings) {
-            userlist.append(value);
             userlist.append(" ");
+            userlist.append(value);
         }
 
         LOGDEBUG << "users for tenant:" << tenantId << " are [" << userlist << "]";
 
-        reply = r.sendCommand("hmget users %b", userlist.data(), userlist.length());
+        reply = r.sendCommand(userlist.c_str());
         strings.clear();
         reply.toVector(strings);
         for (const auto& value : strings) {
@@ -1126,7 +1138,7 @@ bool ConfigDB::listUsersForTenant(std::vector<fds::apis::User>& users, int64_t t
     return true;
 }
 
-bool ConfigDB::updateUser(int64_t  userId, const std::string& identifier, const std::string& secret, bool isFdsAdmin) { //NOLINT
+bool ConfigDB::updateUser(int64_t  userId, const std::string& identifier, const std::string& passwordHash, const std::string& secret, bool isFdsAdmin) { //NOLINT
     TRACKMOD();
     try {
         fds::apis::User user;
@@ -1151,6 +1163,7 @@ bool ConfigDB::updateUser(int64_t  userId, const std::string& identifier, const 
 
         // now set the new user info
         user.identifier = identifier;
+        user.passwordHash = passwordHash;
         user.secret = secret;
         user.isFdsAdmin = isFdsAdmin;
 

@@ -123,7 +123,7 @@ class AmTxManager : public Module, public boost::noncopyable {
      */
     Error updateStagedBlobObject(const BlobTxId &txId,
                                  const ObjectID &objectId,
-                                 char *objectData,
+                                 const char *objectData,
                                  fds_uint32_t dataLen);
 
     /**

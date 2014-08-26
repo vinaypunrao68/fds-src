@@ -12,7 +12,7 @@ Error StatBlobHandler::handleRequest(const std::string& volumeName,
                                      CallbackPtr cb) {
     StorHvCtrl::BlobRequestHelper helper(storHvisor, volumeName);
     LOGDEBUG << " volume:" << volumeName
-             <<" blob:" << blobName;
+             <<" blob:" << blobName << " helper.volId: " << helper.volId;
 
     helper.blobReq = new StatBlobReq(helper.volId,
                                      volumeName,
@@ -34,6 +34,8 @@ Error StatBlobHandler::handleResponse(AmQosReq *qosReq,
         helper.setStatus(error.GetErrno());
         return error;
     }
+
+    // TODO(Andrew): Update the AM's blob descriptor cache here
 
     // using the same structure for input and output
     auto response = MSG_DESERIALIZE(GetBlobMetaDataMsg, error, payload);
@@ -81,6 +83,9 @@ Error StatBlobHandler::handleQueueItem(AmQosReq *qosReq) {
             cb->blobDesc.addKvMeta(meta->first,  meta->second);
         }
         cb->call(err);
+        // Delete the blob request since a responsehelper doesn't
+        // do it for you
+        delete helper.blobReq;
         // TODO(Andrew): This is what's being returned to the request
         // dispatcher, which always expects OK. The callback was given
         // the correct error code, this doesn't really matter.

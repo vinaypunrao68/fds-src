@@ -244,6 +244,15 @@ class ControlPathReq : public FDS_ProtocolInterface::FDSP_ControlPathReqIf {
                   << throttle_msg->throttle_level;
     }
 
+    void SetQoSControl(const FDSP_MsgHdrType& fdsp_msg,
+                       const FDSP_QoSControlMsgType& qos_msg) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+
+    void SetQoSControl(FDSP_MsgHdrTypePtr& fdsp_msg, FDSP_QoSControlMsgTypePtr& qos_msg) {
+    }
+
+
     void TierPolicy(const FDSP_TierPolicy &tier) {
         // Don't do anything here. This stub is just to keep cpp compiler happy
     }

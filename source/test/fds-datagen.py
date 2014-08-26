@@ -3,7 +3,7 @@
 # Copyright 2014 by Formation Data Systems, Inc.
 #
 
-# Import python stdlib and modules
+# Import python stdlib and modules.
 import os
 import sys
 sys.path.append('./fdslib/pyfdsp')

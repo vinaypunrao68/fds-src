@@ -180,6 +180,17 @@ PlatRpcReqt::SetThrottleLevel(fpi::FDSP_MsgHdrTypePtr      &msg_hdr,
 }
 
 void
+PlatRpcReqt::SetQoSControl(const FDSP_MsgHdrType& fdsp_msg,
+                           const FDSP_QoSControlMsgType& qos_msg) {}
+
+void
+PlatRpcReqt::SetQoSControl(fpi::FDSP_MsgHdrTypePtr& fdsp_msg,
+                           fpi::FDSP_QoSControlMsgTypePtr& qos_msg)
+{
+    fds_verify(0);
+}
+
+void
 PlatRpcReqt::TierPolicy(const FDSP_TierPolicy &tier) {}
 
 void

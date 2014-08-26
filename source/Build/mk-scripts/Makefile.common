@@ -181,6 +181,10 @@ ifdef user_ragel
 comm_rl_files   := $(call comm_list2ext,.rl,.cpp,$(user_ragel))
 endif
 
+ifdef user_json
+comm_json_files := $(call comm_list2ext,.json,.h,$(user_json))
+endif
+
 ifdef user_thrift
 comm_thrf_files := $(patsubst %.thrift,$(user_thrift_loc)/%_types.h,$(user_thrift))
 endif

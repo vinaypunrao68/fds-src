@@ -3,7 +3,7 @@ user_target       := lib
 user_rtime_env    := user
 user_build_dir    :=
 
-user_thrift       := $(topdir)/fdsp/FDSP.thrift $(topdir)/apis/apis.thrift $(topdir)/fdsp/fds_stream.thrift
+user_thrift       := $(topdir)/fdsp/FDSP.thrift $(topdir)/apis/apis.thrift $(topdir)/fdsp/fds_stream.thrift $(topdir)/fdsp/snapshot.thrift
 user_thrift_flag  := -r --gen java
 
 user_postdep      := compile
@@ -24,6 +24,7 @@ compile:
 	@rm -f $(comm_dir_bin)/AMAgent
 	@rm -rf $(comm_dir_lib)/java
 	@mkdir -p $(comm_dir_lib)/java/
+	@mvn install -f thrift-pom.xml
 	@mvn -DskipTests assembly:directory -Dbuild.dir=$(comm_dir_lib)/java
 	@cp -r admin-webapp $(comm_dir_lib)
 	@cp -r demo $(comm_dir_lib)

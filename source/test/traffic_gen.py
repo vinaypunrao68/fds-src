@@ -208,7 +208,7 @@ def main(options,files):
     # FIXME: volumes (ongoing)
     if options.get_reuse == True and options.req_type == "PUT":
         dump_uploaded(uploaded)
-    print "Options:", options,"Stats:", stats
+    print "Options:", options, "Stats:", stats
     for vol in range(options.num_volumes):
         print "Summary - volume:", vol, "threads:", options.threads, "n_reqs:", options.n_reqs, "req_type:", options.req_type, \
             "elapsed time:", stats[vol]['elapsed_time'], \

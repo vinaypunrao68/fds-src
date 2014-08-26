@@ -217,6 +217,8 @@ class FdsRmtEnv(FdsEnv):
         if output == True:
             for line in stdout.read().splitlines():
                 print("[%s] %s" % (self.env_rmt_host, line))
+            for line in stderr.read().splitlines():
+                print("[%s Error] %s" % (self.env_rmt_host, line))
 
         stdin.close()
         stdout.close()

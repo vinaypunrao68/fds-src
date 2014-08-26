@@ -1566,8 +1566,11 @@ OM_NodeContainer::om_bcast_dmt(fpi::FDSP_MgrIdType svc_type,
     if (svc_type == fpi::FDSP_DATA_MGR) {
         count += dc_dm_nodes->agent_ret_foreach<const DMTPtr&>(curDmt, om_send_dmt);
         LOGDEBUG << "Sent DMT to " << count << " DM services successfully";
+    } else if (svc_type == fpi::FDSP_STOR_MGR) {
+        count += dc_sm_nodes->agent_ret_foreach<const DMTPtr&>(curDmt, om_send_dmt);
+        LOGDEBUG << "Sent DMT to " << count << " SM services successfully";
     } else {
-        // this method must only be called for either DM or AM!
+        // this method must only be called for either DM, SM or AM!
         fds_verify(svc_type == fpi::FDSP_STOR_HVISOR);
         count += dc_am_nodes->agent_ret_foreach<const DMTPtr&>(curDmt, om_send_dmt);
         LOGDEBUG << "Sent DMT to " << count << " AM services successfully";

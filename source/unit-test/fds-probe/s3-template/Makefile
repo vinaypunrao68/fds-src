@@ -1,6 +1,7 @@
 probe_topdir      := ..
 user_incl_dir     :=
 
+user_json         := o.json
 user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  := \
@@ -8,6 +9,9 @@ user_fds_ar_libs  := \
 user_non_fds_libs :=
 
 user_hh           := $(wildcard *.h)
+
+# Don't do style check on auto gen code.
+user_no_style     := $(patsubst %.json,%.h,$(user_json))
 user_cc           := ngx_modules.c
 user_cpp          := \
     mod-main.cpp \

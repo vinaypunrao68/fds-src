@@ -8,13 +8,13 @@ sys.path.append(os.getcwd()+'/fdslib/pyfdsp')
 import subprocess
 import logging
 from fdslib.FdsCluster import FdsCluster
-from fdslib import ProcessUtils
+from fdslib import process
 import optparse, sys, time
 from fdslib import IOGen
 
 if __name__ == '__main__':
-    ProcessUtils.setup_logger()
-    (options, args) = ProcessUtils.parse_fdscluster_args()
+    process.setup_logger()
+    (options, args) = process.parse_fdscluster_args()
 
     cluster = FdsCluster(options.config_file)
     time.sleep(5)

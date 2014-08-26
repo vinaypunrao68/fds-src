@@ -25,8 +25,6 @@
 extern StorHvCtrl *storHvisor;
 using namespace std;
 using namespace FDS_ProtocolInterface;
-typedef fds::hash::Sha1 GeneratorHash;
-
 
 Error
 StorHvCtrl::abortBlobTxSvc(AmQosReq *qosReq) {
@@ -300,20 +298,6 @@ Error StorHvCtrl::putBlobSvc(fds::AmQosReq *qosReq)
     }
     blobReq->setObjId(objId);
 
-    // Send put request to SM
-    fds::PerfTracer::tracePointBegin(blobReq->smPerfCtx);
-    if (fZeroSize) {
-        // If there's not object data to write, just update the
-        // SM's response ack count
-        blobReq->notifyResponse(qos_ctrl, qosReq, err);
-    } else {
-        issuePutObjectMsg(blobReq->getObjId(),
-                          blobReq->getDataBuf(),
-                          blobReq->getDataLen(),
-                          volId,
-                          RESPONSE_MSG_HANDLER(StorHvCtrl::putBlobPutObjectMsgResp, qosReq));
-    }
-
     //TODO(matteo): maybe check other issueUpdateC...
     fds::PerfTracer::tracePointBegin(blobReq->dmPerfCtx);
 
@@ -356,10 +340,10 @@ Error StorHvCtrl::putBlobSvc(fds::AmQosReq *qosReq)
         fds_verify(amTxMgr->updateStagedBlobDesc(txId,
                                                  blobReq->metadata) == ERR_OK);
         // Update the transaction manager with the stage offset update
-        amTxMgr->updateStagedBlobOffset(*(blobReq->getTxId()),
-                                        blobReq->getBlobName(),
-                                        blobReq->getBlobOffset(),
-                                        blobReq->getObjId());
+        fds_verify(amTxMgr->updateStagedBlobOffset(*(blobReq->getTxId()),
+                                                   blobReq->getBlobName(),
+                                                   blobReq->getBlobOffset(),
+                                                   blobReq->getObjId()) == ERR_OK);
 
         issueUpdateCatalogMsg(blobReq->getObjId(),
                               blobReq->getBlobName(),
@@ -372,6 +356,26 @@ Error StorHvCtrl::putBlobSvc(fds::AmQosReq *qosReq)
                               RESPONSE_MSG_HANDLER(StorHvCtrl::putBlobUpdateCatalogOnceMsgResp, qosReq));
     } else {
         fds_panic("Unknown io_type request!");
+    }
+
+    // Send put request to SM
+    fds::PerfTracer::tracePointBegin(blobReq->smPerfCtx);
+    if (fZeroSize) {
+        // If there's not object data to write, just update the
+        // SM's response ack count
+        blobReq->notifyResponse(qos_ctrl, qosReq, err);
+    } else {
+        // Update the transaction manager with the stage object data
+        fds_verify(amTxMgr->updateStagedBlobObject(*(blobReq->getTxId()),
+                                                   blobReq->getObjId(),
+                                                   blobReq->getDataBuf(),
+                                                   blobReq->getDataLen())
+                   == ERR_OK);
+        issuePutObjectMsg(blobReq->getObjId(),
+                          blobReq->getDataBuf(),
+                          blobReq->getDataLen(),
+                          volId,
+                          RESPONSE_MSG_HANDLER(StorHvCtrl::putBlobPutObjectMsgResp, qosReq));
     }
 
     // TODO(Rao): Check with andrew if this is the right place to unlock or
@@ -598,9 +602,11 @@ Error StorHvCtrl::getBlobSvc(fds::AmQosReq *qosReq)
                           RESPONSE_MSG_HANDLER(StorHvCtrl::getBlobQueryCatalogResp, qosReq));
     } else {
         fds_verify(*objectId != NullObjectID);
+        blobReq->setObjId(*objectId);
         fds::PerfTracer::tracePointBegin(blobReq->smPerfCtx); 
-        issueGetObject(volId, *objectId,
-                       RESPONSE_MSG_HANDLER(StorHvCtrl::getBlobGetObjectResp, qosReq));
+        issueGetObject(qosReq,
+                       RESPONSE_MSG_HANDLER(StorHvCtrl::getBlobGetObjectResp,
+                                            qosReq));
     }
     return ERR_OK;
 }
@@ -632,10 +638,43 @@ void StorHvCtrl::issueQueryCatalog(const std::string& blobName,
     LOGDEBUG << asyncQueryReq->logString() << fds::logString(*queryMsg);
 }
 
-void StorHvCtrl::issueGetObject(const fds_volid_t& volId,
-                                const ObjectID& objId,
+void StorHvCtrl::issueGetObject(AmQosReq *qosReq,
                                 FailoverSvcRequestRespCb respCb)
 {
+    Error error(ERR_OK);
+    GetBlobReq *blobReq = static_cast<GetBlobReq *>(
+        qosReq->getBlobReqPtr());
+    fds_verify(blobReq->magicInUse() == true);
+    fds_volid_t volId = blobReq->getVolId();
+    ObjectID objId    = blobReq->getObjId();
+
+    // Check cache for object data
+    boost::shared_ptr<std::string> objectData =
+            amCache->getBlobObject(volId,
+                                   objId,
+                                   error);
+    if (error == ERR_OK) {
+        LOGTRACE << "Found cached object " << objId;
+        // Data was found in cache, so fill data and callback
+        qos_ctrl->markIODone(qosReq);
+        GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback,
+                                                    blobReq->cb);
+        // Set the return size based on what was requested
+        if (blobReq->getDataLen() < static_cast<fds_uint64_t>(objectData->size())) {
+            LOGDEBUG  << "Returning " << blobReq->getDataLen() << " byte subset of "
+                      << objectData->size() << " bytes of data";
+            cb->returnSize = blobReq->getDataLen();
+        } else {
+            cb->returnSize = objectData->size();
+        }
+        memcpy(cb->returnBuffer,
+               objectData->c_str(),
+               cb->returnSize);
+        cb->call(error);
+        delete blobReq;
+        return;
+    }
+
     fpi::GetObjectMsgPtr getObjMsg(boost::make_shared<fpi::GetObjectMsg>());
     getObjMsg->volume_id = volId;
     getObjMsg->data_obj_id.digest = std::string((const char *)objId.GetId(),
@@ -672,6 +711,8 @@ void StorHvCtrl::getBlobQueryCatalogResp(fds::AmQosReq* qosReq,
 
     LOGDEBUG << svcReq->logString() << fds::logString(*qryCatRsp);
 
+    // TODO(Andrew): Update the AM's blob offset cache here
+
     Error e = updateCatalogCache(blobReq,
                                  qryCatRsp->obj_list);
     if (e != ERR_OK) {
@@ -692,11 +733,12 @@ void StorHvCtrl::getBlobQueryCatalogResp(fds::AmQosReq* qosReq,
             // found offset!!!
             ObjectID objId((*it).data_obj_id.digest);
             fds_verify(objId != NullObjectID);
-
             
+            blobReq->setObjId(objId);
             fds::PerfTracer::tracePointBegin(blobReq->smPerfCtx); 
-            issueGetObject(blobReq->getVolId(), objId,
-                           RESPONSE_MSG_HANDLER(StorHvCtrl::getBlobGetObjectResp, qosReq));
+            issueGetObject(qosReq,
+                           RESPONSE_MSG_HANDLER(StorHvCtrl::getBlobGetObjectResp,
+                                                qosReq));
 
             return;
         }
@@ -724,6 +766,8 @@ void StorHvCtrl::getBlobGetObjectResp(fds::AmQosReq* qosReq,
         delete blobReq;
         return;
     }
+
+    // TODO(Andrew): Update the AM's blob object cache here
 
     LOGDEBUG << svcReq->logString() << fds::logString(*getObjRsp);
 

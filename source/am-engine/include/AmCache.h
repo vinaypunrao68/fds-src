@@ -66,6 +66,14 @@ class AmCache : public Module, public boost::noncopyable {
                                       Error &error);
 
     /**
+     * Retrieves object data from cache for given volume and object.
+     * If object is not found, returns error.
+     */
+    boost::shared_ptr<std::string> getBlobObject(fds_volid_t volId,
+                                                 const ObjectID &objectId,
+                                                 Error &error);
+
+    /**
      * Updates the cache with the contents from a commited
      * transaction. Any previously existing info will be
      * overwritten.
@@ -103,11 +111,10 @@ class AmCache : public Module, public boost::noncopyable {
     std::unique_ptr<BlobObjectCacheManager> blobObjectCache;
 
     /// Max number of entries per volume cache
-    // TODO(Andrew): Have some per-volume configurable number
-    static const fds_uint32_t maxEntries = 500;
+    fds_uint32_t maxEntries;
     /// Cache eviction policy
     // TODO(Andrew): Have some per-volume eviction policy based on volume policy.
-    static const EvictionType evictionType = LRU;
+    EvictionType evictionType;
 };
 
 }  // namespace fds

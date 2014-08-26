@@ -24,9 +24,9 @@ def create_tests():
     size = 4096   # 4096
     test = dict(template)
     test["type"] = "PUT"
-    test["nreqs"] =  1000# 10000  # 100000
-    test["nfiles"] = 100 #1000 # 10000
-    test["nvols"] = 1 #2
+    test["nreqs"] =  10000# 10000  # 100000
+    test["nfiles"] = 1000 #1000 # 10000
+    test["nvols"] = 4 #2
     test["threads"] = 1
     test["fsize"] = size
     tests.append(test)
@@ -39,8 +39,8 @@ def create_tests():
     #         test["nvols"] = nvols
     #         test["threads"] = th
     #         tests.append(test)
-    for nvols in [1]:#[1, 2]: # [1, 2, 3, 4]:
-        for th in [1, 5, 10, 15, 20, 25, 30]:#[1, 5, 10, 15, 20, 25, 30]: #[1, 2, 5, 10, 15]:
+    for nvols in [4]:#[1, 2]: # [1, 2, 3, 4]:
+        for th in [25]:#[1, 5, 10, 15, 20, 25, 30]: #[1, 2, 5, 10, 15]:
             test = dict(template)
             test["type"] = "GET"
             test["nreqs"] = 10000 # 100000
@@ -48,7 +48,7 @@ def create_tests():
             test["nvols"] = nvols
             test["threads"] = th
             test["fsize"] = size
-            #tests.append(test)
+            tests.append(test)
     size = 4096 * 1024
     test = dict(template)
     test["type"] = "PUT"
@@ -90,6 +90,7 @@ def main():
                       help = "Running mode: <single/multi>-<local/remote>. Supported: single-local, multi-remote")
 
     # Test configuration
+    #FIXME: rename: test_node is an IP
     parser.add_option("-t", "--test-node", dest = "test_node", default = None,
                       help = "IP of the node the test node will run from. Default will run from local")
 
@@ -101,6 +102,10 @@ def main():
     parser.add_option("-x", "--no-fds-start", dest = "no_fds_start", action = "store_true", default = False,
                       help = "Don't start FDS")
 
+    # CounterServer
+    parser.add_option("-c", "--counter-pull-rate", dest = "counter_pull_rate", type = "float", default = 5.0,
+                      help = "Counters pull rate")
+
     (options, args) = parser.parse_args()
 
     # Hardcoded options
@@ -110,11 +115,12 @@ def main():
     options.local_fds_root = "/home/monchier/FDS/dev"
     # FDS nodes
     options.nodes = {
-        #"node1" : "10.1.10.16",
-        "node2" : "10.1.10.17",
-        "node3" : "10.1.10.18"
-        # "tiefighter" : "10.1.10.102"
+        # "node1" : "10.1.10.16",
+        # "node2" : "10.1.10.17",
+        # "node3" : "10.1.10.18"
+        "tiefighter" : "10.1.10.102",
     }
+    options.myip = get_myip()
 
     if "single" in options.mode:
         options.single_node = True
@@ -149,7 +155,7 @@ def main():
         fds.init_test(t["test_type"], results_dir, t)
         # FIXME: need to reset counters!
         # start stats collection
-        counter_server = CounterServer(results_dir)
+        counter_server = CounterServerPull(results_dir, options)
         monitors = Monitors(results_dir, options)
         monitors.compute_monitors_cmds(fds.get_pidmap())
         monitors.run()

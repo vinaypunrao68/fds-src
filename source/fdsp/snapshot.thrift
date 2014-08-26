@@ -3,6 +3,7 @@
  */
 include "FDSP.thrift"
 namespace cpp FDS_ProtocolInterface
+namespace java com.formationds.apis
 
 /*
  * snapshot and clone from CLI => OM structures 

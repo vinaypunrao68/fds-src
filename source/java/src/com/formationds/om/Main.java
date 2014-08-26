@@ -1,5 +1,6 @@
 package com.formationds.om;
 
+import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import com.formationds.apis.AmService;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.fdsp.LegacyClientFactory;
@@ -8,18 +9,21 @@ import com.formationds.om.plotter.ListActiveVolumes;
 import com.formationds.om.plotter.RegisterVolumeStats;
 import com.formationds.om.plotter.VolumeStatistics;
 import com.formationds.om.rest.*;
-import com.formationds.security.Authenticator;
-import com.formationds.security.AuthorizationToken;
+import com.formationds.security.*;
 import com.formationds.util.Configuration;
 import com.formationds.util.libconfig.ParsedConfig;
-import com.formationds.web.toolkit.HttpMethod;
-import com.formationds.web.toolkit.RequestHandler;
-import com.formationds.web.toolkit.WebApp;
+import com.formationds.web.toolkit.*;
+import com.formationds.xdi.CachingConfigurationService;
+import com.formationds.xdi.Xdi;
 import com.formationds.xdi.XdiClientFactory;
 import org.apache.log4j.Logger;
+import org.eclipse.jetty.server.Request;
 import org.joda.time.Duration;
+import org.json.JSONObject;
 
-import java.util.function.Supplier;
+import java.util.Map;
+import java.util.UUID;
+import java.util.function.Function;
 
 /*
  * Copyright 2014 Formation Data Systems, Inc.
@@ -30,6 +34,7 @@ public class Main {
 
     private WebApp webApp;
     private Configuration configuration;
+    private Xdi xdi;
 
     public static void main(String[] args) throws Exception {
         new Main().start(args);
@@ -41,7 +46,7 @@ public class Main {
 
         ParsedConfig omParsedConfig = configuration.getOmConfig();
         XdiClientFactory clientFactory = new XdiClientFactory();
-        ConfigurationService.Iface configApi = clientFactory.remoteOmService("localhost", 9090);
+        CachingConfigurationService configApi = new CachingConfigurationService(clientFactory.remoteOmService("localhost", 9090));
         AmService.Iface amService = clientFactory.remoteAmService("localhost", 9988);
 
         String omHost = "localhost";
@@ -49,34 +54,43 @@ public class Main {
         String webDir = omParsedConfig.lookup("fds.om.web_dir").stringValue();
 
         LegacyClientFactory legacyClientFactory = new LegacyClientFactory();
+        FDSP_ConfigPathReq.Iface legacyConfigClient = legacyClientFactory.configPathClient(omHost, omPort);
         VolumeStatistics volumeStatistics = new VolumeStatistics(Duration.standardMinutes(20));
+
+        Authenticator authenticator = configuration.enforceRestAuth() ? new FdsAuthenticator(configApi) : new NullAuthenticator();
+
+        xdi = new Xdi(amService, configApi, authenticator, legacyConfigClient);
 
         webApp = new WebApp(webDir);
 
         webApp.route(HttpMethod.GET, "", () -> new LandingPage(webDir));
 
-        webApp.route(HttpMethod.POST, "/api/auth/token", () -> new IssueToken(Authenticator.KEY));
-        webApp.route(HttpMethod.GET, "/api/auth/token", () -> new IssueToken(Authenticator.KEY));
+        webApp.route(HttpMethod.POST, "/api/auth/token", () -> new IssueToken(xdi));
+        webApp.route(HttpMethod.GET, "/api/auth/token", () -> new IssueToken(xdi));
 
-        authorize(HttpMethod.GET, "/api/config/services", () -> new ListServices(legacyClientFactory.configPathClient(omHost, omPort)));
-        authorize(HttpMethod.POST, "/api/config/services/:node_uuid", () -> new ActivatePlatform(legacyClientFactory.configPathClient(omHost, omPort)));
+        authorize(HttpMethod.GET, "/api/config/services", (t) -> new ListServices(legacyConfigClient));
+        authorize(HttpMethod.POST, "/api/config/services/:node_uuid", (t) -> new ActivatePlatform(legacyConfigClient));
 
-        authorize(HttpMethod.GET, "/api/config/volumes", () -> new ListVolumes(configApi, amService, legacyClientFactory.configPathClient(omHost, omPort)));
-        authorize(HttpMethod.POST, "/api/config/volumes", () -> new CreateVolume(configApi, legacyClientFactory.configPathClient(omHost, omPort)));
-        authorize(HttpMethod.DELETE, "/api/config/volumes/:name", () -> new DeleteVolume(legacyClientFactory.configPathClient(omHost, omPort)));
-        authorize(HttpMethod.PUT, "/api/config/volumes/:uuid", () -> new SetVolumeQosParams(legacyClientFactory.configPathClient(omHost, omPort), configApi, amService));
+        authorize(HttpMethod.GET, "/api/config/volumes", (t) -> new ListVolumes(configApi, amService, legacyConfigClient));
+        authorize(HttpMethod.POST, "/api/config/volumes", (t) -> new CreateVolume(configApi, legacyConfigClient));
+        authorize(HttpMethod.DELETE, "/api/config/volumes/:name", (t) -> new DeleteVolume(legacyConfigClient));
+        authorize(HttpMethod.PUT, "/api/config/volumes/:uuid", (t) -> new SetVolumeQosParams(legacyConfigClient, configApi, amService));
 
-        authorize(HttpMethod.GET, "/api/config/globaldomain", ShowGlobalDomain::new);
-        authorize(HttpMethod.GET, "/api/config/domains", ListDomains::new);
+        authorize(HttpMethod.GET, "/api/config/globaldomain", (t) -> new ShowGlobalDomain());
+        authorize(HttpMethod.GET, "/api/config/domains", (t) -> new ListDomains());
 
-        authorize(HttpMethod.POST, "/api/config/streams", () -> new RegisterStream(configApi));
-        authorize(HttpMethod.GET, "/api/config/streams", () -> new ListStreams(configApi));
+        authorize(HttpMethod.POST, "/api/config/streams", (t) -> new RegisterStream(configApi));
+        authorize(HttpMethod.GET, "/api/config/streams", (t) -> new ListStreams(configApi));
 
         webApp.route(HttpMethod.GET, "/api/stats/volumes", () -> new ListActiveVolumes(volumeStatistics));
         webApp.route(HttpMethod.POST, "/api/stats", () -> new RegisterVolumeStats(volumeStatistics));
         webApp.route(HttpMethod.GET, "/api/stats/volumes/:volume", () -> new DisplayVolumeStats(volumeStatistics));
 
-       new Thread(() -> {
+        // [fm] Temporary
+        webApp.route(HttpMethod.GET, "/api/config/user/:login/:password", () -> new CreateAdminUser(configApi));
+
+
+        new Thread(() -> {
             try {
                 new com.formationds.demo.Main().start(configuration.getDemoConfig());
             } catch (Exception e) {
@@ -88,13 +102,25 @@ public class Main {
         webApp.start(adminWebappPort);
     }
 
-    private void authorize(HttpMethod method, String route, Supplier<RequestHandler> factory) {
-        if (configuration.enforceRestAuth()) {
-            RequestHandler handler = new Authorizer(factory, s -> new AuthorizationToken(Authenticator.KEY, s).isValid());
-            webApp.route(method, route, () -> handler);
-        } else {
-            webApp.route(method, route, factory);
-        }
+    private void authorize(HttpMethod method, String route, Function<AuthenticationToken, RequestHandler> f) {
+        webApp.route(method, route, () -> new HttpAuthenticator(f, xdi.getAuthenticator()));
     }
 }
 
+
+class CreateAdminUser implements RequestHandler {
+    private ConfigurationService.Iface config;
+
+    public CreateAdminUser(ConfigurationService.Iface config) {
+        this.config = config;
+    }
+
+    @Override
+    public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
+        String login = requiredString(routeParameters, "login");
+        String password = requiredString(routeParameters, "password");
+
+        long id = config.createUser(login, new HashedPassword().hash(password), UUID.randomUUID().toString(), true);
+        return new JsonResource(new JSONObject().put("id", id));
+    }
+}

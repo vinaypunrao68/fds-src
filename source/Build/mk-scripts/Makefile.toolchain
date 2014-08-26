@@ -4,6 +4,11 @@
 # Setup Makefile to link with external libraries.
 #
 
+# FDS binary tools.
+#
+fds_tool_bin         := $(topdir)/Build/$(osdep_target)/tools
+fds_probe_gen        := $(fds_tool_bin)/probe-gen
+
 # Toolchain under FDS's Makefile system.
 #
 toolchain_lib        := $(topdir)/../Build/$(osdep_target)/lib

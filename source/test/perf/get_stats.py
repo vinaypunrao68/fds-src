@@ -21,8 +21,8 @@ g_drives = [ "sdg ",
 
 nodes = {
     #"node1" : "10.1.10.16",
-    #"node2" : "10.1.10.17",
-    #"node3" : "10.1.10.18",
+    # "node2" : "10.1.10.17",
+    # "node3" : "10.1.10.18",
     "tiefighter" : "10.1.10.102",
 }
 
@@ -46,7 +46,9 @@ def get_avglat():
         elif options.block_enable:
             return None
         else:
-            cmd = "cat %s | grep Summary |awk '{print $17}'" % (of)
+            # cmd = "cat %s | grep Summary |awk '{print $17}'" % (of)
+            cmd = "cat %s | grep Summary | awk '{e+=$17 ; i+=1}END{print e/i}'" % (of)
+
         lat = float(os.popen(cmd).read().rstrip('\n'))
         lats.append(lat)
     return sum(lats)/len(lats)
@@ -74,7 +76,9 @@ def get_avgth():
         elif options.block_enable:
             cmd = "cat %s | grep 'Experiment result' | awk '{print $11}'" % (of)
         else:        
-            cmd = "cat %s | grep Summary |awk '{print $15}'" % (of)
+            # cmd = "cat %s | grep Summary |awk '{print $15}'" % (of)
+            cmd = "cat %s | grep Summary |awk '{e+=$15}END{print e}'" % (of)
+
         th = float(os.popen(cmd).read().rstrip('\n'))
         ths.append(th)
     return sum(ths)/len(ths)    
@@ -196,7 +200,7 @@ def main():
     print "lat,", get_avglat(),",",
     for node in nodes.keys():
         for agent,pid in g_pidmap[node].items():
-            print "Agent,",agent,",",
+            print "Agent,", agent, ",", node, ",",
             if options.plot_enable:
                 plot_series(get_mem(node, agent, pid), "Memory - " + agent + " - " + options.name, "megabatyes")
                 plot_series(get_cpu(node, agent, pid), "CPU - " + agent + " - " + options.name, "CPU utilization [%]")

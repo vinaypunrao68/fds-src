@@ -7,12 +7,9 @@ import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import com.formationds.apis.*;
 import com.formationds.om.rest.SetVolumeQosParams;
 import com.formationds.security.Authenticator;
-import com.formationds.security.AuthorizationToken;
-import com.sun.security.auth.UserPrincipal;
 import org.apache.thrift.TException;
 import org.joda.time.DateTime;
 
-import javax.security.auth.login.LoginException;
 import java.io.InputStream;
 import java.util.Iterator;
 import java.util.List;
@@ -31,13 +28,6 @@ public class Xdi {
         this.config = config;
         this.authenticator = authenticator;
         this.legacyConfig = legacyConfig;
-    }
-
-    public XdiCredentials authenticate(String login, String password) throws LoginException {
-        authenticator.login(login, password);
-        UserPrincipal principal = new UserPrincipal(login);
-        AuthorizationToken token = new AuthorizationToken(Authenticator.KEY, principal);
-        return new XdiCredentials(principal, token.getKey());
     }
 
     public void createVolume(String domainName, String volumeName, VolumeSettings volumePolicy) throws ApiException, TException {
@@ -88,5 +78,9 @@ public class Xdi {
 
     public void deleteBlob(String domainName, String volumeName, String blobName) throws ApiException, TException {
         am.deleteBlob(domainName, volumeName, blobName);
+    }
+
+    public Authenticator getAuthenticator() {
+        return authenticator;
     }
 }
