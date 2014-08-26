@@ -51,6 +51,7 @@ public class IssueToken implements RequestHandler {
           }
 
           // temporary work-a-round for goldman
+            jsonObject.put( "username", login );
             jsonObject.put( "token", token.signature( Authenticator.KEY ) );
             jsonObject.put( "features", features );
           // end of work-a-round
