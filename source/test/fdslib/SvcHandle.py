@@ -47,6 +47,12 @@ class SvcMap(object):
         self.port = port
         self.refresh()
 
+    def OmClient(self):
+        """
+        Returns OM client handle from cache.  If not found, creates a new OM client
+        based on the ip,port from domain nodes map
+        """
+
     def client(self, nodeid, svc):
         """
         Returns client handle from cache.  If not found, creates a new client
