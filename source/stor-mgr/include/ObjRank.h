@@ -11,19 +11,14 @@
 #include <string.h>
 #include <pthread.h>
 #include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
 
 #include "stor_mgr_err.h"
 
-#include <fdsp/FDSP_types.h>
-#include <hash/MurmurHash3.h>
 #include <fds_volume.h>
 #include <fds_timer.h>
 #include <lib/Catalog.h>
 #include <unistd.h>
 #include <assert.h>
-#include <util/Log.h>
 #include "StorMgrVolumes.h"
 #include "TierEngine.h"
 
@@ -36,6 +31,12 @@
 #include <unordered_map>
 
 #include "ObjStats.h"
+
+
+#define DEFAULT_RANK_FREQUENCY 1800           /* frequency in seconds */
+#define DEFAULT_RANK_TBL_SIZE  100000         /* size of rank table */
+#define DEFAULT_HOT_THRESHOLD  3              /* access obj about 3 times to make it hot */
+#define DEFAULT_COLD_THRESHOLD 0              /* access obj about 0 times to make it cold */
 
 #define MAX_RANK_CACHE_SIZE    10485760      /* x 20bytes = 200MB */ 
 #define LOWRANK_OBJ_CACHE_SIZE 100000        /* x 20bytes ~ 2MB  */
@@ -58,9 +59,11 @@ class ObjectRankEngine {
  public: 
   ObjectRankEngine(const std::string& _sm_prefix, 
 		   fds_uint32_t tbl_size,
+                   fds_uint32_t rank_freq_sec,
+                   fds_uint32_t _hot_threshold,
+                   fds_uint32_t _cold_threshold,
 		   StorMgrVolumeTable *_sm_volTbl, 
-		   ObjStatsTracker *_obj_stats, 
-		   fds_log *log);
+		   ObjStatsTracker *_obj_stats);
    ~ObjectRankEngine();
 
    /* 'initialization' state means we accept insert and delete ops (on data path)
@@ -226,6 +229,12 @@ class ObjectRankEngine {
    * access to cur_rank_tbl_size */
    fds_uint32_t cur_rank_tbl_size;
 
+   /**
+    * Time interval in seconds when we do re-ranking of objects.
+    */
+   fds_uint32_t rank_period_sec;
+   fds_uint32_t hot_threshold;
+   fds_uint32_t cold_threshold;
 
    /* this is a cache of newly inserted/deleted objects (since last ranking process) */
    obj_rank_cache_t cached_obj_map;
@@ -256,7 +265,6 @@ class ObjectRankEngine {
    ObjStatsTracker *obj_stats;
 
    /* does not own, passed to the constructor */
-   fds_log* ranklog;
    StorMgrVolumeTable* sm_volTbl;
 
    /* timer to periodically get stats from stat tracker and 

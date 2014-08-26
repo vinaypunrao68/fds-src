@@ -10,15 +10,19 @@ namespace fds {
 
 ObjectRankEngine::ObjectRankEngine(const std::string& _sm_prefix, 
 				   fds_uint32_t _tbl_size,
+                                   fds_uint32_t rank_freq_sec,
+                                   fds_uint32_t _hot_threshold,
+                                   fds_uint32_t _cold_threshold,
 				   StorMgrVolumeTable* _sm_volTbl,
-				   ObjStatsTracker *_obj_stats, 
-				   fds_log* log)
-  : rank_tbl_size(_tbl_size), 
+				   ObjStatsTracker *_obj_stats)
+  : rank_tbl_size(_tbl_size),
+    rank_period_sec(rank_freq_sec),
     cur_rank_tbl_size(0),
+    hot_threshold(_hot_threshold),
+    cold_threshold(_cold_threshold),
     max_cached_objects(MAX_RANK_CACHE_SIZE),
     tail_rank(OBJECT_RANK_LOWEST),
     obj_stats(_obj_stats),
-    ranklog(log),
     sm_volTbl(_sm_volTbl),
     rankTimer(new FdsTimer()),
     rankTimerTask(new RankTimerTask(*rankTimer, this))
@@ -37,14 +41,17 @@ ObjectRankEngine::ObjectRankEngine(const std::string& _sm_prefix,
 
   /* for now set low threshold for hot objects -- does not impact correctness, just
   * the amount of memory stat tracker will need to keep the list of hot objects */
-  obj_stats->setHotObjectThreshold(3);
-  obj_stats->setColdObjectThreshold(0); // for now we don't care about cold list 
+  obj_stats->setHotObjectThreshold(hot_threshold);
+  obj_stats->setColdObjectThreshold(cold_threshold);
 
   /* TMP -- for testing/demo, if we have small rank table size, lets use
    * small cache of insertions/deletions so it will trigger ranking process more often */
   max_cached_objects = 250;
 
-  LOGNORMAL << "ObjectRankEngine: construction done, will continue remaining initialization in background";
+  LOGNORMAL << "Construction done. Rank period " << rank_period_sec << " sec, "
+            << " Size of rank table " << rank_tbl_size
+            << ", Hot obj threshold " << hot_threshold
+            << ", Cold object threshold " << cold_threshold;
 }
 
 ObjectRankEngine::~ObjectRankEngine()
@@ -104,7 +111,7 @@ Error ObjectRankEngine::initialize()
 
   /* start timer for getting hot objects from the stats tracker.
    * for now setting small intervals so we can have short demo */
-  if (!rankTimer->scheduleRepeated(rankTimerTask, std::chrono::seconds(100))) {
+  if (!rankTimer->scheduleRepeated(rankTimerTask, std::chrono::seconds(rank_period_sec))) {
       LOGNORMAL << "ObjectRankEngine: ERROR: failed to schedule timer to analyze stats from stat tracker";
       err = ERR_MAX;
   }
