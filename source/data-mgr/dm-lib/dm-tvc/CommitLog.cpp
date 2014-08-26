@@ -313,6 +313,10 @@ void DmCommitLog::compactLog(dmCatReq * req) {
     }
 
     compacting_.clear();
+    if (dataMgr) {
+        // we must call markIODone to correctly account for outstanding IOs
+        dataMgr->qosCtrl->markIODone(*req);
+    }
     delete req;
 }
 

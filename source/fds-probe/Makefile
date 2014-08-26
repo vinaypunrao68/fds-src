@@ -1,4 +1,4 @@
 topdir         := ..
-user_build_dir := common adapters block s3 include
+user_build_dir := common adapters block dataset s3 include
 
 include $(topdir)/Makefile.incl

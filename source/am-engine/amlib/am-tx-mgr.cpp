@@ -152,7 +152,7 @@ AmTxManager::updateStagedBlobOffset(const BlobTxId &txId,
 Error
 AmTxManager::updateStagedBlobObject(const BlobTxId &txId,
                                     const ObjectID &objectId,
-                                    char *objectData,
+                                    const char *objectData,
                                     fds_uint32_t dataLen) {
     SCOPEDWRITE(txMapLock);
     TxMap::iterator txMapIt = txMap.find(txId);
@@ -164,6 +164,8 @@ AmTxManager::updateStagedBlobObject(const BlobTxId &txId,
     // a PUT transaction
     fds_verify(txMapIt->second->opType == FDS_PUT_BLOB);
 
+    // Copy the data into the tx manager. This allows the
+    // tx manager to hand off the ptr to the cache later.
     txMapIt->second->stagedBlobObjects[objectId] =
             new std::string(objectData, dataLen);
 

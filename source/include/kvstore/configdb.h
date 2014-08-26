@@ -29,6 +29,7 @@ struct ConfigDB : KVStore {
     ConfigDB(const std::string& host = "localhost", uint port = 6379, uint poolsize = 10);
     virtual ~ConfigDB();
     fds_uint64_t getLastModTimeStamp();
+    fds_uint64_t getConfigVersion();
 
     // domains
     std::string getGlobalDomain();
@@ -95,13 +96,13 @@ struct ConfigDB : KVStore {
     // tenant stuff
     int64_t createTenant(const std::string& identifier);
     bool listTenants(std::vector<fds::apis::Tenant>& tenants);
-    int64_t createUser(const std::string& identifier, const std::string& secret, bool isAdmin); //NOLINT
+    int64_t createUser(const std::string& identifier, const std::string& passwordHash, const std::string& secret, bool isAdmin); //NOLINT
     bool getUser(int64_t userId, fds::apis::User& user);
     bool listUsers(std::vector<fds::apis::User>& users);
     bool assignUserToTenant(int64_t userId, int64_t tenantId);
     bool revokeUserFromTenant(int64_t userId, int64_t tenantId);
     bool listUsersForTenant(std::vector<fds::apis::User>& users, int64_t tenantId);
-    bool updateUser(int64_t  userId, const std::string& identifier, const std::string& secret, bool isFdsAdmin); //NOLINT
+    bool updateUser(int64_t  userId, const std::string& identifier, const std::string& passwordHash, const std::string& secret, bool isFdsAdmin); //NOLINT
 
   protected:
     void setModified();

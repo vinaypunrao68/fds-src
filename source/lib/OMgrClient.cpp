@@ -167,7 +167,12 @@ void OMgrClientRPCI::PushMetaDMTReq(FDSP_MsgHdrTypePtr& fdsp_msg,
 
 void OMgrClientRPCI::SetThrottleLevel(FDSP_MsgHdrTypePtr& msg_hdr, 
                                       FDSP_ThrottleMsgTypePtr& throttle_msg) {
-  om_client->recvSetThrottleLevel((const float) throttle_msg->throttle_level);
+    om_client->recvSetThrottleLevel((const float) throttle_msg->throttle_level);
+}
+
+void OMgrClientRPCI::SetQoSControl(FDSP_MsgHdrTypePtr& fdsp_msg,
+                                   FDSP_QoSControlMsgTypePtr& qos_msg) {
+    om_client->recvSetQoSControl(qos_msg->total_rate);
 }
 
 void
@@ -266,6 +271,10 @@ int OMgrClient::registerEventHandlerForVolEvents(volume_event_handler_t vol_even
 int OMgrClient::registerThrottleCmdHandler(throttle_cmd_handler_t throttle_cmd_hdlr) {
   this->throttle_cmd_hdlr = throttle_cmd_hdlr;
   return 0;
+}
+
+void OMgrClient::registerQoSCtrlCmdHandler(qoscontrol_cmd_handler_t qosctrl_cmd_handler) {
+    this->qosctrl_cmd_hdlr = qosctrl_cmd_handler;
 }
 
 int OMgrClient::registerBucketStatsCmdHandler(bucket_stats_cmd_handler_t cmd_hdlr) {
@@ -1036,6 +1045,15 @@ int OMgrClient::recvSetThrottleLevel(const float throttle_level) {
   }
   return (0);
 
+}
+
+int OMgrClient::recvSetQoSControl(fds_uint64_t total_rate) {
+    LOGNOTIFY << "OMClient received QoS control settings: total rate "
+              << total_rate << " IOPS";
+    if (this->qosctrl_cmd_hdlr) {
+        this->qosctrl_cmd_hdlr(total_rate);
+    }
+    return 0;
 }
 
 int OMgrClient::recvBucketStats(const FDSP_MsgHdrTypePtr& msg_hdr, 

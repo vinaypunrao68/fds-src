@@ -7,7 +7,6 @@ import com.formationds.apis.*;
 import com.formationds.streaming.StreamingRegistrationMsg;
 import org.apache.thrift.TException;
 
-import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -28,42 +27,47 @@ public class CachingConfigurationService implements ConfigurationService.Iface {
 
     @Override
     public long createTenant(String identifier) throws ApiException, TException {
-        return 0;
+        return service.createTenant(identifier);
     }
 
     @Override
     public List<Tenant> listTenants(int ignore) throws ApiException, TException {
-        return null;
+        return service.listTenants(ignore);
     }
 
     @Override
-    public long createUser(String identifier, ByteBuffer secret, boolean isFdsAdmin) throws ApiException, TException {
-        return 0;
+    public long createUser(String identifier, String passwordHash, String secret, boolean isFdsAdmin) throws ApiException, TException {
+        return service.createUser(identifier, passwordHash, secret, isFdsAdmin);
     }
 
     @Override
     public void assignUserToTenant(long userId, long tenantId) throws ApiException, TException {
-
+        service.assignUserToTenant(userId, tenantId);
     }
 
     @Override
     public void revokeUserFromTenant(long userId, long tenantId) throws ApiException, TException {
+        service.revokeUserFromTenant(userId, tenantId);
+    }
 
+    @Override
+    public List<User> allUsers(long unused) throws ApiException, TException {
+        return service.allUsers(unused);
     }
 
     @Override
     public List<User> listUsersForTenant(long tenantId) throws ApiException, TException {
-        return null;
+        return service.listUsersForTenant(tenantId);
     }
 
     @Override
-    public void updateUser(long userId, String identifier, ByteBuffer secret, boolean isFdsAdmin) throws ApiException, TException {
-
+    public void updateUser(long userId, String identifier, String passwordHash, String secret, boolean isFdsAdmin) throws ApiException, TException {
+        service.updateUser(userId, identifier, passwordHash, secret, isFdsAdmin);
     }
 
     @Override
     public long configurationVersion(long ignore) throws ApiException, TException {
-        return 0;
+        return service.configurationVersion(ignore);
     }
 
     @Override
@@ -107,7 +111,6 @@ public class CachingConfigurationService implements ConfigurationService.Iface {
     public void deregisterStream(int registration_id) throws org.apache.thrift.TException {
         service.deregisterStream(registration_id);
     }
-
 
     private class Key {
         private String domain;

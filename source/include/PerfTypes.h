@@ -105,6 +105,10 @@ typedef enum {
 
     AM_QOS_QUEUE_SIZE,
 
+    AM_DESC_CACHE_HIT,
+    AM_OFFSET_CACHE_HIT,
+    AM_OBJECT_CACHE_HIT,
+
     // Data Manager
     DM_TX_OP,
     DM_TX_OP_ERR,

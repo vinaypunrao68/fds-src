@@ -6,6 +6,22 @@ import sys
 import subprocess
 import logging
 import optparse
+import types
+
+class Output:
+    def __init__(self):
+        self.stdout = None
+        self.stderr = None
+        self.exitcode = -1
+
+    def wasSuccess(self):
+        return self.exitcode == 0
+
+    def hasError(self):
+        return self.stderr != None and len(self.stderr) > 0
+
+    def hasOutput(self):
+        return self.stdout != None and len(self.stdout) > 0
 
 def setup_logger(file=None, level=logging.INFO):
     """
@@ -36,21 +52,27 @@ def parse_fdscluster_args():
         sys.exit(1)
     return options, args
 
-def run(prog_path, args = '', wait_time_sec = 0):
+def run(cmd, wait=True):
     """
     Runs the program at prog_path with args as arguments
     TODO(Rao): Don't ignore wait_time_sec
     """
-    arglist = []
-    arglist.append(prog_path)
-    arglist.extend(args.split())
-    output = subprocess.check_output(arglist)
-    print output
+    shell = False
+    if type(cmd) == types.StringType:
+        shell=True
 
-def run_async(prog_path, args):
-    """
-    TODO(Rao): Implement this.  This should return an
-    instance of ProcessTracker, which we can use for tracking
-    the spawned program
-    """
-    pass
+    output = Output()
+
+    p = subprocess.Popen(cmd, shell=shell, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
+
+    if p.stdout:
+        output.stdout = p.stdout.read()
+
+    if p.stderr:
+        output.stderr = p.stderr.read()
+
+    if wait:
+        p.wait()
+        output.exitcode = p.returncode
+
+    return output

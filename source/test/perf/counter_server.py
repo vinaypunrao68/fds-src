@@ -15,7 +15,11 @@ class FdsUDPHandler(SocketServer.BaseRequestHandler):
         socket = self.request[1]
         os.write(self.server.datafile, "{} wrote:".format(self.client_address[0]) + " clock:" + str(time.time()) + "\n")
         os.write(self.server.datafile, data + "\n------- End of sample ------\n")
+        os.fsync(self.server.datafile)
         socket.sendto(data.upper(), self.client_address)
+
+    def terminate(self):
+        os.close(self.server.datafile)
 
 if __name__ == "__main__":
     HOST, PORT = "10.1.10.102", 2003
