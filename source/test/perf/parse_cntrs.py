@@ -3,6 +3,7 @@ import os, re, sys, time
 import numpy as np
 import matplotlib.pyplot as plt
 from optparse import OptionParser
+from operator import itemgetter
 
 def add2dict(mydict, indexes, value):
     if len(indexes) == 1:
@@ -21,19 +22,23 @@ def add2dict(mydict, indexes, value):
 class Counters:
     def __init__(self):
         self.counters = {} # counter, node, volid
+
     def _add(self, node, agent, name, volid, type, value, tstamp):
-        counts = self.counters
-        counts = add2dict(counts, (name, node, agent, volid, type), (value, tstamp))
+        add2dict(self.counters, (name, node, agent, volid, type), (value, tstamp))
+
     def parse(self, data):
         tstamp = None
         for line in data.split('\n'):
-            if tstamp is None:
-                m = re.match(".*wrote: clock:(\d+\.\d+)", line)
-                if m is not None:
-                    tstamp = float(m.group(1))
-            elif tstamp is not None:
+            # if tstamp is None:
+            #     m = re.match(".*wrote: clock:(\d+\.\d+)", line)
+            #     if m is not None:
+            #         tstamp = float(m.group(1))
+#             elif tstamp is not None:
                 #am_put_dm.volume:6944500478244898626:volume=6944500478244898626
-                m = re.match("([\w-]+)\.(\w+)\.perf\.(\w+)\.volume:\d+:volume=(\d+)\.(\w+)\s+(\d+)\s+(\d+)\s*", line)
+                #m = re.match("([\w-]+)\.(\w+)\.perf\.(\w+)\.volume:\d+:volume=(\d+)\.(\w+)\s+(\d+)\s+(\d+)\s*", line)
+                # tiefighter am am_put_qos.volume:3986830314538931487:volume=3986830314538931487.latency 307556 1408727943
+                # tiefighter am am_put_dm.volume:3125441350624440090:volume=3125441350624440090.latency 2720579 1408730115
+                m = re.match("([\w-]+)\s+(\w+)\s+(\w+)\.volume:\d+:volume=(\d+)\.(\w+)\s+(\d+)\s+(\d+)\s*", line)
                 if m is not None:
                     node = m.group(1)
                     agent = m.group(2)
@@ -43,6 +48,7 @@ class Counters:
                     value =  int(m.group(6))
                     tstamp =  int(m.group(7))
                     self._add(node, agent, name, volid, cntr_type, value, tstamp)
+
     def get_cntr(self, node, agent, name, cntr_type):
         series = {}
         try:
@@ -54,15 +60,51 @@ class Counters:
             series[k] = zip(*series[k])
         return series
 
-        ## for node, v1 in self.counters.items():
-        ##     for agent, v2 in v1.items():  
-        ##         for name, v3 in v2.items():
-        ##                 for volid, v4 in v3.items():
-        ##                     #print node, agent, name, volid, v4, v4.keys(), v4.get('count', None) #, v4[v4.keys()[v4.keys().index('count')]]
-        ##                     #print node, agent, name, volid, v4.get(cntr_type, None)
-        ##                     series.append(v4.get(cntr_type, None))
-        return series
+    def get_cntr_types(self):
+        return self.counters.keys()
 
+    def get_nodes(self):
+        nodes = set()
+        types = self.get_cntr_types()
+        for t in types:
+            # print self.counters[t].keys()
+            # [nodes.add(x) for x in self.counters[t].keys() if not x in options.exclude_nodes]
+            [nodes.add(x) for x in self.counters[t].keys()]
+        return list(nodes)
+
+    def get_agents(self):
+        agents = set()
+        types = self.get_cntr_types()
+        nodes = self.get_nodes()
+        for t in types:
+            for n in nodes:
+                if n in self.counters[t]:
+                    [agents.add(x) for x in self.counters[t][n].keys()]
+        return list(agents)
+
+    def get_volumes(self):
+        volumes = set()
+        types = self.get_cntr_types()
+        nodes = self.get_nodes()
+        agents = self.get_agents()
+        for t in types:
+            for n in nodes:
+                if n in self.counters[t]:
+                    for a in agents:
+                        if a in self.counters[t][n]:
+                            [volumes.add(x) for x in self.counters[t][n][a].keys()]
+        return list(volumes)
+
+    def get_names(self):
+        names = []
+        for t, second1 in self.counters.iteritems():
+                for n, second2 in second1.iteritems():
+                    for a, second3 in second2.iteritems():
+                        for v, second4 in second3.iteritems():
+                            for cntr_t, second5 in second4.iteritems():
+                                names.append(str(t) + ":" + str(n) + ":" + str(a) + ":" + str(v) + ":" + str(cntr_t)
+                                         + ":" + str(len(second5)) + "-" + str(len(second5)))
+        return names
 
 def get_rate(yarray, xarray):
     rate = np.arange(yarray.size)
@@ -96,7 +138,7 @@ def plot_series_all_volumes(series, title = None, ylabel = None, xlabel = "Time 
         else:
             rate = values / 1e6
         #print rate, rate.size, count.size
-        plt.plot(time, rate, label = name)
+        plt.plot(time, rate, label = name + ":" + str(v))
     if title:
         plt.title(title)
     if ylabel:
@@ -109,7 +151,7 @@ def legend(figname):
     plt.figure(figname)
     plt.legend()
 
-def plot_show_and_save():
+def plot_show_and_save(name):
     plt.legend()
     plt.savefig('%s.png' % (name))
     plt.show()
@@ -119,22 +161,141 @@ def plot_show_and_save():
 # TODO: plot multiple
 # TODO: plot real time
 
-if __name__ == "__main__":
+#  {vid : [(v1, v2,...), (t1, t2,...)], ...}
+
+def sum_series(series1, series2):
+    series = {}
+    for k in series1.keys():
+        series[k] = None
+    for k in series2.keys():
+        series[k] = None
+    for v in series:
+        pair1 = None
+        pair2 = None
+        if v in series1:
+            pair1 = series1[v]
+        if v in series2:
+            pair2 = series2[v]
+        if pair1 != None and pair2 != None:
+            vector = zip(*pair1) + zip(*pair2)
+        elif pair1 != None:
+            vector = zip(*pair1)
+        elif pair2 != None:
+            vector = zip(*pair2)
+        else:
+            continue
+        # assert pair1 is not None and pair2 is not None
+        # l = len(pair1[0])
+        # assert len(pair1[0]) == len(pair2[0])
+        # assert len(pair1[1]) == len(pair2[1])
+        # assert len(pair1[0]) == len(pair1[1])
+        # assert len(pair2[0]) == len(pair2[1])
+        # for j in range(l):
+        #     assert pair1[1][j] == pair2[1][j]
+
+        # need to associate timestamp - value, then order them, compact them and rezipthem
+
+        # sort vector by timestamp
+        sorted_vector = sorted(vector, key=itemgetter(1))
+        # compact vector
+        compacted_vector = []
+        for e in sorted_vector:
+            if len(compacted_vector) > 0:
+                if compacted_vector[-1][1] == e[1]: # same timestamp
+                    val = compacted_vector[-1][0] + e[0]
+                    compacted_vector[-1] = val, compacted_vector[-1][1] # accumulate value
+                else:
+                    compacted_vector.append(e)
+            else:
+                compacted_vector.append(e)
+        print compacted_vector
+        series[v] = zip(*compacted_vector)
+
+        # series[v][1] = pair1[1]
+        # series[v][0] = [pair1[0][j] + pair2[0][j] for j in range(l)]
+    return series
+
+def plot_qos_graphs(cntrs, node, agent):
+# FIXME: debug counters
+# fixme compose latency
+    user_level_cntrs = ["am_get_obj_req",
+        "am_put_obj_req",
+        "am_delete_obj_req",
+        ]
+    fds_level_cntrs = ["am_stat_blob_obj_req",
+        "am_set_blob_meta_obj_req",
+        "am_get_volume_meta_obj_req",
+        "am_get_blob_meta_obj_req",
+        "am_start_blob_obj_req",
+        "am_commit_blob_obj_req",
+        "am_abort_blob_obj_req",
+        ]
+    test = ["am_get_qos", "am_put_sm"]
+    # {vid : [(v1, v2,...), (t1, t2,...)], ...}
+    # print cntrs.get_cntr(node, agent, "am_get_qos", "count")
+
+    test_cntr = [cntrs.get_cntr(node, agent, x, "count") for x in test]
+    series = reduce(sum_series, test_cntr)
+
+    new_figure("Throughput Aggregate")
+    new_figure("Latency")
+    #
+    # series = counters.get_cntr(node, agent, counter, "count")
+    plot_series_all_volumes(series,"Throughput", "req/s", latency = False,
+                            name = "", figname = "Throughput Aggregate")
+    # series = counters.get_cntr(node, agent, counter, "latency")
+    # plot_series_all_volumes(series,"Latency", "ms", latency = True, name = agent + "_" + counter, figname = "Latency")
+    # plot_show_and_save("somename")
+
+
+def main():
     parser = OptionParser()
     parser.add_option("-f", "--file", dest = "filein", help = "Input file")
     parser.add_option("-c", "--counters", dest = "counters", help = "List of agent:counter,...")
     parser.add_option("-n", "--node", dest = "node", help = "Node")
+    parser.add_option("-s", "--search-counter", dest = "search_counter", default = None, help = "Search counter regexp")
+
     #parser.add_option("-c", "--column", dest = "column", help = "Column")
     (options, args) = parser.parse_args()
+
+    options.exclude_nodes = []
 
     # FIXME: revisit Counters interface
     c = Counters()
     f = open(options.filein,"r")
     c.parse(f.read())
     f.close()
+    # print c.counters
+    types = c.get_cntr_types()
+    print "Counter types:", types
+    nodes = c.get_nodes()
+    print "Nodes:", nodes
+    agents = c.get_agents()
+    print "Agents:", agents
+    volumes = c.get_volumes()
+    print "Volumes:", volumes
+
+    names = c.get_names()
+    if options.search_counter != None:
+        for t in names:
+            m = re.search(options.search_counter, t)
+            if m is not None:
+                print t
+        os._exit(0)
+
+    assert options.node in c.get_nodes(), "Node does not exist " + options.node
+
+    #a = { 11 : [(11,22,33,11),(1,2,4,5)], 22 : [(11,22,33,44),(1,2,3,4)]}
+    #b = { 11 : [(11,22,33,11),(1,2,3,6)], 32 : [(11,22,33,44),(1,2,3,4)]}
+    #print a, b
+    #print sum_series(a, b)
+
+    # plot_qos_graphs(c, "tie-fighter", "AMAgent")
+
     for name in options.counters.split(","):
         agent, counter = name.split(":")
-
+        assert agent in c.get_agents(), "Agent does not exist " + agent
+        assert counter in c.get_cntr_types(), "Counter does not exist " + counter
         #c.print_cntr("am_put_obj_req", "latency")
         node = options.node
         # series = c.get_cntr(node, "AMAgent","am_put_obj_req", "count")
@@ -147,10 +308,12 @@ if __name__ == "__main__":
         # plot_series_all_volumes(series,"Latency - GET", "ms", latency = True, name = "latency-get")
         new_figure("Throughput")
         new_figure("Latency")
-
         series = c.get_cntr(node, agent, counter, "count")
         plot_series_all_volumes(series,"Throughput", "req/s", latency = False, name = agent + "_" + counter, figname = "Throughput")
         series = c.get_cntr(node, agent, counter, "latency")
         plot_series_all_volumes(series,"Latency", "ms", latency = True, name = agent + "_" + counter, figname = "Latency")
-    plot_show_and_save()
+    plot_show_and_save("somename") # FIXME: name
 
+
+if __name__ == "__main__":
+    main()

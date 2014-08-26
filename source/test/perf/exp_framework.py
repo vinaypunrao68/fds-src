@@ -6,6 +6,7 @@ import paramiko
 from optparse import OptionParser
 import SocketServer
 import multiprocessing
+import threading
 import tempfile
 import shutil
 import datetime
@@ -13,8 +14,14 @@ import requests
 import counter_server
 import subprocess
 import shlex
-#import threading as th
-#from Queue import *
+sys.path.append('../fdslib')
+sys.path.append('../fdslib/pyfdsp')
+from SvcHandle import *
+
+def get_myip():
+    cmd = "ifconfig| grep 10\.1 | awk -F '[: ]+' '{print $4}'"
+    #return subprocess.check_output(shlex.split(cmd))
+    return subprocess.check_output(cmd, shell = True).rstrip("\n")
 
 # FIXME: need a class for this
 def get_node_from_ip(nodes, node_ip):
@@ -68,11 +75,16 @@ def start_nameserver():
     pass
 
 # FIXME: cmd-server autostart does not really work
-
+# FIXME: fix the local thing
+# FIXME: What if monitor on the local node
 class RemoteExecutor:
     def __init__(self, node, options):
         print "Starting remote executor on ", node
         self.options = options
+        self.local = self.options.myip == self.options.nodes[self.options.main_node]
+        # assert self.local == False, "RemoteExecutor must be remote. Please, fix the local case"
+        if not self.local == False:
+            print "RemoteExecutor must be remote. Please, fix the local case"
         self.node = node
         ns_table = Pyro4.locateNS(host = options.ns_ip, port = options.ns_port).list()
         if options.local == False and (options.force_cmd_server or not node + ".executor" in ns_table):
@@ -130,9 +142,11 @@ class RemoteExecutor:
             os.close(info["fileout"][0])
             os.close(info["fileerr"][0])
             fnamestdout, fnamestderr = info["fileout"][1], info["fileerr"][1]
-            shutil.copyfile(fnamestdout, directory + "/stdout")
-            shutil.copyfile(fnamestderr, directory + "/stderr")
-
+            shutil.move(fnamestdout, directory + "/stdout")
+            shutil.move(fnamestderr, directory + "/stderr")
+            os.chmod(directory + "/stdout", 755)
+            os.chmod(directory + "/stderr", 755)
+    #FIXME: refactor this!
     def execute_simple(self, cmd):
         if self.options.local == False:
             return self.executor.exec_cmd_simple(cmd)
@@ -206,14 +220,76 @@ class CounterServer:
 
     def terminate(self):
         # terminate udp server
-        self.proc.terminate()
         assert not self.queue.empty() and self.queue.qsize() == 1
-        datafile, datafname =  self.queue.get()
+        datafile, datafname = self.queue.get()
+        #os.close(datafile)  # FIXME: cannot really close file, maybe send a signal to the process? Use threads?
         directory = self.outdir
         if not os.path.exists(directory):
             os.makedirs(directory)
-        shutil.copyfile(datafname, directory + "/counters.dat")    
-        #os.close(datafile)
+        shutil.copyfile(datafname, directory + "/counters.dat")
+        self.proc.terminate()
+
+
+class CounterServerPull:
+    def __init__(self, outdir, options):
+        # start udp server
+        self.options = options
+        self.outdir = outdir
+        #self.queue = multiprocessing.Queue()
+        #self.queue = Queue.Queue()
+        self.stop = threading.Event()
+        self.datafile, self.datafname = tempfile.mkstemp(prefix = "counters")
+        task_args = ("counter_server", self.datafile, self.stop)
+        #self.proc = multiprocessing.Process(target = self._task, args = task_args)
+        self.thread = threading.Thread(target = self._task, args = task_args)
+        self.thread.start()
+
+    def _get_counters(self):
+        counters = []
+        tstamp = long(time.time())
+        node = self.options.main_node
+        ip = self.options.nodes[node]
+        port=7020
+        svc_map = SvcMap(ip, port)
+        svclist = svc_map.list()
+        for e in svclist:
+            nodeid, svc = e[0].split(":")
+            nodeid = long(nodeid)
+            if svc != "om" and svc != "None":
+                cntrs = svc_map.client(nodeid, svc).getCounters('*')
+                for c, v in cntrs.iteritems():
+                    line = node + " " + svc + " " + c + " " + str(v) + " " + str(tstamp)
+                    counters.append(line)
+        return counters
+
+    def _task(self, name, datafile, stop):
+        print "starting counter task ", name
+        #queue.put((datafile, datafname))
+        #############################
+        # reset counters
+        # subprocess.call(shlex.split("python cli.py -c reset-counters"))
+        # pull counters
+        while stop.isSet() == False:
+            time.sleep(self.options.counter_pull_rate)
+            counters = self._get_counters()
+            # write to file
+            for e in counters:
+                os.write(datafile, e + "\n")
+
+    def terminate(self):
+        # terminate udp server
+        #datafile, datafname = self.queue.get()
+        directory = self.outdir
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+        self.stop.set()
+        time.sleep(self.options.counter_pull_rate + 1)
+        print "copying counter file", self.datafname
+        shutil.move(self.datafname, directory + "/counters.dat")
+        os.chmod(directory + "/counters.dat", 755)
+        #self.thread.terminate()
+        os.close(self.datafile)
+
 
 class AgentsPidMap:
     def __init__(self, options):
@@ -266,7 +342,8 @@ class FdsCluster():
         self.remote_fds_root = options.remote_fds_root
         self.local_fds_root = options.local_fds_root
         self.pidmap = AgentsPidMap(self.options)
-
+        self.local = self.options.myip == self.options.nodes[self.options.main_node]
+        self.local_test = self.options.myip == self.options.test_node or self.options.test_node == None
     def get_pidmap(self):
         return self.pidmap.get_map()
 
@@ -276,7 +353,10 @@ class FdsCluster():
             self.pidmap.compute_pid_map()
             time.sleep(1)
         elif self.options.single_node == True:
-            output = self._rem_exec(self.remote_fds_root + "/source/tools/fds cleanstart")
+            if self.local == True:
+                output = self._loc_exec(self.remote_fds_root + "/source/tools/fds cleanstart")
+            else:
+                output = self._rem_exec(self.remote_fds_root + "/source/tools/fds cleanstart")
             print output
             self.pidmap.compute_pid_map()
             time.sleep(10)
@@ -298,7 +378,8 @@ class FdsCluster():
         elif test_name == "tgen":
             self._init_tgen(test_args)
         else:
-            assert False, "Test unknown: " + test_name    
+            assert False, "Test unknown: " + test_name
+
     def run_test(self, test_name, test_args = None):
         print "starting test:", test_name
         if test_name == "smoke-test":
@@ -312,20 +393,34 @@ class FdsCluster():
         outfile.close()
 
     def _run_smoke_test(self):
+        assert False, "Obsolete"
         output = self._rem_exec(self.remote_fds_root + "/source/test/fds-primitive-smoke.py --up=false --down=false")
         print output
         return output
 
     def _init_tgen(self, args):
-        if self.options.test_node != None:
+        if self.local_test == True:
+            shutil.copyfile(self.local_fds_root + "/source/test/traffic_gen.py", "/root/traffic_gen.py")
+            self._loc_exec("rm -f /tmp/fdstrgen*")
+        else:
             transfer_file(self.options.test_node, self.local_fds_root + "/source/test/traffic_gen.py", "/root/traffic_gen.py", "put")
             ssh_exec(self.options.test_node, "rm -f /tmp/fdstrgen*")
-        else:
-            if self.options.local == True:
-                shutil.copyfile(self.local_fds_root + "/source/test/traffic_gen.py", "/root/traffic_gen.py")
-            else:
-                transfer_file(self.options.main_node, self.local_fds_root + "/source/test/traffic_gen.py", "/root/traffic_gen.py", "put")
-            self._rem_exec("rm -f /tmp/fdstrgen*")
+        #
+        # if self.options.test_node != None:
+        #     transfer_file(self.options.test_node, self.local_fds_root + "/source/test/traffic_gen.py", "/root/traffic_gen.py", "put")
+        #     if self.local == True:
+        #         self._loc_exec("rm -f /tmp/fdstrgen*")
+        #     else:
+        #         ssh_exec(self.options.test_node, "rm -f /tmp/fdstrgen*")
+        # else:
+        #     if self.options.local == True:
+        #         shutil.copyfile(self.local_fds_root + "/source/test/traffic_gen.py", "/root/traffic_gen.py")
+        #     else:
+        #         transfer_file(self.options.main_node, self.local_fds_root + "/source/test/traffic_gen.py", "/root/traffic_gen.py", "put")
+        #     if self.local == True:
+        #         self._loc_exec("rm -f /tmp/fdstrgen*")
+        #     else:
+        #         self._rem_exec("rm -f /tmp/fdstrgen*")
         #self.rex.execute_simple("pkill 'collectl|iostat|top'")
         for i in range(args["nvols"]):
             requests.put("http://%s:8000/volume%d" % (self.options.nodes[self.options.main_node], i));
@@ -339,12 +434,12 @@ class FdsCluster():
                                                                             test_args["nfiles"],
                                                                             test_args["nvols"],
                                                                             self.options.nodes[self.options.main_node])
-        # FIXME: hate ssh here
-        print cmd
-        if self.options.test_node != None:
-            output = ssh_exec(self.options.test_node, cmd)#[1].read()
-        else:
+        print "Test:", cmd
+        if self.local_test == True:
             output = self._loc_exec(cmd)
+        else:
+            output = ssh_exec(self.options.test_node, cmd)
+        print "-->", output
         return output
 
     def _rem_exec(self, cmd):

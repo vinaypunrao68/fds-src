@@ -353,6 +353,7 @@ Error QoSWFQDispatcher::modifyQueueQosParams(fds_qid_t queue_id,
           return Error(ERR_NOT_FOUND);
       }
       WFQQueueDesc *qd = queue_desc_map[queue_id];
+      fds_verify(cur_total_min_rate >= qd->queue_rate);
 
       // check if we can admit modified min iops
       if ((q_min_rate > qd->queue_rate) &&
@@ -382,11 +383,15 @@ Error QoSWFQDispatcher::modifyQueueQosParams(fds_qid_t queue_id,
 
     // First remove this queue from all the old spots allocated to it.
     revokeSpotsFromQueue(qd);
+    cur_total_min_rate -= qd->queue_rate;  // sub old rate
+    cur_total_min_rate += q_min_rate;  // add new rate
 
     // Update with new parameters
-    qd->rate_based_weight = qd->queue_rate = iops_min;
+    qd->queue_rate = q_min_rate;
+    qd->queue_priority = prio;
+    qd->rate_based_weight = q_min_rate;
     qd->priority_based_weight = priority_to_wfq_weight(prio);
-    qd->max_rate_based_credits = iops_min/2 + 1; // Can accumulate up to half a second worth of spots. 
+    qd->max_rate_based_credits = q_min_rate/2 + 1; // Can accumulate up to half a second worth of spots. 
     // Now fill the vacant spots in the rate based qlist based on the new queue_rate
     // Start at the first vacant spot and fill at intervals of capacity/queue_rate.
     assignSpotsToQueue(qd);

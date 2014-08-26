@@ -761,6 +761,7 @@ void FDS_NativeAPI::StatBlob(const std::string& volumeName,
         fds_verify(volId != invalid_vol_id);
     }
 
+    
     FdsBlobReq *blobReq = NULL;
     blobReq = new StatBlobReq(volId,
                               volumeName,

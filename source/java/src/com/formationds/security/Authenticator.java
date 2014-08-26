@@ -14,6 +14,8 @@ public interface Authenticator {
 
     AuthenticationToken authenticate(String login, String password) throws LoginException;
 
+    AuthenticationToken currentToken(String login) throws LoginException;
+
     AuthenticationToken reissueToken(long userId) throws LoginException;
 
     AuthenticationToken resolveToken(String signature) throws LoginException;

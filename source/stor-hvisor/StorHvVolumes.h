@@ -233,7 +233,7 @@ class AbortBlobTxReq : public FdsBlobReq {
 
         fds::PerfTracer::tracePointBegin(e2eReqPerfCtx);
     }
-    ~AbortBlobTxReq() {
+    virtual ~AbortBlobTxReq() {
         fds::PerfTracer::tracePointEnd(e2eReqPerfCtx);
     }
 
@@ -264,7 +264,7 @@ class CommitBlobTxReq : public FdsBlobReq {
 
         fds::PerfTracer::tracePointBegin(e2eReqPerfCtx);
     }
-    ~CommitBlobTxReq() {
+    virtual ~CommitBlobTxReq() {
         fds::PerfTracer::tracePointEnd(e2eReqPerfCtx);
     }
 
@@ -298,7 +298,7 @@ class StartBlobTxReq : public FdsBlobReq {
         fds::PerfTracer::tracePointBegin(e2eReqPerfCtx);
     }
 
-    ~StartBlobTxReq() {
+    virtual ~StartBlobTxReq() {
         fds::PerfTracer::tracePointEnd(e2eReqPerfCtx);
     }
 
@@ -325,8 +325,8 @@ class StatBlobReq : public FdsBlobReq {
                        _data_len, _data_buf, cb) {
         setVolumeName(_vol_name);
         e2eReqPerfCtx.type = AM_STAT_BLOB_OBJ_REQ;
-        e2eReqPerfCtx.name = "volume:" + std::to_string(volId);
-        e2eReqPerfCtx.reset_volid(volId);
+        e2eReqPerfCtx.name = "volume:" + std::to_string(_volid);
+        e2eReqPerfCtx.reset_volid(_volid);
 
         fds::PerfTracer::tracePointBegin(e2eReqPerfCtx);
     }
@@ -455,7 +455,7 @@ class GetBlobReq: public FdsBlobReq {
                fds_uint64_t _byte_count,
                CallbackPtr cb);
 
-    ~GetBlobReq();
+    virtual ~GetBlobReq();
 
     void DoCallback(FDSN_Status status, ErrorDetails* errDetails) {
         fds_panic("Depricated. You shouldn't be here!");
@@ -611,7 +611,7 @@ struct DeleteBlobReq: FdsBlobReq, TxnRequest {
         fds::PerfTracer::tracePointBegin(e2eReqPerfCtx);
     }
 
-    ~DeleteBlobReq() {
+    virtual ~DeleteBlobReq() {
         fds::PerfTracer::tracePointEnd(e2eReqPerfCtx);
     }
 

@@ -2,27 +2,27 @@ package com.formationds.om;
 
 import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import com.formationds.apis.AmService;
+import com.formationds.apis.ConfigurationService;
 import com.formationds.fdsp.LegacyClientFactory;
 import com.formationds.om.plotter.DisplayVolumeStats;
 import com.formationds.om.plotter.ListActiveVolumes;
 import com.formationds.om.plotter.RegisterVolumeStats;
 import com.formationds.om.plotter.VolumeStatistics;
 import com.formationds.om.rest.*;
-import com.formationds.security.AuthenticationToken;
-import com.formationds.security.Authenticator;
-import com.formationds.security.FdsAuthenticator;
-import com.formationds.security.NullAuthenticator;
+import com.formationds.security.*;
 import com.formationds.util.Configuration;
 import com.formationds.util.libconfig.ParsedConfig;
-import com.formationds.web.toolkit.HttpMethod;
-import com.formationds.web.toolkit.RequestHandler;
-import com.formationds.web.toolkit.WebApp;
+import com.formationds.web.toolkit.*;
 import com.formationds.xdi.CachingConfigurationService;
 import com.formationds.xdi.Xdi;
 import com.formationds.xdi.XdiClientFactory;
 import org.apache.log4j.Logger;
+import org.eclipse.jetty.server.Request;
 import org.joda.time.Duration;
+import org.json.JSONObject;
 
+import java.util.Map;
+import java.util.UUID;
 import java.util.function.Function;
 
 /*
@@ -86,6 +86,10 @@ public class Main {
         webApp.route(HttpMethod.POST, "/api/stats", () -> new RegisterVolumeStats(volumeStatistics));
         webApp.route(HttpMethod.GET, "/api/stats/volumes/:volume", () -> new DisplayVolumeStats(volumeStatistics));
 
+        // [fm] Temporary
+        webApp.route(HttpMethod.GET, "/api/config/user/:login/:password", () -> new CreateAdminUser(configApi));
+
+
         new Thread(() -> {
             try {
                 new com.formationds.demo.Main().start(configuration.getDemoConfig());
@@ -103,3 +107,20 @@ public class Main {
     }
 }
 
+
+class CreateAdminUser implements RequestHandler {
+    private ConfigurationService.Iface config;
+
+    public CreateAdminUser(ConfigurationService.Iface config) {
+        this.config = config;
+    }
+
+    @Override
+    public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
+        String login = requiredString(routeParameters, "login");
+        String password = requiredString(routeParameters, "password");
+
+        long id = config.createUser(login, new HashedPassword().hash(password), UUID.randomUUID().toString(), true);
+        return new JsonResource(new JSONObject().put("id", id));
+    }
+}

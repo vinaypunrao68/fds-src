@@ -78,6 +78,11 @@ class PlatRpcReqt : public fpi::FDSP_ControlPathReqIf
     void SetThrottleLevel(fpi::FDSP_MsgHdrTypePtr      &msg_hdr,
                           fpi::FDSP_ThrottleMsgTypePtr &throttle_msg);
 
+    void SetQoSControl(const FDSP_MsgHdrType& fdsp_msg,
+                       const FDSP_QoSControlMsgType& qos_msg);
+    void SetQoSControl(fpi::FDSP_MsgHdrTypePtr& fdsp_msg,
+                       fpi::FDSP_QoSControlMsgTypePtr& qos_msg);
+
     void TierPolicy(const FDSP_TierPolicy &tier);
     void TierPolicy(fpi::FDSP_TierPolicyPtr &tier);
 
