@@ -52,7 +52,10 @@ def create_snap_policy(policy_name, snap_frequency, retension_time, timeof_day, 
 @arg('policy-name', help= "-policy name for the snapshot")
 def create_snap(vol_name, policy_name):
     try:
-        #svc_map.client(nodeid, svc).fdsp_expireSnap(val)
+        # prepare the message
+        client = svc_map.omConfig()
+        # TODO(Sanjay): Invoke create snapshot here.  For invoking dummy api for testing
+        client.createTenant('yay')
         return 'Success'
     except Exception, e:
         log.exception(e)
