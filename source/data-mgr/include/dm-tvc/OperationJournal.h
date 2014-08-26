@@ -4,6 +4,8 @@
 #ifndef SOURCE_DATA_MGR_INCLUDE_DM_TVC_OPERATIONJOURNAL_H_
 #define SOURCE_DATA_MGR_INCLUDE_DM_TVC_OPERATIONJOURNAL_H_
 
+#include <string>
+
 #include <fds_types.h>
 
 namespace fds {

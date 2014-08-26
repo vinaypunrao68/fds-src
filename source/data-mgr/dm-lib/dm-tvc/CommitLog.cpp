@@ -1,6 +1,9 @@
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
+
+#include <libgen.h>
+
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -16,7 +19,9 @@
 #include <deque>
 #include <set>
 #include <map>
+#include <list>
 
+#include <fds_module.h>
 #include <dm-tvc/CommitLog.h>
 #include <DataMgr.h>
 
@@ -53,20 +58,18 @@ uint32_t CommitLogTx::write(serialize::Serializer * s) const {
     bytes += s->writeString(name);
     bytes += s->writeI32(blobMode);
 
-    bytes += s->writeBool(started);
-    bytes += s->writeBool(committed);
-    bytes += s->writeBool(rolledback);
+    bytes += s->writeI64(started);
+    bytes += s->writeI64(committed);
+    bytes += s->writeI64(rolledback);
     bytes += s->writeBool(blobDelete);
-    bytes += s->writeBool(purged);
-    bytes += s->writeBool(logged);
-    bytes += s->writeBool(fullSnapshot);
-    bytes += s->writeBool(incrSnapshot);
+    bytes += s->writeI64(purged);
+    bytes += s->writeI64(logged);
+    bytes += s->writeBool(snapshot);
 
     bytes += blobObjList->write(s);
     bytes += metaDataList->write(s);
 
     bytes += s->writeI64(blobVersion);
-    bytes += s->writeI64(timestamp);
 
     return bytes;
 }
@@ -83,20 +86,18 @@ uint32_t CommitLogTx::read(serialize::Deserializer * d) {
     bytes += d->readString(name);
     bytes += d->readI32(blobMode);
 
-    bytes += d->readBool(started);
-    bytes += d->readBool(committed);
-    bytes += d->readBool(rolledback);
+    bytes += d->readI64(started);
+    bytes += d->readI64(committed);
+    bytes += d->readI64(rolledback);
     bytes += d->readBool(blobDelete);
-    bytes += d->readBool(purged);
-    bytes += d->readBool(logged);
-    bytes += d->readBool(fullSnapshot);
-    bytes += d->readBool(incrSnapshot);
+    bytes += d->readI64(purged);
+    bytes += d->readI64(logged);
+    bytes += d->readBool(snapshot);
 
     bytes += blobObjList->read(d);
     bytes += metaDataList->read(d);
 
     bytes += d->readI64(blobVersion);
-    bytes += d->readI64(timestamp);
 
     return bytes;
 }
@@ -104,7 +105,7 @@ uint32_t CommitLogTx::read(serialize::Deserializer * d) {
 DmCommitLog::DmCommitLog(const std::string &modName, const std::string & filename,
         fds::DmTvcOperationJournal & journal,
         fds_uint32_t filesize /* = DEFAULT_COMMIT_LOG_FILE_SIZE */,
-        PersistenceType persist /* = IN_MEMORY */) : Module(modName.c_str()), filename_(filename),
+        PersistenceType persist /* = IN_FILE */) : Module(modName.c_str()), filename_(filename),
         filesize_(filesize), persist_(persist), started_(false), compacting_(ATOMIC_FLAG_INIT),
         journal_(journal) {
     if (filesize_ < MIN_COMMIT_LOG_FILE_SIZE) {
@@ -115,12 +116,19 @@ DmCommitLog::DmCommitLog(const std::string &modName, const std::string & filenam
         filesize_ = MAX_COMMIT_LOG_FILE_SIZE;
     }
 
+    if (IN_FILE == persist_ || IN_DB == persist_) {
+        char * dmDir = static_cast<char *>(calloc(1, filename.length() + 1));
+        if (strncpy(dmDir, filename.c_str(), filename.length() + 1)) {
+            FdsRootDir::fds_mkdir(dirname(dmDir));
+        }
+    }
+
     if (IN_FILE == persist_) {
         cmtLogger_.reset(new FileCommitLogger(filename_, filesize_));
     } else if (IN_MEMORY == persist_) {
         cmtLogger_.reset(new MemoryCommitLogger(filesize_));
     } else {
-        // TODO(umesh): instantiate leveldb based cmtLogger_
+        cmtLogger_.reset(new DBCommitLogger(filename_));
     }
 
     const DmCommitLogEntry * entry = cmtLogger_->getLast();
@@ -157,7 +165,7 @@ DmCommitLog::DmCommitLog(const std::string &modName, const std::string & filenam
                         entry)->getStartTxDetails();
                 iter->second->blobMode = details->blobMode;
                 iter->second->name = details->blobName;
-                iter->second->started = true;
+                iter->second->started = entry->timestamp;
             }
             case TX_UPDATE_OBJLIST: {
                 boost::shared_ptr<const BlobObjList> dataPtr =
@@ -181,28 +189,23 @@ DmCommitLog::DmCommitLog(const std::string &modName, const std::string & filenam
                 break;
             }
             case TX_ROLLBACK: {
-                iter->second->rolledback = true;
+                iter->second->rolledback = entry->timestamp;
                 break;
             }
             case TX_COMMIT: {
-                iter->second->committed = true;
+                iter->second->committed = entry->timestamp;
                 break;
             }
             case TX_PURGE: {
-                iter->second->purged = true;
-                iter->second->timestamp = entry->timestamp;
+                iter->second->purged = entry->timestamp;
                 break;
             }
             case TX_OP_LOG: {
-                iter->second->logged = true;
+                iter->second->logged = entry->timestamp;
                 break;
             }
-            case TX_INCR_SNAPSHOT: {
-                iter->second->incrSnapshot = true;
-                break;
-            }
-            case TX_FULL_SNAPSHOT: {
-                iter->second->fullSnapshot = true;
+            case TX_SNAPSHOT: {
+                iter->second->snapshot = true;
                 break;
             }
             default:
@@ -276,7 +279,7 @@ void DmCommitLog::compactLog(dmCatReq * req) {
         for (auto it : txMap_) {
             if (it.second->purged && !it.second->logged) {
                 logTxMap_.insert(std::pair<fds_uint64_t, CommitLogTx::ptr>(
-                        it.second->timestamp, it.second));
+                        it.second->purged, it.second));
             }
         }
     }
@@ -341,6 +344,13 @@ Error DmCommitLog::startTx(BlobTxId::const_ptr & txDesc, const std::string & blo
     DmCommitLogEntry * entry = 0;
     Error rc = cmtLogger_->startTx(txDesc, details, entry);
     if (!rc.ok()) {
+        if (rc.GetErrno() == ERR_DM_MAX_CL_ENTRIES) {
+            if (!spilloverLogger_.get()) {
+                spilloverLogger_.reset(new DBCommitLogger(filename_ + ".ldb"));
+            }
+            return spilloverLogger_->startTx(txDesc, details, entry);
+        }
+
         GLOGERROR << "Failed to save blob transaction error=(" << rc << ")";
         return rc;
     }
@@ -354,7 +364,7 @@ Error DmCommitLog::startTx(BlobTxId::const_ptr & txDesc, const std::string & blo
         ptx->name = blobName;
         ptx->blobMode = blobMode;
         ptx->entries.push_back(entry);
-        ptx->started = true;
+        ptx->started = entry->timestamp;
     }
 
     if (cmtLogger_->hasReachedSizeThreshold() && !compacting_.test_and_set()) {
@@ -469,7 +479,7 @@ CommitLogTx::const_ptr DmCommitLog::commitTx(BlobTxId::const_ptr & txDesc, Error
 
         CommitLogTx::ptr & ptx = txMap_[txId];
         ptx->entries.push_back(entry);
-        ptx->committed = true;
+        ptx->committed = entry->timestamp;
     }
 
     if (cmtLogger_->hasReachedSizeThreshold() && !compacting_.test_and_set()) {
@@ -506,7 +516,7 @@ Error DmCommitLog::rollbackTx(BlobTxId::const_ptr & txDesc) {
 
         CommitLogTx::ptr & ptx = txMap_[txId];
         ptx->entries.push_back(entry);
-        ptx->rolledback = true;
+        ptx->rolledback = entry->timestamp;
     }
 
     if (cmtLogger_->hasReachedSizeThreshold() && !compacting_.test_and_set()) {
@@ -554,8 +564,7 @@ Error DmCommitLog::purgeTx(BlobTxId::const_ptr  & txDesc) {
 
         CommitLogTx::ptr & ptx = txMap_[txId];
         ptx->entries.push_back(entry);
-        ptx->timestamp = entry->timestamp;
-        ptx->purged = true;
+        ptx->purged = entry->timestamp;
     }
 
     if (cmtLogger_->hasReachedSizeThreshold() && !compacting_.test_and_set()) {
@@ -603,7 +612,7 @@ Error DmCommitLog::logTx(BlobTxId::const_ptr  & txDesc) {
 
         CommitLogTx::ptr & ptx = txMap_[txId];
         ptx->entries.push_back(entry);
-        ptx->logged = true;
+        ptx->logged = entry->timestamp;
     }
 
     if (cmtLogger_->hasReachedSizeThreshold() && !compacting_.test_and_set()) {
@@ -613,9 +622,8 @@ Error DmCommitLog::logTx(BlobTxId::const_ptr  & txDesc) {
     return ERR_OK;
 }
 
-// snapshot (incremental/ full)
-Error DmCommitLog::snapshot(BlobTxId::const_ptr & txDesc, const std::string & name,
-        bool full /* = false */) {
+// snapshot
+Error DmCommitLog::snapshot(BlobTxId::const_ptr & txDesc, const std::string & name) {
     const BlobTxId & txId = *txDesc;
 
     Error rc = startTx(txDesc, name, 0);
@@ -624,7 +632,7 @@ Error DmCommitLog::snapshot(BlobTxId::const_ptr & txDesc, const std::string & na
         return rc;
     }
 
-    rc = snapshotInsert(txDesc, full);
+    rc = snapshotInsert(txDesc);
     if (!rc.ok()) {
         GLOGWARN << "Failed to insert snapshot for transaction '" << txId << "'";
         return rc;
@@ -644,9 +652,7 @@ Error DmCommitLog::snapshot(BlobTxId::const_ptr & txDesc, const std::string & na
 
     scheduleCompaction();
 
-    if (full) {
-        startBuffering();
-    }
+    startBuffering();
 
     return rc;
 }
@@ -697,7 +703,7 @@ fds_bool_t DmCommitLog::isPendingTx(const fds_uint64_t tsNano /* = util::getTime
     SCOPEDREAD(lockTxMap_);
     for (auto it : txMap_) {
         if (it.second->started && (!it.second->rolledback && !it.second->committed)) {
-            if (it.second->entries[0]->timestamp <= tsNano) {
+            if (it.second->started <= tsNano) {
                 ret = true;
             }
         }
@@ -715,7 +721,7 @@ void DmCommitLog::scheduleCompaction() {
     }
 }
 
-Error DmCommitLog::snapshotInsert(BlobTxId::const_ptr & txDesc, bool full) {
+Error DmCommitLog::snapshotInsert(BlobTxId::const_ptr & txDesc) {
     fds_assert(txDesc);
     fds_assert(cmtLogger_);
     fds_verify(started_);
@@ -730,7 +736,7 @@ Error DmCommitLog::snapshotInsert(BlobTxId::const_ptr & txDesc, bool full) {
     }
 
     DmCommitLogEntry * entry = 0;
-    rc = cmtLogger_->snapshot(txDesc, entry, full);
+    rc = cmtLogger_->snapshot(txDesc, entry);
     if (!rc.ok()) {
         GLOGERROR << "Failed to save snapshot transaction error=(" << rc << ")";
         return rc;
@@ -741,11 +747,7 @@ Error DmCommitLog::snapshotInsert(BlobTxId::const_ptr & txDesc, bool full) {
 
         CommitLogTx::ptr & ptx = txMap_[txId];
         ptx->entries.push_back(entry);
-        if (full) {
-            ptx->fullSnapshot = true;
-        } else {
-            ptx->incrSnapshot = true;
-        }
+        ptx->snapshot = true;
     }
 
     if (cmtLogger_->hasReachedSizeThreshold() && !compacting_.test_and_set()) {
@@ -868,6 +870,10 @@ FileCommitLogger::FileCommitLogger(const std::string & filename, fds_uint32_t fi
 FileCommitLogger::~FileCommitLogger() {
     if (0 != munmap(addr_, filesize_)) {
         throw std::system_error(errno, std::system_category());
+    }
+
+    if (!filename_.empty()) {
+        close(fd_);
     }
 }
 
@@ -1039,8 +1045,7 @@ Error FileCommitLogger::rollbackTx(BlobTxId::const_ptr & txDesc, DmCommitLogEntr
     return ERR_OK;
 }
 
-Error FileCommitLogger::snapshot(BlobTxId::const_ptr & txDesc, DmCommitLogEntry* & entry,
-        bool full) {
+Error FileCommitLogger::snapshot(BlobTxId::const_ptr & txDesc, DmCommitLogEntry* & entry) {
     size_t sz = sizeof(DmCommitLogEntry);
 
     FDSGUARD(lockLogFile_);
@@ -1052,11 +1057,7 @@ Error FileCommitLogger::snapshot(BlobTxId::const_ptr & txDesc, DmCommitLogEntry*
         return ERR_DM_MAX_CL_ENTRIES;
     }
 
-    if (full) {
-        entry = new(clp) DmCommitLogFullSnapshotEntry(txDesc, clEpoch++);
-    } else {
-        entry = new(clp) DmCommitLogIncrSnapshotEntry(txDesc, clEpoch++);
-    }
+    entry = new(clp) DmCommitLogSnapshotEntry(txDesc, clEpoch++);
     addEntryToHeader(entry);
 
     if (0 != msync(reinterpret_cast<void *>(FDS_PAGE_START_ADDR(entry)), FDS_PAGE_OFFSET(entry) +
@@ -1156,11 +1157,11 @@ FileCommitLogger::compactLog(const std::set<fds_uint64_t> & candidates) {
             break;
         }
 
-        removeEntry(false);
-
-        if (TX_PURGE == entry->type || TX_ROLLBACK == entry->type) {
+        if (TX_OP_LOG == entry->type || TX_ROLLBACK == entry->type) {
             ret.insert(entry->txId);
         }
+
+        removeEntry(false);
     }
 
     syncHeader();
@@ -1182,5 +1183,194 @@ bool FileCommitLogger::hasReachedSizeThreshold() {
     // unused is less than (100 - threshold)
     return ((header()->first - header()->last) <
             (filesize_ * (100 - PERCENT_SIZE_THRESHOLD)) / 100);
+}
+
+DBCommitLogger::DBCommitLogger(const std::string & filename) : filename_(filename),
+            catalog_(filename, false) {
+    Catalog::catalog_iterator_t * iter = catalog_.NewIterator();
+    fds_assert(iter);
+    for (iter->SeekToFirst(); iter->Valid(); iter->Next()) {
+        const std::string & entryStr = iter->value().ToString();
+
+        void * clp = calloc(1, entryStr.length());
+        fds_assert(clp);
+
+        memcpy(clp, entryStr.data(), entryStr.length());
+        entries_.push_back(reinterpret_cast<DmCommitLogEntry *>(clp));
+    }
+}
+
+DBCommitLogger::~DBCommitLogger() {
+    for (auto e : entries_) {
+        delete e;
+    }
+}
+
+Error DBCommitLogger::writeToDB(DmCommitLogEntry * entry, fds_uint32_t sz) {
+    std::string entryStr(reinterpret_cast<const char *>(entry), sz);
+    Error rc = catalog_.Update(std::to_string(entry->id), entryStr);
+    if (rc.ok()) {
+        FDSGUARD(lockEntries_);
+        entries_.push_back(entry);
+    }
+
+    return rc;
+}
+
+Error DBCommitLogger::startTx(BlobTxId::const_ptr & txDesc,
+        StartTxDetails::const_ptr & details, DmCommitLogEntry* & entry) {
+    const std::string & str = DmCommitLogEntry::createPayload(details);
+    size_t sz = sizeof(DmCommitLogEntry) + str.length() + 1;
+
+    void * clp = calloc(1, sz);
+    fds_assert(clp);
+
+    entry = new(clp) DmCommitLogStartEntry(txDesc, clEpoch++, str);
+    return writeToDB(entry, sz);
+}
+
+Error DBCommitLogger::updateTx(BlobTxId::const_ptr & txDesc,
+        BlobObjList::const_ptr blobObjList, DmCommitLogEntry* & entry) {
+    const std::string & str = DmCommitLogEntry::createPayload(blobObjList);
+    size_t sz = sizeof(DmCommitLogEntry) + str.length() + 1;
+
+    void * clp = calloc(1, sz);
+    fds_assert(clp);
+
+    entry = new(clp) DmCommitLogUpdateObjListEntry(txDesc, clEpoch++, str);
+    return writeToDB(entry, sz);
+}
+
+Error DBCommitLogger::updateTx(BlobTxId::const_ptr & txDesc,
+        MetaDataList::const_ptr metaDataList, DmCommitLogEntry* & entry) {
+    const std::string & str = DmCommitLogEntry::createPayload(metaDataList);
+    size_t sz = sizeof(DmCommitLogEntry) + str.length() + 1;
+
+    void * clp = calloc(1, sz);
+    fds_assert(clp);
+
+    entry = new(clp) DmCommitLogUpdateObjMetaEntry(txDesc, clEpoch++, str);
+    return writeToDB(entry, sz);
+}
+
+Error DBCommitLogger::deleteBlob(BlobTxId::const_ptr & txDesc,
+        DeleteBlobDetails::const_ptr & details, DmCommitLogEntry* & entry) {
+    const std::string & str = DmCommitLogEntry::createPayload(details);
+    size_t sz = sizeof(DmCommitLogEntry) + str.length() + 1;
+
+    void * clp = calloc(1, sz);
+    fds_assert(clp);
+
+    entry = new(clp) DmCommitLogDeleteBlobEntry(txDesc, clEpoch++, str);
+    return writeToDB(entry, sz);
+}
+
+Error DBCommitLogger::commitTx(BlobTxId::const_ptr & txDesc, DmCommitLogEntry* & entry) {
+    size_t sz = sizeof(DmCommitLogEntry);
+
+    void * clp = calloc(1, sz);
+    fds_assert(clp);
+
+    entry = new(clp) DmCommitLogCommitEntry(txDesc, clEpoch++);
+    return writeToDB(entry, sz);
+}
+
+Error DBCommitLogger::rollbackTx(BlobTxId::const_ptr & txDesc, DmCommitLogEntry* & entry) {
+    size_t sz = sizeof(DmCommitLogEntry);
+
+    void * clp = calloc(1, sz);
+    fds_assert(clp);
+
+    entry = new(clp) DmCommitLogRollbackEntry(txDesc, clEpoch++);
+    return writeToDB(entry, sz);
+}
+
+Error DBCommitLogger::purgeTx(BlobTxId::const_ptr & txDesc, DmCommitLogEntry* & entry) {
+    size_t sz = sizeof(DmCommitLogEntry);
+
+    void * clp = calloc(1, sz);
+    fds_assert(clp);
+
+    entry = new(clp) DmCommitLogPurgeEntry(txDesc, clEpoch++);
+    return writeToDB(entry, sz);
+}
+
+Error DBCommitLogger::logTx(BlobTxId::const_ptr & txDesc, DmCommitLogEntry* & entry) {
+    size_t sz = sizeof(DmCommitLogEntry);
+
+    void * clp = calloc(1, sz);
+    fds_assert(clp);
+
+    entry = new(clp) DmCommitLogOpLogEntry(txDesc, clEpoch++);
+    return writeToDB(entry, sz);
+}
+
+Error DBCommitLogger::snapshot(BlobTxId::const_ptr & txDesc, DmCommitLogEntry* & entry) {
+    size_t sz = sizeof(DmCommitLogEntry);
+
+    void * clp = calloc(1, sz);
+    fds_assert(clp);
+
+    entry = new(clp) DmCommitLogSnapshotEntry(txDesc, clEpoch++);
+    return writeToDB(entry, sz);
+}
+
+const DmCommitLogEntry * DBCommitLogger::getFirst() {
+    FDSGUARD(lockEntries_);
+    return entries_.empty() ? 0 : entries_.front();
+}
+
+const DmCommitLogEntry * DBCommitLogger::getLast() {
+    FDSGUARD(lockEntries_);
+    return entries_.empty() ? 0 : entries_.back();
+}
+
+const DmCommitLogEntry * DBCommitLogger::getNext(const DmCommitLogEntry * rhs) {
+    FDSGUARD(lockEntries_);
+    std::list<DmCommitLogEntry *>::iterator pos = entries_.begin();
+    for (; entries_.end() != pos; ++pos) {
+        if (rhs->id == (*pos)->id) {
+            break;
+        }
+    }
+    if (entries_.end() != pos && entries_.end() != ++pos) {
+        return *pos;
+    }
+
+    return 0;
+}
+
+const DmCommitLogEntry * DBCommitLogger::getEntry(const fds_uint64_t id) {
+    FDSGUARD(lockEntries_);
+    for (auto i : entries_) {
+        if (id == i->id) {
+            return i;
+        }
+    }
+
+    return 0;
+}
+
+const std::set<fds_uint64_t> DBCommitLogger::compactLog(
+        const std::set<fds_uint64_t> & candidates) {
+    std::set<fds_uint64_t> ret;
+
+    FDSGUARD(lockEntries_);
+
+    std::list<DmCommitLogEntry *>::iterator cur = entries_.begin();
+    while (entries_.end() != cur) {
+        std::set<fds_uint64_t>::const_iterator pos = candidates.find((*cur)->txId);
+        if (candidates.end() != pos) {
+            if (TX_OP_LOG == (*cur)->type || TX_ROLLBACK == (*cur)->type) {
+                ret.insert((*cur)->txId);
+            }
+            catalog_.Delete(std::to_string((*cur)->id));
+            cur = entries_.erase(cur);
+        } else {
+            ++cur;
+        }
+    }
+
+    return ret;
 }
 }  /* namespace fds */

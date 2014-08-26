@@ -13,6 +13,7 @@
 #include <deque>
 #include <unordered_map>
 #include <atomic>
+#include <list>
 
 #include <fds_error.h>
 #include <fds_module.h>
@@ -27,12 +28,13 @@
 #include <boost/scoped_ptr.hpp>
 #include <DmIoReq.h>
 #include <dm-tvc/OperationJournal.h>
+#include <lib/Catalog.h>
 
 namespace fds {
 
 class DmTvcOperationLog;
 
-const unsigned DEFAULT_COMMIT_LOG_FILE_SIZE = 5 * 1024 * 1024;
+const unsigned DEFAULT_COMMIT_LOG_FILE_SIZE = 20 * 1024 * 1024;
 const unsigned MIN_COMMIT_LOG_FILE_SIZE = 1 * 1024 * 1024;
 const unsigned MAX_COMMIT_LOG_FILE_SIZE = 100 * 1024 * 1024;
 
@@ -47,14 +49,13 @@ struct CommitLogTx : serialize::Serializable {
     std::string name;
     fds_int32_t blobMode;
 
-    bool started;
-    bool committed;     // commit issued by user, but not wriiten yet
-    bool rolledback;
+    fds_uint64_t started;
+    fds_uint64_t committed;     // commit issued by user, but not wriiten yet
+    fds_uint64_t rolledback;
     bool blobDelete;
-    bool purged;    // written and now ready for purge
-    bool logged;    // written to TVC operation log
-    bool fullSnapshot;
-    bool incrSnapshot;
+    fds_uint64_t purged;    // written and now ready for purge
+    fds_uint64_t logged;    // written to TVC operation log
+    bool snapshot;
 
     std::vector<const DmCommitLogEntry *> entries;
 
@@ -63,13 +64,9 @@ struct CommitLogTx : serialize::Serializable {
 
     blob_version_t blobVersion;
 
-    // purge timestamp, when transaction is pushed to VolumeCatalog
-    fds_uint64_t timestamp;
-
-    CommitLogTx() : txDesc(0), blobMode(0), started(false), committed(false), rolledback(false),
-            blobDelete(false), purged(false), logged(false), fullSnapshot(false),
-            incrSnapshot(false), blobObjList(0), metaDataList(0),
-            blobVersion(blob_version_invalid), timestamp(0) {}
+    CommitLogTx() : txDesc(0), blobMode(0), started(0), committed(0), rolledback(0),
+            blobDelete(false), purged(0), logged(0), snapshot(false), blobObjList(0),
+            metaDataList(0), blobVersion(blob_version_invalid) {}
 
     virtual uint32_t write(serialize::Serializer * s) const override;
     virtual uint32_t read(serialize::Deserializer * d) override;
@@ -100,7 +97,7 @@ class DmCommitLog : public Module {
     explicit DmCommitLog(const std::string &modName, const std::string & filename,
             fds::DmTvcOperationJournal & journal,
             fds_uint32_t filesize = DEFAULT_COMMIT_LOG_FILE_SIZE,
-            PersistenceType persist = IN_MEMORY);
+            PersistenceType persist = IN_DB);
     ~DmCommitLog();
 
     // module overrides
@@ -136,8 +133,8 @@ class DmCommitLog : public Module {
     // log transaction
     Error logTx(BlobTxId::const_ptr & txDesc);
 
-    // snapshot (incremental/ full)
-    Error snapshot(BlobTxId::const_ptr & txDesc, const std::string & name, bool full = false);
+    // snapshot
+    Error snapshot(BlobTxId::const_ptr & txDesc, const std::string & name);
 
     // get transaction
     CommitLogTx::const_ptr getTx(BlobTxId::const_ptr & txDesc);
@@ -173,6 +170,7 @@ class DmCommitLog : public Module {
     PersistenceType persist_;
     bool started_;
     boost::shared_ptr<DmCommitLogger> cmtLogger_;
+    boost::shared_ptr<DmCommitLogger> spilloverLogger_;
     std::atomic_flag compacting_;
 
     // not thread-safe, two different threads can't start buffering simultaneously
@@ -199,7 +197,7 @@ class DmCommitLog : public Module {
         }
     }
 
-    Error snapshotInsert(BlobTxId::const_ptr & txDesc, bool full);
+    Error snapshotInsert(BlobTxId::const_ptr & txDesc);
 };
 
 typedef enum {
@@ -212,8 +210,7 @@ typedef enum {
     TX_COMMIT,
     TX_PURGE,
     TX_OP_LOG,
-    TX_INCR_SNAPSHOT,
-    TX_FULL_SNAPSHOT
+    TX_SNAPSHOT
 } CommitLogEntryType;
 
 // base struct for commit log entry
@@ -366,22 +363,18 @@ struct DmCommitLogUpdateObjMetaEntry : DmCommitLogEntry {
     }
 };
 
-// incremental snapshot
-struct DmCommitLogIncrSnapshotEntry : DmCommitLogEntry {
-    DmCommitLogIncrSnapshotEntry(BlobTxId::const_ptr & txDesc, fds_uint64_t id)
-            : DmCommitLogEntry(TX_INCR_SNAPSHOT, txDesc, id) {}
-};
-
 // full snapshot
-struct DmCommitLogFullSnapshotEntry : DmCommitLogEntry {
-    DmCommitLogFullSnapshotEntry(BlobTxId::const_ptr & txDesc, fds_uint64_t id)
-            : DmCommitLogEntry(TX_FULL_SNAPSHOT, txDesc, id) {}
+struct DmCommitLogSnapshotEntry : DmCommitLogEntry {
+    DmCommitLogSnapshotEntry(BlobTxId::const_ptr & txDesc, fds_uint64_t id)
+            : DmCommitLogEntry(TX_SNAPSHOT, txDesc, id) {}
 };
 
 class DmCommitLogger {
   public:
     typedef boost::shared_ptr<DmCommitLogger> ptr;
     typedef boost::shared_ptr<const DmCommitLogger> const_ptr;
+
+    virtual ~DmCommitLogger() {}
 
     virtual Error startTx(BlobTxId::const_ptr & txDesc, StartTxDetails::const_ptr & details,
             DmCommitLogEntry* & entry) = 0;
@@ -403,7 +396,7 @@ class DmCommitLogger {
 
     virtual Error logTx(BlobTxId::const_ptr & txDesc, DmCommitLogEntry* & entry) = 0;
 
-    virtual Error snapshot(BlobTxId::const_ptr & txDesc, DmCommitLogEntry* & entry, bool full) = 0;
+    virtual Error snapshot(BlobTxId::const_ptr & txDesc, DmCommitLogEntry* & entry) = 0;
 
     virtual const DmCommitLogEntry * getFirst() = 0;
 
@@ -418,15 +411,15 @@ class DmCommitLogger {
     virtual bool hasReachedSizeThreshold() = 0;
 };
 
+struct EntriesHeader {
+    fds_uint32_t count;
+    fds_uint32_t first;
+    fds_uint32_t last;
+    byte digest[hash::Sha1::numDigestBytes];
+};
+
 class FileCommitLogger : public DmCommitLogger {
   public:
-    struct EntriesHeader {
-        fds_uint32_t count;
-        fds_uint32_t first;
-        fds_uint32_t last;
-        byte digest[hash::Sha1::numDigestBytes];
-    };
-
     static const fds_uint32_t PERCENT_SIZE_THRESHOLD = 70;
 
     FileCommitLogger(const std::string & filename, fds_uint32_t filesize);
@@ -452,8 +445,7 @@ class FileCommitLogger : public DmCommitLogger {
 
     virtual Error logTx(BlobTxId::const_ptr & txDesc, DmCommitLogEntry* & entry) override;
 
-    virtual Error snapshot(BlobTxId::const_ptr & txDesc, DmCommitLogEntry* & entry,
-            bool full) override;
+    virtual Error snapshot(BlobTxId::const_ptr & txDesc, DmCommitLogEntry* & entry) override;
 
     virtual const DmCommitLogEntry * getFirst() override {
         FDSGUARD(lockLogFile_);
@@ -535,6 +527,61 @@ class MemoryCommitLogger : public FileCommitLogger {
     virtual ~MemoryCommitLogger() {}
 };
 
+class DBCommitLogger : public DmCommitLogger {
+  public:
+    typedef boost::shared_ptr<DBCommitLogger> ptr;
+    typedef boost::shared_ptr<const DBCommitLogger> const_ptr;
+
+    // ctor and dtor
+    explicit DBCommitLogger(const std::string & filename);
+    virtual ~DBCommitLogger();
+
+    virtual Error startTx(BlobTxId::const_ptr & txDesc, StartTxDetails::const_ptr & details,
+            DmCommitLogEntry* & entry);
+
+    virtual Error updateTx(BlobTxId::const_ptr & txDesc, BlobObjList::const_ptr blobObjList,
+            DmCommitLogEntry* & entry);
+
+    virtual Error updateTx(BlobTxId::const_ptr & txDesc, MetaDataList::const_ptr metaDataList,
+            DmCommitLogEntry* & entry);
+
+    virtual Error deleteBlob(BlobTxId::const_ptr & txDesc, DeleteBlobDetails::const_ptr & details,
+            DmCommitLogEntry* & entry);
+
+    virtual Error commitTx(BlobTxId::const_ptr & txDesc, DmCommitLogEntry* & entry);
+
+    virtual Error rollbackTx(BlobTxId::const_ptr & txDesc, DmCommitLogEntry* & entry);
+
+    virtual Error purgeTx(BlobTxId::const_ptr & txDesc, DmCommitLogEntry* & entry);
+
+    virtual Error logTx(BlobTxId::const_ptr & txDesc, DmCommitLogEntry* & entry);
+
+    virtual Error snapshot(BlobTxId::const_ptr & txDesc, DmCommitLogEntry* & entry);
+
+    virtual const DmCommitLogEntry * getFirst();
+
+    virtual const DmCommitLogEntry * getLast();
+
+    virtual const DmCommitLogEntry * getNext(const DmCommitLogEntry * rhs);
+
+    virtual const DmCommitLogEntry * getEntry(const fds_uint64_t id);
+
+    virtual const std::set<fds_uint64_t> compactLog(const std::set<fds_uint64_t> & candidates);
+
+    virtual bool hasReachedSizeThreshold() {
+        return false;
+    }
+
+  private:
+    const std::string filename_;
+    Catalog catalog_;
+
+    fds_mutex lockEntries_;
+    std::list<DmCommitLogEntry *> entries_;
+
+    // Methods
+    Error writeToDB(DmCommitLogEntry * entry, fds_uint32_t sz);
+};
 }  /* namespace fds */
 
 #endif  // SOURCE_DATA_MGR_INCLUDE_DM_TVC_COMMITLOG_H_
