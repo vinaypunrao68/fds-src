@@ -1,52 +1,48 @@
 #!/usr/bin/python
-import requests
-
-BASE_URL = 'http://localhost:8000/'
-
-def create_bucket(bucket_name):
-    return requests.put(BASE_URL+bucket_name)
-
-def delete_bucket(bucket_name):
-    return requests.delete(BASE_URL+bucket_name)
-
-def get_bucket(bucket_name):
-    return requests.get(BASE_URL+bucket_name)
-
-def put_object(data, bucket, dest):
-    return requests.put(BASE_URL+bucket+'/'+dest, data=data)
-
-def get_object(bucket, name):
-    return requests.get(BASE_URL+bucket+'/'+name)
-
-def delete_object(bucket, name):
-    return requests.delete(BASE_URL+bucket+'/'+name)
+import os
+import math
+import boto
+from boto.s3.connection import OrdinaryCallingFormat
+from filechunkio import FileChunkIO
 
 def main():
-    # Test bucket functionality
-    print 'Testing bucket functionality...'
-    for i in range(5):
-        assert(create_bucket('bucket1').status_code == 200)
-        assert(get_bucket('bucket1').status_code == 200)
-        assert(delete_bucket('bucket1').status_code == 200)
-        assert(get_bucket('bucket1').status_code != 200)
-        assert(delete_bucket('bucket1').status_code != 200)
-        assert(create_bucket('bucket1').status_code == 200)
-        assert(delete_bucket('bucket1').status_code == 200)
+    # Connect to FDS S3 interface
+    c = boto.connect_s3(
+            aws_access_key_id='blablabla',
+            aws_secret_access_key='kekekekek',
+            host='localhost',
+            port=8000,
+            is_secure=False,
+            calling_format=boto.s3.connection.OrdinaryCallingFormat())
 
-    print 'Testing object functionality...'
-    assert(create_bucket('bucket2').status_code == 200)
-    for i in range(5):
-        assert(put_object('abc','bucket2','obj1').status_code == 200)
-        assert(get_object('bucket2','obj1').status_code == 200)
-        assert(delete_object('bucket2','obj1').status_code == 200)
+    b = c.create_bucket("bucket1")
+    print 'Bucket created!'
 
-        assert(get_object('bucket2','obj1').status_code != 200)
-        assert(delete_object('bucket2','obj1').status_code != 200)
+    # Get file info
+    source_path = '/mup_file'
+    source_size = os.stat(source_path).st_size
 
-    print 'Deleting a bucket while full'
-    assert(create_bucket('bucket3').status_code == 200)
-    assert(put_object('abcd','bucket3','obj1').status_code == 200)
-    assert(delete_bucket('bucket3').status_code != 200)
+    # Create multipart upload request
+    mp = b.initiate_multipart_upload(os.path.basename(source_path))
+    print 'MPU initiated!'
+
+    # Use a chunk size of 50 MB
+    chunk_size = 52428800
+    chunk_count = int(math.ceil(source_size / chunk_size))
+
+    # Send the file parts, using FileChunkIO to create a file-like object
+    # that points to a certain byte range within the original file. We
+    # set bytes to never exceed the original file size.
+    for i in range(chunk_count + 1):
+        offset = chunk_size * i
+        bytes = min(chunk_size, source_size - offset)
+        with FileChunkIO(source_path, 'r', offset=offset, bytes=bytes) as fp:
+            mp.upload_part_from_file(fp, part_num=i + 1)
+    print 'MPU Pieces Uploaded!'
+
+    # Finish the upload
+    mp.complete_upload()
+    print 'MPU Complete!"'
 
 if __name__ == '__main__':
     main()

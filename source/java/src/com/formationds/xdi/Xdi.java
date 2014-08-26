@@ -6,12 +6,10 @@ package com.formationds.xdi;
 import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import com.formationds.apis.*;
 import com.formationds.om.rest.SetVolumeQosParams;
-import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authenticator;
 import org.apache.thrift.TException;
 import org.joda.time.DateTime;
 
-import javax.security.auth.login.LoginException;
 import java.io.InputStream;
 import java.util.Iterator;
 import java.util.List;
@@ -82,11 +80,7 @@ public class Xdi {
         am.deleteBlob(domainName, volumeName, blobName);
     }
 
-    public AuthenticationToken resolveToken(String signature) throws LoginException {
-        return authenticator.resolveToken(signature);
-    }
-
-    public AuthenticationToken reissueToken(String login, String password) throws LoginException {
-        return authenticator.reissueToken(login, password);
+    public Authenticator getAuthenticator() {
+        return authenticator;
     }
 }

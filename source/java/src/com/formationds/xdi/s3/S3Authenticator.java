@@ -6,7 +6,11 @@ package com.formationds.xdi.s3;
 import com.amazonaws.AmazonWebServiceRequest;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.http.HttpMethodName;
+import com.amazonaws.services.s3.internal.S3Signer;
+import com.amazonaws.services.s3.internal.ServiceUtils;
 import com.amazonaws.util.AWSRequestMetrics;
+import com.formationds.security.AuthenticationToken;
+import com.formationds.security.Authenticator;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.xdi.Xdi;
 import com.google.common.collect.Maps;
@@ -16,45 +20,62 @@ import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.text.MessageFormat;
+import java.text.ParseException;
+import java.util.Date;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 public class S3Authenticator implements Supplier<RequestHandler> {
-    private Supplier<RequestHandler> supplier;
+    private Function<AuthenticationToken, RequestHandler> handler;
     private Xdi xdi;
 
-    public S3Authenticator(Supplier<RequestHandler> supplier, Xdi xdi) {
-        this.supplier = supplier;
+    public S3Authenticator(Function<AuthenticationToken, RequestHandler> handler, Xdi xdi) {
+        this.handler = handler;
         this.xdi = xdi;
     }
 
     @Override
     public RequestHandler get() {
         return (request, routeParameters) -> {
+            if (xdi.getAuthenticator().allowAll()) {
+                return handler.apply(AuthenticationToken.ANONYMOUS).handle(request, routeParameters);
+            }
+
             String candidateHeader = request.getHeader("Authorization");
-            BasicAWSCredentials candidateCredentials = null;
+            AuthenticationComponents authenticationComponents = null;
             try {
-                candidateCredentials = tryParse(candidateHeader);
+                authenticationComponents = resolveFdsCredentials(candidateHeader);
             } catch (SecurityException e) {
                 return new S3Failure(S3Failure.ErrorCode.AccessDenied, "Access denied", request.getRequestURI());
             }
 
-            String requestHash = hashRequest(request, candidateCredentials);
+            String requestHash = hashRequest(request, authenticationComponents);
 
             if (candidateHeader.equals(requestHash)) {
-                return supplier.get().handle(request, routeParameters);
+                return handler.apply(AuthenticationToken.ANONYMOUS).handle(request, routeParameters);
             } else {
                 return new S3Failure(S3Failure.ErrorCode.AccessDenied, "Access denied", request.getRequestURI());
             }
         };
     }
 
-    private String hashRequest(Request request, BasicAWSCredentials candidateCredentials) {
-        CustomS3Signer signer = new CustomS3Signer(request.getMethod(), request.getRequestURI());
+    private String hashRequest(Request request, AuthenticationComponents authComponents) {
         com.amazonaws.Request amazonRequest = makeAmazonRequest(request);
-        signer.sign(amazonRequest, candidateCredentials);
+        S3Signer s3Signer = new S3Signer(amazonRequest.getHttpMethod().name(), amazonRequest.getResourcePath()) {
+            @Override
+            protected Date getSignatureDate(int timeOffset) {
+                try {
+                    return ServiceUtils.parseRfc822Date(request.getHeader("Date"));
+                } catch (ParseException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        };
+        BasicAWSCredentials credentials = new BasicAWSCredentials(authComponents.principalName, authComponents.fdsToken.signature(Authenticator.KEY));
+        s3Signer.sign(amazonRequest, credentials);
         return amazonRequest.getHeaders().get("Authorization").toString();
     }
 
@@ -65,7 +86,7 @@ public class S3Authenticator implements Supplier<RequestHandler> {
             String headerName = (String) en.nextElement();
             String value = request.getHeader(headerName);
             if (!headerName.equals("Authorization")) {
-                headers.put(headerName, value);
+                headers.put(headerName, value.toLowerCase());
             }
         }
 
@@ -195,17 +216,28 @@ public class S3Authenticator implements Supplier<RequestHandler> {
         };
     }
 
-    private BasicAWSCredentials tryParse(String header) {
+    private AuthenticationComponents resolveFdsCredentials(String header) {
         String pattern = "AWS {0}:{1}";
-        Object[] parsed;
-
+        Object[] parsed = new Object[0];
         try {
             parsed = new MessageFormat(pattern).parse(header);
-            xdi.resolveToken((String) parsed[1]);
-            return new BasicAWSCredentials((String) parsed[0], (String) parsed[1]);
+            String principal = (String) parsed[0];
+            AuthenticationToken fdsToken = xdi.getAuthenticator().currentToken(principal);
+            return new AuthenticationComponents(principal, fdsToken);
         } catch (Exception e) {
             throw new SecurityException("invalid credentials");
         }
+    }
 
+
+    private class AuthenticationComponents {
+        String principalName;
+        AuthenticationToken fdsToken;
+
+        AuthenticationComponents(String principalName, AuthenticationToken fdsToken) {
+            this.principalName = principalName;
+            this.fdsToken = fdsToken;
+        }
     }
 }
+
