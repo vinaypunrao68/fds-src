@@ -71,6 +71,7 @@ enum FDSP_MsgCodeType {
    FDSP_MSG_PUSH_META,
 
    FDSP_MSG_SET_THROTTLE,
+   FDSP_MSG_SET_QOS_CONTROL,
    FDSP_MSG_SNAP_VOL
 }
 
@@ -606,6 +607,15 @@ struct FDSP_ThrottleMsgType {
      A throttle level of 0 indicates all volumes should be limited at their min_iops rating.
      A negative throttle level of -X means all volumes should be throttled at (10-X)/10 of their min iops.
   */
+}
+
+/*
+ * Message from OM to AM/SM/DM to help configure QoS control
+ * For now using for OM setting total rate in AM based on current set of SMs
+ * and their performance capabilities
+ */
+struct FDSP_QoSControlMsgType {
+  1: i64   total_rate,   /* total rate in FDS ops/second */
 }
 
 struct FDSP_PerfStatType {
@@ -1209,6 +1219,7 @@ service FDSP_ControlPathReq {
   oneway void NotifyDMTClose(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_DmtCloseType dmt_close),
   oneway void PushMetaDMTReq(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_PushMeta push_meta_req),
   oneway void SetThrottleLevel(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_ThrottleMsgType throttle_msg),
+  oneway void SetQoSControl(1:FDSP_MsgHdrType fdsp_msg, 2: FDSP_QoSControlMsgType qos_msg),
   oneway void TierPolicy(1:FDSP_TierPolicy tier),
   oneway void TierPolicyAudit(1:FDSP_TierPolicyAudit audit),
   oneway void NotifyBucketStats(1:FDSP_MsgHdrType fdsp_msg, 2:FDSP_BucketStatsRespType buck_stats_msg),

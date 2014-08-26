@@ -28,6 +28,7 @@ class StorHvQosCtrl : public FDS_QoSControl {
   Error enqueueIO(fds_volid_t volUUID, FDS_IOType *io);
 
   static void throttleCmdHandler(const float throttle_level);
+  static Error qosCtrlCmdHandler(fds_uint64_t tot_rate);
 
 };
 }
