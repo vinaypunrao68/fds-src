@@ -3,6 +3,7 @@
  */
 #include <map>
 #include <string>
+#include <fds_process.h>
 #include <am-tx-mgr.h>
 
 namespace fds {
@@ -32,6 +33,8 @@ AmTxDescriptor::~AmTxDescriptor() {
 
 AmTxManager::AmTxManager(const std::string &modName)
         : Module(modName.c_str()) {
+    FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
+    maxStagedEntries = conf.get<fds_uint32_t>("cache.tx_max_staged_entries");
 }
 
 AmTxManager::~AmTxManager() {
@@ -144,7 +147,10 @@ AmTxManager::updateStagedBlobOffset(const BlobTxId &txId,
 
     BlobOffsetPair offsetPair(blobName, blobOffset);
     fds_verify(txMapIt->second->stagedBlobOffsets.count(offsetPair) == 0);
-    txMapIt->second->stagedBlobOffsets[offsetPair] = objectId;
+
+    if (txMapIt->second->stagedBlobOffsets.size() < maxStagedEntries) {
+        txMapIt->second->stagedBlobOffsets[offsetPair] = objectId;
+    }
 
     return ERR_OK;
 }
@@ -164,10 +170,12 @@ AmTxManager::updateStagedBlobObject(const BlobTxId &txId,
     // a PUT transaction
     fds_verify(txMapIt->second->opType == FDS_PUT_BLOB);
 
-    // Copy the data into the tx manager. This allows the
-    // tx manager to hand off the ptr to the cache later.
-    txMapIt->second->stagedBlobObjects[objectId] =
-            new std::string(objectData, dataLen);
+    if (txMapIt->second->stagedBlobObjects.size() < maxStagedEntries) {
+        // Copy the data into the tx manager. This allows the
+        // tx manager to hand off the ptr to the cache later.
+        txMapIt->second->stagedBlobObjects[objectId] =
+                new std::string(objectData, dataLen);
+    }
 
     return ERR_OK;
 }
