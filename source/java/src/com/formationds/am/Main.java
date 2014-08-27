@@ -21,33 +21,13 @@ import com.formationds.xdi.s3.S3Endpoint;
 import com.formationds.xdi.swift.SwiftEndpoint;
 import org.apache.log4j.Logger;
 import org.apache.thrift.server.TNonblockingServer;
-import org.apache.thrift.server.TServer;
-import org.apache.thrift.server.TThreadPoolServer;
 import org.apache.thrift.transport.TNonblockingServerSocket;
-import org.apache.thrift.transport.TServerSocket;
 import org.apache.thrift.transport.TTransportException;
 
 import java.util.concurrent.ForkJoinPool;
 
-class FakeAmServer {
-    public static void main(String[] args) throws Exception {
-        AmService.Processor<AmService.Iface> processor = new AmService.Processor<>(new FakeAmService());
-        TServerSocket transport = new TServerSocket(4242);
-        TServer server = new TThreadPoolServer(new TThreadPoolServer.Args(transport).processor(processor));
-        server.serve();
-    }
-}
-
 public class Main {
     private static Logger LOG = Logger.getLogger(Main.class);
-
-    private static boolean defaultBooleanSetting(ParsedConfig config, String key, boolean def) {
-        try {
-            return config.lookup(key).booleanValue();
-        } catch(Exception e) {
-            return def;
-        }
-    }
 
     public static void main(String[] args) throws Exception {
         Configuration configuration = new Configuration("xdi", args);
@@ -70,12 +50,12 @@ public class Main {
 
             CachingConfigurationService config = new CachingConfigurationService(clientFactory.remoteOmService(omHost, omConfigPort));
 
-            boolean enforceAuthorization = amParsedConfig.lookup("fds.am.enforce_authorization").booleanValue();
+            boolean enforceAuthorization = amParsedConfig.lookup("fds.am.authentication").booleanValue();
             Authenticator authenticator = enforceAuthorization? new FdsAuthenticator(config) : new NullAuthenticator();
 
             int nbdPort = amParsedConfig.lookup("fds.am.nbd_server_port").intValue();
-            boolean nbdLoggingEnabled =  defaultBooleanSetting(amParsedConfig, "fds.am.enable_nbd_log", false);
-            boolean nbdBlockExclusionEnabled = defaultBooleanSetting(amParsedConfig, "fds.am.enable_nbd_block_exclusion", true);
+            boolean nbdLoggingEnabled =  amParsedConfig.defaultBoolean("fds.am.enable_nbd_log", false);
+            boolean nbdBlockExclusionEnabled = amParsedConfig.defaultBoolean("fds.am.enable_nbd_block_exclusion", true);
             ForkJoinPool fjp = new ForkJoinPool(50);
             NbdServerOperations ops = new FdsServerOperations(am, config, fjp);
             if(nbdLoggingEnabled)

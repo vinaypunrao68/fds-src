@@ -44,20 +44,21 @@ public class Main {
         configuration = new Configuration("om-xdi", args);
         NativeOm.startOm(args);
 
-        ParsedConfig omParsedConfig = configuration.getOmConfig();
+        ParsedConfig platformConfig = configuration.getPlatformConfig();
         XdiClientFactory clientFactory = new XdiClientFactory();
         CachingConfigurationService configApi = new CachingConfigurationService(clientFactory.remoteOmService("localhost", 9090));
         AmService.Iface amService = clientFactory.remoteAmService("localhost", 9988);
 
         String omHost = "localhost";
-        int omPort = omParsedConfig.lookup("fds.om.config_port").intValue();
-        String webDir = omParsedConfig.lookup("fds.om.web_dir").stringValue();
+        int omPort = platformConfig.lookup("fds.om.config_port").intValue();
+        String webDir = platformConfig.lookup("fds.om.web_dir").stringValue();
 
         LegacyClientFactory legacyClientFactory = new LegacyClientFactory();
         FDSP_ConfigPathReq.Iface legacyConfigClient = legacyClientFactory.configPathClient(omHost, omPort);
         VolumeStatistics volumeStatistics = new VolumeStatistics(Duration.standardMinutes(20));
 
-        Authenticator authenticator = configuration.enforceRestAuth() ? new FdsAuthenticator(configApi) : new NullAuthenticator();
+        boolean enforceAuthentication = platformConfig.lookup("fds.om.authentication").booleanValue();
+        Authenticator authenticator = enforceAuthentication ? new FdsAuthenticator(configApi) : new NullAuthenticator();
 
         xdi = new Xdi(amService, configApi, authenticator, legacyConfigClient);
 
@@ -98,7 +99,7 @@ public class Main {
             }
         }).start();
 
-        int adminWebappPort = omParsedConfig.lookup("fds.om.admin_webapp_port").intValue();
+        int adminWebappPort = platformConfig.lookup("fds.om.admin_webapp_port").intValue();
         webApp.start(adminWebappPort);
     }
 
