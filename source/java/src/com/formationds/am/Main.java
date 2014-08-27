@@ -11,16 +11,15 @@ import com.formationds.security.*;
 import com.formationds.streaming.Streaming;
 import com.formationds.util.Configuration;
 import com.formationds.util.libconfig.ParsedConfig;
-import com.formationds.xdi.CachingConfigurationService;
-import com.formationds.xdi.FakeAmService;
-import com.formationds.xdi.Xdi;
-import com.formationds.xdi.XdiClientFactory;
+import com.formationds.xdi.*;
 import com.formationds.xdi.s3.S3Endpoint;
 import com.formationds.xdi.swift.SwiftEndpoint;
 import org.apache.log4j.Logger;
 import org.apache.thrift.server.TNonblockingServer;
 import org.apache.thrift.transport.TNonblockingServerSocket;
 import org.apache.thrift.transport.TTransportException;
+import org.eclipse.jetty.io.ArrayByteBufferPool;
+import org.eclipse.jetty.io.ByteBufferPool;
 
 import java.util.concurrent.ForkJoinPool;
 
@@ -66,9 +65,11 @@ public class Main {
 
             Authorizer authorizer = new DumbAuthorizer();
             Xdi xdi = new Xdi(am, config, authenticator, authorizer, legacyClientFactory.configPathClient(omHost, omLegacyConfigPort));
+            ByteBufferPool bbp = new ArrayByteBufferPool();
+            XdiAsync xdiAsync = new XdiAsync(clientFactory.remoteAmServiceAsync("localhost", 9988), clientFactory.remoteOmServiceAsync(omHost, omConfigPort), bbp);
 
             int s3Port = amParsedConfig.lookup("fds.am.s3_port").intValue();
-            new Thread(() -> new S3Endpoint(xdi).start(s3Port)).start();
+            new Thread(() -> new S3Endpoint(xdi, xdiAsync).start(s3Port)).start();
 
             startStreamingServer(8999, config);
 

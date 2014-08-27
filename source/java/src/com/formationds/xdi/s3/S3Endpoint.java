@@ -8,6 +8,7 @@ import com.formationds.web.toolkit.HttpMethod;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.WebApp;
 import com.formationds.xdi.Xdi;
+import com.formationds.xdi.XdiAsync;
 
 import java.util.function.Function;
 
@@ -17,10 +18,13 @@ public class S3Endpoint {
     public static final String FDS_S3_SYSTEM_BUCKET_NAME = FDS_S3_SYSTEM;
 
     private Xdi xdi;
+    private XdiAsync xdiAsync;
     private final WebApp webApp;
 
-    public S3Endpoint(Xdi xdi) {
+    public S3Endpoint(Xdi xdi, XdiAsync xdiAsync) {
         this.xdi = xdi;
+        this.xdiAsync = xdiAsync;
+
         webApp = new WebApp();
     }
 
@@ -35,6 +39,8 @@ public class S3Endpoint {
         authenticate(HttpMethod.POST, "/:bucket/:object", (t) -> new PostObject(xdi, t));
         authenticate(HttpMethod.GET, "/:bucket/:object", (t) -> new GetObject(xdi, t));
         authenticate(HttpMethod.DELETE, "/:bucket/:object", (t) -> new DeleteObject(xdi, t));
+
+        webApp.addAsyncExecutor(new S3AsyncApplication(xdiAsync));
 
         webApp.start(port);
     }

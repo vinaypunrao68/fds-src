@@ -1,0 +1,121 @@
+package com.formationds.xdi.s3;
+/*
+ * Copyright 2014 Formation Data Systems, Inc.
+ */
+
+import com.formationds.apis.ApiException;
+import com.formationds.apis.ErrorCode;
+import com.formationds.util.CompletableFutureUtility;
+import com.formationds.web.toolkit.AsyncRequestExecutor;
+import com.formationds.xdi.XdiAsync;
+import org.eclipse.jetty.http.HttpStatus;
+import org.eclipse.jetty.http.HttpURI;
+import org.eclipse.jetty.server.Request;
+import org.eclipse.jetty.server.Response;
+import sun.reflect.generics.reflectiveObjects.NotImplementedException;
+
+import javax.servlet.AsyncContext;
+import javax.servlet.ServletOutputStream;
+import javax.servlet.ServletRequest;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.function.Supplier;
+
+public class S3AsyncApplication implements AsyncRequestExecutor {
+    private XdiAsync xdiAsync;
+
+    public S3AsyncApplication(XdiAsync xdi) {
+        this.xdiAsync = xdi;
+    }
+
+    @Override
+    public Optional<CompletableFuture<Void>> tryExecuteRequest(Request request, Response response) {
+        HttpURI uri = request.getUri();
+        String sanitizedPath = uri.getPath().replaceAll("^/|/$", "");
+        String[] chunks = sanitizedPath.split("/");
+
+        if(chunks.length != 2 || uri.hasQuery())
+            return Optional.empty();
+
+        String bucket = chunks[0];
+        String object = chunks[1];
+
+        Supplier<CompletableFuture<Void>> result = null;
+        switch(request.getMethod()) {
+            case "GET":
+                result = () -> getObject(bucket, object, request, response);
+                break;
+            case "PUT":
+                result = () -> putObject(bucket, object, request, response);
+                break;
+        }
+
+        if(result != null) {
+            AsyncContext ctx = request.startAsync();
+            CompletableFuture<Void> actionChain =
+                result.get()
+                      .exceptionally(ex -> handleError(ex, request, response))
+                      .whenComplete((r, ex) -> ctx.complete());
+
+            return Optional.of(actionChain);
+        }
+
+        return Optional.empty();
+    }
+
+    public void appendStandardHeaders(Response response, String contentType, int responseCode) {
+        // TODO: factor this somewhere common
+        response.addHeader("Access-Control-Allow-Origin", "*");
+        response.setHeader("Server", "Formation");
+        response.setContentType(contentType);
+        response.setStatus(responseCode);
+    }
+
+    public Void handleError(Throwable ex, Request request, Response response) {
+        StringWriter sw = new StringWriter();
+        PrintWriter pw = new PrintWriter(sw);
+        while(ex instanceof CompletionException)
+            ex = ex.getCause();
+        ex.printStackTrace(pw);
+        try {
+            if(ex instanceof ApiException) {
+                ApiException apiEx = (ApiException) ex;
+                if(apiEx.getErrorCode() == ErrorCode.MISSING_RESOURCE) {
+                    response.sendError(HttpStatus.NOT_FOUND_404, "resource not found");
+                    return null;
+                }
+            }
+            response.sendError(HttpStatus.INTERNAL_SERVER_ERROR_500, sw.toString());
+        } catch (IOException exception) {
+            // do nothing
+        }
+        return null;
+    }
+
+    public CompletableFuture<Void> getObject(String bucket, String object, Request request, Response response) {
+        // TODO: add etags
+        try {
+            ServletOutputStream outputStream = response.getOutputStream();
+            return xdiAsync.statBlob(S3Endpoint.FDS_S3, bucket, object).thenCompose(stat -> {
+                String contentType = stat.getMetadata().getOrDefault("Content-Type", "application/octet-stream");
+                appendStandardHeaders(response, contentType, HttpStatus.OK_200);
+                return xdiAsync.getBlobToStream(S3Endpoint.FDS_S3, bucket, object, outputStream);
+            });
+        } catch(Exception e) {
+            return CompletableFutureUtility.exceptionFuture(e);
+        }
+    }
+
+    public CompletableFuture<Void> putObject(String bucket, String object, Request request, Response response) {
+        try {
+            appendStandardHeaders(response, "application/octet-stream", HttpStatus.OK_200);
+            return xdiAsync.putBlobFromStream(S3Endpoint.FDS_S3, bucket, object, request.getInputStream());
+        } catch(Exception e) {
+            return CompletableFutureUtility.exceptionFuture(e);
+        }
+    }
+}
