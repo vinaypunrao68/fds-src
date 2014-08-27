@@ -2,6 +2,7 @@
  * Copyright 2014 Formation Data Systems, Inc.
  */
 #include <string>
+#include <vector>
 #include <boost/make_shared.hpp>
 #include <dm-tvc/TimeVolumeCatalog.h>
 #include <fds_process.h>
@@ -106,7 +107,19 @@ DmTimeVolCatalog::addVolume(const VolumeDesc& voldesc) {
     commitLogs_[voldesc.volUUID]->mod_init(mod_params);
     commitLogs_[voldesc.volUUID]->mod_startup();
 
-    return volcat->addCatalog(voldesc);
+    Error rc = volcat->addCatalog(voldesc);
+
+    std::vector<CommitLogTx::const_ptr> buffEntries =
+            commitLogs_[voldesc.volUUID]->getAllBufferedEntries();
+    for (auto it : buffEntries) {
+        blob_version_t blob_version = blob_version_invalid;
+        rc = doCommitBlob(voldesc.volUUID, blob_version, commitLogs_[voldesc.volUUID], it);
+        if (!rc.ok()) {
+            break;
+        }
+    }
+
+    return rc;
 }
 
 Error
@@ -214,23 +227,33 @@ DmTimeVolCatalog::commitBlobTxWork(fds_volid_t volid,
     CommitLogTx::const_ptr commit_data = commitLog->commitTx(txDesc, e);
     if (!commitLog->isBuffering()) {
         if (e.ok()) {
-            if (commit_data->blobDelete) {
-                e = volcat->deleteBlob(volid, commit_data->name, commit_data->blobVersion);
-                blob_version = commit_data->blobVersion;
-            } else if (commit_data->blobObjList && (commit_data->blobObjList->size() > 0)) {
-                if (commit_data->blobMode & blob::TRUNCATE) {
-                    commit_data->blobObjList->setEndOfBlob();
-                }
-                e = volcat->putBlob(volid, commit_data->name, commit_data->metaDataList,
-                                    commit_data->blobObjList, txDesc);
-            } else {
-                e = volcat->putBlobMeta(volid, commit_data->name,
-                                        commit_data->metaDataList, txDesc);
-            }
+            e = doCommitBlob(volid, blob_version, commitLog, commit_data);
         }
-        commitLog->purgeTx(txDesc);
     }
     cb(e, blob_version, commit_data->blobObjList, commit_data->metaDataList);
+}
+
+Error
+DmTimeVolCatalog::doCommitBlob(fds_volid_t volid, blob_version_t & blob_version,
+        DmCommitLog::ptr &commitLog, CommitLogTx::const_ptr commit_data) {
+    Error e;
+    if (commit_data->blobDelete) {
+        e = volcat->deleteBlob(volid, commit_data->name, commit_data->blobVersion);
+        blob_version = commit_data->blobVersion;
+    } else if (commit_data->blobObjList && (commit_data->blobObjList->size() > 0)) {
+        if (commit_data->blobMode & blob::TRUNCATE) {
+            commit_data->blobObjList->setEndOfBlob();
+        }
+        e = volcat->putBlob(volid, commit_data->name, commit_data->metaDataList,
+                            commit_data->blobObjList, commit_data->txDesc);
+    } else {
+        e = volcat->putBlobMeta(volid, commit_data->name,
+                                commit_data->metaDataList, commit_data->txDesc);
+    }
+
+    BlobTxId::const_ptr txId(new BlobTxId(commit_data->txDesc->getValue()));
+    commitLog->purgeTx(txId);
+    return e;
 }
 
 void DmTimeVolCatalog::updateFwdBlobWork(fds_volid_t volid,

@@ -220,6 +220,9 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
                           BlobTxId::const_ptr txDesc,
                           const DmTimeVolCatalog::CommitCb &cb);
 
+    Error doCommitBlob(fds_volid_t volid, blob_version_t & blob_version,
+            DmCommitLog::ptr &commitLog, CommitLogTx::const_ptr commit_data);
+
     void updateFwdBlobWork(fds_volid_t volId,
                            const std::string &blobName,
                            blob_version_t blobVersion,

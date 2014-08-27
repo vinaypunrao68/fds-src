@@ -170,7 +170,6 @@ class DmCommitLog : public Module {
     PersistenceType persist_;
     bool started_;
     boost::shared_ptr<DmCommitLogger> cmtLogger_;
-    boost::shared_ptr<DmCommitLogger> spilloverLogger_;
     std::atomic_flag compacting_;
 
     // not thread-safe, two different threads can't start buffering simultaneously

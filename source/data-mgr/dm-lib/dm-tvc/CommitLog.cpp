@@ -20,6 +20,7 @@
 #include <set>
 #include <map>
 #include <list>
+#include <vector>
 
 #include <fds_module.h>
 #include <dm-tvc/CommitLog.h>
@@ -348,13 +349,6 @@ Error DmCommitLog::startTx(BlobTxId::const_ptr & txDesc, const std::string & blo
     DmCommitLogEntry * entry = 0;
     Error rc = cmtLogger_->startTx(txDesc, details, entry);
     if (!rc.ok()) {
-        if (rc.GetErrno() == ERR_DM_MAX_CL_ENTRIES) {
-            if (!spilloverLogger_.get()) {
-                spilloverLogger_.reset(new DBCommitLogger(filename_ + ".ldb"));
-            }
-            return spilloverLogger_->startTx(txDesc, details, entry);
-        }
-
         GLOGERROR << "Failed to save blob transaction error=(" << rc << ")";
         return rc;
     }
@@ -711,6 +705,27 @@ fds_bool_t DmCommitLog::isPendingTx(const fds_uint64_t tsNano /* = util::getTime
                 ret = true;
             }
         }
+    }
+
+    return ret;
+}
+
+std::vector<CommitLogTx::const_ptr> DmCommitLog::getAllBufferedEntries() {
+    std::vector<CommitLogTx::const_ptr> ret;
+    std::multimap<fds_uint64_t, CommitLogTx::const_ptr> trans;
+
+    {
+        SCOPEDREAD(lockTxMap_);
+        for (auto it : txMap_) {
+            if (it.second->committed && !it.second->purged) {
+                trans.insert(std::pair<fds_uint64_t, CommitLogTx::const_ptr>(it.second->committed,
+                        it.second));
+            }
+        }
+    }
+
+    for (auto it : trans) {
+        ret.push_back(it.second);
     }
 
     return ret;
