@@ -242,29 +242,36 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
     void listSnapshotPolicies(std::vector<fpi::SnapshotPolicy> & _return,
                       boost::shared_ptr<int64_t>& unused) {
+        configDB->listSnapshotPolicies(_return);
     }
 
     void deleteSnapshotPolicy(boost::shared_ptr<int64_t>& id) {
+        configDB->deleteSnapshotPolicy(*id);
     }
 
     void attachSnapshotPolicy(boost::shared_ptr<int64_t>& volumeId,
                               boost::shared_ptr<int64_t>& policyId) {
+        configDB->attachSnapshotPolicy(*volumeId, *policyId);
     }
 
     void listSnapshotPoliciesForVolume(std::vector<fpi::SnapshotPolicy> & _return,
                                        boost::shared_ptr<int64_t>& volumeId) {
+        configDB->listSnapshotPoliciesForVolume(_return, *volumeId);
     }
 
     void detachSnapshotPolicy(boost::shared_ptr<int64_t>& volumeId,
                               boost::shared_ptr<int64_t>& policyId) {
+        configDB->detachSnapshotPolicy(*volumeId, *policyId);
     }
 
     void listVolumesForSnapshotPolicy(std::vector<int64_t> & _return,
                               boost::shared_ptr<int64_t>& policyId) {
+        configDB->listVolumesForSnapshotPolicy(_return, *policyId);
     }
 
     void listSnapshots(std::vector<fpi::Snapshot> & _return,
                        boost::shared_ptr<int64_t>& volumeId) {
+        configDB->listSnapshots(_return, *volumeId);
     }
 
     void restore(boost::shared_ptr<int64_t>& volumeId, boost::shared_ptr<int64_t>& snapshotId) {
