@@ -146,8 +146,8 @@ NodePlatformProc::plf_fill_disk_capacity_pkt(fpi::FDSP_RegisterNodeTypePtr pkt)
     // to reserve some iops for local background tasks (such as migration, etc)
     LOGNOTIFY << "Send system capacity to OM";
 
-    pkt->disk_info.disk_iops_max    = 3600;
-    pkt->disk_info.disk_iops_min    = 1000;
+    pkt->disk_info.disk_iops_max    = 10000;
+    pkt->disk_info.disk_iops_min    = 4000;
     pkt->disk_info.disk_capacity    = 0x7ffff;
     pkt->disk_info.disk_latency_max = 1000000 / pkt->disk_info.disk_iops_min;
     pkt->disk_info.disk_latency_min = 1000000 / pkt->disk_info.disk_iops_max;
@@ -157,6 +157,13 @@ NodePlatformProc::plf_fill_disk_capacity_pkt(fpi::FDSP_RegisterNodeTypePtr pkt)
     pkt->disk_info.ssd_latency_max  = 1000000 / pkt->disk_info.ssd_iops_min;
     pkt->disk_info.ssd_latency_min  = 1000000 / pkt->disk_info.ssd_iops_max;
     pkt->disk_info.disk_type        = FDS_DISK_SATA;
+
+    // over-write some value from config if testing perf
+    FdsConfigAccessor conf(get_conf_helper());
+    if (conf.get<bool>("testing.manual_nodecap")) {
+        pkt->disk_info.disk_iops_min = conf.get<int>("testing.disk_iops_min");
+        pkt->disk_info.disk_iops_max = conf.get<int>("testing.disk_iops_max");
+    }
 }
 
 void

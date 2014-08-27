@@ -370,7 +370,7 @@ ObjectStorMgr::~ObjectStorMgr() {
 
 int  ObjectStorMgr::mod_init(SysParams const *const param)
 {
-    totalRate = 6000;
+    totalRate = 6000;  // this will be over-written later from node cap
     qosThrds = 100;
     shuttingDown = false;
     numWBThreads = 1;
@@ -392,45 +392,6 @@ int  ObjectStorMgr::mod_init(SysParams const *const param)
      */
     omClient = NULL;
 
-    /*
-     * Setup the tier related members
-     */
-    dirtyFlashObjs = new ObjQueue(maxDirtyObjs);
-    fds_verify(dirtyFlashObjs->is_lock_free() == true);
-    writeBackThreads = new fds_threadpool(numWBThreads);
-
-
-    /*
-     * Setup QoS related members.
-     */
-    qosCtrl = new SmQosCtrl(this,
-                            qosThrds,
-                            FDS_QoSControl::FDS_DISPATCH_WFQ,
-                            GetLog());
-    qosCtrl->runScheduler();
-
-    /* Set up the journal */
-    omJrnl = new TransJournal<ObjectID, ObjectIdJrnlEntry>(qosCtrl, GetLog());
-    /*
-     * stats class init
-     */
-    objStats = &gl_objStats;
-
-    /*
-     * Performance stats recording
-     * TODO: This is *not* a unique name, so
-     * multiple SMs will clobber each other.
-     * The prefix isn't parsed until later.
-     * We should fix that.
-     */
-    /**
-     * TODO(xxx) use our new perf counters for this
-     */
-    // Error err;
-    // perfStats = new PerfStats("migratorSmStats");
-    // err = perfStats->enable();
-    // fds_verify(err == ERR_OK);
-
     return 0;
 }
 
@@ -444,6 +405,24 @@ void ObjectStorMgr::mod_startup()
     modProvider_->proc_fdsroot()->\
         fds_mkdir(modProvider_->proc_fdsroot()->dir_user_repo_objs().c_str());
     std::string obj_dir = modProvider_->proc_fdsroot()->dir_user_repo_objs();
+
+    // get the total rate from platform
+    //    const NodeUuid *mySvcUuid = modProvider_->get_plf_manager()->plf_get_my_svc_uuid();
+    //  NodeAgent::pointer sm_node = Platform::plf_sm_nodes()->agent_info(*mySvcUuid);
+    //  LOGNOTIFY << "Will set totalRate to " << (sm_node->node_capability()).disk_iops_min;
+
+
+    /*
+     * Setup the tier related members
+     */
+    dirtyFlashObjs = new ObjQueue(maxDirtyObjs);
+    fds_verify(dirtyFlashObjs->is_lock_free() == true);
+    writeBackThreads = new fds_threadpool(numWBThreads);
+
+    /*
+     * stats class init
+     */
+    objStats = &gl_objStats;
 
     // Create leveldb
     smObjDb = new  SmObjDb(this, obj_dir, g_fdslog);
@@ -513,19 +492,6 @@ void ObjectStorMgr::mod_startup()
     // TODO: join this thread
     std::thread *stats_thread = new std::thread(log_ocache_stats);
 
-    // Create a special queue for System (background) tasks
-    // and registe rwith QosCtrlr
-    sysTaskQueue = new SmVolQueue(FdsSysTaskQueueId,
-                                  256,
-                                  getSysTaskIopsMax(),
-                                  getSysTaskIopsMin(),
-                                  getSysTaskPri());
-
-    qosCtrl->registerVolume(FdsSysTaskQueueId,
-                            sysTaskQueue);
-    // TODO(Rao): Size it appropriately
-    objCache->vol_cache_create(FdsSysTaskQueueId, 8, 256);
-
     /*
      * Register/boostrap from OM
      */
@@ -543,6 +509,55 @@ void ObjectStorMgr::mod_startup()
 
     testUturnAll    = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.uturn_all");
     testUturnPutObj = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.uturn_putobj");
+
+    setup_migration_svc(obj_dir);
+}
+
+//
+// Finishing initialization -- at this point we can access platform service
+// and get info like node capabilities we need for properly configuring QoS
+// control. So here we initialize everything depending on QoS control
+//
+void ObjectStorMgr::mod_enable_service()
+{
+    const NodeUuid *mySvcUuid = Platform::plf_get_my_svc_uuid();
+    NodeAgent::pointer sm_node = Platform::plf_sm_nodes()->agent_info(*mySvcUuid);
+    fpi::StorCapMsg stor_cap;
+    sm_node->init_stor_cap_msg(&stor_cap);
+    LOGNOTIFY << "Will set totalRate to " << stor_cap.disk_iops_min;
+
+    // note that qos dispatcher in SM/DM uses total rate just to assign
+    // guaranteed slots, it still will dispatch more IOs if there is more
+    // perf capacity available (based on how fast IOs return). So setting
+    // totalRate to disk_iops_min does not actually restrict the SM from
+    // servicing more IO if there is more capacity (eg.. because we have
+    // cache and SSDs)
+    totalRate = stor_cap.disk_iops_min;
+
+    /*
+     * Setup QoS related members.
+     */
+    qosCtrl = new SmQosCtrl(this,
+                            qosThrds,
+                            FDS_QoSControl::FDS_DISPATCH_WFQ,
+                            GetLog());
+    qosCtrl->runScheduler();
+
+    /* Set up the journal */
+    omJrnl = new TransJournal<ObjectID, ObjectIdJrnlEntry>(qosCtrl, GetLog());
+
+    // create queue for system tasks
+    sysTaskQueue = new SmVolQueue(FdsSysTaskQueueId,
+                                  256,
+                                  getSysTaskIopsMax(),
+                                  getSysTaskIopsMin(),
+                                  getSysTaskPri());
+
+    qosCtrl->registerVolume(FdsSysTaskQueueId,
+                            sysTaskQueue);
+    // TODO(Rao): Size it appropriately
+    objCache->vol_cache_create(FdsSysTaskQueueId, 8, 256);
+
 
     // Enable stats collection in SM for stats streaming
     StatsCollector::singleton()->registerOmClient(omClient);
@@ -597,7 +612,7 @@ void ObjectStorMgr::mod_startup()
      */
     writeBackThreads->schedule(writeBackFunc, this);
 
-    setup_migration_svc(obj_dir);
+
 }
 
 void ObjectStorMgr::mod_shutdown()
