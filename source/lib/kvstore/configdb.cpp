@@ -1224,7 +1224,7 @@ bool ConfigDB::getSnapshotPolicy(int64_t policyid, fpi::SnapshotPolicy& policy) 
     return true;
 }
 
-bool ConfigDB::listSnapshotPolicies(std::vector<fpi::SnapshotPolicy> & vecPolicy, const int64_t unused) {
+bool ConfigDB::listSnapshotPolicies(std::vector<fpi::SnapshotPolicy> & vecPolicy) {
     try {
         Reply reply = r.sendCommand("hvals snapshot.policies");
         StringList strings;
