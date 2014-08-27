@@ -179,7 +179,7 @@ service ConfigurationService {
     void detachPolicy(1:i64 volumeId, 2:i64 policyId)
              throws (1: ApiException e),
 
-    list<string> listVolumesForPolicy(1:i64 policyId)
+    list<i64> listVolumesForSnapshotPolicy(1:i64 policyId)
              throws (1: ApiException e),
 
     list<snapshot.Snapshot> listSnapshots(1:i64 volumeId)

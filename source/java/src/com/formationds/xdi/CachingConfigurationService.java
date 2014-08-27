@@ -143,7 +143,7 @@ public class CachingConfigurationService implements ConfigurationService.Iface {
     }
 
     @Override
-    public List<String> listVolumesForPolicy(long policyId) throws ApiException, TException {
+    public List<Long> listVolumesForSnapshotPolicy(long policyId) throws ApiException, TException {
         return null;
     }
 

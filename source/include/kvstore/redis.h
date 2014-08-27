@@ -18,8 +18,8 @@ namespace redis {
             reason = std::string(cstr);
         }
 
-        explicit RedisException(const std::string& reas) {
-            this->reason = reas;
+        explicit RedisException(const std::string& reason) {
+            this->reason = reason;
         }
 
         virtual ~RedisException() throw() {}
@@ -55,6 +55,7 @@ namespace redis {
         void toVector(std::vector<long long>& vec); // NOLINT
         void toVector(std::vector<uint>& vec); // NOLINT
         void toVector(std::vector<uint64_t>& vec); //NOLINT
+        void toVector(std::vector<int64_t>& vec); //NOLINT
 
         void dump() const;
 
@@ -132,11 +133,11 @@ namespace redis {
         Reply sendCommand(const char* cmdfmt, ...);
 
         // strings
-        Reply set(const std::string& key, const std::string& value);
+        bool set(const std::string& key, const std::string& value);
         Reply get(const std::string& key);
+        bool del(const std::string& key);
         Reply append(const std::string& key, const std::string& value);
-        Reply incr(const std::string& key);
-        Reply incrby(const std::string& key,long increment); // NOLINT
+        int64_t incr(const std::string& key, int64_t increment = 1);
 
         // lists
         Reply lrange(const std::string& key, long start = 0, long end = -1); // NOLINT
@@ -145,12 +146,25 @@ namespace redis {
         Reply rpush(const std::string& key, const std::string& value);
 
         // hashes
-        Reply hset(const std::string& key, const std::string& field,
-                   const std::string& value);
+        bool hset(const std::string& key, const std::string& field, const std::string& value); //NOLINT
+        bool hset(const std::string& key, int64_t field, const std::string& value); //NOLINT
         Reply hget(const std::string& key, const std::string& field);
+        Reply hget(const std::string& key, int64_t field);
         Reply hgetall(const std::string& key);
-        Reply hlen(const std::string& key);
+        int64_t hlen(const std::string& key);
+        bool hdel(const std::string& key, const std::string& field);
+        bool hdel(const std::string& key, int64_t field);
 
+        // sets
+        Reply smembers(const std::string& key);
+        bool sismember(const std::string& key, const std::string& value);
+        bool sismember(const std::string& key, const int64_t value);
+
+        bool sadd(const std::string& key, const std::string& value);
+        bool sadd(const std::string& key, const int64_t value);
+
+        bool srem(const std::string& key, const std::string& value);
+        bool srem(const std::string& key, const int64_t value);
 
       protected:
         ConnectionPool pool;

@@ -11,3 +11,4 @@ files:
     src:
       - ../../../Build/linux-x86_64.debug/bin/configdbtool
       - redis.sh
+    dest-is-dir: True

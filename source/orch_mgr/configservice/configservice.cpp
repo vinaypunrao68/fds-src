@@ -22,6 +22,7 @@ using namespace ::apache::thrift;  //NOLINT
 using namespace ::apache::thrift::protocol;  //NOLINT
 using namespace ::apache::thrift::transport;  //NOLINT
 using namespace ::apache::thrift::server;  //NOLINT
+using namespace ::apache::thrift::concurrency;  //NOLINT
 
 using namespace  ::apis;  //NOLINT
 
@@ -75,7 +76,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     void attachPolicy(const int64_t volumeId, const int64_t policyId) {} //NOLINT
     void listSnapshotPoliciesForVolume(std::vector< ::FDS_ProtocolInterface::SnapshotPolicy> & _return, const int64_t volumeId) {} //NOLINT
     void detachPolicy(const int64_t volumeId, const int64_t policyId) {} //NOLINT
-    void listVolumesForPolicy(std::vector<std::string> & _return, const int64_t policyId) {} //NOLINT
+    void listVolumesForSnapshotPolicy(std::vector<int64_t> & _return, const int64_t policyId) {} //NOLINT
     void listSnapshots(std::vector< ::FDS_ProtocolInterface::Snapshot> & _return, const int64_t volumeId) {} //NOLINT
     void restore(const int64_t volumeId, const int64_t snapshotId) {} //NOLINT
     int64_t cloneVolume(const int64_t volumeId, const int64_t fdsp_PolicyInfoId, const std::string& clonedVolumeName) { return 0;} //NOLINT
@@ -253,7 +254,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     void detachPolicy(boost::shared_ptr<int64_t>& volumeId, boost::shared_ptr<int64_t>& policyId) {
     }
 
-    void listVolumesForPolicy(std::vector<std::string> & _return,
+    void listVolumesForSnapshotPolicy(std::vector<int64_t> & _return,
                               boost::shared_ptr<int64_t>& policyId) {
     }
 
@@ -280,9 +281,20 @@ std::thread* runConfigService(OrchMgr* om) {
     boost::shared_ptr<TTransportFactory> transportFactory(new TBufferedTransportFactory());  //NOLINT
     boost::shared_ptr<TProtocolFactory> protocolFactory(new TBinaryProtocolFactory());  //NOLINT
 
-    TThreadedServer* server = new TThreadedServer(processor,
-                                                  serverTransport,
-                                                  transportFactory, protocolFactory);
+    boost::shared_ptr<ThreadManager> threadManager = ThreadManager::newSimpleThreadManager(1);
+    boost::shared_ptr<PosixThreadFactory> threadFactory = boost::shared_ptr<PosixThreadFactory>(
+        new PosixThreadFactory());
+    threadManager->threadFactory(threadFactory);
+    threadManager->start();
+
+    TNonblockingServer *server = new TNonblockingServer(processor,
+                                                        protocolFactory,
+                                                        port,
+                                                        threadManager);
+    // TThreadedServer* server = new TThreadedServer(processor,
+    //                                           serverTransport,
+    //                                            transportFactory,
+    //                                            protocolFactory);
     return new std::thread ( [server] {
             LOGNOTIFY << "starting config service";
             server->serve();
