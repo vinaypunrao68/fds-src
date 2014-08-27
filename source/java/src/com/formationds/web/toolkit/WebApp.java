@@ -7,6 +7,10 @@ import org.eclipse.jetty.servlet.ServletHolder;
 
 import java.util.function.Supplier;
 
+import java.util.concurrent.ForkJoinPool;
+import org.eclipse.jetty.util.thread.ExecutorThreadPool;
+import org.eclipse.jetty.util.thread.ThreadPool;
+
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
@@ -31,7 +35,8 @@ public class WebApp {
     }
 
     public void start(int httpPort) {
-        Server server = new Server();
+        ThreadPool tp = new ExecutorThreadPool(new ForkJoinPool(250));
+        Server server = new Server(tp);
         ServerConnector connector = new ServerConnector(server);
         connector.setHost("0.0.0.0");
         connector.setPort(httpPort);
