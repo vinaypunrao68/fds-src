@@ -3,6 +3,7 @@
 
 #include <kvstore/configdb.h>
 #include <util/Log.h>
+#include <util/stringutils.h>
 #include <dlt.h>
 #include "../dlt/dlt_helper_funcs.h"
 #include <vector>
@@ -103,8 +104,8 @@ TEST_CASE("tenant"){
 TEST_CASE("user"){
     ConfigDB cfg;
 
-    int64_t id1 = cfg.createUser("testuser1", "secret1", false);
-    int64_t id2 = cfg.createUser("testuser2", "secret2", true);
+    int64_t id1 = cfg.createUser("testuser1", "hash", "secret1", false);
+    int64_t id2 = cfg.createUser("testuser2", "hash", "secret2", true);
 
     std::vector<fds::apis::User> users;
     cfg.listUsers(users);
@@ -126,4 +127,24 @@ TEST_CASE("user"){
 
     REQUIRE(users.size() == 1);
     REQUIRE(users[0].identifier == "testuser1");
+
+    users.clear();
+
+    cfg.revokeUserFromTenant(id1, tenantid);
+    cfg.listUsersForTenant(users, tenantid);
+    REQUIRE(users.size() == 0);
+}
+
+TEST_CASE("utils") {
+    std::string name = "Formation Data";
+    std::string lower = fds::util::strlower(name);
+
+    REQUIRE(lower == "formation data");
+
+    std::string output;
+    output = fds::util::strformat("name is %s", "fds");
+    REQUIRE(output == "name is fds");
+
+    output = fds::util::strformat("sum of %d and %d = %ld", 1, 2, 3);
+    REQUIRE(output == "sum of 1 and 2 = 3");
 }
