@@ -607,18 +607,18 @@ FdsnServer::init_server(FDS_NativeAPI::ptr api) {
         fdsnInterface));
     // event_handler_.reset(new ServerEventHandler(*this));
 
-    nbServer.reset(new xdi_ats::TNonblockingServer(
-        processor, protocolFactory, port, threadManager));
-    // server.reset(new xdi_ats::TThreadedServer(processor,
-    //                                       serverTransport,
-    //                                        transportFactory,
-    //                                        protocolFactory));
+    // server.reset(new xdi_ats::TNonblockingServer(
+    //  processor, protocolFactory, 9988, threadManager));
+    server.reset(new xdi_ats::TThreadedServer(processor,
+                                              serverTransport,
+                                              transportFactory,
+                                              protocolFactory));
 
     try {
         LOGNORMAL << "Starting the FDSN server...";
-        // listen_thread.reset(new boost::thread(&xdi_ats::TThreadedServer::serve, server.get()));
-        listen_thread.reset(new boost::thread(&xdi_ats::TNonblockingServer::serve,
-                                              nbServer.get()));
+        // listen_thread.reset(new boost::thread(&xdi_ats::TNonblockingServer::serve,
+        listen_thread.reset(new boost::thread(&xdi_ats::TThreadedServer::serve,
+                                              server.get()));
     } catch(const xdi_att::TTransportException& e) {
         LOGERROR << "unable to start FDSN server : " << e.what();
         fds_panic("Unable to start FDSN server...bailing out");

@@ -305,13 +305,13 @@ Error StorHvCtrl::putBlobSvc(fds::AmQosReq *qosReq)
         fds_uint64_t dmt_version;
         fds_verify(amTxMgr->getTxDmtVersion(*(blobReq->getTxId()), &dmt_version) == ERR_OK);
         // Update the tx manager with this update
-        fds_verify(amTxMgr->updateStagedBlobDesc(*(blobReq->getTxId()),
-                                                 blobReq->getDataLen()) == ERR_OK);
+        // fds_verify(amTxMgr->updateStagedBlobDesc(*(blobReq->getTxId()),
+	//                                      blobReq->getDataLen()) == ERR_OK);
         // Update the transaction manager with the stage offset update
-        amTxMgr->updateStagedBlobOffset(*(blobReq->getTxId()),
-                                        blobReq->getBlobName(),
-                                        blobReq->getBlobOffset(),
-                                        blobReq->getObjId());
+        // amTxMgr->updateStagedBlobOffset(*(blobReq->getTxId()),
+	//                             blobReq->getBlobName(),
+	//                              blobReq->getBlobOffset(),
+	//                              blobReq->getObjId());
         issueUpdateCatalogMsg(blobReq->getObjId(),
                               blobReq->getBlobName(),
                               blobReq->getBlobOffset(),
@@ -334,16 +334,16 @@ Error StorHvCtrl::putBlobSvc(fds::AmQosReq *qosReq)
                                   dmt_version,
                                   blobReq->getBlobName()) == ERR_OK);
         // Stage the tx manager with this update's length
-        fds_verify(amTxMgr->updateStagedBlobDesc(txId,
-                                                 blobReq->getDataLen()) == ERR_OK);
+        // fds_verify(amTxMgr->updateStagedBlobDesc(txId,
+	//                                      blobReq->getDataLen()) == ERR_OK);
         // Stage the transaction metadata changes
-        fds_verify(amTxMgr->updateStagedBlobDesc(txId,
-                                                 blobReq->metadata) == ERR_OK);
+        // fds_verify(amTxMgr->updateStagedBlobDesc(txId,
+	//                                      blobReq->metadata) == ERR_OK);
         // Update the transaction manager with the stage offset update
-        fds_verify(amTxMgr->updateStagedBlobOffset(*(blobReq->getTxId()),
-                                                   blobReq->getBlobName(),
-                                                   blobReq->getBlobOffset(),
-                                                   blobReq->getObjId()) == ERR_OK);
+        // fds_verify(amTxMgr->updateStagedBlobOffset(*(blobReq->getTxId()),
+	//                                        blobReq->getBlobName(),
+	//                                         blobReq->getBlobOffset(),
+	//                                         blobReq->getObjId()) == ERR_OK);
 
         issueUpdateCatalogMsg(blobReq->getObjId(),
                               blobReq->getBlobName(),
@@ -366,11 +366,11 @@ Error StorHvCtrl::putBlobSvc(fds::AmQosReq *qosReq)
         blobReq->notifyResponse(qos_ctrl, qosReq, err);
     } else {
         // Update the transaction manager with the stage object data
-        fds_verify(amTxMgr->updateStagedBlobObject(*(blobReq->getTxId()),
-                                                   blobReq->getObjId(),
-                                                   blobReq->getDataBuf(),
-                                                   blobReq->getDataLen())
-                   == ERR_OK);
+        // fds_verify(amTxMgr->updateStagedBlobObject(*(blobReq->getTxId()),
+      //                                        blobReq->getObjId(),
+      //                                           blobReq->getDataBuf(),
+      //                                           blobReq->getDataLen())
+      //           == ERR_OK);
         issuePutObjectMsg(blobReq->getObjId(),
                           blobReq->getDataBuf(),
                           blobReq->getDataLen(),

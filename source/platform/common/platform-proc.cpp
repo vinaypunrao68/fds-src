@@ -74,10 +74,10 @@ NodePlatformProc::plf_start_node_services(const fpi::FDSP_ActivateNodeTypePtr &m
             std::string arg1;
             std::string arg2;
             std::string arg3;
-            arg1stream << " --fds.plat.platform_port=" << conf.get<int>("platform_port");
+            arg1stream << "--fds.plat.platform_port=" << conf.get<int>("platform_port");
             arg1 = arg1stream.str();
             extra_args.push_back(arg1.c_str());
-            arg2 = std::string(" --fds.plat.om_ip=") + conf.get<std::string>("om_ip");
+            arg2 = std::string("--fds.plat.om_ip=") + conf.get<std::string>("om_ip");
             extra_args.push_back(arg2.c_str());
             arg3 = std::string("--fds.sm.om_ip=") + conf.get<std::string>("om_ip");
             extra_args.push_back(arg3.c_str());
@@ -96,10 +96,10 @@ NodePlatformProc::plf_start_node_services(const fpi::FDSP_ActivateNodeTypePtr &m
             std::string arg1;
             std::string arg2;
             std::string arg3;
-            arg1stream << " --fds.plat.platform_port=" << conf.get<int>("platform_port");
+            arg1stream << "--fds.plat.platform_port=" << conf.get<int>("platform_port");
             arg1 = arg1stream.str();
             extra_args.push_back(arg1.c_str());
-            arg2 = std::string(" --fds.plat.om_ip=") + conf.get<std::string>("om_ip");
+            arg2 = std::string("--fds.plat.om_ip=") + conf.get<std::string>("om_ip");
             extra_args.push_back(arg2.c_str());
             arg3 = std::string("--fds.dm.om_ip=") + conf.get<std::string>("om_ip");
             extra_args.push_back(arg3.c_str());
@@ -116,10 +116,10 @@ NodePlatformProc::plf_start_node_services(const fpi::FDSP_ActivateNodeTypePtr &m
             std::string arg1;
             std::string arg2;
             std::string arg3;
-            arg1stream << " --fds.plat.platform_port=" << conf.get<int>("platform_port");
+            arg1stream << "--fds.plat.platform_port=" << conf.get<int>("platform_port");
             arg1 = arg1stream.str();
             extra_args.push_back(arg1.c_str());
-            arg2 = std::string(" --fds.plat.om_ip=") + conf.get<std::string>("om_ip");
+            arg2 = std::string("--fds.plat.om_ip=") + conf.get<std::string>("om_ip");
             extra_args.push_back(arg2.c_str());
             arg3 = std::string("--fds.am.om_ip=") + conf.get<std::string>("om_ip");
             extra_args.push_back(arg3.c_str());

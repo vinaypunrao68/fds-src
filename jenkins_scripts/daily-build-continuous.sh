@@ -73,6 +73,10 @@ cd source
 test/fds-primitive-smoke.py --smoke_test true --log_level 0 --std_output yes --fds_root /fds2
 exit_if_error $? "Smoke Test failed"
 
+# Create FDS tar
+test/fds-tool.py -p
+exit_if_error $? "Error creating FDS tar"
+
 ## Running datagen tester
 #echo "FDS-Build: Running datagen test"
 #echo "  Cleaning FDS"

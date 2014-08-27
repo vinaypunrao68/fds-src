@@ -54,11 +54,11 @@ class FdsnServer : public Module {
     boost::shared_ptr<xdi_atc::ThreadManager>      threadManager;
     boost::shared_ptr<xdi_atc::PosixThreadFactory> threadFactory;
     boost::shared_ptr<xdi_ats::TThreadedServer>    server;
-
-    boost::shared_ptr<xdi_ats::TNonblockingServer> nbServer;
+    // boost::shared_ptr<xdi_ats::TNonblockingServer> server;
     // boost::shared_ptr<xdi::AmShimIf>  handler;
 
     boost::shared_ptr<boost::thread> listen_thread;
+
 
   public:
     explicit FdsnServer(const std::string &name);

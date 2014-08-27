@@ -78,8 +78,7 @@ class XdiClientConnectionFactory<T> implements KeyedPooledObjectFactory<Connecti
 
     @Override
     public PooledObject<XdiClientConnection<T>> makeObject(ConnectionSpecification cspec) throws Exception {
-        // TSocket transport = new TSocket(cspec.host, cspec.port);
-        TFramedTransport transport = new TFramedTransport(new TSocket(cspec.host, cspec.port));
+        TSocket transport = new TSocket(cspec.host, cspec.port);
         try {
             transport.open();
         } catch (TTransportException e) {
