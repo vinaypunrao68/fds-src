@@ -1211,7 +1211,7 @@ ObjectStorMgr::readObjMetaData(const ObjectID &objId,
             err = ERR_DISK_READ_FAILED;
         }
     } else {
-        LOGWARN << "unable to read object meta: " << objId;
+        LOGNORMAL << "unable to read object meta: " << objId;
     }
     return err;
 }

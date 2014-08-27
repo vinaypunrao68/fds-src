@@ -713,17 +713,6 @@ void StorHvCtrl::getBlobQueryCatalogResp(fds::AmQosReq* qosReq,
 
     // TODO(Andrew): Update the AM's blob offset cache here
 
-    Error e = updateCatalogCache(blobReq,
-                                 qryCatRsp->obj_list);
-    if (e != ERR_OK) {
-        LOGERROR << "blob name: " << blobReq->getBlobName() << " offset: "
-            << blobReq->getBlobOffset() << " Error: " << e; 
-        qos_ctrl->markIODone(qosReq);
-        blobReq->cb->call(e);
-        delete blobReq;
-        return;
-    }
-
     // TODO(xxx) should be able to have multiple object id + implement range
     // queries in DM
     for (fpi::FDSP_BlobObjectList::const_iterator it = qryCatRsp->obj_list.cbegin();

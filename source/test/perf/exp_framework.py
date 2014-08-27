@@ -247,19 +247,19 @@ class CounterServerPull:
     def _get_counters(self):
         counters = []
         tstamp = long(time.time())
-        node = self.options.main_node
-        ip = self.options.nodes[node]
-        port=7020
-        svc_map = SvcMap(ip, port)
-        svclist = svc_map.list()
-        for e in svclist:
-            nodeid, svc = e[0].split(":")
-            nodeid = long(nodeid)
-            if svc != "om" and svc != "None":
-                cntrs = svc_map.client(nodeid, svc).getCounters('*')
-                for c, v in cntrs.iteritems():
-                    line = node + " " + svc + " " + c + " " + str(v) + " " + str(tstamp)
-                    counters.append(line)
+        for node in self.options.nodes:
+            ip = self.options.nodes[node]
+            port=7020
+            svc_map = SvcMap(ip, port)
+            svclist = svc_map.list()
+            for e in svclist:
+                nodeid, svc = e[0].split(":")
+                nodeid = long(nodeid)
+                if svc != "om" and svc != "None":
+                    cntrs = svc_map.client(nodeid, svc).getCounters('*')
+                    for c, v in cntrs.iteritems():
+                        line = node + " " + svc + " " + c + " " + str(v) + " " + str(tstamp)
+                        counters.append(line)
         return counters
 
     def _task(self, name, datafile, stop):

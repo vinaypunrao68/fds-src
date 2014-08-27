@@ -41,7 +41,7 @@ public class IssueToken implements RequestHandler {
           {
             features.add( "System Management" );
             features.add( "Volume Management" );
-            features.add( "Tenet Management" );
+            features.add( "Tenant Management" );
             features.add( "User Management" );
           }
           else

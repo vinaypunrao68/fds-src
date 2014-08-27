@@ -694,7 +694,7 @@ int DataMgr::mod_init(SysParams const *const param)
     /*
      *  init Data Manager  QOS class.
      */
-    qosCtrl = new dmQosCtrl(this, 20, FDS_QoSControl::FDS_DISPATCH_WFQ, GetLog());
+    qosCtrl = new dmQosCtrl(this, 50, FDS_QoSControl::FDS_DISPATCH_WFQ, GetLog());
     qosCtrl->runScheduler();
 
     timeVolCat_ = DmTimeVolCatalog::ptr(new
