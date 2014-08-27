@@ -1224,7 +1224,7 @@ bool ConfigDB::getSnapshotPolicy(int64_t policyid, fpi::SnapshotPolicy& policy) 
     return true;
 }
 
-bool ConfigDB::listPolicies(std::vector<fpi::SnapshotPolicy> & vecPolicy, const int64_t unused) {
+bool ConfigDB::listSnapshotPolicies(std::vector<fpi::SnapshotPolicy> & vecPolicy, const int64_t unused) {
     try {
         Reply reply = r.sendCommand("hvals snapshot.policies");
         StringList strings;
@@ -1271,7 +1271,7 @@ bool ConfigDB::deleteSnapshotPolicy(const int64_t policyId) {
     return true;
 }
 
-bool ConfigDB::attachPolicy(const int64_t volumeId, const int64_t policyId) {
+bool ConfigDB::attachSnapshotPolicy(const int64_t volumeId, const int64_t policyId) {
     try {
         r.sendCommand("sadd snapshot.policy:%ld:volumes %ld", policyId, volumeId);
         r.sendCommand("sadd volume:%ld:snapshot.policies %ld", volumeId, policyId);
@@ -1314,7 +1314,7 @@ bool ConfigDB::listSnapshotPoliciesForVolume(std::vector<fpi::SnapshotPolicy> & 
     return true;
 }
 
-bool ConfigDB::detachPolicy(const int64_t volumeId, const int64_t policyId) {
+bool ConfigDB::detachSnapshotPolicy(const int64_t volumeId, const int64_t policyId) {
     try {
         r.sendCommand("srem snapshot.policy:%ld:volumes %ld", policyId, volumeId);
         r.sendCommand("srem volume:%ld:snapshot.policies %ld", volumeId, policyId);
