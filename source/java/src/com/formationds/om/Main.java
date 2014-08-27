@@ -60,7 +60,8 @@ public class Main {
         boolean enforceAuthentication = platformConfig.lookup("fds.om.authentication").booleanValue();
         Authenticator authenticator = enforceAuthentication ? new FdsAuthenticator(configApi) : new NullAuthenticator();
 
-        xdi = new Xdi(amService, configApi, authenticator, legacyConfigClient);
+        Authorizer authorizer = new DumbAuthorizer();
+        xdi = new Xdi(amService, configApi, authenticator, authorizer, legacyConfigClient);
 
         webApp = new WebApp(webDir);
 
@@ -69,19 +70,20 @@ public class Main {
         webApp.route(HttpMethod.POST, "/api/auth/token", () -> new IssueToken(xdi));
         webApp.route(HttpMethod.GET, "/api/auth/token", () -> new IssueToken(xdi));
 
-        authorize(HttpMethod.GET, "/api/config/services", (t) -> new ListServices(legacyConfigClient));
-        authorize(HttpMethod.POST, "/api/config/services/:node_uuid", (t) -> new ActivatePlatform(legacyConfigClient));
+        authenticate(HttpMethod.GET, "/api/auth/currentUser", (t) -> new CurrentUser(xdi, t));
+        authenticate(HttpMethod.GET, "/api/config/services", (t) -> new ListServices(legacyConfigClient));
+        authenticate(HttpMethod.POST, "/api/config/services/:node_uuid", (t) -> new ActivatePlatform(legacyConfigClient));
 
-        authorize(HttpMethod.GET, "/api/config/volumes", (t) -> new ListVolumes(configApi, amService, legacyConfigClient));
-        authorize(HttpMethod.POST, "/api/config/volumes", (t) -> new CreateVolume(configApi, legacyConfigClient));
-        authorize(HttpMethod.DELETE, "/api/config/volumes/:name", (t) -> new DeleteVolume(legacyConfigClient));
-        authorize(HttpMethod.PUT, "/api/config/volumes/:uuid", (t) -> new SetVolumeQosParams(legacyConfigClient, configApi, amService));
+        authenticate(HttpMethod.GET, "/api/config/volumes", (t) -> new ListVolumes(configApi, amService, legacyConfigClient));
+        authenticate(HttpMethod.POST, "/api/config/volumes", (t) -> new CreateVolume(configApi, legacyConfigClient));
+        authenticate(HttpMethod.DELETE, "/api/config/volumes/:name", (t) -> new DeleteVolume(legacyConfigClient));
+        authenticate(HttpMethod.PUT, "/api/config/volumes/:uuid", (t) -> new SetVolumeQosParams(legacyConfigClient, configApi, amService));
 
-        authorize(HttpMethod.GET, "/api/config/globaldomain", (t) -> new ShowGlobalDomain());
-        authorize(HttpMethod.GET, "/api/config/domains", (t) -> new ListDomains());
+        authenticate(HttpMethod.GET, "/api/config/globaldomain", (t) -> new ShowGlobalDomain());
+        authenticate(HttpMethod.GET, "/api/config/domains", (t) -> new ListDomains());
 
-        authorize(HttpMethod.POST, "/api/config/streams", (t) -> new RegisterStream(configApi));
-        authorize(HttpMethod.GET, "/api/config/streams", (t) -> new ListStreams(configApi));
+        authenticate(HttpMethod.POST, "/api/config/streams", (t) -> new RegisterStream(configApi));
+        authenticate(HttpMethod.GET, "/api/config/streams", (t) -> new ListStreams(configApi));
 
         webApp.route(HttpMethod.GET, "/api/stats/volumes", () -> new ListActiveVolumes(volumeStatistics));
         webApp.route(HttpMethod.POST, "/api/stats", () -> new RegisterVolumeStats(volumeStatistics));
@@ -103,7 +105,7 @@ public class Main {
         webApp.start(adminWebappPort);
     }
 
-    private void authorize(HttpMethod method, String route, Function<AuthenticationToken, RequestHandler> f) {
+    private void authenticate(HttpMethod method, String route, Function<AuthenticationToken, RequestHandler> f) {
         webApp.route(method, route, () -> new HttpAuthenticator(f, xdi.getAuthenticator()));
     }
 }

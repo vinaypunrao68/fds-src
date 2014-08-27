@@ -4,6 +4,7 @@ package com.formationds.xdi.s3;
  */
 
 import com.formationds.apis.BlobDescriptor;
+import com.formationds.security.AuthenticationToken;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.XmlResource;
@@ -16,15 +17,17 @@ import java.util.stream.Collectors;
 
 public class ListObjects implements RequestHandler {
     private Xdi xdi;
+    private AuthenticationToken token;
 
-    public ListObjects(Xdi xdi) {
+    public ListObjects(Xdi xdi, AuthenticationToken token) {
         this.xdi = xdi;
+        this.token = token;
     }
 
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
         String bucket = requiredString(routeParameters, "bucket");
-        List<BlobDescriptor> contents = xdi.volumeContents(S3Endpoint.FDS_S3, bucket, Integer.MAX_VALUE, 0);
+        List<BlobDescriptor> contents = xdi.volumeContents(token, S3Endpoint.FDS_S3, bucket, Integer.MAX_VALUE, 0);
 
         List<String> objects = contents.stream()
                 .map(c -> String.format(OBJECT_FORMAT, c.getName(), c.getByteCount()))

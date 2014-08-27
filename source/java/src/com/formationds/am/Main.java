@@ -7,9 +7,7 @@ import com.formationds.apis.AmService;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.fdsp.LegacyClientFactory;
 import com.formationds.nbd.*;
-import com.formationds.security.Authenticator;
-import com.formationds.security.FdsAuthenticator;
-import com.formationds.security.NullAuthenticator;
+import com.formationds.security.*;
 import com.formationds.streaming.Streaming;
 import com.formationds.util.Configuration;
 import com.formationds.util.libconfig.ParsedConfig;
@@ -66,7 +64,8 @@ public class Main {
             
             new Thread(() -> nbdHost.run()).start();
 
-            Xdi xdi = new Xdi(am, config, authenticator, legacyClientFactory.configPathClient(omHost, omLegacyConfigPort));
+            Authorizer authorizer = new DumbAuthorizer();
+            Xdi xdi = new Xdi(am, config, authenticator, authorizer, legacyClientFactory.configPathClient(omHost, omLegacyConfigPort));
 
             int s3Port = amParsedConfig.lookup("fds.am.s3_port").intValue();
             new Thread(() -> new S3Endpoint(xdi).start(s3Port)).start();

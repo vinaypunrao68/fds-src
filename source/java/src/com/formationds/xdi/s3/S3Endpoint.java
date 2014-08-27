@@ -25,22 +25,21 @@ public class S3Endpoint {
     }
 
     public void start(int port) {
-        authorize(HttpMethod.GET, "/", (t) -> new ListBuckets(xdi));
-        authorize(HttpMethod.PUT, "/:bucket", (t) -> new CreateBucket(xdi));
-        authorize(HttpMethod.DELETE, "/:bucket", (t) -> new DeleteBucket(xdi));
-        authorize(HttpMethod.GET, "/:bucket", (t) -> new ListObjects(xdi));
-        authorize(HttpMethod.HEAD, "/:bucket", (t) -> new HeadBucket(xdi));
-
-        authorize(HttpMethod.PUT, "/:bucket/:object", (t) -> new PutObject(xdi));
-        authorize(HttpMethod.POST, "/:bucket", (t) -> new PostObject(xdi));
-        authorize(HttpMethod.POST, "/:bucket/:object", (t) -> new PostObject(xdi));
-        authorize(HttpMethod.GET, "/:bucket/:object", (t) -> new GetObject(xdi));
-        authorize(HttpMethod.DELETE, "/:bucket/:object", (t) -> new DeleteObject(xdi));
+        authenticate(HttpMethod.GET, "/", (t) -> new ListBuckets(xdi, t));
+        authenticate(HttpMethod.PUT, "/:bucket", (t) -> new CreateBucket(xdi, t));
+        authenticate(HttpMethod.DELETE, "/:bucket", (t) -> new DeleteBucket(xdi, t));
+        authenticate(HttpMethod.GET, "/:bucket", (t) -> new ListObjects(xdi, t));
+        authenticate(HttpMethod.HEAD, "/:bucket", (t) -> new HeadBucket(xdi, t));
+        authenticate(HttpMethod.PUT, "/:bucket/:object", (t) -> new PutObject(xdi, t));
+        authenticate(HttpMethod.POST, "/:bucket", (t) -> new PostObject(xdi, t));
+        authenticate(HttpMethod.POST, "/:bucket/:object", (t) -> new PostObject(xdi, t));
+        authenticate(HttpMethod.GET, "/:bucket/:object", (t) -> new GetObject(xdi, t));
+        authenticate(HttpMethod.DELETE, "/:bucket/:object", (t) -> new DeleteObject(xdi, t));
 
         webApp.start(port);
     }
 
-    private void authorize(HttpMethod method, String route, Function<AuthenticationToken, RequestHandler> f) {
+    private void authenticate(HttpMethod method, String route, Function<AuthenticationToken, RequestHandler> f) {
         Function<AuthenticationToken, RequestHandler> errorHandler = new S3FailureHandler(f);
         webApp.route(method, route, new S3Authenticator(errorHandler, xdi));
     }

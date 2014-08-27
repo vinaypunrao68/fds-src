@@ -4,6 +4,7 @@ package com.formationds.xdi.s3;
  */
 
 import com.formationds.apis.ApiException;
+import com.formationds.security.AuthenticationToken;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.XmlResource;
@@ -14,10 +15,12 @@ import java.util.Map;
 
 public class DeleteMultipleObjects implements RequestHandler {
     private Xdi xdi;
+    private AuthenticationToken token;
     private String bucketName;
 
-    public DeleteMultipleObjects(Xdi xdi, String bucketName) {
+    public DeleteMultipleObjects(Xdi xdi, AuthenticationToken token, String bucketName) {
         this.xdi = xdi;
+        this.token = token;
         this.bucketName = bucketName;
     }
 
@@ -29,7 +32,7 @@ public class DeleteMultipleObjects implements RequestHandler {
 
         new DeleteObjectsFrame(request.getInputStream(), s -> {
             try {
-                xdi.deleteBlob(S3Endpoint.FDS_S3, bucketName, s);
+                xdi.deleteBlob(token, S3Endpoint.FDS_S3, bucketName, s);
                 result.append("<Deleted><Key>");
                 result.append(s);
                 result.append("</Key></Deleted>");

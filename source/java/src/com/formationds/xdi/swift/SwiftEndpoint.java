@@ -23,18 +23,18 @@ public class SwiftEndpoint {
     public void start(int httpPort) {
         webApp.route(HttpMethod.GET, "/v1/auth", () -> new SwiftFailureHandler((t) -> new GrantAuthenticationToken(xdi)).apply(AuthenticationToken.ANONYMOUS));
 
-        authorize(HttpMethod.GET, "/v1/:account/:container", (t) -> new GetContainer(xdi));
-        authorize(HttpMethod.PUT, "/v1/:account/:container", (t) -> new CreateContainer(xdi));
-        authorize(HttpMethod.DELETE, "/v1/:account/:container", (t) -> new DeleteContainer(xdi));
-        authorize(HttpMethod.GET, "/v1/:account", (t) -> new ListContainers(xdi));
-        authorize(HttpMethod.PUT, "/v1/:account/:container/:object", (t) -> new CreateObject(xdi));
-        authorize(HttpMethod.GET, "/v1/:account/:container/:object", (t) -> new GetObject(xdi));
-        authorize(HttpMethod.DELETE, "/v1/:account/:container/:object", (t) -> new DeleteObject(xdi));
+        authenticate(HttpMethod.GET, "/v1/:account", (t) -> new ListContainers(xdi, t));
+        authenticate(HttpMethod.GET, "/v1/:account/:container", (t) -> new GetContainer(xdi, t));
+        authenticate(HttpMethod.PUT, "/v1/:account/:container", (t) -> new CreateContainer(xdi, t));
+        authenticate(HttpMethod.DELETE, "/v1/:account/:container", (t) -> new DeleteContainer(xdi, t));
+        authenticate(HttpMethod.PUT, "/v1/:account/:container/:object", (t) -> new CreateObject(xdi, t));
+        authenticate(HttpMethod.GET, "/v1/:account/:container/:object", (t) -> new GetObject(xdi, t));
+        authenticate(HttpMethod.DELETE, "/v1/:account/:container/:object", (t) -> new DeleteObject(xdi, t));
 
         webApp.start(httpPort);
     }
 
-    private void authorize(HttpMethod method, String route, Function<AuthenticationToken, RequestHandler> f) {
+    private void authenticate(HttpMethod method, String route, Function<AuthenticationToken, RequestHandler> f) {
         Function<AuthenticationToken, RequestHandler> supplier = new SwiftFailureHandler(f);
         webApp.route(method, route, () -> new SwiftAuthenticator(supplier, xdi.getAuthenticator()));
     }

@@ -6,5 +6,7 @@ package com.formationds.security;
 import com.formationds.apis.User;
 
 public interface Authorizer {
-    boolean hasAccess(User user, String volumeName);
+    long tenantId(AuthenticationToken token);
+    boolean hasAccess(AuthenticationToken token, String volume);
+    User userFor(AuthenticationToken token);
 }

@@ -5,6 +5,7 @@ package com.formationds.xdi.s3;
 
 import com.amazonaws.services.s3.internal.ServiceUtils;
 import com.formationds.apis.VolumeDescriptor;
+import com.formationds.security.AuthenticationToken;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.XmlResource;
@@ -18,14 +19,16 @@ import java.util.stream.Collectors;
 
 public class ListBuckets implements RequestHandler {
     private Xdi xdi;
+    private AuthenticationToken token;
 
-    public ListBuckets(Xdi xdi) {
+    public ListBuckets(Xdi xdi, AuthenticationToken token) {
         this.xdi = xdi;
+        this.token = token;
     }
 
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
-        List<VolumeDescriptor> volumeDescriptors = xdi.listVolumes(S3Endpoint.FDS_S3);
+        List<VolumeDescriptor> volumeDescriptors = xdi.listVolumes(token, S3Endpoint.FDS_S3);
         String buckets = String.join("", volumeDescriptors.stream()
                 .map(v -> displayBucket(v))
                 .collect(Collectors.toList()));
