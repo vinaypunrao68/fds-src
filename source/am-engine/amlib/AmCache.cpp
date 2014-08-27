@@ -184,7 +184,7 @@ AmCache::putTxDescriptor(const AmTxDescriptor::ptr &txDesc) {
                                          object.first,
                                          objectData);
             if (evictedObject != NULL) {
-                LOGTRACE << "Evicted cached object data " << object.first;
+                LOGTRACE << "Evicted cached object data of size " << evictedObject->size();
             }
         }
     }

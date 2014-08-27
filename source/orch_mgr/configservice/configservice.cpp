@@ -21,6 +21,7 @@ using namespace ::apache::thrift;  //NOLINT
 using namespace ::apache::thrift::protocol;  //NOLINT
 using namespace ::apache::thrift::transport;  //NOLINT
 using namespace ::apache::thrift::server;  //NOLINT
+using namespace ::apache::thrift::concurrency;  //NOLINT
 
 using namespace  ::apis;  //NOLINT
 
@@ -233,9 +234,20 @@ std::thread* runConfigService(OrchMgr* om) {
     boost::shared_ptr<TTransportFactory> transportFactory(new TBufferedTransportFactory());  //NOLINT
     boost::shared_ptr<TProtocolFactory> protocolFactory(new TBinaryProtocolFactory());  //NOLINT
 
-    TThreadedServer* server = new TThreadedServer(processor,
-                                                  serverTransport,
-                                                  transportFactory, protocolFactory);
+    boost::shared_ptr<ThreadManager> threadManager = ThreadManager::newSimpleThreadManager(1);
+    boost::shared_ptr<PosixThreadFactory> threadFactory = boost::shared_ptr<PosixThreadFactory>(
+        new PosixThreadFactory());
+    threadManager->threadFactory(threadFactory);
+    threadManager->start();
+
+    TNonblockingServer *server = new TNonblockingServer(processor,
+                                                        protocolFactory,
+                                                        port,
+                                                        threadManager);
+    // TThreadedServer* server = new TThreadedServer(processor,
+    //                                           serverTransport,
+    //                                            transportFactory,
+    //                                            protocolFactory);
     return new std::thread ( [server] {
             LOGNOTIFY << "starting config service";
             server->serve();
