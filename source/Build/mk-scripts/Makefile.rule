@@ -365,8 +365,7 @@ fdsrepo :  $(fdsrepofile)
 # -----------------------------------------------------------------------------
 # Check for installed packages
 # -----------------------------------------------------------------------------
-
-devsetup_chkfile:=$(topdir)/.devsetup.chk
+devsetup_chkfile:=/tmp/.devsetup.chk
 devsetup_script:=$(incl_scripts)/devsetup.sh
 
 $(devsetup_chkfile): $(devsetup_script)
@@ -380,7 +379,6 @@ devsetup-force: $(devsetup_script)
 fdspkgs: fdsrepo $(devsetup_script) 
 	@$(devsetup_script) --fdspkgs
 	@touch $(devsetup_chkfile)
-
 
 .PHONY : devsetup 
 devsetup: $(devsetup_chkfile)
