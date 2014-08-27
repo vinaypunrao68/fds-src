@@ -36,7 +36,7 @@ using namespace std;
 
 namespace fds {
 
-#define  COUNTER_UPDATE_SLOT_TIME    10    /*  second */
+#define  COUNTER_UPDATE_SLOT_TIME    30    /*  second */
 #define  VOL_DOES_NOT_EXISTS	     -1
 
   class ObjStatsTracker : public Module { 

@@ -484,8 +484,24 @@ void ObjectStorMgr::mod_startup()
     /* Create tier related classes -- has to be after volTbl is created */
     FdsRootDir::fds_mkdir(modProvider_->proc_fdsroot()->dir_fds_var_stats().c_str());
     std::string obj_stats_dir = modProvider_->proc_fdsroot()->dir_fds_var_stats();
-    rankEngine = new ObjectRankEngine(obj_stats_dir, 100000, volTbl,
-                                      objStats, g_fdslog);
+
+    /**
+     * Config for Rank Engine
+     */
+    fds_uint32_t rank_tbl_size = DEFAULT_RANK_TBL_SIZE;
+    fds_uint32_t hot_threshold = DEFAULT_HOT_THRESHOLD;
+    fds_uint32_t cold_threshold = DEFAULT_COLD_THRESHOLD;
+    fds_uint32_t rank_freq_sec = DEFAULT_RANK_FREQUENCY;
+    // if tier testing is on, config will over-write default tier params
+    if (modProvider_->get_fds_config()->get<bool>("fds.sm.testing.test_tier")) {
+        rank_tbl_size = modProvider_->get_fds_config()->get<int>("fds.sm.testing.rank_tbl_size");
+        rank_freq_sec = modProvider_->get_fds_config()->get<int>("fds.sm.testing.rank_freq_sec");
+        hot_threshold = modProvider_->get_fds_config()->get<int>("fds.sm.testing.hot_threshold");
+        cold_threshold = modProvider_->get_fds_config()->get<int>("fds.sm.testing.cold_threshold");
+    }
+
+    rankEngine = new ObjectRankEngine(obj_stats_dir, rank_tbl_size, rank_freq_sec,
+                                      hot_threshold, cold_threshold, volTbl, objStats);
     tierEngine = new TierEngine(TierEngine::FDS_TIER_PUT_ALGO_BASIC_RANK,
                                 volTbl, rankEngine, g_fdslog);
     objCache = new FdsObjectCache(1024 * 1024 * 256,

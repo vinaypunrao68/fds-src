@@ -66,6 +66,9 @@ class AmTxManager : public Module, public boost::noncopyable {
     /// RW lock to protect the map
     mutable fds_rwlock txMapLock;
 
+    /// Maximum number of entries to stage
+    fds_uint32_t maxStagedEntries;
+
   public:
     explicit AmTxManager(const std::string &modName);
     ~AmTxManager();

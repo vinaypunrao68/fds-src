@@ -37,8 +37,8 @@ if __name__ == '__main__':
     (options, args) = parser.parse_args()
 
     if options.config_file is None:
-        print "You need to pass config file"
-        sys.exit(1)
+        print "Unless you're just packaging, you need to pass a config file!"
+        #sys.exit(1)
 
     # Packaging
     env = inst.FdsEnv('.')
