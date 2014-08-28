@@ -28,7 +28,8 @@ user_cpp         :=      \
     dmt.cpp              \
     fds_error.cpp        \
     PerfHistory.cpp      \
-    StatsCollector.cpp
+    StatsCollector.cpp   \
+    ObjectLogger.cpp
 
 user_incl_dir    := $(topdir)
 user_no_style    := \
