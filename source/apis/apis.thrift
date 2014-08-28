@@ -164,19 +164,19 @@ service ConfigurationService {
     i64 createSnapshotPolicy(1:snapshot.SnapshotPolicy policy)
              throws (1: ApiException e),
 
-    list<snapshot.SnapshotPolicy> listPolicies(1:i64 unused)
+    list<snapshot.SnapshotPolicy> listSnapshotPolicies(1:i64 unused)
              throws (1: ApiException e),
 
     void deleteSnapshotPolicy(1:i64 id)
              throws (1: ApiException e),
 
-    void attachPolicy(1:i64 volumeId, 2:i64 policyId)
+    void attachSnapshotPolicy(1:i64 volumeId, 2:i64 policyId)
              throws (1: ApiException e),
 
     list<snapshot.SnapshotPolicy> listSnapshotPoliciesForVolume(1:i64 volumeId)
              throws (1: ApiException e),
 
-    void detachPolicy(1:i64 volumeId, 2:i64 policyId)
+    void detachSnapshotPolicy(1:i64 volumeId, 2:i64 policyId)
              throws (1: ApiException e),
 
     list<i64> listVolumesForSnapshotPolicy(1:i64 policyId)

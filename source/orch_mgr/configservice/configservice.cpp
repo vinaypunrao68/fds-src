@@ -71,11 +71,11 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     void getStreamRegistrations(std::vector<StreamingRegistrationMsg> & _return, const int32_t ignore) {} //NOLINT
     void deregisterStream(const int32_t registration_id) {}
     int64_t createSnapshotPolicy(const  ::FDS_ProtocolInterface::SnapshotPolicy& policy) {return 0;} //NOLINT
-    void listPolicies(std::vector< ::FDS_ProtocolInterface::SnapshotPolicy> & _return, const int64_t unused) {} //NOLINT
+    void listSnapshotPolicies(std::vector< ::FDS_ProtocolInterface::SnapshotPolicy> & _return, const int64_t unused) {} //NOLINT
     void deleteSnapshotPolicy(const int64_t id) {} //NOLINT
-    void attachPolicy(const int64_t volumeId, const int64_t policyId) {} //NOLINT
+    void attachSnapshotPolicy(const int64_t volumeId, const int64_t policyId) {} //NOLINT
     void listSnapshotPoliciesForVolume(std::vector< ::FDS_ProtocolInterface::SnapshotPolicy> & _return, const int64_t volumeId) {} //NOLINT
-    void detachPolicy(const int64_t volumeId, const int64_t policyId) {} //NOLINT
+    void detachSnapshotPolicy(const int64_t volumeId, const int64_t policyId) {} //NOLINT
     void listVolumesForSnapshotPolicy(std::vector<int64_t> & _return, const int64_t policyId) {} //NOLINT
     void listSnapshots(std::vector< ::FDS_ProtocolInterface::Snapshot> & _return, const int64_t volumeId) {} //NOLINT
     void restoreClone(const int64_t volumeId, const int64_t snapshotId) {} //NOLINT
@@ -234,32 +234,44 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     }
 
     int64_t createSnapshotPolicy(boost::shared_ptr<fpi::SnapshotPolicy>& policy) {
-        return 0;
+        if (configDB->createSnapshotPolicy(*policy)) {
+            return policy->id;
+        }
+        return -1;
     }
 
-    void listPolicies(std::vector<fpi::SnapshotPolicy> & _return,
+    void listSnapshotPolicies(std::vector<fpi::SnapshotPolicy> & _return,
                       boost::shared_ptr<int64_t>& unused) {
+        configDB->listSnapshotPolicies(_return);
     }
 
     void deleteSnapshotPolicy(boost::shared_ptr<int64_t>& id) {
+        configDB->deleteSnapshotPolicy(*id);
     }
 
-    void attachPolicy(boost::shared_ptr<int64_t>& volumeId, boost::shared_ptr<int64_t>& policyId) {
+    void attachSnapshotPolicy(boost::shared_ptr<int64_t>& volumeId,
+                              boost::shared_ptr<int64_t>& policyId) {
+        configDB->attachSnapshotPolicy(*volumeId, *policyId);
     }
 
     void listSnapshotPoliciesForVolume(std::vector<fpi::SnapshotPolicy> & _return,
                                        boost::shared_ptr<int64_t>& volumeId) {
+        configDB->listSnapshotPoliciesForVolume(_return, *volumeId);
     }
 
-    void detachPolicy(boost::shared_ptr<int64_t>& volumeId, boost::shared_ptr<int64_t>& policyId) {
+    void detachSnapshotPolicy(boost::shared_ptr<int64_t>& volumeId,
+                              boost::shared_ptr<int64_t>& policyId) {
+        configDB->detachSnapshotPolicy(*volumeId, *policyId);
     }
 
     void listVolumesForSnapshotPolicy(std::vector<int64_t> & _return,
                               boost::shared_ptr<int64_t>& policyId) {
+        configDB->listVolumesForSnapshotPolicy(_return, *policyId);
     }
 
     void listSnapshots(std::vector<fpi::Snapshot> & _return,
                        boost::shared_ptr<int64_t>& volumeId) {
+        configDB->listSnapshots(_return, *volumeId);
     }
 
     void restoreClone(boost::shared_ptr<int64_t>& volumeId,

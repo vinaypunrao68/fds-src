@@ -118,7 +118,7 @@ public class CachingConfigurationService implements ConfigurationService.Iface {
     }
 
     @Override
-    public List<SnapshotPolicy> listPolicies(long unused) throws ApiException, TException {
+    public List<SnapshotPolicy> listSnapshotPolicies(long unused) throws ApiException, TException {
         return null;
     }
 
@@ -128,7 +128,7 @@ public class CachingConfigurationService implements ConfigurationService.Iface {
     }
 
     @Override
-    public void attachPolicy(long volumeId, long policyId) throws ApiException, TException {
+    public void attachSnapshotPolicy(long volumeId, long policyId) throws ApiException, TException {
 
     }
 
@@ -138,7 +138,7 @@ public class CachingConfigurationService implements ConfigurationService.Iface {
     }
 
     @Override
-    public void detachPolicy(long volumeId, long policyId) throws ApiException, TException {
+    public void detachSnapshotPolicy(long volumeId, long policyId) throws ApiException, TException {
 
     }
 
