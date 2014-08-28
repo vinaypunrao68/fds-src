@@ -8,6 +8,7 @@ import boto
 import unittest
 import time
 from boto.s3.connection import OrdinaryCallingFormat
+from boto.s3.key import Key
 from filechunkio import FileChunkIO
 
 DEBUG = False
@@ -40,6 +41,14 @@ class TestMultiUpload(unittest.TestCase):
         self.source_size = os.stat(self.source_path).st_size
         log('source size: ' + str(self.source_size))
 
+    def test_list_all_buckets(self):
+        global c
+        log('Retrieving list of all buckets')
+        rs = c.get_all_buckets()
+        assert(len(rs) > 0)
+        for b in rs:
+            log(b.name)
+
     def test_multi_upload_to_completion(self):
         # Create multipart upload request
         _key_name = os.path.basename(self.source_path)
@@ -63,6 +72,17 @@ class TestMultiUpload(unittest.TestCase):
         # Finish the upload
         mp.complete_upload()
         log('MPU Complete!')
+
+        # Verify the upload
+        k = Key(self.b)
+        k.key = _key_name
+        k.get_contents_to_filename(DATA_FILE+'_verify')
+        diff_code = os.system('diff ' + DATA_FILE + ' ' + DATA_FILE + '_verify')
+        if diff_code != 0:
+            raise Exception('File corrupted!')
+
+        # Cleanup
+        os.system('rm ' + DATA_FILE + '_verify')
 
     def test_multi_upload_abort(self):
         # Create multipart upload request
@@ -88,7 +108,15 @@ class TestMultiUpload(unittest.TestCase):
         try:
             self.b.cancel_multipart_upload(_key_name, mp.id)
         except Exception as e:
-            print e
+            log(e)
+
+        try:
+            k = Key(self.b)
+            k.key = _key_name
+            k.get_contents_as_string()
+        except: pass
+        else:
+            raise Exception('Found a key when it should not exist!')
 
     # def test_multi_upload_list(self):
     #     # Create multipart upload request
