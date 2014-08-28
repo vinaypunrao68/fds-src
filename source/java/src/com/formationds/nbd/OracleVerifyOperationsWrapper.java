@@ -65,4 +65,9 @@ public class OracleVerifyOperationsWrapper implements NbdServerOperations {
 
         return CompletableFuture.allOf(oracle_write, inner_write);
     }
+
+    @Override
+    public CompletableFuture<Void> flush(String exportName) {
+        return CompletableFuture.allOf(innerOperations.flush(exportName), oracle.flush(exportName));
+    }
 }

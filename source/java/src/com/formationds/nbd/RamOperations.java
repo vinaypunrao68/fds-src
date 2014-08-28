@@ -37,4 +37,9 @@ public class RamOperations implements NbdServerOperations {
         source.readBytes(bytes, (int)offset, len);
         return CompletableFuture.completedFuture(null);
     }
+
+    @Override
+    public CompletableFuture<Void> flush(String exportName) {
+        return CompletableFuture.completedFuture(null);
+    }
 }

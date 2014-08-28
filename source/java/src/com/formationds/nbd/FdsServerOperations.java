@@ -185,6 +185,12 @@ public class FdsServerOperations implements NbdServerOperations {
         return result;
     }
 
+    @Override
+    public CompletableFuture<Void> flush(String exportName) {
+        // TODO: IMPLEMENT ME
+        return CompletableFuture.completedFuture(null);
+    }
+
     private ByteBuffer guardedRead(String exportName, int objectSize, ObjectOffset objectOffset) throws TException {
         try {
             return am.getBlob(FDS, exportName, BLOCK_DEV_NAME, objectSize, objectOffset);
