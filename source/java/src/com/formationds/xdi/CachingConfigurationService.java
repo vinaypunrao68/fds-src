@@ -26,6 +26,16 @@ public class CachingConfigurationService implements ConfigurationService.Iface {
     }
 
     @Override
+    public long getVolumeId(String volumeName) throws ApiException, org.apache.thrift.TException {
+        return 0;
+    }
+
+    @Override
+    public String getVolumeName(long volumeId) throws ApiException, org.apache.thrift.TException {
+        return "unknown";
+    }
+
+    @Override
     public long createTenant(String identifier) throws ApiException, TException {
         return service.createTenant(identifier);
     }

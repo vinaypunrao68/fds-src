@@ -146,7 +146,7 @@ class SvcMap(object):
                         # TODO(Rao): In the domain map exposed, there is no entry
                         # for om config.  For now hard code to om config port which
                         # is typically 8903
-                        return (node_elm.node_addr, 8903)
+                        return (node_elm.node_addr, 9090)
         else:
             node_elm = next(x for x in self.domain_nodes.dom_nodes if x.node_base_uuid.svc_uuid == nodeid) 
             svc_elm = next(x for x in node_elm.node_svc_list if x.svc_type == svc_type_enum) 
