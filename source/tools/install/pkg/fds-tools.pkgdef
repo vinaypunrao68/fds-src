@@ -10,5 +10,5 @@ files:
   - dest: /fds/sbin
     src:
       - ../../../Build/linux-x86_64.debug/bin/configdbtool
-      - redis.sh
+      - ../../redis.sh
     dest-is-dir: True
