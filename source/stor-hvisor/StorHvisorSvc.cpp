@@ -734,7 +734,12 @@ void StorHvCtrl::getBlobQueryCatalogResp(fds::AmQosReq* qosReq,
     }
 
     // if we are here, we did not get response for offset we needed!
-    fds_panic("DM did not return offset we asked for!");
+    LOGERROR << "blob name: " << blobReq->getBlobName() << "offset: "
+             << blobReq->getBlobOffset() << " not in returned offset list from DM";
+    qos_ctrl->markIODone(qosReq);
+    blobReq->cb->call(ERR_BLOB_OFFSET_INVALID);
+    delete blobReq;
+    return;
 }
 
 void StorHvCtrl::getBlobGetObjectResp(fds::AmQosReq* qosReq,
