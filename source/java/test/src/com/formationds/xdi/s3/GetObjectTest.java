@@ -4,6 +4,7 @@ package com.formationds.xdi.s3;
  */
 
 import com.formationds.apis.BlobDescriptor;
+import com.formationds.security.AuthenticationToken;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.xdi.Xdi;
 import com.google.common.collect.Maps;
@@ -14,6 +15,7 @@ import org.junit.Test;
 import java.util.HashMap;
 
 import static org.junit.Assert.assertEquals;
+import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -29,9 +31,9 @@ public class GetObjectTest {
         HashMap<String, String> metadata = Maps.newHashMap();
         metadata.put("etag", Hex.encodeHexString(digest));
         BlobDescriptor descriptor = new BlobDescriptor("poop", 0, metadata);
-        when(xdi.statBlob(anyString(), anyString(), anyString())).thenReturn(descriptor);
+        when(xdi.statBlob(any(), anyString(), anyString(), anyString())).thenReturn(descriptor);
         
-        GetObject handler = new GetObject(xdi);
+        GetObject handler = new GetObject(xdi, AuthenticationToken.ANONYMOUS);
         Request request = mock(Request.class);
         when(request.getHeader(IF_NONE_MATCH)).thenReturn(null);
         Resource resource = handler.handle(request, "poop", "panda");

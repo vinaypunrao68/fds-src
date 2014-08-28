@@ -3,13 +3,12 @@ package com.formationds.xdi.swift;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+import com.formationds.security.AuthenticationToken;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.StaticFileHandler;
 import com.formationds.web.toolkit.TextResource;
 import com.formationds.xdi.Xdi;
-import com.google.common.collect.LinkedListMultimap;
-import com.google.common.collect.Multimap;
 import org.apache.commons.codec.binary.Hex;
 import org.eclipse.jetty.server.Request;
 import org.joda.time.DateTime;
@@ -19,9 +18,11 @@ import java.util.Map;
 
 public class CreateObject implements RequestHandler {
     private Xdi xdi;
+    private AuthenticationToken token;
 
-    public CreateObject(Xdi xdi) {
+    public CreateObject(Xdi xdi, AuthenticationToken token) {
         this.xdi = xdi;
+        this.token = token;
     }
 
     @Override
@@ -41,7 +42,7 @@ public class CreateObject implements RequestHandler {
         metadata.put("Content-Type", contentType);
         metadata.put("Last-Modified", SwiftUtility.formatRfc1123Date(DateTime.now()));
 
-        byte[] digest = xdi.writeStream(domain, volume, object, request.getInputStream(), metadata);
+        byte[] digest = xdi.writeStream(token, domain, volume, object, request.getInputStream(), metadata);
 
 
         // TODO: add real transactionId instead of call to swiftResource here

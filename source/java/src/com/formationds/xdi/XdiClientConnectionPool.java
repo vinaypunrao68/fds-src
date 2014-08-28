@@ -127,7 +127,7 @@ class XdiAsyncClientConnectionFactory<T> implements KeyedPooledObjectFactory<Con
         TNonblockingTransport transport = new TNonblockingSocket(cspec.host, cspec.port);
         TAsyncClientManager clientManager = new TAsyncClientManager();
         TProtocolFactory protocolFactory = new TBinaryProtocol.Factory();
-//
+
 //        try {
 //            transport.open();
 //        } catch (TTransportException e) {

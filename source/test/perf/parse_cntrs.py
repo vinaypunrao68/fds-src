@@ -34,11 +34,12 @@ class Counters:
             #     if m is not None:
             #         tstamp = float(m.group(1))
 #             elif tstamp is not None:
-                #am_put_dm.volume:6944500478244898626:volume=6944500478244898626
-                #m = re.match("([\w-]+)\.(\w+)\.perf\.(\w+)\.volume:\d+:volume=(\d+)\.(\w+)\s+(\d+)\s+(\d+)\s*", line)
-                # tiefighter am am_put_qos.volume:3986830314538931487:volume=3986830314538931487.latency 307556 1408727943
-                # tiefighter am am_put_dm.volume:3125441350624440090:volume=3125441350624440090.latency 2720579 1408730115
-                m = re.match("([\w-]+)\s+(\w+)\s+(\w+)\.volume:\d+:volume=(\d+)\.(\w+)\s+(\d+)\s+(\d+)\s*", line)
+                if options.use_graphite_streaming == True:
+                    #am_put_dm.volume:6944500478244898626:volume=6944500478244898626
+                    m = re.match("([\w-]+)\.(\w+)\.perf\.(\w+)\.volume:\d+:volume=(\d+)\.(\w+)\s+(\d+)\s+(\d+)\s*", line)
+                else:
+                    # tiefighter am am_put_dm.volume:3125441350624440090:volume=3125441350624440090.latency 2720579 1408730115
+                    m = re.match("([\w-]+)\s+(\w+)\s+(\w+)\.volume:\d+:volume=(\d+)\.(\w+)\s+(\d+)\s+(\d+)\s*", line)
                 if m is not None:
                     node = m.group(1)
                     agent = m.group(2)
@@ -55,7 +56,7 @@ class Counters:
             for volid in self.counters[name][node][agent]:
                     series[volid] = self.counters[name][node][agent][volid][cntr_type]
         except KeyError:
-            return None
+            return {}
         for k in series:
             series[k] = zip(*series[k])
         return series
@@ -208,7 +209,6 @@ def sum_series(series1, series2):
                     compacted_vector.append(e)
             else:
                 compacted_vector.append(e)
-        print compacted_vector
         series[v] = zip(*compacted_vector)
 
         # series[v][1] = pair1[1]
@@ -222,7 +222,7 @@ def plot_qos_graphs(cntrs, node, agent):
         "am_put_obj_req",
         "am_delete_obj_req",
         ]
-    fds_level_cntrs = ["am_stat_blob_obj_req",
+    fds_level_cntrs = user_level_cntrs + ["am_stat_blob_obj_req",
         "am_set_blob_meta_obj_req",
         "am_get_volume_meta_obj_req",
         "am_get_blob_meta_obj_req",
@@ -230,11 +230,11 @@ def plot_qos_graphs(cntrs, node, agent):
         "am_commit_blob_obj_req",
         "am_abort_blob_obj_req",
         ]
-    test = ["am_get_qos", "am_put_sm"]
+    test = ["am_stat_blob_obj_req", "am_get_obj_req", "am_get_qos"]
     # {vid : [(v1, v2,...), (t1, t2,...)], ...}
     # print cntrs.get_cntr(node, agent, "am_get_qos", "count")
 
-    test_cntr = [cntrs.get_cntr(node, agent, x, "count") for x in test]
+    test_cntr = [cntrs.get_cntr(node, agent, x, "count") for x in fds_level_cntrs]
     series = reduce(sum_series, test_cntr)
 
     new_figure("Throughput Aggregate")
@@ -254,9 +254,12 @@ def main():
     parser.add_option("-c", "--counters", dest = "counters", help = "List of agent:counter,...")
     parser.add_option("-n", "--node", dest = "node", help = "Node")
     parser.add_option("-s", "--search-counter", dest = "search_counter", default = None, help = "Search counter regexp")
+    parser.add_option("-g", "--use-graphite-streaming", dest = "use_graphite_streaming", default = False, action = "store_true", help = "Use graphite streaming as input")
 
     #parser.add_option("-c", "--column", dest = "column", help = "Column")
     (options, args) = parser.parse_args()
+
+    global options
 
     options.exclude_nodes = []
 
@@ -290,7 +293,7 @@ def main():
     #print a, b
     #print sum_series(a, b)
 
-    # plot_qos_graphs(c, "tie-fighter", "AMAgent")
+    plot_qos_graphs(c, "tiefighter", "am")
 
     for name in options.counters.split(","):
         agent, counter = name.split(":")

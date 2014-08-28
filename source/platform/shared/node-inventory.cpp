@@ -188,8 +188,8 @@ NodeInventory::init_stor_cap_msg(fpi::StorCapMsg *msg) const
 
     if (node_ro_idx == -1) {
         /* Don't have real numbers, made up some values. */
-        msg->disk_iops_max     = 20000;
-        msg->disk_iops_min     = 2000;
+        msg->disk_iops_max     = 10000;
+        msg->disk_iops_min     = 4000;
         msg->disk_capacity     = 0x7ffff;
         msg->disk_latency_max  = 1000000 / msg->disk_iops_min;
         msg->disk_latency_min  = 1000000 / msg->disk_iops_max;

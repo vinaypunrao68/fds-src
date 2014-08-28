@@ -1,0 +1,23 @@
+package com.formationds.security;
+/*
+ * Copyright 2014 Formation Data Systems, Inc.
+ */
+
+import com.formationds.apis.User;
+
+public class DumbAuthorizer implements Authorizer {
+    @Override
+    public long tenantId(AuthenticationToken token) {
+        return 0;
+    }
+
+    @Override
+    public boolean hasAccess(AuthenticationToken token, String volume) {
+        return true;
+    }
+
+    @Override
+    public User userFor(AuthenticationToken token) {
+        return new User(0, "admin", "", "", true);
+    }
+}

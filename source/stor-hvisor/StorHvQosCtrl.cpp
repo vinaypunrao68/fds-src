@@ -18,7 +18,7 @@ Error StorHvQosCtrl::qosCtrlCmdHandler(fds_uint64_t tot_rate) {
 StorHvQosCtrl::StorHvQosCtrl(uint32_t max_thrds, dispatchAlgoType algo, fds_log *log)
   : FDS_QoSControl::FDS_QoSControl(max_thrds, algo, log, "SH")
 {
-     total_rate = 10000;
+     total_rate = 20000;
      if ( dispatchAlgo == FDS_QoSControl::FDS_DISPATCH_HIER_TOKEN_BUCKET) {
         htb_dispatcher = new QoSHTBDispatcher(this, qos_log, total_rate);
      }

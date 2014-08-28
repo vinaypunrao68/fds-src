@@ -178,7 +178,7 @@ class NodeInventory : public Resource
     static void node_stor_cap_frm_shm(fpi::StorCapMsg *msg, const struct node_stor_cap *);
 
   protected:
-    const NodeInvData       *node_inv;
+    NodeInvData             *node_inv;
     FdspNodeType             node_svc_type;
     int                      node_ro_idx;
     int                      node_rw_idx;

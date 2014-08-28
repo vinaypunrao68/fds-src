@@ -322,6 +322,7 @@ std::thread* runConfigService(OrchMgr* om) {
     boost::shared_ptr<TTransportFactory> transportFactory(new TBufferedTransportFactory());  //NOLINT
     boost::shared_ptr<TProtocolFactory> protocolFactory(new TBinaryProtocolFactory());  //NOLINT
 
+    // TODO(Andrew): Use a single OM processing thread for now...
     boost::shared_ptr<ThreadManager> threadManager = ThreadManager::newSimpleThreadManager(1);
     boost::shared_ptr<PosixThreadFactory> threadFactory = boost::shared_ptr<PosixThreadFactory>(
         new PosixThreadFactory());

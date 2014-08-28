@@ -691,29 +691,6 @@ int DataMgr::mod_init(SysParams const *const param)
      * Comm with OM will be setup during run()
      */
     omClient = NULL;
-    /*
-     *  init Data Manager  QOS class.
-     */
-    qosCtrl = new dmQosCtrl(this, 20, FDS_QoSControl::FDS_DISPATCH_WFQ, GetLog());
-    qosCtrl->runScheduler();
-
-    timeVolCat_ = DmTimeVolCatalog::ptr(new
-                                        DmTimeVolCatalog("DM Time Volume Catalog",
-                                                         *qosCtrl->threadPool));
-
-    // create stats aggregator that aggregates stats for vols for which
-    // this DM is primary
-    statStreamAggr_ = StatStreamAggregator::ptr(
-        new StatStreamAggregator("DM Stat Stream Aggregator", modProvider_->get_fds_config()));
-
-    // enable collection of local stats in DM
-    StatsCollector::singleton()->registerOmClient(omClient);
-    // since aggregator is in the same module, for stats that need to go to
-    // local aggregator, we just directly stream to aggregator (not over network)
-    StatsCollector::singleton()->startStreaming(
-        std::bind(&DataMgr::sampleDMStats, this, std::placeholders::_1),
-        std::bind(&DataMgr::handleLocalStatStream, this,
-                  std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 
     LOGNORMAL << "Completed";
     return 0;
@@ -794,13 +771,6 @@ void DataMgr::mod_startup()
 
     setup_metadatapath_server(myIp);
 
-    // Create a queue for system (background) tasks
-    sysTaskQueue = new FDS_VolumeQueue(1024, 10000, 20, FdsDmSysTaskPrio);
-    sysTaskQueue->activate();
-    err = qosCtrl->registerVolume(FdsDmSysTaskId, sysTaskQueue);
-    fds_verify(err.ok());
-    LOGNORMAL << "Registered System Task Queue";
-
     if (use_om) {
         LOGDEBUG << " Initialising the OM client ";
         /*
@@ -831,18 +801,68 @@ void DataMgr::mod_startup()
         omClient->registerNodeWithOM(modProvider_->get_plf_manager());
     }
 
+    setup_metasync_service();
+
+    LOGNORMAL;
+}
+
+void DataMgr::mod_enable_service() {
+    Error err(ERR_OK);
+    const NodeUuid *mySvcUuid = Platform::plf_get_my_svc_uuid();
+    NodeAgent::pointer my_agent = Platform::plf_dm_nodes()->agent_info(*mySvcUuid);
+    fpi::StorCapMsg stor_cap;
+    my_agent->init_stor_cap_msg(&stor_cap);
+    LOGNOTIFY << "Will set totalRate to " << stor_cap.disk_iops_min;
+
+    // note that qos dispatcher in SM/DM uses total rate just to assign
+    // guaranteed slots, it still will dispatch more IOs if there is more
+    // perf capacity available (based on how fast IOs return). So setting
+    // totalRate to disk_iops_min does not actually restrict the SM from
+    // servicing more IO if there is more capacity (eg.. because we have
+    // cache and SSDs)
+    scheduleRate = 2*stor_cap.disk_iops_min;
+
+    /*
+     *  init Data Manager  QOS class.
+     */
+    qosCtrl = new dmQosCtrl(this, 50, FDS_QoSControl::FDS_DISPATCH_WFQ, GetLog());
+    qosCtrl->runScheduler();
+
+    // Create a queue for system (background) tasks
+    sysTaskQueue = new FDS_VolumeQueue(1024, 10000, 20, FdsDmSysTaskPrio);
+    sysTaskQueue->activate();
+    err = qosCtrl->registerVolume(FdsDmSysTaskId, sysTaskQueue);
+    fds_verify(err.ok());
+    LOGNORMAL << "Registered System Task Queue";
+
+
+    // create time volume catalog
+    timeVolCat_ = DmTimeVolCatalog::ptr(new
+                                        DmTimeVolCatalog("DM Time Volume Catalog",
+                                                         *qosCtrl->threadPool));
+
+    // create stats aggregator that aggregates stats for vols for which
+    // this DM is primary
+    statStreamAggr_ = StatStreamAggregator::ptr(
+        new StatStreamAggregator("DM Stat Stream Aggregator", modProvider_->get_fds_config()));
+
+    // enable collection of local stats in DM
+    StatsCollector::singleton()->registerOmClient(omClient);
+    // since aggregator is in the same module, for stats that need to go to
+    // local aggregator, we just directly stream to aggregator (not over network)
+    StatsCollector::singleton()->startStreaming(
+        std::bind(&DataMgr::sampleDMStats, this, std::placeholders::_1),
+        std::bind(&DataMgr::handleLocalStatStream, this,
+                  std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
+
     if (runMode == TEST_MODE) {
-        /*
-         * Create test volumes.
-         */
+        // Create test volumes.
         std::string testVolName;
         VolumeDesc*  testVdb;
         for (fds_uint32_t testVolId = 1; testVolId < numTestVols + 1; testVolId++) {
             testVolName = "testVol" + std::to_string(testVolId);
-            /*
-             * We're using the ID as the min/max/priority
-             * for the volume QoS.
-             */
+            // We're using the ID as the min/max/priority
+            // for the volume QoS.
             testVdb = new VolumeDesc(testVolName,
                                      testVolId,
                                      testVolId,
@@ -858,8 +878,6 @@ void DataMgr::mod_startup()
         }
     }
 
-    setup_metasync_service();
-
     // finish setting up time volume catalog
     timeVolCat_->mod_startup();
 
@@ -871,8 +889,6 @@ void DataMgr::mod_startup()
             std::placeholders::_1, std::placeholders::_2));
 
     statStreamAggr_->mod_startup();
-
-    LOGNORMAL;
 }
 
 void DataMgr::mod_shutdown()

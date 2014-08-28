@@ -235,8 +235,10 @@ namespace fds{
     assert((objBuf->copy_is_dirty == false) && 
 	   ((ignore_in_progress) || (objBuf->io_in_progress == false)));
 
-    if (objBuf.use_count() > 2) { 
+    if (objBuf.use_count() > 3) { 
       // Volume index tbl and the eviction_plcy_mgr are the only ones that should have a reference.
+        // TODO(Andrew): Actually we just created a refernce locally too, so the count
+        // is expected to be three
       vol_cache->vol_cache_lock->unlock();
       FDS_PLOG(oc_log) << "Volume " << vol_id << ", object " << objId
 		       << "ref cnt - " << objBuf.use_count()

@@ -25,6 +25,8 @@ public class S3FailureHandler implements Function<AuthenticationToken, RequestHa
                 return supplier.apply(authenticationToken).handle(request, routeParameters);
             } catch (ApiException e) {
                 return makeS3Failure(requestedResource, e);
+            } catch (SecurityException e) {
+                return new S3Failure(S3Failure.ErrorCode.AccessDenied, "Access denied", requestedResource);
             }
         };
     }

@@ -308,10 +308,10 @@ Error StorHvCtrl::putBlobSvc(fds::AmQosReq *qosReq)
         fds_verify(amTxMgr->updateStagedBlobDesc(*(blobReq->getTxId()),
                                                  blobReq->getDataLen()) == ERR_OK);
         // Update the transaction manager with the stage offset update
-        amTxMgr->updateStagedBlobOffset(*(blobReq->getTxId()),
-                                        blobReq->getBlobName(),
-                                        blobReq->getBlobOffset(),
-                                        blobReq->getObjId());
+        fds_verify(amTxMgr->updateStagedBlobOffset(*(blobReq->getTxId()),
+                                                   blobReq->getBlobName(),
+                                                   blobReq->getBlobOffset(),
+                                                   blobReq->getObjId()) == ERR_OK);
         issueUpdateCatalogMsg(blobReq->getObjId(),
                               blobReq->getBlobName(),
                               blobReq->getBlobOffset(),
@@ -734,7 +734,12 @@ void StorHvCtrl::getBlobQueryCatalogResp(fds::AmQosReq* qosReq,
     }
 
     // if we are here, we did not get response for offset we needed!
-    fds_panic("DM did not return offset we asked for!");
+    LOGDEBUG << "blob name: " << blobReq->getBlobName() << "offset: "
+             << blobReq->getBlobOffset() << " not in returned offset list from DM";
+    qos_ctrl->markIODone(qosReq);
+    blobReq->cb->call(ERR_BLOB_OFFSET_INVALID);
+    delete blobReq;
+    return;
 }
 
 void StorHvCtrl::getBlobGetObjectResp(fds::AmQosReq* qosReq,

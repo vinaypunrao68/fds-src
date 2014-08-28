@@ -4,14 +4,13 @@ package com.formationds.xdi.s3;
  */
 
 import com.formationds.apis.BlobDescriptor;
+import com.formationds.security.AuthenticationToken;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.StaticFileHandler;
 import com.formationds.web.toolkit.TextResource;
 import com.formationds.xdi.Xdi;
-import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Multimap;
 import org.apache.commons.codec.binary.Hex;
 import org.eclipse.jetty.server.Request;
 
@@ -22,9 +21,11 @@ import java.util.Map;
 
 public class PutObject implements RequestHandler {
     private Xdi xdi;
+    private AuthenticationToken token;
 
-    public PutObject(Xdi xdi) {
+    public PutObject(Xdi xdi, AuthenticationToken token) {
         this.xdi = xdi;
+        this.token = token;
     }
 
     @Override
@@ -45,7 +46,7 @@ public class PutObject implements RequestHandler {
 
         // handle multi part upload
         if(uploadId != null) {
-            MultiPartOperations mops = new MultiPartOperations(xdi, uploadId);
+            MultiPartOperations mops = new MultiPartOperations(xdi, uploadId, token);
             int partNumber = Integer.parseInt(request.getParameter("partNumber"));
 
             if(partNumber < 0 || partNumber > 10000)
@@ -57,7 +58,7 @@ public class PutObject implements RequestHandler {
         }
 
         if(copySource == null) {
-            byte[] digest = xdi.writeStream(domain, bucketName, objectName, str, map);
+            byte[] digest = xdi.writeStream(token, domain, bucketName, objectName, str, map);
             return new TextResource("").withHeader("ETag", "\"" + Hex.encodeHexString(digest) + "\"");
         } else {
             return copy(request, domain, bucketName, objectName, copySource, map);
@@ -71,7 +72,7 @@ public class PutObject implements RequestHandler {
 
         String copySourceBucket = copySourceParts[0];
         String copySourceObject = copySourceParts[1];
-        BlobDescriptor copySourceStat = xdi.statBlob(S3Endpoint.FDS_S3, copySourceBucket, copySourceObject);
+        BlobDescriptor copySourceStat = xdi.statBlob(token, S3Endpoint.FDS_S3, copySourceBucket, copySourceObject);
 
         String metadataDirective = request.getHeader("x-amz-metadata-directive");
         if(metadataDirective != null && metadataDirective.equals("COPY")) {
@@ -91,8 +92,8 @@ public class PutObject implements RequestHandler {
 
         // TODO: last modified checks - x-amz-copy-source-if-unmodified-since and x-amz-copy-source-if-modified-since
 
-        InputStream instr = xdi.readStream(S3Endpoint.FDS_S3, copySourceParts[0], copySourceParts[1]);
-        byte[] digest = xdi.writeStream(targetDomain, targetBucketName, targetBlobName, instr, metadataMap);
+        InputStream instr = xdi.readStream(token, S3Endpoint.FDS_S3, copySourceParts[0], copySourceParts[1]);
+        byte[] digest = xdi.writeStream(token, targetDomain, targetBucketName, targetBlobName, instr, metadataMap);
         return new TextResource("").withHeader("ETag", "\"" + Hex.encodeHexString(digest) + "\"");
     }
 

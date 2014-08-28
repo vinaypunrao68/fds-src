@@ -35,6 +35,7 @@ public class ParsedConfig {
         map.put(node.getName(), node);
 
     }
+
     private Node doParse(CommonTree commonTree) {
         switch (commonTree.getType()) {
             case LibConfigParser.ID:
@@ -109,6 +110,14 @@ public class ParsedConfig {
             return lookup(s).intValue();
         } catch (Exception e) {
             return defaultValue;
+        }
+    }
+
+    public boolean defaultBoolean(String key, boolean def) {
+        try {
+            return lookup(key).booleanValue();
+        } catch(Exception e) {
+            return def;
         }
     }
 

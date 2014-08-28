@@ -91,7 +91,7 @@ if __name__ == '__main__':
     if options.clus_clean:
         for n in nodes:
             n.nd_cleanup_node()
-            n.nd_rmt_agent.ssh_exec('/fds/sbin/redis.sh clean')
+            n.nd_rmt_agent.ssh_exec('(cd /fds/sbin && ./redis.sh clean)', output=True)
             n.nd_rmt_agent.ssh_exec('rm /fds/uuid_port')
 
     # Status

@@ -42,6 +42,7 @@ class FdsnServer : public Module {
     fds_uint32_t             port;
     typedef boost::shared_ptr<FdsnIf> FdsnIfPtr;
     FdsnIfPtr fdsnInterface;
+    fds_uint32_t numFdsnThreads;
 
     /*
      * Thrift endpoint related
@@ -54,9 +55,7 @@ class FdsnServer : public Module {
     boost::shared_ptr<xdi_atc::ThreadManager>      threadManager;
     boost::shared_ptr<xdi_atc::PosixThreadFactory> threadFactory;
     boost::shared_ptr<xdi_ats::TThreadedServer>    server;
-
     boost::shared_ptr<xdi_ats::TNonblockingServer> nbServer;
-    // boost::shared_ptr<xdi::AmShimIf>  handler;
 
     boost::shared_ptr<boost::thread> listen_thread;
 

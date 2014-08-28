@@ -1,5 +1,6 @@
 package com.formationds.xdi.s3;
 
+import com.formationds.security.AuthenticationToken;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.StaticFileHandler;
@@ -22,9 +23,11 @@ import java.util.Map;
 
 public class PostObjectUpload implements RequestHandler {
     private Xdi xdi;
+    private AuthenticationToken token;
 
-    public PostObjectUpload(Xdi xdi) {
+    public PostObjectUpload(Xdi xdi, AuthenticationToken token) {
         this.xdi = xdi;
+        this.token = token;
     }
 
     @Override
@@ -48,7 +51,7 @@ public class PostObjectUpload implements RequestHandler {
             metadata.put("Content-Type", StaticFileHandler.getMimeType(fileName));
         }
 
-        byte[] digest = xdi.writeStream(S3Endpoint.FDS_S3, bucketName, fileName, filePart.getInputStream(), metadata);
+        byte[] digest = xdi.writeStream(token, S3Endpoint.FDS_S3, bucketName, fileName, filePart.getInputStream(), metadata);
 
         return new TextResource("") {
             @Override
