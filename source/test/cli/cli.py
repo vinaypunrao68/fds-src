@@ -80,7 +80,7 @@ def list_snap_policy():
         log.exception(e)
         return ' delete  snapshot policy failed: {}'.format(policy_id)
 
-@arg('vol-id', help= "-Volume id for attaching snap policy")
+@arg('vol-name', help= "-Volume id for attaching snap policy")
 @arg('policy-id', help= "-snap shot policy id")
 def attach_snap_policy(vol_name, policy_id):
     try:
@@ -93,7 +93,7 @@ def attach_snap_policy(vol_name, policy_id):
         log.exception(e)
         return 'attach snap policy  failed: {}'.format(vol_name)
 
-@arg('vol-id', help= "-Volume id for detaching snap policy")
+@arg('vol-name', help= "-Volume id for detaching snap policy")
 @arg('policy-id', help= "-snap shot policy name")
 def detach_snap_policy(vol_name, policy_id):
     try:
@@ -119,60 +119,54 @@ def list_volume_snap_policy(policy_id):
         log.exception(e)
         return ' delete  snapshot policy failed: {}'.format(policy_id)
 
-@arg('vol-id', help= "-Volume id for detaching snap policy")
-def list_snap_policy_volume(vol_id):
+@arg('vol-name', help= "-Volume name for detaching snap policy")
+def list_snap_policy_volume(vol_name):
     try:
         policy_list = []
         # get the  OM client  handler
         client = svc_map.omConfig()
         # invoke the thrift  interface call
-        client.listSnapshotPoliciesForVolume(policy_list, vol_id)
+        client.listSnapshotPoliciesForVolume(policy_list, vol_name)
         return 'Success'
     except Exception, e:
         log.exception(e)
         return ' delete  snapshot policy failed: {}'.format(policy_id)
 
-@arg('vol-id', help= "-Volume id for detaching snap policy")
-def list_snap_policy_volume(vol_id):
+@arg('vol-name', help= "-Volume name for detaching snap policy")
+def list_snapshot(vol_name):
     try:
         snapshot = []
         # get the  OM client  handler
         client = svc_map.omConfig()
         # invoke the thrift  interface call
-        client.listSnapshots(snapshot, vol_id)
+        client.listSnapshots(snapshot, vol_name)
         return 'Success'
     except Exception, e:
         log.exception(e)
         return ' delete  snapshot policy failed: {}'.format(policy_id)
 
-@arg('vol-id', help= "-Volume id  of the clone")
+@arg('vol-name', help= "-Volume name  of the clone")
 @arg('clone-name', help= "-name of  the  volume clone")
 @arg('policy-name', help= "-clone policy name")
-def create_clone(vol_id, clone_name, policy_name):
+def create_clone(vol_name, clone_name, policy_name):
     try:
         # get the  OM client  handler
         client = svc_map.omConfig()
         # invoke the thrift  interface call
-        client.cloneVolume(vol_id, policy_name, clone_name )
+        client.cloneVolume(vol_name, policy_name, clone_name )
         return 'Success'
     except Exception, e:
         log.exception(e)
         return 'create clone failed: {}'.format(vol_name)
 
-@arg('vol-id', help= "-volume name  of the clone")
-@arg('clone-name', help= "-name of  the  volume clone for delete")
-def delete_clone(vol_name, clone_name):
-    try:
-        #svc_map.client(nodeid, svc).fdsp_expireSnap(val)
-        return 'Success'
-    except Exception, e:
-        return 'delete clone  failed: {}'.format(vol_name)
-
 @arg('vol-name', help= "-volume name  of the clone")
 @arg('clone-name', help= "-name of  the  volume clone for restore")
 def restore_clone(vol_name, clone_name):
     try:
-        #svc_map.client(nodeid, svc).fdsp_expireSnap(val)
+        # get the  OM client  handler
+        client = svc_map.omConfig()
+        # invoke the thrift  interface call
+        client.restoreClone(vol_name, snapshotName)
         return 'Success'
     except Exception, e:
         log.exception(e)
@@ -302,11 +296,10 @@ def main(ip='127.0.0.1', port=7020, command_line=None):
                          attach_snap_policy,
                          detach_snap_policy,
                          list_volume_snap_policy,
-                         list_snap_policy_Volume,
+                         list_snap_policy_volume,
                          list_snapshot,
                          create_clone,
                          restore_clone,
-                         list_snap,
                          refresh,
                          add_node,
                          counters,

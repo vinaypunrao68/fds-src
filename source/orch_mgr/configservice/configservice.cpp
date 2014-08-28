@@ -78,7 +78,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     void detachPolicy(const int64_t volumeId, const int64_t policyId) {} //NOLINT
     void listVolumesForSnapshotPolicy(std::vector<int64_t> & _return, const int64_t policyId) {} //NOLINT
     void listSnapshots(std::vector< ::FDS_ProtocolInterface::Snapshot> & _return, const int64_t volumeId) {} //NOLINT
-    void restore(const int64_t volumeId, const int64_t snapshotId) {} //NOLINT
+    void restoreClone(const int64_t volumeId, const int64_t snapshotId) {} //NOLINT
     int64_t cloneVolume(const int64_t volumeId, const int64_t fdsp_PolicyInfoId, const std::string& clonedVolumeName) { return 0;} //NOLINT
     // stubs to keep cpp compiler happy - END
 
@@ -262,7 +262,8 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
                        boost::shared_ptr<int64_t>& volumeId) {
     }
 
-    void restore(boost::shared_ptr<int64_t>& volumeId, boost::shared_ptr<int64_t>& snapshotId) {
+    void restoreClone(boost::shared_ptr<int64_t>& volumeId,
+                         boost::shared_ptr<int64_t>& snapshotId) {
     }
 
     int64_t cloneVolume(boost::shared_ptr<int64_t>& volumeId,

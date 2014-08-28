@@ -185,7 +185,7 @@ service ConfigurationService {
     list<snapshot.Snapshot> listSnapshots(1:i64 volumeId)
              throws (1: ApiException e),
 
-    void restore(1:i64 volumeId, 2:i64 snapshotId)
+    void restoreClone(1:i64 volumeId, 2:i64 snapshotId)
              throws (1: ApiException e),
 
     // Returns VolumeID of clone 

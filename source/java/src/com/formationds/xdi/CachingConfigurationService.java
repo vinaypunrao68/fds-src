@@ -153,7 +153,7 @@ public class CachingConfigurationService implements ConfigurationService.Iface {
     }
 
     @Override
-    public void restore(long volumeId, long snapshotId) throws ApiException, TException {
+    public void restoreClone(long volumeId, long snapshotId) throws ApiException, TException {
 
     }
 
