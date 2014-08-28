@@ -11,4 +11,5 @@ public interface NbdServerOperations {
     long size(String exportName);
     CompletableFuture<Void> read(String exportName, ByteBuf target, long offset, int len) throws Exception;
     CompletableFuture<Void> write(String exportName, ByteBuf source, long offset, int len) throws Exception;
+    CompletableFuture<Void> flush(String exportName);
 }

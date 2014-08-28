@@ -58,4 +58,9 @@ public class WriteVerifyOperationsWrapper implements NbdServerOperations {
                     return result;
                 });
     }
+
+    @Override
+    public CompletableFuture<Void> flush(String exportName) {
+        return inner.flush(exportName);
+    }
 }

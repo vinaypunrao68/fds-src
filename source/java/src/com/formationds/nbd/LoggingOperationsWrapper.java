@@ -88,4 +88,17 @@ public class LoggingOperationsWrapper implements NbdServerOperations {
         });
         return result;
     }
+
+    @Override
+    public CompletableFuture<Void> flush(String exportName) {
+        long interactionId = getInteractionId();
+        log.info(formatLogMessage("FLUSH START " + exportName, interactionId));
+        return inner.flush(exportName).whenComplete((r, ex) -> {
+            if(ex != null) {
+                log.error(formatLogMessage("FLUSH FAIL " + exportName, interactionId), ex);
+            } else {
+                log.info(formatLogMessage("FLUSH OK " + exportName, interactionId));
+            }
+        });
+    }
 }
