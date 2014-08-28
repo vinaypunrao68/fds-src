@@ -64,6 +64,8 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     void updateUser(const int64_t userId, const std::string& identifier, const std::string& passwordHash, const std::string& secret, const bool isFdsAdmin) {} //NOLINT
     int64_t configurationVersion(const int64_t ignore) { return 0;}
     void createVolume(const std::string& domainName, const std::string& volumeName, const VolumeSettings& volumeSettings, const int64_t tenantId) {}  //NOLINT
+    int64_t getVolumeId(const std::string& volumeName) {return 0;}
+    void getVolumeName(std::string& _return, const int64_t volumeId) {}
     void deleteVolume(const std::string& domainName, const std::string& volumeName) {}  //NOLINT
     void statVolume(VolumeDescriptor& _return, const std::string& domainName, const std::string& volumeName) {}  //NOLINT
     void listVolumes(std::vector<VolumeDescriptor> & _return, const std::string& domainName) {}  //NOLINT
@@ -148,6 +150,33 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
                                          *domainName, *volumeName, *volumeSettings);
         err = volContainer->om_create_vol(header, request, false);
         if (err != ERR_OK) apiException("error creating volume");
+    }
+
+    int64_t getVolumeId(boost::shared_ptr<std::string>& volumeName) {
+        checkDomainStatus();
+
+        OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+        VolumeContainer::pointer volContainer = local->om_vol_mgr();
+        VolumeInfo::pointer  vol = VolumeInfo::vol_cast_ptr(volContainer->rs_get_resource(volumeName->c_str())); //NOLINT
+        if (vol) {
+            return vol->rs_get_uuid().uuid_get_val();
+        } else {
+            LOGWARN << "unable to get volume info for vol:" << *volumeName;
+            return 0;
+        }
+    }
+
+    void getVolumeName(std::string& volumeName, boost::shared_ptr<int64_t>& volumeId) {
+        checkDomainStatus();
+
+        OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+        VolumeContainer::pointer volContainer = local->om_vol_mgr();
+        VolumeInfo::pointer  vol = VolumeInfo::vol_cast_ptr(volContainer->rs_get_resource(*volumeId)); //NOLINT
+        if (vol) {
+            volumeName =  vol->vol_get_name();
+        } else {
+            LOGWARN << "unable to get volume info for vol:" << *volumeId;
+        }
     }
 
     void deleteVolume(boost::shared_ptr<std::string>& domainName,

@@ -142,6 +142,12 @@ service ConfigurationService {
         void createVolume(1:string domainName, 2:string volumeName, 3:VolumeSettings volumeSettings, 4: i64 tenantId)
              throws (1: ApiException e),
 
+        i64 getVolumeId(1:string volumeName)
+             throws (1: ApiException e),
+
+        string getVolumeName(1:i64 volumeId)
+             throws (1: ApiException e),
+
         void deleteVolume(1:string domainName, 2:string volumeName)
              throws (1: ApiException e),
 
