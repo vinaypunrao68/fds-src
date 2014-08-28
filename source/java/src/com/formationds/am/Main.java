@@ -49,6 +49,7 @@ public class Main {
 
             boolean enforceAuthorization = amParsedConfig.lookup("fds.am.authentication").booleanValue();
             Authenticator authenticator = enforceAuthorization? new FdsAuthenticator(config) : new NullAuthenticator();
+            Authorizer authorizer = new DumbAuthorizer();
 
             int nbdPort = amParsedConfig.lookup("fds.am.nbd_server_port").intValue();
             boolean nbdLoggingEnabled =  amParsedConfig.defaultBoolean("fds.am.enable_nbd_log", false);
@@ -63,7 +64,6 @@ public class Main {
             
             new Thread(() -> nbdHost.run()).start();
 
-            Authorizer authorizer = new DumbAuthorizer();
             Xdi xdi = new Xdi(am, config, authenticator, authorizer, legacyClientFactory.configPathClient(omHost, omLegacyConfigPort));
             ByteBufferPool bbp = new ArrayByteBufferPool();
             XdiAsync xdiAsync = new XdiAsync(clientFactory.remoteAmServiceAsync("localhost", 9988), clientFactory.remoteOmServiceAsync(omHost, omConfigPort), bbp);

@@ -7,7 +7,7 @@ import com.formationds.apis.User;
 
 public class DumbAuthorizer implements Authorizer {
     @Override
-    public long tenantId(AuthenticationToken token) {
+    public long tenantId(AuthenticationToken token) throws SecurityException {
         return 0;
     }
 
@@ -17,7 +17,7 @@ public class DumbAuthorizer implements Authorizer {
     }
 
     @Override
-    public User userFor(AuthenticationToken token) {
+    public User userFor(AuthenticationToken token) throws SecurityException {
         return new User(0, "admin", "", "", true);
     }
 }
