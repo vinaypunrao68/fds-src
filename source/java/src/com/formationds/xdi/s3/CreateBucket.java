@@ -5,6 +5,7 @@ package com.formationds.xdi.s3;
 
 import com.formationds.apis.VolumeSettings;
 import com.formationds.apis.VolumeType;
+import com.formationds.security.AuthenticationToken;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
@@ -15,16 +16,18 @@ import java.util.Map;
 
 public class CreateBucket implements RequestHandler {
     private Xdi xdi;
+    private AuthenticationToken token;
 
-    public CreateBucket(Xdi xdi) {
+    public CreateBucket(Xdi xdi, AuthenticationToken token) {
         this.xdi = xdi;
+        this.token = token;
     }
 
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
         String bucketName = requiredString(routeParameters, "bucket");
-        xdi.createVolume(S3Endpoint.FDS_S3, bucketName, new VolumeSettings(1024 * 1024 * 2,
-                                                                   VolumeType.OBJECT, 0));
+        long tenantId = xdi.getAuthorizer().tenantId(token);
+        xdi.createVolume(token, S3Endpoint.FDS_S3, bucketName, new VolumeSettings(1024 * 1024 * 2, VolumeType.OBJECT, tenantId));
         return new TextResource("");
     }
 }

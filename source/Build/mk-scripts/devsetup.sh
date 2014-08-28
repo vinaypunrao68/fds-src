@@ -112,6 +112,18 @@ function updateFdsRepo() {
     fi
 }
 
+##########################################################################
+# check and ensure the software-properties-common package is installed
+# this is necessary for the add-apt-repository command used in preinstall 
+##########################################################################
+function checkSWPropsCommon() {
+    pkgname=software-properties-common
+    pkginfo=$( dpkg-query -f '${Package}' -W $pkgname 2>/dev/null)
+    if [[ -z $pkginfo ]]; then
+        sudo apt-get install $pkgname --assume-yes
+    fi
+}
+
 ###########################################################################
 # Fill in the blanks if you need additional actions before installing 
 # a specific pkg 
@@ -243,5 +255,6 @@ case $1 in
     *fdspkg*) INSTALLFDSPKGS=1;;
 esac
 
+checkSWPropsCommon
 installBasePkgs
 installPythonPkgs

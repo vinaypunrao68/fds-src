@@ -9,6 +9,8 @@
 #include <utest-types.h>
 #include <fds_types.h>
 
+#include <dm-tvc/OperationJournal.h>
+
 namespace fds {
 
 probe_mod_param_t commit_log_probe_param =

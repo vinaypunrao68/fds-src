@@ -3,12 +3,10 @@ package com.formationds.xdi.s3;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.apis.BlobDescriptor;
-import com.formationds.apis.VolumeStatus;
+import com.formationds.security.AuthenticationToken;
 import com.formationds.util.XmlElement;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
-import com.formationds.web.toolkit.TextResource;
 import com.formationds.web.toolkit.XmlResource;
 import com.formationds.xdi.Xdi;
 import org.apache.commons.codec.binary.Hex;
@@ -20,19 +18,17 @@ import javax.xml.stream.events.StartElement;
 import javax.xml.stream.events.XMLEvent;
 import java.io.InputStream;
 import java.io.SequenceInputStream;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Pattern;
-import java.util.regex.Matcher;
-import java.util.stream.Collectors;
 
 public class MultiPartUploadComplete implements RequestHandler {
     private Xdi xdi;
+    private AuthenticationToken token;
 
-    public MultiPartUploadComplete(Xdi xdi) {
+    public MultiPartUploadComplete(Xdi xdi, AuthenticationToken token) {
         this.xdi = xdi;
+        this.token = token;
     }
 
     private Map<Integer, String> deserializeEtagMap(InputStream source) throws Exception{
@@ -81,7 +77,7 @@ public class MultiPartUploadComplete implements RequestHandler {
         String bucket = requiredString(routeParameters, "bucket");
         String objectName = requiredString(routeParameters, "object");
         String uploadId = request.getParameter("uploadId");
-        MultiPartOperations mops = new MultiPartOperations(xdi, uploadId);
+        MultiPartOperations mops = new MultiPartOperations(xdi, uploadId, token);
 
         //TODO: verify etag map
         Map<Integer,String> etagMap = deserializeEtagMap(request.getInputStream());
@@ -91,7 +87,7 @@ public class MultiPartUploadComplete implements RequestHandler {
 
         InputStream is = null;
         for(PartInfo bd : partInfoList) {
-            InputStream str = xdi.readStream(S3Endpoint.FDS_S3_SYSTEM, S3Endpoint.FDS_S3_SYSTEM_BUCKET_NAME, bd.descriptor.getName());
+            InputStream str = xdi.readStream(token, S3Endpoint.FDS_S3_SYSTEM, S3Endpoint.FDS_S3_SYSTEM_BUCKET_NAME, bd.descriptor.getName());
             if(is == null)
                 is = str;
             else
@@ -100,10 +96,10 @@ public class MultiPartUploadComplete implements RequestHandler {
 
         Map<String, String> metadata = new HashMap<>();
         // TODO: do this write asynchronously
-        byte[] digest = xdi.writeStream(S3Endpoint.FDS_S3, bucket, objectName, is, metadata);
+        byte[] digest = xdi.writeStream(token, S3Endpoint.FDS_S3, bucket, objectName, is, metadata);
 
         for(PartInfo bd : partInfoList)
-            xdi.deleteBlob(S3Endpoint.FDS_S3_SYSTEM, S3Endpoint.FDS_S3_SYSTEM_BUCKET_NAME, bd.descriptor.getName());
+            xdi.deleteBlob(token, S3Endpoint.FDS_S3_SYSTEM, S3Endpoint.FDS_S3_SYSTEM_BUCKET_NAME, bd.descriptor.getName());
 
         XmlElement response = new XmlElement("CompleteMultipartUploadResult")
                 .withAttr("xmlns", "http://s3.amazonaws.com/doc/2006-03-01/")

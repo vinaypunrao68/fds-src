@@ -21,11 +21,11 @@ def create_tests():
     ############### Test definition ############
 
     tests = []
-    size = 4096   # 4096
+    size = 2 * 1024 * 1024   # 4096
     test = dict(template)
     test["type"] = "PUT"
-    test["nreqs"] =  10000# 10000  # 100000
-    test["nfiles"] = 1000 #1000 # 10000
+    test["nreqs"] =  1000# 10000  # 100000
+    test["nfiles"] = 100 #1000 # 10000
     test["nvols"] = 4 #2
     test["threads"] = 1
     test["fsize"] = size
@@ -43,8 +43,8 @@ def create_tests():
         for th in [25]:#[1, 5, 10, 15, 20, 25, 30]: #[1, 2, 5, 10, 15]:
             test = dict(template)
             test["type"] = "GET"
-            test["nreqs"] = 10000 # 100000
-            test["nfiles"] = 1000 # 10000
+            test["nreqs"] = 1000 # 100000
+            test["nfiles"] = 100 # 10000
             test["nvols"] = nvols
             test["threads"] = th
             test["fsize"] = size

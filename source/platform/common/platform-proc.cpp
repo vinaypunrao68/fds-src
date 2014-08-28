@@ -74,10 +74,10 @@ NodePlatformProc::plf_start_node_services(const fpi::FDSP_ActivateNodeTypePtr &m
             std::string arg1;
             std::string arg2;
             std::string arg3;
-            arg1stream << " --fds.plat.platform_port=" << conf.get<int>("platform_port");
+            arg1stream << "--fds.plat.platform_port=" << conf.get<int>("platform_port");
             arg1 = arg1stream.str();
             extra_args.push_back(arg1.c_str());
-            arg2 = std::string(" --fds.plat.om_ip=") + conf.get<std::string>("om_ip");
+            arg2 = std::string("--fds.plat.om_ip=") + conf.get<std::string>("om_ip");
             extra_args.push_back(arg2.c_str());
             arg3 = std::string("--fds.sm.om_ip=") + conf.get<std::string>("om_ip");
             extra_args.push_back(arg3.c_str());
@@ -96,10 +96,10 @@ NodePlatformProc::plf_start_node_services(const fpi::FDSP_ActivateNodeTypePtr &m
             std::string arg1;
             std::string arg2;
             std::string arg3;
-            arg1stream << " --fds.plat.platform_port=" << conf.get<int>("platform_port");
+            arg1stream << "--fds.plat.platform_port=" << conf.get<int>("platform_port");
             arg1 = arg1stream.str();
             extra_args.push_back(arg1.c_str());
-            arg2 = std::string(" --fds.plat.om_ip=") + conf.get<std::string>("om_ip");
+            arg2 = std::string("--fds.plat.om_ip=") + conf.get<std::string>("om_ip");
             extra_args.push_back(arg2.c_str());
             arg3 = std::string("--fds.dm.om_ip=") + conf.get<std::string>("om_ip");
             extra_args.push_back(arg3.c_str());
@@ -116,10 +116,10 @@ NodePlatformProc::plf_start_node_services(const fpi::FDSP_ActivateNodeTypePtr &m
             std::string arg1;
             std::string arg2;
             std::string arg3;
-            arg1stream << " --fds.plat.platform_port=" << conf.get<int>("platform_port");
+            arg1stream << "--fds.plat.platform_port=" << conf.get<int>("platform_port");
             arg1 = arg1stream.str();
             extra_args.push_back(arg1.c_str());
-            arg2 = std::string(" --fds.plat.om_ip=") + conf.get<std::string>("om_ip");
+            arg2 = std::string("--fds.plat.om_ip=") + conf.get<std::string>("om_ip");
             extra_args.push_back(arg2.c_str());
             arg3 = std::string("--fds.am.om_ip=") + conf.get<std::string>("om_ip");
             extra_args.push_back(arg3.c_str());
@@ -146,8 +146,8 @@ NodePlatformProc::plf_fill_disk_capacity_pkt(fpi::FDSP_RegisterNodeTypePtr pkt)
     // to reserve some iops for local background tasks (such as migration, etc)
     LOGNOTIFY << "Send system capacity to OM";
 
-    pkt->disk_info.disk_iops_max    = 3600;
-    pkt->disk_info.disk_iops_min    = 1000;
+    pkt->disk_info.disk_iops_max    = 10000;
+    pkt->disk_info.disk_iops_min    = 4000;
     pkt->disk_info.disk_capacity    = 0x7ffff;
     pkt->disk_info.disk_latency_max = 1000000 / pkt->disk_info.disk_iops_min;
     pkt->disk_info.disk_latency_min = 1000000 / pkt->disk_info.disk_iops_max;
@@ -157,6 +157,13 @@ NodePlatformProc::plf_fill_disk_capacity_pkt(fpi::FDSP_RegisterNodeTypePtr pkt)
     pkt->disk_info.ssd_latency_max  = 1000000 / pkt->disk_info.ssd_iops_min;
     pkt->disk_info.ssd_latency_min  = 1000000 / pkt->disk_info.ssd_iops_max;
     pkt->disk_info.disk_type        = FDS_DISK_SATA;
+
+    // over-write some value from config if testing perf
+    FdsConfigAccessor conf(get_conf_helper());
+    if (conf.get<bool>("testing.manual_nodecap")) {
+        pkt->disk_info.disk_iops_min = conf.get<int>("testing.disk_iops_min");
+        pkt->disk_info.disk_iops_max = conf.get<int>("testing.disk_iops_max");
+    }
 }
 
 void

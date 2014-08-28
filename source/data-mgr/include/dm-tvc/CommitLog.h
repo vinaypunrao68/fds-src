@@ -27,12 +27,11 @@
 #include <PerfTypes.h>
 #include <boost/scoped_ptr.hpp>
 #include <DmIoReq.h>
-#include <dm-tvc/OperationJournal.h>
 #include <lib/Catalog.h>
 
 namespace fds {
 
-class DmTvcOperationLog;
+class DmTvcOperationJournal;
 
 const unsigned DEFAULT_COMMIT_LOG_FILE_SIZE = 20 * 1024 * 1024;
 const unsigned MIN_COMMIT_LOG_FILE_SIZE = 1 * 1024 * 1024;

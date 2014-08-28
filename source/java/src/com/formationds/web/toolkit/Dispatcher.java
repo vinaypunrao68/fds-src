@@ -3,6 +3,7 @@ package com.formationds.web.toolkit;
 import com.google.common.collect.Multimap;
 import org.apache.log4j.Logger;
 import org.eclipse.jetty.server.Request;
+import org.eclipse.jetty.server.Response;
 import org.json.JSONObject;
 
 import javax.servlet.ServletException;
@@ -10,10 +11,8 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
 
 /*
  * Copyright 2014 Formation Data Systems, Inc.
@@ -23,12 +22,13 @@ public class Dispatcher extends HttpServlet {
 
     private RouteFinder routeFinder;
     private String webDir;
+    private List<AsyncRequestExecutor> asyncRequestExecutorList;
 
-    public Dispatcher(RouteFinder routeFinder, String webDir) {
+    public Dispatcher(RouteFinder routeFinder, String webDir, List<AsyncRequestExecutor> executors) {
         this.routeFinder = routeFinder;
         this.webDir = webDir;
+        this.asyncRequestExecutorList = executors;
     }
-
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
@@ -60,6 +60,10 @@ public class Dispatcher extends HttpServlet {
         if (isStaticAsset(request) && webDir != null) {
             requestHandler = new StaticFileHandler(webDir);
         } else {
+            Optional<CompletableFuture<Void>> execution = tryExecuteAsyncApp(request, (Response) response);
+            if(execution.isPresent())
+                return;
+
             Optional<Route> route = routeFinder.resolve(request);
             if (!route.isPresent()) {
                 route = Optional.of(new Route(request, new HashMap<>(), () -> new FourOhFour()));
@@ -98,6 +102,16 @@ public class Dispatcher extends HttpServlet {
 
         long elapsed = System.currentTimeMillis() - then;
         LOG.info("Request URI: [" + request.getMethod() + " " + request.getRequestURI() + "], HTTP status: " + resource.getHttpStatus() + ", " + elapsed + "ms");
+    }
+
+    private Optional<CompletableFuture<Void>> tryExecuteAsyncApp(Request request, Response response) {
+        for(AsyncRequestExecutor executor : asyncRequestExecutorList) {
+            Optional<CompletableFuture<Void>> cf = executor.tryExecuteRequest(request, response);
+            if(cf.isPresent())
+                return cf;
+        }
+
+        return Optional.empty();
     }
 
     private boolean isStaticAsset(HttpServletRequest request) {

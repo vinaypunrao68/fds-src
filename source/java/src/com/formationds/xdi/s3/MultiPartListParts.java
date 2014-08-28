@@ -4,6 +4,7 @@ package com.formationds.xdi.s3;
  */
 
 import com.formationds.apis.BlobDescriptor;
+import com.formationds.security.AuthenticationToken;
 import com.formationds.util.XmlElement;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
@@ -12,7 +13,6 @@ import com.formationds.xdi.Xdi;
 import org.eclipse.jetty.server.Request;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
-import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.ISODateTimeFormat;
 
 import java.util.List;
@@ -23,9 +23,11 @@ import java.util.stream.Stream;
 
 public class MultiPartListParts implements RequestHandler {
     private Xdi xdi;
+    private AuthenticationToken token;
 
-    public MultiPartListParts(Xdi xdi) {
+    public MultiPartListParts(Xdi xdi, AuthenticationToken token) {
         this.xdi = xdi;
+        this.token = token;
     }
 
     @Override
@@ -34,7 +36,7 @@ public class MultiPartListParts implements RequestHandler {
         String objectName = requiredString(routeParameters, "object");
         String uploadId = request.getParameter("uploadId");
 
-        MultiPartOperations mops = new MultiPartOperations(xdi, uploadId);
+        MultiPartOperations mops = new MultiPartOperations(xdi, uploadId, token);
         Integer maxParts = getIntegerFromRequest(request, "max-parts");
         Integer partNumberMarker = getIntegerFromRequest(request, "part-number-marker");
 
@@ -71,7 +73,7 @@ public class MultiPartListParts implements RequestHandler {
 
         for(PartInfo pi : filteredList) {
             // TODO: remove when volumeContents is fixed - right now it does not return metadata
-            BlobDescriptor bd = xdi.statBlob(S3Endpoint.FDS_S3_SYSTEM, S3Endpoint.FDS_S3_SYSTEM_BUCKET_NAME, pi.descriptor.getName());
+            BlobDescriptor bd = xdi.statBlob(token, S3Endpoint.FDS_S3_SYSTEM, S3Endpoint.FDS_S3_SYSTEM_BUCKET_NAME, pi.descriptor.getName());
             Map<String, String> md = bd.getMetadata();
             DateTime lastModifiedTemp;
             try {

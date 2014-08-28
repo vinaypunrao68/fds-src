@@ -25,6 +25,7 @@ class AmProbe : public ProbeMod {
     fds_uint32_t                     numThreads;
     fds_uint32_t                     numOps;
     fds_atomic_ullong                recvdOps;
+    fds_atomic_ullong                dispatchedOps;
     util::TimeStamp                  startTime;
     util::TimeStamp                  endTime;
 
@@ -138,6 +139,9 @@ class AmProbe : public ProbeMod {
 
     // Workload related methods
     void incResp();
+    void incDispatched();
+    void decDispatched();
+    bool isDispatchedGreaterThan(uint64_t val) const;
     static void doAsyncStartTx(const std::string &volumeName,
                                const std::string &blobName,
                                const fds_int32_t blobMode);

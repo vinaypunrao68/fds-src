@@ -186,6 +186,7 @@ struct ProbeGetBlobResponseHandler : public GetObjectResponseHandler {
 
     virtual void process() {
         gl_AmProbe.incResp();
+        gl_AmProbe.decDispatched();
     }
 };
 
@@ -221,6 +222,25 @@ AmProbe::incResp() {
         recvdOps = 0;
     }
     fds_verify(recvdOps <= numOps);
+}
+
+void
+AmProbe::incDispatched()
+{
+    dispatchedOps++;
+}
+
+void
+AmProbe::decDispatched()
+{
+    fds_verify(gl_AmProbe.dispatchedOps.load() > 0);
+    dispatchedOps--;
+}
+
+bool
+AmProbe::isDispatchedGreaterThan(uint64_t val) const
+{
+    return (dispatchedOps.load() > val);
 }
 
 /**
@@ -302,6 +322,10 @@ AmProbe::AmProbeOp::js_exec_obj(JsObject *parent,
     gl_AmProbe.numOps = numOps;
     gl_AmProbe.startTime = util::getTimeStampMicros();
     for (fds_uint32_t i = 0; i < numOps; i++) {
+        while (gl_AmProbe.isDispatchedGreaterThan(200)) {
+            boost::this_thread::sleep(boost::posix_time::microseconds(1000));
+        }
+        gl_AmProbe.incDispatched();
         node = static_cast<AmProbeOp *>((*parent)[i]);
         info = node->am_ops();
         LOGDEBUG << "Doing a " << info->op << " for blob "

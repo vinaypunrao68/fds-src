@@ -23,6 +23,7 @@
 #include <vector>
 
 #include <fds_module.h>
+#include <serialize.h>
 #include <dm-tvc/CommitLog.h>
 #include <DataMgr.h>
 
@@ -286,7 +287,7 @@ void DmCommitLog::compactLog(dmCatReq * req) {
     }
 
     for (auto it : logTxMap_) {
-        journal_.log(*(it.second));
+        journal_.log(it.second);
         Error rc = logTx(it.second->txDesc);
         fds_verify(rc.ok());
     }

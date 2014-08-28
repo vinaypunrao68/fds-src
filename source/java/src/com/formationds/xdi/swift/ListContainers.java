@@ -5,6 +5,7 @@ package com.formationds.xdi.swift;
 
 import com.formationds.apis.VolumeDescriptor;
 import com.formationds.apis.VolumeStatus;
+import com.formationds.security.AuthenticationToken;
 import com.formationds.util.JsonArrayCollector;
 import com.formationds.web.Dom4jResource;
 import com.formationds.web.toolkit.JsonResource;
@@ -26,9 +27,11 @@ import java.util.stream.Collectors;
 
 public class ListContainers implements SwiftRequestHandler {
     private Xdi xdi;
+    private AuthenticationToken token;
 
-    public ListContainers(Xdi xdi) {
+    public ListContainers(Xdi xdi, AuthenticationToken token) {
         this.xdi = xdi;
+        this.token = token;
     }
 
     @Override
@@ -38,7 +41,7 @@ public class ListContainers implements SwiftRequestHandler {
         ResponseFormat format = obtainFormat(request);
         // TODO: get xdi call for a subset of this info
         // TODO: implement limit, marker, end_marker, format, prefix, delimiter query string variables
-        List<VolumeDescriptor> volumes = xdi.listVolumes(accountName);
+        List<VolumeDescriptor> volumes = xdi.listVolumes(token, accountName);
 
         volumes = new SkipUntil<VolumeDescriptor>(request.getParameter("marker"), v -> v.getName())
                 .apply(volumes);
@@ -74,7 +77,7 @@ public class ListContainers implements SwiftRequestHandler {
                 .map(v -> {
                     VolumeStatus status = null;
                     try {
-                        status = xdi.statVolume(accountName, v.getName());
+                        status = xdi.statVolume(token, accountName, v.getName());
                     } catch (TException e) {
                         throw new RuntimeException(e);
                     }
@@ -95,7 +98,7 @@ public class ListContainers implements SwiftRequestHandler {
                 .forEach(v -> {
                     VolumeStatus status = null;
                     try {
-                        status = xdi.statVolume(accountName, v.getName());
+                        status = xdi.statVolume(token, accountName, v.getName());
                     } catch (TException e) {
                         throw new RuntimeException(e);
                     }
