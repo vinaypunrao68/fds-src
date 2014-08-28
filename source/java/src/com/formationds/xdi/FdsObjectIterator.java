@@ -46,15 +46,11 @@ public class FdsObjectIterator {
             public byte[] next() {
                 FdsObjectFrame frame = frameIterator.next();
                 try {
-                    if(frame.internalOffset != 0) {
-                        int readLength = frame.internalOffset + frame.internalLength;
-                        byte[] object = am.getBlob(domainName, volumeName, blobName, readLength, new ObjectOffset(frame.objectOffset)).array();
-                        byte[] result = new byte[frame.internalLength];
-                        System.arraycopy(object, frame.internalOffset, result, 0, frame.internalLength);
-                        return result;
-                    } else {
-                        return am.getBlob(domainName, volumeName, blobName, frame.internalLength, new ObjectOffset(frame.objectOffset)).array();
-                    }
+                    int readLength = frame.internalOffset + frame.internalLength;
+                    ByteBuffer object = am.getBlob(domainName, volumeName, blobName, readLength, new ObjectOffset(frame.objectOffset));
+                    byte[] result = new byte[frame.internalLength];
+                    object.get(result, frame.internalOffset, frame.internalLength);
+                    return result;
                 } catch (TException e) {
                     throw new RuntimeException(e);
                 }
