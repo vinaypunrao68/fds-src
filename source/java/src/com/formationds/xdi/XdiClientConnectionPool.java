@@ -78,8 +78,7 @@ class XdiClientConnectionFactory<T> implements KeyedPooledObjectFactory<Connecti
 
     @Override
     public PooledObject<XdiClientConnection<T>> makeObject(ConnectionSpecification cspec) throws Exception {
-        // TSocket transport = new TSocket(cspec.host, cspec.port);
-        TFramedTransport transport = new TFramedTransport(new TSocket(cspec.host, cspec.port));
+        TSocket transport = new TSocket(cspec.host, cspec.port);
         try {
             transport.open();
         } catch (TTransportException e) {
@@ -127,7 +126,7 @@ class XdiAsyncClientConnectionFactory<T> implements KeyedPooledObjectFactory<Con
         TNonblockingTransport transport = new TNonblockingSocket(cspec.host, cspec.port);
         TAsyncClientManager clientManager = new TAsyncClientManager();
         TProtocolFactory protocolFactory = new TBinaryProtocol.Factory();
-//
+
 //        try {
 //            transport.open();
 //        } catch (TTransportException e) {

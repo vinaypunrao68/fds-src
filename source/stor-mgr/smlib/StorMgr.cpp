@@ -445,6 +445,8 @@ void ObjectStorMgr::mod_startup()
     /*
      * Register this node with OM.
      */
+    LOGNOTIFY << "om ip: " << *modProvider_->get_plf_manager()->plf_get_om_ip()
+        << " port: " << modProvider_->get_plf_manager()->plf_get_om_ctrl_port();
     omClient = new OMgrClient(FDSP_STOR_MGR,
                               *modProvider_->get_plf_manager()->plf_get_om_ip(),
                               modProvider_->get_plf_manager()->plf_get_om_ctrl_port(),

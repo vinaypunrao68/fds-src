@@ -4,6 +4,7 @@ package com.formationds.xdi.s3;
  */
 
 import com.formationds.apis.BlobDescriptor;
+import com.formationds.security.AuthenticationToken;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.StreamResource;
@@ -17,15 +18,17 @@ import java.util.Map;
 
 public class GetObject implements RequestHandler {
     private Xdi xdi;
+    private AuthenticationToken token;
 
-    public GetObject(Xdi xdi) {
+    public GetObject(Xdi xdi, AuthenticationToken token) {
         this.xdi = xdi;
+        this.token = token;
     }
 
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
         if(request.getParameter("uploadId") != null)
-            return new MultiPartListParts(xdi).handle(request, routeParameters);
+            return new MultiPartListParts(xdi, token).handle(request, routeParameters);
 
         String bucketName = requiredString(routeParameters, "bucket");
         String objectName = requiredString(routeParameters, "object");
@@ -34,7 +37,7 @@ public class GetObject implements RequestHandler {
     }
 
     public Resource handle(Request request, String bucketName, String objectName) throws Exception {
-        BlobDescriptor blobDescriptor = xdi.statBlob(S3Endpoint.FDS_S3, bucketName, objectName);
+        BlobDescriptor blobDescriptor = xdi.statBlob(token, S3Endpoint.FDS_S3, bucketName, objectName);
         String digest = blobDescriptor.getMetadata().getOrDefault("etag", "");
 
         String etag = "\"" + digest + "\"";
@@ -49,7 +52,7 @@ public class GetObject implements RequestHandler {
         }
 
         String contentType = blobDescriptor.getMetadata().getOrDefault("Content-Type", "application/octet-stream");
-        InputStream stream = xdi.readStream(S3Endpoint.FDS_S3, bucketName, objectName,
+        InputStream stream = xdi.readStream(token, S3Endpoint.FDS_S3, bucketName, objectName,
                 0, blobDescriptor.getByteCount());
         return new StreamResource(stream, contentType).withHeader("ETag", etag);
     }

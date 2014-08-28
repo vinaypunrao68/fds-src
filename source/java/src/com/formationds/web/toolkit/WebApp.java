@@ -4,7 +4,12 @@ import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.ServerConnector;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
+import org.eclipse.jetty.util.thread.ExecutorThreadPool;
+import org.eclipse.jetty.util.thread.ThreadPool;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ForkJoinPool;
 import java.util.function.Supplier;
 
 import java.util.concurrent.ForkJoinPool;
@@ -19,6 +24,7 @@ import org.eclipse.jetty.util.thread.ThreadPool;
 public class WebApp {
     private RouteFinder routeFinder;
     private String webDir;
+    private List<AsyncRequestExecutor> executors;
 
     public WebApp(String webDir) {
         this.webDir = webDir;
@@ -28,10 +34,15 @@ public class WebApp {
     public WebApp() {
         this.webDir = null;
         this.routeFinder = new RouteFinder();
+        this.executors = new ArrayList<>();
     }
 
     public void route(HttpMethod method, String route, Supplier<RequestHandler> handler) {
         routeFinder.route(method, route, handler);
+    }
+
+    public void addAsyncExecutor(AsyncRequestExecutor executor) {
+        executors.add(executor);
     }
 
     public void start(int httpPort) {
@@ -47,7 +58,7 @@ public class WebApp {
         contextHandler.setContextPath("/");
         server.setHandler(contextHandler);
 
-        Dispatcher dispatcher = new Dispatcher(routeFinder, webDir);
+        Dispatcher dispatcher = new Dispatcher(routeFinder, webDir, executors);
         contextHandler.addServlet(new ServletHolder(dispatcher), "/");
         server.setHandler(contextHandler);
 

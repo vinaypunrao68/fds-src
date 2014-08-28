@@ -334,7 +334,7 @@ ctags:
 .PHONY: precheckin
 precheckin:
 	@echo Run primitive precheckin....
-	(cd $(topdir) && ./test/fds-primitive-smoke.py)
+	(cd $(topdir) && ./test/fds-primitive-smoke.py --smoke_test true --log_level 0 --std_output yes)
 
 # -----------------------------------------------------------------------------
 # Debug target to dump out Makefile variables

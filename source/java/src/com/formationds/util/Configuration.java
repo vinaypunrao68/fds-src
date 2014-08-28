@@ -92,21 +92,12 @@ public class Configuration {
         }
     }
 
-    public boolean enforceRestAuth() {
-        return getOmConfig().lookup("fds.om.enforce_rest_auth").booleanValue();
-    }
-
     public String getFdsRoot() {
         return fdsRoot.getAbsolutePath();
     }
 
     public ParsedConfig getPlatformConfig() {
         Path path = Paths.get(getFdsRoot(), "etc", "platform.conf");
-        return getParserFacade(path);
-    }
-
-    public ParsedConfig getOmConfig() {
-        Path path = Paths.get(getFdsRoot(), "etc", "orch_mgr.conf");
         return getParserFacade(path);
     }
 

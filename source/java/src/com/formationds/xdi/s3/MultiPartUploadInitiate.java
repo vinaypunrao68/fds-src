@@ -7,6 +7,7 @@ import com.formationds.apis.ApiException;
 import com.formationds.apis.ErrorCode;
 import com.formationds.apis.VolumeSettings;
 import com.formationds.apis.VolumeType;
+import com.formationds.security.AuthenticationToken;
 import com.formationds.util.XmlElement;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
@@ -19,18 +20,20 @@ import java.util.UUID;
 
 public class MultiPartUploadInitiate implements RequestHandler {
     private Xdi xdi;
+    private AuthenticationToken token;
 
-    public MultiPartUploadInitiate(Xdi xdi) {
+    public MultiPartUploadInitiate(Xdi xdi, AuthenticationToken token) {
         this.xdi = xdi;
+        this.token = token;
     }
 
     private void ensureSystemBucketCreated() throws Exception {
-        boolean exists = xdi.listVolumes(S3Endpoint.FDS_S3_SYSTEM).stream()
+        boolean exists = xdi.listVolumes(token, S3Endpoint.FDS_S3_SYSTEM).stream()
                 .anyMatch(o -> o.getName().equals(S3Endpoint.FDS_S3_SYSTEM_BUCKET_NAME));
 
         if(!exists) {
             try {
-                xdi.createVolume(S3Endpoint.FDS_S3_SYSTEM, S3Endpoint.FDS_S3_SYSTEM_BUCKET_NAME, new VolumeSettings(2 * 1024 * 1024, VolumeType.OBJECT, 0));
+                xdi.createVolume(token, S3Endpoint.FDS_S3_SYSTEM, S3Endpoint.FDS_S3_SYSTEM_BUCKET_NAME, new VolumeSettings(2 * 1024 * 1024, VolumeType.OBJECT, 0));
             } catch(ApiException ex) {
                 if(ex.getErrorCode() != ErrorCode.RESOURCE_ALREADY_EXISTS)
                     throw ex;

@@ -4,7 +4,7 @@ package com.formationds.xdi;
  */
 
 
-import org.apache.commons.lang.NotImplementedException;
+//import org.apache.commons.lang.NotImplementedException;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -55,7 +55,7 @@ public class FdsObjectStreamer extends InputStream {
     }
     @Override
     public long skip(long n) throws IOException {
-        throw new NotImplementedException();
+        throw new IOException("not implemented");
     }
 
     @Override
@@ -71,12 +71,12 @@ public class FdsObjectStreamer extends InputStream {
 
     @Override
     public synchronized void mark(int readlimit) {
-        throw new NotImplementedException();
+        throw new RuntimeException("not implemented");
     }
 
     @Override
     public synchronized void reset() throws IOException {
-        throw new NotImplementedException();
+        throw new RuntimeException("not implemented");
     }
 
     @Override
