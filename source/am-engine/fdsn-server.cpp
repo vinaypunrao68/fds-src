@@ -555,16 +555,11 @@ class FdsnIf : public apis::AmServiceIf {
 
 FdsnServer::FdsnServer(const std::string &name)
         : Module(name.c_str()),
-          port(9988) {
+          port(9988),
+          numFdsnThreads(10) {
     serverTransport.reset(new xdi_att::TServerSocket(port));
     transportFactory.reset(new xdi_att::TBufferedTransportFactory());
     protocolFactory.reset(new xdi_atp::TBinaryProtocolFactory());
-
-    // TODO(Andrew): Leave the server single threaded for now...
-    threadManager = xdi_atc::ThreadManager::newSimpleThreadManager(1);
-    threadFactory.reset(new xdi_atc::PosixThreadFactory());
-    threadManager->threadFactory(threadFactory);
-    threadManager->start();
 
     // server_->setServerEventHandler(event_handler_);
 }
@@ -575,6 +570,13 @@ FdsnServer::FdsnServer(const std::string &name)
 int
 FdsnServer::mod_init(SysParams const *const p) {
     Module::mod_init(p);
+    FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
+    numFdsnThreads = conf.get<fds_uint32_t>("fdsn_server_threads");
+
+    threadManager = xdi_atc::ThreadManager::newSimpleThreadManager(numFdsnThreads);
+    threadFactory.reset(new xdi_atc::PosixThreadFactory());
+    threadManager->threadFactory(threadFactory);
+    threadManager->start();
     return 0;
 }
 
@@ -615,7 +617,8 @@ FdsnServer::init_server(FDS_NativeAPI::ptr api) {
                                               protocolFactory));
 
     try {
-        LOGNORMAL << "Starting the FDSN server...";
+        LOGNORMAL << "Starting the FDSN server with " << numFdsnThreads
+                  << " threads...";
         // listen_thread.reset(new boost::thread(&xdi_ats::TNonblockingServer::serve,
         listen_thread.reset(new boost::thread(&xdi_ats::TThreadedServer::serve,
                                               server.get()));

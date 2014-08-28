@@ -42,6 +42,7 @@ class FdsnServer : public Module {
     fds_uint32_t             port;
     typedef boost::shared_ptr<FdsnIf> FdsnIfPtr;
     FdsnIfPtr fdsnInterface;
+    fds_uint32_t numFdsnThreads;
 
     /*
      * Thrift endpoint related
