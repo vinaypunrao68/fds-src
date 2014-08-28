@@ -40,7 +40,7 @@ public class S3Endpoint {
         authenticate(HttpMethod.GET, "/:bucket/:object", (t) -> new GetObject(xdi, t));
         authenticate(HttpMethod.DELETE, "/:bucket/:object", (t) -> new DeleteObject(xdi, t));
 
-        webApp.addAsyncExecutor(new S3AsyncApplication(xdiAsync));
+        //webApp.addAsyncExecutor(new S3AsyncApplication(xdiAsync));
 
         webApp.start(port);
     }
