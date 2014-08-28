@@ -619,9 +619,10 @@ FdsnServer::init_server(FDS_NativeAPI::ptr api) {
     try {
         LOGNORMAL << "Starting the FDSN server with " << numFdsnThreads
                   << " threads...";
-        // listen_thread.reset(new boost::thread(&xdi_ats::TNonblockingServer::serve,
-        listen_thread.reset(new boost::thread(&xdi_ats::TThreadedServer::serve,
-                                              server.get()));
+        listen_thread.reset(new boost::thread(&xdi_ats::TNonblockingServer::serve,
+                                              nbServer.get()));
+        // listen_thread.reset(new boost::thread(&xdi_ats::TThreadedServer::serve,
+        //                                   server.get()));
     } catch(const xdi_att::TTransportException& e) {
         LOGERROR << "unable to start FDSN server : " << e.what();
         fds_panic("Unable to start FDSN server...bailing out");
