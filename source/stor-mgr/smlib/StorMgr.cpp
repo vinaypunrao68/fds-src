@@ -1534,8 +1534,14 @@ ObjectStorMgr::writeObjectToTier(const OpCtx &opCtx,
     }
     else if ((err == ERR_OK) &&
         (tier == diskio::diskTier)) {
+        // TODO(Anna) if this is a write-back thread, then volId passed to this method
+        // is currently 0. In reality, an object maybe associated with multiple volumes,
+        // so we need to think whose counters we update (probably all volumes?)
+        // For now, counters will not properly work here.
          PerfTracer::incr(PUT_HDD_OBJ, volId, "volume:" + std::to_string(vio.vol_uuid));
-         vol->hddByteCnt += objId.GetLen(); 
+         if (vol) {
+             vol->hddByteCnt += objId.GetLen();
+         }
     }
 
     delete disk_req;
