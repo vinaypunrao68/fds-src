@@ -50,6 +50,9 @@ needed_packages=(
     libboost-thread1.54-dev
     libboost-regex1.54-dev
 
+    libical-dev
+    libical1
+
     fds-pkghelper
     fds-pkg
     fds-pkgtools
