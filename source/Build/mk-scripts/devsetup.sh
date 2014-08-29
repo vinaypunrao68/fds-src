@@ -67,6 +67,7 @@ python_packages=(
     requests
     scp
     PyYAML
+    boto
 )
 
 function isDeployMode() {
