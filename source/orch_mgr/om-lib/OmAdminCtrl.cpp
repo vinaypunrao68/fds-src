@@ -285,4 +285,26 @@ void FdsAdminCtrl::initDiskCapabilities()
     total_vol_disk_cap_GB = 0;
 }
 
+void FdsAdminCtrl::userQosToServiceQos(FDSP_VolumeDescType *voldesc,
+                                       fpi::FDSP_MgrIdType svc_type) {
+    fds_verify(voldesc != NULL);
+    // currently only SM has actual translation
+    if (svc_type == fpi::FDSP_STOR_MGR) {
+        double replication_factor = REPLICATION_FACTOR;
+        if (num_nodes == 0) return;  // for now just keep user qos policy
+
+        if (replication_factor > num_nodes) {
+            // we will access at most num_nodes nodes
+            replication_factor = num_nodes;
+        }
+        fds_verify(replication_factor != 0);  // make sure REPLICATION_FACTOR > 0
+
+        // translate min_iops
+        double vol_min_iops = voldesc->iops_min;
+        voldesc->iops_min = vol_min_iops * replication_factor / num_nodes;
+        LOGNORMAL << "User min_iops " << vol_min_iops
+                  << " SM volume's min_iops " << voldesc->iops_min;
+    }
+}
+
 }  // namespace fds
