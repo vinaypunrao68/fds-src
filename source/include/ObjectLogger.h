@@ -9,6 +9,10 @@
 #include <fcntl.h>
 
 #include <string>
+#include <vector>
+#include <limits>
+
+#include <boost/scoped_ptr.hpp>
 
 #include <fds_types.h>
 #include <serialize.h>
@@ -29,11 +33,9 @@ class ObjectLogger {
 
     // ctor & dtor
     ObjectLogger(const std::string & filename, fds_uint32_t filesize = FILE_SIZE,
-            fds_uint32_t maxFiles = MAX_FILES);
+            fds_uint32_t maxFiles = MAX_FILES, fds_bool_t clear = false);
 
-    virtual ~ObjectLogger() {
-        closeFile();
-    }
+    virtual ~ObjectLogger();
 
     inline const std::string & filename() const {
         return filename_;
@@ -47,23 +49,52 @@ class ObjectLogger {
         return maxFiles_;
     }
 
-    std::string getFile(fds_uint32_t index) const;
-
     // log operation
     virtual void log(const serialize::Serializable * obj);
 
     // retrieve operations
-    // TODO(umesh): implement this
+    template<typename T>
+    fds_uint32_t getObjects(fds_int32_t fileIndex,
+            std::vector<boost::shared_ptr<T> > & objects,
+            fds_uint32_t max = std::numeric_limits<fds_uint32_t>::max()) {
+        fds_uint32_t count = 0;
+
+        fds_mutex & lockRef_ = (-1 == fileIndex ? logLock_ : rotateLock_);
+        FDSGUARD(lockRef_);
+
+        const std::string & name = (-1 == fileIndex ? filename_ : getFile(fileIndex));
+
+        if (!name.empty()) {
+            boost::scoped_ptr<serialize::Deserializer> d(serialize::getFileDeserializer(name));
+
+            while (count < max) {
+                boost::shared_ptr<T> tmp(new T());
+                try {
+                    tmp->read(d.get());
+                    objects.push_back(tmp);
+                    ++count;
+                } catch(std::exception & e) {
+                    // reached end of file
+                    break;
+                }
+            }
+        }
+
+        return count;
+    }
 
   private:
     std::string filename_;
     fds_uint32_t filesize_;
     fds_uint32_t maxFiles_;
+    fds_bool_t clear_;
 
     fds_int32_t fd_;
     boost::shared_ptr<serialize::Serializer> s_;
+    boost::shared_ptr<serialize::Deserializer> d_;
 
     fds_mutex logLock_;
+    fds_mutex rotateLock_;
 
     // Methods
     inline bool isFull() {
@@ -84,6 +115,13 @@ class ObjectLogger {
             throw std::system_error(errno, std::system_category());
         }
         s_.reset(serialize::getFileSerializer(filename_));
+        d_.reset(serialize::getFileDeserializer(filename_));
+    }
+
+    std::string getFile(fds_uint32_t index) const {
+        std::string name = filename_ + "." + std::to_string(index);
+        struct stat buffer = {0};
+        return (index < maxFiles_ && !stat(name.c_str(), &buffer) ? name : std::string());
     }
 
     void rotate();

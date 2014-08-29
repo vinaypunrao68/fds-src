@@ -14,12 +14,28 @@
 namespace fds {
 
 ObjectLogger::ObjectLogger(const std::string & filename, fds_uint32_t filesize /* = FILE_SIZE */,
-        fds_uint32_t maxFiles /* = MAX_FILES */) : filename_(filename), filesize_(filesize),
-        maxFiles_(maxFiles) {
+        fds_uint32_t maxFiles /* = MAX_FILES */, fds_bool_t clear /* = false */)
+        : filename_(filename), filesize_(filesize), maxFiles_(maxFiles), clear_(clear) {
     openFile();
 }
 
+ObjectLogger::~ObjectLogger() {
+    closeFile();
+    if (clear_) {
+        for (fds_int32_t i = maxFiles_ - 1; i >= 0; --i) {
+            std::string name = getFile(i);
+            if (name.empty()) {
+                continue;   // file not found
+            }
+
+            unlink(name.c_str());
+        }
+        unlink(filename_.c_str());
+    }
+}
+
 void ObjectLogger::rotate() {
+    FDSGUARD(rotateLock_);
     for (fds_int32_t i = maxFiles_ - 1; i >= 0; --i) {
         std::string name = getFile(i);
         if (name.empty()) {
@@ -36,15 +52,13 @@ void ObjectLogger::rotate() {
     }
 
     closeFile();
-    std::string newName = filename_ + "." + std::to_string(0);
-    fds_verify(0 == rename(filename_.c_str(), newName.c_str()));
+    if (0 == maxFiles_) {
+        fds_verify(0 == unlink(filename_.c_str()));
+    } else {
+        std::string newName = filename_ + "." + std::to_string(0);
+        fds_verify(0 == rename(filename_.c_str(), newName.c_str()));
+    }
     openFile();
-}
-
-std::string ObjectLogger::getFile(fds_uint32_t index) const {
-    std::string name = filename_ + "." + std::to_string(index);
-    struct stat buffer = {0};
-    return (index < maxFiles_ && !stat(name.c_str(), &buffer) ? name : std::string());
 }
 
 void ObjectLogger::log(const serialize::Serializable * obj) {
