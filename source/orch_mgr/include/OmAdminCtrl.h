@@ -63,6 +63,9 @@ class FdsAdminCtrl {
     Error checkVolModify(VolumeDesc *cur_desc, VolumeDesc *new_desc);
     void updateAdminControlParams(VolumeDesc  *pVolInfo);
 
+    /* returns max iopc of the subcluster*/
+    fds_uint64_t getMaxIOPC() const;
+
   private:
     void initDiskCapabilities();
 
