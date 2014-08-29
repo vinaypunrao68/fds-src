@@ -424,23 +424,23 @@ Reply Redis::llen(const std::string& key) {
 
 Reply Redis::lpush(const std::string& key, const std::string& value) {
     SCOPEDCXN();
-    return Reply(redisCommand(cxn->ctx, "lpush %s %s", key.c_str(), value.c_str()));
+    return Reply(redisCommand(cxn->ctx, "lpush %s %b", key.c_str(), value.data(), value.length()));
 }
 
 Reply Redis::rpush(const std::string& key, const std::string& value) {
     SCOPEDCXN();
-    return Reply(redisCommand(cxn->ctx, "rpush %s %s", key.c_str(), value.c_str()));
+    return Reply(redisCommand(cxn->ctx, "rpush %s %b", key.c_str(), value.data(), value.length()));
 }
 
 bool Redis::hset(const std::string& key, const std::string& field, const std::string& value) {
     SCOPEDCXN();
-    Reply reply = redisCommand(cxn->ctx, "hset %s %s %s", key.c_str(), field.c_str(), value.c_str()); //NOLINT
+    Reply reply = redisCommand(cxn->ctx, "hset %s %s %b", key.c_str(), field.c_str(), value.data(), value.length()); //NOLINT
     return reply.getLong() == 1;
 }
 
 bool Redis::hset(const std::string& key, int64_t field, const std::string& value) {
     SCOPEDCXN();
-    Reply reply = redisCommand(cxn->ctx, "hset %s %ld %s", key.c_str(), field, value.c_str()); //NOLINT
+    Reply reply = redisCommand(cxn->ctx, "hset %s %ld %b", key.c_str(), field, value.data(), value.length()); //NOLINT
     return reply.getLong() == 1;
 }
 

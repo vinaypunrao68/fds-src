@@ -148,3 +148,10 @@ TEST_CASE("utils") {
     output = fds::util::strformat("sum of %d and %d = %ld", 1, 2, 3);
     REQUIRE(output == "sum of 1 and 2 = 3");
 }
+
+TEST_CASE("snapshot") {
+    fpi::SnapshotPolicy policy;
+    policy.policyName = "testsnapshotpolicy";
+    ConfigDB cfg;
+    cfg.createSnapshotPolicy(policy);
+}
