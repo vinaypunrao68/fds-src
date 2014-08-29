@@ -415,10 +415,11 @@ class ObjectStorMgr :
             const ObjectID &objId,
             ObjectBuf      &objCompData);
     TVIRTUAL Error readObject(const SmObjDb::View& view,
-            const ObjectID   &objId,
-            ObjMetaData      &objMetadata,
-            ObjectBuf        &objCompData,
-            diskio::DataTier &tier);
+                              const ObjectID   &objId,
+                              ObjMetaData      &objMetadata,
+                              ObjectBuf        &objCompData,
+                              diskio::DataTier &tier,
+                              fds_volid_t volId = invalid_vol_id);
 
     inline fds_uint32_t getSysTaskIopsMin() {
         return totalRate/10; // 10% of total rate
