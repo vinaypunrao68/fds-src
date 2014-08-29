@@ -182,9 +182,12 @@ OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer    vol,
             case fpi::FDSP_MSG_SNAP_VOL:
             case fpi::FDSP_MSG_CREATE_VOL: {
                 FdspNotVolPtr notif(new fpi::FDSP_NotifyVolType);
+                OM_NodeContainer* local = OM_NodeDomainMod::om_loc_domain_ctrl();
+                FdsAdminCtrl *admin_ctrl = local->om_get_admin_ctrl();
 
                 fds_verify(vol != NULL);
                 vol->vol_fmt_desc_pkt(&notif->vol_desc);
+                admin_ctrl->userQosToServiceQos(&notif->vol_desc, node_get_svc_type());
                 notif->vol_name = vol->vol_get_name();
                 notif->flag = vol_flag;
                 m_hdr->msg_code = cmd_type;
