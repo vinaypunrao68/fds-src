@@ -43,6 +43,8 @@ typedef enum {
     GET_TRANS_QUEUE_WAIT,
     GET_QOS_QUEUE_WAIT,
     GET_CACHE_HIT,
+    GET_SSD_OBJ,
+    GET_HDD_OBJ,
 
     DELETE_IO,
     DELETE_OBJ_REQ,

@@ -1277,7 +1277,7 @@ ObjectStorMgr::readObject(const SmObjDb::View& view, const ObjectID& objId,
         ObjMetaData& objMetadata,
         ObjectBuf& objData) {
     diskio::DataTier tier;
-    return readObject(view, objId, objMetadata, objData, tier);
+    return readObject(view, objId, objMetadata, objData, tier, 0);
 }
 
 Error
@@ -1285,7 +1285,7 @@ ObjectStorMgr::readObject(const SmObjDb::View& view, const ObjectID& objId,
         ObjectBuf& objData) {
     ObjMetaData objMetadata;
     diskio::DataTier tier;
-    return readObject(view, objId, objMetadata, objData, tier);
+    return readObject(view, objId, objMetadata, objData, tier, 0);
 }
 
 /*
@@ -1300,7 +1300,8 @@ ObjectStorMgr::readObject(const SmObjDb::View& view,
                           const ObjectID   &objId,
                           ObjMetaData      &objMetadata,
                           ObjectBuf        &objData,
-                          diskio::DataTier &tierUsed) {
+                          diskio::DataTier &tierUsed,
+                          fds_volid_t volId) {
     Error err(ERR_OK);
 
     diskio::DataIO& dio_mgr = diskio::DataIO::disk_singleton();
@@ -1322,7 +1323,7 @@ ObjectStorMgr::readObject(const SmObjDb::View& view,
      * Read all of the object's locations
      */
     { 
-        PerfContext tmp_pctx(GET_METADATA_READ, vio.vol_uuid,"volume:" + std::to_string(vio.vol_uuid));
+        PerfContext tmp_pctx(GET_METADATA_READ, volId, "volume:" + std::to_string(volId));
         SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
         err = readObjMetaData(objId, objMetadata);
     }
@@ -1345,13 +1346,13 @@ ObjectStorMgr::readObject(const SmObjDb::View& view,
 
         LOGDEBUG << "Reading object " << objId << " from "
                 << ((disk_req->getTier() == diskio::diskTier) ? "disk" : "flash")
-                << " tier";
+                 << " tier, volume " << std::hex << volId << std::dec;
         objData.size = objMetadata.getObjSize();
         objData.data.resize(objData.size, 0);
         // Now Read the object buffer from the disk
         
         {
-            PerfContext tmp_pctx(GET_DISK_READ, vio.vol_uuid,"volume:" + std::to_string(vio.vol_uuid));
+            PerfContext tmp_pctx(GET_DISK_READ, volId, "volume:" + std::to_string(volId));
             SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
             err = dio_mgr.disk_read(disk_req);
         }
@@ -1360,6 +1361,10 @@ ObjectStorMgr::readObject(const SmObjDb::View& view,
             delete disk_req;
             return err;
         } 
+        if (tierUsed == diskio::flashTier) {
+            PerfTracer::incr(GET_SSD_OBJ, volId, "volume:" + std::to_string(volId));
+        }
+
         if (fds_data_verify) { 
            ObjectID onDiskObjId;
            // Recompute ObjecId for the on-disk object buffer
@@ -1504,7 +1509,7 @@ ObjectStorMgr::writeObjectToTier(const OpCtx &opCtx,
     /* Disk write */
     disk_req = new SmPlReq(vio, oid, (ObjectBuf *)&objData, true, tier); // blocking call
     {   
-        PerfContext tmp_pctx(PUT_DISK_WRITE, vio.vol_uuid, "volume:" + std::to_string(vio.vol_uuid)); //TODO(matteo): move ctx in disk_req
+        PerfContext tmp_pctx(PUT_DISK_WRITE, volId, "volume:" + std::to_string(volId)); //TODO(matteo): move ctx in disk_req
         SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
         err = dio_mgr.disk_write(disk_req); //TODO(Matteo) inside or around this function, it could be non blocking
     }
@@ -1516,7 +1521,7 @@ ObjectStorMgr::writeObjectToTier(const OpCtx &opCtx,
     {
         //TODO(Matteo): look inside. This is for metadata. Initially we probably want just leveldb get and put
 
-        PerfContext tmp_pctx(PUT_METADATA_WRITE, vio.vol_uuid,"volume:" + std::to_string(vio.vol_uuid));
+        PerfContext tmp_pctx(PUT_METADATA_WRITE, volId, "volume:" + std::to_string(volId));
         SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
         err = writeObjectMetaData(opCtx, objId, objData.data.length(),
                 disk_req->req_get_phy_loc(), false, diskTier, &vio);
@@ -1525,7 +1530,7 @@ ObjectStorMgr::writeObjectToTier(const OpCtx &opCtx,
     if ((err == ERR_OK) &&
         (tier == diskio::flashTier)) {
          vol->ssdByteCnt += objId.GetLen(); 
-         PerfTracer::incr(PUT_SSD_OBJ, volId, "volume:" + std::to_string(vio.vol_uuid));
+         PerfTracer::incr(PUT_SSD_OBJ, volId, "volume:" + std::to_string(volId));
          if (vol->voldesc->mediaPolicy != FDSP_MEDIA_POLICY_SSD) {  
            /*
             * If written to flash, add to dirty flash list
@@ -1540,7 +1545,7 @@ ObjectStorMgr::writeObjectToTier(const OpCtx &opCtx,
         // is currently 0. In reality, an object maybe associated with multiple volumes,
         // so we need to think whose counters we update (probably all volumes?)
         // For now, counters will not properly work here.
-         PerfTracer::incr(PUT_HDD_OBJ, volId, "volume:" + std::to_string(vio.vol_uuid));
+         PerfTracer::incr(PUT_HDD_OBJ, volId, "volume:" + std::to_string(volId));
          if (vol) {
              vol->hddByteCnt += objId.GetLen();
          }
@@ -2452,18 +2457,22 @@ ObjectStorMgr::getObjectInternalSvc(SmIoReadObjectdata *getReq) {
      */
 
     //objStorMutex->lock();
+#ifdef OBJCACHE_ENABLE
     objBufPtr = objCache->object_retrieve(volId, objId);
+#endif
 
     if (!objBufPtr) {
         ObjectBuf objData;
         ObjMetaData objMetadata;
         objData.size = 0;
         objData.data = "";
-        err = readObject(SmObjDb::SYNC_MERGED, objId, objMetadata, objData, tierUsed);
+        err = readObject(SmObjDb::SYNC_MERGED, objId, objMetadata, objData, tierUsed, volId);
         if (err == fds::ERR_OK) {
             objBufPtr = objCache->object_alloc(volId, objId, objData.size);
             memcpy((void *)objBufPtr->data.c_str(), (void *)objData.data.c_str(), objData.size);
             objCache->object_add(volId, objId, objBufPtr, false); // read data is always clean
+
+
             // ACL: If this Volume never put this object, then it should not access the object
             if (!objMetadata.isVolumeAssociated(volId)) {
 
@@ -2494,8 +2503,9 @@ ObjectStorMgr::getObjectInternalSvc(SmIoReadObjectdata *getReq) {
         getReq->obj_data.data.clear();
     } else {
         LOGDEBUG << "Successfully got object " << objId
-                // << " and data " << objData.data
-                 << " for request ID " << getReq->io_req_id;
+                 << " for request ID " << getReq->io_req_id
+                 << " from tier " << tierUsed << ", volume "
+		 << std::hex << volId << std::dec;
         // TODO(Rao): Use std move here
         getReq->obj_data.data = objBufPtr->data;
     }
@@ -2550,7 +2560,7 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
         ObjMetaData objMetadata;
         objData.size = 0;
         objData.data = "";
-        err = readObject(SmObjDb::SYNC_MERGED, objId, objMetadata, objData, tierUsed);
+        err = readObject(SmObjDb::SYNC_MERGED, objId, objMetadata, objData, tierUsed, volId);
         if (err == fds::ERR_OK) {
             objBufPtr = objCache->object_alloc(volId, objId, objData.size);
             memcpy((void *)objBufPtr->data.c_str(), (void *)objData.data.c_str(), objData.size);
@@ -3238,7 +3248,7 @@ ObjectStorMgr::readObjectDataInternal(SmIoReq* ioReq)
     diskio::DataTier tierUsed;
 
     Error err = readObject(SmObjDb::NON_SYNC_MERGED, read_entry->getObjId(),
-            objMetadata, objData, tierUsed);
+                           objMetadata, objData, tierUsed, 0);
     if (err != ERR_OK) {
         fds_assert(!"failed to read");
         LOGERROR << "Failed to read object id: " << read_entry->getObjId();

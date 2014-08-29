@@ -123,6 +123,8 @@ const char * eventTypeToStr[] = {
         "get_trans_queue_wait",
         "get_qos_queue_wait",
         "get_cache_hit",
+        "get_ssd_obj",
+        "get_hdd_obj",
 
         "delete_io",
         "delete_obj_req",
