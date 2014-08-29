@@ -10,6 +10,7 @@ Scheduler::Scheduler(OrchMgr* om, TaskProcessor* processor) : monitor(&mutex) {
     this->om = om;
     this->taskProcessor = processor;
     runner = new std::thread(&Scheduler::run, this);
+    LOGDEBUG << "scheduler instantiated";
 }
 
 Scheduler::~Scheduler() {
@@ -35,7 +36,7 @@ bool Scheduler::addPolicy(const fpi::SnapshotPolicy& policy) {
         LOGDEBUG << "policy already exists : " << policy.id;
         Task* task = handleptr->second->node_->value;
         if (task->setRecurrence(policy.recurrenceRule)) {
-            LOGDEBUG << "updating policy:" << policy.id;
+            LOGDEBUG << "updating policy:" << policy.id << " : " <<policy.recurrenceRule;
             pq.update(*(handleptr->second), task);
             fModified = true;
         }
@@ -45,6 +46,7 @@ bool Scheduler::addPolicy(const fpi::SnapshotPolicy& policy) {
         task->setRecurrence(policy.recurrenceRule);
         auto handle = pq.push(task);
         handleMap[policy.id] = &handle;
+        LOGDEBUG << "new policy:" << policy.id << " : " << policy.recurrenceRule;
     }
 
     if (fModified) {
@@ -60,10 +62,14 @@ void Scheduler::removePolicy(uint64_t policyId) {
         pq.erase(*(handleptr->second));
         handleMap.erase(handleptr);
         ping();
+        LOGDEBUG << "removed policy from scheduler, id:" <<policyId;
+    } else {
+        LOGWARN << "unable to remove policy from scheduler, id:" <<policyId;
     }
 }
 
 void Scheduler::dump() {
+    LOGDEBUG << "dump of scheduler queue:";
     for (PriorityQueue::ordered_iterator it = pq.ordered_begin(); it != pq.ordered_end(); ++it) {
         LOGDEBUG << (*it) << ' ';
     }
@@ -80,7 +86,7 @@ void Scheduler::ping() {
 
 void Scheduler::run() {
     atc::Synchronized s(monitor);
-
+    LOGNORMAL << "snapshot scheduler started";
     while (!fShutdown) {
         while (!fShutdown && pq.empty()) {
             LOGDEBUG << "q empty .. waiting.";
