@@ -808,6 +808,7 @@ void DataMgr::mod_startup()
 
 void DataMgr::mod_enable_service() {
     Error err(ERR_OK);
+    const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
     const NodeUuid *mySvcUuid = Platform::plf_get_my_svc_uuid();
     NodeAgent::pointer my_agent = Platform::plf_dm_nodes()->agent_info(*mySvcUuid);
     fpi::StorCapMsg stor_cap;
@@ -889,6 +890,7 @@ void DataMgr::mod_enable_service() {
             std::placeholders::_1, std::placeholders::_2));
 
     statStreamAggr_->mod_startup();
+    root->fds_mkdir(root->dir_user_repo_dm().c_str());
 }
 
 void DataMgr::mod_shutdown()

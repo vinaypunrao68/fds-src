@@ -37,7 +37,7 @@ svc_map = None
 src_id_counter = 0
 
 @arg('policy-name', help= "-snapshot policy name ")
-@arg('recurrence-rule', help= "- ical Rule format ")
+@arg('recurrence-rule', help= "- ical Rule format: FREQ=MONTHLY;BYDAY=FR;BYHOUR=23;BYMINUTE=30;BYSECOND=0;COUNT=5 ")
 @arg('retension-time', type=long, help= "-retension time for the snapshot")
 def create_snap_policy(policy_name, recurrence_rule, retension_time):
     try:
