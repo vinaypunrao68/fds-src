@@ -25,6 +25,8 @@
 #include <OmAdminCtrl.h>
 #include <kvstore/configdb.h>
 #include <platform/platform-lib.h>
+#include <snapshot/scheduler.h>
+#include <snapshot/policydispatcher.h>
 
 #define MAX_OM_NODES            (512)
 #define DEFAULT_LOC_DOMAIN_ID   (1)
@@ -70,7 +72,6 @@ class OrchMgr: public PlatformProcess {
     Thrift_VolPolicyServ   *om_ice_proxy;
     Orch_VolPolicyServ     *om_policy_srv;
     kvstore::ConfigDB      *configDB;
-
     void SetThrottleLevelForDomain(int domain_id, float throttle_level);
 
   public:
@@ -108,6 +109,9 @@ class OrchMgr: public PlatformProcess {
                         const FDSP_PerfstatsTypePtr& perf_stats_msg);
     int ApplyTierPolicy(::fpi::tier_pol_time_unitPtr& policy);  // NOLINT
     int AuditTierPolicy(::fpi::tier_pol_auditPtr& audit);  // NOLINT
+
+    fds::snapshot::Scheduler* snapScheduler;
+    fds::snapshot::PolicyDispatcher* snapPolicyDispatcher;
 };
 
 /* config path: cli -> OM  */

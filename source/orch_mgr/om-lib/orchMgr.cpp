@@ -166,6 +166,9 @@ void OrchMgr::proc_pre_service()
     // load persistent state to local domain
     OM_NodeDomainMod* local_domain = OM_NodeDomainMod::om_local_domain();
     local_domain->om_load_state(config_db_up ? configDB : NULL);
+
+    snapPolicyDispatcher = new fds::snapshot::PolicyDispatcher(this);
+    snapScheduler = new fds::snapshot::Scheduler(this, snapPolicyDispatcher);
 }
 
 int OrchMgr::run()
