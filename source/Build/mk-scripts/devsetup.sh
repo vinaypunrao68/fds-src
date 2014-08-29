@@ -30,6 +30,7 @@ needed_packages=(
     python2.7
     python-dev
     python-pip
+    python-boto
 
     libpcre3-dev
     libpcre3
