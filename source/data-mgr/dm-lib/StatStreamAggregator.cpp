@@ -464,6 +464,7 @@ StatStreamAggregator::writeStatsLog(const fpi::volumeDataPoints& volStatData,
                                                             bool isMin /* = true */) {
     Error err(ERR_OK);
     char buf[50];
+
     const NodeUuid *mySvcUuid = dataMgr->modProvider_->get_plf_manager()->plf_get_my_svc_uuid();
     const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
     const std::string fileName = root->dir_user_repo_stats() + std::to_string(vol_id) +
@@ -476,7 +477,9 @@ StatStreamAggregator::writeStatsLog(const fpi::volumeDataPoints& volStatData,
     }
 
     fprintf(pFile, "%s,", volStatData.volume_name.c_str());
-    fprintf(pFile, "%s,", ctime_r((&volStatData.timestamp), buf));
+    ctime_r((&volStatData.timestamp), buf);
+    *(strchr(buf, '\n')) = '\0';  // Get rid of the \n at the end
+    fprintf(pFile, "%s,", buf);
 
     std::vector<DataPointPair>::const_iterator pos;
 
