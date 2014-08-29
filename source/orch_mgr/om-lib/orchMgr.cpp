@@ -434,6 +434,15 @@ bool OrchMgr::loadFromConfigDB() {
 
     OM_Module::om_singleton()->om_volplace_mod()->setConfigDB(configDB);
 
+
+    // load the snapshot policies
+    std::vector<fpi::SnapshotPolicy> vecSnapshotPolicies;
+    configDB->listSnapshotPolicies(vecSnapshotPolicies);
+    LOGNORMAL << "loaded [" << vecSnapshotPolicies.size() << "] policies";
+    for (auto policy : vecSnapshotPolicies) {
+        snapScheduler->addPolicy(policy);
+    }
+
     return true;
 }
 
