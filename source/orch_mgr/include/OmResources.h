@@ -109,6 +109,7 @@ class OM_NodeAgent : public NodeAgent
     virtual Error om_send_pushmeta(fpi::FDSP_PushMetaPtr& meta_msg);
     virtual Error om_send_stream_reg_cmd(fds_int32_t regId,
                                          fds_bool_t bAll);
+    virtual Error om_send_qosinfo(fds_uint64_t total_rate);
     virtual void init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const;
 
   private:
@@ -460,10 +461,12 @@ class OM_NodeContainer : public DomainContainer
                                       const DMTPtr& curDmt);
     virtual fds_uint32_t om_bcast_dmt_close(fds_uint64_t dmt_version);
 
+    virtual void om_send_me_qosinfo(NodeAgent::pointer me);
+
   private:
     friend class OM_NodeDomainMod;
 
-    virtual void om_add_capacity(NodeAgent::pointer node);
+    virtual void om_update_capacity(NodeAgent::pointer node, fds_bool_t b_add);
     virtual void om_bcast_new_node(NodeAgent::pointer node, const FdspNodeRegPtr ref);
     virtual void om_update_node_list(NodeAgent::pointer node, const FdspNodeRegPtr ref);
 

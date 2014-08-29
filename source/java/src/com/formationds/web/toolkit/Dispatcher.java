@@ -105,10 +105,12 @@ public class Dispatcher extends HttpServlet {
     }
 
     private Optional<CompletableFuture<Void>> tryExecuteAsyncApp(Request request, Response response) {
-        for(AsyncRequestExecutor executor : asyncRequestExecutorList) {
-            Optional<CompletableFuture<Void>> cf = executor.tryExecuteRequest(request, response);
-            if(cf.isPresent())
-                return cf;
+        if(asyncRequestExecutorList != null) {
+            for (AsyncRequestExecutor executor : asyncRequestExecutorList) {
+                Optional<CompletableFuture<Void>> cf = executor.tryExecuteRequest(request, response);
+                if (cf.isPresent())
+                    return cf;
+            }
         }
 
         return Optional.empty();

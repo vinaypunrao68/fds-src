@@ -116,7 +116,7 @@ public class FdsServerOperations implements NbdServerOperations {
                     ObjectOffset objectOffset = new ObjectOffset(o_off);
                     ByteBuffer buf = guardedRead(exportName, objectSize, objectOffset);
 
-                    target.writeBytes(buf.array(), i_off, i_len);
+                    target.writeBytes(buf.array(), i_off + buf.position(), i_len);
                     am_bytes_read += i_len;
 
                 }
@@ -152,7 +152,7 @@ public class FdsServerOperations implements NbdServerOperations {
                         readBuf = guardedRead(exportName, objectSize, objectOffset);
                     else
                         readBuf = ByteBuffer.allocate(objectSize);
-                    System.arraycopy(source.array(), am_bytes_written, readBuf.array(), i_off, i_len);
+                    System.arraycopy(source.array(), am_bytes_written, readBuf.array(), i_off + readBuf.position(), i_len);
 
                     if(am_bytes_written == 0) {
                         if(len == i_len) {
@@ -183,6 +183,12 @@ public class FdsServerOperations implements NbdServerOperations {
             }
         });
         return result;
+    }
+
+    @Override
+    public CompletableFuture<Void> flush(String exportName) {
+        // TODO: IMPLEMENT ME
+        return CompletableFuture.completedFuture(null);
     }
 
     private ByteBuffer guardedRead(String exportName, int objectSize, ObjectOffset objectOffset) throws TException {

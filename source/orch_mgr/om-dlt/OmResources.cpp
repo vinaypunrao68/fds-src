@@ -921,7 +921,7 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
             //
             NodeAgent::pointer pm = pmNodes->agent_info(NodeUuid(msg->node_uuid.uuid));
             if (pm != NULL) {
-                om_locDomain->om_add_capacity(pm);
+                om_locDomain->om_update_capacity(pm, true);
             } else {
                 LOGERROR << "Can not find platform agent for node uuid "
                          << std::hex << msg->node_uuid.uuid << std::dec;
@@ -935,6 +935,9 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
             om_locDomain->om_bcast_vol_list(newNode);
             // for new DMs, we send volume list as part of DMT deploy state machine
         }
+
+        // send qos related info to this node
+        om_locDomain->om_send_me_qosinfo(newNode);
 
         // Let this new node know about existing dlt if this is not SM node
         // DLT deploy state machine will take care of SMs
@@ -992,6 +995,18 @@ OM_NodeDomainMod::om_del_services(const NodeUuid& node_uuid,
             // name, however handle_unregister_service returns svc uuid only if there is
             // one service with the same name, so ok if we get name first
             OM_SmAgent::pointer smAgent = om_sm_agent(uuid);
+
+            // remove this SM's capacity from total capacity
+            NodeAgent::pointer pm = pmNodes->agent_info(node_uuid);
+            if (pm != NULL) {
+                om_locDomain->om_update_capacity(pm, false);
+            } else {
+                LOGERROR << "Can not find platform agent for node uuid "
+                         << std::hex << node_uuid.uuid_get_val() << std::dec
+                         << ", will not update total domain capacity on SM removal";
+            }
+
+            // unregister SM
             err = om_locDomain->dc_unregister_node(uuid, smAgent->get_node_name());
             LOGDEBUG << "Unregistered SM service for node " << node_name
                      << ":" << std::dec << node_uuid.uuid_get_val() << std::hex
