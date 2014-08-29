@@ -11,6 +11,7 @@ user_build_dir    := \
 	om-lib \
 	om-discovery \
 	configservice \
+	snapshot \
 	platform
 
 user_fds_ar_libs  := \
