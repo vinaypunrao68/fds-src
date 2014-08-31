@@ -80,6 +80,7 @@ class PersistVolumeMeta {
     inline Error updateEntry(const std::string& key,
                              const std::string& value) {
         SCOPEDREAD(snap_lock_);
+        if (marked_deleted) return ERR_DM_VOL_MARKED_DELETED;
         return catalog_->Update(key, value);
     }
 
@@ -88,6 +89,7 @@ class PersistVolumeMeta {
      */
     inline Error updateBatch(CatWriteBatch* batch) {
         SCOPEDREAD(snap_lock_);
+        if (marked_deleted) return ERR_DM_VOL_MARKED_DELETED;
         return catalog_->Update(batch);
     }
 
@@ -121,6 +123,16 @@ class PersistVolumeMeta {
     }
 
     /**
+     * Mark as deleted if catalog does not contain any valid blobs
+     */
+    Error markDeleted();
+
+    inline fds_bool_t isMarkedDeleted() {
+        SCOPEDREAD(snap_lock_);
+        return marked_deleted;
+    }
+
+    /**
      * Sync the catalog to the DM with uuid 'dm_uuid'
      */
     Error syncToDM(NodeUuid dm_uuid);
@@ -149,6 +161,11 @@ class PersistVolumeMeta {
      * a snapshot for rsync (cp -r kind of snapshot)
      */
     fds_rwlock snap_lock_;
+
+    // if true, updates to catalog will not be allowed, and
+    // will return ERR_DM_VOL_MARKED_DELETED
+    // also protected by snap_lock_
+    fds_bool_t marked_deleted;
 };
 
 //
@@ -162,7 +179,8 @@ PersistVolumeMeta::PersistVolumeMeta(fds_volid_t volid,
           max_obj_size_bytes(max_obj_size),
           extent0_obj_entries(extent0_objs),
           extent_obj_entries(extent_objs),
-          catalog_(NULL) {
+          catalog_(NULL),
+          marked_deleted(false) {
     fds_verify(extent0_obj_entries > 0);
     fds_verify(extent_obj_entries > 0);
 }
@@ -170,6 +188,14 @@ PersistVolumeMeta::PersistVolumeMeta(fds_volid_t volid,
 PersistVolumeMeta::~PersistVolumeMeta() {
     if (catalog_) {
         delete catalog_;
+    }
+    // if marked as deleted, actually delete the whole leveldb dir
+    if (marked_deleted) {
+        const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
+        const std::string loc_src_db = root->dir_user_repo_dm() + volumeIdStr() + "_vcat.ldb";
+        const std::string rm_cmd = "rm -rf  " + loc_src_db;
+        int retcode = std::system((const char *)rm_cmd.c_str());
+        LOGNOTIFY << "Removed leveldb dir, retcode " << retcode;
     }
 }
 
@@ -185,6 +211,59 @@ Error PersistVolumeMeta::init() {
                  << std::hex << volume_id << std::dec;
         return ERR_OUT_OF_MEMORY;
     }
+    return err;
+}
+
+//
+// Mark volume as deleted if there are not valid blobs
+// may be called when there are concurrent updates to the catalog
+//
+Error PersistVolumeMeta::markDeleted() {
+    Error err(ERR_OK);
+    Catalog::catalog_roptions_t options;
+    Catalog::catalog_iterator_t* dbIt;
+
+    SCOPEDWRITE(snap_lock_);
+
+    // it's possible that catalog not open yet, if we just starting
+    // to push meta for this volume from another DM -- in that
+    // case return ERR_OK (== volume is empty), if it's not empty on
+    // other DMs, they will return false
+    if (!isInitialized()) {
+        LOGNOTIFY << "Catalog not open for volume " << std::hex
+                  << volume_id << std::dec << " marking as deleted";
+        marked_deleted = true;
+        return err;
+    }
+
+    dbIt = getSnapshotIter(options);
+    for (dbIt->SeekToFirst(); dbIt->Valid(); dbIt->Next()) {
+        Record db_key = dbIt->key();
+        ExtentKey extent_key;
+        fds_verify(extent_key.loadSerialized(dbIt->key().ToString()) == ERR_OK);
+        // ignore non-0 extents
+        if (extent_key.extent_id > 0) {
+            LOGTRACE << "Will ignore non-0 extent " << extent_key << " vol "
+                     << std::hex << volume_id << std::dec;
+            continue;
+        }
+
+        BlobExtent0Desc extdesc;
+        fds_verify(extdesc.loadSerialized(dbIt->value().ToString()) == ERR_OK);
+        LOGDEBUG << "Found extent 0" << extent_key << " vol "
+                 << std::hex << volume_id << std::dec << " " << extdesc;
+        if (extdesc.version != blob_version_deleted) {
+            err = ERR_VOL_NOT_EMPTY;
+            break;
+        }
+    }
+    releaseSnapshotIter(options, dbIt);
+
+    // if volume is empty, mark as deleted
+    if (err.ok()) {
+        marked_deleted = true;
+    }
+
     return err;
 }
 
@@ -327,53 +406,32 @@ Error DmPersistVolCatalog::openCatalog(fds_volid_t volume_id) {
 }
 
 //
-// Returns true if the volume does not contain any valid blobs.
+// Marks volume as deleted if the volume does not contain any valid blobs.
 //
-fds_bool_t DmPersistVolCatalog::isVolumeEmpty(fds_volid_t volume_id) {
-    Catalog::catalog_roptions_t options;
-    Catalog::catalog_iterator_t* dbIt;
+Error DmPersistVolCatalog::markVolumeDeleted(fds_volid_t volume_id) {
     PersistVolumeMetaPtr volmeta = getVolumeMeta(volume_id);
-    fds_bool_t bret = true;
-
     if (!volmeta) {
         LOGWARN << "Vol " << std::hex << volume_id << std::dec << " does not exist";
-        return true;
+        return ERR_VOL_NOT_FOUND;
     }
 
-    // it's possible that catalog not open yet, if we just starting
-    // to push meta for this volume from another DM -- in that
-    // case return TRUE for isEmpty (if it's not empty on
-    // other DMs, they will return false
-    if (!volmeta->isInitialized()) {
-        LOGNOTIFY << "Catalog not open for volume " << std::hex
-                  << volume_id << std::dec << " returning true";
-        return true;
-    }
+    return volmeta->markDeleted();
+}
 
-    dbIt = volmeta->getSnapshotIter(options);
-    for (dbIt->SeekToFirst(); dbIt->Valid(); dbIt->Next()) {
-        Record db_key = dbIt->key();
-        ExtentKey extent_key;
-        fds_verify(extent_key.loadSerialized(dbIt->key().ToString()) == ERR_OK);
-        // ignore non-0 extents
-        if (extent_key.extent_id > 0) {
-            LOGTRACE << "Will ignore non-0 extent " << extent_key << " vol "
-                     << std::hex << volume_id << std::dec;
-            continue;
-        }
-
-        BlobExtent0Desc extdesc;
-        fds_verify(extdesc.loadSerialized(dbIt->value().ToString()) == ERR_OK);
-        LOGDEBUG << "Found extent 0" << extent_key << " vol "
-                 << std::hex << volume_id << std::dec << " " << extdesc;
-        if (extdesc.version != blob_version_deleted) {
-            bret = false;
-            break;
+// delete volume catalog if it is marked as deleted
+Error DmPersistVolCatalog::deleteEmptyCatalog(fds_volid_t volume_id) {
+    Error err(ERR_OK);
+    read_synchronized(vol_map_lock) {
+        if (vol_map.count(volume_id) > 0) {
+            PersistVolumeMetaPtr volmeta = vol_map[volume_id];
+            if (volmeta->isMarkedDeleted()) {
+                vol_map.erase(volume_id);
+            } else {
+                err = ERR_NOT_READY;
+            }
         }
     }
-
-    volmeta->releaseSnapshotIter(options, dbIt);
-    return bret;
+    return err;
 }
 
 //

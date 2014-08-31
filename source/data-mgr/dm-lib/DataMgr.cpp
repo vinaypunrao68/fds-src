@@ -504,55 +504,48 @@ Error DataMgr::_process_mod_vol(fds_volid_t vol_uuid, const VolumeDesc& voldesc)
 Error DataMgr::_process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only) {
     Error err(ERR_OK);
 
-    /*
-     * Make sure we already know about this volume
-     */
-    vol_map_mtx->lock();
-    if (volExistsLocked(vol_uuid) == false) {
-        LOGWARN << "Received Delete request for:"
-                << std::hex << vol_uuid << std::dec
-                << " that doesn't exist.";
-        err = ERR_INVALID_ARG;
-        vol_map_mtx->unlock();
-        return err;
-    }
-    vol_map_mtx->unlock();
-
-    fds_bool_t isEmpty = timeVolCat_->queryIface()->isVolumeEmpty(vol_uuid);
-    if (isEmpty == false) {
-        LOGERROR << "Volume is NOT Empty:"
-                 << std::hex << vol_uuid << std::dec;
-        err = ERR_VOL_NOT_EMPTY;
-        return err;
-    }
-    // TODO(Andrew): Here we may want to prevent further I/Os
-    // to the volume as we're going to remove it but a blob
-    // may be written in the mean time.
-
-    // if notify delete asked to only check if deleting volume
-    // was ok; so we return with success here; DM will get
-    // another notify volume delete with check_only ==false to
-    // actually cleanup all other datastructures for this volume
-    if (!check_only) {
-        // TODO(Andrew): Here we want to delete each blob in the
-        // volume and then mark the volume as deleted.
-        vol_map_mtx->lock();
-        VolumeMeta *vol_meta = vol_meta_map[vol_uuid];
-        vol_meta_map.erase(vol_uuid);
-        vol_map_mtx->unlock();
-        dataMgr->qosCtrl->deregisterVolume(vol_uuid);
-        delete vol_meta->dmVolQueue;
-        delete vol_meta;
-        statStreamAggr_->detachVolume(vol_uuid);
-        LOGNORMAL << "Removed vol meta for vol uuid "
-                  << vol_uuid;
-    } else {
+    // mark volume as deleted if it's not empty
+    if (check_only) {
+        // check if not empty and mark volume as deleted to
+        // prevent futher updates to the volume as we are going
+        // to remove it
+        err = timeVolCat_->markVolumeDeleted(vol_uuid);
+        if (!err.ok()) {
+            LOGERROR << "Failed to mark volume as deleted " << err;
+            return err;
+        }
         LOGNORMAL << "Notify volume rm check only, did not "
                   << " remove vol meta for vol " << std::hex
                   << vol_uuid << std::dec;
+        // if notify delete asked to only check if deleting volume
+        // was ok; so we return here; DM will get
+        // another notify volume delete with check_only ==false to
+        // actually cleanup all other datastructures for this volume
+        return err;
     }
 
-    vol_map_mtx->unlock();
+    // we we are here, check_only == false
+    err = timeVolCat_->deleteEmptyVolume(vol_uuid);
+    if (err.ok()) {
+        VolumeMeta* vol_meta = NULL;
+        dataMgr->qosCtrl->deregisterVolume(vol_uuid);
+        vol_map_mtx->lock();
+        if (vol_meta_map.count(vol_uuid) > 0) {
+            vol_meta = vol_meta_map[vol_uuid];
+            vol_meta_map.erase(vol_uuid);
+        }
+        vol_map_mtx->unlock();
+        if (vol_meta) {
+            delete vol_meta->dmVolQueue;
+            delete vol_meta;
+        }
+        statStreamAggr_->detachVolume(vol_uuid);
+        LOGNORMAL << "Removed vol meta for vol uuid "
+                  << std::hex << vol_uuid << std::dec;
+    } else {
+        LOGERROR << "Failed to remove volume " << std::hex
+                 << vol_uuid << std::dec << " " << err;
+    }
 
     return err;
 }
