@@ -12,8 +12,6 @@
 #include <pthread.h>
 #include <sys/types.h>
 
-#include "stor_mgr_err.h"
-
 #include <fds_volume.h>
 #include <fds_timer.h>
 #include <lib/Catalog.h>

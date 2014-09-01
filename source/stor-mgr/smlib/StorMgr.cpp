@@ -323,7 +323,10 @@ void ObjectStorMgrI::GetTokenMigrationStats(FDSP_TokenMigrationStats& _return,
  */
 ObjectStorMgr::ObjectStorMgr(CommonModuleProviderIf *modProvider)
     : Module("sm"),
-    modProvider_(modProvider)
+      modProvider_(modProvider),
+      totalRate(6000),  // will be over-written using node capability
+      qosThrds(100),  // will be over-written from config
+      qosOutNum(10)
 {
     // NOTE: Don't put much stuff in the constuctor.  Move any construction
     // into mod_init()
@@ -370,18 +373,12 @@ ObjectStorMgr::~ObjectStorMgr() {
 
 int  ObjectStorMgr::mod_init(SysParams const *const param)
 {
-    totalRate = 6000;  // this will be over-written later from node cap
-    qosThrds = 100;
     shuttingDown = false;
     numWBThreads = 1;
     maxDirtyObjs = 10000;
     counters_.reset(new SMCounters("SM", modProvider_->get_cntrs_mgr().get()));
-    /*
-     * TODO: Fix the totalRate above to not
-     * be hard coded.
-     */
-    // Init  the log infra
 
+    // Init  the log infra
     GetLog()->setSeverityFilter(fds_log::getLevelFromName(
         modProvider_->get_fds_config()->get<std::string>("fds.sm.log_severity")));
     LOGDEBUG << "Constructing the Object Storage Manager";
@@ -405,12 +402,6 @@ void ObjectStorMgr::mod_startup()
     modProvider_->proc_fdsroot()->\
         fds_mkdir(modProvider_->proc_fdsroot()->dir_user_repo_objs().c_str());
     std::string obj_dir = modProvider_->proc_fdsroot()->dir_user_repo_objs();
-
-    // get the total rate from platform
-    //    const NodeUuid *mySvcUuid = modProvider_->get_plf_manager()->plf_get_my_svc_uuid();
-    //  NodeAgent::pointer sm_node = Platform::plf_sm_nodes()->agent_info(*mySvcUuid);
-    //  LOGNOTIFY << "Will set totalRate to " << (sm_node->node_capability()).disk_iops_min;
-
 
     /*
      * Setup the tier related members
@@ -485,7 +476,11 @@ void ObjectStorMgr::mod_startup()
                                       hot_threshold, cold_threshold, volTbl, objStats);
     tierEngine = new TierEngine(TierEngine::FDS_TIER_PUT_ALGO_BASIC_RANK,
                                 volTbl, rankEngine, g_fdslog);
-    objCache = new FdsObjectCache(1024 * 1024 * 256,
+
+    fds_uint32_t max_cache_sz_mb = modProvider_->get_fds_config()->get<int>("fds.sm.cache.default_cache_size");
+    vol_max_cache_sz_mb_ = modProvider_->get_fds_config()->get<int>("fds.sm.cache.default_vol_max_cache_size");
+    vol_min_cache_sz_mb_ = modProvider_->get_fds_config()->get<int>("fds.sm.cache.default_vol_min_cache_size");
+    objCache = new FdsObjectCache(1024 * 1024 * max_cache_sz_mb,
                                   slab_allocator_type_default,
                                   eviction_policy_type_default,
                                   g_fdslog);
@@ -493,6 +488,10 @@ void ObjectStorMgr::mod_startup()
 
     // TODO: join this thread
     std::thread *stats_thread = new std::thread(log_ocache_stats);
+
+    // qos defaults
+    qosThrds = modProvider_->get_fds_config()->get<int>("fds.sm.qos.default_qos_threads");
+    qosOutNum = modProvider_->get_fds_config()->get<int>("fds.sm.qos.default_outstanding_io");
 
     /*
      * Register/boostrap from OM
@@ -526,7 +525,6 @@ void ObjectStorMgr::mod_enable_service()
     NodeAgent::pointer sm_node = Platform::plf_sm_nodes()->agent_info(*mySvcUuid);
     fpi::StorCapMsg stor_cap;
     sm_node->init_stor_cap_msg(&stor_cap);
-    LOGNOTIFY << "Will set totalRate to " << stor_cap.disk_iops_min;
 
     // note that qos dispatcher in SM/DM uses total rate just to assign
     // guaranteed slots, it still will dispatch more IOs if there is more
@@ -558,7 +556,8 @@ void ObjectStorMgr::mod_enable_service()
     qosCtrl->registerVolume(FdsSysTaskQueueId,
                             sysTaskQueue);
     // TODO(Rao): Size it appropriately
-    objCache->vol_cache_create(FdsSysTaskQueueId, 8, 256);
+    objCache->vol_cache_create(FdsSysTaskQueueId, 1024 * 1024 * vol_min_cache_sz_mb_,
+                               1024 * 1024 * vol_max_cache_sz_mb_);
 
 
     // Enable stats collection in SM for stats streaming
@@ -909,7 +908,8 @@ ObjectStorMgr::volEventOmHandler(fds_volid_t  volumeId,
                                                           dynamic_cast<FDS_VolumeQueue*>(vol->getQueue()));
 		
 		if (err.ok()) {
-		  objStorMgr->objCache->vol_cache_create(volumeId, 1024 * 1024 * 8, 1024 * 1024 * 256);
+		  objStorMgr->objCache->vol_cache_create(volumeId, 1024 * 1024 * objStorMgr->vol_min_cache_sz_mb_,
+                                                         1024 * 1024 * objStorMgr->vol_max_cache_sz_mb_);
 		} else {
 		  // most likely axceeded min iops
 		  objStorMgr->volTbl->deregisterVolume(volumeId);
