@@ -457,6 +457,9 @@ void ObjectStorMgr::mod_startup()
     FdsRootDir::fds_mkdir(modProvider_->proc_fdsroot()->dir_fds_var_stats().c_str());
     std::string obj_stats_dir = modProvider_->proc_fdsroot()->dir_fds_var_stats();
 
+    // over-write data verify from config
+    fds_data_verify = modProvider_->get_fds_config()->get<bool>("fds.sm.data_verify");
+
     /**
      * Config for Rank Engine
      */
