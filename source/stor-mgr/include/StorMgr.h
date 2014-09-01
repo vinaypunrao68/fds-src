@@ -17,9 +17,7 @@
 #include <pthread.h>
 #endif
 #include <fdsp/FDSP_types.h>
-#include <fds_volume.h>
 #include <fds_types.h>
-#include <odb.h>
 #include <ObjectId.h>
 #include <unistd.h>
 #include <assert.h>
@@ -207,10 +205,6 @@ class ObjectStorMgr :
     /** Cluster communication manager */
     ClusterCommMgrPtr clust_comm_mgr_;
 
-    /// Enables uturn testing for all sm service ops
-    fds_bool_t testUturnAll;
-    /// Enables uturn testing for put object ops
-    fds_bool_t testUturnPutObj;
     // default per-volume max cache size in MB
     fds_uint32_t vol_max_cache_sz_mb_;
     // default per-volume min cache size in MB
@@ -473,6 +467,11 @@ class ObjectStorMgr :
     virtual void mod_enable_service() override;
 
     int run();
+
+    /// Enables uturn testing for all sm service ops
+    fds_bool_t testUturnAll;
+    /// Enables uturn testing for put object ops
+    fds_bool_t testUturnPutObj;
 
     TierEngine     *tierEngine;
     ScavControl     *scavenger;
