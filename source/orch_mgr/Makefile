@@ -24,7 +24,7 @@ user_fds_ar_libs  := \
     fds-xdi
 
 user_non_fds_libs := \
-    leveldb
+    leveldb ical
 
 # TODO: need to move Catalog.h to include, avoid cross module include ref.
 #
