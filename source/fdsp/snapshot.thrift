@@ -16,21 +16,20 @@ struct SnapshotPolicy {
 }
 
 struct Snapshot {
-    1:i64 id,
+    1:i64 snapshotId,
     2:string snapshotName,
     3:i64 volumeId,
-    4:i64 policyId,
+    4:i64 snapshotPolicyId,
     5:i64 creationTimestamp
 }
 
 /* From OM => DM */
 struct CreateSnapshotMsg {
-    1:i64 volumeId,
-    2:i64 snapshotPolicyId
+    1:Snapshot snapshot
 }  
 
 struct CreateSnapshotRespMsg {
-    1:Snapshot snapshot
+    1:i64 snapshotId,
 }
 
 struct DeleteSnapshotMsg {
@@ -38,14 +37,17 @@ struct DeleteSnapshotMsg {
 }
 
 struct DeleteSnapshotRespMsg {
+    1:i64 snapshotId
 }
 
 struct CreateVolumeCloneMsg {
      1:i64 volumeId,
      2:i64 cloneId,
-     3:i64 fdsp_PolicyInfoId
+     3:string cloneName,
+     4:i64 VolumePolicyId
 }  
 
 struct CreateVolumeCloneRespMsg {
+     1:i64 cloneId,
 }
 

@@ -35,6 +35,7 @@ log = None
 parser = None
 svc_map = None
 src_id_counter = 0
+unused = 0
 
 @arg('policy-name', help= "-snapshot policy name ")
 @arg('recurrence-rule', help= "- ical Rule format: FREQ=MONTHLY;BYDAY=FR;BYHOUR=23;BYMINUTE=30;BYSECOND=0;COUNT=5 ")
@@ -51,8 +52,7 @@ def create_snap_policy(policy_name, recurrence_rule, retension_time):
         client = svc_map.omConfig()
         # invoke the thrift  interface call
         policy_id = client.createSnapshotPolicy(snap_policy)
-        print ' Successfully created  snapshot policy: {}'.format(policy_id)
-        return 'Success'
+        return  ' Successfully created  snapshot policy: {}'.format(policy_id)
     except Exception, e:
         log.exception(e)
         return ' creating snapshot policy failed: {}'.format(policy_name)
@@ -68,14 +68,14 @@ def delete_snap_policy(policy_id):
     except Exception, e:
         log.exception(e)
         return ' delete  snapshot policy failed: {}'.format(policy_id)
-
 def list_snap_policy():
     try:
         # get the  OM client  handler
         client = svc_map.omConfig()
         # invoke the thrift  interface call
-        policy_list = client.listSnapshotPolicies(None)
-        return 'Success'
+        policy_list = client.listSnapshotPolicies(unused)
+	return tabulate([(item.policyName, item.recurrenceRule, item.id,  item.retentionTimeSeconds) for item in policy_list],
+			headers=['Policy-Name', 'Policy-Rule', 'Policy-Id', 'Retension-Time'])
     except Exception, e:
         log.exception(e)
         return ' delete  snapshot policy failed: {}'.format(policy_id)
@@ -88,7 +88,7 @@ def attach_snap_policy(vol_name, policy_id):
         client = svc_map.omConfig()
         # invoke the thrift  interface call
         volume_id  = client.getVolumeId(vol_name);
-        client.attachPolicy(volume_id, policy_id)
+        client.attachSnapshotPolicy(volume_id, policy_id)
         return 'Success'
     except Exception, e:
         log.exception(e)
@@ -102,26 +102,26 @@ def detach_snap_policy(vol_name, policy_id):
         client = svc_map.omConfig()
         # invoke the thrift  interface call
         volume_id  = client.getVolumeId(vol_name);
-        client.detachPolicy(volume_id, policy_id)
+        client.detachSnapshotPolicy(volume_id, policy_id)
         return 'Success'
     except Exception, e:
         log.exception(e)
         return 'detach snap policy failed: {}'.format(vol_name)
 
-@arg('policy-id', type=long, help= "-snap shot policy name")
+@arg('policy-id', type=long, help= "-snap shot policy id")
 def list_volume_snap_policy(policy_id):
     try:
         # get the  OM client  handler
         client = svc_map.omConfig()
         # invoke the thrift  interface call
         volume_list =  client.listVolumesForSnapshotPolicy(policy_id)
-        print ','.join(volume_list)
-        return 'Success'
+	return tabulate([(item) for item in volume_list],
+			headers=['Volume-Id'])
     except Exception, e:
         log.exception(e)
-        return ' delete  snapshot policy failed: {}'.format(policy_id)
+        return ' list Volumes for snapshot policy failed: {}'.format(policy_id)
 
-@arg('vol-name', help= "-Volume name for detaching snap policy")
+@arg('vol-name', help= "-Volume name for listing snap policy")
 def list_snap_policy_volume(vol_name):
     try:
         # get the  OM client  handler
@@ -129,13 +129,13 @@ def list_snap_policy_volume(vol_name):
         # invoke the thrift  interface call
         volume_id  = client.getVolumeId(vol_name);
         policy_list = client.listSnapshotPoliciesForVolume(volume_id)
-        print ','.join(policy_list)
-        return 'Success'
+	return tabulate([(item.policyName, item.recurrenceRule, item.id,  item.retentionTimeSeconds) for item in policy_list],
+			headers=['Policy-Name', 'Policy-Rule', 'Policy-Id', 'Retension-Time'])
     except Exception, e:
         log.exception(e)
-        return ' delete  snapshot policy failed: {}'.format(policy_id)
+        return ' list snapshot policies for volumes failed: {}'.format(vol_name)
 
-@arg('vol-name', help= "-Volume name for detaching snap policy")
+@arg('vol-name', help= "-list snapshot for Volume name")
 def list_snapshot(vol_name):
     try:
         # get the  OM client  handler
@@ -143,11 +143,11 @@ def list_snapshot(vol_name):
         # invoke the thrift  interface call
         volume_id  = client.getVolumeId(vol_name);
         snapshot = client.listSnapshots(volume_id)
-        print ','.join(snapshot)
-        return 'Success'
+	return tabulate([(item.snapshotName, item.volumeId, item.id, item.policyId, item.creationTimestamp) for item in snapshot],
+			headers=['Snapshot-name', 'volume-Id', 'Snapshot-Id', 'policy-Id', 'Creation-Time'])
     except Exception, e:
         log.exception(e)
-        return ' delete  snapshot policy failed: {}'.format(policy_id)
+        return ' list snapshot polcies  snapshot polices for volume failed: {}'.format(vol_name)
 
 @arg('vol-name', help= "-Volume name  of the clone")
 @arg('clone-name', help= "-name of  the  volume clone")
