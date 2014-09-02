@@ -92,5 +92,4 @@ public class FdsAuthorizerTest {
         assertFalse(authorizer.hasAccess(new AuthenticationToken(USER_ID, SECRET), "foo"));
         verify(cachedConfig, times(1)).hasAccess(eq(USER_ID), eq(VOLUME_NAME));
     }
-
 }

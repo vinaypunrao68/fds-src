@@ -30,6 +30,7 @@ public class ConfigurationServiceCache implements ConfigurationService.Iface, Su
                 throw new RuntimeException(e);
             }
         });
+        new Thread(new Updater()).start();
     }
 
     @Override
@@ -134,7 +135,6 @@ public class ConfigurationServiceCache implements ConfigurationService.Iface, Su
         map.clear();
     }
 
-
     private CachedConfiguration fillCacheMaybe() {
         return map.computeIfAbsent(KEY, k -> {
             try {
@@ -144,5 +144,39 @@ public class ConfigurationServiceCache implements ConfigurationService.Iface, Su
                 throw new RuntimeException(e);
             }
         });
+    }
+
+
+    private class Updater implements Runnable {
+        @Override
+        public void run() {
+            while (true) {
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {}
+                map.compute(KEY, (k, v) -> {
+                    try {
+                        return obtainConfig(v);
+                    } catch (Exception e) {
+                        LOG.error("Error refreshing cache", e);
+                        return v;
+                    }
+                });
+            }
+        }
+
+        private CachedConfiguration obtainConfig(CachedConfiguration v) throws Exception {
+            if (v == null) {
+                return new CachedConfiguration(config);
+            } else {
+                long currentVersion = config.configurationVersion(0);
+                if (currentVersion != v.getVersion()) {
+                    LOG.debug("Cache updated, refreshing");
+                    return new CachedConfiguration(config);
+                } else {
+                    return v;
+                }
+            }
+        }
     }
 }

@@ -21,6 +21,7 @@ import org.eclipse.jetty.server.Request;
 import org.joda.time.Duration;
 import org.json.JSONObject;
 
+import javax.servlet.http.HttpServletResponse;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.Function;
@@ -59,8 +60,8 @@ public class Main {
 
         boolean enforceAuthentication = platformConfig.lookup("fds.om.authentication").booleanValue();
         Authenticator authenticator = enforceAuthentication ? new FdsAuthenticator(configCache) : new NullAuthenticator();
+        Authorizer authorizer = enforceAuthentication ? new FdsAuthorizer(configCache) : new DumbAuthorizer();
 
-        Authorizer authorizer = new DumbAuthorizer();
         xdi = new Xdi(amService, configCache, authenticator, authorizer, legacyConfigClient);
 
         webApp = new WebApp(webDir);
@@ -71,17 +72,18 @@ public class Main {
         webApp.route(HttpMethod.GET, "/api/auth/token", () -> new IssueToken(xdi));
 
         authenticate(HttpMethod.GET, "/api/auth/currentUser", (t) -> new CurrentUser(xdi, t));
-        authenticate(HttpMethod.GET, "/api/config/services", (t) -> new ListServices(legacyConfigClient));
-        authenticate(HttpMethod.POST, "/api/config/services/:node_uuid", (t) -> new ActivatePlatform(legacyConfigClient));
+        fdsAdminOnly(HttpMethod.GET, "/api/config/services", (t) -> new ListServices(legacyConfigClient), authorizer);
+        fdsAdminOnly(HttpMethod.POST, "/api/config/services/:node_uuid", (t) -> new ActivatePlatform(legacyConfigClient), authorizer);
 
-        authenticate(HttpMethod.GET, "/api/config/volumes", (t) -> new ListVolumes(configCache, amService, legacyConfigClient));
-        authenticate(HttpMethod.POST, "/api/config/volumes", (t) -> new CreateVolume(configCache, legacyConfigClient));
-        authenticate(HttpMethod.DELETE, "/api/config/volumes/:name", (t) -> new DeleteVolume(legacyConfigClient));
-        authenticate(HttpMethod.PUT, "/api/config/volumes/:uuid", (t) -> new SetVolumeQosParams(legacyConfigClient, configCache, amService));
+        authenticate(HttpMethod.GET, "/api/config/volumes", (t) -> new ListVolumes(xdi, amService, legacyConfigClient, t));
+        authenticate(HttpMethod.POST, "/api/config/volumes", (t) -> new CreateVolume(xdi, legacyConfigClient, t));
+        authenticate(HttpMethod.DELETE, "/api/config/volumes/:name", (t) -> new DeleteVolume(xdi, t));
+        authenticate(HttpMethod.PUT, "/api/config/volumes/:uuid", (t) -> new SetVolumeQosParams(legacyConfigClient, configCache, amService, authorizer, t));
 
-        authenticate(HttpMethod.GET, "/api/config/globaldomain", (t) -> new ShowGlobalDomain());
-        authenticate(HttpMethod.GET, "/api/config/domains", (t) -> new ListDomains());
+        fdsAdminOnly(HttpMethod.GET, "/api/config/globaldomain", (t) -> new ShowGlobalDomain(), authorizer);
+        fdsAdminOnly(HttpMethod.GET, "/api/config/domains", (t) -> new ListDomains(), authorizer);
 
+        // TODO: security model for statistics streams
         authenticate(HttpMethod.POST, "/api/config/streams", (t) -> new RegisterStream(configCache));
         authenticate(HttpMethod.GET, "/api/config/streams", (t) -> new ListStreams(configCache));
 
@@ -105,11 +107,24 @@ public class Main {
         webApp.start(adminWebappPort);
     }
 
+    private void fdsAdminOnly(HttpMethod method, String route, Function<AuthenticationToken, RequestHandler> f, Authorizer authorizer) {
+        authenticate(method, route, (t) -> {
+            try {
+                if (authorizer.userFor(t).isIsFdsAdmin()) {
+                    return f.apply(t);
+                } else {
+                    return (r, p) -> new JsonResource(new JSONObject().put("message", "Invalid permissions"), HttpServletResponse.SC_UNAUTHORIZED);
+                }
+            } catch (Exception e) {
+                return (r, p) -> new JsonResource(new JSONObject().put("message", "Invalid permissions"), HttpServletResponse.SC_UNAUTHORIZED);
+            }
+        });
+    }
+
     private void authenticate(HttpMethod method, String route, Function<AuthenticationToken, RequestHandler> f) {
         webApp.route(method, route, () -> new HttpAuthenticator(f, xdi.getAuthenticator()));
     }
 }
-
 
 class CreateAdminUser implements RequestHandler {
     private ConfigurationService.Iface config;
