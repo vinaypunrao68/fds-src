@@ -56,7 +56,7 @@ bool Scheduler::addPolicy(const fpi::SnapshotPolicy& policy) {
     return fModified;
 }
 
-void Scheduler::removePolicy(uint64_t policyId) {
+bool Scheduler::removePolicy(uint64_t policyId) {
     atc::Synchronized s(monitor);
     auto handleptr = handleMap.find(policyId);
     if (handleptr != handleMap.end()) {
@@ -64,8 +64,10 @@ void Scheduler::removePolicy(uint64_t policyId) {
         handleMap.erase(handleptr);
         ping();
         LOGDEBUG << "removed policy from scheduler, id:" <<policyId;
+        return true;
     } else {
         LOGWARN << "unable to remove policy from scheduler, id:" <<policyId;
+        return false;
     }
 }
 

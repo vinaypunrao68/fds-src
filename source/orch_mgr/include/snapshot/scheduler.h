@@ -22,7 +22,7 @@ class Scheduler : public HasLogger {
     ~Scheduler();
     // will also update / modify
     bool addPolicy(const fpi::SnapshotPolicy& policy);
-    void removePolicy(uint64_t policyId);
+    bool removePolicy(uint64_t policyId);
     void dump();
     void shutdown();
 
