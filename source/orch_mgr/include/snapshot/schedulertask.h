@@ -3,7 +3,7 @@
  */
 #ifndef SOURCE_ORCH_MGR_INCLUDE_SNAPSHOT_SCHEDULERTASK_H_
 #define SOURCE_ORCH_MGR_INCLUDE_SNAPSHOT_SCHEDULERTASK_H_
-#include <libical/icalrecur.h>
+#include <libical/ical.h>
 #include <functional>
 #include <string>
 #include <ostream>
