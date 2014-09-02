@@ -27,7 +27,8 @@ OrchMgr::OrchMgr(int argc, char *argv[], Platform *platform, Module **mod_vec)
           test_mode(false),
           omcp_req_handler(new FDSP_OMControlPathReqHandler(this)),
           cp_resp_handler(new FDSP_ControlPathRespHandler(this)),
-          cfg_req_handler(new FDSP_ConfigPathReqHandler(this))
+          cfg_req_handler(new FDSP_ConfigPathReqHandler(this)),
+      snapshotMgr(this)
 {
     om_mutex = new fds_mutex("OrchMgrMutex");
 
@@ -162,13 +163,11 @@ void OrchMgr::proc_pre_startup()
 
 void OrchMgr::proc_pre_service()
 {
+    snapshotMgr.init();
     fds_bool_t config_db_up = loadFromConfigDB();
     // load persistent state to local domain
     OM_NodeDomainMod* local_domain = OM_NodeDomainMod::om_local_domain();
     local_domain->om_load_state(config_db_up ? configDB : NULL);
-
-    snapPolicyDispatcher = new fds::snapshot::PolicyDispatcher(this);
-    snapScheduler = new fds::snapshot::Scheduler(this, snapPolicyDispatcher);
 }
 
 int OrchMgr::run()
@@ -436,12 +435,7 @@ bool OrchMgr::loadFromConfigDB() {
 
 
     // load the snapshot policies
-    std::vector<fpi::SnapshotPolicy> vecSnapshotPolicies;
-    configDB->listSnapshotPolicies(vecSnapshotPolicies);
-    LOGNORMAL << "loaded [" << vecSnapshotPolicies.size() << "] policies";
-    for (auto policy : vecSnapshotPolicies) {
-        snapScheduler->addPolicy(policy);
-    }
+    snapshotMgr.loadFromConfigDB();
 
     return true;
 }

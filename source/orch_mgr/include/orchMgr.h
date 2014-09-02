@@ -25,8 +25,7 @@
 #include <OmAdminCtrl.h>
 #include <kvstore/configdb.h>
 #include <platform/platform-lib.h>
-#include <snapshot/scheduler.h>
-#include <snapshot/policydispatcher.h>
+#include <snapshot/manager.h>
 
 #define MAX_OM_NODES            (512)
 #define DEFAULT_LOC_DOMAIN_ID   (1)
@@ -110,8 +109,7 @@ class OrchMgr: public PlatformProcess {
     int ApplyTierPolicy(::fpi::tier_pol_time_unitPtr& policy);  // NOLINT
     int AuditTierPolicy(::fpi::tier_pol_auditPtr& audit);  // NOLINT
 
-    fds::snapshot::Scheduler* snapScheduler;
-    fds::snapshot::PolicyDispatcher* snapPolicyDispatcher;
+    fds::snapshot::Manager snapshotMgr;
 };
 
 /* config path: cli -> OM  */

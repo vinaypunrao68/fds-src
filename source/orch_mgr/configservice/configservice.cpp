@@ -264,7 +264,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
     int64_t createSnapshotPolicy(boost::shared_ptr<fpi::SnapshotPolicy>& policy) {
         if (configDB->createSnapshotPolicy(*policy)) {
-            om->snapScheduler->addPolicy(*policy);
+            om->snapshotMgr.addPolicy(*policy);
             return policy->id;
         }
         return -1;
@@ -277,7 +277,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
     void deleteSnapshotPolicy(boost::shared_ptr<int64_t>& id) {
         configDB->deleteSnapshotPolicy(*id);
-        om->snapScheduler->removePolicy(*id);
+        om->snapshotMgr.removePolicy(*id);
     }
 
     void attachSnapshotPolicy(boost::shared_ptr<int64_t>& volumeId,
