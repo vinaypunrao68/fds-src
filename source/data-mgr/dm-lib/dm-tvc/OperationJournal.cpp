@@ -24,6 +24,12 @@ DmTvcOperationJournal::DmTvcOperationJournal(fds_volid_t volId,
 }
 
 void DmTvcOperationJournal::log(CommitLogTx::const_ptr tx) {
-    logger_->log(tx.get());
+    SCOPEDWRITE(logLock_);
+    off_t pos = logger_->log(tx.get());
+    if (pos < 0) {
+        SCOPEDWRITE(rotateLock_);
+        logger_->rotate();
+    }
+    pos = logger_->log(tx.get());
 }
 }   // namespace fds

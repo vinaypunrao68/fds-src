@@ -4,9 +4,10 @@
 
 #include <string>
 #include <vector>
+#include <limits>
 
-#include <ObjectLogger.h>
 #include <serialize.h>
+#include <ObjectLogger.h>
 
 using namespace fds;    // NOLINT
 
@@ -39,29 +40,32 @@ struct ObjType : serialize::Serializable {
 };
 
 namespace fds {
-template fds_uint32_t ObjectLogger::getObjects(fds_int32_t fileIndex,
+template class ObjectLogger::Iterator<ObjType>;
+
+template boost::shared_ptr<ObjectLogger::Iterator<ObjType> >
+        ObjectLogger::newIterator(fds_int32_t index);
+
+template fds_uint32_t ObjectLogger::getObjects(serialize::Deserializer * d,
             std::vector<boost::shared_ptr<ObjType> > & objects, fds_uint32_t max);
 }
 
 int main(int argc, char * argv[]) {
-    ObjectLogger logger("obj_file.log", 1024 * 1024, 0, true);
+    ObjectLogger logger("obj_file.log", std::numeric_limits<fds_uint64_t>::max(), 0);
 
     while (true) {
-        for (int i = 0; i < 10000; ++i) {
+        for (int i = 0; i < 100; ++i) {
             ObjType obj;
             logger.log(&obj);
         }
 
-        /*
-        std::vector<boost::shared_ptr<ObjType> > objs;
-        fds_uint32_t count = logger.getObjects(-1, objs);
-        fds_assert(100 == count);
-        for (auto it : objs) {
-            std::cout << it->num << " " << it->flag << std::endl;
+        boost::shared_ptr<ObjectLogger::Iterator<ObjType> > iter =
+                logger.newIterator<ObjType>(-1);
+        for (; iter->valid(); iter->next()) {
+            boost::shared_ptr<ObjType> val = iter->value();
+            std::cout << val->num << " " << val->flag << std::endl;
         }
-        */
 
-        sleep(1);
+        sleep(10);
     }
 
     return 0;

@@ -237,7 +237,7 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
                           const DmTimeVolCatalog::CommitCb &cb);
 
     Error doCommitBlob(fds_volid_t volid, blob_version_t & blob_version,
-            DmCommitLog::ptr &commitLog, CommitLogTx::const_ptr commit_data);
+            CommitLogTx::const_ptr commit_data);
 
     void updateFwdBlobWork(fds_volid_t volId,
                            const std::string &blobName,
