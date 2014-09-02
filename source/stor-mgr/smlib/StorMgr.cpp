@@ -16,6 +16,7 @@
 #include <fds_timestamp.h>
 #include <TokenCompactor.h>
 #include <fdsp_utils.h>
+#include <net/net_utils.h>
 #include <net/net-service.h>
 #include <net/net-service-tmpl.hpp>
 
@@ -439,7 +440,7 @@ void ObjectStorMgr::mod_startup()
 
     /* Set up FDSP RPC endpoints */
     nst_ = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_STOR_MGR));
-    myIp = netSession::getLocalIp();
+    myIp = net::get_local_ip(modProvider_->get_fds_config()->get<std::string>("fds.nic_if"));
     setup_datapath_server(myIp);
 
     /*

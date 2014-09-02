@@ -11,6 +11,7 @@
 #include <fds_process.h>
 #include <fdsp/SMSvc.h>
 #include <SMSvcHandler.h>
+#include <net/net_utils.h>
 #include <net/net-service-tmpl.hpp>
 #include <net/SvcRequestPool.h>
 #include <platform/platform-lib.h>
@@ -103,7 +104,7 @@ SmPlatform::mod_init(SysParams const *const param)
     Platform::platf_assign_singleton(&gl_SmPlatform);
     Platform::mod_init(param);
 
-    plf_my_ip        = util::get_local_ip();
+    plf_my_ip        = net::get_local_ip(conf.get_abs<std::string>("fds.nic_if"));
     plf_my_node_name = "my-sm-node";  // plf_my_ip;
 
     plf_vol_evt  = new SmVolEvent(plf_resources, plf_clus_map, this);

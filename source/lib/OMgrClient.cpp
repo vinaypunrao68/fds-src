@@ -9,6 +9,7 @@
 #include <thrift/transport/TBufferTransports.h>
 #include <dlt.h>
 
+#include <net/net_utils.h>
 #include <thread>
 
 using namespace std;
@@ -307,8 +308,8 @@ void OMgrClient::start_omrpc_handler()
 
 // Call this to setup the (receiving side) endpoint to lister for control path requests from OM.
 int OMgrClient::startAcceptingControlMessages() {
-
-  std::string myIp = netSession::getLocalIp();
+  std::string myIp = fds::net::get_local_ip(
+      g_fdsprocess->get_fds_config()->get<std::string>("fds.nic_if"));
   int myIpInt = netSession::ipString2Addr(myIp);
   omrpc_handler_.reset(new OMgrClientRPCI(this));
   // TODO: Ideally createServerSession should take a shared pointer
