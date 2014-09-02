@@ -38,6 +38,7 @@ public class S3Endpoint {
         authenticate(HttpMethod.POST, "/:bucket", (t) -> new PostObject(xdi, t));
         authenticate(HttpMethod.POST, "/:bucket/:object", (t) -> new PostObject(xdi, t));
         authenticate(HttpMethod.GET, "/:bucket/:object", (t) -> new GetObject(xdi, t));
+        authenticate(HttpMethod.HEAD, "/:bucket/:object", (t) -> new HeadObject(xdi, t));
         authenticate(HttpMethod.DELETE, "/:bucket/:object", (t) -> new DeleteObject(xdi, t));
 
         //webApp.addAsyncExecutor(new S3AsyncApplication(xdiAsync));
