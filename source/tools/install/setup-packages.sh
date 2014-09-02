@@ -12,6 +12,11 @@
 ###########################################################################
 source ./loghelper.sh
 
+needed_packages=(
+    python-dev
+    python-pip
+)
+
 basedebs=(
     libpcre3
     xfsprogs
@@ -37,6 +42,10 @@ fdsbasedebs=(
 )
 
 python_packages=(
+    Crypto
+    boto
+    scp
+    paramiko
 )
 
 REPOUPDATED=0
@@ -121,6 +130,15 @@ function installBaseDebs() {
     done
 }
 
+function installNeededPkgs() {
+    loginfo "[fdssetup] : installing prereq packages"
+    for pkg in ${needed_packages[@]}
+    do
+        loginfo "[fdssetup] : installing $pkg"
+        sudo apt-get install ${pkg} --assume-yes
+    done
+
+}
 function installFdsBaseDebs() {
     loginfo "[fdssetup] : installing fds base debs"
 
@@ -175,6 +193,7 @@ function installFdsService() {
 usage() {
     echo $(yellow "usage: setup-packages.sh option [option ..]")
     echo "option :"
+    echo "  prereq - install prerequisite packages"
     echo "  base - install base debs"
     echo "  python  - install python pkgs"
     echo "  fds-base - install base fds pkgs"
@@ -187,7 +206,8 @@ if [[ $# == 0 ]] ; then
 fi
 
 for opt in "$@" ; do
-    case $opt in 
+    case $opt in
+        prereq*) installNeededPkgs ;;
         basedeb*) installBaseDebs ;;
         python*) installPythonPkgs ;;
         fds-base*) installFdsBaseDebs ;;

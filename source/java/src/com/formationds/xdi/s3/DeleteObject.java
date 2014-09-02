@@ -10,6 +10,7 @@ import com.formationds.web.toolkit.TextResource;
 import com.formationds.xdi.Xdi;
 import org.eclipse.jetty.server.Request;
 
+import javax.servlet.http.HttpServletResponse;
 import java.util.Map;
 
 public class DeleteObject implements RequestHandler {
@@ -29,6 +30,6 @@ public class DeleteObject implements RequestHandler {
         String bucketName = requiredString(routeParameters, "bucket");
         String objectName = requiredString(routeParameters, "object");
         xdi.deleteBlob(token, S3Endpoint.FDS_S3, bucketName, objectName);
-        return new TextResource("");
+        return new TextResource(HttpServletResponse.SC_NO_CONTENT, "");
     }
 }

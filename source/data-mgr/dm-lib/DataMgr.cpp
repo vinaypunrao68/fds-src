@@ -5,6 +5,7 @@
 #include <string>
 #include <list>
 #include <vector>
+#include <net/net_utils.h>
 #include <fds_timestamp.h>
 #include <fdsp_utils.h>
 #include <lib/StatsCollector.h>
@@ -755,7 +756,7 @@ void DataMgr::mod_startup()
 
     /* Set up FDSP RPC endpoints */
     nstable = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_DATA_MGR));
-    myIp = util::get_local_ip();
+    myIp = net::get_local_ip(modProvider_->get_fds_config()->get<std::string>("fds.nic_if"));
     assert(myIp.empty() == false);
     std::string node_name = "_DM_" + myIp;
 

@@ -3,25 +3,23 @@ package com.formationds.security;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.User;
+import com.formationds.xdi.CachedConfiguration;
+import com.formationds.xdi.ConfigurationServiceCache;
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 import org.apache.thrift.TException;
 
 import javax.security.auth.login.LoginException;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 public class FdsAuthenticator implements Authenticator {
     private final static Logger LOG = Logger.getLogger(FdsAuthenticator.class);
+    private ConfigurationServiceCache cache;
 
-    private ConfigurationService.Iface config;
-
-    public FdsAuthenticator(ConfigurationService.Iface config) {
-        this.config = config;
+    public FdsAuthenticator(ConfigurationServiceCache cache) {
+        this.cache = cache;
     }
 
     @Override
@@ -32,15 +30,8 @@ public class FdsAuthenticator implements Authenticator {
 
     @Override
     public AuthenticationToken authenticate(String login, String password) throws LoginException {
-        Map<String, User> map = null;
-        try {
-            map = config.allUsers(0)
-                    .stream()
-                    .collect(Collectors.toMap(u -> u.getIdentifier(), u -> u));
-        } catch (TException e) {
-            LOG.error("Error loading configuration", e);
-            throw new LoginException();
-        }
+        CachedConfiguration cachedConfig = cache.get();
+        Map<String, User> map = cachedConfig.usersByName();
 
         if (!map.containsKey(login)) {
             throw new LoginException();
@@ -64,44 +55,38 @@ public class FdsAuthenticator implements Authenticator {
 
     @Override
     public AuthenticationToken currentToken(String login) throws LoginException {
-        User user = null;
-        try {
-            user = config.allUsers(0).stream()
-                    .filter(u -> u.getIdentifier().equals(login))
-                    .findFirst()
-                    .get();
-        } catch (Exception e) {
-            LOG.error("Error looking up user", e);
+        CachedConfiguration config = cache.get();
+        Map<String, User> map = config.usersByName();
+        if (!map.containsKey(login)) {
             throw new LoginException();
         }
+
+        User user = map.get(login);
         return new AuthenticationToken(user.getId(), user.getSecret());
     }
 
 
     @Override
     public AuthenticationToken reissueToken(long userId) throws LoginException {
-        List<User> users = null;
+        User user = null;
         try {
-            users = config.allUsers(0);
+            user = cache.allUsers(0).stream()
+                    .filter(u -> u.getId() == userId)
+                    .findFirst()
+                    .orElseThrow(() -> new LoginException());
         } catch (TException e) {
-            LOG.error("Error reading config", e);
+            LOG.error("Error loading configuration", e);
             throw new LoginException();
         }
 
-        return users.stream()
-                .filter(u -> u.getId() == userId)
-                .map(user -> {
-                    String newSecret = UUID.randomUUID().toString();
-                    try {
-                        config.updateUser(user.getId(), user.getIdentifier(), user.getPasswordHash(), newSecret, user.isFdsAdmin);
-                    } catch (TException e) {
-                        LOG.error("Error updating config", e);
-                        throw new RuntimeException(e);
-                    }
-                    return new AuthenticationToken(user.getId(), newSecret);
-                })
-                .findFirst()
-                .get();
+        String newSecret = UUID.randomUUID().toString();
+        try {
+            cache.updateUser(user.getId(), user.getIdentifier(), user.getPasswordHash(), newSecret, user.isFdsAdmin);
+        } catch (TException e) {
+            LOG.error("Error updating config", e);
+            throw new RuntimeException(e);
+        }
+        return new AuthenticationToken(user.getId(), newSecret);
     }
 
     @Override
@@ -117,7 +102,7 @@ public class FdsAuthenticator implements Authenticator {
         String secret = token.getSecret();
         long count = 0;
         try {
-            count = config.allUsers(0).stream()
+            count = cache.allUsers(0).stream()
                     .filter(u -> u.getId() == userId)
                     .filter(u -> u.getSecret().equals(secret))
                     .count();

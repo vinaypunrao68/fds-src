@@ -10,7 +10,7 @@ namespace fds {
 namespace net {
 
 std::string get_my_hostname();
-
+std::string get_local_ip(std::string ifc);
 }  // namespace net
 }  // namespace fds
 

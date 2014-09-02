@@ -2,6 +2,7 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 #include <string>
+#include <net/net_utils.h>
 #include <am-platform.h>
 #include <net/PlatNetSvcHandler.h>
 #include <net/net-service-tmpl.hpp>
@@ -98,7 +99,7 @@ AmPlatform::mod_init(SysParams const *const param)
     FdsConfigAccessor conf(g_fdsprocess->get_conf_helper());
     Platform::mod_init(param);
 
-    plf_my_ip        = util::get_local_ip();
+    plf_my_ip        = net::get_local_ip(conf.get_abs<std::string>("fds.nic_if"));
     plf_my_node_name = plf_my_ip;
 
     plf_vol_evt  = new AmVolEvent(plf_resources, plf_clus_map, this);

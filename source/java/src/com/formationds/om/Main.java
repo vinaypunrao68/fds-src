@@ -13,7 +13,7 @@ import com.formationds.security.*;
 import com.formationds.util.Configuration;
 import com.formationds.util.libconfig.ParsedConfig;
 import com.formationds.web.toolkit.*;
-import com.formationds.xdi.CachingConfigurationService;
+import com.formationds.xdi.ConfigurationServiceCache;
 import com.formationds.xdi.Xdi;
 import com.formationds.xdi.XdiClientFactory;
 import org.apache.log4j.Logger;
@@ -21,6 +21,7 @@ import org.eclipse.jetty.server.Request;
 import org.joda.time.Duration;
 import org.json.JSONObject;
 
+import javax.servlet.http.HttpServletResponse;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.Function;
@@ -46,7 +47,7 @@ public class Main {
 
         ParsedConfig platformConfig = configuration.getPlatformConfig();
         XdiClientFactory clientFactory = new XdiClientFactory();
-        CachingConfigurationService configApi = new CachingConfigurationService(clientFactory.remoteOmService("localhost", 9090));
+        ConfigurationServiceCache configCache = new ConfigurationServiceCache(clientFactory.remoteOmService("localhost", 9090));
         AmService.Iface amService = clientFactory.remoteAmService("localhost", 9988);
 
         String omHost = "localhost";
@@ -58,10 +59,10 @@ public class Main {
         VolumeStatistics volumeStatistics = new VolumeStatistics(Duration.standardMinutes(20));
 
         boolean enforceAuthentication = platformConfig.lookup("fds.om.authentication").booleanValue();
-        Authenticator authenticator = enforceAuthentication ? new FdsAuthenticator(configApi) : new NullAuthenticator();
+        Authenticator authenticator = enforceAuthentication ? new FdsAuthenticator(configCache) : new NullAuthenticator();
+        Authorizer authorizer = enforceAuthentication ? new FdsAuthorizer(configCache) : new DumbAuthorizer();
 
-        Authorizer authorizer = new DumbAuthorizer();
-        xdi = new Xdi(amService, configApi, authenticator, authorizer, legacyConfigClient);
+        xdi = new Xdi(amService, configCache, authenticator, authorizer, legacyConfigClient);
 
         webApp = new WebApp(webDir);
 
@@ -71,26 +72,27 @@ public class Main {
         webApp.route(HttpMethod.GET, "/api/auth/token", () -> new IssueToken(xdi));
 
         authenticate(HttpMethod.GET, "/api/auth/currentUser", (t) -> new CurrentUser(xdi, t));
-        authenticate(HttpMethod.GET, "/api/config/services", (t) -> new ListServices(legacyConfigClient));
-        authenticate(HttpMethod.POST, "/api/config/services/:node_uuid", (t) -> new ActivatePlatform(legacyConfigClient));
+        fdsAdminOnly(HttpMethod.GET, "/api/config/services", (t) -> new ListServices(legacyConfigClient), authorizer);
+        fdsAdminOnly(HttpMethod.POST, "/api/config/services/:node_uuid", (t) -> new ActivatePlatform(legacyConfigClient), authorizer);
 
-        authenticate(HttpMethod.GET, "/api/config/volumes", (t) -> new ListVolumes(configApi, amService, legacyConfigClient));
-        authenticate(HttpMethod.POST, "/api/config/volumes", (t) -> new CreateVolume(configApi, legacyConfigClient));
-        authenticate(HttpMethod.DELETE, "/api/config/volumes/:name", (t) -> new DeleteVolume(legacyConfigClient));
-        authenticate(HttpMethod.PUT, "/api/config/volumes/:uuid", (t) -> new SetVolumeQosParams(legacyConfigClient, configApi, amService));
+        authenticate(HttpMethod.GET, "/api/config/volumes", (t) -> new ListVolumes(xdi, amService, legacyConfigClient, t));
+        authenticate(HttpMethod.POST, "/api/config/volumes", (t) -> new CreateVolume(xdi, legacyConfigClient, t));
+        authenticate(HttpMethod.DELETE, "/api/config/volumes/:name", (t) -> new DeleteVolume(xdi, t));
+        authenticate(HttpMethod.PUT, "/api/config/volumes/:uuid", (t) -> new SetVolumeQosParams(legacyConfigClient, configCache, amService, authorizer, t));
 
-        authenticate(HttpMethod.GET, "/api/config/globaldomain", (t) -> new ShowGlobalDomain());
-        authenticate(HttpMethod.GET, "/api/config/domains", (t) -> new ListDomains());
+        fdsAdminOnly(HttpMethod.GET, "/api/config/globaldomain", (t) -> new ShowGlobalDomain(), authorizer);
+        fdsAdminOnly(HttpMethod.GET, "/api/config/domains", (t) -> new ListDomains(), authorizer);
 
-        authenticate(HttpMethod.POST, "/api/config/streams", (t) -> new RegisterStream(configApi));
-        authenticate(HttpMethod.GET, "/api/config/streams", (t) -> new ListStreams(configApi));
+        // TODO: security model for statistics streams
+        authenticate(HttpMethod.POST, "/api/config/streams", (t) -> new RegisterStream(configCache));
+        authenticate(HttpMethod.GET, "/api/config/streams", (t) -> new ListStreams(configCache));
 
         webApp.route(HttpMethod.GET, "/api/stats/volumes", () -> new ListActiveVolumes(volumeStatistics));
         webApp.route(HttpMethod.POST, "/api/stats", () -> new RegisterVolumeStats(volumeStatistics));
         webApp.route(HttpMethod.GET, "/api/stats/volumes/:volume", () -> new DisplayVolumeStats(volumeStatistics));
 
         // [fm] Temporary
-        webApp.route(HttpMethod.GET, "/api/config/user/:login/:password", () -> new CreateAdminUser(configApi));
+        webApp.route(HttpMethod.GET, "/api/config/user/:login/:password", () -> new CreateAdminUser(configCache));
 
 
         new Thread(() -> {
@@ -105,11 +107,24 @@ public class Main {
         webApp.start(adminWebappPort);
     }
 
+    private void fdsAdminOnly(HttpMethod method, String route, Function<AuthenticationToken, RequestHandler> f, Authorizer authorizer) {
+        authenticate(method, route, (t) -> {
+            try {
+                if (authorizer.userFor(t).isIsFdsAdmin()) {
+                    return f.apply(t);
+                } else {
+                    return (r, p) -> new JsonResource(new JSONObject().put("message", "Invalid permissions"), HttpServletResponse.SC_UNAUTHORIZED);
+                }
+            } catch (Exception e) {
+                return (r, p) -> new JsonResource(new JSONObject().put("message", "Invalid permissions"), HttpServletResponse.SC_UNAUTHORIZED);
+            }
+        });
+    }
+
     private void authenticate(HttpMethod method, String route, Function<AuthenticationToken, RequestHandler> f) {
         webApp.route(method, route, () -> new HttpAuthenticator(f, xdi.getAuthenticator()));
     }
 }
-
 
 class CreateAdminUser implements RequestHandler {
     private ConfigurationService.Iface config;
