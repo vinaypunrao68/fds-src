@@ -44,9 +44,6 @@ template class ObjectLogger::Iterator<ObjType>;
 
 template boost::shared_ptr<ObjectLogger::Iterator<ObjType> >
         ObjectLogger::newIterator(fds_int32_t index);
-
-template fds_uint32_t ObjectLogger::getObjects(serialize::Deserializer * d,
-            std::vector<boost::shared_ptr<ObjType> > & objects, fds_uint32_t max);
 }
 
 int main(int argc, char * argv[]) {

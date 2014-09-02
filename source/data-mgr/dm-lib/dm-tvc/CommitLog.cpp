@@ -106,10 +106,10 @@ DmCommitLog::DmCommitLog(const std::string &modName, const fds_volid_t volId,
 
     std::ostringstream oss;
     const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
-    oss << root->dir_user_repo_dm() << std::to_string(volId_);
+    oss << root->dir_user_repo_dm() << volId_;
     FdsRootDir::fds_mkdir(oss.str().c_str());
 
-    oss << COMMIT_BUFFER_FILENAME;
+    oss << "/" << COMMIT_BUFFER_FILENAME;
     buffername_ = oss.str();
 
     buffer_.reset(new ObjectLogger(buffername_, buffersize_, 0));

@@ -19,7 +19,10 @@ DmTvcOperationJournal::DmTvcOperationJournal(fds_volid_t volId,
     std::ostringstream oss;
 
     const FdsRootDir * root = g_fdsprocess->proc_fdsroot();
-    oss << root->dir_user_repo_dm() << volId << ".journal";
+    oss << root->dir_user_repo_dm() << volId;
+    FdsRootDir::fds_mkdir(oss.str().c_str());
+
+    oss << "/" << volId << ".journal";
     logger_.reset(new ObjectLogger(oss.str(), filesize, maxFiles));
 }
 

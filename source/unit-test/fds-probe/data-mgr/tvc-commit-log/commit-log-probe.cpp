@@ -27,7 +27,7 @@ DmTvcOperationJournal journal(0);
 /// Global singleton probe module
 CommitLogProbe gl_CommitLogProbe("CommitLog Probe Adapter", &commit_log_probe_param, nullptr);
 
-DmCommitLog gl_DmCommitLogMod("Probe CommitLog", "/tmp/commit-vol-0.log", journal);
+DmCommitLog gl_DmCommitLogMod("Probe CommitLog", 1, journal);
 
 CommitLogProbe::CommitLogProbe(const std::string &name, probe_mod_param_t *param, Module *owner)
         : ProbeMod(name.c_str(), param, owner) {}
@@ -98,9 +98,9 @@ void CommitLogProbe::abortTx(const OpParams &abortParams) {
 }
 
 void CommitLogProbe::purgeTx(const OpParams &purgeParams) {
-    BlobTxId::const_ptr id = purgeParams.txId;
-    Error err = gl_DmCommitLogMod.purgeTx(id);
-    fds_verify(err == ERR_OK);
+    // BlobTxId::const_ptr id = purgeParams.txId;
+    // Error err = gl_DmCommitLogMod.purgeTx(id);
+    // fds_verify(err == ERR_OK);
 }
 
 // pr_delete
