@@ -455,7 +455,7 @@ int32_t FDSP_ConfigPathReqHandler::GetDomainStats(
         LOGNORMAL << "Received GetDomainStats Req for domain " << domain_id;
 
         /* Use default domain for now... */
-        NodeUuid svc_uuid(fds_get_uuid64(fdsp_msg->src_node_name));
+        NodeUuid svc_uuid(getUuidFromResourceName(fdsp_msg->src_node_name));
         local->om_send_bucket_stats(5, svc_uuid, fdsp_msg->req_cookie);
     }
     catch(...) {

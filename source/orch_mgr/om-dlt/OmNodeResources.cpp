@@ -509,7 +509,7 @@ OM_NodeAgent::om_send_one_stream_reg_cmd(const fpi::StreamingRegistrationMsg& re
     (reg_msg->volumes).reserve((reg.volume_names).size());
     for (uint i = 0; i < (reg.volume_names).size(); i++) {
         std::string volname = (reg.volume_names).at(i);
-        ResourceUUID uuid(fds_get_uuid64(volname));
+        ResourceUUID uuid(getUuidFromVolumeName(volname));
         (reg_msg->volumes).push_back(uuid.uuid_get_val());
     }
 
