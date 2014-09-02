@@ -262,6 +262,42 @@ struct StatStreamDeregistrationMsg {
 struct StatStreamDeregistrationRspMsg {
 }
 
+/* snapshot message From OM => DM */
+struct SnapshotMsg {
+    1:i64 snapshotId,
+    2:string snapshotName,
+    3:i64 volumeId,
+    4:i64 snapshotPolicyId,
+    5:i64 creationTimestamp
+}
+
+struct CreateSnapshotMsg {
+    1:SnapshotMsg snapshot
+}  
+
+struct CreateSnapshotRespMsg {
+    1:i64 snapshotId,
+}
+
+struct DeleteSnapshotMsg {
+    1:i64 snapshotId
+}
+
+struct DeleteSnapshotRespMsg {
+    1:i64 snapshotId
+}
+
+struct CreateVolumeCloneMsg {
+     1:i64 volumeId,
+     2:i64 cloneId,
+     3:string cloneName,
+     4:i64 VolumePolicyId
+}  
+
+struct CreateVolumeCloneRespMsg {
+     1:i64 cloneId,
+}
+
 /*
  * --------------------------------------------------------------------------------
  * SM service specific messages

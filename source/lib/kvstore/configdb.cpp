@@ -1345,7 +1345,7 @@ bool ConfigDB::createSnapshot(fpi::Snapshot& snapshot) {
         }
 
         r.sadd("snapshot:names", nameLower);
-        snapshot.id = r.incr("snapshot:idcounter");
+        snapshot.snapshotId = r.incr("snapshot:idcounter");
         if (snapshot.creationTimestamp <= 1) {
             snapshot.creationTimestamp = fds::util::getTimeStampMillis();
         }
@@ -1353,7 +1353,7 @@ bool ConfigDB::createSnapshot(fpi::Snapshot& snapshot) {
         boost::shared_ptr<std::string> serialized;
         fds::serializeFdspMsg(snapshot, serialized);
 
-        r.sendCommand("hset volume:%ld:snapshots %b", snapshot.id, serialized->data(), serialized->length()); //NOLINT
+        r.sendCommand("hset volume:%ld:snapshots %b", snapshot.snapshotId, serialized->data(), serialized->length()); //NOLINT
     } catch(const RedisException& e) {
         LOGCRITICAL << "error with redis " << e.what();
         return false;
