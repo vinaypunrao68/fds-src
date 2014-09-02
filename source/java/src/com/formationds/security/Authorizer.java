@@ -6,7 +6,7 @@ package com.formationds.security;
 import com.formationds.apis.User;
 
 public interface Authorizer {
-    long tenantId(AuthenticationToken token);
+    long tenantId(AuthenticationToken token) throws SecurityException;
     boolean hasAccess(AuthenticationToken token, String volume);
-    User userFor(AuthenticationToken token);
+    User userFor(AuthenticationToken token) throws SecurityException;
 }
