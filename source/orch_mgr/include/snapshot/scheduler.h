@@ -42,7 +42,6 @@ class Scheduler : public HasLogger {
 
     // monitor to sleep & notify
     apache::thrift::concurrency::Monitor monitor;
-    apache::thrift::concurrency::Mutex mutex;
 
     // to shutdown
     bool fShutdown = false;
