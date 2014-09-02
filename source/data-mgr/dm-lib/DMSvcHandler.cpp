@@ -35,6 +35,12 @@ DMSvcHandler::DMSvcHandler()
 void DMSvcHandler::commitBlobTx(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                boost::shared_ptr<fpi::CommitBlobTxMsg>& commitBlbTx)
 {
+    if (dataMgr->testUturnAll == true) {
+        LOGNOTIFY << "Uturn testing commit blob tx "
+                  << logString(*asyncHdr) << logString(*commitBlbTx);
+        commitBlobTxCb(asyncHdr, ERR_OK, NULL);
+    }
+
     LOGDEBUG << logString(*asyncHdr) << logString(*commitBlbTx);
 
     auto dmBlobTxReq = new DmIoCommitBlobTx(commitBlbTx->volume_id,
@@ -77,6 +83,11 @@ void DMSvcHandler::commitBlobTxCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     // TODO(sanjay) - we will have to revisit  this call
     fpi::CommitBlobTxRspMsg stBlobTxRsp;
     sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(CommitBlobTxRspMsg), stBlobTxRsp);
+
+    if (dataMgr->testUturnAll == true) {
+        fds_verify(req == NULL);
+        return;
+    }
 
     delete req;
 }
@@ -133,14 +144,14 @@ void DMSvcHandler::abortBlobTxCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 void DMSvcHandler::startBlobTx(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                boost::shared_ptr<fpi::StartBlobTxMsg>& startBlbTx)
 {
-    LOGDEBUG << logString(*asyncHdr) << logString(*startBlbTx);
-
-    // TODO(xxx) implement uturn
     if ((dataMgr->testUturnAll == true) ||
         (dataMgr->testUturnStartTx == true)) {
-        LOGNOTIFY << "Uturn testing start blob tx";
-        fds_panic("not implemented");
+        LOGNOTIFY << "Uturn testing start blob tx "
+                  << logString(*asyncHdr) << logString(*startBlbTx);
+        startBlobTxCb(asyncHdr, ERR_OK, NULL);
     }
+
+    LOGDEBUG << logString(*asyncHdr) << logString(*startBlbTx);
 
     auto dmBlobTxReq = new DmIoStartBlobTx(startBlbTx->volume_id,
                                            startBlbTx->blob_name,
@@ -184,6 +195,12 @@ void DMSvcHandler::startBlobTxCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     // TODO(sanjay) - we will have to revisit  this call
     fpi::StartBlobTxRspMsg stBlobTxRsp;
     sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(StartBlobTxRspMsg), stBlobTxRsp);
+
+    if ((dataMgr->testUturnAll == true) ||
+        (dataMgr->testUturnStartTx == true)) {
+        fds_verify(req == NULL);
+        return;
+    }
 
     delete req;
 }
@@ -235,16 +252,17 @@ void
 DMSvcHandler::updateCatalogOnce(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                 boost::shared_ptr<fpi::UpdateCatalogOnceMsg>& updcatMsg)
 {
+    if ((dataMgr->testUturnAll == true) ||
+        (dataMgr->testUturnUpdateCat == true)) {
+        GLOGDEBUG << "Uturn testing update catalog once "
+                  << logString(*asyncHdr) << logString(*updcatMsg);
+        updateCatalogOnceCb(asyncHdr, ERR_OK, NULL);
+        return;
+    }
+
     DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*updcatMsg));
     DBG(FLAG_CHECK_RETURN_VOID(common_drop_async_resp > 0));
     DBG(FLAG_CHECK_RETURN_VOID(dm_drop_cat_updates > 0));
-
-    // TODO(xxx) implement uturn
-    if ((dataMgr->testUturnAll == true) ||
-        (dataMgr->testUturnUpdateCat == true)) {
-        GLOGNOTIFY << "Uturn testing update catalog once";
-        fds_panic("not implemented");
-    }
 
     // Allocate a commit request structure because it is needed by the
     // commit call that will be executed during update processing.
@@ -272,16 +290,16 @@ DMSvcHandler::updateCatalogOnce(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 void DMSvcHandler::updateCatalog(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                  boost::shared_ptr<fpi::UpdateCatalogMsg>& updcatMsg)
 {
+    if ((dataMgr->testUturnAll == true) ||
+        (dataMgr->testUturnUpdateCat == true)) {
+        GLOGDEBUG << "Uturn testing update catalog "
+                  << logString(*asyncHdr) << logString(*updcatMsg);
+        updateCatalogCb(asyncHdr, ERR_OK, NULL);
+    }
+
     DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*updcatMsg));
     DBG(FLAG_CHECK_RETURN_VOID(common_drop_async_resp > 0));
     DBG(FLAG_CHECK_RETURN_VOID(dm_drop_cat_updates > 0));
-
-    // TODO(xxx) implement uturn
-    if ((dataMgr->testUturnAll == true) ||
-        (dataMgr->testUturnUpdateCat == true)) {
-        GLOGNOTIFY << "Uturn testing update catalog";
-        fds_panic("not implemented");
-    }
 
     /*
      * allocate a new query cat log  class and  queue  to per volume queue.
@@ -313,6 +331,12 @@ void DMSvcHandler::updateCatalogCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     fpi::UpdateCatalogRspMsg updcatRspMsg;
     sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::UpdateCatalogRspMsg), updcatRspMsg);
 
+    if ((dataMgr->testUturnAll == true) ||
+        (dataMgr->testUturnUpdateCat == true)) {
+        fds_verify(req == NULL);
+        return;
+    }
+
     delete req;
 }
 
@@ -336,6 +360,13 @@ DMSvcHandler::updateCatalogOnceCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     sendAsyncResp(*asyncHdr,
                   FDSP_MSG_TYPEID(fpi::UpdateCatalogOnceRspMsg),
                   updcatRspMsg);
+
+    if ((dataMgr->testUturnAll == true) ||
+        (dataMgr->testUturnUpdateCat == true)) {
+        fds_verify(req == NULL);
+        return;
+    }
+
     delete req;
 }
 

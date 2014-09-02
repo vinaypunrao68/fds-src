@@ -36,7 +36,8 @@ public class NbdServer extends ByteToMessageDecoder {
     static final int NBD_REP_ERR_INVALID = 0x80000003;
     static final int NBD_REP_ERR_PLATFORM = 0x80000004;
 
-    static final int NBD_FLAG_READ_ONLY = 0x1;
+    static final int NBD_FLAG_HAS_FLAGS = 0x1 << 0;
+    static final int NBD_FLAG_READ_ONLY = 0x1 << 1;
     static final int NBD_FLAG_SEND_FLUSH = 0x1 << 2;
     static final int NBD_FLAG_SEND_FUA = 0x1 << 3;
 
@@ -165,7 +166,7 @@ public class NbdServer extends ByteToMessageDecoder {
 
             ByteBuf m = ctx.alloc().buffer(134);
             m.writeLong(operations.size(exportName));
-            m.writeShort(NBD_FLAG_SEND_FLUSH & NBD_FLAG_FIXED_NEWSTYLE); // this is where flags go, do we need them?
+            m.writeShort(NBD_FLAG_HAS_FLAGS | NBD_FLAG_SEND_FLUSH | NBD_FLAG_SEND_FUA); // this is where flags go, do we need them?
             m.writeZero(124);
             ctx.writeAndFlush(m);
             in.discardReadBytes();

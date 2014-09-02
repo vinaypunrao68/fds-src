@@ -9,6 +9,7 @@
 #include <iostream>
 
 #include <fds_assert.h>
+#include <net/net_utils.h>
 #include <concurrency/fds_actor.h>
 #include <fdsp/FDSP_types.h>
 #include <fds_base_migrators.h>
@@ -88,9 +89,9 @@ protected:
     {
         migpath_handler_.reset(new FDSP_MigrationPathRpc(*this, GetLog()));
 
-        std::string ip = netSession::getLocalIp();
+        std::string myIp = net::get_local_ip("eth0");
         int port = conf_helper_.get<int>("port");
-        int myIpInt = netSession::ipString2Addr(ip);
+        int myIpInt = netSession::ipString2Addr(myIp);
         // TODO(rao): Do not hard code.  Get from config
         std::string node_name = "localhost-mig";
         migpath_session_ = nst_->createServerSession<netMigrationPathServerSession>(
@@ -101,7 +102,7 @@ protected:
                 migpath_handler_);
 
         LOGNORMAL << "Migration path server setup ip: "
-                << ip << " port: " << port;
+                << myIp << " port: " << port;
     }
 };
 

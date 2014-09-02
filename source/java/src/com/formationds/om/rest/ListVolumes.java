@@ -7,12 +7,17 @@ import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import FDS_ProtocolInterface.FDSP_GetVolInfoReqType;
 import FDS_ProtocolInterface.FDSP_MsgHdrType;
 import FDS_ProtocolInterface.FDSP_VolumeDescType;
-import com.formationds.apis.*;
+import com.formationds.apis.AmService;
+import com.formationds.apis.VolumeDescriptor;
+import com.formationds.apis.VolumeStatus;
+import com.formationds.apis.VolumeType;
+import com.formationds.security.AuthenticationToken;
 import com.formationds.util.JsonArrayCollector;
 import com.formationds.util.Size;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
+import com.formationds.xdi.Xdi;
 import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONArray;
@@ -22,22 +27,23 @@ import java.text.DecimalFormat;
 import java.util.Map;
 
 public class ListVolumes implements RequestHandler {
-    private ConfigurationService.Iface configApi;
+    private Xdi xdi;
     private AmService.Iface amApi;
     private FDSP_ConfigPathReq.Iface legacyConfig;
+    private AuthenticationToken token;
 
     private static DecimalFormat df = new DecimalFormat("#.00");
 
-    public ListVolumes(ConfigurationService.Iface configApi, AmService.Iface amApi, FDSP_ConfigPathReq.Iface legacyConfig) {
-        this.configApi = configApi;
+    public ListVolumes(Xdi xdi, AmService.Iface amApi, FDSP_ConfigPathReq.Iface legacyConfig, AuthenticationToken token) {
+        this.xdi = xdi;
         this.amApi = amApi;
         this.legacyConfig = legacyConfig;
+        this.token = token;
     }
 
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
-        JSONArray jsonArray = configApi
-                .listVolumes("")
+        JSONArray jsonArray = xdi.listVolumes(token, "")
                 .stream()
                 .map(v -> toJsonObject(v))
                 .collect(new JsonArrayCollector());

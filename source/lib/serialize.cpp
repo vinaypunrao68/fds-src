@@ -211,10 +211,19 @@ Serializer* getFileSerializer(const std::string& filename) {
     return new Serializer(TProtocolPtr(new TBinaryProtocol(trans)));
 }
 
+Serializer* getFileSerializer(fds_int32_t fd) {
+    boost::shared_ptr<TTransport> trans(new TFDTransport(fd));
+    return new Serializer(TProtocolPtr(new TBinaryProtocol(trans)));
+}
+
 Deserializer* getFileDeserializer(const std::string& filename) {
     boost::shared_ptr<TTransport> trans(new TSimpleFileTransport(filename, true, false));
     return new Deserializer(TProtocolPtr(new TBinaryProtocol(trans)));
 }
 
+Deserializer* getFileDeserializer(fds_int32_t fd) {
+    boost::shared_ptr<TTransport> trans(new TFDTransport(fd));
+    return new Deserializer(TProtocolPtr(new TBinaryProtocol(trans)));
+}
 } // namespace serialize
 } // namespace fds

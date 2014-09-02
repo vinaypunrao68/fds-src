@@ -16,6 +16,7 @@
 #include <fds_timestamp.h>
 #include <TokenCompactor.h>
 #include <fdsp_utils.h>
+#include <net/net_utils.h>
 #include <net/net-service.h>
 #include <net/net-service-tmpl.hpp>
 
@@ -323,7 +324,10 @@ void ObjectStorMgrI::GetTokenMigrationStats(FDSP_TokenMigrationStats& _return,
  */
 ObjectStorMgr::ObjectStorMgr(CommonModuleProviderIf *modProvider)
     : Module("sm"),
-    modProvider_(modProvider)
+      modProvider_(modProvider),
+      totalRate(6000),  // will be over-written using node capability
+      qosThrds(100),  // will be over-written from config
+      qosOutNum(10)
 {
     // NOTE: Don't put much stuff in the constuctor.  Move any construction
     // into mod_init()
@@ -370,18 +374,12 @@ ObjectStorMgr::~ObjectStorMgr() {
 
 int  ObjectStorMgr::mod_init(SysParams const *const param)
 {
-    totalRate = 6000;  // this will be over-written later from node cap
-    qosThrds = 100;
     shuttingDown = false;
     numWBThreads = 1;
     maxDirtyObjs = 10000;
     counters_.reset(new SMCounters("SM", modProvider_->get_cntrs_mgr().get()));
-    /*
-     * TODO: Fix the totalRate above to not
-     * be hard coded.
-     */
-    // Init  the log infra
 
+    // Init  the log infra
     GetLog()->setSeverityFilter(fds_log::getLevelFromName(
         modProvider_->get_fds_config()->get<std::string>("fds.sm.log_severity")));
     LOGDEBUG << "Constructing the Object Storage Manager";
@@ -405,12 +403,6 @@ void ObjectStorMgr::mod_startup()
     modProvider_->proc_fdsroot()->\
         fds_mkdir(modProvider_->proc_fdsroot()->dir_user_repo_objs().c_str());
     std::string obj_dir = modProvider_->proc_fdsroot()->dir_user_repo_objs();
-
-    // get the total rate from platform
-    //    const NodeUuid *mySvcUuid = modProvider_->get_plf_manager()->plf_get_my_svc_uuid();
-    //  NodeAgent::pointer sm_node = Platform::plf_sm_nodes()->agent_info(*mySvcUuid);
-    //  LOGNOTIFY << "Will set totalRate to " << (sm_node->node_capability()).disk_iops_min;
-
 
     /*
      * Setup the tier related members
@@ -439,7 +431,7 @@ void ObjectStorMgr::mod_startup()
 
     /* Set up FDSP RPC endpoints */
     nst_ = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_STOR_MGR));
-    myIp = netSession::getLocalIp();
+    myIp = net::get_local_ip(modProvider_->get_fds_config()->get<std::string>("fds.nic_if"));
     setup_datapath_server(myIp);
 
     /*
@@ -466,6 +458,9 @@ void ObjectStorMgr::mod_startup()
     FdsRootDir::fds_mkdir(modProvider_->proc_fdsroot()->dir_fds_var_stats().c_str());
     std::string obj_stats_dir = modProvider_->proc_fdsroot()->dir_fds_var_stats();
 
+    // over-write data verify from config
+    fds_data_verify = modProvider_->get_fds_config()->get<bool>("fds.sm.data_verify");
+
     /**
      * Config for Rank Engine
      */
@@ -485,7 +480,11 @@ void ObjectStorMgr::mod_startup()
                                       hot_threshold, cold_threshold, volTbl, objStats);
     tierEngine = new TierEngine(TierEngine::FDS_TIER_PUT_ALGO_BASIC_RANK,
                                 volTbl, rankEngine, g_fdslog);
-    objCache = new FdsObjectCache(1024 * 1024 * 256,
+
+    fds_uint32_t max_cache_sz_mb = modProvider_->get_fds_config()->get<int>("fds.sm.cache.default_cache_size");
+    vol_max_cache_sz_mb_ = modProvider_->get_fds_config()->get<int>("fds.sm.cache.default_vol_max_cache_size");
+    vol_min_cache_sz_mb_ = modProvider_->get_fds_config()->get<int>("fds.sm.cache.default_vol_min_cache_size");
+    objCache = new FdsObjectCache(1024 * 1024 * max_cache_sz_mb,
                                   slab_allocator_type_default,
                                   eviction_policy_type_default,
                                   g_fdslog);
@@ -493,6 +492,10 @@ void ObjectStorMgr::mod_startup()
 
     // TODO: join this thread
     std::thread *stats_thread = new std::thread(log_ocache_stats);
+
+    // qos defaults
+    qosThrds = modProvider_->get_fds_config()->get<int>("fds.sm.qos.default_qos_threads");
+    qosOutNum = modProvider_->get_fds_config()->get<int>("fds.sm.qos.default_outstanding_io");
 
     /*
      * Register/boostrap from OM
@@ -526,7 +529,6 @@ void ObjectStorMgr::mod_enable_service()
     NodeAgent::pointer sm_node = Platform::plf_sm_nodes()->agent_info(*mySvcUuid);
     fpi::StorCapMsg stor_cap;
     sm_node->init_stor_cap_msg(&stor_cap);
-    LOGNOTIFY << "Will set totalRate to " << stor_cap.disk_iops_min;
 
     // note that qos dispatcher in SM/DM uses total rate just to assign
     // guaranteed slots, it still will dispatch more IOs if there is more
@@ -558,7 +560,8 @@ void ObjectStorMgr::mod_enable_service()
     qosCtrl->registerVolume(FdsSysTaskQueueId,
                             sysTaskQueue);
     // TODO(Rao): Size it appropriately
-    objCache->vol_cache_create(FdsSysTaskQueueId, 8, 256);
+    objCache->vol_cache_create(FdsSysTaskQueueId, 1024 * 1024 * vol_min_cache_sz_mb_,
+                               1024 * 1024 * vol_max_cache_sz_mb_);
 
 
     // Enable stats collection in SM for stats streaming
@@ -909,7 +912,8 @@ ObjectStorMgr::volEventOmHandler(fds_volid_t  volumeId,
                                                           dynamic_cast<FDS_VolumeQueue*>(vol->getQueue()));
 		
 		if (err.ok()) {
-		  objStorMgr->objCache->vol_cache_create(volumeId, 1024 * 1024 * 8, 1024 * 1024 * 256);
+		  objStorMgr->objCache->vol_cache_create(volumeId, 1024 * 1024 * objStorMgr->vol_min_cache_sz_mb_,
+                                                         1024 * 1024 * objStorMgr->vol_max_cache_sz_mb_);
 		} else {
 		  // most likely axceeded min iops
 		  objStorMgr->volTbl->deregisterVolume(volumeId);
@@ -1277,7 +1281,7 @@ ObjectStorMgr::readObject(const SmObjDb::View& view, const ObjectID& objId,
         ObjMetaData& objMetadata,
         ObjectBuf& objData) {
     diskio::DataTier tier;
-    return readObject(view, objId, objMetadata, objData, tier);
+    return readObject(view, objId, objMetadata, objData, tier, 0);
 }
 
 Error
@@ -1285,7 +1289,7 @@ ObjectStorMgr::readObject(const SmObjDb::View& view, const ObjectID& objId,
         ObjectBuf& objData) {
     ObjMetaData objMetadata;
     diskio::DataTier tier;
-    return readObject(view, objId, objMetadata, objData, tier);
+    return readObject(view, objId, objMetadata, objData, tier, 0);
 }
 
 /*
@@ -1300,7 +1304,8 @@ ObjectStorMgr::readObject(const SmObjDb::View& view,
                           const ObjectID   &objId,
                           ObjMetaData      &objMetadata,
                           ObjectBuf        &objData,
-                          diskio::DataTier &tierUsed) {
+                          diskio::DataTier &tierUsed,
+                          fds_volid_t volId) {
     Error err(ERR_OK);
 
     diskio::DataIO& dio_mgr = diskio::DataIO::disk_singleton();
@@ -1322,7 +1327,7 @@ ObjectStorMgr::readObject(const SmObjDb::View& view,
      * Read all of the object's locations
      */
     { 
-        PerfContext tmp_pctx(GET_METADATA_READ, vio.vol_uuid,"volume:" + std::to_string(vio.vol_uuid));
+        PerfContext tmp_pctx(GET_METADATA_READ, volId, "volume:" + std::to_string(volId));
         SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
         err = readObjMetaData(objId, objMetadata);
     }
@@ -1345,13 +1350,13 @@ ObjectStorMgr::readObject(const SmObjDb::View& view,
 
         LOGDEBUG << "Reading object " << objId << " from "
                 << ((disk_req->getTier() == diskio::diskTier) ? "disk" : "flash")
-                << " tier";
+                 << " tier, volume " << std::hex << volId << std::dec;
         objData.size = objMetadata.getObjSize();
         objData.data.resize(objData.size, 0);
         // Now Read the object buffer from the disk
         
         {
-            PerfContext tmp_pctx(GET_DISK_READ, vio.vol_uuid,"volume:" + std::to_string(vio.vol_uuid));
+            PerfContext tmp_pctx(GET_DISK_READ, volId, "volume:" + std::to_string(volId));
             SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
             err = dio_mgr.disk_read(disk_req);
         }
@@ -1360,6 +1365,10 @@ ObjectStorMgr::readObject(const SmObjDb::View& view,
             delete disk_req;
             return err;
         } 
+        if (tierUsed == diskio::flashTier) {
+            PerfTracer::incr(GET_SSD_OBJ, volId, "volume:" + std::to_string(volId));
+        }
+
         if (fds_data_verify) { 
            ObjectID onDiskObjId;
            // Recompute ObjecId for the on-disk object buffer
@@ -1504,7 +1513,7 @@ ObjectStorMgr::writeObjectToTier(const OpCtx &opCtx,
     /* Disk write */
     disk_req = new SmPlReq(vio, oid, (ObjectBuf *)&objData, true, tier); // blocking call
     {   
-        PerfContext tmp_pctx(PUT_DISK_WRITE, vio.vol_uuid, "volume:" + std::to_string(vio.vol_uuid)); //TODO(matteo): move ctx in disk_req
+        PerfContext tmp_pctx(PUT_DISK_WRITE, volId, "volume:" + std::to_string(volId)); //TODO(matteo): move ctx in disk_req
         SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
         err = dio_mgr.disk_write(disk_req); //TODO(Matteo) inside or around this function, it could be non blocking
     }
@@ -1516,7 +1525,7 @@ ObjectStorMgr::writeObjectToTier(const OpCtx &opCtx,
     {
         //TODO(Matteo): look inside. This is for metadata. Initially we probably want just leveldb get and put
 
-        PerfContext tmp_pctx(PUT_METADATA_WRITE, vio.vol_uuid,"volume:" + std::to_string(vio.vol_uuid));
+        PerfContext tmp_pctx(PUT_METADATA_WRITE, volId, "volume:" + std::to_string(volId));
         SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
         err = writeObjectMetaData(opCtx, objId, objData.data.length(),
                 disk_req->req_get_phy_loc(), false, diskTier, &vio);
@@ -1525,7 +1534,7 @@ ObjectStorMgr::writeObjectToTier(const OpCtx &opCtx,
     if ((err == ERR_OK) &&
         (tier == diskio::flashTier)) {
          vol->ssdByteCnt += objId.GetLen(); 
-         PerfTracer::incr(PUT_SSD_OBJ, volId, "volume:" + std::to_string(vio.vol_uuid));
+         PerfTracer::incr(PUT_SSD_OBJ, volId, "volume:" + std::to_string(volId));
          if (vol->voldesc->mediaPolicy != FDSP_MEDIA_POLICY_SSD) {  
            /*
             * If written to flash, add to dirty flash list
@@ -1540,7 +1549,7 @@ ObjectStorMgr::writeObjectToTier(const OpCtx &opCtx,
         // is currently 0. In reality, an object maybe associated with multiple volumes,
         // so we need to think whose counters we update (probably all volumes?)
         // For now, counters will not properly work here.
-         PerfTracer::incr(PUT_HDD_OBJ, volId, "volume:" + std::to_string(vio.vol_uuid));
+         PerfTracer::incr(PUT_HDD_OBJ, volId, "volume:" + std::to_string(volId));
          if (vol) {
              vol->hddByteCnt += objId.GetLen();
          }
@@ -2452,18 +2461,22 @@ ObjectStorMgr::getObjectInternalSvc(SmIoReadObjectdata *getReq) {
      */
 
     //objStorMutex->lock();
+#ifdef OBJCACHE_ENABLE
     objBufPtr = objCache->object_retrieve(volId, objId);
+#endif
 
     if (!objBufPtr) {
         ObjectBuf objData;
         ObjMetaData objMetadata;
         objData.size = 0;
         objData.data = "";
-        err = readObject(SmObjDb::SYNC_MERGED, objId, objMetadata, objData, tierUsed);
+        err = readObject(SmObjDb::SYNC_MERGED, objId, objMetadata, objData, tierUsed, volId);
         if (err == fds::ERR_OK) {
             objBufPtr = objCache->object_alloc(volId, objId, objData.size);
             memcpy((void *)objBufPtr->data.c_str(), (void *)objData.data.c_str(), objData.size);
             objCache->object_add(volId, objId, objBufPtr, false); // read data is always clean
+
+
             // ACL: If this Volume never put this object, then it should not access the object
             if (!objMetadata.isVolumeAssociated(volId)) {
 
@@ -2494,8 +2507,9 @@ ObjectStorMgr::getObjectInternalSvc(SmIoReadObjectdata *getReq) {
         getReq->obj_data.data.clear();
     } else {
         LOGDEBUG << "Successfully got object " << objId
-                // << " and data " << objData.data
-                 << " for request ID " << getReq->io_req_id;
+                 << " for request ID " << getReq->io_req_id
+                 << " from tier " << tierUsed << ", volume "
+		 << std::hex << volId << std::dec;
         // TODO(Rao): Use std move here
         getReq->obj_data.data = objBufPtr->data;
     }
@@ -2550,7 +2564,7 @@ ObjectStorMgr::getObjectInternal(SmIoReq *getReq) {
         ObjMetaData objMetadata;
         objData.size = 0;
         objData.data = "";
-        err = readObject(SmObjDb::SYNC_MERGED, objId, objMetadata, objData, tierUsed);
+        err = readObject(SmObjDb::SYNC_MERGED, objId, objMetadata, objData, tierUsed, volId);
         if (err == fds::ERR_OK) {
             objBufPtr = objCache->object_alloc(volId, objId, objData.size);
             memcpy((void *)objBufPtr->data.c_str(), (void *)objData.data.c_str(), objData.size);
@@ -3238,7 +3252,7 @@ ObjectStorMgr::readObjectDataInternal(SmIoReq* ioReq)
     diskio::DataTier tierUsed;
 
     Error err = readObject(SmObjDb::NON_SYNC_MERGED, read_entry->getObjId(),
-            objMetadata, objData, tierUsed);
+                           objMetadata, objData, tierUsed, 0);
     if (err != ERR_OK) {
         fds_assert(!"failed to read");
         LOGERROR << "Failed to read object id: " << read_entry->getObjId();

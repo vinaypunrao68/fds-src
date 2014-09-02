@@ -84,7 +84,7 @@ namespace fds {
           ObjectID objId = objBuf->obj_id;
 	  parent_cache->object_evict(objBuf->vol_id, objId);
           // Update the lru to reflect the removate of the object
-          lru_queue->erase(it);
+          lru_queue->erase(it++);
 	}
 	if (bytes_reclaimed >= bytes_required) {
 	  break;

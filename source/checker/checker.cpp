@@ -10,6 +10,7 @@
 #include <boost/filesystem/path.hpp>
 #include <boost/progress.hpp>
 
+#include <net/net_utils.h>
 #include <fds_volume.h>
 #include <fdsp/FDSP_types.h>
 #include <hash/MurmurHash3.h>
@@ -337,7 +338,7 @@ DirBasedChecker::~DirBasedChecker()
 void DirBasedChecker::mod_startup()
 {
     /* set up nst */
-    std::string myIp = netSession::getLocalIp();
+    std::string myIp = net::get_local_ip(conf_helper_.get_abs<std::string>("fds.nic_if"));
     netSessionTblPtr nst(new netSessionTbl(FDSP_STOR_HVISOR));
 
     /* set up om client */

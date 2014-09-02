@@ -94,10 +94,20 @@ class DmVolumeCatalog : public Module,
     void registerExpungeObjectsCb(expunge_objs_cb_t cb);
 
     /**
-     * Returns true if the volume does not contain any valid blobs.
+     * Marks volume as deleted if the volume does not contain any valid blobs.
      * A valid blob is a non-deleted blob version
+     * @return ERR_OK if volume is empty and marked as deleted;
+     *  ERR_VOL_NOT_EMPTY if volume contains at least on valid blob
      */
-    fds_bool_t isVolumeEmpty(fds_volid_t volume_id);
+    Error markVolumeDeleted(fds_volid_t volume_id);
+
+    /**
+     * Deletes catalog that has not valid blobs. A valid blob is a non-deleted blob
+     * version
+     * @return ERR_OK if catalog was deleted; ERR_NOT_READY if volume is not marked
+     * as deleted.
+     */
+    Error deleteEmptyCatalog(fds_volid_t volume_id);
 
     /**
      * Returns size of volume and number of blob in the volume 'volume_id'

@@ -19,11 +19,20 @@ DmTvcOperationJournal::DmTvcOperationJournal(fds_volid_t volId,
     std::ostringstream oss;
 
     const FdsRootDir * root = g_fdsprocess->proc_fdsroot();
-    oss << root->dir_user_repo_dm() << volId << ".journal";
+    oss << root->dir_user_repo_dm() << volId;
+    FdsRootDir::fds_mkdir(oss.str().c_str());
+
+    oss << "/" << volId << ".journal";
     logger_.reset(new ObjectLogger(oss.str(), filesize, maxFiles));
 }
 
 void DmTvcOperationJournal::log(CommitLogTx::const_ptr tx) {
-    logger_->log(tx.get());
+    SCOPEDWRITE(logLock_);
+    off_t pos = logger_->log(tx.get());
+    if (pos < 0) {
+        SCOPEDWRITE(rotateLock_);
+        logger_->rotate();
+    }
+    pos = logger_->log(tx.get());
 }
 }   // namespace fds

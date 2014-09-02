@@ -19,7 +19,6 @@
 #include <concurrency/Mutex.h>
 
 namespace fds {
-
 /**
  * Logs serializable objects in a file with log-rotate
  */
@@ -31,14 +30,116 @@ class ObjectLogger {
     static const fds_uint32_t FILE_SIZE = 20971520;
     static const fds_uint32_t MAX_FILES = 10;
 
+    template<typename T>
+    class Iterator {
+      public:
+        ~Iterator() {
+            d_.reset();
+            if (-1 != fd_) {
+                close(fd_);
+            }
+            valid_ = false;
+        }
+
+        void startAt(off_t offset = 0) {
+            if (!valid_) {
+                return;
+            } else if (lseek(fd_, offset, SEEK_SET) != offset) {
+                valid_ = false;
+            } else {
+                offset_ = offset;
+                d_.reset(serialize::getFileDeserializer(fd_));
+                nextOffset_ = offset_ + read();
+            }
+        }
+
+        fds_bool_t valid() const {
+            return valid_;
+        }
+
+        boost::shared_ptr<T> value() {
+            return value_;
+        }
+
+        off_t offset() const {
+            return offset_;
+        }
+
+        void next() {
+            if (!valid_) {
+                return;
+            }
+
+            offset_ = nextOffset_;
+            nextOffset_ = offset_ + read();
+        }
+
+      private:
+        ObjectLogger * logger_;
+        fds_int32_t index_;
+        std::string filename_;
+        fds_int32_t fd_;
+        boost::shared_ptr<serialize::Deserializer> d_;
+        fds_bool_t valid_;
+        off_t offset_;
+        off_t nextOffset_;
+
+        boost::shared_ptr<T> value_;
+
+        friend ObjectLogger;
+
+        // ctor
+        Iterator(ObjectLogger * logger, fds_int32_t index) : logger_(logger), index_(index),
+                filename_(logger->filename(index)), fd_(-1), d_(0), valid_(false), offset_(0),
+                nextOffset_(0) {
+            if (filename_.empty()) {
+                if (-1 == (fd_ = open(filename_.c_str(), O_RDONLY))) {
+                    GLOGWARN << "Failed to open file " << filename_;
+                    throw std::system_error(errno, std::system_category());
+                }
+
+                valid_ = true;
+                startAt(0);
+            }
+        }
+
+        fds_uint32_t read() {
+            fds_uint32_t bytes = 0;
+
+            if (valid_) {
+                value_.reset(new T());
+                try {
+                    bytes = value_->read(d_.get());
+                } catch(std::exception & ex) {
+                    // reached end of file
+                    value_.reset();
+                    valid_ = false;
+                }
+            }
+
+            return bytes;
+        }
+    };
+
     // ctor & dtor
     ObjectLogger(const std::string & filename, fds_uint32_t filesize = FILE_SIZE,
-            fds_uint32_t maxFiles = MAX_FILES, fds_bool_t clear = false);
+            fds_uint32_t maxFiles = MAX_FILES) : filename_(filename), filesize_(filesize),
+            maxFiles_(maxFiles) {}
 
-    virtual ~ObjectLogger();
+    virtual ~ObjectLogger() {
+        if (init_) {
+            closeFile();
+        }
+    }
 
-    inline const std::string & filename() const {
-        return filename_;
+    /**
+     * Get filename
+     * @return string empty string , if the file with given index doesn't exist
+     */
+    inline const std::string filename(fds_int32_t index = -1) const {
+        std::string name = index < 0 ? filename_ : filename_ + "." + std::to_string(index);
+        struct stat buffer = {0};
+        return (!stat(name.c_str(), &buffer) ? name : std::string());
     }
 
     inline const fds_uint32_t filesize() const {
@@ -49,63 +150,55 @@ class ObjectLogger {
         return maxFiles_;
     }
 
+    /**
+     * Reset log
+     * Removes all existing log files and starts fresh
+     */
+    void reset();
+
+    void rotate();
+
     // log operation
-    virtual void log(const serialize::Serializable * obj);
+    virtual off_t log(const serialize::Serializable * obj);
+
+    virtual off_t LOG(const serialize::Serializable *obj) {
+        off_t pos = log(obj);
+        if (pos < 0) {
+            rotate();
+        }
+        return log(obj);
+    }
 
     // retrieve operations
     template<typename T>
-    fds_uint32_t getObjects(fds_int32_t fileIndex,
-            std::vector<boost::shared_ptr<T> > & objects,
-            fds_uint32_t max = std::numeric_limits<fds_uint32_t>::max()) {
-        fds_uint32_t count = 0;
-
-        fds_mutex & lockRef_ = (-1 == fileIndex ? logLock_ : rotateLock_);
-        FDSGUARD(lockRef_);
-
-        const std::string & name = (-1 == fileIndex ? filename_ : getFile(fileIndex));
-
-        if (!name.empty()) {
-            boost::scoped_ptr<serialize::Deserializer> d(serialize::getFileDeserializer(name));
-
-            while (count < max) {
-                boost::shared_ptr<T> tmp(new T());
-                try {
-                    tmp->read(d.get());
-                    objects.push_back(tmp);
-                    ++count;
-                } catch(std::exception & e) {
-                    // reached end of file
-                    break;
-                }
-            }
-        }
-
-        return count;
+    boost::shared_ptr<ObjectLogger::Iterator<T> > newIterator(fds_int32_t index) {
+        return boost::shared_ptr<ObjectLogger::Iterator<T> >(
+                new ObjectLogger::Iterator<T>(this, index));
     }
 
-  private:
+  protected:
     std::string filename_;
     fds_uint32_t filesize_;
     fds_uint32_t maxFiles_;
-    fds_bool_t clear_;
-
-    fds_int32_t fd_;
-    boost::shared_ptr<serialize::Serializer> s_;
-    boost::shared_ptr<serialize::Deserializer> d_;
-
-    fds_mutex logLock_;
-    fds_mutex rotateLock_;
 
     // Methods
-    inline bool isFull() {
-        off_t pos = lseek(fd_, 0, SEEK_END);
-        fds_assert(-1 != pos);
-        return (pos >= filesize_);
+    inline void init() {
+        if (!init_) {
+            openFile();
+            init_ = true;
+        }
     }
 
-    inline void closeFile() {
-        close(fd_);
-        s_.reset();
+  private:
+    fds_bool_t init_;
+    fds_int32_t fd_;
+    boost::shared_ptr<serialize::Serializer> s_;
+
+    // Methods
+    inline off_t currentPos() {
+        off_t pos = lseek(fd_, 0, SEEK_END);
+        fds_assert(-1 != pos);
+        return pos;
     }
 
     inline void openFile() {
@@ -114,17 +207,13 @@ class ObjectLogger {
             GLOGWARN << "Failed to open file " << filename_;
             throw std::system_error(errno, std::system_category());
         }
-        s_.reset(serialize::getFileSerializer(filename_));
-        d_.reset(serialize::getFileDeserializer(filename_));
+        s_.reset(serialize::getFileSerializer(fd_));
     }
 
-    std::string getFile(fds_uint32_t index) const {
-        std::string name = filename_ + "." + std::to_string(index);
-        struct stat buffer = {0};
-        return (index < maxFiles_ && !stat(name.c_str(), &buffer) ? name : std::string());
+    inline void closeFile() {
+        close(fd_);
+        s_.reset();
     }
-
-    void rotate();
 };
 }  /* namespace fds */
 #endif  // SOURCE_INCLUDE_OBJECTLOGGER_H_

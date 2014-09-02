@@ -45,16 +45,16 @@ public class Main {
                     clientFactory.remoteAmService("localhost", 9988);
                     //clientFactory.remoteAmService("localhost", 4242);
 
-            CachingConfigurationService config = new CachingConfigurationService(clientFactory.remoteOmService(omHost, omConfigPort));
-
-            boolean enforceAuthorization = amParsedConfig.lookup("fds.am.authentication").booleanValue();
-            Authenticator authenticator = enforceAuthorization? new FdsAuthenticator(config) : new NullAuthenticator();
+            ConfigurationServiceCache configCache = new ConfigurationServiceCache(clientFactory.remoteOmService(omHost, omConfigPort));
+            boolean enforceAuth = amParsedConfig.lookup("fds.am.authentication").booleanValue();
+            Authenticator authenticator = enforceAuth? new FdsAuthenticator(configCache) : new NullAuthenticator();
+            Authorizer authorizer = enforceAuth? new FdsAuthorizer(configCache) : new DumbAuthorizer();
 
             int nbdPort = amParsedConfig.lookup("fds.am.nbd_server_port").intValue();
             boolean nbdLoggingEnabled =  amParsedConfig.defaultBoolean("fds.am.enable_nbd_log", false);
             boolean nbdBlockExclusionEnabled = amParsedConfig.defaultBoolean("fds.am.enable_nbd_block_exclusion", true);
             ForkJoinPool fjp = new ForkJoinPool(50);
-            NbdServerOperations ops = new FdsServerOperations(am, config, fjp);
+            NbdServerOperations ops = new FdsServerOperations(am, configCache, fjp);
             if(nbdLoggingEnabled)
                 ops = new LoggingOperationsWrapper(ops, "/fds/var/logs/nbd");
             if(nbdBlockExclusionEnabled)
@@ -63,15 +63,14 @@ public class Main {
             
             new Thread(() -> nbdHost.run()).start();
 
-            Authorizer authorizer = new DumbAuthorizer();
-            Xdi xdi = new Xdi(am, config, authenticator, authorizer, legacyClientFactory.configPathClient(omHost, omLegacyConfigPort));
+            Xdi xdi = new Xdi(am, configCache, authenticator, authorizer, legacyClientFactory.configPathClient(omHost, omLegacyConfigPort));
             ByteBufferPool bbp = new ArrayByteBufferPool();
             XdiAsync xdiAsync = new XdiAsync(clientFactory.remoteAmServiceAsync("localhost", 9988), clientFactory.remoteOmServiceAsync(omHost, omConfigPort), bbp);
 
             int s3Port = amParsedConfig.lookup("fds.am.s3_port").intValue();
             new Thread(() -> new S3Endpoint(xdi, xdiAsync).start(s3Port)).start();
 
-            startStreamingServer(8999, config);
+            startStreamingServer(8999, configCache);
 
             int swiftPort = amParsedConfig.lookup("fds.am.swift_port").intValue();
             new SwiftEndpoint(xdi).start(swiftPort);

@@ -15,8 +15,7 @@ user_fds_ar_libs  := \
     fds-om-plat \
     fds-plat-lib
 
-user_non_fds_libs := \
-    leveldb
+user_non_fds_libs :=  leveldb ical
 
 user_hh           := $(wildcard *.h)
 user_cc           := ngx_modules.c

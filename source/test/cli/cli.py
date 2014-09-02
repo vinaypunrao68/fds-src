@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import sys
 import os
 import logging
@@ -265,7 +267,7 @@ def exit():
     raise CliExitException()
 
 class MyShell(cmd.Cmd):
-    prompt = 'FDS::>'
+    prompt = 'fds:> '
     """
     def __init__(self):
         self.parser = argh.ArghParser()
@@ -276,7 +278,6 @@ class MyShell(cmd.Cmd):
         try:
             parser.dispatch(argv=line.split())
         except CliExitException:
-            print 'Goodbye!'
             sys.exit(0)
         except Exception, e:
             print 'Failed'
@@ -320,7 +321,11 @@ def main(ip='127.0.0.1', port=7020, command_line=None):
     if command_line is not None:
 	MyShell().onecmd(command_line)
     else:
-        MyShell().cmdloop()
+        try:
+            MyShell().cmdloop()
+        except KeyboardInterrupt:
+            print ''
+            sys.exit(0)
 
 if __name__ == '__main__':
     log = process.setup_logger(file = 'console.log')

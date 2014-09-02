@@ -17,10 +17,7 @@
 #include <pthread.h>
 #endif
 #include <fdsp/FDSP_types.h>
-#include "stor_mgr_err.h"
-#include <fds_volume.h>
 #include <fds_types.h>
-#include <odb.h>
 #include <ObjectId.h>
 #include <unistd.h>
 #include <assert.h>
@@ -208,10 +205,10 @@ class ObjectStorMgr :
     /** Cluster communication manager */
     ClusterCommMgrPtr clust_comm_mgr_;
 
-    /// Enables uturn testing for all sm service ops
-    fds_bool_t testUturnAll;
-    /// Enables uturn testing for put object ops
-    fds_bool_t testUturnPutObj;
+    // default per-volume max cache size in MB
+    fds_uint32_t vol_max_cache_sz_mb_;
+    // default per-volume min cache size in MB
+    fds_uint32_t vol_min_cache_sz_mb_;
 
     /** Migrations related */
     FdsMigrationSvcPtr migrationSvc_;
@@ -266,6 +263,7 @@ class ObjectStorMgr :
      */
     fds_uint32_t totalRate;
     fds_uint32_t qosThrds;
+    fds_uint32_t qosOutNum;
 
     class SmQosCtrl : public FDS_QoSControl {
      private:
@@ -278,9 +276,11 @@ class ObjectStorMgr :
                 fds_log *log) :
                     FDS_QoSControl(_max_thrds, algo, log, "SM") {
             parentSm = _parent;
+            LOGNOTIFY << "Qos totalRate " << parentSm->totalRate
+                      << ", num outstanding io " << parentSm->qosOutNum;
 
             //dispatcher = new QoSMinPrioDispatcher(this, log, 3000);
-            dispatcher = new QoSWFQDispatcher(this, parentSm->totalRate, 10, log);
+            dispatcher = new QoSWFQDispatcher(this, parentSm->totalRate, parentSm->qosOutNum, log);
             //dispatcher = new QoSHTBDispatcher(this, log, 150);
         }
         virtual ~SmQosCtrl() {
@@ -415,10 +415,11 @@ class ObjectStorMgr :
             const ObjectID &objId,
             ObjectBuf      &objCompData);
     TVIRTUAL Error readObject(const SmObjDb::View& view,
-            const ObjectID   &objId,
-            ObjMetaData      &objMetadata,
-            ObjectBuf        &objCompData,
-            diskio::DataTier &tier);
+                              const ObjectID   &objId,
+                              ObjMetaData      &objMetadata,
+                              ObjectBuf        &objCompData,
+                              diskio::DataTier &tier,
+                              fds_volid_t volId = invalid_vol_id);
 
     inline fds_uint32_t getSysTaskIopsMin() {
         return totalRate/10; // 10% of total rate
@@ -466,6 +467,11 @@ class ObjectStorMgr :
     virtual void mod_enable_service() override;
 
     int run();
+
+    /// Enables uturn testing for all sm service ops
+    fds_bool_t testUturnAll;
+    /// Enables uturn testing for put object ops
+    fds_bool_t testUturnPutObj;
 
     TierEngine     *tierEngine;
     ScavControl     *scavenger;

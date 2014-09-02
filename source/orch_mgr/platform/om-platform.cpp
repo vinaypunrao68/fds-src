@@ -10,6 +10,7 @@
 #include <fds_process.h>
 #include <OmResources.h>
 #include <orchMgr.h>
+#include <net/net_utils.h>
 #include <net/net-service-tmpl.hpp>
 #include <net/SvcRequestPool.h>
 
@@ -91,7 +92,7 @@ OmPlatform::mod_init(SysParams const *const param)
     plf_node_type = FDSP_ORCH_MGR;
     Platform::mod_init(param);
 
-    plf_my_ip        = util::get_local_ip();
+    plf_my_ip        = net::get_local_ip(conf.get_abs<std::string>("fds.nic_if"));
     plf_my_node_name = plf_my_ip;
 
     LOGNORMAL << "My ctrl port " << plf_get_my_ctrl_port()

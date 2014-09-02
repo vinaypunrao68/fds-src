@@ -11,6 +11,7 @@ user_build_dir    := \
 	om-lib \
 	om-discovery \
 	configservice \
+	snapshot \
 	platform
 
 user_fds_ar_libs  := \
@@ -23,7 +24,7 @@ user_fds_ar_libs  := \
     fds-xdi
 
 user_non_fds_libs := \
-    leveldb
+    leveldb ical
 
 # TODO: need to move Catalog.h to include, avoid cross module include ref.
 #

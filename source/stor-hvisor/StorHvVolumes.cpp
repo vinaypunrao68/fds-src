@@ -407,10 +407,6 @@ void StorHvVolumeTable::addBlobToWaitQueue(const std::string& bucket_name,
                                            FdsBlobReq* blob_req)
 {
     fds_verify(blob_req->magicInUse() == true);
-
-    /* we can check again that this table does not know about this bucket */
-    fds_verify(volumeExists(bucket_name) == false);
-
     LOGDEBUG << "VolumeTable -- adding blob to wait queue, waiting for "
              << "bucket " << bucket_name;
 
@@ -432,6 +428,15 @@ void StorHvVolumeTable::addBlobToWaitQueue(const std::string& bucket_name,
         wait_blobs[bucket_name].push_back(qosReq);
     }
     wait_rwlock.write_unlock();
+
+    // If the volume got attached in the meantime, we need
+    // to move the requests ourselves.
+    if (volumeExists(bucket_name) == true) {
+        Error err;
+        moveWaitBlobsToQosQueue(blob_req->getVolId(),
+                                bucket_name,
+                                err);
+    }
 }
 
 void StorHvVolumeTable::moveWaitBlobsToQosQueue(fds_volid_t vol_uuid,

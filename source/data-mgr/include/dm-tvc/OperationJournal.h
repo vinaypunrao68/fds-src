@@ -37,6 +37,16 @@ class DmTvcOperationJournal {
         return volId_;
     }
 
+    inline const fds_uint32_t filesize() const {
+        fds_assert(logger_);
+        return logger_->filesize();
+    }
+
+    inline const fds_uint32_t maxFiles() const {
+        fds_assert(logger_);
+        return logger_->filesize();
+    }
+
     // log operation
     virtual void log(CommitLogTx::const_ptr tx);
 
@@ -44,8 +54,21 @@ class DmTvcOperationJournal {
     // TODO(umesh): implement this
 
   private:
+    fds_rwlock logLock_;
+    fds_rwlock rotateLock_;
+
     const fds_volid_t volId_;
     ObjectLogger::ptr logger_;
+};
+
+struct OpJournalIndexEntry {
+    fds_uint64_t id;
+    off_t offset;
+    char filename[512];
+
+    OpJournalIndexEntry() : id(0), offset(0) {
+        memset(filename, 0, 512);
+    }
 };
 }  /* namespace fds */
 

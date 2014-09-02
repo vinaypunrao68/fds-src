@@ -1189,13 +1189,26 @@ bool ConfigDB::createSnapshotPolicy(fpi::SnapshotPolicy& policy) {
     TRACKMOD();
     try {
         std::string idLower = lower(policy.policyName);
-
-        if (r.sismember("snapshot.policy:names", idLower)) {
-            throw ConfigException("another snapshot policy exists with the name: " + policy.policyName); //NOLINT
+        bool fNew = true;
+        // check if this is a modification
+        if (policy.id > 0) {
+            fpi::SnapshotPolicy oldpolicy;
+            if (getSnapshotPolicy(policy.id, oldpolicy)) {
+                fNew = false;
+                LOGWARN << "modifying an existing policy:" << policy.id;
+            }
         }
 
-        r.sadd("snapshot.policy:names", idLower);
-        policy.id = r.incr("snapshot.policy:idcounter");
+        if (fNew) {
+            if (r.sismember("snapshot.policy:names", idLower)) {
+                throw ConfigException("another snapshot policy exists with the name: " + policy.policyName); //NOLINT
+            }
+
+            r.sadd("snapshot.policy:names", idLower);
+            policy.id = r.incr("snapshot.policy:idcounter");
+            LOGDEBUG << "creating a new policy:" <<policy.id;
+        }
+
         // serialize
         boost::shared_ptr<std::string> serialized;
         fds::serializeFdspMsg(policy, serialized);
@@ -1354,6 +1367,7 @@ bool ConfigDB::createSnapshot(fpi::Snapshot& snapshot) {
         fds::serializeFdspMsg(snapshot, serialized);
 
         r.sendCommand("hset volume:%ld:snapshots %b", snapshot.snapshotId, serialized->data(), serialized->length()); //NOLINT
+        r.hset(format("volume:%ld:snapshots", snapshot.volumeId), snapshot.snapshotId, *serialized); //NOLINT
     } catch(const RedisException& e) {
         LOGCRITICAL << "error with redis " << e.what();
         return false;

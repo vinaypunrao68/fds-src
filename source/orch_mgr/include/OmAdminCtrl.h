@@ -66,6 +66,17 @@ class FdsAdminCtrl {
     /* returns max iopc of the subcluster*/
     fds_uint64_t getMaxIOPC() const;
 
+    /**
+     * Translates volume qos policy provided by the user
+     * to a volume qos policy for a specific service
+     * @param[in,out] voldesc volume descriptor containing volume's qos
+     * policy; when method returns, qos specific fields will be overwritten
+     * to a setting for volume for a given service
+     * @param[in] svc_type is type of service (AM, SM, or DM)
+     */
+    void userQosToServiceQos(FDSP_VolumeDescType *voldesc,
+                             fpi::FDSP_MgrIdType svc_type);
+
   private:
     void initDiskCapabilities();
 
