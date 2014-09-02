@@ -23,6 +23,11 @@ case ${mem_gigs} in
       ;;
 esac
 
+if [ "$1" = "-j" ]; then
+    echo $2
+    cpu_count=$2
+fi
+
 echo "Starting build with -j ${cpu_count}, you have ${mem_gigs}G of memory in your system"
 
 for dir in ${dir_list}

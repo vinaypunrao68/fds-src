@@ -108,4 +108,9 @@ public class BlockExclusionWrapper implements NbdServerOperations {
             return orderedResult;
         }
     }
+
+    @Override
+    public CompletableFuture<Void> flush(String exportName) {
+        return CompletableFuture.completedFuture(null);
+    }
 }

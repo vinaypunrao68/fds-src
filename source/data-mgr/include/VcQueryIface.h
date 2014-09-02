@@ -32,12 +32,6 @@ class VolumeCatalogQueryIface {
     virtual void registerExpungeObjectsCb(expunge_objs_cb_t cb) = 0;
 
     /**
-     * Returns true if the volume does not contain any valid blobs.
-     * A valid blob is a non-deleted blob version
-     */
-    virtual fds_bool_t isVolumeEmpty(fds_volid_t volume_id) = 0;
-
-    /**
      * Returns size of volume and number of blob in the volume 'volume_id'
      * @param[out] size size of volume in bytes
      * @param[out] blob_count number of blobs in the volume

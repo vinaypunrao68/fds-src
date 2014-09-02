@@ -95,9 +95,35 @@ Error
 DmTimeVolCatalog::activateVolume(fds_volid_t volId) {
     LOGDEBUG << "Will activate commit log for volume "
              << std::hex << volId << std::dec;
-    // TODO(Anna): revisit if we need to do anything with commit log
-    // when integrating meta sync (multi-dm)
     return volcat->activateCatalog(volId);
+}
+
+Error
+DmTimeVolCatalog::markVolumeDeleted(fds_volid_t volId) {
+    if (isPendingTx(volId, 0)) return ERR_VOL_NOT_EMPTY;
+    Error err = volcat->markVolumeDeleted(volId);
+    if (err.ok()) {
+        // TODO(Anna) @Umesh we should mark commit log as
+        // deleted and reject all tx to this commit log
+        // only mark log as deleted if no pending tx, otherwise
+        // return error
+        LOGDEBUG << "Marked volume as deleted, vol "
+                 << std::hex << volId << std::dec;
+    }
+    return err;
+}
+
+Error
+DmTimeVolCatalog::deleteEmptyVolume(fds_volid_t volId) {
+    Error err = volcat->deleteEmptyCatalog(volId);
+    if (err.ok()) {
+        fds_scoped_spinlock l(commitLogLock_);
+        if (commitLogs_.count(volId) > 0) {
+            // found commit log
+            commitLogs_.erase(volId);
+        }
+    }
+    return err;
 }
 
 Error

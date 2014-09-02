@@ -8,10 +8,7 @@ import argparse
 import subprocess
 from multiprocessing import Process, Array
 import time
-import boto
-from boto.s3.connection import OrdinaryCallingFormat
-from boto.s3.key import Key
-from boto.exception import S3CreateError
+import requests
 
 ###
 # Enumerations
@@ -124,10 +121,7 @@ class CopyS3Dir:
         self.perr_cnt   = 0
         self.gerr_cnt   = 0
         self.gerr_chk   = 0
-        self.log_level  = int(dataset.ds_log_level)
-
-        global c
-        self.c = c
+        self.log        = int(dataset.ds_log_level)
 
         self.obj_prefix = str(CopyS3Dir.global_obj_prefix)
         CopyS3Dir.global_obj_prefix += 1
@@ -148,10 +142,6 @@ class CopyS3Dir:
         self.cur_put    = 0
         self.cur_get    = 0
 
-    def log(self, msg):
-        if self.log_level < 2:
-            print msg
-
     def run_test(self, burst_cnt=0):
         self.create_bucket()
         total = len(self.files_list)
@@ -164,24 +154,40 @@ class CopyS3Dir:
             cnt += burst_cnt
 
     def create_bucket(self):
-        print 'Creating bucket: %s' % self.bucket
+        # Check to make sure the bucket doesn't already exist
         try:
-            self.b = c.create_bucket(self.bucket)
-        except boto.exception.S3CreateError as s:
+            r = requests.get(self.bucket_url)
+            if r.status_code == HTTPERROR.OK:
+                return 0
+        except requests.ConnectionError as e:
             pass
-        except Exception as e:
-            self.log(e)
+
+        time.sleep(3)
+
+        if int(self.log) < 2:
+            print 'Attempting to create bucket:', self.bucket
+        try:
+            r = requests.put(self.bucket_url)
+            if r.status_code != HTTPERROR.OK:
+                print "Bucket (", self.bucket,") create failed: error", r.status_code, r.content
+                sys.exit(1)
+        except requests.ConnectionError as e:
+            print e
+        time.sleep(3)
 
     def delete_bucket(self):
-        print 'Deleting bucket %s' % self.bucket
         try:
-            for key in self.b.list():
-                key.delete()
-            self.b.delete()
-        except Exception as e:
-            self.log(e)
+            r = requests.delete(self.bucket_url)
+            if r.status_code != HTTPERROR.OK:
+                print "Bucket delete failed: error", r.status_code, r.content
+                sys.exit(1)
+        except requests.ConnectionError as e:
+            print e
+        subprocess.call(['sleep', '3'])
 
-        time.sleep(1)
+    def print_debug(self, message="INFO: "):
+        if self.verbose:
+            print message
 
     def put_test(self, burst=0):
         global ioStats
@@ -193,20 +199,33 @@ class CopyS3Dir:
         for put in self.files_list[self.cur_put:]:
             cnt = cnt + 1
             obj = self.obj_prefix + put.replace("/", "_")
+            self.print_debug("curl PUT: " + put + " -> " + obj)
+            fput = open(put, 'r')
+            try:
+                r = requests.put(self.bucket_url + '/' + obj, data=fput)
+            except requests.ConnectionError as e:
+                print e
+            fput.close()
 
-            k = Key(self.c.get_bucket(self.bucket))
-            k.key = obj
-            k.set_contents_from_file(open(put, 'rb'))
+            #ret = subprocess.call(['curl', '-X', 'PUT', '--data-binary',
+            #                       '@' + put, self.bucket_url + '/' + obj])
+            if r.status_code != HTTPERROR.OK:
+                err = err + 1
+                print "HTTP error PUT: " + put + ": " + obj
+                print 'Error: ', r.status_code, r.content
+                if self.exit_on_err == True:
+                    sys.exit(1)
 
-            if (cnt % 10) == 0:
-                self.log("Put " + str(cnt) + str(self.cur_put) + " objects... errors: ["+ str(err) + "]")
+            if (cnt % 10) == 0 and int(self.log) < 2:
+                print "Put ", cnt + self.cur_put , " objects... errors: [", err, "]"
             if cnt == burst:
                 break
 
-        self.log("Put " + str(cnt) + str(self.cur_put) + " objects... errors: ["+ str(err) + "]")
+        if self.log < 2:
+            print "Put ", cnt + self.cur_put, " objects... errors: [", err, "]"
         self.cur_put  += cnt
         self.perr_cnt += err
-        ioStats[IOSTAT.PUT] += cnt
+        ioStats[IOSTAT.PUT] += cnt;
 
     def get_test(self, burst=0):
         global ioStats
@@ -220,29 +239,42 @@ class CopyS3Dir:
             cnt = cnt + 1
             obj = self.obj_prefix + get.replace("/", "_");
             tmp = self.ds.ds_dest_dir + '/' + obj
-
-            k = Key(self.c.get_bucket(self.bucket))
-            k.key = obj
-            k.get_contents_to_file(open(tmp, 'wb'))
+            ftmp = open(tmp, 'w')
+            self.print_debug("curl GET: " + obj + " -> " + tmp)
+            try:
+                r = requests.get(self.bucket_url + '/' + obj)
+            except requests.ConnectionError as e:
+                print e
+            ftmp.write(r.content)
+            ftmp.close()
+            #ret = subprocess.call(['curl', '-s' '1' ,
+            #                       self.bucket_url + '/' + obj, '-o', tmp])
+            if r.status_code != HTTPERROR.OK:
+                err = err + 1
+                print "HTTP error GET: " + get + ": " + obj
+                print 'error: ', r.status_code
+                if self.exit_on_err == True:
+                    sys.exit(1)
 
             ret = subprocess.call(['diff', get, tmp])
             if ret != 0:
                 chk = chk + 1
-                self.log("Get "+ str(get)+ " -> "+ str(tmp)+ ": "+ str(cnt)+  \
-                          " objects... errors: ["+ str(err)+ "], verify failed ["+str(chk)+ "]")
-                if self.exit_on_err == True:
-                    sys.exit(1)
+                if self.log < 2:
+                    print "Get ", get, " -> ", tmp, ": ", cnt,  \
+                          " objects... errors: [", err, "], verify failed [", chk, "]"
+                #if self.exit_on_err == True:
+                #    sys.exit(1)
             else:
                 subprocess.call(['rm', tmp])
-            if (cnt % 10) == 0:
-                self.log("Get "+ str(cnt) + str(self.cur_get)+ \
-                      " objects... errors: ["+ str(err)+ "], verify failed ["+str(chk)+ "]")
+            if (cnt % 10) == 0 and self.log < 2:
+                print "Get ", cnt + self.cur_get, \
+                      " objects... errors: [", err, "], verify failed [", chk, "]"
             if cnt == burst:
                 break
 
-        self.log("Get "+ str(cnt) + str(self.cur_get)+ " objects... errors: ["+ str(err)+ \
-                  "], verify failed ["+ str(chk)+ "]")
-
+        if self.log < 2:
+            print "Get ", cnt + self.cur_get, " objects... errors: [", err, \
+                  "], verify failed [", chk, "]"
         self.cur_get    += cnt
         self.gerr_cnt   += err
         self.gerr_chk   += chk
@@ -300,15 +332,27 @@ class CopyS3Dir_Overwrite(CopyS3Dir):
             for put in self.files_list:
                 cnt = cnt + 1
                 obj = self.obj_prefix + put.replace("/", "_")
+                self.print_debug("curl PUT: " + put + " -> " + obj)
+                wr_file_obj = open(wr_file, 'r')
+                try:
+                    r = requests.put(self.bucket_url + '/' + obj, data=wr_file_obj)
+                except requests.ConnectionError as e:
+                    print e
+                wr_file_obj.close()
+                #ret = subprocess.call(['curl', '-X', 'PUT', '--data-binary',
+                #        '@' + wr_file, self.bucket_url + '/' + obj])
+                if r.status_code != HTTPERROR.OK:
+                    err = err + 1
+                    print "HTTP error PUT: " + put
+                    print 'error: ', r.status_code
+                    if self.exit_on_err == True:
+                        sys.exit(1)
 
-                k = Key(self.c.get_bucket(self.bucket))
-                k.key = obj
-                k.set_contents_from_file(open(wr_file, 'rb'))
+                if (cnt % 10) == 0 and self.log < 2:
+                    print "Put ", cnt + self.cur_put , " objects... errors: [", err, "]"
 
-                if (cnt % 10) == 0:
-                    self.log("Put "+ str(cnt) + str(self.cur_put)+ " objects... errors: ["+str(err)+ "]")
-
-            self.log("Put "+ str(cnt) + str(self.cur_put)+ " objects... errors: ["+ str(err)+ "]")
+            if self.log < 2:
+                print "Put ", cnt + self.cur_put, " objects... errors: [", err, "]"
             self.cur_put  += cnt
             self.perr_cnt += err
         ioStats[IOSTAT.PUT] += cnt
@@ -325,28 +369,42 @@ class CopyS3Dir_Overwrite(CopyS3Dir):
             cnt = cnt + 1
             obj = self.obj_prefix + get.replace("/", "_");
             tmp = self.ds.ds_dest_dir + '/' + obj
-
-            k = Key(self.c.get_bucket(self.bucket))
-            k.key = obj
-            k.get_contents_to_file(open(tmp, 'wb'))
+            self.print_debug("curl GET: " + obj + " -> " + tmp)
+            try:
+                r = requests.get(self.bucket_url + '/' + obj)
+            except requests.ConnectionError as e:
+                print e
+            ftmp = open(tmp, 'wb')
+            ftmp.write(r.content)
+            ftmp.close()
+            #ret = subprocess.call(['curl', '-s' '1' ,
+             #                      self.bucket_url + '/' + obj, '-o', tmp])
+            if r.status_code != HTTPERROR.OK:
+                err = err + 1
+                print "HTTP error GET: " + get + ": " + obj + " -> " + tmp
+                print 'error ', r.status_code
+                if self.exit_on_err == True:
+                    sys.exit(1)
 
             ret = subprocess.call(['diff', rd_file, tmp])
             if ret != 0:
-                chk += 1
-                self.log("Get "+ str(get)+ " -> "+ str(tmp)+ ": "+ str(cnt)+  \
-                          " objects... errors: ["+ str(err)+ "], verify failed ["+ str(chk)+ "]")
-                if self.exit_on_err == True:
-                    sys.exit(1)
+                chk = chk + 1
+                if self.log < 2:
+                    print "Get ", get, " -> ", tmp, ": ", cnt,  \
+                          " objects... errors: [", err, "], verify failed [", chk, "]"
+                #if self.exit_on_err == True:
+                #    sys.exit(1)
             else:
                 subprocess.call(['rm', tmp])
-            if (cnt % 10) == 0:
-                self.log("Get "+str(cnt) + str(self.cur_get)+ \
-                      " objects... errors: ["+ str(err)+ "], verify failed ["+ str(chk)+ "]")
+            if (cnt % 10) == 0 and self.log < 2:
+                print "Get ", cnt + self.cur_get, \
+                      " objects... errors: [", err, "], verify failed [", chk, "]"
             if cnt == burst:
                 break
 
-        self.log("Get "+ str(cnt) + str(self.cur_get)+ " objects... errors: ["+ str(err)+ \
-                  "], verify failed ["+ str(chk)+ "]")
+        if self.log < 2:
+            print "Get ", cnt + self.cur_get, " objects... errors: [", err, \
+                  "], verify failed [", chk, "]"
         self.cur_get    += cnt
         self.gerr_cnt   += err
         self.gerr_chk   += chk
@@ -386,29 +444,37 @@ class DelS3Dir(CopyS3Dir):
         for delete in self.files_list[self.cur_del:]:
             cnt = cnt + 1
             obj = self.obj_prefix + delete.replace("/", "_")
-
-            k = Key(self.c.get_bucket(self.bucket))
-            k.key = obj
-
-            #TODO: Temporary workaround until error codes are fixed for delete
+            self.print_debug("curl DEL: " + delete + " -> " + obj)
             try:
-                k.delete()
-            except: pass
+                r = requests.delete(self.bucket_url + '/' + obj)
+            except requests.ConnectionError as e:
+                print e
+            #ret = subprocess.call(['curl', '-X', 'DELETE', self.bucket_url + '/' + obj])
+            if r.status_code != HTTPERROR.OK:
+                err = err + 1
+                print "HTTP error DEL: " + delete + ": " + obj
+                print 'error: ', r.status_code
+                if self.exit_on_err == True:
+                    sys.exit(1)
 
-            # Should throw an exception here
             try:
-                k.get_contents_as_string()
-            except boto.exception.S3ResponseError as e:
+                r = requests.get(self.bucket_url + '/' + obj)
+            except requests.ConnectionError as e:
                 pass
-            else:
-                raise Exception('Should not be able to get contents from a deleted key!')
+            if r.status_code != HTTPERROR.NOT_FOUND:
+                err = err + 1
+                print 'error: ', r.status_code
+                print 'Expected HTTP code', HTTPERROR.NOT_FOUND, 'does not match',r.status_code
+                if self.exit_on_err == True:
+                    sys.exit(1)
 
-            if (cnt % 10) == 0:
-                self.log("Del "+ str(cnt) + str(self.cur_del) + " objects... errors: ["+ str(err)+ "]")
+            if (cnt % 10) == 0 and self.log < 2:
+                print "Del ", cnt + self.cur_del , " objects... errors: [", err, "]"
             if cnt == burst:
                 break
 
-        self.log("Del "+ str(cnt) + str(self.cur_del)+ " objects... errors: ["+ str(err)+ "]")
+        if self.log < 2:
+            print "Del ", cnt + self.cur_del, " objects... errors: [", err, "]"
         self.cur_del    += cnt
         self.perr_cnt   += err
         ioStats[IOSTAT.DEL] += cnt
@@ -449,7 +515,6 @@ def exit_test(env, shutdown):
 #
 def testsuite_pre_commit(test_a):
     # basic PUTs and GETs of fds-src cpp files
-    print 'Write, read, check ...'
     smoke_ds0 = FdsDataSet(test_a.args_am_ip,
                            test_a.args_volume_name,
                            test_a.args_data_set_dir,
@@ -463,7 +528,6 @@ def testsuite_pre_commit(test_a):
     smoke0.exit_on_error()
 
     # seq write, then seq read
-    print 'Write, read, delete, check ...'
     smoke_ds1 = FdsDataSet(test_a.args_am_ip,
                            test_a.args_volume_name,
                            test_a.args_data_set_dir,
@@ -711,17 +775,6 @@ if __name__ == "__main__":
         bringup_cluster(env, verbose, debug)
         time.sleep(2)
 
-    # Connect to S3 interface with Boto
-    global c
-    c = boto.connect_s3(
-        aws_secret_access_key='blablabla',
-        aws_access_key_id='kekekekekek',
-        host=am_ip,
-        port=8000,
-        is_secure=False,
-        calling_format=boto.s3.connection.OrdinaryCallingFormat()
-    )
-
     ###
     # run make precheckin and exit
     #
@@ -771,9 +824,6 @@ if __name__ == "__main__":
     #
     for p1 in process_list:
         wait_io_done(p1)
-
-    # Close S3 connection with boto
-    c.close()
 
     ###
     # clean exit

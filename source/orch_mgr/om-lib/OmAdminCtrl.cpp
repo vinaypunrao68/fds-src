@@ -5,9 +5,9 @@
 #include <string>
 #include <OmAdminCtrl.h>
 
-#define REPLICATION_FACTOR     (3)
-#define LOAD_FACTOR            (0.5)
-#define BURST_FACTOR           (0.1)
+#define REPLICATION_FACTOR     (4)
+#define LOAD_FACTOR            (0.9)
+#define BURST_FACTOR           (0.3)
 
 namespace fds {
 
@@ -131,10 +131,24 @@ void FdsAdminCtrl::updateAdminControlParams(VolumeDesc  *pVolDesc)
     total_vol_disk_cap_GB -= vol_capacity_GB;
 }
 
+fds_uint64_t FdsAdminCtrl::getMaxIOPC() const {
+    double replication_factor = REPLICATION_FACTOR;
+    if (num_nodes == 0) return 0;
+
+    if (replication_factor > num_nodes) {
+        // we will access at most num_nodes nodes
+        replication_factor = num_nodes;
+    }
+    fds_verify(replication_factor != 0);  // make sure REPLICATION_FACTOR > 0
+    double max_iopc_subcluster = (avail_disk_iops_max/replication_factor);
+    return max_iopc_subcluster;
+}
+
 Error FdsAdminCtrl::volAdminControl(VolumeDesc  *pVolDesc)
 {
     Error err(ERR_OK);
     double iopc_subcluster = 0;
+    double max_iopc_subcluster = 0;
     double iopc_subcluster_result = 0;
     // remember that volume descriptor has capacity in MB
     // but disk and ssd capacity is in GB
@@ -168,7 +182,16 @@ Error FdsAdminCtrl::volAdminControl(VolumeDesc  *pVolDesc)
                  << " -- iops_min must be below iops_max";
         return Error(ERR_VOL_ADMISSION_FAILED);
     }
-    iopc_subcluster = (avail_disk_iops_max/replication_factor);
+    // using iops min for iopc of subcluster, which we will use
+    // for min_iops admission; max iops is what AM will allow to SMs
+    // for better utilization of system perf capacity. We are starting
+    // with more pessimistic admission control on min_iops, once QoS is
+    // more stable, we may admit on average case or whatever we will find
+    // works best
+    iopc_subcluster = (avail_disk_iops_min/replication_factor);
+    // TODO(Anna) I think max_iopc_subcluster should be calculated as
+    // num_nodes * min(disk_iops_min from all nodes) / replication_factor
+    max_iopc_subcluster = (avail_disk_iops_max/replication_factor);
 
     if ((total_vol_disk_cap_GB + vol_capacity_GB) > avail_disk_capacity) {
         LOGERROR << " Cluster is running out of disk capacity \n"
@@ -191,7 +214,7 @@ Error FdsAdminCtrl::volAdminControl(VolumeDesc  *pVolDesc)
            ((total_vol_iops_max - total_vol_iops_min) * BURST_FACTOR))) + \
          (pVolDesc->iops_min +
           ((pVolDesc->iops_max - pVolDesc->iops_min) * BURST_FACTOR)) <= \
-         iopc_subcluster)) {
+         max_iopc_subcluster)) {
         total_vol_iops_min += pVolDesc->iops_min;
         total_vol_iops_max += pVolDesc->iops_max;
         total_vol_disk_cap_GB += vol_capacity_GB;
@@ -260,6 +283,28 @@ void FdsAdminCtrl::initDiskCapabilities()
     total_vol_iops_min = 0;
     total_vol_iops_max = 0;
     total_vol_disk_cap_GB = 0;
+}
+
+void FdsAdminCtrl::userQosToServiceQos(FDSP_VolumeDescType *voldesc,
+                                       fpi::FDSP_MgrIdType svc_type) {
+    fds_verify(voldesc != NULL);
+    // currently only SM has actual translation
+    if (svc_type == fpi::FDSP_STOR_MGR) {
+        double replication_factor = REPLICATION_FACTOR;
+        if (num_nodes == 0) return;  // for now just keep user qos policy
+
+        if (replication_factor > num_nodes) {
+            // we will access at most num_nodes nodes
+            replication_factor = num_nodes;
+        }
+        fds_verify(replication_factor != 0);  // make sure REPLICATION_FACTOR > 0
+
+        // translate min_iops
+        double vol_min_iops = voldesc->iops_min;
+        voldesc->iops_min = vol_min_iops * replication_factor / num_nodes;
+        LOGNORMAL << "User min_iops " << vol_min_iops
+                  << " SM volume's min_iops " << voldesc->iops_min;
+    }
 }
 
 }  // namespace fds

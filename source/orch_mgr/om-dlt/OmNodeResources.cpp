@@ -182,9 +182,12 @@ OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer    vol,
             case fpi::FDSP_MSG_SNAP_VOL:
             case fpi::FDSP_MSG_CREATE_VOL: {
                 FdspNotVolPtr notif(new fpi::FDSP_NotifyVolType);
+                OM_NodeContainer* local = OM_NodeDomainMod::om_loc_domain_ctrl();
+                FdsAdminCtrl *admin_ctrl = local->om_get_admin_ctrl();
 
                 fds_verify(vol != NULL);
                 vol->vol_fmt_desc_pkt(&notif->vol_desc);
+                admin_ctrl->userQosToServiceQos(&notif->vol_desc, node_get_svc_type());
                 notif->vol_name = vol->vol_get_name();
                 notif->flag = vol_flag;
                 m_hdr->msg_code = cmd_type;
@@ -417,6 +420,34 @@ OM_NodeAgent::om_send_scavenger_cmd(fpi::FDSP_ScavengerCmd cmd) {
         }
     }
     LOGNORMAL << "OM: send scavenger command: " << cmd;
+    return err;
+}
+
+Error
+OM_NodeAgent::om_send_qosinfo(fds_uint64_t total_rate) {
+    Error err(ERR_OK);
+
+    fpi::FDSP_MsgHdrTypePtr m_hdr(new fpi::FDSP_MsgHdrType);
+    fpi::FDSP_QoSControlMsgTypePtr qos_msg(new fpi::FDSP_QoSControlMsgType());
+    this->init_msg_hdr(m_hdr);
+
+    m_hdr->msg_code = fpi::FDSP_MSG_SET_QOS_CONTROL;
+    m_hdr->msg_id = 0;
+    m_hdr->tennant_id = 1;
+    m_hdr->local_domain_id = 1;
+
+    qos_msg->total_rate = total_rate;
+    if (nd_ctrl_eph != NULL) {
+        NET_SVC_RPC_CALL(nd_ctrl_eph, nd_ctrl_rpc, SetQoSControl, m_hdr, qos_msg);
+    } else {
+        try {
+            ndCpClient->SetQoSControl(m_hdr, qos_msg);
+        } catch(const att::TTransportException& e) {
+            LOGERROR << "error during network call : " << e.what();
+            return ERR_NETWORK_TRANSPORT;
+        }
+    }
+    LOGNORMAL << "OM: send total rate to AM: " << total_rate;
     return err;
 }
 
@@ -1175,17 +1206,52 @@ OM_NodeContainer::om_init_domain()
     json_file.open(fname.c_str(), std::ios::out | std::ios::app);
 }
 
+// om_send_qos_info
+// -----------------------
+//
+static void
+om_send_qos_info(fds_uint64_t total_rate, NodeAgent::pointer node)
+{
+    OM_SmAgent::agt_cast_ptr(node)->om_send_qosinfo(total_rate);
+}
+
 // om_update_capacity
 // ------------------
 //
 void
-OM_NodeContainer::om_add_capacity(NodeAgent::pointer node)
+OM_NodeContainer::om_update_capacity(NodeAgent::pointer node,
+                                     fds_bool_t b_add)
 {
-    OM_SmAgent::pointer agent;
+    OM_SmAgent::pointer agent = OM_SmAgent::agt_cast_ptr(node);
+    fds_uint64_t old_max_iopc = om_admin_ctrl->getMaxIOPC();
 
-    agent = OM_SmAgent::agt_cast_ptr(node);
-    if (agent->om_agent_type() != fpi::FDSP_STOR_HVISOR) {
-        om_admin_ctrl->addDiskCapacity(node->node_capability());
+    if (agent->node_get_svc_type() != fpi::FDSP_STOR_HVISOR) {
+        if (b_add) {
+            om_admin_ctrl->addDiskCapacity(node->node_capability());
+        } else {
+            om_admin_ctrl->removeDiskCapacity(node->node_capability());
+        }
+
+        // if perf capability changed, notify AMs to modify QoS
+        // control params accordingly
+        fds_uint64_t new_max_iopc = om_admin_ctrl->getMaxIOPC();
+        if ((new_max_iopc != 0) &&
+            (new_max_iopc != old_max_iopc)) {
+            dc_am_nodes->agent_foreach<fds_uint64_t>(new_max_iopc, om_send_qos_info);
+        }
+    }
+}
+
+void
+OM_NodeContainer::om_send_me_qosinfo(NodeAgent::pointer me) {
+    OM_AmAgent::pointer agent = OM_AmAgent::agt_cast_ptr(me);
+
+    // for now we are just sending total rate to AM
+    if (agent->node_get_svc_type() != fpi::FDSP_STOR_HVISOR) return;
+
+    fds_uint64_t max_iopc = om_admin_ctrl->getMaxIOPC();
+    if (max_iopc != 0) {
+        agent->om_send_qosinfo(max_iopc);
     }
 }
 

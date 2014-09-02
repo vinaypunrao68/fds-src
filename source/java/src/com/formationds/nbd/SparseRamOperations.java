@@ -139,6 +139,11 @@ public class SparseRamOperations implements NbdServerOperations {
         return result;
     }
 
+    @Override
+    public CompletableFuture<Void> flush(String exportName) {
+        return CompletableFuture.completedFuture(null);
+    }
+
     private void delay(int length) {
         try {
             Thread.sleep(length);

@@ -30,6 +30,7 @@ needed_packages=(
     python2.7
     python-dev
     python-pip
+    python-boto
 
     libpcre3-dev
     libpcre3
@@ -66,6 +67,7 @@ python_packages=(
     requests
     scp
     PyYAML
+    boto
 )
 
 function isDeployMode() {

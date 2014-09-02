@@ -83,6 +83,14 @@ void SMSvcHandler::getObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 void SMSvcHandler::putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                              boost::shared_ptr<fpi::PutObjectMsg>& putObjMsg)  // NOLINT
 {
+    if ((objStorMgr->testUturnAll == true) ||
+        (objStorMgr->testUturnPutObj == true)) {
+        LOGDEBUG << "Uturn testing put object "
+                 << fds::logString(*asyncHdr) << fds::logString(*putObjMsg);
+        putObjectCb(asyncHdr, ERR_OK, NULL);
+        return;
+    }
+
     DBG(GLOGDEBUG << fds::logString(*asyncHdr) << fds::logString(*putObjMsg));
 
     DBG(FLAG_CHECK_RETURN_VOID(common_drop_async_resp > 0));
@@ -135,6 +143,12 @@ void SMSvcHandler::putObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     auto resp = boost::make_shared<fpi::PutObjectRspMsg>();
     asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
     sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::PutObjectRspMsg), *resp);
+
+    if ((objStorMgr->testUturnAll == true) ||
+        (objStorMgr->testUturnPutObj == true)) {
+        fds_verify(put_req == NULL);
+        return;
+    }
 
     delete put_req;
 }

@@ -108,11 +108,15 @@ VolCatProbe::rmCatalog(const OpParams& volParams) {
 }
 
 void
-VolCatProbe::checkVolEmpty(const OpParams &volParams) {
-    fds_bool_t bret = gl_DmVolCatMod.isVolumeEmpty(
+VolCatProbe::deleteVolume(const OpParams &volParams) {
+    Error err = gl_DmVolCatMod.markVolumeDeleted(
         volParams.vol_id);
     std::cout << "Volume " << std::hex << volParams.vol_id
-              << std::dec << " empty? " << bret << std::endl;
+              << std::dec << " marked deleted " << err;
+    if (err.ok()) {
+      err = gl_DmVolCatMod.deleteEmptyCatalog(volParams.vol_id);
+      fds_verify(err.ok());
+    }
 }
 
 void VolCatProbe::getVolumeMeta(const OpParams& volParams) {
@@ -319,8 +323,8 @@ VolCatObjectOp::js_exec_obj(JsObject *parent,
 
         if (info->op == "volcrt") {
             gl_VolCatProbe.addCatalog(*info);
-        } else if (info->op == "volchk") {
-            gl_VolCatProbe.checkVolEmpty(*info);
+        } else if (info->op == "voldel") {
+            gl_VolCatProbe.deleteVolume(*info);
         } else if (info->op == "volget") {
             gl_VolCatProbe.getVolumeMeta(*info);
         } else if (info->op == "put") {

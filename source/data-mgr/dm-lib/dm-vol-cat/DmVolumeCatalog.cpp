@@ -216,13 +216,23 @@ Error DmVolumeCatalog::removeVolumeMeta(fds_volid_t volume_id)
 // Returns true if the volume does not contain any valid blobs.
 // A valid blob is a non-deleted blob version.
 //
-fds_bool_t DmVolumeCatalog::isVolumeEmpty(fds_volid_t volume_id)
+Error DmVolumeCatalog::markVolumeDeleted(fds_volid_t volume_id)
 {
     // TODO(Andrew): For now, ignore the cache since it never holds
     // any dirty data (i.e., nothing that's not already in the persistent
     // catalog). Once we add dirty entries, we need to revisit.
 
-    return persistCat->isVolumeEmpty(volume_id);
+    return persistCat->markVolumeDeleted(volume_id);
+}
+
+Error DmVolumeCatalog::deleteEmptyCatalog(fds_volid_t volume_id) {
+    Error err = persistCat->deleteEmptyCatalog(volume_id);
+    if (err.ok()) {
+        cacheCat->removeCache(volume_id);
+    }
+    LOGNOTIFY << "Removed catalog and cache for volume " << std::hex
+              << volume_id << std::dec << " err " << err;
+    return err;
 }
 
 Error DmVolumeCatalog::getVolumeMeta(fds_volid_t volume_id,

@@ -6,6 +6,7 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <fds_assert.h>
 #include <StorMgr.h>
+#include <TierEngine.h>
 
 namespace fds {
 
