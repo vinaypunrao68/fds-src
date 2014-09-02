@@ -13,7 +13,7 @@ import com.formationds.security.*;
 import com.formationds.util.Configuration;
 import com.formationds.util.libconfig.ParsedConfig;
 import com.formationds.web.toolkit.*;
-import com.formationds.xdi.CachingConfigurationService;
+import com.formationds.xdi.ConfigurationServiceCache;
 import com.formationds.xdi.Xdi;
 import com.formationds.xdi.XdiClientFactory;
 import org.apache.log4j.Logger;
@@ -46,7 +46,7 @@ public class Main {
 
         ParsedConfig platformConfig = configuration.getPlatformConfig();
         XdiClientFactory clientFactory = new XdiClientFactory();
-        CachingConfigurationService configApi = new CachingConfigurationService(clientFactory.remoteOmService("localhost", 9090));
+        ConfigurationServiceCache configCache = new ConfigurationServiceCache(clientFactory.remoteOmService("localhost", 9090));
         AmService.Iface amService = clientFactory.remoteAmService("localhost", 9988);
 
         String omHost = "localhost";
@@ -58,10 +58,10 @@ public class Main {
         VolumeStatistics volumeStatistics = new VolumeStatistics(Duration.standardMinutes(20));
 
         boolean enforceAuthentication = platformConfig.lookup("fds.om.authentication").booleanValue();
-        Authenticator authenticator = enforceAuthentication ? new FdsAuthenticator(configApi) : new NullAuthenticator();
+        Authenticator authenticator = enforceAuthentication ? new FdsAuthenticator(configCache) : new NullAuthenticator();
 
         Authorizer authorizer = new DumbAuthorizer();
-        xdi = new Xdi(amService, configApi, authenticator, authorizer, legacyConfigClient);
+        xdi = new Xdi(amService, configCache, authenticator, authorizer, legacyConfigClient);
 
         webApp = new WebApp(webDir);
 
@@ -74,23 +74,23 @@ public class Main {
         authenticate(HttpMethod.GET, "/api/config/services", (t) -> new ListServices(legacyConfigClient));
         authenticate(HttpMethod.POST, "/api/config/services/:node_uuid", (t) -> new ActivatePlatform(legacyConfigClient));
 
-        authenticate(HttpMethod.GET, "/api/config/volumes", (t) -> new ListVolumes(configApi, amService, legacyConfigClient));
-        authenticate(HttpMethod.POST, "/api/config/volumes", (t) -> new CreateVolume(configApi, legacyConfigClient));
+        authenticate(HttpMethod.GET, "/api/config/volumes", (t) -> new ListVolumes(configCache, amService, legacyConfigClient));
+        authenticate(HttpMethod.POST, "/api/config/volumes", (t) -> new CreateVolume(configCache, legacyConfigClient));
         authenticate(HttpMethod.DELETE, "/api/config/volumes/:name", (t) -> new DeleteVolume(legacyConfigClient));
-        authenticate(HttpMethod.PUT, "/api/config/volumes/:uuid", (t) -> new SetVolumeQosParams(legacyConfigClient, configApi, amService));
+        authenticate(HttpMethod.PUT, "/api/config/volumes/:uuid", (t) -> new SetVolumeQosParams(legacyConfigClient, configCache, amService));
 
         authenticate(HttpMethod.GET, "/api/config/globaldomain", (t) -> new ShowGlobalDomain());
         authenticate(HttpMethod.GET, "/api/config/domains", (t) -> new ListDomains());
 
-        authenticate(HttpMethod.POST, "/api/config/streams", (t) -> new RegisterStream(configApi));
-        authenticate(HttpMethod.GET, "/api/config/streams", (t) -> new ListStreams(configApi));
+        authenticate(HttpMethod.POST, "/api/config/streams", (t) -> new RegisterStream(configCache));
+        authenticate(HttpMethod.GET, "/api/config/streams", (t) -> new ListStreams(configCache));
 
         webApp.route(HttpMethod.GET, "/api/stats/volumes", () -> new ListActiveVolumes(volumeStatistics));
         webApp.route(HttpMethod.POST, "/api/stats", () -> new RegisterVolumeStats(volumeStatistics));
         webApp.route(HttpMethod.GET, "/api/stats/volumes/:volume", () -> new DisplayVolumeStats(volumeStatistics));
 
         // [fm] Temporary
-        webApp.route(HttpMethod.GET, "/api/config/user/:login/:password", () -> new CreateAdminUser(configApi));
+        webApp.route(HttpMethod.GET, "/api/config/user/:login/:password", () -> new CreateAdminUser(configCache));
 
 
         new Thread(() -> {
