@@ -91,7 +91,7 @@ protected:
 
         std::string myIp = net::get_local_ip("eth0");
         int port = conf_helper_.get<int>("port");
-        int myIpInt = netSession::ipString2Addr(ip);
+        int myIpInt = netSession::ipString2Addr(myIp);
         // TODO(rao): Do not hard code.  Get from config
         std::string node_name = "localhost-mig";
         migpath_session_ = nst_->createServerSession<netMigrationPathServerSession>(
@@ -102,7 +102,7 @@ protected:
                 migpath_handler_);
 
         LOGNORMAL << "Migration path server setup ip: "
-                << ip << " port: " << port;
+                << myIp << " port: " << port;
     }
 };
 

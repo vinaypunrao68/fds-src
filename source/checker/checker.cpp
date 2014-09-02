@@ -339,7 +339,6 @@ void DirBasedChecker::mod_startup()
 {
     /* set up nst */
     std::string myIp = net::get_local_ip(conf_helper_.get_abs<std::string>("fds.nic_if"));
-    std::string myIp = netSession::getLocalIp();
     netSessionTblPtr nst(new netSessionTbl(FDSP_STOR_HVISOR));
 
     /* set up om client */
