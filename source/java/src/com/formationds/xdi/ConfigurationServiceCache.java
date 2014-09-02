@@ -29,7 +29,7 @@ public class ConfigurationServiceCache implements ConfigurationService.Iface, Su
                 LOG.error("Unable to load configuration", e);
                 throw new RuntimeException(e);
             }
-Co        });
+        });
         new Thread(new Updater()).start();
     }
 
