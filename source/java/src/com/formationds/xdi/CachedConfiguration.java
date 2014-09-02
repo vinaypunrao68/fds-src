@@ -8,7 +8,9 @@ import com.formationds.apis.Tenant;
 import com.formationds.apis.User;
 import com.formationds.apis.VolumeDescriptor;
 import com.google.common.collect.HashMultimap;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
+import org.apache.thrift.TException;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -22,7 +24,7 @@ public class CachedConfiguration {
     private final List<Tenant> tenants;
     private final Multimap<Long, Long> usersByTenant;
     private final Map<Long, Long> tenantsByUser;
-    private final List<VolumeDescriptor> volumeDescriptors;
+    private List<VolumeDescriptor> volumeDescriptors;
     private final Map<String, VolumeDescriptor> volumesByName;
     private final Map<Long, User> usersById;
     private final Map<String, User> usersByName;
@@ -45,7 +47,13 @@ public class CachedConfiguration {
                 tenantsByUser.put(tenantUser.getId(), tenant.getId());
             }
         }
-        volumeDescriptors = config.listVolumes("");
+
+        // Disregard for now, throws exception if cluster is not ready
+        try {
+            volumeDescriptors = config.listVolumes("");
+        } catch (TException e) {
+            volumeDescriptors = Lists.newArrayList();
+        }
         volumesByName = volumeDescriptors.stream()
                 .collect(Collectors.toMap(v -> v.getName(), v -> v));
     }
