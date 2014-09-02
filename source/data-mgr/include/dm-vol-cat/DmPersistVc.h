@@ -50,10 +50,20 @@ class DmPersistVolCatalog: public Module, public HasLogger {
     Error openCatalog(fds_volid_t volume_id);
 
     /**
-     * Returns true if the volume does not contain any valid blobs.
+     * Mark volume as deleted if the volume does not contain any valid blobs.
      * A valid blob is a non-deleted blob version
+     * @return ERR_OK if volume is empty and marked as deleted;
+     *  ERR_VOL_NOT_EMPTY if volume contains at least on valid blob
      */
-    fds_bool_t isVolumeEmpty(fds_volid_t volume_id);
+    Error markVolumeDeleted(fds_volid_t volume_id);
+
+    /**
+     * Deletes catalog that has not valid blobs. A valid blob is a non-deleted blob
+     * version
+     * @return ERR_OK if catalog was deleted; ERR_NOT_READY if volume is not marked
+     * as deleted.
+     */
+    Error deleteEmptyCatalog(fds_volid_t volume_id);
 
     /**
      * Maps offset in bytes to extent id for a given volume id.

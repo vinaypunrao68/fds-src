@@ -109,6 +109,22 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
     Error activateVolume(fds_volid_t volId);
 
     /**
+     * Marks volume as deleted if the volume does not contain any valid blobs.
+     * A valid blob is a non-deleted blob version. If volume marked as deleted,
+     * updates to the volume catalog will be rejected.
+     * @return ERR_OK if volume is empty and marked as deleted;
+     *  ERR_VOL_NOT_EMPTY if volume contains at least one valid blob
+     */
+    Error markVolumeDeleted(fds_volid_t volId);
+
+    /**
+     * Removes volume marked as deleted
+     * @return ERR_OK if volume is deleted; ERR_NOT_READY if volume not marked
+     * as delted
+     */
+    Error deleteEmptyVolume(fds_volid_t volId);
+
+    /**
      * Starts a new transaction for blob
      * @param[in] volId volume ID
      * @param[in] blobName Name of blob
