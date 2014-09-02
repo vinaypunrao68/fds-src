@@ -6,7 +6,7 @@
 namespace atc = apache::thrift::concurrency;
 namespace fds { namespace snapshot {
 
-Scheduler::Scheduler(OrchMgr* om, TaskProcessor* processor) : monitor(&mutex) {
+Scheduler::Scheduler(OrchMgr* om, TaskProcessor* processor) {
     this->om = om;
     this->taskProcessor = processor;
     runner = new std::thread(&Scheduler::run, this);
@@ -47,6 +47,7 @@ bool Scheduler::addPolicy(const fpi::SnapshotPolicy& policy) {
         auto handle = pq.push(task);
         handleMap[policy.id] = &handle;
         LOGDEBUG << "new policy:" << policy.id << " : " << policy.recurrenceRule;
+        fModified = true;
     }
 
     if (fModified) {
@@ -71,7 +72,7 @@ void Scheduler::removePolicy(uint64_t policyId) {
 void Scheduler::dump() {
     LOGDEBUG << "dump of scheduler queue:";
     for (PriorityQueue::ordered_iterator it = pq.ordered_begin(); it != pq.ordered_end(); ++it) {
-        LOGDEBUG << (*it) << ' ';
+        LOGDEBUG << *(*it) << ' ';
     }
 }
 void Scheduler::shutdown() {
@@ -97,9 +98,11 @@ void Scheduler::run() {
             Task* task;
             uint64_t currTime = getCurrentTime();
             task = pq.top();
-
+            LOGDEBUG << "curTime:" << currTime << " next:" << task->runAtTime;
+            dump();
             if (task->runAtTime > currTime) {
                 // there is no task to be executed at the time
+                LOGDEBUG << "going into wait . currTime:";
                 monitor.waitForTimeRelative((task->runAtTime - currTime)*1000);  // ms
             } else {
                 // to be executed now ..
@@ -114,8 +117,12 @@ void Scheduler::run() {
                 }
 
                 if (task->setNextRecurrence()) {
-                    LOGDEBUG << "rescheduling policy:" << task->policyId;
-                    pq.update(*(handleptr->second), task);
+                    LOGDEBUG << "rescheduling policy:" << task->policyId
+                             << " @ " << task->runAtTime;
+                    pq.pop();
+                    auto handle = pq.push(task);
+                    handleMap[task->policyId] = &handle;
+                    // pq.update(*(handleptr->second), task);
                 } else {
                     LOGWARN << "no more recurrence of this policy: " << task->policyId;
                     pq.pop();
