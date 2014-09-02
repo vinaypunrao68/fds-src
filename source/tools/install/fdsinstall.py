@@ -173,7 +173,7 @@ class Installer:
             self.dependsOnSteps('stepSystemCheck')
             log.debug('running %s', menuitem[2])
             success=True
-            for option in ['basedebs','pythonpkgs'] :
+            for option in ['prereq', 'basedebs','pythonpkgs'] :
                 ret = os.system("./setup-packages.sh %s" % (option))
                 if 0 != ret :
                     success=False
