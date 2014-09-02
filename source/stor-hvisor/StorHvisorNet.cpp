@@ -14,6 +14,7 @@
 #include <fds_process.h>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include "NetSession.h"
+#include <net/net_utils.h>
 #include <am-platform.h>
 
 
@@ -156,7 +157,7 @@ StorHvCtrl::StorHvCtrl(int argc,
 
     rpcSessionTbl = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_STOR_HVISOR));
 
-    myIp = netSession::getLocalIp();
+    myIp = net::get_local_ip(config.get_abs<std::string>("fds.nic_if"));
     assert(myIp.empty() == false);
     LOGNOTIFY << "StorHvisorNet - My IP: " << myIp;
 

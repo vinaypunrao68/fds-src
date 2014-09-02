@@ -4,6 +4,7 @@
 #include <string>
 #include <set>
 #include <utility>
+#include <net/net_utils.h>
 #include <fds_migration.h>
 #include <fds_error.h>
 #include <fds_uuid.h>
@@ -581,7 +582,7 @@ void FdsMigrationSvc::setup_migpath_server()
 {
     migpath_handler_.reset(new FDSP_MigrationPathRpc(*this, GetLog()));
 
-    std::string ip = netSession::getLocalIp();
+    std::string ip = net::get_local_ip(conf_helper_.get_abs<std::string>("fds.nic_if"));
     int port = PlatformProcess::plf_manager()->plf_get_my_migration_port();
     int myIpInt = netSession::ipString2Addr(ip);
     // TODO(rao): Do not hard code.  Get from config
@@ -675,7 +676,7 @@ kvstore::TokenStateDBPtr FdsMigrationSvc::getTokenStateDb()
  */
 std::string FdsMigrationSvc::get_ip()
 {
-    return netSession::getLocalIp();
+    return net::get_local_ip(conf_helper_.get_abs<std::string>("fds.nic_if"));
 }
 
 /**

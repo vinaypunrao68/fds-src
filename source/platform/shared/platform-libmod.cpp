@@ -276,40 +276,4 @@ Platform::mod_shutdown()
 {
     Module::mod_shutdown();
 }
-
-namespace util {
-/**
- * @return local ip
- */
-std::string get_local_ip()
-{
-    struct ifaddrs *ifAddrStruct = NULL;
-    struct ifaddrs *ifa          = NULL;
-    void   *tmpAddrPtr           = NULL;
-    std::string myIp;
-
-    /*
-     * Get the local IP of the host.  This is needed by the OM.
-     */
-    getifaddrs(&ifAddrStruct);
-    for (ifa = ifAddrStruct; ifa != NULL; ifa = ifa->ifa_next) {
-        if (ifa->ifa_addr != NULL && ifa->ifa_addr->sa_family == AF_INET) {  // IPv4
-            if (strncmp(ifa->ifa_name, "lo", 2) != 0) {
-                tmpAddrPtr = &((struct sockaddr_in *)ifa->ifa_addr)->sin_addr;  // NOLINT
-                char addrBuf[INET_ADDRSTRLEN];
-                inet_ntop(AF_INET, tmpAddrPtr, addrBuf, INET_ADDRSTRLEN);
-                myIp = std::string(addrBuf);
-                if (myIp.find("10.1") != std::string::npos) {
-                    break; /*  TODO: more dynamic */
-                }
-            }
-        }
-    }
-    if (ifAddrStruct != NULL) {
-        freeifaddrs(ifAddrStruct);
-    }
-    return myIp;
-}
-
-}  // namespace util
 }  // namespace fds

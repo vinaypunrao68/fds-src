@@ -467,9 +467,6 @@ class NodeAgentIter : public ResourceIter
     INTRUSIVE_PTR_DEFS(NodeAgentIter, itr_refcnt);
 };
 
-/* TODO(Vy): need to remove this code. */
-namespace util { extern std::string get_local_ip(); }
-
 }  // namespace fds
 
 #endif  // SOURCE_INCLUDE_PLATFORM_PLATFORM_LIB_H_

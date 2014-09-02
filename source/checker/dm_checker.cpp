@@ -11,6 +11,7 @@
 #include <boost/progress.hpp>
 #include "boost/program_options.hpp"
 
+#include <net/net_utils.h>
 #include <fds_volume.h>
 #include <fdsp/FDSP_types.h>
 #include <hash/MurmurHash3.h>
@@ -38,7 +39,7 @@ BaseChecker::mod_load_from_config()
 
     plf_om_ip_str    = conf.get_abs<std::string>("fds.plat.om_ip");
     plf_om_ctrl_port = conf.get_abs<int>("fds.plat.om_port");
-    plf_my_ip        = util::get_local_ip();
+    plf_my_ip        = net::get_local_ip(conf.get_abs<std::string>("fds.nic_if"));
     plf_my_node_name = plf_my_ip;
 }
 
@@ -342,7 +343,7 @@ LevelDBChecker::~LevelDBChecker()
 void LevelDBChecker::mod_startup()
 {
     /* set up nst */
-    std::string myIp = netSession::getLocalIp();
+    std::string myIp = net::get_local_ip(conf_helper_.get_abs<std::string>("fds.nic_if"));
     netSessionTblPtr nst(new netSessionTbl(FDSP_STOR_HVISOR));
 
     /* set up om client */
