@@ -95,7 +95,8 @@ void VolumeStats::processStats() {
     // -- this is time interval back from current time that will be not included into
     // the list of slots returned, because these slots may not be fully filled yet, eg.
     // aggregator will receive stats from some modules but maybe not from all modules yet.
-    last_print_ts_ = finegrain_hist_->toSlotList(slots, last_print_ts_, 0, FdsStatPushPeriodSec);
+    last_print_ts_ = finegrain_hist_->toSlotList(slots, last_print_ts_,
+                                                 0, 2*FdsStatPushPeriodSec);
     // first add the slots to coarse grain stat history (we do it here rather than on
     // receiving remote stats because it's more efficient)
     if (slots.size() > 0) {
@@ -171,7 +172,7 @@ void VolumeStats::updateFirebreakMetrics() {
     recent_stdev_update_ts_ = now;
 
     // update recent (one day / 1h slots) history stdev
-    coarsegrain_hist_->toSlotList(slots, 0, 0, FdsStatPushPeriodSec + 3*60);
+    coarsegrain_hist_->toSlotList(slots, 0, 0, 2*coarsegrain_hist_->secondsInSlot());
     fds_uint32_t min_slots = longterm_hist_->secondsInSlot() / coarsegrain_hist_->secondsInSlot();
     if (min_slots > (coarsegrain_hist_->numberOfSlots() - 1)) {
         min_slots = (coarsegrain_hist_->numberOfSlots() - 1);
@@ -695,7 +696,7 @@ void StatStreamTimerTask::runTimerTask() {
         VolumePerfHistory::ptr & hist = 60 == reg_->sample_freq_seconds ?
                 volStat->finegrain_hist_ : volStat->coarsegrain_hist_;
         fds_uint64_t last_ts = (vol_last_ts_.count(volId) > 0) ? vol_last_ts_[volId] : 0;
-        vol_last_ts_[volId] = hist->toSlotList(slots, last_ts, 0, FdsStatPushPeriodSec + 60);
+        vol_last_ts_[volId] = hist->toSlotList(slots, last_ts, 0, 2*FdsStatPushPeriodSec);
 
         for (auto slot : slots) {
             fds_uint64_t timestamp = hist->getTimestamp((slot).getTimestamp());
