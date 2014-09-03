@@ -272,15 +272,18 @@ DmTimeVolCatalog::doCommitBlob(fds_volid_t volid, blob_version_t & blob_version,
     if (commit_data->blobDelete) {
         e = volcat->deleteBlob(volid, commit_data->name, commit_data->blobVersion);
         blob_version = commit_data->blobVersion;
-    } else if (commit_data->blobObjList && (commit_data->blobObjList->size() > 0)) {
-        if (commit_data->blobMode & blob::TRUNCATE) {
-            commit_data->blobObjList->setEndOfBlob();
-        }
-        e = volcat->putBlob(volid, commit_data->name, commit_data->metaDataList,
-                            commit_data->blobObjList, commit_data->txDesc);
     } else {
-        e = volcat->putBlobMeta(volid, commit_data->name,
-                                commit_data->metaDataList, commit_data->txDesc);
+        if (commit_data->blobObjList && !commit_data->blobObjList->empty()) {
+            if (commit_data->blobMode & blob::TRUNCATE) {
+                commit_data->blobObjList->setEndOfBlob();
+            }
+            e = volcat->putBlob(volid, commit_data->name, commit_data->metaDataList,
+                    commit_data->blobObjList, commit_data->txDesc);
+        }
+        if (commit_data->metaDataList && !commit_data->metaDataList->empty()) {
+            e = volcat->putBlobMeta(volid, commit_data->name,
+                    commit_data->metaDataList, commit_data->txDesc);
+        }
     }
 
     return e;
