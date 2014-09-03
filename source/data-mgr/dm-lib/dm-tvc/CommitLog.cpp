@@ -95,13 +95,11 @@ uint32_t CommitLogTx::read(serialize::Deserializer * d) {
 DmCommitLog::DmCommitLog(const std::string &modName, const fds_volid_t volId,
         fds::DmTvcOperationJournal & journal,
         fds_uint32_t buffersize /* = DEFAULT_COMMIT_LOG_FILE_SIZE */)
-        : Module(modName.c_str()), volId_(volId), journal_(journal), buffersize_(buffersize) {
+        : Module(modName.c_str()), volId_(volId), journal_(journal), buffersize_(buffersize),
+        started_(false), buffering_(false) {
     if (buffersize_ < MIN_COMMIT_LOG_BUFFER_SIZE) {
         GLOGWARN << "Commit log buffer size can't be less than 1MB, setting it to 1MB";
         buffersize_ = MIN_COMMIT_LOG_BUFFER_SIZE;
-    } else if (buffersize_ > MAX_COMMIT_LOG_BUFFER_SIZE) {
-        GLOGWARN << "Commit log buffer size can't be more than 100MB, setting it to 100MB";
-        buffersize_ = MAX_COMMIT_LOG_BUFFER_SIZE;
     }
 
     std::ostringstream oss;
@@ -237,7 +235,7 @@ CommitLogTx::const_ptr DmCommitLog::commitTx(BlobTxId::const_ptr & txDesc, Error
     SCOPEDWRITE(lockTxMap_);
     CommitLogTx::ptr ptx = txMap_[txId];
     ptx->committed = util::getTimeStampNanos();
-    if (!buffering_) {
+    if (buffering_) {
         SCOPEDWRITE(bufferLock_);
         buffer_->log(ptx.get());
     } else {

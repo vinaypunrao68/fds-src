@@ -65,6 +65,8 @@ namespace fds {
         ERR_DM_TX_ACTIVE          = 42,
         ERR_DM_MAX_CL_ENTRIES     = 43,
         ERR_DM_VOL_MARKED_DELETED = 44,
+        ERR_DM_OP_NOT_ALLOWED     = 45,
+        ERR_DM_SNAPSHOT_FAILED    = 46,
 
         /* I/O error range */
         ERR_IO_DLT_MISMATCH      = 100,

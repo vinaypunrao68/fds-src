@@ -92,7 +92,7 @@ class ObjectLogger {
         Iterator(ObjectLogger * logger, fds_int32_t index) : logger_(logger), index_(index),
                 filename_(logger->filename(index)), fd_(-1), d_(0), valid_(false), offset_(0),
                 nextOffset_(0) {
-            if (filename_.empty()) {
+            if (!filename_.empty()) {
                 if (-1 == (fd_ = open(filename_.c_str(), O_RDONLY))) {
                     GLOGWARN << "Failed to open file " << filename_;
                     throw std::system_error(errno, std::system_category());

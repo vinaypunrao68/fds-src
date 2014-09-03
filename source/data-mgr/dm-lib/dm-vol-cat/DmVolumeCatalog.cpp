@@ -172,6 +172,22 @@ Error DmVolumeCatalog::addCatalog(const VolumeDesc& voldesc)
 }
 
 //
+// Create snapshot of a volume
+//
+Error DmVolumeCatalog::createSnapshot(const VolumeDesc & voldesc,
+        const VolumeDesc & snapshotVoldesc) {
+    LOGDEBUG << "Creating a snapshot '" << snapshotVoldesc.name << "' of a volume '"
+            << voldesc.name << "'";
+    // create a snapshot catalog
+    Error rc = persistCat->createSnapshot(voldesc.volUUID, snapshotVoldesc.volUUID);
+    if (rc.ok()) {
+        // Create cache for a snapshot
+        rc = cacheCat->createCache(snapshotVoldesc);
+    }
+    return rc;
+}
+
+//
 // Prepares Volume Catalog (including cache and persistent layer) to
 // accept get/put/delete requests for the given volume
 //

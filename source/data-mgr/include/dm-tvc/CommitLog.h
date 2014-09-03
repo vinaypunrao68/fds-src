@@ -40,7 +40,6 @@ class DmTvcOperationJournal;
 
 const unsigned DEFAULT_COMMIT_LOG_BUFFER_SIZE = 20 * 1024 * 1024;
 const unsigned MIN_COMMIT_LOG_BUFFER_SIZE = 1 * 1024 * 1024;
-const unsigned MAX_COMMIT_LOG_BUFFER_SIZE = 100 * 1024 * 1024;
 
 const std::string COMMIT_BUFFER_FILENAME("commit.buffer");
 
@@ -149,17 +148,16 @@ class DmCommitLog : public Module {
     fds_rwlock lockTxMap_;
 
     fds_uint64_t volId_;
-    std::string buffername_;
+    fds::DmTvcOperationJournal & journal_;
     fds_uint32_t buffersize_;
     bool started_;
-
     // not thread-safe, two different threads can't start buffering simultaneously
     bool buffering_;
 
+    std::string buffername_;
+
     boost::shared_ptr<fds::ObjectLogger> buffer_;
     fds_rwlock bufferLock_;
-
-    fds::DmTvcOperationJournal & journal_;
 
     // Methods
     Error validateSubsequentTx(const BlobTxId & txId);

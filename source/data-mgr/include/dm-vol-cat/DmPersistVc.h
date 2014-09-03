@@ -43,6 +43,11 @@ class DmPersistVolCatalog: public Module, public HasLogger {
     Error createCatalog(const VolumeDesc& vol_desc);
 
     /**
+     * Create snapshot for volume specified by id
+     */
+    Error createSnapshot(fds_volid_t volId, fds_volid_t snapshotId);
+
+    /**
      * Opens catalog for volume 'volume_id'. When this method
      * returns, persistent layer accepts operations on persistent
      * catalog such as put/get/delete

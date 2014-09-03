@@ -1,6 +1,9 @@
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
+#include <linux/limits.h>
+#include <libgen.h>
+
 #include <string>
 #include <vector>
 #include <fds_process.h>
@@ -25,7 +28,9 @@ class PersistVolumeMeta {
     PersistVolumeMeta(fds_volid_t volid,
                       fds_uint32_t max_obj_size,
                       fds_uint32_t extent0_objs,
-                      fds_uint32_t extent_objs);
+                      fds_uint32_t extent_objs,
+                      fds_volid_t parentVolId = invalid_vol_id,
+                      fds_bool_t snapshot = false);
     ~PersistVolumeMeta();
 
     /**
@@ -44,6 +49,12 @@ class PersistVolumeMeta {
     }
     inline const std::string volumeIdStr() const {
         return std::to_string(volume_id);
+    }
+    inline fds_uint32_t extent0ObjEntries() const {
+        return extent0_obj_entries;
+    }
+    inline fds_uint32_t extentObjEntries() const {
+        return extent_obj_entries;
     }
 
     /**
@@ -80,6 +91,7 @@ class PersistVolumeMeta {
     inline Error updateEntry(const std::string& key,
                              const std::string& value) {
         SCOPEDREAD(snap_lock_);
+        if (snapshot_) return ERR_DM_OP_NOT_ALLOWED;
         if (marked_deleted) return ERR_DM_VOL_MARKED_DELETED;
         return catalog_->Update(key, value);
     }
@@ -89,6 +101,7 @@ class PersistVolumeMeta {
      */
     inline Error updateBatch(CatWriteBatch* batch) {
         SCOPEDREAD(snap_lock_);
+        if (snapshot_) return ERR_DM_OP_NOT_ALLOWED;
         if (marked_deleted) return ERR_DM_VOL_MARKED_DELETED;
         return catalog_->Update(batch);
     }
@@ -106,6 +119,7 @@ class PersistVolumeMeta {
      */
     inline Error deleteEntry(const std::string& key) {
         SCOPEDREAD(snap_lock_);
+        if (snapshot_) return ERR_DM_OP_NOT_ALLOWED;
         return catalog_->Delete(key);
     }
 
@@ -166,6 +180,12 @@ class PersistVolumeMeta {
     // will return ERR_DM_VOL_MARKED_DELETED
     // also protected by snap_lock_
     fds_bool_t marked_deleted;
+
+    // catalog is for snapshot
+    const fds_bool_t snapshot_;
+
+    // parent volId for snapshot
+    fds_volid_t parentVolId_;
 };
 
 //
@@ -174,13 +194,20 @@ class PersistVolumeMeta {
 PersistVolumeMeta::PersistVolumeMeta(fds_volid_t volid,
                                      fds_uint32_t max_obj_size,
                                      fds_uint32_t extent0_objs,
-                                     fds_uint32_t extent_objs)
+                                     fds_uint32_t extent_objs,
+                                     fds_volid_t parentVolId /* = invalid_vol_id */,
+                                     fds_bool_t snapshot /* = false */)
         : volume_id(volid),
           max_obj_size_bytes(max_obj_size),
           extent0_obj_entries(extent0_objs),
           extent_obj_entries(extent_objs),
           catalog_(NULL),
-          marked_deleted(false) {
+          marked_deleted(false),
+          snapshot_(snapshot),
+          parentVolId_(parentVolId) {
+    if (invalid_vol_id == parentVolId_) {
+        parentVolId_ = volume_id;
+    }
     fds_verify(extent0_obj_entries > 0);
     fds_verify(extent_obj_entries > 0);
 }
@@ -192,7 +219,8 @@ PersistVolumeMeta::~PersistVolumeMeta() {
     // if marked as deleted, actually delete the whole leveldb dir
     if (marked_deleted) {
         const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
-        const std::string loc_src_db = root->dir_user_repo_dm() + volumeIdStr() + "_vcat.ldb";
+        const std::string loc_src_db = root->dir_user_repo_dm() + std::to_string(parentVolId_) +
+                (snapshot_ ? "/snapshot/" : "/") + volumeIdStr() + "_vcat.ldb";
         const std::string rm_cmd = "rm -rf  " + loc_src_db;
         int retcode = std::system((const char *)rm_cmd.c_str());
         LOGNOTIFY << "Removed leveldb dir, retcode " << retcode;
@@ -202,8 +230,12 @@ PersistVolumeMeta::~PersistVolumeMeta() {
 Error PersistVolumeMeta::init() {
     Error err(ERR_OK);
     const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
-    const std::string cat_name = root->dir_user_repo_dm() + volumeIdStr() + "_vcat.ldb";
+    const std::string cat_name = root->dir_user_repo_dm() + std::to_string(parentVolId_) +
+            (snapshot_ ? "/snapshot/" : "/") + volumeIdStr() + "_vcat.ldb";
     fds_verify(catalog_ == NULL);
+    char catPath[PATH_MAX] = {0};
+    strncpy(catPath, cat_name.c_str(), cat_name.length());
+    FdsRootDir::fds_mkdir(catPath);
     catalog_ = new(std::nothrow) Catalog(cat_name);
     if (!catalog_) {
         LOGERROR << "Failed to create catalog for volume "
@@ -231,6 +263,11 @@ Error PersistVolumeMeta::markDeleted() {
     if (!isInitialized()) {
         LOGNOTIFY << "Catalog not open for volume " << std::hex
                   << volume_id << std::dec << " marking as deleted";
+        marked_deleted = true;
+        return err;
+    } else if (snapshot_) {
+        LOGNOTIFY << "Delete request for snapshot " << std::hex << volume_id << std::dec
+                << ", marking as deleted";
         marked_deleted = true;
         return err;
     }
@@ -274,7 +311,8 @@ Error PersistVolumeMeta::syncToDM(NodeUuid dm_uuid) {
     fds_uint64_t start_t, end_t;
     int retcode = 0;
     const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
-    const std::string loc_src_db = root->dir_user_repo_dm() + volumeIdStr() + "_vcat.ldb";
+    const std::string loc_src_db = root->dir_user_repo_dm() + std::to_string(parentVolId_) +
+                (snapshot_ ? "/snapshot/" : "/") + volumeIdStr() + "_vcat.ldb";
     const std::string loc_snap_dir = root->dir_user_repo_snap()
             + std::to_string(dm_uuid.uuid_get_val()) + std::string("/");
     const std::string loc_snap_db = loc_snap_dir + volumeIdStr() + "_vcat.ldb";
@@ -381,6 +419,64 @@ Error DmPersistVolCatalog::createCatalog(const VolumeDesc& vol_desc){
         vol_map[vol_desc.volUUID] = volmeta;
     }
     return err;
+}
+
+//
+// Create snapshot for volume specified by id
+//
+Error DmPersistVolCatalog::createSnapshot(fds_volid_t volId, fds_volid_t snapshotId) {
+    LOGTRACE << "Creating a Catalog for snapshot '" << std::hex << snapshotId << std::dec <<
+            "' for volume '" << std::hex << volId << std::dec << "'";
+
+    fds_uint32_t maxEntries = 0;
+    fds_uint32_t extent0Entries = 0;
+    fds_uint32_t extentEntries = 0;
+
+    read_synchronized(vol_map_lock) {
+        std::unordered_map<fds_volid_t, PersistVolumeMetaPtr>::const_iterator iter =
+                vol_map.find(volId);
+        fds_verify(vol_map.end() != iter);
+        maxEntries = iter->second->maxObjSizeBytes();
+        extent0Entries = iter->second->extent0ObjEntries();
+        extentEntries = iter->second->extentObjEntries();
+    }
+
+    std::ostringstream oss;
+    const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
+    oss << root->dir_user_repo_dm() << volId << "/" << volId << "_vcat.ldb";
+    std::string dbDir = oss.str();
+
+    oss.clear();
+    oss.str("");
+    oss << root->dir_user_repo_dm() << volId << "/snapshot/" << snapshotId << "_vcat.ldb";
+    std::string snapshotDir = oss.str();
+
+    char catPath[PATH_MAX] = {0};
+    strncpy(catPath, snapshotDir.c_str(), snapshotDir.length());
+    FdsRootDir::fds_mkdir(catPath);
+
+    oss.clear();
+    oss.str("");
+    oss << "cp -r " << dbDir << "* " << snapshotDir;
+    std::string cpCmd = oss.str();
+
+    LOGNOTIFY << "Copying directory '" << dbDir << "' to '" << snapshotDir << "'";
+
+    int rc = std::system(cpCmd.c_str());
+    if (rc) {
+        LOGERROR << "Copy command failed: " << cpCmd << "; code " << rc;
+        return ERR_DM_SNAPSHOT_FAILED;
+    }
+
+    PersistVolumeMetaPtr volmeta(new PersistVolumeMeta(snapshotId, maxEntries, extent0Entries,
+            extentEntries, volId, true));
+
+    write_synchronized(vol_map_lock) {
+        fds_verify(vol_map.count(snapshotId) == 0);
+        vol_map[snapshotId] = volmeta;
+    }
+
+    return ERR_OK;
 }
 
 //
