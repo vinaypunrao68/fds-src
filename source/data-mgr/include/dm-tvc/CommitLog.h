@@ -63,7 +63,8 @@ struct CommitLogTx : serialize::Serializable {
     blob_version_t blobVersion;
 
     CommitLogTx() : txDesc(0), blobMode(0), started(0), committed(0), blobDelete(false),
-            snapshot(false), blobObjList(0), metaDataList(0), blobVersion(blob_version_invalid) {}
+            snapshot(false), blobObjList(new BlobObjList()), metaDataList(new MetaDataList()),
+            blobVersion(blob_version_invalid) {}
 
     virtual uint32_t write(serialize::Serializer * s) const override;
     virtual uint32_t read(serialize::Deserializer * d) override;
