@@ -75,6 +75,11 @@ class DMSvcHandler : virtual public DMSvcIf, public PlatNetSvcHandler {
         // Don't do anything here. This stub is just to keep cpp compiler happy
     }
 
+    void createVolumeClone(const fpi::AsyncHdr& asyncHdr,
+                         const fpi::CreateVolumeCloneMsg& createClone) {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+
     void volSyncState(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                       boost::shared_ptr<fpi::VolSyncStateMsg>& syncMsg);
 
@@ -162,6 +167,9 @@ class DMSvcHandler : virtual public DMSvcIf, public PlatNetSvcHandler {
 
     void deleteSnapshot(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                          boost::shared_ptr<fpi::DeleteSnapshotMsg>& deleteSnap);
+
+    void createVolumeClone(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                         boost::shared_ptr<fpi::CreateVolumeCloneMsg>& createClone);
 };
 
 }  // namespace fds

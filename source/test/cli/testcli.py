@@ -34,4 +34,19 @@ volumeid=client.getVolumeId("smoke_volume0")
 print volumeid
 print client.getVolumeName(volumeid)
 
+snap_policy = SnapshotPolicy(
+    id                    =   0,
+    policyName            =   'policy',
+    recurrenceRule        =   'rule',
+    retentionTimeSeconds  =   1111
+    )
+        # get the  OM client  handler
+client = svc_map.omConfig()
+      # invoke the thrift  interface call
+policy_id = client.createSnapshotPolicy(snap_policy)
+print ' Successfully created  snapshot policy: {}'.format(policy_id)
+print ','.join(snap_policy)
+
+
+
 

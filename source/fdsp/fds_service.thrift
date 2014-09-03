@@ -92,7 +92,13 @@ enum  FDSPMsgTypeId {
     StatStreamRegistrationMsgTypeId,
     StatStreamRegistrationRspMsgTypeId,
     StatStreamDeregistrationMsgTypeId,
-    StatStreamDeregistrationRspMsgTypeId
+    StatStreamDeregistrationRspMsgTypeId,
+    CreateSnapshotMsgTypeId,
+    CreateSnapshotRespMsgTypeId,
+    DeleteSnapshotMsgTypeId,
+    DeleteSnapshotRespMsgTypeId,
+    CreateVolumeCloneMsgTypeId,
+    CreateVolumeCloneRespMsgTypeId
 }
 
 struct EmptyMsg {
@@ -276,7 +282,7 @@ struct CreateSnapshotMsg {
 }  
 
 struct CreateSnapshotRespMsg {
-    1:i64 snapshotId,
+    1:i64 snapshotId
 }
 
 struct DeleteSnapshotMsg {
@@ -295,7 +301,7 @@ struct CreateVolumeCloneMsg {
 }  
 
 struct CreateVolumeCloneRespMsg {
-     1:i64 cloneId,
+     1:i64 cloneId
 }
 
 /*
