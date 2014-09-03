@@ -6,6 +6,7 @@
 #include <platform.h>
 #include <fds_process.h>
 #include <net-platform.h>
+#include <net/net_utils.h>
 #include <platform/node-inv-shmem.h>
 #include <ep-map.h>
 #include <util/timeutils.h>
@@ -51,7 +52,7 @@ NodePlatform::mod_init(SysParams const *const param)
     FdsConfigAccessor conf(g_fdsprocess->get_conf_helper());
 
     disk_ctrl        = DiskPlatModule::dsk_plat_singleton();
-    plf_my_ip        = util::get_local_ip();
+    plf_my_ip        = net::get_local_ip(conf.get_abs<std::string>("fds.nic_if"));
     plf_my_node_name = conf.get_abs<std::string>("fds.plat.id", "auto");
     return 0;
 }

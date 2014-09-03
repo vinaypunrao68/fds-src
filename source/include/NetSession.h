@@ -85,7 +85,6 @@ class netSession {
              FDS_ProtocolInterface::FDSP_MgrIdType remote_mgr_id);
   static string ipAddr2String(int ipaddr);
   static int ipString2Addr(string ipaddr_str);
-  static std::string getLocalIp();
 
   inline static std::string getIPV4FromMappedAddress(const std::string& peer_addr)
   {

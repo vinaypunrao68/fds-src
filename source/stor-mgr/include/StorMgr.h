@@ -300,7 +300,8 @@ class ObjectStorMgr :
             Error err(ERR_OK);
             dispatcher->markIODone((FDS_IOType *)&_io);
             if (iam_primary &&
-                ((_io.io_type == FDS_IO_WRITE) || (_io.io_type == FDS_IO_READ))) {
+                ((_io.io_type == FDS_SM_PUT_OBJECT) ||
+                 (_io.io_type == FDS_SM_GET_OBJECT))) {
                 if (tier == diskio::diskTier) {
                     StatsCollector::singleton()->recordEvent(_io.io_vol_id,
                                                              _io.io_done_ts,

@@ -1,12 +1,8 @@
-<!doctype html>
-<!--[if lt IE 7]>      <html class="no-js lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
-<!--[if IE 7]>         <html class="no-js lt-ie9 lt-ie8"> <![endif]-->
-<!--[if IE 8]>         <html class="no-js lt-ie9"> <![endif]-->
-<!--[if gt IE 8]><!--> <html class="no-js"> <!--<![endif]-->
-  <head>
+<html ng-app="formation" class="no-js">
+<head>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <title>FDS</title>
+    <title>Formation</title>
     <meta name="description" content="Formation Data Systems is building a revolutionary converged data platform for web-scale computing.">
 
     <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no">
@@ -14,24 +10,66 @@
     <!--iOS Meta and Logo -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
-    <link rel="apple-touch-icon" href="images/e09daa70.apple-touch-logo.png">
-    <link rel="apple-touch-icon" sizes="72x72" href="images/e09daa70.apple-touch-logo.png">
-    <link rel="apple-touch-icon" sizes="114x114" href="images/e09daa70.apple-touch-logo.png">
-    <!--end iOS Meta and Logo -->
+    <link rel="shortcut icon" href="images/favicon.ico">
+    <link rel="apple-touch-icon" href="images/apple-touch-logo.png" />
+    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-logo.png" />
+    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-logo.png" />
+    <link rel="stylesheet" type="text/css" href="libs/bootstrap/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" type="text/css" href="libs/flat-ui.css">
+    <link rel="stylesheet" type="text/css" href="styles/main.min.css">
 
-    <!-- DO NOT REMOVE THESE COMMENTS OR TAGS -->
+    <script type="text/javascript" src="libs/jquery/dist/jquery.min.js"></script>
+    <script type="text/javascript" src="libs/angular/angular.js"></script>
+    <script type="text/javascript" src="libs/angular-ui-router/release/angular-ui-router.js"></script>
+    <script type="text/javascript" src="libs/angular-translate/angular-translate.js"></script>
 
-    <link rel="stylesheet" href="styles/552ba4f5.main.css">
+    <script type="text/javascript" src="scripts/main.min.js"></script>
+<!--@@DEV@@ <script type="text/javascript" src="scripts/main.js"></script>
+    <script type="text/javascript" src="scripts/module-manifest.js"></script>
 
-    <script src="scripts/vendor/d7100892.modernizr.js"></script>
+    <script type="text/javascript" src="scripts/services/authorization.js"></script>
+    <script type="text/javascript" src="scripts/services/authentication.js"></script>
+    <script type="text/javascript" src="scripts/services/volume_api.js"></script>
+    <script type="text/javascript" src="scripts/services/data_connector_api.js"></script>
+    <script type="text/javascript" src="scripts/services/modal_data_service.js"></script>
+    <script type="text/javascript" src="scripts/services/domain_service.js"></script>
+    <script type="text/javascript" src="scripts/services/node_service.js"></script>
+    <script type="text/javascript" src="scripts/services/data/activity_service.js"></script>
+    <script type="text/javascript" src="scripts/services/data/inbox_service.js"></script>
+    <script type="text/javascript" src="scripts/services/data/user_service.js"></script>
 
-  </head>
-  <body class="menu-active">
-    <!--[if lt IE 10]>
-        <p class="browsehappy">You are using an <strong>outdated</strong> browser. Please <a href="http://browsehappy.com/">upgrade your browser</a> to improve your experience.</p>
-    <![endif]-->
+    <script type="text/javascript" src="scripts/main/mainController.js"></script>
+    <script type="text/javascript" src="scripts/volumes/volumeController.js"></script>
+    <script type="text/javascript" src="scripts/volumes/create/volumeCreateController.js"></script>
+    <script type="text/javascript" src="scripts/volumes/create/nameTypeController.js"></script>
+    <script type="text/javascript" src="scripts/system/systemController.js"></script>
+    <script type="text/javascript" src="scripts/volumes/create/qualityOfServiceController.js"></script>
+    <script type="text/javascript" src="scripts/inbox/inboxController.js"></script>
+    <script type="text/javascript" src="scripts/activity/activityController.js"></script>
+    <script type="text/javascript" src="scripts/status/statusController.js"></script>
+    <script type="text/javascript" src="scripts/users/userController.js"></script>
+    <script type="text/javascript" src="scripts/account/accountController.js"></script>
+    <script type="text/javascript" src="scripts/admin/admin.js"></script>
+    <script type="text/javascript" src="scripts/admin/profile/profile.js"></script>
+    <script type="text/javascript" src="scripts/admin/firebreak/firebreak.js"></script>
+    <script type="text/javascript" src="scripts/system/addnode/addnode.js"></script>@@DEV@@-->
 
-    <nav id="nav" class="nav" role="navigation"></nav>
-    <script data-main="scripts/241917dc.main" src="bower_components/requirejs/require.js"></script>
-  </body>
+    <script type="text/javascript" src="templates.js"></script>
+
+    <script type="text/javascript" src="scripts/directives/widgets/priorityslider/priorityslider.js"></script>
+    <script type="text/javascript" src="scripts/directives/widgets/variableslider/variableslider.js"></script>
+    <script type="text/javascript" src="scripts/directives/widgets/navitem/navitem.js"></script>
+    <script type="text/javascript" src="scripts/directives/angular-fui/fui-checkbox/fui-checkbox.js"></script>
+    <script type="text/javascript" src="scripts/directives/angular-fui/fui-dropdown/fui-dropdown.js"></script>
+    <script type="text/javascript" src="scripts/directives/angular-fui/fui-slider/fui-slider.js"></script>
+    <script type="text/javascript" src="scripts/directives/widgets/spinner/spinner.js"></script>
+    <script type="text/javascript" src="scripts/directives/widgets/linkbuttons/linkbuttons.js"></script>
+</head>
+
+<body class="menu-active">
+
+    <div ui-view>
+    </div>
+</body>
+
 </html>

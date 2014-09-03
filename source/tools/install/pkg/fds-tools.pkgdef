@@ -11,4 +11,5 @@ files:
     src:
       - ../../../Build/linux-x86_64.debug/bin/configdbtool
       - ../../redis.sh
+      - formation.conf
     dest-is-dir: True

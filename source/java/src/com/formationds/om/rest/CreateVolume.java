@@ -4,13 +4,14 @@ package com.formationds.om.rest;
  */
 
 import FDS_ProtocolInterface.FDSP_ConfigPathReq;
-import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.VolumeSettings;
 import com.formationds.apis.VolumeType;
+import com.formationds.security.AuthenticationToken;
 import com.formationds.util.SizeUnit;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
+import com.formationds.xdi.Xdi;
 import org.apache.commons.io.IOUtils;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
@@ -18,12 +19,14 @@ import org.json.JSONObject;
 import java.util.Map;
 
 public class CreateVolume implements RequestHandler {
-    private ConfigurationService.Iface configApi;
+    private Xdi xdi;
     private FDSP_ConfigPathReq.Iface legacyConfigPath;
+    private AuthenticationToken token;
 
-    public CreateVolume(ConfigurationService.Iface configApi, FDSP_ConfigPathReq.Iface legacyConfigPath) {
-        this.configApi = configApi;
+    public CreateVolume(Xdi xdi, FDSP_ConfigPathReq.Iface legacyConfigPath, AuthenticationToken token) {
+        this.xdi = xdi;
         this.legacyConfigPath = legacyConfigPath;
+        this.token = token;
     }
 
     @Override
@@ -41,9 +44,9 @@ public class CreateVolume implements RequestHandler {
             int sizeUnits = attributes.getInt("size");
             long sizeInBytes = SizeUnit.valueOf(attributes.getString("unit")).totalBytes(sizeUnits);
             VolumeSettings volumeSettings = new VolumeSettings(1024 * 4, VolumeType.BLOCK, sizeInBytes);
-            configApi.createVolume("", name, volumeSettings, 0);
+            xdi.createVolume(token, "", name, volumeSettings);
         } else {
-            configApi.createVolume("", name, new VolumeSettings(1024 * 1024 * 2, VolumeType.OBJECT, 0), 0);
+            xdi.createVolume(token, "", name, new VolumeSettings(1024 * 1024 * 2, VolumeType.OBJECT, 0));
         }
 
         Thread.sleep(200);

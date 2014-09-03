@@ -1,0 +1,1 @@
+angular.module("angular-fui").directive("fuiCheckbox",function(){return{restrict:"E",replace:!0,transclude:!1,scope:{label:"@",checked:"="},templateUrl:"scripts/directives/angular-fui/fui-checkbox/fui-checkbox.html",controller:function($scope){angular.isDefined($scope.checked)||($scope.checked=!1)}}});
