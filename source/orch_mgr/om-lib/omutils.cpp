@@ -3,8 +3,8 @@
  */
 #include <string>
 #include <omutils.h>
-#include <util/stringutils.h>
 #include <fds_uuid.h>
+#include <util/stringutils.h>
 
 namespace fds {
 // TODO(prem): mkae it use lower case soon
