@@ -10,6 +10,7 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 import org.apache.thrift.TException;
 
+import javax.crypto.SecretKey;
 import javax.security.auth.login.LoginException;
 import java.util.Map;
 import java.util.UUID;
@@ -17,9 +18,11 @@ import java.util.UUID;
 public class FdsAuthenticator implements Authenticator {
     private final static Logger LOG = Logger.getLogger(FdsAuthenticator.class);
     private ConfigurationServiceCache cache;
+    private SecretKey secretKey;
 
-    public FdsAuthenticator(ConfigurationServiceCache cache) {
+    public FdsAuthenticator(ConfigurationServiceCache cache, SecretKey secretKey) {
         this.cache = cache;
+        this.secretKey = secretKey;
     }
 
     @Override
@@ -93,7 +96,7 @@ public class FdsAuthenticator implements Authenticator {
     public AuthenticationToken resolveToken(String signature) throws LoginException {
         AuthenticationToken token = null;
         try {
-            token = new TokenEncrypter().tryParse(KEY, signature);
+            token = new TokenEncrypter().tryParse(secretKey, signature);
         } catch (SecurityException e) {
             throw new LoginException();
         }

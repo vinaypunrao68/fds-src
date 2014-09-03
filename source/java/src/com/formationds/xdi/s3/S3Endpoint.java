@@ -10,6 +10,7 @@ import com.formationds.web.toolkit.WebApp;
 import com.formationds.xdi.Xdi;
 import com.formationds.xdi.XdiAsync;
 
+import javax.crypto.SecretKey;
 import java.util.function.Function;
 
 public class S3Endpoint {
@@ -19,11 +20,13 @@ public class S3Endpoint {
 
     private Xdi xdi;
     private XdiAsync xdiAsync;
+    private SecretKey secretKey;
     private final WebApp webApp;
 
-    public S3Endpoint(Xdi xdi, XdiAsync xdiAsync) {
+    public S3Endpoint(Xdi xdi, XdiAsync xdiAsync, SecretKey secretKey) {
         this.xdi = xdi;
         this.xdiAsync = xdiAsync;
+        this.secretKey = secretKey;
 
         webApp = new WebApp();
     }
@@ -48,6 +51,6 @@ public class S3Endpoint {
 
     private void authenticate(HttpMethod method, String route, Function<AuthenticationToken, RequestHandler> f) {
         Function<AuthenticationToken, RequestHandler> errorHandler = new S3FailureHandler(f);
-        webApp.route(method, route, new S3Authenticator(errorHandler, xdi));
+        webApp.route(method, route, new S3Authenticator(errorHandler, xdi, secretKey));
     }
 }

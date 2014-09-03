@@ -8,7 +8,6 @@ import FDS_ProtocolInterface.FDSP_MsgHdrType;
 import FDS_ProtocolInterface.FDSP_VolumeDescType;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.fdsp.LegacyClientFactory;
-import org.junit.Test;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -41,7 +40,7 @@ public class ConfigurationServiceTest {
         }
     }
 
-    @Test
+    //@Test
     public void testLegacyClient() throws Exception {
         FDSP_ConfigPathReq.Iface client = new LegacyClientFactory().configPathClient("localhost", 8903);
         List<FDSP_VolumeDescType> list = client.ListVolumes(new FDSP_MsgHdrType());

@@ -4,7 +4,6 @@ package com.formationds.om.rest;
  */
 
 import com.formationds.security.AuthenticationToken;
-import com.formationds.security.Authenticator;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
@@ -12,6 +11,7 @@ import com.formationds.xdi.Xdi;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
 
+import javax.crypto.SecretKey;
 import javax.security.auth.login.LoginException;
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletResponse;
@@ -21,9 +21,11 @@ import java.util.Map;
 
 public class IssueToken implements RequestHandler {
     private Xdi xdi;
+    private SecretKey key;
 
-    public IssueToken(Xdi xdi) {
+    public IssueToken(Xdi xdi, SecretKey key) {
         this.xdi = xdi;
+        this.key = key;
     }
 
     @Override
@@ -49,7 +51,7 @@ public class IssueToken implements RequestHandler {
 
             // temporary work-a-round for goldman
             jsonObject.put("username", login);
-            jsonObject.put("token", token.signature(Authenticator.KEY));
+            jsonObject.put("token", token.signature(key));
             jsonObject.put("features", features);
             // end of work-a-round
 

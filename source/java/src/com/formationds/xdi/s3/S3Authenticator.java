@@ -10,12 +10,12 @@ import com.amazonaws.services.s3.internal.S3Signer;
 import com.amazonaws.services.s3.internal.ServiceUtils;
 import com.amazonaws.util.AWSRequestMetrics;
 import com.formationds.security.AuthenticationToken;
-import com.formationds.security.Authenticator;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.xdi.Xdi;
 import com.google.common.collect.Maps;
 import org.eclipse.jetty.server.Request;
 
+import javax.crypto.SecretKey;
 import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -31,10 +31,12 @@ import java.util.function.Supplier;
 public class S3Authenticator implements Supplier<RequestHandler> {
     private Function<AuthenticationToken, RequestHandler> handler;
     private Xdi xdi;
+    private SecretKey secretKey;
 
-    public S3Authenticator(Function<AuthenticationToken, RequestHandler> handler, Xdi xdi) {
+    public S3Authenticator(Function<AuthenticationToken, RequestHandler> handler, Xdi xdi, SecretKey secretKey) {
         this.handler = handler;
         this.xdi = xdi;
+        this.secretKey = secretKey;
     }
 
     @Override
@@ -74,7 +76,7 @@ public class S3Authenticator implements Supplier<RequestHandler> {
                 }
             }
         };
-        BasicAWSCredentials credentials = new BasicAWSCredentials(authComponents.principalName, authComponents.fdsToken.signature(Authenticator.KEY));
+        BasicAWSCredentials credentials = new BasicAWSCredentials(authComponents.principalName, authComponents.fdsToken.signature(secretKey));
         s3Signer.sign(amazonRequest, credentials);
         return amazonRequest.getHeaders().get("Authorization").toString();
     }

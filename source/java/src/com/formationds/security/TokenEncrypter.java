@@ -7,10 +7,16 @@ import org.apache.commons.codec.binary.Base64;
 
 import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
+import javax.crypto.spec.IvParameterSpec;
+import java.security.Security;
 import java.text.MessageFormat;
 
 public class TokenEncrypter {
     private static final String TOKEN_FORMAT = "id: {0}, secret: {1}";
+
+    static {
+        Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
+    }
 
     public AuthenticationToken tryParse(SecretKey key, String encrypted) throws SecurityException {
         try {
@@ -27,8 +33,9 @@ public class TokenEncrypter {
         try {
             String value = MessageFormat.format(TOKEN_FORMAT, token.getUserId(), token.getSecret());
             byte[] clearText = value.getBytes();
-            Cipher cipher = Cipher.getInstance("AES");
-            cipher.init(Cipher.ENCRYPT_MODE, secretKey);
+            Cipher cipher = Cipher.getInstance("AES/CBC/PKCS7Padding", "BC");
+            IvParameterSpec initVector = new IvParameterSpec(secretKey.getEncoded());
+            cipher.init(Cipher.ENCRYPT_MODE, secretKey, initVector);
             byte[] encrypted = cipher.doFinal(clearText);
             return Base64.encodeBase64String(encrypted);
         } catch (Exception e) {
@@ -43,8 +50,9 @@ public class TokenEncrypter {
 
     private String decrypt(String encrypted, SecretKey key) throws Exception {
         byte[] bytes = Base64.decodeBase64(encrypted);
-        Cipher cipher = Cipher.getInstance("AES");
-        cipher.init(Cipher.DECRYPT_MODE, key);
+        Cipher cipher = Cipher.getInstance("AES/CBC/PKCS7Padding", "BC");
+        IvParameterSpec initVector = new IvParameterSpec(key.getEncoded());
+        cipher.init(Cipher.DECRYPT_MODE, key, initVector);
         return new String(cipher.doFinal(bytes));
     }
 }

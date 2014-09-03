@@ -4,13 +4,13 @@ package com.formationds.xdi.swift;
  */
 
 import com.formationds.security.AuthenticationToken;
-import com.formationds.security.Authenticator;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
 import com.formationds.xdi.Xdi;
 import org.eclipse.jetty.server.Request;
 
+import javax.crypto.SecretKey;
 import javax.security.auth.login.LoginException;
 import javax.servlet.http.HttpServletResponse;
 import java.util.Map;
@@ -21,9 +21,11 @@ public class GrantAuthenticationToken implements RequestHandler {
     public static final String X_AUTH_TOKEN = "X-Auth-Token";
 
     private Xdi xdi;
+    private SecretKey secretKey;
 
-    public GrantAuthenticationToken(Xdi xdi) {
+    public GrantAuthenticationToken(Xdi xdi, SecretKey secretKey) {
         this.xdi = xdi;
+        this.secretKey = secretKey;
     }
 
     @Override
@@ -35,7 +37,7 @@ public class GrantAuthenticationToken implements RequestHandler {
                 requiredString(request, "password") : request.getHeader(X_AUTH_KEY);
         try {
             AuthenticationToken credentials = xdi.getAuthenticator().authenticate(login, password);
-            return new TextResource(HttpServletResponse.SC_OK, "").withHeader(X_AUTH_TOKEN, credentials.signature(Authenticator.KEY));
+            return new TextResource(HttpServletResponse.SC_OK, "").withHeader(X_AUTH_TOKEN, credentials.signature(secretKey));
         } catch (LoginException exception) {
             return new TextResource(HttpServletResponse.SC_UNAUTHORIZED, "");
         }

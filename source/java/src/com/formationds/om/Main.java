@@ -16,11 +16,14 @@ import com.formationds.web.toolkit.*;
 import com.formationds.xdi.ConfigurationServiceCache;
 import com.formationds.xdi.Xdi;
 import com.formationds.xdi.XdiClientFactory;
+import org.apache.commons.codec.binary.Base64;
 import org.apache.log4j.Logger;
 import org.eclipse.jetty.server.Request;
 import org.joda.time.Duration;
 import org.json.JSONObject;
 
+import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
 import javax.servlet.http.HttpServletResponse;
 import java.util.Map;
 import java.util.UUID;
@@ -46,8 +49,12 @@ public class Main {
         NativeOm.startOm(args);
 
         ParsedConfig platformConfig = configuration.getPlatformConfig();
+        byte[] keyBytes = Base64.decodeBase64(platformConfig.lookup("fds.aes_key").stringValue());
+        SecretKey secretKey = new SecretKeySpec(keyBytes, "AES");
+
         XdiClientFactory clientFactory = new XdiClientFactory();
         ConfigurationServiceCache configCache = new ConfigurationServiceCache(clientFactory.remoteOmService("localhost", 9090));
+        new EnsureAdminUser(configCache).execute();
         AmService.Iface amService = clientFactory.remoteAmService("localhost", 9988);
 
         String omHost = "localhost";
@@ -59,7 +66,7 @@ public class Main {
         VolumeStatistics volumeStatistics = new VolumeStatistics(Duration.standardMinutes(20));
 
         boolean enforceAuthentication = platformConfig.lookup("fds.om.authentication").booleanValue();
-        Authenticator authenticator = enforceAuthentication ? new FdsAuthenticator(configCache) : new NullAuthenticator();
+        Authenticator authenticator = enforceAuthentication ? new FdsAuthenticator(configCache, secretKey) : new NullAuthenticator();
         Authorizer authorizer = enforceAuthentication ? new FdsAuthorizer(configCache) : new DumbAuthorizer();
 
         xdi = new Xdi(amService, configCache, authenticator, authorizer, legacyConfigClient);
@@ -68,8 +75,8 @@ public class Main {
 
         webApp.route(HttpMethod.GET, "", () -> new LandingPage(webDir));
 
-        webApp.route(HttpMethod.POST, "/api/auth/token", () -> new IssueToken(xdi));
-        webApp.route(HttpMethod.GET, "/api/auth/token", () -> new IssueToken(xdi));
+        webApp.route(HttpMethod.POST, "/api/auth/token", () -> new IssueToken(xdi, secretKey));
+        webApp.route(HttpMethod.GET, "/api/auth/token", () -> new IssueToken(xdi, secretKey));
 
         authenticate(HttpMethod.GET, "/api/auth/currentUser", (t) -> new CurrentUser(xdi, t));
         fdsAdminOnly(HttpMethod.GET, "/api/config/services", (t) -> new ListServices(legacyConfigClient), authorizer);
