@@ -63,6 +63,21 @@ class TierUtils(TestUtil):
         del args['fds_root']
         tt.run_hybrid_test(url, **args)
 
+    @staticmethod
+    def single_cap_test(url, args):
+        args = vars(args)
+        del args['url']
+        del args['func']
+        
+        for key, val in args.items():
+            if val is None:
+                del args[key]
+
+        tt = TierTest(args['fds_root'])
+        del args['fds_root']
+        tt.run_cap_pref_test(url, **args)
+
+
 FDSCLI = '../Build/linux-x86_64.debug/bin/fdscli'
 
 class TierTest(object):
@@ -187,6 +202,83 @@ class TierTest(object):
             return False
 
 
+    def run_cap_pref_test(self, url, num_objs=100, obj_size=1024, hotspot_reads=100,
+                          hotspot_size=10):
+        '''This test will run by issuing a series of PUTs, to populate a
+        volume, followed by a series of GETs. The GETs should continue
+        to create a hotspot. When the hotspot occurs, the hotspot data
+        should be moved to SSD, and requests satisfied from there.
+
+        Params:
+           num_objs - int: number of objects to write
+           obj_size - int: size of objects to write
+           hotspot_reads - int: number of reads to perform to create hotspot
+           hotspot_size - int: number of objects to create hotspot with
+
+        Returns:
+           True if test passes; False otherwise
+        '''
+        # Create volume
+        # TestUtil.create_volume(url)
+        
+        if url[-1] == '/':
+            url = url[:-1]
+        volume = os.path.basename(url)
+        
+        # Create policy & set policy using CLI
+        # TODO(brian): Try to separate create and modify [not working as of 8/25/14]
+        cmd = (FDSCLI + ' --volume-create ' + volume + ' -s 5000 ' + '-p 50 -M hybrid-prefcap -i 1')
+        cmd = shlex.split(cmd)
+        res = subprocess.call(cmd)
+
+        # Get a snapshot of initial stats
+        # We just created the volume so we know all vals must be 0
+        stats = {}
+        
+        # First do puts to populate the volume. Store all filenames.
+        print "Populating volumes..."
+        valid_objs = []
+        for i in range(num_objs):
+            valid_objs.append(TestUtil.rnd_put(url, obj_size, 0))
+
+        # We need to get a snapshot of the stats here
+        stats['post_write'] = self.__get_stat_snapshot_from_counters()
+        
+        # Now that we have the vol populated we should try to 
+        # read back to create the hotspot
+        print "Attempting to create hotspot..."
+        # Pick hotspot_size objects from the pool
+        hs_objs = set(random.sample(valid_objs, hotspot_size))
+        remainder_objs = set(valid_objs) - hs_objs
+        # Do the GETs
+        for i in range(hotspot_reads):
+            print "Performing GET #", i+1
+            res = TestUtil.get(url, hs_objs)
+        print "Hotspot should be created..."
+        print "Sleeping for 3 minutes, allowing ranking engine to catch up..."
+        time.sleep(180)
+        
+        print "Performing GETs on non-hot objects to verify data movement between HDD/SSD..."
+        for obj in remainder_objs:
+            res = TestUtil.get(url, [obj])
+
+        # Get a snapshot of stats here
+        print "Collecting post-test stats..."
+        stats['post_hotspot'] = self.__get_stat_snapshot_from_counters()
+        print stats
+
+        # [0] is puts [1] is gets
+        if (stats['post_write'][0] == 0 and 
+            stats['post_write'][1] is None and
+            stats['post_hotspot'][0] == 0 and
+            stats['post_hotspot'][1] == (hotspot_reads * len(hs_objs))):
+            print "Prefer capacity tier test: PASSED!"
+            return True
+        else:
+            print "Prefer capcity tier test: FAILED!"
+            return False
+
+
     def __get_stat_snapshot_from_log(self, url):
         log_file = self.__find_log(url)
         
@@ -211,7 +303,7 @@ class TierTest(object):
             assert svc_uuid != ''
         
         sm_counters = self.__svc_map.client(svc_uuid, 'sm').getCounters('*')
-
+        print sm_counters
         puts_cnt = gets_cnt = None
         for key in sm_counters.keys():
             if ('put_ssd_obj.volume' in key and 'volume:0:' not in key):
@@ -273,7 +365,18 @@ if __name__ == "__main__":
     
     # perf_parser = subparsers.add_parser('perf', help='Run a performance tiering '
     #                                    'test (compare policy performance).')
-    # cap_parser = subparsers.add_parser('capacity', help='Run a test with capacity preferred policy.')
+    cap_parser = subparsers.add_parser('capacity', help='Run a test with capacity preferred policy.')
+    cap_parser.set_defaults(func=TierUtils.single_cap_test)
+    cap_parser.add_argument('--num_objs', type=int, 
+                               help='Number of objects to populate volume with. Default: 100')
+    cap_parser.add_argument('--obj_size', type=int,
+                               help='Size in bytes of objects to PUT. Default: 1024')
+    cap_parser.add_argument('--hotspot_reads', type=int,
+                               help='Number of reads to perform to create a hotspot. Default: 100')
+    cap_parser.add_argument('--hotspot_size', type=int,
+                               help='Number of objects to create hotspot with. Should be < num_objs. '
+                               'Default: 10')
+
     # hdd_parser = subparsers.add_parser('hdd', help='Run a hdd tiering policy test.')
     
     args = parser.parse_args()
