@@ -31,33 +31,30 @@ public class IssueToken implements RequestHandler {
         String login = requiredString(request, "login");
         String password = requiredString(request, "password");
 
-        final List<String> features = new ArrayList<>( );
-        final JSONObject jsonObject = new JSONObject( );
+        final List<String> features = new ArrayList<>();
+        final JSONObject jsonObject = new JSONObject();
 
         try {
             AuthenticationToken token = xdi.getAuthenticator().authenticate(login, password);
 
-          if( login.equalsIgnoreCase( "admin" ) )
-          {
-            features.add( "System Management" );
-            features.add( "Volume Management" );
-            features.add( "Tenant Management" );
-            features.add( "User Management" );
-          }
-          else
-          {
-            features.add( "Volume Management" );
-            features.add( "User Management" );
-          }
+            if (login.equalsIgnoreCase("admin")) {
+                features.add("System Management");
+                features.add("Volume Management");
+                features.add("Tenant Management");
+                features.add("User Management");
+            } else {
+                features.add("Volume Management");
+                features.add("User Management");
+            }
 
-          // temporary work-a-round for goldman
-            jsonObject.put( "username", login );
-            jsonObject.put( "token", token.signature( Authenticator.KEY ) );
-            jsonObject.put( "features", features );
-          // end of work-a-round
+            // temporary work-a-round for goldman
+            jsonObject.put("username", login);
+            jsonObject.put("token", token.signature(Authenticator.KEY));
+            jsonObject.put("features", features);
+            // end of work-a-round
 
-          // new JSONObject().put("token", token.signature(Authenticator.KEY))
-            return new JsonResource( jsonObject ) {
+            // new JSONObject().put("token", token.signature(Authenticator.KEY))
+            return new JsonResource(jsonObject) {
                 @Override
                 public Cookie[] cookies() {
                     Cookie cookie = new Cookie(HttpAuthenticator.FDS_TOKEN, token.toString());
