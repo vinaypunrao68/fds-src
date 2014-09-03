@@ -93,6 +93,16 @@ public class ConfigurationServiceCache implements ConfigurationService.Iface, Su
         config.createVolume(domainName, volumeName, volumeSettings, tenantId);
         dropCache();
     }
+    
+    @Override
+    public long getVolumeId(String volumeName) throws ApiException, org.apache.thrift.TException {
+        return 0;
+    }
+
+    @Override
+    public String getVolumeName(long volumeId) throws ApiException, org.apache.thrift.TException {
+        return null;
+    }
 
     @Override
     public void deleteVolume(String domainName, String volumeName) throws ApiException, TException {
@@ -123,6 +133,52 @@ public class ConfigurationServiceCache implements ConfigurationService.Iface, Su
     @Override
     public void deregisterStream(int registration_id) throws TException {
         config.deregisterStream(registration_id);
+    }
+
+    @Override
+    public long createSnapshotPolicy(com.formationds.apis.SnapshotPolicy policy) throws ApiException, org.apache.thrift.TException {
+        return 0;
+    }
+
+    @Override
+        public List<com.formationds.apis.SnapshotPolicy> listSnapshotPolicies(long unused) throws ApiException, org.apache.thrift.TException {
+        return null;
+    }
+
+    @Override
+        public void deleteSnapshotPolicy(long id) throws ApiException, org.apache.thrift.TException {
+    }
+
+    @Override
+        public void attachSnapshotPolicy(long volumeId, long policyId) throws ApiException, org.apache.thrift.TException {
+    }
+
+    @Override
+        public List<com.formationds.apis.SnapshotPolicy> listSnapshotPoliciesForVolume(long volumeId) throws ApiException, org.apache.thrift.TException {
+        return null;
+    }
+
+    @Override
+        public void detachSnapshotPolicy(long volumeId, long policyId) throws ApiException, org.apache.thrift.TException {
+    }
+
+    @Override
+        public List<Long> listVolumesForSnapshotPolicy(long policyId) throws ApiException, org.apache.thrift.TException {
+        return null;
+    }
+    
+    @Override
+        public List<com.formationds.apis.Snapshot> listSnapshots(long volumeId) throws ApiException, org.apache.thrift.TException {
+        return null;
+    }
+
+    @Override
+        public void restoreClone(long volumeId, long snapshotId) throws ApiException, org.apache.thrift.TException {
+    }
+
+    @Override
+        public long cloneVolume(long volumeId, long fdsp_PolicyInfoId, String clonedVolumeName) throws org.apache.thrift.TException {
+        return 0;
     }
 
     @Override
