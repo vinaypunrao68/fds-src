@@ -62,7 +62,7 @@ linux-*
 /source/stor_hvisor/*.mod.*
 
 node_modules
-dist
+#dist
 test/temp
 .sass-cache
 app/bower_components
