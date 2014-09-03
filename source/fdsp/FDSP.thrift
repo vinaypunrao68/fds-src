@@ -419,6 +419,8 @@ struct FDSP_VolumeInfoType {
   17: FDSP_MediaPolicy           mediaPolicy,      // can change media policy
 
   18: i32         		 backupVolume,  // UUID of backup volume
+  19: bool                       fSnapshot,
+  20: i64                        parentVolumeId,
 
 }
 
@@ -458,6 +460,8 @@ struct FDSP_VolumeDescType {
   20: double                 iops_max, /* maximum iops */
   21: i32                    rel_prio, /* relative priority */
   22: FDSP_MediaPolicy       mediaPolicy   /* media policy */
+  23: bool                       fSnapshot,
+  24: i64                        parentVolumeId,
 }
 
 struct FDSP_CreateDomainType {

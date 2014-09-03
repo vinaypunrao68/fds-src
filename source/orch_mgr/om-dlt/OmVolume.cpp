@@ -729,6 +729,8 @@ VolumeInfo::vol_fmt_desc_pkt(FDSP_VolumeDescType *pkt) const
     pkt->defConsisProtocol = fpi::FDSP_ConsisProtoType(pVol->consisProtocol);
     pkt->appWorkload       = pVol->appWorkload;
     pkt->mediaPolicy   = pVol->mediaPolicy;
+    pkt->fSnapshot   = pVol->fSnapshot;
+    pkt->fSnapshot   = pVol->fSnapshot;
 }
 
 // vol_fmt_message
