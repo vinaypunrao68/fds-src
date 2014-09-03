@@ -20,6 +20,7 @@
 #include <util/Log.h>
 #include <concurrency/Mutex.h>
 #include <NetSession.h>
+#include <omutils.h>
 #include <OmTier.h>
 #include <OmVolPolicy.hpp>
 #include <OmAdminCtrl.h>

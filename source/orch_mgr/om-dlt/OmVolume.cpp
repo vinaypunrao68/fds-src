@@ -1015,7 +1015,7 @@ VolumeContainer::om_create_vol(const FdspMsgHdrPtr &hdr,
     VolPolicyMgr        *v_pol = OrchMgr::om_policy_mgr();
     FdsAdminCtrl        *admin = local->om_get_admin_ctrl();
     std::string         &vname = (creat_msg->vol_info).vol_name;
-    ResourceUUID         uuid(fds_get_uuid64(vname));
+    ResourceUUID         uuid(getUuidFromVolumeName(vname));
     VolumeInfo::pointer  vol;
 
     vol = VolumeInfo::vol_cast_ptr(rs_get_resource(uuid));
@@ -1093,7 +1093,7 @@ VolumeContainer::om_snap_vol(const FdspMsgHdrPtr &hdr,
     OM_NodeContainer    *local = OM_NodeDomainMod::om_loc_domain_ctrl();
     FdsAdminCtrl        *admin = local->om_get_admin_ctrl();
     std::string         &vname = snap_msg->vol_name;
-    ResourceUUID         uuid(fds_get_uuid64(vname));
+    ResourceUUID         uuid(getUuidFromVolumeName(vname));
     VolumeInfo::pointer  vol;
 
     vol = VolumeInfo::vol_cast_ptr(rs_get_resource(uuid));
@@ -1117,7 +1117,7 @@ VolumeContainer::om_delete_vol(const FdspMsgHdrPtr &hdr,
 {
     Error err(ERR_OK);
     std::string         &vname = del_msg->vol_name;
-    ResourceUUID         uuid(fds_get_uuid64(vname));
+    ResourceUUID         uuid(getUuidFromVolumeName(vname));
     VolumeInfo::pointer  vol;
 
     vol = VolumeInfo::vol_cast_ptr(rs_get_resource(uuid));
@@ -1156,7 +1156,7 @@ VolumeContainer::om_cleanup_vol(const ResourceUUID& vol_uuid)
 VolumeInfo::pointer
 VolumeContainer::get_volume(const std::string& vol_name)
 {
-    ResourceUUID uuid(fds_get_uuid64(vol_name));
+    ResourceUUID uuid(getUuidFromVolumeName(vol_name));
     return VolumeInfo::vol_cast_ptr(rs_get_resource(uuid));
 }
 
