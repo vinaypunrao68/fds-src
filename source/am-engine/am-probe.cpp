@@ -38,6 +38,8 @@ int
 AmProbe::mod_init(SysParams const *const param) {
     FdsConfigAccessor conf(g_fdsprocess->get_conf_helper());
     numThreads = conf.get_abs<fds_uint32_t>("fds.am.testing.probe_num_threads");
+    outstandingReqs = conf.get_abs<fds_uint32_t>("fds.am.testing.probe_outstanding_reqs");
+    sleepPeriod = conf.get_abs<fds_uint32_t>("fds.am.testing.probe_sleep_period");
     threadPool = fds_threadpoolPtr(new fds_threadpool(numThreads));
 
     txDesc.reset(new BlobTxId());
@@ -322,14 +324,14 @@ AmProbe::AmProbeOp::js_exec_obj(JsObject *parent,
     gl_AmProbe.numOps = numOps;
     gl_AmProbe.startTime = util::getTimeStampMicros();
     for (fds_uint32_t i = 0; i < numOps; i++) {
-        while (gl_AmProbe.isDispatchedGreaterThan(200)) {
-            boost::this_thread::sleep(boost::posix_time::microseconds(1000));
+        while (gl_AmProbe.isDispatchedGreaterThan(gl_AmProbe.outstandingReqs)) {
+            boost::this_thread::sleep(boost::posix_time::microseconds(gl_AmProbe.sleepPeriod));
         }
         gl_AmProbe.incDispatched();
         node = static_cast<AmProbeOp *>((*parent)[i]);
         info = node->am_ops();
         LOGDEBUG << "Doing a " << info->op << " for blob "
-                 << info->blobName;
+                 << info->blobName << " volume: " << info->volumeName;
 
         fds_int32_t blobMode = 0;
         if (info->op == "startBlobTx") {

@@ -23,6 +23,8 @@ class AmProbe : public ProbeMod {
     FDS_NativeAPI::ptr               am_api;
     boost::shared_ptr<boost::thread> listen_thread;
     fds_uint32_t                     numThreads;
+    fds_uint32_t                     outstandingReqs;
+    fds_uint32_t                     sleepPeriod;
     fds_uint32_t                     numOps;
     fds_atomic_ullong                recvdOps;
     fds_atomic_ullong                dispatchedOps;
