@@ -730,7 +730,7 @@ VolumeInfo::vol_fmt_desc_pkt(FDSP_VolumeDescType *pkt) const
     pkt->appWorkload       = pVol->appWorkload;
     pkt->mediaPolicy   = pVol->mediaPolicy;
     pkt->fSnapshot   = pVol->fSnapshot;
-    pkt->fSnapshot   = pVol->fSnapshot;
+    pkt->parentVolumeId   = pVol->parentVolumeId;
 }
 
 // vol_fmt_message
