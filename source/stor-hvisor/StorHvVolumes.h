@@ -119,7 +119,7 @@ class StorHvVolumeTable : public HasLogger {
      * object is still valid via StorHvVolume::isValidLocked()
      * before using the volume object
      * Returns NULL is volume does not exist
-     */
+<     */
     StorHvVolume* getVolume(fds_volid_t vol_uuid);
 
     /**
@@ -137,6 +137,13 @@ class StorHvVolumeTable : public HasLogger {
      * if volume does not exist, returns 'invalid_vol_id'
      */
     fds_volid_t getVolumeUUID(const std::string& vol_name);
+
+    /**
+     * Returns the base volume id for DMT lookup.
+     * for regular volumes , returns the same uuid
+     * for snapshots, returns the parent uuid
+     */
+    fds_volid_t getBaseVolumeId(fds_volid_t volId);
 
     /**
      * Returns volume name if found in volume map.

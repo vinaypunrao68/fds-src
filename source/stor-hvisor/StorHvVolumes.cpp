@@ -373,6 +373,21 @@ StorHvVolumeTable::getVolumeUUID(const std::string& vol_name) {
     return ret_id;
 }
 
+fds_volid_t StorHvVolumeTable::getBaseVolumeId(fds_volid_t vol_uuid)
+{
+    read_synchronized(map_rwlock) {
+        const auto iter = volume_map.find(vol_uuid);
+        if (iter != volume_map.end()) {
+            VolumeDesc& volDesc = *(iter->second->voldesc);
+            if (volDesc.isSnapshot() || volDesc.isClone()) {
+                return volDesc.getParentVolumeId();
+            }
+        }
+    }
+    return vol_uuid;
+}
+
+
 /**
  * returns volume name if found in volume map, otherwise returns empy string
  */
