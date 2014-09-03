@@ -1,0 +1,1 @@
+angular.module("form-directives").directive("linkbuttons",function(){return{restrict:"E",replace:!0,transclude:!1,scope:{items:"="},templateUrl:"scripts/directives/widgets/linkbuttons/linkbuttons.html",controller:function(){}}});
