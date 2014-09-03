@@ -1,8 +1,11 @@
 #!/bin/bash
-echo "yum -y install install python-pip thrift python-cinderclient nbd python-pip \
+echo "yum -y install install python-pip thrift python-cinderclient nbd \
       python-devel.x86_x64 psutil"
-yum -y install install python-pip thrift python-cinderclient nbd python-pip \
-       python-devel.x86_x64 psutil
+yum -y install install python-pip thrift python-cinderclient nbd \
+       python-devel.x86_x64
+
+echo pip install psutil
+pip install psutil
 
 echo cp ./nbd.ko /lib/modules/$(uname -r)/kernel/drivers/block/
 cp ./nbd.ko /lib/modules/$(uname -r)/kernel/drivers/block/
@@ -17,7 +20,7 @@ fi
 CINDER_DRIVER_DIR=/usr/lib/python2.6/site-packages/cinder/volume/drivers
 DRIVER=./fds_driver.tar.gz
 DRIVER_DIR=./fds
-BIN_DIR=/usr/local/bin
+BIN_DIR=/usr/sbin
 
 # copy thrift binding and fds-cinder driver to cinder driver dir.
 if [ ! -d "$CINDER_DRIVER_DIR" ]; then
@@ -53,6 +56,9 @@ cp $CINDER_CFG ${CINDER_CFG}_`date +%F-%H-%M-%S`
 cat $CINDER_CFG | grep "^[^#]*enabled_backends=[^#]*fds"
 if [ $? -eq 0 ]; then
     echo "cinder cfg already setup"
+    echo "restarting cinder"
+    echo "Restart manually"
+    # service openstack-cinder-volume restart
     exit 0
 else
     ## no fds found 

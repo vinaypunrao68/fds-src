@@ -4,12 +4,15 @@ if [ $# -eq 1 ]; then
 else
     PIP_PROXY=""
 fi
+echo yum -y install nbd gcc python-pip python-devel.x86_64
 yum -y install nbd gcc python-pip python-devel.x86_64
+
+echo pip $PIP_PROXY install psutil
 pip $PIP_PROXY install psutil
 
 cp ./nbd.ko /lib/modules/$(uname -r)/kernel/drivers/block/
 
-BIN_DIR=/usr/local/bin
+BIN_DIR=/usr/sbin
 DRIVER=./fds_driver.tar.gz
 DRIVER_DIR=./fds
 INITRC=/etc/init.d/
@@ -31,8 +34,8 @@ fi
 echo cp $DRIVER_DIR/nbdadmd.py $BIN_DIR/
 cp $DRIVER_DIR/nbdadmd.py $BIN_DIR/
 
-if [ ! -e $DRIVER_DIR/openstack-fds-nbdadmd ]; then
-    echo "FAIL: openstack-fds-nbdadmd not exist"
+if [ ! -e $DRIVER_DIR/$FDS_NBD_SVC ]; then
+    echo "FAIL: $FDS_NBD_SVC not exist"
     exit 1
 fi
 
