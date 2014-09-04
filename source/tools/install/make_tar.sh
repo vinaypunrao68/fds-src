@@ -1,5 +1,8 @@
 #!/bin/bash
 
+echo "Cleaning up the old tree"
+rm -rf /tmp/fdsinstall  /tmp/fdsinstall.tar.gz
+
 echo "Making packages"
 cd pkg
 make

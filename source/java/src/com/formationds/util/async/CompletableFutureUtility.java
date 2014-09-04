@@ -1,4 +1,4 @@
-package com.formationds.util;
+package com.formationds.util.async;
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */

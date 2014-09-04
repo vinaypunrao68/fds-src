@@ -65,7 +65,7 @@ public class Main {
 
             Xdi xdi = new Xdi(am, configCache, authenticator, authorizer, legacyClientFactory.configPathClient(omHost, omLegacyConfigPort));
             ByteBufferPool bbp = new ArrayByteBufferPool();
-            XdiAsync xdiAsync = new XdiAsync(clientFactory.remoteAmServiceAsync("localhost", 9988), clientFactory.remoteOmServiceAsync(omHost, omConfigPort), bbp);
+            XdiAsync xdiAsync = new XdiAsync(clientFactory.makeCsAsyncPool(omHost, omConfigPort), clientFactory.makeAmAsyncPool("localhost", 9988), bbp);
 
             int s3Port = amParsedConfig.lookup("fds.am.s3_port").intValue();
             new Thread(() -> new S3Endpoint(xdi, xdiAsync).start(s3Port)).start();

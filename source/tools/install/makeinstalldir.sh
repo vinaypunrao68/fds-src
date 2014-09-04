@@ -7,6 +7,7 @@ SOURCEDIR=$(pwd)
 PKGDIR=$(cd pkg; pwd)
 PKGSERVER=http://coke.formationds.com:8000/external/
 THISFILE=$(basename $0)
+PKGCACHEDIR="${SOURCEDIR}/.pkg.cache"
 
 externalpkgs=(
     libpcre3_8.31-2ubuntu2_amd64.deb
@@ -47,14 +48,24 @@ fdsrepopkgs=(
 )
 
 function getExternalPkgs() {
-    loginfo "fetching external pkgs"
+    if [[ ! -e ${PKGCACHEDIR} ]] ; then
+        loginfo "Creating package cache directory [${PKGCACHEDIR}]"
+        mkdir ${PKGCACHEDIR}
+    fi
+
+    loginfo "Checking external pkgs"
     (
         cd ${INSTALLDIR}
         for pkg in ${externalpkgs[@]} ; do
-            loginfo "fetching pkg [$pkg]"
-            if ! (wget -N ${PKGSERVER}/$pkg) ; then
-                logerror "unable to fetch [$pkg] from ${PKGSERVER}"
+            loginfo "Checking pkg [$pkg]"
+            if [[ ! -f ${PKGCACHEDIR}/${pkg} ]] ; then
+                loginfo "fetching pkg [$pkg]"
+                if ! (wget ${PKGSERVER}/$pkg -O ${PKGCACHEDIR}/${pkg}) ; then
+                    logerror "unable to fetch [$pkg] from ${PKGSERVER}"
+                fi
             fi
+            loginfo "copying ${pkg}"
+            cp ${PKGCACHEDIR}/${pkg} ${pkg}
         done
     )
 }

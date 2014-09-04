@@ -5,21 +5,21 @@ package com.formationds.xdi.s3;
 
 import com.formationds.apis.ApiException;
 import com.formationds.apis.ErrorCode;
-import com.formationds.util.CompletableFutureUtility;
+import com.formationds.util.async.CompletableFutureUtility;
 import com.formationds.web.toolkit.AsyncRequestExecutor;
 import com.formationds.xdi.XdiAsync;
+import org.apache.commons.codec.binary.Hex;
 import org.eclipse.jetty.http.HttpStatus;
 import org.eclipse.jetty.http.HttpURI;
 import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.server.Response;
-import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
 import javax.servlet.AsyncContext;
 import javax.servlet.ServletOutputStream;
-import javax.servlet.ServletRequest;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -59,7 +59,9 @@ public class S3AsyncApplication implements AsyncRequestExecutor {
             CompletableFuture<Void> actionChain =
                 result.get()
                       .exceptionally(ex -> handleError(ex, request, response))
-                      .whenComplete((r, ex) -> ctx.complete());
+                      .whenComplete((r, ex) -> {
+                          ctx.complete();
+                      });
 
             return Optional.of(actionChain);
         }
@@ -101,8 +103,12 @@ public class S3AsyncApplication implements AsyncRequestExecutor {
         try {
             ServletOutputStream outputStream = response.getOutputStream();
             return xdiAsync.statBlob(S3Endpoint.FDS_S3, bucket, object).thenCompose(stat -> {
-                String contentType = stat.getMetadata().getOrDefault("Content-Type", "application/octet-stream");
+                Map<String, String> md = stat.getMetadata();
+                String contentType = md.getOrDefault("Content-Type", "application/octet-stream");
                 appendStandardHeaders(response, contentType, HttpStatus.OK_200);
+                if(md.containsKey("etag"))
+                    response.addHeader("etag", formatEtag(md.get("etag")));
+
                 return xdiAsync.getBlobToStream(S3Endpoint.FDS_S3, bucket, object, outputStream);
             });
         } catch(Exception e) {
@@ -113,9 +119,18 @@ public class S3AsyncApplication implements AsyncRequestExecutor {
     public CompletableFuture<Void> putObject(String bucket, String object, Request request, Response response) {
         try {
             appendStandardHeaders(response, "application/octet-stream", HttpStatus.OK_200);
-            return xdiAsync.putBlobFromStream(S3Endpoint.FDS_S3, bucket, object, request.getInputStream());
+            CompletableFuture<XdiAsync.PutResult> putResult = xdiAsync.putBlobFromStream(S3Endpoint.FDS_S3, bucket, object, request.getInputStream());
+            return putResult.thenAccept(result -> response.addHeader("etag", formatEtag(result.digest)));
         } catch(Exception e) {
             return CompletableFutureUtility.exceptionFuture(e);
         }
+    }
+
+    public String formatEtag(String input) {
+        return "\"" + input + "\"";
+    }
+
+    public String formatEtag(byte[] input) {
+        return formatEtag(Hex.encodeHexString(input));
     }
 }
