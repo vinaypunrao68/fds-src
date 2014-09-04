@@ -66,7 +66,10 @@ void DMSvcHandler::deleteSnapshot(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
      * get the snapshot manager instanace 
      * invoke the deleteSnapshot DM function 
      */
-    err = dataMgr->process_rm_vol(deleteSnapshot->snapshotId, false);
+    err = dataMgr->process_rm_vol(deleteSnapshot->snapshotId, true);
+    if (err.ok()) {
+        err = dataMgr->process_rm_vol(deleteSnapshot->snapshotId, false);
+    }
 
     asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
     fpi::DeleteSnapshotRespMsg deleteSnapshotResp;
