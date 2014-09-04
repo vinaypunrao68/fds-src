@@ -29,7 +29,6 @@ VolumeDesc::VolumeDesc(const fpi::FDSP_VolumeInfoType& volinfo,
     appWorkload = volinfo.appWorkload;
     backupVolume = volinfo.backupVolume;
     mediaPolicy = volinfo.mediaPolicy;
-    snapshot = false;
     /// FDSP_VolumeInfoTypePtr does not contain policy details
     // but it is so far only called in orchMgr where policy
     // details are explicitly set after the construction, so
@@ -126,7 +125,6 @@ VolumeDesc::VolumeDesc(const std::string& _name, fds_volid_t _uuid)
     iops_min = 0;
     iops_max = 0;
     relativePrio = 0;
-    snapshot = false;
     assert(volUUID != invalid_vol_id);
 }
 
@@ -159,7 +157,6 @@ VolumeDesc::VolumeDesc(const std::string& _name,
     appWorkload = fpi::FDSP_APP_WKLD_TRANSACTION;
     mediaPolicy = fpi::FDSP_MEDIA_POLICY_HDD;
     backupVolume = 0;
-    snapshot = false;
 }
 
 VolumeDesc::~VolumeDesc() {
@@ -265,7 +262,7 @@ std::ostream& operator<<(std::ostream& os, const VolumeDesc& vol) {
               << " iops.min:" << vol.iops_min
               << " iops.max:" << vol.iops_max
               << " rel.prio:" << vol.relativePrio
-              << " snapshot:" << vol.snapshot
+              << " isSnapshot:" << vol.fSnapshot
               << " ]";
 }
 
