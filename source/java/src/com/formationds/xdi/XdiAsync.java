@@ -201,7 +201,7 @@ public class XdiAsync {
         CompletableFuture<Void> readNextFuture = readCompleteFuture.thenCompose(readLength -> {
             if(readBuf.remaining() < putParameters.objectSize)
                 return CompletableFuture.<Void>completedFuture(null);
-            return putSequence(putParameters, tx, objectOffset + 1);
+            return digestFuture.thenCompose(_digestCompletion -> putSequence(putParameters, tx, objectOffset + 1));
         });
 
         return CompletableFuture.allOf(writeFuture, readNextFuture);
