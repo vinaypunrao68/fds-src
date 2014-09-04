@@ -91,7 +91,7 @@ class OrchMgr: public PlatformProcess {
 
     bool loadFromConfigDB();
     void defaultS3BucketPolicy();  // default  policy  desc  for s3 bucket
-
+    DmtColumnPtr getDMTNodesForVolume(fds_volid_t volId);
     kvstore::ConfigDB* getConfigDB();
 
     static VolPolicyMgr      *om_policy_mgr();

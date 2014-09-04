@@ -440,6 +440,11 @@ bool OrchMgr::loadFromConfigDB() {
     return true;
 }
 
+DmtColumnPtr OrchMgr::getDMTNodesForVolume(fds_volid_t volId) {
+    DMTPtr dmt = OM_Module::om_singleton()->om_volplace_mod()->getCommittedDMT();
+    return dmt->getNodeGroup(volId);
+}
+
 kvstore::ConfigDB* OrchMgr::getConfigDB() {
     return configDB;
 }
