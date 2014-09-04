@@ -126,7 +126,7 @@ class TierTest(object):
         return out
 
 
-    def run_hybrid_test(self, url, num_objs=100, obj_size=1024, hotspot_reads=100,
+    def run_hybrid_test(self, url, num_objs=300, obj_size=1024, hotspot_reads=100,
                         hotspot_size=10):
         '''This test will run by issuing a series of PUTs, to populate a
         volume, followed by a series of GETs. The GETs should continue
@@ -179,22 +179,31 @@ class TierTest(object):
             print "Performing GET #", i+1
             res = TestUtil.get(url, hs_objs)
         print "Hotspot should be created..."
+        # Get a snapshot of stats here
+        print "Collecting post-hotspot stats..."
+        stats['post_hotspot'] = self.__get_stat_snapshot_from_counters()
+
         print "Sleeping for 3 minutes, allowing ranking engine to catch up..."
-        time.sleep(180)
-        
+        for i in range(6):
+            time.sleep(30)
+            print "Collecting post-hotspot stats..."
+            stats['post_hotspot'+str(i)] = self.__get_stat_snapshot_from_counters()
+
+
+
         print "Performing GETs on non-hot objects to verify data movement between HDD/SSD..."
         for obj in remainder_objs:
             res = TestUtil.get(url, [obj])
 
         # Get a snapshot of stats here
         print "Collecting post-test stats..."
-        stats['post_hotspot'] = self.__get_stat_snapshot_from_counters()
+        stats['post_test'] = self.__get_stat_snapshot_from_counters()
         print stats
 
         if (stats['post_write'][0] == num_objs and 
             stats['post_write'][1] is None and
-            stats['post_hotspot'][0] == num_objs and
-            stats['post_hotspot'][1] == (hotspot_reads * len(hs_objs))):
+            stats['post_test'][0] == num_objs and
+            stats['post_hotspot'][1] == stats['post_test'][1]):
             print "Hybrid tier test: PASSED!"
             return True
         else:
@@ -202,7 +211,7 @@ class TierTest(object):
             return False
 
 
-    def run_cap_pref_test(self, url, num_objs=100, obj_size=1024, hotspot_reads=100,
+    def run_cap_pref_test(self, url, num_objs=300, obj_size=1024, hotspot_reads=100,
                           hotspot_size=10):
         '''This test will run by issuing a series of PUTs, to populate a
         volume, followed by a series of GETs. The GETs should continue
@@ -350,7 +359,7 @@ if __name__ == "__main__":
     hybrid_parser = subparsers.add_parser('hybrid', help='Run a hybrid tiering policy test.')
     hybrid_parser.set_defaults(func=TierUtils.single_hybrid_test)
     hybrid_parser.add_argument('--num_objs', type=int, 
-                               help='Number of objects to populate volume with. Default: 100')
+                               help='Number of objects to populate volume with. Default: 300')
     hybrid_parser.add_argument('--obj_size', type=int,
                                help='Size in bytes of objects to PUT. Default: 1024')
     hybrid_parser.add_argument('--hotspot_reads', type=int,
@@ -368,7 +377,7 @@ if __name__ == "__main__":
     cap_parser = subparsers.add_parser('capacity', help='Run a test with capacity preferred policy.')
     cap_parser.set_defaults(func=TierUtils.single_cap_test)
     cap_parser.add_argument('--num_objs', type=int, 
-                               help='Number of objects to populate volume with. Default: 100')
+                               help='Number of objects to populate volume with. Default: 300')
     cap_parser.add_argument('--obj_size', type=int,
                                help='Size in bytes of objects to PUT. Default: 1024')
     cap_parser.add_argument('--hotspot_reads', type=int,
