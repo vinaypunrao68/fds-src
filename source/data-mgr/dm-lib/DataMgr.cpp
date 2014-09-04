@@ -35,7 +35,7 @@ Error DataMgr::vol_handler(fds_volid_t vol_uuid,
                                         vol_uuid, desc,
                                         (vol_flag == fpi::FDSP_NOTIFY_VOL_WILL_SYNC));
     } else if (vol_action == fds_notify_vol_rm) {
-        err = dataMgr->_process_rm_vol(vol_uuid, vol_flag == fpi::FDSP_NOTIFY_VOL_CHECK_ONLY);
+        err = dataMgr->process_rm_vol(vol_uuid, vol_flag == fpi::FDSP_NOTIFY_VOL_CHECK_ONLY);
     } else if (vol_action == fds_notify_vol_mod) {
         err = dataMgr->_process_mod_vol(vol_uuid, *desc);
     } else {
@@ -557,7 +557,7 @@ Error DataMgr::_process_mod_vol(fds_volid_t vol_uuid, const VolumeDesc& voldesc)
     return err;
 }
 
-Error DataMgr::_process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only) {
+Error DataMgr::process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only) {
     Error err(ERR_OK);
 
     // mark volume as deleted if it's not empty
