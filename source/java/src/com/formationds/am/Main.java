@@ -52,7 +52,7 @@ public class Main {
                     //clientFactory.remoteAmService("localhost", 4242);
 
             ConfigurationServiceCache configCache = new ConfigurationServiceCache(clientFactory.remoteOmService(omHost, omConfigPort));
-            boolean enforceAuth = platformConfig.lookup("fds.am.authentication").booleanValue();
+            boolean enforceAuth = platformConfig.lookup("fds.authentication").booleanValue();
             Authenticator authenticator = enforceAuth? new FdsAuthenticator(configCache, secretKey) : new NullAuthenticator();
             Authorizer authorizer = enforceAuth? new FdsAuthorizer(configCache) : new DumbAuthorizer();
 

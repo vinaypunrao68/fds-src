@@ -65,7 +65,7 @@ public class Main {
         FDSP_ConfigPathReq.Iface legacyConfigClient = legacyClientFactory.configPathClient(omHost, omPort);
         VolumeStatistics volumeStatistics = new VolumeStatistics(Duration.standardMinutes(20));
 
-        boolean enforceAuthentication = platformConfig.lookup("fds.om.authentication").booleanValue();
+        boolean enforceAuthentication = platformConfig.lookup("fds.authentication").booleanValue();
         Authenticator authenticator = enforceAuthentication ? new FdsAuthenticator(configCache, secretKey) : new NullAuthenticator();
         Authorizer authorizer = enforceAuthentication ? new FdsAuthorizer(configCache) : new DumbAuthorizer();
 
