@@ -34,9 +34,9 @@ public class FdsObjectIteratorTest {
         when(config.statVolume(domainName, volumeName)).thenReturn(volumeDescriptor);
         when(am.statBlob(domainName, volumeName, blobName)).thenReturn(blobDescriptor);
 
-        when(am.getBlob(domainName, volumeName, blobName, 4, new ObjectOffset(0))).thenReturn(blocks[0]);
-        when(am.getBlob(domainName, volumeName, blobName, 3, new ObjectOffset(1))).thenReturn(blocks[1]);
-        when(am.getBlob(domainName, volumeName, blobName, 2, new ObjectOffset(1))).thenReturn(ByteBuffer.wrap(new byte[] {4, 5}));
+        when(am.getBlob(domainName, volumeName, blobName, 4, new ObjectOffset(0))).thenAnswer(o -> blocks[0].slice());
+        when(am.getBlob(domainName, volumeName, blobName, 3, new ObjectOffset(1))).thenAnswer(o -> blocks[1].slice());
+        when(am.getBlob(domainName, volumeName, blobName, 2, new ObjectOffset(1))).thenAnswer(o -> ByteBuffer.wrap(new byte[] {4, 5}));
 
         FdsObjectIterator iterator = new FdsObjectIterator(am, config);
 
