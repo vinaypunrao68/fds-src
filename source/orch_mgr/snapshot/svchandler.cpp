@@ -10,6 +10,7 @@
 #include <net/net-service-tmpl.hpp>
 #include <net/SvcRequestPool.h>
 #include <snapshot/svchandler.h>
+#include <OmResources.h>
 #include <orchMgr.h>
 
 namespace fds { namespace snapshot {
@@ -23,7 +24,7 @@ Error OmSnapshotSvcHandler::omSnapshotCreate(const fpi::Snapshot& snapshot) {
 
     fpi::CreateSnapshotMsgPtr msg(new fpi::CreateSnapshotMsg());
     msg->snapshot = snapshot;
-    auto cb = RESPONSE_MSG_HANDLER(OmSnapshotSvcHandler::omSnapshotCreateResp);
+    auto cb = RESPONSE_MSG_HANDLER(OmSnapshotSvcHandler::omSnapshotCreateResp, msg);
     auto asyncReq = gSvcRequestPool->newQuorumSvcRequest(
         boost::make_shared<DltObjectIdEpProvider>(om->getDMTNodesForVolume(volId)));
     asyncReq->setPayload(FDSP_MSG_TYPEID(fpi::CreateSnapshotMsg), msg);
@@ -34,9 +35,19 @@ Error OmSnapshotSvcHandler::omSnapshotCreate(const fpi::Snapshot& snapshot) {
     return err;
 }
 
-void OmSnapshotSvcHandler::omSnapshotCreateResp(QuorumSvcRequest* svcReq,
-                            const Error& error,
-                            boost::shared_ptr<std::string> payload) {
+void OmSnapshotSvcHandler::omSnapshotCreateResp(fpi::CreateSnapshotMsgPtr request,
+                                                QuorumSvcRequest* svcReq,
+                                                const Error& error,
+                                                boost::shared_ptr<std::string> payload) {
+    // Return if err
+    if (error != ERR_OK) {
+        LOGWARN << "error in response: " << error;
+        LOGWARN << "create snapshot for [" << request->snapshot.snapshotName << "] failed";
+    }
+
+    OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+    VolumeContainer::pointer volContainer = local->om_vol_mgr();
+    volContainer->addSnapshot(request->snapshot);
 }
 
 

@@ -23,7 +23,8 @@ class OmSnapshotSvcHandler {
   public:
     explicit OmSnapshotSvcHandler(OrchMgr* om);
     Error omSnapshotCreate(const fpi::Snapshot& snapshot);
-    void omSnapshotCreateResp(QuorumSvcRequest* svcReq,
+    void omSnapshotCreateResp(fpi::CreateSnapshotMsgPtr request,
+                              QuorumSvcRequest* svcReq,
                               const Error& error,
                               boost::shared_ptr<std::string> payload);
     Error omSnapshotDelete(fds_uint64_t snapshotId, fds_uint64_t volId);
