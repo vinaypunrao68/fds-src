@@ -410,7 +410,7 @@ class DataMgr : public Module, public DmIoReqHandler {
     /**
      * Create snapshot of a specified volume
      */
-    Error createSnapshot(const fpi::SnapshotMsg & snapDetails);
+    Error createSnapshot(const fpi::Snapshot& snapDetails);
 
     /**
      * Delete snapshot

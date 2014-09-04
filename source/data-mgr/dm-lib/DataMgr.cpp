@@ -257,7 +257,7 @@ DataMgr::finishCloseDMT() {
 }
 
 Error
-DataMgr::createSnapshot(const fpi::SnapshotMsg & snapDetails) {
+DataMgr::createSnapshot(const fpi::Snapshot & snapDetails) {
     VolumeMeta * volmeta = 0;
     {
         FDSGUARD(*vol_map_mtx);
@@ -272,9 +272,9 @@ DataMgr::createSnapshot(const fpi::SnapshotMsg & snapDetails) {
     VolumeDesc snapdesc(*volmeta->vol_desc);
     snapdesc.volUUID = snapDetails.snapshotId;
     snapdesc.name = snapDetails.snapshotName;
-    snapdesc.parentVolUUID = snapDetails.volumeId;
+    snapdesc.parentVolumeId = snapDetails.volumeId;
     snapdesc.ctime = boost::posix_time::from_time_t(snapDetails.creationTimestamp);
-    snapdesc.snapshot = true;
+    snapdesc.fSnapshot = true;
 
     Error rc = timeVolCat_->createSnapshot(*volmeta->vol_desc, snapdesc);
     if (!rc.ok()) {
