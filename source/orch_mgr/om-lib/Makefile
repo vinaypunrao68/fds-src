@@ -9,17 +9,7 @@ user_fds_ar_libs  :=
 user_non_fds_libs :=
 user_incl_dir     := $(topdir) ../include
 
-orch_mgr_cpp      :=                   \
-    orchMgr.cpp                        \
-    OmTier.cpp                         \
-    OmVolPolicy.cpp   	               \
-    OmLocDomain.cpp	  	       \
-    OmAdminCtrl.cpp                    \
-    OmReqHandler.cpp                   \
-    OmRespHandler.cpp                  \
-    omutils.cpp                        \
-    OmLocDomain.cpp
-
+orch_mgr_cpp      := $(wildcard *.cpp)
 user_hh           := $(wildcard *.h)
 user_cpp          := $(orch_mgr_cpp)
 
