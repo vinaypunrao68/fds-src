@@ -109,10 +109,6 @@ public class Main {
         fdsAdminOnly(HttpMethod.PUT, "/api/system/tenants/:tenantid/:userid", (t) -> new AssignUserToTenant(configCache, secretKey), authorizer);
 
 
-        // [fm] Temporary
-        webApp.route(HttpMethod.GET, "/api/config/user/:login/:password", () -> new CreateAdminUser(configCache));
-
-
         new Thread(() -> {
             try {
                 new com.formationds.demo.Main().start(configuration.getDemoConfig());
