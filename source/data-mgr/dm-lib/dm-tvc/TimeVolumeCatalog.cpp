@@ -129,6 +129,50 @@ DmTimeVolCatalog::addVolume(const VolumeDesc& voldesc) {
 }
 
 Error
+DmTimeVolCatalog::createSnapshot(const VolumeDesc & voldesc, const VolumeDesc & snapVoldesc) {
+    DmCommitLog::ptr commitLog;
+    COMMITLOG_GET(voldesc.volUUID, commitLog);
+    fds_assert(commitLog);
+
+    // Put snapshot entry into volume operation journal
+    // Also start buffering
+    BlobTxId::const_ptr txId(new BlobTxId(snapVoldesc.volUUID));
+    Error rc = commitLog->snapshot(txId, snapVoldesc.name);
+    if (!rc.ok()) {
+        GLOGERROR << "Failed to write entry into commit log for snapshot '" << std::hex <<
+                snapVoldesc.volUUID << std::dec << "', volume '" << std::hex << voldesc.volUUID
+                << std::dec << "'";
+        return rc;
+    }
+
+    // Create snapshot of volume catalog
+    rc = volcat->createSnapshot(voldesc, snapVoldesc);
+    if (!rc.ok()) {
+        GLOGERROR << "Failed to copy catalog for snapshot '" << std::hex <<
+                snapVoldesc.volUUID << std::dec << "', volume '" << std::hex <<
+                voldesc.volUUID << std::dec << "'";
+        return rc;
+    }
+
+    // catalog copy is created, flush buffer
+    blob_version_t blob_version = blob_version_invalid;
+    auto handler = std::bind(&DmTimeVolCatalog::doCommitBlob, this, voldesc.volUUID,
+            blob_version, std::placeholders::_1);
+    rc = commitLog->flushBuffer(handler);
+    if (!rc.ok()) {
+        GLOGCRITICAL << "Failed to process bufferend transactions to volume catalog";
+        return rc;
+    }
+
+    rc = commitLog->stopBuffering(handler);
+    if (!rc.ok()) {
+        GLOGCRITICAL << "Failed to process buffered transactions and stop buffering";
+    }
+
+    return rc;
+}
+
+Error
 DmTimeVolCatalog::activateVolume(fds_volid_t volId) {
     LOGDEBUG << "Will activate commit log for volume "
              << std::hex << volId << std::dec;

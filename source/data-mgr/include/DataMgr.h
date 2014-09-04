@@ -406,6 +406,16 @@ class DataMgr : public Module, public DmIoReqHandler {
      */
     void finishCloseDMT();
 
+    /**
+     * Create snapshot of a specified volume
+     */
+    Error createSnapshot(const fpi::SnapshotMsg & snapDetails);
+
+    /**
+     * Delete snapshot
+     */
+    Error deleteSnapshot(const fds_uint64_t snapshotId);
+
     /*
      * Nested class that manages the server interface.
      */

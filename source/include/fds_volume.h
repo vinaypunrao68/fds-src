@@ -78,6 +78,9 @@ class VolumeDesc {
 
     ptime ctime; /* Create time */
 
+    bool snapshot;
+    fds_volid_t parentVolUUID;
+
     VolumeDesc(const FDS_ProtocolInterface::FDSP_VolumeInfoType& volinfo,
                fds_volid_t vol_uuid);
 

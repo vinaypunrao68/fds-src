@@ -123,7 +123,8 @@ class DmCommitLog : public Module {
     fds_bool_t isPendingTx(const fds_uint64_t tsNano = util::getTimeStampNanos());
 
     // process all committed entries which are not in operation journal, and clear buffer
-    Error flushBuffer(std::function<Error (CommitLogTx::const_ptr)> handler);   // NOLINT
+    Error flushBuffer(std::function<Error (CommitLogTx::const_ptr)> handler,    // NOLINT
+            bool safe = true);
 
     // reset buffer
     inline void resetBuffer() {
@@ -138,6 +139,13 @@ class DmCommitLog : public Module {
 
     inline void stopBuffering() {
         buffering_ = false;
+    }
+
+    inline Error stopBuffering(std::function<Error (CommitLogTx::const_ptr)> handler) {  // NOLINT
+        SCOPEDWRITE(bufferLock_);
+        Error rc = flushBuffer(handler, false);
+        buffering_ = false;
+        return rc;
     }
 
     inline bool isBuffering() {

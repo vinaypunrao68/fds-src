@@ -232,17 +232,26 @@ CommitLogTx::const_ptr DmCommitLog::commitTx(BlobTxId::const_ptr & txDesc, Error
         return 0;
     }
 
-    SCOPEDWRITE(lockTxMap_);
-    CommitLogTx::ptr ptx = txMap_[txId];
+    CommitLogTx::ptr ptx;
+    {
+        SCOPEDREAD(lockTxMap_);
+        ptx = txMap_[txId];
+    }
     ptx->committed = util::getTimeStampNanos();
-    if (buffering_) {
+
+    {
         SCOPEDWRITE(bufferLock_);
-        buffer_->log(ptx.get());
-    } else {
-        journal_.log(ptx);
+        if (buffering_) {
+            buffer_->log(ptx.get());
+        } else {
+            journal_.log(ptx);
+        }
     }
 
-    txMap_.erase(txId);
+    {
+        SCOPEDWRITE(lockTxMap_);
+        txMap_.erase(txId);
+    }
 
     return ptx;
 }
@@ -345,7 +354,8 @@ fds_bool_t DmCommitLog::isPendingTx(const fds_uint64_t tsNano /* = util::getTime
     return ret;
 }
 
-Error DmCommitLog::flushBuffer(std::function<Error (CommitLogTx::const_ptr)> handler) {  // NOLINT
+Error DmCommitLog::flushBuffer(std::function<Error (CommitLogTx::const_ptr)> handler,   // NOLINT
+        bool safe /* = true */) {
     Error rc = ERR_OK;
     boost::shared_ptr<ObjectLogger::Iterator<CommitLogTx> > iter =
             buffer_->newIterator<CommitLogTx>(-1);
@@ -354,11 +364,21 @@ Error DmCommitLog::flushBuffer(std::function<Error (CommitLogTx::const_ptr)> han
             CommitLogTx::const_ptr val = iter->value();
             rc = handler(val);
             if (rc.ok()) {
-                SCOPEDWRITE(bufferLock_);
+                if (safe) {
+                    bufferLock_.write_lock();
+                }
+
                 iter->next();
                 if (!iter->valid()) {   // eof, all entries are processed
                     buffer_->reset();
+                    if (safe) {
+                        bufferLock_.write_unlock();
+                    }
                     break;
+                }
+
+                if (safe) {
+                    bufferLock_.write_unlock();
                 }
             }
         } while (rc.ok());

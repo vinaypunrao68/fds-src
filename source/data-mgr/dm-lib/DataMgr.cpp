@@ -256,6 +256,61 @@ DataMgr::finishCloseDMT() {
     // TODO(Anna) remove volume catalog for volumes we finished forwarding
 }
 
+Error
+DataMgr::createSnapshot(const fpi::SnapshotMsg & snapDetails) {
+    VolumeMeta * volmeta = 0;
+    {
+        FDSGUARD(*vol_map_mtx);
+        volmeta = vol_meta_map[snapDetails.volumeId];
+    }
+    if (!volmeta) {
+        GLOGWARN << "Volume '" << std::hex << snapDetails.volumeId << std::dec <<
+                "' not found!";
+        return ERR_NOT_FOUND;
+    }
+
+    VolumeDesc snapdesc(*volmeta->vol_desc);
+    snapdesc.volUUID = snapDetails.snapshotId;
+    snapdesc.name = snapDetails.snapshotName;
+    snapdesc.parentVolUUID = snapDetails.volumeId;
+    snapdesc.ctime = boost::posix_time::from_time_t(snapDetails.creationTimestamp);
+    snapdesc.snapshot = true;
+
+    Error rc = timeVolCat_->createSnapshot(*volmeta->vol_desc, snapdesc);
+    if (!rc.ok()) {
+        GLOGERROR << "Failed to create a snapshot '" << snapDetails.snapshotName << "'";
+        return rc;
+    }
+    rc = timeVolCat_->activateVolume(snapdesc.volUUID);
+
+    VolumeMeta * snapmeta = new VolumeMeta(snapdesc.name, snapdesc.volUUID, GetLog(), &snapdesc);
+
+    snapmeta->dmVolQueue = new FDS_VolumeQueue(4096, snapdesc.iops_max, 2 * snapdesc.iops_min,
+            snapdesc.relativePrio);
+    snapmeta->dmVolQueue->activate();
+
+    GLOGDEBUG << "Added vol meta for vol uuid and per Volume queue '" << std::hex <<
+            snapdesc.volUUID << std::dec << "'";
+
+    FDSGUARD(*vol_map_mtx);
+
+    rc = dataMgr->qosCtrl->registerVolume(snapdesc.volUUID, static_cast<FDS_VolumeQueue*>(
+            snapmeta->dmVolQueue));
+    if (!rc.ok()) {
+        delete snapmeta;
+        return rc;
+    }
+    vol_meta_map[snapdesc.volUUID] = snapmeta;
+
+    return rc;
+}
+
+Error
+DataMgr::deleteSnapshot(const fds_uint64_t snapshotId) {
+    // TODO(umesh): implement this
+    return ERR_OK;
+}
+
 //
 // handle finish forward for volume 'volid'
 //
