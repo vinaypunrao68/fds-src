@@ -4,6 +4,8 @@ package com.formationds.xdi;
  */
 
 import com.formationds.apis.*;
+import com.formationds.security.AuthenticationToken;
+import com.formationds.security.Authorizer;
 import com.formationds.util.async.AsyncMessageDigest;
 import com.formationds.util.async.AsyncResourcePool;
 import com.formationds.util.ByteBufferUtility;
@@ -32,37 +34,21 @@ import java.util.function.Function;
 
 public class XdiAsync {
     private AsyncResourcePool<XdiClientConnection<AmService.AsyncIface>> amPool;
+    private Authorizer authorizer;
     private AsyncResourcePool<XdiClientConnection<ConfigurationService.AsyncIface>> csPool;
     private ByteBufferPool bufferPool;
+    private final AuthenticationToken token;
 
-    public XdiAsync(AsyncResourcePool<XdiClientConnection<ConfigurationService.AsyncIface>> csPool, AsyncResourcePool<XdiClientConnection<AmService.AsyncIface>> amPool, ByteBufferPool bufferPool) {
+    public XdiAsync(Authorizer authorizer,
+                    AsyncResourcePool<XdiClientConnection<ConfigurationService.AsyncIface>> csPool,
+                    AsyncResourcePool<XdiClientConnection<AmService.AsyncIface>> amPool,
+                    ByteBufferPool bufferPool,
+                    AuthenticationToken token) {
+        this.authorizer = authorizer;
         this.csPool = csPool;
         this.amPool = amPool;
         this.bufferPool = bufferPool;
-    }
-
-
-    public CompletableFuture<Void> getBlobToServlet(String domain, String volume, String blob, ServletOutputStream stream) {
-        ServletOutputWrapper sow = new ServletOutputWrapper(stream);
-        return getBlobToConsumer(domain, volume, blob, bytes -> {
-                    try {
-                        return sow.outAsync(str -> {
-                            ByteBufferUtility.writeFromByteBuffer(bytes, str);
-                        });
-                    } catch(IOException ex) {
-                        return CompletableFutureUtility.exceptionFuture(ex);
-                    }
-                });
-    }
-
-    public CompletableFuture<PutResult> putBlobFromServlet(String domain, String volume, String blob, ServletInputStream stream) {
-        ServletInputWapper siw = new ServletInputWapper(stream);
-        return putBlobFromSupplier(domain, volume, blob, buf -> {
-            return siw.read(buf.array()).thenAccept(readCount -> {
-                buf.position(0);
-                buf.limit(readCount);
-            });
-        });
+        this.token = token;
     }
 
     public CompletableFuture<PutResult> putBlobFromStream(String domain, String volume, String blob, InputStream stream) {
@@ -207,8 +193,22 @@ public class XdiAsync {
         return CompletableFuture.allOf(writeFuture, readNextFuture);
     }
 
+    public <T> CompletableFuture<T> amUseVolume(String volume, AsyncResourcePool.BindWithException<XdiClientConnection<AmService.AsyncIface>, CompletableFuture<T>> operation) {
+        if(authorizer.hasAccess(token, volume))
+            return amPool.use(operation);
+        else
+            return CompletableFutureUtility.exceptionFuture(new SecurityException());
+    }
+
+    public <T> CompletableFuture<T> csUseVolume(String volume, AsyncResourcePool.BindWithException<XdiClientConnection<ConfigurationService.AsyncIface>, CompletableFuture<T>> operation) {
+        if(authorizer.hasAccess(token, volume))
+            return csPool.use(operation);
+        else
+            return CompletableFutureUtility.exceptionFuture(new SecurityException());
+    }
+
     public CompletableFuture<VolumeDescriptor> statVolume(String domain, String volume) {
-        return csPool.use(cs -> {
+        return csUseVolume(volume, cs -> {
             CompletableFuture<VolumeDescriptor> result = new CompletableFuture<>();
             cs.getClient().statVolume(domain, volume, makeThriftCallbacks(result, r -> r.getResult()));
             return result;
@@ -216,7 +216,7 @@ public class XdiAsync {
     }
 
     public CompletableFuture<BlobDescriptor> statBlob(String domain, String volume, String blob) {
-        return amPool.use(am -> {
+        return amUseVolume(volume, am -> {
             CompletableFuture<BlobDescriptor> result = new CompletableFuture<>();
             am.getClient().statBlob(domain, volume, blob, makeThriftCallbacks(result, r -> r.getResult()));
             return result;
@@ -224,7 +224,7 @@ public class XdiAsync {
     }
 
     public CompletableFuture<ByteBuffer> getBlob(String domain, String volume, String blob, long offset, int length) {
-        return amPool.use(am -> {
+        return amUseVolume(volume, am -> {
             CompletableFuture<ByteBuffer> result = new CompletableFuture<>();
             am.getClient().getBlob(domain, volume, blob, length, new ObjectOffset(offset), makeThriftCallbacks(result, r -> r.getResult()));
             return result;
@@ -232,7 +232,7 @@ public class XdiAsync {
     }
 
     public CompletableFuture<Void> updateBlobOnce(String domain, String volume, String blob, int blobMode, ByteBuffer data, int length, long offset, Map<String, String> metadata) {
-        return amPool.use(am -> {
+        return amUseVolume(volume, am -> {
             CompletableFuture<Void> result = new CompletableFuture<>();
             am.getClient().updateBlobOnce(domain, volume, blob, blobMode, data, length, new ObjectOffset(offset), metadata, makeThriftCallbacks(result, r -> null));
             return result;
@@ -240,7 +240,7 @@ public class XdiAsync {
     }
 
     public CompletableFuture<TransactionHandle> createTx(String domain, String volume, String blob, int mode) {
-        return amPool.use(am -> {
+        return amUseVolume(volume, am -> {
             CompletableFuture<TransactionHandle> result = new CompletableFuture<>();
             am.getClient().startBlobTx(domain, volume, blob, mode, makeThriftCallbacks(result, r -> new TransactionHandle(domain, volume, blob, r.getResult())));
             return result;
@@ -269,7 +269,7 @@ public class XdiAsync {
         }
 
         public CompletableFuture<Void> commit() {
-            return amPool.use(am -> {
+            return amUseVolume(volume, am -> {
                 CompletableFuture<Void> result = new CompletableFuture<>();
                 am.getClient().commitBlobTx(domain, volume, blob, descriptor, makeThriftCallbacks(result, r -> null));
                 return result;
@@ -277,7 +277,7 @@ public class XdiAsync {
         }
 
         public CompletableFuture<Void> abort() {
-            return amPool.use(am -> {
+            return amUseVolume(volume, am -> {
                 CompletableFuture<Void> result = new CompletableFuture<>();
                 am.getClient().abortBlobTx(domain, volume, blob, descriptor, makeThriftCallbacks(result, r -> null));
                 return result;
@@ -286,7 +286,7 @@ public class XdiAsync {
         }
 
         public CompletableFuture<Void> update(ByteBuffer buffer, long objectOffset, int length) {
-            return amPool.use(am -> {
+            return amUseVolume(volume, am -> {
                 CompletableFuture<Void> result = new CompletableFuture<>();
                 am.getClient().updateBlob(domain, volume, blob, descriptor, buffer, length, new ObjectOffset(objectOffset), false, makeThriftCallbacks(result, r -> null));
                 return result;
@@ -294,7 +294,7 @@ public class XdiAsync {
         }
 
         public CompletableFuture<Void> updateMetadata(Map<String, String> meta) {
-            return amPool.use(am -> {
+            return amUseVolume(volume, am -> {
                 CompletableFuture<Void> result = new CompletableFuture<Void>();
                 am.getClient().updateMetadata(domain, volume, blob, descriptor, meta, makeThriftCallbacks(result, r -> null));
                 return result;
@@ -365,6 +365,27 @@ public class XdiAsync {
                         md.put("etag", Hex.encodeHexString(bytes));
                         return md;
                     });
+        }
+    }
+
+    public static class Factory {
+        private final Authorizer authorizer;
+        private final AsyncResourcePool<XdiClientConnection<ConfigurationService.AsyncIface>> csPool;
+        private final AsyncResourcePool<XdiClientConnection<AmService.AsyncIface>> amPool;
+        private final ByteBufferPool bufferPool;
+
+        public Factory(Authorizer authorizer,
+                               AsyncResourcePool<XdiClientConnection<ConfigurationService.AsyncIface>> csPool,
+                               AsyncResourcePool<XdiClientConnection<AmService.AsyncIface>> amPool,
+                               ByteBufferPool bufferPool) {
+            this.authorizer = authorizer;
+            this.csPool = csPool;
+            this.amPool = amPool;
+            this.bufferPool = bufferPool;
+        }
+
+        public XdiAsync createAuthenticated(AuthenticationToken token) {
+            return new XdiAsync(authorizer, csPool, amPool, bufferPool, token);
         }
     }
 }

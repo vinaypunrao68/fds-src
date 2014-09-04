@@ -21,47 +21,34 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.text.MessageFormat;
 import java.text.ParseException;
-import java.util.Date;
-import java.util.Enumeration;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-public class S3Authenticator implements Supplier<RequestHandler> {
-    private Function<AuthenticationToken, RequestHandler> handler;
+public class S3Authenticator {
     private Xdi xdi;
     private SecretKey secretKey;
 
-    public S3Authenticator(Function<AuthenticationToken, RequestHandler> handler, Xdi xdi, SecretKey secretKey) {
-        this.handler = handler;
+    public S3Authenticator(Xdi xdi, SecretKey secretKey) {
         this.xdi = xdi;
         this.secretKey = secretKey;
     }
 
-    @Override
-    public RequestHandler get() {
-        return (request, routeParameters) -> {
-            if (xdi.getAuthenticator().allowAll()) {
-                return handler.apply(AuthenticationToken.ANONYMOUS).handle(request, routeParameters);
-            }
+    public AuthenticationToken authenticate(Request request) throws SecurityException {
+        if (xdi.getAuthenticator().allowAll()) {
+            return AuthenticationToken.ANONYMOUS;
+        }
 
-            String candidateHeader = request.getHeader("Authorization");
-            AuthenticationComponents authenticationComponents = null;
-            try {
-                authenticationComponents = resolveFdsCredentials(candidateHeader);
-            } catch (SecurityException e) {
-                return new S3Failure(S3Failure.ErrorCode.AccessDenied, "Access denied", request.getRequestURI());
-            }
+        String candidateHeader = request.getHeader("Authorization");
+        AuthenticationComponents authenticationComponents = resolveFdsCredentials(candidateHeader);
 
-            String requestHash = hashRequest(request, authenticationComponents);
+        String requestHash = hashRequest(request, authenticationComponents);
 
-            if (candidateHeader.equals(requestHash)) {
-                return handler.apply(AuthenticationToken.ANONYMOUS).handle(request, routeParameters);
-            } else {
-                return new S3Failure(S3Failure.ErrorCode.AccessDenied, "Access denied", request.getRequestURI());
-            }
-        };
+        if (candidateHeader.equals(requestHash)) {
+            return authenticationComponents.fdsToken;
+        } else {
+            throw new SecurityException();
+        }
     }
 
     private String hashRequest(Request request, AuthenticationComponents authComponents) {

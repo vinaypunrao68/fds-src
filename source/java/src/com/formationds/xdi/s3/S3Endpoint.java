@@ -19,11 +19,11 @@ public class S3Endpoint {
     public static final String FDS_S3_SYSTEM_BUCKET_NAME = FDS_S3_SYSTEM;
 
     private Xdi xdi;
-    private XdiAsync xdiAsync;
+    private XdiAsync.Factory xdiAsync;
     private SecretKey secretKey;
     private final WebApp webApp;
 
-    public S3Endpoint(Xdi xdi, XdiAsync xdiAsync, SecretKey secretKey) {
+    public S3Endpoint(Xdi xdi, XdiAsync.Factory xdiAsync, SecretKey secretKey) {
         this.xdi = xdi;
         this.xdiAsync = xdiAsync;
         this.secretKey = secretKey;
@@ -44,13 +44,20 @@ public class S3Endpoint {
         authenticate(HttpMethod.HEAD, "/:bucket/:object", (t) -> new HeadObject(xdi, t));
         authenticate(HttpMethod.DELETE, "/:bucket/:object", (t) -> new DeleteObject(xdi, t));
 
-        webApp.addAsyncExecutor(new S3AsyncApplication(xdiAsync));
+        webApp.addAsyncExecutor(new S3AsyncApplication(xdiAsync, new S3Authenticator(xdi, secretKey)));
 
         webApp.start(port);
     }
 
     private void authenticate(HttpMethod method, String route, Function<AuthenticationToken, RequestHandler> f) {
         Function<AuthenticationToken, RequestHandler> errorHandler = new S3FailureHandler(f);
-        webApp.route(method, route, new S3Authenticator(errorHandler, xdi, secretKey));
+        webApp.route(method, route, () -> (r, rp) -> {
+            try {
+                AuthenticationToken token = new S3Authenticator(xdi, secretKey).authenticate(r);
+                return errorHandler.apply(token).handle(r, rp);
+            } catch (SecurityException e) {
+                return new S3Failure(S3Failure.ErrorCode.AccessDenied, "Access denied", r.getRequestURI());
+            }
+        });
     }
 }
