@@ -72,7 +72,7 @@ bool Scheduler::removePolicy(uint64_t policyId) {
 }
 
 void Scheduler::dump() {
-    LOGDEBUG << "dump of scheduler queue:";
+    LOGDEBUG << " --- scheduler queue ---";
     for (PriorityQueue::ordered_iterator it = pq.ordered_begin(); it != pq.ordered_end(); ++it) {
         LOGDEBUG << *(*it) << ' ';
     }
@@ -104,7 +104,7 @@ void Scheduler::run() {
             dump();
             if (task->runAtTime > currTime) {
                 // there is no task to be executed at the time
-                LOGDEBUG << "going into wait . currTime:";
+                LOGDEBUG << "going into wait ...";
                 monitor.waitForTimeRelative((task->runAtTime - currTime)*1000);  // ms
             } else {
                 // to be executed now ..
