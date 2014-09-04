@@ -130,7 +130,8 @@ fds_uint32_t ObjectRankEngine::rankAndInsertObject(const ObjectID& objId, const 
   /* current implementation works as if insert of existing object is an update, eg. of 
    * existing object has 'all disk' policy but we insert same object with 'all ssd' policy,
    * the object rank will reflect 'all ssd' policy */
-  //  LOGNORMAL << "ObjectRankEngine: rankAndInsertObject: vol " << voldesc.volUUID;
+  LOGTRACE << "ObjectRankEngine: rankAndInsertObject: vol " << voldesc.volUUID
+           << " cached_obj_map size " << cached_obj_map.size();
 
   map_mutex->lock();
 
@@ -235,7 +236,8 @@ void ObjectRankEngine::analyzeStats()
     return;
 
   obj_stats->getHotObjectList(hot_list);
-  LOGNORMAL;
+  LOGNORMAL << "Hot obj list size " << hot_list.size()
+            << " lowrank objs list size " << lowrank_objs.size();
 
   /* update ranks of objects in the cached list of lowest ranked objects in the table */
   tbl_mutex->lock();

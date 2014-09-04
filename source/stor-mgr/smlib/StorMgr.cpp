@@ -1781,12 +1781,7 @@ ObjectStorMgr::putObjectInternalSvc(SmIoPutObjectReq *putReq) {
         SCOPED_PERF_TRACEPOINT_CTX(putReq->opLatencyCtx);
 
         err = writeObject(opCtx, objId, *objBufPtr, volId, tierUsed);
-
-        if (err != fds::ERR_OK) {
-            PerfTracer::incr(putReq->opReqFailedPerfEventType, volId, putReq->perfNameStr);
-            objCache->object_release(volId, objId, objBufPtr);
-            objCache->object_delete(volId, objId);
-            objCache->object_release(volId, objId, objBufPtr);
+        if (err.ok()) {
             LOGDEBUG << "Successfully put object " << objId;
             /* if we successfully put to flash -- notify ranking engine */
             if (tierUsed == diskio::flashTier) {
@@ -1794,10 +1789,16 @@ ObjectStorMgr::putObjectInternalSvc(SmIoPutObjectReq *putReq) {
                 fds_verify(vol);
                 rankEngine->rankAndInsertObject(objId, *(vol->voldesc));
             }
+        }
+
+        if (err != fds::ERR_OK) {
+            PerfTracer::incr(putReq->opReqFailedPerfEventType, volId, putReq->perfNameStr);
+            objCache->object_release(volId, objId, objBufPtr);
+            objCache->object_delete(volId, objId);
+            objCache->object_release(volId, objId, objBufPtr);
         } else if (added_cache == false) {
             objCache->object_add(volId, objId, objBufPtr, false);
         }
-
 
 
         /*
@@ -1850,16 +1851,16 @@ ObjectStorMgr::putObjectInternalSvc(SmIoPutObjectReq *putReq) {
         } else {
          SCOPED_PERF_TRACEPOINT_CTX(putReq->opLatencyCtx);
          err = writeObject(opCtx, objId, *objBufPtr, volId, tierUsed);
-
-          if (err != fds::ERR_OK) {
-              PerfTracer::incr(putReq->opReqFailedPerfEventType, volId, putReq->perfNameStr);
-              LOGDEBUG << "Successfully put object " << objId;
-              /* if we successfully put to flash -- notify ranking engine */
-              if (tierUsed == diskio::flashTier) {
-                  StorMgrVolume *vol = volTbl->getVolume(volId);
-                  fds_verify(vol);
-                  rankEngine->rankAndInsertObject(objId, *(vol->voldesc));
-              }
+         if (err.ok()) {
+             LOGDEBUG << "Successfully put object " << objId;
+             /* if we successfully put to flash -- notify ranking engine */
+             if (tierUsed == diskio::flashTier) {
+                 StorMgrVolume *vol = volTbl->getVolume(volId);
+                 fds_verify(vol);
+                 rankEngine->rankAndInsertObject(objId, *(vol->voldesc));
+             }
+         } else {
+             PerfTracer::incr(putReq->opReqFailedPerfEventType, volId, putReq->perfNameStr);
          }
        }
        objCache->object_release(volId, objId, objBufPtr);
