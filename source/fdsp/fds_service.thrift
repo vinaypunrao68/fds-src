@@ -2,7 +2,7 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 include "FDSP.thrift"
-
+include "snapshot.thrift"
 namespace cpp FDS_ProtocolInterface
 
 /*
@@ -269,16 +269,8 @@ struct StatStreamDeregistrationRspMsg {
 }
 
 /* snapshot message From OM => DM */
-struct SnapshotMsg {
-    1:i64 snapshotId,
-    2:string snapshotName,
-    3:i64 volumeId,
-    4:i64 snapshotPolicyId,
-    5:i64 creationTimestamp
-}
-
 struct CreateSnapshotMsg {
-    1:SnapshotMsg snapshot
+    1:snapshot.Snapshot snapshot
 }  
 
 struct CreateSnapshotRespMsg {
