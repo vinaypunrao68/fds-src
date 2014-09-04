@@ -7,6 +7,7 @@ import random
 import boto
 import unittest
 import time
+import hashlib
 from boto.s3.connection import OrdinaryCallingFormat
 from boto.s3.key import Key
 from filechunkio import FileChunkIO
@@ -48,6 +49,36 @@ class TestMultiUpload(unittest.TestCase):
         assert(len(rs) > 0)
         for b in rs:
             log(b.name)
+
+    def test_put_copy(self):
+        global c
+        _aux_bucket_name = BUCKET_NAME + str(random.randint(0, 100000));
+        log('Creating auxiliary bucket %s' % _aux_bucket_name)
+        _aux_b = c.create_bucket(_aux_bucket_name)
+        log('Bucket %s created!' % _aux_bucket_name)
+        time.sleep(1)
+
+        # Upload a key
+        log('Uploading test key...')
+        _key = Key(self.b)
+        _key.key = 'putCopyTestObj'
+        _key.set_contents_from_filename(DATA_FILE)
+
+        # Copy key
+        log('Copying key to aux bucket')
+        _aux_b.copy_key('copiedTestObj', self.b.name, _key.key)
+
+        _copied_key = Key(_aux_b)
+        _copied_key.key = 'copiedTestObj'
+        _copied_key.get_contents_to_filename('/copied_output', 'wb')
+        assert(hashlib.sha1(open(DATA_FILE, 'rb')).hexdigest() == hashlib.sha1(open('/copied_output', 'rb')).hexdigest())
+        log('Copy successful!')
+
+        # Cleanup
+        os.system('rm /copied_output')
+        for _k in _aux_b.list():
+            _k.delete()
+        _aux_b.delete()
 
     def test_multi_upload_to_completion(self):
         # Create multipart upload request
