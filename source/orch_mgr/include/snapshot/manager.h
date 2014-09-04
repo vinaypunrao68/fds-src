@@ -8,6 +8,7 @@
 #include <util/Log.h>
 #include <snapshot/scheduler.h>
 #include <snapshot/policydispatcher.h>
+#include <snapshot/svchandler.h>
 
 namespace fds {
 class OrchMgr;
@@ -20,7 +21,7 @@ class Manager : public HasLogger {
     bool loadFromConfigDB();
     bool addPolicy(fpi::SnapshotPolicy& policy);
     bool removePolicy(int64_t id);
-
+    OmSnapshotSvcHandler svcHandler;
   protected:
     OrchMgr* om;
     Scheduler* snapScheduler;

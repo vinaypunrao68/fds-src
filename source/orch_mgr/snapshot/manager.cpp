@@ -7,7 +7,7 @@
 namespace fds {
 namespace snapshot {
 
-Manager::Manager(OrchMgr* om) : om(om) {
+Manager::Manager(OrchMgr* om) : om(om), svcHandler(om) {
 }
 
 void Manager::init() {
