@@ -41,6 +41,13 @@ public class ConfigurationServiceTest {
     }
 
     //@Test
+    public void testVolumeTenant() throws Exception {
+        ConfigurationService.Iface config = new XdiClientFactory().remoteOmService("localhost", 9090);
+        config.listVolumes("")
+                .forEach(v -> System.out.println(v.getTenantId()));
+    }
+
+    //@Test
     public void testLegacyClient() throws Exception {
         FDSP_ConfigPathReq.Iface client = new LegacyClientFactory().configPathClient("localhost", 8903);
         List<FDSP_VolumeDescType> list = client.ListVolumes(new FDSP_MsgHdrType());
