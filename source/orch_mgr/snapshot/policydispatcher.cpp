@@ -1,10 +1,15 @@
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
+#include <vector>
 
 #include <snapshot/policydispatcher.h>
 #include <orchMgr.h>
-#include <vector>
+#include <snapshot/svchandler.h>
+
+#include <util/stringutils.h>
+#include <util/timeutils.h>
+
 namespace atc = apache::thrift::concurrency;
 namespace fds { namespace snapshot {
 
@@ -40,8 +45,30 @@ void PolicyDispatcher::run() {
         LOGDEBUG << "snapshot requests will be dispatched for ["
                  << vecVolumes.size() << "] volumes";
 
-        for (auto id : vecVolumes) {
-            LOGDEBUG << "snapshot request for volumeid:" << id;
+        fpi::SnapshotPolicy policy;
+        om->getConfigDB()->getSnapshotPolicy(policyId, policy);
+
+        VolumeDesc volumeDesc("", 0);
+        for (auto volId : vecVolumes) {
+            if (!om->getConfigDB()->getVolume(volId, volumeDesc)) {
+                LOGWARN << "unable to get infor for vol: " << volId;
+                continue;
+            }
+            LOGDEBUG << "snapshot request for volumeid:" << volId;
+
+            // create the structure
+            fpi::Snapshot snapshot;
+            snapshot.snapshotName = util::strlower(
+                util::strformat("snap.%s.%s.%ld",
+                                volumeDesc.name.c_str(),
+                                policy.policyName.c_str(),
+                                util::getTimeStampMillis()));
+            snapshot.volumeId = volId;
+            snapshot.snapshotId = getUuidFromVolumeName(snapshot.snapshotName);
+            snapshot.snapshotPolicyId = policyId;
+            snapshot.creationTimestamp = util::getTimeStampMillis();
+
+            // send the snapshot create request
         }
     }
 }
