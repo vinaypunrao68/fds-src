@@ -19,11 +19,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-public class IssueToken implements RequestHandler {
+public class GrantToken implements RequestHandler {
     private Xdi xdi;
     private SecretKey key;
 
-    public IssueToken(Xdi xdi, SecretKey key) {
+    public GrantToken(Xdi xdi, SecretKey key) {
         this.xdi = xdi;
         this.key = key;
     }

@@ -12,16 +12,14 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import org.apache.thrift.TException;
 
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class CachedConfiguration {
 
     private final List<User> users;
     private final List<Tenant> tenants;
+    private final Map<Long, Tenant> tenantsById;
     private final Multimap<Long, Long> usersByTenant;
     private final Map<Long, Long> tenantsByUser;
     private List<VolumeDescriptor> volumeDescriptors;
@@ -39,8 +37,11 @@ public class CachedConfiguration {
         usersById = users.stream().collect(Collectors.toMap(u -> u.getId(), u -> u));
         tenants = config.listTenants(0);
         usersByTenant = HashMultimap.create();
+        tenantsById = new HashMap<>();
+
         tenantsByUser = new HashMap<>();
         for (Tenant tenant : tenants) {
+            tenantsById.put(tenant.getId(), tenant);
             List<User> tenantUsers = config.listUsersForTenant(tenant.getId());
             usersByTenant.putAll(tenant.getId(), tenantUsers.stream().map(u -> u.getId()).collect(Collectors.toSet()));
             for (User tenantUser : tenantUsers) {
@@ -100,6 +101,15 @@ public class CachedConfiguration {
         return usersByTenant.get(tenantId).stream()
                 .map(id -> usersById.get(id))
                 .collect(Collectors.toList());
+    }
+
+    public Optional<Tenant> tenantFor(long userId) {
+        if (tenantsByUser.containsKey(userId)) {
+            long tenantId = tenantsByUser.get(userId);
+            return Optional.of(tenantsById.get(tenantId));
+        } else {
+            return Optional.empty();
+        }
     }
 
     public long getVersion() {

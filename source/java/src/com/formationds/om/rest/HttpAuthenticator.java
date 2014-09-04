@@ -8,6 +8,7 @@ import com.formationds.security.Authenticator;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
+import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
@@ -38,6 +39,11 @@ public class HttpAuthenticator implements RequestHandler {
             return f.apply(AuthenticationToken.ANONYMOUS).handle(request, routeParameters);
         }
 
+        Optional<AuthenticationToken> fromHeaders = parseHeaders(request);
+        if (fromHeaders.isPresent()) {
+            return f.apply(fromHeaders.get()).handle(request, routeParameters);
+        }
+
         Cookie[] cookies = request.getCookies() == null ? new Cookie[0] : request.getCookies();
         Optional<Cookie> result = Arrays.stream(cookies)
                 .filter(c -> FDS_TOKEN.equals(c.getName()))
@@ -53,6 +59,19 @@ public class HttpAuthenticator implements RequestHandler {
         } catch (Exception e) {
             LOG.error("Authentication error", e);
             return new JsonResource(new JSONObject().put("message", "Invalid credentials"), HttpServletResponse.SC_UNAUTHORIZED);
+        }
+    }
+
+    private Optional<AuthenticationToken> parseHeaders(Request request) {
+        String headerValue = request.getHeader("FDS-Auth");
+        if (StringUtils.isBlank(headerValue)) {
+            return Optional.empty();
+        }
+
+        try {
+            return Optional.of(authenticator.resolveToken(headerValue));
+        } catch (Exception e) {
+            return Optional.empty();
         }
     }
 }
