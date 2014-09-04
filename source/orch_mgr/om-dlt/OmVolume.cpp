@@ -700,6 +700,22 @@ VolumeInfo::setDescription(const VolumeDesc &desc)
     volUUID = desc.volUUID;
 }
 
+void VolumeInfo::initSnapshotVolInfo(VolumeInfo::pointer vol, fpi::Snapshot& snapshot) {
+    if (vol->vol_properties == NULL) {
+        vol->vol_properties = new VolumeDesc(desc);
+    } else {
+        delete vol->vol_properties;
+        vol->vol_properties = new VolumeDesc(desc);
+    }
+    vol->vol_properties = *vol_properties;
+    vol->setName(snapshot.snapshotName);
+    vol->vol_name = snapshot.snapshotName;
+    vol->volUUID =  snapshot.snapshotId;
+    vol->vol_am_nodes = vol_am_nodes;
+    vol->vol_properties.parentVolumeId = volUUID;
+    vol->vol_properties.fSnapshot = true;
+}
+
 // vol_fmt_desc_pkt
 // ----------------
 //
@@ -1107,6 +1123,46 @@ VolumeContainer::om_snap_vol(const FdspMsgHdrPtr &hdr,
     fds_uint32_t count = local->om_bcast_vol_snap(vol);
 
     return err;
+}
+
+Error VolumeContainer::addSnapshot(const fpi::Snapshot& snapshot) {
+    Error err(ERR_OK);
+    OM_NodeContainer    *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+    OM_Module *om = OM_Module::om_singleton();
+    VolumePlacement* vp = om->om_volplace_mod();
+    VolPolicyMgr        *v_pol = OrchMgr::om_policy_mgr();
+    FdsAdminCtrl        *admin = local->om_get_admin_ctrl();
+
+    VolumeInfo::pointer  vol, parentVol;
+
+    vol = VolumeInfo::vol_cast_ptr(rs_get_resource(snapshot.snapshotId));
+    if (vol != NULL) {
+        LOGWARN << "Trying to add a snapshot with conflicting id:" << snapshot.snapshotId
+                << " name:" << snapshot.shapshotName;
+        return Error(ERR_DUPLICATE);
+    }
+
+    parentVol = VolumeInfo::vol_cast_ptr(rs_get_resource(snapshot.volumeId));
+    vol = VolumeInfo::vol_cast_ptr(rs_alloc_new(snapshot.snapshotId));
+
+    parentVol->initSnapshotVolInfo(vol, snapshot);
+
+    err = admin->volAdminControl(vol->vol_get_properties());
+    if (!err.ok()) {
+        // TODO(Vy): delete the volume here.
+        LOGERROR << "Unable to add snapshot " << snapshot.shapshotName
+                 << " error: " << err.GetErrstr();
+        rs_free_resource(vol);
+        return err;
+    }
+
+    // register before b-casting vol crt, in case we start recevings acks
+    // before vol_event for create vol returns
+    rs_register(vol);
+
+    // in case there was no one to notify, check if we can proceed to
+    // active state right away (otherwise guard will stop us)
+    vol->vol_event(VolCrtOkEvt(false));
 }
 
 

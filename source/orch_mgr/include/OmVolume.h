@@ -9,7 +9,7 @@
 #include <boost/msm/back/state_machine.hpp>
 #include <fds_volume.h>
 #include <platform/node-inventory.h>
-
+#include <fdsp/snapshot_types.h>
 namespace fds {
 
 class OmDiscoveryMod;
@@ -189,7 +189,7 @@ class VolumeInfo : public Resource
      * Return the string containing current state of the volume
      */
     char const *const vol_current_state();
-
+    void initSnapshotVolInfo(VolumeInfo::pointer vol, fpi::Snapshot& snapshot);
     /**
      * Apply an event to volume lifecycle state machine
      */
@@ -373,6 +373,8 @@ class VolumeContainer : public RsContainer
                                 const FdspTestBucketPtr &req);
 
     virtual Error getVolumeStatus(const std::string& volumeName);
+
+    Error addSnapshot(const fpi::Snapshot& snapshot);
 
     /**
      * Called by DMT state machine when rebalance is finished, and
