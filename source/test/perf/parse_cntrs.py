@@ -146,7 +146,7 @@ def plot_series_all_volumes(series, title = None, ylabel = None, xlabel = "Time 
         plt.ylabel(ylabel)
     if xlabel:
         plt.xlabel(xlabel)
-    plt.legend()
+    plt.legend(loc = "lower right")
 
 def legend(figname):
     plt.figure(figname)
@@ -257,9 +257,10 @@ def main():
     parser.add_option("-g", "--use-graphite-streaming", dest = "use_graphite_streaming", default = False, action = "store_true", help = "Use graphite streaming as input")
 
     #parser.add_option("-c", "--column", dest = "column", help = "Column")
+    global options
+
     (options, args) = parser.parse_args()
 
-    global options
 
     options.exclude_nodes = []
 
@@ -293,7 +294,7 @@ def main():
     #print a, b
     #print sum_series(a, b)
 
-    plot_qos_graphs(c, "tiefighter", "am")
+    # plot_qos_graphs(c, "tiefighter", "am")
 
     for name in options.counters.split(","):
         agent, counter = name.split(":")

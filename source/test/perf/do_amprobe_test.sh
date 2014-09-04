@@ -12,6 +12,7 @@ function test1() {
     local res=$2
     local cache=$3
     local outs=$4
+    echo "test1: $size $res $cache $outs"
     ./test/fds-tool.py -f fdstool.cfg -d -c
     sleep 1
     sed -e "s/default_max_entries = .*/default_max_entries = $cache/" config/etc/platform.conf > platform1.conf
@@ -30,7 +31,7 @@ function test1() {
     ssh han 'cat /fds/var/logs/am.*' |grep CRITICAL > $res/am-probe-$size-$cache-read.out
 }
 
-caches="0 1200"
+caches="0 500 1200"
 outstandings="25 50 100 200 300 400 500"
 
 if [ -d counters.dat ]
@@ -43,7 +44,6 @@ cntr_pid=$!
 
 echo "counter server on $cntr_pid"
 sleep 5
-
 for outs in $outstandings
 do
     for cache in $caches
@@ -52,7 +52,6 @@ do
         sizes="4096 65536"
         for size in $sizes
         do
-            echo $size $results $cache $outs
             test1 $size $results $cache $outs
             sleep 10
         done
@@ -62,7 +61,6 @@ do
         #sizes="524288 786432 1048576 2097152"
         for size in $sizes
         do
-            echo $size $results $cache $outs
             test1 $size $results $cache $outs
             sleep 10
         done
