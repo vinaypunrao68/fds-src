@@ -9,84 +9,79 @@
 #include <net/net-service.h>
 #include <net/net-service-tmpl.hpp>
 #include <net/SvcRequestPool.h>
+#include <orchMgr.h>
 
 namespace fds {
 Error
-omSnapshotSvcHandler::omSnapshotCreate(const fpi::CreateSnapshotMsgPtr &stSnapCreateTxMsg) {
+OmSnapshotSvcHandler::omSnapshotCreate(const fpi::CreateSnapshotMsgPtr &stSnapCreateTxMsg) {
     Error err(ERR_OK);
     fds_verify(stSnapCreateTxMsg != NULL);
     fds_volid_t   volId = stSnapCreateTxMsg->snapshot.volumeId;
     fpi::CreateSnapshotRespMsg crtSnapshotRespMsg;
 
-    QuorumSvcRequestRespCb respCb = RESPONSE_MSG_HANDLER(omSnapshotSvcHandler::
-                                                    omSnapshotCreateResp);
-
-   /*
-    auto asyncCreateSnapshotTxReq = gSvcRequestPool->newQuorumSvcRequest(
-        boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(volId)));
-    asyncCreateSnapshotTxReq->setPayload(FDSP_MSG_TYPEID(fpi::CreateSnapshotMsg),
+    auto cb = RESPONSE_MSG_HANDLER(OmSnapshotSvcHandler::omSnapshotCreateResp);
+    auto asyncReq = gSvcRequestPool->newQuorumSvcRequest(
+        boost::make_shared<DltObjectIdEpProvider>(gl_orch_mgr->getDMTNodesForVolume(volId)));
+    asyncReq->setPayload(FDSP_MSG_TYPEID(fpi::CreateSnapshotMsg),
                                                                  stSnapCreateTxMsg);
-    asyncCreateSnapshotTxReq->onResponseCb(respCb);
-    asyncCreateSnapshotTxReq->invoke();
+    asyncReq->onResponseCb(cb);
+    asyncReq->invoke();
 
-    LOGDEBUG << asyncCreateSnapshotTxReq->logString() << fds::logString(*stSnapCreateTxMsg);
-   */
-
+    // LOGDEBUG << asyncReq->logString() << fds::logString(*stSnapCreateTxMsg);
     return err;
 }
 
-void omSnapshotSvcHandler::omSnapshotCreateResp(QuorumSvcRequest* svcReq,
+void OmSnapshotSvcHandler::omSnapshotCreateResp(QuorumSvcRequest* svcReq,
                             const Error& error,
                             boost::shared_ptr<std::string> payload) {
 }
 
 
 Error
-omSnapshotSvcHandler::omSnapshotDelete(fds_uint64_t snapshotId, fds_uint64_t volId) {
+OmSnapshotSvcHandler::omSnapshotDelete(fds_uint64_t snapshotId, fds_uint64_t volId) {
     Error err(ERR_OK);
-    fds_verify(createSnapshot != NULL);
-    DeleteSnapshotMsgPtr stSnapDeleteTxMsg(new DeleteSnapshotMsg());
+
+    fpi::DeleteSnapshotMsgPtr stSnapDeleteTxMsg(new fpi::DeleteSnapshotMsg());
 
     stSnapDeleteTxMsg->snapshotId = snapshotId;
 
-    QuorumSvcRequestRespCb respCb;
+    auto cb = RESPONSE_MSG_HANDLER(OmSnapshotSvcHandler::omSnapshotDeleteResp);
+    auto asyncReq = gSvcRequestPool->newQuorumSvcRequest(
+        boost::make_shared<DltObjectIdEpProvider>(gl_orch_mgr->getDMTNodesForVolume(volId)));
 
-    auto asyncDeleteSnapshotTxReq = gSvcRequestPool->newQuorumSvcRequest(
-        boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(volId)));
-    asynDeleteSnapshotTxReq->setPayload(FDSP_MSG_TYPEID(fpi::DeleteSnapshotMsg), stSnapDeleteTxMsg);
-    asyncDeleteSnapshotTxReq->onResponseCb(respCb);
-    asyncDeleteSnapshotTxReq->invoke();
+    asyncReq->setPayload(FDSP_MSG_TYPEID(fpi::DeleteSnapshotMsg), stSnapDeleteTxMsg);
+    asyncReq->onResponseCb(cb);
+    asyncReq->invoke();
 
-    LOGDEBUG << asyncDeleteSnapshotTxReq->logString() << fds::logString(*stSnapDeleteTxMsg);
+    // LOGDEBUG << asyncReq->logString() << fds::logString(*stSnapDeleteTxMsg);
+    return err;
 }
 
-void omSnapshotSvcHandler::omSnapshotDeleteResp(QuorumSvcRequest* svcReq,
+void OmSnapshotSvcHandler::omSnapshotDeleteResp(QuorumSvcRequest* svcReq,
                             const Error& error,
                             boost::shared_ptr<std::string> payload) {
 }
 
 Error
-omSnapshotSvcHandler::omVolumeCloneCreate(const fpi::CreateVolumeCloneMsgPtr &stVolumeCloneTxMsg) {
+OmSnapshotSvcHandler::omVolumeCloneCreate(const fpi::CreateVolumeCloneMsgPtr &msg) {
     Error err(ERR_OK);
-    fds_verify(stVolumeCloneTxMsg != NULL);
-    fds_volid_t   volId = stVolumeCloneTxMsg->volumeId;
-    fpi::CreateSnapshotRespMsg crtSnapshotRespMsg
+    fds_verify(msg != NULL);
+    fds_volid_t   volId = msg->volumeId;
 
-    QuorumSvcRequestRespCb respCb;
+    auto cb = RESPONSE_MSG_HANDLER(OmSnapshotSvcHandler::omVolumeCloneCreateResp);
+    auto asyncReq = gSvcRequestPool->newQuorumSvcRequest(
+        boost::make_shared<DltObjectIdEpProvider>(gl_orch_mgr->getDMTNodesForVolume(volId)));
 
-    auto asyncCreateVolumeCloneTxReq = gSvcRequestPool->newQuorumSvcRequest(
-        boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(volId)));
-    asyncCreateVolumeCloneTxReq->setPayload(FDSP_MSG_TYPEID(fpi::CreateVolumeCloneMsg),
-                                                                        stVolumeCloneTxMsg);
-    asyncCreateVolumeCloneTxReq->onResponseCb(respCb);
-    asyncCreateVolumeCloneTxReq->invoke();
+    asyncReq->setPayload(FDSP_MSG_TYPEID(fpi::CreateVolumeCloneMsg), msg);
+    asyncReq->onResponseCb(cb);
+    asyncReq->invoke();
 
-    LOGDEBUG << asyncCreateVolumeCloneTxReq->logString() << fds::logString(*stVolumeCloneTxMsg);
+    // LOGDEBUG << asyncReq->logString() << fds::logString(*msg);
 
     return err;
 }
 
-void omSnapshotSvcHandler::omVolumeCloneCreateResp(QuorumSvcRequest* svcReq,
+void OmSnapshotSvcHandler::omVolumeCloneCreateResp(QuorumSvcRequest* svcReq,
                             const Error& error,
                             boost::shared_ptr<std::string> payload) {
 }

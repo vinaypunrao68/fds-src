@@ -8,22 +8,16 @@
 #define SOURCE_ORCH_MGR_INCLUDE_OMSVCHANDLER_H_
 
 #include <string>
-#include <fdsp/fds_service_types.h>
-#include <net/PlatNetSvcHandler.h>
-#include <fds_typedefs.h>
 #include <fds_error.h>
+#include <fds_types.h>
+#include <fds_typedefs.h>
+#include <fdsp/fds_service_types.h>
 #include <net/SvcRequestPool.h>
 
 namespace fds {
 
-class omSnapshotSvcHandler {
+class OmSnapshotSvcHandler {
   public:
-  /*
-    explicit snapshotSvcHandler(void) {
-    }
-    virtual ~snapshotSvcHandler(void) {
-    }
-   */
     /*
      * message handler 
      */ 
@@ -32,7 +26,7 @@ class omSnapshotSvcHandler {
                             const Error& error,
                             boost::shared_ptr<std::string> payload);
      Error omSnapshotDelete(fds_uint64_t snapshotId, fds_uint64_t volId);
-     void omSnapshotdeleteResp(QuorumSvcRequest* svcReq,
+     void omSnapshotDeleteResp(QuorumSvcRequest* svcReq,
                             const Error& error,
                             boost::shared_ptr<std::string> payload);
      Error omVolumeCloneCreate(const fpi::CreateVolumeCloneMsgPtr &stVolumeCloneTxMsg);
