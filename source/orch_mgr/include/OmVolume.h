@@ -364,6 +364,7 @@ class VolumeContainer : public RsContainer
                                 const FdspCrtVolPtr       &snap_msg);
     virtual Error om_delete_vol(const FDSP_MsgHdrTypePtr  &hdr,
                                 const FdspDelVolPtr &del_msg);
+    Error om_delete_vol(fds_volid_t volId);
     virtual Error om_modify_vol(const FdspModVolPtr &mod_msg);
     virtual Error om_attach_vol(const FDSP_MsgHdrTypePtr  &hdr,
                                 const FdspAttVolCmdPtr    &attach);

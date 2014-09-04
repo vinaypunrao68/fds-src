@@ -1189,6 +1189,23 @@ VolumeContainer::om_delete_vol(const FdspMsgHdrPtr &hdr,
     return err;
 }
 
+Error VolumeContainer::om_delete_vol(fds_volid_t volId) {
+    Error err(ERR_OK);
+    ResourceUUID         uuid(volId);
+    VolumeInfo::pointer  vol;
+
+    vol = VolumeInfo::vol_cast_ptr(rs_get_resource(uuid));
+    if (vol == NULL) {
+        LOGWARN << "Received DeleteVol for non-existing volume " << volId;
+        return Error(ERR_NOT_FOUND);
+    }
+
+    // start volume delete process
+    vol->vol_event(VolDelChkEvt(uuid, vol.get()));
+
+    return err;
+}
+
 // om_cleanup_vol
 // -------------
 //
