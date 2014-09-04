@@ -189,7 +189,7 @@ class VolumeInfo : public Resource
      * Return the string containing current state of the volume
      */
     char const *const vol_current_state();
-    void initSnapshotVolInfo(VolumeInfo::pointer vol, fpi::Snapshot& snapshot);
+    void initSnapshotVolInfo(VolumeInfo::pointer vol, const fpi::Snapshot& snapshot);
     /**
      * Apply an event to volume lifecycle state machine
      */

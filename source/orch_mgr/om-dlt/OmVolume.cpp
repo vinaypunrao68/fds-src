@@ -700,20 +700,17 @@ VolumeInfo::setDescription(const VolumeDesc &desc)
     volUUID = desc.volUUID;
 }
 
-void VolumeInfo::initSnapshotVolInfo(VolumeInfo::pointer vol, fpi::Snapshot& snapshot) {
-    if (vol->vol_properties == NULL) {
-        vol->vol_properties = new VolumeDesc(desc);
-    } else {
+void VolumeInfo::initSnapshotVolInfo(VolumeInfo::pointer vol, const fpi::Snapshot& snapshot) {
+    if (vol->vol_properties != NULL) {
         delete vol->vol_properties;
-        vol->vol_properties = new VolumeDesc(desc);
     }
-    vol->vol_properties = *vol_properties;
+    vol->vol_properties = new VolumeDesc(*vol_properties);
     vol->setName(snapshot.snapshotName);
     vol->vol_name = snapshot.snapshotName;
     vol->volUUID =  snapshot.snapshotId;
     vol->vol_am_nodes = vol_am_nodes;
-    vol->vol_properties.parentVolumeId = volUUID;
-    vol->vol_properties.fSnapshot = true;
+    vol->vol_properties->parentVolumeId = volUUID;
+    vol->vol_properties->fSnapshot = true;
 }
 
 // vol_fmt_desc_pkt
@@ -1138,7 +1135,7 @@ Error VolumeContainer::addSnapshot(const fpi::Snapshot& snapshot) {
     vol = VolumeInfo::vol_cast_ptr(rs_get_resource(snapshot.snapshotId));
     if (vol != NULL) {
         LOGWARN << "Trying to add a snapshot with conflicting id:" << snapshot.snapshotId
-                << " name:" << snapshot.shapshotName;
+                << " name:" << snapshot.snapshotName;
         return Error(ERR_DUPLICATE);
     }
 
@@ -1150,7 +1147,7 @@ Error VolumeContainer::addSnapshot(const fpi::Snapshot& snapshot) {
     err = admin->volAdminControl(vol->vol_get_properties());
     if (!err.ok()) {
         // TODO(Vy): delete the volume here.
-        LOGERROR << "Unable to add snapshot " << snapshot.shapshotName
+        LOGERROR << "Unable to add snapshot " << snapshot.snapshotName
                  << " error: " << err.GetErrstr();
         rs_free_resource(vol);
         return err;
@@ -1163,6 +1160,8 @@ Error VolumeContainer::addSnapshot(const fpi::Snapshot& snapshot) {
     // in case there was no one to notify, check if we can proceed to
     // active state right away (otherwise guard will stop us)
     vol->vol_event(VolCrtOkEvt(false));
+
+    return err;
 }
 
 
