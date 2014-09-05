@@ -298,7 +298,6 @@ Error DmVolumeCatalog::getVolumeMetaInternal(fds_volid_t volume_id,
 
     // calculate size of volume
     for (cit = desc_list.cbegin(); cit != desc_list.cend(); ++cit) {
-        fds_verify((*cit).vol_id == volume_id);
         volume_size += (*cit).blob_size;
 
         // get object count for the blob
@@ -628,7 +627,6 @@ Error DmVolumeCatalog::listBlobs(fds_volid_t volume_id,
             fpi::FDSP_BlobInfoType binfo;
             binfo.blob_name = (*cit).blob_name;
             binfo.blob_size = (*cit).blob_size;
-            fds_verify((*cit).vol_id == volume_id);
             (*bmeta_list).push_back(binfo);
         }
     }

@@ -218,13 +218,11 @@ std::ostream& operator<<(std::ostream& out, const BlobExtent& extent) {
 // except blob name and volume id
 //
 BlobExtent0::BlobExtent0(const std::string& blob_name,
-                         fds_volid_t volume_id,
                          fds_uint32_t max_obj_size,
                          fds_uint32_t first_off,
                          fds_uint32_t num_offsets)
 : BlobExtent(fds_extentid_meta, max_obj_size, first_off, num_offsets) {
     blob_meta.desc.blob_name = blob_name;
-    blob_meta.desc.vol_id = volume_id;
     last_blob_offset = 0;  // should not be used if blob size = 0
 }
 

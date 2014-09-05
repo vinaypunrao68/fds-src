@@ -157,6 +157,9 @@ void DataMgr::sampleDMStats(fds_uint64_t timestamp) {
     for (vol_it = vol_meta_map.begin();
          vol_it != vol_meta_map.end();
          ++vol_it) {
+        if (vol_it->second->vol_desc->fSnapshot) {
+            continue;
+        }
         DmtColumnPtr nodes = omClient->getDMTNodesForVolume(vol_it->first);
         fds_verify(nodes->getLength() > 0);
         if (*mySvcUuid == nodes->get(0)) {

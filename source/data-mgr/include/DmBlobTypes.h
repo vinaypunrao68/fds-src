@@ -184,7 +184,6 @@ namespace fds {
      */
     struct BasicBlobMeta: serialize::Serializable {
         std::string blob_name;
-        fds_volid_t vol_id;
         blob_version_t version;
         fds_uint64_t blob_size;
 

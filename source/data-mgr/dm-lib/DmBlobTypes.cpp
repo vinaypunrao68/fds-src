@@ -111,7 +111,6 @@ std::ostream& operator<<(std::ostream& out, const MetaDataList& metaList) {
 
 BasicBlobMeta::BasicBlobMeta() {
     version = blob_version_invalid;
-    vol_id = invalid_vol_id;
     blob_size = 0;
 }
 
@@ -121,7 +120,6 @@ BasicBlobMeta::~BasicBlobMeta() {
 uint32_t BasicBlobMeta::write(serialize::Serializer* s) const {
     uint32_t bytes = 0;
     bytes += s->writeString(blob_name);
-    bytes += s->writeI64(vol_id);
     bytes += s->writeI64(version);
     bytes += s->writeI64(blob_size);
     return bytes;
@@ -131,7 +129,6 @@ uint32_t BasicBlobMeta::read(serialize::Deserializer* d) {
     uint32_t bytes = 0;
     blob_name.clear();
     bytes += d->readString(blob_name);
-    bytes += d->readI64(reinterpret_cast<int64_t&>(vol_id));
     bytes += d->readI64(version);
     bytes += d->readI64(blob_size);
     return bytes;
@@ -139,7 +136,6 @@ uint32_t BasicBlobMeta::read(serialize::Deserializer* d) {
 
 BasicBlobMeta& BasicBlobMeta::operator=(const BasicBlobMeta &rhs) {
     blob_name = rhs.blob_name;
-    vol_id    = rhs.vol_id;
     version   = rhs.version;
     blob_size = rhs.blob_size;
     return *this;
@@ -148,7 +144,6 @@ BasicBlobMeta& BasicBlobMeta::operator=(const BasicBlobMeta &rhs) {
 std::ostream& operator<<(std::ostream& out, const BasicBlobMeta& desc) {
     out << "BasicBlobMeta: "
         << "name " << desc.blob_name
-        << ", volume id " << std::hex << desc.vol_id << std::dec
         << ", version " << desc.version
         << ", size " << desc.blob_size << " bytes; ";
     return out;

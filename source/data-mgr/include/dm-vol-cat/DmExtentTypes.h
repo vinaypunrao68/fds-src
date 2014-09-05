@@ -165,7 +165,6 @@ class BlobExtent0 : public BlobExtent {
      * except blob name and volume id
      */
     BlobExtent0(const std::string& blob_name,
-                fds_volid_t volume_id,
                 fds_uint32_t max_obj_size,
                 fds_uint32_t first_off,
                 fds_uint32_t num_offsets);
@@ -174,9 +173,6 @@ class BlobExtent0 : public BlobExtent {
 
     inline const std::string& blobName() const {
         return blob_meta.desc.blob_name;
-    }
-    inline fds_volid_t volumeId() const {
-        return blob_meta.desc.vol_id;
     }
     inline blob_version_t blobVersion() const {
         return blob_meta.desc.version;

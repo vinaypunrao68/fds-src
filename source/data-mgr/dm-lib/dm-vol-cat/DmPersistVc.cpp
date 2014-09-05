@@ -704,7 +704,7 @@ BlobExtent0::ptr DmPersistVolCatalog::getMetaExtent(fds_volid_t volume_id,
 
     err = volmeta->queryEntry(serialized_key, &extent_data);
     if (err.ok() || err == ERR_CAT_ENTRY_NOT_FOUND) {
-        BlobExtent0::ptr extent0(new(std::nothrow) BlobExtent0(blob_name, volume_id,
+        BlobExtent0::ptr extent0(new(std::nothrow) BlobExtent0(blob_name,
                                                                volmeta->maxObjSizeBytes(),
                                                                volmeta->firstOffset(0),
                                                                volmeta->numObjEntries(0)));
