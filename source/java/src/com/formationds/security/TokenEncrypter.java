@@ -3,7 +3,7 @@ package com.formationds.security;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import org.apache.commons.codec.binary.Base64;
+import org.apache.commons.codec.binary.Hex;
 
 import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
@@ -37,7 +37,7 @@ public class TokenEncrypter {
             IvParameterSpec initVector = new IvParameterSpec(secretKey.getEncoded());
             cipher.init(Cipher.ENCRYPT_MODE, secretKey, initVector);
             byte[] encrypted = cipher.doFinal(clearText);
-            return Base64.encodeBase64String(encrypted);
+            return Hex.encodeHexString(encrypted);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -49,7 +49,7 @@ public class TokenEncrypter {
     }
 
     private String decrypt(String encrypted, SecretKey key) throws Exception {
-        byte[] bytes = Base64.decodeBase64(encrypted);
+        byte[] bytes = Hex.decodeHex(encrypted.toCharArray());
         Cipher cipher = Cipher.getInstance("AES/CBC/PKCS7Padding", "BC");
         IvParameterSpec initVector = new IvParameterSpec(key.getEncoded());
         cipher.init(Cipher.DECRYPT_MODE, key, initVector);

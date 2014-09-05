@@ -60,9 +60,26 @@ public class S3TestCase {
         client.createBucket("foo");
         client.createBucket("bar");
         ObjectMetadata metadata = new ObjectMetadata();
-        //metadata.setContentType("image/jpg");
+        metadata.setContentType("image/jpg");
+        metadata.setHeader("Panda", "Pandas are friendly");
         client.putObject("foo", "foo.jpg", new FileInputStream("/home/fabrice/Downloads/cat3.jpg"), metadata);
         client.listBuckets().forEach(b -> System.out.println(b.getName()));
+    }
+
+    // @Test
+    public void testFoo() throws Exception {
+        new Configuration("foo", new String[] {"--console"});
+        AmazonS3Client client = new AmazonS3Client(new BasicAWSCredentials("admin", "yASvtWBUa8o2R+cr1jZqWEoCSmQ8kK/ofeZdC3zW4fiCKCKuToP13KoaObVMIHynMeE7BU8qCdNwkPSthgQsVw=="));
+        client.setS3ClientOptions(new S3ClientOptions().withPathStyleAccess(true));
+        client.setEndpoint("http://localhost:8000");
+        client.createBucket("foo");
+
+        ObjectMetadata metadata = new ObjectMetadata();
+        metadata.setContentType("image/jpg");
+        metadata.setHeader("Panda", "Pandas are friendly");
+
+        client.putObject("foo", "foo.jpg", new FileInputStream("/home/fabrice/Downloads/cat3.jpg"), metadata);
+        client.copyObject("foo", "foo.jpg", "foo", "bar.jpg");
     }
 
     //@Test
