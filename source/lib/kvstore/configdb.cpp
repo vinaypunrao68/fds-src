@@ -1365,7 +1365,6 @@ bool ConfigDB::createSnapshot(fpi::Snapshot& snapshot) {
         }
 
         r.sadd("snapshot:names", nameLower);
-        snapshot.snapshotId = r.incr("snapshot:idcounter");
         if (snapshot.creationTimestamp <= 1) {
             snapshot.creationTimestamp = fds::util::getTimeStampMillis();
         }
