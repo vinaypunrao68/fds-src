@@ -17,6 +17,10 @@ public class AsyncResourcePool<TPoolObject> {
     private final Object lock = new Object();
     private Impl<TPoolObject> impl;
 
+    public int getUsedCount() {
+        return inUse;
+    }
+
     public interface BindWithException<T,R> {
         public R apply(T input) throws Exception;
     }
@@ -51,13 +55,15 @@ public class AsyncResourcePool<TPoolObject> {
                 break;
             }
 
-            if(request == null && inUse >= objectLimit) {
-                // if the pool is empty generate a request
-                request = new CompletableFuture<>();
-                requests.add(request);
-            } else {
-                // otherwise, create an object (done outside of synchronized block)
-                inUse++;
+            if(request == null) {
+                if (inUse >= objectLimit) {
+                    // if the pool is empty generate a request
+                    request = new CompletableFuture<>();
+                    requests.add(request);
+                } else {
+                    // otherwise, create an object (done outside of synchronized block)
+                    inUse++;
+                }
             }
         }
 
