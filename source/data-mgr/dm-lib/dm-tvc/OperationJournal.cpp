@@ -26,13 +26,16 @@ DmTvcOperationJournal::DmTvcOperationJournal(fds_volid_t volId,
     logger_.reset(new ObjectLogger(oss.str(), filesize, maxFiles));
 }
 
-void DmTvcOperationJournal::log(CommitLogTx::const_ptr tx) {
+void DmTvcOperationJournal::log(CommitLogTx::const_ptr tx, fds_uint64_t index /* = 0 */) {
     SCOPEDWRITE(logLock_);
     off_t pos = logger_->log(tx.get());
-    if (pos < 0) {
+    if (pos >= 0) {
+        return;
+    } else {
         SCOPEDWRITE(rotateLock_);
         logger_->rotate();
     }
     pos = logger_->log(tx.get());
+    fds_assert(pos >= 0);
 }
 }   // namespace fds

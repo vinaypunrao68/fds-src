@@ -243,9 +243,8 @@ CommitLogTx::const_ptr DmCommitLog::commitTx(BlobTxId::const_ptr & txDesc, Error
         SCOPEDWRITE(bufferLock_);
         if (buffering_) {
             buffer_->log(ptx.get());
-        } else {
-            journal_.log(ptx);
         }
+        journal_.log(ptx);
     }
 
     {

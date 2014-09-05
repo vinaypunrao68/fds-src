@@ -48,7 +48,7 @@ class DmTvcOperationJournal {
     }
 
     // log operation
-    virtual void log(CommitLogTx::const_ptr tx);
+    virtual void log(CommitLogTx::const_ptr tx, fds_uint64_t index = 0);
 
     // retrieve operations
     // TODO(umesh): implement this
@@ -64,11 +64,11 @@ class DmTvcOperationJournal {
 struct OpJournalIndexEntry {
     fds_uint64_t id;
     off_t offset;
-    char filename[512];
+    fds_int32_t fileIndex;
+    fds_bool_t deleted;
 
-    OpJournalIndexEntry() : id(0), offset(0) {
-        memset(filename, 0, 512);
-    }
+    // Methods
+    OpJournalIndexEntry() : id(0), offset(0), fileIndex(-1), deleted(false) {}
 };
 }  /* namespace fds */
 

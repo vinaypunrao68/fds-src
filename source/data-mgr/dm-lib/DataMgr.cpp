@@ -259,14 +259,23 @@ DataMgr::finishCloseDMT() {
 Error
 DataMgr::createSnapshot(const fpi::Snapshot & snapDetails) {
     VolumeMeta * volmeta = 0;
+    VolumeMeta * snapmeta = 0;
     {
         FDSGUARD(*vol_map_mtx);
         volmeta = vol_meta_map[snapDetails.volumeId];
-    }
-    if (!volmeta) {
-        GLOGWARN << "Volume '" << std::hex << snapDetails.volumeId << std::dec <<
-                "' not found!";
-        return ERR_NOT_FOUND;
+        snapmeta = vol_meta_map[snapDetails.snapshotId];
+
+        if (!volmeta) {
+            GLOGWARN << "Volume '" << std::hex << snapDetails.volumeId << std::dec <<
+                    "' not found!";
+            return ERR_NOT_FOUND;
+        }
+
+        if (snapmeta) {
+            GLOGWARN << "Snapshot '" << std::hex << snapDetails.snapshotId << std::dec <<
+                    "' already exists!";
+            return FDSN_StatusErrorBucketAlreadyExists;
+        }
     }
 
     VolumeDesc snapdesc(*volmeta->vol_desc);
@@ -283,7 +292,7 @@ DataMgr::createSnapshot(const fpi::Snapshot & snapDetails) {
     }
     rc = timeVolCat_->activateVolume(snapdesc.volUUID);
 
-    VolumeMeta * snapmeta = new VolumeMeta(snapdesc.name, snapdesc.volUUID, GetLog(), &snapdesc);
+    snapmeta = new VolumeMeta(snapdesc.name, snapdesc.volUUID, GetLog(), &snapdesc);
 
     snapmeta->dmVolQueue = new FDS_VolumeQueue(4096, snapdesc.iops_max, 2 * snapdesc.iops_min,
             snapdesc.relativePrio);

@@ -439,6 +439,8 @@ Error DmPersistVolCatalog::createSnapshot(fds_volid_t volId, fds_volid_t snapsho
         maxEntries = iter->second->maxObjSizeBytes();
         extent0Entries = iter->second->extent0ObjEntries();
         extentEntries = iter->second->extentObjEntries();
+
+        // close original leveldb
         vol_map.erase(iter);
     }
 
@@ -455,40 +457,45 @@ Error DmPersistVolCatalog::createSnapshot(fds_volid_t volId, fds_volid_t snapsho
 
     oss << "/" << snapshotId << "_vcat.ldb";
     std::string snapshotDir =  oss.str();
+
     oss.clear();
     oss.str("");
     oss << "cp -r " << dbDir << " " << snapshotDir;
-    std::string cpCmd = oss.str();
 
-    LOGNOTIFY << cpCmd;
+    LOGNOTIFY << "Running command '" << oss.str() << "'";
 
-    int rc = std::system(cpCmd.c_str());
+    int rc = std::system(oss.str().c_str());
+
+    // after copy, reopen original leveldb
+    PersistVolumeMetaPtr origmeta(new PersistVolumeMeta(volId, maxEntries, extent0Entries,
+            extentEntries));
+    write_synchronized(vol_map_lock) {
+        vol_map[volId] = origmeta;
+    }
+    Error err = openCatalog(volId);
+    if (!err.ok()) {
+        GLOGCRITICAL << "Failed to open original volume : " << err;
+        return err;
+    }
+
     if (rc) {
-        LOGERROR << "Copy command failed: " << cpCmd << "; code " << rc;
+        LOGERROR << "Copy command failed: " << oss.str() << "; code " << rc;
         return ERR_DM_SNAPSHOT_FAILED;
     }
+
     oss.clear();
     oss.str("");
     oss << "rm -f " <<  snapshotDir << "/LOCK";
     LOGNOTIFY << oss.str();
     std::system(oss.str().c_str());
 
-    PersistVolumeMetaPtr origmeta(new PersistVolumeMeta(volId, maxEntries, extent0Entries,
-            extentEntries));
-
     PersistVolumeMetaPtr volmeta(new PersistVolumeMeta(snapshotId, maxEntries, extent0Entries,
             extentEntries, volId, true));
-
     write_synchronized(vol_map_lock) {
         fds_verify(vol_map.count(snapshotId) == 0);
         vol_map[snapshotId] = volmeta;
-        vol_map[volId] = origmeta;
     }
 
-    Error err = openCatalog(volId);
-    if (!err.ok()) {
-        GLOGERROR << "Failed to open original volume : " << err;
-    }
     return err;
 }
 
