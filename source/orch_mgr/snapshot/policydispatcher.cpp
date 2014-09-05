@@ -4,6 +4,7 @@
 #include <vector>
 
 #include <snapshot/policydispatcher.h>
+#include <OmResources.h>
 #include <orchMgr.h>
 #include <snapshot/svchandler.h>
 
@@ -48,13 +49,12 @@ void PolicyDispatcher::run() {
         fpi::SnapshotPolicy policy;
         om->getConfigDB()->getSnapshotPolicy(policyId, policy);
 
-        VolumeDesc volumeDesc("", 0);
+        VolumeDesc volumeDesc("", 1);
         for (auto volId : vecVolumes) {
             if (!om->getConfigDB()->getVolume(volId, volumeDesc)) {
                 LOGWARN << "unable to get infor for vol: " << volId;
                 continue;
             }
-            LOGDEBUG << "snapshot request for volumeid:" << volId;
 
             // create the structure
             fpi::Snapshot snapshot;
@@ -68,7 +68,17 @@ void PolicyDispatcher::run() {
             snapshot.snapshotPolicyId = policyId;
             snapshot.creationTimestamp = util::getTimeStampMillis();
 
+            LOGDEBUG << "snapshot request for volumeid:" << volId
+                     << " name:" << snapshot.snapshotName;
             // send the snapshot create request
+            om->snapshotMgr.svcHandler.omSnapshotCreate(snapshot);
+
+            LOGCRITICAL << "automatically adding snapshot because of a SVC layer bug";
+            OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+            VolumeContainer::pointer volContainer = local->om_vol_mgr();
+            volContainer->addSnapshot(snapshot);
+            // store in the DB..
+            om->getConfigDB()->createSnapshot(snapshot);
         }
     }
 }

@@ -29,6 +29,7 @@ Error OmSnapshotSvcHandler::omSnapshotCreate(const fpi::Snapshot& snapshot) {
         boost::make_shared<DltObjectIdEpProvider>(om->getDMTNodesForVolume(volId)));
     asyncReq->setPayload(FDSP_MSG_TYPEID(fpi::CreateSnapshotMsg), msg);
     asyncReq->onResponseCb(cb);
+    asyncReq->setTimeoutMs(0);
     asyncReq->invoke();
 
     // LOGDEBUG << asyncReq->logString() << fds::logString(*stSnapCreateTxMsg);
@@ -48,6 +49,7 @@ void OmSnapshotSvcHandler::omSnapshotCreateResp(fpi::CreateSnapshotMsgPtr reques
     OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
     VolumeContainer::pointer volContainer = local->om_vol_mgr();
     volContainer->addSnapshot(request->snapshot);
+    om->getConfigDB()->createSnapshot(request->snapshot);
 }
 
 
@@ -64,6 +66,7 @@ Error OmSnapshotSvcHandler::omSnapshotDelete(fds_uint64_t snapshotId, fds_uint64
 
     asyncReq->setPayload(FDSP_MSG_TYPEID(fpi::DeleteSnapshotMsg), stSnapDeleteTxMsg);
     asyncReq->onResponseCb(cb);
+    asyncReq->setTimeoutMs(0);
     asyncReq->invoke();
 
     // LOGDEBUG << asyncReq->logString() << fds::logString(*stSnapDeleteTxMsg);
@@ -86,6 +89,7 @@ Error OmSnapshotSvcHandler::omVolumeCloneCreate(const fpi::CreateVolumeCloneMsgP
 
     asyncReq->setPayload(FDSP_MSG_TYPEID(fpi::CreateVolumeCloneMsg), msg);
     asyncReq->onResponseCb(cb);
+    asyncReq->setTimeoutMs(0);
     asyncReq->invoke();
 
     // LOGDEBUG << asyncReq->logString() << fds::logString(*msg);
