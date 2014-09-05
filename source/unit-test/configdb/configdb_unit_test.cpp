@@ -154,4 +154,15 @@ TEST_CASE("snapshot") {
     policy.policyName = "testsnapshotpolicy";
     ConfigDB cfg;
     cfg.createSnapshotPolicy(policy);
+
+    fpi::Snapshot snapshot;
+    snapshot.snapshotName = "testss";
+    snapshot.snapshotId = 2;
+    snapshot.volumeId =  1;
+    cfg.createSnapshot(snapshot);
+    std::vector<fpi::Snapshot> vecSnapshots;
+    cfg.listSnapshots(vecSnapshots, 1);
+
+    REQUIRE(vecSnapshots.size() == 1);
+    REQUIRE(vecSnapshots[0].snapshotName == "testss");
 }

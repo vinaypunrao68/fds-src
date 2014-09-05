@@ -1372,7 +1372,6 @@ bool ConfigDB::createSnapshot(fpi::Snapshot& snapshot) {
         boost::shared_ptr<std::string> serialized;
         fds::serializeFdspMsg(snapshot, serialized);
 
-        r.sendCommand("hset volume:%ld:snapshots %b", snapshot.snapshotId, serialized->data(), serialized->length()); //NOLINT
         r.hset(format("volume:%ld:snapshots", snapshot.volumeId), snapshot.snapshotId, *serialized); //NOLINT
     } catch(const RedisException& e) {
         LOGCRITICAL << "error with redis " << e.what();
@@ -1383,7 +1382,7 @@ bool ConfigDB::createSnapshot(fpi::Snapshot& snapshot) {
 
 bool ConfigDB::listSnapshots(std::vector<fpi::Snapshot> & vecSnapshots, const int64_t volumeId) {
     try {
-        Reply reply = r.sendCommand("hgetall volume:%ld:snapshots", volumeId);
+        Reply reply = r.sendCommand("hvals volume:%ld:snapshots", volumeId);
         StringList strings;
         reply.toVector(strings);
         fpi::Snapshot snapshot;
