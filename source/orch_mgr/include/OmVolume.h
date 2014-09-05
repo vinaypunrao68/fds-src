@@ -52,6 +52,8 @@ class VolCrtOkEvt
     fds_bool_t got_ack;
 };
 
+struct SnapCrtEvt {};
+
 class VolOpEvt
 {
  public:
@@ -201,6 +203,7 @@ class VolumeInfo : public Resource
     void vol_event(DelChkAckEvt const &evt);
     void vol_event(DetachAllEvt const &evt);
     void vol_event(DelNotifEvt const &evt);
+    void vol_event(SnapCrtEvt const &evt);
     fds_bool_t isVolumeInactive();
     fds_bool_t isDeletePending();
     fds_bool_t isCheckDelete();

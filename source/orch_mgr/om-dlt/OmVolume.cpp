@@ -261,6 +261,7 @@ struct VolumeFSM: public msm::front::state_machine_def<VolumeFSM>
         // | Start             | Event        | Next       | Action        | Guard      |
         // +-------------------+--------------+------------+---------------+------------+
         msf::Row< VST_Inactive , VolCreateEvt , VST_CrtPend, VACT_NotifCrt, GRD_NotifCrt>,
+        msf::Row< VST_Inactive , SnapCrtEvt   , VST_Active , VACT_CrtDone  , msf::none>,
         msf::Row< VST_Inactive , VolDelChkEvt , VST_DelDone, VACT_DelDone  , msf::none  >,
         // +-------------------+--------------+------------+---------------+------------+
         msf::Row< VST_CrtPend  , VolCrtOkEvt  , VST_Active , VACT_CrtDone  , GRD_VolCrt >,
@@ -331,6 +332,9 @@ bool VolumeFSM::GRD_NotifCrt::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
  * VACT_NotifCrt
  * -------------
  * Notify services about creation of this volume
+                fsm.process_event(VolOpRespEvt(vol->rs_get_uuid(),
+                                               om_notify_vol_attach,
+                                               Error(ERR_OK)));
  */
 template <class Evt, class Fsm, class SrcST, class TgtST>
 void
@@ -708,9 +712,13 @@ void VolumeInfo::initSnapshotVolInfo(VolumeInfo::pointer vol, const fpi::Snapsho
     vol->setName(snapshot.snapshotName);
     vol->vol_name = snapshot.snapshotName;
     vol->volUUID =  snapshot.snapshotId;
-    vol->vol_am_nodes = vol_am_nodes;
+    // vol->vol_am_nodes = vol_am_nodes;
+    vol->vol_properties->name = snapshot.snapshotName;
     vol->vol_properties->parentVolumeId = volUUID;
+    vol->vol_properties->volUUID = snapshot.snapshotId;
     vol->vol_properties->fSnapshot = true;
+
+    vol->volume_fsm->start();
 }
 
 // vol_fmt_desc_pkt
@@ -964,6 +972,12 @@ VolumeInfo::vol_current_state()
     return state_names[volume_fsm->current_state()[0]];
 }
 
+void VolumeInfo::vol_event(SnapCrtEvt const &evt) {
+    fds_mutex::scoped_lock l(fsm_lock);
+    volume_fsm->process_event(evt);
+}
+
+
 void VolumeInfo::vol_event(VolCreateEvt const &evt) {
     fds_mutex::scoped_lock l(fsm_lock);
     volume_fsm->process_event(evt);
@@ -1156,6 +1170,11 @@ Error VolumeContainer::addSnapshot(const fpi::Snapshot& snapshot) {
     // register before b-casting vol crt, in case we start recevings acks
     // before vol_event for create vol returns
     rs_register(vol);
+
+    // in case there was no one to notify, check if we can proceed to
+    // active state right away (otherwise guard will stop us)
+    vol->vol_event(SnapCrtEvt());
+    // vol->vol_event(VolCreateEvt(vol.get()));
 
     // in case there was no one to notify, check if we can proceed to
     // active state right away (otherwise guard will stop us)
