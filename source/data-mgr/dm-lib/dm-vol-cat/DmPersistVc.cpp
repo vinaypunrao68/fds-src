@@ -407,7 +407,7 @@ Error DmPersistVolCatalog::createCatalog(const VolumeDesc& vol_desc){
         new(std::nothrow) PersistVolumeMeta(vol_desc.volUUID,
                                             vol_desc.maxObjSizeInBytes,
                                             1024,
-                                            2048));
+                                            2048, vol_desc.volUUID));
     if (!volmeta) {
         LOGERROR << "Failed to allocate persistent layer vol meta for vol"
                  << std::hex << vol_desc.volUUID << std::dec;
@@ -439,6 +439,7 @@ Error DmPersistVolCatalog::createSnapshot(fds_volid_t volId, fds_volid_t snapsho
         maxEntries = iter->second->maxObjSizeBytes();
         extent0Entries = iter->second->extent0ObjEntries();
         extentEntries = iter->second->extentObjEntries();
+        vol_map.erase(iter);
     }
 
     std::ostringstream oss;
@@ -468,15 +469,23 @@ Error DmPersistVolCatalog::createSnapshot(fds_volid_t volId, fds_volid_t snapsho
         return ERR_DM_SNAPSHOT_FAILED;
     }
 
+    PersistVolumeMetaPtr origmeta(new PersistVolumeMeta(volId, maxEntries, extent0Entries,
+            extentEntries));
+
     PersistVolumeMetaPtr volmeta(new PersistVolumeMeta(snapshotId, maxEntries, extent0Entries,
             extentEntries, volId, true));
 
     write_synchronized(vol_map_lock) {
         fds_verify(vol_map.count(snapshotId) == 0);
         vol_map[snapshotId] = volmeta;
+        vol_map[volId] = origmeta;
     }
 
-    return ERR_OK;
+    Error rc = openCatalog(volId);
+    if (!rc.ok()) {
+        GLOGERROR << "Failed to open original volume";
+    }
+    return rc;
 }
 
 //
