@@ -449,25 +449,29 @@ Error DmPersistVolCatalog::createSnapshot(fds_volid_t volId, fds_volid_t snapsho
 
     oss.clear();
     oss.str("");
-    oss << root->dir_user_repo_dm() << volId << "/snapshot/" << snapshotId << "_vcat.ldb";
-    std::string snapshotDir = oss.str();
+    oss << root->dir_user_repo_dm() << volId << "/snapshot";
 
-    char catPath[PATH_MAX] = {0};
-    strncpy(catPath, snapshotDir.c_str(), snapshotDir.length());
-    FdsRootDir::fds_mkdir(catPath);
+    FdsRootDir::fds_mkdir(oss.str().c_str());
 
+    oss << "/" << snapshotId << "_vcat.ldb";
+    std::string snapshotDir =  oss.str();
     oss.clear();
     oss.str("");
-    oss << "cp -r " << dbDir << "* " << snapshotDir;
+    oss << "cp -r " << dbDir << " " << snapshotDir;
     std::string cpCmd = oss.str();
 
-    LOGNOTIFY << "Copying directory '" << dbDir << "' to '" << snapshotDir << "'";
+    LOGNOTIFY << cpCmd;
 
     int rc = std::system(cpCmd.c_str());
     if (rc) {
         LOGERROR << "Copy command failed: " << cpCmd << "; code " << rc;
         return ERR_DM_SNAPSHOT_FAILED;
     }
+    oss.clear();
+    oss.str("");
+    oss << "rm -f " <<  snapshotDir << "/LOCK";
+    LOGNOTIFY << oss.str();
+    std::system(oss.str().c_str());
 
     PersistVolumeMetaPtr origmeta(new PersistVolumeMeta(volId, maxEntries, extent0Entries,
             extentEntries));
@@ -481,11 +485,11 @@ Error DmPersistVolCatalog::createSnapshot(fds_volid_t volId, fds_volid_t snapsho
         vol_map[volId] = origmeta;
     }
 
-    Error rc = openCatalog(volId);
-    if (!rc.ok()) {
-        GLOGERROR << "Failed to open original volume";
+    Error err = openCatalog(volId);
+    if (!err.ok()) {
+        GLOGERROR << "Failed to open original volume : " << err;
     }
-    return rc;
+    return err;
 }
 
 //
