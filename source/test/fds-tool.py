@@ -99,7 +99,7 @@ if __name__ == '__main__':
         for n in nodes:
             n.nd_rmt_agent.ssh_exec('ps -ef | grep -v grep | grep -v bash | grep com.formationds.om.Main', output = True)
             n.nd_rmt_agent.ssh_exec('ps -ef | grep -v grep | grep -v bash | grep com.formationds.am.Main', output = True)
-            n.nd_rmt_agent.ssh_exec('ps -ef | grep -v grep | grep -v bash | grep plat', output = True)
+            n.nd_rmt_agent.ssh_exec('ps -ef | grep -v grep | grep -v bash | grep platformd', output = True)
             n.nd_rmt_agent.ssh_exec('ps -ef | grep -v grep | grep -v bash | grep Mgr', output = True)
             print '\n'
         sys.exit(0)
