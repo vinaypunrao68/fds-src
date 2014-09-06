@@ -1173,12 +1173,14 @@ Error VolumeContainer::addSnapshot(const fpi::Snapshot& snapshot) {
 
     // in case there was no one to notify, check if we can proceed to
     // active state right away (otherwise guard will stop us)
-    vol->vol_event(SnapCrtEvt());
-    // vol->vol_event(VolCreateEvt(vol.get()));
+
+    // TODO(prem): change the snapshot implementation
+    // vol->vol_event(SnapCrtEvt());
+     vol->vol_event(VolCreateEvt(vol.get()));
 
     // in case there was no one to notify, check if we can proceed to
     // active state right away (otherwise guard will stop us)
-    vol->vol_event(VolCrtOkEvt(false));
+     vol->vol_event(VolCrtOkEvt(false));
 
     return err;
 }
