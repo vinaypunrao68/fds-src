@@ -10,6 +10,7 @@
 
 #include <util/stringutils.h>
 #include <util/timeutils.h>
+#include <unistd.h>
 
 namespace atc = apache::thrift::concurrency;
 namespace fds { namespace snapshot {
@@ -76,6 +77,9 @@ void PolicyDispatcher::run() {
             LOGCRITICAL << "automatically adding snapshot because of a SVC layer bug";
             OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
             VolumeContainer::pointer volContainer = local->om_vol_mgr();
+
+            LOGCRITICAL << "waiting .. because of a svc layer bug..";
+            usleep(30*1000*1000);  // 30 micros
             volContainer->addSnapshot(snapshot);
             // store in the DB..
             om->getConfigDB()->createSnapshot(snapshot);
