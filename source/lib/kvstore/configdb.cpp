@@ -1357,6 +1357,7 @@ bool ConfigDB::listVolumesForSnapshotPolicy(std::vector<int64_t> & vecVolumes, c
 }
 
 bool ConfigDB::createSnapshot(fpi::Snapshot& snapshot) {
+    TRACKMOD();
     try {
         std::string nameLower = lower(snapshot.snapshotName);
 
@@ -1375,6 +1376,7 @@ bool ConfigDB::createSnapshot(fpi::Snapshot& snapshot) {
         r.hset(format("volume:%ld:snapshots", snapshot.volumeId), snapshot.snapshotId, *serialized); //NOLINT
     } catch(const RedisException& e) {
         LOGCRITICAL << "error with redis " << e.what();
+        NOMOD();
         return false;
     }
     return true;
