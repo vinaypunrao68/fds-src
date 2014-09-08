@@ -145,7 +145,7 @@ def list_snapshot(vol_name):
         # invoke the thrift  interface call
         volume_id  = client.getVolumeId(vol_name);
         snapshot = client.listSnapshots(volume_id)
-	return tabulate([(item.snapshotName, item.volumeId, item.id, item.policyId, item.creationTimestamp) for item in snapshot],
+	return tabulate([(item.snapshotName, item.volumeId, item.snapshotId, item.snapshotPolicyId, time.ctime((item.creationTimestamp)/1000)) for item in snapshot],
 			headers=['Snapshot-name', 'volume-Id', 'Snapshot-Id', 'policy-Id', 'Creation-Time'])
     except Exception, e:
         log.exception(e)
