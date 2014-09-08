@@ -54,15 +54,15 @@ namespace fds {
         memset(digest, 0x00, sizeof(digest));
     }
 
-    ObjectID::ObjectID(uint32_t dataSet) {
+    ObjectID::ObjectID(uint32_t const dataSet) {
         memset(digest, dataSet, sizeof(digest));
     }
 
-    ObjectID::ObjectID(uint8_t *objId) {
+    ObjectID::ObjectID(uint8_t const *objId) {
         memcpy(digest, objId, sizeof(digest));
     }
 
-    ObjectID::ObjectID(uint8_t  *objId, uint32_t length) {
+    ObjectID::ObjectID(uint8_t const *objId, uint32_t const length) {
         memcpy(digest, objId, length);
     }
 
