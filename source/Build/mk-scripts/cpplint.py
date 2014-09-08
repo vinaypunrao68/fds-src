@@ -3033,11 +3033,10 @@ def CheckIncludeLine(filename, clean_lines, linenum, include_state, error):
 
   line = clean_lines.lines[linenum]
 
-  # XXX (bszmyd):  This is a silly check | Mon 08 Sep 2014 12:06:56 PM MDT
-  #  # "include" should use the new style "foo/bar.h" instead of just "bar.h"
-  #  if _RE_PATTERN_INCLUDE_NEW_STYLE.search(line):
-  #    error(filename, linenum, 'build/include', 4,
-  #          'Include the directory when naming .h files')
+  # "include" should use the new style "foo/bar.h" instead of just "bar.h"
+  if _RE_PATTERN_INCLUDE_NEW_STYLE.search(line):
+    error(filename, linenum, 'build/include_new_style', 4,
+          'Include the directory when naming .h files')
 
   # we shouldn't include a file more than once. actually, there are a
   # handful of instances where doing so is okay, but in general it's
