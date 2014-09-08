@@ -196,7 +196,6 @@ def main(options,files):
     tids = []
     time_start = time.time()
     for i in range(0,options.threads):
-        # FIXME: compute number of requests per thread here
         reqs_per_thread = compute_req_per_threads(options)
         task_args = (i, reqs_per_thread[i], options.req_type, options.num_volumes, files, stats, queue, part_prev_uploaded[i])
         #t = th.Thread(None,task,"task-"+str(i), task_args)

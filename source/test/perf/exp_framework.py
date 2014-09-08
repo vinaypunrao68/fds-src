@@ -19,7 +19,7 @@ sys.path.append('../fdslib/pyfdsp')
 from SvcHandle import *
 
 def get_myip():
-    cmd = "ifconfig| grep 10\.1 | awk -F '[: ]+' '{print $4}'"
+    cmd = "ifconfig| grep '10\.1' | awk -F '[: ]+' '{print $4}'"
     #return subprocess.check_output(shlex.split(cmd))
     return subprocess.check_output(cmd, shell = True).rstrip("\n")
 
@@ -33,7 +33,8 @@ def get_node_from_ip(nodes, node_ip):
 def test_to_str(test):
     test_str = ""
     for k, v in test.iteritems():
-        test_str += str(k) + ":" + str(v) + "."
+        if k != "injector":
+            test_str += str(k) + ":" + str(v) + "."
     test_str += "test"
     return test_str
 
@@ -465,6 +466,10 @@ class FdsCluster():
 class CommandInjector:
     def __init__(self, options, commands):
         self.options = options
+        print self.options.myip
+        print self.options.nodes
+        print self.options.main_node
+        print self.options.nodes[self.options.main_node]
         self.local = self.options.myip == self.options.nodes[self.options.main_node]
         assert self.local == True, "Must be local for CommandInjector"
         self.commands = commands
