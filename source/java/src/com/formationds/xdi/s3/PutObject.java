@@ -36,8 +36,9 @@ public class PutObject implements RequestHandler {
 
         String copySource = request.getHeader(S3Endpoint.X_AMZ_COPY_SOURCE);
 
-        String contentType = StaticFileHandler.getMimeType(objectName);
-
+        String contentType = S3Endpoint.S3_DEFAULT_CONTENT_TYPE;
+        if(request.getContentType() != null)
+            contentType = request.getContentType();
 
         InputStream str = request.getInputStream();
 

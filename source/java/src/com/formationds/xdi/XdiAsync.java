@@ -61,9 +61,9 @@ public class XdiAsync {
         return blobDescriptorFuture.thenCompose(bd -> volumeDescriptorFuture.thenCombine(getObject0Future, (vd, o0) -> new BlobInfo(domain, volume, blob, bd, vd, o0)));
     }
 
-    public CompletableFuture<PutResult> putBlobFromStream(String domain, String volume, String blob, InputStream stream) {
+    public CompletableFuture<PutResult> putBlobFromStream(String domain, String volume, String blob,  Map<String, String> metadata, InputStream stream) {
         // TODO: refactor digest into a more reusable form
-        return putBlobFromSupplier(domain, volume, blob, bytes -> {
+        return putBlobFromSupplier(domain, volume, blob, metadata, bytes -> {
             CompletableFuture<Void> cf = new CompletableFuture<>();
             CompletableFuture.runAsync(() -> {
                 try {
@@ -115,11 +115,11 @@ public class XdiAsync {
         return result;
     }
 
-    public CompletableFuture<PutResult> putBlobFromSupplier(String domain, String volume, String blob, Function<ByteBuffer, CompletableFuture<Void>> reader) {
+    public CompletableFuture<PutResult> putBlobFromSupplier(String domain, String volume, String blob, Map<String, String> metadata, Function<ByteBuffer, CompletableFuture<Void>> reader) {
         try {
             AsyncMessageDigest asmd = new AsyncMessageDigest(MessageDigest.getInstance("MD5"));
             return statVolume(domain, volume)
-                    .thenCompose(volumeDescriptor -> firstPut(new PutParameters(domain, volume, blob, reader, volumeDescriptor.getPolicy().getMaxObjectSizeInBytes(), asmd), 0))
+                    .thenCompose(volumeDescriptor -> firstPut(new PutParameters(domain, volume, blob, reader, volumeDescriptor.getPolicy().getMaxObjectSizeInBytes(), asmd, metadata), 0))
                     .thenCompose(_completion -> asmd.get())
                     .thenApply(digestBytes -> new PutResult(digestBytes));
         } catch(NoSuchAlgorithmException ex) {
@@ -358,14 +358,14 @@ public class XdiAsync {
         public final AsyncMessageDigest digest;
         public final Map<String, String> metadata;
 
-        private PutParameters(String domain, String volume, String blob, Function<ByteBuffer, CompletableFuture<Void>> reader, int objectSize, AsyncMessageDigest digest) {
+        private PutParameters(String domain, String volume, String blob, Function<ByteBuffer, CompletableFuture<Void>> reader, int objectSize, AsyncMessageDigest digest, Map<String, String> metadata) {
             this.domain = domain;
             this.volume = volume;
             this.blob = blob;
             this.reader = reader;
             this.objectSize = objectSize;
             this.digest = digest;
-            metadata = new HashMap<>();
+            this.metadata = metadata;
         }
 
         private CompletableFuture<Map<String,String>> getFinalizedMetadata() {

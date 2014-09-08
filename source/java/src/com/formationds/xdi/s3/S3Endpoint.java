@@ -20,6 +20,7 @@ public class S3Endpoint {
     public static final String FDS_S3_SYSTEM = "FDS_S3_SYSTEM";
     public static final String FDS_S3_SYSTEM_BUCKET_NAME = FDS_S3_SYSTEM;
     public static final String X_AMZ_COPY_SOURCE = "x-amz-copy-source";
+    public static final String S3_DEFAULT_CONTENT_TYPE = "binary/octet-stream";
 
     private Xdi xdi;
     private XdiAsync.Factory xdiAsync;
@@ -47,7 +48,7 @@ public class S3Endpoint {
         authenticate(HttpMethod.HEAD, "/:bucket/:object", (t) -> new HeadObject(xdi, t));
         authenticate(HttpMethod.DELETE, "/:bucket/:object", (t) -> new DeleteObject(xdi, t));
 
-        // webApp.addAsyncExecutor(new S3AsyncApplication(xdiAsync, new S3Authenticator(xdi, secretKey)));
+        webApp.addAsyncExecutor(new S3AsyncApplication(xdiAsync, new S3Authenticator(xdi, secretKey)));
 
         webApp.start(port);
     }

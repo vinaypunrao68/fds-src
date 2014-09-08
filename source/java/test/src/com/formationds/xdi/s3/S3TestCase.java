@@ -17,6 +17,7 @@ import com.formationds.security.AuthenticationTokenTest;
 import com.formationds.util.Configuration;
 import com.formationds.util.Size;
 import com.formationds.util.SizeUnit;
+import junit.framework.Assert;
 import org.apache.commons.io.IOUtils;
 import org.apache.thrift.protocol.TBinaryProtocol;
 import org.apache.thrift.transport.TSocket;
@@ -110,6 +111,24 @@ public class S3TestCase {
     }
 
     //@Test
+    public void testHeadObject() throws Exception {
+        AmazonS3Client client = makeAmazonS3Client();
+        String bucketName = "foo";
+        String objectName = "bar";
+        byte[] data = new byte[] { 1, 2, 3, 4 };
+
+        createBucketIdempotent(client, bucketName);
+        ObjectMetadata obji = new ObjectMetadata();
+        obji.setContentType("video/ogg");
+        PutObjectResult result = client.putObject(bucketName, objectName, new ByteArrayInputStream(data), obji);
+        ObjectMetadata objm = client.getObjectMetadata(bucketName, objectName);
+
+        assertEquals(obji.getContentType(), objm.getContentType());
+        assertEquals(result.getETag(), objm.getETag());
+        assertEquals(data.length, objm.getContentLength());
+    }
+
+    //@Test
     public void testMultipartFdsImplementation() throws Exception {
         new Configuration("foo", new String[0]);
         //AmazonS3Client client = new AmazonS3Client(new BasicAWSCredentials("AKIAINOGA4D75YX26VXQ", "/ZE1BUJ/vJ8BDESUvf5F3pib7lJW+pBa5FTakmjf"));
@@ -119,17 +138,10 @@ public class S3TestCase {
                 .withProxyPort(8008);*/
 
         //AmazonS3Client client = new AmazonS3Client(new BasicAWSCredentials("fabrice", "7VpLGuZy7VCKq2B/Z4yEOw=="), configuration);
-        AmazonS3Client client = new AmazonS3Client(new BasicAWSCredentials("fabrice", "9VpLGuZy7VCKq2B/Z4yEOw=="));
-        client.setS3ClientOptions(new S3ClientOptions().withPathStyleAccess(true));
-        client.setEndpoint("http://localhost:8000");
+        AmazonS3Client client = makeAmazonS3Client();
 
         String bucketName = "foo";
-        try {
-            Bucket bucket = client.createBucket(bucketName);
-        } catch(AmazonS3Exception ex) {
-            if(!ex.getErrorCode().equals(S3Failure.ErrorCode.BucketAlreadyExists.toString()))
-                throw ex;
-        }
+        createBucketIdempotent(client, bucketName);
 
         String key = "wooky";
         String copySourceKey = "wookySrc";
@@ -202,6 +214,22 @@ public class S3TestCase {
         for(byte b : copyChunk) {
             assertEquals(b, s3bytes[idx++]);
         }
+    }
+
+    private void createBucketIdempotent(AmazonS3Client client, String bucketName) {
+        try {
+            client.createBucket(bucketName);
+        } catch(AmazonS3Exception ex) {
+            if(!ex.getErrorCode().equals(S3Failure.ErrorCode.BucketAlreadyExists.toString()))
+                throw ex;
+        }
+    }
+
+    private AmazonS3Client makeAmazonS3Client() {
+        AmazonS3Client client = new AmazonS3Client(new BasicAWSCredentials("fabrice", "9VpLGuZy7VCKq2B/Z4yEOw=="));
+        client.setS3ClientOptions(new S3ClientOptions().withPathStyleAccess(true));
+        client.setEndpoint("http://localhost:8000");
+        return client;
     }
 
     //@Test

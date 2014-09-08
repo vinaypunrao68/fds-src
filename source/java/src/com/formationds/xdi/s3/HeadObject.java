@@ -34,10 +34,12 @@ public class HeadObject implements RequestHandler {
         Map<String, String> metadata = stat.getMetadata();
         String contentType = metadata.getOrDefault("Content-Type", StaticFileHandler.getMimeType(object));
         String lastModified = metadata.getOrDefault("Last-Modified", SwiftUtility.formatRfc1123Date(DateTime.now()));
+        String etag = "\"" + metadata.getOrDefault("etag", "") + "\"";
         long byteCount = stat.getByteCount();
         return new TextResource("")
+                .withContentType(contentType)
                 .withHeader("Content-Length", Long.toString(byteCount))
-                .withHeader("Content-Type", contentType)
-                .withHeader("Last-Modified", lastModified);
+                .withHeader("Last-Modified", lastModified)
+                .withHeader("ETag", etag);
     }
 }

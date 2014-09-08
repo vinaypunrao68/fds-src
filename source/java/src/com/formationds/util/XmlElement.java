@@ -114,6 +114,6 @@ public class XmlElement{
     }
 
     public String minifiedDocumentString() {
-        return documentString().replaceAll(">\\s*<", "");
+        return documentString().replaceAll(">\\s*<", "><");
     }
 }

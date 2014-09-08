@@ -14,6 +14,7 @@ public class ResourceWrapper implements Resource {
     private Resource resource;
     private Multimap<String, String> headers;
     private ArrayList<String> cookies;
+    private String contentType;
 
     public ResourceWrapper(Resource res) {
         resource = res;
@@ -23,7 +24,7 @@ public class ResourceWrapper implements Resource {
 
     @Override
     public String getContentType() {
-        return resource.getContentType();
+        return contentType != null ? contentType : resource.getContentType();
     }
 
     @Override
@@ -59,6 +60,12 @@ public class ResourceWrapper implements Resource {
     @Override
     public Resource withHeader(String key, String value) {
         headers.put(key, value);
+        return this;
+    }
+
+    @Override
+    public Resource withContentType(String contentType) {
+        this.contentType = contentType;
         return this;
     }
 }

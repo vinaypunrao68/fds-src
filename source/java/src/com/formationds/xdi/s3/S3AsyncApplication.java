@@ -21,6 +21,7 @@ import sun.net.www.protocol.http.AuthenticationInfo;
 import javax.servlet.AsyncContext;
 import javax.servlet.ServletOutputStream;
 import java.io.*;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.Optional;
@@ -143,7 +144,7 @@ public class S3AsyncApplication implements AsyncRequestExecutor {
             ServletOutputStream outputStream = response.getOutputStream();
             return xdiAsync.getBlobInfo(S3Endpoint.FDS_S3, bucket, object).thenCompose(blobInfo -> {
                 Map<String, String> md = blobInfo.blobDescriptor.getMetadata();
-                String contentType = md.getOrDefault("Content-Type", "application/octet-stream");
+                String contentType = md.getOrDefault("Content-Type", S3Endpoint.S3_DEFAULT_CONTENT_TYPE);
                 appendStandardHeaders(response, contentType, HttpStatus.OK_200);
                 if(md.containsKey("etag"))
                     response.addHeader("etag", formatEtag(md.get("etag")));
@@ -157,8 +158,12 @@ public class S3AsyncApplication implements AsyncRequestExecutor {
 
     public CompletableFuture<Void> putObject(XdiAsync xdiAsync, String bucket, String object, Request request, Response response) {
         try {
-            appendStandardHeaders(response, "application/octet-stream", HttpStatus.OK_200);
-            CompletableFuture<XdiAsync.PutResult> putResult = xdiAsync.putBlobFromStream(S3Endpoint.FDS_S3, bucket, object, request.getInputStream());
+            HashMap<String, String> metadata = new HashMap<>();
+            if(request.getContentType() != null)
+                metadata.put("Content-type", request.getContentType());
+
+            appendStandardHeaders(response, "text/html", HttpStatus.OK_200);
+            CompletableFuture<XdiAsync.PutResult> putResult = xdiAsync.putBlobFromStream(S3Endpoint.FDS_S3, bucket, object, metadata, request.getInputStream());
             return putResult.thenAccept(result -> response.addHeader("etag", formatEtag(result.digest)));
         } catch(Exception e) {
             return CompletableFutureUtility.exceptionFuture(e);
