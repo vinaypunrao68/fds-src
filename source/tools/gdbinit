@@ -1,0 +1,16 @@
+define bta
+    shell rm -f /tmp/gdb_out.txt
+    set logging file /tmp/gdb_out.txt
+    set logging off
+    set pagination off
+    set logging on
+    set logging redirect on
+    set logging overwrite on
+    thread apply all bt
+
+    set logging overwrite off
+    set logging redirect off
+    set logging off
+    set pagination on
+    shell vim /tmp/gdb_out.txt
+end
