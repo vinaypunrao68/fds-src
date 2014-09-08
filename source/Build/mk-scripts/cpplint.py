@@ -239,7 +239,7 @@ _STL_HEADERS = frozenset([
     'function.h', 'functional', 'hash_map', 'hash_map.h', 'hash_set',
     'hash_set.h', 'iterator', 'list', 'list.h', 'map', 'memory', 'new',
     'pair.h', 'pthread_alloc', 'queue', 'set', 'set.h', 'sstream', 'stack',
-    'stl_alloc.h', 'stl_relops.h', 'type_traits.h',
+    'stl_alloc.h', 'stl_relops.h', 'type_traits.h', 'unordered_map',
     'utility', 'vector', 'vector.h',
     ])
 
@@ -251,15 +251,15 @@ _CPP_HEADERS = frozenset([
     'complex', 'complex.h', 'csetjmp', 'csignal', 'cstdarg', 'cstddef',
     'cstdio', 'cstdlib', 'cstring', 'ctime', 'cwchar', 'cwctype',
     'defalloc.h', 'deque.h', 'editbuf.h', 'exception', 'fstream',
-    'fstream.h', 'hashtable.h', 'heap.h', 'indstream.h', 'iomanip',
-    'iomanip.h', 'ios', 'iosfwd', 'iostream', 'iostream.h', 'istream',
-    'istream.h', 'iterator.h', 'limits', 'map.h', 'multimap.h', 'multiset.h',
-    'numeric', 'ostream', 'ostream.h', 'parsestream.h', 'pfstream.h',
-    'PlotFile.h', 'procbuf.h', 'pthread_alloc.h', 'rope', 'rope.h',
-    'ropeimpl.h', 'SFile.h', 'slist', 'slist.h', 'stack.h', 'stdexcept',
-    'stdiostream.h', 'streambuf', 'streambuf.h', 'stream.h', 'strfile.h',
-    'string', 'strstream', 'strstream.h', 'tempbuf.h', 'tree.h', 'typeinfo',
-    'valarray',
+    'fstream.h', 'hashtable.h', 'heap.h', 'indstream.h', 'initializer_list',
+    'iomanip', 'iomanip.h', 'ios', 'iosfwd', 'iostream', 'iostream.h',
+    'istream', 'istream.h', 'iterator.h', 'limits', 'map.h', 'multimap.h',
+    'multiset.h', 'numeric', 'ostream', 'ostream.h', 'parsestream.h',
+    'pfstream.h', 'PlotFile.h', 'procbuf.h', 'pthread_alloc.h', 'rope',
+    'rope.h', 'ropeimpl.h', 'SFile.h', 'slist', 'slist.h', 'stack.h',
+    'stdexcept', 'stdiostream.h', 'streambuf', 'streambuf.h', 'stream.h',
+    'strfile.h', 'string', 'strstream', 'strstream.h', 'tempbuf.h', 'tree.h',
+    'typeinfo', 'valarray',
     ])
 
 
@@ -3033,10 +3033,11 @@ def CheckIncludeLine(filename, clean_lines, linenum, include_state, error):
 
   line = clean_lines.lines[linenum]
 
-  # "include" should use the new style "foo/bar.h" instead of just "bar.h"
-  if _RE_PATTERN_INCLUDE_NEW_STYLE.search(line):
-    error(filename, linenum, 'build/include', 4,
-          'Include the directory when naming .h files')
+  # XXX (bszmyd):  This is a silly check | Mon 08 Sep 2014 12:06:56 PM MDT
+  #  # "include" should use the new style "foo/bar.h" instead of just "bar.h"
+  #  if _RE_PATTERN_INCLUDE_NEW_STYLE.search(line):
+  #    error(filename, linenum, 'build/include', 4,
+  #          'Include the directory when naming .h files')
 
   # we shouldn't include a file more than once. actually, there are a
   # handful of instances where doing so is okay, but in general it's
