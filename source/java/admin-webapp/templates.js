@@ -999,11 +999,12 @@ angular.module("scripts/volumes/create/qualityOfService.html", []).run(["$templa
     "            <span class=\"value\">{{priority}}</span>\n" +
     "        </div>\n" +
     "        <div class=\"form-group inline\">\n" +
-    "            <span>SLA Gaurantee: </span>\n" +
-    "            <span class=\"value\">{{capacity}}<span class=\"value\" ng-if=\"capacity != 'None'\">%</span></span>\n" +
+    "            <span>IOPs Capacity Gaurantee: </span>\n" +
+    "            <span class=\"value\" ng-show=\"capacity != 0\">{{capacity}}%</span>\n" +
+    "            <span class=\"value\" ng-show=\"capacity == 0\">None</span>\n" +
     "        </div>\n" +
     "        <div class=\"form-group inline\">\n" +
-    "            <span>Limit: </span>\n" +
+    "            <span>IOPs Limit: </span>\n" +
     "            <span class=\"value\">{{iopLimit}} IOPs</span>\n" +
     "        </div>\n" +
     "        <div class=\"inline icon-container\" ng-click=\"editing = true\" title=\"Edit Settings\">\n" +
@@ -1021,14 +1022,15 @@ angular.module("scripts/volumes/create/qualityOfService.html", []).run(["$templa
     "        </section>\n" +
     "        <section>\n" +
     "            <div style=\"margin-bottom: 8px;\">\n" +
-    "                <span class=\"light-print\">SLA Guarantee:</span>\n" +
-    "                <span class=\"volume-edit-label\">{{capacity}}</span>\n" +
+    "                <span class=\"light-print\">IOPs Capacity Guarantee:</span>\n" +
+    "                <span class=\"volume-edit-label\" ng-show=\"capacity != 0\">{{capacity}}%</span>\n" +
+    "                <span class=\"volume-edit-label\" ng-show=\"capacity == 0\">None</span>\n" +
     "            </div>\n" +
-    "            <fui-slider min=\"0\" max=\"100\" step=\"10\" value=\"capacity\" min-label=\"None\" max-label=\"100\"></fui-slider>\n" +
+    "            <fui-slider min=\"0\" max=\"100\" step=\"10\" value=\"capacity\" min-label=\"0%\" max-label=\"100%\"></fui-slider>\n" +
     "        </section>\n" +
     "        <section>\n" +
     "            <div style=\"margin-bottom: 8px;\">\n" +
-    "                <span class=\"light-print\">Limit:</span>\n" +
+    "                <span class=\"light-print\">IOPs Limit:</span>\n" +
     "                <span class=\"volume-edit-label\">{{iopLimit}}</span>\n" +
     "            </div>\n" +
     "            <fui-slider min=\"0\" max=\"3000\" step=\"100\" value=\"iopLimit\" min-label=\"None\" max-label=\"3000\"></fui-slider>\n" +
@@ -1083,14 +1085,15 @@ angular.module("scripts/volumes/volumes.html", []).run(["$templateCache", functi
     "                            </section>\n" +
     "                            <section>\n" +
     "                                <div style=\"margin-bottom: 8px;\">\n" +
-    "                                    <span class=\"light-print\">SLA Guarantee:</span>\n" +
-    "                                    <span class=\"volume-edit-label\">{{capacity}}</span>\n" +
+    "                                    <span class=\"light-print\">IOPs Capacity Guarantee:</span>\n" +
+    "                                    <span class=\"volume-edit-label\" ng-show=\"capacity != 0\">{{capacity}}%</span>\n" +
+    "                                    <span class=\"volume-edit-label\" ng-show=\"capacity == 0\">None</span>\n" +
     "                                </div>\n" +
-    "                                <fui-slider min=\"0\" max=\"100\" step=\"10\" value=\"capacity\" min-label=\"None\" max-label=\"100\"></fui-slider>\n" +
+    "                                <fui-slider min=\"0\" max=\"100\" step=\"10\" value=\"capacity\" min-label=\"None\" max-label=\"100%\"></fui-slider>\n" +
     "                            </section>\n" +
     "                            <section>\n" +
     "                                <div style=\"margin-bottom: 8px;\">\n" +
-    "                                    <span class=\"light-print\">Limit:</span>\n" +
+    "                                    <span class=\"light-print\">IOPs Limit:</span>\n" +
     "                                    <span class=\"volume-edit-label\">{{iopLimit}}</span>\n" +
     "                                </div>\n" +
     "                                <fui-slider min=\"0\" max=\"3000\" step=\"100\" value=\"iopLimit\" min-label=\"None\" max-label=\"3000\"></fui-slider>\n" +
@@ -1126,7 +1129,7 @@ angular.module("scripts/volumes/volumes.html", []).run(["$templateCache", functi
     "                                <div>Capacity</div>\n" +
     "                                <div>Used/Limit</div>\n" +
     "                            </th>\n" +
-    "                            <th>Limit</th>\n" +
+    "                            <th>IOPs Capacity Garauntee</th>\n" +
     "                            <th class=\"priority\">Priority</th>\n" +
     "                            <th></th>\n" +
     "                        </thead>\n" +
@@ -1151,7 +1154,8 @@ angular.module("scripts/volumes/volumes.html", []).run(["$templateCache", functi
     "                                </td>\n" +
     "\n" +
     "                                <td class=\"iopLimit\">\n" +
-    "                                    {{ volume.sla }}%\n" +
+    "                                    <span ng-show=\"volume.sla != 0\">{{ volume.sla }}%</span>\n" +
+    "                                    <span ng-show=\"volume.sla == 0\">None</span>\n" +
     "                                </td>\n" +
     "\n" +
     "                                <td class=\"priority\">\n" +
@@ -1162,7 +1166,7 @@ angular.module("scripts/volumes/volumes.html", []).run(["$templateCache", functi
     "                                <td class=\"button-group\">\n" +
     "                                    <div class=\"inline\">\n" +
     "                                        <span class=\"fui-new\" ng-click=\"edit( $event, volume )\" title=\"Edit settings\"></span>\n" +
-    "                                        <span class=\"fui-cross\" ng-click=\"delete( volume )\" title=\"Delete volume\"></span>\n" +
+    "                                        <!--<span class=\"fui-cross\" ng-click=\"delete( volume )\" title=\"Delete volume\"></span>-->\n" +
     "                                    </div>\n" +
     "                                </td>\n" +
     "                            </tr>\n" +

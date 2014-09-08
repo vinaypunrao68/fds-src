@@ -14,7 +14,7 @@ import com.formationds.util.libconfig.ParsedConfig;
 import com.formationds.xdi.*;
 import com.formationds.xdi.s3.S3Endpoint;
 import com.formationds.xdi.swift.SwiftEndpoint;
-import org.apache.commons.codec.binary.Base64;
+import org.apache.commons.codec.binary.Hex;
 import org.apache.log4j.Logger;
 import org.apache.thrift.server.TNonblockingServer;
 import org.apache.thrift.transport.TNonblockingServerSocket;
@@ -33,7 +33,7 @@ public class Main {
         Configuration configuration = new Configuration("xdi", args);
         try {
             ParsedConfig platformConfig = configuration.getPlatformConfig();
-            byte[] keyBytes = Base64.decodeBase64(platformConfig.lookup("fds.aes_key").stringValue());
+            byte[] keyBytes = Hex.decodeHex(platformConfig.lookup("fds.aes_key").stringValue().toCharArray());
             SecretKey secretKey = new SecretKeySpec(keyBytes, "AES");
 
             NativeAm.startAm(args);

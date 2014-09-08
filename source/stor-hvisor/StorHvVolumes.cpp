@@ -431,11 +431,13 @@ void StorHvVolumeTable::addBlobToWaitQueue(const std::string& bucket_name,
 
     // If the volume got attached in the meantime, we need
     // to move the requests ourselves.
-    if (volumeExists(bucket_name) == true) {
-        Error err;
-        moveWaitBlobsToQosQueue(blob_req->getVolId(),
+    fds_volid_t volid = getVolumeUUID(bucket_name);
+    if (volid != invalid_vol_id) {
+        LOGDEBUG << " volid " << std::hex << volid << std::dec
+                 << " bucket " << bucket_name << " got attached";
+        moveWaitBlobsToQosQueue(volid,
                                 bucket_name,
-                                err);
+                                ERR_OK);
     }
 }
 
@@ -484,7 +486,9 @@ void StorHvVolumeTable::moveWaitBlobsToQosQueue(fds_volid_t vol_uuid,
             }
             blobs.clear();
         }
-        shvol->readUnlock();
+        if (shvol) {
+            shvol->readUnlock();
+        }
     }
 
     if ( !err.ok()) {

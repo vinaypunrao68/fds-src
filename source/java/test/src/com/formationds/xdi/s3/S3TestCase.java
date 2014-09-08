@@ -60,8 +60,18 @@ public class S3TestCase {
         client.createBucket("foo");
         client.createBucket("bar");
         ObjectMetadata metadata = new ObjectMetadata();
-        //metadata.setContentType("image/jpg");
+        metadata.setContentType("image/jpg");
+        metadata.setHeader("Panda", "Pandas are friendly");
         client.putObject("foo", "foo.jpg", new FileInputStream("/home/fabrice/Downloads/cat3.jpg"), metadata);
+        client.listBuckets().forEach(b -> System.out.println(b.getName()));
+    }
+
+    // @Test
+    public void testFoo() throws Exception {
+        new Configuration("foo", new String[] {"--console"});
+        AmazonS3Client client = new AmazonS3Client(new BasicAWSCredentials("admin", "a024f46c38be01f35f3ca39b0b1cd86588a33d634407d3f4ffcf3eec62306cc0c01212073b1906aa64584ba20e07ea8b549ee43a357e519a95fca2950b746c16"));
+        client.setS3ClientOptions(new S3ClientOptions().withPathStyleAccess(true));
+        client.setEndpoint("http://localhost:8000");
         client.listBuckets().forEach(b -> System.out.println(b.getName()));
     }
 

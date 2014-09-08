@@ -6,7 +6,9 @@
 #include <netinet/in.h>
 #include <ifaddrs.h>
 #include <arpa/inet.h>
+#include <string>
 #include <net/net-service.h>
+#include <fds_process.h>
 
 namespace fds {
 
@@ -120,18 +122,24 @@ EpAttr::netaddr_my_ip(struct sockaddr *adr,
                       unsigned int    *flags,
                       const char      *iface)
 {
+    char           *net;
     struct ifaddrs *ifa, *cur;
 
     ifa = NULL;
+    net = const_cast<char *>(iface);
     *flags = 0;
     memset(adr, 0, sizeof(*adr));
 
     getifaddrs(&ifa);
+    if (net == NULL) {
+        auto conf = g_fdsprocess->get_conf_helper();
+        net = const_cast<char *>(conf.get_abs<std::string>("fds.nic_if").c_str());
+    }
     for (cur = ifa; cur != NULL; cur = cur->ifa_next) {
         if (cur->ifa_addr->sa_family != AF_INET) {
             continue;
         }
-        if (iface == NULL) {
+        if (net == NULL) {
             struct sockaddr_in *ip;
             char ipv4[INET_ADDRSTRLEN];
 
@@ -146,7 +154,7 @@ EpAttr::netaddr_my_ip(struct sockaddr *adr,
             }
             continue;
         }
-        if (strcmp(cur->ifa_name, iface) == 0) {
+        if (strcmp(cur->ifa_name, net) == 0) {
  found:
             *adr   = *cur->ifa_addr;
             *flags = cur->ifa_flags;

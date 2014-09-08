@@ -27,11 +27,10 @@ public class HeadObject implements RequestHandler {
 
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
-        String domain = requiredString(routeParameters, "account");
-        String volume = requiredString(routeParameters, "container");
+        String volume = requiredString(routeParameters, "bucket");
         String object = requiredString(routeParameters, "object");
 
-        BlobDescriptor stat = xdi.statBlob(token, domain, volume, object);
+        BlobDescriptor stat = xdi.statBlob(token, S3Endpoint.FDS_S3, volume, object);
         Map<String, String> metadata = stat.getMetadata();
         String contentType = metadata.getOrDefault("Content-Type", StaticFileHandler.getMimeType(object));
         String lastModified = metadata.getOrDefault("Last-Modified", SwiftUtility.formatRfc1123Date(DateTime.now()));

@@ -3,7 +3,7 @@ package com.formationds.util;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import org.apache.commons.codec.binary.Base64;
+import org.apache.commons.codec.binary.Hex;
 
 import java.security.SecureRandom;
 
@@ -12,6 +12,6 @@ public class GenerateAesKey {
         SecureRandom random = new SecureRandom();
         byte[] bytes = new byte[16];
         random.nextBytes(bytes);
-        System.out.println(Base64.encodeBase64String(bytes));
+        System.out.println(Hex.encodeHex(bytes));
     }
 }

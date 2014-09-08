@@ -6,6 +6,7 @@ package com.formationds.xdi.s3;
 import com.formationds.apis.ApiException;
 import com.formationds.apis.ErrorCode;
 import com.formationds.security.AuthenticationToken;
+import com.formationds.util.async.AsyncRequestStatistics;
 import com.formationds.util.async.CompletableFutureUtility;
 import com.formationds.web.toolkit.AsyncRequestExecutor;
 import com.formationds.xdi.XdiAsync;
@@ -14,13 +15,13 @@ import org.eclipse.jetty.http.HttpStatus;
 import org.eclipse.jetty.http.HttpURI;
 import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.server.Response;
+import org.eclipse.jetty.util.MultiMap;
 import sun.net.www.protocol.http.AuthenticationInfo;
 
 import javax.servlet.AsyncContext;
 import javax.servlet.ServletOutputStream;
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.io.StringWriter;
+import java.io.*;
+import java.util.LinkedList;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -30,10 +31,14 @@ import java.util.function.Supplier;
 public class S3AsyncApplication implements AsyncRequestExecutor {
     private final S3Authenticator authenticator;
     private XdiAsync.Factory xdiAsyncFactory;
+    private AsyncRequestStatistics.Aggregate aggregateStats;
+    private final LinkedList<AsyncRequestStatistics> requestStatisticsWindow;
 
     public S3AsyncApplication(XdiAsync.Factory xdi, S3Authenticator authenticator) {
         this.xdiAsyncFactory = xdi;
         this.authenticator = authenticator;
+        this.aggregateStats = new AsyncRequestStatistics.Aggregate();
+        this.requestStatisticsWindow = new LinkedList<>();
     }
 
     @Override
@@ -46,25 +51,32 @@ public class S3AsyncApplication implements AsyncRequestExecutor {
         } catch (SecurityException ex) {
             return Optional.empty(); // TODO: actually handle this instead of deferring to the sync handler
         }
-        final XdiAsync xdiAsync = xdiAsyncFactory.createAuthenticated(token);
+
+        AsyncRequestStatistics requestStatistics = new AsyncRequestStatistics(true);
+        final XdiAsync xdiAsync = xdiAsyncFactory.createAuthenticated(token)
+                .withStats(requestStatistics);
 
         String sanitizedPath = uri.getPath().replaceAll("^/|/$", "");
         String[] chunks = sanitizedPath.split("/");
 
-        if(chunks.length != 2 || uri.hasQuery())
-            return Optional.empty();
-
-        String bucket = chunks[0];
-        String object = chunks[1];
-
         Supplier<CompletableFuture<Void>> result = null;
-        switch(request.getMethod()) {
-            case "GET":
-                result = () -> getObject(xdiAsync, bucket, object, request, response);
-                break;
-            case "PUT":
-                result = () -> putObject(xdiAsync, bucket, object, request, response);
-                break;
+
+        if(chunks.length == 3 && chunks[0].equals("diagnostic") && chunks[1].equals("async")) {
+            if(chunks[2].equals("stats") && request.getMethod().equals("GET")) {
+                result = () -> requestStatistics.time("getStatistics", getStatistics(request, response));
+            }
+        } else if(chunks.length == 2 && !uri.hasQuery()){
+            String bucket = chunks[0];
+            String object = chunks[1];
+
+            switch (request.getMethod()) {
+                case "GET":
+                    result = () -> requestStatistics.time("serviceGetObject", getObject(xdiAsync, bucket, object, request, response));
+                    break;
+                case "PUT":
+                    result = () -> requestStatistics.time("servicePutObject", putObject(xdiAsync, bucket, object, request, response));
+                    break;
+            }
         }
 
         if(result != null) {
@@ -74,12 +86,22 @@ public class S3AsyncApplication implements AsyncRequestExecutor {
                       .exceptionally(ex -> handleError(ex, request, response))
                       .whenComplete((r, ex) -> {
                           ctx.complete();
+                          aggregateStatistics(requestStatistics);
                       });
 
             return Optional.of(actionChain);
         }
 
         return Optional.empty();
+    }
+
+    private void aggregateStatistics(AsyncRequestStatistics stats) {
+        synchronized (requestStatisticsWindow) {
+            aggregateStats.add(stats);
+            requestStatisticsWindow.add(stats);
+            if(requestStatisticsWindow.size() > 100)
+                requestStatisticsWindow.remove();
+        }
     }
 
     public void appendStandardHeaders(Response response, String contentType, int responseCode) {
@@ -115,14 +137,14 @@ public class S3AsyncApplication implements AsyncRequestExecutor {
         // TODO: add etags
         try {
             ServletOutputStream outputStream = response.getOutputStream();
-            return xdiAsync.statBlob(S3Endpoint.FDS_S3, bucket, object).thenCompose(stat -> {
-                Map<String, String> md = stat.getMetadata();
+            return xdiAsync.getBlobInfo(S3Endpoint.FDS_S3, bucket, object).thenCompose(blobInfo -> {
+                Map<String, String> md = blobInfo.blobDescriptor.getMetadata();
                 String contentType = md.getOrDefault("Content-Type", "application/octet-stream");
                 appendStandardHeaders(response, contentType, HttpStatus.OK_200);
                 if(md.containsKey("etag"))
                     response.addHeader("etag", formatEtag(md.get("etag")));
 
-                return xdiAsync.getBlobToStream(S3Endpoint.FDS_S3, bucket, object, outputStream);
+                return xdiAsync.getBlobToStream(blobInfo, outputStream);
             });
         } catch(Exception e) {
             return CompletableFutureUtility.exceptionFuture(e);
@@ -136,6 +158,31 @@ public class S3AsyncApplication implements AsyncRequestExecutor {
             return putResult.thenAccept(result -> response.addHeader("etag", formatEtag(result.digest)));
         } catch(Exception e) {
             return CompletableFutureUtility.exceptionFuture(e);
+        }
+    }
+
+    public CompletableFuture<Void> getStatistics(Request request, Response response) {
+        try {
+            response.setContentType("text/html");
+            StringBuilder stringBuilder = new StringBuilder();
+            OutputStreamWriter writer = new OutputStreamWriter(response.getOutputStream());
+            synchronized (requestStatisticsWindow) {
+                stringBuilder.append("Aggregate Stats:\n\n");
+                aggregateStats.output(stringBuilder);
+                stringBuilder.append("\n\n");
+
+                stringBuilder.append("Lifecycle for last " + requestStatisticsWindow.size() + " requests\n\n");
+                for(AsyncRequestStatistics windowEntry : requestStatisticsWindow) {
+                    windowEntry.outputRequestLifecycle(stringBuilder);
+                    stringBuilder.append("\n");
+                }
+            }
+
+            writer.write(stringBuilder.toString());
+            writer.flush();
+            return CompletableFuture.completedFuture(null);
+        } catch(Exception ex) {
+            return CompletableFutureUtility.exceptionFuture(ex);
         }
     }
 

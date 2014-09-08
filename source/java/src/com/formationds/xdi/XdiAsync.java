@@ -7,20 +7,16 @@ import com.formationds.apis.*;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
 import com.formationds.util.async.AsyncMessageDigest;
+import com.formationds.util.async.AsyncRequestStatistics;
 import com.formationds.util.async.AsyncResourcePool;
 import com.formationds.util.ByteBufferUtility;
 import com.formationds.util.async.CompletableFutureUtility;
 import com.formationds.util.blob.Mode;
-import com.formationds.web.toolkit.ServletInputWapper;
-import com.formationds.web.toolkit.ServletOutputWrapper;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.thrift.async.AsyncMethodCallback;
 import org.eclipse.jetty.io.ByteBufferPool;
 import org.joda.time.DateTime;
 
-import javax.servlet.ServletInputStream;
-import javax.servlet.ServletOutputStream;
-import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
@@ -38,6 +34,7 @@ public class XdiAsync {
     private AsyncResourcePool<XdiClientConnection<ConfigurationService.AsyncIface>> csPool;
     private ByteBufferPool bufferPool;
     private final AuthenticationToken token;
+    private AsyncRequestStatistics statistics;
 
     public XdiAsync(Authorizer authorizer,
                     AsyncResourcePool<XdiClientConnection<ConfigurationService.AsyncIface>> csPool,
@@ -49,6 +46,19 @@ public class XdiAsync {
         this.amPool = amPool;
         this.bufferPool = bufferPool;
         this.token = token;
+        statistics = new AsyncRequestStatistics(false);
+    }
+
+    public XdiAsync withStats(AsyncRequestStatistics statistics) {
+        this.statistics = statistics;
+        return this;
+    }
+
+    public CompletableFuture<BlobInfo> getBlobInfo(String domain, String volume, String blob) {
+        CompletableFuture<BlobDescriptor> blobDescriptorFuture = statBlob(domain, volume, blob);
+        CompletableFuture<VolumeDescriptor> volumeDescriptorFuture = statVolume(domain, volume);
+        CompletableFuture<ByteBuffer> getObject0Future = volumeDescriptorFuture.thenCompose(vd -> getBlob(domain, volume, blob, 0, vd.getPolicy().maxObjectSizeInBytes));
+        return blobDescriptorFuture.thenCompose(bd -> volumeDescriptorFuture.thenCombine(getObject0Future, (vd, o0) -> new BlobInfo(domain, volume, blob, bd, vd, o0)));
     }
 
     public CompletableFuture<PutResult> putBlobFromStream(String domain, String volume, String blob, InputStream stream) {
@@ -68,8 +78,8 @@ public class XdiAsync {
         });
     }
 
-    public CompletableFuture<Void> getBlobToStream(String domain, String volume, String blob, OutputStream str) {
-        return getBlobToConsumer(domain, volume, blob, bytes -> {
+    public CompletableFuture<Void> getBlobToStream(BlobInfo blob, OutputStream str) {
+        return getBlobToConsumer(blob, bytes -> {
             CompletableFuture<Void> cf = new CompletableFuture<>();
             CompletableFuture.runAsync(() -> {
                 try {
@@ -84,27 +94,25 @@ public class XdiAsync {
         });
     }
 
-    public CompletableFuture<Void> getBlobToConsumer(String domain, String volume, String blob, Function<ByteBuffer, CompletableFuture<Void>> processor) {
-        CompletableFuture<BlobDescriptor> blobDescriptorFuture = statBlob(domain, volume, blob);
-        CompletableFuture<VolumeDescriptor> volumeDescriptorFuture = statVolume(domain, volume);
+    public CompletableFuture<Void> getBlobToConsumer(BlobInfo blobInfo, Function<ByteBuffer, CompletableFuture<Void>> processor) {
+        //CompletableFuture<BlobDescriptor> blobDescriptorFuture = statBlob(domain, volume, blob);
 
-        return
-            volumeDescriptorFuture.thenCompose(volumeDescriptor ->
-                    blobDescriptorFuture.thenCompose(blobDescriptor -> {
-                        int objectSize = volumeDescriptor.getPolicy().getMaxObjectSizeInBytes();
+        int objectSize = blobInfo.volumeDescriptor.getPolicy().getMaxObjectSizeInBytes();
 
-                        // TODO: do we need to worry about limiting reads?
-                        ArrayList<CompletableFuture<ByteBuffer>> readFutures = new ArrayList<>();
-                        for (FdsObjectFrame frame : FdsObjectFrame.frames(0, blobDescriptor.byteCount, objectSize)) {
-                            readFutures.add(getBlob(domain, volume, blob, frame.objectOffset, frame.internalLength));
-                        }
+        // TODO: do we need to worry about limiting reads?
+        ArrayList<CompletableFuture<ByteBuffer>> readFutures = new ArrayList<>();
+        for (FdsObjectFrame frame : FdsObjectFrame.frames(0, blobInfo.blobDescriptor.byteCount, objectSize)) {
+            if(frame.objectOffset == 0)
+                readFutures.add(CompletableFuture.completedFuture(blobInfo.object0));
+            else
+                readFutures.add(getBlob(blobInfo.domain, blobInfo.volume, blobInfo.blob, frame.objectOffset, frame.internalLength));
+        }
 
-                        CompletableFuture<Void> result = CompletableFuture.completedFuture(null);
-                        for (CompletableFuture<ByteBuffer> readFuture : readFutures) {
-                            result = result.thenCompose(r -> readFuture.thenCompose(processor));
-                        }
-                        return result;
-                    }));
+        CompletableFuture<Void> result = CompletableFuture.completedFuture(null);
+        for (CompletableFuture<ByteBuffer> readFuture : readFutures) {
+            result = result.thenCompose(r -> readFuture.thenCompose(buf -> statistics.time("writeOutputTime", processor.apply(buf))));
+        }
+        return result;
     }
 
     public CompletableFuture<PutResult> putBlobFromSupplier(String domain, String volume, String blob, Function<ByteBuffer, CompletableFuture<Void>> reader) {
@@ -172,7 +180,7 @@ public class XdiAsync {
         readBuf.limit(putParameters.objectSize);
         CompletableFuture<Void> readCompleteFuture = putParameters.reader.apply(readBuf);
 
-        CompletableFuture<Void> digestFuture = readCompleteFuture.thenCompose(_null -> putParameters.digest.update(readBuf));
+        CompletableFuture<Void> digestFuture = statistics.time("etagDigestUpdate", readCompleteFuture.thenCompose(_null -> putParameters.digest.update(readBuf)));
 
         CompletableFuture<Void> writeFuture = readCompleteFuture.thenCompose(_null -> {
             if(readBuf.remaining() == 0) {
@@ -194,22 +202,26 @@ public class XdiAsync {
     }
 
     public <T> CompletableFuture<T> amUseVolume(String volume, AsyncResourcePool.BindWithException<XdiClientConnection<AmService.AsyncIface>, CompletableFuture<T>> operation) {
-        if(authorizer.hasAccess(token, volume))
-            return amPool.use(operation);
-        else
+        if(authorizer.hasAccess(token, volume)) {
+            CompletableFuture<Void> poolWaitTime = statistics.time("amPoolWaitTime", new CompletableFuture<>());
+            return amPool.use(am -> { poolWaitTime.complete(null); statistics.note("am connection pool sample: " + amPool.getUsedCount()); return operation.apply(am); }  );
+        } else {
             return CompletableFutureUtility.exceptionFuture(new SecurityException());
+        }
     }
 
     public <T> CompletableFuture<T> csUseVolume(String volume, AsyncResourcePool.BindWithException<XdiClientConnection<ConfigurationService.AsyncIface>, CompletableFuture<T>> operation) {
-        if(authorizer.hasAccess(token, volume))
-            return csPool.use(operation);
-        else
+        if(authorizer.hasAccess(token, volume)) {
+            CompletableFuture<Void> poolWaitTime = statistics.time("csPoolWaitTime", new CompletableFuture<>());
+            return csPool.use(cs -> { poolWaitTime.complete(null);  return operation.apply(cs); });
+        } else {
             return CompletableFutureUtility.exceptionFuture(new SecurityException());
+        }
     }
 
     public CompletableFuture<VolumeDescriptor> statVolume(String domain, String volume) {
         return csUseVolume(volume, cs -> {
-            CompletableFuture<VolumeDescriptor> result = new CompletableFuture<>();
+            CompletableFuture<VolumeDescriptor> result = statistics.time("statVolume", new CompletableFuture<>());
             cs.getClient().statVolume(domain, volume, makeThriftCallbacks(result, r -> r.getResult()));
             return result;
         });
@@ -217,7 +229,7 @@ public class XdiAsync {
 
     public CompletableFuture<BlobDescriptor> statBlob(String domain, String volume, String blob) {
         return amUseVolume(volume, am -> {
-            CompletableFuture<BlobDescriptor> result = new CompletableFuture<>();
+            CompletableFuture<BlobDescriptor> result = statistics.time("statBlob", new CompletableFuture<>());
             am.getClient().statBlob(domain, volume, blob, makeThriftCallbacks(result, r -> r.getResult()));
             return result;
         });
@@ -225,7 +237,7 @@ public class XdiAsync {
 
     public CompletableFuture<ByteBuffer> getBlob(String domain, String volume, String blob, long offset, int length) {
         return amUseVolume(volume, am -> {
-            CompletableFuture<ByteBuffer> result = new CompletableFuture<>();
+            CompletableFuture<ByteBuffer> result = statistics.time("getBlob", new CompletableFuture<>());
             am.getClient().getBlob(domain, volume, blob, length, new ObjectOffset(offset), makeThriftCallbacks(result, r -> r.getResult()));
             return result;
         });
@@ -233,7 +245,7 @@ public class XdiAsync {
 
     public CompletableFuture<Void> updateBlobOnce(String domain, String volume, String blob, int blobMode, ByteBuffer data, int length, long offset, Map<String, String> metadata) {
         return amUseVolume(volume, am -> {
-            CompletableFuture<Void> result = new CompletableFuture<>();
+            CompletableFuture<Void> result = statistics.time("updateBlobOnce", new CompletableFuture<>());
             am.getClient().updateBlobOnce(domain, volume, blob, blobMode, data, length, new ObjectOffset(offset), metadata, makeThriftCallbacks(result, r -> null));
             return result;
         });
@@ -241,7 +253,7 @@ public class XdiAsync {
 
     public CompletableFuture<TransactionHandle> createTx(String domain, String volume, String blob, int mode) {
         return amUseVolume(volume, am -> {
-            CompletableFuture<TransactionHandle> result = new CompletableFuture<>();
+            CompletableFuture<TransactionHandle> result = statistics.time("createTx", new CompletableFuture<>());
             am.getClient().startBlobTx(domain, volume, blob, mode, makeThriftCallbacks(result, r -> new TransactionHandle(domain, volume, blob, r.getResult())));
             return result;
         });
@@ -270,7 +282,7 @@ public class XdiAsync {
 
         public CompletableFuture<Void> commit() {
             return amUseVolume(volume, am -> {
-                CompletableFuture<Void> result = new CompletableFuture<>();
+                CompletableFuture<Void> result = statistics.time("commitBlobTx", new CompletableFuture<>());
                 am.getClient().commitBlobTx(domain, volume, blob, descriptor, makeThriftCallbacks(result, r -> null));
                 return result;
             });
@@ -278,16 +290,15 @@ public class XdiAsync {
 
         public CompletableFuture<Void> abort() {
             return amUseVolume(volume, am -> {
-                CompletableFuture<Void> result = new CompletableFuture<>();
+                CompletableFuture<Void> result = statistics.time("abortBlobTx", new CompletableFuture<>());
                 am.getClient().abortBlobTx(domain, volume, blob, descriptor, makeThriftCallbacks(result, r -> null));
                 return result;
             });
-
         }
 
         public CompletableFuture<Void> update(ByteBuffer buffer, long objectOffset, int length) {
             return amUseVolume(volume, am -> {
-                CompletableFuture<Void> result = new CompletableFuture<>();
+                CompletableFuture<Void> result = statistics.time("updateBlob", new CompletableFuture<>());
                 am.getClient().updateBlob(domain, volume, blob, descriptor, buffer, length, new ObjectOffset(objectOffset), false, makeThriftCallbacks(result, r -> null));
                 return result;
             });
@@ -295,7 +306,7 @@ public class XdiAsync {
 
         public CompletableFuture<Void> updateMetadata(Map<String, String> meta) {
             return amUseVolume(volume, am -> {
-                CompletableFuture<Void> result = new CompletableFuture<Void>();
+                CompletableFuture<Void> result = statistics.time("updateMetadata", new CompletableFuture<Void>());
                 am.getClient().updateMetadata(domain, volume, blob, descriptor, meta, makeThriftCallbacks(result, r -> null));
                 return result;
             });
@@ -365,6 +376,24 @@ public class XdiAsync {
                         md.put("etag", Hex.encodeHexString(bytes));
                         return md;
                     });
+        }
+    }
+
+    public class BlobInfo {
+        public String domain;
+        public String volume;
+        public String blob;
+        public BlobDescriptor blobDescriptor;
+        public VolumeDescriptor volumeDescriptor;
+        public ByteBuffer object0;
+
+        public BlobInfo(String domain, String volume, String blob, BlobDescriptor bd, VolumeDescriptor vd, ByteBuffer object0) {
+            this.domain = domain;
+            this.volume = volume;
+            this.blob = blob;
+            blobDescriptor = bd;
+            volumeDescriptor = vd;
+            this.object0 = object0;
         }
     }
 

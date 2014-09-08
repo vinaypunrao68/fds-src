@@ -137,6 +137,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         fpi::FDSP_CreateVolTypePtr request;
         convert::getFDSPCreateVolRequest(header, request,
                                          *domainName, *volumeName, *volumeSettings);
+        request->vol_info.tennantId = *tenantId;
         err = volContainer->om_create_vol(header, request, false);
         if (err != ERR_OK) apiException("error creating volume");
     }
