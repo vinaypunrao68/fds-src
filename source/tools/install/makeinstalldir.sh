@@ -114,6 +114,12 @@ function getInstallSources() {
     )
 }
 
+function saveGitCommitNumber() {
+    echo `git status | grep "On branch"` > ${INSTALLDIR}/git_commit.txt
+    echo >> ${INSTALLDIR}/git_commit.txt
+    echo `git log -n 1` >> ${INSTALLDIR}/git_commit.txt
+}
+
 function setupInstallDir() {
     loginfo "creating install dir @ ${INSTALLDIR}"
     if [[ ! -e ${INSTALLDIR} ]]; then
@@ -124,6 +130,7 @@ function setupInstallDir() {
     getFdsRepoPkgs
     getFdsCorePkgs
     getInstallSources
+    saveGitCommitNumber
 }
 
 #############################################################################

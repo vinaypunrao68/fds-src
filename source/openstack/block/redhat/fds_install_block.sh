@@ -1,17 +1,14 @@
 #!/bin/bash
-if [ $# -eq 1 ]; then
-    PIP_PROXY="--proxy=$1"
-else
-    PIP_PROXY=""
-fi
-echo apt-get -y install install python-pip thrift python-cinderclient nbd-client python-dev
-apt-get -y install install python-pip thrift python-cinderclient nbd-client python-dev
+echo "yum -y install install python-pip thrift python-cinderclient nbd \
+      python-devel.x86_x64 psutil"
+yum -y install install python-pip thrift python-cinderclient nbd \
+       python-devel.x86_x64
 
-echo pip $PIP_PROXY install psutil
-pip $PIP_PROXY install psutil
+echo pip install psutil
+pip install psutil
 
-echo pip $PIP_PROXY install thrift
-pip $PIP_PROXY install thrift
+echo cp ./nbd.ko /lib/modules/$(uname -r)/kernel/drivers/block/
+cp ./nbd.ko /lib/modules/$(uname -r)/kernel/drivers/block/
 
 modprobe nbd
 nbd_found=`lsmod | grep -c nbd`
@@ -20,7 +17,7 @@ if [ $nbd_found -ne 1 ]; then
     exit 1
 fi
 
-CINDER_DRIVER_DIR=/usr/lib/python2.7/dist-packages/cinder/volume/drivers
+CINDER_DRIVER_DIR=/usr/lib/python2.6/site-packages/cinder/volume/drivers
 DRIVER=./fds_driver.tar.gz
 DRIVER_DIR=./fds
 BIN_DIR=/usr/sbin
@@ -44,7 +41,7 @@ cp $DRIVER_DIR/nbdadm.py $BIN_DIR/
 mkdir -p $CINDER_DRIVER_DIR
 cp -rf $DRIVER_DIR $CINDER_DRIVER_DIR
 
-VOLUME_FILTERS=/etc/cinder/rootwrap.d/volume.filters
+VOLUME_FILTERS=/usr/share/cinder/rootwrap/volume.filters
 if [ -e $VOLUME_FILTERS ]; then
     found=`cat $VOLUME_FILTERS | grep -c "nbdadm.py"`
     if [ $found -eq 0 ]; then
@@ -60,7 +57,8 @@ cat $CINDER_CFG | grep "^[^#]*enabled_backends=[^#]*fds"
 if [ $? -eq 0 ]; then
     echo "cinder cfg already setup"
     echo "restarting cinder"
-    service cinder-volume restart
+    echo "Restart manually"
+    # service openstack-cinder-volume restart
     exit 0
 else
     ## no fds found 
@@ -71,7 +69,7 @@ else
     cp -f /tmp/cinder.conf /etc/cinder/cinder.conf
 fi
 
-service cinder-volume restart
+service openstack-cinder-volume restart
 source openrc.sh
 
 cinder --os-username admin --os-tenant-name admin type-create fds

@@ -1,13 +1,14 @@
 #!/bin/bash
 
 if [ $# -ne 1 ]; then
-    echo "Usage: make_package.sh <distribution>"
+    echo "Usage: make_package.sh <redhat|ubuntu>"
     exit 1
 fi
 dist=$1
 
 if [ $dist != "redhat" -a $dist != "ubuntu" ]; then
     echo "Invalid distribution name: $dist"
+    echo "Usage: make_package.sh <redhat|ubuntu>"
     exit 2
 fi
 
@@ -46,6 +47,12 @@ function make_pkg_controller()
 
     echo cp openrc.sh $dest_ctrl/
     cp openrc.sh $dest_ctrl/
+
+    echo cp openstack_get_config.py $dest_ctrl/
+    cp openstack_get_config.py $dest_ctrl/
+
+    echo cp openstack_status.py $dest_ctrl/
+    cp openstack_status.py $dest_ctrl/
 
     echo cp $control/fds_id_rsa $dest_ctrl/
     cp $control/fds_id_rsa $dest_ctrl/
@@ -97,6 +104,9 @@ function make_pkg_compute()
     echo cp $compute/$dist/fds_uninstall_compute.sh $dest_compute/
     cp $compute/$dist/fds_uninstall_compute.sh $dest_compute/
 
+    echo cp $compute/$dist/* $dest_compute/
+    cp $compute/$dist/* $dest_compute/
+
     copy_cinder_dir $dest_compute
 }
 
@@ -116,6 +126,9 @@ function make_pkg_block()
 
     echo cp $block/$dist/fds_uninstall_block.sh $dest_block/
     cp $block/$dist/fds_uninstall_block.sh $dest_block/
+
+    echo cp $block/$dist/* $dest_block/
+    cp $block/$dist/* $dest_block/
 
     copy_cinder_dir $dest_block
 }

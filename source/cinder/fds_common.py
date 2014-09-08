@@ -149,7 +149,7 @@ class NbdManager(object):
                 image_id,
                 temp_filename,
                 size=volume["size"])
-            self._execute('dd', 'if=' + temp_filename, 'of=' + dev, 'bs=4096', run_as_root=True)
+            self._execute('dd', 'if=' + temp_filename, 'of=' + dev, 'bs=4096', 'oflag=sync', run_as_root=True)
 
     def set_execute(self, execute):
         self._execute = execute
