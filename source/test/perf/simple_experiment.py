@@ -20,69 +20,75 @@ def create_tests():
 
     ############### Test definition ############
 
+    # tests = []
+    # #for size in [x*256*1024 for x in range(1:9)]:
+    # for size in [4*1024]:
+    #     test = dict(template)
+    #     test["test_type"] = "amprobe"
+    #     # test["type"] = "GET"
+    #     test["nreqs"] = 1000000
+    #     test["nfiles"] = 1000
+    #     test["fsize"] = size
+    #
+    #     test["nvols"] = 4
+    #     test["threads"] = 1
+    #     tests.append(test)
+
+    
     tests = []
-    #for size in [x*256*1024 for x in range(1:9)]:
-    for size in [4*1024]:
-        test = dict(template)
-        test["test_type"] = "amprobe"
-        # test["type"] = "GET"
-        test["nreqs"] = 1000000
-        test["nfiles"] = 1000
-        test["fsize"] = size
-
-        test["nvols"] = 4
-        test["threads"] = 1
-        tests.append(test)
-
-
-#    tests = []
-#    size = 2 * 1024 * 1024   # 4096
-#    test = dict(template)
-#    test["type"] = "PUT"
-#    test["nreqs"] =  1000# 10000  # 100000
-#    test["nfiles"] = 100 #1000 # 10000
-#    test["nvols"] = 4 #2
-#    test["threads"] = 1
-#    test["fsize"] = size
-#    tests.append(test)
-#    # for nvols in [1, 2, 3, 4]:
-#    #     for th in [1, 2, 5, 10, 15]:
-#    #         test = dict(template)
-#    #         test["type"] = "PUT"
-#    #         test["nreqs"] = 10000
-#    #         test["nfiles"] = 10000
-#    #         test["nvols"] = nvols
-#    #         test["threads"] = th
-#    #         tests.append(test)
-#    for nvols in [4]:#[1, 2]: # [1, 2, 3, 4]:
-#        for th in [25]:#[1, 5, 10, 15, 20, 25, 30]: #[1, 2, 5, 10, 15]:
-#            test = dict(template)
-#            test["type"] = "GET"
-#            test["nreqs"] = 1000 # 100000
-#            test["nfiles"] = 100 # 10000
-#            test["nvols"] = nvols
-#            test["threads"] = th
-#            test["fsize"] = size
-#            tests.append(test)
-#    size = 4096 * 1024
-#    test = dict(template)
-#    test["type"] = "PUT"
-#    test["nreqs"] = 10000
-#    test["nfiles"] = 100
-#    test["nvols"] = 2
-#    test["threads"] = 1
-#    test["fsize"] = size
-#    #tests.append(test)
-#    for nvols in [1, 2]:
-#        for th in [1, 2, 5, 10, 15, 20, 25, 30]:
-#            test = dict(template)
-#            test["type"] = "GET"
-#            test["nreqs"] = 10000
-#            test["nfiles"] = 100
-#            test["nvols"] = nvols
-#            test["threads"] = th
-#            test["fsize"] = size
-#            #tests.append(test)
+    size = 4096   # 4096
+    test = dict(template)
+    test["type"] = "PUT"
+    test["nreqs"] = 10000  # 100000
+    test["nfiles"] = 1000 # 10000
+    test["nvols"] = 1 # 4
+    test["threads"] = 1
+    test["fsize"] = size
+    test["injector"] = None
+    tests.append(test)
+    # for nvols in [1, 2, 3, 4]:
+    #     for th in [1, 2, 5, 10, 15]:
+    #         test = dict(template)
+    #         test["type"] = "PUT"
+    #         test["nreqs"] = 10000
+    #         test["nfiles"] = 10000
+    #         test["nvols"] = nvols
+    #         test["threads"] = th
+    #         tests.append(test)
+    for nvols in [1]:#[1, 2]: # [1, 2, 3, 4]:
+        for th in [1, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60]: #[1, 2, 5, 10, 15]:
+            test = dict(template)
+            test["type"] = "GET"
+            test["nreqs"] = 100000
+            test["nfiles"] = 1000
+            test["nvols"] = nvols
+            test["threads"] = th
+            test["fsize"] = size
+            test["injector"] = None # [
+            #    #options.local_fds_root + "/source/Build/linux-x86_64.debug/bin/fdscli --volume-modify volume1 -s 1000000  -g 3200 -m 5000 -r 10",
+            #    "sleep = 10",
+            #    "/home/monchier/FDS/source/Build/linux-x86_64.debug/bin/fdscli --volume-modify volume1 -s 1000000  -g 1000 -m 5000 -r 10",
+            #]
+            tests.append(test)
+    size = 4096 * 1024
+    test = dict(template)
+    test["type"] = "PUT"
+    test["nreqs"] = 10000
+    test["nfiles"] = 100
+    test["nvols"] = 2
+    test["threads"] = 1
+    test["fsize"] = size
+    #tests.append(test)
+    for nvols in [1, 2]:
+       for th in [1, 2, 5, 10, 15, 20, 25, 30]:
+           test = dict(template)
+           test["type"] = "GET"
+           test["nreqs"] = 10000
+           test["nfiles"] = 100
+           test["nvols"] = nvols
+           test["threads"] = th
+           test["fsize"] = size
+           #tests.append(test)
 
     return tests
 
@@ -140,6 +146,7 @@ def main():
         # "c3po" : "10.1.10.171",
     }
     options.myip = get_myip()
+    print "My IP:", options.myip
 
     if "single" in options.mode:
         options.single_node = True
@@ -168,13 +175,6 @@ def main():
         print "test -->", t
     print "--- . ---"
 
-    # This is for the injector
-    commands = [
-        #options.local_fds_root + "/source/Build/linux-x86_64.debug/bin/fdscli --volume-modify volume1 -s 1000000  -g 3200 -m 5000 -r 10",
-        "sleep = 30",
-        options.local_fds_root + "/source/Build/linux-x86_64.debug/bin/fdscli --volume-modify volume1 -s 1000000  -g 1000 -m 1500 -r 10",
-    ]
-
     for t in tests:
         print t
         results_dir = get_results_dir("results", t)
@@ -186,8 +186,9 @@ def main():
         monitors.compute_monitors_cmds(fds.get_pidmap())
         monitors.run()
 
-        injector = CommandInjector(options, commands)
-        injector.start()
+        if t["injector"] != None:
+            injector = CommandInjector(options, t["injector"])
+            injector.start()
 
         # execute test
         # time.sleep(5)
@@ -196,7 +197,8 @@ def main():
         # terminate stats collection
         monitors.terminate()
         counter_server.terminate()
-        injector.terminate()
+        if t["injector"] != None:
+            injector.terminate()
         time.sleep(5)
     # terminate FDS
     # fds.terminate()

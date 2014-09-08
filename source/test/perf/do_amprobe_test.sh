@@ -28,7 +28,7 @@ function test1() {
     python test/perf/gen_json.py -n 100000 -s $size > am-get.json
     curl -v -X PUT -T am-get.json http://han:8080
     sleep 1
-    ssh han 'cat /fds/var/logs/am.*' |grep CRITICAL > $res/am-probe-$size-$cache-read.out
+    ssh han 'cat /fds/var/logs/am.*' |grep CRITICAL > $res/am-probe-$size-$cache-$outs-read.out
 }
 
 caches="0 500 1200"

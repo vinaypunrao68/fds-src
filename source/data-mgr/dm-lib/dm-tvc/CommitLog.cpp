@@ -357,7 +357,7 @@ CommitLogTx::const_ptr DmCommitLog::commitTx(BlobTxId::const_ptr & txDesc, Error
     status = cmtLogger_->commitTx(txDesc, entry);
     if (!status.ok()) {
         GLOGERROR << "Failed to save blob transaction error=(" << status << ")";
-        return 0;
+        return txMap_[txId];
     }
 
     if (cmtLogger_->hasReachedSizeThreshold() && !compacting_.test_and_set()) {
