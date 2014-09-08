@@ -52,7 +52,7 @@ public class S3AsyncApplication implements AsyncRequestExecutor {
             return Optional.empty(); // TODO: actually handle this instead of deferring to the sync handler
         }
 
-        AsyncRequestStatistics requestStatistics = new AsyncRequestStatistics(true);
+        AsyncRequestStatistics requestStatistics = new AsyncRequestStatistics();
         final XdiAsync xdiAsync = xdiAsyncFactory.createAuthenticated(token)
                 .withStats(requestStatistics);
 
@@ -74,12 +74,16 @@ public class S3AsyncApplication implements AsyncRequestExecutor {
                     result = () -> requestStatistics.time("serviceGetObject", getObject(xdiAsync, bucket, object, request, response));
                     break;
                 case "PUT":
+                    // route copy to sync for now
+                    if(request.getHeader(S3Endpoint.X_AMZ_COPY_SOURCE) != null)
+                        return Optional.empty();
                     result = () -> requestStatistics.time("servicePutObject", putObject(xdiAsync, bucket, object, request, response));
                     break;
             }
         }
 
         if(result != null) {
+            requestStatistics.enable();
             AsyncContext ctx = request.startAsync();
             CompletableFuture<Void> actionChain =
                 result.get()

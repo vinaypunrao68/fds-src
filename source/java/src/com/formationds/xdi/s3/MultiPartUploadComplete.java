@@ -76,7 +76,7 @@ public class MultiPartUploadComplete implements RequestHandler {
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
         String bucket = requiredString(routeParameters, "bucket");
         String objectName = requiredString(routeParameters, "object");
-        String uploadId = request.getParameter("uploadId");
+        String uploadId = request.getQueryParameters().getString("uploadId");
         MultiPartOperations mops = new MultiPartOperations(xdi, uploadId, token);
 
         //TODO: verify etag map

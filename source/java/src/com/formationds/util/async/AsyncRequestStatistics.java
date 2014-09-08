@@ -82,8 +82,7 @@ public class AsyncRequestStatistics {
         }
     }
 
-    public AsyncRequestStatistics(boolean enabled) {
-        this.enabled = enabled;
+    public AsyncRequestStatistics() {
         this.data = new LinkedList<>();
         this.notes = new LinkedList<>();
     }
@@ -139,5 +138,10 @@ public class AsyncRequestStatistics {
 
     public void note(String note) {
         notes.add(note);
+    }
+
+    public AsyncRequestStatistics enable() {
+        enabled = true;
+        return this;
     }
 }

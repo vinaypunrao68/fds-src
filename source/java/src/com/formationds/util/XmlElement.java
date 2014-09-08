@@ -94,7 +94,7 @@ public class XmlElement{
             b.append(value);
 
         if(multiLine) {
-            b.append("\n");
+            //b.append("\n");
             indent(b, indentLevel);
         }
         b.append("</");
@@ -103,7 +103,7 @@ public class XmlElement{
     }
 
     public void renderDocument(StringBuilder b) {
-        b.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
+        b.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
         render(b, 0);
     }
 
@@ -111,5 +111,9 @@ public class XmlElement{
         StringBuilder b = new StringBuilder();
         renderDocument(b);
         return b.toString();
+    }
+
+    public String minifiedDocumentString() {
+        return documentString().replaceAll(">\\s*<", "");
     }
 }

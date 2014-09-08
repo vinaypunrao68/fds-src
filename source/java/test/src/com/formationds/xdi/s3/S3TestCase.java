@@ -91,7 +91,7 @@ public class S3TestCase {
         am.attachVolume("fds", "Volume1");
     }
 
-    //@Test
+    @Test
     public void testFdsImplementation() throws Exception {
         new Configuration("foo", new String[0]);
         //AmazonS3Client client = new AmazonS3Client(new BasicAWSCredentials("AKIAINOGA4D75YX26VXQ", "/ZE1BUJ/vJ8BDESUvf5F3pib7lJW+pBa5FTakmjf"));
@@ -109,7 +109,7 @@ public class S3TestCase {
         System.out.println("Read " + read + " bytes");
     }
 
-    // @Test
+    //@Test
     public void testMultipartFdsImplementation() throws Exception {
         new Configuration("foo", new String[0]);
         //AmazonS3Client client = new AmazonS3Client(new BasicAWSCredentials("AKIAINOGA4D75YX26VXQ", "/ZE1BUJ/vJ8BDESUvf5F3pib7lJW+pBa5FTakmjf"));
@@ -132,6 +132,10 @@ public class S3TestCase {
         }
 
         String key = "wooky";
+        String copySourceKey = "wookySrc";
+
+        byte[] copyChunk = new byte[] { 12, 13, 14, 15 };
+        PutObjectResult putObjectResult = client.putObject(bucketName, copySourceKey, new ByteArrayInputStream(copyChunk), new ObjectMetadata());
 
         InitiateMultipartUploadRequest req = new InitiateMultipartUploadRequest(bucketName, key);
         InitiateMultipartUploadResult initiateResult = client.initiateMultipartUpload(req);
@@ -141,6 +145,8 @@ public class S3TestCase {
                 new byte[] { 4, 5, 6, 7 },
                 new byte[] { 8, 9, 10, 11 }
         };
+
+
 
         int ordinal = 0;
         List<PartETag> parts = new ArrayList<>();
@@ -159,10 +165,19 @@ public class S3TestCase {
             ordinal++;
         }
 
+        CopyPartRequest uploadCopy = new CopyPartRequest()
+                .withUploadId(initiateResult.getUploadId())
+                .withSourceKey(copySourceKey)
+                .withSourceBucketName(bucketName)
+                .withDestinationKey(key)
+                .withDestinationBucketName(bucketName)
+                .withPartNumber(ordinal);
+        CopyPartResult result = client.copyPart(uploadCopy);
+
         ListPartsRequest listPartsReq = new ListPartsRequest(bucketName, key, initiateResult.getUploadId());
         PartListing pl = client.listParts(listPartsReq);
 
-        assertEquals(chunks.length, pl.getParts().size());
+        assertEquals(chunks.length + 1, pl.getParts().size());
 
         CompleteMultipartUploadRequest completeReq = new CompleteMultipartUploadRequest(bucketName, key, initiateResult.getUploadId(), parts);
         CompleteMultipartUploadResult completeResult = client.completeMultipartUpload(completeReq);
@@ -182,6 +197,10 @@ public class S3TestCase {
             for(byte b : chunk) {
                 assertEquals(b, s3bytes[idx++]);
             }
+        }
+
+        for(byte b : copyChunk) {
+            assertEquals(b, s3bytes[idx++]);
         }
     }
 

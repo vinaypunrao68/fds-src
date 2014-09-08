@@ -9,6 +9,8 @@ import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.WebApp;
 import com.formationds.xdi.Xdi;
 import com.formationds.xdi.XdiAsync;
+import org.joda.time.DateTime;
+import org.joda.time.format.ISODateTimeFormat;
 
 import javax.crypto.SecretKey;
 import java.util.function.Function;
@@ -17,6 +19,7 @@ public class S3Endpoint {
     public static final String FDS_S3 = "FDS_S3";
     public static final String FDS_S3_SYSTEM = "FDS_S3_SYSTEM";
     public static final String FDS_S3_SYSTEM_BUCKET_NAME = FDS_S3_SYSTEM;
+    public static final String X_AMZ_COPY_SOURCE = "x-amz-copy-source";
 
     private Xdi xdi;
     private XdiAsync.Factory xdiAsync;
@@ -59,5 +62,9 @@ public class S3Endpoint {
                 return new S3Failure(S3Failure.ErrorCode.AccessDenied, "Access denied", r.getRequestURI());
             }
         });
+    }
+
+    public static String formatAwsDate(DateTime dateTime) {
+        return dateTime.toString(ISODateTimeFormat.dateTime());
     }
 }

@@ -46,7 +46,7 @@ public class XdiAsync {
         this.amPool = amPool;
         this.bufferPool = bufferPool;
         this.token = token;
-        statistics = new AsyncRequestStatistics(false);
+        statistics = new AsyncRequestStatistics();
     }
 
     public XdiAsync withStats(AsyncRequestStatistics statistics) {

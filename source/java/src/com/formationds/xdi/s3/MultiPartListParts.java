@@ -11,9 +11,9 @@ import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.XmlResource;
 import com.formationds.xdi.Xdi;
 import org.eclipse.jetty.server.Request;
+import org.eclipse.jetty.util.MultiMap;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
-import org.joda.time.format.ISODateTimeFormat;
 
 import java.util.List;
 import java.util.Map;
@@ -34,11 +34,12 @@ public class MultiPartListParts implements RequestHandler {
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
         String bucket = requiredString(routeParameters, "bucket");
         String objectName = requiredString(routeParameters, "object");
-        String uploadId = request.getParameter("uploadId");
+        MultiMap<String> qp = request.getQueryParameters();
+        String uploadId = qp.getString("uploadId");
 
         MultiPartOperations mops = new MultiPartOperations(xdi, uploadId, token);
-        Integer maxParts = getIntegerFromRequest(request, "max-parts");
-        Integer partNumberMarker = getIntegerFromRequest(request, "part-number-marker");
+        Integer maxParts = getIntegerFromQueryParameters(qp, "max-parts");
+        Integer partNumberMarker = getIntegerFromQueryParameters(qp, "part-number-marker");
 
         List<PartInfo> allParts = mops.getParts();
         Stream<PartInfo> partInfoStream = allParts.stream();
@@ -87,7 +88,7 @@ public class MultiPartListParts implements RequestHandler {
             elt = elt.withNest("Part", sub -> sub
                             .withValueElt("PartNumber", Integer.toString(pi.partNumber))
                             .withValueElt("ETag", md.get("etag"))
-                            .withValueElt("LastModified", lastModified.toString(ISODateTimeFormat.dateTime()))
+                            .withValueElt("LastModified", S3Endpoint.formatAwsDate(lastModified))
                             .withValueElt("Size", Long.toString(pi.descriptor.getByteCount()))
             );
         }
@@ -95,8 +96,8 @@ public class MultiPartListParts implements RequestHandler {
         return new XmlResource(elt.documentString(), 200);
     }
 
-    public Integer getIntegerFromRequest(Request r, String key) {
-        String value = r.getParameter(key);
+    public Integer getIntegerFromQueryParameters(MultiMap<String> qp, String key) {
+        String value = qp.getString(key);
         if(value == null)
             return null;
 
