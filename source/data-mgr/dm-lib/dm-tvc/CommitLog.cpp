@@ -249,6 +249,8 @@ Error DmCommitLog::startTx(BlobTxId::const_ptr & txDesc, const std::string & blo
         return rc;
     }
 
+    PerfTracer::incr(DM_TX_STARTED, 0);
+
     if (cmtLogger_->hasReachedSizeThreshold() && !compacting_.test_and_set()) {
         scheduleCompaction();
     }
@@ -358,6 +360,15 @@ CommitLogTx::const_ptr DmCommitLog::commitTx(BlobTxId::const_ptr & txDesc, Error
     if (!status.ok()) {
         GLOGERROR << "Failed to save blob transaction error=(" << status << ")";
         return txMap_[txId];
+    }
+
+    PerfTracer::incr(DM_TX_COMMITTED, 0);
+
+    fds_uint64_t duration = entry->timestamp - txMap_[txId]->entries[0]->timestamp;
+    duration /= 1000 * 1000 * 1000;
+    if (duration >= 30) {
+        GLOGWARN << "Found long running transaction id='" << txId << "' seconds='" <<
+                duration << "'";
     }
 
     if (cmtLogger_->hasReachedSizeThreshold() && !compacting_.test_and_set()) {

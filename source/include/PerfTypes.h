@@ -117,6 +117,8 @@ typedef enum {
     DM_TX_OP_REQ,
     DM_TX_OP_REQ_ERR,
 
+    DM_TX_STARTED,
+    DM_TX_COMMITTED,
     DM_TX_COMMIT_REQ,
     DM_TX_COMMIT_REQ_ERR,
     DM_VOL_CAT_WRITE,
