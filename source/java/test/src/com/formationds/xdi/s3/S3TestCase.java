@@ -50,11 +50,10 @@ public class S3TestCase {
                 });
     }
 
-    // @Test
+    //@Test
     public void deleteMultipleObjects() throws Exception {
         new Configuration("foo", new String[] {"--console"});
-        AmazonS3Client client = new AmazonS3Client(new BasicAWSCredentials("admin", "yASvtWBUa8o2R+cr1jZqWEoCSmQ8kK/ofeZdC3zW4fiCKCKuToP13KoaObVMIHynMeE7BU8qCdNwkPSthgQsVw=="));
-        //AmazonS3Client client = new AmazonS3Client(new BasicAWSCredentials("fabrice", "9VpLGuZy7VCKq2B/Z4yEOw=="));
+        AmazonS3Client client = new AmazonS3Client(new BasicAWSCredentials("admin", "22a9d1dc60ba060c083e9b200dda6f323282f000f8b90f0df8b4a853df171187e320700f44c5994ec5d28c36030fb7483fb191f7cc59c105d4a37752973c6bb9"));
         client.setS3ClientOptions(new S3ClientOptions().withPathStyleAccess(true));
         client.setEndpoint("http://localhost:8000");
 

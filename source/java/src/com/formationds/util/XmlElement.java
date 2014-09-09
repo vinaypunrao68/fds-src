@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.function.Consumer;
 
 public class XmlElement{
+    public static final String XML_PREAMBLE = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
     private Map<String, String> attributes;
     private List<XmlElement> children;
     private String name;
@@ -65,55 +66,66 @@ public class XmlElement{
             b.append(" ");
     }
 
-    private void render(StringBuilder b, int indentLevel) {
-        indent(b, indentLevel);
+    private void render(StringBuilder b, int indentLevel, boolean minified) {
+        if (!minified) {
+            indent(b, indentLevel);
+        }
         b.append("<");
         b.append(name);
-        for(Map.Entry<String,String> entry : attributes.entrySet()) {
+        for (Map.Entry<String, String> entry : attributes.entrySet()) {
             b.append(" ");
             b.append(entry.getKey());
             b.append("=\"");
             b.append(entry.getValue().replace("\"", "\\\""));
             b.append("\"");
         }
-        if(attributes.size() > 0)
+
+        if (attributes.size() > 0)
             b.append(" ");
 
         boolean multiLine = children.size() > 0 || (value != null && value.contains("\n"));
 
         b.append(">");
-        if(multiLine)
+
+        if (multiLine && !minified)
             b.append("\n");
 
-
         for (XmlElement elt : children) {
-            elt.render(b, indentLevel + 2);
+            elt.render(b, indentLevel + 2, minified);
         }
 
-        if(value != null)
+        if (value != null)
             b.append(value);
 
-        if(multiLine) {
+        if (multiLine && !minified) {
             //b.append("\n");
             indent(b, indentLevel);
         }
         b.append("</");
         b.append(name);
-        b.append(">\n");
+        b.append(">");
+
+        if (!minified) {
+            b.append("\n");
+        }
     }
 
-    public void renderDocument(StringBuilder b) {
-        b.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
-        render(b, 0);
+    private void renderDocument(StringBuilder b, boolean minify) {
+        b.append(XML_PREAMBLE);
+        render(b, 0, minify);
     }
 
     public String documentString() {
         StringBuilder b = new StringBuilder();
-        renderDocument(b);
+        renderDocument(b, false);
         return b.toString();
     }
 
     public String minifiedDocumentString() {
-        return documentString().replaceAll(">\\s*<", "><");
+        StringBuilder frame = new StringBuilder();
+        frame.append(XML_PREAMBLE);
+        render(frame, 0, true);
+        frame.append("\n");
+        return frame.toString();
     }
 }

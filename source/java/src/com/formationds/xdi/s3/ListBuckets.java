@@ -6,16 +6,17 @@ package com.formationds.xdi.s3;
 import com.amazonaws.services.s3.internal.ServiceUtils;
 import com.formationds.apis.VolumeDescriptor;
 import com.formationds.security.AuthenticationToken;
+import com.formationds.util.XmlElement;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.XmlResource;
 import com.formationds.xdi.Xdi;
 import org.eclipse.jetty.server.Request;
-import org.joda.time.DateTime;
 
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
+import java.util.UUID;
 
 public class ListBuckets implements RequestHandler {
     private Xdi xdi;
@@ -29,31 +30,20 @@ public class ListBuckets implements RequestHandler {
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
         List<VolumeDescriptor> volumeDescriptors = xdi.listVolumes(token, S3Endpoint.FDS_S3);
-        String buckets = String.join("", volumeDescriptors.stream()
-                .map(v -> displayBucket(v))
-                .collect(Collectors.toList()));
+        XmlElement frame = new XmlElement("ListAllMyBucketResults")
+                .withAttr("xmlns", "http://s3.amazonaws.com/doc/2006-03-01/");
 
-        String result = String.format(RESULT_FORMAT, S3Endpoint.FDS_S3, buckets);
-        return new XmlResource(result);
+        frame.withElt(new XmlElement("Owner")
+                .withValueElt("ID", UUID.randomUUID().toString()))
+                .withValueElt("DisplayName", S3Endpoint.FDS_S3);
+
+        volumeDescriptors.stream()
+                .forEach(v -> frame.withElt(
+                        new XmlElement("Bucket")
+                                .withValueElt("Name", v.getName())
+                                .withValueElt("CreationDate", ServiceUtils.formatIso8601Date(new Date(v.getDateCreated())))
+                                .withValueElt("ID", UUID.randomUUID().toString())));
+
+        return new XmlResource(frame.minifiedDocumentString());
     }
-
-    private String displayBucket(VolumeDescriptor v) {
-        DateTime dateTime = new DateTime(v.getDateCreated());
-        return String.format(BUCKET_FORMAT, v.getName(), ServiceUtils.formatIso8601Date(dateTime.toDate()));
-    }
-
-    private static final String BUCKET_FORMAT =
-            "    <Bucket><Name>%s</Name><CreationDate>%s</CreationDate></Bucket>";
-
-    private static final String RESULT_FORMAT =
-            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
-                    "<ListAllMyBucketsResult xmlns=\"http://s3.amazonaws.com/doc/2006-03-01\">\n" +
-                    "  <Owner>\n" +
-                    "    <ID>bcaf1ffd86f461ca5fb16fd081034f</ID>\n" +
-                    "    <DisplayName>%s</DisplayName>\n" +
-                    "  </Owner>\n" +
-                    "  <Buckets>\n" +
-                    "%s\n" +
-                    "  </Buckets>\n" +
-                    "</ListAllMyBucketsResult>\n";
 }
