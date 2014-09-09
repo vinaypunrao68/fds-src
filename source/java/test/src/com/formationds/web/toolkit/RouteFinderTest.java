@@ -1,5 +1,6 @@
 package com.formationds.web.toolkit;
 
+import org.eclipse.jetty.http.HttpURI;
 import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.util.MultiMap;
 import org.junit.Test;
@@ -82,6 +83,11 @@ public class RouteFinderTest {
         @Override
         public String getRequestURI() {
             return requestUri;
+        }
+
+        @Override
+        public HttpURI getUri() {
+            return new HttpURI(requestUri);
         }
 
         @Override
