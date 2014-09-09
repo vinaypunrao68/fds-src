@@ -4,3 +4,6 @@ all: install
 
 install:
 	@./makeinstalldir.sh
+
+clean:
+	@sudo rm -rf .pkg.cache

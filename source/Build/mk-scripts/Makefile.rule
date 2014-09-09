@@ -14,7 +14,7 @@ local_cpp_flags += $(comm_cpp_flags) $(user_cpp_flags)
 
 local_chk_cc    :=
 local_chk_cpp   := \
-    --filter=-whitespace/braces,-readability/streams,-build/include_order,-runtime/references
+    --filter=-whitespace/braces,-readability/streams,-build/include_order,-build/include_new_style,-runtime/references
 local_chk_cpp   += --root=$(topdir)
 
 rule_ar_flags   := $(osdep_ar_flags) $(user_ar_flags)

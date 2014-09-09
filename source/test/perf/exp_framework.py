@@ -19,7 +19,7 @@ sys.path.append('../fdslib/pyfdsp')
 from SvcHandle import *
 
 def get_myip():
-    cmd = "ifconfig| grep 10\.1 | awk -F '[: ]+' '{print $4}'"
+    cmd = "ifconfig| grep '10\.1' | awk -F '[: ]+' '{print $4}'"
     #return subprocess.check_output(shlex.split(cmd))
     return subprocess.check_output(cmd, shell = True).rstrip("\n")
 
@@ -33,7 +33,8 @@ def get_node_from_ip(nodes, node_ip):
 def test_to_str(test):
     test_str = ""
     for k, v in test.iteritems():
-        test_str += str(k) + ":" + str(v) + "."
+        if k != "injector":
+            test_str += str(k) + ":" + str(v) + "."
     test_str += "test"
     return test_str
 
@@ -347,7 +348,7 @@ class FdsCluster():
     def get_pidmap(self):
         return self.pidmap.get_map()
 
-    def start(self):
+    def restart(self):
         print "starting FDS"
         if self.options.no_fds_start:
             self.pidmap.compute_pid_map()
@@ -377,6 +378,8 @@ class FdsCluster():
             pass
         elif test_name == "tgen":
             self._init_tgen(test_args)
+        elif test_name == "amprobe":
+            self._init_amprobe(test_args)
         else:
             assert False, "Test unknown: " + test_name
 
@@ -386,6 +389,8 @@ class FdsCluster():
             output = self._run_smoke_test()
         elif test_name == "tgen":
             output = self._run_tgen(test_args)
+        elif test_name == "amprobe":
+            output = self._run_amprobe(test_args)
         else:
             assert False, "Test unknown: " + test_name    
         outfile = open(self.outdir + "/test.out", "w")
@@ -405,23 +410,6 @@ class FdsCluster():
         else:
             transfer_file(self.options.test_node, self.local_fds_root + "/source/test/traffic_gen.py", "/root/traffic_gen.py", "put")
             ssh_exec(self.options.test_node, "rm -f /tmp/fdstrgen*")
-        #
-        # if self.options.test_node != None:
-        #     transfer_file(self.options.test_node, self.local_fds_root + "/source/test/traffic_gen.py", "/root/traffic_gen.py", "put")
-        #     if self.local == True:
-        #         self._loc_exec("rm -f /tmp/fdstrgen*")
-        #     else:
-        #         ssh_exec(self.options.test_node, "rm -f /tmp/fdstrgen*")
-        # else:
-        #     if self.options.local == True:
-        #         shutil.copyfile(self.local_fds_root + "/source/test/traffic_gen.py", "/root/traffic_gen.py")
-        #     else:
-        #         transfer_file(self.options.main_node, self.local_fds_root + "/source/test/traffic_gen.py", "/root/traffic_gen.py", "put")
-        #     if self.local == True:
-        #         self._loc_exec("rm -f /tmp/fdstrgen*")
-        #     else:
-        #         self._rem_exec("rm -f /tmp/fdstrgen*")
-        #self.rex.execute_simple("pkill 'collectl|iostat|top'")
         for i in range(args["nvols"]):
             requests.put("http://%s:8000/volume%d" % (self.options.nodes[self.options.main_node], i));
 
@@ -442,10 +430,70 @@ class FdsCluster():
         print "-->", output
         return output
 
+    def _init_amprobe(self, test_args):
+        self._init_tgen(test_args)
+        # FIXME: maybe redundant
+        shutil.copyfile(self.local_fds_root + "/source/test/traffic_gen.py", "/root/traffic_gen.py")
+        self._loc_exec("rm -f /tmp/fdstrgen*")
+        # need to upload objects
+        cmd = "python " + self.local_fds_root + "/source/test/traffic_gen.py -t 1 -n 10000 -T PUT -s %d -F %d -v %d -u -N %s" % (test_args["fsize"], test_args["nfiles"], test_args["nvols"], self.options.nodes[self.options.main_node])
+        output = self._loc_exec(cmd)
+        cmd = "python " + self.local_fds_root + "/source/test/perf/gen_json.py -n %d -s %d -v %d > /tmp/.am-get.json" % (test_args["nreqs"], test_args["fsize"], test_args["nvols"])
+        output = self._loc_exec(cmd)
+        of = open("/tmp/.am-get.json", "w")
+        of.write(output)
+        of.close()
+
+    def _run_amprobe(self, test_args):
+        cmd = "curl -v -X PUT -T /tmp/.am-get.json http://%s:8080" % (self.options.nodes[self.options.main_node])
+        output = self._loc_exec(cmd)
+        time.sleep(30) # AM probe will keep processing stuff for a while
+        cmd = "cat /fds/var/logs/am.*|grep CRITICAL"
+        output = ssh_exec(self.options.main_node, cmd)
+        return output
+
+    # FIXME: move to global
     def _rem_exec(self, cmd):
+        print cmd
         output = ssh_exec(self.options.main_node, cmd)
         return output
 
     def _loc_exec(self, cmd):
+        print cmd
+        output = subprocess.check_output(shlex.split(cmd))
+        return output
+
+class CommandInjector:
+    def __init__(self, options, commands):
+        self.options = options
+        print self.options.myip
+        print self.options.nodes
+        print self.options.main_node
+        print self.options.nodes[self.options.main_node]
+        self.local = self.options.myip == self.options.nodes[self.options.main_node]
+        assert self.local == True, "Must be local for CommandInjector"
+        self.commands = commands
+        self.proc = multiprocessing.Process(target = self._task, args = (self.commands,))
+
+    def start(self):
+        self.proc.start()
+
+    def _task(self, commands):
+        for cmd in commands:
+            m = re.match("^sleep\s+=\s+(\d+)", cmd)
+            if m is not None:
+                delay = int(m.group(1))
+                print "CmdInj: sleep for", delay
+                time.sleep(delay)
+            else:
+                print "CmdInj:", cmd
+                self._loc_exec(cmd)
+
+    def terminate(self):
+        self.proc.join()
+
+    # FIXME: move to global
+    def _loc_exec(self, cmd):
+        print cmd
         output = subprocess.check_output(shlex.split(cmd))
         return output

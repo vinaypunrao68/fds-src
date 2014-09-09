@@ -16,7 +16,7 @@ QoSHTBDispatcher::QoSHTBDispatcher(FDS_QoSControl *ctrl, fds_log *log, fds_uint6
     max_burst_size(20),
     wait_time_microsec(DEFAULT_ASSURED_WAIT_MICROSEC),
     avail_pool(_total_rate, max_burst_size),
-    current_throttle_level(10)
+    current_throttle_level(11)
 {
   /* TODO: we need a good per-volume burst size value, sholdn't this be a max queue size at SM/DM? */
   default_que_burst_size = 20; 
@@ -275,7 +275,7 @@ Error QoSHTBDispatcher::deregisterQueue(fds_qid_t queue_id)
 
 void QoSHTBDispatcher::setQueueThrottleLevel(TBQueueState *qstate, float throttle_level)
 {
-  assert((throttle_level >= -10) && (throttle_level <= 10));
+  assert((throttle_level >= -10) && (throttle_level <= 11));
   fds_int32_t tlevel_x = (fds_int32_t) throttle_level;
   double tlevel_frac = fabs((double)throttle_level - (double)tlevel_x);
   setQueueThrottleLevel(qstate, tlevel_x, tlevel_frac); 

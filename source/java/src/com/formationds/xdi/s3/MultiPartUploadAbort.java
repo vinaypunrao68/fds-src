@@ -10,6 +10,7 @@ import com.formationds.web.toolkit.TextResource;
 import com.formationds.xdi.Xdi;
 import org.eclipse.jetty.server.Request;
 
+import javax.servlet.http.HttpServletResponse;
 import java.util.Map;
 
 public class MultiPartUploadAbort implements RequestHandler {
@@ -26,14 +27,14 @@ public class MultiPartUploadAbort implements RequestHandler {
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
         String bucket = requiredString(routeParameters, "bucket");
         String objectName = requiredString(routeParameters, "object");
-        String uploadId = request.getParameter("uploadId");
+        String uploadId = request.getQueryParameters().getString("uploadId");
         MultiPartOperations mops = new MultiPartOperations(xdi, uploadId, token);
 
         for(PartInfo pi : mops.getParts()) {
             xdi.deleteBlob(token, S3Endpoint.FDS_S3_SYSTEM, S3Endpoint.FDS_S3_SYSTEM_BUCKET_NAME, pi.descriptor.getName());
         }
 
-        return new TextResource("");
+        return new TextResource(HttpServletResponse.SC_NO_CONTENT, "");
     }
 
 

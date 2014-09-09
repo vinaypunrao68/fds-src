@@ -32,6 +32,7 @@ class GenericCounter: public serialize::Serializable {
     GenericCounter & operator +=(const fds_uint64_t & val);
     GenericCounter & operator =(const GenericCounter & rhs);
     GenericCounter & operator =(const fds_uint64_t & val);
+    void updateTotal(const GenericCounter & rhs);
 
     /**
      * Getters

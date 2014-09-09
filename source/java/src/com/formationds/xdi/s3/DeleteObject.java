@@ -24,7 +24,7 @@ public class DeleteObject implements RequestHandler {
 
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
-        if(request.getParameter("uploadId") != null)
+        if(request.getQueryParameters().containsKey("uploadId"))
             return new MultiPartUploadAbort(xdi, token).handle(request, routeParameters);
 
         String bucketName = requiredString(routeParameters, "bucket");

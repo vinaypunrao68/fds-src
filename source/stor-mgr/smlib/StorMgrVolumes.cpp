@@ -1,9 +1,11 @@
 /*
  * Copyright 2013 Formation Data Systems, Inc.
  */
-#include "StorMgr.h"
+#include <map>
+#include <string>
+#include <StorMgr.h>
 #include <odb.h>
-#include "StorMgrVolumes.h"
+#include <StorMgrVolumes.h>
 #include <fds_process.h>
 
 namespace fds {
@@ -13,132 +15,127 @@ extern ObjectStorMgr *objStorMgr;
 StorMgrVolume::StorMgrVolume(const VolumeDesc&  vdb,
                              ObjectStorMgr     *sm,
                              fds_log           *parent_log)
-  : FDS_Volume(vdb),
-    parent_sm(sm) {
-  /*
-   * Setup storage prefix.
-   * All other values are default for now
-   */
-  const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
-  root->fds_mkdir(root->dir_sys_repo_volume().c_str());
-  std::string filename = root->dir_sys_repo_volume() +
-      "SNodeVolIndex" + std::to_string(vdb.volUUID);
+        : FDS_Volume(vdb),
+          parent_sm(sm) {
+    /*
+     * Setup storage prefix.
+     * All other values are default for now
+     */
+    const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
+    root->fds_mkdir(root->dir_sys_repo_volume().c_str());
+    std::string filename = root->dir_sys_repo_volume() +
+            "SNodeVolIndex" + std::to_string(vdb.volUUID);
 
-  SetLog(parent_log);
-  /*
-   * Create volume queue with parameters based on
-   * the volume descriptor.
-   * TODO: The queue capacity is still hard coded. We
-   * should calculate this somehow.
-   */
-  volQueue = new SmVolQueue(voldesc->GetID(),
-                            100,
-                            voldesc->getIopsMax(),
-                            voldesc->getIopsMin(),
-                            voldesc->getPriority());
+    SetLog(parent_log);
+    /*
+     * Create volume queue with parameters based on
+     * the volume descriptor.
+     * TODO: The queue capacity is still hard coded. We
+     * should calculate this somehow.
+     */
+    volQueue = new SmVolQueue(voldesc->GetID(),
+                              100,
+                              voldesc->getIopsMax(),
+                              voldesc->getIopsMin(),
+                              voldesc->getPriority());
 
-  volumeIndexDB  = new ObjectDB(filename);
-  averageObjectsRead = 0; 
-  dedupBytes_ = 0;
+    volumeIndexDB  = new osm::ObjectDB(filename);
+    averageObjectsRead = 0;
+    dedupBytes_ = 0;
 }
 
 StorMgrVolume::~StorMgrVolume() {
-  /*
-   * TODO: Should do some sort of checking/cleanup
-   * if the volume queue isn't empty.
-   */
-  delete volQueue;
-  delete volumeIndexDB;
+    /*
+     * TODO: Should do some sort of checking/cleanup
+     * if the volume queue isn't empty.
+     */
+    delete volQueue;
+    delete volumeIndexDB;
 }
 
 /**
  * Stores a mapping from a volume's storage location to the
  * object at that location.
  */
-Error StorMgrVolume::createVolIndexEntry(fds_volid_t      vol_uuid, 
-                                         fds_uint64_t     vol_offset, 
-                                         FDS_ObjectIdType objId, 
+Error StorMgrVolume::createVolIndexEntry(fds_volid_t      vol_uuid,
+                                         fds_uint64_t     vol_offset,
+                                         FDS_ObjectIdType objId,
                                          fds_uint32_t     data_obj_len) {
-  Error err(ERR_OK);
-  DiskLoc diskloc;
-  diskloc.vol_id = vol_uuid;
-  diskloc.file_id = 0;
-  diskloc.offset = vol_offset;
-  ObjectID oid(objId.digest);
+    Error err(ERR_OK);
+    DiskLoc diskloc;
+    diskloc.vol_id = vol_uuid;
+    diskloc.file_id = 0;
+    diskloc.offset = vol_offset;
+    ObjectID oid(objId.digest);
 
-  LOGDEBUG << "createVolIndexEntry Obj ID:" << oid.ToHex(oid)
-                                 << "glob_vol_id:"
-                                 << vol_uuid << "offset" << vol_offset;
+    LOGDEBUG << "createVolIndexEntry Obj ID:" << oid.ToHex(oid)
+             << "glob_vol_id:"
+             << vol_uuid << "offset" << vol_offset;
 
-   err = volumeIndexDB->Put(diskloc, oid);
-   return err;
+    err = volumeIndexDB->Put(diskloc, oid);
+    return err;
 }
 
-  
-
-Error StorMgrVolume::deleteVolIndexEntry(fds_volid_t      vol_uuid, 
+Error StorMgrVolume::deleteVolIndexEntry(fds_volid_t      vol_uuid,
                                          fds_uint64_t     vol_offset,
                                          FDS_ObjectIdType objId) {
-Error err(ERR_OK);
-  DiskLoc diskloc;
-  diskloc.vol_id = vol_uuid;
-  diskloc.file_id = 0;
-  diskloc.offset = vol_offset;
-  ObjectID oid(objId.digest);
+    Error err(ERR_OK);
+    DiskLoc diskloc;
+    diskloc.vol_id = vol_uuid;
+    diskloc.file_id = 0;
+    diskloc.offset = vol_offset;
+    ObjectID oid(objId.digest);
 
-  LOGDEBUG << "deleteVolIndexEntry Obj ID:" << oid.ToHex(oid) << "glob_vol_id:" << vol_uuid << "offset" << vol_offset;
-   err = volumeIndexDB->Delete(diskloc);
-   return err;
+    LOGDEBUG << "deleteVolIndexEntry Obj ID: " << oid.ToHex(oid)
+             << " glob_vol_id: " << vol_uuid << " offset: " << vol_offset;
+    err = volumeIndexDB->Delete(diskloc);
+    return err;
 }
-
 
 /***** StorMgrVolumeTable methods ******/
 
-StorMgrVolumeTable::StorMgrVolumeTable()
-{
+StorMgrVolumeTable::StorMgrVolumeTable() {
     created_log = false;
 }
 
 /* creates its own logger */
 StorMgrVolumeTable::StorMgrVolumeTable(ObjectStorMgr *sm, fds_log *parent_log)
-  : parent_sm(sm) {
+        : parent_sm(sm) {
     if (parent_log) {
         SetLog(parent_log);
         created_log = false;
-    }
-    else {
+    } else {
         SetLog(new fds_log("sm_voltab", "logs"));
         created_log = true;
     }
 
-  /* register for volume-related control events from OM*/
-  parent_sm->regVolHandler((volume_event_handler_t)volumeEventHandler);
+    /* register for volume-related control events from OM*/
+    parent_sm->regVolHandler((volume_event_handler_t)volumeEventHandler);
 }
 
 StorMgrVolumeTable::StorMgrVolumeTable(ObjectStorMgr *sm)
-  : StorMgrVolumeTable(sm, NULL) {
+        : StorMgrVolumeTable(sm, NULL) {
 }
 
 StorMgrVolumeTable::~StorMgrVolumeTable() {
-  /*
-   * Iterate volume_map and free the volume pointers
-   */
-  map_rwlock.write_lock();
-  for (std::unordered_map<fds_volid_t, StorMgrVolume*>::iterator it = volume_map.begin();
-       it != volume_map.end();
-       ++it)
-    {
-      delete it->second;
+    /*
+     * Iterate volume_map and free the volume pointers
+     */
+    map_rwlock.write_lock();
+    for (std::unordered_map<fds_volid_t, StorMgrVolume*>::iterator it = volume_map.begin();
+         it != volume_map.end();
+         ++it) {
+        delete it->second;
     }
-  volume_map.clear();
-  map_rwlock.write_unlock();
+    volume_map.clear();
+    map_rwlock.write_unlock();
 
-  /*
-   * Delete log if we created one
-   */
-  if (created_log) {
-    delete logptr;
-  }
+    /*
+     * Delete log if we created one
+     */
+    if (created_log) {
+        delete logptr;
+    }
 }
 
 /*
@@ -147,90 +144,89 @@ StorMgrVolumeTable::~StorMgrVolumeTable() {
  */
 Error
 StorMgrVolumeTable::registerVolume(const VolumeDesc& vdb) {
-  Error       err(ERR_OK);
-  fds_volid_t volUuid = vdb.GetID();
+    Error       err(ERR_OK);
+    fds_volid_t volUuid = vdb.GetID();
 
-  map_rwlock.write_lock();
-  if (volume_map.count(volUuid) == 0) {
-    LOGNORMAL << "Registering new volume " << volUuid;
-    StorMgrVolume* vol = new StorMgrVolume(vdb,
-                                           parent_sm,
-                                           GetLog());
-    fds_assert(vol != NULL);
-    volume_map[volUuid] = vol;
-  } else {
-    /*
-     * TODO: Should probably compare the known volume's details with
-     * the one we're being told about.
-     */
-    LOGNOTIFY << "Register already known volume " << volUuid;
-  }
-  map_rwlock.write_unlock();
+    map_rwlock.write_lock();
+    if (volume_map.count(volUuid) == 0) {
+        LOGNORMAL << "Registering new volume " << volUuid;
+        StorMgrVolume* vol = new StorMgrVolume(vdb,
+                                               parent_sm,
+                                               GetLog());
+        fds_assert(vol != NULL);
+        volume_map[volUuid] = vol;
+    } else {
+        /*
+         * TODO: Should probably compare the known volume's details with
+         * the one we're being told about.
+         */
+        LOGNOTIFY << "Register already known volume " << volUuid;
+    }
+    map_rwlock.write_unlock();
 
-  return err;
+    return err;
 }
 
 /*
  * TODO: another thread may delete the volume since we release the read lock,
  * so we should revisit this when we implement volume delete
  */
-StorMgrVolume* StorMgrVolumeTable::getVolume(fds_volid_t vol_uuid)
-{
-  StorMgrVolume *ret_vol = NULL;
+StorMgrVolume* StorMgrVolumeTable::getVolume(fds_volid_t vol_uuid) {
+    StorMgrVolume *ret_vol = NULL;
 
-  map_rwlock.read_lock();
-  if (volume_map.count(vol_uuid) > 0) {
-    ret_vol = volume_map[vol_uuid];
-  }  else {
-    LOGERROR << "StorMgrVolumeTable::getVolume - Volume " << vol_uuid
-					      << " does not exist";    
-  }
-  map_rwlock.read_unlock();
+    map_rwlock.read_lock();
+    if (volume_map.count(vol_uuid) > 0) {
+        ret_vol = volume_map[vol_uuid];
+    } else {
+        LOGERROR << "StorMgrVolumeTable::getVolume - Volume " << vol_uuid
+                 << " does not exist";
+    }
+    map_rwlock.read_unlock();
 
-  return ret_vol;
+    return ret_vol;
 }
 
-Error  StorMgrVolumeTable::deregisterVolume(fds_volid_t vol_uuid) {
-Error err(ERR_OK);
-StorMgrVolume *vol = NULL;
+Error
+StorMgrVolumeTable::deregisterVolume(fds_volid_t vol_uuid) {
+    Error err(ERR_OK);
+    StorMgrVolume *vol = NULL;
 
-   map_rwlock.write_lock();
-   if (volume_map.count(vol_uuid) == 0) {
-     LOGERROR << "StorMgrVolumeTable - deregistering volume called for non-existing volume "
-                        << vol_uuid;
-       err = ERR_INVALID_ARG;
-       map_rwlock.write_unlock();
-      return err;
-   }
-         
-   vol = volume_map[vol_uuid];
-   volume_map.erase(vol_uuid);
-   map_rwlock.write_unlock();
-           
-   delete vol;
-           
-   LOGNORMAL << "StorMgrVolumeTable - Removed volume " << vol_uuid;
- 
-  return err;
+    map_rwlock.write_lock();
+    if (volume_map.count(vol_uuid) == 0) {
+        LOGERROR << "StorMgrVolumeTable - deregistering volume called for non-existing volume "
+                 << vol_uuid;
+        err = ERR_INVALID_ARG;
+        map_rwlock.write_unlock();
+        return err;
+    }
+
+    vol = volume_map[vol_uuid];
+    volume_map.erase(vol_uuid);
+    map_rwlock.write_unlock();
+    delete vol;
+
+    LOGNORMAL << "StorMgrVolumeTable - Removed volume " << vol_uuid;
+
+    return err;
 }
 
 fds_uint32_t StorMgrVolumeTable::getVolAccessStats(fds_volid_t vol_uuid) {
- StorMgrVolume *vol = NULL;
- fds_uint32_t  AveNumVolObj = -1;
+    StorMgrVolume *vol = NULL;
+    fds_uint32_t  AveNumVolObj = -1;
 
-  map_rwlock.read_lock();
-  if (volume_map.count(vol_uuid) > 0) {
-    vol = volume_map[vol_uuid];
-  }  else {
-    LOGERROR << "STATS-VOL stats  requested on - Volume " << vol_uuid
-                     << " does not exist";    
+    map_rwlock.read_lock();
+    if (volume_map.count(vol_uuid) > 0) {
+        vol = volume_map[vol_uuid];
+    }  else {
+        LOGERROR << "STATS-VOL stats  requested on - Volume " << vol_uuid
+                 << " does not exist";
+        map_rwlock.read_unlock();
+        return AveNumVolObj;
+    }
+
     map_rwlock.read_unlock();
+    AveNumVolObj = vol->averageObjectsRead;
     return AveNumVolObj;
-  }
- 
-  map_rwlock.read_unlock();
-  AveNumVolObj = vol->averageObjectsRead;
-  return AveNumVolObj;
 }
 
 void StorMgrVolumeTable::updateDupObj(fds_volid_t volid,
@@ -280,7 +276,7 @@ void StorMgrVolumeTable::updateDupObj(fds_volid_t volid,
         double new_dedup_bytes = 0;
         if (new_total_refcnt > 0) {
             new_dedup_bytes = obj_size * my_refcnt * (new_total_refcnt - 1) / new_total_refcnt;
-	}
+        }
         map_rwlock.write_lock();
         if (volume_map.count(cit->first) > 0) {
             StorMgrVolume *vol = volume_map[cit->first];
@@ -288,7 +284,6 @@ void StorMgrVolumeTable::updateDupObj(fds_volid_t volid,
             vol->updateDedupBytes(new_dedup_bytes - old_dedup_bytes);
             LOGTRACE << "Dedup bytes for volume " << std::hex << cit->first << std::dec
                      << " old " << before_dedup_bytes << " new " << vol->getDedupBytes();
-
         }
         map_rwlock.write_unlock();
     }
@@ -306,31 +301,30 @@ double StorMgrVolumeTable::getDedupBytes(fds_volid_t volid) {
 }
 
 Error StorMgrVolumeTable::updateVolStats(fds_volid_t vol_uuid) {
+    Error err(ERR_OK);
+    StorMgrVolume *vol = NULL;
+    fds_bool_t  slotChange;
 
- Error err(ERR_OK);
- StorMgrVolume *vol = NULL;
- fds_bool_t  slotChange;
+    map_rwlock.write_lock();
+    if (volume_map.count(vol_uuid) > 0) {
+        vol = volume_map[vol_uuid];
+    }  else {
+        LOGERROR << "STATS-VOL - update stats request for non-existing volume "
+                 << vol_uuid;
+        err = ERR_INVALID_ARG;
+        map_rwlock.write_unlock();
+        return err;
+    }
 
-   map_rwlock.write_lock();
-   if (volume_map.count(vol_uuid) > 0) {
-     vol = volume_map[vol_uuid];
-   }  else {
-     LOGERROR << "STATS-VOL - update stats request for non-existing volume "
-					       << vol_uuid;
-     err = ERR_INVALID_ARG;
-     map_rwlock.write_unlock();
-     return err;
-   }
-
-   /*
-    * update the stats 
-    */
+    /*
+     * update the stats 
+     */
     vol->lastAccessTimeR =  vol->objStats.last_access_ts;
     slotChange = vol->objStats.increment(objStorMgr->objStats->startTime, COUNTER_UPDATE_SLOT_TIME);
     if (slotChange == true) {
-	vol->averageObjectsRead += vol->objStats.getWeightedCount(objStorMgr->objStats->startTime, \
-							COUNTER_UPDATE_SLOT_TIME);
-    	LOGDEBUG << "STATS-VOL: Average Objects  per Vol slot :"  << vol->averageObjectsRead;
+        vol->averageObjectsRead += vol->objStats.getWeightedCount(objStorMgr->objStats->startTime, \
+                                                                  COUNTER_UPDATE_SLOT_TIME);
+        LOGDEBUG << "STATS-VOL: Average Objects  per Vol slot : " << vol->averageObjectsRead;
     }
     volume_map[vol_uuid] = vol;
 
@@ -338,79 +332,76 @@ Error StorMgrVolumeTable::updateVolStats(fds_volid_t vol_uuid) {
     return err;
 }
 
-
 /*
  * Handler for volume-related control message from OM
  */
 void StorMgrVolumeTable::volumeEventHandler(fds_volid_t vol_uuid,
                                             VolumeDesc *vdb,
                                             fds_vol_notify_t vol_action) {
-  Error err(ERR_OK);
-  switch (vol_action) {
-      case fds_notify_vol_add:
-          GLOGNOTIFY << "StorMgrVolumeTable - Received volume attach event from OM"
+    Error err(ERR_OK);
+    switch (vol_action) {
+        case fds_notify_vol_add:
+            GLOGNOTIFY << "StorMgrVolumeTable - Received volume attach event from OM"
+                       << " for volume " << vol_uuid;
+            err = objStorMgr->regVol(vdb ? *vdb : VolumeDesc("", vol_uuid));
+            fds_verify(err == ERR_OK);
+            break;
+        case fds_notify_vol_rm:
+            GLOGNOTIFY << "StorMgrVolumeTable - Received volume detach event from OM"
+                       <<" for volume " << vol_uuid;
+            err = objStorMgr->deregVol(vdb->GetID());
+            fds_verify(err == ERR_OK);
+            break;
+        default:
+            GLOGWARN << "StorMgrVolumeTable - Received unexpected volume event from OM"
                      << " for volume " << vol_uuid;
-        err = objStorMgr->regVol(vdb ? *vdb : VolumeDesc("", vol_uuid));
-        fds_verify(err == ERR_OK);
-        break;
-
-     case fds_notify_vol_rm:
-         GLOGNOTIFY << "StorMgrVolumeTable - Received volume detach event from OM"
-                    <<" for volume " << vol_uuid;
-        err = objStorMgr->deregVol(vdb->GetID());
-        fds_verify(err == ERR_OK);
-        break;
-
-    default:
-        GLOGWARN << "StorMgrVolumeTable - Received unexpected volume event from OM"
-                 << " for volume " << vol_uuid;
-        break;
-  } 
+            break;
+    }
 }
 
 
-Error StorMgrVolumeTable::createVolIndexEntry(fds_volid_t vol_uuid, 
-                                              fds_uint64_t vol_offset, 
-                                              FDS_ObjectIdType objId, 
+Error StorMgrVolumeTable::createVolIndexEntry(fds_volid_t vol_uuid,
+                                              fds_uint64_t vol_offset,
+                                              FDS_ObjectIdType objId,
                                               fds_uint32_t data_obj_len) {
-  Error err(ERR_OK);
-  StorMgrVolume *vol;
-  map_rwlock.write_lock();
-  if (volume_map.count(vol_uuid) == 0) {
-    LOGERROR << "StorMgrVolumeTable - createVolIndexEntry volume "
-                     << "called for non-existing volume " << vol_uuid;
-    err = ERR_INVALID_ARG;
+    Error err(ERR_OK);
+    StorMgrVolume *vol;
+    map_rwlock.write_lock();
+    if (volume_map.count(vol_uuid) == 0) {
+        LOGERROR << "StorMgrVolumeTable - createVolIndexEntry volume "
+                 << "called for non-existing volume " << vol_uuid;
+        err = ERR_INVALID_ARG;
+        map_rwlock.write_unlock();
+
+        return err;
+    }
+
+    vol = volume_map[vol_uuid];
+    vol->createVolIndexEntry(vol_uuid, vol_offset, objId, data_obj_len);
     map_rwlock.write_unlock();
 
     return err;
-  }
-
-  vol = volume_map[vol_uuid];
-  vol->createVolIndexEntry(vol_uuid, vol_offset, objId, data_obj_len);
-  map_rwlock.write_unlock();
-
-  return err;     
 }
 
+Error
+StorMgrVolumeTable::deleteVolIndexEntry(fds_volid_t vol_uuid,
+                                        fds_uint64_t vol_offset,
+                                        FDS_ObjectIdType objId) {
+    Error err(ERR_OK);
+    StorMgrVolume *vol;
+    map_rwlock.write_lock();
+    if (volume_map.count(vol_uuid) == 0) {
+        LOGERROR << "StorMgrVolumeTable - deleteVolIndexEntry volume "
+                 << "called for non-existing volume " << vol_uuid;
+        err = ERR_INVALID_ARG;
+        map_rwlock.write_unlock();
+        return err;
+    }
 
-Error StorMgrVolumeTable::deleteVolIndexEntry(fds_volid_t vol_uuid,
-                                              fds_uint64_t vol_offset, 
-                                              FDS_ObjectIdType objId) {
-  Error err(ERR_OK);
-  StorMgrVolume *vol;
-  map_rwlock.write_lock();
-  if (volume_map.count(vol_uuid) == 0) {
-    LOGERROR << "StorMgrVolumeTable - deleteVolIndexEntry volume "
-                     << "called for non-existing volume " << vol_uuid;
-    err = ERR_INVALID_ARG;
+    vol = volume_map[vol_uuid];
+    vol->deleteVolIndexEntry(vol_uuid, vol_offset, objId);
     map_rwlock.write_unlock();
+
     return err;
-  }
-
-  vol = volume_map[vol_uuid];
-  vol->deleteVolIndexEntry(vol_uuid, vol_offset, objId);
-  map_rwlock.write_unlock();
-
-  return err;
 }
 }  // namespace fds

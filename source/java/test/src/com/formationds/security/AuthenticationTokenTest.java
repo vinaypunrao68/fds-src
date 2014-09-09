@@ -19,7 +19,7 @@ public class AuthenticationTokenTest {
         long userId = 42;
         AuthenticationToken token = new AuthenticationToken(userId, secret);
         String tokenSignature = token.signature(SECRET_KEY);
-        assertEquals("2PduLDh49ZSWbKHbAqt1tJO3HCHI+ypbJy28qdTfjNA=", tokenSignature);
+        assertEquals("202c06c0f6d3b8c6165fb3bda72abe1f9dfe4b52342f688623ae826b83dfd779", tokenSignature);
         new TokenEncrypter().tryParse(SECRET_KEY, tokenSignature);
     }
 

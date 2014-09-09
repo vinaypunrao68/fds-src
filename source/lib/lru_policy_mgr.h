@@ -79,12 +79,12 @@ namespace fds {
 
       for (auto it = lru_queue->begin(); it != lru_queue->end(); ++it) {
 	ObjCacheBufPtrType objBuf = *it;
-	if (objBuf->vol_id == vol_id) {	  
-	  bytes_reclaimed += objBuf->size;
-          ObjectID objId = objBuf->obj_id;
-	  parent_cache->object_evict(objBuf->vol_id, objId);
-          // Update the lru to reflect the removate of the object
-          lru_queue->erase(it++);
+	if (objBuf->vol_id == vol_id) {
+            // Update the lru to reflect the removal of the object
+            lru_queue->erase(it++);
+            bytes_reclaimed += objBuf->size;
+            ObjectID objId = objBuf->obj_id;
+            parent_cache->object_evict(objBuf->vol_id, objId);
 	}
 	if (bytes_reclaimed >= bytes_required) {
 	  break;

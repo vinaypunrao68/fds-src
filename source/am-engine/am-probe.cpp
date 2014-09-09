@@ -2,6 +2,7 @@
  * Copyright 2014 Formation Data Systems, Inc.
  */
 #include <string>
+#include <set>
 #include <fds_process.h>
 #include <am-engine/am-probe.h>
 #include <fds-probe/s3-probe.h>
@@ -37,7 +38,10 @@ AmProbe::~AmProbe() {
 int
 AmProbe::mod_init(SysParams const *const param) {
     FdsConfigAccessor conf(g_fdsprocess->get_conf_helper());
+    testQos = conf.get_abs<bool>("fds.am.testing.probe_test_qos");
     numThreads = conf.get_abs<fds_uint32_t>("fds.am.testing.probe_num_threads");
+    outstandingReqs = conf.get_abs<fds_uint32_t>("fds.am.testing.probe_outstanding_reqs");
+    sleepPeriod = conf.get_abs<fds_uint32_t>("fds.am.testing.probe_sleep_period");
     threadPool = fds_threadpoolPtr(new fds_threadpool(numThreads));
 
     txDesc.reset(new BlobTxId());
@@ -176,9 +180,10 @@ struct ProbeUpdateBlobResponseHandler : public PutObjectResponseHandler {
 };
 
 struct ProbeGetBlobResponseHandler : public GetObjectResponseHandler {
-    explicit ProbeGetBlobResponseHandler(char *retBuffer)
+    explicit ProbeGetBlobResponseHandler(const std::string& volname, char *retBuffer)
             : GetObjectResponseHandler(retBuffer) {
         type = HandlerType::IMMEDIATE;
+        volName_ = volname;
     }
     virtual ~ProbeGetBlobResponseHandler() {
     }
@@ -186,8 +191,10 @@ struct ProbeGetBlobResponseHandler : public GetObjectResponseHandler {
 
     virtual void process() {
         gl_AmProbe.incResp();
-        gl_AmProbe.decDispatched();
+        gl_AmProbe.decDispatched(volName_);
     }
+
+    std::string volName_;
 };
 
 int
@@ -225,22 +232,43 @@ AmProbe::incResp() {
 }
 
 void
-AmProbe::incDispatched()
+AmProbe::incDispatched(const std::string& vol_name)
 {
-    dispatchedOps++;
+    if (testQos == false) {
+        dispatchedOps++;
+    } else {
+        SCOPEDWRITE(dispLock_);
+        if (volDispOps_.count(vol_name) == 0) {
+            volDispOps_[vol_name] = 0;
+        }
+        volDispOps_[vol_name]++;
+    }
 }
 
 void
-AmProbe::decDispatched()
+AmProbe::decDispatched(const std::string& vol_name)
 {
-    fds_verify(gl_AmProbe.dispatchedOps.load() > 0);
-    dispatchedOps--;
+    if (testQos == false) {
+        fds_verify(gl_AmProbe.dispatchedOps.load() > 0);
+        dispatchedOps--;
+    } else {
+        SCOPEDWRITE(dispLock_);
+        fds_verify(volDispOps_.count(vol_name) > 0);
+        fds_verify(volDispOps_[vol_name] > 0);
+        volDispOps_[vol_name]--;
+    }
 }
 
 bool
-AmProbe::isDispatchedGreaterThan(uint64_t val) const
+AmProbe::isDispatchedGreaterThan(const std::string& vol_name, uint64_t val)
 {
-    return (dispatchedOps.load() > val);
+    if (testQos == false) {
+        return (dispatchedOps.load() > val);
+    } else {
+        SCOPEDREAD(dispLock_);
+        if (volDispOps_.count(vol_name) == 0) return false;
+        return (volDispOps_[vol_name] > val);
+    }
 }
 
 /**
@@ -299,7 +327,7 @@ AmProbe::doAsyncGetBlob(const std::string &volumeName,
      char *buf = new char[dataLength];
 
      ProbeGetBlobResponseHandler::ptr handler(
-                 new ProbeGetBlobResponseHandler(buf));
+         new ProbeGetBlobResponseHandler(volumeName, buf));
 
      gl_AmProbe.am_api->GetObject(bucket_ctx,
                                   blobName,
@@ -321,15 +349,46 @@ AmProbe::AmProbeOp::js_exec_obj(JsObject *parent,
     // Set the number of total ops were going to execute
     gl_AmProbe.numOps = numOps;
     gl_AmProbe.startTime = util::getTimeStampMicros();
+    std::set<std::string> skip_vols;
+    std::set<std::string> seen_vols;
     for (fds_uint32_t i = 0; i < numOps; i++) {
-        while (gl_AmProbe.isDispatchedGreaterThan(200)) {
-            boost::this_thread::sleep(boost::posix_time::microseconds(1000));
-        }
-        gl_AmProbe.incDispatched();
+        fds_bool_t skip_req = false;
         node = static_cast<AmProbeOp *>((*parent)[i]);
         info = node->am_ops();
+
+        if (gl_AmProbe.testQos) {
+            seen_vols.insert(info->volumeName);
+            while (gl_AmProbe.isDispatchedGreaterThan(info->volumeName,
+                                                      gl_AmProbe.outstandingReqs)) {
+                if (skip_vols.size() == seen_vols.size()) {
+                    // all volumes seem to have max dispatched IOs, so wait a bit
+                    // but if this volume's io have not finished, skip this IO so we can check other
+                    // volumes
+                    boost::this_thread::sleep(
+                        boost::posix_time::microseconds(gl_AmProbe.sleepPeriod));
+                    skip_vols.erase(info->volumeName);
+                } else {
+                    skip_vols.insert(info->volumeName);
+                    skip_req = true;
+                    break;  // we will skip one IO from this volume
+                }
+            }
+            // for qos testing, we are going to skip some IOs in json file
+            // if they are blocking other volumes
+            // we should ideally separate volume's io streams
+            // so they are completely independent
+            if (skip_req) continue;
+        } else {
+            while (gl_AmProbe.isDispatchedGreaterThan(info->volumeName,
+                                                      gl_AmProbe.outstandingReqs)) {
+                boost::this_thread::sleep(
+                    boost::posix_time::microseconds(gl_AmProbe.sleepPeriod));
+            }
+        }
+
+        gl_AmProbe.incDispatched(info->volumeName);
         LOGDEBUG << "Doing a " << info->op << " for blob "
-                 << info->blobName;
+                 << info->blobName << " volume: " << info->volumeName;
 
         fds_int32_t blobMode = 0;
         if (info->op == "startBlobTx") {

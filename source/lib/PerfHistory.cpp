@@ -74,6 +74,21 @@ GenericCounter & GenericCounter::operator +=(const fds_uint64_t & val) {
     return *this;
 }
 
+void GenericCounter::updateTotal(const GenericCounter & rhs) {
+    if (&rhs != this) {
+        if (rhs.min() < min_) {
+            min_ = rhs.min();
+        }
+        if (rhs.max() > max_) {
+            max_ = rhs.max();
+        }
+        if (rhs.total() > total_) {
+            total_ = rhs.total();
+        }
+        count_ += rhs.count();
+    }
+}
+
 GenericCounter& GenericCounter::operator =(const GenericCounter & rhs) {
     if (&rhs != this) {
         min_ = rhs.min();
@@ -154,12 +169,20 @@ fds_bool_t StatSlot::isEmpty() const {
 
 void StatSlot::add(FdsStatType stat_type,
                    const GenericCounter& counter) {
-    stat_map[stat_type] += counter;
+    if (stat_map.count(stat_type) == 0) {
+        stat_map[stat_type] = counter;
+    } else {
+        stat_map[stat_type] += counter;
+    }
 }
 
 void StatSlot::add(FdsStatType stat_type,
                    fds_uint64_t value) {
-    stat_map[stat_type] += value;
+    if (stat_map.count(stat_type) == 0) {
+        stat_map[stat_type] = value;
+    } else {
+        stat_map[stat_type] += value;
+    }
 }
 
 StatSlot& StatSlot::operator +=(const StatSlot & rhs) {
@@ -168,7 +191,24 @@ StatSlot& StatSlot::operator +=(const StatSlot & rhs) {
         for (counter_map_t::const_iterator cit = rhs.stat_map.cbegin();
              cit != rhs.stat_map.cend();
              ++cit) {
-            stat_map[cit->first] += cit->second;
+            if (stat_map.count(cit->first) == 0) {
+                stat_map[cit->first] = cit->second;
+            } else {
+                switch (cit->first) {
+                    case STAT_SM_CUR_DEDUP_BYTES:
+                    case STAT_DM_CUR_TOTAL_BYTES:
+                    case STAT_DM_CUR_TOTAL_OBJECTS:
+                    case STAT_DM_CUR_TOTAL_BLOBS:
+                        // these counters count total number so far; so
+                        // adding them actually means taking the highest
+                        // (which is also most recent) total
+                        stat_map[cit->first].updateTotal(cit->second);
+                        break;
+                    default:
+                        // remaining type of stats are simple addition
+                        stat_map[cit->first] += cit->second;
+                };
+            }
         }
     }
     return *this;
@@ -351,6 +391,7 @@ void VolumePerfHistory::recordEvent(fds_uint64_t ts,
 //
 fds_uint64_t VolumePerfHistory::getLocalRelativeSec(fds_uint64_t remote_rel_sec,
                                                     fds_uint64_t remote_start_ts) {
+    if (remote_start_ts == start_nano_) return remote_rel_sec;
     fds_uint64_t local_ts = timestamp(start_nano_, remote_rel_sec);
     if (start_nano_ > remote_start_ts) {
         // remote_start_time ... start_time ......... local_ts

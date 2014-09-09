@@ -197,6 +197,8 @@ const char * eventTypeToStr[] = {
         "dm_tx_op_req",
         "DM_TX_OP_REQ_ERR",
 
+        "dm_tx_started",
+        "dm_tx_committed",
         "dm_tx_commit_req",
         "dm_tx_commit_req_err",
         "dm_vol_cat_write",

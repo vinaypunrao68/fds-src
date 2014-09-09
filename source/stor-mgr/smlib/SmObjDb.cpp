@@ -1,5 +1,11 @@
+/*
+ * Copyright 2014 Formation Data Systems, Inc.
+ */
+#include <string>
 #include <SmObjDb.h>
 #include <StorMgr.h>
+
+using osm::ObjectDB;
 
 namespace fds {
 
@@ -56,7 +62,7 @@ ObjectDB *SmObjDb::openObjectDB(fds_token_id tokId) {
 void SmObjDb::closeObjectDB(fds_token_id tokId) {
     fds_token_id dbId = GetSmObjDbId(tokId);
     ObjectDB *objdb = NULL;
-    
+
     FDSGUARD(*smObjDbMutex);
     TokenTblIter iter = tokenTbl.find(dbId);
     if (iter == tokenTbl.end()) return;
@@ -144,7 +150,7 @@ fds::Error SmObjDb::put(const OpCtx &opCtx,
 {
     Error err = ERR_OK;
 
-    if(opCtx.isClientIO()) {
+    if (opCtx.isClientIO()) {
         /* Update timestamps.  Currenly only PUT and DELETE have an effect here */
         if (md.obj_map.obj_create_time == 0) {
             md.obj_map.obj_create_time = opCtx.ts;
@@ -318,7 +324,7 @@ void SmObjDb::iterRetrieveObjects(const fds_token_id &token,
         ObjMetaData objMetadata;
         err = objStorMgr->readObject(NON_SYNC_MERGED, objId,
                 objMetadata, objData, tierUsed);
-        if (err == ERR_OK ) {
+        if (err == ERR_OK) {
             if ((max_size - tot_msg_len) >= objData.size) {
                 LOGDEBUG << "Adding a new objectId to objList" << objId;
 
@@ -342,7 +348,7 @@ void SmObjDb::iterRetrieveObjects(const fds_token_id &token,
             }
         }
         fds_verify(err == ERR_OK);
-    } // Enf of for loop
+    }  // End of for loop
 
     /* Iteration complete.  Remove the snapshot */
     fds_verify(!itr.itr->Valid());

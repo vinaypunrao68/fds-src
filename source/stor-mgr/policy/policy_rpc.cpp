@@ -1,12 +1,14 @@
 /*
- * Copyright 2013 Formation Data Systems, Inc.
+ * Copyright 2013-2014 Formation Data Systems, Inc.
  */
-#include <policy_rpc.h>
-#include <iostream>
+#include "policy_rpc.h"
+
 #include <boost/date_time/posix_time/posix_time.hpp>
-#include <fds_assert.h>
-#include <StorMgr.h>
-#include <TierEngine.h>
+#include <iostream>
+
+#include "fds_assert.h"
+#include "StorMgr.h"
+#include "TierEngine.h"
 
 namespace fds {
 
@@ -63,12 +65,12 @@ SM_VolPolicyServ::serv_recvTierPolicyReq(const fdp::FDSP_TierPolicyPtr &tier)
     StorMgrVolume      *vol;
     StorMgrVolumeTable *vol_tab = objStorMgr->sm_getVolTables();
 
-    // TODO: the interface here should be lock vol obj with refcnt so that it
+    // TODO(vy): the interface here should be lock vol obj with refcnt so that it
     // won't be deleted while we're using it.
     //
     vol = vol_tab->getVolume(tier->tier_vol_uuid);
     if (vol == nullptr) {
-        // TODO: No way to return the result back to caller.
+        // TODO(vy): No way to return the result back to caller.
         //
         GLOGERROR << "Could not find volume uuid "
             << tier->tier_vol_uuid;
@@ -96,7 +98,8 @@ SM_VolPolicyServ::serv_recvTierPolicyReq(const fdp::FDSP_TierPolicyPtr &tier)
         desc->tier_duration_sec = 0;
         desc->mediaPolicy = fdp::FDSP_MEDIA_POLICY_HDD;
     }
-    using namespace std;
+    using std::cout;
+    using std::endl;
     cout << "Recv tier Policy Request" << endl;
     cout << "Vol uuid " << tier->tier_vol_uuid << endl;
     cout << "tier media " << tier->tier_media << endl;
@@ -110,4 +113,4 @@ serv_recvTierPolicyAuditReq(const fdp::FDSP_TierPolicyAuditPtr &tier)
 {
 }
 
-} // namespace fds
+}  // namespace fds

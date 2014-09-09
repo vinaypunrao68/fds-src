@@ -94,11 +94,11 @@ class ObjectID : public serialize::Serializable {
 
   public:
     ObjectID();
-    explicit ObjectID(uint32_t dataSet);
-    explicit ObjectID(uint8_t *objId);
+    explicit ObjectID(uint32_t const dataSet);
+    explicit ObjectID(uint8_t const *objId);
     ObjectID(const ObjectID& rhs);  // NOLINT
     explicit ObjectID(const std::string& oid);
-    ObjectID(uint8_t  *objId, uint32_t length);
+    ObjectID(uint8_t const *objId, uint32_t const length);
     virtual ~ObjectID();
     typedef boost::shared_ptr<ObjectID> ptr;
 

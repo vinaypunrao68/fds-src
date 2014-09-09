@@ -9,6 +9,7 @@
 #include <fds_module.h>
 #include <native_api.h>
 #include <concurrency/ThreadPool.h>
+#include <concurrency/RwLock.h>
 #include <fds-probe/fds_probe.h>
 #include <util/timeutils.h>
 
@@ -22,7 +23,10 @@ class AmProbe : public ProbeMod {
   private:
     FDS_NativeAPI::ptr               am_api;
     boost::shared_ptr<boost::thread> listen_thread;
+    fds_bool_t                       testQos;
     fds_uint32_t                     numThreads;
+    fds_uint32_t                     outstandingReqs;
+    fds_uint32_t                     sleepPeriod;
     fds_uint32_t                     numOps;
     fds_atomic_ullong                recvdOps;
     fds_atomic_ullong                dispatchedOps;
@@ -36,6 +40,10 @@ class AmProbe : public ProbeMod {
     BlobTxId::ptr txDesc;
     PutPropertiesPtr putProps;
     std::vector<char *> dataBuffers;
+
+    // this is used only if testQos is true
+    std::unordered_map<std::string, fds_uint32_t> volDispOps_;
+    fds_rwlock dispLock_;
 
     /**
      * Parameters that can be set
@@ -139,9 +147,9 @@ class AmProbe : public ProbeMod {
 
     // Workload related methods
     void incResp();
-    void incDispatched();
-    void decDispatched();
-    bool isDispatchedGreaterThan(uint64_t val) const;
+    void incDispatched(const std::string& vol_name);
+    void decDispatched(const std::string& vol_name);
+    bool isDispatchedGreaterThan(const std::string& vol_name, uint64_t val);
     static void doAsyncStartTx(const std::string &volumeName,
                                const std::string &blobName,
                                const fds_int32_t blobMode);

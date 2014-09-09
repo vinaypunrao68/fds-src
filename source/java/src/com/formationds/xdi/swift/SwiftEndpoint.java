@@ -9,19 +9,22 @@ import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.WebApp;
 import com.formationds.xdi.Xdi;
 
+import javax.crypto.SecretKey;
 import java.util.function.Function;
 
 public class SwiftEndpoint {
     private Xdi xdi;
+    private SecretKey secretKey;
     private WebApp webApp;
 
-    public SwiftEndpoint(Xdi xdi) {
+    public SwiftEndpoint(Xdi xdi, SecretKey secretKey) {
         this.xdi = xdi;
+        this.secretKey = secretKey;
         webApp = new WebApp();
     }
 
     public void start(int httpPort) {
-        webApp.route(HttpMethod.GET, "/v1/auth", () -> new SwiftFailureHandler((t) -> new GrantAuthenticationToken(xdi)).apply(AuthenticationToken.ANONYMOUS));
+        webApp.route(HttpMethod.GET, "/v1/auth", () -> new SwiftFailureHandler((t) -> new GrantAuthenticationToken(xdi, secretKey)).apply(AuthenticationToken.ANONYMOUS));
 
         authenticate(HttpMethod.GET, "/v1/:account", (t) -> new ListContainers(xdi, t));
         authenticate(HttpMethod.GET, "/v1/:account/:container", (t) -> new GetContainer(xdi, t));

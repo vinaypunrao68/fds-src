@@ -53,7 +53,7 @@ def update_stat(stats, name ,val):
         assert type(stats[name]) == type(Histogram())
         stats[name].update(val)
 
-def clear_stats():
+def clear_stats(stats):
     for v in range(options.num_volumes):
         for e in stats:
             e.second = 0
@@ -140,8 +140,8 @@ def task(task_id, n_reqs, req_type, nvols, files, stats, queue, prev_uploaded):
         elif req_type == "NOP":
             time.sleep(.008)
         r1 = conn.getresponse()
-        r1.read()
         time_end = time.time()
+        r1.read()
         # FIXME: need to skip first samples
         update_latency_stats(stats, time_start, time_end, vol)
         stats[vol]["reqs"] += 1
@@ -174,6 +174,16 @@ def dump_uploaded(uploaded):
         pk.dump(uploaded)
         uploaded_file.close()
 
+def compute_req_per_threads(options):
+    reqs_per_thread = [int(options.n_reqs / options.threads) for x in range(options.threads)]
+    remainder = options.n_reqs - int(options.n_reqs / options.threads) * options.threads
+    i = 0
+    while remainder > 0:
+        reqs_per_thread[i] += 1
+        i += 1
+        remainder -= 1
+    return reqs_per_thread
+
 def main(options,files):
     # unpickle uploaded files
     if options.get_reuse == True and options.req_type != "PUT":
@@ -186,7 +196,8 @@ def main(options,files):
     tids = []
     time_start = time.time()
     for i in range(0,options.threads):
-        task_args = (i, options.n_reqs, options.req_type, options.num_volumes, files, stats, queue, part_prev_uploaded[i])
+        reqs_per_thread = compute_req_per_threads(options)
+        task_args = (i, reqs_per_thread[i], options.req_type, options.num_volumes, files, stats, queue, part_prev_uploaded[i])
         #t = th.Thread(None,task,"task-"+str(i), task_args)
         t = Process(target=task, args=task_args)
         t.start()

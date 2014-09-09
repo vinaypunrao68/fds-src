@@ -35,7 +35,7 @@ public class BlockExclusionWrapper implements NbdServerOperations {
     }
 
     public long rangeMax(long offset, long length) {
-        return (offset + Math.min(length - 1, 0)) / blockSize;
+        return (offset + Math.max(length - 1, 0)) / blockSize;
     }
 
     private void cleanMap() {

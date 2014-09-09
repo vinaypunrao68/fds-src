@@ -16,11 +16,14 @@ import com.formationds.web.toolkit.*;
 import com.formationds.xdi.ConfigurationServiceCache;
 import com.formationds.xdi.Xdi;
 import com.formationds.xdi.XdiClientFactory;
+import org.apache.commons.codec.binary.Hex;
 import org.apache.log4j.Logger;
 import org.eclipse.jetty.server.Request;
 import org.joda.time.Duration;
 import org.json.JSONObject;
 
+import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
 import javax.servlet.http.HttpServletResponse;
 import java.util.Map;
 import java.util.UUID;
@@ -46,8 +49,12 @@ public class Main {
         NativeOm.startOm(args);
 
         ParsedConfig platformConfig = configuration.getPlatformConfig();
+        byte[] keyBytes = Hex.decodeHex(platformConfig.lookup("fds.aes_key").stringValue().toCharArray());
+        SecretKey secretKey = new SecretKeySpec(keyBytes, "AES");
+
         XdiClientFactory clientFactory = new XdiClientFactory();
         ConfigurationServiceCache configCache = new ConfigurationServiceCache(clientFactory.remoteOmService("localhost", 9090));
+        new EnsureAdminUser(configCache).execute();
         AmService.Iface amService = clientFactory.remoteAmService("localhost", 9988);
 
         String omHost = "localhost";
@@ -58,8 +65,8 @@ public class Main {
         FDSP_ConfigPathReq.Iface legacyConfigClient = legacyClientFactory.configPathClient(omHost, omPort);
         VolumeStatistics volumeStatistics = new VolumeStatistics(Duration.standardMinutes(20));
 
-        boolean enforceAuthentication = platformConfig.lookup("fds.om.authentication").booleanValue();
-        Authenticator authenticator = enforceAuthentication ? new FdsAuthenticator(configCache) : new NullAuthenticator();
+        boolean enforceAuthentication = platformConfig.lookup("fds.authentication").booleanValue();
+        Authenticator authenticator = enforceAuthentication ? new FdsAuthenticator(configCache, secretKey) : new NullAuthenticator();
         Authorizer authorizer = enforceAuthentication ? new FdsAuthorizer(configCache) : new DumbAuthorizer();
 
         xdi = new Xdi(amService, configCache, authenticator, authorizer, legacyConfigClient);
@@ -68,10 +75,10 @@ public class Main {
 
         webApp.route(HttpMethod.GET, "", () -> new LandingPage(webDir));
 
-        webApp.route(HttpMethod.POST, "/api/auth/token", () -> new IssueToken(xdi));
-        webApp.route(HttpMethod.GET, "/api/auth/token", () -> new IssueToken(xdi));
-
+        webApp.route(HttpMethod.POST, "/api/auth/token", () -> new GrantToken(xdi, secretKey));
+        webApp.route(HttpMethod.GET, "/api/auth/token", () -> new GrantToken(xdi, secretKey));
         authenticate(HttpMethod.GET, "/api/auth/currentUser", (t) -> new CurrentUser(xdi, t));
+
         fdsAdminOnly(HttpMethod.GET, "/api/config/services", (t) -> new ListServices(legacyConfigClient), authorizer);
         fdsAdminOnly(HttpMethod.POST, "/api/config/services/:node_uuid", (t) -> new ActivatePlatform(legacyConfigClient), authorizer);
 
@@ -91,8 +98,15 @@ public class Main {
         webApp.route(HttpMethod.POST, "/api/stats", () -> new RegisterVolumeStats(volumeStatistics));
         webApp.route(HttpMethod.GET, "/api/stats/volumes/:volume", () -> new DisplayVolumeStats(volumeStatistics));
 
-        // [fm] Temporary
-        webApp.route(HttpMethod.GET, "/api/config/user/:login/:password", () -> new CreateAdminUser(configCache));
+
+        fdsAdminOnly(HttpMethod.GET, "/api/system/token/:userid", (t) -> new ShowToken(configCache, secretKey), authorizer);
+        fdsAdminOnly(HttpMethod.POST, "/api/system/token/:userid", (t) -> new ReissueToken(configCache, secretKey), authorizer);
+        fdsAdminOnly(HttpMethod.POST, "/api/system/tenants/:tenant", (t) -> new CreateTenant(configCache, secretKey), authorizer);
+        fdsAdminOnly(HttpMethod.GET, "/api/system/tenants", (t) -> new ListTenants(configCache, secretKey), authorizer);
+        fdsAdminOnly(HttpMethod.POST, "/api/system/users/:login/:password", (t) -> new CreateUser(configCache, secretKey), authorizer);
+        fdsAdminOnly(HttpMethod.PUT, "/api/system/users/:userid/:password", (t) -> new UpdatePassword(configCache, secretKey), authorizer);
+        fdsAdminOnly(HttpMethod.GET, "/api/system/users", (t) -> new ListUsers(configCache, secretKey), authorizer);
+        fdsAdminOnly(HttpMethod.PUT, "/api/system/tenants/:tenantid/:userid", (t) -> new AssignUserToTenant(configCache, secretKey), authorizer);
 
 
         new Thread(() -> {

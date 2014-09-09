@@ -1,27 +1,17 @@
 #!/bin/bash
-echo apt-get -y install install python-pip
-apt-get -y install install python-pip
+if [ $# -eq 1 ]; then
+    PIP_PROXY="--proxy=$1"
+else
+    PIP_PROXY=""
+fi
+echo apt-get -y install install python-pip thrift python-cinderclient nbd-client python-dev
+apt-get -y install install python-pip thrift python-cinderclient nbd-client python-dev
 
-echo apt-get -y install thrift
-apt-get -y install thrift
+echo pip $PIP_PROXY install psutil
+pip $PIP_PROXY install psutil
 
-echo apt-get -y install python-cinderclient
-apt-get -y install python-cinderclient
-
-echo apt-get -y install nbd-client
-apt-get -y install nbd-client
-
-echo apt-get -y install python-pip
-apt-get -y install python-pip
-
-echo apt-get -y install gcc python-dev
-apt-get -y install gcc python-dev
-
-echo pip install psutil
-pip install psutil
-
-echo pip install thrift
-pip install thrift
+echo pip $PIP_PROXY install thrift
+pip $PIP_PROXY install thrift
 
 modprobe nbd
 nbd_found=`lsmod | grep -c nbd`
@@ -33,6 +23,7 @@ fi
 CINDER_DRIVER_DIR=/usr/lib/python2.7/dist-packages/cinder/volume/drivers
 DRIVER=./fds_driver.tar.gz
 DRIVER_DIR=./fds
+BIN_DIR=/usr/sbin
 
 # copy thrift binding and fds-cinder driver to cinder driver dir.
 if [ ! -d "$CINDER_DRIVER_DIR" ]; then
@@ -47,7 +38,7 @@ if [ ! -e $DRIVER_DIR/nbdadm.py ]; then
     echo "nbdadm.py not exist"
     exit 1
 fi
-cp $DRIVER_DIR/nbdadm.py /usr/bin/
+cp $DRIVER_DIR/nbdadm.py $BIN_DIR/
 
 
 mkdir -p $CINDER_DRIVER_DIR
@@ -68,6 +59,8 @@ cp $CINDER_CFG ${CINDER_CFG}_`date +%F-%H-%M-%S`
 cat $CINDER_CFG | grep "^[^#]*enabled_backends=[^#]*fds"
 if [ $? -eq 0 ]; then
     echo "cinder cfg already setup"
+    echo "restarting cinder"
+    service cinder-volume restart
     exit 0
 else
     ## no fds found 
