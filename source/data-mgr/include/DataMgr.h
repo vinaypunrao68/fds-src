@@ -101,6 +101,8 @@ class DataMgr : public Module, public DmIoReqHandler {
         return vol_meta_map[volId]->vol_desc->name;
     }
 
+    Error process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only);
+
  private:
     typedef enum {
       NORMAL_MODE = 0,
@@ -273,7 +275,6 @@ class DataMgr : public Module, public DmIoReqHandler {
     Error _process_add_vol(const std::string& vol_name,
                            fds_volid_t vol_uuid, VolumeDesc* desc,
                            fds_bool_t vol_will_sync);
-    Error _process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only);
     Error _process_mod_vol(fds_volid_t vol_uuid,
                            const VolumeDesc& voldesc);
 
@@ -405,6 +406,16 @@ class DataMgr : public Module, public DmIoReqHandler {
      * cat updates for volumes that are still in 'finishing forwarding' state
      */
     void finishCloseDMT();
+
+    /**
+     * Create snapshot of a specified volume
+     */
+    Error createSnapshot(const fpi::Snapshot& snapDetails);
+
+    /**
+     * Delete snapshot
+     */
+    Error deleteSnapshot(const fds_uint64_t snapshotId);
 
     /*
      * Nested class that manages the server interface.

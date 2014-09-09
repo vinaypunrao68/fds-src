@@ -92,7 +92,9 @@ Deserializer* getMemDeserializer(const std::string& str);
 
 // File Based
 Serializer* getFileSerializer(const std::string& filename);
+Serializer* getFileSerializer(fds_int32_t fd);
 Deserializer* getFileDeserializer(const std::string& filename);
+Deserializer* getFileDeserializer(fds_int32_t fd);
 
 template <class T>
 static uint32_t getEstimatedSize(const std::vector<T>& v)

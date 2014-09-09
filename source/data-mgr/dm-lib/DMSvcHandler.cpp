@@ -29,8 +29,74 @@ DMSvcHandler::DMSvcHandler()
     /* DM to DM service messages */
     REGISTER_FDSP_MSG_HANDLER(fpi::VolSyncStateMsg, volSyncState);
     REGISTER_FDSP_MSG_HANDLER(fpi::ForwardCatalogMsg, fwdCatalogUpdateMsg);
+    /* OM to DM snapshot messages */
+    REGISTER_FDSP_MSG_HANDLER(fpi::CreateSnapshotMsg, createSnapshot);
+    REGISTER_FDSP_MSG_HANDLER(fpi::DeleteSnapshotMsg, deleteSnapshot);
+    REGISTER_FDSP_MSG_HANDLER(fpi::CreateVolumeCloneMsg, createVolumeClone);
 }
 
+
+void DMSvcHandler::createSnapshot(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                         boost::shared_ptr<fpi::CreateSnapshotMsg>& createSnapshot)
+{
+    Error err(ERR_OK);
+    fds_assert(createSnapshot);
+
+    /* 
+     * get the snapshot manager instanace 
+     * invoke the createSnapshot DM function 
+     */
+    err = dataMgr->createSnapshot(createSnapshot->snapshot);
+
+    asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
+    fpi::CreateSnapshotRespMsg createSnapshotResp;
+    /*
+     * init the response message with  snapshot id 
+     */
+    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::CreateSnapshotRespMsg), createSnapshotResp);
+}
+
+void DMSvcHandler::deleteSnapshot(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                         boost::shared_ptr<fpi::DeleteSnapshotMsg>& deleteSnapshot)
+{
+    Error err(ERR_OK);
+    fds_assert(deleteSnapshot);
+
+    /* 
+     * get the snapshot manager instanace 
+     * invoke the deleteSnapshot DM function 
+     */
+    err = dataMgr->process_rm_vol(deleteSnapshot->snapshotId, true);
+    if (err.ok()) {
+        err = dataMgr->process_rm_vol(deleteSnapshot->snapshotId, false);
+    }
+
+    asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
+    fpi::DeleteSnapshotRespMsg deleteSnapshotResp;
+    /*
+     * init the response message with  snapshot id 
+     */
+    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::DeleteSnapshotMsg), deleteSnapshotResp);
+}
+
+void DMSvcHandler::createVolumeClone(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                         boost::shared_ptr<fpi::CreateVolumeCloneMsg>& createClone)
+{
+    Error err(ERR_OK);
+    fds_assert(createClone);
+
+    /* 
+     * get the snapshot manager instanace 
+     * invoke the createClone DM function 
+     */
+    asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
+    fpi::CreateVolumeCloneRespMsg createVolumeCloneResp;
+    /*
+     * init the response message with  Clone id 
+     */
+    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::CreateVolumeCloneRespMsg),
+                                  createVolumeCloneResp);
+}
 
 void DMSvcHandler::commitBlobTx(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                boost::shared_ptr<fpi::CommitBlobTxMsg>& commitBlbTx)

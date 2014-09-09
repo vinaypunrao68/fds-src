@@ -123,7 +123,7 @@ bool StorHvCtrl::TxnRequestHelper::setupTxn() {
 
 bool StorHvCtrl::TxnRequestHelper::getPrimaryDM(fds_uint32_t& ip, fds_uint32_t& port) {
     // Get DMT node list from dmt
-    DmtColumnPtr nodeIds = storHvisor->dataPlacementTbl->getDMTNodesForVolume(volId);
+    DmtColumnPtr nodeIds = storHvisor->dataPlacementTbl->getDMTNodesForVolume(storHvisor->vol_table->getBaseVolumeId(volId)); //NOLINT
     fds_verify(nodeIds->getLength() > 0);
     fds_int32_t node_state = -1;
     storHvisor->dataPlacementTbl->getNodeInfo(nodeIds->get(0).uuid_get_val(),
@@ -289,7 +289,7 @@ StorHvCtrl::dispatchDmUpdMsg(StorHvJournalEntry *journEntry,
     fds_volid_t volId = dmMsgHdr->glob_volume_id;
 
     // Get DMT node list from dmt
-    DmtColumnPtr nodeIds = dataPlacementTbl->getDMTNodesForVolume(volId);
+    DmtColumnPtr nodeIds = dataPlacementTbl->getDMTNodesForVolume(vol_table->getBaseVolumeId(volId));
     fds_verify(nodeIds->getLength() > 0);
 
     // Issue a blob update for each DM in the DMT
@@ -1313,7 +1313,7 @@ fds::Error StorHvCtrl::deleteBlob(fds::AmQosReq *qosReq) {
     fdsp_msg_hdr_dm->src_port = 0;
     fdsp_msg_hdr_dm->dst_port = node_port;
     journEntry->dm_msg = fdsp_msg_hdr_dm;
-    DmtColumnPtr node_ids = storHvisor->dataPlacementTbl->getDMTNodesForVolume(vol_id);
+    DmtColumnPtr node_ids = storHvisor->dataPlacementTbl->getDMTNodesForVolume(vol_table->getBaseVolumeId(vol_id)); //NOLINT
     uint errcount = 0;
     for (fds_uint32_t i = 0; i < node_ids->getLength(); i++) {
         node_ip = 0;
@@ -1451,7 +1451,7 @@ fds::Error StorHvCtrl::listBucket(fds::AmQosReq *qosReq) {
     journEntry->data_obj_id.digest.clear(); 
     journEntry->data_obj_len = 0;
     journEntry->io = qosReq;
-    DmtColumnPtr node_ids = dataPlacementTbl->getDMTNodesForVolume(volId);
+    DmtColumnPtr node_ids = dataPlacementTbl->getDMTNodesForVolume(vol_table->getBaseVolumeId(volId));
     if (node_ids->getLength() == 0) {
         LOGERROR <<" StorHvisorTx:" << "IO-XID:" << transId << " volID: 0x" << std::hex << volId << std::dec 
                  << " -  DMT Nodes  NOT  configured. Check on OM Manager. Completing request with ERROR(-1)";

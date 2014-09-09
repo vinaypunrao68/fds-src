@@ -64,7 +64,7 @@ void StorHvCtrl::issueAbortBlobTxMsg(const std::string& blobName,
     stBlobTxMsg->txId = txId;
 
     auto asyncAbortBlobTxReq = gSvcRequestPool->newQuorumSvcRequest(
-        boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(volId)));
+        boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(vol_table->getBaseVolumeId(volId))));
     asyncAbortBlobTxReq->setPayload(FDSP_MSG_TYPEID(fpi::AbortBlobTxMsg), stBlobTxMsg);
     asyncAbortBlobTxReq->onResponseCb(respCb);
     asyncAbortBlobTxReq->invoke();
@@ -134,7 +134,7 @@ void StorHvCtrl::issueCommitBlobTxMsg(CommitBlobTxReq *blobReq,
     stBlobTxMsg->txId = blobReq->getTxId()->getValue();
 
     auto asyncCommitBlobTxReq = gSvcRequestPool->newQuorumSvcRequest(
-        boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(volId,
+        boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(vol_table->getBaseVolumeId(volId),
                                                                                   dmtVersion)));
     asyncCommitBlobTxReq->setPayload(FDSP_MSG_TYPEID(fpi::CommitBlobTxMsg), stBlobTxMsg);
     asyncCommitBlobTxReq->onResponseCb(respCb);
@@ -229,7 +229,7 @@ void StorHvCtrl::issueStartBlobTxMsg(const std::string& blobName,
     stBlobTxMsg->dmt_version = dmtVer;
 
     auto asyncStartBlobTxReq = gSvcRequestPool->newQuorumSvcRequest(
-        boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(volId)));
+        boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(vol_table->getBaseVolumeId(volId))));
     asyncStartBlobTxReq->setPayload(FDSP_MSG_TYPEID(fpi::StartBlobTxMsg), stBlobTxMsg);
     asyncStartBlobTxReq->onResponseCb(respCb);
     asyncStartBlobTxReq->invoke();
@@ -451,7 +451,7 @@ void StorHvCtrl::issueUpdateCatalogMsg(const ObjectID &objId,
 
     // Always use the current DMT version since we're updating in a single request
     auto asyncUpdateCatReq = gSvcRequestPool->newQuorumSvcRequest(
-        boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(volId)));
+        boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(vol_table->getBaseVolumeId(volId))));
     asyncUpdateCatReq->setPayload(FDSP_MSG_TYPEID(fpi::UpdateCatalogOnceMsg), updCatMsg);
     asyncUpdateCatReq->onResponseCb(respCb);
     asyncUpdateCatReq->invoke();
@@ -489,7 +489,7 @@ void StorHvCtrl::issueUpdateCatalogMsg(const ObjectID &objId,
     updCatMsg->txId = txId;
 
     auto asyncUpdateCatReq = gSvcRequestPool->newQuorumSvcRequest(
-        boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(volId,
+        boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(vol_table->getBaseVolumeId(volId),
                                                                                   dmt_version)));
     asyncUpdateCatReq->setPayload(FDSP_MSG_TYPEID(fpi::UpdateCatalogMsg), updCatMsg);
     asyncUpdateCatReq->onResponseCb(respCb);
@@ -630,7 +630,7 @@ void StorHvCtrl::issueQueryCatalog(const std::string& blobName,
     queryMsg->meta_list.clear();
 
     auto asyncQueryReq = gSvcRequestPool->newFailoverSvcRequest(
-        boost::make_shared<DmtVolumeIdEpProvider>(om_client->getDMTNodesForVolume(volId)));
+        boost::make_shared<DmtVolumeIdEpProvider>(om_client->getDMTNodesForVolume(vol_table->getBaseVolumeId(volId))));
     asyncQueryReq->setPayload(FDSP_MSG_TYPEID(fpi::QueryCatalogMsg), queryMsg);
     asyncQueryReq->onResponseCb(respCb);
     asyncQueryReq->invoke();
@@ -838,7 +838,7 @@ StorHvCtrl::issueDeleteCatalogObject(const fds_uint64_t& vol_id,
 
     
     auto asyncDeleteCatReq = gSvcRequestPool->newQuorumSvcRequest(
-        boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(vol_id)));
+        boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(vol_table->getBaseVolumeId(vol_id))));
     asyncDeleteCatReq->setPayload(FDSP_MSG_TYPEID(fpi::DeleteCatalogObjectMsg), delMsg);
     asyncDeleteCatReq->onResponseCb(respCb);
     asyncDeleteCatReq->invoke();
@@ -886,7 +886,7 @@ StorHvCtrl::getVolumeMetaDataSvc(fds::AmQosReq* qosReq) {
 
     auto asyncQueryReq = gSvcRequestPool->newFailoverSvcRequest(
             boost::make_shared<DmtVolumeIdEpProvider>(
-            om_client->getDMTNodesForVolume(helper.volId)));
+                om_client->getDMTNodesForVolume(vol_table->getBaseVolumeId(helper.volId))));
     asyncQueryReq->setPayload(FDSP_MSG_TYPEID(fpi::GetVolumeMetaDataMsg), volMDMsg);
     FailoverSvcRequestRespCb respCb =
             RESPONSE_MSG_HANDLER(StorHvCtrl::getVolumeMetaDataMsgResp, qosReq);
@@ -987,7 +987,7 @@ StorHvCtrl::issueSetBlobMetaData(const fds_volid_t& vol_id,
 
     LOGDEBUG << " Invoking  Message Interface";
     auto asyncSetMDReq = gSvcRequestPool->newQuorumSvcRequest(
-        boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(vol_id,
+        boost::make_shared<DltObjectIdEpProvider>(om_client->getDMTNodesForVolume(vol_table->getBaseVolumeId(vol_id),
                                                                                   dmt_version)));
     asyncSetMDReq->setPayload(FDSP_MSG_TYPEID(fpi::SetBlobMetaDataMsg), setMDMsg);
     asyncSetMDReq->onResponseCb(respCb);

@@ -6,7 +6,8 @@ user_install_loc  := test
 
 user_fds_so_libs  :=
 user_fds_ar_libs  := \
-    fds-am-engine
+    fds-am-engine \
+    fds-lib \
 
 user_non_fds_libs := \
     gmock
@@ -28,7 +29,8 @@ user_cpp          :=  \
     trans_journal_ut.cpp \
     SynchronizedTaskExecutor_ut.cpp \
     perf_trace_unit_test.cpp \
-    kvcache_unit_test.cpp
+    kvcache_unit_test.cpp \
+    object_logger_test.cpp
 
 user_cc           :=
 user_no_style     :=                \
@@ -54,7 +56,8 @@ user_bin_exe      := \
     trans_journal_ut \
     SynchronizedTaskExecutor_ut \
     perf_trace_unit_test \
-    kvcache_unit_test
+    kvcache_unit_test \
+    object_logger_test
 
 catalog_test                   := catalog_unit_test.cpp
 ocache_unit_test	       := ocache_unit_test.cpp
@@ -67,5 +70,6 @@ trans_journal_ut               := trans_journal_ut.cpp
 SynchronizedTaskExecutor_ut    := SynchronizedTaskExecutor_ut.cpp
 perf_trace_unit_test           := perf_trace_unit_test.cpp
 kvcache_unit_test              := kvcache_unit_test.cpp
+object_logger_test             := object_logger_test.cpp
 
 include $(topdir)/Makefile.incl

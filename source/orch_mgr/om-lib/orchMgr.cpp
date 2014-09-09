@@ -27,7 +27,8 @@ OrchMgr::OrchMgr(int argc, char *argv[], Platform *platform, Module **mod_vec)
           test_mode(false),
           omcp_req_handler(new FDSP_OMControlPathReqHandler(this)),
           cp_resp_handler(new FDSP_ControlPathRespHandler(this)),
-          cfg_req_handler(new FDSP_ConfigPathReqHandler(this))
+          cfg_req_handler(new FDSP_ConfigPathReqHandler(this)),
+      snapshotMgr(this)
 {
     om_mutex = new fds_mutex("OrchMgrMutex");
 
@@ -162,6 +163,7 @@ void OrchMgr::proc_pre_startup()
 
 void OrchMgr::proc_pre_service()
 {
+    snapshotMgr.init();
     fds_bool_t config_db_up = loadFromConfigDB();
     // load persistent state to local domain
     OM_NodeDomainMod* local_domain = OM_NodeDomainMod::om_local_domain();
@@ -431,7 +433,16 @@ bool OrchMgr::loadFromConfigDB() {
 
     OM_Module::om_singleton()->om_volplace_mod()->setConfigDB(configDB);
 
+
+    // load the snapshot policies
+    snapshotMgr.loadFromConfigDB();
+
     return true;
+}
+
+DmtColumnPtr OrchMgr::getDMTNodesForVolume(fds_volid_t volId) {
+    DMTPtr dmt = OM_Module::om_singleton()->om_volplace_mod()->getCommittedDMT();
+    return dmt->getNodeGroup(volId);
 }
 
 kvstore::ConfigDB* OrchMgr::getConfigDB() {

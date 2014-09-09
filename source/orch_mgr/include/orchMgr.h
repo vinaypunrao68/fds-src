@@ -20,11 +20,13 @@
 #include <util/Log.h>
 #include <concurrency/Mutex.h>
 #include <NetSession.h>
+#include <omutils.h>
 #include <OmTier.h>
 #include <OmVolPolicy.hpp>
 #include <OmAdminCtrl.h>
 #include <kvstore/configdb.h>
 #include <platform/platform-lib.h>
+#include <snapshot/manager.h>
 
 #define MAX_OM_NODES            (512)
 #define DEFAULT_LOC_DOMAIN_ID   (1)
@@ -70,7 +72,6 @@ class OrchMgr: public PlatformProcess {
     Thrift_VolPolicyServ   *om_ice_proxy;
     Orch_VolPolicyServ     *om_policy_srv;
     kvstore::ConfigDB      *configDB;
-
     void SetThrottleLevelForDomain(int domain_id, float throttle_level);
 
   public:
@@ -90,7 +91,7 @@ class OrchMgr: public PlatformProcess {
 
     bool loadFromConfigDB();
     void defaultS3BucketPolicy();  // default  policy  desc  for s3 bucket
-
+    DmtColumnPtr getDMTNodesForVolume(fds_volid_t volId);
     kvstore::ConfigDB* getConfigDB();
 
     static VolPolicyMgr      *om_policy_mgr();
@@ -108,6 +109,8 @@ class OrchMgr: public PlatformProcess {
                         const FDSP_PerfstatsTypePtr& perf_stats_msg);
     int ApplyTierPolicy(::fpi::tier_pol_time_unitPtr& policy);  // NOLINT
     int AuditTierPolicy(::fpi::tier_pol_auditPtr& audit);  // NOLINT
+
+    fds::snapshot::Manager snapshotMgr;
 };
 
 /* config path: cli -> OM  */

@@ -172,6 +172,22 @@ Error DmVolumeCatalog::addCatalog(const VolumeDesc& voldesc)
 }
 
 //
+// Create snapshot of a volume
+//
+Error DmVolumeCatalog::createSnapshot(const VolumeDesc & voldesc,
+        const VolumeDesc & snapshotVoldesc) {
+    LOGDEBUG << "Creating a snapshot '" << snapshotVoldesc.name << "' of a volume '"
+            << voldesc.name << "'";
+    // create a snapshot catalog
+    Error rc = persistCat->createSnapshot(voldesc.volUUID, snapshotVoldesc.volUUID);
+    if (rc.ok()) {
+        // Create cache for a snapshot
+        rc = cacheCat->createCache(snapshotVoldesc);
+    }
+    return rc;
+}
+
+//
 // Prepares Volume Catalog (including cache and persistent layer) to
 // accept get/put/delete requests for the given volume
 //
@@ -282,7 +298,6 @@ Error DmVolumeCatalog::getVolumeMetaInternal(fds_volid_t volume_id,
 
     // calculate size of volume
     for (cit = desc_list.cbegin(); cit != desc_list.cend(); ++cit) {
-        fds_verify((*cit).vol_id == volume_id);
         volume_size += (*cit).blob_size;
 
         // get object count for the blob
@@ -612,7 +627,6 @@ Error DmVolumeCatalog::listBlobs(fds_volid_t volume_id,
             fpi::FDSP_BlobInfoType binfo;
             binfo.blob_name = (*cit).blob_name;
             binfo.blob_size = (*cit).blob_size;
-            fds_verify((*cit).vol_id == volume_id);
             (*bmeta_list).push_back(binfo);
         }
     }

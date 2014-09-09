@@ -35,7 +35,7 @@ Error DataMgr::vol_handler(fds_volid_t vol_uuid,
                                         vol_uuid, desc,
                                         (vol_flag == fpi::FDSP_NOTIFY_VOL_WILL_SYNC));
     } else if (vol_action == fds_notify_vol_rm) {
-        err = dataMgr->_process_rm_vol(vol_uuid, vol_flag == fpi::FDSP_NOTIFY_VOL_CHECK_ONLY);
+        err = dataMgr->process_rm_vol(vol_uuid, vol_flag == fpi::FDSP_NOTIFY_VOL_CHECK_ONLY);
     } else if (vol_action == fds_notify_vol_mod) {
         err = dataMgr->_process_mod_vol(vol_uuid, *desc);
     } else {
@@ -157,6 +157,9 @@ void DataMgr::sampleDMStats(fds_uint64_t timestamp) {
     for (vol_it = vol_meta_map.begin();
          vol_it != vol_meta_map.end();
          ++vol_it) {
+        if (vol_it->second->vol_desc->fSnapshot) {
+            continue;
+        }
         DmtColumnPtr nodes = omClient->getDMTNodesForVolume(vol_it->first);
         fds_verify(nodes->getLength() > 0);
         if (*mySvcUuid == nodes->get(0)) {
@@ -254,6 +257,70 @@ DataMgr::finishCloseDMT() {
 
     LOGDEBUG << "Will cleanup catalogs for volumes DM is not responsible anymore";
     // TODO(Anna) remove volume catalog for volumes we finished forwarding
+}
+
+Error
+DataMgr::createSnapshot(const fpi::Snapshot & snapDetails) {
+    VolumeMeta * volmeta = 0;
+    VolumeMeta * snapmeta = 0;
+    {
+        FDSGUARD(*vol_map_mtx);
+        volmeta = vol_meta_map[snapDetails.volumeId];
+        snapmeta = vol_meta_map[snapDetails.snapshotId];
+
+        if (!volmeta) {
+            GLOGWARN << "Volume '" << std::hex << snapDetails.volumeId << std::dec <<
+                    "' not found!";
+            return ERR_NOT_FOUND;
+        }
+
+        if (snapmeta) {
+            GLOGWARN << "Snapshot '" << std::hex << snapDetails.snapshotId << std::dec <<
+                    "' already exists!";
+            return FDSN_StatusErrorBucketAlreadyExists;
+        }
+    }
+
+    VolumeDesc snapdesc(*volmeta->vol_desc);
+    snapdesc.volUUID = snapDetails.snapshotId;
+    snapdesc.name = snapDetails.snapshotName;
+    snapdesc.parentVolumeId = snapDetails.volumeId;
+    snapdesc.ctime = boost::posix_time::from_time_t(snapDetails.creationTimestamp);
+    snapdesc.fSnapshot = true;
+
+    Error rc = timeVolCat_->createSnapshot(*volmeta->vol_desc, snapdesc);
+    if (!rc.ok()) {
+        GLOGERROR << "Failed to create a snapshot '" << snapDetails.snapshotName << "'";
+        return rc;
+    }
+    rc = timeVolCat_->activateVolume(snapdesc.volUUID);
+
+    snapmeta = new VolumeMeta(snapdesc.name, snapdesc.volUUID, GetLog(), &snapdesc);
+
+    snapmeta->dmVolQueue = new FDS_VolumeQueue(4096, snapdesc.iops_max, 2 * snapdesc.iops_min,
+            snapdesc.relativePrio);
+    snapmeta->dmVolQueue->activate();
+
+    GLOGDEBUG << "Added vol meta for vol uuid and per Volume queue '" << std::hex <<
+            snapdesc.volUUID << std::dec << "'";
+
+    FDSGUARD(*vol_map_mtx);
+
+    rc = dataMgr->qosCtrl->registerVolume(snapdesc.volUUID, static_cast<FDS_VolumeQueue*>(
+            snapmeta->dmVolQueue));
+    if (!rc.ok()) {
+        delete snapmeta;
+        return rc;
+    }
+    vol_meta_map[snapdesc.volUUID] = snapmeta;
+
+    return rc;
+}
+
+Error
+DataMgr::deleteSnapshot(const fds_uint64_t snapshotId) {
+    // TODO(umesh): implement this
+    return ERR_OK;
 }
 
 //
@@ -460,6 +527,11 @@ Error DataMgr::_process_add_vol(const std::string& vol_name,
     /*
      * Verify that we don't already know about this volume
      */
+    if (desc->isSnapshot()) {
+        LOGCRITICAL << "request to create a volume for a snaphot - returning true";
+        return err;
+    }
+
     vol_map_mtx->lock();
     if (volExistsLocked(vol_uuid) == true) {
         err = Error(ERR_DUPLICATE);
@@ -502,7 +574,7 @@ Error DataMgr::_process_mod_vol(fds_volid_t vol_uuid, const VolumeDesc& voldesc)
     return err;
 }
 
-Error DataMgr::_process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only) {
+Error DataMgr::process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only) {
     Error err(ERR_OK);
 
     // mark volume as deleted if it's not empty
@@ -802,6 +874,7 @@ void DataMgr::mod_startup()
 
 void DataMgr::mod_enable_service() {
     Error err(ERR_OK);
+    const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
     const NodeUuid *mySvcUuid = Platform::plf_get_my_svc_uuid();
     NodeAgent::pointer my_agent = Platform::plf_dm_nodes()->agent_info(*mySvcUuid);
     fpi::StorCapMsg stor_cap;
@@ -883,6 +956,7 @@ void DataMgr::mod_enable_service() {
             std::placeholders::_1, std::placeholders::_2));
 
     statStreamAggr_->mod_startup();
+    root->fds_mkdir(root->dir_user_repo_dm().c_str());
 }
 
 void DataMgr::mod_shutdown()

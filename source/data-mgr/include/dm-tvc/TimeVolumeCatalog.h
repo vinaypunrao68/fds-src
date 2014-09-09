@@ -11,6 +11,7 @@
 #include <fds_config.hpp>
 #include <DmBlobTypes.h>
 #include <dm-tvc/CommitLog.h>
+#include <dm-tvc/OperationJournal.h>
 #include <dm-vol-cat/DmVolumeCatalog.h>
 #include <util/Log.h>
 #include <concurrency/SynchronizedTaskExecutor.hpp>
@@ -33,6 +34,15 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
      * blob transactions
      */
     std::unordered_map<fds_volid_t, DmCommitLog::ptr> commitLogs_;
+
+    /* Lock around op journal */
+    fds_spinlock opJournalLock_;
+
+    /**
+     * Per volume operation journal, keeps long term log of
+     * blob write operations
+     */
+    std::unordered_map<fds_volid_t, DmTvcOperationJournal::ptr> opJournals_;
 
     /**
      * For executing certain blob operatins (commit, delete) in a
@@ -90,6 +100,11 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
      * for volume activate
      */
     Error addVolume(const VolumeDesc& voldesc);
+
+    /**
+     * Create snapshot of a volume
+     */
+    Error createSnapshot(const VolumeDesc & voldesc, const VolumeDesc & snapVoldesc);
 
     /**
      * Prepare TVC and Volume Catalog to accept requests for
@@ -225,6 +240,9 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
                           DmCommitLog::ptr &commitLog,
                           BlobTxId::const_ptr txDesc,
                           const DmTimeVolCatalog::CommitCb &cb);
+
+    Error doCommitBlob(fds_volid_t volid, blob_version_t & blob_version,
+            CommitLogTx::const_ptr commit_data);
 
     void updateFwdBlobWork(fds_volid_t volId,
                            const std::string &blobName,

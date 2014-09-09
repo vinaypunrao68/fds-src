@@ -101,7 +101,8 @@ Error StatBlobHandler::handleQueueItem(AmQosReq *qosReq) {
 
     auto asyncReq = gSvcRequestPool->newFailoverSvcRequest(
         boost::make_shared<DmtVolumeIdEpProvider>(
-            storHvisor->om_client->getDMTNodesForVolume(helper.volId)));
+            storHvisor->om_client->getDMTNodesForVolume(
+                storHvisor->vol_table->getBaseVolumeId(helper.volId))));
 
     asyncReq->setPayload(fpi::GetBlobMetaDataMsgTypeId, message);
 

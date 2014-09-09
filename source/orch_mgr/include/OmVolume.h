@@ -9,7 +9,7 @@
 #include <boost/msm/back/state_machine.hpp>
 #include <fds_volume.h>
 #include <platform/node-inventory.h>
-
+#include <fdsp/snapshot_types.h>
 namespace fds {
 
 class OmDiscoveryMod;
@@ -51,6 +51,8 @@ class VolCrtOkEvt
     // to wait for acks and can get out of the current state
     fds_bool_t got_ack;
 };
+
+struct SnapCrtEvt {};
 
 class VolOpEvt
 {
@@ -189,7 +191,7 @@ class VolumeInfo : public Resource
      * Return the string containing current state of the volume
      */
     char const *const vol_current_state();
-
+    void initSnapshotVolInfo(VolumeInfo::pointer vol, const fpi::Snapshot& snapshot);
     /**
      * Apply an event to volume lifecycle state machine
      */
@@ -201,6 +203,7 @@ class VolumeInfo : public Resource
     void vol_event(DelChkAckEvt const &evt);
     void vol_event(DetachAllEvt const &evt);
     void vol_event(DelNotifEvt const &evt);
+    void vol_event(SnapCrtEvt const &evt);
     fds_bool_t isVolumeInactive();
     fds_bool_t isDeletePending();
     fds_bool_t isCheckDelete();
@@ -364,6 +367,7 @@ class VolumeContainer : public RsContainer
                                 const FdspCrtVolPtr       &snap_msg);
     virtual Error om_delete_vol(const FDSP_MsgHdrTypePtr  &hdr,
                                 const FdspDelVolPtr &del_msg);
+    Error om_delete_vol(fds_volid_t volId);
     virtual Error om_modify_vol(const FdspModVolPtr &mod_msg);
     virtual Error om_attach_vol(const FDSP_MsgHdrTypePtr  &hdr,
                                 const FdspAttVolCmdPtr    &attach);
@@ -373,6 +377,8 @@ class VolumeContainer : public RsContainer
                                 const FdspTestBucketPtr &req);
 
     virtual Error getVolumeStatus(const std::string& volumeName);
+
+    Error addSnapshot(const fpi::Snapshot& snapshot);
 
     /**
      * Called by DMT state machine when rebalance is finished, and

@@ -2,7 +2,7 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 include "FDSP.thrift"
-
+include "snapshot.thrift"
 namespace cpp FDS_ProtocolInterface
 
 /*
@@ -92,7 +92,13 @@ enum  FDSPMsgTypeId {
     StatStreamRegistrationMsgTypeId,
     StatStreamRegistrationRspMsgTypeId,
     StatStreamDeregistrationMsgTypeId,
-    StatStreamDeregistrationRspMsgTypeId
+    StatStreamDeregistrationRspMsgTypeId,
+    CreateSnapshotMsgTypeId,
+    CreateSnapshotRespMsgTypeId,
+    DeleteSnapshotMsgTypeId,
+    DeleteSnapshotRespMsgTypeId,
+    CreateVolumeCloneMsgTypeId,
+    CreateVolumeCloneRespMsgTypeId
 }
 
 struct EmptyMsg {
@@ -260,6 +266,34 @@ struct StatStreamDeregistrationMsg {
 }
 
 struct StatStreamDeregistrationRspMsg {
+}
+
+/* snapshot message From OM => DM */
+struct CreateSnapshotMsg {
+    1:snapshot.Snapshot snapshot
+}  
+
+struct CreateSnapshotRespMsg {
+    1:i64 snapshotId
+}
+
+struct DeleteSnapshotMsg {
+    1:i64 snapshotId
+}
+
+struct DeleteSnapshotRespMsg {
+    1:i64 snapshotId
+}
+
+struct CreateVolumeCloneMsg {
+     1:i64 volumeId,
+     2:i64 cloneId,
+     3:string cloneName,
+     4:i64 VolumePolicyId
+}  
+
+struct CreateVolumeCloneRespMsg {
+     1:i64 cloneId
 }
 
 /*

@@ -78,6 +78,10 @@ class VolumeDesc {
 
     ptime ctime; /* Create time */
 
+    /* Snapshot */
+    bool                   fSnapshot = false;
+    fds_volid_t            parentVolumeId = 0;
+
     VolumeDesc(const FDS_ProtocolInterface::FDSP_VolumeInfoType& volinfo,
                fds_volid_t vol_uuid);
 
@@ -110,6 +114,11 @@ class VolumeDesc {
 
     bool operator!=(const VolumeDesc &rhs) const;
     VolumeDesc & operator=(const VolumeDesc& volinfo);
+
+    bool isSnapshot();
+    bool isClone();
+    fds_volid_t getParentVolumeId();
+
     friend std::ostream& operator<<(std::ostream& out, const VolumeDesc& vol_desc);
 };
 

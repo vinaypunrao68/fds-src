@@ -67,7 +67,8 @@ Error DeleteBlobHandler::handleQueueItem(AmQosReq *qosReq) {
 
     auto asyncReq = gSvcRequestPool->newQuorumSvcRequest(
         boost::make_shared<DltObjectIdEpProvider>(
-            storHvisor->om_client->getDMTNodesForVolume(helper.volId)));
+            storHvisor->om_client->getDMTNodesForVolume(
+                storHvisor->vol_table->getBaseVolumeId(helper.volId))));
 
     asyncReq->setPayload(fpi::DeleteBlobMsgTypeId, message);
     auto cb = RESPONSE_MSG_HANDLER(DeleteBlobHandler::handleResponse, qosReq);

@@ -3,6 +3,7 @@
  */
 #include <arpa/inet.h>
 
+#include <apis/snapshot_types.h>
 #include <apis/ConfigurationService.h>
 #include <thrift/protocol/TBinaryProtocol.h>
 #include <thrift/server/TThreadedServer.h>
@@ -63,15 +64,25 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     void updateUser(const int64_t userId, const std::string& identifier, const std::string& passwordHash, const std::string& secret, const bool isFdsAdmin) {} //NOLINT
     int64_t configurationVersion(const int64_t ignore) { return 0;}
     void createVolume(const std::string& domainName, const std::string& volumeName, const VolumeSettings& volumeSettings, const int64_t tenantId) {}  //NOLINT
+    int64_t getVolumeId(const std::string& volumeName) {return 0;}
+    void getVolumeName(std::string& _return, const int64_t volumeId) {}
     void deleteVolume(const std::string& domainName, const std::string& volumeName) {}  //NOLINT
     void statVolume(VolumeDescriptor& _return, const std::string& domainName, const std::string& volumeName) {}  //NOLINT
     void listVolumes(std::vector<VolumeDescriptor> & _return, const std::string& domainName) {}  //NOLINT
     int32_t registerStream(const std::string& url, const std::string& http_method, const std::vector<std::string> & volume_names, const int32_t sample_freq_seconds, const int32_t duration_seconds) { return 0;} //NOLINT
     void getStreamRegistrations(std::vector<StreamingRegistrationMsg> & _return, const int32_t ignore) {} //NOLINT
     void deregisterStream(const int32_t registration_id) {}
-
+    int64_t createSnapshotPolicy(const  ::FDS_ProtocolInterface::SnapshotPolicy& policy) {return 0;} //NOLINT
+    void listSnapshotPolicies(std::vector< ::FDS_ProtocolInterface::SnapshotPolicy> & _return, const int64_t unused) {} //NOLINT
+    void deleteSnapshotPolicy(const int64_t id) {} //NOLINT
+    void attachSnapshotPolicy(const int64_t volumeId, const int64_t policyId) {} //NOLINT
+    void listSnapshotPoliciesForVolume(std::vector< ::FDS_ProtocolInterface::SnapshotPolicy> & _return, const int64_t volumeId) {} //NOLINT
+    void detachSnapshotPolicy(const int64_t volumeId, const int64_t policyId) {} //NOLINT
+    void listVolumesForSnapshotPolicy(std::vector<int64_t> & _return, const int64_t policyId) {} //NOLINT
+    void listSnapshots(std::vector< ::FDS_ProtocolInterface::Snapshot> & _return, const int64_t volumeId) {} //NOLINT
+    void restoreClone(const int64_t volumeId, const int64_t snapshotId) {} //NOLINT
+    int64_t cloneVolume(const int64_t volumeId, const int64_t fdsp_PolicyInfoId, const std::string& clonedVolumeName) { return 0;} //NOLINT
     // stubs to keep cpp compiler happy - END
-
 
     int64_t createTenant(boost::shared_ptr<std::string>& identifier) {
         return configDB->createTenant(*identifier);
@@ -142,6 +153,33 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         if (err != ERR_OK) apiException("error creating volume");
     }
 
+    int64_t getVolumeId(boost::shared_ptr<std::string>& volumeName) {
+        checkDomainStatus();
+
+        OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+        VolumeContainer::pointer volContainer = local->om_vol_mgr();
+        VolumeInfo::pointer  vol = VolumeInfo::vol_cast_ptr(volContainer->rs_get_resource(volumeName->c_str())); //NOLINT
+        if (vol) {
+            return vol->rs_get_uuid().uuid_get_val();
+        } else {
+            LOGWARN << "unable to get volume info for vol:" << *volumeName;
+            return 0;
+        }
+    }
+
+    void getVolumeName(std::string& volumeName, boost::shared_ptr<int64_t>& volumeId) {
+        checkDomainStatus();
+
+        OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+        VolumeContainer::pointer volContainer = local->om_vol_mgr();
+        VolumeInfo::pointer  vol = VolumeInfo::vol_cast_ptr(volContainer->rs_get_resource(*volumeId)); //NOLINT
+        if (vol) {
+            volumeName =  vol->vol_get_name();
+        } else {
+            LOGWARN << "unable to get volume info for vol:" << *volumeId;
+        }
+    }
+
     void deleteVolume(boost::shared_ptr<std::string>& domainName,
                       boost::shared_ptr<std::string>& volumeName) {
         checkDomainStatus();
@@ -179,7 +217,9 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
         VolumeContainer::pointer volContainer = local->om_vol_mgr();
 
+        LOGDEBUG << "just Active volumes";
         volContainer->vol_up_foreach<std::vector<VolumeDescriptor> &>(_return, [] (std::vector<VolumeDescriptor> &vec, VolumeInfo::pointer vol) { //NOLINT
+                LOGDEBUG << " - " << vol->vol_get_name();
                 VolumeDescriptor volDescriptor;
                 convert::getVolumeDescriptor(volDescriptor, vol);
                 vec.push_back(volDescriptor);
@@ -223,6 +263,59 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
     void deregisterStream(boost::shared_ptr<int32_t>& registration_id) {
         configDB->removeStreamRegistration(*registration_id);
+    }
+
+    int64_t createSnapshotPolicy(boost::shared_ptr<fpi::SnapshotPolicy>& policy) {
+        if (configDB->createSnapshotPolicy(*policy)) {
+            om->snapshotMgr.addPolicy(*policy);
+            return policy->id;
+        }
+        return -1;
+    }
+
+    void listSnapshotPolicies(std::vector<fpi::SnapshotPolicy> & _return,
+                      boost::shared_ptr<int64_t>& unused) {
+        configDB->listSnapshotPolicies(_return);
+    }
+
+    void deleteSnapshotPolicy(boost::shared_ptr<int64_t>& id) {
+        configDB->deleteSnapshotPolicy(*id);
+        om->snapshotMgr.removePolicy(*id);
+    }
+
+    void attachSnapshotPolicy(boost::shared_ptr<int64_t>& volumeId,
+                              boost::shared_ptr<int64_t>& policyId) {
+        configDB->attachSnapshotPolicy(*volumeId, *policyId);
+    }
+
+    void listSnapshotPoliciesForVolume(std::vector<fpi::SnapshotPolicy> & _return,
+                                       boost::shared_ptr<int64_t>& volumeId) {
+        configDB->listSnapshotPoliciesForVolume(_return, *volumeId);
+    }
+
+    void detachSnapshotPolicy(boost::shared_ptr<int64_t>& volumeId,
+                              boost::shared_ptr<int64_t>& policyId) {
+        configDB->detachSnapshotPolicy(*volumeId, *policyId);
+    }
+
+    void listVolumesForSnapshotPolicy(std::vector<int64_t> & _return,
+                              boost::shared_ptr<int64_t>& policyId) {
+        configDB->listVolumesForSnapshotPolicy(_return, *policyId);
+    }
+
+    void listSnapshots(std::vector<fpi::Snapshot> & _return,
+                       boost::shared_ptr<int64_t>& volumeId) {
+        configDB->listSnapshots(_return, *volumeId);
+    }
+
+    void restoreClone(boost::shared_ptr<int64_t>& volumeId,
+                         boost::shared_ptr<int64_t>& snapshotId) {
+    }
+
+    int64_t cloneVolume(boost::shared_ptr<int64_t>& volumeId,
+                        boost::shared_ptr<int64_t>& fdsp_PolicyInfoId,
+                        boost::shared_ptr<std::string>& clonedVolumeName) {
+        return 0;
     }
 };
 

@@ -811,6 +811,20 @@ OM_NodeDomainMod::om_load_volumes()
                      << "[" << volumeIter->volUUID << ":" << volumeIter->name << "]";
         }
     }
+
+    // load snapshots
+    std::vector<fpi::Snapshot> vecSnapshots;
+    VolumeContainer::pointer volContainer = om_locDomain->om_vol_mgr();
+    for (const auto& volumeDesc : vecVolumes) {
+        vecSnapshots.clear();
+        configDB->listSnapshots(vecSnapshots, volumeDesc.volUUID);
+        LOGDEBUG << "loading [" << vecSnapshots.size()
+                 <<"] snapshots for volume:" << volumeDesc.volUUID;
+        for (const auto& snapshot : vecSnapshots) {
+            volContainer->addSnapshot(snapshot);
+        }
+    }
+
     return err;
 }
 

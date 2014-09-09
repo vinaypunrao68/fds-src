@@ -104,6 +104,18 @@ struct ConfigDB : KVStore {
     bool listUsersForTenant(std::vector<fds::apis::User>& users, int64_t tenantId);
     bool updateUser(int64_t  userId, const std::string& identifier, const std::string& passwordHash, const std::string& secret, bool isFdsAdmin); //NOLINT
 
+    // snapshot
+    bool createSnapshotPolicy(fpi::SnapshotPolicy& policy); //NOLINT
+    bool getSnapshotPolicy(int64_t policyid, fpi::SnapshotPolicy& policy);
+    bool listSnapshotPolicies(std::vector<fpi::SnapshotPolicy> & _return); //NOLINT
+    bool deleteSnapshotPolicy(const int64_t id); //NOLINT
+    bool attachSnapshotPolicy(const int64_t volumeId, const int64_t policyId); //NOLINT
+    bool listSnapshotPoliciesForVolume(std::vector<fpi::SnapshotPolicy> & _return, const int64_t volumeId); //NOLINT
+    bool detachSnapshotPolicy(const int64_t volumeId, const int64_t policyId); //NOLINT
+    bool listVolumesForSnapshotPolicy(std::vector<int64_t> & _return, const int64_t policyId); //NOLINT
+    bool createSnapshot(fpi::Snapshot& snapshot);
+    bool listSnapshots(std::vector<fpi::Snapshot> & _return, const int64_t volumeId); //NOLINT
+
   protected:
     void setModified();
     struct ModificationTracker {

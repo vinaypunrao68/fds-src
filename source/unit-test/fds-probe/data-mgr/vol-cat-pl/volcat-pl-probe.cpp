@@ -144,7 +144,6 @@ VolCatPlProbe::putExtent(const OpParams &putParams) {
         fds_verify(err.ok());
     } else {
         BlobExtent0::ptr bext(new BlobExtent0(putParams.blob_name,
-                                              putParams.vol_id,
                                               putParams.max_obj_size,
                                               putParams.first_offset,
                                               putParams.num_offsets));

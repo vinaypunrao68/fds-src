@@ -7,10 +7,14 @@
 
 #include <kvstore/configdb.h>
 #include <util/Log.h>
+#include <util/stringutils.h>
 #include <stdlib.h>
 #include <fdsp_utils.h>
 #include <util/timeutils.h>
-#include <algorithm>
+
+auto format = fds::util::strformat;
+auto lower  = fds::util::strlower;
+
 namespace fds { namespace kvstore {
 using redis::Reply;
 using redis::RedisException;
@@ -74,7 +78,7 @@ std::string ConfigDB::getGlobalDomain() {
 bool ConfigDB::setGlobalDomain(ConstString globalDomain) {
     TRACKMOD();
     try {
-        return r.set("global.domain", globalDomain).isOk();
+        return r.set("global.domain", globalDomain);
     } catch(const RedisException& e) {
         LOGERROR << e.what();
         NOMOD();
@@ -148,7 +152,9 @@ bool ConfigDB::addVolume(const VolumeDesc& vol) {
                               " backup.vol.id %ld"
                               " iops.min %.3f"
                               " iops.max %.3f"
-                              " relative.priority %d",
+                              " relative.priority %d"
+                              " fsnapshot %d"
+                              " parentvolumeid %ld",
                               vol.volUUID, vol.volUUID,
                               vol.name.c_str(),
                               vol.tennantId,
@@ -170,7 +176,10 @@ bool ConfigDB::addVolume(const VolumeDesc& vol) {
                               vol.backupVolume,
                               vol.iops_min,
                               vol.iops_max,
-                              vol.relativePrio);
+                              vol.relativePrio,
+                              vol.fSnapshot,
+                              vol.parentVolumeId
+                              );
         if (reply.isOk()) return true;
         LOGWARN << "msg: " << reply.getString();
     } catch(RedisException& e) {
@@ -304,6 +313,8 @@ bool ConfigDB::getVolume(fds_volid_t volumeId, VolumeDesc& vol) {
             else if (key == "iops.min") {vol.iops_min = strtod (value.c_str(), NULL);}
             else if (key == "iops.max") {vol.iops_max = strtod (value.c_str(), NULL);}
             else if (key == "relative.priority") {vol.relativePrio = atoi(value.c_str());}
+            else if (key == "fsnapshot") {vol.fSnapshot = atoi(value.c_str());}
+            else if (key == "parentvolumeid") {vol.parentVolumeId = strtoull(value.c_str(), NULL, 10);} //NOLINT
             else { //NOLINT
                 LOGWARN << "unknown key for volume [" << volumeId <<"] - " << key;
                 fds_assert(!"unknown key");
@@ -928,8 +939,7 @@ int64_t ConfigDB::createTenant(const std::string& identifier) {
     TRACKMOD();
     try {
         // check if the tenant already exists
-        std::string idLower = identifier;
-        std::transform(idLower.begin(), idLower.end(), idLower.begin(), ::tolower);
+        std::string idLower = lower(identifier);
 
         Reply reply = r.sendCommand("sismember tenant:list %b", idLower.data(), idLower.length());
         if (reply.getLong() == 1) {
@@ -961,7 +971,7 @@ int64_t ConfigDB::createTenant(const std::string& identifier) {
         boost::shared_ptr<std::string> serialized;
         fds::serializeFdspMsg(tenant, serialized);
 
-        r.sendCommand("hset tenants %ld %b",tenant.id, serialized->data(), serialized->length()); //NOLINT
+        r.sendCommand("hset tenants %ld %b", tenant.id, serialized->data(), serialized->length()); //NOLINT
         return tenant.id;
     } catch(const RedisException& e) {
         LOGCRITICAL << "error with redis " << e.what();
@@ -994,8 +1004,7 @@ int64_t ConfigDB::createUser(const std::string& identifier, const std::string& p
     TRACKMOD();
     try {
         // check if the user already exists
-        std::string idLower = identifier;
-        std::transform(idLower.begin(), idLower.end(), idLower.begin(), ::tolower);
+        std::string idLower = lower(identifier);
 
         Reply reply = r.sendCommand("sismember user:list %b", idLower.data(), idLower.length());
         if (reply.getLong() == 1) {
@@ -1029,7 +1038,7 @@ int64_t ConfigDB::createUser(const std::string& identifier, const std::string& p
         boost::shared_ptr<std::string> serialized;
         fds::serializeFdspMsg(user, serialized);
 
-        r.sendCommand("hset users %ld %b",user.id, serialized->data(), serialized->length()); //NOLINT
+        r.sendCommand("hset users %ld %b", user.id, serialized->data(), serialized->length()); //NOLINT
         return user.id;
     } catch(const RedisException& e) {
         LOGCRITICAL << "error with redis " << e.what();
@@ -1077,8 +1086,7 @@ bool ConfigDB::getUser(int64_t userId, fds::apis::User& user) {
 bool ConfigDB::assignUserToTenant(int64_t userId, int64_t tenantId) {
     TRACKMOD();
     try {
-        Reply reply = r.sendCommand("sadd tenant:%ld:users %ld", tenantId, userId);
-        if (!reply.wasModified()) {
+        if (!r.sadd(format("tenant:%ld:users", tenantId), userId)) {
             LOGWARN << "user: " << userId << " is already assigned to tenant: " << tenantId;
             NOMOD();
         }
@@ -1093,8 +1101,7 @@ bool ConfigDB::assignUserToTenant(int64_t userId, int64_t tenantId) {
 bool ConfigDB::revokeUserFromTenant(int64_t userId, int64_t tenantId) {
     TRACKMOD();
     try {
-        Reply reply = r.sendCommand("sremove tenant:%ld:users %ld", tenantId, userId);
-        if (!reply.wasModified()) {
+        if (!r.srem(format("tenant:%ld:users", tenantId), userId)) {
             LOGWARN << "user: " << userId << " was NOT assigned to tenant: " << tenantId;
             NOMOD();
         }
@@ -1110,9 +1117,14 @@ bool ConfigDB::listUsersForTenant(std::vector<fds::apis::User>& users, int64_t t
     fds::apis::User user;
     try {
         // get the list of users assigned to the tenant
-        Reply reply = r.sendCommand("smembers tenant:%ld:users", tenantId);
+        Reply reply = r.smembers(format("tenant:%ld:users", tenantId));
         StringList strings;
         reply.toVector(strings);
+
+        if (strings.empty()) {
+            return true;
+        }
+
         std::string userlist;
         userlist.reserve(2048);
         userlist.append("hmget users");
@@ -1148,13 +1160,11 @@ bool ConfigDB::updateUser(int64_t  userId, const std::string& identifier, const 
             throw ConfigException("user id is invalid");
         }
 
-        std::string idLower = identifier;
-        std::transform(idLower.begin(), idLower.end(), idLower.begin(), ::tolower);
+        std::string idLower = lower(identifier);
 
         // check if the identifier is changing ..
         if (0 != strcasecmp(identifier.c_str(), user.identifier.c_str())) {
-            Reply reply = r.sendCommand("sismember user:list %b", idLower.data(), idLower.length());
-            if (reply.getLong() == 1) {
+            if (r.sismember("user:list", idLower)) {
                 LOGWARN << "another user exists with identifier: " << identifier;
                 NOMOD();
                 throw ConfigException("another user exists with identifier");
@@ -1167,16 +1177,224 @@ bool ConfigDB::updateUser(int64_t  userId, const std::string& identifier, const 
         user.secret = secret;
         user.isFdsAdmin = isFdsAdmin;
 
-        r.sendCommand("sadd user:list %b", idLower.data(), idLower.length());
+        r.sadd("user:list", idLower);
 
         // serialize
         boost::shared_ptr<std::string> serialized;
         fds::serializeFdspMsg(user, serialized);
 
-        r.sendCommand("hset users %ld %b",user.id, serialized->data(), serialized->length()); //NOLINT
+        r.hset("users", user.id, *serialized);
     } catch(const RedisException& e) {
         LOGCRITICAL << "error with redis " << e.what();
         NOMOD();
+        return false;
+    }
+    return true;
+}
+
+bool ConfigDB::createSnapshotPolicy(fpi::SnapshotPolicy& policy) {
+    TRACKMOD();
+    try {
+        std::string idLower = lower(policy.policyName);
+        bool fNew = true;
+        // check if this is a modification
+        if (policy.id > 0) {
+            fpi::SnapshotPolicy oldpolicy;
+            if (getSnapshotPolicy(policy.id, oldpolicy)) {
+                fNew = false;
+                LOGWARN << "modifying an existing policy:" << policy.id;
+            }
+        }
+
+        if (fNew) {
+            if (r.sismember("snapshot.policy:names", idLower)) {
+                throw ConfigException("another snapshot policy exists with the name: " + policy.policyName); //NOLINT
+            }
+
+            r.sadd("snapshot.policy:names", idLower);
+            policy.id = r.incr("snapshot.policy:idcounter");
+            LOGDEBUG << "creating a new policy:" <<policy.id;
+        }
+
+        // serialize
+        boost::shared_ptr<std::string> serialized;
+        fds::serializeFdspMsg(policy, serialized);
+
+        r.hset("snapshot.policies", policy.id, *serialized);
+        return true;
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+        NOMOD();
+        return false;
+    }
+}
+
+bool ConfigDB::getSnapshotPolicy(int64_t policyid, fpi::SnapshotPolicy& policy) {
+    try {
+        Reply reply = r.hget("snapshot.policies", policyid);
+        if (reply.isNil()) {
+            LOGWARN << "snapshot policy does not exist id:" << policyid;
+            return false;
+        }
+        fds::deserializeFdspMsg(reply.getString(), policy);
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+        return false;
+    }
+    return true;
+}
+
+bool ConfigDB::listSnapshotPolicies(std::vector<fpi::SnapshotPolicy> & vecPolicy) {
+    try {
+        Reply reply = r.sendCommand("hvals snapshot.policies");
+        StringList strings;
+        reply.toVector(strings);
+        fpi::SnapshotPolicy policy;
+
+        for (const auto& value : strings) {
+            fds::deserializeFdspMsg(value, policy);
+            vecPolicy.push_back(policy);
+        }
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+        return false;
+    }
+    return true;
+}
+
+bool ConfigDB::deleteSnapshotPolicy(const int64_t policyId) {
+    try {
+        // get the policy
+        fpi::SnapshotPolicy policy;
+
+        getSnapshotPolicy(policyId, policy);
+        std::string nameLower = lower(policy.policyName);
+
+        r.srem("snapshot.policy:names", nameLower);
+        r.hdel("snapshot.policies", policyId);
+
+        Reply reply = r.smembers(format("snapshot.policy:%ld:volumes", policyId));
+        std::vector<uint64_t> vecVolumes;
+        reply.toVector(vecVolumes);
+
+        // delete this policy id from each volume map
+        for (const auto& volumeId : vecVolumes) {
+            r.srem(format("volume:%ld:snapshot.policies", volumeId), policyId);
+        }
+
+        // delete the volume list for this policy
+        r.del(format("snapshot.policy:%ld:volumes", policyId));
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+        return false;
+    }
+    return true;
+}
+
+bool ConfigDB::attachSnapshotPolicy(const int64_t volumeId, const int64_t policyId) {
+    try {
+        r.sendCommand("sadd snapshot.policy:%ld:volumes %ld", policyId, volumeId);
+        r.sendCommand("sadd volume:%ld:snapshot.policies %ld", volumeId, policyId);
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+        return false;
+    }
+    return true;
+}
+
+bool ConfigDB::listSnapshotPoliciesForVolume(std::vector<fpi::SnapshotPolicy> & vecPolicies,
+                                             const int64_t volumeId) {
+    try {
+        Reply reply = r.sendCommand("smembers volume:%ld:snapshot.policies", volumeId); //NOLINT
+        StringList strings;
+        reply.toVector(strings);
+
+        std::string policylist;
+        policylist.reserve(2048);
+        policylist.append("hmget snapshot.policies");
+
+        for (const auto& value : strings) {
+            policylist.append(" ");
+            policylist.append(value);
+        }
+
+        reply = r.sendCommand(policylist.c_str());
+        strings.clear();
+        reply.toVector(strings);
+        fpi::SnapshotPolicy policy;
+
+        for (const auto& value : strings) {
+            fds::deserializeFdspMsg(value, policy);
+            vecPolicies.push_back(policy);
+        }
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+        return false;
+    }
+    return true;
+}
+
+bool ConfigDB::detachSnapshotPolicy(const int64_t volumeId, const int64_t policyId) {
+    try {
+        r.sendCommand("srem snapshot.policy:%ld:volumes %ld", policyId, volumeId);
+        r.sendCommand("srem volume:%ld:snapshot.policies %ld", volumeId, policyId);
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+        return false;
+    }
+    return true;
+}
+
+bool ConfigDB::listVolumesForSnapshotPolicy(std::vector<int64_t> & vecVolumes, const int64_t policyId) { //NOLINT
+    try {
+        Reply reply = r.sendCommand("smembers snapshot.policy:%ld:volumes", policyId); //NOLINT
+        reply.toVector(vecVolumes);
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+        return false;
+    }
+    return true;
+}
+
+bool ConfigDB::createSnapshot(fpi::Snapshot& snapshot) {
+    TRACKMOD();
+    try {
+        std::string nameLower = lower(snapshot.snapshotName);
+
+        if (r.sismember("snapshot:names", nameLower)) {
+            throw ConfigException("another snapshot exists with name:" + snapshot.snapshotName); //NOLINT
+        }
+
+        r.sadd("snapshot:names", nameLower);
+        if (snapshot.creationTimestamp <= 1) {
+            snapshot.creationTimestamp = fds::util::getTimeStampMillis();
+        }
+
+        boost::shared_ptr<std::string> serialized;
+        fds::serializeFdspMsg(snapshot, serialized);
+
+        r.hset(format("volume:%ld:snapshots", snapshot.volumeId), snapshot.snapshotId, *serialized); //NOLINT
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+        NOMOD();
+        return false;
+    }
+    return true;
+}
+
+bool ConfigDB::listSnapshots(std::vector<fpi::Snapshot> & vecSnapshots, const int64_t volumeId) {
+    try {
+        Reply reply = r.sendCommand("hvals volume:%ld:snapshots", volumeId);
+        StringList strings;
+        reply.toVector(strings);
+        fpi::Snapshot snapshot;
+
+        for (const auto& value : strings) {
+            fds::deserializeFdspMsg(value, snapshot);
+            vecSnapshots.push_back(snapshot);
+        }
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
         return false;
     }
     return true;

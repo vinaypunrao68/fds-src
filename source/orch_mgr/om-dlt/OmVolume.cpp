@@ -261,6 +261,7 @@ struct VolumeFSM: public msm::front::state_machine_def<VolumeFSM>
         // | Start             | Event        | Next       | Action        | Guard      |
         // +-------------------+--------------+------------+---------------+------------+
         msf::Row< VST_Inactive , VolCreateEvt , VST_CrtPend, VACT_NotifCrt, GRD_NotifCrt>,
+        msf::Row< VST_Inactive , SnapCrtEvt   , VST_Active , VACT_CrtDone  , msf::none>,
         msf::Row< VST_Inactive , VolDelChkEvt , VST_DelDone, VACT_DelDone  , msf::none  >,
         // +-------------------+--------------+------------+---------------+------------+
         msf::Row< VST_CrtPend  , VolCrtOkEvt  , VST_Active , VACT_CrtDone  , GRD_VolCrt >,
@@ -331,6 +332,9 @@ bool VolumeFSM::GRD_NotifCrt::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
  * VACT_NotifCrt
  * -------------
  * Notify services about creation of this volume
+                fsm.process_event(VolOpRespEvt(vol->rs_get_uuid(),
+                                               om_notify_vol_attach,
+                                               Error(ERR_OK)));
  */
 template <class Evt, class Fsm, class SrcST, class TgtST>
 void
@@ -700,6 +704,23 @@ VolumeInfo::setDescription(const VolumeDesc &desc)
     volUUID = desc.volUUID;
 }
 
+void VolumeInfo::initSnapshotVolInfo(VolumeInfo::pointer vol, const fpi::Snapshot& snapshot) {
+    if (vol->vol_properties != NULL) {
+        delete vol->vol_properties;
+    }
+    vol->vol_properties = new VolumeDesc(*vol_properties);
+    vol->setName(snapshot.snapshotName);
+    vol->vol_name = snapshot.snapshotName;
+    vol->volUUID =  snapshot.snapshotId;
+    // vol->vol_am_nodes = vol_am_nodes;
+    vol->vol_properties->name = snapshot.snapshotName;
+    vol->vol_properties->parentVolumeId = volUUID;
+    vol->vol_properties->volUUID = snapshot.snapshotId;
+    vol->vol_properties->fSnapshot = true;
+
+    vol->volume_fsm->start();
+}
+
 // vol_fmt_desc_pkt
 // ----------------
 //
@@ -729,6 +750,8 @@ VolumeInfo::vol_fmt_desc_pkt(FDSP_VolumeDescType *pkt) const
     pkt->defConsisProtocol = fpi::FDSP_ConsisProtoType(pVol->consisProtocol);
     pkt->appWorkload       = pVol->appWorkload;
     pkt->mediaPolicy   = pVol->mediaPolicy;
+    pkt->fSnapshot   = pVol->fSnapshot;
+    pkt->parentVolumeId   = pVol->parentVolumeId;
 }
 
 // vol_fmt_message
@@ -949,6 +972,12 @@ VolumeInfo::vol_current_state()
     return state_names[volume_fsm->current_state()[0]];
 }
 
+void VolumeInfo::vol_event(SnapCrtEvt const &evt) {
+    fds_mutex::scoped_lock l(fsm_lock);
+    volume_fsm->process_event(evt);
+}
+
+
 void VolumeInfo::vol_event(VolCreateEvt const &evt) {
     fds_mutex::scoped_lock l(fsm_lock);
     volume_fsm->process_event(evt);
@@ -1015,7 +1044,7 @@ VolumeContainer::om_create_vol(const FdspMsgHdrPtr &hdr,
     VolPolicyMgr        *v_pol = OrchMgr::om_policy_mgr();
     FdsAdminCtrl        *admin = local->om_get_admin_ctrl();
     std::string         &vname = (creat_msg->vol_info).vol_name;
-    ResourceUUID         uuid(fds_get_uuid64(vname));
+    ResourceUUID         uuid(getUuidFromVolumeName(vname));
     VolumeInfo::pointer  vol;
 
     vol = VolumeInfo::vol_cast_ptr(rs_get_resource(uuid));
@@ -1093,7 +1122,7 @@ VolumeContainer::om_snap_vol(const FdspMsgHdrPtr &hdr,
     OM_NodeContainer    *local = OM_NodeDomainMod::om_loc_domain_ctrl();
     FdsAdminCtrl        *admin = local->om_get_admin_ctrl();
     std::string         &vname = snap_msg->vol_name;
-    ResourceUUID         uuid(fds_get_uuid64(vname));
+    ResourceUUID         uuid(getUuidFromVolumeName(vname));
     VolumeInfo::pointer  vol;
 
     vol = VolumeInfo::vol_cast_ptr(rs_get_resource(uuid));
@@ -1103,6 +1132,55 @@ VolumeContainer::om_snap_vol(const FdspMsgHdrPtr &hdr,
     }
 
     fds_uint32_t count = local->om_bcast_vol_snap(vol);
+
+    return err;
+}
+
+Error VolumeContainer::addSnapshot(const fpi::Snapshot& snapshot) {
+    Error err(ERR_OK);
+    OM_NodeContainer    *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+    OM_Module *om = OM_Module::om_singleton();
+    VolumePlacement* vp = om->om_volplace_mod();
+    VolPolicyMgr        *v_pol = OrchMgr::om_policy_mgr();
+    FdsAdminCtrl        *admin = local->om_get_admin_ctrl();
+
+    VolumeInfo::pointer  vol, parentVol;
+
+    vol = VolumeInfo::vol_cast_ptr(rs_get_resource(snapshot.snapshotId));
+    if (vol != NULL) {
+        LOGWARN << "Trying to add a snapshot with conflicting id:" << snapshot.snapshotId
+                << " name:" << snapshot.snapshotName;
+        return Error(ERR_DUPLICATE);
+    }
+
+    parentVol = VolumeInfo::vol_cast_ptr(rs_get_resource(snapshot.volumeId));
+    vol = VolumeInfo::vol_cast_ptr(rs_alloc_new(snapshot.snapshotId));
+
+    parentVol->initSnapshotVolInfo(vol, snapshot);
+
+    err = admin->volAdminControl(vol->vol_get_properties());
+    if (!err.ok()) {
+        // TODO(Vy): delete the volume here.
+        LOGERROR << "Unable to add snapshot " << snapshot.snapshotName
+                 << " error: " << err.GetErrstr();
+        rs_free_resource(vol);
+        return err;
+    }
+
+    // register before b-casting vol crt, in case we start recevings acks
+    // before vol_event for create vol returns
+    rs_register(vol);
+
+    // in case there was no one to notify, check if we can proceed to
+    // active state right away (otherwise guard will stop us)
+
+    // TODO(prem): change the snapshot implementation
+    // vol->vol_event(SnapCrtEvt());
+     vol->vol_event(VolCreateEvt(vol.get()));
+
+    // in case there was no one to notify, check if we can proceed to
+    // active state right away (otherwise guard will stop us)
+     vol->vol_event(VolCrtOkEvt(false));
 
     return err;
 }
@@ -1117,12 +1195,29 @@ VolumeContainer::om_delete_vol(const FdspMsgHdrPtr &hdr,
 {
     Error err(ERR_OK);
     std::string         &vname = del_msg->vol_name;
-    ResourceUUID         uuid(fds_get_uuid64(vname));
+    ResourceUUID         uuid(getUuidFromVolumeName(vname));
     VolumeInfo::pointer  vol;
 
     vol = VolumeInfo::vol_cast_ptr(rs_get_resource(uuid));
     if (vol == NULL) {
         LOGWARN << "Received DeleteVol for non-existing volume " << vname;
+        return Error(ERR_NOT_FOUND);
+    }
+
+    // start volume delete process
+    vol->vol_event(VolDelChkEvt(uuid, vol.get()));
+
+    return err;
+}
+
+Error VolumeContainer::om_delete_vol(fds_volid_t volId) {
+    Error err(ERR_OK);
+    ResourceUUID         uuid(volId);
+    VolumeInfo::pointer  vol;
+
+    vol = VolumeInfo::vol_cast_ptr(rs_get_resource(uuid));
+    if (vol == NULL) {
+        LOGWARN << "Received DeleteVol for non-existing volume " << volId;
         return Error(ERR_NOT_FOUND);
     }
 
@@ -1156,7 +1251,7 @@ VolumeContainer::om_cleanup_vol(const ResourceUUID& vol_uuid)
 VolumeInfo::pointer
 VolumeContainer::get_volume(const std::string& vol_name)
 {
-    ResourceUUID uuid(fds_get_uuid64(vol_name));
+    ResourceUUID uuid(getUuidFromVolumeName(vol_name));
     return VolumeInfo::vol_cast_ptr(rs_get_resource(uuid));
 }
 

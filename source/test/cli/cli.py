@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import sys
 import os
 import logging
@@ -18,6 +20,7 @@ from SvcHandle import *
 import struct
 import socket
 from FDS_ProtocolInterface.ttypes import *
+from snapshot.ttypes import *
 
 from fdslib import process
 from fdslib import IOGen
@@ -34,6 +37,148 @@ log = None
 parser = None
 svc_map = None
 src_id_counter = 0
+unused = 0
+
+@arg('policy-name', help= "-snapshot policy name ")
+@arg('recurrence-rule', help= "- ical Rule format: FREQ=MONTHLY;BYDAY=FR;BYHOUR=23;BYMINUTE=30;BYSECOND=0;COUNT=5 ")
+@arg('retension-time', type=long, help= "-retension time for the snapshot")
+def create_snap_policy(policy_name, recurrence_rule, retension_time):
+    try:
+        snap_policy = SnapshotPolicy(
+            id                    =   0,
+            policyName            =   policy_name,
+            recurrenceRule        =   recurrence_rule,
+            retentionTimeSeconds  =   retension_time
+            )
+        # get the  OM client  handler
+        client = svc_map.omConfig()
+        # invoke the thrift  interface call
+        policy_id = client.createSnapshotPolicy(snap_policy)
+        return  ' Successfully created  snapshot policy: {}'.format(policy_id)
+    except Exception, e:
+        log.exception(e)
+        return ' creating snapshot policy failed: {}'.format(policy_name)
+
+@arg('policy-id', type=long, help= "-snapshot policy Identifier")
+def delete_snap_policy(policy_id):
+    try:
+        # get the  OM client  handler
+        client = svc_map.omConfig()
+        # invoke the thrift  interface call
+        client.deleteSnapshotPolicy(policy_id)
+        return 'Success'
+    except Exception, e:
+        log.exception(e)
+        return ' delete  snapshot policy failed: {}'.format(policy_id)
+def list_snap_policy():
+    try:
+        # get the  OM client  handler
+        client = svc_map.omConfig()
+        # invoke the thrift  interface call
+        policy_list = client.listSnapshotPolicies(unused)
+	return tabulate([(item.policyName, item.recurrenceRule, item.id,  item.retentionTimeSeconds) for item in policy_list],
+			headers=['Policy-Name', 'Policy-Rule', 'Policy-Id', 'Retension-Time'])
+    except Exception, e:
+        log.exception(e)
+        return ' delete  snapshot policy failed: {}'.format(policy_id)
+
+@arg('vol-name', help= "-Volume name for attaching snap policy")
+@arg('policy-id', type=long,  help= "-snap shot policy id")
+def attach_snap_policy(vol_name, policy_id):
+    try:
+        # get the  OM client  handler
+        client = svc_map.omConfig()
+        # invoke the thrift  interface call
+        volume_id  = client.getVolumeId(vol_name);
+        client.attachSnapshotPolicy(volume_id, policy_id)
+        return 'Success'
+    except Exception, e:
+        log.exception(e)
+        return 'attach snap policy  failed: {}'.format(vol_name)
+
+@arg('vol-name', help= "-Volume name for detaching snap policy")
+@arg('policy-id', type=long,  help= "-snap shot policy name")
+def detach_snap_policy(vol_name, policy_id):
+    try:
+        # get the  OM client  handler
+        client = svc_map.omConfig()
+        # invoke the thrift  interface call
+        volume_id  = client.getVolumeId(vol_name);
+        client.detachSnapshotPolicy(volume_id, policy_id)
+        return 'Success'
+    except Exception, e:
+        log.exception(e)
+        return 'detach snap policy failed: {}'.format(vol_name)
+
+@arg('policy-id', type=long, help= "-snap shot policy id")
+def list_volume_snap_policy(policy_id):
+    try:
+        # get the  OM client  handler
+        client = svc_map.omConfig()
+        # invoke the thrift  interface call
+        volume_list =  client.listVolumesForSnapshotPolicy(policy_id)
+	return tabulate([(item) for item in volume_list],
+			headers=['Volume-Id'])
+    except Exception, e:
+        log.exception(e)
+        return ' list Volumes for snapshot policy failed: {}'.format(policy_id)
+
+@arg('vol-name', help= "-Volume name for listing snap policy")
+def list_snap_policy_volume(vol_name):
+    try:
+        # get the  OM client  handler
+        client = svc_map.omConfig()
+        # invoke the thrift  interface call
+        volume_id  = client.getVolumeId(vol_name);
+        policy_list = client.listSnapshotPoliciesForVolume(volume_id)
+	return tabulate([(item.policyName, item.recurrenceRule, item.id,  item.retentionTimeSeconds) for item in policy_list],
+			headers=['Policy-Name', 'Policy-Rule', 'Policy-Id', 'Retension-Time'])
+    except Exception, e:
+        log.exception(e)
+        return ' list snapshot policies for volumes failed: {}'.format(vol_name)
+
+@arg('vol-name', help= "-list snapshot for Volume name")
+def list_snapshot(vol_name):
+    try:
+        # get the  OM client  handler
+        client = svc_map.omConfig()
+        # invoke the thrift  interface call
+        volume_id  = client.getVolumeId(vol_name);
+        snapshot = client.listSnapshots(volume_id)
+	return tabulate([(item.snapshotName, item.volumeId, item.snapshotId, item.snapshotPolicyId, time.ctime((item.creationTimestamp)/1000)) for item in snapshot],
+			headers=['Snapshot-name', 'volume-Id', 'Snapshot-Id', 'policy-Id', 'Creation-Time'])
+    except Exception, e:
+        log.exception(e)
+        return ' list snapshot polcies  snapshot polices for volume failed: {}'.format(vol_name)
+
+@arg('vol-name', help= "-Volume name  of the clone")
+@arg('clone-name', help= "-name of  the  volume clone")
+@arg('policy-name', help= "-clone policy name")
+def create_clone(vol_name, clone_name, policy_name):
+    try:
+        # get the  OM client  handler
+        client = svc_map.omConfig()
+        # invoke the thrift  interface call
+        volume_id  = client.getVolumeId(vol_name);
+        client.cloneVolume(volume_id, policy_name, clone_name )
+        return 'Success'
+    except Exception, e:
+        log.exception(e)
+        return 'create clone failed: {}'.format(vol_name)
+
+@arg('vol-name', help= "-volume name  of the clone")
+@arg('clone-name', help= "-name of  the  volume clone for restore")
+def restore_clone(vol_name, clone_name):
+    try:
+        # get the  OM client  handler
+        client = svc_map.omConfig()
+        # invoke the thrift  interface call
+        volume_id  = client.getVolumeId(vol_name);
+        client.restoreClone(volume_id, snapshotName)
+        return 'Success'
+    except Exception, e:
+        log.exception(e)
+        return 'restore clone failed: {}'.format(vol_name)
 
 def add_node(id):
     cluster.add_node(id)
@@ -122,7 +267,7 @@ def exit():
     raise CliExitException()
 
 class MyShell(cmd.Cmd):
-    prompt = 'FDS::>'
+    prompt = 'fds:> '
     """
     def __init__(self):
         self.parser = argh.ArghParser()
@@ -133,7 +278,6 @@ class MyShell(cmd.Cmd):
         try:
             parser.dispatch(argv=line.split())
         except CliExitException:
-            print 'Goodbye!'
             sys.exit(0)
         except Exception, e:
             print 'Failed'
@@ -153,7 +297,17 @@ def main(ip='127.0.0.1', port=7020, command_line=None):
     global parser
     global svc_map
     parser = ArghParser()
-    parser.add_commands([refresh,
+    parser.add_commands([create_snap_policy,
+                         delete_snap_policy,
+                         list_snap_policy,
+                         attach_snap_policy,
+                         detach_snap_policy,
+                         list_volume_snap_policy,
+                         list_snap_policy_volume,
+                         list_snapshot,
+                         create_clone,
+                         restore_clone,
+                         refresh,
                          add_node,
                          counters,
                          reset_counters,
@@ -167,7 +321,11 @@ def main(ip='127.0.0.1', port=7020, command_line=None):
     if command_line is not None:
 	MyShell().onecmd(command_line)
     else:
-        MyShell().cmdloop()
+        try:
+            MyShell().cmdloop()
+        except KeyboardInterrupt:
+            print ''
+            sys.exit(0)
 
 if __name__ == '__main__':
     log = process.setup_logger(file = 'console.log')

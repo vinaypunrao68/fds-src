@@ -13,7 +13,7 @@ namespace atc = apache::thrift::concurrency;
 namespace redis {
 using fds::GetLog;
 /******************************************************************************************
- *  Redis Reply structures 
+ *  Redis Reply structures
  ******************************************************************************************/
 Reply::Reply(void* v, bool fOwner) : r(reinterpret_cast<redisReply*>(v)), fOwner(fOwner) {
 }
@@ -21,7 +21,7 @@ Reply::Reply(void* v, bool fOwner) : r(reinterpret_cast<redisReply*>(v)), fOwner
 Reply::Reply(redisReply* r, bool fOwner) : r(r), fOwner(fOwner) {
 }
 
-Reply& Reply::operator=(const Reply& rhs) {
+Reply& Reply::operator= (const Reply& rhs) {
     if (this == &rhs) {
         return *this;
     }
@@ -54,7 +54,7 @@ bool Reply::isOk() const {
 }
 
 bool Reply::wasModified() const {
-    return (r->type == REDIS_REPLY_INTEGER) && (r->integer == 1);
+    return (r->type == REDIS_REPLY_INTEGER) && (r->integer > 0);
 }
 
 std::string Reply::getString() const {
@@ -103,46 +103,53 @@ size_t Reply::getNumElements() const {
 }
 
 void Reply::toVector(std::vector<std::string>& vec) { // NOLINT
-    for (size_t i = 0; i < r->elements ; ++i) {
+    for (size_t i = 0; i < r->elements; ++i) {
         vec.push_back(std::string(r->element[i]->str, r->element[i]->len));
     }
 }
 
 void Reply::toVector(std::vector<long long>& vec) { // NOLINT
-    for (size_t i = 0; i < r->elements ; ++i) {
+    for (size_t i = 0; i < r->elements; ++i) {
         vec.push_back(std::stoll(std::string(r->element[i]->str,
-                                          r->element[i]->len), NULL, 10));
+                                             r->element[i]->len), NULL, 10));
     }
 }
 
 void Reply::toVector(std::vector<uint>& vec) { // NOLINT
-    for (size_t i = 0; i < r->elements ; ++i) {
+    for (size_t i = 0; i < r->elements; ++i) {
         vec.push_back(std::stoi(std::string(r->element[i]->str,
                                             r->element[i]->len), NULL, 10));
     }
 }
 
 void Reply::toVector(std::vector<uint64_t>& vec) { // NOLINT
-    for (size_t i = 0; i < r->elements ; ++i) {
+    for (size_t i = 0; i < r->elements; ++i) {
         vec.push_back(std::stoll(std::string(r->element[i]->str,
-                                          r->element[i]->len), NULL, 10));
+                                             r->element[i]->len), NULL, 10));
+    }
+}
+
+void Reply::toVector(std::vector<int64_t>& vec) { // NOLINT
+    for (size_t i = 0; i < r->elements; ++i) {
+        vec.push_back(std::stoll(std::string(r->element[i]->str,
+                                             r->element[i]->len), NULL, 10));
     }
 }
 
 void Reply::dump() const {
     LOGDEBUG << "redis reply ::: ";
-    std::string strType="unknown";
+    std::string strType= "unknown";
     switch (r->type) {
-        case REDIS_REPLY_STRING  : strType = "string"  ; break;
-        case REDIS_REPLY_ARRAY   : strType = "array"   ; break;
-        case REDIS_REPLY_INTEGER : strType = "integer" ; break;
-        case REDIS_REPLY_NIL     : strType = "nil"     ; break;
-        case REDIS_REPLY_STATUS  : strType = "status"  ; break;
-        case REDIS_REPLY_ERROR   : strType = "error"   ; break;
+        case REDIS_REPLY_STRING  : strType = "string"; break;
+        case REDIS_REPLY_ARRAY   : strType = "array"; break;
+        case REDIS_REPLY_INTEGER : strType = "integer"; break;
+        case REDIS_REPLY_NIL     : strType = "nil"; break;
+        case REDIS_REPLY_STATUS  : strType = "status"; break;
+        case REDIS_REPLY_ERROR   : strType = "error"; break;
     }
 
     std::ostringstream oss;
-    for (uint i = 0; i < r->elements ; i++) {
+    for (uint i = 0; i < r->elements; i++) {
         oss << i <<":(int:" << r->element[i]->integer << ") "
             << "(str:" << std::string(r->element[i]->str,
                                       r->element[i]->len) << ") ";
@@ -284,7 +291,7 @@ void ConnectionPool::put(Connection* cxn) {
 bool ConnectionPool::setDB(uint db) {
     atc::Synchronized s(monitor);
     uint poolsize = connections.size();
-    for (uint i = 0 ; i < poolsize ; i++) {
+    for (uint i = 0; i < poolsize; i++) {
         Connection* cxn = connections.front();
 
         if (cxn->isConnected()) {
@@ -370,11 +377,10 @@ Reply Redis::sendCommand(const char* cmdfmt, ...) {
     return cxn->getReply();
 }
 
-Reply Redis::set(const std::string& key, const std::string& value) {
+bool Redis::set(const std::string& key, const std::string& value) {
     SCOPEDCXN();
-    return Reply(redisCommand(cxn->ctx, "set %s %b", key.c_str(),
-                              value.data(),
-                              value.length()));
+    Reply reply = redisCommand(cxn->ctx, "set %s %b", key.c_str(), value.data(), value.length()); //NOLINT
+    return reply.isOk();
 }
 
 Reply Redis::get(const std::string& key) {
@@ -382,19 +388,27 @@ Reply Redis::get(const std::string& key) {
     return Reply(redisCommand(cxn->ctx, "get %s", key.c_str()));
 }
 
+bool Redis::del(const std::string& key) {
+    SCOPEDCXN();
+    Reply reply = redisCommand(cxn->ctx, "del %s", key.c_str()); //NOLINT
+    return reply.isOk();
+}
+
+
 Reply Redis::append(const std::string& key, const std::string& value) {
     SCOPEDCXN();
     return Reply(redisCommand(cxn->ctx, "append %s", key.c_str()));
 }
 
-Reply Redis::incr(const std::string& key) {
+int64_t Redis::incr(const std::string& key, int64_t increment) {
     SCOPEDCXN();
-    return Reply(redisCommand(cxn->ctx, "incr %s", key.c_str()));
-}
-
-Reply Redis::incrby(const std::string& key, long increment) { // NOLINT
-    SCOPEDCXN();
-    return Reply(redisCommand(cxn->ctx, "incrby %s %ld", key.c_str(), increment));
+    if (1 == increment) {
+        Reply reply = redisCommand(cxn->ctx, "incr %s", key.c_str());
+        return reply.getLong();
+    } else {
+        Reply reply = redisCommand(cxn->ctx, "incrby %s %ld", key.c_str(), increment);
+        return reply.getLong();
+    }
 }
 
 // list commands
@@ -410,19 +424,24 @@ Reply Redis::llen(const std::string& key) {
 
 Reply Redis::lpush(const std::string& key, const std::string& value) {
     SCOPEDCXN();
-    return Reply(redisCommand(cxn->ctx, "lpush %s %s", key.c_str(), value.c_str()));
+    return Reply(redisCommand(cxn->ctx, "lpush %s %b", key.c_str(), value.data(), value.length()));
 }
 
 Reply Redis::rpush(const std::string& key, const std::string& value) {
     SCOPEDCXN();
-    return Reply(redisCommand(cxn->ctx, "rpush %s %s", key.c_str(), value.c_str()));
+    return Reply(redisCommand(cxn->ctx, "rpush %s %b", key.c_str(), value.data(), value.length()));
 }
 
-Reply Redis::hset(const std::string& key, const std::string& field,
-                  const std::string& value) {
+bool Redis::hset(const std::string& key, const std::string& field, const std::string& value) {
     SCOPEDCXN();
-    return Reply(redisCommand(cxn->ctx, "hset %s %s %s",
-                              key.c_str(), field.c_str(), value.c_str()));
+    Reply reply = redisCommand(cxn->ctx, "hset %s %s %b", key.c_str(), field.c_str(), value.data(), value.length()); //NOLINT
+    return reply.getLong() == 1;
+}
+
+bool Redis::hset(const std::string& key, int64_t field, const std::string& value) {
+    SCOPEDCXN();
+    Reply reply = redisCommand(cxn->ctx, "hset %s %ld %b", key.c_str(), field, value.data(), value.length()); //NOLINT
+    return reply.getLong() == 1;
 }
 
 Reply Redis::hget(const std::string& key, const std::string& field) {
@@ -430,16 +449,74 @@ Reply Redis::hget(const std::string& key, const std::string& field) {
     return Reply(redisCommand(cxn->ctx, "hget %s %s", key.c_str(), field.c_str()));
 }
 
+Reply Redis::hget(const std::string& key, int64_t field) {
+    SCOPEDCXN();
+    return Reply(redisCommand(cxn->ctx, "hget %s %ld", key.c_str(), field));
+}
+
 Reply Redis::hgetall(const std::string& key) {
     SCOPEDCXN();
     return Reply(redisCommand(cxn->ctx, "hgetall %s", key.c_str()));
 }
 
-Reply Redis::hlen(const std::string& key) {
+int64_t Redis::hlen(const std::string& key) {
     SCOPEDCXN();
-    return Reply(redisCommand(cxn->ctx, "hlen %s", key.c_str()));
+    Reply reply = redisCommand(cxn->ctx, "hlen %s", key.c_str());
+    return reply.getLong();
 }
 
+bool Redis::hdel(const std::string& key, const std::string& field) {
+    SCOPEDCXN();
+    Reply reply = redisCommand(cxn->ctx, "hget %s %s", key.c_str(), field.c_str());
+    return reply.getLong() > 0;
+}
+
+bool Redis::hdel(const std::string& key, int64_t field) {
+    SCOPEDCXN();
+    Reply reply = redisCommand(cxn->ctx, "hget %s %ld", key.c_str(), field);
+    return reply.getLong() > 0;
+}
+
+Reply Redis::smembers(const std::string& key) {
+    SCOPEDCXN();
+    return Reply(redisCommand(cxn->ctx, "smembers %s", key.c_str()));
+}
+
+bool Redis::sismember(const std::string& key, const std::string& value) {
+    SCOPEDCXN();
+    Reply reply = redisCommand(cxn->ctx, "sismember %s %b", key.c_str(), value.data(), value.length()); //NOLINT
+    return reply.getLong() == 1;
+}
+
+bool Redis::sismember(const std::string& key, const int64_t value) {
+    SCOPEDCXN();
+    Reply reply = redisCommand(cxn->ctx, "sismember %s %ld", key.c_str(), value); //NOLINT
+    return reply.getLong() == 1;
+}
+
+bool Redis::sadd(const std::string& key, const std::string& value) {
+    SCOPEDCXN();
+    Reply reply = redisCommand(cxn->ctx, "sadd %s %b", key.c_str(), value.data(), value.length());
+    return reply.wasModified();
+}
+
+bool Redis::sadd(const std::string& key, const int64_t value) {
+    SCOPEDCXN();
+    Reply reply = redisCommand(cxn->ctx, "sadd %s %ld", key.c_str(), value);
+    return reply.wasModified();
+}
+
+bool Redis::srem(const std::string& key, const std::string& value) {
+    SCOPEDCXN();
+    Reply reply = redisCommand(cxn->ctx, "srem %s %b", key.c_str(), value.data(), value.length());
+    return reply.wasModified();
+}
+
+bool Redis::srem(const std::string& key, const int64_t value) {
+    SCOPEDCXN();
+    Reply reply = redisCommand(cxn->ctx, "srem %s %ld", key.c_str(), value);
+    return reply.wasModified();
+}
 
 Redis::~Redis() {
 }

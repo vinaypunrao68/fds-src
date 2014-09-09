@@ -23,8 +23,7 @@ bool KVStore::isConnected() {
 }
 
 bool KVStore::set(const std::string& key, const std::string& value) {
-    Reply reply = r.set(key, value);
-    return reply.isOk();
+    return r.set(key, value);
 }
 
 std::string KVStore::get(const std::string& key) {
