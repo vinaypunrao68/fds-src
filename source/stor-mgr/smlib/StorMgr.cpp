@@ -2290,19 +2290,13 @@ ObjectStorMgr::deleteObjectInternal(SmIoReq* delReq) {
             PerfContext tmp_pctx(DELETE_DISK, volId, "volume:" + std::to_string(volId));
             SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
             if (objMetadata.onTier(diskio::diskTier)) {
-<<<<<<< HEAD
                 dio_mgr.disk_delete_obj(&oid,
                                         objMetadata.getObjSize(),
-                                        objMetadata.getObjPhyLoc(diskTier));
+                                        objMetadata.getObjPhyLoc(diskio::diskTier));
             } else if (objMetadata.onTier(diskio::flashTier)) {
                 dio_mgr.disk_delete_obj(&oid,
                                         objMetadata.getObjSize(),
-                                        objMetadata.getObjPhyLoc(flashTier));
-=======
-                dio_mgr.disk_delete_obj(&oid, objMetadata.getObjSize(), objMetadata.getObjPhyLoc(diskio::diskTier));
-            } else if (objMetadata.onTier(diskio::flashTier)) {
-                dio_mgr.disk_delete_obj(&oid, objMetadata.getObjSize(), objMetadata.getObjPhyLoc(diskio::flashTier));
->>>>>>> Style corrections for stor-mgr/include.
+                                        objMetadata.getObjPhyLoc(diskio::flashTier));
             }
         }
     } else {
