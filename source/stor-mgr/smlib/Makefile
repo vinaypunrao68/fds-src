@@ -22,9 +22,6 @@ user_cpp          :=                   \
     TokenCompactor.cpp                 \
     SMSvcHandler.cpp
 
-user_no_style     := \
-    StorMgr.cpp
-
 user_ar_libs      := fds-smlib
 fds-smlib         := $(user_cpp)
 
