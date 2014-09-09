@@ -26,6 +26,9 @@ build.*
 linux-*
 .devsetup.chk
 
+# Cache directories
+/source/tools/install/.pkg.cache
+
 # All RPC stuffs
 /source/include/net-proxies/iomsg.h
 /source/net-proxies/*_clnt.c
@@ -36,9 +39,16 @@ linux-*
 
 # All Thrift gen stuffs.
 /source/include/fdsp/*
+/source/unit-test/fds-probe/s3-template/o.h
 /source/unit-test/fds-probe/thrift/thrift-gen/*
+source/unit-test/fds-probe/thrift/server/endpoint-test.P
+source/unit-test/fds-probe/thrift/server/endpoint-test.cpp-chk
+source/unit-test/fds-probe/thrift/server/ngx_modules.P
+source/unit-test/fds-probe/thrift/server/ngx_modules.c-chk
+
 /source/orch_mgr/java/gen-java/*
 /source/orch_mgr/java/target/*
+/source/java/target
 /thrift-0.9.0/compiler/cpp/src/thrift*
 /thrift-0.9.0/lib/py/thrift.egg-info/
 /thrift-0.9.0/contrib/debian/debian
