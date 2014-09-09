@@ -16,8 +16,8 @@ DEBUG = False
 HOST = 'localhost'
 PORT = 8000
 BUCKET_NAME = 'bucket'
-DATA_FILE = '/mup_rand'
-SMALL_DATA_FILE = '/mup_rand_small'
+DATA_FILE = '/tmp/mup_rand'
+SMALL_DATA_FILE = '/tmp/mup_rand_small'
 
 random.seed(time.time())
 
@@ -83,8 +83,8 @@ class TestMultiUpload(unittest.TestCase):
 
         _copied_key = Key(_aux_b)
         _copied_key.key = 'copiedTestObj'
-        _copied_key.get_contents_to_filename('/copied_output')
-        assert(hashlib.sha1(open(DATA_FILE, 'rb').read()).hexdigest() == hashlib.sha1(open('/copied_output', 'rb').read()).hexdigest())
+        _copied_key.get_contents_to_filename('/tmp/copied_output')
+        assert(hashlib.sha1(open(DATA_FILE, 'rb').read()).hexdigest() == hashlib.sha1(open('/tmp/copied_output', 'rb').read()).hexdigest())
         log('Copy successful!')
 
         # Cleanup
@@ -128,6 +128,56 @@ class TestMultiUpload(unittest.TestCase):
 
         # Cleanup
         os.system('rm ' + DATA_FILE + '_verify')
+
+    def test_multi_upload_copy(self):
+        # Create multipart upload request
+        _key_name = os.path.basename(self.source_path)
+        mp = self.b.initiate_multipart_upload(_key_name)
+        log('MPU initiated!')
+
+        # Upload a key to copy from
+        log('Uploading test key...')
+        _key = Key(self.b)
+        _key.key = 'test_key'
+        _key.set_contents_from_filename(SMALL_DATA_FILE)
+
+        # Verify key is on S3
+        _key_verify = Key(self.b)
+        _key_verify.key = 'test_key'
+        _key_verify.get_contents_to_filename('/tmp/test_verify')
+        assert(hashlib.sha1(open('/tmp/test_verify', 'rb').read()).hexdigest() == hashlib.sha1(open(SMALL_DATA_FILE).read()).hexdigest())
+
+        log('Copying keys into multipart file...')
+        mp.copy_part_from_key(self.b, 'test_key', 1)
+        mp.copy_part_from_key(self.b, 'test_key', 2)
+        mp.copy_part_from_key(self.b, 'test_key', 3)
+        mp.copy_part_from_key(self.b, 'test_key', 4)
+
+        # Finish the upload
+        log('Completing MP upload...')
+        mp.complete_upload()
+        log('MPU Complete!')
+
+        log('Retrieving MP object...')
+        k = Key(self.b)
+        k.key = _key_name
+        k.get_contents_to_filename(DATA_FILE+'_verify')
+
+        # Create file for reference
+        log('Creating ref object locally...')
+        with open('/tmp/tmp_file_verify', 'wb') as tmp_file:
+            with open(SMALL_DATA_FILE, 'rb') as data_file:
+                for i in range(4):
+                    tmp_file.write(data_file.read())
+                    data_file.seek(0)
+
+        # Verify
+        log('Verifying...')
+        assert(hashlib.sha1(open('/tmp/tmp_file_verify', 'rb').read()).hexdigest() == hashlib.sha1(open(DATA_FILE+'_verify').read()).hexdigest())
+
+        # Cleanup
+        os.system('rm ' + DATA_FILE + '_verify')
+        os.system('rm ' + '/tmp/tmp_file_verify')
 
     def test_multi_upload_abort(self):
         # Create multipart upload request
@@ -205,6 +255,13 @@ if __name__ == '__main__':
     args = parser.parse_args()
     DEBUG = args.v
     HOST = args.am_ip
+
+    # Make sure required files exist
+    log('Data files dont exist, creating in /tmp')
+    if os.path.isfile(DATA_FILE) != True:
+        os.system('dd if=/dev/urandom of=' + DATA_FILE + ' bs=$(( 1024 * 1024 )) count=300')
+    if os.path.isfile(SMALL_DATA_FILE) != True:
+        os.system('dd if=/dev/urandom of=' + SMALL_DATA_FILE + ' bs=$(( 1024 * 1024 )) count=5')
 
     # Connect to FDS S3 interface
     c = boto.connect_s3(
