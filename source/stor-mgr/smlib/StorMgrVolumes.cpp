@@ -39,7 +39,7 @@ StorMgrVolume::StorMgrVolume(const VolumeDesc&  vdb,
                               voldesc->getIopsMin(),
                               voldesc->getPriority());
 
-    volumeIndexDB  = new ObjectDB(filename);
+    volumeIndexDB  = new osm::ObjectDB(filename);
     averageObjectsRead = 0;
     dedupBytes_ = 0;
 }

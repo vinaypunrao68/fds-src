@@ -1,45 +1,49 @@
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
-#ifndef SOURCE_OBJ_META_STORMGR_H_
-#define SOURCE_OBJ_META_STORMGR_H_
+#ifndef SOURCE_STOR_MGR_INCLUDE_OBJMETA_H_
+#define SOURCE_STOR_MGR_INCLUDE_OBJMETA_H_
 
-
-#include <unistd.h>
-#include <utility>
-#include <atomic>
-#include <unordered_map>
-
-#include <leveldb/db.h>
-
-#include <fdsp/FDSP_types.h>
-#include "stor_mgr_err.h"
-#include <fds_volume.h>
-#include <fds_types.h>
-#include <odb.h>
-
+extern "C" {
 #include <assert.h>
-#include <iostream>
-#include <util/Log.h>
+#include <unistd.h>
+}
+
+#include <atomic>
+#include <map>
+#include <string>
+#include <unordered_map>
+#include <utility>
+#include <vector>
+
+#include "leveldb/db.h"
+
+#include "fdsp/FDSP_types.h"
+#include "stor_mgr_err.h"
+#include "fds_volume.h"
+#include "fds_types.h"
+#include "odb.h"
+
+#include "util/Log.h"
 #include "StorMgrVolumes.h"
 #include "SmObjDb.h"
-#include <persistent_layer/dm_service.h>
-#include <persistent_layer/dm_io.h>
-#include <fds_migration.h>
+#include "persistent_layer/dm_service.h"
+#include "persistent_layer/dm_io.h"
+#include "fds_migration.h"
 
-#include <fds_qos.h>
-#include <fds_assert.h>
-#include <fds_config.hpp>
-#include <util/timeutils.h>
+#include "fds_qos.h"
+#include "fds_assert.h"
+#include "fds_config.hpp"
+#include "util/timeutils.h"
 
-#include <ObjStats.h>
-#include <serialize.h>
+#include "ObjStats.h"
+#include "serialize.h"
 
 namespace fds {
 
 #define SYNCMETADATA_MASK 0x1
 
-struct SyncMetaData : public serialize::Serializable{
+struct SyncMetaData : public serialize::Serializable {
     SyncMetaData();
     void reset();
 
@@ -64,109 +68,106 @@ struct SyncMetaData : public serialize::Serializable{
  * layer.
  */
 class ObjMetaData : public serialize::Serializable {
-private:
+    public:
+     ObjMetaData();
+     virtual ~ObjMetaData();
 
-public:
-    ObjMetaData();
-    virtual ~ObjMetaData();
+     void initialize(const ObjectID& objid, fds_uint32_t obj_size);
 
-    void initialize(const ObjectID& objid, fds_uint32_t obj_size);
+     bool isInitialized() const;
 
-    bool isInitialized() const;
+     explicit ObjMetaData(const ObjectBuf& buf);
 
-    ObjMetaData(const ObjectBuf& buf);
+     void unmarshall(const ObjectBuf& buf);
 
-    void unmarshall(const ObjectBuf& buf);
+     virtual uint32_t write(serialize::Serializer* serializer) const override;
 
-    virtual uint32_t write(serialize::Serializer* serializer) const override;
+     virtual uint32_t read(serialize::Deserializer* deserializer) override;
 
-    virtual uint32_t read(serialize::Deserializer* deserializer) override;
+     virtual uint32_t getEstimatedSize() const override;
 
-    virtual uint32_t getEstimatedSize() const override;
+     uint32_t serializeTo(ObjectBuf& buf) const;
 
-    uint32_t serializeTo(ObjectBuf& buf) const;
+     bool deserializeFrom(const ObjectBuf& buf);
 
-    bool deserializeFrom(const ObjectBuf& buf);
+     bool deserializeFrom(const leveldb::Slice& s);
 
-    bool deserializeFrom(const leveldb::Slice& s);
+     uint64_t getModificationTs() const;
 
-    uint64_t getModificationTs() const;
+     void apply(const FDSP_MigrateObjectMetadata& data);
 
-    void apply(const FDSP_MigrateObjectMetadata& data);
+     void extractSyncData(FDSP_MigrateObjectMetadata& md) const;
 
-    void extractSyncData(FDSP_MigrateObjectMetadata &md) const;
+     void checkAndDemoteUnsyncedData(const uint64_t& syncTs);
 
-    void checkAndDemoteUnsyncedData(const uint64_t& syncTs);
+     void setSyncMask();
 
-    void setSyncMask();
+     bool syncDataExists() const;
 
-    bool syncDataExists() const;
+     void applySyncData(const FDSP_MigrateObjectMetadata& data);
 
-    void applySyncData(const FDSP_MigrateObjectMetadata& data);
+     void mergeNewAndUnsyncedData();
 
-    void mergeNewAndUnsyncedData();
+     bool dataPhysicallyExists();
 
-    bool dataPhysicallyExists();
+     fds_uint32_t   getObjSize() const;
+     obj_phy_loc_t*   getObjPhyLoc(diskio::DataTier tier);
+     meta_obj_map_t*   getObjMap();
 
-    fds_uint32_t   getObjSize() const;
-    obj_phy_loc_t*   getObjPhyLoc(diskio::DataTier tier);
-    meta_obj_map_t*   getObjMap();
+     void setRefCnt(fds_uint16_t refcnt);
 
-    void setRefCnt(fds_uint16_t refcnt);
+     void incRefCnt();
 
-    void incRefCnt();
+     void decRefCnt();
 
-    void decRefCnt();
+     fds_uint16_t getRefCnt() const;
 
-    fds_uint16_t getRefCnt() const;
+     void updateAssocEntry(ObjectID objId, fds_volid_t vol_id);
 
-    void updateAssocEntry(ObjectID objId, fds_volid_t vol_id);
+     void deleteAssocEntry(ObjectID objId, fds_volid_t vol_id, fds_uint64_t ts);
 
-    void deleteAssocEntry(ObjectID objId, fds_volid_t vol_id, fds_uint64_t ts);
+     fds_bool_t isVolumeAssociated(fds_volid_t vol_id);
 
-    fds_bool_t isVolumeAssociated(fds_volid_t vol_id);
+     void getVolsRefcnt(std::map<fds_volid_t, fds_uint32_t>& vol_refcnt);
 
-    void getVolsRefcnt(std::map<fds_volid_t, fds_uint32_t>& vol_refcnt);
+     // Tiering/Physical Location update routines
+     fds_bool_t onFlashTier() const;
+     fds_bool_t onTier(diskio::DataTier tier) const;
 
-    // Tiering/Physical Location update routines
-    fds_bool_t onFlashTier() const;
-    fds_bool_t onTier(diskio::DataTier tier) const;
+     void updatePhysLocation(obj_phy_loc_t *in_phy_loc);
+     void removePhyLocation(diskio::DataTier tier);
 
-    void updatePhysLocation(obj_phy_loc_t *in_phy_loc);
-    void removePhyLocation(diskio::DataTier tier);
+     bool operator==(const ObjMetaData &rhs) const;
 
-    bool operator==(const ObjMetaData &rhs) const;
+     std::string logString() const;
 
-    std::string logString() const;
+    private:
+     void mergeAssociationArrays_();
 
-private:
-    void mergeAssociationArrays_();
+     friend std::ostream& operator<<(std::ostream& out, const ObjMetaData& objMap);
+     friend class SmObjDb;
 
-    friend std::ostream& operator<<(std::ostream& out, const ObjMetaData& objMap);
-    friend class SmObjDb;
+     /* Data mask to indicate which metadata members are valid.
+      * When sync is in progress mask will be set to indicate sync_data
+      * is valid.
+      */
+     uint8_t mask;
 
-    /* Data mask to indicate which metadata members are valid.
-     * When sync is in progress mask will be set to indicate sync_data
-     * is valid.
-     */
-    uint8_t mask;
+     /* current object meta data */
+     meta_obj_map_t obj_map;
 
-    /* current object meta data */
-    meta_obj_map_t obj_map;
+     /* Physical location entries.  Pointer to field inside obj_map */
+     obj_phy_loc_t *phy_loc;
 
-    /* Physical location entries.  Pointer to field inside obj_map */
-    obj_phy_loc_t *phy_loc;
+     /* Volume association entries */
+     std::vector<obj_assoc_entry_t> assoc_entry;
 
-    /* Volume association entries */
-    std::vector<obj_assoc_entry_t> assoc_entry;
-
-    /* Sync related metadata.  Valid only when mask is set appropriately */
-    SyncMetaData sync_data;
+     /* Sync related metadata.  Valid only when mask is set appropriately */
+     SyncMetaData sync_data;
 };
 
-inline std::ostream& operator<<(std::ostream& out, const ObjMetaData& objMd)
-{
-    ObjectID oid((uint8_t*)objMd.obj_map.obj_id.metaDigest);
+inline std::ostream& operator<<(std::ostream& out, const ObjMetaData& objMd) {
+    ObjectID oid(objMd.obj_map.obj_id.metaDigest);
     out << "Object MetaData: Version " << (fds_uint16_t)objMd.obj_map.obj_map_ver
         << " " << oid
         << "  obj_size " << objMd.obj_map.obj_size
@@ -189,4 +190,4 @@ inline std::ostream& operator<<(std::ostream& out, const ObjMetaData& objMd)
 
 }  // namespace fds
 
-#endif //  SOURCE_STOR_MGR_STORMGR_H_
+#endif  // SOURCE_STOR_MGR_INCLUDE_OBJMETA_H_

@@ -5,6 +5,8 @@
 #include <SmObjDb.h>
 #include <StorMgr.h>
 
+using osm::ObjectDB;
+
 namespace fds {
 
 OpCtx::OpCtx(const OpCtx::OpType &t)

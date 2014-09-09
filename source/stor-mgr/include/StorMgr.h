@@ -1,72 +1,66 @@
 /*
- * Copyright 2013 Formation Data Systems, Inc.
+ * Copyright 2013-2014 Formation Data Systems, Inc.
  */
 
-#ifndef SOURCE_STOR_MGR_STORMGR_H_
-#define SOURCE_STOR_MGR_STORMGR_H_
-#if 0
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <strings.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <ifaddrs.h>
-#include <arpa/inet.h>
-#include <pthread.h>
-#endif
-#include <fdsp/FDSP_types.h>
-#include <fds_types.h>
-#include <ObjectId.h>
-#include <unistd.h>
+#ifndef SOURCE_STOR_MGR_INCLUDE_STORMGR_H_
+#define SOURCE_STOR_MGR_INCLUDE_STORMGR_H_
+
+extern "C" {
 #include <assert.h>
-#include <iostream>
-#include <util/Log.h>
+#include <unistd.h>
+}
+
+#include <atomic>
+#include <string>
+#include <queue>
+#include <unordered_map>
+#include <utility>
+
+#include "fdsp/FDSP_types.h"
+#include "fds_types.h"
+#include "ObjectId.h"
+#include "util/Log.h"
 #include "StorMgrVolumes.h"
 #include "SmObjDb.h"
-#include <persistent_layer/dm_service.h>
-#include <persistent_layer/dm_io.h>
-#include <fds_migration.h>
-#include <TransJournal.h>
-#include <Scavenger.h>
-#include <hash/md5.h>
+#include "persistent_layer/dm_service.h"
+#include "persistent_layer/dm_io.h"
+#include "fds_migration.h"
+#include "TransJournal.h"
+#include "Scavenger.h"
+#include "hash/md5.h"
 
-#include <fds_qos.h>
-#include <qos_ctrl.h>
-#include <fds_obj_cache.h>
-#include <fds_assert.h>
-#include <fds_config.hpp>
-#include <util/timeutils.h>
-#include <lib/StatsCollector.h>
+#include "fds_qos.h"
+#include "qos_ctrl.h"
+#include "fds_obj_cache.h"
+#include "fds_assert.h"
+#include "fds_config.hpp"
+#include "util/timeutils.h"
+#include "lib/StatsCollector.h"
 
-#include <utility>
-#include <atomic>
-#include <unordered_map>
-#include <ObjStats.h>
-#include <ObjMeta.h>
+#include "ObjStats.h"
+#include "ObjMeta.h"
 
 /*
  * TODO: Move this header out of lib/
  * to include/ since it's linked by many.
  */
-#include <lib/qos_htb.h>
-#include <lib/qos_min_prio.h>
-#include <lib/QoSWFQDispatcher.h>
+#include "lib/qos_htb.h"
+#include "lib/qos_min_prio.h"
+#include "lib/QoSWFQDispatcher.h"
 
 /* TODO: avoid include across module, put API header file to include dir */
-#include <lib/OMgrClient.h>
-#include <concurrency/Mutex.h>
+#include "lib/OMgrClient.h"
+#include "concurrency/Mutex.h"
 
-#include <TierEngine.h>
-#include <ObjRank.h>
+#include "TierEngine.h"
+#include "ObjRank.h"
 
-#include <fds_module.h>
-#include <platform/platform-lib.h>
+#include "fds_module.h"
+#include "platform/platform-lib.h"
 
-#include <NetSession.h>
-#include <kvstore/tokenstatedb.h>
-#include <fdsp/SMSvc.h>
+#include "NetSession.h"
+#include "kvstore/tokenstatedb.h"
+#include "fdsp/SMSvc.h"
 
 #undef FDS_TEST_SM_NOOP      /* if defined, IO completes as soon as it arrives to SM */
 
@@ -74,15 +68,9 @@
 #define FDS_STOR_MGR_DGRAM_PORT FDS_CLUSTER_UDP_PORT_SM
 #define FDS_MAX_WAITING_CONNS  10
 
-using namespace FDS_ProtocolInterface;
-using namespace fds;
-using namespace osm;
-using namespace std;
-using namespace diskio;
-
 namespace fds {
-    using DPReqClientPtr = boost::shared_ptr<FDSP_DataPathReqClient>;
-    using DPRespClientPtr = boost::shared_ptr<FDSP_DataPathRespClient>;
+using DPReqClientPtr = boost::shared_ptr<FDSP_DataPathReqClient>;
+using DPRespClientPtr = boost::shared_ptr<FDSP_DataPathRespClient>;
 void log_ocache_stats();
 
 /*
@@ -92,92 +80,86 @@ class ObjectStorMgrI;
 class TierEngine;
 class ObjectRankEngine;
 
-
 class SmPlReq : public diskio::DiskRequest {
- public:
-    /*
-     * TODO: This defaults to disk at the moment...
-     * need to specify any tier, specifically for
-     * read
-     */
-    SmPlReq(meta_vol_io_t   &vio,
-            meta_obj_id_t   &oid,
-            ObjectBuf        *buf,
-            fds_bool_t        block)
-    : diskio::DiskRequest(vio, oid, buf, block) {
-    }
-    SmPlReq(meta_vol_io_t   &vio,
-            meta_obj_id_t   &oid,
-            ObjectBuf        *buf,
-            fds_bool_t        block,
-            diskio::DataTier  tier)
-    : diskio::DiskRequest(vio, oid, buf, block, tier) {
-    }
-    ~SmPlReq() { }
+    public:
+     /*
+      * TODO: This defaults to disk at the moment...
+      * need to specify any tier, specifically for
+      * read
+      */
+     SmPlReq(meta_vol_io_t   &vio,
+             meta_obj_id_t   &oid,
+             ObjectBuf        *buf,
+             fds_bool_t        block)
+         : diskio::DiskRequest(vio, oid, buf, block) {
+         }
+     SmPlReq(meta_vol_io_t   &vio,
+             meta_obj_id_t   &oid,
+             ObjectBuf        *buf,
+             fds_bool_t        block,
+             diskio::DataTier  tier)
+         : diskio::DiskRequest(vio, oid, buf, block, tier) {
+         }
+     ~SmPlReq() { }
 
-    void req_submit() {
-        fdsio::Request::req_submit();
-    }
-    void req_complete() {
-        fdsio::Request::req_complete();
-    }
-    void setTier(DataTier tier) {
-
-        datTier = tier;
-    }
+     void req_submit() {
+         fdsio::Request::req_submit();
+     }
+     void req_complete() {
+         fdsio::Request::req_complete();
+     }
+     void setTier(diskio::DataTier tier) {
+         datTier = tier;
+     }
 };
 
 /**
  * @brief Storage manager counters
  */
-class SMCounters : public FdsCounters
-{
- public:
-    SMCounters(const std::string &id, FdsCountersMgr *mgr)
-    : FdsCounters(id, mgr),
-      put_reqs("put_reqs", this),
-      get_reqs("get_reqs", this),
-      del_reqs("del_reqs", this),
-      puts_latency("puts_latency", this),
-      put_tok_objs("put_tok_objs", this),
-      get_tok_objs("get_tok_objs", this),
-      resolve_mrgd_cnt("resolve_mrgd_cnt", this),
-      resolve_used_sync_cnt("resolve_used_sync_cnt", this),
-      proxy_gets("proxy_gets", this) {
-    }
-    /* Exposed for counters */
-    SMCounters() {}
+class SMCounters : public FdsCounters {
+    public:
+     SMCounters(const std::string &id, FdsCountersMgr *mgr)
+         : FdsCounters(id, mgr),
+         put_reqs("put_reqs", this),
+         get_reqs("get_reqs", this),
+         del_reqs("del_reqs", this),
+         puts_latency("puts_latency", this),
+         put_tok_objs("put_tok_objs", this),
+         get_tok_objs("get_tok_objs", this),
+         resolve_mrgd_cnt("resolve_mrgd_cnt", this),
+         resolve_used_sync_cnt("resolve_used_sync_cnt", this),
+         proxy_gets("proxy_gets", this) {
+         }
+     /* Exposed for counters */
+     SMCounters() {}
 
-    NumericCounter put_reqs;
-    NumericCounter get_reqs;
-    NumericCounter del_reqs;
-    LatencyCounter puts_latency;
-    NumericCounter put_tok_objs;
-    NumericCounter get_tok_objs;
-    /* During resolve number of merges that took place */
-    NumericCounter resolve_mrgd_cnt;
-    /* During resolve # of times we replaced existing entry with sync entry */
-    NumericCounter resolve_used_sync_cnt;
-    NumericCounter proxy_gets;
+     NumericCounter put_reqs;
+     NumericCounter get_reqs;
+     NumericCounter del_reqs;
+     LatencyCounter puts_latency;
+     NumericCounter put_tok_objs;
+     NumericCounter get_tok_objs;
+     /* During resolve number of merges that took place */
+     NumericCounter resolve_mrgd_cnt;
+     /* During resolve # of times we replaced existing entry with sync entry */
+     NumericCounter resolve_used_sync_cnt;
+     NumericCounter proxy_gets;
 };
 
 
-class ObjectStorMgr :
-    public Module,
-    public SmIoReqHandler
-{
-  protected:
-    typedef enum {
-        NORMAL_MODE = 0,
-        TEST_MODE   = 1,
-        MAX
-    } SmRunModes;
+class ObjectStorMgr : public Module, public SmIoReqHandler {
+    protected:
+     typedef enum {
+         NORMAL_MODE = 0,
+         TEST_MODE   = 1,
+         MAX
+     } SmRunModes;
 
-    CommonModuleProviderIf *modProvider_;
-    /*
-     * OM/boostrap related members
-     */
-    OMgrClient         *omClient;
+     CommonModuleProviderIf *modProvider_;
+     /*
+      * OM/boostrap related members
+      */
+     OMgrClient         *omClient;
 
      /*
       * glocal dedupe  stats  counter 
@@ -185,489 +167,488 @@ class ObjectStorMgr :
 
      std::atomic<fds_uint64_t> dedupeByteCnt;
 
-    /*
-     * Local storage members
-     */
-    TransJournal<ObjectID, ObjectIdJrnlEntry> *omJrnl;
-    fds_mutex *objStorMutex;
-    ObjectDB  *objStorDB;
-    ObjectDB  *objIndexDB;
+     /*
+      * Local storage members
+      */
+     TransJournal<ObjectID, ObjectIdJrnlEntry> *omJrnl;
+     fds_mutex *objStorMutex;
+     osm::ObjectDB  *objStorDB;
+     osm::ObjectDB  *objIndexDB;
 
-    /*
-     * FDSP RPC members
-     * The map is used for sending back the response to the
-     * appropriate SH/DM
-     */
-    boost::shared_ptr<netSessionTbl> nst_;
-    boost::shared_ptr<FDSP_DataPathReqIf> datapath_handler_;
-    netDataPathServerSession *datapath_session_;
+     /*
+      * FDSP RPC members
+      * The map is used for sending back the response to the
+      * appropriate SH/DM
+      */
+     boost::shared_ptr<netSessionTbl> nst_;
+     boost::shared_ptr<FDSP_DataPathReqIf> datapath_handler_;
+     netDataPathServerSession *datapath_session_;
 
-    /** Cluster communication manager */
-    ClusterCommMgrPtr clust_comm_mgr_;
+     /** Cluster communication manager */
+     ClusterCommMgrPtr clust_comm_mgr_;
 
-    // default per-volume max cache size in MB
-    fds_uint32_t vol_max_cache_sz_mb_;
-    // default per-volume min cache size in MB
-    fds_uint32_t vol_min_cache_sz_mb_;
+     // default per-volume max cache size in MB
+     fds_uint32_t vol_max_cache_sz_mb_;
+     // default per-volume min cache size in MB
+     fds_uint32_t vol_min_cache_sz_mb_;
 
-    /** Migrations related */
-    FdsMigrationSvcPtr migrationSvc_;
+     /** Migrations related */
+     FdsMigrationSvcPtr migrationSvc_;
 
-    /** Token state db */
-    kvstore::TokenStateDBPtr tokenStateDb_;
+     /** Token state db */
+     kvstore::TokenStateDBPtr tokenStateDb_;
 
-    /** Counters */
-    std::unique_ptr<SMCounters> counters_;
+     /** Counters */
+     std::unique_ptr<SMCounters> counters_;
 
-    /* For caching dlt close response information */
-    std::pair<std::string, FDSP_DltCloseTypePtr> cached_dlt_close_;
+     /* For caching dlt close response information */
+     std::pair<std::string, FDSP_DltCloseTypePtr> cached_dlt_close_;
 
-    /* To indicate whether tokens were migrated or not for the dlt. Based on this
-     * flag we simulate sync/io close notification to OM.  We shouldn't need this
-     * flag once we start doing per token copy/syncs
-     */
-    bool tok_migrated_for_dlt_;
+     /* To indicate whether tokens were migrated or not for the dlt. Based on this
+      * flag we simulate sync/io close notification to OM.  We shouldn't need this
+      * flag once we start doing per token copy/syncs
+      */
+     bool tok_migrated_for_dlt_;
 
-    /** Helper for accessing datapth response client */
-    inline DPRespClientPtr fdspDataPathClient(const std::string& session_uuid) {
-        return datapath_session_->getRespClient(session_uuid);
-    }
+     /** Helper for accessing datapth response client */
+     inline DPRespClientPtr fdspDataPathClient(const std::string& session_uuid) {
+         return datapath_session_->getRespClient(session_uuid);
+     }
 
-    /*
-     * Service UUID to Session UUID mapping stuff. Used to support
-     * proxying where SM doesn't know the session UUID because it
-     * was proxyed from another node. We can use service UUID instead.
-     */
-    typedef std::string SessionUuid;
-    typedef std::unordered_map<NodeUuid, SessionUuid, UuidHash> SvcToSessMap;
-    /** Maps service UUIDs to established session id */
-    SvcToSessMap svcSessMap;
-    /** Protects the service to session map */
-    fds_rwlock svcSessLock;
-    /** Stores mapping from service uuid to session uuid */
-    void addSvcMap(const NodeUuid    &svcUuid,
-                   const SessionUuid &sessUuid);
-    SessionUuid getSvcSess(const NodeUuid &svcUuid);
+     /*
+      * Service UUID to Session UUID mapping stuff. Used to support
+      * proxying where SM doesn't know the session UUID because it
+      * was proxyed from another node. We can use service UUID instead.
+      */
+     typedef std::string SessionUuid;
+     typedef std::unordered_map<NodeUuid, SessionUuid, UuidHash> SvcToSessMap;
+     /** Maps service UUIDs to established session id */
+     SvcToSessMap svcSessMap;
+     /** Protects the service to session map */
+     fds_rwlock svcSessLock;
+     /** Stores mapping from service uuid to session uuid */
+     void addSvcMap(const NodeUuid    &svcUuid,
+                    const SessionUuid &sessUuid);
+     SessionUuid getSvcSess(const NodeUuid &svcUuid);
 
-    NodeAgentDpClientPtr getProxyClient(ObjectID& oid, const FDSP_MsgHdrTypePtr& msg);
+     NodeAgentDpClientPtr getProxyClient(ObjectID& oid, const FDSP_MsgHdrTypePtr& msg);
 
-    /*
-     * TODO: this one should be the singleton by itself.  Need to make it
-     * a stand-alone module like resource manager for volume.
-     * Volume specific members
-     */
-    StorMgrVolumeTable *volTbl;
+     /*
+      * TODO: this one should be the singleton by itself.  Need to make it
+      * a stand-alone module like resource manager for volume.
+      * Volume specific members
+      */
+     StorMgrVolumeTable *volTbl;
 
-    /*
-     * Qos related members and classes
-     */
-    fds_uint32_t totalRate;
-    fds_uint32_t qosThrds;
-    fds_uint32_t qosOutNum;
+     /*
+      * Qos related members and classes
+      */
+     fds_uint32_t totalRate;
+     fds_uint32_t qosThrds;
+     fds_uint32_t qosOutNum;
 
-    class SmQosCtrl : public FDS_QoSControl {
-     private:
-        ObjectStorMgr *parentSm;
+     class SmQosCtrl : public FDS_QoSControl {
+        private:
+         ObjectStorMgr *parentSm;
 
-     public:
-        SmQosCtrl(ObjectStorMgr *_parent,
-                uint32_t _max_thrds,
-                dispatchAlgoType algo,
-                fds_log *log) :
-                    FDS_QoSControl(_max_thrds, algo, log, "SM") {
-            parentSm = _parent;
-            LOGNOTIFY << "Qos totalRate " << parentSm->totalRate
-                      << ", num outstanding io " << parentSm->qosOutNum;
+        public:
+         SmQosCtrl(ObjectStorMgr *_parent,
+                   uint32_t _max_thrds,
+                   dispatchAlgoType algo,
+                   fds_log *log) :
+             FDS_QoSControl(_max_thrds, algo, log, "SM") {
+                 parentSm = _parent;
+                 LOGNOTIFY << "Qos totalRate " << parentSm->totalRate
+                     << ", num outstanding io " << parentSm->qosOutNum;
 
-            //dispatcher = new QoSMinPrioDispatcher(this, log, 3000);
-            dispatcher = new QoSWFQDispatcher(this, parentSm->totalRate, parentSm->qosOutNum, log);
-            //dispatcher = new QoSHTBDispatcher(this, log, 150);
-        }
-        virtual ~SmQosCtrl() {
-        }
+                 // dispatcher = new QoSMinPrioDispatcher(this, log, 3000);
+                 dispatcher = new QoSWFQDispatcher(this,
+                                                   parentSm->totalRate,
+                                                   parentSm->qosOutNum,
+                                                   log);
+                 // dispatcher = new QoSHTBDispatcher(this, log, 150);
+             }
+         virtual ~SmQosCtrl() {
+         }
 
-        Error processIO(FDS_IOType* _io);
+         Error processIO(FDS_IOType* _io);
 
-        Error markIODone(const FDS_IOType& _io) {
-            Error err(ERR_OK);
-            dispatcher->markIODone((FDS_IOType *)&_io);
-            return err;
-        }
+         Error markIODone(FDS_IOType& _io) {
+             Error err(ERR_OK);
+             dispatcher->markIODone(&_io);
+             return err;
+         }
 
-        Error markIODone(const FDS_IOType &_io,
-                         diskio::DataTier  tier,
-                         fds_bool_t iam_primary = false) {
-            Error err(ERR_OK);
-            dispatcher->markIODone((FDS_IOType *)&_io);
-            if (iam_primary &&
-                ((_io.io_type == FDS_SM_PUT_OBJECT) ||
-                 (_io.io_type == FDS_SM_GET_OBJECT))) {
-                if (tier == diskio::diskTier) {
-                    StatsCollector::singleton()->recordEvent(_io.io_vol_id,
-                                                             _io.io_done_ts,
-                                                             STAT_SM_OP_HDD,
-                                                             _io.io_total_time);
-                } else if (tier == diskio::flashTier) {
-                    StatsCollector::singleton()->recordEvent(_io.io_vol_id,
-                                                             _io.io_done_ts,
-                                                             STAT_SM_OP_SSD,
-                                                             _io.io_total_time);
-                }
-            }
-            return err;
-        }
-    };
+         Error markIODone(FDS_IOType &_io,
+                          diskio::DataTier  tier,
+                          fds_bool_t iam_primary = false) {
+             Error err(ERR_OK);
+             dispatcher->markIODone(&_io);
+             if (iam_primary &&
+                 ((_io.io_type == FDS_SM_PUT_OBJECT) ||
+                  (_io.io_type == FDS_SM_GET_OBJECT))) {
+                 if (tier == diskio::diskTier) {
+                     StatsCollector::singleton()->recordEvent(_io.io_vol_id,
+                                                              _io.io_done_ts,
+                                                              STAT_SM_OP_HDD,
+                                                              _io.io_total_time);
+                 } else if (tier == diskio::flashTier) {
+                     StatsCollector::singleton()->recordEvent(_io.io_vol_id,
+                                                              _io.io_done_ts,
+                                                              STAT_SM_OP_SSD,
+                                                              _io.io_total_time);
+                 }
+             }
+             return err;
+         }
+     };
 
-    SmQosCtrl  *qosCtrl;
+     SmQosCtrl  *qosCtrl;
 
-    SmVolQueue *sysTaskQueue;
+     SmVolQueue *sysTaskQueue;
 
-    /*
-     * Tiering related members
-     */
-    ObjectRankEngine *rankEngine;
+     /*
+      * Tiering related members
+      */
+     ObjectRankEngine *rankEngine;
 
-    FdsObjectCache *objCache;
+     FdsObjectCache *objCache;
 
-    /*
-     * Flash write-back members.
-     * TODO: These should probably be in the persistent layer
-     * but is easier here for now since needs the index.
-     */
-    typedef boost::lockfree::queue<ObjectID*> ObjQueue;  /* Dirty list type */
-    static void writeBackFunc(ObjectStorMgr *parent);    /* Function for write-back */
-    std::atomic_bool  shuttingDown;      /* SM shut down flag for write-back thread */
-    fds_uint32_t      numWBThreads;      /* Number of write-back threads */
-    fds_threadpool   *writeBackThreads;  /* Threads performing write-back */
-    fds_uint32_t      maxDirtyObjs;      /* Max dirty list size */
-    ObjQueue         *dirtyFlashObjs;    /* Flash's dirty list */
+     /*
+      * Flash write-back members.
+      * TODO: These should probably be in the persistent layer
+      * but is easier here for now since needs the index.
+      */
+     typedef boost::lockfree::queue<ObjectID*> ObjQueue;  /* Dirty list type */
+     static void writeBackFunc(ObjectStorMgr *parent);    /* Function for write-back */
+     std::atomic_bool  shuttingDown;      /* SM shut down flag for write-back thread */
+     fds_uint32_t      numWBThreads;      /* Number of write-back threads */
+     fds_threadpool   *writeBackThreads;  /* Threads performing write-back */
+     fds_uint32_t      maxDirtyObjs;      /* Max dirty list size */
+     ObjQueue         *dirtyFlashObjs;    /* Flash's dirty list */
 
-    /*
-     * Local perf stat collection
-     */
-    enum perfMigOp {
-        flashToDisk,
-        diskToFlash,
-        invalidMig
-    };
-    PerfStats *perfStats;
+     /*
+      * Local perf stat collection
+      */
+     enum perfMigOp {
+         flashToDisk,
+         diskToFlash,
+         invalidMig
+     };
+     PerfStats *perfStats;
 
-    SysParams *sysParams;
+     SysParams *sysParams;
 
-    /*
-     * Private request processing members.
-     */
-    Error enqTransactionIo(FDSP_MsgHdrTypePtr msgHdr,
-            const ObjectID& obj_id,
-            SmIoReq *ioReq, TransJournalId &trans_id);
-    void create_transaction_cb(FDSP_MsgHdrTypePtr msgHdr,
-            SmIoReq *ioReq, TransJournalId trans_id);
-    Error enqGetObjectReq(FDSP_MsgHdrTypePtr msgHdr, 
-            FDSP_GetObjTypePtr getObjReq, 
-            fds_volid_t        volId,
-            fds_uint32_t       transId,
-            fds_uint32_t       numObjs);
-    Error enqPutObjectReq(FDSP_MsgHdrTypePtr msgHdr, 
-            FDSP_PutObjTypePtr putObjReq, 
-            fds_volid_t        volId,
-            fds_uint32_t       transId,
-            fds_uint32_t       numObjs);
-    Error enqDeleteObjectReq(FDSP_MsgHdrTypePtr msgHdr, 
-            FDSP_DeleteObjTypePtr delObjReq, 
-            fds_volid_t        volId,
-            fds_uint32_t       transId);
-    Error checkDuplicate(const ObjectID  &objId,
-            const ObjectBuf &objCompData,
-            ObjMetaData &objMeta);
-    Error writeObjectMetaData(const OpCtx &opCtx,
-            const ObjectID &objId,
-            fds_uint32_t  obj_size,
-            obj_phy_loc_t *obj_phy_lo,
-            fds_bool_t    relocate_flag,
-            DataTier      from_tier,
-            meta_vol_io_t  *vio);
-    Error readObjMetaData(const ObjectID &objId, 
-            ObjMetaData &objMaps);
-    /**
-     * @return objMap object metadata that we marked as deleted
-     */
-    Error deleteObjectMetaData(const OpCtx &opCtx,
-                               const ObjectID &objId, fds_volid_t vol_id,
-                               ObjMetaData &objMap);
-    Error writeObject(const OpCtx &opCtx,
-            const ObjectID   &objId,
-            const ObjectBuf  &objCompData,
-            fds_volid_t       volId,
-            diskio::DataTier &tier);
-    Error writeObjectToTier(const OpCtx &opCtx,
-            const ObjectID  &objId,
-            const ObjectBuf &objData,
-            fds_volid_t       volId,
-            diskio::DataTier tier);
-    Error writeObjectDataToTier(const ObjectID  &objId,
-                const ObjectBuf &objData,
-                diskio::DataTier tier,
-                obj_phy_loc_t& phys_loc);
-    Error readObject(const SmObjDb::View& view,
-            const ObjectID& objId,
-            ObjMetaData& objMetadata,
-            ObjectBuf& objData);
-    Error readObject(const SmObjDb::View& view,
-            const ObjectID &objId,
-            ObjectBuf      &objCompData);
-    TVIRTUAL Error readObject(const SmObjDb::View& view,
-                              const ObjectID   &objId,
-                              ObjMetaData      &objMetadata,
-                              ObjectBuf        &objCompData,
-                              diskio::DataTier &tier,
-                              fds_volid_t volId = invalid_vol_id);
+     /*
+      * Private request processing members.
+      */
+     Error enqTransactionIo(FDSP_MsgHdrTypePtr msgHdr,
+                            const ObjectID& obj_id,
+                            SmIoReq *ioReq, TransJournalId &trans_id);
+     void create_transaction_cb(FDSP_MsgHdrTypePtr msgHdr,
+                                SmIoReq *ioReq, TransJournalId trans_id);
+     Error enqGetObjectReq(FDSP_MsgHdrTypePtr msgHdr,
+                           FDSP_GetObjTypePtr getObjReq,
+                           fds_volid_t        volId,
+                           fds_uint32_t       transId,
+                           fds_uint32_t       numObjs);
+     Error enqPutObjectReq(FDSP_MsgHdrTypePtr msgHdr,
+                           FDSP_PutObjTypePtr putObjReq,
+                           fds_volid_t        volId,
+                           fds_uint32_t       transId,
+                           fds_uint32_t       numObjs);
+     Error enqDeleteObjectReq(FDSP_MsgHdrTypePtr msgHdr,
+                              FDSP_DeleteObjTypePtr delObjReq,
+                              fds_volid_t        volId,
+                              fds_uint32_t       transId);
+     Error checkDuplicate(const ObjectID  &objId,
+                          const ObjectBuf &objCompData,
+                          ObjMetaData &objMeta);
+     Error writeObjectMetaData(const OpCtx &opCtx,
+                               const ObjectID &objId,
+                               fds_uint32_t  obj_size,
+                               obj_phy_loc_t *obj_phy_lo,
+                               fds_bool_t    relocate_flag,
+                               diskio::DataTier      from_tier,
+                               meta_vol_io_t  *vio);
+     Error readObjMetaData(const ObjectID &objId,
+                           ObjMetaData &objMaps);
+     /**
+      * @return objMap object metadata that we marked as deleted
+      */
+     Error deleteObjectMetaData(const OpCtx &opCtx,
+                                const ObjectID &objId, fds_volid_t vol_id,
+                                ObjMetaData &objMap);
+     Error writeObject(const OpCtx &opCtx,
+                       const ObjectID   &objId,
+                       const ObjectBuf  &objCompData,
+                       fds_volid_t       volId,
+                       diskio::DataTier &tier);
+     Error writeObjectToTier(const OpCtx &opCtx,
+                             const ObjectID  &objId,
+                             const ObjectBuf &objData,
+                             fds_volid_t       volId,
+                             diskio::DataTier tier);
+     Error writeObjectDataToTier(const ObjectID  &objId,
+                                 const ObjectBuf &objData,
+                                 diskio::DataTier tier,
+                                 obj_phy_loc_t& phys_loc);
+     Error readObject(const SmObjDb::View& view,
+                      const ObjectID& objId,
+                      ObjMetaData& objMetadata,
+                      ObjectBuf& objData);
+     Error readObject(const SmObjDb::View& view,
+                      const ObjectID &objId,
+                      ObjectBuf      &objCompData);
+     TVIRTUAL Error readObject(const SmObjDb::View& view,
+                               const ObjectID   &objId,
+                               ObjMetaData      &objMetadata,
+                               ObjectBuf        &objCompData,
+                               diskio::DataTier &tier,
+                               fds_volid_t volId = invalid_vol_id);
 
-    inline fds_uint32_t getSysTaskIopsMin() {
-        return totalRate/10; // 10% of total rate
-    }
-    
-    inline fds_uint32_t getSysTaskIopsMax() {
-        return totalRate/5; // 20% of total rate
-    }
+     inline fds_uint32_t getSysTaskIopsMin() {
+         return totalRate/10;  // 10% of total rate
+     }
 
-    inline fds_uint32_t getSysTaskPri() {
-        return FdsSysTaskPri;
-    }
+     inline fds_uint32_t getSysTaskIopsMax() {
+         return totalRate/5;  // 20% of total rate
+     }
 
-
- protected:
-    void setup_datapath_server(const std::string &ip);
-    void setup_migration_svc(const std::string &obj_dir);
-
- public:
-
-    ObjectStorMgr(CommonModuleProviderIf *modProvider);
-    /* This constructor is exposed for mock testing */
-    ObjectStorMgr()
-    : Module("sm")
-    {
-        smObjDb = nullptr;
-        perfStats = nullptr;
-        qosCtrl = nullptr;
-        writeBackThreads = nullptr;
-        dirtyFlashObjs = nullptr;
-        tierEngine = nullptr;
-        rankEngine = nullptr;
-        volTbl = nullptr;
-        objStorMutex = nullptr;
-        omJrnl = nullptr;
-        scavenger = nullptr;
-    }
-
-    ~ObjectStorMgr();
-
-    /* Overrides from Module */
-    virtual int  mod_init(SysParams const *const param) override;
-    virtual void mod_startup() override;
-    virtual void mod_shutdown() override;
-    virtual void mod_enable_service() override;
-
-    int run();
-
-    /// Enables uturn testing for all sm service ops
-    fds_bool_t testUturnAll;
-    /// Enables uturn testing for put object ops
-    fds_bool_t testUturnPutObj;
-
-    TierEngine     *tierEngine;
-    ScavControl     *scavenger;
-    SmObjDb        *smObjDb; // Object Index DB <ObjId, Meta-data + data_loc>
-    checksum_calc   *chksumPtr;
-    /*
-     * stats  class 
-     */
-    ObjStatsTracker   *objStats;
-    
+     inline fds_uint32_t getSysTaskPri() {
+         return FdsSysTaskPri;
+     }
 
 
-    fds_bool_t isShuttingDown() const {
-        return shuttingDown;
-    }
-    fds_bool_t popDirtyFlash(ObjectID **objId) {
-        return dirtyFlashObjs->pop(*objId);
-    }
-    Error writeBackObj(const ObjectID &objId);
+    protected:
+     void setup_datapath_server(const std::string &ip);
+     void setup_migration_svc(const std::string &obj_dir);
 
-    /*
-     * Public volume reg handlers
-     */
-    void regVolHandler(volume_event_handler_t volHndlr) {
-        omClient->registerEventHandlerForVolEvents(volHndlr);
-    }
+    public:
+     explicit ObjectStorMgr(CommonModuleProviderIf *modProvider);
+     /* This constructor is exposed for mock testing */
+     ObjectStorMgr()
+         : Module("sm") {
+         smObjDb = nullptr;
+         perfStats = nullptr;
+         qosCtrl = nullptr;
+         writeBackThreads = nullptr;
+         dirtyFlashObjs = nullptr;
+         tierEngine = nullptr;
+         rankEngine = nullptr;
+         volTbl = nullptr;
+         objStorMutex = nullptr;
+         omJrnl = nullptr;
+         scavenger = nullptr;
+     }
 
-    Error regVol(const VolumeDesc& vdb) {
-        return volTbl->registerVolume(vdb);
-    }
+     ~ObjectStorMgr();
 
-    Error deregVol(fds_volid_t volId) {
-        return volTbl->deregisterVolume(volId);
-    }
-    // We need to get this info out of this big class to avoid making this
-    // class even bigger than it should.  Not much point for making it
-    // private and need a get method to get it out.
-    //
-    StorMgrVolumeTable *sm_getVolTables() {
-        return volTbl;
-    }
+     /* Overrides from Module */
+     virtual int  mod_init(SysParams const *const param) override;
+     virtual void mod_startup() override;
+     virtual void mod_shutdown() override;
+     virtual void mod_enable_service() override;
 
-    /**
-     * A callback from stats collector to sample SM specific stats
-     * @param timestamp is timestamp to path to every recordEvent()
-     * method to stats collector when recording SM stats
-     */
-    void sampleSMStats(fds_uint64_t timestamp);
+     int run();
 
-    void PutObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
-            const FDS_ProtocolInterface::FDSP_PutObjTypePtr& put_obj);
-    void GetObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
-            const FDS_ProtocolInterface::FDSP_GetObjTypePtr& get_obj);
-    void DeleteObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
-            const FDS_ProtocolInterface::FDSP_DeleteObjTypePtr& del_obj);
-    Error getObjectInternal(SmIoReq* getReq);
-    Error getObjectInternalSvc(SmIoReadObjectdata *getReq);
-    Error putObjectInternal(SmIoReq* putReq);
-    Error putObjectInternalSvc(SmIoPutObjectReq* putReq);
-    Error deleteObjectInternal(SmIoReq* delReq);
-    Error deleteObjectInternalSvc(SmIoDeleteObjectReq* delReq);
-    void putTokenObjectsInternal(SmIoReq* ioReq);
-    void getTokenObjectsInternal(SmIoReq* ioReq);
-    void snapshotTokenInternal(SmIoReq* ioReq);
-    void applySyncMetadataInternal(SmIoReq* ioReq);
-    void resolveSyncEntryInternal(SmIoReq* ioReq);
-    void applyObjectDataInternal(SmIoReq* ioReq);
-    void readObjectDataInternal(SmIoReq* ioReq);
-    void readObjectMetadataInternal(SmIoReq* ioReq);
-    void compactObjectsInternal(SmIoReq* ioReq);
-    Error condCopyObjectInternal(const ObjectID &objId,
-                                 diskio::DataTier tier);
+     /// Enables uturn testing for all sm service ops
+     fds_bool_t testUturnAll;
+     /// Enables uturn testing for put object ops
+     fds_bool_t testUturnPutObj;
 
-    Error relocateObject(const ObjectID &objId,
-            diskio::DataTier from_tier,
-            diskio::DataTier to_tier);
+     TierEngine     *tierEngine;
+     ScavControl     *scavenger;
+     SmObjDb        *smObjDb;  // Object Index DB <ObjId, Meta-data + data_loc>
+     checksum_calc   *chksumPtr;
 
-    inline void swapMgrId(const FDSP_MsgHdrTypePtr& fdsp_msg);
-    static void nodeEventOmHandler(int node_id,
-            unsigned int node_ip_addr,
-            int node_state,
-            fds_uint32_t node_port,
-            FDS_ProtocolInterface::FDSP_MgrIdType node_type);
-    static Error volEventOmHandler(fds::fds_volid_t volume_id,
-                                   fds::VolumeDesc *vdb,
-                                   int vol_action,
-                                   FDSP_NotifyVolFlag vol_flag,
-                                   FDSP_ResultType resut);
-    static void scavengerEventHandler(FDS_ProtocolInterface::FDSP_ScavengerCmd cmd);
-    static void migrationEventOmHandler(bool dlt_type);
-    static void dltcloseEventHandler(FDSP_DltCloseTypePtr& dlt_close,
-            const std::string& session_uuid);
-    void migrationSvcResponseCb(const Error& err, const MigrationStatus& status);
+     // stats class
+     ObjStatsTracker   *objStats;
 
-    virtual Error enqueueMsg(fds_volid_t volId, SmIoReq* ioReq);
 
-    /* Made virtual for google mock */
-    TVIRTUAL const DLT* getDLT();
-    TVIRTUAL fds_token_id getTokenId(const ObjectID& objId);
-    TVIRTUAL kvstore::TokenStateDBPtr getTokenStateDb();
-    TVIRTUAL bool isTokenInSyncMode(const fds_token_id &tokId);
 
-    Error putTokenObjects(const fds_token_id &token, 
-                          FDSP_MigrateObjectList &obj_list);
-    void unitTest();
+     fds_bool_t isShuttingDown() const {
+         return shuttingDown;
+     }
+     fds_bool_t popDirtyFlash(ObjectID **objId) {
+         return dirtyFlashObjs->pop(*objId);
+     }
+     Error writeBackObj(const ObjectID &objId);
 
-    const std::string getStorPrefix() {
-        return modProvider_->get_fds_config()->get<std::string>("fds.sm.prefix");
-    }
+     /*
+      * Public volume reg handlers
+      */
+     void regVolHandler(volume_event_handler_t volHndlr) {
+         omClient->registerEventHandlerForVolEvents(volHndlr);
+     }
 
-    FdsObjectCache *getObjCache() {
-        return objCache;
-    }
+     Error regVol(const VolumeDesc& vdb) {
+         return volTbl->registerVolume(vdb);
+     }
 
-    NodeUuid getUuid() const;
-    fds_bool_t amIPrimary(const ObjectID& objId);
+     Error deregVol(fds_volid_t volId) {
+         return volTbl->deregisterVolume(volId);
+     }
+     // We need to get this info out of this big class to avoid making this
+     // class even bigger than it should.  Not much point for making it
+     // private and need a get method to get it out.
+     //
+     StorMgrVolumeTable *sm_getVolTables() {
+         return volTbl;
+     }
 
-    const TokenList& getTokensForNode(const NodeUuid &uuid) const;
-    void getTokensForNode(TokenList *tl,
-                          const NodeUuid &uuid,
-                          fds_uint32_t index);
-    fds_uint32_t getTotalNumTokens() const;
+     /**
+      * A callback from stats collector to sample SM specific stats
+      * @param timestamp is timestamp to path to every recordEvent()
+      * method to stats collector when recording SM stats
+      */
+     void sampleSMStats(fds_uint64_t timestamp);
 
-    SMCounters* getCounters() {
-        return counters_.get();
-    }
+     void PutObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
+                    const FDS_ProtocolInterface::FDSP_PutObjTypePtr& put_obj);
+     void GetObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
+                    const FDS_ProtocolInterface::FDSP_GetObjTypePtr& get_obj);
+     void DeleteObject(const FDS_ProtocolInterface::FDSP_MsgHdrTypePtr& msg_hdr,
+                       const FDS_ProtocolInterface::FDSP_DeleteObjTypePtr& del_obj);
+     Error getObjectInternal(SmIoReq* getReq);
+     Error getObjectInternalSvc(SmIoReadObjectdata *getReq);
+     Error putObjectInternal(SmIoReq* putReq);
+     Error putObjectInternalSvc(SmIoPutObjectReq* putReq);
+     Error deleteObjectInternal(SmIoReq* delReq);
+     Error deleteObjectInternalSvc(SmIoDeleteObjectReq* delReq);
+     void putTokenObjectsInternal(SmIoReq* ioReq);
+     void getTokenObjectsInternal(SmIoReq* ioReq);
+     void snapshotTokenInternal(SmIoReq* ioReq);
+     void applySyncMetadataInternal(SmIoReq* ioReq);
+     void resolveSyncEntryInternal(SmIoReq* ioReq);
+     void applyObjectDataInternal(SmIoReq* ioReq);
+     void readObjectDataInternal(SmIoReq* ioReq);
+     void readObjectMetadataInternal(SmIoReq* ioReq);
+     void compactObjectsInternal(SmIoReq* ioReq);
+     Error condCopyObjectInternal(const ObjectID &objId,
+                                  diskio::DataTier tier);
 
-    virtual std::string log_string()
-    {
-        std::stringstream ret;
-        ret << " ObjectStorMgr"; 
-        return ret.str(); 
-    }
-    /*
-     * Declare the FDSP interface class as a friend so it can access
-     * the internal request tracking members.
-     * TODO: Make this a nested class instead. No reason to make it
-     * a separate class.
-     */
-    friend ObjectStorMgrI;
-    friend class SmObjDb;
+     Error relocateObject(const ObjectID &objId,
+                          diskio::DataTier from_tier,
+                          diskio::DataTier to_tier);
+
+     inline void swapMgrId(const FDSP_MsgHdrTypePtr& fdsp_msg);
+     static void nodeEventOmHandler(int node_id,
+                                    unsigned int node_ip_addr,
+                                    int node_state,
+                                    fds_uint32_t node_port,
+                                    FDS_ProtocolInterface::FDSP_MgrIdType node_type);
+     static Error volEventOmHandler(fds::fds_volid_t volume_id,
+                                    fds::VolumeDesc *vdb,
+                                    int vol_action,
+                                    FDSP_NotifyVolFlag vol_flag,
+                                    FDSP_ResultType resut);
+     static void scavengerEventHandler(FDS_ProtocolInterface::FDSP_ScavengerCmd cmd);
+     static void migrationEventOmHandler(bool dlt_type);
+     static void dltcloseEventHandler(FDSP_DltCloseTypePtr& dlt_close,
+                                      const std::string& session_uuid);
+     void migrationSvcResponseCb(const Error& err, const MigrationStatus& status);
+
+     virtual Error enqueueMsg(fds_volid_t volId, SmIoReq* ioReq);
+
+     /* Made virtual for google mock */
+     TVIRTUAL const DLT* getDLT();
+     TVIRTUAL fds_token_id getTokenId(const ObjectID& objId);
+     TVIRTUAL kvstore::TokenStateDBPtr getTokenStateDb();
+     TVIRTUAL bool isTokenInSyncMode(const fds_token_id &tokId);
+
+     Error putTokenObjects(const fds_token_id &token,
+                           FDSP_MigrateObjectList &obj_list);
+     void unitTest();
+
+     const std::string getStorPrefix() {
+         return modProvider_->get_fds_config()->get<std::string>("fds.sm.prefix");
+     }
+
+     FdsObjectCache *getObjCache() {
+         return objCache;
+     }
+
+     NodeUuid getUuid() const;
+     fds_bool_t amIPrimary(const ObjectID& objId);
+
+     const TokenList& getTokensForNode(const NodeUuid &uuid) const;
+     void getTokensForNode(TokenList *tl,
+                           const NodeUuid &uuid,
+                           fds_uint32_t index);
+     fds_uint32_t getTotalNumTokens() const;
+
+     SMCounters* getCounters() {
+         return counters_.get();
+     }
+
+     virtual std::string log_string() {
+         std::stringstream ret;
+         ret << " ObjectStorMgr";
+         return ret.str();
+     }
+     /*
+      * Declare the FDSP interface class as a friend so it can access
+      * the internal request tracking members.
+      * TODO: Make this a nested class instead. No reason to make it
+      * a separate class.
+      */
+     friend ObjectStorMgrI;
+     friend class SmObjDb;
 };
 
 class ObjectStorMgrI : virtual public FDSP_DataPathReqIf {
- public:
-    ObjectStorMgrI();
-    ~ObjectStorMgrI();
-    void GetObject(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,
-            boost::shared_ptr<FDSP_GetObjType>& get_obj_req);
+    public:
+     ObjectStorMgrI();
+     ~ObjectStorMgrI();
+     void GetObject(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,
+                    boost::shared_ptr<FDSP_GetObjType>& get_obj_req);
 
-    void PutObject(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,
-            boost::shared_ptr<FDSP_PutObjType>& put_obj_req);
+     void PutObject(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,
+                    boost::shared_ptr<FDSP_PutObjType>& put_obj_req);
 
-    void DeleteObject(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,
-            boost::shared_ptr<FDSP_DeleteObjType>& del_obj_req);
+     void DeleteObject(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,
+                       boost::shared_ptr<FDSP_DeleteObjType>& del_obj_req);
 
-    void OffsetWriteObject(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,
-            boost::shared_ptr<FDSP_OffsetWriteObjType>& offset_write_obj_req);
+     void OffsetWriteObject(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,
+                            boost::shared_ptr<FDSP_OffsetWriteObjType>& offset_write_obj_req);
 
-    void RedirReadObject(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,
-            boost::shared_ptr<FDSP_RedirReadObjType>& redir_write_obj_req);
+     void RedirReadObject(boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg,
+                          boost::shared_ptr<FDSP_RedirReadObjType>& redir_write_obj_req);
 
-    void GetObjectMetadata(boost::shared_ptr<FDSP_GetObjMetadataReq>& metadata_req);
+     void GetObjectMetadata(boost::shared_ptr<FDSP_GetObjMetadataReq>& metadata_req);
 
-    void GetObject(const FDSP_MsgHdrType& fdsp_msg, const FDSP_GetObjType& get_obj_req) {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
-    }
-    void PutObject(const FDSP_MsgHdrType& fdsp_msg, const FDSP_PutObjType& put_obj_req) {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
-    }
-    void DeleteObject(const FDSP_MsgHdrType& fdsp_msg, const FDSP_DeleteObjType& del_obj_req) {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
-    }
-    void OffsetWriteObject(const FDSP_MsgHdrType& fdsp_msg, const FDSP_OffsetWriteObjType& offset_write_obj_req) {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
-    }
-    void RedirReadObject(const FDSP_MsgHdrType& fdsp_msg, const FDSP_RedirReadObjType& redir_write_obj_req) {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
-    }
-    void GetObjectMetadata(const FDSP_GetObjMetadataReq& metadata_req) {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
-    }
+     void GetObject(const FDSP_MsgHdrType& fdsp_msg, const FDSP_GetObjType& get_obj_req) {
+         // Don't do anything here. This stub is just to keep cpp compiler happy
+     }
+     void PutObject(const FDSP_MsgHdrType& fdsp_msg, const FDSP_PutObjType& put_obj_req) {
+         // Don't do anything here. This stub is just to keep cpp compiler happy
+     }
+     void DeleteObject(const FDSP_MsgHdrType& fdsp_msg, const FDSP_DeleteObjType& del_obj_req) {
+         // Don't do anything here. This stub is just to keep cpp compiler happy
+     }
+     void OffsetWriteObject(const FDSP_MsgHdrType&, const FDSP_OffsetWriteObjType&) {
+         // Don't do anything here. This stub is just to keep cpp compiler happy
+     }
+     void RedirReadObject(const FDSP_MsgHdrType&, const FDSP_RedirReadObjType&) {
+         // Don't do anything here. This stub is just to keep cpp compiler happy
+     }
+     void GetObjectMetadata(const FDSP_GetObjMetadataReq& metadata_req) {
+         // Don't do anything here. This stub is just to keep cpp compiler happy
+     }
 
-    /* user defined methods */
-    void GetObjectMetadataCb(const Error &e, SmIoReadObjectMetadata *read_data);
+     /* user defined methods */
+     void GetObjectMetadataCb(const Error &e, SmIoReadObjectMetadata *read_data);
 
-    void GetTokenMigrationStats(FDSP_TokenMigrationStats& _return,
-            const FDSP_MsgHdrType& fdsp_msg) {
-        // Don't do anything here. This stub is just to keep cpp compiler happy
-    }
+     void GetTokenMigrationStats(FDSP_TokenMigrationStats& _return,
+                                 const FDSP_MsgHdrType& fdsp_msg) {
+         // Don't do anything here. This stub is just to keep cpp compiler happy
+     }
 
-    void GetTokenMigrationStats(FDSP_TokenMigrationStats& _return,
-            boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg);
+     void GetTokenMigrationStats(FDSP_TokenMigrationStats& _return,
+                                 boost::shared_ptr<FDSP_MsgHdrType>& fdsp_msg);
 };
 
 }  // namespace fds
 
-#endif  // SOURCE_STOR_MGR_STORMGR_H_
+#endif  // SOURCE_STOR_MGR_INCLUDE_STORMGR_H_

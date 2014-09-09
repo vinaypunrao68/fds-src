@@ -13,15 +13,17 @@
 #include <persistent_layer/dm_io.h>
 #include <Scavenger.h>
 
+using diskio::DiskStat;
+
 namespace fds {
 
 #define SCAV_TIMER_SECONDS (2*3600)  // 2 hours
 
 extern ObjectStorMgr *objStorMgr;
-extern DataDiscoveryModule  dataDiscoveryMod;
-extern DataIOModule gl_dataIOMod;
+extern diskio::DataDiscoveryModule  dataDiscoveryMod;
+extern diskio::DataIOModule gl_dataIOMod;
 
-ScavControl::ScavControl(fds_uint32_t num_thrds)
+ScavControl::ScavControl(fds_uint32_t const num_thrds)
         : scav_lock("Scav Lock"),
           max_disks_compacting(num_thrds),
           scav_timer(new FdsTimer()),
@@ -267,7 +269,7 @@ fds_bool_t DiskScavenger::isTokenCompacted(const fds_token_id& tok_id) {
 // TODO(xxx) pass in policy which tokens need to be scavenged
 // for now all tokens we get from persistent layer
 void DiskScavenger::findTokensToCompact(fds_uint32_t token_reclaim_threshold) {
-    std::vector<TokenStat> token_stats;
+    std::vector<diskio::TokenStat> token_stats;
     fds_uint32_t reclaim_percent;
     double tot_size;
     // note that we are not using lock here, because updateTokenDb()
@@ -280,7 +282,7 @@ void DiskScavenger::findTokensToCompact(fds_uint32_t token_reclaim_threshold) {
     diskio::gl_dataIOMod.get_disk_token_stats(tier, disk_id, &token_stats);
 
     // add tokens to tokenDb that we need to compact
-    for (std::vector<TokenStat>::const_iterator cit = token_stats.cbegin();
+    for (std::vector<diskio::TokenStat>::const_iterator cit = token_stats.cbegin();
          cit != token_stats.cend();
          ++cit) {
         tot_size = (*cit).tkn_tot_size;

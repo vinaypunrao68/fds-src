@@ -23,6 +23,8 @@
 #include <net/net-service.h>
 #include <net/net-service-tmpl.hpp>
 
+using diskio::DataTier;
+
 namespace fds {
 
 fds_bool_t  stor_mgr_stopping = false;
@@ -1350,12 +1352,12 @@ ObjectStorMgr::readObject(const SmObjDb::View& view,
          * Read obj from flash if we can
          */
         if (objMetadata.onFlashTier()) {
-            tierToUse = flashTier;
+            tierToUse = diskio::flashTier;
         } else {
             /*
              * Read obj from disk
              */
-            tierToUse = diskTier;
+            tierToUse = diskio::diskTier;
         }
         // Update the request with the tier info from disk
         disk_req->setTier(tierToUse);
@@ -1547,7 +1549,7 @@ ObjectStorMgr::writeObjectToTier(const OpCtx &opCtx,
         PerfContext tmp_pctx(PUT_METADATA_WRITE, volId, "volume:" + std::to_string(volId));
         SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
         err = writeObjectMetaData(opCtx, objId, objData.data.length(),
-                disk_req->req_get_phy_loc(), false, diskTier, &vio);
+                disk_req->req_get_phy_loc(), false, diskio::diskTier, &vio);
     }
     StorMgrVolume *vol = volTbl->getVolume(volId);
     if ((err == ERR_OK) &&
@@ -2288,6 +2290,7 @@ ObjectStorMgr::deleteObjectInternal(SmIoReq* delReq) {
             PerfContext tmp_pctx(DELETE_DISK, volId, "volume:" + std::to_string(volId));
             SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
             if (objMetadata.onTier(diskio::diskTier)) {
+<<<<<<< HEAD
                 dio_mgr.disk_delete_obj(&oid,
                                         objMetadata.getObjSize(),
                                         objMetadata.getObjPhyLoc(diskTier));
@@ -2295,6 +2298,11 @@ ObjectStorMgr::deleteObjectInternal(SmIoReq* delReq) {
                 dio_mgr.disk_delete_obj(&oid,
                                         objMetadata.getObjSize(),
                                         objMetadata.getObjPhyLoc(flashTier));
+=======
+                dio_mgr.disk_delete_obj(&oid, objMetadata.getObjSize(), objMetadata.getObjPhyLoc(diskio::diskTier));
+            } else if (objMetadata.onTier(diskio::flashTier)) {
+                dio_mgr.disk_delete_obj(&oid, objMetadata.getObjSize(), objMetadata.getObjPhyLoc(diskio::flashTier));
+>>>>>>> Style corrections for stor-mgr/include.
             }
         }
     } else {
@@ -2385,10 +2393,10 @@ ObjectStorMgr::deleteObjectInternalSvc(SmIoDeleteObjectReq* delReq) {
             SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
             if (objMetadata.onTier(diskio::diskTier)) {
                 dio_mgr.disk_delete_obj(&oid, objMetadata.getObjSize(),
-                                        objMetadata.getObjPhyLoc(diskTier));
+                                        objMetadata.getObjPhyLoc(diskio::diskTier));
             } else if (objMetadata.onTier(diskio::flashTier)) {
                 dio_mgr.disk_delete_obj(&oid, objMetadata.getObjSize(),
-                                        objMetadata.getObjPhyLoc(flashTier));
+                                        objMetadata.getObjPhyLoc(diskio::flashTier));
             }
         }
     } else {
@@ -3008,7 +3016,7 @@ ObjectStorMgr::putTokenObjectsInternal(SmIoReq* ioReq)
 
         /* write data to storage tier */
         obj_phy_loc_t phys_loc;
-        err = writeObjectDataToTier(objId, objData, DataTier::diskTier, phys_loc);
+        err = writeObjectDataToTier(objId, objData, diskio::diskTier, phys_loc);
         if (err != ERR_OK) {
             LOGERROR << "Failed to write the object: " << objId;
             break;
@@ -3022,7 +3030,7 @@ ObjectStorMgr::putTokenObjectsInternal(SmIoReq* ioReq)
 
     /* Mark the request as complete */
     qosCtrl->markIODone(*putTokReq,
-                        DataTier::diskTier);
+                        diskio::diskTier);
 
     putTokReq->response_cb(err, putTokReq);
     /* NOTE: We expect the caller to free up ioReq */
@@ -3038,7 +3046,7 @@ ObjectStorMgr::getTokenObjectsInternal(SmIoReq* ioReq)
 
     /* Mark the request as complete */
     qosCtrl->markIODone(*getTokReq,
-                        DataTier::diskTier);
+                        diskio::diskTier);
 
     getTokReq->response_cb(err, getTokReq);
     /* NOTE: We expect the caller to free up ioReq */
@@ -3062,7 +3070,7 @@ ObjectStorMgr::snapshotTokenInternal(SmIoReq* ioReq)
 
     /* Mark the request as complete */
     qosCtrl->markIODone(*snapReq,
-                        DataTier::diskTier);
+                        diskio::diskTier);
 
     snapReq->smio_snap_resp_cb(err, snapReq, options, db);
 }
@@ -3080,7 +3088,7 @@ ObjectStorMgr::applySyncMetadataInternal(SmIoReq* ioReq)
     }
     /* Mark the request as complete */
     qosCtrl->markIODone(*applyMdReq,
-            DataTier::diskTier);
+            diskio::diskTier);
     omJrnl->release_transaction(applyMdReq->getTransId());
 
     applyMdReq->smio_sync_md_resp_cb(e, applyMdReq);
@@ -3181,7 +3189,7 @@ ObjectStorMgr::compactObjectsInternal(SmIoReq* ioReq)
     }
 
     /* Mark the request as complete */
-    qosCtrl->markIODone(*cobjs_req, DataTier::diskTier);
+    qosCtrl->markIODone(*cobjs_req, diskio::diskTier);
 
     cobjs_req->smio_compactobj_resp_cb(err, cobjs_req);
 
@@ -3200,7 +3208,7 @@ ObjectStorMgr::resolveSyncEntryInternal(SmIoReq* ioReq)
     }
     /* Mark the request as complete */
     qosCtrl->markIODone(*resolve_entry,
-            DataTier::diskTier);
+            diskio::diskTier);
     omJrnl->release_transaction(resolve_entry->getTransId());
 
     resolve_entry->smio_resolve_resp_cb(e, resolve_entry);
@@ -3217,7 +3225,7 @@ ObjectStorMgr::applyObjectDataInternal(SmIoReq* ioReq)
         fds_assert(!"ObjMetadata read failed");
         LOGERROR << "Failed to write the object: " << objId;
         qosCtrl->markIODone(*applydata_entry,
-                DataTier::diskTier);
+                diskio::diskTier);
         omJrnl->release_transaction(applydata_entry->getTransId());
         applydata_entry->smio_apply_data_resp_cb(err, applydata_entry);
         return;
@@ -3229,7 +3237,7 @@ ObjectStorMgr::applyObjectDataInternal(SmIoReq* ioReq)
         /* No need to write the object data.  It already exits */
         LOGDEBUG << "Object already exists. Id: " << objId;
         qosCtrl->markIODone(*applydata_entry,
-                DataTier::diskTier);
+                diskio::diskTier);
         omJrnl->release_transaction(applydata_entry->getTransId());
         applydata_entry->smio_apply_data_resp_cb(err, applydata_entry);
         return;
@@ -3245,12 +3253,12 @@ ObjectStorMgr::applyObjectDataInternal(SmIoReq* ioReq)
 
     /* write data to storage tier */
     obj_phy_loc_t phys_loc;
-    err = writeObjectDataToTier(objId, objData, DataTier::diskTier, phys_loc);
+    err = writeObjectDataToTier(objId, objData, diskio::diskTier, phys_loc);
     if (err != ERR_OK) {
         fds_assert(!"Failed to write");
         LOGERROR << "Failed to write the object: " << objId;
         qosCtrl->markIODone(*applydata_entry,
-                DataTier::diskTier);
+                diskio::diskTier);
         omJrnl->release_transaction(applydata_entry->getTransId());
         applydata_entry->smio_apply_data_resp_cb(err, applydata_entry);
         return;
@@ -3261,7 +3269,7 @@ ObjectStorMgr::applyObjectDataInternal(SmIoReq* ioReq)
     smObjDb->put(OpCtx(OpCtx::SYNC), objId, objMetadata);
 
     qosCtrl->markIODone(*applydata_entry,
-            DataTier::diskTier);
+            diskio::diskTier);
     omJrnl->release_transaction(applydata_entry->getTransId());
 
     applydata_entry->smio_apply_data_resp_cb(err, applydata_entry);
@@ -3281,7 +3289,7 @@ ObjectStorMgr::readObjectDataInternal(SmIoReq* ioReq)
         fds_assert(!"failed to read");
         LOGERROR << "Failed to read object id: " << read_entry->getObjId();
         qosCtrl->markIODone(*read_entry,
-                DataTier::diskTier);
+                diskio::diskTier);
         omJrnl->release_transaction(read_entry->getTransId());
         read_entry->smio_readdata_resp_cb(err, read_entry);
     }
@@ -3290,7 +3298,7 @@ ObjectStorMgr::readObjectDataInternal(SmIoReq* ioReq)
     fds_assert(read_entry->obj_data.data.size() > 0);
 
     qosCtrl->markIODone(*read_entry,
-            DataTier::diskTier);
+            diskio::diskTier);
     omJrnl->release_transaction(read_entry->getTransId());
 
     read_entry->smio_readdata_resp_cb(err, read_entry);
@@ -3307,7 +3315,7 @@ ObjectStorMgr::readObjectMetadataInternal(SmIoReq* ioReq)
         fds_assert(!"failed to read");
         LOGERROR << "Failed to read object metadata id: " << read_entry->getObjId();
         qosCtrl->markIODone(*read_entry,
-                DataTier::diskTier);
+                diskio::diskTier);
         omJrnl->release_transaction(read_entry->getTransId());
         read_entry->smio_readmd_resp_cb(err, read_entry);
         return;
@@ -3316,7 +3324,7 @@ ObjectStorMgr::readObjectMetadataInternal(SmIoReq* ioReq)
     objMetadata.extractSyncData(read_entry->meta_data);
 
     qosCtrl->markIODone(*read_entry,
-            DataTier::diskTier);
+            diskio::diskTier);
     omJrnl->release_transaction(read_entry->getTransId());
 
     read_entry->smio_readmd_resp_cb(err, read_entry);
