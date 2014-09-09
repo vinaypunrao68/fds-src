@@ -2,8 +2,6 @@ package com.formationds.om;
 
 import FDS_ProtocolInterface.FDSP_ConfigPathReq;
 import com.formationds.apis.AmService;
-import com.formationds.apis.ConfigurationService;
-import com.formationds.fdsp.LegacyClientFactory;
 import com.formationds.om.plotter.DisplayVolumeStats;
 import com.formationds.om.plotter.ListActiveVolumes;
 import com.formationds.om.plotter.RegisterVolumeStats;
@@ -12,21 +10,21 @@ import com.formationds.om.rest.*;
 import com.formationds.security.*;
 import com.formationds.util.Configuration;
 import com.formationds.util.libconfig.ParsedConfig;
-import com.formationds.web.toolkit.*;
+import com.formationds.web.toolkit.HttpMethod;
+import com.formationds.web.toolkit.JsonResource;
+import com.formationds.web.toolkit.RequestHandler;
+import com.formationds.web.toolkit.WebApp;
 import com.formationds.xdi.ConfigurationServiceCache;
 import com.formationds.xdi.Xdi;
 import com.formationds.xdi.XdiClientFactory;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.log4j.Logger;
-import org.eclipse.jetty.server.Request;
 import org.joda.time.Duration;
 import org.json.JSONObject;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import javax.servlet.http.HttpServletResponse;
-import java.util.Map;
-import java.util.UUID;
 import java.util.function.Function;
 
 /*
@@ -61,8 +59,7 @@ public class Main {
         int omPort = platformConfig.lookup("fds.om.config_port").intValue();
         String webDir = platformConfig.lookup("fds.om.web_dir").stringValue();
 
-        LegacyClientFactory legacyClientFactory = new LegacyClientFactory();
-        FDSP_ConfigPathReq.Iface legacyConfigClient = legacyClientFactory.configPathClient(omHost, omPort);
+        FDSP_ConfigPathReq.Iface legacyConfigClient = clientFactory.legacyConfig(omHost, omPort);
         VolumeStatistics volumeStatistics = new VolumeStatistics(Duration.standardMinutes(20));
 
         boolean enforceAuthentication = platformConfig.lookup("fds.authentication").booleanValue();
@@ -94,6 +91,7 @@ public class Main {
         authenticate(HttpMethod.POST, "/api/config/streams", (t) -> new RegisterStream(configCache));
         authenticate(HttpMethod.GET, "/api/config/streams", (t) -> new ListStreams(configCache));
 
+        // Demo volume stats
         webApp.route(HttpMethod.GET, "/api/stats/volumes", () -> new ListActiveVolumes(volumeStatistics));
         webApp.route(HttpMethod.POST, "/api/stats", () -> new RegisterVolumeStats(volumeStatistics));
         webApp.route(HttpMethod.GET, "/api/stats/volumes/:volume", () -> new DisplayVolumeStats(volumeStatistics));
@@ -140,19 +138,3 @@ public class Main {
     }
 }
 
-class CreateAdminUser implements RequestHandler {
-    private ConfigurationService.Iface config;
-
-    public CreateAdminUser(ConfigurationService.Iface config) {
-        this.config = config;
-    }
-
-    @Override
-    public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
-        String login = requiredString(routeParameters, "login");
-        String password = requiredString(routeParameters, "password");
-
-        long id = config.createUser(login, new HashedPassword().hash(password), UUID.randomUUID().toString(), true);
-        return new JsonResource(new JSONObject().put("id", id));
-    }
-}

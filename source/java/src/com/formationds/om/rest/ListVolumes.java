@@ -18,6 +18,7 @@ import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.xdi.Xdi;
+import org.apache.log4j.Logger;
 import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONArray;
@@ -27,6 +28,8 @@ import java.text.DecimalFormat;
 import java.util.Map;
 
 public class ListVolumes implements RequestHandler {
+    private static final Logger LOG = Logger.getLogger(ListVolumes.class);
+
     private Xdi xdi;
     private AmService.Iface amApi;
     private FDSP_ConfigPathReq.Iface legacyConfig;
@@ -45,22 +48,25 @@ public class ListVolumes implements RequestHandler {
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
         JSONArray jsonArray = xdi.listVolumes(token, "")
                 .stream()
-                .map(v -> toJsonObject(v))
+                .map(v -> {
+                    try {
+                        return toJsonObject(v);
+                    } catch (TException e) {
+                        LOG.error("Error fetching configuration data for volume", e);
+                        throw new RuntimeException(e);
+                    }
+                })
                 .collect(new JsonArrayCollector());
 
         return new JsonResource(jsonArray);
     }
 
-    private JSONObject toJsonObject(VolumeDescriptor v) {
+    private JSONObject toJsonObject(VolumeDescriptor v) throws TException {
         FDSP_MsgHdrType msg = new FDSP_MsgHdrType();
         FDSP_VolumeDescType volInfo = null;
         VolumeStatus status = null;
-        try {
-            volInfo = legacyConfig.GetVolInfo(msg, new FDSP_GetVolInfoReqType(v.getName(), 0));
-            status = amApi.volumeStatus("", v.getName());
-        } catch (TException e) {
-            throw new RuntimeException(e);
-        }
+        volInfo = legacyConfig.GetVolInfo(msg, new FDSP_GetVolInfoReqType(v.getName(), 0));
+        status = amApi.volumeStatus("", v.getName());
 
         return toJsonObject(v, volInfo, status);
     }

@@ -17,7 +17,6 @@ import com.formationds.security.AuthenticationTokenTest;
 import com.formationds.util.Configuration;
 import com.formationds.util.Size;
 import com.formationds.util.SizeUnit;
-import junit.framework.Assert;
 import org.apache.commons.io.IOUtils;
 import org.apache.thrift.protocol.TBinaryProtocol;
 import org.apache.thrift.transport.TSocket;
@@ -91,7 +90,7 @@ public class S3TestCase {
         am.attachVolume("fds", "Volume1");
     }
 
-    @Test
+    //@Test
     public void testFdsImplementation() throws Exception {
         new Configuration("foo", new String[0]);
         //AmazonS3Client client = new AmazonS3Client(new BasicAWSCredentials("AKIAINOGA4D75YX26VXQ", "/ZE1BUJ/vJ8BDESUvf5F3pib7lJW+pBa5FTakmjf"));
