@@ -1,8 +1,8 @@
 /*
- * Copyright 2013 Formation Data Systems, Inc.
+ * Copyright 2013-2014 Formation Data Systems, Inc.
  */
-#include <policy_tier.h>
-#include <fds_assert.h>
+#include "policy_tier.h"
+#include "fds_assert.h"
 
 namespace fds {
 
@@ -145,7 +145,7 @@ TierPolFuncSpec::TierPolFuncSpec(char const *const fn_name, fds_threadpool *p)
 
 TierPolFuncSpec::~TierPolFuncSpec()
 {
-    // TODO: must walk throught all tables and destroy objects in there.
+    // TODO(vy): must walk throught all tables and destroy objects in there.
 }
 
 // tier_sched_spec
@@ -366,4 +366,4 @@ TierStat::tier_stat_end()
 {
 }
 
-} // namespace fds
+}  // namespace fds
