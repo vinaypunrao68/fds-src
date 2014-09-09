@@ -8,7 +8,6 @@ user_cpp         :=               \
     policy_rpc.cpp                \
     policy_tier.cpp
 
-user_no_style     :=
 user_ar_libs     := fds-vpolicy
 fds-vpolicy      := $(user_cpp)
 
