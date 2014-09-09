@@ -359,10 +359,18 @@ CommitLogTx::const_ptr DmCommitLog::commitTx(BlobTxId::const_ptr & txDesc, Error
     status = cmtLogger_->commitTx(txDesc, entry);
     if (!status.ok()) {
         GLOGERROR << "Failed to save blob transaction error=(" << status << ")";
+
+        SCOPEDREAD(lockTxMap_);
         return txMap_[txId];
     }
 
     PerfTracer::incr(DM_TX_COMMITTED, 0);
+
+    if (cmtLogger_->hasReachedSizeThreshold() && !compacting_.test_and_set()) {
+        scheduleCompaction();
+    }
+
+    SCOPEDWRITE(lockTxMap_);
 
     fds_uint64_t duration = entry->timestamp - txMap_[txId]->entries[0]->timestamp;
     duration /= 1000 * 1000 * 1000;
@@ -371,11 +379,6 @@ CommitLogTx::const_ptr DmCommitLog::commitTx(BlobTxId::const_ptr & txDesc, Error
                 duration << "'";
     }
 
-    if (cmtLogger_->hasReachedSizeThreshold() && !compacting_.test_and_set()) {
-        scheduleCompaction();
-    }
-
-    SCOPEDWRITE(lockTxMap_);
 
     txMap_[txId]->entries.push_back(entry);
     txMap_[txId]->committed = true;
