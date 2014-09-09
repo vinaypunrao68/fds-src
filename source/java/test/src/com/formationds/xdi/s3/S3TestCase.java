@@ -17,7 +17,6 @@ import com.formationds.security.AuthenticationTokenTest;
 import com.formationds.util.Configuration;
 import com.formationds.util.Size;
 import com.formationds.util.SizeUnit;
-import junit.framework.Assert;
 import org.apache.commons.io.IOUtils;
 import org.apache.thrift.protocol.TBinaryProtocol;
 import org.apache.thrift.transport.TSocket;
@@ -26,6 +25,7 @@ import org.junit.Test;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -91,7 +91,7 @@ public class S3TestCase {
         am.attachVolume("fds", "Volume1");
     }
 
-    @Test
+    //@Test
     public void testFdsImplementation() throws Exception {
         new Configuration("foo", new String[0]);
         //AmazonS3Client client = new AmazonS3Client(new BasicAWSCredentials("AKIAINOGA4D75YX26VXQ", "/ZE1BUJ/vJ8BDESUvf5F3pib7lJW+pBa5FTakmjf"));
@@ -184,6 +184,7 @@ public class S3TestCase {
                 .withDestinationBucketName(bucketName)
                 .withPartNumber(ordinal);
         CopyPartResult result = client.copyPart(uploadCopy);
+        parts.add(result.getPartETag());
 
         ListPartsRequest listPartsReq = new ListPartsRequest(bucketName, key, initiateResult.getUploadId());
         PartListing pl = client.listParts(listPartsReq);
@@ -195,11 +196,7 @@ public class S3TestCase {
 
         S3Object obj = client.getObject(bucketName, key);
 
-        ByteArrayOutputStream s3output = new ByteArrayOutputStream();
-        byte[] buf = new byte[4096];
-        int read = 0;
-        while((read = obj.getObjectContent().read(buf)) != -1)
-            s3output.write(buf, 0, read);
+        ByteArrayOutputStream s3output = bufferS3Content(obj);
 
         byte[] s3bytes = s3output.toByteArray();
 
@@ -214,6 +211,56 @@ public class S3TestCase {
             assertEquals(b, s3bytes[idx++]);
         }
     }
+
+    private ByteArrayOutputStream bufferS3Content(S3Object obj) throws IOException {
+        ByteArrayOutputStream s3output = new ByteArrayOutputStream();
+        byte[] buf = new byte[4096];
+        int read = 0;
+        while((read = obj.getObjectContent().read(buf)) != -1)
+            s3output.write(buf, 0, read);
+        return s3output;
+    }
+
+    //@Test
+    public void testMultipartCopy() throws Exception {
+        String bucket = "foo";
+        String cpySourceName = "bar";
+        String mpuTarget = "baz";
+        AmazonS3Client client = makeAmazonS3Client();
+        createBucketIdempotent(client, bucket);
+
+        byte[] srcBytes = new byte[] { 1, 2, 3, 4 };
+        client.putObject(bucket, cpySourceName, new ByteArrayInputStream(srcBytes), new ObjectMetadata());
+        InitiateMultipartUploadRequest impuReq = new InitiateMultipartUploadRequest(bucket, mpuTarget);
+        InitiateMultipartUploadResult result = client.initiateMultipartUpload(impuReq);
+
+        ArrayList<PartETag> partETags = new ArrayList<>();
+        for(int i = 0; i < 10; i++) {
+            CopyPartRequest cpr = new CopyPartRequest()
+                    .withDestinationBucketName(bucket)
+                    .withDestinationKey(mpuTarget)
+                    .withPartNumber(i)
+                    .withUploadId(result.getUploadId())
+                    .withSourceBucketName(bucket)
+                    .withSourceKey(cpySourceName);
+
+            CopyPartResult cpResult = client.copyPart(cpr);
+            partETags.add(cpResult.getPartETag());
+        }
+
+        CompleteMultipartUploadRequest completeRequest = new CompleteMultipartUploadRequest(bucket, mpuTarget, result.getUploadId(), partETags);
+        client.completeMultipartUpload(completeRequest);
+
+        S3Object object = client.getObject(bucket, mpuTarget);
+        byte[] data = bufferS3Content(object).toByteArray();
+        int idx = 0;
+        for(int i = 0; i < 10; i++) {
+            for(byte b : srcBytes) {
+                assertEquals(b, data[idx++]);
+            }
+        }
+    }
+
 
     private void createBucketIdempotent(AmazonS3Client client, String bucketName) {
         try {
