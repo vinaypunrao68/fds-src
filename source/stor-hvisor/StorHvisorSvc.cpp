@@ -37,9 +37,6 @@ StorHvCtrl::abortBlobTxSvc(AmQosReq *qosReq) {
     fds_verify(blobReq->getIoType() == FDS_ABORT_BLOB_TX);
 
     fds_volid_t   volId = blobReq->getVolId();
-    StorHvVolume *shVol = storHvisor->vol_table->getLockedVolume(volId);
-    fds_verify(shVol != NULL);
-    fds_verify(shVol->isValidLocked() == true);
    
     issueAbortBlobTxMsg(blobReq->getBlobName(),
                         volId,
@@ -103,11 +100,6 @@ StorHvCtrl::commitBlobTxSvc(AmQosReq *qosReq) {
     fds_verify(blobReq != NULL);
     fds_verify(blobReq->magicInUse() == true);
     fds_verify(blobReq->getIoType() == FDS_COMMIT_BLOB_TX);
-
-    fds_volid_t   volId = blobReq->getVolId();
-    StorHvVolume *shVol = storHvisor->vol_table->getLockedVolume(volId);
-    fds_verify(shVol != NULL);
-    fds_verify(shVol->isValidLocked() == true);
 
     fds_uint64_t dmt_version;
     err = amTxMgr->getTxDmtVersion(*(blobReq->getTxId()), &dmt_version);
@@ -184,9 +176,6 @@ StorHvCtrl::startBlobTxSvc(AmQosReq *qosReq) {
     fds_verify(blobReq->getIoType() == FDS_START_BLOB_TX);
 
     fds_volid_t   volId = blobReq->getVolId();
-    StorHvVolume *shVol = storHvisor->vol_table->getLockedVolume(volId);
-    fds_verify(shVol != NULL);
-    fds_verify(shVol->isValidLocked() == true);
    
     // Generate a random transaction ID to use
     // Note: construction, generates a random ID
@@ -815,10 +804,6 @@ StorHvCtrl::deleteBlobSvc(fds::AmQosReq *qosReq)
     // Get blob name
     std::string blob_name = blobReq->getBlobName();
 
-    StorHvVolume *shVol = storHvisor->vol_table->getLockedVolume(vol_id);
-    fds_verify(shVol != NULL);
-    fds_verify(shVol->isValidLocked() == true);
-
     // Send to the DM
     fds::PerfTracer::tracePointBegin(blobReq->dmPerfCtx); 
     issueDeleteCatalogObject(vol_id, blob_name,
@@ -937,9 +922,6 @@ StorHvCtrl::setBlobMetaDataSvc(fds::AmQosReq* qosReq)
                                              blobReq->getMetaDataListPtr()) == ERR_OK);
 
     fds_volid_t   vol_id = blobReq->getVolId();
-    StorHvVolume *shVol = storHvisor->vol_table->getLockedVolume(vol_id);
-    fds_verify(shVol != NULL);
-    fds_verify(shVol->isValidLocked() == true);
 
     std::string blob_name = blobReq->getBlobName();
     fds_uint64_t dmt_version;
