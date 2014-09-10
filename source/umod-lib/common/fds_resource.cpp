@@ -91,12 +91,16 @@ RsContainer::rs_register_mtx(Resource::pointer rs)
     rs_name_map[rs->rs_name] = rs;
 
     for (i = 0; i < rs_cur_idx; i++) {
+        if (rs_array[i] == rs) {
+            return;
+        }
         if (rs_array[i] == NULL) {
             // Found an empty slot, use it.
             rs_array[i] = rs;
             rs->rs_index = i;
             return;
         }
+        fds_verify(rs_array[i] != rs);
     }
     fds_verify(rs_array[rs_cur_idx] == NULL);
     rs_array[rs_cur_idx] = rs;

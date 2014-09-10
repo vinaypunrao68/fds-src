@@ -5,7 +5,6 @@ package com.formationds.am;
 
 import com.formationds.apis.AmService;
 import com.formationds.apis.ConfigurationService;
-import com.formationds.fdsp.LegacyClientFactory;
 import com.formationds.nbd.*;
 import com.formationds.security.*;
 import com.formationds.streaming.Streaming;
@@ -40,7 +39,6 @@ public class Main {
             Thread.sleep(200);
 
             XdiClientFactory clientFactory = new XdiClientFactory();
-            LegacyClientFactory legacyClientFactory = new LegacyClientFactory();
 
             boolean useFakeAm = platformConfig.lookup("fds.am.memory_backend").booleanValue();
             String omHost = platformConfig.lookup("fds.am.om_ip").stringValue();
@@ -69,7 +67,7 @@ public class Main {
             
             new Thread(() -> nbdHost.run()).start();
 
-            Xdi xdi = new Xdi(am, configCache, authenticator, authorizer, legacyClientFactory.configPathClient(omHost, omLegacyConfigPort));
+            Xdi xdi = new Xdi(am, configCache, authenticator, authorizer, clientFactory.legacyConfig(omHost, omLegacyConfigPort));
             ByteBufferPool bbp = new ArrayByteBufferPool();
             XdiAsync.Factory xdiAsync = new XdiAsync.Factory(authorizer, clientFactory.makeCsAsyncPool(omHost, omConfigPort), clientFactory.makeAmAsyncPool("localhost", 9988), bbp);
 

@@ -240,6 +240,7 @@ class CounterServerPull:
         #self.queue = Queue.Queue()
         self.stop = threading.Event()
         self.datafile, self.datafname = tempfile.mkstemp(prefix = "counters")
+        self.javafile, self.javafname = tempfile.mkstemp(prefix = "javacounters")
         task_args = ("counter_server", self.datafile, self.stop)
         #self.proc = multiprocessing.Process(target = self._task, args = task_args)
         self.thread = threading.Thread(target = self._task, args = task_args)
@@ -263,6 +264,15 @@ class CounterServerPull:
                         counters.append(line)
         return counters
 
+    def _get_java_counters(self):
+        address = "http://%s:8000/diagnostic/async/stats" % (self.options.nodes[self.options.main_node])
+        r = requests.get(address)
+        # assert r.status_code == requests.codes.ok, "Java counters get failed " + str(r.status_code) + " " + str(r.text)
+        if r.status_code == requests.codes.ok:
+            return "tstamp = " + str(time.time()) + "\n" + r.text + "\n"
+        else:
+            return "tstamp = "+ str(time.time()) + "\n"
+
     def _task(self, name, datafile, stop):
         print "starting counter task ", name
         #queue.put((datafile, datafname))
@@ -276,6 +286,10 @@ class CounterServerPull:
             # write to file
             for e in counters:
                 os.write(datafile, e + "\n")
+            if self.options.java_counters:
+                java_counters = self._get_java_counters()
+                os.write(self.javafile, java_counters)
+
 
     def terminate(self):
         # terminate udp server
@@ -286,10 +300,14 @@ class CounterServerPull:
         self.stop.set()
         time.sleep(self.options.counter_pull_rate + 1)
         print "copying counter file", self.datafname
+        os.close(self.datafile)
         shutil.move(self.datafname, directory + "/counters.dat")
         os.chmod(directory + "/counters.dat", 755)
-        #self.thread.terminate()
-        os.close(self.datafile)
+        if self.options.java_counters == True:
+            print "copying counter file", self.javafname
+            os.close(self.javafile)
+            shutil.move(self.javafname, directory + "/java_counters.dat")
+            os.chmod(directory + "/java_counters.dat", 755)
 
 
 class AgentsPidMap:
@@ -411,10 +429,10 @@ class FdsCluster():
             transfer_file(self.options.test_node, self.local_fds_root + "/source/test/traffic_gen.py", "/root/traffic_gen.py", "put")
             ssh_exec(self.options.test_node, "rm -f /tmp/fdstrgen*")
         for i in range(args["nvols"]):
-            requests.put("http://%s:8000/volume%d" % (self.options.nodes[self.options.main_node], i));
+            requests.put("http://%s:8000/volume%d" % (self.options.nodes[self.options.main_node], i))
 
     def _run_tgen(self, test_args):
-        cmd = "python /root/traffic_gen.py -t %d -n %d -T %s -s %d -F %d -v %d -u -N %s" % (
+        cmd = "python3.3 /root/traffic_gen.py -t %d -n %d -T %s -s %d -F %d -v %d -u -N %s" % (
                                                                             test_args["threads"],
                                                                             test_args["nreqs"],
                                                                             test_args["type"],
@@ -426,6 +444,7 @@ class FdsCluster():
         if self.local_test == True:
             output = self._loc_exec(cmd)
         else:
+            print "starting test remotely on node", self.options.test_node
             output = ssh_exec(self.options.test_node, cmd)
         print "-->", output
         return output
@@ -483,10 +502,10 @@ class CommandInjector:
             m = re.match("^sleep\s+=\s+(\d+)", cmd)
             if m is not None:
                 delay = int(m.group(1))
-                print "CmdInj: sleep for", delay
+                print "CmdInj: sleep for", delay, "time:", time.time()
                 time.sleep(delay)
             else:
-                print "CmdInj:", cmd
+                print "CmdInj:", cmd, "time:", time.time()
                 self._loc_exec(cmd)
 
     def terminate(self):
