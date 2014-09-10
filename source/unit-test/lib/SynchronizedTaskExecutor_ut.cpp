@@ -235,7 +235,7 @@ TEST(SynchronizedTaskExecutor, putreq) {
     completedCnt = 0;
     SH sh;
     for (int i = 0; i < nReqs; i++) {
-        tp.schedule(&SH::issuePut, &sh, i);
+        tp.schedule(&SH::issuePut, &sh, i, 0);
     }
     while (completedCnt < nReqs) {
         sleep(1);

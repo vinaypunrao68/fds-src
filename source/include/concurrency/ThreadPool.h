@@ -30,7 +30,7 @@ typedef boost::function<void(void)> Task;
 class thpool_req : public Task
 {
   public:
-    ~thpool_req() {} // assert the list is empty.
+    virtual ~thpool_req() {} // assert the list is empty.
 
     /*
      * Thread pool request constructors.
@@ -38,27 +38,29 @@ class thpool_req : public Task
      * parameter combinations to make the interface a bit cleaner.
      */
     template<typename F, typename A>
-    thpool_req(F f, A a) : Task(boost::bind(f, a)) {
+    thpool_req(F f, A a, int sched_tck) : Task(boost::bind(f, a)) {
+        thp_sched_tck = sched_tck;
         dlist_obj_init(&thp_link, this);
     }
     template<typename F, typename A, typename B>
-    thpool_req(F f, A a, B b) : Task(boost::bind(f, a, b)) {
+    thpool_req(F f, A a, B b, int sched_tck) : Task(boost::bind(f, a, b)) {
+        thp_sched_tck = sched_tck;
         dlist_obj_init(&thp_link, this);
     }
     template<typename F, typename A, typename B, typename C>
-    thpool_req(F f, A a, B b, C c) : Task(boost::bind(f, a, b, c)) {
+    thpool_req(F f, A a, B b, C c, int sched_tck) : Task(boost::bind(f, a, b, c)) {
+        thp_sched_tck = sched_tck;
         dlist_obj_init(&thp_link, this);
     }
     template<typename F, typename A, typename B, typename C, typename D>
-    thpool_req(F f, A a, B b, C c, D d) : Task(boost::bind(f, a, b, c, d)) {
+    thpool_req(F f, A a, B b, C c, D d, int tck) : Task(boost::bind(f, a, b, c, d)) {
+        thp_sched_tck = tck;
         dlist_obj_init(&thp_link, this);
     }
-    template<
-        typename F, typename A, typename B,
-        typename C, typename D, typename E
-    >
-    thpool_req(F f, A a, B b, C c, D d, E e)
+    template<typename F, typename A, typename B, typename C, typename D, typename E>
+    thpool_req(F f, A a, B b, C c, D d, E e, int tck)
         : Task(boost::bind(f, a, b, c, d, e)) {
+        thp_sched_tck = tck;
         dlist_obj_init(&thp_link, this);
     }
     /** \thp_chain_task
@@ -66,8 +68,7 @@ class thpool_req : public Task
      * Chain this task to a list.
      */
     inline void
-    thp_chain_task(dlist_t *list)
-    {
+    thp_chain_task(dlist_t *list) {
         dlist_obj_chain_back(list, &thp_link);
     }
     /** \thp_init_chain_link
@@ -75,8 +76,7 @@ class thpool_req : public Task
      * Initialize the chain link of this object.
      */
     inline void
-    thp_init_chain_link(void)
-    {
+    thp_init_chain_link(void) {
         dlist_init(&thp_link.dl_link);
     }
     /** \thp_empty_chain_link
@@ -84,8 +84,7 @@ class thpool_req : public Task
      * Return boolean status if the request is chained elsewhere.
      */
     inline bool
-    thp_empty_chain_link(void)
-    {
+    thp_empty_chain_link(void) {
         return dlist_empty(&thp_link.dl_link);
     }
     /** \thp_task_from_dlist
@@ -93,16 +92,16 @@ class thpool_req : public Task
      * Return the owner task from the link ptr.
      */
     static inline thpool_req *
-    thp_task_from_dlist(dlist_t *link)
-    {
+    thp_task_from_dlist(dlist_t *link) {
         return (thpool_req *)dlist_obj_from_link(link);
     }
 
   private:
     friend class thpool_worker;
+    int                 thp_sched_tck;
+    dlist_obj_t         thp_link;
 
     thpool_req() {}
-    dlist_obj_t         thp_link;
 };
 
 class fds_threadpool : boost::noncopyable
@@ -125,6 +124,7 @@ class fds_threadpool : boost::noncopyable
     int                 thp_barrier_wait;
     int                 thp_spawning;
     int                 thp_tasks_pend;
+    int                 thp_cur_tck;
 
     /* Thread pool stats. */
     fds_uint32_t        thp_total_tasks;
@@ -151,37 +151,35 @@ class fds_threadpool : boost::noncopyable
 
     /* Block until all preceding pending tasks are completed. */
     void thp_barrier();
+    void thp_periodic_work();
 
     /* Scheduling functions. */
     void schedule(thpool_req *task);
 
     template<typename F, typename A>
-    void schedule(F f, A a)
-    {
-       schedule(new thpool_req(f, a));
+    void schedule(F f, A a, int tck = 0) {
+       schedule(new thpool_req(f, a, tck));
     }
     template<typename F, typename A, typename B>
-    void schedule(F f, A a, B b)
-    {
-       schedule(new thpool_req(f, a, b));
+    void schedule(F f, A a, B b, int tck = 0) {
+       schedule(new thpool_req(f, a, b, tck));
     }
     template<typename F, typename A, typename B, typename C>
-    void schedule(F f, A a, B b, C c)
-    {
-       schedule(new thpool_req(f, a, b, c));
+    void schedule(F f, A a, B b, C c, int tck = 0) {
+       schedule(new thpool_req(f, a, b, c, tck));
     }
     template<typename F, typename A, typename B, typename C, typename D>
-    void schedule(F f, A a, B b, C c, D d)
-    {
-       schedule(new thpool_req(f, a, b, c, d));
+    void schedule(F f, A a, B b, C c, D d, int tck = 0) {
+       schedule(new thpool_req(f, a, b, c, d, tck));
     }
-    template<
-        typename F, typename A, typename B,
-        typename C, typename D, typename E
-    >
-    void schedule(F f, A a, B b, C c, D d, E e)
-    {
-       schedule(new thpool_req(f, a, b, c, d, e));
+    template<typename F, typename A, typename B, typename C, typename D, typename E>
+    void schedule(F f, A a, B b, C c, D d, E e, int tck = 0) {
+       schedule(new thpool_req(f, a, b, c, d, e, tck));
+    }
+    template<typename F, typename A, typename B,
+             typename C, typename D, typename E, typename G>
+    void schedule(F f, A a, B b, C c, D d, E e, G g, int tck = 0) {
+       schedule(new thpool_req(f, a, b, c, d, e, g, tck));
     }
 };
 
