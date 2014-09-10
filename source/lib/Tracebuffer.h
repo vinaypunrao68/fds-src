@@ -34,7 +34,9 @@ enum TracebufferPolicy {
 };
 
 /**
-* For tracing events.  Each event entry is constant size.
+* For tracing events.  Each event entry is constant size.  Purpose of the trace buffer
+* is to trace very small pieces (size in bytes) information.  Essentially we would
+* like a recent history of events in the system orderd by some context id.
 */
 class Tracebuffer {
     Tracebuffer(TracebufferPolicy traceBufPolicy, int maxTraceEntryCnt);
