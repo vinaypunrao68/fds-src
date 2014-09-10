@@ -3,28 +3,27 @@
 #include <thread>
 #include <atomic>
 #include <random>
+#include <boost/algorithm/string.hpp>
 #include <util/Log.h>
+#include <util/timeutils.h>
 
 #include <pthread.h>
 #include <sched.h>
 
+#include "StatsCollector.h"
 #include "fds_error.h"
 #include "fds_types.h"
 #include "fds_qos.h"
-#include "test_stat.h"
 #include "QoSWFQDispatcher.h"
+#include "qos_htb.h"
 
 unsigned long num_volumes = 10;
 unsigned long tot_rate = 1000;
 unsigned long time_to_run = 50;
 unsigned long num_volumes_to_mdfy = 2;
 
-#define NUM_VOLUMES num_volumes
-#define TOTAL_RATE tot_rate
-#define IOPS_TO_ALLOCATE ((unsigned int) 3*TOTAL_RATE/4)
-#define AVG_IOPS_TO_ALLOCATE_PER_VOLUME ((unsigned int) IOPS_TO_ALLOCATE/NUM_VOLUMES)
-#define IOPS_DELTA ((unsigned int) AVG_IOPS_TO_ALLOCATE_PER_VOLUME/10)
-#define VOL_IOPS(i) ((unsigned int) AVG_IOPS_TO_ALLOCATE_PER_VOLUME + ((long)i - ((float)NUM_VOLUMES-1)/2)*TOTAL_RATE/100)
+#define DEFAULT_TOTAL_RATE 10000
+
 
 using namespace std;
 using namespace fds;
@@ -32,7 +31,6 @@ using namespace fds;
 std::atomic<unsigned int> next_io_req_id;
 std::atomic<unsigned int> num_ios_dispatched;
 fds_log *ut_log;
-StatIOPS *iops_stats;
 
 // boost::posix_time::ptime last_work_time;
 
@@ -84,25 +82,23 @@ void create_volume(VolQueueDesc *volQDesc) {
 
   volQDesc->qctrl->registerVolume(volQDesc->queue_id, volQ );
 
-  FDS_PLOG(ut_log) << "Volume " << volQDesc->queue_id << " Registered"  << endl;
-
+  FDS_PLOG(ut_log) << "Volume " << volQDesc->queue_id << " Registered";
 }
 
-void change_volume_qos(VolQueueDesc *volQDesc) {
-
-  volQDesc->queue_priority = MAX_PRIORITY-1-volQDesc->queue_priority;
-  if (volQDesc->queue_id < (float)NUM_VOLUMES/2){
-    volQDesc->iops_min = volQDesc->iops_min - (float)volQDesc->iops_min/4;
-  } else {
-    volQDesc->iops_min = volQDesc->iops_min + (float)volQDesc->iops_min/4;
-  }
-  // new_iops_max = volQDesc->iops_max; 
+void change_volume_qos(VolQueueDesc *volQDesc,
+		       fds_uint32_t new_prio,
+		       fds_uint64_t new_iops_min,
+		       fds_uint64_t new_iops_max)
+{
+  volQDesc->queue_priority = new_prio;
+  volQDesc->iops_min = new_iops_min;
+  volQDesc->iops_max = new_iops_max;
+  // actually change qos params
   volQDesc->qctrl->modifyVolumeQosParams(volQDesc->queue_id, 
 					 volQDesc->iops_min, 
 					 volQDesc->iops_max,
 					 volQDesc->queue_priority);  
-
-  FDS_PLOG(ut_log) << "Volume " << volQDesc->queue_id << " qos parameters changed"  << endl;
+  FDS_PLOG(ut_log) << "Volume " << volQDesc->queue_id << " qos parameters changed";
 }
 
 
@@ -125,6 +121,8 @@ void start_queue_ios(VolQueueDesc *volQDesc, FDS_QoSControl *qctrl) {
 
 
   FDS_PLOG(ut_log) << "Starting thread for volume " << volQDesc->ToString() << endl; 
+  std::cout << "Starting thread for volume " << volQDesc->ToString()
+	    << " inter_arr_time " << avg_inter_arr_time << " usec" << std::endl;
 
   while (1) {
     unsigned int inter_arrival_time = int_arr_distribution(rgen1);
@@ -134,30 +132,22 @@ void start_queue_ios(VolQueueDesc *volQDesc, FDS_QoSControl *qctrl) {
     if (time_since_start > boost::posix_time::seconds(time_to_run)) {
       break;
     }
-    if (volQDesc->queue_id % (NUM_VOLUMES/num_volumes_to_mdfy) == 1) {
-      if (!qos_params_changed) {
-	if (time_since_start > boost::posix_time::seconds(time_to_run/(volQDesc->queue_id + 1))) {
-	  change_volume_qos(volQDesc);
-	  qos_params_changed = true;
-	}
-      }
-  }
     boost::posix_time::time_duration delta = now - last_io_time;
     last_io_time = now;
     if (delta < boost::posix_time::microseconds(inter_arrival_time)) {
       boost::this_thread::sleep(boost::posix_time::microseconds(inter_arrival_time) - delta);
     }
     
-    unsigned int burst_size = 1;
+    fds_uint32_t burst_size = 1;
     burst_size = burst_size_distribution(rgen2);
     if (burst_size > volQDesc->max_burst_size) {
       burst_size = 1 + burst_size % volQDesc->max_burst_size;
     }
     FDS_PLOG(ut_log)  << "After " << inter_arrival_time << " usecs, bursting " << burst_size << " IOs for volume " << volQDesc->queue_id;
-    for (int n_ios = 0; n_ios < burst_size; n_ios++) {
+    for (fds_uint32_t n_ios = 0; n_ios < burst_size; n_ios++) {
       FDS_IOType *io = new FDS_IOType;
       io->io_vol_id = volQDesc->queue_id;
-      io ->io_req_id = atomic_fetch_add(&next_io_req_id, (unsigned int)1);
+      io ->io_req_id = atomic_fetch_add(&next_io_req_id, (fds_uint32_t)1);
       FDS_PLOG(ut_log)  << "Enqueueing IO " << io->io_vol_id << ":" << io->io_req_id;
       qctrl->enqueueIO(volQDesc->queue_id, io);
     }
@@ -208,13 +198,45 @@ int main(int argc, char *argv[]) {
 
   ut_log = new fds_log("qosd_unit_test", "logs");
   FDS_PLOG(ut_log) << "Created logger" << endl;
-  num_volumes = 10;
+  std::vector<VolQueueDesc *> volQDescs;
+  std::vector<std::thread *> vol_threads;
+  std::vector<fds_uint32_t> qids; /* array of queue ids (for perf stats) */
+  num_volumes = 0;
   tot_rate = 1000;
   time_to_run = 50;
 
+  FDS_QoSControl *qctrl = new FDS_QoSControl();
+  StatsCollector::singleton()->enableQosStats("UT");
+
   for (int i = 1; i < argc; i++) {
-    if (strncmp(argv[i], "--num_vols=",11) == 0) {
-      num_volumes = strtoul(argv[i] + 11, NULL, 0);
+    if (strncmp(argv[i], "--volume=",9) == 0) {
+      std::string vol(argv[i] + 9);
+      std::vector<std::string> strs;
+      boost::split(strs, vol, boost::is_any_of("- "));
+      fds_verify(strs.size() >= 4);
+      fds_uint32_t min_iops = stoul(strs[0], NULL, 0);
+      fds_uint32_t max_iops = stoul(strs[1], NULL, 0);
+      fds_uint32_t prio = stoul(strs[2], NULL, 0);
+      fds_uint32_t in_rate = stoul(strs[3], NULL, 0);
+      fds_uint32_t burst = 1;
+      if (strs.size() >= 5) {
+	burst = stoul(strs[4], NULL, 0);
+      }
+      std::cout << "volume " << vol << std::endl;
+      std::cout << " -- min_iops = " << min_iops << " max_iops "
+		<< max_iops << " prio " << prio << " in_rate "
+		<< in_rate << " burst " << burst << std::endl;
+
+      VolQueueDesc *volQDesc = new VolQueueDesc(qids.size()+1, // queue_id
+						(fds_uint64_t)min_iops, //min_iops
+						max_iops, //max_iops
+						prio, //priority
+						(fds_uint64_t)in_rate, //ingress_rate
+						burst,
+						qctrl);
+      volQDescs.push_back(volQDesc);
+      qids.push_back(i+1);
+      ++num_volumes;
     } else  if (strncmp(argv[i], "--total_rate=",13) == 0) {
       tot_rate = strtoul(argv[i] + 13, NULL, 0);
     } else if (strncmp(argv[i], "--test_time=", 12) == 0) {
@@ -222,39 +244,53 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  iops_stats = NULL;
+  std::cout << "num_volumes " << num_volumes << std::endl;
+  if (num_volumes == 0) {
+    // will use default set of volumes
+    for (fds_uint32_t i = 0; i < 4; ++i) {
+      fds_uint32_t min_iops = 100;
+      fds_uint32_t max_iops = 1000;
+      fds_uint32_t prio = 1;
+      fds_uint32_t in_rate = 100;
+      fds_uint32_t burst = 1;
+      std::cout << "default vol " << i+i <<  " -- min_iops = " << min_iops << " max_iops "
+		<< max_iops << " prio " << prio << " in_rate "
+		<< in_rate << " burst " << burst << std::endl;
 
-  FDS_QoSControl *qctrl = new FDS_QoSControl();
-  qctrl->setQosDispatcher(FDS_QoSControl::FDS_DISPATCH_WFQ, NULL);
+      VolQueueDesc *volQDesc = new VolQueueDesc(qids.size()+1, // queue_id
+						(fds_uint64_t)min_iops, //min_iops
+						max_iops, //max_iops
+						prio, //priority
+						(fds_uint64_t)in_rate, //ingress_rate
+						burst,
+						qctrl);
+      volQDescs.push_back(volQDesc);
+      qids.push_back(i+1);
+      ++num_volumes;
+    }
+  }
+
+  std::cout << "Creating qos ctrl" << std::endl;
+  // qctrl->setQosDispatcher(FDS_QoSControl::FDS_DISPATCH_WFQ, NULL);
+  qctrl->setQosDispatcher(FDS_QoSControl::FDS_DISPATCH_HIER_TOKEN_BUCKET, NULL);
+
+  std::cout << "Set qos dispatcher" << std::endl;
 
   std::thread sch_thr(start_scheduler, qctrl);
   FDS_PLOG(ut_log) << "Started scheduler thread" << endl;
+  std::cout << "Started scheduler thread" << std::endl;
 
   next_io_req_id = ATOMIC_VAR_INIT(0);
   num_ios_dispatched = ATOMIC_VAR_INIT(0);
 
-  std::vector<VolQueueDesc *> volQDescs;
-  std::vector<std::thread *> vol_threads;
-  std::vector<fds_uint32_t> qids; /* array of queue ids (for perf stats) */
-
-  for (int i = 0; i < NUM_VOLUMES; i++) {
-    VolQueueDesc *volQDesc = new VolQueueDesc(i+1, // queue_id
-					      (fds_uint64_t)VOL_IOPS(i), //min_iops
-					      TOTAL_RATE, //max_iops
-					      i%MAX_PRIORITY, //priority
-					      (fds_uint64_t)VOL_IOPS(i)*1.5, //ingress_rate
-					      5 + 5 * (i%10),
-					      qctrl); // max_burst_size
+  for (fds_uint32_t i = 0; i < num_volumes; ++i) {
+    VolQueueDesc *volQDesc = volQDescs[i];
     create_volume(volQDesc);
-    volQDescs.push_back(volQDesc);
-    qids.push_back(i+1);
   }
 
   FDS_PLOG(ut_log) << "All volumes created" << endl;
 
-  iops_stats = new StatIOPS("qosd_unit_test", qids);
-
-  for (int i = 0; i < NUM_VOLUMES; i++) {
+  for (fds_uint32_t i = 0; i < num_volumes; i++) {
     
     std::thread *next_thread = new std::thread(start_queue_ios,volQDescs[i], qctrl);
     FDS_PLOG(ut_log) << "Started volume thread for " <<  i+1 << endl;
@@ -263,7 +299,7 @@ int main(int argc, char *argv[]) {
 
   FDS_PLOG(ut_log) << "All threads created" ;
 
-  for (int i = 0; i < NUM_VOLUMES; i++) {
+  for (fds_uint32_t i = 0; i < num_volumes; i++) {
     vol_threads[i]->join();
   }
 
@@ -283,12 +319,8 @@ int main(int argc, char *argv[]) {
   } while (n_ios_enqueued != n_ios_dispatched);
 
 #endif
-  StatIOPS *tmp_iops_stats = iops_stats;
-  iops_stats = NULL;
-  delete tmp_iops_stats;
 
   exit(0);
-
 }
 
 namespace fds {
@@ -300,14 +332,14 @@ namespace fds {
 
   }
 
-  Error FDS_QoSControl::registerVolume(fds_uint64_t voluuid, FDS_VolumeQueue *volQ ) {
+  Error FDS_QoSControl::registerVolume(fds_volid_t voluuid, FDS_VolumeQueue *volQ ) {
     Error err(ERR_OK);
     dispatcher->registerQueue(voluuid, volQ);
     volQ->activate();
     return err;
   }
 
-  Error FDS_QoSControl::deregisterVolume(fds_uint64_t voluuid) {
+  Error FDS_QoSControl::deregisterVolume(fds_volid_t voluuid) {
     Error err(ERR_OK);
     dispatcher->deregisterQueue(voluuid);
     return err;
@@ -320,7 +352,17 @@ namespace fds {
     } else {
       switch (algo_type) {
       case FDS_QoSControl::FDS_DISPATCH_WFQ:
-	dispatcher = new QoSWFQDispatcher(this, TOTAL_RATE, 10, ut_log);
+	dispatcher = new QoSWFQDispatcher(this, tot_rate, 10, ut_log);
+	break;
+      case FDS_QoSControl::FDS_DISPATCH_HIER_TOKEN_BUCKET:
+	{
+	  std::cout << "Will create HTB dispatcher with rate " << DEFAULT_TOTAL_RATE << std::endl;
+	  QoSHTBDispatcher* htb_disp = new QoSHTBDispatcher(this, ut_log, DEFAULT_TOTAL_RATE);
+	  // for testing modify total rate
+	  std::cout << "Will modify total HTB rate to " << tot_rate << std::endl;
+	  htb_disp->modifyTotalRate(tot_rate);
+	  dispatcher = htb_disp;
+	}
 	break;
       default:
 	dispatcher = NULL;
@@ -338,7 +380,7 @@ namespace fds {
     static boost::posix_time::time_duration deficit = boost::posix_time::microseconds(0);
     static int first_io = 1;
     static boost::posix_time::ptime last_work_time;
-    static long inter_svc_time = 1000000/TOTAL_RATE;
+    static long inter_svc_time = 1000000/tot_rate;
 
     Error err(ERR_OK);
     fds_uint32_t n_ios_dispatched;
@@ -351,7 +393,11 @@ namespace fds {
       first_io = 0;
     }
 
-    if (iops_stats) iops_stats->handleIOCompletion(io->io_vol_id, enter_time);
+    // if (iops_stats) iops_stats->handleIOCompletion(io->io_vol_id, enter_time);
+    StatsCollector::singleton()->recordEvent(io->io_vol_id,
+					     util::getTimeStampNanos(),
+					     STAT_AM_GET_OBJ,
+					     0);
  
     boost::posix_time::time_duration delta = enter_time - last_work_time;
     boost::posix_time::time_duration time_to_sleep = boost::posix_time::microseconds(inter_svc_time) - delta - deficit;
@@ -373,9 +419,13 @@ namespace fds {
     return err;
   }
 
+  fds_uint32_t FDS_QoSControl::queueSize(fds_volid_t volId) {
+    return 0;
+  }
+
   fds_uint32_t FDS_QoSControl::waitForWorkers() {
 #if 0     
-    fds_uint32_t inter_svc_time = 1000000/TOTAL_RATE;
+    fds_uint32_t inter_svc_time = 1000000/tot_rate;
     static boost::posix_time::time_duration deficit = 0;
 
     boost::posix_time::ptime enter_time = boost::posix_time::microsec_clock::universal_time();

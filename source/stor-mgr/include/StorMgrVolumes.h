@@ -2,30 +2,31 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 
-#ifndef SOURCE_STOR_MGR_STORMGRVOLUMES_H_
-#define SOURCE_STOR_MGR_STORMGRVOLUMES_H_
+#ifndef SOURCE_STOR_MGR_INCLUDE_STORMGRVOLUMES_H_
+#define SOURCE_STOR_MGR_INCLUDE_STORMGRVOLUMES_H_
+
+#include <boost/shared_ptr.hpp>
+#include <list>
+#include <map>
+#include <memory>
+#include <functional>
+#include <unordered_map>
 
 /* TODO: move this to interface file in include dir */
-#include <lib/OMgrClient.h>
+#include "lib/OMgrClient.h"
 
-#include <list>
-#include <unordered_map>
-#include <functional>
-#include <boost/shared_ptr.hpp>
-#include <memory>
-
-#include <fdsp/FDSP_types.h>
-#include <fds_error.h>
-#include <fds_types.h>
-#include <fds_volume.h>
-#include <util/Log.h>
-#include <concurrency/RwLock.h>
-#include <odb.h>
-#include <qos_ctrl.h>
-#include <util/counter.h>
-#include <ObjStats.h>
-#include <TransJournal.h>
-#include <SmIo.h>
+#include "fdsp/FDSP_types.h"
+#include "fds_error.h"
+#include "fds_types.h"
+#include "fds_volume.h"
+#include "util/Log.h"
+#include "concurrency/RwLock.h"
+#include "odb.h"
+#include "qos_ctrl.h"
+#include "util/counter.h"
+#include "ObjStats.h"
+#include "TransJournal.h"
+#include "SmIo.h"
 
 /* defaults */
 #define FDS_DEFAULT_VOL_UUID 1
@@ -35,61 +36,60 @@
  */
 namespace fds {
 
-  class ObjectStorMgr;
+class ObjectStorMgr;
 
-  class SmVolQueue : public FDS_VolumeQueue {
- private:
-    fds_volid_t  volUuid;
-    fds_uint32_t qDepth;
+class SmVolQueue : public FDS_VolumeQueue {
+    private:
+     fds_volid_t  volUuid;
+     fds_uint32_t qDepth;
 
- public:
- SmVolQueue(fds_volid_t  _volUuid,
-            fds_uint32_t _q_cap,
-            fds_uint32_t _iops_max,
-            fds_uint32_t _iops_min,
-            fds_uint32_t _priority) :
-    FDS_VolumeQueue(_q_cap,
-                    _iops_max,
-                    _iops_min,
-                    _priority) {
-      volUuid = _volUuid;
-      /*
-       * TODO: The queue depth should be computed
-       * from the volume's parameters. Just make
-       * something up for now for testing.
-       */
-      qDepth  = 10;
+    public:
+     SmVolQueue(fds_volid_t  _volUuid,
+                fds_uint32_t _q_cap,
+                fds_uint32_t _iops_max,
+                fds_uint32_t _iops_min,
+                fds_uint32_t _priority) :
+         FDS_VolumeQueue(_q_cap,
+                         _iops_max,
+                         _iops_min,
+                         _priority) {
+             volUuid = _volUuid;
+             /*
+              * TODO: The queue depth should be computed
+              * from the volume's parameters. Just make
+              * something up for now for testing.
+              */
+             qDepth  = 10;
 
-      FDS_VolumeQueue::activate();
-    }
+             FDS_VolumeQueue::activate();
+         }
 
-    fds_volid_t getVolUuid() const {
-      return volUuid;
-    }
-    fds_uint32_t getQDepth() const {
-      return qDepth;
-    }
-  };
+     fds_volid_t getVolUuid() const {
+         return volUuid;
+     }
+     fds_uint32_t getQDepth() const {
+         return qDepth;
+     }
+};
 
-  class StorMgrVolume : public FDS_Volume, public HasLogger {
- private:
-    /*
-     * Put SM specific volume info here.
-     */
+class StorMgrVolume : public FDS_Volume, public HasLogger {
+     /*
+      * Put SM specific volume info here.
+      */
 
-    /*
-     * Queue for handling requests to this
-     * volume. This queue is used by SM's
-     * QoS manager.
-     */
-    SmVolQueue *volQueue;
+     /*
+      * Queue for handling requests to this
+      * volume. This queue is used by SM's
+      * QoS manager.
+      */
+     SmVolQueue *volQueue;
 
-    /*
-     * Reference to parent SM instance
-     */
-    ObjectStorMgr *parent_sm;
- public:
+     /*
+      * Reference to parent SM instance
+      */
+     ObjectStorMgr *parent_sm;
 
+    public:
      /*
       * perf stats 
       */
@@ -105,110 +105,111 @@ namespace fds {
      /*
       *  per volume stats 
       */
-    CounterHist8bit  objStats;
-    fds_uint64_t   averageObjectsRead; 
-    boost::posix_time::ptime lastAccessTimeR; 
+     CounterHist8bit  objStats;
+     fds_uint64_t   averageObjectsRead;
+     boost::posix_time::ptime lastAccessTimeR;
 
 
-    fds_volid_t getVolId() const {
-      return voldesc->volUUID;
-    }
+     fds_volid_t getVolId() const {
+         return voldesc->volUUID;
+     }
 
-    SmVolQueue* getQueue() const {
-      return volQueue;
-    }
+     SmVolQueue* getQueue() const {
+         return volQueue;
+     }
 
-    StorMgrVolume(const VolumeDesc& vdb,
-                  ObjectStorMgr *sm,
-                  fds_log *parent_log);
-    ~StorMgrVolume();
-    Error createVolIndexEntry(fds_volid_t vol_uuid,
-                              fds_uint64_t vol_offset,
-                              FDS_ObjectIdType objId,
-                              fds_uint32_t data_obj_len);
-    Error deleteVolIndexEntry(fds_volid_t vol_uuid,
-                              fds_uint64_t vol_offset,
-                              FDS_ObjectIdType objId);
+     StorMgrVolume(const VolumeDesc& vdb,
+                   ObjectStorMgr *sm,
+                   fds_log *parent_log);
+     ~StorMgrVolume();
+     Error createVolIndexEntry(fds_volid_t vol_uuid,
+                               fds_uint64_t vol_offset,
+                               FDS_ObjectIdType objId,
+                               fds_uint32_t data_obj_len);
+     Error deleteVolIndexEntry(fds_volid_t vol_uuid,
+                               fds_uint64_t vol_offset,
+                               FDS_ObjectIdType objId);
 
-    void updateDedupBytes(double dedup_bytes_added) {
-        dedupBytes_ += dedup_bytes_added;
-    }
-    // at the moment, dedup bytes could be < 0 because
-    // we may have SM coming from persistent state we are
-    // not loading yet
-    fds_uint64_t getDedupBytes() const {
-        if (dedupBytes_ < 0) return 0;
-        return dedupBytes_;
-    }
+     void updateDedupBytes(double dedup_bytes_added) {
+         dedupBytes_ += dedup_bytes_added;
+     }
+     // at the moment, dedup bytes could be < 0 because
+     // we may have SM coming from persistent state we are
+     // not loading yet
+     fds_uint64_t getDedupBytes() const {
+         if (dedupBytes_ < 0) return 0;
+         return dedupBytes_;
+     }
 
-    osm::ObjectDB  *volumeIndexDB;
-    // VolumeObjectCache *vol_obj_cache;
-  };
+     osm::ObjectDB  *volumeIndexDB;
+     // VolumeObjectCache *vol_obj_cache;
+};
 
-  class StorMgrVolumeTable : public HasLogger {
- public:
-    /* A logger is created if not passed in */
-    explicit StorMgrVolumeTable(ObjectStorMgr *sm);
-    /* Use logger that passed in to the constructor */
-    StorMgrVolumeTable(ObjectStorMgr *sm, fds_log *parent_log);
-    /* Exposed for mock testing */
-    StorMgrVolumeTable();
-    ~StorMgrVolumeTable();
-    Error updateVolStats(fds_volid_t vol_uuid);
-    fds_uint32_t getVolAccessStats(fds_volid_t vol_uuid);
-    void updateDupObj(fds_volid_t volid,
-                      fds_uint32_t obj_size,
-                      fds_bool_t incr,
-                      std::map<fds_volid_t, fds_uint32_t>& vol_refcnt);
-    double getDedupBytes(fds_volid_t volid);
+class StorMgrVolumeTable : public HasLogger {
+    typedef std::unordered_map<fds_volid_t, StorMgrVolume*> volume_map_t;
 
-    Error registerVolume(const VolumeDesc& vdb);
-    Error deregisterVolume(fds_volid_t vol_uuid);
-    StorMgrVolume* getVolume(fds_volid_t vol_uuid);
+    public:
+     /* A logger is created if not passed in */
+     explicit StorMgrVolumeTable(ObjectStorMgr *sm);
+     /* Use logger that passed in to the constructor */
+     StorMgrVolumeTable(ObjectStorMgr *sm, fds_log *parent_log);
+     /* Exposed for mock testing */
+     StorMgrVolumeTable();
+     ~StorMgrVolumeTable();
+     Error updateVolStats(fds_volid_t vol_uuid);
+     fds_uint32_t getVolAccessStats(fds_volid_t vol_uuid);
+     void updateDupObj(fds_volid_t volid,
+                       fds_uint32_t obj_size,
+                       fds_bool_t incr,
+                       std::map<fds_volid_t, fds_uint32_t>& vol_refcnt);
+     double getDedupBytes(fds_volid_t volid);
 
-    Error createVolIndexEntry(fds_volid_t      vol_uuid,
-                              fds_uint64_t     vol_offset,
-                              FDS_ObjectIdType objId,
-                              fds_uint32_t     data_obj_len);
-    Error deleteVolIndexEntry(fds_volid_t vol_uuid,
-                              fds_uint64_t vol_offset,
-                              FDS_ObjectIdType objId);
+     Error registerVolume(const VolumeDesc& vdb);
+     Error deregisterVolume(fds_volid_t vol_uuid);
+     StorMgrVolume* getVolume(fds_volid_t vol_uuid);
 
-    std::list<fds_volid_t> getVolList() {
-      std::list<fds_volid_t> volIds;
-      map_rwlock.read_lock();
-      for (std::unordered_map<fds_volid_t, StorMgrVolume*>::const_iterator cit = volume_map.cbegin();
-           cit != volume_map.cend();
-           cit++) {
-        volIds.push_back((*cit).first);
-      }
-      map_rwlock.read_unlock();
+     Error createVolIndexEntry(fds_volid_t      vol_uuid,
+                               fds_uint64_t     vol_offset,
+                               FDS_ObjectIdType objId,
+                               fds_uint32_t     data_obj_len);
+     Error deleteVolIndexEntry(fds_volid_t vol_uuid,
+                               fds_uint64_t vol_offset,
+                               FDS_ObjectIdType objId);
 
-      return volIds;
-    }
+     std::list<fds_volid_t> getVolList() {
+         std::list<fds_volid_t> volIds;
+         map_rwlock.read_lock();
+         for (volume_map_t::const_iterator cit = volume_map.cbegin();
+              cit != volume_map.cend();
+              cit++) {
+             volIds.push_back((*cit).first);
+         }
+         map_rwlock.read_unlock();
 
- private:
-    /* Reference to parent SM instance */
-    ObjectStorMgr *parent_sm;
+         return volIds;
+     }
 
-    /* handler for volume-related control message from OM */
-    static void volumeEventHandler(fds_volid_t vol_uuid,
-                                   VolumeDesc *vdb,
-                                   fds_vol_notify_t vol_action);
+    private:
+     /* Reference to parent SM instance */
+     ObjectStorMgr *parent_sm;
 
-    /* volume uuid -> StorMgrVolume map */
-    std::unordered_map<fds_volid_t, StorMgrVolume*> volume_map;
+     /* handler for volume-related control message from OM */
+     static void volumeEventHandler(fds_volid_t vol_uuid,
+                                    VolumeDesc *vdb,
+                                    fds_vol_notify_t vol_action);
 
-    /* Protects volume_map */
-    fds_rwlock map_rwlock;
+     /* volume uuid -> StorMgrVolume map */
+     volume_map_t volume_map;
 
-    /*
-     * Pointer to logger to use 
-     */
-    fds_bool_t created_log;
-  };
-  
+     /* Protects volume_map */
+     fds_rwlock map_rwlock;
+
+     /*
+      * Pointer to logger to use 
+      */
+     fds_bool_t created_log;
+};
 
 }  // namespace fds
 
-#endif  // SOURCE_STOR_MGR_STORMGRVOLUMES_H_
+#endif  // SOURCE_STOR_MGR_INCLUDE_STORMGRVOLUMES_H_

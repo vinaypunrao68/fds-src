@@ -29,4 +29,6 @@ public interface Resource {
     }
 
     public default Resource withHeader(String key, String value) { return new ResourceWrapper(this).withHeader(key, value);  }
+
+    public default Resource withContentType(String contentType) { return new ResourceWrapper(this).withContentType(contentType); }
 }

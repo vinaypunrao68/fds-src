@@ -23,7 +23,7 @@ public class FdsAuthenticatorTest {
         ConfigurationService.Iface config = mock(ConfigurationService.Iface.class);
         when(config.allUsers(anyLong())).thenReturn(Lists.newArrayList());
         ConfigurationServiceCache cache = new ConfigurationServiceCache(config);
-        FdsAuthenticator authenticator = new FdsAuthenticator(cache);
+        FdsAuthenticator authenticator = new FdsAuthenticator(cache, AuthenticationTokenTest.SECRET_KEY);
         authenticator.authenticate("foo", "bar");
     }
 
@@ -36,7 +36,7 @@ public class FdsAuthenticatorTest {
                 new User(43, "fab", hasher.hash("fab"), "bar", false)));
 
         ConfigurationServiceCache cache = new ConfigurationServiceCache(config);
-        FdsAuthenticator authenticator = new FdsAuthenticator(cache);
+        FdsAuthenticator authenticator = new FdsAuthenticator(cache, AuthenticationTokenTest.SECRET_KEY);
         AuthenticationToken token = authenticator.authenticate("james", "james");
         assertEquals(42, token.getUserId());
     }
@@ -44,7 +44,7 @@ public class FdsAuthenticatorTest {
     @Test(expected = LoginException.class)
     public void testSignatureIntegrity() throws Exception {
         ConfigurationServiceCache config = mock(ConfigurationServiceCache.class);
-        FdsAuthenticator authenticator = new FdsAuthenticator(config);
+        FdsAuthenticator authenticator = new FdsAuthenticator(config, AuthenticationTokenTest.SECRET_KEY);
         authenticator.resolveToken("hello");
     }
 
@@ -53,7 +53,7 @@ public class FdsAuthenticatorTest {
         String signature = new AuthenticationToken(USER_ID, "oldSecret").signature(AuthenticationTokenTest.SECRET_KEY);
         ConfigurationServiceCache config = mock(ConfigurationServiceCache.class);
         when(config.allUsers(anyLong())).thenReturn(Lists.newArrayList(new User(USER_ID, "james", "doesntMatter", "newSecret", false)));
-        FdsAuthenticator authenticator = new FdsAuthenticator(config);
+        FdsAuthenticator authenticator = new FdsAuthenticator(config, AuthenticationTokenTest.SECRET_KEY);
         authenticator.resolveToken(signature);
     }
 
@@ -62,7 +62,7 @@ public class FdsAuthenticatorTest {
         String signature = new AuthenticationToken(USER_ID, "secret").signature(AuthenticationTokenTest.SECRET_KEY);
         ConfigurationServiceCache config = mock(ConfigurationServiceCache.class);
         when(config.allUsers(anyLong())).thenReturn(Lists.newArrayList());
-        FdsAuthenticator authenticator = new FdsAuthenticator(config);
+        FdsAuthenticator authenticator = new FdsAuthenticator(config, AuthenticationTokenTest.SECRET_KEY);
         authenticator.resolveToken(signature);
     }
 
@@ -72,7 +72,7 @@ public class FdsAuthenticatorTest {
         AuthenticationToken token = new AuthenticationToken(USER_ID, secret);
         ConfigurationServiceCache config = mock(ConfigurationServiceCache.class);
         when(config.allUsers(anyLong())).thenReturn(Lists.newArrayList(new User(USER_ID, "james", "doesntMatter", secret, false)));
-        FdsAuthenticator authenticator = new FdsAuthenticator(config);
+        FdsAuthenticator authenticator = new FdsAuthenticator(config, AuthenticationTokenTest.SECRET_KEY);
         AuthenticationToken result = authenticator.resolveToken(token.signature(AuthenticationTokenTest.SECRET_KEY));
         assertEquals(token, result);
     }
@@ -83,7 +83,7 @@ public class FdsAuthenticatorTest {
         when(config.allUsers(anyLong())).thenReturn(Lists.newArrayList(
                 new User(USER_ID, "james", "whatever", "oldSecret", false)));
         ConfigurationServiceCache poop = new ConfigurationServiceCache(config);
-        FdsAuthenticator authenticator = new FdsAuthenticator(poop);
+        FdsAuthenticator authenticator = new FdsAuthenticator(poop, AuthenticationTokenTest.SECRET_KEY);
         AuthenticationToken token = authenticator.reissueToken(USER_ID);
         verify(config, times(1)).updateUser(eq(USER_ID), eq("james"), eq("whatever"), not(eq("oldSecret")), eq(false));
     }

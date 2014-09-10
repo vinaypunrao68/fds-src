@@ -63,7 +63,7 @@ public class Configuration {
         properties.put("log4j.appender.console.layout", "org.apache.log4j.PatternLayout");
         properties.put("log4j.appender.console.layout.ConversionPattern", "%-4r [%t] %-5p %c %x - %m%n");
         properties.put("log4j.logger.com.formationds", loglevel);
-        properties.put("log4j.logger.com.formationds.web.toolkit.Dispatcher", "WARN");
+        //properties.put("log4j.logger.com.formationds.web.toolkit.Dispatcher", "WARN");
         PropertyConfigurator.configure(properties);
     }
 
@@ -78,7 +78,7 @@ public class Configuration {
         properties.put("log4j.appender.rolling.layout.ConversionPattern", "[%t] %-5p %l - %m%n");
         properties.put("log4j.appender.rolling.layout.ConversionPattern", "%d{ISO8601} - %p %c - %m%n");
         properties.put("log4j.logger.com.formationds", loglevel);
-        properties.put("log4j.logger.com.formationds.web.toolkit.Dispatcher", "WARN");
+        //properties.put("log4j.logger.com.formationds.web.toolkit.Dispatcher", "WARN");
         PropertyConfigurator.configure(properties);
     }
 

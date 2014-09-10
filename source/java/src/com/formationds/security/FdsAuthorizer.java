@@ -18,12 +18,18 @@ public class FdsAuthorizer implements Authorizer {
     @Override
     public long tenantId(AuthenticationToken token) throws SecurityException {
         User user = userFor(token);
+        if (user.isIsFdsAdmin()) {
+            return 0;
+        }
         return configSupplier.get().tenantId(user.getId());
     }
 
     @Override
     public boolean hasAccess(AuthenticationToken token, String volume) throws SecurityException {
         User user = userFor(token);
+        if (user.isIsFdsAdmin()) {
+            return true;
+        }
         return configSupplier.get().hasAccess(user.getId(), volume);
     }
 

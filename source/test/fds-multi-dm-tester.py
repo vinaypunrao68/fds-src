@@ -14,19 +14,26 @@ from multiprocessing import Process, Value
 from tabulate import tabulate
 from requests_futures.sessions import FuturesSession
 
+DEBUG = False
+REM_CFG = ''
 DEFAULT_COMMIT_LOG = 'commit_log_size = 5242880'
 NUM_PUTS = 10
 SLEEP = 5
-BASE_URL = 'http://localhost:8000/'
+BASE_URL = None
 BUCKET   = 'bucket1/'
 OBJ_NAME = 'obj1'
 DATA_NAME= 'rand_data_'
+REMOTE = False
 DATA_PATH= 'cfg/'
 NUM_PROC = 5
-TIMEOUT  = 30
+TIMEOUT  = 60
 MAX_CONCURRENCY_PUT = 999
 DEBUG_TIMEOUT = 30
 BLOB_WRITE_COMMIT_READ_RETRY = 100
+
+def log(message):
+    if DEBUG:
+        print str(message)
 
 class Worker(Process):
     """ Runs PUT operation and gets result in the background."""
@@ -43,7 +50,7 @@ class Worker(Process):
             _data = data_file.read()
             self.r = requests.put(BASE_URL+BUCKET+OBJ_NAME, data=_data, timeout=TIMEOUT)
             self.timestamp.value = time.clock()
-            print self.r, self.hash_before.value, self.timestamp.value
+            log(str(self.r) + '\n' + self.hash_before.value + '\n' + str(self.timestamp.value))
 
 class BlobReadWorker(Process):
     ''' Runs GETs against blob being written.  checks against bool.'''
@@ -53,7 +60,7 @@ class BlobReadWorker(Process):
         self.read_hash = 'No hash yet!'
         self.obj_name = obj_name
         self.write_hash = obj_hash
-        print self.obj_name
+        log(self.obj_name)
 
     def run(self):
         assert(self.write_hash != '')
@@ -78,7 +85,7 @@ class BlobReadWorker(Process):
             r = requests.get(BASE_URL+BUCKET+self.obj_name)
             print r
             if r.status_code == 200:
-                print 'Length:', sys.getsizeof(r.content)
+                log('Length: ' +  str(sys.getsizeof(r.content)))
                 if hashlib.sha1(r.content).hexdigest() == self.write_hash:
                     print 'Success!'
                     return 0
@@ -98,7 +105,7 @@ class CommitProbeWorker(threading.Thread):
         threading.Thread.__init__(self)
 
     def run(self):
-        print 'Thread started!'
+        log('Thread started!')
         os.chdir(self.path)
         p = subprocess.Popen('./commit-log-probe',
                 shell=True,
@@ -106,7 +113,7 @@ class CommitProbeWorker(threading.Thread):
                 #stderr=subprocess.PIPE
                 )
         self.stdout, self.stderr = p.communicate()
-        print 'Thread complete!'
+        log('Thread complete!')
         self.return_code = p.returncode
 
 def get_root_path():
@@ -114,8 +121,24 @@ def get_root_path():
 
 def reset_fds():
     ''' Restarts FDS system.  Assumes we are in test directory!'''
-    ret = os.system('./../tools/fds cleanstart')
-    time.sleep(SLEEP)
+    if REMOTE:
+        log('[FDS] Down')
+        ret = os.system('./fds-tool.py -f cfg/' + REM_CFG + ' -d')
+        log('[FDS] Cleaning')
+        ret += os.system('./fds-tool.py -f cfg/' + REM_CFG + ' -c')
+        log('[FDS] Up')
+        ret += os.system('./fds-tool.py -f cfg/' + REM_CFG + ' -u')
+    else:
+        ret = os.system('./../tools/fds cleanstart')
+        time.sleep(SLEEP)
+    return ret
+
+def stop_fds():
+    if REMOTE:
+        log('[FDS] Down')
+        ret = os.system('./fds-tool.py -f cfg/' + REM_CFG + ' -d -c')
+    else:
+        ret = os.system('./../tools/fds stop')
     return ret
 
 def fill_staging_area():
@@ -125,15 +148,15 @@ def fill_staging_area():
 
     root_path = get_root_path()
     conf_path = os.path.join(root_path, 'config/etc/')
-    print os.chdir(conf_path)
-    print os.system('git checkout -f platform.conf')
-    print 'CWD:', os.getcwd()
+    log(os.chdir(conf_path))
+    log(os.system('git checkout -f platform.conf'))
+    log('CWD: ' + str(os.getcwd()))
 
     # Edit config
     for line in fileinput.input('platform.conf', inplace=1):
         print line.replace(DEFAULT_COMMIT_LOG, 'commit_log_size = ' + str(commit_log_size)).rstrip()
     #print 'commit_log_size = ' + str(commit_log_size)
-    print os.system('cat ' + conf_path + '/platform.conf | grep commit_log')
+    log(os.system('cat ' + conf_path + '/platform.conf | grep commit_log'))
 
     # Navigate back to script's WD and reset FDS (should update with new config)
     os.chdir(os.path.join(root_path, 'tools/'))
@@ -141,7 +164,7 @@ def fill_staging_area():
 
     # Create a JSon for the dm commit log probe to parse
     os.chdir(os.path.join(root_path, 'unit-test/fds-probe/dataset/'))
-    print os.system('./tvc_json.py -c -n 20000 > commit-log.json')
+    log(os.system('./tvc_json.py -c -n 20000 > commit-log.json'))
 
     # Bring up the probe
     worker_path = os.path.join(root_path, 'Build/linux-x86_64.debug/tests/')
@@ -151,14 +174,14 @@ def fill_staging_area():
     time.sleep(SLEEP)
 
     # Curl the JSon to the probe
-    print os.chdir(os.path.join(root_path, 'unit-test/fds-probe/dataset/'))
-    print os.system('curl -X PUT --data @commit-log.json http://localhost:8080/abc')
-    print os.system('rm commit-log.json')
+    log(str(os.chdir(os.path.join(root_path, 'unit-test/fds-probe/dataset/'))))
+    log(str(os.system('curl -X PUT --data @commit-log.json http://localhost:8080/abc')))
+    log(str(os.system('rm commit-log.json')))
 
     # Clean up core files
     rem_path = os.path.join(root_path, 'Build/linux-x86_64.debug/tests/')
-    print rem_path
-    print os.system('rm core.*')
+    log(rem_path)
+    log(str(os.system('rm core.*')))
 
     # Reset config to original state
     os.chdir(conf_path)
@@ -190,10 +213,10 @@ def blob_write_incomplete():
 
     # Read data.  should be length 0 or 404
     r = requests.get(BASE_URL+BUCKET+OBJ_NAME)
-    print r
-    print r.text
+    log(r)
+    log(r.text)
     if r.status_code == 200:
-        print sys.getsizeof(r.content)
+        log(sys.getsizeof(r.content))
         if sys.getsizeof(r.content) > 0:
             return 1
     else:
@@ -224,27 +247,27 @@ def blob_write_commit():
 
     # Check for return code on asynch PUT
     assert(future_put.result().status_code == 200)
-    print 'Write done!'
+    log('Write done!')
 
     # PUT is done, GETs should now work
     worker.finished_write = True
-    print '[Parent thread]', worker.finished_write
+    log('[Parent thread] ' + str(worker.finished_write))
     worker.join()
     return 0
 
 def multi_blob_write():
     ''' Writes multiple blobs to same obj id on the server.'''
-    print '[Test] MULTI BLOB WRITE'
+    log('[Test] MULTI BLOB WRITE')
 
     # Create 5 random sets of data
-    print 'Creating random data'
+    log('Creating random data')
     for i in range(NUM_PROC):
         os.system('dd if=/dev/urandom of='+DATA_PATH+DATA_NAME+str(i+1)+' bs='+str(10*(i+1))+'M count=1')
 
     # Asynchronously put 5 objects towards the AM
     # Make sure to keep close track of timestamps
     try:
-        print 'Creating bucket:', requests.put(BASE_URL+BUCKET)
+        log('Creating bucket: ' + str(requests.put(BASE_URL+BUCKET)))
     except Exception as e:
         print 'Error creating bucket:', e
 
@@ -273,7 +296,7 @@ def multi_blob_write():
 
     r = requests.get(BASE_URL+BUCKET+OBJ_NAME)
     get_hash = hashlib.sha1(r.content).hexdigest()
-    print 'FDS object hash:', get_hash
+    log('FDS object hash:' + str(get_hash))
 
     # Validate that the data matches at least something we sent it
     data_valid = False
@@ -310,16 +333,38 @@ def main():
         blob_write_incomplete_result += blob_write_incomplete()
     if blob_write_incomplete_result != 0:
         print 'blob_write_incomplete test failed!'
-    # No reset needed before this test, it's done within the function
-    fill_staging_area_result = fill_staging_area()
-    if fill_staging_area_result != 0:
-        print 'fill_staging_area test failed!'
+
+    # Don't run the staging test if we're on remote nodes
+    if REMOTE == False:
+        # No reset needed before this test, it's done within the function
+        fill_staging_area_result = fill_staging_area()
+        if fill_staging_area_result != 0:
+            print 'fill_staging_area test failed!'
+    else:
+        fill_staging_area_result = 0
 
     # Quit FDS
-    os.system('./../tools/fds stop')
+    stop_fds()
 
     final_retcode = multi_blob_write_result + blob_write_commit_result + blob_write_incomplete_result + fill_staging_area_result
+    if final_retcode == 0:
+        print 'All tests concluded successfully!'
     return final_retcode
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--am_ip', default='127.0.0.1',
+                        help='AM IP address')
+    parser.add_argument('--config', default='',
+                        help='Name of configuration file for remote nodes')
+    parser.add_argument('-v', action='store_true', help='Enables verbose output')
+    args = parser.parse_args()
+
+    DEBUG = args.v
+    REM_CFG = args.config
+    BASE_URL = 'http://' + args.am_ip + ':8000/'
+
+    if BASE_URL != 'http://127.0.0.1:8000/':
+        REMOTE = True
+
     main()

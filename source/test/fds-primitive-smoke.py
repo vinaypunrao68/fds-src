@@ -23,6 +23,9 @@ class HTTPERROR:
     OK = 200
     NOT_FOUND = 404
 
+REMOTE = False
+CONFIG = None
+
 ##########################################################
 
 ###
@@ -41,18 +44,28 @@ class FdsEnv:
         self.srcdir   = os.path.abspath(self.testdir + "/..")
         self.toolsdir = os.path.abspath(self.srcdir + "/tools")
         self.fdsctrl  = self.toolsdir + "/fds"
+        self.cfgdir   = self.testdir + "/cfg"
+        if CONFIG is not None:
+            self.rem_cfg  = self.cfgdir + "/" + CONFIG
+        else:
+            self.rem_cfg  = self.cfgdir
 
         if self.srcdir == "":
             print "Can't determine FDS root from the current dir ", self.env_cdir
             sys.exit(1)
 
     def shut_down(self):
-        subprocess.call([self.fdsctrl, 'stop', '--fds-root', self.env_root])
+        if REMOTE:
+            subprocess.call("python " + self.testdir + "/fds-tool.py -f " + self.rem_cfg + " -d", shell=True)
+        else:
+            subprocess.call([self.fdsctrl, 'stop', '--fds-root', self.env_root])
 
     def cleanup(self):
         self.shut_down()
-        subprocess.call([self.fdsctrl, 'clean', '--fds-root', self.env_root])
-        #subprocess.call([self.fdsctrl, 'clogs', '--fds-root', self.env_root])
+        if REMOTE == False:
+            subprocess.call([self.fdsctrl, 'clean', '--fds-root', self.env_root])
+        else:
+            subprocess.call("python " + self.testdir + "/fds-tool.py -f " + self.rem_cfg + " -c", shell=True)
 
 ###
 # setup test environment, directories, etc
@@ -419,15 +432,19 @@ class DelS3Dir(CopyS3Dir):
 #
 def bringup_cluster(env, verbose, debug):
     env.cleanup()
-    root1 = env.env_root
-    print "\nSetting up private fds-root in " + root1
-    FdsSetupNode(env.srcdir, root1)
+    if REMOTE:
+        print "python " + env.testdir + "/fds-tool.py -f " + env.rem_cfg + " -u"
+        subprocess.call("python " + env.testdir + "/fds-tool.py -f " + env.rem_cfg + " -u", shell=True)
+    else:
+        root1 = env.env_root
+        print "\nSetting up private fds-root in " + root1
+        FdsSetupNode(env.srcdir, root1)
 
-    os.chdir(env.srcdir + '/Build/linux-x86_64.debug/bin')
+        os.chdir(env.srcdir + '/Build/linux-x86_64.debug/bin')
 
-    print "\n\nStarting fds on ", root1
-    subprocess.call([env.fdsctrl, 'start', '--fds-root', root1])
-    os.chdir(env.srcdir)
+        print "\n\nStarting fds on ", root1
+        subprocess.call([env.fdsctrl, 'start', '--fds-root', root1])
+        os.chdir(env.srcdir)
 
 ###
 # exit the test, shutdown if requested
@@ -654,8 +671,10 @@ if __name__ == "__main__":
                         help ='pdb debug on [false]')
     parser.add_argument('--log_level', default=0,
                         help ='Sets verbosity of output.  Most verbose is 0, least verbose is 2')
-    parser.add_argument('--std_output', default='no',
+    parser.add_argument('--std_output', default='yes',
                         help='Whether or not the script should print to stdout or to log files [no]')
+    parser.add_argument('--config', default=None,
+                        help='Name of config file to use (in test/cfg) for remote bringup')
     args = parser.parse_args()
 
     cfgFile      = args.cfg_file
@@ -670,6 +689,7 @@ if __name__ == "__main__":
     loop_cnt     = args.loop_cnt
     am_ip        = args.am_ip
     log_level    = args.log_level
+    config       = args.config
 
     global std_output
     std_output   = args.std_output;
@@ -697,15 +717,22 @@ if __name__ == "__main__":
     #
 
     ###
+    # bring up the cluster
+    #
+    # Running remotely
+    #if am_ip != 'localhost':
+    #    REMOTE = True
+    #    print 'Running smoke test remotely on IP %s' % am_ip
+    if config is not None:
+        global CONFIG
+        assert(config != '')
+        REMOTE = True
+        CONFIG = config
+
+    ###
     # load the configuration file and build test environment
     #
     env = FdsEnv(fds_root)
-
-    ###
-    # bring up the cluster
-    #
-    if am_ip != 'localhost':
-        start_sys = 'false'
 
     if start_sys == 'true':
         bringup_cluster(env, verbose, debug)

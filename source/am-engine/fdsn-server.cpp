@@ -309,7 +309,6 @@ class FdsnIf : public apis::AmServiceIf {
         // TODO(Andrew): We should just resize the return string
         // rather than doing a reassign at the end
         char *buf = new char[*length];
-        fds_verify(buf != NULL);
 
         // Create request context
         // Set the pointer we want filled in the handler
@@ -340,6 +339,7 @@ class FdsnIf : public apis::AmServiceIf {
             } else {
                 fdsE.errorCode = apis::BAD_REQUEST;
             }
+            delete[] buf;
             throw fdsE;
         }
         _return.assign(getHandler->returnBuffer,

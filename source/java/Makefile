@@ -7,7 +7,7 @@ user_thrift       := $(topdir)/fdsp/FDSP.thrift $(topdir)/apis/apis.thrift $(top
 user_thrift_flag  := -r --gen java
 
 user_postdep      := compile
-user_install      := orchMgr xdiSmokeTest AMAgent
+user_install      := orchMgr xdiSmokeTest AMAgent genkey
 user_install_loc  := exe
 user_clean        := \
 	target \

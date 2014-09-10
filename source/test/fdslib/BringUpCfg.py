@@ -173,7 +173,8 @@ class FdsNodeConfig(FdsConfig):
             '(cd %s/core && rm *.core); ' % var_dir +
             '(cd %s && ./fds clean -i); ' % tools_dir +
             '(cd %s && rm -f hdd-*/* && rm -f ssd-*/*); ' % dev_dir +
-            '(cd /dev/shm && rm -f 0x*)', wait_compl=True)
+            '(cd %s && rm -r sys-repo/ && rm -r user-repo/); ' % fds_dir +
+            '(cd /dev/shm && rm -f 0x*)', wait_compl=True, output=True)
 
 ###
 # Handle AM config section

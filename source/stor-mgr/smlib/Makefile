@@ -22,16 +22,6 @@ user_cpp          :=                   \
     TokenCompactor.cpp                 \
     SMSvcHandler.cpp
 
-user_no_style     := \
-    StorMgr.cpp                        \
-    StorMgrVolumes.cpp                 \
-    ObjRank.cpp                        \
-    ObjStats.cpp                       \
-    TierEngine.cpp                     \
-    TierPutAlgorithms.cpp              \
-    ObjMeta.cpp                        \
-    SmObjDb.cpp                        
-
 user_ar_libs      := fds-smlib
 fds-smlib         := $(user_cpp)
 

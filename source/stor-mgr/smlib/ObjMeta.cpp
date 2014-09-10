@@ -1,9 +1,10 @@
-
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
 #include <algorithm>
 #include <sstream>
+#include <map>
+#include <string>
 
 #include <fdsp_utils.h>
 #include <ObjMeta.h>
@@ -109,7 +110,7 @@ void ObjMetaData::initialize(const ObjectID& objid, fds_uint32_t obj_size) {
     memcpy(&obj_map.obj_id.metaDigest, objid.GetId(), sizeof(obj_map.obj_id.metaDigest));
     obj_map.obj_size = obj_size;
 
-    //Initialize the physical location array
+    // Initialize the physical location array
     phy_loc = &obj_map.loc_map[0];
     phy_loc[diskio::flashTier].obj_tier = -1;
     phy_loc[diskio::diskTier].obj_tier = -1;
@@ -122,7 +123,7 @@ void ObjMetaData::initialize(const ObjectID& objid, fds_uint32_t obj_size) {
  */
 bool ObjMetaData::isInitialized() const
 {
-    for (uint32_t i = 0;i < sizeof(obj_map.obj_id.metaDigest); i++) {
+    for (uint32_t i = 0; i < sizeof(obj_map.obj_id.metaDigest); i++) {
         if (obj_map.obj_id.metaDigest[i] != 0) {
             return true;
         }
@@ -171,7 +172,7 @@ uint32_t ObjMetaData::read(serialize::Deserializer* deserializer)
     sz += deserializer->readByte((int8_t&)mask);
 
     uint32_t nread = deserializer->\
-            readBuffer(reinterpret_cast<int8_t*>(&obj_map),sizeof(obj_map));
+            readBuffer(reinterpret_cast<int8_t*>(&obj_map), sizeof(obj_map));
     fds_assert(nread == sizeof(obj_map));
     sz += nread;
 
@@ -316,7 +317,7 @@ void ObjMetaData::decRefCnt() {
  */
 void ObjMetaData::updateAssocEntry(ObjectID objId, fds_volid_t vol_id) {
     fds_assert(obj_map.obj_num_assoc_entry == assoc_entry.size());
-    for(int i = 0; i < obj_map.obj_num_assoc_entry; i++) {
+    for (int i = 0; i < obj_map.obj_num_assoc_entry; i++) {
         if (vol_id == assoc_entry[i].vol_uuid) {
             assoc_entry[i].ref_cnt++;
             obj_map.obj_refcnt++;
@@ -329,7 +330,6 @@ void ObjMetaData::updateAssocEntry(ObjectID objId, fds_volid_t vol_id) {
     obj_map.obj_refcnt++;
     assoc_entry.push_back(new_association);
     obj_map.obj_num_assoc_entry = assoc_entry.size();
-
 }
 
 /**
@@ -339,11 +339,11 @@ void ObjMetaData::updateAssocEntry(ObjectID objId, fds_volid_t vol_id) {
  */
 void ObjMetaData::deleteAssocEntry(ObjectID objId, fds_volid_t vol_id, fds_uint64_t ts) {
     fds_assert(obj_map.obj_num_assoc_entry == assoc_entry.size());
-    for(int i = 0; i < obj_map.obj_num_assoc_entry; i++) {
+    for (int i = 0; i < obj_map.obj_num_assoc_entry; i++) {
         if (vol_id == assoc_entry[i].vol_uuid) {
             assoc_entry[i].ref_cnt--;
             obj_map.obj_refcnt--;
-            if(obj_map.obj_refcnt == 0) { 
+            if (obj_map.obj_refcnt == 0) {
                 obj_map.obj_del_time = ts;
             }
             return;
@@ -355,7 +355,7 @@ void ObjMetaData::deleteAssocEntry(ObjectID objId, fds_volid_t vol_id, fds_uint6
 void ObjMetaData::getVolsRefcnt(std::map<fds_volid_t, fds_uint32_t>& vol_refcnt) {
     vol_refcnt.clear();
     fds_assert(obj_map.obj_num_assoc_entry == assoc_entry.size());
-    for(int i = 0; i < obj_map.obj_num_assoc_entry; i++) {
+    for (int i = 0; i < obj_map.obj_num_assoc_entry; i++) {
         if (assoc_entry[i].ref_cnt > 0) {
             if (vol_refcnt.count(assoc_entry[i].vol_uuid) == 0) {
                 vol_refcnt[assoc_entry[i].vol_uuid] = 0;
@@ -372,7 +372,7 @@ void ObjMetaData::getVolsRefcnt(std::map<fds_volid_t, fds_uint32_t>& vol_refcnt)
  */
 fds_bool_t ObjMetaData::isVolumeAssociated(fds_volid_t vol_id)
 {
-    for(int i=0; i < obj_map.obj_num_assoc_entry; i++) {
+    for (int i = 0; i < obj_map.obj_num_assoc_entry; i++) {
         if (vol_id == assoc_entry[i].vol_uuid) {
             return true;
         }
@@ -477,7 +477,7 @@ void ObjMetaData::extractSyncData(FDSP_MigrateObjectMetadata &md) const
     }
     /* Association entries */
     fds_assert(obj_map.obj_num_assoc_entry == assoc_entry.size());
-    for(uint32_t i = 0; i < obj_map.obj_num_assoc_entry; i++) {
+    for (uint32_t i = 0; i < obj_map.obj_num_assoc_entry; i++) {
         if (assoc_entry[i].ref_cnt > 0) {
             fds_assert(assoc_entry[i].vol_uuid != 0);
             FDSP_ObjectVolumeAssociation a;
@@ -717,6 +717,5 @@ std::string ObjMetaData::logString() const
             << " len: " << obj_map.obj_size
             << " assoc_entry_cnt: " << assoc_entry.size();
     return oss.str();
-
 }
 }  // namespace fds
