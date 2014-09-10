@@ -22,7 +22,6 @@ class FdsJson:
         # self.cnt += 1
         volume_id = random.randrange(self.options.num_volumes)
         name = "file" + str(random.sample(self.uploaded[volume_id], 1)[0])
-
         am_op = {
             #"blob-op":   "startBlobTx",
             "blob-op":   "getBlob",
@@ -96,3 +95,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

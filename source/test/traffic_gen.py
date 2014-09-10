@@ -1,12 +1,12 @@
-#!/usr/bin/python
+#!/usr/bin/python3.3
 import os,sys,re
 import time
-# import threading as th
-from multiprocessing import Process, Queue
+import threading
+from multiprocessing import Process, Queue, JoinableQueue, Barrier, Array
 from optparse import OptionParser
 import tempfile
 # from Queue import *
-import httplib
+import http.client
 # import requests
 import random
 import pickle
@@ -34,15 +34,15 @@ class Histogram:
         self.bins = [self.bins[i] + vals[i] for i in range(length)]
 
 def init_stats():
-    stats = [{"reqs" : 0,
+    stats = {"reqs" : 0,
          "fails" : 0,
          "elapsed_time" : 0.0,
          "tot_latency" : 0.0,
          "min_latency" : 1.0e10,   # FIXME: this seems broken
          "max_latency" : 0.0,
          "latency_cnt" : 0,
-         "lat_histo"   : Histogram(N = 10, M = 0.010)
-    } for v in range(options.num_volumes)]
+         "lat_histo"   : Histogram(N = 10, M = 0.010),
+         "inst_reqs" : 0}
     #lat_histo = [Histogram() for v in range(options.num_volumes)]
     return stats
 
@@ -53,21 +53,29 @@ def update_stat(stats, name ,val):
         assert type(stats[name]) == type(Histogram())
         stats[name].update(val)
 
-def clear_stats(stats):
-    for v in range(options.num_volumes):
-        for e in stats:
-            e.second = 0
+def reset_cntr(stats, name):
+    stats[name] = 0
 
-def update_latency_stats(stats, start, end, volume):
+def reset_reqs(stats, nvols, q):
+    for i in range(nvols):
+        reset_cntr(stats, "inst_reqs")
+
+def start_reset_reqs(stats, nvols):
+    q = Queue()
+    t = threading.Thread(target=reset_reqs, args=(stats, nvols, q))
+    t.start()
+    return t
+
+def update_latency_stats(stats, start, end):
     elapsed = end - start
-    stats[volume]["latency_cnt"] +=1
-    stats[volume]["tot_latency"] += elapsed
+    stats["latency_cnt"] +=1
+    stats["tot_latency"] += elapsed
     # print "elapsed:",elapsed
-    if elapsed < stats[volume]["min_latency"]:
-        stats[volume]["min_latency"] = elapsed
-    if elapsed > stats[volume]["max_latency"]:
-        stats[volume]["max_latency"] = elapsed
-    stats[volume]["lat_histo"].add(elapsed)
+    if elapsed < stats["min_latency"]:
+        stats["min_latency"] = elapsed
+    if elapsed > stats["max_latency"]:
+        stats["max_latency"] = elapsed
+    stats["lat_histo"].add(elapsed)
 
 def create_random_file(size):
     fout, fname = tempfile.mkstemp(prefix="fdstrgen")
@@ -84,7 +92,7 @@ def create_file_queue(n,size):
 
 def do_put(conn, target, fname):
     e = None
-    body = open(fname,"r").read()
+    body = open(fname,"rb").read()
     conn.request("PUT", target, body)
     return e
 
@@ -98,17 +106,22 @@ def do_delete(conn, target):
     conn.request("DELETE", target)
     return e
 
-def task(task_id, n_reqs, req_type, nvols, files, stats, queue, prev_uploaded):
-    uploaded = [set() for x in range(options.num_volumes)]
-    conn = httplib.HTTPConnection(options.target_node + ":" + str(options.target_port))
+def task(task_id, n_reqs, req_type, vol, files,
+         queue, prev_uploaded, barrier, counters, time_start_volume):
+    stats = dict(init_stats())
+    i = barrier.wait()
+    if task_id == 0:
+        time_start_volume[vol] = time.time()
+        print ("starting timer -  thread:", task_id, "volume", vol, "time:", time_start_volume[vol])
+    uploaded = set()
+    conn = http.client.HTTPConnection(options.target_node + ":" + str(options.target_port))
     for i in range(0,n_reqs):
         if options.heartbeat > 0 and  i % options.heartbeat == 0:
-            print "heartbeat for", task_id, "i:", i
-        vol = random.randint(0, nvols - 1)
+            print ("heartbeat for", task_id, "volume_id:", vol, "i:", i)
         time_start = time.time()
         if req_type == "PUT":
             file_idx = random.randint(0, options.num_files - 1)
-            uploaded[vol].add(file_idx)
+            uploaded.add(file_idx)
             # print "PUT", file_idx
             e = do_put(conn, "/volume%d/file%d" % (vol, file_idx), files[file_idx])
             #files.task_done()
@@ -143,19 +156,27 @@ def task(task_id, n_reqs, req_type, nvols, files, stats, queue, prev_uploaded):
         time_end = time.time()
         r1.read()
         # FIXME: need to skip first samples
-        update_latency_stats(stats, time_start, time_end, vol)
-        stats[vol]["reqs"] += 1
+        update_latency_stats(stats, time_start, time_end)
+        stats["reqs"] += 1
         if r1.status != 200:
-            stats[vol]["fails"] += 1
+            stats["fails"] += 1
     conn.close()
-    queue.put((stats, uploaded))
+    # print ("Done with volume", vol, "thread:", task_id)
+    with counters.get_lock():
+        counters[vol] += 1
+        if counters[vol] == options.threads:
+            print ("Done with volume:", vol, "thread:", task_id, "end_time:", time.time(), "counters:", counters[vol])
+            counters[vol] = -1
+            stats["elapsed_time"] = time.time() - time_start_volume[vol]
+    time.sleep(1)
+    queue.put((stats, uploaded, vol))
 
 # TODO: add volumes here and ...
 def load_previous_uploaded():
     part_prev_uploaded = [[set() for x in range(options.num_volumes)] for y in range(options.threads)]
     # TODO: make a function
     if os.path.exists(".uploaded.pickle"):
-        prev_uploaded_file = open(".uploaded.pickle", "r")
+        prev_uploaded_file = open(".uploaded.pickle", "rb")
         upk = pickle.Unpickler(prev_uploaded_file)
         prev_uploaded = upk.load()
         for j in range(options.num_volumes):
@@ -169,7 +190,7 @@ def load_previous_uploaded():
 
 def dump_uploaded(uploaded):
         # pickle uploaded files
-        uploaded_file = open(".uploaded.pickle", "w")
+        uploaded_file = open(".uploaded.pickle", "wb")
         pk = pickle.Pickler(uploaded_file)
         pk.dump(uploaded)
         uploaded_file.close()
@@ -184,49 +205,80 @@ def compute_req_per_threads(options):
         remainder -= 1
     return reqs_per_thread
 
+class AtomicCounter:
+    def __init__(self):
+        self.lock = Lock()
+        self.counter = Value("i", 0)
+    def get(self):
+        self.lock.acquire()
+        val = self.counter.value
+        self.lock.release()
+        return val
+    def inc(self):
+        self.lock.acquire()
+        self.counter += 1
+        self.lock.release()
+
+
 def main(options,files):
     # unpickle uploaded files
     if options.get_reuse == True and options.req_type != "PUT":
         part_prev_uploaded = load_previous_uploaded()
     else:
         part_prev_uploaded = [[set() for x in range(options.num_volumes)] for y in range(options.threads)]
-
-    queue = Queue()
-    stats = init_stats()
+    queue = JoinableQueue()
+    barrier = Barrier(options.threads * options.num_volumes)
+    # tids = [[] for x in range(options.num_volumes)]
     tids = []
-    time_start = time.time()
-    for i in range(0,options.threads):
-        reqs_per_thread = compute_req_per_threads(options)
-        task_args = (i, reqs_per_thread[i], options.req_type, options.num_volumes, files, stats, queue, part_prev_uploaded[i])
-        #t = th.Thread(None,task,"task-"+str(i), task_args)
-        t = Process(target=task, args=task_args)
-        t.start()
-        tids.append(t)
+    # time_start = time.time()
+    reqs_per_thread = compute_req_per_threads(options)
+    # counters = [Value("i", 0) for x in range(options.num_volumes)]
+    counters = Array("i", [0,] * options.num_volumes)
+    time_start_volume = Array("d", [0.0,] * options.num_volumes)
+    for i in range(0, options.threads):
+        for v in range(options.num_volumes):
+            task_args = (i, reqs_per_thread[i], options.req_type, v, files,
+                         queue, part_prev_uploaded[i], barrier, counters,
+                         time_start_volume)
+            t = Process(target=task, args=task_args)
+            t.start()
+            tids.append(t)
+    # Wait until all processes are done with work
+    wait = True
+    while wait:
+        with counters.get_lock():
+            for v in range(options.num_volumes):
+                # print ("counters: ", v, counters[v],)
+                wait = wait & (counters[v] > -1)
+            # print (" ->", wait)
+            time.sleep(.1)
+    uploaded = [set() for x in range(options.num_volumes)]
+    stats = [init_stats() for x in range(options.num_volumes)]
+    # wait until all processes have pushed their stats into the queue
+    while queue.qsize() < (options.num_volumes * options.threads):
+        time.sleep(.1)
+    # pull and aggregate stats
+    while not queue.empty():
+        st, up, vol = queue.get()
+        for k, v in st.items():
+            update_stat(stats[vol], k, v)
+        uploaded[vol].update(up)
+        queue.task_done()
+    # print ("queue is empty, cnt:", cnt)
+    # Finally, join processes
     for t in tids:
         t.join()
-    time_end = time.time()
-    for v in range(options.num_volumes):
-        stats[v]["elapsed_time"] = time_end - time_start
-    # FIXME: move to function
-    uploaded = [set() for x in range(options.num_volumes)]
-    while not queue.empty():
-        st, up = queue.get()
-        for vol in range(options.num_volumes):
-            for k,v in st[vol].items():
-                # stats[vol][k] += v
-                update_stat(stats[vol], k, v)
-            uploaded[vol].update(up[vol])
-    # FIXME: volumes (ongoing)
+
     if options.get_reuse == True and options.req_type == "PUT":
         dump_uploaded(uploaded)
-    print "Options:", options, "Stats:", stats
+    print ("Options:", options, "Stats:", stats)
     for vol in range(options.num_volumes):
-        print "Summary - volume:", vol, "threads:", options.threads, "n_reqs:", options.n_reqs, "req_type:", options.req_type, \
+        print ("Summary - volume:", vol, "threads:", options.threads, "n_reqs:", options.n_reqs, "req_type:", options.req_type, \
             "elapsed time:", stats[vol]['elapsed_time'], \
             "reqs/sec:", stats[vol]['reqs'] / stats[vol]['elapsed_time'], \
             "avg_latency[ms]:",stats[vol]["tot_latency"]/stats[vol]["latency_cnt"]*1e3, \
-            "failures:", stats[vol]['fails'], "requests:", stats[vol]["reqs"]
-        print "Latency histogram:", stats[vol]["lat_histo"].get()
+            "failures:", stats[vol]['fails'], "requests:", stats[vol]["reqs"])
+        print ("Latency histogram:", stats[vol]["lat_histo"].get())
 
 # TODO: reuse on put, sequential mode
 # TODO: options to create volume
@@ -239,7 +291,7 @@ if __name__ == "__main__":
     parser = OptionParser()
     parser.add_option("-t", "--threads", dest = "threads", type = "int", default = 1, help = "Number of threads")
     # FIXME: specify total number of request
-    parser.add_option("-n", "--num-requests", dest = "n_reqs", type = "int", default = 1, help = "Number of requests per thread")
+    parser.add_option("-n", "--num-requests", dest = "n_reqs", type = "int", default = 1, help = "Number of requests per volume")
     parser.add_option("-T", "--type", dest = "req_type", default = "PUT", help = "PUT/GET/DELETE")
     parser.add_option("-s", "--file-size", dest = "file_size", type = "int", default = 4096, help = "File size in bytes")
     parser.add_option("-F", "--num-files", dest = "num_files", type = "int", default = 10000, help = "Number of files")
@@ -252,12 +304,12 @@ if __name__ == "__main__":
 
     (options, args) = parser.parse_args()
     if options.req_type == "PUT" or options.req_type == "7030":
-        print "Creating files"
+        print ("Creating files")
         files = create_file_queue(options.num_files, options.file_size)
         time.sleep(5)
     else:
         files = Queue()
-    print "Starting..."
+    print ("Starting...")
     main(options,files)
-    print "Done."
+    print ("Done.")
 

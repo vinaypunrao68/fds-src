@@ -41,8 +41,8 @@ def create_tests():
     test["type"] = "PUT"
     test["nreqs"] = 10000  # 100000
     test["nfiles"] = 1000 # 10000
-    test["nvols"] = 1 # 4
-    test["threads"] = 1
+    test["nvols"] = 4
+    test["threads"] = 5
     test["fsize"] = size
     test["injector"] = None
     tests.append(test)
@@ -55,8 +55,8 @@ def create_tests():
     #         test["nvols"] = nvols
     #         test["threads"] = th
     #         tests.append(test)
-    for nvols in [1]:#[1, 2]: # [1, 2, 3, 4]:
-        for th in [1, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60]: #[1, 2, 5, 10, 15]:
+    for nvols in [4]:#[1, 2]: # [1, 2, 3, 4]:
+        for th in [10]:
             test = dict(template)
             test["type"] = "GET"
             test["nreqs"] = 100000
@@ -64,11 +64,16 @@ def create_tests():
             test["nvols"] = nvols
             test["threads"] = th
             test["fsize"] = size
-            test["injector"] = None # [
-            #    #options.local_fds_root + "/source/Build/linux-x86_64.debug/bin/fdscli --volume-modify volume1 -s 1000000  -g 3200 -m 5000 -r 10",
-            #    "sleep = 10",
-            #    "/home/monchier/FDS/source/Build/linux-x86_64.debug/bin/fdscli --volume-modify volume1 -s 1000000  -g 1000 -m 5000 -r 10",
-            #]
+            test["injector"] = [
+                #options.local_fds_root + "/source/Build/linux-x86_64.debug/bin/fdscli --volume-modify volume1 -s 1000000  -g 3200 -m 5000 -r 10",
+                "sleep = 20",
+                "/home/monchier/FDS/source/Build/linux-x86_64.debug/bin/fdscli --volume-modify volume1 -s 1000000  -g 3000 -m 5000 -r 10",
+                "sleep = 10",
+                "/home/monchier/FDS/source/Build/linux-x86_64.debug/bin/fdscli --volume-modify volume1 -s 1000000  -g 200 -m 1000 -r 10",
+                "sleep = 5"
+                "/home/monchier/FDS/source/Build/linux-x86_64.debug/bin/fdscli --volume-modify volume0 -s 1000000  -g 2800 -m 5000 -r 10",
+
+            ]
             tests.append(test)
     size = 4096 * 1024
     test = dict(template)
@@ -89,7 +94,6 @@ def create_tests():
            test["threads"] = th
            test["fsize"] = size
            #tests.append(test)
-
     return tests
 
 # TODO: need to streamline the options
@@ -127,6 +131,9 @@ def main():
     parser.add_option("-c", "--counter-pull-rate", dest = "counter_pull_rate", type = "float", default = 5.0,
                       help = "Counters pull rate")
 
+    parser.add_option("-j", "--java-counters", dest = "java_counters", action = "store_true", default = False,
+                      help = "Pull java counters")
+
     (options, args) = parser.parse_args()
 
     # Hardcoded options
@@ -140,8 +147,8 @@ def main():
         # "node2" : "10.1.10.17",
         # "node3" : "10.1.10.18"
         # "tiefighter" : "10.1.10.102",
-        "luke" : "10.1.10.222",
-        # "han" : "10.1.10.139",
+        # "luke" : "10.1.10.222",
+        "han" : "10.1.10.139",
         # "chewie" : "10.1.10.80",
         # "c3po" : "10.1.10.171",
     }

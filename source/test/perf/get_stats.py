@@ -23,7 +23,8 @@ nodes = {
     #"node1" : "10.1.10.16",
     # "node2" : "10.1.10.17",
     # "node3" : "10.1.10.18",
-    "tiefighter" : "10.1.10.102",
+    # "tiefighter" : "10.1.10.102",
+    "han" : "10.1.10.139"
 }
 
 def plot_series(series, title = None, ylabel = None, xlabel = "Time [ms]"):
@@ -82,6 +83,11 @@ def get_avgth():
         th = float(os.popen(cmd).read().rstrip('\n'))
         ths.append(th)
     return sum(ths)/len(ths)    
+
+def get_java_cntr():
+    cmd = "cat %s| grep 'END serviceGetObject' | awk '{print $1}' | sed  -e 's/\[\|\]//g'" % (options.directory + "/java_counters.dat")
+    output = os.popen(cmd).read()
+    return [float(x) / 1e6 for x in filter(lambda x : len(x) > 0, output.split("\n"))]
 
 def exist_exp():
     if os.path.exists("%s/test.out" % (options.directory)):
@@ -177,7 +183,7 @@ def get_test_parms():
     m = re.match("(\w+)_(\d+-)_nvols:(\d+).threads:(\d+).type:(\w+).nfiles:(\d+).test_type:(\w+).fsize:(\d+).nreqs:(\d+).test", options.directory)
 
 def print_counter(counters, agent, counter, ctype):
-    c_node = "tie-fighter" #FIXME
+    c_node = "han" #FIXME
     series = counters.get_cntr(c_node, agent, counter, ctype)
     if series is not None:
         for v in series:
@@ -188,8 +194,18 @@ def print_counter(counters, agent, counter, ctype):
 # FIXME: multivolumes!
 
 def main():
+    parser = OptionParser()
+    parser.add_option("-d", "--directory", dest = "directory", help = "Directory")
+    parser.add_option("-n", "--name", dest = "name", help = "Name")
+    #parser.add_option("-c", "--column", dest = "column", help = "Column")
+    parser.add_option("-p", "--plot-enable", dest = "plot_enable", action = "store_true", default = False, help = "Plot graphs")
+    parser.add_option("-A", "--ab-enable", dest = "ab_enable", action = "store_true", default = False, help = "AB mode")
+    parser.add_option("-B", "--block-enable", dest = "block_enable", action = "store_true", default = False, help = "Block mode")
+    parser.add_option("-g", "--use-graphite-streaming", dest = "use_graphite_streaming", default = False, action = "store_true", help = "Use graphite streaming as input")
+    global options
+    (options, args) = parser.parse_args()
     compute_pidmap()
-    counters = Counters()
+    counters = Counters(graphite = False)
     c_file = open(options.directory + "/counters.dat")
     counters.parse(c_file.read())
     c_file.close()
@@ -213,9 +229,10 @@ def main():
         else:
             print "maxiops,",getmax(get_iops(node)),", ",
             print "avgidle,",getavg(get_idle(node)),", ",
-    print_counter(counters, "AMAgent","am_get_obj_req", "latency")
-    print_counter(counters, "AMAgent","am_stat_blob_obj_req", "latency")
-    print_counter(counters, "sm","get_obj_req", "latency")
+    print_counter(counters, "am","am_get_obj_req", "latency")
+    print "avgjavalat,", getavg(get_java_cntr()), ", ",
+    # print_counter(counters, "am","am_stat_blob_obj_req", "latency")
+    # print_counter(counters, "sm","get_obj_req", "latency")
     #print_counter("AMAgent","am_stat_blob_obj_req", "latency")
 
     # series = counters.get_cntr(c_node,"AMAgent","am_get_obj_req", "latency")
@@ -234,12 +251,4 @@ def main():
 
 
 if __name__ == "__main__":
-    parser = OptionParser()
-    parser.add_option("-d", "--directory", dest = "directory", help = "Directory")
-    parser.add_option("-n", "--name", dest = "name", help = "Name")
-    #parser.add_option("-c", "--column", dest = "column", help = "Column")
-    parser.add_option("-p", "--plot-enable", dest = "plot_enable", action = "store_true", default = False, help = "Plot graphs")
-    parser.add_option("-A", "--ab-enable", dest = "ab_enable", action = "store_true", default = False, help = "AB mode")
-    parser.add_option("-B", "--block-enable", dest = "block_enable", action = "store_true", default = False, help = "Block mode")
-    (options, args) = parser.parse_args()
     main()

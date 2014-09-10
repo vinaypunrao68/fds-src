@@ -20,7 +20,8 @@ def add2dict(mydict, indexes, value):
         return mydict
 
 class Counters:
-    def __init__(self):
+    def __init__(self, graphite):
+        self.use_graphite = graphite
         self.counters = {} # counter, node, volid
 
     def _add(self, node, agent, name, volid, type, value, tstamp):
@@ -34,7 +35,7 @@ class Counters:
             #     if m is not None:
             #         tstamp = float(m.group(1))
 #             elif tstamp is not None:
-                if options.use_graphite_streaming == True:
+                if self.use_graphite == True:
                     #am_put_dm.volume:6944500478244898626:volume=6944500478244898626
                     m = re.match("([\w-]+)\.(\w+)\.perf\.(\w+)\.volume:\d+:volume=(\d+)\.(\w+)\s+(\d+)\s+(\d+)\s*", line)
                 else:
@@ -265,8 +266,8 @@ def main():
     options.exclude_nodes = []
 
     # FIXME: revisit Counters interface
-    c = Counters()
-    f = open(options.filein,"r")
+    c = Counters(options.use_graphite_streaming)
+    f = open(options.filein, "r")
     c.parse(f.read())
     f.close()
     # print c.counters
