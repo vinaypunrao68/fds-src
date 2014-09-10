@@ -1,7 +1,7 @@
 topdir            := ../..
 user_target       := lib
 user_rtime_env    := user
-user_build_dir    :=
+user_build_dir    := object-store
 
 # TODO: avoid include across components, put in include dir instead.
 #
