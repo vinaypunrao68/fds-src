@@ -19,7 +19,7 @@ class ObjectDataStore : public Module, public boost::noncopyable {
     /// Disk storage manager
     diskio::DataIO *diskMgr;
 
-    /// Per-volume object data cache manager
+    /// Object data cache manager
 
     // TODO(Andrew): Add some private GC interfaces here?
 
@@ -27,20 +27,6 @@ class ObjectDataStore : public Module, public boost::noncopyable {
     explicit ObjectDataStore(const std::string &modName);
     ~ObjectDataStore();
     typedef std::unique_ptr<ObjectDataStore> unique_ptr;
-
-    /**
-     * Creates storage for a volume. Creates cache space and any
-     * additional per-volume structures that are needed. The
-     * physical underlying storage is organized by SM tokens
-     * and are not per-volume.
-     */
-    Error createDataStore(fds_volid_t volId);
-
-    /**
-     * Removes storage for a volume. Removes cache and other
-     * per-volume structures.
-     */
-    Error removeDataStore(fds_volid_t volId);
 
     /**
      * Peristently stores object data.
