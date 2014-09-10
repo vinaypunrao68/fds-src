@@ -1,5 +1,6 @@
 topdir         := ..
 user_target    := lib
+speedup        := -j 5
 user_rtime_env := user
 user_build_dir := \
     fdsp \

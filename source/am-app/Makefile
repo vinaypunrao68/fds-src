@@ -1,6 +1,7 @@
 topdir            := ..
 user_target       := exe
 user_rtime_env    := user
+speedup           := -j 6
 user_build_dir    := include platform
 user_incl_dir     := $(topdir)/fds_client/include include
 user_cpp_flags    :=

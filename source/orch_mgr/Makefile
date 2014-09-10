@@ -1,4 +1,5 @@
 topdir            := ..
+speedup           := -j 5
 user_target       := exe
 user_std_libs     := true
 user_rtime_env    := user
