@@ -38,7 +38,7 @@ VolumeDesc::VolumeDesc(const fpi::FDSP_VolumeInfoType& volinfo,
     relativePrio = 0;
     assert(volUUID != invalid_vol_id);
     fSnapshot = volinfo.fSnapshot;
-    parentVolumeId = volinfo.parentVolumeId;
+    srcVolumeId = volinfo.srcVolumeId;
 }
 
 VolumeDesc::VolumeDesc(const VolumeDesc& vdesc) {
@@ -65,7 +65,7 @@ VolumeDesc::VolumeDesc(const VolumeDesc& vdesc) {
     iops_max = vdesc.iops_max;
     relativePrio = vdesc.relativePrio;
     fSnapshot = vdesc.fSnapshot;
-    parentVolumeId = vdesc.parentVolumeId;
+    srcVolumeId = vdesc.srcVolumeId;
     assert(volUUID != invalid_vol_id);
 }
 
@@ -93,7 +93,7 @@ VolumeDesc::VolumeDesc(const fpi::FDSP_VolumeDescType& voldesc) {
     iops_max = voldesc.iops_max;
     relativePrio = voldesc.rel_prio;
     fSnapshot = voldesc.fSnapshot;
-    parentVolumeId = voldesc.parentVolumeId;
+    srcVolumeId = voldesc.srcVolumeId;
     assert(volUUID != invalid_vol_id);
 }
 
@@ -231,11 +231,15 @@ VolumeDesc& VolumeDesc::operator=(const VolumeDesc& volinfo) {
 bool VolumeDesc::isSnapshot() { return fSnapshot; }
 
 bool VolumeDesc::isClone() {
-    return parentVolumeId > 0 && !fSnapshot;
+    return srcVolumeId > invalid_vol_id && !fSnapshot;
 }
 
-fds_volid_t VolumeDesc::getParentVolumeId() {
-    return parentVolumeId;
+fds_volid_t VolumeDesc::getSrcVolumeId() {
+    return srcVolumeId;
+}
+
+fds_volid_t VolumeDesc::getLookupVolumeId() {
+    return lookupVolumeId;
 }
 
 std::ostream& operator<<(std::ostream& os, const VolumeDesc& vol) {

@@ -80,7 +80,8 @@ class VolumeDesc {
 
     /* Snapshot */
     bool                   fSnapshot = false;
-    fds_volid_t            parentVolumeId = 0;
+    fds_volid_t            srcVolumeId = invalid_vol_id;
+    fds_volid_t            lookupVolumeId = invalid_vol_id;
 
     VolumeDesc(const FDS_ProtocolInterface::FDSP_VolumeInfoType& volinfo,
                fds_volid_t vol_uuid);
@@ -117,7 +118,8 @@ class VolumeDesc {
 
     bool isSnapshot();
     bool isClone();
-    fds_volid_t getParentVolumeId();
+    fds_volid_t getSrcVolumeId();
+    fds_volid_t getLookupVolumeId();
 
     friend std::ostream& operator<<(std::ostream& out, const VolumeDesc& vol_desc);
 };
