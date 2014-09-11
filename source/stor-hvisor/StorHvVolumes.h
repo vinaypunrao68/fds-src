@@ -574,10 +574,10 @@ struct DeleteBlobReq: FdsBlobReq, TxnRequest {
         hashPerfCtx.type = AM_DELETE_HASH;
         hashPerfCtx.name = "volume:" + std::to_string(volId);
         hashPerfCtx.reset_volid(volId);
-        dmPerfCtx.type = AM_DELETE_SM;
+        dmPerfCtx.type = AM_DELETE_DM;
         dmPerfCtx.name = "volume:" + std::to_string(volId);
         dmPerfCtx.reset_volid(volId);
-        smPerfCtx.type = AM_DELETE_DM;
+        smPerfCtx.type = AM_DELETE_SM;
         smPerfCtx.name = "volume:" + std::to_string(volId);
         smPerfCtx.reset_volid(volId);
 
@@ -601,10 +601,10 @@ struct DeleteBlobReq: FdsBlobReq, TxnRequest {
         hashPerfCtx.type = AM_DELETE_HASH;
         hashPerfCtx.name = "volume:" + std::to_string(volId);
         hashPerfCtx.reset_volid(volId);
-        dmPerfCtx.type = AM_DELETE_SM;
+        dmPerfCtx.type = AM_DELETE_DM;
         dmPerfCtx.name = "volume:" + std::to_string(volId);
         dmPerfCtx.reset_volid(volId);
-        smPerfCtx.type = AM_DELETE_DM;
+        smPerfCtx.type = AM_DELETE_SM;
         smPerfCtx.name = "volume:" + std::to_string(volId);
         smPerfCtx.reset_volid(volId);
 
