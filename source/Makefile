@@ -1,4 +1,4 @@
-a:=$(shell [ ! -f /swapfile ] && sudo dd if=/dev/zero of=/swapfile bs=1024000 count=3k && sudo mkswap /swapfile && sudo swapon /swapfile)
+a:=$(shell [ ! -f /swapfile ] && sudo dd if=/dev/zero of=/swapfile bs=1024000 count=6k && sudo mkswap /swapfile && sudo swapon /swapfile)
 topdir         := .
 
 # List all directories that builds library first before making exe and unit
