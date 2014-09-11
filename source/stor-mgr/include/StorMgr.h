@@ -62,6 +62,8 @@ extern "C" {
 #include "kvstore/tokenstatedb.h"
 #include "fdsp/SMSvc.h"
 
+#include <object-store/ObjectStore.h>
+
 #undef FDS_TEST_SM_NOOP      /* if defined, IO completes as soon as it arrives to SM */
 
 #define FDS_STOR_MGR_LISTEN_PORT FDS_CLUSTER_TCP_PORT_SM
@@ -174,6 +176,9 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      fds_mutex *objStorMutex;
      osm::ObjectDB  *objStorDB;
      osm::ObjectDB  *objIndexDB;
+
+    /// Manager of persistent object storage
+    ObjectStore::unique_ptr objectStore;
 
      /*
       * FDSP RPC members

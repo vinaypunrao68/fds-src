@@ -10,6 +10,7 @@ user_build_dir :=      \
     util               \
     data-mgr           \
     dlt                \
-    migrations
+    migrations         \
+    stor-mgr
 
 include $(topdir)/Makefile.incl
