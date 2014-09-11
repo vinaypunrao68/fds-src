@@ -133,6 +133,12 @@ const char * eventTypeToStr[] = {
         "delete_qos_queue_wait",
         "delete_cache_hit",
 
+        "add_object_ref_req",
+        "add_object_ref_req_err",
+        "add_object_ref_io",
+        "add_object_ref_trans_queue_wait",
+        "add_object_ref_qos_queue_wait",
+
         "murmur3_hash",
         "dlt_lkup",
         "dmt_lkup",

@@ -117,10 +117,10 @@ class VolumeDesc {
     bool operator!=(const VolumeDesc &rhs) const;
     VolumeDesc & operator=(const VolumeDesc& volinfo);
 
-    bool isSnapshot();
-    bool isClone();
-    fds_volid_t getSrcVolumeId();
-    fds_volid_t getLookupVolumeId();
+    bool isSnapshot() const;
+    bool isClone() const;
+    fds_volid_t getSrcVolumeId() const;
+    fds_volid_t getLookupVolumeId() const;
 
     friend std::ostream& operator<<(std::ostream& out, const VolumeDesc& vol_desc);
 };

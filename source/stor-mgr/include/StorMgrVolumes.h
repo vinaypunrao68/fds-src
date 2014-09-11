@@ -109,6 +109,9 @@ class StorMgrVolume : public FDS_Volume, public HasLogger {
      fds_uint64_t   averageObjectsRead;
      boost::posix_time::ptime lastAccessTimeR;
 
+     inline fds_bool_t isSnapshot() const {
+         return voldesc->isSnapshot();
+     }
 
      fds_volid_t getVolId() const {
          return voldesc->volUUID;
@@ -163,6 +166,12 @@ class StorMgrVolumeTable : public HasLogger {
                        fds_bool_t incr,
                        std::map<fds_volid_t, fds_uint32_t>& vol_refcnt);
      double getDedupBytes(fds_volid_t volid);
+
+     inline fds_bool_t isSnapshot(fds_volid_t volid) {
+         SCOPEDREAD(map_rwlock);
+         volume_map_t::const_iterator iter = volume_map.find(volid);
+         return volume_map.end() != iter && iter->second->isSnapshot();
+     }
 
      Error registerVolume(const VolumeDesc& vdb);
      Error deregisterVolume(fds_volid_t vol_uuid);
