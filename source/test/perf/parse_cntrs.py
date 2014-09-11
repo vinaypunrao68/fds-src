@@ -49,7 +49,10 @@ class Counters:
                     cntr_type =  m.group(5)
                     value =  int(m.group(6))
                     tstamp =  int(m.group(7))
-                    self._add(node, agent, name, volid, cntr_type, value, tstamp)
+                    if volid != 0:
+                        self._add(node, agent, name, volid, cntr_type, value, tstamp)
+                    else:
+                        print "Warning: volid is zero for ",node, agent, name, volid, cntr_type, value, tstamp
 
     def get_cntr(self, node, agent, name, cntr_type):
         series = {}
