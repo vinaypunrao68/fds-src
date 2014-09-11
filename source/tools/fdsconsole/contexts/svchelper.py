@@ -4,6 +4,12 @@ from SvcHandle import *
 from fdslib import process
 from fdslib import thrift_json
 from tabulate import tabulate
+from argh import *
+
+from fdsconsole.context import Context
+from fdsconsole.decorators import *
+from FDS_ProtocolInterface.ttypes import *
+from pyfdsp.snapshot.ttypes import *
 
 log = process.setup_logger(file = 'console.log')
 

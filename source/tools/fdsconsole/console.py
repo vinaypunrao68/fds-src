@@ -10,9 +10,10 @@ import traceback
 import context
 from helpers import *
 
-# import
+# import needed contexts
 from contexts import volume
-
+from contexts import snapshot
+from contexts import snapshotpolicy
 
 """
 Console exit exception. This is needed to exit cleanly as 
@@ -308,8 +309,8 @@ class FDSConsole(cmd.Cmd):
     def init(self):
         root = self.set_root_context(context.RootContext(self.config))
         vol = root.add_sub_context(volume.VolumeContext(self.config))
-        snap = vol.add_sub_context(volume.SnapshotContext(self.config))
-        snap.add_sub_context(volume.SnapshotPolicyContext(self.config))
+        snap = vol.add_sub_context(snapshot.SnapshotContext(self.config))
+        snap.add_sub_context(snapshotpolicy.SnapshotPolicyContext(self.config))
 
     def run(self, argv = None):
         l =  []
