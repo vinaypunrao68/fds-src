@@ -29,6 +29,38 @@ class AccessLevel:
     def getLevels():
         return ['ADMIN', 'DEBUG', 'USER']
 
+class ConfigData:
+    '''
+    structure to share/ store & retrieve data
+    across different contexts
+    '''
+    def __init__(self,data):
+        self.__data = data
+
+    def set(self, key, value, namespace):
+        if namespace not in self.__data:
+            self.__data[namespace] = {}
+
+        if key not in self.__data[namespace]:
+            self.__data[namespace][key] = {}
+
+        self.__data[namespace][key] = value
+        return True
+
+    def get(self, key, namespace):
+        if namespace not in self.__data:
+            return None
+
+        if key not in self.__data[namespace]:
+            return None
+
+        return self.__data[namespace][key]
+    
+    def getSystem(self, key):
+        return self.get(key, '__system__')
+
+    def setSystem(self, key, value):
+        return self.set(key, value, '__system__')
 
 def setupHistoryFile():
     '''

@@ -3,6 +3,9 @@ import sys
 import cmd
 import types
 import shlex
+import shelve
+import atexit
+import os
 
 import context
 from helpers import *
@@ -23,11 +26,34 @@ class FDSConsole(cmd.Cmd):
 
     def __init__(self,*args):
         cmd.Cmd.__init__(self, *args)
+        datafile = os.path.join(os.path.expanduser("~"), ".fdsconsole_data")
+        self.data = {}
+        try :
+            self.data = shelve.open(datafile,writeback=True)
+        except:
+            pass
+
+        self.config = ConfigData(self.data)
+            
         self.prompt = 'fds:> '
         self.rootctx = None
         self.context = None
         self.previouscontext = None
-        self.accessLevel = AccessLevel.USER
+        self.setupDefaultConfig()
+
+    def setupDefaultConfig(self):
+        defaults = {
+            'accesslevel': AccessLevel.USER,
+            'hostname' : '127.0.0.1',
+            'port' : 7020
+        }
+        for key in defaults.keys():
+            if None == self.config.getSystem(key):
+                print 'setting default %s' % (key)
+                self.config.setSystem(key, defaults[key])
+
+    def get_access_level(self):
+        return self.config.getSystem('accesslevel')
 
     def set_root_context(self, ctx):
         if isinstance(ctx, context.Context):
@@ -98,7 +124,7 @@ class FDSConsole(cmd.Cmd):
         argv = shlex.split(line)
 
         if len(argv) == 0:
-            print 'current access level : %s' % (AccessLevel.getName(self.accessLevel))
+            print 'current access level : %s' % (AccessLevel.getName(self.config.getSystem('accesslevel')))
             return
 
         level = AccessLevel.getLevel(argv[0])
@@ -106,11 +132,11 @@ class FDSConsole(cmd.Cmd):
         if level == 0:
             print 'invalid access level : %s' % (argv[0])
             return
-        elif level == self.accessLevel:
-            print 'access level is already @ %s' % (AccessLevel.getName(self.accessLevel)) 
+        elif level == self.config.getSystem('accesslevel'):
+            print 'access level is already @ %s' % (AccessLevel.getName(self.config.getSystem('accesslevel'))) 
         else:            
-            print 'switching access level from [%s] to [%s]' % (AccessLevel.getName(self.accessLevel), AccessLevel.getName(level))
-            self.accessLevel = level
+            print 'switching access level from [%s] to [%s]' % (AccessLevel.getName(self.config.getSystem('accesslevel')), AccessLevel.getName(level))
+            self.config.setSystem('accesslevel', level)
 
     def help_accesslevel(self, *args):
         print 'usage   : accesslevel [level]'
@@ -133,7 +159,7 @@ class FDSConsole(cmd.Cmd):
             ctx = self.context
             
         if len(argv) == 0 or argv[0] in ['help']:
-            self.print_topics("commands", sorted(ctx.get_method_names(self.accessLevel) + self.get_global_commands()),   15,80)
+            self.print_topics("commands", sorted(ctx.get_method_names(self.config.getSystem('accesslevel')) + self.get_global_commands()),   15,80)
             self.print_topics("subcontexts : [use cc <context> to switch]",ctx.get_subcontext_names(), 15, 80)
         else:
             if line in self.get_global_commands():
@@ -187,7 +213,7 @@ class FDSConsole(cmd.Cmd):
         return [c for c in self.context.get_subcontext_names() if c.startswith(text)]
 
     def get_names(self):
-        names = [key for key,value in self.context.methods.items() if value <= self.accessLevel]
+        names = [key for key,value in self.context.methods.items() if value <= self.config.getSystem('accesslevel')]
         names.extend(self.context.subcontexts.keys()) 
         return names
 
@@ -212,7 +238,7 @@ class FDSConsole(cmd.Cmd):
                 break
                 
         l = [item for item in  ctx.subcontexts.keys() if item.startswith(text)] 
-        l.extend([item for item, level in ctx.methods.items() if level <= self.accessLevel and item.startswith(text)])
+        l.extend([item for item, level in ctx.methods.items() if level <= self.config.getSystem('accesslevel') and item.startswith(text)])
         return l
 
 
@@ -241,7 +267,7 @@ class FDSConsole(cmd.Cmd):
         'check if the current access level allows this function'
         ctx, pos, m = self.get_context_for_command(argv)
         if ctx:
-            return True if ctx.methods[argv[pos]] <= self.accessLevel else False
+            return True if ctx.methods[argv[pos]] <= self.config.getSystem('accesslevel') else False
         else:
             return None
 
@@ -279,9 +305,9 @@ class FDSConsole(cmd.Cmd):
         return ''
 
     def init(self):
-        root = self.set_root_context(context.RootContext())
-        root.add_sub_context(test1.Test1())
-        root.add_sub_context(test2.Test2())
+        root = self.set_root_context(context.RootContext(self.config))
+        root.add_sub_context(test1.Test1(self.config))
+        root.add_sub_context(test2.Test2(self.config))
 
     def run(self, argv = None):
         l =  []
@@ -289,16 +315,19 @@ class FDSConsole(cmd.Cmd):
         l += ['Formation Data Systems Console ...']
         l += ['Copyright 2014 Formation Data Systems, Inc.']
         l += ['============================================']
-        l += ['NOTE: the current access level : %s' % (AccessLevel.getName(self.accessLevel))]
+        l += ['NOTE: the current access level : %s' % (AccessLevel.getName(self.config.getSystem('accesslevel')))]
         l += ['']
         try:
             if argv == None or len(argv) == 0 : 
+                l += ['---- interactive mode ----\n']
                 self.cmdloop('\n'.join(l))
             else:
+                l += ['---- Single command mode ----\n']
                 print '\n'.join(l)
                 self.onecmd(self.precmd(' '.join(argv)))
         except (KeyboardInterrupt, ConsoleExit):
             print ''
+        self.data.close()
 
 if __name__ == '__main__':
     fdsconsole = FDSConsole()

@@ -3,6 +3,9 @@ import inspect
 import helpers
 
 class Context:
+    
+    def __init__(self, config):
+        self.config = config
     '''
     Base class for all contexts
     NOTE:: All contexts SHOULD override get_context_name
@@ -65,6 +68,9 @@ class ContextInfo:
         return [item for item, value in self.methods.items() if value <= level]
 
 class RootContext(Context):
+
+    def __init(self, *args):
+        Context.__init__(self, *args)
     '''
     This is the first context ..
     Currently it is a dummy.. Later all shared functionality will be here.

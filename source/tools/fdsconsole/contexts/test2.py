@@ -3,6 +3,8 @@ from  fdsconsole.context import Context
 import inspect
 
 class Test2(Context):
+    def __init(self, *args):
+        Context.__init__(self, *args)
 
     def get_context_name(self):
         return "test2"
