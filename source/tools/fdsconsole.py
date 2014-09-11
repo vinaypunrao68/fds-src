@@ -3,6 +3,7 @@ import sys
 
 sys.path.append('../test/fdslib/pyfdsp')
 sys.path.append('../test/fdslib')
+sys.path.append('../test/')
 
 import fdsconsole.console
 
