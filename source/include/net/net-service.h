@@ -64,10 +64,11 @@ extern const fpi::SvcUuid NullSvcUuid;
 
 typedef enum
 {
-    EP_ST_INIT         = 0,
-    EP_ST_DISCONNECTED = 1,
-    EP_ST_CONNECTING   = 2,
-    EP_ST_CONNECTED    = 3,
+    EP_ST_INIT         = 0x0000,
+    EP_ST_DISCONNECTED = 0x0001,
+    EP_ST_CONNECTING   = 0x0002,
+    EP_ST_CONNECTED    = 0x0004,
+    EP_ST_NO_PLUGIN    = 0x8000,
     EP_ST_MAX
 } ep_state_e;
 
@@ -309,7 +310,7 @@ class EpSvcHandle : public net::SocketEventHandler
         : EpSvcHandle(NULL, evt, maj, min) { ep_peer_id = peer; }
 
     ep_state_e ep_reconnect();
-    ep_state_e ep_get_status()  { return ep_state; }
+    ep_state_e ep_get_status()  { return static_cast<ep_state_e>(ep_state); }
 
     std::string logString()
     {
@@ -348,7 +349,7 @@ class EpSvcHandle : public net::SocketEventHandler
         return ep_sock;
     }
 
-    void ep_notify_plugin();
+    void ep_notify_plugin(bool always);
     void ep_handle_net_error();
     void ep_my_uuid(fpi::SvcUuid &uuid)    { ep_owner->ep_my_uuid(uuid); }
     void ep_peer_uuid(fpi::SvcUuid &uuid)  { uuid = ep_peer_id; }
@@ -357,9 +358,13 @@ class EpSvcHandle : public net::SocketEventHandler
 
   protected:
     friend class NetMgr;
-    friend class EpSvcImpl;
+    template <class SendIf> friend void
+    endpoint_connect_server(int, const std::string &,
+                            bo::intrusive_ptr<EpSvcHandle> *,
+                            bo::intrusive_ptr<EpSvc>, fpi::SvcUuid,
+                            EpEvtPlugin::pointer, fds_uint32_t, fds_uint32_t);
 
-    ep_state_e                     ep_state;
+    int                            ep_state;
     fds_uint32_t                   ep_major;
     fds_uint32_t                   ep_minor;
     fpi::SvcUuid                   ep_peer_id;

@@ -203,17 +203,28 @@ NetMgr::ep_unregister(const fpi::SvcUuid &uuid, fds_uint32_t maj, fds_uint32_t m
 void
 NetMgr::ep_handler_register(EpSvcHandle::pointer handle)
 {
+    bool         notif;
     UuidIntKey   key;
     fpi::SvcUuid peer;
 
+    notif = false;
     handle->ep_peer_uuid(peer);
     if (peer != NullSvcUuid) {
         key.h_key  = peer.svc_uuid;
         key.h_int1 = handle->ep_version(&key.h_int2);
 
         ep_mtx.lock();
-        ep_handle_map[key] = handle;
+        auto it = ep_handle_map.find(key);
+        if (it == ep_handle_map.end()) {
+            notif = true;
+            ep_handle_map.insert(std::make_pair(key, handle));
+        } else {
+            handle = NULL;
+        }
         ep_mtx.unlock();
+    }
+    if (notif == true) {
+        handle->ep_notify_plugin(true);
     }
 }
 

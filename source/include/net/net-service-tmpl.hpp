@@ -163,47 +163,71 @@ class EpSvcImpl : public EpSvc
     void         ep_fillin_binding(struct ep_map_rec *map);
     void         ep_peer_uuid(fpi::SvcUuid &uuid)  { uuid = ep_peer_id.svc_uuid; }
     fds_uint64_t ep_peer_uuid()  { return ep_peer_id.svc_uuid.svc_uuid; }
-
-  public:
-    /**
-     * ep_connect_server
-     * -----------------
-     * Connect to a server by its known IP and port.  Thrift's connection handles are
-     * saved by the caller.
-     */
-    template <class SendIf> static void
-    ep_connect_server(int port, const std::string &ip, EpSvcHandle::pointer ptr)
-    {
-        if (ptr->ep_state == EP_ST_INIT) {
-            bo::shared_ptr<net::Socket> sock(new net::Socket(ip, port));
-            bo::shared_ptr<tt::TTransport> trans(new tt::TFramedTransport(sock));
-            bo::shared_ptr<tp::TProtocol>  proto(new tp::TBinaryProtocol(trans));
-            bo::shared_ptr<SendIf>         rpc(new SendIf(proto));
-
-            NetMgr    *net = NetMgr::ep_mgr_singleton();
-            fds_mutex *mtx = net->ep_obj_mutex(get_pointer(ptr));
-
-            mtx->lock();
-            if (ptr->ep_state == EP_ST_INIT) {
-                ptr->ep_state = EP_ST_DISCONNECTED;
-                fds_verify((ptr->ep_trans == NULL) && (ptr->ep_rpc == NULL));
-
-                ptr->ep_trans = trans;
-                ptr->ep_rpc   = rpc;
-                sock->setEventHandler(ptr.get());
-                ptr->ep_sock  = sock;
-            }
-            // else, these ptrs are deleted when we're out of scope.
-            mtx->unlock();
-
-            // It's ok to register twice.
-            NetMgr::ep_mgr_singleton()->ep_handler_register(ptr);
-        }
-        ptr->ep_reconnect();
-    }
 };
 
 class NetPlatSvc;
+
+/**
+ * endpoint_connect_server
+ * -----------------------
+ * Connect to a server by its known IP and port.  Thrift's connection handles are
+ * saved by the caller.
+ */
+template <class SendIf> static void
+endpoint_connect_server(int                   port,
+                        const std::string    &ip,
+                        EpSvcHandle::pointer *out,
+                        EpSvc::pointer        owner,
+                        fpi::SvcUuid          peer,
+                        EpEvtPlugin::pointer  evt,
+                        fds_uint32_t          maj,
+                        fds_uint32_t          min)
+{
+    NetMgr               *net;
+    EpSvcHandle::pointer  ptr;
+
+    net = NetMgr::ep_mgr_singleton();
+    if (peer != NullSvcUuid) {
+        ptr = net->svc_handler_lookup(peer, maj, min);
+        if (ptr != NULL) {
+            *out = ptr;
+            return;
+        }
+    }
+    bo::shared_ptr<tt::TTransport> sock(new tt::TSocket(ip, port));
+    bo::shared_ptr<tt::TTransport> trans(new tt::TFramedTransport(sock));
+    bo::shared_ptr<tp::TProtocol>  proto(new tp::TBinaryProtocol(trans));
+    bo::shared_ptr<SendIf>         rpc(new SendIf(proto));
+
+    if (owner == NULL) {
+        ptr = new EpSvcHandle(peer, evt, maj, min);
+    } else {
+        ptr = new EpSvcHandle(owner, evt, maj, min);
+    }
+    ptr->ep_state = EP_ST_DISCONNECTED | EP_ST_NO_PLUGIN;
+    fds_verify((ptr->ep_trans == NULL) && (ptr->ep_rpc == NULL));
+
+    ptr->ep_trans = trans;
+    ptr->ep_rpc   = rpc;
+    ptr->ep_sock  = bo::static_pointer_cast<tt::TSocket>(sock);
+
+    ptr->ep_reconnect();
+    if (peer == NullSvcUuid) {
+        *out = ptr;
+        ptr->ep_notify_plugin(true);
+        LOGDEBUG <<  "[Svc] new svc client "
+                 << " - ip:port: " << ip << ":" << port << " - ptr " << ptr;
+        return;
+    }
+    net->ep_handler_register(ptr);
+
+    // This is atomic assignment.
+    *out = net->svc_handler_lookup(peer, maj, min);
+    LOGDEBUG <<  "[Svc] new svc client - peer: " << peer.svc_uuid
+             << " - ip:port: " << ip << ":" << port
+             << " - ptr " << ptr << " - out " << (*out);
+    fds_assert(*out != NULL);
+}
 
 /**
  * Endpoint is the logical RPC representation of a physical connection.
@@ -241,15 +265,6 @@ class EndPoint : public EpSvcImpl
         }
 
     /**
-     * ep_reconnect
-     * ------------
-     */
-    void ep_reconnect()
-    {
-        fds_assert(ep_peer != NULL);
-        ep_peer->ep_reconnect();
-    }
-    /**
      * ep_setup_server
      * ---------------
      * Provide different methods to setup a Thrift's server.
@@ -266,11 +281,11 @@ class EndPoint : public EpSvcImpl
 
         /* Set up listeners for processor and server events */
         ep_rpc_recv->setEventHandler(
-                boost::shared_ptr<FdsTProcessorEventHandler2>(new FdsTProcessorEventHandler2()));
+                boost::shared_ptr<FdsTProcessorEventHandler2>(
+                    new FdsTProcessorEventHandler2()));
         ep_server->setServerEventHandler(
                 boost::shared_ptr<ServerEventHandler2>(new ServerEventHandler2()));
     }
-
     void ep_activate()
     {
         ep_setup_server();
@@ -278,31 +293,6 @@ class EndPoint : public EpSvcImpl
     }
     void ep_run_server() { ep_server->serve(); }
 
-    /**
-     * ep_send_handle
-     * --------------
-     * Get the handle to communicate with the peer endpoint.  The init. path must call
-     * this method to setup the full duplex mode for this endpoint.
-     */
-    EpSvcHandle::pointer ep_send_handle()
-    {
-        if (ep_peer == NULL) {
-            bool       out = true;
-            NetMgr    *net = NetMgr::ep_mgr_singleton();
-            fds_mutex *mtx = net->ep_obj_mutex(this);
-
-            mtx->lock();
-            if (ep_peer == NULL) {
-                out     = false;
-                ep_peer = new EpSvcHandle(this, ep_evt, 0, 0);
-            }
-            mtx->unlock();
-            if (out == false) {
-                endpoint_connect_handle<SendIf>(ep_peer);
-            }
-        }
-        return ep_peer;
-    }
     /**
      * ep_register
      * -----------
@@ -313,20 +303,6 @@ class EndPoint : public EpSvcImpl
     void ep_register(bool update_domain = true)
     {
         NetMgr::ep_mgr_singleton()->ep_register(this, update_domain);
-        if (ep_peer_id.svc_uuid != NullSvcUuid) {
-            EpSvcHandle::pointer ptr = ep_send_handle();
-            fds_verify(ptr != NULL);
-        }
-    }
-    /**
-     * Synchronous send/receive handlers.
-     */
-    boost::shared_ptr<SendIf> ep_sync_rpc()
-    {
-        if (ep_peer != NULL) {
-            return ep_peer->svc_rpc<SendIf>();
-        }
-        return NULL;
     }
     boost::shared_ptr<RecvIf> ep_rpc_handler() { return ep_rpc_recv; }
 
@@ -376,47 +352,12 @@ class EndPoint : public EpSvcImpl
                               EpSvcHandle::pointer *clnt,
                               EpEvtPlugin::pointer  evt)
     {
-        *clnt = new EpSvcHandle(ep, evt, port, 0);
-        EpSvcImpl::ep_connect_server<SendIf>(port, ip, *clnt);
+        fds_uint32_t maj, min;
+
+        maj = ep->ep_version(&min);
+        endpoint_connect_server<SendIf>(port, ip, clnt, ep, NullSvcUuid, evt, maj, min);
     }
 };
-
-// ep_svc_handle_connect
-// ---------------------
-// Connect the serice handle to its peer.  The binding is taken from the peer uuid.
-// Note that we must pass by value here because we'll dispatch the threadpool request.
-//
-template <class SendIf> void
-endpoint_connect_handle(EpSvcHandle::pointer ptr,
-                        fpi::SvcUuid peer = NullSvcUuid, int retry = 0)
-{
-    int          port;
-    std::string  ip;
-    fpi::SvcUuid uuid;
-    fds_uint32_t maj, min;
-
-    if (peer == NullSvcUuid) {
-        ptr->ep_peer_uuid(uuid);
-    } else {
-        uuid = peer;
-    }
-    maj  = ptr->ep_version(&min);
-    port = NetMgr::ep_mgr_singleton()->ep_uuid_binding(uuid, maj, min, &ip);
-    if (port != -1) {
-        EpSvcImpl::ep_connect_server<SendIf>(port, ip, ptr);
-    } else {
-        fds_threadpool *pool = NetMgr::ep_mgr_singleton()->ep_mgr_thrpool();
-
-        if (retry > 0) {
-            sleep(1);
-        } else if (retry > 100) {
-            return;
-        }
-        retry++;
-        pool->schedule(endpoint_connect_handle<SendIf>, ptr, uuid, retry);
-        LOGDEBUG << "EP retry conn " << ip << ", port " << port << ", retry " << retry;
-    }
-}
 
 template <class SendIf>
 EpSvcHandle::pointer NetMgr::svc_get_handle(const fpi::SvcUuid   &peer,
@@ -439,10 +380,10 @@ EpSvcHandle::pointer NetMgr::svc_get_handle(const fpi::SvcUuid   &peer,
         LOGDEBUG <<  "New svc client.  peer: " << peer.svc_uuid
             << " ip:port: " << ip << ":" << port;
 
-        auto ep = new EpSvcHandle(peer, NULL, maj, min);
+        EpSvcHandle::pointer ep = new EpSvcHandle(peer, NULL, maj, min);
         ep->ep_sock = bo::make_shared<net::Socket>(ip, port);
         ep->ep_trans = bo::make_shared<tt::TFramedTransport>(ep->ep_sock);
-        auto proto = bo::make_shared<apache::thrift::protocol::TBinaryProtocol>(ep->ep_trans);
+        auto proto = bo::make_shared<tp::TBinaryProtocol>(ep->ep_trans);
         ep->ep_rpc = bo::make_shared<SendIf>(proto);
         try {
             ep->ep_sock->open();
@@ -468,85 +409,52 @@ EpSvcHandle::pointer NetMgr::svc_get_handle(const fpi::SvcUuid   &peer,
     }
 }
 
-
 namespace net {
 
-
 /**
+ * svc_get_handle
+ * --------------
  * Get or allocate a handle to communicate with the peer endpoint.  The 'mine' uuid
  * can be taken from the platform library to get the default uuid.
  */
 template <class SendIf> void
-svc_get_handle(const fpi::SvcUuid   &mine,
-               const fpi::SvcUuid   &peer,
-               EpSvcHandle::pointer *out,
-               fds_uint32_t          maj,
-               fds_uint32_t          min)
-{
-    NetMgr         *net;
-    EpSvc::pointer  ep;
-    // static std::vector<EpSvcHandle::pointer> ep_list;
-
-    net  = NetMgr::ep_mgr_singleton();
-    // TODO(Andrew/Rao): Make the correct lookup call when
-    // we know what that is...
-    *out = NULL;
-    *out = net->svc_handler_lookup(peer, maj, min);
-    if (*out == NULL) {
-        // TODO(Vy): must suppy default values here.
-        *out = new EpSvcHandle(peer, NULL, maj, min);
-        // ep_list.push_back(*out);
-        endpoint_connect_handle<SendIf>(*out);
-        fds_assert((*out)->ep_get_socket()->isOpen());
-    }
-}
-
-template <class SendIf> void
 svc_get_handle(const fpi::SvcUuid   &peer,
                EpSvcHandle::pointer *out,
                fds_uint32_t          maj,
-               fds_uint32_t          min)
+               fds_uint32_t          min,
+               EpEvtPlugin::pointer  evt = NULL)
 {
-    svc_get_handle<SendIf>(NullSvcUuid, peer, out, maj, min);
-}
+    NetMgr         *net;
+    int             port;
+    std::string     ip;
+    EpSvc::pointer  ep;
 
-// TODO(Rao): Delete this code once Net::svc_get_handle() implementation is solid
-#if 0
-template <class SendIf>
-bo::shared_ptr<SendIf> svc_get_client2(const fpi::SvcUuid   &peer,
-                                      fds_uint32_t          maj,
-                                      fds_uint32_t          min)
-{
-    auto net  = NetMgr::ep_mgr_singleton();
-    UuidIntKey key(peer.svc_uuid, maj, min);
-
-    fds_scoped_lock l(net->ep_client_map_mtx);
-    try {
-        return bo::static_pointer_cast<SendIf>(net->ep_client_map.at(key));
-    } catch(const std::out_of_range &e) {
-        std::string ip;
-        auto port = net->ep_uuid_binding(peer, maj, min, &ip);
-
-        LOGDEBUG <<  "New svc client.  peer: " << peer.svc_uuid
-            << " ip:port: " << ip << ":" << port;
-
-        bo::shared_ptr<net::Socket> sock(new net::Socket(ip, port));
-        bo::shared_ptr<tt::TTransport> trans(new tt::TFramedTransport(sock));
-        bo::shared_ptr<tp::TProtocol>  proto(new tp::TBinaryProtocol(trans));
-        bo::shared_ptr<SendIf>         client(new SendIf(proto));
-        try {
-            sock->open();
-            net->ep_client_map[key] = client;
-            return client;
-        } catch(std::exception &open_e) {
-            LOGERROR <<  "Exception opening socket: " << e.what()
-                << " peer: " << peer.svc_uuid
-                << " ip:port: " << sock->getPeerAddress() << ":" << sock->getPeerPort();
-            return nullptr;
+    net  = NetMgr::ep_mgr_singleton();
+    *out = NULL;
+    *out = net->svc_handler_lookup(peer, maj, min);
+    if (*out != NULL) {
+        if ((*out)->ep_get_status() != EP_ST_CONNECTED) {
+            (*out)->ep_reconnect();
         }
+        return;
     }
+    port = NetMgr::ep_mgr_singleton()->ep_uuid_binding(peer, maj, min, &ip);
+    fds_verify(port != -1);
+
+    endpoint_connect_server<SendIf>(port, ip, out, NULL, peer, evt, maj, min);
 }
-#endif
+
+template <class SendIf> void
+svc_get_handle(const std::string    &ip,
+               fds_uint32_t          port,
+               EpSvcHandle::pointer *out,
+               const fpi::SvcUuid   &peer,
+               fds_uint32_t          maj,
+               fds_uint32_t          min,
+               EpEvtPlugin::pointer  evt = NULL)
+{
+    endpoint_connect_server<SendIf>(port, ip, out, NULL, peer, evt, maj, min);
+}
 
 #define MSG_DESERIALIZE(msgtype, error, payload) \
     net::ep_deserialize<fpi::msgtype>(const_cast<Error&>(error), payload)
