@@ -758,6 +758,11 @@ void ObjectStorMgr::migrationEventOmHandler(bool dlt_type)
     auto prevDlt = objStorMgr->omClient->getPreviousDLT();
     std::set<fds_token_id> tokens =
             DLT::token_diff(objStorMgr->getUuid(), curDlt, prevDlt);
+    // TODO(Rao): hack to not exercise migration code path.  Once
+    // we enable multinode enable this code path
+    tokens.clear();
+    prevDlt = curDlt;
+    ////////////////////////////////////////////////////////////
 
     GLOGNORMAL << " tokens to copy size: " << tokens.size();
 
