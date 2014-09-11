@@ -6,13 +6,12 @@ import shlex
 import shelve
 import atexit
 import os
-
+import traceback
 import context
 from helpers import *
 
 # import
-from contexts import test1
-from contexts import test2
+from contexts import volume
 
 
 """
@@ -26,6 +25,7 @@ class FDSConsole(cmd.Cmd):
 
     def __init__(self,*args):
         cmd.Cmd.__init__(self, *args)
+        setupHistoryFile()
         datafile = os.path.join(os.path.expanduser("~"), ".fdsconsole_data")
         self.data = {}
         try :
@@ -298,6 +298,7 @@ class FDSConsole(cmd.Cmd):
         except SystemExit:
             pass
         except:
+            #traceback.print_exc()
             print 'cmd: {} exception: {}'.format(line, sys.exc_info()[0])
         return None
 
@@ -306,8 +307,9 @@ class FDSConsole(cmd.Cmd):
 
     def init(self):
         root = self.set_root_context(context.RootContext(self.config))
-        root.add_sub_context(test1.Test1(self.config))
-        root.add_sub_context(test2.Test2(self.config))
+        vol = root.add_sub_context(volume.VolumeContext(self.config))
+        snap = vol.add_sub_context(volume.SnapshotContext(self.config))
+        snap.add_sub_context(volume.SnapshotPolicyContext(self.config))
 
     def run(self, argv = None):
         l =  []
