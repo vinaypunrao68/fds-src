@@ -45,7 +45,8 @@ class ContextInfo:
                 #print 'processing : %s' % (func.__name__)
                 if hasattr(func, helpers.ATTR_CLICMD):
                     funclist.append(func)
-                    self.methods[func.__name__] = getattr(func, helpers.ATTR_CLICMD)
+                    cleanname = func.__name__.replace('_','-')
+                    self.methods[cleanname] = getattr(func, helpers.ATTR_CLICMD)
             except:
                 pass
         if len(funclist) > 0:

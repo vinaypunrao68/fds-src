@@ -8,8 +8,9 @@ import atexit
 import os
 import traceback
 import context
+import helpers
 from helpers import *
-
+import inspect
 # import needed contexts
 from contexts import volume
 from contexts import snapshot
@@ -44,17 +45,17 @@ class FDSConsole(cmd.Cmd):
 
     def setupDefaultConfig(self):
         defaults = {
-            'accesslevel': AccessLevel.USER,
-            'hostname' : '127.0.0.1',
+            KEY_ACCESSLEVEL: AccessLevel.USER,
+            'host' : '127.0.0.1',
             'port' : 7020
         }
         for key in defaults.keys():
             if None == self.config.getSystem(key):
-                print 'setting default %s' % (key)
+                #print 'setting default %s' % (key)
                 self.config.setSystem(key, defaults[key])
 
     def get_access_level(self):
-        return self.config.getSystem('accesslevel')
+        return self.config.getSystem(KEY_ACCESSLEVEL)
 
     def set_root_context(self, ctx):
         if isinstance(ctx, context.Context):
@@ -125,7 +126,7 @@ class FDSConsole(cmd.Cmd):
         argv = shlex.split(line)
 
         if len(argv) == 0:
-            print 'current access level : %s' % (AccessLevel.getName(self.config.getSystem('accesslevel')))
+            print 'current access level : %s' % (AccessLevel.getName(self.config.getSystem(KEY_ACCESSLEVEL)))
             return
 
         level = AccessLevel.getLevel(argv[0])
@@ -133,11 +134,11 @@ class FDSConsole(cmd.Cmd):
         if level == 0:
             print 'invalid access level : %s' % (argv[0])
             return
-        elif level == self.config.getSystem('accesslevel'):
-            print 'access level is already @ %s' % (AccessLevel.getName(self.config.getSystem('accesslevel'))) 
+        elif level == self.config.getSystem(KEY_ACCESSLEVEL):
+            print 'access level is already @ %s' % (AccessLevel.getName(self.config.getSystem(KEY_ACCESSLEVEL))) 
         else:            
-            print 'switching access level from [%s] to [%s]' % (AccessLevel.getName(self.config.getSystem('accesslevel')), AccessLevel.getName(level))
-            self.config.setSystem('accesslevel', level)
+            print 'switching access level from [%s] to [%s]' % (AccessLevel.getName(self.config.getSystem(KEY_ACCESSLEVEL)), AccessLevel.getName(level))
+            self.config.setSystem(KEY_ACCESSLEVEL, level)
 
     def help_accesslevel(self, *args):
         print 'usage   : accesslevel [level]'
@@ -160,7 +161,7 @@ class FDSConsole(cmd.Cmd):
             ctx = self.context
             
         if len(argv) == 0 or argv[0] in ['help']:
-            self.print_topics("commands", sorted(ctx.get_method_names(self.config.getSystem('accesslevel')) + self.get_global_commands()),   15,80)
+            self.print_topics("commands", sorted(ctx.get_method_names(self.config.getSystem(KEY_ACCESSLEVEL)) + self.get_global_commands()),   15,80)
             self.print_topics("subcontexts : [use cc <context> to switch]",ctx.get_subcontext_names(), 15, 80)
         else:
             if line in self.get_global_commands():
@@ -213,8 +214,40 @@ class FDSConsole(cmd.Cmd):
     def complete_cc(self, text, *ignored):
         return [c for c in self.context.get_subcontext_names() if c.startswith(text)]
 
+    def do_set(self, line):
+        argv = shlex.split(line)
+        if len(argv) == 0:
+            # print the current values
+            for key,value in self.data[helpers.KEY_SYSTEM].items():
+                if key not in helpers.PROTECTED_KEYS:
+                    print '%10s   =  %5s' % (key, value)
+            return
+        
+        argv[0] = argv[0].lower()
+        if len(argv) == 1:
+            # print the value of this key
+            print '%10s   =  %5s' % (argv[0], self.config.getSystem(argv[0]))
+            return
+
+        if argv[0] in helpers.PROTECTED_KEYS:
+            print 'cannot modify a protected system key : %s' % (argv[0])
+            return
+
+        self.config.setSystem(argv[0], argv[1])
+        
+    def help_set(self,*args) :
+        print 'usage: set [key] [value]'
+        print '-- sets a value to a key'
+        print '-- to see current values, just type set'
+        print '-- to see current value of key, type set <key>'
+        
+    def complete_set(self, text, line, *args):
+        print line
+        argv = shlex.split(line)
+        
+
     def get_names(self):
-        names = [key for key,value in self.context.methods.items() if value <= self.config.getSystem('accesslevel')]
+        names = [key for key,value in self.context.methods.items() if value <= self.config.getSystem(KEY_ACCESSLEVEL)]
         names.extend(self.context.subcontexts.keys()) 
         return names
 
@@ -235,11 +268,18 @@ class FDSConsole(cmd.Cmd):
                 ctx = ctx.subcontexts[name]
             elif name in ctx.methods:
                 return []
+                #return [item for item, level in ctx.methods.items() if level <= self.config.getSystem(KEY_ACCESSLEVEL) and item.startswith(name)]
             else:
                 break
-                
+         
+        # hack 
+        #if len(argv)>0 and argv[-1].find('-') != -1 and not line.endswith(' '):
+        #    text = argv[-1]
+
+        #print 'search text is %s' %(text)
+        
         l = [item for item in  ctx.subcontexts.keys() if item.startswith(text)] 
-        l.extend([item for item, level in ctx.methods.items() if level <= self.config.getSystem('accesslevel') and item.startswith(text)])
+        l.extend([item for item, level in ctx.methods.items() if level <= self.config.getSystem(KEY_ACCESSLEVEL) and item.startswith(text)])
         return l
 
 
@@ -268,7 +308,7 @@ class FDSConsole(cmd.Cmd):
         'check if the current access level allows this function'
         ctx, pos, m = self.get_context_for_command(argv)
         if ctx:
-            return True if ctx.methods[argv[pos]] <= self.config.getSystem('accesslevel') else False
+            return True if ctx.methods[argv[pos]] <= self.config.getSystem(KEY_ACCESSLEVEL) else False
         else:
             return None
 
@@ -318,7 +358,7 @@ class FDSConsole(cmd.Cmd):
         l += ['Formation Data Systems Console ...']
         l += ['Copyright 2014 Formation Data Systems, Inc.']
         l += ['============================================']
-        l += ['NOTE: the current access level : %s' % (AccessLevel.getName(self.config.getSystem('accesslevel')))]
+        l += ['NOTE: the current access level : %s' % (AccessLevel.getName(self.config.getSystem(KEY_ACCESSLEVEL)))]
         l += ['']
         try:
             if argv == None or len(argv) == 0 : 

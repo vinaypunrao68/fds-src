@@ -85,7 +85,7 @@ class SnapshotPolicyContext(Context):
     #--------------------------------------------------------------------------------------
     @clicmd
     @arg('policy-id', type=long, help= "-snap shot policy id")
-    def list_volumes(policy_id):
+    def volumes(policy_id):
         try:
             # get the  OM client  handler
             client = svc_map.omConfig()

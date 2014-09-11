@@ -1,5 +1,8 @@
 
 ATTR_CLICMD='clicmd'
+KEY_SYSTEM = '__system__'
+KEY_ACCESSLEVEL = '__accesslevel__'
+PROTECTED_KEYS = [KEY_SYSTEM, KEY_ACCESSLEVEL]
 
 class AccessLevel:
     '''
@@ -57,10 +60,10 @@ class ConfigData:
         return self.__data[namespace][key]
     
     def getSystem(self, key):
-        return self.get(key, '__system__')
+        return self.get(key, KEY_SYSTEM)
 
     def setSystem(self, key, value):
-        return self.set(key, value, '__system__')
+        return self.set(key, value, KEY_SYSTEM)
 
 def setupHistoryFile():
     '''
