@@ -132,7 +132,7 @@ Platform::plf_is_om_node()
     // port for net service update protocols.
     // HACK(Vy) - we need better mechanism!
     //
-    if (*plf_get_om_ip() == "127.0.0.1") {
+    if ((*plf_get_om_ip() == "127.0.0.1") || (*plf_get_om_ip() == "localhost")) {
         /* Assume same node testing, use port info. */
         if (plf_get_om_svc_port() == plf_get_my_node_port()) {
             return true;

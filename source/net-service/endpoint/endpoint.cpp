@@ -124,8 +124,8 @@ EpSvcHandle::ep_reconnect()
     fds_mutex *mtx;
 
     fds_verify((ep_rpc != NULL) && (ep_trans != NULL));
-    if ((ep_state == EP_ST_CONNECTED) || (ep_state == EP_ST_CONNECTING)) {
-        return ep_state;
+    if ((ep_state & (EP_ST_CONNECTED | EP_ST_CONNECTING)) != 0) {
+        return static_cast<ep_state_e>(ep_state);
     }
     net = NetMgr::ep_mgr_singleton();
     mtx = net->ep_obj_mutex(this);
@@ -134,26 +134,33 @@ EpSvcHandle::ep_reconnect()
         << " connect@" << ep_sock->getHost() << ":" << ep_sock->getPort();
 
     mtx->lock();
-    if (ep_state != EP_ST_CONNECTING) {
-        ep_state = EP_ST_CONNECTING;
+    if ((ep_state & (EP_ST_CONNECTING | EP_ST_CONNECTED)) == 0) {
+        ep_state &= ~EP_ST_DISCONNECTED;
+        ep_state |= EP_ST_CONNECTING;
         mtx->unlock();
 
-        try {
-            ep_trans->open();
-            ep_state = EP_ST_CONNECTED;
-            ep_notify_plugin();
-        } catch(std::exception &e) {
-            LOGWARN << "Failed to open socket " << logString() << " exception: " << e.what();
-            ep_state = EP_ST_DISCONNECTED;
-        } catch(...) {
-            LOGWARN << "Failed to open socket " << logString() << " unknown exception";
-            ep_state = EP_ST_DISCONNECTED;
+        for (int retry = 0; retry < 100; retry++) {
+            try {
+                ep_trans->open();
+                ep_state &= ~EP_ST_CONNECTING;
+                ep_state |= EP_ST_CONNECTED;
+                ep_notify_plugin(false);
+            } catch(std::exception &e) {
+                LOGWARN << "Failed to open socket "
+                        << logString() << " exception: " << e.what();
+                ep_state &= ~EP_ST_CONNECTING;
+                ep_state |= EP_ST_DISCONNECTED;
+            } catch(...) {
+                LOGWARN << "Failed to open socket "
+                        << logString() << " unknown exception";
+                ep_state &= ~EP_ST_CONNECTING;
+                ep_state |= EP_ST_DISCONNECTED;
+            }
         }
-        fds_assert(ep_state == EP_ST_CONNECTED);
     } else {
         mtx->unlock();
     }
-    return ep_state;
+    return static_cast<ep_state_e>(ep_state);
 }
 
 // ep_handle_net_error
@@ -162,7 +169,16 @@ EpSvcHandle::ep_reconnect()
 void
 EpSvcHandle::ep_handle_net_error()
 {
-    ep_state = EP_ST_DISCONNECTED;
+    NetMgr    *net;
+    fds_mutex *mtx;
+
+    net = NetMgr::ep_mgr_singleton();
+    mtx = net->ep_obj_mutex(this);
+    mtx->lock();
+    ep_state &= ~(EP_ST_CONNECTING | EP_ST_CONNECTED);
+    ep_state |= EP_ST_DISCONNECTED;
+    mtx->unlock();
+
     if (ep_trans != NULL) {
         ep_trans->close();
     }
@@ -181,9 +197,19 @@ EpSvcHandle::ep_handle_error(const Error &err)
 // ----------------
 //
 void
-EpSvcHandle::ep_notify_plugin()
+EpSvcHandle::ep_notify_plugin(bool always)
 {
-    if (ep_plugin == NULL) {
+    NetMgr    *net;
+    fds_mutex *mtx;
+
+    if (always == true) {
+        net = NetMgr::ep_mgr_singleton();
+        mtx = net->ep_obj_mutex(this);
+        mtx->lock();
+        ep_state &= ~EP_ST_NO_PLUGIN;
+        mtx->unlock();
+    }
+    if ((ep_plugin == NULL) || (ep_state & EP_ST_NO_PLUGIN)) {
         return;
     }
     if (ep_state == EP_ST_CONNECTED) {
