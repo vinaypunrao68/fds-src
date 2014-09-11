@@ -714,7 +714,7 @@ void VolumeInfo::initSnapshotVolInfo(VolumeInfo::pointer vol, const fpi::Snapsho
     vol->volUUID =  snapshot.snapshotId;
     // vol->vol_am_nodes = vol_am_nodes;
     vol->vol_properties->name = snapshot.snapshotName;
-    vol->vol_properties->parentVolumeId = volUUID;
+    vol->vol_properties->srcVolumeId = volUUID;
     vol->vol_properties->volUUID = snapshot.snapshotId;
     vol->vol_properties->fSnapshot = true;
 
@@ -751,7 +751,7 @@ VolumeInfo::vol_fmt_desc_pkt(FDSP_VolumeDescType *pkt) const
     pkt->appWorkload       = pVol->appWorkload;
     pkt->mediaPolicy   = pVol->mediaPolicy;
     pkt->fSnapshot   = pVol->fSnapshot;
-    pkt->parentVolumeId   = pVol->parentVolumeId;
+    pkt->srcVolumeId   = pVol->srcVolumeId;
 }
 
 // vol_fmt_message

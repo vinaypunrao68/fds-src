@@ -178,7 +178,7 @@ bool ConfigDB::addVolume(const VolumeDesc& vol) {
                               vol.iops_max,
                               vol.relativePrio,
                               vol.fSnapshot,
-                              vol.parentVolumeId
+                              vol.srcVolumeId
                               );
         if (reply.isOk()) return true;
         LOGWARN << "msg: " << reply.getString();
@@ -314,7 +314,7 @@ bool ConfigDB::getVolume(fds_volid_t volumeId, VolumeDesc& vol) {
             else if (key == "iops.max") {vol.iops_max = strtod (value.c_str(), NULL);}
             else if (key == "relative.priority") {vol.relativePrio = atoi(value.c_str());}
             else if (key == "fsnapshot") {vol.fSnapshot = atoi(value.c_str());}
-            else if (key == "parentvolumeid") {vol.parentVolumeId = strtoull(value.c_str(), NULL, 10);} //NOLINT
+            else if (key == "parentvolumeid") {vol.srcVolumeId = strtoull(value.c_str(), NULL, 10);} //NOLINT
             else { //NOLINT
                 LOGWARN << "unknown key for volume [" << volumeId <<"] - " << key;
                 fds_assert(!"unknown key");

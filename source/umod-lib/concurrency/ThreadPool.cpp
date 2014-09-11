@@ -44,6 +44,11 @@ class thpool_worker
         fds_assert(task->thp_empty_chain_link() == true);
         wk_prev_state = wk_curr_state;
         wk_curr_state = RUNNING;
+
+        /* TODO(Vy): implement timewait queue! */
+        if (task->thp_sched_tck != 0) {
+            sleep(task->thp_sched_tck);
+        }
         (*task)();
         delete task;
     }
@@ -410,6 +415,19 @@ fds_threadpool::schedule(thpool_req *task)
     }
     thp_mutex.unlock();
     thp_house_keeping();
+}
+
+// thp_periodic_work
+// -----------------
+// Implement timer service here.
+//
+void
+fds_threadpool::thp_periodic_work()
+{
+    while (1) {
+        thp_cur_tck++;
+        sleep(1);
+    }
 }
 
 /** \fds_threadpool::thp_dequeue_task_or_idle

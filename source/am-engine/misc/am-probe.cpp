@@ -395,20 +395,20 @@ AmProbe::AmProbeOp::js_exec_obj(JsObject *parent,
             gl_AmProbe.threadPool->schedule(AmProbe::doAsyncStartTx,
                                             info->volumeName,
                                             info->blobName,
-                                            blobMode);
+                                            blobMode, 0);
         } else if (info->op == "updateBlob") {
             gl_AmProbe.threadPool->schedule(AmProbe::doAsyncUpdateBlob,
                                             info->volumeName,
                                             info->blobName,
                                             info->blobOffset,
                                             info->dataLength,
-                                            info->data);
+                                            info->data, 0);
         } else if (info->op == "getBlob") {
             gl_AmProbe.threadPool->schedule(AmProbe::doAsyncGetBlob,
                                             info->volumeName,
                                             info->blobName,
                                             info->blobOffset,
-                                            info->dataLength);
+                                            info->dataLength, 0);
         }
     }
 

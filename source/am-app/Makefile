@@ -1,6 +1,7 @@
 topdir            := ..
 user_target       := exe
 user_rtime_env    := user
+speedup           := -j 6
 user_build_dir    := include platform
 user_incl_dir     := $(topdir)/fds_client/include include
 user_cpp_flags    :=
@@ -60,10 +61,10 @@ user_incl_dir     += $(topdir) \
 
 user_cpp      := $(wildcard *.cpp)
 
-user_ld_flags := -shared -Wl,--no-allow-shlib-undefined
+#user_ld_flags := -shared -Wl,--no-allow-shlib-undefined
 
 user_no_style     := $(user_cc) $(wildcard com_*.h)
-user_bin_exe      := libaccessmgr.so
-libaccessmgr.so   := $(user_cpp) $(user_cc)
+user_bin_exe      := bare_am
+bare_am           := $(user_cpp) $(user_cc)
 
 include $(topdir)/Makefile.incl

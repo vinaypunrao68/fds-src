@@ -22,4 +22,12 @@
         }                                                                      \
     }
 
+#define INTRUSIVE_PTR_OPS(refcnt)                                              \
+    inline void obj_inc_refcnt() {                                             \
+        refcnt.fetch_add(1, boost::memory_order_relaxed);                      \
+    }                                                                          \
+    inline void obj_dec_refcnt() {                                             \
+        intrusive_ptr_release(this);                                           \
+    }
+
 #endif  // SOURCE_INCLUDE_FDS_PTR_H_

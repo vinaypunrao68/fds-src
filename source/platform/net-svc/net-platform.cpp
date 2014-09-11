@@ -79,6 +79,7 @@ PlatformdNetSvc::mod_startup()
                 new fpi::FDSP_ControlPathReqProcessor(plat_ctrl_recv)),
             plat_plugin, 0, NET_SVC_CTRL);
 
+    netmgr->ep_register(plat_ep, false);
     LOGNORMAL << "Startup platform specific net svc, port "
               << plat_lib->plf_get_my_node_port();
 }
@@ -89,7 +90,6 @@ PlatformdNetSvc::mod_startup()
 void
 PlatformdNetSvc::mod_enable_service()
 {
-    netmgr->ep_register(plat_ep, false);
     netmgr->ep_register(plat_ctrl_ep, false);
     NetPlatSvc::mod_enable_service();
 }

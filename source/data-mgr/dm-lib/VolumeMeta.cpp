@@ -79,7 +79,7 @@ void VolumeMeta::dmCopyVolumeDesc(VolumeDesc *v_desc, VolumeDesc *pVol) {
     v_desc->iops_min = pVol->iops_min;
     v_desc->relativePrio = pVol->relativePrio;
     v_desc->fSnapshot = pVol->fSnapshot;
-    v_desc->parentVolumeId = pVol->parentVolumeId;
+    v_desc->srcVolumeId = pVol->srcVolumeId;
 }
 
 }  // namespace fds

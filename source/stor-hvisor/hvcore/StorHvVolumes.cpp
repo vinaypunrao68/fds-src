@@ -380,7 +380,7 @@ fds_volid_t StorHvVolumeTable::getBaseVolumeId(fds_volid_t vol_uuid)
         if (iter != volume_map.end()) {
             VolumeDesc& volDesc = *(iter->second->voldesc);
             if (volDesc.isSnapshot() || volDesc.isClone()) {
-                return volDesc.getParentVolumeId();
+                return volDesc.getSrcVolumeId();
             }
         }
     }

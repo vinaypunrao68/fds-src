@@ -284,7 +284,7 @@ DataMgr::createSnapshot(const fpi::Snapshot & snapDetails) {
     VolumeDesc snapdesc(*volmeta->vol_desc);
     snapdesc.volUUID = snapDetails.snapshotId;
     snapdesc.name = snapDetails.snapshotName;
-    snapdesc.parentVolumeId = snapDetails.volumeId;
+    snapdesc.srcVolumeId = snapDetails.volumeId;
     snapdesc.ctime = boost::posix_time::from_time_t(snapDetails.creationTimestamp);
     snapdesc.fSnapshot = true;
 
