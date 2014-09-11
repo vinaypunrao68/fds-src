@@ -1,4 +1,5 @@
 topdir         := ..
+speedup        := -j 5
 user_build_dir := compiler/cpp/src lib/cpp/src/thrift
 
 include $(topdir)/Makefile.incl
