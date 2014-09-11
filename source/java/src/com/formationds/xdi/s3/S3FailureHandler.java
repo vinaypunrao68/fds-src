@@ -7,6 +7,7 @@ import com.formationds.apis.ApiException;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.web.toolkit.RequestHandler;
 
+import javax.servlet.ServletException;
 import java.util.function.Function;
 
 public class S3FailureHandler implements Function<AuthenticationToken, RequestHandler> {
@@ -27,6 +28,8 @@ public class S3FailureHandler implements Function<AuthenticationToken, RequestHa
                 return makeS3Failure(requestedResource, e);
             } catch (SecurityException e) {
                 return new S3Failure(S3Failure.ErrorCode.AccessDenied, "Access denied", requestedResource);
+            } catch (ServletException e) {
+                return new S3Failure(S3Failure.ErrorCode.InvalidRequest, e.getMessage(), requestedResource);
             }
         };
     }
