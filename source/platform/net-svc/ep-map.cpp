@@ -4,7 +4,7 @@
 #include <vector>
 #include <ep-map.h>
 #include <platform.h>
-#include <net-plat-shared.h>
+#include <platform/net-plat-shared.h>
 #include <net/RpcFunc.h>
 
 namespace fds {

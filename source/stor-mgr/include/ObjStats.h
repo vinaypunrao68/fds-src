@@ -25,7 +25,6 @@ extern "C" {
 #include <utility>
 #include <vector>
 
-#include "stor_mgr_err.h"
 #include "fds_volume.h"
 #include "fds_types.h"
 #include "util/Log.h"

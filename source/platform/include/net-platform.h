@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 #include <ep-map.h>
-#include <net-plat-shared.h>
+#include <platform/net-plat-shared.h>
 #include <net/PlatNetSvcHandler.h>
 
 namespace fds {
@@ -18,10 +18,6 @@ namespace fds {
  */
 class PlatformdNetSvc;
 class PlatformEpHandler;
-
-typedef EndPoint<fpi::FDSP_ControlPathReqIf,
-                 fpi::FDSP_ControlPathReqProcessor> PlatNetCtrlEp;
-typedef bo::intrusive_ptr<PlatNetCtrlEp>            PlatNetCtrlEpPtr;
 
 /**
  * This class provides plugin for the endpoint run by platform daemon to represent a
@@ -62,6 +58,7 @@ class PlatformdNetSvc : public NetPlatSvc
     // Net platform services
     //
     virtual void nplat_refresh_shm() override;
+    virtual void nplat_register_node(fpi::NodeInfoMsg *, NodeAgent::pointer) override;
     virtual void nplat_register_node(const fpi::NodeInfoMsg *msg) override;
     virtual void plat_update_local_binding(const struct ep_map_rec *rec);
 
@@ -74,10 +71,6 @@ class PlatformdNetSvc : public NetPlatSvc
     EpPlatformdMod                    *plat_shm;
     PlatformdPlugin::pointer           plat_plugin;
     bo::shared_ptr<PlatformEpHandler>  plat_recv;
-
-    // Control endpoint for platform daemon.
-    PlatNetCtrlEpPtr                   plat_ctrl_ep;
-    bo::shared_ptr<PlatformRpcReqt>    plat_ctrl_recv;
 };
 
 /**

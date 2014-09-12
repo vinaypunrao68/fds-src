@@ -129,10 +129,14 @@ class NetPlatSvc : public NetPlatform
     virtual void mod_enable_service();
     virtual void mod_shutdown();
 
+    virtual DomainAgent::pointer nplat_self() override { return plat_self; }
+    virtual DomainAgent::pointer nplat_master() override { return plat_master; }
+
     // Common net platform services.
     //
     virtual void nplat_refresh_shm();
     virtual EpSvcHandle::pointer nplat_domain_rpc(const fpi::DomainID &id) override;
+    virtual void nplat_register_node(fpi::NodeInfoMsg *msg, NodeAgent::pointer node);
     virtual void nplat_register_node(const fpi::NodeInfoMsg *msg) override;
 
     virtual void nplat_set_my_ep(bo::intrusive_ptr<EpSvcImpl> ep) override;
@@ -147,7 +151,8 @@ class NetPlatSvc : public NetPlatform
     PlatNetEpPtr                         plat_ep;
     PlatNetPlugin::pointer               plat_ep_plugin;
     bo::shared_ptr<PlatNetSvcHandler>    plat_ep_hdler;
-    DomainAgent::pointer                 plat_agent;
+    DomainAgent::pointer                 plat_self;
+    DomainAgent::pointer                 plat_master;
 };
 
 /**

@@ -258,9 +258,10 @@ DataMgr::finishCloseDMT() {
     LOGDEBUG << "Will cleanup catalogs for volumes DM is not responsible anymore";
     // TODO(Anna) remove volume catalog for volumes we finished forwarding
 }
-
 Error
 DataMgr::createSnapshot(const fpi::Snapshot & snapDetails) {
+    Error rc = 0;
+#if 0
     VolumeMeta * volmeta = 0;
     VolumeMeta * snapmeta = 0;
     {
@@ -314,6 +315,7 @@ DataMgr::createSnapshot(const fpi::Snapshot & snapDetails) {
     }
     vol_meta_map[snapdesc.volUUID] = snapmeta;
 
+#endif
     return rc;
 }
 
@@ -412,15 +414,38 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
     Error err(ERR_OK);
 
     // create vol catalogs, etc first
-    err = timeVolCat_->addVolume(*vdesc);
+    if (vdesc->isSnapshot() || vdesc->isClone()) {
+        VolumeMeta * volmeta = 0;
+        {
+            FDSGUARD(*vol_map_mtx);
+            volmeta = vol_meta_map[vdesc->srcVolumeId];
+
+            if (!volmeta) {
+                GLOGWARN << "Volume '" << std::hex << vdesc->srcVolumeId << std::dec <<
+                        "' not found!";
+                return ERR_NOT_FOUND;
+            }
+        }
+        if (vdesc->isClone()) {
+            // TODO(sanjay): implement this
+        } else {
+            err = timeVolCat_->createSnapshot(*volmeta->vol_desc);
+        }
+    } else {
+        err = timeVolCat_->addVolume(*vdesc);
+    }
+
+    if (!err.ok()) {
+        LOGERROR << "Failed to " << (vdesc->isSnapshot() ? "create snapshot"
+                : (vdesc->isClone() ? "create clone" : "add volume")) << " "
+                << std::hex << vol_uuid << std::dec;
+        return err;
+    }
+
     if (err.ok() && !vol_will_sync) {
         // not going to sync this volume, activate volume
         // so that we can do get/put/del cat ops to this volume
         err = timeVolCat_->activateVolume(vol_uuid);
-    }
-    if (!err.ok()) {
-        LOGERROR << "Failed to add volume " << std::hex << vol_uuid << std::dec;
-        return err;
     }
 
     VolumeMeta *volmeta = new(std::nothrow) VolumeMeta(vol_name,
@@ -432,10 +457,18 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
                  << std::hex << vol_uuid << std::dec;
         return ERR_OUT_OF_MEMORY;
     }
-    volmeta->dmVolQueue = new(std::nothrow) FDS_VolumeQueue(4096,
-                                                            vdesc->iops_max,
-                                                            2*vdesc->iops_min,
-                                                            vdesc->relativePrio);
+
+    if (vdesc->isSnapshot()) {
+        volmeta->dmVolQueue = dataMgr->qosCtrl->getQueue(vdesc->qosQueueId);
+    }
+
+    if (!volmeta->dmVolQueue) {
+        volmeta->dmVolQueue = new(std::nothrow) FDS_VolumeQueue(4096,
+                                                        vdesc->iops_max,
+                                                        2*vdesc->iops_min,
+                                                        vdesc->relativePrio);
+    }
+
     if (!volmeta->dmVolQueue) {
         LOGERROR << "Failed to allocate Qos queue for volume "
                  << std::hex << vol_uuid << std::dec;
@@ -506,7 +539,18 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
         delete volmeta;
     }
 
-    if (err.ok() && amIPrimary(vol_uuid)) {
+    if (vdesc->isSnapshot()) {
+        return err;
+    }
+
+    /*
+     * XXX: The logic below will use source volume id to collect stats for clone,
+     *      but it will now stream the stats to AM because amIPrimary() check is
+     *      done there. Effective we are going to collect stats for clone but not
+     *      stream it.
+     * TODO(xxx): Migrate clone and then stream stats
+     */
+    if (err.ok() && amIPrimary(vdesc->isClone() ? vdesc->srcVolumeId : vol_uuid)) {
         // will aggregate stats for this volume and log them
         statStreamAggr_->attachVolume(vol_uuid);
         // create volume stat  directory.

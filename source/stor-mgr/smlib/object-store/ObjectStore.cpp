@@ -17,9 +17,9 @@ ObjectStore::~ObjectStore() {
 }
 
 Error
-ObjectStore::addVolume(const VolumeDesc& voldesc) {
+ObjectStore::addVolume(const VolumeDesc& volDesc) {
     Error err(ERR_OK);
-
+    GLOGTRACE << "Adding volume " << volDesc;
     return err;
 }
 
@@ -32,8 +32,8 @@ ObjectStore::removeVolume(fds_volid_t volId) {
 
 Error
 ObjectStore::putObject(fds_volid_t volId,
-                               const ObjectID &objId,
-                               boost::shared_ptr<const std::string> objData) {
+                       const ObjectID &objId,
+                       boost::shared_ptr<const std::string> objData) {
     Error err(ERR_OK);
 
     return err;
@@ -60,7 +60,7 @@ ObjectStore::deleteObject(fds_volid_t volId,
  * Module initialization
  */
 int
-ObjectDataStore::mod_init(SysParams const *const p) {
+ObjectStore::mod_init(SysParams const *const p) {
     Module::mod_init(p);
     return 0;
 }
@@ -69,14 +69,14 @@ ObjectDataStore::mod_init(SysParams const *const p) {
  * Module startup
  */
 void
-ObjectDataStore::mod_startup() {
+ObjectStore::mod_startup() {
 }
 
 /**
  * Module shutdown
  */
 void
-ObjectDataStore::mod_shutdown() {
+ObjectStore::mod_shutdown() {
 }
 
 }  // namespace fds

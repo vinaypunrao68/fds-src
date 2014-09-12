@@ -40,6 +40,8 @@ class NodePlatform : public Platform
     NodePlatformProc    *plf_process;
     DiskPlatModule      *disk_ctrl;
 
+    virtual void plf_bind_om_node();
+
     virtual PlatRpcReqt *plat_creat_reqt_disp();
     virtual PlatRpcResp *plat_creat_resp_disp();
 };

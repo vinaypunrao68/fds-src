@@ -81,7 +81,7 @@ class DmVolumeCatalog : public Module,
     /**
      * Create snapshot of a volume
      */
-    Error createSnapshot(const VolumeDesc & voldesc, const VolumeDesc & snapshotVoldesc);
+    Error createSnapshot(const VolumeDesc & voldesc);
 
     /**
      * Activate catalog for the given volume 'volume_id'. After this call

@@ -252,6 +252,17 @@ class Platform : public Module
     static inline NodeUuid const *const plf_get_my_svc_uuid() {
         return &platf_singleton()->plf_my_svc_uuid;
     }
+    static inline void plf_om_svc_ep(fpi::SvcUuid *mine, fpi::SvcUuid *om) {
+        gl_OmUuid.uuid_assign(om);
+        platf_singleton()->plf_my_svc_uuid.uuid_assign(mine);
+    }
+    static inline NodeAgent::pointer plf_find_node_agent(const NodeUuid &nd_uuid) {
+        return platf_singleton()->plf_node_inv->dc_find_node_agent(nd_uuid);
+    }
+    static inline NodeAgent::pointer plf_find_node_agent(const fpi::SvcUuid &svc) {
+        NodeUuid nd_uuid(svc.svc_uuid);
+        return plf_find_node_agent(nd_uuid);
+    }
     /**
      * Return service uuid and port from node uuid and service type.
      */
