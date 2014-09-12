@@ -323,16 +323,20 @@ PlatAgent::agent_bind_svc(EpPlatformdMod *map, node_data_t *ninfo, fpi::FDSP_Mgr
 void
 PlatAgentPlugin::ep_connected()
 {
+    NodeUuid                       uuid;
+    Platform                      *plat;
     NetPlatform                   *net_plat;
     fpi::NodeInfoMsg              *msg;
-    std::vector<fpi::NodeInfoMsg>  ret;
+    NodeAgent::pointer             pm;
+    EpSvcHandle::pointer           eph;
+    std::vector<fpi::NodeInfoMsg>  ret, ignore;
+    bo::shared_ptr<fpi::PlatNetSvcClient> rpc;
 
-    std::cout << "Platform agent connected to domain controller" << std::endl;
-
-    msg = new fpi::NodeInfoMsg();
+    plat = Platform::platf_singleton();
+    msg  = new fpi::NodeInfoMsg();
     pda_agent->init_plat_info_msg(msg);
 
-    auto rpc = pda_agent->pda_rpc();
+    rpc = pda_agent->pda_rpc();
     rpc->notifyNodeInfo(ret, *msg, true);
 
     std::cout << "Got " << ret.size() << " elements back" << std::endl;
@@ -340,6 +344,14 @@ PlatAgentPlugin::ep_connected()
     net_plat = NetPlatform::nplat_singleton();
     for (auto it = ret.cbegin(); it != ret.cend(); it++) {
         net_plat->nplat_register_node(&*it);
+
+        /* Send to the peer node info about myself. */
+        uuid.uuid_set_val((*it).node_loc.svc_node.svc_uuid.svc_uuid);
+        pm = plat->plf_find_node_agent(uuid);
+
+        rpc = pm->node_svc_rpc(&eph);
+        ignore.clear();
+        rpc->notifyNodeInfo(ignore, *msg, false);
     }
 }
 
