@@ -315,6 +315,45 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     int64_t cloneVolume(boost::shared_ptr<int64_t>& volumeId,
                         boost::shared_ptr<int64_t>& fdsp_PolicyInfoId,
                         boost::shared_ptr<std::string>& clonedVolumeName) {
+        checkDomainStatus();
+        OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+        VolumeContainer::pointer volContainer = local->om_vol_mgr();
+        VolPolicyMgr      *volPolicyMgr = om->om_policy_mgr();
+        VolumeInfo::pointer  parentVol, cloneVol;
+        fds_volid_t cloneVolId = fds::getUuidFromVolumeName(*clonedVolumeName);
+
+        cloneVol = VolumeInfo::vol_cast_ptr(
+            volContainer->rs_get_resource(clonedVolumeName->c_str()));
+        if (cloneVol != NULL) {
+            LOGWARN << "volume with same name already exists : " << *clonedVolumeName;
+            apiException("volume with same name already exists");
+        }
+
+        parentVol = VolumeInfo::vol_cast_ptr(volContainer->rs_get_resource(*volumeId));
+        if (parentVol == NULL) {
+            LOGWARN << "unable to locate source volume info : " << *volumeId;
+            apiException("unable to locate source volume info");
+        }
+
+        VolumeDesc desc(*(parentVol->vol_get_properties()));
+
+        desc.volUUID = cloneVolId;
+        desc.name = *clonedVolumeName;
+        desc.volPolicyId = *fdsp_PolicyInfoId;
+        desc.backupVolume = invalid_vol_id;
+        desc.fSnapshot = false;
+        desc.srcVolumeId = *volumeId;
+
+        if (parentVol->vol_get_properties()->lookupVolumeId == invalid_vol_id) {
+            desc.lookupVolumeId = *volumeId;
+        } else {
+            desc.lookupVolumeId = parentVol->vol_get_properties()->lookupVolumeId;
+        }
+
+        desc.qosQueueId = invalid_vol_id;
+        volPolicyMgr->fillVolumeDescPolicy(&desc);
+        LOGDEBUG << "adding a clone request..";
+        volContainer->addVolume(desc);
         return 0;
     }
 };
