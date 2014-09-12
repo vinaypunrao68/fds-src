@@ -1,6 +1,7 @@
 topdir            := ..
 user_target       := exe
 user_std_libs     := true
+speedup           := -j 5
 user_rtime_env    := user
 user_build_dir    := include dm-lib platform
 

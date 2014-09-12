@@ -133,9 +133,17 @@ ifdef user_build_dir
 		echo Making $(MAKECMDGOALS) in `pwd`/$$f;                                     \
 		makearg="--no-print-directory";                                               \
 		if [ -e $$f/Makefile.fds ]; then                                              \
+                   if [ x"${fastb}" = x ]; then \
 			($(MAKE) -C $$f -f Makefile.fds $(MAKECMDGOALS) $$makearg) || exit 1;     \
+                   else \
+			($(MAKE) -C $$f -j 5 -f Makefile.fds $(MAKECMDGOALS) $$makearg) || exit 1;     \
+                   fi \
 		else                                                                          \
+                   if [ x"${fastb}" = x ]; then \
 			($(MAKE) -C $$f $(MAKECMDGOALS) $$makearg) || exit 1;                     \
+                   else \
+			($(MAKE) $(speedup) -C $$f $(MAKECMDGOALS) $$makearg) || exit 1;                     \
+                   fi \
 		fi                                                                            \
 	done
 endif
@@ -233,6 +241,7 @@ ifdef VERBOSE
 	$(call scpt_check_style,$(cc_style),$(local_chk_cc),$(user_no_style),$<,$@)
 else
 	@echo -n "    [CC STYLE]    $<"
+	@mkdir -p build.linux-x86_64
 	@$(call scpt_check_style,$(cc_style),$(local_chk_cc),$(user_no_style),$<,$@)
 endif
 
@@ -242,6 +251,7 @@ ifdef VERBOSE
         $(cpp_style),$(local_chk_cpp),$(user_no_style),$<,$@)
 else
 	@echo -n "    [H STYLE]   $<"
+	@mkdir -p build.linux-x86_64
 	@$(call scpt_check_style, \
         $(cpp_style),$(local_chk_cpp),$(user_no_style),$<,$@)
 endif
@@ -255,6 +265,7 @@ ifdef VERBOSE
         $(cpp_style),$(local_chk_cpp),$(user_no_style),$<,$@)
 else
 	@echo -n "    [CPP STYLE]   $<"
+	@mkdir -p build.linux-x86_64
 	@$(call scpt_check_style, \
         $(cpp_style),$(local_chk_cpp),$(user_no_style),$<,$@)
 endif
@@ -265,6 +276,7 @@ ifdef VERBOSE
         $(cpp_style),$(local_chk_cpp),$(user_no_style),$<,$@)
 else
 	@echo -n "    [H STYLE]   $<"
+	@mkdir -p build.linux-x86_64
 	@$(call scpt_check_style, \
         $(cpp_style),$(local_chk_cpp),$(user_no_style),$<,$@)
 endif
@@ -277,6 +289,7 @@ ifdef VERBOSE
 	$(cc) -MMD $(local_cc_flags) -c $< -o $@
 else
 	@echo "    [CC]          $<"
+	@mkdir -p build.linux-x86_64
 	@$(cc) -MMD $(local_cc_flags) -c $< -o $@
 endif
 	@mv $(local_dep_files)$*.d $(local_dep_files)$*.P
@@ -289,6 +302,7 @@ ifdef VERBOSE
 	$(cpp) -MMD $(local_cpp_flags) -c $< -o $@
 else
 	@echo "    [CPP]         $<"
+	@mkdir -p build.linux-x86_64
 	@$(cpp) -MMD $(local_cpp_flags) -c $< -o $@
 endif
 	@mv $(local_dep_files)$*.d $(local_dep_files)$*.P
@@ -298,6 +312,7 @@ ifdef VERBOSE
 	$(cpp) -MMD $(local_cpp_flags) -c $< -o $@
 else
 	@echo "    [CPP]         $<"
+	@mkdir -p build.linux-x86_64
 	@$(cpp) -MMD $(local_cpp_flags) -c $< -o $@
 endif
 	@mv $(local_dep_files)$*.d $(local_dep_files)$*.P

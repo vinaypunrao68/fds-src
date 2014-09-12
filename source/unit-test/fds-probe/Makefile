@@ -1,4 +1,5 @@
 topdir            := ../..
+speedup           := -j 5 
 user_build_dir    := s3 thrift pm sm \
     s3-template  \
     blk-template \

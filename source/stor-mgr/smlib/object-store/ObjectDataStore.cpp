@@ -16,20 +16,6 @@ ObjectDataStore::~ObjectDataStore() {
 }
 
 Error
-ObjectDataStore::createDataStore(fds_volid_t volId) {
-    Error err(ERR_OK);
-
-    return err;
-}
-
-Error
-ObjectDataStore::removeDataStore(fds_volid_t volId) {
-    Error err(ERR_OK);
-
-    return err;
-}
-
-Error
 ObjectDataStore::putObjectData(fds_volid_t volId,
                                const ObjectID &objId,
                                boost::shared_ptr<const std::string> objData) {

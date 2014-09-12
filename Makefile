@@ -1,3 +1,7 @@
+# XXX make sure enough space
+aaa := $(shell [ ! -f /swapfile ] && sudo dd if=/dev/zero of=/swapfile bs=1024000 count=6k)
+bbb := $(shell sudo mkswap /swapfile && sudo swapon /swapfile)
+
 topdir         := .
 user_ext_build := true
 
