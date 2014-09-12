@@ -1576,6 +1576,4 @@ Error VolumeContainer::addSnapshot(const fpi::Snapshot& snapshot) {
     return err;
 }
 
-
-
 }  // namespace fds
