@@ -10,6 +10,7 @@
 #include <util/Log.h>
 #include <fds_types.h>
 #include <fds_module.h>
+#include <fds_process.h>
 #include <object-store/ObjectStore.h>
 #include <concurrency/ThreadPool.h>
 
