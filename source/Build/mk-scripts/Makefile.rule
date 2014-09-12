@@ -133,9 +133,17 @@ ifdef user_build_dir
 		echo Making $(MAKECMDGOALS) in `pwd`/$$f;                                     \
 		makearg="--no-print-directory";                                               \
 		if [ -e $$f/Makefile.fds ]; then                                              \
+                   if [ x"${fastb}" = x ]; then \
 			($(MAKE) -C $$f -f Makefile.fds $(MAKECMDGOALS) $$makearg) || exit 1;     \
+                   else \
+			($(MAKE) -C $$f -j 5 -f Makefile.fds $(MAKECMDGOALS) $$makearg) || exit 1;     \
+                   fi \
 		else                                                                          \
+                   if [ x"${fastb}" = x ]; then \
+			($(MAKE) -C $$f $(MAKECMDGOALS) $$makearg) || exit 1;                     \
+                   else \
 			($(MAKE) $(speedup) -C $$f $(MAKECMDGOALS) $$makearg) || exit 1;                     \
+                   fi \
 		fi                                                                            \
 	done
 endif

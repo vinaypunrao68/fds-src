@@ -1,4 +1,5 @@
 topdir         := ..
+speedup        := -j 5
 user_build_dir := src
 
 include $(topdir)/Makefile.incl

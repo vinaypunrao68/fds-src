@@ -715,6 +715,9 @@ void VolumeInfo::initSnapshotVolInfo(VolumeInfo::pointer vol, const fpi::Snapsho
     // vol->vol_am_nodes = vol_am_nodes;
     vol->vol_properties->name = snapshot.snapshotName;
     vol->vol_properties->srcVolumeId = volUUID;
+    vol->vol_properties->lookupVolumeId = volUUID;
+    vol->vol_properties->qosQueueId = getUuidFromVolumeName(std::to_string(volUUID));
+
     vol->vol_properties->volUUID = snapshot.snapshotId;
     vol->vol_properties->fSnapshot = true;
 

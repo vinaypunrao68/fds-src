@@ -82,6 +82,7 @@ class VolumeDesc {
     bool                   fSnapshot = false;
     fds_volid_t            srcVolumeId = invalid_vol_id;
     fds_volid_t            lookupVolumeId = invalid_vol_id;
+    fds_volid_t            qosQueueId = invalid_vol_id;
 
     VolumeDesc(const FDS_ProtocolInterface::FDSP_VolumeInfoType& volinfo,
                fds_volid_t vol_uuid);

@@ -13,7 +13,7 @@ namespace fds {
 VolumeMeta::VolumeMeta(const std::string& _name,
                        fds_int64_t _uuid,
                        VolumeDesc* desc)
-              : fwd_state(VFORWARD_STATE_NONE)
+              : fwd_state(VFORWARD_STATE_NONE), dmVolQueue(0)
 {
     const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
 

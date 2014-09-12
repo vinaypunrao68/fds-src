@@ -131,6 +131,14 @@ fds_token_id DLT::getToken(const ObjectID& objId) const {
 #endif
 }
 
+fds_token_id DLT::getToken(const ObjectID& objId,
+                          fds_uint32_t bitsPerToken) {
+    fds_verify(bitsPerToken > 0);
+    fds_uint64_t token_bitmask = ((1 << bitsPerToken) - 1);
+    return (fds_token_id)(token_bitmask &
+                          (objId.getTokenBits(bitsPerToken)));
+}
+
 void DLT::getTokenObjectRange(const fds_token_id &token,
         ObjectID &begin, ObjectID &end) const
 {
