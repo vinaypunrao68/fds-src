@@ -3,7 +3,9 @@
  */
 include "FDSP.thrift"
 include "snapshot.thrift"
+
 namespace cpp FDS_ProtocolInterface
+namespace java com.formationds.protocol
 
 /*
  * Service/domain identifiers.
@@ -40,17 +42,45 @@ struct DomainID {
  * 4. Register the serializer/deserializer in the appropriate service (.cpp/source) files
  */
 enum  FDSPMsgTypeId {
-    UnknownMsgTypeId = 0,
+    UnknownMsgTypeId                   = 0,
+
     /* Common Service Types */
-    NullMsgTypeId = 10,
-     /*
-      For cases where there is no data to be returned,
-      use EmptyMsg...
-      */
-    EmptyMsgTypeId,
-    StatStreamMsgTypeId,
-    
-     /* SM Type Ids*/
+    NullMsgTypeId                      = 10,
+    EmptyMsgTypeId                     = 11,
+    StatStreamMsgTypeId                = 12,
+
+    /* Node/service event messages. */
+    NodeSvcInfoTypeId                  = 1000,
+    UuidBindMsgTypeId                  = 1001,
+    DomainNodesTypeId                  = 1002,
+    NodeInfoMsgTypeId                  = 1003,
+    NodeInfoMsgListTypeId              = 1004,
+
+    /* Volume messages; common for AM, DM, SM. */
+    CtrlNotifyVolAddTypeId             = 2020,
+    CtrlNotifyVolRemoveTypeId          = 2021,
+    CtrlNotifyVolModTypeId             = 2022,
+    CtrlNotifySnapVolTypeId            = 2023,
+    CtrlTierPolicyTypeId               = 2024,
+    CtrlTierPolicyAuditTypeId          = 2025,
+
+    /* SM messages. */
+    CtrlStartMigrationTypeId           = 2040,
+    CtrlNotifyScavengerTypeId          = 2041,
+
+    CtrlNotifyDLTUpdateTypeId          = 2060,
+    CtrlNotifyDLTCloseTypeId           = 2061,
+
+    /* DM messages. */
+    CtrlNotifyPushDMTTypeId            = 2080,
+    CtrlNotifyDMTCloseTypeId           = 2081,
+    CtrlNotifyDMTUpdateTypeId          = 2082,
+
+    /* AM messages. */
+    CtrlNotifyBucketStatTypeId         = 2100,
+    CtrlNotifyThrottleTypeId           = 2101,
+
+    /* SM Type Ids*/
     GetObjectMsgTypeId 		= 10000, 
     GetObjectRespTypeId 	= 10001,
     PutObjectMsgTypeId		= 10002, 
@@ -101,9 +131,6 @@ enum  FDSPMsgTypeId {
     CreateVolumeCloneRespMsgTypeId
 }
 
-struct EmptyMsg {
-}
-
 /*
  * Generic response message format.
  */
@@ -111,7 +138,7 @@ struct EmptyMsg {
 struct RespHdr {
     1: required i32           status,
     2: required string        text,
-}
+ }
 
 /*
  * This message header is owned, controlled and set by the net service layer.
@@ -125,8 +152,6 @@ struct AsyncHdr {
     5: required SvcUuid       	msg_dst_uuid;
     6: required i32           	msg_code;
 }
-
-
 
 /*
  * --------------------------------------------------------------------------------
@@ -145,6 +170,14 @@ struct UuidBindMsg {
     5: required SvcID                    svc_node,
     6: required string                   svc_auto_name,
     7: required FDSP.FDSP_MgrIdType      svc_type,
+/*
+    1: required SvcID                    svc_id,
+    2: required string                   svc_addr,
+    3: required i32                      svc_port,
+    4: required SvcID                    svc_node,
+    5: required string                   svc_auto_name,
+    6: required FDSP.FDSP_MgrIdType      svc_type,
+*/
 }
 
 /*
@@ -183,7 +216,139 @@ struct NodeInfoMsg {
     3: required StorCapMsg    node_stor,
     4: required i32           nd_base_port,
     5: required i32           nd_svc_mask,
+    6: required bool          nd_bcast,
 }
+
+struct NodeInfoMsgList {
+    1: list<NodeInfoMsg>      nd_list,
+}
+
+/*
+ * State encoding:
+ * 31             20           12           0
+ * +--------------+-------------+-----------+
+ * |     rsvd     | major state | sub state |
+ * +----------------------------+-----------+
+ */
+const i32 om_state_shift     = 12
+
+enum ServiceDeploymentState {
+    ds_state_mask            = 0x7ff00000,
+
+    /* We have nothing recorded in previous life. */
+    ds_pristine              = 0x00100000,
+
+    /* We were configured to belong to a local domain. */
+    ds_in_ldomain            = 0x00200000,
+
+    /* We activated service(s) running in empty shell. */
+    ds_activated             = 0x00300000,
+
+    /* We are deploying resources needed to start services. */
+    ds_dply_resources        = 0x00400000,
+    ds_dply_dlt              = 0x00400100,
+    ds_dply_dmt              = 0x00400200,
+
+    /* We are activating resources and their dependencies. */
+    ds_activate_resources    = 0x00500000,
+    ds_activate_dlt          = 0x00500100,
+    ds_activate_dmt          = 0x00500200,
+
+    /* We are at the working state, providing service(s). */
+    ds_working               = 0x00600000,
+
+    /* We are fully functional. */
+    ds_full_functional       = 0x00700000,
+
+    /* We are decommision resource/service. */
+    ds_decommission          = 0x00800000,
+
+    /* We shutdown resource/service. */
+    ds_shutdown              = 0x00900000,
+
+    /* We want to query the current state. */
+    ds_current_state         = 0x00f00000,
+}
+
+enum ServiceRuntimeState {
+    /* Common masks used in this state encoding. */
+    rt_ack_mask             = 0x00080000,
+    rt_timeout_mask         = 0x00040000,
+    rt_state_mask           = 0x7ff00000,
+
+    /* We are ready to do work. */
+    rt_ready                = 0x00100000,
+
+    /* We start service(s). */
+    rt_start_svc            = 0x00200000,
+
+    /* We are running as empty shell. */
+    rt_empty_shell          = 0x00300000,
+
+    /* We are integrating a new resource/service. */
+    rt_integrate            = 0x00400000,
+    rt_integrate_ack        = 0x00480000,
+    rt_integrate_timeout    = 0x00440000,
+    rt_integrate_node       = 0x00400001,
+
+    /* We are deploying our resource(s). */
+    rt_deploy_resources     = 0x00500000,
+    rt_deploy_ack           = 0x00580000,
+    rt_deploy_timeout       = 0x00540000,
+    rt_update_dlt           = 0x00500010,
+    rt_commit_dlt           = 0x00500020,
+    rt_abort_dlt            = 0x00500040,
+    rt_update_dmt           = 0x00500100,
+    rt_commit_dmt           = 0x00500200,
+    rt_abort_dmt            = 0x00500400,
+
+    /* We are activating resource(s). */
+    rt_activate_resources   = 0x00600000,
+    rt_activate_ack         = 0x00680000,
+    rt_activate_timeout     = 0x00640000,
+    rt_activate_vols        = 0x00601000,
+
+    /* We are working but not fully functional (e.g. full tolerant....) */
+    rt_working              = 0x00700000,
+    rt_working_pause        = 0x00700010,
+    rt_working_resume       = 0x00700020,
+
+    /* We are fully functional. */
+    rt_full_functional      = 0x00800000,
+    rt_funct_heartbeat      = 0x00810000,
+    rt_funct_persist_state  = 0x00820000,
+    rt_funct_persist_ack    = 0x00880000,
+
+    /* We have a problem. */
+    rt_problem              = 0x00900000,
+    rt_peer_failure         = 0x00900010,
+    rt_node_failure         = 0x00900100,
+    rt_component_failure    = 0x00901000,
+
+    /* We're synching resources. */
+    rt_working_sync         = 0x00a00000,
+    rt_working_sync_dlt     = 0x00a00010,
+    rt_working_sync_dmt     = 0x00a00020,
+    rt_working_sync_vols    = 0x00a00030,
+    rt_working_sync_done    = 0x00a80000,
+    rt_working_sync_timeout = 0x00a40000,
+
+    /* We restart a service/resource. */
+    rt_restart              = 0x00d00000,
+
+    /* We disable a service/resource. */
+    rt_disable              = 0x00e00000,
+
+    /* We shutdown a service/resource. */
+    rt_shutdown             = 0x00f00000,
+    rt_stop_resources       = 0x00f01000,
+    rt_release_resources    = 0x00f02000,
+    rt_cleanup_resources    = 0x00f04000,
+    rt_shutdown_done        = 0x00f80000,
+    rt_shutdown_timeout     = 0x00f40000,
+}
+
+
 
 enum ServiceStatus {
     SVC_STATUS_INVALID      = 0x0000,
@@ -201,8 +366,16 @@ struct SvcInfo {
     3: required FDSP.FDSP_MgrIdType      svc_type,
     4: required ServiceStatus            svc_status,
     5: required string                   svc_auto_name,
+/*
+    4: required ServiceRuntimeState      svc_runtime_state,
+    6: required ServiceDeploymentState   svc_deployment_state,
+    5: required string                   svc_auto_name
+*/
 }
 
+/**
+ * This becomes a control path message
+ */
 struct NodeSvcInfo {
     1: required SvcUuid                  node_base_uuid,
     2: i32                               node_base_port,
@@ -211,12 +384,22 @@ struct NodeSvcInfo {
     5: FDSP.FDSP_NodeState               node_state;
     6: i32                               node_svc_mask,
     7: list<SvcInfo>                     node_svc_list,
+/*
+    5: ServiceRuntimeState               node_runtime_state,
+    6: ServiceDeploymentState            node_deployment_state,
+    7: i32                               node_svc_mask,
+    8: list<SvcInfo>                     node_svc_list,
+*/
 }
 
 struct DomainNodes {
     1: required AsyncHdr                 dom_hdr,
     2: required DomainID                 dom_id,
     3: list<NodeSvcInfo>                 dom_nodes,
+/*
+    1: required DomainID                 dom_id,
+    2: list<NodeSvcInfo>                 dom_nodes,
+*/
 }
 
 /*
@@ -245,6 +428,116 @@ service PlatNetSvc extends BaseAsyncSvc {
     void setFlag(1:string id, 2:i64 value);
     i64 getFlag(1:string id);
     map<string, i64> getFlags(1: i32 nullarg);
+/*
+    list<NodeInfoMsg> notifyNodeInfo(1: NodeInfoMsg info, 2: bool bcast);
+    DomainNodes       getDomainNodes(1: DomainNodes dom);
+
+    ServiceRuntimeState getStatus(1: i32 nullarg);
+    map<string, i64> getCounters(1: string id);
+    void resetCounters(1: string id);
+    void setConfigVal(1:string id, 2:i64 value);
+
+    void setFlag(1:string id, 2:i64 value);
+    i64 getFlag(1:string id);
+    map<string, i64> getFlags(1: i32 nullarg);
+
+    void dumpFsm(1: string pattern);
+*/
+}
+
+/*
+ * --------------------------------------------------------------------------------
+ * Common messages
+ * --------------------------------------------------------------------------------
+ */
+struct EmptyMsg {
+}
+
+/*
+ * --------------------------------------------------------------------------------
+ * Common Control Path Messages
+ * --------------------------------------------------------------------------------
+ */
+
+/* ----------------------  CtrlNotifyVolAddTypeId  ----------------------------- */
+struct CtrlNotifyVolAdd {
+     1: FDSP.FDSP_VolumeDescType  vol_desc;   /* volume properties and attributes. */
+     2: FDSP.FDSP_VolumeInfoType  vol_info;
+     3: FDSP.FDSP_NotifyVolFlag   vol_flag;
+}
+
+/* ----------------------  CtrlNotifyVolRemoveTypeId  -------------------------- */
+struct CtrlNotifyVolRemove {
+     1: FDSP.FDSP_VolumeDescType  vol_desc;   /* volume properties and attributes. */
+     2: FDSP.FDSP_NotifyVolFlag   vol_flag;
+}
+
+/* -----------------------  CtrlNotifyVolModTypeId  ---------------------------- */
+struct CtrlNotifyVolMod {
+     1: FDSP.FDSP_VolumeDescType  vol_desc;   /* volume properties and attributes. */
+     2: FDSP.FDSP_NotifyVolFlag   vol_flag;
+}
+
+/* ----------------------  CtrlNotifySnapVolTypeId  ---------------------------- */
+struct CtrlNotifySnapVol {
+     1: FDSP.FDSP_VolumeDescType  vol_desc;   /* volume properties and attributes. */
+     2: FDSP.FDSP_VolumeInfoType  vol_info;
+     3: FDSP.FDSP_NotifyVolFlag   vol_flag;
+}
+
+/* ------------------------  CtrlTierPolicyTypeId  ----------------------------- */
+struct CtrlTierPolicy {
+     1: FDSP.FDSP_TierPolicy      tier_policy;
+}
+
+/* ----------------------  CtrlTierPolicyAuditTypeId  -------------------------- */
+struct CtrlTierPolicyAudit {
+     1: FDSP.FDSP_TierPolicyAudit tier_audit;
+}
+
+/* ----------------------  CtrlStartMigrationTypeId  --------------------------- */
+struct CtrlStartMigration {
+     1: FDSP.FDSP_DLT_Data_Type   dlt_data;
+}
+
+/* ---------------------  CtrlNotifyScavengerTypeId  --------------------------- */
+struct CtrlNotifyScavenger {
+     1: FDSP.FDSP_ScavengerType   scavenger;
+}
+
+/* ---------------------  CtrlNotifyDLTUpdateTypeId  --------------------------- */
+struct CtrlNotifyDLTUpdate {
+     1: FDSP.FDSP_DLT_Data_Type   dlt_data;
+}
+
+/* ---------------------  CtrlNotifyDLTCloseTypeId  ---------------------------- */
+struct CtrlNotifyDLTClose {
+     1: FDSP.FDSP_DltCloseType    dlt_close;
+}
+
+/* ---------------------  CtrlNotifyPushDMTTypeId  ----------------------------- */
+struct CtrlNotifyPushDMT {
+     1: FDSP.FDSP_PushMeta        dmt_push;
+}
+
+/* ---------------------  CtrlNotifyDMTCloseTypeId  ---------------------------- */
+struct CtrlNotifyDMTClose {
+     1: FDSP.FDSP_DmtCloseType    dmt_close;
+}
+
+/* --------------------  CtrlNotifyDMTUpdateTypeId  ---------------------------- */
+struct CtrlNotifyDMTUpdate {
+     1: FDSP.FDSP_DMT_Type        dmt_data;
+}
+
+/* --------------------  CtrlNotifyBucketStatTypeId  --------------------------- */
+struct CtrlNotifyBucketStat {
+     1: FDSP.FDSP_BucketStatsRespType  bucket_stat;
+}
+
+/* ---------------------  CtrlNotifyThrottleTypeId  ---------------------------- */
+struct CtrlNotifyThrottle {
+     1: FDSP.FDSP_ThrottleMsgType      throttle;
 }
 
 /* Registration for streaming stats */
