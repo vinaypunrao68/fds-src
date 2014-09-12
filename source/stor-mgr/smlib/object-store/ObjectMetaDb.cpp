@@ -9,8 +9,8 @@
 
 namespace fds {
 
-ObjectMetadataDb::ObjectMetadataDb()
-        : bitsPerToken_(0) {
+ObjectMetadataDb::ObjectMetadataDb(const std::string& dir)
+        : dir_(dir), bitsPerToken_(0) {
 }
 
 ObjectMetadataDb::~ObjectMetadataDb() {
@@ -28,12 +28,12 @@ osm::ObjectDB *ObjectMetadataDb::getObjectDB(fds_token_id tokId) {
     fds_token_id dbId = getDbId(tokId);
 
     read_synchronized(dbmapLock_) {
-        TokenTblIter iter = tokenTbl.find(tokId);
+        TokenTblIter iter = tokenTbl.find(dbId);
         if (iter != tokenTbl.end()) return iter->second;
     }
 
     // Create leveldb
-    std::string filename = "SNodeObjIndex_" + std::to_string(dbId);
+    std::string filename = dir_ + "SNodeObjIndex_" + std::to_string(dbId);
     objdb = new(std::nothrow) osm::ObjectDB(filename);
     if (!objdb) {
         LOGERROR << "Failed to create ObjectDB " << filename;

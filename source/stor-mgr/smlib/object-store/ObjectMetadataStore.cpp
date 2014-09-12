@@ -6,9 +6,10 @@
 
 namespace fds {
 
-ObjectMetadataStore::ObjectMetadataStore(const std::string& modName)
+ObjectMetadataStore::ObjectMetadataStore(const std::string& modName,
+                                         const std::string& obj_dir)
         : Module(modName.c_str()),
-          metaDb_(new ObjectMetadataDb()) {
+          metaDb_(new ObjectMetadataDb(obj_dir)) {
 }
 
 ObjectMetadataStore::~ObjectMetadataStore() {
@@ -38,7 +39,12 @@ ObjectMetadataStore::getObjectMetadata(fds_volid_t volId,
                                        const ObjectID& objId,
                                        ObjMetaData::ptr objMeta) {
     Error err(ERR_OK);
+    LOGTRACE << "Vol " << std::hex << volId << std::dec << " " << objId;
 
+    // TODO(xxx) meta cache
+    // TODO(xxx) counters for obj meta DB accesses
+
+    err = metaDb_->get(objId, objMeta);
     return err;
 }
 
@@ -47,6 +53,12 @@ ObjectMetadataStore::putObjectMetadata(fds_volid_t volId,
                                        const ObjectID& objId,
                                        ObjMetaData::const_ptr objMeta) {
     Error err(ERR_OK);
+    LOGTRACE << "Vol " << std::hex << volId << std::dec << " " << objId;
+
+    // TODO(xxx) meta cache
+    // TODO(xxx) port counters
+
+    err = metaDb_->put(objId, objMeta);
 
     return err;
 }
@@ -55,6 +67,12 @@ Error
 ObjectMetadataStore::removeObjectMetadata(fds_volid_t volId,
                                           const ObjectID& objId) {
     Error err(ERR_OK);
+    LOGTRACE << "Vol " << std::hex << volId << std::dec << " " << objId;
+
+    // TODO(xxx) meta cache
+    // TODO(xxx) port counters
+
+    err = metaDb_->remove(objId);
 
     return err;
 }

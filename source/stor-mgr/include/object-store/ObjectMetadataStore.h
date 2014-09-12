@@ -19,7 +19,8 @@ namespace fds {
  */
 class ObjectMetadataStore : public Module {
   public:
-    explicit ObjectMetadataStore(const std::string& modName);
+    ObjectMetadataStore(const std::string& modName,
+                        const std::string& obj_dir);
     ~ObjectMetadataStore();
 
     typedef std::unique_ptr<ObjectMetadataStore> unique_ptr;
