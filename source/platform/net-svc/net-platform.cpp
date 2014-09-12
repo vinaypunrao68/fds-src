@@ -348,7 +348,9 @@ PlatAgentPlugin::ep_connected()
         /* Send to the peer node info about myself. */
         uuid.uuid_set_val((*it).node_loc.svc_node.svc_uuid.svc_uuid);
         pm = plat->plf_find_node_agent(uuid);
-
+        if (pm == NULL) {
+            continue;
+        }
         rpc = pm->node_svc_rpc(&eph);
         ignore.clear();
         rpc->notifyNodeInfo(ignore, *msg, false);
