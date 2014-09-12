@@ -1,18 +1,11 @@
-# Compiled Object files
 *.slo
 *.lo
 *.o
-
-# Compiled Dynamic libraries
 *.so
 *.dylib
-
-# Compiled Static libraries
 *.lai
 *.la
 *.a
-
-# Other tmp files and files we generated.
 *~
 *.sw?
 cscope.*
@@ -20,21 +13,15 @@ tags
 core
 *.orig
 *.pyc
-
-# Built directories and outputs
 build.*
 linux-*
 .devsetup.chk
-
-# All RPC stuffs
 /source/include/net-proxies/iomsg.h
 /source/net-proxies/*_clnt.c
 /source/net-proxies/*_serv.c
 /source/net-proxies/*_svc.c
 /source/net-proxies/*_server.c
 /source/net-proxies/*_xdr.c
-
-# All Thrift gen stuffs.
 /source/include/fdsp/*
 /source/unit-test/fds-probe/thrift/thrift-gen/*
 /source/orch_mgr/java/gen-java/*
@@ -48,21 +35,15 @@ linux-*
 /source/include/xdi/*.cpp
 /source/include/apis/*.h
 /source/include/apis/*.cpp
-
-# All Pharos stuffs
 /source/tools/pharos/libposix-aio-0.8.1/*
 /source/tools/pharos/*
 /source/tools/results/*
-
-# Kernel built files.
 *.cmd
 *.ko
 /source/stor_hvisor/.tmp_versions/*
 /source/stor_hvisor/?odule*
 /source/stor_hvisor/*.mod.*
-
 node_modules
-#dist
 test/temp
 .sass-cache
 app/bower_components
@@ -72,29 +53,21 @@ test/bower_components/
 .ruby-version
 /source/orch_mgr/java/gmon.out
 /source/fdsp/gmon.out
-
-# gmock/nginx
 gmock-1.7.0/gmock_test
 nginx/src/main/ngx_modules.c
 /source/am-engine/am-urls.cpp
-
-# Debian Archives and tmp dirs
 *.deb
 tmppkg*/
-
-# eclipse related
 .cproject
 .project
 .pydevproject
 .settings
-
 *.iml
-
-#youcompleteme related
 ycm.flags
 .idea/*
 source/java/.idea
 source/.idea
 source/java/${build.dir}/
-
 ycm.flags
+source/java/null
+source/java/target
