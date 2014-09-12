@@ -590,7 +590,9 @@ Error StorHvCtrl::getBlobSvc(fds::AmQosReq *qosReq)
                           volId,
                           RESPONSE_MSG_HANDLER(StorHvCtrl::getBlobQueryCatalogResp, qosReq));
     } else {
-        fds_verify(*objectId != NullObjectID);
+        // TODO(Andrew): Consider adding this back when we revisit
+        // zero length objects
+        // fds_verify(*objectId != NullObjectID);
         blobReq->setObjId(*objectId);
         fds::PerfTracer::tracePointBegin(blobReq->smPerfCtx); 
         issueGetObject(qosReq,
@@ -636,6 +638,21 @@ void StorHvCtrl::issueGetObject(AmQosReq *qosReq,
     fds_verify(blobReq->magicInUse() == true);
     fds_volid_t volId = blobReq->getVolId();
     ObjectID objId    = blobReq->getObjId();
+
+    // TODO(Andrew): This is a hack to handle reading zero length blobs.
+    // The DM or AM cache is going to return a invalid object Id (i.e., 0)
+    // the represents an empty blob. Here's we're just going to set the data
+    // length to 0 and return. We should figure out how we want this flow to
+    // actually go (the entire read API and path should be improved).
+    if (objId == NullObjectID) {
+        GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback,
+                                                    blobReq->cb);
+        cb->returnSize = 0;
+        cb->call(error);
+        qos_ctrl->markIODone(qosReq);
+        delete blobReq;
+        return;
+    }
 
     // Check cache for object data
     boost::shared_ptr<std::string> objectData =
@@ -710,7 +727,9 @@ void StorHvCtrl::getBlobQueryCatalogResp(fds::AmQosReq* qosReq,
         if ((fds_uint64_t)(*it).offset == blobReq->getBlobOffset()) {
             // found offset!!!
             ObjectID objId((*it).data_obj_id.digest);
-            fds_verify(objId != NullObjectID);
+            // TODO(Andrew): Consider adding this back when we revisit
+            // zero length objects
+            // fds_verify(objId != NullObjectID);
             
             blobReq->setObjId(objId);
             fds::PerfTracer::tracePointBegin(blobReq->smPerfCtx); 
