@@ -6,7 +6,9 @@
 
 #include <string>
 #include <fds_module.h>
+#include <fds_types.h>
 #include <persistent_layer/dm_io.h>
+#include <SmDiskTypes.h>
 
 namespace fds {
 
