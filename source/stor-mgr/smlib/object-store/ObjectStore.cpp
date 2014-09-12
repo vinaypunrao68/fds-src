@@ -26,7 +26,6 @@ ObjectStore::addVolume(const VolumeDesc& volDesc) {
 Error
 ObjectStore::removeVolume(fds_volid_t volId) {
     Error err(ERR_OK);
-
     return err;
 }
 
@@ -35,6 +34,16 @@ ObjectStore::putObject(fds_volid_t volId,
                        const ObjectID &objId,
                        boost::shared_ptr<const std::string> objData) {
     Error err(ERR_OK);
+    GLOGTRACE << "Putting object " << objId;
+
+    // Get metadata from store. Check data dedup and see if we
+    // need to write to persistent layer.
+
+    // Put data in store. We expect the data put to be atomic.
+    // If we crash after the writing the data but before writing
+    // the metadata, the orphaned object data will get cleaned up
+    // on a subsequent scavenger pass.
+    dataStore->putObjectData(volId, objId, objData);
 
     return err;
 }

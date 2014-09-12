@@ -23,7 +23,7 @@ namespace fds {
  */
 class ObjectMetadataDb {
   public:
-    ObjectMetadataDb();
+    explicit ObjectMetadataDb(const std::string& dir);
     ~ObjectMetadataDb();
 
     typedef std::unique_ptr<ObjectMetadataDb> unique_ptr;
@@ -69,6 +69,9 @@ class ObjectMetadataDb {
 
      // cached number of bits per (global) token
      fds_uint32_t bitsPerToken_;
+
+     // directory of level db files
+     std::string dir_;
 };
 
 }  // namespace fds

@@ -109,13 +109,9 @@ Platform::plf_update_cluster()
 void
 Platform::plf_rpc_om_handshake(fpi::FDSP_RegisterNodeTypePtr reg)
 {
-    if (plf_master == NULL) {
-        fds_verify(plf_om_resp == NULL);
+    fds_verify(plf_master != NULL);
 
-        plf_master  = new OmAgent(0);
-        plf_master->om_handshake(plf_net_sess, NULL,
-                                 plf_om_ip_str, plf_om_ctrl_port);
-    }
+    plf_master->om_handshake(plf_net_sess, NULL, plf_om_ip_str, plf_om_ctrl_port);
     plf_master->init_node_reg_pkt(reg);
     plf_master->om_register_node(reg);
 }

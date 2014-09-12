@@ -9,7 +9,7 @@
 #include <net/net-service-tmpl.hpp>
 #include <platform/platform-lib.h>
 #include <platform/node-inv-shmem.h>
-#include <net-plat-shared.h>
+#include <platform/net-plat-shared.h>
 
 namespace fds {
 
@@ -37,7 +37,8 @@ NetPlatSvc::NetPlatSvc(const char *name) : NetPlatform(name)
     plat_ep        = NULL;
     plat_ep_plugin = NULL;
     plat_ep_hdler  = NULL;
-    plat_agent     = NULL;
+    plat_self      = NULL;
+    plat_master    = NULL;
 }
 
 int
@@ -53,7 +54,9 @@ NetPlatSvc::mod_startup()
 {
     Module::mod_startup();
 
-    plat_agent = new DomainAgent(*plat_lib->plf_get_my_node_uuid());
+    if (plat_self == NULL) {
+        plat_self = new DomainAgent(*plat_lib->plf_get_my_node_uuid());
+    }
 }
 
 void
@@ -61,11 +64,12 @@ NetPlatSvc::mod_enable_service()
 {
     Module::mod_enable_service();
 
-    if (!plat_lib->plf_is_om_node()) {
-        plat_agent->pda_connect_domain(fpi::DomainID());
-    }
-    plat_agent->pda_register();
+    plat_self->pda_register();
     nplat_refresh_shm();
+
+    if (!plat_lib->plf_is_om_node()) {
+        plat_self->pda_connect_domain(fpi::DomainID());
+    }
 }
 
 void
@@ -132,6 +136,14 @@ NetPlatSvc::nplat_refresh_shm()
 
 // nplat_register_node
 // -------------------
+//
+void
+NetPlatSvc::nplat_register_node(fpi::NodeInfoMsg *msg, NodeAgent::pointer node)
+{
+}
+
+// nplat_register_node
+// -------------------
 // Platform lib which linked to FDS daemon registers node inventory based on RO data
 // from the shared memory segment.
 //
@@ -162,7 +174,7 @@ NetPlatSvc::nplat_register_node(const fpi::NodeInfoMsg *msg)
 EpSvcHandle::pointer
 NetPlatSvc::nplat_domain_rpc(const fpi::DomainID &id)
 {
-    return plat_agent->pda_rpc_handle();
+    return plat_self->pda_rpc_handle();
 }
 
 // nplat_my_ep

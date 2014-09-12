@@ -109,6 +109,7 @@ def do_delete(conn, target):
 
 def task(task_id, n_reqs, req_type, vol, files,
          queue, prev_uploaded, barrier, counters, time_start_volume):
+    used_files = set()
     stats = dict(init_stats())
     i = barrier.wait()
     if task_id == 0:
@@ -121,7 +122,12 @@ def task(task_id, n_reqs, req_type, vol, files,
             print ("heartbeat for", task_id, "volume_id:", vol, "i:", i)
         time_start = time.time()
         if req_type == "PUT":
-            file_idx = random.randint(0, options.num_files - 1)
+            if options.put_seq is True:
+                file_idx = (stats["reqs"] + int(options.n_reqs/options.threads) * task_id) % options.num_files
+                assert not (file_idx in used_files)
+                used_files.add(file_idx)
+            else:
+                file_idx = random.randint(0, options.num_files - 1)
             uploaded.add(file_idx)
             # print "PUT", file_idx
             e = do_put(conn, "/volume%d/file%d" % (vol, file_idx), files[file_idx])
@@ -170,7 +176,7 @@ def task(task_id, n_reqs, req_type, vol, files,
             counters[vol] = -1
             stats["elapsed_time"] = time.time() - time_start_volume[vol]
     time.sleep(1)
-    queue.put((stats, uploaded, vol))
+    queue.put((stats, uploaded, vol, used_files))
 
 # TODO: add volumes here and ...
 def load_previous_uploaded():
@@ -262,8 +268,12 @@ def main(options,files):
         time.sleep(.5)  # FIXME: this delay need to be large enough, likely some race here
     time.sleep(1)
     # pull and aggregate stats
+    used_files = set()
     while not queue.empty():
-        st, up, vol = queue.get()
+        st, up, vol, used = queue.get()
+        if options.put_seq is True:
+            assert len(used_files.intersection(used)) == 0
+            used_files.update(used)
         #print ("updating")
         for k, v in st.items():
             #print (".")
@@ -307,6 +317,7 @@ if __name__ == "__main__":
     parser.add_option("-N", "--target-node", dest = "target_node", default = "localhost", help = "Target node (default is localhost)")
     parser.add_option("-P", "--target-port", dest = "target_port", type = "int", default = 8000, help = "Target port (default is 8000)")
     parser.add_option("-V", "--volume-stats", dest = "volume_stats",  default = False, action = "store_true", help = "Enable per volume stats")
+    parser.add_option("-S", "--put-seq", dest = "put_seq",  default = False, action = "store_true", help = "Generate put objects sequentially and uniquely")
 
     (options, args) = parser.parse_args()
     if options.req_type == "PUT" or options.req_type == "7030":
