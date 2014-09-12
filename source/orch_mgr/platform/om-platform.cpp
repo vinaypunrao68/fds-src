@@ -12,8 +12,8 @@
 #include <orchMgr.h>
 #include <net/net_utils.h>
 #include <net/net-service-tmpl.hpp>
+#include <om-svc-handler.h>
 #include <net/SvcRequestPool.h>
-
 
 namespace fds {
 
@@ -104,26 +104,19 @@ OmPlatform::mod_init(SysParams const *const param)
 void
 OmPlatform::mod_startup()
 {
+    int base_port;
+
     Platform::mod_startup();
     om_plugin = new OMEpPlugin(this);
     gSvcRequestPool = new SvcRequestPool();
-#if 0
-    om_recv   = bo::shared_ptr<OMSvcHandler>(new OMSvcHandler());
-    om_ep     = new EndPoint<fpi::OMSvcClient, fpi::OMSvcProcessor>(
-        Platform::platf_singleton()->plf_get_om_port(),
-        *Platform::platf_singleton()->plf_get_my_svc_uuid(),
-        NodeUuid(0ULL),
-        bo::shared_ptr<fpi::OMSvcProcessor>(new fpi::OMSvcProcessor(om_recv)),
-        om_plugin);
 
-    LOGNORMAL << "Startup platform specific net svc, port "
-              << Platform::platf_singleton()->plf_get_om_port();
-#endif
-    om_cfg_rcv  = bo::shared_ptr<FDSP_ConfigPathReqHandler>(
-                    new FDSP_ConfigPathReqHandler(gl_orch_mgr));
-    om_ctrl_rcv = bo::shared_ptr<FDSP_OMControlPathReqHandler>(
-                    new FDSP_OMControlPathReqHandler(gl_orch_mgr));
-    // om_plat_rcv = bo::shared_ptr<OMSvcHandler>(new OMSvcHandler());
+    om_ctrl_rcv = bo::shared_ptr<OmSvcHandler>(new OmSvcHandler());
+    base_port   = plf_get_om_svc_port();
+    om_ctrl_ep  = new OmControlEp(plf_get_my_ctrl_port(base_port),
+                                  gl_OmUuid, NodeUuid(0ULL),
+                                  bo::shared_ptr<fpi::BaseAsyncSvcProcessor>(
+                                      new fpi::BaseAsyncSvcProcessor(om_ctrl_rcv)),
+                                  om_plugin, plf_get_my_ctrl_port(base_port));
 }
 
 // mod_enable_service
@@ -132,7 +125,7 @@ OmPlatform::mod_startup()
 void
 OmPlatform::mod_enable_service()
 {
-    // NetMgr::ep_mgr_singleton()->ep_register(om_ep, false);
+    NetMgr::ep_mgr_singleton()->ep_register(om_ctrl_ep, false);
     Platform::mod_enable_service();
 }
 

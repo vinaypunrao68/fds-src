@@ -20,6 +20,7 @@ namespace FDS_ProtocolInterface {
     class PlatNetSvcClient;
 }  // namespace FDS_ProtocolInterface
 
+namespace bo  = boost;
 namespace fpi = FDS_ProtocolInterface;
 
 namespace fds {
@@ -47,6 +48,10 @@ typedef boost::shared_ptr<PlatRpcResp>                        OmRespDispatchPtr;
 
 typedef boost::shared_ptr<fpi::FDSP_DataPathReqClient>        NodeAgentDpClientPtr;
 typedef boost::shared_ptr<PlatDataPathResp>                   NodeAgentDpRespPtr;
+
+/* OM has a known UUID. */
+extern const NodeUuid        gl_OmUuid;
+extern const NodeUuid        gl_OmPmUuid;
 
 const fds_uint32_t NODE_DO_PROXY_ALL_SVCS = (NODE_SVC_SM | NODE_SVC_DM | NODE_SVC_AM);
 
@@ -168,6 +173,8 @@ class NodeInventory : public Resource
     virtual void init_stor_cap_msg(fpi::StorCapMsg *msg) const;
     virtual void init_plat_info_msg(fpi::NodeInfoMsg *msg) const;
     virtual void init_node_info_msg(fpi::NodeInfoMsg *msg) const;
+    virtual void init_om_info_msg(fpi::NodeInfoMsg *msg);
+    virtual void init_om_pm_info_msg(fpi::NodeInfoMsg *msg);
 
     /**
      * Convert from message format to POD type used in shared memory.

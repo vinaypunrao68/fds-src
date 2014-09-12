@@ -7,7 +7,7 @@
 #include <net/net-service-tmpl.hpp>
 #include <fdsp/PlatNetSvc.h>
 #include <ep-map.h>
-#include <net-plat-shared.h>
+#include <platform/net-plat-shared.h>
 
 namespace fds {
 
