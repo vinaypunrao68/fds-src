@@ -53,6 +53,7 @@ class Counters:
                         self._add(node, agent, name, volid, cntr_type, value, tstamp)
                     else:
                         print "Warning: volid is zero for ",node, agent, name, volid, cntr_type, value, tstamp
+                        # self._add(node, agent, name, volid, cntr_type, value, tstamp)
 
     def get_cntr(self, node, agent, name, cntr_type):
         series = {}
@@ -132,7 +133,10 @@ def new_figure(name):
     fig = plt.figure(name)
 
 def plot_series_all_volumes(series, title = None, ylabel = None, xlabel = "Time [s]", latency = False, name = None, figname = None):
-    plt.figure(figname)
+    plt.figure(figname, figsize=(3, 3))
+    fig = plt.gcf()
+    # fig.set_size_inches(10,50)
+    ax = plt.subplot(111)
     for v, s in series.iteritems():
         values = np.asarray(s[0])
         time = np.asarray(s[1])
@@ -143,21 +147,23 @@ def plot_series_all_volumes(series, title = None, ylabel = None, xlabel = "Time 
         else:
             rate = values / 1e6
         #print rate, rate.size, count.size
-        plt.plot(time, rate, label = name + ":" + str(v))
+        plt.plot(time, rate, label = name + ":" + str(v)[:4])
     if title:
         plt.title(title)
     if ylabel:
         plt.ylabel(ylabel)
     if xlabel:
         plt.xlabel(xlabel)
-    plt.legend(loc = "lower right")
-
-def legend(figname):
-    plt.figure(figname)
-    plt.legend()
+    plt.ylim(ymin = 0)
+    box = ax.get_position()
+    #ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
+    ax.set_position([0.1, 0.1, 0.5, 0.8])
+    ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))	
+    ax.set_aspect("auto")
+    #plt.legend(loc = "lower right")
 
 def plot_show_and_save(name):
-    plt.legend()
+    # plt.legend()
     plt.savefig('%s.png' % (name))
     plt.show()
 

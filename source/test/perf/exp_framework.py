@@ -174,7 +174,7 @@ class Monitors():
         print agent_pid_map
         for n, m in agent_pid_map.iteritems():
             monitors = ["collectl -P --all",
-                        "iostat -p -d 1 -k"]
+                        "iostat -kxdp -d 1 -k"]
             top_cmd = "top -b "
             for a, p in agent_pid_map[n].iteritems():
                 top_cmd += "-p" + str(p) + " "
