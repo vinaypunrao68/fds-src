@@ -2,7 +2,7 @@ angular.module('templates-main', ['scripts/account/account.html', 'scripts/activ
 
 angular.module("scripts/account/account.html", []).run(["$templateCache", function($templateCache) {
   $templateCache.put("scripts/account/account.html",
-    "<div ng-controller=\"accountController\">\n" +
+    "<div ng-controller=\"accountController\" class=\"account-page\">\n" +
     "\n" +
     "    <div class=\"header top-label\">\n" +
     "        <span>Account Details</span>\n" +
@@ -72,11 +72,14 @@ angular.module("scripts/account/account.html", []).run(["$templateCache", functi
     "        </div>\n" +
     "\n" +
     "        <div ng-show=\"password_changing\">\n" +
-    "            <input type=\"password\" class=\"form-control skinny\" ng-model=\"password\" size=\"32\" placeholder=\"Old Password\" style=\"margin-bottom: 8px;width: 300px;\"/>\n" +
-    "            <input type=\"password\" class=\"form-control skinny\" ng-model=\"confirmPassword\" size=\"32\" placeholder=\"Confirm Password\" style=\"margin-bottom: 8px;width: 300px;\"/>\n" +
+    "<!--            <input type=\"password\" class=\"form-control skinny\" ng-model=\"password\" size=\"32\" placeholder=\"Old Password\" style=\"margin-bottom: 8px;width: 300px;\"/>-->\n" +
     "            <input type=\"password\" class=\"form-control skinny\" ng-model=\"newPassword\" size=\"32\" placeholder=\"New Password\" style=\"margin-bottom: 8px;width: 300px;\"/>\n" +
+    "            <input type=\"password\" class=\"form-control skinny\" ng-model=\"confirmPassword\" size=\"32\" placeholder=\"Confirm Password\" style=\"margin-bottom: 8px;width: 300px;\"/>\n" +
+    "            <div class=\"error\" ng-show=\"changePasswordError !== false\">\n" +
+    "                {{ changePasswordError }}\n" +
+    "            </div>\n" +
     "            <div style=\"display: flex;padding-top: 12px;\" ng-show=\"password_changing\" class=\"std-transition\">\n" +
-    "                <button class=\"btn btn-primary\" style=\"margin-right: 4px;\" ng-click=\"password_changing = false;\">Save</button>\n" +
+    "                <button class=\"btn btn-primary\" style=\"margin-right: 4px;\" ng-click=\"changePassword()\">Save</button>\n" +
     "                <button class=\"btn btn-secondary\" ng-click=\"password_changing = false;\">Cancel</button>\n" +
     "            </div>\n" +
     "        </div>\n" +
@@ -90,6 +93,13 @@ angular.module("scripts/activity/activity.html", []).run(["$templateCache", func
   $templateCache.put("scripts/activity/activity.html",
     "<div ng-controller=\"activityController\">\n" +
     "\n" +
+    "    <div class=\"coming-soon-parent\" ng-show=\"!isAllowed( 'System Management' )\">\n" +
+    "        <div class=\"coming-soon-child\">\n" +
+    "            <div style=\"\">\n" +
+    "                <span style=\"color: white;\">Coming soon...</span>\n" +
+    "            </div>\n" +
+    "        </div>\n" +
+    "    </div>\n" +
     "\n" +
     "    <div class=\"header top-label\">\n" +
     "        <span>System Activity</span>\n" +
@@ -474,6 +484,14 @@ angular.module("scripts/inbox/inbox.html", []).run(["$templateCache", function($
   $templateCache.put("scripts/inbox/inbox.html",
     "<div ng-controller=\"inboxController\">\n" +
     "\n" +
+    "    <div class=\"coming-soon-parent\" ng-show=\"!isAllowed( 'System Management' )\">\n" +
+    "        <div class=\"coming-soon-child\">\n" +
+    "            <div style=\"\">\n" +
+    "                <span style=\"color: white;\">Coming soon...</span>\n" +
+    "            </div>\n" +
+    "        </div>\n" +
+    "    </div>\n" +
+    "\n" +
     "    <div class=\"header top-label\">\n" +
     "        <div style=\"position:relative;\">\n" +
     "            <div class=\"pull-left\">Messages</div>\n" +
@@ -580,7 +598,15 @@ angular.module("scripts/main/main.html", []).run(["$templateCache", function($te
 
 angular.module("scripts/status/status.html", []).run(["$templateCache", function($templateCache) {
   $templateCache.put("scripts/status/status.html",
-    "<div ng-controller=\"statusController\">\n" +
+    "<div ng-controller=\"statusController\" style=\"position: relative;\">\n" +
+    "\n" +
+    "    <div class=\"coming-soon-parent\" ng-show=\"!isAllowed( 'System Management' )\">\n" +
+    "        <div class=\"coming-soon-child\">\n" +
+    "            <div style=\"\">\n" +
+    "                <span style=\"color: white;\">Coming soon...</span>\n" +
+    "            </div>\n" +
+    "        </div>\n" +
+    "    </div>\n" +
     "\n" +
     "    <div class=\"tile-container\">\n" +
     "        <div class=\"tile-pair\">\n" +
@@ -794,6 +820,14 @@ angular.module("scripts/system/system.html", []).run(["$templateCache", function
 angular.module("scripts/users/users.html", []).run(["$templateCache", function($templateCache) {
   $templateCache.put("scripts/users/users.html",
     "<div ng-controller=\"userController\">\n" +
+    "\n" +
+    "    <div class=\"coming-soon-parent\" ng-show=\"!isAllowed( 'System Management' )\">\n" +
+    "        <div class=\"coming-soon-child\">\n" +
+    "            <div style=\"\">\n" +
+    "                <span style=\"color: white;\">Coming soon...</span>\n" +
+    "            </div>\n" +
+    "        </div>\n" +
+    "    </div>\n" +
     "\n" +
     "    <div class=\"header top-label\">\n" +
     "\n" +
