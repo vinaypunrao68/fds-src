@@ -377,13 +377,15 @@ PlatAgentPlugin::ep_connected()
     NetPlatform                   *net_plat;
     fpi::NodeInfoMsg              *msg;
     NodeAgent::pointer             pm;
-    std::vector<fpi::NodeInfoMsg>  ret;
+    EpSvcHandle::pointer           eph;
+    std::vector<fpi::NodeInfoMsg>  ret, ignore;
+    bo::shared_ptr<fpi::PlatNetSvcClient> rpc;
 
     plat = Platform::platf_singleton();
     msg  = new fpi::NodeInfoMsg();
     pda_agent->init_plat_info_msg(msg);
 
-    auto rpc = pda_agent->pda_rpc();
+    rpc = pda_agent->pda_rpc();
     rpc->notifyNodeInfo(ret, *msg, true);
 
     std::cout << "Got " << ret.size() << " elements back" << std::endl;
@@ -396,6 +398,10 @@ PlatAgentPlugin::ep_connected()
         uuid.uuid_set_val((*it).node_loc.svc_node.svc_uuid.svc_uuid);
         pm = plat->plf_find_node_agent(uuid);
         fds_assert(pm != NULL);
+
+        rpc = pm->node_svc_rpc(&eph);
+        ignore.clear();
+        rpc->notifyNodeInfo(ignore, *msg, false);
     }
 }
 
