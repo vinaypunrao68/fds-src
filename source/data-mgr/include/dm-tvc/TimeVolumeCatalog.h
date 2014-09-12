@@ -104,7 +104,7 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
     /**
      * Create snapshot of a volume
      */
-    Error createSnapshot(const VolumeDesc & voldesc, const VolumeDesc & snapVoldesc);
+    Error createSnapshot(const VolumeDesc & voldesc);
 
     /**
      * Prepare TVC and Volume Catalog to accept requests for

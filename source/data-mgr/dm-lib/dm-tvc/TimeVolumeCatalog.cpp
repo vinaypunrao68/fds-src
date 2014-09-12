@@ -129,28 +129,27 @@ DmTimeVolCatalog::addVolume(const VolumeDesc& voldesc) {
 }
 
 Error
-DmTimeVolCatalog::createSnapshot(const VolumeDesc & voldesc, const VolumeDesc & snapVoldesc) {
+DmTimeVolCatalog::createSnapshot(const VolumeDesc & voldesc) {
     DmCommitLog::ptr commitLog;
     COMMITLOG_GET(voldesc.volUUID, commitLog);
     fds_assert(commitLog);
 
     // Put snapshot entry into volume operation journal
     // Also start buffering
-    BlobTxId::const_ptr txId(new BlobTxId(snapVoldesc.volUUID));
-    Error rc = commitLog->snapshot(txId, snapVoldesc.name);
+    BlobTxId::const_ptr txId(new BlobTxId(voldesc.volUUID));
+    Error rc = commitLog->snapshot(txId, voldesc.name);
     if (!rc.ok()) {
         GLOGERROR << "Failed to write entry into commit log for snapshot '" << std::hex <<
-                snapVoldesc.volUUID << std::dec << "', volume '" << std::hex << voldesc.volUUID
-                << std::dec << "'";
+                voldesc.volUUID << std::dec << "', volume '" << std::hex << voldesc.srcVolumeId;
         return rc;
     }
 
     // Create snapshot of volume catalog
-    rc = volcat->createSnapshot(voldesc, snapVoldesc);
+    rc = volcat->createSnapshot(voldesc);
     if (!rc.ok()) {
         GLOGERROR << "Failed to copy catalog for snapshot '" << std::hex <<
-                snapVoldesc.volUUID << std::dec << "', volume '" << std::hex <<
-                voldesc.volUUID << std::dec << "'";
+                voldesc.volUUID << std::dec << "', volume '" << std::hex <<
+                voldesc.srcVolumeId;
         return rc;
     }
 
