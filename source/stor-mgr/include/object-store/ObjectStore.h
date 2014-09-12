@@ -37,7 +37,7 @@ class ObjectStore : public Module, public boost::noncopyable {
      * resources are allocated, but new volume creation is
      * thinly provisioned.
      */
-    Error addVolume(const VolumeDesc& voldesc);
+    Error addVolume(const VolumeDesc& volDesc);
 
     /**
      * Removes storage for a volume. Removes cache and other

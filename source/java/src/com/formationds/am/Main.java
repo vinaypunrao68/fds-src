@@ -35,7 +35,7 @@ public class Main {
             byte[] keyBytes = Hex.decodeHex(platformConfig.lookup("fds.aes_key").stringValue().toCharArray());
             SecretKey secretKey = new SecretKeySpec(keyBytes, "AES");
 
-            NativeAm.startAm(args);
+            // NativeAm.startAm(args);
             Thread.sleep(200);
 
             XdiClientFactory clientFactory = new XdiClientFactory();

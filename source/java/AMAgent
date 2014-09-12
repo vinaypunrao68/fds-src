@@ -1,5 +1,7 @@
 #!/bin/bash
 
+./bare_am $* &
+sleep 1
 
 for i in ../lib/java/fds-1.0-bin/fds-1.0/* ; do {
     CLASSPATH=$CLASSPATH:$i ;

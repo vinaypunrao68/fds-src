@@ -418,6 +418,13 @@ void ObjectStorMgr::mod_startup()
     fds_verify(dirtyFlashObjs->is_lock_free() == true);
     writeBackThreads = new fds_threadpool(numWBThreads);
 
+    // Init the object store
+    // TODO(Andrew): The object store should be executed as part
+    // of the module initialization since it needs to discover
+    // any prior data and possibly perform recovery before allowing
+    // another module layer to come up above it.
+    objectStore = ObjectStore::unique_ptr(new ObjectStore("SM Object Store Module"));
+
     /*
      * stats class init
      */

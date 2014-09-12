@@ -42,6 +42,7 @@ def init_stats():
          "max_latency" : 0.0,
          "latency_cnt" : 0,
          "lat_histo"   : Histogram(N = 10, M = 0.010),
+         # "lat_histo"   : Histogram(N = 100, M = 10.0),
          "inst_reqs" : 0}
     #lat_histo = [Histogram() for v in range(options.num_volumes)]
     return stats
@@ -255,12 +256,17 @@ def main(options,files):
     uploaded = [set() for x in range(options.num_volumes)]
     stats = [init_stats() for x in range(options.num_volumes)]
     # wait until all processes have pushed their stats into the queue
+    # print ("qsize:", queue.qsize())
     while queue.qsize() < (options.num_volumes * options.threads):
-        time.sleep(.1)
+        #print (".qsize:", queue.qsize())
+        time.sleep(.5)  # FIXME: this delay need to be large enough, likely some race here
+    time.sleep(1)
     # pull and aggregate stats
     while not queue.empty():
         st, up, vol = queue.get()
+        #print ("updating")
         for k, v in st.items():
+            #print (".")
             update_stat(stats[vol], k, v)
         uploaded[vol].update(up)
         queue.task_done()

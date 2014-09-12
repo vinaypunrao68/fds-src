@@ -233,16 +233,13 @@ class CounterServer:
 
 class CounterServerPull:
     def __init__(self, outdir, options):
-        # start udp server
         self.options = options
         self.outdir = outdir
-        #self.queue = multiprocessing.Queue()
-        #self.queue = Queue.Queue()
         self.stop = threading.Event()
         self.datafile, self.datafname = tempfile.mkstemp(prefix = "counters")
         self.javafile, self.javafname = tempfile.mkstemp(prefix = "javacounters")
         task_args = ("counter_server", self.datafile, self.stop)
-        #self.proc = multiprocessing.Process(target = self._task, args = task_args)
+        # FIXME: move this in its own function
         self.thread = threading.Thread(target = self._task, args = task_args)
         self.thread.start()
 

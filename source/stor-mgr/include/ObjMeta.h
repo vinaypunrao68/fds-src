@@ -29,7 +29,7 @@ extern "C" {
 #include "SmObjDb.h"
 #include "persistent_layer/dm_service.h"
 #include "persistent_layer/dm_io.h"
-#include "fds_migration.h"
+// #include "fds_migration.h"
 
 #include "fds_qos.h"
 #include "fds_assert.h"
@@ -71,6 +71,9 @@ class ObjMetaData : public serialize::Serializable {
     public:
      ObjMetaData();
      virtual ~ObjMetaData();
+
+     typedef boost::shared_ptr<ObjMetaData> ptr;
+     typedef boost::shared_ptr<const ObjMetaData> const_ptr;
 
      void initialize(const ObjectID& objid, fds_uint32_t obj_size);
 

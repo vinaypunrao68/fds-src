@@ -43,6 +43,8 @@ namespace fds {
          * the size of this DLT.
          */
         fds_token_id getToken(const ObjectID& objId) const;
+        static fds_token_id getToken(const ObjectID& objId,
+                                     fds_uint32_t bitsPerToken);
 
         /**
          * fInit(true) will setup a blank dlt for adding the token ring info..
