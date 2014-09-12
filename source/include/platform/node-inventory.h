@@ -652,6 +652,11 @@ class DomainContainer
     void dc_node_svc_info(fpi::DomainNodes &ret);
 
     /**
+     * Find the node agent matching with the given uuid.
+     */
+    NodeAgent::pointer dc_find_node_agent(const NodeUuid &uuid);
+
+    /**
      * Domain iteration plugin
      */
     inline void dc_foreach_am(ResourceIter *iter) {

@@ -61,7 +61,6 @@ PlatformdNetSvc::mod_startup()
     fpi::NodeInfoMsg   msg;
 
     Module::mod_startup();
-    // plat_agent  = new PlatAgent(*plat_lib->plf_get_my_node_uuid());
     plat_recv   = bo::shared_ptr<PlatformEpHandler>(new PlatformEpHandler(this));
     plat_plugin = new PlatformdPlugin(this);
     plat_ep     = new PlatNetEp(
@@ -70,16 +69,7 @@ PlatformdNetSvc::mod_startup()
             NodeUuid(0ULL),
             bo::shared_ptr<fpi::PlatNetSvcProcessor>(
                 new fpi::PlatNetSvcProcessor(plat_recv)), plat_plugin);
-#if 0
-    plat_ctrl_recv.reset(new PlatformRpcReqt(plat_lib));
-    plat_ctrl_ep = new PlatNetCtrlEp(
-            plat_lib->plf_get_my_ctrl_port(),
-            *plat_lib->plf_get_my_node_uuid(),
-            NodeUuid(0ULL),
-            bo::shared_ptr<fpi::FDSP_ControlPathReqProcessor>(
-                new fpi::FDSP_ControlPathReqProcessor(plat_ctrl_recv)),
-            plat_plugin, 0, NET_SVC_CTRL);
-#endif
+
     plat_self   = new PlatAgent(*plat_lib->plf_get_my_node_uuid());
     plat_master = new PlatAgent(gl_OmPmUuid);
 
@@ -382,13 +372,15 @@ PlatAgent::agent_bind_svc(EpPlatformdMod *map, node_data_t *ninfo, fpi::FDSP_Mgr
 void
 PlatAgentPlugin::ep_connected()
 {
+    NodeUuid                       uuid;
+    Platform                      *plat;
     NetPlatform                   *net_plat;
     fpi::NodeInfoMsg              *msg;
+    NodeAgent::pointer             pm;
     std::vector<fpi::NodeInfoMsg>  ret;
 
-    std::cout << "Platform agent connected to domain controller" << std::endl;
-
-    msg = new fpi::NodeInfoMsg();
+    plat = Platform::platf_singleton();
+    msg  = new fpi::NodeInfoMsg();
     pda_agent->init_plat_info_msg(msg);
 
     auto rpc = pda_agent->pda_rpc();
@@ -399,6 +391,11 @@ PlatAgentPlugin::ep_connected()
     net_plat = NetPlatform::nplat_singleton();
     for (auto it = ret.cbegin(); it != ret.cend(); it++) {
         net_plat->nplat_register_node(&*it);
+
+        /* Send to the peer node info about myself. */
+        uuid.uuid_set_val((*it).node_loc.svc_node.svc_uuid.svc_uuid);
+        pm = plat->plf_find_node_agent(uuid);
+        fds_assert(pm != NULL);
     }
 }
 

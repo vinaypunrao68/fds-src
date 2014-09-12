@@ -1215,6 +1215,24 @@ DomainContainer::dc_unregister_agent(const NodeUuid &uuid, FdspNodeType type)
     return Error(ERR_NOT_FOUND);
 }
 
+// dc_find_node_agent
+// ------------------
+//
+NodeAgent::pointer
+DomainContainer::dc_find_node_agent(const NodeUuid &uuid)
+{
+    AgentContainer::pointer nodes;
+    NodeAgent::pointer      agent;
+    fpi::FDSP_MgrIdType     type;
+
+    type  = uuid.uuid_get_type();
+    nodes = dc_container_frm_msg(type);
+    if (nodes != NULL) {
+        return nodes->agent_info(uuid);
+    }
+    return NULL;
+}
+
 class NodeSvcIter : public ResourceIter
 {
   public:
