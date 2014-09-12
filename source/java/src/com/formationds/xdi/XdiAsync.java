@@ -6,10 +6,10 @@ package com.formationds.xdi;
 import com.formationds.apis.*;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
+import com.formationds.util.ByteBufferUtility;
 import com.formationds.util.async.AsyncMessageDigest;
 import com.formationds.util.async.AsyncRequestStatistics;
 import com.formationds.util.async.AsyncResourcePool;
-import com.formationds.util.ByteBufferUtility;
 import com.formationds.util.async.CompletableFutureUtility;
 import com.formationds.util.blob.Mode;
 import org.apache.commons.codec.binary.Hex;
@@ -134,9 +134,10 @@ public class XdiAsync {
 
         return readCompleteFuture.thenCompose(_null -> {
             putParameters.digest.update(readBuf);
-            if(readBuf.remaining() < putParameters.objectSize) {
+            if (readBuf.remaining() < putParameters.objectSize) {
                 return putParameters.getFinalizedMetadata().thenCompose(md ->
-                    updateBlobOnce(putParameters.domain, putParameters.volume, putParameters.blob, Mode.TRUNCATE.getValue(), readBuf, readBuf.remaining(), objectOffset, md).whenComplete((_null2, ex) -> bufferPool.release(readBuf)));
+                        updateBlobOnce(putParameters.domain, putParameters.volume, putParameters.blob, Mode.TRUNCATE.getValue(), readBuf, readBuf.remaining(), objectOffset, md)
+                                .whenComplete((_null2, ex) -> bufferPool.release(readBuf)));
             } else {
                 return secondPut(putParameters, objectOffset + 1, readBuf);
             }
