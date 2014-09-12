@@ -71,6 +71,9 @@ NodePlatform::mod_startup()
 void
 NodePlatform::mod_enable_service()
 {
+    /* Create OM Agent and bind it to its known IP. */
+    plf_bind_om_node();
+
     NodeShmCtrl::shm_ctrl_singleton()->shm_start_consumer_thr(plf_node_type);
     Module::mod_enable_service();
 }
@@ -79,6 +82,35 @@ void
 NodePlatform::mod_shutdown()
 {
     Platform::mod_shutdown();
+}
+
+void
+NodePlatform::plf_bind_om_node()
+{
+    int                 idx;
+    node_data_t         rec;
+    fpi::NodeInfoMsg    msg;
+    ShmObjRWKeyUint64  *shm;
+    NodeAgent::pointer  agent;
+
+    if (plf_master != NULL) {
+        return;
+    }
+    /*  Well-known binding for OM services (e.g. logical). */
+    plf_master = new OmAgent(gl_OmUuid);
+    plf_master->init_om_info_msg(&msg);
+    plf_master->node_info_msg_to_shm(&msg, &rec);
+
+    /*  Fix up the record for OM. */
+    rec.nd_svc_type = fpi::FDSP_ORCH_MGR;
+
+    shm = NodeShmRWCtrl::shm_node_rw_inv();
+    idx = shm->shm_insert_rec(static_cast<void *>(&rec.nd_node_uuid),
+                              static_cast<void *>(&rec), sizeof(rec));
+    fds_verify(idx != -1);
+
+    agent = plf_master;
+    plf_node_inv->dc_register_node(shm, &agent, idx, idx, 0);
 }
 
 void

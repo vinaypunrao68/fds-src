@@ -77,12 +77,12 @@ class ServerEventHandler2 : public apache::thrift::server::TServerEventHandler
   {
       std::stringstream ret;
       /* What we get is TFramedTransport.  We will extract TSocket from it */
-      boost::shared_ptr<apache::thrift::transport::TFramedTransport> buf_transport =
-          boost::static_pointer_cast<apache::thrift::transport::TFramedTransport>(transport);
+      boost::shared_ptr<tt::TFramedTransport> buf_transport =
+          boost::static_pointer_cast<tt::TFramedTransport>(transport);
 
-      boost::shared_ptr<apache::thrift::transport::TSocket> sock =
-          boost::static_pointer_cast<apache::thrift::transport::TSocket>\
-          (buf_transport->getUnderlyingTransport());
+      boost::shared_ptr<tt::TSocket> sock =
+          boost::static_pointer_cast<tt::TSocket>(
+                  buf_transport->getUnderlyingTransport());
 
       ret << sock->getPeerAddress() << ":" << sock->getPeerPort();
       return ret.str();
@@ -91,8 +91,8 @@ class ServerEventHandler2 : public apache::thrift::server::TServerEventHandler
    * Called when a new client has connected and is about to being processing.
    */
   virtual void* createContext(
-      boost::shared_ptr<apache::thrift::protocol::TProtocol> input,
-      boost::shared_ptr<apache::thrift::protocol::TProtocol> output) override
+      boost::shared_ptr<tp::TProtocol> input,
+      boost::shared_ptr<tp::TProtocol> output) override
   {
       /* Add the new connection */
       LOGDEBUG << "New connection: " << getTransportKey(input->getTransport());
@@ -103,8 +103,8 @@ class ServerEventHandler2 : public apache::thrift::server::TServerEventHandler
    * context.
    */
   virtual void deleteContext(void* serverContext,
-                             boost::shared_ptr<apache::thrift::protocol::TProtocol>input,
-                             boost::shared_ptr<apache::thrift::protocol::TProtocol>output)
+                             boost::shared_ptr<tp::TProtocol>input,
+                             boost::shared_ptr<tp::TProtocol>output)
   {
       LOGDEBUG << "Removing connection: " << getTransportKey(input->getTransport());
   }

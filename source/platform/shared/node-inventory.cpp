@@ -14,6 +14,9 @@
 
 namespace fds {
 
+const NodeUuid               gl_OmPmUuid(0xcac0);
+const NodeUuid               gl_OmUuid(0xcac0 | fpi::FDSP_ORCH_MGR);
+
 // --------------------------------------------------------------------------------------
 // Node Inventory
 // --------------------------------------------------------------------------------------
@@ -127,6 +130,52 @@ NodeInventory::init_plat_info_msg(fpi::NodeInfoMsg *msg) const
     msg_bind->svc_id.svc_name   = "";
     msg_bind->svc_node.svc_name = *plat->plf_get_my_name();
     msg_bind->svc_node.svc_uuid.svc_uuid = plat->plf_get_my_node_uuid()->uuid_get_val();
+}
+
+// init_om_info_msg
+// ----------------
+// Format the NodeInfoMsg with data about OM node.
+void
+NodeInventory::init_om_info_msg(fpi::NodeInfoMsg *msg)
+{
+    fpi::UuidBindMsg   *msg_bind;
+    Platform::ptr       plat = Platform::platf_const_singleton();
+
+    msg_bind                    = &msg->node_loc;
+    msg->nd_base_port           = plat->plf_get_om_ctrl_port();
+    msg_bind->svc_port          = plat->plf_get_om_ctrl_port();
+    msg_bind->svc_addr          = *plat->plf_get_om_ip();
+    msg_bind->svc_type          = fpi::FDSP_ORCH_MGR;
+    msg_bind->svc_auto_name     = "OM";
+    msg_bind->svc_id.svc_name   = "OM";
+    msg_bind->svc_node.svc_name = *plat->plf_get_my_name();
+
+    msg_bind->svc_id.svc_uuid.svc_uuid   = gl_OmUuid.uuid_get_val();
+    msg_bind->svc_node.svc_uuid.svc_uuid = gl_OmUuid.uuid_get_val();
+    memset(&msg->node_stor, 0, sizeof(msg->node_stor));
+}
+
+// init_om_pm_info_msg
+// -------------------
+// Format the NodeInfoMsg with data about OM Platform Services.
+void
+NodeInventory::init_om_pm_info_msg(fpi::NodeInfoMsg *msg)
+{
+    fpi::UuidBindMsg   *msg_bind;
+    Platform::ptr       plat = Platform::platf_const_singleton();
+
+    msg_bind                    = &msg->node_loc;
+    msg->nd_base_port           = plat->plf_get_om_svc_port();
+    msg_bind->svc_port          = plat->plf_get_om_ctrl_port();
+    msg_bind->svc_addr          = *plat->plf_get_om_ip();
+    msg_bind->svc_type          = fpi::FDSP_PLATFORM;
+    msg_bind->svc_auto_name     = "OM-PM";
+    msg_bind->svc_id.svc_name   = "OM-PM";
+    msg_bind->svc_node.svc_name = *plat->plf_get_my_name();
+
+    msg_bind->svc_id.svc_uuid.svc_uuid   = gl_OmPmUuid.uuid_get_val();
+    msg_bind->svc_node.svc_uuid.svc_uuid = gl_OmPmUuid.uuid_get_val();
+    init_stor_cap_msg(&msg->node_stor);
 }
 
 // init_node_info_msg
@@ -1096,9 +1145,12 @@ DomainContainer::dc_register_node(const ShmObjRO     *shm,
         << node->nd_node_uuid << ", svc uuid " << node->nd_service_uuid
         << ", svc mask " << mask;
 
-    fds_verify(node->nd_svc_type == fpi::FDSP_PLATFORM);
     container = dc_container_frm_msg(node->nd_svc_type);
     container->agent_register(shm, agent, ro, rw);
+    if (node->nd_svc_type == fpi::FDSP_ORCH_MGR) {
+        return;
+    }
+    fds_verify(node->nd_svc_type == fpi::FDSP_PLATFORM);
 
     if ((mask & fpi::NODE_SVC_SM) != 0) {
         tmp = NULL;
@@ -1161,6 +1213,24 @@ DomainContainer::dc_unregister_agent(const NodeUuid &uuid, FdspNodeType type)
         }
     }
     return Error(ERR_NOT_FOUND);
+}
+
+// dc_find_node_agent
+// ------------------
+//
+NodeAgent::pointer
+DomainContainer::dc_find_node_agent(const NodeUuid &uuid)
+{
+    AgentContainer::pointer nodes;
+    NodeAgent::pointer      agent;
+    fpi::FDSP_MgrIdType     type;
+
+    type  = uuid.uuid_get_type();
+    nodes = dc_container_frm_msg(type);
+    if (nodes != NULL) {
+        return nodes->agent_info(uuid);
+    }
+    return NULL;
 }
 
 class NodeSvcIter : public ResourceIter

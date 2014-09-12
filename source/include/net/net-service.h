@@ -559,6 +559,9 @@ class NetPlatform : public Module
     virtual void                 nplat_register_node(const fpi::NodeInfoMsg *msg) = 0;
     virtual EpSvcHandle::pointer nplat_domain_rpc(const fpi::DomainID &id) = 0;
 
+    virtual bo::intrusive_ptr<DomainAgent> nplat_self() = 0;
+    virtual bo::intrusive_ptr<DomainAgent> nplat_master() = 0;
+
     virtual void nplat_set_my_ep(bo::intrusive_ptr<EpSvcImpl> ep) = 0;
     virtual bo::intrusive_ptr<EpSvcImpl> nplat_my_ep() = 0;
     virtual std::string const *const nplat_domain_master(int *port) = 0;
