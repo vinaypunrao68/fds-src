@@ -17,26 +17,17 @@ extern "C" {
 #include <vector>
 
 #include "leveldb/db.h"
-
 #include "fdsp/FDSP_types.h"
-#include "stor_mgr_err.h"
 #include "fds_volume.h"
 #include "fds_types.h"
-#include "odb.h"
 
 #include "util/Log.h"
-#include "StorMgrVolumes.h"
-#include "SmObjDb.h"
 #include "persistent_layer/dm_service.h"
 #include "persistent_layer/dm_io.h"
-// #include "fds_migration.h"
 
-#include "fds_qos.h"
 #include "fds_assert.h"
 #include "fds_config.hpp"
 #include "util/timeutils.h"
-
-#include "ObjStats.h"
 #include "serialize.h"
 
 namespace fds {
@@ -97,9 +88,9 @@ class ObjMetaData : public serialize::Serializable {
 
      uint64_t getModificationTs() const;
 
-     void apply(const FDSP_MigrateObjectMetadata& data);
+     void apply(const fpi::FDSP_MigrateObjectMetadata& data);
 
-     void extractSyncData(FDSP_MigrateObjectMetadata& md) const;
+     void extractSyncData(fpi::FDSP_MigrateObjectMetadata& md) const;
 
      void checkAndDemoteUnsyncedData(const uint64_t& syncTs);
 
@@ -107,7 +98,7 @@ class ObjMetaData : public serialize::Serializable {
 
      bool syncDataExists() const;
 
-     void applySyncData(const FDSP_MigrateObjectMetadata& data);
+     void applySyncData(const fpi::FDSP_MigrateObjectMetadata& data);
 
      void mergeNewAndUnsyncedData();
 
@@ -144,20 +135,22 @@ class ObjMetaData : public serialize::Serializable {
 
      std::string logString() const;
 
+     // TODO(Anna) moved this up to be a public member so I can
+     // remove SmObjDb dependency; when we replace SmObjDB with
+     // ObjectMetaDb class, we will move it back to be private
+     /* current object meta data */
+     meta_obj_map_t obj_map;
+
     private:
      void mergeAssociationArrays_();
 
      friend std::ostream& operator<<(std::ostream& out, const ObjMetaData& objMap);
-     friend class SmObjDb;
 
      /* Data mask to indicate which metadata members are valid.
       * When sync is in progress mask will be set to indicate sync_data
       * is valid.
       */
      uint8_t mask;
-
-     /* current object meta data */
-     meta_obj_map_t obj_map;
 
      /* Physical location entries.  Pointer to field inside obj_map */
      obj_phy_loc_t *phy_loc;

@@ -27,7 +27,6 @@ extern "C" {
 #include "fdsp/FDSP_types.h"
 #include "fdsp/FDSP_DataPathReq.h"
 #include "fdsp/FDSP_DataPathResp.h"
-#include "stor_mgr_err.h"
 #include "fds_volume.h"
 #include "fds_types.h"
 #include "ObjLoc.h"
