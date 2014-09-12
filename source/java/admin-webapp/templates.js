@@ -74,7 +74,7 @@ angular.module("scripts/account/account.html", []).run(["$templateCache", functi
     "        <div ng-show=\"password_changing\">\n" +
     "<!--            <input type=\"password\" class=\"form-control skinny\" ng-model=\"password\" size=\"32\" placeholder=\"Old Password\" style=\"margin-bottom: 8px;width: 300px;\"/>-->\n" +
     "            <input type=\"password\" class=\"form-control skinny\" ng-model=\"newPassword\" size=\"32\" placeholder=\"New Password\" style=\"margin-bottom: 8px;width: 300px;\"/>\n" +
-    "            <input type=\"password\" class=\"form-control skinny\" ng-model=\"confirmPassword\" size=\"32\" placeholder=\"Confirm Password\" style=\"margin-bottom: 8px;width: 300px;\"/>            \n" +
+    "            <input type=\"password\" class=\"form-control skinny\" ng-model=\"confirmPassword\" size=\"32\" placeholder=\"Confirm Password\" style=\"margin-bottom: 8px;width: 300px;\"/>\n" +
     "            <div class=\"error\" ng-show=\"changePasswordError !== false\">\n" +
     "                {{ changePasswordError }}\n" +
     "            </div>\n" +
@@ -100,7 +100,7 @@ angular.module("scripts/activity/activity.html", []).run(["$templateCache", func
     "            </div>\n" +
     "        </div>\n" +
     "    </div>\n" +
-    "    \n" +
+    "\n" +
     "    <div class=\"header top-label\">\n" +
     "        <span>System Activity</span>\n" +
     "    </div>\n" +
@@ -491,7 +491,7 @@ angular.module("scripts/inbox/inbox.html", []).run(["$templateCache", function($
     "            </div>\n" +
     "        </div>\n" +
     "    </div>\n" +
-    "    \n" +
+    "\n" +
     "    <div class=\"header top-label\">\n" +
     "        <div style=\"position:relative;\">\n" +
     "            <div class=\"pull-left\">Messages</div>\n" +
@@ -607,7 +607,7 @@ angular.module("scripts/status/status.html", []).run(["$templateCache", function
     "            </div>\n" +
     "        </div>\n" +
     "    </div>\n" +
-    "    \n" +
+    "\n" +
     "    <div class=\"tile-container\">\n" +
     "        <div class=\"tile-pair\">\n" +
     "            <div class=\"tile-parent\">\n" +
@@ -643,7 +643,7 @@ angular.module("scripts/status/status.html", []).run(["$templateCache", function
     "            </tbody>\n" +
     "        </table>\n" +
     "    </div>\n" +
-    "    \n" +
+    "\n" +
     "</div>\n" +
     "");
 }]);
@@ -827,8 +827,8 @@ angular.module("scripts/users/users.html", []).run(["$templateCache", function($
     "                <span style=\"color: white;\">Coming soon...</span>\n" +
     "            </div>\n" +
     "        </div>\n" +
-    "    </div>    \n" +
-    "    \n" +
+    "    </div>\n" +
+    "\n" +
     "    <div class=\"header top-label\">\n" +
     "\n" +
     "        <div>\n" +
