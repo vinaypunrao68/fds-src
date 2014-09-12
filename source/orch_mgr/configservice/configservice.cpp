@@ -313,7 +313,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     }
 
     int64_t cloneVolume(boost::shared_ptr<int64_t>& volumeId,
-                        boost::shared_ptr<int64_t>& fdsp_PolicyInfoId,
+                        boost::shared_ptr<int64_t>& volPolicyId,
                         boost::shared_ptr<std::string>& clonedVolumeName) {
         checkDomainStatus();
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
@@ -339,7 +339,9 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
         desc.volUUID = cloneVolId;
         desc.name = *clonedVolumeName;
-        desc.volPolicyId = *fdsp_PolicyInfoId;
+        if (*volPolicyId > 0) {
+            desc.volPolicyId = *volPolicyId;
+        }
         desc.backupVolume = invalid_vol_id;
         desc.fSnapshot = false;
         desc.srcVolumeId = *volumeId;
