@@ -77,6 +77,27 @@ class TestMultiUpload(unittest.TestCase):
         _recv = self.b.get_key(_key.key)
         assert(_recv is not None)
 
+    def test_list_keys(self):
+        global c
+        log('Putting 4 objects...')
+
+        for i in range(4):
+            _k = Key(self.b)
+            _k.key = 'test_key' + str(i)
+            _k.set_contents_from_filename(SMALL_DATA_FILE)
+
+        # Verify keys
+        log('Verifying keys')
+        for i in range(4):
+            _k = Key(self.b)
+            _k.key = 'test_key' + str(i)
+            _k.get_contents_to_filename('/tmp/test_verify' + str(i))
+            assert(hashlib.sha1(open('/tmp/test_verify' + str(i), 'rb').read()).hexdigest() == hashlib.sha1(open(SMALL_DATA_FILE).read()).hexdigest())
+
+        # List the keys
+        for key in self.b.list():
+            log(str(key))
+
     def test_put_copy(self):
         global c
         _aux_bucket_name = BUCKET_NAME + str(random.randint(0, 100000))
