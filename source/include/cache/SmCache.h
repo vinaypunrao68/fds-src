@@ -20,7 +20,7 @@
 
 namespace fds {
 
-// TODO (bszmyd):  Fri 12 Sep 2014 03:15:47 PM MDT
+// TODO(bszmyd):  Fri 12 Sep 2014 03:15:47 PM MDT
 //   Eviction policy should be a templatization on cache,
 //   not an inheritence like KvCache does it. So it should read
 //   something like:
@@ -275,7 +275,6 @@ class SmCache : public Module, boost::noncopyable {
 
          return eviction_list.begin();
      }
-
 };
 }  // namespace fds
 
