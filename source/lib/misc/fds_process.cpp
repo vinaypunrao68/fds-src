@@ -15,8 +15,9 @@
 namespace fds {
 
 /* Processwide globals from fds_process.h */
-FdsProcess *g_fdsprocess = NULL;
-fds_log *g_fdslog = NULL;
+FdsProcess *g_fdsprocess                    = NULL;
+CommonModuleProviderIf *gModuleProvider     = NULL;
+fds_log *g_fdslog                           = NULL;
 boost::shared_ptr<FdsCountersMgr> g_cntrs_mgr;
 const FdsRootDir                 *g_fdsroot;
 
@@ -90,6 +91,7 @@ void FdsProcess::init(int argc, char *argv[],
 
     /* Initialize process wide globals */
     g_fdsprocess = this;
+    gModuleProvider = g_fdsprocess;
     /* Set up the signal handler.  We should do this before creating any threads */
     setup_sig_handler();
 
@@ -156,7 +158,8 @@ FdsProcess::~FdsProcess()
         timer_servicePtr_->destroy();
     }
     /* cleanup process wide globals */
-    g_fdsprocess = NULL;
+    g_fdsprocess = nullptr;
+    gModuleProvider = nullptr;
     delete g_fdslog;
 
     /* Terminate signal handling thread */
