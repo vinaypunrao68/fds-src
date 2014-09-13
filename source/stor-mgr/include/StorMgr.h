@@ -62,6 +62,7 @@ extern "C" {
 #include "kvstore/tokenstatedb.h"
 #include "fdsp/SMSvc.h"
 
+#include <SmDiskTypes.h>
 #include <object-store/ObjectStore.h>
 
 #undef FDS_TEST_SM_NOOP      /* if defined, IO completes as soon as it arrives to SM */
@@ -81,39 +82,6 @@ void log_ocache_stats();
 class ObjectStorMgrI;
 class TierEngine;
 class ObjectRankEngine;
-
-class SmPlReq : public diskio::DiskRequest {
-    public:
-     /*
-      * TODO: This defaults to disk at the moment...
-      * need to specify any tier, specifically for
-      * read
-      */
-     SmPlReq(meta_vol_io_t   &vio,
-             meta_obj_id_t   &oid,
-             ObjectBuf        *buf,
-             fds_bool_t        block)
-         : diskio::DiskRequest(vio, oid, buf, block) {
-         }
-     SmPlReq(meta_vol_io_t   &vio,
-             meta_obj_id_t   &oid,
-             ObjectBuf        *buf,
-             fds_bool_t        block,
-             diskio::DataTier  tier)
-         : diskio::DiskRequest(vio, oid, buf, block, tier) {
-         }
-     ~SmPlReq() { }
-
-     void req_submit() {
-         fdsio::Request::req_submit();
-     }
-     void req_complete() {
-         fdsio::Request::req_complete();
-     }
-     void setTier(diskio::DataTier tier) {
-         datTier = tier;
-     }
-};
 
 /**
  * @brief Storage manager counters

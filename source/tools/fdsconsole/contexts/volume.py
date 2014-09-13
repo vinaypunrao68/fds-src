@@ -22,11 +22,11 @@ class VolumeContext(Context):
     @cliadmincmd
     @arg('vol-name', help= "-Volume name  of the clone")
     @arg('clone-name', help= "-name of  the  volume clone")
-    @arg('policy-name', help= "-clone policy name")
-    def clone(self, vol_name, clone_name, policy_name):
+    @arg('policy-id', help= "-volume policy id" , default=0, type=int)
+    def clone(self, vol_name, clone_name, policy_id):
         try:
             volume_id  = ServiceMap.omConfig().getVolumeId(vol_name);
-            ServiceMap.omConfig().cloneVolume(volume_id, policy_name, clone_name )
+            ServiceMap.omConfig().cloneVolume(volume_id, policy_id, clone_name )
             return 'Success'
         except Exception, e:
             log.exception(e)
