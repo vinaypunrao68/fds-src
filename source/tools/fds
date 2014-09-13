@@ -134,6 +134,11 @@ function stopApp() {
             else
                 logwarn "$(yellow stopping ${name}..)"
                 kill -9 ${pid}
+                
+                if [[ ${name} == "am" ]]; then
+                    pkill -9 -f com.formationds.am.Main
+                    pkill -9 bare_am
+                fi
             fi
         fi
     done
