@@ -179,7 +179,8 @@ Error DmVolumeCatalog::copyVolume(VolumeDesc & voldesc) {
             << voldesc.volUUID << "'";
 
     // create a snapshot catalog
-    Error rc = persistCat->copyVolume(voldesc.volUUID, voldesc.srcVolumeId, voldesc.isSnapshot());
+    Error rc = persistCat->copyVolume(voldesc.volUUID, voldesc.srcVolumeId, voldesc.isSnapshot(),
+                       voldesc.isSnapshot());
     if (rc.ok()) {
         // Create cache for a snapshot
         rc = cacheCat->createCache(voldesc);

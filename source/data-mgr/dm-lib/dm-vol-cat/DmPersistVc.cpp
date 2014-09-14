@@ -214,7 +214,9 @@ PersistVolumeMeta::PersistVolumeMeta(fds_volid_t volid,
     }
     fds_verify(extent0_obj_entries > 0);
     fds_verify(extent_obj_entries > 0);
-    fds_verify(readOnly_ == snapshot_);
+    if (snapshot) {
+        fds_verify(readOnly);
+    }
 }
 
 PersistVolumeMeta::~PersistVolumeMeta() {
@@ -435,9 +437,9 @@ Error DmPersistVolCatalog::createCatalog(const VolumeDesc& vol_desc){
 //
 // Create snapshot for volume specified by id
 //
-Error DmPersistVolCatalog::copyVolume(fds_volid_t volId, fds_volid_t snapshotId,
+Error DmPersistVolCatalog::copyVolume(fds_volid_t volId, fds_volid_t copyVolId,
         fds_bool_t snapshot, fds_bool_t readOnly) {
-    LOGTRACE << "Creating a Catalog for snapshot '" << std::hex << snapshotId << std::dec <<
+    LOGTRACE << "Creating a Catalog for snapshot '" << std::hex << copyVolId << std::dec <<
             "' for volume '" << std::hex << volId << std::dec << "'";
 
     fds_uint32_t maxEntries = 0;
@@ -463,16 +465,21 @@ Error DmPersistVolCatalog::copyVolume(fds_volid_t volId, fds_volid_t snapshotId,
 
     oss.clear();
     oss.str("");
-    oss << root->dir_user_repo_dm() << volId << "/snapshot";
+    oss << root->dir_user_repo_dm();
+    if (!snapshot) {
+        oss <<  copyVolId;
+    } else {
+        oss << volId << "/snapshot";
+    }
 
     FdsRootDir::fds_mkdir(oss.str().c_str());
 
-    oss << "/" << snapshotId << "_vcat.ldb";
-    std::string snapshotDir =  oss.str();
+    oss << "/" << copyVolId << "_vcat.ldb";
+    std::string copyDir =  oss.str();
 
     oss.clear();
     oss.str("");
-    oss << "cp -r " << dbDir << " " << snapshotDir;
+    oss << "cp -r " << dbDir << " " << copyDir;
 
     LOGNOTIFY << "Running command '" << oss.str() << "'";
 
@@ -497,15 +504,15 @@ Error DmPersistVolCatalog::copyVolume(fds_volid_t volId, fds_volid_t snapshotId,
 
     oss.clear();
     oss.str("");
-    oss << "rm -f " <<  snapshotDir << "/LOCK";
+    oss << "rm -f " <<  copyDir << "/LOCK";
     LOGNOTIFY << oss.str();
     std::system(oss.str().c_str());
 
-    PersistVolumeMetaPtr volmeta(new PersistVolumeMeta(snapshotId, maxEntries, extent0Entries,
+    PersistVolumeMetaPtr volmeta(new PersistVolumeMeta(copyVolId, maxEntries, extent0Entries,
             extentEntries, volId, readOnly));
     write_synchronized(vol_map_lock) {
-        fds_verify(vol_map.count(snapshotId) == 0);
-        vol_map[snapshotId] = volmeta;
+        fds_verify(vol_map.count(copyVolId) == 0);
+        vol_map[copyVolId] = volmeta;
     }
 
     return err;
