@@ -1008,6 +1008,9 @@ void ObjectStorMgr::sampleSMStats(fds_uint64_t timestamp) {
     for (std::list<fds_volid_t>::iterator vit = volIds.begin();
          vit != volIds.end();
          vit++) {
+        if (volTbl->isSnapshot(*vit)) {
+            continue;
+        }
         fds_uint64_t dedup_bytes = volTbl->getDedupBytes(*vit);
         LOGDEBUG << "Volume " << std::hex << *vit << std::dec
                  << " deduped bytes " << dedup_bytes;
@@ -2414,6 +2417,64 @@ ObjectStorMgr::deleteObjectInternalSvc(SmIoDeleteObjectReq* delReq) {
     return err;
 }
 
+Error
+ObjectStorMgr::addObjectRefInternalSvc(SmIoAddObjRefReq* addObjRefReq) {
+    fds_assert(0 != addObjRefReq);
+    fds_assert(0 != addObjRefReq->getSrcVolId());
+    fds_assert(0 != addObjRefReq->getDestVolId());
+
+    Error rc = ERR_OK;
+
+    if (addObjRefReq->objIds().empty()) {
+        return rc;
+    }
+
+    OpCtx opCtx(OpCtx::PUT, fds::get_fds_timestamp_ms());
+    PerfTracer::tracePointBegin(addObjRefReq->opLatencyCtx);
+
+    for (auto objId : addObjRefReq->objIds()) {
+        ObjectID oid = ObjectID(objId.digest);
+        ObjMetaData objMap;
+
+        smObjDb->lock(oid);
+
+        // copy assoc entry from source to dest volume
+        rc = readObjMetaData(oid, objMap);
+        if (!rc.ok()) {
+            GLOGERROR << "Failed to get ObjMetaData from db " << rc;
+        } else {
+            objMap.copyAssocEntry(oid, addObjRefReq->getSrcVolId(), addObjRefReq->getDestVolId());
+
+            rc = smObjDb->put(opCtx, oid, objMap);
+            if (!rc.ok()) {
+                LOGERROR << "Failed to add association entry for object " << oid <<
+                        "in to odb with err " << rc;
+            } else {
+                // XXX: for snapshot we should not call volTbl->updateDupObj but for clones
+                //      we should call this function. We can get if destVolumeId is clone or
+                //      snapshot from VolumeDesc in volTble
+                // TODO(xxx): call updateDupObj() for clones
+            }
+        }
+
+        smObjDb->unlock(oid);
+
+        if (!rc.ok()) {
+            PerfTracer::incr(addObjRefReq->opReqFailedPerfEventType,
+                    addObjRefReq->getSrcVolId(), addObjRefReq->perfNameStr);
+            break;
+        }
+    }
+
+    qosCtrl->markIODone(*addObjRefReq, diskio::maxTier, true);
+    PerfTracer::tracePointEnd(addObjRefReq->opLatencyCtx);
+    PerfTracer::tracePointEnd(addObjRefReq->opReqLatencyCtx);
+
+    addObjRefReq->response_cb(rc, addObjRefReq);
+
+    return rc;
+}
+
 void
 ObjectStorMgr::PutObject(const FDSP_MsgHdrTypePtr& fdsp_msg,
                          const FDSP_PutObjTypePtr& put_obj_req) {
@@ -3399,6 +3460,13 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
             threadPool->schedule(&ObjectStorMgr::putObjectInternalSvc,
                                  objStorMgr, static_cast<SmIoPutObjectReq*>(io));
             break;
+        case FDS_SM_ADD_OBJECT_REF:
+        {
+            FDS_PLOG(FDS_QoSControl::qos_log) << "Processing and add object reference request";
+            threadPool->schedule(&ObjectStorMgr::addObjectRefInternalSvc, objStorMgr,
+                                 static_cast<SmIoAddObjRefReq*>(io));
+            break;
+        }
         case FDS_SM_WRITE_TOKEN_OBJECTS:
         {
             FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a write token ibjects";

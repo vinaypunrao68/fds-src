@@ -228,17 +228,17 @@ VolumeDesc& VolumeDesc::operator=(const VolumeDesc& volinfo) {
     return *this;
 }
 
-bool VolumeDesc::isSnapshot() { return fSnapshot; }
+bool VolumeDesc::isSnapshot() const { return fSnapshot; }
 
-bool VolumeDesc::isClone() {
+bool VolumeDesc::isClone() const {
     return srcVolumeId > invalid_vol_id && !fSnapshot;
 }
 
-fds_volid_t VolumeDesc::getSrcVolumeId() {
+fds_volid_t VolumeDesc::getSrcVolumeId() const {
     return srcVolumeId;
 }
 
-fds_volid_t VolumeDesc::getLookupVolumeId() {
+fds_volid_t VolumeDesc::getLookupVolumeId() const {
     return lookupVolumeId;
 }
 

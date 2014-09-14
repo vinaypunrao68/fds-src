@@ -179,6 +179,19 @@ std::string logString(const FDS_ProtocolInterface::DeleteObjectRspMsg& delRspMsg
     return oss.str();
 }
 
+std::string logString(const FDS_ProtocolInterface::AddObjectRefMsg& copyMsg)
+{
+    std::ostringstream oss;
+    oss << " AddObjectRefMsg";
+    return oss.str();
+}
+
+std::string logString(const FDS_ProtocolInterface::AddObjectRefRspMsg& copyRspMsg)
+{
+    std::ostringstream oss;
+    oss << " AddObjectRefRspMsg";
+    return oss.str();
+}
 
 std::string logString(const FDS_ProtocolInterface::AbortBlobTxMsg& abortBlbTx)
 {

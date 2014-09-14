@@ -30,6 +30,7 @@ user_cpp          :=  \
     SynchronizedTaskExecutor_ut.cpp \
     perf_trace_unit_test.cpp \
     kvcache_unit_test.cpp \
+    Tracebuffer_ut.cpp \
     smcache_unit_test.cpp \
     object_logger_test.cpp
 
@@ -59,7 +60,8 @@ user_bin_exe      := \
     perf_trace_unit_test \
     smcache_unit_test \
     kvcache_unit_test \
-    object_logger_test
+    object_logger_test \
+    Tracebuffer_ut
 
 catalog_test                   := catalog_unit_test.cpp
 ocache_unit_test	       := ocache_unit_test.cpp
@@ -74,5 +76,6 @@ perf_trace_unit_test           := perf_trace_unit_test.cpp
 smcache_unit_test              := smcache_unit_test.cpp
 kvcache_unit_test              := kvcache_unit_test.cpp
 object_logger_test             := object_logger_test.cpp
+Tracebuffer_ut		       := Tracebuffer_ut.cpp
 
 include $(topdir)/Makefile.incl

@@ -10,6 +10,8 @@
 #include <string>
 #include <unordered_map>
 #include <utility>
+#include "boost/smart_ptr/shared_ptr.hpp"
+#include "boost/smart_ptr/make_shared.hpp"
 
 #include "concurrency/RwLock.h"
 #include "fds_error.h"
@@ -41,7 +43,7 @@ class SmCache : public Module, boost::noncopyable {
      typedef V mapped_type;
      typedef _Hash hash_type;
      typedef std::size_t size_type;
-     typedef std::shared_ptr<mapped_type> value_type;
+     typedef boost::shared_ptr<mapped_type> value_type;
 
     // Eviction list
     private:
@@ -127,7 +129,7 @@ class SmCache : public Module, boost::noncopyable {
       * @return A shared_ptr<T> to any evicted entry
       */
      value_type add(const key_type &key, mapped_type const& value) {
-         return add(key, std::make_shared<mapped_type>(value));
+         return add(key, boost::make_shared<mapped_type>(value));
      }
 
      /**

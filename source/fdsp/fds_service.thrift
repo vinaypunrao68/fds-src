@@ -87,6 +87,8 @@ enum  FDSPMsgTypeId {
     PutObjectRspMsgTypeId	= 10003,
 	DeleteObjectMsgTypeId,
 	DeleteObjectRspMsgTypeId,
+    AddObjectRefMsgTypeId,
+    AddObjectRefRspMsgTypeId,
 
     /* DM Type Ids */
     QueryCatalogMsgTypeId = 20000,
@@ -628,6 +630,16 @@ struct  DeleteObjectMsg {
 
 /* Delete object response message */
 struct DeleteObjectRspMsg {
+}
+
+/* Copy objects from source volume to destination */
+struct AddObjectRefMsg {
+ 1: list<FDSP.FDS_ObjectIdType> objIds,
+ 2: i64 srcVolId,
+ 3: i64 destVolId
+}
+
+struct AddObjectRefRspMsg {
 }
 
 /**

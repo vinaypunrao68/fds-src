@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 #include <bitset>
+#include "boost/smart_ptr/make_shared.hpp"
 
 #include <fds_types.h>
 #include <cache/SmCache.h>
@@ -35,7 +36,7 @@ cache_manager_type* strCacheManager;
 
 namespace by_val {
 void getObj(const TestObject& obj) {
-    std::shared_ptr<TestObject> ptr(nullptr);
+    boost::shared_ptr<TestObject> ptr(nullptr);
     strCacheManager->get(obj.key, ptr);
     if (ptr) {
         fds_assert(ptr->value == obj.value);
@@ -51,15 +52,15 @@ void addObj(const TestObject& obj) {
 }  // namespace by_val
 
 namespace by_shp {
-void getObj(std::shared_ptr<TestObject> obj) {
-    std::shared_ptr<TestObject> ptr(nullptr);
+void getObj(boost::shared_ptr<TestObject> obj) {
+    boost::shared_ptr<TestObject> ptr(nullptr);
     strCacheManager->get(obj->key, ptr);
     if (ptr) {
         fds_assert(ptr->value == obj->value);
     }
 }
 
-void addObj(std::shared_ptr<TestObject> obj) {
+void addObj(boost::shared_ptr<TestObject> obj) {
     std::cout << "Adding shared_value " << obj->value << " with key " << obj->key <<
         std::dec << std::endl;
     strCacheManager->add(obj->key, obj);
@@ -75,14 +76,14 @@ main(int argc, char** argv) {
     fds_uint32_t k2 = 2;
     fds_uint32_t k3 = 3;
     fds_uint32_t k4 = 4;
-    std::shared_ptr<fds_uint32_t> evictEntry1 = cacheManager.add(k1, k1);
+    boost::shared_ptr<fds_uint32_t> evictEntry1 = cacheManager.add(k1, k1);
     if (!evictEntry1) {
         GLOGNORMAL << "Didn't evict anything";
     }
 
     cacheManager.add(k2, k2);
     cacheManager.add(k3, k3);
-    std::shared_ptr<fds_uint32_t> evictEntry4 = cacheManager.add(k4, k4);
+    boost::shared_ptr<fds_uint32_t> evictEntry4 = cacheManager.add(k4, k4);
     if (evictEntry4) {
         GLOGNORMAL << "Evicted " << *evictEntry4;
     }
@@ -93,7 +94,7 @@ main(int argc, char** argv) {
     GLOGNORMAL << "Read out value " << *getV2;
 
     fds_uint32_t k5 = 5;
-    std::shared_ptr<fds_uint32_t> evictEntry5 = cacheManager.add(k5, k5);
+    boost::shared_ptr<fds_uint32_t> evictEntry5 = cacheManager.add(k5, k5);
     if (evictEntry5) {
         GLOGNORMAL << "Evicted " << *evictEntry5;
     }
@@ -114,9 +115,9 @@ main(int argc, char** argv) {
     keyCounter = 0;
     // Test KvCache with by_shared_ptr semantics
     {
-        std::vector<std::shared_ptr<TestObject> > testObjs;
+        std::vector<boost::shared_ptr<TestObject> > testObjs;
         for (size_t i = 0; i < MAX_TEST_OBJ; ++i) {
-            testObjs.push_back(std::make_shared<TestObject>());
+            testObjs.push_back(boost::make_shared<TestObject>());
         }
 
         {

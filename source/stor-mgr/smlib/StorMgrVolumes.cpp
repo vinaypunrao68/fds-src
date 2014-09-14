@@ -33,7 +33,7 @@ StorMgrVolume::StorMgrVolume(const VolumeDesc&  vdb,
      * TODO: The queue capacity is still hard coded. We
      * should calculate this somehow.
      */
-    volQueue = new SmVolQueue(voldesc->GetID(),
+    volQueue = new SmVolQueue(voldesc->isSnapshot() ? voldesc->qosQueueId : voldesc->GetID(),
                               100,
                               voldesc->getIopsMax(),
                               voldesc->getIopsMin(),
@@ -149,7 +149,8 @@ StorMgrVolumeTable::registerVolume(const VolumeDesc& vdb) {
 
     map_rwlock.write_lock();
     if (volume_map.count(volUuid) == 0) {
-        LOGNORMAL << "Registering new volume " << volUuid;
+        LOGNORMAL << "Registering new " << (vdb.isSnapshot() ? "snapshot" : "volume")
+                << ": " << volUuid;
         StorMgrVolume* vol = new StorMgrVolume(vdb,
                                                parent_sm,
                                                GetLog());

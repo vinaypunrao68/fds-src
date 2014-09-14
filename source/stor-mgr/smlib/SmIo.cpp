@@ -17,4 +17,11 @@ std::string SmIoDeleteObjectReq::log_string()
     ret << " SmIoDeleteObjectReq";
     return ret.str();
 }
+
+std::string SmIoAddObjRefReq::log_string()
+{
+    std::stringstream ret;
+    ret << " SmIoAddObjRefReq";
+    return ret.str();
+}
 }  // namespace fds
