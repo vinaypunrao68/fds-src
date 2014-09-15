@@ -321,7 +321,7 @@ MetaStoreUTProc::isValidObjMeta(ObjMetaData::ptr meta,
     obj_phy_loc_t loc;
     setMetaLoc(rnum, &loc);
 
-    obj_phy_loc_t* meta_loc = meta->getObjPhyLoc((diskio::DataTier)loc.obj_tier);
+    const obj_phy_loc_t* meta_loc = meta->getObjPhyLoc((diskio::DataTier)loc.obj_tier);
     if (meta_loc->obj_stor_loc_id != loc.obj_stor_loc_id) return false;
     if (meta_loc->obj_file_id != loc.obj_file_id) return false;
     if (meta_loc->obj_stor_offset != loc.obj_stor_offset) return false;

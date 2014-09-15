@@ -268,7 +268,8 @@ fds_uint32_t   ObjMetaData::getObjSize() const
  * @param tier
  * @return
  */
-obj_phy_loc_t*   ObjMetaData::getObjPhyLoc(diskio::DataTier tier) {
+const obj_phy_loc_t*
+ObjMetaData::getObjPhyLoc(diskio::DataTier tier) const {
     return &phy_loc[tier];
 }
 

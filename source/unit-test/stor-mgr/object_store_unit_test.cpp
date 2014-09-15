@@ -40,9 +40,9 @@ static ObjectStore::unique_ptr objectStore;
 
 static void getObj(TestObject & obj) {
     boost::shared_ptr<std::string> ptr;
-    // strCacheManager.get(obj.volId, obj.key, &ptr);
-    // GLOGTRACE << "compare " << *obj.value << " = " << *ptr;
-    // fds_assert(*ptr == *obj.value);
+    objectStore->getObject(obj.volId, obj.objId, ptr);
+    GLOGTRACE << "compare " << *obj.value << " = " << *ptr;
+    fds_assert(*ptr == *obj.value);
 }
 
 static void addObj(TestObject & obj) {
