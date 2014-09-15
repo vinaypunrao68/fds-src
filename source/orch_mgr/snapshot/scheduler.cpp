@@ -2,7 +2,7 @@
  * Copyright 2014 Formation Data Systems, Inc.
  */
 #include <snapshot/scheduler.h>
-#include <time.h>
+#include <util/timeutils.h>
 namespace atc = apache::thrift::concurrency;
 namespace fds { namespace snapshot {
 
@@ -17,12 +17,6 @@ Scheduler::~Scheduler() {
     shutdown();
     runner->join();
     delete runner;
-}
-
-uint64_t Scheduler::getCurrentTime() {
-    time_t  tt;
-    time(&tt);
-    return tt;
 }
 
 // will also update / modify
@@ -98,7 +92,7 @@ void Scheduler::run() {
 
         while (!fShutdown && !pq.empty()) {
             Task* task;
-            uint64_t currTime = getCurrentTime();
+            uint64_t currTime = fds::util::getTimeStampSeconds();
             task = pq.top();
             LOGDEBUG << "curTime:" << currTime << " next:" << task->runAtTime;
             dump();

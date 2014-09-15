@@ -27,8 +27,6 @@ class Scheduler : public HasLogger {
     void shutdown();
 
   protected:
-    uint64_t getCurrentTime();
-
     typedef boost::heap::fibonacci_heap<Task*> PriorityQueue;
 
     // to process the actual tasks
