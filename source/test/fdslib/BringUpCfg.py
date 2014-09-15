@@ -146,6 +146,7 @@ class FdsNodeConfig(FdsConfig):
         self.nd_rmt_agent.ssh_exec('pkill -9 AMAgent', wait_compl=True)
         self.nd_rmt_agent.ssh_exec('pkill -9 StorMgr', wait_compl=True)
         self.nd_rmt_agent.ssh_exec('pkill -9 DataMgr', wait_compl=True)
+        self.nd_rmt_agent.ssh_exec('pkill -9 orchMgr', wait_compl=True)
         self.nd_rmt_agent.ssh_exec('pkill -9 platformd', wait_compl=True)
         self.nd_rmt_agent.ssh_exec('pkill -9 -f com.formationds.om.Main', wait_compl=True)
         time.sleep(2)
