@@ -18,6 +18,7 @@ using TimeStamp = fds_uint64_t;
 TimeStamp getTimeStampNanos();
 TimeStamp getTimeStampMicros();
 TimeStamp getTimeStampMillis();
+TimeStamp getTimeStampSeconds();
 
 extern fds_uint64_t CYCLES_PER_SECOND;
 

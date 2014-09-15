@@ -5,6 +5,7 @@
 #include <util/timeutils.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <time.h>
 namespace fds {
 namespace util {
 fds_uint64_t CYCLES_PER_SECOND = CLOCKS_PER_SEC;
@@ -25,6 +26,13 @@ TimeStamp getTimeStampMillis() {
     clock_gettime(CLOCK_REALTIME, &t);
     return (TimeStamp)t.tv_sec * 1000ull + (TimeStamp)t.tv_nsec/1000000;
 }
+
+TimeStamp getTimeStampSeconds() {
+    time_t  tt;
+    time(&tt);
+    return tt;
+}
+
 
 fds_uint64_t rdtsc() {
     unsigned int hi, lo;
