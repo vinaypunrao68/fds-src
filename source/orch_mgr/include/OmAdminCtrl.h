@@ -20,6 +20,7 @@
 
 namespace fds {
 
+struct node_stor_cap;
 typedef fpi::FDSP_VolumeInfoTypePtr FdspVolInfoPtr;
 
 class FdsAdminCtrl {
@@ -55,8 +56,8 @@ class FdsAdminCtrl {
     fds_uint64_t  total_vol_iops_max;
     double        total_vol_disk_cap_GB;
 
-    void addDiskCapacity(const node_capability_t &n_info);
-    void removeDiskCapacity(const node_capability_t &n_info);
+    void addDiskCapacity(const struct node_stor_cap *n_info);
+    void removeDiskCapacity(const struct node_stor_cap *n_info);
     void getAvailableDiskCapacity(const FdspVolInfoPtr  pVolInfo);
     void updateAvailableDiskCapacity(const FdspVolInfoPtr pVolInfo);
     Error volAdminControl(VolumeDesc *pVolDesc);

@@ -8,9 +8,11 @@
 #include <fds-shmobj.h>
 #include <fdsp/PlatNetSvc.h>
 #include <net/net-service-tmpl.hpp>
+#include <net/SvcRequestPool.h>
 #include <platform/platform-lib.h>
 #include <platform/node-inv-shmem.h>
 #include <platform/service-ep-lib.h>
+#include <platform/plat-serialize.h>
 
 namespace fds {
 
@@ -27,6 +29,134 @@ NodeInventory::node_shm_ctrl() const
         return NodeShmCtrl::shm_am_inventory();
     }
     return NodeShmCtrl::shm_node_inventory();
+}
+
+// node_get_shm_rec
+// ----------------
+// Return the copy of node data in shared memory.
+//
+void
+NodeInventory::node_get_shm_rec(node_data_t *ndata) const
+{
+    int             idx;
+    NodeUuid        nd_uuid;
+    fds_uint64_t    uuid;
+    const ShmObjRO *shm;
+
+    rs_uuid.uuid_get_base_val(&nd_uuid);
+    if (node_ro_idx == -1) {
+        /* TODO(Vy): support legacy OM path. */
+        Platform *plat = Platform::platf_singleton();
+        NodeAgent::pointer na = plat->plf_find_node_agent(nd_uuid);
+
+        fds_verify((na != NULL) && (na != this) && (na->node_ro_idx != -1));
+        na->node_get_shm_rec(ndata);
+        return;
+    }
+    shm  = NodeShmCtrl::shm_node_inventory();
+    uuid = nd_uuid.uuid_get_val();
+    idx  = shm->shm_lookup_rec(node_ro_idx, static_cast<const void *>(&uuid),
+                               static_cast<void *>(ndata), sizeof(*ndata));
+
+    fds_verify(idx == node_ro_idx);
+}
+
+// node_info_frm_shm
+// -----------------
+//
+void
+NodeInventory::node_info_frm_shm(node_data_t *out) const
+{
+    int             idx;
+    NodeUuid        uuid;
+    fds_uint64_t    uid;
+    const ShmObjRO *shm;
+
+    rs_uuid.uuid_get_base_val(&uuid);
+    if (node_ro_idx == -1) {
+        /* TODO(Vy): support legacy OM path. */
+        Platform *plat = Platform::platf_singleton();
+        NodeAgent::pointer na = plat->plf_find_node_agent(uuid);
+
+        fds_verify((na != NULL) && (na != this) && (na->node_ro_idx != -1));
+        na->node_info_frm_shm(out);
+        return;
+    }
+    uid = uuid.uuid_get_val();
+    shm = node_shm_ctrl();
+    idx = shm->shm_lookup_rec(node_ro_idx, static_cast<const void *>(&uid),
+                              static_cast<void *>(out), sizeof(*out));
+    fds_assert(idx == node_ro_idx);
+}
+
+#if 0
+// get_node_name
+// -------------
+//
+std::string
+NodeInventory::get_node_name() const
+{
+    node_data_t ndata;
+
+    node_get_shm_rec(&ndata);
+    return std::string(ndata.nd_auto_name);
+}
+#endif
+
+// get_ip_str
+// ----------
+//
+std::string
+NodeInventory::get_ip_str() const
+{
+    node_data_t ndata;
+
+    node_get_shm_rec(&ndata);
+    return std::string(ndata.nd_ip_addr);
+}
+
+fds_uint32_t
+NodeInventory::node_base_port() const
+{
+    node_data_t ndata;
+
+    node_get_shm_rec(&ndata);
+    return Platform::plf_svc_port_from_node(ndata.nd_base_port, node_svc_type);
+}
+
+// get_node_root
+// -------------
+//
+std::string
+NodeInventory::get_node_root() const
+{
+    return node_root;
+}
+
+// node_capability
+// ---------------
+//
+const node_stor_cap_t *
+NodeInventory::node_capability() const
+{
+    const ShmObjRO    *shm;
+    const node_data_t *ndata;
+
+    shm   = node_shm_ctrl();
+    if (node_ro_idx == -1) {
+        /* TODO(Vy): support OM legacy path where we have 2 node agents. */
+        NodeAgent::pointer  na;
+        NodeUuid   uuid;
+        Platform  *plat = Platform::platf_singleton();
+
+        rs_uuid.uuid_get_base_val(&uuid);
+        na = plat->plf_find_node_agent(uuid);
+        fds_verify((na != NULL) && (na != this) && (na->node_ro_idx != -1));
+        return na->node_capability();
+    }
+    ndata = shm->shm_get_rec<node_data_t>(node_ro_idx);
+    fds_verify(ndata != NULL);
+    return &ndata->nd_capability;
 }
 
 // node_fill_shm_inv
@@ -281,42 +411,30 @@ NodeInventory::svc_info_frm_shm(fpi::SvcInfo *svc) const
 void
 NodeInventory::node_fill_inventory(const FdspNodeRegPtr msg)
 {
-    NodeInvData       *data;
-    node_capability_t *ncap;
+    std::string ip;
 
-    data = new NodeInvData();
-    ncap = &data->nd_capability;
+    nd_gbyte_cap = msg->disk_info.ssd_capacity;
+    nd_node_name = msg->node_name;
+    node_root    = msg->node_root;
 
-    data->nd_uuid           = NodeUuid(msg->node_uuid.uuid);
-    data->nd_service_uuid   = NodeUuid(msg->service_uuid.uuid);
-    data->nd_ip_addr        = msg->ip_lo_addr;
-    data->nd_ip_str         = netSession::ipAddr2String(data->nd_ip_addr);
-    data->nd_data_port      = msg->data_port;
-    data->nd_ctrl_port      = msg->control_port;
-    data->nd_migration_port = msg->migration_port;
-    data->nd_metasync_port  = msg->metasync_port;
-    data->nd_node_name      = msg->node_name;
-    data->nd_node_type      = msg->node_type;
-    data->nd_node_state     = FDS_ProtocolInterface::FDS_Node_Discovered;
-    data->nd_disk_type      = msg->disk_info.disk_type;
-    data->nd_node_root      = msg->node_root;
-    data->nd_dlt_version    = DLT_VER_INVALID;
+    ip = netSession::ipAddr2String(msg->ip_lo_addr);
+    strncpy(rs_name, ip.c_str(), RS_NAME_MAX - 1);
+}
 
-    ncap->disk_capacity     = msg->disk_info.disk_capacity;
-    ncap->disk_iops_max     = msg->disk_info.disk_iops_max;
-    ncap->disk_iops_min     = msg->disk_info.disk_iops_min;
-    ncap->disk_latency_max  = msg->disk_info.disk_latency_max;
-    ncap->disk_latency_min  = msg->disk_info.disk_latency_min;
-    ncap->ssd_iops_max      = msg->disk_info.ssd_iops_max;
-    ncap->ssd_iops_min      = msg->disk_info.ssd_iops_min;
-    ncap->ssd_capacity      = msg->disk_info.ssd_capacity;
-    ncap->ssd_latency_max   = msg->disk_info.ssd_latency_max;
-    ncap->ssd_latency_min   = msg->disk_info.ssd_latency_min;
-    strncpy(rs_name, data->nd_ip_str.c_str(), RS_NAME_MAX - 1);
+// set_node_state
+// --------------
+//
+void
+NodeInventory::set_node_state(FdspNodeState state)
+{
+    nd_my_node_state = state;
+}
 
-    // TODO(vy): fix the weight.
-    data->nd_gbyte_cap = ncap->ssd_capacity;
-    node_inv = data;
+void
+NodeInventory::set_node_dlt_version(fds_uint64_t dlt_version)
+{
+    // TODO(Vy): do this in platform side.
+    nd_my_dlt_version = dlt_version;
 }
 
 // node_update_inventory
@@ -365,19 +483,22 @@ NodeInventory::init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const
 void
 NodeInventory::init_node_info_pkt(fpi::FDSP_Node_Info_TypePtr pkt) const
 {
+    Platform     *plat = Platform::platf_singleton();
+    fds_uint32_t  base = node_base_port();
+
     pkt->node_id        = 0;
-    pkt->node_uuid      = node_inv->nd_uuid.uuid_get_val();
-    pkt->service_uuid   = node_inv->nd_service_uuid.uuid_get_val();
+    pkt->node_uuid      = Platform::plf_get_my_node_uuid()->uuid_get_val();
+    pkt->service_uuid   = get_uuid().uuid_get_val();
     pkt->ip_hi_addr     = 0;
-    pkt->ip_lo_addr     = node_inv->nd_ip_addr;
-    pkt->node_type      = node_inv->nd_node_type;
-    pkt->node_name      = node_inv->nd_node_name;
-    pkt->node_state     = node_inv->nd_node_state;
-    pkt->control_port   = node_inv->nd_ctrl_port;
-    pkt->data_port      = node_inv->nd_data_port;
-    pkt->migration_port = node_inv->nd_migration_port;
-    pkt->metasync_port  = node_inv->nd_metasync_port;
-    pkt->node_root      = node_inv->nd_node_root;
+    pkt->ip_lo_addr     = str_to_ipv4_addr(get_ip_str());
+    pkt->node_type      = node_get_svc_type();
+    pkt->node_name      = get_node_name();
+    pkt->node_state     = node_state();
+    pkt->control_port   = plat->plf_get_my_ctrl_port(base);
+    pkt->data_port      = plat->plf_get_my_data_port(base);
+    pkt->migration_port = plat->plf_get_my_migration_port(base);
+    pkt->metasync_port  = plat->plf_get_my_metasync_port(base);
+    pkt->node_root      = get_node_root();
 }
 
 // init_node_reg_pkt
@@ -392,71 +513,7 @@ NodeInventory::init_node_reg_pkt(fpi::FDSP_RegisterNodeTypePtr pkt) const
     pkt->ip_hi_addr    = 0;
     pkt->ip_lo_addr    = str_to_ipv4_addr(*plat->plf_get_my_ip());
     pkt->control_port  = plat->plf_get_my_ctrl_port();
-}
-
-// set_node_state
-// --------------
-//
-void
-NodeInventory::set_node_state(FdspNodeState state)
-{
-    // TODO(Vy): do this in platform side.
-    const_cast<NodeInvData *>(node_inv)->nd_node_state = state;
-}
-
-void
-NodeInventory::set_node_dlt_version(fds_uint64_t dlt_version)
-{
-    // TODO(Vy): do this in platform side.
-    const_cast<NodeInvData *>(node_inv)->nd_dlt_version = dlt_version;
-}
-
-// node_info_frm_shm
-// -----------------
-//
-void
-NodeInventory::node_info_frm_shm(node_data_t *out) const
-{
-    int             idx;
-    fds_uint64_t    uid;
-    const ShmObjRO *shm;
-
-    shm = node_shm_ctrl();
-    uid = rs_uuid.uuid_get_val();
-    idx = shm->shm_lookup_rec(node_ro_idx, static_cast<const void *>(&uid),
-                              static_cast<void *>(out), sizeof(*out));
-    fds_assert(idx == node_ro_idx);
-}
-
-std::ostream& operator<< (std::ostream &os, const NodeInvData& node) {
-    os << "["
-       << " uuid:" << node.nd_uuid
-       << " capacity:" << node.nd_gbyte_cap
-       << " ipnum:" << node.nd_ip_addr
-       << " node root:" << node.nd_node_root
-       << " ip:" << node.nd_ip_str.c_str()
-       << " data.port:" << node.nd_data_port
-       << " ctrl.port:" << node.nd_ctrl_port
-       << " migration.port:" << node.nd_migration_port
-       << " meta sync port:" << node.nd_metasync_port
-       << " disk.type:" << node.nd_disk_type
-       << " name:" << node.nd_node_name
-       << " type:" << node.nd_node_type
-       << " state:" << node.nd_node_state
-       << " dlt.version:" << node.nd_dlt_version
-       << " disk.capacity:" << node.nd_capability.disk_capacity
-       << " disk.iops.max:" << node.nd_capability.disk_iops_max
-       << " disk.iops.min:" << node.nd_capability.disk_iops_min
-       << " disk.latency.max:" << node.nd_capability.disk_latency_max
-       << " disk.latency.min:" << node.nd_capability.disk_latency_min
-       << " ssd.iops.max:" << node.nd_capability.ssd_iops_max
-       << " ssd.iops.min:" << node.nd_capability.ssd_iops_min
-       << " ssd.capacity:" << node.nd_capability.ssd_capacity
-       << " ssd.latency.max:" << node.nd_capability.ssd_latency_max
-       << " ssd.latency.min:" << node.nd_capability.ssd_latency_min
-       << "]";
-
-    return os;
+    pkt->node_root     = g_fdsprocess->proc_fdsroot()->dir_fdsroot();
 }
 
 uint32_t NodeServices::write(serialize::Serializer*  s) const {
@@ -502,7 +559,7 @@ NodeAgent::node_stor_weight() const
 {
     // lets normalize = nodes have same weight if their
     // capacity is within 10GB diff
-    fds_uint64_t weight = node_inv->nd_gbyte_cap / 10;
+    fds_uint64_t weight = nd_gbyte_cap / 10;
     if (weight < 1) {
         weight = 1;
     }
@@ -515,7 +572,7 @@ NodeAgent::node_stor_weight() const
 void
 NodeAgent::node_set_weight(fds_uint64_t weight)
 {
-    const_cast<NodeInvData *>(node_inv)->nd_gbyte_cap = weight;
+    nd_gbyte_cap = weight;
 }
 
 // agent_bind_ep
@@ -550,6 +607,18 @@ AgentContainer::AgentContainer(FdspNodeType id) : RsContainer()
 {
     ac_id        = id;
     ac_cpSessTbl = boost::shared_ptr<netSessionTbl>(new netSessionTbl(id));
+}
+
+// node_om_request
+// ---------------
+//
+boost::shared_ptr<EPSvcRequest>
+NodeAgent::node_om_request()
+{
+    fpi::SvcUuid om_uuid;
+
+    gl_OmUuid.uuid_assign(&om_uuid);
+    return gSvcRequestPool->newEPSvcRequest(om_uuid);
 }
 
 // agent_handshake
@@ -645,6 +714,16 @@ NodeAgent::node_svc_rpc(EpSvcHandle::pointer *handle)
     }
     *handle = NULL;
     return NULL;
+}
+
+// Debug operator
+//
+std::ostream &
+operator << (std::ostream &os, const NodeAgent::pointer node)
+{
+    os << " agent: " << node.get() << std::hex
+       << " [" << node->get_uuid().uuid_get_val() << "] " << std::dec;
+    return os;
 }
 
 // --------------------------------------------------------------------------------------
@@ -767,15 +846,19 @@ SmAgent::agent_bind_ep()
 /* virtual */ void
 SmAgent::sm_handshake(boost::shared_ptr<netSessionTbl> net, NodeAgentDpRespPtr sm_resp)
 {
+    std::string   ip = get_ip_str();
+    fds_uint32_t  base = node_base_port();
+    Platform     *plat = Platform::platf_singleton();
+
     sm_sess = net->startSession<netDataPathClientSession>(
-            node_inv->nd_ip_str, node_inv->nd_data_port,
+            ip, plat->plf_get_my_data_port(base),
             FDSP_STOR_MGR, 1 /* just 1 channel */, sm_resp);
 
     sm_reqt    = sm_sess->getClient();
     sm_sess_id = sm_sess->getSessionId();
 
-    FDS_PLOG(g_fdslog) << "Handshake with SM: " << node_inv->nd_ip_str
-        << ", port " << node_inv->nd_data_port << ", sess id " << sm_sess_id;
+    FDS_PLOG(g_fdslog) << "Handshake with SM: " << ip
+        << ", port " << plat->plf_get_my_data_port(base) << ", sess id " << sm_sess_id;
 }
 
 NodeAgentDpClientPtr SmAgent::get_sm_client() {

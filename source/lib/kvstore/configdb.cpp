@@ -9,6 +9,7 @@
 #include <util/Log.h>
 #include <util/stringutils.h>
 #include <stdlib.h>
+#include <platform/node-inv-shmem.h>
 #include <fdsp_utils.h>
 #include <util/timeutils.h>
 
@@ -515,64 +516,21 @@ bool ConfigDB::getDmt(DMT& dmt, fds_uint64_t version, int localDomain) {
 }
 
 // nodes
-bool ConfigDB::addNode(const NodeInvData& node) {
+bool ConfigDB::addNode(const node_data_t *node) {
     TRACKMOD();
     // add the volume to the volume list for the domain
     int domainId = 0;  // TODO(prem)
     try {
-        Reply reply = r.sendCommand("sadd %d:cluster:nodes %ld", domainId, node.nd_uuid);
+        bool ret;
 
-        if (!reply.wasModified()) {
-            LOGWARN << "node [" << node.nd_uuid
-                    << "] already exists for domain [" << domainId << "]";
-        }
+        ret = r.set(format("%d:cluster:nodes", domainId),
+                    std::string(reinterpret_cast<const char *>(&node->nd_node_uuid),
+                                sizeof(node->nd_node_uuid)));
+        ret = r.set(format("node:%ld", node->nd_node_uuid),
+                    std::string(reinterpret_cast<const char *>(&node->nd_node_uuid),
+                                sizeof(node->nd_node_uuid)));
 
-        reply = r.sendCommand("hmset node:%ld uuid %ld"
-                              " capacity %ld"
-                              " ipnum %ld"
-                              " ip %s"
-                              " data.port %d"
-                              " ctrl.port %d"
-                              " migration.port %d"
-                              " disk.type %d"
-                              " name %s"
-                              " type %d"
-                              " state %d"
-                              " dlt.version %ld"
-                              " disk.capacity %ld"
-                              " disk.iops.max %d"
-                              " disk.iops.min %d"
-                              " disk.latency.max %d"
-                              " disk.latency.min %d"
-                              " ssd.iops.max %d"
-                              " ssd.iops.min %d"
-                              " ssd.capacity %d"
-                              " ssd.latency.max %d"
-                              " ssd.latency.min %d",
-                              node.nd_uuid, node.nd_uuid,
-                              node.nd_gbyte_cap,
-                              node.nd_ip_addr,
-                              node.nd_ip_str.c_str(),
-                              node.nd_data_port,
-                              node.nd_ctrl_port,
-                              node.nd_migration_port,
-                              node.nd_disk_type,
-                              node.nd_node_name.c_str(),
-                              node.nd_node_type,
-                              node.nd_node_state,
-                              node.nd_dlt_version,
-                              node.nd_capability.disk_capacity,
-                              node.nd_capability.disk_iops_max,
-                              node.nd_capability.disk_iops_min,
-                              node.nd_capability.disk_latency_max,
-                              node.nd_capability.disk_latency_min,
-                              node.nd_capability.ssd_iops_max,
-                              node.nd_capability.ssd_iops_min,
-                              node.nd_capability.ssd_capacity,
-                              node.nd_capability.ssd_latency_max,
-                              node.nd_capability.ssd_latency_min);
-        if (reply.isOk()) return true;
-        LOGWARN << "msg: " << reply.getString();
+        return ret;
     } catch(const RedisException& e) {
         LOGCRITICAL << "error with redis " << e.what();
         NOMOD();
@@ -580,7 +538,7 @@ bool ConfigDB::addNode(const NodeInvData& node) {
     return false;
 }
 
-bool ConfigDB::updateNode(const NodeInvData& node) {
+bool ConfigDB::updateNode(const node_data_t *node) {
     try {
         return addNode(node);
     } catch(const RedisException& e) {
@@ -609,48 +567,14 @@ bool ConfigDB::removeNode(const NodeUuid& uuid) {
     return false;
 }
 
-bool ConfigDB::getNode(const NodeUuid& uuid, NodeInvData& node) {
+bool ConfigDB::getNode(const NodeUuid& uuid, node_data_t *node) {
     try {
-        Reply reply = r.sendCommand("hgetall node:%ld", uuid);
-        StringList strings;
-        reply.toVector(strings);
-
-        if (strings.empty()) {
-            LOGWARN << "unable to find node [" << std::hex << uuid << std::dec << "]";
-            return false;
+        Reply reply = r.get(format("node:%ld", uuid.uuid_get_val()));
+        if (reply.isOk()) {
+            *node = *(reinterpret_cast<const node_data_t *>(reply.getString().c_str()));
+            return true;
         }
-
-        for (uint i = 0; i < strings.size(); i+= 2) {
-            std::string& key = strings[i];
-            std::string& value = strings[i+1];
-            node_capability_t& cap = node.nd_capability;
-            if (key == "uuid") { node.nd_uuid = strtoull(value.c_str(), NULL, 10); }
-            else if (key == "capacity") { node.nd_gbyte_cap  = atol(value.c_str()); }
-            else if (key == "ipnum") { node.nd_ip_addr = atoi(value.c_str()); }
-            else if (key == "ip") { node.nd_ip_str = value; }
-            else if (key == "data.port") { node.nd_data_port = atoi(value.c_str()); }
-            else if (key == "ctrl.port") { node.nd_ctrl_port = atoi(value.c_str()); }
-            else if (key == "migration.port") { node.nd_migration_port  = atoi(value.c_str()); }
-            else if (key == "disk.type") { node.nd_disk_type = atoi(value.c_str()); }
-            else if (key == "name") { node.nd_node_name = value; }
-            else if (key == "type") { node.nd_node_type = (fpi::FDSP_MgrIdType) atoi(value.c_str()); } //NOLINT
-            else if (key == "state") { node.nd_node_state  = (fpi::FDSP_NodeState) atoi(value.c_str()); } //NOLINT
-            else if (key == "dlt.version") { node.nd_dlt_version  = atol(value.c_str()); }
-            else if (key == "disk.capacity") { cap.disk_capacity = atol(value.c_str()); }
-            else if (key == "disk.iops.max") { cap.disk_iops_max  = atoi(value.c_str()); }
-            else if (key == "disk.iops.min") { cap.disk_iops_min = atoi(value.c_str()); }
-            else if (key == "disk.latency.max") { cap.disk_latency_max  = atoi(value.c_str()); }
-            else if (key == "disk.latency.min") { cap.disk_latency_min = atoi(value.c_str()); }
-            else if (key == "ssd.iops.max") { cap.ssd_iops_max = atoi(value.c_str()); }
-            else if (key == "ssd.iops.min") { cap.ssd_iops_min = atoi(value.c_str()); }
-            else if (key == "ssd.capacity") { cap.ssd_capacity = atoi(value.c_str()); }
-            else if (key == "ssd.latency.max") { cap.ssd_latency_max = atoi(value.c_str()); }
-            else if (key == "ssd.latency.min") { cap.ssd_latency_min = atoi(value.c_str()); }
-            else { //NOLINT
-                LOGWARN << "unknown key [" << key << "] for node [" << uuid << "]";
-            }
-        }
-        return true;
+        return false;
     } catch(const RedisException& e) {
         LOGCRITICAL << "error with redis " << e.what();
     }
@@ -692,7 +616,7 @@ bool ConfigDB::getNodeIds(std::unordered_set<NodeUuid, UuidHash>& nodes, int loc
     return false;
 }
 
-bool ConfigDB::getAllNodes(std::vector<NodeInvData>& nodes, int localDomain) {
+bool ConfigDB::getAllNodes(std::vector<node_data_t>& nodes, int localDomain) {
     std::vector<long long> nodeIds; //NOLINT
 
     try {
@@ -705,8 +629,8 @@ bool ConfigDB::getAllNodes(std::vector<NodeInvData>& nodes, int localDomain) {
         }
 
         for (uint i = 0; i < nodeIds.size(); i++) {
-            NodeInvData node;
-            getNode(nodeIds[i], node);
+            node_data_t node;
+            getNode(nodeIds[i], &node);
             nodes.push_back(node);
         }
         return true;
