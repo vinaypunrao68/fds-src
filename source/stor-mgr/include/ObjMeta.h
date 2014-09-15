@@ -116,6 +116,8 @@ class ObjMetaData : public serialize::Serializable {
 
      fds_uint16_t getRefCnt() const;
 
+     void copyAssocEntry(ObjectID objId, fds_volid_t srcVolId, fds_volid_t destVolId);
+
      void updateAssocEntry(ObjectID objId, fds_volid_t vol_id);
 
      void deleteAssocEntry(ObjectID objId, fds_volid_t vol_id, fds_uint64_t ts);

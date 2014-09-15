@@ -258,66 +258,6 @@ DataMgr::finishCloseDMT() {
     LOGDEBUG << "Will cleanup catalogs for volumes DM is not responsible anymore";
     // TODO(Anna) remove volume catalog for volumes we finished forwarding
 }
-Error
-DataMgr::createSnapshot(const fpi::Snapshot & snapDetails) {
-    Error rc = 0;
-#if 0
-    VolumeMeta * volmeta = 0;
-    VolumeMeta * snapmeta = 0;
-    {
-        FDSGUARD(*vol_map_mtx);
-        volmeta = vol_meta_map[snapDetails.volumeId];
-        snapmeta = vol_meta_map[snapDetails.snapshotId];
-
-        if (!volmeta) {
-            GLOGWARN << "Volume '" << std::hex << snapDetails.volumeId << std::dec <<
-                    "' not found!";
-            return ERR_NOT_FOUND;
-        }
-
-        if (snapmeta) {
-            GLOGWARN << "Snapshot '" << std::hex << snapDetails.snapshotId << std::dec <<
-                    "' already exists!";
-            return FDSN_StatusErrorBucketAlreadyExists;
-        }
-    }
-
-    VolumeDesc snapdesc(*volmeta->vol_desc);
-    snapdesc.volUUID = snapDetails.snapshotId;
-    snapdesc.name = snapDetails.snapshotName;
-    snapdesc.srcVolumeId = snapDetails.volumeId;
-    snapdesc.ctime = boost::posix_time::from_time_t(snapDetails.creationTimestamp);
-    snapdesc.fSnapshot = true;
-
-    Error rc = timeVolCat_->createSnapshot(*volmeta->vol_desc, snapdesc);
-    if (!rc.ok()) {
-        GLOGERROR << "Failed to create a snapshot '" << snapDetails.snapshotName << "'";
-        return rc;
-    }
-    rc = timeVolCat_->activateVolume(snapdesc.volUUID);
-
-    snapmeta = new VolumeMeta(snapdesc.name, snapdesc.volUUID, GetLog(), &snapdesc);
-
-    snapmeta->dmVolQueue = new FDS_VolumeQueue(4096, snapdesc.iops_max, 2 * snapdesc.iops_min,
-            snapdesc.relativePrio);
-    snapmeta->dmVolQueue->activate();
-
-    GLOGDEBUG << "Added vol meta for vol uuid and per Volume queue '" << std::hex <<
-            snapdesc.volUUID << std::dec << "'";
-
-    FDSGUARD(*vol_map_mtx);
-
-    rc = dataMgr->qosCtrl->registerVolume(snapdesc.volUUID, static_cast<FDS_VolumeQueue*>(
-            snapmeta->dmVolQueue));
-    if (!rc.ok()) {
-        delete snapmeta;
-        return rc;
-    }
-    vol_meta_map[snapdesc.volUUID] = snapmeta;
-
-#endif
-    return rc;
-}
 
 Error
 DataMgr::deleteSnapshot(const fds_uint64_t snapshotId) {
@@ -426,11 +366,10 @@ Error DataMgr::_add_vol_locked(const std::string& vol_name,
                 return ERR_NOT_FOUND;
             }
         }
-        if (vdesc->isClone()) {
-            // TODO(sanjay): implement this
-        } else {
-            err = timeVolCat_->createSnapshot(*volmeta->vol_desc);
-        }
+
+        // create commit log entry and enbale buffering in case of snapshot
+        err = timeVolCat_->copyVolume(*volmeta->vol_desc);
+
     } else {
         err = timeVolCat_->addVolume(*vdesc);
     }

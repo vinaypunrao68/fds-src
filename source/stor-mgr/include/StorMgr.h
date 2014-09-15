@@ -62,6 +62,7 @@ extern "C" {
 #include "kvstore/tokenstatedb.h"
 #include "fdsp/SMSvc.h"
 
+#include <SmDiskTypes.h>
 #include <object-store/ObjectStore.h>
 
 #undef FDS_TEST_SM_NOOP      /* if defined, IO completes as soon as it arrives to SM */
@@ -81,39 +82,6 @@ void log_ocache_stats();
 class ObjectStorMgrI;
 class TierEngine;
 class ObjectRankEngine;
-
-class SmPlReq : public diskio::DiskRequest {
-    public:
-     /*
-      * TODO: This defaults to disk at the moment...
-      * need to specify any tier, specifically for
-      * read
-      */
-     SmPlReq(meta_vol_io_t   &vio,
-             meta_obj_id_t   &oid,
-             ObjectBuf        *buf,
-             fds_bool_t        block)
-         : diskio::DiskRequest(vio, oid, buf, block) {
-         }
-     SmPlReq(meta_vol_io_t   &vio,
-             meta_obj_id_t   &oid,
-             ObjectBuf        *buf,
-             fds_bool_t        block,
-             diskio::DataTier  tier)
-         : diskio::DiskRequest(vio, oid, buf, block, tier) {
-         }
-     ~SmPlReq() { }
-
-     void req_submit() {
-         fdsio::Request::req_submit();
-     }
-     void req_complete() {
-         fdsio::Request::req_complete();
-     }
-     void setTier(diskio::DataTier tier) {
-         datTier = tier;
-     }
-};
 
 /**
  * @brief Storage manager counters
@@ -487,13 +455,6 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
          omClient->registerEventHandlerForVolEvents(volHndlr);
      }
 
-     Error regVol(const VolumeDesc& vdb) {
-         return volTbl->registerVolume(vdb);
-     }
-
-     Error deregVol(fds_volid_t volId) {
-         return volTbl->deregisterVolume(volId);
-     }
      // We need to get this info out of this big class to avoid making this
      // class even bigger than it should.  Not much point for making it
      // private and need a get method to get it out.
@@ -521,6 +482,7 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      Error putObjectInternalSvc(SmIoPutObjectReq* putReq);
      Error deleteObjectInternal(SmIoReq* delReq);
      Error deleteObjectInternalSvc(SmIoDeleteObjectReq* delReq);
+     Error addObjectRefInternalSvc(SmIoAddObjRefReq* addRefReq);
      void putTokenObjectsInternal(SmIoReq* ioReq);
      void getTokenObjectsInternal(SmIoReq* ioReq);
      void snapshotTokenInternal(SmIoReq* ioReq);

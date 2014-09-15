@@ -46,7 +46,8 @@ void DMSvcHandler::createSnapshot(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
      * get the snapshot manager instanace 
      * invoke the createSnapshot DM function 
      */
-    err = dataMgr->createSnapshot(createSnapshot->snapshot);
+    // TODO(Sanjay) revisit  this when we enable the server layer interface
+    // err = dataMgr->createSnapshot(createSnapshot->snapshot);
 
     asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
     fpi::CreateSnapshotRespMsg createSnapshotResp;

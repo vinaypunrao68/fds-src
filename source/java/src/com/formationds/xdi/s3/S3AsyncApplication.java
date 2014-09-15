@@ -7,20 +7,23 @@ import com.formationds.apis.ApiException;
 import com.formationds.apis.ErrorCode;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.util.async.AsyncRequestStatistics;
+import com.formationds.util.async.AsyncResourcePool;
 import com.formationds.util.async.CompletableFutureUtility;
 import com.formationds.web.toolkit.AsyncRequestExecutor;
 import com.formationds.xdi.XdiAsync;
 import org.apache.commons.codec.binary.Hex;
+import org.apache.log4j.Logger;
 import org.eclipse.jetty.http.HttpStatus;
 import org.eclipse.jetty.http.HttpURI;
 import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.server.Response;
-import org.eclipse.jetty.util.MultiMap;
-import sun.net.www.protocol.http.AuthenticationInfo;
 
 import javax.servlet.AsyncContext;
 import javax.servlet.ServletOutputStream;
-import java.io.*;
+import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
@@ -30,16 +33,21 @@ import java.util.concurrent.CompletionException;
 import java.util.function.Supplier;
 
 public class S3AsyncApplication implements AsyncRequestExecutor {
+    private final static Logger LOG = Logger.getLogger(S3AsyncApplication.class);
+
+    public static final int CONCURRENCY = 500;
     private final S3Authenticator authenticator;
     private XdiAsync.Factory xdiAsyncFactory;
     private AsyncRequestStatistics.Aggregate aggregateStats;
     private final LinkedList<AsyncRequestStatistics> requestStatisticsWindow;
+    private final AsyncResourcePool<Void> requestLimiter;
 
     public S3AsyncApplication(XdiAsync.Factory xdi, S3Authenticator authenticator) {
         this.xdiAsyncFactory = xdi;
         this.authenticator = authenticator;
         this.aggregateStats = new AsyncRequestStatistics.Aggregate();
         this.requestStatisticsWindow = new LinkedList<>();
+        this.requestLimiter = new AsyncResourcePool<>(new VoidImpl(), CONCURRENCY);
     }
 
     @Override
@@ -84,15 +92,17 @@ public class S3AsyncApplication implements AsyncRequestExecutor {
         }
 
         if(result != null) {
+            final Supplier<CompletableFuture<Void>> closureResultValue = result;
             requestStatistics.enable();
             AsyncContext ctx = request.startAsync();
             CompletableFuture<Void> actionChain =
-                result.get()
-                      .exceptionally(ex -> handleError(ex, request, response))
-                      .whenComplete((r, ex) -> {
-                          ctx.complete();
-                          aggregateStatistics(requestStatistics);
-                      });
+                    requestLimiter.use(_null ->
+                        closureResultValue.get()
+                          .exceptionally(ex -> handleError(ex, request, response))
+                          .whenComplete((r, ex) -> {
+                              ctx.complete();
+                              aggregateStatistics(requestStatistics);
+                          }));
 
             return Optional.of(actionChain);
         }
@@ -123,6 +133,7 @@ public class S3AsyncApplication implements AsyncRequestExecutor {
         while(ex instanceof CompletionException)
             ex = ex.getCause();
         ex.printStackTrace(pw);
+        LOG.error("Error handling " + request.getMethod() + " " + request.getRequestURI(), ex);
         try {
             if(ex instanceof ApiException) {
                 ApiException apiEx = (ApiException) ex;
@@ -202,4 +213,5 @@ public class S3AsyncApplication implements AsyncRequestExecutor {
     public String formatEtag(byte[] input) {
         return formatEtag(Hex.encodeHexString(input));
     }
+
 }

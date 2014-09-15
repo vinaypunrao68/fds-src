@@ -7,6 +7,7 @@
 #include <string>
 #include <fds_module.h>
 #include <fds_volume.h>
+#include <StorMgrVolumes.h>
 #include <object-store/ObjectDataStore.h>
 #include <object-store/ObjectMetadataStore.h>
 
@@ -26,9 +27,19 @@ class ObjectStore : public Module, public boost::noncopyable {
     ObjectDataStore::unique_ptr dataStore;
 
     /// Object metadata storage
+    ObjectMetadataStore::unique_ptr metaStore;
+
+    // Volume table for accessing vol descriptors
+    // Does not own, passed from SM processing layer
+    // TODO(xxx) we should be able to get this from platform
+    StorMgrVolumeTable *volumeTbl;
+
+    // config params
+    fds_bool_t conf_verify_data;
 
   public:
-    explicit ObjectStore(const std::string &modName);
+    ObjectStore(const std::string &modName,
+                StorMgrVolumeTable* volTbl);
     ~ObjectStore();
     typedef std::unique_ptr<ObjectStore> unique_ptr;
 

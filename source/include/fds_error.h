@@ -87,6 +87,7 @@ namespace fds {
         ERR_SM_NOT_IN_SYNC_MODE = 2000,
         ERR_SM_TOKENSTATEDB_KEY_NOT_FOUND,
         ERR_SM_TOKENSTATEDB_DUPLICATE_KEY,
+        ERR_SM_OBJECT_DATA_MISSING,
 
         /* Network errors */
         ERR_NETWORK_TRANSPORT = 3000,

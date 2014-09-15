@@ -418,13 +418,6 @@ void ObjectStorMgr::mod_startup()
     fds_verify(dirtyFlashObjs->is_lock_free() == true);
     writeBackThreads = new fds_threadpool(numWBThreads);
 
-    // Init the object store
-    // TODO(Andrew): The object store should be executed as part
-    // of the module initialization since it needs to discover
-    // any prior data and possibly perform recovery before allowing
-    // another module layer to come up above it.
-    objectStore = ObjectStore::unique_ptr(new ObjectStore("SM Object Store Module"));
-
     /*
      * stats class init
      */
@@ -467,6 +460,15 @@ void ObjectStorMgr::mod_startup()
      * the OM vol event receivers depend on this table.
      */
     volTbl = new StorMgrVolumeTable(this, GetLog());
+
+    // Init the object store
+    // TODO(Andrew): The object store should be executed as part
+    // of the module initialization since it needs to discover
+    // any prior data and possibly perform recovery before allowing
+    // another module layer to come up above it.
+    objectStore = ObjectStore::unique_ptr(new ObjectStore("SM Object Store Module",
+                                                          volTbl));
+
 
     /* Create tier related classes -- has to be after volTbl is created */
     FdsRootDir::fds_mkdir(modProvider_->proc_fdsroot()->dir_fds_var_stats().c_str());
@@ -1008,6 +1010,9 @@ void ObjectStorMgr::sampleSMStats(fds_uint64_t timestamp) {
     for (std::list<fds_volid_t>::iterator vit = volIds.begin();
          vit != volIds.end();
          vit++) {
+        if (volTbl->isSnapshot(*vit)) {
+            continue;
+        }
         fds_uint64_t dedup_bytes = volTbl->getDedupBytes(*vit);
         LOGDEBUG << "Volume " << std::hex << *vit << std::dec
                  << " deduped bytes " << dedup_bytes;
@@ -1210,7 +1215,7 @@ ObjectStorMgr::writeObjectMetaData(const OpCtx &opCtx,
     err = smObjDb->put(opCtx, objId, objMap);
     if (err == ERR_OK) {
         if (update_dup) {
-            volTbl->updateDupObj((fds_volid_t)vol->vol_uuid, obj_size,
+            volTbl->updateDupObj((fds_volid_t)vol->vol_uuid, objId, obj_size,
                                  true, vols_refcnt);
         }
         LOGDEBUG << "Updating object location for object "
@@ -1286,7 +1291,7 @@ ObjectStorMgr::deleteObjectMetaData(const OpCtx &opCtx,
     objMap.deleteAssocEntry(objId, vol_id, fds::util::getTimeStampMillis());
     err = smObjDb->put(opCtx, objId, objMap);
     if (err == ERR_OK) {
-        volTbl->updateDupObj(vol_id, objMap.getObjSize(),
+        volTbl->updateDupObj(vol_id, objId, objMap.getObjSize(),
                              false, vols_refcnt);
         LOGDEBUG << "Setting the delete marker for object "
                 << objId << " to " << objMap;
@@ -1780,7 +1785,7 @@ ObjectStorMgr::putObjectInternalSvc(SmIoPutObjectReq *putReq) {
             err = smObjDb->put(opCtx, objId, objMap);
             if (err == ERR_OK) {
                 dedupeByteCnt += objId.GetLen();
-                volTbl->updateDupObj(volId, putReq->data_obj.size(),
+                volTbl->updateDupObj(volId, objId, putReq->data_obj.size(),
                                      true, vols_refcnt);
                 LOGDEBUG << "Dedupe object Assoc Entry for object "
                          << objId << " to " << objMap;
@@ -1867,7 +1872,7 @@ ObjectStorMgr::putObjectInternalSvc(SmIoPutObjectReq *putReq) {
           objMap.updateAssocEntry(objId, volId);
           err = smObjDb->put(opCtx, objId, objMap);
           if (err.ok()) {
-              volTbl->updateDupObj(volId, putReq->data_obj.size(),
+              volTbl->updateDupObj(volId, objId, putReq->data_obj.size(),
                                    true, vols_refcnt);
           }
           smObjDb->unlock(objId);
@@ -1989,7 +1994,7 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
             objMap.updateAssocEntry(objId, volId);
             err = smObjDb->put(opCtx, objId, objMap);
             if (err == ERR_OK) {
-                volTbl->updateDupObj(volId, putObjReq->data_obj.size(),
+                volTbl->updateDupObj(volId, objId, putObjReq->data_obj.size(),
                                      true, vols_refcnt);
                 LOGDEBUG << "Dedupe object Assoc Entry for object "
                          << objId << " to " << objMap;
@@ -2073,7 +2078,7 @@ ObjectStorMgr::putObjectInternal(SmIoReq* putReq) {
           objMap.updateAssocEntry(objId, volId);
           err = smObjDb->put(opCtx, objId, objMap);
           if (err.ok()) {
-              volTbl->updateDupObj(volId, putObjReq->data_obj.size(),
+              volTbl->updateDupObj(volId, objId, putObjReq->data_obj.size(),
                                    true, vols_refcnt);
           }
           smObjDb->unlock(objId);
@@ -2412,6 +2417,64 @@ ObjectStorMgr::deleteObjectInternalSvc(SmIoDeleteObjectReq* delReq) {
     delReq->response_cb(err, delReq);
 
     return err;
+}
+
+Error
+ObjectStorMgr::addObjectRefInternalSvc(SmIoAddObjRefReq* addObjRefReq) {
+    fds_assert(0 != addObjRefReq);
+    fds_assert(0 != addObjRefReq->getSrcVolId());
+    fds_assert(0 != addObjRefReq->getDestVolId());
+
+    Error rc = ERR_OK;
+
+    if (addObjRefReq->objIds().empty()) {
+        return rc;
+    }
+
+    OpCtx opCtx(OpCtx::PUT, fds::get_fds_timestamp_ms());
+    PerfTracer::tracePointBegin(addObjRefReq->opLatencyCtx);
+
+    for (auto objId : addObjRefReq->objIds()) {
+        ObjectID oid = ObjectID(objId.digest);
+        ObjMetaData objMap;
+
+        smObjDb->lock(oid);
+
+        // copy assoc entry from source to dest volume
+        rc = readObjMetaData(oid, objMap);
+        if (!rc.ok()) {
+            GLOGERROR << "Failed to get ObjMetaData from db " << rc;
+        } else {
+            objMap.copyAssocEntry(oid, addObjRefReq->getSrcVolId(), addObjRefReq->getDestVolId());
+
+            rc = smObjDb->put(opCtx, oid, objMap);
+            if (!rc.ok()) {
+                LOGERROR << "Failed to add association entry for object " << oid <<
+                        "in to odb with err " << rc;
+            } else {
+                // XXX: for snapshot we should not call volTbl->updateDupObj but for clones
+                //      we should call this function. We can get if destVolumeId is clone or
+                //      snapshot from VolumeDesc in volTble
+                // TODO(xxx): call updateDupObj() for clones
+            }
+        }
+
+        smObjDb->unlock(oid);
+
+        if (!rc.ok()) {
+            PerfTracer::incr(addObjRefReq->opReqFailedPerfEventType,
+                    addObjRefReq->getSrcVolId(), addObjRefReq->perfNameStr);
+            break;
+        }
+    }
+
+    qosCtrl->markIODone(*addObjRefReq, diskio::maxTier, true);
+    PerfTracer::tracePointEnd(addObjRefReq->opLatencyCtx);
+    PerfTracer::tracePointEnd(addObjRefReq->opReqLatencyCtx);
+
+    addObjRefReq->response_cb(rc, addObjRefReq);
+
+    return rc;
 }
 
 void
@@ -3399,6 +3462,13 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
             threadPool->schedule(&ObjectStorMgr::putObjectInternalSvc,
                                  objStorMgr, static_cast<SmIoPutObjectReq*>(io));
             break;
+        case FDS_SM_ADD_OBJECT_REF:
+        {
+            FDS_PLOG(FDS_QoSControl::qos_log) << "Processing and add object reference request";
+            threadPool->schedule(&ObjectStorMgr::addObjectRefInternalSvc, objStorMgr,
+                                 static_cast<SmIoAddObjRefReq*>(io));
+            break;
+        }
         case FDS_SM_WRITE_TOKEN_OBJECTS:
         {
             FDS_PLOG(FDS_QoSControl::qos_log) << "Processing a write token ibjects";

@@ -17,6 +17,7 @@ typedef boost::shared_ptr<FdsCountersMgr> FdsCounterMgrPtr;
 class FdsRootDir;
 class fds_threadpool;
 class Platform;
+class TracebufferPool;
 
 /* Interface for providing common process modules
  * NOTES
@@ -32,6 +33,7 @@ class Platform;
 // 2. Have a consistent method naming
 class CommonModuleProviderIf {
  public:
+    virtual ~CommonModuleProviderIf() {}
     virtual FdsConfigAccessor get_conf_helper() const { return FdsConfigAccessor(); }
 
     virtual boost::shared_ptr<FdsConfig> get_fds_config() const { return nullptr; }
@@ -45,7 +47,11 @@ class CommonModuleProviderIf {
     virtual fds_threadpool *proc_thrpool() const { return nullptr; }
 
     virtual Platform* get_plf_manager() { return nullptr; }
+
+    virtual TracebufferPool* getTracebufferPool() {return nullptr; }
 };
+
+extern CommonModuleProviderIf* gModuleProvider;
 
 }  // namespace fds
 #endif  // SOURCE_INCLUDE_FDS_MODULE_PROVIDER_H_
