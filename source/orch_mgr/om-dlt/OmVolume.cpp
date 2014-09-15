@@ -1139,56 +1139,6 @@ VolumeContainer::om_snap_vol(const FdspMsgHdrPtr &hdr,
     return err;
 }
 
-Error VolumeContainer::addSnapshot(const fpi::Snapshot& snapshot) {
-    Error err(ERR_OK);
-    OM_NodeContainer    *local = OM_NodeDomainMod::om_loc_domain_ctrl();
-    OM_Module *om = OM_Module::om_singleton();
-    VolumePlacement* vp = om->om_volplace_mod();
-    VolPolicyMgr        *v_pol = OrchMgr::om_policy_mgr();
-    FdsAdminCtrl        *admin = local->om_get_admin_ctrl();
-
-    VolumeInfo::pointer  vol, parentVol;
-
-    vol = VolumeInfo::vol_cast_ptr(rs_get_resource(snapshot.snapshotId));
-    if (vol != NULL) {
-        LOGWARN << "Trying to add a snapshot with conflicting id:" << snapshot.snapshotId
-                << " name:" << snapshot.snapshotName;
-        return Error(ERR_DUPLICATE);
-    }
-
-    parentVol = VolumeInfo::vol_cast_ptr(rs_get_resource(snapshot.volumeId));
-    vol = VolumeInfo::vol_cast_ptr(rs_alloc_new(snapshot.snapshotId));
-
-    parentVol->initSnapshotVolInfo(vol, snapshot);
-
-    err = admin->volAdminControl(vol->vol_get_properties());
-    if (!err.ok()) {
-        // TODO(Vy): delete the volume here.
-        LOGERROR << "Unable to add snapshot " << snapshot.snapshotName
-                 << " error: " << err.GetErrstr();
-        rs_free_resource(vol);
-        return err;
-    }
-
-    // register before b-casting vol crt, in case we start recevings acks
-    // before vol_event for create vol returns
-    rs_register(vol);
-
-    // in case there was no one to notify, check if we can proceed to
-    // active state right away (otherwise guard will stop us)
-
-    // TODO(prem): change the snapshot implementation
-    // vol->vol_event(SnapCrtEvt());
-     vol->vol_event(VolCreateEvt(vol.get()));
-
-    // in case there was no one to notify, check if we can proceed to
-    // active state right away (otherwise guard will stop us)
-     vol->vol_event(VolCrtOkEvt(false));
-
-    return err;
-}
-
-
 // om_delete_vol
 // -------------
 //
@@ -1631,6 +1581,46 @@ bool VolumeContainer::addVolume(const VolumeDesc& volumeDesc) {
     vol->vol_event(VolCrtOkEvt(false));
 
     return true;
+}
+
+Error VolumeContainer::addSnapshot(const fpi::Snapshot& snapshot) {
+    Error err(ERR_OK);
+    OM_NodeContainer *local  = OM_NodeDomainMod::om_loc_domain_ctrl();
+    OM_Module *om            = OM_Module::om_singleton();
+    FdsAdminCtrl *admin      = local->om_get_admin_ctrl();
+
+    VolumeInfo::pointer  vol, parentVol;
+
+    vol = VolumeInfo::vol_cast_ptr(rs_get_resource(snapshot.snapshotId));
+    if (vol != NULL) {
+        LOGWARN << "Trying to add a snapshot with conflicting id:" << snapshot.snapshotId
+                << " name:" << snapshot.snapshotName;
+        return Error(ERR_DUPLICATE);
+    }
+
+    parentVol = VolumeInfo::vol_cast_ptr(rs_get_resource(snapshot.volumeId));
+    vol = VolumeInfo::vol_cast_ptr(rs_alloc_new(snapshot.snapshotId));
+
+    parentVol->initSnapshotVolInfo(vol, snapshot);
+
+    err = admin->volAdminControl(vol->vol_get_properties());
+    if (!err.ok()) {
+        // TODO(Vy): delete the volume here.
+        LOGERROR << "Unable to add snapshot " << snapshot.snapshotName
+                 << " error: " << err.GetErrstr();
+        rs_free_resource(vol);
+        return err;
+    }
+
+    rs_register(vol);
+
+    vol->vol_event(VolCreateEvt(vol.get()));
+
+    // in case there was no one to notify, check if we can proceed to
+    // active state right away (otherwise guard will stop us)
+     vol->vol_event(VolCrtOkEvt(false));
+
+    return err;
 }
 
 }  // namespace fds

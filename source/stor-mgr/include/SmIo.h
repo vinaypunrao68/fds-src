@@ -236,6 +236,40 @@ class SmIoReqHandler {
     virtual Error enqueueMsg(fds_volid_t volId, SmIoReq* ioReq) = 0;
 };
 
+class SmIoAddObjRefReq : public SmIoReq {
+  public:
+    typedef std::function<void (const Error&, SmIoAddObjRefReq * resp)> CbType;
+    virtual std::string log_string() override;
+
+    // ctor and dtor
+    explicit SmIoAddObjRefReq(fpi::AddObjectRefMsgPtr addObjRefReq_)
+            : addObjRefReq(addObjRefReq_) {
+        fds_assert(NULL != addObjRefReq.get());
+
+        io_type = FDS_SM_ADD_OBJECT_REF;
+        volUuid = addObjRefReq->srcVolId;
+        io_vol_id = addObjRefReq->srcVolId;
+    }
+
+    fds_volid_t getSrcVolId() {
+        return addObjRefReq->srcVolId;
+    }
+
+    fds_volid_t getDestVolId() {
+        return addObjRefReq->destVolId;
+    }
+
+    const std::vector<fpi::FDS_ObjectIdType> & objIds() {
+        return addObjRefReq->objIds;
+    }
+
+    virtual ~SmIoAddObjRefReq() {}
+
+    // member variables
+    fpi::AddObjectRefMsgPtr addObjRefReq;
+    CbType response_cb;
+};
+
 class SmIoDeleteObjectReq : public SmIoReq {
   public:
     typedef std::function<void (const Error&, SmIoDeleteObjectReq *resp)> CbType;

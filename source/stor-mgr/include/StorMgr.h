@@ -521,6 +521,7 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      Error putObjectInternalSvc(SmIoPutObjectReq* putReq);
      Error deleteObjectInternal(SmIoReq* delReq);
      Error deleteObjectInternalSvc(SmIoDeleteObjectReq* delReq);
+     Error addObjectRefInternalSvc(SmIoAddObjRefReq* addRefReq);
      void putTokenObjectsInternal(SmIoReq* ioReq);
      void getTokenObjectsInternal(SmIoReq* ioReq);
      void snapshotTokenInternal(SmIoReq* ioReq);

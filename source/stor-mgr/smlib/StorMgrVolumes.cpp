@@ -13,10 +13,8 @@ namespace fds {
 extern ObjectStorMgr *objStorMgr;
 
 StorMgrVolume::StorMgrVolume(const VolumeDesc&  vdb,
-                             ObjectStorMgr     *sm,
                              fds_log           *parent_log)
-        : FDS_Volume(vdb),
-          parent_sm(sm) {
+        : FDS_Volume(vdb) {
     /*
      * Setup storage prefix.
      * All other values are default for now
@@ -33,7 +31,7 @@ StorMgrVolume::StorMgrVolume(const VolumeDesc&  vdb,
      * TODO: The queue capacity is still hard coded. We
      * should calculate this somehow.
      */
-    volQueue = new SmVolQueue(voldesc->GetID(),
+    volQueue = new SmVolQueue(voldesc->isSnapshot() ? voldesc->qosQueueId : voldesc->GetID(),
                               100,
                               voldesc->getIopsMax(),
                               voldesc->getIopsMin(),
@@ -108,9 +106,6 @@ StorMgrVolumeTable::StorMgrVolumeTable(ObjectStorMgr *sm, fds_log *parent_log)
         SetLog(new fds_log("sm_voltab", "logs"));
         created_log = true;
     }
-
-    /* register for volume-related control events from OM*/
-    parent_sm->regVolHandler((volume_event_handler_t)volumeEventHandler);
 }
 
 StorMgrVolumeTable::StorMgrVolumeTable(ObjectStorMgr *sm)
@@ -149,9 +144,9 @@ StorMgrVolumeTable::registerVolume(const VolumeDesc& vdb) {
 
     map_rwlock.write_lock();
     if (volume_map.count(volUuid) == 0) {
-        LOGNORMAL << "Registering new volume " << volUuid;
+        LOGNORMAL << "Registering new " << (vdb.isSnapshot() ? "snapshot" : "volume")
+                << ": " << volUuid;
         StorMgrVolume* vol = new StorMgrVolume(vdb,
-                                               parent_sm,
                                                GetLog());
         fds_assert(vol != NULL);
         volume_map[volUuid] = vol;
@@ -230,6 +225,7 @@ fds_uint32_t StorMgrVolumeTable::getVolAccessStats(fds_volid_t vol_uuid) {
 }
 
 void StorMgrVolumeTable::updateDupObj(fds_volid_t volid,
+                                      const ObjectID &objId,
                                       fds_uint32_t obj_size,
                                       fds_bool_t incr,
                                       std::map<fds_volid_t, fds_uint32_t>& vol_refcnt) {
@@ -239,6 +235,8 @@ void StorMgrVolumeTable::updateDupObj(fds_volid_t volid,
         // ignore this
         return;
     }
+    if (parent_sm && !parent_sm->amIPrimary(objId)) return;
+
     if (incr && (vol_refcnt.count(volid) == 0)) {
       vol_refcnt[volid] = 0;
     }
@@ -331,34 +329,6 @@ Error StorMgrVolumeTable::updateVolStats(fds_volid_t vol_uuid) {
     map_rwlock.write_unlock();
     return err;
 }
-
-/*
- * Handler for volume-related control message from OM
- */
-void StorMgrVolumeTable::volumeEventHandler(fds_volid_t vol_uuid,
-                                            VolumeDesc *vdb,
-                                            fds_vol_notify_t vol_action) {
-    Error err(ERR_OK);
-    switch (vol_action) {
-        case fds_notify_vol_add:
-            GLOGNOTIFY << "StorMgrVolumeTable - Received volume attach event from OM"
-                       << " for volume " << vol_uuid;
-            err = objStorMgr->regVol(vdb ? *vdb : VolumeDesc("", vol_uuid));
-            fds_verify(err == ERR_OK);
-            break;
-        case fds_notify_vol_rm:
-            GLOGNOTIFY << "StorMgrVolumeTable - Received volume detach event from OM"
-                       <<" for volume " << vol_uuid;
-            err = objStorMgr->deregVol(vdb->GetID());
-            fds_verify(err == ERR_OK);
-            break;
-        default:
-            GLOGWARN << "StorMgrVolumeTable - Received unexpected volume event from OM"
-                     << " for volume " << vol_uuid;
-            break;
-    }
-}
-
 
 Error StorMgrVolumeTable::createVolIndexEntry(fds_volid_t vol_uuid,
                                               fds_uint64_t vol_offset,

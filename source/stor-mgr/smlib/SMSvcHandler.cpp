@@ -345,4 +345,48 @@ SMSvcHandler::TierPolicyAudit(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlTierPolicyAudit), *msg);
 }
 
+void SMSvcHandler::addObjectRef(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+        boost::shared_ptr<fpi::AddObjectRefMsg>& addObjRefMsg) {
+    DBG(GLOGDEBUG << fds::logString(*asyncHdr) << " " << fds::logString(*addObjRefMsg));
+    Error err(ERR_OK);
+
+    auto addObjRefReq = new SmIoAddObjRefReq(addObjRefMsg);
+
+    // perf-trace related data
+    addObjRefReq->perfNameStr = "volume:" + std::to_string(addObjRefMsg->srcVolId);
+    addObjRefReq->opReqFailedPerfEventType = ADD_OBJECT_REF_REQ_ERR;
+    addObjRefReq->opReqLatencyCtx.type = ADD_OBJECT_REF_REQ;
+    addObjRefReq->opReqLatencyCtx.name = addObjRefReq->perfNameStr;
+    addObjRefReq->opLatencyCtx.type = ADD_OBJECT_REF_IO;
+    addObjRefReq->opLatencyCtx.name = addObjRefReq->perfNameStr;
+    addObjRefReq->opTransactionWaitCtx.type = ADD_OBJECT_REF_TRANS_QUEUE_WAIT;
+    addObjRefReq->opTransactionWaitCtx.name = addObjRefReq->perfNameStr;
+    addObjRefReq->opQoSWaitCtx.type = ADD_OBJECT_REF_QOS_QUEUE_WAIT;
+    addObjRefReq->opQoSWaitCtx.name = addObjRefReq->perfNameStr;
+
+    addObjRefReq->response_cb = std::bind(
+        &SMSvcHandler::addObjectRefCb, this,
+        asyncHdr,
+        std::placeholders::_1, std::placeholders::_2);
+
+    err = objStorMgr->enqueueMsg(addObjRefReq->getSrcVolId(), addObjRefReq);
+    if (err != fds::ERR_OK) {
+        fds_assert(!"Hit an error in enqueing");
+        LOGERROR << "Failed to enqueue to SmIoAddObjRefReq to StorMgr.  Error: "
+                 << err;
+        addObjectRefCb(asyncHdr, err, addObjRefReq);
+    }
+}
+
+void SMSvcHandler::addObjectRefCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+        const Error &err, SmIoAddObjRefReq* addObjRefReq) {
+    DBG(GLOGDEBUG << fds::logString(*asyncHdr));
+
+    auto resp = boost::make_shared<fpi::AddObjectRefRspMsg>();
+    asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
+    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::AddObjectRefRspMsg), *resp);
+
+    delete addObjRefReq;
+}
+
 }  // namespace fds

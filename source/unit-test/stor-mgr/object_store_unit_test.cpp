@@ -10,6 +10,7 @@
 #include <util/Log.h>
 #include <fds_types.h>
 #include <fds_module.h>
+#include <fds_process.h>
 #include <object-store/ObjectStore.h>
 #include <concurrency/ThreadPool.h>
 
@@ -55,6 +56,9 @@ static std::vector<TestObject> testObjs(MAX_TEST_OBJ);
 
 class ObjectStoreTest : public FdsProcess {
   public:
+    StorMgrVolumeTable* volTbl;
+
+  public:
     ObjectStoreTest(int argc, char *argv[],
                     Module **mod_vec) :
             FdsProcess(argc,
@@ -63,8 +67,9 @@ class ObjectStoreTest : public FdsProcess {
                        "fds.sm.",
                        "objstore-test.log",
                        mod_vec) {
+        volTbl = new StorMgrVolumeTable();
         objectStore = ObjectStore::unique_ptr(
-            new ObjectStore("Unit Test Object Store"));
+            new ObjectStore("Unit Test Object Store", volTbl));
     }
     ~ObjectStoreTest() {
     }
@@ -72,6 +77,9 @@ class ObjectStoreTest : public FdsProcess {
         LOGTRACE << "Starting...";
 
         fds_volid_t volId = 555;
+        VolumeDesc vdesc("objectstore_ut_volume", volId);
+        volTbl->registerVolume(vdesc);
+
         ObjectID objId;
         boost::shared_ptr<const std::string> objData(new std::string("DATA!"));
         objectStore->putObject(volId, objId, objData);

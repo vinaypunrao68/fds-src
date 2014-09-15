@@ -310,6 +310,43 @@ void ObjMetaData::incRefCnt() {
 void ObjMetaData::decRefCnt() {
     obj_map.obj_refcnt--;
 }
+
+/**
+ * Copy association from source volume to destination volume.
+ * This is mostly used by snapshots/ clones.
+ * @param objId
+ * @param srcVolId
+ * @param destVolId
+ */
+void ObjMetaData::copyAssocEntry(ObjectID objId, fds_volid_t srcVolId, fds_volid_t destVolId) {
+    fds_assert(obj_map.obj_num_assoc_entry == assoc_entry.size());
+
+    for (int i = 0; i < obj_map.obj_num_assoc_entry; i++) {
+        if (destVolId == assoc_entry[i].vol_uuid) {
+            GLOGWARN << "Entry already exists!";
+            return;
+        }
+    }
+
+    int pos = 0;
+    for (; pos < obj_map.obj_num_assoc_entry; ++pos) {
+        if (srcVolId == assoc_entry[pos].vol_uuid) {
+            break;
+        }
+    }
+    if (obj_map.obj_num_assoc_entry >= pos) {
+        GLOGWARN << "Source volume not found!";
+        return;
+    }
+
+    obj_assoc_entry_t new_association;
+    new_association.vol_uuid = destVolId;
+    new_association.ref_cnt = assoc_entry[pos].ref_cnt;
+    obj_map.obj_refcnt += assoc_entry[pos].ref_cnt;
+    assoc_entry.push_back(new_association);
+    obj_map.obj_num_assoc_entry = assoc_entry.size();
+}
+
 /**
  * Updates volume association entry
  * @param objId
