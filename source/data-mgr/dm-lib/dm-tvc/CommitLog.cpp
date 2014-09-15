@@ -229,6 +229,11 @@ Error DmCommitLog::startTx(BlobTxId::const_ptr & txDesc, const std::string & blo
 
     const BlobTxId & txId = *txDesc;
 
+    if (cmtLogger_->hasReachedSizeThreshold(95)) {
+        GLOGWARN << "Commit log is 95% full. Cannot start new transaction (" << txId << ")";
+        return ERR_DM_MAX_CL_ENTRIES;
+    }
+
     GLOGDEBUG << "Starting blob transaction (" << txId << ") for (" << blobName << ")";
 
     {
@@ -251,7 +256,8 @@ Error DmCommitLog::startTx(BlobTxId::const_ptr & txDesc, const std::string & blo
 
     PerfTracer::incr(DM_TX_STARTED, 0);
 
-    if (cmtLogger_->hasReachedSizeThreshold() && !compacting_.test_and_set()) {
+    if (cmtLogger_->hasReachedSizeThreshold(DmCommitLogger::PERCENT_SIZE_THRESHOLD) &&
+            !compacting_.test_and_set()) {
         scheduleCompaction();
     }
 
@@ -277,6 +283,11 @@ Error DmCommitLog::updateTx(BlobTxId::const_ptr & txDesc, boost::shared_ptr<cons
 
     const BlobTxId & txId = *txDesc;
 
+    if (cmtLogger_->hasReachedSizeThreshold(95)) {
+        GLOGWARN << "Commit log is 95% full. Cannot update transaction (" << txId << ")";
+        return ERR_DM_MAX_CL_ENTRIES;
+    }
+
     GLOGDEBUG << "Update blob for transaction (" << txId << ")";
 
     Error rc = validateSubsequentTx(txId);
@@ -291,7 +302,8 @@ Error DmCommitLog::updateTx(BlobTxId::const_ptr & txDesc, boost::shared_ptr<cons
         return rc;
     }
 
-    if (cmtLogger_->hasReachedSizeThreshold() && !compacting_.test_and_set()) {
+    if (cmtLogger_->hasReachedSizeThreshold(DmCommitLogger::PERCENT_SIZE_THRESHOLD) &&
+            !compacting_.test_and_set()) {
         scheduleCompaction();
     }
 
@@ -312,6 +324,11 @@ Error DmCommitLog::deleteBlob(BlobTxId::const_ptr & txDesc, const blob_version_t
 
     const BlobTxId & txId = *txDesc;
 
+    if (cmtLogger_->hasReachedSizeThreshold(95)) {
+        GLOGWARN << "Commit log is 95% full. Cannot delete blob, txid (" << txId << ")";
+        return ERR_DM_MAX_CL_ENTRIES;
+    }
+
     GLOGDEBUG << "Delete blob in transaction (" << txId << ")";
 
     Error rc = validateSubsequentTx(txId);
@@ -327,7 +344,8 @@ Error DmCommitLog::deleteBlob(BlobTxId::const_ptr & txDesc, const blob_version_t
         return rc;
     }
 
-    if (cmtLogger_->hasReachedSizeThreshold() && !compacting_.test_and_set()) {
+    if (cmtLogger_->hasReachedSizeThreshold(DmCommitLogger::PERCENT_SIZE_THRESHOLD) &&
+            !compacting_.test_and_set()) {
         scheduleCompaction();
     }
 
@@ -366,7 +384,8 @@ CommitLogTx::const_ptr DmCommitLog::commitTx(BlobTxId::const_ptr & txDesc, Error
 
     PerfTracer::incr(DM_TX_COMMITTED, 0);
 
-    if (cmtLogger_->hasReachedSizeThreshold() && !compacting_.test_and_set()) {
+    if (cmtLogger_->hasReachedSizeThreshold(DmCommitLogger::PERCENT_SIZE_THRESHOLD) &&
+            !compacting_.test_and_set()) {
         scheduleCompaction();
     }
 
@@ -378,7 +397,6 @@ CommitLogTx::const_ptr DmCommitLog::commitTx(BlobTxId::const_ptr & txDesc, Error
         GLOGWARN << "Found long running transaction id='" << txId << "' seconds='" <<
                 duration << "'";
     }
-
 
     txMap_[txId]->entries.push_back(entry);
     txMap_[txId]->committed = true;
@@ -408,7 +426,8 @@ Error DmCommitLog::rollbackTx(BlobTxId::const_ptr & txDesc) {
         return rc;
     }
 
-    if (cmtLogger_->hasReachedSizeThreshold() && !compacting_.test_and_set()) {
+    if (cmtLogger_->hasReachedSizeThreshold(DmCommitLogger::PERCENT_SIZE_THRESHOLD) &&
+            !compacting_.test_and_set()) {
         scheduleCompaction();
     }
 
@@ -453,7 +472,8 @@ Error DmCommitLog::purgeTx(BlobTxId::const_ptr  & txDesc) {
         return rc;
     }
 
-    if (cmtLogger_->hasReachedSizeThreshold() && !compacting_.test_and_set()) {
+    if (cmtLogger_->hasReachedSizeThreshold(DmCommitLogger::PERCENT_SIZE_THRESHOLD) &&
+            !compacting_.test_and_set()) {
         scheduleCompaction();
     }
 
@@ -861,50 +881,55 @@ const DmCommitLogEntry * FileCommitLogger::getEntry(const fds_uint64_t id) {
 const std::set<fds_uint64_t>
 FileCommitLogger::compactLog(const std::set<fds_uint64_t> & candidates) {
     std::set<fds_uint64_t> ret;
+    bool done = false;
 
-    while (ret.size() < candidates.size()) {
+    while (!done && ret.size() < candidates.size()) {
         FDSGUARD(lockLogFile_);
-
         SCOPED_PERF_TRACEPOINT_CTX_DEBUG(logCtx);
 
-        const DmCommitLogEntry * entry = getFirstInternal();
-        if (!entry) {
-            GLOGDEBUG << "Compacted all entries. Commit log is now empty";
-            break;
+        for (fds_uint32_t i = 0; i < 100; ++i) {
+            const DmCommitLogEntry * entry = getFirstInternal();
+            if (!entry) {
+                GLOGDEBUG << "Compacted all entries. Commit log is now empty";
+                done = true;
+                break;
+            }
+
+            std::set<fds_uint64_t>::const_iterator pos = candidates.find(entry->txId);
+            if (candidates.end() == pos) {
+                GLOGNORMAL << "Found active with id '" << entry->id << "'";
+                done = true;
+                break;
+            }
+
+            removeEntry(false);
+
+            if (TX_PURGE == entry->type || TX_ROLLBACK == entry->type) {
+                ret.insert(entry->txId);
+            }
         }
 
-        std::set<fds_uint64_t>::const_iterator pos = candidates.find(entry->txId);
-        if (candidates.end() == pos) {
-            GLOGNORMAL << "Found active with id '" << entry->id << "'";
-            break;
-        }
-
-        removeEntry(false);
-
-        if (TX_PURGE == entry->type || TX_ROLLBACK == entry->type) {
-            ret.insert(entry->txId);
-        }
+        syncHeader();
     }
-
-    syncHeader();
 
     return ret;
 }
 
-bool FileCommitLogger::hasReachedSizeThreshold() {
+bool FileCommitLogger::hasReachedSizeThreshold(fds_uint16_t threshold
+        /* = PERCENT_SIZE_THRESHOLD */) {
     FDSGUARD(lockLogFile_);
 
     if (!header()->count) {
         return false;
     } else if (header()->first <= header()->last) {
         // used is greater than threshold
-        return ((filesize_ * PERCENT_SIZE_THRESHOLD) / 100 <
+        return ((filesize_ * threshold) / 100 <
                 (header()->last - header()->first));
     }
 
     // unused is less than (100 - threshold)
     return ((header()->first - header()->last) <
-            (filesize_ * (100 - PERCENT_SIZE_THRESHOLD)) / 100);
+            (filesize_ * (100 - threshold)) / 100);
 }
 
 }  /* namespace fds */

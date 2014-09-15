@@ -318,6 +318,8 @@ class DmCommitLogger {
     typedef boost::shared_ptr<DmCommitLogger> ptr;
     typedef boost::shared_ptr<const DmCommitLogger> const_ptr;
 
+    static const fds_uint32_t PERCENT_SIZE_THRESHOLD = 70;
+
     virtual Error startTx(BlobTxId::const_ptr & txDesc, StartTxDetails::const_ptr & details,
             DmCommitLogEntry* & entry) = 0;
 
@@ -346,7 +348,7 @@ class DmCommitLogger {
 
     virtual const std::set<fds_uint64_t> compactLog(const std::set<fds_uint64_t> & candidates) = 0;
 
-    virtual bool hasReachedSizeThreshold() = 0;
+    virtual bool hasReachedSizeThreshold(fds_uint16_t threshold) = 0;
 };
 
 class FileCommitLogger : public DmCommitLogger {
@@ -357,8 +359,6 @@ class FileCommitLogger : public DmCommitLogger {
         fds_uint32_t last;
         byte digest[hash::Sha1::numDigestBytes];
     };
-
-    static const fds_uint32_t PERCENT_SIZE_THRESHOLD = 70;
 
     FileCommitLogger(const std::string & filename, fds_uint32_t filesize);
     virtual ~FileCommitLogger();
@@ -401,7 +401,7 @@ class FileCommitLogger : public DmCommitLogger {
     virtual const std::set<fds_uint64_t> compactLog(const std::set<fds_uint64_t> &
             candidates) override;
 
-    virtual bool hasReachedSizeThreshold() override;
+    virtual bool hasReachedSizeThreshold(fds_uint16_t threshold) override;
 
   protected:
     inline EntriesHeader * header() {
