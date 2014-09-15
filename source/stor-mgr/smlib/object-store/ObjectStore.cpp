@@ -46,7 +46,7 @@ ObjectStore::putObject(fds_volid_t volId,
     ObjMetaData::ptr objMeta(new ObjMetaData());
     err = metaStore->getObjectMetadata(volId, objId, objMeta);
     if (err.ok()) {
-        /* While sync is going on we can have metadata but object could be missing */
+        // While sync is going on we can have metadata but object could be missing
         if (!objMeta->dataPhysicallyExists()) {
             // fds_verify(isTokenInSyncMode(getDLT()->getToken(objId)));
             LOGNORMAL << "Got metadata but not data " << objId
@@ -57,13 +57,11 @@ ObjectStore::putObject(fds_volid_t volId,
             // and updating the existing metadata is this what we want?
             fds_verify(err.ok());  // implement
         }
-    }
 
-    if (err.ok()) {
         // object already exists, check if duplicate
         // read object from object data store
         boost::shared_ptr<std::string> existObjData;
-        err = dataStore->getObjectData(volId, objId, existObjData);
+        err = dataStore->getObjectData(volId, objId, objMeta, existObjData);
         // if we get an error, there are inconsistencies between
         // data and metadata; assert for now
         fds_verify(err.ok());

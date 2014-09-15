@@ -105,7 +105,7 @@ class ObjMetaData : public serialize::Serializable {
      bool dataPhysicallyExists();
 
      fds_uint32_t   getObjSize() const;
-     obj_phy_loc_t*   getObjPhyLoc(diskio::DataTier tier);
+     const obj_phy_loc_t* getObjPhyLoc(diskio::DataTier tier) const;
      meta_obj_map_t*   getObjMap();
 
      void setRefCnt(fds_uint16_t refcnt);
