@@ -93,12 +93,13 @@ class OM_NodeAgent : public NodeAgent
     virtual void om_send_node_cmd(const om_node_msg_t &msg);
 
     virtual void om_send_reg_resp(const Error &err);
+    // this is the new function we shall try on using service layer
     virtual Error om_send_vol_cmd(VolumeInfo::pointer vol,
-                                  fpi::FDSP_MsgCodeType cmd,
+                                  fpi::FDSPMsgTypeId      cmd_type,
                                   fpi::FDSP_NotifyVolFlag = fpi::FDSP_NOTIFY_VOL_NO_FLAG);
     virtual Error om_send_vol_cmd(VolumeInfo::pointer    vol,
                                   std::string           *vname,
-                                  fpi::FDSP_MsgCodeType  cmd,
+                                  fpi::FDSPMsgTypeId      cmd_type,
                                   fpi::FDSP_NotifyVolFlag = fpi::FDSP_NOTIFY_VOL_NO_FLAG);
 
     virtual Error om_send_dlt(const DLT *curDlt);

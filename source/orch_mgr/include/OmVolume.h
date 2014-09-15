@@ -397,6 +397,10 @@ class VolumeContainer : public RsContainer
                                     const std::string& vol_name,
                                     const ResourceUUID& vol_uuid);
 
+    virtual void om_notify_vol_resp(om_vol_notify_t type,
+                                    NodeUuid from_src, Error err,
+                                    const std::string& vol_name,
+                                    const ResourceUUID& vol_uuid);
     /**
      * Handle final deletion of the volume
      */

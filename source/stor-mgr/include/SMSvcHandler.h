@@ -46,6 +46,29 @@ class SMSvcHandler : virtual public SMSvcIf, public PlatNetSvcHandler {
     void deleteObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                         const Error &err,
                         SmIoDeleteObjectReq* del_req);
+    virtual void
+    notifySvcChange(boost::shared_ptr<fpi::AsyncHdr>    &hdr,
+                    boost::shared_ptr<fpi::NodeSvcInfo> &msg);
+
+    virtual void
+    NotifyAddVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
+                 boost::shared_ptr<fpi::CtrlNotifyVolAdd> &vol_msg);
+
+    virtual void
+    NotifyRmVol(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
+                boost::shared_ptr<fpi::CtrlNotifyVolRemove> &vol_msg);
+
+    virtual void
+    NotifyModVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
+                 boost::shared_ptr<fpi::CtrlNotifyVolMod> &vol_msg);
+
+    virtual void
+    TierPolicy(boost::shared_ptr<fpi::AsyncHdr>       &hdr,
+               boost::shared_ptr<fpi::CtrlTierPolicy> &msg);
+
+    virtual void
+    TierPolicyAudit(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
+                    boost::shared_ptr<fpi::CtrlTierPolicyAudit> &msg);
 };
 
 }  // namespace fds

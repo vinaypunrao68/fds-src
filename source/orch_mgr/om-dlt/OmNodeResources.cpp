@@ -148,148 +148,92 @@ OM_NodeAgent::om_send_node_cmd(const om_node_msg_t &msg)
 // om_send_vol_cmd
 // ---------------
 // TODO(Vy): have 2 separate APIs, 1 to format the packet and 1 to send it.
-//
 Error
 OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer vol,
-                              fpi::FDSP_MsgCodeType cmd_type,
+                              fpi::FDSPMsgTypeId      cmd_type,
                               fpi::FDSP_NotifyVolFlag vol_flag)
 {
     return om_send_vol_cmd(vol, NULL, cmd_type, vol_flag);
 }
 
 Error
-OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer    vol,
-                              std::string           *vname,
-                              fpi::FDSP_MsgCodeType  cmd_type,
+OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer     vol,
+                              std::string            *vname,
+                              fpi::FDSPMsgTypeId      cmd_type,
                               fpi::FDSP_NotifyVolFlag vol_flag)
 {
-    Error err(ERR_OK);
-    const char                *log;
-    const VolumeDesc          *desc;
-    fpi::FDSP_MsgHdrTypePtr    m_hdr(new fpi::FDSP_MsgHdrType);
+    const char       *log;
+    const VolumeDesc *desc;
 
     desc = NULL;
-    this->init_msg_hdr(m_hdr);
     if (vol != NULL) {
-        desc                  = vol->vol_get_properties();
-        m_hdr->glob_volume_id = desc->volUUID;
+        desc = vol->vol_get_properties();
     }
+    auto req =  gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
+    switch (cmd_type) {
+    case fpi::CtrlNotifyVolAddTypeId: {
+        fpi::CtrlNotifyVolAddPtr pkt(new fpi::CtrlNotifyVolAdd());
 
-    try {
-        switch (cmd_type) {
-            case fpi::FDSP_MSG_DELETE_VOL:
-            case fpi::FDSP_MSG_MODIFY_VOL:
-            case fpi::FDSP_MSG_SNAP_VOL:
-            case fpi::FDSP_MSG_CREATE_VOL: {
-                FdspNotVolPtr notif(new fpi::FDSP_NotifyVolType);
-                OM_NodeContainer* local = OM_NodeDomainMod::om_loc_domain_ctrl();
-                FdsAdminCtrl *admin_ctrl = local->om_get_admin_ctrl();
-
-                fds_verify(vol != NULL);
-                vol->vol_fmt_desc_pkt(&notif->vol_desc);
-                admin_ctrl->userQosToServiceQos(&notif->vol_desc, node_get_svc_type());
-                notif->vol_name = vol->vol_get_name();
-                notif->flag = vol_flag;
-                m_hdr->msg_code = cmd_type;
-
-                if (cmd_type == fpi::FDSP_MSG_CREATE_VOL) {
-                    log = "Send notify add volume ";
-                    notif->type = fpi::FDSP_NOTIFY_ADD_VOL;
-                    if (nd_ctrl_eph != NULL) {
-                        NET_SVC_RPC_CALL(nd_ctrl_eph, nd_ctrl_rpc,
-                                         NotifyAddVol, m_hdr, notif);
-                    } else {
-                        ndCpClient->NotifyAddVol(m_hdr, notif);
-                    }
-                } else if (cmd_type == fpi::FDSP_MSG_MODIFY_VOL) {
-                    log = "Send modify volume ";
-                    notif->type = fpi::FDSP_NOTIFY_MOD_VOL;
-                    if (nd_ctrl_eph != NULL) {
-                        NET_SVC_RPC_CALL(nd_ctrl_eph, nd_ctrl_rpc,
-                                         NotifyModVol, m_hdr, notif);
-                    } else {
-                        ndCpClient->NotifyModVol(m_hdr, notif);
-                    }
-                } else if (cmd_type == fpi::FDSP_MSG_SNAP_VOL) {
-                    log = "Send snap volume ";
-                    notif->type = fpi::FDSP_NOTIFY_SNAP_VOL;
-                    if (nd_ctrl_eph != NULL) {
-                        NET_SVC_RPC_CALL(nd_ctrl_eph, nd_ctrl_rpc,
-                                         NotifySnapVol, m_hdr, notif);
-                    } else {
-                        ndCpClient->NotifySnapVol(m_hdr, notif);
-                    }
-                } else {
-                    log = "Send remove volume ";
-                    notif->type = fpi::FDSP_NOTIFY_RM_VOL;
-                    if (nd_ctrl_eph != NULL) {
-                        NET_SVC_RPC_CALL(nd_ctrl_eph, nd_ctrl_rpc,
-                                         NotifyRmVol, m_hdr, notif);
-                    } else {
-                        ndCpClient->NotifyRmVol(m_hdr, notif);
-                    }
-                }
-                break;
-            }
-            case fpi::FDSP_MSG_ATTACH_VOL_CTRL:
-            case fpi::FDSP_MSG_DETACH_VOL_CTRL: {
-                FdspAttVolPtr attach(new fpi::FDSP_AttachVolType);
-
-                if (vol != NULL) {
-                    vol->vol_fmt_desc_pkt(&attach->vol_desc);
-                    attach->vol_name = vol->vol_get_name();
-                } else {
-                    m_hdr->result    = FDSP_ERR_VOLUME_DOES_NOT_EXIST;
-                    m_hdr->err_msg   = "Bucket does not exist";
-                    attach->vol_name = *vname;
-                    attach->vol_desc.vol_name  = *vname;
-                    attach->vol_desc.volUUID   = 9876;
-                    attach->vol_desc.tennantId = 0;
-                    attach->vol_desc.localDomainId = 0;
-                    attach->vol_desc.capacity = 1000;
-                    attach->vol_desc.volType  = FDS_ProtocolInterface::FDSP_VOL_S3_TYPE;
-                }
-                m_hdr->msg_code = cmd_type;
-
-                if (cmd_type == fpi::FDSP_MSG_ATTACH_VOL_CTRL) {
-                    log = "Send attach volume ";
-                    if (nd_ctrl_eph != NULL) {
-                        NET_SVC_RPC_CALL(nd_ctrl_eph, nd_ctrl_rpc,
-                                         AttachVol, m_hdr, attach);
-                    } else {
-                        ndCpClient->AttachVol(m_hdr, attach);
-                    }
-                } else {
-                    log = "Send detach volume ";
-                    if (nd_ctrl_eph != NULL) {
-                        NET_SVC_RPC_CALL(nd_ctrl_eph, nd_ctrl_rpc,
-                                         DetachVol, m_hdr, attach);
-                    } else {
-                        ndCpClient->DetachVol(m_hdr, attach);
-                    }
-                }
-                break;
-            }
-            default: {
-                fds_panic("Unknown vol cmd type");
-            }
+        log = "Send notify add volume ";
+        if (vol != NULL) {
+            vol->vol_fmt_desc_pkt(&pkt->vol_desc);
+        } else {
+            /* TODO(Vy): why we need to send dummy data? */
+            pkt->vol_desc.vol_name  = *vname;
+            pkt->vol_desc.volUUID   = 9876;
+            pkt->vol_desc.tennantId = 0;
+            pkt->vol_desc.localDomainId = 0;
+            pkt->vol_desc.capacity = 1000;
+            pkt->vol_desc.volType  = fpi::FDSP_VOL_S3_TYPE;
         }
-    } catch(const att::TTransportException& e) {
-        LOGERROR << "error during network call : " << e.what();
-        return ERR_NETWORK_TRANSPORT;
+        pkt->vol_flag = vol_flag;
+        req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyVolAdd), pkt);
+        break;
     }
+    case fpi::CtrlNotifySnapVolTypeId: {
+        fpi::CtrlNotifySnapVolPtr pkt(new fpi::CtrlNotifySnapVol());
 
+        fds_assert(vol != NULL);
+        log = "Send snap volume ";
+        vol->vol_fmt_desc_pkt(&pkt->vol_desc);
+        pkt->vol_flag = vol_flag;
+        req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifySnapVol), pkt);
+        break;
+    }
+    case fpi::CtrlNotifyVolRemoveTypeId: {
+        fpi::CtrlNotifyVolRemovePtr pkt(new fpi::CtrlNotifyVolRemove());
+
+        fds_assert(vol != NULL);
+        log = "Send remove volume ";
+        vol->vol_fmt_desc_pkt(&pkt->vol_desc);
+        pkt->vol_flag = vol_flag;
+        req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyVolRemove), pkt);
+        break;
+    }
+    case fpi::CtrlNotifyVolModTypeId: {
+        fpi::CtrlNotifyVolModPtr pkt(new fpi::CtrlNotifyVolMod());
+
+        fds_assert(vol != NULL);
+        log = "Send modify volume ";
+        vol->vol_fmt_desc_pkt(&pkt->vol_desc);
+        pkt->vol_flag = vol_flag;
+        req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyVolMod), pkt);
+        break;
+    }
+    default:
+        fds_panic("Unknown vol cmd type");
+    }
+    req->invoke();
     if (desc != NULL) {
         LOGNORMAL << log << desc->volUUID << " " << desc->name
                   << " to node " << get_node_name() << std::hex
-                  << ", uuid " << get_uuid().uuid_get_val() << std::dec
-                  << ", port " << get_ctrl_port();
+                  << ", uuid " << get_uuid().uuid_get_val() << std::dec;
     } else {
         LOGNORMAL << log << ", no vol to node " << get_node_name();
     }
-
-    return err;
+    return Error(ERR_OK);
 }
+
 
 // om_send_reg_resp
 // ----------------
@@ -1361,7 +1305,7 @@ om_send_vol_info(NodeAgent::pointer me, fds_uint32_t *cnt, VolumeInfo::pointer v
     LOGDEBUG << "Dmt Send Volume to Node :" << vol->vol_get_name()
              << "; will sync flag " << vp->hasCommittedDMT();
     OM_NodeAgent::agt_cast_ptr(me)->om_send_vol_cmd(vol,
-                                                    fpi::FDSP_MSG_CREATE_VOL,
+                                                    fpi::CtrlNotifyVolAddTypeId,
                                                     vol_flag);
 }
 
@@ -1388,7 +1332,7 @@ OM_NodeContainer::om_bcast_stream_reg_list(NodeAgent::pointer node) {
 // Send the volume command to the node represented by the agent.
 //
 static Error
-om_send_vol_command(fpi::FDSP_MsgCodeType cmd_type,
+om_send_vol_command(fpi::FDSPMsgTypeId cmd_type,
                     fpi::FDSP_NotifyVolFlag vol_flag,
                     VolumeInfo::pointer   vol,
                     NodeAgent::pointer    agent)
@@ -1404,9 +1348,9 @@ OM_NodeContainer::om_bcast_vol_create(VolumeInfo::pointer vol)
 {
     fds_uint32_t errok_sm_count = 0;
     errok_sm_count = dc_sm_nodes->agent_ret_foreach<
-        fpi::FDSP_MsgCodeType,
+        fpi::FDSPMsgTypeId,
         fpi::FDSP_NotifyVolFlag,
-        VolumeInfo::pointer>(fpi::FDSP_MSG_CREATE_VOL,
+        VolumeInfo::pointer>(fpi::CtrlNotifyVolAddTypeId,
                              fpi::FDSP_NOTIFY_VOL_NO_FLAG,
                              vol,
                              om_send_vol_command);
@@ -1431,7 +1375,7 @@ OM_NodeContainer::om_bcast_vol_create(VolumeInfo::pointer vol)
             if (addedDms.count(cur->get_uuid()) > 0) {
                 flag = fpi::FDSP_NOTIFY_VOL_WILL_SYNC;
             }
-            err = om_send_vol_command(fpi::FDSP_MSG_CREATE_VOL,
+            err = om_send_vol_command(fpi::CtrlNotifyVolAddTypeId,
                                       flag, vol, cur);
             if (err.ok()) {
                 ++errok_dm_count;
@@ -1448,20 +1392,20 @@ OM_NodeContainer::om_bcast_vol_create(VolumeInfo::pointer vol)
 void
 OM_NodeContainer::om_bcast_vol_modify(VolumeInfo::pointer vol)
 {
-    dc_sm_nodes->agent_ret_foreach<fpi::FDSP_MsgCodeType,
+    dc_sm_nodes->agent_ret_foreach<fpi::FDSPMsgTypeId,
                                    fpi::FDSP_NotifyVolFlag,
-                                   VolumeInfo::pointer>(fpi::FDSP_MSG_MODIFY_VOL,
+                                   VolumeInfo::pointer>(fpi::CtrlNotifyVolModTypeId,
                                                     fpi::FDSP_NOTIFY_VOL_NO_FLAG,
                                                     vol, om_send_vol_command);
 
-    dc_dm_nodes->agent_ret_foreach<fpi::FDSP_MsgCodeType,
+    dc_dm_nodes->agent_ret_foreach<fpi::FDSPMsgTypeId,
                                    fpi::FDSP_NotifyVolFlag,
-                                   VolumeInfo::pointer>(fpi::FDSP_MSG_MODIFY_VOL,
+                                   VolumeInfo::pointer>(fpi::CtrlNotifyVolModTypeId,
                                                     fpi::FDSP_NOTIFY_VOL_NO_FLAG,
                                                     vol, om_send_vol_command);
 
-    vol->vol_foreach_am<fpi::FDSP_MsgCodeType, fpi::FDSP_NotifyVolFlag>
-            (fpi::FDSP_MSG_MODIFY_VOL, fpi::FDSP_NOTIFY_VOL_NO_FLAG, om_send_vol_command);
+    vol->vol_foreach_am<fpi::FDSPMsgTypeId, fpi::FDSP_NotifyVolFlag>
+            (fpi::CtrlNotifyVolModTypeId, fpi::FDSP_NOTIFY_VOL_NO_FLAG, om_send_vol_command);
 }
 
 // om_bcast_vol_snap
@@ -1472,9 +1416,9 @@ OM_NodeContainer::om_bcast_vol_snap(VolumeInfo::pointer vol)
 {
     fds_uint32_t errok_dm_nodes = 0;
     errok_dm_nodes = dc_dm_nodes->agent_ret_foreach<
-        fpi::FDSP_MsgCodeType,
+        fpi::FDSPMsgTypeId,
         fpi::FDSP_NotifyVolFlag,
-        VolumeInfo::pointer>(fpi::FDSP_MSG_SNAP_VOL,
+        VolumeInfo::pointer>(fpi::CtrlNotifySnapVolTypeId,
                              fpi::FDSP_NOTIFY_VOL_NO_FLAG,
                              vol, om_send_vol_command);
     return errok_dm_nodes;
@@ -1486,8 +1430,8 @@ OM_NodeContainer::om_bcast_vol_snap(VolumeInfo::pointer vol)
 fds_uint32_t
 OM_NodeContainer::om_bcast_vol_detach(VolumeInfo::pointer vol)
 {
-    return vol->vol_foreach_am<fpi::FDSP_MsgCodeType,
-                               fpi::FDSP_NotifyVolFlag>(fpi::FDSP_MSG_DETACH_VOL_CTRL,
+    return vol->vol_foreach_am<fpi::FDSPMsgTypeId,
+                               fpi::FDSP_NotifyVolFlag>(fpi::CtrlNotifyVolRemoveTypeId,
                                                         fpi::FDSP_NOTIFY_VOL_NO_FLAG,
                                                         om_send_vol_command);
 }
@@ -1506,17 +1450,17 @@ OM_NodeContainer::om_bcast_vol_delete(VolumeInfo::pointer vol, fds_bool_t check_
     }
 
     if (!check_only) {
-        dc_sm_nodes->agent_ret_foreach<fpi::FDSP_MsgCodeType,
+        dc_sm_nodes->agent_ret_foreach<fpi::FDSPMsgTypeId,
                                        fpi::FDSP_NotifyVolFlag,
-                                       VolumeInfo::pointer>(fpi::FDSP_MSG_DELETE_VOL,
+                                       VolumeInfo::pointer>(fpi::CtrlNotifyVolRemoveTypeId,
                                                             vol_flag, vol,
                                                             om_send_vol_command);
         count += dc_sm_nodes->rs_available_elm();
     }
 
-    dc_dm_nodes->agent_ret_foreach<fpi::FDSP_MsgCodeType,
+    dc_dm_nodes->agent_ret_foreach<fpi::FDSPMsgTypeId,
                                    fpi::FDSP_NotifyVolFlag,
-                                   VolumeInfo::pointer>(fpi::FDSP_MSG_DELETE_VOL,
+                                   VolumeInfo::pointer>(fpi::CtrlNotifyVolRemoveTypeId,
                                                         vol_flag, vol,
                                                         om_send_vol_command);
     count += dc_dm_nodes->rs_available_elm();

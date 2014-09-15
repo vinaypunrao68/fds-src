@@ -539,6 +539,7 @@ void ObjectStorMgr::mod_startup()
     testUturnAll    = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.uturn_all");
     testUturnPutObj = modProvider_->get_fds_config()->get<bool>("fds.sm.testing.uturn_putobj");
 
+    omc_srv_pol = &sg_SMVolPolicyServ;
     setup_migration_svc(obj_dir);
 }
 

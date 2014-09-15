@@ -6,6 +6,7 @@
 
 #include <platform/platform-lib.h>
 #include <net/net-service.h>
+#include <AMSvcHandler.h>
 
 /* Forward declarations */
 namespace FDS_ProtocolInterface {
@@ -79,9 +80,9 @@ class AmPlatform : public Platform
     void registerFlags();
 
     AMEpPlugin::pointer           am_plugin;
-    bo::shared_ptr<PlatNetSvcHandler>  am_recv;
-    EndPoint<FDS_ProtocolInterface::PlatNetSvcClient,
-        FDS_ProtocolInterface::PlatNetSvcProcessor> *am_ep;
+    bo::shared_ptr<AMSvcHandler>  am_recv;
+    EndPoint<FDS_ProtocolInterface::AMSvcClient,
+        FDS_ProtocolInterface::AMSvcProcessor> *am_ep;
 };
 
 /**
