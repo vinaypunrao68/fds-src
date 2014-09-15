@@ -6,6 +6,7 @@
 
 #include <string>
 #include <fds_module.h>
+#include <object-store/ObjectMetaCache.h>
 #include <object-store/ObjectMetaDb.h>
 
 namespace fds {
@@ -17,7 +18,7 @@ namespace fds {
  * at the level above, thus only once access to the same object ID is active
  * at the same time at ObjectMetadataStore.
  */
-class ObjectMetadataStore : public Module {
+class ObjectMetadataStore : public Module, public boost::noncopyable {
   public:
     ObjectMetadataStore(const std::string& modName,
                         const std::string& obj_dir);
@@ -37,7 +38,7 @@ class ObjectMetadataStore : public Module {
      */
     Error getObjectMetadata(fds_volid_t volId,
                             const ObjectID& objId,
-                            ObjMetaData::ptr objMeta);
+                            ObjMetaData::const_ptr objMeta);
 
     /**
      * Persistently stores metadata of object with id 'objId'
@@ -68,8 +69,11 @@ class ObjectMetadataStore : public Module {
     virtual void mod_shutdown();
 
   private:
-    // object metadata index db
+    /// object metadata index db
     ObjectMetadataDb::unique_ptr metaDb_;
+
+    /// Metadata cache
+    ObjectMetaCache::unique_ptr metaCache;
 };
 
 

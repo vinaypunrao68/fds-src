@@ -10,6 +10,7 @@ namespace fds {
 ObjectDataStore::ObjectDataStore(const std::string &modName)
         : Module(modName.c_str()),
           diskMgr(&(diskio::DataIO::disk_singleton())) {
+    dataCache = ObjectDataCache::unique_ptr(new ObjectDataCache("SM Object Data Cache"));
 }
 
 ObjectDataStore::~ObjectDataStore() {
@@ -33,8 +34,17 @@ ObjectDataStore::putObjectData(fds_volid_t volId,
             new SmPlReq(vio, oid,
                         const_cast<ObjectBuf *>(&objBuf),
                         sync, tier);
-
     err = diskMgr->disk_write(plReq);
+
+    // Place the data in the cache
+    if (err.ok()) {
+        LOGDEBUG << "Wrote " << objId << " to persistent layer";
+        dataCache->putObjectData(volId, objId, objData);
+        LOGDEBUG << "Wrote " << objId << " to cache";
+    } else {
+        LOGERROR << "Failed to write " << objId << " to persistent layer: " << err;
+    }
+
     return err;
 }
 
@@ -43,7 +53,12 @@ ObjectDataStore::getObjectData(fds_volid_t volId,
                                const ObjectID &objId,
                                ObjMetaData::const_ptr objMetaData,
                                boost::shared_ptr<std::string> objData) {
-    Error err(ERR_OK);
+    // Check the cache for the object
+    Error err = dataCache->getObjectData(volId, objId, objData);
+    if (err.ok()) {
+        LOGDEBUG << "Got " << objId << " from cache";
+        return err;
+    }
 
     // Construct persistent layer request
     meta_vol_io_t   vio;
@@ -63,12 +78,16 @@ ObjectDataStore::getObjectData(fds_volid_t volId,
     objBuf.data.resize(objBuf.size, 0);
 
     err = diskMgr->disk_read(plReq);
-
-    // Copy the data to the give buffer
-    // TODO(Andrew): Remove the ObjectBuf concept and just pass the
-    // data pointer directly to the persistent layer so that this
-    // copy can be avoided.
-    *objData = objBuf.data;
+    if (err.ok()) {
+        LOGDEBUG << "Got " << objId << " from persistent layer";
+        // Copy the data to the give buffer
+        // TODO(Andrew): Remove the ObjectBuf concept and just pass the
+        // data pointer directly to the persistent layer so that this
+        // copy can be avoided.
+        *objData = objBuf.data;
+    } else {
+        LOGERROR << "Failed to get " << objId << " from persistent layer: " << err;
+    }
 
     return err;
 }
