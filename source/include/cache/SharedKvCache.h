@@ -183,6 +183,25 @@ class SharedKvCache : public Module, boost::noncopyable {
      }
 
      /**
+      * Removes a key and value from the cache
+      *
+      * @param[in] key   Key to use for indexing
+      *
+      * @return none
+      */
+     void remove(const key_type &key) {
+         // Locate the key in the map
+         auto mapIt = cache_map.find(key);
+         if (mapIt != cache_map.end()) {
+             iterator cacheEntry = mapIt->second;
+             // Remove from the cache_map
+             cache_map.erase(mapIt);
+             // Remove from the eviction_list
+             eviction_list.erase(cacheEntry);
+         }
+     }
+
+     /**
       * Checks if a key exists in the cache
       * 
       * @param[in]  key  Key to use for indexing
@@ -227,25 +246,6 @@ class SharedKvCache : public Module, boost::noncopyable {
 
      // Synchronization members
      fds_rwlock cache_lock;
-
-     /**
-      * Removes a key and value from the cache
-      *
-      * @param[in] key   Key to use for indexing
-      *
-      * @return none
-      */
-     void remove(const key_type &key) {
-         // Locate the key in the map
-         auto mapIt = cache_map.find(key);
-         if (mapIt != cache_map.end()) {
-             iterator cacheEntry = mapIt->second;
-             // Remove from the cache_map
-             cache_map.erase(mapIt);
-             // Remove from the eviction_list
-             eviction_list.erase(cacheEntry);
-         }
-     }
 
 
      /**

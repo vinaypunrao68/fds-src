@@ -43,22 +43,27 @@ void
 ObjectDataCache::mod_shutdown() {
 }
 
-Error
+void
 ObjectDataCache::putObjectData(fds_volid_t volId,
                                const ObjectID &objId,
                                boost::shared_ptr<const std::string> objData) {
-    Error err(ERR_OK);
     boost::shared_ptr<const std::string> evictedData
             = dataCache->add(objId, objData);
-    return err;
 }
 
 Error
 ObjectDataCache::getObjectData(fds_volid_t volId,
                                const ObjectID &objId,
-                               boost::shared_ptr<std::string> objData) {
+                               boost::shared_ptr<const std::string> objData) {
     // Query the cache and touch the entry
     return dataCache->get(objId, objData);
+}
+
+void
+ObjectDataCache::removeObjectData(fds_volid_t volId,
+                                  const ObjectID &objId) {
+    // Query the cache and touch the entry
+    dataCache->remove(objId);
 }
 
 }  // namespace fds

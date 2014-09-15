@@ -30,12 +30,12 @@ class ObjectDataCache : public Module, public boost::noncopyable {
     typedef std::unique_ptr<ObjectDataCache> unique_ptr;
 
     /**
-     * Cache object data. The cache will retain a reference to the
+     * Caches object data. The cache will retain a reference to the
      * data being put.
      */
-    Error putObjectData(fds_volid_t volId,
-                        const ObjectID &objId,
-                        boost::shared_ptr<const std::string> objData);
+    void putObjectData(fds_volid_t volId,
+                       const ObjectID &objId,
+                       boost::shared_ptr<const std::string> objData);
 
     /**
      * Reads object data from the cache. The object data is returned
@@ -47,6 +47,14 @@ class ObjectDataCache : public Module, public boost::noncopyable {
     Error getObjectData(fds_volid_t volId,
                         const ObjectID &objId,
                         boost::shared_ptr<const std::string> objData);
+
+    /**
+     * Removes object data from the cache. The cache will release its reference
+     * to the shared ptr. This release does NOT guarantee memory will be released
+     * if other threads are still holding a reference to the ptr.
+     */
+    void removeObjectData(fds_volid_t volId,
+                          const ObjectID &objId);
 
     // FDS module control functions
     int  mod_init(SysParams const *const param);

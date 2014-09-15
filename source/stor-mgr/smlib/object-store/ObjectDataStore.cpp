@@ -40,7 +40,7 @@ ObjectDataStore::putObjectData(fds_volid_t volId,
     if (err.ok()) {
         LOGDEBUG << "Wrote " << objId << " to persistent layer";
         dataCache->putObjectData(volId, objId, objData);
-        LOGDEBUG << "Write " << objId << " to cache";
+        LOGDEBUG << "Wrote " << objId << " to cache";
     } else {
         LOGERROR << "Failed to write " << objId << " to persistent layer: " << err;
     }
