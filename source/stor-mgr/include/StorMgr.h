@@ -455,13 +455,6 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
          omClient->registerEventHandlerForVolEvents(volHndlr);
      }
 
-     Error regVol(const VolumeDesc& vdb) {
-         return volTbl->registerVolume(vdb);
-     }
-
-     Error deregVol(fds_volid_t volId) {
-         return volTbl->deregisterVolume(volId);
-     }
      // We need to get this info out of this big class to avoid making this
      // class even bigger than it should.  Not much point for making it
      // private and need a get method to get it out.
