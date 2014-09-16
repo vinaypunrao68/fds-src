@@ -4,8 +4,8 @@
 #include <string>
 #include <dlt.h>
 #include <odb.h>
+#include <PerfTrace.h>
 #include <object-store/ObjectMetaDb.h>
-
 
 namespace fds {
 
@@ -62,7 +62,8 @@ void ObjectMetadataDb::closeObjectDB(fds_token_id tokId) {
  * the shared ptr is allocated with the associated metadata being set.
  */
 ObjMetaData::const_ptr
-ObjectMetadataDb::get(const ObjectID& objId,
+ObjectMetadataDb::get(fds_volid_t volId,
+                      const ObjectID& objId,
                       Error &err) {
     err = ERR_OK;
     ObjectBuf buf;
@@ -75,6 +76,8 @@ ObjectMetadataDb::get(const ObjectID& objId,
     }
 
     // get meta from DB
+    PerfContext tmp_pctx(SM_OBJ_METADATA_DB_READ, volId, PerfTracer::perfNameStr(volId));
+    SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
     err = odb->Get(objId, buf);
     if (!err.ok()) {
         // Object not found. Return.
@@ -89,7 +92,8 @@ ObjectMetadataDb::get(const ObjectID& objId,
     return objMeta;
 }
 
-Error ObjectMetadataDb::put(const ObjectID& objId,
+Error ObjectMetadataDb::put(fds_volid_t volId,
+                            const ObjectID& objId,
                             ObjMetaData::const_ptr objMeta) {
     fds_token_id tokId = DLT::getToken(objId, bitsPerToken_);
     osm::ObjectDB *odb = getObjectDB(tokId);
@@ -97,19 +101,9 @@ Error ObjectMetadataDb::put(const ObjectID& objId,
         return ERR_OUT_OF_MEMORY;
     }
 
-    // TODO(Anna) update timestamp on data path (not migration)
-    // in ObjectStore, not here, in case we put objMeta to cache
-    /*
-    if (opCtx.isClientIO()) {
-        // Update timestamps.  Currenly only PUT and DELETE have an effect here
-        if (md.obj_map.obj_create_time == 0) {
-            md.obj_map.obj_create_time = opCtx.ts;
-        }
-        md.obj_map.assoc_mod_time = opCtx.ts;
-    }
-    */
-
     // store gata
+    PerfContext tmp_pctx(SM_OBJ_METADATA_DB_WRITE, volId, PerfTracer::perfNameStr(volId));
+    SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
     ObjectBuf buf;
     objMeta->serializeTo(buf);
     return odb->Put(objId, buf);
@@ -118,13 +112,16 @@ Error ObjectMetadataDb::put(const ObjectID& objId,
 //
 // delete object's metadata from DB
 //
-Error ObjectMetadataDb::remove(const ObjectID& objId) {
+Error ObjectMetadataDb::remove(fds_volid_t volId,
+                               const ObjectID& objId) {
     fds_token_id tokId = DLT::getToken(objId, bitsPerToken_);
     osm::ObjectDB *odb = getObjectDB(tokId);
     if (!odb) {
         return ERR_OUT_OF_MEMORY;
     }
 
+    PerfContext tmp_pctx(SM_OBJ_METADATA_DB_REMOVE, volId, PerfTracer::perfNameStr(volId));
+    SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
     return odb->Delete(objId);
 }
 

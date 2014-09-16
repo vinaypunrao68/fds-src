@@ -1361,7 +1361,7 @@ ObjectStorMgr::readObject(const SmObjDb::View& view,
      * Read all of the object's locations
      */
     {
-        PerfContext tmp_pctx(SM_OBJ_METADATA_READ, volId, "volume:" + std::to_string(volId));
+        PerfContext tmp_pctx(SM_OBJ_METADATA_DB_READ, volId, "volume:" + std::to_string(volId));
         SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
         err = readObjMetaData(objId, objMetadata);
     }
@@ -1564,7 +1564,7 @@ ObjectStorMgr::writeObjectToTier(const OpCtx &opCtx,
     {
         // TODO(Matteo): look inside. This is for metadata.
         // Initially we probably want just leveldb get and put
-        PerfContext tmp_pctx(SM_OBJ_METADATA_WRITE, volId, "volume:" + std::to_string(volId));
+        PerfContext tmp_pctx(SM_OBJ_METADATA_DB_WRITE, volId, "volume:" + std::to_string(volId));
         SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
         err = writeObjectMetaData(opCtx, objId, objData.data.length(),
                 disk_req->req_get_phy_loc(), false, diskio::diskTier, &vio);
@@ -2293,7 +2293,7 @@ ObjectStorMgr::deleteObjectInternal(SmIoReq* delReq) {
      * Delete the object, decrement refcnt of the assoc entry & overall refcnt
      */
     {
-        PerfContext tmp_pctx(DELETE_METADATA, volId, "volume:" + std::to_string(volId));
+        PerfContext tmp_pctx(SM_OBJ_MARK_DELETED, volId, "volume:" + std::to_string(volId));
         SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
         err = deleteObjectMetaData(opCtx, objId, volId, objMetadata);
     }
@@ -2389,7 +2389,7 @@ ObjectStorMgr::deleteObjectInternalSvc(SmIoDeleteObjectReq* delReq) {
      * Delete the object, decrement refcnt of the assoc entry & overall refcnt
      */
     {
-        PerfContext tmp_pctx(DELETE_METADATA, volId, "volume:" + std::to_string(volId));
+        PerfContext tmp_pctx(SM_OBJ_MARK_DELETED, volId, "volume:" + std::to_string(volId));
         SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
         err = deleteObjectMetaData(opCtx, objId, volId, objMetadata);
     }
