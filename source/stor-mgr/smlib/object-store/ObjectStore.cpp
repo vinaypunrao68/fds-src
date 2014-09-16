@@ -169,6 +169,50 @@ ObjectStore::deleteObject(fds_volid_t volId,
                           const ObjectID &objId) {
     Error err(ERR_OK);
 
+    // New object metadata to update the refcnts
+    ObjMetaData::ptr updatedMeta;
+
+    // Get metadata from metadata store
+    ObjMetaData::const_ptr objMeta;
+    if (metaStore->getObjectMetadata(volId, objId, &objMeta) != ERR_OK) {
+        // TODO(xxx) getObjectMetadata returns same error for no key
+        // or other error; should differentiate errors
+        // for now assume this error means the key just did not exist
+        LOGDEBUG << "Not able to read existing object locations, "
+                 << "assuming no prior entry existed " << objId;
+        return ERR_OK;
+    }
+
+    // Create new object metadata to update the refcnts
+    updatedMeta.reset(new ObjMetaData(objMeta));
+    std::map<fds_volid_t, fds_uint32_t> vols_refcnt;
+    updatedMeta->getVolsRefcnt(vols_refcnt);
+    // remove volume assoc entry
+    updatedMeta->deleteAssocEntry(objId, volId, fds::util::getTimeStampMillis());
+
+    // first write metadata to metadata store, even if removing
+    // object from data store cache fails, it is ok
+    err = metaStore->putObjectMetadata(volId, objId, updatedMeta);
+    if (err.ok()) {
+        volumeTbl->updateDupObj(volId,
+                                objId,
+                                updatedMeta->getObjSize(),
+                                false,
+                                vols_refcnt);
+        LOGDEBUG << "Decremented refcnt for object " << objId
+                 << " " << *updatedMeta << " refcnt: "
+                 << updatedMeta->getRefCnt();
+    } else {
+        LOGERROR << "Failed to update metadata for object " << objId
+                 << " " << err;
+        return err;
+    }
+
+    // if refcnt is 0, notify data store so it can remove cache entry, etc
+    if (updatedMeta->getRefCnt() < 1) {
+        err = dataStore->removeObjectData(objId, updatedMeta);
+    }
+
     return err;
 }
 

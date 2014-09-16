@@ -50,6 +50,15 @@ class ObjectDataStore : public Module, public boost::noncopyable {
                         ObjMetaData::const_ptr objMetaData,
                         boost::shared_ptr<std::string> objData);
 
+    /**
+     * Removes object from cache and notifies persistent layer
+     * about that we deleted the object (to keep track of disk space
+     * we need to clean for garbage collection)
+     * Called when ref count goes to zero
+     */
+    Error removeObjectData(const ObjectID& objId,
+                           const ObjMetaData::const_ptr& objMetaData);
+
     // FDS module control functions
     int  mod_init(SysParams const *const param);
     void mod_startup();

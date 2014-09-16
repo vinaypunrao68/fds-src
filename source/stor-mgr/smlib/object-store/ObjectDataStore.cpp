@@ -97,6 +97,30 @@ ObjectDataStore::getObjectData(fds_volid_t volId,
     return err;
 }
 
+Error
+ObjectDataStore::removeObjectData(const ObjectID& objId,
+                                  const ObjMetaData::const_ptr& objMetaData) {
+    Error err(ERR_OK);
+    meta_obj_id_t   oid;
+
+    // TODO(xxx) remove from cache
+
+    // tell persistent layer we deleted the object so that garbage collection
+    // knows how much disk space we need to clean
+    memcpy(oid.metaDigest, objId.GetId(), objId.GetLen());
+    // TODO(xxx) we should remove DELETE_DISK counter, because they are not
+    // real deletes
+    if (objMetaData->onTier(diskio::diskTier)) {
+        diskMgr->disk_delete_obj(&oid, objMetaData->getObjSize(),
+                                objMetaData->getObjPhyLoc(diskio::diskTier));
+    } else if (objMetaData->onTier(diskio::flashTier)) {
+        diskMgr->disk_delete_obj(&oid, objMetaData->getObjSize(),
+                                objMetaData->getObjPhyLoc(diskio::flashTier));
+    }
+
+    return err;
+}
+
 /**
  * Module initialization
  */
