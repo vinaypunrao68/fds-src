@@ -24,7 +24,13 @@ StorHvVolume::StorHvVolume(const VolumeDesc& vdesc, StorHvCtrl *sh_ctrl, fds_log
     journal_tbl = new StorHvJournal(FDS_READ_WRITE_LOG_ENTRIES);
     vol_catalog_cache = new VolumeCatalogCache(voldesc->volUUID, sh_ctrl, parent_log);
 
-    volQueue = new FDS_VolumeQueue(4096, vdesc.iops_max, vdesc.iops_min, vdesc.relativePrio);
+    if (vdesc.isSnapshot()) {
+        volQueue = parent_sh->qos_ctrl->getQueue(vdesc.qosQueueId);
+    }
+
+    if (!vdesc.isSnapshot()) {
+        volQueue = new FDS_VolumeQueue(4096, vdesc.iops_max, vdesc.iops_min, vdesc.relativePrio);
+    }
     volQueue->activate();
 
     is_valid = true;
