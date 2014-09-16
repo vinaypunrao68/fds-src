@@ -10,7 +10,6 @@ namespace fds {
 ObjectDataStore::ObjectDataStore(const std::string &modName)
         : Module(modName.c_str()),
           diskMgr(&(diskio::DataIO::disk_singleton())) {
-    dataCache = ObjectDataCache::unique_ptr(new ObjectDataCache("SM Object Data Cache"));
 }
 
 ObjectDataStore::~ObjectDataStore() {
@@ -20,7 +19,8 @@ Error
 ObjectDataStore::putObjectData(fds_volid_t volId,
                                const ObjectID &objId,
                                diskio::DataTier tier,
-                               boost::shared_ptr<const std::string> objData) {
+                               boost::shared_ptr<const std::string> objData,
+                               obj_phy_loc_t& objPhyLoc) {
     Error err(ERR_OK);
 
     // Construct persistent layer request
@@ -38,6 +38,11 @@ ObjectDataStore::putObjectData(fds_volid_t volId,
     // Place the data in the cache
     if (err.ok()) {
         LOGDEBUG << "Wrote " << objId << " to persistent layer";
+        // get location in persistent layer to return with this method
+        obj_phy_loc_t* loc = plReq->req_get_phy_loc();
+        // copy to objPhyLoc because plReq will be freed as soon as we return
+        memcpy(&objPhyLoc, loc, sizeof(obj_phy_loc_t));
+
         dataCache->putObjectData(volId, objId, objData);
         LOGDEBUG << "Wrote " << objId << " to cache";
     } else {
@@ -97,6 +102,7 @@ ObjectDataStore::getObjectData(fds_volid_t volId,
 int
 ObjectDataStore::mod_init(SysParams const *const p) {
     Module::mod_init(p);
+    dataCache = ObjectDataCache::unique_ptr(new ObjectDataCache("SM Object Data Cache"));
     return 0;
 }
 

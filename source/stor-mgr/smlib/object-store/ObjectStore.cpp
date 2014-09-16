@@ -105,7 +105,7 @@ ObjectStore::putObject(fds_volid_t volId,
 
     // either new data or dup, update assoc entry
     std::map<fds_volid_t, fds_uint32_t> vols_refcnt;
-    objMeta->getVolsRefcnt(vols_refcnt);
+    updatedMeta->getVolsRefcnt(vols_refcnt);
     updatedMeta->updateAssocEntry(objId, volId);
     volumeTbl->updateDupObj(volId,
                             objId,
@@ -122,7 +122,8 @@ ObjectStore::putObject(fds_volid_t volId,
         // object not duplicate
         // TODO(Anna) call tierEngine->selectTier(objId, volId);
         useTier = diskio::diskTier;
-        err = dataStore->putObjectData(volId, objId, useTier, objData);
+        obj_phy_loc_t objPhyLoc;  // will be set by data store
+        err = dataStore->putObjectData(volId, objId, useTier, objData, objPhyLoc);
         if (!err.ok()) {
             LOGERROR << "Failed to write " << objId << " to obj data store "
                      << err;
@@ -130,7 +131,7 @@ ObjectStore::putObject(fds_volid_t volId,
         }
 
         // update physical location that we got from data store
-        // objMeta->updatePhysLocation(obj_phy_loc)
+        updatedMeta->updatePhysLocation(&objPhyLoc);
     }
 
     // TODO(Anna) When we review SM -> SM migration, review if we need origin timestamp
