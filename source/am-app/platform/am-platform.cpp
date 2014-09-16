@@ -104,7 +104,6 @@ AmPlatform::mod_startup()
     NetPlatform *net;
 
     Platform::mod_startup();
-    registerFlags();
     gSvcRequestPool = new SvcRequestPool();
 
     am_recv   = bo::shared_ptr<AMSvcHandler>(new AMSvcHandler());
@@ -142,15 +141,6 @@ boost::shared_ptr<BaseAsyncSvcHandler>
 AmPlatform::getBaseAsyncSvcHandler()
 {
     return am_recv;
-}
-
-/**
-* @brief Register am flags
-*/
-void AmPlatform::registerFlags()
-{
-    PlatformProcess::plf_manager()->plf_get_flags_map().registerCommonFlags();
-    /* AM specific flags */
 }
 
 }  // namespace fds

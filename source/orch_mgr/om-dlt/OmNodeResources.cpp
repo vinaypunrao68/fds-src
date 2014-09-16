@@ -180,6 +180,8 @@ OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer     vol,
     desc = NULL;
     if (vol != NULL) {
         desc = vol->vol_get_properties();
+    } else {
+        vol = VolumeInfo::pointer(new VolumeInfo(0x9876));  // create dummy to avoid issues
     }
     auto req =  gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
     switch (cmd_type) {

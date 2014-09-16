@@ -60,22 +60,6 @@ class AmPlatform : public Platform
 
     virtual boost::shared_ptr<BaseAsyncSvcHandler> getBaseAsyncSvcHandler() override;
 
-  protected:
-    void registerFlags();
-
-    AMEpPlugin::pointer           am_plugin;
-    bo::shared_ptr<AMSvcHandler>  am_recv;
-    EndPoint<FDS_ProtocolInterface::AMSvcClient,
-        FDS_ProtocolInterface::AMSvcProcessor> *am_ep;
-};
-
-/**
- * Data Manager RPC handlers.  Only overwrite what's specific to DM.
- */
-class AmRpcReq : public PlatRpcReqt
-{
-  public:
-    explicit AmRpcReq(const Platform *plf);
     void NotifyAddVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
                       fpi::FDSP_NotifyVolTypePtr &vol_msg);
 
@@ -104,10 +88,9 @@ class AmRpcReq : public PlatRpcReqt
                          fpi::FDSP_DMT_TypePtr   &dmt_info);
 
   protected:
-    virtual ~AmRpcReq();
     AMEpPlugin::pointer                am_plugin;
     bo::shared_ptr<AMSvcHandler>  am_recv;
-    EndPoint<fpi::AMSvcClient, fpi::PlatNetSvcProcessor>::pointer am_ep;
+    EndPoint<fpi::AMSvcClient, fpi::AMSvcProcessor>::pointer am_ep;
 };
 
 extern AmPlatform gl_AmPlatform;

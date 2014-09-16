@@ -25,7 +25,9 @@ ObjectStore::~ObjectStore() {
 
 void
 ObjectStore::setNumBitsPerToken(fds_uint32_t nbits) {
-    metaStore->setNumBitsPerToken(nbits);
+    if (metaStore) {
+        metaStore->setNumBitsPerToken(nbits);
+    }
 }
 
 Error
