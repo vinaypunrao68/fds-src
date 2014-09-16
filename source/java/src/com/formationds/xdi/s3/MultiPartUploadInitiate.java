@@ -28,14 +28,15 @@ public class MultiPartUploadInitiate implements RequestHandler {
     }
 
     private void ensureSystemBucketCreated() throws Exception {
+        String systemVolume = xdi.getSystemVolumeName(token);
         boolean exists = xdi.listVolumes(token, S3Endpoint.FDS_S3_SYSTEM).stream()
-                .anyMatch(o -> o.getName().equals(S3Endpoint.FDS_S3_SYSTEM_BUCKET_NAME));
+                .anyMatch(o -> o.getName().equals(systemVolume));
 
-        if(!exists) {
+        if (!exists) {
             try {
-                xdi.createVolume(token, S3Endpoint.FDS_S3_SYSTEM, S3Endpoint.FDS_S3_SYSTEM_BUCKET_NAME, new VolumeSettings(2 * 1024 * 1024, VolumeType.OBJECT, 0));
-            } catch(ApiException ex) {
-                if(ex.getErrorCode() != ErrorCode.RESOURCE_ALREADY_EXISTS)
+                xdi.createVolume(token, S3Endpoint.FDS_S3_SYSTEM, systemVolume, new VolumeSettings(2 * 1024 * 1024, VolumeType.OBJECT, 0));
+            } catch (ApiException ex) {
+                if (ex.getErrorCode() != ErrorCode.RESOURCE_ALREADY_EXISTS)
                     throw ex;
             }
         }
