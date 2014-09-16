@@ -817,8 +817,9 @@ void ObjectStorMgr::dltcloseEventHandler(FDSP_DltCloseTypePtr& dlt_close,
     // until we start getting dlt from platform, we need to path dlt
     // width to object store, so that we can correctly map object ids
     // to SM tokens
-    const DLT* curDlt = objStorMgr->omClient->getCurrentDLT();
-    objStorMgr->objectStore->setNumBitsPerToken(curDlt->getNumBitsForToken());
+    // TODO(anna): fix this
+    // const DLT* curDlt = objStorMgr->omClient->getCurrentDLT();
+    // objStorMgr->objectStore->setNumBitsPerToken(curDlt->getNumBitsForToken());
 
     fds_verify(objStorMgr->cached_dlt_close_.second == nullptr);
     objStorMgr->cached_dlt_close_.first = session_uuid;
