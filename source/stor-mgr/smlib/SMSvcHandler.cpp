@@ -44,7 +44,9 @@ void SMSvcHandler::getObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     read_req->opLatencyCtx.type = GET_IO;
     read_req->opLatencyCtx.name = read_req->perfNameStr;
     read_req->opLatencyCtx.reset_volid(getObjMsg->volume_id);
-    read_req->opTransactionWaitCtx.type = GET_TRANS_QUEUE_WAIT;
+    // moving to task synchronizer, so using new type here, will remove
+    // this counter once we delete trans table
+    read_req->opTransactionWaitCtx.type = GET_OBJ_TASK_SYNC_WAIT;
     read_req->opTransactionWaitCtx.name = read_req->perfNameStr;
     read_req->opTransactionWaitCtx.reset_volid(getObjMsg->volume_id);
     read_req->opQoSWaitCtx.type = GET_QOS_QUEUE_WAIT;
@@ -116,7 +118,9 @@ void SMSvcHandler::putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     put_req->opLatencyCtx.type = PUT_IO;
     put_req->opLatencyCtx.name = put_req->perfNameStr;
     put_req->opLatencyCtx.reset_volid(putObjMsg->volume_id);
-    put_req->opTransactionWaitCtx.type = PUT_TRANS_QUEUE_WAIT;
+    // moving to task synchronizer, so using new type here, will remove
+    // this counter once we delete trans table
+    put_req->opTransactionWaitCtx.type = PUT_OBJ_TASK_SYNC_WAIT;
     put_req->opTransactionWaitCtx.name = put_req->perfNameStr;
     put_req->opTransactionWaitCtx.reset_volid(putObjMsg->volume_id);
     put_req->opQoSWaitCtx.type = PUT_QOS_QUEUE_WAIT;
@@ -181,7 +185,9 @@ void SMSvcHandler::deleteObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     delReq->opReqLatencyCtx.name = delReq->perfNameStr;
     delReq->opLatencyCtx.type = DELETE_IO;
     delReq->opLatencyCtx.name = delReq->perfNameStr;
-    delReq->opTransactionWaitCtx.type = DELETE_TRANS_QUEUE_WAIT;
+    // moving to task synchronizer, so using new type here, will remove
+    // this counter once we delete trans table
+    delReq->opTransactionWaitCtx.type = DELETE_OBJ_TASK_SYNC_WAIT;
     delReq->opTransactionWaitCtx.name = delReq->perfNameStr;
     delReq->opQoSWaitCtx.type = DELETE_QOS_QUEUE_WAIT;
     delReq->opQoSWaitCtx.name = delReq->perfNameStr;
