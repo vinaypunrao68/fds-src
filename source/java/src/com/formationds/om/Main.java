@@ -127,14 +127,16 @@ public class Main {
                 } else {
                     return (r, p) -> new JsonResource(new JSONObject().put("message", "Invalid permissions"), HttpServletResponse.SC_UNAUTHORIZED);
                 }
-            } catch (Exception e) {
+            } catch (SecurityException e) {
+                LOG.error("Error authorizing request, userId = " + t.getUserId(), e);
                 return (r, p) -> new JsonResource(new JSONObject().put("message", "Invalid permissions"), HttpServletResponse.SC_UNAUTHORIZED);
             }
         });
     }
 
     private void authenticate(HttpMethod method, String route, Function<AuthenticationToken, RequestHandler> f) {
-        webApp.route(method, route, () -> new HttpAuthenticator(f, xdi.getAuthenticator()));
+        HttpErrorHandler eh = new HttpErrorHandler(new HttpAuthenticator(f, xdi.getAuthenticator()));
+        webApp.route(method, route, () -> eh);
     }
 }
 
