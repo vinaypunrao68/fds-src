@@ -36,6 +36,7 @@ struct TestObject {
     }
 };
 
+static StorMgrVolumeTable* volTbl;
 static ObjectStore::unique_ptr objectStore;
 
 static void getObj(TestObject & obj) {
@@ -56,9 +57,6 @@ static std::vector<TestObject> testObjs(MAX_TEST_OBJ);
 
 class ObjectStoreTest : public FdsProcess {
   public:
-    StorMgrVolumeTable* volTbl;
-
-  public:
     ObjectStoreTest(int argc, char *argv[],
                     Module **mod_vec) :
             FdsProcess(argc,
@@ -67,13 +65,11 @@ class ObjectStoreTest : public FdsProcess {
                        "fds.sm.",
                        "objstore-test.log",
                        mod_vec) {
-        volTbl = new StorMgrVolumeTable();
-        objectStore = ObjectStore::unique_ptr(
-            new ObjectStore("Unit Test Object Store", volTbl));
     }
     ~ObjectStoreTest() {
     }
     int run() override {
+        objectStore->setNumBitsPerToken(16);
         LOGTRACE << "Starting...";
 
         fds_volid_t volId = 555;
@@ -104,8 +100,13 @@ static void getObject() {
 
 int
 main(int argc, char** argv) {
+    volTbl = new StorMgrVolumeTable();
+    objectStore = ObjectStore::unique_ptr(
+        new ObjectStore("Unit Test Object Store", volTbl));
+
     fds::Module *smVec[] = {
         &diskio::gl_dataIOMod,
+        objectStore.get(),
         nullptr
     };
     fds::ObjectStoreTest objectStoreTest(argc, argv, smVec);

@@ -19,6 +19,7 @@ ObjectDataStore::~ObjectDataStore() {
 Error
 ObjectDataStore::putObjectData(fds_volid_t volId,
                                const ObjectID &objId,
+                               diskio::DataTier tier,
                                boost::shared_ptr<const std::string> objData) {
     Error err(ERR_OK);
 
@@ -26,8 +27,6 @@ ObjectDataStore::putObjectData(fds_volid_t volId,
     meta_vol_io_t    vio;
     meta_obj_id_t    oid;
     fds_bool_t       sync = true;
-    // TODO(Andrew): Actually select tier
-    diskio::DataTier tier = diskio::diskTier;
     // TODO(Andrew): Should take a shared_ptr not a raw object buf
     ObjectBuf objBuf(*objData);
     SmPlReq *plReq =
