@@ -1172,12 +1172,12 @@ ObjectStorMgr::writeObjectMetaData(const OpCtx &opCtx,
      * Get existing object locations
      */
     err = readObjMetaData(objId, objMap);
-    if (err != ERR_OK && err != ERR_DISK_READ_FAILED) {
+    if (err != ERR_OK && err != ERR_NOT_FOUND) {
         LOGERROR << "Failed to read existing object locations"
                     << " during location write";
         smObjDb->unlock(objId);
         return err;
-     } else if (err == ERR_DISK_READ_FAILED) {
+     } else if (err == ERR_NOT_FOUND) {
             /*
              * Assume this error means the key just did not exist.
              * TODO: Add an err to differention "no key" from "failed read".
@@ -1244,7 +1244,7 @@ ObjectStorMgr::readObjMetaData(const ObjectID &objId,
         /* While sync is going on we can have metadata but object could be missing */
         if (!objMap.dataPhysicallyExists()) {
             fds_verify(isTokenInSyncMode(getDLT()->getToken(objId)));
-            err = ERR_DISK_READ_FAILED;
+            err = ERR_SM_OBJECT_DATA_MISSING;
         }
     } else {
         LOGNORMAL << "unable to read object meta: " << objId;
@@ -1263,12 +1263,12 @@ ObjectStorMgr::deleteObjectMetaData(const OpCtx &opCtx,
      * Get existing object locations
      */
     err = readObjMetaData(objId, objMap);
-    if (err != ERR_OK && err != ERR_DISK_READ_FAILED) {
+    if (err != ERR_OK && err != ERR_NOT_FOUND) {
         LOGERROR << "Failed to read existing object locations"
                 << " during location write";
         smObjDb->unlock(objId);
         return err;
-    } else if (err == ERR_DISK_READ_FAILED) {
+    } else if (err == ERR_NOT_FOUND) {
         /*
          * Assume this error means the key just did not exist.
          * TODO: Add an err to differention "no key" from "failed read".
@@ -1469,7 +1469,7 @@ ObjectStorMgr::checkDuplicate(const ObjectID&  objId,
                             objId.ToHex().c_str());
             }
         }
-    } else if (err == ERR_DISK_READ_FAILED) {
+    } else if (err == ERR_NOT_FOUND) {
         /*
          * This error indicates the DB entry was empty
          * so we can reset the error to OK.
@@ -3043,7 +3043,7 @@ ObjectStorMgr::putTokenObjectsInternal(SmIoReq* ioReq)
 
         ObjMetaData objMetadata;
         err = smObjDb->get(objId, objMetadata);
-        if (err != ERR_OK && err != ERR_DISK_READ_FAILED) {
+        if (err != ERR_OK && err != ERR_NOT_FOUND) {
             fds_assert(!"ObjMetadata read failed");
             LOGERROR << "Failed to write the object: " << objId;
             break;
@@ -3285,7 +3285,7 @@ ObjectStorMgr::applyObjectDataInternal(SmIoReq* ioReq)
     ObjectID objId = applydata_entry->obj_id;
     ObjMetaData objMetadata;
     Error err = smObjDb->get(objId, objMetadata);
-    if (err != ERR_OK && err != ERR_DISK_READ_FAILED) {
+    if (err != ERR_OK && err != ERR_NOT_FOUND) {
         fds_assert(!"ObjMetadata read failed");
         LOGERROR << "Failed to write the object: " << objId;
         qosCtrl->markIODone(*applydata_entry,

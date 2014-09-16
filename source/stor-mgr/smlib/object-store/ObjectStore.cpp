@@ -52,8 +52,8 @@ ObjectStore::putObject(fds_volid_t volId,
     ObjMetaData::ptr updatedMeta;
 
     // Get metadata from metadata store
-    ObjMetaData::const_ptr objMeta;
-    if (metaStore->getObjectMetadata(volId, objId, &objMeta) == ERR_OK) {
+    ObjMetaData::const_ptr objMeta = metaStore->getObjectMetadata(volId, objId, err);
+    if (err == ERR_OK) {
         // While sync is going on we can have metadata but object could be missing
         if (!objMeta->dataPhysicallyExists()) {
             // fds_verify(isTokenInSyncMode(getDLT()->getToken(objId)));
@@ -68,26 +68,15 @@ ObjectStore::putObject(fds_volid_t volId,
 
         if (conf_verify_data == true) {
             // verify data -- read object from object data store
-            boost::shared_ptr<std::string> existObjData(new std::string());
+            boost::shared_ptr<const std::string> existObjData;
             // if we get an error, there are inconsistencies between
             // data and metadata; assert for now
             fds_verify(dataStore->getObjectData(volId, objId, objMeta, existObjData) == ERR_OK);
 
             // check if data is the same
             if (*existObjData != *objData) {
-                // handle hash-collision
-                // TODO(Andrew): Move to service layer...it's its job...
-                ObjectID putBufObjId;
-                putBufObjId = ObjIdGen::genObjectId(objData->c_str(),
-                                                    objData->size());
-                LOGNORMAL << " Network-RPC ObjectId: " << putBufObjId.ToHex().c_str()
-                          << " err  " << err;
-                if (putBufObjId != objId) {
-                    return ERR_NETWORK_CORRUPT;
-                } else {
                     fds_panic("Encountered a hash collision checking object %s. Bailing out now!",
                               objId.ToHex().c_str());
-                }
             }
         }  // if (conf_verify_data == true)
 
@@ -97,8 +86,12 @@ ObjectStore::putObject(fds_volid_t volId,
         updatedMeta.reset(new ObjMetaData(objMeta));
 
         err = ERR_DUPLICATE;
-    } else {  // if (getMetadata == OK)
+    } else {  // if (getMetadata != OK)
+        // We didn't find any metadata, make sure it was just not there and reset
+        fds_verify(err == ERR_NOT_FOUND);
+        err = ERR_OK;
         updatedMeta.reset(new ObjMetaData());
+        updatedMeta->initialize(objId, objData->size());
     }
 
     fds_verify(err.ok() || (err == ERR_DUPLICATE));
@@ -173,8 +166,9 @@ ObjectStore::deleteObject(fds_volid_t volId,
     ObjMetaData::ptr updatedMeta;
 
     // Get metadata from metadata store
-    ObjMetaData::const_ptr objMeta;
-    if (metaStore->getObjectMetadata(volId, objId, &objMeta) != ERR_OK) {
+    ObjMetaData::const_ptr objMeta =
+            metaStore->getObjectMetadata(volId, objId, err);
+    if (err != ERR_OK) {
         // TODO(xxx) getObjectMetadata returns same error for no key
         // or other error; should differentiate errors
         // for now assume this error means the key just did not exist
