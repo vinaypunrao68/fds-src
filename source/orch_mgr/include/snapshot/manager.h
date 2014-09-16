@@ -8,6 +8,9 @@
 #include <util/Log.h>
 #include <snapshot/scheduler.h>
 #include <snapshot/policydispatcher.h>
+#include <snapshot/deletescheduler.h>
+#include <snapshot/deletedispatcher.h>
+
 #include <snapshot/svchandler.h>
 
 namespace fds {
@@ -26,6 +29,8 @@ class Manager : public HasLogger {
     OrchMgr* om;
     Scheduler* snapScheduler;
     PolicyDispatcher* snapPolicyDispatcher;
+    DeleteScheduler* deleteScheduler;
+    DeleteDispatcher* deleteDispatcher;
 };
 
 }  // namespace snapshot
