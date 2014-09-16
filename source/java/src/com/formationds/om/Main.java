@@ -102,7 +102,7 @@ public class Main {
         fdsAdminOnly(HttpMethod.POST, "/api/system/tenants/:tenant", (t) -> new CreateTenant(configCache, secretKey), authorizer);
         fdsAdminOnly(HttpMethod.GET, "/api/system/tenants", (t) -> new ListTenants(configCache, secretKey), authorizer);
         fdsAdminOnly(HttpMethod.POST, "/api/system/users/:login/:password", (t) -> new CreateUser(configCache, secretKey), authorizer);
-        fdsAdminOnly(HttpMethod.PUT, "/api/system/users/:userid/:password", (t) -> new UpdatePassword(configCache, secretKey), authorizer);
+        authenticate(HttpMethod.PUT, "/api/system/users/:userid/:password", (t) -> new UpdatePassword(t, configCache, secretKey, authorizer));
         fdsAdminOnly(HttpMethod.GET, "/api/system/users", (t) -> new ListUsers(configCache, secretKey), authorizer);
         fdsAdminOnly(HttpMethod.PUT, "/api/system/tenants/:tenantid/:userid", (t) -> new AssignUserToTenant(configCache, secretKey), authorizer);
 
