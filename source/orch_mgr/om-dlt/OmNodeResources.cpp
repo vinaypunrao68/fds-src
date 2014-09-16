@@ -156,6 +156,17 @@ OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer vol,
     return om_send_vol_cmd(vol, NULL, cmd_type, vol_flag);
 }
 
+void OM_NodeAgent::om_send_vol_cmd_resp(VolumeInfo::pointer     vol,
+                      fpi::FDSPMsgTypeId      cmd_type,
+                      EPSvcRequest* req,
+                      const Error& error,
+                      boost::shared_ptr<std::string> payload) {
+    LOGNORMAL << "received vol cmd response " << vol->vol_get_name();
+    OM_NodeContainer * local = OM_NodeDomainMod::om_loc_domain_ctrl();
+    VolumeContainer::pointer volumes = local->om_vol_mgr();
+    volumes->om_vol_cmd_resp(vol, cmd_type, error, rs_get_uuid());
+}
+
 Error
 OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer     vol,
                               std::string            *vname,
@@ -223,6 +234,10 @@ OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer     vol,
     default:
         fds_panic("Unknown vol cmd type");
     }
+    EPSvcRequestRespCb cb = std::bind(&OM_NodeAgent::om_send_vol_cmd_resp, this, vol, cmd_type,
+                                   std::placeholders::_1, std::placeholders::_2,
+                                   std::placeholders::_3);
+    req->onResponseCb(cb);
     req->invoke();
     if (desc != NULL) {
         LOGNORMAL << log << desc->volUUID << " " << desc->name

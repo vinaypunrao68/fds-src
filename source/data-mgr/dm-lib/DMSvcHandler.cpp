@@ -85,7 +85,7 @@ DMSvcHandler::NotifyAddVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
     err = dataMgr->_process_add_vol(dataMgr->getPrefix() +
                                         std::to_string(vol_uuid),
                                         vol_uuid, &desc,
-                                        vol_msg->vol_flag != fpi::FDSP_NOTIFY_VOL_WILL_SYNC);
+                                        vol_msg->vol_flag == fpi::FDSP_NOTIFY_VOL_WILL_SYNC);
     hdr->msg_code = err.GetErrno();
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyVolAdd), *vol_msg);
 }
@@ -728,6 +728,8 @@ DMSvcHandler::getVolumeMetaData(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                 boost::shared_ptr<fpi::GetVolumeMetaDataMsg>& message) {
     // DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*message));
 
+    LOGNORMAL << "get vol meta data msg ";
+    // return getVolumeMetaDataCb(asyncHdr, message, Error(ERR_OK), nullptr);
     auto dmReq = new DmIoGetVolumeMetaData(message);
     dmReq->dmio_get_volmd_resp_cb =
                     BIND_MSG_CALLBACK2(DMSvcHandler::getVolumeMetaDataCb, asyncHdr, message);
@@ -751,6 +753,7 @@ void
 DMSvcHandler::getVolumeMetaDataCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                     boost::shared_ptr<fpi::GetVolumeMetaDataMsg>& message,
                     const Error &e, DmIoGetVolumeMetaData *req) {
+    LOGNORMAL << "finished get volume meta";
     DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*message));
 
     asyncHdr->msg_code = static_cast<int32_t>(e.GetErrno());
