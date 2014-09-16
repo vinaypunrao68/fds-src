@@ -8,6 +8,7 @@
 #include <iostream>  // NOLINT
 #include <disk.h>
 #include <platform.h>
+#include <fds_uuid.h>
 #include <platform/fds-osdep.h>
 #include <net-platform.h>
 #include <net/net-service.h>
@@ -178,7 +179,7 @@ NodePlatformProc::proc_pre_startup()
 int
 NodePlatformProc::run()
 {
-    fpi::FDSP_RegisterNodeTypePtr pkt(new FDSP_RegisterNodeType);
+    fpi::FDSP_RegisterNodeTypePtr pkt(new fpi::FDSP_RegisterNodeType);
 
     plf_fill_disk_capacity_pkt(pkt);
     plf_mgr->plf_rpc_om_handshake(pkt);

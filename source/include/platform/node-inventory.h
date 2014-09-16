@@ -10,17 +10,33 @@
 #include <fds_error.h>
 #include <fds_resource.h>
 #include <fds_module.h>
-#include <platform/platform-rpc.h>
 #include <fdsp/FDSP_types.h>
 #include <fdsp/fds_service_types.h>
 
 // Forward declarations
 namespace FDS_ProtocolInterface {
     class PlatNetSvcClient;
+    class FDSP_ControlPathReqClient;
+    class FDSP_OMControlPathReqClient;
+    class FDSP_DataPathReqClient;
+    class FDSP_DataPathRespProcessor;
+    class FDSP_DataPathRespIf;
+    class FDSP_OMControlPathRespProcessor;
+    class FDSP_OMControlPathRespIf;
 }  // namespace FDS_ProtocolInterface
 
 namespace bo  = boost;
 namespace fpi = FDS_ProtocolInterface;
+
+/* Need to remove netsession stuffs! */
+class netSessionTbl;
+template <class A, class B, class C> class netClientSessionEx;
+typedef netClientSessionEx<fpi::FDSP_DataPathReqClient,
+        fpi::FDSP_DataPathRespProcessor,
+        fpi::FDSP_DataPathRespIf>      netDataPathClientSession;
+typedef netClientSessionEx<fpi::FDSP_OMControlPathReqClient,
+        fpi::FDSP_OMControlPathRespProcessor,
+        fpi::FDSP_OMControlPathRespIf> netOMControlPathClientSession;
 
 namespace fds {
 struct node_data;
@@ -45,16 +61,15 @@ typedef fpi::FDSP_ActivateNodeTypePtr  FdspNodeActivatePtr;
 
 typedef boost::shared_ptr<fpi::FDSP_ControlPathReqClient>     NodeAgentCpReqtSessPtr;
 typedef boost::shared_ptr<fpi::FDSP_OMControlPathReqClient>   NodeAgentCpOmClientPtr;
-typedef boost::shared_ptr<PlatRpcResp>                        OmRespDispatchPtr;
 
 typedef boost::shared_ptr<fpi::FDSP_DataPathReqClient>        NodeAgentDpClientPtr;
-typedef boost::shared_ptr<PlatDataPathResp>                   NodeAgentDpRespPtr;
 
 /* OM has a known UUID. */
 extern const NodeUuid        gl_OmUuid;
 extern const NodeUuid        gl_OmPmUuid;
 
-const fds_uint32_t NODE_DO_PROXY_ALL_SVCS = (NODE_SVC_SM | NODE_SVC_DM | NODE_SVC_AM);
+const fds_uint32_t NODE_DO_PROXY_ALL_SVCS =
+    (fpi::NODE_SVC_SM | fpi::NODE_SVC_DM | fpi::NODE_SVC_AM);
 
 /**
  * Basic info about a peer node.
@@ -106,8 +121,8 @@ class NodeInventory : public Resource
     /**
      * Convert from message format to POD type used in shared memory.
      */
-    static void node_info_msg_to_shm(const NodeInfoMsg *msg, struct node_data *rec);
-    static void node_info_msg_frm_shm(bool am, int ro_idx, NodeInfoMsg *msg);
+    static void node_info_msg_to_shm(const fpi::NodeInfoMsg *msg, struct node_data *rec);
+    static void node_info_msg_frm_shm(bool am, int ro_idx, fpi::NodeInfoMsg *msg);
     static void node_stor_cap_to_shm(const fpi::StorCapMsg *msg, struct node_stor_cap *);
     static void node_stor_cap_frm_shm(fpi::StorCapMsg *msg, const struct node_stor_cap *);
 
@@ -232,8 +247,7 @@ class SmAgent : public NodeAgent
 
     virtual ~SmAgent();
     virtual void agent_bind_ep();
-    virtual void
-    sm_handshake(boost::shared_ptr<netSessionTbl> net, NodeAgentDpRespPtr sm_resp);
+    virtual void sm_handshake(boost::shared_ptr<netSessionTbl> net);
 
     SmAgent(const NodeUuid &uuid);
     boost::intrusive_ptr<SmSvcEp> agent_ep_svc();
@@ -304,7 +318,6 @@ class OmAgent : public NodeAgent
      */
     virtual void
     om_handshake(boost::shared_ptr<netSessionTbl> net,
-                 OmRespDispatchPtr                om_disp,
                  std::string                      om_ip,
                  fds_uint32_t                     om_port);
 
@@ -448,9 +461,7 @@ class AgentContainer : public RsContainer
      * Establish RPC connection with the remte agent.
      */
     virtual void
-    agent_handshake(boost::shared_ptr<netSessionTbl> net,
-                    NodeAgentDpRespPtr               resp,
-                    NodeAgent::pointer               agent);
+    agent_handshake(boost::shared_ptr<netSessionTbl> net, NodeAgent::pointer agent);
 
   protected:
     FdspNodeType                       ac_id;
@@ -494,9 +505,7 @@ class SmContainer : public AgentContainer
     SmContainer(FdspNodeType id);
 
     virtual void
-    agent_handshake(boost::shared_ptr<netSessionTbl> net,
-                    NodeAgentDpRespPtr               resp,
-                    NodeAgent::pointer               agent);
+    agent_handshake(boost::shared_ptr<netSessionTbl> net, NodeAgent::pointer agent);
 
   protected:
     virtual ~SmContainer() {}

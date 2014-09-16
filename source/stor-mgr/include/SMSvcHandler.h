@@ -16,7 +16,7 @@ class SmIoPutObjectReq;
 class SmIoDeleteObjectReq;
 class SmIoAddObjRefReq;
 
-class SMSvcHandler : virtual public SMSvcIf, public PlatNetSvcHandler {
+class SMSvcHandler : virtual public fpi::SMSvcIf, public PlatNetSvcHandler {
  public:
     SMSvcHandler();
 

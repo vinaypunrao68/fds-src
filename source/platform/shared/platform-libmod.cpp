@@ -10,6 +10,7 @@
 #include <platform/platform-lib.h>
 #include <platform/node-inv-shmem.h>
 #include <NetSession.h>
+
 bool gdb_plat = false;
 namespace fds {
 
@@ -40,25 +41,12 @@ Platform::Platform(char const *const         name,
     : Module(name), plf_node_type(node_type), plf_domain(NULL), plf_master(master),
       plf_node_inv(node_inv), plf_clus_map(cluster), plf_resources(resources)
 {
-    plf_node_evt         = NULL;
-    plf_vol_evt          = NULL;
-    plf_throttle_evt     = NULL;
-    plf_migrate_evt      = NULL;
-    plf_tier_evt         = NULL;
-    plf_bucket_stats_evt = NULL;
-    plf_om_ctrl_port     = 0;
-
-    plf_net_sess  = NULL;
-    plf_rpc_reqt  = NULL;
-    plf_my_sess   = NULL;
-    plf_om_resp   = NULL;
+    plf_om_ctrl_port = 0;
+    plf_net_sess     = NULL;
 }
 
 Platform::~Platform()
 {
-    if (plf_my_sess != NULL) {
-        plf_net_sess->endSession(plf_my_sess->getSessionTblKey());
-    }
 }
 
 // -----------------------------------------------------------------------------------
@@ -111,7 +99,7 @@ Platform::plf_rpc_om_handshake(fpi::FDSP_RegisterNodeTypePtr reg)
 {
     fds_verify(plf_master != NULL);
 
-    plf_master->om_handshake(plf_net_sess, NULL, plf_om_ip_str, plf_om_ctrl_port);
+    plf_master->om_handshake(plf_net_sess, plf_om_ip_str, plf_om_ctrl_port);
     plf_master->init_node_reg_pkt(reg);
     plf_master->om_register_node(reg);
 }
@@ -239,8 +227,6 @@ Platform::mod_init(SysParams const *const param)
     Module::mod_init(param);
 
     plf_net_sess   = boost::shared_ptr<netSessionTbl>(new netSessionTbl(FDSP_PLATFORM));
-    plf_rpc_reqt   = boost::shared_ptr<PlatRpcReqt>(plat_creat_reqt_disp());
-    plf_dpath_resp = NodeAgentDpRespPtr(plat_creat_dpath_resp());
 
     FdsConfigAccessor conf(g_fdsprocess->get_conf_helper());
     plf_my_node_port = conf.get_abs<int>("fds.plat.platform_port");
@@ -272,4 +258,5 @@ Platform::mod_shutdown()
 {
     Module::mod_shutdown();
 }
+
 }  // namespace fds

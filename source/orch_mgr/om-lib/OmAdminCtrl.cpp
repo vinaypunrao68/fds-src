@@ -285,7 +285,7 @@ void FdsAdminCtrl::initDiskCapabilities()
     total_vol_disk_cap_GB = 0;
 }
 
-void FdsAdminCtrl::userQosToServiceQos(FDSP_VolumeDescType *voldesc,
+void FdsAdminCtrl::userQosToServiceQos(fpi::FDSP_VolumeDescType *voldesc,
                                        fpi::FDSP_MgrIdType svc_type) {
     fds_verify(voldesc != NULL);
     // currently only SM has actual translation

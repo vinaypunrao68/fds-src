@@ -23,13 +23,6 @@ DmPlatform gl_DmPlatform;
 /* DM specific flags */
 DBG(DEFINE_FLAG(dm_drop_cat_queries));
 DBG(DEFINE_FLAG(dm_drop_cat_updates));
-// -------------------------------------------------------------------------------------
-// DM Platform Event Handler
-// -------------------------------------------------------------------------------------
-void
-DmVolEvent::plat_evt_handler(const FDSP_MsgHdrTypePtr &hdr)
-{
-}
 
 /*
  * -----------------------------------------------------------------------------------
@@ -76,21 +69,21 @@ DMEpPlugin::svc_down(EpSvc::pointer svc, EpSvcHandle::pointer handle)
 // -------------------------------------------------------------------------------------
 DmPlatform::DmPlatform()
     : Platform("DM-Platform",
-               FDSP_DATA_MGR,
+               fpi::FDSP_DATA_MGR,
                new DomainNodeInv("DM-Platform-NodeInv",
                                  NULL,
-                                 new SmContainer(FDSP_DATA_MGR),
-                                 new DmContainer(FDSP_DATA_MGR),
-                                 new AmContainer(FDSP_DATA_MGR),
-                                 new PmContainer(FDSP_DATA_MGR),
-                                 new OmContainer(FDSP_DATA_MGR)),
+                                 new SmContainer(fpi::FDSP_STOR_MGR),
+                                 new DmContainer(fpi::FDSP_DATA_MGR),
+                                 new AmContainer(fpi::FDSP_STOR_HVISOR),
+                                 new PmContainer(fpi::FDSP_PLATFORM),
+                                 new OmContainer(fpi::FDSP_ORCH_MGR)),
                new DomainClusterMap("DM-Platform-ClusMap",
                                  NULL,
-                                 new SmContainer(FDSP_DATA_MGR),
-                                 new DmContainer(FDSP_DATA_MGR),
-                                 new AmContainer(FDSP_DATA_MGR),
-                                 new PmContainer(FDSP_DATA_MGR),
-                                 new OmContainer(FDSP_DATA_MGR)),
+                                 new SmContainer(fpi::FDSP_STOR_MGR),
+                                 new DmContainer(fpi::FDSP_DATA_MGR),
+                                 new AmContainer(fpi::FDSP_STOR_HVISOR),
+                                 new PmContainer(fpi::FDSP_PLATFORM),
+                                 new OmContainer(fpi::FDSP_ORCH_MGR)),
                new DomainResources("DM-Resources"),
                NULL) {}
 
@@ -100,7 +93,7 @@ DmPlatform::mod_init(SysParams const *const param)
     FdsConfigAccessor conf(g_fdsprocess->get_conf_helper());
 
     Platform::platf_assign_singleton(&gl_DmPlatform);
-    plf_node_type = FDSP_DATA_MGR;
+    plf_node_type = fpi::FDSP_DATA_MGR;
     Platform::mod_init(param);
 
     plf_my_ip        = net::get_local_ip(conf.get_abs<std::string>("fds.nic_if"));
@@ -109,9 +102,6 @@ DmPlatform::mod_init(SysParams const *const param)
     LOGNORMAL << "My ctrl port " << plf_get_my_ctrl_port()
         << ", data port " << plf_get_my_data_port() << ", OM ip: " << plf_om_ip_str
         << ", meta sync server port " << plf_get_my_metasync_port();
-
-    plf_vol_evt  = new DmVolEvent(plf_resources, plf_clus_map, this);
-    plf_node_evt = new NodePlatEvent(plf_resources, plf_clus_map, this);
 
     return 0;
 }
@@ -172,27 +162,7 @@ DmPlatform::plf_reg_node_info(const NodeUuid &uuid, const FdspNodeRegPtr msg)
         fds_verify(0);
     }
     AgentContainer::pointer svc = local->dc_container_frm_msg(msg->node_type);
-    svc->agent_handshake(plf_net_sess, plf_dpath_resp, new_node);
-}
-
-// Factory methods required for DM RPC.
-//
-PlatRpcReqt *
-DmPlatform::plat_creat_reqt_disp()
-{
-    return new DmRpcReq(this);
-}
-
-PlatRpcResp *
-DmPlatform::plat_creat_resp_disp()
-{
-    return new PlatRpcResp(this);
-}
-
-PlatDataPathResp *
-DmPlatform::plat_creat_dpath_resp()
-{
-    return new PlatDataPathResp(this);
+    svc->agent_handshake(plf_net_sess, new_node);
 }
 
 boost::shared_ptr<BaseAsyncSvcHandler>
@@ -213,71 +183,6 @@ void DmPlatform::registerFlags()
                   plf_get_flags_map(), dm_drop_cat_queries));
     DBG(REGISTER_FLAG(PlatformProcess::plf_manager()->\
                   plf_get_flags_map(), dm_drop_cat_updates));
-}
-// --------------------------------------------------------------------------------------
-// RPC handlers
-// --------------------------------------------------------------------------------------
-DmRpcReq::DmRpcReq(const Platform *plf) : PlatRpcReqt(plf) {}
-DmRpcReq::~DmRpcReq() {}
-
-void
-DmRpcReq::NotifyAddVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
-                       fpi::FDSP_NotifyVolTypePtr &msg)
-{
-}
-
-void
-DmRpcReq::NotifyRmVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
-                      fpi::FDSP_NotifyVolTypePtr &msg)
-{
-}
-
-void
-DmRpcReq::NotifyModVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
-                       fpi::FDSP_NotifyVolTypePtr &msg)
-{
-}
-
-void
-DmRpcReq::AttachVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
-                    fpi::FDSP_AttachVolTypePtr &vol_msg)
-{
-}
-
-void
-DmRpcReq::DetachVol(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
-                    fpi::FDSP_AttachVolTypePtr &vol_msg)
-{
-}
-
-void
-DmRpcReq::NotifyNodeAdd(fpi::FDSP_MsgHdrTypePtr     &msg_hdr,
-                        fpi::FDSP_Node_Info_TypePtr &node_info)
-{
-}
-
-void
-DmRpcReq::NotifyNodeRmv(fpi::FDSP_MsgHdrTypePtr     &msg_hdr,
-                        fpi::FDSP_Node_Info_TypePtr &node_info)
-{
-}
-
-void
-DmRpcReq::NotifyDLTUpdate(fpi::FDSP_MsgHdrTypePtr    &msg_hdr,
-                          fpi::FDSP_DLT_Data_TypePtr &dlt_info)
-{
-}
-
-void
-DmRpcReq::NotifyDMTUpdate(fpi::FDSP_MsgHdrTypePtr &msg_hdr,  // NOLINT
-                          fpi::FDSP_DMT_TypePtr   &dmt)
-{
-}
-
-void
-DmRpcReq::NotifyStartMigration(fpi::FDSP_MsgHdrTypePtr    &hdr,
-                               fpi::FDSP_DLT_Data_TypePtr &dlt)
-{
 }
 
 }  // namespace fds

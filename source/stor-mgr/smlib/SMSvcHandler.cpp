@@ -8,6 +8,7 @@
 #include <SMSvcHandler.h>
 #include <platform/fds_flags.h>
 #include <sm-platform.h>
+#include <net/SvcRequest.h>
 
 namespace fds {
 

@@ -66,7 +66,7 @@ OmPlatform::~OmPlatform() {}
 
 OmPlatform::OmPlatform()
     : Platform("OM-Platform",
-               FDSP_ORCH_MGR,
+               fpi::FDSP_ORCH_MGR,
                new OM_NodeContainer(),
                new DomainClusterMap("OM-Platform-ClusMap",
                                  NULL,
@@ -89,7 +89,7 @@ OmPlatform::mod_init(SysParams const *const param)
     FdsConfigAccessor conf(g_fdsprocess->get_conf_helper());
 
     Platform::platf_assign_singleton(&gl_OmPlatform);
-    plf_node_type = FDSP_ORCH_MGR;
+    plf_node_type = fpi::FDSP_ORCH_MGR;
     Platform::mod_init(param);
 
     plf_my_ip        = net::get_local_ip(conf.get_abs<std::string>("fds.nic_if"));
@@ -139,26 +139,6 @@ boost::shared_ptr<BaseAsyncSvcHandler>
 OmPlatform::getBaseAsyncSvcHandler()
 {
     // TODO(Rao):  Uncomments once om_plat_rcv object is concrete
-    return nullptr;
-}
-
-// Factory methods required for OM RPC.
-//
-PlatRpcReqt *
-OmPlatform::plat_creat_reqt_disp()
-{
-    return nullptr;
-}
-
-PlatRpcResp *
-OmPlatform::plat_creat_resp_disp()
-{
-    return nullptr;
-}
-
-PlatDataPathResp *
-OmPlatform::plat_creat_dpath_resp()
-{
     return nullptr;
 }
 

@@ -75,7 +75,7 @@ class FdsAdminCtrl {
      * to a setting for volume for a given service
      * @param[in] svc_type is type of service (AM, SM, or DM)
      */
-    void userQosToServiceQos(FDSP_VolumeDescType *voldesc,
+    void userQosToServiceQos(fpi::FDSP_VolumeDescType *voldesc,
                              fpi::FDSP_MgrIdType svc_type);
 
   private:

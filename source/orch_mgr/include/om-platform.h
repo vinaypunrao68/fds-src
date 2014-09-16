@@ -62,13 +62,9 @@ class OmPlatform : public Platform
     virtual void mod_enable_service() override;
     virtual void mod_shutdown() override;
 
-    virtual boost::shared_ptr<BaseAsyncSvcHandler> getBaseAsyncSvcHandler();
+    virtual boost::shared_ptr<BaseAsyncSvcHandler> getBaseAsyncSvcHandler() override;
 
   protected:
-    virtual PlatRpcReqt *plat_creat_reqt_disp();
-    virtual PlatRpcResp *plat_creat_resp_disp();
-    virtual PlatDataPathResp *plat_creat_dpath_resp();
-
     OMEpPlugin::pointer              om_plugin;
     OmControlEpPtr                   om_ctrl_ep;
     bo::shared_ptr<OmSvcHandler>     om_ctrl_rcv;

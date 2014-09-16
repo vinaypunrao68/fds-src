@@ -13,6 +13,7 @@
 #include <platform/node-inv-shmem.h>
 #include <platform/service-ep-lib.h>
 #include <platform/plat-serialize.h>
+#include <NetSession.h>
 
 namespace fds {
 
@@ -188,9 +189,9 @@ NodeInventory::node_fill_shm_inv(const ShmObjRO *shm, int ro, int rw, FdspNodeTy
 // Convert data from the node info message to record to save to the shared memory seg.
 //
 /* static */ void
-NodeInventory::node_info_msg_to_shm(const NodeInfoMsg *msg, node_data_t *rec)
+NodeInventory::node_info_msg_to_shm(const fpi::NodeInfoMsg *msg, node_data_t *rec)
 {
-    const UuidBindMsg *msg_bind;
+    const fpi::UuidBindMsg *msg_bind;
 
     msg_bind             = &msg->node_loc;
     rec->nd_node_uuid    = msg_bind->svc_node.svc_uuid.svc_uuid;
@@ -212,9 +213,9 @@ NodeInventory::node_info_msg_to_shm(const NodeInfoMsg *msg, node_data_t *rec)
 // Convert data from shm at the given index to the node info message.
 //
 /* static */ void
-NodeInventory::node_info_msg_frm_shm(bool am, int ro_idx, NodeInfoMsg *msg)
+NodeInventory::node_info_msg_frm_shm(bool am, int ro_idx, fpi::NodeInfoMsg *msg)
 {
-    UuidBindMsg           *msg_bind;
+    fpi::UuidBindMsg      *msg_bind;
     const ShmObjRO        *shm;
     const node_data_t     *rec;
 
@@ -246,7 +247,7 @@ NodeInventory::node_info_msg_frm_shm(bool am, int ro_idx, NodeInfoMsg *msg)
 void
 NodeInventory::init_plat_info_msg(fpi::NodeInfoMsg *msg) const
 {
-    UuidBindMsg        *msg_bind;
+    fpi::UuidBindMsg   *msg_bind;
     Platform::ptr       plat = Platform::platf_const_singleton();
     EpSvcImpl::pointer  psvc = NetPlatform::nplat_singleton()->nplat_my_ep();
 
@@ -401,7 +402,7 @@ NodeInventory::svc_info_frm_shm(fpi::SvcInfo *svc) const
     svc->svc_id.svc_name.assign(rs_name);
     svc->svc_auto_name.assign(ninfo.nd_auto_name);
     svc->svc_type   = node_svc_type;
-    svc->svc_status = SVC_STATUS_ACTIVE;
+    svc->svc_status = fpi::SVC_STATUS_ACTIVE;
 }
 
 // node_fill_inventory
@@ -449,7 +450,7 @@ NodeInventory::node_update_inventory(const FdspNodeRegPtr msg)
 // ------------
 //
 void
-NodeInventory::init_msg_hdr(FDSP_MsgHdrTypePtr msgHdr) const
+NodeInventory::init_msg_hdr(fpi::FDSP_MsgHdrTypePtr msgHdr) const
 {
     Platform::ptr plat = Platform::platf_const_singleton();
 
@@ -626,7 +627,6 @@ NodeAgent::node_om_request()
 //
 void
 AgentContainer::agent_handshake(boost::shared_ptr<netSessionTbl> net,
-                                NodeAgentDpRespPtr               resp,
                                 NodeAgent::pointer               agent)
 {
 }
@@ -844,15 +844,16 @@ SmAgent::agent_bind_ep()
 // ------------
 //
 /* virtual */ void
-SmAgent::sm_handshake(boost::shared_ptr<netSessionTbl> net, NodeAgentDpRespPtr sm_resp)
+SmAgent::sm_handshake(boost::shared_ptr<netSessionTbl> net)
 {
     std::string   ip = get_ip_str();
     fds_uint32_t  base = node_base_port();
     Platform     *plat = Platform::platf_singleton();
 
+    boost::shared_ptr<fpi::FDSP_DataPathRespIf> resp;
     sm_sess = net->startSession<netDataPathClientSession>(
             ip, plat->plf_get_my_data_port(base),
-            FDSP_STOR_MGR, 1 /* just 1 channel */, sm_resp);
+            fpi::FDSP_STOR_MGR, 1 /* just 1 channel */, resp);
 
     sm_reqt    = sm_sess->getClient();
     sm_sess_id = sm_sess->getSessionId();
@@ -879,11 +880,10 @@ SmContainer::SmContainer(FdspNodeType id) : AgentContainer(id)
 //
 void
 SmContainer::agent_handshake(boost::shared_ptr<netSessionTbl> net,
-                             NodeAgentDpRespPtr               sm_resp,
                              NodeAgent::pointer               agent)
 {
     SmAgent::pointer sm = agt_cast_ptr<SmAgent>(agent);
-    sm->sm_handshake(net, sm_resp);
+    sm->sm_handshake(net);
 }
 
 // --------------------------------------------------------------------------------------
@@ -1018,7 +1018,7 @@ OmAgent::init_node_reg_pkt(fpi::FDSP_RegisterNodeTypePtr pkt) const
 void
 OmAgent::om_register_node(fpi::FDSP_RegisterNodeTypePtr reg)
 {
-    fpi::FDSP_MsgHdrTypePtr hdr(new FDSP_MsgHdrType);
+    fpi::FDSP_MsgHdrTypePtr hdr(new fpi::FDSP_MsgHdrType);
 
     fds_verify(om_reqt != NULL);
     init_msg_hdr(hdr);
@@ -1030,12 +1030,13 @@ OmAgent::om_register_node(fpi::FDSP_RegisterNodeTypePtr reg)
 //
 /* virtual */ void
 OmAgent::om_handshake(boost::shared_ptr<netSessionTbl> net,
-                      OmRespDispatchPtr                om_dispatch,
                       std::string                      om_ip,
                       fds_uint32_t                     om_port)
 {
+    boost::shared_ptr<fpi::FDSP_OMControlPathRespIf> resp;
+
     om_sess = net->startSession<netOMControlPathClientSession>(
-            om_ip, om_port, FDSP_ORCH_MGR, 1 /* just 1 channel for now */, om_dispatch);
+            om_ip, om_port, fpi::FDSP_ORCH_MGR, 1 /* just 1 channel for now */, resp);
 
     om_reqt    = om_sess->getClient();
     om_sess_id = om_sess->getSessionId();
