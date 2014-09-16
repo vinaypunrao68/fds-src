@@ -80,6 +80,7 @@ void VolumeMeta::dmCopyVolumeDesc(VolumeDesc *v_desc, VolumeDesc *pVol) {
     v_desc->relativePrio = pVol->relativePrio;
     v_desc->fSnapshot = pVol->fSnapshot;
     v_desc->srcVolumeId = pVol->srcVolumeId;
+    v_desc->qosQueueId = pVol->qosQueueId;
 }
 
 }  // namespace fds

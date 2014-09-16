@@ -176,10 +176,10 @@ Error DmVolumeCatalog::addCatalog(const VolumeDesc& voldesc)
 //
 Error DmVolumeCatalog::copyVolume(VolumeDesc & voldesc) {
     LOGDEBUG << "Creating a snapshot '" << voldesc.name << "' of a volume '"
-            << voldesc.volUUID << "'";
+            << voldesc.volUUID << "'"  << "srcVolume: "<< voldesc.srcVolumeId;
 
     // create a snapshot catalog
-    Error rc = persistCat->copyVolume(voldesc.volUUID, voldesc.srcVolumeId, voldesc.isSnapshot(),
+    Error rc = persistCat->copyVolume(voldesc.srcVolumeId, voldesc.volUUID, voldesc.isSnapshot(),
                        voldesc.isSnapshot());
     if (rc.ok()) {
         // Create cache for a snapshot
