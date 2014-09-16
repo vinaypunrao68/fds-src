@@ -9,7 +9,7 @@
 #include "boost/smart_ptr/make_shared.hpp"
 
 #include <fds_types.h>
-#include <cache/SmCache.h>
+#include <cache/SharedKvCache.h>
 #include <concurrency/ThreadPool.h>
 
 using namespace fds;    // NOLINT
@@ -31,7 +31,7 @@ struct TestObject {
     }
 };
 
-typedef SmCache<fds_uint32_t, TestObject> cache_manager_type;
+typedef SharedKvCache<fds_uint32_t, TestObject> cache_manager_type;
 cache_manager_type* strCacheManager;
 
 namespace by_val {
@@ -70,7 +70,7 @@ void addObj(boost::shared_ptr<TestObject> obj) {
 
 int
 main(int argc, char** argv) {
-    SmCache<fds_uint32_t, fds_uint32_t> cacheManager("Integer cache manager", 50);
+    SharedKvCache<fds_uint32_t, fds_uint32_t> cacheManager("Integer cache manager", 50);
 
     fds_uint32_t k1 = 1;
     fds_uint32_t k2 = 2;

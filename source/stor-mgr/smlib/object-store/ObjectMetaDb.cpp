@@ -57,8 +57,12 @@ void ObjectMetadataDb::closeObjectDB(fds_token_id tokId) {
     delete objdb;
 }
 
+/**
+ * Gets metadata from the db. If the metadata is located in the db
+ * the shared ptr is allocated with the associated metadata being set.
+ */
 Error ObjectMetadataDb::get(const ObjectID& objId,
-                            ObjMetaData::ptr objMeta) {
+                            ObjMetaData::const_ptr objMeta) {
     Error err = ERR_OK;
     ObjectBuf buf;
 
@@ -75,7 +79,8 @@ Error ObjectMetadataDb::get(const ObjectID& objId,
         return ERR_DISK_READ_FAILED;
     }
 
-    objMeta->deserializeFrom(buf);
+    objMeta.reset(new ObjMetaData(buf));
+    // objMeta->deserializeFrom(buf);
 
     // TODO(Anna) token sync code -- objMeta.checkAndDemoteUnsyncedData;
 

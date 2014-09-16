@@ -57,7 +57,10 @@ void SMSvcHandler::getObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
             asyncHdr,
             std::placeholders::_1, std::placeholders::_2);
 
-    err = objStorMgr->enqueueMsg(read_req->getVolId(), read_req);
+    StorMgrVolume* smVol = objStorMgr->sm_getVolTables()->getVolume(read_req->getVolId());
+    fds_assert(smVol);
+
+    err = objStorMgr->enqueueMsg(smVol->getQueue()->getVolUuid(), read_req);
     if (err != fds::ERR_OK) {
         fds_assert(!"Hit an error in enqueing");
         LOGERROR << "Failed to enqueue to SmIoReadObjectMetadata to StorMgr.  Error: "
@@ -126,7 +129,10 @@ void SMSvcHandler::putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
             asyncHdr,
             std::placeholders::_1, std::placeholders::_2);
 
-    err = objStorMgr->enqueueMsg(put_req->getVolId(), put_req);
+    StorMgrVolume* smVol = objStorMgr->sm_getVolTables()->getVolume(put_req->getVolId());
+    fds_assert(smVol);
+
+    err = objStorMgr->enqueueMsg(smVol->getQueue()->getVolUuid(), put_req);
     if (err != fds::ERR_OK) {
         fds_assert(!"Hit an error in enqueing");
         LOGERROR << "Failed to enqueue to SmIoPutObjectReq to StorMgr.  Error: "
@@ -185,7 +191,10 @@ void SMSvcHandler::deleteObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
         asyncHdr,
         std::placeholders::_1, std::placeholders::_2);
 
-    err = objStorMgr->enqueueMsg(delReq->getVolId(), delReq);
+    StorMgrVolume* smVol = objStorMgr->sm_getVolTables()->getVolume(delReq->getVolId());
+    fds_assert(smVol);
+
+    err = objStorMgr->enqueueMsg(smVol->getQueue()->getVolUuid(), delReq);
     if (err != fds::ERR_OK) {
         fds_assert(!"Hit an error in enqueing");
         LOGERROR << "Failed to enqueue to SmIoDeleteObjectReq to StorMgr.  Error: "
@@ -231,7 +240,10 @@ void SMSvcHandler::addObjectRef(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
         asyncHdr,
         std::placeholders::_1, std::placeholders::_2);
 
-    err = objStorMgr->enqueueMsg(addObjRefReq->getSrcVolId(), addObjRefReq);
+    StorMgrVolume* smVol = objStorMgr->sm_getVolTables()->getVolume(addObjRefReq->getSrcVolId());
+    fds_assert(smVol);
+
+    err = objStorMgr->enqueueMsg(smVol->getQueue()->getVolUuid(), addObjRefReq);
     if (err != fds::ERR_OK) {
         fds_assert(!"Hit an error in enqueing");
         LOGERROR << "Failed to enqueue to SmIoAddObjRefReq to StorMgr.  Error: "

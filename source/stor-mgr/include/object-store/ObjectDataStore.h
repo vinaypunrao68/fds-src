@@ -8,6 +8,7 @@
 #include <fds_module.h>
 #include <fds_types.h>
 #include <ObjMeta.h>
+#include <object-store/ObjectDataCache.h>
 #include <persistent_layer/dm_io.h>
 #include <SmDiskTypes.h>
 
@@ -23,6 +24,7 @@ class ObjectDataStore : public Module, public boost::noncopyable {
     diskio::DataIO *diskMgr;
 
     /// Object data cache manager
+    ObjectDataCache::unique_ptr dataCache;
 
     // TODO(Andrew): Add some private GC interfaces here?
 
